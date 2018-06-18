@@ -115,9 +115,10 @@ struct TreeWalk {
     int BufferFullFlag;
     int BunchSize;
 
-    struct ev_task * PrimaryTasks;
     int * WorkSet;
     int WorkSetSize;
+    /*Did we use the active_set array as the WorkSet?*/
+    int work_set_stolen_from_active;
 
     /* per worker thread*/
     int *currentIndex;

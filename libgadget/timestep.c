@@ -39,7 +39,13 @@ static inline inttime_t dti_from_timebin(int bin) {
 int NumActiveParticle;
 int *ActiveParticle;
 
-static int TimeBinCountType[6][TIMEBINS+1];
+static inline int get_active_particle(int pa)
+{
+    if(ActiveParticle)
+        return ActiveParticle[pa];
+    else
+        return pa;
+}
 
 static int
 timestep_eh_slots_fork(EIBase * event, void * userdata)
@@ -56,14 +62,10 @@ timestep_eh_slots_fork(EIBase * event, void * userdata)
 
     if(is_timebin_active(P[parent].TimeBin, All.Ti_Current)) {
         int childactive = atomic_fetch_and_add(&NumActiveParticle, 1);
-        ActiveParticle[childactive] = child;
+        if(ActiveParticle)
+            ActiveParticle[childactive] = child;
     }
     return 0;
-}
-
-void timestep_allocate_memory(int MaxPart)
-{
-    ActiveParticle = (int *) mymalloc("ActiveParticle", MaxPart * sizeof(int));
 }
 
 static void reverse_and_apply_gravity();
@@ -159,18 +161,16 @@ find_timesteps(int * MinTimeBin)
 
     /* Now assign new timesteps and kick */
     if(All.ForceEqualTimesteps) {
-        #pragma omp parallel for
-        for(pa = 0; pa < NumActiveParticle; pa++)
+        int i;
+        #pragma omp parallel for reduction(min:dti_min)
+        for(i = 0; i < PartManager->NumPart; i++)
         {
-            const int i = ActiveParticle[pa];
             if(P[i].IsGarbage)
                 continue;
             inttime_t dti = get_timestep_ti(i, PM.length);
-
             if(dti < dti_min)
                 dti_min = dti;
         }
-
         /* FIXME : this assumes inttime_t is int*/
         MPI_Allreduce(MPI_IN_PLACE, &dti_min, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
     }
@@ -180,7 +180,7 @@ find_timesteps(int * MinTimeBin)
     #pragma omp parallel for reduction(min: mTimeBin) reduction(+: badstepsizecount)
     for(pa = 0; pa < NumActiveParticle; pa++)
     {
-        const int i = ActiveParticle[pa];
+        const int i = get_active_particle(pa);
 
         if(P[i].Ti_kick != P[i].Ti_drift) {
             endrun(1, "Inttimes out of sync: Particle %d (ID=%ld) Kick=%o != Drift=%o\n", i, P[i].ID, P[i].Ti_kick, P[i].Ti_drift);
@@ -245,7 +245,7 @@ apply_half_kick(void)
     #pragma omp parallel for
     for(pa = 0; pa < NumActiveParticle; pa++)
     {
-        const int i = ActiveParticle[pa];
+        const int i = get_active_particle(pa);
         int bin = P[i].TimeBin;
         inttime_t dti = dti_from_timebin(bin);
         /* current Kick time */
@@ -686,36 +686,86 @@ inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin)
     return Ti_Current + dti_from_timebin(minTimeBin);
 }
 
+static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountType);
+
 /* mark the bins that will be active before the next kick*/
-int rebuild_activelist(inttime_t Ti_Current)
+int rebuild_activelist(inttime_t Ti_Current, int NumCurrentTiStep)
 {
     int i;
 
-    memset(TimeBinCountType, 0, 6*(TIMEBINS+1)*sizeof(int));
-    NumActiveParticle = 0;
+    /*We know all particles are active on a PM timestep*/
+    if(is_PM_timestep(Ti_Current)) {
+        ActiveParticle = NULL;
+        NumActiveParticle = PartManager->NumPart;
+    }
+    else {
+        /*Need space for more particles than we have, because of star formation*/
+        ActiveParticle = (int *) mymalloc("ActiveParticle", PartManager->MaxPart * sizeof(int));
+        NumActiveParticle = 0;
+    }
 
+    int * TimeBinCountType = mymalloc("TimeBinCountType", 6*(TIMEBINS+1)*All.NumThreads * sizeof(int));
+    memset(TimeBinCountType, 0, 6 * (TIMEBINS+1) * All.NumThreads * sizeof(int));
+
+    /*We want a lockless algorithm which preserves the ordering of the particle list.*/
+    size_t *NActiveThread = ta_malloc("NActiveThread", size_t, All.NumThreads);
+    int **ActivePartSets = ta_malloc("ActivePartSets", int *, All.NumThreads);
+
+    /*Each thread gets an area for the active list of this size*/
+    const int ActiveSetSz = PartManager->MaxPart / All.NumThreads;
+    for(i = 0; i < All.NumThreads; i++) {
+        ActivePartSets[i] = ActiveParticle + i * ActiveSetSz;
+        NActiveThread[i] = 0;
+    }
+    /* We enforce schedule static to ensure that each thread executes on contiguous particles.
+     * chunk size is not specified and so is the largest possible.*/
+    #pragma omp parallel for schedule(static)
     for(i = 0; i < PartManager->NumPart; i++)
     {
-        int bin = P[i].TimeBin;
-
-        if(is_timebin_active(bin, Ti_Current))
+        const int bin = P[i].TimeBin;
+        const int tid = omp_get_thread_num();
+        if(ActiveParticle && is_timebin_active(bin, Ti_Current))
         {
             if(P[i].IsGarbage)
                 endrun(2,"Trying to make particle %d active, but it is garbage!\n", i);
-            ActiveParticle[NumActiveParticle] = i;
-            NumActiveParticle++;
+
+            /* Store this particle in the ActiveSet for this thread*/
+            ActivePartSets[tid][NActiveThread[tid]] = i;
+            NActiveThread[tid]++;
         }
-        TimeBinCountType[P[i].Type][bin]++;
+        TimeBinCountType[(TIMEBINS + 1) * (6* tid + P[i].Type) + bin] ++;
     }
+    if(ActiveParticle) {
+        /*Now we want a merge step for the ActiveParticle list.*/
+        NumActiveParticle = gadget_compact_thread_arrays(ActiveParticle, ActivePartSets, NActiveThread, All.NumThreads);
+    }
+    ta_free(ActivePartSets);
+    ta_free(NActiveThread);
+
+    /*Print statistics for this time bin*/
+    print_timebin_statistics(NumCurrentTiStep, TimeBinCountType);
+    myfree(TimeBinCountType);
+
+    /* Shrink the ActiveParticle array. We still need extra space for star formation,
+     * but we do not need space for the known-inactive particles*/
+    if(ActiveParticle)
+        ActiveParticle = myrealloc(ActiveParticle, sizeof(int)*(NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
     walltime_measure("/Timeline/Active");
+
     return 0;
+}
+
+void free_activelist(void)
+{
+    if(ActiveParticle)
+        myfree(ActiveParticle);
 }
 
 /*! This routine writes one line for every timestep.
  * FdCPU the cumulative cpu-time consumption in various parts of the
  * code is stored.
  */
-void print_timebin_statistics(int NumCurrentTiStep)
+static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountType)
 {
     double z;
     int i;
@@ -725,8 +775,15 @@ void print_timebin_statistics(int NumCurrentTiStep)
     int64_t tot_num_force = 0;
     int64_t TotNumPart = 0, TotNumType[6] = {0};
 
+    /*Sum the thread-local memory*/
+    for(i = 1; i < All.NumThreads; i ++) {
+        int j;
+        for(j=0; j < 6 * (TIMEBINS+1); j++)
+            TimeBinCountType[j] += TimeBinCountType[6 * (TIMEBINS+1) * i + j];
+    }
+
     for(i = 0; i < 6; i ++) {
-        sumup_large_ints(TIMEBINS+1, TimeBinCountType[i], tot_count_type[i]);
+        sumup_large_ints(TIMEBINS+1, &TimeBinCountType[(TIMEBINS+1) * i], tot_count_type[i]);
     }
 
     for(i = 0; i<TIMEBINS+1; i++) {

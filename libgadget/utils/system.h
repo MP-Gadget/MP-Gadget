@@ -35,6 +35,11 @@ int64_t count_sum(int64_t countLocal);
 int MPIU_Any(int condition, MPI_Comm comm);
 void MPIU_write_pids(char * filename);
 
+/* Compact an array which has segments (usually corresponding to different threads).
+ * After this is run, it will be a single contiguous array. The memory can then be realloced.
+ * Function returns size of the final array.*/
+size_t gadget_compact_thread_arrays(int * dest, int * srcs[], size_t sizes[], int narrays);
+
 int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
         int *rdispls, MPI_Datatype recvtype, MPI_Comm comm);

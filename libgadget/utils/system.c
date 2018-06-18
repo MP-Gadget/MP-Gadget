@@ -494,3 +494,16 @@ MPIU_write_pids(char * filename)
         MPI_Barrier(MPI_COMM_WORLD);
     }
 }
+
+size_t gadget_compact_thread_arrays(int * dest, int * srcs[], size_t sizes[], int narrays)
+{
+    int i;
+    size_t asize = 0;
+
+    for(i = 0; i < narrays; i++)
+    {
+        memmove(dest + asize, srcs[i], sizeof(int) * sizes[i]);
+        asize += sizes[i];
+    }
+    return asize;
+}

@@ -181,11 +181,12 @@ void run(void)
             domain_maintain();
         }
 
-        rebuild_activelist(All.Ti_Current);
-
-        print_timebin_statistics(NumCurrentTiStep);
+        rebuild_activelist(All.Ti_Current, NumCurrentTiStep);
 
         set_random_numbers(All.RandomSeed + All.Ti_Current);
+
+        /* Need to rebuild the force tree because all TopLeaves are out of date.*/
+        force_tree_rebuild();
 
         /* update force to Ti_Current */
         compute_accelerations(is_PM, NumCurrentTiStep == 0, GasEnabled);
@@ -219,12 +220,12 @@ void run(void)
 
         if(WriteSnapshot) {
             /* The accel may have created garbage -- collect them before writing a snapshot.
-             * If we do collect, rebuild tree and active list.*/
+             * If we do collect, rebuild tree and reset active list size.*/
             int compact[6] = {0};
 
             if(slots_gc(compact)) {
                 force_tree_rebuild();
-                rebuild_activelist(All.Ti_Current);
+                NumActiveParticle = PartManager->NumPart;
             }
         }
 
@@ -235,6 +236,9 @@ void run(void)
         NumCurrentTiStep++;
 
         report_memory_usage("RUN");
+
+        /*Note FoF will free the tree too*/
+        if(force_tree_allocated()) force_tree_free();
 
         if(!next_sync || stop) {
             /* out of sync points, or a requested stop, the run has finally finished! Yay.*/
@@ -252,6 +256,9 @@ void run(void)
         if(is_PM) {
             apply_PM_half_kick();
         }
+
+        /* We can now free the active list: the new step have new active particles*/
+        free_activelist();
     }
 
     close_outputfiles();

@@ -196,9 +196,6 @@ void petaio_read_internal(char * fname, int ic) {
     /* sets the maximum number of particles that may reside on a processor */
     int MaxPart = (int) (All.PartAllocFactor * All.TotNumPartInit / NTask);
 
-    /*Allocates ActiveParticle array*/
-    timestep_allocate_memory(MaxPart);
-
     /*Allocate the particle memory*/
     particle_alloc_memory(MaxPart);
 

@@ -126,7 +126,9 @@ void init(int RestartSnapNum)
 
     domain_decompose_full();	/* do initial domain decomposition (gives equal numbers of particles) */
 
-    rebuild_activelist(0);
+    /*At the first time step all particles should be active*/
+    ActiveParticle = NULL;
+    NumActiveParticle = PartManager->NumPart;
 
     setup_smoothinglengths(RestartSnapNum);
 }
@@ -183,6 +185,7 @@ setup_smoothinglengths(int RestartSnapNum)
 {
     int i;
 
+    force_tree_rebuild();
     if(RestartSnapNum == -1)
     {
 #pragma omp parallel for
@@ -315,4 +318,6 @@ setup_smoothinglengths(int RestartSnapNum)
 #ifdef DENSITY_INDEPENDENT_SPH
     density_update();
 #endif //DENSITY_INDEPENDENT_SPH
+
+    if(force_tree_allocated()) force_tree_free();
 }

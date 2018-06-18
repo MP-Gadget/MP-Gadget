@@ -342,7 +342,7 @@ void fof_label_primary(void)
     {
         t0 = second();
 
-        treewalk_run(tw, NULL, -1);
+        treewalk_run(tw, NULL, PartManager->NumPart);
 
         t1 = second();
 
@@ -996,9 +996,6 @@ fof_save_groups(int num)
     t1 = second();
 
     message(0, "Group catalogues saved. took = %g sec\n", timediff(t0, t1));
-
-    /* fof with IO will break the tree by changing particle order; rebuild it */
-    force_tree_rebuild();
 }
 
 /* FIXME: these shall goto the private member of secondary tree walk */
@@ -1112,7 +1109,7 @@ static void fof_label_secondary(void)
         FOF_SECONDARY_GET_PRIV(tw)->npleft = 0;
         FOF_SECONDARY_GET_PRIV(tw)->count = 0;
 
-        treewalk_run(tw, NULL, -1);
+        treewalk_run(tw, NULL, PartManager->NumPart);
 
         sumup_large_ints(1, &FOF_SECONDARY_GET_PRIV(tw)->npleft, &ntot);
         sumup_large_ints(1, &FOF_SECONDARY_GET_PRIV(tw)->count, &counttot);
