@@ -277,8 +277,9 @@ cmpint(const void *a, const void *b)
 static void
 treewalk_init_evaluated(int * active_set, int size)
 {
+    int i;
     #pragma omp parallel for
-    for(int i=0; i < size; i++)
+    for(i=0; i < size; i++)
     {
         const int p_i = active_set ? active_set[i] : i;
         P[p_i].Evaluated = 0;
