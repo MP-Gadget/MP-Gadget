@@ -362,6 +362,7 @@ domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
 
     int rank;
     for(rank = 1; rank < NTask; rank ++) {
+        /* Direct assignment breaks compilers like icc */
         memcpy(&plan->toGoOffset[rank], &plan->toGoSum, sizeof(plan->toGoSum));
         memcpy(&plan->toGetOffset[rank], &plan->toGetSum, sizeof(plan->toGetSum));
 
