@@ -365,7 +365,6 @@ domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
         memcpy(&plan->toGoOffset[rank], &plan->toGoSum, sizeof(plan->toGoSum));
         memcpy(&plan->toGetOffset[rank], &plan->toGetSum, sizeof(plan->toGetSum));
 
-
         plan->toGoSum.base += plan->toGo[rank].base;
         plan->toGetSum.base += plan->toGet[rank].base;
 
