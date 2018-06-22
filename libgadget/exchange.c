@@ -362,8 +362,9 @@ domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
 
     int rank;
     for(rank = 1; rank < NTask; rank ++) {
-        plan->toGoOffset[rank] = plan->toGoSum;
-        plan->toGetOffset[rank] = plan->toGetSum;
+        memcpy(&plan->toGoOffset[rank], &plan->toGoSum, sizeof(plan->toGoSum));
+        memcpy(&plan->toGetOffset[rank], &plan->toGetSum, sizeof(plan->toGetSum));
+
 
         plan->toGoSum.base += plan->toGo[rank].base;
         plan->toGetSum.base += plan->toGet[rank].base;
