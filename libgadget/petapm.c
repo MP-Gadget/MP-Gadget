@@ -759,7 +759,7 @@ static void pm_iterate_one(int i, pm_iterator iterator, PetaPMRegion * regions) 
     int connection;
     for(connection = 0; connection < 8; connection++) {
         double weight = 1.0;
-        ptrdiff_t linear = 0;
+        size_t linear = 0;
         for(k = 0; k < 3; k++) {
             int offset = (connection >> k) & 1;
             int tmp = iCell[k] + offset;
