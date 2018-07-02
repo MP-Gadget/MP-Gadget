@@ -531,9 +531,10 @@ domain_assign_balanced(int64_t * cost)
 
     /* A Segment is a subset of the TopLeaf nodes */
 
-    size_t Nsegment = All.DomainOverDecompositionFactor * NTask;
+    int Nsegment = All.DomainOverDecompositionFactor * NTask;
 
-    if(Nsegment > (1L << 31)) {
+    /* When would this ever happen?*/
+    if((size_t) All.DomainOverDecompositionFactor * NTask >= (1L << 31)) {
         endrun(0, "Too many segments requested, overflowing integer\n");
     }
 
