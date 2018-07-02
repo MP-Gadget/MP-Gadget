@@ -138,7 +138,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
 static int NPLeft;
 
 static void
-sfr_wind_feedback_preprocess(int n, TreeWalk * tw)
+sfr_wind_feedback_preprocess(const int n, TreeWalk * tw)
 {
     Wind[n].DMRadius = 2 * P[n].Hsml;
     Wind[n].Left = 0;
@@ -147,7 +147,7 @@ sfr_wind_feedback_preprocess(int n, TreeWalk * tw)
 }
 
 static void
-sfr_wind_weight_postprocess(int i)
+sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
 {
     int diff = Wind[i].Ngb - 40;
     if(diff < -2) {
@@ -185,7 +185,7 @@ sfr_wind_weight_postprocess(int i)
 }
 
 static void
-sfr_wind_feedback_postprocess(int i)
+sfr_wind_feedback_postprocess(const int i, TreeWalk * tw)
 {
     P[i].IsNewParticle = 0;
 }
