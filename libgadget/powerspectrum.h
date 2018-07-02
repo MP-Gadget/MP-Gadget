@@ -9,9 +9,9 @@ struct _powerspectrum {
     double * kk;
     double * Power;
     int64_t * Nmodes;
-    size_t size;
-    size_t nalloc;
-    size_t nonzero;
+    int size;
+    int nalloc;
+    int nonzero;
     double Norm;
     /*These are for the LRA neutrino code*/
     /*neutrino perturbations*/

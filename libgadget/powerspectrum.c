@@ -110,7 +110,7 @@ void powerspectrum_nu_save(struct _powerspectrum * PowerSpectrum, const char * O
     fprintf(fp, "# in Mpc/h Units \n");
     fprintf(fp, "# k P_nu(k) Nmodes\n");
     fprintf(fp, "# a= %g\n", Time);
-    fprintf(fp, "# nk = %ld\n", PowerSpectrum->nonzero);
+    fprintf(fp, "# nk = %d\n", PowerSpectrum->nonzero);
     for(i = 0; i < PowerSpectrum->nonzero; i++){
         fprintf(fp, "%g %g %ld\n", PowerSpectrum->kk[i], pow(PowerSpectrum->delta_nu[i],2), PowerSpectrum->Nmodes[i]);
     }
