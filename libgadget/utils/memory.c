@@ -125,7 +125,8 @@ allocator_alloc_va(Allocator * alloc, char * name, size_t request_size, int dir,
     header->request_size = request_size;
     header->dir = dir;
     header->alloc = alloc;
-    strncpy(header->name, name, 127);
+    strncpy(header->name, name, 126);
+    header->name[126] = '\0';
 
     vsprintf(header->annotation, fmt, va);
 
