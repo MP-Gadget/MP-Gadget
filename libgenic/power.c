@@ -162,7 +162,7 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
     int j;
     const int nnu = (CP->MNu[0] > 0) + (CP->MNu[1] > 0) + (CP->MNu[2] > 0);
     const int ncols = 15 + nnu * 2;
-    double transfers[ncols];
+    double * transfers = mymalloc("transfers", sizeof(double) * ncols);
     k = log10(k);
     out_tab->logk[i] = k;
     /* Note: the ncdm entries change depending on the number of neutrino species. The first row, k,
@@ -212,6 +212,7 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
         out_tab->logD[VEL_NU][i] = transfers[13 + nnu + j] * omega_nu_single(Onu, InitTime, j);
     /*Should be weighted by omega_nu*/
     out_tab->logD[VEL_NU][i] /= onu;
+    myfree(transfers);
 }
 
 void read_power_table(int ThisTask, const char * inputfile, const int ncols, struct table * out_tab, const double InitTime, _parse_fn parse_line)
