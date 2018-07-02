@@ -86,11 +86,6 @@ slots_fork(int parent, int ptype)
 
         P[child].PI = PI;
 
-        if(P[child].PI >= SlotsManager->info[ptype].maxsize) {
-            /* this shall not happen because we grow automatically in the critical section above! */
-            endrun(1, "Assertion Failure more PI than available slots : %d > %d\n",P[child].PI, SlotsManager->info[ptype].maxsize);
-        }
-
         slots_connect_new_slot(child, SlotsManager->info[ptype].elsize);
     }
 
