@@ -289,6 +289,9 @@ extern struct global_data_all_processes
     /* tree code opening criterion */
 
     double ErrTolForceAcc;	/*!< parameter for relative opening criterion in tree walk */
+    double BHOpeningAngle;	/*!< Barnes-Hut parameter for opening criterion in tree walk */
+    int TreeUseBH;              /*!< If true, use the BH opening angle. Otherwise use acceleration */
+
 
     /*! The scale of the short-range/long-range force split in units of FFT-mesh cells */
     double Asmth;
