@@ -36,12 +36,12 @@ int GDB_particle_by_generation(int gen, int from) {
 char * GDB_particle_by_timebin(int bin) {
     int i;
     static char buf[1024];
-    char tmp[1024];
+    char tmp[20] = {'\0'};
     strcpy(buf, "");
     for(i = 0; i < PartManager->NumPart; i++) {
         if(P[i].TimeBin == bin) {
-            strcpy(tmp, buf);
-            snprintf(buf, 1020, "%s %d", tmp, i);
+            snprintf(tmp, 15, " %d", i);
+            strncat(buf, tmp, 1024-strlen(tmp)-1);
         }
     }
     return buf;
