@@ -207,10 +207,11 @@ static void merge(void * base1, size_t nmemb1, void * base2, size_t nmemb2, void
 void qsort_openmp(void *base, size_t nmemb, size_t size,
                          int(*compar)(const void *, const void *)) {
     int Nt = omp_get_max_threads();
-    ptrdiff_t Anmemb[Nt];
-    ptrdiff_t Anmemb_old[Nt];
-    void * Abase_store[Nt];
-    void * Atmp_store[Nt];
+    ptrdiff_t * Anmemb = ta_malloc("Anmemb", ptrdiff_t, Nt);
+    ptrdiff_t * Anmemb_old = ta_malloc("Anmemb_old", ptrdiff_t, Nt);
+
+    void ** Abase_store = ta_malloc("Abase", void *, Nt);
+    void ** Atmp_store = ta_malloc("Atmp", void *, Nt);
     void ** Abase = Abase_store;
     void ** Atmp = Atmp_store;
 
@@ -292,7 +293,7 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
             int key = tid % sep;
 #if 0
             if(tid == 0) {
-                printf("sep = %d Abase[0] %p base %p, Atmp[0] %p tmp %p\n", 
+                printf("sep = %d Abase[0] %p base %p, Atmp[0] %p tmp %p\n",
                         sep, Abase[0], base, Atmp[0], tmp);
                 printf("base 73134 = %d 73135 = %d\n", ((int*) base)[73134], ((int*) base)[73135]);
                 printf("tmp  73134 = %d 73135 = %d\n", ((int*) tmp )[73134], ((int*) tmp )[73135]);
@@ -308,11 +309,11 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
                     /* no next guy, copy directly.*/
                     merge(Abase[tid], Anmemb[tid], NULL, 0, Atmp[tid], p.s, compar, indirect);
                 }  else {
-#if 0                    
+#if 0
                     printf("%d + %d merging with %td/%td:%td %td/%td:%td\n", tid, nextT,
                             ((char*)Abase[tid] - (char*) base) / size,
                             ((char*)Abase[tid] - (char*) tmp) / size,
-                            Anmemb[tid], 
+                            Anmemb[tid],
                             ((char*)Abase[nextT] - (char*) base) / size,
                             ((char*)Abase[nextT] - (char*) tmp) / size,
                             Anmemb[nextT]);
@@ -340,6 +341,12 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
             memmove(Atmp[tid], Abase[tid], Anmemb_old[tid] * p.s);
         }
     }
+
+    ta_free(Atmp_store);
+    ta_free(Abase_store);
+    ta_free(Anmemb_old);
+    ta_free(Anmemb);
+
     /*Copied from glibc*/
     /* tp[0] .. tp[n - 1] is now sorted, copy around entries of
        the original array (done serially).  Knuth vol. 3 (2nd ed.) exercise 5.2-10.  */
