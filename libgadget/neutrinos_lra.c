@@ -257,7 +257,7 @@ void petaio_read_icnutransfer(BigFile * bf, int ThisTask)
 #pragma omp master
     {
     t_init->NPowerTable = 2;
-    BigBlock bn = {{0}};
+    BigBlock bn;
     /* Read the size of the ICTransfer block.
      * If we can't read it, just set it to zero*/
     if(0 == big_file_mpi_open_block(bf, &bn, "ICTransfers", MPI_COMM_WORLD)) {
