@@ -473,7 +473,7 @@ get_timestep_ti(const int p, const inttime_t dti_max)
     /*
     sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / ac) * All.cf.hubble,
     */
-    if(dti <= 1 || dti > TIMEBASE)
+    if(dti <= 1 || (unsigned int) dti > TIMEBASE)
     {
         message(1, "Bad timestep (%x) assigned! ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g)\n",
                 dti, P[p].ID, P[p].Type, dloga, dti_max,

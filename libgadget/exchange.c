@@ -317,7 +317,11 @@ domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
     int n;
     size_t package;
     int ptype;
-    ptrdiff_t nlimit = FreeBytes - NTask * 2 * sizeof(MPI_Request);
+    size_t nlimit = FreeBytes;
+    if (nlimit <  NTask * 2 * sizeof(MPI_Request))
+        endrun(1, "Not enough memory free to store requests!\n");
+
+    nlimit -= NTask * 2 * sizeof(MPI_Request);
 
     memset(plan->toGo, 0, sizeof(plan->toGo[0]) * NTask);
 

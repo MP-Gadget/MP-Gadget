@@ -225,7 +225,7 @@ double function_of_k_tophat_sigma(FunctionOfK * fk, double R)
 
 void function_of_k_normalize_sigma(FunctionOfK * fk, double R, double sigma) {
     double old = function_of_k_tophat_sigma(fk, R);
-    int i;
+    size_t i;
     for(i = 0; i < fk->size; i ++) {
         fk->table[i].P *= sigma / old;
     };

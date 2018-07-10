@@ -20,7 +20,8 @@ fof_seed(void);
 void
 fof_save_groups(int num);
 
-extern uint64_t Ngroups, TotNgroups;
+extern int Ngroups;
+extern int64_t TotNgroups;
 
 struct BaseGroup {
     int OriginalTask;

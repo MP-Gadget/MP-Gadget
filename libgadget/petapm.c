@@ -759,7 +759,7 @@ static void pm_iterate_one(int i, pm_iterator iterator, PetaPMRegion * regions) 
     int connection;
     for(connection = 0; connection < 8; connection++) {
         double weight = 1.0;
-        ptrdiff_t linear = 0;
+        size_t linear = 0;
         for(k = 0; k < 3; k++) {
             int offset = (connection >> k) & 1;
             int tmp = iCell[k] + offset;
@@ -828,18 +828,19 @@ static int pencil_cmp_target(const void * v1, const void * v2) {
 
 #ifdef DEBUG
 static void verify_density_field(double * real, double * meshbuf, const size_t meshsize) {
-    int i;
     /* verify the density field */
     double mass_Part = 0;
+    int j;
 #pragma omp parallel for reduction(+: mass_Part)
-    for(i = 0; i < CPS->NumPart; i ++) {
-        double Mass = *MASS(i);
+    for(j = 0; j < CPS->NumPart; j ++) {
+        double Mass = *MASS(j);
         mass_Part += Mass;
     }
     double totmass_Part = 0;
     MPI_Allreduce(&mass_Part, &totmass_Part, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     double mass_Region = 0;
+    size_t i;
 
 #pragma omp parallel for reduction(+: mass_Region)
     for(i = 0; i < meshsize; i ++) {
@@ -863,7 +864,7 @@ static void pm_apply_transfer_function(PetaPMRegion * region,
         pfft_complex * src, 
         pfft_complex * dst, transfer_function H
         ){
-    ptrdiff_t ip = 0;
+    size_t ip = 0;
 
 #pragma omp parallel for
     for(ip = 0; ip < region->totalsize; ip ++) {

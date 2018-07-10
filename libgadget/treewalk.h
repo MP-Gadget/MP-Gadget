@@ -54,10 +54,10 @@ typedef struct {
 
 typedef int (*TreeWalkVisitFunction) (TreeWalkQueryBase * input, TreeWalkResultBase * output, LocalTreeWalk * lv);
 
-typedef int (*TreeWalkNgbIterFunction) (TreeWalkQueryBase * input, TreeWalkResultBase * output, TreeWalkNgbIterBase * iter, LocalTreeWalk * lv);
+typedef void (*TreeWalkNgbIterFunction) (TreeWalkQueryBase * input, TreeWalkResultBase * output, TreeWalkNgbIterBase * iter, LocalTreeWalk * lv);
 
 typedef int (*TreeWalkHasWorkFunction) (const int i, TreeWalk * tw);
-typedef int (*TreeWalkProcessFunction) (const int i, TreeWalk * tw);
+typedef void (*TreeWalkProcessFunction) (const int i, TreeWalk * tw);
 
 typedef void (*TreeWalkFillQueryFunction)(const int j, TreeWalkQueryBase * query, TreeWalk * tw);
 typedef void (*TreeWalkReduceResultFunction)(const int j, TreeWalkResultBase * result, const enum TreeWalkReduceMode mode, TreeWalk * tw);

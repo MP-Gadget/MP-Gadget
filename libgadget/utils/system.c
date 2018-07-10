@@ -185,8 +185,8 @@ MPIU_cumsum(int64_t countLocal, MPI_Comm comm)
     MPI_Comm_rank(comm, &ThisTask);
 
     int64_t offsetLocal;
-    int64_t count[NTask];
-    int64_t offset[NTask];
+    int64_t * count = ta_malloc("counts", int64_t, NTask);
+    int64_t * offset = ta_malloc("offsets", int64_t, NTask);
     MPI_Gather(&countLocal, 1, MPI_INT64, &count[0], 1, MPI_INT64, 0, MPI_COMM_WORLD);
     if(ThisTask == 0) {
         offset[0] = 0;
@@ -196,6 +196,8 @@ MPIU_cumsum(int64_t countLocal, MPI_Comm comm)
         }
     }
     MPI_Scatter(&offset[0], 1, MPI_INT64, &offsetLocal, 1, MPI_INT64, 0, MPI_COMM_WORLD);
+    ta_free(offset);
+    ta_free(count);
     return offsetLocal;
 }
 

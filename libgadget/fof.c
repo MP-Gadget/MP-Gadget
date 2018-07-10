@@ -68,7 +68,7 @@ static int fof_compare_Group_OriginalIndex(const void *a, const void *b);
 static int fof_compare_Group_MinID(const void *a, const void *b);
 static void fof_reduce_groups(
     void * groups,
-    size_t nmemb,
+    int nmemb,
     size_t elsize,
     void (*reduce_group)(void * gdst, void * gsrc));
 
@@ -79,14 +79,17 @@ static void
 fof_compile_catalogue(struct Group * group);
 
 static struct Group *
-fof_alloc_group(const struct BaseGroup * base, const uint64_t NgroupsExt);
+fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt);
 
 static void fof_assign_grnr(struct BaseGroup * base);
 
 void fof_label_primary(void);
 extern void fof_save_particles(int num);
 
-uint64_t Ngroups, TotNgroups, NgroupsExt;
+/* Ngroups and NgroupsExt are both maximally NumPart,
+ * so can be 32-bit*/
+int Ngroups, NgroupsExt;
+int64_t TotNgroups;
 
 struct Group *Group;
 
@@ -682,7 +685,7 @@ fof_compile_base(struct BaseGroup * base)
 /* Allocate memory for and initialise a Group object
  * from a BaseGroup object.*/
 static struct Group *
-fof_alloc_group(const struct BaseGroup * base, const uint64_t NgroupsExt)
+fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt)
 {
     int i;
     struct Group * Group = (struct Group *) mymalloc2("Group", sizeof(struct Group) * NgroupsExt);
@@ -767,7 +770,7 @@ fof_compile_catalogue(struct Group * group)
 
 static void fof_reduce_groups(
     void * groups,
-    size_t nmemb,
+    int nmemb,
     size_t elsize,
     void (*reduce_group)(void * gdst, void * gsrc))
 {

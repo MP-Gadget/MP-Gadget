@@ -257,7 +257,7 @@ void petaio_read_icnutransfer(BigFile * bf, int ThisTask)
 #pragma omp master
     {
     t_init->NPowerTable = 2;
-    BigBlock bn = {{0}};
+    BigBlock bn;
     /* Read the size of the ICTransfer block.
      * If we can't read it, just set it to zero*/
     if(0 == big_file_mpi_open_block(bf, &bn, "ICTransfers", MPI_COMM_WORLD)) {
@@ -434,11 +434,12 @@ void get_delta_nu_combined(const _delta_tot_table * const d_tot, const double a,
     for(mi=0; mi<NUSPECIES; mi++) {
             if(d_tot->omnu->nu_degeneracies[mi] > 0) {
                  int ik;
-                 double delta_nu_single[d_tot->nk];
+                 double * delta_nu_single = mymalloc("delta_nu_single", sizeof(double) * d_tot->nk);
                  const double omeganu = d_tot->omnu->nu_degeneracies[mi] * omega_nu_single(d_tot->omnu, a, mi);
                  get_delta_nu(d_tot, a, delta_nu_single,d_tot->omnu->RhoNuTab[mi].mnu);
                  for(ik=0; ik<d_tot->nk; ik++)
                     delta_nu_curr[ik]+=delta_nu_single[ik]*omeganu/Omega_nu_tot;
+                 myfree(delta_nu_single);
             }
     }
     return;

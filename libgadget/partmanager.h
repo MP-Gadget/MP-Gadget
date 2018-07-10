@@ -51,7 +51,7 @@ struct particle_data
         signed char TimeBin; /* Time step bin; -1 for unassigned.*/
     };
 
-    unsigned int PI; /* particle property index; used by BH, SPH and STAR.
+    int PI; /* particle property index; used by BH, SPH and STAR.
                         points to the corresponding structure in (SPH|BH|STAR)P array.*/
     MyIDType ID;
 
