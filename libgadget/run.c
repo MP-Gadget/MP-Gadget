@@ -332,7 +332,7 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled)
      * This happens after PM because we want to
      * use the total acceleration for tree opening.
      */
-    if(FirstStep)
+    if(FirstStep && All.TreeUseBH == 0)
         grav_short_tree();
 
     /* Note this must be after gravaccel and hydro,
