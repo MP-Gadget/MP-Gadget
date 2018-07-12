@@ -27,6 +27,7 @@ void powerspectrum_alloc(struct _powerspectrum * PowerSpectrum, const int nbins,
         PowerSpectrum->delta_nu = PowerSpectrum-> logknu + 2*nbins;
     }
     PowerSpectrum->Nmodes = mymalloc("Powermodes", sizeof(int64_t) * nalloc);
+    powerspectrum_zero(PowerSpectrum);
 }
 
 /*Zero memory for the power spectrum*/
@@ -36,6 +37,15 @@ void powerspectrum_zero(struct _powerspectrum * PowerSpectrum)
     memset(PowerSpectrum->Power, 0, sizeof(double) * PowerSpectrum->nalloc);
     memset(PowerSpectrum->Nmodes, 0, sizeof(double) * PowerSpectrum->nalloc);
     PowerSpectrum->Norm = 0;
+}
+
+/*Free power spectrum memory*/
+void powerspectrum_free(struct _powerspectrum * PowerSpectrum, const int MassiveNuLinResp)
+{
+    myfree(PowerSpectrum->Nmodes);
+    if(MassiveNuLinResp)
+        myfree(PowerSpectrum->logknu);
+    myfree(PowerSpectrum->kk);
 }
 
 /* Sum the different modes on each thread and processor together to get a power spectrum,

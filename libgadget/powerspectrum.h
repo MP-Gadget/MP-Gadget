@@ -31,6 +31,9 @@ void powerspectrum_alloc(struct _powerspectrum * PowerSpectrum, const int nbins,
 /*Zero memory for the power spectrum*/
 void powerspectrum_zero(struct _powerspectrum * PowerSpectrum);
 
+/*Free power spectrum memory*/
+void powerspectrum_free(struct _powerspectrum * PowerSpectrum, const int MassiveNuLinResp);
+
 /* Sum the different modes on each thread and processor together to get a power spectrum,
  * and fix the units.*/
 void powerspectrum_sum(struct _powerspectrum * PowerSpectrum, const double BoxSize_in_cm);
