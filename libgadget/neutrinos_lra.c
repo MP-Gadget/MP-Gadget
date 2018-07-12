@@ -274,12 +274,12 @@ void petaio_read_icnutransfer(BigFile * bf, int ThisTask)
     t_init->logk = ta_malloc("Transfer_functions", double, 2*t_init->NPowerTable);
     t_init->T_nu=t_init->logk+t_init->NPowerTable;
 
-    /*Defaults: zero*/
+    /*Defaults: a very small value*/
     t_init->logk[0] = -100;
     t_init->logk[t_init->NPowerTable-1] = 100;
 
-    t_init->T_nu[0] = 0;
-    t_init->T_nu[t_init->NPowerTable-1] = 0;
+    t_init->T_nu[0] = 1e-30;
+    t_init->T_nu[t_init->NPowerTable-1] = 1e-30;
 
     /*Now read the arrays*/
     BigArray Tnu = {0};
@@ -300,6 +300,8 @@ void petaio_read_icnutransfer(BigFile * bf, int ThisTask)
     petaio_read_block(bf, "ICTransfers/logk", &logk, 0);
     /*Also want d_{cdm+bar} / d_tot so we can get d_nu/(d_cdm+d_b)*/
     double * T_cb = (double *) mymalloc("tmp1", t_init->NPowerTable* sizeof(double));
+    T_cb[0] = 1;
+    T_cb[t_init->NPowerTable-1] = 1;
     BigArray Tcb = {0};
     big_array_init(&Tcb, T_cb, "=f8", 2, dims, strides);
     petaio_read_block(bf, "ICTransfers/DELTA_CB", &Tcb, 0);
