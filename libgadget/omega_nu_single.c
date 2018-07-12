@@ -45,7 +45,7 @@ void init_omega_nu(_omega_nu * omnu, const double MNu[], const double a0, const 
     /*Now allocate a table for the species we want*/
     for(mi=0; mi<NUSPECIES; mi++){
         if(omnu->nu_degeneracies[mi]) {
-            rho_nu_init(&omnu->RhoNuTab[mi], a0, MNu[mi], HubbleParam, omnu->kBtnu);
+            rho_nu_init(&omnu->RhoNuTab[mi], a0, MNu[mi], omnu->kBtnu);
         }
         else
             omnu->RhoNuTab[mi].loga = 0;
@@ -116,7 +116,7 @@ double get_rho_nu_conversion()
 }
 
 /*Seed a pre-computed table of rho_nu values for speed*/
-void rho_nu_init(_rho_nu_single * const rho_nu_tab, const double a0, const double mnu, const double HubbleParam, const double kBtnu)
+void rho_nu_init(_rho_nu_single * const rho_nu_tab, const double a0, const double mnu, const double kBtnu)
 {
      int i;
      double abserr;

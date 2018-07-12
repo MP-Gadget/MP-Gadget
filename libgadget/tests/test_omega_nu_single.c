@@ -17,7 +17,7 @@ static void test_rho_nu_init(void **state) {
     double mnu = 0.06;
     _rho_nu_single rho_nu_tab;
     /*Initialise*/
-    rho_nu_init(&rho_nu_tab, 0.01, mnu, 0.7,BOLEVK*TNUCMB*T_CMB0);
+    rho_nu_init(&rho_nu_tab, 0.01, mnu, BOLEVK*TNUCMB*T_CMB0);
     /*Check everything initialised ok*/
     assert_true(rho_nu_tab.mnu == mnu);
     assert_true(rho_nu_tab.acc);
