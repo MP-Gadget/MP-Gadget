@@ -118,6 +118,8 @@ static void delta_tot_first_init(_delta_tot_table * const d_tot, const int nk_in
             const double partnu = particle_nu_fraction(&d_tot->omnu->hybnu, TimeIC, 0);
             /*Initialise the first delta_tot*/
             d_tot->delta_tot[ik][0] = get_delta_tot(d_tot->delta_nu_init[ik], delta_cdm_curr[ik], OmegaNua3, d_tot->Omeganonu, OmegaNu1, partnu);
+            /*Set up the wavenumber array*/
+            d_tot->wavenum[ik] = wavenum[ik];
     }
     ta_free(t_init->logk);
     gsl_interp_accel_free(acc);
@@ -148,13 +150,11 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
                 if(delta_tot_table.wavenum[ik] > 0 && fabs(delta_tot_table.wavenum[ik] / PowerSpectrum->kk[ik] -1 ) > 1e-3)
                     endrun(202, "Stored k-bin %d in nu-code changed: %g != %g\n", ik, delta_tot_table.wavenum[ik], PowerSpectrum->kk[ik]);
             }
-            ta_free(delta_tot_table.wavenum);
         }
         else
             /* Otherwise compute delta_nu from the transfer functions*/
             delta_tot_first_init(&delta_tot_table, PowerSpectrum->nonzero, PowerSpectrum->kk, PowerSpectrum->Power, TimeIC);
 
-        delta_tot_table.wavenum = PowerSpectrum->kk;
         /*Initialise the first delta_nu*/
         get_delta_nu_combined(&delta_tot_table, exp(delta_tot_table.scalefact[delta_tot_table.ia-1]), PowerSpectrum->delta_nu);
         delta_tot_table.delta_tot_init_done = 1;
@@ -367,7 +367,6 @@ void petaio_read_neutrinos(BigFile * bf, int ThisTask)
     petaio_read_block(bf, "Neutrino/DeltaNuInit", &delta_nu, 0);
     /* Read the k values*/
     BigArray kvalue = {0};
-    delta_tot_table.wavenum = ta_malloc("nu_wavenum", double, delta_tot_table.nk);
     memset(delta_tot_table.wavenum, 0, delta_tot_table.nk);
     big_array_init(&kvalue, delta_tot_table.wavenum, "=f8", 2, dims, strides);
     petaio_read_block(bf, "Neutrino/kvalue", &kvalue, 0);
@@ -405,6 +404,8 @@ void init_neutrinos_lra(const int nk_in, const double TimeTransfer, const double
    d_tot->delta_tot =(double **) mymalloc("kspace_delta_tot",nk_in*sizeof(double *));
    /*Allocate list of scale factors, and space for delta_tot, in one operation.*/
    d_tot->scalefact = (double *) mymalloc("kspace_scalefact",d_tot->namax*(nk_in+1)*sizeof(double));
+   /*Allocate space for wavenumbers*/
+   d_tot->wavenum = (double *) mymalloc("kspace_wavenum", sizeof(double) * nk_in);
    /*Allocate actual data. Note that this means data can be accessed either as:
     * delta_tot[k][a] OR as
     * delta_tot[0][a+k*namax] */
