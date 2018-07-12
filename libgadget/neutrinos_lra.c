@@ -100,7 +100,11 @@ static void delta_tot_first_init(_delta_tot_table * const d_tot, const int nk_in
     const double OmegaNua3=get_omega_nu_nopart(d_tot->omnu, d_tot->TimeTransfer)*pow(d_tot->TimeTransfer,3);
     const double OmegaNu1 = get_omega_nu(d_tot->omnu, 1);
     gsl_interp_accel *acc = gsl_interp_accel_alloc();
-    gsl_interp * spline=gsl_interp_alloc(gsl_interp_cspline,t_init->NPowerTable);
+    gsl_interp * spline;
+    if(t_init->NPowerTable > 2)
+        spline = gsl_interp_alloc(gsl_interp_cspline,t_init->NPowerTable);
+    else
+        spline = gsl_interp_alloc(gsl_interp_linear,t_init->NPowerTable);
     gsl_interp_init(spline,t_init->logk,t_init->T_nu,t_init->NPowerTable);
     /*Check we have a long enough power table: power tables are in log_10*/
     if(log10(wavenum[d_tot->nk-1]) > t_init->logk[t_init->NPowerTable-1])
