@@ -91,7 +91,7 @@ find_last_snapnum()
             int line = 0;
             while (!feof(fd)) {
                 int n = fscanf(fd, "%d %lg%c", &snapnumber, &time, &ch);
-                message(1, "n = %d\n", n);
+//                 message(1, "n = %d\n", n);
                 if (n == 3 && ch == '\n') {
                     line ++;
                     continue;
