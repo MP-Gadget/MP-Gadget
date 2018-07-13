@@ -183,11 +183,12 @@ find_timesteps(int * MinTimeBin)
     {
         const int i = get_active_particle(pa);
 
-        if(P[i].Ti_kick != P[i].Ti_drift) {
-            endrun(1, "Inttimes out of sync: Particle %d (ID=%ld) Kick=%o != Drift=%o\n", i, P[i].ID, P[i].Ti_kick, P[i].Ti_drift);
-        }
         if(P[i].IsGarbage)
             continue;
+
+        if(P[i].Ti_kick != P[i].Ti_drift) {
+            endrun(1, "Inttimes out of sync: Particle %d (bin = %d, ID=%ld) Kick=%x != Drift=%x\n", i, P[i].TimeBin, P[i].ID, P[i].Ti_kick, P[i].Ti_drift);
+        }
 
         int dti;
         if(All.ForceEqualTimesteps) {
@@ -234,6 +235,8 @@ find_timesteps(int * MinTimeBin)
      * between PM timesteps, thus skipping the PM step entirely.*/
     if(isPM && PM.length > dti_from_timebin(maxTimeBin))
         PM.length = dti_from_timebin(maxTimeBin);
+    message(0, "PM timebin: %x dloga = %g  Max = (%g)\n", PM.length, dloga_from_dti(PM.length), All.MaxSizeTimestep);
+
     if(badstepsizecount) {
         message(0, "bad timestep spotted: terminating and saving snapshot.\n");
         dump_snapshot();
@@ -609,7 +612,6 @@ get_long_range_timestep_ti(const inttime_t dti_max)
     dti = round_down_power_of_two(dti);
     if(dti > dti_max)
         dti = dti_max;
-    message(0, "Maximal PM timestep: dloga = %g  (%g)\n", dloga_from_dti(dti), All.MaxSizeTimestep);
     return dti;
 }
 
