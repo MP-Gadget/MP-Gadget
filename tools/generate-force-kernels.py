@@ -104,12 +104,11 @@ def force_pm(pm, x, y, dfkernel=NDiff('lnld4_5'), split=1.25):
     return numpy.array(r).T * (4 * numpy.pi), p * (4 * numpy.pi)
 
 # brute force with summation of images,
-# smoothed by a plummer kernel r**2 / (r**2 + a**2)
-# FIXME: change to a spline
 
 from itertools import product
 
 def gravity_spline(dist, a):
+    # copied from Gadget / check for typos? But we really only care the very outside
     r = numpy.einsum('ij,ij->i', dist, dist) ** 0.5
     fac = 1 / r ** 3
     pot = - 1 / r
@@ -210,23 +209,23 @@ def main():
     Ntest = 128       # segments in radial
     Nsample = 48      # estimating the variance at different directions; anisotropic-ness
 
-    Split = 1.25       # should try smaller split if the variance doesn't go up then we are good.
-    Smoothing = 1./ 20 # shouldn't be very sensitive to this
+    Split = 1.25       # should try smaller split if the variance doesn't go up then we are good; in mesh units.
+    Smoothing = 1./ 20 # shouldn't be very sensitive to this; in distance units.
 
-    # along x; the result is different for different directions.
+    Rmax = 10.0 # max r to go, in mesh units
 
-    
-    # in a sphere
+    # generate points on a sphere
     test = numpy.random.uniform(0, 1.0, size=(Ntest * Nsample, 3))
     unitvectors = test / (test**2).sum(axis=-1)[:, None] ** 0.5
 
-    r = numpy.linspace(0, 10.0, Ntest)
+    # add distance uniformly
+    r = numpy.linspace(0, Rmax * pm.BoxSize[0] / pm.Nmesh[0], Ntest)
     r = numpy.repeat(r, Nsample)
 
     test = unitvectors * r[:, None]
-    test = test + pm.BoxSize * 0.5
+    test = test + pm.BoxSize * 0.5 # at the center.
 
-    # mesh units
+    # r is in mesh units
     r = ((test[:] - Q[0]) ** 2).sum(axis=-1) ** 0.5 / (pm.BoxSize[0] / pm.Nmesh[0])
 
     f_longrange, p_longrange = force_pm(pm, test, Q, split=Split)
