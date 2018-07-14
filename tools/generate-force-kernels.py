@@ -109,7 +109,7 @@ from itertools import product
 
 def gravity_spline(dist, a):
     # copied from Gadget / check for typos? But we really only care the very outside
-    r = numpy.einsum('ij,ij->i', dist, dist) ** 0.5
+    r = numpy.einsum('...j,...j->...', dist, dist) ** 0.5
     fac = 1 / r ** 3
     pot = - 1 / r
 
@@ -130,13 +130,13 @@ def gravity_spline(dist, a):
             -3.2 + 0.2 / 3 / u + u * u * (32. / 3 + u * (-16.0 + u *(9.6 - 6.4 / 3 * u)))
         ))[mid]
 
-    return dist * fac[:, None], -pot
+    return dist * fac[..., None], -pot
 
 def gravity_plummer(dist, a):
-    r2 = numpy.einsum('ij, ij->i', dist, dist)
+    r2 = numpy.einsum('...j, ...j->...', dist, dist)
     r2 = r2 + a**2
 
-    return (1.0 / (r2 * r2 ** 0.5)[:, None] * dist,
+    return (1.0 / (r2 * r2 ** 0.5)[..., None] * dist,
            1.0 / (r2 ** 0.5))
 
 from scipy.special import erfc
@@ -157,45 +157,50 @@ def force_direct(pm, x, y, a=1/20., kernel=gravity_plummer, split=False, Nimg=4)
     """
     # fix me : unreasonably slow this is.
 
-    F = []
-    P = []
-
-    for x1 in x:
+    def dochunk(x1):
         dist = []
-        shift = []
+
         for ix, iy, iz in product(*([range(-Nimg, Nimg+1)] * 3)):
             nL = pm.BoxSize * [ix, iy, iz]
-            dist.append(y - x1 + nL)
-            L = (nL ** 2).sum(axis=-1) ** 0.5
 
-            if L != 0:
-                shift.append(- 1. / numpy.repeat(L, len(y)))
-            else:
-                shift.append(0 * numpy.repeat(L, len(y)))
+            dist1 = (y + nL)[:, None, :] - x1[None, :, :]
 
+            dist.append(dist1)
+
+            # 0 is the axis of images
         dist = numpy.concatenate(dist, axis=0)
-        shift = numpy.concatenate(shift, axis=0)
 
         fa, pa = kernel(dist, a)
 
         if split:
             r = (dist **2).sum(axis=-1) ** 0.5
             u = r / (pm.BoxSize[0] / pm.Nmesh[0])
-            fa = fa * w(u, split)
+            fa = fa * w(u, split)[..., None]
             pa = pa * v(u, split)
-
-        pa = pa - shift
 
         f = (fa.sum(axis=0))
         p = (pa.sum(axis=0))
+        assert p.ndim == 1
 
+        return f, p
 
+    F = []
+    P = []
+    chunksize = 1024*1024 // (2 * Nimg + 1)**3 + 1
+    for i in range(0, len(x), chunksize):
+        x1 = x[i:i+chunksize]
+
+        f, p = dochunk(x1)
         F.append(f)
         P.append(p)
 
-    F = numpy.array(F)
-    P = numpy.array(P)
+    F = numpy.concatenate(F, axis=0)
+    P = numpy.concatenate(P, axis=0)
 
+    assert len(F) == len(x)
+    assert len(P) == len(x)
+    assert F.ndim == 2
+    assert P.ndim == 1
     return F, P
 
 def main():
@@ -206,7 +211,7 @@ def main():
     ])
 
     # test charges -- penetrates the page thought the source charge
-    Ntest = 128       # segments in radial
+    Ntest = 1024 # segments in radial
     Nsample = 48      # estimating the variance at different directions; anisotropic-ness
 
     Split = 1.25       # should try smaller split if the variance doesn't go up then we are good; in mesh units.
@@ -272,20 +277,42 @@ def main():
 
     from matplotlib.figure import Figure
     from matplotlib.backends.backend_agg import FigureCanvasAgg
-    figure = Figure(figsize=(8, 4))
+
+    figure = Figure(figsize=(8, 8))
+    figure.text(0.5, 0.91, "Split=%g" % Split, ha='center', va='center')
     canvas = FigureCanvasAgg(figure)
-    ax = figure.add_subplot(121)
+    ax = figure.add_subplot(221)
+    ax.set_title('potential')
     l, = ax.plot(rx, rp_1d, '-', label='actual')
-    ax.fill_between(rx, rp_1d - rp_1d_s, rp_1d + rp_1d_s, color=l.get_color(), alpha=0.1)
+    ax.fill_between(rx, rp_1d - 3 * rp_1d_s, rp_1d + 3 * rp_1d_s, color=l.get_color(), alpha=0.4, label='3-sigma')
     ax.plot(rx, rp_erf, label='erf, spline', ls=':')
     ax.legend()
-    ax = figure.add_subplot(122)
+    ax = figure.add_subplot(222)
+    ax.set_title('force')
     l, = ax.plot(rx, rf_1d, '-', label='actual')
-    ax.fill_between(rx, rf_1d - rf_1d_s, rf_1d + rf_1d_s, color=l.get_color(), alpha=0.1)
+    ax.fill_between(rx, rf_1d - 3 * rf_1d_s, rf_1d + 3 * rf_1d_s, color=l.get_color(), alpha=0.4, label='3-sigma')
     ax.plot(rx, rf_erf, label='erf, spline', ls=':')
     ax.legend()
 
+    ax = figure.add_subplot(223)
+    l, = ax.plot(rx, rp_1d, '-', label='actual, zero-crossing')
+    ax.fill_between(rx, -3 * rp_1d_s,  3 * rp_1d_s, color=l.get_color(), alpha=0.4, label='3-sigma')
+    ax.plot(rx, rp_erf / rf_1d - 1, label='erf, spline', ls=':')
+    ax.plot(rx, rp_erf, '--', label='erf, zero-crossing', color='gray')
+    ax.set_ylim(-0.02, 0.02)
+    ax.grid()
+    ax.legend()
+    ax = figure.add_subplot(224)
+    l, = ax.plot(rx, rf_1d, '-', label='actual, zero-crossing')
+    ax.fill_between(rx,  - 3 * rf_1d_s,  3 * rf_1d_s, color=l.get_color(), alpha=0.4, label='3-sigma')
+    ax.plot(rx, rf_erf / rf_1d - 1, label='erf, spline', ls=':')
+    ax.plot(rx, rf_erf, '--', label='erf, zero-crossing', color='gray')
+    ax.set_ylim(-0.02, 0.02)
+    ax.grid()
+    ax.legend()
+
     figure.savefig('diagonstics.png', dpi=200)
+
 
     table = numpy.array([rx, rp_1d, rf_1d, rp_erf, rf_erf]).T
 
