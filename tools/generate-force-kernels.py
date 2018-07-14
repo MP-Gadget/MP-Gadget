@@ -311,19 +311,20 @@ def main():
     ax.grid()
     ax.legend()
 
-    figure.savefig('diagonstics.png', dpi=200)
+    figure.savefig('diagonstics-%.2f.png' % Split, dpi=200)
 
 
     table = numpy.array([rx, rp_1d, rf_1d, rp_erf, rf_erf]).T
 
     numpy.savetxt('shortrange-force-kernels.txt',
         table,
-        header='x(in mesh units) w_pot_1d(x) w_force_1d(x) [erfc + other terms] w_pot_erf(x) w_force_erf(x)')
+        header='x(in mesh units) w_pot_1d(x) w_force_1d(x) [erfc + other terms] w_pot_erf(x) w_force_erf(x) split=%.2f' % Split
+    )
 
     # simply multiple these numbers to the unwindowed short-range force.
     s = toc(table,
             "shortrange_force_kernels",
-         header='x(in mesh units) w_pot_1d(x)  w_force_1d(x) [erfc + other terms] w_pot_erf(x) w_force_erf(x)'
+         header='x(in mesh units) w_pot_1d(x)  w_force_1d(x) [erfc + other terms] w_pot_erf(x) w_force_erf(x) split=%.2f' % Split
         )
 
     with open('shortrange-kernels.c', 'w') as ff:
