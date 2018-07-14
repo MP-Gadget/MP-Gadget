@@ -203,7 +203,7 @@ def force_direct(pm, x, y, a=1/20., kernel=gravity_plummer, split=False, Nimg=4)
     assert P.ndim == 1
     return F, P
 
-def main():
+def main(ns):
     pm = ParticleMesh(BoxSize=128., Nmesh=[128, 128, 128])
 
     Q = numpy.array([
@@ -214,7 +214,7 @@ def main():
     Ntest = 1024 # segments in radial
     Nsample = 48      # estimating the variance at different directions; anisotropic-ness
 
-    Split = 1.25       # should try smaller split if the variance doesn't go up then we are good; in mesh units.
+    Split = ns.split       # should try smaller split if the variance doesn't go up then we are good; in mesh units.
     Smoothing = 1./ 20 # shouldn't be very sensitive to this; in distance units.
 
     Rmax = 10.0 # max r to go, in mesh units
@@ -295,14 +295,16 @@ def main():
     ax.legend()
 
     ax = figure.add_subplot(223)
+    ax.set_title('relative and zoom')
     l, = ax.plot(rx, rp_1d, '-', label='actual, zero-crossing')
     ax.fill_between(rx, -3 * rp_1d_s,  3 * rp_1d_s, color=l.get_color(), alpha=0.4, label='3-sigma')
-    ax.plot(rx, rp_erf / rf_1d - 1, label='erf, spline', ls=':')
+    ax.plot(rx, rp_erf / rp_1d - 1, label='erf, spline', ls=':')
     ax.plot(rx, rp_erf, '--', label='erf, zero-crossing', color='gray')
     ax.set_ylim(-0.02, 0.02)
     ax.grid()
     ax.legend()
     ax = figure.add_subplot(224)
+    ax.set_title('relative and zoom')
     l, = ax.plot(rx, rf_1d, '-', label='actual, zero-crossing')
     ax.fill_between(rx,  - 3 * rf_1d_s,  3 * rf_1d_s, color=l.get_color(), alpha=0.4, label='3-sigma')
     ax.plot(rx, rf_erf / rf_1d - 1, label='erf, spline', ls=':')
@@ -351,4 +353,9 @@ const double %(name)s[][%(size)d] = {
         text='\n'.join(t)
     )
     
-main()
+import argparse
+ap = argparse.ArgumentParser()
+ap.add_argument('split', type=float, help='Split of range, in mesh units')
+ns = ap.parse_args()
+
+main(ns)
