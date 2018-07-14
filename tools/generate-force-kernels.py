@@ -156,6 +156,7 @@ def force_direct(pm, x, y, a=1/20., kernel=gravity_plummer, split=False, Nimg=4)
     """ Returns
         f, p : force and potential
     """
+    # fix me : unreasonably slow this is.
 
     F = []
     P = []
@@ -206,27 +207,37 @@ def main():
     ])
 
     # test charges -- penetrates the page thought the source charge
-    Ntest = 2048
-    # along x
-    test = numpy.vstack(
-    (
-     numpy.linspace(0, 10, Ntest * 2 + 1),
-     numpy.linspace(0, 0, Ntest * 2 + 1),
-     numpy.linspace(0, 0, Ntest * 2 + 1),
-    )).T + pm.BoxSize * 0.5
+    Ntest = 128       # segments in radial
+    Nsample = 48      # estimating the variance at different directions; anisotropic-ness
+
+    Split = 1.25       # should try smaller split if the variance doesn't go up then we are good.
+    Smoothing = 1./ 20 # shouldn't be very sensitive to this
+
+    # along x; the result is different for different directions.
+
+    
+    # in a sphere
+    test = numpy.random.uniform(0, 1.0, size=(Ntest * Nsample, 3))
+    unitvectors = test / (test**2).sum(axis=-1)[:, None] ** 0.5
+
+    r = numpy.linspace(0, 10.0, Ntest)
+    r = numpy.repeat(r, Nsample)
+
+    test = unitvectors * r[:, None]
+    test = test + pm.BoxSize * 0.5
 
     # mesh units
     r = ((test[:] - Q[0]) ** 2).sum(axis=-1) ** 0.5 / (pm.BoxSize[0] / pm.Nmesh[0])
 
-    f_longrange, p_longrange = force_pm(pm, test, Q, split=1.25)
-    f_plummer, p_plummer = force_direct(pm, test, Q, a=1./20, kernel=gravity_plummer)
-    f_spline, p_spline = force_direct(pm, test, Q, a=1./20, kernel=gravity_spline, Nimg=4)
-    f_erf, p_erf = force_direct(pm, test, Q, a=1./20, kernel=gravity_spline, split=1.25, Nimg=0)
+    f_longrange, p_longrange = force_pm(pm, test, Q, split=Split)
+    f_plummer, p_plummer = force_direct(pm, test, Q, a=Smoothing, kernel=gravity_plummer)
+    f_spline, p_spline = force_direct(pm, test, Q, a=Smoothing, kernel=gravity_spline, Nimg=4)
+    f_erf, p_erf = force_direct(pm, test, Q, a=Smoothing, kernel=gravity_spline, split=Split, Nimg=0)
 
-    f_longrange = f_longrange[:, 0]
-    f_plummer = f_plummer[:, 0]
-    f_spline = f_spline[:, 0]
-    f_erf = f_erf[:, 0]
+    f_longrange = numpy.einsum('ij,ij->i', f_longrange, unitvectors)
+    f_plummer = numpy.einsum('ij,ij->i', f_plummer, unitvectors)
+    f_spline = numpy.einsum('ij,ij->i', f_spline, unitvectors)
+    f_erf = numpy.einsum('ij,ij->i', f_erf, unitvectors)
 
     # renormalize
     p_plummer -= p_plummer[-1] - p_longrange[-1]
@@ -242,44 +253,40 @@ def main():
     f_spline[r == 0] = 0
     f_erf[r == 0] = 0
 
+    def stat(x):
+        x = x.reshape(-1, Nsample)
+        mean = numpy.mean(x, axis=-1)
+        std = numpy.std(x, axis=-1)
+        return mean, std
+
+    rx, junk = stat(r)
+    rp_1d, rp_1d_s = stat((p_spline - p_longrange) / p_spline)
+    rf_1d, rf_1d_s = stat((f_spline - f_longrange) / f_spline)
+    rp_erf, junk = stat((p_erf) / p_spline)
+    rf_erf, junk = stat((f_erf) / f_spline)
+
+    rp_1d[rx==0] = 1
+    rf_1d[rx==0] = 1
+    rp_erf[rx==0] = 1
+    rf_erf[rx==0] = 1
+
+
     from matplotlib.figure import Figure
     from matplotlib.backends.backend_agg import FigureCanvasAgg
     figure = Figure(figsize=(8, 4))
     canvas = FigureCanvasAgg(figure)
-    ax = figure.add_subplot(131)
-#    ax.plot(r, f_longrange, label='Longrange')
-#    ax.plot(r, f_plummer - f_longrange, label='plummer - longrange')
-    ax.plot(r, (f_spline - f_longrange) / f_spline, label='actual', ls='--')
-    ax.plot(r, f_erf / f_spline, label='erf, spline', ls=':')
-#    ax.set_ylim(-0.10, 0.10)
-    #ax.set_xlim(-4, 4)
+    ax = figure.add_subplot(121)
+    l, = ax.plot(rx, rp_1d, '-', label='actual')
+    ax.fill_between(rx, rp_1d - rp_1d_s, rp_1d + rp_1d_s, color=l.get_color(), alpha=0.1)
+    ax.plot(rx, rp_erf, label='erf, spline', ls=':')
     ax.legend()
-    ax = figure.add_subplot(132)
-#    ax.plot(r, p_longrange, label='Longrange')
-#    ax.plot(r, p_plummer - p_longrange, label='plummer - longrange', )
-    ax.plot(r, (p_spline - p_longrange) / p_spline, label='actual', ls='--')
-    ax.plot(r, p_erf / p_spline, label='erf', ls=':')
-#    ax.set_ylim(-0.10, 0.10)
-    #ax.set_xlim(-4, 4)
+    ax = figure.add_subplot(122)
+    l, = ax.plot(rx, rf_1d, '-', label='actual')
+    ax.fill_between(rx, rf_1d - rf_1d_s, rf_1d + rf_1d_s, color=l.get_color(), alpha=0.1)
+    ax.plot(rx, rf_erf, label='erf, spline', ls=':')
     ax.legend()
 
-    ax = figure.add_subplot(133)
-    ax.plot(r, f_spline, label='Spline')
-    ax.plot(r, f_longrange, label='Longrange')
-    #ax.plot(r, f_erf, label='erf')
-    ax.set_ylim(-0.01, 0.00)
-    ax.legend()
     figure.savefig('diagonstics.png', dpi=200)
-
-    rx = r
-    rp_1d = (p_spline - p_longrange) / p_spline
-    rf_1d = (f_spline - f_longrange) / f_spline
-    rp_erf = (p_erf - p_longrange) / p_spline
-    rf_erf = (f_erf - f_longrange) / f_spline
-    rp_1d[r==0] = 1
-    rf_1d[r==0] = 1
-    rp_erf[r==0] = 1
-    rf_erf[r==0] = 1
 
     table = numpy.array([rx, rp_1d, rf_1d, rp_erf, rf_erf]).T
 
