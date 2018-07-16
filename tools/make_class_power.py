@@ -92,7 +92,7 @@ def _build_cosmology_params(config):
         gparams['wa_fld'] = config['wa_fld']
     #Set up massive neutrinos
     if omeganu > 0:
-        gparams['m_ncdm'] = '%.2f,%.2f,%.2f' % (config['MNue'], config['MNum'], config['MNut'])
+        gparams['m_ncdm'] = '%.8f,%.8f,%.8f' % (config['MNue'], config['MNum'], config['MNut'])
         gparams['N_ncdm'] = 3
         gparams['N_ur'] = 0.00641
         #Neutrino accuracy: Default pk_ref.pre has tol_ncdm_* = 1e-10,
