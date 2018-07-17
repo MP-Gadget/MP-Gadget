@@ -310,19 +310,23 @@ init_transfer_table(int ThisTask, double InitTime, const struct power_params * c
         transfer_table.logD[VEL_TOT][i] = transfer_table.logD[VEL_CB][i];
         /*Total delta*/
         double T_tot = CP->OmegaBaryon * transfer_table.logD[DELTA_BAR][i] + CP->OmegaCDM * transfer_table.logD[DELTA_CDM][i];
+        /*Total matter density in T_tot. Neutrinos may be slightly relativistic, so
+         * Omega0a3 >= CP->Omega0 if neutrinos are massive.*/
+        double Omega0a3 = CP->OmegaBaryon + CP->OmegaCDM;
         /*Divide cdm +  bar total velocity transfer by d_cdm + bar*/
         transfer_table.logD[VEL_CB][i] /= T_tot;
         if(nnu > 0) {
             /*Add neutrino growth to total growth*/
             transfer_table.logD[VEL_TOT][i] += onu *  transfer_table.logD[VEL_NU][i];
             T_tot += onu * transfer_table.logD[DELTA_NU][i];
+            Omega0a3 += onu;
         }
         /* Total growth normalized by total delta*/
         transfer_table.logD[VEL_TOT][i] /= T_tot;
         /*Normalize growth_i by delta_i, and transform delta_i to delta_i/delta_tot*/
         for(t = DELTA_BAR; t <= DELTA_NU; t++) {
             transfer_table.logD[t+VEL_BAR-DELTA_BAR][i] /= transfer_table.logD[t][i];
-            transfer_table.logD[t][i] /= (T_tot / CP->Omega0);
+            transfer_table.logD[t][i] /= (T_tot / Omega0a3);
         }
         /*Set up the delta_cb row*/
         transfer_table.logD[DELTA_CB][i] = (CP->OmegaBaryon * transfer_table.logD[DELTA_BAR][i] + CP->OmegaCDM * transfer_table.logD[DELTA_CDM][i])/(CP->OmegaCDM + CP->OmegaBaryon);
