@@ -88,15 +88,14 @@ test_growth_numerical(void ** state)
     for (k = 1; k < nk; k++) {
         double newk = exp(log(lowk) + k*(log(highk) - log(lowk))/nk);
         newk/=1e3;
-/*         message(1,"k=%g G = %g F = %g G0 = %g\n",newk*1e3,dlogGrowth(newk, 7), F_Omega(0.01),dlogGrowth(newk, 1)); */
+/*         message(1,"k=%g G = %g F = %g G0 = %g\n",newk*1e3,dlogGrowth(newk, DELTA_TOT), F_Omega(0.01),dlogGrowth(newk, 1)); */
         //Total growth should be very close to F_Omega.
-        assert_true(dlogGrowth(newk,7)  - F_Omega(0.01) < 0.01);
-        assert_true(dlogGrowth(newk,7)  - F_Omega(0.01) > 0.005);
+        assert_true(fabs(dlogGrowth(newk,DELTA_TOT) / (F_Omega(0.01) * DeltaSpec(newk, DELTA_TOT)) -1) < 0.01);
         //Growth of CDM should be lower, growth of baryons should be higher.
-        assert_true(dlogGrowth(newk,1) < F_Omega(0.01));
-        assert_true(fabs(dlogGrowth(newk,1) - 0.9389) < 0.01);
-        assert_true(dlogGrowth(newk,0) > 1.318);
-        assert_true(dlogGrowth(newk,0) < 1.35);
+        assert_true(dlogGrowth(newk,DELTA_CDM) < F_Omega(0.01) * DeltaSpec(newk, DELTA_CDM));
+        assert_true(fabs(dlogGrowth(newk,DELTA_CDM) / DeltaSpec(newk, DELTA_CDM) - 0.9389) < 0.01);
+        assert_true(dlogGrowth(newk,DELTA_BAR) > 1.318 * DeltaSpec(newk, DELTA_BAR));
+        assert_true(dlogGrowth(newk,DELTA_BAR) < 1.35 * DeltaSpec(newk, DELTA_BAR));
     }
     //Test super-horizon scales
     lowk = 1e-3;
@@ -106,11 +105,11 @@ test_growth_numerical(void ** state)
         newk/=1e3;
 /*         message(1,"k=%g G = %g F = %g\n",newk*1e3,dlogGrowth(newk, 7), dlogGrowth(newk, 1)); */
         //Total growth should be around 1.05
-        assert_true(dlogGrowth(newk,7) < 1.055);
-        assert_true(dlogGrowth(newk,7) > 1.);
+        assert_true(dlogGrowth(newk,DELTA_TOT) < 1.055 * DeltaSpec(newk, DELTA_TOT));
+        assert_true(dlogGrowth(newk,DELTA_TOT) > 1. * DeltaSpec(newk, DELTA_TOT));
         //CDM and baryons should match total
-        assert_true(fabs(dlogGrowth(newk,0)/dlogGrowth(newk,7) -1)  < 0.008);
-        assert_true(fabs(dlogGrowth(newk,1)/dlogGrowth(newk,7) -1)  < 0.008);
+        assert_true(fabs(dlogGrowth(newk,DELTA_BAR)/dlogGrowth(newk,DELTA_TOT) -1)  < 0.008);
+        assert_true(fabs(dlogGrowth(newk,DELTA_CDM)/dlogGrowth(newk,DELTA_TOT) -1)  < 0.008);
     }
 }
 
