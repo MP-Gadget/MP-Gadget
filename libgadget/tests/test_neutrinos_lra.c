@@ -53,6 +53,7 @@ static void test_allocate_delta_tot_table(void **state)
 {
     _omega_nu omnu;
     double MNu[3] = {0, 0, 0};
+    int i;
     init_omega_nu(&omnu, MNu, 0.01, 0.7,T_CMB0);
     init_neutrinos_lra(300, 0.01, 1, 0.2793, &omnu, 1, 1);
     assert_true(delta_tot_table.ia == 0);
@@ -60,7 +61,7 @@ static void test_allocate_delta_tot_table(void **state)
     assert_true(delta_tot_table.scalefact);
     assert_true(delta_tot_table.delta_nu_init);
     assert_true(delta_tot_table.delta_tot);
-    for(int i=0; i<delta_tot_table.nk_allocated; i++){
+    for(i=0; i<delta_tot_table.nk_allocated; i++){
         assert_true(delta_tot_table.delta_tot[i]);
     }
 }
