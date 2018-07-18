@@ -34,7 +34,7 @@ void powerspectrum_zero(struct _powerspectrum * PowerSpectrum)
 {
     memset(PowerSpectrum->kk, 0, sizeof(double) * PowerSpectrum->nalloc);
     memset(PowerSpectrum->Power, 0, sizeof(double) * PowerSpectrum->nalloc);
-    memset(PowerSpectrum->Nmodes, 0, sizeof(double) * PowerSpectrum->nalloc);
+    memset(PowerSpectrum->Nmodes, 0, sizeof(int64_t) * PowerSpectrum->nalloc);
     PowerSpectrum->Norm = 0;
 }
 
