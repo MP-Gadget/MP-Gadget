@@ -76,28 +76,30 @@ def laplace(k, v):
     b[mask] = 0
     return b
 
-def force_pm(pm, x, y, dfkernel=NDiff('lnld4_5'), split=1.25):
+def force_pm(pm, x, y, dfkernel=NDiff('lnld4_5'), split=1.25, compensate_cic=True):
     """ split is in unit of mesh cells, 1.25 is Gadget Asmth.
         lnld4_5 is gadget differentiation.
     """
     rho = pm.paint(y)
     x = numpy.array(x)
     p = rho.r2c()\
-        .apply(laplace) \
-        .apply(decic) \
-        .apply(decic) # twice, once for paint, once of readout
+        .apply(laplace, out=Ellipsis)
+
+    if compensate_cic:
+        p = p.apply(decic, out=Ellipsis) \
+             .apply(decic, out=Ellipsis) # twice, once for paint, once of readout
 
     if split:
-        p = p.apply(longrange(split * pm.BoxSize[0] / pm.Nmesh[0]))
+        p = p.apply(longrange(split * pm.BoxSize[0] / pm.Nmesh[0]), out=Ellipsis)
 
     r = []
     for d in range(3):
         f = p.apply(gradient(d, dfkernel=dfkernel))
-        f = f.c2r()
+        f = f.c2r(out=Ellipsis)
 
         r.append(f.readout(x))
 
-    p = p.c2r()
+    p = p.c2r(out=Ellipsis)
     p = p.readout(x)
 
     # Add 4 pi t omatch the direct sum.
@@ -204,15 +206,16 @@ def force_direct(pm, x, y, a=1/20., kernel=gravity_plummer, split=False, Nimg=4)
     return F, P
 
 def main(ns):
-    pm = ParticleMesh(BoxSize=128., Nmesh=[128, 128, 128])
+    pm = ParticleMesh(BoxSize=512., Nmesh=[512, 512, 512], dtype='f4')
 
     Q = numpy.array([
         pm.BoxSize * [0.5, 0.5, 0.5],
     ])
 
     # test charges -- penetrates the page thought the source charge
-    Ntest = 1024 # segments in radial
+    Ntest = 512 # segments in radial
     Nsample = 48      # estimating the variance at different directions; anisotropic-ness
+    Nshift = 48 # number of shifts
 
     Split = ns.split       # should try smaller split if the variance doesn't go up then we are good; in mesh units.
     Smoothing = 1./ 20 # shouldn't be very sensitive to this; in distance units.
@@ -233,41 +236,58 @@ def main(ns):
     # r is in mesh units
     r = ((test[:] - Q[0]) ** 2).sum(axis=-1) ** 0.5 / (pm.BoxSize[0] / pm.Nmesh[0])
 
-    f_longrange, p_longrange = force_pm(pm, test, Q, split=Split)
-    f_plummer, p_plummer = force_direct(pm, test, Q, a=Smoothing, kernel=gravity_plummer)
-    f_spline, p_spline = force_direct(pm, test, Q, a=Smoothing, kernel=gravity_spline, Nimg=4)
-    f_erf, p_erf = force_direct(pm, test, Q, a=Smoothing, kernel=gravity_spline, split=Split, Nimg=0)
+    def compute(test, Q):
+        f_longrange, p_longrange = force_pm(pm, test, Q, split=Split, compensate_cic=ns.decic)
+        f_plummer, p_plummer = force_direct(pm, test, Q, a=Smoothing, kernel=gravity_plummer)
+        f_spline, p_spline = force_direct(pm, test, Q, a=Smoothing, kernel=gravity_spline, Nimg=4)
+        f_erf, p_erf = force_direct(pm, test, Q, a=Smoothing, kernel=gravity_spline, split=Split, Nimg=0)
 
-    f_longrange = numpy.einsum('ij,ij->i', f_longrange, unitvectors)
-    f_plummer = numpy.einsum('ij,ij->i', f_plummer, unitvectors)
-    f_spline = numpy.einsum('ij,ij->i', f_spline, unitvectors)
-    f_erf = numpy.einsum('ij,ij->i', f_erf, unitvectors)
+        f_longrange = numpy.einsum('ij,ij->i', f_longrange, unitvectors)
+        f_plummer = numpy.einsum('ij,ij->i', f_plummer, unitvectors)
+        f_spline = numpy.einsum('ij,ij->i', f_spline, unitvectors)
+        f_erf = numpy.einsum('ij,ij->i', f_erf, unitvectors)
 
-    # renormalize
-    p_plummer -= p_plummer[-1] - p_longrange[-1]
-    p_spline -= p_spline[-1] - p_longrange[-1]
+        # renormalize
+        p_plummer -= p_plummer[-1] - p_longrange[-1]
+        p_spline -= p_spline[-1] - p_longrange[-1]
 
-    p_spline[r == 0] = 0
-    p_plummer[r == 0] = 0
-    p_longrange[r == 0] = 0
-    p_erf[r == 0] = 0
+        p_spline[r == 0] = 0
+        p_plummer[r == 0] = 0
+        p_longrange[r == 0] = 0
+        p_erf[r == 0] = 0
 
-    f_longrange[r == 0] = 0
-    f_plummer[r == 0] = 0
-    f_spline[r == 0] = 0
-    f_erf[r == 0] = 0
+        f_longrange[r == 0] = 0
+        f_plummer[r == 0] = 0
+        f_spline[r == 0] = 0
+        f_erf[r == 0] = 0
+        return (f_longrange, f_plummer, f_spline, f_erf,
+                p_longrange, p_plummer, p_spline, p_erf, )
 
-    def stat(x):
-        x = x.reshape(-1, Nsample)
+    terms = [[],] * 8
+
+    for junk in range(Nshift):
+        shift = numpy.random.uniform(low=-0.5, high=0.5, size=(1, 3))
+        for i, result in enumerate(compute(test + shift, Q + shift)):
+            terms[i] = numpy.concatenate([terms[i], result], axis=0)
+
+    for i, result in enumerate(terms):
+        terms[i] = terms[i].reshape(Nshift, -1, Nsample).transpose((1, 2, 0)).ravel()
+
+    (f_longrange, f_plummer, f_spline, f_erf,
+     p_longrange, p_plummer, p_spline, p_erf, ) = terms
+    print(len(terms[0]))
+
+    def stat(x, size):
+        x = x.reshape(-1, size)
         mean = numpy.mean(x, axis=-1)
         std = numpy.std(x, axis=-1)
         return mean, std
 
-    rx, junk = stat(r)
-    rp_1d, rp_1d_s = stat((p_spline - p_longrange) / p_spline)
-    rf_1d, rf_1d_s = stat((f_spline - f_longrange) / f_spline)
-    rp_erf, junk = stat((p_erf) / p_spline)
-    rf_erf, junk = stat((f_erf) / f_spline)
+    rx, junk = stat(r, Nsample)
+    rp_1d, rp_1d_s = stat((p_spline - p_longrange) / p_spline, Nsample * Nshift)
+    rf_1d, rf_1d_s = stat((f_spline - f_longrange) / f_spline, Nsample * Nshift)
+    rp_erf, junk = stat((p_erf) / p_spline, Nsample * Nshift)
+    rf_erf, junk = stat((f_erf) / f_spline, Nsample * Nshift)
 
     rp_1d[rx==0] = 1
     rf_1d[rx==0] = 1
@@ -309,11 +329,11 @@ def main(ns):
     ax.fill_between(rx,  - 3 * rf_1d_s,  3 * rf_1d_s, color=l.get_color(), alpha=0.4, label='3-sigma')
     ax.plot(rx, rf_erf / rf_1d - 1, label='erf, spline', ls=':')
     ax.plot(rx, rf_erf, '--', label='erf, zero-crossing', color='gray')
-    ax.set_ylim(-0.02, 0.02)
+    ax.set_ylim(-0.03, 0.03)
     ax.grid()
     ax.legend()
 
-    figure.savefig('diagonstics-%.2f.png' % Split, dpi=200)
+    figure.savefig(ns.prefix + 'diagonstics-%.2f.png' % Split, dpi=200)
 
 
     table = numpy.array([rx, rp_1d, rf_1d, rp_erf, rf_erf]).T
@@ -356,6 +376,8 @@ const double %(name)s[][%(size)d] = {
 import argparse
 ap = argparse.ArgumentParser()
 ap.add_argument('split', type=float, help='Split of range, in mesh units')
+ap.add_argument('--no-decic', action='store_false', dest='decic', default=True, help='deconvolve cic window')
+ap.add_argument('prefix', default="")
 ns = ap.parse_args()
 
 main(ns)
