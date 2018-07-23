@@ -47,7 +47,6 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions);
 
 void gravpm_init_periodic() {
     petapm_init(All.BoxSize, All.Nmesh, All.NumThreads);
-    powerspectrum_alloc(&PowerSpectrum, All.Nmesh, All.NumThreads, All.MassiveNuLinRespOn);
     /*Initialise the kspace neutrino code if it is enabled.
      * Mpc units are used to match power spectrum code.*/
     if(All.MassiveNuLinRespOn) {
@@ -70,13 +69,13 @@ void gravpm_force(void) {
         PartManager->NumPart,
     };
 
-    powerspectrum_zero(&PowerSpectrum);
     int i;
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)
     {
         P[i].GravPM[0] = P[i].GravPM[1] = P[i].GravPM[2] = 0;
     }
+
     /*
      * we apply potential transfer immediately after the R2C transform,
      * Therefore the force transfer functions are based on the potential,
@@ -89,6 +88,8 @@ void gravpm_force(void) {
         powerspectrum_save(&PowerSpectrum, All.OutputDir, All.Time, GrowthFactor(All.Time, 1.0));
     if(ThisTask == 0 && All.MassiveNuLinRespOn)
         powerspectrum_nu_save(&PowerSpectrum, All.OutputDir, All.Time);
+    /*We are done with the power spectrum, free it*/
+    powerspectrum_free(&PowerSpectrum, All.MassiveNuLinRespOn);
     walltime_measure("/LongRange");
     /*Rebuild the force tree we freed in _prepare to save memory*/
     force_tree_rebuild();
@@ -175,6 +176,10 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
     }
     /*This is done to conserve memory during the PM step*/
     if(force_tree_allocated()) force_tree_free();
+
+    /*Allocate memory for a power spectrum*/
+    powerspectrum_alloc(&PowerSpectrum, All.Nmesh, All.NumThreads, All.MassiveNuLinRespOn);
+
     walltime_measure("/PMgrav/Regions");
     return regions;
 }

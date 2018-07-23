@@ -22,11 +22,11 @@ void powerspectrum_alloc(struct _powerspectrum * PowerSpectrum, const int nbins,
     PowerSpectrum->Power = PowerSpectrum->kk + nalloc;
     if(MassiveNuLinResp) {
         /*These arrays are stored separately to make interpolation more accurate*/
-        PowerSpectrum->logknu = mymalloc("PowerNu", sizeof(double) * 3*nbins);
+        PowerSpectrum->logknu = mymalloc("PowerNu", sizeof(double) * 2*nbins);
         PowerSpectrum->delta_nu_ratio = PowerSpectrum-> logknu + nbins;
-        PowerSpectrum->delta_nu = PowerSpectrum-> logknu + 2*nbins;
     }
     PowerSpectrum->Nmodes = mymalloc("Powermodes", sizeof(int64_t) * nalloc);
+    powerspectrum_zero(PowerSpectrum);
 }
 
 /*Zero memory for the power spectrum*/
@@ -34,8 +34,17 @@ void powerspectrum_zero(struct _powerspectrum * PowerSpectrum)
 {
     memset(PowerSpectrum->kk, 0, sizeof(double) * PowerSpectrum->nalloc);
     memset(PowerSpectrum->Power, 0, sizeof(double) * PowerSpectrum->nalloc);
-    memset(PowerSpectrum->Nmodes, 0, sizeof(double) * PowerSpectrum->nalloc);
+    memset(PowerSpectrum->Nmodes, 0, sizeof(int64_t) * PowerSpectrum->nalloc);
     PowerSpectrum->Norm = 0;
+}
+
+/*Free power spectrum memory*/
+void powerspectrum_free(struct _powerspectrum * PowerSpectrum, const int MassiveNuLinResp)
+{
+    myfree(PowerSpectrum->Nmodes);
+    if(MassiveNuLinResp)
+        myfree(PowerSpectrum->logknu);
+    myfree(PowerSpectrum->kk);
 }
 
 /* Sum the different modes on each thread and processor together to get a power spectrum,
@@ -97,25 +106,4 @@ void powerspectrum_save(struct _powerspectrum * PowerSpectrum, const char * Outp
             }
             fclose(fp);
         }
-}
-
-/*Save the neutrino power spectrum to a file*/
-void powerspectrum_nu_save(struct _powerspectrum * PowerSpectrum, const char * OutputDir, const double Time)
-{
-    int i;
-    char fname[1024];
-    /* Now save the neutrino power spectrum*/
-    snprintf(fname, 1024,"%s/powerspectrum-nu-%0.4f.txt", OutputDir, Time);
-    FILE * fp = fopen(fname, "w");
-    fprintf(fp, "# in Mpc/h Units \n");
-    fprintf(fp, "# k P_nu(k) Nmodes\n");
-    fprintf(fp, "# a= %g\n", Time);
-    fprintf(fp, "# nk = %d\n", PowerSpectrum->nonzero);
-    for(i = 0; i < PowerSpectrum->nonzero; i++){
-        fprintf(fp, "%g %g %ld\n", PowerSpectrum->kk[i], pow(PowerSpectrum->delta_nu[i],2), PowerSpectrum->Nmodes[i]);
-    }
-    fclose(fp);
-    /*Clean up the neutrino memory now we saved the power spectrum.*/
-    gsl_interp_free(PowerSpectrum->nu_spline);
-    gsl_interp_accel_free(PowerSpectrum->nu_acc);
 }

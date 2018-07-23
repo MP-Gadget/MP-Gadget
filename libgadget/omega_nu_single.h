@@ -1,6 +1,6 @@
 #ifndef OMEGA_NU_SINGLE_H
 #define OMEGA_NU_SINGLE_H
-/** \file 
+/** \file
  * Routines for computing the matter density in a single neutrino species*/
 
 #include <gsl/gsl_interp.h>
@@ -35,11 +35,10 @@ typedef struct _rho_nu_single _rho_nu_single;
  * @param rho_nu_tab Structure to initialise
  * @param a0 First scale factor in rho_nu_tab. Do not try and evaluate rho_nu at higher redshift!
  * @param mnu neutrino mass to compute neutrino matter density for in eV
- * @param HubbleParam (dimensionless) reduced hubble parameter, eg, 0.7. Unused.
- * @param kBtnu Boltzmann constant times neutrino temperature. Dimensionful factor.*/
-void rho_nu_init(_rho_nu_single * rho_nu_tab, double a0, const double mnu, const double HubbleParam, const double kBtnu);
+ * @param kBtnu Boltzmann constant times neutrino temperature. Dimensionful factor. */
+void rho_nu_init(_rho_nu_single * rho_nu_tab, double a0, const double mnu, const double kBtnu);
 
-/** Computes the neutrino density for a single neutrino species at a given redshift, either by looking up in a table, 
+/** Computes the neutrino density for a single neutrino species at a given redshift, either by looking up in a table,
  * or a simple calculation in the limits, or by direct integration.
  * @param rho_nu_tab Pre-computed table of values
  * @param a Redshift desired.
@@ -81,7 +80,7 @@ void init_hybrid_nu(_hybrid_nu * const hybnu, const double mnu[], const double v
  * @param hybnu Structure with hybrid neutrino parameters.
  * @param i index of neutrino species to use.
  * @param a redshift of interest.
- * @returns the fraction of neutrinos currently traced by particles. 
+ * @returns the fraction of neutrinos currently traced by particles.
  * 0 when neutrinos are fully analytic at early times.
  */
 double particle_nu_fraction(const _hybrid_nu * const hybnu, const double a, int i);
@@ -128,7 +127,7 @@ double get_omega_nu_nopart(const _omega_nu * const omnu, const double a);
 double get_omegag(const _omega_nu * const omnu, const double a);
 
 /** Return the matter density in a single neutrino species
- * @param rho_nu_tab structure containing pre-computed matter density values. 
+ * @param rho_nu_tab structure containing pre-computed matter density values.
  * @param i index of neutrino species we want
  * @param a scale factor desired*/
 double omega_nu_single(const _omega_nu * const rho_nu_tab, const double a, const int i);

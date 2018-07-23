@@ -100,7 +100,7 @@ int main(int argc, char **argv)
 
     if(RestartFlag == 1) {
         RestartSnapNum = find_last_snapnum();
-        message(1, "Last Snapshot number is %d.\n", RestartSnapNum);
+        message(0, "Last Snapshot number is %d.\n", RestartSnapNum);
     }
 
     /*Set up GSL so it gives a proper MPI termination*/
@@ -110,7 +110,7 @@ int main(int argc, char **argv)
 
     switch(RestartFlag) {
         case 3:
-            begrun(RestartSnapNum); 
+            begrun(RestartSnapNum);
             fof_fof();
             fof_save_groups(RestartSnapNum);
             fof_finish();

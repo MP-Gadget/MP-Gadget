@@ -92,7 +92,7 @@ def _build_cosmology_params(config):
         gparams['wa_fld'] = config['wa_fld']
     #Set up massive neutrinos
     if omeganu > 0:
-        gparams['m_ncdm'] = '%.2f,%.2f,%.2f' % (config['MNue'], config['MNum'], config['MNut'])
+        gparams['m_ncdm'] = '%.8f,%.8f,%.8f' % (config['MNue'], config['MNum'], config['MNut'])
         gparams['N_ncdm'] = 3
         gparams['N_ur'] = 0.00641
         #Neutrino accuracy: Default pk_ref.pre has tol_ncdm_* = 1e-10,
@@ -139,7 +139,7 @@ def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
     _check_genic_config(config)
 
     #Precision
-    pre_params = {'tol_background_integration': 1e-9, 'tol_perturb_integration' : 1.e-7, 'tol_thermo_integration':1.e-5, 'k_per_decade_for_pk': 20,'k_per_decade_for_bao':  200, 'neglect_CMB_sources_below_visibility' : 1.e-30, 'transfer_neglect_late_source': 3000., 'l_max_g' : 50, 'l_max_ur':150}
+    pre_params = {'tol_background_integration': 1e-9, 'tol_perturb_integration' : 1.e-7, 'tol_thermo_integration':1.e-5, 'k_per_decade_for_pk': 50, 'k_bao_width': 8, 'k_per_decade_for_bao':  200, 'neglect_CMB_sources_below_visibility' : 1.e-30, 'transfer_neglect_late_source': 3000., 'l_max_g' : 50, 'l_max_ur':150}
 
     #Important! Densities are in synchronous gauge!
     pre_params['gauge'] = 'synchronous'

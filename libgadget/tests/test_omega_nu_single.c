@@ -17,7 +17,7 @@ static void test_rho_nu_init(void **state) {
     double mnu = 0.06;
     _rho_nu_single rho_nu_tab;
     /*Initialise*/
-    rho_nu_init(&rho_nu_tab, 0.01, mnu, 0.7,BOLEVK*TNUCMB*T_CMB0);
+    rho_nu_init(&rho_nu_tab, 0.01, mnu, BOLEVK*TNUCMB*T_CMB0);
     /*Check everything initialised ok*/
     assert_true(rho_nu_tab.mnu == mnu);
     assert_true(rho_nu_tab.acc);
@@ -25,7 +25,8 @@ static void test_rho_nu_init(void **state) {
     assert_true(rho_nu_tab.loga);
     assert_true(rho_nu_tab.rhonu);
     /*Check that loga is correctly ordered (or interpolation won't work)*/
-    for(int i=1; i<200; i++){
+    int i;
+    for(i=1; i<200; i++){
         assert_true(rho_nu_tab.loga[i] > rho_nu_tab.loga[i-1]);
     }
 }
@@ -94,6 +95,7 @@ static void test_omega_nu_single_exact(void **state)
 {
     double mnu = 0.05;
     double hubble = 0.7;
+    int i;
     _omega_nu omnu;
     /*Initialise*/
     double MNu[3] = {mnu, mnu, mnu};
@@ -101,7 +103,7 @@ static void test_omega_nu_single_exact(void **state)
     double omnuz0 = omega_nu_single(&omnu, 1, 0);
     double rhocrit = omnu.rhocrit;
     assert_true(fabs(1 - do_exact_rho_nu_integration(1, mnu, rhocrit)/omnuz0) < 1e-6);
-    for(int i=1; i< 123; i++) {
+    for(i=1; i< 123; i++) {
         double a = 0.01 + i/123.;
         omnuz0 = omega_nu_single(&omnu, a, 0);
         double omexact = do_exact_rho_nu_integration(a, mnu, rhocrit);
@@ -129,9 +131,10 @@ static void test_omega_nu_init_nondeg(void **state) {
     _omega_nu omnu;
     /*Initialise*/
     double MNu[3] = {0.2,0.1,0.3};
+    int i;
     init_omega_nu(&omnu, MNu, 0.01, 0.7,T_CMB0);
     /*Check that we initialised the right number of arrays*/
-    for(int i=0; i<3; i++) {
+    for(i=0; i<3; i++) {
         assert_int_equal(omnu.nu_degeneracies[i], 1);
         assert_true(omnu.RhoNuTab[i].loga);
     }
@@ -144,7 +147,8 @@ static void test_get_omega_nu(void **state) {
     double MNu[3] = {0.2,0.1,0.3};
     init_omega_nu(&omnu, MNu, 0.01, 0.7,T_CMB0);
     double total =0;
-    for(int i=0; i<3; i++) {
+    int i;
+    for(i=0; i<3; i++) {
         total += omega_nu_single(&omnu, 0.5, i);
     }
     assert_true(fabs(get_omega_nu(&omnu, 0.5) - total) < 1e-6*total);

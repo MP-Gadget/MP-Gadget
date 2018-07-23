@@ -108,7 +108,7 @@ double growth(double a, double * dDda)
    * the solution for a matter/radiation universe.*
    * Note the normalisation of D is arbitrary
    * and never seen outside this function.*/
-  double yinit[2] = {1.5 * CP->Omega0/(curtime*curtime), pow(curtime,3)*hubble_function(curtime)/CP->Hubble * 1.5 * CP->Omega0/(curtime*curtime*curtime)};
+  double yinit[2] = {1.5 * (CP->OmegaCDM + CP->OmegaBaryon)/(curtime*curtime), pow(curtime,3)*hubble_function(curtime)/CP->Hubble * 1.5 * (CP->OmegaCDM + CP->OmegaBaryon)/(curtime*curtime*curtime)};
   if(CP->RadiationOn)
       yinit[0] += CP->OmegaG/pow(curtime, 4)+get_omega_nu(&CP->ONu, curtime);
 

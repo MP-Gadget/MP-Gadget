@@ -45,7 +45,7 @@ void init_omega_nu(_omega_nu * omnu, const double MNu[], const double a0, const 
     /*Now allocate a table for the species we want*/
     for(mi=0; mi<NUSPECIES; mi++){
         if(omnu->nu_degeneracies[mi]) {
-            rho_nu_init(&omnu->RhoNuTab[mi], a0, MNu[mi], HubbleParam, omnu->kBtnu);
+            rho_nu_init(&omnu->RhoNuTab[mi], a0, MNu[mi], omnu->kBtnu);
         }
         else
             omnu->RhoNuTab[mi].loga = 0;
@@ -116,10 +116,17 @@ double get_rho_nu_conversion()
 }
 
 /*Seed a pre-computed table of rho_nu values for speed*/
-void rho_nu_init(_rho_nu_single * const rho_nu_tab, const double a0, const double mnu, const double HubbleParam, const double kBtnu)
+void rho_nu_init(_rho_nu_single * const rho_nu_tab, double a0, const double mnu, const double kBtnu)
 {
      int i;
      double abserr;
+     /* Tabulate to 1e-3, unless earlier requested.
+      * Need early times for growth function.*/
+     if(a0 > 1e-3)
+         a0 = 1e-3;
+     /* Do not need a table when relativistic*/
+     if(a0 * mnu < 1e-6 * kBtnu)
+        a0 = 1e-6 * kBtnu / mnu;
      /*Make the table over a slightly wider range than requested, in case there is roundoff error*/
      const double logA0=log(a0)-log(1.2);
      const double logaf=log(NU_SW*kBtnu/mnu)+log(1.2);
@@ -189,14 +196,10 @@ double rho_nu(const _rho_nu_single * rho_nu_tab, const double a, const double kT
         }
         else{
             const double loga = log(a);
-            /* Deal with early time case. In practice no need to be very accurate.
-             * Use either limiting case. */
-            if (!rho_nu_tab->loga || loga < rho_nu_tab->loga[0]) {
-                if(amnu < 1e-4*kT)
-                    rho_nu_val = rel_rho_nu(a,kT);
-                else
-                    rho_nu_val = non_rel_rho_nu(a, kT, amnu, kTamnu2);
-            }
+            /* Deal with early time case. In practice no need to be very accurate
+             * so assume relativistic.*/
+            if (!rho_nu_tab->loga || loga < rho_nu_tab->loga[0])
+                rho_nu_val = rel_rho_nu(a,kT);
             else
                 rho_nu_val=gsl_interp_eval(rho_nu_tab->interp,rho_nu_tab->loga,rho_nu_tab->rhonu,loga,rho_nu_tab->acc);
         }

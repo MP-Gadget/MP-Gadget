@@ -42,31 +42,31 @@ test_read_no_rescale(void ** state)
      * First check ranges: these should both be out of range.
      * Should be the same k as in the file (but /10^3 for Mpc -> kpc)
      * Note that our PowerSpec function is 2pi^3 larger than that in S-GenIC.*/
-    assert_true(DeltaSpec(9.8e-9, 7) < 2e-30);
-    assert_true(DeltaSpec(300, 7) < 2e-30);
+    assert_true(DeltaSpec(9.8e-9, DELTA_TOT) < 2e-30);
+    assert_true(DeltaSpec(300, DELTA_TOT) < 2e-30);
     //Now check total power: k divided by 10^3,
     //Conversion for P(k) is 10^9/(2pi)^3
-    assert_true(fabs(pow(DeltaSpec(1.124995061548053968e-02/1e3, 7),2) / 4.745074933325402533/1e9 - 1) < 1e-5);
-    assert_true(fabs(pow(DeltaSpec(1.010157135208153312e+00/1e3, 7),2) / 1.15292e-02/1e9 - 1) < 1e-5);
+    assert_true(fabs(pow(DeltaSpec(1.124995061548053968e-02/1e3, DELTA_TOT),2) / 4.745074933325402533/1e9 - 1) < 1e-5);
+    assert_true(fabs(pow(DeltaSpec(1.010157135208153312e+00/1e3, DELTA_TOT),2) / 1.15292e-02/1e9 - 1) < 1e-5);
     //Check that it gives reasonable results when interpolating
     int k;
     for (k = 1; k < 100; k++) {
         double newk = 0.10022E+01/1e3+ k*(0.10362E+01-0.10022E+01)/1e3/100;
-        assert_true(DeltaSpec(newk,7) < DeltaSpec(0.10022E+01/1e3,7));
-        assert_true(DeltaSpec(newk,7) > DeltaSpec(0.10362E+01/1e3,7));
-        assert_true(DeltaSpec(newk,0)/DeltaSpec(0.10362E+01/1e3,1) < 1);
+        assert_true(DeltaSpec(newk,DELTA_TOT) < DeltaSpec(0.10022E+01/1e3,DELTA_TOT));
+        assert_true(DeltaSpec(newk,DELTA_TOT) > DeltaSpec(0.10362E+01/1e3,DELTA_TOT));
+        assert_true(DeltaSpec(newk,DELTA_BAR)/DeltaSpec(0.10362E+01/1e3,DELTA_CDM) < 1);
         /*Check that the CDM + baryon power is the same as the total power for massless neutrinos*/
-        assert_true(fabs(DeltaSpec(newk,3)/DeltaSpec(newk,7)-1) < 1e-5);
+        assert_true(fabs(DeltaSpec(newk,DELTA_CB)/DeltaSpec(newk,DELTA_TOT)-1) < 1e-5);
     }
     //Now check transfer functions: ratio of total to species should be ratio of T_s to T_tot squared: large scales where T~ 1
     //CDM
-    assert_true(fabs(DeltaSpec(2.005305808001081169e-03/1e3,1)/DeltaSpec(2.005305808001081169e-03/1e3,7)- 1.193460280018762132e+05/1.193185119820504624e+05) < 1e-5);
+    assert_true(fabs(DeltaSpec(2.005305808001081169e-03/1e3,DELTA_CDM)/DeltaSpec(2.005305808001081169e-03/1e3,DELTA_TOT)- 1.193460280018762132e+05/1.193185119820504624e+05) < 1e-5);
     //Small scales where there are differences
     //T_tot=0.255697E+06
     //Baryons
-    assert_true(fabs(DeltaSpec(1.079260830861467901e-01/1e3,0)/DeltaSpec(1.079260830861467901e-01/1e3,6)- 9.735695830700024089e+03/1.394199788775037632e+04) < 1e-4);
+    assert_true(fabs(DeltaSpec(1.079260830861467901e-01/1e3,DELTA_BAR)/DeltaSpec(1.079260830861467901e-01/1e3,DELTA_CB)- 9.735695830700024089e+03/1.394199788775037632e+04) < 1e-4);
     //CDM
-    assert_true(fabs(DeltaSpec(1.079260830861467901e-01/1e3,1)/DeltaSpec(1.079260830861467901e-01/1e3,6)- 1.477251880454670209e+04/1.394199788775037632e+04) < 1e-4);
+    assert_true(fabs(DeltaSpec(1.079260830861467901e-01/1e3,DELTA_CDM)/DeltaSpec(1.079260830861467901e-01/1e3,DELTA_CB)- 1.477251880454670209e+04/1.394199788775037632e+04) < 1e-4);
 }
 
 static void
@@ -88,15 +88,14 @@ test_growth_numerical(void ** state)
     for (k = 1; k < nk; k++) {
         double newk = exp(log(lowk) + k*(log(highk) - log(lowk))/nk);
         newk/=1e3;
-/*         message(1,"k=%g G = %g F = %g G0 = %g\n",newk*1e3,dlogGrowth(newk, 7), F_Omega(0.01),dlogGrowth(newk, 1)); */
+/*         message(1,"k=%g G = %g F = %g G0 = %g\n",newk*1e3,dlogGrowth(newk, DELTA_TOT), F_Omega(0.01),dlogGrowth(newk, 1)); */
         //Total growth should be very close to F_Omega.
-        assert_true(dlogGrowth(newk,7)  - F_Omega(0.01) < 0.01);
-        assert_true(dlogGrowth(newk,7)  - F_Omega(0.01) > 0.005);
+        assert_true(fabs(dlogGrowth(newk,DELTA_TOT) / (F_Omega(0.01) * DeltaSpec(newk, DELTA_TOT)) -1) < 0.01);
         //Growth of CDM should be lower, growth of baryons should be higher.
-        assert_true(dlogGrowth(newk,1) < F_Omega(0.01));
-        assert_true(fabs(dlogGrowth(newk,1) - 0.9389) < 0.01);
-        assert_true(dlogGrowth(newk,0) > 1.318);
-        assert_true(dlogGrowth(newk,0) < 1.35);
+        assert_true(dlogGrowth(newk,DELTA_CDM) < F_Omega(0.01) * DeltaSpec(newk, DELTA_CDM));
+        assert_true(fabs(dlogGrowth(newk,DELTA_CDM) / DeltaSpec(newk, DELTA_CDM) - 0.9389) < 0.01);
+        assert_true(dlogGrowth(newk,DELTA_BAR) > 1.318 * DeltaSpec(newk, DELTA_BAR));
+        assert_true(dlogGrowth(newk,DELTA_BAR) < 1.35 * DeltaSpec(newk, DELTA_BAR));
     }
     //Test super-horizon scales
     lowk = 1e-3;
@@ -106,11 +105,11 @@ test_growth_numerical(void ** state)
         newk/=1e3;
 /*         message(1,"k=%g G = %g F = %g\n",newk*1e3,dlogGrowth(newk, 7), dlogGrowth(newk, 1)); */
         //Total growth should be around 1.05
-        assert_true(dlogGrowth(newk,7) < 1.055);
-        assert_true(dlogGrowth(newk,7) > 1.);
+        assert_true(dlogGrowth(newk,DELTA_TOT) < 1.055 * DeltaSpec(newk, DELTA_TOT));
+        assert_true(dlogGrowth(newk,DELTA_TOT) > 1. * DeltaSpec(newk, DELTA_TOT));
         //CDM and baryons should match total
-        assert_true(fabs(dlogGrowth(newk,0)/dlogGrowth(newk,7) -1)  < 0.008);
-        assert_true(fabs(dlogGrowth(newk,1)/dlogGrowth(newk,7) -1)  < 0.008);
+        assert_true(fabs(dlogGrowth(newk,DELTA_BAR)/dlogGrowth(newk,DELTA_TOT) -1)  < 0.008);
+        assert_true(fabs(dlogGrowth(newk,DELTA_CDM)/dlogGrowth(newk,DELTA_TOT) -1)  < 0.008);
     }
 }
 
@@ -127,7 +126,7 @@ test_read_rescale_sigma8(void ** state)
     PowerP.DifferentTransferFunctions = 0;
     int nentry = init_powerspectrum(0, 0.05, 3.085678e21, &CP, &PowerP);
     assert_int_equal(nentry, 347);
-    assert_true(fabs(pow(DeltaSpec(1.124995061548053968e-02/1e3, 7),2)* 4 /4.745074933325402533/1e9 - 1) < 1e-2);
+    assert_true(fabs(pow(DeltaSpec(1.124995061548053968e-02/1e3, DELTA_TOT),2)* 4 /4.745074933325402533/1e9 - 1) < 1e-2);
 }
 
 

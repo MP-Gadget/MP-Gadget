@@ -268,7 +268,7 @@ static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
 
 static void disp_transfer(int64_t k2, int kaxis, pfft_complex * value, int include_growth) {
     if(k2) {
-        double fac = (All.BoxSize / (2 * M_PI)) * kaxis / k2;
+        double fac = 1./ (2 * M_PI) / sqrt(All.BoxSize) * kaxis / k2;
         /*
          We avoid high precision kernels to maintain compatibility with N-GenIC.
          The following formular shall cross check with fac in the limit of
@@ -279,10 +279,11 @@ static void disp_transfer(int64_t k2, int kaxis, pfft_complex * value, int inclu
                     k2 * fac1 * fac1);
                     */
         double kmag = sqrt(k2) * 2 * M_PI / All.BoxSize;
-        fac *= DeltaSpec(kmag, ptype) / sqrt(All.BoxSize * All.BoxSize * All.BoxSize);
         /*Multiply by derivative of scale-dependent growth function*/
         if(include_growth)
             fac *= dlogGrowth(kmag, ptype);
+        else
+            fac *= DeltaSpec(kmag, ptype);
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
         value[0][1] = tmp * fac;

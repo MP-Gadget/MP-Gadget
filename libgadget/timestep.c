@@ -142,7 +142,8 @@ find_timesteps(int * MinTimeBin)
         reverse_and_apply_gravity();
 
     /*Update the PM timestep size */
-    if(is_PM_timestep(All.Ti_Current)) {
+    const int isPM = is_PM_timestep(All.Ti_Current);
+    if(isPM) {
         SyncPoint * next = find_next_sync_point(All.Ti_Current);
         inttime_t dti_max;
         if(next == NULL) {
@@ -176,17 +177,18 @@ find_timesteps(int * MinTimeBin)
     }
 
     int badstepsizecount = 0;
-    int mTimeBin = TIMEBINS;
-    #pragma omp parallel for reduction(min: mTimeBin) reduction(+: badstepsizecount)
+    int mTimeBin = TIMEBINS, maxTimeBin = 0;
+    #pragma omp parallel for reduction(min: mTimeBin) reduction(+: badstepsizecount) reduction(max:maxTimeBin)
     for(pa = 0; pa < NumActiveParticle; pa++)
     {
         const int i = get_active_particle(pa);
 
-        if(P[i].Ti_kick != P[i].Ti_drift) {
-            endrun(1, "Inttimes out of sync: Particle %d (ID=%ld) Kick=%o != Drift=%o\n", i, P[i].ID, P[i].Ti_kick, P[i].Ti_drift);
-        }
         if(P[i].IsGarbage)
             continue;
+
+        if(P[i].Ti_kick != P[i].Ti_drift) {
+            endrun(1, "Inttimes out of sync: Particle %d (bin = %d, ID=%ld) Kick=%x != Drift=%x\n", i, P[i].TimeBin, P[i].ID, P[i].Ti_kick, P[i].Ti_drift);
+        }
 
         int dti;
         if(All.ForceEqualTimesteps) {
@@ -214,15 +216,26 @@ find_timesteps(int * MinTimeBin)
         }
         /* This moves particles between time bins:
          * active particles always remain active
-         * until reconstruct_timebins is called
-         * (during domain, on new timestep).*/
+         * until rebuild_activelist is called
+         * (after domain, on new timestep).*/
         P[i].TimeBin = bin;
+        /*Find max and min*/
         if(bin < mTimeBin)
             mTimeBin = bin;
+        if(bin > maxTimeBin)
+            maxTimeBin = bin;
     }
 
     MPI_Allreduce(MPI_IN_PLACE, &badstepsizecount, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &mTimeBin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &maxTimeBin, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+
+    /* Ensure that the PM timestep is not longer than the longest tree timestep;
+     * this prevents particles in the longest timestep being active and moving into a higher bin
+     * between PM timesteps, thus skipping the PM step entirely.*/
+    if(isPM && PM.length > dti_from_timebin(maxTimeBin))
+        PM.length = dti_from_timebin(maxTimeBin);
+    message(0, "PM timebin: %x dloga = %g  Max = (%g)\n", PM.length, dloga_from_dti(PM.length), All.MaxSizeTimestep);
 
     if(badstepsizecount) {
         message(0, "bad timestep spotted: terminating and saving snapshot.\n");
@@ -599,7 +612,6 @@ get_long_range_timestep_ti(const inttime_t dti_max)
     dti = round_down_power_of_two(dti);
     if(dti > dti_max)
         dti = dti_max;
-    message(0, "Maximal PM timestep: dloga = %g  (%g)\n", dloga_from_dti(dti), All.MaxSizeTimestep);
     return dti;
 }
 

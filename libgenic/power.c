@@ -65,28 +65,49 @@ double DeltaSpec(double k, enum TransferType Type)
   return power;
 }
 
+/* Internal helper function that performs interpolation for a row of the
+ * tabulated transfer/mater power table*/
+static double get_Tabulated(double k, enum TransferType Type, double oobval)
+{
+    /*Convert k to Mpc/h*/
+    const double scale = (CM_PER_MPC / UnitLength_in_cm);
+    const double logk = log10(k*scale);
+
+    if(logk < power_table.logk[0] || logk > power_table.logk[power_table.Nentry - 1])
+      return oobval;
+
+    double logD = gsl_interp_eval(power_table.mat_intp[0], power_table.logk, power_table.logD[0], logk, power_table.mat_intp_acc[0]);
+    double trans = 1;
+    /*Transfer table stores (T_type(k) / T_tot(k))*/
+    if(transfer_table.Nentry > 0)
+       if(Type >= DELTA_BAR && Type < DELTA_TOT)
+          trans = gsl_interp_eval(transfer_table.mat_intp[Type], transfer_table.logk, transfer_table.logD[Type], logk, transfer_table.mat_intp_acc[Type]);
+
+    /*Convert delta from (Mpc/h)^3/2 to kpc/h^3/2*/
+    logD += 1.5 * log10(scale);
+    double delta = pow(10.0, logD) * trans;
+    if(!isfinite(delta))
+        endrun(1,"infinite delta or growth: %g for k = %g, Type = %d (tk = %g, logD = %g)\n",delta, k, Type, trans, logD);
+    return delta;
+}
+
+double Delta_Tabulated(double k, enum TransferType Type)
+{
+    if(Type >= VEL_BAR && Type <= VEL_TOT)
+        endrun(1, "Velocity Type %d passed to Delta_Tabulated\n", Type);
+
+    return get_Tabulated(k, Type, 0);
+}
+
 double dlogGrowth(double kmag, enum TransferType Type)
 {
-  const double scale = (CM_PER_MPC / UnitLength_in_cm);
-  const double logk = log10(kmag * scale);
-
-  if(logk < transfer_table.logk[0] || logk > transfer_table.logk[transfer_table.Nentry - 1])
-      return 1;
-
-  /*Default to total growth: type 3 is cdm + baryons.*/
-  if(Type < DELTA_BAR || Type > DELTA_CB) {
-      Type = VEL_TOT;
-  }
-  else {
-      /*Type should be an offset from the first velocity*/
-      Type = VEL_BAR - DELTA_BAR + Type;
-  }
-  /*Use the velocity entries*/
-  double growth =  gsl_interp_eval(transfer_table.mat_intp[Type], transfer_table.logk, transfer_table.logD[Type], logk, transfer_table.mat_intp_acc[Type]);
-
-  if(!isfinite(growth))
-      endrun(1,"Growth function is: %g for k = %g, Type = %d\n", growth, kmag, Type);
-  return growth;
+    /*Default to total growth: type 3 is cdm + baryons.*/
+    if(Type < DELTA_BAR || Type > DELTA_CB)
+        Type = VEL_TOT;
+    else
+        /*Type should be an offset from the first velocity*/
+        Type = VEL_BAR - DELTA_BAR + Type;
+    return get_Tabulated(kmag, Type, 1);
 }
 
 /*Save a transfer function table to the IC file*/
@@ -304,28 +325,31 @@ init_transfer_table(int ThisTask, double InitTime, const struct power_params * c
         transfer_table.logD[VEL_BAR][i] += transfer_table.logD[VEL_CDM][i];
         transfer_table.logD[VEL_NU][i] += transfer_table.logD[VEL_CDM][i];
 
-        /*CDM + baryon growth*/
+        /*Set up the CDM + baryon rows*/
+        transfer_table.logD[DELTA_CB][i] = CP->OmegaBaryon * transfer_table.logD[DELTA_BAR][i] + CP->OmegaCDM * transfer_table.logD[DELTA_CDM][i];
         transfer_table.logD[VEL_CB][i] = CP->OmegaBaryon * transfer_table.logD[VEL_BAR][i] + CP->OmegaCDM * transfer_table.logD[VEL_CDM][i];
-        /*total growth*/
+        /*total growth and delta: start as CDM + baryon and then add nu if needed.*/
         transfer_table.logD[VEL_TOT][i] = transfer_table.logD[VEL_CB][i];
-        /*Total delta*/
-        double T_tot = CP->OmegaBaryon * transfer_table.logD[DELTA_BAR][i] + CP->OmegaCDM * transfer_table.logD[DELTA_CDM][i];
-        /*Divide cdm +  bar total velocity transfer by d_cdm + bar*/
-        transfer_table.logD[VEL_CB][i] /= T_tot;
+        double T_tot = transfer_table.logD[DELTA_CB][i];
+        /*Normalise the cb rows*/
+        double Omega0a3 = CP->OmegaBaryon + CP->OmegaCDM;
+        transfer_table.logD[DELTA_CB][i] /= Omega0a3;
+        transfer_table.logD[VEL_CB][i] /= Omega0a3;
+        /*Total matter density in T_tot. Neutrinos may be slightly relativistic, so
+         * Omega0a3 >= CP->Omega0 if neutrinos are massive.*/
         if(nnu > 0) {
             /*Add neutrino growth to total growth*/
             transfer_table.logD[VEL_TOT][i] += onu *  transfer_table.logD[VEL_NU][i];
             T_tot += onu * transfer_table.logD[DELTA_NU][i];
+            Omega0a3 += onu;
         }
-        /* Total growth normalized by total delta*/
-        transfer_table.logD[VEL_TOT][i] /= T_tot;
-        /*Normalize growth_i by delta_i, and transform delta_i to delta_i/delta_tot*/
-        for(t = DELTA_BAR; t <= DELTA_NU; t++) {
-            transfer_table.logD[t+VEL_BAR-DELTA_BAR][i] /= transfer_table.logD[t][i];
-            transfer_table.logD[t][i] /= (T_tot / CP->Omega0);
+        /*Normalise the totals now we have neutrinos*/
+        transfer_table.logD[VEL_TOT][i] /= Omega0a3;
+        T_tot /= Omega0a3;
+        /*Normalize growth_i and delta_i by delta_tot */
+        for(t = DELTA_BAR; t <= VEL_TOT; t++) {
+            transfer_table.logD[t][i] /= T_tot;
         }
-        /*Set up the delta_cb row*/
-        transfer_table.logD[DELTA_CB][i] = (CP->OmegaBaryon * transfer_table.logD[DELTA_BAR][i] + CP->OmegaCDM * transfer_table.logD[DELTA_CDM][i])/(CP->OmegaCDM + CP->OmegaBaryon);
     }
 
     /*Now compute mean growths*/
@@ -378,32 +402,6 @@ int init_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in
         message(0,"Growth factor to z=%g: %g \n", ppar->InputPowerRedshift, Dplus);
     }
     return power_table.Nentry;
-}
-
-double Delta_Tabulated(double k, enum TransferType Type)
-{
-    /*Convert k to Mpc/h*/
-  const double scale = (CM_PER_MPC / UnitLength_in_cm);
-  const double logk = log10(k*scale);
-
-  if(logk < power_table.logk[0] || logk > power_table.logk[power_table.Nentry - 1])
-    return 0;
-
-  double logD = gsl_interp_eval(power_table.mat_intp[0], power_table.logk, power_table.logD[0], logk, power_table.mat_intp_acc[0]);
-  double trans = 1;
-  /*Transfer table stores (T_type(k) / T_tot(k))*/
-  if(transfer_table.Nentry > 0)
-    if(Type >= DELTA_BAR && Type <= DELTA_CB) {
-        trans = gsl_interp_eval(transfer_table.mat_intp[Type], transfer_table.logk, transfer_table.logD[Type], logk, transfer_table.mat_intp_acc[Type]);
-    }
-
-  /*Convert delta from (Mpc/h)^3/2 to kpc/h^3/2*/
-  logD += 1.5 * log10(scale);
-  double delta = pow(10.0, logD) * trans;
-
-  if(!isfinite(delta))
-      endrun(1,"Power spectrum is: %g for k = %g, Type = %d (tk = %g, logD = %g)\n",delta, k, Type, trans, logD);
-  return delta;
 }
 
 double Delta_EH(double k)	/* Eisenstein & Hu */
