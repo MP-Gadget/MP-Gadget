@@ -39,6 +39,7 @@ typedef struct {
 */
 static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, int do_gc);
 static void domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan);
+static int domain_find_iter_space(ExchangePlan * plan);
 
 /* This function builts the count/displ arrays from
  * the rows stored in the entry struct of the plan.
@@ -121,6 +122,7 @@ int domain_exchange(int (*layoutfunc)(int p), int do_gc) {
     while(MPIU_Any(plan.last < plan.nexchange, MPI_COMM_WORLD))
     {
         /* determine for each rank how many particles have to be shifted to other ranks */
+        plan.last = domain_find_iter_space(&plan);
         domain_build_plan(layoutfunc, &plan);
         walltime_measure("/Domain/exchange/togo");
 
@@ -343,36 +345,40 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, i
     return 0;
 }
 
-/*This function populates the toGo and toGet arrays*/
-static void
-domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
+/*Find how many particles we can transfer in current exchange iteration*/
+static int
+domain_find_iter_space(ExchangePlan * plan)
 {
-    int ptype, n;
-    size_t package = sizeof(P[0]), nlimit = FreeBytes;
+    int n, ptype;
+    size_t nlimit = FreeBytes;
 
     if (nlimit <  NTask * 2 * sizeof(MPI_Request))
         endrun(1, "Not enough memory free to store requests!\n");
 
     nlimit -= NTask * 2 * sizeof(MPI_Request);
 
-    memset(plan->toGo, 0, sizeof(plan->toGo[0]) * NTask);
-
     message(0, "Using %td bytes for exchange.\n", nlimit);
 
+    size_t maxsize = 0;
     for(ptype = 0; ptype < 6; ptype ++ ) {
-        package += SlotsManager->info[ptype].elsize;
+        if(!SlotsManager->info[ptype].enabled) continue;
+        if (maxsize < SlotsManager->info[ptype].elsize)
+            maxsize = SlotsManager->info[ptype].elsize;
     }
+    size_t package = sizeof(P[0]) + maxsize;
     if(package >= nlimit)
         endrun(212, "Package is too large, no free memory.");
 
+    /* Fast path: if we have enough space no matter what type the particles
+     * are we don't need to check them.*/
+    if(plan->nexchange * (sizeof(P[0]) + maxsize) < nlimit) {
+        return plan->nexchange;
+    }
+    /*Find how many particles we have space for.*/
     for(n = plan->first; n < plan->nexchange; n++)
     {
         const int i = plan->ExchangeList[n];
-        const int target = layoutfunc(i);
         const int ptype = P[i].Type;
-
-        plan->toGo[target].base++;
-        plan->toGo[target].slots[ptype]++;
 
         package += sizeof(P[0]) + SlotsManager->info[ptype].elsize;
         if(package >= nlimit) {
@@ -380,7 +386,25 @@ domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
             break;
         }
     }
-    plan->last = n;
+    return n;
+}
+
+/*This function populates the toGo and toGet arrays*/
+static void
+domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
+{
+    int ptype, n;
+
+    memset(plan->toGo, 0, sizeof(plan->toGo[0]) * NTask);
+
+    for(n = plan->first; n < plan->last; n++)
+    {
+        const int i = plan->ExchangeList[n];
+        const int target = layoutfunc(i);
+        const int ptype = P[i].Type;
+        plan->toGo[target].base++;
+        plan->toGo[target].slots[ptype]++;
+    }
 
     MPI_Alltoall(plan->toGo, 1, MPI_TYPE_PLAN_ENTRY, plan->toGet, 1, MPI_TYPE_PLAN_ENTRY, MPI_COMM_WORLD);
 
