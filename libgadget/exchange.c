@@ -17,6 +17,12 @@ typedef struct {
 
 static MPI_Datatype MPI_TYPE_PLAN_ENTRY = 0;
 
+/*Small bitfield struct to cache the layout function and particle data*/
+typedef struct {
+    unsigned int ptype : 3;
+    unsigned int target : 8 * sizeof(int) - 3;
+} ExchangePartCache;
+
 typedef struct {
     ExchangePlanEntry * toGo;
     ExchangePlanEntry * toGoOffset;
@@ -31,6 +37,7 @@ typedef struct {
     /*First and last particles in this exchange*/
     int first;
     int last;
+    ExchangePartCache * layouts;
 } ExchangePlan;
 /*
  *
@@ -166,7 +173,7 @@ shall_we_compact_slots(int * compact, ExchangePlan * plan)
 
 static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, int do_gc)
 {
-    int n, target, ptype;
+    int n, ptype;
     struct particle_data *partBuf;
     char * slotBuf[6];
 
@@ -198,16 +205,16 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, i
     {
         const int i = plan->ExchangeList[n];
         /* preparing for export */
-        target = layoutfunc(i);
+        const int target = plan->layouts[n-plan->first].target;
 
-        int ptype = P[i].Type;
+        int type = plan->layouts[n-plan->first].ptype;
 
         /* watch out thread unsafe */
-        int bufPI = toGoPtr[target].slots[ptype];
-        toGoPtr[target].slots[ptype] ++;
-        size_t elsize = SlotsManager->info[ptype].elsize;
-        memcpy(slotBuf[ptype] + (bufPI + plan->toGoOffset[target].slots[ptype]) * elsize,
-                (char*) SlotsManager->info[ptype].ptr + P[i].PI * elsize, elsize);
+        int bufPI = toGoPtr[target].slots[type];
+        toGoPtr[target].slots[type] ++;
+        size_t elsize = SlotsManager->info[type].elsize;
+        memcpy(slotBuf[type] + (bufPI + plan->toGoOffset[target].slots[type]) * elsize,
+                (char*) SlotsManager->info[type].ptr + P[i].PI * elsize, elsize);
 
         /* now copy the base P; after PI has been updated */
         partBuf[plan->toGoOffset[target].base + toGoPtr[target].base] = P[i];
@@ -218,6 +225,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, i
     /*Update done marker*/
     plan->first = plan->last;
 
+    myfree(plan->layouts);
     ta_free(toGoPtr);
     walltime_measure("/Domain/exchange/makebuf");
 
@@ -371,7 +379,7 @@ domain_find_iter_space(ExchangePlan * plan)
 
     /* Fast path: if we have enough space no matter what type the particles
      * are we don't need to check them.*/
-    if(plan->nexchange * (sizeof(P[0]) + maxsize) < nlimit) {
+    if(plan->nexchange * (sizeof(P[0]) + maxsize + sizeof(ExchangePartCache)) < nlimit) {
         return plan->nexchange;
     }
     /*Find how many particles we have space for.*/
@@ -380,7 +388,7 @@ domain_find_iter_space(ExchangePlan * plan)
         const int i = plan->ExchangeList[n];
         const int ptype = P[i].Type;
 
-        package += sizeof(P[0]) + SlotsManager->info[ptype].elsize;
+        package += sizeof(P[0]) + SlotsManager->info[ptype].elsize + sizeof(ExchangePartCache);
         if(package >= nlimit) {
 //             message(1,"Not enough space for particles: nlimit=%d, package=%d\n",nlimit,package);
             break;
@@ -397,13 +405,22 @@ domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
 
     memset(plan->toGo, 0, sizeof(plan->toGo[0]) * NTask);
 
+    plan->layouts = mymalloc("layoutcache",sizeof(ExchangePartCache) * (plan->last - plan->first));
+
+    #pragma omp parallel for
     for(n = plan->first; n < plan->last; n++)
     {
         const int i = plan->ExchangeList[n];
         const int target = layoutfunc(i);
-        const int ptype = P[i].Type;
-        plan->toGo[target].base++;
-        plan->toGo[target].slots[ptype]++;
+        plan->layouts[n-plan->first].ptype = P[i].Type;
+        plan->layouts[n-plan->first].target = target;
+    }
+
+    /*Do the sum*/
+    for(n = 0; n < plan->last - plan->first; n++)
+    {
+        plan->toGo[plan->layouts[n].target].base++;
+        plan->toGo[plan->layouts[n].target].slots[plan->layouts[n].ptype]++;
     }
 
     MPI_Alltoall(plan->toGo, 1, MPI_TYPE_PLAN_ENTRY, plan->toGet, 1, MPI_TYPE_PLAN_ENTRY, MPI_COMM_WORLD);
