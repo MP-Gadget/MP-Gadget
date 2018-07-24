@@ -227,7 +227,7 @@ if __name__ ==  "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('paramfile', type=str, help='genic paramfile')
     parser.add_argument('--extpk', type=str, help='optional external primordial power spectrum',required=False)
-    parser.add_argument('--extraz', type=float,nargs='*', help='optional external primordial power spectrum',required=False)
+    parser.add_argument('--extraz', type=float,nargs='*', help='Space separated list of other redshifts at which to output power spectra',required=False)
     parser.add_argument('--verbose', action='store_true', help='print class runtime information',required=False)
     args = parser.parse_args()
     make_class_power(args.paramfile, args.extpk, args.extraz,args.verbose)
