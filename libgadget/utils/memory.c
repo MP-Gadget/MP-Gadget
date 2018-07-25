@@ -307,8 +307,15 @@ allocator_realloc_int(Allocator * alloc, void * ptr, size_t new_size, char * fmt
         endrun(1, "Mismatched Free: %s : %s\n", header->name, header->annotation);
     }
 
+    /*If we are shrinking memory, move the existing data block up and then write a new header.*/
+    if(tmp.dir == ALLOC_DIR_TOP && new_size < tmp.request_size) {
+        /*Offset for new memory, after header*/
+        size_t size = ((new_size + ALIGNMENT - 1) / ALIGNMENT) * ALIGNMENT;
+        memmove(alloc->base + alloc->top - size, tmp.ptr, new_size);
+    }
     void * newptr = allocator_alloc_va(alloc, tmp.name, new_size, tmp.dir, fmt, va);
-    if(tmp.dir == ALLOC_DIR_TOP) {
+    /*If we are extending memory, move the existing data block down after writing a new header below it*/
+    if(tmp.dir == ALLOC_DIR_TOP && new_size > tmp.request_size) {
         memmove(newptr, tmp.ptr, tmp.size);
     }
     va_end(va);
