@@ -34,7 +34,11 @@ typedef struct {
     int * ExchangeList;
     /*Total number of exchanged particles*/
     int nexchange;
-    /*First and last particles in this exchange*/
+    /* First and last particles in current
+     * batch of the exchange, relative to ExchangeList[0].
+     * After each batch, first will be updated to last
+     * and last will be recomputed.
+     * Exchange stops when last == nexchange.*/
     int first;
     int last;
     ExchangePartCache * layouts;
