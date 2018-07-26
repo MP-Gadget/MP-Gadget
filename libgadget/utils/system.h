@@ -40,6 +40,9 @@ void MPIU_write_pids(char * filename);
  * Function returns size of the final array.*/
 size_t gadget_compact_thread_arrays(int * dest, int * srcs[], size_t sizes[], int narrays);
 
+/* Set up pointers to different parts of a single segmented array (usually corresponding to different threads).*/
+void gadget_setup_thread_arrays(int * dest, int * srcs[], size_t sizes[], size_t total_size, int narrays);
+
 int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
         int *rdispls, MPI_Datatype recvtype, MPI_Comm comm);

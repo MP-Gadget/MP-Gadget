@@ -84,14 +84,9 @@ int domain_exchange(int (*layoutfunc)(int p), int do_gc) {
     plan.first = 0;
     plan.last = 0;
     plan.ExchangeList = mymalloc2("exchangelist", sizeof(int) * PartManager->NumPart * omp_get_max_threads());
-    memset(plan.ExchangeList, 0, sizeof(int) * PartManager->NumPart * omp_get_max_threads());
     size_t *nexthr = ta_malloc("nexthr", size_t, omp_get_max_threads());
     int **threx = ta_malloc("threx", int *, omp_get_max_threads());
-    threx[0] = plan.ExchangeList;
-    for(i=0; i < omp_get_max_threads(); i++) {
-        threx[i] = plan.ExchangeList+ i * PartManager->NumPart;
-        nexthr[i] = 0;
-    }
+    gadget_setup_thread_arrays(plan.ExchangeList, threx, nexthr,PartManager->NumPart,omp_get_max_threads());
 
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)
@@ -293,7 +288,8 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, i
     int src;
     for(src = 0; src < NTask; src++) {
         /* unpack each source rank */
-        int newPI[6], i;
+        int newPI[6];
+        int i;
         for(ptype = 0; ptype < 6; ptype ++) {
             newPI[ptype] = SlotsManager->info[ptype].size + plan->toGetOffset[src].slots[ptype];
         }

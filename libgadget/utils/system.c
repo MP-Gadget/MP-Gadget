@@ -509,3 +509,13 @@ size_t gadget_compact_thread_arrays(int * dest, int * srcs[], size_t sizes[], in
     }
     return asize;
 }
+
+void gadget_setup_thread_arrays(int * dest, int * srcs[], size_t sizes[], size_t total_size, int narrays)
+{
+    int i;
+    srcs[0] = dest;
+    for(i=0; i < narrays; i++) {
+        srcs[i] = dest + i * total_size;
+        sizes[i] = 0;
+    }
+}
