@@ -26,6 +26,9 @@ test_allocator(void ** state)
     q2[2000] = 1;
     q2 = allocator_realloc(A0, q2, 3072*sizeof(int));
     assert_int_equal(q2[2000] ,1);
+    /*Realloc to something smaller*/
+    q2 = allocator_realloc(A0, q2, 2048*sizeof(int));
+    assert_int_equal(q2[2000] ,1);
 
     /* Assert that reallocing does not move the base pointer.
      * Note this is true only for bottom allocations*/

@@ -308,11 +308,7 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
     size_t *nqthr = ta_malloc("nqthr", size_t, All.NumThreads);
     int **thrqueue = ta_malloc("thrqueue", int *, All.NumThreads);
 
-    thrqueue[0] = queue;
-    for(i=0; i < All.NumThreads; i++) {
-        thrqueue[i] = queue + i * size;
-        nqthr[i] = 0;
-    }
+    gadget_setup_thread_arrays(queue, thrqueue, nqthr, size, All.NumThreads);
 
     /* We enforce schedule static to ensure that each thread executes on contiguous particles.*/
     #pragma omp parallel for schedule(static)

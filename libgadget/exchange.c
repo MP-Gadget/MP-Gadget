@@ -17,6 +17,12 @@ typedef struct {
 
 static MPI_Datatype MPI_TYPE_PLAN_ENTRY = 0;
 
+/*Small bitfield struct to cache the layout function and particle data*/
+typedef struct {
+    unsigned int ptype : 3;
+    unsigned int target : 8 * sizeof(int) - 3;
+} ExchangePartCache;
+
 typedef struct {
     ExchangePlanEntry * toGo;
     ExchangePlanEntry * toGoOffset;
@@ -24,14 +30,27 @@ typedef struct {
     ExchangePlanEntry * toGetOffset;
     ExchangePlanEntry toGoSum;
     ExchangePlanEntry toGetSum;
+    /*List of particles to exchange*/
+    int * ExchangeList;
+    /*Total number of exchanged particles*/
+    int nexchange;
+    /* First and last particles in current
+     * batch of the exchange, relative to ExchangeList[0].
+     * After each batch, first will be updated to last
+     * and last will be recomputed.
+     * Exchange stops when last == nexchange.*/
+    int first;
+    int last;
+    ExchangePartCache * layouts;
 } ExchangePlan;
 /*
  *
  * exchange particles according to layoutfunc.
  * layoutfunc gives the target task of particle p.
 */
-static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan);
-static int domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan);
+static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, int do_gc);
+static void domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan);
+static int domain_find_iter_space(ExchangePlan * plan);
 
 /* This function builts the count/displ arrays from
  * the rows stored in the entry struct of the plan.
@@ -52,7 +71,7 @@ _transpose_plan_entries(ExchangePlanEntry * entries, int * count, int ptype)
         }
     }
 }
-int domain_exchange(int (*layoutfunc)(int p)) {
+int domain_exchange(int (*layoutfunc)(int p), int do_gc) {
     int i;
     int64_t sumtogo;
     int failure = 0;
@@ -63,54 +82,72 @@ int domain_exchange(int (*layoutfunc)(int p)) {
         MPI_Type_commit(&MPI_TYPE_PLAN_ENTRY);
     }
 
+    /* flag the particles that need to be exported */
+    ExchangePlan plan;
+    /*Build a list of particles that will be exchanged*/
+    plan.first = 0;
+    plan.last = 0;
+    plan.ExchangeList = mymalloc2("exchangelist", sizeof(int) * PartManager->NumPart * omp_get_max_threads());
+    size_t *nexthr = ta_malloc("nexthr", size_t, omp_get_max_threads());
+    int **threx = ta_malloc("threx", int *, omp_get_max_threads());
+    gadget_setup_thread_arrays(plan.ExchangeList, threx, nexthr,PartManager->NumPart,omp_get_max_threads());
+
+    #pragma omp parallel for
+    for(i = 0; i < PartManager->NumPart; i++)
+    {
+        const int tid = omp_get_thread_num();
+        if(P[i].IsGarbage)
+            continue;
+        int target = layoutfunc(i);
+        if(target != ThisTask) {
+            threx[tid][nexthr[tid]] = i;
+            nexthr[tid]++;
+        }
+    }
+    /*Merge step for the queue.*/
+    plan.nexchange = gadget_compact_thread_arrays(plan.ExchangeList, threx, nexthr, omp_get_max_threads());
+    ta_free(threx);
+    ta_free(nexthr);
+    /*Shrink memory*/
+    plan.ExchangeList = myrealloc(plan.ExchangeList, sizeof(int) * plan.nexchange);
+
     /*! toGo[0][task*NTask + partner] gives the number of particles in task 'task'
      *  that have to go to task 'partner'
      *  toGo[1] is SPH, toGo[2] is BH and toGo[3] is stars
      */
-    /* flag the particles that need to be exported */
-    ExchangePlan plan;
     plan.toGo = (ExchangePlanEntry *) mymalloc2("toGo", sizeof(plan.toGo[0]) * NTask);
     plan.toGoOffset = (ExchangePlanEntry *) mymalloc2("toGo", sizeof(plan.toGo[0]) * NTask);
     plan.toGet = (ExchangePlanEntry *) mymalloc2("toGet", sizeof(plan.toGo[0]) * NTask);
     plan.toGetOffset = (ExchangePlanEntry *) mymalloc2("toGet", sizeof(plan.toGo[0]) * NTask);
 
-#pragma omp parallel for
-    for(i = 0; i < PartManager->NumPart; i++)
-    {
-        if(P[i].IsGarbage)
-            continue;
-        int target = layoutfunc(i);
-        if(target != ThisTask)
-            P[i].OnAnotherDomain = 1;
-        P[i].WillExport = 0;
-    }
 
     walltime_measure("/Domain/exchange/init");
 
-    int iter = 0, need_more;
+    int iter = 0;
 
-    do
+    while(MPIU_Any(plan.last < plan.nexchange, MPI_COMM_WORLD))
     {
         /* determine for each rank how many particles have to be shifted to other ranks */
-        need_more = domain_build_plan(layoutfunc, &plan);
+        plan.last = domain_find_iter_space(&plan);
+        domain_build_plan(layoutfunc, &plan);
         walltime_measure("/Domain/exchange/togo");
 
         sumup_large_ints(1, &plan.toGoSum.base, &sumtogo);
 
         message(0, "iter=%d exchange of %013ld particles\n", iter, sumtogo);
 
-        failure = domain_exchange_once(layoutfunc, &plan);
+        failure = domain_exchange_once(layoutfunc, &plan, do_gc || (plan.last < plan.nexchange));
 
         if(failure)
             break;
         iter++;
     }
-    while(need_more > 0);
 
     myfree(plan.toGetOffset);
     myfree(plan.toGet);
     myfree(plan.toGoOffset);
     myfree(plan.toGo);
+    myfree(plan.ExchangeList);
 
     return failure;
 }
@@ -133,9 +170,9 @@ shall_we_compact_slots(int * compact, ExchangePlan * plan)
     MPI_Allreduce(MPI_IN_PLACE, compact, 6, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
 }
 
-static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
+static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, int do_gc)
 {
-    int i, target, ptype;
+    int n, ptype;
     struct particle_data *partBuf;
     char * slotBuf[6];
 
@@ -163,23 +200,20 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     ExchangePlanEntry * toGoPtr = ta_malloc("toGoPtr", ExchangePlanEntry, NTask);
     memset(toGoPtr, 0, sizeof(toGoPtr[0]) * NTask);
 
-    /*FIXME: make this omp ! */
-    for(i = 0; i < PartManager->NumPart; i++)
+    for(n = plan->first; n < plan->last; n++)
     {
-        if(!(P[i].OnAnotherDomain && P[i].WillExport)) continue;
+        const int i = plan->ExchangeList[n];
         /* preparing for export */
-        P[i].OnAnotherDomain = 0;
-        P[i].WillExport = 0;
-        target = layoutfunc(i);
+        const int target = plan->layouts[n-plan->first].target;
 
-        int ptype = P[i].Type;
+        int type = plan->layouts[n-plan->first].ptype;
 
         /* watch out thread unsafe */
-        int bufPI = toGoPtr[target].slots[ptype];
-        toGoPtr[target].slots[ptype] ++;
-        size_t elsize = SlotsManager->info[ptype].elsize;
-        memcpy(slotBuf[ptype] + (bufPI + plan->toGoOffset[target].slots[ptype]) * elsize,
-                (char*) SlotsManager->info[ptype].ptr + P[i].PI * elsize, elsize);
+        int bufPI = toGoPtr[target].slots[type];
+        toGoPtr[target].slots[type] ++;
+        size_t elsize = SlotsManager->info[type].elsize;
+        memcpy(slotBuf[type] + (bufPI + plan->toGoOffset[target].slots[type]) * elsize,
+                (char*) SlotsManager->info[type].ptr + P[i].PI * elsize, elsize);
 
         /* now copy the base P; after PI has been updated */
         partBuf[plan->toGoOffset[target].base + toGoPtr[target].base] = P[i];
@@ -187,16 +221,24 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
         /* mark the particle for removal. Both secondary and base slots will be marked. */
         slots_mark_garbage(i);
     }
+    /*Update done marker*/
+    plan->first = plan->last;
 
+    myfree(plan->layouts);
     ta_free(toGoPtr);
     walltime_measure("/Domain/exchange/makebuf");
 
-    /*Find which slots to gc*/
-    int compact[6] = {0};
-    shall_we_compact_slots(compact, plan);
-    slots_gc(compact);
+    /* Do a gc if we were asked to, or if we need one
+     * to have enough space for the incoming material*/
+    int shall_we_gc = do_gc || (PartManager->NumPart + plan->toGetSum.base > PartManager->MaxPart);
+    if(MPIU_Any(shall_we_gc, MPI_COMM_WORLD)) {
+        /*Find which slots to gc*/
+        int compact[6] = {0};
+        shall_we_compact_slots(compact, plan);
+        slots_gc(compact);
 
-    walltime_measure("/Domain/exchange/garbage");
+        walltime_measure("/Domain/exchange/garbage");
+    }
 
     int newNumPart;
     int newSlots[6] = {0};
@@ -251,6 +293,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     for(src = 0; src < NTask; src++) {
         /* unpack each source rank */
         int newPI[6];
+        int i;
         for(ptype = 0; ptype < 6; ptype ++) {
             newPI[ptype] = SlotsManager->info[ptype].size + plan->toGetOffset[src].slots[ptype];
         }
@@ -310,51 +353,74 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     return 0;
 }
 
-/*This function populates the toGo and toGet arrays*/
+/*Find how many particles we can transfer in current exchange iteration*/
 static int
-domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
+domain_find_iter_space(ExchangePlan * plan)
 {
-    int n;
-    size_t package;
-    int ptype;
+    int n, ptype;
     size_t nlimit = FreeBytes;
+
     if (nlimit <  NTask * 2 * sizeof(MPI_Request))
         endrun(1, "Not enough memory free to store requests!\n");
 
     nlimit -= NTask * 2 * sizeof(MPI_Request);
 
-    memset(plan->toGo, 0, sizeof(plan->toGo[0]) * NTask);
-
     message(0, "Using %td bytes for exchange.\n", nlimit);
 
-    package = sizeof(P[0]);
+    size_t maxsize = 0;
     for(ptype = 0; ptype < 6; ptype ++ ) {
-        package += SlotsManager->info[ptype].elsize;
+        if(!SlotsManager->info[ptype].enabled) continue;
+        if (maxsize < SlotsManager->info[ptype].elsize)
+            maxsize = SlotsManager->info[ptype].elsize;
     }
+    size_t package = sizeof(P[0]) + maxsize;
     if(package >= nlimit)
         endrun(212, "Package is too large, no free memory.");
 
-    int insuf = 0;
-    for(n = 0; n < PartManager->NumPart; n++)
+    /* Fast path: if we have enough space no matter what type the particles
+     * are we don't need to check them.*/
+    if(plan->nexchange * (sizeof(P[0]) + maxsize + sizeof(ExchangePartCache)) < nlimit) {
+        return plan->nexchange;
+    }
+    /*Find how many particles we have space for.*/
+    for(n = plan->first; n < plan->nexchange; n++)
     {
+        const int i = plan->ExchangeList[n];
+        const int ptype = P[i].Type;
+
+        package += sizeof(P[0]) + SlotsManager->info[ptype].elsize + sizeof(ExchangePartCache);
         if(package >= nlimit) {
-            message(1,"Not enough space for particles: n=%d, nlimit=%d, package=%d\n",n,nlimit,package);
-            insuf = 1;
+//             message(1,"Not enough space for particles: nlimit=%d, package=%d\n",nlimit,package);
             break;
         }
-        if(!P[n].OnAnotherDomain) continue;
+    }
+    return n;
+}
 
-        int target = layoutfunc(n);
-        if (target == ThisTask) continue;
+/*This function populates the toGo and toGet arrays*/
+static void
+domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
+{
+    int ptype, n;
 
-        plan->toGo[target].base += 1;
-        nlimit -= sizeof(P[0]);
+    memset(plan->toGo, 0, sizeof(plan->toGo[0]) * NTask);
 
-        int ptype = P[n].Type;
-        plan->toGo[target].slots[ptype] += 1;
-        nlimit -= SlotsManager->info[ptype].elsize;
+    plan->layouts = mymalloc("layoutcache",sizeof(ExchangePartCache) * (plan->last - plan->first));
 
-        P[n].WillExport = 1;	/* flag this particle for export */
+    #pragma omp parallel for
+    for(n = plan->first; n < plan->last; n++)
+    {
+        const int i = plan->ExchangeList[n];
+        const int target = layoutfunc(i);
+        plan->layouts[n-plan->first].ptype = P[i].Type;
+        plan->layouts[n-plan->first].target = target;
+    }
+
+    /*Do the sum*/
+    for(n = 0; n < plan->last - plan->first; n++)
+    {
+        plan->toGo[plan->layouts[n].target].base++;
+        plan->toGo[plan->layouts[n].target].slots[plan->layouts[n].ptype]++;
     }
 
     MPI_Alltoall(plan->toGo, 1, MPI_TYPE_PLAN_ENTRY, plan->toGet, 1, MPI_TYPE_PLAN_ENTRY, MPI_COMM_WORLD);
@@ -378,8 +444,6 @@ domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
             plan->toGetSum.slots[ptype] += plan->toGet[rank].slots[ptype];
         }
     }
-
-    return MPIU_Any(insuf, MPI_COMM_WORLD);;
 }
 
 /* used only by test uniqueness */
@@ -407,25 +471,36 @@ domain_test_id_uniqueness(void)
     ids = (MyIDType *) mymalloc("ids", PartManager->NumPart * sizeof(MyIDType));
     ids_first = (MyIDType *) mymalloc("ids_first", NTask * sizeof(MyIDType));
 
-    for(i = 0; i < PartManager->NumPart; i++)
+    #pragma omp parallel for
+    for(i = 0; i < PartManager->NumPart; i++) {
         ids[i] = P[i].ID;
+        if(P[i].IsGarbage)
+            ids[i] = (MyIDType) -1;
+    }
 
     mpsort_mpi(ids, PartManager->NumPart, sizeof(MyIDType), mp_order_by_id, 8, NULL, MPI_COMM_WORLD);
 
-    for(i = 1; i < PartManager->NumPart; i++)
+    /*Remove garbage from the end*/
+    int nids = PartManager->NumPart;
+    while(nids > 0 && (ids[nids-1] == (MyIDType)-1)) {
+        nids--;
+    }
+
+    #pragma omp parallel for
+    for(i = 1; i < nids; i++) {
         if(ids[i] == ids[i - 1])
         {
             endrun(12, "non-unique ID=%013ld found on task=%d (i=%d NumPart=%d)\n",
-                    ids[i], ThisTask, i, PartManager->NumPart);
-
+                    ids[i], ThisTask, i, nids);
         }
+    }
 
     MPI_Allgather(&ids[0], sizeof(MyIDType), MPI_BYTE, ids_first, sizeof(MyIDType), MPI_BYTE, MPI_COMM_WORLD);
 
     if(ThisTask < NTask - 1)
-        if(ids[PartManager->NumPart - 1] == ids_first[ThisTask + 1])
+        if(ids[nids - 1] == ids_first[ThisTask + 1])
         {
-            endrun(13, "non-unique ID=%d found on task=%d\n", (int) ids[PartManager->NumPart - 1], ThisTask);
+            endrun(13, "non-unique ID=%d found on task=%d\n", (int) ids[nids - 1], ThisTask);
         }
 
     myfree(ids_first);
