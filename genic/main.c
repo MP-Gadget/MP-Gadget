@@ -155,7 +155,6 @@ int main(int argc, char **argv)
   message(0, "IC's generated.\n");
   message(0, "Initial scale factor = %g\n", All.TimeIC);
 
-  MPI_Barrier(MPI_COMM_WORLD);
   print_spec();
 
   MPI_Finalize();		/* clean up & finalize MPI */
