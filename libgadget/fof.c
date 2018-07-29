@@ -130,7 +130,6 @@ static MPI_Datatype MPI_TYPE_GROUP;
 void fof_fof(ForceTree * tree)
 {
     int i;
-    double t0, t1;
 
     MPI_Type_contiguous(sizeof(Group[0]), MPI_BYTE, &MPI_TYPE_GROUP);
     MPI_Type_commit(&MPI_TYPE_GROUP);
@@ -150,25 +149,19 @@ void fof_fof(ForceTree * tree)
         HaloLabel[i].Pindex = i;
     }
     /* Fill FOFP_List of primary */
-    t0 = second();
     fof_label_primary(tree);
-    t1 = second();
 
-    message(0, "group finding took = %g sec\n", timediff(t0, t1));
+    message(0, "Group finding done.\n");
     walltime_measure("/FOF/Primary");
 
     /* Fill FOFP_List of secondary */
-    t0 = second();
     fof_label_secondary(tree);
     walltime_measure("/FOF/Secondary");
-    t1 = second();
 
-    message(0, "attaching gas and star particles to nearest dm particles took = %g sec\n", timediff(t0, t1));
+    message(0, "Attached gas and star particles to nearest dm particles.\n");
 
     /* sort HaloLabel according to MinID, because we need that for compiling catalogues */
     qsort_openmp(HaloLabel, PartManager->NumPart, sizeof(struct fof_particle_list), fof_compare_HaloLabel_MinID);
-
-    t0 = second();
 
     NgroupsExt = 0;
 
@@ -182,15 +175,11 @@ void fof_fof(ForceTree * tree)
 
     fof_compile_base(base);
 
-    t1 = second();
-
-    message(0, "compiling local group data and catalogue took = %g sec\n", timediff(t0, t1));
+    message(0, "Compiled local group data and catalogue.\n");
 
     walltime_measure("/FOF/Compile");
 
     fof_assign_grnr(base);
-
-    t0 = second();
 
     /*Initialise the Group object from the BaseGroup*/
     Group = fof_alloc_group(base, NgroupsExt);
@@ -198,14 +187,11 @@ void fof_fof(ForceTree * tree)
     myfree(base);
 
     fof_compile_catalogue(Group);
-    t1 = second();
 
     walltime_measure("/FOF/Prop");
 
-    message(0, "group properties are now allocated.. (presently allocated=%g MB)\n",
+    message(0, "Finished FoF. Group properties are now allocated.. (presently allocated=%g MB)\n",
             mymalloc_usedbytes() / (1024.0 * 1024.0));
-
-    message(0, "computation of group properties took = %g sec\n", timediff(t0, t1));
 
     myfree(HaloLabel);
 }
@@ -1022,17 +1008,11 @@ static void fof_assign_grnr(struct BaseGroup * base)
 void
 fof_save_groups(int num)
 {
-    double t0, t1;
-
     message(0, "start global sorting of group catalogues\n");
-
-    t0 = second();
 
     fof_save_particles(num);
 
-    t1 = second();
-
-    message(0, "Group catalogues saved. took = %g sec\n", timediff(t0, t1));
+    message(0, "Group catalogues saved.\n");
 }
 
 /* FIXME: these shall goto the private member of secondary tree walk */
