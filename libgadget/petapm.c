@@ -297,8 +297,7 @@ pfft_complex * petapm_force_r2c(
      * CFT = DFT * dx **3
      * CFT[rho] = DFT [rho * dx **3] = DFT[CIC]
      * */
-    pfft_complex * complx = (pfft_complex *) mymalloc("PMcomplex", fftsize * sizeof(double));
-    double * real = (double * ) mymalloc("PMreal", fftsize * sizeof(double));
+    double * real = (double * ) mymalloc2("PMreal", fftsize * sizeof(double));
     memset(real, 0, sizeof(double) * fftsize);
     layout_build_and_exchange_cells_to_pfft(&layout, meshbuf, real);
     walltime_measure("/PMgrav/comm2");
@@ -308,6 +307,7 @@ pfft_complex * petapm_force_r2c(
     walltime_measure("/PMgrav/Misc");
 #endif
 
+    pfft_complex * complx = (pfft_complex *) mymalloc("PMcomplex", fftsize * sizeof(double));
     pfft_execute_dft_r2c(plan_forw, real, complx);
     myfree(real);
 
