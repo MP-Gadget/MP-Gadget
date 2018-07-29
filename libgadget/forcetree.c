@@ -156,6 +156,8 @@ int force_tree_build(int npart)
 
     force_treeupdate_pseudos(PartManager->MaxPart, tb);
 
+    myrealloc(Nodes_base, (Numnodestree +1) * sizeof(struct NODE));
+
     event_listen(&EventSlotsFork, force_tree_eh_slots_fork, NULL);
     return Numnodestree;
 }
@@ -1151,15 +1153,15 @@ struct TreeBuilder force_treeallocate(int maxnodes, int maxpart, int first_node_
     MaxNodes = maxnodes;
     RootNode = first_node_offset;
     message(0, "Allocating memory for %d tree-nodes (MaxPart=%d).\n", maxnodes, maxpart);
+    Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopNodes) * sizeof(int));
+    Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
+    allbytes += bytes;
     Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (MaxNodes + 1) * sizeof(struct NODE));
     allbytes += bytes;
     Nodes = Nodes_base - first_node_offset;
     tb.firstnode = first_node_offset;
     tb.lastnode = first_node_offset + maxnodes;
     tb.Nodes = Nodes_base - first_node_offset;
-    Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopNodes) * sizeof(int));
-    allbytes += bytes;
-    Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
     allbytes += bytes;
     message(0, "Allocated %g MByte for BH-tree, (presently allocated %g MB)\n",
          allbytes / (1024.0 * 1024.0),
@@ -1174,8 +1176,8 @@ void force_tree_free(void)
 {
     event_unlisten(&EventSlotsFork, force_tree_eh_slots_fork, NULL);
 
+    myfree(Nodes_base);
     myfree(Father);
     myfree(Nextnode);
-    myfree(Nodes_base);
     tree_allocated_flag = 0;
 }
