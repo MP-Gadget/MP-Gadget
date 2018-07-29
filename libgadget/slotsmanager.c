@@ -607,7 +607,6 @@ slots_check_id_consistency()
             message(0, "Task 0: GC: Used slots for type %d is %ld\n", ptype, used[ptype]);
         }
     }
-    MPI_Barrier(MPI_COMM_WORLD);
 }
 
 /* this function needs the Type of P[i] to be setup */
