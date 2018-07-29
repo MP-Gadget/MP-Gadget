@@ -498,7 +498,6 @@ void
 domain_test_id_uniqueness(void)
 {
     int i;
-    double t0, t1;
     MyIDType *ids, *ids_first;
 
     message(0, "Testing ID uniqueness...\n");
@@ -507,8 +506,6 @@ domain_test_id_uniqueness(void)
     {
         endrun(8, "need at least one particle per cpu\n");
     }
-
-    t0 = second();
 
     ids = (MyIDType *) mymalloc("ids", PartManager->NumPart * sizeof(MyIDType));
     ids_first = (MyIDType *) mymalloc("ids_first", NTask * sizeof(MyIDType));
@@ -547,9 +544,5 @@ domain_test_id_uniqueness(void)
 
     myfree(ids_first);
     myfree(ids);
-
-    t1 = second();
-
-    message(0, "success.  took=%g sec\n", timediff(t0, t1));
 }
 
