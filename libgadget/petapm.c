@@ -473,7 +473,6 @@ static void layout_prepare (struct Layout * L, double * meshbuf, PetaPMRegion * 
         endrun(1, "totNcExport = %ld\n", totNcExport);
     }
 
-    MPI_Barrier(MPI_COMM_WORLD);
     /* exchange the pencils */
     message(0, "PetaPM:  %010ld/%010ld Pencils and %010ld Cells\n", totNpExport, totNpAlloc, totNcExport);
     L->PencilRecv = mymalloc("PencilRecv", L->NpImport * sizeof(struct Pencil));
