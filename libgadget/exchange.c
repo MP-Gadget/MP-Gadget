@@ -328,8 +328,6 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc)
     }
     myfree(partBuf);
 
-    MPI_Barrier(MPI_COMM_WORLD);
-
     PartManager->NumPart = newNumPart;
 
     for(ptype = 0; ptype < 6; ptype++) {
