@@ -64,7 +64,7 @@ static size_t highest_memory_usage = 0;
 
 void report_detailed_memory_usage(const char *label, const char * fmt, ...)
 {
-    if(allocator_get_free_size(A_MAIN) < highest_memory_usage) {
+    if(allocator_get_used_size(A_MAIN, ALLOC_DIR_BOTH) < highest_memory_usage) {
         return;
     }
 
@@ -80,7 +80,7 @@ void report_detailed_memory_usage(const char *label, const char * fmt, ...)
         return;
     }
 
-    highest_memory_usage = allocator_get_free_size(A_MAIN);
+    highest_memory_usage = allocator_get_used_size(A_MAIN, ALLOC_DIR_BOTH);
 
     va_list va;
     char buf[4096];
