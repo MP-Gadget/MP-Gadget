@@ -297,8 +297,7 @@ pfft_complex * petapm_force_r2c(
      * CFT = DFT * dx **3
      * CFT[rho] = DFT [rho * dx **3] = DFT[CIC]
      * */
-    pfft_complex * complx = (pfft_complex *) mymalloc("PMcomplex", fftsize * sizeof(double));
-    double * real = (double * ) mymalloc("PMreal", fftsize * sizeof(double));
+    double * real = (double * ) mymalloc2("PMreal", fftsize * sizeof(double));
     memset(real, 0, sizeof(double) * fftsize);
     layout_build_and_exchange_cells_to_pfft(&layout, meshbuf, real);
     walltime_measure("/PMgrav/comm2");
@@ -308,6 +307,7 @@ pfft_complex * petapm_force_r2c(
     walltime_measure("/PMgrav/Misc");
 #endif
 
+    pfft_complex * complx = (pfft_complex *) mymalloc("PMcomplex", fftsize * sizeof(double));
     pfft_execute_dft_r2c(plan_forw, real, complx);
     myfree(real);
 
@@ -323,6 +323,9 @@ pfft_complex * petapm_force_r2c(
     petapm_transfer_func global_transfer = global_functions->global_transfer;
     pm_apply_transfer_function(&fourier_space_region, complx, rho_k, global_transfer);
     walltime_measure("/PMgrav/r2c");
+
+    report_memory_usage("PetaPM");
+
     myfree(complx);
     return rho_k;
 }
@@ -708,7 +711,6 @@ static void pm_init_regions(PetaPMRegion * regions, const int Nregions) {
         meshbuf = (double *) mymalloc("PMmesh", size * sizeof(double));
         /* this takes care of the padding */
         memset(meshbuf, 0, size * sizeof(double));
-        report_memory_usage("PetaPM");
         size = 0;
         for(i = 0 ; i < Nregions; i ++) {
             regions[i].buffer = meshbuf + size;

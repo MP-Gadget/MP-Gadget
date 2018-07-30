@@ -83,6 +83,9 @@ allocator_dealloc (Allocator * alloc, void * ptr);
 size_t
 allocator_get_free_size(Allocator * alloc);
 
+size_t
+allocator_get_used_size(Allocator * alloc, int dir);
+
 int
 allocator_iter_ended(AllocatorIter * iter);
 
