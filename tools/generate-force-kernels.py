@@ -172,13 +172,13 @@ def g2_pot_kern(u, split):
 
 def force_direct(pm, x, y, a=1/20., kernel=gravity_plummer, split=False, Nimg=4):
     """
-    split: if true, force is split into long and short-range parts, as in Gadget, and the kernel is divided
-           by the analytic error function window function.
+    split: if true, force is split into long and short-range parts, as in Gadget,
+           and the kernel is multiplied by the erfc functions above.
     pm: only used if split=True. Used to compute the erf window in units of the PM grid.
     x, y: vectors of particle coordinates
     a: softening length in units of grid.
     kernel: force kernel to use: either 1/r^2 or softened.
-    Nimg: ???
+    Nimg: Number of images to go to mimic the periodic boundary condition.
     Returns
         f, p : force and potential
     """
@@ -188,6 +188,8 @@ def force_direct(pm, x, y, a=1/20., kernel=gravity_plummer, split=False, Nimg=4)
         """Evaluate the potential for a chunk of the total."""
         dist = []
 
+        # create image particles outside the primary box;
+        # approximating the periodic boundary
         for ix, iy, iz in product(*([range(-Nimg, Nimg+1)] * 3)):
             nL = pm.BoxSize * [ix, iy, iz]
 
@@ -195,12 +197,13 @@ def force_direct(pm, x, y, a=1/20., kernel=gravity_plummer, split=False, Nimg=4)
 
             dist.append(dist1)
 
-            # 0 is the axis of images
+        # 0 is the axis of images
         dist = numpy.concatenate(dist, axis=0)
 
         fa, pa = kernel(dist, a)
 
         if split:
+            # short range only?
             r = (dist **2).sum(axis=-1) ** 0.5
             u = r / (pm.BoxSize[0] / pm.Nmesh[0])
             fa = fa * g2_force_kern(u, split)[..., None]
@@ -263,8 +266,8 @@ def main(ns):
     # r is in mesh units
     r = ((test[:] - Q[0]) ** 2).sum(axis=-1) ** 0.5 / (pm.BoxSize[0] / pm.Nmesh[0])
 
-    def compute_single(force_potential):
-        """Do computations for a force kernel option set."""
+    def radial_only(force_potential):
+        """Do computations for a force kernel and project to the radial direction."""
         f, p = force_potential
         f = numpy.einsum('ij,ij->i', f, unitvectors)
         p[r == 0] = 0
@@ -273,19 +276,30 @@ def main(ns):
 
     def compute(test, Q):
         """Do the computations for the various different types of force kernels."""
-        #This is the long-range PM force
-        f_longrange, p_longrange = compute_single(force_pm(pm, test, Q,
+        # This is the long-range PM force
+        f_longrange, p_longrange = radial_only(force_pm(pm, test, Q,
                                         dfkernel=NDiff(ns.diffkernel),
                                         split=Split, compensate_cic=ns.decic))
-        #This is the short-range force for a particle with softening but without long-range interactions at all.
-        f_spline, p_spline = compute_single(force_direct(pm, test, Q, a=Smoothing, kernel=gravity_spline, Nimg=4))
-        #This is the short-range force for a particle with softening and a long-range smoothing kernel applied.
-        f_erf, p_erf = compute_single(force_direct(pm, test, Q, a=Smoothing, kernel=gravity_spline, split=Split, Nimg=0))
-        #This is the short-range force for a particle without softening and no long-range force.
-        #Not actually used.
-        f_plummer, p_plummer = compute_single(force_direct(pm, test, Q, a=Smoothing, kernel=gravity_plummer))
 
-        # renormalize
+        # This is the full gravity force for a particle with spline softening;
+        # computed brute force; periodic boundary is handled with 4 images each side.
+        f_spline, p_spline = radial_only(force_direct(pm, test, Q, a=Smoothing,
+                            kernel=gravity_spline, Nimg=4))
+
+        # This is the short range gravity force for a particle with spline softening;
+        # without the periodic boundary condition, since this is short range.
+        # this is roughly the shortrange force used in Gadget2, but notice the actual
+        # force in Gadget2 is truncated at 4.5 * Split.
+        f_erf, p_erf = radial_only(force_direct(pm, test, Q, a=Smoothing,
+                            kernel=gravity_spline, split=Split, Nimg=0))
+
+        # This is the full gravity force for a particle with plummer softening;
+        # for comparison with spline and not actually used.
+        # notice that the softening parameter is inconsistent between plummer and spline:
+        # c.f. http://iopscience.iop.org/article/10.1088/1749-4699/1/1/015003/pdf
+        f_plummer, p_plummer = radial_only(force_direct(pm, test, Q, a=Smoothing, kernel=gravity_plummer))
+
+        # renormalize; summation of images has a 1 / n term that must be removed.
         p_spline -= p_spline[-1] - p_longrange[-1]
         p_plummer -= p_plummer[-1] - p_longrange[-1]
 
@@ -294,7 +308,11 @@ def main(ns):
 
     terms = [[],] * 8
 
-    #Compute forces for some randomly positioned particles.
+    # Compute forces;
+    # to include effect of off-mesh, 
+    # randomly shift the test particle and source particle set,
+    # keeping the distance.
+
     for _ in range(Nshift):
         shift = numpy.random.uniform(low=-0.5, high=0.5, size=(1, 3))
         for i, result in enumerate(compute(test + shift, Q + shift)):
@@ -366,9 +384,9 @@ def main(ns):
     table = numpy.array([rx, rp_1d, rf_1d, rp_erf, rf_erf]).T
     # These numbers now contain the short-range kernels.
     # One may simply multiply the unwindowed short-range force by whichever column one wants
-    #to get the corrected force kernel.
-    #Most accurate appears to be to use the 'exact' kernels as a table: columns 1 and 2.
-    #columns 3 and 4 are provided for comparison with Gadget-2.
+    # to get the corrected force kernel.
+    # Most accurate appears to be to use the 'exact' kernels as a table: columns 1 and 2.
+    # columns 3 and 4 are provided for comparison with Gadget-2.
     numpy.savetxt('shortrange-force-kernels.txt',
                   table, header='x(in mesh units) w_pot_1d(x) w_force_1d(x) [erfc + other terms] w_pot_erf(x) w_force_erf(x) split=%.2f' % Split
                  )
@@ -381,8 +399,9 @@ def main(ns):
         ff.write(s)
 
 def toc(array, arrayname, header):
-    """Function to save the tables to a carefully formatted C file where it can be read into Gadget's gravity.c.
-    The main purpose is to add {} around array rows."""
+    """ Function to save the tables to a carefully formatted C file
+        which can be linked against MP-Gadget's gravity.c.
+        The main purpose is to add {} around array rows."""
     template = """
 # %(header)s
 const double %(name)s[][%(size)d] = {
