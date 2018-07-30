@@ -274,7 +274,9 @@ def main(ns):
     def compute(test, Q):
         """Do the computations for the various different types of force kernels."""
         #This is the long-range PM force
-        f_longrange, p_longrange = compute_single(force_pm(pm, test, Q, split=Split, compensate_cic=ns.decic))
+        f_longrange, p_longrange = compute_single(force_pm(pm, test, Q,
+                                        dfkernel=NDiff(ns.diffkernel),
+                                        split=Split, compensate_cic=ns.decic))
         #This is the short-range force for a particle with softening but without long-range interactions at all.
         f_spline, p_spline = compute_single(force_direct(pm, test, Q, a=Smoothing, kernel=gravity_spline, Nimg=4))
         #This is the short-range force for a particle with softening and a long-range smoothing kernel applied.
@@ -406,6 +408,8 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument('split', type=float, help='Split of range, in mesh units')
     ap.add_argument('--no-decic', action='store_false', dest='decic', default=True, help='deconvolve cic window')
+    ap.add_argument('--diffkernel', type=str, choices=NDiff.Defs.keys(), default='lnld4_5',
+                    help='diffkernel to use in pm')
     ap.add_argument('prefix', default="", help="Directory in which to save figures.")
     opts = ap.parse_args()
 
