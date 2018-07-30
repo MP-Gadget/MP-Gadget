@@ -362,12 +362,15 @@ def main(ns):
 
 
     table = numpy.array([rx, rp_1d, rf_1d, rp_erf, rf_erf]).T
-
+    # These numbers now contain the short-range kernels.
+    # One may simply multiply the unwindowed short-range force by whichever column one wants
+    #to get the corrected force kernel.
+    #Most accurate appears to be to use the 'exact' kernels as a table: columns 1 and 2.
+    #columns 3 and 4 are provided for comparison with Gadget-2.
     numpy.savetxt('shortrange-force-kernels.txt',
                   table, header='x(in mesh units) w_pot_1d(x) w_force_1d(x) [erfc + other terms] w_pot_erf(x) w_force_erf(x) split=%.2f' % Split
                  )
 
-    # simply multiple these numbers to the unwindowed short-range force.
     s = toc(table, "shortrange_force_kernels",
             header='x(in mesh units) w_pot_1d(x)  w_force_1d(x) [erfc + other terms] w_pot_erf(x) w_force_erf(x) split=%.2f' % Split
            )
@@ -376,7 +379,8 @@ def main(ns):
         ff.write(s)
 
 def toc(array, arrayname, header):
-    """Function to save the tables to a carefully formatted file."""
+    """Function to save the tables to a carefully formatted C file where it can be read into Gadget's gravity.c.
+    The main purpose is to add {} around array rows."""
     template = """
 # %(header)s
 const double %(name)s[][%(size)d] = {
