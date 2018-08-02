@@ -101,7 +101,8 @@ pkin = np.loadtxt("class_pk_99.dat")
 pklin = scipy.interpolate.interp1d(pkin[:,0], pkin[:,1])
 #This checks that the power spectrum loading and rescaling code is working.
 genpk = numpy.loadtxt("output/inputspec_IC.txt")
-assert_allclose(pklin(genpk[:,0]), genpk[:,1], rtol=2e-2, atol=0.0)
+ii = np.where(genpk[:,0] < pkin[-1, 0])
+assert_allclose(pklin(genpk[ii,0]), genpk[ii,1], rtol=2e-2, atol=0.0)
 #This checks that the output is working
 test_power('output/IC', ".", IC=True)
 for pp in range(3):

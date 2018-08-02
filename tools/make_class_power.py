@@ -149,14 +149,16 @@ def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
     redshift = config['Redshift']
     if config['InputPowerRedshift'] >= 0:
         redshift = config['InputPowerRedshift']
-    outputs = np.array([redshift, ])
+    outputs = redshift
     if extraz is not None:
-        outputs = np.concatenate([outputs, extraz])
+        outputs = [outputs,]+ extraz
     #Pass options for the power spectrum
     MPC_in_cm = 3.085678e24
     boxmpc = config['BoxSize'] / MPC_in_cm * config['UnitLength_in_cm']
-    maxk = 2*math.pi/boxmpc*config['Ngrid']*16
-    powerparams = {'output': 'dTk vTk mPk', 'P_k_max_h/Mpc' : maxk, "z_max_pk" : 1+np.max(outputs),'z_pk': outputs, 'extra metric transfer functions': 'y'}
+    maxk = max(10, 2*math.pi/boxmpc*config['Ngrid']*4)
+    #CLASS needs the first redshift to be relatively high for some internal interpolation reasons
+    maxz = max(1 + np.max(outputs), 99)
+    powerparams = {'output': 'dTk vTk mPk', 'P_k_max_h/Mpc' : maxk, "z_max_pk" : maxz,'z_pk': outputs, 'extra metric transfer functions': 'y'}
     pre_params.update(powerparams)
 
     if verbose:
@@ -167,6 +169,11 @@ def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
     if external_pk is not None:
         pre_params['P_k_ini'] = "external_pk"
         pre_params["command"] = "cat ",external_pk
+    #Print the class parameters to terminal in a format
+    #readable by the command line class.
+    if verbose:
+        for k in pre_params:
+            print(k, '=', pre_params[k])
 
     if 'ncdm_fluid_approximation' in pre_params:
         print('Starting CLASS power spectrum with accurate P(k) for massive neutrinos.')
@@ -174,7 +181,7 @@ def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
     #Make the power spectra module
     engine = CLASS.ClassEngine(pre_params)
     powspec = CLASS.Spectra(engine)
-
+    print("sigma_8(z=0) = ", powspec.sigma8, "A_s = ",powspec.A_s)
     #Save directory
     sdir = os.path.split(paramfile)[0]
     #Get and save the transfer functions if needed
