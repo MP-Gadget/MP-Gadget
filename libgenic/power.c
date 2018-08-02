@@ -390,16 +390,18 @@ int init_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in
     }
 
     Norm = 1.0;
-    if (ppar->Sigma8 > 0) {
-        double R8 = 8 * (CM_PER_MPC / UnitLength_in_cm);	/* 8 Mpc/h */
-        double res = TopHatSigma2(R8);
-        Norm = ppar->Sigma8 / sqrt(res);
-        message(0, "Normalization adjusted to  Sigma8=%g   (Normfac=%g). \n", ppar->Sigma8, Norm);
-    }
-    if(ppar->InputPowerRedshift >= 0) {
+    if(ppar->InputPowerRedshift >= 0 || ppar->Sigma8 > 0) {
+        const double R8 = 8 * (CM_PER_MPC / UnitLength_in_cm);	/* 8 Mpc/h */
+        if(ppar->Sigma8 > 0) {
+            double res = TopHatSigma2(R8);
+            Norm = ppar->Sigma8 / sqrt(res);
+        }
         double Dplus = GrowthFactor(InitTime, 1/(1+ppar->InputPowerRedshift));
-        Norm *= Dplus;
-        message(0,"Growth factor to z=%g: %g \n", ppar->InputPowerRedshift, Dplus);
+        if(ppar->InputPowerRedshift >= 0) {
+            Norm *= Dplus;
+            message(0,"Growth factor to z=%g: %g \n", ppar->InputPowerRedshift, Dplus);
+        }
+        message(0, "Normalization adjusted to  Sigma8=%g (at z=0)  (Normfac=%g). \n", sqrt(TopHatSigma2(R8))/Dplus, Norm);
     }
     return power_table.Nentry;
 }
