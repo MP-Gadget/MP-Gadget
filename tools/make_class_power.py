@@ -110,11 +110,10 @@ def _build_cosmology_params(config):
         gparams['ncdm_fluid_trigger_tau_over_tau_k'] = 10000.
     else:
         gparams['N_ur'] = 3.046
-    #Power spectrum amplitude
+    #Power spectrum amplitude: sigma8 is ignored by classylss.
     if config['Sigma8'] > 0:
-        gparams['sigma8'] = config['Sigma8']
-    else:
-        gparams['A_s'] = config["PrimordialAmp"]
+        print("Warning: classylss does not read sigma8. GenIC must rescale P(k).")
+    gparams['A_s'] = config["PrimordialAmp"]
     return gparams
 
 def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
