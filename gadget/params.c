@@ -156,7 +156,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "ErrTolIntAccuracy", OPTIONAL, 0.02, "");
     param_declare_double(ps, "ErrTolForceAcc", OPTIONAL, 0.005, "Force accuracy required from tree. Controls tree opening criteria. Lower values are more accurate.");
     param_declare_double(ps, "BHOpeningAngle", OPTIONAL, 0.5, "Barnes-Hut opening angle. Alternative purely geometric tree opening angle. Lower values are more accurate.");
-    param_declare_int(ps, "TreeUseBH", OPTIONAL, 0, "If true, use Barnes-Hut opening angle rather than the standard Gadget acceleration based opening angle.");
+    param_declare_int(ps, "TreeUseBH", OPTIONAL, 0, "If 1, use Barnes-Hut opening angle rather than the standard Gadget acceleration based opening angle. If 2, use BH criterion for the first timestep only, before we have relative accelerations.");
     param_declare_double(ps, "Asmth", OPTIONAL, 1.25, "The scale of the short-range/long-range force split in units of FFT-mesh cells. Gadget-2 paper says larger values may be more accurate.");
     param_declare_int(ps,    "Nmesh", REQUIRED, 0, "");
 
