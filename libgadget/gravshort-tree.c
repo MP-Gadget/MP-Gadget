@@ -220,7 +220,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
 
                 mass = nop->u.d.mass;
                 /*Check Barnes-Hut opening angle or relative opening criterion*/
-                if(((All.TreeUseBH > 0 && nop->len * nop->len > r2 * All.BHOpeningAngle)) ||
+                if(((All.TreeUseBH > 0 && nop->len * nop->len > r2 * All.BHOpeningAngle * All.BHOpeningAngle)) ||
                      (All.TreeUseBH == 0 && (mass * nop->len * nop->len > r2 * r2 * aold)))
                 {
                     /* open cell */
