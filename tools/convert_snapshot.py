@@ -43,7 +43,7 @@ class NameMaps(object):
     def get_bigfile_name(self, hdfname):
         """Get the bigfile name from an HDF5 name."""
         try:
-            self.hdf_to_bigfile_map[hdfname]
+            return self.hdf_to_bigfile_map[hdfname]
         except KeyError:
             #Unrecognised names are assumed unchanged
             return hdfname
@@ -51,7 +51,7 @@ class NameMaps(object):
     def get_hdf5_name(self, bigfilename):
         """Get the HDF5 name from a bigfile name."""
         try:
-            self.bigfile_to_hdf_map[bigfilename]
+            return self.bigfile_to_hdf_map[bigfilename]
         except KeyError:
             #Unrecognised names are assumed unchanged
             return bigfilename
@@ -107,7 +107,15 @@ def write_hdf_file(bf, hdf5name, fnum, nfiles):
             hdf5.create_group("PartType" + str(ptype))
 
         for block in bf.list_blocks():
+            if block == "Header":
+                continue
             ptype, bname = os.path.split(block)
+            #Deal with groups that don't contain particles: just write them to the first file.
+            if ptype == '':
+                if fnum == 0:
+                    hgr = hdf5.create_group(block)
+                    hgr = bf[block]
+                continue
             ptype = int(ptype)
             hname = names.get_hdf5_name(bname)
             hdf5["PartType"+str(ptype)][hname] =  bf[block][startpart[ptype]:endpart[ptype]]
