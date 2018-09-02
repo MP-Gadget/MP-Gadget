@@ -97,15 +97,19 @@ def write_hdf_file(bf, hdf5name, fnum, nfiles):
     hfile = hdf5name + "."+str(fnum)+".hdf5"
     if os.path.exists(hfile):
         raise IOError("Not over-writing existing file ",hfile)
+
     with h5py.File(hfile,'w') as hdf5:
         #Write the header
         write_hdf_header(bf, hdf5, nfiles, endpart-startpart)
         #Write the data
         for ptype in range(6):
-            hpart = hdf5.create_group("PartType" + str(ptype))
-            for bname in bf[str(ptype)].keys():
-                hname = names.get_hdf5_name(bname)
-                hpart[hname] =  bf[str(ptype)+"/"+bname][startpart[ptype]:endpart[ptype]]
+            hdf5.create_group("PartType" + str(ptype))
+
+        for block in bf.list_blocks():
+            ptype, bname = os.path.split(block)
+            ptype = int(ptype)
+            hname = names.get_hdf5_name(bname)
+            hdf5["PartType"+str(ptype)][hname] =  bf[block][startpart[ptype]:endpart[ptype]]
 
 def compute_nfiles(npart):
     """Work out how many files we need to split the snapshot into.
