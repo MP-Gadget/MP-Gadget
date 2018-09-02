@@ -18,6 +18,7 @@ No unit conversion is done! Be careful with older Gadget's which do not store un
 import argparse
 import os
 import os.path
+import re
 import bigfile
 import h5py
 import numpy as np
