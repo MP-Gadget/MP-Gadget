@@ -15,6 +15,7 @@ Known name changes are accounted for: for example MP-Gadget has "Position" and G
 No unit conversion is done! Be careful with older Gadget's which do not store units in the snapshot header.
 """
 
+from __future__ import print_function
 import argparse
 import os
 import os.path
@@ -133,8 +134,10 @@ def write_all_hdf_files(hdf5name, bfname):
     if len(mm.groups()) > 0:
         nsnap = mm.groups()[0]
     hdf5name = os.path.join(hdf5name, "snap_"+nsnap)
+    print("Writing %d hdf snapshot files to %s" % (nfiles, hdf5name))
     for nn in range(nfiles):
         write_hdf_file(bf, hdf5name, nn, nfiles)
+        print("Wrote file %d" % nn)
 
 
 if __name__ == "__main__":
