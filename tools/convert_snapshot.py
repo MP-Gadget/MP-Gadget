@@ -119,6 +119,8 @@ def write_all_hdf_files(hdf5name, bfname):
     """Work out which particle set goes to which HDF5 file and write it."""
     bf = bigfile.BigFile(bfname, 'r')
     nfiles = compute_nfiles(bf["Header"].attrs["TotNumPart"])
+    if not os.path.exists(hdf5name):
+        os.mkdir(hdf5name)
     hdf5name = os.path.join(hdf5name, "snap_")
     for nn in range(nfiles):
         write_hdf_file(bf, hdf5name, nn, nfiles)
