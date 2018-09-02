@@ -78,8 +78,9 @@ def write_hdf_header(bf, hdf5, nfiles, npart_file):
     hattr["Flag_Feedback"] = 0
     hattr["Flag_DoublePrecision"] = 1
     hattr["Flag_IC_Info"] = 0
-    #Pass othr keys through unchanged.
-    for attr in battr.keys():
+    #Pass other keys through unchanged. We whitelist expected keys to avoid confusing Gadget.
+    hdfats = ["MassTable", "Time", "Redshift", "BoxSize", "Omega0", "OmegaLambda", "HubbleParam", "OmegaBaryon", "UnitLength_in_cm", "UnitMass_in_g", "UnitVelocity_in_cm_per_s"]
+    for attr in hdfats:
         hattr[attr] = battr[attr]
 
 def write_hdf_file(bf, hdf5name, fnum, nfiles):
