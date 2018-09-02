@@ -113,8 +113,6 @@ def compute_nfiles(npart):
     maxarray = np.max(npart) * 3 * 8
     while maxarray // nfiles >= 2**31:
         nfiles *=2
-    #Only 3 digits in the file name.
-    assert nfiles <= 1000
     return nfiles
 
 def write_all_hdf_files(hdf5name, bfname):
@@ -123,7 +121,11 @@ def write_all_hdf_files(hdf5name, bfname):
     nfiles = compute_nfiles(bf["Header"].attrs["TotNumPart"])
     if not os.path.exists(hdf5name):
         os.mkdir(hdf5name)
-    hdf5name = os.path.join(hdf5name, "snap_")
+    mm = re.search("PART_([0-9]*)", bfname)
+    nsnap = '000'
+    if len(mm.groups()) > 0:
+        nsnap = mm.groups()[0]
+    hdf5name = os.path.join(hdf5name, "snap_"+nsnap)
     for nn in range(nfiles):
         write_hdf_file(bf, hdf5name, nn, nfiles)
 
