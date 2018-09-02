@@ -59,7 +59,8 @@ names = NameMaps()
 
 def write_hdf_header(bf, hdf5, nfiles, npart_file):
     """Generate an HDF5 header from a bigfile header."""
-    hattr = hdf5["Header"].attrs
+    head = hdf5.create_group("Header")
+    hattr = head.attrs
     battr = bf["Header"].attrs
     #As a relic from Gadget-1, the total particle numbers
     #are written as two separate 32 bit integers.
@@ -98,9 +99,10 @@ def write_hdf_file(bf, hdf5name, fnum, nfiles):
         write_hdf_header(bf, hdf5, nfiles, endpart-startpart)
         #Write the data
         for ptype in range(6):
+            hpart = hdf5.create_group("PartType" + str(ptype))
             for bname in bf[str(ptype)].keys():
                 hname = names.get_hdf5_name(bname)
-                hdf5["PartType"+str(ptype)][hname] =  bf[str(ptype)+"/"+bname][startpart[ptype]:endpart[ptype]]
+                hpart[hname] =  bf[str(ptype)+"/"+bname][startpart[ptype]:endpart[ptype]]
 
 def compute_nfiles(npart):
     """Work out how many files we need to split the snapshot into.
