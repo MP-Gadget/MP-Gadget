@@ -35,5 +35,6 @@ script:
     - python check-results.py
     - mpirun -np 2 ../../gadget/MP-Gadget paramfile.gadget 2 1  #this starts again from 001
     - python check-results.py
+    - python ../../tools/convert-to-gadget-format3.py --input output/PART_000 --output output
     - popd
     - set +e
