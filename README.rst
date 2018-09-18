@@ -26,9 +26,12 @@ Physics models:
 
 - Pressure Entropy SPH and Density Entropy SPH
 - Radiation background in the expansion
+- Massive neutrinos
+- Dark energy
+- ICs have species dependent density and velocity transfer functions
 - Generic tracer particle seeding
 - Various wind feedback and blackhole feedback models
-- Various star formation criteria (need a License from Phil Hopkins before enabling)
+- Various star formation criteria
 - Primordial and metal cooling
 - Fluctuating UV background
 
