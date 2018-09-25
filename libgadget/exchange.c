@@ -174,7 +174,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, i
 {
     int n, ptype;
     struct particle_data *partBuf;
-    char * slotBuf[6];
+    char * slotBuf[6] = {NULL, NULL, NULL, NULL, NULL, NULL};
 
     int bad_exh=0;
 
@@ -194,6 +194,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, i
     partBuf = (struct particle_data *) mymalloc2("partBuf", plan->toGoSum.base * sizeof(struct particle_data));
 
     for(ptype = 0; ptype < 6; ptype++) {
+        if(!SlotsManager->info[ptype].enabled) continue;
         slotBuf[ptype] = mymalloc2("SlotBuf", plan->toGoSum.slots[ptype] * SlotsManager->info[ptype].elsize);
     }
 
@@ -331,6 +332,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, i
     myfree(senddispls);
     myfree(sendcounts);
     for(ptype = 5; ptype >=0; ptype --) {
+        if(!SlotsManager->info[ptype].enabled) continue;
         myfree(slotBuf[ptype]);
     }
     myfree(partBuf);
@@ -360,10 +362,14 @@ domain_find_iter_space(ExchangePlan * plan)
     int n, ptype;
     size_t nlimit = FreeBytes;
 
-    if (nlimit <  NTask * 2 * sizeof(MPI_Request))
+    if (nlimit <  4096 * 2 + NTask * 2 * sizeof(MPI_Request))
         endrun(1, "Not enough memory free to store requests!\n");
 
-    nlimit -= NTask * 2 * sizeof(MPI_Request);
+    nlimit -= 4096 * 2 + NTask * 2 * sizeof(MPI_Request);
+
+    /* Save some memory for memory headers and wasted space at the end of each allocation.
+     * Need max. 2*4096 for each heap-allocated array.*/
+    nlimit -= 4096 * 4;
 
     message(0, "Using %td bytes for exchange.\n", nlimit);
 
@@ -372,6 +378,8 @@ domain_find_iter_space(ExchangePlan * plan)
         if(!SlotsManager->info[ptype].enabled) continue;
         if (maxsize < SlotsManager->info[ptype].elsize)
             maxsize = SlotsManager->info[ptype].elsize;
+        /*Reserve space for slotBuf header*/
+        nlimit -= 4096 * 2;
     }
     size_t package = sizeof(P[0]) + maxsize;
     if(package >= nlimit)
