@@ -364,6 +364,28 @@ order_by_type_and_key(const void *a, const void *b)
     return 0;
 }
 
+/*Returns the number of non-Garbage particles in an array with garbage sorted to the end.
+ * Used to trim recently sorted arrays. If ptype < 0, P array is trimmed.*/
+int slots_get_last_garbage(int nfirst, int nlast, int ptype)
+{
+    /* nfirst is always not garbage, nlast is always garbage*/
+    if(GARBAGE(nfirst, ptype))
+        return nfirst;
+    if(!GARBAGE(nlast, ptype))
+        return nlast+1;
+    /*Bisection*/
+    do {
+        int nmid = (nfirst + nlast)/2;
+        if(GARBAGE(nmid, ptype))
+            nlast = nmid;
+        else
+            nfirst = nmid;
+    }
+    while(nlast - nfirst > 1);
+
+    return nlast;
+}
+
 /* Sort the particles and their slots by type and peano order.
  * This does a gc by sorting the Garbage to the end of the array and then trimming.
  * It is a different algorithm to slots_gc, somewhat slower,
@@ -376,10 +398,8 @@ slots_gc_sorted()
      * The locality is broken by the exchange. */
     qsort_openmp(P, PartManager->NumPart, sizeof(struct particle_data), order_by_type_and_key);
 
-    /*Reduce NumPart*/
-    while(PartManager->NumPart > 0 && P[PartManager->NumPart-1].IsGarbage) {
-        PartManager->NumPart--;
-    }
+    /*Remove garbage particles*/
+    PartManager->NumPart = slots_get_last_garbage(0, PartManager->NumPart -1 , -1);
 
     /*Set up ReverseLink*/
     slots_gc_mark();
@@ -395,9 +415,7 @@ slots_gc_sorted()
                  slot_cmp_reverse_link);
 
         /*Reduce slots used*/
-        while(SlotsManager->info[ptype].size > 0 && BASESLOT_PI(SlotsManager->info[ptype].size-1, ptype)->IsGarbage) {
-            SlotsManager->info[ptype].size--;
-        }
+        SlotsManager->info[ptype].size = slots_get_last_garbage(0, SlotsManager->info[ptype].size-1, ptype);
         slots_gc_collect(ptype);
     }
 #ifdef DEBUG
