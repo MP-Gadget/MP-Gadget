@@ -47,6 +47,7 @@ typedef struct {
 static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, int do_gc);
 static void domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan);
 static int domain_find_iter_space(ExchangePlan * plan);
+static void domain_build_exchange_list(int (*layoutfunc)(int p), ExchangePlan * plan);
 
 /* This function builts the count/displ arrays from
  * the rows stored in the entry struct of the plan.
@@ -67,8 +68,9 @@ _transpose_plan_entries(ExchangePlanEntry * entries, int * count, int ptype)
         }
     }
 }
+
+/*Plan and execute a domain exchange, also performing a garbage collection if requested*/
 int domain_exchange(int (*layoutfunc)(int p), int do_gc) {
-    int i;
     int64_t sumtogo;
     int failure = 0;
 
@@ -96,30 +98,8 @@ int domain_exchange(int (*layoutfunc)(int p), int do_gc) {
 
     int iter = 0;
 
-    while(MPIU_Any(plan.last < plan.nexchange, MPI_COMM_WORLD))
-    {
-        plan.ExchangeList = mymalloc2("exchangelist", sizeof(int) * plan.nexchange * omp_get_max_threads());
-        size_t *nexthr = ta_malloc("nexthr", size_t, omp_get_max_threads());
-        int **threx = ta_malloc("threx", int *, omp_get_max_threads());
-        gadget_setup_thread_arrays(plan.ExchangeList, threx, nexthr,plan.nexchange,omp_get_max_threads());
-
-        /* flag the particles that need to be exported */
-        #pragma omp parallel for
-        for(i = 0; i < PartManager->NumPart; i++)
-        {
-            const int tid = omp_get_thread_num();
-            if(P[i].IsGarbage)
-                continue;
-            int target = layoutfunc(i);
-            if(target != ThisTask) {
-                threx[tid][nexthr[tid]] = i;
-                nexthr[tid]++;
-            }
-        }
-        /*Merge step for the queue.*/
-        plan.nexchange = gadget_compact_thread_arrays(plan.ExchangeList, threx, nexthr, omp_get_max_threads());
-        ta_free(threx);
-        ta_free(nexthr);
+    do {
+        domain_build_exchange_list(layoutfunc, &plan);
 
         /*Exit early if nothing to do*/
         if(!MPIU_Any(plan.nexchange > 0, MPI_COMM_WORLD))
@@ -127,10 +107,6 @@ int domain_exchange(int (*layoutfunc)(int p), int do_gc) {
             myfree(plan.ExchangeList);
             break;
         }
-
-        /*Shrink memory*/
-        plan.ExchangeList = myrealloc(plan.ExchangeList, sizeof(int) * plan.nexchange);
-
 
         /* determine for each rank how many particles have to be shifted to other ranks */
         plan.last = domain_find_iter_space(&plan);
@@ -149,6 +125,7 @@ int domain_exchange(int (*layoutfunc)(int p), int do_gc) {
             break;
         iter++;
     }
+    while(MPIU_Any(plan.last < plan.nexchange, MPI_COMM_WORLD));
 
     myfree(plan.toGetOffset);
     myfree(plan.toGet);
@@ -357,6 +334,40 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, i
     walltime_measure("/Domain/exchange/finalize");
 
     return 0;
+}
+
+/* This function builds the list of particles to be exchanged.
+ * All particles are processed every time, space is not considered.
+ * The exchange list needs to be rebuilt every time gc is run. */
+static void
+domain_build_exchange_list(int (*layoutfunc)(int p), ExchangePlan * plan)
+{
+    int i;
+    plan->ExchangeList = mymalloc2("exchangelist", sizeof(int) * plan->nexchange * omp_get_max_threads());
+    size_t *nexthr = ta_malloc("nexthr", size_t, omp_get_max_threads());
+    int **threx = ta_malloc("threx", int *, omp_get_max_threads());
+    gadget_setup_thread_arrays(plan->ExchangeList, threx, nexthr,plan->nexchange,omp_get_max_threads());
+
+    /* flag the particles that need to be exported */
+    #pragma omp parallel for
+    for(i = 0; i < PartManager->NumPart; i++)
+    {
+        const int tid = omp_get_thread_num();
+        if(P[i].IsGarbage)
+            continue;
+        int target = layoutfunc(i);
+        if(target != ThisTask) {
+            threx[tid][nexthr[tid]] = i;
+            nexthr[tid]++;
+        }
+    }
+    /*Merge step for the queue.*/
+    plan->nexchange = gadget_compact_thread_arrays(plan->ExchangeList, threx, nexthr, omp_get_max_threads());
+    ta_free(threx);
+    ta_free(nexthr);
+
+    /*Shrink memory*/
+    plan->ExchangeList = myrealloc(plan->ExchangeList, sizeof(int) * plan->nexchange);
 }
 
 /*Find how many particles we can transfer in current exchange iteration*/
