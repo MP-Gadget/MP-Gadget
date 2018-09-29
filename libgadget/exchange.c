@@ -34,12 +34,8 @@ typedef struct {
     int * ExchangeList;
     /*Total number of exchanged particles*/
     int nexchange;
-    /* First and last particles in current
-     * batch of the exchange, relative to ExchangeList[0].
-     * After each batch, first will be updated to last
-     * and last will be recomputed.
+    /* last particle in current batch of the exchange.
      * Exchange stops when last == nexchange.*/
-    int first;
     int last;
     ExchangePartCache * layouts;
 } ExchangePlan;
@@ -51,6 +47,7 @@ typedef struct {
 static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, int do_gc);
 static void domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan);
 static int domain_find_iter_space(ExchangePlan * plan);
+static void domain_build_exchange_list(int (*layoutfunc)(int p), ExchangePlan * plan);
 
 /* This function builts the count/displ arrays from
  * the rows stored in the entry struct of the plan.
@@ -71,8 +68,9 @@ _transpose_plan_entries(ExchangePlanEntry * entries, int * count, int ptype)
         }
     }
 }
+
+/*Plan and execute a domain exchange, also performing a garbage collection if requested*/
 int domain_exchange(int (*layoutfunc)(int p), int do_gc) {
-    int i;
     int64_t sumtogo;
     int failure = 0;
 
@@ -82,34 +80,10 @@ int domain_exchange(int (*layoutfunc)(int p), int do_gc) {
         MPI_Type_commit(&MPI_TYPE_PLAN_ENTRY);
     }
 
-    /* flag the particles that need to be exported */
+    /*Structure for building a list of particles that will be exchanged*/
     ExchangePlan plan;
-    /*Build a list of particles that will be exchanged*/
-    plan.first = 0;
     plan.last = 0;
-    plan.ExchangeList = mymalloc2("exchangelist", sizeof(int) * PartManager->NumPart * omp_get_max_threads());
-    size_t *nexthr = ta_malloc("nexthr", size_t, omp_get_max_threads());
-    int **threx = ta_malloc("threx", int *, omp_get_max_threads());
-    gadget_setup_thread_arrays(plan.ExchangeList, threx, nexthr,PartManager->NumPart,omp_get_max_threads());
-
-    #pragma omp parallel for
-    for(i = 0; i < PartManager->NumPart; i++)
-    {
-        const int tid = omp_get_thread_num();
-        if(P[i].IsGarbage)
-            continue;
-        int target = layoutfunc(i);
-        if(target != ThisTask) {
-            threx[tid][nexthr[tid]] = i;
-            nexthr[tid]++;
-        }
-    }
-    /*Merge step for the queue.*/
-    plan.nexchange = gadget_compact_thread_arrays(plan.ExchangeList, threx, nexthr, omp_get_max_threads());
-    ta_free(threx);
-    ta_free(nexthr);
-    /*Shrink memory*/
-    plan.ExchangeList = myrealloc(plan.ExchangeList, sizeof(int) * plan.nexchange);
+    plan.nexchange = PartManager->NumPart;
 
     /*! toGo[0][task*NTask + partner] gives the number of particles in task 'task'
      *  that have to go to task 'partner'
@@ -120,13 +94,20 @@ int domain_exchange(int (*layoutfunc)(int p), int do_gc) {
     plan.toGet = (ExchangePlanEntry *) mymalloc2("toGet", sizeof(plan.toGo[0]) * NTask);
     plan.toGetOffset = (ExchangePlanEntry *) mymalloc2("toGet", sizeof(plan.toGo[0]) * NTask);
 
-
     walltime_measure("/Domain/exchange/init");
 
     int iter = 0;
 
-    while(MPIU_Any(plan.last < plan.nexchange, MPI_COMM_WORLD))
-    {
+    do {
+        domain_build_exchange_list(layoutfunc, &plan);
+
+        /*Exit early if nothing to do*/
+        if(!MPIU_Any(plan.nexchange > 0, MPI_COMM_WORLD))
+        {
+            myfree(plan.ExchangeList);
+            break;
+        }
+
         /* determine for each rank how many particles have to be shifted to other ranks */
         plan.last = domain_find_iter_space(&plan);
         domain_build_plan(layoutfunc, &plan);
@@ -138,16 +119,18 @@ int domain_exchange(int (*layoutfunc)(int p), int do_gc) {
 
         failure = domain_exchange_once(layoutfunc, &plan, do_gc || (plan.last < plan.nexchange));
 
+        myfree(plan.ExchangeList);
+
         if(failure)
             break;
         iter++;
     }
+    while(MPIU_Any(plan.last < plan.nexchange, MPI_COMM_WORLD));
 
     myfree(plan.toGetOffset);
     myfree(plan.toGet);
     myfree(plan.toGoOffset);
     myfree(plan.toGo);
-    myfree(plan.ExchangeList);
 
     return failure;
 }
@@ -201,13 +184,13 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, i
     ExchangePlanEntry * toGoPtr = ta_malloc("toGoPtr", ExchangePlanEntry, NTask);
     memset(toGoPtr, 0, sizeof(toGoPtr[0]) * NTask);
 
-    for(n = plan->first; n < plan->last; n++)
+    for(n = 0; n < plan->last; n++)
     {
         const int i = plan->ExchangeList[n];
         /* preparing for export */
-        const int target = plan->layouts[n-plan->first].target;
+        const int target = plan->layouts[n].target;
 
-        int type = plan->layouts[n-plan->first].ptype;
+        int type = plan->layouts[n].ptype;
 
         /* watch out thread unsafe */
         int bufPI = toGoPtr[target].slots[type];
@@ -222,8 +205,6 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, i
         /* mark the particle for removal. Both secondary and base slots will be marked. */
         slots_mark_garbage(i);
     }
-    /*Update done marker*/
-    plan->first = plan->last;
 
     myfree(plan->layouts);
     ta_free(toGoPtr);
@@ -355,6 +336,40 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, i
     return 0;
 }
 
+/* This function builds the list of particles to be exchanged.
+ * All particles are processed every time, space is not considered.
+ * The exchange list needs to be rebuilt every time gc is run. */
+static void
+domain_build_exchange_list(int (*layoutfunc)(int p), ExchangePlan * plan)
+{
+    int i;
+    plan->ExchangeList = mymalloc2("exchangelist", sizeof(int) * plan->nexchange * omp_get_max_threads());
+    size_t *nexthr = ta_malloc("nexthr", size_t, omp_get_max_threads());
+    int **threx = ta_malloc("threx", int *, omp_get_max_threads());
+    gadget_setup_thread_arrays(plan->ExchangeList, threx, nexthr,plan->nexchange,omp_get_max_threads());
+
+    /* flag the particles that need to be exported */
+    #pragma omp parallel for
+    for(i = 0; i < PartManager->NumPart; i++)
+    {
+        const int tid = omp_get_thread_num();
+        if(P[i].IsGarbage)
+            continue;
+        int target = layoutfunc(i);
+        if(target != ThisTask) {
+            threx[tid][nexthr[tid]] = i;
+            nexthr[tid]++;
+        }
+    }
+    /*Merge step for the queue.*/
+    plan->nexchange = gadget_compact_thread_arrays(plan->ExchangeList, threx, nexthr, omp_get_max_threads());
+    ta_free(threx);
+    ta_free(nexthr);
+
+    /*Shrink memory*/
+    plan->ExchangeList = myrealloc(plan->ExchangeList, sizeof(int) * plan->nexchange);
+}
+
 /*Find how many particles we can transfer in current exchange iteration*/
 static int
 domain_find_iter_space(ExchangePlan * plan)
@@ -391,7 +406,7 @@ domain_find_iter_space(ExchangePlan * plan)
         return plan->nexchange;
     }
     /*Find how many particles we have space for.*/
-    for(n = plan->first; n < plan->nexchange; n++)
+    for(n = 0; n < plan->nexchange; n++)
     {
         const int i = plan->ExchangeList[n];
         const int ptype = P[i].Type;
@@ -413,19 +428,19 @@ domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
 
     memset(plan->toGo, 0, sizeof(plan->toGo[0]) * NTask);
 
-    plan->layouts = mymalloc("layoutcache",sizeof(ExchangePartCache) * (plan->last - plan->first));
+    plan->layouts = mymalloc("layoutcache",sizeof(ExchangePartCache) * plan->last);
 
     #pragma omp parallel for
-    for(n = plan->first; n < plan->last; n++)
+    for(n = 0; n < plan->last; n++)
     {
         const int i = plan->ExchangeList[n];
         const int target = layoutfunc(i);
-        plan->layouts[n-plan->first].ptype = P[i].Type;
-        plan->layouts[n-plan->first].target = target;
+        plan->layouts[n].ptype = P[i].Type;
+        plan->layouts[n].target = target;
     }
 
     /*Do the sum*/
-    for(n = 0; n < plan->last - plan->first; n++)
+    for(n = 0; n < plan->last; n++)
     {
         plan->toGo[plan->layouts[n].target].base++;
         plan->toGo[plan->layouts[n].target].slots[plan->layouts[n].ptype]++;
