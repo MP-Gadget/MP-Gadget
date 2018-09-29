@@ -132,32 +132,49 @@ slots_gc(int * compact_slots)
 #define GARBAGE(i, ptype) (ptype >= 0 ? BASESLOT_PI(i,ptype)->IsGarbage : P[i].IsGarbage)
 #define PART(i, ptype) (ptype >= 0 ? (void *) BASESLOT_PI(i, ptype) : (void *) &P[i])
 
+/*Find the next garbage particle*/
+static int
+slots_find_next_garbage(int start, int used, int ptype)
+{
+    int i, nextgc = used;
+    /*Find another garbage particle*/
+    for(i = start; i < used; i++)
+        if(GARBAGE(i, ptype)) {
+            nextgc = i;
+            break;
+        }
+    return nextgc;
+}
+
+/*Find the next non-garbage particle*/
+static int
+slots_find_next_nongarbage(int start, int used, int ptype)
+{
+    int i, nextgc = used;
+    /*Find another garbage particle*/
+    for(i = start; i < used; i++)
+        if(!GARBAGE(i, ptype)) {
+            nextgc = i;
+            break;
+        }
+    return nextgc;
+}
+
 /*Compaction algorithm*/
 static int
 slots_gc_compact(int used, int ptype, size_t size)
 {
-    /*Find first garbage particle*/
-    int i, nextgc = used;
-    for(i = 0; i < used; i++)
-        if(GARBAGE(i,ptype)) {
-            nextgc = i;
-            break;
-        }
+    /*Find first garbage particle: can't use bisection here as not sorted.*/
+    int nextgc = slots_find_next_garbage(0, used, ptype);
 
     int ngc = 0;
     /*Note each particle is tested exactly once*/
     while(nextgc < used) {
-        int i;
         /*Now lastgc contains a garbage*/
         int lastgc = nextgc;
         /*Find a non-garbage after it*/
-        int src = used;
-        for(i = lastgc + 1; i < used; i++)
-            if(!GARBAGE(i, ptype)) {
-                src = i;
-                break;
-            }
-        /*If no more non-garbage particles, don't both copying, just add a skip*/
+        int src = slots_find_next_nongarbage(lastgc+1, used, ptype);
+        /*If no more non-garbage particles, don't bother copying, just add a skip*/
         if(src == used) {
             ngc += src - lastgc;
             break;
@@ -165,13 +182,9 @@ slots_gc_compact(int used, int ptype, size_t size)
         /*Destination is shifted already*/
         int dest = lastgc - ngc;
 
-        nextgc = used;
         /*Find another garbage particle*/
-        for(i = src+1; i < used; i++)
-            if(GARBAGE(i, ptype)) {
-                nextgc = i;
-                break;
-            }
+        nextgc = slots_find_next_garbage(src + 1, used, ptype);
+
         /*Add number of particles we skipped*/
         ngc += src - lastgc;
         int nmove = nextgc - src +1;
