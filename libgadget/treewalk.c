@@ -138,8 +138,8 @@ static void
 ev_begin(TreeWalk * tw, int * active_set, int size)
 {
     /* The last argument is may_have_garbage: in practice the only
-     * trivial haswork is the gravtree, which has no garbage because
-     * an exchange just occurred. If we ever add a trivial haswork after
+     * trivial haswork is the gravtree, which has no (active) garbage because
+     * the active list was just rebuilt. If we ever add a trivial haswork after
      * sfr/bh we should change this*/
     treewalk_build_queue(tw, active_set, size, 0);
 

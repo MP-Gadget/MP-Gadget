@@ -228,7 +228,7 @@ void domain_maintain(void)
     /* Try a domain exchange.
      * If we have no memory for the particles,
      * bail and do a full domain*/
-    if(0 != domain_exchange(domain_layoutfunc, 1)) {
+    if(0 != domain_exchange(domain_layoutfunc, 0)) {
         domain_decompose_full();
         return;
     }
