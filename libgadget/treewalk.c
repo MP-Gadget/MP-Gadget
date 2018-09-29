@@ -137,6 +137,14 @@ ev_free_threadlocals()
 static void
 ev_begin(TreeWalk * tw, int * active_set, int size)
 {
+    /* The last argument is may_have_garbage: in practice the only
+     * trivial haswork is the gravtree, which has no garbage because
+     * an exchange just occurred. If we ever add a trivial haswork after
+     * sfr/bh we should change this*/
+    treewalk_build_queue(tw, active_set, size, 0);
+
+    treewalk_init_evaluated(active_set, size);
+
     Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * All.NumThreads * sizeof(int));
     tw->BunchSize =
         (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) +
@@ -148,16 +156,8 @@ ev_begin(TreeWalk * tw, int * active_set, int size)
 
     memset(DataNodeList, -1, sizeof(struct data_nodelist) * tw->BunchSize);
 
-    /* The last argument is may_have_garbage: in practice the only
-     * trivial haswork is the gravtree, which has no garbage because
-     * an exchange just occurred. If we ever add a trivial haswork after
-     * sfr/bh we should change this*/
-    treewalk_build_queue(tw, active_set, size, 0);
-
-    treewalk_init_evaluated(active_set, size);
-
-    tw->currentIndex = mymalloc("currentIndexPerThread", sizeof(int) * All.NumThreads);
-    tw->currentEnd = mymalloc("currentEndPerThread", sizeof(int) * All.NumThreads);
+    tw->currentIndex = ta_malloc("currentIndexPerThread", int,  All.NumThreads);
+    tw->currentEnd = ta_malloc("currentEndPerThread", int, All.NumThreads);
 
     int i;
     for(i = 0; i < All.NumThreads; i ++) {
@@ -168,13 +168,14 @@ ev_begin(TreeWalk * tw, int * active_set, int size)
 
 static void ev_finish(TreeWalk * tw)
 {
-    myfree(tw->currentEnd);
-    myfree(tw->currentIndex);
-    if(!tw->work_set_stolen_from_active)
-        myfree(tw->WorkSet);
+    ta_free(tw->currentEnd);
+    ta_free(tw->currentIndex);
     myfree(DataNodeList);
     myfree(DataIndexTable);
     myfree(Ngblist);
+    if(!tw->work_set_stolen_from_active)
+        myfree(tw->WorkSet);
+
 }
 
 int data_index_compare(const void *a, const void *b);
