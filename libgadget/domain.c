@@ -214,7 +214,7 @@ void domain_decompose_full(void)
 
     report_memory_usage("DOMAIN");
 
-    walltime_measure("/Domain/Peano");
+    walltime_measure("/Domain/PeanoSort");
 }
 
 /* This is a cut-down version of the domain decomposition that leaves the
