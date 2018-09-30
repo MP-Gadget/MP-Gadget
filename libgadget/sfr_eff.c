@@ -61,6 +61,7 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax);
 static int get_sfr_condition(int i);
 static int make_particle_star(int i);
 static void starformation(int i);
+static void quicklyastarformation(int i);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
 static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyeff);
@@ -221,7 +222,10 @@ sfr_cool_postprocess(int i, TreeWalk * tw)
         }
         if(flag == 0) {
             /* active star formation */
-            starformation(i);
+            if(All.QuickLymanAlphaProbability > 0)
+                quicklyastarformation(i);
+            else
+                starformation(i);
         }
 }
 
@@ -768,11 +772,20 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
 
 }
 
-/*Returns str formation rate for this particle in solar per year*/
-static void starformation(int i) {
+/*Forms stars according to the quick lyman alpha star formation criterion,
+ * which forms stars with a constant probability (usually 1) if they are star forming*/
+static void
+quicklyastarformation(int i)
+{
+    if(get_random_number(P[i].ID + 1) < All.QuickLymanAlphaProbability) {
+        make_particle_star(i);
+    }
+}
 
-    double mass_of_star = find_star_mass(i);
-
+/*Forms stars, computes various global counters, and forms winds.*/
+static void
+starformation(int i)
+{
     /*  the proper time-step */
     double dloga = get_dloga_for_bin(P[i].TimeBin);
     double dtime = dloga / All.cf.hubble;
@@ -801,11 +814,9 @@ static void starformation(int i) {
         cooling_relaxed(i, egyeff, dtime, trelax);
     }
 
+    double mass_of_star = find_star_mass(i);
     double prob = P[i].Mass / mass_of_star * (1 - exp(-p));
 
-    if(All.QuickLymanAlphaProbability > 0.0) {
-        prob = All.QuickLymanAlphaProbability;
-    }
     if(get_random_number(P[i].ID + 1) < prob) {
         make_particle_star(i);
     }
@@ -822,7 +833,6 @@ static void starformation(int i) {
                 make_particle_wind(P[i].ID, i, All.WindSpeed * All.cf.a, zero);
         }
     }
-
 }
 
 double get_starformation_rate(int i) {
