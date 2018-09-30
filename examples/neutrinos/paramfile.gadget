@@ -30,7 +30,6 @@ FOFHaloMinLength = 32
 # Memory allocation
 
 PartAllocFactor = 2.0
-BufferSize = 100          # in MByte
 
 #Massive neutrinos
 MassiveNuLinRespOn = 1
