@@ -146,6 +146,9 @@ ev_begin(TreeWalk * tw, int * active_set, int size)
     treewalk_init_evaluated(active_set, size);
 
     Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * All.NumThreads * sizeof(int));
+
+    report_memory_usage(tw->ev_label);
+
     /*The amount of memory eventually allocated per tree buffer*/
     int bytesperbuffer = sizeof(struct data_index) + sizeof(struct data_nodelist) + tw->query_type_elsize;
     /*This memory scales like the number of imports. In principle this could be much larger than Nexport
@@ -604,7 +607,6 @@ treewalk_run(TreeWalk * tw, int * active_set, int size)
             ev_primary(tw); /* do local particles and prepare export list */
             /* exchange particle data */
             ev_get_remote(tw);
-            report_memory_usage(tw->ev_label);
             /* now do the particles that were sent to us */
             ev_secondary(tw);
 
