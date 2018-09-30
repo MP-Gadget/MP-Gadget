@@ -1307,6 +1307,10 @@ domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount)
         #pragma omp for
         for(n = 0; n < PartManager->NumPart; n++)
         {
+            /* Skip garbage particles: they have zero work
+             * and can be removed by exchange if under memory pressure.*/
+            if(P[n].IsGarbage)
+                continue;
             int no = domain_get_topleaf(P[n].Key);
 
             mylocal_TopLeafWork[no] += domain_particle_costfactor(n);
