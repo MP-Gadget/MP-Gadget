@@ -733,26 +733,9 @@ static void pm_iterate_one(int i, pm_iterator iterator, PetaPMRegion * regions) 
         iCell[k] = floor(tmp);
         Res[k] = tmp - iCell[k];
         iCell[k] -= region->offset[k];
-        /* 
-           a special rare case is that
-           a particle is somehow wrapped inside the box, thus
-           appear to be not in the node.
-           this really shouldn't happen with regular tree code
-           but who knows ....
-           We attempt to fix this here.
-           */
-        if(iCell[k] < 0) {
-            iCell[k] += Nmesh;
-        }
-        if(iCell[k] >= region->size[k] - 1) {
-            iCell[k] -= Nmesh;
-        }
-        if(iCell[k] >= region->size[k] - 1) {
-            /* seriously?! particles are supposed to be contained in cells */
-            endrun(1, "particle out of cell better stop %d %td\n", iCell[k], region->size[k]);
-        }
-        if(iCell[k] < 0) {
-            endrun(1, "particle out of cell better stop (negative) %d %g %g %g region: %td %td\n", iCell[k], 
+        /* seriously?! particles are supposed to be contained in cells */
+        if(iCell[k] >= region->size[k] - 1 || iCell[k] < 0) {
+            endrun(1, "particle out of cell better stop %d (k=%d) %g %g %g region: %td %td\n", iCell[k],k,
                 Pos[0], Pos[1], Pos[2],
                 region->offset[k], region->size[k]);
         }
