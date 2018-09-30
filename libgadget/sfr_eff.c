@@ -677,26 +677,27 @@ static int make_particle_wind(MyIDType ID, int i, double v, double vmean[3]) {
 
 static int make_particle_star(int i) {
     double mass_of_star = find_star_mass(i);
+    int child;
     if(P[i].Type != 0)
         endrun(7772, "Only gas forms stars, what's wrong?");
 
-    /* if we get all mass or a fraction */
-    int child = slots_fork(i, 4);
-
+    /*Store the index of the SPH particle properties as overwritten in slots_convert*/
+    int oldslot = P[i].PI;
     /* ok, make a star */
     if(P[i].Mass < 1.1 * mass_of_star || All.QuickLymanAlphaProbability > 0)
     {
         /* here the gas particle is eliminated because remaining mass is all converted. */
         stars_converted++;
 
-        P[child].Mass = P[i].Mass;
-        P[i].Mass -= P[child].Mass;
-        slots_mark_garbage(i);
+        /*If all the mass, just convert the slot*/
+        child = slots_convert(i, 4);
     }
     else
     {
         /* FIXME: sorry this is not thread safe */
         stars_spawned++;
+        /* if we get a fraction of the mass*/
+        child = slots_fork(i, 4);
 
         P[child].Mass = mass_of_star;
         P[i].Mass -= P[child].Mass;
@@ -705,9 +706,9 @@ static int make_particle_star(int i) {
     /*Set properties*/
     sum_mass_stars += P[child].Mass;
     STARP(child).FormationTime = All.Time;
-    STARP(child).BirthDensity = SPHP(i).Density;
+    STARP(child).BirthDensity = SphP[oldslot].Density;
     /*Copy metallicity*/
-    STARP(child).Metallicity = SPHP(i).Metallicity;
+    STARP(child).Metallicity = SphP[oldslot].Metallicity;
     P[child].IsNewParticle = 1;
     return 0;
 }

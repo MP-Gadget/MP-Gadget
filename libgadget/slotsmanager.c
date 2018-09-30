@@ -22,39 +22,86 @@ slots_gc_base();
 static int
 slots_gc_slots(int * compact_slots);
 
-/*Initialise a new slot for the particle at index i.*/
+/* Initialise a new slot with type at index pi
+ * for the particle at index i.*/
 static void
-slots_connect_new_slot(int i, size_t size)
+slots_connect_new_slot(int i, int pi, int type)
 {
     /* Fill slot with a meaningless
      * poison value ('e') so we will recognise
      * if it is uninitialised.*/
-    memset(BASESLOT(i), 101, size);
+    memset(BASESLOT_PI(pi, type), 101, SlotsManager->info[type].elsize);
     /* book keeping ID: debug only */
-    BASESLOT(i)->ID = P[i].ID;
-    BASESLOT(i)->IsGarbage = P[i].IsGarbage;
+    BASESLOT_PI(pi, type)->ID = P[i].ID;
+    BASESLOT_PI(pi, type)->IsGarbage = P[i].IsGarbage;
+    /*Update the particle's pointer*/
+    P[i].PI = pi;
 }
 
+/* This will change a particle type. The original particle_data structure is preserved,
+ * but the old slot is made garbage and a new one (with the new type) is created.
+ *
+ * Assumes the particle is protected by locks in threaded env.
+ *
+ * The Generation is incremented and the ID of the child is modified, as in slots_fork.
+ *
+ * This function is equivalent to:
+ * slots_fork(i, ptype);
+ * slots_mark_garbage(i);
+ * slots_gc();
+ * but without the need for a GC.
+ *
+ * Note that the 'new particle' event is not emitted, as there is no new particle!
+ * If you do something on a new slot, this needs a new event.
+ * */
+int
+slots_convert(int parent, int ptype)
+{
+    P[parent].Generation++;
+    uint64_t g = P[parent].Generation;
+    /* change the child ID according to the generation. */
+    P[parent].ID = (P[parent].ID & 0x00ffffffffffffffL) + (g << 56L);
+
+    if(SLOTS_ENABLED(ptype)) {
+        /*Set old slot as garbage*/
+        BASESLOT_PI(P[parent].PI, P[parent].Type)->IsGarbage = 1;
+
+        /* if enabled, alloc a new Slot for secondary data */
+        int PI = atomic_fetch_and_add(&SlotsManager->info[ptype].size, 1);
+
+        if(PI >= SlotsManager->info[ptype].maxsize) {
+            endrun(1, "This is currently unsupported; because SlotsManager.Base can be deep in the heap\n");
+            /* there is no way clearly to safely grow the slots during this.
+             * Another thread may be accessing the slots; growth will invalidate these indices.
+             * making the read atomic will be too expensive I suspect.
+             * */
+        }
+        slots_connect_new_slot(parent, PI, ptype);
+    }
+    /*Type changed after slot updated*/
+    P[parent].Type = ptype;
+    return parent;
+}
+
+/* this will fork a zero mass particle at the given location of parent of the given type.
+ *
+ * Assumes the particle is protected by locks in threaded env.
+ *
+ * The Generation of parent is incremented.
+ * The child carries the incremented generation number.
+ * The ID of the child is modified, with the new generation number set
+ * at the highest 8 bits.
+ *
+ * the new particle's index is returned.
+ *
+ * Its mass and ptype can be then adjusted. (watchout detached BH /SPH
+ * data!)
+ * PI will point to a new slot for this type.
+ * if the slots runs out, this will crash.
+ * */
 int
 slots_fork(int parent, int ptype)
 {
-    /* this will fork a zero mass particle at the given location of parent of the given type.
-     *
-     * Assumes the particle is protected by locks in threaded env.
-     *
-     * The Generation of parent is incremented.
-     * The child carries the incremented generation number.
-     * The ID of the child is modified, with the new generation number set
-     * at the highest 8 bits.
-     *
-     * the new particle's index is returned.
-     *
-     * Its mass and ptype can be then adjusted. (watchout detached BH /SPH
-     * data!)
-     * PI will point to a new slot for this type.
-     * if the slots runs out, this will trigger a slots growth
-     * */
-
     if(PartManager->NumPart >= PartManager->MaxPart)
     {
         endrun(8888, "Tried to spawn: NumPart=%d MaxPart = %d. Sorry, no space left.\n",
@@ -84,9 +131,7 @@ slots_fork(int parent, int ptype)
              * */
         }
 
-        P[child].PI = PI;
-
-        slots_connect_new_slot(child, SlotsManager->info[ptype].elsize);
+        slots_connect_new_slot(child, PI, ptype);
     }
 
     /*! When a new additional star particle is created, we can put it into the

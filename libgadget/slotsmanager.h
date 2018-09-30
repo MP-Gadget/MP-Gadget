@@ -140,6 +140,7 @@ void slots_mark_garbage(int i);
 void slots_setup_topology();
 void slots_setup_id();
 int slots_fork(int parent, int ptype);
+int slots_convert(int parent, int ptype);
 int slots_gc(int * compact_slots);
 void slots_gc_sorted(void);
 void slots_reserve(int where, int atleast[6]);

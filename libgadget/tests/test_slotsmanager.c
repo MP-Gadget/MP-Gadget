@@ -197,6 +197,25 @@ test_slots_fork(void **state)
     return;
 }
 
+static void
+test_slots_convert(void **state)
+{
+    setup_particles(state);
+    int i;
+    for(i = 0; i < 6; i ++) {
+        slots_convert(128 * i, P[i * 128].Type);
+    }
+
+    assert_int_equal(PartManager->NumPart, 128 * i);
+
+    assert_int_equal(SlotsManager->info[0].size, 129);
+    assert_int_equal(SlotsManager->info[4].size, 129);
+    assert_int_equal(SlotsManager->info[5].size, 129);
+
+    teardown_particles(state);
+    return;
+}
+
 int main(void) {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_slots_gc),
