@@ -705,20 +705,23 @@ void blackhole_make_one(int index) {
     if(P[index].Type != 0)
         endrun(7772, "Only Gas turns into blackholes, what's wrong?");
 
-    int child = slots_fork(index, 5);
+    int child;
 
-    BHP(child).FormationTime = All.Time;
-    /*Ensure that mass is conserved*/
-    double BHmass = All.SeedBlackHoleMass;
+    /*If the particle mass is less than that needed for a black hole, convert.*/
     if(P[index].Mass <= All.SeedBlackHoleMass) {
-        slots_mark_garbage(index);
-        BHmass = P[index].Mass;
+        child = slots_convert(index, 5);
     }
-    P[child].Mass = BHmass;
-    P[index].Mass -= BHmass;
+    /*Otherwise create a new particle*/
+    else {
+        child = slots_fork(index, 5);
+        /*Ensure that mass is conserved*/
+        P[child].Mass = All.SeedBlackHoleMass;
+        P[index].Mass -= All.SeedBlackHoleMass;
+    }
     BHP(child).base.ID = P[child].ID;
-    BHP(child).Mass = BHmass;
+    BHP(child).Mass = P[child].Mass;
     BHP(child).Mdot = 0;
+    BHP(child).FormationTime = All.Time;
 
     /* It is important to initialize MinPotPos to the current position of
      * a BH to avoid drifting to unknown locations (0,0,0) immediately
