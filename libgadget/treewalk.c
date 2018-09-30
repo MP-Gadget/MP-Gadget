@@ -146,9 +146,14 @@ ev_begin(TreeWalk * tw, int * active_set, int size)
     treewalk_init_evaluated(active_set, size);
 
     Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * All.NumThreads * sizeof(int));
-    tw->BunchSize =
-        (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) +
-                    sizeof(struct data_nodelist) + tw->query_type_elsize + tw->result_type_elsize));
+    /*The amount of memory eventually allocated per tree buffer*/
+    int bytesperbuffer = sizeof(struct data_index) + sizeof(struct data_nodelist) + tw->query_type_elsize;
+    /*This memory scales like the number of imports. In principle this could be much larger than Nexport
+     * if the tree is very imbalanced and many processors all need to export to this one. In practice I have
+     * not seen this happen, but provide a parameter to boost the memory for Nimport just in case.*/
+    bytesperbuffer += All.ImportBufferBoost * (tw->query_type_elsize + tw->result_type_elsize);
+    /*Use all free bytes for the tree buffer, as in exchange. Leave some free memory for array overhead.*/
+    tw->BunchSize = FreeBytes / bytesperbuffer - 4096 * 10;
     DataIndexTable =
         (struct data_index *) mymalloc("DataIndexTable", tw->BunchSize * sizeof(struct data_index));
     DataNodeList =
@@ -408,7 +413,7 @@ static int ev_primary(TreeWalk * tw)
     }
 
     if(tw->BufferFullFlag) {
-        message(1, "Tree export buffer full with %d particles. This is not fatal but slows the treewalk. Increase BufferSize if possible.\n", tw->Nexport);
+        message(1, "Tree export buffer full with %d particles. This is not fatal but slows the treewalk. Increase free memory during treewalk if possible.\n", tw->Nexport);
     }
 
     if(tw->Nexport == 0 && tw->BufferFullFlag) {
