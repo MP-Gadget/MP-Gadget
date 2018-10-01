@@ -435,7 +435,7 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
     }
     int other = iter->base.other;
 
-#pragma omp critical (_fofp_merge_)
+/* #pragma omp critical (_fofp_merge_) */
     {
         if(lv->mode == 0) {
             /* Local FOF */
