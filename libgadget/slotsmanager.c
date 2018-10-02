@@ -117,6 +117,8 @@ slots_fork(int parent, int ptype)
     /* change the child ID according to the generation. */
     P[child] = P[parent];
     P[child].ID = (P[parent].ID & 0x00ffffffffffffffL) + (g << 56L);
+    if(g >= (1 << (64-56L)))
+        endrun(1, "Particle %d (ID: %ld) generated too many particles: generation %d wrapped.\n", parent, P[parent].ID, g);
 
     P[child].Mass = 0;
     P[child].Type = ptype;
