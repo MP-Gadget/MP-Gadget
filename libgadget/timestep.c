@@ -166,6 +166,8 @@ find_timesteps(int * MinTimeBin)
         #pragma omp parallel for reduction(min:dti_min)
         for(i = 0; i < PartManager->NumPart; i++)
         {
+            /* Because we don't GC on short timesteps, there can be garbage here.
+             * Avoid making it active. */
             if(P[i].IsGarbage)
                 continue;
             inttime_t dti = get_timestep_ti(i, PM.length);

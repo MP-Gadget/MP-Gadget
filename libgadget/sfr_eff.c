@@ -237,6 +237,8 @@ void cooling_and_starformation(void)
 
     walltime_measure("/Misc");
 
+    /*When we switch to OpenMP 4.5, which supports array reduction,
+     * we can perhaps remove this*/
     stars_spawned = ta_malloc("stars_spawned", int, All.NumThreads);
     stars_converted = ta_malloc("stars_converted", int, All.NumThreads);
     sum_sm = ta_malloc("sum_sm", double, All.NumThreads);

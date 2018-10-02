@@ -719,6 +719,7 @@ void blackhole_make_one(int index) {
         P[index].Mass -= All.SeedBlackHoleMass;
     }
     BHP(child).base.ID = P[child].ID;
+    /*This is min(P[index].Mass, SeedBlackHoleMass */
     BHP(child).Mass = P[child].Mass;
     BHP(child).Mdot = 0;
     BHP(child).FormationTime = All.Time;

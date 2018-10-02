@@ -23,7 +23,8 @@ static int
 slots_gc_slots(int * compact_slots);
 
 /* Initialise a new slot with type at index pi
- * for the particle at index i.*/
+ * for the particle at index i.
+ * This will modify both P[i] and the slot at pi in type.*/
 static void
 slots_connect_new_slot(int i, int pi, int type)
 {
@@ -83,7 +84,8 @@ slots_convert(int parent, int ptype)
     return parent;
 }
 
-/* this will fork a zero mass particle at the given location of parent of the given type.
+/* This will fork a zero mass particle at the parent particle, with a new type
+ * as specified.
  *
  * Assumes the particle is protected by locks in threaded env.
  *
@@ -423,7 +425,9 @@ order_by_type_and_key(const void *a, const void *b)
 }
 
 /*Returns the number of non-Garbage particles in an array with garbage sorted to the end.
- * Used to trim recently sorted arrays. If ptype < 0, P array is trimmed.*/
+ * The index returned always points to a garbage particle.
+ * If ptype < 0, find the last garbage particle in the P array.
+ * If ptype >= 0, find the last garbage particle in the slot associated with ptype. */
 int slots_get_last_garbage(int nfirst, int nlast, int ptype)
 {
     /* nfirst is always not garbage, nlast is always garbage*/
