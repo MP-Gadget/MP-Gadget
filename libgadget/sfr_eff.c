@@ -708,8 +708,8 @@ static int make_particle_star(int i) {
         endrun(7772, "Only gas forms stars, what's wrong?");
 
     int tid = omp_get_thread_num();
-    /*Store the index of the SPH particle properties as overwritten in slots_convert*/
-    int oldslot = P[i].PI;
+    /*Store the SPH particle slot properties, overwritten in slots_convert*/
+    struct sph_particle_data oldslot = SPHP(i);
     /* ok, make a star */
     if(P[i].Mass < 1.1 * mass_of_star || All.QuickLymanAlphaProbability > 0)
     {
@@ -732,9 +732,9 @@ static int make_particle_star(int i) {
     /*Set properties*/
     sum_mass_stars[tid] += P[child].Mass;
     STARP(child).FormationTime = All.Time;
-    STARP(child).BirthDensity = SphP[oldslot].Density;
+    STARP(child).BirthDensity = oldslot.Density;
     /*Copy metallicity*/
-    STARP(child).Metallicity = SphP[oldslot].Metallicity;
+    STARP(child).Metallicity = oldslot.Metallicity;
     P[child].IsNewParticle = 1;
     return 0;
 }
