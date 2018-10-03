@@ -719,8 +719,9 @@ void blackhole_make_one(int index) {
         P[index].Mass -= All.SeedBlackHoleMass;
     }
     BHP(child).base.ID = P[child].ID;
-    /*This is min(P[index].Mass, SeedBlackHoleMass */
-    BHP(child).Mass = P[child].Mass;
+    /* The accretion mass should always be the seed black hole mass,
+     * irrespective of the gravitational mass of the particle.*/
+    BHP(child).Mass = All.SeedBlackHoleMass;
     BHP(child).Mdot = 0;
     BHP(child).FormationTime = All.Time;
 
