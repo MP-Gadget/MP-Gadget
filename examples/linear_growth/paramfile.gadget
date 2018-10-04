@@ -39,7 +39,6 @@ MinGasTemp = 100
 # Memory allocation
 
 PartAllocFactor = 2.0
-BufferSize = 100          # in MByte
 BlackHoleOn=0
 
 ## Massive neutrinos

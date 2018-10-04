@@ -117,7 +117,15 @@ int domain_exchange(int (*layoutfunc)(int p), int do_gc) {
 
         message(0, "iter=%d exchange of %013ld particles\n", iter, sumtogo);
 
-        failure = domain_exchange_once(layoutfunc, &plan, do_gc || (plan.last < plan.nexchange));
+        /* Do a GC if we are asked to, if this isn't the last iteration,
+         * or if we are exchanging a peculiarly large number of particles,
+         * indicating large garbage. In practice, if memory is not tight,
+         * this means we will usually only gc on PM steps. The gc decision
+         * is made collective in domain_exchange_once*/
+        int really_do_gc = do_gc || (plan.last < plan.nexchange)
+            || (plan.nexchange > PartManager->NumPart / 1000);
+
+        failure = domain_exchange_once(layoutfunc, &plan, really_do_gc);
 
         myfree(plan.ExchangeList);
 

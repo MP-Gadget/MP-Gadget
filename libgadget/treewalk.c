@@ -137,10 +137,26 @@ ev_free_threadlocals()
 static void
 ev_begin(TreeWalk * tw, int * active_set, int size)
 {
+    /* The last argument is may_have_garbage: in practice the only
+     * trivial haswork is the gravtree, which has no (active) garbage because
+     * the active list was just rebuilt. If we ever add a trivial haswork after
+     * sfr/bh we should change this*/
+    treewalk_build_queue(tw, active_set, size, 0);
+
+    treewalk_init_evaluated(active_set, size);
+
     Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * All.NumThreads * sizeof(int));
-    tw->BunchSize =
-        (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) +
-                    sizeof(struct data_nodelist) + tw->query_type_elsize + tw->result_type_elsize));
+
+    report_memory_usage(tw->ev_label);
+
+    /*The amount of memory eventually allocated per tree buffer*/
+    int bytesperbuffer = sizeof(struct data_index) + sizeof(struct data_nodelist) + tw->query_type_elsize;
+    /*This memory scales like the number of imports. In principle this could be much larger than Nexport
+     * if the tree is very imbalanced and many processors all need to export to this one. In practice I have
+     * not seen this happen, but provide a parameter to boost the memory for Nimport just in case.*/
+    bytesperbuffer += All.ImportBufferBoost * (tw->query_type_elsize + tw->result_type_elsize);
+    /*Use all free bytes for the tree buffer, as in exchange. Leave some free memory for array overhead.*/
+    tw->BunchSize = FreeBytes / bytesperbuffer - 4096 * 10;
     DataIndexTable =
         (struct data_index *) mymalloc("DataIndexTable", tw->BunchSize * sizeof(struct data_index));
     DataNodeList =
@@ -148,16 +164,8 @@ ev_begin(TreeWalk * tw, int * active_set, int size)
 
     memset(DataNodeList, -1, sizeof(struct data_nodelist) * tw->BunchSize);
 
-    /* The last argument is may_have_garbage: in practice the only
-     * trivial haswork is the gravtree, which has no garbage because
-     * an exchange just occurred. If we ever add a trivial haswork after
-     * sfr/bh we should change this*/
-    treewalk_build_queue(tw, active_set, size, 0);
-
-    treewalk_init_evaluated(active_set, size);
-
-    tw->currentIndex = mymalloc("currentIndexPerThread", sizeof(int) * All.NumThreads);
-    tw->currentEnd = mymalloc("currentEndPerThread", sizeof(int) * All.NumThreads);
+    tw->currentIndex = ta_malloc("currentIndexPerThread", int,  All.NumThreads);
+    tw->currentEnd = ta_malloc("currentEndPerThread", int, All.NumThreads);
 
     int i;
     for(i = 0; i < All.NumThreads; i ++) {
@@ -168,13 +176,14 @@ ev_begin(TreeWalk * tw, int * active_set, int size)
 
 static void ev_finish(TreeWalk * tw)
 {
-    myfree(tw->currentEnd);
-    myfree(tw->currentIndex);
-    if(!tw->work_set_stolen_from_active)
-        myfree(tw->WorkSet);
+    ta_free(tw->currentEnd);
+    ta_free(tw->currentIndex);
     myfree(DataNodeList);
     myfree(DataIndexTable);
     myfree(Ngblist);
+    if(!tw->work_set_stolen_from_active)
+        myfree(tw->WorkSet);
+
 }
 
 int data_index_compare(const void *a, const void *b);
@@ -407,7 +416,7 @@ static int ev_primary(TreeWalk * tw)
     }
 
     if(tw->BufferFullFlag) {
-        message(1, "Tree export buffer full with %d particles. This is not fatal but slows the treewalk. Increase BufferSize if possible.\n", tw->Nexport);
+        message(1, "Tree export buffer full with %d particles. This is not fatal but slows the treewalk. Increase free memory during treewalk if possible.\n", tw->Nexport);
     }
 
     if(tw->Nexport == 0 && tw->BufferFullFlag) {
@@ -598,7 +607,6 @@ treewalk_run(TreeWalk * tw, int * active_set, int size)
             ev_primary(tw); /* do local particles and prepare export list */
             /* exchange particle data */
             ev_get_remote(tw);
-            report_memory_usage(tw->ev_label);
             /* now do the particles that were sent to us */
             ev_secondary(tw);
 

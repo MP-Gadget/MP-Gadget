@@ -166,6 +166,8 @@ find_timesteps(int * MinTimeBin)
         #pragma omp parallel for reduction(min:dti_min)
         for(i = 0; i < PartManager->NumPart; i++)
         {
+            /* Because we don't GC on short timesteps, there can be garbage here.
+             * Avoid making it active. */
             if(P[i].IsGarbage)
                 continue;
             inttime_t dti = get_timestep_ti(i, PM.length);
@@ -731,11 +733,10 @@ int rebuild_activelist(inttime_t Ti_Current, int NumCurrentTiStep)
     {
         const int bin = P[i].TimeBin;
         const int tid = omp_get_thread_num();
+        if(P[i].IsGarbage)
+            continue;
         if(ActiveParticle && is_timebin_active(bin, Ti_Current))
         {
-            if(P[i].IsGarbage)
-                endrun(2,"Trying to make particle %d active, but it is garbage!\n", i);
-
             /* Store this particle in the ActiveSet for this thread*/
             ActivePartSets[tid][NActiveThread[tid]] = i;
             NActiveThread[tid]++;

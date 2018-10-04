@@ -46,7 +46,6 @@ MinGasTemp = 5.0
 
 # Memory allocation
 PartAllocFactor = 2.0
-BufferSize = 100          # in MByte
 
 # Softening lengths
 MinGasHsmlFractional 0.01

@@ -22,39 +22,90 @@ slots_gc_base();
 static int
 slots_gc_slots(int * compact_slots);
 
-/*Initialise a new slot for the particle at index i.*/
+/* Initialise a new slot with type at index pi
+ * for the particle at index i.
+ * This will modify both P[i] and the slot at pi in type.*/
 static void
-slots_connect_new_slot(int i, size_t size)
+slots_connect_new_slot(int i, int pi, int type)
 {
     /* Fill slot with a meaningless
      * poison value ('e') so we will recognise
      * if it is uninitialised.*/
-    memset(BASESLOT(i), 101, size);
+    memset(BASESLOT_PI(pi, type), 101, SlotsManager->info[type].elsize);
     /* book keeping ID: debug only */
-    BASESLOT(i)->ID = P[i].ID;
-    BASESLOT(i)->IsGarbage = P[i].IsGarbage;
+    BASESLOT_PI(pi, type)->ID = P[i].ID;
+    BASESLOT_PI(pi, type)->IsGarbage = P[i].IsGarbage;
+    /*Update the particle's pointer*/
+    P[i].PI = pi;
 }
 
+/* This will change a particle type. The original particle_data structure is preserved,
+ * but the old slot is made garbage and a new one (with the new type) is created.
+ *
+ * Assumes the particle is protected by locks in threaded env.
+ *
+ * The Generation is incremented and the ID of the child is modified, as in slots_fork.
+ *
+ * This function is equivalent to:
+ * slots_fork(i, ptype);
+ * slots_mark_garbage(i);
+ * slots_gc();
+ * but without the need for a GC.
+ *
+ * Note that the 'new particle' event is not emitted, as there is no new particle!
+ * If you do something on a new slot, this needs a new event.
+ * */
+int
+slots_convert(int parent, int ptype)
+{
+    P[parent].Generation++;
+    uint64_t g = P[parent].Generation;
+    /* change the child ID according to the generation. */
+    P[parent].ID = (P[parent].ID & 0x00ffffffffffffffL) + (g << 56L);
+    if(g >= (1 << (64-56L)))
+        endrun(1, "Particle %d (ID: %ld) generated too many particles: generation %d wrapped.\n", parent, P[parent].ID, g);
+
+    if(SLOTS_ENABLED(ptype)) {
+        /*Set old slot as garbage*/
+        BASESLOT_PI(P[parent].PI, P[parent].Type)->IsGarbage = 1;
+
+        /* if enabled, alloc a new Slot for secondary data */
+        int PI = atomic_fetch_and_add(&SlotsManager->info[ptype].size, 1);
+
+        if(PI >= SlotsManager->info[ptype].maxsize) {
+            endrun(1, "This is currently unsupported; because SlotsManager.Base can be deep in the heap\n");
+            /* there is no way clearly to safely grow the slots during this.
+             * Another thread may be accessing the slots; growth will invalidate these indices.
+             * making the read atomic will be too expensive I suspect.
+             * */
+        }
+        slots_connect_new_slot(parent, PI, ptype);
+    }
+    /*Type changed after slot updated*/
+    P[parent].Type = ptype;
+    return parent;
+}
+
+/* This will fork a zero mass particle at the parent particle, with a new type
+ * as specified.
+ *
+ * Assumes the particle is protected by locks in threaded env.
+ *
+ * The Generation of parent is incremented.
+ * The child carries the incremented generation number.
+ * The ID of the child is modified, with the new generation number set
+ * at the highest 8 bits.
+ *
+ * the new particle's index is returned.
+ *
+ * Its mass and ptype can be then adjusted. (watchout detached BH /SPH
+ * data!)
+ * PI will point to a new slot for this type.
+ * if the slots runs out, this will crash.
+ * */
 int
 slots_fork(int parent, int ptype)
 {
-    /* this will fork a zero mass particle at the given location of parent of the given type.
-     *
-     * Assumes the particle is protected by locks in threaded env.
-     *
-     * The Generation of parent is incremented.
-     * The child carries the incremented generation number.
-     * The ID of the child is modified, with the new generation number set
-     * at the highest 8 bits.
-     *
-     * the new particle's index is returned.
-     *
-     * Its mass and ptype can be then adjusted. (watchout detached BH /SPH
-     * data!)
-     * PI will point to a new slot for this type.
-     * if the slots runs out, this will trigger a slots growth
-     * */
-
     if(PartManager->NumPart >= PartManager->MaxPart)
     {
         endrun(8888, "Tried to spawn: NumPart=%d MaxPart = %d. Sorry, no space left.\n",
@@ -68,6 +119,8 @@ slots_fork(int parent, int ptype)
     /* change the child ID according to the generation. */
     P[child] = P[parent];
     P[child].ID = (P[parent].ID & 0x00ffffffffffffffL) + (g << 56L);
+    if(g >= (1 << (64-56L)))
+        endrun(1, "Particle %d (ID: %ld) generated too many particles: generation %d wrapped.\n", parent, P[parent].ID, g);
 
     P[child].Mass = 0;
     P[child].Type = ptype;
@@ -84,9 +137,7 @@ slots_fork(int parent, int ptype)
              * */
         }
 
-        P[child].PI = PI;
-
-        slots_connect_new_slot(child, SlotsManager->info[ptype].elsize);
+        slots_connect_new_slot(child, PI, ptype);
     }
 
     /*! When a new additional star particle is created, we can put it into the
@@ -132,32 +183,49 @@ slots_gc(int * compact_slots)
 #define GARBAGE(i, ptype) (ptype >= 0 ? BASESLOT_PI(i,ptype)->IsGarbage : P[i].IsGarbage)
 #define PART(i, ptype) (ptype >= 0 ? (void *) BASESLOT_PI(i, ptype) : (void *) &P[i])
 
+/*Find the next garbage particle*/
+static int
+slots_find_next_garbage(int start, int used, int ptype)
+{
+    int i, nextgc = used;
+    /*Find another garbage particle*/
+    for(i = start; i < used; i++)
+        if(GARBAGE(i, ptype)) {
+            nextgc = i;
+            break;
+        }
+    return nextgc;
+}
+
+/*Find the next non-garbage particle*/
+static int
+slots_find_next_nongarbage(int start, int used, int ptype)
+{
+    int i, nextgc = used;
+    /*Find another garbage particle*/
+    for(i = start; i < used; i++)
+        if(!GARBAGE(i, ptype)) {
+            nextgc = i;
+            break;
+        }
+    return nextgc;
+}
+
 /*Compaction algorithm*/
 static int
 slots_gc_compact(int used, int ptype, size_t size)
 {
-    /*Find first garbage particle*/
-    int i, nextgc = used;
-    for(i = 0; i < used; i++)
-        if(GARBAGE(i,ptype)) {
-            nextgc = i;
-            break;
-        }
+    /*Find first garbage particle: can't use bisection here as not sorted.*/
+    int nextgc = slots_find_next_garbage(0, used, ptype);
 
     int ngc = 0;
     /*Note each particle is tested exactly once*/
     while(nextgc < used) {
-        int i;
         /*Now lastgc contains a garbage*/
         int lastgc = nextgc;
         /*Find a non-garbage after it*/
-        int src = used;
-        for(i = lastgc + 1; i < used; i++)
-            if(!GARBAGE(i, ptype)) {
-                src = i;
-                break;
-            }
-        /*If no more non-garbage particles, don't both copying, just add a skip*/
+        int src = slots_find_next_nongarbage(lastgc+1, used, ptype);
+        /*If no more non-garbage particles, don't bother copying, just add a skip*/
         if(src == used) {
             ngc += src - lastgc;
             break;
@@ -165,13 +233,9 @@ slots_gc_compact(int used, int ptype, size_t size)
         /*Destination is shifted already*/
         int dest = lastgc - ngc;
 
-        nextgc = used;
         /*Find another garbage particle*/
-        for(i = src+1; i < used; i++)
-            if(GARBAGE(i, ptype)) {
-                nextgc = i;
-                break;
-            }
+        nextgc = slots_find_next_garbage(src + 1, used, ptype);
+
         /*Add number of particles we skipped*/
         ngc += src - lastgc;
         int nmove = nextgc - src +1;
@@ -364,6 +428,30 @@ order_by_type_and_key(const void *a, const void *b)
     return 0;
 }
 
+/*Returns the number of non-Garbage particles in an array with garbage sorted to the end.
+ * The index returned always points to a garbage particle.
+ * If ptype < 0, find the last garbage particle in the P array.
+ * If ptype >= 0, find the last garbage particle in the slot associated with ptype. */
+int slots_get_last_garbage(int nfirst, int nlast, int ptype)
+{
+    /* nfirst is always not garbage, nlast is always garbage*/
+    if(GARBAGE(nfirst, ptype))
+        return nfirst;
+    if(!GARBAGE(nlast, ptype))
+        return nlast+1;
+    /*Bisection*/
+    do {
+        int nmid = (nfirst + nlast)/2;
+        if(GARBAGE(nmid, ptype))
+            nlast = nmid;
+        else
+            nfirst = nmid;
+    }
+    while(nlast - nfirst > 1);
+
+    return nlast;
+}
+
 /* Sort the particles and their slots by type and peano order.
  * This does a gc by sorting the Garbage to the end of the array and then trimming.
  * It is a different algorithm to slots_gc, somewhat slower,
@@ -376,10 +464,8 @@ slots_gc_sorted()
      * The locality is broken by the exchange. */
     qsort_openmp(P, PartManager->NumPart, sizeof(struct particle_data), order_by_type_and_key);
 
-    /*Reduce NumPart*/
-    while(PartManager->NumPart > 0 && P[PartManager->NumPart-1].IsGarbage) {
-        PartManager->NumPart--;
-    }
+    /*Remove garbage particles*/
+    PartManager->NumPart = slots_get_last_garbage(0, PartManager->NumPart -1 , -1);
 
     /*Set up ReverseLink*/
     slots_gc_mark();
@@ -395,9 +481,7 @@ slots_gc_sorted()
                  slot_cmp_reverse_link);
 
         /*Reduce slots used*/
-        while(SlotsManager->info[ptype].size > 0 && BASESLOT_PI(SlotsManager->info[ptype].size-1, ptype)->IsGarbage) {
-            SlotsManager->info[ptype].size--;
-        }
+        SlotsManager->info[ptype].size = slots_get_last_garbage(0, SlotsManager->info[ptype].size-1, ptype);
         slots_gc_collect(ptype);
     }
 #ifdef DEBUG

@@ -214,7 +214,7 @@ void domain_decompose_full(void)
 
     report_memory_usage("DOMAIN");
 
-    walltime_measure("/Domain/Peano");
+    walltime_measure("/Domain/PeanoSort");
 }
 
 /* This is a cut-down version of the domain decomposition that leaves the
@@ -228,7 +228,7 @@ void domain_maintain(void)
     /* Try a domain exchange.
      * If we have no memory for the particles,
      * bail and do a full domain*/
-    if(0 != domain_exchange(domain_layoutfunc, 1)) {
+    if(0 != domain_exchange(domain_layoutfunc, 0)) {
         domain_decompose_full();
         return;
     }
@@ -1307,6 +1307,10 @@ domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount)
         #pragma omp for
         for(n = 0; n < PartManager->NumPart; n++)
         {
+            /* Skip garbage particles: they have zero work
+             * and can be removed by exchange if under memory pressure.*/
+            if(P[n].IsGarbage)
+                continue;
             int no = domain_get_topleaf(P[n].Key);
 
             mylocal_TopLeafWork[no] += domain_particle_costfactor(n);
