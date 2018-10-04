@@ -62,6 +62,8 @@ slots_convert(int parent, int ptype)
     uint64_t g = P[parent].Generation;
     /* change the child ID according to the generation. */
     P[parent].ID = (P[parent].ID & 0x00ffffffffffffffL) + (g << 56L);
+    if(g >= (1 << (64-56L)))
+        endrun(1, "Particle %d (ID: %ld) generated too many particles: generation %d wrapped.\n", parent, P[parent].ID, g);
 
     if(SLOTS_ENABLED(ptype)) {
         /*Set old slot as garbage*/
