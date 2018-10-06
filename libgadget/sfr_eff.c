@@ -245,7 +245,7 @@ void cooling_and_starformation(void)
     sum_mass_stars = ta_malloc("sum_mass_stars", double, All.NumThreads);
     localsfr = ta_malloc("localsfr", double, All.NumThreads);
 
-    TreeWalk tw[1] = {0};
+    TreeWalk tw[1] = {{0}};
 
     tw->visit = NULL; /* no tree walk */
     tw->ev_label = "SFR_COOL";
@@ -312,7 +312,7 @@ void cooling_and_starformation(void)
     /* now lets make winds. this has to be after NumPart is updated */
     if(All.WindOn && !HAS(All.WindModel, WIND_SUBGRID)){
         Wind = (struct winddata * ) mymalloc("WindExtraData", PartManager->NumPart * sizeof(struct winddata));
-        TreeWalk tw[1] = {0};
+        TreeWalk tw[1] = {{0}};
 
         tw->ev_label = "SFR_WIND";
         tw->fill = (TreeWalkFillQueryFunction) sfr_wind_copy;

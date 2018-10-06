@@ -24,7 +24,7 @@ grav_short_pair_ngbiter(
 
 void grav_short_pair(void)
 {
-    TreeWalk tw[1] = {0};
+    TreeWalk tw[1] = {{0}};
 
     message(0, "Starting pair-wise short range gravity...\n");
 

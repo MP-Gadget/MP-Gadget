@@ -779,7 +779,7 @@ static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountTyp
     int i;
     int64_t tot = 0, tot_type[6] = {0};
     int64_t tot_count[TIMEBINS+1] = {0};
-    int64_t tot_count_type[6][TIMEBINS+1] = {0};
+    int64_t tot_count_type[6][TIMEBINS+1] = {{0}};
     int64_t tot_num_force = 0;
     int64_t TotNumPart = 0, TotNumType[6] = {0};
 

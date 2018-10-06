@@ -31,7 +31,7 @@ void fof_register_io_blocks();
  *
  */
 
-struct IOTable IOTable = {0};
+struct IOTable IOTable;
 
 static void petaio_write_header(BigFile * bf, const int64_t * NTotal);
 static void petaio_read_header_internal(BigFile * bf);
@@ -174,7 +174,7 @@ void petaio_read_internal(char * fname, int ic) {
     int ptype;
     int i;
     BigFile bf = {0};
-    BigBlock bh = {0};
+    BigBlock bh;
     message(0, "Reading snapshot %s\n", fname);
 
     if(0 != big_file_mpi_open(&bf, fname, MPI_COMM_WORLD)) {
@@ -370,7 +370,7 @@ petaio_read_snapshot(int num)
 
 /* write a header block */
 static void petaio_write_header(BigFile * bf, const int64_t * NTotal) {
-    BigBlock bh = {0};
+    BigBlock bh;
     if(0 != big_file_mpi_create_block(bf, &bh, "Header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
         endrun(0, "Failed to create block at %s:%s\n", "Header",
                 big_file_get_error_message());
@@ -433,7 +433,7 @@ _get_attr_int(BigBlock * bh, char * name, int def)
 
 static void
 petaio_read_header_internal(BigFile * bf) {
-    BigBlock bh = {0};
+    BigBlock bh;
     if(0 != big_file_mpi_open_block(bf, &bh, "Header", MPI_COMM_WORLD)) {
         endrun(0, "Failed to create block at %s:%s\n", "Header",
                     big_file_get_error_message());
@@ -788,6 +788,7 @@ static int order_by_type(const void *a, const void *b)
 
 static void register_io_blocks() {
     int i;
+    memset(&IOTable, 0, sizeof(IOTable));
     /* Bare Bone Gravity*/
     for(i = 0; i < 6; i ++) {
         IO_REG(Position, "f8", 3, i);

@@ -50,7 +50,7 @@ void grav_short_tree(void)
     if(!All.TreeGravOn)
         return;
 
-    TreeWalk tw[1] = {0};
+    TreeWalk tw[1] = {{0}};
 
     tw->ev_label = "FORCETREE_SHORTRANGE";
     tw->visit = (TreeWalkVisitFunction) force_treeev_shortrange;
