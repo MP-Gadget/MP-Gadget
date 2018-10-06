@@ -1055,7 +1055,7 @@ static void InitUVF(void) {
     int size;
     UVF.Table = h5readdouble(All.UVFluctuationFile, "Zreion_Table", &size);
     if(UVF.Table[0] < 0.01 || UVF.Table[0] > 100.0) {
-        endrun(123, "UV Flucutaiton doesn't seem right\n");
+        endrun(123, "UV Fluctuation out of range: %g\n", UVF.Table[0]);
     }
 }
 
