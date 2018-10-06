@@ -438,7 +438,7 @@ petaio_read_header_internal(BigFile * bf) {
         endrun(0, "Failed to create block at %s:%s\n", "Header",
                     big_file_get_error_message());
     }
-    double Time;
+    double Time = 0.;
     int ptype;
     int64_t NTotal[6];
     if(
