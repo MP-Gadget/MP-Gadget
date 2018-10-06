@@ -222,6 +222,7 @@ int main(void) {
         cmocka_unit_test(test_slots_gc_sorted),
         cmocka_unit_test(test_slots_reserve),
         cmocka_unit_test(test_slots_fork),
+        cmocka_unit_test(test_slots_convert),
         cmocka_unit_test(test_slots_zero),
     };
     return cmocka_run_group_tests_mpi(tests, NULL, NULL);
