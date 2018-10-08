@@ -244,6 +244,11 @@ void cooling_and_starformation(void)
     sum_sm = ta_malloc("sum_sm", double, All.NumThreads);
     sum_mass_stars = ta_malloc("sum_mass_stars", double, All.NumThreads);
     localsfr = ta_malloc("localsfr", double, All.NumThreads);
+    memset(stars_spawned, 0, All.NumThreads * sizeof(int));
+    memset(stars_converted, 0, All.NumThreads * sizeof(int));
+    memset(sum_sm, 0, All.NumThreads * sizeof(double));
+    memset(sum_mass_stars, 0, All.NumThreads * sizeof(double));
+    memset(localsfr, 0, All.NumThreads * sizeof(double));
 
     TreeWalk tw[1] = {{0}};
 
