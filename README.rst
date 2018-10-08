@@ -127,7 +127,8 @@ This can be achived by removing all files in depends/lib.
 
 Otherwise symbols related to OpenMP in PFFT may be missing.
 
-Always enable OpenMP.
+Always enable OpenMP, and control number of threads with `OMP_NUM_THREADS`.
+
 
 IO Format
 ---------
@@ -158,23 +159,22 @@ Simeon Bird, Nicholas Battaglia, Nishikanta Khandai
 Citation
 --------
 
-Please cite 'Feng et al 2016 in prep'. A short paper will be written soon.
+We never get around to write a proper code paper on MP-Gadget.
 
-We need to obtain a DOI for direct citation of the software.
+For usage of the code, here is a DOI for this repository that you can cite
+
+.. image:: https://zenodo.org/badge/24486904.svg
+   :target: https://zenodo.org/badge/latestdoi/24486904
+
+It helps us to keep track of uses.
 
 Licence Issue
 -------------
 
 Most files are licensed under GPLv2+.
 
-Except two files of questionable licences:
-sfr_eff.c and cooling.c.
-
 Please refer to the source files for details.
 
-The source code is put in public domain for reference.
-To enable features in sfr_eff.c and cooling.c for scientific runs,
-consent from the original authors of these files shall be obtained.
 
 Status
 ------
