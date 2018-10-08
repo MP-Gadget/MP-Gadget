@@ -234,7 +234,7 @@ void petaio_save_neutrinos(BigFile * bf, int ThisTask)
         for(i=0;i< ia;i++)
             delta_tot[ik*ia+i] = delta_tot_table.delta_tot[ik][i];
 
-    BigBlock bn = {0};
+    BigBlock bn;
     if(0 != big_file_mpi_create_block(bf, &bn, "Neutrino", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
         endrun(0, "Failed to create block at %s:%s\n", "Neutrino",
                 big_file_get_error_message());
@@ -337,7 +337,7 @@ void petaio_read_neutrinos(BigFile * bf, int ThisTask)
 #pragma omp master
     {
     size_t nk, ia, ik, i;
-    BigBlock bn = {0};
+    BigBlock bn;
     if(0 != big_file_mpi_open_block(bf, &bn, "Neutrino", MPI_COMM_WORLD)) {
         endrun(0, "Failed to open block at %s:%s\n", "Neutrino",
                     big_file_get_error_message());

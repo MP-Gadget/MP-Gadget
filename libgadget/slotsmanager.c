@@ -4,7 +4,7 @@
 
 #include "utils.h"
 
-struct slots_manager_type SlotsManager[1] = {0};
+struct slots_manager_type SlotsManager[1] = {{0}};
 
 #define SLOTS_ENABLED(ptype) (SlotsManager->info[ptype].enabled)
 

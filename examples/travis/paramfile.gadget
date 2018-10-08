@@ -31,6 +31,7 @@ StarformationCriterion = density
 RadiationOn = 1
 MassiveNuLinRespOn = 0
 
+MetalCoolFile = ../cooling_metal_UVB
 SnapshotWithFOF = 1
 FOFHaloLinkingLength 0.2
 FOFHaloMinLength = 32

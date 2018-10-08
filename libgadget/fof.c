@@ -307,7 +307,7 @@ void fof_label_primary(void)
 
     message(0, "Start linking particles (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
-    TreeWalk tw[1] = {0};
+    TreeWalk tw[1] = {{0}};
     tw->ev_label = "FOF_FIND_GROUPS";
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw->ngbiter = (TreeWalkNgbIterFunction) fof_primary_ngbiter;
@@ -1063,7 +1063,7 @@ static void fof_label_secondary(void)
 {
     int n, iter;
 
-    TreeWalk tw[1] = {0};
+    TreeWalk tw[1] = {{0}};
     tw->ev_label = "FOF_FIND_NEAREST";
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw->ngbiter = (TreeWalkNgbIterFunction) fof_secondary_ngbiter;

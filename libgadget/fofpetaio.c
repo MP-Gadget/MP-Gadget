@@ -244,7 +244,7 @@ static void build_buffer_fof(BigArray * array, IOTableEntry * ent) {
 }
 
 static void fof_write_header(BigFile * bf) {
-    BigBlock bh = {0};
+    BigBlock bh;
     if(0 != big_file_mpi_create_block(bf, &bh, "Header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
         endrun(0, "Failed to create header\n");
     }

@@ -147,7 +147,7 @@ void blackhole(void)
     int Ntot_gas_swallowed, Ntot_BH_swallowed;
 
     walltime_measure("/Misc");
-    TreeWalk tw_accretion[1] = {0};
+    TreeWalk tw_accretion[1] = {{0}};
 
     tw_accretion->ev_label = "BH_ACCRETION";
     tw_accretion->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
@@ -161,7 +161,7 @@ void blackhole(void)
     tw_accretion->query_type_elsize = sizeof(TreeWalkQueryBHAccretion);
     tw_accretion->result_type_elsize = sizeof(TreeWalkResultBHAccretion);
 
-    TreeWalk tw_feedback[1] = {0};
+    TreeWalk tw_feedback[1] = {{0}};
     tw_feedback->ev_label = "BH_FEEDBACK";
     tw_feedback->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw_feedback->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHFeedback);

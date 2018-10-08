@@ -76,7 +76,6 @@ struct {
 
 static void find_abundances_and_rates(double logT, double nHcgs, struct UVBG * uvbg, struct abundance * y, struct rates * r);
 static double solve_equilibrium_temp(double u, double nHcgs, struct UVBG * uvbg, struct abundance * y);
-static double * h5readdouble(char * filename, char * dataset, int * Nread);
 
 double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, double *nelec);
 double CoolingRateFromU(double u, double nHcgs, struct UVBG * uvbg, double *ne_guess, double Z);
@@ -790,40 +789,6 @@ void MakeCoolingTable(void)
 
 }
 
-static double * h5readdouble(char * filename, char * dataset, int * Nread) {
-    void * buffer;
-    int N;
-    if(ThisTask == 0) {
-        BigFile bf[1];
-        big_file_open(bf, filename);
-        BigBlock bb[1];
-        if(0 != big_file_open_block(bf, bb, dataset)) {
-            endrun(-1, "Cannot open %s %s\n", filename, dataset);
-        }
-
-        N = bb->size;
-        MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-        BigArray array[1];
-
-        big_block_read_simple(bb, 0, N, array, "f8");
-        /* steal the buffer */
-        buffer = array->data;
-        big_block_close(bb);
-        big_file_close(bf);
-    } else {
-        MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
-        buffer = malloc(N * sizeof(double));
-    }
-
-    MPI_Bcast(buffer, N, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-
-    *Nread = N;
-    return buffer;
-}
-
-
-
 /* table input (from file TREECOOL) for ionizing parameters */
 
 #define JAMPL	1.0		/* amplitude factor relative to input table */
@@ -955,6 +920,50 @@ void InitCool(void)
     InitUVF();
 }
 
+/* Read a big array from filename/dataset into an array, allocating memory in buffer.
+ * which is returned. Nread argument is set equal to number of elements read.*/
+static double * h5readdouble(char * filename, char * dataset, int * Nread) {
+    int N;
+    void * buffer=NULL;
+    if(ThisTask == 0) {
+        BigFile bf[1];
+        BigBlockPtr ptr;
+        BigBlock bb[1];
+        BigArray array[1];
+        size_t dims[2];
+        big_file_open(bf, filename);
+        if(0 != big_file_open_block(bf, bb, dataset)) {
+            endrun(-1, "Cannot open %s %s: %s\n", filename, dataset, big_file_get_error_message());
+        }
+
+        N = bb->size;
+
+        buffer = mymalloc("cooling_data", N * dtype_itemsize(bb->dtype) * bb->nmemb);
+
+        dims[0] = N;
+        dims[1] = bb->nmemb;
+
+        big_array_init(array, buffer, bb->dtype, 2, dims, NULL);
+        if(0 != big_block_seek(bb, &ptr, 0))
+            endrun(1, "Failed to seek block %s %s: %s\n", filename, dataset, big_file_get_error_message());
+
+        if(0 != big_block_read(bb, &ptr, array))
+            endrun(-1, "Failed to read %s %s: %s", filename, dataset, big_file_get_error_message());
+        /* steal the buffer */
+        big_block_close(bb);
+        big_file_close(bf);
+    }
+
+    MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    if(ThisTask != 0)
+        buffer = mymalloc("cooling_data",N * sizeof(double));
+
+    MPI_Bcast(buffer, N, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    *Nread = N;
+    return buffer;
+}
+
 static void InitMetalCooling() {
     int size;
     //This is never used if All.MetalCoolFile == ""
@@ -963,7 +972,7 @@ static void InitMetalCooling() {
     if(size != 1 || tabbedmet[0] != 0.0) {
         endrun(123, "MetalCool file %s is wrongly tabulated\n", All.MetalCoolFile);
     }
-    free(tabbedmet);
+    myfree(tabbedmet);
     
     MC.Redshift_bins = h5readdouble(All.MetalCoolFile, "Redshift_bins", &MC.NRedshift_bins);
     MC.HydrogenNumberDensity_bins = h5readdouble(All.MetalCoolFile, "HydrogenNumberDensity_bins", &MC.NHydrogenNumberDensity_bins);
@@ -1024,7 +1033,6 @@ static void InitUVF(void) {
         message(0, "Using NON-UNIFORM UV BG from %s and %s\n", All.TreeCoolFile, All.UVFluctuationFile);
         UVF.disabled = 0;
     }
-    int size;
     {
         /* read the reionized fraction */
         UVF.Zbins = h5readdouble(All.UVFluctuationFile, "Redshift_Bins", &UVF.N_Zbins);
@@ -1034,31 +1042,21 @@ static void InitUVF(void) {
         interp_init_dim(&UVF.Finterp, 0, UVF.Zbins[0], UVF.Zbins[UVF.N_Zbins - 1]);
     }
 
-    UVF.Nside = size;
-
-    int Nside = UVF.Nside;
-    /* This is kinda big, so we move it to mymalloc (leaving more free space for
-     * system /MPI */
-    UVF.Table = mymalloc("Zreion", (sizeof(double) * Nside) * (Nside * Nside));
-    int i;
-    double * data = h5readdouble(All.UVFluctuationFile, "Zreion_Table", &size);
-    /* convert to float internally, saving memory */
-    for(i = 0; i < size; i ++) {
-        UVF.Table[i] = data[i];
-    }
-    free(data);
-
-    if(UVF.Table[0] < 0.01 || UVF.Table[0] > 100.0) {
-        endrun(123, "UV Flucutaiton doesn't seem right\n");
-    }
-
-    double * XYZ_Bins = h5readdouble(All.UVFluctuationFile, "XYZ_Bins", &size);
+    int Nside;
+    double * XYZ_Bins = h5readdouble(All.UVFluctuationFile, "XYZ_Bins", &Nside);
     int dims[] = {Nside, Nside, Nside};
     interp_init(&UVF.interp, 3, dims);
     interp_init_dim(&UVF.interp, 0, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
     interp_init_dim(&UVF.interp, 1, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
     interp_init_dim(&UVF.interp, 2, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
-    free(XYZ_Bins);
+    myfree(XYZ_Bins);
+    UVF.Nside = Nside;
+
+    int size;
+    UVF.Table = h5readdouble(All.UVFluctuationFile, "Zreion_Table", &size);
+    if(UVF.Table[0] < 0.01 || UVF.Table[0] > 100.0) {
+        endrun(123, "UV Fluctuation out of range: %g\n", UVF.Table[0]);
+    }
 }
 
 #if 0

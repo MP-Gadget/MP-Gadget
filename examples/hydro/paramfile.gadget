@@ -31,7 +31,7 @@ StarformationCriterion = density
 RadiationOn = 1
 MassiveNuLinRespOn = 0
 WindOn = 1
-
+MetalCoolFile = ../cooling_metal_UVB
 
 # Accuracy of time integration
 MaxSizeTimestep = 0.1

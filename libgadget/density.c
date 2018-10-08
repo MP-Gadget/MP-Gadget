@@ -121,7 +121,7 @@ density_internal(int update_hsml)
     if(!All.DensityOn)
 	return;
 
-    TreeWalk tw[1] = {0};
+    TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
 
     tw->ev_label = "DENSITY";

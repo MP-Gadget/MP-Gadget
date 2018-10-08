@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include "interp.h"
+#include "mymalloc.h"
 
 void interp_init(Interp * obj, int Ndim, int * dims) {
     ptrdiff_t N = 1;
@@ -14,7 +15,7 @@ void interp_init(Interp * obj, int Ndim, int * dims) {
 
     /* alloc memory */
     obj->Ndim = Ndim;
-    obj->data = malloc(0
+    obj->data = mymalloc("interp_data", 0
         +   sizeof(double) * Ndim * 3
         +   sizeof(ptrdiff_t) * Ndim
         +   sizeof(int) * Ndim);
@@ -169,6 +170,6 @@ double interp_eval_periodic(Interp * obj, double * x, double * ydata) {
 }
 
 void interp_destroy(Interp * obj) {
-    free(obj->data);
+    myfree(obj->data);
 }
 
