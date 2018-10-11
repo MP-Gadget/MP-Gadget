@@ -217,7 +217,7 @@ sfr_cool_postprocess(int i, TreeWalk * tw)
         flag = get_sfr_condition(i);
 
         /* normal implicit isochoric cooling */
-        if(flag == 1 || All.QuickLymanAlphaProbability > 0) {
+        if(flag == 1 || (All.QuickLymanAlphaProbability > 0 && All.QuickLymanAlphaProbability < 1)) {
             cooling_direct(i);
         }
         if(flag == 0) {
