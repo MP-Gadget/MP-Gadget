@@ -307,7 +307,7 @@ static int make_particle_star(int i) {
     /*Store the SPH particle slot properties, overwritten in slots_convert*/
     struct sph_particle_data oldslot = SPHP(i);
     /* ok, make a star */
-    if(P[i].Mass < 1.1 * mass_of_star || All.QuickLymanAlphaProbability > 0)
+    if(P[i].Mass < 1.1 * mass_of_star)
     {
         /* here the gas particle is eliminated because remaining mass is all converted. */
         stars_converted[tid]++;
@@ -658,6 +658,10 @@ void init_cooling_and_star_formation(void)
 static double
 find_star_mass(int i)
 {
+    /*Quick Lyman Alpha always turns all of a particle into stars*/
+    if(All.QuickLymanAlphaProbability > 0)
+        return P[i].Mass;
+
     double mass_of_star =  All.MassTable[0] / GENERATIONS;
     if(mass_of_star > P[i].Mass) {
         /* if some mass has been stolen by BH, e.g */
