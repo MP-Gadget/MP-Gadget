@@ -22,6 +22,7 @@ INCL = config.h densitykernel.h \
 	checkpoint.h \
 	physconst.h   \
 	sfr_eff.h \
+	winds.h \
 	timefac.h \
 	blackhole.h \
 	cosmology.h \
@@ -83,8 +84,8 @@ GADGET_OBJS =  \
 	 domain.o exchange.o slotsmanager.o allvars.o partmanager.o \
 	 blackhole.o timebinmgr.o \
 	 run.o drift.o stats.o \
-	 timestep.o init.o checkpoint.o sfr_eff.o \
-	 cooling.o \
+	 timestep.o init.o checkpoint.o \
+	 sfr_eff.o cooling.o winds.o \
 	 density.o \
 	 treewalk.o cosmology.o \
 	 gravshort-tree.o gravshort-pair.o hydra.o  timefac.o \
