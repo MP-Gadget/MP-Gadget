@@ -106,13 +106,10 @@ slots_convert(int parent, int ptype)
 int
 slots_fork(int parent, int ptype)
 {
-    if(PartManager->NumPart >= PartManager->MaxPart)
-    {
-        endrun(8888, "Tried to spawn: NumPart=%d MaxPart = %d. Sorry, no space left.\n",
-                PartManager->NumPart, PartManager->MaxPart);
-    }
-    /*This is all racy if ActiveParticle or P is accessed from another thread*/
     int child = atomic_fetch_and_add(&PartManager->NumPart, 1);
+
+    if(child >= PartManager->MaxPart)
+        endrun(8888, "Tried to spawn: NumPart=%d MaxPart = %d. Sorry, no space left.\n", child, PartManager->MaxPart);
 
     P[parent].Generation ++;
     uint64_t g = P[parent].Generation;
