@@ -2,6 +2,7 @@
 #ifdef SFR
 
 #include <math.h>
+#include <string.h>
 #include "winds.h"
 #include "treewalk.h"
 #include "drift.h"
@@ -76,7 +77,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
         TreeWalkNgbIterWind * iter,
         LocalTreeWalk * lv);
 
-static int NPLeft;
+static int* NPLeft;
 
 static void
 sfr_wind_feedback_preprocess(const int n, TreeWalk * tw)
@@ -128,16 +129,23 @@ winds_and_feedback(int * NewStars, int NumNewStars)
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw->postprocess = (TreeWalkProcessFunction) sfr_wind_weight_postprocess;
 
-    int done = 0;
-    while(!done) {
-        NPLeft = 0;
-        treewalk_run(tw, NewStars, NumNewStars);
+    int64_t totalleft = 0;
+    sumup_large_ints(1, &NumNewStars, &totalleft);
+    NPLeft = ta_malloc("NPLeft", int, All.NumThreads);
+    while(totalleft > 0) {
+        int i;
+        memset(NPLeft, 0, sizeof(int)*All.NumThreads);
 
-        int64_t totalleft = 0;
-        sumup_large_ints(1, &NPLeft, &totalleft);
+        treewalk_run(tw, NewStars, NumNewStars);
+        int Nleft = 0;
+
+        for(i = 0; i< All.NumThreads; i++)
+            Nleft += NPLeft[i];
+
+        sumup_large_ints(1, &Nleft, &totalleft);
         message(0, "Star DM iteration Total left = %ld\n", totalleft);
-        done = totalleft == 0;
     }
+    ta_free(NPLeft);
 
     /* Then run feedback */
     tw->haswork = (TreeWalkHasWorkFunction) sfr_wind_feedback_haswork;
@@ -200,8 +208,8 @@ sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
         }
         Wind[i].Vdisp = sqrt(vdisp / 3);
     } else {
-#pragma omp atomic
-        NPLeft ++;
+        int tid = omp_get_thread_num();
+        NPLeft[tid] ++;
     }
 }
 
