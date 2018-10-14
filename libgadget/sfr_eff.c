@@ -434,20 +434,16 @@ cooling_direct(int i) {
 
     SPHP(i).Ne = ne;
 
-    if(P[i].TimeBin)	/* upon start-up, we need to protect against dt==0 */
+    /* upon start-up, we need to protect against dt==0 */
+    if(dloga > 0)
     {
         /* note: the adiabatic rate has been already added in ! */
+        SPHP(i).DtEntropy = (unew * GAMMA_MINUS1 /
+                pow(SPHP(i).EOMDensity * All.cf.a3inv,
+                    GAMMA_MINUS1) - SPHP(i).Entropy) / dloga;
 
-        if(dloga > 0)
-        {
-
-            SPHP(i).DtEntropy = (unew * GAMMA_MINUS1 /
-                    pow(SPHP(i).EOMDensity * All.cf.a3inv,
-                        GAMMA_MINUS1) - SPHP(i).Entropy) / dloga;
-
-            if(SPHP(i).DtEntropy < -0.5 * SPHP(i).Entropy / dloga)
-                SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dloga;
-        }
+        if(SPHP(i).DtEntropy < -0.5 * SPHP(i).Entropy / dloga)
+            SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dloga;
     }
 }
 
