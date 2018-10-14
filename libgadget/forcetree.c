@@ -37,6 +37,7 @@ struct NODE *Nodes_base,	/*!< points to the actual memory allocated for the node
 				   gives the first allocated node */
 
 int MaxNodes;                  /*!< maximum allowed number of internal nodes */
+int NumNodes;                  /*!< Currently used number of internal nodes */
 int RootNode;                  /*!< Index of the first node */
 
 
@@ -104,7 +105,7 @@ force_tree_rebuild()
     }
     walltime_measure("/Misc");
 
-    force_tree_build(PartManager->NumPart);
+    NumNodes = force_tree_build(PartManager->NumPart);
 
     walltime_measure("/Tree/Build");
 
