@@ -655,6 +655,21 @@ void init_cooling_and_star_formation(void)
     }
 }
 
+static double
+find_star_mass(int i)
+{
+    double mass_of_star =  All.MassTable[0] / GENERATIONS;
+    if(mass_of_star > P[i].Mass) {
+        /* if some mass has been stolen by BH, e.g */
+        mass_of_star = P[i].Mass;
+    }
+    /* if we are the last particle */
+    if(fabs(mass_of_star - P[i].Mass) / mass_of_star < 0.5) {
+        mass_of_star = P[i].Mass;
+    }
+    return mass_of_star;
+}
+
 /********************
  *
  * The follow functions are from Desika and Gadget-P.
@@ -742,19 +757,4 @@ static double get_sfr_factor_due_to_selfgravity(int i) {
         y *= 1.0/(1.0 + alpha_vir);
     }
     return y;
-}
-
-static double
-find_star_mass(int i)
-{
-    double mass_of_star =  All.MassTable[0] / GENERATIONS;
-    if(mass_of_star > P[i].Mass) {
-        /* if some mass has been stolen by BH, e.g */
-        mass_of_star = P[i].Mass;
-    }
-    /* if we are the last particle */
-    if(fabs(mass_of_star - P[i].Mass) / mass_of_star < 0.5) {
-        mass_of_star = P[i].Mass;
-    }
-    return mass_of_star;
 }
