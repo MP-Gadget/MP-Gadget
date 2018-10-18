@@ -352,13 +352,12 @@ void fof_label_primary(void)
         /* let's check out which particles have changed their MinID,
          * mark them for next round. */
         link_across = 0;
-#pragma omp parallel for
+#pragma omp parallel for reduction(+: link_across)
         for(i = 0; i < PartManager->NumPart; i++) {
             MyIDType newMinID = HaloLabel[HEAD(i, tw)].MinID;
             if(newMinID != FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i]) {
                 FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[i] = 1;
-#pragma omp atomic
-                link_across += 1;
+                link_across ++;
             } else {
                 FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[i] = 0;
             }
