@@ -56,7 +56,7 @@ typedef struct {
 struct DensityPriv {
     double *Left, *Right;
     int NIteration;
-    int NPLeft;
+    int *NPLeft;
     int update_hsml;
 };
 
@@ -171,13 +171,20 @@ density_internal(int update_hsml)
 
     walltime_measure("/SPH/Density/Init");
 
+    DENSITY_GET_PRIV(tw)->NPLeft = ta_malloc("NPLeft", int, All.NumThreads);
+
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
     do {
-        DENSITY_GET_PRIV(tw)->NPLeft = 0;
+        memset(DENSITY_GET_PRIV(tw)->NPLeft, 0, sizeof(int)*All.NumThreads);
 
         treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
-        sumup_large_ints(1, &DENSITY_GET_PRIV(tw)->NPLeft, &ntot);
+        int Nleft = 0;
+
+        for(i = 0; i< All.NumThreads; i++)
+            Nleft += DENSITY_GET_PRIV(tw)->NPLeft[i];
+
+        sumup_large_ints(1, &Nleft, &ntot);
 
         if(ntot == 0) break;
 
@@ -206,6 +213,7 @@ density_internal(int update_hsml)
         }
     } while(1);
 
+    ta_free(DENSITY_GET_PRIV(tw)->NPLeft);
     myfree(DENSITY_GET_PRIV(tw)->Right);
     myfree(DENSITY_GET_PRIV(tw)->Left);
 
@@ -550,8 +558,8 @@ void density_check_neighbours (int i, TreeWalk * tw) {
     }
 
     if(!P[i].DensityIterationDone) {
-#pragma omp atomic
-        DENSITY_GET_PRIV(tw)->NPLeft ++;
+        int tid = omp_get_thread_num();
+        DENSITY_GET_PRIV(tw)->NPLeft[tid] ++;
     }
 }
 
