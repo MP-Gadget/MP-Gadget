@@ -110,10 +110,6 @@ void hydro_force(void)
 
     walltime_measure("/Misc");
 
-    /* allocate buffers to arrange communication */
-
-    walltime_measure("/SPH/Hydro/Init");
-
     treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
     /* collect some timing information */
