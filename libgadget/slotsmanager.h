@@ -15,6 +15,8 @@ extern struct slots_manager_type {
         size_t elsize; /* itemsize */
         int enabled;
     } info[6];
+    double increase; /* Percentage amount to increase
+                      * slot reservation by when requested.*/
 } SlotsManager[1];
 
 /* Slot particle data structures: first the base extension slot, then black holes,
@@ -132,7 +134,7 @@ extern MPI_Datatype MPI_TYPE_SLOT[6];
 #define BASESLOT_PI(PI, ptype) ((struct particle_data_ext *)(SlotsManager->info[ptype].ptr + SlotsManager->info[ptype].elsize * (PI)))
 #define BASESLOT(i) BASESLOT_PI(P[i].PI, P[i].Type)
 
-void slots_init(void);
+void slots_init(double increase);
 /*Enable a slot on type ptype. All slots are disabled after slots_init().*/
 void slots_set_enabled(int ptype, size_t elsize);
 void slots_free();

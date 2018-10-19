@@ -206,8 +206,9 @@ create_gadget_parameter_set()
     param_declare_double(ps, "GravitySofteningGas", OPTIONAL, 1./30., "Softening for collisional particles (Gas); units of mean separation of DM; 0 to use Hsml of last step. ");
 
     param_declare_int(ps, "ImportBufferBoost", OPTIONAL, 6, "Memory factor to allow for there being more particles imported during treewlk than exported. Increase this if code crashes during treewalk with out of memory.");
-    param_declare_double(ps, "PartAllocFactor", REQUIRED, 0, "");
-    param_declare_double(ps, "TopNodeAllocFactor", OPTIONAL, 0.5, "");
+    param_declare_double(ps, "PartAllocFactor", REQUIRED, 0, "Over-allocation factor of particles, to deal with load imbalances.");
+    param_declare_double(ps, "TopNodeAllocFactor", OPTIONAL, 0.5, "Initial TopNode allocation as a fraction of maximum particle number.");
+    param_declare_double(ps, "SlotsIncreaseFactor", OPTIONAL, 0.01, "Percentage factor to increase slot allocation by when requested.");
 
     param_declare_double(ps, "InitGasTemp", OPTIONAL, -1, "Initial gas temperature. By default set to CMB temperature at starting redshift.");
     param_declare_double(ps, "MinGasTemp", OPTIONAL, 5, "Minimum gas temperature");
@@ -431,6 +432,7 @@ void read_parameter_file(char *fname)
         All.ImportBufferBoost = param_get_double(ps, "ImportBufferBoost");
         All.PartAllocFactor = param_get_double(ps, "PartAllocFactor");
         All.TopNodeAllocFactor = param_get_double(ps, "TopNodeAllocFactor");
+        All.SlotsIncreaseFactor = param_get_double(ps, "SlotsIncreaseFactor");
 
         All.InitGasTemp = param_get_double(ps, "InitGasTemp");
         All.MinGasTemp = param_get_double(ps, "MinGasTemp");
