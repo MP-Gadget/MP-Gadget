@@ -110,10 +110,6 @@ void hydro_force(void)
 
     walltime_measure("/Misc");
 
-    /* allocate buffers to arrange communication */
-
-    walltime_measure("/SPH/Hydro/Init");
-
     treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
     /* collect some timing information */
@@ -136,7 +132,9 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
     double soundspeed_i;
     const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
     /*Compute predicted velocity*/
-    sph_VelPred(place, input->Vel);
+    input->Vel[0] = SPHP(place).VelPred[0];
+    input->Vel[1] = SPHP(place).VelPred[1];
+    input->Vel[2] = SPHP(place).VelPred[2];
     input->Hsml = P[place].Hsml;
     input->Mass = P[place].Mass;
     input->Density = SPHP(place).Density;
@@ -243,9 +241,8 @@ hydro_ngbiter(
 
         double dv[3];
         int d;
-        sph_VelPred(other, dv);
         for(d = 0; d < 3; d++) {
-            dv[d] = I->Vel[d] - dv[d];
+            dv[d] = I->Vel[d] - SPHP(other).VelPred[d];
         }
 
         double vdotr = dotproduct(dist, dv);

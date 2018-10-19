@@ -106,13 +106,10 @@ slots_convert(int parent, int ptype)
 int
 slots_fork(int parent, int ptype)
 {
-    if(PartManager->NumPart >= PartManager->MaxPart)
-    {
-        endrun(8888, "Tried to spawn: NumPart=%d MaxPart = %d. Sorry, no space left.\n",
-                PartManager->NumPart, PartManager->MaxPart);
-    }
-    /*This is all racy if ActiveParticle or P is accessed from another thread*/
     int child = atomic_fetch_and_add(&PartManager->NumPart, 1);
+
+    if(child >= PartManager->MaxPart)
+        endrun(8888, "Tried to spawn: NumPart=%d MaxPart = %d. Sorry, no space left.\n", child, PartManager->MaxPart);
 
     P[parent].Generation ++;
     uint64_t g = P[parent].Generation;
@@ -504,11 +501,7 @@ slots_reserve(int where, int atleast[6])
         }
     }
 
-    /* FIXME: change 0.01 to a parameter. The experience is
-     * this works out fine, since the number of time steps increases
-     * (hence the number of growth increases
-     * when the star formation rate does)*/
-    int add = 0.01 * PartManager->MaxPart;
+    int add = SlotsManager->increase * PartManager->MaxPart;
     if (add < 128) add = 128;
 
     /* FIXME: allow shrinking; need to tweak the memmove later. */
@@ -568,12 +561,13 @@ slots_reserve(int where, int atleast[6])
 }
 
 void
-slots_init()
+slots_init(double increase)
 {
     memset(SlotsManager, 0, sizeof(SlotsManager[0]));
 
     MPI_Type_contiguous(sizeof(struct particle_data), MPI_BYTE, &MPI_TYPE_PARTICLE);
     MPI_Type_commit(&MPI_TYPE_PARTICLE);
+    SlotsManager->increase = increase;
 }
 
 void

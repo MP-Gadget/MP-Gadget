@@ -45,8 +45,6 @@ sfr_cooling_haswork(int target, TreeWalk * tw)
 }
 
 #ifdef SFR
-static double u_to_temp_fac; /* assuming very hot !*/
-
 /* these guys really shall be local to cooling_and_starformation, but
  * I am too lazy to pass them around to subroutines.
  */
@@ -217,7 +215,7 @@ sfr_cool_postprocess(int i, TreeWalk * tw)
         flag = get_sfr_condition(i);
 
         /* normal implicit isochoric cooling */
-        if(flag == 1 || All.QuickLymanAlphaProbability > 0) {
+        if(flag == 1 || (All.QuickLymanAlphaProbability > 0 && All.QuickLymanAlphaProbability < 1)) {
             cooling_direct(i);
         }
         if(flag == 0) {
@@ -232,9 +230,6 @@ sfr_cool_postprocess(int i, TreeWalk * tw)
 void cooling_and_starformation(void)
     /* cooling routine when star formation is enabled */
 {
-    u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
-        * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-
     walltime_measure("/Misc");
 
     /*When we switch to OpenMP 4.5, which supports array reduction,
@@ -335,7 +330,7 @@ void cooling_and_starformation(void)
          * because we need to compute the normalization before the feedback . */
         tw->visit = NULL;
         tw->haswork = (TreeWalkHasWorkFunction) sfr_wind_feedback_haswork;
-        tw->postprocess = (TreeWalkProcessFunction) sfr_wind_feedback_preprocess; 
+        tw->postprocess = (TreeWalkProcessFunction) sfr_wind_feedback_preprocess;
         treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
         tw->haswork = sfr_wind_weight_haswork;
@@ -420,6 +415,9 @@ cooling_direct(int i) {
         }
 
         unew += SPHP(i).Injected_BH_Energy / P[i].Mass;
+        const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
+        * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+
         double temp = u_to_temp_fac * unew;
 
 
@@ -436,20 +434,16 @@ cooling_direct(int i) {
 
     SPHP(i).Ne = ne;
 
-    if(P[i].TimeBin)	/* upon start-up, we need to protect against dt==0 */
+    /* upon start-up, we need to protect against dt==0 */
+    if(dloga > 0)
     {
         /* note: the adiabatic rate has been already added in ! */
+        SPHP(i).DtEntropy = (unew * GAMMA_MINUS1 /
+                pow(SPHP(i).EOMDensity * All.cf.a3inv,
+                    GAMMA_MINUS1) - SPHP(i).Entropy) / dloga;
 
-        if(dloga > 0)
-        {
-
-            SPHP(i).DtEntropy = (unew * GAMMA_MINUS1 /
-                    pow(SPHP(i).EOMDensity * All.cf.a3inv,
-                        GAMMA_MINUS1) - SPHP(i).Entropy) / dloga;
-
-            if(SPHP(i).DtEntropy < -0.5 * SPHP(i).Entropy / dloga)
-                SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dloga;
-        }
+        if(SPHP(i).DtEntropy < -0.5 * SPHP(i).Entropy / dloga)
+            SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dloga;
     }
 }
 
@@ -483,6 +477,9 @@ static int get_sfr_condition(int i) {
         double unew = DMAX(All.MinEgySpec,
                 (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) /
                 GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+
+        const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
+        * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
 
         double temp = u_to_temp_fac * unew;
 
@@ -754,6 +751,9 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
         struct UVBG uvbg;
         GetParticleUVBG(i, &uvbg);
         egycurrent += SPHP(i).Injected_BH_Energy / P[i].Mass;
+
+        const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
+        * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
 
         double temp = u_to_temp_fac * egycurrent;
 

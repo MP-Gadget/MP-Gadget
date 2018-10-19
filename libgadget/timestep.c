@@ -21,14 +21,8 @@
  *  momentum space and assigning new timesteps
  */
 
-/* variables for organizing PM steps of discrete timeline */
-typedef struct {
-    inttime_t length; /*!< Duration of the current PM integer timestep*/
-    inttime_t start;           /* current start point of the PM step*/
-    inttime_t Ti_kick;  /* current inttime of PM Kick (velocity) */
-} TimeSpan;
-
-static TimeSpan PM;
+/*PM timesteps*/
+TimeSpan PM;
 
 /*Get the dti from the timebin*/
 static inline inttime_t dti_from_timebin(int bin) {
@@ -375,24 +369,6 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
             SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dt_entr_next;
     }
 
-}
-
-/*Get the predicted velocity for a particle
- * at the Force computation time, which always coincides with the Drift inttime.
- * for gravity and hydro forces.
- * This is mostly used for artificial viscosity.*/
-void
-sph_VelPred(int i, double * VelPred)
-{
-    const int ti = P[i].Ti_drift;
-    const double Fgravkick2 = get_gravkick_factor(P[i].Ti_kick, ti);
-    const double Fhydrokick2 = get_hydrokick_factor(P[i].Ti_kick, ti);
-    const double FgravkickB = get_gravkick_factor(PM.Ti_kick, ti);
-    int j;
-    for(j = 0; j < 3; j++) {
-        VelPred[j] = P[i].Vel[j] + Fgravkick2 * P[i].GravAccel[j]
-            + P[i].GravPM[j] * FgravkickB + Fhydrokick2 * SPHP(i).HydroAccel[j];
-    }
 }
 
 double

@@ -5,6 +5,7 @@ OPTIMIZE =  -fPIC -fopenmp -O0 -g
 GSL_INCL = 
 GSL_LIBS = -lgsl -lgslcblas
 
+SHELL = /bin/bash
 
 # on travis we run with debug mode
 OPT += -DDEBUG

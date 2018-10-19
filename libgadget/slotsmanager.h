@@ -15,6 +15,8 @@ extern struct slots_manager_type {
         size_t elsize; /* itemsize */
         int enabled;
     } info[6];
+    double increase; /* Percentage amount to increase
+                      * slot reservation by when requested.*/
 } SlotsManager[1];
 
 /* Slot particle data structures: first the base extension slot, then black holes,
@@ -85,6 +87,12 @@ struct sph_particle_data
 #define DhsmlEOMDensityFactor DhsmlDensityFactor
 #endif
     MyFloat EntVarPred;         /*!< Predicted entropy at current particle drift time for SPH computation*/
+    /* VelPred can always be derived from the current time and acceleration.
+     * However, doing so makes the SPH and hydro code much (a factor of two)
+     * slower. It requires computing get_gravkick_factor twice with different arguments,
+     * which defeats the lookup cache in timefac.c. Because VelPred is used multiple times,
+     * it is much quicker to compute it once and re-use this*/
+    MyFloat VelPred[3];            /*!< Predicted velocity at current particle drift time for SPH*/
     MyFloat Metallicity;		/*!< metallicity of gas particle */
     MyFloat Entropy;		/*!< Entropy (actually entropic function) at kick time of particle */
     MyFloat MaxSignalVel;           /*!< maximum signal velocity */
@@ -132,7 +140,7 @@ extern MPI_Datatype MPI_TYPE_SLOT[6];
 #define BASESLOT_PI(PI, ptype) ((struct particle_data_ext *)(SlotsManager->info[ptype].ptr + SlotsManager->info[ptype].elsize * (PI)))
 #define BASESLOT(i) BASESLOT_PI(P[i].PI, P[i].Type)
 
-void slots_init(void);
+void slots_init(double increase);
 /*Enable a slot on type ptype. All slots are disabled after slots_init().*/
 void slots_set_enabled(int ptype, size_t elsize);
 void slots_free();

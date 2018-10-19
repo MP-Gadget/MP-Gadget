@@ -162,8 +162,9 @@ ev_begin(TreeWalk * tw, int * active_set, int size)
     DataNodeList =
         (struct data_nodelist *) mymalloc("DataNodeList", tw->BunchSize * sizeof(struct data_nodelist));
 
+#ifdef DEBUG
     memset(DataNodeList, -1, sizeof(struct data_nodelist) * tw->BunchSize);
-
+#endif
     tw->currentIndex = ta_malloc("currentIndexPerThread", int,  All.NumThreads);
     tw->currentEnd = ta_malloc("currentEndPerThread", int, All.NumThreads);
 
