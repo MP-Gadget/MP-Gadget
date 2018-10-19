@@ -22,8 +22,8 @@ def compute_power(output):
     box = catcdm.attrs['BoxSize']
     Nmesh = 2*int(np.round(np.cbrt(catcdm.attrs['TotNumPart'][0])))
 
-    meshcdm = catcdm.to_mesh(Nmesh=Nmesh, window='cic', compensated=True, interlaced=True)
-    meshb = catb.to_mesh(Nmesh=Nmesh, window='cic', compensated=True, interlaced=True)
+    meshcdm = catcdm.to_mesh(Nmesh=Nmesh, resampler='cic', compensated=True, interlaced=True)
+    meshb = catb.to_mesh(Nmesh=Nmesh, resampler='cic', compensated=True, interlaced=True)
     pkb = FFTPower(catb, mode='1d', Nmesh=Nmesh)
     pkcdm = FFTPower(catcdm, mode='1d', Nmesh=Nmesh)
     z = 1. / catcdm.attrs['Time'] - 1
