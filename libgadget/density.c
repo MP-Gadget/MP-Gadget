@@ -247,7 +247,9 @@ density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw)
     }
     else
     {
-        sph_VelPred(place, I->Vel);
+        I->Vel[0] = SPHP(place).VelPred[0];
+        I->Vel[1] = SPHP(place).VelPred[1];
+        I->Vel[2] = SPHP(place).VelPred[2];
     }
 
 #ifdef SFR
@@ -374,9 +376,8 @@ density_ngbiter(
             double dv[3];
             double rot[3];
             int d;
-            sph_VelPred(other, dv);
             for(d = 0; d < 3; d ++) {
-                dv[d] = I->Vel[d] - dv[d];
+                dv[d] = I->Vel[d] - SPHP(other).VelPred[d];
             }
             O->Div += -fac * dotproduct(dist, dv);
 

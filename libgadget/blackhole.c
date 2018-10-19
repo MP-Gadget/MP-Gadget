@@ -416,17 +416,15 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             double u = r * iter->accretion_kernel.Hinv;
             double wk = density_kernel_wk(&iter->accretion_kernel, u);
             float mass_j = P[other].Mass;
-            double VelPred[3];
-            sph_VelPred(other, VelPred);
 
             /* FIXME: volume correction doesn't work on BH yet. */
             O->Rho += (mass_j * wk);
 
             O->SmoothedPressure += (mass_j * wk * PressurePred(other));
             O->SmoothedEntropy += (mass_j * wk * SPHP(other).Entropy);
-            O->GasVel[0] += (mass_j * wk * VelPred[0]);
-            O->GasVel[1] += (mass_j * wk * VelPred[1]);
-            O->GasVel[2] += (mass_j * wk * VelPred[2]);
+            O->GasVel[0] += (mass_j * wk * SPHP(other).VelPred[0]);
+            O->GasVel[1] += (mass_j * wk * SPHP(other).VelPred[1]);
+            O->GasVel[2] += (mass_j * wk * SPHP(other).VelPred[2]);
 
             /* here we have a gas particle; check for swallowing */
 
