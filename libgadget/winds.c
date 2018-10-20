@@ -52,9 +52,6 @@ static struct winddata {
 static int
 sfr_wind_weight_haswork(int target, TreeWalk * tw);
 
-static int
-sfr_wind_feedback_haswork(int target, TreeWalk * tw);
-
 static void
 sfr_wind_reduce_weight(int place, TreeWalkResultWind * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
 
@@ -79,15 +76,6 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
 static int* NPLeft;
 
 static void
-sfr_wind_feedback_preprocess(const int n, TreeWalk * tw)
-{
-    Wind[n].DMRadius = 2 * P[n].Hsml;
-    Wind[n].Left = 0;
-    Wind[n].Right = -1;
-    P[n].DensityIterationDone = 0;
-}
-
-static void
 sfr_wind_feedback_postprocess(const int i, TreeWalk * tw)
 {
     P[i].IsNewParticle = 0;
@@ -103,6 +91,18 @@ winds_and_feedback(int * NewStars, int NumNewStars)
     if(HAS(All.WindModel, WIND_SUBGRID))
         return;
     Wind = (struct winddata * ) mymalloc("WindExtraData", PartManager->NumPart * sizeof(struct winddata));
+
+    int i;
+    /*Initialise DensityIterationDone and the Wind array*/
+    #pragma omp parallel for
+    for (i = 0; i < NumNewStars; i++) {
+        int n = NewStars[i];
+        Wind[n].DMRadius = 2 * P[n].Hsml;
+        Wind[n].Left = 0;
+        Wind[n].Right = -1;
+        P[n].DensityIterationDone = 0;
+    }
+
     TreeWalk tw[1] = {{0}};
 
     tw->ev_label = "SFR_WIND";
@@ -116,14 +116,6 @@ winds_and_feedback(int * NewStars, int NumNewStars)
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterWind);
     tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_weight_ngbiter;
 
-    /* First set DensityIterationDone for weighting */
-    /* Watchout: the process function name is preprocess, but not called in the feedback tree walk
-        * because we need to compute the normalization before the feedback . */
-    tw->visit = NULL;
-    tw->haswork = (TreeWalkHasWorkFunction) sfr_wind_feedback_haswork;
-    tw->postprocess = (TreeWalkProcessFunction) sfr_wind_feedback_preprocess;
-    treewalk_run(tw, NewStars, NumNewStars);
-
     tw->haswork = sfr_wind_weight_haswork;
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw->postprocess = (TreeWalkProcessFunction) sfr_wind_weight_postprocess;
@@ -132,7 +124,6 @@ winds_and_feedback(int * NewStars, int NumNewStars)
     sumup_large_ints(1, &NumNewStars, &totalleft);
     NPLeft = ta_malloc("NPLeft", int, All.NumThreads);
     while(totalleft > 0) {
-        int i;
         memset(NPLeft, 0, sizeof(int)*All.NumThreads);
 
         treewalk_run(tw, NewStars, NumNewStars);
@@ -147,7 +138,7 @@ winds_and_feedback(int * NewStars, int NumNewStars)
     ta_free(NPLeft);
 
     /* Then run feedback */
-    tw->haswork = (TreeWalkHasWorkFunction) sfr_wind_feedback_haswork;
+    tw->haswork = NULL;
     tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_feedback_ngbiter;
     tw->postprocess = (TreeWalkProcessFunction) sfr_wind_feedback_postprocess;
     tw->reduce = NULL;
@@ -177,6 +168,8 @@ wind_evolve(int i)
 static void
 sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
 {
+    if(P[i].Type != 4 || !P[i].IsNewParticle)
+        endrun(23, "Wind called on something not a new star particle: (i=%d, t=%d, new=%d id = %ld)\n", i, P[i].Type, P[i].IsNewParticle, P[i].ID);
     int diff = Wind[i].Ngb - 40;
     if(diff < -2) {
         /* too few */
@@ -217,17 +210,6 @@ sfr_wind_weight_haswork(int target, TreeWalk * tw)
 {
     if(P[target].Type == 4) {
         if(P[target].IsNewParticle && !P[target].DensityIterationDone) {
-             return 1;
-        }
-    }
-    return 0;
-}
-
-static int
-sfr_wind_feedback_haswork(int target, TreeWalk * tw)
-{
-    if(P[target].Type == 4) {
-        if(P[target].IsNewParticle) {
              return 1;
         }
     }

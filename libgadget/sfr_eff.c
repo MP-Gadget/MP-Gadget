@@ -153,11 +153,15 @@ void cooling_and_starformation(void)
             stars_spawned++;
     }
 
-    myfree(NewParents);
-    myfree(NewStars);
-
     if(!All.StarformationOn)
         return;
+
+    /*Done with the parents*/
+    myfree(NewParents);
+
+    /*Keep the stars, shrunk, for the wind model*/
+    if(NewStars)
+        NewStars = myrealloc(NewStars, sizeof(int) * NumNewStar);
 
     int64_t tot_spawned=0, tot_converted=0;
     sumup_large_ints(1, &stars_spawned, &tot_spawned);
@@ -188,9 +192,10 @@ void cooling_and_starformation(void)
 
     walltime_measure("/Cooling/StarFormation");
 
-    /* Note that NumActiveParticle changes when a star is spawned during the
-     * sfr loop. winds needs to use the new NumActiveParticle because it needs the new stars.*/
-    winds_and_feedback(ActiveParticle, NumActiveParticle);
+    /* Now apply the wind model using the list of new stars.*/
+    winds_and_feedback(NewStars, NumNewStar);
+
+    myfree(NewStars);
 }
 
 static void
