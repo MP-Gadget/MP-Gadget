@@ -53,7 +53,7 @@ static double * localsfr;
 
 static void cooling_relaxed(int i, double egyeff, double dtime, double trelax);
 
-static int get_sfr_condition(int i);
+static int sfreff_on_eeqos(int i);
 static int make_particle_star(int i);
 static void starformation(int i);
 static void quicklyastarformation(int i);
@@ -79,18 +79,15 @@ sfr_cool_postprocess(int i, TreeWalk * tw)
             SPHP(i).DelayTime = DMAX(SPHP(i).DelayTime - dtime, 0);
         }
 #endif
-        /* check whether conditions for star formation are fulfilled.
-         *
-         * f=1  normal cooling
-         * f=0  star formation
-         */
-        flag = get_sfr_condition(i);
+
+        /* check whether we are forming stars.*/
+        flag = sfreff_on_eeqos(i);
 
         /* normal implicit isochoric cooling */
-        if(flag == 1 || (All.QuickLymanAlphaProbability > 0 && All.QuickLymanAlphaProbability < 1)) {
+        if(flag == 0 || (All.QuickLymanAlphaProbability > 0 && All.QuickLymanAlphaProbability < 1)) {
             cooling_direct(i);
         }
-        if(flag == 0) {
+        if(flag == 1) {
             /* active star formation */
             if(All.QuickLymanAlphaProbability > 0)
                 quicklyastarformation(i);
@@ -255,27 +252,31 @@ cooling_direct(int i) {
     }
 }
 
-/* returns 0 if the particle is actively forming stars */
-static int get_sfr_condition(int i) {
-    int flag = 1;
-/* no sfr !*/
+/* returns 1 if the particle is on the effective equation of state,
+ * cooling via the relaxation equation and maybe forming stars.
+ * 0 if the particle does not form stars, instead cooling normally.*/
+static int
+sfreff_on_eeqos(int i)
+{
+    int flag = 0;
+    /* no sfr: normal cooling*/
     if(!All.StarformationOn) {
-        return flag;
+        return 0;
     }
-    if(SPHP(i).Density * All.cf.a3inv >= All.PhysDensThresh)
-        flag = 0;
+    /* Check that starformation has not left a massless particle.*/
+    if(P[i].Mass == 0) {
+        endrun(-1, "Particle %d in SFR has mass=%g. Does not happen as no tracer particles.\n", i, P[i].Mass);
+    }
 
-    if(SPHP(i).Density < All.OverDensThresh)
+    if(SPHP(i).Density * All.cf.a3inv >= All.PhysDensThresh)
         flag = 1;
 
-    /* massless particles never form stars! */
-    if(P[i].Mass == 0) {
-        endrun(-1, "Encoutered zero mass particle during sfr ;"
-                  " We haven't implemented tracer particles and this shall not happen\n");
-    }
+    if(SPHP(i).Density < All.OverDensThresh)
+        flag = 0;
+
 #ifdef SFR
     if(SPHP(i).DelayTime > 0)
-        flag = 1;		/* only normal cooling for particles in the wind */
+        flag = 0;		/* only normal cooling for particles in the wind */
 #endif
     if(All.QuickLymanAlphaProbability > 0) {
         double dloga = get_dloga_for_bin(P[i].TimeBin);
@@ -289,9 +290,9 @@ static int get_sfr_condition(int i) {
         double temp = u_to_temp_fac * unew;
 
         if(SPHP(i).Density > All.OverDensThresh && temp < 1.0e5)
-            flag = 0;
+            return 1;
         else
-            flag = 1;
+            return 0;
     }
 
     return flag;
@@ -444,17 +445,14 @@ double get_starformation_rate(int i) {
 }
 
 static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyeff) {
-    double rateOfSF;
-    int flag;
-    double tsfr;
+    double rateOfSF, tsfr;
     double factorEVP, egyhot, ne, tcool, y, x, cloudmass;
     struct UVBG uvbg;
 
     if(!All.StarformationOn)
         return 0;
-    flag = get_sfr_condition(i);
 
-    if(flag == 1) {
+    if(!sfreff_on_eeqos(i)) {
         /* this shall not happen but let's put in some safe
          * numbers in case the code run wary!
          *
