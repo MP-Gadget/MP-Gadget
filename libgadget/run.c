@@ -94,11 +94,7 @@ void begrun(int RestartSnapNum)
 
     enable_core_dumps_and_fpu_exceptions();
 #endif
-    InitCool();
-
-#if defined(SFR)
-    init_clouds();
-#endif
+    init_cooling_and_star_formation();
 
     grav_init();
 
@@ -349,11 +345,7 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled)
         blackhole();
 #endif
         /**** radiative cooling and star formation *****/
-#ifdef SFR
         cooling_and_starformation();
-#else
-        cooling_only();
-#endif
     }
     message(0, "Forces computed.\n");
 }
@@ -409,13 +401,11 @@ open_outputfiles(int RestartSnapNum)
         free(buf);
     }
 
-#ifdef SFR
     buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, "sfr.txt", postfix);
     fastpm_path_ensure_dirname(buf);
     if(!(FdSfr = fopen(buf, mode)))
         endrun(1, "error in opening file '%s'\n", buf);
     free(buf);
-#endif
 
 #ifdef BLACK_HOLES
     buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, "blackholes.txt", postfix);
@@ -441,9 +431,7 @@ close_outputfiles(void)
     if(All.OutputEnergyDebug)
         fclose(FdEnergy);
 
-#ifdef SFR
     fclose(FdSfr);
-#endif
 
 #ifdef BLACK_HOLES
     fclose(FdBlackHoles);
@@ -456,8 +444,6 @@ close_outputfiles(void)
 static void
 set_units(void)
 {
-    double meanweight;
-
     All.UnitTime_in_s = All.UnitLength_in_cm / All.UnitVelocity_in_cm_per_s;
     All.UnitTime_in_Megayears = All.UnitTime_in_s / SEC_PER_MEGAYEAR;
 
@@ -478,37 +464,6 @@ set_units(void)
     /*Initialise the hybrid neutrinos, after Omega_nu*/
     if(All.HybridNeutrinosOn)
         init_hybrid_nu(&All.CP.ONu.hybnu, All.CP.MNu, All.HybridVcrit, LIGHTCGS/1e5, All.HybridNuPartTime, All.CP.ONu.kBtnu);
-
-    meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);	/* note: assuming NEUTRAL GAS */
-
-    All.MinEgySpec = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.MinGasTemp;
-    All.MinEgySpec *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
-
-#ifdef SFR
-
-    All.OverDensThresh =
-        All.CritOverDensity * All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
-
-    All.PhysDensThresh = All.CritPhysDensity * PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs;
-
-    All.EgySpecCold = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempClouds;
-    All.EgySpecCold *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
-
-    meanweight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));	/* note: assuming FULL ionization */
-
-    All.EgySpecSN = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempSupernova;
-    All.EgySpecSN *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
-
-    if(All.WindOn) {
-        if(HAS(All.WindModel, WIND_FIXED_EFFICIENCY)) {
-            All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency);
-            message(0, "Windspeed: %g\n", All.WindSpeed);
-        } else {
-            All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / 1.0);
-            message(0, "Reference Windspeed: %g\n", All.WindSigma0 * All.WindSpeedFactor);
-        }
-    }
-#endif
 
     message(0, "Hubble (internal units) = %g\n", All.CP.Hubble);
     message(0, "G (internal units) = %g\n", All.G);

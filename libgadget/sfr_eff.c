@@ -26,6 +26,7 @@
 #include "cooling.h"
 #include "slotsmanager.h"
 #include "timestep.h"
+#include "treewalk.h"
 #include "winds.h"
 
 /*Cooling only: no star formation*/
@@ -41,7 +42,6 @@ sfr_cooling_haswork(int target, TreeWalk * tw)
     return P[target].Type == 0 && P[target].Mass > 0;
 }
 
-#ifdef SFR
 /* these guys really shall be local to cooling_and_starformation, but
  * I am too lazy to pass them around to subroutines.
  */
@@ -66,6 +66,7 @@ static void
 sfr_cool_postprocess(int i, TreeWalk * tw)
 {
         int flag;
+#ifdef SFR
         /*Remove a wind particle from the delay mode if the (physical) density has dropped sufficiently.*/
         if(SPHP(i).DelayTime > 0 && SPHP(i).Density * All.cf.a3inv < All.WindFreeTravelDensFac * All.PhysDensThresh) {
                 SPHP(i).DelayTime = 0;
@@ -77,7 +78,7 @@ sfr_cool_postprocess(int i, TreeWalk * tw)
             const double dtime = dloga / All.cf.hubble;
             SPHP(i).DelayTime = DMAX(SPHP(i).DelayTime - dtime, 0);
         }
-
+#endif
         /* check whether conditions for star formation are fulfilled.
          *
          * f=1  normal cooling
@@ -98,10 +99,19 @@ sfr_cool_postprocess(int i, TreeWalk * tw)
         }
 }
 
+static void
+cool_postprocess(int i, TreeWalk * tw)
+{
+    cooling_direct(i);
+}
+
+/* cooling and star formation routine.*/
 void cooling_and_starformation(void)
-    /* cooling routine when star formation is enabled */
 {
     walltime_measure("/Misc");
+
+    if(!All.CoolingOn)
+        return;
 
     /*When we switch to OpenMP 4.5, which supports array reduction,
      * we can perhaps remove this*/
@@ -121,9 +131,15 @@ void cooling_and_starformation(void)
     tw->visit = NULL; /* no tree walk */
     tw->ev_label = "SFR_COOL";
     tw->haswork = sfr_cooling_haswork;
-    tw->postprocess = (TreeWalkProcessFunction) sfr_cool_postprocess;
+    if(All.StarformationOn)
+        tw->postprocess = (TreeWalkProcessFunction) sfr_cool_postprocess;
+    else
+        tw->postprocess = (TreeWalkProcessFunction) cool_postprocess;
 
     treewalk_run(tw, ActiveParticle, NumActiveParticle);
+
+    if(!All.StarformationOn)
+        return;
 
     int i;
     for(i = 1; i < All.NumThreads; i++)
@@ -156,16 +172,13 @@ void cooling_and_starformation(void)
     MPI_Reduce(&sum_mass_stars[0], &total_sum_mass_stars, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     if(ThisTask == 0)
     {
-        double rate;
-        double rate_in_msunperyear;
+        double rate = 0;
         if(All.TimeStep > 0)
             rate = total_sm / (All.TimeStep / (All.Time * All.cf.hubble));
-        else
-            rate = 0;
 
         /* convert to solar masses per yr */
 
-        rate_in_msunperyear = rate * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
+        double rate_in_msunperyear = rate * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
 
         fprintf(FdSfr, "%g %g %g %g %g\n", All.Time, total_sm, totsfrrate, rate_in_msunperyear,
                 total_sum_mass_stars);
@@ -180,40 +193,11 @@ void cooling_and_starformation(void)
 
     walltime_measure("/Cooling/StarFormation");
 
-    /* now lets make winds. this has to be after NumPart is updated */
+#ifdef SFR
+    /* Now apply the wind model: has to use the new NumActiveParticle.*/
     winds_and_feedback(ActiveParticle, NumActiveParticle);
-}
-
-#else //No SFR
-
-static void
-cool_postprocess(int i, TreeWalk * tw)
-{
-    cooling_direct(i);
-}
-
-/* cooling routine when star formation is disabled */
-void cooling_only(void)
-{
-    if(!All.CoolingOn) return;
-    walltime_measure("/Misc");
-
-    TreeWalk tw[1] = {0};
-
-    /* Only used to list all active particles for the parallel loop */
-    /* no tree walking and no need to export / copy particles. */
-
-    tw->visit = NULL; /* no tree walk */
-    tw->ev_label = "SFR_COOL";
-    tw->haswork = sfr_cooling_haswork;
-    tw->postprocess = (TreeWalkProcessFunction) cool_postprocess;
-
-    treewalk_run(tw, ActiveParticle, NumActiveParticle);
-
-    walltime_measure("/Cooling/StarFormation");
-}
-
 #endif
+}
 
 static void
 cooling_direct(int i) {
@@ -271,9 +255,6 @@ cooling_direct(int i) {
     }
 }
 
-#if defined(SFR)
-
-
 /* returns 0 if the particle is actively forming stars */
 static int get_sfr_condition(int i) {
     int flag = 1;
@@ -292,10 +273,10 @@ static int get_sfr_condition(int i) {
         endrun(-1, "Encoutered zero mass particle during sfr ;"
                   " We haven't implemented tracer particles and this shall not happen\n");
     }
-
+#ifdef SFR
     if(SPHP(i).DelayTime > 0)
         flag = 1;		/* only normal cooling for particles in the wind */
-
+#endif
     if(All.QuickLymanAlphaProbability > 0) {
         double dloga = get_dloga_for_bin(P[i].TimeBin);
         double unew = DMAX(All.MinEgySpec,
@@ -444,6 +425,7 @@ starformation(int i)
     if(P[i].Type == 0)	{
         /* to protect using a particle that has been turned into a star */
         SPHP(i).Metallicity += (1 - w) * METAL_YIELD * (1 - exp(-p));
+#ifdef SFR
         if(All.WindOn && HAS(All.WindModel, WIND_SUBGRID)) {
             /* Here comes the Springel Hernquist 03 wind model */
             double pw = All.WindEfficiency * sm / P[i].Mass;
@@ -452,6 +434,7 @@ starformation(int i)
             if(get_random_number(P[i].ID + 2) < prob)
                 make_particle_wind(P[i].ID, i, All.WindSpeed * All.cf.a, zero);
         }
+#endif
     }
 }
 
@@ -467,6 +450,8 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
     double factorEVP, egyhot, ne, tcool, y, x, cloudmass;
     struct UVBG uvbg;
 
+    if(!All.StarformationOn)
+        return 0;
     flag = get_sfr_condition(i);
 
     if(flag == 1) {
@@ -530,15 +515,51 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
     return rateOfSF;
 }
 
-void init_clouds(void)
+void init_cooling_and_star_formation(void)
 {
-    if(!All.StarformationOn) return;
+    InitCool();
 
-    double A0, dens, tcool, ne, coolrate, egyhot, x, u4, meanweight;
-    double tsfr, y, peff, fac, neff, egyeff, factorEVP, sigma, thresholdStarburst;
+    /* mean molecular weight assuming ZERO ionization NEUTRAL GAS*/
+    double meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);
+
+    /*Used for cooling and for timestepping*/
+    All.MinEgySpec = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.MinGasTemp;
+    All.MinEgySpec *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
+
+    if(!All.StarformationOn)
+        return;
+
+    All.OverDensThresh =
+        All.CritOverDensity * All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
+
+    All.PhysDensThresh = All.CritPhysDensity * PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs;
+
+    All.EgySpecCold = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempClouds;
+    All.EgySpecCold *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
+
+    /* mean molecular weight assuming FULL ionization */
+    meanweight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));
+
+    All.EgySpecSN = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempSupernova;
+    All.EgySpecSN *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
+
+#ifdef SFR
+    if(All.WindOn) {
+        if(HAS(All.WindModel, WIND_FIXED_EFFICIENCY)) {
+            All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency);
+            message(0, "Windspeed: %g\n", All.WindSpeed);
+        } else {
+            All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / 1.0);
+            message(0, "Reference Windspeed: %g\n", All.WindSigma0 * All.WindSpeedFactor);
+        }
+    }
+#endif
 
     if(All.PhysDensThresh == 0)
     {
+        double A0, dens, tcool, ne, coolrate, egyhot, x, u4;
+        double tsfr, y, peff, fac, neff, egyeff, factorEVP, sigma, thresholdStarburst;
+
         A0 = All.FactorEVP;
 
         egyhot = All.EgySpecSN / A0;
@@ -737,5 +758,3 @@ find_star_mass(int i)
     }
     return mass_of_star;
 }
-
-#endif

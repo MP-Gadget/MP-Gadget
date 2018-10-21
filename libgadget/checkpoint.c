@@ -63,8 +63,6 @@ write_snapshot(int num)
 
     walltime_measure("/Snapshot/Write");
 
-    walltime_measure("/Domain/Misc");
-
     if(ThisTask == 0) {
         char buf[1024];
         sprintf(buf, "%s/Snapshots.txt", All.OutputDir);
