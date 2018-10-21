@@ -32,21 +32,9 @@
 /*Cooling only: no star formation*/
 static void cooling_direct(int i);
 
-/*
- * This routine does cooling and star formation for
- * the effective multi-phase model.
- */
-static int
-sfr_cooling_haswork(int target, TreeWalk * tw)
-{
-    return P[target].Type == 0 && P[target].Mass > 0;
-}
-
 /* these guys really shall be local to cooling_and_starformation, but
  * I am too lazy to pass them around to subroutines.
  */
-static int * stars_converted;
-static int * stars_spawned;
 static double * sum_mass_stars;
 static double * sum_sm;
 static double * localsfr;
@@ -55,111 +43,86 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax);
 
 static int sfreff_on_eeqos(int i);
 static int make_particle_star(int i);
-static void starformation(int i);
-static void quicklyastarformation(int i);
+static int starformation(int i);
+static int quicklyastarformation(int i);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
 static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyeff);
 static double find_star_mass(int i);
 
-static void
-sfr_cool_postprocess(int i, TreeWalk * tw)
-{
-        int flag;
-#ifdef SFR
-        /*Remove a wind particle from the delay mode if the (physical) density has dropped sufficiently.*/
-        if(SPHP(i).DelayTime > 0 && SPHP(i).Density * All.cf.a3inv < All.WindFreeTravelDensFac * All.PhysDensThresh) {
-                SPHP(i).DelayTime = 0;
-        }
-        /*Reduce the time until the particle can form stars again by the current timestep*/
-        if(SPHP(i).DelayTime > 0) {
-            const double dloga = get_dloga_for_bin(P[i].TimeBin);
-            /*  the proper time duration of the step */
-            const double dtime = dloga / All.cf.hubble;
-            SPHP(i).DelayTime = DMAX(SPHP(i).DelayTime - dtime, 0);
-        }
-#endif
-
-        /* check whether we are forming stars.*/
-        flag = sfreff_on_eeqos(i);
-
-        /* normal implicit isochoric cooling */
-        if(flag == 0 || (All.QuickLymanAlphaProbability > 0 && All.QuickLymanAlphaProbability < 1)) {
-            cooling_direct(i);
-        }
-        if(flag == 1) {
-            /* active star formation */
-            if(All.QuickLymanAlphaProbability > 0)
-                quicklyastarformation(i);
-            else
-                starformation(i);
-        }
-}
-
-static void
-cool_postprocess(int i, TreeWalk * tw)
-{
-    cooling_direct(i);
-}
-
 /* cooling and star formation routine.*/
 void cooling_and_starformation(void)
 {
-    walltime_measure("/Misc");
-
     if(!All.CoolingOn)
         return;
 
-    /*When we switch to OpenMP 4.5, which supports array reduction,
-     * we can perhaps remove this*/
-    stars_spawned = ta_malloc("stars_spawned", int, All.NumThreads);
-    stars_converted = ta_malloc("stars_converted", int, All.NumThreads);
+    int i;
+
     sum_sm = ta_malloc("sum_sm", double, All.NumThreads);
     sum_mass_stars = ta_malloc("sum_mass_stars", double, All.NumThreads);
     localsfr = ta_malloc("localsfr", double, All.NumThreads);
-    memset(stars_spawned, 0, All.NumThreads * sizeof(int));
-    memset(stars_converted, 0, All.NumThreads * sizeof(int));
     memset(sum_sm, 0, All.NumThreads * sizeof(double));
     memset(sum_mass_stars, 0, All.NumThreads * sizeof(double));
     memset(localsfr, 0, All.NumThreads * sizeof(double));
 
-    TreeWalk tw[1] = {{0}};
+    int stars_converted=0, stars_spawned=0;
 
-    tw->visit = NULL; /* no tree walk */
-    tw->ev_label = "SFR_COOL";
-    tw->haswork = sfr_cooling_haswork;
-    if(All.StarformationOn)
-        tw->postprocess = (TreeWalkProcessFunction) sfr_cool_postprocess;
-    else
-        tw->postprocess = (TreeWalkProcessFunction) cool_postprocess;
+    /* First decide which stars are cooling and which starforming. If star forming we add them to a list.
+     * Note the dynamic scheduling: individual particles may have very different loop iteration lengths.
+     * Cooling is much slower than sfr. I tried splitting it into a separate loop instead, but this was faster.*/
+    #pragma omp parallel for schedule(dynamic, 100) reduction(+: stars_spawned) reduction(+:stars_converted)
+    for(i=0; i < NumActiveParticle; i++)
+    {
+        /*Use raw particle number if active_set is null, otherwise use active_set*/
+        const int p_i = ActiveParticle ? ActiveParticle[i] : i;
+        /* Skip non-gas or garbage particles */
+        if(P[p_i].Type != 0 || P[p_i].IsGarbage || P[p_i].Mass <= 0)
+            continue;
 
-    treewalk_run(tw, ActiveParticle, NumActiveParticle);
+        int shall_we_star_form = 0;
+        if(All.StarformationOn) {
+#ifdef SFR
+            wind_evolve(p_i);
+#endif
+            /* check whether we are star forming gas.*/
+            shall_we_star_form = sfreff_on_eeqos(p_i);
+
+            if(shall_we_star_form) {
+                if(All.QuickLymanAlphaProbability > 0) {
+                    shall_we_star_form = quicklyastarformation(p_i);
+                    if(shall_we_star_form)
+                        stars_converted++;
+                } else {
+                    int spawn = starformation(p_i);
+                    if(spawn == 1)
+                        stars_converted ++;
+                    if(spawn == 2)
+                        stars_spawned ++;
+                }
+            }
+        }
+        if (!shall_we_star_form) {
+            cooling_direct(p_i);
+        }
+    }
+
+    walltime_measure("/Cooling/Cooling");
 
     if(!All.StarformationOn)
         return;
 
-    int i;
+    int64_t tot_spawned=0, tot_converted=0;
+    sumup_large_ints(1, &stars_spawned, &tot_spawned);
+    sumup_large_ints(1, &stars_converted, &tot_converted);
+
+    if(tot_spawned || tot_converted)
+        message(0, "SFR: spawned %ld stars, converted %ld gas particles into stars\n", tot_spawned, tot_converted);
+
     for(i = 1; i < All.NumThreads; i++)
     {
         sum_mass_stars[0] += sum_mass_stars[i];
         localsfr[0] += localsfr[i];
         sum_sm[0] += sum_sm[i];
-        stars_spawned[0] += stars_spawned[i];
-        stars_converted[0] += stars_converted[i];
-    }
-
-    int tot_spawned, tot_converted;
-    MPI_Allreduce(&stars_spawned[0], &tot_spawned, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&stars_converted[0], &tot_converted, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-    if(tot_spawned > 0 || tot_converted > 0)
-    {
-        message(0, "SFR: spawned %d stars, converted %d gas particles into stars\n",
-                    tot_spawned, tot_converted);
-
-        /* Note: N_sph is only reduced once domain_garbage_collection is called */
-
-        /* Note: New tree construction can be avoided because of  `force_add_star_to_tree()' */
     }
 
     double total_sum_mass_stars, total_sm, totsfrrate;
@@ -185,8 +148,6 @@ void cooling_and_starformation(void)
     ta_free(localsfr);
     ta_free(sum_mass_stars);
     ta_free(sum_sm);
-    ta_free(stars_converted);
-    ta_free(stars_spawned);
 
     walltime_measure("/Cooling/StarFormation");
 
@@ -301,6 +262,7 @@ sfreff_on_eeqos(int i)
 static int make_particle_star(int i) {
     double mass_of_star = find_star_mass(i);
     int child;
+    int retflag = 0;
     if(P[i].Type != 0)
         endrun(7772, "Only gas forms stars, what's wrong?");
 
@@ -310,20 +272,18 @@ static int make_particle_star(int i) {
     /* ok, make a star */
     if(P[i].Mass < 1.1 * mass_of_star)
     {
-        /* here the gas particle is eliminated because remaining mass is all converted. */
-        stars_converted[tid]++;
-
         /*If all the mass, just convert the slot*/
         child = slots_convert(i, 4);
+        retflag = 1;
     }
     else
     {
-        stars_spawned[tid]++;
         /* if we get a fraction of the mass*/
         child = slots_fork(i, 4);
 
         P[child].Mass = mass_of_star;
         P[i].Mass -= P[child].Mass;
+        retflag = 2;
     }
 
     /*Set properties*/
@@ -333,7 +293,7 @@ static int make_particle_star(int i) {
     /*Copy metallicity*/
     STARP(child).Metallicity = oldslot.Metallicity;
     P[child].IsNewParticle = 1;
-    return 0;
+    return retflag;
 }
 
 static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
@@ -375,22 +335,27 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
 }
 
 /*Forms stars according to the quick lyman alpha star formation criterion,
- * which forms stars with a constant probability (usually 1) if they are star forming*/
-static void
+ * which forms stars with a constant probability (usually 1) if they are star forming.
+ * Returns 1 if converted a particle to a star, 0 if not.*/
+static int
 quicklyastarformation(int i)
 {
     if(get_random_number(P[i].ID + 1) < All.QuickLymanAlphaProbability) {
-        make_particle_star(i);
+        return make_particle_star(i);
     }
+    return 0;
 }
 
-/*Forms stars, computes various global counters, and forms winds.*/
-static void
+/*Forms stars and winds.
+
+ Returns 1 if converted a particle to a star, 2 if spawned a star, 0 if no stars formed. */
+static int
 starformation(int i)
 {
     /*  the proper time-step */
     double dloga = get_dloga_for_bin(P[i].TimeBin);
     double dtime = dloga / All.cf.hubble;
+    int retflag = 0;
 
     double egyeff, trelax;
     double rateOfSF = get_starformation_rate_full(i, dtime, &SPHP(i).Ne, &trelax, &egyeff);
@@ -420,7 +385,7 @@ starformation(int i)
     double prob = P[i].Mass / mass_of_star * (1 - exp(-p));
 
     if(get_random_number(P[i].ID + 1) < prob) {
-        make_particle_star(i);
+        retflag = make_particle_star(i);
     }
 
     if(P[i].Type == 0)	{
@@ -437,6 +402,7 @@ starformation(int i)
         }
 #endif
     }
+    return retflag;
 }
 
 double get_starformation_rate(int i) {
