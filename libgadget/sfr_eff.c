@@ -32,18 +32,11 @@
 /*Cooling only: no star formation*/
 static void cooling_direct(int i);
 
-/* these guys really shall be local to cooling_and_starformation, but
- * I am too lazy to pass them around to subroutines.
- */
-static double * sum_mass_stars;
-static double * sum_sm;
-static double * localsfr;
-
 static void cooling_relaxed(int i, double egyeff, double dtime, double trelax);
 
 static int sfreff_on_eeqos(int i);
-static int make_particle_star(int i);
-static int starformation(int i);
+static int make_particle_star(int i, double mass_of_star);
+static int starformation(int i, double *localsfr, double * sum_sm, double *sum_mass_stars);
 static int quicklyastarformation(int i);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
@@ -58,19 +51,13 @@ void cooling_and_starformation(void)
 
     int i;
 
-    sum_sm = ta_malloc("sum_sm", double, All.NumThreads);
-    sum_mass_stars = ta_malloc("sum_mass_stars", double, All.NumThreads);
-    localsfr = ta_malloc("localsfr", double, All.NumThreads);
-    memset(sum_sm, 0, All.NumThreads * sizeof(double));
-    memset(sum_mass_stars, 0, All.NumThreads * sizeof(double));
-    memset(localsfr, 0, All.NumThreads * sizeof(double));
-
+    double sum_sm = 0, sum_mass_stars = 0, localsfr = 0;
     int stars_converted=0, stars_spawned=0;
 
     /* First decide which stars are cooling and which starforming. If star forming we add them to a list.
      * Note the dynamic scheduling: individual particles may have very different loop iteration lengths.
      * Cooling is much slower than sfr. I tried splitting it into a separate loop instead, but this was faster.*/
-    #pragma omp parallel for schedule(dynamic, 100) reduction(+: stars_spawned) reduction(+:stars_converted)
+    #pragma omp parallel for schedule(dynamic, 100) reduction(+: stars_spawned) reduction(+:stars_converted) reduction(+:localsfr) reduction(+: sum_sm) reduction(+:sum_mass_stars)
     for(i=0; i < NumActiveParticle; i++)
     {
         /*Use raw particle number if active_set is null, otherwise use active_set*/
@@ -93,10 +80,12 @@ void cooling_and_starformation(void)
 
         if(shall_we_star_form) {
             if(All.QuickLymanAlphaProbability > 0) {
-                make_particle_star(p_i);
+                double mass_of_star = find_star_mass(p_i);
+                make_particle_star(p_i, mass_of_star);
                 stars_converted++;
+                sum_mass_stars += mass_of_star;
             } else {
-                int spawn = starformation(p_i);
+                int spawn = starformation(p_i, &localsfr, &sum_sm, &sum_mass_stars);
                 if(spawn == 1)
                     stars_converted ++;
                 if(spawn == 2)
@@ -119,18 +108,11 @@ void cooling_and_starformation(void)
     if(tot_spawned || tot_converted)
         message(0, "SFR: spawned %ld stars, converted %ld gas particles into stars\n", tot_spawned, tot_converted);
 
-    for(i = 1; i < All.NumThreads; i++)
-    {
-        sum_mass_stars[0] += sum_mass_stars[i];
-        localsfr[0] += localsfr[i];
-        sum_sm[0] += sum_sm[i];
-    }
-
     double total_sum_mass_stars, total_sm, totsfrrate;
 
-    MPI_Reduce(&localsfr[0], &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&sum_sm[0], &total_sm, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&sum_mass_stars[0], &total_sum_mass_stars, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&localsfr, &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&sum_sm, &total_sm, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&sum_mass_stars, &total_sum_mass_stars, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     if(ThisTask == 0)
     {
         double rate = 0;
@@ -145,10 +127,6 @@ void cooling_and_starformation(void)
                 total_sum_mass_stars);
         fflush(FdSfr);
     }
-
-    ta_free(localsfr);
-    ta_free(sum_mass_stars);
-    ta_free(sum_sm);
 
     walltime_measure("/Cooling/StarFormation");
 
@@ -243,14 +221,13 @@ sfreff_on_eeqos(int i)
     return flag;
 }
 
-static int make_particle_star(int i) {
-    double mass_of_star = find_star_mass(i);
+static int make_particle_star(int i, double mass_of_star)
+{
     int child;
     int retflag = 0;
     if(P[i].Type != 0)
         endrun(7772, "Only gas forms stars, what's wrong?");
 
-    int tid = omp_get_thread_num();
     /*Store the SPH particle slot properties, overwritten in slots_convert*/
     struct sph_particle_data oldslot = SPHP(i);
     /* ok, make a star */
@@ -271,7 +248,6 @@ static int make_particle_star(int i) {
     }
 
     /*Set properties*/
-    sum_mass_stars[tid] += P[child].Mass;
     STARP(child).FormationTime = All.Time;
     STARP(child).BirthDensity = oldslot.Density;
     /*Copy metallicity*/
@@ -350,7 +326,7 @@ quicklyastarformation(int i)
 
  Returns 1 if converted a particle to a star, 2 if spawned a star, 0 if no stars formed. */
 static int
-starformation(int i)
+starformation(int i, double *localsfr, double * sum_sm, double * sum_mass_stars)
 {
     /*  the proper time-step */
     double dloga = get_dloga_for_bin(P[i].TimeBin);
@@ -366,11 +342,9 @@ starformation(int i)
 
     double p = sm / P[i].Mass;
 
-    int tid = omp_get_thread_num();
-
-    sum_sm[tid] += P[i].Mass * (1 - exp(-p));
+    *sum_sm += P[i].Mass * (1 - exp(-p));
     /* convert to Solar per Year.*/
-    localsfr[tid] += rateOfSF * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
+    *localsfr += rateOfSF * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
 
     double w = get_random_number(P[i].ID);
     SPHP(i).Metallicity += w * METAL_YIELD * (1 - exp(-p));
@@ -385,7 +359,8 @@ starformation(int i)
     double prob = P[i].Mass / mass_of_star * (1 - exp(-p));
 
     if(get_random_number(P[i].ID + 1) < prob) {
-        retflag = make_particle_star(i);
+        *sum_mass_stars += mass_of_star;
+        retflag = make_particle_star(i, mass_of_star);
     }
 
     if(P[i].Type == 0)	{
