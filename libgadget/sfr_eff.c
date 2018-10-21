@@ -85,25 +85,26 @@ void cooling_and_starformation(void)
             wind_evolve(p_i);
 #endif
             /* check whether we are star forming gas.*/
-            shall_we_star_form = sfreff_on_eeqos(p_i);
+            if(All.QuickLymanAlphaProbability > 0)
+                shall_we_star_form = quicklyastarformation(p_i);
+            else
+                shall_we_star_form = sfreff_on_eeqos(p_i);
+        }
 
-            if(shall_we_star_form) {
-                if(All.QuickLymanAlphaProbability > 0) {
-                    shall_we_star_form = quicklyastarformation(p_i);
-                    if(shall_we_star_form)
-                        stars_converted++;
-                } else {
-                    int spawn = starformation(p_i);
-                    if(spawn == 1)
-                        stars_converted ++;
-                    if(spawn == 2)
-                        stars_spawned ++;
-                }
+        if(shall_we_star_form) {
+            if(All.QuickLymanAlphaProbability > 0) {
+                make_particle_star(p_i);
+                stars_converted++;
+            } else {
+                int spawn = starformation(p_i);
+                if(spawn == 1)
+                    stars_converted ++;
+                if(spawn == 2)
+                    stars_spawned ++;
             }
         }
-        if (!shall_we_star_form) {
+        else
             cooling_direct(p_i);
-        }
     }
 
     walltime_measure("/Cooling/Cooling");
@@ -239,23 +240,6 @@ sfreff_on_eeqos(int i)
     if(SPHP(i).DelayTime > 0)
         flag = 0;		/* only normal cooling for particles in the wind */
 #endif
-    if(All.QuickLymanAlphaProbability > 0) {
-        double dloga = get_dloga_for_bin(P[i].TimeBin);
-        double unew = DMAX(All.MinEgySpec,
-                (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) /
-                GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
-
-        const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
-        * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-
-        double temp = u_to_temp_fac * unew;
-
-        if(SPHP(i).Density > All.OverDensThresh && temp < 1.0e5)
-            return 1;
-        else
-            return 0;
-    }
-
     return flag;
 }
 
@@ -340,9 +324,25 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
 static int
 quicklyastarformation(int i)
 {
-    if(get_random_number(P[i].ID + 1) < All.QuickLymanAlphaProbability) {
-        return make_particle_star(i);
-    }
+    if(SPHP(i).Density <= All.OverDensThresh)
+        return 0;
+
+    double dloga = get_dloga_for_bin(P[i].TimeBin);
+    double unew = DMAX(All.MinEgySpec,
+            (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) /
+            GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+
+    const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
+    * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+
+    double temp = u_to_temp_fac * unew;
+
+    if(temp >= 1.0e5)
+        return 0;
+
+    if(get_random_number(P[i].ID + 1) < All.QuickLymanAlphaProbability)
+        return 1;
+
     return 0;
 }
 
