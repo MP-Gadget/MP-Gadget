@@ -29,13 +29,13 @@ struct particle_data
         unsigned int IsGarbage            :1; /* True for a garbage particle. readonly: Use slots_mark_garbage to mark this.*/
         unsigned int Evaluated            :1; /* True if already query already ran in treewalk */
         unsigned int DensityIterationDone :1; /* True if the density-like iterations already finished; */
-        unsigned int IsNewParticle        :1; /* True if the particle is created this step; used in SFR */
         unsigned int Swallowed            :1; /* True if the particle is being swallowed; used in BH to determine swallower and swallowee;*/
 #ifdef DEBUG
         unsigned int SufferFromCoupling:1; /* whether it suffers from particle-coupling (nearest neighbour << gravity smoothing)*/
 #else
-        unsigned int spare_6              :1;
+        unsigned int spare_7              :1;
 #endif
+        unsigned int spare_6              :1;
         unsigned int spare_5              :1;
         unsigned int spare_4              :1;
         unsigned int spare_3              :1;

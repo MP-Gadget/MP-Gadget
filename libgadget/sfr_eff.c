@@ -382,7 +382,6 @@ static int make_particle_star(int child, int parent, int placement)
     STARP(child).BirthDensity = oldslot.Density;
     /*Copy metallicity*/
     STARP(child).Metallicity = oldslot.Metallicity;
-    P[child].IsNewParticle = 1;
     return retflag;
 }
 

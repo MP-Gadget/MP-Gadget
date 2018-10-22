@@ -75,12 +75,6 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
 
 static int* NPLeft;
 
-static void
-sfr_wind_feedback_postprocess(const int i, TreeWalk * tw)
-{
-    P[i].IsNewParticle = 0;
-}
-
 /*Do a treewalk for the wind model. This only changes newly created star particles.*/
 void
 winds_and_feedback(int * NewStars, int NumNewStars)
@@ -140,7 +134,7 @@ winds_and_feedback(int * NewStars, int NumNewStars)
     /* Then run feedback */
     tw->haswork = NULL;
     tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_feedback_ngbiter;
-    tw->postprocess = (TreeWalkProcessFunction) sfr_wind_feedback_postprocess;
+    tw->postprocess = NULL;
     tw->reduce = NULL;
 
     treewalk_run(tw, NewStars, NumNewStars);
@@ -168,8 +162,8 @@ wind_evolve(int i)
 static void
 sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
 {
-    if(P[i].Type != 4 || !P[i].IsNewParticle)
-        endrun(23, "Wind called on something not a new star particle: (i=%d, t=%d, new=%d id = %ld)\n", i, P[i].Type, P[i].IsNewParticle, P[i].ID);
+    if(P[i].Type != 4)
+        endrun(23, "Wind called on something not a star particle: (i=%d, t=%d, id = %ld)\n", i, P[i].Type, P[i].ID);
     int diff = Wind[i].Ngb - 40;
     if(diff < -2) {
         /* too few */
@@ -208,10 +202,8 @@ sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
 static int
 sfr_wind_weight_haswork(int target, TreeWalk * tw)
 {
-    if(P[target].Type == 4) {
-        if(P[target].IsNewParticle && !P[target].DensityIterationDone) {
-             return 1;
-        }
+    if(P[target].Type == 4 && !P[target].DensityIterationDone) {
+        return 1;
     }
     return 0;
 }
