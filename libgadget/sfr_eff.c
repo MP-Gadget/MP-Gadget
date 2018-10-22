@@ -49,16 +49,33 @@ void cooling_and_starformation(void)
     if(!All.CoolingOn)
         return;
 
-    int i;
+    /*This is a queue for the new stars and their parents, so we can reallocate the slots after the main cooling loop.*/
+    int * NewStars = NULL;
+    int * NewParents = NULL;
+    int NumNewStar = 0;
+    size_t *nqthrsfr = ta_malloc("nqthrsfr", size_t, All.NumThreads);
+    int **thrqueuesfr = ta_malloc("thrqueuesfr", int *, All.NumThreads);
+    int **thrqueueparent = ta_malloc("thrqueueparent", int *, All.NumThreads);
+
+    /*Need to capture this so that when NumActiveParticle increases during the loop
+     * we don't add extra loop iterations on particles with invalid slots.*/
+    const int nactive = NumActiveParticle;
+
+    if(All.StarformationOn) {
+        NewStars = mymalloc("NewStars", nactive * sizeof(int) * All.NumThreads);
+        gadget_setup_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, nactive, All.NumThreads);
+        NewParents = mymalloc("NewParents", nactive * sizeof(int) * All.NumThreads);
+        gadget_setup_thread_arrays(NewParents, thrqueueparent, nqthrsfr, nactive, All.NumThreads);
+    }
 
     double sum_sm = 0, sum_mass_stars = 0, localsfr = 0;
-    int stars_converted=0, stars_spawned=0;
+    int i;
 
     /* First decide which stars are cooling and which starforming. If star forming we add them to a list.
      * Note the dynamic scheduling: individual particles may have very different loop iteration lengths.
      * Cooling is much slower than sfr. I tried splitting it into a separate loop instead, but this was faster.*/
-    #pragma omp parallel for schedule(dynamic, 100) reduction(+: stars_spawned) reduction(+:stars_converted) reduction(+:localsfr) reduction(+: sum_sm) reduction(+:sum_mass_stars)
-    for(i=0; i < NumActiveParticle; i++)
+    #pragma omp parallel for schedule(dynamic, 100) reduction(+:localsfr) reduction(+: sum_sm) reduction(+:sum_mass_stars)
+    for(i=0; i < nactive; i++)
     {
         /*Use raw particle number if active_set is null, otherwise use active_set*/
         const int p_i = ActiveParticle ? ActiveParticle[i] : i;
@@ -78,30 +95,66 @@ void cooling_and_starformation(void)
         }
 
         if(shall_we_star_form) {
+            int newstar = -1;
             if(All.QuickLymanAlphaProbability > 0) {
-                double mass_of_star = find_star_mass(p_i);
-                make_particle_star(p_i, p_i, -1);
-                stars_converted++;
-                sum_mass_stars += mass_of_star;
+                /*New star is always the same particle as the parent for quicklya*/
+                newstar = p_i;
             } else {
-                int newstar = starformation(p_i, &localsfr, &sum_sm);
-                /*counters*/
-                if(newstar == p_i)
-                    stars_converted++;
-                else if(newstar >= 0)
-                    stars_spawned ++;
-                /*Actual star formation*/
-                if(newstar >= 0) {
-                    make_particle_star(newstar, i, -1);
-                    sum_mass_stars += P[newstar].Mass;
-                }
+                newstar = starformation(p_i, &localsfr, &sum_sm);
+            }
+            /*Add this particle to the stellar conversion queue if necessary.*/
+            if(newstar >= 0) {
+                int tid = omp_get_thread_num();
+                thrqueuesfr[tid][nqthrsfr[tid]] = newstar;
+                thrqueueparent[tid][nqthrsfr[tid]] = p_i;
+                nqthrsfr[tid]++;
             }
         }
         else
             cooling_direct(p_i);
     }
 
+    /*Merge step for the queue.*/
+    if(NewStars) {
+        NumNewStar = gadget_compact_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, All.NumThreads);
+        int NumNewParent = gadget_compact_thread_arrays(NewParents, thrqueueparent, nqthrsfr, All.NumThreads);
+        if(NumNewStar != NumNewParent)
+            endrun(3,"%d new stars, but %d new parents!\n",NumNewStar, NumNewParent);
+    }
+
+    ta_free(thrqueueparent);
+    ta_free(thrqueuesfr);
+    ta_free(nqthrsfr);
+
     walltime_measure("/Cooling/Cooling");
+
+    /*Get some empty slots for the stars*/
+    int firststarslot = SlotsManager->info[4].size;
+    SlotsManager->info[4].size += NumNewStar;
+    /* FIXME: Currently SlotsManager is below Nodes and ActiveParticleList.
+     * See if we can change that*/
+    if(SlotsManager->info[4].size >= SlotsManager->info[4].maxsize) {
+        endrun(1, "This is currently unsupported; because SlotsManager.Base can be deep in the heap\n");
+    }
+
+    int stars_converted=0, stars_spawned=0;
+
+    /*Now we turn the particles into stars*/
+    #pragma omp parallel for reduction(+:stars_converted) reduction(+:stars_spawned) reduction(+:sum_mass_stars)
+    for(i=0; i < NumNewStar; i++)
+    {
+        int child = NewStars[i];
+        int parent = NewParents[i];
+        make_particle_star(child, parent, firststarslot+i);
+        sum_mass_stars += P[child].Mass;
+        if(child == parent)
+            stars_converted++;
+        else
+            stars_spawned++;
+    }
+
+    myfree(NewParents);
+    myfree(NewStars);
 
     if(!All.StarformationOn)
         return;
