@@ -35,8 +35,8 @@ static void cooling_direct(int i);
 static void cooling_relaxed(int i, double egyeff, double dtime, double trelax);
 
 static int sfreff_on_eeqos(int i);
-static int make_particle_star(int i, double mass_of_star);
-static int starformation(int i, double *localsfr, double * sum_sm, double *sum_mass_stars);
+static int make_particle_star(int child, int parent, int placement);
+static int starformation(int i, double *localsfr, double * sum_sm);
 static int quicklyastarformation(int i);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
@@ -80,15 +80,21 @@ void cooling_and_starformation(void)
         if(shall_we_star_form) {
             if(All.QuickLymanAlphaProbability > 0) {
                 double mass_of_star = find_star_mass(p_i);
-                make_particle_star(p_i, mass_of_star);
+                make_particle_star(p_i, p_i, -1);
                 stars_converted++;
                 sum_mass_stars += mass_of_star;
             } else {
-                int spawn = starformation(p_i, &localsfr, &sum_sm, &sum_mass_stars);
-                if(spawn == 1)
-                    stars_converted ++;
-                if(spawn == 2)
+                int newstar = starformation(p_i, &localsfr, &sum_sm);
+                /*counters*/
+                if(newstar == p_i)
+                    stars_converted++;
+                else if(newstar >= 0)
                     stars_spawned ++;
+                /*Actual star formation*/
+                if(newstar >= 0) {
+                    make_particle_star(newstar, i, -1);
+                    sum_mass_stars += P[newstar].Mass;
+                }
             }
         }
         else
@@ -221,27 +227,18 @@ sfreff_on_eeqos(int i)
 /* This function turns a particle into a star. It returns 1 if a particle was
  * converted and 2 if a new particle was spawned. This is used
  * above to set stars_{spawned|converted}*/
-static int make_particle_star(int i, double mass_of_star)
+static int make_particle_star(int child, int parent, int placement)
 {
-    int child = i;
     int retflag = 2;
-    if(P[i].Type != 0)
+    if(P[parent].Type != 0)
         endrun(7772, "Only gas forms stars, what's wrong?");
 
-    /*Store the SPH particle slot properties, overwritten in slots_convert*/
-    struct sph_particle_data oldslot = SPHP(i);
+    /*Store the SPH particle slot properties, as the PI may be over-written
+     *in slots_convert*/
+    struct sph_particle_data oldslot = SPHP(parent);
 
-    /* ok, make a star */
-    /* If we get a fraction of the mass we need to create a new particle.*/
-    if(P[i].Mass >= 1.1 * mass_of_star)
-    {
-        child = slots_split_particle(i, mass_of_star);
-        retflag = 1;
-    }
-
-    /*Convert the child slot to the new type.
-     *Want to discard old slot if we are converting, not otherwise.*/
-    child = slots_convert(child, 4, -1);
+    /*Convert the child slot to the new type.*/
+    child = slots_convert(child, 4, placement);
 
     /*Set properties*/
     STARP(child).FormationTime = All.Time;
@@ -318,16 +315,17 @@ quicklyastarformation(int i)
     return 0;
 }
 
-/*Forms stars and winds.
-
- Returns 1 if converted a particle to a star, 2 if spawned a star, 0 if no stars formed. */
+/* Forms stars and winds.
+ * Returns -1 if no star formed, otherwise returns the index of the particle which is to be made a star.
+ * The star slot is not actually created here, but a particle for it is.
+ */
 static int
-starformation(int i, double *localsfr, double * sum_sm, double * sum_mass_stars)
+starformation(int i, double *localsfr, double * sum_sm)
 {
     /*  the proper time-step */
     double dloga = get_dloga_for_bin(P[i].TimeBin);
     double dtime = dloga / All.cf.hubble;
-    int retflag = 0;
+    int newstar = -1;
 
     double egyeff, trelax;
     double rateOfSF = get_starformation_rate_full(i, dtime, &SPHP(i).Ne, &trelax, &egyeff);
@@ -355,16 +353,21 @@ starformation(int i, double *localsfr, double * sum_sm, double * sum_mass_stars)
     double prob = P[i].Mass / mass_of_star * (1 - exp(-p));
 
     if(get_random_number(P[i].ID + 1) < prob) {
-        *sum_mass_stars += mass_of_star;
-        retflag = make_particle_star(i, mass_of_star);
+        /* ok, make a star */
+        newstar = i;
+        /* If we get a fraction of the mass we need to create
+         * a new particle for the star and remove mass from i.*/
+        if(P[i].Mass >= 1.1 * mass_of_star)
+            newstar = slots_split_particle(i, mass_of_star);
     }
 
-    if(P[i].Type == 0)	{
-        /* to protect using a particle that has been turned into a star */
+    /* A particle that will be turned into a star doesn't want the metals or to be made a wind.*/
+    if(newstar != i)	{
         SPHP(i).Metallicity += (1 - w) * METAL_YIELD * (1 - exp(-p));
 
         if(All.WindOn && HAS(All.WindModel, WIND_SUBGRID)) {
             /* Here comes the Springel Hernquist 03 wind model */
+            /*Notice that this is the mass of the gas particle after forking a star, 1/2 what it was before.*/
             double pw = All.WindEfficiency * sm / P[i].Mass;
             double prob = 1 - exp(-pw);
             double zero[3] = {0, 0, 0};
@@ -372,7 +375,7 @@ starformation(int i, double *localsfr, double * sum_sm, double * sum_mass_stars)
                 make_particle_wind(P[i].ID, i, All.WindSpeed * All.cf.a, zero);
         }
     }
-    return retflag;
+    return newstar;
 }
 
 double get_starformation_rate(int i) {
