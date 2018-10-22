@@ -223,29 +223,25 @@ sfreff_on_eeqos(int i)
  * above to set stars_{spawned|converted}*/
 static int make_particle_star(int i, double mass_of_star)
 {
-    int child;
-    int retflag = 0;
+    int child = i;
+    int retflag = 2;
     if(P[i].Type != 0)
         endrun(7772, "Only gas forms stars, what's wrong?");
 
     /*Store the SPH particle slot properties, overwritten in slots_convert*/
     struct sph_particle_data oldslot = SPHP(i);
+
     /* ok, make a star */
-    if(P[i].Mass < 1.1 * mass_of_star)
+    /* If we get a fraction of the mass we need to create a new particle.*/
+    if(P[i].Mass >= 1.1 * mass_of_star)
     {
-        /*If all the mass, just convert the slot*/
-        child = slots_convert(i, 4);
+        child = slots_split_particle(i, mass_of_star);
         retflag = 1;
     }
-    else
-    {
-        /* if we get a fraction of the mass*/
-        child = slots_fork(i, 4);
 
-        P[child].Mass = mass_of_star;
-        P[i].Mass -= P[child].Mass;
-        retflag = 2;
-    }
+    /*Convert the child slot to the new type.
+     *Want to discard old slot if we are converting, not otherwise.*/
+    child = slots_convert(child, 4, -1);
 
     /*Set properties*/
     STARP(child).FormationTime = All.Time;

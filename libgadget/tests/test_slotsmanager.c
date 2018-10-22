@@ -184,7 +184,9 @@ test_slots_fork(void **state)
     setup_particles(state);
     int i;
     for(i = 0; i < 6; i ++) {
-        slots_fork(128 * i, P[i * 128].Type);
+        slots_split_particle(128 * i, 0);
+        slots_convert(128 * i, P[i * 128].Type, -1);
+
     }
 
     assert_int_equal(PartManager->NumPart, 129 * i);
@@ -203,7 +205,7 @@ test_slots_convert(void **state)
     setup_particles(state);
     int i;
     for(i = 0; i < 6; i ++) {
-        slots_convert(128 * i, P[i * 128].Type);
+        slots_convert(128 * i, P[i * 128].Type, -1);
     }
 
     assert_int_equal(PartManager->NumPart, 128 * i);
