@@ -1,6 +1,5 @@
 #ifndef WINDS_H
 #define WINDS_H
-#ifdef SFR
 
 #include "treewalk.h"
 
@@ -13,5 +12,4 @@ void winds_and_feedback(int * NewStars, int NumNewStars);
 /*Make a particle a wind particle by changing DelayTime to a positive number*/
 int make_particle_wind(MyIDType ID, int i, double v, double vmean[3]);
 
-#endif
 #endif

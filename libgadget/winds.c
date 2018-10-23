@@ -1,5 +1,4 @@
 /*Prototypes and structures for the wind model*/
-#ifdef SFR
 
 #include <math.h>
 #include <string.h>
@@ -424,4 +423,3 @@ make_particle_wind(MyIDType ID, int i, double v, double vmean[3]) {
     }
     return 0;
 }
-#endif

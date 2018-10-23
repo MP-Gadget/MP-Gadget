@@ -475,7 +475,7 @@ void read_parameter_file(char *fname)
         All.TempClouds = param_get_double(ps, "TempClouds");
         All.MaxSfrTimescale = param_get_double(ps, "MaxSfrTimescale");
 
-#ifdef SFR
+        /*Wind model parameters*/
         All.WindModel = param_get_enum(ps, "WindModel");
         /* The following two are for VS08 and SH03*/
         All.WindEfficiency = param_get_double(ps, "WindEfficiency");
@@ -487,7 +487,8 @@ void read_parameter_file(char *fname)
 
         All.WindFreeTravelLength = param_get_double(ps, "WindFreeTravelLength");
         All.WindFreeTravelDensFac = param_get_double(ps, "WindFreeTravelDensFac");
-#endif
+
+        /*Lyman-alpha forest parameters*/
         All.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
         All.HeliumHeatOn = param_get_int(ps, "HeliumHeatOn");
         All.HeliumHeatThresh = param_get_double(ps, "HeliumHeatThresh");
@@ -527,14 +528,6 @@ void read_parameter_file(char *fname)
                           "but you did not switch on cooling.\nThis mode is not supported.\n");
             }
         }
-#ifndef SFR
-        if(All.WindOn == 1)
-        {
-            endrun(1, "Trying to run with winds but code was compiled"
-                       "with star formation switched off.\n"
-                      "You must set `WindOn=0', or recompile the code.\n");
-        }
-#endif
 
         DensityKernel kernel;
         density_kernel_init(&kernel, 1.0);

@@ -346,10 +346,8 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             O->BH_TimeBinLimit = P[other].TimeBin;
     }
 
-#ifdef SFR
      /* BH does not accrete wind */
     if(P[other].Type == 0 && SPHP(other).DelayTime > 0) return;
-#endif
 
     /* Drifting the blackhole towards minimum. This shall be refactored to some sink.c etc */
     if(r2 < iter->accretion_kernel.HH) // && r < All.FOFHaloComovingLinkingLength)
@@ -523,10 +521,8 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
     if(P[other].ID == I->ID) return;
 
-#ifdef SFR
      /* BH does not accrete wind */
     if(P[other].Type == 0 && SPHP(other).DelayTime > 0) return;
-#endif
 
     if(P[other].Swallowed && P[other].Type == 5)	/* we have a black hole merger */
     {

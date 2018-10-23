@@ -13,10 +13,6 @@ GSL_LIBS = $(HOME)/anaconda3/envs/3.5/lib/libgsl.a $(HOME)/anaconda3/envs/3.5/li
 
 #OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR
 
-#--------------------------------------- SFR/feedback model
-# most of the sfr modes are controled in paramfile (which needs a overhaul too!)
-OPT	+=  -DSFR
-
 #-------------------------------------- AGN stuff
 OPT	+=  -DBLACK_HOLES             # enables Black-Holes (master switch)
 #-------------------------------------------- Things for special behaviour

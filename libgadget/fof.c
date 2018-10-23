@@ -530,10 +530,8 @@ static void add_particle_to_group(struct Group * gdst, int i) {
     }
     if(P[index].Type == 0)
     {
-#ifdef SFR
         /* make bh in non wind gas on bh wind*/
         if(SPHP(index).DelayTime <= 0)
-#endif
             if(SPHP(index).Density > gdst->MaxDens)
             {
                 gdst->MaxDens = SPHP(index).Density;

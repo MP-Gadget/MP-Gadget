@@ -68,9 +68,8 @@ void cooling_and_starformation(void)
 
         int shall_we_star_form = 0;
         if(All.StarformationOn) {
-#ifdef SFR
+            /*Reduce delaytime for wind particles.*/
             wind_evolve(p_i);
-#endif
             /* check whether we are star forming gas.*/
             if(All.QuickLymanAlphaProbability > 0)
                 shall_we_star_form = quicklyastarformation(p_i);
@@ -130,11 +129,9 @@ void cooling_and_starformation(void)
 
     walltime_measure("/Cooling/StarFormation");
 
-#ifdef SFR
     /* Note that NumActiveParticle changes when a star is spawned during the
      * sfr loop. winds needs to use the new NumActiveParticle because it needs the new stars.*/
     winds_and_feedback(ActiveParticle, NumActiveParticle);
-#endif
 }
 
 static void
@@ -215,10 +212,9 @@ sfreff_on_eeqos(int i)
     if(SPHP(i).Density < All.OverDensThresh)
         flag = 0;
 
-#ifdef SFR
     if(SPHP(i).DelayTime > 0)
         flag = 0;		/* only normal cooling for particles in the wind */
-#endif
+
     return flag;
 }
 
@@ -370,7 +366,7 @@ starformation(int i, double *localsfr, double * sum_sm, double * sum_mass_stars)
     if(P[i].Type == 0)	{
         /* to protect using a particle that has been turned into a star */
         SPHP(i).Metallicity += (1 - w) * METAL_YIELD * (1 - exp(-p));
-#ifdef SFR
+
         if(All.WindOn && HAS(All.WindModel, WIND_SUBGRID)) {
             /* Here comes the Springel Hernquist 03 wind model */
             double pw = All.WindEfficiency * sm / P[i].Mass;
@@ -379,7 +375,6 @@ starformation(int i, double *localsfr, double * sum_sm, double * sum_mass_stars)
             if(get_random_number(P[i].ID + 2) < prob)
                 make_particle_wind(P[i].ID, i, All.WindSpeed * All.cf.a, zero);
         }
-#endif
     }
     return retflag;
 }
@@ -486,7 +481,6 @@ void init_cooling_and_star_formation(void)
     All.EgySpecSN = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempSupernova;
     All.EgySpecSN *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
 
-#ifdef SFR
     if(All.WindOn) {
         if(HAS(All.WindModel, WIND_FIXED_EFFICIENCY)) {
             All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency);
@@ -496,7 +490,6 @@ void init_cooling_and_star_formation(void)
             message(0, "Reference Windspeed: %g\n", All.WindSigma0 * All.WindSpeedFactor);
         }
     }
-#endif
 
     if(All.PhysDensThresh == 0)
     {
