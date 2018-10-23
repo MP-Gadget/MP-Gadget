@@ -131,7 +131,8 @@ void cooling_and_starformation(void)
     walltime_measure("/Cooling/StarFormation");
 
 #ifdef SFR
-    /* Now apply the wind model: has to use the new NumActiveParticle.*/
+    /* Note that NumActiveParticle changes when a star is spawned during the
+     * sfr loop. winds needs to use the new NumActiveParticle because it needs the new stars.*/
     winds_and_feedback(ActiveParticle, NumActiveParticle);
 #endif
 }
@@ -221,6 +222,9 @@ sfreff_on_eeqos(int i)
     return flag;
 }
 
+/* This function turns a particle into a star. It returns 1 if a particle was
+ * converted and 2 if a new particle was spawned. This is used
+ * above to set stars_{spawned|converted}*/
 static int make_particle_star(int i, double mass_of_star)
 {
     int child;
