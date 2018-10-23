@@ -376,7 +376,7 @@ extern struct global_data_all_processes
     double TempSupernova;
     double TempClouds;
     double MaxSfrTimescale;
-#ifdef SFR		/* star formation and feedback sector */
+    /* star formation and feedback sector */
     double WindFreeTravelLength;
     double WindFreeTravelDensFac;
     /* used in VS08 and SH03*/
@@ -386,7 +386,6 @@ extern struct global_data_all_processes
     /* used in OFJT10*/
     double WindSigma0;
     double WindSpeedFactor;
-#endif
     /*Lyman alpha forest specific parameters*/
     double QuickLymanAlphaProbability;
     int HeliumHeatOn;
