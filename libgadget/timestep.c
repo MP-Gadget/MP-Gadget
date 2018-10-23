@@ -524,20 +524,20 @@ get_long_range_timestep_dloga()
 
     sumup_large_ints(6, count, count_sum);
 
-#ifdef SFR
     /* add star and gas particles together to treat them on equal footing, using the original gas particle
        spacing. */
-    v_sum[0] += v_sum[4];
-    count_sum[0] += count_sum[4];
-    v_sum[4] = v_sum[0];
-    count_sum[4] = count_sum[0];
+    if(All.StarformationOn) {
+        v_sum[0] += v_sum[4];
+        count_sum[0] += count_sum[4];
+        v_sum[4] = v_sum[0];
+        count_sum[4] = count_sum[0];
+    }
 #ifdef BLACK_HOLES
     v_sum[0] += v_sum[5];
     count_sum[0] += count_sum[5];
     v_sum[5] = v_sum[0];
     count_sum[5] = count_sum[0];
     min_mass[5] = min_mass[0];
-#endif
 #endif
 
     for(type = 0; type < 6; type++)

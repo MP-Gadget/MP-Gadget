@@ -29,7 +29,6 @@ BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
     return 0;
 }
 
-#ifdef SFR
 static int
 StarformationCriterionAction(ParameterSet * ps, char * name, void * data)
 {
@@ -46,7 +45,6 @@ StarformationCriterionAction(ParameterSet * ps, char * name, void * data)
 #endif
     return 0;
 }
-#endif
 
 int cmp_double(const void * a, const void * b)
 {
@@ -317,9 +315,7 @@ create_gadget_parameter_set()
     /*End parameters for the massive neutrino model*/
 
     param_set_action(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodAction, NULL);
-#ifdef SFR
     param_set_action(ps, "StarformationCriterion", StarformationCriterionAction, NULL);
-#endif
     param_set_action(ps, "OutputList", OutputListAction, NULL);
 
     return ps;
@@ -468,7 +464,7 @@ void read_parameter_file(char *fname)
 
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.WindOn = param_get_int(ps, "WindOn");
-    #ifdef SFR
+        /*Star formation parameters*/
         All.StarformationCriterion = param_get_enum(ps, "StarformationCriterion");
         All.CritOverDensity = param_get_double(ps, "CritOverDensity");
         All.CritPhysDensity = param_get_double(ps, "CritPhysDensity");
@@ -479,8 +475,8 @@ void read_parameter_file(char *fname)
         All.TempClouds = param_get_double(ps, "TempClouds");
         All.MaxSfrTimescale = param_get_double(ps, "MaxSfrTimescale");
 
+        /*Wind model parameters*/
         All.WindModel = param_get_enum(ps, "WindModel");
-
         /* The following two are for VS08 and SH03*/
         All.WindEfficiency = param_get_double(ps, "WindEfficiency");
         All.WindEnergyFraction = param_get_double(ps, "WindEnergyFraction");
@@ -492,13 +488,13 @@ void read_parameter_file(char *fname)
         All.WindFreeTravelLength = param_get_double(ps, "WindFreeTravelLength");
         All.WindFreeTravelDensFac = param_get_double(ps, "WindFreeTravelDensFac");
 
+        /*Lyman-alpha forest parameters*/
         All.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
         All.HeliumHeatOn = param_get_int(ps, "HeliumHeatOn");
         All.HeliumHeatThresh = param_get_double(ps, "HeliumHeatThresh");
         All.HeliumHeatAmp = param_get_double(ps, "HeliumHeatAmp");
         All.HeliumHeatExp = param_get_double(ps, "HeliumHeatExp");
 
-    #endif
         /*Massive neutrino parameters*/
         All.MassiveNuLinRespOn = param_get_int(ps, "MassiveNuLinRespOn");
         All.HybridNeutrinosOn = param_get_int(ps, "HybridNeutrinosOn");
@@ -519,11 +515,12 @@ void read_parameter_file(char *fname)
             endrun(1, "Code was compiled with black holes switched off but BlackHoleOn = 1. This does not work!\n");
         }
     #endif
-    #ifdef SFR
-
         if(All.StarformationOn == 0)
         {
-            message(1, "StarformationOn is disabled!\n");
+            if(All.WindOn == 1) {
+                endrun(1, "You try to use the code with wind enabled,\n"
+                          "but you did not switch on starformation.\nThis mode is not supported.\n");
+            }
         } else {
             if(All.CoolingOn == 0)
             {
@@ -531,22 +528,6 @@ void read_parameter_file(char *fname)
                           "but you did not switch on cooling.\nThis mode is not supported.\n");
             }
         }
-
-        if(All.WindOn == 1) {
-            if(All.StarformationOn == 0) {
-                endrun(1, "You try to use the code with wind enabled,\n"
-                          "but you did not switch on starformation.\nThis mode is not supported.\n");
-            }
-        }
-
-    #else
-        if(All.StarformationOn == 1)
-        {
-            endrun(1, "Code was compiled with star formation switched off.\n"
-                      "You must set `StarformationOn=0', or recompile the code.\n");
-            All.StarformationOn = 0;
-        }
-    #endif
 
         DensityKernel kernel;
         density_kernel_init(&kernel, 1.0);

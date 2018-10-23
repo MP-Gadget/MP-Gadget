@@ -113,10 +113,8 @@ struct sph_particle_data
     MyFloat       Injected_BH_Energy;
 #endif
 
-#ifdef SFR
     MyFloat DelayTime;		/*!< SH03: remaining maximum decoupling time of wind particle */
                             /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
-#endif
 
 #ifdef SPH_GRAD_RHO
     MyFloat GradRho[3];

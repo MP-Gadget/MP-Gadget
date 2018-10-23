@@ -477,9 +477,7 @@ static void fof_reduce_group(void * pdst, void * psrc) {
         gdst->MassType[j] += gsrc->MassType[j];
     }
 
-#ifdef SFR
     gdst->Sfr += gsrc->Sfr;
-#endif
 #ifdef BLACK_HOLES
     gdst->BH_Mdot += gsrc->BH_Mdot;
     gdst->BH_Mass += gsrc->BH_Mass;
@@ -521,11 +519,9 @@ static void add_particle_to_group(struct Group * gdst, int i) {
     gdst->MassType[P[index].Type] += P[index].Mass;
 
 
-#ifdef SFR
     if(P[index].Type == 0) {
         gdst->Sfr += get_starformation_rate(index);
     }
-#endif
 #ifdef BLACK_HOLES
     if(P[index].Type == 5)
     {
@@ -534,10 +530,8 @@ static void add_particle_to_group(struct Group * gdst, int i) {
     }
     if(P[index].Type == 0)
     {
-#ifdef SFR
         /* make bh in non wind gas on bh wind*/
         if(SPHP(index).DelayTime <= 0)
-#endif
             if(SPHP(index).Density > gdst->MaxDens)
             {
                 gdst->MaxDens = SPHP(index).Density;

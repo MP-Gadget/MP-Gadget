@@ -23,373 +23,116 @@
 #include <math.h>
 #include "allvars.h"
 #include "sfr_eff.h"
-#include "drift.h"
-#include "treewalk.h"
 #include "cooling.h"
 #include "slotsmanager.h"
 #include "timestep.h"
-
-#include "utils.h"
+#include "treewalk.h"
+#include "winds.h"
 
 /*Cooling only: no star formation*/
 static void cooling_direct(int i);
 
-/*
- * This routine does cooling and star formation for
- * the effective multi-phase model.
- */
-static int
-sfr_cooling_haswork(int target, TreeWalk * tw)
-{
-    return P[target].Type == 0 && P[target].Mass > 0;
-}
-
-#ifdef SFR
-/* these guys really shall be local to cooling_and_starformation, but
- * I am too lazy to pass them around to subroutines.
- */
-static int * stars_converted;
-static int * stars_spawned;
-static double * sum_mass_stars;
-static double * sum_sm;
-static double * localsfr;
-
 static void cooling_relaxed(int i, double egyeff, double dtime, double trelax);
 
-static int get_sfr_condition(int i);
-static int make_particle_star(int i);
-static void starformation(int i);
-static void quicklyastarformation(int i);
+static int sfreff_on_eeqos(int i);
+static int make_particle_star(int i, double mass_of_star);
+static int starformation(int i, double *localsfr, double * sum_sm, double *sum_mass_stars);
+static int quicklyastarformation(int i);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
 static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyeff);
 static double find_star_mass(int i);
 
-/*Prototypes and structures for the wind model*/
-typedef struct {
-    TreeWalkQueryBase base;
-    int NodeList[NODELISTLENGTH];
-    double Sfr;
-    double Dt;
-    double Mass;
-    double Hsml;
-    double TotalWeight;
-    double DMRadius;
-    double Vdisp;
-    double Vmean[3];
-} TreeWalkQueryWind;
-
-typedef struct {
-    TreeWalkResultBase base;
-    double TotalWeight;
-    double V1sum[3];
-    double V2sum;
-    int Ngb;
-} TreeWalkResultWind;
-
-typedef struct {
-    TreeWalkNgbIterBase base;
-} TreeWalkNgbIterWind;
-
-static struct winddata {
-    double DMRadius;
-    double Left;
-    double Right;
-    double TotalWeight;
-    union {
-        double Vdisp;
-        double V2sum;
-    };
-    union {
-        double Vmean[3];
-        double V1sum[3];
-    };
-    int Ngb;
-} * Wind;
-
-static int
-make_particle_wind(MyIDType ID, int i, double v, double vmean[3]);
-
-static int
-sfr_wind_weight_haswork(int target, TreeWalk * tw);
-
-static int
-sfr_wind_feedback_haswork(int target, TreeWalk * tw);
-
-static void
-sfr_wind_reduce_weight(int place, TreeWalkResultWind * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
-
-static void
-sfr_wind_copy(int place, TreeWalkQueryWind * input, TreeWalk * tw);
-
-static void
-sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
-        TreeWalkResultWind * O,
-        TreeWalkNgbIterWind * iter,
-        LocalTreeWalk * lv);
-
-static void
-sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
-        TreeWalkResultWind * O,
-        TreeWalkNgbIterWind * iter,
-        LocalTreeWalk * lv);
-
-static int NPLeft;
-
-static void
-sfr_wind_feedback_preprocess(const int n, TreeWalk * tw)
-{
-    Wind[n].DMRadius = 2 * P[n].Hsml;
-    Wind[n].Left = 0;
-    Wind[n].Right = -1;
-    P[n].DensityIterationDone = 0;
-}
-
-static void
-sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
-{
-    int diff = Wind[i].Ngb - 40;
-    if(diff < -2) {
-        /* too few */
-        Wind[i].Left = Wind[i].DMRadius;
-    } else if(diff > 2) {
-        /* too many */
-        Wind[i].Right = Wind[i].DMRadius;
-    } else {
-        P[i].DensityIterationDone = 1;
-    }
-    if(Wind[i].Right >= 0) {
-        /* if Ngb hasn't converged to 40, see if DMRadius converged*/
-        if(Wind[i].Right - Wind[i].Left < 1e-2) {
-            P[i].DensityIterationDone = 1;
-        } else {
-            Wind[i].DMRadius = 0.5 * (Wind[i].Left + Wind[i].Right);
-        }
-    } else {
-        Wind[i].DMRadius *= 1.3;
-    }
-
-    if(P[i].DensityIterationDone) {
-        double vdisp = Wind[i].V2sum / Wind[i].Ngb;
-        int d;
-        for(d = 0; d < 3; d ++) {
-            Wind[i].Vmean[d] = Wind[i].V1sum[d] / Wind[i].Ngb;
-            vdisp -= Wind[i].Vmean[d] * Wind[i].Vmean[d];
-        }
-        Wind[i].Vdisp = sqrt(vdisp / 3);
-    } else {
-#pragma omp atomic
-        NPLeft ++;
-    }
-}
-
-static void
-sfr_wind_feedback_postprocess(const int i, TreeWalk * tw)
-{
-    P[i].IsNewParticle = 0;
-}
-
-/*End of wind model functions*/
-
-static void
-sfr_cool_postprocess(int i, TreeWalk * tw)
-{
-        int flag;
-        /*Remove a wind particle from the delay mode if the (physical) density has dropped sufficiently.*/
-        if(SPHP(i).DelayTime > 0 && SPHP(i).Density * All.cf.a3inv < All.WindFreeTravelDensFac * All.PhysDensThresh) {
-                SPHP(i).DelayTime = 0;
-        }
-        /*Reduce the time until the particle can form stars again by the current timestep*/
-        if(SPHP(i).DelayTime > 0) {
-            const double dloga = get_dloga_for_bin(P[i].TimeBin);
-            /*  the proper time duration of the step */
-            const double dtime = dloga / All.cf.hubble;
-            SPHP(i).DelayTime = DMAX(SPHP(i).DelayTime - dtime, 0);
-        }
-
-        /* check whether conditions for star formation are fulfilled.
-         *
-         * f=1  normal cooling
-         * f=0  star formation
-         */
-        flag = get_sfr_condition(i);
-
-        /* normal implicit isochoric cooling */
-        if(flag == 1 || (All.QuickLymanAlphaProbability > 0 && All.QuickLymanAlphaProbability < 1)) {
-            cooling_direct(i);
-        }
-        if(flag == 0) {
-            /* active star formation */
-            if(All.QuickLymanAlphaProbability > 0)
-                quicklyastarformation(i);
-            else
-                starformation(i);
-        }
-}
-
+/* cooling and star formation routine.*/
 void cooling_and_starformation(void)
-    /* cooling routine when star formation is enabled */
 {
-    walltime_measure("/Misc");
-
-    /*When we switch to OpenMP 4.5, which supports array reduction,
-     * we can perhaps remove this*/
-    stars_spawned = ta_malloc("stars_spawned", int, All.NumThreads);
-    stars_converted = ta_malloc("stars_converted", int, All.NumThreads);
-    sum_sm = ta_malloc("sum_sm", double, All.NumThreads);
-    sum_mass_stars = ta_malloc("sum_mass_stars", double, All.NumThreads);
-    localsfr = ta_malloc("localsfr", double, All.NumThreads);
-    memset(stars_spawned, 0, All.NumThreads * sizeof(int));
-    memset(stars_converted, 0, All.NumThreads * sizeof(int));
-    memset(sum_sm, 0, All.NumThreads * sizeof(double));
-    memset(sum_mass_stars, 0, All.NumThreads * sizeof(double));
-    memset(localsfr, 0, All.NumThreads * sizeof(double));
-
-    TreeWalk tw[1] = {{0}};
-
-    tw->visit = NULL; /* no tree walk */
-    tw->ev_label = "SFR_COOL";
-    tw->haswork = sfr_cooling_haswork;
-    tw->postprocess = (TreeWalkProcessFunction) sfr_cool_postprocess;
-
-    treewalk_run(tw, ActiveParticle, NumActiveParticle);
+    if(!All.CoolingOn)
+        return;
 
     int i;
-    for(i = 1; i < All.NumThreads; i++)
+
+    double sum_sm = 0, sum_mass_stars = 0, localsfr = 0;
+    int stars_converted=0, stars_spawned=0;
+
+    /* First decide which stars are cooling and which starforming. If star forming we add them to a list.
+     * Note the dynamic scheduling: individual particles may have very different loop iteration lengths.
+     * Cooling is much slower than sfr. I tried splitting it into a separate loop instead, but this was faster.*/
+    #pragma omp parallel for schedule(dynamic, 100) reduction(+: stars_spawned) reduction(+:stars_converted) reduction(+:localsfr) reduction(+: sum_sm) reduction(+:sum_mass_stars)
+    for(i=0; i < NumActiveParticle; i++)
     {
-        sum_mass_stars[0] += sum_mass_stars[i];
-        localsfr[0] += localsfr[i];
-        sum_sm[0] += sum_sm[i];
-        stars_spawned[0] += stars_spawned[i];
-        stars_converted[0] += stars_converted[i];
+        /*Use raw particle number if active_set is null, otherwise use active_set*/
+        const int p_i = ActiveParticle ? ActiveParticle[i] : i;
+        /* Skip non-gas or garbage particles */
+        if(P[p_i].Type != 0 || P[p_i].IsGarbage || P[p_i].Mass <= 0)
+            continue;
+
+        int shall_we_star_form = 0;
+        if(All.StarformationOn) {
+            /*Reduce delaytime for wind particles.*/
+            wind_evolve(p_i);
+            /* check whether we are star forming gas.*/
+            if(All.QuickLymanAlphaProbability > 0)
+                shall_we_star_form = quicklyastarformation(p_i);
+            else
+                shall_we_star_form = sfreff_on_eeqos(p_i);
+        }
+
+        if(shall_we_star_form) {
+            if(All.QuickLymanAlphaProbability > 0) {
+                double mass_of_star = find_star_mass(p_i);
+                make_particle_star(p_i, mass_of_star);
+                stars_converted++;
+                sum_mass_stars += mass_of_star;
+            } else {
+                int spawn = starformation(p_i, &localsfr, &sum_sm, &sum_mass_stars);
+                if(spawn == 1)
+                    stars_converted ++;
+                if(spawn == 2)
+                    stars_spawned ++;
+            }
+        }
+        else
+            cooling_direct(p_i);
     }
 
-    int tot_spawned, tot_converted;
-    MPI_Allreduce(&stars_spawned[0], &tot_spawned, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&stars_converted[0], &tot_converted, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    walltime_measure("/Cooling/Cooling");
 
-    if(tot_spawned > 0 || tot_converted > 0)
-    {
-        message(0, "SFR: spawned %d stars, converted %d gas particles into stars\n",
-                    tot_spawned, tot_converted);
+    if(!All.StarformationOn)
+        return;
 
-        /* Note: N_sph is only reduced once domain_garbage_collection is called */
+    int64_t tot_spawned=0, tot_converted=0;
+    sumup_large_ints(1, &stars_spawned, &tot_spawned);
+    sumup_large_ints(1, &stars_converted, &tot_converted);
 
-        /* Note: New tree construction can be avoided because of  `force_add_star_to_tree()' */
-    }
+    if(tot_spawned || tot_converted)
+        message(0, "SFR: spawned %ld stars, converted %ld gas particles into stars\n", tot_spawned, tot_converted);
 
     double total_sum_mass_stars, total_sm, totsfrrate;
 
-    MPI_Reduce(&localsfr[0], &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&sum_sm[0], &total_sm, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&sum_mass_stars[0], &total_sum_mass_stars, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&localsfr, &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&sum_sm, &total_sm, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&sum_mass_stars, &total_sum_mass_stars, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     if(ThisTask == 0)
     {
-        double rate;
-        double rate_in_msunperyear;
+        double rate = 0;
         if(All.TimeStep > 0)
             rate = total_sm / (All.TimeStep / (All.Time * All.cf.hubble));
-        else
-            rate = 0;
 
         /* convert to solar masses per yr */
 
-        rate_in_msunperyear = rate * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
+        double rate_in_msunperyear = rate * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
 
         fprintf(FdSfr, "%g %g %g %g %g\n", All.Time, total_sm, totsfrrate, rate_in_msunperyear,
                 total_sum_mass_stars);
         fflush(FdSfr);
     }
 
-    ta_free(localsfr);
-    ta_free(sum_mass_stars);
-    ta_free(sum_sm);
-    ta_free(stars_converted);
-    ta_free(stars_spawned);
-
     walltime_measure("/Cooling/StarFormation");
 
-    /* now lets make winds. this has to be after NumPart is updated */
-    if(All.WindOn && !HAS(All.WindModel, WIND_SUBGRID)){
-        Wind = (struct winddata * ) mymalloc("WindExtraData", PartManager->NumPart * sizeof(struct winddata));
-        TreeWalk tw[1] = {{0}};
-
-        tw->ev_label = "SFR_WIND";
-        tw->fill = (TreeWalkFillQueryFunction) sfr_wind_copy;
-        tw->reduce = (TreeWalkReduceResultFunction) sfr_wind_reduce_weight;
-        tw->UseNodeList = 1;
-        tw->query_type_elsize = sizeof(TreeWalkQueryWind);
-        tw->result_type_elsize = sizeof(TreeWalkResultWind);
-
-        /* sum the total weight of surrounding gas */
-        tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterWind);
-        tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_weight_ngbiter;
-
-        /* First set DensityIterationDone for weighting */
-        /* Watchout: the process function name is preprocess, but not called in the feedback tree walk
-         * because we need to compute the normalization before the feedback . */
-        tw->visit = NULL;
-        tw->haswork = (TreeWalkHasWorkFunction) sfr_wind_feedback_haswork;
-        tw->postprocess = (TreeWalkProcessFunction) sfr_wind_feedback_preprocess;
-        treewalk_run(tw, ActiveParticle, NumActiveParticle);
-
-        tw->haswork = sfr_wind_weight_haswork;
-        tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
-        tw->postprocess = (TreeWalkProcessFunction) sfr_wind_weight_postprocess;
-
-        int done = 0;
-        while(!done) {
-            NPLeft = 0;
-            treewalk_run(tw, ActiveParticle, NumActiveParticle);
-
-            int64_t totalleft = 0;
-            sumup_large_ints(1, &NPLeft, &totalleft);
-            message(0, "Star DM iteration Total left = %ld\n", totalleft);
-            done = totalleft == 0;
-        }
-
-        /* Then run feedback */
-        tw->haswork = (TreeWalkHasWorkFunction) sfr_wind_feedback_haswork;
-        tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_feedback_ngbiter;
-        tw->postprocess = (TreeWalkProcessFunction) sfr_wind_feedback_postprocess;
-        tw->reduce = NULL;
-
-        treewalk_run(tw, ActiveParticle, NumActiveParticle);
-        myfree(Wind);
-    }
-    walltime_measure("/Cooling/Wind");
+    /* Note that NumActiveParticle changes when a star is spawned during the
+     * sfr loop. winds needs to use the new NumActiveParticle because it needs the new stars.*/
+    winds_and_feedback(ActiveParticle, NumActiveParticle);
 }
-
-#else //No SFR
-
-static void
-cool_postprocess(int i, TreeWalk * tw)
-{
-    cooling_direct(i);
-}
-
-/* cooling routine when star formation is disabled */
-void cooling_only(void)
-{
-    if(!All.CoolingOn) return;
-    walltime_measure("/Misc");
-
-    TreeWalk tw[1] = {0};
-
-    /* Only used to list all active particles for the parallel loop */
-    /* no tree walking and no need to export / copy particles. */
-
-    tw->visit = NULL; /* no tree walk */
-    tw->ev_label = "SFR_COOL";
-    tw->haswork = sfr_cooling_haswork;
-    tw->postprocess = (TreeWalkProcessFunction) cool_postprocess;
-
-    treewalk_run(tw, ActiveParticle, NumActiveParticle);
-
-    walltime_measure("/Cooling/StarFormation");
-}
-
-#endif
 
 static void
 cooling_direct(int i) {
@@ -447,298 +190,70 @@ cooling_direct(int i) {
     }
 }
 
-#if defined(SFR)
-
-
-/* returns 0 if the particle is actively forming stars */
-static int get_sfr_condition(int i) {
-    int flag = 1;
-/* no sfr !*/
+/* returns 1 if the particle is on the effective equation of state,
+ * cooling via the relaxation equation and maybe forming stars.
+ * 0 if the particle does not form stars, instead cooling normally.*/
+static int
+sfreff_on_eeqos(int i)
+{
+    int flag = 0;
+    /* no sfr: normal cooling*/
     if(!All.StarformationOn) {
-        return flag;
+        return 0;
     }
-    if(SPHP(i).Density * All.cf.a3inv >= All.PhysDensThresh)
-        flag = 0;
+    /* Check that starformation has not left a massless particle.*/
+    if(P[i].Mass == 0) {
+        endrun(-1, "Particle %d in SFR has mass=%g. Does not happen as no tracer particles.\n", i, P[i].Mass);
+    }
 
-    if(SPHP(i).Density < All.OverDensThresh)
+    if(SPHP(i).Density * All.cf.a3inv >= All.PhysDensThresh)
         flag = 1;
 
-    /* massless particles never form stars! */
-    if(P[i].Mass == 0) {
-        endrun(-1, "Encoutered zero mass particle during sfr ;"
-                  " We haven't implemented tracer particles and this shall not happen\n");
-    }
+    if(SPHP(i).Density < All.OverDensThresh)
+        flag = 0;
 
     if(SPHP(i).DelayTime > 0)
-        flag = 1;		/* only normal cooling for particles in the wind */
-
-    if(All.QuickLymanAlphaProbability > 0) {
-        double dloga = get_dloga_for_bin(P[i].TimeBin);
-        double unew = DMAX(All.MinEgySpec,
-                (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) /
-                GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
-
-        const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
-        * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-
-        double temp = u_to_temp_fac * unew;
-
-        if(SPHP(i).Density > All.OverDensThresh && temp < 1.0e5)
-            flag = 0;
-        else
-            flag = 1;
-    }
+        flag = 0;		/* only normal cooling for particles in the wind */
 
     return flag;
 }
 
-/*These functions are for the wind models*/
-static int
-sfr_wind_weight_haswork(int target, TreeWalk * tw)
+/* This function turns a particle into a star. It returns 1 if a particle was
+ * converted and 2 if a new particle was spawned. This is used
+ * above to set stars_{spawned|converted}*/
+static int make_particle_star(int i, double mass_of_star)
 {
-    if(P[target].Type == 4) {
-        if(P[target].IsNewParticle && !P[target].DensityIterationDone) {
-             return 1;
-        }
-    }
-    return 0;
-}
-
-static int
-sfr_wind_feedback_haswork(int target, TreeWalk * tw)
-{
-    if(P[target].Type == 4) {
-        if(P[target].IsNewParticle) {
-             return 1;
-        }
-    }
-    return 0;
-}
-
-static void
-sfr_wind_reduce_weight(int place, TreeWalkResultWind * O, enum TreeWalkReduceMode mode, TreeWalk * tw)
-{
-    TREEWALK_REDUCE(Wind[place].TotalWeight, O->TotalWeight);
-    int k;
-    for(k = 0; k < 3; k ++) {
-        TREEWALK_REDUCE(Wind[place].V1sum[k], O->V1sum[k]);
-    }
-    TREEWALK_REDUCE(Wind[place].V2sum, O->V2sum);
-    TREEWALK_REDUCE(Wind[place].Ngb, O->Ngb);
-    /*
-    message(1, "Reduce ID=%ld, NGB=%d TotalWeight=%g V2sum=%g V1sum=%g %g %g\n",
-            P[place].ID, O->Ngb, O->TotalWeight, O->V2sum,
-            O->V1sum[0], O->V1sum[1], O->V1sum[2]);
-            */
-}
-
-static void
-sfr_wind_copy(int place, TreeWalkQueryWind * input, TreeWalk * tw)
-{
-    double dtime = get_dloga_for_bin(P[place].TimeBin) / All.cf.hubble;
-    input->Dt = dtime;
-    input->Mass = P[place].Mass;
-    input->Hsml = P[place].Hsml;
-    input->TotalWeight = Wind[place].TotalWeight;
-
-    input->DMRadius = Wind[place].DMRadius;
-    input->Vdisp = Wind[place].Vdisp;
-
-    int k;
-    for (k = 0; k < 3; k ++)
-        input->Vmean[k] = Wind[place].Vmean[k];
-}
-
-static void
-sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
-        TreeWalkResultWind * O,
-        TreeWalkNgbIterWind * iter,
-        LocalTreeWalk * lv)
-{
-    /* this evaluator walks the tree and sums the total mass of surrounding gas
-     * particles as described in VS08. */
-    /* it also calculates the DM dispersion of the nearest 40 DM paritlces */
-    if(iter->base.other == -1) {
-        double hsearch = DMAX(I->Hsml, I->DMRadius);
-        iter->base.Hsml = hsearch;
-        iter->base.mask = 1 + 2; /* gas and dm */
-        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
-        return;
-    }
-
-    int other = iter->base.other;
-    double r = iter->base.r;
-    double * dist = iter->base.dist;
-
-    if(P[other].Type == 0) {
-        if(r > I->Hsml) return;
-        /* Ignore wind particles */
-        if(SPHP(other).DelayTime > 0) return;
-        /* NOTE: think twice if we want a symmetric tree walk when wk is used. */
-        //double wk = density_kernel_wk(&kernel, r);
-        double wk = 1.0;
-        O->TotalWeight += wk * P[other].Mass;
-    }
-
-    if(P[other].Type == 1) {
-        if(r > I->DMRadius) return;
-        O->Ngb ++;
-        int d;
-        for(d = 0; d < 3; d ++) {
-            /* Add hubble flow; FIXME: this shall be a function, and the direction looks wrong too. */
-            double vel = P[other].Vel[d] + All.cf.hubble * All.cf.a * All.cf.a * dist[d];
-            O->V1sum[d] += vel;
-            O->V2sum += vel * vel;
-        }
-    }
-
-    /*
-    message(1, "ThisTask = %d %ld ngb=%d NGB=%d TotalWeight=%g V2sum=%g V1sum=%g %g %g\n",
-    ThisTask, I->ID, numngb, O->Ngb, O->TotalWeight, O->V2sum,
-    O->V1sum[0], O->V1sum[1], O->V1sum[2]);
-    */
-}
-
-static void
-sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
-        TreeWalkResultWind * O,
-        TreeWalkNgbIterWind * iter,
-        LocalTreeWalk * lv)
-{
-
-    /* this evaluator walks the tree and blows wind. */
-
-    if(iter->base.other == -1) {
-        iter->base.mask = 1;
-        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
-        iter->base.Hsml = I->Hsml;
-        return;
-    }
-    int other = iter->base.other;
-    double r = iter->base.r;
-
-    /* skip wind particles */
-    if(SPHP(other).DelayTime > 0) return;
-
-    /* this is radius cut is redundant because the tree walk is asymmetric
-     * we may want to use fancier weighting that requires symmetric in the future. */
-    if(r > I->Hsml) return;
-
-    double windeff=0;
-    double v=0;
-    if(HAS(All.WindModel, WIND_FIXED_EFFICIENCY)) {
-        windeff = All.WindEfficiency;
-        v = All.WindSpeed * All.cf.a;
-    } else if(HAS(All.WindModel, WIND_USE_HALO)) {
-        windeff = 1.0 / (I->Vdisp / All.cf.a / All.WindSigma0);
-        windeff *= windeff;
-        v = All.WindSpeedFactor * I->Vdisp;
-    } else {
-        endrun(1, "WindModel = 0x%X is strange. This shall not happen.\n", All.WindModel);
-    }
-
-    //double wk = density_kernel_wk(&kernel, r);
-
-    /* in this case the particle is already locked by the tree walker */
-    /* we may want to add another lock to avoid this. */
-    if(P[other].ID != I->base.ID)
-        lock_particle(other);
-
-    double wk = 1.0;
-    double p = windeff * wk * I->Mass / I->TotalWeight;
-    double random = get_random_number(I->base.ID + P[other].ID);
-    if (random < p) {
-        make_particle_wind(I->base.ID, other, v, I->Vmean);
-    }
-
-    if(P[other].ID != I->base.ID)
-        unlock_particle(other);
-
-}
-
-static int make_particle_wind(MyIDType ID, int i, double v, double vmean[3]) {
-    /* v and vmean are in internal units (km/s *a ), not km/s !*/
-    /* returns 0 if particle i is converted to wind. */
-    // message(1, "%ld Making ID=%ld (%g %g %g) to wind with v= %g\n", ID, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], v);
-    int j;
-    /* ok, make the particle go into the wind */
-    double dir[3];
-    if(HAS(All.WindModel, WIND_ISOTROPIC)) {
-        double theta = acos(2 * get_random_number(P[i].ID + 3) - 1);
-        double phi = 2 * M_PI * get_random_number(P[i].ID + 4);
-
-        dir[0] = sin(theta) * cos(phi);
-        dir[1] = sin(theta) * sin(phi);
-        dir[2] = cos(theta);
-    } else {
-        double vel[3];
-        for(j = 0; j < 3; j++) {
-            vel[j] = P[i].Vel[j] - vmean[j];
-        }
-        dir[0] = P[i].GravAccel[1] * vel[2] - P[i].GravAccel[2] * vel[1];
-        dir[1] = P[i].GravAccel[2] * vel[0] - P[i].GravAccel[0] * vel[2];
-        dir[2] = P[i].GravAccel[0] * vel[1] - P[i].GravAccel[1] * vel[0];
-    }
-
-    double norm = 0;
-    for(j = 0; j < 3; j++)
-        norm += dir[j] * dir[j];
-
-    norm = sqrt(norm);
-    if(get_random_number(P[i].ID + 5) < 0.5)
-        norm = -norm;
-
-    if(norm != 0)
-    {
-        for(j = 0; j < 3; j++)
-            dir[j] /= norm;
-
-        for(j = 0; j < 3; j++)
-        {
-            P[i].Vel[j] += v * dir[j];
-        }
-        SPHP(i).DelayTime = All.WindFreeTravelLength / (v / All.cf.a);
-    }
-    return 0;
-}
-/*End wind model functions*/
-
-static int make_particle_star(int i) {
-    double mass_of_star = find_star_mass(i);
     int child;
+    int retflag = 0;
     if(P[i].Type != 0)
         endrun(7772, "Only gas forms stars, what's wrong?");
 
-    int tid = omp_get_thread_num();
     /*Store the SPH particle slot properties, overwritten in slots_convert*/
     struct sph_particle_data oldslot = SPHP(i);
     /* ok, make a star */
-    if(P[i].Mass < 1.1 * mass_of_star || All.QuickLymanAlphaProbability > 0)
+    if(P[i].Mass < 1.1 * mass_of_star)
     {
-        /* here the gas particle is eliminated because remaining mass is all converted. */
-        stars_converted[tid]++;
-
         /*If all the mass, just convert the slot*/
         child = slots_convert(i, 4);
+        retflag = 1;
     }
     else
     {
-        stars_spawned[tid]++;
         /* if we get a fraction of the mass*/
         child = slots_fork(i, 4);
 
         P[child].Mass = mass_of_star;
         P[i].Mass -= P[child].Mass;
+        retflag = 2;
     }
 
     /*Set properties*/
-    sum_mass_stars[tid] += P[child].Mass;
     STARP(child).FormationTime = All.Time;
     STARP(child).BirthDensity = oldslot.Density;
     /*Copy metallicity*/
     STARP(child).Metallicity = oldslot.Metallicity;
     P[child].IsNewParticle = 1;
-    return 0;
+    return retflag;
 }
 
 static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
@@ -780,22 +295,43 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
 }
 
 /*Forms stars according to the quick lyman alpha star formation criterion,
- * which forms stars with a constant probability (usually 1) if they are star forming*/
-static void
+ * which forms stars with a constant probability (usually 1) if they are star forming.
+ * Returns 1 if converted a particle to a star, 0 if not.*/
+static int
 quicklyastarformation(int i)
 {
-    if(get_random_number(P[i].ID + 1) < All.QuickLymanAlphaProbability) {
-        make_particle_star(i);
-    }
+    if(SPHP(i).Density <= All.OverDensThresh)
+        return 0;
+
+    double dloga = get_dloga_for_bin(P[i].TimeBin);
+    double unew = DMAX(All.MinEgySpec,
+            (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) /
+            GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+
+    const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
+    * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+
+    double temp = u_to_temp_fac * unew;
+
+    if(temp >= 1.0e5)
+        return 0;
+
+    if(get_random_number(P[i].ID + 1) < All.QuickLymanAlphaProbability)
+        return 1;
+
+    return 0;
 }
 
-/*Forms stars, computes various global counters, and forms winds.*/
-static void
-starformation(int i)
+/*Forms stars and winds.
+
+ Returns 1 if converted a particle to a star, 2 if spawned a star, 0 if no stars formed. */
+static int
+starformation(int i, double *localsfr, double * sum_sm, double * sum_mass_stars)
 {
     /*  the proper time-step */
     double dloga = get_dloga_for_bin(P[i].TimeBin);
     double dtime = dloga / All.cf.hubble;
+    int retflag = 0;
 
     double egyeff, trelax;
     double rateOfSF = get_starformation_rate_full(i, dtime, &SPHP(i).Ne, &trelax, &egyeff);
@@ -806,11 +342,9 @@ starformation(int i)
 
     double p = sm / P[i].Mass;
 
-    int tid = omp_get_thread_num();
-
-    sum_sm[tid] += P[i].Mass * (1 - exp(-p));
+    *sum_sm += P[i].Mass * (1 - exp(-p));
     /* convert to Solar per Year.*/
-    localsfr[tid] += rateOfSF * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
+    *localsfr += rateOfSF * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
 
     double w = get_random_number(P[i].ID);
     SPHP(i).Metallicity += w * METAL_YIELD * (1 - exp(-p));
@@ -825,12 +359,14 @@ starformation(int i)
     double prob = P[i].Mass / mass_of_star * (1 - exp(-p));
 
     if(get_random_number(P[i].ID + 1) < prob) {
-        make_particle_star(i);
+        *sum_mass_stars += mass_of_star;
+        retflag = make_particle_star(i, mass_of_star);
     }
 
     if(P[i].Type == 0)	{
         /* to protect using a particle that has been turned into a star */
         SPHP(i).Metallicity += (1 - w) * METAL_YIELD * (1 - exp(-p));
+
         if(All.WindOn && HAS(All.WindModel, WIND_SUBGRID)) {
             /* Here comes the Springel Hernquist 03 wind model */
             double pw = All.WindEfficiency * sm / P[i].Mass;
@@ -840,6 +376,7 @@ starformation(int i)
                 make_particle_wind(P[i].ID, i, All.WindSpeed * All.cf.a, zero);
         }
     }
+    return retflag;
 }
 
 double get_starformation_rate(int i) {
@@ -848,15 +385,14 @@ double get_starformation_rate(int i) {
 }
 
 static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyeff) {
-    double rateOfSF;
-    int flag;
-    double tsfr;
+    double rateOfSF, tsfr;
     double factorEVP, egyhot, ne, tcool, y, x, cloudmass;
     struct UVBG uvbg;
 
-    flag = get_sfr_condition(i);
+    if(!All.StarformationOn)
+        return 0;
 
-    if(flag == 1) {
+    if(!sfreff_on_eeqos(i)) {
         /* this shall not happen but let's put in some safe
          * numbers in case the code run wary!
          *
@@ -917,15 +453,49 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
     return rateOfSF;
 }
 
-void init_clouds(void)
+void init_cooling_and_star_formation(void)
 {
-    if(!All.StarformationOn) return;
+    InitCool();
 
-    double A0, dens, tcool, ne, coolrate, egyhot, x, u4, meanweight;
-    double tsfr, y, peff, fac, neff, egyeff, factorEVP, sigma, thresholdStarburst;
+    /* mean molecular weight assuming ZERO ionization NEUTRAL GAS*/
+    double meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);
+
+    /*Used for cooling and for timestepping*/
+    All.MinEgySpec = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.MinGasTemp;
+    All.MinEgySpec *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
+
+    if(!All.StarformationOn)
+        return;
+
+    All.OverDensThresh =
+        All.CritOverDensity * All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
+
+    All.PhysDensThresh = All.CritPhysDensity * PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs;
+
+    All.EgySpecCold = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempClouds;
+    All.EgySpecCold *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
+
+    /* mean molecular weight assuming FULL ionization */
+    meanweight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));
+
+    All.EgySpecSN = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempSupernova;
+    All.EgySpecSN *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
+
+    if(All.WindOn) {
+        if(HAS(All.WindModel, WIND_FIXED_EFFICIENCY)) {
+            All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency);
+            message(0, "Windspeed: %g\n", All.WindSpeed);
+        } else {
+            All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / 1.0);
+            message(0, "Reference Windspeed: %g\n", All.WindSigma0 * All.WindSpeedFactor);
+        }
+    }
 
     if(All.PhysDensThresh == 0)
     {
+        double A0, dens, tcool, ne, coolrate, egyhot, x, u4;
+        double tsfr, y, peff, fac, neff, egyeff, factorEVP, sigma, thresholdStarburst;
+
         A0 = All.FactorEVP;
 
         egyhot = All.EgySpecSN / A0;
@@ -1021,6 +591,25 @@ void init_clouds(void)
     }
 }
 
+static double
+find_star_mass(int i)
+{
+    /*Quick Lyman Alpha always turns all of a particle into stars*/
+    if(All.QuickLymanAlphaProbability > 0)
+        return P[i].Mass;
+
+    double mass_of_star =  All.MassTable[0] / GENERATIONS;
+    if(mass_of_star > P[i].Mass) {
+        /* if some mass has been stolen by BH, e.g */
+        mass_of_star = P[i].Mass;
+    }
+    /* if we are the last particle */
+    if(fabs(mass_of_star - P[i].Mass) / mass_of_star < 0.5) {
+        mass_of_star = P[i].Mass;
+    }
+    return mass_of_star;
+}
+
 /********************
  *
  * The follow functions are from Desika and Gadget-P.
@@ -1109,21 +698,3 @@ static double get_sfr_factor_due_to_selfgravity(int i) {
     }
     return y;
 }
-
-static double
-find_star_mass(int i)
-{
-    double mass_of_star =  All.MassTable[0] / GENERATIONS;
-    if(mass_of_star > P[i].Mass) {
-        /* if some mass has been stolen by BH, e.g */
-        mass_of_star = P[i].Mass;
-    }
-    /* if we are the last particle */
-    if(fabs(mass_of_star - P[i].Mass) / mass_of_star < 0.5) {
-        mass_of_star = P[i].Mass;
-    }
-    return mass_of_star;
-}
-
-#endif
-

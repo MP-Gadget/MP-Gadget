@@ -141,9 +141,7 @@ extern int NTask;		/*!< number of processors */
 extern FILE *FdEnergy,			/*!< file handle for energy.txt log-file. */
        *FdCPU;			/*!< file handle for cpu.txt log-file. */
 
-#ifdef SFR
 extern FILE *FdSfr;		/*!< file handle for sfr.txt log-file. */
-#endif
 
 #ifdef BLACK_HOLES
 extern FILE *FdBlackHoles;	/*!< file handle for blackholes.txt log-file. */
@@ -365,7 +363,7 @@ extern struct global_data_all_processes
     double OutputListTimes[8192];
     int OutputListLength;
 
-#ifdef SFR		/* star formation and feedback sector */
+/*Star formation parameters*/
     double CritOverDensity;
     double CritPhysDensity;
     double OverDensThresh;
@@ -378,9 +376,9 @@ extern struct global_data_all_processes
     double TempSupernova;
     double TempClouds;
     double MaxSfrTimescale;
+    /* star formation and feedback sector */
     double WindFreeTravelLength;
     double WindFreeTravelDensFac;
-    double FactorForSofterEQS;
     /* used in VS08 and SH03*/
     double WindEfficiency;
     double WindSpeed;
@@ -388,7 +386,6 @@ extern struct global_data_all_processes
     /* used in OFJT10*/
     double WindSigma0;
     double WindSpeedFactor;
-#endif
     /*Lyman alpha forest specific parameters*/
     double QuickLymanAlphaProbability;
     int HeliumHeatOn;

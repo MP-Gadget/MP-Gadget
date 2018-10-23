@@ -16,10 +16,6 @@ OPT += -DDENSITY_INDEPENDENT_SPH
 
 OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR
 
-#--------------------------------------- SFR/feedback model
-# Star formation master switch. Also enables the Wind model
-OPT	+=  -DSFR
-
 #-------------------------------------- AGN stuff
 OPT	+=  -DBLACK_HOLES             # enables Black-Holes (master switch)
 

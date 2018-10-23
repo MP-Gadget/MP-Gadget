@@ -299,9 +299,7 @@ static void GTMassCenterVelocity(int i, float * out) {
 SIMPLE_PROPERTY(Mass, Group[i].Mass, float, 1)
 SIMPLE_PROPERTY(MassByType, Group[i].MassType[0], float, 6)
 SIMPLE_PROPERTY(LengthByType, Group[i].LenType[0], uint32_t , 6)
-#ifdef SFR
 SIMPLE_PROPERTY(StarFormationRate, Group[i].Sfr, float, 1)
-#endif
 #ifdef BLACK_HOLES
 SIMPLE_PROPERTY(BlackholeMass, Group[i].BH_Mass, float, 1)
 SIMPLE_PROPERTY(BlackholeAccretionRate, Group[i].BH_Mdot, float, 1)
@@ -318,9 +316,8 @@ void fof_register_io_blocks() {
     IO_REG_WRONLY(MassCenterVelocity, "f4", 3, PTYPE_FOF_GROUP);
     IO_REG(LengthByType, "u4", 6, PTYPE_FOF_GROUP);
     IO_REG(MassByType, "f4", 6, PTYPE_FOF_GROUP);
-#ifdef SFR
-    IO_REG(StarFormationRate, "f4", 1, PTYPE_FOF_GROUP);
-#endif
+    if(All.StarformationOn)
+        IO_REG(StarFormationRate, "f4", 1, PTYPE_FOF_GROUP);
 #ifdef BLACK_HOLES
     IO_REG(BlackholeMass, "f4", 1, PTYPE_FOF_GROUP);
     IO_REG(BlackholeAccretionRate, "f4", 1, PTYPE_FOF_GROUP);

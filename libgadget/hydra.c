@@ -220,14 +220,12 @@ hydro_ngbiter(
                   " We haven't implemented tracer particles and this shall not happen\n");
     }
 
-#ifdef SFR
 #ifdef NOWINDTIMESTEPPING
     if(All.WindOn && HAS(All.WindModel, WIND_DECOUPLE_SPH)) {
         if(P[other].Type == 0)
             if(SPHP(other).DelayTime > 0)  /* ignore the wind particles */
                 return;
     }
-#endif
 #endif
     DensityKernel kernel_j;
 
@@ -316,14 +314,11 @@ hydro_ngbiter(
         hfc += P[other].Mass * (iter->p_over_rho2_i*I->DhsmlEOMDensityFactor * dwk_i * r1
                  + p_over_rho2_j*SPHP(other).DhsmlEOMDensityFactor * dwk_j * r2) / r;
 
-#ifdef SFR
+        /* No force by wind particles */
         if(All.WindOn && HAS(All.WindModel, WIND_DECOUPLE_SPH)) {
-            if(P[other].Type == 0 && SPHP(other).DelayTime > 0) /* No force by wind particles */
-                {
+            if(P[other].Type == 0 && SPHP(other).DelayTime > 0)
                     hfc = hfc_visc = 0;
-                }
         }
-#endif
 
 #ifndef NOACCEL
         for(d = 0; d < 3; d ++)
@@ -350,11 +345,9 @@ hydro_postprocess(int i, TreeWalk * tw)
         /* Translate energy change rate into entropy change rate */
         SPHP(i).DtEntropy *= GAMMA_MINUS1 / (All.cf.hubble_a2 * pow(SPHP(i).EOMDensity, GAMMA_MINUS1));
 
-#ifdef SFR
         /* if we have winds, we decouple particles briefly if delaytime>0 */
-        if(All.WindOn && HAS(All.WindModel, WIND_DECOUPLE_SPH)) {
-            if(SPHP(i).DelayTime > 0)
-            {
+        if(All.WindOn && HAS(All.WindModel, WIND_DECOUPLE_SPH) && SPHP(i).DelayTime > 0)
+        {
                 int k;
                 for(k = 0; k < 3; k++)
                     SPHP(i).HydroAccel[k] = 0;
@@ -371,8 +364,6 @@ hydro_postprocess(int i, TreeWalk * tw)
                         (SPHP(i).Density * All.cf.a3inv), (1. / 3.));
                 SPHP(i).MaxSignalVel = hsml_c * DMAX((2 * windspeed), SPHP(i).MaxSignalVel);
 #endif
-            }
         }
-#endif
     }
 }

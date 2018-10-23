@@ -31,9 +31,7 @@ FILE 			/*!< file handle for info.txt log-file. */
  *FdEnergy,			/*!< file handle for energy.txt log-file. */
  *FdCPU;			/*!< file handle for cpu.txt log-file. */
 
-#ifdef SFR
 FILE *FdSfr;			/*!< file handle for sfr.txt log-file. */
-#endif
 
 #ifdef BLACK_HOLES
 FILE *FdBlackHoles;		/*!< file handle for blackholes.txt log-file. */
