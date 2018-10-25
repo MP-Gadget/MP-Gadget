@@ -368,7 +368,7 @@ static int make_particle_star(int child, int parent, int placement)
 {
     int retflag = 2;
     if(P[parent].Type != 0)
-        endrun(7772, "Only gas forms stars, what's wrong?");
+        endrun(7772, "Only gas forms stars, what's wrong?\n");
 
     /*Store the SPH particle slot properties, as the PI may be over-written
      *in slots_convert*/
