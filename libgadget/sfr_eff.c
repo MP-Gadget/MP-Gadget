@@ -488,7 +488,8 @@ starformation(int i, double *localsfr, double * sum_sm)
     double mass_of_star = find_star_mass(i);
     double prob = P[i].Mass / mass_of_star * (1 - exp(-p));
 
-    if(get_random_number(P[i].ID + 1) < prob) {
+    int form_star = (get_random_number(P[i].ID + 1) < prob);
+    if(form_star) {
         /* ok, make a star */
         newstar = i;
         /* If we get a fraction of the mass we need to create
@@ -497,13 +498,16 @@ starformation(int i, double *localsfr, double * sum_sm)
             newstar = slots_split_particle(i, mass_of_star);
     }
 
-    /* A particle that will be turned into a star doesn't want the metals or to be made a wind.*/
-    if(newstar != i)	{
+    /* Add the rest of the metals if we didn't form a star.
+     * If we did form a star, add winds to the star-forming particle
+     * that formed it if it is still around*/
+    if(!form_star || newstar != i)	{
         SPHP(i).Metallicity += (1 - w) * METAL_YIELD * (1 - exp(-p));
 
         if(All.WindOn && HAS(All.WindModel, WIND_SUBGRID)) {
             /* Here comes the Springel Hernquist 03 wind model */
-            /*Notice that this is the mass of the gas particle after forking a star, 1/2 what it was before.*/
+            /* Notice that this is the mass of the gas particle after forking a star, 1/GENERATIONS
+             * what it was before.*/
             double pw = All.WindEfficiency * sm / P[i].Mass;
             double prob = 1 - exp(-pw);
             double zero[3] = {0, 0, 0};
