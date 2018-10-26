@@ -30,11 +30,7 @@ struct particle_data
         unsigned int Evaluated            :1; /* True if already query already ran in treewalk */
         unsigned int DensityIterationDone :1; /* True if the density-like iterations already finished; */
         unsigned int Swallowed            :1; /* True if the particle is being swallowed; used in BH to determine swallower and swallowee;*/
-#ifdef DEBUG
-        unsigned int SufferFromCoupling:1; /* whether it suffers from particle-coupling (nearest neighbour << gravity smoothing)*/
-#else
         unsigned int spare_7              :1;
-#endif
         unsigned int spare_6              :1;
         unsigned int spare_5              :1;
         unsigned int spare_4              :1;

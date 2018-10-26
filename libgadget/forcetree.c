@@ -291,10 +291,6 @@ modify_internal_node(int parent, int subnode, int p_child, int p_toplace,
      * Attach the new particle to the new slot. */
     if(too_small) {
         (*closepairs)++;
-#ifdef DEBUG
-        P[p_child].SufferFromCoupling = 1;
-        P[p_toplace].SufferFromCoupling = 1;
-#endif
         /*
         message(1,"Close particles: %d @ [%g, %g, %g] and %d @ [%g, %g, %g]. "
                 "Attached to node %d, subnode %d, at [%g, %g, %g] (len %g).\n",
@@ -386,10 +382,6 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
 #endif
     for(i = 0; i < npart; i++)
     {
-#ifdef DEBUG
-        P[i].SufferFromCoupling = 0;
-#endif
-
         /*Can't break from openmp for*/
         if(nc.nnext_thread >= tb.lastnode-1)
             continue;
