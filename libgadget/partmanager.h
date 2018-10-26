@@ -30,14 +30,6 @@ struct particle_data
         unsigned int Evaluated            :1; /* True if already query already ran in treewalk */
         unsigned int DensityIterationDone :1; /* True if the density-like iterations already finished; */
         unsigned int Swallowed            :1; /* True if the particle is being swallowed; used in BH to determine swallower and swallowee;*/
-        unsigned int spare_7              :1;
-        unsigned int spare_6              :1;
-        unsigned int spare_5              :1;
-        unsigned int spare_4              :1;
-        unsigned int spare_3              :1;
-        unsigned int spare_2              :1;
-        unsigned int spare_1              :1;
-        unsigned int spare_0              :1;
 
         unsigned char Generation; /* How many particles it has spawned; used to generate unique particle ID.
                                      may wrap around with too many SFR/BH if a feedback model goes rogue */
