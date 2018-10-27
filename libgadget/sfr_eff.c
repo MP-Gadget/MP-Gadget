@@ -118,6 +118,7 @@ void cooling_and_starformation(void)
             cooling_direct(p_i);
     }
 
+    report_memory_usage("SFR");
     /*Merge step for the queue.*/
     if(NewStars) {
         NumNewStar = gadget_compact_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, All.NumThreads);
