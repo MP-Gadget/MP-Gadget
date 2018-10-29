@@ -84,6 +84,9 @@ winds_and_feedback(int * NewStars, int NumNewStars)
     /*The subgrid model does nothing here*/
     if(HAS(All.WindModel, WIND_SUBGRID))
         return;
+
+    if(NumNewStars == 0)
+        return;
     Wind = (struct winddata * ) mymalloc("WindExtraData", PartManager->NumPart * sizeof(struct winddata));
 
     int i;
