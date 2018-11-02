@@ -66,56 +66,62 @@ void cooling_and_starformation(void)
     const int nactive = NumActiveParticle;
 
     if(All.StarformationOn) {
-        NewStars = mymalloc("NewStars", nactive * sizeof(int) * All.NumThreads);
-        gadget_setup_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, nactive, All.NumThreads);
-        NewParents = mymalloc2("NewParents", nactive * sizeof(int) * All.NumThreads);
-        gadget_setup_thread_arrays(NewParents, thrqueueparent, nqthrsfr, nactive, All.NumThreads);
+        int narr = ceil(nactive/All.NumThreads);
+        NewStars = mymalloc("NewStars", narr * sizeof(int) * All.NumThreads);
+        gadget_setup_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, narr, All.NumThreads);
+        NewParents = mymalloc2("NewParents", narr * sizeof(int) * All.NumThreads);
+        gadget_setup_thread_arrays(NewParents, thrqueueparent, nqthrsfr, narr, All.NumThreads);
     }
 
     double sum_sm = 0, sum_mass_stars = 0, localsfr = 0;
-    int i;
 
     /* First decide which stars are cooling and which starforming. If star forming we add them to a list.
      * Note the dynamic scheduling: individual particles may have very different loop iteration lengths.
      * Cooling is much slower than sfr. I tried splitting it into a separate loop instead, but this was faster.*/
-    #pragma omp parallel for schedule(dynamic, 100) reduction(+:localsfr) reduction(+: sum_sm) reduction(+:sum_mass_stars)
-    for(i=0; i < nactive; i++)
+    #pragma omp parallel reduction(+:localsfr) reduction(+: sum_sm) reduction(+:sum_mass_stars)
     {
-        /*Use raw particle number if active_set is null, otherwise use active_set*/
-        const int p_i = ActiveParticle ? ActiveParticle[i] : i;
-        /* Skip non-gas or garbage particles */
-        if(P[p_i].Type != 0 || P[p_i].IsGarbage || P[p_i].Mass <= 0)
-            continue;
+        int i;
+        const int tid = omp_get_thread_num();
 
-        int shall_we_star_form = 0;
-        if(All.StarformationOn) {
-            /*Reduce delaytime for wind particles.*/
-            wind_evolve(p_i);
-            /* check whether we are star forming gas.*/
-            if(All.QuickLymanAlphaProbability > 0)
-                shall_we_star_form = quicklyastarformation(p_i);
+        const int nthreads = omp_get_num_threads();
+        for(i=tid; i < nactive; i+=nthreads)
+        {
+            /*Use raw particle number if active_set is null, otherwise use active_set*/
+            const int p_i = ActiveParticle ? ActiveParticle[i] : i;
+            /* Skip non-gas or garbage particles */
+            if(P[p_i].Type != 0 || P[p_i].IsGarbage || P[p_i].Mass <= 0)
+                continue;
+
+            int shall_we_star_form = 0;
+            if(All.StarformationOn) {
+                /*Reduce delaytime for wind particles.*/
+                wind_evolve(p_i);
+                /* check whether we are star forming gas.*/
+                if(All.QuickLymanAlphaProbability > 0)
+                    shall_we_star_form = quicklyastarformation(p_i);
+                else
+                    shall_we_star_form = sfreff_on_eeqos(p_i);
+            }
+
+            if(shall_we_star_form) {
+                int newstar = -1;
+                if(All.QuickLymanAlphaProbability > 0) {
+                    /*New star is always the same particle as the parent for quicklya*/
+                    newstar = p_i;
+                } else {
+                    newstar = starformation(p_i, &localsfr, &sum_sm);
+                }
+                /*Add this particle to the stellar conversion queue if necessary.*/
+                if(newstar >= 0) {
+                    int tid = omp_get_thread_num();
+                    thrqueuesfr[tid][nqthrsfr[tid]] = newstar;
+                    thrqueueparent[tid][nqthrsfr[tid]] = p_i;
+                    nqthrsfr[tid]++;
+                }
+            }
             else
-                shall_we_star_form = sfreff_on_eeqos(p_i);
+                cooling_direct(p_i);
         }
-
-        if(shall_we_star_form) {
-            int newstar = -1;
-            if(All.QuickLymanAlphaProbability > 0) {
-                /*New star is always the same particle as the parent for quicklya*/
-                newstar = p_i;
-            } else {
-                newstar = starformation(p_i, &localsfr, &sum_sm);
-            }
-            /*Add this particle to the stellar conversion queue if necessary.*/
-            if(newstar >= 0) {
-                int tid = omp_get_thread_num();
-                thrqueuesfr[tid][nqthrsfr[tid]] = newstar;
-                thrqueueparent[tid][nqthrsfr[tid]] = p_i;
-                nqthrsfr[tid]++;
-            }
-        }
-        else
-            cooling_direct(p_i);
     }
 
     report_memory_usage("SFR");
@@ -148,6 +154,7 @@ void cooling_and_starformation(void)
     SlotsManager->info[4].size += NumNewStar;
 
     int stars_converted=0, stars_spawned=0;
+    int i;
 
     /*Now we turn the particles into stars*/
     #pragma omp parallel for reduction(+:stars_converted) reduction(+:stars_spawned) reduction(+:sum_mass_stars)
