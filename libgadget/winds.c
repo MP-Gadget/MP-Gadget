@@ -87,7 +87,7 @@ winds_and_feedback(int * NewStars, int NumNewStars)
     if(HAS(All.WindModel, WIND_SUBGRID))
         return;
 
-    if(NumNewStars == 0)
+    if(!MPIU_Any(NumNewStars > 0, MPI_COMM_WORLD))
         return;
     Winddata = (struct winddata * ) mymalloc("WindExtraData", SlotsManager->info[4].size * sizeof(struct winddata));
 
