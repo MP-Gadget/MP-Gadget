@@ -66,7 +66,7 @@ void cooling_and_starformation(void)
     const int nactive = NumActiveParticle;
 
     if(All.StarformationOn) {
-        int narr = ceil(nactive/All.NumThreads);
+        int narr = nactive/All.NumThreads+2;
         NewStars = mymalloc("NewStars", narr * sizeof(int) * All.NumThreads);
         gadget_setup_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, narr, All.NumThreads);
         NewParents = mymalloc2("NewParents", narr * sizeof(int) * All.NumThreads);
