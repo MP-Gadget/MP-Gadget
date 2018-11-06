@@ -683,6 +683,9 @@ int rebuild_activelist(inttime_t Ti_Current, int NumCurrentTiStep)
 {
     int i;
 
+    /*Since we use a static schedule, only need NumPart/NumThreads elements per thread.*/
+    int narr = PartManager->NumPart / All.NumThreads + 2;
+
     /*We know all particles are active on a PM timestep*/
     if(is_PM_timestep(Ti_Current)) {
         ActiveParticle = NULL;
@@ -690,7 +693,7 @@ int rebuild_activelist(inttime_t Ti_Current, int NumCurrentTiStep)
     }
     else {
         /*Need space for more particles than we have, because of star formation*/
-        ActiveParticle = (int *) mymalloc("ActiveParticle", PartManager->NumPart * All.NumThreads * sizeof(int));
+        ActiveParticle = (int *) mymalloc("ActiveParticle", narr * All.NumThreads * sizeof(int));
         NumActiveParticle = 0;
     }
 
@@ -700,7 +703,7 @@ int rebuild_activelist(inttime_t Ti_Current, int NumCurrentTiStep)
     /*We want a lockless algorithm which preserves the ordering of the particle list.*/
     size_t *NActiveThread = ta_malloc("NActiveThread", size_t, All.NumThreads);
     int **ActivePartSets = ta_malloc("ActivePartSets", int *, All.NumThreads);
-    gadget_setup_thread_arrays(ActiveParticle, ActivePartSets, NActiveThread, PartManager->NumPart, All.NumThreads);
+    gadget_setup_thread_arrays(ActiveParticle, ActivePartSets, NActiveThread, narr, All.NumThreads);
 
     /* We enforce schedule static to ensure that each thread executes on contiguous particles.
      * chunk size is not specified and so is the largest possible.*/
