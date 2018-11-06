@@ -308,7 +308,10 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
         return;
     }
 
-    tw->WorkSet = mymalloc("ActiveQueue", size * sizeof(int) * All.NumThreads);
+    /* Since we use a static schedule below we only need size / All.NumThreads elements per thread.
+     * Add 2 for non-integer parts.*/
+    int tsize = size / All.NumThreads + 2;
+    tw->WorkSet = mymalloc("ActiveQueue", tsize * sizeof(int) * All.NumThreads);
     tw->work_set_stolen_from_active = 0;
 
     int * queue = tw->WorkSet;
@@ -318,7 +321,7 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
     size_t *nqthr = ta_malloc("nqthr", size_t, All.NumThreads);
     int **thrqueue = ta_malloc("thrqueue", int *, All.NumThreads);
 
-    gadget_setup_thread_arrays(queue, thrqueue, nqthr, size, All.NumThreads);
+    gadget_setup_thread_arrays(queue, thrqueue, nqthr, tsize, All.NumThreads);
 
     /* We enforce schedule static to ensure that each thread executes on contiguous particles.*/
     #pragma omp parallel for schedule(static)
