@@ -66,6 +66,8 @@ void cooling_and_starformation(void)
     const int nactive = NumActiveParticle;
 
     if(All.StarformationOn) {
+        /* Need 1 extra for non-integer part and 1 extra
+         * for the case where one thread loops an extra time*/
         int narr = nactive/All.NumThreads+2;
         NewStars = mymalloc("NewStars", narr * sizeof(int) * All.NumThreads);
         gadget_setup_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, narr, All.NumThreads);
