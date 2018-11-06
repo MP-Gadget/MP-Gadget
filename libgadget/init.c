@@ -140,6 +140,7 @@ void check_omega(void)
     double mass = 0, masstot, omega;
     int i;
 
+    #pragma omp parallel for reduction(+: mass)
     for(i = 0; i < PartManager->NumPart; i++)
         mass += P[i].Mass;
 
@@ -163,8 +164,10 @@ void check_omega(void)
  */
 void check_positions(void)
 {
-    int i,j;
+    int i;
+    #pragma omp parallel for
     for(i=0; i< PartManager->NumPart; i++){
+        int j;
         for(j=0; j<3; j++) {
             if(P[i].Pos[j] < 0 || P[i].Pos[j] > All.BoxSize)
                 endrun(0,"Particle %d is outside the box (L=%g) at (%g %g %g)\n",i,All.BoxSize, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
