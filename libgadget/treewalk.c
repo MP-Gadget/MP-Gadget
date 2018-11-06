@@ -46,7 +46,7 @@ static struct data_index *DataIndexTable;	/*!< the particles to be exported are 
 static void ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv, const int NTask);
 static void ev_begin(TreeWalk * tw, int * active_set, int size);
 static void ev_finish(TreeWalk * tw);
-static int ev_primary(TreeWalk * tw);
+static int ev_primary(TreeWalk * tw, const int NTask);
 static void ev_get_remote(TreeWalk * tw);
 static void ev_secondary(TreeWalk * tw);
 static void ev_reduce_result(TreeWalk * tw);
@@ -137,6 +137,7 @@ ev_free_threadlocals()
 static void
 ev_begin(TreeWalk * tw, int * active_set, int size)
 {
+    const int NumThreads = All.NumThreads;
     /* The last argument is may_have_garbage: in practice the only
      * trivial haswork is the gravtree, which has no (active) garbage because
      * the active list was just rebuilt. If we ever add a trivial haswork after
@@ -145,7 +146,7 @@ ev_begin(TreeWalk * tw, int * active_set, int size)
 
     treewalk_init_evaluated(active_set, size);
 
-    Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * All.NumThreads * sizeof(int));
+    Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * NumThreads * sizeof(int));
 
     report_memory_usage(tw->ev_label);
 
@@ -165,13 +166,13 @@ ev_begin(TreeWalk * tw, int * active_set, int size)
 #ifdef DEBUG
     memset(DataNodeList, -1, sizeof(struct data_nodelist) * tw->BunchSize);
 #endif
-    tw->currentIndex = ta_malloc("currentIndexPerThread", int,  All.NumThreads);
-    tw->currentEnd = ta_malloc("currentEndPerThread", int, All.NumThreads);
+    tw->currentIndex = ta_malloc("currentIndexPerThread", int,  NumThreads);
+    tw->currentEnd = ta_malloc("currentEndPerThread", int, NumThreads);
 
     int i;
-    for(i = 0; i < All.NumThreads; i ++) {
-        tw->currentIndex[i] = ((size_t) i) * tw->WorkSetSize / All.NumThreads;
-        tw->currentEnd[i] = ((size_t) i + 1) * tw->WorkSetSize / All.NumThreads;
+    for(i = 0; i < NumThreads; i ++) {
+        tw->currentIndex[i] = ((size_t) i) * tw->WorkSetSize / NumThreads;
+        tw->currentEnd[i] = ((size_t) i + 1) * tw->WorkSetSize / NumThreads;
     }
 }
 
@@ -359,7 +360,7 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
 }
 
 /* returns number of exports */
-static int ev_primary(TreeWalk * tw)
+static int ev_primary(TreeWalk * tw, const int NTask)
 {
     double tstart, tend;
     tw->BufferFullFlag = 0;
@@ -436,8 +437,7 @@ static int ev_primary(TreeWalk * tw)
      * here we reuse the legacy global variable names;
      * really should move them to local variables for the evaluator.
      * */
-    for(i = 0; i < NTask; i++)
-        Send_count[i] = 0;
+    memset(Send_count, 0, sizeof(int)*NTask);
     for(i = 0; i < tw->Nexport; i++) {
         Send_count[DataIndexTable[i].Task]++;
     }
@@ -610,7 +610,7 @@ treewalk_run(TreeWalk * tw, int * active_set, int size)
     if(tw->visit) {
         do
         {
-            ev_primary(tw); /* do local particles and prepare export list */
+            ev_primary(tw, NTask); /* do local particles and prepare export list */
             /* exchange particle data */
             ev_get_remote(tw);
             /* now do the particles that were sent to us */
@@ -720,9 +720,10 @@ static void ev_reduce_result(TreeWalk * tw)
     int j;
     double tstart, tend;
 
+    const int Nexport = tw->Nexport;
     void * sendbuf = tw->dataresult;
     char * recvbuf = (char*) mymalloc("EvDataOut",
-                tw->Nexport * tw->result_type_elsize);
+                Nexport * tw->result_type_elsize);
 
     tstart = second();
     ev_communicate(sendbuf, recvbuf, tw->result_type_elsize, 1);
@@ -731,23 +732,23 @@ static void ev_reduce_result(TreeWalk * tw)
 
     tstart = second();
 
-    for(j = 0; j < tw->Nexport; j++) {
+    for(j = 0; j < Nexport; j++) {
         DataIndexTable[j].IndexGet = j;
     }
 
     /* mysort is a lie! */
-    qsort_openmp(DataIndexTable, tw->Nexport, sizeof(struct data_index), data_index_compare_by_index);
+    qsort_openmp(DataIndexTable, Nexport, sizeof(struct data_index), data_index_compare_by_index);
 
-    int * UniqueOff = mymalloc("UniqueIndex", sizeof(int) * (tw->Nexport + 1));
+    int * UniqueOff = mymalloc("UniqueIndex", sizeof(int) * (Nexport + 1));
     UniqueOff[0] = 0;
     int Nunique = 0;
 
-    for(j = 1; j < tw->Nexport; j++) {
+    for(j = 1; j < Nexport; j++) {
         if(DataIndexTable[j].Index != DataIndexTable[j-1].Index)
             UniqueOff[++Nunique] = j;
     }
-    if(tw->Nexport > 0)
-        UniqueOff[++Nunique] = tw->Nexport;
+    if(Nexport > 0)
+        UniqueOff[++Nunique] = Nexport;
 
     if(tw->reduce != NULL) {
 #pragma omp parallel for private(j) if(Nunique > 16)
