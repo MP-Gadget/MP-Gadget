@@ -25,23 +25,27 @@
 #include "sfr_eff.h"
 #include "cooling.h"
 #include "slotsmanager.h"
-#include "timestep.h"
-#include "treewalk.h"
 #include "winds.h"
-
+/*Only for the star slot reservation*/
+#include "forcetree.h"
+#include "timestep.h"
+#include "domain.h"
 /*Cooling only: no star formation*/
 static void cooling_direct(int i);
 
 static void cooling_relaxed(int i, double egyeff, double dtime, double trelax);
 
 static int sfreff_on_eeqos(int i);
-static int make_particle_star(int i, double mass_of_star);
-static int starformation(int i, double *localsfr, double * sum_sm, double *sum_mass_stars);
+static int make_particle_star(int child, int parent, int placement);
+static int starformation(int i, double *localsfr, double * sum_sm);
 static int quicklyastarformation(int i);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
 static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyeff);
 static double find_star_mass(int i);
+/*Get enough memory for new star slots. This may be excessively slow! Don't do it too often.*/
+static int * sfr_reserve_slots(int * NewStars, int NumNewStar);
+
 
 /* cooling and star formation routine.*/
 void cooling_and_starformation(void)
@@ -49,56 +53,130 @@ void cooling_and_starformation(void)
     if(!All.CoolingOn)
         return;
 
-    int i;
+    /*This is a queue for the new stars and their parents, so we can reallocate the slots after the main cooling loop.*/
+    int * NewStars = NULL;
+    int * NewParents = NULL;
+    int NumNewStar = 0;
+    size_t *nqthrsfr = ta_malloc("nqthrsfr", size_t, All.NumThreads);
+    int **thrqueuesfr = ta_malloc("thrqueuesfr", int *, All.NumThreads);
+    int **thrqueueparent = ta_malloc("thrqueueparent", int *, All.NumThreads);
+
+    /*Need to capture this so that when NumActiveParticle increases during the loop
+     * we don't add extra loop iterations on particles with invalid slots.*/
+    const int nactive = NumActiveParticle;
+
+    if(All.StarformationOn) {
+        /* Need 1 extra for non-integer part and 1 extra
+         * for the case where one thread loops an extra time*/
+        int narr = nactive/All.NumThreads+2;
+        NewStars = mymalloc("NewStars", narr * sizeof(int) * All.NumThreads);
+        gadget_setup_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, narr, All.NumThreads);
+        NewParents = mymalloc2("NewParents", narr * sizeof(int) * All.NumThreads);
+        gadget_setup_thread_arrays(NewParents, thrqueueparent, nqthrsfr, narr, All.NumThreads);
+    }
 
     double sum_sm = 0, sum_mass_stars = 0, localsfr = 0;
-    int stars_converted=0, stars_spawned=0;
 
     /* First decide which stars are cooling and which starforming. If star forming we add them to a list.
      * Note the dynamic scheduling: individual particles may have very different loop iteration lengths.
      * Cooling is much slower than sfr. I tried splitting it into a separate loop instead, but this was faster.*/
-    #pragma omp parallel for schedule(dynamic, 100) reduction(+: stars_spawned) reduction(+:stars_converted) reduction(+:localsfr) reduction(+: sum_sm) reduction(+:sum_mass_stars)
-    for(i=0; i < NumActiveParticle; i++)
+    #pragma omp parallel reduction(+:localsfr) reduction(+: sum_sm) reduction(+:sum_mass_stars)
     {
-        /*Use raw particle number if active_set is null, otherwise use active_set*/
-        const int p_i = ActiveParticle ? ActiveParticle[i] : i;
-        /* Skip non-gas or garbage particles */
-        if(P[p_i].Type != 0 || P[p_i].IsGarbage || P[p_i].Mass <= 0)
-            continue;
+        int i;
+        const int tid = omp_get_thread_num();
 
-        int shall_we_star_form = 0;
-        if(All.StarformationOn) {
-            /*Reduce delaytime for wind particles.*/
-            wind_evolve(p_i);
-            /* check whether we are star forming gas.*/
-            if(All.QuickLymanAlphaProbability > 0)
-                shall_we_star_form = quicklyastarformation(p_i);
-            else
-                shall_we_star_form = sfreff_on_eeqos(p_i);
-        }
+        const int nthreads = omp_get_num_threads();
+        for(i=tid; i < nactive; i+=nthreads)
+        {
+            /*Use raw particle number if active_set is null, otherwise use active_set*/
+            const int p_i = ActiveParticle ? ActiveParticle[i] : i;
+            /* Skip non-gas or garbage particles */
+            if(P[p_i].Type != 0 || P[p_i].IsGarbage || P[p_i].Mass <= 0)
+                continue;
 
-        if(shall_we_star_form) {
-            if(All.QuickLymanAlphaProbability > 0) {
-                double mass_of_star = find_star_mass(p_i);
-                make_particle_star(p_i, mass_of_star);
-                stars_converted++;
-                sum_mass_stars += mass_of_star;
-            } else {
-                int spawn = starformation(p_i, &localsfr, &sum_sm, &sum_mass_stars);
-                if(spawn == 1)
-                    stars_converted ++;
-                if(spawn == 2)
-                    stars_spawned ++;
+            int shall_we_star_form = 0;
+            if(All.StarformationOn) {
+                /*Reduce delaytime for wind particles.*/
+                wind_evolve(p_i);
+                /* check whether we are star forming gas.*/
+                if(All.QuickLymanAlphaProbability > 0)
+                    shall_we_star_form = quicklyastarformation(p_i);
+                else
+                    shall_we_star_form = sfreff_on_eeqos(p_i);
             }
+
+            if(shall_we_star_form) {
+                int newstar = -1;
+                if(All.QuickLymanAlphaProbability > 0) {
+                    /*New star is always the same particle as the parent for quicklya*/
+                    newstar = p_i;
+                } else {
+                    newstar = starformation(p_i, &localsfr, &sum_sm);
+                }
+                /*Add this particle to the stellar conversion queue if necessary.*/
+                if(newstar >= 0) {
+                    int tid = omp_get_thread_num();
+                    thrqueuesfr[tid][nqthrsfr[tid]] = newstar;
+                    thrqueueparent[tid][nqthrsfr[tid]] = p_i;
+                    nqthrsfr[tid]++;
+                }
+            }
+            else
+                cooling_direct(p_i);
         }
-        else
-            cooling_direct(p_i);
     }
+
+    report_memory_usage("SFR");
+    /*Merge step for the queue.*/
+    if(NewStars) {
+        NumNewStar = gadget_compact_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, All.NumThreads);
+        int NumNewParent = gadget_compact_thread_arrays(NewParents, thrqueueparent, nqthrsfr, All.NumThreads);
+        if(NumNewStar != NumNewParent)
+            endrun(3,"%d new stars, but %d new parents!\n",NumNewStar, NumNewParent);
+        /*Shrink star memory as we keep it for the wind model*/
+        NewStars = myrealloc(NewStars, sizeof(int) * NumNewStar);
+    }
+
+    ta_free(thrqueueparent);
+    ta_free(thrqueuesfr);
+    ta_free(nqthrsfr);
 
     walltime_measure("/Cooling/Cooling");
 
+    /*Get some empty slots for the stars*/
+    int firststarslot = SlotsManager->info[4].size;
+    /* We ran out of slots! We must be forming a lot of stars.
+     * There are things in the way of extending the slot list, so we have to move them.
+     * The code in sfr_reserve_slots is not elegant, but I cannot think of a better way.*/
+    if(SlotsManager->info[4].size + NumNewStar >= SlotsManager->info[4].maxsize) {
+        if(NewParents)
+            NewParents = myrealloc(NewParents, sizeof(int) * NumNewStar);
+        NewStars = sfr_reserve_slots(NewStars, NumNewStar);
+    }
+    SlotsManager->info[4].size += NumNewStar;
+
+    int stars_converted=0, stars_spawned=0;
+    int i;
+
+    /*Now we turn the particles into stars*/
+    #pragma omp parallel for reduction(+:stars_converted) reduction(+:stars_spawned) reduction(+:sum_mass_stars)
+    for(i=0; i < NumNewStar; i++)
+    {
+        int child = NewStars[i];
+        int parent = NewParents[i];
+        make_particle_star(child, parent, firststarslot+i);
+        sum_mass_stars += P[child].Mass;
+        if(child == parent)
+            stars_converted++;
+        else
+            stars_spawned++;
+    }
+
     if(!All.StarformationOn)
         return;
+
+    /*Done with the parents*/
+    myfree(NewParents);
 
     int64_t tot_spawned=0, tot_converted=0;
     sumup_large_ints(1, &stars_spawned, &tot_spawned);
@@ -129,9 +207,84 @@ void cooling_and_starformation(void)
 
     walltime_measure("/Cooling/StarFormation");
 
-    /* Note that NumActiveParticle changes when a star is spawned during the
-     * sfr loop. winds needs to use the new NumActiveParticle because it needs the new stars.*/
-    winds_and_feedback(ActiveParticle, NumActiveParticle);
+    /* Now apply the wind model using the list of new stars.*/
+    winds_and_feedback(NewStars, NumNewStar);
+
+    myfree(NewStars);
+}
+
+/* Get enough memory for new star slots. This may be excessively slow! Don't do it too often.
+ * It is also not elegant, but I couldn't think of a better way. May be fragile and need updating
+ * if memory allocation patterns change. */
+static int *
+sfr_reserve_slots(int * NewStars, int NumNewStar)
+{
+        /* SlotsManager is below Nodes and ActiveParticleList,
+         * so we need to move them out of the way before we extend Nodes.
+         * This is quite slow, but need not be collective and is faster than a tree rebuild.
+         * Try not to do this too often.*/
+        message(1, "Need %d star slots, more than %d available. Try increasing SlotsIncreaseFactor on restart.\n", SlotsManager->info[4].size, SlotsManager->info[4].maxsize);
+        /*Move the NewStar array to upper memory*/
+        int * new_star_tmp = NULL;
+        if(NewStars) {
+            new_star_tmp = mymalloc2("newstartmp", NumNewStar*sizeof(int));
+            memmove(new_star_tmp, NewStars, NumNewStar * sizeof(int));
+            myfree(NewStars);
+        }
+        /*Move the tree to upper memory*/
+        struct NODE * nodes_base_tmp=NULL;
+        int *Nextnode_tmp=NULL;
+        int *Father_tmp=NULL;
+        int *ActiveParticle_tmp=NULL;
+        if(force_tree_allocated()) {
+            nodes_base_tmp = mymalloc2("nodesbasetmp", NumNodes * sizeof(struct NODE));
+            memmove(nodes_base_tmp, Nodes_base, NumNodes * sizeof(struct NODE));
+            myfree(Nodes_base);
+            Father_tmp = mymalloc2("Father_tmp", PartManager->MaxPart * sizeof(int));
+            memmove(Father_tmp, Father, PartManager->MaxPart * sizeof(int));
+            myfree(Father);
+            Nextnode_tmp = mymalloc2("Nextnode_tmp", (PartManager->MaxPart + NTopNodes)* sizeof(int));
+            memmove(Nextnode_tmp, Nextnode, (PartManager->MaxPart + NTopNodes) * sizeof(int));
+            myfree(Nextnode);
+        }
+        if(ActiveParticle) {
+            ActiveParticle_tmp = mymalloc2("ActiveParticle_tmp", NumActiveParticle * sizeof(int));
+            memmove(ActiveParticle_tmp, ActiveParticle, NumActiveParticle * sizeof(int));
+            myfree(ActiveParticle);
+        }
+        /*Now we can extend the slots! */
+        int atleast[6];
+        int i;
+        for(i = 0; i < 6; i++)
+            atleast[i] = SlotsManager->info[i].maxsize;
+        atleast[4] += NumNewStar;
+        slots_reserve(1, atleast);
+
+        /*And now we need our memory back in the right place*/
+        if(ActiveParticle_tmp) {
+            ActiveParticle = mymalloc("ActiveParticle", sizeof(int)*(NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
+            memmove(ActiveParticle, ActiveParticle_tmp, NumActiveParticle * sizeof(int));
+            myfree(ActiveParticle_tmp);
+        }
+        if(force_tree_allocated()) {
+            Nextnode = mymalloc("Nextnode", (PartManager->MaxPart + NTopNodes)* sizeof(int));
+            memmove(Nextnode, Nextnode_tmp, (PartManager->MaxPart + NTopNodes) * sizeof(int));
+            myfree(Nextnode_tmp);
+            Father = mymalloc("Father", PartManager->MaxPart * sizeof(int));
+            memmove(Father, Father_tmp, PartManager->MaxPart * sizeof(int));
+            myfree(Father_tmp);
+            Nodes_base = mymalloc("Nodes_base", NumNodes * sizeof(struct NODE));
+            memmove(Nodes_base, nodes_base_tmp, NumNodes * sizeof(struct NODE));
+            myfree(nodes_base_tmp);
+            /*Don't forget to update the Node pointer as well as Node_base!*/
+            Nodes = Nodes_base - RootNode;
+        }
+        if(new_star_tmp) {
+            NewStars = mymalloc("NewStars", NumNewStar*sizeof(int));
+            memmove(NewStars, new_star_tmp, NumNewStar * sizeof(int));
+            myfree(new_star_tmp);
+        }
+        return NewStars;
 }
 
 static void
@@ -221,38 +374,24 @@ sfreff_on_eeqos(int i)
 /* This function turns a particle into a star. It returns 1 if a particle was
  * converted and 2 if a new particle was spawned. This is used
  * above to set stars_{spawned|converted}*/
-static int make_particle_star(int i, double mass_of_star)
+static int make_particle_star(int child, int parent, int placement)
 {
-    int child;
-    int retflag = 0;
-    if(P[i].Type != 0)
-        endrun(7772, "Only gas forms stars, what's wrong?");
+    int retflag = 2;
+    if(P[parent].Type != 0)
+        endrun(7772, "Only gas forms stars, what's wrong?\n");
 
-    /*Store the SPH particle slot properties, overwritten in slots_convert*/
-    struct sph_particle_data oldslot = SPHP(i);
-    /* ok, make a star */
-    if(P[i].Mass < 1.1 * mass_of_star)
-    {
-        /*If all the mass, just convert the slot*/
-        child = slots_convert(i, 4);
-        retflag = 1;
-    }
-    else
-    {
-        /* if we get a fraction of the mass*/
-        child = slots_fork(i, 4);
+    /*Store the SPH particle slot properties, as the PI may be over-written
+     *in slots_convert*/
+    struct sph_particle_data oldslot = SPHP(parent);
 
-        P[child].Mass = mass_of_star;
-        P[i].Mass -= P[child].Mass;
-        retflag = 2;
-    }
+    /*Convert the child slot to the new type.*/
+    child = slots_convert(child, 4, placement);
 
     /*Set properties*/
     STARP(child).FormationTime = All.Time;
     STARP(child).BirthDensity = oldslot.Density;
     /*Copy metallicity*/
     STARP(child).Metallicity = oldslot.Metallicity;
-    P[child].IsNewParticle = 1;
     return retflag;
 }
 
@@ -322,16 +461,17 @@ quicklyastarformation(int i)
     return 0;
 }
 
-/*Forms stars and winds.
-
- Returns 1 if converted a particle to a star, 2 if spawned a star, 0 if no stars formed. */
+/* Forms stars and winds.
+ * Returns -1 if no star formed, otherwise returns the index of the particle which is to be made a star.
+ * The star slot is not actually created here, but a particle for it is.
+ */
 static int
-starformation(int i, double *localsfr, double * sum_sm, double * sum_mass_stars)
+starformation(int i, double *localsfr, double * sum_sm)
 {
     /*  the proper time-step */
     double dloga = get_dloga_for_bin(P[i].TimeBin);
     double dtime = dloga / All.cf.hubble;
-    int retflag = 0;
+    int newstar = -1;
 
     double egyeff, trelax;
     double rateOfSF = get_starformation_rate_full(i, dtime, &SPHP(i).Ne, &trelax, &egyeff);
@@ -358,17 +498,26 @@ starformation(int i, double *localsfr, double * sum_sm, double * sum_mass_stars)
     double mass_of_star = find_star_mass(i);
     double prob = P[i].Mass / mass_of_star * (1 - exp(-p));
 
-    if(get_random_number(P[i].ID + 1) < prob) {
-        *sum_mass_stars += mass_of_star;
-        retflag = make_particle_star(i, mass_of_star);
+    int form_star = (get_random_number(P[i].ID + 1) < prob);
+    if(form_star) {
+        /* ok, make a star */
+        newstar = i;
+        /* If we get a fraction of the mass we need to create
+         * a new particle for the star and remove mass from i.*/
+        if(P[i].Mass >= 1.1 * mass_of_star)
+            newstar = slots_split_particle(i, mass_of_star);
     }
 
-    if(P[i].Type == 0)	{
-        /* to protect using a particle that has been turned into a star */
+    /* Add the rest of the metals if we didn't form a star.
+     * If we did form a star, add winds to the star-forming particle
+     * that formed it if it is still around*/
+    if(!form_star || newstar != i)	{
         SPHP(i).Metallicity += (1 - w) * METAL_YIELD * (1 - exp(-p));
 
         if(All.WindOn && HAS(All.WindModel, WIND_SUBGRID)) {
             /* Here comes the Springel Hernquist 03 wind model */
+            /* Notice that this is the mass of the gas particle after forking a star, 1/GENERATIONS
+             * what it was before.*/
             double pw = All.WindEfficiency * sm / P[i].Mass;
             double prob = 1 - exp(-pw);
             double zero[3] = {0, 0, 0};
@@ -376,7 +525,7 @@ starformation(int i, double *localsfr, double * sum_sm, double * sum_mass_stars)
                 make_particle_wind(P[i].ID, i, All.WindSpeed * All.cf.a, zero);
         }
     }
-    return retflag;
+    return newstar;
 }
 
 double get_starformation_rate(int i) {

@@ -212,8 +212,8 @@ endrun(int where, const char * fmt, ...)
 
     va_list va;
     va_start(va, fmt);
-    va_end(va);
     messagev(1, where, fmt, va);
+    va_end(va);
 }
 
 
@@ -227,7 +227,7 @@ void message(int where, const char * fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
-    va_end(va);
     messagev(0, where, fmt, va);
+    va_end(va);
 }
 

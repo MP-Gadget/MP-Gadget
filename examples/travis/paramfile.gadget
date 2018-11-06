@@ -32,6 +32,7 @@ RadiationOn = 1
 MassiveNuLinRespOn = 0
 
 MetalCoolFile = ../cooling_metal_UVB
+TreeCoolFile = ../TREECOOL_fg_june11
 SnapshotWithFOF = 1
 FOFHaloLinkingLength 0.2
 FOFHaloMinLength = 32

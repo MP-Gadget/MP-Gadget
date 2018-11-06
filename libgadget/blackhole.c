@@ -699,19 +699,16 @@ void blackhole_make_one(int index) {
     if(P[index].Type != 0)
         endrun(7772, "Only Gas turns into blackholes, what's wrong?");
 
-    int child;
+    int child = index;
 
-    /*If the particle mass is less than that needed for a black hole, convert.*/
-    if(P[index].Mass <= All.SeedBlackHoleMass) {
-        child = slots_convert(index, 5);
+    /*If the particle mass is larger than that needed for a black hole, split off a new particle.*/
+    if(P[index].Mass > All.SeedBlackHoleMass) {
+        child = slots_split_particle(index, All.SeedBlackHoleMass);
     }
-    /*Otherwise create a new particle*/
-    else {
-        child = slots_fork(index, 5);
-        /*Ensure that mass is conserved*/
-        P[child].Mass = All.SeedBlackHoleMass;
-        P[index].Mass -= All.SeedBlackHoleMass;
-    }
+
+    /*Make the new particle a black hole.*/
+    child = slots_convert(child, 5, -1);
+
     BHP(child).base.ID = P[child].ID;
     /* The accretion mass should always be the seed black hole mass,
      * irrespective of the gravitational mass of the particle.*/

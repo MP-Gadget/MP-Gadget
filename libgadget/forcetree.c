@@ -37,6 +37,7 @@ struct NODE *Nodes_base,	/*!< points to the actual memory allocated for the node
 				   gives the first allocated node */
 
 int MaxNodes;                  /*!< maximum allowed number of internal nodes */
+int NumNodes;                  /*!< Currently used number of internal nodes */
 int RootNode;                  /*!< Index of the first node */
 
 
@@ -104,7 +105,7 @@ force_tree_rebuild()
     }
     walltime_measure("/Misc");
 
-    force_tree_build(PartManager->NumPart);
+    NumNodes = force_tree_build(PartManager->NumPart);
 
     walltime_measure("/Tree/Build");
 
@@ -290,10 +291,6 @@ modify_internal_node(int parent, int subnode, int p_child, int p_toplace,
      * Attach the new particle to the new slot. */
     if(too_small) {
         (*closepairs)++;
-#ifdef DEBUG
-        P[p_child].SufferFromCoupling = 1;
-        P[p_toplace].SufferFromCoupling = 1;
-#endif
         /*
         message(1,"Close particles: %d @ [%g, %g, %g] and %d @ [%g, %g, %g]. "
                 "Attached to node %d, subnode %d, at [%g, %g, %g] (len %g).\n",
@@ -385,10 +382,6 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
 #endif
     for(i = 0; i < npart; i++)
     {
-#ifdef DEBUG
-        P[i].SufferFromCoupling = 0;
-#endif
-
         /*Can't break from openmp for*/
         if(nc.nnext_thread >= tb.lastnode-1)
             continue;

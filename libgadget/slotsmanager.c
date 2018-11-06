@@ -41,43 +41,39 @@ slots_connect_new_slot(int i, int pi, int type)
 
 /* This will change a particle type. The original particle_data structure is preserved,
  * but the old slot is made garbage and a new one (with the new type) is created.
+ * No data is copied, but the slot is created.
  *
  * Assumes the particle is protected by locks in threaded env.
  *
- * The Generation is incremented and the ID of the child is modified, as in slots_fork.
- *
- * This function is equivalent to:
- * slots_fork(i, ptype);
- * slots_mark_garbage(i);
- * slots_gc();
- * but without the need for a GC.
- *
  * Note that the 'new particle' event is not emitted, as there is no new particle!
  * If you do something on a new slot, this needs a new event.
+ *
+ * Arguments:
+ * parent - particle whose type is changing.
+ * ptype - type to change it to
+ * placement - if this is not -1, we use a specific numbered slot.
+ *             if this is -1, get a new slot atomically from the pre-allocated heap.
+ * discardold - if this is true, the pre-conversion slot will be marked as garbage.
+ *              If you are really converting then this should be true.
+ *              If you are using this function on the output of slots_split_particle, it should be false.
  * */
 int
-slots_convert(int parent, int ptype)
+slots_convert(int parent, int ptype, int placement)
 {
-    P[parent].Generation++;
-    uint64_t g = P[parent].Generation;
-    /* change the child ID according to the generation. */
-    P[parent].ID = (P[parent].ID & 0x00ffffffffffffffL) + (g << 56L);
-    if(g >= (1 << (64-56L)))
-        endrun(1, "Particle %d (ID: %ld) generated too many particles: generation %d wrapped.\n", parent, P[parent].ID, g);
-
-    if(SLOTS_ENABLED(ptype)) {
-        /*Set old slot as garbage*/
+    /*Set old slot as garbage*/
+    if(P[parent].PI > 0 && SLOTS_ENABLED(P[parent].Type))
         BASESLOT_PI(P[parent].PI, P[parent].Type)->IsGarbage = 1;
 
+    /*Make a new slot*/
+    if(SLOTS_ENABLED(ptype)) {
+        int PI = placement;
         /* if enabled, alloc a new Slot for secondary data */
-        int PI = atomic_fetch_and_add(&SlotsManager->info[ptype].size, 1);
+        if(placement < 0)
+            PI = atomic_fetch_and_add(&SlotsManager->info[ptype].size, 1);
 
+        /* There is no way clearly to safely grow the slots during this, because the memory may be deep in the heap.*/
         if(PI >= SlotsManager->info[ptype].maxsize) {
-            endrun(1, "This is currently unsupported; because SlotsManager.Base can be deep in the heap\n");
-            /* there is no way clearly to safely grow the slots during this.
-             * Another thread may be accessing the slots; growth will invalidate these indices.
-             * making the read atomic will be too expensive I suspect.
-             * */
+            endrun(1, "Tried to use non-allocated slot %d (> %d)\n", PI, SlotsManager->info[ptype].maxsize);
         }
         slots_connect_new_slot(parent, PI, ptype);
     }
@@ -86,8 +82,9 @@ slots_convert(int parent, int ptype)
     return parent;
 }
 
-/* This will fork a zero mass particle at the parent particle, with a new type
- * as specified.
+/* This will split a new particle out from an existing one, conserving mass.
+ * The type is the same and the slot PI on the new particle is set to -1.
+ * You should call slots_convert on the child afterwards to create a new slot.
  *
  * Assumes the particle is protected by locks in threaded env.
  *
@@ -98,13 +95,11 @@ slots_convert(int parent, int ptype)
  *
  * the new particle's index is returned.
  *
- * Its mass and ptype can be then adjusted. (watchout detached BH /SPH
- * data!)
- * PI will point to a new slot for this type.
- * if the slots runs out, this will crash.
+ * Its mass and ptype can be then adjusted using slots_convert.
+ * The 'new particle' event is emitted.
  * */
 int
-slots_fork(int parent, int ptype)
+slots_split_particle(int parent, double childmass)
 {
     int child = atomic_fetch_and_add(&PartManager->NumPart, 1);
 
@@ -113,29 +108,18 @@ slots_fork(int parent, int ptype)
 
     P[parent].Generation ++;
     uint64_t g = P[parent].Generation;
-    /* change the child ID according to the generation. */
     P[child] = P[parent];
+
+    /* change the child ID according to the generation. */
     P[child].ID = (P[parent].ID & 0x00ffffffffffffffL) + (g << 56L);
     if(g >= (1 << (64-56L)))
         endrun(1, "Particle %d (ID: %ld) generated too many particles: generation %d wrapped.\n", parent, P[parent].ID, g);
 
-    P[child].Mass = 0;
-    P[child].Type = ptype;
+    P[child].Mass = childmass;
+    P[parent].Mass -= childmass;
 
-    if(SLOTS_ENABLED(ptype)) {
-        /* if enabled, alloc a new Slot for secondary data */
-        int PI = atomic_fetch_and_add(&SlotsManager->info[ptype].size, 1);
-
-        if(PI >= SlotsManager->info[ptype].maxsize) {
-            endrun(1, "This is currently unsupported; because SlotsManager.Base can be deep in the heap\n");
-            /* there is no way clearly to safely grow the slots during this.
-             * Another thread may be accessing the slots; growth will invalidate these indices.
-             * making the read atomic will be too expensive I suspect.
-             * */
-        }
-
-        slots_connect_new_slot(child, PI, ptype);
-    }
+    /*Invalidate the slot of the child. Call slots_convert soon afterwards!*/
+    P[child].PI = -1;
 
     /*! When a new additional star particle is created, we can put it into the
      *  tree at the position of the spawning gas particle. This is possible

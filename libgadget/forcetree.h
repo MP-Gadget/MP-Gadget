@@ -54,6 +54,7 @@ struct TreeBuilder {
 };
 
 extern int MaxNodes;		/*!< maximum allowed number of internal nodes */
+extern int NumNodes;      /*!< Currently used number of internal nodes*/
 extern int RootNode;      /*!< Index of the first node. Difference between Nodes and Nodes_base. == MaxPart*/
 
 /*Used in domain.c*/
