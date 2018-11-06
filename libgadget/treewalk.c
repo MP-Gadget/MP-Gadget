@@ -503,10 +503,12 @@ static void ev_secondary(TreeWalk * tw)
             TreeWalkQueryBase * input = (TreeWalkQueryBase*) (tw->dataget + j * tw->query_type_elsize);
             TreeWalkResultBase * output = (TreeWalkResultBase*)(tw->dataresult + j * tw->result_type_elsize);
             treewalk_init_result(tw, output, input);
+#ifdef DEBUG
             if(!tw->UseNodeList) {
-                if(input->NodeList[0] != RootNode) abort(); /* root node */
-                if(input->NodeList[1] != -1) abort(); /* terminate immediately */
+                if(input->NodeList[0] != RootNode || input->NodeList[1] != -1)
+                     endrun(2, "Improper NodeList\n");
             }
+#endif
             lv->target = -1;
             tw->visit(input, output, lv);
         }
