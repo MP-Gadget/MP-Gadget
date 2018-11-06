@@ -43,7 +43,7 @@ static struct data_index *DataIndexTable;	/*!< the particles to be exported are 
 					   results to be disentangled again and to be
 					   assigned to the correct particle */
 
-static void ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv);
+static void ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv, const int NTask);
 static void ev_begin(TreeWalk * tw, int * active_set, int size);
 static void ev_finish(TreeWalk * tw);
 static int ev_primary(TreeWalk * tw);
@@ -103,7 +103,7 @@ static int data_index_compare(const void *a, const void *b)
 static TreeWalk * GDB_current_ev = NULL;
 
 static void
-ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv)
+ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv, const int NTask)
 {
     int thread_id = omp_get_thread_num();
     int j;
@@ -228,7 +228,7 @@ static void real_ev(TreeWalk * tw, int * ninter, int * nnodes) {
     int i;
     LocalTreeWalk lv[1];
 
-    ev_init_thread(tw, lv);
+    ev_init_thread(tw, lv, NTask);
     lv->mode = 0;
 
     /* Note: exportflag is local to each thread */
@@ -496,7 +496,7 @@ static void ev_secondary(TreeWalk * tw)
         int j;
         LocalTreeWalk lv[1];
 
-        ev_init_thread(tw, lv);
+        ev_init_thread(tw, lv, NTask);
         lv->mode = 1;
 #pragma omp for
         for(j = 0; j < tw->Nimport; j++) {
