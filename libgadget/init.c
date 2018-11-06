@@ -122,6 +122,8 @@ void init(int RestartSnapNum)
 #endif
     }
 
+    walltime_measure("/Init");
+
     domain_decompose_full();	/* do initial domain decomposition (gives equal numbers of particles) */
 
     /*At the first time step all particles should be active*/
