@@ -351,26 +351,29 @@ static void
 domain_build_exchange_list(int (*layoutfunc)(int p), ExchangePlan * plan)
 {
     int i;
-    plan->ExchangeList = mymalloc2("exchangelist", sizeof(int) * plan->nexchange * omp_get_max_threads());
-    size_t *nexthr = ta_malloc("nexthr", size_t, omp_get_max_threads());
-    int **threx = ta_malloc("threx", int *, omp_get_max_threads());
-    gadget_setup_thread_arrays(plan->ExchangeList, threx, nexthr,plan->nexchange,omp_get_max_threads());
+    int numthreads = omp_get_max_threads();
+    /*static schedule below so we only need this much memory*/
+    int narr = plan->nexchange/numthreads+2;
+    plan->ExchangeList = mymalloc2("exchangelist", sizeof(int) * narr * numthreads);
+    size_t *nexthr = ta_malloc("nexthr", size_t, numthreads);
+    int **threx = ta_malloc("threx", int *, numthreads);
+    gadget_setup_thread_arrays(plan->ExchangeList, threx, nexthr,narr,numthreads);
 
     /* flag the particles that need to be exported */
-    #pragma omp parallel for
-    for(i = 0; i < PartManager->NumPart; i++)
+    #pragma omp parallel for schedule(static)
+    for(i=0; i < PartManager->NumPart; i++)
     {
-        const int tid = omp_get_thread_num();
         if(P[i].IsGarbage)
             continue;
         int target = layoutfunc(i);
         if(target != ThisTask) {
+            const int tid = omp_get_thread_num();
             threx[tid][nexthr[tid]] = i;
             nexthr[tid]++;
         }
     }
     /*Merge step for the queue.*/
-    plan->nexchange = gadget_compact_thread_arrays(plan->ExchangeList, threx, nexthr, omp_get_max_threads());
+    plan->nexchange = gadget_compact_thread_arrays(plan->ExchangeList, threx, nexthr, numthreads);
     ta_free(threx);
     ta_free(nexthr);
 
