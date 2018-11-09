@@ -377,13 +377,6 @@ static int ev_primary(TreeWalk * tw)
     int i;
     tstart = second();
 
- #pragma omp parallel for if(tw->BunchSize > 1024)
-    for(i = 0; i < tw->BunchSize; i ++) {
-        DataIndexTable[i].Task = NTask;
-        /*entries with NTask is not filled with particles, and will be
-         * sorted to the end */
-    }
-
     ev_alloc_threadlocals(tw->NTask * tw->NThread);
 
     int nint = tw->Ninteractions;
