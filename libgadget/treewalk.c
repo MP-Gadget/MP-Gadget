@@ -43,10 +43,10 @@ static struct data_index *DataIndexTable;	/*!< the particles to be exported are 
 					   results to be disentangled again and to be
 					   assigned to the correct particle */
 
-static void ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv, const int NTask);
+static void ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv);
 static void ev_begin(TreeWalk * tw, int * active_set, int size);
 static void ev_finish(TreeWalk * tw);
-static int ev_primary(TreeWalk * tw, const int NTask);
+static int ev_primary(TreeWalk * tw);
 static void ev_get_remote(TreeWalk * tw);
 static void ev_secondary(TreeWalk * tw);
 static void ev_reduce_result(TreeWalk * tw);
@@ -103,26 +103,24 @@ static int data_index_compare(const void *a, const void *b)
 static TreeWalk * GDB_current_ev = NULL;
 
 static void
-ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv, const int NTask)
+ev_init_thread(TreeWalk * const tw, LocalTreeWalk * lv)
 {
-    int thread_id = omp_get_thread_num();
+    const int thread_id = omp_get_thread_num();
     int j;
     lv->tw = tw;
-    lv->exportflag = Exportflag + thread_id * NTask;
-    lv->exportnodecount = Exportnodecount + thread_id * NTask;
-    lv->exportindex = Exportindex + thread_id * NTask;
+    lv->exportflag = Exportflag + thread_id * tw->NTask;
+    lv->exportnodecount = Exportnodecount + thread_id * tw->NTask;
+    lv->exportindex = Exportindex + thread_id * tw->NTask;
     lv->Ninteractions = 0;
     lv->Nnodesinlist = 0;
     lv->ngblist = Ngblist + thread_id * PartManager->NumPart;
-    for(j = 0; j < NTask; j++)
+    for(j = 0; j < tw->NTask; j++)
         lv->exportflag[j] = -1;
 }
 
 static void
-ev_alloc_threadlocals()
+ev_alloc_threadlocals(const int NTaskTimesThreads)
 {
-    int NTaskTimesThreads = All.NumThreads * NTask;
-
     Exportflag = (int *) ta_malloc2("Exportthreads", int, 3*NTaskTimesThreads);
     Exportindex = Exportflag + NTaskTimesThreads;
     Exportnodecount = Exportflag + 2*NTaskTimesThreads;
@@ -138,6 +136,7 @@ static void
 ev_begin(TreeWalk * tw, int * active_set, int size)
 {
     const int NumThreads = All.NumThreads;
+    MPI_Comm_size(MPI_COMM_WORLD, &tw->NTask);
     /* The last argument is may_have_garbage: in practice the only
      * trivial haswork is the gravtree, which has no (active) garbage because
      * the active list was just rebuilt. If we ever add a trivial haswork after
@@ -229,7 +228,7 @@ static void real_ev(TreeWalk * tw, int * ninter, int * nnodes) {
     int i;
     LocalTreeWalk lv[1];
 
-    ev_init_thread(tw, lv, NTask);
+    ev_init_thread(tw, lv);
     lv->mode = 0;
 
     /* Note: exportflag is local to each thread */
@@ -360,8 +359,9 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
 }
 
 /* returns number of exports */
-static int ev_primary(TreeWalk * tw, const int NTask)
+static int ev_primary(TreeWalk * tw)
 {
+    const int NTask = tw->NTask;
     double tstart, tend;
     tw->BufferFullFlag = 0;
     tw->Nexport = 0;
@@ -376,7 +376,7 @@ static int ev_primary(TreeWalk * tw, const int NTask)
          * sorted to the end */
     }
 
-    ev_alloc_threadlocals();
+    ev_alloc_threadlocals(tw->NTask * All.NumThreads);
 
     int nint = tw->Ninteractions;
     int nnodes = tw->Nnodesinlist;
@@ -488,7 +488,7 @@ static void ev_secondary(TreeWalk * tw)
     tstart = second();
     tw->dataresult = mymalloc("EvDataResult", tw->Nimport * tw->result_type_elsize);
 
-    ev_alloc_threadlocals();
+    ev_alloc_threadlocals(tw->NTask * All.NumThreads);
     int nint = tw->Ninteractions;
     int nnodes = tw->Ninteractions;
 #pragma omp parallel reduction(+: nint) reduction(+: nnodes)
@@ -496,7 +496,7 @@ static void ev_secondary(TreeWalk * tw)
         int j;
         LocalTreeWalk lv[1];
 
-        ev_init_thread(tw, lv, NTask);
+        ev_init_thread(tw, lv);
         lv->mode = 1;
 #pragma omp for
         for(j = 0; j < tw->Nimport; j++) {
@@ -610,7 +610,7 @@ treewalk_run(TreeWalk * tw, int * active_set, int size)
     if(tw->visit) {
         do
         {
-            ev_primary(tw, NTask); /* do local particles and prepare export list */
+            ev_primary(tw); /* do local particles and prepare export list */
             /* exchange particle data */
             ev_get_remote(tw);
             /* now do the particles that were sent to us */
@@ -622,7 +622,7 @@ treewalk_run(TreeWalk * tw, int * active_set, int size)
             tw->Niterations ++;
             tw->Nexport_sum += tw->Nexport;
             ta_free(Send_count);
-        } while(ev_ndone(tw) < NTask);
+        } while(ev_ndone(tw) < tw->NTask);
     }
 
     double tstart, tend;
