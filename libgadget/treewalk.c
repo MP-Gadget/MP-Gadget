@@ -5,12 +5,10 @@
 
 #include "utils.h"
 
-#include "partmanager.h"
 #include "treewalk.h"
-#include "drift.h"
+#include "partmanager.h"
 #include "domain.h"
 #include "forcetree.h"
-#include "timestep.h"
 
 #define FACT1 0.366025403785	/* FACT1 = 0.5 * (sqrt(3)-1) */
 
