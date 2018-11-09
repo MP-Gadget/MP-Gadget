@@ -112,15 +112,16 @@ static void
 ev_init_thread(TreeWalk * const tw, LocalTreeWalk * lv)
 {
     const int thread_id = omp_get_thread_num();
+    const int NTask = tw->NTask;
     int j;
     lv->tw = tw;
-    lv->exportflag = Exportflag + thread_id * tw->NTask;
-    lv->exportnodecount = Exportnodecount + thread_id * tw->NTask;
-    lv->exportindex = Exportindex + thread_id * tw->NTask;
+    lv->exportflag = Exportflag + thread_id * NTask;
+    lv->exportnodecount = Exportnodecount + thread_id * NTask;
+    lv->exportindex = Exportindex + thread_id * NTask;
     lv->Ninteractions = 0;
     lv->Nnodesinlist = 0;
     lv->ngblist = Ngblist + thread_id * PartManager->NumPart;
-    for(j = 0; j < tw->NTask; j++)
+    for(j = 0; j < NTask; j++)
         lv->exportflag[j] = -1;
 }
 
