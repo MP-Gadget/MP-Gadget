@@ -180,8 +180,6 @@ extern struct global_data_all_processes
         int UsePeculiarVelocity;
     } IO;
 
-    int ImportBufferBoost;		/*!< Memory factor to leave for (N imported particles) > (N exported particles). */
-
     double PartAllocFactor;	/*!< in order to maintain work-load balance, the particle load will usually
                               NOT be balanced.  Each processor allocates memory for PartAllocFactor times
                               the average number of particles to allow for that */

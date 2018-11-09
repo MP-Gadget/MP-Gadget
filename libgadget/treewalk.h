@@ -128,6 +128,9 @@ struct TreeWalk {
 
 };
 
+/*Initialise treewalk parameters on first run*/
+void init_treewalk(double BufferBoost);
+
 void treewalk_run(TreeWalk * tw, int * active_set, int size);
 
 int treewalk_visit_ngbiter(TreeWalkQueryBase * I,

@@ -7,6 +7,7 @@
 #include <libgadget/densitykernel.h>
 #include <libgadget/timebinmgr.h>
 #include <libgadget/utils.h>
+#include <libgadget/treewalk.h>
 
 
 /* Optional parameters are passed the flag 0 and required parameters 1.
@@ -425,7 +426,7 @@ void read_parameter_file(char *fname)
         All.GravitySoftening = param_get_double(ps, "GravitySoftening");
         All.GravitySofteningGas = param_get_double(ps, "GravitySofteningGas");
 
-        All.ImportBufferBoost = param_get_double(ps, "ImportBufferBoost");
+        init_treewalk(param_get_double(ps, "ImportBufferBoost"));
         All.PartAllocFactor = param_get_double(ps, "PartAllocFactor");
         All.TopNodeAllocFactor = param_get_double(ps, "TopNodeAllocFactor");
         All.SlotsIncreaseFactor = param_get_double(ps, "SlotsIncreaseFactor");

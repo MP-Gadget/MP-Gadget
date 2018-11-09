@@ -5,7 +5,6 @@
 
 #include "utils.h"
 
-#include "allvars.h"
 #include "partmanager.h"
 #include "treewalk.h"
 #include "drift.h"
@@ -20,6 +19,9 @@ static int *Exportflag;    /*!< Buffer used for flagging whether a particle need
 static int *Exportnodecount;
 static int *Exportindex;
 static int *Send_offset, *Send_count, *Recv_count, *Recv_offset;
+
+/*!< Memory factor to leave for (N imported particles) > (N exported particles). */
+static double ImportBufferBoost;
 
 static struct data_nodelist
 {
@@ -43,8 +45,14 @@ static struct data_index *DataIndexTable;	/*!< the particles to be exported are 
 					   results to be disentangled again and to be
 					   assigned to the correct particle */
 
+/*Initialise global treewalk parameters*/
+void init_treewalk(double BufferBoost)
+{
+    ImportBufferBoost = BufferBoost;
+}
+
 static void ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv);
-static void ev_begin(TreeWalk * tw, int * active_set, int size);
+static void ev_begin(TreeWalk * tw, int * active_set, const int size);
 static void ev_finish(TreeWalk * tw);
 static int ev_primary(TreeWalk * tw);
 static void ev_get_remote(TreeWalk * tw);
@@ -133,7 +141,7 @@ ev_free_threadlocals()
 }
 
 static void
-ev_begin(TreeWalk * tw, int * active_set, int size)
+ev_begin(TreeWalk * tw, int * active_set, const int size)
 {
     const int NumThreads = omp_get_max_threads();
     MPI_Comm_size(MPI_COMM_WORLD, &tw->NTask);
@@ -155,7 +163,7 @@ ev_begin(TreeWalk * tw, int * active_set, int size)
     /*This memory scales like the number of imports. In principle this could be much larger than Nexport
      * if the tree is very imbalanced and many processors all need to export to this one. In practice I have
      * not seen this happen, but provide a parameter to boost the memory for Nimport just in case.*/
-    bytesperbuffer += All.ImportBufferBoost * (tw->query_type_elsize + tw->result_type_elsize);
+    bytesperbuffer += ImportBufferBoost * (tw->query_type_elsize + tw->result_type_elsize);
     /*Use all free bytes for the tree buffer, as in exchange. Leave some free memory for array overhead.*/
     tw->BunchSize = FreeBytes / bytesperbuffer - 4096 * 10;
     DataIndexTable =
