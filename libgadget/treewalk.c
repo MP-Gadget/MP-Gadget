@@ -233,7 +233,6 @@ treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum T
 
 static void real_ev(TreeWalk * tw, int * ninter, int * nnodes) {
     int tid = omp_get_thread_num();
-    int i;
     LocalTreeWalk lv[1];
 
     ev_init_thread(tw, lv);
@@ -250,21 +249,21 @@ static void real_ev(TreeWalk * tw, int * ninter, int * nnodes) {
         k++) {
         if(tw->BufferFullFlag) break;
 
-        i = tw->WorkSet ? tw->WorkSet[k] : k;
-
+        const int i = tw->WorkSet ? tw->WorkSet[k] : k;
+#ifdef DEBUG
         if(P[i].Evaluated) {
             BREAKPOINT;
         }
         if(tw->haswork && !tw->haswork(i, tw)) {
             BREAKPOINT;
         }
-        int rt;
+#endif
         /* Primary never uses node list */
         treewalk_init_query(tw, input, i, NULL);
         treewalk_init_result(tw, output, input);
 
         lv->target = i;
-        rt = tw->visit(input, output, lv);
+        const int rt = tw->visit(input, output, lv);
 
         if(rt < 0) {
             P[i].Evaluated = 0;
