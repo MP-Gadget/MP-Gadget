@@ -321,14 +321,13 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
     tw->WorkSet = mymalloc("ActiveQueue", tsize * sizeof(int) * tw->NThread);
     tw->work_set_stolen_from_active = 0;
 
-    int * queue = tw->WorkSet;
     int nqueue = 0;
 
     /*We want a lockless algorithm which preserves the ordering of the particle list.*/
     size_t *nqthr = ta_malloc("nqthr", size_t, tw->NThread);
     int **thrqueue = ta_malloc("thrqueue", int *, tw->NThread);
 
-    gadget_setup_thread_arrays(queue, thrqueue, nqthr, tsize, tw->NThread);
+    gadget_setup_thread_arrays(tw->WorkSet, thrqueue, nqthr, tsize, tw->NThread);
 
     /* We enforce schedule static to ensure that each thread executes on contiguous particles.*/
     #pragma omp parallel for schedule(static)
@@ -347,17 +346,17 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
         nqthr[tid]++;
     }
     /*Merge step for the queue.*/
-    nqueue = gadget_compact_thread_arrays(queue, thrqueue, nqthr, tw->NThread);
+    nqueue = gadget_compact_thread_arrays(tw->WorkSet, thrqueue, nqthr, tw->NThread);
     ta_free(thrqueue);
     ta_free(nqthr);
     /*Shrink memory*/
-    queue = myrealloc(queue, sizeof(int) * nqueue);
+    tw->WorkSet = myrealloc(tw->WorkSet, sizeof(int) * nqueue);
 
 #ifdef DEBUG
     /* check the uniqueness of the active_set list. This is very slow. */
-    qsort_openmp(queue, nqueue, sizeof(int), cmpint);
+    qsort_openmp(tw->WorkSet, nqueue, sizeof(int), cmpint);
     for(i = 0; i < nqueue - 1; i ++) {
-        if(queue[i] == queue[i+1]) {
+        if(tw->WorkSet[i] == tw->WorkSet[i+1]) {
             endrun(8829, "A few particles are twicely active.\n");
         }
     }
