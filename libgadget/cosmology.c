@@ -183,11 +183,11 @@ double function_of_k_eval(FunctionOfK * fk, double k)
     }
     double k2 = fk->table[r].k,
            k1 = fk->table[l].k;
-    double p2 = fk->table[r].P,
-           p1 = fk->table[l].P;
+    double p2 = fk->table[r].Pk,
+           p1 = fk->table[l].Pk;
 
     if(l == r) {
-        return fk->table[l].P;
+        return fk->table[l].Pk;
     }
 
     if(p1 == 0 || p2 == 0 || k1 == 0 || k2 == 0) {
@@ -227,6 +227,6 @@ void function_of_k_normalize_sigma(FunctionOfK * fk, double R, double sigma) {
     double old = function_of_k_tophat_sigma(fk, R);
     size_t i;
     for(i = 0; i < fk->size; i ++) {
-        fk->table[i].P *= sigma / old;
+        fk->table[i].Pk *= sigma / old;
     };
 }
