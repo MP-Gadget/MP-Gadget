@@ -918,13 +918,11 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
  * Returns 0 if the node has no business with this query.
  */
 static int
-cull_node(TreeWalkQueryBase * I, TreeWalkNgbIterBase * iter, int no)
+cull_node(const TreeWalkQueryBase * const I, const TreeWalkNgbIterBase * const iter, const struct NODE * const current)
 {
-    struct NODE * current = &Nodes[no];
-
     double dist;
     if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
-        dist = DMAX(Nodes[no].u.d.hmax, iter->Hsml) + 0.5 * current->len;
+        dist = DMAX(current->u.d.hmax, iter->Hsml) + 0.5 * current->len;
     } else {
         dist = iter->Hsml + 0.5 * current->len;
     }
@@ -968,8 +966,6 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         LocalTreeWalk * lv)
 {
     int no;
-    struct NODE *current;
-
     int numcand = 0;
 
     no = startnode;
@@ -999,7 +995,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
             continue;
         }
 
-        current = &Nodes[no];
+        struct NODE *current = &Nodes[no];
 
         if(lv->mode == 1) {
             if (lv->tw->UseNodeList) {
@@ -1011,7 +1007,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         }
 
         /* Cull the node */
-        if(0 == cull_node(I, iter, no)) {
+        if(0 == cull_node(I, iter, current)) {
             /* in case the node can be discarded */
             no = current->u.d.sibling;
             continue;
