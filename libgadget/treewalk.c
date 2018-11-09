@@ -135,8 +135,9 @@ ev_free_threadlocals()
 static void
 ev_begin(TreeWalk * tw, int * active_set, int size)
 {
-    const int NumThreads = All.NumThreads;
+    const int NumThreads = omp_get_max_threads();
     MPI_Comm_size(MPI_COMM_WORLD, &tw->NTask);
+    tw->NThread = NumThreads;
     /* The last argument is may_have_garbage: in practice the only
      * trivial haswork is the gravtree, which has no (active) garbage because
      * the active list was just rebuilt. If we ever add a trivial haswork after
@@ -308,20 +309,20 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
         return;
     }
 
-    /* Since we use a static schedule below we only need size / All.NumThreads elements per thread.
+    /* Since we use a static schedule below we only need size / tw->NThread elements per thread.
      * Add 2 for non-integer parts.*/
-    int tsize = size / All.NumThreads + 2;
-    tw->WorkSet = mymalloc("ActiveQueue", tsize * sizeof(int) * All.NumThreads);
+    int tsize = size / tw->NThread + 2;
+    tw->WorkSet = mymalloc("ActiveQueue", tsize * sizeof(int) * tw->NThread);
     tw->work_set_stolen_from_active = 0;
 
     int * queue = tw->WorkSet;
     int nqueue = 0;
 
     /*We want a lockless algorithm which preserves the ordering of the particle list.*/
-    size_t *nqthr = ta_malloc("nqthr", size_t, All.NumThreads);
-    int **thrqueue = ta_malloc("thrqueue", int *, All.NumThreads);
+    size_t *nqthr = ta_malloc("nqthr", size_t, tw->NThread);
+    int **thrqueue = ta_malloc("thrqueue", int *, tw->NThread);
 
-    gadget_setup_thread_arrays(queue, thrqueue, nqthr, tsize, All.NumThreads);
+    gadget_setup_thread_arrays(queue, thrqueue, nqthr, tsize, tw->NThread);
 
     /* We enforce schedule static to ensure that each thread executes on contiguous particles.*/
     #pragma omp parallel for schedule(static)
@@ -340,7 +341,7 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
         nqthr[tid]++;
     }
     /*Merge step for the queue.*/
-    nqueue = gadget_compact_thread_arrays(queue, thrqueue, nqthr, All.NumThreads);
+    nqueue = gadget_compact_thread_arrays(queue, thrqueue, nqthr, tw->NThread);
     ta_free(thrqueue);
     ta_free(nqthr);
     /*Shrink memory*/
@@ -376,7 +377,7 @@ static int ev_primary(TreeWalk * tw)
          * sorted to the end */
     }
 
-    ev_alloc_threadlocals(tw->NTask * All.NumThreads);
+    ev_alloc_threadlocals(tw->NTask * tw->NThread);
 
     int nint = tw->Ninteractions;
     int nnodes = tw->Nnodesinlist;
@@ -468,7 +469,7 @@ static int ev_ndone(TreeWalk * tw)
     tstart = second();
     int done = 1;
     int i;
-    for(i = 0; i < All.NumThreads; i ++) {
+    for(i = 0; i < tw->NThread; i ++) {
         if(tw->currentIndex[i] < tw->currentEnd[i]) {
             done = 0;
             break;
@@ -488,7 +489,7 @@ static void ev_secondary(TreeWalk * tw)
     tstart = second();
     tw->dataresult = mymalloc("EvDataResult", tw->Nimport * tw->result_type_elsize);
 
-    ev_alloc_threadlocals(tw->NTask * All.NumThreads);
+    ev_alloc_threadlocals(tw->NTask * tw->NThread);
     int nint = tw->Ninteractions;
     int nnodes = tw->Ninteractions;
 #pragma omp parallel reduction(+: nint) reduction(+: nnodes)

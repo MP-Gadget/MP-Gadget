@@ -89,7 +89,8 @@ struct TreeWalk {
     TreeWalkNgbIterFunction ngbiter;     /* called for each pair of particles if visit is set to ngbiter */
     TreeWalkProcessFunction postprocess; /* postprocess finalizes quantities for each particle, e.g. divide the normalization */
     TreeWalkProcessFunction preprocess; /* Preprocess initializes quantities for each particle */
-    int NTask; /*Number of tasks*/
+    int NTask; /*Number of MPI tasks*/
+    int NThread; /*Number of OpenMP threads*/
 
     int UseNodeList;      /* Send tree branches or use the entire tree for ghost particles */
 
