@@ -605,7 +605,7 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array)
     BigBlock bb;
     BigBlockPtr ptr;
 
-    int elsize = dtype_itemsize(array->dtype);
+    int elsize = big_file_dtype_itemsize(array->dtype);
 
     int NumWriters = All.IO.NumWriters;
 
@@ -681,7 +681,7 @@ void io_register_io_block(char * name,
     IOTableEntry * ent = &IOTable.ent[IOTable.used];
     strcpy(ent->name, name);
     ent->ptype = ptype;
-    dtype_normalize(ent->dtype, dtype);
+    strcpy(ent->dtype, dtype);
     ent->getter = getter;
     ent->setter = setter;
     ent->items = items;
