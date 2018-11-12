@@ -1,3 +1,5 @@
+*.a
+*.png
 *.o
 .*.swp
 P-Gadget3
