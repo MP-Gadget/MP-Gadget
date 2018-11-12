@@ -318,6 +318,7 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
     /* Since we use a static schedule below we only need size / tw->NThread elements per thread.
      * Add 2 for non-integer parts.*/
     int tsize = size / tw->NThread + 2;
+    /*Watch out: tw->WorkSet may change a few lines later due to the realloc*/
     tw->WorkSet = mymalloc("ActiveQueue", tsize * sizeof(int) * tw->NThread);
     tw->work_set_stolen_from_active = 0;
 
