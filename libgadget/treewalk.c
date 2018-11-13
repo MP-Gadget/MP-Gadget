@@ -5,13 +5,10 @@
 
 #include "utils.h"
 
-#include "allvars.h"
-#include "partmanager.h"
 #include "treewalk.h"
-#include "drift.h"
+#include "partmanager.h"
 #include "domain.h"
 #include "forcetree.h"
-#include "timestep.h"
 
 #define FACT1 0.366025403785	/* FACT1 = 0.5 * (sqrt(3)-1) */
 
@@ -20,6 +17,9 @@ static int *Exportflag;    /*!< Buffer used for flagging whether a particle need
 static int *Exportnodecount;
 static int *Exportindex;
 static int *Send_offset, *Send_count, *Recv_count, *Recv_offset;
+
+/*!< Memory factor to leave for (N imported particles) > (N exported particles). */
+static double ImportBufferBoost;
 
 static struct data_nodelist
 {
@@ -43,8 +43,14 @@ static struct data_index *DataIndexTable;	/*!< the particles to be exported are 
 					   results to be disentangled again and to be
 					   assigned to the correct particle */
 
+/*Initialise global treewalk parameters*/
+void init_treewalk(double BufferBoost)
+{
+    ImportBufferBoost = BufferBoost;
+}
+
 static void ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv);
-static void ev_begin(TreeWalk * tw, int * active_set, int size);
+static void ev_begin(TreeWalk * tw, int * active_set, const int size);
 static void ev_finish(TreeWalk * tw);
 static int ev_primary(TreeWalk * tw);
 static void ev_get_remote(TreeWalk * tw);
@@ -103,9 +109,10 @@ static int data_index_compare(const void *a, const void *b)
 static TreeWalk * GDB_current_ev = NULL;
 
 static void
-ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv)
+ev_init_thread(TreeWalk * const tw, LocalTreeWalk * lv)
 {
-    int thread_id = omp_get_thread_num();
+    const int thread_id = omp_get_thread_num();
+    const int NTask = tw->NTask;
     int j;
     lv->tw = tw;
     lv->exportflag = Exportflag + thread_id * NTask;
@@ -119,10 +126,8 @@ ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv)
 }
 
 static void
-ev_alloc_threadlocals()
+ev_alloc_threadlocals(const int NTaskTimesThreads)
 {
-    int NTaskTimesThreads = All.NumThreads * NTask;
-
     Exportflag = (int *) ta_malloc2("Exportthreads", int, 3*NTaskTimesThreads);
     Exportindex = Exportflag + NTaskTimesThreads;
     Exportnodecount = Exportflag + 2*NTaskTimesThreads;
@@ -135,8 +140,11 @@ ev_free_threadlocals()
 }
 
 static void
-ev_begin(TreeWalk * tw, int * active_set, int size)
+ev_begin(TreeWalk * tw, int * active_set, const int size)
 {
+    const int NumThreads = omp_get_max_threads();
+    MPI_Comm_size(MPI_COMM_WORLD, &tw->NTask);
+    tw->NThread = NumThreads;
     /* The last argument is may_have_garbage: in practice the only
      * trivial haswork is the gravtree, which has no (active) garbage because
      * the active list was just rebuilt. If we ever add a trivial haswork after
@@ -145,7 +153,7 @@ ev_begin(TreeWalk * tw, int * active_set, int size)
 
     treewalk_init_evaluated(active_set, size);
 
-    Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * All.NumThreads * sizeof(int));
+    Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * NumThreads * sizeof(int));
 
     report_memory_usage(tw->ev_label);
 
@@ -154,7 +162,7 @@ ev_begin(TreeWalk * tw, int * active_set, int size)
     /*This memory scales like the number of imports. In principle this could be much larger than Nexport
      * if the tree is very imbalanced and many processors all need to export to this one. In practice I have
      * not seen this happen, but provide a parameter to boost the memory for Nimport just in case.*/
-    bytesperbuffer += All.ImportBufferBoost * (tw->query_type_elsize + tw->result_type_elsize);
+    bytesperbuffer += ImportBufferBoost * (tw->query_type_elsize + tw->result_type_elsize);
     /*Use all free bytes for the tree buffer, as in exchange. Leave some free memory for array overhead.*/
     tw->BunchSize = FreeBytes / bytesperbuffer - 4096 * 10;
     DataIndexTable =
@@ -165,13 +173,13 @@ ev_begin(TreeWalk * tw, int * active_set, int size)
 #ifdef DEBUG
     memset(DataNodeList, -1, sizeof(struct data_nodelist) * tw->BunchSize);
 #endif
-    tw->currentIndex = ta_malloc("currentIndexPerThread", int,  All.NumThreads);
-    tw->currentEnd = ta_malloc("currentEndPerThread", int, All.NumThreads);
+    tw->currentIndex = ta_malloc("currentIndexPerThread", int,  NumThreads);
+    tw->currentEnd = ta_malloc("currentEndPerThread", int, NumThreads);
 
     int i;
-    for(i = 0; i < All.NumThreads; i ++) {
-        tw->currentIndex[i] = ((size_t) i) * tw->WorkSetSize / All.NumThreads;
-        tw->currentEnd[i] = ((size_t) i + 1) * tw->WorkSetSize / All.NumThreads;
+    for(i = 0; i < NumThreads; i ++) {
+        tw->currentIndex[i] = ((size_t) i) * tw->WorkSetSize / NumThreads;
+        tw->currentEnd[i] = ((size_t) i + 1) * tw->WorkSetSize / NumThreads;
     }
 }
 
@@ -225,7 +233,6 @@ treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum T
 
 static void real_ev(TreeWalk * tw, int * ninter, int * nnodes) {
     int tid = omp_get_thread_num();
-    int i;
     LocalTreeWalk lv[1];
 
     ev_init_thread(tw, lv);
@@ -242,21 +249,21 @@ static void real_ev(TreeWalk * tw, int * ninter, int * nnodes) {
         k++) {
         if(tw->BufferFullFlag) break;
 
-        i = tw->WorkSet ? tw->WorkSet[k] : k;
-
+        const int i = tw->WorkSet ? tw->WorkSet[k] : k;
+#ifdef DEBUG
         if(P[i].Evaluated) {
             BREAKPOINT;
         }
         if(tw->haswork && !tw->haswork(i, tw)) {
             BREAKPOINT;
         }
-        int rt;
+#endif
         /* Primary never uses node list */
         treewalk_init_query(tw, input, i, NULL);
         treewalk_init_result(tw, output, input);
 
         lv->target = i;
-        rt = tw->visit(input, output, lv);
+        const int rt = tw->visit(input, output, lv);
 
         if(rt < 0) {
             P[i].Evaluated = 0;
@@ -308,20 +315,20 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
         return;
     }
 
-    /* Since we use a static schedule below we only need size / All.NumThreads elements per thread.
+    /* Since we use a static schedule below we only need size / tw->NThread elements per thread.
      * Add 2 for non-integer parts.*/
-    int tsize = size / All.NumThreads + 2;
-    tw->WorkSet = mymalloc("ActiveQueue", tsize * sizeof(int) * All.NumThreads);
+    int tsize = size / tw->NThread + 2;
+    /*Watch out: tw->WorkSet may change a few lines later due to the realloc*/
+    tw->WorkSet = mymalloc("ActiveQueue", tsize * sizeof(int) * tw->NThread);
     tw->work_set_stolen_from_active = 0;
 
-    int * queue = tw->WorkSet;
     int nqueue = 0;
 
     /*We want a lockless algorithm which preserves the ordering of the particle list.*/
-    size_t *nqthr = ta_malloc("nqthr", size_t, All.NumThreads);
-    int **thrqueue = ta_malloc("thrqueue", int *, All.NumThreads);
+    size_t *nqthr = ta_malloc("nqthr", size_t, tw->NThread);
+    int **thrqueue = ta_malloc("thrqueue", int *, tw->NThread);
 
-    gadget_setup_thread_arrays(queue, thrqueue, nqthr, tsize, All.NumThreads);
+    gadget_setup_thread_arrays(tw->WorkSet, thrqueue, nqthr, tsize, tw->NThread);
 
     /* We enforce schedule static to ensure that each thread executes on contiguous particles.*/
     #pragma omp parallel for schedule(static)
@@ -340,17 +347,17 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
         nqthr[tid]++;
     }
     /*Merge step for the queue.*/
-    nqueue = gadget_compact_thread_arrays(queue, thrqueue, nqthr, All.NumThreads);
+    nqueue = gadget_compact_thread_arrays(tw->WorkSet, thrqueue, nqthr, tw->NThread);
     ta_free(thrqueue);
     ta_free(nqthr);
     /*Shrink memory*/
-    queue = myrealloc(queue, sizeof(int) * nqueue);
+    tw->WorkSet = myrealloc(tw->WorkSet, sizeof(int) * nqueue);
 
 #ifdef DEBUG
     /* check the uniqueness of the active_set list. This is very slow. */
-    qsort_openmp(queue, nqueue, sizeof(int), cmpint);
+    qsort_openmp(tw->WorkSet, nqueue, sizeof(int), cmpint);
     for(i = 0; i < nqueue - 1; i ++) {
-        if(queue[i] == queue[i+1]) {
+        if(tw->WorkSet[i] == tw->WorkSet[i+1]) {
             endrun(8829, "A few particles are twicely active.\n");
         }
     }
@@ -361,6 +368,7 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
 /* returns number of exports */
 static int ev_primary(TreeWalk * tw)
 {
+    const int NTask = tw->NTask;
     double tstart, tend;
     tw->BufferFullFlag = 0;
     tw->Nexport = 0;
@@ -368,14 +376,7 @@ static int ev_primary(TreeWalk * tw)
     int i;
     tstart = second();
 
- #pragma omp parallel for if(tw->BunchSize > 1024)
-    for(i = 0; i < tw->BunchSize; i ++) {
-        DataIndexTable[i].Task = NTask;
-        /*entries with NTask is not filled with particles, and will be
-         * sorted to the end */
-    }
-
-    ev_alloc_threadlocals();
+    ev_alloc_threadlocals(tw->NTask * tw->NThread);
 
     int nint = tw->Ninteractions;
     int nnodes = tw->Nnodesinlist;
@@ -436,8 +437,7 @@ static int ev_primary(TreeWalk * tw)
      * here we reuse the legacy global variable names;
      * really should move them to local variables for the evaluator.
      * */
-    for(i = 0; i < NTask; i++)
-        Send_count[i] = 0;
+    memset(Send_count, 0, sizeof(int)*NTask);
     for(i = 0; i < tw->Nexport; i++) {
         Send_count[DataIndexTable[i].Task]++;
     }
@@ -468,7 +468,7 @@ static int ev_ndone(TreeWalk * tw)
     tstart = second();
     int done = 1;
     int i;
-    for(i = 0; i < All.NumThreads; i ++) {
+    for(i = 0; i < tw->NThread; i ++) {
         if(tw->currentIndex[i] < tw->currentEnd[i]) {
             done = 0;
             break;
@@ -488,7 +488,7 @@ static void ev_secondary(TreeWalk * tw)
     tstart = second();
     tw->dataresult = mymalloc("EvDataResult", tw->Nimport * tw->result_type_elsize);
 
-    ev_alloc_threadlocals();
+    ev_alloc_threadlocals(tw->NTask * tw->NThread);
     int nint = tw->Ninteractions;
     int nnodes = tw->Ninteractions;
 #pragma omp parallel reduction(+: nint) reduction(+: nnodes)
@@ -503,10 +503,12 @@ static void ev_secondary(TreeWalk * tw)
             TreeWalkQueryBase * input = (TreeWalkQueryBase*) (tw->dataget + j * tw->query_type_elsize);
             TreeWalkResultBase * output = (TreeWalkResultBase*)(tw->dataresult + j * tw->result_type_elsize);
             treewalk_init_result(tw, output, input);
+#ifdef DEBUG
             if(!tw->UseNodeList) {
-                if(input->NodeList[0] != RootNode) abort(); /* root node */
-                if(input->NodeList[1] != -1) abort(); /* terminate immediately */
+                if(input->NodeList[0] != RootNode || input->NodeList[1] != -1)
+                     endrun(2, "Improper NodeList\n");
             }
+#endif
             lv->target = -1;
             tw->visit(input, output, lv);
         }
@@ -620,7 +622,7 @@ treewalk_run(TreeWalk * tw, int * active_set, int size)
             tw->Niterations ++;
             tw->Nexport_sum += tw->Nexport;
             ta_free(Send_count);
-        } while(ev_ndone(tw) < NTask);
+        } while(ev_ndone(tw) < tw->NTask);
     }
 
     double tstart, tend;
@@ -718,9 +720,10 @@ static void ev_reduce_result(TreeWalk * tw)
     int j;
     double tstart, tend;
 
+    const int Nexport = tw->Nexport;
     void * sendbuf = tw->dataresult;
     char * recvbuf = (char*) mymalloc("EvDataOut",
-                tw->Nexport * tw->result_type_elsize);
+                Nexport * tw->result_type_elsize);
 
     tstart = second();
     ev_communicate(sendbuf, recvbuf, tw->result_type_elsize, 1);
@@ -729,23 +732,23 @@ static void ev_reduce_result(TreeWalk * tw)
 
     tstart = second();
 
-    for(j = 0; j < tw->Nexport; j++) {
+    for(j = 0; j < Nexport; j++) {
         DataIndexTable[j].IndexGet = j;
     }
 
     /* mysort is a lie! */
-    qsort_openmp(DataIndexTable, tw->Nexport, sizeof(struct data_index), data_index_compare_by_index);
+    qsort_openmp(DataIndexTable, Nexport, sizeof(struct data_index), data_index_compare_by_index);
 
-    int * UniqueOff = mymalloc("UniqueIndex", sizeof(int) * (tw->Nexport + 1));
+    int * UniqueOff = mymalloc("UniqueIndex", sizeof(int) * (Nexport + 1));
     UniqueOff[0] = 0;
     int Nunique = 0;
 
-    for(j = 1; j < tw->Nexport; j++) {
+    for(j = 1; j < Nexport; j++) {
         if(DataIndexTable[j].Index != DataIndexTable[j-1].Index)
             UniqueOff[++Nunique] = j;
     }
-    if(tw->Nexport > 0)
-        UniqueOff[++Nunique] = tw->Nexport;
+    if(Nexport > 0)
+        UniqueOff[++Nunique] = Nexport;
 
     if(tw->reduce != NULL) {
 #pragma omp parallel for private(j) if(Nunique > 16)
@@ -908,13 +911,11 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
  * Returns 0 if the node has no business with this query.
  */
 static int
-cull_node(TreeWalkQueryBase * I, TreeWalkNgbIterBase * iter, int no)
+cull_node(const TreeWalkQueryBase * const I, const TreeWalkNgbIterBase * const iter, const struct NODE * const current)
 {
-    struct NODE * current = &Nodes[no];
-
     double dist;
     if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
-        dist = DMAX(Nodes[no].u.d.hmax, iter->Hsml) + 0.5 * current->len;
+        dist = DMAX(current->u.d.hmax, iter->Hsml) + 0.5 * current->len;
     } else {
         dist = iter->Hsml + 0.5 * current->len;
     }
@@ -958,8 +959,6 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         LocalTreeWalk * lv)
 {
     int no;
-    struct NODE *current;
-
     int numcand = 0;
 
     no = startnode;
@@ -989,7 +988,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
             continue;
         }
 
-        current = &Nodes[no];
+        struct NODE *current = &Nodes[no];
 
         if(lv->mode == 1) {
             if (lv->tw->UseNodeList) {
@@ -1001,7 +1000,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         }
 
         /* Cull the node */
-        if(0 == cull_node(I, iter, no)) {
+        if(0 == cull_node(I, iter, current)) {
             /* in case the node can be discarded */
             no = current->u.d.sibling;
             continue;

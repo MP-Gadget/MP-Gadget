@@ -43,7 +43,7 @@ density_kernel_dW(DensityKernel * kernel, double u, double wk, double dwk)
 }
 
 static inline double
-dotproduct(double v1[3], double v2[3])
+dotproduct(const double v1[3], const double v2[3])
 {
     double r =0;
     int d;
@@ -53,18 +53,16 @@ dotproduct(double v1[3], double v2[3])
     return r;
 }
 
-static inline void crossproduct(double v1[3], double v2[3], double out[3])
+static inline void crossproduct(const double v1[3], const double v2[3], double out[3])
 {
-    static int D2[3] = {1, 2, 0};
-    static int D3[3] = {2, 0, 1};
+    static const int D2[3] = {1, 2, 0};
+    static const int D3[3] = {2, 0, 1};
 
-    int d1, d2, d3;
-
+    int d1;
     for(d1 = 0; d1 < 3; d1++)
     {
-        d2 = D2[d1];
-        d3 = D3[d1];
-
+        const int d2 = D2[d1];
+        const int d3 = D3[d1];
         out[d1] = (v1[d2] * v2[d3] -  v2[d2] * v1[d3]);
     }
 }

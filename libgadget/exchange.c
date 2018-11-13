@@ -302,7 +302,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, i
             if(!SlotsManager->info[ptype].enabled) continue;
 
             if(BASESLOT(i)->ID != P[i].ID) {
-                endrun(1, "Exchange: P[%d].ID = %ld != SLOT ID = %ld\n",i,P[i].ID, BASESLOT(i)->ID);
+                endrun(1, "Exchange: P[%d].ID = %ld (type %d) != SLOT ID = %ld. garbage: %d slot: %d\n",i,P[i].ID, P[i].Type, BASESLOT(i)->ID, P[i].IsGarbage, BASESLOT(i)->IsGarbage);
             }
         }
         for(ptype = 0; ptype < 6; ptype ++) {

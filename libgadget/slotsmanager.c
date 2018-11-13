@@ -61,7 +61,7 @@ int
 slots_convert(int parent, int ptype, int placement)
 {
     /*Set old slot as garbage*/
-    if(P[parent].PI > 0 && SLOTS_ENABLED(P[parent].Type))
+    if(P[parent].PI >= 0 && SLOTS_ENABLED(P[parent].Type))
         BASESLOT_PI(P[parent].PI, P[parent].Type)->IsGarbage = 1;
 
     /*Make a new slot*/

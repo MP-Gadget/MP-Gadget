@@ -29,7 +29,7 @@ typedef struct {
     size_t size;
     struct {
         double k;
-        double P;
+        double Pk;
     } table[];
 } FunctionOfK;
 

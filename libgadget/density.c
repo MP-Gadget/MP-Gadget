@@ -317,10 +317,10 @@ density_ngbiter(
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         return;
     }
-    int other = iter->base.other;
-    double r = iter->base.r;
-    double r2 = iter->base.r2;
-    double * dist = iter->base.dist;
+    const int other = iter->base.other;
+    const double r = iter->base.r;
+    const double r2 = iter->base.r2;
+    const double * dist = iter->base.dist;
 
     if(All.WindOn && HAS(All.WindModel, WIND_DECOUPLE_SPH)) {
         if(SPHP(other).DelayTime > 0)	/* partner is a wind particle */
@@ -336,11 +336,11 @@ density_ngbiter(
     if(r2 < iter->kernel.HH)
     {
 
-        double u = r * iter->kernel.Hinv;
-        double wk = density_kernel_wk(&iter->kernel, u);
-        double dwk = density_kernel_dwk(&iter->kernel, u);
+        const double u = r * iter->kernel.Hinv;
+        const double wk = density_kernel_wk(&iter->kernel, u);
+        const double dwk = density_kernel_dwk(&iter->kernel, u);
 
-        double mass_j = P[other].Mass;
+        const double mass_j = P[other].Mass;
 
         O->Rho += (mass_j * wk);
         O->Ngb += wk * iter->kernel_volume;
