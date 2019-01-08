@@ -1,7 +1,8 @@
 CONFIG = ../Options.mk
 include $(CONFIG)
 
-LIBRARIES=lib/libbigfile-mpi.a lib/libmpsort-mpi.a lib/libpfft_omp.a
+LIBRARIES=lib/libbigfile-mpi.a lib/libmpsort-mpi.a
+FFTLIBRARIES=lib/libpfft_omp.a lib/libfftw3_mpi.a lib/libfftw3_omp.a
 depends: $(LIBRARIES)
 
 lib/libmpsort-mpi.a: mpsort/mpsort-mpi.c
@@ -23,8 +24,14 @@ lib/libpfft_omp.a:
 	MPICC="$(MPICC)" CC="$(MPICC)" CFLAGS="$(filter-out -ipo,$(OPTIMIZE)) -I $(PWD)/include -L$(PWD)/lib" \
         sh $(PWD)/install_pfft.sh $(PWD)/
 
-clean:
+clean: clean-fast clean-fft
+
+clean-fast:
 	rm -rf $(LIBRARIES)
 	cd bigfile/src; make clean
 	cd mpsort; make clean
 
+clean-fft:
+	rm -rf $(FFTLIBRARIES)
+	rm -rf tmp-pfft-*/double
+	rm -rf tmp-pfft-*/single

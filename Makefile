@@ -28,6 +28,8 @@ test:
 	cd libgadget; $(MAKE) test
 	cd libgenic; $(MAKE) test
 
+depclean: clean
+	cd depends; $(MAKE) clean
 
 html: $(FILES)
 	@pandoc -f rst -t markdown README.rst > README.tmp.md
