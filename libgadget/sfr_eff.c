@@ -538,10 +538,7 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
     double factorEVP, egyhot, ne, tcool, y, x, cloudmass;
     struct UVBG uvbg;
 
-    if(!All.StarformationOn)
-        return 0;
-
-    if(!sfreff_on_eeqos(i)) {
+    if(!All.StarformationOn || !sfreff_on_eeqos(i)) {
         /* this shall not happen but let's put in some safe
          * numbers in case the code run wary!
          *
