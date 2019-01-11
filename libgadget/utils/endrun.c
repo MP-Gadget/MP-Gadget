@@ -189,7 +189,7 @@ messagev(int crash, int where, const char * fmt, va_list va)
         sprintf(prefix, "[ %09.2f ] ", MPI_Wtime() - _timestart);
     }
 
-    if(where <= 0)
+    if(!crash && where <= 0)
         MPI_Barrier(MPI_COMM_WORLD);
 
     if(ThisTask == 0 || where > 0) {
