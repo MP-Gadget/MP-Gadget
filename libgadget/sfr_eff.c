@@ -304,7 +304,7 @@ cooling_direct(int i) {
     if(SPHP(i).Injected_BH_Energy)
     {
         if(P[i].Mass == 0) {
-            endrun(-1, "Encoutered zero mass particle during sfr;"
+            endrun(12, "Encoutered zero mass particle during sfr;"
                       " We haven't implemented tracer particles and this shall not happen\n");
             /* This shall not happend */
             SPHP(i).Injected_BH_Energy = 0;
@@ -356,7 +356,7 @@ sfreff_on_eeqos(int i)
     }
     /* Check that starformation has not left a massless particle.*/
     if(P[i].Mass == 0) {
-        endrun(-1, "Particle %d in SFR has mass=%g. Does not happen as no tracer particles.\n", i, P[i].Mass);
+        endrun(12, "Particle %d in SFR has mass=%g. Does not happen as no tracer particles.\n", i, P[i].Mass);
     }
 
     if(SPHP(i).Density * All.cf.a3inv >= All.PhysDensThresh)

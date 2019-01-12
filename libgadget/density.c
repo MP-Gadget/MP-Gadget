@@ -329,7 +329,7 @@ density_ngbiter(
     }
 
     if(P[other].Mass == 0) {
-        endrun(-1, "Encoutered zero mass particle during density;"
+        endrun(12, "Encountered zero mass particle during density;"
                   " We haven't implemented tracer particles and this shall not happen\n");
     }
 
