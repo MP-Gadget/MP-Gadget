@@ -933,7 +933,7 @@ static double * h5readdouble(char * filename, char * dataset, int * Nread) {
         size_t dims[2];
         big_file_open(bf, filename);
         if(0 != big_file_open_block(bf, bb, dataset)) {
-            endrun(-1, "Cannot open %s %s: %s\n", filename, dataset, big_file_get_error_message());
+            endrun(1, "Cannot open %s %s: %s\n", filename, dataset, big_file_get_error_message());
         }
 
         N = bb->size;
@@ -948,7 +948,7 @@ static double * h5readdouble(char * filename, char * dataset, int * Nread) {
             endrun(1, "Failed to seek block %s %s: %s\n", filename, dataset, big_file_get_error_message());
 
         if(0 != big_block_read(bb, &ptr, array))
-            endrun(-1, "Failed to read %s %s: %s", filename, dataset, big_file_get_error_message());
+            endrun(1, "Failed to read %s %s: %s", filename, dataset, big_file_get_error_message());
         /* steal the buffer */
         big_block_close(bb);
         big_file_close(bf);

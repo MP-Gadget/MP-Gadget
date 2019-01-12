@@ -216,7 +216,7 @@ hydro_ngbiter(
     double r = iter->base.r;
 
     if(P[other].Mass == 0) {
-        endrun(-1, "Encountered zero mass particle during hydro;"
+        endrun(12, "Encountered zero mass particle during hydro;"
                   " We haven't implemented tracer particles and this shall not happen\n");
     }
 
