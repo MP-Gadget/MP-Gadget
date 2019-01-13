@@ -3,7 +3,7 @@ include $(CONFIG)
 
 LIBRARIES=lib/libbigfile-mpi.a lib/libmpsort-mpi.a
 FFTLIBRARIES=lib/libpfft_omp.a lib/libfftw3_mpi.a lib/libfftw3_omp.a
-depends: $(LIBRARIES)
+depends: $(LIBRARIES) $(FFTLIBRARIES)
 
 lib/libmpsort-mpi.a: mpsort/mpsort-mpi.c
 	mkdir -p lib; \
