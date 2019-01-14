@@ -231,38 +231,29 @@ struct FOFPrimaryPriv {
 };
 #define FOF_PRIMARY_GET_PRIV(tw) ((struct FOFPrimaryPriv *) (tw->priv))
 
+/* Get the ultimate HEAD particle of the current tree.
+ * Read-only lockless function using atomics.*/
 static int
-HEADl(int stop, int i, TreeWalk * tw)
+HEADa(int stop, int i, const int * const Head)
 {
-    int r;
-    if (i == stop) {
-        return -1;
-    }
-//    printf("locking %d by %d in HEADl stop = %d\n", i, omp_get_thread_num(), stop);
-    lock_particle(i);
-//    printf("locked %d by %d in HEADl, next = %d\n", i, omp_get_thread_num(), FOF_PRIMARY_GET_PRIV(tw)->Head[i]);
+    int r, next;
+    #pragma omp atomic read
+    next = Head[i];
 
-    if(FOF_PRIMARY_GET_PRIV(tw)->Head[i] == i) {
-        /* return locked */
+    if(next == stop)
+        return -1;
+    /* Note that because this particle is not locked, the tree may get merged.
+     * before the next time we use this.
+     * Note that Head[i] == i is the initial state: once set it will never change.
+     * However, because this is a lock-free function, the
+     * head may have changed by the next time we want to read it.*/
+    if(next == i) {
         return i;
     }
-    /* this is not the root, keep going, but unlock first, since even if the root is modified by
-     * another thread, what we get here is on the path, */
-    int next = FOF_PRIMARY_GET_PRIV(tw)->Head[i];
-    unlock_particle(i);
-//    printf("unlocking %d by %d in HEADl\n", i, omp_get_thread_num());
-    r = HEADl(stop, next, tw);
-    return r;
-}
 
-static void
-update_root(int i, int r, TreeWalk * tw)
-{
-    while(FOF_PRIMARY_GET_PRIV(tw)->Head[i] != i) {
-        int t = FOF_PRIMARY_GET_PRIV(tw)->Head[i];
-        FOF_PRIMARY_GET_PRIV(tw)->Head[i]= r;
-        i = t;
-    }
+    /* this is not the root, keep going. */
+    r = HEADa(stop, next, Head);
+    return r;
 }
 
 static int
@@ -385,37 +376,60 @@ void fof_label_primary(void)
 static void
 fofp_merge(int target, int other, TreeWalk * tw)
 {
-    /* this will lock h1 */
-    int h1 = HEADl(-1, target, tw);
-    /* stop looking if we find h1 along the path (because it is already owned by us) */
-    int h2 = HEADl(h1, other, tw);
-
-    if(h2 == -1) {
-        /* h1 is along the path of h2, already merged.  **/
-        /* h1 must be the root of other and target both */
-        //printf("unlocking %d by %d in merge\n", h1, omp_get_thread_num());
-        update_root(target, h1, tw);
-        update_root(other, h1, tw);
-        unlock_particle(h1);
-        return;
+    int * Head = FOF_PRIMARY_GET_PRIV(tw)->Head;
+    /* Get current HEAD of target. h1 is not locked, so by the time we use it,
+     * it may no longer really be the HEAD, but we could also link the
+     * tree by setting HEAD(h2) = target, so it doesn't matter.*/
+    int h1 = HEADa(-1, target, Head);
+    int h2 = HEADa(h1, other, Head);
+    /* We are about to change the HEAD of h2, so lock it.
+     * We need to make sure that h2 is really the head of the subtree,
+     * or not all particles will be linked.
+     * If this is not the case, unlock the particle, walk the tree again,
+     * and loop until we can get a lock.*/
+    while(1) {
+        /*Stop if we encountered h1 along the head of this tree: means this is already merged.*/
+        if(h2 == -1)
+            return;
+        lock_particle(h2);
+        if(Head[h2] != h2) {
+            unlock_particle(h2);
+            h2 = HEADa(h1, h2, Head);
+        }
+        else
+            break;
     }
+    /*Get the current subtree properties: this is fine because we are under the lock.*/
+    MyIDType subminID = HaloLabel[h2].MinID;
+    MyIDType subminIDTask = HaloLabel[h2].MinIDTask;
 
-    /* h2 as a sub-tree of h1 */
-    FOF_PRIMARY_GET_PRIV(tw)->Head[h2] = h1;
+    /*Merge the subtree*/
+    #pragma omp atomic write
+    Head[h2] = h1;
 
-    /* update MinID of h1 */
-    if(HaloLabel[h1].MinID > HaloLabel[h2].MinID)
-    {
-        HaloLabel[h1].MinID = HaloLabel[h2].MinID;
-        HaloLabel[h1].MinIDTask = HaloLabel[h2].MinIDTask;
-    }
-    //printf("unlocking %d by %d in merge\n", h2, omp_get_thread_num());
+    /*We are done with h2 and can unlock it.*/
     unlock_particle(h2);
 
-    update_root(target, h1, tw);
-    update_root(other, h1, tw);
+    /* Now we need to find the true current head of the new tree
+     * and lock it to update minID properties.
+     * Note that a new subtree may have been added to h2 in the interim,
+     * but this is fine because only minID for the head particle is ever used.*/
+    while(1) {
+        lock_particle(h1);
+        if(Head[h1] != h1) {
+            unlock_particle(h1);
+            h1 = HEADa(-1, h1, Head);
+        }
+        else
+            break;
+    }
 
-    //printf("unlocking %d by %d in merge\n", h1, omp_get_thread_num());
+    /*Update the halo properties*/
+    if(HaloLabel[h1].MinID > subminID)
+    {
+        HaloLabel[h1].MinID = subminID;
+        HaloLabel[h1].MinIDTask = subminIDTask;
+    }
     unlock_particle(h1);
 }
 
