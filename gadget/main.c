@@ -15,6 +15,7 @@
 #include <libgadget/checkpoint.h>
 #include <libgadget/config.h>
 #include <libgadget/fof.h>
+#include <libgadget/forcetree.h>
 
 #include <libgadget/utils.h>
 
@@ -111,6 +112,8 @@ int main(int argc, char **argv)
     switch(RestartFlag) {
         case 3:
             begrun(RestartSnapNum);
+            /*FoF needs a tree*/
+            force_tree_rebuild();
             fof_fof();
             fof_save_groups(RestartSnapNum);
             fof_finish();
