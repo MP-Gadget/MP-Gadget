@@ -373,15 +373,15 @@ void fof_label_primary(void)
     myfree(FOF_PRIMARY_GET_PRIV(tw)->Head);
 }
 
-static void
-fofp_merge(int target, int other, TreeWalk * tw)
+/* This function does the actual merging of the trees. It takes two head particles, h1 and h2,
+ * and merges 2 into h1 by setting Head[h2] = h1. It does this if and only if h1 < h2 (to avoid cycles)
+ * and it does it under a lock for h2, so that h2 cannot be merged elsewhere. h1 is not locked, to avoid deadlocking.
+ * It can thus cease to be the head of the tree, but this is fine, because it will never be merged into h2.
+ * If h1 > h2, the code swaps them and tries again.
+ * returns: 1 if a merge happened, 0 if it did not. No locks are held after return.*/
+static int
+try_merge_trees(int * h1, int * h2, MyIDType * subminID, MyIDType * subminIDTask, int * Head)
 {
-    int * Head = FOF_PRIMARY_GET_PRIV(tw)->Head;
-    /* Get current HEAD of target. h1 is not locked, so by the time we use it,
-     * it may no longer really be the HEAD, but we could also link the
-     * tree by setting HEAD(h2) = target, so it doesn't matter.*/
-    int h1 = HEADa(-1, target, Head);
-    int h2 = HEADa(h1, other, Head);
     /* We are about to change the HEAD of h2, so lock it.
      * We need to make sure that h2 is really the head of the subtree,
      * or not all particles will be linked.
@@ -389,26 +389,59 @@ fofp_merge(int target, int other, TreeWalk * tw)
      * and loop until we can get a lock.*/
     while(1) {
         /*Stop if we encountered h1 along the head of this tree: means this is already merged.*/
-        if(h2 == -1)
-            return;
-        lock_particle(h2);
-        if(Head[h2] != h2) {
-            unlock_particle(h2);
-            h2 = HEADa(h1, h2, Head);
+        if(*h2 == -1)
+            return 0;
+        lock_particle(*h2);
+        if(Head[*h2] != *h2) {
+            unlock_particle(*h2);
+            *h2 = HEADa(*h1, *h2, Head);
         }
         else
             break;
     }
     /*Get the current subtree properties: this is fine because we are under the lock.*/
-    MyIDType subminID = HaloLabel[h2].MinID;
-    MyIDType subminIDTask = HaloLabel[h2].MinIDTask;
+    *subminID = HaloLabel[*h2].MinID;
+    *subminIDTask = HaloLabel[*h2].MinIDTask;
 
     /*Merge the subtree*/
-    #pragma omp atomic write
-    Head[h2] = h1;
+    if(*h2 > *h1) {
+        #pragma omp atomic write
+        Head[*h2] = *h1;
+        unlock_particle(*h2);
+        return 1;
+    }
+    else {
+        /*If h1 > h2, swap the particles and try again*/
+        unlock_particle(*h2);
+        int t = *h2;
+        *h2 = *h1;
+        *h1 = t;
+        return try_merge_trees(h1, h2, subminID, subminIDTask, Head);
+    }
+}
 
-    /*We are done with h2 and can unlock it.*/
-    unlock_particle(h2);
+static void
+fofp_merge(int target, int other, TreeWalk * tw)
+{
+    int * Head = FOF_PRIMARY_GET_PRIV(tw)->Head;
+    if(other < target)
+    {
+        int t = target;
+        target = other;
+        other = t;
+    }
+    /* Get current HEAD of target. h1 is not locked, so by the time we use it,
+     * it may no longer really be the HEAD, but we could also link the
+     * tree by setting HEAD(h2) = target, so it doesn't matter.*/
+    int h1 = HEADa(-1, target, Head);
+    int h2 = HEADa(h1, other, Head);
+
+    /*Get the current subtree properties: this is fine because we are under the lock.*/
+    MyIDType subminID, subminIDTask;
+
+    /*Try to merge h1 into h2. Return if it turns out they are already merged. h1 and h2 may change in this function.*/
+    if(!try_merge_trees(&h1, &h2, &subminID, &subminIDTask, Head))
+        return;
 
     /* Now we need to find the true current head of the new tree
      * and lock it to update minID properties.
