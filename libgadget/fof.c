@@ -232,35 +232,46 @@ struct FOFPrimaryPriv {
 #define FOF_PRIMARY_GET_PRIV(tw) ((struct FOFPrimaryPriv *) (tw->priv))
 
 static int
-HEADl(int stop, int i, TreeWalk * tw)
+HEADl(int stop, int i, int locked, int * Head)
 {
     int r;
     if (i == stop) {
         return -1;
     }
 //    printf("locking %d by %d in HEADl stop = %d\n", i, omp_get_thread_num(), stop);
-    lock_particle(i);
+    /* Try to lock the particle. Wait on the lock if it is less than the already locked particle,
+     * or if such a particle does not exist.*/
+    if(locked < 0 || i < locked) {
+        lock_particle(i);
+    }
+    else{
+        if(pthread_spin_trylock(&P[i].SpinLock)) {
+            /*This means some other thread already has the lock.
+             *To avoid deadlocks we need to back off, unlock both particles and then retry.*/
+            return -2;
+        }
+    }
 //    printf("locked %d by %d in HEADl, next = %d\n", i, omp_get_thread_num(), FOF_PRIMARY_GET_PRIV(tw)->Head[i]);
 
-    if(FOF_PRIMARY_GET_PRIV(tw)->Head[i] == i) {
+    if(Head[i] == i) {
         /* return locked */
         return i;
     }
     /* this is not the root, keep going, but unlock first, since even if the root is modified by
      * another thread, what we get here is on the path, */
-    int next = FOF_PRIMARY_GET_PRIV(tw)->Head[i];
+    int next = Head[i];
     unlock_particle(i);
 //    printf("unlocking %d by %d in HEADl\n", i, omp_get_thread_num());
-    r = HEADl(stop, next, tw);
+    r = HEADl(stop, next, locked, Head);
     return r;
 }
 
 static void
-update_root(int i, int r, TreeWalk * tw)
+update_root(int i, int r, int * Head)
 {
-    while(FOF_PRIMARY_GET_PRIV(tw)->Head[i] != i) {
-        int t = FOF_PRIMARY_GET_PRIV(tw)->Head[i];
-        FOF_PRIMARY_GET_PRIV(tw)->Head[i]= r;
+    while(Head[i] != i) {
+        int t = Head[i];
+        Head[i]= r;
         i = t;
     }
 }
@@ -386,34 +397,38 @@ static void
 fofp_merge(int target, int other, TreeWalk * tw)
 {
     /* this will lock h1 */
-    int h1 = HEADl(-1, target, tw);
-    /* stop looking if we find h1 along the path (because it is already owned by us) */
-    int h2 = HEADl(h1, other, tw);
+    int * Head = FOF_PRIMARY_GET_PRIV(tw)->Head;
+    int h1, h2;
 
-    if(h2 == -1) {
-        /* h1 is along the path of h2, already merged.  **/
-        /* h1 must be the root of other and target both */
-        //printf("unlocking %d by %d in merge\n", h1, omp_get_thread_num());
-        update_root(target, h1, tw);
-        update_root(other, h1, tw);
-        unlock_particle(h1);
-        return;
-    }
+    do {
+        h1 = HEADl(-1, target, -1, Head);
+        /* stop looking if we find h1 along the path (because it is already owned by us) */
+        h2 = HEADl(h1, other, h1, Head);
+        /* We had a lock already taken on h2 by another thread.
+         * We need to unlock h1 and retry to avoid deadlock loops.*/
+        if(h2 == -2)
+            unlock_particle(h1);
+    } while(h2 == -2);
 
-    /* h2 as a sub-tree of h1 */
-    FOF_PRIMARY_GET_PRIV(tw)->Head[h2] = h1;
-
-    /* update MinID of h1 */
-    if(HaloLabel[h1].MinID > HaloLabel[h2].MinID)
+    if(h2 >=0)
     {
-        HaloLabel[h1].MinID = HaloLabel[h2].MinID;
-        HaloLabel[h1].MinIDTask = HaloLabel[h2].MinIDTask;
-    }
-    //printf("unlocking %d by %d in merge\n", h2, omp_get_thread_num());
-    unlock_particle(h2);
+        /* h2 as a sub-tree of h1 */
+        Head[h2] = h1;
 
-    update_root(target, h1, tw);
-    update_root(other, h1, tw);
+        /* update MinID of h1 */
+        if(HaloLabel[h1].MinID > HaloLabel[h2].MinID)
+        {
+            HaloLabel[h1].MinID = HaloLabel[h2].MinID;
+            HaloLabel[h1].MinIDTask = HaloLabel[h2].MinIDTask;
+        }
+        //printf("unlocking %d by %d in merge\n", h2, omp_get_thread_num());
+        unlock_particle(h2);
+    }
+
+    /* h1 must be the root of other and target both:
+     * do the splay to speed up future accesses.*/
+    update_root(target, h1, Head);
+    update_root(other, h1, Head);
 
     //printf("unlocking %d by %d in merge\n", h1, omp_get_thread_num());
     unlock_particle(h1);
