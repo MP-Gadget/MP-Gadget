@@ -259,7 +259,9 @@ HEADl(int stop, int i, int locked, int * Head)
     }
 //    printf("locking %d by %d in HEADl stop = %d\n", i, omp_get_thread_num(), stop);
     /* Try to lock the particle. Wait on the lock if it is less than the already locked particle,
-     * or if such a particle does not exist.*/
+     * or if such a particle does not exist. We could use atomic to avoid the lock, but this
+     * makes the locking code less clear, and doesn't lead to much of a speedup: the splay
+     * means that the tree is shallow.*/
     if(locked < 0 || i < locked) {
         lock_particle(i);
     }
@@ -285,6 +287,8 @@ HEADl(int stop, int i, int locked, int * Head)
     return r;
 }
 
+/* Rewrite a tree so that all values in it point directly to the true root.
+ * This means that the trees are O(1) deep and speeds up future accesses. */
 static void
 update_root(int i, int r, int * Head)
 {
@@ -445,7 +449,10 @@ fofp_merge(int target, int other, TreeWalk * tw)
     }
 
     /* h1 must be the root of other and target both:
-     * do the splay to speed up future accesses.*/
+     * do the splay to speed up future accesses.
+     * We do not need to have h2 locked, because h2 is
+     * now just another child of h1: these do not change the root,
+     * they make the tree shallow.*/
     update_root(target, h1, Head);
     update_root(other, h1, Head);
 
