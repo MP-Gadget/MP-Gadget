@@ -231,6 +231,25 @@ struct FOFPrimaryPriv {
 };
 #define FOF_PRIMARY_GET_PRIV(tw) ((struct FOFPrimaryPriv *) (tw->priv))
 
+/* This function walks the particle tree starting at particle i until it reaches
+ * a particle which has Head[i] = i, the root node (particles are initialised in
+ * this state, so this is equivalent to finding a particle which has yet to be merged).
+ * Each particle is locked along the way, and unlocked once it is clear that it is not a root.
+ * Once it reaches a root, it returns that particle number with the lock still held.
+ * There are two other arguments:
+ *
+ * stop: When this particle is reached, return -1. We use this to find an already merged tree.
+ *
+ * locked: This particle is already locked (setting locked = -1 means no other locks are taken).
+ *         When we try to lock a particle locked by another thread, the code checks whether
+ *         it can safely take a second lock. If it cannot, it returns -2, with the expectation
+ *         that the first lock is released before a retry.
+ *
+ * Returns:
+ *      root particle if found
+ *      -1 if stop particle reached
+ *      -2 if locking might have deadlocked.
+ */
 static int
 HEADl(int stop, int i, int locked, int * Head)
 {
