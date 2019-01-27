@@ -298,11 +298,10 @@ update_root(int i, const int r, int * Head)
     int t = i;
     do {
         i = t;
-        #pragma omp atomic capture
-        {
-            t = Head[i];
-            Head[i]= r;
-        }
+        #pragma omp atomic read
+        t = Head[i];
+        #pragma omp atomic write
+        Head[i]= r;
     } while(t != i);
 }
 
