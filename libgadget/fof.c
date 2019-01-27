@@ -253,7 +253,7 @@ struct FOFPrimaryPriv {
 static int
 HEADl(int stop, int i, int locked, int * Head)
 {
-    int r;
+    int r, next;
     if (i == stop) {
         return -1;
     }
@@ -273,14 +273,17 @@ HEADl(int stop, int i, int locked, int * Head)
         }
     }
 //    printf("locked %d by %d in HEADl, next = %d\n", i, omp_get_thread_num(), FOF_PRIMARY_GET_PRIV(tw)->Head[i]);
+    /* atomic read because we may change
+     * this in update_root without the lock: not necessary on x86_64, but avoids tears elsewhere*/
+    #pragma omp atomic read
+    next = Head[i];
 
-    if(Head[i] == i) {
+    if(next == i) {
         /* return locked */
         return i;
     }
     /* this is not the root, keep going, but unlock first, since even if the root is modified by
      * another thread, what we get here is on the path, */
-    int next = Head[i];
     unlock_particle(i);
 //    printf("unlocking %d by %d in HEADl\n", i, omp_get_thread_num());
     r = HEADl(stop, next, locked, Head);
@@ -290,13 +293,17 @@ HEADl(int stop, int i, int locked, int * Head)
 /* Rewrite a tree so that all values in it point directly to the true root.
  * This means that the trees are O(1) deep and speeds up future accesses. */
 static void
-update_root(int i, int r, int * Head)
+update_root(int i, const int r, int * Head)
 {
-    while(Head[i] != i) {
-        int t = Head[i];
-        Head[i]= r;
+    int t = i;
+    do {
         i = t;
-    }
+        #pragma omp atomic capture
+        {
+            t = Head[i];
+            Head[i]= r;
+        }
+    } while(t != i);
 }
 
 static int
