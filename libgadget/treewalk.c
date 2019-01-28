@@ -591,7 +591,7 @@ void
 treewalk_run(TreeWalk * tw, int * active_set, int size)
 {
     if(!force_tree_allocated()) {
-        endrun(0, "Tree has been freed before this treewalk.");
+        endrun(0, "Tree has been freed before this treewalk.\n");
     }
 
     GDB_current_ev = tw;
