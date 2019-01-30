@@ -152,7 +152,7 @@ void domain_decompose_full(void)
 
     domain_free();
 
-    message(0, "domain decomposition... (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
+    message(0, "domain decomposition... (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
     t0 = second();
 
@@ -330,7 +330,7 @@ domain_attempt_decompose(DomainDecompositionPolicy * policy)
     all_bytes += bytes;
 
     message(0, "use of %g MB of temporary storage for domain decomposition... (presently allocated=%g MB)\n",
-             all_bytes / (1024.0 * 1024.0), AllocatedBytes / (1024.0 * 1024.0));
+             all_bytes / (1024.0 * 1024.0), mymalloc_usedbytes() / (1024.0 * 1024.0));
 
     report_memory_usage("DOMAIN");
 

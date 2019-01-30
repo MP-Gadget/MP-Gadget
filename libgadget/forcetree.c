@@ -98,7 +98,7 @@ force_tree_allocated()
 void
 force_tree_rebuild()
 {
-    message(0, "Tree construction.  (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
+    message(0, "Tree construction.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
     if(force_tree_allocated()) {
         force_tree_free();
@@ -1158,7 +1158,7 @@ struct TreeBuilder force_treeallocate(int maxnodes, int maxpart, int first_node_
     allbytes += bytes;
     message(0, "Allocated %g MByte for BH-tree, (presently allocated %g MB)\n",
          allbytes / (1024.0 * 1024.0),
-         AllocatedBytes / (1024.0 * 1024.0));
+         mymalloc_usedbytes() / (1024.0 * 1024.0));
     return tb;
 }
 

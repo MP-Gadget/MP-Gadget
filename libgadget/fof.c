@@ -136,7 +136,7 @@ void fof_fof(void)
     MPI_Type_commit(&MPI_TYPE_GROUP);
 
     message(0, "Begin to compute FoF group catalogues. (allocated: %g MB)\n",
-            AllocatedBytes / (1024.0 * 1024.0));
+            mymalloc_usedbytes() / (1024.0 * 1024.0));
 
     walltime_measure("/Misc");
 
@@ -203,7 +203,7 @@ void fof_fof(void)
     walltime_measure("/FOF/Prop");
 
     message(0, "group properties are now allocated.. (presently allocated=%g MB)\n",
-            AllocatedBytes / (1024.0 * 1024.0));
+            mymalloc_usedbytes() / (1024.0 * 1024.0));
 
     message(0, "computation of group properties took = %g sec\n", timediff(t0, t1));
 
@@ -217,7 +217,7 @@ fof_finish()
     myfree(Group);
 
     message(0, "Finished computing FoF groups.  (presently allocated=%g MB)\n",
-            AllocatedBytes / (1024.0 * 1024.0));
+            mymalloc_usedbytes() / (1024.0 * 1024.0));
 
     walltime_measure("/FOF/MISC");
 
@@ -345,7 +345,7 @@ void fof_label_primary(void)
     int64_t link_across_tot;
     double t0, t1;
 
-    message(0, "Start linking particles (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
+    message(0, "Start linking particles (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
     TreeWalk tw[1] = {{0}};
     tw->ev_label = "FOF_FIND_GROUPS";
@@ -1118,7 +1118,7 @@ static void fof_label_secondary(void)
     tw->priv = priv;
 
     message(0, "Start finding nearest dm-particle (presently allocated=%g MB)\n",
-            AllocatedBytes / (1024.0 * 1024.0));
+            mymalloc_usedbytes() / (1024.0 * 1024.0));
 
     FOF_SECONDARY_GET_PRIV(tw)->distance = (float *) mymalloc("FOF_SECONDARY->distance", sizeof(float) * PartManager->NumPart);
     FOF_SECONDARY_GET_PRIV(tw)->hsml = (float *) mymalloc("FOF_SECONDARY->hsml", sizeof(float) * PartManager->NumPart);

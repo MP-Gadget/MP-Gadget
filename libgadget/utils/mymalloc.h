@@ -25,7 +25,7 @@ void report_detailed_memory_usage(const char *label, const char * fmt, ...);
 #define  ta_free(p) allocator_free(p)
 
 #define  report_memory_usage(x)    report_detailed_memory_usage(x, "%s:%d", __FILE__, __LINE__)
-#define  FreeBytes                 allocator_get_free_size(A_MAIN)
-#define  AllocatedBytes            allocator_get_used_size(A_MAIN, ALLOC_DIR_BOTH)
+#define  mymalloc_freebytes()       allocator_get_free_size(A_MAIN)
+#define  mymalloc_usedbytes()       allocator_get_used_size(A_MAIN, ALLOC_DIR_BOTH)
 
 #endif
