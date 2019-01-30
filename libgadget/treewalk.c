@@ -164,11 +164,14 @@ ev_begin(TreeWalk * tw, int * active_set, const int size)
      * not seen this happen, but provide a parameter to boost the memory for Nimport just in case.*/
     bytesperbuffer += ImportBufferBoost * (tw->query_type_elsize + tw->result_type_elsize);
     /*Use all free bytes for the tree buffer, as in exchange. Leave some free memory for array overhead.*/
-    size_t freebytes = FreeBytes;
-    if(freebytes > 1 * 1024 * 1024 * 1024) freebytes =  1024 * 1024 * 1024;
+    size_t freebytes = mymalloc_freebytes();
+    /* if freebytes is greater than 2GB we run into issues computing BunchSize.
+     * It is probable not a good idea to send too many particles around in one bunch anyways. */
+    if(freebytes > 1024 * 1024 * 1024) freebytes =  1024 * 1024 * 1024;
+
     tw->BunchSize = freebytes / bytesperbuffer - 4096 * 10;
     if(tw->BunchSize <= 0) {
-        endrun(1231245, "Not enough memory for communicator\n");
+        endrun(1231245, "Not enough memory for exporting any particles. \n");
     }
     DataIndexTable =
         (struct data_index *) mymalloc("DataIndexTable", tw->BunchSize * sizeof(struct data_index));
