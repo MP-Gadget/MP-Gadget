@@ -92,7 +92,7 @@ void grav_short_tree_old(void)
     walltime_measure("/Misc");
 
     /* allocate buffers to arrange communication */
-    message(0, "Begin tree force.  (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
+    message(0, "Begin tree force.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
     walltime_measure("/Misc");
 

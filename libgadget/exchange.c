@@ -386,7 +386,7 @@ static int
 domain_find_iter_space(ExchangePlan * plan)
 {
     int n, ptype;
-    size_t nlimit = FreeBytes;
+    size_t nlimit = mymalloc_freebytes();
 
     if (nlimit <  4096 * 2 + NTask * 2 * sizeof(MPI_Request))
         endrun(1, "Not enough memory free to store requests!\n");
