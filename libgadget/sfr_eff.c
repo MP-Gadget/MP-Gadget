@@ -1,5 +1,5 @@
 /***
- * Multi-Phase star formaiton
+ * Multi-Phase star formation
  *
  * The algorithm here is based on Springel Hernequist 2003, and Okamoto 2010.
  *
@@ -7,10 +7,9 @@
  * been heavily rewritten to add support for new wind models, new star formation
  * criterions, and more importantly, use the new tree walker routines.
  *
- * I (Yu Feng) feel it is appropriate to release most of this file with a free license,
+ * I (Yu Feng) feel it is appropriate to release this file with a free license,
  * because the implementation here has diverged from the original code by too far.
  *
- * The largest remaining concern are a few functions there were obtained from Gadget-P. 
  * Functions for self-gravity starformation condition and H2 are derived from Gadget-P
  * and used with permission of Phil Hopkins. Please cite the requisite papers if you use them.
  *
