@@ -43,21 +43,7 @@
 
 #define NEAREST(x) (((x)>0.5*All.BoxSize)?((x)-All.BoxSize):(((x)<-0.5*All.BoxSize)?((x)+All.BoxSize):(x)))
 
-#ifndef  GENERATIONS
-#define  GENERATIONS     4	/*!< Number of star particles that may be created per gas particle */
-#endif
-
 #define MAXHSML 30000.0
-
-#ifndef  GAMMA
-#define  GAMMA         (5.0/3.0)	/*!< adiabatic index of simulated gas */
-#endif
-
-#define  GAMMA_MINUS1  (GAMMA-1)
-
-#define  HYDROGEN_MASSFRAC 0.76	/*!< mass fraction of hydrogen, relevant only for radiative cooling */
-
-#define  METAL_YIELD       0.02	/*!< effective metal yield for star formation */
 
 #define  MAX_REAL_NUMBER  1e37
 #define  MIN_REAL_NUMBER  1e-37
