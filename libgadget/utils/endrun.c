@@ -214,6 +214,7 @@ endrun(int where, const char * fmt, ...)
     va_start(va, fmt);
     messagev(1, where, fmt, va);
     va_end(va);
+    exit(1);
 }
 
 
