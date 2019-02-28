@@ -106,6 +106,8 @@ init_itp_type(struct itp_type * Gamma)
 static void
 load_treecool(const char * TreeCoolFile)
 {
+    if(!CoolingParams.PhotoIonizationOn)
+        return;
     FILE * fd = fopen(TreeCoolFile, "r");
     if(!fd)
         endrun(456, "Could not open photon background (TREECOOL) file at: '%s'\n", TreeCoolFile);
@@ -140,7 +142,7 @@ load_treecool(const char * TreeCoolFile)
     Gamma_HeII.ydata = Gamma_log1z + 3 * NTreeCool;
     Eps_HI.ydata = Gamma_log1z + 4 * NTreeCool;
     Eps_HeI.ydata = Gamma_log1z + 5 * NTreeCool;
-    Eps_HeI.ydata = Gamma_log1z + 6 * NTreeCool;
+    Eps_HeII.ydata = Gamma_log1z + 6 * NTreeCool;
 
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
@@ -195,24 +197,24 @@ init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar)
 
     /* Load the TREECOOL into Gamma_HI->ydata, and initialise the interpolators*/
     load_treecool(TreeCoolFile);
-
 }
-
 
 /*Get photo ionization rate for neutral Hydrogen*/
 static double
 get_photo_rate(double redshift, struct itp_type * Gamma_tab)
 {
-        double log1z = log10(1+redshift);
-        double photo_rate;
-        if (log1z <= GrayOpac_zz[NTreeCool - 1])
-            photo_rate = Gamma_tab->ydata[NTreeCool - 1];
-        else if (log1z >= Gamma_tab->ydata[0])
-            photo_rate = 0;
-        else {
-            photo_rate = gsl_interp_eval(Gamma_tab->intp, Gamma_log1z, Gamma_tab->ydata, log1z, Gamma_tab->acc);
-        }
-        return photo_rate * CoolingParams.PhotoIonizeFactor;
+    if(!CoolingParams.PhotoIonizationOn)
+        return 0;
+    double log1z = log10(1+redshift);
+    double photo_rate;
+    if (log1z >= Gamma_log1z[NTreeCool - 1])
+        photo_rate = Gamma_tab->ydata[NTreeCool - 1];
+    else if (log1z < Gamma_log1z[0])
+        photo_rate = 0;
+    else {
+        photo_rate = gsl_interp_eval(Gamma_tab->intp, Gamma_log1z, Gamma_tab->ydata, log1z, Gamma_tab->acc);
+    }
+    return photo_rate * CoolingParams.PhotoIonizeFactor;
 }
 
 /*Calculate the critical self-shielding density. Rahmati 2012 eq. 13.
@@ -556,11 +558,13 @@ scipy_optimize_fixed_point(double nh, double ienergy, double helium, double reds
         double relerr = pp;
         if(ne0 != 0)
             relerr = fabs(pp/ne0 - 1);
-        if (relerr < ITERCONV)
-            return pp;
         ne0 = pp;
+        if (relerr < ITERCONV)
+            break;
     }
-    endrun(1, "Ionization rate network failed to converge for %g %g %g %g: last ne = %g\n", nh, ienergy, helium, redshift, ne0);
+    if (fabs(ne_internal(nh, get_temp_internal(ne0/nh, ienergy, helium), ne0, helium, redshift) - ne0) > ITERCONV)
+            endrun(1, "Ionization rate network failed to converge for %g %g %g %g: last ne = %g\n", nh, ienergy, helium, redshift, ne0);
+    return ne0;
 }
 
 /*Solve the system of equations for photo-ionization equilibrium,
