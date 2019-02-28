@@ -62,38 +62,6 @@
 /* 1 eV in ergs*/
 #define eVinergs 1.60218e-12
 
-enum RecombType {
-    Cen92 = 0, // Recombination from Cen 92
-    Verner96 = 1, //Verner 96 recombination rates. Basically accurate, used by Sherwood and Nyx by default.
-    Badnell = 2, //Even more up to date rates from Badnell 2006, cloudy's current default.
-};
-
-enum CoolingType {
-    KWH92 = 0, //Cooling from KWH 92
-    Enzo2Nyx = 1, //Updated cooling rates from Avery Meiksin, used in Nyx and Enzo 2.
-    Sherwood =2 ,  //Same as KWH92, but with an improved large temperature correction factor.
-};
-
-
-struct cooling_params
-{
-    /*Default: Verner96*/
-    enum RecombType recomb;
-    /*Default: Sherwood*/
-    enum CoolingType cooling;
-
-    /*Enable a self-shielding cooling and ionization correction from Rahmati & Schaye 2013. Default: on.*/
-    int SelfShieldingOn;
-    /*Global baryon fraction, Omega_b/Omega_cdm, used for the self-shielding formula.*/
-    double fBar;
-
-    /*Normalization factor to apply to the UVB: Default: 1.*/
-    double PhotoIonizeFactor;
-
-    /*CMB temperature in K*/
-    double CMBTemperature;
-};
-
 static struct cooling_params CoolingParams;
 
 static gsl_interp * GrayOpac;
@@ -314,7 +282,7 @@ _Verner96Fit(double temp, double aa, double bb, double temp0, double temp1)
 }
 
 /*Recombination rate for H+, ionized hydrogen, in cm^3/s. Temp in K.*/
-static double
+double
 recomb_alphaHp(double temp)
 {
     switch(CoolingParams.recomb)
@@ -509,7 +477,8 @@ nHe0_internal(double nh, double temp, double ne, double redshift)
 }
 
 /* The doubly ionised helium number density, divided by the helium number fraction. Eq. 37 of KWH.*/
-static double nHepp_internal(double nh, double temp, double ne, double redshift)
+static double
+nHepp_internal(double nh, double temp, double ne, double redshift)
 {
     double photofac = self_shield_corr(nh, temp, redshift);
     double GammaHep = recomb_GammaeHep(temp) + get_photo_rate(redshift, &Gamma_HeII)/ne*photofac;

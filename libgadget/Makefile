@@ -58,6 +58,7 @@ TESTED = hci \
 	timebinmgr \
 	neutrinos_lra \
 	omega_nu_single \
+	cooling_rates \
 	exchange
 
 MPI_TESTED = exchange
