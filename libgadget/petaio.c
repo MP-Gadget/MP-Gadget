@@ -770,12 +770,6 @@ static void STInternalEnergy(int i, float * out) {
     SPHP(i).Entropy = *out;
 }
 
-static void GTJUV(int i, float * out) {
-    struct UVBG uvbg;
-    GetParticleUVBG(i, &uvbg);
-    *out = uvbg.J_UV;
-}
-
 static int order_by_type(const void *a, const void *b)
 {
     const struct IOTableEntry * pa  = (const struct IOTableEntry *) a;
@@ -820,7 +814,6 @@ static void register_io_blocks() {
     /* Cooling */
     IO_REG(ElectronAbundance,       "f4", 1, 0);
     IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0);
-    IO_REG_WRONLY(JUV,   "f4", 1, 0);
 
     /* SF */
     IO_REG_WRONLY(StarFormationRate, "f4", 1, 0);
