@@ -323,8 +323,8 @@ cooling_direct(int i) {
     }
 #endif
 
-    struct UVBG uvbg;
-    GetParticleUVBG(i, &uvbg);
+    double redshift = 1./All.Time - 1;
+    struct UVBG uvbg = get_particle_UVBG(redshift, P[i].Pos);
     unew = DoCooling(unew, SPHP(i).Density * All.cf.a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity);
 
     SPHP(i).Ne = ne;
@@ -401,8 +401,8 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
 #ifdef BLACK_HOLES
     if(SPHP(i).Injected_BH_Energy > 0)
     {
-        struct UVBG uvbg;
-        GetParticleUVBG(i, &uvbg);
+        double redshift = 1./All.Time - 1;
+        struct UVBG uvbg = get_particle_UVBG(redshift, P[i].Pos);
         egycurrent += SPHP(i).Injected_BH_Energy / P[i].Mass;
 
         const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
@@ -535,7 +535,6 @@ double get_starformation_rate(int i) {
 static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyeff) {
     double rateOfSF, tsfr;
     double factorEVP, egyhot, ne, tcool, y, x, cloudmass;
-    struct UVBG uvbg;
 
     if(!All.StarformationOn || !sfreff_on_eeqos(i)) {
         /* this shall not happen but let's put in some safe
@@ -561,7 +560,8 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
     if(tsfr < dtime)
         tsfr = dtime;
 
-    GetParticleUVBG(i, &uvbg);
+    double redshift = 1./All.Time - 1;
+    struct UVBG uvbg = get_particle_UVBG(redshift, P[i].Pos);
 
     factorEVP = pow(SPHP(i).Density * All.cf.a3inv / All.PhysDensThresh, -0.8) * All.FactorEVP;
 
@@ -658,10 +658,9 @@ void init_cooling_and_star_formation(void)
 
         ne = 1.0;
 
-        SetZeroIonization();
-        struct UVBG uvbg;
-        GetGlobalUVBG(&uvbg);
-        /*XXX: We set the threshold without metal cooling;
+        struct UVBG uvbg = {0};
+        /*XXX: We set the threshold without metal cooling
+         * and with zero ionization.
          * It probably make sense to set the parameters with
          * a metalicity dependence.
          * */
