@@ -71,15 +71,22 @@ struct cooling_params
  * Defaults: TCMB 2.7255, recomb = Verner96, cooling = Sherwood.*/
 void init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar);
 
+/*Sets the global variable corresponding to the uniform part of the UV background.*/
+void set_global_uvbg(double redshift);
+
 /*Interpolates the ultra-violet background tables to the desired redshift and returns a cooling rate table*/
 struct UVBG get_global_UVBG(double redshift);
 
 /*Reads and initialises the tables for a spatially varying redshift of reionization*/
 void init_uvf_table(const char * UVFluctuationFile, double UVRedshiftThreshold);
 
+/* Read a big array from filename/dataset into an array, allocating memory in buffer.
+ * which is returned. Nread argument is set equal to number of elements read.*/
+double * read_big_array(const char * filename, char * dataset, int * Nread);
+
 /* Change the ultra-violet background table according to a pre-computed table of UV fluctuations.
  * This zeros the UVBG if this particular particle has not reionized yet*/
-struct UVBG get_particle_UVBG(double redshift, double * Pos, const struct UVBG * GlobalUVBG);
+struct UVBG get_particle_UVBG(double redshift, double * Pos);
 
 /*Solve the system of equations for photo-ionization equilibrium,
   starting with ne = nH and continuing until convergence.

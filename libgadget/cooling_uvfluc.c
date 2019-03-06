@@ -5,6 +5,7 @@
 
 #include <mpi.h>
 #include <string.h>
+#include <math.h>
 #include "cooling.h"
 #include "bigfile.h"
 #include "utils/mymalloc.h"
@@ -23,10 +24,23 @@ static struct {
     int N_Zbins;
 } UVF;
 
+/*Global UVbackground stored to avoid extra interpolations.*/
+struct UVBG GlobalUVBG = {0};
+double GlobalUVRed = -1;
+
+/*Sets the global variable corresponding to the uniform part of the UV background.*/
+void
+set_global_uvbg(double redshift)
+{
+    GlobalUVBG = get_global_UVBG(redshift);
+    GlobalUVRed = redshift;
+}
+
 /* Read a big array from filename/dataset into an array, allocating memory in buffer.
  * which is returned. Nread argument is set equal to number of elements read.*/
-static double *
-read_big_array(const char * filename, char * dataset, int * Nread) {
+double *
+read_big_array(const char * filename, char * dataset, int * Nread)
+{
     int N;
     void * buffer=NULL;
     int ThisTask;
@@ -150,8 +164,10 @@ static double GetReionizedFraction(double time) {
  * Otherwise returns the global UVBG passed in.
  *
  * */
-struct UVBG get_particle_UVBG(double redshift, double * Pos, const struct UVBG * GlobalUVBG)
+struct UVBG get_particle_UVBG(double redshift, double * Pos)
 {
+    if(fabs(redshift - GlobalUVRed) > 1e-4)
+        endrun(1, "Called with redshift %g not %g expected by the UVBG cache.\n", redshift, GlobalUVRed);
     struct UVBG uvbg = {0};
     /* if a threshold is set, disable UV bg above that redshift */
     if(UVF.UVRedshiftThreshold >= 0.0 && redshift > UVF.UVRedshiftThreshold) {
