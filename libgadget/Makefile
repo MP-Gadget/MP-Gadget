@@ -87,7 +87,7 @@ GADGET_OBJS =  \
 	 blackhole.o timebinmgr.o \
 	 run.o drift.o stats.o \
 	 timestep.o init.o checkpoint.o \
-	 sfr_eff.o cooling.o cooling_rates.o winds.o \
+	 sfr_eff.o cooling.o cooling_rates.o cooling_uvfluc.o winds.o \
 	 density.o \
 	 treewalk.o cosmology.o \
 	 gravshort-tree.o gravshort-pair.o hydra.o  timefac.o \

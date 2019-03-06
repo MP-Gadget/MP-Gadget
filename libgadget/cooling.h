@@ -67,6 +67,13 @@ void init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar
 /*Interpolates the ultra-violet background tables to the desired redshift and returns a cooling rate table*/
 struct UVBG get_global_UVBG(double redshift);
 
+/*Reads and initialises the tables for a spatially varying redshift of reionization*/
+void init_uvf_table(const char * UVFluctuationFile, double UVRedshiftThreshold);
+
+/* Change the ultra-violet background table according to a pre-computed table of UV fluctuations.
+ * This zeros the UVBG if this particular particle has not reionized yet*/
+struct UVBG get_particle_UVBG(double redshift, double * Pos, const struct UVBG * GlobalUVBG);
+
 /*Solve the system of equations for photo-ionization equilibrium,
   starting with ne = nH and continuing until convergence.
   density is gas density in protons/cm^3
