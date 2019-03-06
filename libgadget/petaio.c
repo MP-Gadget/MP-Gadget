@@ -749,15 +749,11 @@ SIMPLE_PROPERTY(BlackholeJumpToMinPot, BHP(i).JumpToMinPot, int, 1)
 /*This is only used if FoF is enabled*/
 SIMPLE_GETTER(GTGroupID, P[i].GrNr, uint32_t, 1)
 static void GTNeutralHydrogenFraction(int i, float * out) {
-    double ne, nh0, nHeII;
-    ne = SPHP(i).Ne;
-    struct UVBG uvbg;
-    GetParticleUVBG(i, &uvbg);
-    AbundanceRatios(DMAX(All.MinEgySpec,
-                SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity *
-                    All.cf.a3inv,
-                    GAMMA_MINUS1)),
-            SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, &nh0, &nHeII);
+    double redshift = 1./All.Time - 1;
+    struct UVBG uvbg = get_particle_UVBG(redshift, P[i].Pos);
+    double InternalEnergy = DMAX(All.MinEgySpec, SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+    double physdens = SPHP(i).Density * All.cf.a3inv;
+    double nh0 = get_neutral_fraction(physdens, InternalEnergy, 1 - HYDROGEN_MASSFRAC, redshift, &uvbg);
     *out = nh0;
 }
 
