@@ -58,6 +58,13 @@ struct cooling_params
 
     /*CMB temperature in K*/
     double CMBTemperature;
+
+    /*Parameters for the 'extra heating' Helium photoionization model.*/
+    int HeliumHeatOn;
+    double HeliumHeatThresh;
+    double HeliumHeatAmp;
+    double HeliumHeatExp;
+    double rho_crit_baryon;
 };
 
 /*Initialize the cooling rate module. This builds a lot of interpolation tables.

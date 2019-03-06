@@ -814,6 +814,26 @@ cool_InverseCompton(double temp, double redshift)
         return 4 * THOMPSON * RAD_CONST / (ELECTRONMASS * LIGHTCGS ) * pow(tcmb_red, 4) * BOLTZMANN * (temp - tcmb_red);
 }
 
+/* This function modifies the photoheating rates by
+ * a density dependent factor.
+ * This is a hack to attempt to account for helium reionisation,
+ * especially for the Lyman alpha forest.
+ * It is not a good model for helium reionisation, and needs to be replaced!
+ * Takes hydrogen number density in cgs units.
+ */
+static double
+cool_he_reion_factor(double nHcgs, double helium, double redshift)
+{
+  if(!CoolingParams.HeliumHeatOn)
+      return 1.;
+  const double rho = PROTONMASS * nHcgs / (1 - helium);
+  double overden = rho/(CoolingParams.rho_crit_baryon * pow(1+redshift,3.0));
+  if (overden >= CoolingParams.HeliumHeatThresh)
+      overden = CoolingParams.HeliumHeatThresh;
+  return CoolingParams.HeliumHeatAmp*pow(overden, CoolingParams.HeliumHeatExp);
+}
+
+
 /*Get the total (photo) heating and cooling rate for a given temperature (internal energy) and density.
   density is total gas density in protons/cm^3
   Internal energy is in J/kg == 10^-10 ergs/g.
@@ -841,6 +861,8 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
     double Lambda = LambdaCollis + LambdaRecomb + LambdaFF + LambdaCmptn;
 
     double Heat = nH0 * uvbg->epsH0 + nHe0 * uvbg->epsHe0 + nHep * uvbg->epsHep;
+
+    Heat *= cool_he_reion_factor(density, helium, redshift);
 
     return Heat - Lambda;
 }
