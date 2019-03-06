@@ -1,5 +1,8 @@
 #ifndef _COOLING_H_
 #define _COOLING_H_
+
+/* Ultra-violet background structure.
+ * Can be changed on a particle-by-particle basis*/
 struct UVBG {
     double J_UV;
     double gJH0;
@@ -8,7 +11,7 @@ struct UVBG {
     double epsH0;
     double epsHep;
     double epsHe0;
-} ;
+};
 
 void GetParticleUVBG(int i, struct UVBG * uvbg);
 void GetGlobalUVBG(struct UVBG * uvbg);
@@ -61,16 +64,19 @@ struct cooling_params
  * Defaults: TCMB 2.7255, recomb = Verner96, cooling = Sherwood.*/
 void init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar);
 
+/*Interpolates the ultra-violet background tables to the desired redshift and returns a cooling rate table*/
+struct UVBG get_global_UVBG(double redshift);
+
 /*Solve the system of equations for photo-ionization equilibrium,
   starting with ne = nH and continuing until convergence.
   density is gas density in protons/cm^3
   Internal energy is in J/kg == 10^-10 ergs/g.
   helium is a mass fraction.
 */
-double get_equilib_ne(double density, double ienergy, double helium, double redshift);
+double get_equilib_ne(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg);
 
 /*Same as above, but get electrons per proton.*/
-double get_ne_by_nh(double density, double ienergy, double helium, double redshift);
+double get_ne_by_nh(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg);
 
 /*Get the total (photo) heating and cooling rate for a given temperature (internal energy) and density.
   density is total gas density in protons/cm^3
@@ -78,18 +84,18 @@ double get_ne_by_nh(double density, double ienergy, double helium, double redshi
   helium is a mass fraction, 1 - HYDROGEN_MASSFRAC = 0.24 for primordial gas.
   Returns heating - cooling.
  */
-double get_heatingcooling_rate(double density, double ienergy, double helium, double redshift);
+double get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg);
 
 /*Get the equilibrium temperature at given internal energy.
     density is total gas density in protons/cm^3
     Internal energy is in J/kg == 10^-10 ergs/g.
     helium is a mass fraction*/
-double get_temp(double density, double ienergy, double helium, double redshift);
+double get_temp(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg);
 
 /*Get the neutral hydrogen fraction at a given temperature and density.
 density is gas density in protons/cm^3
 Internal energy is in J/kg == 10^-10 ergs/g.
 helium is a mass fraction.*/
-double get_neutral_fraction(double density, double ienergy, double helium, double redshift);
+double get_neutral_fraction(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg);
 
 #endif

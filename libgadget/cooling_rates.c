@@ -21,6 +21,7 @@
         get_temp() - gets the temperature from the density and internal energy.
         get_heatingcooling_rate() - gets the total (net) heating and cooling rate from density and internal energy.
         get_neutral_fraction() - gets the neutral fraction from the rate network given density and internal energy.
+        get_global_UVBG() - Interpolates the TreeCool table to a desired redshift and returns a struct UVBG.
     Two useful helper functions:
         get_equilib_ne() - gets the equilibrium electron density.
         get_ne_by_nh() - gets the above, divided by the hydrogen density (Gadget reports this as ElectronAbundance).
@@ -195,6 +196,7 @@ init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar)
     gsl_interp_init(GrayOpac,GrayOpac_zz,GrayOpac_ydata, NGRAY);
     GrayOpac_acc = gsl_interp_accel_alloc();
 
+    message(0, "Using uniform UVB from file %s\n", TreeCoolFile);
     /* Load the TREECOOL into Gamma_HI->ydata, and initialise the interpolators*/
     load_treecool(TreeCoolFile);
 }
@@ -217,6 +219,25 @@ get_photo_rate(double redshift, struct itp_type * Gamma_tab)
     return photo_rate * CoolingParams.PhotoIonizeFactor;
 }
 
+/* This initializes a global UVBG by interpolating the redshift tables,
+ * to which the UV fluctuations can be applied*/
+struct UVBG get_global_UVBG(double redshift)
+{
+    struct UVBG GlobalUVBG = {0};
+
+    if(!CoolingParams.PhotoIonizationOn)
+        return GlobalUVBG;
+    GlobalUVBG.gJH0 = get_photo_rate(redshift, &Gamma_HI);
+    GlobalUVBG.gJHe0 = get_photo_rate(redshift, &Gamma_HeI);
+    GlobalUVBG.gJHep = get_photo_rate(redshift, &Gamma_HeII);
+
+    GlobalUVBG.epsH0 = get_photo_rate(redshift, &Eps_HI);
+    GlobalUVBG.epsHe0 = get_photo_rate(redshift, &Eps_HI);
+    GlobalUVBG.epsHep = get_photo_rate(redshift, &Eps_HI);
+
+    return GlobalUVBG;
+}
+
 /*Calculate the critical self-shielding density. Rahmati 2012 eq. 13.
   gray_opac is a parameter of the UVB used.
   gray_opac is in cm^2 (2.49e-18 is HM01 at z=3)
@@ -225,10 +246,10 @@ get_photo_rate(double redshift, struct itp_type * Gamma_tab)
   Returns density in atoms/cm^3"""
 */
 static double
-self_shield_dens(double redshift, double temp)
+self_shield_dens(double redshift, double temp, const struct UVBG * uvbg)
 {
     double T4 = temp/1e4;
-    double G12 = get_photo_rate(redshift, &Gamma_HI)/1e-12;
+    double G12 = uvbg->gJH0/1e-12;
     double greyopac;
     if (redshift <= GrayOpac_zz[0])
         greyopac = GrayOpac_ydata[0];
@@ -247,11 +268,11 @@ self_shield_dens(double redshift, double temp)
   The coefficients are their best-fit from appendix A."""
 */
 static double
-self_shield_corr(double nh, double temp, double redshift)
+self_shield_corr(double nh, double temp, double redshift, const struct UVBG * uvbg)
 {
     if(!CoolingParams.SelfShieldingOn)
         return 1;
-    double nSSh = 1.003*self_shield_dens(redshift, temp);
+    double nSSh = 1.003*self_shield_dens(redshift, temp, uvbg);
     return 0.98*pow(1+pow(nh/nSSh,1.64),-2.28)+0.02*pow(1+nh/nSSh, -0.84);
 }
 
@@ -441,59 +462,59 @@ recomb_GammaeHep(double temp)
 
 /*The neutral hydrogen number density. Eq. 33 of KWH.*/
 static double
-nH0_internal(double nh, double temp, double ne, double redshift)
+nH0_internal(double nh, double temp, double ne, double redshift, const struct UVBG * uvbg)
 {
     double alphaHp = recomb_alphaHp(temp);
     double GammaeH0 = recomb_GammaeH0(temp);
-    double photorate = get_photo_rate(redshift, &Gamma_HI)/ne * self_shield_corr(nh, temp, redshift);
+    double photorate = uvbg->gJH0/ne * self_shield_corr(nh, temp, redshift, uvbg);
     return nh * alphaHp/ (alphaHp + GammaeH0 + photorate);
 }
 
 /*The ionised hydrogen number density. Eq. 34 of KWH.*/
 static double
-nHp_internal(double nh, double temp, double ne, double redshift)
+nHp_internal(double nh, double temp, double ne, double redshift, const struct UVBG * uvbg)
 {
-    return nh - nH0_internal(nh, temp, ne, redshift);
+    return nh - nH0_internal(nh, temp, ne, redshift, uvbg);
 }
 
 /*The ionised helium number density, divided by the helium number fraction. Eq. 35 of KWH.*/
 static double
-nHep_internal(double nh, double temp, double ne, double redshift)
+nHep_internal(double nh, double temp, double ne, double redshift, const struct UVBG * uvbg)
 {
     double alphaHep = recomb_alphaHep(temp) + recomb_alphad(temp);
     double alphaHepp = recomb_alphaHepp(temp);
-    double photofac = self_shield_corr(nh, temp, redshift);
-    double GammaHe0 = recomb_GammaeHe0(temp) + get_photo_rate(redshift, &Gamma_HeI)/ne*photofac;
-    double GammaHep = recomb_GammaeHep(temp) + get_photo_rate(redshift, &Gamma_HeII)/ne*photofac;
+    double photofac = self_shield_corr(nh, temp, redshift, uvbg);
+    double GammaHe0 = recomb_GammaeHe0(temp) + uvbg->gJHe0/ne*photofac;
+    double GammaHep = recomb_GammaeHep(temp) + uvbg->gJHep/ne*photofac;
     return nh / (1 + alphaHep / GammaHe0 + GammaHep/alphaHepp);
 }
 
 /*The neutral helium number density, divided by the helium number fraction. Eq. 36 of KWH.*/
 static double
-nHe0_internal(double nh, double temp, double ne, double redshift)
+nHe0_internal(double nh, double temp, double ne, double redshift, const struct UVBG * uvbg)
 {
     double alphaHep = recomb_alphaHep(temp) + recomb_alphad(temp);
-    double photofac = self_shield_corr(nh, temp, redshift);
-    double GammaHe0 = recomb_GammaeHe0(temp) + get_photo_rate(redshift, &Gamma_HeI)/ne*photofac;
-    return nHep_internal(nh, temp, ne, redshift) * alphaHep / GammaHe0;
+    double photofac = self_shield_corr(nh, temp, redshift, uvbg);
+    double GammaHe0 = recomb_GammaeHe0(temp) + uvbg->gJHep/ne*photofac;
+    return nHep_internal(nh, temp, ne, redshift, uvbg) * alphaHep / GammaHe0;
 }
 
 /* The doubly ionised helium number density, divided by the helium number fraction. Eq. 37 of KWH.*/
 static double
-nHepp_internal(double nh, double temp, double ne, double redshift)
+nHepp_internal(double nh, double temp, double ne, double redshift, const struct UVBG * uvbg)
 {
-    double photofac = self_shield_corr(nh, temp, redshift);
-    double GammaHep = recomb_GammaeHep(temp) + get_photo_rate(redshift, &Gamma_HeII)/ne*photofac;
+    double photofac = self_shield_corr(nh, temp, redshift, uvbg);
+    double GammaHep = recomb_GammaeHep(temp) + uvbg->gJHep/ne*photofac;
     double alphaHepp = recomb_alphaHepp(temp);
-    return nHep_internal(nh, temp, ne, redshift) * GammaHep / alphaHepp;
+    return nHep_internal(nh, temp, ne, redshift, uvbg) * GammaHep / alphaHepp;
 }
 
 /*The electron number density. Eq. 38 of KWH.*/
 static double
-ne_internal(double nh, double temp, double ne, double helium, double redshift)
+ne_internal(double nh, double temp, double ne, double helium, double redshift, const struct UVBG * uvbg)
 {
     double yy = helium / 4 / (1 - helium);
-    return nHp_internal(nh, temp, ne, redshift) + yy * nHep_internal(nh, temp, ne, redshift) + 2* yy * nHepp_internal(nh, temp, ne, redshift);
+    return nHp_internal(nh, temp, ne, redshift, uvbg) + yy * nHep_internal(nh, temp, ne, redshift, uvbg) + 2* yy * nHepp_internal(nh, temp, ne, redshift, uvbg);
 }
 
 /*Compute temperature (in K) from internal energy and electron density.
@@ -542,14 +563,14 @@ get_temp_internal(double nebynh, double ienergy, double helium)
     This routine is ported from scipy.optimize.fixed_point.
 */
 static double
-scipy_optimize_fixed_point(double nh, double ienergy, double helium, double redshift)
+scipy_optimize_fixed_point(double nh, double ienergy, double helium, double redshift, const struct UVBG * uvbg)
 {
     int i;
     double ne0 = nh;
     for(i = 0; i < MAXITER; i++)
     {
-        double ne1 = ne_internal(nh, get_temp_internal(ne0/nh, ienergy, helium), ne0, helium, redshift);
-        double ne2 = ne_internal(nh, get_temp_internal(ne1/nh, ienergy, helium), ne1, helium, redshift);
+        double ne1 = ne_internal(nh, get_temp_internal(ne0/nh, ienergy, helium), ne0, helium, redshift, uvbg);
+        double ne2 = ne_internal(nh, get_temp_internal(ne1/nh, ienergy, helium), ne1, helium, redshift, uvbg);
         double d = ne2 - 2.0 * ne1 + ne0;
         double pp = ne2;
         /*This is del^2*/
@@ -562,7 +583,7 @@ scipy_optimize_fixed_point(double nh, double ienergy, double helium, double reds
         if (relerr < ITERCONV)
             break;
     }
-    if (fabs(ne_internal(nh, get_temp_internal(ne0/nh, ienergy, helium), ne0, helium, redshift) - ne0) > ITERCONV)
+    if (fabs(ne_internal(nh, get_temp_internal(ne0/nh, ienergy, helium), ne0, helium, redshift, uvbg) - ne0) > ITERCONV)
             endrun(1, "Ionization rate network failed to converge for %g %g %g %g: last ne = %g\n", nh, ienergy, helium, redshift, ne0);
     return ne0;
 }
@@ -574,18 +595,18 @@ scipy_optimize_fixed_point(double nh, double ienergy, double helium, double reds
   helium is a mass fraction.
 */
 double
-get_equilib_ne(double density, double ienergy, double helium, double redshift)
+get_equilib_ne(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg)
 {
     /*Get hydrogen number density*/
     double nh = density * (1-helium);
-    return scipy_optimize_fixed_point(nh, ienergy, helium, redshift);
+    return scipy_optimize_fixed_point(nh, ienergy, helium, redshift, uvbg);
 }
 
 /*Same as above, but get electrons per proton.*/
 double
-get_ne_by_nh(double density, double ienergy, double helium, double redshift)
+get_ne_by_nh(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg)
 {
-    return get_equilib_ne(density, ienergy, helium, redshift)/(density*(1-helium));
+    return get_equilib_ne(density, ienergy, helium, redshift, uvbg)/(density*(1-helium));
 }
 
 
@@ -800,16 +821,16 @@ cool_InverseCompton(double temp, double redshift)
   Returns heating - cooling.
  */
 double
-get_heatingcooling_rate(double density, double ienergy, double helium, double redshift)
+get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg)
 {
-    double ne = get_equilib_ne(density, ienergy, helium, redshift);
+    double ne = get_equilib_ne(density, ienergy, helium, redshift, uvbg);
     double nh = density * (1 - helium);
     double temp = get_temp_internal(ne/nh, ienergy, helium);
-    double nH0 = nH0_internal(nh, temp, ne, redshift);
-    double nHe0 = nHe0_internal(nh, temp, ne, redshift);
-    double nHp = nHp_internal(nh, temp, ne, redshift);
-    double nHep = nHep_internal(nh, temp, ne, redshift);
-    double nHepp = nHepp_internal(nh, temp, ne, redshift);
+    double nH0 = nH0_internal(nh, temp, ne, redshift, uvbg);
+    double nHe0 = nHe0_internal(nh, temp, ne, redshift, uvbg);
+    double nHp = nHp_internal(nh, temp, ne, redshift, uvbg);
+    double nHep = nHep_internal(nh, temp, ne, redshift, uvbg);
+    double nHepp = nHepp_internal(nh, temp, ne, redshift, uvbg);
     /*Collisional ionization and excitation rate*/
     double LambdaCollis = ne * (cool_CollisionalH0(temp) * nH0 + cool_CollisionalHe0(temp) * nHe0 + cool_CollisionalHeP(temp) * nHep);
     double LambdaRecomb = ne * (cool_RecombHp(temp) * nHp + cool_RecombHeP(temp) * nHep + cool_RecombHePP(temp) * nHepp);
@@ -819,7 +840,7 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
     /*Total cooling rate*/
     double Lambda = LambdaCollis + LambdaRecomb + LambdaFF + LambdaCmptn;
 
-    double Heat = nH0 * get_photo_rate(redshift, &Eps_HI) + nHe0 * get_photo_rate(redshift, &Eps_HeI) + nHep * get_photo_rate(redshift, &Eps_HeII);
+    double Heat = nH0 * uvbg->epsH0 + nHe0 * uvbg->epsHe0 + nHep * uvbg->epsHep;
 
     return Heat - Lambda;
 }
@@ -829,9 +850,9 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
     Internal energy is in J/kg == 10^-10 ergs/g.
     helium is a mass fraction*/
 double
-get_temp(double density, double ienergy, double helium, double redshift)
+get_temp(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg)
 {
-    double ne = get_equilib_ne(density, ienergy, helium, redshift);
+    double ne = get_equilib_ne(density, ienergy, helium, redshift, uvbg);
     double nh = density * (1 - helium);
     return get_temp_internal(ne/nh, ienergy, helium);
 }
@@ -841,10 +862,10 @@ density is gas density in protons/cm^3
 Internal energy is in J/kg == 10^-10 ergs/g.
 helium is a mass fraction.*/
 double
-get_neutral_fraction(double density, double ienergy, double helium, double redshift)
+get_neutral_fraction(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg)
 {
-    double ne = get_equilib_ne(density, ienergy, helium, redshift);
+    double ne = get_equilib_ne(density, ienergy, helium, redshift, uvbg);
     double nh = density * (1-helium);
     double temp = get_temp_internal(ne/nh, ienergy, helium);
-    return nH0_internal(nh, temp, ne, redshift) / nh;
+    return nH0_internal(nh, temp, ne, redshift, uvbg) / nh;
 }
