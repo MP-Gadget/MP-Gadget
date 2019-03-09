@@ -68,36 +68,37 @@ static void test_rate_network(void ** state)
     init_cooling_rates(TreeCool, coolpar);
 
     //Complete ionisation at low density
-    assert_true( fabs(get_equilib_ne(1e-6, 200., 0.24, 2, &uvbg) / (1e-6*0.76) - (1 + 2* 0.24/(1-0.24)/4)) < 3e-5);
-    assert_true( fabs(get_equilib_ne(1e-6, 200., 0.12, 2, &uvbg) / (1e-6*0.88) - (1 + 2* 0.12/(1-0.12)/4)) < 3e-5);
-    assert_true( fabs(get_equilib_ne(1e-5, 200., 0.24, 2, &uvbg) / (1e-5*0.76) - (1 + 2* 0.24/(1-0.24)/4)) < 3e-4);
-    assert_true( fabs(get_equilib_ne(1e-4, 200., 0.24, 2, &uvbg) / (1e-4*0.76) - (1 + 2* 0.24/(1-0.24)/4)) < 2e-3);
+    assert_true( fabs(get_equilib_ne(1e-6, 200.*1e10, 0.24, 2, &uvbg, 1e-5) / (1e-6*0.76) - (1 + 2* 0.24/(1-0.24)/4)) < 3e-5);
+    assert_true( fabs(get_equilib_ne(1e-6, 200.*1e10, 0.12, 2, &uvbg, 1e-5) / (1e-6*0.88) - (1 + 2* 0.12/(1-0.12)/4)) < 3e-5);
+    assert_true( fabs(get_equilib_ne(1e-5, 200.*1e10, 0.24, 2, &uvbg, 1e-5) / (1e-5*0.76) - (1 + 2* 0.24/(1-0.24)/4)) < 3e-4);
+    assert_true( fabs(get_equilib_ne(1e-4, 200.*1e10, 0.24, 2, &uvbg, 1e-5) / (1e-4*0.76) - (1 + 2* 0.24/(1-0.24)/4)) < 2e-3);
 
-    double temp = get_temp(1e-4, 200.,0.24, 2, &uvbg);
+    double ne = 1e-5;
+    double temp = get_temp(1e-4, 200.*1e10,0.24, 2, &uvbg, &ne);
     assert_true(9500 < temp);
     assert_true(temp < 9510);
     //Roughly prop to internal energy when ionised
-    assert_true(fabs(get_temp(1e-4, 400.,0.24, 2, &uvbg) / get_temp(1e-4, 200.,0.24, 2, &uvbg) - 2.) < 1e-3);
+    assert_true(fabs(get_temp(1e-4, 400.*1e10,0.24, 2, &uvbg, &ne) / get_temp(1e-4, 200.*1e10,0.24, 2, &uvbg, &ne) - 2.) < 1e-3);
 
-    assert_true(fabs(get_temp(1, 200.,0.24, 2, &uvbg) - 14700) < 200);
+    assert_true(fabs(get_temp(1, 200.*1e10,0.24, 2, &uvbg, &ne) - 14700) < 200);
 
     //Neutral fraction prop to density.
     double dens[3] = {1e-4, 1e-5, 1e-6};
     int i;
     for(i = 0; i < 3; i++) {
-        assert_true(fabs(get_neutral_fraction(dens[i], 200.,0.24, 2, &uvbg) / dens[i] - 0.3113) < 1e-3);
+        assert_true(fabs(get_neutral_fraction(dens[i], 200.*1e10,0.24, 2, &uvbg, &ne) / dens[i] - 0.3113) < 1e-3);
     }
     //Neutral (self-shielded) at high density:
-    assert_true(get_neutral_fraction(1, 100.,0.24, 2, &uvbg) > 0.95);
-    assert_true(0.75 > get_neutral_fraction(0.1, 100.,0.24, 2, &uvbg));
-    assert_true(get_neutral_fraction(0.1, 100.,0.24, 2, &uvbg) > 0.735);
+    assert_true(get_neutral_fraction(1, 100.,0.24, 2, &uvbg, &ne) > 0.95);
+    assert_true(0.75 > get_neutral_fraction(0.1, 100.*1e10,0.24, 2, &uvbg, &ne));
+    assert_true(get_neutral_fraction(0.1, 100.*1e10,0.24, 2, &uvbg, &ne) > 0.735);
 
     //Check self-shielding is working.
     coolpar.SelfShieldingOn = 0;
     init_cooling_rates(TreeCool, coolpar);
 
-    assert_true( get_neutral_fraction(1, 100.,0.24, 2, &uvbg) < 0.25);
-    assert_true( get_neutral_fraction(0.1, 100.,0.24, 2, &uvbg) <0.05);
+    assert_true( get_neutral_fraction(1, 100.*1e10,0.24, 2, &uvbg, &ne) < 0.25);
+    assert_true( get_neutral_fraction(0.1, 100.*1e10,0.24, 2, &uvbg, &ne) <0.05);
 }
 
 int main(void) {
