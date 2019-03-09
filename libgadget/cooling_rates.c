@@ -49,7 +49,7 @@
         treecool_file - File to read a UV background from. Same format as Gadget has always used.
 */
 
-#include "cooling.h"
+#include "cooling_rates.h"
 
 #include <math.h>
 #include <mpi.h>

@@ -12,11 +12,6 @@ struct UVBG {
     double epsHe0;
 };
 
-double GetCoolingTime(double u_old, double rho, struct UVBG * uvbg,  double *ne_guess, double Z);
-double DoCooling(double u_old, double rho, double dt, struct UVBG * uvbg, double *ne_guess, double Z);
-
-void   InitCool(void);
-
 /* Definitions for the cooling rates code*/
 enum RecombType {
     Cen92 = 0, // Recombination from Cen 92
@@ -59,9 +54,15 @@ struct cooling_params
     double rho_crit_baryon;
 };
 
-/*Initialize the cooling rate module. This builds a lot of interpolation tables.
- * Defaults: TCMB 2.7255, recomb = Verner96, cooling = Sherwood.*/
-void init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar);
+/*Initialise the cooling module and subsidiaries.*/
+void InitCool(void);
+
+/* Get the cooling time for a particle from the internal energy and density, specifying a UVB appropriately.
+ * Sets ne_guess to the equilibrium electron density.*/
+double GetCoolingTime(double u_old, double rho, struct UVBG * uvbg,  double *ne_guess, double Z);
+
+/*Get the new internal energy per unit mass. ne_guess is set to the new internal equilibrium electron density*/
+double DoCooling(double u_old, double rho, double dt, struct UVBG * uvbg, double *ne_guess, double Z);
 
 /*Sets the global variable corresponding to the uniform part of the UV background.*/
 void set_global_uvbg(double redshift);
@@ -69,35 +70,9 @@ void set_global_uvbg(double redshift);
 /*Interpolates the ultra-violet background tables to the desired redshift and returns a cooling rate table*/
 struct UVBG get_global_UVBG(double redshift);
 
-/*Reads and initialises the tables for a spatially varying redshift of reionization*/
-void init_uvf_table(const char * UVFluctuationFile, double UVRedshiftThreshold);
-
-/* Read a big array from filename/dataset into an array, allocating memory in buffer.
- * which is returned. Nread argument is set equal to number of elements read.*/
-double * read_big_array(const char * filename, char * dataset, int * Nread);
-
 /* Change the ultra-violet background table according to a pre-computed table of UV fluctuations.
  * This zeros the UVBG if this particular particle has not reionized yet*/
 struct UVBG get_particle_UVBG(double redshift, double * Pos);
-
-/*Solve the system of equations for photo-ionization equilibrium,
-  starting with ne = nH and continuing until convergence.
-  density is gas density in protons/cm^3
-  Internal energy is in J/kg == 10^-10 ergs/g.
-  helium is a mass fraction.
-*/
-double get_equilib_ne(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg);
-
-/*Same as above, but get electrons per proton.*/
-double get_ne_by_nh(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg);
-
-/*Get the total (photo) heating and cooling rate for a given temperature (internal energy) and density.
-  density is total gas density in protons/cm^3
-  Internal energy is in J/kg == 10^-10 ergs/g.
-  helium is a mass fraction, 1 - HYDROGEN_MASSFRAC = 0.24 for primordial gas.
-  Returns heating - cooling.
- */
-double get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double * ne_equilib);
 
 /*Get the equilibrium temperature at given internal energy.
     density is total gas density in protons/cm^3

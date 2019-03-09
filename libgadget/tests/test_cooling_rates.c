@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <libgadget/physconst.h>
-#include <libgadget/cooling.h>
+#include <libgadget/cooling_rates.h>
 #include <libgadget/config.h>
 #include "stub.h"
 

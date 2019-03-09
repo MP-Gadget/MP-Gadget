@@ -29,7 +29,9 @@
 #include "allvars.h"
 #include "partmanager.h"
 #include "cooling.h"
+#include "cooling_rates.h"
 
+/*Metal cooling functions*/
 static void InitMetalCooling();
 static double TableMetalCoolingRate(double redshift, double logT, double lognH);
 

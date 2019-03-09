@@ -6,7 +6,7 @@
 #include <mpi.h>
 #include <string.h>
 #include <math.h>
-#include "cooling.h"
+#include "cooling_rates.h"
 #include "bigfile.h"
 #include "utils/mymalloc.h"
 #include "utils/interp.h"
