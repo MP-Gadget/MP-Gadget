@@ -98,11 +98,11 @@ static struct itp_type cool_collisH0, cool_collisHe0, cool_collisHeP;
 static struct itp_type cool_recombHp, cool_recombHeP, cool_recombHePP;
 
 static void
-init_itp_type(double * xarr, struct itp_type * Gamma, int Nelem)
+init_itp_type(double * xarr, struct itp_type * Gamma, int Nelem, gsl_interp_accel * acc)
 {
     Gamma->intp = gsl_interp_alloc(gsl_interp_cspline,Nelem);
     gsl_interp_init(Gamma->intp, xarr, Gamma->ydata, Nelem);
-    Gamma->acc = gsl_interp_accel_alloc();
+    Gamma->acc = acc;
 }
 
 /* This function loads the treecool file into the (global function) data arrays.
@@ -143,6 +143,8 @@ load_treecool(const char * TreeCoolFile)
     if(NTreeCool<= 2)
         endrun(1, "Photon background contains: %d entries, not enough.\n", NTreeCool);
 
+    /*A common accelerator for all the tables with the same array size*/
+    gsl_interp_accel * acc = gsl_interp_accel_alloc();
     /*Allocate memory for the photon background table.*/
     Gamma_log1z = mymalloc("TreeCoolTable", 7 * NTreeCool * sizeof(double));
     Gamma_HI.ydata = Gamma_log1z + NTreeCool;
@@ -183,12 +185,12 @@ load_treecool(const char * TreeCoolFile)
     /*Broadcast data to other processors*/
     MPI_Bcast(Gamma_log1z, 7 * NTreeCool, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     /*Initialize the UVB redshift interpolation: reticulate the splines*/
-    init_itp_type(Gamma_log1z, &Gamma_HI, NTreeCool);
-    init_itp_type(Gamma_log1z, &Gamma_HeI, NTreeCool);
-    init_itp_type(Gamma_log1z, &Gamma_HeII, NTreeCool);
-    init_itp_type(Gamma_log1z, &Eps_HI, NTreeCool);
-    init_itp_type(Gamma_log1z, &Eps_HeI, NTreeCool);
-    init_itp_type(Gamma_log1z, &Eps_HeII, NTreeCool);
+    init_itp_type(Gamma_log1z, &Gamma_HI, NTreeCool, acc);
+    init_itp_type(Gamma_log1z, &Gamma_HeI, NTreeCool, acc);
+    init_itp_type(Gamma_log1z, &Gamma_HeII, NTreeCool, acc);
+    init_itp_type(Gamma_log1z, &Eps_HI, NTreeCool, acc);
+    init_itp_type(Gamma_log1z, &Eps_HeI, NTreeCool, acc);
+    init_itp_type(Gamma_log1z, &Eps_HeII, NTreeCool, acc);
 
     message(0, "Read %d lines z = %g - %g from file %s\n", NTreeCool, pow(10, Gamma_log1z[0])-1, pow(10, Gamma_log1z[NTreeCool-1])-1, TreeCoolFile);
 }
@@ -860,6 +862,8 @@ init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar)
         load_treecool(TreeCoolFile);
     }
 
+    /*A common accelerator for all the tables with the same array size*/
+    gsl_interp_accel * acc = gsl_interp_accel_alloc();
     /*Initialize the recombination tables*/
     temp_tab = mymalloc("Recombination_tables", NRECOMBTAB * sizeof(double) * 13);
     rec_GammaH0.ydata = temp_tab + NRECOMBTAB;
@@ -894,18 +898,18 @@ init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar)
         cool_recombHeP.ydata[i] = cool_RecombHeP(tt);
         cool_recombHePP.ydata[i] = cool_RecombHePP(tt);
     }
-    init_itp_type(temp_tab, &rec_GammaH0, NRECOMBTAB);
-    init_itp_type(temp_tab, &rec_GammaHe0, NRECOMBTAB);
-    init_itp_type(temp_tab, &rec_GammaHep, NRECOMBTAB);
-    init_itp_type(temp_tab, &rec_alphaHp, NRECOMBTAB);
-    init_itp_type(temp_tab, &rec_alphaHep, NRECOMBTAB);
-    init_itp_type(temp_tab, &rec_alphaHepp, NRECOMBTAB);
-    init_itp_type(temp_tab, &cool_collisH0, NRECOMBTAB);
-    init_itp_type(temp_tab, &cool_collisHe0, NRECOMBTAB);
-    init_itp_type(temp_tab, &cool_collisHeP, NRECOMBTAB);
-    init_itp_type(temp_tab, &cool_recombHp, NRECOMBTAB);
-    init_itp_type(temp_tab, &cool_recombHeP, NRECOMBTAB);
-    init_itp_type(temp_tab, &cool_recombHePP, NRECOMBTAB);
+    init_itp_type(temp_tab, &rec_GammaH0, NRECOMBTAB, acc);
+    init_itp_type(temp_tab, &rec_GammaHe0, NRECOMBTAB, acc);
+    init_itp_type(temp_tab, &rec_GammaHep, NRECOMBTAB, acc);
+    init_itp_type(temp_tab, &rec_alphaHp, NRECOMBTAB, acc);
+    init_itp_type(temp_tab, &rec_alphaHep, NRECOMBTAB, acc);
+    init_itp_type(temp_tab, &rec_alphaHepp, NRECOMBTAB, acc);
+    init_itp_type(temp_tab, &cool_collisH0, NRECOMBTAB, acc);
+    init_itp_type(temp_tab, &cool_collisHe0, NRECOMBTAB, acc);
+    init_itp_type(temp_tab, &cool_collisHeP, NRECOMBTAB, acc);
+    init_itp_type(temp_tab, &cool_recombHp, NRECOMBTAB, acc);
+    init_itp_type(temp_tab, &cool_recombHeP, NRECOMBTAB, acc);
+    init_itp_type(temp_tab, &cool_recombHePP, NRECOMBTAB, acc);
 }
 
 /*Get the total (photo) heating and cooling rate for a given temperature (internal energy) and density.
