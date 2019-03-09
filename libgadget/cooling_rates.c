@@ -527,8 +527,8 @@ ne_internal(double nh, double temp, double ne, double helium, double redshift, c
     Uses: internal energy
             electron abundance per H atom (ne/nH)
             hydrogen mass fraction (0.76)
-    Internal energy is in J/kg, internal gadget units, == 10^-10 ergs/g.
-    Factor to convert U (J/kg) to T (K) : U = N k T / (γ - 1)
+    Internal energy is in erg/g.
+    Factor to convert U (erg/g) to T (K) : U = N k T / (γ - 1)
     T = U (γ-1) μ m_P / k_B
     where k_B is the Boltzmann constant
     γ is 5/3, the perfect gas constant
@@ -544,7 +544,7 @@ ne_internal(double nh, double temp, double ne, double helium, double redshift, c
 static double
 get_temp_internal(double nebynh, double ienergy, double helium)
 {
-    /*convert U (J/kg) to T (K) : U = N k T / (γ - 1)
+    /*convert U (erg/g) to T (K) : U = N k T / (γ - 1)
     T = U (γ-1) μ m_P / k_B
     where k_B is the Boltzmann constant
     γ is 5/3, the perfect gas constant
@@ -552,7 +552,7 @@ get_temp_internal(double nebynh, double ienergy, double helium)
     μ is 1 / (mean no. molecules per unit atomic weight) calculated in loop.
     Internal energy units are 10^-10 erg/g*/
     double hy_mass = 1 - helium;
-    double muienergy = 4 / (hy_mass * (3 + 4*nebynh) + 1)*ienergy*1e10;
+    double muienergy = 4 / (hy_mass * (3 + 4*nebynh) + 1)*ienergy;
     /*So for T in K, Boltzmann in erg/K, internal energy has units of erg/g*/
     double temp = GAMMA_MINUS1 * PROTONMASS / BOLTZMANN * muienergy;
     return temp;
@@ -597,7 +597,7 @@ scipy_optimize_fixed_point(double ne_init, double nh, double ienergy, double hel
 /*Solve the system of equations for photo-ionization equilibrium,
   starting with ne = nH and continuing until convergence.
   density is gas density in protons/cm^3
-  Internal energy is in J/kg == 10^-10 ergs/g.
+  Internal energy is in ergs/g.
   helium is a mass fraction.
 */
 double
@@ -842,7 +842,7 @@ cool_he_reion_factor(double nHcgs, double helium, double redshift)
 
 /*Get the total (photo) heating and cooling rate for a given temperature (internal energy) and density.
   density is total gas density in protons/cm^3
-  Internal energy is in J/kg == 10^-10 ergs/g.
+  Internal energy is in ergs/g.
   helium is a mass fraction, 1 - HYDROGEN_MASSFRAC = 0.24 for primordial gas.
   Returns heating - cooling.
   Sets ne_equilib to the new equilibrium electron density.
@@ -880,7 +880,7 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
 
 /*Get the equilibrium temperature at given internal energy.
     density is total gas density in protons/cm^3
-    Internal energy is in J/kg == 10^-10 ergs/g.
+    Internal energy is in ergs/g.
     helium is a mass fraction*/
 double
 get_temp(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double * ne_init)
@@ -893,7 +893,7 @@ get_temp(double density, double ienergy, double helium, double redshift, const s
 
 /*Get the neutral hydrogen fraction at a given temperature and density.
 density is gas density in protons/cm^3
-Internal energy is in J/kg == 10^-10 ergs/g.
+Internal energy is in ergs/g.
 helium is a mass fraction.*/
 double
 get_neutral_fraction(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double * ne_init)
