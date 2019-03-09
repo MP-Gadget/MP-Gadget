@@ -464,13 +464,14 @@ recomb_GammaeHep(double temp)
     }
 }
 
-/*The neutral hydrogen number density. Eq. 33 of KWH.*/
+/*The neutral hydrogen number density. Eq. 33 of KWH.
+ * Photofac is the self-shielding correction.*/
 static double
-nH0_internal(double nh, double logt, double ne, double redshift, const struct UVBG * uvbg)
+nH0_internal(double nh, double logt, double ne, const struct UVBG * uvbg, double photofac)
 {
     double alphaHp = get_interpolated_recomb(logt, &rec_alphaHp, &recomb_alphaHp);
     double GammaeH0 = get_interpolated_recomb(logt, &rec_GammaH0, &recomb_GammaeH0);
-    double photorate = uvbg->gJH0/(1e-30 + ne) * self_shield_corr(nh, logt, redshift, uvbg);
+    double photorate = uvbg->gJH0/(1e-30 + ne) * photofac;
     return nh * alphaHp/ (alphaHp + GammaeH0 + photorate);
 }
 
@@ -483,11 +484,10 @@ nHp_internal(double nh, double nH0)
 
 /*The ionised helium number density, divided by the helium number fraction. Eq. 35 of KWH.*/
 static double
-nHep_internal(double nh, double logt, double ne, double redshift, const struct UVBG * uvbg)
+nHep_internal(double nh, double logt, double ne, const struct UVBG * uvbg, double photofac)
 {
     double alphaHep = get_interpolated_recomb(logt, &rec_alphaHep, &recomb_alphaHep);
     double alphaHepp = get_interpolated_recomb(logt, &rec_alphaHepp, &recomb_alphaHepp);
-    double photofac = self_shield_corr(nh, logt, redshift, uvbg);
     double GammaHe0 = get_interpolated_recomb(logt, &rec_GammaH0, &recomb_GammaeH0) + uvbg->gJHe0/(1e-30 + ne)*photofac;
     double GammaHep = get_interpolated_recomb(logt, &rec_GammaHep, &recomb_GammaeHep) + uvbg->gJHep/(1e-30 + ne)*photofac;
     return nh / (1 + alphaHep / GammaHe0 + GammaHep/alphaHepp);
@@ -495,19 +495,17 @@ nHep_internal(double nh, double logt, double ne, double redshift, const struct U
 
 /*The neutral helium number density, divided by the helium number fraction. Eq. 36 of KWH.*/
 static double
-nHe0_internal(double nh, double logt, double ne, double redshift, const struct UVBG * uvbg, double nHep)
+nHe0_internal(double nHep, double logt, double ne, const struct UVBG * uvbg, double photofac)
 {
     double alphaHep = get_interpolated_recomb(logt, &rec_alphaHep, &recomb_alphaHep);
-    double photofac = self_shield_corr(nh, logt, redshift, uvbg);
     double GammaHe0 = get_interpolated_recomb(logt, &rec_GammaHe0, &recomb_GammaeHe0) + uvbg->gJHep/(1e-30 + ne)*photofac;
     return nHep * alphaHep / GammaHe0;
 }
 
 /* The doubly ionised helium number density, divided by the helium number fraction. Eq. 37 of KWH.*/
 static double
-nHepp_internal(double nh, double logt, double ne, double redshift, const struct UVBG * uvbg, double nHep)
+nHepp_internal(double nHep, double logt, double ne, const struct UVBG * uvbg, double photofac)
 {
-    double photofac = self_shield_corr(nh, logt, redshift, uvbg);
     double GammaHep = get_interpolated_recomb(logt, &rec_GammaHep, &recomb_GammaeHep) + uvbg->gJHep/(1e-30 + ne)*photofac;
     double alphaHepp = get_interpolated_recomb(logt, &rec_alphaHepp, &recomb_alphaHepp);
     return nHep * GammaHep / alphaHepp;
@@ -518,9 +516,10 @@ static double
 ne_internal(double nh, double logt, double ne, double helium, double redshift, const struct UVBG * uvbg)
 {
     double yy = helium / 4 / (1 - helium);
-    double nH0 = nH0_internal(nh, logt, ne, redshift, uvbg);
-    double nHep = nHep_internal(nh, logt, ne, redshift, uvbg);
-    return nHp_internal(nh, nH0) + yy * nHep + 2 * yy * nHepp_internal(nh, logt, ne, redshift, uvbg, nHep);
+    double photofac = self_shield_corr(nh, logt, redshift, uvbg);
+    double nH0 = nH0_internal(nh, logt, ne, uvbg, photofac);
+    double nHep = nHep_internal(nh, logt, ne, uvbg, photofac);
+    return nHp_internal(nh, nH0) + yy * nHep + 2 * yy * nHepp_internal(nHep, logt, ne, uvbg, photofac);
 }
 
 /*Compute temperature (in K) from internal energy and electron density.
@@ -579,9 +578,11 @@ scipy_optimize_fixed_point(double ne_init, double nh, double ienergy, double hel
     for(i = 0; i < MAXITER; i++)
     {
         double ne1 = ne_internal(nh, log(get_temp_internal(ne0/nh, ienergy, helium)), ne0, helium, redshift, uvbg);
-        double ne2 = ne_internal(nh, log(get_temp_internal(ne1/nh, ienergy, helium)), ne1, helium, redshift, uvbg);
+        if(fabs((ne1+1e-30)/(1e-30+ne0) - 1.) < ITERCONV)
+            break;
 
-        double d = ne2 - 2.0 * ne1 + ne0;
+        double ne2 = ne_internal(nh, log(get_temp_internal(ne1/nh, ienergy, helium)), ne1, helium, redshift, uvbg);
+        double d = ne0 + ne2 - 2.0 * ne1;
         double pp = ne2;
         /*This is del^2*/
         if (d != 0.)
@@ -930,11 +931,13 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
     double nh = density * (1 - helium);
     *temp_ext = get_temp_internal(ne/nh, ienergy, helium);
     double logt = log(*temp_ext);
-    double nH0 = nH0_internal(nh, logt, ne, redshift, uvbg);
-    double nHep = nHep_internal(nh, logt, ne, redshift, uvbg);
-    double nHe0 = nHe0_internal(nh, logt, ne, redshift, uvbg, nHep);
+    double photofac = self_shield_corr(nh, logt, redshift, uvbg);
+
+    double nH0 = nH0_internal(nh, logt, ne, uvbg, photofac);
+    double nHep = nHep_internal(nh, logt, ne, uvbg, photofac);
+    double nHe0 = nHe0_internal(nHep, logt, ne, uvbg, photofac);
     double nHp = nHp_internal(nh, nH0);
-    double nHepp = nHepp_internal(nh, logt, ne, redshift, uvbg, nHep);
+    double nHepp = nHepp_internal(nHep, logt, ne, uvbg, photofac);
     /*Collisional ionization and excitation rate*/
     double LambdaCollis = ne * (get_interpolated_recomb(logt, &cool_collisH0, cool_CollisionalH0) * nH0 +
             get_interpolated_recomb(logt, &cool_collisHe0, cool_CollisionalHe0) * nHe0 +
@@ -982,7 +985,8 @@ get_neutral_fraction(double density, double ienergy, double helium, double redsh
 {
     double ne = get_equilib_ne(density, ienergy, helium, redshift, uvbg, *ne_init);
     double nh = density * (1-helium);
-    double temp = get_temp_internal(ne/nh, ienergy, helium);
+    double logt = log(get_temp_internal(ne/nh, ienergy, helium));
+    double photofac = self_shield_corr(nh, logt, redshift, uvbg);
     *ne_init = ne;
-    return nH0_internal(nh, log(temp), ne, redshift, uvbg) / nh;
+    return nH0_internal(nh, logt, ne, uvbg, photofac) / nh;
 }
