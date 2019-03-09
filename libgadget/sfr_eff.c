@@ -598,6 +598,22 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
     return rateOfSF;
 }
 
+
+static double
+get_egyeff(double dens, struct UVBG * uvbg)
+{
+    double tsfr = sqrt(All.PhysDensThresh / (dens)) * All.MaxSfrTimescale;
+    double factorEVP = pow(dens / All.PhysDensThresh, -0.8) * All.FactorEVP;
+    double egyhot = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
+
+    double ne = 0.5;
+    double tcool = GetCoolingTime(egyhot, dens, uvbg, &ne, 0.0);
+
+    double y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
+    double x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
+    return egyhot * (1 - x) + All.EgySpecCold * x;
+}
+
 void init_cooling_and_star_formation(void)
 {
     InitCool();
@@ -638,25 +654,20 @@ void init_cooling_and_star_formation(void)
 
     if(All.PhysDensThresh == 0)
     {
-        double A0, dens, tcool, ne, coolrate, egyhot, x, u4;
-        double tsfr, y, peff, fac, neff, egyeff, factorEVP, sigma, thresholdStarburst;
-
-        A0 = All.FactorEVP;
-
-        egyhot = All.EgySpecSN / A0;
+        double egyhot = All.EgySpecSN / All.FactorEVP;
 
         meanweight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));	/* note: assuming FULL ionization */
 
-        u4 = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * 1.0e4;
+        double u4 = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * 1.0e4;
         u4 *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
 
 
-        dens = 1.0e6 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
+        double dens = 1.0e6 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
 
         /* to be guaranteed to get z=0 rate */
         set_global_time(1.0);
 
-        ne = 1.0;
+        double ne = 1.0;
 
         struct UVBG uvbg = {0};
         /*XXX: We set the threshold without metal cooling
@@ -664,11 +675,11 @@ void init_cooling_and_star_formation(void)
          * It probably make sense to set the parameters with
          * a metalicity dependence.
          * */
-        tcool = GetCoolingTime(egyhot, dens, &uvbg, &ne, 0.0);
+        const double tcool = GetCoolingTime(egyhot, dens, &uvbg, &ne, 0.0);
 
-        coolrate = egyhot / tcool / dens;
+        const double coolrate = egyhot / tcool / dens;
 
-        x = (egyhot - u4) / (egyhot - All.EgySpecCold);
+        const double x = (egyhot - u4) / (egyhot - All.EgySpecCold);
 
         All.PhysDensThresh =
             x / pow(1 - x,
@@ -676,7 +687,7 @@ void init_cooling_and_star_formation(void)
                             All.FactorSN) * All.EgySpecCold) /
                         (All.MaxSfrTimescale * coolrate);
 
-        message(0, "A0= %g  \n", A0);
+        message(0, "A0= %g  \n", All.FactorEVP);
         message(0, "Computed: PhysDensThresh= %g  (int units)         %g h^2 cm^-3\n", All.PhysDensThresh,
                 All.PhysDensThresh / (PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs));
         message(0, "EXPECTED FRACTION OF COLD GAS AT THRESHOLD = %g\n", x);
@@ -684,49 +695,28 @@ void init_cooling_and_star_formation(void)
 
         dens = All.PhysDensThresh * 10;
 
+        double neff;
         do
         {
-            tsfr = sqrt(All.PhysDensThresh / (dens)) * All.MaxSfrTimescale;
-            factorEVP = pow(dens / All.PhysDensThresh, -0.8) * All.FactorEVP;
-            egyhot = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
+            double egyeff = get_egyeff(dens, &uvbg);
 
-            ne = 0.5;
-            tcool = GetCoolingTime(egyhot, dens, &uvbg, &ne, 0.0);
+            double peff = GAMMA_MINUS1 * dens * egyeff;
 
-            y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
-            x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
-            egyeff = egyhot * (1 - x) + All.EgySpecCold * x;
-
-            peff = GAMMA_MINUS1 * dens * egyeff;
-
-            fac = 1 / (log(dens * 1.025) - log(dens));
-            dens *= 1.025;
-
+            const double fac = 1 / (log(dens * 1.025) - log(dens));
             neff = -log(peff) * fac;
 
-            tsfr = sqrt(All.PhysDensThresh / (dens)) * All.MaxSfrTimescale;
-            factorEVP = pow(dens / All.PhysDensThresh, -0.8) * All.FactorEVP;
-            egyhot = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
-
-            ne = 0.5;
-            tcool = GetCoolingTime(egyhot, dens, &uvbg, &ne, 0.0);
-
-            y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
-            x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
-            egyeff = egyhot * (1 - x) + All.EgySpecCold * x;
-
+            dens *= 1.025;
+            egyeff = get_egyeff(dens, &uvbg);
             peff = GAMMA_MINUS1 * dens * egyeff;
 
             neff += log(peff) * fac;
         }
         while(neff > 4.0 / 3);
 
-        thresholdStarburst = dens;
+        message(0, "Run-away sets in for dens=%g\n", dens);
+        message(0, "Dynamic range for quiescent star formation= %g\n", dens / All.PhysDensThresh);
 
-        message(0, "Run-away sets in for dens=%g\n", thresholdStarburst);
-        message(0, "Dynamic range for quiescent star formation= %g\n", thresholdStarburst / All.PhysDensThresh);
-
-        sigma = 10.0 / All.CP.Hubble * 1.0e-10 / pow(1.0e-3, 2);
+        const double sigma = 10.0 / All.CP.Hubble * 1.0e-10 / pow(1.0e-3, 2);
 
         message(0, "Isotherm sheet central density: %g   z0=%g\n",
                 M_PI * All.G * sigma * sigma / (2 * GAMMA_MINUS1) / u4,
