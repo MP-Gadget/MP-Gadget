@@ -587,6 +587,9 @@ void read_parameter_file(char *fname)
 
     MPI_Bcast(&locals, sizeof(locals), MPI_BYTE, 0, MPI_COMM_WORLD);
 
+    /*Initialize the memory manager*/
+    mymalloc_init(All.MaxMemSizePerNode);
+
     /*Initialize the cooling rates*/
     init_cooling_rates(locals.TreeCoolFile, locals.coolpar);
     /*Initialize the uv fluctuation table*/
