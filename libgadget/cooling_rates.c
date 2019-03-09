@@ -839,9 +839,10 @@ cool_he_reion_factor(double nHcgs, double helium, double redshift)
   Internal energy is in J/kg == 10^-10 ergs/g.
   helium is a mass fraction, 1 - HYDROGEN_MASSFRAC = 0.24 for primordial gas.
   Returns heating - cooling.
+  Sets ne_equilib to the new equilibrium electron density.
  */
 double
-get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg)
+get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double *ne_equilib)
 {
     double ne = get_equilib_ne(density, ienergy, helium, redshift, uvbg);
     double nh = density * (1 - helium);
@@ -863,6 +864,8 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
     double Heat = nH0 * uvbg->epsH0 + nHe0 * uvbg->epsHe0 + nHep * uvbg->epsHep;
 
     Heat *= cool_he_reion_factor(density, helium, redshift);
+    /*Set external equilibrium electron density*/
+    *ne_equilib = ne;
 
     return Heat - Lambda;
 }

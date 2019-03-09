@@ -4,7 +4,6 @@
 /* Ultra-violet background structure.
  * Can be changed on a particle-by-particle basis*/
 struct UVBG {
-    double J_UV;
     double gJH0;
     double gJHep;
     double gJHe0;
@@ -13,17 +12,10 @@ struct UVBG {
     double epsHe0;
 };
 
-void GetParticleUVBG(int i, struct UVBG * uvbg);
-void GetGlobalUVBG(struct UVBG * uvbg);
-double AbundanceRatios(double u, double rho, struct UVBG * uvbg, double *ne_guess, double *nH0_pointer, double *nHeII_pointer);
 double GetCoolingTime(double u_old, double rho, struct UVBG * uvbg,  double *ne_guess, double Z);
 double DoCooling(double u_old, double rho, double dt, struct UVBG * uvbg, double *ne_guess, double Z);
-double ConvertInternalEnergy2Temperature(double u, double ne);
 
 void   InitCool(void);
-void   IonizeParams(void);
-void   MakeCoolingTable(void);
-void   SetZeroIonization(void);
 
 /* Definitions for the cooling rates code*/
 enum RecombType {
@@ -105,7 +97,7 @@ double get_ne_by_nh(double density, double ienergy, double helium, double redshi
   helium is a mass fraction, 1 - HYDROGEN_MASSFRAC = 0.24 for primordial gas.
   Returns heating - cooling.
  */
-double get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg);
+double get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double * ne_equilib);
 
 /*Get the equilibrium temperature at given internal energy.
     density is total gas density in protons/cm^3
