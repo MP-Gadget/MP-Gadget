@@ -30,12 +30,31 @@
 #include "partmanager.h"
 #include "cooling.h"
 
-double CoolingRateFromU(double u, double nHcgs, struct UVBG * uvbg, double *ne_guess, double Z);
 static void InitMetalCooling();
 static double TableMetalCoolingRate(double redshift, double logT, double lognH);
 
 static int CoolingNoMetal;
 static int CoolingNoPrimordial;
+
+/*  this function sums the cooling and heating rate from primordial and metal cooling, returning
+ *  (heating rate-cooling rate)/n_h^2 in cgs units and setting ne_guess to the new electron temperature.
+ */
+static double
+CoolingRateFromU(double u, double nHcgs, struct UVBG * uvbg, double *ne_guess, double Z)
+{
+    if(CoolingNoPrimordial) return 0;
+
+    double redshift = 1 / All.cf.a -  1.;
+    double LambdaNet = get_heatingcooling_rate(nHcgs, u, 1 - HYDROGEN_MASSFRAC, redshift, uvbg, ne_guess);
+
+    if(! CoolingNoMetal) {
+        double lognH = log10(nHcgs);
+        double temp = get_temp(nHcgs, u, 1- HYDROGEN_MASSFRAC, redshift, uvbg);
+        double logT = log10(temp);
+        LambdaNet -= Z * TableMetalCoolingRate(redshift, logT, lognH);
+    }
+    return LambdaNet;
+}
 
 /* returns new internal energy per unit mass.
  * Arguments are passed in code units, density is proper density.
@@ -148,26 +167,6 @@ double GetCoolingTime(double u_old, double rho, struct UVBG * uvbg, double *ne_g
     coolingtime *= All.CP.HubbleParam / All.UnitTime_in_s;
 
     return coolingtime;
-}
-
-/*  this function first computes the self-consistent temperature
- *  and abundance ratios, and then it calculates 
- *  (heating rate-cooling rate)/n_h^2 in cgs units 
- */
-double CoolingRateFromU(double u, double nHcgs, struct UVBG * uvbg, double *ne_guess, double Z)
-{
-    if(CoolingNoPrimordial) return 0;
-
-    double redshift = 1 / All.cf.a -  1.;
-    double LambdaNet = get_heatingcooling_rate(nHcgs, u, 1 - HYDROGEN_MASSFRAC, redshift, uvbg, ne_guess);
-
-    if(! CoolingNoMetal) {
-        double lognH = log10(nHcgs);
-        double temp = get_temp(nHcgs, u, 1- HYDROGEN_MASSFRAC, redshift, uvbg);
-        double logT = log10(temp);
-        LambdaNet -= Z * TableMetalCoolingRate(redshift, logT, lognH);
-    }
-    return LambdaNet;
 }
 
 void InitCool(void)
