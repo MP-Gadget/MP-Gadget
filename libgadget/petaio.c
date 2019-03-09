@@ -753,7 +753,8 @@ static void GTNeutralHydrogenFraction(int i, float * out) {
     struct UVBG uvbg = get_particle_UVBG(redshift, P[i].Pos);
     double InternalEnergy = DMAX(All.MinEgySpec, SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
     double physdens = SPHP(i).Density * All.cf.a3inv;
-    double nh0 = get_neutral_fraction(physdens, InternalEnergy, 1 - HYDROGEN_MASSFRAC, redshift, &uvbg);
+    double ne = SPHP(i).Ne;
+    double nh0 = get_neutral_fraction(physdens, InternalEnergy, 1 - HYDROGEN_MASSFRAC, redshift, &uvbg, &ne);
     *out = nh0;
 }
 

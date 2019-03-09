@@ -569,10 +569,10 @@ get_temp_internal(double nebynh, double ienergy, double helium)
     This routine is ported from scipy.optimize.fixed_point.
 */
 static double
-scipy_optimize_fixed_point(double nh, double ienergy, double helium, double redshift, const struct UVBG * uvbg)
+scipy_optimize_fixed_point(double ne_init, double nh, double ienergy, double helium, double redshift, const struct UVBG * uvbg)
 {
     int i;
-    double ne0 = nh;
+    double ne0 = ne_init;
     for(i = 0; i < MAXITER; i++)
     {
         double ne1 = ne_internal(nh, get_temp_internal(ne0/nh, ienergy, helium), ne0, helium, redshift, uvbg);
@@ -601,18 +601,18 @@ scipy_optimize_fixed_point(double nh, double ienergy, double helium, double reds
   helium is a mass fraction.
 */
 double
-get_equilib_ne(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg)
+get_equilib_ne(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double ne_init)
 {
     /*Get hydrogen number density*/
     double nh = density * (1-helium);
-    return scipy_optimize_fixed_point(nh, ienergy, helium, redshift, uvbg);
+    return scipy_optimize_fixed_point(ne_init, nh, ienergy, helium, redshift, uvbg);
 }
 
 /*Same as above, but get electrons per proton.*/
 double
-get_ne_by_nh(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg)
+get_ne_by_nh(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double ne_init)
 {
-    return get_equilib_ne(density, ienergy, helium, redshift, uvbg)/(density*(1-helium));
+    return get_equilib_ne(density, ienergy, helium, redshift, uvbg, ne_init)/(density*(1-helium));
 }
 
 
@@ -850,7 +850,7 @@ cool_he_reion_factor(double nHcgs, double helium, double redshift)
 double
 get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double *ne_equilib, double *temp_ext)
 {
-    double ne = get_equilib_ne(density, ienergy, helium, redshift, uvbg);
+    double ne = get_equilib_ne(density, ienergy, helium, redshift, uvbg, *ne_equilib);
     double nh = density * (1 - helium);
     double temp = get_temp_internal(ne/nh, ienergy, helium);
     double nH0 = nH0_internal(nh, temp, ne, redshift, uvbg);
@@ -883,10 +883,11 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
     Internal energy is in J/kg == 10^-10 ergs/g.
     helium is a mass fraction*/
 double
-get_temp(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg)
+get_temp(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double * ne_init)
 {
-    double ne = get_equilib_ne(density, ienergy, helium, redshift, uvbg);
+    double ne = get_equilib_ne(density, ienergy, helium, redshift, uvbg, *ne_init);
     double nh = density * (1 - helium);
+    *ne_init = ne;
     return get_temp_internal(ne/nh, ienergy, helium);
 }
 
@@ -895,10 +896,11 @@ density is gas density in protons/cm^3
 Internal energy is in J/kg == 10^-10 ergs/g.
 helium is a mass fraction.*/
 double
-get_neutral_fraction(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg)
+get_neutral_fraction(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double * ne_init)
 {
-    double ne = get_equilib_ne(density, ienergy, helium, redshift, uvbg);
+    double ne = get_equilib_ne(density, ienergy, helium, redshift, uvbg, *ne_init);
     double nh = density * (1-helium);
     double temp = get_temp_internal(ne/nh, ienergy, helium);
+    *ne_init = ne;
     return nH0_internal(nh, temp, ne, redshift, uvbg) / nh;
 }
