@@ -476,9 +476,9 @@ nH0_internal(double nh, double logt, double ne, double redshift, const struct UV
 
 /*The ionised hydrogen number density. Eq. 34 of KWH.*/
 static double
-nHp_internal(double nh, double logt, double ne, double redshift, const struct UVBG * uvbg)
+nHp_internal(double nh, double nH0)
 {
-    return nh - nH0_internal(nh, logt, ne, redshift, uvbg);
+    return nh - nH0;
 }
 
 /*The ionised helium number density, divided by the helium number fraction. Eq. 35 of KWH.*/
@@ -495,22 +495,22 @@ nHep_internal(double nh, double logt, double ne, double redshift, const struct U
 
 /*The neutral helium number density, divided by the helium number fraction. Eq. 36 of KWH.*/
 static double
-nHe0_internal(double nh, double logt, double ne, double redshift, const struct UVBG * uvbg)
+nHe0_internal(double nh, double logt, double ne, double redshift, const struct UVBG * uvbg, double nHep)
 {
     double alphaHep = get_interpolated_recomb(logt, &rec_alphaHep, &recomb_alphaHep);
     double photofac = self_shield_corr(nh, logt, redshift, uvbg);
     double GammaHe0 = get_interpolated_recomb(logt, &rec_GammaHe0, &recomb_GammaeHe0) + uvbg->gJHep/(1e-30 + ne)*photofac;
-    return nHep_internal(nh, logt, ne, redshift, uvbg) * alphaHep / GammaHe0;
+    return nHep * alphaHep / GammaHe0;
 }
 
 /* The doubly ionised helium number density, divided by the helium number fraction. Eq. 37 of KWH.*/
 static double
-nHepp_internal(double nh, double logt, double ne, double redshift, const struct UVBG * uvbg)
+nHepp_internal(double nh, double logt, double ne, double redshift, const struct UVBG * uvbg, double nHep)
 {
     double photofac = self_shield_corr(nh, logt, redshift, uvbg);
     double GammaHep = get_interpolated_recomb(logt, &rec_GammaHep, &recomb_GammaeHep) + uvbg->gJHep/(1e-30 + ne)*photofac;
     double alphaHepp = get_interpolated_recomb(logt, &rec_alphaHepp, &recomb_alphaHepp);
-    return nHep_internal(nh, logt, ne, redshift, uvbg) * GammaHep / alphaHepp;
+    return nHep * GammaHep / alphaHepp;
 }
 
 /*The electron number density. Eq. 38 of KWH.*/
@@ -518,7 +518,9 @@ static double
 ne_internal(double nh, double logt, double ne, double helium, double redshift, const struct UVBG * uvbg)
 {
     double yy = helium / 4 / (1 - helium);
-    return nHp_internal(nh, logt, ne, redshift, uvbg) + yy * nHep_internal(nh, logt, ne, redshift, uvbg) + 2 * yy * nHepp_internal(nh, logt, ne, redshift, uvbg);
+    double nH0 = nH0_internal(nh, logt, ne, redshift, uvbg);
+    double nHep = nHep_internal(nh, logt, ne, redshift, uvbg);
+    return nHp_internal(nh, nH0) + yy * nHep + 2 * yy * nHepp_internal(nh, logt, ne, redshift, uvbg, nHep);
 }
 
 /*Compute temperature (in K) from internal energy and electron density.
@@ -929,10 +931,10 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
     *temp_ext = get_temp_internal(ne/nh, ienergy, helium);
     double logt = log(*temp_ext);
     double nH0 = nH0_internal(nh, logt, ne, redshift, uvbg);
-    double nHe0 = nHe0_internal(nh, logt, ne, redshift, uvbg);
-    double nHp = nHp_internal(nh, logt, ne, redshift, uvbg);
     double nHep = nHep_internal(nh, logt, ne, redshift, uvbg);
-    double nHepp = nHepp_internal(nh, logt, ne, redshift, uvbg);
+    double nHe0 = nHe0_internal(nh, logt, ne, redshift, uvbg, nHep);
+    double nHp = nHp_internal(nh, nH0);
+    double nHepp = nHepp_internal(nh, logt, ne, redshift, uvbg, nHep);
     /*Collisional ionization and excitation rate*/
     double LambdaCollis = ne * (get_interpolated_recomb(logt, &cool_collisH0, cool_CollisionalH0) * nH0 +
             get_interpolated_recomb(logt, &cool_collisHe0, cool_CollisionalHe0) * nHe0 +
