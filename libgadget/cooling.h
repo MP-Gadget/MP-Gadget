@@ -25,7 +25,24 @@ enum CoolingType {
     Sherwood =2 ,  //Same as KWH92, but with an improved large temperature correction factor.
 };
 
+/*Global unit system for the cooling module*/
+struct cooling_units
+{
+    /*Flag to enable or disable all cooling.*/
+    int CoolingOn;
+    /*Disable metal cooling*/
+    int CoolingNoMetal;
+    /*Factor to convert internal density to cgs. By default should be UnitDensity_in_cgs * h^2 */
+    double density_in_phys_cgs; //All.UnitDensity_in_cgs * All.CP.HubbleParam * All.CP.HubbleParam
+    /*Factor to convert internal internal energy to cgs. By default should be UnitPressure_in_cgs / UnitDensity_in_cgs */
+    double uu_in_cgs; //All.UnitPressure_in_cgs / All.UnitDensity_in_cgs
+    /*Factor to convert time to s. By default should be UnitTime_in_s / h */
+    double tt_in_s; //All.UnitTime_in_s / All.CP.HubbleParam
+    /* Maximum reionization redshift for the UV fluctuation model*/
+    double UVRedshiftThreshold;
+};
 
+/*Parameters for the cooling rate network*/
 struct cooling_params
 {
     /*Default: Verner96*/
@@ -55,7 +72,7 @@ struct cooling_params
 };
 
 /*Initialise the cooling module and subsidiaries.*/
-void InitCool(void);
+void InitCool(const char * TreeCoolFile, const char * MetalCoolFile, const char * UVFluctuationFile, struct cooling_units cu, struct cooling_params coolpar);
 
 /* Get the cooling time for a particle from the internal energy and density, specifying a UVB appropriately.
  * Sets ne_guess to the equilibrium electron density.*/

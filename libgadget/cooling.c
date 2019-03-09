@@ -24,10 +24,10 @@
 #include <math.h>
 #include <bigfile.h>
 
-#include "utils.h"
-
-#include "allvars.h"
-#include "partmanager.h"
+#include "utils/endrun.h"
+#include "utils/mymalloc.h"
+#include "utils/interp.h"
+#include "physconst.h"
 #include "cooling.h"
 #include "cooling_rates.h"
 
@@ -35,8 +35,44 @@
 static void InitMetalCooling(const char * MetalCoolFile);
 static double TableMetalCoolingRate(double redshift, double logT, double lognH);
 
-static int CoolingNoMetal;
-static int CoolingNoPrimordial;
+static struct cooling_units coolunits;
+
+/*Do initialisation for the cooling module*/
+void InitCool(const char * TreeCoolFile, const char * MetalCoolFile, const char * UVFluctuationFile, struct cooling_units cu, struct cooling_params coolpar)
+{
+    coolunits = cu;
+    /* The table will be initialized to z=0 */
+    if(!coolunits.CoolingOn) {
+        coolunits.CoolingNoMetal = 1;
+        return;
+    }
+
+    if(strlen(TreeCoolFile) == 0) {
+        coolunits.CoolingOn = 0;
+        coolpar.PhotoIonizationOn = 0;
+        message(0, "No TreeCool file is provided. Cooling is broken. OK for DM only runs. \n");
+    }
+
+    init_cooling_rates(TreeCoolFile, coolpar);
+
+    /* now initialize the metal cooling table from cloudy; we got this file
+     * from vogelsberger's Arepo simulations; it is supposed to be
+     * cloudy + UVB - H and He; look so.
+     * the table contains only 1 Z_sun values. Need to be scaled to the
+     * metallicity.
+     *
+     * */
+            /* let's see if the Metal Cool File is magic NoMetal */
+    if(strlen(MetalCoolFile) == 0) {
+        coolunits.CoolingNoMetal = 1;
+    } else {
+        coolunits.CoolingNoMetal = 0;
+        InitMetalCooling(MetalCoolFile);
+    }
+
+    init_uvf_table(UVFluctuationFile, coolunits.UVRedshiftThreshold);
+}
+
 
 /*  this function sums the cooling and heating rate from primordial and metal cooling, returning
  *  (heating rate-cooling rate)/n_h^2 in cgs units and setting ne_guess to the new electron temperature.
@@ -44,11 +80,11 @@ static int CoolingNoPrimordial;
 static double
 CoolingRateFromU(double redshift, double u, double nHcgs, struct UVBG * uvbg, double *ne_guess, double Z)
 {
-    if(CoolingNoPrimordial) return 0;
+    if(!coolunits.CoolingOn) return 0;
 
     double LambdaNet = get_heatingcooling_rate(nHcgs, u, 1 - HYDROGEN_MASSFRAC, redshift, uvbg, ne_guess);
 
-    if(! CoolingNoMetal) {
+    if(! coolunits.CoolingNoMetal) {
         double lognH = log10(nHcgs);
         double temp = get_temp(nHcgs, u, 1- HYDROGEN_MASSFRAC, redshift, uvbg);
         double logT = log10(temp);
@@ -57,21 +93,23 @@ CoolingRateFromU(double redshift, double u, double nHcgs, struct UVBG * uvbg, do
     return LambdaNet;
 }
 
+#define MAXITER 1000
+
 /* returns new internal energy per unit mass.
  * Arguments are passed in code units, density is proper density.
  */
 double DoCooling(double redshift, double u_old, double rho, double dt, struct UVBG * uvbg, double *ne_guess, double Z)
 {
-    if(CoolingNoPrimordial) return 0;
+    if(!coolunits.CoolingOn) return 0;
 
     double u, du;
     double u_lower, u_upper;
     double LambdaNet;
     int iter = 0;
 
-    rho *= All.UnitDensity_in_cgs * All.CP.HubbleParam * All.CP.HubbleParam;	/* convert to physical cgs units */
-    u_old *= All.UnitPressure_in_cgs / All.UnitDensity_in_cgs;
-    dt *= All.UnitTime_in_s / All.CP.HubbleParam;
+    rho *= coolunits.density_in_phys_cgs;	/* convert to physical cgs units */
+    u_old *= coolunits.uu_in_cgs;
+    dt *= coolunits.tt_in_s;
 
     double nHcgs = HYDROGEN_MASSFRAC * rho / PROTONMASS;	/* hydrogen number dens in cgs units */
     double ratefact = nHcgs * nHcgs / rho;
@@ -136,7 +174,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
         endrun(10, "failed to converge in DoCooling()\n");
     }
 
-    u *= All.UnitDensity_in_cgs / All.UnitPressure_in_cgs;	/* to internal units */
+    u /= coolunits.uu_in_cgs;   /*convert back to internal units */
 
     return u;
 }
@@ -146,11 +184,11 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
  */
 double GetCoolingTime(double redshift, double u_old, double rho, struct UVBG * uvbg, double *ne_guess, double Z)
 {
-    if(CoolingNoPrimordial) return 0;
+    if(!coolunits.CoolingOn) return 0;
 
     /* convert to physical cgs units */
-    rho *= All.UnitDensity_in_cgs * All.CP.HubbleParam * All.CP.HubbleParam;
-    u_old *= All.UnitPressure_in_cgs / All.UnitDensity_in_cgs;
+    rho *= coolunits.density_in_phys_cgs;
+    u_old *= coolunits.uu_in_cgs;
 
     /* hydrogen number dens in cgs units */
     const double nHcgs = HYDROGEN_MASSFRAC * rho / PROTONMASS;
@@ -165,62 +203,10 @@ double GetCoolingTime(double redshift, double u_old, double rho, struct UVBG * u
     double ratefact = nHcgs * nHcgs / rho;
     double coolingtime = u_old / (-ratefact * LambdaNet);
 
-    coolingtime *= All.CP.HubbleParam / All.UnitTime_in_s;
+    /*Convert back to internal units*/
+    coolingtime /= coolunits.tt_in_s;
 
     return coolingtime;
-}
-
-void InitCool(void)
-{
-    /* The table will be initialized to z=0 */
-    if(!All.CoolingOn) {
-        CoolingNoPrimordial = 1;
-        CoolingNoMetal = 1;
-        return;
-    }
-
-    struct cooling_params coolpar;
-    coolpar.CMBTemperature = All.CP.CMBTemperature;
-    coolpar.fBar = All.CP.OmegaBaryon / All.CP.OmegaCDM;
-    coolpar.HeliumHeatOn = All.HeliumHeatOn;
-    coolpar.HeliumHeatAmp = All.HeliumHeatAmp;
-    coolpar.HeliumHeatExp = All.HeliumHeatExp;
-    coolpar.HeliumHeatThresh = All.HeliumHeatThresh;
-    coolpar.cooling = Sherwood;
-    coolpar.recomb = Verner96;
-    coolpar.SelfShieldingOn = 0;
-    coolpar.PhotoIonizeFactor = 1.;
-
-    const double rhoc = All.CP.OmegaBaryon * 3.0 * pow(All.CP.HubbleParam*HUBBLE,2.0) /(8.0*M_PI*GRAVITY);
-    coolpar.rho_crit_baryon = rhoc;
-
-    if(strlen(All.TreeCoolFile) == 0) {
-        CoolingNoPrimordial = 1;
-        coolpar.PhotoIonizationOn = 0;
-        message(0, "No TreeCool file is provided. Cooling is broken. OK for DM only runs. \n");
-    } else {
-        CoolingNoPrimordial = 0;
-        coolpar.PhotoIonizationOn = 1;
-    }
-
-    init_cooling_rates(All.TreeCoolFile, coolpar);
-
-    /* now initialize the metal cooling table from cloudy; we got this file
-     * from vogelsberger's Arepo simulations; it is supposed to be 
-     * cloudy + UVB - H and He; look so.
-     * the table contains only 1 Z_sun values. Need to be scaled to the 
-     * metallicity.
-     *
-     * */
-            /* let's see if the Metal Cool File is magic NoMetal */ 
-    if(strlen(All.MetalCoolFile) == 0) {
-        CoolingNoMetal = 1;
-    } else {
-        CoolingNoMetal = 0;
-        InitMetalCooling(All.MetalCoolFile);
-    }
-
-    init_uvf_table(All.UVFluctuationFile, All.UVRedshiftThreshold);
 }
 
 /*Here comes the Metal Cooling code*/
