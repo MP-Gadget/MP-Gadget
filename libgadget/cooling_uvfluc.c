@@ -38,7 +38,7 @@ set_global_uvbg(double redshift)
 
 /* Read a big array from filename/dataset into an array, allocating memory in buffer.
  * which is returned. Nread argument is set equal to number of elements read.*/
-double *
+static double *
 read_big_array(const char * filename, char * dataset, int * Nread)
 {
     int N;
@@ -187,4 +187,81 @@ struct UVBG get_particle_UVBG(double redshift, double * Pos)
 
     memcpy(&uvbg, &GlobalUVBG, sizeof(struct UVBG));
     return uvbg;
+}
+
+
+/*Here comes the Metal Cooling code*/
+struct {
+    int CoolingNoMetal;
+    int NRedshift_bins;
+    double * Redshift_bins;
+
+    int NHydrogenNumberDensity_bins;
+    double * HydrogenNumberDensity_bins;
+
+    int NTemperature_bins;
+    double * Temperature_bins;
+
+    double * Lmet_table; /* metal cooling @ one solar metalicity*/
+
+    Interp interp;
+} MetalCool;
+
+void
+InitMetalCooling(const char * MetalCoolFile)
+{
+    /* now initialize the metal cooling table from cloudy; we got this file
+     * from vogelsberger's Arepo simulations; it is supposed to be
+     * cloudy + UVB - H and He; look so.
+     * the table contains only 1 Z_sun values. Need to be scaled to the
+     * metallicity.
+     *
+     * */
+    /* let's see if the Metal Cool File is magic NoMetal */
+    if(strlen(MetalCoolFile) == 0) {
+        MetalCool.CoolingNoMetal = 1;
+        return;
+    } else {
+        MetalCool.CoolingNoMetal = 0;
+    }
+
+    int size;
+    //This is never used if MetalCoolFile == ""
+    double * tabbedmet = read_big_array(MetalCoolFile, "MetallicityInSolar_bins", &size);
+
+    if(size != 1 || tabbedmet[0] != 0.0) {
+        endrun(123, "MetalCool file %s is wrongly tabulated\n", MetalCoolFile);
+    }
+    myfree(tabbedmet);
+
+    MetalCool.Redshift_bins = read_big_array(MetalCoolFile, "Redshift_bins", &MetalCool.NRedshift_bins);
+    MetalCool.HydrogenNumberDensity_bins = read_big_array(MetalCoolFile, "HydrogenNumberDensity_bins", &MetalCool.NHydrogenNumberDensity_bins);
+    MetalCool.Temperature_bins = read_big_array(MetalCoolFile, "Temperature_bins", &MetalCool.NTemperature_bins);
+    MetalCool.Lmet_table = read_big_array(MetalCoolFile, "NetCoolingRate", &size);
+
+    int dims[] = {MetalCool.NRedshift_bins, MetalCool.NHydrogenNumberDensity_bins, MetalCool.NTemperature_bins};
+
+    interp_init(&MetalCool.interp, 3, dims);
+    interp_init_dim(&MetalCool.interp, 0, MetalCool.Redshift_bins[0], MetalCool.Redshift_bins[MetalCool.NRedshift_bins - 1]);
+    interp_init_dim(&MetalCool.interp, 1, MetalCool.HydrogenNumberDensity_bins[0],
+                    MetalCool.HydrogenNumberDensity_bins[MetalCool.NHydrogenNumberDensity_bins - 1]);
+    interp_init_dim(&MetalCool.interp, 2, MetalCool.Temperature_bins[0],
+                    MetalCool.Temperature_bins[MetalCool.NTemperature_bins - 1]);
+}
+
+double
+TableMetalCoolingRate(double redshift, double temp, double nHcgs)
+{
+    if(MetalCool.CoolingNoMetal)
+        return 0;
+
+    double lognH = log10(nHcgs);
+    double logT = log10(temp);
+
+    double x[] = {redshift, lognH, logT};
+    int status[3];
+    double rate = interp_eval(&MetalCool.interp, x, MetalCool.Lmet_table, status);
+    /* XXX: in case of very hot / very dense we just use whatever the table says at
+     * the limit. should be OK. */
+    return rate;
 }

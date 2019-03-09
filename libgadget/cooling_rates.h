@@ -5,6 +5,48 @@
 
 #include "cooling.h"
 
+/* Definitions for the cooling rates code*/
+enum RecombType {
+    Cen92 = 0, // Recombination from Cen 92
+    Verner96 = 1, //Verner 96 recombination rates. Basically accurate, used by Sherwood and Nyx by default.
+    Badnell06 = 2, //Even more up to date rates from Badnell 2006, cloudy's current default.
+};
+
+enum CoolingType {
+    KWH92 = 0, //Cooling from KWH 92
+    Enzo2Nyx = 1, //Updated cooling rates from Avery Meiksin, used in Nyx and Enzo 2.
+    Sherwood =2 ,  //Same as KWH92, but with an improved large temperature correction factor.
+};
+
+/*Parameters for the cooling rate network*/
+struct cooling_params
+{
+    /*Default: Verner96*/
+    enum RecombType recomb;
+    /*Default: Sherwood*/
+    enum CoolingType cooling;
+
+    /*Enable a self-shielding cooling and ionization correction from Rahmati & Schaye 2013. Default: on.*/
+    int SelfShieldingOn;
+    /*Disable using photo-ionization and heating table, for testing.*/
+    int PhotoIonizationOn;
+    /*Global baryon fraction, Omega_b/Omega_cdm, used for the self-shielding formula.*/
+    double fBar;
+
+    /*Normalization factor to apply to the UVB: Default: 1.*/
+    double PhotoIonizeFactor;
+
+    /*CMB temperature in K*/
+    double CMBTemperature;
+
+    /*Parameters for the 'extra heating' Helium photoionization model.*/
+    int HeliumHeatOn;
+    double HeliumHeatThresh;
+    double HeliumHeatAmp;
+    double HeliumHeatExp;
+    double rho_crit_baryon;
+};
+
 /*Initialize the cooling rate module. This builds a lot of interpolation tables.
  * Defaults: TCMB 2.7255, recomb = Verner96, cooling = Sherwood.*/
 void init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar);
@@ -12,9 +54,11 @@ void init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar
 /*Reads and initialises the tables for a spatially varying redshift of reionization*/
 void init_uvf_table(const char * UVFluctuationFile, double UVRedshiftThreshold);
 
-/* Read a big array from filename/dataset into an array, allocating memory in buffer.
- * which is returned. Nread argument is set equal to number of elements read.*/
-double * read_big_array(const char * filename, char * dataset, int * Nread);
+/* Reads and initializes the cloudy metal cooling table*/
+void InitMetalCooling(const char * MetalCoolFile);
+
+/*Get the metal cooling rate from the table.*/
+double TableMetalCoolingRate(double redshift, double temp, double nHcgs);
 
 /*Solve the system of equations for photo-ionization equilibrium,
   starting with ne = nH and continuing until convergence.
@@ -33,6 +77,6 @@ double get_ne_by_nh(double density, double ienergy, double helium, double redshi
   helium is a mass fraction, 1 - HYDROGEN_MASSFRAC = 0.24 for primordial gas.
   Returns heating - cooling.
  */
-double get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double * ne_equilib);
+double get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double * ne_equilib, double *temp_ext);
 
 #endif

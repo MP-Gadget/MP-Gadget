@@ -222,7 +222,6 @@ extern struct global_data_all_processes
     int TopNodeIncreaseFactor;
 
     int CoolingOn;  /* if cooling is enabled */
-    double UVRedshiftThreshold;  /* Initial redshift of UV background. */
     int HydroOn;  /*  if hydro force is enabled */
     int DensityOn;  /*  if SPH density computation is enabled */
     int TreeGravOn;     /* tree gravity force is enabled*/
@@ -331,8 +330,6 @@ extern struct global_data_all_processes
 
     /* some filenames */
     char InitCondFile[100],
-         TreeCoolFile[100],
-         MetalCoolFile[100],
          OutputDir[100],
          SnapshotFileBase[100],
          FOFFileBase[100],
@@ -341,8 +338,6 @@ extern struct global_data_all_processes
 
     /*Should we store the energy to EnergyFile on PM timesteps.*/
     int OutputEnergyDebug;
-
-    char UVFluctuationFile[100];
 
     double OutputListTimes[8192];
     int OutputListLength;
@@ -372,10 +367,6 @@ extern struct global_data_all_processes
     double WindSpeedFactor;
     /*Lyman alpha forest specific parameters*/
     double QuickLymanAlphaProbability;
-    int HeliumHeatOn;
-    double HeliumHeatThresh;
-    double HeliumHeatAmp;
-    double HeliumHeatExp;
 
     double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
     double BlackHoleFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */

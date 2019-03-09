@@ -616,31 +616,13 @@ get_egyeff(double dens, struct UVBG * uvbg)
 
 void init_cooling_and_star_formation(void)
 {
-    struct cooling_params coolpar;
-    coolpar.CMBTemperature = All.CP.CMBTemperature;
-    coolpar.fBar = All.CP.OmegaBaryon / All.CP.OmegaCDM;
-    coolpar.HeliumHeatOn = All.HeliumHeatOn;
-    coolpar.HeliumHeatAmp = All.HeliumHeatAmp;
-    coolpar.HeliumHeatExp = All.HeliumHeatExp;
-    coolpar.HeliumHeatThresh = All.HeliumHeatThresh;
-    coolpar.cooling = Sherwood;
-    coolpar.recomb = Verner96;
-    coolpar.SelfShieldingOn = 0;
-    coolpar.PhotoIonizeFactor = 1.;
-    coolpar.PhotoIonizationOn = All.CoolingOn;
-
-    const double rhoc = All.CP.OmegaBaryon * 3.0 * pow(All.CP.HubbleParam*HUBBLE,2.0) /(8.0*M_PI*GRAVITY);
-    coolpar.rho_crit_baryon = rhoc;
-
     struct cooling_units coolunits;
     coolunits.CoolingOn = All.CoolingOn;
-    coolunits.CoolingNoMetal = 0;
     coolunits.density_in_phys_cgs = All.UnitDensity_in_cgs * All.CP.HubbleParam * All.CP.HubbleParam;
     coolunits.uu_in_cgs = All.UnitPressure_in_cgs / All.UnitDensity_in_cgs;
     coolunits.tt_in_s = All.UnitTime_in_s / All.CP.HubbleParam;
-    coolunits.UVRedshiftThreshold = All.UVRedshiftThreshold;
 
-    InitCool(All.TreeCoolFile, All.MetalCoolFile, All.UVFluctuationFile, coolunits, coolpar);
+    init_cool_units(coolunits);
 
     /* mean molecular weight assuming ZERO ionization NEUTRAL GAS*/
     double meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);

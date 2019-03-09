@@ -196,9 +196,15 @@ init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar)
     gsl_interp_init(GrayOpac,GrayOpac_zz,GrayOpac_ydata, NGRAY);
     GrayOpac_acc = gsl_interp_accel_alloc();
 
-    message(0, "Using uniform UVB from file %s\n", TreeCoolFile);
-    /* Load the TREECOOL into Gamma_HI->ydata, and initialise the interpolators*/
-    load_treecool(TreeCoolFile);
+    if(strlen(TreeCoolFile) == 0) {
+        CoolingParams.PhotoIonizationOn = 0;
+        message(0, "No TreeCool file is provided. Cooling is broken. OK for DM only runs. \n");
+    }
+    else {
+        message(0, "Using uniform UVB from file %s\n", TreeCoolFile);
+        /* Load the TREECOOL into Gamma_HI->ydata, and initialise the interpolators*/
+        load_treecool(TreeCoolFile);
+    }
 }
 
 /*Get photo ionization rate for neutral Hydrogen*/
@@ -316,7 +322,7 @@ recomb_alphaHp(double temp)
             /*The V&F 96 fitting formula is accurate to < 1% in the worst case.
             See line 1 of V&F96 table 1.*/
             return _Verner96Fit(temp, 7.982e-11, 0.748, 3.148, 7.036e+05);
-        case Badnell:
+        case Badnell06:
             /*Slightly different fit coefficients*/
             return _Verner96Fit(temp, 8.318e-11, 0.7472, 2.965, 7.001e5);
         default:
@@ -354,7 +360,7 @@ recomb_alphaHep(double temp)
             return 1.5e-10 / pow(temp,0.6353);
         case Verner96:
             return _Verner96alphaHep(temp);
-        case Badnell:
+        case Badnell06:
             return _Verner96Fit(temp, 1.818E-10, 0.7492, 10.17, 2.786e6);
         default:
             endrun(3, "Recombination rate not supported\n");
@@ -372,7 +378,7 @@ recomb_alphad(double temp)
         case Cen92:
             return 1.9e-3 / pow(temp,1.5) * exp(-4.7e5/temp)*(1+0.3*exp(-9.4e4/temp));
         case Verner96:
-        case Badnell:
+        case Badnell06:
              /* Private communication from Avery Meiksin:
                 The rate in Black (1981) is wrong by a factor of 0.65. He took the rate fit from Aldrovandi & Pequignot (1973),
                 who based it on Burgess (1965), but was unaware of the correction factor in Burgess & Tworkowski (1976, ApJ 205:L105-L107, fig 1).
@@ -394,7 +400,7 @@ recomb_alphaHepp(double temp)
             return 4 * recomb_alphaHp(temp);
         case Verner96:
             return _Verner96Fit(temp, 1.891e-10, 0.7524, 9.370, 2.774e6);
-        case Badnell:
+        case Badnell06:
             return _Verner96Fit(temp, 5.235E-11, 0.6988 + 0.0829*exp(-1.682e5/temp), 7.301, 4.475e6);
         default:
             endrun(3, "Recombination rate not supported\n");
@@ -418,7 +424,7 @@ recomb_GammaeH0(double temp)
         case Cen92:
             return 5.85e-11 * sqrt(temp) * exp(-157809.1/temp) / (1 + sqrt(temp/1e5));
         case Verner96:
-        case Badnell:
+        case Badnell06:
             //Voronov 97 Table 1
             return _Voronov96Fit(temp, 13.6, 0, 0.291e-07, 0.232, 0.39);
         default:
@@ -435,7 +441,7 @@ recomb_GammaeHe0(double temp)
         case Cen92:
             return 2.38e-11 * sqrt(temp) * exp(-285335.4/temp) / (1+ sqrt(temp/1e5));
         case Verner96:
-        case Badnell:
+        case Badnell06:
             //Voronov 97 Table 1
             return _Voronov96Fit(temp, 24.6, 0, 0.175e-07, 0.180, 0.35);
         default:
@@ -452,7 +458,7 @@ recomb_GammaeHep(double temp)
         case Cen92:
             return 5.68e-12 * sqrt(temp) * exp(-631515.0/temp) / (1+ sqrt(temp/1e5));
         case Verner96:
-        case Badnell:
+        case Badnell06:
             //Voronov 97 Table 1
             return _Voronov96Fit(temp, 54.4, 1, 0.205e-08, 0.265, 0.25);
         default:
@@ -842,7 +848,7 @@ cool_he_reion_factor(double nHcgs, double helium, double redshift)
   Sets ne_equilib to the new equilibrium electron density.
  */
 double
-get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double *ne_equilib)
+get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double *ne_equilib, double *temp_ext)
 {
     double ne = get_equilib_ne(density, ienergy, helium, redshift, uvbg);
     double nh = density * (1 - helium);
@@ -866,6 +872,8 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
     Heat *= cool_he_reion_factor(density, helium, redshift);
     /*Set external equilibrium electron density*/
     *ne_equilib = ne;
+    /*Set external temp*/
+    *temp_ext = temp;
 
     return Heat - Lambda;
 }
