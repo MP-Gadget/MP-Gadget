@@ -343,6 +343,8 @@ create_gadget_parameter_set()
  * These are for submodules where we do the initialization right here and so don't want to use All.*/
 struct Local
 {
+    /*Treewalk parameter*/
+    double ImportBufferBoost;
     /* Cooling model parameters*/
     char TreeCoolFile[100];
     char MetalCoolFile[100];
@@ -451,7 +453,7 @@ void read_parameter_file(char *fname)
         All.GravitySoftening = param_get_double(ps, "GravitySoftening");
         All.GravitySofteningGas = param_get_double(ps, "GravitySofteningGas");
 
-        init_treewalk(param_get_double(ps, "ImportBufferBoost"));
+        locals.ImportBufferBoost = param_get_double(ps, "ImportBufferBoost");
         All.PartAllocFactor = param_get_double(ps, "PartAllocFactor");
         All.TopNodeAllocFactor = param_get_double(ps, "TopNodeAllocFactor");
         All.SlotsIncreaseFactor = param_get_double(ps, "SlotsIncreaseFactor");
@@ -586,6 +588,9 @@ void read_parameter_file(char *fname)
     MPI_Bcast(&All, sizeof(All), MPI_BYTE, 0, MPI_COMM_WORLD);
 
     MPI_Bcast(&locals, sizeof(locals), MPI_BYTE, 0, MPI_COMM_WORLD);
+
+    /*Initialize treewalk*/
+    init_treewalk(locals.ImportBufferBoost);
 
     /*Initialize the memory manager*/
     mymalloc_init(All.MaxMemSizePerNode);
