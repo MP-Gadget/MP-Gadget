@@ -325,7 +325,7 @@ cooling_direct(int i) {
 
     double redshift = 1./All.Time - 1;
     struct UVBG uvbg = get_particle_UVBG(redshift, P[i].Pos);
-    unew = DoCooling(unew, SPHP(i).Density * All.cf.a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity);
+    unew = DoCooling(redshift, unew, SPHP(i).Density * All.cf.a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity);
 
     SPHP(i).Ne = ne;
 
@@ -416,7 +416,7 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
         if(egycurrent > egyeff)
         {
             double ne = SPHP(i).Ne;
-            double tcool = GetCoolingTime(egycurrent, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, SPHP(i).Metallicity);
+            double tcool = GetCoolingTime(redshift, egycurrent, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, SPHP(i).Metallicity);
 
             if(tcool < trelax && tcool > 0)
                 trelax = tcool;
@@ -569,7 +569,7 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
 
     ne = SPHP(i).Ne;
 
-    tcool = GetCoolingTime(egyhot, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, SPHP(i).Metallicity);
+    tcool = GetCoolingTime(redshift, egyhot, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, SPHP(i).Metallicity);
     y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
 
     x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
@@ -598,7 +598,7 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
     return rateOfSF;
 }
 
-
+/*Gets the effective energy at z=0*/
 static double
 get_egyeff(double dens, struct UVBG * uvbg)
 {
@@ -607,7 +607,7 @@ get_egyeff(double dens, struct UVBG * uvbg)
     double egyhot = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
 
     double ne = 0.5;
-    double tcool = GetCoolingTime(egyhot, dens, uvbg, &ne, 0.0);
+    double tcool = GetCoolingTime(0, egyhot, dens, uvbg, &ne, 0.0);
 
     double y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
     double x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
@@ -664,18 +664,15 @@ void init_cooling_and_star_formation(void)
 
         double dens = 1.0e6 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
 
-        /* to be guaranteed to get z=0 rate */
-        set_global_time(1.0);
-
         double ne = 1.0;
 
         struct UVBG uvbg = {0};
         /*XXX: We set the threshold without metal cooling
-         * and with zero ionization.
+         * and with zero ionization at z=0.
          * It probably make sense to set the parameters with
          * a metalicity dependence.
          * */
-        const double tcool = GetCoolingTime(egyhot, dens, &uvbg, &ne, 0.0);
+        const double tcool = GetCoolingTime(0, egyhot, dens, &uvbg, &ne, 0.0);
 
         const double coolrate = egyhot / tcool / dens;
 

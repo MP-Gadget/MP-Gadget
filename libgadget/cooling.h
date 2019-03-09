@@ -59,10 +59,10 @@ void InitCool(void);
 
 /* Get the cooling time for a particle from the internal energy and density, specifying a UVB appropriately.
  * Sets ne_guess to the equilibrium electron density.*/
-double GetCoolingTime(double u_old, double rho, struct UVBG * uvbg,  double *ne_guess, double Z);
+double GetCoolingTime(double redshift, double u_old, double rho, struct UVBG * uvbg,  double *ne_guess, double Z);
 
 /*Get the new internal energy per unit mass. ne_guess is set to the new internal equilibrium electron density*/
-double DoCooling(double u_old, double rho, double dt, struct UVBG * uvbg, double *ne_guess, double Z);
+double DoCooling(double redshift, double u_old, double rho, double dt, struct UVBG * uvbg, double *ne_guess, double Z);
 
 /*Sets the global variable corresponding to the uniform part of the UV background.*/
 void set_global_uvbg(double redshift);

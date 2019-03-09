@@ -32,7 +32,7 @@
 #include "cooling_rates.h"
 
 /*Metal cooling functions*/
-static void InitMetalCooling();
+static void InitMetalCooling(const char * MetalCoolFile);
 static double TableMetalCoolingRate(double redshift, double logT, double lognH);
 
 static int CoolingNoMetal;
@@ -42,11 +42,10 @@ static int CoolingNoPrimordial;
  *  (heating rate-cooling rate)/n_h^2 in cgs units and setting ne_guess to the new electron temperature.
  */
 static double
-CoolingRateFromU(double u, double nHcgs, struct UVBG * uvbg, double *ne_guess, double Z)
+CoolingRateFromU(double redshift, double u, double nHcgs, struct UVBG * uvbg, double *ne_guess, double Z)
 {
     if(CoolingNoPrimordial) return 0;
 
-    double redshift = 1 / All.cf.a -  1.;
     double LambdaNet = get_heatingcooling_rate(nHcgs, u, 1 - HYDROGEN_MASSFRAC, redshift, uvbg, ne_guess);
 
     if(! CoolingNoMetal) {
@@ -61,7 +60,7 @@ CoolingRateFromU(double u, double nHcgs, struct UVBG * uvbg, double *ne_guess, d
 /* returns new internal energy per unit mass.
  * Arguments are passed in code units, density is proper density.
  */
-double DoCooling(double u_old, double rho, double dt, struct UVBG * uvbg, double *ne_guess, double Z)
+double DoCooling(double redshift, double u_old, double rho, double dt, struct UVBG * uvbg, double *ne_guess, double Z)
 {
     if(CoolingNoPrimordial) return 0;
 
@@ -81,7 +80,7 @@ double DoCooling(double u_old, double rho, double dt, struct UVBG * uvbg, double
     u_lower = u;
     u_upper = u;
 
-    LambdaNet = CoolingRateFromU(u, nHcgs, uvbg, ne_guess, Z);
+    LambdaNet = CoolingRateFromU(redshift, u, nHcgs, uvbg, ne_guess, Z);
 
     /* bracketing */
 
@@ -89,7 +88,7 @@ double DoCooling(double u_old, double rho, double dt, struct UVBG * uvbg, double
     {
         u_upper *= sqrt(1.1);
         u_lower /= sqrt(1.1);
-            while(u_upper - u_old - ratefact * CoolingRateFromU(u_upper, nHcgs, uvbg, ne_guess, Z) * dt < 0)
+            while(u_upper - u_old - ratefact * CoolingRateFromU(redshift, u_upper, nHcgs, uvbg, ne_guess, Z) * dt < 0)
             {
                 u_upper *= 1.1;
                 u_lower *= 1.1;
@@ -101,7 +100,7 @@ double DoCooling(double u_old, double rho, double dt, struct UVBG * uvbg, double
     {
         u_lower /= sqrt(1.1);
         u_upper *= sqrt(1.1);
-            while(u_lower - u_old - ratefact * CoolingRateFromU(u_lower, nHcgs, uvbg, ne_guess, Z) * dt > 0)
+            while(u_lower - u_old - ratefact * CoolingRateFromU(redshift, u_lower, nHcgs, uvbg, ne_guess, Z) * dt > 0)
             {
                 u_upper /= 1.1;
                 u_lower /= 1.1;
@@ -112,7 +111,7 @@ double DoCooling(double u_old, double rho, double dt, struct UVBG * uvbg, double
     {
         u = 0.5 * (u_lower + u_upper);
 
-        LambdaNet = CoolingRateFromU(u, nHcgs, uvbg, ne_guess, Z);
+        LambdaNet = CoolingRateFromU(redshift, u, nHcgs, uvbg, ne_guess, Z);
 
         if(u - u_old - ratefact * LambdaNet * dt > 0)
         {
@@ -145,7 +144,7 @@ double DoCooling(double u_old, double rho, double dt, struct UVBG * uvbg, double
 /* returns cooling time. 
  * NOTE: If we actually have heating, a cooling time of 0 is returned.
  */
-double GetCoolingTime(double u_old, double rho, struct UVBG * uvbg, double *ne_guess, double Z)
+double GetCoolingTime(double redshift, double u_old, double rho, struct UVBG * uvbg, double *ne_guess, double Z)
 {
     if(CoolingNoPrimordial) return 0;
 
@@ -156,7 +155,7 @@ double GetCoolingTime(double u_old, double rho, struct UVBG * uvbg, double *ne_g
     /* hydrogen number dens in cgs units */
     const double nHcgs = HYDROGEN_MASSFRAC * rho / PROTONMASS;
 
-    double LambdaNet = CoolingRateFromU(u_old, nHcgs, uvbg, ne_guess, Z);
+    double LambdaNet = CoolingRateFromU(redshift, u_old, nHcgs, uvbg, ne_guess, Z);
 
     /* bracketing */
 
@@ -218,7 +217,7 @@ void InitCool(void)
         CoolingNoMetal = 1;
     } else {
         CoolingNoMetal = 0;
-        InitMetalCooling();
+        InitMetalCooling(All.MetalCoolFile);
     }
 
     init_uvf_table(All.UVFluctuationFile, All.UVRedshiftThreshold);
@@ -241,20 +240,20 @@ struct {
 } MetalCool;
 
 
-static void InitMetalCooling() {
+static void InitMetalCooling(const char * MetalCoolFile) {
     int size;
-    //This is never used if All.MetalCoolFile == ""
-    double * tabbedmet = read_big_array(All.MetalCoolFile, "MetallicityInSolar_bins", &size);
+    //This is never used if MetalCoolFile == ""
+    double * tabbedmet = read_big_array(MetalCoolFile, "MetallicityInSolar_bins", &size);
 
     if(size != 1 || tabbedmet[0] != 0.0) {
-        endrun(123, "MetalCool file %s is wrongly tabulated\n", All.MetalCoolFile);
+        endrun(123, "MetalCool file %s is wrongly tabulated\n", MetalCoolFile);
     }
     myfree(tabbedmet);
     
-    MetalCool.Redshift_bins = read_big_array(All.MetalCoolFile, "Redshift_bins", &MetalCool.NRedshift_bins);
-    MetalCool.HydrogenNumberDensity_bins = read_big_array(All.MetalCoolFile, "HydrogenNumberDensity_bins", &MetalCool.NHydrogenNumberDensity_bins);
-    MetalCool.Temperature_bins = read_big_array(All.MetalCoolFile, "Temperature_bins", &MetalCool.NTemperature_bins);
-    MetalCool.Lmet_table = read_big_array(All.MetalCoolFile, "NetCoolingRate", &size);
+    MetalCool.Redshift_bins = read_big_array(MetalCoolFile, "Redshift_bins", &MetalCool.NRedshift_bins);
+    MetalCool.HydrogenNumberDensity_bins = read_big_array(MetalCoolFile, "HydrogenNumberDensity_bins", &MetalCool.NHydrogenNumberDensity_bins);
+    MetalCool.Temperature_bins = read_big_array(MetalCoolFile, "Temperature_bins", &MetalCool.NTemperature_bins);
+    MetalCool.Lmet_table = read_big_array(MetalCoolFile, "NetCoolingRate", &size);
 
     int dims[] = {MetalCool.NRedshift_bins, MetalCool.NHydrogenNumberDensity_bins, MetalCool.NTemperature_bins};
 
