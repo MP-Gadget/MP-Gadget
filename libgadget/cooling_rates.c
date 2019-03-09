@@ -511,17 +511,6 @@ nHepp_internal(double nHep, double logt, double ne, const struct UVBG * uvbg, do
     return nHep * GammaHep / alphaHepp;
 }
 
-/*The electron number density. Eq. 38 of KWH.*/
-static double
-ne_internal(double nh, double logt, double ne, double helium, double redshift, const struct UVBG * uvbg)
-{
-    double yy = helium / 4 / (1 - helium);
-    double photofac = self_shield_corr(nh, logt, redshift, uvbg);
-    double nH0 = nH0_internal(nh, logt, ne, uvbg, photofac);
-    double nHep = nHep_internal(nh, logt, ne, uvbg, photofac);
-    return nHp_internal(nh, nH0) + yy * nHep + 2 * yy * nHepp_internal(nHep, logt, ne, uvbg, photofac);
-}
-
 /*Compute temperature (in K) from internal energy and electron density.
     Uses: internal energy
             electron abundance per H atom (ne/nH)
@@ -557,6 +546,20 @@ get_temp_internal(double nebynh, double ienergy, double helium)
     return temp;
 }
 
+/*The electron number density. Eq. 38 of KWH.*/
+static double
+ne_internal(double nh, double ienergy, double ne, double helium, double redshift, const struct UVBG * uvbg)
+{
+    double yy = helium / 4 / (1 - helium);
+    double logt = log(get_temp_internal(ne/nh, ienergy, helium));
+    double photofac = self_shield_corr(nh, logt, redshift, uvbg);
+    double nH0 = nH0_internal(nh, logt, ne, uvbg, photofac);
+    double nHep = nHep_internal(nh, logt, ne, uvbg, photofac);
+    double nHp = nHp_internal(nh, nH0);
+    double nHepp = nHepp_internal(nHep, logt, ne, uvbg, photofac);
+    return nHp + yy * nHep + 2 * yy * nHepp;
+}
+
 /*Maximum number of iterations to perform*/
 #define MAXITER 1000
 /*Tolerance to converge the rate network towards*/
@@ -577,19 +580,17 @@ scipy_optimize_fixed_point(double ne_init, double nh, double ienergy, double hel
         ne0 = nh * (1 + helium);
     for(i = 0; i < MAXITER; i++)
     {
-        double ne1 = ne_internal(nh, log(get_temp_internal(ne0/nh, ienergy, helium)), ne0, helium, redshift, uvbg);
+        double ne1 = ne_internal(nh, ienergy, ne0, helium, redshift, uvbg);
         if(fabs((ne1+1e-30)/(1e-30+ne0) - 1.) < ITERCONV)
             break;
 
-        double ne2 = ne_internal(nh, log(get_temp_internal(ne1/nh, ienergy, helium)), ne1, helium, redshift, uvbg);
+        double ne2 = ne_internal(nh, ienergy, ne1, helium, redshift, uvbg);
         double d = ne0 + ne2 - 2.0 * ne1;
         double pp = ne2;
         /*This is del^2*/
         if (d != 0.)
             pp = ne0 - (ne1 - ne0)*(ne1 - ne0) / d;
-        double relerr = pp;
-        if(ne0 != 0.)
-            relerr = fabs(pp/ne0 - 1);
+        double relerr = fabs((pp+1e-30)/(ne0+1e-30) - 1);
         ne0 = pp;
         if (relerr < ITERCONV)
             break;
