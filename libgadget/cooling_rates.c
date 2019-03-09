@@ -92,9 +92,10 @@ static struct itp_type Eps_HI, Eps_HeI, Eps_HeII;
 /*Recombination and collisional rates*/
 #define NRECOMBTAB 300
 static double * temp_tab;
-static struct itp_type rec_alphaHp, rec_alphaHep, rec_alphad, rec_alphaHepp;
+static struct itp_type rec_alphaHp, rec_alphaHep, rec_alphaHepp;
 static struct itp_type rec_GammaH0, rec_GammaHe0, rec_GammaHep;
 static struct itp_type cool_collisH0, cool_collisHe0, cool_collisHeP;
+static struct itp_type cool_recombHp, cool_recombHeP, cool_recombHePP;
 
 static void
 init_itp_type(double * xarr, struct itp_type * Gamma, int Nelem)
@@ -482,7 +483,7 @@ nHp_internal(double nh, double logt, double ne, double redshift, const struct UV
 static double
 nHep_internal(double nh, double logt, double ne, double redshift, const struct UVBG * uvbg)
 {
-    double alphaHep = get_interpolated_recomb(logt, &rec_alphaHep, &recomb_alphaHep) + get_interpolated_recomb(logt, &rec_alphad, &recomb_alphad);
+    double alphaHep = get_interpolated_recomb(logt, &rec_alphaHep, &recomb_alphaHep);
     double alphaHepp = get_interpolated_recomb(logt, &rec_alphaHepp, &recomb_alphaHepp);
     double photofac = self_shield_corr(nh, logt, redshift, uvbg);
     double GammaHe0 = get_interpolated_recomb(logt, &rec_GammaH0, &recomb_GammaeH0) + uvbg->gJHe0/(1e-30 + ne)*photofac;
@@ -494,7 +495,7 @@ nHep_internal(double nh, double logt, double ne, double redshift, const struct U
 static double
 nHe0_internal(double nh, double logt, double ne, double redshift, const struct UVBG * uvbg)
 {
-    double alphaHep = get_interpolated_recomb(logt, &rec_alphaHep, &recomb_alphaHep) + get_interpolated_recomb(logt, &rec_alphad, &recomb_alphad);
+    double alphaHep = get_interpolated_recomb(logt, &rec_alphaHep, &recomb_alphaHep);
     double photofac = self_shield_corr(nh, logt, redshift, uvbg);
     double GammaHe0 = get_interpolated_recomb(logt, &rec_GammaHe0, &recomb_GammaeHe0) + uvbg->gJHep/(1e-30 + ne)*photofac;
     return nHep_internal(nh, logt, ne, redshift, uvbg) * alphaHep / GammaHe0;
@@ -754,41 +755,39 @@ cool_CollisionalHeP(double temp)
 
 /*Recombination cooling rate for H+ and e. Gadget calls this AlphaHp.*/
 static double
-cool_RecombHp(double logt)
+cool_RecombHp(double temp)
 {
-    double temp = exp(logt);
     if(CoolingParams.cooling == Enzo2Nyx) {
         /*Recombination cooling rate from Black 1981: these increase rapidly for T > 5e5K. */
-        return 2.851e-27 * sqrt(temp) * (5.914 - 0.5 * logt + 0.01184 * pow(temp, 1./3));
+        return 2.851e-27 * sqrt(temp) * (5.914 - 0.5 * log(temp) + 0.01184 * pow(temp, 1./3));
     }
-    return 0.75 * BOLTZMANN * temp * get_interpolated_recomb(logt, &rec_alphaHp, &recomb_alphaHp);
+    return 0.75 * BOLTZMANN * temp * recomb_alphaHp(temp);
 }
 
 /*Recombination cooling rate for He+ and e. Gadget calls this Alphad */
 static double
-cool_RecombDielect(double logt)
+cool_RecombDielect(double temp)
 {
     /*What is this magic number?*/
-    return 6.526e-11* get_interpolated_recomb(logt, &rec_alphad, &recomb_alphad);
+    return 6.526e-11* recomb_alphad(temp);
 }
 
 /*Recombination cooling rate for He+ and e. Gadget calls this AlphaHep.*/
 static double
-cool_RecombHeP(double logt)
+cool_RecombHeP(double temp)
 {
-    return 0.75 * BOLTZMANN * exp(logt) * get_interpolated_recomb(logt, &rec_alphaHep, &recomb_alphaHep) + cool_RecombDielect(logt);
+    return 0.75 * BOLTZMANN * temp * recomb_alphaHep(temp) + cool_RecombDielect(temp);
 }
 
 /*Recombination cooling rate for He+ and e. Gadget calls this AlphaHepp.*/
 static double
-cool_RecombHePP(double logt)
+cool_RecombHePP(double temp)
 {
-    double temp = exp(logt);
     if(CoolingParams.cooling == Enzo2Nyx) {
         /*Recombination cooling rate from Black 1981: these increase rapidly for T > 5e5K. */
-        return 1.140e-26 * sqrt(temp) * (6.607 - 0.5 * logt + 7.459e-3 * pow(temp, 1./3));
+        return 1.140e-26 * sqrt(temp) * (6.607 - 0.5 * log(temp) + 7.459e-3 * pow(temp, 1./3));
     }
-    return 0.75 * BOLTZMANN * temp * get_interpolated_recomb(logt, &rec_alphaHepp, &recomb_alphaHepp);
+    return 0.75 * BOLTZMANN * temp * recomb_alphaHepp(temp);
 }
 
 /*Free-free cooling rate for electrons scattering on ions without being captured.
@@ -862,17 +861,19 @@ init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar)
     }
 
     /*Initialize the recombination tables*/
-    temp_tab = mymalloc("Recombination_tables", NRECOMBTAB * sizeof(double) * 11);
+    temp_tab = mymalloc("Recombination_tables", NRECOMBTAB * sizeof(double) * 13);
     rec_GammaH0.ydata = temp_tab + NRECOMBTAB;
     rec_GammaHe0.ydata = temp_tab + 2 * NRECOMBTAB;
     rec_GammaHep.ydata = temp_tab + 3 * NRECOMBTAB;
     rec_alphaHp.ydata = temp_tab + 4 * NRECOMBTAB;
     rec_alphaHep.ydata = temp_tab + 5 * NRECOMBTAB;
-    rec_alphad.ydata = temp_tab + 6 * NRECOMBTAB;
-    rec_alphaHepp.ydata = temp_tab + 7 * NRECOMBTAB;
-    cool_collisH0.ydata = temp_tab + 8 * NRECOMBTAB;
-    cool_collisHe0.ydata = temp_tab + 9 * NRECOMBTAB;
-    cool_collisHeP.ydata = temp_tab + 10 * NRECOMBTAB;
+    rec_alphaHepp.ydata = temp_tab + 6 * NRECOMBTAB;
+    cool_collisH0.ydata = temp_tab + 7 * NRECOMBTAB;
+    cool_collisHe0.ydata = temp_tab + 8 * NRECOMBTAB;
+    cool_collisHeP.ydata = temp_tab + 9 * NRECOMBTAB;
+    cool_recombHp.ydata = temp_tab + 10 * NRECOMBTAB;
+    cool_recombHeP.ydata = temp_tab + 11 * NRECOMBTAB;
+    cool_recombHePP.ydata = temp_tab + 12 * NRECOMBTAB;
 
     int i;
     double Tmin = log(10), Tmax = log(1e10);
@@ -884,24 +885,27 @@ init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar)
         rec_GammaHe0.ydata[i] = recomb_GammaeHe0(tt);
         rec_GammaHep.ydata[i] = recomb_GammaeHe0(tt);
         rec_alphaHp.ydata[i] = recomb_alphaHp(tt);
-        rec_alphaHep.ydata[i] = recomb_alphaHep(tt);
-        rec_alphad.ydata[i] = recomb_alphad(tt);
+        rec_alphaHep.ydata[i] = recomb_alphaHep(tt) + recomb_alphad(tt);
         rec_alphaHepp.ydata[i] = recomb_alphaHepp(tt);
         cool_collisH0.ydata[i] = cool_CollisionalH0(tt);
         cool_collisHe0.ydata[i] = cool_CollisionalHe0(tt);
         cool_collisHeP.ydata[i] = cool_CollisionalHeP(tt);
-
+        cool_recombHp.ydata[i] = cool_RecombHp(tt);
+        cool_recombHeP.ydata[i] = cool_RecombHeP(tt);
+        cool_recombHePP.ydata[i] = cool_RecombHePP(tt);
     }
     init_itp_type(temp_tab, &rec_GammaH0, NRECOMBTAB);
     init_itp_type(temp_tab, &rec_GammaHe0, NRECOMBTAB);
     init_itp_type(temp_tab, &rec_GammaHep, NRECOMBTAB);
     init_itp_type(temp_tab, &rec_alphaHp, NRECOMBTAB);
     init_itp_type(temp_tab, &rec_alphaHep, NRECOMBTAB);
-    init_itp_type(temp_tab, &rec_alphad, NRECOMBTAB);
     init_itp_type(temp_tab, &rec_alphaHepp, NRECOMBTAB);
     init_itp_type(temp_tab, &cool_collisH0, NRECOMBTAB);
     init_itp_type(temp_tab, &cool_collisHe0, NRECOMBTAB);
     init_itp_type(temp_tab, &cool_collisHeP, NRECOMBTAB);
+    init_itp_type(temp_tab, &cool_recombHp, NRECOMBTAB);
+    init_itp_type(temp_tab, &cool_recombHeP, NRECOMBTAB);
+    init_itp_type(temp_tab, &cool_recombHePP, NRECOMBTAB);
 }
 
 /*Get the total (photo) heating and cooling rate for a given temperature (internal energy) and density.
@@ -929,7 +933,9 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
     double LambdaCollis = ne * (get_interpolated_recomb(logt, &cool_collisH0, cool_CollisionalH0) * nH0 +
             get_interpolated_recomb(logt, &cool_collisHe0, cool_CollisionalHe0) * nHe0 +
             get_interpolated_recomb(logt, &cool_collisHeP, cool_CollisionalHeP) * nHep);
-    double LambdaRecomb = ne * (cool_RecombHp(logt) * nHp + cool_RecombHeP(logt) * nHep + cool_RecombHePP(logt) * nHepp);
+    double LambdaRecomb = ne * (get_interpolated_recomb(logt, &cool_recombHp, cool_RecombHp) * nHp +
+            get_interpolated_recomb(logt, &cool_recombHeP, cool_RecombHeP) * nHep +
+            get_interpolated_recomb(logt, &cool_recombHePP, cool_RecombHePP) * nHepp);
     /*Free-free cooling rate*/
     if(!isfinite(LambdaRecomb) || !isfinite(LambdaCollis))
         endrun(4," Bad electron density: %g\n", ne);
