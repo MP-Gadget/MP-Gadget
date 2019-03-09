@@ -188,6 +188,8 @@ load_treecool(const char * TreeCoolFile)
     init_itp_type(Gamma_log1z, &Eps_HI, NTreeCool);
     init_itp_type(Gamma_log1z, &Eps_HeI, NTreeCool);
     init_itp_type(Gamma_log1z, &Eps_HeII, NTreeCool);
+
+    message(0, "Read %d lines z = %g - %g from file %s\n", NTreeCool, pow(10, Gamma_log1z[0])-1, pow(10, Gamma_log1z[NTreeCool-1])-1, TreeCoolFile);
 }
 
 /*Get interpolated value for one of the recombination interpolators. Takes natural log of temperature.*/
@@ -580,14 +582,14 @@ scipy_optimize_fixed_point(double ne_init, double nh, double ienergy, double hel
         if (d != 0.)
             pp = ne0 - (ne1 - ne0)*(ne1 - ne0) / d;
         double relerr = pp;
-        if(ne0 != 0)
+        if(ne0 != 0.)
             relerr = fabs(pp/ne0 - 1);
         ne0 = pp;
         if (relerr < ITERCONV)
             break;
     }
-    if (!isfinite(ne0) || fabs(ne_internal(nh, log(get_temp_internal(ne0/nh, ienergy, helium)), ne0, helium, redshift, uvbg) - ne0) > ITERCONV)
-            endrun(1, "Ionization rate network failed to converge for %g %g %g %g: last ne = %g\n", nh, ienergy, helium, redshift, ne0);
+    if (!isfinite(ne0) || i == MAXITER)
+        endrun(1, "Ionization rate network failed to converge for %g %g %g %g: last ne = %g\n", nh, ienergy, helium, redshift, ne0);
     return ne0;
 }
 
