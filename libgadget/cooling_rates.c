@@ -595,7 +595,7 @@ scipy_optimize_fixed_point(double ne_init, double nh, double ienergy, double hel
             break;
     }
     if (!isfinite(ne0) || i == MAXITER)
-        endrun(1, "Ionization rate network failed to converge for %g %g %g %g: last ne = %g\n", nh, ienergy, helium, redshift, ne0);
+        endrun(1, "Ionization rate network failed to converge for nh = %g temp = %g helium=%g: last ne = %g (init=%g)\n", nh, get_temp_internal(ne0, ienergy, helium), helium, ne0, ne_init);
     return ne0 * nh;
 }
 
