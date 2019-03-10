@@ -227,6 +227,28 @@ get_photo_rate(double redshift, struct itp_type * Gamma_tab)
     return photo_rate * CoolingParams.PhotoIonizeFactor;
 }
 
+/*Calculate the critical self-shielding density. Rahmati 2012 eq. 13.
+  gray_opac is a parameter of the UVB used.
+  gray_opac is in cm^2 (2.49e-18 is HM01 at z=3)
+  temp is particle temperature in K
+  f_bar is the baryon fraction. 0.17 is roughly 0.045/0.265
+  Returns density in atoms/cm^3"""
+*/
+static double
+self_shield_dens(double redshift, const struct UVBG * uvbg)
+{
+    double G12 = uvbg->gJH0/1e-12;
+    double greyopac;
+    if (redshift <= GrayOpac_zz[0])
+        greyopac = GrayOpac_ydata[0];
+    else if (redshift >= GrayOpac_zz[NGRAY-1])
+        greyopac = GrayOpac_ydata[NGRAY-1];
+    else {
+        greyopac = gsl_interp_eval(GrayOpac, GrayOpac_zz, GrayOpac_ydata,redshift, NULL);
+    }
+    return 6.73e-3 * pow(greyopac / 2.49e-18, -2./3)*pow(G12, 2./3)*pow(CoolingParams.fBar/0.17,-1./3);
+}
+
 /* This initializes a global UVBG by interpolating the redshift tables,
  * to which the UV fluctuations can be applied*/
 struct UVBG get_global_UVBG(double redshift)
@@ -242,31 +264,8 @@ struct UVBG get_global_UVBG(double redshift)
     GlobalUVBG.epsH0 = get_photo_rate(redshift, &Eps_HI);
     GlobalUVBG.epsHe0 = get_photo_rate(redshift, &Eps_HI);
     GlobalUVBG.epsHep = get_photo_rate(redshift, &Eps_HI);
-
+    GlobalUVBG.self_shield_dens = self_shield_dens(redshift, &GlobalUVBG);
     return GlobalUVBG;
-}
-
-/*Calculate the critical self-shielding density. Rahmati 2012 eq. 13.
-  gray_opac is a parameter of the UVB used.
-  gray_opac is in cm^2 (2.49e-18 is HM01 at z=3)
-  temp is particle temperature in K
-  f_bar is the baryon fraction. 0.17 is roughly 0.045/0.265
-  Returns density in atoms/cm^3"""
-*/
-static double
-self_shield_dens(double redshift, double logt, const struct UVBG * uvbg)
-{
-    double T4 = exp(logt)/1e4;
-    double G12 = uvbg->gJH0/1e-12;
-    double greyopac;
-    if (redshift <= GrayOpac_zz[0])
-        greyopac = GrayOpac_ydata[0];
-    else if (redshift >= GrayOpac_zz[NGRAY-1])
-        greyopac = GrayOpac_ydata[NGRAY-1];
-    else {
-        greyopac = gsl_interp_eval(GrayOpac, GrayOpac_zz, GrayOpac_ydata,redshift, NULL);
-    }
-    return 6.73e-3 * pow(greyopac / 2.49e-18, -2./3)*pow(T4, 0.17)*pow(G12, 2./3)*pow(CoolingParams.fBar/0.17,-1./3);
 }
 
 /*Correction to the photoionisation rate as a function of density from Rahmati 2012, eq. 14.
@@ -276,11 +275,12 @@ self_shield_dens(double redshift, double logt, const struct UVBG * uvbg)
   The coefficients are their best-fit from appendix A."""
 */
 static double
-self_shield_corr(double nh, double logt, double redshift, const struct UVBG * uvbg)
+self_shield_corr(double nh, double logt, double ssdens)
 {
     if(!CoolingParams.SelfShieldingOn)
         return 1;
-    double nSSh = 1.003*self_shield_dens(redshift, logt, uvbg);
+    double T4 = exp(logt)/1e4;
+    double nSSh = 1.003*ssdens*pow(T4, 0.17);
     return 0.98*pow(1+pow(nh/nSSh,1.64),-2.28)+0.02*pow(1+nh/nSSh, -0.84);
 }
 
@@ -552,11 +552,11 @@ get_temp_internal(double nebynh, double ienergy, double helium)
 
 /*The electron number density. Eq. 38 of KWH.*/
 static double
-ne_internal(double nh, double ienergy, double ne, double helium, double redshift, const struct UVBG * uvbg)
+ne_internal(double nh, double ienergy, double ne, double helium, const struct UVBG * uvbg)
 {
     double yy = helium / 4 / (1 - helium);
     double logt = log(get_temp_internal(ne/nh, ienergy, helium));
-    double photofac = self_shield_corr(nh, logt, redshift, uvbg);
+    double photofac = self_shield_corr(nh, logt, uvbg->self_shield_dens);
     double nH0 = nH0_internal(nh, logt, ne, uvbg, photofac);
     double nHep = nHep_internal(nh, logt, ne, uvbg, photofac);
     double nHp = nHp_internal(nh, nH0);
@@ -577,18 +577,18 @@ ne_internal(double nh, double ienergy, double ne, double helium, double redshift
     Notice that ne_init is the electron abundance in units of nh, not the cgs electron abundance as returned by ne_internal.
 */
 static double
-scipy_optimize_fixed_point(double ne_init, double nh, double ienergy, double helium, double redshift, const struct UVBG * uvbg)
+scipy_optimize_fixed_point(double ne_init, double nh, double ienergy, double helium, const struct UVBG * uvbg)
 {
     int i;
     double ne0 = ne_init;
     for(i = 0; i < MAXITER; i++)
     {
-        double ne1 = ne_internal(nh, ienergy, ne0*nh, helium, redshift, uvbg) / nh;
+        double ne1 = ne_internal(nh, ienergy, ne0*nh, helium, uvbg) / nh;
 
         if(fabs(ne1 - ne0) < ITERCONV)
             break;
 
-        double ne2 = ne_internal(nh, ienergy, ne1*nh, helium, redshift, uvbg) / nh;
+        double ne2 = ne_internal(nh, ienergy, ne1*nh, helium, uvbg) / nh;
         double d = ne0 + ne2 - 2.0 * ne1;
         double pp = ne2;
         /*This is del^2*/
@@ -611,18 +611,18 @@ scipy_optimize_fixed_point(double ne_init, double nh, double ienergy, double hel
   helium is a mass fraction.
 */
 double
-get_equilib_ne(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double ne_init)
+get_equilib_ne(double density, double ienergy, double helium, const struct UVBG * uvbg, double ne_init)
 {
     /*Get hydrogen number density*/
     double nh = density * (1-helium);
-    return scipy_optimize_fixed_point(ne_init, nh, ienergy, helium, redshift, uvbg);
+    return scipy_optimize_fixed_point(ne_init, nh, ienergy, helium, uvbg);
 }
 
 /*Same as above, but get electrons per proton.*/
 double
-get_ne_by_nh(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double ne_init)
+get_ne_by_nh(double density, double ienergy, double helium, const struct UVBG * uvbg, double ne_init)
 {
-    return get_equilib_ne(density, ienergy, helium, redshift, uvbg, ne_init)/(density*(1-helium));
+    return get_equilib_ne(density, ienergy, helium, uvbg, ne_init)/(density*(1-helium));
 }
 
 /*Here come the cooling rates. These are in erg s^-1 cm^-3 (cgs).
@@ -933,11 +933,11 @@ init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar)
 double
 get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double *ne_equilib, double *temp_ext)
 {
-    double ne = get_equilib_ne(density, ienergy, helium, redshift, uvbg, *ne_equilib);
+    double ne = get_equilib_ne(density, ienergy, helium, uvbg, *ne_equilib);
     double nh = density * (1 - helium);
     *temp_ext = get_temp_internal(ne/nh, ienergy, helium);
     double logt = log(*temp_ext);
-    double photofac = self_shield_corr(nh, logt, redshift, uvbg);
+    double photofac = self_shield_corr(nh, logt, uvbg->self_shield_dens);
 
     double nH0 = nH0_internal(nh, logt, ne, uvbg, photofac);
     double nHep = nHep_internal(nh, logt, ne, uvbg, photofac);
@@ -974,9 +974,9 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
     Internal energy is in ergs/g.
     helium is a mass fraction*/
 double
-get_temp(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double * ne_init)
+get_temp(double density, double ienergy, double helium, const struct UVBG * uvbg, double * ne_init)
 {
-    double ne = get_equilib_ne(density, ienergy, helium, redshift, uvbg, *ne_init);
+    double ne = get_equilib_ne(density, ienergy, helium, uvbg, *ne_init);
     double nh = density * (1 - helium);
     *ne_init = ne/nh;
     return get_temp_internal(ne/nh, ienergy, helium);
@@ -987,12 +987,12 @@ density is gas density in protons/cm^3
 Internal energy is in ergs/g.
 helium is a mass fraction.*/
 double
-get_neutral_fraction(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double * ne_init)
+get_neutral_fraction(double density, double ienergy, double helium, const struct UVBG * uvbg, double * ne_init)
 {
-    double ne = get_equilib_ne(density, ienergy, helium, redshift, uvbg, *ne_init);
+    double ne = get_equilib_ne(density, ienergy, helium, uvbg, *ne_init);
     double nh = density * (1-helium);
     double logt = log(get_temp_internal(ne/nh, ienergy, helium));
-    double photofac = self_shield_corr(nh, logt, redshift, uvbg);
+    double photofac = self_shield_corr(nh, logt, uvbg->self_shield_dens);
     *ne_init = ne/nh;
     return nH0_internal(nh, logt, ne, uvbg, photofac) / nh;
 }

@@ -462,7 +462,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
                 double physdens = SPHP(other).Density * All.cf.a3inv;
                 double ne = SPHP(other).Ne;
                 struct UVBG uvbg = get_particle_UVBG(redshift, P[other].Pos);
-                double nh0 = get_neutral_fraction(physdens, InternalEnergy, 1 - HYDROGEN_MASSFRAC, redshift, &uvbg, &ne);
+                double nh0 = get_neutral_fraction(physdens, InternalEnergy, 1 - HYDROGEN_MASSFRAC, &uvbg, &ne);
                 if(r2 > 0)
                     O->FeedbackWeightSum += (P[other].Mass * nh0) / r2;
             } else {

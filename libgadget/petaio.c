@@ -754,7 +754,7 @@ static void GTNeutralHydrogenFraction(int i, float * out) {
     double InternalEnergy = DMAX(All.MinEgySpec, SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
     double physdens = SPHP(i).Density * All.cf.a3inv;
     double ne = SPHP(i).Ne;
-    double nh0 = get_neutral_fraction(physdens, InternalEnergy, 1 - HYDROGEN_MASSFRAC, redshift, &uvbg, &ne);
+    double nh0 = get_neutral_fraction(physdens, InternalEnergy, 1 - HYDROGEN_MASSFRAC, &uvbg, &ne);
     *out = nh0;
 }
 

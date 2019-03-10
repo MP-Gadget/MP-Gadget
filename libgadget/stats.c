@@ -76,7 +76,7 @@ struct state_of_system compute_global_quantities_of_system(void)
             egyspec = entr / (GAMMA_MINUS1) * pow(SPHP(i).EOMDensity / a3, GAMMA_MINUS1);
             sys.EnergyIntComp[0] += P[i].Mass * egyspec;
             double ne = SPHP(i).Ne;
-            sys.TemperatureComp[0] += P[i].Mass * get_temp(SPHP(i).EOMDensity, egyspec, (1 - HYDROGEN_MASSFRAC), redshift, &uvbg, &ne);
+            sys.TemperatureComp[0] += P[i].Mass * get_temp(SPHP(i).EOMDensity, egyspec, (1 - HYDROGEN_MASSFRAC), &uvbg, &ne);
         }
 
         for(j = 0; j < 3; j++)
