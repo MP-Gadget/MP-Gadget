@@ -51,6 +51,7 @@
 
 #include "cooling_rates.h"
 
+#include <omp.h>
 #include <math.h>
 #include <mpi.h>
 #include <stdio.h>
@@ -78,7 +79,7 @@ struct itp_type
 {
     double * ydata;
     gsl_interp * intp;
-    gsl_interp_accel * acc;
+    gsl_interp_accel ** acc;
 };
 /*Interpolation objects for the redshift evolution of the UVB.*/
 /*Number of entries in the table*/
@@ -98,7 +99,7 @@ static struct itp_type cool_collisH0, cool_collisHe0, cool_collisHeP;
 static struct itp_type cool_recombHp, cool_recombHeP, cool_recombHePP;
 
 static void
-init_itp_type(double * xarr, struct itp_type * Gamma, int Nelem, gsl_interp_accel * acc)
+init_itp_type(double * xarr, struct itp_type * Gamma, int Nelem, gsl_interp_accel ** acc)
 {
     Gamma->intp = gsl_interp_alloc(gsl_interp_cspline,Nelem);
     gsl_interp_init(Gamma->intp, xarr, Gamma->ydata, Nelem);
@@ -143,16 +144,20 @@ load_treecool(const char * TreeCoolFile)
     if(NTreeCool<= 2)
         endrun(1, "Photon background contains: %d entries, not enough.\n", NTreeCool);
 
-    /*A common accelerator for all the tables with the same array size*/
-    gsl_interp_accel * acc = gsl_interp_accel_alloc();
     /*Allocate memory for the photon background table.*/
-    Gamma_log1z = mymalloc("TreeCoolTable", 7 * NTreeCool * sizeof(double));
+    Gamma_log1z = mymalloc("TreeCoolTable", 7 * NTreeCool * sizeof(double) + omp_get_max_threads() * sizeof(gsl_interp_accel *));
     Gamma_HI.ydata = Gamma_log1z + NTreeCool;
     Gamma_HeI.ydata = Gamma_log1z + 2 * NTreeCool;
     Gamma_HeII.ydata = Gamma_log1z + 3 * NTreeCool;
     Eps_HI.ydata = Gamma_log1z + 4 * NTreeCool;
     Eps_HeI.ydata = Gamma_log1z + 5 * NTreeCool;
     Eps_HeII.ydata = Gamma_log1z + 6 * NTreeCool;
+
+    /*A common accelerator for all the tables with the same array size*/
+    gsl_interp_accel ** acc = (gsl_interp_accel **) (Gamma_log1z + 7 * NTreeCool);
+    int i;
+    for(i = 0 ; i < omp_get_max_threads(); i++)
+        acc[i] = gsl_interp_accel_alloc();
 
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
@@ -202,7 +207,7 @@ get_interpolated_recomb(double logt, struct itp_type * rec_tab, double rec_func(
     /*Just call the function directly if we are out of interpolation range*/
     if (logt >= temp_tab[NRECOMBTAB- 1] || logt < temp_tab[0])
         return rec_func(exp(logt));
-    return gsl_interp_eval(rec_tab->intp, temp_tab, rec_tab->ydata, logt, rec_tab->acc);
+    return gsl_interp_eval(rec_tab->intp, temp_tab, rec_tab->ydata, logt, rec_tab->acc[omp_get_thread_num()]);
 }
 
 /*Get photo ionization rate for neutral Hydrogen*/
@@ -218,7 +223,7 @@ get_photo_rate(double redshift, struct itp_type * Gamma_tab)
     else if (log1z < Gamma_log1z[0])
         photo_rate = 0;
     else {
-        photo_rate = gsl_interp_eval(Gamma_tab->intp, Gamma_log1z, Gamma_tab->ydata, log1z, Gamma_tab->acc);
+        photo_rate = gsl_interp_eval(Gamma_tab->intp, Gamma_log1z, Gamma_tab->ydata, log1z, Gamma_tab->acc[omp_get_thread_num()]);
     }
     return photo_rate * CoolingParams.PhotoIonizeFactor;
 }
@@ -866,10 +871,14 @@ init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar)
         load_treecool(TreeCoolFile);
     }
 
-    /*A common accelerator for all the tables with the same array size*/
-    gsl_interp_accel * acc = gsl_interp_accel_alloc();
     /*Initialize the recombination tables*/
-    temp_tab = mymalloc("Recombination_tables", NRECOMBTAB * sizeof(double) * 13);
+    temp_tab = mymalloc("Recombination_tables", NRECOMBTAB * sizeof(double) * 13 + omp_get_max_threads() * sizeof(gsl_interp_accel *));
+    /*A common accelerator for all the tables with the same array size*/
+    gsl_interp_accel ** acc = (gsl_interp_accel **) (temp_tab + 13 * NRECOMBTAB);
+    int i;
+    for(i = 0 ; i < omp_get_max_threads(); i++)
+        acc[i] = gsl_interp_accel_alloc();
+
     rec_GammaH0.ydata = temp_tab + NRECOMBTAB;
     rec_GammaHe0.ydata = temp_tab + 2 * NRECOMBTAB;
     rec_GammaHep.ydata = temp_tab + 3 * NRECOMBTAB;
@@ -883,7 +892,6 @@ init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar)
     cool_recombHeP.ydata = temp_tab + 11 * NRECOMBTAB;
     cool_recombHePP.ydata = temp_tab + 12 * NRECOMBTAB;
 
-    int i;
     double Tmin = log(10), Tmax = log(1e10);
     for(i = 0 ; i < NRECOMBTAB; i++)
     {
