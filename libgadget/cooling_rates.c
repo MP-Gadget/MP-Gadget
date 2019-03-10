@@ -70,7 +70,6 @@ static gsl_interp * GrayOpac;
 
 /*Tables for the self-shielding correction. Note these are not well-measured for z > 5!*/
 #define NGRAY 9
-static gsl_interp_accel *GrayOpac_acc;
 static double GrayOpac_ydata[NGRAY] = { 2.59e-18, 2.37e-18, 2.27e-18, 2.15e-18, 2.02e-18, 1.94e-18, 1.82e-18, 1.71e-18, 1.60e-18};
 static const double GrayOpac_zz[NGRAY] = {0, 1, 2, 3, 4, 5, 6, 7, 8};
 
@@ -265,7 +264,7 @@ self_shield_dens(double redshift, double logt, const struct UVBG * uvbg)
     else if (redshift >= GrayOpac_zz[NGRAY-1])
         greyopac = GrayOpac_ydata[NGRAY-1];
     else {
-        greyopac = gsl_interp_eval(GrayOpac, GrayOpac_zz, GrayOpac_ydata,redshift, GrayOpac_acc);
+        greyopac = gsl_interp_eval(GrayOpac, GrayOpac_zz, GrayOpac_ydata,redshift, NULL);
     }
     return 6.73e-3 * pow(greyopac / 2.49e-18, -2./3)*pow(T4, 0.17)*pow(G12, 2./3)*pow(CoolingParams.fBar/0.17,-1./3);
 }
@@ -859,7 +858,6 @@ init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar)
     /*Initialize the interpolation for the self-shielding module as a function of redshift.*/
     GrayOpac = gsl_interp_alloc(gsl_interp_cspline,NGRAY);
     gsl_interp_init(GrayOpac,GrayOpac_zz,GrayOpac_ydata, NGRAY);
-    GrayOpac_acc = gsl_interp_accel_alloc();
 
     if(strlen(TreeCoolFile) == 0) {
         CoolingParams.PhotoIonizationOn = 0;
@@ -936,8 +934,6 @@ double
 get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double *ne_equilib, double *temp_ext)
 {
     double ne = get_equilib_ne(density, ienergy, helium, redshift, uvbg, *ne_equilib);
-    if(!isfinite(ne))
-        endrun(4," Bad electron density: %g\n", ne);
     double nh = density * (1 - helium);
     *temp_ext = get_temp_internal(ne/nh, ienergy, helium);
     double logt = log(*temp_ext);
