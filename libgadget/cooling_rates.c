@@ -563,7 +563,7 @@ ne_internal(double nh, double ienergy, double ne, double helium, double redshift
 /*Maximum number of iterations to perform*/
 #define MAXITER 1000
 /*Tolerance to converge the rate network towards*/
-#define ITERCONV 1e-8
+#define ITERCONV 1e-6
 
 /* This finds a fixed point of the function where ``func(x0) == x0``.
     Uses Steffensen's Method with Aitken's ``Del^2`` convergence
@@ -582,6 +582,10 @@ scipy_optimize_fixed_point(double ne_init, double nh, double ienergy, double hel
     {
         double ne1 = ne_internal(nh, ienergy, ne0, helium, redshift, uvbg);
         if(fabs((ne1+1e-30)/(1e-30+ne0) - 1.) < ITERCONV)
+            break;
+        /* If we are converging to something very small, we don't care exactly what it is.
+         * Everything will be neutral.*/
+        if(ne0 / nh < ITERCONV/1000 && ne1 / nh < ITERCONV/1000)
             break;
 
         double ne2 = ne_internal(nh, ienergy, ne1, helium, redshift, uvbg);
