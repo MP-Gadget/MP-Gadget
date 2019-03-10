@@ -569,39 +569,34 @@ ne_internal(double nh, double ienergy, double ne, double helium, double redshift
     Uses Steffensen's Method with Aitken's ``Del^2`` convergence
     acceleration (Burden, Faires, "Numerical Analysis", 5th edition, pg. 80).
     This routine is ported from scipy.optimize.fixed_point.
+    Notice that ne_init is the electron abundance in units of nh, not the cgs electron abundance as returned by ne_internal.
 */
 static double
 scipy_optimize_fixed_point(double ne_init, double nh, double ienergy, double helium, double redshift, const struct UVBG * uvbg)
 {
     int i;
     double ne0 = ne_init;
-    /*A better initialization*/
-    if(ne0 > nh * (1 + helium))
-        ne0 = nh * (1 + helium);
     for(i = 0; i < MAXITER; i++)
     {
-        double ne1 = ne_internal(nh, ienergy, ne0, helium, redshift, uvbg);
-        if(fabs((ne1+1e-30)/(1e-30+ne0) - 1.) < ITERCONV)
+        double ne1 = ne_internal(nh, ienergy, ne0*nh, helium, redshift, uvbg) / nh;
+        if(fabs(ne1/(1.e-30+ne0) - 1.) < ITERCONV)
             break;
-        /* If we are converging to something very small, we don't care exactly what it is.
-         * Everything will be neutral.*/
-        if(ne0 / nh < ITERCONV/1000 && ne1 / nh < ITERCONV/1000)
-            break;
-
-        double ne2 = ne_internal(nh, ienergy, ne1, helium, redshift, uvbg);
+        double ne2 = ne_internal(nh, ienergy, ne1*nh, helium, redshift, uvbg) / nh;
         double d = ne0 + ne2 - 2.0 * ne1;
         double pp = ne2;
         /*This is del^2*/
         if (d != 0.)
             pp = ne0 - (ne1 - ne0)*(ne1 - ne0) / d;
-        double relerr = fabs((pp+1e-30)/(ne0+1e-30) - 1);
+        double relerr = pp;
+        if(ne0 != 0.)
+            relerr = fabs(pp/ne0 - 1);
         ne0 = pp;
         if (relerr < ITERCONV)
             break;
     }
     if (!isfinite(ne0) || i == MAXITER)
         endrun(1, "Ionization rate network failed to converge for %g %g %g %g: last ne = %g\n", nh, ienergy, helium, redshift, ne0);
-    return ne0;
+    return ne0 * nh;
 }
 
 /*Solve the system of equations for photo-ionization equilibrium,
@@ -925,7 +920,8 @@ init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar)
   Internal energy is in ergs/g.
   helium is a mass fraction, 1 - HYDROGEN_MASSFRAC = 0.24 for primordial gas.
   Returns heating - cooling.
-  Sets ne_equilib to the new equilibrium electron density.
+  ne_equilib is the equilibrium electron abundance in units of the hydrogen number density.
+  Note this is *not* the electron density in cgs units, as used internally.
  */
 double
 get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double *ne_equilib, double *temp_ext)
@@ -963,7 +959,7 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
 
     Heat *= cool_he_reion_factor(density, helium, redshift);
     /*Set external equilibrium electron density*/
-    *ne_equilib = ne;
+    *ne_equilib = ne/nh;
 
     return Heat - Lambda;
 }
@@ -977,7 +973,7 @@ get_temp(double density, double ienergy, double helium, double redshift, const s
 {
     double ne = get_equilib_ne(density, ienergy, helium, redshift, uvbg, *ne_init);
     double nh = density * (1 - helium);
-    *ne_init = ne;
+    *ne_init = ne/nh;
     return get_temp_internal(ne/nh, ienergy, helium);
 }
 
@@ -992,6 +988,6 @@ get_neutral_fraction(double density, double ienergy, double helium, double redsh
     double nh = density * (1-helium);
     double logt = log(get_temp_internal(ne/nh, ienergy, helium));
     double photofac = self_shield_corr(nh, logt, redshift, uvbg);
-    *ne_init = ne;
+    *ne_init = ne/nh;
     return nH0_internal(nh, logt, ne, uvbg, photofac) / nh;
 }
