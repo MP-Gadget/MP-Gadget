@@ -277,7 +277,10 @@ struct UVBG get_global_UVBG(double redshift)
 static double
 self_shield_corr(double nh, double logt, double ssdens)
 {
-    if(!CoolingParams.SelfShieldingOn)
+    /* Turn off self-shielding for low-density gas.
+     * If such gas becomes very cold, this is not strictly what they find,
+     * but I think it is more physical*/
+    if(!CoolingParams.SelfShieldingOn || nh < ssdens * 0.01)
         return 1;
     double T4 = exp(logt)/1e4;
     double nSSh = 1.003*ssdens*pow(T4, 0.17);
