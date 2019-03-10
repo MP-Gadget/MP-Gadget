@@ -562,7 +562,8 @@ ne_internal(double nh, double ienergy, double ne, double helium, double redshift
 
 /*Maximum number of iterations to perform*/
 #define MAXITER 1000
-/*Tolerance to converge the rate network towards*/
+/* Absolute tolerance to converge the rate network. Absolute is ok because we are converging electon abundance, ne/nh,
+ * which ~ 1 in all cases where it matters.*/
 #define ITERCONV 1e-6
 
 /* This finds a fixed point of the function where ``func(x0) == x0``.
@@ -579,20 +580,20 @@ scipy_optimize_fixed_point(double ne_init, double nh, double ienergy, double hel
     for(i = 0; i < MAXITER; i++)
     {
         double ne1 = ne_internal(nh, ienergy, ne0*nh, helium, redshift, uvbg) / nh;
-        if(fabs(ne1/(1.e-30+ne0) - 1.) < ITERCONV)
+
+        if(fabs(ne1 - ne0) < ITERCONV)
             break;
+
         double ne2 = ne_internal(nh, ienergy, ne1*nh, helium, redshift, uvbg) / nh;
         double d = ne0 + ne2 - 2.0 * ne1;
         double pp = ne2;
         /*This is del^2*/
         if (d != 0.)
             pp = ne0 - (ne1 - ne0)*(ne1 - ne0) / d;
-        double relerr = pp;
-        if(ne0 != 0.)
-            relerr = fabs(pp/ne0 - 1);
         ne0 = pp;
-        if (relerr < ITERCONV)
-            break;
+        /*Enforce positivity*/
+        if(ne0 < 0)
+            ne0 = 0;
     }
     if (!isfinite(ne0) || i == MAXITER)
         endrun(1, "Ionization rate network failed to converge for nh = %g temp = %g helium=%g: last ne = %g (init=%g)\n", nh, get_temp_internal(ne0, ienergy, helium), helium, ne0, ne_init);
