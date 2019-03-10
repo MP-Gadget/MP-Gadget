@@ -471,7 +471,7 @@ nH0_internal(double nh, double logt, double ne, const struct UVBG * uvbg, double
 {
     double alphaHp = get_interpolated_recomb(logt, &rec_alphaHp, &recomb_alphaHp);
     double GammaeH0 = get_interpolated_recomb(logt, &rec_GammaH0, &recomb_GammaeH0);
-    double photorate = uvbg->gJH0/(1e-30 + ne) * photofac;
+    double photorate = (ne > 0 ? uvbg->gJH0/ne * photofac : 0);
     return nh * alphaHp/ (alphaHp + GammaeH0 + photorate);
 }
 
@@ -488,8 +488,8 @@ nHep_internal(double nh, double logt, double ne, const struct UVBG * uvbg, doubl
 {
     double alphaHep = get_interpolated_recomb(logt, &rec_alphaHep, &recomb_alphaHep);
     double alphaHepp = get_interpolated_recomb(logt, &rec_alphaHepp, &recomb_alphaHepp);
-    double GammaHe0 = get_interpolated_recomb(logt, &rec_GammaH0, &recomb_GammaeH0) + uvbg->gJHe0/(1e-30 + ne)*photofac;
-    double GammaHep = get_interpolated_recomb(logt, &rec_GammaHep, &recomb_GammaeHep) + uvbg->gJHep/(1e-30 + ne)*photofac;
+    double GammaHe0 = get_interpolated_recomb(logt, &rec_GammaH0, &recomb_GammaeH0) + (ne > 0 ? uvbg->gJHe0/ne *photofac : 0);
+    double GammaHep = get_interpolated_recomb(logt, &rec_GammaHep, &recomb_GammaeHep) + (ne > 0 ? uvbg->gJHep/ne *photofac : 0);
     return nh / (1 + alphaHep / GammaHe0 + GammaHep/alphaHepp);
 }
 
@@ -498,7 +498,7 @@ static double
 nHe0_internal(double nHep, double logt, double ne, const struct UVBG * uvbg, double photofac)
 {
     double alphaHep = get_interpolated_recomb(logt, &rec_alphaHep, &recomb_alphaHep);
-    double GammaHe0 = get_interpolated_recomb(logt, &rec_GammaHe0, &recomb_GammaeHe0) + uvbg->gJHep/(1e-30 + ne)*photofac;
+    double GammaHe0 = get_interpolated_recomb(logt, &rec_GammaHe0, &recomb_GammaeHe0) + (ne > 0 ? uvbg->gJHep/ne *photofac : 0);
     return nHep * alphaHep / GammaHe0;
 }
 
@@ -506,7 +506,7 @@ nHe0_internal(double nHep, double logt, double ne, const struct UVBG * uvbg, dou
 static double
 nHepp_internal(double nHep, double logt, double ne, const struct UVBG * uvbg, double photofac)
 {
-    double GammaHep = get_interpolated_recomb(logt, &rec_GammaHep, &recomb_GammaeHep) + uvbg->gJHep/(1e-30 + ne)*photofac;
+    double GammaHep = get_interpolated_recomb(logt, &rec_GammaHep, &recomb_GammaeHep) + (ne > 0 ? uvbg->gJHep/ne *photofac : 0);
     double alphaHepp = get_interpolated_recomb(logt, &rec_alphaHepp, &recomb_alphaHepp);
     return nHep * GammaHep / alphaHepp;
 }
