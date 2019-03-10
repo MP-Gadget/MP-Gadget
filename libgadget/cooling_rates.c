@@ -90,7 +90,7 @@ static struct itp_type Gamma_HI, Gamma_HeI, Gamma_HeII;
 /*These are the photo-heating rates*/
 static struct itp_type Eps_HI, Eps_HeI, Eps_HeII;
 /*Recombination and collisional rates*/
-#define NRECOMBTAB 300
+#define NRECOMBTAB 1000
 static double * temp_tab;
 static struct itp_type rec_alphaHp, rec_alphaHep, rec_alphaHepp;
 static struct itp_type rec_GammaH0, rec_GammaHe0, rec_GammaHep;
