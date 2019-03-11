@@ -2,9 +2,9 @@ OutputDir = output    # Directory for output
 FileBase = IC              # Base-filename of output files
 
 Ngrid = 64
-Nmesh = 256
+Nmesh = 128
 
-BoxSize = 512.0   # Periodic box size of simulation
+BoxSize = 512000.0   # Periodic box size of simulation
 
 Omega0 = 0.2814      # Total matter density  (at z=0)
 OmegaLambda = 0.7186      # Cosmological constant (at z=0)
@@ -31,7 +31,7 @@ PrimordialIndex = 0.971 # may be used to tilt the primordial index
 Seed = 181170    #  seed for IC-generator
 MakeGlass = 1
 
-UnitLength_in_cm = 3.085678e24   # defines length unit of output (in cm/h) 
+UnitLength_in_cm = 3.085678e21   # defines length unit of output (in cm/h) 
 UnitMass_in_g = 1.989e43      # defines mass unit of output (in g/cm)
 UnitVelocity_in_cm_per_s = 1e5 # defines velocity unit of output (in cm/sec)
 
