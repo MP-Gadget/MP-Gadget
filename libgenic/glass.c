@@ -102,19 +102,28 @@ setup_glass(double shift, int Ngrid, int seed)
 
     glass_force(t_x);
 
-    for(step = 0; step < 15; step++) {
-
-        double dt = M_PI / 2;
-        double hdt = 0.5 * dt;
+    /* Our pick of the units ensures there is an oscillation period of 2 * M_PI.
+     *
+     * (don't ask me how this worked -- I think I failed this problem in physics undergrad. )
+     * We use 4 steps per oscillation, and end at
+     *
+     * 12 + 1 = 13, the first time phase is M_PI / 2, a close encounter to the minimum.
+     *
+     * */
+    for(step = 0; step < 14; step++) {
+        /* leap-frog, K D D F K */
+        double dt = M_PI / 2; /* step size */
+        double hdt = 0.5 * dt; /* half a step */
         int d;
         /*
-         * Use a negative gravity with a damping term.
+         * Use inverted gravity with a damping term proportional to the velocity.
          * The magic setup was studied in fastpm-python/fastpm/glass.py
          * */
 
         /* Kick */
         for(i = 0; i < NumPart; i ++) {
             for(d = 0; d < 3; d ++) {
+                /* mind the damping term */
                 ICP[i].Vel[d] += (ICP[i].Disp[d] - ICP[i].Vel[d]) * hdt;
             }
         }
@@ -128,19 +137,19 @@ setup_glass(double shift, int Ngrid, int seed)
         }
         t_v += dt;
 
-
         glass_force(t_x);
         t_f = t_x;
 
         /* Kick */
         for(i = 0; i < NumPart; i ++) {
             for(d = 0; d < 3; d ++) {
+                /* mind the damping term */
                 ICP[i].Vel[d] += (ICP[i].Disp[d] - ICP[i].Vel[d]) * hdt;
             }
         }
 
         t_x += hdt;
-        message(0, "Generating glass, step = %d, t_f= %g, t_v = %g, t_x = %g\n", step, t_f, t_v, t_x);
+        message(0, "Generating glass, step = %d, t_f= %g, t_v = %g, t_x = %g\n", step, t_f / (2 * M_PI), t_v / (2 *M_PI), t_x / (2 * M_PI));
         glass_stats();
 
         /*Now save the power spectrum*/
@@ -150,6 +159,7 @@ setup_glass(double shift, int Ngrid, int seed)
             free(fn);
         }
     }
+
     /*We are done with the power spectrum, free it*/
     powerspectrum_free(&PowerSpectrum, 0);
 }
