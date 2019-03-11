@@ -50,7 +50,6 @@ int main(int argc, char **argv)
       shift_nu = -0.5 * (All.CP.Omega0 - OmegaNu) / All.CP.Omega0 * meanspacing;
       shift_dm = 0.5 * OmegaNu / All.CP.Omega0 * meanspacing;
   }
-  setup_grid(All2.ProduceGas * shift_dm, All2.Ngrid);
 
   /*Write the header*/
   char buf[4096];
@@ -87,7 +86,15 @@ int main(int argc, char **argv)
   }
 
   /*First compute and write CDM*/
+
+  if(!All2.MakeGlass) {
+      setup_grid(All2.ProduceGas * shift_dm, All2.Ngrid);
+  } else {
+      setup_glass(All2.ProduceGas * shift_dm, All2.Ngrid, All2.Seed * 9999721);
+  }
+
   displacement_fields(DMType);
+
   /*Add a thermal velocity to WDM particles*/
   if(All2.WDM_therm_mass > 0){
       int i;
@@ -119,7 +126,13 @@ int main(int argc, char **argv)
 
   /*Now make the gas if required*/
   if(All2.ProduceGas) {
-    setup_grid(shift_gas, All2.Ngrid);
+
+    if(!All2.MakeGlass) {
+        setup_grid(shift_gas, All2.Ngrid);
+    } else {
+        setup_glass(shift_gas, All2.Ngrid, (All2.Seed + 1) * 99999721);
+    }
+
     displacement_fields(GasType);
     write_particle_data(0, &bf, TotNumPart, All2.Ngrid);
     free_ffts();
@@ -127,7 +140,12 @@ int main(int argc, char **argv)
   /*Now add random velocity neutrino particles*/
   if(All2.NGridNu > 0) {
       int i;
-      setup_grid(shift_nu, All2.NGridNu);
+      if(!All2.MakeGlass) {
+        setup_grid(shift_nu, All2.NGridNu);
+      } else {
+        setup_glass(shift_nu, All2.Ngrid, (All2.Seed + 2) * 9999721);
+      }
+
       displacement_fields(NuType);
       unsigned int * seedtable = init_rng(All2.Seed+2,All2.Ngrid);
       gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
