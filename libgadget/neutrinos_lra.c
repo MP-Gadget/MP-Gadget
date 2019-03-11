@@ -201,12 +201,12 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
 }
 
 /*Save the neutrino power spectrum to a file*/
-void powerspectrum_nu_save(struct _powerspectrum * PowerSpectrum, const char * OutputDir, const double Time)
+void powerspectrum_nu_save(struct _powerspectrum * PowerSpectrum, const char * OutputDir, const char * filename, const double Time)
 {
     int i;
     char fname[1024];
     /* Now save the neutrino power spectrum*/
-    snprintf(fname, 1024,"%s/powerspectrum-nu-%0.4f.txt", OutputDir, Time);
+    snprintf(fname, 1024,"%s/%s-%0.4f.txt", OutputDir, filename, Time);
     FILE * fp = fopen(fname, "w");
     fprintf(fp, "# in Mpc/h Units \n");
     fprintf(fp, "# k P_nu(k) Nmodes\n");

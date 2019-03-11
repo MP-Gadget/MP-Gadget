@@ -65,5 +65,5 @@ void petaio_read_neutrinos(BigFile * bf, int ThisTask);
 void petaio_read_icnutransfer(BigFile * bf, int ThisTask);
 
 /*Save the neutrino power spectrum to a file*/
-void powerspectrum_nu_save(struct _powerspectrum * PowerSpectrum, const char * OutputDir, const double Time);
+void powerspectrum_nu_save(struct _powerspectrum * PowerSpectrum, const char * OutputDir, const char * filename, const double Time);
 #endif

@@ -87,11 +87,11 @@ void powerspectrum_sum(struct _powerspectrum * PowerSpectrum, const double BoxSi
 }
 
 /*Save the power spectrum to a file*/
-void powerspectrum_save(struct _powerspectrum * PowerSpectrum, const char * OutputDir, const double Time, const double D1)
+void powerspectrum_save(struct _powerspectrum * PowerSpectrum, const char * OutputDir, const char * filename, const double Time, const double D1)
 {
         int i;
         char fname[1024];
-        sprintf(fname, "%s/powerspectrum-%0.4f.txt", OutputDir, Time);
+        sprintf(fname, "%s/%s-%0.4f.txt", OutputDir, filename, Time);
         message(1, "Writing Power Spectrum to %s\n", fname);
         FILE * fp = fopen(fname, "w");
         if(!fp)
