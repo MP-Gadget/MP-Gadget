@@ -220,7 +220,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
     int64_t ntot = NumPart;
     MPI_Allreduce(MPI_IN_PLACE, &ntot, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
 
-    double nbar = ntot; // / pow(All.Nmesh, 3);
+    double nbar = ntot; /* 1 / pow(All.Nmesh, 3) is included by the FFT, screw it. */
 
     /* dimensionless invert gravity;
      *
