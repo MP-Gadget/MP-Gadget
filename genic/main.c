@@ -37,7 +37,9 @@ int main(int argc, char **argv)
   init_cosmology(&All.CP, All.TimeIC);
 
   init_powerspectrum(ThisTask, All.TimeIC, All.UnitLength_in_cm, &All.CP, &All2.PowerP);
-  petapm_init(All.BoxSize, All.Nmesh, omp_get_max_threads());
+  All.NumThreads = omp_get_max_threads();
+
+  petapm_init(All.BoxSize, All.Nmesh, All.NumThreads);
   /*Initialise particle spacings*/
   const double meanspacing = All.BoxSize / All2.Ngrid;
   const double shift_gas = -All2.ProduceGas * 0.5 * (All.CP.Omega0 - All.CP.OmegaBaryon) / All.CP.Omega0 * meanspacing;
