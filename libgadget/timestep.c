@@ -62,7 +62,6 @@ timestep_eh_slots_fork(EIBase * event, void * userdata)
     return 0;
 }
 
-static void reverse_and_apply_gravity();
 static inttime_t get_timestep_ti(const int p, const inttime_t dti_max);
 static int get_timestep_bin(inttime_t dti);
 static void do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend);
@@ -131,9 +130,6 @@ find_timesteps(int * MinTimeBin)
     inttime_t dti_min = TIMEBASE;
 
     walltime_measure("/Misc");
-
-    if(All.MakeGlassFile)
-        reverse_and_apply_gravity();
 
     /*Update the PM timestep size */
     const int isPM = is_PM_timestep(All.Ti_Current);
@@ -612,55 +608,6 @@ int get_timestep_bin(inttime_t dti)
    }
 
    return bin;
-}
-
-/* This function reverse the direction of the gravitational force.
- * This is only useful for making Lagrangian glass files*/
-void reverse_and_apply_gravity()
-{
-    double dispmax=0, globmax;
-    int i;
-    for(i = 0; i < PartManager->NumPart; i++)
-    {
-        int j;
-        /*Reverse the direction of acceleration*/
-        for(j = 0; j < 3; j++)
-        {
-            P[i].GravAccel[j] *= -1;
-            P[i].GravAccel[j] -= P[i].GravPM[j];
-            P[i].GravPM[j] = 0;
-        }
-
-        double disp = sqrt(P[i].GravAccel[0] * P[i].GravAccel[0] +
-                P[i].GravAccel[1] * P[i].GravAccel[1] + P[i].GravAccel[2] * P[i].GravAccel[2]);
-
-        disp *= 2.0 / (3 * All.CP.Hubble * All.CP.Hubble);
-
-        if(disp > dispmax)
-            dispmax = disp;
-    }
-
-    MPI_Allreduce(&dispmax, &globmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-
-    double dmean = pow(P[0].Mass / (All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G)), 1.0 / 3);
-
-    const double fac = DMIN(1.0, dmean / globmax);
-
-    message(0, "Glass-making: dmean= %g  global disp-maximum= %g\n", dmean, globmax);
-
-    /* Move the actual particles according to the (reversed) gravitational force.
-     * Not sure why this is here rather than in the main code.*/
-    for(i = 0; i < PartManager->NumPart; i++)
-    {
-        int j;
-        for(j = 0; j < 3; j++)
-        {
-            P[i].Vel[j] = 0;
-            P[i].Pos[j] += fac * P[i].GravAccel[j] * 2.0 / (3 * All.CP.Hubble * All.CP.Hubble);
-            P[i].GravAccel[j] = 0;
-        }
-    }
-
 }
 
 /*! This function finds the next synchronization point of the system
