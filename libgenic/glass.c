@@ -117,7 +117,9 @@ setup_glass(double shift, int Ngrid, int seed)
         int d;
         /*
          * Use inverted gravity with a damping term proportional to the velocity.
-         * The magic setup was studied in fastpm-python/fastpm/glass.py
+         *
+         * The magic setup was studied in
+         *      https://github.com/rainwoodman/fastpm-python/blob/1be020b/Example/Glass.ipynb
          * */
 
         /* Kick */
