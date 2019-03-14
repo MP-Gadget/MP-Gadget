@@ -158,8 +158,8 @@ void displacement_fields(enum TransferType Type) {
     #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
     {
-        ICP[i].Disp[0] = ICP[i].Disp[1] = ICP[i].Disp[2] = 0;
-        ICP[i].Vel[0] = ICP[i].Vel[1] = ICP[i].Vel[2] = 0;
+        memset(&ICP[i].Disp[0], 0, sizeof(ICP[i].Disp));
+        memset(&ICP[i].Vel[0], 0, sizeof(ICP[i].Vel));
         ICP[i].Density = 0;
     }
 
