@@ -13,6 +13,8 @@
 #include <libgadget/petapm.h>
 #include <libgadget/utils.h>
 
+#define GLASS_SEED_HASH(seed) ((seed) * 9999721L)
+
 void print_spec(void);
 
 int main(int argc, char **argv)
@@ -90,7 +92,7 @@ int main(int argc, char **argv)
   if(!All2.MakeGlass) {
       setup_grid(All2.ProduceGas * shift_dm, All2.Ngrid);
   } else {
-      setup_glass(All2.ProduceGas * shift_dm, All2.Ngrid, All2.Seed * 9999721);
+      setup_glass(All2.ProduceGas * shift_dm, All2.Ngrid, GLASS_SEED_HASH(All2.Seed));
   }
 
   displacement_fields(DMType);
@@ -130,7 +132,7 @@ int main(int argc, char **argv)
     if(!All2.MakeGlass) {
         setup_grid(shift_gas, All2.Ngrid);
     } else {
-        setup_glass(shift_gas, All2.Ngrid, (All2.Seed + 1) * 99999721);
+        setup_glass(shift_gas, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 1));
     }
 
     displacement_fields(GasType);
@@ -143,7 +145,7 @@ int main(int argc, char **argv)
       if(!All2.MakeGlass) {
         setup_grid(shift_nu, All2.NGridNu);
       } else {
-        setup_glass(shift_nu, All2.Ngrid, (All2.Seed + 2) * 9999721);
+        setup_glass(shift_nu, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 2));
       }
 
       displacement_fields(NuType);
