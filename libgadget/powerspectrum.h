@@ -37,5 +37,5 @@ void powerspectrum_free(struct _powerspectrum * PowerSpectrum, const int Massive
 void powerspectrum_sum(struct _powerspectrum * PowerSpectrum, const double BoxSize_in_cm);
 
 /*Save the power spectrum to a file*/
-void powerspectrum_save(struct _powerspectrum * PowerSpectrum, const char * OutputDir, const double Time, const double D1);
+void powerspectrum_save(struct _powerspectrum * PowerSpectrum, const char * OutputDir, const char * filename, const double Time, const double D1);
 #endif

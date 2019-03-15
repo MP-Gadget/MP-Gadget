@@ -154,6 +154,16 @@ void displacement_fields(enum TransferType Type) {
         NumPart,
     };
 
+    int i;
+    #pragma omp parallel for
+    for(i = 0; i < NumPart; i++)
+    {
+        memset(&ICP[i].Disp[0], 0, sizeof(ICP[i].Disp));
+        memset(&ICP[i].Vel[0], 0, sizeof(ICP[i].Vel));
+        ICP[i].Density = 0;
+    }
+
+
     /* This reads out the displacements into P.Disp and the velocities into P.Vel.
      * Disp is used to avoid changing the particle positions mid-way through.
      * Note that for the velocities we do NOT just use the velocity transfer functions.
@@ -207,7 +217,7 @@ void displacement_fields(enum TransferType Type) {
     petapm_force_finish();
 
     double maxdisp = 0, maxvel = 0;
-    int i;
+
     #pragma omp parallel for reduction(max:maxdisp, maxvel)
     for(i = 0; i < NumPart; i++)
     {

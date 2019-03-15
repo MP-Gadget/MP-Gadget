@@ -13,6 +13,8 @@
 #include <libgadget/petapm.h>
 #include <libgadget/utils.h>
 
+#define GLASS_SEED_HASH(seed) ((seed) * 9999721L)
+
 void print_spec(void);
 
 int main(int argc, char **argv)
@@ -37,7 +39,9 @@ int main(int argc, char **argv)
   init_cosmology(&All.CP, All.TimeIC);
 
   init_powerspectrum(ThisTask, All.TimeIC, All.UnitLength_in_cm, &All.CP, &All2.PowerP);
-  petapm_init(All.BoxSize, All.Nmesh, omp_get_max_threads());
+  All.NumThreads = omp_get_max_threads();
+
+  petapm_init(All.BoxSize, All.Nmesh, All.NumThreads);
   /*Initialise particle spacings*/
   const double meanspacing = All.BoxSize / All2.Ngrid;
   const double shift_gas = -All2.ProduceGas * 0.5 * (All.CP.Omega0 - All.CP.OmegaBaryon) / All.CP.Omega0 * meanspacing;
@@ -48,7 +52,6 @@ int main(int argc, char **argv)
       shift_nu = -0.5 * (All.CP.Omega0 - OmegaNu) / All.CP.Omega0 * meanspacing;
       shift_dm = 0.5 * OmegaNu / All.CP.Omega0 * meanspacing;
   }
-  setup_grid(All2.ProduceGas * shift_dm, All2.Ngrid);
 
   /*Write the header*/
   char buf[4096];
@@ -85,7 +88,15 @@ int main(int argc, char **argv)
   }
 
   /*First compute and write CDM*/
+
+  if(!All2.MakeGlass) {
+      setup_grid(All2.ProduceGas * shift_dm, All2.Ngrid);
+  } else {
+      setup_glass(All2.ProduceGas * shift_dm, All2.Ngrid, GLASS_SEED_HASH(All2.Seed));
+  }
+
   displacement_fields(DMType);
+
   /*Add a thermal velocity to WDM particles*/
   if(All2.WDM_therm_mass > 0){
       int i;
@@ -117,7 +128,13 @@ int main(int argc, char **argv)
 
   /*Now make the gas if required*/
   if(All2.ProduceGas) {
-    setup_grid(shift_gas, All2.Ngrid);
+
+    if(!All2.MakeGlass) {
+        setup_grid(shift_gas, All2.Ngrid);
+    } else {
+        setup_glass(shift_gas, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 1));
+    }
+
     displacement_fields(GasType);
     write_particle_data(0, &bf, TotNumPart, All2.Ngrid);
     free_ffts();
@@ -125,7 +142,12 @@ int main(int argc, char **argv)
   /*Now add random velocity neutrino particles*/
   if(All2.NGridNu > 0) {
       int i;
-      setup_grid(shift_nu, All2.NGridNu);
+      if(!All2.MakeGlass) {
+        setup_grid(shift_nu, All2.NGridNu);
+      } else {
+        setup_glass(shift_nu, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 2));
+      }
+
       displacement_fields(NuType);
       unsigned int * seedtable = init_rng(All2.Seed+2,All2.Ngrid);
       gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
