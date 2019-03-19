@@ -53,18 +53,17 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
     double LambdaNet;
     int iter = 0;
 
-    rho *= coolunits.density_in_phys_cgs;	/* convert to physical cgs units */
+    rho *= coolunits.density_in_phys_cgs / PROTONMASS;	/* convert to (physical) protons/cm^3 */
     u_old *= coolunits.uu_in_cgs;
     dt *= coolunits.tt_in_s;
 
-    double nHcgs = HYDROGEN_MASSFRAC * rho / PROTONMASS;	/* hydrogen number dens in cgs units */
-    double ratefact = nHcgs * nHcgs / rho;
+    double ratefact = rho / PROTONMASS;
 
     u = u_old;
     u_lower = u;
     u_upper = u;
 
-    LambdaNet = get_heatingcooling_rate(nHcgs, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
+    LambdaNet = get_heatingcooling_rate(rho, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
 
     /* bracketing */
 
@@ -72,7 +71,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
     {
         u_upper *= sqrt(1.1);
         u_lower /= sqrt(1.1);
-            while(u_upper - u_old - ratefact * get_heatingcooling_rate(nHcgs, u_upper, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess) * dt < 0)
+            while(u_upper - u_old - ratefact * get_heatingcooling_rate(rho, u_upper, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess) * dt < 0)
             {
                 u_upper *= 1.1;
                 u_lower *= 1.1;
@@ -84,7 +83,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
     {
         u_lower /= sqrt(1.1);
         u_upper *= sqrt(1.1);
-            while(u_lower - u_old - ratefact * get_heatingcooling_rate(nHcgs, u_lower, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess) * dt > 0)
+            while(u_lower - u_old - ratefact * get_heatingcooling_rate(rho, u_lower, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess) * dt > 0)
             {
                 u_upper /= 1.1;
                 u_lower /= 1.1;
@@ -95,7 +94,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
     {
         u = 0.5 * (u_lower + u_upper);
 
-        LambdaNet = get_heatingcooling_rate(nHcgs, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
+        LambdaNet = get_heatingcooling_rate(rho, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
 
         if(u - u_old - ratefact * LambdaNet * dt > 0)
         {
@@ -133,18 +132,15 @@ double GetCoolingTime(double redshift, double u_old, double rho, struct UVBG * u
     if(!coolunits.CoolingOn) return 0;
 
     /* convert to physical cgs units */
-    rho *= coolunits.density_in_phys_cgs;
+    rho *= coolunits.density_in_phys_cgs / PROTONMASS;
     u_old *= coolunits.uu_in_cgs;
 
-    /* hydrogen number dens in cgs units */
-    const double nHcgs = HYDROGEN_MASSFRAC * rho / PROTONMASS;
-
-    double LambdaNet = get_heatingcooling_rate(nHcgs, u_old, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
+    double LambdaNet = get_heatingcooling_rate(rho, u_old, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
 
     if(LambdaNet >= 0)		/* ups, we have actually heating due to UV background */
         return 0;
 
-    double ratefact = nHcgs * nHcgs / rho;
+    double ratefact = rho / PROTONMASS;
     double coolingtime = u_old / (-ratefact * LambdaNet);
 
     /*Convert back to internal units*/
