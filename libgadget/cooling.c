@@ -57,8 +57,6 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
     u_old *= coolunits.uu_in_cgs;
     dt *= coolunits.tt_in_s;
 
-    double ratefact = rho / PROTONMASS;
-
     u = u_old;
     u_lower = u;
     u_upper = u;
@@ -67,11 +65,11 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
 
     /* bracketing */
 
-    if(u - u_old - ratefact * LambdaNet * dt < 0)	/* heating */
+    if(u - u_old - LambdaNet * dt < 0)	/* heating */
     {
         u_upper *= sqrt(1.1);
         u_lower /= sqrt(1.1);
-            while(u_upper - u_old - ratefact * get_heatingcooling_rate(rho, u_upper, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess) * dt < 0)
+            while(u_upper - u_old - get_heatingcooling_rate(rho, u_upper, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess) * dt < 0)
             {
                 u_upper *= 1.1;
                 u_lower *= 1.1;
@@ -79,11 +77,11 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
 
     }
 
-    if(u - u_old - ratefact * LambdaNet * dt > 0)
+    if(u - u_old - LambdaNet * dt > 0)
     {
         u_lower /= sqrt(1.1);
         u_upper *= sqrt(1.1);
-            while(u_lower - u_old - ratefact * get_heatingcooling_rate(rho, u_lower, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess) * dt > 0)
+            while(u_lower - u_old - get_heatingcooling_rate(rho, u_lower, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess) * dt > 0)
             {
                 u_upper /= 1.1;
                 u_lower /= 1.1;
@@ -96,7 +94,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
 
         LambdaNet = get_heatingcooling_rate(rho, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
 
-        if(u - u_old - ratefact * LambdaNet * dt > 0)
+        if(u - u_old - LambdaNet * dt > 0)
         {
             u_upper = u;
         }
@@ -140,8 +138,7 @@ double GetCoolingTime(double redshift, double u_old, double rho, struct UVBG * u
     if(LambdaNet >= 0)		/* ups, we have actually heating due to UV background */
         return 0;
 
-    double ratefact = rho / PROTONMASS;
-    double coolingtime = u_old / (-ratefact * LambdaNet);
+    double coolingtime = u_old / (- LambdaNet);
 
     /*Convert back to internal units*/
     coolingtime /= coolunits.tt_in_s;

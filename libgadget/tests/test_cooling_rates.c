@@ -151,8 +151,7 @@ static void test_heatingcooling_rate(void ** state)
      * a metalicity dependence. */
     double LambdaNet = get_heatingcooling_rate(dens, egyhot, 1 - HYDROGEN_MASSFRAC, 0, 0, &uvbg, &ne);
 
-    double ratefact = dens / PROTONMASS;
-    double tcool = egyhot / (-ratefact * LambdaNet);
+    double tcool = egyhot / (- LambdaNet);
 
     /*Convert back to internal units*/
     tcool /= coolunits.tt_in_s;

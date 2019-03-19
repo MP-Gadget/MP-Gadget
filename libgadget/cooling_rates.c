@@ -824,7 +824,8 @@ cool_FreeFree(double temp, int zz)
 }
 
 /* Cooling rate for inverse Compton from the microwave background.
- * Multiply this only by n_e. Note the CMB temperature is hardcoded in KWH92 to 2.7.*/
+ * Multiply this only by n_e. Note the CMB temperature is hardcoded in KWH92 to 2.7.
+ * Units are erg s^-1*/
 static double
 cool_InverseCompton(double temp, double redshift)
 {
@@ -928,7 +929,7 @@ init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, struct
     InitMetalCooling(MetalCoolFile);
 }
 
-/*Get the total (photo) heating and cooling rate for a given temperature (internal energy) and density.
+/*Get the total change in internal energy per unit time in erg/s/g for a given temperature (internal energy) and density.
   density is total gas density in protons/cm^3
   Internal energy is in ergs/g.
   helium is a mass fraction, 1 - HYDROGEN_MASSFRAC = 0.24 for primordial gas.
@@ -963,10 +964,12 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
             get_interpolated_recomb(logt, &cool_recombHePP, cool_RecombHePP) * nHepp);
     /*Free-free cooling rate*/
     double LambdaFF = nebynh * (cool_FreeFree(temp, 1) * (nHp + nHep) + cool_FreeFree(temp, 2) * nHepp);
+    /*Compton cooling in erg/s cm^3*/
     double LambdaCmptn = nebynh * cool_InverseCompton(temp, redshift) / nh;
-    /*Total cooling rate*/
+    /*Total cooling rate per proton in erg/s cm^3*/
     double Lambda = LambdaCollis + LambdaRecomb + LambdaFF + LambdaCmptn;
 
+    /*Total heating rate per proton in erg/s cm^3*/
     double Heat = nH0 * uvbg->epsH0 + nHe0 * uvbg->epsHe0 + nHep * uvbg->epsHep;
 
     Heat *= cool_he_reion_factor(density, helium, redshift);
@@ -976,9 +979,13 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
     /*Apply metal cooling. Does nothing if metal cooling is disabled*/
     double MetalCooling = metallicity * TableMetalCoolingRate(redshift, temp, nh);
 
+    double LambdaNet = Heat - Lambda - MetalCooling;
+
     //message(1, "Heat = %g Lambda = %g MetalCool = %g LC = %g LR = %g LFF = %g LCmptn = %g, ne = %g, nHp = %g, nHepp = %g\n", Heat, Lambda, MetalCooling, LambdaCollis, LambdaRecomb, LambdaFF, LambdaCmptn, nebynh, nHp, nHepp);
 
-    return Heat - Lambda - MetalCooling;
+    /* LambdaNet in erg/s cm^3, Density in protons/cm^3, PROTONMASS in protons/g.
+     * Convert to erg/s/g*/
+    return LambdaNet * density / PROTONMASS;
 }
 
 /*Get the equilibrium temperature at given internal energy.
