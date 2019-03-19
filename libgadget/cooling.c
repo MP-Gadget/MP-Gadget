@@ -39,20 +39,6 @@ void init_cool_units(struct cooling_units cu)
     coolunits = cu;
 }
 
-
-/*  this function sums the cooling and heating rate from primordial and metal cooling, returning
- *  (heating rate-cooling rate)/n_h^2 in cgs units and setting ne_guess to the new electron temperature.
- */
-static double
-CoolingRateFromU(double redshift, double u, double nHcgs, struct UVBG * uvbg, double *ne_guess, double Z)
-{
-    if(!coolunits.CoolingOn) return 0;
-
-    double LambdaNet = get_heatingcooling_rate(nHcgs, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
-
-    return LambdaNet;
-}
-
 #define MAXITER 1000
 
 /* returns new internal energy per unit mass.
@@ -78,7 +64,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
     u_lower = u;
     u_upper = u;
 
-    LambdaNet = CoolingRateFromU(redshift, u, nHcgs, uvbg, ne_guess, Z);
+    LambdaNet = get_heatingcooling_rate(nHcgs, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
 
     /* bracketing */
 
@@ -86,7 +72,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
     {
         u_upper *= sqrt(1.1);
         u_lower /= sqrt(1.1);
-            while(u_upper - u_old - ratefact * CoolingRateFromU(redshift, u_upper, nHcgs, uvbg, ne_guess, Z) * dt < 0)
+            while(u_upper - u_old - ratefact * get_heatingcooling_rate(nHcgs, u_upper, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess) * dt < 0)
             {
                 u_upper *= 1.1;
                 u_lower *= 1.1;
@@ -98,7 +84,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
     {
         u_lower /= sqrt(1.1);
         u_upper *= sqrt(1.1);
-            while(u_lower - u_old - ratefact * CoolingRateFromU(redshift, u_lower, nHcgs, uvbg, ne_guess, Z) * dt > 0)
+            while(u_lower - u_old - ratefact * get_heatingcooling_rate(nHcgs, u_lower, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess) * dt > 0)
             {
                 u_upper /= 1.1;
                 u_lower /= 1.1;
@@ -109,7 +95,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
     {
         u = 0.5 * (u_lower + u_upper);
 
-        LambdaNet = CoolingRateFromU(redshift, u, nHcgs, uvbg, ne_guess, Z);
+        LambdaNet = get_heatingcooling_rate(nHcgs, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
 
         if(u - u_old - ratefact * LambdaNet * dt > 0)
         {
@@ -153,9 +139,7 @@ double GetCoolingTime(double redshift, double u_old, double rho, struct UVBG * u
     /* hydrogen number dens in cgs units */
     const double nHcgs = HYDROGEN_MASSFRAC * rho / PROTONMASS;
 
-    double LambdaNet = CoolingRateFromU(redshift, u_old, nHcgs, uvbg, ne_guess, Z);
-
-    /* bracketing */
+    double LambdaNet = get_heatingcooling_rate(nHcgs, u_old, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
 
     if(LambdaNet >= 0)		/* ups, we have actually heating due to UV background */
         return 0;
