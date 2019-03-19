@@ -984,11 +984,11 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
 
     double LambdaNet = Heat - Lambda - MetalCooling;
 
-    //message(1, "Heat = %g Lambda = %g MetalCool = %g LC = %g LR = %g LFF = %g LCmptn = %g, ne = %g, nHp = %g, nHepp = %g\n", Heat, Lambda, MetalCooling, LambdaCollis, LambdaRecomb, LambdaFF, LambdaCmptn, nebynh, nHp, nHepp);
+    //message(1, "Heat = %g Lambda = %g MetalCool = %g LC = %g LR = %g LFF = %g LCmptn = %g, ne = %g, nHp = %g, nHepp = %g, nh=%g, temp=%g, ienergy=%g\n", Heat, Lambda, MetalCooling, LambdaCollis, LambdaRecomb, LambdaFF, LambdaCmptn, nebynh, nHp, nHepp, nh, temp, ienergy);
 
     /* LambdaNet in erg/s cm^3, Density in protons/cm^3, PROTONMASS in protons/g.
      * Convert to erg/s/g*/
-    return LambdaNet * density / PROTONMASS;
+    return LambdaNet * pow(1 - helium, 2) * density / PROTONMASS;
 }
 
 /*Get the equilibrium temperature at given internal energy.
