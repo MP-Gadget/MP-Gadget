@@ -20,8 +20,8 @@ struct cooling_units
     int CoolingOn;
     /*Factor to convert internal density to cgs. By default should be UnitDensity_in_cgs * h^2 */
     double density_in_phys_cgs; //All.UnitDensity_in_cgs * All.CP.HubbleParam * All.CP.HubbleParam
-    /*Factor to convert internal internal energy to cgs. By default should be UnitPressure_in_cgs / UnitDensity_in_cgs */
-    double uu_in_cgs; //All.UnitPressure_in_cgs / All.UnitDensity_in_cgs
+    /*Factor to convert internal internal energy to cgs. By default should be UnitEnergy_in_cgs / UnitMass_in_cgs */
+    double uu_in_cgs; //All.UnitEnergy_in_cgs / All.UnitMass_in_cgs
     /*Factor to convert time to s. By default should be UnitTime_in_s / h */
     double tt_in_s; //All.UnitTime_in_s / All.CP.HubbleParam
 };

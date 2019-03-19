@@ -127,12 +127,12 @@ static void test_heatingcooling_rate(void ** state)
     double UnitTime_in_s = 3.08568e+16;
     double UnitMass_in_g = 1.989e+43;
     double UnitLength_in_cm = 3.08568e+21;
-    double UnitPressure_in_cgs = UnitMass_in_g / UnitLength_in_cm / pow(UnitTime_in_s, 2);
+    double UnitEnergy_in_cgs = UnitMass_in_g  * pow(UnitLength_in_cm, 2) / pow(UnitTime_in_s, 2);
 
     struct cooling_units coolunits;
     coolunits.CoolingOn = 1;
     coolunits.density_in_phys_cgs = UnitDensity_in_cgs * HubbleParam * HubbleParam;
-    coolunits.uu_in_cgs = UnitPressure_in_cgs / UnitDensity_in_cgs;
+    coolunits.uu_in_cgs = UnitEnergy_in_cgs / UnitMass_in_g;
     coolunits.tt_in_s = UnitTime_in_s / HubbleParam;
 
     /*Default values from sfr_eff.c. Some dependence on HubbleParam, so don't change it.*/

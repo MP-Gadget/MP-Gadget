@@ -619,7 +619,7 @@ void init_cooling_and_star_formation(void)
     struct cooling_units coolunits;
     coolunits.CoolingOn = All.CoolingOn;
     coolunits.density_in_phys_cgs = All.UnitDensity_in_cgs * All.CP.HubbleParam * All.CP.HubbleParam;
-    coolunits.uu_in_cgs = All.UnitPressure_in_cgs / All.UnitDensity_in_cgs;
+    coolunits.uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
     coolunits.tt_in_s = All.UnitTime_in_s / All.CP.HubbleParam;
 
     init_cool_units(coolunits);

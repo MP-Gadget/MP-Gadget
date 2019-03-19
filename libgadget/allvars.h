@@ -195,10 +195,7 @@ extern struct global_data_all_processes
     /* system of units  */
 
     double UnitTime_in_s,		/*!< factor to convert internal time unit to seconds/h */
-           UnitPressure_in_cgs,	/*!< factor to convert internal pressure unit to cgs units (little 'h' still
-                                  around!) */
            UnitDensity_in_cgs,		/*!< factor to convert internal length unit to g/cm^3*h^2 */
-           UnitCoolingRate_in_cgs,	/*!< factor to convert internal cooling rate to cgs units */
            UnitEnergy_in_cgs,		/*!< factor to convert internal energy to cgs units */
            UnitTime_in_Megayears,	/*!< factor to convert internal time to megayears/h */
            GravityConstantInternal,	/*!< If set to zero in the parameterfile, the internal value of the
