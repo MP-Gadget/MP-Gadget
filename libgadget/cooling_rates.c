@@ -395,6 +395,13 @@ recomb_alphad(double temp)
     }
 }
 
+/*Convenience function for the total helium recombination cooling rate*/
+static double
+recomb_alphaHepd(double temp)
+{
+    return recomb_alphad(temp) + recomb_alphaHep(temp);
+}
+
 /* Recombination rate for doubly ionized recombination, in cm^3/s. Temp in K.*/
 static double
 recomb_alphaHepp(double temp)
@@ -493,7 +500,7 @@ nHp_internal(double nh, double nH0)
 static double
 nHep_internal(double nh, double logt, double ne, const struct UVBG * uvbg, double photofac)
 {
-    double alphaHep = get_interpolated_recomb(logt, &rec_alphaHep, &recomb_alphaHep);
+    double alphaHep = get_interpolated_recomb(logt, &rec_alphaHep, &recomb_alphaHepd);
     double alphaHepp = get_interpolated_recomb(logt, &rec_alphaHepp, &recomb_alphaHepp);
     double GammaHe0 = get_interpolated_recomb(logt, &rec_GammaHe0, &recomb_GammaeHe0) + (ne > 0 ? uvbg->gJHe0/ne *photofac : 0);
     double GammaHep = get_interpolated_recomb(logt, &rec_GammaHep, &recomb_GammaeHep) + (ne > 0 ? uvbg->gJHep/ne *photofac : 0);
@@ -504,7 +511,7 @@ nHep_internal(double nh, double logt, double ne, const struct UVBG * uvbg, doubl
 static double
 nHe0_internal(double nHep, double logt, double ne, const struct UVBG * uvbg, double photofac)
 {
-    double alphaHep = get_interpolated_recomb(logt, &rec_alphaHep, &recomb_alphaHep);
+    double alphaHep = get_interpolated_recomb(logt, &rec_alphaHep, &recomb_alphaHepd);
     double GammaHe0 = get_interpolated_recomb(logt, &rec_GammaHe0, &recomb_GammaeHe0) + (ne > 0 ? uvbg->gJHep/ne *photofac : 0);
     return nHep * alphaHep / GammaHe0;
 }
@@ -903,7 +910,8 @@ init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, struct
         rec_GammaHe0.ydata[i] = recomb_GammaeHe0(tt);
         rec_GammaHep.ydata[i] = recomb_GammaeHep(tt);
         rec_alphaHp.ydata[i] = recomb_alphaHp(tt);
-        rec_alphaHep.ydata[i] = recomb_alphaHep(tt) + recomb_alphad(tt);
+        /* Note this includes dielectronic recombination*/
+        rec_alphaHep.ydata[i] = recomb_alphaHepd(tt);
         rec_alphaHepp.ydata[i] = recomb_alphaHepp(tt);
         cool_collisH0.ydata[i] = cool_CollisionalH0(tt);
         cool_collisHe0.ydata[i] = cool_CollisionalHe0(tt);
