@@ -495,7 +495,7 @@ nHep_internal(double nh, double logt, double ne, const struct UVBG * uvbg, doubl
 {
     double alphaHep = get_interpolated_recomb(logt, &rec_alphaHep, &recomb_alphaHep);
     double alphaHepp = get_interpolated_recomb(logt, &rec_alphaHepp, &recomb_alphaHepp);
-    double GammaHe0 = get_interpolated_recomb(logt, &rec_GammaH0, &recomb_GammaeH0) + (ne > 0 ? uvbg->gJHe0/ne *photofac : 0);
+    double GammaHe0 = get_interpolated_recomb(logt, &rec_GammaHe0, &recomb_GammaeHe0) + (ne > 0 ? uvbg->gJHe0/ne *photofac : 0);
     double GammaHep = get_interpolated_recomb(logt, &rec_GammaHep, &recomb_GammaeHep) + (ne > 0 ? uvbg->gJHep/ne *photofac : 0);
     return nh / (1 + alphaHep / GammaHe0 + GammaHep/alphaHepp);
 }
@@ -901,7 +901,7 @@ init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, struct
         double tt = exp(temp_tab[i]);
         rec_GammaH0.ydata[i] = recomb_GammaeH0(tt);
         rec_GammaHe0.ydata[i] = recomb_GammaeHe0(tt);
-        rec_GammaHep.ydata[i] = recomb_GammaeHe0(tt);
+        rec_GammaHep.ydata[i] = recomb_GammaeHep(tt);
         rec_alphaHp.ydata[i] = recomb_alphaHp(tt);
         rec_alphaHep.ydata[i] = recomb_alphaHep(tt) + recomb_alphad(tt);
         rec_alphaHepp.ydata[i] = recomb_alphaHepp(tt);
