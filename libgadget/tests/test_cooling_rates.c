@@ -101,10 +101,69 @@ static void test_rate_network(void ** state)
     assert_true( get_neutral_fraction(0.1, 100.*1e10,0.24, &uvbg, &ne) <0.05);
 }
 
+/* This test checks that the heating and cooling rate is as expected.
+ * In particular the physical density threshold is checked. */
+static void test_heatingcooling_rate(void ** state)
+{
+    struct cooling_params coolpar;
+    coolpar.CMBTemperature = 2.7255;
+    coolpar.PhotoIonizeFactor = 1;
+    coolpar.SelfShieldingOn = 0;
+    coolpar.fBar = 0.17;
+    coolpar.PhotoIonizationOn = 1;
+    coolpar.recomb = Cen92;
+    coolpar.cooling = KWH92;
+
+    const char * TreeCool = GADGET_TESTDATA_ROOT "/examples/TREECOOL_ep_2018p";
+    init_cooling_rates(TreeCool, coolpar);
+
+    /*unit system*/
+    double HubbleParam = 0.697;
+    double UnitDensity_in_cgs = 6.76991e-22;
+    double UnitTime_in_s = 3.08568e+16;
+    double UnitMass_in_g = 1.989e+43;
+    double UnitLength_in_cm = 3.08568e+21;
+    double UnitPressure_in_cgs = UnitMass_in_g / UnitLength_in_cm / pow(UnitTime_in_s, 2);
+
+    struct cooling_units coolunits;
+    coolunits.CoolingOn = 1;
+    coolunits.density_in_phys_cgs = UnitDensity_in_cgs * HubbleParam * HubbleParam;
+    coolunits.uu_in_cgs = UnitPressure_in_cgs / UnitDensity_in_cgs;
+    coolunits.tt_in_s = UnitTime_in_s / HubbleParam;
+
+    /*Default values from sfr_eff.c. Some dependence on HubbleParam, so don't change it.*/
+    double egyhot = 2104.92;
+    egyhot *= coolunits.uu_in_cgs;
+
+    /* convert to physical cgs units */
+    double dens = 0.027755;
+    dens *= coolunits.density_in_phys_cgs/PROTONMASS;
+    double ne = 1.0;
+    double temp = 1000;
+
+    struct UVBG uvbg = {0};
+    /* XXX: We set the threshold without metal cooling
+     * and with zero ionization at z=0.
+     * It probably make sense to set the parameters with
+     * a metalicity dependence. */
+    double LambdaNet = get_heatingcooling_rate(dens, egyhot, 1 - HYDROGEN_MASSFRAC, 0, &uvbg, &ne, &temp);
+
+    double ratefact = dens / PROTONMASS;
+    double tcool = egyhot / (-ratefact * LambdaNet);
+
+    /*Convert back to internal units*/
+    tcool /= coolunits.tt_in_s;
+
+    message(1, "tcool = %g LambdaNet = %g ne=%g, temp=%g\n", tcool, LambdaNet, ne, temp);
+    assert_true(fabs(tcool / 4.69337e-06 - 1) < 1e-5);
+}
+
 int main(void) {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_recomb_rates),
         cmocka_unit_test(test_rate_network),
+        cmocka_unit_test(test_heatingcooling_rate),
+
     };
     return cmocka_run_group_tests_mpi(tests, NULL, NULL);
 }
