@@ -929,7 +929,7 @@ init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar)
   density is total gas density in protons/cm^3
   Internal energy is in ergs/g.
   helium is a mass fraction, 1 - HYDROGEN_MASSFRAC = 0.24 for primordial gas.
-  Returns heating - cooling.
+  Returns (heating - cooling) / nh^2.
   ne_equilib is the equilibrium electron abundance in units of the hydrogen number density.
   Note this is *not* the electron density in cgs units, as used internally.
  */
@@ -938,28 +938,29 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
 {
     double ne = get_equilib_ne(density, ienergy, helium, uvbg, *ne_equilib);
     double nh = density * (1 - helium);
-    *temp_ext = get_temp_internal(ne/nh, ienergy, helium);
+    double nebynh = ne/nh;
+    *temp_ext = get_temp_internal(nebynh, ienergy, helium);
     double logt = log(*temp_ext);
     double photofac = self_shield_corr(nh, logt, uvbg->self_shield_dens);
 
     double nH0 = nH0_internal(nh, logt, ne, uvbg, photofac);
     double nHep = nHep_internal(nh, logt, ne, uvbg, photofac);
-    double nHe0 = nHe0_internal(nHep, logt, ne, uvbg, photofac);
-    double nHp = nHp_internal(nh, nH0);
-    double nHepp = nHepp_internal(nHep, logt, ne, uvbg, photofac);
+    double nHe0 = nHe0_internal(nHep, logt, ne, uvbg, photofac)/nh;
+    double nHp = nHp_internal(nh, nH0)/nh;
+    double nHepp = nHepp_internal(nHep, logt, ne, uvbg, photofac)/nh;
+    /*Put the abundances in units of nH to avoid underflows*/
+    nH0/= nh;
+    nHep/= nh;
     /*Collisional ionization and excitation rate*/
-    double LambdaCollis = ne * (get_interpolated_recomb(logt, &cool_collisH0, cool_CollisionalH0) * nH0 +
+    double LambdaCollis = nebynh * (get_interpolated_recomb(logt, &cool_collisH0, cool_CollisionalH0) * nH0 +
             get_interpolated_recomb(logt, &cool_collisHe0, cool_CollisionalHe0) * nHe0 +
             get_interpolated_recomb(logt, &cool_collisHeP, cool_CollisionalHeP) * nHep);
-    double LambdaRecomb = ne * (get_interpolated_recomb(logt, &cool_recombHp, cool_RecombHp) * nHp +
+    double LambdaRecomb = nebynh * (get_interpolated_recomb(logt, &cool_recombHp, cool_RecombHp) * nHp +
             get_interpolated_recomb(logt, &cool_recombHeP, cool_RecombHeP) * nHep +
             get_interpolated_recomb(logt, &cool_recombHePP, cool_RecombHePP) * nHepp);
     /*Free-free cooling rate*/
-    if(!isfinite(LambdaRecomb) || !isfinite(LambdaCollis))
-        endrun(4," Bad electron density: %g\n", ne);
-
-    double LambdaFF = ne * (cool_FreeFree(*temp_ext, 1) * (nHp + nHep) + cool_FreeFree(*temp_ext, 2) * nHepp);
-    double LambdaCmptn = ne * cool_InverseCompton(*temp_ext, redshift);
+    double LambdaFF = nebynh * (cool_FreeFree(*temp_ext, 1) * (nHp + nHep) + cool_FreeFree(*temp_ext, 2) * nHepp);
+    double LambdaCmptn = nebynh * cool_InverseCompton(*temp_ext, redshift) / nh;
     /*Total cooling rate*/
     double Lambda = LambdaCollis + LambdaRecomb + LambdaFF + LambdaCmptn;
 
@@ -967,7 +968,9 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
 
     Heat *= cool_he_reion_factor(density, helium, redshift);
     /*Set external equilibrium electron density*/
-    *ne_equilib = ne/nh;
+    *ne_equilib = nebynh;
+
+    //message(1, "Heat = %g Lambda = %g LC = %g LR = %g LFF = %g LCmptn = %g, ne = %g, nHp = %g, nHepp = %g\n", Heat, Lambda, LambdaCollis, LambdaRecomb, LambdaFF, LambdaCmptn, nebynh, nHp, nHepp);
 
     return Heat - Lambda;
 }
