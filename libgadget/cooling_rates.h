@@ -49,12 +49,12 @@ struct cooling_params
 
 /*Initialize the cooling rate module. This builds a lot of interpolation tables.
  * Defaults: TCMB 2.7255, recomb = Verner96, cooling = Sherwood.*/
-void init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar);
+void init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, struct cooling_params coolpar);
 
 /*Reads and initialises the tables for a spatially varying redshift of reionization*/
 void init_uvf_table(const char * UVFluctuationFile, double UVRedshiftThreshold);
 
-/* Reads and initializes the cloudy metal cooling table*/
+/* Reads and initializes the cloudy metal cooling table. Called in init_cooling_rates. No need to call it separately.*/
 void InitMetalCooling(const char * MetalCoolFile);
 
 /*Get the metal cooling rate from the table.*/
@@ -77,6 +77,6 @@ double get_ne_by_nh(double density, double ienergy, double helium, const struct 
   helium is a mass fraction, 1 - HYDROGEN_MASSFRAC = 0.24 for primordial gas.
   Returns heating - cooling.
  */
-double get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double * ne_equilib, double *temp_ext);
+double get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, double metallicity, const struct UVBG * uvbg, double * ne_equilib);
 
 #endif

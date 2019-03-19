@@ -48,11 +48,7 @@ CoolingRateFromU(double redshift, double u, double nHcgs, struct UVBG * uvbg, do
 {
     if(!coolunits.CoolingOn) return 0;
 
-    double temp;
-    double LambdaNet = get_heatingcooling_rate(nHcgs, u, 1 - HYDROGEN_MASSFRAC, redshift, uvbg, ne_guess, &temp);
-
-    /*Apply metal cooling. Does nothing if metal cooling is disabled*/
-    LambdaNet -= Z * TableMetalCoolingRate(redshift, temp, nHcgs);
+    double LambdaNet = get_heatingcooling_rate(nHcgs, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
 
     return LambdaNet;
 }

@@ -38,14 +38,15 @@ static void test_recomb_rates(void ** state)
     coolpar.recomb = Verner96;
     coolpar.cooling = Sherwood;
     const char * TreeCool = GADGET_TESTDATA_ROOT "/examples/TREECOOL_ep_2018p";
+    const char * MetalCool = "";
 
-    init_cooling_rates(TreeCool, coolpar);
+    init_cooling_rates(TreeCool, MetalCool, coolpar);
     for(i=0; i< NEXACT; i++) {
         assert_true(fabs(recomb_alphaHp(tt[i])/(f92g2[i]+f92n1[i])-1.) < 1e-2);
     }
 
     coolpar.recomb = Cen92;
-    init_cooling_rates(TreeCool, coolpar);
+    init_cooling_rates(TreeCool, MetalCool, coolpar);
     /*Cen rates are not very accurate.*/
     for(i=4; i< 12; i++) {
         assert_true(fabs(recomb_alphaHp(tt[i])/(f92g2[i]+f92n1[i])-1.) < 0.5);
@@ -63,9 +64,11 @@ static void test_rate_network(void ** state)
     coolpar.PhotoIonizationOn = 1;
     coolpar.recomb = Verner96;
     coolpar.cooling = Sherwood;
+    const char * MetalCool = "";
+
     const char * TreeCool = GADGET_TESTDATA_ROOT "/examples/TREECOOL_ep_2018p";
     struct UVBG uvbg = get_global_UVBG(2);
-    init_cooling_rates(TreeCool, coolpar);
+    init_cooling_rates(TreeCool, MetalCool, coolpar);
 
     //Complete ionisation at low density
     assert_true( fabs(get_equilib_ne(1e-6, 200.*1e10, 0.24, &uvbg, 1) / (1e-6*0.76) - (1 + 2* 0.24/(1-0.24)/4)) < 3e-5);
@@ -95,7 +98,7 @@ static void test_rate_network(void ** state)
 
     //Check self-shielding is working.
     coolpar.SelfShieldingOn = 0;
-    init_cooling_rates(TreeCool, coolpar);
+    init_cooling_rates(TreeCool, MetalCool, coolpar);
 
     assert_true( get_neutral_fraction(1, 100.*1e10,0.24, &uvbg, &ne) < 0.25);
     assert_true( get_neutral_fraction(0.1, 100.*1e10,0.24, &uvbg, &ne) <0.05);
@@ -115,7 +118,8 @@ static void test_heatingcooling_rate(void ** state)
     coolpar.cooling = KWH92;
 
     const char * TreeCool = GADGET_TESTDATA_ROOT "/examples/TREECOOL_ep_2018p";
-    init_cooling_rates(TreeCool, coolpar);
+    const char * MetalCool = "";
+    init_cooling_rates(TreeCool, MetalCool, coolpar);
 
     /*unit system*/
     double HubbleParam = 0.697;
@@ -139,14 +143,13 @@ static void test_heatingcooling_rate(void ** state)
     double dens = 0.027755;
     dens *= coolunits.density_in_phys_cgs/PROTONMASS;
     double ne = 1.0;
-    double temp = 1000;
 
     struct UVBG uvbg = {0};
     /* XXX: We set the threshold without metal cooling
      * and with zero ionization at z=0.
      * It probably make sense to set the parameters with
      * a metalicity dependence. */
-    double LambdaNet = get_heatingcooling_rate(dens, egyhot, 1 - HYDROGEN_MASSFRAC, 0, &uvbg, &ne, &temp);
+    double LambdaNet = get_heatingcooling_rate(dens, egyhot, 1 - HYDROGEN_MASSFRAC, 0, 0, &uvbg, &ne);
 
     double ratefact = dens / PROTONMASS;
     double tcool = egyhot / (-ratefact * LambdaNet);
@@ -154,7 +157,7 @@ static void test_heatingcooling_rate(void ** state)
     /*Convert back to internal units*/
     tcool /= coolunits.tt_in_s;
 
-    message(1, "tcool = %g LambdaNet = %g ne=%g, temp=%g\n", tcool, LambdaNet, ne, temp);
+    message(1, "tcool = %g LambdaNet = %g ne=%g\n", tcool, LambdaNet, ne);
     assert_true(fabs(tcool / 4.69337e-06 - 1) < 1e-5);
 }
 

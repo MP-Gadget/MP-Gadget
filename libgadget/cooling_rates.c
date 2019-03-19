@@ -854,7 +854,7 @@ cool_he_reion_factor(double nHcgs, double helium, double redshift)
 /*Initialize the cooling rate module. This builds a lot of interpolation tables.
  * Defaults: TCMB 2.7255, recomb = Verner96, cooling = Sherwood.*/
 void
-init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar)
+init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, struct cooling_params coolpar)
 {
     CoolingParams = coolpar;
 
@@ -923,6 +923,9 @@ init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar)
     init_itp_type(temp_tab, &cool_recombHp, NRECOMBTAB, acc);
     init_itp_type(temp_tab, &cool_recombHeP, NRECOMBTAB, acc);
     init_itp_type(temp_tab, &cool_recombHePP, NRECOMBTAB, acc);
+
+    /*Initialize the metal cooling table*/
+    InitMetalCooling(MetalCoolFile);
 }
 
 /*Get the total (photo) heating and cooling rate for a given temperature (internal energy) and density.
@@ -934,13 +937,13 @@ init_cooling_rates(const char * TreeCoolFile, struct cooling_params coolpar)
   Note this is *not* the electron density in cgs units, as used internally.
  */
 double
-get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, const struct UVBG * uvbg, double *ne_equilib, double *temp_ext)
+get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, double metallicity, const struct UVBG * uvbg, double *ne_equilib)
 {
     double ne = get_equilib_ne(density, ienergy, helium, uvbg, *ne_equilib);
     double nh = density * (1 - helium);
     double nebynh = ne/nh;
-    *temp_ext = get_temp_internal(nebynh, ienergy, helium);
-    double logt = log(*temp_ext);
+    double temp = get_temp_internal(nebynh, ienergy, helium);
+    double logt = log(temp);
     double photofac = self_shield_corr(nh, logt, uvbg->self_shield_dens);
 
     double nH0 = nH0_internal(nh, logt, ne, uvbg, photofac);
@@ -959,8 +962,8 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
             get_interpolated_recomb(logt, &cool_recombHeP, cool_RecombHeP) * nHep +
             get_interpolated_recomb(logt, &cool_recombHePP, cool_RecombHePP) * nHepp);
     /*Free-free cooling rate*/
-    double LambdaFF = nebynh * (cool_FreeFree(*temp_ext, 1) * (nHp + nHep) + cool_FreeFree(*temp_ext, 2) * nHepp);
-    double LambdaCmptn = nebynh * cool_InverseCompton(*temp_ext, redshift) / nh;
+    double LambdaFF = nebynh * (cool_FreeFree(temp, 1) * (nHp + nHep) + cool_FreeFree(temp, 2) * nHepp);
+    double LambdaCmptn = nebynh * cool_InverseCompton(temp, redshift) / nh;
     /*Total cooling rate*/
     double Lambda = LambdaCollis + LambdaRecomb + LambdaFF + LambdaCmptn;
 
@@ -970,9 +973,12 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
     /*Set external equilibrium electron density*/
     *ne_equilib = nebynh;
 
-    //message(1, "Heat = %g Lambda = %g LC = %g LR = %g LFF = %g LCmptn = %g, ne = %g, nHp = %g, nHepp = %g\n", Heat, Lambda, LambdaCollis, LambdaRecomb, LambdaFF, LambdaCmptn, nebynh, nHp, nHepp);
+    /*Apply metal cooling. Does nothing if metal cooling is disabled*/
+    double MetalCooling = metallicity * TableMetalCoolingRate(redshift, temp, nh);
 
-    return Heat - Lambda;
+    //message(1, "Heat = %g Lambda = %g MetalCool = %g LC = %g LR = %g LFF = %g LCmptn = %g, ne = %g, nHp = %g, nHepp = %g\n", Heat, Lambda, MetalCooling, LambdaCollis, LambdaRecomb, LambdaFF, LambdaCmptn, nebynh, nHp, nHepp);
+
+    return Heat - Lambda - MetalCooling;
 }
 
 /*Get the equilibrium temperature at given internal energy.

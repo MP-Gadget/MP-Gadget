@@ -596,9 +596,7 @@ void read_parameter_file(char *fname)
     mymalloc_init(All.MaxMemSizePerNode);
 
     /*Initialize the cooling rates*/
-    init_cooling_rates(locals.TreeCoolFile, locals.coolpar);
+    init_cooling_rates(locals.TreeCoolFile, locals.MetalCoolFile, locals.coolpar);
     /*Initialize the uv fluctuation table*/
     init_uvf_table(locals.UVFluctuationFile, locals.UVRedshiftThreshold);
-    /*Initialize the metal cooling*/
-    InitMetalCooling(locals.MetalCoolFile);
 }
