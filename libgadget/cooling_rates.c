@@ -947,10 +947,13 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
     double logt = log(temp);
     double photofac = self_shield_corr(nh, logt, uvbg->self_shield_dens);
 
+    /*The helium number fraction*/
+    double yy = helium / 4 / (1 - helium);
+
     double nH0 = nH0_internal(nh, logt, ne, uvbg, photofac);
-    double nHep = nHep_internal(nh, logt, ne, uvbg, photofac);
-    double nHe0 = nHe0_internal(nHep, logt, ne, uvbg, photofac)/nh;
     double nHp = nHp_internal(nh, nH0)/nh;
+    double nHep = yy * nHep_internal(nh, logt, ne, uvbg, photofac);
+    double nHe0 = nHe0_internal(nHep, logt, ne, uvbg, photofac)/nh;
     double nHepp = nHepp_internal(nHep, logt, ne, uvbg, photofac)/nh;
     /*Put the abundances in units of nH to avoid underflows*/
     nH0/= nh;
