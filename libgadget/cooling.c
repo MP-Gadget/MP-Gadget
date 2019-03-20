@@ -1,7 +1,7 @@
 /**************
  * This file is based on the Gadget-3 cooling.c.
  *
- * The routines for the atomic rates are identical. 
+ * The routines for the atomic rates are identical.
  *
  * Otherwise, this version by Yu Feng:
  *  - implements additional support for fluctuating UV.
@@ -122,7 +122,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
     return u;
 }
 
-/* returns cooling time. 
+/* returns cooling time.
  * NOTE: If we actually have heating, a cooling time of 0 is returned.
  */
 double GetCoolingTime(double redshift, double u_old, double rho, struct UVBG * uvbg, double *ne_guess, double Z)
