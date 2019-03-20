@@ -981,7 +981,7 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
     double Lambda = LambdaCollis + LambdaRecomb + LambdaFF + LambdaCmptn;
 
     /*Total heating rate per proton in erg/s cm^3*/
-    double Heat = nH0 * uvbg->epsH0 + nHe0 * uvbg->epsHe0 + nHep * uvbg->epsHep;
+    double Heat = (nH0 * uvbg->epsH0 + nHe0 * uvbg->epsHe0 + nHep * uvbg->epsHep)/nh;
 
     Heat *= cool_he_reion_factor(density, helium, redshift);
     /*Set external equilibrium electron density*/

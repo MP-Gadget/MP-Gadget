@@ -116,6 +116,7 @@ static void test_heatingcooling_rate(void ** state)
     coolpar.PhotoIonizationOn = 1;
     coolpar.recomb = Cen92;
     coolpar.cooling = KWH92;
+    coolpar.HeliumHeatOn = 0;
 
     const char * TreeCool = GADGET_TESTDATA_ROOT "/examples/TREECOOL_ep_2018p";
     const char * MetalCool = "";
@@ -161,6 +162,27 @@ static void test_heatingcooling_rate(void ** state)
      * apparently just because of rounding errors. The excitation cooling
      * numbers from Cen are not accurate to better than 1% anyway, so don't worry about it*/
     assert_true(fabs(tcool / 4.68748e-06 - 1) < 1e-5);
+
+    /*Now check that we get the desired cooling rate with a UVB*/
+    uvbg = get_global_UVBG(0);
+
+    assert_true(uvbg.epsHep > 0);
+    assert_true(uvbg.gJHe0 > 0);
+
+    dens /= 100;
+    LambdaNet = get_heatingcooling_rate(dens, egyhot/10., 1 - HYDROGEN_MASSFRAC, 0, 0, &uvbg, &ne);
+    //message(1, "LambdaNet = %g, uvbg=%g\n", LambdaNet, uvbg.epsHep);
+    assert_true(fabs(LambdaNet / 0.0744986 - 1) < 1e-5);
+
+    LambdaNet = get_heatingcooling_rate(dens*1.5, egyhot/10., 1 - HYDROGEN_MASSFRAC, 0, 0, &uvbg, &ne);
+    assert_true(LambdaNet > 0);
+    /*Check self-shielding affects the cooling rates*/
+    coolpar.SelfShieldingOn = 1;
+    init_cooling_rates(TreeCool, MetalCool, coolpar);
+    LambdaNet = get_heatingcooling_rate(dens*1.5, egyhot/10., 1 - HYDROGEN_MASSFRAC, 0, 0, &uvbg, &ne);
+    message(1, "LambdaNet = %g, uvbg=%g\n", LambdaNet, uvbg.epsHep);
+    assert_false(LambdaNet > 0);
+    assert_true(fabs(LambdaNet/ 1.44441 + 1) < 1e-5);
 }
 
 int main(void) {
