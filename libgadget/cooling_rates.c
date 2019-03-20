@@ -689,7 +689,7 @@ _t5(double temp)
      * should be good up to 10^7 K, so he is being too aggressive.*/
     else
         t0 = 5e7;
-    return sqrt(1+temp/t0);
+    return 1+sqrt(temp/t0);
 }
 
 /*Collisional excitation cooling rate for n_H0 and n_e. Gadget-3 calls this BetaH0.*/
