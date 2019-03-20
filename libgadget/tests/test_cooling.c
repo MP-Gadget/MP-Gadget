@@ -173,6 +173,13 @@ static void test_DoCooling(void ** state)
     double umax = 36000, umin = 200;
     double dmax = 1e-2, dmin = 1e-9;
 
+    double ne= 1.0;
+    /*Check two particular values*/
+    double tcool = GetCoolingTime(0, 949.755, 7.07946e-06, &uvbg, &ne, 0);
+    assert_true(fabs(tcool/ 0.0172379) -1 < 1e-3);
+    double unew = DoCooling(0,  9828.44, 7.07946e-06, 0.2, &uvbg, &ne, 0);
+    assert_true(fabs(unew/ 531.724) -1 < 1e-3);
+
     double dt = 0.2;
     for(i=0; i < NSTEP; i++)
     {
