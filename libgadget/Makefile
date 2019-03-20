@@ -130,6 +130,8 @@ all: libgadget.a libgadget-utils.a
 .objs/test_cooling_rates: tests/test_cooling_rates.c .objs/cooling_rates.o .objs/cooling_uvfluc.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
 	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
+.objs/test_cooling: tests/test_cooling.c .objs/cooling.o .objs/cooling_rates.o .objs/cooling_uvfluc.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
+	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
 build-tests: $(TESTBIN)
 
 test : build-tests
