@@ -816,16 +816,19 @@ Factors here are n_e and total ionized species:
 static double
 cool_FreeFree(double temp, int zz)
 {
-    /*Formula for the Gaunt factor. KWH takes this from Spitzer 1978.*/
-    double gff = 1.1+0.34*exp(-pow(5.5 - log10(temp),2) /3.);
+    double gff;
     /*Formula for the Gaunt factor from Shapiro & Kang 1987. ZZ is 1 for H+ and He+ and 2 for He++.
       This is almost identical to the KWH rate but not continuous.*/
     if(CoolingParams.cooling == Enzo2Nyx) {
         double lt = 2 * log10(temp/zz);
-        if(pow(temp/zz,2) <= 3.2e5)
+        if(lt <= log10(3.2e5))
             gff = (0.79464 + 0.1243*lt);
         else
-            gff = ( 2.13164 - 0.1240 * lt);
+            gff = (2.13164 - 0.1240*lt);
+    }
+    else {
+        /*Formula for the Gaunt factor. KWH takes this from Spitzer 1978.*/
+        gff = 1.1+0.34*exp(-pow(5.5 - log10(temp),2) /3.);
     }
     return 1.426e-27*sqrt(temp)* pow(zz,2) * gff;
 }
