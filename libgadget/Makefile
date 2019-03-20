@@ -52,6 +52,7 @@ TESTED = hci \
 	slotsmanager \
 	powerspectrum \
 	cosmology \
+	cooling \
 	forcetree \
 	timefac \
 	timebinmgr \
