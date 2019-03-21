@@ -458,9 +458,6 @@ void read_parameter_file(char *fname)
         All.TopNodeAllocFactor = param_get_double(ps, "TopNodeAllocFactor");
         All.SlotsIncreaseFactor = param_get_double(ps, "SlotsIncreaseFactor");
 
-        All.InitGasTemp = param_get_double(ps, "InitGasTemp");
-        All.MinGasTemp = param_get_double(ps, "MinGasTemp");
-
         All.SnapshotWithFOF = param_get_int(ps, "SnapshotWithFOF");
         All.FOFSaveParticles = param_get_int(ps, "FOFSaveParticles");
         All.FOFHaloLinkingLength = param_get_double(ps, "FOFHaloLinkingLength");
@@ -528,6 +525,9 @@ void read_parameter_file(char *fname)
         locals.coolpar.PhotoIonizeFactor = param_get_double(ps, "PhotoIonizeFactor");
         locals.coolpar.PhotoIonizationOn = param_get_int(ps, "PhotoIonizationOn");
         locals.coolpar.rho_crit_baryon = All.CP.OmegaBaryon * 3.0 * pow(All.CP.HubbleParam*HUBBLE,2.0) /(8.0*M_PI*GRAVITY);
+        locals.coolpar.MinGasTemp = param_get_double(ps, "MinGasTemp");
+        All.MinGasTemp = locals.coolpar.MinGasTemp;
+        All.InitGasTemp = param_get_double(ps, "InitGasTemp");
 
         locals.UVRedshiftThreshold = param_get_double(ps, "UVRedshiftThreshold");
 

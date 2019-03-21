@@ -39,6 +39,9 @@ struct cooling_params
     /*CMB temperature in K*/
     double CMBTemperature;
 
+    /*Minimum gas temperature in K*/
+    double MinGasTemp;
+
     /*Parameters for the 'extra heating' Helium photoionization model.*/
     int HeliumHeatOn;
     double HeliumHeatThresh;

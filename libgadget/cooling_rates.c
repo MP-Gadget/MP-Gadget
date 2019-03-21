@@ -559,6 +559,8 @@ get_temp_internal(double nebynh, double ienergy, double helium)
     double muienergy = 4 / (hy_mass * (3 + 4*nebynh) + 1)*ienergy;
     /*So for T in K, Boltzmann in erg/K, internal energy has units of erg/g*/
     double temp = GAMMA_MINUS1 * PROTONMASS / BOLTZMANN * muienergy;
+    if(temp < CoolingParams.MinGasTemp)
+        return CoolingParams.MinGasTemp;
     return temp;
 }
 

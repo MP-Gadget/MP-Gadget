@@ -64,6 +64,7 @@ static void test_rate_network(void ** state)
     coolpar.PhotoIonizationOn = 1;
     coolpar.recomb = Verner96;
     coolpar.cooling = Sherwood;
+    coolpar.MinGasTemp = 100;
     const char * MetalCool = "";
 
     const char * TreeCool = GADGET_TESTDATA_ROOT "/examples/TREECOOL_ep_2018p";
