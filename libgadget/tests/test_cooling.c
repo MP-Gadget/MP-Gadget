@@ -172,7 +172,9 @@ static void test_DoCooling(void ** state)
 
     init_cool_units(coolunits);
     struct UVBG uvbg = get_global_UVBG(0);
-    assert_true(uvbg.epsH0 > 0);
+    assert_true(fabs(uvbg.epsH0/3.65296e-25 -1) < 1e-5);
+    assert_true(fabs(uvbg.epsHe0/3.98942e-25 -1) < 1e-5);
+    assert_true(fabs(uvbg.epsHep/3.33253e-26 -1) < 1e-5);
 
     double umax = 36000, umin = 200;
     double dmax = 1e-2, dmin = 1e-9;
