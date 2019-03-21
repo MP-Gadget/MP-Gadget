@@ -512,7 +512,7 @@ static double
 nHe0_internal(double nHep, double logt, double ne, const struct UVBG * uvbg, double photofac)
 {
     double alphaHep = get_interpolated_recomb(logt, &rec_alphaHep, &recomb_alphaHepd);
-    double GammaHe0 = get_interpolated_recomb(logt, &rec_GammaHe0, &recomb_GammaeHe0) + (ne > 0 ? uvbg->gJHep/ne *photofac : 0);
+    double GammaHe0 = get_interpolated_recomb(logt, &rec_GammaHe0, &recomb_GammaeHe0) + (ne > 0 ? uvbg->gJHe0/ne *photofac : 0);
     return nHep * alphaHep / GammaHe0;
 }
 
