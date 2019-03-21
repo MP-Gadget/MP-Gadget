@@ -24,12 +24,9 @@ static const double f92g2[NEXACT] = {5.758e-11, 2.909e-11, 1.440e-11, 6.971e-12,
 static const double f92n1[NEXACT] = {9.258e-12, 5.206e-12, 2.927e-12, 1.646e-12, 9.246e-13, 5.184e-13, 2.890e-13, 1.582e-13, 8.255e-14, 3.882e-14, 1.545e-14, 5.058e-15, 1.383e-15, 3.276e-16, 7.006e-17, 1.398e-17, 2.665e-18, 4.940e-19, 9.001e-20, 1.623e-20};
 static const double tt[NEXACT] = {3.16227766e+00, 1.0e+01, 3.16227766e+01, 1.0e+02, 3.16227766e+02, 1.00e+03, 3.16227766e+03, 1.e+04, 3.16227766e+04, 1.e+05, 3.16227766e+05, 1.e+06, 3.16227766e+06, 1.0e+07, 3.16227766e+07, 1.0e+08, 3.16227766e+08, 1.0e+09, 3.16227766e+09, 1.0e+10};
 
-/*Test the recombination rates*/
-static void test_recomb_rates(void ** state)
+static struct cooling_params get_test_coolpar(void)
 {
-    /*Test of recombination only: no need to load the photon background tables*/
-    struct cooling_params coolpar;
-    int i;
+    static struct cooling_params coolpar;
     coolpar.CMBTemperature = 2.7255;
     coolpar.PhotoIonizeFactor = 1;
     coolpar.SelfShieldingOn = 1;
@@ -37,6 +34,16 @@ static void test_recomb_rates(void ** state)
     coolpar.PhotoIonizationOn = 1;
     coolpar.recomb = Verner96;
     coolpar.cooling = Sherwood;
+    coolpar.MinGasTemp = 100;
+    coolpar.HeliumHeatOn = 0;
+    return coolpar;
+}
+
+/*Test the recombination rates*/
+static void test_recomb_rates(void ** state)
+{
+    struct cooling_params coolpar = get_test_coolpar();
+    int i;
     const char * TreeCool = GADGET_TESTDATA_ROOT "/examples/TREECOOL_ep_2018p";
     const char * MetalCool = "";
 
@@ -56,20 +63,14 @@ static void test_recomb_rates(void ** state)
 /* Simple tests for the rate network */
 static void test_rate_network(void ** state)
 {
-    struct cooling_params coolpar;
-    coolpar.CMBTemperature = 2.7255;
-    coolpar.PhotoIonizeFactor = 1;
-    coolpar.SelfShieldingOn = 1;
-    coolpar.fBar = 0.17;
-    coolpar.PhotoIonizationOn = 1;
-    coolpar.recomb = Verner96;
-    coolpar.cooling = Sherwood;
-    coolpar.MinGasTemp = 100;
+    struct cooling_params coolpar = get_test_coolpar();
+    const char * TreeCool = GADGET_TESTDATA_ROOT "/examples/TREECOOL_ep_2018p";
     const char * MetalCool = "";
 
-    const char * TreeCool = GADGET_TESTDATA_ROOT "/examples/TREECOOL_ep_2018p";
-    struct UVBG uvbg = get_global_UVBG(2);
     init_cooling_rates(TreeCool, MetalCool, coolpar);
+
+    struct UVBG uvbg = get_global_UVBG(2);
+
 
     //Complete ionisation at low density
     double logt;
@@ -110,15 +111,10 @@ static void test_rate_network(void ** state)
  * In particular the physical density threshold is checked. */
 static void test_heatingcooling_rate(void ** state)
 {
-    struct cooling_params coolpar;
-    coolpar.CMBTemperature = 2.7255;
-    coolpar.PhotoIonizeFactor = 1;
-    coolpar.SelfShieldingOn = 0;
-    coolpar.fBar = 0.17;
-    coolpar.PhotoIonizationOn = 1;
+    struct cooling_params coolpar = get_test_coolpar();
     coolpar.recomb = Cen92;
     coolpar.cooling = KWH92;
-    coolpar.HeliumHeatOn = 0;
+    coolpar.SelfShieldingOn = 0;
 
     const char * TreeCool = GADGET_TESTDATA_ROOT "/examples/TREECOOL_ep_2018p";
     const char * MetalCool = "";
