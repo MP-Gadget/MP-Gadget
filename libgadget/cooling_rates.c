@@ -262,8 +262,8 @@ struct UVBG get_global_UVBG(double redshift)
     GlobalUVBG.gJHep = get_photo_rate(redshift, &Gamma_HeII);
 
     GlobalUVBG.epsH0 = get_photo_rate(redshift, &Eps_HI);
-    GlobalUVBG.epsHe0 = get_photo_rate(redshift, &Eps_HI);
-    GlobalUVBG.epsHep = get_photo_rate(redshift, &Eps_HI);
+    GlobalUVBG.epsHe0 = get_photo_rate(redshift, &Eps_HeI);
+    GlobalUVBG.epsHep = get_photo_rate(redshift, &Eps_HeII);
     GlobalUVBG.self_shield_dens = self_shield_dens(redshift, &GlobalUVBG);
     return GlobalUVBG;
 }
@@ -995,7 +995,7 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
 
     double LambdaNet = Heat - Lambda - MetalCooling;
 
-    //message(1, "Heat = %g Lambda = %g MetalCool = %g LC = %g LR = %g LFF = %g LCmptn = %g, ne = %g, nHp = %g, nHepp = %g, nh=%g, temp=%g, ienergy=%g\n", Heat, Lambda, MetalCooling, LambdaCollis, LambdaRecomb, LambdaFF, LambdaCmptn, nebynh, nHp, nHepp, nh, temp, ienergy);
+    //message(1, "Heat = %g Lambda = %g MetalCool = %g LC = %g LR = %g LFF = %g LCmptn = %g, ne = %g, nH0 = %g, nHp = %g, nHe0 = %g, nHep = %g, nHepp = %g, nh=%g, temp=%g, ienergy=%g\n", Heat, Lambda, MetalCooling, LambdaCollis, LambdaRecomb, LambdaFF, LambdaCmptn, nebynh, nH0, nHp, nHe0, nHep, nHepp, nh, temp, ienergy);
 
     /* LambdaNet in erg/s cm^3, Density in protons/cm^3, PROTONMASS in protons/g.
      * Convert to erg/s/g*/
