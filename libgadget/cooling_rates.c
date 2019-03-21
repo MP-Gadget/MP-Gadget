@@ -220,9 +220,9 @@ get_photo_rate(double redshift, struct itp_type * Gamma_tab)
     double log1z = log10(1+redshift);
     double photo_rate;
     if (log1z >= Gamma_log1z[NTreeCool - 1])
-        photo_rate = Gamma_tab->ydata[NTreeCool - 1];
+        return 0;
     else if (log1z < Gamma_log1z[0])
-        photo_rate = 0;
+        photo_rate = Gamma_tab->ydata[0];
     else {
         photo_rate = gsl_interp_eval(Gamma_tab->intp, Gamma_log1z, Gamma_tab->ydata, log1z, Gamma_tab->acc[omp_get_thread_num()]);
     }
