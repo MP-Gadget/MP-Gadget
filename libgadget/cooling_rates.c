@@ -69,9 +69,10 @@ static struct cooling_params CoolingParams;
 static gsl_interp * GrayOpac;
 
 /*Tables for the self-shielding correction. Note these are not well-measured for z > 5!*/
-#define NGRAY 9
-static double GrayOpac_ydata[NGRAY] = { 2.59e-18, 2.37e-18, 2.27e-18, 2.15e-18, 2.02e-18, 1.94e-18, 1.82e-18, 1.71e-18, 1.60e-18};
-static const double GrayOpac_zz[NGRAY] = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+#define NGRAY 6
+/*  Gray Opacity for the Faucher-Giguere 2009 UVB. HM2018 is a little larger and would lead to a 10% higher self-shielding threshold.*/
+static double GrayOpac_ydata[NGRAY] = { 2.59e-18, 2.37e-18, 2.27e-18, 2.15e-18, 2.02e-18, 1.94e-18};
+static const double GrayOpac_zz[NGRAY] = {0, 1, 2, 3, 4, 5};
 
 /*Convenience structure bundling together the gsl interpolation routines.*/
 struct itp_type
@@ -229,12 +230,17 @@ get_photo_rate(double redshift, struct itp_type * Gamma_tab)
     return pow(10, photo_rate) * CoolingParams.PhotoIonizeFactor;
 }
 
-/*Calculate the critical self-shielding density. Rahmati 2012 eq. 13.
-  gray_opac is a parameter of the UVB used.
+/*Calculate the critical self-shielding density.
+ *This formula is taken from Rahmati 2012 eq. 13. https://arxiv.org/abs/1210.7808
+  gray_opac is a parameter of the UVB
+  Here we use that for the Faucher-Giguere 2009 UVB.
+  HM2018 is a little larger and would lead to a 10% higher self-shielding threshold.
   gray_opac is in cm^2 (2.49e-18 is HM01 at z=3)
   temp is particle temperature in K
   f_bar is the baryon fraction. 0.17 is roughly 0.045/0.265
-  Returns density in atoms/cm^3"""
+  Returns density in atoms/cm^3.
+  At higher redshifts than this was computed,
+  we keep the self-shielding density constant. In reality the reionization model should take over.
 */
 static double
 self_shield_dens(double redshift, const struct UVBG * uvbg)
