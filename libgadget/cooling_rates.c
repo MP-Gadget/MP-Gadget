@@ -507,33 +507,26 @@ nHp_internal(double nh, double nH0)
     return nh - nH0;
 }
 
-/*The ionised helium number density, divided by the helium number fraction. Eq. 35 of KWH.*/
-static double
-nHep_internal(double nh, double logt, double ne, const struct UVBG * uvbg, double photofac)
+struct he_ions
+{
+    double nHe0;
+    double nHep;
+    double nHepp;
+};
+
+/*The helium ionic number densities, divided by the helium number fraction. Eq. 35, 36 and 37 of KWH. */
+static struct he_ions
+nHe_internal(double nh, double logt, double ne, const struct UVBG * uvbg, double photofac)
 {
     double alphaHep = get_interpolated_recomb(logt, rec_alphaHep, &recomb_alphaHepd);
     double alphaHepp = get_interpolated_recomb(logt, rec_alphaHepp, &recomb_alphaHepp);
     double GammaHe0 = get_interpolated_recomb(logt, rec_GammaHe0, &recomb_GammaeHe0) + (ne > 0 ? uvbg->gJHe0/ne *photofac : 0);
     double GammaHep = get_interpolated_recomb(logt, rec_GammaHep, &recomb_GammaeHep) + (ne > 0 ? uvbg->gJHep/ne *photofac : 0);
-    return nh / (1 + alphaHep / GammaHe0 + GammaHep/alphaHepp);
-}
-
-/*The neutral helium number density, divided by the helium number fraction. Eq. 36 of KWH.*/
-static double
-nHe0_internal(double nHep, double logt, double ne, const struct UVBG * uvbg, double photofac)
-{
-    double alphaHep = get_interpolated_recomb(logt, rec_alphaHep, &recomb_alphaHepd);
-    double GammaHe0 = get_interpolated_recomb(logt, rec_GammaHe0, &recomb_GammaeHe0) + (ne > 0 ? uvbg->gJHe0/ne *photofac : 0);
-    return nHep * alphaHep / GammaHe0;
-}
-
-/* The doubly ionised helium number density, divided by the helium number fraction. Eq. 37 of KWH.*/
-static double
-nHepp_internal(double nHep, double logt, double ne, const struct UVBG * uvbg, double photofac)
-{
-    double GammaHep = get_interpolated_recomb(logt, rec_GammaHep, &recomb_GammaeHep) + (ne > 0 ? uvbg->gJHep/ne *photofac : 0);
-    double alphaHepp = get_interpolated_recomb(logt, rec_alphaHepp, &recomb_alphaHepp);
-    return nHep * GammaHep / alphaHepp;
+    struct he_ions He;
+    He.nHep = nh / (1 + alphaHep / GammaHe0 + GammaHep/alphaHepp);
+    He.nHe0 = He.nHep * alphaHep / GammaHe0;
+    He.nHepp = He.nHep * GammaHep / alphaHepp;
+    return He;
 }
 
 /*Compute temperature (in K) from internal energy and electron density.
@@ -581,10 +574,9 @@ ne_internal(double nh, double ienergy, double ne, double helium, double * logt, 
     *logt = log(get_temp_internal(ne/nh, ienergy, helium));
     double photofac = self_shield_corr(nh, *logt, uvbg->self_shield_dens);
     double nH0 = nH0_internal(nh, *logt, ne, uvbg, photofac);
-    double nHep = nHep_internal(nh, *logt, ne, uvbg, photofac);
     double nHp = nHp_internal(nh, nH0);
-    double nHepp = nHepp_internal(nHep, *logt, ne, uvbg, photofac);
-    return nHp + yy * nHep + 2 * yy * nHepp;
+    struct he_ions He = nHe_internal(nh, *logt, ne, uvbg, photofac);
+    return nHp + yy * He.nHep + 2 * yy * He.nHepp;
 }
 
 /*Maximum number of iterations to perform*/
@@ -973,30 +965,30 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
 
     double nH0 = nH0_internal(nh, logt, ne, uvbg, photofac);
     double nHp = nHp_internal(nh, nH0)/nh;
-    double nHep = yy * nHep_internal(nh, logt, ne, uvbg, photofac);
-    double nHe0 = nHe0_internal(nHep, logt, ne, uvbg, photofac)/nh;
-    double nHepp = nHepp_internal(nHep, logt, ne, uvbg, photofac)/nh;
+    struct he_ions He = nHe_internal(nh, logt, ne, uvbg, photofac);
     /*Put the abundances in units of nH to avoid underflows*/
     nH0/= nh;
-    nHep/= nh;
+    He.nHep*= yy/nh;
+    He.nHe0*= yy/nh;
+    He.nHepp*= yy/nh;
     /*Collisional ionization and excitation rate*/
     double LambdaCollis = nebynh * (get_interpolated_recomb(logt, cool_collisH0, cool_CollisionalH0) * nH0 +
-            get_interpolated_recomb(logt, cool_collisHe0, cool_CollisionalHe0) * nHe0 +
-            get_interpolated_recomb(logt, cool_collisHeP, cool_CollisionalHeP) * nHep);
+            get_interpolated_recomb(logt, cool_collisHe0, cool_CollisionalHe0) * He.nHe0 +
+            get_interpolated_recomb(logt, cool_collisHeP, cool_CollisionalHeP) * He.nHep);
     double LambdaRecomb = nebynh * (get_interpolated_recomb(logt, cool_recombHp, cool_RecombHp) * nHp +
-            get_interpolated_recomb(logt, cool_recombHeP, cool_RecombHeP) * nHep +
-            get_interpolated_recomb(logt, cool_recombHePP, cool_RecombHePP) * nHepp);
+            get_interpolated_recomb(logt, cool_recombHeP, cool_RecombHeP) * He.nHep +
+            get_interpolated_recomb(logt, cool_recombHePP, cool_RecombHePP) * He.nHepp);
     /*Free-free cooling rate*/
     double LambdaFF = 0;
 
     double cff = get_interpolated_recomb(logt, cool_freefree1, cool_FreeFree1);
 
     if(CoolingParams.cooling == Enzo2Nyx) {
-        LambdaFF = nebynh * (cff * (nHp + nHep) + cool_FreeFree(temp, 2) * nHepp);
+        LambdaFF = nebynh * (cff * (nHp + He.nHep) + cool_FreeFree(temp, 2) * He.nHepp);
     } else {
         /*The factor of (zz=2)^2 has been pulled out, so if we use the Spitzer gaunt factor we don't need
          * to call the FreeFree function again.*/
-        LambdaFF = nebynh * (cff * (nHp + nHep) + 4 * cff * nHepp);
+        LambdaFF = nebynh * (cff * (nHp + He.nHep) + 4 * cff * He.nHepp);
     }
     /*Compton cooling in erg/s cm^3*/
     double LambdaCmptn = nebynh * cool_InverseCompton(temp, redshift) / nh;
@@ -1004,7 +996,7 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
     double Lambda = LambdaCollis + LambdaRecomb + LambdaFF + LambdaCmptn;
 
     /*Total heating rate per proton in erg/s cm^3*/
-    double Heat = (nH0 * uvbg->epsH0 + nHe0 * uvbg->epsHe0 + nHep * uvbg->epsHep)/nh;
+    double Heat = (nH0 * uvbg->epsH0 + He.nHe0 * uvbg->epsHe0 + He.nHep * uvbg->epsHep)/nh;
 
     Heat *= cool_he_reion_factor(density, helium, redshift);
     /*Set external equilibrium electron density*/
