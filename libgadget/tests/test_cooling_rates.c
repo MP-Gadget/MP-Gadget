@@ -172,17 +172,17 @@ static void test_heatingcooling_rate(void ** state)
     dens /= 100;
     LambdaNet = get_heatingcooling_rate(dens, egyhot/10., 1 - HYDROGEN_MASSFRAC, 0, 0, &uvbg, &ne);
     //message(1, "LambdaNet = %g, uvbg=%g\n", LambdaNet, uvbg.epsHep);
-    assert_true(fabs(LambdaNet / 0.0744986 - 1) < 1e-5);
+    assert_true(fabs(LambdaNet / (-0.0406671) - 1) < 1e-5);
 
-    LambdaNet = get_heatingcooling_rate(dens*1.5, egyhot/10., 1 - HYDROGEN_MASSFRAC, 0, 0, &uvbg, &ne);
+    LambdaNet = get_heatingcooling_rate(dens/2.5, egyhot/10., 1 - HYDROGEN_MASSFRAC, 0, 0, &uvbg, &ne);
     assert_true(LambdaNet > 0);
     /*Check self-shielding affects the cooling rates*/
     coolpar.SelfShieldingOn = 1;
     init_cooling_rates(TreeCool, MetalCool, coolpar);
     LambdaNet = get_heatingcooling_rate(dens*1.5, egyhot/10., 1 - HYDROGEN_MASSFRAC, 0, 0, &uvbg, &ne);
-    message(1, "LambdaNet = %g, uvbg=%g\n", LambdaNet, uvbg.epsHep);
+    //message(1, "LambdaNet = %g, uvbg=%g\n", LambdaNet, uvbg.epsHep);
     assert_false(LambdaNet > 0);
-    assert_true(fabs(LambdaNet/ 1.44441 + 1) < 1e-5);
+    assert_true(fabs(LambdaNet/ (-1.64682) - 1) < 1e-5);
 }
 
 int main(void) {
