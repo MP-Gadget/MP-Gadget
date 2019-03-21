@@ -81,16 +81,17 @@ static void test_uvbg_loader(void ** state)
     assert_true(fabs(uvbg.gJH0/6.06e-14 -1) < 1e-5);
     assert_true(fabs(uvbg.gJHe0/3.03e-14 -1) < 1e-5);
     assert_true(fabs(uvbg.gJHep/1.1e-15 -1) < 1e-5);
+    assert_true(fabs(uvbg.self_shield_dens/0.0010114161149989826 - 1) < 1e-5);
     /*Test at intermediate redshift*/
     uvbg = get_global_UVBG(3.);
-    message(0, "uvbg %g %g %g %g %g %g\n", uvbg.gJH0, uvbg.gJHe0, uvbg.gJHep,  uvbg.epsH0, uvbg.epsHe0, uvbg.epsHep);
+    //message(0, "uvbg %g %g %g %g %g %g %g\n", uvbg.gJH0, uvbg.gJHe0, uvbg.gJHep,  uvbg.epsH0, uvbg.epsHe0, uvbg.epsHep, uvbg.self_shield_dens);
     assert_true(fabs(uvbg.epsH0/5.96570906168362e-24 -1) < 1e-5);
     assert_true(fabs(uvbg.epsHe0/4.466976578202419e-24 -1) < 1e-5);
     assert_true(fabs(uvbg.epsHep/2.758535690259892e-26 -1) < 1e-5);
     assert_true(fabs(uvbg.gJH0/1.0549960730284017e-12 -1) < 1e-5);
     assert_true(fabs(uvbg.gJHe0/4.759025257653999e-13 -1) < 1e-5);
     assert_true(fabs(uvbg.gJHep/2.270599708640625e-16 -1) < 1e-5);
-
+    assert_true(fabs(uvbg.self_shield_dens/0.007691709693529007 - 1) < 1e-5);
 }
 
 /* Simple tests for the rate network */
