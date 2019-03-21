@@ -198,8 +198,8 @@ static void test_DoCooling(void ** state)
             double unew = DoCooling(0, uu, dens, dt, &uvbg, &ne, 0);
             assert_false(isnan(unew));
 //             message(0, "d = %g u = %g tcool = %g tcool_table = %g unew = %g ne_after = %g unew_table = %g\n", dens, uu, tcool, tcool_table[i*NSTEP + j], unew, ne, unew_table[i*NSTEP+j]);
-            assert_true(fabs(unew/unew_table[i*NSTEP + j] - 1) < 3e-2);
-            assert_true(fabs((1e-20 + tcool)/(1e-20 + tcool_table[i*NSTEP + j]) - 1) < 3e-2);
+            assert_true(fabs(unew/unew_table[i*NSTEP + j] - 1) < 5e-3);
+            assert_true(fabs(1/(1e-20 + tcool) - 1./(1e-20 + tcool_table[i*NSTEP + j])) < 1 || fabs((1e-20 + tcool)/(1e-20 + tcool_table[i*NSTEP + j]) - 1) < 2e-2);
             /*Make the tables*/
             //printf("%g , ", unew);
            //printf("%g , ", tcool);
