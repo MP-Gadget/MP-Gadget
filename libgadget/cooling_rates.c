@@ -96,6 +96,8 @@ static struct itp_type rec_alphaHp, rec_alphaHep, rec_alphaHepp;
 static struct itp_type rec_GammaH0, rec_GammaHe0, rec_GammaHep;
 static struct itp_type cool_collisH0, cool_collisHe0, cool_collisHeP;
 static struct itp_type cool_recombHp, cool_recombHeP, cool_recombHePP;
+/*For the Free-free cooling rate*/
+static struct itp_type cool_freefree1;
 
 static void
 init_itp_type(double * xarr, struct itp_type * Gamma, int Nelem, gsl_interp_accel ** acc)
@@ -833,6 +835,12 @@ cool_FreeFree(double temp, int zz)
     return 1.426e-27*sqrt(temp)* pow(zz,2) * gff;
 }
 
+static double
+cool_FreeFree1(double temp)
+{
+    return cool_FreeFree(temp, 1);
+}
+
 /* Cooling rate for inverse Compton from the microwave background.
  * Multiply this only by n_e. Note the CMB temperature is hardcoded in KWH92 to 2.7.
  * Units are erg s^-1*/
@@ -884,9 +892,9 @@ init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, struct
     }
 
     /*Initialize the recombination tables*/
-    temp_tab = mymalloc("Recombination_tables", NRECOMBTAB * sizeof(double) * 13 + omp_get_max_threads() * sizeof(gsl_interp_accel *));
+    temp_tab = mymalloc("Recombination_tables", NRECOMBTAB * sizeof(double) * 14 + omp_get_max_threads() * sizeof(gsl_interp_accel *));
     /*A common accelerator for all the tables with the same array size*/
-    gsl_interp_accel ** acc = (gsl_interp_accel **) (temp_tab + 13 * NRECOMBTAB);
+    gsl_interp_accel ** acc = (gsl_interp_accel **) (temp_tab + 14 * NRECOMBTAB);
     int i;
     for(i = 0 ; i < omp_get_max_threads(); i++)
         acc[i] = gsl_interp_accel_alloc();
@@ -903,6 +911,7 @@ init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, struct
     cool_recombHp.ydata = temp_tab + 10 * NRECOMBTAB;
     cool_recombHeP.ydata = temp_tab + 11 * NRECOMBTAB;
     cool_recombHePP.ydata = temp_tab + 12 * NRECOMBTAB;
+    cool_freefree1.ydata = temp_tab + 13 * NRECOMBTAB;
 
     double Tmin = log(10), Tmax = log(1e10);
     for(i = 0 ; i < NRECOMBTAB; i++)
@@ -922,6 +931,7 @@ init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, struct
         cool_recombHp.ydata[i] = cool_RecombHp(tt);
         cool_recombHeP.ydata[i] = cool_RecombHeP(tt);
         cool_recombHePP.ydata[i] = cool_RecombHePP(tt);
+        cool_freefree1.ydata[i] = cool_FreeFree(tt, 1);
     }
     init_itp_type(temp_tab, &rec_GammaH0, NRECOMBTAB, acc);
     init_itp_type(temp_tab, &rec_GammaHe0, NRECOMBTAB, acc);
@@ -935,6 +945,7 @@ init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, struct
     init_itp_type(temp_tab, &cool_recombHp, NRECOMBTAB, acc);
     init_itp_type(temp_tab, &cool_recombHeP, NRECOMBTAB, acc);
     init_itp_type(temp_tab, &cool_recombHePP, NRECOMBTAB, acc);
+    init_itp_type(temp_tab, &cool_freefree1, NRECOMBTAB, acc);
 
     /*Initialize the metal cooling table*/
     InitMetalCooling(MetalCoolFile);
@@ -977,7 +988,17 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
             get_interpolated_recomb(logt, &cool_recombHeP, cool_RecombHeP) * nHep +
             get_interpolated_recomb(logt, &cool_recombHePP, cool_RecombHePP) * nHepp);
     /*Free-free cooling rate*/
-    double LambdaFF = nebynh * (cool_FreeFree(temp, 1) * (nHp + nHep) + cool_FreeFree(temp, 2) * nHepp);
+    double LambdaFF = 0;
+
+    double cff = get_interpolated_recomb(logt, &cool_freefree1, cool_FreeFree1);
+
+    if(CoolingParams.cooling == Enzo2Nyx)
+        LambdaFF = nebynh * (cff * (nHp + nHep) + cool_FreeFree(temp, 2) * nHepp);
+    else {
+        /*The factor of (zz=2)^2 has been pulled out, so if we use the Spitzer gaunt factor we don't need
+         * to call the FreeFree function again.*/
+        LambdaFF = nebynh * (cff * (nHp + nHep) + 4 * cff * nHepp);
+    }
     /*Compton cooling in erg/s cm^3*/
     double LambdaCmptn = nebynh * cool_InverseCompton(temp, redshift) / nh;
     /*Total cooling rate per proton in erg/s cm^3*/
