@@ -239,6 +239,9 @@ get_photo_rate(double redshift, struct itp_type * Gamma_tab)
 static double
 self_shield_dens(double redshift, const struct UVBG * uvbg)
 {
+    /*Before the UVBG switches on, no need for self-shielding*/
+    if(uvbg->gJH0 == 0)
+        return 1e10;
     double G12 = uvbg->gJH0/1e-12;
     double greyopac;
     if (redshift <= GrayOpac_zz[0])
