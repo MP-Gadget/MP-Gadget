@@ -168,15 +168,17 @@ struct UVBG get_particle_UVBG(double redshift, double * Pos)
 {
     if(fabs(redshift - GlobalUVRed) > 1e-4)
         endrun(1, "Called with redshift %g not %g expected by the UVBG cache.\n", redshift, GlobalUVRed);
-    struct UVBG uvbg = {0};
-    /* if a threshold is set, disable UV bg above that redshift */
-    if(UVF.UVRedshiftThreshold >= 0.0 && redshift > UVF.UVRedshiftThreshold) {
-        return uvbg;
-    }
 
     if(UVF.disabled) {
         /* directly use the TREECOOL table if UVF is disabled */
-        memcpy(&uvbg, &GlobalUVBG, sizeof(struct UVBG));
+        return GlobalUVBG;
+    }
+
+    struct UVBG uvbg = {0};
+
+    uvbg.self_shield_dens = GlobalUVBG.self_shield_dens;
+    /* if a threshold is set, disable UV bg above that redshift */
+    if(UVF.UVRedshiftThreshold >= 0.0 && redshift > UVF.UVRedshiftThreshold) {
         return uvbg;
     }
 
