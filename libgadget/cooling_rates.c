@@ -79,7 +79,6 @@ struct itp_type
 {
     double * ydata;
     gsl_interp * intp;
-    gsl_interp_accel ** acc;
 };
 /*Interpolation objects for the redshift evolution of the UVB.*/
 /*Number of entries in the table*/
@@ -101,11 +100,10 @@ static struct itp_type cool_recombHp, cool_recombHeP, cool_recombHePP;
 static struct itp_type cool_freefree1;
 
 static void
-init_itp_type(double * xarr, struct itp_type * Gamma, int Nelem, gsl_interp_accel ** acc)
+init_itp_type(double * xarr, struct itp_type * Gamma, int Nelem)
 {
     Gamma->intp = gsl_interp_alloc(gsl_interp_linear,Nelem);
     gsl_interp_init(Gamma->intp, xarr, Gamma->ydata, Nelem);
-    Gamma->acc = acc;
 }
 
 /* This function loads the treecool file into the (global function) data arrays.
@@ -147,19 +145,13 @@ load_treecool(const char * TreeCoolFile)
         endrun(1, "Photon background contains: %d entries, not enough.\n", NTreeCool);
 
     /*Allocate memory for the photon background table.*/
-    Gamma_log1z = mymalloc("TreeCoolTable", 7 * NTreeCool * sizeof(double) + omp_get_max_threads() * sizeof(gsl_interp_accel *));
+    Gamma_log1z = mymalloc("TreeCoolTable", 7 * NTreeCool * sizeof(double));
     Gamma_HI.ydata = Gamma_log1z + NTreeCool;
     Gamma_HeI.ydata = Gamma_log1z + 2 * NTreeCool;
     Gamma_HeII.ydata = Gamma_log1z + 3 * NTreeCool;
     Eps_HI.ydata = Gamma_log1z + 4 * NTreeCool;
     Eps_HeI.ydata = Gamma_log1z + 5 * NTreeCool;
     Eps_HeII.ydata = Gamma_log1z + 6 * NTreeCool;
-
-    /*A common accelerator for all the tables with the same array size*/
-    gsl_interp_accel ** acc = (gsl_interp_accel **) (Gamma_log1z + 7 * NTreeCool);
-    int i;
-    for(i = 0 ; i < omp_get_max_threads(); i++)
-        acc[i] = gsl_interp_accel_alloc();
 
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
@@ -192,12 +184,12 @@ load_treecool(const char * TreeCoolFile)
     /*Broadcast data to other processors*/
     MPI_Bcast(Gamma_log1z, 7 * NTreeCool, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     /*Initialize the UVB redshift interpolation: reticulate the splines*/
-    init_itp_type(Gamma_log1z, &Gamma_HI, NTreeCool, acc);
-    init_itp_type(Gamma_log1z, &Gamma_HeI, NTreeCool, acc);
-    init_itp_type(Gamma_log1z, &Gamma_HeII, NTreeCool, acc);
-    init_itp_type(Gamma_log1z, &Eps_HI, NTreeCool, acc);
-    init_itp_type(Gamma_log1z, &Eps_HeI, NTreeCool, acc);
-    init_itp_type(Gamma_log1z, &Eps_HeII, NTreeCool, acc);
+    init_itp_type(Gamma_log1z, &Gamma_HI, NTreeCool);
+    init_itp_type(Gamma_log1z, &Gamma_HeI, NTreeCool);
+    init_itp_type(Gamma_log1z, &Gamma_HeII, NTreeCool);
+    init_itp_type(Gamma_log1z, &Eps_HI, NTreeCool);
+    init_itp_type(Gamma_log1z, &Eps_HeI, NTreeCool);
+    init_itp_type(Gamma_log1z, &Eps_HeII, NTreeCool);
 
     message(0, "Read %d lines z = %g - %g from file %s\n", NTreeCool, pow(10, Gamma_log1z[0])-1, pow(10, Gamma_log1z[NTreeCool-1])-1, TreeCoolFile);
 }
@@ -209,7 +201,7 @@ get_interpolated_recomb(double logt, struct itp_type * rec_tab, double rec_func(
     /*Just call the function directly if we are out of interpolation range*/
     if (logt >= temp_tab[NRECOMBTAB- 1] || logt < temp_tab[0])
         return rec_func(exp(logt));
-    return gsl_interp_eval(rec_tab->intp, temp_tab, rec_tab->ydata, logt, rec_tab->acc[omp_get_thread_num()]);
+    return gsl_interp_eval(rec_tab->intp, temp_tab, rec_tab->ydata, logt, NULL);
 }
 
 /*Get photo ionization rate for neutral Hydrogen*/
@@ -225,7 +217,7 @@ get_photo_rate(double redshift, struct itp_type * Gamma_tab)
     else if (log1z < Gamma_log1z[0])
         photo_rate = Gamma_tab->ydata[0];
     else {
-        photo_rate = gsl_interp_eval(Gamma_tab->intp, Gamma_log1z, Gamma_tab->ydata, log1z, Gamma_tab->acc[omp_get_thread_num()]);
+        photo_rate = gsl_interp_eval(Gamma_tab->intp, Gamma_log1z, Gamma_tab->ydata, log1z, NULL);
     }
     return pow(10, photo_rate) * CoolingParams.PhotoIonizeFactor;
 }
@@ -908,12 +900,7 @@ init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, struct
     }
 
     /*Initialize the recombination tables*/
-    temp_tab = mymalloc("Recombination_tables", NRECOMBTAB * sizeof(double) * 14 + omp_get_max_threads() * sizeof(gsl_interp_accel *));
-    /*A common accelerator for all the tables with the same array size*/
-    gsl_interp_accel ** acc = (gsl_interp_accel **) (temp_tab + 14 * NRECOMBTAB);
-    int i;
-    for(i = 0 ; i < omp_get_max_threads(); i++)
-        acc[i] = gsl_interp_accel_alloc();
+    temp_tab = mymalloc("Recombination_tables", NRECOMBTAB * sizeof(double) * 14);
 
     rec_GammaH0.ydata = temp_tab + NRECOMBTAB;
     rec_GammaHe0.ydata = temp_tab + 2 * NRECOMBTAB;
@@ -930,6 +917,7 @@ init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, struct
     cool_freefree1.ydata = temp_tab + 13 * NRECOMBTAB;
 
     double Tmin = log(10), Tmax = log(1e10);
+    int i;
     for(i = 0 ; i < NRECOMBTAB; i++)
     {
         temp_tab[i] = Tmin + (Tmax - Tmin) * i / NRECOMBTAB;
@@ -949,19 +937,19 @@ init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, struct
         cool_recombHePP.ydata[i] = cool_RecombHePP(tt);
         cool_freefree1.ydata[i] = cool_FreeFree(tt, 1);
     }
-    init_itp_type(temp_tab, &rec_GammaH0, NRECOMBTAB, acc);
-    init_itp_type(temp_tab, &rec_GammaHe0, NRECOMBTAB, acc);
-    init_itp_type(temp_tab, &rec_GammaHep, NRECOMBTAB, acc);
-    init_itp_type(temp_tab, &rec_alphaHp, NRECOMBTAB, acc);
-    init_itp_type(temp_tab, &rec_alphaHep, NRECOMBTAB, acc);
-    init_itp_type(temp_tab, &rec_alphaHepp, NRECOMBTAB, acc);
-    init_itp_type(temp_tab, &cool_collisH0, NRECOMBTAB, acc);
-    init_itp_type(temp_tab, &cool_collisHe0, NRECOMBTAB, acc);
-    init_itp_type(temp_tab, &cool_collisHeP, NRECOMBTAB, acc);
-    init_itp_type(temp_tab, &cool_recombHp, NRECOMBTAB, acc);
-    init_itp_type(temp_tab, &cool_recombHeP, NRECOMBTAB, acc);
-    init_itp_type(temp_tab, &cool_recombHePP, NRECOMBTAB, acc);
-    init_itp_type(temp_tab, &cool_freefree1, NRECOMBTAB, acc);
+    init_itp_type(temp_tab, &rec_GammaH0, NRECOMBTAB);
+    init_itp_type(temp_tab, &rec_GammaHe0, NRECOMBTAB);
+    init_itp_type(temp_tab, &rec_GammaHep, NRECOMBTAB);
+    init_itp_type(temp_tab, &rec_alphaHp, NRECOMBTAB);
+    init_itp_type(temp_tab, &rec_alphaHep, NRECOMBTAB);
+    init_itp_type(temp_tab, &rec_alphaHepp, NRECOMBTAB);
+    init_itp_type(temp_tab, &cool_collisH0, NRECOMBTAB);
+    init_itp_type(temp_tab, &cool_collisHe0, NRECOMBTAB);
+    init_itp_type(temp_tab, &cool_collisHeP, NRECOMBTAB);
+    init_itp_type(temp_tab, &cool_recombHp, NRECOMBTAB);
+    init_itp_type(temp_tab, &cool_recombHeP, NRECOMBTAB);
+    init_itp_type(temp_tab, &cool_recombHePP, NRECOMBTAB);
+    init_itp_type(temp_tab, &cool_freefree1, NRECOMBTAB);
 
     /*Initialize the metal cooling table*/
     InitMetalCooling(MetalCoolFile);
