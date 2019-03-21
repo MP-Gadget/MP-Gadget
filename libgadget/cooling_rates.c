@@ -92,8 +92,8 @@ static struct itp_type Eps_HI, Eps_HeI, Eps_HeII;
 
 /*Recombination and collisional rates*/
 #define NRECOMBTAB 1000
-#define RECOMBTMAX log(1e10)
-#define RECOMBTMIN log(10)
+#define RECOMBTMAX log(1e9)
+#define RECOMBTMIN 0 //log(1)
 static double * temp_tab;
 static double * rec_alphaHp, * rec_alphaHep, * rec_alphaHepp;
 static double * rec_GammaH0, * rec_GammaHe0, * rec_GammaHep;
