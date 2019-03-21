@@ -60,6 +60,39 @@ static void test_recomb_rates(void ** state)
     }
 }
 
+/*Test that the UVBG loading code works*/
+static void test_uvbg_loader(void ** state)
+{
+    struct cooling_params coolpar = get_test_coolpar();
+    coolpar.SelfShieldingOn = 1;
+    const char * TreeCool = GADGET_TESTDATA_ROOT "/examples/TREECOOL_ep_2018p";
+    const char * MetalCool = "";
+    init_cooling_rates(TreeCool, MetalCool, coolpar);
+    /*Test sensible rates at high redshift*/
+    struct UVBG uvbg = get_global_UVBG(16);
+    assert_true(uvbg.epsH0 == 0);
+    assert_true(uvbg.self_shield_dens > 1e8);
+    assert_true(uvbg.gJH0 == 0);
+    /*Test at zero redshift*/
+    uvbg = get_global_UVBG(0);
+    assert_true(fabs(uvbg.epsH0/3.65296e-25 -1) < 1e-5);
+    assert_true(fabs(uvbg.epsHe0/3.98942e-25 -1) < 1e-5);
+    assert_true(fabs(uvbg.epsHep/3.33253e-26 -1) < 1e-5);
+    assert_true(fabs(uvbg.gJH0/6.06e-14 -1) < 1e-5);
+    assert_true(fabs(uvbg.gJHe0/3.03e-14 -1) < 1e-5);
+    assert_true(fabs(uvbg.gJHep/1.1e-15 -1) < 1e-5);
+    /*Test at intermediate redshift*/
+    uvbg = get_global_UVBG(3.);
+    message(0, "uvbg %g %g %g %g %g %g\n", uvbg.gJH0, uvbg.gJHe0, uvbg.gJHep,  uvbg.epsH0, uvbg.epsHe0, uvbg.epsHep);
+    assert_true(fabs(uvbg.epsH0/5.96570906168362e-24 -1) < 1e-5);
+    assert_true(fabs(uvbg.epsHe0/4.466976578202419e-24 -1) < 1e-5);
+    assert_true(fabs(uvbg.epsHep/2.758535690259892e-26 -1) < 1e-5);
+    assert_true(fabs(uvbg.gJH0/1.0549960730284017e-12 -1) < 1e-5);
+    assert_true(fabs(uvbg.gJHe0/4.759025257653999e-13 -1) < 1e-5);
+    assert_true(fabs(uvbg.gJHep/2.270599708640625e-16 -1) < 1e-5);
+
+}
+
 /* Simple tests for the rate network */
 static void test_rate_network(void ** state)
 {
@@ -188,7 +221,7 @@ int main(void) {
         cmocka_unit_test(test_recomb_rates),
         cmocka_unit_test(test_rate_network),
         cmocka_unit_test(test_heatingcooling_rate),
-
+        cmocka_unit_test(test_uvbg_loader)
     };
     return cmocka_run_group_tests_mpi(tests, NULL, NULL);
 }
