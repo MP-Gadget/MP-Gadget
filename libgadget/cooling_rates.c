@@ -102,7 +102,7 @@ static struct itp_type cool_freefree1;
 static void
 init_itp_type(double * xarr, struct itp_type * Gamma, int Nelem, gsl_interp_accel ** acc)
 {
-    Gamma->intp = gsl_interp_alloc(gsl_interp_cspline,Nelem);
+    Gamma->intp = gsl_interp_alloc(gsl_interp_linear,Nelem);
     gsl_interp_init(Gamma->intp, xarr, Gamma->ydata, Nelem);
     Gamma->acc = acc;
 }
@@ -177,12 +177,12 @@ load_treecool(const char * TreeCoolFile)
                 continue;
             Gamma_log1z[i] = atof(retval);
             /*Get the rest*/
-            Gamma_HI.ydata[i] = atof(strtok(NULL, " \t"));
-            Gamma_HeI.ydata[i] = atof(strtok(NULL, " \t"));
-            Gamma_HeII.ydata[i] = atof(strtok(NULL, " \t"));
-            Eps_HI.ydata[i] = atof(strtok(NULL, " \t"));
-            Eps_HeI.ydata[i] = atof(strtok(NULL, " \t"));
-            Eps_HeII.ydata[i] = atof(strtok(NULL, " \t"));
+            Gamma_HI.ydata[i] = log10(atof(strtok(NULL, " \t")));
+            Gamma_HeI.ydata[i] = log10(atof(strtok(NULL, " \t")));
+            Gamma_HeII.ydata[i] = log10(atof(strtok(NULL, " \t")));
+            Eps_HI.ydata[i] = log10(atof(strtok(NULL, " \t")));
+            Eps_HeI.ydata[i] = log10(atof(strtok(NULL, " \t")));
+            Eps_HeII.ydata[i] = log10(atof(strtok(NULL, " \t")));
         }
 
         fclose(fd);
@@ -226,7 +226,7 @@ get_photo_rate(double redshift, struct itp_type * Gamma_tab)
     else {
         photo_rate = gsl_interp_eval(Gamma_tab->intp, Gamma_log1z, Gamma_tab->ydata, log1z, Gamma_tab->acc[omp_get_thread_num()]);
     }
-    return photo_rate * CoolingParams.PhotoIonizeFactor;
+    return pow(10, photo_rate) * CoolingParams.PhotoIonizeFactor;
 }
 
 /*Calculate the critical self-shielding density. Rahmati 2012 eq. 13.
