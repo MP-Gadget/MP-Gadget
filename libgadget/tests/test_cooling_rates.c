@@ -71,10 +71,11 @@ static void test_rate_network(void ** state)
     init_cooling_rates(TreeCool, MetalCool, coolpar);
 
     //Complete ionisation at low density
-    assert_true( fabs(get_equilib_ne(1e-6, 200.*1e10, 0.24, &uvbg, 1) / (1e-6*0.76) - (1 + 2* 0.24/(1-0.24)/4)) < 3e-5);
-    assert_true( fabs(get_equilib_ne(1e-6, 200.*1e10, 0.12, &uvbg, 1) / (1e-6*0.88) - (1 + 2* 0.12/(1-0.12)/4)) < 3e-5);
-    assert_true( fabs(get_equilib_ne(1e-5, 200.*1e10, 0.24, &uvbg, 1) / (1e-5*0.76) - (1 + 2* 0.24/(1-0.24)/4)) < 3e-4);
-    assert_true( fabs(get_equilib_ne(1e-4, 200.*1e10, 0.24, &uvbg, 1) / (1e-4*0.76) - (1 + 2* 0.24/(1-0.24)/4)) < 2e-3);
+    double logt;
+    assert_true( fabs(get_equilib_ne(1e-6, 200.*1e10, 0.24, &logt, &uvbg, 1) / (1e-6*0.76) - (1 + 2* 0.24/(1-0.24)/4)) < 3e-5);
+    assert_true( fabs(get_equilib_ne(1e-6, 200.*1e10, 0.12, &logt, &uvbg, 1) / (1e-6*0.88) - (1 + 2* 0.12/(1-0.12)/4)) < 3e-5);
+    assert_true( fabs(get_equilib_ne(1e-5, 200.*1e10, 0.24, &logt, &uvbg, 1) / (1e-5*0.76) - (1 + 2* 0.24/(1-0.24)/4)) < 3e-4);
+    assert_true( fabs(get_equilib_ne(1e-4, 200.*1e10, 0.24, &logt, &uvbg, 1) / (1e-4*0.76) - (1 + 2* 0.24/(1-0.24)/4)) < 2e-3);
 
     double ne = 1.;
     double temp = get_temp(1e-4, 200.*1e10,0.24, &uvbg, &ne);

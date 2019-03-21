@@ -66,7 +66,7 @@ double TableMetalCoolingRate(double redshift, double temp, double nHcgs);
   Internal energy is in J/kg == 10^-10 ergs/g.
   helium is a mass fraction.
 */
-double get_equilib_ne(double density, double ienergy, double helium, const struct UVBG * uvbg, double ne_init);
+double get_equilib_ne(double density, double ienergy, double helium, double *logt, const struct UVBG * uvbg, double ne_init);
 
 /*Same as above, but get electrons per proton.*/
 double get_ne_by_nh(double density, double ienergy, double helium, const struct UVBG * uvbg, double ne_init);

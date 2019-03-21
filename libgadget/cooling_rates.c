@@ -564,15 +564,15 @@ get_temp_internal(double nebynh, double ienergy, double helium)
 
 /*The electron number density. Eq. 38 of KWH.*/
 static double
-ne_internal(double nh, double ienergy, double ne, double helium, const struct UVBG * uvbg)
+ne_internal(double nh, double ienergy, double ne, double helium, double * logt, const struct UVBG * uvbg)
 {
     double yy = helium / 4 / (1 - helium);
-    double logt = log(get_temp_internal(ne/nh, ienergy, helium));
-    double photofac = self_shield_corr(nh, logt, uvbg->self_shield_dens);
-    double nH0 = nH0_internal(nh, logt, ne, uvbg, photofac);
-    double nHep = nHep_internal(nh, logt, ne, uvbg, photofac);
+    *logt = log(get_temp_internal(ne/nh, ienergy, helium));
+    double photofac = self_shield_corr(nh, *logt, uvbg->self_shield_dens);
+    double nH0 = nH0_internal(nh, *logt, ne, uvbg, photofac);
+    double nHep = nHep_internal(nh, *logt, ne, uvbg, photofac);
     double nHp = nHp_internal(nh, nH0);
-    double nHepp = nHepp_internal(nHep, logt, ne, uvbg, photofac);
+    double nHepp = nHepp_internal(nHep, *logt, ne, uvbg, photofac);
     return nHp + yy * nHep + 2 * yy * nHepp;
 }
 
@@ -589,18 +589,22 @@ ne_internal(double nh, double ienergy, double ne, double helium, const struct UV
     Notice that ne_init is the electron abundance in units of nh, not the cgs electron abundance as returned by ne_internal.
 */
 static double
-scipy_optimize_fixed_point(double ne_init, double nh, double ienergy, double helium, const struct UVBG * uvbg)
+scipy_optimize_fixed_point(double ne_init, double nh, double ienergy, double helium, double *logt, const struct UVBG * uvbg)
 {
     int i;
     double ne0 = ne_init;
     for(i = 0; i < MAXITER; i++)
     {
-        double ne1 = ne_internal(nh, ienergy, ne0*nh, helium, uvbg) / nh;
+        double logt1;
+        double ne1 = ne_internal(nh, ienergy, ne0*nh, helium, &logt1, uvbg) / nh;
 
-        if(fabs(ne1 - ne0) < ITERCONV)
+        if(fabs(ne1 - ne0) < ITERCONV) {
+            *logt = logt1;
+            ne0 = ne1;
             break;
+        }
 
-        double ne2 = ne_internal(nh, ienergy, ne1*nh, helium, uvbg) / nh;
+        double ne2 = ne_internal(nh, ienergy, ne1*nh, helium, &logt1, uvbg) / nh;
         double d = ne0 + ne2 - 2.0 * ne1;
         double pp = ne2;
         /*This is del^2*/
@@ -623,18 +627,19 @@ scipy_optimize_fixed_point(double ne_init, double nh, double ienergy, double hel
   helium is a mass fraction.
 */
 double
-get_equilib_ne(double density, double ienergy, double helium, const struct UVBG * uvbg, double ne_init)
+get_equilib_ne(double density, double ienergy, double helium, double * logt, const struct UVBG * uvbg, double ne_init)
 {
     /*Get hydrogen number density*/
     double nh = density * (1-helium);
-    return scipy_optimize_fixed_point(ne_init, nh, ienergy, helium, uvbg);
+    return scipy_optimize_fixed_point(ne_init, nh, ienergy, helium, logt, uvbg);
 }
 
 /*Same as above, but get electrons per proton.*/
 double
 get_ne_by_nh(double density, double ienergy, double helium, const struct UVBG * uvbg, double ne_init)
 {
-    return get_equilib_ne(density, ienergy, helium, uvbg, ne_init)/(density*(1-helium));
+    double logt;
+    return get_equilib_ne(density, ienergy, helium, &logt, uvbg, ne_init)/(density*(1-helium));
 }
 
 /*Here come the cooling rates. These are in erg s^-1 cm^-3 (cgs).
@@ -962,11 +967,12 @@ init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, struct
 double
 get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, double metallicity, const struct UVBG * uvbg, double *ne_equilib)
 {
-    double ne = get_equilib_ne(density, ienergy, helium, uvbg, *ne_equilib);
+    double logt;
+    double ne = get_equilib_ne(density, ienergy, helium, &logt, uvbg, *ne_equilib);
     double nh = density * (1 - helium);
     double nebynh = ne/nh;
+    /*Faster than running the exp.*/
     double temp = get_temp_internal(nebynh, ienergy, helium);
-    double logt = log(temp);
     double photofac = self_shield_corr(nh, logt, uvbg->self_shield_dens);
 
     /*The helium number fraction*/
@@ -992,9 +998,9 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
 
     double cff = get_interpolated_recomb(logt, &cool_freefree1, cool_FreeFree1);
 
-    if(CoolingParams.cooling == Enzo2Nyx)
+    if(CoolingParams.cooling == Enzo2Nyx) {
         LambdaFF = nebynh * (cff * (nHp + nHep) + cool_FreeFree(temp, 2) * nHepp);
-    else {
+    } else {
         /*The factor of (zz=2)^2 has been pulled out, so if we use the Spitzer gaunt factor we don't need
          * to call the FreeFree function again.*/
         LambdaFF = nebynh * (cff * (nHp + nHep) + 4 * cff * nHepp);
@@ -1030,7 +1036,8 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
 double
 get_temp(double density, double ienergy, double helium, const struct UVBG * uvbg, double * ne_init)
 {
-    double ne = get_equilib_ne(density, ienergy, helium, uvbg, *ne_init);
+    double logt;
+    double ne = get_equilib_ne(density, ienergy, helium, &logt, uvbg, *ne_init);
     double nh = density * (1 - helium);
     *ne_init = ne/nh;
     return get_temp_internal(ne/nh, ienergy, helium);
@@ -1043,9 +1050,9 @@ helium is a mass fraction.*/
 double
 get_neutral_fraction(double density, double ienergy, double helium, const struct UVBG * uvbg, double * ne_init)
 {
-    double ne = get_equilib_ne(density, ienergy, helium, uvbg, *ne_init);
+    double logt;
+    double ne = get_equilib_ne(density, ienergy, helium, &logt, uvbg, *ne_init);
     double nh = density * (1-helium);
-    double logt = log(get_temp_internal(ne/nh, ienergy, helium));
     double photofac = self_shield_corr(nh, logt, uvbg->self_shield_dens);
     *ne_init = ne/nh;
     return nH0_internal(nh, logt, ne, uvbg, photofac) / nh;
