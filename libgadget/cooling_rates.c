@@ -89,15 +89,18 @@ static double * Gamma_log1z;
 static struct itp_type Gamma_HI, Gamma_HeI, Gamma_HeII;
 /*These are the photo-heating rates*/
 static struct itp_type Eps_HI, Eps_HeI, Eps_HeII;
+
 /*Recombination and collisional rates*/
 #define NRECOMBTAB 1000
+#define RECOMBTMAX log(1e10)
+#define RECOMBTMIN log(10)
 static double * temp_tab;
-static struct itp_type rec_alphaHp, rec_alphaHep, rec_alphaHepp;
-static struct itp_type rec_GammaH0, rec_GammaHe0, rec_GammaHep;
-static struct itp_type cool_collisH0, cool_collisHe0, cool_collisHeP;
-static struct itp_type cool_recombHp, cool_recombHeP, cool_recombHePP;
+static double * rec_alphaHp, * rec_alphaHep, * rec_alphaHepp;
+static double * rec_GammaH0, * rec_GammaHe0, * rec_GammaHep;
+static double * cool_collisH0, * cool_collisHe0, * cool_collisHeP;
+static double * cool_recombHp, * cool_recombHeP, * cool_recombHePP;
 /*For the Free-free cooling rate*/
-static struct itp_type cool_freefree1;
+static double * cool_freefree1;
 
 static void
 init_itp_type(double * xarr, struct itp_type * Gamma, int Nelem)
@@ -192,16 +195,6 @@ load_treecool(const char * TreeCoolFile)
     init_itp_type(Gamma_log1z, &Eps_HeII, NTreeCool);
 
     message(0, "Read %d lines z = %g - %g from file %s\n", NTreeCool, pow(10, Gamma_log1z[0])-1, pow(10, Gamma_log1z[NTreeCool-1])-1, TreeCoolFile);
-}
-
-/*Get interpolated value for one of the recombination interpolators. Takes natural log of temperature.*/
-static double
-get_interpolated_recomb(double logt, struct itp_type * rec_tab, double rec_func(double))
-{
-    /*Just call the function directly if we are out of interpolation range*/
-    if (logt >= temp_tab[NRECOMBTAB- 1] || logt < temp_tab[0])
-        return rec_func(exp(logt));
-    return gsl_interp_eval(rec_tab->intp, temp_tab, rec_tab->ydata, logt, NULL);
 }
 
 /*Get photo ionization rate for neutral Hydrogen*/
@@ -481,13 +474,28 @@ recomb_GammaeHep(double temp)
     }
 }
 
+/*Get interpolated value for one of the recombination interpolators. Takes natural log of temperature.*/
+static double
+get_interpolated_recomb(double logt, double * rec_tab, double rec_func(double))
+{
+    /*Just call the function directly if we are out of interpolation range*/
+    if (logt >= temp_tab[NRECOMBTAB- 1] || logt < temp_tab[0])
+        return rec_func(exp(logt));
+    /*Find the index to use in our temperature table.*/
+    double dind = (logt - RECOMBTMIN) / (RECOMBTMAX - RECOMBTMIN) * NRECOMBTAB;
+    int index = (int) dind;
+    //if (temp_tab[index] > logt || temp_tab[index+1] < logt || index < 0 || index >= NRECOMBTAB)
+    //    endrun(2, "Incorrect indexing of recombination array\n");
+    return rec_tab[index + 1] * (dind - index) + rec_tab[index] * (1 - (dind - index));
+}
+
 /*The neutral hydrogen number density. Eq. 33 of KWH.
  * Photofac is the self-shielding correction.*/
 static double
 nH0_internal(double nh, double logt, double ne, const struct UVBG * uvbg, double photofac)
 {
-    double alphaHp = get_interpolated_recomb(logt, &rec_alphaHp, &recomb_alphaHp);
-    double GammaeH0 = get_interpolated_recomb(logt, &rec_GammaH0, &recomb_GammaeH0);
+    double alphaHp = get_interpolated_recomb(logt, rec_alphaHp, &recomb_alphaHp);
+    double GammaeH0 = get_interpolated_recomb(logt, rec_GammaH0, &recomb_GammaeH0);
     double photorate = (ne > 0 ? uvbg->gJH0/ne * photofac : 0);
     return nh * alphaHp/ (alphaHp + GammaeH0 + photorate);
 }
@@ -503,10 +511,10 @@ nHp_internal(double nh, double nH0)
 static double
 nHep_internal(double nh, double logt, double ne, const struct UVBG * uvbg, double photofac)
 {
-    double alphaHep = get_interpolated_recomb(logt, &rec_alphaHep, &recomb_alphaHepd);
-    double alphaHepp = get_interpolated_recomb(logt, &rec_alphaHepp, &recomb_alphaHepp);
-    double GammaHe0 = get_interpolated_recomb(logt, &rec_GammaHe0, &recomb_GammaeHe0) + (ne > 0 ? uvbg->gJHe0/ne *photofac : 0);
-    double GammaHep = get_interpolated_recomb(logt, &rec_GammaHep, &recomb_GammaeHep) + (ne > 0 ? uvbg->gJHep/ne *photofac : 0);
+    double alphaHep = get_interpolated_recomb(logt, rec_alphaHep, &recomb_alphaHepd);
+    double alphaHepp = get_interpolated_recomb(logt, rec_alphaHepp, &recomb_alphaHepp);
+    double GammaHe0 = get_interpolated_recomb(logt, rec_GammaHe0, &recomb_GammaeHe0) + (ne > 0 ? uvbg->gJHe0/ne *photofac : 0);
+    double GammaHep = get_interpolated_recomb(logt, rec_GammaHep, &recomb_GammaeHep) + (ne > 0 ? uvbg->gJHep/ne *photofac : 0);
     return nh / (1 + alphaHep / GammaHe0 + GammaHep/alphaHepp);
 }
 
@@ -514,8 +522,8 @@ nHep_internal(double nh, double logt, double ne, const struct UVBG * uvbg, doubl
 static double
 nHe0_internal(double nHep, double logt, double ne, const struct UVBG * uvbg, double photofac)
 {
-    double alphaHep = get_interpolated_recomb(logt, &rec_alphaHep, &recomb_alphaHepd);
-    double GammaHe0 = get_interpolated_recomb(logt, &rec_GammaHe0, &recomb_GammaeHe0) + (ne > 0 ? uvbg->gJHe0/ne *photofac : 0);
+    double alphaHep = get_interpolated_recomb(logt, rec_alphaHep, &recomb_alphaHepd);
+    double GammaHe0 = get_interpolated_recomb(logt, rec_GammaHe0, &recomb_GammaeHe0) + (ne > 0 ? uvbg->gJHe0/ne *photofac : 0);
     return nHep * alphaHep / GammaHe0;
 }
 
@@ -523,8 +531,8 @@ nHe0_internal(double nHep, double logt, double ne, const struct UVBG * uvbg, dou
 static double
 nHepp_internal(double nHep, double logt, double ne, const struct UVBG * uvbg, double photofac)
 {
-    double GammaHep = get_interpolated_recomb(logt, &rec_GammaHep, &recomb_GammaeHep) + (ne > 0 ? uvbg->gJHep/ne *photofac : 0);
-    double alphaHepp = get_interpolated_recomb(logt, &rec_alphaHepp, &recomb_alphaHepp);
+    double GammaHep = get_interpolated_recomb(logt, rec_GammaHep, &recomb_GammaeHep) + (ne > 0 ? uvbg->gJHep/ne *photofac : 0);
+    double alphaHepp = get_interpolated_recomb(logt, rec_alphaHepp, &recomb_alphaHepp);
     return nHep * GammaHep / alphaHepp;
 }
 
@@ -902,54 +910,40 @@ init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, struct
     /*Initialize the recombination tables*/
     temp_tab = mymalloc("Recombination_tables", NRECOMBTAB * sizeof(double) * 14);
 
-    rec_GammaH0.ydata = temp_tab + NRECOMBTAB;
-    rec_GammaHe0.ydata = temp_tab + 2 * NRECOMBTAB;
-    rec_GammaHep.ydata = temp_tab + 3 * NRECOMBTAB;
-    rec_alphaHp.ydata = temp_tab + 4 * NRECOMBTAB;
-    rec_alphaHep.ydata = temp_tab + 5 * NRECOMBTAB;
-    rec_alphaHepp.ydata = temp_tab + 6 * NRECOMBTAB;
-    cool_collisH0.ydata = temp_tab + 7 * NRECOMBTAB;
-    cool_collisHe0.ydata = temp_tab + 8 * NRECOMBTAB;
-    cool_collisHeP.ydata = temp_tab + 9 * NRECOMBTAB;
-    cool_recombHp.ydata = temp_tab + 10 * NRECOMBTAB;
-    cool_recombHeP.ydata = temp_tab + 11 * NRECOMBTAB;
-    cool_recombHePP.ydata = temp_tab + 12 * NRECOMBTAB;
-    cool_freefree1.ydata = temp_tab + 13 * NRECOMBTAB;
+    rec_GammaH0 = temp_tab + NRECOMBTAB;
+    rec_GammaHe0 = temp_tab + 2 * NRECOMBTAB;
+    rec_GammaHep = temp_tab + 3 * NRECOMBTAB;
+    rec_alphaHp = temp_tab + 4 * NRECOMBTAB;
+    rec_alphaHep = temp_tab + 5 * NRECOMBTAB;
+    rec_alphaHepp = temp_tab + 6 * NRECOMBTAB;
+    cool_collisH0 = temp_tab + 7 * NRECOMBTAB;
+    cool_collisHe0 = temp_tab + 8 * NRECOMBTAB;
+    cool_collisHeP = temp_tab + 9 * NRECOMBTAB;
+    cool_recombHp = temp_tab + 10 * NRECOMBTAB;
+    cool_recombHeP = temp_tab + 11 * NRECOMBTAB;
+    cool_recombHePP = temp_tab + 12 * NRECOMBTAB;
+    cool_freefree1 = temp_tab + 13 * NRECOMBTAB;
 
-    double Tmin = log(10), Tmax = log(1e10);
     int i;
     for(i = 0 ; i < NRECOMBTAB; i++)
     {
-        temp_tab[i] = Tmin + (Tmax - Tmin) * i / NRECOMBTAB;
+        temp_tab[i] = RECOMBTMIN + (RECOMBTMAX - RECOMBTMIN) * i / NRECOMBTAB;
         double tt = exp(temp_tab[i]);
-        rec_GammaH0.ydata[i] = recomb_GammaeH0(tt);
-        rec_GammaHe0.ydata[i] = recomb_GammaeHe0(tt);
-        rec_GammaHep.ydata[i] = recomb_GammaeHep(tt);
-        rec_alphaHp.ydata[i] = recomb_alphaHp(tt);
+        rec_GammaH0[i] = recomb_GammaeH0(tt);
+        rec_GammaHe0[i] = recomb_GammaeHe0(tt);
+        rec_GammaHep[i] = recomb_GammaeHep(tt);
+        rec_alphaHp[i] = recomb_alphaHp(tt);
         /* Note this includes dielectronic recombination*/
-        rec_alphaHep.ydata[i] = recomb_alphaHepd(tt);
-        rec_alphaHepp.ydata[i] = recomb_alphaHepp(tt);
-        cool_collisH0.ydata[i] = cool_CollisionalH0(tt);
-        cool_collisHe0.ydata[i] = cool_CollisionalHe0(tt);
-        cool_collisHeP.ydata[i] = cool_CollisionalHeP(tt);
-        cool_recombHp.ydata[i] = cool_RecombHp(tt);
-        cool_recombHeP.ydata[i] = cool_RecombHeP(tt);
-        cool_recombHePP.ydata[i] = cool_RecombHePP(tt);
-        cool_freefree1.ydata[i] = cool_FreeFree(tt, 1);
+        rec_alphaHep[i] = recomb_alphaHepd(tt);
+        rec_alphaHepp[i] = recomb_alphaHepp(tt);
+        cool_collisH0[i] = cool_CollisionalH0(tt);
+        cool_collisHe0[i] = cool_CollisionalHe0(tt);
+        cool_collisHeP[i] = cool_CollisionalHeP(tt);
+        cool_recombHp[i] = cool_RecombHp(tt);
+        cool_recombHeP[i] = cool_RecombHeP(tt);
+        cool_recombHePP[i] = cool_RecombHePP(tt);
+        cool_freefree1[i] = cool_FreeFree(tt, 1);
     }
-    init_itp_type(temp_tab, &rec_GammaH0, NRECOMBTAB);
-    init_itp_type(temp_tab, &rec_GammaHe0, NRECOMBTAB);
-    init_itp_type(temp_tab, &rec_GammaHep, NRECOMBTAB);
-    init_itp_type(temp_tab, &rec_alphaHp, NRECOMBTAB);
-    init_itp_type(temp_tab, &rec_alphaHep, NRECOMBTAB);
-    init_itp_type(temp_tab, &rec_alphaHepp, NRECOMBTAB);
-    init_itp_type(temp_tab, &cool_collisH0, NRECOMBTAB);
-    init_itp_type(temp_tab, &cool_collisHe0, NRECOMBTAB);
-    init_itp_type(temp_tab, &cool_collisHeP, NRECOMBTAB);
-    init_itp_type(temp_tab, &cool_recombHp, NRECOMBTAB);
-    init_itp_type(temp_tab, &cool_recombHeP, NRECOMBTAB);
-    init_itp_type(temp_tab, &cool_recombHePP, NRECOMBTAB);
-    init_itp_type(temp_tab, &cool_freefree1, NRECOMBTAB);
 
     /*Initialize the metal cooling table*/
     InitMetalCooling(MetalCoolFile);
@@ -986,16 +980,16 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
     nH0/= nh;
     nHep/= nh;
     /*Collisional ionization and excitation rate*/
-    double LambdaCollis = nebynh * (get_interpolated_recomb(logt, &cool_collisH0, cool_CollisionalH0) * nH0 +
-            get_interpolated_recomb(logt, &cool_collisHe0, cool_CollisionalHe0) * nHe0 +
-            get_interpolated_recomb(logt, &cool_collisHeP, cool_CollisionalHeP) * nHep);
-    double LambdaRecomb = nebynh * (get_interpolated_recomb(logt, &cool_recombHp, cool_RecombHp) * nHp +
-            get_interpolated_recomb(logt, &cool_recombHeP, cool_RecombHeP) * nHep +
-            get_interpolated_recomb(logt, &cool_recombHePP, cool_RecombHePP) * nHepp);
+    double LambdaCollis = nebynh * (get_interpolated_recomb(logt, cool_collisH0, cool_CollisionalH0) * nH0 +
+            get_interpolated_recomb(logt, cool_collisHe0, cool_CollisionalHe0) * nHe0 +
+            get_interpolated_recomb(logt, cool_collisHeP, cool_CollisionalHeP) * nHep);
+    double LambdaRecomb = nebynh * (get_interpolated_recomb(logt, cool_recombHp, cool_RecombHp) * nHp +
+            get_interpolated_recomb(logt, cool_recombHeP, cool_RecombHeP) * nHep +
+            get_interpolated_recomb(logt, cool_recombHePP, cool_RecombHePP) * nHepp);
     /*Free-free cooling rate*/
     double LambdaFF = 0;
 
-    double cff = get_interpolated_recomb(logt, &cool_freefree1, cool_FreeFree1);
+    double cff = get_interpolated_recomb(logt, cool_freefree1, cool_FreeFree1);
 
     if(CoolingParams.cooling == Enzo2Nyx) {
         LambdaFF = nebynh * (cff * (nHp + nHep) + cool_FreeFree(temp, 2) * nHepp);
