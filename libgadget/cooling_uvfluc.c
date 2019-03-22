@@ -13,7 +13,6 @@
 #include "utils/endrun.h"
 
 static struct {
-    double UVRedshiftThreshold;
     int disabled;
     Interp interp;
     Interp Finterp;
@@ -101,14 +100,12 @@ read_big_array(const char * filename, char * dataset, int * Nread)
  *
  * */
 void
-init_uvf_table(const char * UVFluctuationFile, double UVRedshiftThreshold)
+init_uvf_table(const char * UVFluctuationFile)
 {
     if(strlen(UVFluctuationFile) == 0) {
         UVF.disabled = 1;
         return;
     }
-
-    UVF.UVRedshiftThreshold = UVRedshiftThreshold;
 
     message(0, "Using NON-UNIFORM UV BG fluctuations from %s\n", UVFluctuationFile);
     UVF.disabled = 0;
@@ -177,10 +174,6 @@ struct UVBG get_particle_UVBG(double redshift, double * Pos)
     struct UVBG uvbg = {0};
 
     uvbg.self_shield_dens = GlobalUVBG.self_shield_dens;
-    /* if a threshold is set, disable UV bg above that redshift */
-    if(UVF.UVRedshiftThreshold >= 0.0 && redshift > UVF.UVRedshiftThreshold) {
-        return uvbg;
-    }
 
     double zreion = interp_eval_periodic(&UVF.interp, Pos, UVF.Table);
     if(zreion < redshift) {

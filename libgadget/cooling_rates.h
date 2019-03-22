@@ -42,6 +42,9 @@ struct cooling_params
     /*Minimum gas temperature in K*/
     double MinGasTemp;
 
+    /*Threshold redshift above which the UVB is set to zero*/
+    double UVRedshiftThreshold;
+
     /*Parameters for the 'extra heating' Helium photoionization model.*/
     int HeliumHeatOn;
     double HeliumHeatThresh;
@@ -55,7 +58,7 @@ struct cooling_params
 void init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, struct cooling_params coolpar);
 
 /*Reads and initialises the tables for a spatially varying redshift of reionization*/
-void init_uvf_table(const char * UVFluctuationFile, double UVRedshiftThreshold);
+void init_uvf_table(const char * UVFluctuationFile);
 
 /* Reads and initializes the cloudy metal cooling table. Called in init_cooling_rates. No need to call it separately.*/
 void InitMetalCooling(const char * MetalCoolFile);

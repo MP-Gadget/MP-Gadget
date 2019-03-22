@@ -350,7 +350,6 @@ struct Local
     char MetalCoolFile[100];
     char UVFluctuationFile[100];
     struct cooling_params coolpar;
-    double UVRedshiftThreshold;
 };
 
 /*! This function parses the parameterfile in a simple way.  Each paramater is
@@ -526,10 +525,10 @@ void read_parameter_file(char *fname)
         locals.coolpar.PhotoIonizationOn = param_get_int(ps, "PhotoIonizationOn");
         locals.coolpar.rho_crit_baryon = All.CP.OmegaBaryon * 3.0 * pow(All.CP.HubbleParam*HUBBLE,2.0) /(8.0*M_PI*GRAVITY);
         locals.coolpar.MinGasTemp = param_get_double(ps, "MinGasTemp");
+        locals.coolpar.UVRedshiftThreshold = param_get_double(ps, "UVRedshiftThreshold");
+
         All.MinGasTemp = locals.coolpar.MinGasTemp;
         All.InitGasTemp = param_get_double(ps, "InitGasTemp");
-
-        locals.UVRedshiftThreshold = param_get_double(ps, "UVRedshiftThreshold");
 
         param_get_string2(ps, "TreeCoolFile", locals.TreeCoolFile);
         param_get_string2(ps, "UVFluctuationfile", locals.UVFluctuationFile);
@@ -598,5 +597,5 @@ void read_parameter_file(char *fname)
     /*Initialize the cooling rates*/
     init_cooling_rates(locals.TreeCoolFile, locals.MetalCoolFile, locals.coolpar);
     /*Initialize the uv fluctuation table*/
-    init_uvf_table(locals.UVFluctuationFile, locals.UVRedshiftThreshold);
+    init_uvf_table(locals.UVFluctuationFile);
 }

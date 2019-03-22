@@ -253,6 +253,11 @@ struct UVBG get_global_UVBG(double redshift)
 
     if(!CoolingParams.PhotoIonizationOn)
         return GlobalUVBG;
+
+    /* if a threshold is set, disable UV bg above that redshift */
+    if(CoolingParams.UVRedshiftThreshold >= 0. && redshift > CoolingParams.UVRedshiftThreshold)
+        return GlobalUVBG;
+
     GlobalUVBG.gJH0 = get_photo_rate(redshift, &Gamma_HI);
     GlobalUVBG.gJHe0 = get_photo_rate(redshift, &Gamma_HeI);
     GlobalUVBG.gJHep = get_photo_rate(redshift, &Gamma_HeII);

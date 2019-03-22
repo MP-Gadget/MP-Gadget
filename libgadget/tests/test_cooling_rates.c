@@ -34,6 +34,7 @@ static struct cooling_params get_test_coolpar(void)
     coolpar.PhotoIonizationOn = 1;
     coolpar.recomb = Verner96;
     coolpar.cooling = Sherwood;
+    coolpar.UVRedshiftThreshold = -1;
     coolpar.MinGasTemp = 100;
     coolpar.HeliumHeatOn = 0;
     return coolpar;
