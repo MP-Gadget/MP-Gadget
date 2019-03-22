@@ -496,7 +496,10 @@ nH0_internal(double nh, double logt, double ne, const struct UVBG * uvbg, double
 {
     double alphaHp = get_interpolated_recomb(logt, rec_alphaHp, &recomb_alphaHp);
     double GammaeH0 = get_interpolated_recomb(logt, rec_GammaH0, &recomb_GammaeH0);
-    double photorate = (ne > 0 ? uvbg->gJH0/ne * photofac : 0);
+    /*Be careful when there is no ionization.*/
+    double photorate = 0;
+    if(uvbg->gJH0 > 0. && ne > 1e-50)
+        photorate = uvbg->gJH0/ne * photofac;
     return nh * alphaHp/ (alphaHp + GammaeH0 + photorate);
 }
 
@@ -520,12 +523,25 @@ nHe_internal(double nh, double logt, double ne, const struct UVBG * uvbg, double
 {
     double alphaHep = get_interpolated_recomb(logt, rec_alphaHep, &recomb_alphaHepd);
     double alphaHepp = get_interpolated_recomb(logt, rec_alphaHepp, &recomb_alphaHepp);
-    double GammaHe0 = get_interpolated_recomb(logt, rec_GammaHe0, &recomb_GammaeHe0) + (ne > 0 ? uvbg->gJHe0/ne *photofac : 0);
-    double GammaHep = get_interpolated_recomb(logt, rec_GammaHep, &recomb_GammaeHep) + (ne > 0 ? uvbg->gJHep/ne *photofac : 0);
+    double GammaHe0 = get_interpolated_recomb(logt, rec_GammaHe0, &recomb_GammaeHe0);
+    double GammaHep = get_interpolated_recomb(logt, rec_GammaHep, &recomb_GammaeHep);
     struct he_ions He;
-    He.nHep = nh / (1 + alphaHep / GammaHe0 + GammaHep/alphaHepp);
-    He.nHe0 = He.nHep * alphaHep / GammaHe0;
-    He.nHepp = He.nHep * GammaHep / alphaHepp;
+    /*Be careful when there is no ionization.*/
+    if(uvbg->gJHe0 > 0. && ne > 1e-50) {
+        GammaHe0 += uvbg->gJHe0/ne * photofac;
+        GammaHep += uvbg->gJHep/ne * photofac;
+    }
+    /*Deal with the case where there is no ionization separately to avoid NaN.*/
+    if(GammaHe0 > 1e-50) {
+        He.nHep = nh / (1 + alphaHep / GammaHe0 + GammaHep/alphaHepp);
+        He.nHe0 = He.nHep * alphaHep / GammaHe0;
+        He.nHepp = He.nHep * GammaHep / alphaHepp;
+    }
+    else {
+        He.nHep = 0;
+        He.nHe0 = 1;
+        He.nHepp = 0;
+    }
     return He;
 }
 
@@ -635,8 +651,8 @@ get_equilib_ne(double density, double ienergy, double helium, double * logt, con
     /*Get hydrogen number density*/
     double nh = density * (1-helium);
     /* Avoid getting stuck in an alternate solution
-     * where there is never any heating.*/
-    if(ne_init == 0)
+     * where there is never any heating in the presence of roundoff.*/
+    if(ne_init <= 0)
         ne_init = 1.0;
     return scipy_optimize_fixed_point(ne_init, nh, ienergy, helium, logt, uvbg);
 }
