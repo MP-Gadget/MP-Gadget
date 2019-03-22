@@ -1,11 +1,8 @@
 /**************
  * This file is based on the Gadget-3 cooling.c.
  *
- * The routines for the atomic rates are identical.
- *
- * Otherwise, this version by Yu Feng:
- *  - implements additional support for fluctuating UV.
- *  - is heavily refactored to make it reentrance friendly.
+ * The main atomic rates have been rewritten from scratch and now exist in cooling_rates.c.
+ * There is also support for metal cooling and a fluctuating UV background in cooling_uvfluc.c
  *
  * There is no public version of original cooling.c freely available.
  *
@@ -13,7 +10,8 @@
  * which contains a deferred freedom claimer depending on the action
  * of Volker Springel.
  *
- * The LICENSE of this file is therefore still in limbo.
+ * The LICENSE of the DoCooling function is therefore still in limbo,
+ * although everything else is now unencumbered.
  *
  ************** */
 
