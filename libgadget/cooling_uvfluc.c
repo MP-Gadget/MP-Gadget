@@ -25,8 +25,8 @@ static struct {
 } UVF;
 
 /*Global UVbackground stored to avoid extra interpolations.*/
-struct UVBG GlobalUVBG = {0};
-double GlobalUVRed = -1;
+static struct UVBG GlobalUVBG = {0};
+static double GlobalUVRed = -1;
 
 /*Sets the global variable corresponding to the uniform part of the UV background.*/
 void
