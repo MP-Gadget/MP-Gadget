@@ -634,6 +634,10 @@ get_equilib_ne(double density, double ienergy, double helium, double * logt, con
 {
     /*Get hydrogen number density*/
     double nh = density * (1-helium);
+    /* Avoid getting stuck in an alternate solution
+     * where there is never any heating.*/
+    if(ne_init == 0)
+        ne_init = 1.0;
     return scipy_optimize_fixed_point(ne_init, nh, ienergy, helium, logt, uvbg);
 }
 
