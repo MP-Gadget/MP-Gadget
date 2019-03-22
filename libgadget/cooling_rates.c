@@ -489,10 +489,10 @@ get_interpolated_recomb(double logt, double * rec_tab, double rec_func(double))
     return rec_tab[index + 1] * (dind - index) + rec_tab[index] * (1 - (dind - index));
 }
 
-/*The neutral hydrogen number density. Eq. 33 of KWH.
- * Photofac is the self-shielding correction.*/
+/*The neutral hydrogen number density, divided by the hydrogen number density.
+ * Eq. 33 of KWH. Photofac is the self-shielding correction.*/
 static double
-nH0_internal(double nh, double logt, double ne, const struct UVBG * uvbg, double photofac)
+nH0_internal(double logt, double ne, const struct UVBG * uvbg, double photofac)
 {
     double alphaHp = get_interpolated_recomb(logt, rec_alphaHp, &recomb_alphaHp);
     double GammaeH0 = get_interpolated_recomb(logt, rec_GammaH0, &recomb_GammaeH0);
@@ -500,14 +500,17 @@ nH0_internal(double nh, double logt, double ne, const struct UVBG * uvbg, double
     double photorate = 0;
     if(uvbg->gJH0 > 0. && ne > 1e-50)
         photorate = uvbg->gJH0/ne * photofac;
-    return nh * alphaHp/ (alphaHp + GammaeH0 + photorate);
+    return alphaHp/ (alphaHp + GammaeH0 + photorate);
 }
 
-/*The ionised hydrogen number density. Eq. 34 of KWH.*/
+/*The ionised hydrogen number density, divided by the hydrogen number density. Eq. 34 of KWH.*/
 static double
-nHp_internal(double nh, double nH0)
+nHp_internal(double nH0)
 {
-    return nh - nH0;
+    double nHp = 1. - nH0;
+    if (nHp < 0)
+        return 0;
+    return nHp;
 }
 
 struct he_ions
@@ -589,10 +592,10 @@ ne_internal(double nh, double ienergy, double ne, double helium, double * logt, 
     double yy = helium / 4 / (1 - helium);
     *logt = log(get_temp_internal(ne/nh, ienergy, helium));
     double photofac = self_shield_corr(nh, *logt, uvbg->self_shield_dens);
-    double nH0 = nH0_internal(nh, *logt, ne, uvbg, photofac);
-    double nHp = nHp_internal(nh, nH0);
+    double nH0 = nH0_internal(*logt, ne, uvbg, photofac);
+    double nHp = nHp_internal(nH0);
     struct he_ions He = nHe_internal(nh, *logt, ne, uvbg, photofac);
-    return nHp + yy * He.nHep + 2 * yy * He.nHepp;
+    return nh * nHp + yy * He.nHep + 2 * yy * He.nHepp;
 }
 
 /*Maximum number of iterations to perform*/
@@ -983,11 +986,10 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
     /*The helium number fraction*/
     double yy = helium / 4 / (1 - helium);
 
-    double nH0 = nH0_internal(nh, logt, ne, uvbg, photofac);
-    double nHp = nHp_internal(nh, nH0)/nh;
+    double nH0 = nH0_internal(logt, ne, uvbg, photofac);
+    double nHp = nHp_internal(nH0);
     struct he_ions He = nHe_internal(nh, logt, ne, uvbg, photofac);
     /*Put the abundances in units of nH to avoid underflows*/
-    nH0/= nh;
     He.nHep*= yy/nh;
     He.nHe0*= yy/nh;
     He.nHepp*= yy/nh;
@@ -1060,5 +1062,5 @@ get_neutral_fraction(double density, double ienergy, double helium, const struct
     double nh = density * (1-helium);
     double photofac = self_shield_corr(nh, logt, uvbg->self_shield_dens);
     *ne_init = ne/nh;
-    return nH0_internal(nh, logt, ne, uvbg, photofac) / nh;
+    return nH0_internal(logt, ne, uvbg, photofac);
 }
