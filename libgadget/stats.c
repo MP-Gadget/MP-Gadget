@@ -71,7 +71,7 @@ struct state_of_system compute_global_quantities_of_system(void)
 
         if(P[i].Type == 0)
         {
-            struct UVBG uvbg = get_particle_UVBG(redshift, P[i].Pos);
+            struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
             entr = SPHP(i).Entropy;
             egyspec = entr / (GAMMA_MINUS1) * pow(SPHP(i).EOMDensity / a3, GAMMA_MINUS1);
             sys.EnergyIntComp[0] += P[i].Mass * egyspec;

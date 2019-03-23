@@ -324,7 +324,7 @@ cooling_direct(int i) {
 #endif
 
     double redshift = 1./All.Time - 1;
-    struct UVBG uvbg = get_particle_UVBG(redshift, P[i].Pos);
+    struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
     unew = DoCooling(redshift, unew, SPHP(i).Density * All.cf.a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity);
 
     SPHP(i).Ne = ne;
@@ -402,7 +402,7 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
     if(SPHP(i).Injected_BH_Energy > 0)
     {
         double redshift = 1./All.Time - 1;
-        struct UVBG uvbg = get_particle_UVBG(redshift, P[i].Pos);
+        struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
         egycurrent += SPHP(i).Injected_BH_Energy / P[i].Mass;
 
         const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
@@ -561,7 +561,7 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
         tsfr = dtime;
 
     double redshift = 1./All.Time - 1;
-    struct UVBG uvbg = get_particle_UVBG(redshift, P[i].Pos);
+    struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
 
     factorEVP = pow(SPHP(i).Density * All.cf.a3inv / All.PhysDensThresh, -0.8) * All.FactorEVP;
 

@@ -161,7 +161,7 @@ static double GetReionizedFraction(double time) {
  * Otherwise returns the global UVBG passed in.
  *
  * */
-struct UVBG get_particle_UVBG(double redshift, double * Pos)
+struct UVBG get_local_UVBG(double redshift, double * Pos)
 {
     if(fabs(redshift - GlobalUVRed) > 1e-4)
         endrun(1, "Called with redshift %g not %g expected by the UVBG cache.\n", redshift, GlobalUVRed);

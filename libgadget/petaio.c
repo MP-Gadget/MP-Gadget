@@ -750,7 +750,7 @@ SIMPLE_PROPERTY(BlackholeJumpToMinPot, BHP(i).JumpToMinPot, int, 1)
 SIMPLE_GETTER(GTGroupID, P[i].GrNr, uint32_t, 1)
 static void GTNeutralHydrogenFraction(int i, float * out) {
     double redshift = 1./All.Time - 1;
-    struct UVBG uvbg = get_particle_UVBG(redshift, P[i].Pos);
+    struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
     double InternalEnergy = DMAX(All.MinEgySpec, SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
     double physdens = SPHP(i).Density * All.cf.a3inv;
     double ne = SPHP(i).Ne;

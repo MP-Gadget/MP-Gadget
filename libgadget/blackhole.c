@@ -461,7 +461,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
                 double InternalEnergy = DMAX(All.MinEgySpec, SPHP(other).Entropy / GAMMA_MINUS1 * pow(SPHP(other).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
                 double physdens = SPHP(other).Density * All.cf.a3inv;
                 double ne = SPHP(other).Ne;
-                struct UVBG uvbg = get_particle_UVBG(redshift, P[other].Pos);
+                struct UVBG uvbg = get_local_UVBG(redshift, P[other].Pos);
                 double nh0 = get_neutral_fraction(physdens, InternalEnergy, 1 - HYDROGEN_MASSFRAC, &uvbg, &ne);
                 if(r2 > 0)
                     O->FeedbackWeightSum += (P[other].Mass * nh0) / r2;
