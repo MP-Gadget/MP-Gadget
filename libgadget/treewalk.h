@@ -129,7 +129,7 @@ struct TreeWalk {
 };
 
 /*Initialise treewalk parameters on first run*/
-void init_treewalk(double BufferBoost);
+void set_treewalk_params(double BufferBoost);
 
 void treewalk_run(TreeWalk * tw, int * active_set, int size);
 

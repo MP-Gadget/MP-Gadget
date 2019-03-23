@@ -346,9 +346,6 @@ struct Local
     /*Treewalk parameter*/
     double ImportBufferBoost;
     /* Cooling model parameters*/
-    char TreeCoolFile[100];
-    char MetalCoolFile[100];
-    char UVFluctuationFile[100];
     struct cooling_params coolpar;
 };
 
@@ -515,6 +512,10 @@ void read_parameter_file(char *fname)
         /*Lyman-alpha forest parameters*/
         All.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
 
+        param_get_string2(ps, "TreeCoolFile", All.TreeCoolFile);
+        param_get_string2(ps, "UVFluctuationfile", All.UVFluctuationFile);
+        param_get_string2(ps, "MetalCoolFile", All.MetalCoolFile);
+
         /*Cooling rate network parameters*/
         locals.coolpar.CMBTemperature = All.CP.CMBTemperature;
         locals.coolpar.fBar = All.CP.OmegaBaryon / (All.CP.Omega0 - All.CP.OmegaBaryon);
@@ -529,10 +530,6 @@ void read_parameter_file(char *fname)
 
         All.MinGasTemp = locals.coolpar.MinGasTemp;
         All.InitGasTemp = param_get_double(ps, "InitGasTemp");
-
-        param_get_string2(ps, "TreeCoolFile", locals.TreeCoolFile);
-        param_get_string2(ps, "UVFluctuationfile", locals.UVFluctuationFile);
-        param_get_string2(ps, "MetalCoolFile", locals.MetalCoolFile);
 
         /*Helium model parameters*/
         locals.coolpar.HeliumHeatOn = param_get_int(ps, "HeliumHeatOn");
@@ -588,14 +585,7 @@ void read_parameter_file(char *fname)
 
     MPI_Bcast(&locals, sizeof(locals), MPI_BYTE, 0, MPI_COMM_WORLD);
 
-    /*Initialize treewalk*/
-    init_treewalk(locals.ImportBufferBoost);
-
-    /*Initialize the memory manager*/
-    mymalloc_init(All.MaxMemSizePerNode);
-
-    /*Initialize the cooling rates*/
-    init_cooling_rates(locals.TreeCoolFile, locals.MetalCoolFile, locals.coolpar);
-    /*Initialize the uv fluctuation table*/
-    init_uvf_table(locals.UVFluctuationFile);
+    /*Initialize per-module parameters.*/
+    set_treewalk_params(locals.ImportBufferBoost);
+    set_cooling_params(locals.coolpar);
 }

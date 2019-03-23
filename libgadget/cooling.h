@@ -26,8 +26,8 @@ struct cooling_units
     double tt_in_s; //All.UnitTime_in_s / All.CP.HubbleParam
 };
 
-/*Initialise the unit system for the cooling module.*/
-void init_cool_units(struct cooling_units cu);
+/*Initialise the cooling module.*/
+void init_cooling(char * TreeCoolFile, char * MetalCoolFile, char * UVFluctuationFile, struct cooling_units cu);
 
 /* Get the cooling time for a particle from the internal energy and density, specifying a UVB appropriately.
  * Sets ne_guess to the equilibrium electron density.*/

@@ -44,7 +44,7 @@ static struct data_index *DataIndexTable;	/*!< the particles to be exported are 
 					   assigned to the correct particle */
 
 /*Initialise global treewalk parameters*/
-void init_treewalk(double BufferBoost)
+void set_treewalk_params(double BufferBoost)
 {
     ImportBufferBoost = BufferBoost;
 }

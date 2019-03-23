@@ -32,9 +32,14 @@
 static struct cooling_units coolunits;
 
 /*Do initialisation for the cooling module*/
-void init_cool_units(struct cooling_units cu)
+void init_cooling(char * TreeCoolFile, char * MetalCoolFile, char * UVFluctuationFile, struct cooling_units cu)
 {
     coolunits = cu;
+
+    /*Initialize the cooling rates*/
+    init_cooling_rates(TreeCoolFile, MetalCoolFile);
+    /*Initialize the uv fluctuation table*/
+    init_uvf_table(UVFluctuationFile);
 }
 
 #define MAXITER 1000

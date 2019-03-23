@@ -622,7 +622,7 @@ void init_cooling_and_star_formation(void)
     coolunits.uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
     coolunits.tt_in_s = All.UnitTime_in_s / All.CP.HubbleParam;
 
-    init_cool_units(coolunits);
+    init_cooling(All.TreeCoolFile, All.MetalCoolFile, All.UVFluctuationFile, coolunits);
 
     /* mean molecular weight assuming ZERO ionization NEUTRAL GAS*/
     double meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);

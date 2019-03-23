@@ -906,13 +906,18 @@ cool_he_reion_factor(double nHcgs, double helium, double redshift)
   return CoolingParams.HeliumHeatAmp*pow(overden, CoolingParams.HeliumHeatExp);
 }
 
+
+void
+set_cooling_params(struct cooling_params coolpar)
+{
+    CoolingParams = coolpar;
+}
+
 /*Initialize the cooling rate module. This builds a lot of interpolation tables.
  * Defaults: TCMB 2.7255, recomb = Verner96, cooling = Sherwood.*/
 void
-init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, struct cooling_params coolpar)
+init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile)
 {
-    CoolingParams = coolpar;
-
     /*Initialize the interpolation for the self-shielding module as a function of redshift.*/
     GrayOpac = gsl_interp_alloc(gsl_interp_cspline,NGRAY);
     gsl_interp_init(GrayOpac,GrayOpac_zz,GrayOpac_ydata, NGRAY);

@@ -107,6 +107,9 @@ int main(int argc, char **argv)
     /*Set up GSL so it gives a proper MPI termination*/
     gsl_set_error_handler(gsl_handler);
 
+    /*Initialize the memory manager*/
+    mymalloc_init(All.MaxMemSizePerNode);
+
     switch(RestartFlag) {
         case 3:
             begrun(RestartSnapNum);

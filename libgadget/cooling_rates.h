@@ -53,9 +53,12 @@ struct cooling_params
     double rho_crit_baryon;
 };
 
+/*Just set the parameters for the cooling module*/
+void set_cooling_params(struct cooling_params coolpar);
+
 /*Initialize the cooling rate module. This builds a lot of interpolation tables.
  * Defaults: TCMB 2.7255, recomb = Verner96, cooling = Sherwood.*/
-void init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, struct cooling_params coolpar);
+void init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile);
 
 /*Reads and initialises the tables for a spatially varying redshift of reionization*/
 void init_uvf_table(const char * UVFluctuationFile);
