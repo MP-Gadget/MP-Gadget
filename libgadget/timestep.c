@@ -66,7 +66,8 @@ static inttime_t get_timestep_ti(const int p, const inttime_t dti_max);
 static int get_timestep_bin(inttime_t dti);
 static void do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend);
 static void do_the_long_range_kick(inttime_t tistart, inttime_t tiend);
-static inttime_t get_long_range_timestep_ti(const inttime_t dti_max);
+/* Get the current PM (global) timestep.*/
+static inttime_t get_PM_timestep_ti(inttime_t Ti_Current);
 
 /*Initialise the integer timeline*/
 void
@@ -122,9 +123,11 @@ set_global_time(double newtime) {
     IonizeParams();
 }
 
-/* This function assigns new timesteps to particles and PM */
+/* This function assigns new short-range timesteps to particles.
+ * It will also shrink the PM timestep to the longest short-range timestep.
+ * Returns the minimum timestep found.*/
 int
-find_timesteps(int * MinTimeBin)
+find_timesteps(inttime_t Ti_Current)
 {
     int pa;
     inttime_t dti_min = TIMEBASE;
@@ -132,21 +135,12 @@ find_timesteps(int * MinTimeBin)
     walltime_measure("/Misc");
 
     /*Update the PM timestep size */
-    const int isPM = is_PM_timestep(All.Ti_Current);
+    const int isPM = is_PM_timestep(Ti_Current);
+    inttime_t dti_max = PM.length;
+
     if(isPM) {
-        SyncPoint * next = find_next_sync_point(All.Ti_Current);
-        inttime_t dti_max;
-        if(next == NULL) {
-
-            endrun(0, "Trying to go beyond the last sync point. This happens only at TimeMax \n");
-
-            /* use a unlimited pm step size*/
-            dti_max = TIMEBASE;
-        } else {
-            /* go no more than the next sync point */
-            dti_max = next->ti - PM.Ti_kick;
-        }
-        PM.length = get_long_range_timestep_ti(dti_max);
+        dti_max = get_PM_timestep_ti(Ti_Current);
+        PM.length = dti_max;
         PM.start = PM.Ti_kick;
     }
 
@@ -160,7 +154,7 @@ find_timesteps(int * MinTimeBin)
              * Avoid making it active. */
             if(P[i].IsGarbage)
                 continue;
-            inttime_t dti = get_timestep_ti(i, PM.length);
+            inttime_t dti = get_timestep_ti(i, dti_max);
             if(dti < dti_min)
                 dti_min = dti;
         }
@@ -186,7 +180,7 @@ find_timesteps(int * MinTimeBin)
         if(All.ForceEqualTimesteps) {
             dti = dti_min;
         } else {
-            dti = get_timestep_ti(i, PM.length);
+            dti = get_timestep_ti(i, dti_max);
         }
 
         /* make it a power 2 subdivision */
@@ -203,7 +197,7 @@ find_timesteps(int * MinTimeBin)
         {
             /* make sure the new step is currently active,
              * so that particles do not miss a step */
-            while(!is_timebin_active(bin, All.Ti_Current) && bin > binold && bin > 1)
+            while(!is_timebin_active(bin, Ti_Current) && bin > binold && bin > 1)
                 bin--;
         }
         /* This moves particles between time bins:
@@ -235,10 +229,8 @@ find_timesteps(int * MinTimeBin)
         endrun(0, "Ending due to bad timestep");
     }
     walltime_measure("/Timeline");
-    *MinTimeBin = mTimeBin;
-    return 0;
+    return mTimeBin;
 }
-
 
 /* Apply half a kick, for the second half of the timestep.*/
 void
@@ -578,12 +570,20 @@ get_long_range_timestep_dloga()
 
 /* backward compatibility with the old loop. */
 inttime_t
-get_long_range_timestep_ti(const inttime_t dti_max)
+get_PM_timestep_ti(inttime_t Ti_Current)
 {
     double dloga = get_long_range_timestep_dloga();
 
     int dti = dti_from_dloga(dloga);
     dti = round_down_power_of_two(dti);
+
+    SyncPoint * next = find_next_sync_point(Ti_Current);
+    if(next == NULL)
+        endrun(0, "Trying to go beyond the last sync point. This happens only at TimeMax \n");
+
+    /* go no more than the next sync point */
+    inttime_t dti_max = next->ti - PM.Ti_kick;
+
     if(dti > dti_max)
         dti = dti_max;
     return dti;
