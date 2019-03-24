@@ -403,7 +403,7 @@ def toc(array, arrayname, header):
         which can be linked against MP-Gadget's gravity.c.
         The main purpose is to add {} around array rows."""
     template = """
-# %(header)s
+// # %(header)s
 const double %(name)s[][%(size)d] = {
 
 %(text)s
