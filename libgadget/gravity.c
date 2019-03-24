@@ -18,7 +18,7 @@
  * Generated with split = 1.25; check with the assertion above!
  * */
 #include "shortrange-kernel.c"
-#define NTAB (sizeof(force_kernels) / sizeof(force_kernels[0]))
+#define NTAB (sizeof(shortrange_force_kernels) / sizeof(shortrange_force_kernels[0]))
 
 /*Defined in gravpm.c and only used here*/
 void  gravpm_init_periodic();
@@ -51,13 +51,13 @@ fill_ntab()
     for(i = 0; i < NTAB; i++)
     {
         /* force_kernels is in units of mesh points; */
-        double u = force_kernels[i][0] * 0.5 / All.Asmth;
+        double u = shortrange_force_kernels[i][0] * 0.5 / All.Asmth;
         switch (All.ShortRangeForceWindowType) {
             case SHORTRANGE_FORCE_WINDOW_TYPE_EXACT:
                 /* Notice that the table is only calibrated for smth of 1.25*/
-                shortrange_table[i] = force_kernels[i][2]; /* ~ erfc(u) + 2.0 * u / sqrt(M_PI) * exp(-u * u); */
+                shortrange_table[i] = shortrange_force_kernels[i][2]; /* ~ erfc(u) + 2.0 * u / sqrt(M_PI) * exp(-u * u); */
                 /* The potential of the calibrated kernel is a bit off, so we still use erfc here; we do not use potential anyways.*/
-                shortrange_table_potential[i] = force_kernels[i][1];
+                shortrange_table_potential[i] = shortrange_force_kernels[i][1];
             break;
             case SHORTRANGE_FORCE_WINDOW_TYPE_ERFC:
                 shortrange_table[i] = erfc(u) + 2.0 * u / sqrt(M_PI) * exp(-u * u);
@@ -73,7 +73,7 @@ fill_ntab()
 int
 grav_apply_short_range_window(double r, double * fac, double * pot)
 {
-    const double dx = force_kernels[1][0];
+    const double dx = shortrange_force_kernels[1][0];
     const double cellsize = All.BoxSize / All.Nmesh;
     double i = (r / cellsize / dx);
     int tabindex = floor(i);
