@@ -119,6 +119,9 @@ def write_hdf_file(bf, hdf5name, fnum, nfiles):
             ptype = int(ptype)
             hname = names.get_hdf5_name(bname)
             hdf5["PartType"+str(ptype)][hname] =  bf[block][startpart[ptype]:endpart[ptype]]
+        #Gadget-3 requires an InternalEnergy block for ICs, even if it is zero.
+        if "InternalEnergy" not in hdf5["PartType0"].keys():
+            hdf5["PartType0"]["InternalEnergy"] = np.zeros(endpart[0]-startpart[0])
 
 def compute_nfiles(npart):
     """Work out how many files we need to split the snapshot into.
@@ -137,11 +140,14 @@ def write_all_hdf_files(hdf5name, bfname):
     nfiles = compute_nfiles(bf["Header"].attrs["TotNumPart"])
     if not os.path.exists(hdf5name):
         os.mkdir(hdf5name)
-    mm = re.search("PART_([0-9]*)", bfname)
-    nsnap = '000'
-    if len(mm.groups()) > 0:
-        nsnap = mm.groups()[0]
-    hdf5name = os.path.join(hdf5name, "snap_"+nsnap)
+    try:
+        mm = re.search("PART_([0-9]*)", bfname)
+        nsnap = '000'
+        if len(mm.groups()) > 0:
+            nsnap = mm.groups()[0]
+        hdf5name = os.path.join(hdf5name, "snap_"+nsnap)
+    except AttributeError:
+        hdf5name = os.path.join(hdf5name, bfname)
     print("Writing %d hdf snapshot files to %s" % (nfiles, hdf5name))
     for nn in range(nfiles):
         write_hdf_file(bf, hdf5name, nn, nfiles)
