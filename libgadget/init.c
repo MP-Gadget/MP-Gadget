@@ -187,6 +187,7 @@ static void
 setup_smoothinglengths(int RestartSnapNum)
 {
     int i;
+    const double a3 = All.Time * All.Time * All.Time;
 
     force_tree_rebuild();
     if(RestartSnapNum == -1)
@@ -248,8 +249,6 @@ setup_smoothinglengths(int RestartSnapNum)
     /* for clean IC with U input only, we need to iterate to find entrpoy */
     if(RestartSnapNum == -1)
     {
-        const double a3 = All.Time * All.Time * All.Time;
-
         double u_init = (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.InitGasTemp;
         u_init *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;	/* unit conversion */
 
@@ -300,21 +299,22 @@ setup_smoothinglengths(int RestartSnapNum)
         }
         myfree(olddensity);
 #endif //DENSITY_INDEPENDENT_SPH
-#pragma omp parallel for
+        /*Initialize to initial energy*/
+        #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++) {
             if(P[i].Type == 0) {
-                /* EgyWtDensity stabilized, now we convert from energy to entropy*/
-                SPHP(i).Entropy = GAMMA_MINUS1 * u_init / pow(SPHP(i).EOMDensity/a3 , GAMMA_MINUS1);
+                SPHP(i).Entropy = u_init;
             }
         }
     }
-    /* snapshot already has Entropy and EgyWtDensity;
-     * hope it is read in correctly. (need a test
-     * on this!) */
+    /* snapshot already has EgyWtDensity; hope it is read in correctly.
+     * (need a test on this!) */
     /* regardless we initalize EntVarPred. This may be unnecessary*/
 #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++) {
         if(P[i].Type == 0) {
+            /* Convert from energy read in by the snapshot to entropy.*/
+            SPHP(i).Entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EOMDensity/a3 , GAMMA_MINUS1);
             SPHP(i).EntVarPred = pow(SPHP(i).Entropy, 1./GAMMA);
         }
     }
