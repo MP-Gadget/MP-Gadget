@@ -53,6 +53,7 @@ struct state_of_system compute_global_quantities_of_system(void)
     a2 = All.Time * All.Time;
     a3 = All.Time * All.Time * All.Time;
 
+    double redshift = 1. / All.Time - 1;
     memset(&sys, 0, sizeof(sys));
 
     #pragma omp parallel for
@@ -70,10 +71,12 @@ struct state_of_system compute_global_quantities_of_system(void)
 
         if(P[i].Type == 0)
         {
+            struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
             entr = SPHP(i).Entropy;
             egyspec = entr / (GAMMA_MINUS1) * pow(SPHP(i).EOMDensity / a3, GAMMA_MINUS1);
             sys.EnergyIntComp[0] += P[i].Mass * egyspec;
-            sys.TemperatureComp[0] += P[i].Mass * ConvertInternalEnergy2Temperature(egyspec, SPHP(i).Ne);
+            double ne = SPHP(i).Ne;
+            sys.TemperatureComp[0] += P[i].Mass * get_temp(SPHP(i).EOMDensity, egyspec, (1 - HYDROGEN_MASSFRAC), &uvbg, &ne);
         }
 
         for(j = 0; j < 3; j++)

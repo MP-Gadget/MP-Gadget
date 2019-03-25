@@ -43,21 +43,7 @@
 
 #define NEAREST(x) (((x)>0.5*All.BoxSize)?((x)-All.BoxSize):(((x)<-0.5*All.BoxSize)?((x)+All.BoxSize):(x)))
 
-#ifndef  GENERATIONS
-#define  GENERATIONS     4	/*!< Number of star particles that may be created per gas particle */
-#endif
-
 #define MAXHSML 30000.0
-
-#ifndef  GAMMA
-#define  GAMMA         (5.0/3.0)	/*!< adiabatic index of simulated gas */
-#endif
-
-#define  GAMMA_MINUS1  (GAMMA-1)
-
-#define  HYDROGEN_MASSFRAC 0.76	/*!< mass fraction of hydrogen, relevant only for radiative cooling */
-
-#define  METAL_YIELD       0.02	/*!< effective metal yield for star formation */
 
 #define  MAX_REAL_NUMBER  1e37
 #define  MIN_REAL_NUMBER  1e-37
@@ -209,10 +195,7 @@ extern struct global_data_all_processes
     /* system of units  */
 
     double UnitTime_in_s,		/*!< factor to convert internal time unit to seconds/h */
-           UnitPressure_in_cgs,	/*!< factor to convert internal pressure unit to cgs units (little 'h' still
-                                  around!) */
            UnitDensity_in_cgs,		/*!< factor to convert internal length unit to g/cm^3*h^2 */
-           UnitCoolingRate_in_cgs,	/*!< factor to convert internal cooling rate to cgs units */
            UnitEnergy_in_cgs,		/*!< factor to convert internal energy to cgs units */
            UnitTime_in_Megayears,	/*!< factor to convert internal time to megayears/h */
            GravityConstantInternal,	/*!< If set to zero in the parameterfile, the internal value of the
@@ -236,7 +219,6 @@ extern struct global_data_all_processes
     int TopNodeIncreaseFactor;
 
     int CoolingOn;  /* if cooling is enabled */
-    double UVRedshiftThreshold;  /* Initial redshift of UV background. */
     int HydroOn;  /*  if hydro force is enabled */
     int DensityOn;  /*  if SPH density computation is enabled */
     int TreeGravOn;     /* tree gravity force is enabled*/
@@ -345,18 +327,17 @@ extern struct global_data_all_processes
 
     /* some filenames */
     char InitCondFile[100],
-         TreeCoolFile[100],
-         MetalCoolFile[100],
          OutputDir[100],
          SnapshotFileBase[100],
          FOFFileBase[100],
          EnergyFile[100],
          CpuFile[100];
+    char TreeCoolFile[100];
+    char MetalCoolFile[100];
+    char UVFluctuationFile[100];
 
     /*Should we store the energy to EnergyFile on PM timesteps.*/
     int OutputEnergyDebug;
-
-    char UVFluctuationFile[100];
 
     double OutputListTimes[8192];
     int OutputListLength;
@@ -386,10 +367,6 @@ extern struct global_data_all_processes
     double WindSpeedFactor;
     /*Lyman alpha forest specific parameters*/
     double QuickLymanAlphaProbability;
-    int HeliumHeatOn;
-    double HeliumHeatThresh;
-    double HeliumHeatAmp;
-    double HeliumHeatExp;
 
     double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
     double BlackHoleFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */

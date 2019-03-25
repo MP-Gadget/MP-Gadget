@@ -44,9 +44,11 @@ static struct data_index *DataIndexTable;	/*!< the particles to be exported are 
 					   assigned to the correct particle */
 
 /*Initialise global treewalk parameters*/
-void init_treewalk(double BufferBoost)
+void set_treewalk_params(ParameterSet * ps)
 {
-    ImportBufferBoost = BufferBoost;
+    if(ThisTask == 0)
+        ImportBufferBoost = param_get_double(ps, "ImportBufferBoost");
+    MPI_Bcast(&ImportBufferBoost, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 }
 
 static void ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv);

@@ -5,6 +5,7 @@
 #define  GRAVITY     6.672e-8
 #define  SOLAR_MASS  1.989e33
 #define  SOLAR_LUM   3.826e33
+/*Radiation density constant, 4 sigma_stefan-boltzmann / c in erg cm^-3 K^-4*/
 #define  RAD_CONST   7.565e-15
 #define  AVOGADRO    6.0222e23
 #define  BOLTZMANN   1.38066e-16
@@ -27,4 +28,13 @@
 
 #define  SEC_PER_MEGAYEAR   3.155e13
 #define  SEC_PER_YEAR       3.155e7
+
+#ifndef  GAMMA
+#define  GAMMA         (5.0/3.0)	/*!< adiabatic index of simulated gas */
+#endif
+
+#define  GAMMA_MINUS1  (GAMMA-1)
+
+#define  HYDROGEN_MASSFRAC 0.76	/*!< mass fraction of hydrogen, relevant only for radiative cooling */
+
 #endif

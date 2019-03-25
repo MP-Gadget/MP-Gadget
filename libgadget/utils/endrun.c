@@ -214,6 +214,9 @@ endrun(int where, const char * fmt, ...)
     va_start(va, fmt);
     messagev(1, where, fmt, va);
     va_end(va);
+    /* This is here so the compiler knows this
+     * function never returns. */
+    exit(1);
 }
 
 

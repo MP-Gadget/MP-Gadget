@@ -457,16 +457,12 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             /* update the feedback weighting */
             double mass_j;
             if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_OPTTHIN)) {
-                double nh0 = 1.0;
-                double nHeII = 0;
+                double redshift = 1./All.Time - 1;
+                double InternalEnergy = DMAX(All.MinEgySpec, SPHP(other).Entropy / GAMMA_MINUS1 * pow(SPHP(other).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+                double physdens = SPHP(other).Density * All.cf.a3inv;
                 double ne = SPHP(other).Ne;
-                struct UVBG uvbg;
-                GetParticleUVBG(other, &uvbg);
-                AbundanceRatios(DMAX(All.MinEgySpec,
-                            SPHP(other).Entropy / GAMMA_MINUS1
-                            * pow(SPHP(other).EOMDensity * All.cf.a3inv,
-                                GAMMA_MINUS1)),
-                        SPHP(other).Density * All.cf.a3inv, &uvbg, &ne, &nh0, &nHeII);
+                struct UVBG uvbg = get_local_UVBG(redshift, P[other].Pos);
+                double nh0 = get_neutral_fraction(physdens, InternalEnergy, 1 - HYDROGEN_MASSFRAC, &uvbg, &ne);
                 if(r2 > 0)
                     O->FeedbackWeightSum += (P[other].Mass * nh0) / r2;
             } else {

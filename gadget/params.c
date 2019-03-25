@@ -8,7 +8,7 @@
 #include <libgadget/timebinmgr.h>
 #include <libgadget/utils.h>
 #include <libgadget/treewalk.h>
-
+#include <libgadget/cooling_rates.h>
 
 /* Optional parameters are passed the flag 0 and required parameters 1.
  * These macros are just to document the semantic meaning of these flags. */
@@ -194,6 +194,23 @@ create_gadget_parameter_set()
 
     param_declare_int(ps, "CoolingOn", REQUIRED, 0, "Enables cooling");
     param_declare_double(ps, "UVRedshiftThreshold", OPTIONAL, -1.0, "Earliest Redshift that UV background is enabled. This modulates UVFluctuation and TreeCool globally. Default -1.0 means no modulation.");
+    static ParameterEnum CoolingTypeTable [] = {
+        {"KWH92", KWH92 },
+        {"Enzo2Nyx", Enzo2Nyx },
+        {"Sherwood", Sherwood },
+        {NULL, Cen92 },
+    };
+    static ParameterEnum RecombTypeTable [] = {
+        {"Cen92", Cen92 },
+        {"Verner96", Verner96 },
+        {"Badnell06", Badnell06},
+        {NULL, Cen92 },
+    };
+    param_declare_enum(ps, "CoolingRates", CoolingTypeTable, OPTIONAL, "KWH92", "Which cooling rate table to use. Options are KWH92 (old gadget default), Enzo2Nyx and Sherwood (new default).");
+    param_declare_enum(ps, "RecombRates", RecombTypeTable, OPTIONAL, "Cen92", "Which recombination rate table to use. Options are Cen92 (old gadget default), Verner96 (new default), Badnell06");
+    param_declare_int(ps, "SelfShieldingOn", OPTIONAL, 0, "Enable a correction in the cooling table for self-shielding.");
+    param_declare_double(ps, "PhotoIonizeFactor", OPTIONAL, 1, "Scale the TreeCool table by this factor.");
+    param_declare_int(ps, "PhotoIonizationOn", OPTIONAL, 1, "Should PhotoIonization be enabled.");
 
     param_declare_int(ps, "HydroOn", REQUIRED, 1, "Enables hydro force");
     param_declare_int(ps, "DensityOn", OPTIONAL, 1, "Enables SPH density computation.");
@@ -330,9 +347,9 @@ create_gadget_parameter_set()
  */
 void read_parameter_file(char *fname)
 {
-    if(ThisTask == 0) {
+    ParameterSet * ps = create_gadget_parameter_set();
 
-        ParameterSet * ps = create_gadget_parameter_set();
+    if(ThisTask == 0) {
 
         if(0 != param_parse_file(ps, fname)) {
             endrun(1, "Parsing %s failed.", fname);
@@ -350,9 +367,6 @@ void read_parameter_file(char *fname)
     /* Start reading the values */
         param_get_string2(ps, "InitCondFile", All.InitCondFile);
         param_get_string2(ps, "OutputDir", All.OutputDir);
-        param_get_string2(ps, "TreeCoolFile", All.TreeCoolFile);
-        param_get_string2(ps, "MetalCoolFile", All.MetalCoolFile);
-        param_get_string2(ps, "UVFluctuationfile", All.UVFluctuationFile);
         param_get_string2(ps, "SnapshotFileBase", All.SnapshotFileBase);
         param_get_string2(ps, "FOFFileBase", All.FOFFileBase);
         param_get_string2(ps, "EnergyFile", All.EnergyFile);
@@ -415,7 +429,6 @@ void read_parameter_file(char *fname)
         All.IO.EnableAggregatedIO = param_get_int(ps, "EnableAggregatedIO");
 
         All.CoolingOn = param_get_int(ps, "CoolingOn");
-        All.UVRedshiftThreshold = param_get_double(ps, "UVRedshiftThreshold");
         All.HydroOn = param_get_int(ps, "HydroOn");
         All.DensityOn = param_get_int(ps, "DensityOn");
         All.TreeGravOn = param_get_int(ps, "TreeGravOn");
@@ -425,13 +438,9 @@ void read_parameter_file(char *fname)
         All.GravitySoftening = param_get_double(ps, "GravitySoftening");
         All.GravitySofteningGas = param_get_double(ps, "GravitySofteningGas");
 
-        init_treewalk(param_get_double(ps, "ImportBufferBoost"));
         All.PartAllocFactor = param_get_double(ps, "PartAllocFactor");
         All.TopNodeAllocFactor = param_get_double(ps, "TopNodeAllocFactor");
         All.SlotsIncreaseFactor = param_get_double(ps, "SlotsIncreaseFactor");
-
-        All.InitGasTemp = param_get_double(ps, "InitGasTemp");
-        All.MinGasTemp = param_get_double(ps, "MinGasTemp");
 
         All.SnapshotWithFOF = param_get_int(ps, "SnapshotWithFOF");
         All.FOFSaveParticles = param_get_int(ps, "FOFSaveParticles");
@@ -490,10 +499,13 @@ void read_parameter_file(char *fname)
 
         /*Lyman-alpha forest parameters*/
         All.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
-        All.HeliumHeatOn = param_get_int(ps, "HeliumHeatOn");
-        All.HeliumHeatThresh = param_get_double(ps, "HeliumHeatThresh");
-        All.HeliumHeatAmp = param_get_double(ps, "HeliumHeatAmp");
-        All.HeliumHeatExp = param_get_double(ps, "HeliumHeatExp");
+
+        param_get_string2(ps, "TreeCoolFile", All.TreeCoolFile);
+        param_get_string2(ps, "UVFluctuationfile", All.UVFluctuationFile);
+        param_get_string2(ps, "MetalCoolFile", All.MetalCoolFile);
+
+        All.MinGasTemp = param_get_double(ps, "MinGasTemp");
+        All.InitGasTemp = param_get_double(ps, "InitGasTemp");
 
         /*Massive neutrino parameters*/
         All.MassiveNuLinRespOn = param_get_int(ps, "MassiveNuLinRespOn");
@@ -506,8 +518,6 @@ void read_parameter_file(char *fname)
         if(All.MassiveNuLinRespOn && !All.CP.RadiationOn)
             endrun(2, "You have enabled (kspace) massive neutrinos without radiation, but this will give an inconsistent cosmology!\n");
         /*End massive neutrino parameters*/
-
-        parameter_set_free(ps);
 
     #ifndef BLACK_HOLES
         if(All.BlackHoleOn)
@@ -540,4 +550,11 @@ void read_parameter_file(char *fname)
     }
 
     MPI_Bcast(&All, sizeof(All), MPI_BYTE, 0, MPI_COMM_WORLD);
+
+    /*Initialize per-module parameters.*/
+
+    set_cooling_params(ps);
+    set_treewalk_params(ps);
+
+    parameter_set_free(ps);
 }

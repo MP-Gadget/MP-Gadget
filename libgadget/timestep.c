@@ -120,7 +120,7 @@ set_global_time(double newtime) {
 #ifdef LIGHTCONE
     lightcone_set_time(All.cf.a);
 #endif
-    IonizeParams();
+    set_global_uvbg(1./All.Time - 1);
 }
 
 /* This function assigns new short-range timesteps to particles.

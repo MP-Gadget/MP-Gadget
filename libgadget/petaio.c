@@ -749,15 +749,12 @@ SIMPLE_PROPERTY(BlackholeJumpToMinPot, BHP(i).JumpToMinPot, int, 1)
 /*This is only used if FoF is enabled*/
 SIMPLE_GETTER(GTGroupID, P[i].GrNr, uint32_t, 1)
 static void GTNeutralHydrogenFraction(int i, float * out) {
-    double ne, nh0, nHeII;
-    ne = SPHP(i).Ne;
-    struct UVBG uvbg;
-    GetParticleUVBG(i, &uvbg);
-    AbundanceRatios(DMAX(All.MinEgySpec,
-                SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity *
-                    All.cf.a3inv,
-                    GAMMA_MINUS1)),
-            SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, &nh0, &nHeII);
+    double redshift = 1./All.Time - 1;
+    struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
+    double InternalEnergy = DMAX(All.MinEgySpec, SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+    double physdens = SPHP(i).Density * All.cf.a3inv;
+    double ne = SPHP(i).Ne;
+    double nh0 = get_neutral_fraction(physdens, InternalEnergy, 1 - HYDROGEN_MASSFRAC, &uvbg, &ne);
     *out = nh0;
 }
 
@@ -769,12 +766,6 @@ static void GTInternalEnergy(int i, float * out) {
 static void STInternalEnergy(int i, float * out) {
     float u = *out;
     SPHP(i).Entropy = GAMMA_MINUS1 * u / pow(SPHP(i).EOMDensity * All.cf.a3inv , GAMMA_MINUS1);
-}
-
-static void GTJUV(int i, float * out) {
-    struct UVBG uvbg;
-    GetParticleUVBG(i, &uvbg);
-    *out = uvbg.J_UV;
 }
 
 static int order_by_type(const void *a, const void *b)
@@ -827,7 +818,6 @@ static void register_io_blocks() {
     /* Cooling */
     IO_REG(ElectronAbundance,       "f4", 1, 0);
     IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0);
-    IO_REG_WRONLY(JUV,   "f4", 1, 0);
 
     /* SF */
     IO_REG_WRONLY(StarFormationRate, "f4", 1, 0);

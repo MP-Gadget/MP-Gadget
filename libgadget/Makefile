@@ -52,11 +52,13 @@ TESTED = hci \
 	slotsmanager \
 	powerspectrum \
 	cosmology \
+	cooling \
 	forcetree \
 	timefac \
 	timebinmgr \
 	neutrinos_lra \
 	omega_nu_single \
+	cooling_rates \
 	exchange
 
 MPI_TESTED = exchange
@@ -85,7 +87,7 @@ GADGET_OBJS =  \
 	 blackhole.o timebinmgr.o \
 	 run.o drift.o stats.o \
 	 timestep.o init.o checkpoint.o \
-	 sfr_eff.o cooling.o winds.o \
+	 sfr_eff.o cooling.o cooling_rates.o cooling_uvfluc.o winds.o \
 	 density.o \
 	 treewalk.o cosmology.o \
 	 gravshort-tree.o gravshort-pair.o hydra.o  timefac.o \
@@ -124,8 +126,12 @@ all: libgadget.a libgadget-utils.a
 	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 .objs/test_neutrinos_lra: tests/test_neutrinos_lra.c .objs/neutrinos_lra.o .objs/cosmology.o .objs/omega_nu_single.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
+
+.objs/test_cooling_rates: tests/test_cooling_rates.c .objs/cooling_rates.o .objs/cooling_uvfluc.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
 	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
+.objs/test_cooling: tests/test_cooling.c .objs/cooling.o .objs/cooling_rates.o .objs/cooling_uvfluc.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
+	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
 build-tests: $(TESTBIN)
 
 test : build-tests

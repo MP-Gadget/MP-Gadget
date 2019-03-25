@@ -1,3 +1,8 @@
+#ifndef PARAMSET_H
+#define PARAMSET_H
+
+#include <stdio.h>
+
 typedef struct ParameterEnum {
     char * name;
     int value;
@@ -55,3 +60,4 @@ parameter_set_new();
 void
 parameter_set_free(ParameterSet * ps);
 
+#endif
