@@ -725,7 +725,7 @@ SIMPLE_PROPERTY(SmoothingLength, P[i].Hsml, float, 1)
 SIMPLE_PROPERTY(Density, SPHP(i).Density, float, 1)
 #ifdef DENSITY_INDEPENDENT_SPH
 SIMPLE_PROPERTY(EgyWtDensity, SPHP(i).EgyWtDensity, float, 1)
-SIMPLE_PROPERTY(Entropy, SPHP(i).Entropy, float, 1)
+SIMPLE_GETTER(GTEntropy, SPHP(i).Entropy, float, 1)
 #endif
 SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
 SIMPLE_PROPERTY_TYPE(StarFormationTime, 4, STARP(i).FormationTime, float, 1)
@@ -764,6 +764,10 @@ static void GTNeutralHydrogenFraction(int i, float * out) {
 static void GTInternalEnergy(int i, float * out) {
     *out = DMAX(All.MinEgySpec,
         SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+}
+
+static void STInternalEnergy(int i, float * out) {
+    SPHP(i).Entropy = *out;
 }
 
 static void GTJUV(int i, float * out) {
@@ -807,13 +811,15 @@ static void register_io_blocks() {
     IO_REG(Density,          "f4", 1, 0);
 #ifdef DENSITY_INDEPENDENT_SPH
     IO_REG(EgyWtDensity,          "f4", 1, 0);
-    IO_REG(Entropy,          "f4", 1, 0);
+    IO_REG_WRONLY(Entropy,          "f4", 1, 0);
 #endif
+
+    /*On reload this sets the Entropy variable, and then we transform it later.*/
+    IO_REG(InternalEnergy,   "f4", 1, 0);
 
     /* Cooling */
     IO_REG(ElectronAbundance,       "f4", 1, 0);
     IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0);
-    IO_REG_WRONLY(InternalEnergy,   "f4", 1, 0);
     IO_REG_WRONLY(JUV,   "f4", 1, 0);
 
     /* SF */
