@@ -156,15 +156,16 @@ create_gadget_parameter_set()
     param_declare_double(ps, "ErrTolForceAcc", OPTIONAL, 0.005, "Force accuracy required from tree. Controls tree opening criteria. Lower values are more accurate.");
     param_declare_double(ps, "BHOpeningAngle", OPTIONAL, 0.175, "Barnes-Hut opening angle. Alternative purely geometric tree opening angle. Lower values are more accurate.");
     param_declare_int(ps, "TreeUseBH", OPTIONAL, 2, "If 1, use Barnes-Hut opening angle rather than the standard Gadget acceleration based opening angle. If 2, use BH criterion for the first timestep only, before we have relative accelerations.");
-    param_declare_double(ps, "Asmth", OPTIONAL, 1.25, "The scale of the short-range/long-range force split in units of FFT-mesh cells. Gadget-2 paper says larger values may be more accurate.");
+    param_declare_double(ps, "Asmth", OPTIONAL, 1.25, "The scale of the short-range/long-range force split in units of FFT-mesh cells."
+                                                      "Larger values suppresses grid anisotropy. ShortRangeForceWindowType = erfc supports any value. 'exact' only support 1.25. ");
     param_declare_int(ps,    "Nmesh", REQUIRED, 0, "");
 
     static ParameterEnum ShortRangeForceWindowTypeEnum [] = {
-        {"exact", SHORTRANGE_FORCE_WINDOW_TYPE_EXACT },
-        {"gadget2", SHORTRANGE_FORCE_WINDOW_TYPE_GADGET2 },
+        {"exact", SHORTRANGE_FORCE_WINDOW_TYPE_EXACT},
+        {"erfc", SHORTRANGE_FORCE_WINDOW_TYPE_ERFC },
         {NULL, SHORTRANGE_FORCE_WINDOW_TYPE_EXACT },
     };
-    param_declare_enum(ps,    "ShortRangeForceWindowType", ShortRangeForceWindowTypeEnum, OPTIONAL, "exact", "type of shortrange window, exact or gadget2 (default is exact) ");
+    param_declare_enum(ps,    "ShortRangeForceWindowType", ShortRangeForceWindowTypeEnum, OPTIONAL, "exact", "type of shortrange window, exact or erfc (default is exact) ");
 
     param_declare_double(ps, "MinGasHsmlFractional", OPTIONAL, 0, "Minimal gas Hsml as a fraction of gravity softening.");
     param_declare_double(ps, "MaxGasVel", OPTIONAL, 3e5, "");

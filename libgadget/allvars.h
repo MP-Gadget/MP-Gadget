@@ -72,7 +72,7 @@
 #define MAXITER 400
 enum ShortRangeForceWindowType {
     SHORTRANGE_FORCE_WINDOW_TYPE_EXACT = 0,
-    SHORTRANGE_FORCE_WINDOW_TYPE_GADGET2 = 1,
+    SHORTRANGE_FORCE_WINDOW_TYPE_ERFC = 1,
 };
 
 enum BlackHoleFeedbackMethod {

@@ -250,7 +250,7 @@ def main(ns):
     Split = ns.split       # should try smaller split if the variance doesn't go up then we are good; in mesh units.
     Smoothing = 1./ 20 # shouldn't be very sensitive to this; in distance units.
 
-    Rmax = 10.0 # max r to go, in mesh units
+    Rmax = Split * 10.0 # max r to go, in mesh units
 
     # generate points on a sphere
     test = numpy.random.uniform(0, 1.0, size=(Ntest * Nsample, 3))
@@ -387,7 +387,7 @@ def main(ns):
     # to get the corrected force kernel.
     # Most accurate appears to be to use the 'exact' kernels as a table: columns 1 and 2.
     # columns 3 and 4 are provided for comparison with Gadget-2.
-    numpy.savetxt('shortrange-force-kernels.txt',
+    numpy.savetxt('shortrange-force-kernels-%.2f.txt' % Split,
                   table, header='x(in mesh units) w_pot_1d(x) w_force_1d(x) [erfc + other terms] w_pot_erf(x) w_force_erf(x) split=%.2f' % Split
                  )
 
@@ -403,7 +403,7 @@ def toc(array, arrayname, header):
         which can be linked against MP-Gadget's gravity.c.
         The main purpose is to add {} around array rows."""
     template = """
-# %(header)s
+// # %(header)s
 const double %(name)s[][%(size)d] = {
 
 %(text)s
