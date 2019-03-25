@@ -680,6 +680,7 @@ void io_register_io_block(char * name,
         ) {
     IOTableEntry * ent = &IOTable.ent[IOTable.used];
     strcpy(ent->name, name);
+    ent->zorder = IOTable.used;
     ent->ptype = ptype;
     strcpy(ent->dtype, dtype);
     ent->getter = getter;
@@ -725,7 +726,6 @@ SIMPLE_PROPERTY(SmoothingLength, P[i].Hsml, float, 1)
 SIMPLE_PROPERTY(Density, SPHP(i).Density, float, 1)
 #ifdef DENSITY_INDEPENDENT_SPH
 SIMPLE_PROPERTY(EgyWtDensity, SPHP(i).EgyWtDensity, float, 1)
-SIMPLE_GETTER(GTEntropy, SPHP(i).Entropy, float, 1)
 #endif
 SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
 SIMPLE_PROPERTY_TYPE(StarFormationTime, 4, STARP(i).FormationTime, float, 1)
@@ -767,7 +767,8 @@ static void GTInternalEnergy(int i, float * out) {
 }
 
 static void STInternalEnergy(int i, float * out) {
-    SPHP(i).Entropy = *out;
+    float u = *out;
+    SPHP(i).Entropy = GAMMA_MINUS1 * u / pow(SPHP(i).EOMDensity * All.cf.a3inv , GAMMA_MINUS1);
 }
 
 static void GTJUV(int i, float * out) {
@@ -785,6 +786,11 @@ static int order_by_type(const void *a, const void *b)
         return -1;
     if(pa->ptype > pb->ptype)
         return +1;
+    if(pa->zorder < pb->zorder)
+        return -1;
+    if(pa->zorder > pb->zorder)
+        return 1;
+
     return 0;
 }
 
@@ -811,10 +817,11 @@ static void register_io_blocks() {
     IO_REG(Density,          "f4", 1, 0);
 #ifdef DENSITY_INDEPENDENT_SPH
     IO_REG(EgyWtDensity,          "f4", 1, 0);
-    IO_REG_WRONLY(Entropy,          "f4", 1, 0);
 #endif
 
-    /*On reload this sets the Entropy variable, and then we transform it later.*/
+    /* On reload this sets the Entropy variable, need the densities.
+     * Register this after Density and EgyWtDensity will ensure density is read
+     * before this. */
     IO_REG(InternalEnergy,   "f4", 1, 0);
 
     /* Cooling */
@@ -842,7 +849,7 @@ static void register_io_blocks() {
     if(All.SnapshotWithFOF)
         fof_register_io_blocks();
 
-    /*Sort IO blocks so similar types are together*/
+    /*Sort IO blocks so similar types are together; then ordered by the sequence they are declared. */
     qsort_openmp(IOTable.ent, IOTable.used, sizeof(struct IOTableEntry), order_by_type);
 }
 

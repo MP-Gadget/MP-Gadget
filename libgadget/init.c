@@ -303,7 +303,7 @@ setup_smoothinglengths(int RestartSnapNum)
         #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++) {
             if(P[i].Type == 0) {
-                SPHP(i).Entropy = u_init;
+                SPHP(i).Entropy = GAMMA_MINUS1 * u_init / pow(SPHP(i).EOMDensity/a3 , GAMMA_MINUS1);
             }
         }
     }
@@ -314,7 +314,6 @@ setup_smoothinglengths(int RestartSnapNum)
     for(i = 0; i < PartManager->NumPart; i++) {
         if(P[i].Type == 0) {
             /* Convert from energy read in by the snapshot to entropy.*/
-            SPHP(i).Entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EOMDensity/a3 , GAMMA_MINUS1);
             SPHP(i).EntVarPred = pow(SPHP(i).Entropy, 1./GAMMA);
         }
     }
