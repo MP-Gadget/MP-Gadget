@@ -812,10 +812,11 @@ static void register_io_blocks() {
     IO_REG(Density,          "f4", 1, 0);
 #ifdef DENSITY_INDEPENDENT_SPH
     IO_REG(EgyWtDensity,          "f4", 1, 0);
-    IO_REG_WRONLY(Entropy,          "f4", 1, 0);
 #endif
 
-    /*On reload this sets the Entropy variable, and then we transform it later.*/
+    /* On reload this sets the Entropy variable, need the densities.
+     * Register this after Density and EgyWtDensity will ensure density is read
+     * before this. */
     IO_REG(InternalEnergy,   "f4", 1, 0);
 
     /* Cooling */
