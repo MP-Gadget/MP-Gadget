@@ -58,7 +58,7 @@ create_parameters()
     param_declare_double(ps, "Sigma8", OPTIONAL, -1, "Renormalise Sigma8 to this number if positive");
     param_declare_double(ps, "InputPowerRedshift", OPTIONAL, -1, "Redshift at which the input power is. Power spectrum will be rescaled to the initial redshift. Negative disables rescaling.");
     param_declare_double(ps, "PrimordialIndex", OPTIONAL, 0.971, "Tilting power, ignored for tabulated input.");
-    param_declare_double(ps, "PrimordialRunning", OPTIONAL, 0, "Tilting power, ignored for tabulated input.");
+    param_declare_double(ps, "PrimordialRunning", OPTIONAL, 0, "Running of the spectral index, ignored for tabulated input, only used to pass parameter to tools/make_class_power.py");
 
     param_declare_double(ps, "UnitVelocity_in_cm_per_s", OPTIONAL, 1e5, "Velocity unit in cm/sec. Default is 1 km/s");
     param_declare_double(ps, "UnitLength_in_cm", OPTIONAL, CM_PER_MPC/1000, "Length unit in cm. Default is 1 kpc");
