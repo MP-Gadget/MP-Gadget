@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "allvars.h"
+#include "utils/paramset.h"
 
 #define  NODELISTLENGTH      8
 
@@ -129,7 +130,7 @@ struct TreeWalk {
 };
 
 /*Initialise treewalk parameters on first run*/
-void set_treewalk_params(double BufferBoost);
+void set_treewalk_params(ParameterSet * ps);
 
 void treewalk_run(TreeWalk * tw, int * active_set, int size);
 

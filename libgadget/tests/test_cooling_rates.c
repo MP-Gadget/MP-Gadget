@@ -48,14 +48,14 @@ static void test_recomb_rates(void ** state)
     const char * TreeCool = GADGET_TESTDATA_ROOT "/examples/TREECOOL_ep_2018p";
     const char * MetalCool = "";
 
-    set_cooling_params(coolpar);
+    set_coolpar(coolpar);
     init_cooling_rates(TreeCool, MetalCool);
     for(i=0; i< NEXACT; i++) {
         assert_true(fabs(recomb_alphaHp(tt[i])/(f92g2[i]+f92n1[i])-1.) < 1e-2);
     }
 
     coolpar.recomb = Cen92;
-    set_cooling_params(coolpar);
+    set_coolpar(coolpar);
     init_cooling_rates(TreeCool, MetalCool);
     /*Cen rates are not very accurate.*/
     for(i=4; i< 12; i++) {
@@ -70,7 +70,7 @@ static void test_uvbg_loader(void ** state)
     coolpar.SelfShieldingOn = 1;
     const char * TreeCool = GADGET_TESTDATA_ROOT "/examples/TREECOOL_ep_2018p";
     const char * MetalCool = "";
-    set_cooling_params(coolpar);
+    set_coolpar(coolpar);
     init_cooling_rates(TreeCool, MetalCool);
     /*Test sensible rates at high redshift*/
     struct UVBG uvbg = get_global_UVBG(16);
@@ -105,7 +105,7 @@ static void test_rate_network(void ** state)
     const char * TreeCool = GADGET_TESTDATA_ROOT "/examples/TREECOOL_ep_2018p";
     const char * MetalCool = "";
 
-    set_cooling_params(coolpar);
+    set_coolpar(coolpar);
     init_cooling_rates(TreeCool, MetalCool);
 
     struct UVBG uvbg = get_global_UVBG(2);
@@ -140,7 +140,7 @@ static void test_rate_network(void ** state)
 
     //Check self-shielding is working.
     coolpar.SelfShieldingOn = 0;
-    set_cooling_params(coolpar);
+    set_coolpar(coolpar);
     init_cooling_rates(TreeCool, MetalCool);
 
     assert_true( get_neutral_fraction(1, 100.*1e10,0.24, &uvbg, &ne) < 0.25);
@@ -158,7 +158,7 @@ static void test_heatingcooling_rate(void ** state)
 
     const char * TreeCool = GADGET_TESTDATA_ROOT "/examples/TREECOOL_ep_2018p";
     const char * MetalCool = "";
-    set_cooling_params(coolpar);
+    set_coolpar(coolpar);
     init_cooling_rates(TreeCool, MetalCool);
 
     /*unit system*/
@@ -217,7 +217,7 @@ static void test_heatingcooling_rate(void ** state)
     assert_true(LambdaNet > 0);
     /*Check self-shielding affects the cooling rates*/
     coolpar.SelfShieldingOn = 1;
-    set_cooling_params(coolpar);
+    set_coolpar(coolpar);
     init_cooling_rates(TreeCool, MetalCool);
     LambdaNet = get_heatingcooling_rate(dens*1.5, egyhot/10., 1 - HYDROGEN_MASSFRAC, 0, 0, &uvbg, &ne);
     //message(1, "LambdaNet = %g, uvbg=%g\n", LambdaNet, uvbg.epsHep);

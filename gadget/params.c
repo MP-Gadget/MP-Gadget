@@ -339,16 +339,6 @@ create_gadget_parameter_set()
     return ps;
 }
 
-/* Structure to hold local parameter values so they can easily be broadcast.
- * These are for submodules where we do the initialization right here and so don't want to use All.*/
-struct Local
-{
-    /*Treewalk parameter*/
-    double ImportBufferBoost;
-    /* Cooling model parameters*/
-    struct cooling_params coolpar;
-};
-
 /*! This function parses the parameterfile in a simple way.  Each paramater is
  *  defined by a keyword (`tag'), and can be either of type douple, int, or
  *  character string.  The routine makes sure that each parameter appears
@@ -357,10 +347,9 @@ struct Local
  */
 void read_parameter_file(char *fname)
 {
-    struct Local locals;
-    if(ThisTask == 0) {
+    ParameterSet * ps = create_gadget_parameter_set();
 
-        ParameterSet * ps = create_gadget_parameter_set();
+    if(ThisTask == 0) {
 
         if(0 != param_parse_file(ps, fname)) {
             endrun(1, "Parsing %s failed.", fname);
@@ -449,7 +438,6 @@ void read_parameter_file(char *fname)
         All.GravitySoftening = param_get_double(ps, "GravitySoftening");
         All.GravitySofteningGas = param_get_double(ps, "GravitySofteningGas");
 
-        locals.ImportBufferBoost = param_get_double(ps, "ImportBufferBoost");
         All.PartAllocFactor = param_get_double(ps, "PartAllocFactor");
         All.TopNodeAllocFactor = param_get_double(ps, "TopNodeAllocFactor");
         All.SlotsIncreaseFactor = param_get_double(ps, "SlotsIncreaseFactor");
@@ -516,26 +504,8 @@ void read_parameter_file(char *fname)
         param_get_string2(ps, "UVFluctuationfile", All.UVFluctuationFile);
         param_get_string2(ps, "MetalCoolFile", All.MetalCoolFile);
 
-        /*Cooling rate network parameters*/
-        locals.coolpar.CMBTemperature = All.CP.CMBTemperature;
-        locals.coolpar.fBar = All.CP.OmegaBaryon / (All.CP.Omega0 - All.CP.OmegaBaryon);
-        locals.coolpar.cooling = param_get_enum(ps, "CoolingRates"); // Sherwood;
-        locals.coolpar.recomb = param_get_enum(ps, "RecombRates"); // Verner96;
-        locals.coolpar.SelfShieldingOn = param_get_int(ps, "SelfShieldingOn");
-        locals.coolpar.PhotoIonizeFactor = param_get_double(ps, "PhotoIonizeFactor");
-        locals.coolpar.PhotoIonizationOn = param_get_int(ps, "PhotoIonizationOn");
-        locals.coolpar.rho_crit_baryon = All.CP.OmegaBaryon * 3.0 * pow(All.CP.HubbleParam*HUBBLE,2.0) /(8.0*M_PI*GRAVITY);
-        locals.coolpar.MinGasTemp = param_get_double(ps, "MinGasTemp");
-        locals.coolpar.UVRedshiftThreshold = param_get_double(ps, "UVRedshiftThreshold");
-
-        All.MinGasTemp = locals.coolpar.MinGasTemp;
+        All.MinGasTemp = param_get_double(ps, "MinGasTemp");
         All.InitGasTemp = param_get_double(ps, "InitGasTemp");
-
-        /*Helium model parameters*/
-        locals.coolpar.HeliumHeatOn = param_get_int(ps, "HeliumHeatOn");
-        locals.coolpar.HeliumHeatThresh = param_get_double(ps, "HeliumHeatThresh");
-        locals.coolpar.HeliumHeatAmp = param_get_double(ps, "HeliumHeatAmp");
-        locals.coolpar.HeliumHeatExp = param_get_double(ps, "HeliumHeatExp");
 
         /*Massive neutrino parameters*/
         All.MassiveNuLinRespOn = param_get_int(ps, "MassiveNuLinRespOn");
@@ -548,8 +518,6 @@ void read_parameter_file(char *fname)
         if(All.MassiveNuLinRespOn && !All.CP.RadiationOn)
             endrun(2, "You have enabled (kspace) massive neutrinos without radiation, but this will give an inconsistent cosmology!\n");
         /*End massive neutrino parameters*/
-
-        parameter_set_free(ps);
 
     #ifndef BLACK_HOLES
         if(All.BlackHoleOn)
@@ -583,9 +551,10 @@ void read_parameter_file(char *fname)
 
     MPI_Bcast(&All, sizeof(All), MPI_BYTE, 0, MPI_COMM_WORLD);
 
-    MPI_Bcast(&locals, sizeof(locals), MPI_BYTE, 0, MPI_COMM_WORLD);
-
     /*Initialize per-module parameters.*/
-    set_treewalk_params(locals.ImportBufferBoost);
-    set_cooling_params(locals.coolpar);
+
+    set_cooling_params(ps);
+    set_treewalk_params(ps);
+
+    parameter_set_free(ps);
 }

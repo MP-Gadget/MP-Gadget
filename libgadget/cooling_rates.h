@@ -4,6 +4,7 @@
 #define _COOLING_RATES_H_
 
 #include "cooling.h"
+#include "utils/paramset.h"
 
 /* Definitions for the cooling rates code*/
 enum RecombType {
@@ -53,8 +54,10 @@ struct cooling_params
     double rho_crit_baryon;
 };
 
-/*Just set the parameters for the cooling module*/
-void set_cooling_params(struct cooling_params coolpar);
+/*Set the parameters for the cooling module from the parameter file.*/
+void set_cooling_params(ParameterSet * ps);
+/*Set cooling module parameters from a cooling_params struct for the tests*/
+void set_coolpar(struct cooling_params cp);
 
 /*Initialize the cooling rate module. This builds a lot of interpolation tables.
  * Defaults: TCMB 2.7255, recomb = Verner96, cooling = Sherwood.*/

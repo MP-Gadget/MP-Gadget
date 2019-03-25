@@ -172,7 +172,7 @@ static void test_DoCooling(void ** state)
     coolunits.uu_in_cgs = UnitEnergy_in_cgs / UnitMass_in_g;
     coolunits.tt_in_s = UnitTime_in_s / HubbleParam;
 
-    set_cooling_params(coolpar);
+    set_coolpar(coolpar);
     init_cooling(TreeCool, MetalCool, UVFluc, coolunits);
     struct UVBG uvbg = get_global_UVBG(0);
     assert_true(fabs(uvbg.epsH0/3.65296e-25 -1) < 1e-5);

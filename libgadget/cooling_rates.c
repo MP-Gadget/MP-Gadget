@@ -59,6 +59,7 @@
 #include <gsl/gsl_interp.h>
 #include "physconst.h"
 #include "utils/endrun.h"
+#include "utils/paramset.h"
 #include "utils/mymalloc.h"
 
 /* 1 eV in ergs*/
@@ -906,11 +907,40 @@ cool_he_reion_factor(double nHcgs, double helium, double redshift)
   return CoolingParams.HeliumHeatAmp*pow(overden, CoolingParams.HeliumHeatExp);
 }
 
+/*This is a helper for the tests*/
+void set_coolpar(struct cooling_params cp)
+{
+    CoolingParams = cp;
+}
 
 void
-set_cooling_params(struct cooling_params coolpar)
+set_cooling_params(ParameterSet * ps)
 {
-    CoolingParams = coolpar;
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask == 0) {
+        /*Cooling rate network parameters*/
+        CoolingParams.CMBTemperature = param_get_double(ps, "CMBTemperature");
+        double OmegaBaryon = param_get_double(ps, "OmegaBaryon");
+        double Omega0 = param_get_double(ps, "Omega0");
+        double HubbleParam = param_get_double(ps, "HubbleParam");
+        CoolingParams.fBar = OmegaBaryon / (Omega0 - OmegaBaryon);
+        CoolingParams.cooling = param_get_enum(ps, "CoolingRates"); // Sherwood;
+        CoolingParams.recomb = param_get_enum(ps, "RecombRates"); // Verner96;
+        CoolingParams.SelfShieldingOn = param_get_int(ps, "SelfShieldingOn");
+        CoolingParams.PhotoIonizeFactor = param_get_double(ps, "PhotoIonizeFactor");
+        CoolingParams.PhotoIonizationOn = param_get_int(ps, "PhotoIonizationOn");
+        CoolingParams.rho_crit_baryon = OmegaBaryon * 3.0 * pow(HubbleParam*HUBBLE,2.0) /(8.0*M_PI*GRAVITY);
+        CoolingParams.MinGasTemp = param_get_double(ps, "MinGasTemp");
+        CoolingParams.UVRedshiftThreshold = param_get_double(ps, "UVRedshiftThreshold");
+
+        /*Helium model parameters*/
+        CoolingParams.HeliumHeatOn = param_get_int(ps, "HeliumHeatOn");
+        CoolingParams.HeliumHeatThresh = param_get_double(ps, "HeliumHeatThresh");
+        CoolingParams.HeliumHeatAmp = param_get_double(ps, "HeliumHeatAmp");
+        CoolingParams.HeliumHeatExp = param_get_double(ps, "HeliumHeatExp");
+    }
+    MPI_Bcast(&CoolingParams, sizeof(struct cooling_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
 /*Initialize the cooling rate module. This builds a lot of interpolation tables.
