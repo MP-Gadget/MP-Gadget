@@ -1,18 +1,14 @@
 """
-Scripts to convert MP-Gadget formatted bigfile to other Gadget formats.
-This is for incorporation in existing pipelines, and aims to make it easier for simulators
-to start using MP-Gadget.
+Script to convert between MP-Gadget formatted bigfile snapshots and Gadget-3 formatted HDF5 snapshots.
+Both directions are supported.
 
-Formats supported:
-    - hdf5.
-
-TODO: Support Gadget-1,2.
-TODO: Support Black hole data arrays better.
-TODO: Support conversion of HDF5/Gadget-2 to bigfile.
+This is to make it easier for simulators to start using MP-Gadget.
 
 Known name changes are accounted for: for example MP-Gadget has "Position" and Gadget-3 has "Coordinates".
 
-No unit conversion is done! Be careful with older Gadget's which do not store units in the snapshot header.
+No unit conversion is done! Be careful with older Gadgets which do not store units in the snapshot header.
+
+TODO: Support Black hole data arrays better.
 """
 
 from __future__ import print_function
@@ -20,6 +16,7 @@ import argparse
 import os
 import os.path
 import re
+import glob
 import bigfile
 import h5py
 import numpy as np
@@ -153,15 +150,89 @@ def write_all_hdf_files(hdf5name, bfname):
         write_hdf_file(bf, hdf5name, nn, nfiles)
         print("Wrote file %d" % nn)
 
+def write_bigfile_header(hdf5, bf):
+    """Write out a header in the bigfile format. Default units are assumed."""
+    bf.create("Header")
+    battr = bf["Header"].attrs
+    hattr = hdf5["Header"].attrs
+    battr["BoxSize"] = hattr["BoxSize"]
+    #As a relic from Gadget-1, the total particle numbers
+    #are written as two separate 32 bit integers.
+    battr["TotNumPart"] = np.uint64(hattr["NumPart_Total_HighWord"])*2**32 + np.uint64(hattr["NumPart_Total"])
+    #Guess at the initial particle numbers
+    battr["TotNumPartInit"] = battr["TotNumPart"]
+    battr["TotNumPartInit"][0] += battr["TotNumPartInit"][4]
+    battr["TotNumPartInit"][4] = 0
+    battr["TotNumPartInit"][5] = 0
+    #Guess at this. It only really matters for the neutrino model, which isn't present in Gadget-3.
+    battr["TimeIC"] = np.min([hattr["Time"], 0.01])
+    try:
+        for attr in ["UnitLength_in_cm", "UnitMass_in_g", "UnitVelocity_in_cm_per_s"]:
+            battr[attr] = hattr[attr]
+    #Fall back to default unit system
+    except KeyError:
+        battr["UnitLength_in_cm"] = 3.085678e+21
+        battr["UnitMass_in_g"] = 1.989e43
+        battr["UnitVelocity_in_cm_per_s"] = 100000.
+    #Some flags
+    battr["UsePeculiarVelocity"] = 0
+    #Missing a factor of 1/Hubble, but doesn't matter.
+    battr["RSDFactor"] = 1./hattr["Time"]**2
+    #Pass other keys through unchanged. We whitelist expected keys to avoid confusing Gadget.
+    hdfats = ["MassTable", "Time", "BoxSize", "Omega0", "OmegaLambda", "HubbleParam"]
+    for attr in hdfats:
+        battr[attr] = hattr[attr]
+
+def write_bf_segment(bf, hfile, startpart):
+    """Write the data arrays to an HDF5 file."""
+    #Open the file
+    with h5py.File(hfile,'r') as hdf5:
+        endpart = startpart + hdf5["Header"].attrs["NumPart_ThisFile"]
+        for ptype in range(6):
+            for hname in hdf5["PartType"+str(ptype)].keys():
+                block = names.get_bigfile_name(hname)
+                bname = "%d/%s" % (ptype, block)
+                if startpart[ptype] == 0:
+                    bf.create(bname)
+                bf[bname][startpart[ptype]:endpart[ptype]] = hdf5["PartType"+str(ptype)][hname]
+
+        return endpart
+
+def write_big_file(bfname, hdf5name):
+    """Find all the HDF5 files in the snapshot and merge them into a bigfile."""
+    #Find all the HDF5 snapshot set.
+    hdf5_files = glob.glob(hdf5name)
+    if len(hdf5_files) == 0:
+        hdf5_files = glob.glob(hdf5name+".*.hdf5")
+    elif os.path.isdir(hdf5_files[0]):
+        hdf5_files = glob.glob(os.path.join(hdf5name,"*_[0-9][0-9][0-9].*.hdf5"))
+    if len(hdf5_files) == 0:
+        raise IOError("Could not find hdF5 snapshot as %s (.*.hdf5)" % hdf5name)
+    if not h5py.is_hdf5(hdf5_files[0]):
+        raise IOError("%s is not hdf5!" % hdf5_files[0])
+    hdf5 = h5py.File(hdf5_files[0], 'r')
+    bf = bigfile.BigFile(bfname, create=True)
+    write_bigfile_header(hdf5, bf)
+    hdf5.close()
+    for n in range(6):
+        bf.create(str(n))
+    startpart = np.zeros(6)
+    for hfile in hdf5_files:
+        startpart = write_bf_segment(bf, hfile, startpart)
+        print("Copied HDF file %s" % hfile)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input', type=str, help='Input bigfile snapshot to convert.')
-    parser.add_argument('--output', type=str, help='Output directory for converted HDF5 files. Will create $output/snap_$n.hdf5.')
-    parser.add_argument('--oformat', type=str, default="hdf5", help='Output format. Only currently supported option is hdf5.',required=False)
-    parser.add_argument('--iformat', type=str, default="bigfile", help='Input format. Only currently supported option is bigfile.',required=False)
+    parser.add_argument('--input', type=str, help='Input snapshot to convert.')
+    parser.add_argument('--output', type=str, help='Output directory for converted files. HDF5 will create $output/snap_$n.hdf5.')
+    parser.add_argument('--oformat', type=str, default="hdf5", help='Output format. Should be hdf5 or bigfile.',required=False)
+    parser.add_argument('--iformat', type=str, default="bigfile", help='Input format. Should be bigfile or hdf5.',required=False)
 
     args = parser.parse_args()
-    assert args.oformat == "hdf5"
-    assert args.iformat == "bigfile"
-    write_all_hdf_files(args.output, args.input)
+    assert args.oformat == "hdf5" or args.oformat == "bigfile"
+    assert args.iformat == "bigfile" or args.iformat == "hdf5"
+    assert args.iformat != args.oformat
+    if args.oformat == "bigfile":
+        write_big_file(args.output, args.input)
+    else:
+        write_all_hdf_files(args.output, args.input)
