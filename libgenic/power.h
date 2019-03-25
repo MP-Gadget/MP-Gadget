@@ -14,6 +14,7 @@ struct power_params
     double Sigma8;
     double InputPowerRedshift;
     double PrimordialIndex;
+    double PrimordialRunning;
 };
 
 /*A note on gauge choice:
