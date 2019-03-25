@@ -726,7 +726,6 @@ SIMPLE_PROPERTY(SmoothingLength, P[i].Hsml, float, 1)
 SIMPLE_PROPERTY(Density, SPHP(i).Density, float, 1)
 #ifdef DENSITY_INDEPENDENT_SPH
 SIMPLE_PROPERTY(EgyWtDensity, SPHP(i).EgyWtDensity, float, 1)
-SIMPLE_GETTER(GTEntropy, SPHP(i).Entropy, float, 1)
 #endif
 SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
 SIMPLE_PROPERTY_TYPE(StarFormationTime, 4, STARP(i).FormationTime, float, 1)
