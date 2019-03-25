@@ -680,6 +680,7 @@ void io_register_io_block(char * name,
         ) {
     IOTableEntry * ent = &IOTable.ent[IOTable.used];
     strcpy(ent->name, name);
+    ent->zorder = IOTable.used;
     ent->ptype = ptype;
     strcpy(ent->dtype, dtype);
     ent->getter = getter;
@@ -786,6 +787,11 @@ static int order_by_type(const void *a, const void *b)
         return -1;
     if(pa->ptype > pb->ptype)
         return +1;
+    if(pa->zorder < pb->zorder)
+        return -1;
+    if(pa->zorder > pb->zorder)
+        return 1;
+
     return 0;
 }
 
@@ -844,7 +850,7 @@ static void register_io_blocks() {
     if(All.SnapshotWithFOF)
         fof_register_io_blocks();
 
-    /*Sort IO blocks so similar types are together*/
+    /*Sort IO blocks so similar types are together; then ordered by the sequence they are declared. */
     qsort_openmp(IOTable.ent, IOTable.used, sizeof(struct IOTableEntry), order_by_type);
 }
 

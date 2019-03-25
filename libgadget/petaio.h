@@ -8,6 +8,7 @@ typedef void (*property_setter) (int i, void * target);
 typedef int (*petaio_selection) (int i);
 
 typedef struct IOTableEntry {
+    int zorder;
     char name[64];
     int ptype;
     char dtype[8];
