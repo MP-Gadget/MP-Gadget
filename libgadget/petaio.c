@@ -767,7 +767,8 @@ static void GTInternalEnergy(int i, float * out) {
 }
 
 static void STInternalEnergy(int i, float * out) {
-    SPHP(i).Entropy = *out;
+    float u = *out;
+    SPHP(i).Entropy = GAMMA_MINUS1 * u / pow(SPHP(i).EOMDensity * All.cf.a3inv , GAMMA_MINUS1);
 }
 
 static void GTJUV(int i, float * out) {
