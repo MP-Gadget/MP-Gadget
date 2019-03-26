@@ -51,6 +51,7 @@ MNut = float(min=0, default=0)
 MWDM_Therm = float(min=0, default=0)
 PrimordialIndex = float(default=0.971)
 PrimordialAmp = float(default=2.215e-9)
+PrimordialRunning = float(default=0)
 CMBTemperature = float(default=2.7255)""".split('\n')
 
 def _check_genic_config(config):
@@ -82,7 +83,7 @@ def _build_cosmology_params(config):
         config['OmegaBaryon'] = 0.0486
     ocdm = config['Omega0'] - config['OmegaBaryon'] - omeganu
     omegak = 1-config['OmegaLambda']-config['Omega0']
-    gparams = {'h':config['HubbleParam'], 'Omega_cdm':ocdm,'Omega_b':config['OmegaBaryon'], 'Omega_k':omegak, 'n_s': config['PrimordialIndex'],'T_cmb':config["CMBTemperature"]}
+    gparams = {'h':config['HubbleParam'], 'Omega_cdm':ocdm,'Omega_b':config['OmegaBaryon'], 'Omega_k':omegak, 'n_s': config['PrimordialIndex'], 'alpha_s': config['PrimordialRunning'],'T_cmb':config["CMBTemperature"]}
     #One may specify either OmegaLambda or Omega_fld,
     #and the other is worked out by summing all matter to unity.
     #Specify Omega_fld even if we have Lambda, to avoid floating point.
