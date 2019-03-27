@@ -102,11 +102,11 @@ def write_hdf_file(bf, hdf5name, fnum, nfiles):
         #Write the data
         for ptype in range(6):
             hdf5.create_group("PartType" + str(ptype))
-
         for block in bf.list_blocks():
             if block == "Header":
                 continue
             ptype, bname = os.path.split(block)
+            assert bname != ''
             #Deal with groups that don't contain particles: just write them to the first file.
             if ptype == '':
                 if fnum == 0:
