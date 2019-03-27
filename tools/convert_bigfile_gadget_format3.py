@@ -240,6 +240,8 @@ def write_big_file(bfname, hdf5name):
         hdf5_files = glob.glob(os.path.join(hdf5name,"*_[0-9][0-9][0-9].*.hdf5"))
     if len(hdf5_files) == 0:
         raise IOError("Could not find hdF5 snapshot as %s (.*.hdf5)" % hdf5name)
+    #Sort so we get a consistent answer each time.
+    hdf5_files.sort()
     if not h5py.is_hdf5(hdf5_files[0]):
         raise IOError("%s is not hdf5!" % hdf5_files[0])
     hdf5 = h5py.File(hdf5_files[0], 'r')
