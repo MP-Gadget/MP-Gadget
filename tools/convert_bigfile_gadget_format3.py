@@ -220,6 +220,14 @@ def create_big_file_arrays(bf, hfile):
             except IndexError:
                 rows = 1
             bf.create(bname, dtype=(dtype, rows), size=npart_tot[ptype], Nfile=nfile)
+        #We need these (generally non-present) arrays but the simulation will start even if they are zero.
+        if ptype == 0 and "Generation" not in htype.keys():
+            genzero = np.zeros(npart_tot[ptype],dtype=np.uint8)
+            bf.create_from_array("0/Generation", genzero)
+        #MP-Gadget needs a mass array: Gadget-3 reads it from the header if all masses are the same.
+        if "Mass" not in htype.keys():
+            genzero = hfile["Header"].attrs["MassTable"][ptype] * np.ones(npart_tot[ptype],dtype=np.float32)
+            bf.create_from_array("%d/Mass" % ptype, genzero)
 
 
 def write_big_file(bfname, hdf5name):
