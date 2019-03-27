@@ -176,8 +176,8 @@ def write_bigfile_header(hdf5, bf):
         battr["UnitVelocity_in_cm_per_s"] = 100000.
     #Some flags
     battr["UsePeculiarVelocity"] = 0
-    #Missing a factor of 1/Hubble, but doesn't matter.
-    battr["RSDFactor"] = 1./hattr["Time"]**2
+    #Should be 1/Time^2/Hubble, but we don't know cosmology.
+    battr["RSDFactor"] = np.nan
     #Pass other keys through unchanged. We whitelist expected keys to avoid confusing Gadget.
     hdfats = ["MassTable", "Time", "BoxSize", "Omega0", "OmegaLambda", "HubbleParam"]
     for attr in hdfats:
