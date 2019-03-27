@@ -11,7 +11,6 @@ No unit conversion is done! Be careful with older Gadgets which do not store uni
 TODO: Support Black hole data arrays better.
 """
 
-from __future__ import print_function
 import argparse
 import os
 import os.path
@@ -22,7 +21,7 @@ import h5py
 import numpy as np
 
 
-class NameMaps(object):
+class NameMaps:
     """Maps names between HDF5 and Bigfile."""
     def __init__(self):
         #Map of (only changed) block names between HDF5 and bigfile snapshots.
@@ -32,7 +31,6 @@ class NameMaps(object):
                                     "GFM_Metallicity": "Metallicity",
                                     "ParticleIDs" : "ID",
                                   }
-        #This requires python 2.7
         self.bigfile_to_hdf_map = {v : k for (k,v) in self.hdf_to_bigfile_map.items()}
         #Leave the metallicity array unchanged.
         del self.bigfile_to_hdf_map["Metallicity"]
