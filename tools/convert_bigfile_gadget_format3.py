@@ -189,14 +189,38 @@ def write_bf_segment(bf, hfile, startpart):
     with h5py.File(hfile,'r') as hdf5:
         endpart = startpart + hdf5["Header"].attrs["NumPart_ThisFile"]
         for ptype in range(6):
-            for hname in hdf5["PartType"+str(ptype)].keys():
+            try:
+                htype = hdf5["PartType"+str(ptype)]
+            except KeyError:
+                continue
+            for hname in htype.keys():
                 block = names.get_bigfile_name(hname)
                 bname = "%d/%s" % (ptype, block)
-                if startpart[ptype] == 0:
-                    bf.create(bname)
-                bf[bname][startpart[ptype]:endpart[ptype]] = hdf5["PartType"+str(ptype)][hname]
-
+                harray = np.array(hdf5["PartType"+str(ptype)][hname])
+                #Beware this is not checked.
+                bf[bname].write(startpart[ptype], harray)
         return endpart
+
+def create_big_file_arrays(bf, hfile):
+    """Pre-create all the big file arrays with the desired sizes."""
+    npart_tot = bf["Header"].attrs["TotNumPart"]
+    nfile = hfile["Header"].attrs["NumFilesPerSnapshot"]
+    for ptype in range(6):
+        try:
+            htype = hfile["PartType"+str(ptype)]
+        except KeyError:
+            continue
+        for hname in htype.keys():
+            hshape = np.shape(htype[hname])
+            dtype = htype[hname].dtype
+            block = names.get_bigfile_name(hname)
+            bname = "%d/%s" % (ptype, block)
+            try:
+                rows = hshape[1]
+            except IndexError:
+                rows = 1
+            bf.create(bname, dtype=(dtype, rows), size=npart_tot[ptype], Nfile=nfile)
+
 
 def write_big_file(bfname, hdf5name):
     """Find all the HDF5 files in the snapshot and merge them into a bigfile."""
@@ -213,10 +237,11 @@ def write_big_file(bfname, hdf5name):
     hdf5 = h5py.File(hdf5_files[0], 'r')
     bf = bigfile.BigFile(bfname, create=True)
     write_bigfile_header(hdf5, bf)
-    hdf5.close()
     for n in range(6):
         bf.create(str(n))
-    startpart = np.zeros(6)
+    create_big_file_arrays(bf, hdf5)
+    hdf5.close()
+    startpart = np.zeros(6, dtype=np.int)
     for hfile in hdf5_files:
         startpart = write_bf_segment(bf, hfile, startpart)
         print("Copied HDF file %s" % hfile)
