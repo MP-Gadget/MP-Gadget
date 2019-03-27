@@ -74,7 +74,7 @@ def write_hdf_header(bf, hdf5, nfiles, npart_file):
     hattr["Flag_StellarAge"] = flag_sfr
     hattr["Flag_Metals"] = flag_sfr
     hattr["Flag_Feedback"] = 0
-    hattr["Flag_DoublePrecision"] = 1
+    hattr["Flag_DoublePrecision"] = (bf["1/Position"].dtype == np.float64)
     hattr["Flag_IC_Info"] = 0
     hattr["Redshift"] = 1./battr["Time"] - 1
     #Pass other keys through unchanged. We whitelist expected keys to avoid confusing Gadget.
