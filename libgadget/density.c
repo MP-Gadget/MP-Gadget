@@ -162,6 +162,7 @@ density_internal(int update_hsml)
         if(ActiveParticle)
             p_i = ActiveParticle[i];
         P[p_i].DensityIterationDone = 0;
+        P[p_i].NumNgb = 0;
         DENSITY_GET_PRIV(tw)->Left[p_i] = 0;
         DENSITY_GET_PRIV(tw)->Right[p_i] = 0;
     }
