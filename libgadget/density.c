@@ -164,7 +164,7 @@ density_internal(int update_hsml)
         P[p_i].DensityIterationDone = 0;
         P[p_i].NumNgb = 0;
         DENSITY_GET_PRIV(tw)->Left[p_i] = 0;
-        DENSITY_GET_PRIV(tw)->Right[p_i] = 0;
+        DENSITY_GET_PRIV(tw)->Right[p_i] = All.BoxSize;
     }
 
     /* allocate buffers to arrange communication */
@@ -467,41 +467,33 @@ void density_check_neighbours (int i, TreeWalk * tw) {
             endrun(999993, "Already has DensityIterationDone set, bad memory intialization.");
         }
 
-        if(DENSITY_GET_PRIV(tw)->Left[i] > 0 && DENSITY_GET_PRIV(tw)->Right[i] > 0)
-            if((DENSITY_GET_PRIV(tw)->Right[i] - DENSITY_GET_PRIV(tw)->Left[i]) < 1.0e-3 * DENSITY_GET_PRIV(tw)->Left[i])
-            {
-                /* this one should be ok */
-                P[i].DensityIterationDone = 1;
-                return;
-            }
+        if((DENSITY_GET_PRIV(tw)->Right[i] - DENSITY_GET_PRIV(tw)->Left[i]) < 1.0e-3 * DENSITY_GET_PRIV(tw)->Left[i])
+        {
+            /* this one should be ok */
+            P[i].DensityIterationDone = 1;
+            return;
+        }
 
+        /* If we need more neighbours, move the lower bound up. If we need fewer, move the upper bound down.*/
         if(P[i].NumNgb < (desnumngb - All.MaxNumNgbDeviation))
             DENSITY_GET_PRIV(tw)->Left[i] = DMAX(P[i].Hsml, DENSITY_GET_PRIV(tw)->Left[i]);
         else
-        {
-            if(DENSITY_GET_PRIV(tw)->Right[i] != 0)
-            {
-                if(P[i].Hsml < DENSITY_GET_PRIV(tw)->Right[i])
-                    DENSITY_GET_PRIV(tw)->Right[i] = P[i].Hsml;
-            }
-            else
-                DENSITY_GET_PRIV(tw)->Right[i] = P[i].Hsml;
-        }
+            DENSITY_GET_PRIV(tw)->Right[i] = DMIN(P[i].Hsml, DENSITY_GET_PRIV(tw)->Right[i]);
 
-        if(DENSITY_GET_PRIV(tw)->Right[i] > 0 && DENSITY_GET_PRIV(tw)->Left[i] > 0)
+        /* Next step is geometric mean of previous. */
+        if(DENSITY_GET_PRIV(tw)->Right[i] < All.BoxSize && DENSITY_GET_PRIV(tw)->Left[i] > 0)
             P[i].Hsml = pow(0.5 * (pow(DENSITY_GET_PRIV(tw)->Left[i], 3) + pow(DENSITY_GET_PRIV(tw)->Right[i], 3)), 1.0 / 3);
         else
         {
-            if(DENSITY_GET_PRIV(tw)->Right[i] == 0 && DENSITY_GET_PRIV(tw)->Left[i] == 0)
-                endrun(8188, "Cannot occur. Check for memory corruption.");	/* can't occur */
+            if(DENSITY_GET_PRIV(tw)->Right[i] > 0.99 * All.BoxSize && DENSITY_GET_PRIV(tw)->Left[i] == 0)
+                endrun(8188, "Cannot occur. Check for memory corruption: L = %g R = %g N=%g.", DENSITY_GET_PRIV(tw)->Left[i], DENSITY_GET_PRIV(tw)->Right[i], P[i].NumNgb);
 
-            if(DENSITY_GET_PRIV(tw)->Right[i] == 0 && DENSITY_GET_PRIV(tw)->Left[i] > 0)
+            /* If this is the first step we can be faster by increasing or decreasing current Hsml by a constant factor*/
+            if(DENSITY_GET_PRIV(tw)->Right[i] > 0.99 * All.BoxSize && DENSITY_GET_PRIV(tw)->Left[i] > 0)
             {
                 if(P[i].Type == 0 && fabs(P[i].NumNgb - desnumngb) < 0.5 * desnumngb)
                 {
-                    double fac = 1 - (P[i].NumNgb -
-                            desnumngb) / (NUMDIMS * P[i].NumNgb) *
-                        SPHP(i).DhsmlDensityFactor;
+                    double fac = 1 - (P[i].NumNgb - desnumngb) / (NUMDIMS * P[i].NumNgb) * SPHP(i).DhsmlDensityFactor;
 
                     if(fac < 1.26)
                         P[i].Hsml *= fac;
@@ -512,13 +504,11 @@ void density_check_neighbours (int i, TreeWalk * tw) {
                     P[i].Hsml *= 1.26;
             }
 
-            if(DENSITY_GET_PRIV(tw)->Right[i] > 0 && DENSITY_GET_PRIV(tw)->Left[i] == 0)
+            if(DENSITY_GET_PRIV(tw)->Right[i] < 0.99*All.BoxSize && DENSITY_GET_PRIV(tw)->Left[i] == 0)
             {
                 if(P[i].Type == 0 && fabs(P[i].NumNgb - desnumngb) < 0.5 * desnumngb)
                 {
-                    double fac = 1 - (P[i].NumNgb -
-                            desnumngb) / (NUMDIMS * P[i].NumNgb) *
-                        SPHP(i).DhsmlDensityFactor;
+                    double fac = 1 - (P[i].NumNgb - desnumngb) / (NUMDIMS * P[i].NumNgb) * SPHP(i).DhsmlDensityFactor;
 
                     if(fac > 1 / 1.26)
                         P[i].Hsml *= fac;
