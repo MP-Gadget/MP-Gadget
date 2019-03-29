@@ -84,7 +84,7 @@ force_tree_eh_slots_fork(EIBase * event, void * userdata)
 }
 
 int
-force_tree_allocated(struct OctTree * tt)
+force_tree_allocated(const struct OctTree * tt)
 {
     return tt->tree_allocated_flag;
 }

@@ -64,7 +64,7 @@ extern struct OctTree {
     int *Father;
 } TreeNodes;
 
-int force_tree_allocated(struct OctTree * tt);
+int force_tree_allocated(const struct OctTree * tt);
 
 /* This function propagates changed SPH smoothing lengths up the tree*/
 void force_update_hmax(int * activeset, int size, struct OctTree * tt);
