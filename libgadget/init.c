@@ -195,7 +195,7 @@ setup_smoothinglengths(int RestartSnapNum)
 #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++)
         {
-            int no = force_get_father(i, TreeNodes);
+            int no = force_get_father(i, &TreeNodes);
             /* Don't need smoothing lengths for DM particles*/
             if(P[i].Type != 0 && P[i].Type != 4 && P[i].Type != 5)
                 continue;

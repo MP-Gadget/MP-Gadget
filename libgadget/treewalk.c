@@ -975,13 +975,13 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
 
     while(no >= 0)
     {
-        int nextnode = force_get_next_node(no, TreeNodes);
-        if(node_is_particle(no, TreeNodes))  /* single particle */ {
+        int nextnode = force_get_next_node(no, &TreeNodes);
+        if(node_is_particle(no, &TreeNodes))  /* single particle */ {
             lv->ngblist[numcand++] = no;
             no = nextnode;
             continue;
         }
-        if(node_is_pseudo_particle(no, TreeNodes)) {
+        if(node_is_pseudo_particle(no, &TreeNodes)) {
             /* pseudo particle */
             if(lv->mode == 1) {
                 if(!lv->tw->UseNodeList) {

@@ -190,7 +190,7 @@ static int pm_mark_region_for_node(int startno, int rid) {
     int endno = Nodes[startno].u.d.sibling;
     while(no >= 0 && no != endno)
     {
-        if(node_is_particle(no, TreeNodes))	/* single particle */
+        if(node_is_particle(no, &TreeNodes))	/* single particle */
         {
             int p = no;
             /* when we are in PM, all particles must have been synced. */
@@ -229,7 +229,7 @@ static int pm_mark_region_for_node(int startno, int rid) {
             numpart ++;
         }
 
-        no = force_get_next_node(no, TreeNodes);
+        no = force_get_next_node(no, &TreeNodes);
     }
     return numpart;
 }
