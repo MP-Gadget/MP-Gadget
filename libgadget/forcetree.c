@@ -28,18 +28,18 @@
  */
 
 /*The node index is an integer with unusual properties:
- * no = 0..RootNode (firstnode in internal functions) corresponds to a particle.
- * no = RootNode..RootNode + MaxNodes (firstnode..lastnode) corresponds to actual tree nodes,
- * and is the only memory allocated in Nodes_base.
- * no > RootNode + MaxNodes (lastnode) means a pseudo particle on another processor*/
+ * no = 0..OctTree.firstnode  corresponds to a particle.
+ * no = OctTree.firstnode..OctTree.lastnode corresponds to actual tree nodes,
+ * and is the only memory allocated in Nodes_base. After the tree is built this becomes
+ * no = OctTree.firstnode..OctTree.numnodes which is the only allocated memory.
+ * no > OctTree.lastnode means a pseudo particle on another processor*/
 struct NODE *Nodes_base,	/*!< points to the actual memory allocated for the nodes */
- *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[RootNode]
+ *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[firstnode]
 				   gives the first allocated node */
 struct OctTree TreeNodes;
 
 int MaxNodes;                  /*!< maximum allowed number of internal nodes */
 int NumNodes;                  /*!< Currently used number of internal nodes */
-int RootNode;                  /*!< Index of the first node */
 
 
 int *Nextnode;			/*!< gives next node in tree walk  (nodes array) */
@@ -1147,7 +1147,6 @@ struct OctTree force_treeallocate(int maxnodes, int maxpart, int first_node_offs
 
     tree_allocated_flag = 1;
     MaxNodes = maxnodes;
-    RootNode = first_node_offset;
     message(0, "Allocating memory for %d tree-nodes (MaxPart=%d).\n", maxnodes, maxpart);
     Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopNodes) * sizeof(int));
     Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));

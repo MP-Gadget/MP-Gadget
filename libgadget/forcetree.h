@@ -40,7 +40,7 @@ extern struct NODE
     u;
 }
 *Nodes_base,			/*!< points to the actual memory allocated for the nodes */
-    *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[RootNode]
+    *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[firstnode]
                       gives the first allocated node */
 
 /*Structure containing the Node pointer, and the first and last entries*/
