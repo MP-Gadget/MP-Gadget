@@ -190,7 +190,7 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
 
     no = input->base.NodeList[0];
     listindex ++;
-    no = Nodes[no].u.d.nextnode;	/* open it */
+    no = TreeNodes.Nodes[no].u.d.nextnode;	/* open it */
 
     pos_x = input->base.Pos[0];
     pos_y = input->base.Pos[1];
@@ -279,7 +279,7 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
                     h = All.ForceSoftening[P[no].Type];
 #endif
 #endif
-                no = force_get_next_node(no, TreeNodes);
+                no = force_get_next_node(no, &TreeNodes);
             }
             else			/* we have an  internal node */
             {
@@ -290,11 +290,11 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
                         if(-1 == treewalk_export_particle(lv, no))
                             return -1;
                     }
-                    no = force_get_next_node(no, TreeNodes);
+                    no = force_get_next_node(no, &TreeNodes);
                     continue;
                 }
 
-                nop = &Nodes[no];
+                nop = &TreeNodes.Nodes[no];
 
                 if(lv->mode == 1)
                 {
@@ -572,7 +572,7 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
             no = input->base.NodeList[listindex];
             if(no >= 0)
             {
-                no = Nodes[no].u.d.nextnode;	/* open it */
+                no = TreeNodes.Nodes[no].u.d.nextnode;	/* open it */
                 nnodesinlist++;
                 listindex++;
             }

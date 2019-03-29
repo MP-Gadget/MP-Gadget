@@ -808,10 +808,10 @@ static void fill_task_queue (TreeWalk * tw, struct ev_task * tq, int * pq, int l
         if(0) {
             no = force_get_father(pq[i], TreeNodes);
             while(no != -1) {
-                if(Nodes[no].f.TopLevel) {
+                if(TreeNodes.Nodes[no].f.TopLevel) {
                     break;
                 }
-                no = Nodes[no].father;
+                no = TreeNodes.Nodes[no].father;
             }
         }
        */
@@ -855,7 +855,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
 
     for(inode = 0; inode < NODELISTLENGTH && I->NodeList[inode] >= 0; inode++)
     {
-        int startnode = Nodes[I->NodeList[inode]].u.d.nextnode;  /* open it */
+        int startnode = TreeNodes.Nodes[I->NodeList[inode]].u.d.nextnode;  /* open it */
 
         int numcand = ngb_treefind_threads(I, O, iter, startnode, lv);
         /* Export buffer is full end prematurally */
@@ -971,17 +971,19 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
     int no;
     int numcand = 0;
 
+    const struct OctTree * tree = &TreeNodes;
+
     no = startnode;
 
     while(no >= 0)
     {
-        int nextnode = force_get_next_node(no, &TreeNodes);
-        if(node_is_particle(no, &TreeNodes))  /* single particle */ {
+        int nextnode = force_get_next_node(no, tree);
+        if(node_is_particle(no, tree))  /* single particle */ {
             lv->ngblist[numcand++] = no;
             no = nextnode;
             continue;
         }
-        if(node_is_pseudo_particle(no, &TreeNodes)) {
+        if(node_is_pseudo_particle(no, tree)) {
             /* pseudo particle */
             if(lv->mode == 1) {
                 if(!lv->tw->UseNodeList) {
@@ -999,7 +1001,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
             continue;
         }
 
-        struct NODE *current = &Nodes[no];
+        struct NODE *current = &tree->Nodes[no];
 
         if(lv->mode == 1) {
             if (lv->tw->UseNodeList) {

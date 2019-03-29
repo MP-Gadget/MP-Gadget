@@ -190,12 +190,13 @@ setup_smoothinglengths(int RestartSnapNum)
     const double a3 = All.Time * All.Time * All.Time;
 
     force_tree_rebuild();
+    struct OctTree * tree = &TreeNodes;
     if(RestartSnapNum == -1)
     {
 #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++)
         {
-            int no = force_get_father(i, &TreeNodes);
+            int no = force_get_father(i, tree);
             /* Don't need smoothing lengths for DM particles*/
             if(P[i].Type != 0 && P[i].Type != 4 && P[i].Type != 5)
                 continue;
@@ -212,9 +213,9 @@ setup_smoothinglengths(int RestartSnapNum)
             } else {
                 massfactor = 1.0 - 0.04 / 0.26;
             }
-            while(10 * All.DesNumNgb * P[i].Mass > massfactor * Nodes[no].u.d.mass)
+            while(10 * All.DesNumNgb * P[i].Mass > massfactor * tree->Nodes[no].u.d.mass)
             {
-                int p = Nodes[no].father;
+                int p = force_get_father(no, tree);
 
                 if(p < 0)
                     break;
@@ -223,8 +224,8 @@ setup_smoothinglengths(int RestartSnapNum)
             }
 
             P[i].Hsml =
-                pow(3.0 / (4 * M_PI) * All.DesNumNgb * P[i].Mass / (massfactor * Nodes[no].u.d.mass),
-                        1.0 / 3) * Nodes[no].len;
+                pow(3.0 / (4 * M_PI) * All.DesNumNgb * P[i].Mass / (massfactor * tree->Nodes[no].u.d.mass),
+                        1.0 / 3) * tree->Nodes[no].len;
 
             /* recover from a poor initial guess */
             if(P[i].Hsml > 500.0 * All.MeanSeparation[0])
