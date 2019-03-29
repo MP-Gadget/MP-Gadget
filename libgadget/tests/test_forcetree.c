@@ -31,7 +31,7 @@ force_update_node_parallel(const struct TreeBuilder tb);
 struct part_manager_type PartManager[1] = {{0}};
 struct global_data_all_processes All;
 
-int MaxTopNodes, NTopNodes, NTopLeaves, NTask, ThisTask;
+int NTopNodes, NTopLeaves, NTask, ThisTask;
 struct topleaf_data *TopLeaves;
 struct topnode_data *TopNodes;
 struct task_data *Tasks;
@@ -387,7 +387,6 @@ static int setup_tree(void **state) {
     /* The whole tree goes into one topnode.
      * Set up just enough of the TopNode structure that
      * domain_get_topleaf works*/
-    MaxTopNodes = 1;
     NTopNodes = NTopLeaves = 1;
     TopNodes = malloc(sizeof(struct topnode_data));
     TopNodes[0].Daughter = -1;
