@@ -44,6 +44,8 @@ extern struct NODE
 
 /*Structure containing the Node pointer, and the first and last entries*/
 extern struct OctTree {
+    /*Is 1 if the tree is allocated*/
+    int tree_allocated_flag;
     /*Index of first internal node. Difference between Nodes and Nodes_base. == MaxPart*/
     int firstnode;
     /*Index of first pseudo-particle node*/
@@ -61,7 +63,7 @@ extern struct OctTree {
 extern int *Nextnode;		/*!< gives next node in tree walk  (nodes array) */
 extern int *Father;		/*!< gives parent node in tree (Prenodes array) */
 
-int force_tree_allocated();
+int force_tree_allocated(struct OctTree * tt);
 
 /* This function propagates changed SPH smoothing lengths up the tree*/
 void force_update_hmax(int * activeset, int size, struct OctTree * tt);

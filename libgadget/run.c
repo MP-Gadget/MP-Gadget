@@ -234,7 +234,7 @@ void run(void)
         report_memory_usage("RUN");
 
         /*Note FoF will free the tree too*/
-        if(force_tree_allocated()) force_tree_free(&TreeNodes);
+        if(force_tree_allocated(&TreeNodes)) force_tree_free(&TreeNodes);
 
         if(!next_sync || stop) {
             /* out of sync points, or a requested stop, the run has finally finished! Yay.*/

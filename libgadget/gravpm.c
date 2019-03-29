@@ -175,7 +175,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
         convert_node_to_region(&regions[r]);
     }
     /*This is done to conserve memory during the PM step*/
-    if(force_tree_allocated()) force_tree_free(&TreeNodes);
+    if(force_tree_allocated(&TreeNodes)) force_tree_free(&TreeNodes);
 
     /*Allocate memory for a power spectrum*/
     powerspectrum_alloc(&PowerSpectrum, All.Nmesh, All.NumThreads, All.MassiveNuLinRespOn);

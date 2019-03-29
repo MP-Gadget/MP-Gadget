@@ -600,7 +600,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
 void
 treewalk_run(TreeWalk * tw, int * active_set, int size)
 {
-    if(!force_tree_allocated()) {
+    if(!force_tree_allocated(&TreeNodes)) {
         endrun(0, "Tree has been freed before this treewalk.\n");
     }
 

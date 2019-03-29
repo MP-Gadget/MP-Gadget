@@ -235,7 +235,7 @@ sfr_reserve_slots(int * NewStars, int NumNewStar, struct OctTree * tt)
         int *Nextnode_tmp=NULL;
         int *Father_tmp=NULL;
         int *ActiveParticle_tmp=NULL;
-        if(force_tree_allocated()) {
+        if(force_tree_allocated(tt)) {
             nodes_base_tmp = mymalloc2("nodesbasetmp", tt->numnodes * sizeof(struct NODE));
             memmove(nodes_base_tmp, tt->Nodes_base, tt->numnodes * sizeof(struct NODE));
             myfree(tt->Nodes_base);
@@ -265,7 +265,7 @@ sfr_reserve_slots(int * NewStars, int NumNewStar, struct OctTree * tt)
             memmove(ActiveParticle, ActiveParticle_tmp, NumActiveParticle * sizeof(int));
             myfree(ActiveParticle_tmp);
         }
-        if(force_tree_allocated()) {
+        if(force_tree_allocated(tt)) {
             Nextnode = mymalloc("Nextnode", (PartManager->MaxPart + NTopNodes)* sizeof(int));
             memmove(Nextnode, Nextnode_tmp, (PartManager->MaxPart + NTopNodes) * sizeof(int));
             myfree(Nextnode_tmp);

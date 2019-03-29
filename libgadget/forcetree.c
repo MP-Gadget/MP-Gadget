@@ -30,7 +30,7 @@
 /*The node index is an integer with unusual properties:
  * no = 0..OctTree.firstnode  corresponds to a particle.
  * no = OctTree.firstnode..OctTree.lastnode corresponds to actual tree nodes,
- * and is the only memory allocated in TreeNodes.Nodes_base. After the tree is built this becomes
+ * and is the only memory allocated in OctTree.Nodes_base. After the tree is built this becomes
  * no = OctTree.firstnode..OctTree.numnodes which is the only allocated memory.
  * no > OctTree.lastnode means a pseudo particle on another processor*/
 struct OctTree TreeNodes;
@@ -41,9 +41,8 @@ struct NODE * Nodes;
 int *Nextnode;			/*!< gives next node in tree walk  (nodes array) */
 int *Father;			/*!< gives parent node in tree (nodes array) */
 
-static int tree_allocated_flag = 0;
-
-static struct OctTree force_tree_build(int npart);
+static struct OctTree
+force_tree_build(int npart);
 
 static int
 force_tree_build_single(const struct OctTree tb, const int npart);
@@ -87,17 +86,17 @@ force_tree_eh_slots_fork(EIBase * event, void * userdata)
 }
 
 int
-force_tree_allocated()
+force_tree_allocated(struct OctTree * tt)
 {
-    return tree_allocated_flag;
+    return tt->tree_allocated_flag;
 }
 
 void
-force_tree_rebuild()
+force_tree_rebuild(void)
 {
     message(0, "Tree construction.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
-    if(force_tree_allocated()) {
+    if(force_tree_allocated(&TreeNodes)) {
         force_tree_free(&TreeNodes);
     }
     walltime_measure("/Misc");
@@ -107,7 +106,6 @@ force_tree_rebuild()
     walltime_measure("/Tree/Build");
 
     message(0, "Tree construction done.\n");
-
 }
 
 /*! This function is a driver routine for constructing the gravitational
@@ -474,7 +472,7 @@ int force_tree_create_nodes(const struct OctTree tb, const int npart)
  *  PartManager->MaxPart.... PartManager->MaxPart+nodes-1 reference tree nodes. `Nodes_base'
  *  points to the first tree node, while `nodes' is shifted such that
  *  nodes[PartManager->MaxPart] gives the first tree node. Finally, node indices
- *  with values 'PartManager->MaxPart + TreeNodes.lastnode' and larger indicate "pseudo
+ *  with values 'PartManager->MaxPart + tb.lastnode' and larger indicate "pseudo
  *  particles", i.e. multipole moments of top-level nodes that lie on
  *  different CPUs. If such a node needs to be opened, the corresponding
  *  particle must be exported to that CPU. */
@@ -1140,7 +1138,6 @@ struct OctTree force_treeallocate(int maxnodes, int maxpart, int first_node_offs
     size_t allbytes = 0;
     struct OctTree tb;
 
-    tree_allocated_flag = 1;
     message(0, "Allocating memory for %d tree-nodes (MaxPart=%d).\n", maxnodes, maxpart);
     Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopNodes) * sizeof(int));
     Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
@@ -1152,6 +1149,7 @@ struct OctTree force_treeallocate(int maxnodes, int maxpart, int first_node_offs
     tb.lastnode = first_node_offset + maxnodes;
     tb.numnodes = maxnodes;
     tb.Nodes = tb.Nodes_base - first_node_offset;
+    tb.tree_allocated_flag = 1;
     allbytes += bytes;
     message(0, "Allocated %g MByte for BH-tree, (presently allocated %g MB)\n",
          allbytes / (1024.0 * 1024.0),
@@ -1166,8 +1164,10 @@ void force_tree_free(struct OctTree * tt)
 {
     event_unlisten(&EventSlotsFork, force_tree_eh_slots_fork, NULL);
 
+    if(!force_tree_allocated(tt))
+        return;
     myfree(tt->Nodes_base);
     myfree(Father);
     myfree(Nextnode);
-    tree_allocated_flag = 0;
+    tt->tree_allocated_flag = 0;
 }
