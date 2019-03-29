@@ -168,7 +168,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                 const double otherh = FORCE_SOFTENING(no);
                 if(h < otherh)
                     h = otherh;
-                no = Nextnode[no];
+                no = force_get_next_node(no, TreeNodes);
             }
             else			/* we have an  internal node */
             {
@@ -180,7 +180,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                         if(-1 == treewalk_export_particle(lv, no))
                             return -1;
                     }
-                    no = Nextnode[no - MaxNodes];
+                    no = force_get_next_node(no, TreeNodes);
                     continue;
                 }
 

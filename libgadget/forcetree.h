@@ -58,8 +58,6 @@ extern struct OctTree {
     struct NODE * Nodes_base;
 } TreeNodes;
 
-extern int MaxNodes;		/*!< maximum allowed number of internal nodes */
-
 /*Used in domain.c*/
 extern int *Nextnode;		/*!< gives next node in tree walk  (nodes array) */
 extern int *Father;		/*!< gives parent node in tree (Prenodes array) */

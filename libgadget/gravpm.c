@@ -186,15 +186,13 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
 
 static int pm_mark_region_for_node(int startno, int rid) {
     int numpart = 0;
-    int p;
     int no = startno;
     int endno = Nodes[startno].u.d.sibling;
     while(no >= 0 && no != endno)
     {
         if(node_is_particle(no, TreeNodes))	/* single particle */
         {
-            p = no;
-            no = Nextnode[no];
+            int p = no;
             /* when we are in PM, all particles must have been synced. */
             if (P[p].Ti_drift != All.Ti_Current) {
                 abort();
@@ -230,17 +228,8 @@ static int pm_mark_region_for_node(int startno, int rid) {
             }
             numpart ++;
         }
-        else
-        {
-            if(node_is_pseudo_particle(no, TreeNodes))	/* pseudo particle */
-            {
-                /* skip pseudo particles */
-                no = Nextnode[no - MaxNodes];
-                continue;
-            }
 
-            no = Nodes[no].u.d.nextnode;	/* ok, we need to open the node */
-        }
+        no = force_get_next_node(no, TreeNodes);
     }
     return numpart;
 }

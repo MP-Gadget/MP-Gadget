@@ -38,8 +38,6 @@ struct NODE *Nodes_base,	/*!< points to the actual memory allocated for the node
 				   gives the first allocated node */
 struct OctTree TreeNodes;
 
-int MaxNodes;                  /*!< maximum allowed number of internal nodes */
-
 int *Nextnode;			/*!< gives next node in tree walk  (nodes array) */
 int *Father;			/*!< gives parent node in tree (nodes array) */
 
@@ -474,7 +472,7 @@ int force_tree_create_nodes(const struct OctTree tb, const int npart)
  *  PartManager->MaxPart.... PartManager->MaxPart+nodes-1 reference tree nodes. `Nodes_base'
  *  points to the first tree node, while `nodes' is shifted such that
  *  nodes[PartManager->MaxPart] gives the first tree node. Finally, node indices
- *  with values 'PartManager->MaxPart + MaxNodes' and larger indicate "pseudo
+ *  with values 'PartManager->MaxPart + TreeNodes.lastnode' and larger indicate "pseudo
  *  particles", i.e. multipole moments of top-level nodes that lie on
  *  different CPUs. If such a node needs to be opened, the corresponding
  *  particle must be exported to that CPU. */
@@ -590,7 +588,7 @@ force_get_next_node(int no, const struct OctTree tb)
         /* Particle */
         return Nextnode[no];
     }
-    else { //if(no >= PartManager->MaxPart + MaxNodes) {
+    else { //if(no >= tb.lastnode) {
         /* Pseudo Particle */
         return Nextnode[no - (tb.lastnode - tb.firstnode)];
     }
@@ -1141,18 +1139,17 @@ struct OctTree force_treeallocate(int maxnodes, int maxpart, int first_node_offs
     struct OctTree tb;
 
     tree_allocated_flag = 1;
-    MaxNodes = maxnodes;
     message(0, "Allocating memory for %d tree-nodes (MaxPart=%d).\n", maxnodes, maxpart);
     Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopNodes) * sizeof(int));
     Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
     allbytes += bytes;
-    Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (MaxNodes + 1) * sizeof(struct NODE));
+    Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (maxnodes + 1) * sizeof(struct NODE));
     tb.Nodes_base = Nodes_base;
     allbytes += bytes;
     Nodes = Nodes_base - first_node_offset;
     tb.firstnode = first_node_offset;
     tb.lastnode = first_node_offset + maxnodes;
-    tb.numnodes = MaxNodes;
+    tb.numnodes = maxnodes;
     tb.Nodes = Nodes_base - first_node_offset;
     allbytes += bytes;
     message(0, "Allocated %g MByte for BH-tree, (presently allocated %g MB)\n",

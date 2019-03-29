@@ -279,7 +279,7 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
                     h = All.ForceSoftening[P[no].Type];
 #endif
 #endif
-                no = Nextnode[no];
+                no = force_get_next_node(no, TreeNodes);
             }
             else			/* we have an  internal node */
             {
@@ -290,7 +290,7 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
                         if(-1 == treewalk_export_particle(lv, no))
                             return -1;
                     }
-                    no = Nextnode[no - MaxNodes];
+                    no = force_get_next_node(no, TreeNodes);
                     continue;
                 }
 
