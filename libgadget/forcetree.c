@@ -39,15 +39,13 @@ struct NODE *Nodes_base,	/*!< points to the actual memory allocated for the node
 struct OctTree TreeNodes;
 
 int MaxNodes;                  /*!< maximum allowed number of internal nodes */
-int NumNodes;                  /*!< Currently used number of internal nodes */
-
 
 int *Nextnode;			/*!< gives next node in tree walk  (nodes array) */
 int *Father;			/*!< gives parent node in tree (nodes array) */
 
 static int tree_allocated_flag = 0;
 
-static int force_tree_build(int npart);
+static struct OctTree force_tree_build(int npart);
 
 static int
 force_tree_build_single(const struct OctTree tb, const int npart);
@@ -106,7 +104,7 @@ force_tree_rebuild()
     }
     walltime_measure("/Misc");
 
-    NumNodes = force_tree_build(PartManager->NumPart);
+    TreeNodes = force_tree_build(PartManager->NumPart);
 
     walltime_measure("/Tree/Build");
 
@@ -117,7 +115,7 @@ force_tree_rebuild()
 /*! This function is a driver routine for constructing the gravitational
  *  oct-tree, which is done by calling a small number of other functions.
  */
-int force_tree_build(int npart)
+struct OctTree force_tree_build(int npart)
 {
     int Numnodestree;
     int flag;
@@ -163,11 +161,8 @@ int force_tree_build(int npart)
     /*Update the oct-tree struct so it knows about the memory change*/
     tb.numnodes = Numnodestree;
 
-    /*Update global oct-tree struct*/
-    TreeNodes = tb;
-
     event_listen(&EventSlotsFork, force_tree_eh_slots_fork, NULL);
-    return Numnodestree;
+    return tb;
 }
 
 /* Get the subnode for a given particle and parent node.
