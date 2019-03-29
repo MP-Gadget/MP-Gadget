@@ -76,14 +76,6 @@ order_by_type_and_key(const void *a, const void *b)
 
 #define NODECACHE_SIZE 100
 
-int force_get_father(int no, int firstnode)
-{
-    if(no >= firstnode)
-        return Nodes[no].father;
-    else
-        return Father[no];
-}
-
 /*This checks that the moments of the force tree in Nodes are valid:
  * that it the mass and flags are correct.*/
 static int check_moments(const struct OctTree tb, const int numpart, const int nrealnode)
@@ -97,7 +89,7 @@ static int check_moments(const struct OctTree tb, const int numpart, const int n
 
     for(i=0; i<numpart; i++)
     {
-        int fnode = Father[i];
+        int fnode = force_get_father(i, tb);
         /*Subtract mass so that nothing is left.*/
         assert_true(fnode >= tb.firstnode && fnode < tb.lastnode);
         while(fnode > 0) {
@@ -209,8 +201,8 @@ static int check_tree(const struct OctTree tb, const int nnodes, const int numpa
                  * must be suffering from particle-coupling */
                 do {
                     P[child].PI += 1;
-                    if(Nextnode[child] > -1) {
-                        assert_int_equal(Father[child], Father[Nextnode[child]]);
+                    if(tb.Nextnode[child] > -1) {
+                        assert_int_equal(force_get_father(child, tb), force_get_father(tb.Nextnode[child], tb)]);
                     }
                     /*Check in right quadrant*/
                     int k;

@@ -57,11 +57,12 @@ extern struct OctTree {
     struct NODE *Nodes;
     /*This points to the actual memory allocated for the nodes*/
     struct NODE * Nodes_base;
+    /* Gives next node in the tree walk for particles and pseudo particles.
+     * next node for the actual nodes is stored in Nodes*/
+    int * Nextnode;
+    /*!< gives parent node in tree for every particle */
+    int *Father;
 } TreeNodes;
-
-/*Used in domain.c*/
-extern int *Nextnode;		/*!< gives next node in tree walk  (nodes array) */
-extern int *Father;		/*!< gives parent node in tree (Prenodes array) */
 
 int force_tree_allocated(struct OctTree * tt);
 
@@ -99,6 +100,9 @@ force_get_next_node(int no, const struct OctTree tb);
 
 int
 force_set_next_node(int no, int next, const struct OctTree tb);
+
+int
+force_get_father(int no, const struct OctTree tt);
 
 #endif
 

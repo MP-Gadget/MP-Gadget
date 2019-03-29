@@ -240,11 +240,11 @@ sfr_reserve_slots(int * NewStars, int NumNewStar, struct OctTree * tt)
             memmove(nodes_base_tmp, tt->Nodes_base, tt->numnodes * sizeof(struct NODE));
             myfree(tt->Nodes_base);
             Father_tmp = mymalloc2("Father_tmp", PartManager->MaxPart * sizeof(int));
-            memmove(Father_tmp, Father, PartManager->MaxPart * sizeof(int));
-            myfree(Father);
+            memmove(Father_tmp, tt->Father, PartManager->MaxPart * sizeof(int));
+            myfree(tt->Father);
             Nextnode_tmp = mymalloc2("Nextnode_tmp", (PartManager->MaxPart + NTopNodes)* sizeof(int));
-            memmove(Nextnode_tmp, Nextnode, (PartManager->MaxPart + NTopNodes) * sizeof(int));
-            myfree(Nextnode);
+            memmove(Nextnode_tmp, tt->Nextnode, (PartManager->MaxPart + NTopNodes) * sizeof(int));
+            myfree(tt->Nextnode);
         }
         if(ActiveParticle) {
             ActiveParticle_tmp = mymalloc2("ActiveParticle_tmp", NumActiveParticle * sizeof(int));
@@ -266,11 +266,11 @@ sfr_reserve_slots(int * NewStars, int NumNewStar, struct OctTree * tt)
             myfree(ActiveParticle_tmp);
         }
         if(force_tree_allocated(tt)) {
-            Nextnode = mymalloc("Nextnode", (PartManager->MaxPart + NTopNodes)* sizeof(int));
-            memmove(Nextnode, Nextnode_tmp, (PartManager->MaxPart + NTopNodes) * sizeof(int));
+            tt->Nextnode = mymalloc("Nextnode", (PartManager->MaxPart + NTopNodes)* sizeof(int));
+            memmove(tt->Nextnode, Nextnode_tmp, (PartManager->MaxPart + NTopNodes) * sizeof(int));
             myfree(Nextnode_tmp);
-            Father = mymalloc("Father", PartManager->MaxPart * sizeof(int));
-            memmove(Father, Father_tmp, PartManager->MaxPart * sizeof(int));
+            tt->Father = mymalloc("Father", PartManager->MaxPart * sizeof(int));
+            memmove(tt->Father, Father_tmp, PartManager->MaxPart * sizeof(int));
             myfree(Father_tmp);
             tt->Nodes_base = mymalloc("Nodes_base", tt->numnodes * sizeof(struct NODE));
             memmove(tt->Nodes_base, nodes_base_tmp, tt->numnodes * sizeof(struct NODE));

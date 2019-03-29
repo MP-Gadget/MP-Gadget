@@ -151,7 +151,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                 {
                     if(P[no].Type == All.FastParticleType)
                     {
-                        no = Nextnode[no];
+                        no = force_get_next_node(no, TreeNodes);
                         continue;
                     }
                 }

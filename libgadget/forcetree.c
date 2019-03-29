@@ -38,9 +38,6 @@ struct OctTree TreeNodes;
 /*!< this is a pointer used to access the nodes which is shifted such that Nodes[firstnode] gives the first allocated node */
 struct NODE * Nodes;
 
-int *Nextnode;			/*!< gives next node in tree walk  (nodes array) */
-int *Father;			/*!< gives parent node in tree (nodes array) */
-
 static struct OctTree
 force_tree_build(int npart);
 
@@ -77,10 +74,11 @@ force_tree_eh_slots_fork(EIBase * event, void * userdata)
     int parent = ev->parent;
     int child = ev->child;
     int no;
-    no = Nextnode[parent];
-    Nextnode[parent] = child;
-    Nextnode[child] = no;
-    Father[child] = Father[parent];
+    struct OctTree * tt = (struct OctTree * ) userdata;
+    no = tt->Nextnode[parent];
+    tt->Nextnode[parent] = child;
+    tt->Nextnode[child] = no;
+    tt->Father[child] = tt->Father[parent];
 
     return 0;
 }
@@ -102,6 +100,8 @@ force_tree_rebuild(void)
     walltime_measure("/Misc");
 
     TreeNodes = force_tree_build(PartManager->NumPart);
+
+    event_listen(&EventSlotsFork, force_tree_eh_slots_fork, &TreeNodes);
 
     walltime_measure("/Tree/Build");
 
@@ -159,7 +159,6 @@ struct OctTree force_tree_build(int npart)
     tb.Nodes = tb.Nodes_base - tb.firstnode;
     Nodes = tb.Nodes;
 
-    event_listen(&EventSlotsFork, force_tree_eh_slots_fork, NULL);
     return tb;
 }
 
@@ -283,7 +282,7 @@ modify_internal_node(int parent, int subnode, int p_child, int p_toplace,
         child_subnode = get_subnode(nfreep, p_child);
         new_subnode = get_subnode(nfreep, p_toplace);
 
-        Father[p_child] = ninsert;
+        tb.Father[p_child] = ninsert;
         nfreep->u.suns[child_subnode] = p_child;
     }
 
@@ -301,7 +300,7 @@ modify_internal_node(int parent, int subnode, int p_child, int p_toplace,
     }
 
     if(p_child < 0 || new_subnode != child_subnode || too_small) {
-        Father[p_toplace] = ninsert;
+        tb.Father[p_toplace] = ninsert;
         /*If the node is too small we prepend the particle to a short linked list.*/
         force_set_next_node(p_toplace, too_small ? p_child : -1, tb);
         tb.Nodes[ninsert].u.suns[new_subnode] = p_toplace;
@@ -578,6 +577,15 @@ force_insert_pseudo_particles(const struct OctTree tb)
 }
 
 int
+force_get_father(int no, const struct OctTree tt)
+{
+    if(no >= tt.firstnode)
+        return tt.Nodes[no].father;
+    else
+        return tt.Father[no];
+}
+
+int
 force_get_next_node(int no, const struct OctTree tb)
 {
     if(no >= tb.firstnode && no < tb.lastnode) {
@@ -586,11 +594,11 @@ force_get_next_node(int no, const struct OctTree tb)
     }
     if(no < tb.firstnode) {
         /* Particle */
-        return Nextnode[no];
+        return tb.Nextnode[no];
     }
     else { //if(no >= tb.lastnode) {
         /* Pseudo Particle */
-        return Nextnode[no - (tb.lastnode - tb.firstnode)];
+        return tb.Nextnode[no - (tb.lastnode - tb.firstnode)];
     }
 }
 
@@ -604,11 +612,11 @@ force_set_next_node(int no, int next, const struct OctTree tb)
     }
     if(no < tb.firstnode) {
         /* Particle */
-        Nextnode[no] = next;
+        tb.Nextnode[no] = next;
     }
     if(no >= tb.lastnode) {
         /* Pseudo Particle */
-        Nextnode[no - (tb.lastnode - tb.firstnode)] = next;
+        tb.Nextnode[no - (tb.lastnode - tb.firstnode)] = next;
     }
 
     return next;
@@ -619,7 +627,7 @@ force_get_prev_node(int no, const struct OctTree tb)
 {
     if(node_is_particle(no, tb)) {
         /* Particle */
-        int t = Father[no];
+        int t = tb.Father[no];
         int next = force_get_next_node(t, tb);
         while(next != no) {
             t = next;
@@ -1052,7 +1060,7 @@ void force_update_hmax(int * activeset, int size, struct OctTree * tt)
         if(P[p_i].Type != 0)
             continue;
 
-        int no = Father[p_i];
+        int no = tt->Father[p_i];
 
         while(no >= 0)
         {
@@ -1139,8 +1147,8 @@ struct OctTree force_treeallocate(int maxnodes, int maxpart, int first_node_offs
     struct OctTree tb;
 
     message(0, "Allocating memory for %d tree-nodes (MaxPart=%d).\n", maxnodes, maxpart);
-    Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopNodes) * sizeof(int));
-    Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
+    tb.Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopNodes) * sizeof(int));
+    tb.Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
     allbytes += bytes;
     tb.Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (maxnodes + 1) * sizeof(struct NODE));
     allbytes += bytes;
@@ -1162,12 +1170,12 @@ struct OctTree force_treeallocate(int maxnodes, int maxpart, int first_node_offs
  */
 void force_tree_free(struct OctTree * tt)
 {
-    event_unlisten(&EventSlotsFork, force_tree_eh_slots_fork, NULL);
+    event_unlisten(&EventSlotsFork, force_tree_eh_slots_fork, tt);
 
     if(!force_tree_allocated(tt))
         return;
     myfree(tt->Nodes_base);
-    myfree(Father);
-    myfree(Nextnode);
+    myfree(tt->Father);
+    myfree(tt->Nextnode);
     tt->tree_allocated_flag = 0;
 }

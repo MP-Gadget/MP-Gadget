@@ -806,7 +806,7 @@ static void fill_task_queue (TreeWalk * tw, struct ev_task * tq, int * pq, int l
         int no = -1;
         /*
         if(0) {
-            no = Father[pq[i]];
+            no = force_get_father(pq[i], TreeNodes);
             while(no != -1) {
                 if(Nodes[no].f.TopLevel) {
                     break;
