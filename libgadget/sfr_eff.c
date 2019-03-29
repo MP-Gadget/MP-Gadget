@@ -43,7 +43,7 @@ static double get_sfr_factor_due_to_h2(int i);
 static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyeff);
 static double find_star_mass(int i);
 /*Get enough memory for new star slots. This may be excessively slow! Don't do it too often.*/
-static int * sfr_reserve_slots(int * NewStars, int NumNewStar);
+static int * sfr_reserve_slots(int * NewStars, int NumNewStar, struct OctTree * tt);
 
 
 /* cooling and star formation routine.*/
@@ -150,7 +150,7 @@ void cooling_and_starformation(void)
     if(SlotsManager->info[4].size + NumNewStar >= SlotsManager->info[4].maxsize) {
         if(NewParents)
             NewParents = myrealloc(NewParents, sizeof(int) * NumNewStar);
-        NewStars = sfr_reserve_slots(NewStars, NumNewStar);
+        NewStars = sfr_reserve_slots(NewStars, NumNewStar, &TreeNodes);
     }
     SlotsManager->info[4].size += NumNewStar;
 
@@ -216,7 +216,7 @@ void cooling_and_starformation(void)
  * It is also not elegant, but I couldn't think of a better way. May be fragile and need updating
  * if memory allocation patterns change. */
 static int *
-sfr_reserve_slots(int * NewStars, int NumNewStar)
+sfr_reserve_slots(int * NewStars, int NumNewStar, struct OctTree * tt)
 {
         /* SlotsManager is below Nodes and ActiveParticleList,
          * so we need to move them out of the way before we extend Nodes.
@@ -236,9 +236,9 @@ sfr_reserve_slots(int * NewStars, int NumNewStar)
         int *Father_tmp=NULL;
         int *ActiveParticle_tmp=NULL;
         if(force_tree_allocated()) {
-            nodes_base_tmp = mymalloc2("nodesbasetmp", TreeNodes.numnodes * sizeof(struct NODE));
-            memmove(nodes_base_tmp, Nodes_base, TreeNodes.numnodes * sizeof(struct NODE));
-            myfree(Nodes_base);
+            nodes_base_tmp = mymalloc2("nodesbasetmp", tt->numnodes * sizeof(struct NODE));
+            memmove(nodes_base_tmp, tt->Nodes_base, tt->numnodes * sizeof(struct NODE));
+            myfree(tt->Nodes_base);
             Father_tmp = mymalloc2("Father_tmp", PartManager->MaxPart * sizeof(int));
             memmove(Father_tmp, Father, PartManager->MaxPart * sizeof(int));
             myfree(Father);
@@ -272,11 +272,12 @@ sfr_reserve_slots(int * NewStars, int NumNewStar)
             Father = mymalloc("Father", PartManager->MaxPart * sizeof(int));
             memmove(Father, Father_tmp, PartManager->MaxPart * sizeof(int));
             myfree(Father_tmp);
-            Nodes_base = mymalloc("Nodes_base", TreeNodes.numnodes * sizeof(struct NODE));
-            memmove(Nodes_base, nodes_base_tmp, TreeNodes.numnodes * sizeof(struct NODE));
+            tt->Nodes_base = mymalloc("Nodes_base", tt->numnodes * sizeof(struct NODE));
+            memmove(tt->Nodes_base, nodes_base_tmp, tt->numnodes * sizeof(struct NODE));
             myfree(nodes_base_tmp);
             /*Don't forget to update the Node pointer as well as Node_base!*/
-            Nodes = Nodes_base - TreeNodes.firstnode;
+            tt->Nodes = tt->Nodes_base - tt->firstnode;
+            Nodes = tt->Nodes;
         }
         if(new_star_tmp) {
             NewStars = mymalloc("NewStars", NumNewStar*sizeof(int));

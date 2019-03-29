@@ -300,7 +300,7 @@ static void test_rebuild_flat(void ** state) {
     TopLeaves[0].topnode = numpart;
     struct OctTree tb = force_treeallocate(numpart, numpart, numpart);
     do_tree_test(numpart, tb);
-    force_tree_free();
+    force_tree_free(&tb);
     free(P);
 }
 
@@ -321,7 +321,7 @@ static void test_rebuild_close(void ** state) {
     }
     struct OctTree tb = force_treeallocate(numpart, numpart, numpart);
     do_tree_test(numpart, tb);
-    force_tree_free();
+    force_tree_free(&tb);
     free(P);
 }
 
@@ -370,7 +370,7 @@ static void test_rebuild_random(void ** state) {
     for(i=0; i<2; i++) {
         do_random_test(r, numpart, maxnode, tb);
     }
-    force_tree_free();
+    force_tree_free(&tb);
     free(P);
 }
 

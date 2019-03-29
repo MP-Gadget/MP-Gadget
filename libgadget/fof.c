@@ -1025,7 +1025,7 @@ fof_save_groups(int num)
     double t0, t1;
 
     /* no longer need the tree */
-    force_tree_free();
+    force_tree_free(&TreeNodes);
 
     message(0, "start global sorting of group catalogues\n");
 

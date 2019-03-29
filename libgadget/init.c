@@ -321,5 +321,5 @@ setup_smoothinglengths(int RestartSnapNum)
     density_update();
 #endif //DENSITY_INDEPENDENT_SPH
 
-    if(force_tree_allocated()) force_tree_free();
+    if(force_tree_allocated()) force_tree_free(&TreeNodes);
 }

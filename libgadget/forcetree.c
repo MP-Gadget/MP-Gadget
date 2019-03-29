@@ -30,13 +30,13 @@
 /*The node index is an integer with unusual properties:
  * no = 0..OctTree.firstnode  corresponds to a particle.
  * no = OctTree.firstnode..OctTree.lastnode corresponds to actual tree nodes,
- * and is the only memory allocated in Nodes_base. After the tree is built this becomes
+ * and is the only memory allocated in TreeNodes.Nodes_base. After the tree is built this becomes
  * no = OctTree.firstnode..OctTree.numnodes which is the only allocated memory.
  * no > OctTree.lastnode means a pseudo particle on another processor*/
-struct NODE *Nodes_base,	/*!< points to the actual memory allocated for the nodes */
- *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[firstnode]
-				   gives the first allocated node */
 struct OctTree TreeNodes;
+
+/*!< this is a pointer used to access the nodes which is shifted such that Nodes[firstnode] gives the first allocated node */
+struct NODE * Nodes;
 
 int *Nextnode;			/*!< gives next node in tree walk  (nodes array) */
 int *Father;			/*!< gives parent node in tree (nodes array) */
@@ -98,7 +98,7 @@ force_tree_rebuild()
     message(0, "Tree construction.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
     if(force_tree_allocated()) {
-        force_tree_free();
+        force_tree_free(&TreeNodes);
     }
     walltime_measure("/Misc");
 
@@ -134,7 +134,7 @@ struct OctTree force_tree_build(int npart)
         MPI_Allreduce(&Numnodestree, &flag, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
         if(flag == -1)
         {
-            force_tree_free();
+            force_tree_free(&tb);
 
             message(0, "TreeAllocFactor from %g to %g\n", All.TreeAllocFactor, All.TreeAllocFactor*1.15);
 
@@ -154,10 +154,12 @@ struct OctTree force_tree_build(int npart)
 
     force_treeupdate_pseudos(PartManager->MaxPart, tb);
 
-    myrealloc(Nodes_base, (Numnodestree +1) * sizeof(struct NODE));
+    myrealloc(tb.Nodes_base, (Numnodestree +1) * sizeof(struct NODE));
 
     /*Update the oct-tree struct so it knows about the memory change*/
     tb.numnodes = Numnodestree;
+    tb.Nodes = tb.Nodes_base - tb.firstnode;
+    Nodes = tb.Nodes;
 
     event_listen(&EventSlotsFork, force_tree_eh_slots_fork, NULL);
     return tb;
@@ -1143,14 +1145,13 @@ struct OctTree force_treeallocate(int maxnodes, int maxpart, int first_node_offs
     Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopNodes) * sizeof(int));
     Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
     allbytes += bytes;
-    Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (maxnodes + 1) * sizeof(struct NODE));
-    tb.Nodes_base = Nodes_base;
+    tb.Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (maxnodes + 1) * sizeof(struct NODE));
     allbytes += bytes;
-    Nodes = Nodes_base - first_node_offset;
+    Nodes = tb.Nodes_base - first_node_offset;
     tb.firstnode = first_node_offset;
     tb.lastnode = first_node_offset + maxnodes;
     tb.numnodes = maxnodes;
-    tb.Nodes = Nodes_base - first_node_offset;
+    tb.Nodes = tb.Nodes_base - first_node_offset;
     allbytes += bytes;
     message(0, "Allocated %g MByte for BH-tree, (presently allocated %g MB)\n",
          allbytes / (1024.0 * 1024.0),
@@ -1161,11 +1162,11 @@ struct OctTree force_treeallocate(int maxnodes, int maxpart, int first_node_offs
 /*! This function frees the memory allocated for the tree, i.e. it frees
  *  the space allocated by the function force_treeallocate().
  */
-void force_tree_free(void)
+void force_tree_free(struct OctTree * tt)
 {
     event_unlisten(&EventSlotsFork, force_tree_eh_slots_fork, NULL);
 
-    myfree(Nodes_base);
+    myfree(tt->Nodes_base);
     myfree(Father);
     myfree(Nextnode);
     tree_allocated_flag = 0;

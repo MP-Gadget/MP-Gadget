@@ -39,8 +39,7 @@ extern struct NODE
     }
     u;
 }
-*Nodes_base,			/*!< points to the actual memory allocated for the nodes */
-    *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[firstnode]
+*Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[firstnode]
                       gives the first allocated node */
 
 /*Structure containing the Node pointer, and the first and last entries*/
@@ -68,7 +67,8 @@ int force_tree_allocated();
 void force_update_hmax(int * activeset, int size, struct OctTree * tt);
 void force_tree_rebuild();
 
-void   force_tree_free(void);
+/*Free the memory associated with the tree*/
+void   force_tree_free(struct OctTree * tt);
 void   dump_particles(void);
 
 static inline int
