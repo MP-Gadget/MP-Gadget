@@ -19,13 +19,13 @@
 
 /*Defined in forcetree.c*/
 int
-force_tree_create_nodes(const struct TreeBuilder tb, const int npart);
+force_tree_create_nodes(const struct OctTree tb, const int npart);
 
-struct TreeBuilder
+struct OctTree
 force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
 
 int
-force_update_node_parallel(const struct TreeBuilder tb);
+force_update_node_parallel(const struct OctTree tb);
 
 /*Used data from All and domain*/
 struct part_manager_type PartManager[1] = {{0}};
@@ -86,7 +86,7 @@ int force_get_father(int no, int firstnode)
 
 /*This checks that the moments of the force tree in Nodes are valid:
  * that it the mass and flags are correct.*/
-static int check_moments(const struct TreeBuilder tb, const int numpart, const int nrealnode)
+static int check_moments(const struct OctTree tb, const int numpart, const int nrealnode)
 {
     double * oldmass = malloc(sizeof(double) * MaxNodes);
     int i;
@@ -169,7 +169,7 @@ static int check_moments(const struct TreeBuilder tb, const int numpart, const i
 /*This checks that the force tree in Nodes is valid:
  * that it contains every particle and that each parent
  * node contains particles within the right subnode.*/
-static int check_tree(const struct TreeBuilder tb, const int nnodes, const int numpart)
+static int check_tree(const struct OctTree tb, const int nnodes, const int numpart)
 {
     const int firstnode = tb.firstnode;
     int tot_empty = 0, nrealnode = 0, sevens = 0;
@@ -243,7 +243,7 @@ static int check_tree(const struct TreeBuilder tb, const int nnodes, const int n
     return nrealnode;
 }
 
-static void do_tree_test(const int numpart, const struct TreeBuilder tb)
+static void do_tree_test(const int numpart, const struct OctTree tb)
 {
     /*Sort by peano key so this is more realistic*/
     int i;
@@ -299,7 +299,7 @@ static void test_rebuild_flat(void ** state) {
     /*Allocate tree*/
     /*Base pointer*/
     TopLeaves[0].topnode = numpart;
-    struct TreeBuilder tb = force_treeallocate(numpart, numpart, numpart);
+    struct OctTree tb = force_treeallocate(numpart, numpart, numpart);
     do_tree_test(numpart, tb);
     force_tree_free();
     free(P);
@@ -320,13 +320,13 @@ static void test_rebuild_close(void ** state) {
         P[i].Pos[1] = 4. + ((i/ncbrt) % ncbrt) /close;
         P[i].Pos[2] = 4. + (i % ncbrt)/close;
     }
-    struct TreeBuilder tb = force_treeallocate(numpart, numpart, numpart);
+    struct OctTree tb = force_treeallocate(numpart, numpart, numpart);
     do_tree_test(numpart, tb);
     force_tree_free();
     free(P);
 }
 
-void do_random_test(gsl_rng * r, const int numpart, const int maxnode, const struct TreeBuilder tb)
+void do_random_test(gsl_rng * r, const int numpart, const int maxnode, const struct OctTree tb)
 {
     /* Create a regular grid of particles, 8x8x8, all of type 1,
      * in a box 8 kpc across.*/
@@ -364,7 +364,7 @@ static void test_rebuild_random(void ** state) {
     /*Base pointer*/
     TopLeaves[0].topnode = numpart;
     int maxnode = numpart;
-    struct TreeBuilder tb = force_treeallocate(numpart, numpart, numpart);
+    struct OctTree tb = force_treeallocate(numpart, numpart, numpart);
     assert_true(Nodes != NULL);
     P = malloc(numpart*sizeof(struct particle_data));
     int i;

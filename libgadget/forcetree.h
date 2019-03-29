@@ -44,7 +44,7 @@ extern struct NODE
                       gives the first allocated node */
 
 /*Structure containing the Node pointer, and the first and last entries*/
-struct TreeBuilder {
+struct OctTree {
     /*Index of first internal node*/
     int firstnode;
     /*Index of first pseudo-particle node*/
@@ -89,13 +89,13 @@ node_is_node(int no)
 }
 
 int
-force_get_prev_node(int no, const struct TreeBuilder tb);
+force_get_prev_node(int no, const struct OctTree tb);
 
 int
-force_get_next_node(int no, const struct TreeBuilder tb);
+force_get_next_node(int no, const struct OctTree tb);
 
 int
-force_set_next_node(int no, int next, const struct TreeBuilder tb);
+force_set_next_node(int no, int next, const struct OctTree tb);
 
 #endif
 

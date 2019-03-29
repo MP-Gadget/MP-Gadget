@@ -49,20 +49,20 @@ static int tree_allocated_flag = 0;
 static int force_tree_build(int npart);
 
 static int
-force_tree_build_single(const struct TreeBuilder tb, const int npart);
+force_tree_build_single(const struct OctTree tb, const int npart);
 
 /*Next three are not static as tested.*/
 int
-force_tree_create_nodes(const struct TreeBuilder tb, const int npart);
+force_tree_create_nodes(const struct OctTree tb, const int npart);
 
-struct TreeBuilder
+struct OctTree
 force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
 
 int
-force_update_node_parallel(const struct TreeBuilder tb);
+force_update_node_parallel(const struct OctTree tb);
 
 static void
-force_treeupdate_pseudos(int no, const struct TreeBuilder tb);
+force_treeupdate_pseudos(int no, const struct OctTree tb);
 
 static void
 force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, int z, int *nextfree, const int lastnode);
@@ -71,7 +71,7 @@ static void
 force_exchange_pseudodata(void);
 
 static void
-force_insert_pseudo_particles(const struct TreeBuilder tb);
+force_insert_pseudo_particles(const struct OctTree tb);
 
 static int
 force_tree_eh_slots_fork(EIBase * event, void * userdata)
@@ -121,7 +121,7 @@ int force_tree_build(int npart)
     int Numnodestree;
     int flag;
     int maxnodes;
-    struct TreeBuilder tb;
+    struct OctTree tb;
 
     do
     {
@@ -240,7 +240,7 @@ int get_freenode(int * nnext, struct NodeCache *nc)
  * Parent is assumed to be locked.*/
 int
 modify_internal_node(int parent, int subnode, int p_child, int p_toplace,
-        const struct TreeBuilder tb, int *nnext, struct NodeCache *nc, double minlen, int *closepairs)
+        const struct OctTree tb, int *nnext, struct NodeCache *nc, double minlen, int *closepairs)
 {
     int ret = 0;
     int ninsert;
@@ -329,7 +329,7 @@ modify_internal_node(int parent, int subnode, int p_child, int p_toplace,
 
 /*! Does initial creation of the nodes for the gravitational oct-tree.
  **/
-int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
+int force_tree_create_nodes(const struct OctTree tb, const int npart)
 {
     int i;
     int nnext = tb.firstnode;		/* index of first free node */
@@ -477,7 +477,7 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
  *  different CPUs. If such a node needs to be opened, the corresponding
  *  particle must be exported to that CPU. */
 static int
-force_tree_build_single(const struct TreeBuilder tb, const int npart)
+force_tree_build_single(const struct OctTree tb, const int npart)
 {
     int nnext = force_tree_create_nodes(tb, npart);
     if(nnext >= tb.lastnode - tb.firstnode)
@@ -561,7 +561,7 @@ void force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, 
  *  updated later on.
  */
 static void
-force_insert_pseudo_particles(const struct TreeBuilder tb)
+force_insert_pseudo_particles(const struct OctTree tb)
 {
     int i, index;
     const int firstpseudo = tb.lastnode;
@@ -578,7 +578,7 @@ force_insert_pseudo_particles(const struct TreeBuilder tb)
 }
 
 int
-force_get_next_node(int no, const struct TreeBuilder tb)
+force_get_next_node(int no, const struct OctTree tb)
 {
     if(no >= tb.firstnode && no < tb.lastnode) {
         /* internal node */
@@ -595,7 +595,7 @@ force_get_next_node(int no, const struct TreeBuilder tb)
 }
 
 int
-force_set_next_node(int no, int next, const struct TreeBuilder tb)
+force_set_next_node(int no, int next, const struct OctTree tb)
 {
     if(no < 0) return next;
     if(no >= tb.firstnode && no < tb.lastnode) {
@@ -615,7 +615,7 @@ force_set_next_node(int no, int next, const struct TreeBuilder tb)
 }
 
 int
-force_get_prev_node(int no, const struct TreeBuilder tb)
+force_get_prev_node(int no, const struct OctTree tb)
 {
     if(node_is_particle(no)) {
         /* Particle */
@@ -703,7 +703,7 @@ force_get_sibling(const int sib, const int j, const int * suns)
  *
  */
 static int
-force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder tb)
+force_update_node_recursive(int no, int sib, int level, const struct OctTree tb)
 {
     /*Last value of tails is the return value of this function*/
     int j, suns[8], tails[8];
@@ -850,7 +850,7 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
  * searches the list of pre-computed tail values to set the next node as if it had recursed and continues.
  */
 int
-force_update_node_parallel(const struct TreeBuilder tb)
+force_update_node_parallel(const struct OctTree tb)
 {
     int tail;
 #pragma omp parallel
@@ -952,7 +952,7 @@ void force_exchange_pseudodata(void)
 /*! This function updates the top-level tree after the multipole moments of
  *  the pseudo-particles have been updated.
  */
-void force_treeupdate_pseudos(int no, const struct TreeBuilder tb)
+void force_treeupdate_pseudos(int no, const struct OctTree tb)
 {
     int j, p;
     MyFloat hmax;
@@ -1132,11 +1132,11 @@ void force_update_hmax(int * activeset, int size)
  *  maxnodes approximately equal to 0.7*maxpart is sufficient to store the
  *  tree for up to maxpart particles.
  */
-struct TreeBuilder force_treeallocate(int maxnodes, int maxpart, int first_node_offset)
+struct OctTree force_treeallocate(int maxnodes, int maxpart, int first_node_offset)
 {
     size_t bytes;
     size_t allbytes = 0;
-    struct TreeBuilder tb;
+    struct OctTree tb;
 
     tree_allocated_flag = 1;
     MaxNodes = maxnodes;
