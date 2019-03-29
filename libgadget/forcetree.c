@@ -35,6 +35,7 @@
 struct NODE *Nodes_base,	/*!< points to the actual memory allocated for the nodes */
  *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[RootNode]
 				   gives the first allocated node */
+struct OctTree TreeNodes;
 
 int MaxNodes;                  /*!< maximum allowed number of internal nodes */
 int NumNodes;                  /*!< Currently used number of internal nodes */
@@ -158,6 +159,12 @@ int force_tree_build(int npart)
     force_treeupdate_pseudos(PartManager->MaxPart, tb);
 
     myrealloc(Nodes_base, (Numnodestree +1) * sizeof(struct NODE));
+
+    /*Update the oct-tree struct so it knows about the memory change*/
+    tb.numnodes = Numnodestree;
+
+    /*Update global oct-tree struct*/
+    TreeNodes = tb;
 
     event_listen(&EventSlotsFork, force_tree_eh_slots_fork, NULL);
     return Numnodestree;
@@ -1146,10 +1153,12 @@ struct OctTree force_treeallocate(int maxnodes, int maxpart, int first_node_offs
     Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
     allbytes += bytes;
     Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (MaxNodes + 1) * sizeof(struct NODE));
+    tb.Nodes_base = Nodes_base;
     allbytes += bytes;
     Nodes = Nodes_base - first_node_offset;
     tb.firstnode = first_node_offset;
     tb.lastnode = first_node_offset + maxnodes;
+    tb.numnodes = MaxNodes;
     tb.Nodes = Nodes_base - first_node_offset;
     allbytes += bytes;
     message(0, "Allocated %g MByte for BH-tree, (presently allocated %g MB)\n",

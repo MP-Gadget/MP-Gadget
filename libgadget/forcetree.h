@@ -44,15 +44,19 @@ extern struct NODE
                       gives the first allocated node */
 
 /*Structure containing the Node pointer, and the first and last entries*/
-struct OctTree {
+extern struct OctTree {
     /*Index of first internal node*/
     int firstnode;
     /*Index of first pseudo-particle node*/
     int lastnode;
+    /* Number of actually allocated nodes*/
+    int numnodes;
     /*!< this is a pointer used to access the nodes which is shifted such that Nodes[firstnode]
      *   gives the first allocated node */
-    struct NODE *Nodes; 
-};
+    struct NODE *Nodes;
+    /*This points to the actual memory allocated for the nodes*/
+    struct NODE * Nodes_base;
+} TreeNodes;
 
 extern int MaxNodes;		/*!< maximum allowed number of internal nodes */
 extern int NumNodes;      /*!< Currently used number of internal nodes*/
