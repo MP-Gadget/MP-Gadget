@@ -220,7 +220,7 @@ treewalk_init_query(TreeWalk * tw, TreeWalkQueryBase * query, int i, int * NodeL
     if(NodeList) {
         memcpy(query->NodeList, NodeList, sizeof(int) * NODELISTLENGTH);
     } else {
-        query->NodeList[0] = RootNode; /* root node */
+        query->NodeList[0] = TreeNodes.firstnode; /* root node */
         query->NodeList[1] = -1; /* terminate immediately */
     }
 
@@ -515,7 +515,7 @@ static void ev_secondary(TreeWalk * tw)
             treewalk_init_result(tw, output, input);
 #ifdef DEBUG
             if(!tw->UseNodeList) {
-                if(input->NodeList[0] != RootNode || input->NodeList[1] != -1)
+                if(input->NodeList[0] != TreeNodes.firstnode || input->NodeList[1] != -1)
                      endrun(2, "Improper NodeList\n");
             }
 #endif
@@ -549,7 +549,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
     TreeWalk * tw = lv->tw;
     int task;
 
-    task = TopLeaves[no - (RootNode + MaxNodes)].Task;
+    task = TopLeaves[no - TreeNodes.lastnode].Task;
 
     if(exportflag[task] != target)
     {
@@ -583,7 +583,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
     if(tw->UseNodeList)
     {
         DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
-            TopLeaves[no - (RootNode + MaxNodes)].treenode;
+            TopLeaves[no - TreeNodes.lastnode].treenode;
 
         if(exportnodecount[task] < NODELISTLENGTH)
             DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;

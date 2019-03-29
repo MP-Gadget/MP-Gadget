@@ -276,7 +276,7 @@ sfr_reserve_slots(int * NewStars, int NumNewStar)
             memmove(Nodes_base, nodes_base_tmp, NumNodes * sizeof(struct NODE));
             myfree(nodes_base_tmp);
             /*Don't forget to update the Node pointer as well as Node_base!*/
-            Nodes = Nodes_base - RootNode;
+            Nodes = Nodes_base - TreeNodes.firstnode;
         }
         if(new_star_tmp) {
             NewStars = mymalloc("NewStars", NumNewStar*sizeof(int));

@@ -120,7 +120,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
 
     int r = 0;
 
-    int no = RootNode; /* start with the root */
+    int no = TreeNodes.firstnode; /* start with the root */
     while(no >= 0) {
 
         if(!(Nodes[no].f.DependsOnLocalMass)) {

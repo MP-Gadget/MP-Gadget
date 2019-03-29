@@ -45,7 +45,7 @@ extern struct NODE
 
 /*Structure containing the Node pointer, and the first and last entries*/
 extern struct OctTree {
-    /*Index of first internal node*/
+    /*Index of first internal node. Difference between Nodes and Nodes_base. == MaxPart*/
     int firstnode;
     /*Index of first pseudo-particle node*/
     int lastnode;
@@ -60,7 +60,6 @@ extern struct OctTree {
 
 extern int MaxNodes;		/*!< maximum allowed number of internal nodes */
 extern int NumNodes;      /*!< Currently used number of internal nodes*/
-extern int RootNode;      /*!< Index of the first node. Difference between Nodes and Nodes_base. == MaxPart*/
 
 /*Used in domain.c*/
 extern int *Nextnode;		/*!< gives next node in tree walk  (nodes array) */
