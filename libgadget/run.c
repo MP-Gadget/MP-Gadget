@@ -288,7 +288,7 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled)
         density();		/* computes density, and pressure */
 
         /***** update smoothing lengths in tree *****/
-        force_update_hmax(ActiveParticle, NumActiveParticle);
+        force_update_hmax(ActiveParticle, NumActiveParticle, &TreeNodes);
         /***** hydro forces *****/
         message(0, "Start hydro-force computation...\n");
 

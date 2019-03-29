@@ -1027,7 +1027,7 @@ void force_treeupdate_pseudos(int no, const struct OctTree tb)
  *  out just before the hydrodynamical SPH forces are computed, i.e. after
  *  density().
  */
-void force_update_hmax(int * activeset, int size)
+void force_update_hmax(int * activeset, int size, struct OctTree * tt)
 {
     int i, ta;
     int *counts, *offsets;
@@ -1048,8 +1048,8 @@ void force_update_hmax(int * activeset, int size)
     /* FIXME: actually only TOPLEVEL nodes contains the local mass can potentially be dirty,
      *  we may want to save a list of them to speed this up.
      * */
-    for(i = RootNode; i < RootNode + NumNodes; i ++) {
-        Nodes[i].f.NodeIsDirty = 0;
+    for(i = tt->firstnode; i < tt->firstnode + tt->numnodes; i ++) {
+        tt->Nodes[i].f.NodeIsDirty = 0;
     }
 
     for(i = 0; i < size; i++)
@@ -1063,22 +1063,22 @@ void force_update_hmax(int * activeset, int size)
 
         while(no >= 0)
         {
-            if(P[p_i].Hsml <= Nodes[no].u.d.hmax) break;
+            if(P[p_i].Hsml <= tt->Nodes[no].u.d.hmax) break;
 
-            Nodes[no].u.d.hmax = P[p_i].Hsml;
+            tt->Nodes[no].u.d.hmax = P[p_i].Hsml;
 
-            if(Nodes[no].f.TopLevel) /* we reached a top-level node */
+            if(tt->Nodes[no].f.TopLevel) /* we reached a top-level node */
             {
-                if (!Nodes[no].f.NodeIsDirty) {
-                    Nodes[no].f.NodeIsDirty = 1;
+                if (!tt->Nodes[no].f.NodeIsDirty) {
+                    tt->Nodes[no].f.NodeIsDirty = 1;
                     DirtyTopLevelNodes[NumDirtyTopLevelNodes].treenode = no;
-                    DirtyTopLevelNodes[NumDirtyTopLevelNodes].hmax = Nodes[no].u.d.hmax;
+                    DirtyTopLevelNodes[NumDirtyTopLevelNodes].hmax = tt->Nodes[no].u.d.hmax;
                     NumDirtyTopLevelNodes ++;
                 }
                 break;
             }
 
-            no = Nodes[no].father;
+            no = tt->Nodes[no].father;
         }
     }
 
@@ -1114,16 +1114,16 @@ void force_update_hmax(int * activeset, int size)
 
         /* FIXME: why does this matter? The logic is simpler if we just blindly update them all.
             ::: to avoid that the hmax is updated twice :::*/
-        if(Nodes[no].f.DependsOnLocalMass)
-            no = Nodes[no].father;
+        if(tt->Nodes[no].f.DependsOnLocalMass)
+            no = tt->Nodes[no].father;
 
         while(no >= 0)
         {
-            if(DirtyTopLevelNodes[i].hmax <= Nodes[no].u.d.hmax) break;
+            if(DirtyTopLevelNodes[i].hmax <= tt->Nodes[no].u.d.hmax) break;
 
-            Nodes[no].u.d.hmax = DirtyTopLevelNodes[i].hmax;
+            tt->Nodes[no].u.d.hmax = DirtyTopLevelNodes[i].hmax;
 
-            no = Nodes[no].father;
+            no = tt->Nodes[no].father;
         }
     }
 

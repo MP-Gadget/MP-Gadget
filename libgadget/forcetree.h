@@ -67,7 +67,8 @@ extern int *Father;		/*!< gives parent node in tree (Prenodes array) */
 
 int force_tree_allocated();
 
-void force_update_hmax(int * activeset, int size);
+/* This function propagates changed SPH smoothing lengths up the tree*/
+void force_update_hmax(int * activeset, int size, struct OctTree * tt);
 void force_tree_rebuild();
 
 void   force_tree_free(void);
