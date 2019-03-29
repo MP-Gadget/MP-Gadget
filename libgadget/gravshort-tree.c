@@ -145,7 +145,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
         {
             double mass, r2, h;
             double dx, dy, dz;
-            if(node_is_particle(no))
+            if(node_is_particle(no, TreeNodes))
             {
                 if(NeutrinoTracer)
                 {
@@ -173,7 +173,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             else			/* we have an  internal node */
             {
                 struct NODE *nop;
-                if(node_is_pseudo_particle(no))	/* pseudo particle */
+                if(node_is_pseudo_particle(no, TreeNodes))	/* pseudo particle */
                 {
                     if(lv->mode == 0)
                     {

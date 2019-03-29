@@ -191,7 +191,7 @@ static int pm_mark_region_for_node(int startno, int rid) {
     int endno = Nodes[startno].u.d.sibling;
     while(no >= 0 && no != endno)
     {
-        if(node_is_particle(no))	/* single particle */
+        if(node_is_particle(no, TreeNodes))	/* single particle */
         {
             p = no;
             no = Nextnode[no];
@@ -232,7 +232,7 @@ static int pm_mark_region_for_node(int startno, int rid) {
         }
         else
         {
-            if(node_is_pseudo_particle(no))	/* pseudo particle */
+            if(node_is_pseudo_particle(no, TreeNodes))	/* pseudo particle */
             {
                 /* skip pseudo particles */
                 no = Nextnode[no - MaxNodes];

@@ -624,7 +624,7 @@ force_set_next_node(int no, int next, const struct OctTree tb)
 int
 force_get_prev_node(int no, const struct OctTree tb)
 {
-    if(node_is_particle(no)) {
+    if(node_is_particle(no, tb)) {
         /* Particle */
         int t = Father[no];
         int next = force_get_next_node(t, tb);

@@ -975,16 +975,17 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
 
     while(no >= 0)
     {
-        if(node_is_particle(no))  /* single particle */ {
+        int nextnode = force_get_next_node(no, TreeNodes);
+        if(node_is_particle(no, TreeNodes))  /* single particle */ {
             lv->ngblist[numcand++] = no;
-            no = Nextnode[no];
+            no = nextnode;
             continue;
         }
-        if(node_is_pseudo_particle(no)) {
+        if(node_is_pseudo_particle(no, TreeNodes)) {
             /* pseudo particle */
             if(lv->mode == 1) {
                 if(!lv->tw->UseNodeList) {
-                    no = Nextnode[no - MaxNodes];
+                    no = nextnode;
                     continue;
                 } else {
                     endrun(12312, "Touching outside of my domain from a node list of a ghost. This shall not happen.");
@@ -994,7 +995,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
                     return -1;
             }
 
-            no = Nextnode[no - MaxNodes];
+            no = nextnode;
             continue;
         }
 
@@ -1017,7 +1018,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         }
 
         /* ok, we need to open the node */
-        no = current->u.d.nextnode;
+        no = nextnode;
         continue;
     }
 
