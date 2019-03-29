@@ -61,7 +61,7 @@ static double fof_periodic_wrap(double x)
     return x;
 }
 
-static void fof_label_secondary(void);
+static void fof_label_secondary(struct OctTree * tree);
 static int fof_compare_HaloLabel_MinID(const void *a, const void *b);
 static int fof_compare_Group_MinIDTask(const void *a, const void *b);
 static int fof_compare_Group_OriginalIndex(const void *a, const void *b);
@@ -83,7 +83,7 @@ fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt);
 
 static void fof_assign_grnr(struct BaseGroup * base);
 
-void fof_label_primary(void);
+void fof_label_primary(struct OctTree * tree);
 extern void fof_save_particles(int num);
 
 /* Ngroups and NgroupsExt are both maximally NumPart,
@@ -127,7 +127,7 @@ static MPI_Datatype MPI_TYPE_GROUP;
  *
  **/
 
-void fof_fof(void)
+void fof_fof(struct OctTree * tree)
 {
     int i;
     double t0, t1;
@@ -151,7 +151,7 @@ void fof_fof(void)
     }
     /* Fill FOFP_List of primary */
     t0 = second();
-    fof_label_primary();
+    fof_label_primary(tree);
     t1 = second();
 
     message(0, "group finding took = %g sec\n", timediff(t0, t1));
@@ -159,7 +159,7 @@ void fof_fof(void)
 
     /* Fill FOFP_List of secondary */
     t0 = second();
-    fof_label_secondary();
+    fof_label_secondary(tree);
     walltime_measure("/FOF/Secondary");
     t1 = second();
 
@@ -208,7 +208,6 @@ void fof_fof(void)
     message(0, "computation of group properties took = %g sec\n", timediff(t0, t1));
 
     myfree(HaloLabel);
-
 }
 
 void
@@ -338,7 +337,7 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
         TreeWalkNgbIterFOF * iter,
         LocalTreeWalk * lv);
 
-void fof_label_primary(void)
+void fof_label_primary(struct OctTree * tree)
 {
     int i;
     int64_t link_across;
@@ -360,6 +359,7 @@ void fof_label_primary(void)
     tw->type = TREEWALK_ALL;
     tw->query_type_elsize = sizeof(TreeWalkQueryFOF);
     tw->result_type_elsize = sizeof(TreeWalkResultFOF);
+    tw->tree = tree;
     struct FOFPrimaryPriv priv[1];
     tw->priv = priv;
 
@@ -1024,9 +1024,6 @@ fof_save_groups(int num)
 {
     double t0, t1;
 
-    /* no longer need the tree */
-    force_tree_free(&TreeNodes);
-
     message(0, "start global sorting of group catalogues\n");
 
     t0 = second();
@@ -1096,7 +1093,7 @@ fof_secondary_postprocess(int p, TreeWalk * tw)
         }
     }
 }
-static void fof_label_secondary(void)
+static void fof_label_secondary(struct OctTree * tree)
 {
     int n, iter;
 
@@ -1113,6 +1110,7 @@ static void fof_label_secondary(void)
     tw->type = TREEWALK_ALL;
     tw->query_type_elsize = sizeof(TreeWalkQueryFOF);
     tw->result_type_elsize = sizeof(TreeWalkResultFOF);
+    tw->tree = tree;
     struct FOFSecondaryPriv priv[1];
 
     tw->priv = priv;

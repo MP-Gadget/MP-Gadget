@@ -43,7 +43,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
  *  tree is used.  Particles are only exported to other processors when really
  *  needed, thereby allowing a good use of the communication buffer.
  */
-void grav_short_tree(void)
+void grav_short_tree(struct OctTree * tree)
 {
     double timeall = 0;
     double timetree, timewait, timecomm;
@@ -63,6 +63,7 @@ void grav_short_tree(void)
     tw->query_type_elsize = sizeof(TreeWalkQueryGravShort);
     tw->result_type_elsize = sizeof(TreeWalkResultGravShort);
     tw->fill = (TreeWalkFillQueryFunction) grav_short_copy;
+    tw->tree = tree;
 
     walltime_measure("/Misc");
 
@@ -121,7 +122,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     MyDouble acc_x = 0;
     MyDouble acc_y = 0;
     MyDouble acc_z = 0;
-    const struct OctTree * tree = &TreeNodes;
+    const struct OctTree * tree = lv->tw->tree;
 
     /*Hybrid particle neutrinos do not gravitate at early times*/
     const int NeutrinoTracer = All.HybridNeutrinosOn && (All.Time <= All.HybridNuPartTime);

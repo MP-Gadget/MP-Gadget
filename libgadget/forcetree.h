@@ -39,8 +39,14 @@ struct NODE
     u;
 };
 
-/*Structure containing the Node pointer, and the first and last entries*/
-extern struct OctTree {
+/*Structure containing the Node pointer, and various Tree metadata.*/
+/*The node index is an integer with unusual properties:
+ * no = 0..OctTree.firstnode  corresponds to a particle.
+ * no = OctTree.firstnode..OctTree.lastnode corresponds to actual tree nodes,
+ * and is the only memory allocated in OctTree.Nodes_base. After the tree is built this becomes
+ * no = OctTree.firstnode..OctTree.numnodes which is the only allocated memory.
+ * no > OctTree.lastnode means a pseudo particle on another processor*/
+struct OctTree {
     /*Is 1 if the tree is allocated*/
     int tree_allocated_flag;
     /*Index of first internal node. Difference between Nodes and Nodes_base. == MaxPart*/
@@ -59,13 +65,15 @@ extern struct OctTree {
     int * Nextnode;
     /*!< gives parent node in tree for every particle */
     int *Father;
-} TreeNodes;
+};
 
 int force_tree_allocated(const struct OctTree * tt);
 
 /* This function propagates changed SPH smoothing lengths up the tree*/
 void force_update_hmax(int * activeset, int size, struct OctTree * tt);
-void force_tree_rebuild();
+
+/*This is the main constructor for the tree structure. Pass in something empty.*/
+void force_tree_rebuild(struct OctTree * tree);
 
 /*Free the memory associated with the tree*/
 void   force_tree_free(struct OctTree * tt);

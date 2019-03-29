@@ -24,7 +24,7 @@ static void
 write_snapshot(int num);
 
 void
-write_checkpoint(int WriteSnapshot, int WriteFOF)
+write_checkpoint(int WriteSnapshot, int WriteFOF, struct OctTree * tree)
 {
     if(!WriteSnapshot && !WriteFOF) return;
 
@@ -40,7 +40,9 @@ write_checkpoint(int WriteSnapshot, int WriteFOF)
         /* Compute and save FOF*/
         message(0, "computing group catalogue...\n");
 
-        fof_fof();
+        fof_fof(tree);
+        /* Tree is invalid now because of the exchange in FoF.*/
+        force_tree_free(tree);
         fof_save_groups(snapnum);
         fof_finish();
 

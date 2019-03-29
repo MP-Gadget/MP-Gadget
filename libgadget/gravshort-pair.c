@@ -22,7 +22,7 @@ grav_short_pair_ngbiter(
         TreeWalkNgbIterGravShort * iter,
         LocalTreeWalk * lv);
 
-void grav_short_pair(void)
+void grav_short_pair(struct OctTree * tree)
 {
     TreeWalk tw[1] = {{0}};
 
@@ -40,6 +40,7 @@ void grav_short_pair(void)
     tw->UseNodeList = 1;
     tw->query_type_elsize = sizeof(TreeWalkQueryGravShort);
     tw->result_type_elsize = sizeof(TreeWalkResultGravShort);
+    tw->tree = tree;
 
     walltime_measure("/Misc");
 

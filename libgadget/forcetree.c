@@ -27,14 +27,6 @@
  *  reconstruct the tree every timestep.
  */
 
-/*The node index is an integer with unusual properties:
- * no = 0..OctTree.firstnode  corresponds to a particle.
- * no = OctTree.firstnode..OctTree.lastnode corresponds to actual tree nodes,
- * and is the only memory allocated in OctTree.Nodes_base. After the tree is built this becomes
- * no = OctTree.firstnode..OctTree.numnodes which is the only allocated memory.
- * no > OctTree.lastnode means a pseudo particle on another processor*/
-struct OctTree TreeNodes;
-
 static struct OctTree
 force_tree_build(int npart);
 
@@ -87,18 +79,18 @@ force_tree_allocated(const struct OctTree * tt)
 }
 
 void
-force_tree_rebuild(void)
+force_tree_rebuild(struct OctTree * tree)
 {
     message(0, "Tree construction.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
-    if(force_tree_allocated(&TreeNodes)) {
-        force_tree_free(&TreeNodes);
+    if(force_tree_allocated(tree)) {
+        force_tree_free(tree);
     }
     walltime_measure("/Misc");
 
-    TreeNodes = force_tree_build(PartManager->NumPart);
+    *tree = force_tree_build(PartManager->NumPart);
 
-    event_listen(&EventSlotsFork, force_tree_eh_slots_fork, &TreeNodes);
+    event_listen(&EventSlotsFork, force_tree_eh_slots_fork, tree);
 
     walltime_measure("/Tree/Build");
 

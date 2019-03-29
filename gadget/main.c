@@ -114,8 +114,10 @@ int main(int argc, char **argv)
         case 3:
             begrun(RestartSnapNum);
             /*FoF needs a tree*/
-            force_tree_rebuild();
-            fof_fof();
+            struct OctTree Tree = {0};
+            force_tree_rebuild(&Tree);
+            fof_fof(&Tree);
+            force_tree_free(&Tree);
             fof_save_groups(RestartSnapNum);
             fof_finish();
             break;

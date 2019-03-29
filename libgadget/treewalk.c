@@ -220,7 +220,7 @@ treewalk_init_query(TreeWalk * tw, TreeWalkQueryBase * query, int i, int * NodeL
     if(NodeList) {
         memcpy(query->NodeList, NodeList, sizeof(int) * NODELISTLENGTH);
     } else {
-        query->NodeList[0] = TreeNodes.firstnode; /* root node */
+        query->NodeList[0] = tw->tree->firstnode; /* root node */
         query->NodeList[1] = -1; /* terminate immediately */
     }
 
@@ -515,7 +515,7 @@ static void ev_secondary(TreeWalk * tw)
             treewalk_init_result(tw, output, input);
 #ifdef DEBUG
             if(!tw->UseNodeList) {
-                if(input->NodeList[0] != TreeNodes.firstnode || input->NodeList[1] != -1)
+                if(input->NodeList[0] != tw->tree->firstnode || input->NodeList[1] != -1)
                      endrun(2, "Improper NodeList\n");
             }
 #endif
@@ -549,7 +549,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
     TreeWalk * tw = lv->tw;
     int task;
 
-    task = TopLeaves[no - TreeNodes.lastnode].Task;
+    task = TopLeaves[no - tw->tree->lastnode].Task;
 
     if(exportflag[task] != target)
     {
@@ -583,7 +583,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
     if(tw->UseNodeList)
     {
         DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
-            TopLeaves[no - TreeNodes.lastnode].treenode;
+            TopLeaves[no - tw->tree->lastnode].treenode;
 
         if(exportnodecount[task] < NODELISTLENGTH)
             DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
@@ -600,7 +600,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
 void
 treewalk_run(TreeWalk * tw, int * active_set, int size)
 {
-    if(!force_tree_allocated(&TreeNodes)) {
+    if(!force_tree_allocated(tw->tree)) {
         endrun(0, "Tree has been freed before this treewalk.\n");
     }
 
@@ -806,12 +806,12 @@ static void fill_task_queue (TreeWalk * tw, struct ev_task * tq, int * pq, int l
         int no = -1;
         /*
         if(0) {
-            no = force_get_father(pq[i], TreeNodes);
+            no = force_get_father(pq[i], tw->tree);
             while(no != -1) {
-                if(TreeNodes.Nodes[no].f.TopLevel) {
+                if(tw->tree->Nodes[no].f.TopLevel) {
                     break;
                 }
-                no = TreeNodes.Nodes[no].father;
+                no = tw->tree->Nodes[no].father;
             }
         }
        */
@@ -855,7 +855,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
 
     for(inode = 0; inode < NODELISTLENGTH && I->NodeList[inode] >= 0; inode++)
     {
-        int startnode = TreeNodes.Nodes[I->NodeList[inode]].u.d.nextnode;  /* open it */
+        int startnode = lv->tw->tree->Nodes[I->NodeList[inode]].u.d.nextnode;  /* open it */
 
         int numcand = ngb_treefind_threads(I, O, iter, startnode, lv);
         /* Export buffer is full end prematurally */
@@ -971,7 +971,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
     int no;
     int numcand = 0;
 
-    const struct OctTree * tree = &TreeNodes;
+    const struct OctTree * tree = lv->tw->tree;
 
     no = startnode;
 

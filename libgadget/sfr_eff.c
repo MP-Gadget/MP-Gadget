@@ -47,7 +47,7 @@ static int * sfr_reserve_slots(int * NewStars, int NumNewStar, struct OctTree * 
 
 
 /* cooling and star formation routine.*/
-void cooling_and_starformation(void)
+void cooling_and_starformation(struct OctTree * tree)
 {
     if(!All.CoolingOn)
         return;
@@ -150,7 +150,7 @@ void cooling_and_starformation(void)
     if(SlotsManager->info[4].size + NumNewStar >= SlotsManager->info[4].maxsize) {
         if(NewParents)
             NewParents = myrealloc(NewParents, sizeof(int) * NumNewStar);
-        NewStars = sfr_reserve_slots(NewStars, NumNewStar, &TreeNodes);
+        NewStars = sfr_reserve_slots(NewStars, NumNewStar, tree);
     }
     SlotsManager->info[4].size += NumNewStar;
 
@@ -207,7 +207,7 @@ void cooling_and_starformation(void)
     walltime_measure("/Cooling/StarFormation");
 
     /* Now apply the wind model using the list of new stars.*/
-    winds_and_feedback(NewStars, NumNewStar);
+    winds_and_feedback(NewStars, NumNewStar, tree);
 
     myfree(NewStars);
 }

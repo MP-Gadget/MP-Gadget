@@ -72,6 +72,9 @@ enum TreeWalkType {
 struct TreeWalk {
     void * priv;
 
+    /* A pointer to the force tree structure to walk.*/
+    struct OctTree * tree;
+
     /* name of the evaluator (used in printing messages) */
     char * ev_label;
 

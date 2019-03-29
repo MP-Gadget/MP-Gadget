@@ -58,7 +58,7 @@ void gravpm_init_periodic() {
 
 /* Computes the gravitational force on the PM grid
  * and saves the total matter power spectrum.*/
-void gravpm_force(void) {
+void gravpm_force(struct OctTree * tree) {
     PetaPMParticleStruct pstruct = {
         P,
         sizeof(P[0]),
@@ -81,7 +81,7 @@ void gravpm_force(void) {
      * Therefore the force transfer functions are based on the potential,
      * not the density.
      * */
-    petapm_force(_prepare, &global_functions, functions, &pstruct, NULL);
+    petapm_force(_prepare, &global_functions, functions, &pstruct, tree);
     powerspectrum_sum(&PowerSpectrum, All.BoxSize*All.UnitLength_in_cm);
     /*Now save the power spectrum*/
     if(ThisTask == 0)
@@ -92,7 +92,7 @@ void gravpm_force(void) {
     powerspectrum_free(&PowerSpectrum, All.MassiveNuLinRespOn);
     walltime_measure("/LongRange");
     /*Rebuild the force tree we freed in _prepare to save memory*/
-    force_tree_rebuild();
+    force_tree_rebuild(tree);
 }
 
 static double pot_factor;
@@ -118,7 +118,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
      * NTopLeaves is sufficient */
     PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion) * NTopLeaves);
 
-    struct OctTree * tree = &TreeNodes;
+    struct OctTree * tree = (struct OctTree *) userdata;
     int r = 0;
 
     int no = tree->firstnode; /* start with the root */
@@ -160,7 +160,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
     int numpart = 0;
 #pragma omp parallel for reduction(+: numpart)
     for(r = 0; r < *Nregions; r++) {
-        regions[r].numpart = pm_mark_region_for_node(regions[r].no, r, &TreeNodes);
+        regions[r].numpart = pm_mark_region_for_node(regions[r].no, r, tree);
         numpart += regions[r].numpart;
     }
     for(i =0; i < PartManager->NumPart; i ++) {

@@ -17,8 +17,6 @@
 #include "domain.h"
 #include "timestep.h"
 
-void grav_short_pair(void);
-
 char * GDB_format_particle(int i);
 
 SIMPLE_PROPERTY(GravAccel, P[i].GravAccel[0], float, 3)
@@ -33,7 +31,9 @@ void runtests()
         IO_REG(GravPM,       "f4", 3, ptype);
     }
 
-    gravpm_force();
+    struct OctTree Tree = {0};
+    force_tree_rebuild(&Tree);
+    gravpm_force(&Tree);
 
     /* this produces a very imbalanced load to trigger Issue 86 */
     if(ThisTask == 0) {
@@ -44,15 +44,16 @@ void runtests()
     domain_decompose_full();	/* do domain decomposition */
     rebuild_activelist(All.Ti_Current, 0);
 
-    grav_short_pair();
+    grav_short_pair(&Tree);
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));
     petaio_save_snapshot("%s/PART-pairs-%03d-mpi", All.OutputDir, NTask);
 
-    grav_short_tree();  /* computes gravity accel. */
-    grav_short_tree();  /* computes gravity accel. */
-    grav_short_tree();  /* computes gravity accel. */
-    grav_short_tree();  /* computes gravity accel. */
+    grav_short_tree(&Tree);  /* computes gravity accel. */
+    grav_short_tree(&Tree);  /* computes gravity accel. */
+    grav_short_tree(&Tree);  /* computes gravity accel. */
+    grav_short_tree(&Tree);  /* computes gravity accel. */
     message(0, "GravShort Tree %s\n", GDB_format_particle(0));
+    force_tree_free(&Tree);
 
     petaio_save_snapshot("%s/PART-tree-%03d-mpi", All.OutputDir, NTask);
 
