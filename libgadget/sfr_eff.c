@@ -277,7 +277,6 @@ sfr_reserve_slots(int * NewStars, int NumNewStar, struct OctTree * tt)
             myfree(nodes_base_tmp);
             /*Don't forget to update the Node pointer as well as Node_base!*/
             tt->Nodes = tt->Nodes_base - tt->firstnode;
-            Nodes = tt->Nodes;
         }
         if(new_star_tmp) {
             NewStars = mymalloc("NewStars", NumNewStar*sizeof(int));

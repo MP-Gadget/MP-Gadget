@@ -7,8 +7,7 @@
  * ------------------
  */
 
-/*Used in treewalk.c*/
-extern struct NODE
+struct NODE
 {
     MyFloat len;			/*!< sidelength of treenode */
     MyFloat center[3];		/*!< geometrical center of node */
@@ -38,9 +37,7 @@ extern struct NODE
         d;
     }
     u;
-}
-*Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[firstnode]
-                      gives the first allocated node */
+};
 
 /*Structure containing the Node pointer, and the first and last entries*/
 extern struct OctTree {

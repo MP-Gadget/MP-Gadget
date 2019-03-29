@@ -35,9 +35,6 @@
  * no > OctTree.lastnode means a pseudo particle on another processor*/
 struct OctTree TreeNodes;
 
-/*!< this is a pointer used to access the nodes which is shifted such that Nodes[firstnode] gives the first allocated node */
-struct NODE * Nodes;
-
 static struct OctTree
 force_tree_build(int npart);
 
@@ -157,7 +154,6 @@ struct OctTree force_tree_build(int npart)
     /*Update the oct-tree struct so it knows about the memory change*/
     tb.numnodes = Numnodestree;
     tb.Nodes = tb.Nodes_base - tb.firstnode;
-    Nodes = tb.Nodes;
 
     return tb;
 }
