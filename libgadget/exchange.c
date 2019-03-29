@@ -34,6 +34,8 @@ typedef struct {
     int * ExchangeList;
     /*Total number of exchanged particles*/
     int nexchange;
+    /*Number of garbage particles*/
+    int ngarbage;
     /* last particle in current batch of the exchange.
      * Exchange stops when last == nexchange.*/
     int last;
@@ -169,8 +171,9 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, i
 
     int bad_exh=0;
 
-    /*Check whether the domain exchange will succeed. If not, bail*/
-    if(PartManager->NumPart + plan->toGetSum.base - plan->toGoSum.base > PartManager->MaxPart){
+    /* Check whether the domain exchange will succeed.
+     * Garbage particles will be collected after the particles are exported, so do not need to count.*/
+    if(PartManager->NumPart + plan->toGetSum.base - plan->toGoSum.base  - plan->ngarbage > PartManager->MaxPart){
         message(1,"Too many particles for exchange: NumPart=%d count_get = %d count_togo=%d MaxPart=%d\n",
                 PartManager->NumPart, plan->toGetSum.base, plan->toGoSum.base, PartManager->MaxPart);
         bad_exh = 1;
@@ -355,16 +358,21 @@ domain_build_exchange_list(int (*layoutfunc)(int p), ExchangePlan * plan)
     /*static schedule below so we only need this much memory*/
     int narr = plan->nexchange/numthreads+2;
     plan->ExchangeList = mymalloc2("exchangelist", sizeof(int) * narr * numthreads);
+    /*Garbage particles are counted so we have an accurate memory estimate*/
+    int ngarbage = 0;
+
     size_t *nexthr = ta_malloc("nexthr", size_t, numthreads);
     int **threx = ta_malloc("threx", int *, numthreads);
     gadget_setup_thread_arrays(plan->ExchangeList, threx, nexthr,narr,numthreads);
 
     /* flag the particles that need to be exported */
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for schedule(static) reduction(+: ngarbage)
     for(i=0; i < PartManager->NumPart; i++)
     {
-        if(P[i].IsGarbage)
+        if(P[i].IsGarbage) {
+            ngarbage++;
             continue;
+        }
         int target = layoutfunc(i);
         if(target != ThisTask) {
             const int tid = omp_get_thread_num();
@@ -372,6 +380,7 @@ domain_build_exchange_list(int (*layoutfunc)(int p), ExchangePlan * plan)
             nexthr[tid]++;
         }
     }
+    plan->ngarbage = ngarbage;
     /*Merge step for the queue.*/
     plan->nexchange = gadget_compact_thread_arrays(plan->ExchangeList, threx, nexthr, numthreads);
     ta_free(threx);
