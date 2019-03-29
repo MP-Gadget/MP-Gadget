@@ -88,11 +88,11 @@ int force_get_father(int no, int firstnode)
  * that it the mass and flags are correct.*/
 static int check_moments(const struct OctTree tb, const int numpart, const int nrealnode)
 {
-    double * oldmass = malloc(sizeof(double) * MaxNodes);
+    double * oldmass = malloc(sizeof(double) * tb.numnodes);
     int i;
 
-    for(i=tb.firstnode; i < tb.lastnode; i ++) {
-        oldmass[i - tb.firstnode] = Nodes[i].u.d.mass;
+    for(i=tb.firstnode; i < tb.numnodes + tb.firstnode; i ++) {
+        oldmass[i - tb.firstnode] = tb.Nodes[i].u.d.mass;
     }
 
     for(i=0; i<numpart; i++)
@@ -101,8 +101,8 @@ static int check_moments(const struct OctTree tb, const int numpart, const int n
         /*Subtract mass so that nothing is left.*/
         assert_true(fnode >= tb.firstnode && fnode < tb.lastnode);
         while(fnode > 0) {
-            Nodes[fnode].u.d.mass -= P[i].Mass;
-            fnode = Nodes[fnode].father;
+            tb.Nodes[fnode].u.d.mass -= P[i].Mass;
+            fnode = tb.Nodes[fnode].father;
             /*Validate father*/
             assert_true((fnode >= tb.firstnode && fnode < tb.lastnode) || fnode == -1);
         }
@@ -255,11 +255,10 @@ static void do_tree_test(const int numpart, const struct OctTree tb)
     qsort(P, numpart, sizeof(struct particle_data), order_by_type_and_key);
     int maxnode = numpart;
     PartManager->MaxPart = numpart;
-    MaxNodes = numpart;
-    assert_true(Nodes != NULL);
+    assert_true(tb.Nodes != NULL);
     /*So we know which nodes we have initialised*/
-    for(i=0; i< MaxNodes+1; i++)
-        Nodes_base[i].father = -2;
+    for(i=0; i< tb.numnodes+1; i++)
+        tb.Nodes_base[i].father = -2;
     /*Time creating the nodes*/
     double start, end;
     start = MPI_Wtime();
@@ -276,8 +275,8 @@ static void do_tree_test(const int numpart, const struct OctTree tb)
 /*     assert_true(tail < nodes); */
     end = MPI_Wtime();
     ms = (end - start)*1000;
-    printf("Updated moments in %.3g ms. Total mass: %g\n", ms, Nodes[numpart].u.d.mass);
-    assert_true(fabs(Nodes[numpart].u.d.mass - numpart) < 0.5);
+    printf("Updated moments in %.3g ms. Total mass: %g\n", ms, tb.Nodes[numpart].u.d.mass);
+    assert_true(fabs(tb.Nodes[numpart].u.d.mass - numpart) < 0.5);
     check_moments(tb, numpart, nrealnode);
 }
 
