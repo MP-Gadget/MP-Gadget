@@ -1038,14 +1038,11 @@ void force_update_hmax(int * activeset, int size)
     /* At most NTopLeaves are dirty, since we are only concerned with TOPLEVEL nodes */
     DirtyTopLevelNodes = (struct dirty_node_data*) mymalloc("DirtyTopLevelNodes", NTopLeaves * sizeof(DirtyTopLevelNodes[0]));
 
-    /* FIXME: This can be made a struct flag*/
-    char * NodeIsDirty = (char *) mymalloc("NodeIsDirty", MaxNodes * sizeof(char));
-
     /* FIXME: actually only TOPLEVEL nodes contains the local mass can potentially be dirty,
      *  we may want to save a list of them to speed this up.
      * */
-    for(i = 0; i < MaxNodes; i ++) {
-        NodeIsDirty[i] = 0;
+    for(i = RootNode; i < RootNode + NumNodes; i ++) {
+        Nodes[i].f.NodeIsDirty = 0;
     }
 
     for(i = 0; i < size; i++)
@@ -1065,8 +1062,8 @@ void force_update_hmax(int * activeset, int size)
 
             if(Nodes[no].f.TopLevel) /* we reached a top-level node */
             {
-                if (!NodeIsDirty[no - RootNode]) {
-                    NodeIsDirty[no - RootNode] = 1;
+                if (!Nodes[no].f.NodeIsDirty) {
+                    Nodes[no].f.NodeIsDirty = 1;
                     DirtyTopLevelNodes[NumDirtyTopLevelNodes].treenode = no;
                     DirtyTopLevelNodes[NumDirtyTopLevelNodes].hmax = Nodes[no].u.d.hmax;
                     NumDirtyTopLevelNodes ++;
@@ -1125,7 +1122,6 @@ void force_update_hmax(int * activeset, int size)
 
     myfree(offsets);
     myfree(counts);
-    myfree(NodeIsDirty);
     myfree(DirtyTopLevelNodes);
 
     walltime_measure("/Tree/HmaxUpdate");
