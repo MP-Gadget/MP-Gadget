@@ -25,7 +25,7 @@ struct OctTree
 force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
 
 int
-force_update_node_parallel(const struct OctTree tb);
+force_update_node_parallel(const struct OctTree * tb);
 
 /*Used data from All and domain*/
 struct part_manager_type PartManager[1] = {{0}};
@@ -262,7 +262,7 @@ static void do_tree_test(const int numpart, const struct OctTree tb)
     int nrealnode = check_tree(&tb, nodes, numpart);
     /* now compute the multipole moments recursively */
     start = MPI_Wtime();
-    int tail = force_update_node_parallel(tb);
+    int tail = force_update_node_parallel(&tb);
     force_set_next_node(tail, -1, &tb);
 /*     assert_true(tail < nodes); */
     end = MPI_Wtime();
@@ -356,7 +356,7 @@ static void test_rebuild_random(void ** state) {
     TopLeaves[0].topnode = numpart;
     int maxnode = numpart;
     struct OctTree tb = force_treeallocate(numpart, numpart, numpart);
-    assert_true(Nodes != NULL);
+    assert_true(tb.Nodes != NULL);
     P = malloc(numpart*sizeof(struct particle_data));
     int i;
     for(i=0; i<2; i++) {
