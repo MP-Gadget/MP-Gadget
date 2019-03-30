@@ -47,7 +47,7 @@ struct NODE
  * no = ForceTree.firstnode..ForceTree.numnodes which is the only allocated memory.
  * no > ForceTree.lastnode means a pseudo particle on another processor*/
 typedef struct ForceTree {
-    /*Is 1 if the tree is allocated*/
+    /*Is 1 if the tree is allocated. Only used inside force_tree_allocated() and when allocating.*/
     int tree_allocated_flag;
     /*Index of first internal node. Difference between Nodes and Nodes_base. == MaxPart*/
     int firstnode;
@@ -58,7 +58,9 @@ typedef struct ForceTree {
     /*!< this is a pointer used to access the nodes which is shifted such that Nodes[firstnode]
      *   gives the first allocated node */
     struct NODE *Nodes;
-    /*This points to the actual memory allocated for the nodes*/
+    /* The following pointers should only be used via accessors or inside of forcetree.c.
+     * The exception is the crazy memory shifting done in sfr_eff.c*/
+    /*This points to the actual memory allocated for the nodes.*/
     struct NODE * Nodes_base;
     /* Gives next node in the tree walk for particles and pseudo particles.
      * next node for the actual nodes is stored in Nodes*/
