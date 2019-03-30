@@ -80,21 +80,21 @@ void   force_tree_free(struct OctTree * tt);
 void   dump_particles(void);
 
 static inline int
-node_is_pseudo_particle(int no, const struct OctTree * tt)
+node_is_pseudo_particle(int no, const struct OctTree * tree)
 {
-    return no >= tt->lastnode;
+    return no >= tree->lastnode;
 }
 
 static inline int
-node_is_particle(int no, const struct OctTree * tt)
+node_is_particle(int no, const struct OctTree * tree)
 {
-    return no < tt->firstnode;
+    return no < tree->firstnode;
 }
 
 static inline int
-node_is_node(int no, const struct OctTree * tt)
+node_is_node(int no, const struct OctTree * tree)
 {
-    return (no >= tt->firstnode) && (no < tt->lastnode);
+    return (no >= tree->firstnode) && (no < tree->lastnode);
 }
 
 int

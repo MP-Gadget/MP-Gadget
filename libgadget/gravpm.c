@@ -185,13 +185,13 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
     return regions;
 }
 
-static int pm_mark_region_for_node(int startno, int rid, const struct OctTree * tt) {
+static int pm_mark_region_for_node(int startno, int rid, const struct OctTree * tree) {
     int numpart = 0;
     int no = startno;
-    int endno = tt->Nodes[startno].u.d.sibling;
+    int endno = tree->Nodes[startno].u.d.sibling;
     while(no >= 0 && no != endno)
     {
-        if(node_is_particle(no, tt))	/* single particle */
+        if(node_is_particle(no, tree))	/* single particle */
         {
             int p = no;
             /* when we are in PM, all particles must have been synced. */
@@ -212,7 +212,7 @@ static int pm_mark_region_for_node(int startno, int rid, const struct OctTree * 
              * */
             int k;
             for(k = 0; k < 3; k ++) {
-                double l = P[p].Pos[k] - tt->Nodes[startno].center[k];
+                double l = P[p].Pos[k] - tree->Nodes[startno].center[k];
                 if (l < - 0.5 * All.BoxSize) {
                     l += All.BoxSize;
                 }
@@ -220,17 +220,17 @@ static int pm_mark_region_for_node(int startno, int rid, const struct OctTree * 
                     l -= All.BoxSize;
                 }
                 l = fabs(l * 2);
-                if (l > tt->Nodes[startno].len) {
-                    if(l > tt->Nodes[startno].len * (1+ 1e-7))
+                if (l > tree->Nodes[startno].len) {
+                    if(l > tree->Nodes[startno].len * (1+ 1e-7))
                     message(1, "enlarging node size from %g to %g, due to particle of type %d at %g %g %g id=%ld\n",
-                        tt->Nodes[startno].len, l, P[p].Type, P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].ID);
-                    tt->Nodes[startno].len = l;
+                        tree->Nodes[startno].len, l, P[p].Type, P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].ID);
+                    tree->Nodes[startno].len = l;
                 }
             }
             numpart ++;
         }
 
-        no = force_get_next_node(no, tt);
+        no = force_get_next_node(no, tree);
     }
     return numpart;
 }

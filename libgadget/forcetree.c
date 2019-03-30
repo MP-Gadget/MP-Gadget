@@ -15,16 +15,17 @@
 #include "utils.h"
 
 /*! \file forcetree.c
- *  \brief gravitational tree and code for Ewald correction
+ *  \brief gravitational tree
  *
  *  This file contains the computation of the gravitational force by means
  *  of a tree. The type of tree implemented is a geometrical oct-tree,
  *  starting from a cube encompassing all particles. This cube is
  *  automatically found in the domain decomposition, which also splits up
  *  the global "top-level" tree along node boundaries, moving the particles
- *  of different parts of the tree to separate processors. Tree nodes can
- *  be dynamically updated in drift/kick operations to avoid having to
- *  reconstruct the tree every timestep.
+ *  of different parts of the tree to separate processors.
+ *
+ * Local naming convention: once built it is struct OctTree * tree, passed by reference.
+ * While the nodes are still being added it is struct OctTree tb, passed by value.
  */
 
 static struct OctTree
@@ -41,19 +42,19 @@ struct OctTree
 force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
 
 int
-force_update_node_parallel(const struct OctTree * tb);
+force_update_node_parallel(const struct OctTree * tree);
 
 static void
-force_treeupdate_pseudos(int no, const struct OctTree * tb);
+force_treeupdate_pseudos(int no, const struct OctTree * tree);
 
 static void
 force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, int bits, int x, int y, int z, int *nextfree, const int lastnode);
 
 static void
-force_exchange_pseudodata(struct OctTree * tt);
+force_exchange_pseudodata(struct OctTree * tree);
 
 static void
-force_insert_pseudo_particles(const struct OctTree * tb);
+force_insert_pseudo_particles(const struct OctTree * tree);
 
 static int
 force_tree_eh_slots_fork(EIBase * event, void * userdata)
@@ -63,19 +64,19 @@ force_tree_eh_slots_fork(EIBase * event, void * userdata)
     int parent = ev->parent;
     int child = ev->child;
     int no;
-    struct OctTree * tt = (struct OctTree * ) userdata;
-    no = tt->Nextnode[parent];
-    tt->Nextnode[parent] = child;
-    tt->Nextnode[child] = no;
-    tt->Father[child] = tt->Father[parent];
+    struct OctTree * tree = (struct OctTree * ) userdata;
+    no = tree->Nextnode[parent];
+    tree->Nextnode[parent] = child;
+    tree->Nextnode[child] = no;
+    tree->Father[child] = tree->Father[parent];
 
     return 0;
 }
 
 int
-force_tree_allocated(const struct OctTree * tt)
+force_tree_allocated(const struct OctTree * tree)
 {
-    return tt->tree_allocated_flag;
+    return tree->tree_allocated_flag;
 }
 
 void
@@ -105,23 +106,23 @@ struct OctTree force_tree_build(int npart)
     int Numnodestree;
     int flag;
     int maxnodes;
-    struct OctTree tb;
+    struct OctTree tree;
 
     do
     {
         maxnodes = All.TreeAllocFactor * PartManager->MaxPart + NTopNodes;
         /* construct tree if needed */
         /* the tree is used in grav dens, hydro, bh and sfr */
-        tb = force_treeallocate(maxnodes, PartManager->MaxPart, PartManager->MaxPart);
+        tree = force_treeallocate(maxnodes, PartManager->MaxPart, PartManager->MaxPart);
 
-        Numnodestree = force_tree_build_single(tb, npart);
+        Numnodestree = force_tree_build_single(tree, npart);
         if(Numnodestree < 0)
             message(1, "Not enough tree nodes (%d) for %d particles.\n", maxnodes, npart);
 
         MPI_Allreduce(&Numnodestree, &flag, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
         if(flag == -1)
         {
-            force_tree_free(&tb);
+            force_tree_free(&tree);
 
             message(0, "TreeAllocFactor from %g to %g\n", All.TreeAllocFactor, All.TreeAllocFactor*1.15);
 
@@ -137,17 +138,17 @@ struct OctTree force_tree_build(int npart)
     }
     while(flag == -1);
 
-    force_exchange_pseudodata(&tb);
+    force_exchange_pseudodata(&tree);
 
-    force_treeupdate_pseudos(PartManager->MaxPart, &tb);
+    force_treeupdate_pseudos(PartManager->MaxPart, &tree);
 
-    myrealloc(tb.Nodes_base, (Numnodestree +1) * sizeof(struct NODE));
+    myrealloc(tree.Nodes_base, (Numnodestree +1) * sizeof(struct NODE));
 
     /*Update the oct-tree struct so it knows about the memory change*/
-    tb.numnodes = Numnodestree;
-    tb.Nodes = tb.Nodes_base - tb.firstnode;
+    tree.numnodes = Numnodestree;
+    tree.Nodes = tree.Nodes_base - tree.firstnode;
 
-    return tb;
+    return tree;
 }
 
 /* Get the subnode for a given particle and parent node.
@@ -548,78 +549,78 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, int
  *  updated later on.
  */
 static void
-force_insert_pseudo_particles(const struct OctTree * tb)
+force_insert_pseudo_particles(const struct OctTree * tree)
 {
     int i, index;
-    const int firstpseudo = tb->lastnode;
+    const int firstpseudo = tree->lastnode;
 
     for(i = 0; i < NTopLeaves; i++)
     {
         index = TopLeaves[i].treenode;
 
         if(TopLeaves[i].Task != ThisTask) {
-            tb->Nodes[index].u.suns[0] = firstpseudo + i;
-            force_set_next_node(firstpseudo + i, -1, tb);
+            tree->Nodes[index].u.suns[0] = firstpseudo + i;
+            force_set_next_node(firstpseudo + i, -1, tree);
         }
     }
 }
 
 int
-force_get_father(int no, const struct OctTree * tt)
+force_get_father(int no, const struct OctTree * tree)
 {
-    if(no >= tt->firstnode)
-        return tt->Nodes[no].father;
+    if(no >= tree->firstnode)
+        return tree->Nodes[no].father;
     else
-        return tt->Father[no];
+        return tree->Father[no];
 }
 
 int
-force_get_next_node(int no, const struct OctTree * tb)
+force_get_next_node(int no, const struct OctTree * tree)
 {
-    if(no >= tb->firstnode && no < tb->lastnode) {
+    if(no >= tree->firstnode && no < tree->lastnode) {
         /* internal node */
-        return tb->Nodes[no].u.d.nextnode;
+        return tree->Nodes[no].u.d.nextnode;
     }
-    if(no < tb->firstnode) {
+    if(no < tree->firstnode) {
         /* Particle */
-        return tb->Nextnode[no];
+        return tree->Nextnode[no];
     }
     else { //if(no >= tb.lastnode) {
         /* Pseudo Particle */
-        return tb->Nextnode[no - (tb->lastnode - tb->firstnode)];
+        return tree->Nextnode[no - (tree->lastnode - tree->firstnode)];
     }
 }
 
 int
-force_set_next_node(int no, int next, const struct OctTree * tb)
+force_set_next_node(int no, int next, const struct OctTree * tree)
 {
     if(no < 0) return next;
-    if(no >= tb->firstnode && no < tb->lastnode) {
+    if(no >= tree->firstnode && no < tree->lastnode) {
         /* internal node */
-        tb->Nodes[no].u.d.nextnode = next;
+        tree->Nodes[no].u.d.nextnode = next;
     }
-    if(no < tb->firstnode) {
+    if(no < tree->firstnode) {
         /* Particle */
-        tb->Nextnode[no] = next;
+        tree->Nextnode[no] = next;
     }
-    if(no >= tb->lastnode) {
+    if(no >= tree->lastnode) {
         /* Pseudo Particle */
-        tb->Nextnode[no - (tb->lastnode - tb->firstnode)] = next;
+        tree->Nextnode[no - (tree->lastnode - tree->firstnode)] = next;
     }
 
     return next;
 }
 
 int
-force_get_prev_node(int no, const struct OctTree * tb)
+force_get_prev_node(int no, const struct OctTree * tree)
 {
-    if(node_is_particle(no, tb)) {
+    if(node_is_particle(no, tree)) {
         /* Particle */
-        int t = tb->Father[no];
-        int next = force_get_next_node(t, tb);
+        int t = tree->Father[no];
+        int next = force_get_next_node(t, tree);
         while(next != no) {
             t = next;
-            next = force_get_next_node(t, tb);
+            next = force_get_next_node(t, tree);
         }
         return t;
     } else {
@@ -699,7 +700,7 @@ force_get_sibling(const int sib, const int j, const int * suns)
  *
  */
 static int
-force_update_node_recursive(int no, int sib, int level, const struct OctTree * tb)
+force_update_node_recursive(int no, int sib, int level, const struct OctTree * tree)
 {
     /*Last value of tails is the return value of this function*/
     int j, suns[8], tails[8];
@@ -710,8 +711,8 @@ force_update_node_recursive(int no, int sib, int level, const struct OctTree * t
     /* this "backup" is necessary because the nextnode
      * entry will overwrite one element (union!) */
     for(j = 0; j < 8; j++) {
-        suns[j] = tb->Nodes[no].u.suns[j];
-        if(suns[j] >= tb->firstnode && suns[j] < tb->lastnode)
+        suns[j] = tree->Nodes[no].u.suns[j];
+        if(suns[j] >= tree->firstnode && suns[j] < tree->lastnode)
             chldcnt++;
     }
 
@@ -724,11 +725,11 @@ force_update_node_recursive(int no, int sib, int level, const struct OctTree * t
             continue;
         /* For particles and pseudo particles we have nothing to update; */
         /* But the new tail is the last particle in the linked list. */
-        if(p < tb->firstnode || p >= tb->lastnode) {
+        if(p < tree->firstnode || p >= tree->lastnode) {
             int next = p;
             while(next != -1) {
                 p = next;
-                next = force_get_next_node(next, tb);
+                next = force_get_next_node(next, tree);
             }
             tails[j] = p;
         }
@@ -738,25 +739,25 @@ force_update_node_recursive(int no, int sib, int level, const struct OctTree * t
              *or if we are deep enough that we already spawned a lot.
              Note: final clause is much slower for some reason. */
             if(chldcnt > 1 && level < 513) {
-                #pragma omp task default(none) shared(tails, level, chldcnt, tb) firstprivate(j, nextsib, p)
-                tails[j] = force_update_node_recursive(p, nextsib, level*chldcnt, tb);
+                #pragma omp task default(none) shared(tails, level, chldcnt, tree) firstprivate(j, nextsib, p)
+                tails[j] = force_update_node_recursive(p, nextsib, level*chldcnt, tree);
             }
             else
-                tails[j] = force_update_node_recursive(p, nextsib, level, tb);
+                tails[j] = force_update_node_recursive(p, nextsib, level, tree);
         }
     }
 
     /*Now we do the moments*/
     /*After this point the suns array is invalid!*/
-    memset(&(tb->Nodes[no].u.d.s),0,3*sizeof(MyFloat));
+    memset(&(tree->Nodes[no].u.d.s),0,3*sizeof(MyFloat));
 
-    tb->Nodes[no].u.d.mass = 0;
-    tb->Nodes[no].u.d.hmax = 0;
-    tb->Nodes[no].u.d.MaxSoftening = -1;
-    tb->Nodes[no].f.DependsOnLocalMass = 0;
-    tb->Nodes[no].f.MixedSofteningsInNode = 0;
+    tree->Nodes[no].u.d.mass = 0;
+    tree->Nodes[no].u.d.hmax = 0;
+    tree->Nodes[no].u.d.MaxSoftening = -1;
+    tree->Nodes[no].f.DependsOnLocalMass = 0;
+    tree->Nodes[no].f.MixedSofteningsInNode = 0;
 
-    tb->Nodes[no].u.d.sibling = sib;
+    tree->Nodes[no].u.d.sibling = sib;
 
     /*Make sure all child nodes are done*/
     #pragma omp taskwait
@@ -768,50 +769,50 @@ force_update_node_recursive(int no, int sib, int level, const struct OctTree * t
         if(p < 0)
             continue;
 
-        if(p >= tb->lastnode)	/* a pseudo particle */
+        if(p >= tree->lastnode)	/* a pseudo particle */
         {
             /* nothing to be done here because the mass of the
              * pseudo-particle is still zero. The node attributes will be changed
              * later when we exchange the pseudo-particles.
              */
         }
-        else if(p < tb->lastnode && p >= tb->firstnode) /* a tree node */
+        else if(p < tree->lastnode && p >= tree->firstnode) /* a tree node */
         {
-            tb->Nodes[no].u.d.mass += (tb->Nodes[p].u.d.mass);
-            tb->Nodes[no].u.d.s[0] += (tb->Nodes[p].u.d.mass * tb->Nodes[p].u.d.s[0]);
-            tb->Nodes[no].u.d.s[1] += (tb->Nodes[p].u.d.mass * tb->Nodes[p].u.d.s[1]);
-            tb->Nodes[no].u.d.s[2] += (tb->Nodes[p].u.d.mass * tb->Nodes[p].u.d.s[2]);
+            tree->Nodes[no].u.d.mass += (tree->Nodes[p].u.d.mass);
+            tree->Nodes[no].u.d.s[0] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[0]);
+            tree->Nodes[no].u.d.s[1] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[1]);
+            tree->Nodes[no].u.d.s[2] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[2]);
 
-            if(tb->Nodes[p].u.d.hmax > tb->Nodes[no].u.d.hmax)
-                tb->Nodes[no].u.d.hmax = tb->Nodes[p].u.d.hmax;
+            if(tree->Nodes[p].u.d.hmax > tree->Nodes[no].u.d.hmax)
+                tree->Nodes[no].u.d.hmax = tree->Nodes[p].u.d.hmax;
 
-            force_adjust_node_softening(&tb->Nodes[no], tb->Nodes[p].u.d.MaxSoftening, tb->Nodes[p].f.MixedSofteningsInNode);
+            force_adjust_node_softening(&tree->Nodes[no], tree->Nodes[p].u.d.MaxSoftening, tree->Nodes[p].f.MixedSofteningsInNode);
         }
         else /* a list of particles */
         {
             /* add all particles in this tree-node */
             int next = p;
             while(next != -1) {
-                add_particle_moment_to_node(&tb->Nodes[no], next);
-                next = force_get_next_node(next, tb);
+                add_particle_moment_to_node(&tree->Nodes[no], next);
+                next = force_get_next_node(next, tree);
             }
         }
     }
 
     /*Set the center of mass moments*/
-    const double mass = tb->Nodes[no].u.d.mass;
+    const double mass = tree->Nodes[no].u.d.mass;
     if(mass)
     {
-        tb->Nodes[no].u.d.s[0] /= mass;
-        tb->Nodes[no].u.d.s[1] /= mass;
-        tb->Nodes[no].u.d.s[2] /= mass;
+        tree->Nodes[no].u.d.s[0] /= mass;
+        tree->Nodes[no].u.d.s[1] /= mass;
+        tree->Nodes[no].u.d.s[2] /= mass;
     }
     /*This only happens for a pseudo particle*/
     else
     {
-        tb->Nodes[no].u.d.s[0] = tb->Nodes[no].center[0];
-        tb->Nodes[no].u.d.s[1] = tb->Nodes[no].center[1];
-        tb->Nodes[no].u.d.s[2] = tb->Nodes[no].center[2];
+        tree->Nodes[no].u.d.s[0] = tree->Nodes[no].center[0];
+        tree->Nodes[no].u.d.s[1] = tree->Nodes[no].center[1];
+        tree->Nodes[no].u.d.s[2] = tree->Nodes[no].center[2];
     }
 
     /*This loop sets the next node value for the row we just computed.
@@ -823,10 +824,10 @@ force_update_node_recursive(int no, int sib, int level, const struct OctTree * t
         if(suns[j] < 0)
             continue;
         /*Set NextNode for this node*/
-        if(tail < tb->firstnode && tail >= 0 && force_get_next_node(tail, tb) != -1) {
-            endrun(2,"Particle %d with tail %d already has tail set: %d\n",no, tail, force_get_next_node(tail, tb));
+        if(tail < tree->firstnode && tail >= 0 && force_get_next_node(tail, tree) != -1) {
+            endrun(2,"Particle %d with tail %d already has tail set: %d\n",no, tail, force_get_next_node(tail, tree));
         }
-        force_set_next_node(tail, suns[j], tb);
+        force_set_next_node(tail, suns[j], tree);
         tail = tails[j];
     }
     return tail;
@@ -846,13 +847,13 @@ force_update_node_recursive(int no, int sib, int level, const struct OctTree * t
  * searches the list of pre-computed tail values to set the next node as if it had recursed and continues.
  */
 int
-force_update_node_parallel(const struct OctTree * tb)
+force_update_node_parallel(const struct OctTree * tree)
 {
     int tail;
 #pragma omp parallel
 #pragma omp single nowait
     {
-        tail = force_update_node_recursive(tb->firstnode, -1, 1, tb);
+        tail = force_update_node_recursive(tree->firstnode, -1, 1, tree);
     }
     return tail;
 }
@@ -861,7 +862,7 @@ force_update_node_parallel(const struct OctTree * tb)
  *  top-level tree-nodes of the domain grid.  This data can then be used to
  *  update the pseudo-particles on each CPU accordingly.
  */
-void force_exchange_pseudodata(struct OctTree * tt)
+void force_exchange_pseudodata(struct OctTree * tree)
 {
     int i, no, ta, recvTask;
     int *recvcounts, *recvoffset;
@@ -887,23 +888,23 @@ void force_exchange_pseudodata(struct OctTree * tt)
             endrun(131231231, "TopLeave's Task table is corrupted");
 
         /* read out the multipole moments from the local base cells */
-        TopLeafMoments[i].s[0] = tt->Nodes[no].u.d.s[0];
-        TopLeafMoments[i].s[1] = tt->Nodes[no].u.d.s[1];
-        TopLeafMoments[i].s[2] = tt->Nodes[no].u.d.s[2];
-        TopLeafMoments[i].mass = tt->Nodes[no].u.d.mass;
-        TopLeafMoments[i].hmax = tt->Nodes[no].u.d.hmax;
-        TopLeafMoments[i].MaxSoftening = tt->Nodes[no].u.d.MaxSoftening;
-        TopLeafMoments[i].MixedSofteningsInNode = tt->Nodes[no].f.MixedSofteningsInNode;
+        TopLeafMoments[i].s[0] = tree->Nodes[no].u.d.s[0];
+        TopLeafMoments[i].s[1] = tree->Nodes[no].u.d.s[1];
+        TopLeafMoments[i].s[2] = tree->Nodes[no].u.d.s[2];
+        TopLeafMoments[i].mass = tree->Nodes[no].u.d.mass;
+        TopLeafMoments[i].hmax = tree->Nodes[no].u.d.hmax;
+        TopLeafMoments[i].MaxSoftening = tree->Nodes[no].u.d.MaxSoftening;
+        TopLeafMoments[i].MixedSofteningsInNode = tree->Nodes[no].f.MixedSofteningsInNode;
 
         /*Set the local base nodes dependence on local mass*/
         while(no >= 0)
         {
-            if(tt->Nodes[no].f.DependsOnLocalMass)
+            if(tree->Nodes[no].f.DependsOnLocalMass)
                 break;
 
-            tt->Nodes[no].f.DependsOnLocalMass = 1;
+            tree->Nodes[no].f.DependsOnLocalMass = 1;
 
-            no = tt->Nodes[no].father;
+            no = tree->Nodes[no].father;
         }
     }
 
@@ -932,13 +933,13 @@ void force_exchange_pseudodata(struct OctTree * tt)
         for(i = Tasks[ta].StartLeaf; i < Tasks[ta].EndLeaf; i ++) {
             no = TopLeaves[i].treenode;
 
-            tt->Nodes[no].u.d.s[0] = TopLeafMoments[i].s[0];
-            tt->Nodes[no].u.d.s[1] = TopLeafMoments[i].s[1];
-            tt->Nodes[no].u.d.s[2] = TopLeafMoments[i].s[2];
-            tt->Nodes[no].u.d.mass = TopLeafMoments[i].mass;
-            tt->Nodes[no].u.d.hmax = TopLeafMoments[i].hmax;
-            tt->Nodes[no].u.d.MaxSoftening = TopLeafMoments[i].MaxSoftening;
-            tt->Nodes[no].f.MixedSofteningsInNode = TopLeafMoments[i].MixedSofteningsInNode;
+            tree->Nodes[no].u.d.s[0] = TopLeafMoments[i].s[0];
+            tree->Nodes[no].u.d.s[1] = TopLeafMoments[i].s[1];
+            tree->Nodes[no].u.d.s[2] = TopLeafMoments[i].s[2];
+            tree->Nodes[no].u.d.mass = TopLeafMoments[i].mass;
+            tree->Nodes[no].u.d.hmax = TopLeafMoments[i].hmax;
+            tree->Nodes[no].u.d.MaxSoftening = TopLeafMoments[i].MaxSoftening;
+            tree->Nodes[no].f.MixedSofteningsInNode = TopLeafMoments[i].MixedSofteningsInNode;
          }
     }
     myfree(TopLeafMoments);
@@ -948,7 +949,7 @@ void force_exchange_pseudodata(struct OctTree * tt)
 /*! This function updates the top-level tree after the multipole moments of
  *  the pseudo-particles have been updated.
  */
-void force_treeupdate_pseudos(int no, const struct OctTree * tb)
+void force_treeupdate_pseudos(int no, const struct OctTree * tree)
 {
     int j, p;
     MyFloat hmax;
@@ -960,32 +961,32 @@ void force_treeupdate_pseudos(int no, const struct OctTree * tb)
     s[2] = 0;
     hmax = 0;
 
-    tb->Nodes[no].u.d.MaxSoftening = -1;
-    tb->Nodes[no].f.MixedSofteningsInNode = 0;
+    tree->Nodes[no].u.d.MaxSoftening = -1;
+    tree->Nodes[no].f.MixedSofteningsInNode = 0;
 
-    p = tb->Nodes[no].u.d.nextnode;
+    p = tree->Nodes[no].u.d.nextnode;
 
     /* since we are dealing with top-level nodes, we know that there are 8 consecutive daughter nodes */
     for(j = 0; j < 8; j++)
     {
         /*This may not happen as we are an internal top level node*/
-        if(p < tb->firstnode || p >= tb->lastnode)
-            endrun(6767, "Updating pseudos: %d -> %d which is not an internal node between %d and %d.",no, p, tb->firstnode, tb->lastnode);
+        if(p < tree->firstnode || p >= tree->lastnode)
+            endrun(6767, "Updating pseudos: %d -> %d which is not an internal node between %d and %d.",no, p, tree->firstnode, tree->lastnode);
 
-        if(tb->Nodes[p].f.InternalTopLevel)
-            force_treeupdate_pseudos(p, tb);
+        if(tree->Nodes[p].f.InternalTopLevel)
+            force_treeupdate_pseudos(p, tree);
 
-        mass += (tb->Nodes[p].u.d.mass);
-        s[0] += (tb->Nodes[p].u.d.mass * tb->Nodes[p].u.d.s[0]);
-        s[1] += (tb->Nodes[p].u.d.mass * tb->Nodes[p].u.d.s[1]);
-        s[2] += (tb->Nodes[p].u.d.mass * tb->Nodes[p].u.d.s[2]);
+        mass += (tree->Nodes[p].u.d.mass);
+        s[0] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[0]);
+        s[1] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[1]);
+        s[2] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[2]);
 
-        if(tb->Nodes[p].u.d.hmax > hmax)
-            hmax = tb->Nodes[p].u.d.hmax;
+        if(tree->Nodes[p].u.d.hmax > hmax)
+            hmax = tree->Nodes[p].u.d.hmax;
 
-        force_adjust_node_softening(&tb->Nodes[no], tb->Nodes[p].u.d.MaxSoftening, tb->Nodes[p].f.MixedSofteningsInNode);
+        force_adjust_node_softening(&tree->Nodes[no], tree->Nodes[p].u.d.MaxSoftening, tree->Nodes[p].f.MixedSofteningsInNode);
 
-        p = tb->Nodes[p].u.d.sibling;
+        p = tree->Nodes[p].u.d.sibling;
     }
 
     if(mass)
@@ -996,17 +997,17 @@ void force_treeupdate_pseudos(int no, const struct OctTree * tb)
     }
     else
     {
-        s[0] = tb->Nodes[no].center[0];
-        s[1] = tb->Nodes[no].center[1];
-        s[2] = tb->Nodes[no].center[2];
+        s[0] = tree->Nodes[no].center[0];
+        s[1] = tree->Nodes[no].center[1];
+        s[2] = tree->Nodes[no].center[2];
     }
 
-    tb->Nodes[no].u.d.s[0] = s[0];
-    tb->Nodes[no].u.d.s[1] = s[1];
-    tb->Nodes[no].u.d.s[2] = s[2];
-    tb->Nodes[no].u.d.mass = mass;
+    tree->Nodes[no].u.d.s[0] = s[0];
+    tree->Nodes[no].u.d.s[1] = s[1];
+    tree->Nodes[no].u.d.s[2] = s[2];
+    tree->Nodes[no].u.d.mass = mass;
 
-    tb->Nodes[no].u.d.hmax = hmax;
+    tree->Nodes[no].u.d.hmax = hmax;
 }
 
 /*! This function updates the hmax-values in tree nodes that hold SPH
@@ -1016,7 +1017,7 @@ void force_treeupdate_pseudos(int no, const struct OctTree * tb)
  *  out just before the hydrodynamical SPH forces are computed, i.e. after
  *  density().
  */
-void force_update_hmax(int * activeset, int size, struct OctTree * tt)
+void force_update_hmax(int * activeset, int size, struct OctTree * tree)
 {
     int i, ta;
     int *counts, *offsets;
@@ -1037,8 +1038,8 @@ void force_update_hmax(int * activeset, int size, struct OctTree * tt)
     /* FIXME: actually only TOPLEVEL nodes contains the local mass can potentially be dirty,
      *  we may want to save a list of them to speed this up.
      * */
-    for(i = tt->firstnode; i < tt->firstnode + tt->numnodes; i ++) {
-        tt->Nodes[i].f.NodeIsDirty = 0;
+    for(i = tree->firstnode; i < tree->firstnode + tree->numnodes; i ++) {
+        tree->Nodes[i].f.NodeIsDirty = 0;
     }
 
     for(i = 0; i < size; i++)
@@ -1048,26 +1049,26 @@ void force_update_hmax(int * activeset, int size, struct OctTree * tt)
         if(P[p_i].Type != 0)
             continue;
 
-        int no = tt->Father[p_i];
+        int no = tree->Father[p_i];
 
         while(no >= 0)
         {
-            if(P[p_i].Hsml <= tt->Nodes[no].u.d.hmax) break;
+            if(P[p_i].Hsml <= tree->Nodes[no].u.d.hmax) break;
 
-            tt->Nodes[no].u.d.hmax = P[p_i].Hsml;
+            tree->Nodes[no].u.d.hmax = P[p_i].Hsml;
 
-            if(tt->Nodes[no].f.TopLevel) /* we reached a top-level node */
+            if(tree->Nodes[no].f.TopLevel) /* we reached a top-level node */
             {
-                if (!tt->Nodes[no].f.NodeIsDirty) {
-                    tt->Nodes[no].f.NodeIsDirty = 1;
+                if (!tree->Nodes[no].f.NodeIsDirty) {
+                    tree->Nodes[no].f.NodeIsDirty = 1;
                     DirtyTopLevelNodes[NumDirtyTopLevelNodes].treenode = no;
-                    DirtyTopLevelNodes[NumDirtyTopLevelNodes].hmax = tt->Nodes[no].u.d.hmax;
+                    DirtyTopLevelNodes[NumDirtyTopLevelNodes].hmax = tree->Nodes[no].u.d.hmax;
                     NumDirtyTopLevelNodes ++;
                 }
                 break;
             }
 
-            no = tt->Nodes[no].father;
+            no = tree->Nodes[no].father;
         }
     }
 
@@ -1103,16 +1104,16 @@ void force_update_hmax(int * activeset, int size, struct OctTree * tt)
 
         /* FIXME: why does this matter? The logic is simpler if we just blindly update them all.
             ::: to avoid that the hmax is updated twice :::*/
-        if(tt->Nodes[no].f.DependsOnLocalMass)
-            no = tt->Nodes[no].father;
+        if(tree->Nodes[no].f.DependsOnLocalMass)
+            no = tree->Nodes[no].father;
 
         while(no >= 0)
         {
-            if(DirtyTopLevelNodes[i].hmax <= tt->Nodes[no].u.d.hmax) break;
+            if(DirtyTopLevelNodes[i].hmax <= tree->Nodes[no].u.d.hmax) break;
 
-            tt->Nodes[no].u.d.hmax = DirtyTopLevelNodes[i].hmax;
+            tree->Nodes[no].u.d.hmax = DirtyTopLevelNodes[i].hmax;
 
-            no = tt->Nodes[no].father;
+            no = tree->Nodes[no].father;
         }
     }
 
@@ -1155,14 +1156,14 @@ struct OctTree force_treeallocate(int maxnodes, int maxpart, int first_node_offs
 /*! This function frees the memory allocated for the tree, i.e. it frees
  *  the space allocated by the function force_treeallocate().
  */
-void force_tree_free(struct OctTree * tt)
+void force_tree_free(struct OctTree * tree)
 {
-    event_unlisten(&EventSlotsFork, force_tree_eh_slots_fork, tt);
+    event_unlisten(&EventSlotsFork, force_tree_eh_slots_fork, tree);
 
-    if(!force_tree_allocated(tt))
+    if(!force_tree_allocated(tree))
         return;
-    myfree(tt->Nodes_base);
-    myfree(tt->Father);
-    myfree(tt->Nextnode);
-    tt->tree_allocated_flag = 0;
+    myfree(tree->Nodes_base);
+    myfree(tree->Father);
+    myfree(tree->Nextnode);
+    tree->tree_allocated_flag = 0;
 }
