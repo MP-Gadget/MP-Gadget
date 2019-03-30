@@ -37,7 +37,7 @@ void init(int snapnum); /* init.c only used here */
  * reached, when a `stop' file is found in the output directory, or
  * when the simulation ends because we arrived at TimeMax.
  */
-static void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, struct OctTree * tree);
+static void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, ForceTree * tree);
 static void write_cpu_log(int NumCurrentTiStep);
 
 /*! \file begrun.c
@@ -182,7 +182,7 @@ void run(void)
         set_random_numbers(All.RandomSeed + All.Ti_Current);
 
         /* Need to rebuild the force tree because all TopLeaves are out of date.*/
-        struct OctTree Tree = {0};
+        ForceTree Tree = {0};
         force_tree_rebuild(&Tree);
 
         /* update force to Ti_Current */
@@ -273,7 +273,7 @@ void run(void)
  * be outside the allowed bounds, it will be readjusted by the function ensure_neighbours(), and for those
  * particle, the densities are recomputed accordingly. Finally, the hydrodynamical forces are added.
  */
-void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, struct OctTree * tree)
+void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, ForceTree * tree)
 {
     message(0, "Begin force computation.\n");
 

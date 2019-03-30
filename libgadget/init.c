@@ -189,7 +189,7 @@ setup_smoothinglengths(int RestartSnapNum)
     int i;
     const double a3 = All.Time * All.Time * All.Time;
 
-    struct OctTree Tree = {0};
+    ForceTree Tree = {0};
     force_tree_rebuild(&Tree);
 
     if(RestartSnapNum == -1)

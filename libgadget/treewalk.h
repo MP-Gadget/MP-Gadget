@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "allvars.h"
 #include "utils/paramset.h"
+#include "forcetree.h"
 
 #define  NODELISTLENGTH      8
 
@@ -73,7 +74,7 @@ struct TreeWalk {
     void * priv;
 
     /* A pointer to the force tree structure to walk.*/
-    struct OctTree * tree;
+    ForceTree * tree;
 
     /* name of the evaluator (used in printing messages) */
     char * ev_label;

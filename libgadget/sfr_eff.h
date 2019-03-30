@@ -11,7 +11,7 @@
 
 void init_cooling_and_star_formation(void);
 /*Do the cooling and the star formation. The tree is required for the winds only.*/
-void cooling_and_starformation(struct OctTree * tree);
+void cooling_and_starformation(ForceTree * tree);
 double get_starformation_rate(int i);
 
 #endif

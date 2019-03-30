@@ -7,6 +7,6 @@
 double PressurePred(int i);
 
 /*Function to compute hydro accelerations and adiabatic entropy change*/
-void hydro_force(struct OctTree * tree);
+void hydro_force(ForceTree * tree);
 
 #endif

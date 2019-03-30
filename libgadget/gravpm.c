@@ -18,7 +18,7 @@
 /*Global variable to store power spectrum*/
 struct _powerspectrum PowerSpectrum;
 
-static int pm_mark_region_for_node(int startno, int rid, const struct OctTree * tt);
+static int pm_mark_region_for_node(int startno, int rid, const ForceTree * tt);
 static void convert_node_to_region(PetaPMRegion * r, struct NODE * Nodes);
 
 static int hybrid_nu_gravpm_is_active(int i);
@@ -58,7 +58,7 @@ void gravpm_init_periodic() {
 
 /* Computes the gravitational force on the PM grid
  * and saves the total matter power spectrum.*/
-void gravpm_force(struct OctTree * tree) {
+void gravpm_force(ForceTree * tree) {
     PetaPMParticleStruct pstruct = {
         P,
         sizeof(P[0]),
@@ -118,7 +118,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
      * NTopLeaves is sufficient */
     PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion) * NTopLeaves);
 
-    struct OctTree * tree = (struct OctTree *) userdata;
+    ForceTree * tree = (ForceTree *) userdata;
     int r = 0;
 
     int no = tree->firstnode; /* start with the root */
@@ -185,7 +185,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
     return regions;
 }
 
-static int pm_mark_region_for_node(int startno, int rid, const struct OctTree * tree) {
+static int pm_mark_region_for_node(int startno, int rid, const ForceTree * tree) {
     int numpart = 0;
     int no = startno;
     int endno = tree->Nodes[startno].u.d.sibling;

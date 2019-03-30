@@ -7,7 +7,7 @@
 void wind_evolve(int i);
 
 /*do the treewalk for the wind model*/
-void winds_and_feedback(int * NewStars, int NumNewStars, struct OctTree * tree);
+void winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree);
 
 /*Make a particle a wind particle by changing DelayTime to a positive number*/
 int make_particle_wind(MyIDType ID, int i, double v, double vmean[3]);

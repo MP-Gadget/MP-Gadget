@@ -65,7 +65,7 @@ static int force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
  *  tree is used.  Particles are only exported to other processors when really
  *  needed, thereby allowing a good use of the communication buffer.
  */
-void grav_short_tree_old(struct OctTree * tree)
+void grav_short_tree_old(ForceTree * tree)
 {
     double timeall = 0;
     double timetree, timewait, timecomm;

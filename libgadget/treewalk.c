@@ -971,7 +971,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
     int no;
     int numcand = 0;
 
-    const struct OctTree * tree = lv->tw->tree;
+    const ForceTree * tree = lv->tw->tree;
 
     no = startnode;
 

@@ -140,7 +140,7 @@ static double blackhole_soundspeed(double entropy, double pressure, double rho) 
     return cs;
 }
 
-void blackhole(struct OctTree * tree)
+void blackhole(ForceTree * tree)
 {
     if(!All.BlackHoleOn) return;
     int i;

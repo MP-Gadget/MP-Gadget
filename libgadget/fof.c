@@ -61,7 +61,7 @@ static double fof_periodic_wrap(double x)
     return x;
 }
 
-static void fof_label_secondary(struct OctTree * tree);
+static void fof_label_secondary(ForceTree * tree);
 static int fof_compare_HaloLabel_MinID(const void *a, const void *b);
 static int fof_compare_Group_MinIDTask(const void *a, const void *b);
 static int fof_compare_Group_OriginalIndex(const void *a, const void *b);
@@ -83,7 +83,7 @@ fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt);
 
 static void fof_assign_grnr(struct BaseGroup * base);
 
-void fof_label_primary(struct OctTree * tree);
+void fof_label_primary(ForceTree * tree);
 extern void fof_save_particles(int num);
 
 /* Ngroups and NgroupsExt are both maximally NumPart,
@@ -127,7 +127,7 @@ static MPI_Datatype MPI_TYPE_GROUP;
  *
  **/
 
-void fof_fof(struct OctTree * tree)
+void fof_fof(ForceTree * tree)
 {
     int i;
     double t0, t1;
@@ -337,7 +337,7 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
         TreeWalkNgbIterFOF * iter,
         LocalTreeWalk * lv);
 
-void fof_label_primary(struct OctTree * tree)
+void fof_label_primary(ForceTree * tree)
 {
     int i;
     int64_t link_across;
@@ -1093,7 +1093,7 @@ fof_secondary_postprocess(int p, TreeWalk * tw)
         }
     }
 }
-static void fof_label_secondary(struct OctTree * tree)
+static void fof_label_secondary(ForceTree * tree)
 {
     int n, iter;
 

@@ -24,7 +24,7 @@ static void
 write_snapshot(int num);
 
 void
-write_checkpoint(int WriteSnapshot, int WriteFOF, struct OctTree * tree)
+write_checkpoint(int WriteSnapshot, int WriteFOF, ForceTree * tree)
 {
     if(!WriteSnapshot && !WriteFOF) return;
 

@@ -22,7 +22,7 @@ grav_short_pair_ngbiter(
         TreeWalkNgbIterGravShort * iter,
         LocalTreeWalk * lv);
 
-void grav_short_pair(struct OctTree * tree)
+void grav_short_pair(ForceTree * tree)
 {
     TreeWalk tw[1] = {{0}};
 

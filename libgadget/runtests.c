@@ -31,7 +31,7 @@ void runtests()
         IO_REG(GravPM,       "f4", 3, ptype);
     }
 
-    struct OctTree Tree = {0};
+    ForceTree Tree = {0};
     force_tree_rebuild(&Tree);
     gravpm_force(&Tree);
 

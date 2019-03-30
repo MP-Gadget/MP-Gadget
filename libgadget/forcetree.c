@@ -24,37 +24,37 @@
  *  the global "top-level" tree along node boundaries, moving the particles
  *  of different parts of the tree to separate processors.
  *
- * Local naming convention: once built it is struct OctTree * tree, passed by reference.
- * While the nodes are still being added it is struct OctTree tb, passed by value.
+ * Local naming convention: once built it is ForceTree * tree, passed by reference.
+ * While the nodes are still being added it is ForceTree tb, passed by value.
  */
 
-static struct OctTree
+static ForceTree
 force_tree_build(int npart);
 
 static int
-force_tree_build_single(const struct OctTree tb, const int npart);
+force_tree_build_single(const ForceTree tb, const int npart);
 
 /*Next three are not static as tested.*/
 int
-force_tree_create_nodes(const struct OctTree tb, const int npart);
+force_tree_create_nodes(const ForceTree tb, const int npart);
 
-struct OctTree
+ForceTree
 force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
 
 int
-force_update_node_parallel(const struct OctTree * tree);
+force_update_node_parallel(const ForceTree * tree);
 
 static void
-force_treeupdate_pseudos(int no, const struct OctTree * tree);
+force_treeupdate_pseudos(int no, const ForceTree * tree);
 
 static void
 force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, int bits, int x, int y, int z, int *nextfree, const int lastnode);
 
 static void
-force_exchange_pseudodata(struct OctTree * tree);
+force_exchange_pseudodata(ForceTree * tree);
 
 static void
-force_insert_pseudo_particles(const struct OctTree * tree);
+force_insert_pseudo_particles(const ForceTree * tree);
 
 static int
 force_tree_eh_slots_fork(EIBase * event, void * userdata)
@@ -64,7 +64,7 @@ force_tree_eh_slots_fork(EIBase * event, void * userdata)
     int parent = ev->parent;
     int child = ev->child;
     int no;
-    struct OctTree * tree = (struct OctTree * ) userdata;
+    ForceTree * tree = (ForceTree * ) userdata;
     no = tree->Nextnode[parent];
     tree->Nextnode[parent] = child;
     tree->Nextnode[child] = no;
@@ -74,13 +74,13 @@ force_tree_eh_slots_fork(EIBase * event, void * userdata)
 }
 
 int
-force_tree_allocated(const struct OctTree * tree)
+force_tree_allocated(const ForceTree * tree)
 {
     return tree->tree_allocated_flag;
 }
 
 void
-force_tree_rebuild(struct OctTree * tree)
+force_tree_rebuild(ForceTree * tree)
 {
     message(0, "Tree construction.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
@@ -101,12 +101,12 @@ force_tree_rebuild(struct OctTree * tree)
 /*! This function is a driver routine for constructing the gravitational
  *  oct-tree, which is done by calling a small number of other functions.
  */
-struct OctTree force_tree_build(int npart)
+ForceTree force_tree_build(int npart)
 {
     int Numnodestree;
     int flag;
     int maxnodes;
-    struct OctTree tree;
+    ForceTree tree;
 
     do
     {
@@ -228,7 +228,7 @@ int get_freenode(int * nnext, struct NodeCache *nc)
  * Parent is assumed to be locked.*/
 int
 modify_internal_node(int parent, int subnode, int p_child, int p_toplace,
-        const struct OctTree tb, int *nnext, struct NodeCache *nc, double minlen, int *closepairs)
+        const ForceTree tb, int *nnext, struct NodeCache *nc, double minlen, int *closepairs)
 {
     int ret = 0;
     int ninsert;
@@ -317,7 +317,7 @@ modify_internal_node(int parent, int subnode, int p_child, int p_toplace,
 
 /*! Does initial creation of the nodes for the gravitational oct-tree.
  **/
-int force_tree_create_nodes(const struct OctTree tb, const int npart)
+int force_tree_create_nodes(const ForceTree tb, const int npart)
 {
     int i;
     int nnext = tb.firstnode;		/* index of first free node */
@@ -465,7 +465,7 @@ int force_tree_create_nodes(const struct OctTree tb, const int npart)
  *  different CPUs. If such a node needs to be opened, the corresponding
  *  particle must be exported to that CPU. */
 static int
-force_tree_build_single(const struct OctTree tb, const int npart)
+force_tree_build_single(const ForceTree tb, const int npart)
 {
     int nnext = force_tree_create_nodes(tb, npart);
     if(nnext >= tb.lastnode - tb.firstnode)
@@ -549,7 +549,7 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, int
  *  updated later on.
  */
 static void
-force_insert_pseudo_particles(const struct OctTree * tree)
+force_insert_pseudo_particles(const ForceTree * tree)
 {
     int i, index;
     const int firstpseudo = tree->lastnode;
@@ -566,7 +566,7 @@ force_insert_pseudo_particles(const struct OctTree * tree)
 }
 
 int
-force_get_father(int no, const struct OctTree * tree)
+force_get_father(int no, const ForceTree * tree)
 {
     if(no >= tree->firstnode)
         return tree->Nodes[no].father;
@@ -575,7 +575,7 @@ force_get_father(int no, const struct OctTree * tree)
 }
 
 int
-force_get_next_node(int no, const struct OctTree * tree)
+force_get_next_node(int no, const ForceTree * tree)
 {
     if(no >= tree->firstnode && no < tree->lastnode) {
         /* internal node */
@@ -592,7 +592,7 @@ force_get_next_node(int no, const struct OctTree * tree)
 }
 
 int
-force_set_next_node(int no, int next, const struct OctTree * tree)
+force_set_next_node(int no, int next, const ForceTree * tree)
 {
     if(no < 0) return next;
     if(no >= tree->firstnode && no < tree->lastnode) {
@@ -612,7 +612,7 @@ force_set_next_node(int no, int next, const struct OctTree * tree)
 }
 
 int
-force_get_prev_node(int no, const struct OctTree * tree)
+force_get_prev_node(int no, const ForceTree * tree)
 {
     if(node_is_particle(no, tree)) {
         /* Particle */
@@ -700,7 +700,7 @@ force_get_sibling(const int sib, const int j, const int * suns)
  *
  */
 static int
-force_update_node_recursive(int no, int sib, int level, const struct OctTree * tree)
+force_update_node_recursive(int no, int sib, int level, const ForceTree * tree)
 {
     /*Last value of tails is the return value of this function*/
     int j, suns[8], tails[8];
@@ -847,7 +847,7 @@ force_update_node_recursive(int no, int sib, int level, const struct OctTree * t
  * searches the list of pre-computed tail values to set the next node as if it had recursed and continues.
  */
 int
-force_update_node_parallel(const struct OctTree * tree)
+force_update_node_parallel(const ForceTree * tree)
 {
     int tail;
 #pragma omp parallel
@@ -862,7 +862,7 @@ force_update_node_parallel(const struct OctTree * tree)
  *  top-level tree-nodes of the domain grid.  This data can then be used to
  *  update the pseudo-particles on each CPU accordingly.
  */
-void force_exchange_pseudodata(struct OctTree * tree)
+void force_exchange_pseudodata(ForceTree * tree)
 {
     int i, no, ta, recvTask;
     int *recvcounts, *recvoffset;
@@ -949,7 +949,7 @@ void force_exchange_pseudodata(struct OctTree * tree)
 /*! This function updates the top-level tree after the multipole moments of
  *  the pseudo-particles have been updated.
  */
-void force_treeupdate_pseudos(int no, const struct OctTree * tree)
+void force_treeupdate_pseudos(int no, const ForceTree * tree)
 {
     int j, p;
     MyFloat hmax;
@@ -1017,7 +1017,7 @@ void force_treeupdate_pseudos(int no, const struct OctTree * tree)
  *  out just before the hydrodynamical SPH forces are computed, i.e. after
  *  density().
  */
-void force_update_hmax(int * activeset, int size, struct OctTree * tree)
+void force_update_hmax(int * activeset, int size, ForceTree * tree)
 {
     int i, ta;
     int *counts, *offsets;
@@ -1129,11 +1129,11 @@ void force_update_hmax(int * activeset, int size, struct OctTree * tree)
  *  maxnodes approximately equal to 0.7*maxpart is sufficient to store the
  *  tree for up to maxpart particles.
  */
-struct OctTree force_treeallocate(int maxnodes, int maxpart, int first_node_offset)
+ForceTree force_treeallocate(int maxnodes, int maxpart, int first_node_offset)
 {
     size_t bytes;
     size_t allbytes = 0;
-    struct OctTree tb;
+    ForceTree tb;
 
     message(0, "Allocating memory for %d tree-nodes (MaxPart=%d).\n", maxnodes, maxpart);
     tb.Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopNodes) * sizeof(int));
@@ -1156,7 +1156,7 @@ struct OctTree force_treeallocate(int maxnodes, int maxpart, int first_node_offs
 /*! This function frees the memory allocated for the tree, i.e. it frees
  *  the space allocated by the function force_treeallocate().
  */
-void force_tree_free(struct OctTree * tree)
+void force_tree_free(ForceTree * tree)
 {
     event_unlisten(&EventSlotsFork, force_tree_eh_slots_fork, tree);
 

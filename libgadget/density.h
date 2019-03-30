@@ -3,8 +3,8 @@
 
 #include "forcetree.h"
 
-void density(struct OctTree * tree);
+void density(ForceTree * tree);
 
-void density_update(struct OctTree * tree);
+void density_update(ForceTree * tree);
 
 #endif

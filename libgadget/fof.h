@@ -7,7 +7,7 @@
 void fof_init(void);
 
 /*Computes the Group structure, saved as a global array below*/
-void fof_fof(struct OctTree * tree);
+void fof_fof(ForceTree * tree);
 
 /*Frees the Group structure*/
 void

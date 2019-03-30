@@ -43,11 +43,11 @@ static double get_sfr_factor_due_to_h2(int i);
 static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyeff);
 static double find_star_mass(int i);
 /*Get enough memory for new star slots. This may be excessively slow! Don't do it too often.*/
-static int * sfr_reserve_slots(int * NewStars, int NumNewStar, struct OctTree * tt);
+static int * sfr_reserve_slots(int * NewStars, int NumNewStar, ForceTree * tt);
 
 
 /* cooling and star formation routine.*/
-void cooling_and_starformation(struct OctTree * tree)
+void cooling_and_starformation(ForceTree * tree)
 {
     if(!All.CoolingOn)
         return;
@@ -216,7 +216,7 @@ void cooling_and_starformation(struct OctTree * tree)
  * It is also not elegant, but I couldn't think of a better way. May be fragile and need updating
  * if memory allocation patterns change. */
 static int *
-sfr_reserve_slots(int * NewStars, int NumNewStar, struct OctTree * tree)
+sfr_reserve_slots(int * NewStars, int NumNewStar, ForceTree * tree)
 {
         /* SlotsManager is below Nodes and ActiveParticleList,
          * so we need to move them out of the way before we extend Nodes.

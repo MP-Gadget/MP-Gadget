@@ -41,12 +41,12 @@ struct NODE
 
 /*Structure containing the Node pointer, and various Tree metadata.*/
 /*The node index is an integer with unusual properties:
- * no = 0..OctTree.firstnode  corresponds to a particle.
- * no = OctTree.firstnode..OctTree.lastnode corresponds to actual tree nodes,
- * and is the only memory allocated in OctTree.Nodes_base. After the tree is built this becomes
- * no = OctTree.firstnode..OctTree.numnodes which is the only allocated memory.
- * no > OctTree.lastnode means a pseudo particle on another processor*/
-struct OctTree {
+ * no = 0..ForceTree.firstnode  corresponds to a particle.
+ * no = ForceTree.firstnode..ForceTree.lastnode corresponds to actual tree nodes,
+ * and is the only memory allocated in ForceTree.Nodes_base. After the tree is built this becomes
+ * no = ForceTree.firstnode..ForceTree.numnodes which is the only allocated memory.
+ * no > ForceTree.lastnode means a pseudo particle on another processor*/
+typedef struct ForceTree {
     /*Is 1 if the tree is allocated*/
     int tree_allocated_flag;
     /*Index of first internal node. Difference between Nodes and Nodes_base. == MaxPart*/
@@ -65,49 +65,49 @@ struct OctTree {
     int * Nextnode;
     /*!< gives parent node in tree for every particle */
     int *Father;
-};
+} ForceTree;
 
-int force_tree_allocated(const struct OctTree * tt);
+int force_tree_allocated(const ForceTree * tt);
 
 /* This function propagates changed SPH smoothing lengths up the tree*/
-void force_update_hmax(int * activeset, int size, struct OctTree * tt);
+void force_update_hmax(int * activeset, int size, ForceTree * tt);
 
 /*This is the main constructor for the tree structure. Pass in something empty.*/
-void force_tree_rebuild(struct OctTree * tree);
+void force_tree_rebuild(ForceTree * tree);
 
 /*Free the memory associated with the tree*/
-void   force_tree_free(struct OctTree * tt);
+void   force_tree_free(ForceTree * tt);
 void   dump_particles(void);
 
 static inline int
-node_is_pseudo_particle(int no, const struct OctTree * tree)
+node_is_pseudo_particle(int no, const ForceTree * tree)
 {
     return no >= tree->lastnode;
 }
 
 static inline int
-node_is_particle(int no, const struct OctTree * tree)
+node_is_particle(int no, const ForceTree * tree)
 {
     return no < tree->firstnode;
 }
 
 static inline int
-node_is_node(int no, const struct OctTree * tree)
+node_is_node(int no, const ForceTree * tree)
 {
     return (no >= tree->firstnode) && (no < tree->lastnode);
 }
 
 int
-force_get_prev_node(int no, const struct OctTree * tb);
+force_get_prev_node(int no, const ForceTree * tb);
 
 int
-force_get_next_node(int no, const struct OctTree * tb);
+force_get_next_node(int no, const ForceTree * tb);
 
 int
-force_set_next_node(int no, int next, const struct OctTree * tb);
+force_set_next_node(int no, int next, const ForceTree * tb);
 
 int
-force_get_father(int no, const struct OctTree * tt);
+force_get_father(int no, const ForceTree * tt);
 
 #endif
 

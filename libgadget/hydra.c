@@ -87,7 +87,7 @@ hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mo
  *  force and rate of change of entropy due to shock heating for all active
  *  particles .
  */
-void hydro_force(struct OctTree * tree)
+void hydro_force(ForceTree * tree)
 {
     if(!All.HydroOn)
         return;

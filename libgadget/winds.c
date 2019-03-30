@@ -79,7 +79,7 @@ static int* NPLeft;
 
 /*Do a treewalk for the wind model. This only changes newly created star particles.*/
 void
-winds_and_feedback(int * NewStars, int NumNewStars, struct OctTree * tree)
+winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree)
 {
     if(!All.WindOn)
         return;
