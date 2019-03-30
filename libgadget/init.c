@@ -31,14 +31,14 @@ static void check_omega(void);
 static void check_positions(void);
 
 static void
-setup_smoothinglengths(int RestartSnapNum);
+setup_smoothinglengths(int RestartSnapNum, Domain * domain);
 
 /*! This function reads the initial conditions, and allocates storage for the
  *  tree(s). Various variables of the particle data are initialised and An
  *  intial domain decomposition is performed. If SPH particles are present,
  *  the initial SPH smoothing lengths are determined.
  */
-void init(int RestartSnapNum)
+void init(int RestartSnapNum, Domain * domain)
 {
     int i, j;
 
@@ -124,13 +124,13 @@ void init(int RestartSnapNum)
 
     walltime_measure("/Init");
 
-    domain_decompose_full();	/* do initial domain decomposition (gives equal numbers of particles) */
+    domain_decompose_full(domain);	/* do initial domain decomposition (gives equal numbers of particles) */
 
     /*At the first time step all particles should be active*/
     ActiveParticle = NULL;
     NumActiveParticle = PartManager->NumPart;
 
-    setup_smoothinglengths(RestartSnapNum);
+    setup_smoothinglengths(RestartSnapNum, domain);
 }
 
 
@@ -184,13 +184,13 @@ void check_positions(void)
  *  then iterate if needed to find the right smoothing length.
  */
 static void
-setup_smoothinglengths(int RestartSnapNum)
+setup_smoothinglengths(int RestartSnapNum, Domain * domain)
 {
     int i;
     const double a3 = All.Time * All.Time * All.Time;
 
     ForceTree Tree = {0};
-    force_tree_rebuild(&Tree);
+    force_tree_rebuild(&Tree, domain);
 
     if(RestartSnapNum == -1)
     {

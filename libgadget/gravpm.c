@@ -91,8 +91,6 @@ void gravpm_force(ForceTree * tree) {
     /*We are done with the power spectrum, free it*/
     powerspectrum_free(&PowerSpectrum, All.MassiveNuLinRespOn);
     walltime_measure("/LongRange");
-    /*Rebuild the force tree we freed in _prepare to save memory*/
-    force_tree_rebuild(tree);
 }
 
 static double pot_factor;

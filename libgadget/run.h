@@ -1,9 +1,12 @@
 #ifndef RUN_H
 #define RUN_H
 
-void begrun(int RestartSnapNum);
+#include "domain.h"
 
-void run(void);
-void runtests(void);
+void begrun(int RestartSnapNum, Domain * domain);
+
+void run(Domain * domain);
+void runtests(Domain * domain);
+void runfof(int RestartSnapNum, Domain * domain);
 
 #endif

@@ -16,13 +16,14 @@
 #include "petaio.h"
 #include "domain.h"
 #include "timestep.h"
+#include "fof.h"
 
 char * GDB_format_particle(int i);
 
 SIMPLE_PROPERTY(GravAccel, P[i].GravAccel[0], float, 3)
 SIMPLE_PROPERTY(GravPM, P[i].GravPM[0], float, 3)
 
-void runtests()
+void runtests(Domain * domain)
 {
 
     int ptype;
@@ -31,18 +32,18 @@ void runtests()
         IO_REG(GravPM,       "f4", 3, ptype);
     }
 
-    ForceTree Tree = {0};
-    force_tree_rebuild(&Tree);
-    gravpm_force(&Tree);
-
     /* this produces a very imbalanced load to trigger Issue 86 */
     if(ThisTask == 0) {
         P[0].GravCost = 1e10;
         P[PartManager->NumPart - 1].GravCost = 1e10;
     }
 
-    domain_decompose_full();	/* do domain decomposition */
     rebuild_activelist(All.Ti_Current, 0);
+
+    ForceTree Tree = {0};
+    force_tree_rebuild(&Tree, domain);
+    gravpm_force(&Tree);
+    force_tree_rebuild(&Tree, domain);
 
     grav_short_pair(&Tree);
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));
@@ -57,4 +58,15 @@ void runtests()
 
     petaio_save_snapshot("%s/PART-tree-%03d-mpi", All.OutputDir, NTask);
 
+}
+
+void runfof(int RestartSnapNum, Domain * domain)
+{
+    ForceTree Tree = {0};
+    /*FoF needs a tree*/
+    force_tree_rebuild(&Tree, domain);
+    fof_fof(&Tree);
+    force_tree_free(&Tree);
+    fof_save_groups(RestartSnapNum);
+    fof_finish();
 }

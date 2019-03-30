@@ -14,8 +14,6 @@
 #include <libgadget/run.h>
 #include <libgadget/checkpoint.h>
 #include <libgadget/config.h>
-#include <libgadget/fof.h>
-#include <libgadget/forcetree.h>
 
 #include <libgadget/utils.h>
 
@@ -110,24 +108,19 @@ int main(int argc, char **argv)
     /*Initialize the memory manager*/
     mymalloc_init(All.MaxMemSizePerNode);
 
+    /*The main domain object. Will be allocated in begrun.*/
+    Domain domain = {0};
+    begrun(RestartSnapNum, &domain);
+
     switch(RestartFlag) {
         case 3:
-            begrun(RestartSnapNum);
-            /*FoF needs a tree*/
-            ForceTree Tree = {0};
-            force_tree_rebuild(&Tree);
-            fof_fof(&Tree);
-            force_tree_free(&Tree);
-            fof_save_groups(RestartSnapNum);
-            fof_finish();
+            runfof(RestartSnapNum, &domain);
             break;
         case 99:
-            begrun(RestartSnapNum);
-            runtests();
+            runtests(&domain);
             break;
         default:
-            begrun(RestartSnapNum);
-            run();			/* main simulation loop */
+            run(&domain);			/* main simulation loop */
             break;
     }
 byebye:

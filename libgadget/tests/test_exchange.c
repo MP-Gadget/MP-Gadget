@@ -12,7 +12,6 @@
 #include <gsl/gsl_rng.h>
 
 #define qsort_openmp qsort
-#include "stub.h"
 
 #include <libgadget/exchange.h>
 #include <libgadget/domain.h>
@@ -21,6 +20,7 @@
 /*Note this includes the garbage collection!
  * Should be tested separately.*/
 #include <libgadget/slotsmanager.c>
+#include "stub.h"
 
 struct part_manager_type PartManager[1] = {{0}};
 int NTask, ThisTask;
@@ -87,7 +87,7 @@ teardown_particles(void **state)
 
 
 static int
-test_exchange_layout_func(int i)
+test_exchange_layout_func(int i, const void * userdata)
 {
     return P[i].ID % NTask;
 }
@@ -101,7 +101,7 @@ test_exchange(void **state)
 
     int i;
 
-    int fail = domain_exchange(&test_exchange_layout_func, 1);
+    int fail = domain_exchange(&test_exchange_layout_func, NULL, 1);
 
     assert_all_true(!fail);
 
@@ -125,7 +125,7 @@ test_exchange_zero_slots(void **state)
 
     int i;
 
-    int fail = domain_exchange(&test_exchange_layout_func, 1);
+    int fail = domain_exchange(&test_exchange_layout_func, NULL, 1);
 
     assert_all_true(!fail);
 
@@ -151,7 +151,7 @@ test_exchange_with_garbage(void **state)
     slots_mark_garbage(0); /* watch out! this propogates the garbage flag to children */
     TotNumPart -= NTask;
 
-    int fail = domain_exchange(&test_exchange_layout_func, 1);
+    int fail = domain_exchange(&test_exchange_layout_func, NULL, 1);
 
     assert_all_true(!fail);
 
@@ -171,7 +171,7 @@ test_exchange_with_garbage(void **state)
 }
 
 static int
-test_exchange_layout_func_uneven(int i)
+test_exchange_layout_func_uneven(int i, const void * userdata)
 {
     if(P[i].Type == 0) return 0;
 
@@ -187,7 +187,7 @@ test_exchange_uneven(void **state)
     int i;
 
     /* this will trigger a slot growth on slot type 0 due to the inbalance */
-    int fail = domain_exchange(&test_exchange_layout_func_uneven, 1);
+    int fail = domain_exchange(&test_exchange_layout_func_uneven, NULL, 1);
 
     assert_all_true(!fail);
 
