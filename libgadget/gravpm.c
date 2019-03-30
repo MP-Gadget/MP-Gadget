@@ -114,11 +114,12 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
      * to exactly one region even though it may be covered by two)
      *
      * */
+    ForceTree * tree = (ForceTree *) userdata;
+
     /* In worst case, each topleave becomes a region: thus
      * NTopLeaves is sufficient */
-    PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion) * NTopLeaves);
+    PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion) * tree->NTopLeaves);
 
-    ForceTree * tree = (ForceTree *) userdata;
     int r = 0;
 
     int no = tree->firstnode; /* start with the root */

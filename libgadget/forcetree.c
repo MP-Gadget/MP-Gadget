@@ -114,6 +114,8 @@ ForceTree force_tree_build(int npart)
         /* construct tree if needed */
         /* the tree is used in grav dens, hydro, bh and sfr */
         tree = force_treeallocate(maxnodes, PartManager->MaxPart, NTopNodes, PartManager->MaxPart);
+        tree.NTopLeaves = NTopLeaves;
+        tree.TopLeaves = TopLeaves;
 
         Numnodestree = force_tree_build_single(tree, npart);
         if(Numnodestree < 0)
@@ -554,11 +556,11 @@ force_insert_pseudo_particles(const ForceTree * tree)
     int i, index;
     const int firstpseudo = tree->lastnode;
 
-    for(i = 0; i < NTopLeaves; i++)
+    for(i = 0; i < tree->NTopLeaves; i++)
     {
-        index = TopLeaves[i].treenode;
+        index = tree->TopLeaves[i].treenode;
 
-        if(TopLeaves[i].Task != ThisTask) {
+        if(tree->TopLeaves[i].Task != ThisTask) {
             tree->Nodes[index].u.suns[0] = firstpseudo + i;
             force_set_next_node(firstpseudo + i, -1, tree);
         }
@@ -879,12 +881,12 @@ void force_exchange_pseudodata(ForceTree * tree)
     *TopLeafMoments;
 
 
-    TopLeafMoments = (struct topleaf_momentsdata *) mymalloc("TopLeafMoments", NTopLeaves * sizeof(TopLeafMoments[0]));
-    memset(&TopLeafMoments[0], 0, sizeof(TopLeafMoments[0]) * NTopLeaves);
+    TopLeafMoments = (struct topleaf_momentsdata *) mymalloc("TopLeafMoments", tree->NTopLeaves * sizeof(TopLeafMoments[0]));
+    memset(&TopLeafMoments[0], 0, sizeof(TopLeafMoments[0]) * tree->NTopLeaves);
 
     for(i = Tasks[ThisTask].StartLeaf; i < Tasks[ThisTask].EndLeaf; i ++) {
-        no = TopLeaves[i].treenode;
-        if(TopLeaves[i].Task != ThisTask)
+        no = tree->TopLeaves[i].treenode;
+        if(tree->TopLeaves[i].Task != ThisTask)
             endrun(131231231, "TopLeave's Task table is corrupted");
 
         /* read out the multipole moments from the local base cells */
@@ -1033,7 +1035,7 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree)
     NumDirtyTopLevelNodes = 0;
 
     /* At most NTopLeaves are dirty, since we are only concerned with TOPLEVEL nodes */
-    DirtyTopLevelNodes = (struct dirty_node_data*) mymalloc("DirtyTopLevelNodes", NTopLeaves * sizeof(DirtyTopLevelNodes[0]));
+    DirtyTopLevelNodes = (struct dirty_node_data*) mymalloc("DirtyTopLevelNodes", tree->NTopLeaves * sizeof(DirtyTopLevelNodes[0]));
 
     /* FIXME: actually only TOPLEVEL nodes contains the local mass can potentially be dirty,
      *  we may want to save a list of them to speed this up.
@@ -1084,7 +1086,7 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree)
         offsets[ta + 1] = offsets[ta] + counts[ta];
     }
 
-    message(0, "Hmax exchange: %d toplevel tree nodes out of %d\n", offsets[NTask], NTopLeaves);
+    message(0, "Hmax exchange: %d toplevel tree nodes out of %d\n", offsets[NTask], tree->NTopLeaves);
 
     /* move to the right place for MPI_INPLACE*/
     memmove(&DirtyTopLevelNodes[offsets[ThisTask]], &DirtyTopLevelNodes[0], NumDirtyTopLevelNodes * sizeof(DirtyTopLevelNodes[0]));

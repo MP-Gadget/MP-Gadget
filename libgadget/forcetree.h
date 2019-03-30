@@ -55,6 +55,10 @@ typedef struct ForceTree {
     int lastnode;
     /* Number of actually allocated nodes*/
     int numnodes;
+    /*Pointer to the TopLeaves struct imported from Domain. Sets up the pseudo particles.*/
+    struct topleaf_data * TopLeaves;
+    /*Number of TopLeaves*/
+    int NTopLeaves;
     /*!< this is a pointer used to access the nodes which is shifted such that Nodes[firstnode]
      *   gives the first allocated node */
     struct NODE *Nodes;
