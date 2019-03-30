@@ -65,6 +65,8 @@ typedef struct ForceTree {
     /* Gives next node in the tree walk for particles and pseudo particles.
      * next node for the actual nodes is stored in Nodes*/
     int * Nextnode;
+    /*Allocated length of the Nextnode array*/
+    int Nnextnode;
     /*!< gives parent node in tree for every particle */
     int *Father;
 } ForceTree;

@@ -39,7 +39,7 @@ int
 force_tree_create_nodes(const ForceTree tb, const int npart);
 
 ForceTree
-force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
+force_treeallocate(int maxnodes, int maxpart, int maxpseudo, int first_node_offset);
 
 int
 force_update_node_parallel(const ForceTree * tree);
@@ -113,7 +113,7 @@ ForceTree force_tree_build(int npart)
         maxnodes = All.TreeAllocFactor * PartManager->MaxPart + NTopNodes;
         /* construct tree if needed */
         /* the tree is used in grav dens, hydro, bh and sfr */
-        tree = force_treeallocate(maxnodes, PartManager->MaxPart, PartManager->MaxPart);
+        tree = force_treeallocate(maxnodes, PartManager->MaxPart, NTopNodes, PartManager->MaxPart);
 
         Numnodestree = force_tree_build_single(tree, npart);
         if(Numnodestree < 0)
@@ -1129,14 +1129,15 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree)
  *  maxnodes approximately equal to 0.7*maxpart is sufficient to store the
  *  tree for up to maxpart particles.
  */
-ForceTree force_treeallocate(int maxnodes, int maxpart, int first_node_offset)
+ForceTree force_treeallocate(int maxnodes, int maxpart, int maxpseudo, int first_node_offset)
 {
     size_t bytes;
     size_t allbytes = 0;
     ForceTree tb;
 
     message(0, "Allocating memory for %d tree-nodes (MaxPart=%d).\n", maxnodes, maxpart);
-    tb.Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopNodes) * sizeof(int));
+    tb.Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + maxpseudo) * sizeof(int));
+    tb.Nnextnode = maxpart + maxpseudo;
     tb.Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
     allbytes += bytes;
     tb.Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (maxnodes + 1) * sizeof(struct NODE));
