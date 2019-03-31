@@ -5,13 +5,12 @@
 #include <math.h>
 #include <time.h>
 
-#include "allvars.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "domain.h"
 #include "forcetree.h"
 #include "checkpoint.h"
-
+#include "walltime.h"
 #include "utils.h"
 
 /*! \file forcetree.c
@@ -28,21 +27,49 @@
  * While the nodes are still being added it is ForceTree tb, passed by value.
  */
 
+static struct forcetree_params
+{
+    /*!< Each processor allocates a number of nodes which is TreeAllocFactor times
+         the maximum(!) number of particles.  Note: A typical local tree for N
+         particles needs usually about ~0.65*N nodes. */
+    double TreeAllocFactor;
+    /* The minimum size of a Force Tree Node in length units. */
+    double TreeNodeMinSize;
+    /*!< flags the particle species which will be excluded from the tree if the HybridNuGrav parameter is set.*/
+    int FastParticleType;
+} ForceTreeParams;
+
+void
+init_forcetree_params(const int FastParticleType, const double * GravitySofteningTable)
+{
+    ForceTreeParams.TreeAllocFactor = 0.7;
+    int i;
+    double minsoft = 0;
+    for(i = 0; i<6; i++) {
+        if(GravitySofteningTable[i] <= 0) continue;
+        if(minsoft == 0 || minsoft > GravitySofteningTable[i])
+            minsoft = GravitySofteningTable[i];
+    }
+    /* FIXME: make this a parameter. */
+    ForceTreeParams.TreeNodeMinSize = 1.0e-3 * 2.8 * minsoft;
+    ForceTreeParams.FastParticleType = FastParticleType;
+}
+
 static ForceTree
-force_tree_build(int npart, DomainDecomp * ddecomp);
+force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav);
 
 static int
-force_tree_build_single(const ForceTree tb, const int npart, DomainDecomp * ddecomp);
+force_tree_build_single(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav);
 
 /*Next three are not static as tested.*/
 int
-force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp);
+force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize);
 
 ForceTree
 force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp);
 
 int
-force_update_node_parallel(const ForceTree * tree);
+force_update_node_parallel(const ForceTree * tree, const int HybridNuGrav);
 
 static void
 force_treeupdate_pseudos(int no, const ForceTree * tree);
@@ -80,7 +107,7 @@ force_tree_allocated(const ForceTree * tree)
 }
 
 void
-force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp)
+force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav)
 {
     message(0, "Tree construction.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
@@ -89,7 +116,7 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp)
     }
     walltime_measure("/Misc");
 
-    *tree = force_tree_build(PartManager->NumPart, ddecomp);
+    *tree = force_tree_build(PartManager->NumPart, ddecomp, BoxSize, HybridNuGrav);
 
     event_listen(&EventSlotsFork, force_tree_eh_slots_fork, tree);
 
@@ -101,7 +128,7 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp)
 /*! This function is a driver routine for constructing the gravitational
  *  oct-tree, which is done by calling a small number of other functions.
  */
-ForceTree force_tree_build(int npart, DomainDecomp * ddecomp)
+ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav)
 {
     int Numnodestree;
     int flag;
@@ -110,14 +137,14 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp)
 
     do
     {
-        maxnodes = All.TreeAllocFactor * PartManager->MaxPart + ddecomp->NTopNodes;
+        maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->MaxPart + ddecomp->NTopNodes;
         /* construct tree if needed */
         /* the tree is used in grav dens, hydro, bh and sfr */
         tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp);
         tree.NTopLeaves = ddecomp->NTopLeaves;
         tree.TopLeaves = ddecomp->TopLeaves;
 
-        Numnodestree = force_tree_build_single(tree, npart, ddecomp);
+        Numnodestree = force_tree_build_single(tree, npart, ddecomp, BoxSize, HybridNuGrav);
         if(Numnodestree < 0)
             message(1, "Not enough tree nodes (%d) for %d particles.\n", maxnodes, npart);
 
@@ -126,11 +153,11 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp)
         {
             force_tree_free(&tree);
 
-            message(0, "TreeAllocFactor from %g to %g\n", All.TreeAllocFactor, All.TreeAllocFactor*1.15);
+            message(0, "TreeAllocFactor from %g to %g\n", ForceTreeParams.TreeAllocFactor, ForceTreeParams.TreeAllocFactor*1.15);
 
-            All.TreeAllocFactor *= 1.15;
+            ForceTreeParams.TreeAllocFactor *= 1.15;
 
-            if(All.TreeAllocFactor > 5.0)
+            if(ForceTreeParams.TreeAllocFactor > 5.0)
             {
                 message(0, "An excessively large number of tree nodes were required, stopping with particle dump.\n");
                 dump_snapshot();
@@ -319,13 +346,13 @@ modify_internal_node(int parent, int subnode, int p_child, int p_toplace,
 
 /*! Does initial creation of the nodes for the gravitational oct-tree.
  **/
-int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp)
+int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize)
 {
     int i;
     int nnext = tb.firstnode;		/* index of first free node */
 
     /*Minimum size of the node depends on the minimum of all force softenings*/
-    const double minlen = All.TreeNodeMinSize;
+    const double minlen = ForceTreeParams.TreeNodeMinSize;
     /*Count of how many times we hit this limit*/
     int closepairs = 0;
 
@@ -333,9 +360,9 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
     {
         struct NODE *nfreep = &tb.Nodes[nnext];	/* select first node */
 
-        nfreep->len = All.BoxSize*1.001;
+        nfreep->len = BoxSize*1.001;
         for(i = 0; i < 3; i++)
-            nfreep->center[i] = All.BoxSize/2.;
+            nfreep->center[i] = BoxSize/2.;
         for(i = 0; i < 8; i++)
             nfreep->u.suns[i] = -1;
         nfreep->father = -1;
@@ -467,9 +494,9 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
  *  different CPUs. If such a node needs to be opened, the corresponding
  *  particle must be exported to that CPU. */
 static int
-force_tree_build_single(const ForceTree tb, const int npart, DomainDecomp * ddecomp)
+force_tree_build_single(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav)
 {
-    int nnext = force_tree_create_nodes(tb, npart, ddecomp);
+    int nnext = force_tree_create_nodes(tb, npart, ddecomp, BoxSize);
     if(nnext >= tb.lastnode - tb.firstnode)
     {
         return -1;
@@ -479,7 +506,7 @@ force_tree_build_single(const ForceTree tb, const int npart, DomainDecomp * ddec
     force_insert_pseudo_particles(&tb, ddecomp);
 
     /* now compute the multipole moments recursively */
-    int tail = force_update_node_parallel(&tb);
+    int tail = force_update_node_parallel(&tb, HybridNuGrav);
 
     force_set_next_node(tail, -1, &tb);
 
@@ -555,6 +582,8 @@ force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddeco
 {
     int i, index;
     const int firstpseudo = tree->lastnode;
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
     for(i = 0; i < ddecomp->NTopLeaves; i++)
     {
@@ -657,10 +686,6 @@ static void
 add_particle_moment_to_node(struct NODE * pnode, int i)
 {
     int k;
-    /*Hybrid particle neutrinos do not gravitate at early times.
-     * So do not add their masses to the node*/
-    if(All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime && P[i].Type == All.FastParticleType)
-        return;
     pnode->u.d.mass += (P[i].Mass);
     for(k=0; k<3; k++)
         pnode->u.d.s[k] += (P[i].Mass * P[i].Pos[k]);
@@ -702,7 +727,7 @@ force_get_sibling(const int sib, const int j, const int * suns)
  *
  */
 static int
-force_update_node_recursive(int no, int sib, int level, const ForceTree * tree)
+force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, const int HybridNuGrav)
 {
     /*Last value of tails is the return value of this function*/
     int j, suns[8], tails[8];
@@ -742,10 +767,10 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree)
              Note: final clause is much slower for some reason. */
             if(chldcnt > 1 && level < 513) {
                 #pragma omp task default(none) shared(tails, level, chldcnt, tree) firstprivate(j, nextsib, p)
-                tails[j] = force_update_node_recursive(p, nextsib, level*chldcnt, tree);
+                tails[j] = force_update_node_recursive(p, nextsib, level*chldcnt, tree, HybridNuGrav);
             }
             else
-                tails[j] = force_update_node_recursive(p, nextsib, level, tree);
+                tails[j] = force_update_node_recursive(p, nextsib, level, tree, HybridNuGrav);
         }
     }
 
@@ -795,7 +820,10 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree)
             /* add all particles in this tree-node */
             int next = p;
             while(next != -1) {
-                add_particle_moment_to_node(&tree->Nodes[no], next);
+                /*Hybrid particle neutrinos do not gravitate at early times.
+                 * So do not add their masses to the node*/
+                if(!HybridNuGrav || P[next].Type != ForceTreeParams.FastParticleType)
+                    add_particle_moment_to_node(&tree->Nodes[no], next);
                 next = force_get_next_node(next, tree);
             }
         }
@@ -849,13 +877,13 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree)
  * searches the list of pre-computed tail values to set the next node as if it had recursed and continues.
  */
 int
-force_update_node_parallel(const ForceTree * tree)
+force_update_node_parallel(const ForceTree * tree, const int HybridNuGrav)
 {
     int tail;
 #pragma omp parallel
 #pragma omp single nowait
     {
-        tail = force_update_node_recursive(tree->firstnode, -1, 1, tree);
+        tail = force_update_node_recursive(tree->firstnode, -1, 1, tree, HybridNuGrav);
     }
     return tail;
 }
@@ -866,6 +894,7 @@ force_update_node_parallel(const ForceTree * tree)
  */
 void force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp)
 {
+    int NTask, ThisTask;
     int i, no, ta, recvTask;
     int *recvcounts, *recvoffset;
     struct topleaf_momentsdata
@@ -880,6 +909,8 @@ void force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp)
     }
     *TopLeafMoments;
 
+    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
     TopLeafMoments = (struct topleaf_momentsdata *) mymalloc("TopLeafMoments", ddecomp->NTopLeaves * sizeof(TopLeafMoments[0]));
     memset(&TopLeafMoments[0], 0, sizeof(TopLeafMoments[0]) * ddecomp->NTopLeaves);
@@ -1021,6 +1052,7 @@ void force_treeupdate_pseudos(int no, const ForceTree * tree)
  */
 void force_update_hmax(int * activeset, int size, ForceTree * tree)
 {
+    int NTask, ThisTask;
     int i, ta;
     int *counts, *offsets;
     struct dirty_node_data {
@@ -1031,6 +1063,9 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree)
     int NumDirtyTopLevelNodes;
 
     walltime_measure("/Misc");
+
+    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
     NumDirtyTopLevelNodes = 0;
 
@@ -1104,7 +1139,7 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree)
     {
         int no = DirtyTopLevelNodes[i].treenode;
 
-        /* FIXME: why does this matter? The logic is simpler if we just blindly update them all.
+        /* Why does this matter? The logic is simpler if we just blindly update them all.
             ::: to avoid that the hmax is updated twice :::*/
         if(tree->Nodes[no].f.DependsOnLocalMass)
             no = tree->Nodes[no].father;

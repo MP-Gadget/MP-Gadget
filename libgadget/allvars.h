@@ -170,10 +170,6 @@ extern struct global_data_all_processes
                               NOT be balanced.  Each processor allocates memory for PartAllocFactor times
                               the average number of particles to allow for that */
 
-    double TreeAllocFactor;	/*!< Each processor allocates a number of nodes which is TreeAllocFactor times
-                              the maximum(!) number of particles.  Note: A typical local tree for N
-                              particles needs usually about ~0.65*N nodes. */
-
     double TopNodeAllocFactor;	/*!< Each processor allocates a number of nodes which is TreeAllocFactor times
                                   the maximum(!) number of particles.  Note: A typical local tree for N
                                   particles needs usually about ~0.65*N nodes. */
@@ -321,7 +317,6 @@ extern struct global_data_all_processes
     double GravitySoftening; /* Softening as a fraction of DM mean separation. */
     double GravitySofteningGas;  /* if 0, enable adaptive gravitational softening for gas particles, which uses the Hsml as ForceSoftening */
 
-    double TreeNodeMinSize; /* The minimum size of a Force Tree Node in length units. */
     double MeanSeparation[6]; /* mean separation between particles. 0 if the species doesn't exist. */
 
     /* some filenames */

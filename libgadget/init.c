@@ -80,8 +80,6 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
     All.SnapshotFileCount = RestartSnapNum + 1;
     All.InitSnapshotCount = RestartSnapNum + 1;
 
-    All.TreeAllocFactor = 0.7;
-
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)	/* initialize sph_properties */
     {
@@ -190,7 +188,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
     const double a3 = All.Time * All.Time * All.Time;
 
     ForceTree Tree = {0};
-    force_tree_rebuild(&Tree, ddecomp);
+    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 0);
 
     if(RestartSnapNum == -1)
     {

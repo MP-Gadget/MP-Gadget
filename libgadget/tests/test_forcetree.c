@@ -8,19 +8,20 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <time.h>
+#include <omp.h>
 #include <gsl/gsl_rng.h>
 
-#include <libgadget/allvars.h>
 #include <libgadget/forcetree.h>
 #include <libgadget/partmanager.h>
 #include <libgadget/domain.h>
+
 
 #include "stub.h"
 
 /*Defined in forcetree.c*/
 /*Next three are not static as tested.*/
 int
-force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp);
+force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize);
 
 ForceTree
 force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp);
@@ -28,12 +29,10 @@ force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp);
 int
 force_update_node_parallel(const ForceTree * tree);
 
-/*Used data from All and domain*/
+/*Particle data.*/
 struct part_manager_type PartManager[1] = {{0}};
-struct global_data_all_processes All;
-
-int NTask, ThisTask;
 double GravitySofteningTable[6];
+double BoxSize;
 
 /* The true struct for the state variable*/
 struct forcetree_testdata
@@ -140,13 +139,13 @@ static int check_moments(const ForceTree * tb, const int numpart, const int nrea
             assert_true(tb->Nodes[node].u.d.mass < 0.5 && tb->Nodes[node].u.d.mass > -0.5);
             /*Check center of mass moments*/
             for(i=0; i<3; i++)
-                assert_true(tb->Nodes[node].u.d.s[i] <= All.BoxSize && tb->Nodes[node].u.d.s[i] >= 0);
+                assert_true(tb->Nodes[node].u.d.s[i] <= BoxSize && tb->Nodes[node].u.d.s[i] >= 0);
             counter++;
         }
         node = next;
     }
     assert_int_equal(counter, nrealnode);
-    assert(sibcntr < counter/100);
+    assert_true(sibcntr < counter/100);
 
     free(oldmass);
     return nrealnode;
@@ -235,7 +234,7 @@ static void do_tree_test(const int numpart, const ForceTree tb, DomainDecomp * d
     int i;
     #pragma omp parallel for
     for(i=0; i<numpart; i++) {
-        P[i].Key = PEANO(P[i].Pos, All.BoxSize);
+        P[i].Key = PEANO(P[i].Pos, BoxSize);
         P[i].Mass = 1;
     }
     qsort(P, numpart, sizeof(struct particle_data), order_by_type_and_key);
@@ -248,7 +247,7 @@ static void do_tree_test(const int numpart, const ForceTree tb, DomainDecomp * d
     /*Time creating the nodes*/
     double start, end;
     start = MPI_Wtime();
-    int nodes = force_tree_create_nodes(tb, numpart, ddecomp);
+    int nodes = force_tree_create_nodes(tb, numpart, ddecomp, BoxSize);
     assert_true(nodes < maxnode);
     end = MPI_Wtime();
     double ms = (end - start)*1000;
@@ -277,9 +276,9 @@ static void test_rebuild_flat(void ** state) {
     #pragma omp parallel for
     for(i=0; i<numpart; i++) {
         P[i].Type = 1;
-        P[i].Pos[0] = (All.BoxSize/ncbrt) * (i/ncbrt/ncbrt);
-        P[i].Pos[1] = (All.BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
-        P[i].Pos[2] = (All.BoxSize/ncbrt) * (i % ncbrt);
+        P[i].Pos[0] = (BoxSize/ncbrt) * (i/ncbrt/ncbrt);
+        P[i].Pos[1] = (BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
+        P[i].Pos[2] = (BoxSize/ncbrt) * (i % ncbrt);
     }
     /*Allocate tree*/
     /*Base pointer*/
@@ -326,21 +325,21 @@ void do_random_test(gsl_rng * r, const int numpart, const ForceTree tb, DomainDe
         P[i].PI = 0;
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = All.BoxSize * gsl_rng_uniform(r);
+            P[i].Pos[j] = BoxSize * gsl_rng_uniform(r);
     }
     for(i=numpart/4; i<3*numpart/4; i++) {
         P[i].Type = 1;
         P[i].PI = 0;
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = All.BoxSize/2 + All.BoxSize/8 * exp(pow(gsl_rng_uniform(r)-0.5,2));
+            P[i].Pos[j] = BoxSize/2 + BoxSize/8 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
     for(i=3*numpart/4; i<numpart; i++) {
         P[i].Type = 1;
         P[i].PI = 0;
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = All.BoxSize*0.1 + All.BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
+            P[i].Pos[j] = BoxSize*0.1 + BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
     do_tree_test(numpart, tb, ddecomp);
 }
@@ -393,17 +392,15 @@ void trivial_domain(DomainDecomp * ddecomp)
 static int setup_tree(void **state) {
     /*Set up the important parts of the All structure.*/
     /*Particles should not be outside this*/
-    All.BoxSize = 8;
-    All.NumThreads = omp_get_max_threads();
     int i;
+    BoxSize = 8;
     for(i=0; i<6; i++)
         GravitySofteningTable[i] = 0.1 / 2.8;
+
+    init_forcetree_params(2, GravitySofteningTable);
     /*Set up the top-level domain grid*/
     struct forcetree_testdata *data = malloc(sizeof(struct forcetree_testdata));
     trivial_domain(&data->ddecomp);
-    /*To tell the code we are in serial*/
-    ThisTask = 0;
-    NTask = 1;
     data->r = gsl_rng_alloc(gsl_rng_mt19937);
     gsl_rng_set(data->r, 0);
     *state = (void *) data;
