@@ -524,12 +524,7 @@ domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost)
 
     /* A Segment is a subset of the TopLeaf nodes */
 
-    int Nsegment = All.DomainOverDecompositionFactor * NTask;
-
-    /* When would this ever happen?*/
-    if((size_t) All.DomainOverDecompositionFactor * NTask >= (1L << 31)) {
-        endrun(0, "Too many segments requested, overflowing integer\n");
-    }
+    int Nsegment = NTask;
 
     TopLeafExt = (struct topleaf_extdata *) mymalloc("TopLeafExt", ddecomp->NTopLeaves * sizeof(TopLeafExt[0]));
 
@@ -1160,16 +1155,16 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
     MPI_Allreduce(&topTree[0].Cost, &TotCost, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&topTree[0].Count, &TotCount, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
-    costlimit = TotCost / (All.TopNodeIncreaseFactor * All.DomainOverDecompositionFactor * NTask);
-    countlimit = TotCount / (All.TopNodeIncreaseFactor * All.DomainOverDecompositionFactor * NTask);
+    costlimit = TotCost / (All.DomainOverDecompositionFactor * NTask);
+    countlimit = TotCount / (All.DomainOverDecompositionFactor * NTask);
 
     domain_toptree_truncate(topTree, topTreeSize, countlimit, costlimit);
 
     walltime_measure("/Domain/DetermineTopTree/LocalRefine/truncate");
 
-    if(*topTreeSize > 4 * All.DomainOverDecompositionFactor * NTask * All.TopNodeIncreaseFactor) {
+    if(*topTreeSize > 4 * All.DomainOverDecompositionFactor * NTask) {
         message(1, "local TopTree Size =%d >> expected = %d; Usually this indicates very bad imbalance, due to a giant density peak.\n",
-            *topTreeSize, 4 * All.DomainOverDecompositionFactor * NTask * All.TopNodeIncreaseFactor);
+            *topTreeSize, 4 * All.DomainOverDecompositionFactor * NTask);
     }
 
 #if 0

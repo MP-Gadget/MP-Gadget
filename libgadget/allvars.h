@@ -206,13 +206,10 @@ extern struct global_data_all_processes
     /* Code options */
     /* Number of sub-domains per processor. TopNodes are refined so that no TopNode contains
      * no more than 1/(DODF * NTask) fraction of the work.
-     * Then the load balancer will aim to produce DODF*NTask equal-sized chunks, distributed
+     * Then the load balancer will aim to produce NTask equal-sized chunks, distributed
      * evenly across MPI ranks.*/
     int DomainOverDecompositionFactor;
     int DomainUseGlobalSorting;
-    /* Sets average TopNodes per MPI rank. Like DomainOverDecompositionFactor
-     * but only changes refinement, not load balancing.*/
-    int TopNodeIncreaseFactor;
 
     int CoolingOn;  /* if cooling is enabled */
     int HydroOn;  /*  if hydro force is enabled */
