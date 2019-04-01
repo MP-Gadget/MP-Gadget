@@ -467,7 +467,7 @@ domain_check_memory_bound(const DomainDecomp * ddecomp, const int print_details,
     if(max_load > PartManager->MaxPart * sfrfrac)
     {
         message(0, "desired memory imbalance=%g  (limit=%d, needed=%d)\n",
-                    (max_load * All.PartAllocFactor) / PartManager->MaxPart, sfrfrac * PartManager->MaxPart, max_load);
+                    (max_load * ((double) sumload ) / NTask ) / PartManager->MaxPart, sfrfrac * PartManager->MaxPart, max_load);
 
         return 1;
     }
@@ -1274,11 +1274,12 @@ static void
 domain_compute_costs(const DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopLeafCount)
 {
     int i;
-    int64_t * local_TopLeafWork = (int64_t *) mymalloc("local_TopLeafWork", All.NumThreads * ddecomp->NTopLeaves * sizeof(local_TopLeafWork[0]));
-    int64_t * local_TopLeafCount = (int64_t *) mymalloc("local_TopLeafCount", All.NumThreads * ddecomp->NTopLeaves * sizeof(local_TopLeafCount[0]));
+    int NumThreads = omp_get_max_threads();
+    int64_t * local_TopLeafWork = (int64_t *) mymalloc("local_TopLeafWork", NumThreads * ddecomp->NTopLeaves * sizeof(local_TopLeafWork[0]));
+    int64_t * local_TopLeafCount = (int64_t *) mymalloc("local_TopLeafCount", NumThreads * ddecomp->NTopLeaves * sizeof(local_TopLeafCount[0]));
 
-    memset(local_TopLeafWork, 0, All.NumThreads * ddecomp->NTopLeaves * sizeof(local_TopLeafWork[0]));
-    memset(local_TopLeafCount, 0, All.NumThreads * ddecomp->NTopLeaves * sizeof(local_TopLeafCount[0]));
+    memset(local_TopLeafWork, 0, NumThreads * ddecomp->NTopLeaves * sizeof(local_TopLeafWork[0]));
+    memset(local_TopLeafCount, 0, NumThreads * ddecomp->NTopLeaves * sizeof(local_TopLeafCount[0]));
 
 #pragma omp parallel
     {
@@ -1307,7 +1308,7 @@ domain_compute_costs(const DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t
     for(i = 0; i < ddecomp->NTopLeaves; i++)
     {
         int tid;
-        for(tid = 1; tid < All.NumThreads; tid++) {
+        for(tid = 1; tid < NumThreads; tid++) {
             local_TopLeafWork[i] += local_TopLeafWork[i + tid * ddecomp->NTopLeaves];
             local_TopLeafCount[i] += local_TopLeafCount[i + tid * ddecomp->NTopLeaves];
         }
