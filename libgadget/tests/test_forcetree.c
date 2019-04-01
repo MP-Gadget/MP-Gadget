@@ -19,19 +19,19 @@
 
 /*Defined in forcetree.c*/
 int
-force_tree_create_nodes(const struct TreeBuilder tb, const int npart);
+force_tree_create_nodes(const ForceTree tb, const int npart);
 
-struct TreeBuilder
+ForceTree
 force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
 
 int
-force_update_node_parallel(const struct TreeBuilder tb);
+force_update_node_parallel(const ForceTree * tb);
 
 /*Used data from All and domain*/
 struct part_manager_type PartManager[1] = {{0}};
 struct global_data_all_processes All;
 
-int MaxTopNodes, NTopNodes, NTopLeaves, NTask, ThisTask;
+int NTopNodes, NTopLeaves, NTask, ThisTask;
 struct topleaf_data *TopLeaves;
 struct topnode_data *TopNodes;
 struct task_data *Tasks;
@@ -76,57 +76,49 @@ order_by_type_and_key(const void *a, const void *b)
 
 #define NODECACHE_SIZE 100
 
-int force_get_father(int no, int firstnode)
-{
-    if(no >= firstnode)
-        return Nodes[no].father;
-    else
-        return Father[no];
-}
-
 /*This checks that the moments of the force tree in Nodes are valid:
  * that it the mass and flags are correct.*/
-static int check_moments(const struct TreeBuilder tb, const int numpart, const int nrealnode)
+static int check_moments(const ForceTree * tb, const int numpart, const int nrealnode)
 {
-    double * oldmass = malloc(sizeof(double) * MaxNodes);
+    double * oldmass = malloc(sizeof(double) * tb->numnodes);
     int i;
 
-    for(i=tb.firstnode; i < tb.lastnode; i ++) {
-        oldmass[i - tb.firstnode] = Nodes[i].u.d.mass;
+    for(i=tb->firstnode; i < tb->numnodes + tb->firstnode; i ++) {
+        oldmass[i - tb->firstnode] = tb->Nodes[i].u.d.mass;
     }
 
     for(i=0; i<numpart; i++)
     {
-        int fnode = Father[i];
+        int fnode = force_get_father(i, tb);
         /*Subtract mass so that nothing is left.*/
-        assert_true(fnode >= tb.firstnode && fnode < tb.lastnode);
+        assert_true(fnode >= tb->firstnode && fnode < tb->lastnode);
         while(fnode > 0) {
-            Nodes[fnode].u.d.mass -= P[i].Mass;
-            fnode = Nodes[fnode].father;
+            tb->Nodes[fnode].u.d.mass -= P[i].Mass;
+            fnode = tb->Nodes[fnode].father;
             /*Validate father*/
-            assert_true((fnode >= tb.firstnode && fnode < tb.lastnode) || fnode == -1);
+            assert_true((fnode >= tb->firstnode && fnode < tb->lastnode) || fnode == -1);
         }
     }
-    int node = tb.firstnode;
+    int node = tb->firstnode;
     int counter = 0;
     int sibcntr = 0;
     while(node >= 0) {
-        assert_true(node >= -1 && node < tb.lastnode);
+        assert_true(node >= -1 && node < tb->lastnode);
         int next = force_get_next_node(node,tb);
         /*If a real node*/
-        if(node >= tb.firstnode) {
+        if(node >= tb->firstnode) {
             /*Check sibling*/
-            assert_true(Nodes[node].u.d.sibling >= -1 && Nodes[node].u.d.sibling < tb.lastnode);
-            int sib = Nodes[node].u.d.sibling;
-            int sfather = force_get_father(sib, tb.firstnode);
-            int father = force_get_father(node, tb.firstnode);
+            assert_true(tb->Nodes[node].u.d.sibling >= -1 && tb->Nodes[node].u.d.sibling < tb->lastnode);
+            int sib = tb->Nodes[node].u.d.sibling;
+            int sfather = force_get_father(sib, tb);
+            int father = force_get_father(node, tb);
             /* Our sibling should either be a true sibling, with the same father,
              * or should be the child of one of our ancestors*/
             if(sfather != father && sib != -1) {
                 int ances = father;
                 while(ances >= 0) {
-                    assert_true(ances >= tb.firstnode);
-                    ances = force_get_father(ances, tb.firstnode);
+                    assert_true(ances >= tb->firstnode);
+                    ances = force_get_father(ances, tb);
                     if(ances == sfather)
                         break;
                 }
@@ -136,25 +128,25 @@ static int check_moments(const struct TreeBuilder tb, const int numpart, const i
             else if(sib == -1)
                 sibcntr++;
 
-            if(!(Nodes[node].u.d.mass < 0.5 && Nodes[node].u.d.mass > -0.5)) {
+            if(!(tb->Nodes[node].u.d.mass < 0.5 && tb->Nodes[node].u.d.mass > -0.5)) {
                 printf("node %d (%d) mass %g / %g TL %d DLM %d MS %g MSN %d ITL %d\n", 
-                    node, node - tb.firstnode, Nodes[node].u.d.mass, oldmass[node - tb.firstnode],
-                    Nodes[node].f.TopLevel,
-                    Nodes[node].f.DependsOnLocalMass,
-                    Nodes[node].u.d.MaxSoftening,
-                    Nodes[node].f.MixedSofteningsInNode,
-                    Nodes[node].f.InternalTopLevel
+                    node, node - tb->firstnode, tb->Nodes[node].u.d.mass, oldmass[node - tb->firstnode],
+                    tb->Nodes[node].f.TopLevel,
+                    tb->Nodes[node].f.DependsOnLocalMass,
+                    tb->Nodes[node].u.d.MaxSoftening,
+                    tb->Nodes[node].f.MixedSofteningsInNode,
+                    tb->Nodes[node].f.InternalTopLevel
                     );
                 int nn = force_get_next_node(node, tb);
-                while(nn < tb.firstnode) { /* something is wrong show the particles */
+                while(nn < tb->firstnode) { /* something is wrong show the particles */
                     printf("particles P[%d], Mass=%g\n", nn, P[nn].Mass);
                     nn = force_get_next_node(nn, tb);
                 }
             }
-            assert_true(Nodes[node].u.d.mass < 0.5 && Nodes[node].u.d.mass > -0.5);
+            assert_true(tb->Nodes[node].u.d.mass < 0.5 && tb->Nodes[node].u.d.mass > -0.5);
             /*Check center of mass moments*/
             for(i=0; i<3; i++)
-                assert_true(Nodes[node].u.d.s[i] <= All.BoxSize && Nodes[node].u.d.s[i] >= 0);
+                assert_true(tb->Nodes[node].u.d.s[i] <= All.BoxSize && tb->Nodes[node].u.d.s[i] >= 0);
             counter++;
         }
         node = next;
@@ -169,14 +161,14 @@ static int check_moments(const struct TreeBuilder tb, const int numpart, const i
 /*This checks that the force tree in Nodes is valid:
  * that it contains every particle and that each parent
  * node contains particles within the right subnode.*/
-static int check_tree(const struct TreeBuilder tb, const int nnodes, const int numpart)
+static int check_tree(const ForceTree * tb, const int nnodes, const int numpart)
 {
-    const int firstnode = tb.firstnode;
+    const int firstnode = tb->firstnode;
     int tot_empty = 0, nrealnode = 0, sevens = 0;
     int i;
     for(i=firstnode; i<nnodes+firstnode; i++)
     {
-        struct NODE * pNode = &Nodes[i];
+        struct NODE * pNode = &(tb->Nodes[i]);
         int empty = 0;
         /*Just reserved free space with nothing in it*/
         if(pNode->father < -1.5)
@@ -194,13 +186,13 @@ static int check_tree(const struct TreeBuilder tb, const int nnodes, const int n
             assert_true(child >= 0);
             /*If an internal node*/
             if(child > firstnode) {
-                assert_true(fabs(Nodes[child].len/pNode->len - 0.5) < 1e-4);
+                assert_true(fabs(tb->Nodes[child].len/pNode->len - 0.5) < 1e-4);
                 int k;
                 for(k=0; k<3; k++) {
                     if(j & (1<<k))
-                        assert_true(Nodes[child].center[k] > pNode->center[k]);
+                        assert_true(tb->Nodes[child].center[k] > pNode->center[k]);
                     else
-                        assert_true(Nodes[child].center[k] <= pNode->center[k]);
+                        assert_true(tb->Nodes[child].center[k] <= pNode->center[k]);
                 }
             }
             /*Particle*/
@@ -209,8 +201,8 @@ static int check_tree(const struct TreeBuilder tb, const int nnodes, const int n
                  * must be suffering from particle-coupling */
                 do {
                     P[child].PI += 1;
-                    if(Nextnode[child] > -1) {
-                        assert_int_equal(Father[child], Father[Nextnode[child]]);
+                    if(tb->Nextnode[child] > -1) {
+                        assert_int_equal(force_get_father(child, tb), force_get_father(tb->Nextnode[child], tb));
                     }
                     /*Check in right quadrant*/
                     int k;
@@ -243,7 +235,7 @@ static int check_tree(const struct TreeBuilder tb, const int nnodes, const int n
     return nrealnode;
 }
 
-static void do_tree_test(const int numpart, const struct TreeBuilder tb)
+static void do_tree_test(const int numpart, const ForceTree tb)
 {
     /*Sort by peano key so this is more realistic*/
     int i;
@@ -255,11 +247,10 @@ static void do_tree_test(const int numpart, const struct TreeBuilder tb)
     qsort(P, numpart, sizeof(struct particle_data), order_by_type_and_key);
     int maxnode = numpart;
     PartManager->MaxPart = numpart;
-    MaxNodes = numpart;
-    assert_true(Nodes != NULL);
+    assert_true(tb.Nodes != NULL);
     /*So we know which nodes we have initialised*/
-    for(i=0; i< MaxNodes+1; i++)
-        Nodes_base[i].father = -2;
+    for(i=0; i< tb.numnodes+1; i++)
+        tb.Nodes_base[i].father = -2;
     /*Time creating the nodes*/
     double start, end;
     start = MPI_Wtime();
@@ -268,17 +259,17 @@ static void do_tree_test(const int numpart, const struct TreeBuilder tb)
     end = MPI_Wtime();
     double ms = (end - start)*1000;
     printf("Number of nodes used: %d. Built tree in %.3g ms\n", nodes,ms);
-    int nrealnode = check_tree(tb, nodes, numpart);
+    int nrealnode = check_tree(&tb, nodes, numpart);
     /* now compute the multipole moments recursively */
     start = MPI_Wtime();
-    int tail = force_update_node_parallel(tb);
-    force_set_next_node(tail, -1, tb);
+    int tail = force_update_node_parallel(&tb);
+    force_set_next_node(tail, -1, &tb);
 /*     assert_true(tail < nodes); */
     end = MPI_Wtime();
     ms = (end - start)*1000;
-    printf("Updated moments in %.3g ms. Total mass: %g\n", ms, Nodes[numpart].u.d.mass);
-    assert_true(fabs(Nodes[numpart].u.d.mass - numpart) < 0.5);
-    check_moments(tb, numpart, nrealnode);
+    printf("Updated moments in %.3g ms. Total mass: %g\n", ms, tb.Nodes[numpart].u.d.mass);
+    assert_true(fabs(tb.Nodes[numpart].u.d.mass - numpart) < 0.5);
+    check_moments(&tb, numpart, nrealnode);
 }
 
 static void test_rebuild_flat(void ** state) {
@@ -299,9 +290,9 @@ static void test_rebuild_flat(void ** state) {
     /*Allocate tree*/
     /*Base pointer*/
     TopLeaves[0].topnode = numpart;
-    struct TreeBuilder tb = force_treeallocate(numpart, numpart, numpart);
+    ForceTree tb = force_treeallocate(numpart, numpart, numpart);
     do_tree_test(numpart, tb);
-    force_tree_free();
+    force_tree_free(&tb);
     free(P);
 }
 
@@ -320,13 +311,13 @@ static void test_rebuild_close(void ** state) {
         P[i].Pos[1] = 4. + ((i/ncbrt) % ncbrt) /close;
         P[i].Pos[2] = 4. + (i % ncbrt)/close;
     }
-    struct TreeBuilder tb = force_treeallocate(numpart, numpart, numpart);
+    ForceTree tb = force_treeallocate(numpart, numpart, numpart);
     do_tree_test(numpart, tb);
-    force_tree_free();
+    force_tree_free(&tb);
     free(P);
 }
 
-void do_random_test(gsl_rng * r, const int numpart, const int maxnode, const struct TreeBuilder tb)
+void do_random_test(gsl_rng * r, const int numpart, const int maxnode, const ForceTree tb)
 {
     /* Create a regular grid of particles, 8x8x8, all of type 1,
      * in a box 8 kpc across.*/
@@ -364,14 +355,14 @@ static void test_rebuild_random(void ** state) {
     /*Base pointer*/
     TopLeaves[0].topnode = numpart;
     int maxnode = numpart;
-    struct TreeBuilder tb = force_treeallocate(numpart, numpart, numpart);
-    assert_true(Nodes != NULL);
+    ForceTree tb = force_treeallocate(numpart, numpart, numpart);
+    assert_true(tb.Nodes != NULL);
     P = malloc(numpart*sizeof(struct particle_data));
     int i;
     for(i=0; i<2; i++) {
         do_random_test(r, numpart, maxnode, tb);
     }
-    force_tree_free();
+    force_tree_free(&tb);
     free(P);
 }
 
@@ -387,7 +378,6 @@ static int setup_tree(void **state) {
     /* The whole tree goes into one topnode.
      * Set up just enough of the TopNode structure that
      * domain_get_topleaf works*/
-    MaxTopNodes = 1;
     NTopNodes = NTopLeaves = 1;
     TopNodes = malloc(sizeof(struct topnode_data));
     TopNodes[0].Daughter = -1;

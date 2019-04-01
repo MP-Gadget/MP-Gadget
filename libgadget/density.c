@@ -98,24 +98,24 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  */
 
 static void
-density_internal(int update_hsml);
+density_internal(int update_hsml, ForceTree * tree);
 
 void
-density(void)
+density(ForceTree * tree)
 {
     /* recompute hsml and pre hydro quantities */
-    density_internal(1);
+    density_internal(1, tree);
 }
 
 void
-density_update(void)
+density_update(ForceTree * tree)
 {
     /* recompute pre hydro quantities without computing hsml */
-    density_internal(0);
+    density_internal(0, tree);
 }
 
 static void
-density_internal(int update_hsml)
+density_internal(int update_hsml, ForceTree * tree)
 {
     if(!All.DensityOn)
 	return;
@@ -135,6 +135,7 @@ density_internal(int update_hsml)
     tw->query_type_elsize = sizeof(TreeWalkQueryDensity);
     tw->result_type_elsize = sizeof(TreeWalkResultDensity);
     tw->priv = priv;
+    tw->tree = tree;
 
     int i;
     int64_t ntot = 0;

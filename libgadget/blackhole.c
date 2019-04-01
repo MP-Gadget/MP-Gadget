@@ -140,7 +140,7 @@ static double blackhole_soundspeed(double entropy, double pressure, double rho) 
     return cs;
 }
 
-void blackhole(void)
+void blackhole(ForceTree * tree)
 {
     if(!All.BlackHoleOn) return;
     int i;
@@ -160,6 +160,7 @@ void blackhole(void)
     tw_accretion->UseNodeList = 1;
     tw_accretion->query_type_elsize = sizeof(TreeWalkQueryBHAccretion);
     tw_accretion->result_type_elsize = sizeof(TreeWalkResultBHAccretion);
+    tw_accretion->tree = tree;
 
     TreeWalk tw_feedback[1] = {{0}};
     tw_feedback->ev_label = "BH_FEEDBACK";
@@ -174,6 +175,7 @@ void blackhole(void)
     tw_feedback->UseNodeList = 1;
     tw_feedback->query_type_elsize = sizeof(TreeWalkQueryBHFeedback);
     tw_feedback->result_type_elsize = sizeof(TreeWalkResultBHFeedback);
+    tw_feedback->tree = tree;
 
     message(0, "Beginning black-hole accretion\n");
 
@@ -231,7 +233,7 @@ void blackhole(void)
     if(All.Time >= All.TimeNextSeedingCheck)
     {
         /* Seeding */
-        fof_fof();
+        fof_fof(tree);
         fof_seed();
         fof_finish();
         All.TimeNextSeedingCheck *= All.TimeBetweenSeedingSearch;

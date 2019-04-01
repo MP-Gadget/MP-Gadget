@@ -25,8 +25,6 @@ extern struct task_data {
     int EndLeaf;
 } * Tasks;
 
-extern int MaxTopNodes;	        /*!< Maximum number of nodes in the top-level tree used for domain decomposition */
-
 extern int NTopNodes, NTopLeaves;
 
 void domain_decompose_full(void);

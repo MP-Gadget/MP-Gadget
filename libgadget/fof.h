@@ -2,11 +2,12 @@
 #define FOF_H
 
 #include "allvars.h"
+#include "forcetree.h"
 
 void fof_init(void);
 
 /*Computes the Group structure, saved as a global array below*/
-void fof_fof(void);
+void fof_fof(ForceTree * tree);
 
 /*Frees the Group structure*/
 void

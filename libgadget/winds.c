@@ -79,7 +79,7 @@ static int* NPLeft;
 
 /*Do a treewalk for the wind model. This only changes newly created star particles.*/
 void
-winds_and_feedback(int * NewStars, int NumNewStars)
+winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree)
 {
     if(!All.WindOn)
         return;
@@ -110,6 +110,7 @@ winds_and_feedback(int * NewStars, int NumNewStars)
     tw->UseNodeList = 1;
     tw->query_type_elsize = sizeof(TreeWalkQueryWind);
     tw->result_type_elsize = sizeof(TreeWalkResultWind);
+    tw->tree = tree;
 
     /* sum the total weight of surrounding gas */
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterWind);

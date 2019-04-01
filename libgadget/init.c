@@ -189,13 +189,15 @@ setup_smoothinglengths(int RestartSnapNum)
     int i;
     const double a3 = All.Time * All.Time * All.Time;
 
-    force_tree_rebuild();
+    ForceTree Tree = {0};
+    force_tree_rebuild(&Tree);
+
     if(RestartSnapNum == -1)
     {
 #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++)
         {
-            int no = Father[i];
+            int no = force_get_father(i, &Tree);
             /* Don't need smoothing lengths for DM particles*/
             if(P[i].Type != 0 && P[i].Type != 4 && P[i].Type != 5)
                 continue;
@@ -212,9 +214,9 @@ setup_smoothinglengths(int RestartSnapNum)
             } else {
                 massfactor = 1.0 - 0.04 / 0.26;
             }
-            while(10 * All.DesNumNgb * P[i].Mass > massfactor * Nodes[no].u.d.mass)
+            while(10 * All.DesNumNgb * P[i].Mass > massfactor * Tree.Nodes[no].u.d.mass)
             {
-                int p = Nodes[no].father;
+                int p = force_get_father(no, &Tree);
 
                 if(p < 0)
                     break;
@@ -223,8 +225,8 @@ setup_smoothinglengths(int RestartSnapNum)
             }
 
             P[i].Hsml =
-                pow(3.0 / (4 * M_PI) * All.DesNumNgb * P[i].Mass / (massfactor * Nodes[no].u.d.mass),
-                        1.0 / 3) * Nodes[no].len;
+                pow(3.0 / (4 * M_PI) * All.DesNumNgb * P[i].Mass / (massfactor * Tree.Nodes[no].u.d.mass),
+                        1.0 / 3) * Tree.Nodes[no].len;
 
             /* recover from a poor initial guess */
             if(P[i].Hsml > 500.0 * All.MeanSeparation[0])
@@ -244,7 +246,7 @@ setup_smoothinglengths(int RestartSnapNum)
         }
 #endif
 
-    density();
+    density(&Tree);
 
     /* for clean IC with U input only, we need to iterate to find entrpoy */
     if(RestartSnapNum == -1)
@@ -279,7 +281,7 @@ setup_smoothinglengths(int RestartSnapNum)
                     olddensity[i] = SPHP(i).EgyWtDensity;
                 }
             }
-            density_update();
+            density_update(&Tree);
             double badness = 0;
 
             #pragma omp parallel for reduction(max: badness)
@@ -318,8 +320,8 @@ setup_smoothinglengths(int RestartSnapNum)
         }
     }
 #ifdef DENSITY_INDEPENDENT_SPH
-    density_update();
+    density_update(&Tree);
 #endif //DENSITY_INDEPENDENT_SPH
 
-    if(force_tree_allocated()) force_tree_free();
+    force_tree_free(&Tree);
 }

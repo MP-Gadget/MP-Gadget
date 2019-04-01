@@ -18,8 +18,8 @@
 /*Global variable to store power spectrum*/
 struct _powerspectrum PowerSpectrum;
 
-static int pm_mark_region_for_node(int startno, int rid);
-static void convert_node_to_region(PetaPMRegion * r);
+static int pm_mark_region_for_node(int startno, int rid, const ForceTree * tt);
+static void convert_node_to_region(PetaPMRegion * r, struct NODE * Nodes);
 
 static int hybrid_nu_gravpm_is_active(int i);
 static void potential_transfer(int64_t k2, int kpos[3], pfft_complex * value);
@@ -58,7 +58,7 @@ void gravpm_init_periodic() {
 
 /* Computes the gravitational force on the PM grid
  * and saves the total matter power spectrum.*/
-void gravpm_force(void) {
+void gravpm_force(ForceTree * tree) {
     PetaPMParticleStruct pstruct = {
         P,
         sizeof(P[0]),
@@ -81,7 +81,7 @@ void gravpm_force(void) {
      * Therefore the force transfer functions are based on the potential,
      * not the density.
      * */
-    petapm_force(_prepare, &global_functions, functions, &pstruct, NULL);
+    petapm_force(_prepare, &global_functions, functions, &pstruct, tree);
     powerspectrum_sum(&PowerSpectrum, All.BoxSize*All.UnitLength_in_cm);
     /*Now save the power spectrum*/
     if(ThisTask == 0)
@@ -92,7 +92,7 @@ void gravpm_force(void) {
     powerspectrum_free(&PowerSpectrum, All.MassiveNuLinRespOn);
     walltime_measure("/LongRange");
     /*Rebuild the force tree we freed in _prepare to save memory*/
-    force_tree_rebuild();
+    force_tree_rebuild(tree);
 }
 
 static double pot_factor;
@@ -118,31 +118,32 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
      * NTopLeaves is sufficient */
     PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion) * NTopLeaves);
 
+    ForceTree * tree = (ForceTree *) userdata;
     int r = 0;
 
-    int no = RootNode; /* start with the root */
+    int no = tree->firstnode; /* start with the root */
     while(no >= 0) {
 
-        if(!(Nodes[no].f.DependsOnLocalMass)) {
+        if(!(tree->Nodes[no].f.DependsOnLocalMass)) {
             /* node doesn't contain particles on this process, do not open */
-            no = Nodes[no].u.d.sibling;
+            no = tree->Nodes[no].u.d.sibling;
             continue;
         }
         if(
             /* node is large */
-           (Nodes[no].len <= All.BoxSize / All.Nmesh * 24)
+           (tree->Nodes[no].len <= All.BoxSize / All.Nmesh * 24)
            ||
             /* node is a top leaf */
-            ( !Nodes[no].f.InternalTopLevel && (Nodes[no].f.TopLevel) )
+            ( !tree->Nodes[no].f.InternalTopLevel && (tree->Nodes[no].f.TopLevel) )
                 ) {
             regions[r].no = no;
             r ++;
             /* do not open */
-            no = Nodes[no].u.d.sibling;
+            no = tree->Nodes[no].u.d.sibling;
             continue;
         }
         /* open */
-        no = Nodes[no].u.d.nextnode;
+        no = tree->Nodes[no].u.d.nextnode;
     }
 
     *Nregions = r;
@@ -159,7 +160,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
     int numpart = 0;
 #pragma omp parallel for reduction(+: numpart)
     for(r = 0; r < *Nregions; r++) {
-        regions[r].numpart = pm_mark_region_for_node(regions[r].no, r);
+        regions[r].numpart = pm_mark_region_for_node(regions[r].no, r, tree);
         numpart += regions[r].numpart;
     }
     for(i =0; i < PartManager->NumPart; i ++) {
@@ -172,10 +173,10 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
         endrun(1, "Processed only %d particles out of %d\n", numpart, PartManager->NumPart);
     }
     for(r =0; r < *Nregions; r++) {
-        convert_node_to_region(&regions[r]);
+        convert_node_to_region(&regions[r], tree->Nodes);
     }
     /*This is done to conserve memory during the PM step*/
-    if(force_tree_allocated()) force_tree_free();
+    if(force_tree_allocated(tree)) force_tree_free(tree);
 
     /*Allocate memory for a power spectrum*/
     powerspectrum_alloc(&PowerSpectrum, All.Nmesh, All.NumThreads, All.MassiveNuLinRespOn);
@@ -184,17 +185,15 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
     return regions;
 }
 
-static int pm_mark_region_for_node(int startno, int rid) {
+static int pm_mark_region_for_node(int startno, int rid, const ForceTree * tree) {
     int numpart = 0;
-    int p;
     int no = startno;
-    int endno = Nodes[startno].u.d.sibling;
+    int endno = tree->Nodes[startno].u.d.sibling;
     while(no >= 0 && no != endno)
     {
-        if(node_is_particle(no))	/* single particle */
+        if(node_is_particle(no, tree))	/* single particle */
         {
-            p = no;
-            no = Nextnode[no];
+            int p = no;
             /* when we are in PM, all particles must have been synced. */
             if (P[p].Ti_drift != All.Ti_Current) {
                 abort();
@@ -213,7 +212,7 @@ static int pm_mark_region_for_node(int startno, int rid) {
              * */
             int k;
             for(k = 0; k < 3; k ++) {
-                double l = P[p].Pos[k] - Nodes[startno].center[k];
+                double l = P[p].Pos[k] - tree->Nodes[startno].center[k];
                 if (l < - 0.5 * All.BoxSize) {
                     l += All.BoxSize;
                 }
@@ -221,32 +220,23 @@ static int pm_mark_region_for_node(int startno, int rid) {
                     l -= All.BoxSize;
                 }
                 l = fabs(l * 2);
-                if (l > Nodes[startno].len) {
-                    if(l > Nodes[startno].len * (1+ 1e-7))
+                if (l > tree->Nodes[startno].len) {
+                    if(l > tree->Nodes[startno].len * (1+ 1e-7))
                     message(1, "enlarging node size from %g to %g, due to particle of type %d at %g %g %g id=%ld\n",
-                        Nodes[startno].len, l, P[p].Type, P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].ID);
-                    Nodes[startno].len = l;
+                        tree->Nodes[startno].len, l, P[p].Type, P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].ID);
+                    tree->Nodes[startno].len = l;
                 }
             }
             numpart ++;
         }
-        else
-        {
-            if(node_is_pseudo_particle(no))	/* pseudo particle */
-            {
-                /* skip pseudo particles */
-                no = Nextnode[no - MaxNodes];
-                continue;
-            }
 
-            no = Nodes[no].u.d.nextnode;	/* ok, we need to open the node */
-        }
+        no = force_get_next_node(no, tree);
     }
     return numpart;
 }
 
 
-static void convert_node_to_region(PetaPMRegion * r) {
+static void convert_node_to_region(PetaPMRegion * r, struct NODE * Nodes) {
     int k;
     double cellsize = All.BoxSize / All.Nmesh;
     int no = r->no;

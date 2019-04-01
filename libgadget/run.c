@@ -37,7 +37,7 @@ void init(int snapnum); /* init.c only used here */
  * reached, when a `stop' file is found in the output directory, or
  * when the simulation ends because we arrived at TimeMax.
  */
-static void compute_accelerations(int is_PM, int FirstStep, int GasEnabled);
+static void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, ForceTree * tree);
 static void write_cpu_log(int NumCurrentTiStep);
 
 /*! \file begrun.c
@@ -182,10 +182,11 @@ void run(void)
         set_random_numbers(All.RandomSeed + All.Ti_Current);
 
         /* Need to rebuild the force tree because all TopLeaves are out of date.*/
-        force_tree_rebuild();
+        ForceTree Tree = {0};
+        force_tree_rebuild(&Tree);
 
         /* update force to Ti_Current */
-        compute_accelerations(is_PM, NumCurrentTiStep == 0, GasEnabled);
+        compute_accelerations(is_PM, NumCurrentTiStep == 0, GasEnabled, &Tree);
 
         /* Update velocity to Ti_Current; this synchonizes TiKick and TiDrift for the active particles */
 
@@ -220,12 +221,12 @@ void run(void)
             int compact[6] = {0};
 
             if(slots_gc(compact)) {
-                force_tree_rebuild();
+                force_tree_rebuild(&Tree);
                 NumActiveParticle = PartManager->NumPart;
             }
         }
 
-        write_checkpoint(WriteSnapshot, WriteFOF);
+        write_checkpoint(WriteSnapshot, WriteFOF, &Tree);
 
         write_cpu_log(NumCurrentTiStep);		/* produce some CPU usage info */
 
@@ -233,8 +234,8 @@ void run(void)
 
         report_memory_usage("RUN");
 
-        /*Note FoF will free the tree too*/
-        if(force_tree_allocated()) force_tree_free();
+        /*Note FoF may free the tree too*/
+        force_tree_free(&Tree);
 
         if(!next_sync || stop) {
             /* out of sync points, or a requested stop, the run has finally finished! Yay.*/
@@ -272,7 +273,7 @@ void run(void)
  * be outside the allowed bounds, it will be readjusted by the function ensure_neighbours(), and for those
  * particle, the densities are recomputed accordingly. Finally, the hydrodynamical forces are added.
  */
-void compute_accelerations(int is_PM, int FirstStep, int GasEnabled)
+void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, ForceTree * tree)
 {
     message(0, "Begin force computation.\n");
 
@@ -285,14 +286,14 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled)
         /***** density *****/
         message(0, "Start density computation...\n");
 
-        density();		/* computes density, and pressure */
+        density(tree);  /* computes density, and pressure */
 
         /***** update smoothing lengths in tree *****/
-        force_update_hmax(ActiveParticle, NumActiveParticle);
+        force_update_hmax(ActiveParticle, NumActiveParticle, tree);
         /***** hydro forces *****/
         message(0, "Start hydro-force computation...\n");
 
-        hydro_force();		/* adds hydrodynamical accelerations  and computes du/dt  */
+        hydro_force(tree);		/* adds hydrodynamical accelerations  and computes du/dt  */
     }
 
     /* The opening criterion for the gravtree
@@ -303,7 +304,7 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled)
      * this timestep to GravPM. Note initially both
      * are zero and so the tree is opened maximally
      * on the first timestep.*/
-    grav_short_tree();
+    grav_short_tree(tree);
     /* TreeUseBH > 1 means use the BH criterion on the initial timestep only,
      * avoiding the fully open O(N^2) case.*/
     if(All.TreeUseBH > 1)
@@ -321,7 +322,7 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled)
 
     if(is_PM)
     {
-        gravpm_force();
+        gravpm_force(tree);
 
         /* compute and output energy statistics if desired. */
         if(All.OutputEnergyDebug)
@@ -335,7 +336,7 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled)
      * use the total acceleration for tree opening.
      */
     if(FirstStep && All.TreeUseBH == 0)
-        grav_short_tree();
+        grav_short_tree(tree);
 
     /* Note this must be after gravaccel and hydro,
      * because new star particles are not in the tree,
@@ -344,10 +345,10 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled)
     {
 #ifdef BLACK_HOLES
         /* Black hole accretion and feedback */
-        blackhole();
+        blackhole(tree);
 #endif
         /**** radiative cooling and star formation *****/
-        cooling_and_starformation();
+        cooling_and_starformation(tree);
     }
     message(0, "Forces computed.\n");
 }

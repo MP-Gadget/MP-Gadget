@@ -65,7 +65,7 @@ static int force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
  *  tree is used.  Particles are only exported to other processors when really
  *  needed, thereby allowing a good use of the communication buffer.
  */
-void grav_short_tree_old(void)
+void grav_short_tree_old(ForceTree * tree)
 {
     double timeall = 0;
     double timetree, timewait, timecomm;
@@ -84,6 +84,7 @@ void grav_short_tree_old(void)
     tw->reduce = (TreeWalkReduceResultFunction) grav_short_reduce;
     tw->postprocess = (TreeWalkProcessFunction) grav_short_postprocess;
     tw->UseNodeList = 1;
+    tw->tree = tree;
 
     tw->query_type_elsize = sizeof(TreeWalkQueryGravShort);
     tw->result_type_elsize = sizeof(TreeWalkResultGravShort);
@@ -190,7 +191,7 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
 
     no = input->base.NodeList[0];
     listindex ++;
-    no = Nodes[no].u.d.nextnode;	/* open it */
+    no = lv->tw->tree->Nodes[no].u.d.nextnode;	/* open it */
 
     pos_x = input->base.Pos[0];
     pos_y = input->base.Pos[1];
@@ -279,7 +280,7 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
                     h = All.ForceSoftening[P[no].Type];
 #endif
 #endif
-                no = Nextnode[no];
+                no = force_get_next_node(no, lv->tw->tree);
             }
             else			/* we have an  internal node */
             {
@@ -290,11 +291,11 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
                         if(-1 == treewalk_export_particle(lv, no))
                             return -1;
                     }
-                    no = Nextnode[no - MaxNodes];
+                    no = force_get_next_node(no, lv->tw->tree);
                     continue;
                 }
 
-                nop = &Nodes[no];
+                nop = &lv->tw->tree->Nodes[no];
 
                 if(lv->mode == 1)
                 {
@@ -572,7 +573,7 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
             no = input->base.NodeList[listindex];
             if(no >= 0)
             {
-                no = Nodes[no].u.d.nextnode;	/* open it */
+                no = lv->tw->tree->Nodes[no].u.d.nextnode;	/* open it */
                 nnodesinlist++;
                 listindex++;
             }

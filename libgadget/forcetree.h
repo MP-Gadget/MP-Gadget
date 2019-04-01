@@ -7,8 +7,7 @@
  * ------------------
  */
 
-/*Used in treewalk.c*/
-extern struct NODE
+struct NODE
 {
     MyFloat len;			/*!< sidelength of treenode */
     MyFloat center[3];		/*!< geometrical center of node */
@@ -19,6 +18,7 @@ extern struct NODE
         unsigned int TopLevel :1; /* Node corresponding to a toplevel node */
         unsigned int DependsOnLocalMass :1;  /* Intersects with local mass */
         unsigned int MixedSofteningsInNode:1;  /* Softening is mixed, need to open the node */
+        unsigned int NodeIsDirty :1; /*Node is a toplevel node containing local mass, and its moments need updating*/
     } f;
     union
     {
@@ -37,64 +37,79 @@ extern struct NODE
         d;
     }
     u;
-}
-*Nodes_base,			/*!< points to the actual memory allocated for the nodes */
-    *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[RootNode]
-                      gives the first allocated node */
+};
 
-/*Structure containing the Node pointer, and the first and last entries*/
-struct TreeBuilder {
-    /*Index of first internal node*/
+/*Structure containing the Node pointer, and various Tree metadata.*/
+/*The node index is an integer with unusual properties:
+ * no = 0..ForceTree.firstnode  corresponds to a particle.
+ * no = ForceTree.firstnode..ForceTree.lastnode corresponds to actual tree nodes,
+ * and is the only memory allocated in ForceTree.Nodes_base. After the tree is built this becomes
+ * no = ForceTree.firstnode..ForceTree.numnodes which is the only allocated memory.
+ * no > ForceTree.lastnode means a pseudo particle on another processor*/
+typedef struct ForceTree {
+    /*Is 1 if the tree is allocated. Only used inside force_tree_allocated() and when allocating.*/
+    int tree_allocated_flag;
+    /*Index of first internal node. Difference between Nodes and Nodes_base. == MaxPart*/
     int firstnode;
     /*Index of first pseudo-particle node*/
     int lastnode;
+    /* Number of actually allocated nodes*/
+    int numnodes;
     /*!< this is a pointer used to access the nodes which is shifted such that Nodes[firstnode]
      *   gives the first allocated node */
-    struct NODE *Nodes; 
-};
+    struct NODE *Nodes;
+    /* The following pointers should only be used via accessors or inside of forcetree.c.
+     * The exception is the crazy memory shifting done in sfr_eff.c*/
+    /*This points to the actual memory allocated for the nodes.*/
+    struct NODE * Nodes_base;
+    /* Gives next node in the tree walk for particles and pseudo particles.
+     * next node for the actual nodes is stored in Nodes*/
+    int * Nextnode;
+    /*!< gives parent node in tree for every particle */
+    int *Father;
+} ForceTree;
 
-extern int MaxNodes;		/*!< maximum allowed number of internal nodes */
-extern int NumNodes;      /*!< Currently used number of internal nodes*/
-extern int RootNode;      /*!< Index of the first node. Difference between Nodes and Nodes_base. == MaxPart*/
+int force_tree_allocated(const ForceTree * tt);
 
-/*Used in domain.c*/
-extern int *Nextnode;		/*!< gives next node in tree walk  (nodes array) */
-extern int *Father;		/*!< gives parent node in tree (Prenodes array) */
+/* This function propagates changed SPH smoothing lengths up the tree*/
+void force_update_hmax(int * activeset, int size, ForceTree * tt);
 
-int force_tree_allocated();
+/*This is the main constructor for the tree structure. Pass in something empty.*/
+void force_tree_rebuild(ForceTree * tree);
 
-void force_update_hmax(int * activeset, int size);
-void force_tree_rebuild();
-
-void   force_tree_free(void);
+/*Free the memory associated with the tree*/
+void   force_tree_free(ForceTree * tt);
 void   dump_particles(void);
 
 static inline int
-node_is_pseudo_particle(int no)
+node_is_pseudo_particle(int no, const ForceTree * tree)
 {
-    return no >= RootNode + MaxNodes;
+    return no >= tree->lastnode;
 }
 
 static inline int
-node_is_particle(int no)
+node_is_particle(int no, const ForceTree * tree)
 {
-    return no < RootNode;
+    return no < tree->firstnode;
 }
 
 static inline int
-node_is_node(int no)
+node_is_node(int no, const ForceTree * tree)
 {
-    return (no >= RootNode) && (no < RootNode + MaxNodes);
+    return (no >= tree->firstnode) && (no < tree->lastnode);
 }
 
 int
-force_get_prev_node(int no, const struct TreeBuilder tb);
+force_get_prev_node(int no, const ForceTree * tb);
 
 int
-force_get_next_node(int no, const struct TreeBuilder tb);
+force_get_next_node(int no, const ForceTree * tb);
 
 int
-force_set_next_node(int no, int next, const struct TreeBuilder tb);
+force_set_next_node(int no, int next, const ForceTree * tb);
+
+int
+force_get_father(int no, const ForceTree * tt);
 
 #endif
 

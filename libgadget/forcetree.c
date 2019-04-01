@@ -15,63 +15,46 @@
 #include "utils.h"
 
 /*! \file forcetree.c
- *  \brief gravitational tree and code for Ewald correction
+ *  \brief gravitational tree
  *
  *  This file contains the computation of the gravitational force by means
  *  of a tree. The type of tree implemented is a geometrical oct-tree,
  *  starting from a cube encompassing all particles. This cube is
  *  automatically found in the domain decomposition, which also splits up
  *  the global "top-level" tree along node boundaries, moving the particles
- *  of different parts of the tree to separate processors. Tree nodes can
- *  be dynamically updated in drift/kick operations to avoid having to
- *  reconstruct the tree every timestep.
+ *  of different parts of the tree to separate processors.
+ *
+ * Local naming convention: once built it is ForceTree * tree, passed by reference.
+ * While the nodes are still being added it is ForceTree tb, passed by value.
  */
 
-/*The node index is an integer with unusual properties:
- * no = 0..RootNode (firstnode in internal functions) corresponds to a particle.
- * no = RootNode..RootNode + MaxNodes (firstnode..lastnode) corresponds to actual tree nodes,
- * and is the only memory allocated in Nodes_base.
- * no > RootNode + MaxNodes (lastnode) means a pseudo particle on another processor*/
-struct NODE *Nodes_base,	/*!< points to the actual memory allocated for the nodes */
- *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[RootNode]
-				   gives the first allocated node */
-
-int MaxNodes;                  /*!< maximum allowed number of internal nodes */
-int NumNodes;                  /*!< Currently used number of internal nodes */
-int RootNode;                  /*!< Index of the first node */
-
-
-int *Nextnode;			/*!< gives next node in tree walk  (nodes array) */
-int *Father;			/*!< gives parent node in tree (nodes array) */
-
-static int tree_allocated_flag = 0;
-
-static int force_tree_build(int npart);
+static ForceTree
+force_tree_build(int npart);
 
 static int
-force_tree_build_single(const struct TreeBuilder tb, const int npart);
+force_tree_build_single(const ForceTree tb, const int npart);
 
 /*Next three are not static as tested.*/
 int
-force_tree_create_nodes(const struct TreeBuilder tb, const int npart);
+force_tree_create_nodes(const ForceTree tb, const int npart);
 
-struct TreeBuilder
+ForceTree
 force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
 
 int
-force_update_node_parallel(const struct TreeBuilder tb);
+force_update_node_parallel(const ForceTree * tree);
 
 static void
-force_treeupdate_pseudos(int no, const struct TreeBuilder tb);
+force_treeupdate_pseudos(int no, const ForceTree * tree);
 
 static void
-force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, int z, int *nextfree, const int lastnode);
+force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, int bits, int x, int y, int z, int *nextfree, const int lastnode);
 
 static void
-force_exchange_pseudodata(void);
+force_exchange_pseudodata(ForceTree * tree);
 
 static void
-force_insert_pseudo_particles(const struct TreeBuilder tb);
+force_insert_pseudo_particles(const ForceTree * tree);
 
 static int
 force_tree_eh_slots_fork(EIBase * event, void * userdata)
@@ -81,63 +64,65 @@ force_tree_eh_slots_fork(EIBase * event, void * userdata)
     int parent = ev->parent;
     int child = ev->child;
     int no;
-    no = Nextnode[parent];
-    Nextnode[parent] = child;
-    Nextnode[child] = no;
-    Father[child] = Father[parent];
+    ForceTree * tree = (ForceTree * ) userdata;
+    no = tree->Nextnode[parent];
+    tree->Nextnode[parent] = child;
+    tree->Nextnode[child] = no;
+    tree->Father[child] = tree->Father[parent];
 
     return 0;
 }
 
 int
-force_tree_allocated()
+force_tree_allocated(const ForceTree * tree)
 {
-    return tree_allocated_flag;
+    return tree->tree_allocated_flag;
 }
 
 void
-force_tree_rebuild()
+force_tree_rebuild(ForceTree * tree)
 {
     message(0, "Tree construction.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
-    if(force_tree_allocated()) {
-        force_tree_free();
+    if(force_tree_allocated(tree)) {
+        force_tree_free(tree);
     }
     walltime_measure("/Misc");
 
-    NumNodes = force_tree_build(PartManager->NumPart);
+    *tree = force_tree_build(PartManager->NumPart);
+
+    event_listen(&EventSlotsFork, force_tree_eh_slots_fork, tree);
 
     walltime_measure("/Tree/Build");
 
     message(0, "Tree construction done.\n");
-
 }
 
 /*! This function is a driver routine for constructing the gravitational
  *  oct-tree, which is done by calling a small number of other functions.
  */
-int force_tree_build(int npart)
+ForceTree force_tree_build(int npart)
 {
     int Numnodestree;
     int flag;
     int maxnodes;
-    struct TreeBuilder tb;
+    ForceTree tree;
 
     do
     {
         maxnodes = All.TreeAllocFactor * PartManager->MaxPart + NTopNodes;
         /* construct tree if needed */
         /* the tree is used in grav dens, hydro, bh and sfr */
-        tb = force_treeallocate(maxnodes, PartManager->MaxPart, PartManager->MaxPart);
+        tree = force_treeallocate(maxnodes, PartManager->MaxPart, PartManager->MaxPart);
 
-        Numnodestree = force_tree_build_single(tb, npart);
+        Numnodestree = force_tree_build_single(tree, npart);
         if(Numnodestree < 0)
             message(1, "Not enough tree nodes (%d) for %d particles.\n", maxnodes, npart);
 
         MPI_Allreduce(&Numnodestree, &flag, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
         if(flag == -1)
         {
-            force_tree_free();
+            force_tree_free(&tree);
 
             message(0, "TreeAllocFactor from %g to %g\n", All.TreeAllocFactor, All.TreeAllocFactor*1.15);
 
@@ -153,14 +138,17 @@ int force_tree_build(int npart)
     }
     while(flag == -1);
 
-    force_exchange_pseudodata();
+    force_exchange_pseudodata(&tree);
 
-    force_treeupdate_pseudos(PartManager->MaxPart, tb);
+    force_treeupdate_pseudos(PartManager->MaxPart, &tree);
 
-    myrealloc(Nodes_base, (Numnodestree +1) * sizeof(struct NODE));
+    myrealloc(tree.Nodes_base, (Numnodestree +1) * sizeof(struct NODE));
 
-    event_listen(&EventSlotsFork, force_tree_eh_slots_fork, NULL);
-    return Numnodestree;
+    /*Update the oct-tree struct so it knows about the memory change*/
+    tree.numnodes = Numnodestree;
+    tree.Nodes = tree.Nodes_base - tree.firstnode;
+
+    return tree;
 }
 
 /* Get the subnode for a given particle and parent node.
@@ -240,7 +228,7 @@ int get_freenode(int * nnext, struct NodeCache *nc)
  * Parent is assumed to be locked.*/
 int
 modify_internal_node(int parent, int subnode, int p_child, int p_toplace,
-        const struct TreeBuilder tb, int *nnext, struct NodeCache *nc, double minlen, int *closepairs)
+        const ForceTree tb, int *nnext, struct NodeCache *nc, double minlen, int *closepairs)
 {
     int ret = 0;
     int ninsert;
@@ -258,7 +246,7 @@ modify_internal_node(int parent, int subnode, int p_child, int p_toplace,
     else {
         /* if we are here the node must be large enough, thus contain exactly one child. */
 #ifdef DEBUG
-        if(force_get_next_node(p_child, tb) != -1) {
+        if(force_get_next_node(p_child, &tb) != -1) {
             abort();
         }
 #endif
@@ -283,7 +271,7 @@ modify_internal_node(int parent, int subnode, int p_child, int p_toplace,
         child_subnode = get_subnode(nfreep, p_child);
         new_subnode = get_subnode(nfreep, p_toplace);
 
-        Father[p_child] = ninsert;
+        tb.Father[p_child] = ninsert;
         nfreep->u.suns[child_subnode] = p_child;
     }
 
@@ -296,14 +284,14 @@ modify_internal_node(int parent, int subnode, int p_child, int p_toplace,
                 "Attached to node %d, subnode %d, at [%g, %g, %g] (len %g).\n",
                 p_toplace, P[p_toplace].Pos[0], P[p_toplace].Pos[1], P[p_toplace].Pos[2],
                 p_child, P[p_child].Pos[0], P[p_child].Pos[1], P[p_child].Pos[2],
-                ninsert, child_subnode, Nodes[ninsert].center[0], Nodes[ninsert].center[1], Nodes[ninsert].center[2], Nodes[ninsert].len);
+                ninsert, child_subnode, tb.Nodes[ninsert].center[0], tb.Nodes[ninsert].center[1], tb.Nodes[ninsert].center[2], tb.Nodes[ninsert].len);
         */
     }
 
     if(p_child < 0 || new_subnode != child_subnode || too_small) {
-        Father[p_toplace] = ninsert;
+        tb.Father[p_toplace] = ninsert;
         /*If the node is too small we prepend the particle to a short linked list.*/
-        force_set_next_node(p_toplace, too_small ? p_child : -1, tb);
+        force_set_next_node(p_toplace, too_small ? p_child : -1, &tb);
         tb.Nodes[ninsert].u.suns[new_subnode] = p_toplace;
     } else {
         /* Otherwise recurse and create a new node*/
@@ -329,7 +317,7 @@ modify_internal_node(int parent, int subnode, int p_child, int p_toplace,
 
 /*! Does initial creation of the nodes for the gravitational oct-tree.
  **/
-int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
+int force_tree_create_nodes(const ForceTree tb, const int npart)
 {
     int i;
     int nnext = tb.firstnode;		/* index of first free node */
@@ -356,7 +344,7 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
          * grid. We need to generate these nodes first to make sure that we have a
          * complete top-level tree which allows the easy insertion of the
          * pseudo-particles in the right place */
-        force_create_node_for_topnode(tb.firstnode, 0, 1, 0, 0, 0, &nnext, tb.lastnode);
+        force_create_node_for_topnode(tb.firstnode, 0, tb.Nodes, 1, 0, 0, 0, &nnext, tb.lastnode);
     }
 
     /* This implements a small thread-local free Node cache.
@@ -472,12 +460,12 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
  *  PartManager->MaxPart.... PartManager->MaxPart+nodes-1 reference tree nodes. `Nodes_base'
  *  points to the first tree node, while `nodes' is shifted such that
  *  nodes[PartManager->MaxPart] gives the first tree node. Finally, node indices
- *  with values 'PartManager->MaxPart + MaxNodes' and larger indicate "pseudo
+ *  with values 'PartManager->MaxPart + tb.lastnode' and larger indicate "pseudo
  *  particles", i.e. multipole moments of top-level nodes that lie on
  *  different CPUs. If such a node needs to be opened, the corresponding
  *  particle must be exported to that CPU. */
 static int
-force_tree_build_single(const struct TreeBuilder tb, const int npart)
+force_tree_build_single(const ForceTree tb, const int npart)
 {
     int nnext = force_tree_create_nodes(tb, npart);
     if(nnext >= tb.lastnode - tb.firstnode)
@@ -486,12 +474,12 @@ force_tree_build_single(const struct TreeBuilder tb, const int npart)
     }
 
     /* insert the pseudo particles that represent the mass distribution of other domains */
-    force_insert_pseudo_particles(tb);
+    force_insert_pseudo_particles(&tb);
 
     /* now compute the multipole moments recursively */
-    int tail = force_update_node_parallel(tb);
+    int tail = force_update_node_parallel(&tb);
 
-    force_set_next_node(tail, -1, tb);
+    force_set_next_node(tail, -1, &tb);
 
     return nnext;
 }
@@ -505,7 +493,7 @@ force_tree_build_single(const struct TreeBuilder tb, const int npart)
  *  level in the tree, even when the particle population is so sparse that
  *  some of these nodes are actually empty.
  */
-void force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, int z, int *nextfree, const int lastnode)
+void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, int bits, int x, int y, int z, int *nextfree, const int lastnode)
 {
     int i, j, k;
 
@@ -547,7 +535,7 @@ void force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, 
                 if(*nextfree >= lastnode)
                     endrun(11, "Not enough force nodes to topnode grid: need %d\n",lastnode);
 
-                force_create_node_for_topnode(*nextfree - 1, TopNodes[topnode].Daughter + sub,
+                force_create_node_for_topnode(*nextfree - 1, TopNodes[topnode].Daughter + sub, Nodes,
                         bits + 1, 2 * x + i, 2 * y + j, 2 * z + k, nextfree, lastnode);
             }
 }
@@ -561,69 +549,78 @@ void force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, 
  *  updated later on.
  */
 static void
-force_insert_pseudo_particles(const struct TreeBuilder tb)
+force_insert_pseudo_particles(const ForceTree * tree)
 {
     int i, index;
-    const int firstpseudo = tb.lastnode;
+    const int firstpseudo = tree->lastnode;
 
     for(i = 0; i < NTopLeaves; i++)
     {
         index = TopLeaves[i].treenode;
 
         if(TopLeaves[i].Task != ThisTask) {
-            tb.Nodes[index].u.suns[0] = firstpseudo + i;
-            force_set_next_node(firstpseudo + i, -1, tb);
+            tree->Nodes[index].u.suns[0] = firstpseudo + i;
+            force_set_next_node(firstpseudo + i, -1, tree);
         }
     }
 }
 
 int
-force_get_next_node(int no, const struct TreeBuilder tb)
+force_get_father(int no, const ForceTree * tree)
 {
-    if(no >= tb.firstnode && no < tb.lastnode) {
+    if(no >= tree->firstnode)
+        return tree->Nodes[no].father;
+    else
+        return tree->Father[no];
+}
+
+int
+force_get_next_node(int no, const ForceTree * tree)
+{
+    if(no >= tree->firstnode && no < tree->lastnode) {
         /* internal node */
-        return tb.Nodes[no].u.d.nextnode;
+        return tree->Nodes[no].u.d.nextnode;
     }
-    if(no < tb.firstnode) {
+    if(no < tree->firstnode) {
         /* Particle */
-        return Nextnode[no];
+        return tree->Nextnode[no];
     }
-    else { //if(no >= PartManager->MaxPart + MaxNodes) {
+    else { //if(no >= tb.lastnode) {
         /* Pseudo Particle */
-        return Nextnode[no - (tb.lastnode - tb.firstnode)];
+        return tree->Nextnode[no - (tree->lastnode - tree->firstnode)];
     }
 }
 
 int
-force_set_next_node(int no, int next, const struct TreeBuilder tb)
+force_set_next_node(int no, int next, const ForceTree * tree)
 {
     if(no < 0) return next;
-    if(no >= tb.firstnode && no < tb.lastnode) {
+    if(no >= tree->firstnode && no < tree->lastnode) {
         /* internal node */
-        tb.Nodes[no].u.d.nextnode = next;
+        tree->Nodes[no].u.d.nextnode = next;
     }
-    if(no < tb.firstnode) {
+    if(no < tree->firstnode) {
         /* Particle */
-        Nextnode[no] = next;
+        tree->Nextnode[no] = next;
     }
-    if(no >= tb.lastnode) {
+    if(no >= tree->lastnode) {
         /* Pseudo Particle */
-        Nextnode[no - (tb.lastnode - tb.firstnode)] = next;
+        tree->Nextnode[no - (tree->lastnode - tree->firstnode)] = next;
     }
 
     return next;
 }
 
 int
-force_get_prev_node(int no, const struct TreeBuilder tb)
+force_get_prev_node(int no, const ForceTree * tree)
 {
-    if(node_is_particle(no)) {
+    if(node_is_particle(no, tree)) {
         /* Particle */
-        int t = Father[no];
-        int next = force_get_next_node(t, tb);
+        int t = tree->Father[no];
+        int next = force_get_next_node(t, tree);
         while(next != no) {
             t = next;
-            next = force_get_next_node(t, tb);
+            next = force_get_next_node(t, tree);
         }
         return t;
     } else {
@@ -703,7 +700,7 @@ force_get_sibling(const int sib, const int j, const int * suns)
  *
  */
 static int
-force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder tb)
+force_update_node_recursive(int no, int sib, int level, const ForceTree * tree)
 {
     /*Last value of tails is the return value of this function*/
     int j, suns[8], tails[8];
@@ -714,8 +711,8 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
     /* this "backup" is necessary because the nextnode
      * entry will overwrite one element (union!) */
     for(j = 0; j < 8; j++) {
-        suns[j] = Nodes[no].u.suns[j];
-        if(suns[j] >= tb.firstnode && suns[j] < tb.lastnode)
+        suns[j] = tree->Nodes[no].u.suns[j];
+        if(suns[j] >= tree->firstnode && suns[j] < tree->lastnode)
             chldcnt++;
     }
 
@@ -728,11 +725,11 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
             continue;
         /* For particles and pseudo particles we have nothing to update; */
         /* But the new tail is the last particle in the linked list. */
-        if(p < tb.firstnode || p >= tb.lastnode) {
+        if(p < tree->firstnode || p >= tree->lastnode) {
             int next = p;
             while(next != -1) {
                 p = next;
-                next = force_get_next_node(next, tb);
+                next = force_get_next_node(next, tree);
             }
             tails[j] = p;
         }
@@ -742,25 +739,25 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
              *or if we are deep enough that we already spawned a lot.
              Note: final clause is much slower for some reason. */
             if(chldcnt > 1 && level < 513) {
-                #pragma omp task default(none) shared(tails, level, chldcnt) firstprivate(j, nextsib, p)
-                tails[j] = force_update_node_recursive(p, nextsib, level*chldcnt, tb);
+                #pragma omp task default(none) shared(tails, level, chldcnt, tree) firstprivate(j, nextsib, p)
+                tails[j] = force_update_node_recursive(p, nextsib, level*chldcnt, tree);
             }
             else
-                tails[j] = force_update_node_recursive(p, nextsib, level, tb);
+                tails[j] = force_update_node_recursive(p, nextsib, level, tree);
         }
     }
 
     /*Now we do the moments*/
     /*After this point the suns array is invalid!*/
-    memset(&Nodes[no].u.d.s,0,3*sizeof(MyFloat));
+    memset(&(tree->Nodes[no].u.d.s),0,3*sizeof(MyFloat));
 
-    Nodes[no].u.d.mass = 0;
-    Nodes[no].u.d.hmax = 0;
-    Nodes[no].u.d.MaxSoftening = -1;
-    Nodes[no].f.DependsOnLocalMass = 0;
-    Nodes[no].f.MixedSofteningsInNode = 0;
+    tree->Nodes[no].u.d.mass = 0;
+    tree->Nodes[no].u.d.hmax = 0;
+    tree->Nodes[no].u.d.MaxSoftening = -1;
+    tree->Nodes[no].f.DependsOnLocalMass = 0;
+    tree->Nodes[no].f.MixedSofteningsInNode = 0;
 
-    Nodes[no].u.d.sibling = sib;
+    tree->Nodes[no].u.d.sibling = sib;
 
     /*Make sure all child nodes are done*/
     #pragma omp taskwait
@@ -772,50 +769,50 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
         if(p < 0)
             continue;
 
-        if(p >= tb.lastnode)	/* a pseudo particle */
+        if(p >= tree->lastnode)	/* a pseudo particle */
         {
             /* nothing to be done here because the mass of the
              * pseudo-particle is still zero. The node attributes will be changed
              * later when we exchange the pseudo-particles.
              */
         }
-        else if(p < tb.lastnode && p >= tb.firstnode) /* a tree node */
+        else if(p < tree->lastnode && p >= tree->firstnode) /* a tree node */
         {
-            Nodes[no].u.d.mass += (Nodes[p].u.d.mass);
-            Nodes[no].u.d.s[0] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[0]);
-            Nodes[no].u.d.s[1] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[1]);
-            Nodes[no].u.d.s[2] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[2]);
+            tree->Nodes[no].u.d.mass += (tree->Nodes[p].u.d.mass);
+            tree->Nodes[no].u.d.s[0] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[0]);
+            tree->Nodes[no].u.d.s[1] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[1]);
+            tree->Nodes[no].u.d.s[2] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[2]);
 
-            if(Nodes[p].u.d.hmax > Nodes[no].u.d.hmax)
-                Nodes[no].u.d.hmax = Nodes[p].u.d.hmax;
+            if(tree->Nodes[p].u.d.hmax > tree->Nodes[no].u.d.hmax)
+                tree->Nodes[no].u.d.hmax = tree->Nodes[p].u.d.hmax;
 
-            force_adjust_node_softening(&Nodes[no], Nodes[p].u.d.MaxSoftening, Nodes[p].f.MixedSofteningsInNode);
+            force_adjust_node_softening(&tree->Nodes[no], tree->Nodes[p].u.d.MaxSoftening, tree->Nodes[p].f.MixedSofteningsInNode);
         }
         else /* a list of particles */
         {
             /* add all particles in this tree-node */
             int next = p;
             while(next != -1) {
-                add_particle_moment_to_node(&Nodes[no], next);
-                next = force_get_next_node(next, tb);
+                add_particle_moment_to_node(&tree->Nodes[no], next);
+                next = force_get_next_node(next, tree);
             }
         }
     }
 
     /*Set the center of mass moments*/
-    const double mass = Nodes[no].u.d.mass;
+    const double mass = tree->Nodes[no].u.d.mass;
     if(mass)
     {
-        Nodes[no].u.d.s[0] /= mass;
-        Nodes[no].u.d.s[1] /= mass;
-        Nodes[no].u.d.s[2] /= mass;
+        tree->Nodes[no].u.d.s[0] /= mass;
+        tree->Nodes[no].u.d.s[1] /= mass;
+        tree->Nodes[no].u.d.s[2] /= mass;
     }
     /*This only happens for a pseudo particle*/
     else
     {
-        Nodes[no].u.d.s[0] = Nodes[no].center[0];
-        Nodes[no].u.d.s[1] = Nodes[no].center[1];
-        Nodes[no].u.d.s[2] = Nodes[no].center[2];
+        tree->Nodes[no].u.d.s[0] = tree->Nodes[no].center[0];
+        tree->Nodes[no].u.d.s[1] = tree->Nodes[no].center[1];
+        tree->Nodes[no].u.d.s[2] = tree->Nodes[no].center[2];
     }
 
     /*This loop sets the next node value for the row we just computed.
@@ -827,10 +824,10 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
         if(suns[j] < 0)
             continue;
         /*Set NextNode for this node*/
-        if(tail < tb.firstnode && tail >= 0 && force_get_next_node(tail, tb) != -1) {
-            endrun(2,"Particle %d with tail %d already has tail set: %d\n",no, tail, force_get_next_node(tail, tb));
+        if(tail < tree->firstnode && tail >= 0 && force_get_next_node(tail, tree) != -1) {
+            endrun(2,"Particle %d with tail %d already has tail set: %d\n",no, tail, force_get_next_node(tail, tree));
         }
-        force_set_next_node(tail, suns[j], tb);
+        force_set_next_node(tail, suns[j], tree);
         tail = tails[j];
     }
     return tail;
@@ -850,13 +847,13 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
  * searches the list of pre-computed tail values to set the next node as if it had recursed and continues.
  */
 int
-force_update_node_parallel(const struct TreeBuilder tb)
+force_update_node_parallel(const ForceTree * tree)
 {
     int tail;
 #pragma omp parallel
 #pragma omp single nowait
     {
-        tail = force_update_node_recursive(tb.firstnode, -1, 1, tb);
+        tail = force_update_node_recursive(tree->firstnode, -1, 1, tree);
     }
     return tail;
 }
@@ -865,7 +862,7 @@ force_update_node_parallel(const struct TreeBuilder tb)
  *  top-level tree-nodes of the domain grid.  This data can then be used to
  *  update the pseudo-particles on each CPU accordingly.
  */
-void force_exchange_pseudodata(void)
+void force_exchange_pseudodata(ForceTree * tree)
 {
     int i, no, ta, recvTask;
     int *recvcounts, *recvoffset;
@@ -891,23 +888,23 @@ void force_exchange_pseudodata(void)
             endrun(131231231, "TopLeave's Task table is corrupted");
 
         /* read out the multipole moments from the local base cells */
-        TopLeafMoments[i].s[0] = Nodes[no].u.d.s[0];
-        TopLeafMoments[i].s[1] = Nodes[no].u.d.s[1];
-        TopLeafMoments[i].s[2] = Nodes[no].u.d.s[2];
-        TopLeafMoments[i].mass = Nodes[no].u.d.mass;
-        TopLeafMoments[i].hmax = Nodes[no].u.d.hmax;
-        TopLeafMoments[i].MaxSoftening = Nodes[no].u.d.MaxSoftening;
-        TopLeafMoments[i].MixedSofteningsInNode = Nodes[no].f.MixedSofteningsInNode;
+        TopLeafMoments[i].s[0] = tree->Nodes[no].u.d.s[0];
+        TopLeafMoments[i].s[1] = tree->Nodes[no].u.d.s[1];
+        TopLeafMoments[i].s[2] = tree->Nodes[no].u.d.s[2];
+        TopLeafMoments[i].mass = tree->Nodes[no].u.d.mass;
+        TopLeafMoments[i].hmax = tree->Nodes[no].u.d.hmax;
+        TopLeafMoments[i].MaxSoftening = tree->Nodes[no].u.d.MaxSoftening;
+        TopLeafMoments[i].MixedSofteningsInNode = tree->Nodes[no].f.MixedSofteningsInNode;
 
         /*Set the local base nodes dependence on local mass*/
         while(no >= 0)
         {
-            if(Nodes[no].f.DependsOnLocalMass)
+            if(tree->Nodes[no].f.DependsOnLocalMass)
                 break;
 
-            Nodes[no].f.DependsOnLocalMass = 1;
+            tree->Nodes[no].f.DependsOnLocalMass = 1;
 
-            no = Nodes[no].father;
+            no = tree->Nodes[no].father;
         }
     }
 
@@ -936,13 +933,13 @@ void force_exchange_pseudodata(void)
         for(i = Tasks[ta].StartLeaf; i < Tasks[ta].EndLeaf; i ++) {
             no = TopLeaves[i].treenode;
 
-            Nodes[no].u.d.s[0] = TopLeafMoments[i].s[0];
-            Nodes[no].u.d.s[1] = TopLeafMoments[i].s[1];
-            Nodes[no].u.d.s[2] = TopLeafMoments[i].s[2];
-            Nodes[no].u.d.mass = TopLeafMoments[i].mass;
-            Nodes[no].u.d.hmax = TopLeafMoments[i].hmax;
-            Nodes[no].u.d.MaxSoftening = TopLeafMoments[i].MaxSoftening;
-            Nodes[no].f.MixedSofteningsInNode = TopLeafMoments[i].MixedSofteningsInNode;
+            tree->Nodes[no].u.d.s[0] = TopLeafMoments[i].s[0];
+            tree->Nodes[no].u.d.s[1] = TopLeafMoments[i].s[1];
+            tree->Nodes[no].u.d.s[2] = TopLeafMoments[i].s[2];
+            tree->Nodes[no].u.d.mass = TopLeafMoments[i].mass;
+            tree->Nodes[no].u.d.hmax = TopLeafMoments[i].hmax;
+            tree->Nodes[no].u.d.MaxSoftening = TopLeafMoments[i].MaxSoftening;
+            tree->Nodes[no].f.MixedSofteningsInNode = TopLeafMoments[i].MixedSofteningsInNode;
          }
     }
     myfree(TopLeafMoments);
@@ -952,7 +949,7 @@ void force_exchange_pseudodata(void)
 /*! This function updates the top-level tree after the multipole moments of
  *  the pseudo-particles have been updated.
  */
-void force_treeupdate_pseudos(int no, const struct TreeBuilder tb)
+void force_treeupdate_pseudos(int no, const ForceTree * tree)
 {
     int j, p;
     MyFloat hmax;
@@ -964,32 +961,32 @@ void force_treeupdate_pseudos(int no, const struct TreeBuilder tb)
     s[2] = 0;
     hmax = 0;
 
-    Nodes[no].u.d.MaxSoftening = -1;
-    Nodes[no].f.MixedSofteningsInNode = 0;
+    tree->Nodes[no].u.d.MaxSoftening = -1;
+    tree->Nodes[no].f.MixedSofteningsInNode = 0;
 
-    p = Nodes[no].u.d.nextnode;
+    p = tree->Nodes[no].u.d.nextnode;
 
     /* since we are dealing with top-level nodes, we know that there are 8 consecutive daughter nodes */
     for(j = 0; j < 8; j++)
     {
         /*This may not happen as we are an internal top level node*/
-        if(p < tb.firstnode || p >= tb.lastnode)
-            endrun(6767, "Updating pseudos: %d -> %d which is not an internal node between %d and %d.",no, p, tb.firstnode, tb.lastnode);
+        if(p < tree->firstnode || p >= tree->lastnode)
+            endrun(6767, "Updating pseudos: %d -> %d which is not an internal node between %d and %d.",no, p, tree->firstnode, tree->lastnode);
 
-        if(Nodes[p].f.InternalTopLevel)
-            force_treeupdate_pseudos(p, tb);
+        if(tree->Nodes[p].f.InternalTopLevel)
+            force_treeupdate_pseudos(p, tree);
 
-        mass += (Nodes[p].u.d.mass);
-        s[0] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[0]);
-        s[1] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[1]);
-        s[2] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[2]);
+        mass += (tree->Nodes[p].u.d.mass);
+        s[0] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[0]);
+        s[1] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[1]);
+        s[2] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[2]);
 
-        if(Nodes[p].u.d.hmax > hmax)
-            hmax = Nodes[p].u.d.hmax;
+        if(tree->Nodes[p].u.d.hmax > hmax)
+            hmax = tree->Nodes[p].u.d.hmax;
 
-        force_adjust_node_softening(&Nodes[no], Nodes[p].u.d.MaxSoftening, Nodes[p].f.MixedSofteningsInNode);
+        force_adjust_node_softening(&tree->Nodes[no], tree->Nodes[p].u.d.MaxSoftening, tree->Nodes[p].f.MixedSofteningsInNode);
 
-        p = Nodes[p].u.d.sibling;
+        p = tree->Nodes[p].u.d.sibling;
     }
 
     if(mass)
@@ -1000,17 +997,17 @@ void force_treeupdate_pseudos(int no, const struct TreeBuilder tb)
     }
     else
     {
-        s[0] = Nodes[no].center[0];
-        s[1] = Nodes[no].center[1];
-        s[2] = Nodes[no].center[2];
+        s[0] = tree->Nodes[no].center[0];
+        s[1] = tree->Nodes[no].center[1];
+        s[2] = tree->Nodes[no].center[2];
     }
 
-    Nodes[no].u.d.s[0] = s[0];
-    Nodes[no].u.d.s[1] = s[1];
-    Nodes[no].u.d.s[2] = s[2];
-    Nodes[no].u.d.mass = mass;
+    tree->Nodes[no].u.d.s[0] = s[0];
+    tree->Nodes[no].u.d.s[1] = s[1];
+    tree->Nodes[no].u.d.s[2] = s[2];
+    tree->Nodes[no].u.d.mass = mass;
 
-    Nodes[no].u.d.hmax = hmax;
+    tree->Nodes[no].u.d.hmax = hmax;
 }
 
 /*! This function updates the hmax-values in tree nodes that hold SPH
@@ -1020,7 +1017,7 @@ void force_treeupdate_pseudos(int no, const struct TreeBuilder tb)
  *  out just before the hydrodynamical SPH forces are computed, i.e. after
  *  density().
  */
-void force_update_hmax(int * activeset, int size)
+void force_update_hmax(int * activeset, int size, ForceTree * tree)
 {
     int i, ta;
     int *counts, *offsets;
@@ -1038,14 +1035,11 @@ void force_update_hmax(int * activeset, int size)
     /* At most NTopLeaves are dirty, since we are only concerned with TOPLEVEL nodes */
     DirtyTopLevelNodes = (struct dirty_node_data*) mymalloc("DirtyTopLevelNodes", NTopLeaves * sizeof(DirtyTopLevelNodes[0]));
 
-    /* FIXME: This can be made a struct flag*/
-    char * NodeIsDirty = (char *) mymalloc("NodeIsDirty", MaxNodes * sizeof(char));
-
     /* FIXME: actually only TOPLEVEL nodes contains the local mass can potentially be dirty,
      *  we may want to save a list of them to speed this up.
      * */
-    for(i = 0; i < MaxNodes; i ++) {
-        NodeIsDirty[i] = 0;
+    for(i = tree->firstnode; i < tree->firstnode + tree->numnodes; i ++) {
+        tree->Nodes[i].f.NodeIsDirty = 0;
     }
 
     for(i = 0; i < size; i++)
@@ -1055,26 +1049,26 @@ void force_update_hmax(int * activeset, int size)
         if(P[p_i].Type != 0)
             continue;
 
-        int no = Father[p_i];
+        int no = tree->Father[p_i];
 
         while(no >= 0)
         {
-            if(P[p_i].Hsml <= Nodes[no].u.d.hmax) break;
+            if(P[p_i].Hsml <= tree->Nodes[no].u.d.hmax) break;
 
-            Nodes[no].u.d.hmax = P[p_i].Hsml;
+            tree->Nodes[no].u.d.hmax = P[p_i].Hsml;
 
-            if(Nodes[no].f.TopLevel) /* we reached a top-level node */
+            if(tree->Nodes[no].f.TopLevel) /* we reached a top-level node */
             {
-                if (!NodeIsDirty[no - RootNode]) {
-                    NodeIsDirty[no - RootNode] = 1;
+                if (!tree->Nodes[no].f.NodeIsDirty) {
+                    tree->Nodes[no].f.NodeIsDirty = 1;
                     DirtyTopLevelNodes[NumDirtyTopLevelNodes].treenode = no;
-                    DirtyTopLevelNodes[NumDirtyTopLevelNodes].hmax = Nodes[no].u.d.hmax;
+                    DirtyTopLevelNodes[NumDirtyTopLevelNodes].hmax = tree->Nodes[no].u.d.hmax;
                     NumDirtyTopLevelNodes ++;
                 }
                 break;
             }
 
-            no = Nodes[no].father;
+            no = tree->Nodes[no].father;
         }
     }
 
@@ -1110,22 +1104,21 @@ void force_update_hmax(int * activeset, int size)
 
         /* FIXME: why does this matter? The logic is simpler if we just blindly update them all.
             ::: to avoid that the hmax is updated twice :::*/
-        if(Nodes[no].f.DependsOnLocalMass)
-            no = Nodes[no].father;
+        if(tree->Nodes[no].f.DependsOnLocalMass)
+            no = tree->Nodes[no].father;
 
         while(no >= 0)
         {
-            if(DirtyTopLevelNodes[i].hmax <= Nodes[no].u.d.hmax) break;
+            if(DirtyTopLevelNodes[i].hmax <= tree->Nodes[no].u.d.hmax) break;
 
-            Nodes[no].u.d.hmax = DirtyTopLevelNodes[i].hmax;
+            tree->Nodes[no].u.d.hmax = DirtyTopLevelNodes[i].hmax;
 
-            no = Nodes[no].father;
+            no = tree->Nodes[no].father;
         }
     }
 
     myfree(offsets);
     myfree(counts);
-    myfree(NodeIsDirty);
     myfree(DirtyTopLevelNodes);
 
     walltime_measure("/Tree/HmaxUpdate");
@@ -1136,25 +1129,23 @@ void force_update_hmax(int * activeset, int size)
  *  maxnodes approximately equal to 0.7*maxpart is sufficient to store the
  *  tree for up to maxpart particles.
  */
-struct TreeBuilder force_treeallocate(int maxnodes, int maxpart, int first_node_offset)
+ForceTree force_treeallocate(int maxnodes, int maxpart, int first_node_offset)
 {
     size_t bytes;
     size_t allbytes = 0;
-    struct TreeBuilder tb;
+    ForceTree tb;
 
-    tree_allocated_flag = 1;
-    MaxNodes = maxnodes;
-    RootNode = first_node_offset;
     message(0, "Allocating memory for %d tree-nodes (MaxPart=%d).\n", maxnodes, maxpart);
-    Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopNodes) * sizeof(int));
-    Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
+    tb.Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopNodes) * sizeof(int));
+    tb.Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
     allbytes += bytes;
-    Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (MaxNodes + 1) * sizeof(struct NODE));
+    tb.Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (maxnodes + 1) * sizeof(struct NODE));
     allbytes += bytes;
-    Nodes = Nodes_base - first_node_offset;
     tb.firstnode = first_node_offset;
     tb.lastnode = first_node_offset + maxnodes;
-    tb.Nodes = Nodes_base - first_node_offset;
+    tb.numnodes = maxnodes;
+    tb.Nodes = tb.Nodes_base - first_node_offset;
+    tb.tree_allocated_flag = 1;
     allbytes += bytes;
     message(0, "Allocated %g MByte for BH-tree, (presently allocated %g MB)\n",
          allbytes / (1024.0 * 1024.0),
@@ -1165,12 +1156,14 @@ struct TreeBuilder force_treeallocate(int maxnodes, int maxpart, int first_node_
 /*! This function frees the memory allocated for the tree, i.e. it frees
  *  the space allocated by the function force_treeallocate().
  */
-void force_tree_free(void)
+void force_tree_free(ForceTree * tree)
 {
-    event_unlisten(&EventSlotsFork, force_tree_eh_slots_fork, NULL);
+    event_unlisten(&EventSlotsFork, force_tree_eh_slots_fork, tree);
 
-    myfree(Nodes_base);
-    myfree(Father);
-    myfree(Nextnode);
-    tree_allocated_flag = 0;
+    if(!force_tree_allocated(tree))
+        return;
+    myfree(tree->Nodes_base);
+    myfree(tree->Father);
+    myfree(tree->Nextnode);
+    tree->tree_allocated_flag = 0;
 }

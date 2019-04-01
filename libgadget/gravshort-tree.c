@@ -43,7 +43,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
  *  tree is used.  Particles are only exported to other processors when really
  *  needed, thereby allowing a good use of the communication buffer.
  */
-void grav_short_tree(void)
+void grav_short_tree(ForceTree * tree)
 {
     double timeall = 0;
     double timetree, timewait, timecomm;
@@ -63,6 +63,7 @@ void grav_short_tree(void)
     tw->query_type_elsize = sizeof(TreeWalkQueryGravShort);
     tw->result_type_elsize = sizeof(TreeWalkResultGravShort);
     tw->fill = (TreeWalkFillQueryFunction) grav_short_copy;
+    tw->tree = tree;
 
     walltime_measure("/Misc");
 
@@ -121,6 +122,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     MyDouble acc_x = 0;
     MyDouble acc_y = 0;
     MyDouble acc_z = 0;
+    const ForceTree * tree = lv->tw->tree;
 
     /*Hybrid particle neutrinos do not gravitate at early times*/
     const int NeutrinoTracer = All.HybridNeutrinosOn && (All.Time <= All.HybridNuPartTime);
@@ -137,7 +139,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     /*Start the tree walk*/
     int no = input->base.NodeList[0];
     int listindex = 1;
-    no = Nodes[no].u.d.nextnode;	/* open it */
+    no = tree->Nodes[no].u.d.nextnode;	/* open it */
 
     while(no >= 0)
     {
@@ -145,13 +147,13 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
         {
             double mass, r2, h;
             double dx, dy, dz;
-            if(node_is_particle(no))
+            if(node_is_particle(no, tree))
             {
                 if(NeutrinoTracer)
                 {
                     if(P[no].Type == All.FastParticleType)
                     {
-                        no = Nextnode[no];
+                        no = force_get_next_node(no, tree);
                         continue;
                     }
                 }
@@ -168,23 +170,23 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                 const double otherh = FORCE_SOFTENING(no);
                 if(h < otherh)
                     h = otherh;
-                no = Nextnode[no];
+                no = force_get_next_node(no, tree);
             }
             else			/* we have an  internal node */
             {
                 struct NODE *nop;
-                if(node_is_pseudo_particle(no))	/* pseudo particle */
+                if(node_is_pseudo_particle(no, tree))	/* pseudo particle */
                 {
                     if(lv->mode == 0)
                     {
                         if(-1 == treewalk_export_particle(lv, no))
                             return -1;
                     }
-                    no = Nextnode[no - MaxNodes];
+                    no = force_get_next_node(no, tree);
                     continue;
                 }
 
-                nop = &Nodes[no];
+                nop = &tree->Nodes[no];
 
                 if(lv->mode == 1)
                 {
@@ -304,7 +306,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             no = input->base.NodeList[listindex];
             if(no >= 0)
             {
-                no = Nodes[no].u.d.nextnode;	/* open it */
+                no = tree->Nodes[no].u.d.nextnode;	/* open it */
                 nnodesinlist++;
                 listindex++;
             }
