@@ -48,6 +48,7 @@ typedef struct {
     int UseGlobalSort; /** Apply a global sorting on the subsamples before building the top level tree. */
     int SubSampleDistance; /** Frequency of subsampling */
     int PreSort; /** PreSort the local particles before subsampling, creating a fair subsample */
+    int NSubDomains; /** Number of sub-domain segments to create before balancing. Should be DomainOverDecompositionFactor * NTask*/
 } DomainDecompositionPolicy;
 
 int MaxTopNodes;		/*!< Maximum number of nodes in the top-level tree used for domain decomposition */
@@ -79,7 +80,7 @@ static void
 mp_order_by_key(const void * data, void * radix, void * arg);
 
 static void
-domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost);
+domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int NSegment);
 
 static void domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy);
 
@@ -236,6 +237,7 @@ domain_policies_init(DomainDecompositionPolicy policies[],
         policies[i].UseGlobalSort = All.DomainUseGlobalSorting;
         policies[i].PreSort = 0;
         policies[i].SubSampleDistance = 16;
+        policies[i].NSubDomains = All.DomainOverDecompositionFactor * NTask;
     }
 
     for(i = SwitchToGlobal; i < NincreaseAlloc; i ++) {
@@ -348,7 +350,7 @@ domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * pol
 
     walltime_measure("/Domain/DetermineTopTree/CreateLeaves");
 
-    if(ddecomp->NTopLeaves < All.DomainOverDecompositionFactor * NTask) {
+    if(ddecomp->NTopLeaves < policy->NSubDomains) {
         message(0, "Number of Topleaves is less than required over decomposition");
     }
 
@@ -377,7 +379,7 @@ domain_balance(DomainDecomp * ddecomp)
     walltime_measure("/Domain/Decompose/Sumcost");
 
     /* first try work balance */
-    domain_assign_balanced(ddecomp, TopLeafWork);
+    domain_assign_balanced(ddecomp, TopLeafWork, NTask);
 
     walltime_measure("/Domain/Decompose/assignbalance");
 
@@ -388,7 +390,7 @@ domain_balance(DomainDecomp * ddecomp)
     {
         message(0, "Note: the domain decomposition is suboptimum because the ceiling for memory-imbalance is reached\n");
 
-        domain_assign_balanced(ddecomp, TopLeafCount);
+        domain_assign_balanced(ddecomp, TopLeafCount, NTask);
 
         walltime_measure("/Domain/Decompose/assignbalance");
 
@@ -513,18 +515,17 @@ topleaf_ext_order_by_key(const void * c1, const void * c2)
  * creates the index in Tasks[Task].StartLeaf and Tasks[Task].EndLeaf
  * cost is the cost per TopLeaves
  *
+ * There is one segment per task.
  * */
 
 static void
-domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost)
+domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int Nsegment)
 {
     /* we work with TopLeafExt then replace TopLeaves*/
 
     struct topleaf_extdata * TopLeafExt;
 
     /* A Segment is a subset of the TopLeaf nodes */
-
-    int Nsegment = NTask;
 
     TopLeafExt = (struct topleaf_extdata *) mymalloc("TopLeafExt", ddecomp->NTopLeaves * sizeof(TopLeafExt[0]));
 
@@ -551,6 +552,7 @@ domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost)
 
     /* start the assignment; We try to create segments that are of the
      * mean_expected cost, then assign them to Tasks in a round-robin fashion.
+     * The default is that there is one segment per task, which makes the assignment trivial.
      */
 
     double mean_expected = 1.0 * totalcost / Nsegment;
@@ -1155,16 +1157,16 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
     MPI_Allreduce(&topTree[0].Cost, &TotCost, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&topTree[0].Count, &TotCount, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
-    costlimit = TotCost / (All.DomainOverDecompositionFactor * NTask);
-    countlimit = TotCount / (All.DomainOverDecompositionFactor * NTask);
+    costlimit = TotCost / (policy->NSubDomains);
+    countlimit = TotCount / (policy->NSubDomains);
 
     domain_toptree_truncate(topTree, topTreeSize, countlimit, costlimit);
 
     walltime_measure("/Domain/DetermineTopTree/LocalRefine/truncate");
 
-    if(*topTreeSize > 4 * All.DomainOverDecompositionFactor * NTask) {
+    if(*topTreeSize > 4 * policy->NSubDomains) {
         message(1, "local TopTree Size =%d >> expected = %d; Usually this indicates very bad imbalance, due to a giant density peak.\n",
-            *topTreeSize, 4 * All.DomainOverDecompositionFactor * NTask);
+            *topTreeSize, 4 * policy->NSubDomains);
     }
 
 #if 0
@@ -1204,7 +1206,7 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
     if(global_refine_failed)
         return 1;
 
-    message(0, "Final local topTree size = %d per segment = %g.\n", *topTreeSize, 1.0 * (*topTreeSize) / (All.DomainOverDecompositionFactor * NTask));
+    message(0, "Final local topTree size = %d per segment = %g.\n", *topTreeSize, 1.0 * (*topTreeSize) / (policy->NSubDomains));
 
     return 0;
 }
