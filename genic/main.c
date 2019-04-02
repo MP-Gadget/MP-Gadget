@@ -89,10 +89,10 @@ int main(int argc, char **argv)
 
   /*First compute and write CDM*/
 
-  if(!All2.MakeGlass) {
+  if(!All2.MakeGlassCDM) {
       setup_grid(All2.ProduceGas * shift_dm, All2.Ngrid);
   } else {
-      setup_glass(All2.ProduceGas * shift_dm, All2.Ngrid, GLASS_SEED_HASH(All2.Seed));
+      setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed));
   }
 
   displacement_fields(DMType);
@@ -129,10 +129,10 @@ int main(int argc, char **argv)
   /*Now make the gas if required*/
   if(All2.ProduceGas) {
 
-    if(!All2.MakeGlass) {
+    if(!All2.MakeGlassBar) {
         setup_grid(shift_gas, All2.Ngrid);
     } else {
-        setup_glass(shift_gas, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 1));
+        setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 1));
     }
 
     displacement_fields(GasType);
@@ -142,10 +142,10 @@ int main(int argc, char **argv)
   /*Now add random velocity neutrino particles*/
   if(All2.NGridNu > 0) {
       int i;
-      if(!All2.MakeGlass) {
+      if(!All2.MakeGlassCDM) {
         setup_grid(shift_nu, All2.NGridNu);
       } else {
-        setup_glass(shift_nu, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 2));
+        setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 2));
       }
 
       displacement_fields(NuType);

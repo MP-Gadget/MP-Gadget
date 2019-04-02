@@ -23,8 +23,8 @@ struct genic_config {
     int InvertPhase;
     double Max_nuvel;
     double WDM_therm_mass;
-    int MakeGlass;
-
+    int MakeGlassBar;
+    int MakeGlassCDM;
     int  NumFiles;
     struct power_params PowerP;
 } ;
