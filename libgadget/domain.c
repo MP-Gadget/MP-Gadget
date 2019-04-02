@@ -16,6 +16,9 @@
 #include "exchange.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
+#include "walltime.h"
+#include "utils/paramset.h"
+#include "utils/peano.h"
 
 #define TAG_GRAV_A        18
 #define TAG_GRAV_B        19
@@ -37,6 +40,18 @@
  *  communication.
  */
 
+/*Parameters of the domain decomposition, set by the inut parameter file*/
+static struct DomainParams
+{
+    /* Number of sub-domains per processor. TopNodes are refined so that no TopNode contains
+     * no more than 1/(DODF * NTask) fraction of the work.
+     * The load balancer will assign these sub-domains so that each MPI rank has a similar amount of work.*/
+    int DomainOverDecompositionFactor;
+    /** Use a global sort for the first few domain policies to try.*/
+    int DomainUseGlobalSorting;
+    /** Initial number of Top level tree nodes as a fraction of particles */
+    double TopNodeAllocFactor;
+} domain_params;
 
 /**
  * Policy for domain decomposition.
@@ -73,6 +88,19 @@ struct local_particle_data
     peano_t Key;
     int64_t Cost;
 };
+
+/*Set the parameters of the domain module*/
+void set_domain_params(ParameterSet * ps)
+{
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask == 0) {
+        domain_params.DomainOverDecompositionFactor = param_get_int(ps, "DomainOverDecompositionFactor");
+        domain_params.TopNodeAllocFactor = param_get_double(ps, "TopNodeAllocFactor");
+        domain_params.DomainUseGlobalSorting = param_get_int(ps, "DomainUseGlobalSorting");
+    }
+    MPI_Bcast(&domain_params, sizeof(struct DomainParams), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
 
 static int
 order_by_key(const void *a, const void *b);
@@ -233,11 +261,11 @@ domain_policies_init(DomainDecompositionPolicy policies[],
 {
     int i;
     for(i = 0; i < NincreaseAlloc; i ++) {
-        policies[i].TopNodeAllocFactor = All.TopNodeAllocFactor * pow(1.3, i);
-        policies[i].UseGlobalSort = All.DomainUseGlobalSorting;
+        policies[i].TopNodeAllocFactor = domain_params.TopNodeAllocFactor * pow(1.3, i);
+        policies[i].UseGlobalSort = domain_params.DomainUseGlobalSorting;
         policies[i].PreSort = 0;
         policies[i].SubSampleDistance = 16;
-        policies[i].NSubDomains = All.DomainOverDecompositionFactor * NTask;
+        policies[i].NSubDomains = domain_params.DomainOverDecompositionFactor * NTask;
     }
 
     for(i = SwitchToGlobal; i < NincreaseAlloc; i ++) {
@@ -463,9 +491,7 @@ domain_check_memory_bound(const DomainDecomp * ddecomp, const int print_details,
     }
 
     /*Leave a small number of particles for star formation */
-    double sfrfrac = 1.;
-    if(All.StarformationOn)
-        sfrfrac = 0.95;
+    double sfrfrac = 0.95;
     if(max_load > PartManager->MaxPart * sfrfrac)
     {
         message(0, "desired memory imbalance=%g  (limit=%d, needed=%d)\n",

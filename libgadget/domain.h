@@ -2,6 +2,7 @@
 #define DOMAIN_H
 
 #include "utils/peano.h"
+#include "utils/paramset.h"
 
 /*These variables are used externally in forcetree.c.
  * DomainTask is also used in treewalk and NTopLeaves is used in gravpm.c*/
@@ -38,7 +39,12 @@ typedef struct DomainDecomp {
     struct task_data * Tasks;
 } DomainDecomp;
 
+/*Set the parameters of the domain module*/
+void set_domain_params(ParameterSet * ps);
+
+/* Do a full domain decomposition, which splits the particles into even clumps*/
 void domain_decompose_full(DomainDecomp * ddecomp);
+/* Exchange particles which have moved into the new domains, not re-doing the split unless we have to*/
 void domain_maintain(DomainDecomp * ddecomp);
 
 /** This function determines the TopLeaves entry for the given key.*/

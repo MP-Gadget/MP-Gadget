@@ -386,8 +386,6 @@ void read_parameter_file(char *fname)
         All.CP.Omega_ur = param_get_double(ps, "Omega_ur");
         All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
 
-        All.DomainOverDecompositionFactor = param_get_int(ps, "DomainOverDecompositionFactor");
-        All.DomainUseGlobalSorting = param_get_int(ps, "DomainUseGlobalSorting");
         All.OutputPotential = param_get_int(ps, "OutputPotential");
         double MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
         if(MaxMemSizePerNode <= 1) {
@@ -437,7 +435,6 @@ void read_parameter_file(char *fname)
         All.GravitySofteningGas = param_get_double(ps, "GravitySofteningGas");
 
         All.PartAllocFactor = param_get_double(ps, "PartAllocFactor");
-        All.TopNodeAllocFactor = param_get_double(ps, "TopNodeAllocFactor");
         All.SlotsIncreaseFactor = param_get_double(ps, "SlotsIncreaseFactor");
 
         All.SnapshotWithFOF = param_get_int(ps, "SnapshotWithFOF");
@@ -553,6 +550,7 @@ void read_parameter_file(char *fname)
 
     set_cooling_params(ps);
     set_treewalk_params(ps);
+    set_domain_params(ps);
 
     parameter_set_free(ps);
 }
