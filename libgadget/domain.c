@@ -4,11 +4,11 @@
 #include <stddef.h>
 #include <string.h>
 #include <math.h>
-
+#include <stdint.h>
+#include <omp.h>
 
 #include "utils.h"
 
-#include "allvars.h"
 #include "mpsort.h"
 #include "domain.h"
 #include "timestep.h"
@@ -108,17 +108,17 @@ static void
 mp_order_by_key(const void * data, void * radix, void * arg);
 
 static void
-domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int NSegment);
+domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int NSegment, const int NTask);
 
-static void domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy);
+static void domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy, const int NTask);
 
 static int
-domain_check_memory_bound(const DomainDecomp * ddecomp, const int print_details, int64_t *TopLeafWork, int64_t *TopLeafCount);
+domain_check_memory_bound(const DomainDecomp * ddecomp, const int print_details, int64_t *TopLeafWork, int64_t *TopLeafCount, const int NTask);
 
 static int domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy);
 
 static void
-domain_balance(DomainDecomp * ddecomp);
+domain_balance(DomainDecomp * ddecomp, const int NTask);
 
 static int domain_determine_global_toptree(DomainDecompositionPolicy * policy, struct local_topnode_data * topTree, int * topTreeSize);
 static void domain_free(DomainDecomp * ddecomp);
@@ -143,7 +143,7 @@ domain_create_topleaves(DomainDecomp * ddecomp, int no, int * next);
 static int domain_layoutfunc(int n, const void * userdata);
 
 static int
-domain_policies_init(DomainDecompositionPolicy policies[],
+domain_policies_init(DomainDecompositionPolicy policies[], const int NTask,
         const int NincreaseAlloc,
         const int SwitchToGlobal);
 
@@ -158,12 +158,16 @@ void domain_decompose_full(DomainDecomp * ddecomp)
     static DomainDecompositionPolicy policies[16];
     static int Npolicies = 0;
 
+    /*Number of tasks to decompose to*/
+    int NTask;
+    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+
     /* start from last successful policy to avoid retries */
     static int LastSuccessfulPolicy = 0;
 
     if (Npolicies == 0) {
         const int NincreaseAlloc = 16;
-        Npolicies = domain_policies_init(policies, NincreaseAlloc, 8);
+        Npolicies = domain_policies_init(policies, NTask, NincreaseAlloc, 8);
     }
 
     double t0, t1;
@@ -183,7 +187,7 @@ void domain_decompose_full(DomainDecomp * ddecomp)
 #ifdef DEBUG
         domain_test_id_uniqueness();
 #endif
-        domain_allocate(ddecomp, &policies[i]);
+        domain_allocate(ddecomp, &policies[i], NTask);
 
         message(0, "Attempting new domain decomposition policy: TopNodeAllocFactor=%g, UseglobalSort=%d, SubSampleDistance=%d UsePreSort=%d\n",
                 policies[i].TopNodeAllocFactor, policies[i].UseGlobalSort, policies[i].SubSampleDistance, policies[i].PreSort);
@@ -200,7 +204,13 @@ void domain_decompose_full(DomainDecomp * ddecomp)
         endrun(0, "No suitable domain decomposition policy worked for this particle distribution\n");
     }
 
-    domain_balance(ddecomp);
+    /* this is fatal */
+    if(ddecomp->NTopLeaves < NTask) {
+        endrun(0, "Number of Topleaves is less than NTask");
+    }
+
+
+    domain_balance(ddecomp, NTask);
 
     walltime_measure("/Domain/Decompose/Balance");
 
@@ -255,7 +265,7 @@ void domain_maintain(DomainDecomp * ddecomp)
 /* this function generates several domain decomposition policies for attempting
  * creating the domain. */
 static int
-domain_policies_init(DomainDecompositionPolicy policies[],
+domain_policies_init(DomainDecompositionPolicy policies[], const int NTask,
         const int NincreaseAlloc,
         const int SwitchToGlobal)
 {
@@ -283,7 +293,7 @@ domain_policies_init(DomainDecompositionPolicy policies[],
 
 /*! This function allocates all the stuff that will be required for the tree-construction/walk later on */
 static void
-domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy)
+domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy, const int NTask)
 {
     size_t bytes, all_bytes = 0;
 
@@ -382,11 +392,6 @@ domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * pol
         message(0, "Number of Topleaves is less than required over decomposition");
     }
 
-    /* this is fatal */
-    if(ddecomp->NTopLeaves < NTask) {
-        endrun(0, "Number of Topleaves is less than NTask");
-    }
-
     return 0;
 }
 
@@ -395,7 +400,7 @@ domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * pol
  *
  * */
 static void
-domain_balance(DomainDecomp * ddecomp)
+domain_balance(DomainDecomp * ddecomp, const int NTask)
 {
     /*!< a table that gives the total "work" due to the particles stored by each processor */
     int64_t * TopLeafWork = (int64_t *) mymalloc("TopLeafWork",  ddecomp->NTopLeaves * sizeof(TopLeafWork[0]));
@@ -407,22 +412,22 @@ domain_balance(DomainDecomp * ddecomp)
     walltime_measure("/Domain/Decompose/Sumcost");
 
     /* first try work balance */
-    domain_assign_balanced(ddecomp, TopLeafWork, NTask);
+    domain_assign_balanced(ddecomp, TopLeafWork, NTask, NTask);
 
     walltime_measure("/Domain/Decompose/assignbalance");
 
-    int status = domain_check_memory_bound(ddecomp, 0, TopLeafWork, TopLeafCount);
+    int status = domain_check_memory_bound(ddecomp, 0, TopLeafWork, TopLeafCount, NTask);
     walltime_measure("/Domain/Decompose/memorybound");
 
     if(status != 0)		/* the optimum balanced solution violates memory constraint, let's try something different */
     {
         message(0, "Note: the domain decomposition is suboptimum because the ceiling for memory-imbalance is reached\n");
 
-        domain_assign_balanced(ddecomp, TopLeafCount, NTask);
+        domain_assign_balanced(ddecomp, TopLeafCount, NTask, NTask);
 
         walltime_measure("/Domain/Decompose/assignbalance");
 
-        int status = domain_check_memory_bound(ddecomp, 1, TopLeafWork, TopLeafCount);
+        int status = domain_check_memory_bound(ddecomp, 1, TopLeafWork, TopLeafCount, NTask);
         walltime_measure("/Domain/Decompose/memorybound");
 
         if(status != 0)
@@ -436,7 +441,7 @@ domain_balance(DomainDecomp * ddecomp)
 }
 
 static int
-domain_check_memory_bound(const DomainDecomp * ddecomp, const int print_details, int64_t *TopLeafWork, int64_t *TopLeafCount)
+domain_check_memory_bound(const DomainDecomp * ddecomp, const int print_details, int64_t *TopLeafWork, int64_t *TopLeafCount, const int NTask)
 {
     int ta, i;
     int load, max_load;
@@ -545,7 +550,7 @@ topleaf_ext_order_by_key(const void * c1, const void * c2)
  * */
 
 static void
-domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int Nsegment)
+domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int Nsegment, const int NTask)
 {
     /* we work with TopLeafExt then replace TopLeaves*/
 
@@ -1076,6 +1081,12 @@ domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int *
     MPI_Type_commit(&MPI_TYPE_TOPNODE);
     int errorflag = 0;
     int errorflagall = 0;
+    /*Number of tasks to decompose to*/
+    int NTask;
+    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+    /*Which task is this?*/
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
     for(sep = 1; sep < NTask; sep *=2) {
         /* build the subcommunicators for broadcasting */
@@ -1102,7 +1113,7 @@ domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int *
                         &ntopnodes_import, 1, MPI_INT, recvTask, TAG_GRAV_A,
                         MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 topTree_import = (struct local_topnode_data *) mymalloc("topTree_import",
-                            IMAX(ntopnodes_import, *topTreeSize) * sizeof(struct local_topnode_data));
+                            (ntopnodes_import > *topTreeSize ? ntopnodes_import : *topTreeSize) * sizeof(struct local_topnode_data));
 
                 MPI_Recv(
                         topTree_import,
