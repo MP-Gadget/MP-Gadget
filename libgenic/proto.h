@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "power.h"
 
-void   displacement_fields(enum TransferType Type);
+void displacement_fields(enum TransferType Type, struct ic_part_data * dispICP);
 void setup_grid(double shift, int Ngrid);
 void setup_glass(double shift, int Ngrid, int seed);
 uint64_t id_offset_from_index(const int i, const int Ngrid);

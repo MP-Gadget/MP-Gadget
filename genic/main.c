@@ -95,7 +95,7 @@ int main(int argc, char **argv)
       setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed));
   }
 
-  displacement_fields(DMType);
+  displacement_fields(DMType, ICP);
 
   /*Add a thermal velocity to WDM particles*/
   if(All2.WDM_therm_mass > 0){
@@ -135,7 +135,7 @@ int main(int argc, char **argv)
         setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 1));
     }
 
-    displacement_fields(GasType);
+    displacement_fields(GasType, ICP);
     write_particle_data(0, &bf, TotNumPart, All2.Ngrid);
     free_ffts();
   }
@@ -148,7 +148,7 @@ int main(int argc, char **argv)
         setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 2));
       }
 
-      displacement_fields(NuType);
+      displacement_fields(NuType, ICP);
       unsigned int * seedtable = init_rng(All2.Seed+2,All2.Ngrid);
       gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
       /*Just in case*/
