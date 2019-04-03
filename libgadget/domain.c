@@ -471,10 +471,14 @@ domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t
         ta_free(list_load);
     }
 
-    if(max_load > PartManager->MaxPart)
+    /*Leave a small number of particles for star formation */
+    double sfrfrac = 1.;
+    if(All.StarformationOn)
+        sfrfrac = 0.95;
+    if(max_load > PartManager->MaxPart * sfrfrac)
     {
         message(0, "desired memory imbalance=%g  (limit=%d, needed=%d)\n",
-                    (max_load * All.PartAllocFactor) / PartManager->MaxPart, PartManager->MaxPart, max_load);
+                    (max_load * All.PartAllocFactor) / PartManager->MaxPart, sfrfrac * PartManager->MaxPart, max_load);
 
         return 1;
     }
