@@ -45,7 +45,7 @@ void _bigfile_utils_create_block_from_c_array(BigFile * bf, void * baseptr, char
     }
 }
 
-static void saveblock(BigFile * bf, void * baseptr, int ptype, char * bname, char * dtype, int items_per_particle, ptrdiff_t elsize) {
+static void saveblock(BigFile * bf, void * baseptr, int ptype, char * bname, char * dtype, int items_per_particle, const int NumPart, ptrdiff_t elsize) {
     size_t dims[2];
     char name[128];
     snprintf(name, 128, "%d/%s", ptype, bname);
@@ -56,11 +56,11 @@ static void saveblock(BigFile * bf, void * baseptr, int ptype, char * bname, cha
 }
 
 
-void write_particle_data(const int Type, BigFile * bf, const uint64_t FirstID, const int Ngrid) {
+void write_particle_data(const int Type, BigFile * bf, const uint64_t FirstID, const int Ngrid, struct ic_part_data * curICP, const int NumPart) {
     /* Write particles */
-    saveblock(bf, &ICP[0].Density, Type, "ICDensity", "f4", 1, sizeof(ICP[0]));
-    saveblock(bf, &ICP[0].Pos, Type, "Position", "f8", 3, sizeof(ICP[0]));
-    saveblock(bf, &ICP[0].Vel, Type, "Velocity", "f4", 3, sizeof(ICP[0]));
+    saveblock(bf, &curICP[0].Density, Type, "ICDensity", "f4", 1, NumPart, sizeof(curICP[0]));
+    saveblock(bf, &curICP[0].Pos, Type, "Position", "f8", 3, NumPart, sizeof(curICP[0]));
+    saveblock(bf, &curICP[0].Vel, Type, "Velocity", "f4", 3, NumPart, sizeof(curICP[0]));
     /*Generate and write IDs*/
     uint64_t * ids = mymalloc("IDs", NumPart * sizeof(uint64_t));
     memset(ids, 0, NumPart * sizeof(uint64_t));
@@ -70,7 +70,7 @@ void write_particle_data(const int Type, BigFile * bf, const uint64_t FirstID, c
     {
         ids[i] = id_offset_from_index(i, Ngrid) + FirstID;
     }
-    saveblock(bf, ids, Type, "ID", "u8", 1, sizeof(uint64_t));
+    saveblock(bf, ids, Type, "ID", "u8", 1, NumPart, sizeof(uint64_t));
     myfree(ids);
     walltime_measure("/Write");
 }

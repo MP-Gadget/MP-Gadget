@@ -123,7 +123,7 @@ int main(int argc, char **argv)
       myfree(seedtable);
   }
 
-  write_particle_data(1, &bf, 0, All2.Ngrid);
+  write_particle_data(1, &bf, 0, All2.Ngrid, ICP, NumPart);
   free_ffts();
 
   /*Now make the gas if required*/
@@ -136,7 +136,7 @@ int main(int argc, char **argv)
     }
 
     displacement_fields(GasType, ICP);
-    write_particle_data(0, &bf, TotNumPart, All2.Ngrid);
+    write_particle_data(0, &bf, TotNumPart, All2.Ngrid, ICP, NumPart);
     free_ffts();
   }
   /*Now add random velocity neutrino particles*/
@@ -165,7 +165,7 @@ int main(int argc, char **argv)
       gsl_rng_free(g_rng);
       myfree(seedtable);
 
-      write_particle_data(2,&bf, 2*TotNumPart, All2.NGridNu);
+      write_particle_data(2,&bf, 2*TotNumPart, All2.NGridNu, ICP, NumPart);
       free_ffts();
   }
 
