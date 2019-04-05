@@ -174,8 +174,8 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, i
     /* Check whether the domain exchange will succeed.
      * Garbage particles will be collected after the particles are exported, so do not need to count.*/
     if(PartManager->NumPart + plan->toGetSum.base - plan->toGoSum.base  - plan->ngarbage > PartManager->MaxPart){
-        message(1,"Too many particles for exchange: NumPart=%d count_get = %d count_togo=%d MaxPart=%d\n",
-                PartManager->NumPart, plan->toGetSum.base, plan->toGoSum.base, PartManager->MaxPart);
+        message(1,"Too many particles for exchange: NumPart=%d count_get = %d count_togo=%d garbage = %d MaxPart=%d\n",
+                PartManager->NumPart, plan->toGetSum.base, plan->toGoSum.base, plan->ngarbage, PartManager->MaxPart);
         bad_exh = 1;
     }
 
