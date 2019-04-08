@@ -46,9 +46,9 @@ typedef struct {
  * layoutfunc gives the target task of particle p.
 */
 static int domain_exchange_once(ExchangePlan * plan, int do_gc);
-static void domain_build_plan(int (*layoutfunc)(int p, const void * userdata), const void * layout_userdata, ExchangePlan * plan);
+static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan);
 static int domain_find_iter_space(ExchangePlan * plan);
-static void domain_build_exchange_list(int (*layoutfunc)(int p, const void * userdata), const void * layout_userdata, ExchangePlan * plan);
+static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan);
 
 /* This function builts the count/displ arrays from
  * the rows stored in the entry struct of the plan.
@@ -71,7 +71,7 @@ _transpose_plan_entries(ExchangePlanEntry * entries, int * count, int ptype)
 }
 
 /*Plan and execute a domain exchange, also performing a garbage collection if requested*/
-int domain_exchange(int (*layoutfunc)(int p, const void * userdata), const void * layout_userdata, int do_gc) {
+int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, int do_gc) {
     int64_t sumtogo;
     int failure = 0;
 
@@ -350,7 +350,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc)
  * All particles are processed every time, space is not considered.
  * The exchange list needs to be rebuilt every time gc is run. */
 static void
-domain_build_exchange_list(int (*layoutfunc)(int p, const void * userdata), const void * layout_userdata, ExchangePlan * plan)
+domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan)
 {
     int i;
     int numthreads = omp_get_max_threads();
@@ -441,7 +441,7 @@ domain_find_iter_space(ExchangePlan * plan)
 
 /*This function populates the toGo and toGet arrays*/
 static void
-domain_build_plan(int (*layoutfunc)(int p, const void * userdata), const void * layout_userdata, ExchangePlan * plan)
+domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan)
 {
     int ptype, n;
 
