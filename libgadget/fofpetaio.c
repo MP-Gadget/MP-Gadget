@@ -127,10 +127,10 @@ struct PartIndex {
     };
 };
 
-static int fof_sorted_layout(int i) {
+static int fof_sorted_layout(int i, const void * userdata) {
     return P[i].targettask;
 }
-static int fof_origin_layout(int i) {
+static int fof_origin_layout(int i, const void * userdata) {
     return P[i].origintask;
 }
 static void fof_radix_sortkey(const void * c1, void * out, void * arg) {
@@ -211,7 +211,7 @@ static void fof_distribute_particles() {
     }
     myfree(pi);
 
-    if(domain_exchange(fof_sorted_layout, 1))
+    if(domain_exchange(fof_sorted_layout, NULL, 1))
         endrun(1930,"Could not exchange particles\n");
     /* sort SPH and Others independently */
 
@@ -225,7 +225,7 @@ static void fof_distribute_particles() {
 
 }
 static void fof_return_particles() {
-    if(domain_exchange(fof_origin_layout, 1))
+    if(domain_exchange(fof_origin_layout, NULL, 1))
         endrun(1931,"Could not exchange particles\n");
 }
 

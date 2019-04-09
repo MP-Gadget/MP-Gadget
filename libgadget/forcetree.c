@@ -20,7 +20,7 @@
  *  This file contains the computation of the gravitational force by means
  *  of a tree. The type of tree implemented is a geometrical oct-tree,
  *  starting from a cube encompassing all particles. This cube is
- *  automatically found in the domain decomposition, which also splits up
+ *  automatically found in the ddecomp decomposition, which also splits up
  *  the global "top-level" tree along node boundaries, moving the particles
  *  of different parts of the tree to separate processors.
  *
@@ -29,17 +29,17 @@
  */
 
 static ForceTree
-force_tree_build(int npart);
+force_tree_build(int npart, DomainDecomp * ddecomp);
 
 static int
-force_tree_build_single(const ForceTree tb, const int npart);
+force_tree_build_single(const ForceTree tb, const int npart, DomainDecomp * ddecomp);
 
 /*Next three are not static as tested.*/
 int
-force_tree_create_nodes(const ForceTree tb, const int npart);
+force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp);
 
 ForceTree
-force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
+force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp);
 
 int
 force_update_node_parallel(const ForceTree * tree);
@@ -48,13 +48,13 @@ static void
 force_treeupdate_pseudos(int no, const ForceTree * tree);
 
 static void
-force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, int bits, int x, int y, int z, int *nextfree, const int lastnode);
+force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, const DomainDecomp * ddecomp, int bits, int x, int y, int z, int *nextfree, const int lastnode);
 
 static void
-force_exchange_pseudodata(ForceTree * tree);
+force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp);
 
 static void
-force_insert_pseudo_particles(const ForceTree * tree);
+force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddecomp);
 
 static int
 force_tree_eh_slots_fork(EIBase * event, void * userdata)
@@ -80,7 +80,7 @@ force_tree_allocated(const ForceTree * tree)
 }
 
 void
-force_tree_rebuild(ForceTree * tree)
+force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp)
 {
     message(0, "Tree construction.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
@@ -89,7 +89,7 @@ force_tree_rebuild(ForceTree * tree)
     }
     walltime_measure("/Misc");
 
-    *tree = force_tree_build(PartManager->NumPart);
+    *tree = force_tree_build(PartManager->NumPart, ddecomp);
 
     event_listen(&EventSlotsFork, force_tree_eh_slots_fork, tree);
 
@@ -101,7 +101,7 @@ force_tree_rebuild(ForceTree * tree)
 /*! This function is a driver routine for constructing the gravitational
  *  oct-tree, which is done by calling a small number of other functions.
  */
-ForceTree force_tree_build(int npart)
+ForceTree force_tree_build(int npart, DomainDecomp * ddecomp)
 {
     int Numnodestree;
     int flag;
@@ -110,12 +110,14 @@ ForceTree force_tree_build(int npart)
 
     do
     {
-        maxnodes = All.TreeAllocFactor * PartManager->MaxPart + NTopNodes;
+        maxnodes = All.TreeAllocFactor * PartManager->MaxPart + ddecomp->NTopNodes;
         /* construct tree if needed */
         /* the tree is used in grav dens, hydro, bh and sfr */
-        tree = force_treeallocate(maxnodes, PartManager->MaxPart, PartManager->MaxPart);
+        tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp);
+        tree.NTopLeaves = ddecomp->NTopLeaves;
+        tree.TopLeaves = ddecomp->TopLeaves;
 
-        Numnodestree = force_tree_build_single(tree, npart);
+        Numnodestree = force_tree_build_single(tree, npart, ddecomp);
         if(Numnodestree < 0)
             message(1, "Not enough tree nodes (%d) for %d particles.\n", maxnodes, npart);
 
@@ -138,7 +140,7 @@ ForceTree force_tree_build(int npart)
     }
     while(flag == -1);
 
-    force_exchange_pseudodata(&tree);
+    force_exchange_pseudodata(&tree, ddecomp);
 
     force_treeupdate_pseudos(PartManager->MaxPart, &tree);
 
@@ -317,7 +319,7 @@ modify_internal_node(int parent, int subnode, int p_child, int p_toplace,
 
 /*! Does initial creation of the nodes for the gravitational oct-tree.
  **/
-int force_tree_create_nodes(const ForceTree tb, const int npart)
+int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp)
 {
     int i;
     int nnext = tb.firstnode;		/* index of first free node */
@@ -340,11 +342,11 @@ int force_tree_create_nodes(const ForceTree tb, const int npart)
         nfreep->f.TopLevel = 1;
         nfreep->f.InternalTopLevel = 0;
         nnext++;
-        /* create a set of empty nodes corresponding to the top-level domain
+        /* create a set of empty nodes corresponding to the top-level ddecomp
          * grid. We need to generate these nodes first to make sure that we have a
          * complete top-level tree which allows the easy insertion of the
          * pseudo-particles in the right place */
-        force_create_node_for_topnode(tb.firstnode, 0, tb.Nodes, 1, 0, 0, 0, &nnext, tb.lastnode);
+        force_create_node_for_topnode(tb.firstnode, 0, tb.Nodes, ddecomp, 1, 0, 0, 0, &nnext, tb.lastnode);
     }
 
     /* This implements a small thread-local free Node cache.
@@ -380,8 +382,8 @@ int force_tree_create_nodes(const ForceTree tb, const int npart)
         if(inside_node(&tb.Nodes[this_acc], i)) {
             this = this_acc;
         } else {
-            const int topleaf = domain_get_topleaf(P[i].Key);
-            this = TopLeaves[topleaf].treenode;
+            const int topleaf = domain_get_topleaf(P[i].Key, ddecomp);
+            this = ddecomp->TopLeaves[topleaf].treenode;
         }
         int child, subnode;
 
@@ -465,16 +467,16 @@ int force_tree_create_nodes(const ForceTree tb, const int npart)
  *  different CPUs. If such a node needs to be opened, the corresponding
  *  particle must be exported to that CPU. */
 static int
-force_tree_build_single(const ForceTree tb, const int npart)
+force_tree_build_single(const ForceTree tb, const int npart, DomainDecomp * ddecomp)
 {
-    int nnext = force_tree_create_nodes(tb, npart);
+    int nnext = force_tree_create_nodes(tb, npart, ddecomp);
     if(nnext >= tb.lastnode - tb.firstnode)
     {
         return -1;
     }
 
-    /* insert the pseudo particles that represent the mass distribution of other domains */
-    force_insert_pseudo_particles(&tb);
+    /* insert the pseudo particles that represent the mass distribution of other ddecomps */
+    force_insert_pseudo_particles(&tb, ddecomp);
 
     /* now compute the multipole moments recursively */
     int tail = force_update_node_parallel(&tb);
@@ -487,18 +489,18 @@ force_tree_build_single(const ForceTree tb, const int npart)
 
 
 /*! This function recursively creates a set of empty tree nodes which
- *  corresponds to the top-level tree for the domain grid. This is done to
+ *  corresponds to the top-level tree for the ddecomp grid. This is done to
  *  ensure that this top-level tree is always "complete" so that we can easily
  *  associate the pseudo-particles of other CPUs with tree-nodes at a given
  *  level in the tree, even when the particle population is so sparse that
  *  some of these nodes are actually empty.
  */
-void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, int bits, int x, int y, int z, int *nextfree, const int lastnode)
+void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, const DomainDecomp * ddecomp, int bits, int x, int y, int z, int *nextfree, const int lastnode)
 {
     int i, j, k;
 
     /*We reached the leaf of the toptree*/
-    if(TopNodes[topnode].Daughter < 0)
+    if(ddecomp->TopNodes[topnode].Daughter < 0)
         return;
 
     for(i = 0; i < 2; i++)
@@ -527,15 +529,15 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, int
                 for(n = 0; n < 8; n++)
                     Nodes[*nextfree].u.suns[n] = -1;
 
-                if(TopNodes[TopNodes[topnode].Daughter + sub].Daughter == -1)
-                    TopLeaves[TopNodes[TopNodes[topnode].Daughter + sub].Leaf].treenode = *nextfree;
+                if(ddecomp->TopNodes[ddecomp->TopNodes[topnode].Daughter + sub].Daughter == -1)
+                    ddecomp->TopLeaves[ddecomp->TopNodes[ddecomp->TopNodes[topnode].Daughter + sub].Leaf].treenode = *nextfree;
 
                 (*nextfree)++;
 
                 if(*nextfree >= lastnode)
                     endrun(11, "Not enough force nodes to topnode grid: need %d\n",lastnode);
 
-                force_create_node_for_topnode(*nextfree - 1, TopNodes[topnode].Daughter + sub, Nodes,
+                force_create_node_for_topnode(*nextfree - 1, ddecomp->TopNodes[topnode].Daughter + sub, Nodes, ddecomp,
                         bits + 1, 2 * x + i, 2 * y + j, 2 * z + k, nextfree, lastnode);
             }
 }
@@ -545,20 +547,20 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, int
 /*! this function inserts pseudo-particles which will represent the mass
  *  distribution of the other CPUs. Initially, the mass of the
  *  pseudo-particles is set to zero, and their coordinate is set to the
- *  center of the domain-cell they correspond to. These quantities will be
+ *  center of the ddecomp-cell they correspond to. These quantities will be
  *  updated later on.
  */
 static void
-force_insert_pseudo_particles(const ForceTree * tree)
+force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddecomp)
 {
     int i, index;
     const int firstpseudo = tree->lastnode;
 
-    for(i = 0; i < NTopLeaves; i++)
+    for(i = 0; i < ddecomp->NTopLeaves; i++)
     {
-        index = TopLeaves[i].treenode;
+        index = ddecomp->TopLeaves[i].treenode;
 
-        if(TopLeaves[i].Task != ThisTask) {
+        if(ddecomp->TopLeaves[i].Task != ThisTask) {
             tree->Nodes[index].u.suns[0] = firstpseudo + i;
             force_set_next_node(firstpseudo + i, -1, tree);
         }
@@ -859,10 +861,10 @@ force_update_node_parallel(const ForceTree * tree)
 }
 
 /*! This function communicates the values of the multipole moments of the
- *  top-level tree-nodes of the domain grid.  This data can then be used to
+ *  top-level tree-nodes of the ddecomp grid.  This data can then be used to
  *  update the pseudo-particles on each CPU accordingly.
  */
-void force_exchange_pseudodata(ForceTree * tree)
+void force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp)
 {
     int i, no, ta, recvTask;
     int *recvcounts, *recvoffset;
@@ -879,12 +881,12 @@ void force_exchange_pseudodata(ForceTree * tree)
     *TopLeafMoments;
 
 
-    TopLeafMoments = (struct topleaf_momentsdata *) mymalloc("TopLeafMoments", NTopLeaves * sizeof(TopLeafMoments[0]));
-    memset(&TopLeafMoments[0], 0, sizeof(TopLeafMoments[0]) * NTopLeaves);
+    TopLeafMoments = (struct topleaf_momentsdata *) mymalloc("TopLeafMoments", ddecomp->NTopLeaves * sizeof(TopLeafMoments[0]));
+    memset(&TopLeafMoments[0], 0, sizeof(TopLeafMoments[0]) * ddecomp->NTopLeaves);
 
-    for(i = Tasks[ThisTask].StartLeaf; i < Tasks[ThisTask].EndLeaf; i ++) {
-        no = TopLeaves[i].treenode;
-        if(TopLeaves[i].Task != ThisTask)
+    for(i = ddecomp->Tasks[ThisTask].StartLeaf; i < ddecomp->Tasks[ThisTask].EndLeaf; i ++) {
+        no = ddecomp->TopLeaves[i].treenode;
+        if(ddecomp->TopLeaves[i].Task != ThisTask)
             endrun(131231231, "TopLeave's Task table is corrupted");
 
         /* read out the multipole moments from the local base cells */
@@ -915,8 +917,8 @@ void force_exchange_pseudodata(ForceTree * tree)
 
     for(recvTask = 0; recvTask < NTask; recvTask++)
     {
-        recvoffset[recvTask] = Tasks[recvTask].StartLeaf * sizeof(TopLeafMoments[0]);
-        recvcounts[recvTask] = (Tasks[recvTask].EndLeaf - Tasks[recvTask].StartLeaf) * sizeof(TopLeafMoments[0]);
+        recvoffset[recvTask] = ddecomp->Tasks[recvTask].StartLeaf * sizeof(TopLeafMoments[0]);
+        recvcounts[recvTask] = (ddecomp->Tasks[recvTask].EndLeaf - ddecomp->Tasks[recvTask].StartLeaf) * sizeof(TopLeafMoments[0]);
     }
 
     MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
@@ -930,8 +932,8 @@ void force_exchange_pseudodata(ForceTree * tree)
     for(ta = 0; ta < NTask; ta++) {
         if(ta == ThisTask) continue; /* bypass ThisTask since it is already up to date */
 
-        for(i = Tasks[ta].StartLeaf; i < Tasks[ta].EndLeaf; i ++) {
-            no = TopLeaves[i].treenode;
+        for(i = ddecomp->Tasks[ta].StartLeaf; i < ddecomp->Tasks[ta].EndLeaf; i ++) {
+            no = ddecomp->TopLeaves[i].treenode;
 
             tree->Nodes[no].u.d.s[0] = TopLeafMoments[i].s[0];
             tree->Nodes[no].u.d.s[1] = TopLeafMoments[i].s[1];
@@ -1033,7 +1035,7 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree)
     NumDirtyTopLevelNodes = 0;
 
     /* At most NTopLeaves are dirty, since we are only concerned with TOPLEVEL nodes */
-    DirtyTopLevelNodes = (struct dirty_node_data*) mymalloc("DirtyTopLevelNodes", NTopLeaves * sizeof(DirtyTopLevelNodes[0]));
+    DirtyTopLevelNodes = (struct dirty_node_data*) mymalloc("DirtyTopLevelNodes", tree->NTopLeaves * sizeof(DirtyTopLevelNodes[0]));
 
     /* FIXME: actually only TOPLEVEL nodes contains the local mass can potentially be dirty,
      *  we may want to save a list of them to speed this up.
@@ -1084,7 +1086,7 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree)
         offsets[ta + 1] = offsets[ta] + counts[ta];
     }
 
-    message(0, "Hmax exchange: %d toplevel tree nodes out of %d\n", offsets[NTask], NTopLeaves);
+    message(0, "Hmax exchange: %d toplevel tree nodes out of %d\n", offsets[NTask], tree->NTopLeaves);
 
     /* move to the right place for MPI_INPLACE*/
     memmove(&DirtyTopLevelNodes[offsets[ThisTask]], &DirtyTopLevelNodes[0], NumDirtyTopLevelNodes * sizeof(DirtyTopLevelNodes[0]));
@@ -1129,23 +1131,27 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree)
  *  maxnodes approximately equal to 0.7*maxpart is sufficient to store the
  *  tree for up to maxpart particles.
  */
-ForceTree force_treeallocate(int maxnodes, int maxpart, int first_node_offset)
+ForceTree force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp)
 {
     size_t bytes;
     size_t allbytes = 0;
     ForceTree tb;
 
     message(0, "Allocating memory for %d tree-nodes (MaxPart=%d).\n", maxnodes, maxpart);
-    tb.Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopNodes) * sizeof(int));
+    tb.Nnextnode = maxpart + ddecomp->NTopNodes;
+    tb.Nextnode = (int *) mymalloc("Nextnode", bytes = tb.Nnextnode * sizeof(int));
     tb.Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
     allbytes += bytes;
     tb.Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (maxnodes + 1) * sizeof(struct NODE));
     allbytes += bytes;
-    tb.firstnode = first_node_offset;
-    tb.lastnode = first_node_offset + maxnodes;
+    tb.firstnode = maxpart;
+    tb.lastnode = maxpart + maxnodes;
     tb.numnodes = maxnodes;
-    tb.Nodes = tb.Nodes_base - first_node_offset;
+    tb.Nodes = tb.Nodes_base - maxpart;
     tb.tree_allocated_flag = 1;
+    tb.NTopLeaves = ddecomp->NTopLeaves;
+    tb.TopLeaves = ddecomp->TopLeaves;
+
     allbytes += bytes;
     message(0, "Allocated %g MByte for BH-tree, (presently allocated %g MB)\n",
          allbytes / (1024.0 * 1024.0),

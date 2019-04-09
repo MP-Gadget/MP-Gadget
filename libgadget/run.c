@@ -26,7 +26,7 @@
 #include "hci.h"
 
 void energy_statistics(void); /* stats.c only used here */
-void init(int snapnum); /* init.c only used here */
+void init(int snapnum, DomainDecomp * ddecomp); /* init.c only used here */
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
@@ -37,7 +37,7 @@ void init(int snapnum); /* init.c only used here */
  * reached, when a `stop' file is found in the output directory, or
  * when the simulation ends because we arrived at TimeMax.
  */
-static void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, ForceTree * tree);
+static void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, ForceTree * tree, DomainDecomp * ddecomp);
 static void write_cpu_log(int NumCurrentTiStep);
 
 /*! \file begrun.c
@@ -63,7 +63,7 @@ close_outputfiles(void);
  *  parameterfile is set, then routines for setting units, reading
  *  ICs/restart-files are called, auxialiary memory is allocated, etc.
  */
-void begrun(int RestartSnapNum)
+void begrun(int RestartSnapNum, DomainDecomp * ddecomp)
 {
 
     hci_init(HCI_DEFAULT_MANAGER, All.OutputDir, All.TimeLimitCPU, All.AutoSnapshotTime);
@@ -100,7 +100,7 @@ void begrun(int RestartSnapNum)
 
     set_random_numbers(All.RandomSeed);
 
-    init(RestartSnapNum);			/* ... read in initial model */
+    init(RestartSnapNum, ddecomp);			/* ... read in initial model */
 
 #ifdef LIGHTCONE
     lightcone_init(All.Time);
@@ -109,7 +109,7 @@ void begrun(int RestartSnapNum)
     open_outputfiles(RestartSnapNum);
 }
 
-void run(void)
+void run(DomainDecomp * ddecomp)
 {
     /*Number of timesteps performed this run*/
     int NumCurrentTiStep = 0;
@@ -163,18 +163,18 @@ void run(void)
         /* Sync positions of all particles */
         drift_all_particles(All.Ti_Current);
 
-        /* drift and domain decomposition */
+        /* drift and ddecomp decomposition */
 
         /* at first step this is a noop */
         if(is_PM) {
             /* full decomposition rebuilds the tree */
-            domain_decompose_full();
+            domain_decompose_full(ddecomp);
         } else {
-            /* FIXME: add a parameter for domain_decompose_incremental */
+            /* FIXME: add a parameter for ddecomp_decompose_incremental */
             /* currently we drift all particles every step */
             /* If it is not a PM step, do a shorter version
-             * of the domain decomp which just moves and exchanges drifted (active) particles.*/
-            domain_maintain();
+             * of the ddecomp decomp which just moves and exchanges drifted (active) particles.*/
+            domain_maintain(ddecomp);
         }
 
         rebuild_activelist(All.Ti_Current, NumCurrentTiStep);
@@ -183,10 +183,10 @@ void run(void)
 
         /* Need to rebuild the force tree because all TopLeaves are out of date.*/
         ForceTree Tree = {0};
-        force_tree_rebuild(&Tree);
+        force_tree_rebuild(&Tree, ddecomp);
 
         /* update force to Ti_Current */
-        compute_accelerations(is_PM, NumCurrentTiStep == 0, GasEnabled, &Tree);
+        compute_accelerations(is_PM, NumCurrentTiStep == 0, GasEnabled, &Tree, ddecomp);
 
         /* Update velocity to Ti_Current; this synchonizes TiKick and TiDrift for the active particles */
 
@@ -197,7 +197,7 @@ void run(void)
         apply_half_kick();
 
         /* If a snapshot is requested, write it.
-         * write_checkpoint is responsible to maintain a valid domain and tree after it is called.
+         * write_checkpoint is responsible to maintain a valid ddecomp and tree after it is called.
          *
          * We only attempt to output on sync points. This is the only chance where all variables are
          * synchronized in a consistent state in a K(KDDK)^mK scheme.
@@ -221,7 +221,7 @@ void run(void)
             int compact[6] = {0};
 
             if(slots_gc(compact)) {
-                force_tree_rebuild(&Tree);
+                force_tree_rebuild(&Tree, ddecomp);
                 NumActiveParticle = PartManager->NumPart;
             }
         }
@@ -267,13 +267,13 @@ void run(void)
  * computed. This also reconstructs the tree, if needed, otherwise the drift/kick operations have updated the
  * tree to make it fullu usable at the current time.
  *
- * If gas particles are presented, the `interior' of the local domain is determined. This region is guaranteed
+ * If gas particles are presented, the `interior' of the local ddecomp is determined. This region is guaranteed
  * to contain only particles local to the processor. This information will be used to reduce communication in
  * the hydro part.  The density for active SPH particles is computed next. If the number of neighbours should
  * be outside the allowed bounds, it will be readjusted by the function ensure_neighbours(), and for those
  * particle, the densities are recomputed accordingly. Finally, the hydrodynamical forces are added.
  */
-void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, ForceTree * tree)
+void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, ForceTree * tree, DomainDecomp * ddecomp)
 {
     message(0, "Begin force computation.\n");
 
@@ -323,6 +323,9 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, ForceTree *
     if(is_PM)
     {
         gravpm_force(tree);
+
+        /*Rebuild the force tree we freed in gravpm to save memory*/
+        force_tree_rebuild(tree, ddecomp);
 
         /* compute and output energy statistics if desired. */
         if(All.OutputEnergyDebug)

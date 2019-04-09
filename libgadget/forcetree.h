@@ -2,6 +2,7 @@
 #define FORCETREE_H
 
 #include "types.h"
+#include "domain.h"
 /*
  * Variables for Tree
  * ------------------
@@ -55,6 +56,10 @@ typedef struct ForceTree {
     int lastnode;
     /* Number of actually allocated nodes*/
     int numnodes;
+    /*Pointer to the TopLeaves struct imported from Domain. Sets up the pseudo particles.*/
+    struct topleaf_data * TopLeaves;
+    /*Number of TopLeaves*/
+    int NTopLeaves;
     /*!< this is a pointer used to access the nodes which is shifted such that Nodes[firstnode]
      *   gives the first allocated node */
     struct NODE *Nodes;
@@ -65,6 +70,8 @@ typedef struct ForceTree {
     /* Gives next node in the tree walk for particles and pseudo particles.
      * next node for the actual nodes is stored in Nodes*/
     int * Nextnode;
+    /*Allocated length of the Nextnode array*/
+    int Nnextnode;
     /*!< gives parent node in tree for every particle */
     int *Father;
 } ForceTree;
@@ -75,7 +82,7 @@ int force_tree_allocated(const ForceTree * tt);
 void force_update_hmax(int * activeset, int size, ForceTree * tt);
 
 /*This is the main constructor for the tree structure. Pass in something empty.*/
-void force_tree_rebuild(ForceTree * tree);
+void force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp);
 
 /*Free the memory associated with the tree*/
 void   force_tree_free(ForceTree * tt);

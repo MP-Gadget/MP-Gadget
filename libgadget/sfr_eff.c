@@ -242,8 +242,8 @@ sfr_reserve_slots(int * NewStars, int NumNewStar, ForceTree * tree)
             Father_tmp = mymalloc2("Father_tmp", PartManager->MaxPart * sizeof(int));
             memmove(Father_tmp, tree->Father, PartManager->MaxPart * sizeof(int));
             myfree(tree->Father);
-            Nextnode_tmp = mymalloc2("Nextnode_tmp", (PartManager->MaxPart + NTopNodes)* sizeof(int));
-            memmove(Nextnode_tmp, tree->Nextnode, (PartManager->MaxPart + NTopNodes) * sizeof(int));
+            Nextnode_tmp = mymalloc2("Nextnode_tmp", tree->Nnextnode * sizeof(int));
+            memmove(Nextnode_tmp, tree->Nextnode, tree->Nnextnode * sizeof(int));
             myfree(tree->Nextnode);
         }
         if(ActiveParticle) {
@@ -266,8 +266,8 @@ sfr_reserve_slots(int * NewStars, int NumNewStar, ForceTree * tree)
             myfree(ActiveParticle_tmp);
         }
         if(force_tree_allocated(tree)) {
-            tree->Nextnode = mymalloc("Nextnode", (PartManager->MaxPart + NTopNodes)* sizeof(int));
-            memmove(tree->Nextnode, Nextnode_tmp, (PartManager->MaxPart + NTopNodes) * sizeof(int));
+            tree->Nextnode = mymalloc("Nextnode", tree->Nnextnode * sizeof(int));
+            memmove(tree->Nextnode, Nextnode_tmp, tree->Nnextnode * sizeof(int));
             myfree(Nextnode_tmp);
             tree->Father = mymalloc("Father", PartManager->MaxPart * sizeof(int));
             memmove(tree->Father, Father_tmp, PartManager->MaxPart * sizeof(int));

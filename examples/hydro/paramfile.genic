@@ -5,6 +5,7 @@ Ngrid = 64 # Size of cubic grid on which to create particles.
 
 BoxSize = 4000   # Periodic box size of simulation
 
+MakeCoherentGlass = 1
 Omega0 = 0.2814      # Total matter density  (at z=0)
 OmegaLambda = 0.7186      # Cosmological constant (at z=0)
 OmegaBaryon = 0.0464     # Baryon density        (at z=0)

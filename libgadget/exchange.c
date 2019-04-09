@@ -1,7 +1,6 @@
 #include <mpi.h>
 #include <string.h>
 #include "mpsort.h"
-/* #include "domain.h" */
 #include "allvars.h"
 #include "exchange.h"
 #include "slotsmanager.h"
@@ -46,10 +45,10 @@ typedef struct {
  * exchange particles according to layoutfunc.
  * layoutfunc gives the target task of particle p.
 */
-static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, int do_gc);
-static void domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan);
+static int domain_exchange_once(ExchangePlan * plan, int do_gc);
+static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan);
 static int domain_find_iter_space(ExchangePlan * plan);
-static void domain_build_exchange_list(int (*layoutfunc)(int p), ExchangePlan * plan);
+static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan);
 
 /* This function builts the count/displ arrays from
  * the rows stored in the entry struct of the plan.
@@ -72,7 +71,7 @@ _transpose_plan_entries(ExchangePlanEntry * entries, int * count, int ptype)
 }
 
 /*Plan and execute a domain exchange, also performing a garbage collection if requested*/
-int domain_exchange(int (*layoutfunc)(int p), int do_gc) {
+int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, int do_gc) {
     int64_t sumtogo;
     int failure = 0;
 
@@ -101,7 +100,7 @@ int domain_exchange(int (*layoutfunc)(int p), int do_gc) {
     int iter = 0;
 
     do {
-        domain_build_exchange_list(layoutfunc, &plan);
+        domain_build_exchange_list(layoutfunc, layout_userdata, &plan);
 
         /*Exit early if nothing to do*/
         if(!MPIU_Any(plan.nexchange > 0, MPI_COMM_WORLD))
@@ -112,7 +111,7 @@ int domain_exchange(int (*layoutfunc)(int p), int do_gc) {
 
         /* determine for each rank how many particles have to be shifted to other ranks */
         plan.last = domain_find_iter_space(&plan);
-        domain_build_plan(layoutfunc, &plan);
+        domain_build_plan(layoutfunc, layout_userdata, &plan);
         walltime_measure("/Domain/exchange/togo");
 
         sumup_large_ints(1, &plan.toGoSum.base, &sumtogo);
@@ -127,7 +126,7 @@ int domain_exchange(int (*layoutfunc)(int p), int do_gc) {
         int really_do_gc = do_gc || (plan.last < plan.nexchange)
             || (plan.nexchange > PartManager->NumPart / 1000);
 
-        failure = domain_exchange_once(layoutfunc, &plan, really_do_gc);
+        failure = domain_exchange_once(&plan, really_do_gc);
 
         myfree(plan.ExchangeList);
 
@@ -163,7 +162,7 @@ shall_we_compact_slots(int * compact, ExchangePlan * plan)
     MPI_Allreduce(MPI_IN_PLACE, compact, 6, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
 }
 
-static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, int do_gc)
+static int domain_exchange_once(ExchangePlan * plan, int do_gc)
 {
     int n, ptype;
     struct particle_data *partBuf;
@@ -351,7 +350,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, i
  * All particles are processed every time, space is not considered.
  * The exchange list needs to be rebuilt every time gc is run. */
 static void
-domain_build_exchange_list(int (*layoutfunc)(int p), ExchangePlan * plan)
+domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan)
 {
     int i;
     int numthreads = omp_get_max_threads();
@@ -373,7 +372,7 @@ domain_build_exchange_list(int (*layoutfunc)(int p), ExchangePlan * plan)
             ngarbage++;
             continue;
         }
-        int target = layoutfunc(i);
+        int target = layoutfunc(i, layout_userdata);
         if(target != ThisTask) {
             const int tid = omp_get_thread_num();
             threx[tid][nexthr[tid]] = i;
@@ -442,7 +441,7 @@ domain_find_iter_space(ExchangePlan * plan)
 
 /*This function populates the toGo and toGet arrays*/
 static void
-domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
+domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan)
 {
     int ptype, n;
 
@@ -454,7 +453,7 @@ domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
     for(n = 0; n < plan->last; n++)
     {
         const int i = plan->ExchangeList[n];
-        const int target = layoutfunc(i);
+        const int target = layoutfunc(i, layout_userdata);
         plan->layouts[n].ptype = P[i].Type;
         plan->layouts[n].target = target;
     }

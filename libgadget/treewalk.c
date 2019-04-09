@@ -549,7 +549,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
     TreeWalk * tw = lv->tw;
     int task;
 
-    task = TopLeaves[no - tw->tree->lastnode].Task;
+    task = tw->tree->TopLeaves[no - tw->tree->lastnode].Task;
 
     if(exportflag[task] != target)
     {
@@ -583,7 +583,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
     if(tw->UseNodeList)
     {
         DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
-            TopLeaves[no - tw->tree->lastnode].treenode;
+            tw->tree->TopLeaves[no - tw->tree->lastnode].treenode;
 
         if(exportnodecount[task] < NODELISTLENGTH)
             DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;

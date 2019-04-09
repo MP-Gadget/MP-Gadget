@@ -91,8 +91,6 @@ void gravpm_force(ForceTree * tree) {
     /*We are done with the power spectrum, free it*/
     powerspectrum_free(&PowerSpectrum, All.MassiveNuLinRespOn);
     walltime_measure("/LongRange");
-    /*Rebuild the force tree we freed in _prepare to save memory*/
-    force_tree_rebuild(tree);
 }
 
 static double pot_factor;
@@ -114,11 +112,12 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
      * to exactly one region even though it may be covered by two)
      *
      * */
+    ForceTree * tree = (ForceTree *) userdata;
+
     /* In worst case, each topleave becomes a region: thus
      * NTopLeaves is sufficient */
-    PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion) * NTopLeaves);
+    PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion) * tree->NTopLeaves);
 
-    ForceTree * tree = (ForceTree *) userdata;
     int r = 0;
 
     int no = tree->firstnode; /* start with the root */
