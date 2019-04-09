@@ -84,7 +84,7 @@ domain_assign_balanced(Domain * domain, int64_t * cost);
 static void domain_allocate(Domain * domain, DomainDecompositionPolicy * policy);
 
 static int
-domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t *TopLeafCount, const Domain * domain);
+domain_check_memory_bound(const Domain * domain, const int print_details, int64_t *TopLeafWork, int64_t *TopLeafCount);
 
 static int domain_attempt_decompose(Domain * domain, DomainDecompositionPolicy * policy);
 
@@ -95,7 +95,7 @@ static int domain_determine_global_toptree(DomainDecompositionPolicy * policy, s
 static void domain_free(Domain * domain);
 
 static void
-domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount, const Domain * domain);
+domain_compute_costs(const Domain * domain, int64_t *TopLeafWork, int64_t *TopLeafCount);
 
 static void
 domain_toptree_merge(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, int * treeASize);
@@ -109,7 +109,7 @@ static int
 domain_global_refine(struct local_topnode_data * topTree, int * topTreeSize, int64_t countlimit, int64_t costlimit);
 
 static void
-domain_create_topleaves(int no, int * next, Domain * domain);
+domain_create_topleaves(Domain * domain, int no, int * next);
 
 static int domain_layoutfunc(int n, const void * userdata);
 
@@ -342,7 +342,7 @@ domain_attempt_decompose(Domain * domain, DomainDecompositionPolicy * policy)
     myfree(topTree);
 
     domain->NTopLeaves = 0;
-    domain_create_topleaves(0, &domain->NTopLeaves, domain);
+    domain_create_topleaves(domain, 0, &domain->NTopLeaves);
 
     message(0, "NTopLeaves= %d  NTopNodes=%d (space for %d)\n", domain->NTopLeaves, domain->NTopNodes, MaxTopNodes);
 
@@ -372,7 +372,7 @@ domain_balance(Domain * domain)
     /*!< a table that gives the total number of particles held by each processor */
     int64_t * TopLeafCount = (int64_t *) mymalloc("TopLeafCount",  domain->NTopLeaves * sizeof(TopLeafCount[0]));
 
-    domain_compute_costs(TopLeafWork, TopLeafCount, domain);
+    domain_compute_costs(domain, TopLeafWork, TopLeafCount);
 
     walltime_measure("/Domain/Decompose/Sumcost");
 
@@ -381,7 +381,7 @@ domain_balance(Domain * domain)
 
     walltime_measure("/Domain/Decompose/assignbalance");
 
-    int status = domain_check_memory_bound(0, TopLeafWork, TopLeafCount, domain);
+    int status = domain_check_memory_bound(domain, 0, TopLeafWork, TopLeafCount);
     walltime_measure("/Domain/Decompose/memorybound");
 
     if(status != 0)		/* the optimum balanced solution violates memory constraint, let's try something different */
@@ -392,7 +392,7 @@ domain_balance(Domain * domain)
 
         walltime_measure("/Domain/Decompose/assignbalance");
 
-        int status = domain_check_memory_bound(1, TopLeafWork, TopLeafCount, domain);
+        int status = domain_check_memory_bound(domain, 1, TopLeafWork, TopLeafCount);
         walltime_measure("/Domain/Decompose/memorybound");
 
         if(status != 0)
@@ -406,7 +406,7 @@ domain_balance(Domain * domain)
 }
 
 static int
-domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t *TopLeafCount, const Domain * domain)
+domain_check_memory_bound(const Domain * domain, const int print_details, int64_t *TopLeafWork, int64_t *TopLeafCount)
 {
     int ta, i;
     int load, max_load;
@@ -705,7 +705,7 @@ domain_layoutfunc(int n, const void * userdata) {
  *  the pointer next points to the next free item on TopLeaves array.
  */
 static void
-domain_create_topleaves(int no, int * next, Domain * domain)
+domain_create_topleaves(Domain * domain, int no, int * next)
 {
     int i;
     if(domain->TopNodes[no].Daughter == -1)
@@ -717,7 +717,7 @@ domain_create_topleaves(int no, int * next, Domain * domain)
     else
     {
         for(i = 0; i < 8; i++)
-            domain_create_topleaves(domain->TopNodes[no].Daughter + i, next, domain);
+            domain_create_topleaves(domain, domain->TopNodes[no].Daughter + i, next);
     }
 }
 
@@ -1271,7 +1271,7 @@ domain_global_refine(
 
 
 static void
-domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount, const Domain * domain)
+domain_compute_costs(const Domain * domain, int64_t *TopLeafWork, int64_t *TopLeafCount)
 {
     int i;
     int64_t * local_TopLeafWork = (int64_t *) mymalloc("local_TopLeafWork", All.NumThreads * domain->NTopLeaves * sizeof(local_TopLeafWork[0]));
