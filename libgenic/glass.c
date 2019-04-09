@@ -71,7 +71,14 @@ setup_glass(double shift, int Ngrid, int seed, struct ic_part_data ** thisICP)
 
     gsl_rng_free(rng);
 
+    evolve_glass(seed, ICP, NumPart);
+    *thisICP = ICP;
+    return NumPart;
+}
 
+void evolve_glass(int seed, struct ic_part_data * ICP, const int NumPart)
+{
+    int i;
     int step = 0;
     double t_x = 0;
     double t_v = 0;
@@ -144,8 +151,6 @@ setup_glass(double shift, int Ngrid, int seed, struct ic_part_data ** thisICP)
 
     /*We are done with the power spectrum, free it*/
     powerspectrum_free(&PowerSpectrum, 0);
-    *thisICP = ICP;
-    return NumPart;
 }
 
 
