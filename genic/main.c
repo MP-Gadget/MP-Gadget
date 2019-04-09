@@ -144,12 +144,7 @@ int main(int argc, char **argv)
   /*Now add random velocity neutrino particles*/
   if(All2.NGridNu > 0) {
       int i;
-      if(!All2.MakeGlassCDM) {
-        NumPart = setup_grid(shift_nu, All2.NGridNu, &ICP);
-      } else {
-        NumPart = setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 2), &ICP);
-      }
-
+      NumPart = setup_grid(shift_nu, All2.NGridNu, &ICP);
       displacement_fields(NuType, ICP, NumPart);
       unsigned int * seedtable = init_rng(All2.Seed+2,All2.Ngrid);
       gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
