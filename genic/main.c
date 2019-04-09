@@ -92,7 +92,7 @@ int main(int argc, char **argv)
   if(!All2.MakeGlassCDM) {
       NumPart = setup_grid(All2.ProduceGas * shift_dm, All2.Ngrid, &ICP);
   } else {
-      setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed));
+      NumPart = setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed), &ICP);
   }
 
   displacement_fields(DMType, ICP, NumPart);
@@ -132,7 +132,7 @@ int main(int argc, char **argv)
     if(!All2.MakeGlassBar) {
         NumPart = setup_grid(shift_gas, All2.Ngrid, &ICP);
     } else {
-        setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 1));
+        NumPart = setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 1), &ICP);
     }
 
     displacement_fields(GasType, ICP, NumPart);
@@ -145,7 +145,7 @@ int main(int argc, char **argv)
       if(!All2.MakeGlassCDM) {
         NumPart = setup_grid(shift_nu, All2.NGridNu, &ICP);
       } else {
-        setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 2));
+        NumPart = setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 2), &ICP);
       }
 
       displacement_fields(NuType, ICP, NumPart);

@@ -6,7 +6,9 @@
 
 void displacement_fields(enum TransferType Type, struct ic_part_data * dispICP, const int NumPart);
 int setup_grid(double shift, int Ngrid, struct ic_part_data ** thisICP);
-void setup_glass(double shift, int Ngrid, int seed);
+int setup_glass(double shift, int Ngrid, int seed, struct ic_part_data ** thisICP);
+
+int get_size_offset(int * size, int * offset, int Ngrid);
 uint64_t id_offset_from_index(const int i, const int Ngrid);
 
 void saveheader(BigFile * bf, int64_t TotNumPart, int64_t TotNuPart, double nufrac);

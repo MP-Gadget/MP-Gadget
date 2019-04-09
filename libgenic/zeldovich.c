@@ -49,7 +49,7 @@ ijk_to_id(int i, int j, int k, int Ngrid) {
 }
 
 /*Helper function to get size and offset of particles to the global grid.*/
-static int
+int
 get_size_offset(int * size, int * offset, int Ngrid)
 {
     int * ThisTask2d = petapm_get_thistask2d();
