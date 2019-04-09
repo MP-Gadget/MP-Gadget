@@ -20,10 +20,10 @@
 /*Defined in forcetree.c*/
 /*Next three are not static as tested.*/
 int
-force_tree_create_nodes(const ForceTree tb, const int npart, Domain * domain);
+force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp);
 
 ForceTree
-force_treeallocate(int maxnodes, int maxpart, Domain * domain);
+force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp);
 
 int
 force_update_node_parallel(const ForceTree * tree);
@@ -38,7 +38,7 @@ double GravitySofteningTable[6];
 /* The true struct for the state variable*/
 struct forcetree_testdata
 {
-    Domain domain;
+    DomainDecomp ddecomp;
     gsl_rng * r;
 };
 
@@ -229,7 +229,7 @@ static int check_tree(const ForceTree * tb, const int nnodes, const int numpart)
     return nrealnode;
 }
 
-static void do_tree_test(const int numpart, const ForceTree tb, Domain * domain)
+static void do_tree_test(const int numpart, const ForceTree tb, DomainDecomp * ddecomp)
 {
     /*Sort by peano key so this is more realistic*/
     int i;
@@ -248,7 +248,7 @@ static void do_tree_test(const int numpart, const ForceTree tb, Domain * domain)
     /*Time creating the nodes*/
     double start, end;
     start = MPI_Wtime();
-    int nodes = force_tree_create_nodes(tb, numpart, domain);
+    int nodes = force_tree_create_nodes(tb, numpart, ddecomp);
     assert_true(nodes < maxnode);
     end = MPI_Wtime();
     double ms = (end - start)*1000;
@@ -284,10 +284,10 @@ static void test_rebuild_flat(void ** state) {
     /*Allocate tree*/
     /*Base pointer*/
     struct forcetree_testdata * data = * (struct forcetree_testdata **) state;
-    Domain domain = data->domain;
-    domain.TopLeaves[0].topnode = numpart;
-    ForceTree tb = force_treeallocate(numpart, numpart, &domain);
-    do_tree_test(numpart, tb, &domain);
+    DomainDecomp ddecomp = data->ddecomp;
+    ddecomp.TopLeaves[0].topnode = numpart;
+    ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp);
+    do_tree_test(numpart, tb, &ddecomp);
     force_tree_free(&tb);
     free(P);
 }
@@ -308,15 +308,15 @@ static void test_rebuild_close(void ** state) {
         P[i].Pos[2] = 4. + (i % ncbrt)/close;
     }
     struct forcetree_testdata * data = * (struct forcetree_testdata **) state;
-    Domain domain = data->domain;
-    domain.TopLeaves[0].topnode = numpart;
-    ForceTree tb = force_treeallocate(numpart, numpart, &domain);
-    do_tree_test(numpart, tb, &domain);
+    DomainDecomp ddecomp = data->ddecomp;
+    ddecomp.TopLeaves[0].topnode = numpart;
+    ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp);
+    do_tree_test(numpart, tb, &ddecomp);
     force_tree_free(&tb);
     free(P);
 }
 
-void do_random_test(gsl_rng * r, const int numpart, const ForceTree tb, Domain * domain)
+void do_random_test(gsl_rng * r, const int numpart, const ForceTree tb, DomainDecomp * ddecomp)
 {
     /* Create a regular grid of particles, 8x8x8, all of type 1,
      * in a box 8 kpc across.*/
@@ -342,52 +342,52 @@ void do_random_test(gsl_rng * r, const int numpart, const ForceTree tb, Domain *
         for(j=0; j<3; j++)
             P[i].Pos[j] = All.BoxSize*0.1 + All.BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
-    do_tree_test(numpart, tb, domain);
+    do_tree_test(numpart, tb, ddecomp);
 }
 
 static void test_rebuild_random(void ** state) {
     /*Set up the particle data*/
     int ncbrt = 64;
     struct forcetree_testdata * data = * (struct forcetree_testdata **) state;
-    Domain domain = data->domain;
+    DomainDecomp ddecomp = data->ddecomp;
     gsl_rng * r = (gsl_rng *) data->r;
     int numpart = ncbrt*ncbrt*ncbrt;
     /*Allocate tree*/
     /*Base pointer*/
-    domain.TopLeaves[0].topnode = numpart;
-    ForceTree tb = force_treeallocate(numpart, numpart, &domain);
+    ddecomp.TopLeaves[0].topnode = numpart;
+    ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp);
     assert_true(tb.Nodes != NULL);
     P = malloc(numpart*sizeof(struct particle_data));
     int i;
     for(i=0; i<2; i++) {
-        do_random_test(r, numpart, tb, &domain);
+        do_random_test(r, numpart, tb, &ddecomp);
     }
     force_tree_free(&tb);
     free(P);
 }
 
 /*Make a simple trivial domain for all data on a single processor*/
-void trivial_domain(Domain * domain)
+void trivial_domain(DomainDecomp * ddecomp)
 {
     /* The whole tree goes into one topnode.
      * Set up just enough of the TopNode structure that
      * domain_get_topleaf works*/
-    domain->domain_allocated_flag = 1;
-    domain->NTopNodes = 1;
-    domain->NTopLeaves = 1;
-    domain->TopNodes = malloc(sizeof(struct topnode_data));
-    domain->TopNodes[0].Daughter = -1;
-    domain->TopNodes[0].Leaf = 0;
-    domain->TopLeaves = malloc(sizeof(struct topleaf_data));
-    domain->TopLeaves[0].Task = 0;
-    domain->TopLeaves[0].topnode = 0;
+    ddecomp->domain_allocated_flag = 1;
+    ddecomp->NTopNodes = 1;
+    ddecomp->NTopLeaves = 1;
+    ddecomp->TopNodes = malloc(sizeof(struct topnode_data));
+    ddecomp->TopNodes[0].Daughter = -1;
+    ddecomp->TopNodes[0].Leaf = 0;
+    ddecomp->TopLeaves = malloc(sizeof(struct topleaf_data));
+    ddecomp->TopLeaves[0].Task = 0;
+    ddecomp->TopLeaves[0].topnode = 0;
     /*These are not used*/
-    domain->TopNodes[0].StartKey = 0;
-    domain->TopNodes[0].Shift = BITS_PER_DIMENSION * 3;
+    ddecomp->TopNodes[0].StartKey = 0;
+    ddecomp->TopNodes[0].Shift = BITS_PER_DIMENSION * 3;
     /*To tell the code we are in serial*/
-    domain->Tasks = malloc(sizeof(struct task_data));
-    domain->Tasks[0].StartLeaf = 0;
-    domain->Tasks[0].EndLeaf = 1;
+    ddecomp->Tasks = malloc(sizeof(struct task_data));
+    ddecomp->Tasks[0].StartLeaf = 0;
+    ddecomp->Tasks[0].EndLeaf = 1;
 }
 
 static int setup_tree(void **state) {
@@ -400,7 +400,7 @@ static int setup_tree(void **state) {
         GravitySofteningTable[i] = 0.1 / 2.8;
     /*Set up the top-level domain grid*/
     struct forcetree_testdata *data = malloc(sizeof(struct forcetree_testdata));
-    trivial_domain(&data->domain);
+    trivial_domain(&data->ddecomp);
     /*To tell the code we are in serial*/
     ThisTask = 0;
     NTask = 1;
@@ -412,9 +412,9 @@ static int setup_tree(void **state) {
 
 static int teardown_tree(void **state) {
     struct forcetree_testdata * data = (struct forcetree_testdata * ) *state;
-    free(data->domain.TopNodes);
-    free(data->domain.TopLeaves);
-    free(data->domain.Tasks);
+    free(data->ddecomp.TopNodes);
+    free(data->ddecomp.TopLeaves);
+    free(data->ddecomp.Tasks);
     free(data->r);
     free(data);
     return 0;

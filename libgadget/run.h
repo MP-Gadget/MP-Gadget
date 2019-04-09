@@ -3,10 +3,10 @@
 
 #include "domain.h"
 
-void begrun(int RestartSnapNum, Domain * domain);
+void begrun(int RestartSnapNum, DomainDecomp * ddecomp);
 
-void run(Domain * domain);
-void runtests(Domain * domain);
-void runfof(int RestartSnapNum, Domain * domain);
+void run(DomainDecomp * ddecomp);
+void runtests(DomainDecomp * ddecomp);
+void runfof(int RestartSnapNum, DomainDecomp * ddecomp);
 
 #endif

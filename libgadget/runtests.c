@@ -23,7 +23,7 @@ char * GDB_format_particle(int i);
 SIMPLE_PROPERTY(GravAccel, P[i].GravAccel[0], float, 3)
 SIMPLE_PROPERTY(GravPM, P[i].GravPM[0], float, 3)
 
-void runtests(Domain * domain)
+void runtests(DomainDecomp * ddecomp)
 {
 
     int ptype;
@@ -41,9 +41,9 @@ void runtests(Domain * domain)
     rebuild_activelist(All.Ti_Current, 0);
 
     ForceTree Tree = {0};
-    force_tree_rebuild(&Tree, domain);
+    force_tree_rebuild(&Tree, ddecomp);
     gravpm_force(&Tree);
-    force_tree_rebuild(&Tree, domain);
+    force_tree_rebuild(&Tree, ddecomp);
 
     grav_short_pair(&Tree);
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));
@@ -60,11 +60,11 @@ void runtests(Domain * domain)
 
 }
 
-void runfof(int RestartSnapNum, Domain * domain)
+void runfof(int RestartSnapNum, DomainDecomp * ddecomp)
 {
     ForceTree Tree = {0};
     /*FoF needs a tree*/
-    force_tree_rebuild(&Tree, domain);
+    force_tree_rebuild(&Tree, ddecomp);
     fof_fof(&Tree);
     force_tree_free(&Tree);
     fof_save_groups(RestartSnapNum);

@@ -109,18 +109,18 @@ int main(int argc, char **argv)
     mymalloc_init(All.MaxMemSizePerNode);
 
     /*The main domain object. Will be allocated in begrun.*/
-    Domain domain = {0};
-    begrun(RestartSnapNum, &domain);
+    DomainDecomp ddecomp = {0};
+    begrun(RestartSnapNum, &ddecomp);
 
     switch(RestartFlag) {
         case 3:
-            runfof(RestartSnapNum, &domain);
+            runfof(RestartSnapNum, &ddecomp);
             break;
         case 99:
-            runtests(&domain);
+            runtests(&ddecomp);
             break;
         default:
-            run(&domain);			/* main simulation loop */
+            run(&ddecomp);			/* main simulation loop */
             break;
     }
 byebye:

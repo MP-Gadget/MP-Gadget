@@ -27,7 +27,7 @@ struct task_data {
     int EndLeaf;
 };
 
-typedef struct Domain {
+typedef struct DomainDecomp {
     int domain_allocated_flag;
     /* TopNode and TopLeaf data arrays*/
     struct topnode_data * TopNodes;
@@ -36,18 +36,18 @@ typedef struct Domain {
     int NTopNodes;
     int NTopLeaves;
     struct task_data * Tasks;
-} Domain;
+} DomainDecomp;
 
-void domain_decompose_full(Domain * domain);
-void domain_maintain(Domain * domain);
+void domain_decompose_full(DomainDecomp * ddecomp);
+void domain_maintain(DomainDecomp * ddecomp);
 
 /** This function determines the TopLeaves entry for the given key.*/
 static inline int
-domain_get_topleaf(const peano_t key, const Domain * domain) {
+domain_get_topleaf(const peano_t key, const DomainDecomp * ddecomp) {
     int no=0;
-    while(domain->TopNodes[no].Daughter >= 0)
-        no = domain->TopNodes[no].Daughter + ((key - domain->TopNodes[no].StartKey) >> (domain->TopNodes[no].Shift - 3));
-    no = domain->TopNodes[no].Leaf;
+    while(ddecomp->TopNodes[no].Daughter >= 0)
+        no = ddecomp->TopNodes[no].Daughter + ((key - ddecomp->TopNodes[no].StartKey) >> (ddecomp->TopNodes[no].Shift - 3));
+    no = ddecomp->TopNodes[no].Leaf;
     return no;
 };
 

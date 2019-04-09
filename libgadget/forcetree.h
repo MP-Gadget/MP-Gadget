@@ -82,7 +82,7 @@ int force_tree_allocated(const ForceTree * tt);
 void force_update_hmax(int * activeset, int size, ForceTree * tt);
 
 /*This is the main constructor for the tree structure. Pass in something empty.*/
-void force_tree_rebuild(ForceTree * tree, Domain * domain);
+void force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp);
 
 /*Free the memory associated with the tree*/
 void   force_tree_free(ForceTree * tt);
