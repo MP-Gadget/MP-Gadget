@@ -48,11 +48,6 @@ ijk_to_id(int i, int j, int k, int Ngrid) {
     return id;
 }
 
-void free_ffts(void)
-{
-    myfree(ICP);
-}
-
 /*Helper function to get size and offset of particles to the global grid.*/
 static int
 get_size_offset(int * size, int * offset, int Ngrid)
@@ -85,13 +80,13 @@ id_offset_from_index(const int i, const int Ngrid)
     return ijk_to_id(x, y, z, Ngrid);
 }
 
-void
-setup_grid(double shift, int Ngrid)
+int
+setup_grid(double shift, int Ngrid, struct ic_part_data ** thisICP)
 {
     int size[3];
     int offset[3];
-    NumPart = get_size_offset(size, offset, Ngrid);
-    ICP = (struct ic_part_data *) mymalloc("PartTable", NumPart*sizeof(struct ic_part_data));
+    int NumPart = get_size_offset(size, offset, Ngrid);
+    struct ic_part_data * ICP = (struct ic_part_data *) mymalloc("PartTable", NumPart*sizeof(struct ic_part_data));
     memset(ICP, 0, NumPart*sizeof(struct ic_part_data));
 
     int i;
@@ -106,10 +101,21 @@ setup_grid(double shift, int Ngrid)
         ICP[i].Pos[2] = z * All.BoxSize / Ngrid + shift;
         ICP[i].Mass = 1.0;
     }
+    *thisICP = ICP;
+    return NumPart;
 }
+
+struct ic_prep_data
+{
+    struct ic_part_data * curICP;
+    int NumPart;
+};
 
 static PetaPMRegion * makeregion(void * userdata, int * Nregions) {
     PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion));
+    struct ic_prep_data * icprep = (struct ic_prep_data *) userdata;
+    int NumPart = icprep->NumPart;
+    struct ic_part_data * ICP = icprep->curICP;
     int k;
     int r = 0;
     int i;
@@ -143,7 +149,7 @@ static enum TransferType ptype;
 /*Global to pass the particle data to the readout functions*/
 static struct ic_part_data * curICP;
 
-void displacement_fields(enum TransferType Type, struct ic_part_data * dispICP) {
+void displacement_fields(enum TransferType Type, struct ic_part_data * dispICP, const int NumPart) {
     /*MUST set this before doing force.*/
     ptype = Type;
     curICP = dispICP;
@@ -203,9 +209,10 @@ void displacement_fields(enum TransferType Type, struct ic_part_data * dispICP) 
         functions[4].name = NULL;
     }
 
+    struct ic_prep_data icprep = {dispICP, NumPart};
     PetaPMRegion * regions = petapm_force_init(
            makeregion,
-           &pstruct, NULL);
+           &pstruct, &icprep);
 
     /*This allocates the memory*/
     pfft_complex * rho_k = petapm_alloc_rhok();

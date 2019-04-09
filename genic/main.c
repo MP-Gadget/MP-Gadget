@@ -90,12 +90,12 @@ int main(int argc, char **argv)
   /*First compute and write CDM*/
 
   if(!All2.MakeGlassCDM) {
-      setup_grid(All2.ProduceGas * shift_dm, All2.Ngrid);
+      NumPart = setup_grid(All2.ProduceGas * shift_dm, All2.Ngrid, &ICP);
   } else {
       setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed));
   }
 
-  displacement_fields(DMType, ICP);
+  displacement_fields(DMType, ICP, NumPart);
 
   /*Add a thermal velocity to WDM particles*/
   if(All2.WDM_therm_mass > 0){
@@ -124,31 +124,31 @@ int main(int argc, char **argv)
   }
 
   write_particle_data(1, &bf, 0, All2.Ngrid, ICP, NumPart);
-  free_ffts();
+  myfree(ICP);
 
   /*Now make the gas if required*/
   if(All2.ProduceGas) {
 
     if(!All2.MakeGlassBar) {
-        setup_grid(shift_gas, All2.Ngrid);
+        NumPart = setup_grid(shift_gas, All2.Ngrid, &ICP);
     } else {
         setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 1));
     }
 
-    displacement_fields(GasType, ICP);
+    displacement_fields(GasType, ICP, NumPart);
     write_particle_data(0, &bf, TotNumPart, All2.Ngrid, ICP, NumPart);
-    free_ffts();
+    myfree(ICP);
   }
   /*Now add random velocity neutrino particles*/
   if(All2.NGridNu > 0) {
       int i;
       if(!All2.MakeGlassCDM) {
-        setup_grid(shift_nu, All2.NGridNu);
+        NumPart = setup_grid(shift_nu, All2.NGridNu, &ICP);
       } else {
         setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 2));
       }
 
-      displacement_fields(NuType, ICP);
+      displacement_fields(NuType, ICP, NumPart);
       unsigned int * seedtable = init_rng(All2.Seed+2,All2.Ngrid);
       gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
       /*Just in case*/
@@ -166,7 +166,7 @@ int main(int argc, char **argv)
       myfree(seedtable);
 
       write_particle_data(2,&bf, 2*TotNumPart, All2.NGridNu, ICP, NumPart);
-      free_ffts();
+      myfree(ICP);
   }
 
   big_file_mpi_close(&bf, MPI_COMM_WORLD);
