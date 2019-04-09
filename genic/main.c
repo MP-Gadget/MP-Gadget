@@ -91,12 +91,28 @@ int main(int argc, char **argv)
   /*Not used*/
   int size[3], offset[3];
   int NumPart = get_size_offset(size, offset, All2.Ngrid);
-  struct ic_part_data * ICP = (struct ic_part_data *) mymalloc("PartTable", NumPart*sizeof(struct ic_part_data));
+  /*Space for both CDM and baryons*/
+  struct ic_part_data * ICP = (struct ic_part_data *) mymalloc("PartTable", (NumPart + All2.ProduceGas * NumPart)*sizeof(struct ic_part_data));
 
+  /* If we have incoherent glass files, we need to store both the particle tables
+   * to ensure that there are no close particle pairs*/
+  /*Make the table for the CDM*/
   if(!All2.MakeGlassCDM) {
       setup_grid(All2.ProduceGas * shift_dm, All2.Ngrid, NumPart, ICP);
   } else {
       setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed), NumPart, ICP);
+  }
+
+  /*Make the table for the baryons if we need, using the second half of the memory.*/
+  if(All2.ProduceGas) {
+    if(!All2.MakeGlassGas) {
+        setup_grid(shift_gas, All2.Ngrid, NumPart, ICP+NumPart);
+    } else {
+        setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 1), NumPart, ICP+NumPart);
+    }
+    /*Do a single glass evolution timestep to avoid close pairs*/
+    if(All2.MakeGlassGas || All2.MakeGlassCDM)
+        glass_evolve(14, 0xDEADBEEF, ICP, 2*NumPart);
   }
 
   displacement_fields(DMType, ICP, NumPart);
@@ -131,15 +147,8 @@ int main(int argc, char **argv)
 
   /*Now make the gas if required*/
   if(All2.ProduceGas) {
-
-    if(!All2.MakeGlassGas) {
-        setup_grid(shift_gas, All2.Ngrid, NumPart, ICP);
-    } else {
-        setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 1), NumPart, ICP);
-    }
-
-    displacement_fields(GasType, ICP, NumPart);
-    write_particle_data(0, &bf, TotNumPart, All2.Ngrid, ICP, NumPart);
+    displacement_fields(GasType, ICP+NumPart, NumPart);
+    write_particle_data(0, &bf, TotNumPart, All2.Ngrid, ICP+NumPart, NumPart);
   }
   myfree(ICP);
 

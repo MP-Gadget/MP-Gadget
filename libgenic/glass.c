@@ -69,11 +69,11 @@ setup_glass(double shift, int Ngrid, int seed, int NumPart, struct ic_part_data 
 
     gsl_rng_free(rng);
 
-    glass_evolve(seed, ICP, NumPart);
+    glass_evolve(14, seed, ICP, NumPart);
     return NumPart;
 }
 
-void glass_evolve(int seed, struct ic_part_data * ICP, const int NumPart)
+void glass_evolve(int nsteps, int seed, struct ic_part_data * ICP, const int NumPart)
 {
     int i;
     int step = 0;
@@ -94,7 +94,7 @@ void glass_evolve(int seed, struct ic_part_data * ICP, const int NumPart)
      * 12 + 1 = 13, the first time phase is M_PI / 2, a close encounter to the minimum.
      *
      * */
-    for(step = 0; step < 14; step++) {
+    for(step = 0; step < nsteps; step++) {
         /* leap-frog, K D D F K */
         double dt = M_PI / 2; /* step size */
         double hdt = 0.5 * dt; /* half a step */
