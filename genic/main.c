@@ -88,6 +88,8 @@ int main(int argc, char **argv)
   }
 
   /*First compute and write CDM*/
+  int NumPart;
+  struct ic_part_data *ICP;
 
   if(!All2.MakeGlassCDM) {
       NumPart = setup_grid(All2.ProduceGas * shift_dm, All2.Ngrid, &ICP);
