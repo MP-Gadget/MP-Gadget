@@ -81,12 +81,11 @@ id_offset_from_index(const int i, const int Ngrid)
 }
 
 int
-setup_grid(double shift, int Ngrid, struct ic_part_data ** thisICP)
+setup_grid(double shift, int Ngrid, int NumPart, struct ic_part_data * ICP)
 {
     int size[3];
     int offset[3];
-    int NumPart = get_size_offset(size, offset, Ngrid);
-    struct ic_part_data * ICP = (struct ic_part_data *) mymalloc("PartTable", NumPart*sizeof(struct ic_part_data));
+    get_size_offset(size, offset, Ngrid);
     memset(ICP, 0, NumPart*sizeof(struct ic_part_data));
 
     int i;
@@ -101,7 +100,6 @@ setup_grid(double shift, int Ngrid, struct ic_part_data ** thisICP)
         ICP[i].Pos[2] = z * All.BoxSize / Ngrid + shift;
         ICP[i].Mass = 1.0;
     }
-    *thisICP = ICP;
     return NumPart;
 }
 

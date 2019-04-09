@@ -39,16 +39,14 @@ static void glass_force(double t_f, struct ic_part_data * ICP, const int NumPart
 static void glass_stats(struct ic_part_data * ICP, int NumPart);
 
 int
-setup_glass(double shift, int Ngrid, int seed, struct ic_part_data ** thisICP)
+setup_glass(double shift, int Ngrid, int seed, int NumPart, struct ic_part_data * ICP)
 {
     int size[3];
     int offset[3];
-    int NumPart = get_size_offset(size, offset, Ngrid);
+    get_size_offset(size, offset, Ngrid);
 
     gsl_rng * rng = gsl_rng_alloc(gsl_rng_ranlxd1);
     gsl_rng_set(rng, seed + ThisTask);
-
-    struct ic_part_data * ICP = (struct ic_part_data *) mymalloc("PartTable", NumPart*sizeof(struct ic_part_data));
     memset(ICP, 0, NumPart*sizeof(struct ic_part_data));
 
     int i;
@@ -72,7 +70,6 @@ setup_glass(double shift, int Ngrid, int seed, struct ic_part_data ** thisICP)
     gsl_rng_free(rng);
 
     evolve_glass(seed, ICP, NumPart);
-    *thisICP = ICP;
     return NumPart;
 }
 
