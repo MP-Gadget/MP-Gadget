@@ -48,13 +48,8 @@ ijk_to_id(int i, int j, int k, int Ngrid) {
     return id;
 }
 
-void free_ffts(void)
-{
-    myfree(ICP);
-}
-
 /*Helper function to get size and offset of particles to the global grid.*/
-static int
+int
 get_size_offset(int * size, int * offset, int Ngrid)
 {
     int * ThisTask2d = petapm_get_thistask2d();
@@ -85,13 +80,12 @@ id_offset_from_index(const int i, const int Ngrid)
     return ijk_to_id(x, y, z, Ngrid);
 }
 
-void
-setup_grid(double shift, int Ngrid)
+int
+setup_grid(double shift, int Ngrid, int NumPart, struct ic_part_data * ICP)
 {
     int size[3];
     int offset[3];
-    NumPart = get_size_offset(size, offset, Ngrid);
-    ICP = (struct ic_part_data *) mymalloc("PartTable", NumPart*sizeof(struct ic_part_data));
+    get_size_offset(size, offset, Ngrid);
     memset(ICP, 0, NumPart*sizeof(struct ic_part_data));
 
     int i;
@@ -106,10 +100,20 @@ setup_grid(double shift, int Ngrid)
         ICP[i].Pos[2] = z * All.BoxSize / Ngrid + shift;
         ICP[i].Mass = 1.0;
     }
+    return NumPart;
 }
+
+struct ic_prep_data
+{
+    struct ic_part_data * curICP;
+    int NumPart;
+};
 
 static PetaPMRegion * makeregion(void * userdata, int * Nregions) {
     PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion));
+    struct ic_prep_data * icprep = (struct ic_prep_data *) userdata;
+    int NumPart = icprep->NumPart;
+    struct ic_part_data * ICP = icprep->curICP;
     int k;
     int r = 0;
     int i;
@@ -140,16 +144,19 @@ static PetaPMRegion * makeregion(void * userdata, int * Nregions) {
 
 /*Global to pass type to *_transfer functions*/
 static enum TransferType ptype;
+/*Global to pass the particle data to the readout functions*/
+static struct ic_part_data * curICP;
 
-void displacement_fields(enum TransferType Type) {
+void displacement_fields(enum TransferType Type, struct ic_part_data * dispICP, const int NumPart) {
     /*MUST set this before doing force.*/
     ptype = Type;
+    curICP = dispICP;
     PetaPMParticleStruct pstruct = {
-        ICP,
-        sizeof(ICP[0]),
-        ((char*) &ICP[0].Pos[0]) - (char*) ICP,
-        ((char*) &ICP[0].Mass) - (char*) ICP,
-        ((char*) &ICP[0].RegionInd) - (char*) ICP,
+        curICP,
+        sizeof(curICP[0]),
+        ((char*) &curICP[0].Pos[0]) - (char*) curICP,
+        ((char*) &curICP[0].Mass) - (char*) curICP,
+        ((char*) &curICP[0].RegionInd) - (char*) curICP,
         NULL,
         NumPart,
     };
@@ -158,9 +165,9 @@ void displacement_fields(enum TransferType Type) {
     #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
     {
-        memset(&ICP[i].Disp[0], 0, sizeof(ICP[i].Disp));
-        memset(&ICP[i].Vel[0], 0, sizeof(ICP[i].Vel));
-        ICP[i].Density = 0;
+        memset(&curICP[i].Disp[0], 0, sizeof(curICP[i].Disp));
+        memset(&curICP[i].Vel[0], 0, sizeof(curICP[i].Vel));
+        curICP[i].Density = 0;
     }
 
 
@@ -200,9 +207,10 @@ void displacement_fields(enum TransferType Type) {
         functions[4].name = NULL;
     }
 
+    struct ic_prep_data icprep = {dispICP, NumPart};
     PetaPMRegion * regions = petapm_force_init(
            makeregion,
-           &pstruct, NULL);
+           &pstruct, &icprep);
 
     /*This allocates the memory*/
     pfft_complex * rho_k = petapm_alloc_rhok();
@@ -225,17 +233,17 @@ void displacement_fields(enum TransferType Type) {
         double absv = 0;
         for(k = 0; k < 3; k++)
         {
-            double dis = ICP[i].Disp[k];
+            double dis = curICP[i].Disp[k];
             if(dis > maxdisp)
                 maxdisp = dis;
             /*Copy displacements to positions.*/
-            ICP[i].Pos[k] += ICP[i].Disp[k];
+            curICP[i].Pos[k] += curICP[i].Disp[k];
             /*Copy displacements to velocities if not done already*/
             if(!All2.PowerP.ScaleDepVelocity)
-                ICP[i].Vel[k] = ICP[i].Disp[k];
-            ICP[i].Vel[k] *= vel_prefac;
-            absv += ICP[i].Vel[k] * ICP[i].Vel[k];
-            ICP[i].Pos[k] = periodic_wrap(ICP[i].Pos[k]);
+                curICP[i].Vel[k] = curICP[i].Disp[k];
+            curICP[i].Vel[k] *= vel_prefac;
+            absv += curICP[i].Vel[k] * curICP[i].Vel[k];
+            curICP[i].Pos[k] = periodic_wrap(curICP[i].Pos[k]);
         }
         if(absv > maxvel)
             maxvel = absv;
@@ -324,26 +332,26 @@ static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
  * functions iterating over particle / mesh pairs
  ***************/
 static void readout_density(int i, double * mesh, double weight) {
-    ICP[i].Density += weight * mesh[0];
+    curICP[i].Density += weight * mesh[0];
 }
 static void readout_vel_x(int i, double * mesh, double weight) {
-    ICP[i].Vel[0] += weight * mesh[0];
+    curICP[i].Vel[0] += weight * mesh[0];
 }
 static void readout_vel_y(int i, double * mesh, double weight) {
-    ICP[i].Vel[1] += weight * mesh[0];
+    curICP[i].Vel[1] += weight * mesh[0];
 }
 static void readout_vel_z(int i, double * mesh, double weight) {
-    ICP[i].Vel[2] += weight * mesh[0];
+    curICP[i].Vel[2] += weight * mesh[0];
 }
 
 static void readout_disp_x(int i, double * mesh, double weight) {
-    ICP[i].Disp[0] += weight * mesh[0];
+    curICP[i].Disp[0] += weight * mesh[0];
 }
 static void readout_disp_y(int i, double * mesh, double weight) {
-    ICP[i].Disp[1] += weight * mesh[0];
+    curICP[i].Disp[1] += weight * mesh[0];
 }
 static void readout_disp_z(int i, double * mesh, double weight) {
-    ICP[i].Disp[2] += weight * mesh[0];
+    curICP[i].Disp[2] += weight * mesh[0];
 }
 
 

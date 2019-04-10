@@ -35,40 +35,18 @@ static PetaPMGlobalFunctions global_functions = {measure_power_spectrum, NULL, p
 
 static PetaPMRegion * _prepare(void * userdata, int * Nregions);
 
-/*Helper function to get size and offset of particles to the global grid.*/
-static int
-get_size_offset(int * size, int * offset, int Ngrid)
-{
-    int * ThisTask2d = petapm_get_thistask2d();
-    int * NTask2d = petapm_get_ntask2d();
-    int k;
-    int npart = 1;
-    for(k = 0; k < 2; k ++) {
-        offset[k] = (ThisTask2d[k]) * Ngrid / NTask2d[k];
-        size[k] = (ThisTask2d[k] + 1) * Ngrid / NTask2d[k];
-        size[k] -= offset[k];
-        npart *= size[k];
-    }
-    offset[2] = 0;
-    size[2] = Ngrid;
-    npart *= size[2];
-    return npart;
-}
+static void glass_force(double t_f, struct ic_part_data * ICP, const int NumPart);
+static void glass_stats(struct ic_part_data * ICP, int NumPart);
 
-static void glass_force(double);
-static void glass_stats(void);
-
-void
-setup_glass(double shift, int Ngrid, int seed)
+int
+setup_glass(double shift, int Ngrid, int seed, int NumPart, struct ic_part_data * ICP)
 {
     int size[3];
     int offset[3];
-    NumPart = get_size_offset(size, offset, Ngrid);
+    get_size_offset(size, offset, Ngrid);
 
     gsl_rng * rng = gsl_rng_alloc(gsl_rng_ranlxd1);
     gsl_rng_set(rng, seed + ThisTask);
-
-    ICP = (struct ic_part_data *) mymalloc("PartTable", NumPart*sizeof(struct ic_part_data));
     memset(ICP, 0, NumPart*sizeof(struct ic_part_data));
 
     int i;
@@ -91,7 +69,13 @@ setup_glass(double shift, int Ngrid, int seed)
 
     gsl_rng_free(rng);
 
+    glass_evolve(seed, ICP, NumPart);
+    return NumPart;
+}
 
+void glass_evolve(int seed, struct ic_part_data * ICP, const int NumPart)
+{
+    int i;
     int step = 0;
     double t_x = 0;
     double t_v = 0;
@@ -100,7 +84,7 @@ setup_glass(double shift, int Ngrid, int seed)
     /*Allocate memory for a power spectrum*/
     powerspectrum_alloc(&PowerSpectrum, All.Nmesh, All.NumThreads, 0);
 
-    glass_force(t_x);
+    glass_force(t_x, ICP, NumPart);
 
     /* Our pick of the units ensures there is an oscillation period of 2 * M_PI.
      *
@@ -139,7 +123,7 @@ setup_glass(double shift, int Ngrid, int seed)
         }
         t_v += dt;
 
-        glass_force(t_x);
+        glass_force(t_x, ICP, NumPart);
         t_f = t_x;
 
         /* Kick */
@@ -152,7 +136,7 @@ setup_glass(double shift, int Ngrid, int seed)
 
         t_x += hdt;
         message(0, "Generating glass, step = %d, t_f= %g, t_v = %g, t_x = %g\n", step, t_f / (2 * M_PI), t_v / (2 *M_PI), t_x / (2 * M_PI));
-        glass_stats();
+        glass_stats(ICP, NumPart);
 
         /*Now save the power spectrum*/
         if(ThisTask == 0) {
@@ -168,7 +152,7 @@ setup_glass(double shift, int Ngrid, int seed)
 
 
 static void
-glass_stats() {
+glass_stats(struct ic_part_data * ICP, int NumPart) {
     int i;
     double disp2 = 0;
     double vel2 = 0;
@@ -191,9 +175,17 @@ glass_stats() {
     message(0, "Force std = %g, vel std = %g\n", sqrt(disp2 / n), sqrt(vel2 / n));
 }
 
+struct ic_prep_data
+{
+    struct ic_part_data * curICP;
+    int NumPart;
+};
+/*Global to pass the particle data to the readout functions*/
+static struct ic_part_data * curICP;
+
 /* Computes the gravitational force on the PM grid
  * and saves the total matter power spectrum.*/
-static void glass_force(double t_f) {
+static void glass_force(double t_f, struct ic_part_data * ICP, const int NumPart) {
 
     PetaPMParticleStruct pstruct = {
         ICP,
@@ -204,6 +196,7 @@ static void glass_force(double t_f) {
         NULL,
         NumPart,
     };
+    curICP = ICP;
 
     int i;
     #pragma omp parallel for
@@ -214,12 +207,13 @@ static void glass_force(double t_f) {
 
     powerspectrum_zero(&PowerSpectrum);
 
+    struct ic_prep_data icprep = {ICP, NumPart};
     /*
      * we apply potential transfer immediately after the R2C transform,
      * Therefore the force transfer functions are based on the potential,
      * not the density.
      * */
-    petapm_force(_prepare, &global_functions, functions, &pstruct, NULL);
+    petapm_force(_prepare, &global_functions, functions, &pstruct, &icprep);
 
     powerspectrum_sum(&PowerSpectrum, All.BoxSize*All.UnitLength_in_cm);
     walltime_measure("/LongRange");
@@ -227,9 +221,13 @@ static void glass_force(double t_f) {
 
 static double pot_factor;
 
-static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
-
+static PetaPMRegion * _prepare(void * userdata, int * Nregions)
+{
+    struct ic_prep_data * icprep = (struct ic_prep_data *) userdata;
+    int NumPart = icprep->NumPart;
+    struct ic_part_data * ICP = icprep->curICP;
     int64_t ntot = NumPart;
+
     MPI_Allreduce(MPI_IN_PLACE, &ntot, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
 
     double nbar = ntot; /* 1 / pow(All.Nmesh, 3) is included by the FFT, screw it. */
@@ -416,11 +414,11 @@ static void force_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     force_transfer(kpos[2], value);
 }
 static void readout_force_x(int i, double * mesh, double weight) {
-    ICP[i].Disp[0] += weight * mesh[0];
+    curICP[i].Disp[0] += weight * mesh[0];
 }
 static void readout_force_y(int i, double * mesh, double weight) {
-    ICP[i].Disp[1] += weight * mesh[0];
+    curICP[i].Disp[1] += weight * mesh[0];
 }
 static void readout_force_z(int i, double * mesh, double weight) {
-    ICP[i].Disp[2] += weight * mesh[0];
+    curICP[i].Disp[2] += weight * mesh[0];
 }

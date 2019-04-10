@@ -88,14 +88,18 @@ int main(int argc, char **argv)
   }
 
   /*First compute and write CDM*/
+  /*Not used*/
+  int size[3], offset[3];
+  int NumPart = get_size_offset(size, offset, All2.Ngrid);
+  struct ic_part_data * ICP = (struct ic_part_data *) mymalloc("PartTable", NumPart*sizeof(struct ic_part_data));
 
-  if(!All2.MakeGlass) {
-      setup_grid(All2.ProduceGas * shift_dm, All2.Ngrid);
+  if(!All2.MakeGlassCDM) {
+      setup_grid(All2.ProduceGas * shift_dm, All2.Ngrid, NumPart, ICP);
   } else {
-      setup_glass(All2.ProduceGas * shift_dm, All2.Ngrid, GLASS_SEED_HASH(All2.Seed));
+      setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed), NumPart, ICP);
   }
 
-  displacement_fields(DMType);
+  displacement_fields(DMType, ICP, NumPart);
 
   /*Add a thermal velocity to WDM particles*/
   if(All2.WDM_therm_mass > 0){
@@ -123,32 +127,30 @@ int main(int argc, char **argv)
       myfree(seedtable);
   }
 
-  write_particle_data(1, &bf, 0, All2.Ngrid);
-  free_ffts();
+  write_particle_data(1, &bf, 0, All2.Ngrid, ICP, NumPart);
 
   /*Now make the gas if required*/
   if(All2.ProduceGas) {
 
-    if(!All2.MakeGlass) {
-        setup_grid(shift_gas, All2.Ngrid);
+    if(!All2.MakeGlassGas) {
+        setup_grid(shift_gas, All2.Ngrid, NumPart, ICP);
     } else {
-        setup_glass(shift_gas, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 1));
+        setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 1), NumPart, ICP);
     }
 
-    displacement_fields(GasType);
-    write_particle_data(0, &bf, TotNumPart, All2.Ngrid);
-    free_ffts();
+    displacement_fields(GasType, ICP, NumPart);
+    write_particle_data(0, &bf, TotNumPart, All2.Ngrid, ICP, NumPart);
   }
+  myfree(ICP);
+
   /*Now add random velocity neutrino particles*/
   if(All2.NGridNu > 0) {
       int i;
-      if(!All2.MakeGlass) {
-        setup_grid(shift_nu, All2.NGridNu);
-      } else {
-        setup_glass(shift_nu, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 2));
-      }
+      NumPart = get_size_offset(size, offset, All2.NGridNu);
+      ICP = (struct ic_part_data *) mymalloc("PartTable", NumPart*sizeof(struct ic_part_data));
 
-      displacement_fields(NuType);
+      NumPart = setup_grid(shift_nu, All2.NGridNu, NumPart, ICP);
+      displacement_fields(NuType, ICP, NumPart);
       unsigned int * seedtable = init_rng(All2.Seed+2,All2.Ngrid);
       gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
       /*Just in case*/
@@ -165,10 +167,9 @@ int main(int argc, char **argv)
       gsl_rng_free(g_rng);
       myfree(seedtable);
 
-      write_particle_data(2,&bf, 2*TotNumPart, All2.NGridNu);
-      free_ffts();
+      write_particle_data(2,&bf, 2*TotNumPart, All2.NGridNu, ICP, NumPart);
+      myfree(ICP);
   }
-
   big_file_mpi_close(&bf, MPI_COMM_WORLD);
 
   walltime_summary(0, MPI_COMM_WORLD);

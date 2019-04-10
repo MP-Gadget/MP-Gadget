@@ -3,7 +3,7 @@
 #include <libgadget/allvars.h>
 #include "power.h"
 
-extern struct ic_part_data
+struct ic_part_data
 {
   double Pos[3];
   float Vel[3];
@@ -11,8 +11,7 @@ extern struct ic_part_data
   float Density;
   float Mass;
   int RegionInd;
-} * ICP;
-extern int NumPart;
+};
 
 struct genic_config {
     int Ngrid, NGridNu;
@@ -23,8 +22,8 @@ struct genic_config {
     int InvertPhase;
     double Max_nuvel;
     double WDM_therm_mass;
-    int MakeGlass;
-
+    int MakeGlassGas;
+    int MakeGlassCDM;
     int  NumFiles;
     struct power_params PowerP;
 } ;
