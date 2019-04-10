@@ -132,7 +132,7 @@ int main(int argc, char **argv)
   /*Now make the gas if required*/
   if(All2.ProduceGas) {
 
-    if(!All2.MakeGlassBar) {
+    if(!All2.MakeGlassGas) {
         setup_grid(shift_gas, All2.Ngrid, NumPart, ICP);
     } else {
         setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 1), NumPart, ICP);
