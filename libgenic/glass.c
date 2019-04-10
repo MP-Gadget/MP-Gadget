@@ -69,11 +69,11 @@ setup_glass(double shift, int Ngrid, int seed, int NumPart, struct ic_part_data 
 
     gsl_rng_free(rng);
 
-    evolve_glass(seed, ICP, NumPart);
+    glass_evolve(seed, ICP, NumPart);
     return NumPart;
 }
 
-void evolve_glass(int seed, struct ic_part_data * ICP, const int NumPart)
+void glass_evolve(int seed, struct ic_part_data * ICP, const int NumPart)
 {
     int i;
     int step = 0;
