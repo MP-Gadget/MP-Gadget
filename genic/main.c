@@ -88,6 +88,9 @@ int main(int argc, char **argv)
   }
 
   /*First compute and write CDM*/
+  double mass[6] = {0};
+  /*Can neglect neutrinos since this only matters for the glass force.*/
+  compute_mass(mass, TotNumPart, 0, 0);
   /*Not used*/
   int size[3], offset[3];
   int NumPart = get_size_offset(size, offset, All2.Ngrid);
@@ -98,17 +101,17 @@ int main(int argc, char **argv)
    * to ensure that there are no close particle pairs*/
   /*Make the table for the CDM*/
   if(!All2.MakeGlassCDM) {
-      setup_grid(All2.ProduceGas * shift_dm, All2.Ngrid, NumPart, ICP);
+      setup_grid(All2.ProduceGas * shift_dm, All2.Ngrid, mass[1], NumPart, ICP);
   } else {
-      setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed), NumPart, ICP);
+      setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed), mass[1], NumPart, ICP);
   }
 
   /*Make the table for the baryons if we need, using the second half of the memory.*/
   if(All2.ProduceGas) {
     if(!All2.MakeGlassGas) {
-        setup_grid(shift_gas, All2.Ngrid, NumPart, ICP+NumPart);
+        setup_grid(shift_gas, All2.Ngrid, mass[0], NumPart, ICP+NumPart);
     } else {
-        setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 1), NumPart, ICP+NumPart);
+        setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 1), mass[0], NumPart, ICP+NumPart);
     }
     /*Do a single glass evolution timestep to avoid close pairs*/
     if(All2.MakeGlassGas || All2.MakeGlassCDM)
@@ -158,7 +161,7 @@ int main(int argc, char **argv)
       NumPart = get_size_offset(size, offset, All2.NGridNu);
       ICP = (struct ic_part_data *) mymalloc("PartTable", NumPart*sizeof(struct ic_part_data));
 
-      NumPart = setup_grid(shift_nu, All2.NGridNu, NumPart, ICP);
+      NumPart = setup_grid(shift_nu, All2.NGridNu, NumPart, mass[2], ICP);
       displacement_fields(NuType, ICP, NumPart);
       unsigned int * seedtable = init_rng(All2.Seed+2,All2.Ngrid);
       gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);

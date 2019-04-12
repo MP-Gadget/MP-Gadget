@@ -81,7 +81,7 @@ id_offset_from_index(const int i, const int Ngrid)
 }
 
 int
-setup_grid(double shift, int Ngrid, int NumPart, struct ic_part_data * ICP)
+setup_grid(double shift, int Ngrid, double mass, int NumPart, struct ic_part_data * ICP)
 {
     int size[3];
     int offset[3];
@@ -98,7 +98,7 @@ setup_grid(double shift, int Ngrid, int NumPart, struct ic_part_data * ICP)
         ICP[i].Pos[0] = x * All.BoxSize / Ngrid + shift;
         ICP[i].Pos[1] = y * All.BoxSize / Ngrid + shift;
         ICP[i].Pos[2] = z * All.BoxSize / Ngrid + shift;
-        ICP[i].Mass = 1.0;
+        ICP[i].Mass = mass;
     }
     return NumPart;
 }
