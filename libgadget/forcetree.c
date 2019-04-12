@@ -144,7 +144,7 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp)
 
     force_treeupdate_pseudos(PartManager->MaxPart, &tree);
 
-    myrealloc(tree.Nodes_base, (Numnodestree +1) * sizeof(struct NODE));
+    tree.Nodes_base = myrealloc(tree.Nodes_base, (Numnodestree +1) * sizeof(struct NODE));
 
     /*Update the oct-tree struct so it knows about the memory change*/
     tree.numnodes = Numnodestree;
