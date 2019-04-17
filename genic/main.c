@@ -35,6 +35,7 @@ int main(int argc, char **argv)
   walltime_init(&All.CT);
 
   int64_t TotNumPart = (int64_t) All2.Ngrid*All2.Ngrid*All2.Ngrid;
+  int64_t TotNumPartGas = (int64_t) All2.ProduceGas*All2.NgridGas*All2.NgridGas*All2.NgridGas;
 
   init_cosmology(&All.CP, All.TimeIC);
 
@@ -73,7 +74,7 @@ int main(int argc, char **argv)
     total_nufrac = init_thermalvel(&nu_therm, v_th, All2.Max_nuvel/v_th, 0);
     message(0,"F-D velocity scale: %g. Max particle vel: %g. Fraction of mass in particles: %g\n",v_th*sqrt(All.TimeIC), All2.Max_nuvel*sqrt(All.TimeIC), total_nufrac);
   }
-  saveheader(&bf, TotNumPart, TotNu, total_nufrac);
+  saveheader(&bf, TotNumPart, TotNumPartGas, TotNu, total_nufrac);
 
   /*Save the transfer functions*/
   save_all_transfer_tables(&bf, ThisTask);
@@ -90,12 +91,13 @@ int main(int argc, char **argv)
   /*First compute and write CDM*/
   double mass[6] = {0};
   /*Can neglect neutrinos since this only matters for the glass force.*/
-  compute_mass(mass, TotNumPart, 0, 0);
+  compute_mass(mass, TotNumPart, TotNumPartGas, 0, 0);
   /*Not used*/
   int size[3], offset[3];
   int NumPart = get_size_offset(size, offset, All2.Ngrid);
+  int NumPartGas = get_size_offset(size, offset, All2.NgridGas);
   /*Space for both CDM and baryons*/
-  struct ic_part_data * ICP = (struct ic_part_data *) mymalloc("PartTable", (NumPart + All2.ProduceGas * NumPart)*sizeof(struct ic_part_data));
+  struct ic_part_data * ICP = (struct ic_part_data *) mymalloc("PartTable", (NumPart + All2.ProduceGas * NumPartGas)*sizeof(struct ic_part_data));
 
   /* If we have incoherent glass files, we need to store both the particle tables
    * to ensure that there are no close particle pairs*/
@@ -109,13 +111,13 @@ int main(int argc, char **argv)
   /*Make the table for the baryons if we need, using the second half of the memory.*/
   if(All2.ProduceGas) {
     if(!All2.MakeGlassGas) {
-        setup_grid(shift_gas, All2.Ngrid, mass[0], NumPart, ICP+NumPart);
+        setup_grid(shift_gas, All2.NgridGas, mass[0], NumPart, ICP+NumPart);
     } else {
-        setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed + 1), mass[0], NumPart, ICP+NumPart);
+        setup_glass(0, All2.NgridGas, GLASS_SEED_HASH(All2.Seed + 1), mass[0], NumPart, ICP+NumPart);
     }
     /*Do a single glass evolution timestep to avoid close pairs*/
     if(All2.MakeGlassGas || All2.MakeGlassCDM)
-        glass_evolve(14, 0xDEADBEEF, ICP, 2*NumPart);
+        glass_evolve(14, 0xDEADBEEF, ICP, NumPart+NumPartGas);
   }
 
   displacement_fields(DMType, ICP, NumPart);
@@ -150,8 +152,8 @@ int main(int argc, char **argv)
 
   /*Now make the gas if required*/
   if(All2.ProduceGas) {
-    displacement_fields(GasType, ICP+NumPart, NumPart);
-    write_particle_data(0, &bf, TotNumPart, All2.Ngrid, ICP+NumPart, NumPart);
+    displacement_fields(GasType, ICP+NumPart, NumPartGas);
+    write_particle_data(0, &bf, TotNumPart, All2.NgridGas, ICP+NumPart, NumPartGas);
   }
   myfree(ICP);
 
@@ -179,7 +181,7 @@ int main(int argc, char **argv)
       gsl_rng_free(g_rng);
       myfree(seedtable);
 
-      write_particle_data(2,&bf, 2*TotNumPart, All2.NGridNu, ICP, NumPart);
+      write_particle_data(2,&bf, TotNumPart+TotNumPartGas, All2.NGridNu, ICP, NumPart);
       myfree(ICP);
   }
   big_file_mpi_close(&bf, MPI_COMM_WORLD);

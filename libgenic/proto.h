@@ -26,10 +26,10 @@ int get_size_offset(int * size, int * offset, int Ngrid);
 uint64_t id_offset_from_index(const int i, const int Ngrid);
 
 /* Save the header of the ICs. */
-void saveheader(BigFile * bf, int64_t TotNumPart, int64_t TotNuPart, double nufrac);
+void saveheader(BigFile * bf, int64_t TotNumPartCDM, int64_t TotNumPartGas, int64_t TotNuPart, double nufrac);
 
 /*Compute the mass array from the cosmology*/
-void compute_mass(double * mass, int64_t TotNumPart, int64_t TotNuPart, double nufrac);
+void compute_mass(double * mass, int64_t TotNumPartCDM, int64_t TotNumPartGas, int64_t TotNuPart, double nufrac);
 
 /* Save positions, velocities and IDs of a particle type to the ICs. */
 void write_particle_data(const int Type, BigFile * bf, const uint64_t FirstID, const int Ngrid, struct ic_part_data * curICP, const int NumPart);

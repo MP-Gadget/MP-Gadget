@@ -28,7 +28,8 @@ create_parameters()
     param_declare_double(ps, "BoxSize", REQUIRED, 0, "Size of box in internal units.");
     param_declare_double(ps, "Redshift", REQUIRED, 99, "Starting redshift");
     param_declare_int(ps, "Nmesh", OPTIONAL, 0, "Size of the FFT grid used to estimate displacements. Should be > Ngrid.");
-    param_declare_int(ps, "Ngrid", REQUIRED, 0, "Size of regular grid on which the undisplaced particles are created.");
+    param_declare_int(ps, "Ngrid", REQUIRED, 0, "Size of regular grid on which the undisplaced CDM particles are created.");
+    param_declare_int(ps, "NgridGas", OPTIONAL, -1, "Size of regular grid on which the undisplaced gas particles are created.");
     param_declare_int(ps, "NgridNu", OPTIONAL, 0, "Number of neutrino particles created for hybrid neutrinos.");
     param_declare_int(ps, "Seed", REQUIRED, 0, "");
     param_declare_int(ps, "MakeGlassGas", OPTIONAL, 0, "Generate Glass IC for gas instead of Grid IC.");
@@ -143,6 +144,9 @@ void read_parameterfile(char *fname)
     All.BoxSize = param_get_double(ps, "BoxSize");
     All.Nmesh = param_get_int(ps, "Nmesh");
     All2.Ngrid = param_get_int(ps, "Ngrid");
+    All2.NgridGas = param_get_int(ps, "NgridGas");
+    if(All2.NgridGas < 0)
+        All2.NgridGas = All2.Ngrid;
     /*Enable 'hybrid' neutrinos*/
     All2.NGridNu = param_get_int(ps, "NgridNu");
     /* Convert physical km/s at z=0 in an unperturbed universe to
