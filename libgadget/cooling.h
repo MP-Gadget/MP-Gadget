@@ -52,10 +52,9 @@ struct UVBG get_local_UVBG(double redshift, double * Pos);
     helium is a mass fraction*/
 double get_temp(double density, double ienergy, double helium, const struct UVBG * uvbg, double * ne_init);
 
-/*Get the neutral hydrogen fraction at a given temperature and density.
-density is gas density in protons/cm^3
-Internal energy is in J/kg == 10^-10 ergs/g.
-helium is a mass fraction.*/
-double get_neutral_fraction(double density, double ienergy, double helium, const struct UVBG * uvbg, double * ne_init);
+/*Gets the neutral fraction from density and internal energy in internal units.
+  u_old is in internal units. rho is in internal physical density units and is converted to
+  physical protons/cm^3 inside the function. */
+double GetNeutralFraction(double u_old, double rho, const struct UVBG * uvbg, double ne);
 
 #endif
