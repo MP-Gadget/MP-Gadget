@@ -131,20 +131,20 @@ static void test_rate_network(void ** state)
     double dens[3] = {1e-4, 1e-5, 1e-6};
     int i;
     for(i = 0; i < 3; i++) {
-        assert_true(fabs(get_neutral_fraction(dens[i], 200.*1e10,0.24, &uvbg, &ne) / dens[i] - 0.3113) < 1e-3);
+        assert_true(fabs(get_neutral_fraction_phys_cgs(dens[i], 200.*1e10,0.24, &uvbg, &ne) / dens[i] - 0.3113) < 1e-3);
     }
     //Neutral (self-shielded) at high density:
-    assert_true(get_neutral_fraction(1, 100.,0.24, &uvbg, &ne) > 0.95);
-    assert_true(0.75 > get_neutral_fraction(0.1, 100.*1e10,0.24, &uvbg, &ne));
-    assert_true(get_neutral_fraction(0.1, 100.*1e10,0.24, &uvbg, &ne) > 0.735);
+    assert_true(get_neutral_fraction_phys_cgs(1, 100.,0.24, &uvbg, &ne) > 0.95);
+    assert_true(0.75 > get_neutral_fraction_phys_cgs(0.1, 100.*1e10,0.24, &uvbg, &ne));
+    assert_true(get_neutral_fraction_phys_cgs(0.1, 100.*1e10,0.24, &uvbg, &ne) > 0.735);
 
     //Check self-shielding is working.
     coolpar.SelfShieldingOn = 0;
     set_coolpar(coolpar);
     init_cooling_rates(TreeCool, MetalCool);
 
-    assert_true( get_neutral_fraction(1, 100.*1e10,0.24, &uvbg, &ne) < 0.25);
-    assert_true( get_neutral_fraction(0.1, 100.*1e10,0.24, &uvbg, &ne) <0.05);
+    assert_true( get_neutral_fraction_phys_cgs(1, 100.*1e10,0.24, &uvbg, &ne) < 0.25);
+    assert_true( get_neutral_fraction_phys_cgs(0.1, 100.*1e10,0.24, &uvbg, &ne) <0.05);
 }
 
 /* This test checks that the heating and cooling rate is as expected.

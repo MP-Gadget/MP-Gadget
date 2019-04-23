@@ -20,7 +20,7 @@
     These are:
         get_temp() - gets the temperature from the density and internal energy.
         get_heatingcooling_rate() - gets the total (net) heating and cooling rate from density and internal energy.
-        get_neutral_fraction() - gets the neutral fraction from the rate network given density and internal energy.
+        get_neutral_fraction_phys_cgs() - gets the neutral fraction from the rate network given density and internal energy in physical cgs units.
         get_global_UVBG() - Interpolates the TreeCool table to a desired redshift and returns a struct UVBG.
     Two useful helper functions:
         get_equilib_ne() - gets the equilibrium electron density.
@@ -1095,7 +1095,7 @@ density is gas density in protons/cm^3
 Internal energy is in ergs/g.
 helium is a mass fraction.*/
 double
-get_neutral_fraction(double density, double ienergy, double helium, const struct UVBG * uvbg, double * ne_init)
+get_neutral_fraction_phys_cgs(double density, double ienergy, double helium, const struct UVBG * uvbg, double * ne_init)
 {
     double logt;
     double ne = get_equilib_ne(density, ienergy, helium, &logt, uvbg, *ne_init);

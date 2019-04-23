@@ -95,6 +95,6 @@ double get_heatingcooling_rate(double density, double ienergy, double helium, do
 density is gas density in protons/cm^3
 Internal energy is in J/kg == 10^-10 ergs/g.
 helium is a mass fraction.*/
-double get_neutral_fraction(double density, double ienergy, double helium, const struct UVBG * uvbg, double * ne_init);
+double get_neutral_fraction_phys_cgs(double density, double ienergy, double helium, const struct UVBG * uvbg, double * ne_init);
 
 #endif
