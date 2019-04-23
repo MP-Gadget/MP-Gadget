@@ -91,4 +91,10 @@ double get_ne_by_nh(double density, double ienergy, double helium, const struct 
  */
 double get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, double metallicity, const struct UVBG * uvbg, double * ne_equilib);
 
+/*Get the neutral hydrogen fraction at a given temperature and density.
+density is gas density in protons/cm^3
+Internal energy is in J/kg == 10^-10 ergs/g.
+helium is a mass fraction.*/
+double get_neutral_fraction_phys_cgs(double density, double ienergy, double helium, const struct UVBG * uvbg, double * ne_init);
+
 #endif

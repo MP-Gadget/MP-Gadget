@@ -148,3 +148,14 @@ double GetCoolingTime(double redshift, double u_old, double rho, struct UVBG * u
 
     return coolingtime;
 }
+
+/*Gets the neutral fraction from density and internal energy in internal units*/
+double
+GetNeutralFraction(double u_old, double rho, const struct UVBG * uvbg, double ne_init)
+{
+    /* convert to physical cgs units */
+    rho *= coolunits.density_in_phys_cgs / PROTONMASS;
+    u_old *= coolunits.uu_in_cgs;
+    double nh0 = get_neutral_fraction_phys_cgs(rho, u_old, 1 - HYDROGEN_MASSFRAC, uvbg, &ne_init);
+    return nh0;
+}
