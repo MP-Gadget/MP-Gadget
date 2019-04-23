@@ -32,7 +32,7 @@ create_parameters()
     param_declare_int(ps, "NgridGas", OPTIONAL, -1, "Size of regular grid on which the undisplaced gas particles are created.");
     param_declare_int(ps, "NgridNu", OPTIONAL, 0, "Number of neutrino particles created for hybrid neutrinos.");
     param_declare_int(ps, "Seed", REQUIRED, 0, "");
-    param_declare_int(ps, "MakeGlassGas", OPTIONAL, 0, "Generate Glass IC for gas instead of Grid IC.");
+    param_declare_int(ps, "MakeGlassGas", OPTIONAL, -1, "Generate Glass IC for gas instead of Grid IC.");
     param_declare_int(ps, "MakeGlassCDM", OPTIONAL, 0, "Generate Glass IC for CDM instead of Grid IC.");
 
     param_declare_int(ps, "UnitaryAmplitude", OPTIONAL, 0, "If non-zero, generate unitary gaussians where |g| == 1.0.");
@@ -157,6 +157,14 @@ void read_parameterfile(char *fname)
     param_get_string2(ps, "OutputDir", All.OutputDir);
     param_get_string2(ps, "FileBase", All.InitCondFile);
     All2.MakeGlassGas = param_get_int(ps, "MakeGlassGas");
+    /* We want to use a baryon glass by default if we have different transfer functions,
+     * since that is the way we reproduce the linear growth. Otherwise use a grid by default.*/
+    if(All2.MakeGlassGas < 0) {
+        if(All2.PowerP.DifferentTransferFunctions)
+            All2.MakeGlassGas = 1;
+        else
+            All2.MakeGlassGas = 0;
+    }
     All2.MakeGlassCDM = param_get_int(ps, "MakeGlassCDM");
 
     int64_t NumPartPerFile = param_get_int(ps, "NumPartPerFile");
