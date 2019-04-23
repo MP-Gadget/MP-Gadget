@@ -40,7 +40,7 @@ static int starformation(int i, double *localsfr, double * sum_sm);
 static int quicklyastarformation(int i);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
-static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyeff);
+static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyhot, double * coolfrac);
 static double find_star_mass(int i);
 /*Get enough memory for new star slots. This may be excessively slow! Don't do it too often.*/
 static int * sfr_reserve_slots(int * NewStars, int NumNewStar, ForceTree * tt);
@@ -370,6 +370,34 @@ sfreff_on_eeqos(int i)
     return flag;
 }
 
+/*Get the neutral fraction of a particle correctly, accounting for being on the star-forming equation of state*/
+double get_neutral_fraction_sfr(int i, double redshift)
+{
+    double nh0;
+    struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
+    double physdens = SPHP(i).Density * All.cf.a3inv;
+
+    if(!All.StarformationOn || All.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(i)) {
+        /*This gets the neutral fraction for standard gas*/
+        double InternalEnergy = DMAX(All.MinEgySpec, SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+        nh0 = GetNeutralFraction(InternalEnergy, physdens, &uvbg, SPHP(i).Ne);
+    }
+    else {
+        /* This gets the neutral fraction for gas on the star-forming equation of state.
+         * This needs special handling because the cold clouds have a different neutral
+         * fraction than the hot gas*/
+        double dloga = get_dloga_for_bin(P[i].TimeBin);
+        double dtime = dloga / All.cf.hubble;
+        double egyhot, coolfrac;
+        double ne = SPHP(i).Ne;
+        get_starformation_rate_full(i, dtime, &ne, NULL, &egyhot, &coolfrac);
+        double nh0cold = GetNeutralFraction(All.EgySpecCold, physdens, &uvbg, ne);
+        double nh0hot = GetNeutralFraction(egyhot, physdens, &uvbg, ne);
+        nh0 =  nh0cold * coolfrac + (1-coolfrac) * nh0hot;
+    }
+    return nh0;
+}
+
 /* This function turns a particle into a star. It returns 1 if a particle was
  * converted and 2 if a new particle was spawned. This is used
  * above to set stars_{spawned|converted}*/
@@ -472,8 +500,8 @@ starformation(int i, double *localsfr, double * sum_sm)
     double dtime = dloga / All.cf.hubble;
     int newstar = -1;
 
-    double egyeff, trelax;
-    double rateOfSF = get_starformation_rate_full(i, dtime, &SPHP(i).Ne, &trelax, &egyeff);
+    double coolfrac, trelax, egyhot;
+    double rateOfSF = get_starformation_rate_full(i, dtime, &SPHP(i).Ne, &trelax, &egyhot, &coolfrac);
 
     /* amount of stars expect to form */
 
@@ -490,7 +518,8 @@ starformation(int i, double *localsfr, double * sum_sm)
 
     if(dloga > 0 && P[i].TimeBin)
     {
-      	/* upon start-up, we need to protect against dloga ==0 */
+        double egyeff = All.EgySpecCold * coolfrac + (1 - coolfrac) * egyhot;
+        /* upon start-up, we need to protect against dloga ==0 */
         cooling_relaxed(i, egyeff, dtime, trelax);
     }
 
@@ -529,16 +558,16 @@ starformation(int i, double *localsfr, double * sum_sm)
 
 double get_starformation_rate(int i) {
     /* returns SFR in internal units */
-    return get_starformation_rate_full(i, 0, NULL, NULL, NULL);
+    return get_starformation_rate_full(i, 0, NULL, NULL, NULL, NULL);
 }
 
-static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyeff) {
+static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyhot_i, double * coolfrac) {
     double rateOfSF, tsfr;
     double factorEVP, egyhot, ne, tcool, y, x, cloudmass;
 
     if(!All.StarformationOn || !sfreff_on_eeqos(i)) {
         /* this shall not happen but let's put in some safe
-         * numbers in case the code run wary!
+         * numbers in case the code runs away!
          *
          * the only case trelax and egyeff are
          * required is in starformation(i)
@@ -546,9 +575,13 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
         if (trelax) {
             *trelax = All.MaxSfrTimescale;
         }
-        if (egyeff) {
-            *egyeff = All.EgySpecCold;
+        if (egyhot_i) {
+            *egyhot_i = All.EgySpecCold;
         }
+        if (coolfrac) {
+            *coolfrac = 0;
+        }
+
         return 0;
     }
 
@@ -585,8 +618,11 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
     if (trelax) {
         *trelax = tsfr * (1 - x) / x / (All.FactorSN * (1 + factorEVP));
     }
-    if (egyeff) {
-        *egyeff = egyhot * (1 - x) + All.EgySpecCold * x;
+    if (coolfrac) {
+        *coolfrac = x;
+    }
+    if(egyhot_i) {
+        *egyhot_i = egyhot;
     }
 
     if (HAS(All.StarformationCriterion, SFR_CRITERION_MOLECULAR_H2)) {
