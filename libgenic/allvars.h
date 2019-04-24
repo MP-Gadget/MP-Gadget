@@ -14,7 +14,7 @@ struct ic_part_data
 };
 
 struct genic_config {
-    int Ngrid, NGridNu;
+    int Ngrid, NgridGas, NGridNu;
 
     int ProduceGas;
     int Seed;

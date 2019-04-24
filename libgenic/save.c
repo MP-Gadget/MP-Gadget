@@ -75,32 +75,38 @@ void write_particle_data(const int Type, BigFile * bf, const uint64_t FirstID, c
     walltime_measure("/Write");
 }
 
-void saveheader(BigFile * bf, int64_t TotNumPart, int64_t TotNuPart, double nufrac) {
-    BigBlock bheader;
-    if(0 != big_file_mpi_create_block(bf, &bheader, "Header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
-        endrun(0, "failed to create block %s:%s", "Header",
-                big_file_get_error_message());
-    }
-
+/*Compute the mass array from the cosmology and the total number of particles.*/
+void compute_mass(double * mass, int64_t TotNumPartCDM, int64_t TotNumPartGas, int64_t TotNuPart, double nufrac)
+{
     const double OmegatoMass = 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G) * pow(All.BoxSize, 3);
-    int64_t totnumpart[6] = {0};
-    double mass[6] = {0};
-    totnumpart[1] = TotNumPart;
     double OmegaCDM = All.CP.Omega0;
-    if (All2.ProduceGas) {
-        totnumpart[0] = TotNumPart;
-        mass[0] = (All.CP.OmegaBaryon) * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G) * pow(All.BoxSize, 3) / TotNumPart;
+    mass[0] = mass[2] = mass[3] = mass[4] = mass[5] = 0;
+    if (TotNumPartGas > 0) {
+        mass[0] = (All.CP.OmegaBaryon) * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G) * pow(All.BoxSize, 3) / TotNumPartGas;
         OmegaCDM -= All.CP.OmegaBaryon;
     }
     if(All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2] > 0) {
         double OmegaNu = get_omega_nu(&All.CP.ONu, 1);
         OmegaCDM -= OmegaNu;
         if(TotNuPart > 0) {
-            totnumpart[2] = TotNuPart;
-            mass[2] = nufrac * OmegaNu * OmegatoMass / totnumpart[2];
+            mass[2] = nufrac * OmegaNu * OmegatoMass / TotNuPart;
         }
     }
-    mass[1] = OmegaCDM * OmegatoMass / TotNumPart;
+    mass[1] = OmegaCDM * OmegatoMass / TotNumPartCDM;
+}
+
+
+void saveheader(BigFile * bf, int64_t TotNumPartCDM, int64_t TotNumPartGas, int64_t TotNuPart, double nufrac) {
+    BigBlock bheader;
+    if(0 != big_file_mpi_create_block(bf, &bheader, "Header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
+        endrun(0, "failed to create block %s:%s", "Header",
+                big_file_get_error_message());
+    }
+
+    int64_t totnumpart[6] = {TotNumPartGas, TotNumPartCDM, TotNuPart, 0, 0, 0};
+    double mass[6] = {0};
+    compute_mass(mass, TotNumPartCDM, TotNumPartGas, TotNuPart, nufrac);
+
     double redshift = 1.0 / All.TimeIC - 1.;
 
     int rt =(0 != big_block_set_attr(&bheader, "TotNumPart", totnumpart, "i8", 6)) ||

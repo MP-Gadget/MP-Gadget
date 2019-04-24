@@ -81,7 +81,7 @@ def test_power(output, transfer, IC=False):
     ax.legend()
     fig.savefig(output + '-full.png')
 
-    final = 10
+    final = 5
     # asserting the linear growth is reasonably accurate
     assert_allclose(pkcdm['power'][2:final],
             intpdmpk(pkcdm['k'][2:final]),
