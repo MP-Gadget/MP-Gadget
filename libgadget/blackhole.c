@@ -16,6 +16,7 @@
 #include "blackhole.h"
 #include "timestep.h"
 #include "hydra.h"
+#include "sfr_eff.h"
 /*! \file blackhole.c
  *  \brief routines for gas accretion onto black holes, and black hole mergers
  */
@@ -460,10 +461,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             double mass_j;
             if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_OPTTHIN)) {
                 double redshift = 1./All.Time - 1;
-                double InternalEnergy = DMAX(All.MinEgySpec, SPHP(other).Entropy / GAMMA_MINUS1 * pow(SPHP(other).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
-                double physdens = SPHP(other).Density * All.cf.a3inv;
-                struct UVBG uvbg = get_local_UVBG(redshift, P[other].Pos);
-                double nh0 = GetNeutralFraction(InternalEnergy, physdens, &uvbg, SPHP(other).Ne);
+                double nh0 = get_neutral_fraction_sfreff(other, redshift);
                 if(r2 > 0)
                     O->FeedbackWeightSum += (P[other].Mass * nh0) / r2;
             } else {
