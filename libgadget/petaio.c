@@ -750,7 +750,7 @@ SIMPLE_PROPERTY(BlackholeJumpToMinPot, BHP(i).JumpToMinPot, int, 1)
 SIMPLE_GETTER(GTGroupID, P[i].GrNr, uint32_t, 1)
 static void GTNeutralHydrogenFraction(int i, float * out) {
     double redshift = 1./All.Time - 1;
-    *out = get_neutral_fraction_sfr(i, redshift);
+    *out = get_neutral_fraction_sfreff(i, redshift);
 }
 
 static void GTInternalEnergy(int i, float * out) {

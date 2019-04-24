@@ -40,7 +40,7 @@ static int starformation(int i, double *localsfr, double * sum_sm);
 static int quicklyastarformation(int i);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
-static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyhot, double * coolfrac);
+static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyhot_out, double * coolfrac);
 static double find_star_mass(int i);
 /*Get enough memory for new star slots. This may be excessively slow! Don't do it too often.*/
 static int * sfr_reserve_slots(int * NewStars, int NumNewStar, ForceTree * tt);
@@ -371,7 +371,7 @@ sfreff_on_eeqos(int i)
 }
 
 /*Get the neutral fraction of a particle correctly, accounting for being on the star-forming equation of state*/
-double get_neutral_fraction_sfr(int i, double redshift)
+double get_neutral_fraction_sfreff(int i, double redshift)
 {
     double nh0;
     struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
@@ -561,7 +561,7 @@ double get_starformation_rate(int i) {
     return get_starformation_rate_full(i, 0, NULL, NULL, NULL, NULL);
 }
 
-static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyhot_i, double * coolfrac) {
+static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyhot_out, double * coolfrac) {
     double rateOfSF, tsfr;
     double factorEVP, egyhot, ne, tcool, y, x, cloudmass;
 
@@ -575,8 +575,8 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
         if (trelax) {
             *trelax = All.MaxSfrTimescale;
         }
-        if (egyhot_i) {
-            *egyhot_i = All.EgySpecCold;
+        if (egyhot_out) {
+            *egyhot_out = All.EgySpecCold;
         }
         if (coolfrac) {
             *coolfrac = 0;
@@ -621,8 +621,8 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
     if (coolfrac) {
         *coolfrac = x;
     }
-    if(egyhot_i) {
-        *egyhot_i = egyhot;
+    if(egyhot_out) {
+        *egyhot_out = egyhot;
     }
 
     if (HAS(All.StarformationCriterion, SFR_CRITERION_MOLECULAR_H2)) {
@@ -789,7 +789,7 @@ find_star_mass(int i)
  * We really are mostly concerned about H2 here.
  *
  * You may need a license to run with these modess.
- 
+
  * */
 #if defined SPH_GRAD_RHO
 static double ev_NH_from_GradRho(MyFloat gradrho[3], double hsml, double rho, double include_h)

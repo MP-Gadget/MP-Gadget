@@ -461,7 +461,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             double mass_j;
             if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_OPTTHIN)) {
                 double redshift = 1./All.Time - 1;
-                double nh0 = get_neutral_fraction_sfr(other, redshift);
+                double nh0 = get_neutral_fraction_sfreff(other, redshift);
                 if(r2 > 0)
                     O->FeedbackWeightSum += (P[other].Mass * nh0) / r2;
             } else {

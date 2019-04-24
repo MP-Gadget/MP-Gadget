@@ -17,6 +17,6 @@ double get_starformation_rate(int i);
 /*Get the neutral fraction of a particle correctly, even when on the star-forming equation of state.
  * This calls the cooling routines for the current internal energy when off the equation of state, but
  * when on the equation of state calls them separately for the cold and hot gas.*/
-double get_neutral_fraction_sfr(int i, double redshift);
+double get_neutral_fraction_sfreff(int i, double redshift);
 
 #endif
