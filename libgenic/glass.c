@@ -69,11 +69,14 @@ setup_glass(double shift, int Ngrid, int seed, double mass, int NumPart, struct 
 
     gsl_rng_free(rng);
 
-    glass_evolve(14, seed, ICP, NumPart);
+    char * fn = fastpm_strdup_printf("powerspectrum-glass-%08X", seed);
+    glass_evolve(14, fn, ICP, NumPart);
+    free(fn);
+
     return NumPart;
 }
 
-void glass_evolve(int nsteps, int seed, struct ic_part_data * ICP, const int NumPart)
+void glass_evolve(int nsteps, char * pkoutname, struct ic_part_data * ICP, const int NumPart)
 {
     int i;
     int step = 0;
@@ -140,9 +143,7 @@ void glass_evolve(int nsteps, int seed, struct ic_part_data * ICP, const int Num
 
         /*Now save the power spectrum*/
         if(ThisTask == 0) {
-            char * fn = fastpm_strdup_printf("powerspectrum-glass-%08X", seed);
-            powerspectrum_save(&PowerSpectrum, All.OutputDir, fn, t_f, 1.0);
-            free(fn);
+            powerspectrum_save(&PowerSpectrum, All.OutputDir, pkoutname, t_f, 1.0);
         }
     }
 

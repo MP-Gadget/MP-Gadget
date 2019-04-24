@@ -16,7 +16,7 @@ int setup_grid(double shift, int Ngrid, double mass, int NumPart, struct ic_part
 int setup_glass(double shift, int Ngrid, int seed, double mass, int NumPart, struct ic_part_data * ICP);
 
 /* Evolve a distribution of particles with a reversed gravitational force. */
-void glass_evolve(int nsteps, int seed, struct ic_part_data * ICP, const int NumPart);
+void glass_evolve(int nsteps, char * pkoutname, struct ic_part_data * ICP, const int NumPart);
 
 /* Returns number of local particles and computes the local offsets in each dimension
  * for Ngrid^3 particles*/

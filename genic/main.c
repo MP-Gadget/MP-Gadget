@@ -115,9 +115,9 @@ int main(int argc, char **argv)
     } else {
         setup_glass(0, All2.NgridGas, GLASS_SEED_HASH(All2.Seed + 1), mass[0], NumPartCDM, ICP+NumPartCDM);
     }
-    /*Do a single glass evolution timestep to avoid close pairs*/
+    /*Do coherent glass evolution to avoid close pairs*/
     if(All2.MakeGlassGas || All2.MakeGlassCDM)
-        glass_evolve(14, 0xDEADBEEF, ICP, NumPartCDM+NumPartGas);
+        glass_evolve(14, "powerspectrum-glass-tot", ICP, NumPartCDM+NumPartGas);
   }
 
   displacement_fields(DMType, ICP, NumPartCDM);
