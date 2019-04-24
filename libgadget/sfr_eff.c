@@ -40,7 +40,7 @@ static int starformation(int i, double *localsfr, double * sum_sm);
 static int quicklyastarformation(int i);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
-static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyhot_out, double * coolfrac);
+static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyhot_out, double * cloudfrac);
 static double find_star_mass(int i);
 /*Get enough memory for new star slots. This may be excessively slow! Don't do it too often.*/
 static int * sfr_reserve_slots(int * NewStars, int NumNewStar, ForceTree * tt);
@@ -388,12 +388,12 @@ double get_neutral_fraction_sfreff(int i, double redshift)
          * fraction than the hot gas*/
         double dloga = get_dloga_for_bin(P[i].TimeBin);
         double dtime = dloga / All.cf.hubble;
-        double egyhot, coolfrac;
+        double egyhot, cloudfrac;
         double ne = SPHP(i).Ne;
-        get_starformation_rate_full(i, dtime, &ne, NULL, &egyhot, &coolfrac);
+        get_starformation_rate_full(i, dtime, &ne, NULL, &egyhot, &cloudfrac);
         double nh0cold = GetNeutralFraction(All.EgySpecCold, physdens, &uvbg, ne);
         double nh0hot = GetNeutralFraction(egyhot, physdens, &uvbg, ne);
-        nh0 =  nh0cold * coolfrac + (1-coolfrac) * nh0hot;
+        nh0 =  nh0cold * cloudfrac + (1-cloudfrac) * nh0hot;
     }
     return nh0;
 }
@@ -500,8 +500,8 @@ starformation(int i, double *localsfr, double * sum_sm)
     double dtime = dloga / All.cf.hubble;
     int newstar = -1;
 
-    double coolfrac, trelax, egyhot;
-    double rateOfSF = get_starformation_rate_full(i, dtime, &SPHP(i).Ne, &trelax, &egyhot, &coolfrac);
+    double cloudfrac, trelax, egyhot;
+    double rateOfSF = get_starformation_rate_full(i, dtime, &SPHP(i).Ne, &trelax, &egyhot, &cloudfrac);
 
     /* amount of stars expect to form */
 
@@ -518,7 +518,7 @@ starformation(int i, double *localsfr, double * sum_sm)
 
     if(dloga > 0 && P[i].TimeBin)
     {
-        double egyeff = All.EgySpecCold * coolfrac + (1 - coolfrac) * egyhot;
+        double egyeff = All.EgySpecCold * cloudfrac + (1 - cloudfrac) * egyhot;
         /* upon start-up, we need to protect against dloga ==0 */
         cooling_relaxed(i, egyeff, dtime, trelax);
     }
@@ -561,7 +561,7 @@ double get_starformation_rate(int i) {
     return get_starformation_rate_full(i, 0, NULL, NULL, NULL, NULL);
 }
 
-static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyhot_out, double * coolfrac) {
+static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyhot_out, double * cloudfrac) {
     double rateOfSF, tsfr;
     double factorEVP, egyhot, ne, tcool, y, x, cloudmass;
 
@@ -578,8 +578,8 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
         if (egyhot_out) {
             *egyhot_out = All.EgySpecCold;
         }
-        if (coolfrac) {
-            *coolfrac = 0;
+        if (cloudfrac) {
+            *cloudfrac = 0;
         }
 
         return 0;
@@ -618,8 +618,8 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
     if (trelax) {
         *trelax = tsfr * (1 - x) / x / (All.FactorSN * (1 + factorEVP));
     }
-    if (coolfrac) {
-        *coolfrac = x;
+    if (cloudfrac) {
+        *cloudfrac = x;
     }
     if(egyhot_out) {
         *egyhot_out = egyhot;
