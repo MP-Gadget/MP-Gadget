@@ -77,6 +77,7 @@ test_slots_gc(void **state)
     assert_int_equal(SlotsManager->info[4].size, 127);
     assert_int_equal(SlotsManager->info[5].size, 127);
 
+    slots_check_id_consistency();
     teardown_particles(state);
     return;
 }
@@ -96,6 +97,7 @@ test_slots_gc_sorted(void **state)
     assert_int_equal(SlotsManager->info[4].size, 127);
     assert_int_equal(SlotsManager->info[5].size, 127);
 
+    slots_check_id_consistency();
     teardown_particles(state);
     return;
 }
