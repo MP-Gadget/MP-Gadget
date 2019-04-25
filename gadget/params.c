@@ -206,9 +206,9 @@ create_gadget_parameter_set()
         {"Badnell06", Badnell06},
         {NULL, Cen92 },
     };
-    param_declare_enum(ps, "CoolingRates", CoolingTypeTable, OPTIONAL, "KWH92", "Which cooling rate table to use. Options are KWH92 (old gadget default), Enzo2Nyx and Sherwood (new default).");
-    param_declare_enum(ps, "RecombRates", RecombTypeTable, OPTIONAL, "Cen92", "Which recombination rate table to use. Options are Cen92 (old gadget default), Verner96 (new default), Badnell06");
-    param_declare_int(ps, "SelfShieldingOn", OPTIONAL, 0, "Enable a correction in the cooling table for self-shielding.");
+    param_declare_enum(ps, "CoolingRates", CoolingTypeTable, OPTIONAL, "Sherwood", "Which cooling rate table to use. Options are KWH92 (old gadget default), Enzo2Nyx and Sherwood (new default).");
+    param_declare_enum(ps, "RecombRates", RecombTypeTable, OPTIONAL, "Verner96", "Which recombination rate table to use. Options are Cen92 (old gadget default), Verner96 (new default), Badnell06");
+    param_declare_int(ps, "SelfShieldingOn", OPTIONAL, 1, "Enable a correction in the cooling table for self-shielding.");
     param_declare_double(ps, "PhotoIonizeFactor", OPTIONAL, 1, "Scale the TreeCool table by this factor.");
     param_declare_int(ps, "PhotoIonizationOn", OPTIONAL, 1, "Should PhotoIonization be enabled.");
 
