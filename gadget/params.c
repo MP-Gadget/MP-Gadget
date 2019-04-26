@@ -128,6 +128,7 @@ create_gadget_parameter_set()
     param_declare_string(ps, "CpuFile", OPTIONAL, "cpu.txt", "File to output cpu usage information");
     param_declare_string(ps, "OutputList", REQUIRED, NULL, "List of output scale factors.");
 
+    /*Cosmology parameters*/
     param_declare_double(ps, "Omega0", REQUIRED, 0.2814, "Total matter density at z=0");
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255,
             "Present-day CMB temperature in Kelvin, default from Fixsen 2009; affects background if RadiationOn is set.");
@@ -138,6 +139,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "wa_fld", OPTIONAL, 0, "Dark energy evolution parameter.");
     param_declare_double(ps, "Omega_ur", OPTIONAL, 0, "Extra radiation density, eg, a sterile neutrino");
     param_declare_double(ps, "HubbleParam", OPTIONAL, -1, "Hubble parameter. Does not affect gravity. Used only for cooling and star formation.");
+    /*End cosmology parameters*/
 
     param_declare_int(ps,    "OutputPotential", OPTIONAL, 1, "Save the potential in snapshots.");
     param_declare_double(ps,    "MaxMemSizePerNode", OPTIONAL, 0.6, "Pre-allocate this much memory per computing node/ host, in MB. Defaults to 60\% of total available memory per node. Passing < 1 allocates a fraction of total available memory per node.");
@@ -217,7 +219,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "HydroOn", OPTIONAL, 1, "Enables hydro force");
     param_declare_int(ps, "DensityOn", OPTIONAL, 1, "Enables SPH density computation.");
     param_declare_int(ps, "TreeGravOn", OPTIONAL, 1, "Enables tree gravity");
-    param_declare_int(ps, "RadiationOn", OPTIONAL, 0, "Include radiation density in the background evolution.");
+    param_declare_int(ps, "RadiationOn", OPTIONAL, 1, "Include radiation density in the background evolution.");
     param_declare_int(ps, "FastParticleType", OPTIONAL, 2, "Particles of this type will not decrease the timestep. Default neutrinos.");
 
     param_declare_double(ps, "GravitySoftening", OPTIONAL, 1./30., "Softening for collisionless particles; units of mean separation of DM. ForceSoftening is 2.8 times this.");
