@@ -123,31 +123,31 @@ create_gadget_parameter_set()
         {"quartic", DENSITY_KERNEL_QUARTIC_SPLINE},
         {NULL, DENSITY_KERNEL_QUARTIC_SPLINE},
     } ;
-    param_declare_enum(ps,    "DensityKernelType", DensityKernelTypeEnum, OPTIONAL, "quintic", "");
+    param_declare_enum(ps,    "DensityKernelType", DensityKernelTypeEnum, OPTIONAL, "quintic", "SPH density kernel to use. Supported values are cubic, quartic and quintic.");
     param_declare_string(ps, "SnapshotFileBase", OPTIONAL, "PART", "Base name of the snapshot files, _%03d will be appended to the name.");
     param_declare_string(ps, "FOFFileBase", OPTIONAL, "PIG", "Base name of the fof files, _%03d will be appended to the name.");
-    param_declare_string(ps, "EnergyFile", OPTIONAL, "energy.txt", "");
-    param_declare_int(ps,    "OutputEnergyDebug", OPTIONAL, 0,"Should we output energy statistics to energy.txt");
-    param_declare_string(ps, "CpuFile", OPTIONAL, "cpu.txt", "");
-    param_declare_string(ps, "OutputList", REQUIRED, NULL, "List of output times");
+    param_declare_string(ps, "EnergyFile", OPTIONAL, "energy.txt", "File to output energy statistics.");
+    param_declare_int(ps,    "OutputEnergyDebug", OPTIONAL, 0, "Should we output energy statistics to energy.txt");
+    param_declare_string(ps, "CpuFile", OPTIONAL, "cpu.txt", "File to output cpu usage information");
+    param_declare_string(ps, "OutputList", REQUIRED, NULL, "List of output scale factors.");
 
-    param_declare_double(ps, "Omega0", REQUIRED, 0.2814, "");
+    param_declare_double(ps, "Omega0", REQUIRED, 0.2814, "Total matter density at z=0");
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255,
             "Present-day CMB temperature in Kelvin, default from Fixsen 2009; affects background if RadiationOn is set.");
-    param_declare_double(ps, "OmegaBaryon", REQUIRED, 0.0464, "");
+    param_declare_double(ps, "OmegaBaryon", REQUIRED, 0.0464, "Baryon density at z=0");
     param_declare_double(ps, "OmegaLambda", REQUIRED, 0.7186, "Dark energy density at z=0");
     param_declare_double(ps, "Omega_fld", OPTIONAL, 0, "Energy density of dark energy fluid.");
     param_declare_double(ps, "w0_fld", OPTIONAL, -1., "Dark energy equation of state.");
     param_declare_double(ps, "wa_fld", OPTIONAL, 0, "Dark energy evolution parameter.");
     param_declare_double(ps, "Omega_ur", OPTIONAL, 0, "Extra radiation density, eg, a sterile neutrino");
-    param_declare_double(ps, "HubbleParam", REQUIRED, 0.697, "");
+    param_declare_double(ps, "HubbleParam", REQUIRED, 0.697, "Hubble parameter. Does not affect gravity. Used only for cooling and star formation.");
 
     param_declare_int(ps,    "OutputPotential", OPTIONAL, 1, "Save the potential in snapshots.");
-    param_declare_double(ps,    "MaxMemSizePerNode", OPTIONAL, 0.6, "Preallocate this much memory per computing node/ host, in MB. Defaults to 60\% of total available memory per node. Passing < 1 allocates a fraction of total available memory per node.");
+    param_declare_double(ps,    "MaxMemSizePerNode", OPTIONAL, 0.6, "Pre-allocate this much memory per computing node/ host, in MB. Defaults to 60\% of total available memory per node. Passing < 1 allocates a fraction of total available memory per node.");
     param_declare_double(ps, "AutoSnapshotTime", OPTIONAL, 0, "Seconds after which to automatically generate a snapshot if nothing is output.");
 
     param_declare_double(ps, "TimeMax", OPTIONAL, 1.0, "Scale factor to end run.");
-    param_declare_double(ps, "TimeLimitCPU", REQUIRED, 0, "CPU time to run for in seconds.");
+    param_declare_double(ps, "TimeLimitCPU", REQUIRED, 0, "CPU time to run for in seconds. Code will stop if it notices that the time to end of the next PM step is longer than the remaining time.");
 
     param_declare_int   (ps, "DomainOverDecompositionFactor", OPTIONAL, 4, "Create on average this number of sub domains on a MPI rank. Load balancer will then move these subdomains around to equalize the work per rank. Higher numbers improve the load balancing but make domain more expensive.");
     param_declare_int   (ps, "DomainUseGlobalSorting", OPTIONAL, 1, "Determining the initial refinement of chunks globally. Enabling this produces better domains at costs of slowing down the domain decomposition.");
@@ -157,7 +157,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "TreeUseBH", OPTIONAL, 2, "If 1, use Barnes-Hut opening angle rather than the standard Gadget acceleration based opening angle. If 2, use BH criterion for the first timestep only, before we have relative accelerations.");
     param_declare_double(ps, "Asmth", OPTIONAL, 1.25, "The scale of the short-range/long-range force split in units of FFT-mesh cells."
                                                       "Larger values suppresses grid anisotropy. ShortRangeForceWindowType = erfc supports any value. 'exact' only support 1.25. ");
-    param_declare_int(ps,    "Nmesh", REQUIRED, 0, "");
+    param_declare_int(ps,    "Nmesh", REQUIRED, 0, "Size of the PM grid on which to compute the long-range force.");
 
     static ParameterEnum ShortRangeForceWindowTypeEnum [] = {
         {"exact", SHORTRANGE_FORCE_WINDOW_TYPE_EXACT},
@@ -170,18 +170,18 @@ create_gadget_parameter_set()
     param_declare_double(ps, "MaxGasVel", OPTIONAL, 3e5, "");
 
     param_declare_int(ps,    "TypeOfTimestepCriterion", OPTIONAL, 0, "Compatibility only. Has no effect");
-    param_declare_double(ps, "MaxSizeTimestep", OPTIONAL, 0.1, "");
-    param_declare_double(ps, "MinSizeTimestep", OPTIONAL, 0, "");
-    param_declare_int(ps, "ForceEqualTimesteps", OPTIONAL, 0, "Force all timesteps to be the same, the smallest required.");
+    param_declare_double(ps, "MaxSizeTimestep", OPTIONAL, 0.1, "Maximum size of the PM timestep (as delta-a).");
+    param_declare_double(ps, "MinSizeTimestep", OPTIONAL, 0, "Minimum size of the PM timestep.");
+    param_declare_int(ps, "ForceEqualTimesteps", OPTIONAL, 0, "Force all (tree) timesteps to be the same, and equal to the smallest required.");
 
     param_declare_double(ps, "MaxRMSDisplacementFac", OPTIONAL, 0.2, "");
     param_declare_double(ps, "ArtBulkViscConst", OPTIONAL, 0.75, "");
-    param_declare_double(ps, "CourantFac", OPTIONAL, 0.15, "");
+    param_declare_double(ps, "CourantFac", OPTIONAL, 0.15, "Courant factor for the timestepping.");
     param_declare_double(ps, "DensityResolutionEta", OPTIONAL, 1.0, "Resolution eta factor (See Price 2008) 1 = 33 for Cubic Spline");
 
     param_declare_double(ps, "DensityContrastLimit", OPTIONAL, 100, "Max contrast for hydro force calculation");
-    param_declare_double(ps, "MaxNumNgbDeviation", OPTIONAL, 2, "");
-    param_declare_double(ps, "HydroCostFactor", OPTIONAL, 1, "Cost factor of hydro calculation, default to 1.");
+    param_declare_double(ps, "MaxNumNgbDeviation", OPTIONAL, 2, "Maximal deviation from the desired number of neighbours for each SPH particle.");
+    param_declare_double(ps, "HydroCostFactor", OPTIONAL, 1, "Cost factor of hydro calculation: this allows gas particles to be considered more expensive than gravity computations.");
 
     param_declare_int(ps, "BytesPerFile", OPTIONAL, 1024 * 1024 * 1024, "number of bytes per file");
     param_declare_int(ps, "NumWriters", OPTIONAL, NTask, "Max number of concurrent writer processes. 0 implies Number of Tasks; ");
@@ -191,6 +191,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "EnableAggregatedIO", OPTIONAL, 0, "Use the Aggregated IO policy for small data set (Experimental).");
     param_declare_int(ps, "AggregatedIOThreshold", OPTIONAL, 1024 * 1024 * 256, "Max number of bytes on a writer before reverting to throttled IO.");
 
+    /*Parameters of the cooling module*/
     param_declare_int(ps, "CoolingOn", REQUIRED, 0, "Enables cooling");
     param_declare_double(ps, "UVRedshiftThreshold", OPTIONAL, -1.0, "Earliest Redshift that UV background is enabled. This modulates UVFluctuation and TreeCool globally. Default -1.0 means no modulation.");
     static ParameterEnum CoolingTypeTable [] = {
@@ -210,6 +211,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "SelfShieldingOn", OPTIONAL, 0, "Enable a correction in the cooling table for self-shielding.");
     param_declare_double(ps, "PhotoIonizeFactor", OPTIONAL, 1, "Scale the TreeCool table by this factor.");
     param_declare_int(ps, "PhotoIonizationOn", OPTIONAL, 1, "Should PhotoIonization be enabled.");
+    /* End cooling module parameters*/
 
     param_declare_int(ps, "HydroOn", REQUIRED, 1, "Enables hydro force");
     param_declare_int(ps, "DensityOn", OPTIONAL, 1, "Enables SPH density computation.");
