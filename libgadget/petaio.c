@@ -460,6 +460,17 @@ petaio_read_header_internal(BigFile * bf) {
     All.UnitLength_in_cm = _get_attr_double(&bh, "UnitLength_in_cm",  3.085678e21); /* 1.0 Kpc /h */
     All.UnitMass_in_g = _get_attr_double(&bh, "UnitMass_in_g", 1.989e43); /* 1e10 Msun/h */
 
+    if(
+        (All.CP.OmegaBaryon < 0 &&
+        0 != big_block_get_attr(&bh, "OmegaBaryon", &All.CP.OmegaBaryon, "f8", 1) ) ||
+        (All.CP.HubbleParam < 0 &&
+        0 != big_block_get_attr(&bh, "HubbleParam", &All.CP.HubbleParam, "f8", 1) )||
+        (All.CP.HubbleParam < 0 &&
+        0 != big_block_get_attr(&bh, "OmegaLambda", &All.CP.OmegaLambda, "f8", 1) )
+    ) {
+        endrun(0, "Failed to read required cosmology from IC header\n");
+    }
+
     /* Fall back to use a**2 * dx/dt if UsePeculiarVelocity is not set in IC */
     All.IO.UsePeculiarVelocity = _get_attr_int(&bh, "UsePeculiarVelocity", 0);
 

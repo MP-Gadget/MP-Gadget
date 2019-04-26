@@ -131,13 +131,13 @@ create_gadget_parameter_set()
     param_declare_double(ps, "Omega0", REQUIRED, 0.2814, "Total matter density at z=0");
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255,
             "Present-day CMB temperature in Kelvin, default from Fixsen 2009; affects background if RadiationOn is set.");
-    param_declare_double(ps, "OmegaBaryon", REQUIRED, 0.0464, "Baryon density at z=0");
-    param_declare_double(ps, "OmegaLambda", REQUIRED, 0.7186, "Dark energy density at z=0");
+    param_declare_double(ps, "OmegaBaryon", OPTIONAL, -1, "Baryon density at z=0");
+    param_declare_double(ps, "OmegaLambda", OPTIONAL, -1, "Dark energy density at z=0");
     param_declare_double(ps, "Omega_fld", OPTIONAL, 0, "Energy density of dark energy fluid.");
     param_declare_double(ps, "w0_fld", OPTIONAL, -1., "Dark energy equation of state.");
     param_declare_double(ps, "wa_fld", OPTIONAL, 0, "Dark energy evolution parameter.");
     param_declare_double(ps, "Omega_ur", OPTIONAL, 0, "Extra radiation density, eg, a sterile neutrino");
-    param_declare_double(ps, "HubbleParam", REQUIRED, 0.697, "Hubble parameter. Does not affect gravity. Used only for cooling and star formation.");
+    param_declare_double(ps, "HubbleParam", OPTIONAL, -1, "Hubble parameter. Does not affect gravity. Used only for cooling and star formation.");
 
     param_declare_int(ps,    "OutputPotential", OPTIONAL, 1, "Save the potential in snapshots.");
     param_declare_double(ps,    "MaxMemSizePerNode", OPTIONAL, 0.6, "Pre-allocate this much memory per computing node/ host, in MB. Defaults to 60\% of total available memory per node. Passing < 1 allocates a fraction of total available memory per node.");
