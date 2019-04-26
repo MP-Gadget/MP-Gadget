@@ -113,9 +113,6 @@ create_gadget_parameter_set()
 
     param_declare_string(ps, "InitCondFile", REQUIRED, NULL, "Path to the Initial Condition File");
     param_declare_string(ps, "OutputDir",    REQUIRED, NULL, "Prefix to the output files");
-    param_declare_string(ps, "TreeCoolFile", OPTIONAL, "", "Path to the Cooling Table");
-    param_declare_string(ps, "MetalCoolFile", OPTIONAL, "", "Path to the Metal Cooling Table. Empty string disables metal cooling. Refer to cooling.c");
-    param_declare_string(ps, "UVFluctuationFile", OPTIONAL, "", "Path to the UVFluctation Table. Refer to cooling.c.");
 
     static ParameterEnum DensityKernelTypeEnum [] = {
         {"cubic", DENSITY_KERNEL_CUBIC_SPLINE},
@@ -193,6 +190,10 @@ create_gadget_parameter_set()
 
     /*Parameters of the cooling module*/
     param_declare_int(ps, "CoolingOn", REQUIRED, 0, "Enables cooling");
+    param_declare_string(ps, "TreeCoolFile", OPTIONAL, "", "Path to the Cooling Table");
+    param_declare_string(ps, "MetalCoolFile", OPTIONAL, "", "Path to the Metal Cooling Table. Empty string disables metal cooling. Refer to cooling.c");
+    param_declare_string(ps, "UVFluctuationFile", OPTIONAL, "", "Path to the UVFluctation Table. Refer to cooling.c.");
+
     param_declare_double(ps, "UVRedshiftThreshold", OPTIONAL, -1.0, "Earliest Redshift that UV background is enabled. This modulates UVFluctuation and TreeCool globally. Default -1.0 means no modulation.");
     static ParameterEnum CoolingTypeTable [] = {
         {"KWH92", KWH92 },
@@ -213,7 +214,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "PhotoIonizationOn", OPTIONAL, 1, "Should PhotoIonization be enabled.");
     /* End cooling module parameters*/
 
-    param_declare_int(ps, "HydroOn", REQUIRED, 1, "Enables hydro force");
+    param_declare_int(ps, "HydroOn", OPTIONAL, 1, "Enables hydro force");
     param_declare_int(ps, "DensityOn", OPTIONAL, 1, "Enables SPH density computation.");
     param_declare_int(ps, "TreeGravOn", OPTIONAL, 1, "Enables tree gravity");
     param_declare_int(ps, "RadiationOn", OPTIONAL, 0, "Include radiation density in the background evolution.");
