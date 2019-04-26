@@ -7,8 +7,6 @@ InitCondFile = output/IC
 OutputDir = output
 OutputList = 0.01,0.012, 0.015
 
-Nmesh = 256
-
 # CPU time -limit
 	
 TimeLimitCPU = 43000 #= 8 hours

@@ -451,6 +451,9 @@ petaio_read_header_internal(BigFile * bf) {
                     big_file_get_error_message());
     }
 
+    /*Set Nmesh to double the mean grid spacing of the dark matter by default.*/
+    if(All.Nmesh  < 0)
+        All.Nmesh = 2*pow(2, (int)(log(NTotal[1])/3./log(2)) );
     All.TimeInit = Time;
     if(0!= big_block_get_attr(&bh, "TimeIC", &All.TimeIC, "f8", 1))
         All.TimeIC = Time;

@@ -156,7 +156,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "TreeUseBH", OPTIONAL, 2, "If 1, use Barnes-Hut opening angle rather than the standard Gadget acceleration based opening angle. If 2, use BH criterion for the first timestep only, before we have relative accelerations.");
     param_declare_double(ps, "Asmth", OPTIONAL, 1.25, "The scale of the short-range/long-range force split in units of FFT-mesh cells."
                                                       "Larger values suppresses grid anisotropy. ShortRangeForceWindowType = erfc supports any value. 'exact' only support 1.25. ");
-    param_declare_int(ps,    "Nmesh", REQUIRED, 0, "Size of the PM grid on which to compute the long-range force.");
+    param_declare_int(ps,    "Nmesh", OPTIONAL, -1, "Size of the PM grid on which to compute the long-range force.");
 
     static ParameterEnum ShortRangeForceWindowTypeEnum [] = {
         {"exact", SHORTRANGE_FORCE_WINDOW_TYPE_EXACT},
