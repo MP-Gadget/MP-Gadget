@@ -63,6 +63,7 @@ static struct DomainParams
 typedef struct {
     double TopNodeAllocFactor; /** number of Top level tree nodes as a fraction of particles */
     int UseGlobalSort; /** Apply a global sorting on the subsamples before building the top level tree. */
+    MPI_Comm GlobalSortComm; /** Communicator to use for the global sort. By default MPI_COMM_WORLD. */
     int SubSampleDistance; /** Frequency of subsampling */
     int PreSort; /** PreSort the local particles before subsampling, creating a fair subsample */
     int NTopLeaves; /** Number of Peano-Hilbert segments to create before balancing. Should be DomainOverDecompositionFactor * NTask*/
@@ -126,7 +127,7 @@ static int domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionP
 static void
 domain_balance(DomainDecomp * ddecomp, const int NTask);
 
-static int domain_determine_global_toptree(DomainDecompositionPolicy * policy, struct local_topnode_data * topTree, int * topTreeSize);
+static int domain_determine_global_toptree(DomainDecompositionPolicy * policy, struct local_topnode_data * topTree, int * topTreeSize, MPI_Comm DomainComm);
 static void domain_free(DomainDecomp * ddecomp);
 
 static void
@@ -166,7 +167,8 @@ void domain_decompose_full(DomainDecomp * ddecomp)
 
     /*Number of tasks to decompose to*/
     int NTask;
-    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+    ddecomp->DomainComm = MPI_COMM_WORLD;
+    MPI_Comm_size(ddecomp->DomainComm, &NTask);
 
     /* start from last successful policy to avoid retries */
     static int LastSuccessfulPolicy = 0;
@@ -198,7 +200,7 @@ void domain_decompose_full(DomainDecomp * ddecomp)
         message(0, "Attempting new domain decomposition policy: TopNodeAllocFactor=%g, UseglobalSort=%d, SubSampleDistance=%d UsePreSort=%d\n",
                 policies[i].TopNodeAllocFactor, policies[i].UseGlobalSort, policies[i].SubSampleDistance, policies[i].PreSort);
 
-        decompose_failed = MPIU_Any(0 != domain_attempt_decompose(ddecomp, &policies[i]), MPI_COMM_WORLD);
+        decompose_failed = MPIU_Any(0 != domain_attempt_decompose(ddecomp, &policies[i]), ddecomp->DomainComm);
 
         if(!decompose_failed) {
             LastSuccessfulPolicy = i;
@@ -279,6 +281,7 @@ domain_policies_init(DomainDecompositionPolicy policies[], const int NTask,
     for(i = 0; i < NincreaseAlloc; i ++) {
         policies[i].TopNodeAllocFactor = domain_params.TopNodeAllocFactor * pow(1.3, i);
         policies[i].UseGlobalSort = domain_params.DomainUseGlobalSorting;
+        policies[i].GlobalSortComm = MPI_COMM_WORLD;
         policies[i].PreSort = 0;
         policies[i].SubSampleDistance = 16;
         policies[i].NTopLeaves = domain_params.DomainOverDecompositionFactor * NTask;
@@ -371,7 +374,7 @@ domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * pol
 
     walltime_measure("/Domain/Decompose/Misc");
 
-    if(domain_determine_global_toptree(policy, topTree, &ddecomp->NTopNodes)) {
+    if(domain_determine_global_toptree(policy, topTree, &ddecomp->NTopNodes, ddecomp->DomainComm)) {
         myfree(topTree);
         return 1;
     }
@@ -964,7 +967,7 @@ domain_check_for_local_refine_subsample(
     }
 
     if(policy->UseGlobalSort) {
-        mpsort_mpi(LP, Nsample, sizeof(struct local_particle_data), mp_order_by_key, 8, NULL, MPI_COMM_WORLD);
+        mpsort_mpi(LP, Nsample, sizeof(struct local_particle_data), mp_order_by_key, 8, NULL, policy->GlobalSortComm);
     } else {
         qsort_openmp(LP, Nsample, sizeof(struct local_particle_data), order_by_key);
     }
@@ -1068,8 +1071,9 @@ domain_check_for_local_refine_subsample(
     return 0;
 }
 
+/* Combine the toptree. Returns a (collective) error code which is non-zero if an error occured*/
 int
-domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int * topTreeSize)
+domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int * topTreeSize, MPI_Comm DomainComm)
 {
     /*
      * combine topTree non recursively, this uses MPI_Bcast within a group.
@@ -1088,10 +1092,10 @@ domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int *
     int errorflagall = 0;
     /*Number of tasks to decompose to*/
     int NTask;
-    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+    MPI_Comm_size(DomainComm, &NTask);
     /*Which task is this?*/
     int ThisTask;
-    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    MPI_Comm_rank(DomainComm, &ThisTask);
 
     for(sep = 1; sep < NTask; sep *=2) {
         /* build the subcommunicators for broadcasting */
@@ -1116,7 +1120,7 @@ domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int *
             if(recvTask < NTask) {
                 MPI_Recv(
                         &ntopnodes_import, 1, MPI_INT, recvTask, TAG_GRAV_A,
-                        MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                        DomainComm, MPI_STATUS_IGNORE);
                 topTree_import = (struct local_topnode_data *) mymalloc("topTree_import",
                             (ntopnodes_import > *topTreeSize ? ntopnodes_import : *topTreeSize) * sizeof(struct local_topnode_data));
 
@@ -1124,7 +1128,7 @@ domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int *
                         topTree_import,
                         ntopnodes_import, MPI_TYPE_TOPNODE,
                         recvTask, TAG_GRAV_B,
-                        MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                        DomainComm, MPI_STATUS_IGNORE);
 
 
                 if((*topTreeSize + ntopnodes_import) > MaxTopNodes) {
@@ -1144,24 +1148,24 @@ domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int *
             recvTask = ThisTask - sep;
             if(recvTask >= 0) {
                 MPI_Send(topTreeSize, 1, MPI_INT, recvTask, TAG_GRAV_A,
-                        MPI_COMM_WORLD);
+                        DomainComm);
                 MPI_Send(topTree,
                         *topTreeSize, MPI_TYPE_TOPNODE,
                         recvTask, TAG_GRAV_B,
-                        MPI_COMM_WORLD);
+                        DomainComm);
             }
             *topTreeSize = -1;
         }
 
 loop_continue:
-        MPI_Allreduce(&errorflag, &errorflagall, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+        MPI_Allreduce(&errorflag, &errorflagall, 1, MPI_INT, MPI_LOR, DomainComm);
         if(errorflagall) {
             break;
         }
     }
 
-    MPI_Bcast(topTreeSize, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(topTree, *topTreeSize, MPI_TYPE_TOPNODE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(topTreeSize, 1, MPI_INT, 0, DomainComm);
+    MPI_Bcast(topTree, *topTreeSize, MPI_TYPE_TOPNODE, 0, DomainComm);
     MPI_Type_free(&MPI_TYPE_TOPNODE);
     return errorflagall;
 }
@@ -1173,7 +1177,7 @@ loop_continue:
  *  number of particles.
  */
 int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
-        struct local_topnode_data * topTree, int * topTreeSize)
+        struct local_topnode_data * topTree, int * topTreeSize, MPI_Comm DomainComm)
 {
     walltime_measure("/Domain/DetermineTopTree/Misc");
 
@@ -1184,7 +1188,7 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
 
     int local_refine_failed = MPIU_Any(
                 0 != domain_check_for_local_refine_subsample(policy, topTree, topTreeSize),
-                        MPI_COMM_WORLD);
+                        DomainComm);
 
     walltime_measure("/Domain/DetermineTopTree/LocalRefine/Init");
 
@@ -1196,8 +1200,8 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
     int64_t TotCost = 0, TotCount = 0;
     int64_t costlimit, countlimit;
 
-    MPI_Allreduce(&topTree[0].Cost, &TotCost, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&topTree[0].Count, &TotCount, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&topTree[0].Cost, &TotCost, 1, MPI_INT64, MPI_SUM, DomainComm);
+    MPI_Allreduce(&topTree[0].Count, &TotCount, 1, MPI_INT64, MPI_SUM, DomainComm);
 
     costlimit = TotCost / (policy->NTopLeaves);
     countlimit = TotCount / (policy->NTopLeaves);
@@ -1223,13 +1227,12 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
     fwrite(topTree, sizeof(struct local_topnode_data), *topTreeSize, fd);
     fclose(fd);
 
-    //MPI_Barrier(MPI_COMM_WORLD);
-    //MPI_Abort(MPI_COMM_WORLD, 0);
+    //MPI_Barrier(DomainComm);
+    //MPI_Abort(DomainComm, 0);
 #endif
 
     /* we now need to exchange tree parts and combine them as needed */
-
-    int combine_failed = MPIU_Any(0 != domain_nonrecursively_combine_topTree(topTree, topTreeSize), MPI_COMM_WORLD);
+    int combine_failed = domain_nonrecursively_combine_topTree(topTree, topTreeSize, DomainComm);
 
     walltime_measure("/Domain/DetermineTopTree/Combine");
 
@@ -1241,7 +1244,7 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
 
     /* now let's see whether we should still more refinements, based on the estimated cumulative cost/count in each cell */
 
-    int global_refine_failed = MPIU_Any(0 != domain_global_refine(topTree, topTreeSize, countlimit, costlimit), MPI_COMM_WORLD);
+    int global_refine_failed = MPIU_Any(0 != domain_global_refine(topTree, topTreeSize, countlimit, costlimit), DomainComm);
 
     walltime_measure("/Domain/DetermineTopTree/Addnodes");
 
@@ -1353,8 +1356,8 @@ domain_compute_costs(const DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t
         }
     }
 
-    MPI_Allreduce(local_TopLeafWork, TopLeafWork, ddecomp->NTopLeaves, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(local_TopLeafCount, TopLeafCount, ddecomp->NTopLeaves, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(local_TopLeafWork, TopLeafWork, ddecomp->NTopLeaves, MPI_INT64, MPI_SUM, ddecomp->DomainComm);
+    MPI_Allreduce(local_TopLeafCount, TopLeafCount, ddecomp->NTopLeaves, MPI_INT64, MPI_SUM, ddecomp->DomainComm);
     myfree(local_TopLeafCount);
     myfree(local_TopLeafWork);
 }

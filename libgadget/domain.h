@@ -37,6 +37,9 @@ typedef struct DomainDecomp {
     int NTopNodes;
     int NTopLeaves;
     struct task_data * Tasks;
+    /* MPI Communicator over which to build the Domain.
+     * Currently this is always MPI_COMM_WORLD.*/
+    MPI_Comm DomainComm;
 } DomainDecomp;
 
 /*Set the parameters of the domain module*/
