@@ -30,6 +30,28 @@
 #include "forcetree.h"
 #include "timestep.h"
 #include "domain.h"
+
+/*Parameters of the star formation model*/
+static struct SFRParams
+{
+    enum StarformationCriterion StarformationCriterion;  /*!< Type of star formation model. */
+    /*Star formation parameters*/
+    double CritOverDensity;
+    double CritPhysDensity;
+    double OverDensThresh;
+    double PhysDensThresh;
+    double EgySpecSN;
+    double FactorSN;
+    double EgySpecCold;
+    double FactorEVP;
+    double FeedbackEnergy;
+    double TempSupernova;
+    double TempClouds;
+    double MaxSfrTimescale;
+    /*Lyman alpha forest specific star formation.*/
+    double QuickLymanAlphaProbability;
+} sfr_params;
+
 /*Cooling only: no star formation*/
 static void cooling_direct(int i);
 
@@ -45,6 +67,29 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
 static double find_star_mass(int i);
 /*Get enough memory for new star slots. This may be excessively slow! Don't do it too often.*/
 static int * sfr_reserve_slots(int * NewStars, int NumNewStar, ForceTree * tt);
+
+/*Set the parameters of the domain module*/
+void set_sfr_params(ParameterSet * ps)
+{
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask == 0) {
+        /*Star formation parameters*/
+        sfr_params.StarformationCriterion = param_get_enum(ps, "StarformationCriterion");
+        sfr_params.CritOverDensity = param_get_double(ps, "CritOverDensity");
+        sfr_params.CritPhysDensity = param_get_double(ps, "CritPhysDensity");
+
+        sfr_params.FactorSN = param_get_double(ps, "FactorSN");
+        sfr_params.FactorEVP = param_get_double(ps, "FactorEVP");
+        sfr_params.TempSupernova = param_get_double(ps, "TempSupernova");
+        sfr_params.TempClouds = param_get_double(ps, "TempClouds");
+        sfr_params.MaxSfrTimescale = param_get_double(ps, "MaxSfrTimescale");
+
+        /*Lyman-alpha forest parameters*/
+        sfr_params.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
+    }
+    MPI_Bcast(&sfr_params, sizeof(struct SFRParams), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
 
 
 /* cooling and star formation routine.*/
@@ -99,7 +144,7 @@ void cooling_and_starformation(ForceTree * tree)
                 /*Reduce delaytime for wind particles.*/
                 winds_evolve(p_i, All.cf.a3inv, All.cf.hubble);
                 /* check whether we are star forming gas.*/
-                if(All.QuickLymanAlphaProbability > 0)
+                if(sfr_params.QuickLymanAlphaProbability > 0)
                     shall_we_star_form = quicklyastarformation(p_i);
                 else
                     shall_we_star_form = sfreff_on_eeqos(p_i);
@@ -107,7 +152,7 @@ void cooling_and_starformation(ForceTree * tree)
 
             if(shall_we_star_form) {
                 int newstar = -1;
-                if(All.QuickLymanAlphaProbability > 0) {
+                if(sfr_params.QuickLymanAlphaProbability > 0) {
                     /*New star is always the same particle as the parent for quicklya*/
                     newstar = p_i;
                 } else {
@@ -361,10 +406,10 @@ sfreff_on_eeqos(int i)
         endrun(12, "Particle %d in SFR has mass=%g. Does not happen as no tracer particles.\n", i, P[i].Mass);
     }
 
-    if(SPHP(i).Density * All.cf.a3inv >= All.PhysDensThresh)
+    if(SPHP(i).Density * All.cf.a3inv >= sfr_params.PhysDensThresh)
         flag = 1;
 
-    if(SPHP(i).Density < All.OverDensThresh)
+    if(SPHP(i).Density < sfr_params.OverDensThresh)
         flag = 0;
 
     if(SPHP(i).DelayTime > 0)
@@ -380,7 +425,7 @@ double get_neutral_fraction_sfreff(int i, double redshift)
     struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
     double physdens = SPHP(i).Density * All.cf.a3inv;
 
-    if(!All.StarformationOn || All.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(i)) {
+    if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(i)) {
         /*This gets the neutral fraction for standard gas*/
         double InternalEnergy = DMAX(All.MinEgySpec, SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
         nh0 = GetNeutralFraction(InternalEnergy, physdens, &uvbg, SPHP(i).Ne);
@@ -394,7 +439,7 @@ double get_neutral_fraction_sfreff(int i, double redshift)
         double egyhot, cloudfrac;
         double ne = SPHP(i).Ne;
         get_starformation_rate_full(i, dtime, &ne, NULL, &egyhot, &cloudfrac);
-        double nh0cold = GetNeutralFraction(All.EgySpecCold, physdens, &uvbg, ne);
+        double nh0cold = GetNeutralFraction(sfr_params.EgySpecCold, physdens, &uvbg, ne);
         double nh0hot = GetNeutralFraction(egyhot, physdens, &uvbg, ne);
         nh0 =  nh0cold * cloudfrac + (1-cloudfrac) * nh0hot;
     }
@@ -469,7 +514,7 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
 static int
 quicklyastarformation(int i)
 {
-    if(SPHP(i).Density <= All.OverDensThresh)
+    if(SPHP(i).Density <= sfr_params.OverDensThresh)
         return 0;
 
     double dloga = get_dloga_for_bin(P[i].TimeBin);
@@ -485,7 +530,7 @@ quicklyastarformation(int i)
     if(temp >= 1.0e5)
         return 0;
 
-    if(get_random_number(P[i].ID + 1) < All.QuickLymanAlphaProbability)
+    if(get_random_number(P[i].ID + 1) < sfr_params.QuickLymanAlphaProbability)
         return 1;
 
     return 0;
@@ -521,7 +566,7 @@ starformation(int i, double *localsfr, double * sum_sm)
 
     if(dloga > 0 && P[i].TimeBin)
     {
-        double egyeff = All.EgySpecCold * cloudfrac + (1 - cloudfrac) * egyhot;
+        double egyeff = sfr_params.EgySpecCold * cloudfrac + (1 - cloudfrac) * egyhot;
         /* upon start-up, we need to protect against dloga ==0 */
         cooling_relaxed(i, egyeff, dtime, trelax);
     }
@@ -569,10 +614,10 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
          * required is in starformation(i)
          * */
         if (trelax) {
-            *trelax = All.MaxSfrTimescale;
+            *trelax = sfr_params.MaxSfrTimescale;
         }
         if (egyhot_out) {
-            *egyhot_out = All.EgySpecCold;
+            *egyhot_out = sfr_params.EgySpecCold;
         }
         if (cloudfrac) {
             *cloudfrac = 0;
@@ -581,7 +626,7 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
         return 0;
     }
 
-    tsfr = sqrt(All.PhysDensThresh / (SPHP(i).Density * All.cf.a3inv)) * All.MaxSfrTimescale;
+    tsfr = sqrt(sfr_params.PhysDensThresh / (SPHP(i).Density * All.cf.a3inv)) * sfr_params.MaxSfrTimescale;
     /*
      * gadget-p doesn't have this cap.
      * without the cap sm can be bigger than cloudmass.
@@ -592,27 +637,27 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
     double redshift = 1./All.Time - 1;
     struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
 
-    factorEVP = pow(SPHP(i).Density * All.cf.a3inv / All.PhysDensThresh, -0.8) * All.FactorEVP;
+    factorEVP = pow(SPHP(i).Density * All.cf.a3inv / sfr_params.PhysDensThresh, -0.8) * sfr_params.FactorEVP;
 
-    egyhot = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
+    egyhot = sfr_params.EgySpecSN / (1 + factorEVP) + sfr_params.EgySpecCold;
 
     ne = SPHP(i).Ne;
 
     tcool = GetCoolingTime(redshift, egyhot, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, SPHP(i).Metallicity);
-    y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
+    y = tsfr / tcool * egyhot / (sfr_params.FactorSN * sfr_params.EgySpecSN - (1 - sfr_params.FactorSN) * sfr_params.EgySpecCold);
 
     x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
 
     cloudmass = x * P[i].Mass;
 
-    rateOfSF = (1 - All.FactorSN) * cloudmass / tsfr;
+    rateOfSF = (1 - sfr_params.FactorSN) * cloudmass / tsfr;
 
     if (ne_new ) {
         *ne_new = ne;
     }
 
     if (trelax) {
-        *trelax = tsfr * (1 - x) / x / (All.FactorSN * (1 + factorEVP));
+        *trelax = tsfr * (1 - x) / x / (sfr_params.FactorSN * (1 + factorEVP));
     }
     if (cloudfrac) {
         *cloudfrac = x;
@@ -621,10 +666,10 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
         *egyhot_out = egyhot;
     }
 
-    if (HAS(All.StarformationCriterion, SFR_CRITERION_MOLECULAR_H2)) {
+    if (HAS(sfr_params.StarformationCriterion, SFR_CRITERION_MOLECULAR_H2)) {
         rateOfSF *= get_sfr_factor_due_to_h2(i);
     }
-    if (HAS(All.StarformationCriterion, SFR_CRITERION_SELFGRAVITY)) {
+    if (HAS(sfr_params.StarformationCriterion, SFR_CRITERION_SELFGRAVITY)) {
         rateOfSF *= get_sfr_factor_due_to_selfgravity(i);
     }
     return rateOfSF;
@@ -634,16 +679,16 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
 static double
 get_egyeff(double dens, struct UVBG * uvbg)
 {
-    double tsfr = sqrt(All.PhysDensThresh / (dens)) * All.MaxSfrTimescale;
-    double factorEVP = pow(dens / All.PhysDensThresh, -0.8) * All.FactorEVP;
-    double egyhot = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
+    double tsfr = sqrt(sfr_params.PhysDensThresh / (dens)) * sfr_params.MaxSfrTimescale;
+    double factorEVP = pow(dens / sfr_params.PhysDensThresh, -0.8) * sfr_params.FactorEVP;
+    double egyhot = sfr_params.EgySpecSN / (1 + factorEVP) + sfr_params.EgySpecCold;
 
     double ne = 0.5;
     double tcool = GetCoolingTime(0, egyhot, dens, uvbg, &ne, 0.0);
 
-    double y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
+    double y = tsfr / tcool * egyhot / (sfr_params.FactorSN * sfr_params.EgySpecSN - (1 - sfr_params.FactorSN) * sfr_params.EgySpecCold);
     double x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
-    return egyhot * (1 - x) + All.EgySpecCold * x;
+    return egyhot * (1 - x) + sfr_params.EgySpecCold * x;
 }
 
 void init_cooling_and_star_formation(void)
@@ -666,23 +711,23 @@ void init_cooling_and_star_formation(void)
     if(!All.StarformationOn)
         return;
 
-    All.OverDensThresh =
-        All.CritOverDensity * All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
+    sfr_params.OverDensThresh =
+        sfr_params.CritOverDensity * All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
 
-    All.PhysDensThresh = All.CritPhysDensity * PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs;
+    sfr_params.PhysDensThresh = sfr_params.CritPhysDensity * PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs;
 
-    All.EgySpecCold = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempClouds;
-    All.EgySpecCold *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
+    sfr_params.EgySpecCold = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * sfr_params.TempClouds;
+    sfr_params.EgySpecCold *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
 
     /* mean molecular weight assuming FULL ionization */
     meanweight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));
 
-    All.EgySpecSN = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempSupernova;
-    All.EgySpecSN *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
+    sfr_params.EgySpecSN = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * sfr_params.TempSupernova;
+    sfr_params.EgySpecSN *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
 
-    if(All.PhysDensThresh == 0)
+    if(sfr_params.PhysDensThresh == 0)
     {
-        double egyhot = All.EgySpecSN / All.FactorEVP;
+        double egyhot = sfr_params.EgySpecSN / sfr_params.FactorEVP;
 
         meanweight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));	/* note: assuming FULL ionization */
 
@@ -704,21 +749,21 @@ void init_cooling_and_star_formation(void)
 
         const double coolrate = egyhot / tcool / dens;
 
-        const double x = (egyhot - u4) / (egyhot - All.EgySpecCold);
+        const double x = (egyhot - u4) / (egyhot - sfr_params.EgySpecCold);
 
-        All.PhysDensThresh =
+        sfr_params.PhysDensThresh =
             x / pow(1 - x,
-                    2) * (All.FactorSN * All.EgySpecSN - (1 -
-                            All.FactorSN) * All.EgySpecCold) /
-                        (All.MaxSfrTimescale * coolrate);
+                    2) * (sfr_params.FactorSN * sfr_params.EgySpecSN - (1 -
+                            sfr_params.FactorSN) * sfr_params.EgySpecCold) /
+                        (sfr_params.MaxSfrTimescale * coolrate);
 
-        message(0, "A0= %g  \n", All.FactorEVP);
-        message(0, "Computed: PhysDensThresh= %g  (int units)         %g h^2 cm^-3\n", All.PhysDensThresh,
-                All.PhysDensThresh / (PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs));
+        message(0, "A0= %g  \n", sfr_params.FactorEVP);
+        message(0, "Computed: PhysDensThresh= %g  (int units)         %g h^2 cm^-3\n", sfr_params.PhysDensThresh,
+                sfr_params.PhysDensThresh / (PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs));
         message(0, "EXPECTED FRACTION OF COLD GAS AT THRESHOLD = %g\n", x);
         message(0, "tcool=%g dens=%g egyhot=%g\n", tcool, dens, egyhot);
 
-        dens = All.PhysDensThresh * 10;
+        dens = sfr_params.PhysDensThresh * 10;
 
         double neff;
         do
@@ -739,7 +784,7 @@ void init_cooling_and_star_formation(void)
         while(neff > 4.0 / 3);
 
         message(0, "Run-away sets in for dens=%g\n", dens);
-        message(0, "Dynamic range for quiescent star formation= %g\n", dens / All.PhysDensThresh);
+        message(0, "Dynamic range for quiescent star formation= %g\n", dens / sfr_params.PhysDensThresh);
 
         const double sigma = 10.0 / All.CP.Hubble * 1.0e-10 / pow(1.0e-3, 2);
 
@@ -750,9 +795,8 @@ void init_cooling_and_star_formation(void)
     }
 
     if(All.WindOn) {
-        init_winds(All.FactorSN, All.EgySpecSN, All.PhysDensThresh);
+        init_winds(sfr_params.FactorSN, sfr_params.EgySpecSN, sfr_params.PhysDensThresh);
     }
-
 
 }
 
@@ -760,7 +804,7 @@ static double
 find_star_mass(int i)
 {
     /*Quick Lyman Alpha always turns all of a particle into stars*/
-    if(All.QuickLymanAlphaProbability > 0)
+    if(sfr_params.QuickLymanAlphaProbability > 0)
         return P[i].Mass;
 
     double mass_of_star =  All.MassTable[0] / GENERATIONS;
@@ -835,7 +879,7 @@ static double get_sfr_factor_due_to_selfgravity(int i) {
 
     divv += 3.0*All.cf.hubble_a2; // hubble-flow correction
 
-    if(HAS(All.StarformationCriterion, SFR_CRITERION_CONVERGENT_FLOW)) {
+    if(HAS(sfr_params.StarformationCriterion, SFR_CRITERION_CONVERGENT_FLOW)) {
         if( divv>=0 ) return 0; // restrict to convergent flows (optional) //
     }
 
@@ -848,7 +892,7 @@ static double get_sfr_factor_due_to_selfgravity(int i) {
     double y = 1.0;
 
     if((alpha_vir < 1.0)
-    || (SPHP(i).Density * All.cf.a3inv > 100. * All.PhysDensThresh)
+    || (SPHP(i).Density * All.cf.a3inv > 100. * sfr_params.PhysDensThresh)
     )  {
         y = 66.7;
     } else {
@@ -857,7 +901,7 @@ static double get_sfr_factor_due_to_selfgravity(int i) {
     // PFH: note the latter flag is an arbitrary choice currently set
     // -by hand- to prevent runaway densities from this prescription! //
 
-    if (HAS(All.StarformationCriterion, SFR_CRITERION_CONTINUOUS_CUTOFF)) {
+    if (HAS(sfr_params.StarformationCriterion, SFR_CRITERION_CONTINUOUS_CUTOFF)) {
         // continuous cutoff w alpha_vir instead of sharp (optional) //
         y *= 1.0/(1.0 + alpha_vir);
     }

@@ -10,6 +10,7 @@
 #include <libgadget/treewalk.h>
 #include <libgadget/cooling_rates.h>
 #include <libgadget/winds.h>
+#include <libgadget/sfr_eff.h>
 
 /* Optional parameters are passed the flag 0 and required parameters 1.
  * These macros are just to document the semantic meaning of these flags. */
@@ -470,20 +471,6 @@ void read_parameter_file(char *fname)
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.WindOn = param_get_int(ps, "WindOn");
 
-        /*Star formation parameters*/
-        All.StarformationCriterion = param_get_enum(ps, "StarformationCriterion");
-        All.CritOverDensity = param_get_double(ps, "CritOverDensity");
-        All.CritPhysDensity = param_get_double(ps, "CritPhysDensity");
-
-        All.FactorSN = param_get_double(ps, "FactorSN");
-        All.FactorEVP = param_get_double(ps, "FactorEVP");
-        All.TempSupernova = param_get_double(ps, "TempSupernova");
-        All.TempClouds = param_get_double(ps, "TempClouds");
-        All.MaxSfrTimescale = param_get_double(ps, "MaxSfrTimescale");
-
-        /*Lyman-alpha forest parameters*/
-        All.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
-
         param_get_string2(ps, "TreeCoolFile", All.TreeCoolFile);
         param_get_string2(ps, "UVFluctuationfile", All.UVFluctuationFile);
         param_get_string2(ps, "MetalCoolFile", All.MetalCoolFile);
@@ -540,6 +527,7 @@ void read_parameter_file(char *fname)
     set_cooling_params(ps);
     set_treewalk_params(ps);
     set_domain_params(ps);
+    set_sfr_params(ps);
     set_winds_params(ps);
 
     parameter_set_free(ps);

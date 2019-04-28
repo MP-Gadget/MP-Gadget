@@ -69,18 +69,6 @@ enum BlackHoleFeedbackMethod {
      BH_FEEDBACK_OPTTHIN  = 0x20,
 };
 
-/*
- * additional sfr criterion in addition to density threshold
- * All.StarformationCriterion */
-enum StarformationCriterion {
-    SFR_CRITERION_DENSITY = 1,
-    SFR_CRITERION_MOLECULAR_H2 = 3, /* 2 + 1 */
-    SFR_CRITERION_SELFGRAVITY = 5,  /* 4 + 1 */
-    /* below are additional flags in SELFGRAVITY */
-    SFR_CRITERION_CONVERGENT_FLOW = 13, /* 8 + 4 + 1 */
-    SFR_CRITERION_CONTINUOUS_CUTOFF= 21, /* 16 + 4 + 1 */
-};
-
 enum DensityKernelType {
     DENSITY_KERNEL_CUBIC_SPLINE = 1,
     DENSITY_KERNEL_QUINTIC_SPLINE = 2,
@@ -203,8 +191,6 @@ extern struct global_data_all_processes
                           and analytic solvers when hybrid neutrinos are on*/
     double HybridNuPartTime; /*!< Redshift at which hybrid neutrinos switch on*/
 
-    enum StarformationCriterion StarformationCriterion;  /*!< flags that star formation is enabled */
-
     int FastParticleType; /*!< flags a particle species to exclude timestep calculations.*/
     /* parameters determining output frequency */
 
@@ -309,22 +295,6 @@ extern struct global_data_all_processes
 
     double OutputListTimes[8192];
     int OutputListLength;
-
-/*Star formation parameters*/
-    double CritOverDensity;
-    double CritPhysDensity;
-    double OverDensThresh;
-    double PhysDensThresh;
-    double EgySpecSN;
-    double FactorSN;
-    double EgySpecCold;
-    double FactorEVP;
-    double FeedbackEnergy;
-    double TempSupernova;
-    double TempClouds;
-    double MaxSfrTimescale;
-    /*Lyman alpha forest specific parameters*/
-    double QuickLymanAlphaProbability;
 
     double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
     double BlackHoleFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */
