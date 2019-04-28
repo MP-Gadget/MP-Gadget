@@ -226,7 +226,7 @@ void domain_decompose_full(DomainDecomp * ddecomp)
     myfree(TopTreeTempMemory);
     TopTreeTempMemory = NULL;
 
-    if(domain_exchange(domain_layoutfunc, ddecomp, 0))
+    if(domain_exchange(domain_layoutfunc, ddecomp, 0, ddecomp->DomainComm))
         endrun(1929,"Could not exchange particles\n");
 
     /*Do a garbage collection so that the slots are ordered
@@ -253,7 +253,7 @@ void domain_maintain(DomainDecomp * ddecomp)
     /* Try a domain exchange.
      * If we have no memory for the particles,
      * bail and do a full domain*/
-    if(0 != domain_exchange(domain_layoutfunc, ddecomp, 0)) {
+    if(0 != domain_exchange(domain_layoutfunc, ddecomp, 0, ddecomp->DomainComm)) {
         domain_decompose_full(ddecomp);
         return;
     }

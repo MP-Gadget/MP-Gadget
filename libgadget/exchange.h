@@ -3,7 +3,7 @@
 
 typedef int (*ExchangeLayoutFunc) (int p, const void * userdata);
 
-int domain_exchange(ExchangeLayoutFunc, const void * layout_userdata, int do_gc);
+int domain_exchange(ExchangeLayoutFunc, const void * layout_userdata, int do_gc, MPI_Comm ExchangeComm);
 void domain_test_id_uniqueness();
 
 #endif
