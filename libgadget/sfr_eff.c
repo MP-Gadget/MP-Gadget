@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <omp.h>
 #include "allvars.h"
 #include "sfr_eff.h"
 #include "cooling.h"
@@ -52,13 +53,14 @@ void cooling_and_starformation(ForceTree * tree)
     if(!All.CoolingOn)
         return;
 
+    const int nthreads = omp_get_max_threads();
     /*This is a queue for the new stars and their parents, so we can reallocate the slots after the main cooling loop.*/
     int * NewStars = NULL;
     int * NewParents = NULL;
     int NumNewStar = 0;
-    size_t *nqthrsfr = ta_malloc("nqthrsfr", size_t, All.NumThreads);
-    int **thrqueuesfr = ta_malloc("thrqueuesfr", int *, All.NumThreads);
-    int **thrqueueparent = ta_malloc("thrqueueparent", int *, All.NumThreads);
+    size_t *nqthrsfr = ta_malloc("nqthrsfr", size_t, nthreads);
+    int **thrqueuesfr = ta_malloc("thrqueuesfr", int *, nthreads);
+    int **thrqueueparent = ta_malloc("thrqueueparent", int *, nthreads);
 
     /*Need to capture this so that when NumActiveParticle increases during the loop
      * we don't add extra loop iterations on particles with invalid slots.*/
@@ -67,11 +69,11 @@ void cooling_and_starformation(ForceTree * tree)
     if(All.StarformationOn) {
         /* Need 1 extra for non-integer part and 1 extra
          * for the case where one thread loops an extra time*/
-        int narr = nactive/All.NumThreads+2;
-        NewStars = mymalloc("NewStars", narr * sizeof(int) * All.NumThreads);
-        gadget_setup_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, narr, All.NumThreads);
-        NewParents = mymalloc2("NewParents", narr * sizeof(int) * All.NumThreads);
-        gadget_setup_thread_arrays(NewParents, thrqueueparent, nqthrsfr, narr, All.NumThreads);
+        int narr = nactive/nthreads+2;
+        NewStars = mymalloc("NewStars", narr * sizeof(int) * nthreads);
+        gadget_setup_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, narr, nthreads);
+        NewParents = mymalloc2("NewParents", narr * sizeof(int) * nthreads);
+        gadget_setup_thread_arrays(NewParents, thrqueueparent, nqthrsfr, narr, nthreads);
     }
 
     double sum_sm = 0, sum_mass_stars = 0, localsfr = 0;
@@ -84,7 +86,6 @@ void cooling_and_starformation(ForceTree * tree)
         int i;
         const int tid = omp_get_thread_num();
 
-        const int nthreads = omp_get_num_threads();
         for(i=tid; i < nactive; i+=nthreads)
         {
             /*Use raw particle number if active_set is null, otherwise use active_set*/
@@ -128,8 +129,8 @@ void cooling_and_starformation(ForceTree * tree)
     report_memory_usage("SFR");
     /*Merge step for the queue.*/
     if(NewStars) {
-        NumNewStar = gadget_compact_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, All.NumThreads);
-        int NumNewParent = gadget_compact_thread_arrays(NewParents, thrqueueparent, nqthrsfr, All.NumThreads);
+        NumNewStar = gadget_compact_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, nthreads);
+        int NumNewParent = gadget_compact_thread_arrays(NewParents, thrqueueparent, nqthrsfr, nthreads);
         if(NumNewStar != NumNewParent)
             endrun(3,"%d new stars, but %d new parents!\n",NumNewStar, NumNewParent);
         /*Shrink star memory as we keep it for the wind model*/
