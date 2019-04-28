@@ -21,7 +21,7 @@ enum WindModel {
 void set_winds_params(ParameterSet * ps);
 
 /*Initialize the wind model from the SFR module*/
-void init_winds(double FactorSN, double EgySpecSN);
+void init_winds(double FactorSN, double EgySpecSN, double PhysDensThresh);
 
 /*Evolve a wind particle, reducing its DelayTime*/
 void wind_evolve(int i);

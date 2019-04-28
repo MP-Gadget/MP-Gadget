@@ -17,6 +17,8 @@ static struct WindParams
     enum WindModel WindModel;  /*!< Which wind model is in use? */
     double WindFreeTravelLength;
     double WindFreeTravelDensFac;
+    /*Density threshold at which to recouple wind particles.*/
+    double WindFreeTravelDensThresh;
     /* used in VS08 and SH03*/
     double WindEfficiency;
     double WindSpeed;
@@ -96,10 +98,11 @@ void set_winds_params(ParameterSet * ps)
 }
 
 void
-init_winds(double FactorSN, double EgySpecSN)
+init_winds(double FactorSN, double EgySpecSN, double PhysDensThresh)
 {
     wind_params.WindSpeed = sqrt(2 * wind_params.WindEnergyFraction * FactorSN * EgySpecSN / (1 - FactorSN));
 
+    wind_params.WindFreeTravelDensThresh = wind_params.WindFreeTravelDensFac * PhysDensThresh;
     if(HAS(wind_params.WindModel, WIND_FIXED_EFFICIENCY)) {
         wind_params.WindSpeed /= sqrt(wind_params.WindEfficiency);
         message(0, "Windspeed: %g\n", wind_params.WindSpeed);
@@ -130,7 +133,7 @@ winds_decoupled_hydro(int i)
     double windspeed = wind_params.WindSpeed * All.cf.a;
     const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
     windspeed *= fac_mu;
-    double hsml_c = pow(wind_params.WindFreeTravelDensFac * All.PhysDensThresh /
+    double hsml_c = pow(wind_params.WindFreeTravelDensThresh /
             (SPHP(i).Density * All.cf.a3inv), (1. / 3.));
     SPHP(i).MaxSignalVel = hsml_c * DMAX((2 * windspeed), SPHP(i).MaxSignalVel);
 }
@@ -181,8 +184,6 @@ static int* NPLeft;
 void
 winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree)
 {
-    if(!All.WindOn)
-        return;
     /*The subgrid model does nothing here*/
     if(HAS(wind_params.WindModel, WIND_SUBGRID))
         return;
@@ -254,7 +255,7 @@ void
 wind_evolve(int i)
 {
     /*Remove a wind particle from the delay mode if the (physical) density has dropped sufficiently.*/
-    if(SPHP(i).DelayTime > 0 && SPHP(i).Density * All.cf.a3inv < wind_params.WindFreeTravelDensFac * All.PhysDensThresh) {
+    if(SPHP(i).DelayTime > 0 && SPHP(i).Density * All.cf.a3inv < wind_params.WindFreeTravelDensThresh) {
             SPHP(i).DelayTime = 0;
     }
     /*Reduce the time until the particle can form stars again by the current timestep*/

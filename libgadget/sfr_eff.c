@@ -208,7 +208,8 @@ void cooling_and_starformation(ForceTree * tree)
     walltime_measure("/Cooling/StarFormation");
 
     /* Now apply the wind model using the list of new stars.*/
-    winds_and_feedback(NewStars, NumNewStar, tree);
+    if(All.WindOn)
+        winds_and_feedback(NewStars, NumNewStar, tree);
 
     myfree(NewStars);
 }
@@ -678,10 +679,6 @@ void init_cooling_and_star_formation(void)
     All.EgySpecSN = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempSupernova;
     All.EgySpecSN *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
 
-    if(All.WindOn) {
-        init_winds(All.FactorSN, All.EgySpecSN);
-    }
-
     if(All.PhysDensThresh == 0)
     {
         double egyhot = All.EgySpecSN / All.FactorEVP;
@@ -750,6 +747,12 @@ void init_cooling_and_star_formation(void)
                 GAMMA_MINUS1 * u4 / (2 * M_PI * All.G * sigma));
 
     }
+
+    if(All.WindOn) {
+        init_winds(All.FactorSN, All.EgySpecSN, All.PhysDensThresh);
+    }
+
+
 }
 
 static double
