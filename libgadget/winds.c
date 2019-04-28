@@ -73,7 +73,7 @@ static struct winddata {
 #define WINDP(i) Winddata[P[i].PI]
 
 /*Make a particle a wind particle by changing DelayTime to a positive number*/
-int make_particle_wind(MyIDType ID, int i, double v, double vmean[3]);
+int make_particle_wind(int i, double v, double vmean[3]);
 
 /*Set the parameters of the domain module*/
 void set_winds_params(ParameterSet * ps)
@@ -149,7 +149,7 @@ int winds_make_after_sf(int i, double sm)
     double prob = 1 - exp(-pw);
     double zero[3] = {0, 0, 0};
     if(get_random_number(P[i].ID + 2) < prob)
-        return make_particle_wind(P[i].ID, i, wind_params.WindSpeed * All.cf.a, zero);
+        return make_particle_wind(i, wind_params.WindSpeed * All.cf.a, zero);
 
     return 0;
 }
@@ -449,7 +449,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     double p = windeff * wk * I->Mass / I->TotalWeight;
     double random = get_random_number(I->base.ID + P[other].ID);
     if (random < p) {
-        make_particle_wind(I->base.ID, other, v, I->Vmean);
+        make_particle_wind(other, v, I->Vmean);
     }
 
     if(P[other].ID != I->base.ID)
@@ -458,7 +458,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
 }
 
 int
-make_particle_wind(MyIDType ID, int i, double v, double vmean[3]) {
+make_particle_wind(int i, double v, double vmean[3]) {
     /* v and vmean are in internal units (km/s *a ), not km/s !*/
     /* returns 0 if particle i is converted to wind. */
     // message(1, "%ld Making ID=%ld (%g %g %g) to wind with v= %g\n", ID, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], v);
