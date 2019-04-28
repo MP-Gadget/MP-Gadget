@@ -221,13 +221,6 @@ hydro_ngbiter(
                   " We haven't implemented tracer particles and this shall not happen\n");
     }
 
-#ifdef NOWINDTIMESTEPPING
-    if(All.WindOn && HAS(All.WindModel, WIND_DECOUPLE_SPH)) {
-        if(P[other].Type == 0)
-            if(SPHP(other).DelayTime > 0)  /* ignore the wind particles */
-                return;
-    }
-#endif
     DensityKernel kernel_j;
 
     density_kernel_init(&kernel_j, P[other].Hsml);
@@ -355,16 +348,12 @@ hydro_postprocess(int i, TreeWalk * tw)
 
                 SPHP(i).DtEntropy = 0;
 
-#ifdef NOWINDTIMESTEPPING
-                SPHP(i).MaxSignalVel = 2 * sqrt(GAMMA * PressurePred(i) / SPHP(i).Density);
-#else
                 double windspeed = All.WindSpeed * All.cf.a;
                 const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
                 windspeed *= fac_mu;
                 double hsml_c = pow(All.WindFreeTravelDensFac * All.PhysDensThresh /
                         (SPHP(i).Density * All.cf.a3inv), (1. / 3.));
                 SPHP(i).MaxSignalVel = hsml_c * DMAX((2 * windspeed), SPHP(i).MaxSignalVel);
-#endif
         }
     }
 }
