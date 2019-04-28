@@ -82,7 +82,11 @@ def _build_cosmology_params(config):
     if config['OmegaBaryon'] < 0.001:
         config['OmegaBaryon'] = 0.0486
     ocdm = config['Omega0'] - config['OmegaBaryon'] - omeganu
+
     omegak = 1-config['OmegaLambda']-config['Omega0']
+    # avoid numerical issue due to very small OmegaK
+    if np.abs(omegak) < 1e-9: omegak = 0
+
     gparams = {'h':config['HubbleParam'], 'Omega_cdm':ocdm,'Omega_b':config['OmegaBaryon'], 'Omega_k':omegak, 'n_s': config['PrimordialIndex'], 'alpha_s': config['PrimordialRunning'],'T_cmb':config["CMBTemperature"]}
     #One may specify either OmegaLambda or Omega_fld,
     #and the other is worked out by summing all matter to unity.
