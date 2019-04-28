@@ -1,6 +1,7 @@
 #ifndef DOMAIN_H
 #define DOMAIN_H
 
+#include <mpi.h>
 #include "utils/peano.h"
 #include "utils/paramset.h"
 
