@@ -84,7 +84,9 @@ int force_tree_allocated(const ForceTree * tt);
 /* This function propagates changed SPH smoothing lengths up the tree*/
 void force_update_hmax(int * activeset, int size, ForceTree * tt);
 
-/*This is the main constructor for the tree structure. Pass in something empty for tree.*/
+/* This is the main constructor for the tree structure.
+   The tree shall be either zero-filled, so that force_tree_allocated = 0, or a valid ForceTree.
+*/
 void force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav);
 
 /*Free the memory associated with the tree*/
