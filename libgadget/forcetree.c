@@ -29,9 +29,10 @@
 
 static struct forcetree_params
 {
-    /*!< Each processor allocates a number of nodes which is TreeAllocFactor times
-         the maximum(!) number of particles.  Note: A typical local tree for N
-         particles needs usually about ~0.65*N nodes. */
+    /* Each processor allocates a number of nodes which is TreeAllocFactor times
+       the maximum(!) number of particles.  Note: A typical local tree for N
+       particles needs usually about ~0.65*N nodes.
+       If the allocated memory is not sufficient, this parameter will be increased.*/
     double TreeAllocFactor;
     /* The minimum size of a Force Tree Node in length units. */
     double TreeNodeMinSize;
