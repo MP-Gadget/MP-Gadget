@@ -51,6 +51,8 @@ static struct DomainParams
     int DomainUseGlobalSorting;
     /** Initial number of Top level tree nodes as a fraction of particles */
     double TopNodeAllocFactor;
+    /** Fraction of local particle slots to leave free for, eg, star formation*/
+    double SetAsideFactor;
 } domain_params;
 
 /**
@@ -98,6 +100,10 @@ void set_domain_params(ParameterSet * ps)
         domain_params.DomainOverDecompositionFactor = param_get_int(ps, "DomainOverDecompositionFactor");
         domain_params.TopNodeAllocFactor = param_get_double(ps, "TopNodeAllocFactor");
         domain_params.DomainUseGlobalSorting = param_get_int(ps, "DomainUseGlobalSorting");
+        domain_params.SetAsideFactor = 1.;
+        if((param_get_int(ps, "StarformationOn") && param_get_double(ps, "QuickLymanAlphaProbability") == 0.)
+            || param_get_int(ps, "BlackHoleOn"))
+            domain_params.SetAsideFactor = 0.95;
     }
     MPI_Bcast(&domain_params, sizeof(struct DomainParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -496,11 +502,10 @@ domain_check_memory_bound(const DomainDecomp * ddecomp, const int print_details,
     }
 
     /*Leave a small number of particles for star formation */
-    double sfrfrac = 0.95;
-    if(max_load > PartManager->MaxPart * sfrfrac)
+    if(max_load > PartManager->MaxPart * domain_params.SetAsideFactor)
     {
         message(0, "desired memory imbalance=%g  (limit=%d, needed=%d)\n",
-                    (max_load * ((double) sumload ) / NTask ) / PartManager->MaxPart, sfrfrac * PartManager->MaxPart, max_load);
+                    (max_load * ((double) sumload ) / NTask ) / PartManager->MaxPart, domain_params.SetAsideFactor * PartManager->MaxPart, max_load);
 
         return 1;
     }
