@@ -151,14 +151,13 @@ void fof_fof(ForceTree * tree)
     /* Fill FOFP_List of primary */
     fof_label_primary(tree);
 
+    MPI_Barrier(MPI_COMM_WORLD);
     message(0, "Group finding done.\n");
     walltime_measure("/FOF/Primary");
 
     /* Fill FOFP_List of secondary */
     fof_label_secondary(tree);
     walltime_measure("/FOF/Secondary");
-
-    message(0, "Attached gas and star particles to nearest dm particles.\n");
 
     /* sort HaloLabel according to MinID, because we need that for compiling catalogues */
     qsort_openmp(HaloLabel, PartManager->NumPart, sizeof(struct fof_particle_list), fof_compare_HaloLabel_MinID);
@@ -175,6 +174,7 @@ void fof_fof(ForceTree * tree)
 
     fof_compile_base(base);
 
+    MPI_Barrier(MPI_COMM_WORLD);
     message(0, "Compiled local group data and catalogue.\n");
 
     walltime_measure("/FOF/Compile");
@@ -188,10 +188,11 @@ void fof_fof(ForceTree * tree)
 
     fof_compile_catalogue(Group);
 
-    walltime_measure("/FOF/Prop");
-
+    MPI_Barrier(MPI_COMM_WORLD);
     message(0, "Finished FoF. Group properties are now allocated.. (presently allocated=%g MB)\n",
             mymalloc_usedbytes() / (1024.0 * 1024.0));
+
+    walltime_measure("/FOF/Prop");
 
     myfree(HaloLabel);
 }
@@ -1149,7 +1150,8 @@ static void fof_label_secondary(ForceTree * tree)
     myfree(FOF_SECONDARY_GET_PRIV(tw)->hsml);
     myfree(FOF_SECONDARY_GET_PRIV(tw)->distance);
 
-    message(0, "done finding nearest dm-particle\n");
+    MPI_Barrier(MPI_COMM_WORLD);
+    message(0, "Attached gas and star particles to nearest dm particles.\n");
 }
 
 static void
