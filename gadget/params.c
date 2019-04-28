@@ -11,6 +11,7 @@
 #include <libgadget/cooling_rates.h>
 #include <libgadget/winds.h>
 #include <libgadget/sfr_eff.h>
+#include <libgadget/blackhole.h>
 
 /* Optional parameters are passed the flag 0 and required parameters 1.
  * These macros are just to document the semantic meaning of these flags. */
@@ -444,29 +445,10 @@ void read_parameter_file(char *fname)
         All.FOFHaloLinkingLength = param_get_double(ps, "FOFHaloLinkingLength");
         All.FOFHaloMinLength = param_get_int(ps, "FOFHaloMinLength");
         All.MinFoFMassForNewSeed = param_get_double(ps, "MinFoFMassForNewSeed");
-        All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
 
         All.RandomSeed = param_get_int(ps, "RandomSeed");
 
         All.BlackHoleOn = param_get_int(ps, "BlackHoleOn");
-    #ifdef BLACK_HOLES
-        All.BlackHoleSoundSpeedFromPressure = 0;
-
-        All.BlackHoleAccretionFactor = param_get_double(ps, "BlackHoleAccretionFactor");
-        All.BlackHoleEddingtonFactor = param_get_double(ps, "BlackHoleEddingtonFactor");
-        All.SeedBlackHoleMass = param_get_double(ps, "SeedBlackHoleMass");
-
-        All.BlackHoleNgbFactor = param_get_double(ps, "BlackHoleNgbFactor");
-
-        All.BlackHoleMaxAccretionRadius = param_get_double(ps, "BlackHoleMaxAccretionRadius");
-        All.BlackHoleFeedbackFactor = param_get_double(ps, "BlackHoleFeedbackFactor");
-        All.BlackHoleFeedbackRadius = param_get_double(ps, "BlackHoleFeedbackRadius");
-
-        All.BlackHoleFeedbackRadiusMaxPhys = param_get_double(ps, "BlackHoleFeedbackRadiusMaxPhys");
-
-        All.BlackHoleFeedbackMethod = param_get_enum(ps, "BlackHoleFeedbackMethod");
-
-    #endif
 
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.WindOn = param_get_int(ps, "WindOn");
@@ -490,7 +472,12 @@ void read_parameter_file(char *fname)
             endrun(2, "You have enabled (kspace) massive neutrinos without radiation, but this will give an inconsistent cosmology!\n");
         /*End massive neutrino parameters*/
 
+        /*These two look like black hole parameters but they are really neighbour finding parameters*/
+        All.BlackHoleNgbFactor = param_get_double(ps, "BlackHoleNgbFactor");
+        All.BlackHoleMaxAccretionRadius = param_get_double(ps, "BlackHoleMaxAccretionRadius");
+
     #ifndef BLACK_HOLES
+
         if(All.BlackHoleOn)
         {
             endrun(1, "Code was compiled with black holes switched off but BlackHoleOn = 1. This does not work!\n");
@@ -529,6 +516,9 @@ void read_parameter_file(char *fname)
     set_domain_params(ps);
     set_sfr_params(ps);
     set_winds_params(ps);
+#ifdef BLACK_HOLES
+    set_blackhole_params(ps);
+#endif
 
     parameter_set_free(ps);
 }

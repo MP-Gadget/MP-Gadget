@@ -153,6 +153,11 @@ extern struct global_data_all_processes
     /* some SPH parameters */
 
     int DesNumNgb;		/*!< Desired number of SPH neighbours */
+    /*Look like black hole parameters but really for neighbour finding*/
+    double BlackHoleNgbFactor;	/*!< Factor by which the normal SPH neighbour should be increased/decreased */
+    double BlackHoleMaxAccretionRadius;
+
+
     double DensityResolutionEta;		/*!< SPH resolution eta. See Price 2011. eq 12*/
     double MaxNumNgbDeviation;	/*!< Maximum allowed deviation neighbour number */
     double ArtBulkViscConst;	/*!< Sets the parameter \f$\alpha\f$ of the artificial viscosity */
@@ -296,25 +301,12 @@ extern struct global_data_all_processes
     double OutputListTimes[8192];
     int OutputListLength;
 
-    double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
-    double BlackHoleFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */
-    enum BlackHoleFeedbackMethod BlackHoleFeedbackMethod;	/*!< method of the feedback*/
-    double BlackHoleFeedbackRadius;	/*!< Radius the thermal feedback is fed comoving*/
-    double BlackHoleFeedbackRadiusMaxPhys;	/*!< Radius the thermal cap */
-    double SeedBlackHoleMass;	/*!< Seed black hole mass */
-    double BlackHoleNgbFactor;	/*!< Factor by which the normal SPH neighbour should be increased/decreased */
-    double BlackHoleMaxAccretionRadius;
-    double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
-    int BlackHoleSoundSpeedFromPressure; /* 0 from Entropy, 1 from Pressure; */
-
     int SnapshotWithFOF; /*Flag that doing FOF for snapshot outputs is on*/
     int FOFSaveParticles ; /* saving particles in the fof group */
     double MinFoFMassForNewSeed;	/* Halo mass required before new seed is put in */
     double FOFHaloLinkingLength;
     double FOFHaloComovingLinkingLength; /* in code units */
     int FOFHaloMinLength;
-    double TimeNextSeedingCheck;  /*Time for the next seed check.*/
-    double TimeBetweenSeedingSearch; /*Factor to multiply TimeInit by to find the next seeding check.*/
 
     int RandomSeed; /*Initial seed for the random number table*/
 }

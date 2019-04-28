@@ -68,7 +68,7 @@ static double find_star_mass(int i);
 /*Get enough memory for new star slots. This may be excessively slow! Don't do it too often.*/
 static int * sfr_reserve_slots(int * NewStars, int NumNewStar, ForceTree * tt);
 
-/*Set the parameters of the domain module*/
+/*Set the parameters of the SFR module*/
 void set_sfr_params(ParameterSet * ps)
 {
     int ThisTask;

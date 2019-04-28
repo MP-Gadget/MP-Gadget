@@ -23,6 +23,19 @@
 
 #ifdef BLACK_HOLES
 
+struct BlackholeParams
+{
+    double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
+    double BlackHoleFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */
+    enum BlackHoleFeedbackMethod BlackHoleFeedbackMethod;	/*!< method of the feedback*/
+    double BlackHoleFeedbackRadius;	/*!< Radius the thermal feedback is fed comoving*/
+    double BlackHoleFeedbackRadiusMaxPhys;	/*!< Radius the thermal cap */
+    double SeedBlackHoleMass;	/*!< Seed black hole mass */
+    double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
+    int BlackHoleSoundSpeedFromPressure; /* 0 from Entropy, 1 from Pressure; */
+    double TimeBetweenSeedingSearch; /*Factor to multiply TimeInit by to find the next seeding check.*/
+} blackhole_params;
+
 typedef struct {
     TreeWalkQueryBase base;
     MyFloat Density;
@@ -77,6 +90,32 @@ typedef struct {
     DensityKernel feedback_kernel;
 } TreeWalkNgbIterBHFeedback;
 
+/*Set the parameters of the BH module*/
+void set_blackhole_params(ParameterSet * ps)
+{
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask == 0) {
+        blackhole_params.BlackHoleSoundSpeedFromPressure = 0;
+
+        blackhole_params.BlackHoleAccretionFactor = param_get_double(ps, "BlackHoleAccretionFactor");
+        blackhole_params.BlackHoleEddingtonFactor = param_get_double(ps, "BlackHoleEddingtonFactor");
+        blackhole_params.SeedBlackHoleMass = param_get_double(ps, "SeedBlackHoleMass");
+
+        blackhole_params.BlackHoleFeedbackFactor = param_get_double(ps, "BlackHoleFeedbackFactor");
+        blackhole_params.BlackHoleFeedbackRadius = param_get_double(ps, "BlackHoleFeedbackRadius");
+
+        blackhole_params.BlackHoleFeedbackRadiusMaxPhys = param_get_double(ps, "BlackHoleFeedbackRadiusMaxPhys");
+
+        blackhole_params.BlackHoleFeedbackMethod = param_get_enum(ps, "BlackHoleFeedbackMethod");
+
+        blackhole_params.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
+
+    }
+    MPI_Bcast(&blackhole_params, sizeof(struct BlackholeParams), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
+
+
 /* accretion routines */
 static void
 blackhole_accretion_postprocess(int n, TreeWalk * tw);
@@ -129,7 +168,7 @@ static int N_sph_swallowed, N_BH_swallowed;
 static double blackhole_soundspeed(double entropy, double pressure, double rho) {
     /* rho is comoving !*/
     double cs;
-    if (All.BlackHoleSoundSpeedFromPressure) {
+    if (blackhole_params.BlackHoleSoundSpeedFromPressure) {
         cs = sqrt(GAMMA * pressure / rho);
     } else {
         cs = sqrt(GAMMA * entropy *
@@ -141,7 +180,8 @@ static double blackhole_soundspeed(double entropy, double pressure, double rho) 
     return cs;
 }
 
-void blackhole(ForceTree * tree)
+void
+blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
 {
     if(!All.BlackHoleOn) return;
     int i;
@@ -234,13 +274,13 @@ void blackhole(ForceTree * tree)
     }
 
     /* this will find new black hole seed halos */
-    if(All.Time >= All.TimeNextSeedingCheck)
+    if(All.Time >= *TimeNextSeedingCheck)
     {
         /* Seeding */
         fof_fof(tree);
         fof_seed();
         fof_finish();
-        All.TimeNextSeedingCheck *= All.TimeBetweenSeedingSearch;
+        *TimeNextSeedingCheck = All.Time * blackhole_params.TimeBetweenSeedingSearch;
     }
     walltime_measure("/BH");
 }
@@ -276,14 +316,14 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
     double norm = pow((pow(soundspeed, 2) + pow(bhvel, 2)), 1.5);
 
     if(norm > 0)
-        mdot = 4. * M_PI * All.BlackHoleAccretionFactor * All.G * All.G *
+        mdot = 4. * M_PI * blackhole_params.BlackHoleAccretionFactor * All.G * All.G *
             BHP(i).Mass * BHP(i).Mass * rho_proper / norm;
     else
         mdot = 0;
 
-    if(All.BlackHoleEddingtonFactor > 0.0 &&
-        mdot > All.BlackHoleEddingtonFactor * meddington) {
-        mdot = All.BlackHoleEddingtonFactor * meddington;
+    if(blackhole_params.BlackHoleEddingtonFactor > 0.0 &&
+        mdot > blackhole_params.BlackHoleEddingtonFactor * meddington) {
+        mdot = blackhole_params.BlackHoleEddingtonFactor * meddington;
     }
     BHP(i).Mdot = mdot;
 
@@ -462,18 +502,18 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         if(r2 < iter->feedback_kernel.HH) {
             /* update the feedback weighting */
             double mass_j;
-            if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_OPTTHIN)) {
+            if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_OPTTHIN)) {
                 double redshift = 1./All.Time - 1;
                 double nh0 = get_neutral_fraction_sfreff(other, redshift);
                 if(r2 > 0)
                     O->FeedbackWeightSum += (P[other].Mass * nh0) / r2;
             } else {
-                if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
+                if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
                     mass_j = P[other].Mass;
                 } else {
                     mass_j = P[other].Hsml * P[other].Hsml * P[other].Hsml;
                 }
-                if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE)) {
+                if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE)) {
                     double u = r * iter->feedback_kernel.Hinv;
                     O->FeedbackWeightSum += (mass_j *
                           density_kernel_wk(&iter->feedback_kernel, u)
@@ -559,12 +599,12 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
             lock_particle(other);
 
-            if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
+            if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
                 mass_j = P[other].Mass;
             } else {
                 mass_j = P[other].Hsml * P[other].Hsml * P[other].Hsml;
             }
-            if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
+            if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
                 wk = density_kernel_wk(&iter->feedback_kernel, u);
             else
             wk = 1.0;
@@ -676,7 +716,7 @@ blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I, TreeWalk * tw)
 
     double dtime = get_dloga_for_bin(P[i].TimeBin) / All.cf.hubble;
 
-    I->FeedbackEnergy = All.BlackHoleFeedbackFactor * 0.1 * BHP(i).Mdot * dtime *
+    I->FeedbackEnergy = blackhole_params.BlackHoleFeedbackFactor * 0.1 * BHP(i).Mdot * dtime *
                 pow(LIGHTCGS / All.UnitVelocity_in_cm_per_s, 2);
 }
 
@@ -700,8 +740,8 @@ void blackhole_make_one(int index) {
     int child = index;
 
     /*If the particle mass is larger than that needed for a black hole, split off a new particle.*/
-    if(P[index].Mass > All.SeedBlackHoleMass) {
-        child = slots_split_particle(index, All.SeedBlackHoleMass);
+    if(P[index].Mass > blackhole_params.SeedBlackHoleMass) {
+        child = slots_split_particle(index, blackhole_params.SeedBlackHoleMass);
     }
 
     /*Make the new particle a black hole.*/
@@ -710,7 +750,7 @@ void blackhole_make_one(int index) {
     BHP(child).base.ID = P[child].ID;
     /* The accretion mass should always be the seed black hole mass,
      * irrespective of the gravitational mass of the particle.*/
-    BHP(child).Mass = All.SeedBlackHoleMass;
+    BHP(child).Mass = blackhole_params.SeedBlackHoleMass;
     BHP(child).Mdot = 0;
     BHP(child).FormationTime = All.Time;
 
@@ -730,16 +770,16 @@ void blackhole_make_one(int index) {
 static double
 decide_hsearch(double h)
 {
-    if(All.BlackHoleFeedbackRadius > 0) {
+    if(blackhole_params.BlackHoleFeedbackRadius > 0) {
         /* BlackHoleFeedbackRadius is in comoving.
          * The Phys radius is capped by BlackHoleFeedbackRadiusMaxPhys
          * just like how it was done for grav smoothing.
          * */
         double rds;
-        rds = All.BlackHoleFeedbackRadiusMaxPhys / All.cf.a;
+        rds = blackhole_params.BlackHoleFeedbackRadiusMaxPhys / All.cf.a;
 
-        if(rds > All.BlackHoleFeedbackRadius) {
-            rds = All.BlackHoleFeedbackRadius;
+        if(rds > blackhole_params.BlackHoleFeedbackRadius) {
+            rds = blackhole_params.BlackHoleFeedbackRadius;
         }
         return rds;
     } else {

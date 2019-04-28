@@ -93,7 +93,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
 #ifdef BLACK_HOLES
         if(RestartSnapNum == -1 && P[i].Type == 5 )
         {
-            BHP(i).Mass = All.SeedBlackHoleMass;
+            BHP(i).Mass = P[i].Mass;
         }
 #endif
         P[i].Key = PEANO(P[i].Pos, All.BoxSize);
