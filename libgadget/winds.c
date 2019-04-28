@@ -122,7 +122,7 @@ winds_is_particle_decoupled(int i)
 }
 
 void
-winds_decoupled_hydro(int i)
+winds_decoupled_hydro(int i, double atime)
 {
     int k;
     for(k = 0; k < 3; k++)
@@ -130,15 +130,14 @@ winds_decoupled_hydro(int i)
 
     SPHP(i).DtEntropy = 0;
 
-    double windspeed = wind_params.WindSpeed * All.cf.a;
-    const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
+    double windspeed = wind_params.WindSpeed * atime;
+    const double fac_mu = pow(atime, 3 * (GAMMA - 1) / 2) / atime;
     windspeed *= fac_mu;
-    double hsml_c = pow(wind_params.WindFreeTravelDensThresh /
-            (SPHP(i).Density * All.cf.a3inv), (1. / 3.));
+    double hsml_c = cbrt(wind_params.WindFreeTravelDensThresh /SPHP(i).Density) * atime;
     SPHP(i).MaxSignalVel = hsml_c * DMAX((2 * windspeed), SPHP(i).MaxSignalVel);
 }
 
-int winds_make_after_sf(int i, double sm)
+int winds_make_after_sf(int i, double sm, double atime)
 {
     if(!HAS(wind_params.WindModel, WIND_SUBGRID))
         return 0;
@@ -149,7 +148,7 @@ int winds_make_after_sf(int i, double sm)
     double prob = 1 - exp(-pw);
     double zero[3] = {0, 0, 0};
     if(get_random_number(P[i].ID + 2) < prob)
-        return make_particle_wind(i, wind_params.WindSpeed * All.cf.a, zero);
+        return make_particle_wind(i, wind_params.WindSpeed * atime, zero);
 
     return 0;
 }
@@ -252,17 +251,17 @@ winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree)
 
 /*Evolve a wind particle, reducing its DelayTime*/
 void
-wind_evolve(int i)
+winds_evolve(int i, double a3inv, double hubble)
 {
     /*Remove a wind particle from the delay mode if the (physical) density has dropped sufficiently.*/
-    if(SPHP(i).DelayTime > 0 && SPHP(i).Density * All.cf.a3inv < wind_params.WindFreeTravelDensThresh) {
-            SPHP(i).DelayTime = 0;
+    if(SPHP(i).DelayTime > 0 && SPHP(i).Density * a3inv < wind_params.WindFreeTravelDensThresh) {
+        SPHP(i).DelayTime = 0;
     }
     /*Reduce the time until the particle can form stars again by the current timestep*/
     if(SPHP(i).DelayTime > 0) {
         const double dloga = get_dloga_for_bin(P[i].TimeBin);
         /*  the proper time duration of the step */
-        const double dtime = dloga / All.cf.hubble;
+        const double dtime = dloga / hubble;
         SPHP(i).DelayTime = DMAX(SPHP(i).DelayTime - dtime, 0);
     }
 }

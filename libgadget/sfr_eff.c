@@ -96,7 +96,7 @@ void cooling_and_starformation(ForceTree * tree)
             int shall_we_star_form = 0;
             if(All.StarformationOn) {
                 /*Reduce delaytime for wind particles.*/
-                wind_evolve(p_i);
+                winds_evolve(p_i, All.cf.a3inv, All.cf.hubble);
                 /* check whether we are star forming gas.*/
                 if(All.QuickLymanAlphaProbability > 0)
                     shall_we_star_form = quicklyastarformation(p_i);
@@ -545,7 +545,7 @@ starformation(int i, double *localsfr, double * sum_sm)
         SPHP(i).Metallicity += (1 - w) * METAL_YIELD * (1 - exp(-p));
 
         if(All.WindOn) {
-            winds_make_after_sf(i, sm);
+            winds_make_after_sf(i, sm, All.cf.a);
         }
     }
     return newstar;

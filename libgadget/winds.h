@@ -24,19 +24,18 @@ void set_winds_params(ParameterSet * ps);
 void init_winds(double FactorSN, double EgySpecSN, double PhysDensThresh);
 
 /*Evolve a wind particle, reducing its DelayTime*/
-void wind_evolve(int i);
+void winds_evolve(int i, double a3inv, double hubble);
 
 /*do the treewalk for the wind model*/
 void winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree);
 
 /*Make a wind particle at the site of recent star formation.*/
-int winds_make_after_sf(int i, double sm);
+int winds_make_after_sf(int i, double sm, double atime);
 
 /*Tests whether a given particle has been made a wind particle and is hydrodynamically decoupled*/
 int winds_is_particle_decoupled(int i);
 
 /* Set and evolve the hydro parameters for a decoupled wind particle.*/
-void winds_decoupled_hydro(int i);
-
+void winds_decoupled_hydro(int i, double atime);
 
 #endif

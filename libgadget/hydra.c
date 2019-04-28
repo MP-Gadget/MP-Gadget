@@ -341,7 +341,7 @@ hydro_postprocess(int i, TreeWalk * tw)
         /* if we have winds, we decouple particles briefly if delaytime>0 */
         if(All.WindOn && winds_is_particle_decoupled(i))
         {
-            winds_decoupled_hydro(i);
+            winds_decoupled_hydro(i, All.cf.a);
         }
     }
 }
