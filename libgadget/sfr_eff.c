@@ -543,15 +543,8 @@ starformation(int i, double *localsfr, double * sum_sm)
     if(!form_star || newstar != i)	{
         SPHP(i).Metallicity += (1 - w) * METAL_YIELD * (1 - exp(-p));
 
-        if(All.WindOn && HAS(All.WindModel, WIND_SUBGRID)) {
-            /* Here comes the Springel Hernquist 03 wind model */
-            /* Notice that this is the mass of the gas particle after forking a star, 1/GENERATIONS
-             * what it was before.*/
-            double pw = All.WindEfficiency * sm / P[i].Mass;
-            double prob = 1 - exp(-pw);
-            double zero[3] = {0, 0, 0};
-            if(get_random_number(P[i].ID + 2) < prob)
-                make_particle_wind(P[i].ID, i, All.WindSpeed * All.cf.a, zero);
+        if(All.WindOn) {
+            winds_make_after_sf(i, sm);
         }
     }
     return newstar;
@@ -686,13 +679,7 @@ void init_cooling_and_star_formation(void)
     All.EgySpecSN *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
 
     if(All.WindOn) {
-        if(HAS(All.WindModel, WIND_FIXED_EFFICIENCY)) {
-            All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency);
-            message(0, "Windspeed: %g\n", All.WindSpeed);
-        } else {
-            All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / 1.0);
-            message(0, "Reference Windspeed: %g\n", All.WindSigma0 * All.WindSpeedFactor);
-        }
+        init_winds(All.FactorSN, All.EgySpecSN);
     }
 
     if(All.PhysDensThresh == 0)

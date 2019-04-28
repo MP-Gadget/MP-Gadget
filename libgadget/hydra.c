@@ -12,7 +12,7 @@
 #include "densitykernel.h"
 #include "timestep.h"
 #include "hydra.h"
-
+#include "winds.h"
 #include "utils.h"
 
 /*! \file hydra.c
@@ -309,9 +309,8 @@ hydro_ngbiter(
                  + p_over_rho2_j*SPHP(other).DhsmlEOMDensityFactor * dwk_j * r2) / r;
 
         /* No force by wind particles */
-        if(All.WindOn && HAS(All.WindModel, WIND_DECOUPLE_SPH)) {
-            if(P[other].Type == 0 && SPHP(other).DelayTime > 0)
-                    hfc = hfc_visc = 0;
+        if(All.WindOn && winds_is_particle_decoupled(other)) {
+            hfc = hfc_visc = 0;
         }
 
 #ifndef NOACCEL
@@ -340,20 +339,9 @@ hydro_postprocess(int i, TreeWalk * tw)
         SPHP(i).DtEntropy *= GAMMA_MINUS1 / (All.cf.hubble_a2 * pow(SPHP(i).EOMDensity, GAMMA_MINUS1));
 
         /* if we have winds, we decouple particles briefly if delaytime>0 */
-        if(All.WindOn && HAS(All.WindModel, WIND_DECOUPLE_SPH) && SPHP(i).DelayTime > 0)
+        if(All.WindOn && winds_is_particle_decoupled(i))
         {
-                int k;
-                for(k = 0; k < 3; k++)
-                    SPHP(i).HydroAccel[k] = 0;
-
-                SPHP(i).DtEntropy = 0;
-
-                double windspeed = All.WindSpeed * All.cf.a;
-                const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
-                windspeed *= fac_mu;
-                double hsml_c = pow(All.WindFreeTravelDensFac * All.PhysDensThresh /
-                        (SPHP(i).Density * All.cf.a3inv), (1. / 3.));
-                SPHP(i).MaxSignalVel = hsml_c * DMAX((2 * windspeed), SPHP(i).MaxSignalVel);
+            winds_decoupled_hydro(i);
         }
     }
 }

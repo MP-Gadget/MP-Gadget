@@ -81,17 +81,6 @@ enum StarformationCriterion {
     SFR_CRITERION_CONTINUOUS_CUTOFF= 21, /* 16 + 4 + 1 */
 };
 
-/*
- * wind models SH03, VS08 and OFJT10
- * All.WindModel */
-enum WindModel {
-    WIND_SUBGRID = 1,
-    WIND_DECOUPLE_SPH = 2,
-    WIND_USE_HALO = 4,
-    WIND_FIXED_EFFICIENCY = 8,
-    WIND_ISOTROPIC = 16,
-};
-
 enum DensityKernelType {
     DENSITY_KERNEL_CUBIC_SPLINE = 1,
     DENSITY_KERNEL_QUINTIC_SPLINE = 2,
@@ -215,7 +204,6 @@ extern struct global_data_all_processes
     double HybridNuPartTime; /*!< Redshift at which hybrid neutrinos switch on*/
 
     enum StarformationCriterion StarformationCriterion;  /*!< flags that star formation is enabled */
-    enum WindModel WindModel;  /*!< flags that star formation is enabled */
 
     int FastParticleType; /*!< flags a particle species to exclude timestep calculations.*/
     /* parameters determining output frequency */
@@ -335,16 +323,6 @@ extern struct global_data_all_processes
     double TempSupernova;
     double TempClouds;
     double MaxSfrTimescale;
-    /* star formation and feedback sector */
-    double WindFreeTravelLength;
-    double WindFreeTravelDensFac;
-    /* used in VS08 and SH03*/
-    double WindEfficiency;
-    double WindSpeed;
-    double WindEnergyFraction;
-    /* used in OFJT10*/
-    double WindSigma0;
-    double WindSpeedFactor;
     /*Lyman alpha forest specific parameters*/
     double QuickLymanAlphaProbability;
 

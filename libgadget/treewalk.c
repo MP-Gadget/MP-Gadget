@@ -6,6 +6,7 @@
 #include "utils.h"
 
 #include "treewalk.h"
+#include "allvars.h"
 #include "partmanager.h"
 #include "domain.h"
 #include "forcetree.h"

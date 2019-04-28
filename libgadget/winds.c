@@ -2,11 +2,30 @@
 
 #include <math.h>
 #include <string.h>
+#include <omp.h>
 #include "winds.h"
+#include "physconst.h"
 #include "treewalk.h"
 #include "drift.h"
 #include "slotsmanager.h"
 #include "timebinmgr.h"
+#include "allvars.h"
+
+/*Parameters of the wind model*/
+static struct WindParams
+{
+    enum WindModel WindModel;  /*!< Which wind model is in use? */
+    double WindFreeTravelLength;
+    double WindFreeTravelDensFac;
+    /* used in VS08 and SH03*/
+    double WindEfficiency;
+    double WindSpeed;
+    double WindEnergyFraction;
+    /* used in OFJT10*/
+    double WindSigma0;
+    double WindSpeedFactor;
+} wind_params;
+
 
 typedef struct {
     TreeWalkQueryBase base;
@@ -51,6 +70,87 @@ static struct winddata {
 
 #define WINDP(i) Winddata[P[i].PI]
 
+/*Make a particle a wind particle by changing DelayTime to a positive number*/
+int make_particle_wind(MyIDType ID, int i, double v, double vmean[3]);
+
+/*Set the parameters of the domain module*/
+void set_winds_params(ParameterSet * ps)
+{
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask == 0) {
+        /*Wind model parameters*/
+        wind_params.WindModel = param_get_enum(ps, "WindModel");
+        /* The following two are for VS08 and SH03*/
+        wind_params.WindEfficiency = param_get_double(ps, "WindEfficiency");
+        wind_params.WindEnergyFraction = param_get_double(ps, "WindEnergyFraction");
+
+        /* The following two are for OFJT10*/
+        wind_params.WindSigma0 = param_get_double(ps, "WindSigma0");
+        wind_params.WindSpeedFactor = param_get_double(ps, "WindSpeedFactor");
+
+        wind_params.WindFreeTravelLength = param_get_double(ps, "WindFreeTravelLength");
+        wind_params.WindFreeTravelDensFac = param_get_double(ps, "WindFreeTravelDensFac");
+    }
+    MPI_Bcast(&wind_params, sizeof(struct WindParams), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
+
+void
+init_winds(double FactorSN, double EgySpecSN)
+{
+    wind_params.WindSpeed = sqrt(2 * wind_params.WindEnergyFraction * FactorSN * EgySpecSN / (1 - FactorSN));
+
+    if(HAS(wind_params.WindModel, WIND_FIXED_EFFICIENCY)) {
+        wind_params.WindSpeed /= sqrt(wind_params.WindEfficiency);
+        message(0, "Windspeed: %g\n", wind_params.WindSpeed);
+    } else {
+        message(0, "Reference Windspeed: %g\n", wind_params.WindSigma0 * wind_params.WindSpeedFactor);
+    }
+
+}
+
+int
+winds_is_particle_decoupled(int i)
+{
+    if(HAS(wind_params.WindModel, WIND_DECOUPLE_SPH)
+        && P[i].Type == 0 && SPHP(i).DelayTime > 0)
+            return 1;
+    return 0;
+}
+
+void
+winds_decoupled_hydro(int i)
+{
+    int k;
+    for(k = 0; k < 3; k++)
+        SPHP(i).HydroAccel[k] = 0;
+
+    SPHP(i).DtEntropy = 0;
+
+    double windspeed = wind_params.WindSpeed * All.cf.a;
+    const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
+    windspeed *= fac_mu;
+    double hsml_c = pow(wind_params.WindFreeTravelDensFac * All.PhysDensThresh /
+            (SPHP(i).Density * All.cf.a3inv), (1. / 3.));
+    SPHP(i).MaxSignalVel = hsml_c * DMAX((2 * windspeed), SPHP(i).MaxSignalVel);
+}
+
+int winds_make_after_sf(int i, double sm)
+{
+    if(!HAS(wind_params.WindModel, WIND_SUBGRID))
+        return 0;
+    /* Here comes the Springel Hernquist 03 wind model */
+    /* Notice that this is the mass of the gas particle after forking a star, 1/GENERATIONS
+        * what it was before.*/
+    double pw = wind_params.WindEfficiency * sm / P[i].Mass;
+    double prob = 1 - exp(-pw);
+    double zero[3] = {0, 0, 0};
+    if(get_random_number(P[i].ID + 2) < prob)
+        return make_particle_wind(P[i].ID, i, wind_params.WindSpeed * All.cf.a, zero);
+
+    return 0;
+}
+
 static int
 sfr_wind_weight_haswork(int target, TreeWalk * tw);
 
@@ -84,7 +184,7 @@ winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree)
     if(!All.WindOn)
         return;
     /*The subgrid model does nothing here*/
-    if(HAS(All.WindModel, WIND_SUBGRID))
+    if(HAS(wind_params.WindModel, WIND_SUBGRID))
         return;
 
     if(!MPIU_Any(NumNewStars > 0, MPI_COMM_WORLD))
@@ -104,6 +204,7 @@ winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree)
 
     TreeWalk tw[1] = {{0}};
 
+    int NumThreads = omp_get_max_threads();
     tw->ev_label = "SFR_WIND";
     tw->fill = (TreeWalkFillQueryFunction) sfr_wind_copy;
     tw->reduce = (TreeWalkReduceResultFunction) sfr_wind_reduce_weight;
@@ -122,14 +223,14 @@ winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree)
 
     int64_t totalleft = 0;
     sumup_large_ints(1, &NumNewStars, &totalleft);
-    NPLeft = ta_malloc("NPLeft", int, All.NumThreads);
+    NPLeft = ta_malloc("NPLeft", int, NumThreads);
     while(totalleft > 0) {
-        memset(NPLeft, 0, sizeof(int)*All.NumThreads);
+        memset(NPLeft, 0, sizeof(int)*NumThreads);
 
         treewalk_run(tw, NewStars, NumNewStars);
         int Nleft = 0;
 
-        for(i = 0; i< All.NumThreads; i++)
+        for(i = 0; i< NumThreads; i++)
             Nleft += NPLeft[i];
 
         sumup_large_ints(1, &Nleft, &totalleft);
@@ -153,7 +254,7 @@ void
 wind_evolve(int i)
 {
     /*Remove a wind particle from the delay mode if the (physical) density has dropped sufficiently.*/
-    if(SPHP(i).DelayTime > 0 && SPHP(i).Density * All.cf.a3inv < All.WindFreeTravelDensFac * All.PhysDensThresh) {
+    if(SPHP(i).DelayTime > 0 && SPHP(i).Density * All.cf.a3inv < wind_params.WindFreeTravelDensFac * All.PhysDensThresh) {
             SPHP(i).DelayTime = 0;
     }
     /*Reduce the time until the particle can form stars again by the current timestep*/
@@ -325,15 +426,15 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
 
     double windeff=0;
     double v=0;
-    if(HAS(All.WindModel, WIND_FIXED_EFFICIENCY)) {
-        windeff = All.WindEfficiency;
-        v = All.WindSpeed * All.cf.a;
-    } else if(HAS(All.WindModel, WIND_USE_HALO)) {
-        windeff = 1.0 / (I->Vdisp / All.cf.a / All.WindSigma0);
+    if(HAS(wind_params.WindModel, WIND_FIXED_EFFICIENCY)) {
+        windeff = wind_params.WindEfficiency;
+        v = wind_params.WindSpeed * All.cf.a;
+    } else if(HAS(wind_params.WindModel, WIND_USE_HALO)) {
+        windeff = 1.0 / (I->Vdisp / All.cf.a / wind_params.WindSigma0);
         windeff *= windeff;
-        v = All.WindSpeedFactor * I->Vdisp;
+        v = wind_params.WindSpeedFactor * I->Vdisp;
     } else {
-        endrun(1, "WindModel = 0x%X is strange. This shall not happen.\n", All.WindModel);
+        endrun(1, "WindModel = 0x%X is strange. This shall not happen.\n", wind_params.WindModel);
     }
 
     //double wk = density_kernel_wk(&kernel, r);
@@ -363,7 +464,7 @@ make_particle_wind(MyIDType ID, int i, double v, double vmean[3]) {
     int j;
     /* ok, make the particle go into the wind */
     double dir[3];
-    if(HAS(All.WindModel, WIND_ISOTROPIC)) {
+    if(HAS(wind_params.WindModel, WIND_ISOTROPIC)) {
         double theta = acos(2 * get_random_number(P[i].ID + 3) - 1);
         double phi = 2 * M_PI * get_random_number(P[i].ID + 4);
 
@@ -399,7 +500,7 @@ make_particle_wind(MyIDType ID, int i, double v, double vmean[3]) {
         {
             P[i].Vel[j] += v * dir[j];
         }
-        SPHP(i).DelayTime = All.WindFreeTravelLength / (v / All.cf.a);
+        SPHP(i).DelayTime = wind_params.WindFreeTravelLength / (v / All.cf.a);
     }
     return 0;
 }

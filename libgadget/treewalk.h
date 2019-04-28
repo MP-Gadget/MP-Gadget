@@ -2,7 +2,6 @@
 #define _EVALUATOR_H_
 
 #include <stdint.h>
-#include "allvars.h"
 #include "utils/paramset.h"
 #include "forcetree.h"
 

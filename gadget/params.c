@@ -9,6 +9,7 @@
 #include <libgadget/utils.h>
 #include <libgadget/treewalk.h>
 #include <libgadget/cooling_rates.h>
+#include <libgadget/winds.h>
 
 /* Optional parameters are passed the flag 0 and required parameters 1.
  * These macros are just to document the semantic meaning of these flags. */
@@ -468,6 +469,7 @@ void read_parameter_file(char *fname)
 
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.WindOn = param_get_int(ps, "WindOn");
+
         /*Star formation parameters*/
         All.StarformationCriterion = param_get_enum(ps, "StarformationCriterion");
         All.CritOverDensity = param_get_double(ps, "CritOverDensity");
@@ -478,19 +480,6 @@ void read_parameter_file(char *fname)
         All.TempSupernova = param_get_double(ps, "TempSupernova");
         All.TempClouds = param_get_double(ps, "TempClouds");
         All.MaxSfrTimescale = param_get_double(ps, "MaxSfrTimescale");
-
-        /*Wind model parameters*/
-        All.WindModel = param_get_enum(ps, "WindModel");
-        /* The following two are for VS08 and SH03*/
-        All.WindEfficiency = param_get_double(ps, "WindEfficiency");
-        All.WindEnergyFraction = param_get_double(ps, "WindEnergyFraction");
-
-        /* The following two are for OFJT10*/
-        All.WindSigma0 = param_get_double(ps, "WindSigma0");
-        All.WindSpeedFactor = param_get_double(ps, "WindSpeedFactor");
-
-        All.WindFreeTravelLength = param_get_double(ps, "WindFreeTravelLength");
-        All.WindFreeTravelDensFac = param_get_double(ps, "WindFreeTravelDensFac");
 
         /*Lyman-alpha forest parameters*/
         All.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
@@ -551,6 +540,7 @@ void read_parameter_file(char *fname)
     set_cooling_params(ps);
     set_treewalk_params(ps);
     set_domain_params(ps);
+    set_winds_params(ps);
 
     parameter_set_free(ps);
 }
