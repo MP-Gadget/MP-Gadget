@@ -150,7 +150,7 @@ create_gadget_parameter_set()
 
     param_declare_int   (ps, "DomainOverDecompositionFactor", OPTIONAL, 4, "Create on average this number of sub domains on a MPI rank. Load balancer will then move these subdomains around to equalize the work per rank. Higher numbers improve the load balancing but make domain more expensive.");
     param_declare_int   (ps, "DomainUseGlobalSorting", OPTIONAL, 1, "Determining the initial refinement of chunks globally. Enabling this produces better domains at costs of slowing down the domain decomposition.");
-    param_declare_double(ps, "ErrTolIntAccuracy", OPTIONAL, 0.02, "");
+    param_declare_double(ps, "ErrTolIntAccuracy", OPTIONAL, 0.02, "Controls the length of the short-range timestep. Smaller values are shorter timesteps.");
     param_declare_double(ps, "ErrTolForceAcc", OPTIONAL, 0.005, "Force accuracy required from tree. Controls tree opening criteria. Lower values are more accurate.");
     param_declare_double(ps, "BHOpeningAngle", OPTIONAL, 0.175, "Barnes-Hut opening angle. Alternative purely geometric tree opening angle. Lower values are more accurate.");
     param_declare_int(ps, "TreeUseBH", OPTIONAL, 2, "If 1, use Barnes-Hut opening angle rather than the standard Gadget acceleration based opening angle. If 2, use BH criterion for the first timestep only, before we have relative accelerations.");
@@ -166,14 +166,14 @@ create_gadget_parameter_set()
     param_declare_enum(ps,    "ShortRangeForceWindowType", ShortRangeForceWindowTypeEnum, OPTIONAL, "exact", "type of shortrange window, exact or erfc (default is exact) ");
 
     param_declare_double(ps, "MinGasHsmlFractional", OPTIONAL, 0, "Minimal gas Hsml as a fraction of gravity softening.");
-    param_declare_double(ps, "MaxGasVel", OPTIONAL, 3e5, "");
+    param_declare_double(ps, "MaxGasVel", OPTIONAL, 3e5, "Maximal limit on the gas velocity in km/s. By default speed of light.");
 
     param_declare_double(ps, "MaxSizeTimestep", OPTIONAL, 0.1, "Maximum size of the PM timestep (as delta-a).");
     param_declare_double(ps, "MinSizeTimestep", OPTIONAL, 0, "Minimum size of the PM timestep.");
     param_declare_int(ps, "ForceEqualTimesteps", OPTIONAL, 0, "Force all (tree) timesteps to be the same, and equal to the smallest required.");
 
-    param_declare_double(ps, "MaxRMSDisplacementFac", OPTIONAL, 0.2, "");
-    param_declare_double(ps, "ArtBulkViscConst", OPTIONAL, 0.75, "");
+    param_declare_double(ps, "MaxRMSDisplacementFac", OPTIONAL, 0.2, "Controls the length of the PM timestep. Max RMS displacement per timestep in units of the mean particle separation.");
+    param_declare_double(ps, "ArtBulkViscConst", OPTIONAL, 0.75, "Artificial viscosity constant for SPH.");
     param_declare_double(ps, "CourantFac", OPTIONAL, 0.15, "Courant factor for the timestepping.");
     param_declare_double(ps, "DensityResolutionEta", OPTIONAL, 1.0, "Resolution eta factor (See Price 2008) 1 = 33 for Cubic Spline");
 
@@ -235,23 +235,23 @@ create_gadget_parameter_set()
     param_declare_int(ps, "SnapshotWithFOF", REQUIRED, 0, "Enable Friends-of-Friends halo finder.");
     param_declare_int(ps, "FOFSaveParticles", OPTIONAL, 1, "Save particles in the FOF catalog.");
     param_declare_double(ps, "FOFHaloLinkingLength", OPTIONAL, 0.2, "Linking length for Friends of Friends halos.");
-    param_declare_int(ps, "FOFHaloMinLength", OPTIONAL, 32, "");
+    param_declare_int(ps, "FOFHaloMinLength", OPTIONAL, 32, "Minimum number of particles per FOF Halo.");
     param_declare_double(ps, "MinFoFMassForNewSeed", OPTIONAL, 5e2, "Minimal Mass for seeding tracer particles ");
     param_declare_double(ps, "TimeBetweenSeedingSearch", OPTIONAL, 1e5, "Time Between Seeding Attempts: default to a a large value, meaning never.");
 
     /*Black holes*/
     param_declare_int(ps, "BlackHoleOn", REQUIRED, 1, "Enable Blackhole ");
-    param_declare_double(ps, "BlackHoleAccretionFactor", OPTIONAL, 100, "");
-    param_declare_double(ps, "BlackHoleEddingtonFactor", OPTIONAL, 3, "");
-    param_declare_double(ps, "SeedBlackHoleMass", OPTIONAL, 5e-5, "");
+    param_declare_double(ps, "BlackHoleAccretionFactor", OPTIONAL, 100, "BH accretion rate as a fraction of the Bondi accretion rate.");
+    param_declare_double(ps, "BlackHoleEddingtonFactor", OPTIONAL, 3, "Maximum Black hole accretion as a function of Eddington.");
+    param_declare_double(ps, "SeedBlackHoleMass", OPTIONAL, 5e-5, "Minimal black hole seed mass in internal mass units.");
 
-    param_declare_double(ps, "BlackHoleNgbFactor", OPTIONAL, 2, "");
+    param_declare_double(ps, "BlackHoleNgbFactor", OPTIONAL, 2, "Factor by which to increase the number of neighbours for a black hole.");
 
-    param_declare_double(ps, "BlackHoleMaxAccretionRadius", OPTIONAL, 99999., "");
-    param_declare_double(ps, "BlackHoleFeedbackFactor", OPTIONAL, 0.05, "");
-    param_declare_double(ps, "BlackHoleFeedbackRadius", OPTIONAL, 0, "");
+    param_declare_double(ps, "BlackHoleMaxAccretionRadius", OPTIONAL, 99999., "Maximum neighbour search radius for black holes.");
+    param_declare_double(ps, "BlackHoleFeedbackFactor", OPTIONAL, 0.05, " Fraction of the black hole luminosity to turn into thermal energy");
+    param_declare_double(ps, "BlackHoleFeedbackRadius", OPTIONAL, 0, "Maximum comoving (if > 0) radius at which the black hole feedback energy is deposited.");
 
-    param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", OPTIONAL, 0, "");
+    param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", OPTIONAL, 0, "Maximum physical (if > 0) radius at which the black hole feedback energy is deposited.");
 
     static ParameterEnum BlackHoleFeedbackMethodEnum [] = {
         {"mass", BH_FEEDBACK_MASS},
@@ -266,19 +266,21 @@ create_gadget_parameter_set()
 
     /*Star formation parameters*/
     static ParameterEnum StarformationCriterionEnum [] = {
-        {"density", SFR_CRITERION_DENSITY},
-        {"h2", SFR_CRITERION_MOLECULAR_H2},
-        {"selfgravity", SFR_CRITERION_SELFGRAVITY},
-        {"convergent", SFR_CRITERION_CONVERGENT_FLOW},
-        {"continous", SFR_CRITERION_CONTINUOUS_CUTOFF},
+        {"density", SFR_CRITERION_DENSITY}, /* SH03 density model for star formation*/
+        {"h2", SFR_CRITERION_MOLECULAR_H2}, /* Form stars depending on the computed
+                                               molecular gas fraction as a function of metallicity.
+                                               Needs SPH_GRAD_RHO enabled at compile-time. */
+        {"selfgravity", SFR_CRITERION_SELFGRAVITY}, /* Form stars only when the gas is self-gravitating. From Phil Hopkins.*/
+        {"convergent", SFR_CRITERION_CONVERGENT_FLOW}, /* Modify self-gravitating star formation to form stars only when the gas flow is convergent. From Phil Hopkins.*/
+        {"continuous", SFR_CRITERION_CONTINUOUS_CUTOFF}, /* Modify self-gravitating star formation to smooth the star formation threshold. From Phil Hopkins.*/
         {NULL, SFR_CRITERION_DENSITY},
     };
 
     static ParameterEnum WindModelEnum [] = {
-        {"subgrid", WIND_SUBGRID},
-        {"decouple", WIND_DECOUPLE_SPH},
-        {"halo", WIND_USE_HALO},
-        {"fixedefficiency", WIND_FIXED_EFFICIENCY},
+        {"subgrid", WIND_SUBGRID}, /* the original model of SH03, in which winds are included by returning energy to the star forming regions. This cools away and is ineffective.*/
+        {"decouple", WIND_DECOUPLE_SPH}, /* Specifies that wind particles are created temporarily decoupled from the gas dynamics */
+        {"halo", WIND_USE_HALO}, /* Wind speeds depend on the halo circular velocity*/
+        {"fixedefficiency", WIND_FIXED_EFFICIENCY}, /* Winds have a fixed efficiency and thus fixed wind speed*/
         {"sh03", WIND_SUBGRID | WIND_DECOUPLE_SPH | WIND_FIXED_EFFICIENCY} ,
         {"vs08", WIND_FIXED_EFFICIENCY},
         {"ofjt10", WIND_USE_HALO | WIND_DECOUPLE_SPH},
@@ -289,28 +291,29 @@ create_gadget_parameter_set()
     param_declare_int(ps, "StarformationOn", REQUIRED, 0, "Enables star formation");
     param_declare_int(ps, "WindOn", REQUIRED, 0, "Enables wind feedback");
     param_declare_enum(ps, "StarformationCriterion",
-            StarformationCriterionEnum, OPTIONAL, "density", "");
+            StarformationCriterionEnum, OPTIONAL, "density", "Extra star formation criteria to use. Default is density which corresponds to the SH03 model.");
 
-    param_declare_double(ps, "CritOverDensity", OPTIONAL, 57.7, "");
-    param_declare_double(ps, "CritPhysDensity", OPTIONAL, 0, "");
+    /*See Springel & Hernquist 2003 for the meaning of these parameters*/
+    param_declare_double(ps, "CritOverDensity", OPTIONAL, 57.7, "Threshold over-density (in units of the critical density) for gas to be star forming.");
+    param_declare_double(ps, "CritPhysDensity", OPTIONAL, 0, "Threshold physical density (in protons/cm^3) for gas to be star forming. If zero this is worked out from CritOverDensity.");
 
-    param_declare_double(ps, "FactorSN", OPTIONAL, 0.1, "");
-    param_declare_double(ps, "FactorEVP", OPTIONAL, 1000, "");
-    param_declare_double(ps, "TempSupernova", OPTIONAL, 1e8, "");
-    param_declare_double(ps, "TempClouds", OPTIONAL, 1000, "");
-    param_declare_double(ps, "MaxSfrTimescale", OPTIONAL, 1.5, "");
+    param_declare_double(ps, "FactorSN", OPTIONAL, 0.1, "Fraction of the gas energy which is locally returned as supernovae on star formation.");
+    param_declare_double(ps, "FactorEVP", OPTIONAL, 1000, "Parameter of the SH03 model, controlling the energy of the hot gas.");
+    param_declare_double(ps, "TempSupernova", OPTIONAL, 1e8, "Temperature of the supernovae remnants in K.");
+    param_declare_double(ps, "TempClouds", OPTIONAL, 1000, "Temperature of the cold star forming clouds in K.");
+    param_declare_double(ps, "MaxSfrTimescale", OPTIONAL, 1.5, "Maximum star formation time in units of the density threshold.");
     param_declare_enum(ps, "WindModel", WindModelEnum, OPTIONAL, "subgrid,decouple,fixedefficiency", "");
 
     /* The following two are for VS08 and SH03*/
-    param_declare_double(ps, "WindEfficiency", OPTIONAL, 2.0, "");
-    param_declare_double(ps, "WindEnergyFraction", OPTIONAL, 1.0, "");
+    param_declare_double(ps, "WindEfficiency", OPTIONAL, 2.0, "Fraction of the stellar mass that goes into a wind. Needs sh03 or vs08 wind models.");
+    param_declare_double(ps, "WindEnergyFraction", OPTIONAL, 1.0, "Fraction of the available energy that goes into winds.");
 
     /* The following two are for OFJT10*/
-    param_declare_double(ps, "WindSigma0", OPTIONAL, 353, "");
-    param_declare_double(ps, "WindSpeedFactor", OPTIONAL, 3.7, "");
+    param_declare_double(ps, "WindSigma0", OPTIONAL, 353, "Reference halo circular velocity at which to evaluate wind speed. Needs ofjt10 wind model.");
+    param_declare_double(ps, "WindSpeedFactor", OPTIONAL, 3.7, "Factor connecting wind speed to halo circular velocity. ofjt10 wind model.");
 
-    param_declare_double(ps, "WindFreeTravelLength", OPTIONAL, 20, "");
-    param_declare_double(ps, "WindFreeTravelDensFac", OPTIONAL, 0., "");
+    param_declare_double(ps, "WindFreeTravelLength", OPTIONAL, 20, "Expected decoupling distance for the wind in physical km.");
+    param_declare_double(ps, "WindFreeTravelDensFac", OPTIONAL, 0., "If the density of the wind particle drops below this factor of the star formation density threshold, the gas will recouple.");
 
     param_declare_int(ps, "RandomSeed", OPTIONAL, 42, "Random number generator initial seed. Used to form stars.");
 
