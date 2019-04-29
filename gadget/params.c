@@ -284,7 +284,7 @@ create_gadget_parameter_set()
         {"sh03", WIND_SUBGRID | WIND_DECOUPLE_SPH | WIND_FIXED_EFFICIENCY} ,
         {"vs08", WIND_FIXED_EFFICIENCY},
         {"ofjt10", WIND_USE_HALO | WIND_DECOUPLE_SPH},
-        {"isotropic", WIND_ISOTROPIC },
+        {"isotropic", WIND_ISOTROPIC }, /*If enabled, wind direction is random and isotropic. If disabled it goes in the direction of the local gravitational acceleration*/
         {NULL, WIND_SUBGRID | WIND_DECOUPLE_SPH | WIND_FIXED_EFFICIENCY},
     };
 
@@ -302,7 +302,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "TempSupernova", OPTIONAL, 1e8, "Temperature of the supernovae remnants in K.");
     param_declare_double(ps, "TempClouds", OPTIONAL, 1000, "Temperature of the cold star forming clouds in K.");
     param_declare_double(ps, "MaxSfrTimescale", OPTIONAL, 1.5, "Maximum star formation time in units of the density threshold.");
-    param_declare_enum(ps, "WindModel", WindModelEnum, OPTIONAL, "subgrid,decouple,fixedefficiency", "");
+    param_declare_enum(ps, "WindModel", WindModelEnum, OPTIONAL, "ofjt10,isotropic", "Wind model to use. Default is the varying wind velocity model with isotropic winds.");
 
     /* The following two are for VS08 and SH03*/
     param_declare_double(ps, "WindEfficiency", OPTIONAL, 2.0, "Fraction of the stellar mass that goes into a wind. Needs sh03 or vs08 wind models.");
