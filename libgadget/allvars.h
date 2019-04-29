@@ -302,11 +302,6 @@ extern struct global_data_all_processes
     int OutputListLength;
 
     int SnapshotWithFOF; /*Flag that doing FOF for snapshot outputs is on*/
-    int FOFSaveParticles ; /* saving particles in the fof group */
-    double MinFoFMassForNewSeed;	/* Halo mass required before new seed is put in */
-    double FOFHaloLinkingLength;
-    double FOFHaloComovingLinkingLength; /* in code units */
-    int FOFHaloMinLength;
 
     int RandomSeed; /*Initial seed for the random number table*/
 }

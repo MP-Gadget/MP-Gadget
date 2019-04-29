@@ -36,27 +36,51 @@
 /* FIXME: convert this to a parameter */
 #define FOF_SECONDARY_LINK_TYPES (1+16+32)    // 2^type for the types linked to nearest primaries
 #define LARGE 1e29
-void fof_init(void)
+
+struct FOFParams
 {
-    All.FOFHaloComovingLinkingLength = All.FOFHaloLinkingLength * All.MeanSeparation[1];
+    int FOFSaveParticles ; /* saving particles in the fof group */
+    double MinFoFMassForNewSeed;	/* Halo mass required before new seed is put in */
+    double FOFHaloLinkingLength;
+    double FOFHaloComovingLinkingLength; /* in code units */
+    int FOFHaloMinLength;
+} fof_params;
+
+/*Set the parameters of the BH module*/
+void set_fof_params(ParameterSet * ps)
+{
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask == 0) {
+        fof_params.FOFSaveParticles = param_get_int(ps, "FOFSaveParticles");
+        fof_params.FOFHaloLinkingLength = param_get_double(ps, "FOFHaloLinkingLength");
+        fof_params.FOFHaloMinLength = param_get_int(ps, "FOFHaloMinLength");
+        fof_params.MinFoFMassForNewSeed = param_get_double(ps, "MinFoFMassForNewSeed");
+    }
+    MPI_Bcast(&fof_params, sizeof(struct FOFParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
-static double fof_periodic(double x)
+void fof_init(double DMMeanSeparation)
 {
-    if(x >= 0.5 * All.BoxSize)
-        x -= All.BoxSize;
-    if(x < -0.5 * All.BoxSize)
-        x += All.BoxSize;
+    fof_params.FOFHaloComovingLinkingLength = fof_params.FOFHaloLinkingLength * DMMeanSeparation;
+}
+
+static double fof_periodic(double x, double BoxSize)
+{
+    if(x >= 0.5 * BoxSize)
+        x -= BoxSize;
+    if(x < -0.5 * BoxSize)
+        x += BoxSize;
     return x;
 }
 
 
-static double fof_periodic_wrap(double x)
+static double fof_periodic_wrap(double x, double BoxSize)
 {
-    while(x >= All.BoxSize)
-        x -= All.BoxSize;
+    while(x >= BoxSize)
+        x -= BoxSize;
     while(x < 0)
-        x += All.BoxSize;
+        x += BoxSize;
     return x;
 }
 
@@ -71,11 +95,11 @@ static void fof_reduce_groups(
     size_t elsize,
     void (*reduce_group)(void * gdst, void * gsrc));
 
-static void fof_finish_group_properties(struct Group * Group);
+static void fof_finish_group_properties(struct Group * Group, double BoxSize);
 static void
 fof_compile_base(struct BaseGroup * base);
 static void
-fof_compile_catalogue(struct Group * group);
+fof_compile_catalogue(struct Group * group, double BoxSize);
 
 static struct Group *
 fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt);
@@ -83,7 +107,7 @@ fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt);
 static void fof_assign_grnr(struct BaseGroup * base);
 
 void fof_label_primary(ForceTree * tree);
-extern void fof_save_particles(int num);
+extern void fof_save_particles(int num, int SaveParticles);
 
 /* Ngroups and NgroupsExt are both maximally NumPart,
  * so can be 32-bit*/
@@ -126,7 +150,7 @@ static MPI_Datatype MPI_TYPE_GROUP;
  *
  **/
 
-void fof_fof(ForceTree * tree)
+void fof_fof(ForceTree * tree, double BoxSize)
 {
     int i;
 
@@ -138,7 +162,7 @@ void fof_fof(ForceTree * tree)
 
     walltime_measure("/Misc");
 
-    message(0, "Comoving linking length: %g\n", All.FOFHaloComovingLinkingLength);
+    message(0, "Comoving linking length: %g\n", fof_params.FOFHaloComovingLinkingLength);
 
     HaloLabel = (struct fof_particle_list *) mymalloc("HaloLabel", PartManager->NumPart * sizeof(struct fof_particle_list));
 
@@ -185,7 +209,7 @@ void fof_fof(ForceTree * tree)
 
     myfree(base);
 
-    fof_compile_catalogue(Group);
+    fof_compile_catalogue(Group, BoxSize);
 
     MPI_Barrier(MPI_COMM_WORLD);
     message(0, "Finished FoF. Group properties are now allocated.. (presently allocated=%g MB)\n",
@@ -460,7 +484,7 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
 {
     TreeWalk * tw = lv->tw;
     if(iter->base.other == -1) {
-        iter->base.Hsml = All.FOFHaloComovingLinkingLength;
+        iter->base.Hsml = fof_params.FOFHaloComovingLinkingLength;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         iter->base.mask = FOF_PRIMARY_LINK_TYPES;
         return;
@@ -532,7 +556,7 @@ static void fof_reduce_group(void * pdst, void * psrc) {
 
 }
 
-static void add_particle_to_group(struct Group * gdst, int i) {
+static void add_particle_to_group(struct Group * gdst, int i, double BoxSize) {
 
     /* My local number of particles contributing to the full catalogue. */
     const int index = i;
@@ -580,7 +604,7 @@ static void add_particle_to_group(struct Group * gdst, int i) {
     for(d1 = 0; d1 < 3; d1++)
     {
         double first = gdst->base.FirstPos[d1];
-        rel[d1] = fof_periodic(P[index].Pos[d1] - first) ;
+        rel[d1] = fof_periodic(P[index].Pos[d1] - first, BoxSize) ;
         xyz[d1] = rel[d1] + first;
         vel[d1] = P[index].Vel[d1];
     }
@@ -599,7 +623,7 @@ static void add_particle_to_group(struct Group * gdst, int i) {
 }
 
 static void
-fof_finish_group_properties(struct Group * Group)
+fof_finish_group_properties(struct Group * Group, double BoxSize)
 {
     int i;
 
@@ -618,9 +642,9 @@ fof_finish_group_properties(struct Group * Group)
             vcm[d1] = gdst->Vel[d1];
             cm[d1] = gdst->CM[d1] / gdst->Mass;
 
-            rel[d1] = fof_periodic(cm[d1] - gdst->base.FirstPos[d1]);
+            rel[d1] = fof_periodic(cm[d1] - gdst->base.FirstPos[d1], BoxSize);
 
-            cm[d1] = fof_periodic_wrap(cm[d1]);
+            cm[d1] = fof_periodic_wrap(cm[d1], BoxSize);
             gdst->CM[d1] = cm[d1];
 
         }
@@ -696,7 +720,7 @@ fof_compile_base(struct BaseGroup * base)
     /* eliminate all groups that are too small */
     for(i = 0; i < NgroupsExt; i++)
     {
-        if(base[i].Length < All.FOFHaloMinLength)
+        if(base[i].Length < fof_params.FOFHaloMinLength)
         {
             base[i] = base[NgroupsExt - 1];
             NgroupsExt--;
@@ -724,7 +748,7 @@ fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt)
 }
 
 static void
-fof_compile_catalogue(struct Group * group)
+fof_compile_catalogue(struct Group * group, double BoxSize)
 {
     int i, start;
 
@@ -740,7 +764,7 @@ fof_compile_catalogue(struct Group * group)
             if(HaloLabel[start].MinID != Group[i].base.MinID) {
                 break;
             }
-            add_particle_to_group(&Group[i], HaloLabel[start].Pindex);
+            add_particle_to_group(&Group[i], HaloLabel[start].Pindex, BoxSize);
         }
     }
 
@@ -762,7 +786,7 @@ fof_compile_catalogue(struct Group * group)
         }
     }
 
-    fof_finish_group_properties(Group);
+    fof_finish_group_properties(Group, BoxSize);
 
     int64_t TotNids;
     MPI_Allreduce(&Ngroups, &TotNgroups, 1, MPI_UINT64, MPI_SUM, MPI_COMM_WORLD);
@@ -782,7 +806,7 @@ fof_compile_catalogue(struct Group * group)
     else
         largestgroup = 0;
 
-    message(0, "Total number of groups with at least %d particles: %ld\n", All.FOFHaloMinLength, TotNgroups);
+    message(0, "Total number of groups with at least %d particles: %ld\n", fof_params.FOFHaloMinLength, TotNgroups);
     if(TotNgroups > 0)
     {
         message(0, "Largest group has %d particles.\n", largestgroup);
@@ -1010,7 +1034,7 @@ fof_save_groups(int num)
 {
     message(0, "start global sorting of group catalogues\n");
 
-    fof_save_particles(num);
+    fof_save_particles(num, fof_params.FOFSaveParticles);
 
     message(0, "Group catalogues saved.\n");
 }
@@ -1054,7 +1078,7 @@ fof_secondary_postprocess(int p, TreeWalk * tw)
 
     if(FOF_SECONDARY_GET_PRIV(tw)->distance[p] > 0.5 * LARGE)
     {
-        if(FOF_SECONDARY_GET_PRIV(tw)->hsml[p] < 4 * All.FOFHaloComovingLinkingLength)  /* we only search out to a maximum distance */
+        if(FOF_SECONDARY_GET_PRIV(tw)->hsml[p] < 4 * fof_params.FOFHaloComovingLinkingLength)  /* we only search out to a maximum distance */
         {
             /* need to redo this particle */
 #pragma omp atomic
@@ -1107,10 +1131,10 @@ static void fof_label_secondary(ForceTree * tree)
         {
             FOF_SECONDARY_GET_PRIV(tw)->distance[n] = LARGE;
             if(P[n].Type == 0) {
-                /* use gas sml as a hint (faster convergence than 0.1 All.FOFHaloComovingLinkingLength at high-z */
+                /* use gas sml as a hint (faster convergence than 0.1 fof_params.FOFHaloComovingLinkingLength at high-z */
                 FOF_SECONDARY_GET_PRIV(tw)->hsml[n] = 0.5 * P[n].Hsml;
             } else {
-                FOF_SECONDARY_GET_PRIV(tw)->hsml[n] = 0.1 * All.FOFHaloComovingLinkingLength;
+                FOF_SECONDARY_GET_PRIV(tw)->hsml[n] = 0.1 * fof_params.FOFHaloComovingLinkingLength;
             }
         }
     }
@@ -1206,7 +1230,7 @@ void fof_seed(void)
     for(i = 0; i < Ngroups; i++)
     {
         Marked[i] =
-            (Group[i].Mass >= All.MinFoFMassForNewSeed)
+            (Group[i].Mass >= fof_params.MinFoFMassForNewSeed)
         &&  (Group[i].LenType[5] == 0)
         &&  (Group[i].seed_index >= 0);
 

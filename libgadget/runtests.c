@@ -66,7 +66,7 @@ void runfof(int RestartSnapNum, DomainDecomp * ddecomp)
     /*FoF needs a tree*/
     int HybridNuGrav = All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime;
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav);
-    fof_fof(&Tree);
+    fof_fof(&Tree, All.BoxSize);
     force_tree_free(&Tree);
     fof_save_groups(RestartSnapNum);
     fof_finish();

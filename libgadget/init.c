@@ -79,7 +79,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
      * on Task 0, there will be a lot of imbalance*/
     MPI_Barrier(MPI_COMM_WORLD);
 
-    fof_init();
+    fof_init(All.MeanSeparation[1]);
 
     All.SnapshotFileCount = RestartSnapNum + 1;
     All.InitSnapshotCount = RestartSnapNum + 1;

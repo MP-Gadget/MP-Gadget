@@ -42,14 +42,14 @@ fof_petaio_select_func(int i)
     return 1;
 }
 
-void fof_save_particles(int num) {
+void fof_save_particles(int num, int SaveParticles) {
     char fname[4096];
     int i;
     sprintf(fname, "%s/%s_%03d", All.OutputDir, All.FOFFileBase, num);
     message(0, "saving particle in group into %s\n", fname);
 
     /* sort the groups according to group-number */
-    mpsort_mpi(Group, Ngroups, sizeof(struct Group), 
+    mpsort_mpi(Group, Ngroups, sizeof(struct Group),
             fof_radix_Group_GrNr, 8, NULL, MPI_COMM_WORLD);
 
     BigFile bf = {0};
@@ -58,7 +58,7 @@ void fof_save_particles(int num) {
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
-    fof_write_header(&bf); 
+    fof_write_header(&bf);
 
     for(i = 0; i < IOTable.used; i ++) {
         /* only process the particle blocks */
@@ -76,7 +76,7 @@ void fof_save_particles(int num) {
     }
     walltime_measure("/FOF/IO/WriteFOF");
 
-    if(All.FOFSaveParticles) {
+    if(SaveParticles) {
 
         walltime_measure("/FOF/IO/Misc");
         fof_distribute_particles();
@@ -180,7 +180,7 @@ static void fof_distribute_particles() {
     MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
     message(0, "GrNrMax before exchange is %d\n", GrNrMaxGlobal);
     /* sort pi to decide targetTask */
-    mpsort_mpi(pi, NpigLocal, sizeof(struct PartIndex), 
+    mpsort_mpi(pi, NpigLocal, sizeof(struct PartIndex),
             fof_radix_sortkey, 8, NULL, MPI_COMM_WORLD);
 
 #pragma omp parallel for
@@ -262,7 +262,7 @@ static void fof_write_header(BigFile * bf) {
     }
 
     MPI_Allreduce(npartLocal, npartTotal, 6, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-    
+
     big_block_set_attr(&bh, "NumPartInGroupTotal", npartTotal, "u8", 6);
     big_block_set_attr(&bh, "NumFOFGroupsTotal", &TotNgroups, "u8", 1);
     big_block_set_attr(&bh, "MassTable", All.MassTable, "f8", 6);

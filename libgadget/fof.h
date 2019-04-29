@@ -1,13 +1,15 @@
 #ifndef FOF_H
 #define FOF_H
 
-#include "allvars.h"
 #include "forcetree.h"
+#include "utils/paramset.h"
 
-void fof_init(void);
+void set_fof_params(ParameterSet * ps);
+
+void fof_init(double DMMeanSeparation);
 
 /*Computes the Group structure, saved as a global array below*/
-void fof_fof(ForceTree * tree);
+void fof_fof(ForceTree * tree, double BoxSize);
 
 /*Frees the Group structure*/
 void

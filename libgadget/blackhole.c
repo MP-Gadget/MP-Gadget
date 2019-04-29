@@ -277,7 +277,7 @@ blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
     if(All.Time >= *TimeNextSeedingCheck)
     {
         /* Seeding */
-        fof_fof(tree);
+        fof_fof(tree, All.BoxSize);
         fof_seed();
         fof_finish();
         *TimeNextSeedingCheck = All.Time * blackhole_params.TimeBetweenSeedingSearch;

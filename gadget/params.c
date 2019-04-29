@@ -12,6 +12,7 @@
 #include <libgadget/winds.h>
 #include <libgadget/sfr_eff.h>
 #include <libgadget/blackhole.h>
+#include <libgadget/fof.h>
 
 /* Optional parameters are passed the flag 0 and required parameters 1.
  * These macros are just to document the semantic meaning of these flags. */
@@ -441,10 +442,6 @@ void read_parameter_file(char *fname)
         All.SlotsIncreaseFactor = param_get_double(ps, "SlotsIncreaseFactor");
 
         All.SnapshotWithFOF = param_get_int(ps, "SnapshotWithFOF");
-        All.FOFSaveParticles = param_get_int(ps, "FOFSaveParticles");
-        All.FOFHaloLinkingLength = param_get_double(ps, "FOFHaloLinkingLength");
-        All.FOFHaloMinLength = param_get_int(ps, "FOFHaloMinLength");
-        All.MinFoFMassForNewSeed = param_get_double(ps, "MinFoFMassForNewSeed");
 
         All.RandomSeed = param_get_int(ps, "RandomSeed");
 
@@ -516,6 +513,7 @@ void read_parameter_file(char *fname)
     set_domain_params(ps);
     set_sfr_params(ps);
     set_winds_params(ps);
+    set_fof_params(ps);
 #ifdef BLACK_HOLES
     set_blackhole_params(ps);
 #endif
