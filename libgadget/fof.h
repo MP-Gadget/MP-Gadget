@@ -21,7 +21,7 @@ fof_seed(MPI_Comm Comm);
 
 /*Saves the Group structure to disc.*/
 void
-fof_save_groups(int num);
+fof_save_groups(int num, MPI_Comm Comm);
 
 extern int Ngroups;
 extern int64_t TotNgroups;

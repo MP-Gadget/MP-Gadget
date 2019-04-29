@@ -160,6 +160,8 @@ static void petaio_save_internal(char * fname) {
     }
 
     if(All.MassiveNuLinRespOn) {
+        int ThisTask;
+        MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
         petaio_save_neutrinos(&bf, ThisTask);
     }
     if(0 != big_file_mpi_close(&bf, MPI_COMM_WORLD)){
@@ -193,8 +195,9 @@ void petaio_read_internal(char * fname, int ic, MPI_Comm Comm) {
                     big_file_get_error_message());
     }
 
-    int NTask;
+    int NTask, ThisTask;
     MPI_Comm_size(Comm, &NTask);
+    MPI_Comm_rank(Comm, &ThisTask);
 
     /* sets the maximum number of particles that may reside on a processor */
     int MaxPart = (int) (All.PartAllocFactor * All.TotNumPartInit / NTask);
@@ -232,7 +235,7 @@ void petaio_read_internal(char * fname, int ic, MPI_Comm Comm) {
      * This may be dynamically resized later!*/
 
     /*Ensure all processors have initially the same number of particle slots*/
-    MPI_Allreduce(MPI_IN_PLACE, newSlots, 6, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, newSlots, 6, MPI_INT, MPI_MAX, Comm);
     slots_reserve(0, newSlots);
 
     /* initialize particle types */
@@ -293,7 +296,7 @@ void petaio_read_internal(char * fname, int ic, MPI_Comm Comm) {
             petaio_read_neutrinos(&bf, ThisTask);
     }
 
-    if(0 != big_file_mpi_close(&bf, MPI_COMM_WORLD)) {
+    if(0 != big_file_mpi_close(&bf, Comm)) {
         endrun(0, "Failed to close snapshot at %s:%s\n", fname,
                     big_file_get_error_message());
     }

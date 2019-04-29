@@ -109,7 +109,7 @@ fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt);
 static void fof_assign_grnr(struct BaseGroup * base, MPI_Comm Comm);
 
 void fof_label_primary(ForceTree * tree, MPI_Comm Comm);
-extern void fof_save_particles(int num, int SaveParticles);
+extern void fof_save_particles(int num, int SaveParticles, MPI_Comm Comm);
 
 /* Ngroups and NgroupsExt are both maximally NumPart,
  * so can be 32-bit*/
@@ -1046,11 +1046,11 @@ static void fof_assign_grnr(struct BaseGroup * base, MPI_Comm Comm)
 
 
 void
-fof_save_groups(int num)
+fof_save_groups(int num, MPI_Comm Comm)
 {
     message(0, "start global sorting of group catalogues\n");
 
-    fof_save_particles(num, fof_params.FOFSaveParticles);
+    fof_save_particles(num, fof_params.FOFSaveParticles, Comm);
 
     message(0, "Group catalogues saved.\n");
 }

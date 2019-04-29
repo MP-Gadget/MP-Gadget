@@ -16,11 +16,11 @@
 #include "exchange.h"
 #include "fof.h"
 
-static void fof_write_header(BigFile * bf);
+static void fof_write_header(BigFile * bf, MPI_Comm Comm);
 static void build_buffer_fof(BigArray * array, IOTableEntry * ent);
 
-static void fof_return_particles();
-static void fof_distribute_particles();
+static void fof_return_particles(MPI_Comm Comm);
+static void fof_distribute_particles(MPI_Comm Comm);
 
 static int fof_cmp_selection_by_grnr(const void *p1, const void * p2) {
     const int * i1 = p1;
@@ -42,7 +42,8 @@ fof_petaio_select_func(int i)
     return 1;
 }
 
-void fof_save_particles(int num, int SaveParticles) {
+void fof_save_particles(int num, int SaveParticles, MPI_Comm Comm)
+{
     char fname[4096];
     int i;
     sprintf(fname, "%s/%s_%03d", All.OutputDir, All.FOFFileBase, num);
@@ -50,15 +51,15 @@ void fof_save_particles(int num, int SaveParticles) {
 
     /* sort the groups according to group-number */
     mpsort_mpi(Group, Ngroups, sizeof(struct Group),
-            fof_radix_Group_GrNr, 8, NULL, MPI_COMM_WORLD);
+            fof_radix_Group_GrNr, 8, NULL, Comm);
 
     BigFile bf = {0};
-    if(0 != big_file_mpi_create(&bf, fname, MPI_COMM_WORLD)) {
+    if(0 != big_file_mpi_create(&bf, fname, Comm)) {
         endrun(0, "Failed to open file at %s\n", fname);
     }
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    fof_write_header(&bf);
+    MPI_Barrier(Comm);
+    fof_write_header(&bf, Comm);
 
     for(i = 0; i < IOTable.used; i ++) {
         /* only process the particle blocks */
@@ -77,9 +78,7 @@ void fof_save_particles(int num, int SaveParticles) {
     walltime_measure("/FOF/IO/WriteFOF");
 
     if(SaveParticles) {
-
-        walltime_measure("/FOF/IO/Misc");
-        fof_distribute_particles();
+        fof_distribute_particles(Comm);
         walltime_measure("/FOF/IO/Distribute");
 
         int * selection = mymalloc("Selection", sizeof(int) * PartManager->NumPart);
@@ -112,11 +111,11 @@ void fof_save_particles(int num, int SaveParticles) {
         myfree(selection);
         walltime_measure("/FOF/IO/WriteParticles");
 
-        fof_return_particles();
+        fof_return_particles(Comm);
         walltime_measure("/FOF/IO/Return");
     }
 
-    big_file_mpi_close(&bf, MPI_COMM_WORLD);
+    big_file_mpi_close(&bf, Comm);
 }
 
 struct PartIndex {
@@ -160,8 +159,9 @@ static int fof_cmp_origin(const void * c1, const void * c2) {
 }
 #endif
 
-static void fof_distribute_particles() {
-    int i;
+static void fof_distribute_particles(MPI_Comm Comm) {
+    int i, ThisTask;
+    MPI_Comm_rank(Comm, &ThisTask);
     struct PartIndex * pi = mymalloc("PartIndex", sizeof(struct PartIndex) * PartManager->NumPart);
 
     int64_t NpigLocal = 0;
@@ -177,11 +177,11 @@ static void fof_distribute_particles() {
         pi[j].sortKey = P[i].GrNr;
         NpigLocal ++;
     }
-    MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, Comm);
     message(0, "GrNrMax before exchange is %d\n", GrNrMaxGlobal);
     /* sort pi to decide targetTask */
     mpsort_mpi(pi, NpigLocal, sizeof(struct PartIndex),
-            fof_radix_sortkey, 8, NULL, MPI_COMM_WORLD);
+            fof_radix_sortkey, 8, NULL, Comm);
 
 #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i ++) {
@@ -190,7 +190,7 @@ static void fof_distribute_particles() {
     }
 
     //int64_t Npig = count_sum(NpigLocal);
-    //int64_t offsetLocal = MPIU_cumsum(NpigLocal, MPI_COMM_WORLD);
+    //int64_t offsetLocal = MPIU_cumsum(NpigLocal, Comm);
 
     //size_t chunksize = (Npig / NTask) + (Npig % NTask != 0);
 
@@ -204,14 +204,14 @@ static void fof_distribute_particles() {
         pi[i].targetTask = ThisTask;
     }
     /* return pi to the original processors */
-    mpsort_mpi(pi, NpigLocal, sizeof(struct PartIndex), fof_radix_origin, 8, NULL, MPI_COMM_WORLD);
+    mpsort_mpi(pi, NpigLocal, sizeof(struct PartIndex), fof_radix_origin, 8, NULL, Comm);
     for(i = 0; i < NpigLocal; i ++) {
         int index = pi[i].origin % PartManager->MaxPart;
         P[index].targettask = pi[i].targetTask;
     }
     myfree(pi);
 
-    if(domain_exchange(fof_sorted_layout, NULL, 1, MPI_COMM_WORLD))
+    if(domain_exchange(fof_sorted_layout, NULL, 1, Comm))
         endrun(1930,"Could not exchange particles\n");
     /* sort SPH and Others independently */
 
@@ -220,12 +220,12 @@ static void fof_distribute_particles() {
         if(P[i].GrNr < 0) continue;
         if(P[i].GrNr > GrNrMax) GrNrMax = P[i].GrNr;
     }
-    MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, Comm);
     message(0, "GrNrMax after exchange is %d\n", GrNrMaxGlobal);
 
 }
-static void fof_return_particles() {
-    if(domain_exchange(fof_origin_layout, NULL, 1, MPI_COMM_WORLD))
+static void fof_return_particles(MPI_Comm Comm) {
+    if(domain_exchange(fof_origin_layout, NULL, 1, Comm))
         endrun(1931,"Could not exchange particles\n");
 }
 
@@ -243,9 +243,9 @@ static void build_buffer_fof(BigArray * array, IOTableEntry * ent) {
     }
 }
 
-static void fof_write_header(BigFile * bf) {
+static void fof_write_header(BigFile * bf, MPI_Comm Comm) {
     BigBlock bh;
-    if(0 != big_file_mpi_create_block(bf, &bh, "Header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
+    if(0 != big_file_mpi_create_block(bf, &bh, "Header", NULL, 0, 0, 0, Comm)) {
         endrun(0, "Failed to create header\n");
     }
     int i;
@@ -261,7 +261,7 @@ static void fof_write_header(BigFile * bf) {
         npartLocal[P[i].Type] ++;
     }
 
-    MPI_Allreduce(npartLocal, npartTotal, 6, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(npartLocal, npartTotal, 6, MPI_INT64, MPI_SUM, Comm);
 
     big_block_set_attr(&bh, "NumPartInGroupTotal", npartTotal, "u8", 6);
     big_block_set_attr(&bh, "NumFOFGroupsTotal", &TotNgroups, "u8", 1);
@@ -273,7 +273,7 @@ static void fof_write_header(BigFile * bf) {
     big_block_set_attr(&bh, "HubbleParam", &All.CP.HubbleParam, "f8", 1);
     big_block_set_attr(&bh, "CMBTemperature", &All.CP.CMBTemperature, "f8", 1);
     big_block_set_attr(&bh, "OmegaBaryon", &All.CP.OmegaBaryon, "f8", 1);
-    big_block_mpi_close(&bh, MPI_COMM_WORLD);
+    big_block_mpi_close(&bh, Comm);
 }
 
 SIMPLE_PROPERTY(GroupID, Group[i].base.GrNr, uint32_t, 1)
