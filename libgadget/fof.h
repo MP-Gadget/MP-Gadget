@@ -9,7 +9,7 @@ void set_fof_params(ParameterSet * ps);
 void fof_init(double DMMeanSeparation);
 
 /*Computes the Group structure, saved as a global array below*/
-void fof_fof(ForceTree * tree, double BoxSize);
+void fof_fof(ForceTree * tree, double BoxSize, MPI_Comm Comm);
 
 /*Frees the Group structure*/
 void
@@ -17,7 +17,7 @@ fof_finish(void);
 
 /*Uses the Group structure to seed blackholes*/
 void
-fof_seed(void);
+fof_seed(MPI_Comm Comm);
 
 /*Saves the Group structure to disc.*/
 void

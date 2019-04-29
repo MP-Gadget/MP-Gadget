@@ -12,7 +12,7 @@
 
 #include "utils.h"
 
-#include "allvars.h"
+#include "walltime.h"
 #include "sfr_eff.h"
 #include "blackhole.h"
 #include "drift.h"
@@ -36,6 +36,7 @@
 /* FIXME: convert this to a parameter */
 #define FOF_SECONDARY_LINK_TYPES (1+16+32)    // 2^type for the types linked to nearest primaries
 #define LARGE 1e29
+#define MAXITER 400
 
 struct FOFParams
 {
@@ -86,6 +87,7 @@ static double fof_periodic_wrap(double x, double BoxSize)
 
 static void fof_label_secondary(ForceTree * tree);
 static int fof_compare_HaloLabel_MinID(const void *a, const void *b);
+static int MinIDCompareThisTask;
 static int fof_compare_Group_MinIDTask(const void *a, const void *b);
 static int fof_compare_Group_OriginalIndex(const void *a, const void *b);
 static int fof_compare_Group_MinID(const void *a, const void *b);
@@ -93,20 +95,20 @@ static void fof_reduce_groups(
     void * groups,
     int nmemb,
     size_t elsize,
-    void (*reduce_group)(void * gdst, void * gsrc));
+    void (*reduce_group)(void * gdst, void * gsrc), MPI_Comm Comm);
 
 static void fof_finish_group_properties(struct Group * Group, double BoxSize);
 static void
-fof_compile_base(struct BaseGroup * base);
+fof_compile_base(struct BaseGroup * base, MPI_Comm Comm);
 static void
-fof_compile_catalogue(struct Group * group, double BoxSize);
+fof_compile_catalogue(struct Group * group, double BoxSize, MPI_Comm Comm);
 
 static struct Group *
 fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt);
 
-static void fof_assign_grnr(struct BaseGroup * base);
+static void fof_assign_grnr(struct BaseGroup * base, MPI_Comm Comm);
 
-void fof_label_primary(ForceTree * tree);
+void fof_label_primary(ForceTree * tree, MPI_Comm Comm);
 extern void fof_save_particles(int num, int SaveParticles);
 
 /* Ngroups and NgroupsExt are both maximally NumPart,
@@ -150,7 +152,7 @@ static MPI_Datatype MPI_TYPE_GROUP;
  *
  **/
 
-void fof_fof(ForceTree * tree, double BoxSize)
+void fof_fof(ForceTree * tree, double BoxSize, MPI_Comm Comm)
 {
     int i;
 
@@ -172,14 +174,17 @@ void fof_fof(ForceTree * tree, double BoxSize)
         HaloLabel[i].Pindex = i;
     }
     /* Fill FOFP_List of primary */
-    fof_label_primary(tree);
+    fof_label_primary(tree, Comm);
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Barrier(Comm);
     message(0, "Group finding done.\n");
     walltime_measure("/FOF/Primary");
 
     /* Fill FOFP_List of secondary */
     fof_label_secondary(tree);
+    MPI_Barrier(Comm);
+    message(0, "Attached gas and star particles to nearest dm particles.\n");
+
     walltime_measure("/FOF/Secondary");
 
     /* sort HaloLabel according to MinID, because we need that for compiling catalogues */
@@ -195,23 +200,23 @@ void fof_fof(ForceTree * tree, double BoxSize)
     /* We create the smaller 'BaseGroup' data set for this. */
     struct BaseGroup * base = (struct BaseGroup *) mymalloc("BaseGroup", sizeof(struct BaseGroup) * NgroupsExt);
 
-    fof_compile_base(base);
+    fof_compile_base(base, Comm);
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Barrier(Comm);
     message(0, "Compiled local group data and catalogue.\n");
 
     walltime_measure("/FOF/Compile");
 
-    fof_assign_grnr(base);
+    fof_assign_grnr(base, Comm);
 
     /*Initialise the Group object from the BaseGroup*/
     Group = fof_alloc_group(base, NgroupsExt);
 
     myfree(base);
 
-    fof_compile_catalogue(Group, BoxSize);
+    fof_compile_catalogue(Group, BoxSize, Comm);
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Barrier(Comm);
     message(0, "Finished FoF. Group properties are now allocated.. (presently allocated=%g MB)\n",
             mymalloc_usedbytes() / (1024.0 * 1024.0));
 
@@ -347,12 +352,14 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
         TreeWalkNgbIterFOF * iter,
         LocalTreeWalk * lv);
 
-void fof_label_primary(ForceTree * tree)
+void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
 {
     int i;
     int64_t link_across;
     int64_t link_across_tot;
     double t0, t1;
+    int ThisTask;
+    MPI_Comm_rank(Comm, &ThisTask);
 
     message(0, "Start linking particles (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
@@ -413,7 +420,7 @@ void fof_label_primary(ForceTree * tree)
             }
             FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i] = newMinID;
         }
-        MPI_Allreduce(&link_across, &link_across_tot, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&link_across, &link_across_tot, 1, MPI_INT64, MPI_SUM, Comm);
         message(0, "Linked %ld particles %g seconds\n", link_across_tot, t1 - t0);
     }
     while(link_across_tot > 0);
@@ -556,7 +563,7 @@ static void fof_reduce_group(void * pdst, void * psrc) {
 
 }
 
-static void add_particle_to_group(struct Group * gdst, int i, double BoxSize) {
+static void add_particle_to_group(struct Group * gdst, int i, double BoxSize, int ThisTask) {
 
     /* My local number of particles contributing to the full catalogue. */
     const int index = i;
@@ -675,7 +682,7 @@ fof_finish_group_properties(struct Group * Group, double BoxSize)
 }
 
 static void
-fof_compile_base(struct BaseGroup * base)
+fof_compile_base(struct BaseGroup * base, MPI_Comm Comm)
 {
     memset(base, 0, sizeof(base[0]) * NgroupsExt);
 
@@ -715,7 +722,7 @@ fof_compile_base(struct BaseGroup * base)
     }
 
     /* update global attributes */
-    fof_reduce_groups(base, NgroupsExt, sizeof(base[0]), fof_reduce_base_group);
+    fof_reduce_groups(base, NgroupsExt, sizeof(base[0]), fof_reduce_base_group, Comm);
 
     /* eliminate all groups that are too small */
     for(i = 0; i < NgroupsExt; i++)
@@ -748,9 +755,11 @@ fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt)
 }
 
 static void
-fof_compile_catalogue(struct Group * group, double BoxSize)
+fof_compile_catalogue(struct Group * group, double BoxSize, MPI_Comm Comm)
 {
-    int i, start;
+    int i, start, ThisTask;
+
+    MPI_Comm_rank(Comm, &ThisTask);
 
     start = 0;
     for(i = 0; i < NgroupsExt; i++)
@@ -764,12 +773,12 @@ fof_compile_catalogue(struct Group * group, double BoxSize)
             if(HaloLabel[start].MinID != Group[i].base.MinID) {
                 break;
             }
-            add_particle_to_group(&Group[i], HaloLabel[start].Pindex, BoxSize);
+            add_particle_to_group(&Group[i], HaloLabel[start].Pindex, BoxSize, ThisTask);
         }
     }
 
     /* collect global properties */
-    fof_reduce_groups(Group, NgroupsExt, sizeof(Group[0]), fof_reduce_group);
+    fof_reduce_groups(Group, NgroupsExt, sizeof(Group[0]), fof_reduce_group, Comm);
 
     /* count Groups and number of particles hosted by me */
     Ngroups = 0;
@@ -789,8 +798,8 @@ fof_compile_catalogue(struct Group * group, double BoxSize)
     fof_finish_group_properties(Group, BoxSize);
 
     int64_t TotNids;
-    MPI_Allreduce(&Ngroups, &TotNgroups, 1, MPI_UINT64, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&Nids, &TotNids, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&Ngroups, &TotNgroups, 1, MPI_UINT64, MPI_SUM, Comm);
+    MPI_Allreduce(&Nids, &TotNids, 1, MPI_INT64, MPI_SUM, Comm);
 
     /* report some statictics */
     int largestgroup;
@@ -801,7 +810,7 @@ fof_compile_catalogue(struct Group * group, double BoxSize)
         for(i = 0; i < NgroupsExt; i++)
             if(Group[i].Length > largestloc)
                 largestloc = Group[i].Length;
-        MPI_Allreduce(&largestloc, &largestgroup, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+        MPI_Allreduce(&largestloc, &largestgroup, 1, MPI_INT, MPI_MAX, Comm);
     }
     else
         largestgroup = 0;
@@ -819,9 +828,12 @@ static void fof_reduce_groups(
     void * groups,
     int nmemb,
     size_t elsize,
-    void (*reduce_group)(void * gdst, void * gsrc))
+    void (*reduce_group)(void * gdst, void * gsrc), MPI_Comm Comm)
 {
 
+    int NTask, ThisTask;
+    MPI_Comm_size(Comm, &NTask);
+    MPI_Comm_rank(Comm, &ThisTask);
     /* slangs:
      *   prime: groups hosted by ThisTask
      *   ghosts: groups that spans into ThisTask but not hosted by ThisTask;
@@ -846,6 +858,8 @@ static void fof_reduce_groups(
     MPI_Type_contiguous(elsize, MPI_BYTE, &dtype);
     MPI_Type_commit(&dtype);
 
+    /*Set global data for the comparison*/
+    MinIDCompareThisTask = ThisTask;
     /* local groups will be moved to the beginning, we skip them with offset */
     qsort_openmp(groups, nmemb, elsize, fof_compare_Group_MinIDTask);
     /* count how many we have of each task */
@@ -860,7 +874,7 @@ static void fof_reduce_groups(
     int Nmine = Send_count[ThisTask];
     Send_count[ThisTask] = 0;
 
-    MPI_Alltoall(Send_count, 1, MPI_INT, Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
+    MPI_Alltoall(Send_count, 1, MPI_INT, Recv_count, 1, MPI_INT, Comm);
 
     int nimport = 0;
     for(i = 0; i < NTask; i ++) {
@@ -871,7 +885,7 @@ static void fof_reduce_groups(
     ghosts = ((char*) groups) + elsize * Nmine;
 
     MPI_Alltoallv_smart(ghosts, Send_count, NULL, dtype,
-                        images, Recv_count, NULL, dtype, MPI_COMM_WORLD);
+                        images, Recv_count, NULL, dtype, Comm);
 
     for(i = 0; i < nimport; i++) {
         struct BaseGroup * gi = (struct BaseGroup*) ((char*) images + i * elsize);
@@ -938,7 +952,7 @@ static void fof_reduce_groups(
 
     MPI_Alltoallv_smart(images, Recv_count, NULL, dtype,
                         ghosts2, Send_count, NULL, dtype,
-                        MPI_COMM_WORLD);
+                        Comm);
     for(i = 0; i < NgroupsExt - Nmine; i ++) {
         struct BaseGroup * g1 = (struct BaseGroup*) ((char*) ghosts + i * elsize);
         struct BaseGroup * g2 = (struct BaseGroup*) ((char*) ghosts2 + i* elsize);
@@ -965,10 +979,12 @@ static void fof_reduce_groups(
 static void fof_radix_Group_TotalCountTaskDiffMinID(const void * a, void * radix, void * arg);
 static void fof_radix_Group_OriginalTaskMinID(const void * a, void * radix, void * arg);
 
-static void fof_assign_grnr(struct BaseGroup * base)
+static void fof_assign_grnr(struct BaseGroup * base, MPI_Comm Comm)
 {
-    int i, j;
+    int i, j, NTask, ThisTask;
     int64_t ngr;
+    MPI_Comm_size(Comm, &NTask);
+    MPI_Comm_rank(Comm, &ThisTask);
 
     for(i = 0; i < NgroupsExt; i++)
     {
@@ -976,7 +992,7 @@ static void fof_assign_grnr(struct BaseGroup * base)
     }
 
     mpsort_mpi(base, NgroupsExt, sizeof(base[0]),
-            fof_radix_Group_TotalCountTaskDiffMinID, 24, NULL, MPI_COMM_WORLD);
+            fof_radix_Group_TotalCountTaskDiffMinID, 24, NULL, Comm);
 
     /* assign group numbers
      * at this point, both Group are is sorted by length,
@@ -994,7 +1010,7 @@ static void fof_assign_grnr(struct BaseGroup * base)
 
     int64_t * ngra = ta_malloc("NGRA", int64_t, NTask);
 
-    MPI_Allgather(&ngr, 1, MPI_INT64, ngra, 1, MPI_INT64, MPI_COMM_WORLD);
+    MPI_Allgather(&ngr, 1, MPI_INT64, ngra, 1, MPI_INT64, Comm);
 
     /* shift to the global grnr. */
     int64_t groffset = 0;
@@ -1007,7 +1023,7 @@ static void fof_assign_grnr(struct BaseGroup * base)
 
     /* bring the group list back into the original task, sorted by MinID */
     mpsort_mpi(base, NgroupsExt, sizeof(base[0]),
-            fof_radix_Group_OriginalTaskMinID, 16, NULL, MPI_COMM_WORLD);
+            fof_radix_Group_OriginalTaskMinID, 16, NULL, Comm);
 
     for(i = 0; i < PartManager->NumPart; i++)
         P[i].GrNr = -1;	/* will mark particles that are not in any group */
@@ -1172,9 +1188,6 @@ static void fof_label_secondary(ForceTree * tree)
 
     myfree(FOF_SECONDARY_GET_PRIV(tw)->hsml);
     myfree(FOF_SECONDARY_GET_PRIV(tw)->distance);
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    message(0, "Attached gas and star particles to nearest dm particles.\n");
 }
 
 static void
@@ -1212,12 +1225,14 @@ static int cmp_seed_task(const void * c1, const void * c2) {
 
     return g1->seed_task - g2->seed_task;
 }
-static void fof_seed_make_one(struct Group * g);
+static void fof_seed_make_one(struct Group * g, int ThisTask);
 
-void fof_seed(void)
+void fof_seed(MPI_Comm Comm)
 {
     int i, j, n, ntot;
 
+    int NTask;
+    MPI_Comm_size(Comm, &NTask);
     int * Send_count = ta_malloc("Send_count", int, NTask);
     int * Recv_count = ta_malloc("Recv_count", int, NTask);
 
@@ -1250,7 +1265,7 @@ void fof_seed(void)
         Send_count[ExportGroups[i].seed_task]++;
     }
 
-    MPI_Alltoall(Send_count, 1, MPI_INT, Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
+    MPI_Alltoall(Send_count, 1, MPI_INT, Recv_count, 1, MPI_INT, Comm);
 
     int Nimport = 0;
 
@@ -1264,15 +1279,18 @@ void fof_seed(void)
 
     MPI_Alltoallv_smart(ExportGroups, Send_count, NULL, MPI_TYPE_GROUP,
                         ImportGroups, Recv_count, NULL, MPI_TYPE_GROUP,
-                        MPI_COMM_WORLD);
+                        Comm);
 
-    MPI_Allreduce(&Nimport, &ntot, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&Nimport, &ntot, 1, MPI_INT, MPI_SUM, Comm);
 
     message(0, "Making %d new black hole particles.\n", ntot);
 
+    int ThisTask;
+    MPI_Comm_rank(Comm, &ThisTask);
+
     for(n = 0; n < Nimport; n++)
     {
-        fof_seed_make_one(&ImportGroups[n]);
+        fof_seed_make_one(&ImportGroups[n], ThisTask);
     }
 
     myfree(ImportGroups);
@@ -1285,8 +1303,8 @@ void fof_seed(void)
     walltime_measure("/FOF/Seeding");
 }
 
-static void fof_seed_make_one(struct Group * g) {
-    if(g->seed_task != ThisTask) {
+static void fof_seed_make_one(struct Group * g, int ThisTask) {
+   if(g->seed_task != ThisTask) {
         endrun(7771, "Seed does not belong to the right task");
     }
 #ifdef BLACK_HOLES
@@ -1324,8 +1342,8 @@ static int fof_compare_Group_MinIDTask(const void *a, const void *b)
     const struct BaseGroup * p2 = b;
     int t1 = p1->MinIDTask;
     int t2 = p2->MinIDTask;
-    if(t1 == ThisTask) t1 = -1;
-    if(t2 == ThisTask) t2 = -1;
+    if(t1 == MinIDCompareThisTask) t1 = -1;
+    if(t2 == MinIDCompareThisTask) t2 = -1;
 
     if(t1 < t2) return -1;
     if(t1 > t2) return +1;

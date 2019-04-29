@@ -277,8 +277,8 @@ blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
     if(All.Time >= *TimeNextSeedingCheck)
     {
         /* Seeding */
-        fof_fof(tree, All.BoxSize);
-        fof_seed();
+        fof_fof(tree, All.BoxSize, MPI_COMM_WORLD);
+        fof_seed(MPI_COMM_WORLD);
         fof_finish();
         *TimeNextSeedingCheck = All.Time * blackhole_params.TimeBetweenSeedingSearch;
     }
