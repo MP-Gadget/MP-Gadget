@@ -61,14 +61,6 @@ enum ShortRangeForceWindowType {
     SHORTRANGE_FORCE_WINDOW_TYPE_ERFC = 1,
 };
 
-enum BlackHoleFeedbackMethod {
-     BH_FEEDBACK_TOPHAT   = 0x2,
-     BH_FEEDBACK_SPLINE   = 0x4,
-     BH_FEEDBACK_MASS     = 0x8,
-     BH_FEEDBACK_VOLUME   = 0x10,
-     BH_FEEDBACK_OPTTHIN  = 0x20,
-};
-
 enum DensityKernelType {
     DENSITY_KERNEL_CUBIC_SPLINE = 1,
     DENSITY_KERNEL_QUINTIC_SPLINE = 2,
