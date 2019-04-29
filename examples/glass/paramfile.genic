@@ -2,7 +2,6 @@ OutputDir = output    # Directory for output
 FileBase = IC              # Base-filename of output files
 
 Ngrid = 64
-Nmesh = 128
 
 BoxSize = 512000.0   # Periodic box size of simulation
 
@@ -12,7 +11,7 @@ OmegaBaryon = 0.0464     # Baryon density        (at z=0)
 ProduceGas = 1         # 0 is dm only. 1 is gas
 HubbleParam = 0.697      # Hubble paramater (may be used for power spec parameterization)
 
-Redshift = 49        # Starting redshift
+Redshift = 99        # Starting redshift
 
 Sigma8 = 0.810      # power spectrum normalization
 
@@ -29,7 +28,8 @@ FileWithInputSpectrum = ../powerspectrum-wmap9.txt  # filename of tabulated inpu
 PrimordialIndex = 0.971 # may be used to tilt the primordial index
 
 Seed = 181170    #  seed for IC-generator
-MakeGlass = 1
+MakeGlassCDM = 0
+MakeGlassGas = 1
 
 UnitLength_in_cm = 3.085678e21   # defines length unit of output (in cm/h) 
 UnitMass_in_g = 1.989e43      # defines mass unit of output (in g/cm)
