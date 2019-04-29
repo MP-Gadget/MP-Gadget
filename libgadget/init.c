@@ -67,7 +67,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
     init_drift_table(All.TimeInit, All.TimeMax);
 
     /*Read the snapshot*/
-    petaio_read_snapshot(RestartSnapNum);
+    petaio_read_snapshot(RestartSnapNum, MPI_COMM_WORLD);
 
     domain_test_id_uniqueness();
 
