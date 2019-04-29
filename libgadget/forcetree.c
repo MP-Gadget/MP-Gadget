@@ -110,6 +110,7 @@ force_tree_allocated(const ForceTree * tree)
 void
 force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav)
 {
+    MPI_Barrier(MPI_COMM_WORLD);
     message(0, "Tree construction.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
     if(force_tree_allocated(tree)) {
@@ -121,9 +122,9 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSiz
 
     event_listen(&EventSlotsFork, force_tree_eh_slots_fork, tree);
 
-    walltime_measure("/Tree/Build");
-
+    MPI_Barrier(MPI_COMM_WORLD);
     message(0, "Tree construction done.\n");
+    walltime_measure("/Tree/Build");
 }
 
 /*! This function is a driver routine for constructing the gravitational

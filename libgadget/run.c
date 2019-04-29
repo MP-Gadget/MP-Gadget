@@ -298,6 +298,7 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridN
         /***** update smoothing lengths in tree *****/
         force_update_hmax(ActiveParticle, NumActiveParticle, tree);
         /***** hydro forces *****/
+        MPI_Barrier(MPI_COMM_WORLD);
         message(0, "Start hydro-force computation...\n");
 
         hydro_force(tree);		/* adds hydrodynamical accelerations  and computes du/dt  */
@@ -360,6 +361,8 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridN
         /**** radiative cooling and star formation *****/
         cooling_and_starformation(tree);
     }
+
+    MPI_Barrier(MPI_COMM_WORLD);
     message(0, "Forces computed.\n");
 }
 

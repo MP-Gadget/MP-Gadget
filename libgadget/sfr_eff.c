@@ -181,9 +181,6 @@ void cooling_and_starformation(ForceTree * tree)
     sumup_large_ints(1, &stars_spawned, &tot_spawned);
     sumup_large_ints(1, &stars_converted, &tot_converted);
 
-    if(tot_spawned || tot_converted)
-        message(0, "SFR: spawned %ld stars, converted %ld gas particles into stars\n", tot_spawned, tot_converted);
-
     double total_sum_mass_stars, total_sm, totsfrrate;
 
     MPI_Reduce(&localsfr, &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -203,6 +200,10 @@ void cooling_and_starformation(ForceTree * tree)
                 total_sum_mass_stars);
         fflush(FdSfr);
     }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    if(tot_spawned || tot_converted)
+        message(0, "SFR: spawned %ld stars, converted %ld gas particles into stars\n", tot_spawned, tot_converted);
 
     walltime_measure("/Cooling/StarFormation");
 

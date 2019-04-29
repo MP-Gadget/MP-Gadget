@@ -173,13 +173,9 @@ void domain_decompose_full(DomainDecomp * ddecomp)
         Npolicies = domain_policies_init(policies, NincreaseAlloc, 8);
     }
 
-    double t0, t1;
-
     walltime_measure("/Misc");
 
     message(0, "domain decomposition... (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
-
-    t0 = second();
 
     int decompose_failed = 1;
     int i;
@@ -233,9 +229,9 @@ void domain_decompose_full(DomainDecomp * ddecomp)
      *the same as the particles, garbage is at the end and all particles are in peano order.*/
     slots_gc_sorted();
 
-    t1 = second();
-
-    message(0, "domain decomposition done. (took %g sec)\n", timediff(t0, t1));
+    /*Ensure collective*/
+    MPI_Barrier(ddecomp->DomainComm);
+    message(0, "Domain decomposition done.\n");
 
     report_memory_usage("DOMAIN");
 

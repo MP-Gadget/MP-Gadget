@@ -68,6 +68,7 @@ void grav_short_tree(ForceTree * tree)
     walltime_measure("/Misc");
 
     /* allocate buffers to arrange communication */
+    MPI_Barrier(MPI_COMM_WORLD);
     message(0, "Begin tree force.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
     walltime_measure("/Misc");
@@ -76,7 +77,8 @@ void grav_short_tree(ForceTree * tree)
 
     /* now add things for comoving integration */
 
-    message(0, "tree is done.\n");
+    MPI_Barrier(MPI_COMM_WORLD);
+    message(0, "Short-range gravitational tree force is done.\n");
 
     /* Now the force computation is finished */
 
