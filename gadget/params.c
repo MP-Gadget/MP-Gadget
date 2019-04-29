@@ -149,9 +149,8 @@ create_gadget_parameter_set()
     param_declare_double(ps, "TimeMax", OPTIONAL, 1.0, "Scale factor to end run.");
     param_declare_double(ps, "TimeLimitCPU", REQUIRED, 0, "CPU time to run for in seconds.");
 
-    param_declare_int   (ps, "DomainOverDecompositionFactor", OPTIONAL, 1, "Create on average this number of sub domains on a MPI rank. Load balancer will try to create this number of equal sized chunks on each rank. Higher numbers improve the load balancing but make domain more expensive.");
+    param_declare_int   (ps, "DomainOverDecompositionFactor", OPTIONAL, 4, "Create on average this number of sub domains on a MPI rank. Load balancer will then move these subdomains around to equalize the work per rank. Higher numbers improve the load balancing but make domain more expensive.");
     param_declare_int   (ps, "DomainUseGlobalSorting", OPTIONAL, 1, "Determining the initial refinement of chunks globally. Enabling this produces better domains at costs of slowing down the domain decomposition.");
-    param_declare_int   (ps, "TopNodeIncreaseFactor", OPTIONAL, 4, "Create on average this number of topNodes per MPI rank. Higher numbers improve the load balancing but make domain more expensive. Similar to DomainOverDecompositionFactor, but ignored by load balancer.");
     param_declare_double(ps, "ErrTolIntAccuracy", OPTIONAL, 0.02, "");
     param_declare_double(ps, "ErrTolForceAcc", OPTIONAL, 0.005, "Force accuracy required from tree. Controls tree opening criteria. Lower values are more accurate.");
     param_declare_double(ps, "BHOpeningAngle", OPTIONAL, 0.175, "Barnes-Hut opening angle. Alternative purely geometric tree opening angle. Lower values are more accurate.");
@@ -387,9 +386,6 @@ void read_parameter_file(char *fname)
         All.CP.Omega_ur = param_get_double(ps, "Omega_ur");
         All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
 
-        All.DomainOverDecompositionFactor = param_get_int(ps, "DomainOverDecompositionFactor");
-        All.DomainUseGlobalSorting = param_get_int(ps, "DomainUseGlobalSorting");
-        All.TopNodeIncreaseFactor = param_get_int(ps, "TopNodeIncreaseFactor");
         All.OutputPotential = param_get_int(ps, "OutputPotential");
         double MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
         if(MaxMemSizePerNode <= 1) {
@@ -439,7 +435,6 @@ void read_parameter_file(char *fname)
         All.GravitySofteningGas = param_get_double(ps, "GravitySofteningGas");
 
         All.PartAllocFactor = param_get_double(ps, "PartAllocFactor");
-        All.TopNodeAllocFactor = param_get_double(ps, "TopNodeAllocFactor");
         All.SlotsIncreaseFactor = param_get_double(ps, "SlotsIncreaseFactor");
 
         All.SnapshotWithFOF = param_get_int(ps, "SnapshotWithFOF");
@@ -555,6 +550,7 @@ void read_parameter_file(char *fname)
 
     set_cooling_params(ps);
     set_treewalk_params(ps);
+    set_domain_params(ps);
 
     parameter_set_free(ps);
 }

@@ -41,9 +41,9 @@ void runtests(DomainDecomp * ddecomp)
     rebuild_activelist(All.Ti_Current, 0);
 
     ForceTree Tree = {0};
-    force_tree_rebuild(&Tree, ddecomp);
+    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1);
     gravpm_force(&Tree);
-    force_tree_rebuild(&Tree, ddecomp);
+    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1);
 
     grav_short_pair(&Tree);
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));
@@ -64,7 +64,8 @@ void runfof(int RestartSnapNum, DomainDecomp * ddecomp)
 {
     ForceTree Tree = {0};
     /*FoF needs a tree*/
-    force_tree_rebuild(&Tree, ddecomp);
+    int HybridNuGrav = All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime;
+    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav);
     fof_fof(&Tree);
     force_tree_free(&Tree);
     fof_save_groups(RestartSnapNum);

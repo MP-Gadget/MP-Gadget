@@ -37,7 +37,7 @@ void init(int snapnum, DomainDecomp * ddecomp); /* init.c only used here */
  * reached, when a `stop' file is found in the output directory, or
  * when the simulation ends because we arrived at TimeMax.
  */
-static void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, ForceTree * tree, DomainDecomp * ddecomp);
+static void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp);
 static void write_cpu_log(int NumCurrentTiStep);
 
 /*! \file begrun.c
@@ -94,6 +94,9 @@ void begrun(int RestartSnapNum, DomainDecomp * ddecomp)
 
     enable_core_dumps_and_fpu_exceptions();
 #endif
+
+    init_forcetree_params(All.FastParticleType, GravitySofteningTable);
+
     init_cooling_and_star_formation();
 
     grav_init();
@@ -181,12 +184,16 @@ void run(DomainDecomp * ddecomp)
 
         set_random_numbers(All.RandomSeed + All.Ti_Current);
 
+        /* Are the particle neutrinos gravitating this timestep?
+         * If so we need to add them to the tree.*/
+        int HybridNuGrav = All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime;
+
         /* Need to rebuild the force tree because all TopLeaves are out of date.*/
         ForceTree Tree = {0};
-        force_tree_rebuild(&Tree, ddecomp);
+        force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav);
 
         /* update force to Ti_Current */
-        compute_accelerations(is_PM, NumCurrentTiStep == 0, GasEnabled, &Tree, ddecomp);
+        compute_accelerations(is_PM, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
 
         /* Update velocity to Ti_Current; this synchonizes TiKick and TiDrift for the active particles */
 
@@ -221,7 +228,7 @@ void run(DomainDecomp * ddecomp)
             int compact[6] = {0};
 
             if(slots_gc(compact)) {
-                force_tree_rebuild(&Tree, ddecomp);
+                force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav);
                 NumActiveParticle = PartManager->NumPart;
             }
         }
@@ -273,7 +280,7 @@ void run(DomainDecomp * ddecomp)
  * be outside the allowed bounds, it will be readjusted by the function ensure_neighbours(), and for those
  * particle, the densities are recomputed accordingly. Finally, the hydrodynamical forces are added.
  */
-void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, ForceTree * tree, DomainDecomp * ddecomp)
+void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp)
 {
     message(0, "Begin force computation.\n");
 
@@ -325,7 +332,7 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, ForceTree *
         gravpm_force(tree);
 
         /*Rebuild the force tree we freed in gravpm to save memory*/
-        force_tree_rebuild(tree, ddecomp);
+        force_tree_rebuild(tree, ddecomp, All.BoxSize, HybridNuGrav);
 
         /* compute and output energy statistics if desired. */
         if(All.OutputEnergyDebug)
@@ -512,14 +519,5 @@ set_softenings()
     for(i = 0; i < 6; i ++) {
         message(0, "GravitySoftening[%d] = %g\n", i, GravitySofteningTable[i]);
     }
-
-    double minsoft = 0;
-    for(i = 0; i<6; i++) {
-        if(GravitySofteningTable[i] <= 0) continue;
-        if(minsoft == 0 || minsoft > GravitySofteningTable[i])
-            minsoft = GravitySofteningTable[i];
-    }
-    /* FIXME: make this a parameter. */
-    All.TreeNodeMinSize = 1.0e-3 * 2.8 * minsoft;
 }
 

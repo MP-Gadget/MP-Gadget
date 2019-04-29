@@ -170,14 +170,6 @@ extern struct global_data_all_processes
                               NOT be balanced.  Each processor allocates memory for PartAllocFactor times
                               the average number of particles to allow for that */
 
-    double TreeAllocFactor;	/*!< Each processor allocates a number of nodes which is TreeAllocFactor times
-                              the maximum(!) number of particles.  Note: A typical local tree for N
-                              particles needs usually about ~0.65*N nodes. */
-
-    double TopNodeAllocFactor;	/*!< Each processor allocates a number of nodes which is TreeAllocFactor times
-                                  the maximum(!) number of particles.  Note: A typical local tree for N
-                                  particles needs usually about ~0.65*N nodes. */
-
     double SlotsIncreaseFactor; /* !< What percentage to increase the slot allocation by when requested*/
     int OutputPotential;        /*!< Flag whether to include the potential in snapshots*/
 
@@ -208,16 +200,6 @@ extern struct global_data_all_processes
     Cosmology CP;
 
     /* Code options */
-    /* Number of sub-domains per processor. TopNodes are refined so that no TopNode contains
-     * no more than 1/(DODF * NTask) fraction of the work.
-     * Then the load balancer will aim to produce DODF*NTask equal-sized chunks, distributed
-     * evenly across MPI ranks.*/
-    int DomainOverDecompositionFactor;
-    int DomainUseGlobalSorting;
-    /* Sets average TopNodes per MPI rank. Like DomainOverDecompositionFactor
-     * but only changes refinement, not load balancing.*/
-    int TopNodeIncreaseFactor;
-
     int CoolingOn;  /* if cooling is enabled */
     int HydroOn;  /*  if hydro force is enabled */
     int DensityOn;  /*  if SPH density computation is enabled */
@@ -321,7 +303,6 @@ extern struct global_data_all_processes
     double GravitySoftening; /* Softening as a fraction of DM mean separation. */
     double GravitySofteningGas;  /* if 0, enable adaptive gravitational softening for gas particles, which uses the Hsml as ForceSoftening */
 
-    double TreeNodeMinSize; /* The minimum size of a Force Tree Node in length units. */
     double MeanSeparation[6]; /* mean separation between particles. 0 if the species doesn't exist. */
 
     /* some filenames */

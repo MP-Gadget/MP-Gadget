@@ -1,7 +1,9 @@
 #ifndef DOMAIN_H
 #define DOMAIN_H
 
+#include <mpi.h>
 #include "utils/peano.h"
+#include "utils/paramset.h"
 
 /*These variables are used externally in forcetree.c.
  * DomainTask is also used in treewalk and NTopLeaves is used in gravpm.c*/
@@ -36,9 +38,17 @@ typedef struct DomainDecomp {
     int NTopNodes;
     int NTopLeaves;
     struct task_data * Tasks;
+    /* MPI Communicator over which to build the Domain.
+     * Currently this is always MPI_COMM_WORLD.*/
+    MPI_Comm DomainComm;
 } DomainDecomp;
 
+/*Set the parameters of the domain module*/
+void set_domain_params(ParameterSet * ps);
+
+/* Do a full domain decomposition, which splits the particles into even clumps*/
 void domain_decompose_full(DomainDecomp * ddecomp);
+/* Exchange particles which have moved into the new domains, not re-doing the split unless we have to*/
 void domain_maintain(DomainDecomp * ddecomp);
 
 /** This function determines the TopLeaves entry for the given key.*/

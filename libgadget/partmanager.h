@@ -4,6 +4,7 @@
 #include <pthread.h>
 
 #include "types.h"
+#include "utils/peano.h"
 
 /*! This structure holds all the information that is
  * stored for each particle of the simulation.
