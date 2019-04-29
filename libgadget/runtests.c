@@ -38,6 +38,8 @@ void runtests(DomainDecomp * ddecomp)
         P[PartManager->NumPart - 1].GravCost = 1e10;
     }
 
+    int NTask;
+    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     rebuild_activelist(All.Ti_Current, 0);
 
     ForceTree Tree = {0};

@@ -188,7 +188,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "HydroCostFactor", OPTIONAL, 1, "Cost factor of hydro calculation, default to 1.");
 
     param_declare_int(ps, "BytesPerFile", OPTIONAL, 1024 * 1024 * 1024, "number of bytes per file");
-    param_declare_int(ps, "NumWriters", OPTIONAL, NTask, "Max number of concurrent writer processes. 0 implies Number of Tasks; ");
+    param_declare_int(ps, "NumWriters", OPTIONAL, 0, "Max number of concurrent writer processes. 0 implies Number of Tasks; ");
     param_declare_int(ps, "MinNumWriters", OPTIONAL, 1, "Min number of concurrent writer processes. We increase number of Files to avoid too few writers. ");
     param_declare_int(ps, "WritersPerFile", OPTIONAL, 8, "Number of Writer groups assigned to a file; total number of writers is capped by NumWriters.");
 
@@ -423,6 +423,8 @@ void read_parameter_file(char *fname)
         All.IO.BytesPerFile = param_get_int(ps, "BytesPerFile");
         All.IO.UsePeculiarVelocity = 0; /* Will be set by the Initial Condition File */
         All.IO.NumWriters = param_get_int(ps, "NumWriters");
+        if(All.IO.NumWriters == 0)
+            MPI_Comm_size(MPI_COMM_WORLD, &All.IO.NumWriters);
         All.IO.MinNumWriters = param_get_int(ps, "MinNumWriters");
         All.IO.WritersPerFile = param_get_int(ps, "WritersPerFile");
         All.IO.AggregatedIOThreshold = param_get_int(ps, "AggregatedIOThreshold");

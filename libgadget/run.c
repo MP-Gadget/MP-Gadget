@@ -375,6 +375,10 @@ void write_cpu_log(int NumCurrentTiStep)
 {
     walltime_summary(0, MPI_COMM_WORLD);
 
+    int NTask, ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+
     if(ThisTask == 0)
     {
         fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads: %d Elapsed: %g\n", NumCurrentTiStep, All.Time, NTask, All.NumThreads, All.CT.ElapsedTime);

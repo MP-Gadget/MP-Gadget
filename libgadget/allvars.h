@@ -98,7 +98,6 @@ static inline int IMIN(int a, int b) {
 /*********************************************************/
 
 extern int ThisTask;		/*!< the number of the local processor  */
-extern int NTask;		/*!< number of processors */
 
 /* variables for input/output , usually only used on process 0 */
 extern FILE *FdEnergy,			/*!< file handle for energy.txt log-file. */
