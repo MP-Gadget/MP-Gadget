@@ -13,20 +13,12 @@ HubbleParam = 0.7      # Hubble paramater (may be used for power spec parameteri
 
 Redshift = 99        # Starting redshift
 
-Sigma8 = -1      # power spectrum normalization
-InputPowerRedshift = -1
-
-WhichSpectrum = 2         # "1" selects Eisenstein & Hu spectrum,
-# "2" selects a tabulated power spectrum in
-# the file 'FileWithInputSpectrum'
-# otherwise, Eisenstein & Hu parametrization is used
-
 DifferentTransferFunctions = 1
 #Power spectra in Mpc/h units
 FileWithTransferFunction = class_tk_nu_99.dat
 FileWithInputSpectrum = class_pk_nu_99.dat
 
-PrimordialIndex = 1. # may be used to tilt the primordial index
+PrimordialIndex = 0.971 # may be used to tilt the primordial index
 
 Seed = 181170    #  seed for IC-generator
 
