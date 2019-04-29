@@ -29,10 +29,10 @@ Physics models:
 - Massive neutrinos
 - Dark energy
 - ICs have species dependent density and velocity transfer functions
-- Generic tracer particle seeding
+- Generic halo tracer particle seeding
 - Various wind feedback and blackhole feedback models
 - Various star formation criteria
-- Primordial and metal cooling
+- Primordial and metal cooling using updated recombination rates from the Sherwood simulation.
 - Fluctuating UV background
 
 Installation
@@ -71,14 +71,11 @@ Edit Options.mk
 1. Set GSL flags according to the environment variables.
    On coma, use Options.mk.example.coma.
 
-2. Tweak the compilation options for 'features'. 
-   We are in the process of cleaning this up.
-   Most options are tricky and undocumented, as Gadget.
-   The defaults shall work for most cases; 
-   it enables Pressure-Entropy SPH and Blackhole, Cooling
-   and SFR. To run a N-Body sim, use IC files with no gas particles.
-
-3. For off-tree build, set DESTDIR in Options.mk; the default target is in build/
+2. Tweak the compilation options for features.
+   Most options are now set at runtime.
+   Remaining features which must be set at compile time are
+   Pressure-Entropy SPH and black holes. You may also enable debug options.
+   To run a N-Body sim, use IC files with no gas particles.
 
 Now we are ready to build
 
@@ -87,7 +84,7 @@ Now we are ready to build
     make -j 8
 
 It takes some time to build pfft, one of the bundled dependencies. 
-Other libraries are bigfile and mp-sort, which are written by me and quick to build. 
+Other libraries are bigfile and mp-sort, which are written by Yu Feng and are quick to build. 
 
 In the end, we will have 2 binaries:
 
@@ -99,14 +96,12 @@ In the end, we will have 2 binaries:
 
 2. MP-GenIC is the initial condition generator.
 
-GLIBC 2.22
-----------
+Config Files
+------------
 
-Cray updated their GLIBC to 2.22+ recently. 
-A good move but it happens to be a buggy version of GLIBC:
-https://sourceware.org/bugzilla/show_bug.cgi?id=19590
-causing non-existing symbols like `_ZGVcN4v___log_finite`.
-Adding `-lmvec -lmvec_nonshared` to GSL_LIBS works around the issue.
+Most options are configured at runtime with options in the config files.
+The meaning of these options are documented in the params.c files in
+the gadget/ and genic/ subdirectories.
 
 Usage
 -----
@@ -114,21 +109,17 @@ Usage
 Find examples in examples/.
 
 - dm-only : Dark Matter only
-- lya : Lyman Alpha only (needs special compilcation flags)
+- lya : Lyman Alpha only
 - hydro : hydro
 - small : hydro with low resolution
 
-OpenMP Complication
--------------------
+Control number of threads with `OMP_NUM_THREADS`.
 
-When OpenMP is switched from on to off or off to on,
-all of the dependencies needs to be recompiled.
-This can be achived by removing all files in depends/lib.
+User Guide
+----------
 
-Otherwise symbols related to OpenMP in PFFT may be missing.
-
-Always enable OpenMP, and control number of threads with `OMP_NUM_THREADS`.
-
+A longer user guide in LaTeX can be found here:
+https://www.overleaf.com/6111733395bzrgntrgzphg
 
 IO Format
 ---------
@@ -144,17 +135,26 @@ Refer to https://github.com/rainwoodman/bigfile for usage.
 Otherwise directly open the blocks with Fortran or C, noting the data-type
 information and attributes in header and attrs files (in plain text)
 
+GLIBC 2.22
+----------
+
+Cray updated their GLIBC to 2.22+ recently. 
+A good move but it happens to be a buggy version of GLIBC:
+https://sourceware.org/bugzilla/show_bug.cgi?id=19590
+causing non-existing symbols like `_ZGVcN4v___log_finite`.
+Adding `-lmvec -lmvec_nonshared` to GSL_LIBS works around the issue.
+
 Contributors
 ------------
 
 Gadget-2 was authored by Volker Springel.
 The original P-GADGET3 was maintained by Volker Springel
 
-MP-Gadget is maintained by Yu Feng.
+MP-Gadget is maintained by Yu Feng and Simeon Bird.
 
 Contributors to MP-Gadget include:
 
-Simeon Bird, Nicholas Battaglia, Nishikanta Khandai
+Nicholas Battaglia, Nishikanta Khandai, Chris Pederson and Lauren Anderson.
 
 Citation
 --------
