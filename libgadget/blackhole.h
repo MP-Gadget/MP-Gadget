@@ -14,8 +14,13 @@ enum BlackHoleFeedbackMethod {
 void set_blackhole_params(ParameterSet * ps);
 
 /* Does the black hole feedback and accretion.
- * Sets TimeNextSeedingCheck to the scale factor of the next BH seeding check*/
+ * TimeNextSeedingCheck is the time of the BH next seeding check.
+ * It will be compared to the current time and updated after seeding takes place.
+ * tree is a valid ForceTree.
+ */
 void blackhole(ForceTree * tree, double * TimeNextSeedingCheck);
+
+/* Make a black hole from the particle at index*/
 void blackhole_make_one(int index);
 
 #endif

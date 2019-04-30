@@ -93,6 +93,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
 #ifdef BLACK_HOLES
         if(RestartSnapNum == -1 && P[i].Type == 5 )
         {
+            /* Note: Gadget-3 sets this to the seed black hole mass.*/
             BHP(i).Mass = P[i].Mass;
         }
 #endif

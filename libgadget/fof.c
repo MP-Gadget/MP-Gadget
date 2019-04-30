@@ -87,7 +87,7 @@ static double fof_periodic_wrap(double x, double BoxSize)
 
 static void fof_label_secondary(ForceTree * tree);
 static int fof_compare_HaloLabel_MinID(const void *a, const void *b);
-static int MinIDCompareThisTask;
+static int _fof_compare_Group_MinIDTask_ThisTask;
 static int fof_compare_Group_MinIDTask(const void *a, const void *b);
 static int fof_compare_Group_OriginalIndex(const void *a, const void *b);
 static int fof_compare_Group_MinID(const void *a, const void *b);
@@ -859,7 +859,7 @@ static void fof_reduce_groups(
     MPI_Type_commit(&dtype);
 
     /*Set global data for the comparison*/
-    MinIDCompareThisTask = ThisTask;
+    _fof_compare_Group_MinIDTask_ThisTask = ThisTask;
     /* local groups will be moved to the beginning, we skip them with offset */
     qsort_openmp(groups, nmemb, elsize, fof_compare_Group_MinIDTask);
     /* count how many we have of each task */
@@ -1342,8 +1342,8 @@ static int fof_compare_Group_MinIDTask(const void *a, const void *b)
     const struct BaseGroup * p2 = b;
     int t1 = p1->MinIDTask;
     int t2 = p2->MinIDTask;
-    if(t1 == MinIDCompareThisTask) t1 = -1;
-    if(t2 == MinIDCompareThisTask) t2 = -1;
+    if(t1 == _fof_compare_Group_MinIDTask_ThisTask) t1 = -1;
+    if(t2 == _fof_compare_Group_MinIDTask_ThisTask) t2 = -1;
 
     if(t1 < t2) return -1;
     if(t1 > t2) return +1;
