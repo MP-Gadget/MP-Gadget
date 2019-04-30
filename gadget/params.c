@@ -241,17 +241,17 @@ create_gadget_parameter_set()
 
     /*Black holes*/
     param_declare_int(ps, "BlackHoleOn", REQUIRED, 1, "Enable Blackhole ");
-    param_declare_double(ps, "BlackHoleAccretionFactor", OPTIONAL, 100, "BH accretion rate as a fraction of the Bondi accretion rate.");
+    param_declare_double(ps, "BlackHoleAccretionFactor", OPTIONAL, 100, "BH accretion boosting factor relative to the rate from the Bondi accretion model.");
     param_declare_double(ps, "BlackHoleEddingtonFactor", OPTIONAL, 3, "Maximum Black hole accretion as a function of Eddington.");
-    param_declare_double(ps, "SeedBlackHoleMass", OPTIONAL, 5e-5, "Minimal black hole seed mass in internal mass units.");
+    param_declare_double(ps, "SeedBlackHoleMass", OPTIONAL, 5e-5, "Mass of initial black hole seed in internal mass units.");
 
     param_declare_double(ps, "BlackHoleNgbFactor", OPTIONAL, 2, "Factor by which to increase the number of neighbours for a black hole.");
 
-    param_declare_double(ps, "BlackHoleMaxAccretionRadius", OPTIONAL, 99999., "Maximum neighbour search radius for black holes.");
+    param_declare_double(ps, "BlackHoleMaxAccretionRadius", OPTIONAL, 99999., "Maximum neighbour search radius for black holes. Rarely needed.");
     param_declare_double(ps, "BlackHoleFeedbackFactor", OPTIONAL, 0.05, " Fraction of the black hole luminosity to turn into thermal energy");
-    param_declare_double(ps, "BlackHoleFeedbackRadius", OPTIONAL, 0, "Maximum comoving (if > 0) radius at which the black hole feedback energy is deposited.");
+    param_declare_double(ps, "BlackHoleFeedbackRadius", OPTIONAL, 0, "If set, the comoving radius at which the black hole feedback energy is deposited.");
 
-    param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", OPTIONAL, 0, "Maximum physical (if > 0) radius at which the black hole feedback energy is deposited.");
+    param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", OPTIONAL, 0, "If set, the physical radius at which the black hole feedback energy is deposited. When both this flag and BlackHoleFeedbackRadius are both set, the smaller radius is used.");
 
     static ParameterEnum BlackHoleFeedbackMethodEnum [] = {
         {"mass", BH_FEEDBACK_MASS},
@@ -277,11 +277,11 @@ create_gadget_parameter_set()
     };
 
     static ParameterEnum WindModelEnum [] = {
-        {"subgrid", WIND_SUBGRID}, /* the original model of SH03, in which winds are included by returning energy to the star forming regions. This cools away and is ineffective.*/
+        {"subgrid", WIND_SUBGRID}, /* the vanilla model of SH03, in which winds are included by returning energy to the star forming regions. This cools away and is ineffective.*/
         {"decouple", WIND_DECOUPLE_SPH}, /* Specifies that wind particles are created temporarily decoupled from the gas dynamics */
         {"halo", WIND_USE_HALO}, /* Wind speeds depend on the halo circular velocity*/
         {"fixedefficiency", WIND_FIXED_EFFICIENCY}, /* Winds have a fixed efficiency and thus fixed wind speed*/
-        {"sh03", WIND_SUBGRID | WIND_DECOUPLE_SPH | WIND_FIXED_EFFICIENCY} ,
+        {"sh03", WIND_SUBGRID | WIND_DECOUPLE_SPH | WIND_FIXED_EFFICIENCY} , /*The canonical model of Spring & Hernquist 2003*/
         {"vs08", WIND_FIXED_EFFICIENCY},
         {"ofjt10", WIND_USE_HALO | WIND_DECOUPLE_SPH},
         {"isotropic", WIND_ISOTROPIC }, /*If enabled, wind direction is random and isotropic. If disabled it goes in the direction of the local gravitational acceleration*/
