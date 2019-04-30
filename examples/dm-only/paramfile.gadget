@@ -1,7 +1,7 @@
 #  Relevant files
 InitCondFile = output/IC
 OutputDir = output
-OutputList = 0.1,0.15, 0.2, 0.299,0.3,0.33333
+OutputList = 0.02,0.1,0.15,0.2,0.33333,0.5,1.0
 
 # Mesh size (in general should be set to 2xNgrid in IC)
 Nmesh = 256 
@@ -20,8 +20,7 @@ HubbleParam = 0.697      # Hubble paramater (may be used for power spec paramete
 
 CoolingOn = 0
 StarformationOn = 0
-StarformationCriterion = density
-RadiationOn = 0
+RadiationOn = 1
 BlackHoleOn = 0
 HydroOn = 0
 WindOn = 0
@@ -31,52 +30,3 @@ MassiveNuLinRespOn = 0
 SnapshotWithFOF = 1
 FOFHaloLinkingLength = 0.2
 FOFHaloMinLength = 32
-
-#  Further parameters of SPH
-DensityKernelType = quintic
-
-DensityContrastLimit = 100   # max contrast for hydro force calculation
-DensityResolutionEta = 1.0  # for Cubic spline 1.0 = 33
-MaxNumNgbDeviation = 2
-ArtBulkViscConst = 0.75
-InitGasTemp = 580.0        # always ignored if set to 0 
-MinGasTemp = 5.0
-
-
-# Memory allocation
-PartAllocFactor = 2.0
-
-# Softening lengths
-MinGasHsmlFractional 0.01
-
-MinFoFMassForNewSeed = 1
-TimeBetweenSeedingSearch 1.03
-
-#----------------------SFR Stuff-------------------------
-
-CritPhysDensity = 0       #  critical physical density for star formation in
- = #  hydrogen number density in cm^(-3)
-
-CritOverDensity = 57.7   #  overdensity threshold value
-
-QuickLymanAlphaProbability  0 # Set to 1.0 to turn dense gas directly into stars.
-
-MaxSfrTimescale = 1.5     # in internal time units
-
-
-TempSupernova = 1.0e8   #  in Kelvin
-
-TempClouds = 1000.0   #  in Kelvin
-FactorSN = 0.1
-FactorEVP = 1000.0
-
-WindModel = nowind # ofjt10,decouple
-WindEfficiency = 2.0
-WindEnergyFraction = 1.0
-WindSigma0 = 353.0 #km/s
-WindSpeedFactor = 3.7
-
-
-WindFreeTravelLength = 20
-WindFreeTravelDensFac = 0.1
-

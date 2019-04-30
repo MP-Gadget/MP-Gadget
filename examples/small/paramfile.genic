@@ -3,7 +3,6 @@ FileBase = IC              # Base-filename of output files
 
 Ngrid = 32 # Size of cubic grid on which to create particles.
 
-
 BoxSize = 4000   # Periodic box size of simulation
 
 
@@ -19,7 +18,6 @@ Sigma8 = 0.810      # power spectrum normalization
 
 DifferentTransferFunctions = 0
 ScaleDepVelocity = 0
-
 
 WhichSpectrum = 2         # "1" selects Eisenstein & Hu spectrum,
 		                   # "2" selects a tabulated power spectrum in

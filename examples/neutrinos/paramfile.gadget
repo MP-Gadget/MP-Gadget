@@ -27,10 +27,6 @@ SnapshotWithFOF = 1
 FOFHaloLinkingLength = 0.2
 FOFHaloMinLength = 32
 
-# Memory allocation
-
-PartAllocFactor = 2.0
-
 #Massive neutrinos
 MassiveNuLinRespOn = 1
 

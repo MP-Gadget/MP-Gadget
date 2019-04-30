@@ -5,7 +5,6 @@ Ngrid = 64 # Size of cubic grid on which to create particles.
 
 BoxSize = 4000   # Periodic box size of simulation
 
-MakeCoherentGlass = 1
 Omega0 = 0.2814      # Total matter density  (at z=0)
 OmegaLambda = 0.7186      # Cosmological constant (at z=0)
 OmegaBaryon = 0.0464     # Baryon density        (at z=0)
@@ -13,16 +12,6 @@ ProduceGas = 1         # 1 = Produce gas  0 = no gas, just DM.
 HubbleParam = 0.697      # Hubble paramater (may be used for power spec parameterization)
 
 Redshift = 99        # Starting redshift
-
-Sigma8 = -1      # power spectrum normalization
-InputPowerRedshift = -1
-
-
-WhichSpectrum = 2         # "1" selects Eisenstein & Hu spectrum,
-		                   # "2" selects a tabulated power spectrum in
-                           # the file 'FileWithInputSpectrum'
-                           # otherwise, Efstathiou parametrization is used
-
 
 DifferentTransferFunctions = 1
 #Tabulated output in Mpc/h units.
@@ -36,7 +25,6 @@ PrimordialAmp = 2.215e-9
 PrimordialIndex  = 0.971
 
 Seed = 181170    #  seed for IC-generator
-
 
 UnitLength_in_cm = 3.085678e21   # defines length unit of output (in cm/h) 
 UnitMass_in_g = 1.989e43      # defines mass unit of output (in g/cm)

@@ -451,6 +451,9 @@ petaio_read_header_internal(BigFile * bf) {
                     big_file_get_error_message());
     }
 
+    /*Set Nmesh to double the mean grid spacing of the dark matter by default.*/
+    if(All.Nmesh  < 0)
+        All.Nmesh = 2*pow(2, (int)(log(NTotal[1])/3./log(2)) );
     All.TimeInit = Time;
     if(0!= big_block_get_attr(&bh, "TimeIC", &All.TimeIC, "f8", 1))
         All.TimeIC = Time;
@@ -459,6 +462,17 @@ petaio_read_header_internal(BigFile * bf) {
     All.UnitVelocity_in_cm_per_s = _get_attr_double(&bh, "UnitVelocity_in_cm_per_s", 1e5); /* 1 km/sec */
     All.UnitLength_in_cm = _get_attr_double(&bh, "UnitLength_in_cm",  3.085678e21); /* 1.0 Kpc /h */
     All.UnitMass_in_g = _get_attr_double(&bh, "UnitMass_in_g", 1.989e43); /* 1e10 Msun/h */
+
+    if(
+        (All.CP.OmegaBaryon < 0 &&
+        0 != big_block_get_attr(&bh, "OmegaBaryon", &All.CP.OmegaBaryon, "f8", 1) ) ||
+        (All.CP.HubbleParam < 0 &&
+        0 != big_block_get_attr(&bh, "HubbleParam", &All.CP.HubbleParam, "f8", 1) )||
+        (All.CP.HubbleParam < 0 &&
+        0 != big_block_get_attr(&bh, "OmegaLambda", &All.CP.OmegaLambda, "f8", 1) )
+    ) {
+        endrun(0, "Failed to read required cosmology from IC header\n");
+    }
 
     /* Fall back to use a**2 * dx/dt if UsePeculiarVelocity is not set in IC */
     All.IO.UsePeculiarVelocity = _get_attr_int(&bh, "UsePeculiarVelocity", 0);

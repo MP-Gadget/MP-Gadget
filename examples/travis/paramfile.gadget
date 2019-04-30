@@ -7,8 +7,6 @@ InitCondFile = output/IC
 OutputDir = output
 OutputList = 0.01,0.012, 0.015
 
-Nmesh = 256
-
 # CPU time -limit
 	
 TimeLimitCPU = 43000 #= 8 hours
@@ -20,9 +18,6 @@ TimeLimitCPU = 43000 #= 8 hours
 TimeMax = 0.015
 
 Omega0 = 0.288      # Total matter density  (at z=0)
-OmegaLambda = 0.712      # Cosmological constant (at z=0)
-OmegaBaryon = 0.0472     # Baryon density        (at z=0)
-HubbleParam = 0.7      # Hubble paramater (may be used for power spec parameterization)
 
 HydroOn = 1
 CoolingOn = 1

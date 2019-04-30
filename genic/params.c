@@ -17,8 +17,8 @@ create_parameters()
     ParameterSet * ps = parameter_set_new();
 
     param_declare_string(ps, "FileWithInputSpectrum", REQUIRED, 0, "File containing input power spectrum, from CLASS or CAMB.");
-    param_declare_string(ps, "OutputDir", REQUIRED, 0, "");
-    param_declare_string(ps, "FileBase", REQUIRED, 0, "");
+    param_declare_string(ps, "OutputDir", REQUIRED, 0, "Output directory in which to store the ICs");
+    param_declare_string(ps, "FileBase", REQUIRED, 0, "File name of the ICs.");
 
     param_declare_double(ps, "Omega0", REQUIRED, 0.2814, "Total matter density, cdm + baryons + massive neutrinos at z=0.");
     param_declare_double(ps, "OmegaBaryon", REQUIRED, 0.0464, "Omega Baryon: note this may be used for transfer functions even if gas is not produced.");
@@ -31,7 +31,7 @@ create_parameters()
     param_declare_int(ps, "Ngrid", REQUIRED, 0, "Size of regular grid on which the undisplaced CDM particles are created.");
     param_declare_int(ps, "NgridGas", OPTIONAL, -1, "Size of regular grid on which the undisplaced gas particles are created.");
     param_declare_int(ps, "NgridNu", OPTIONAL, 0, "Number of neutrino particles created for hybrid neutrinos.");
-    param_declare_int(ps, "Seed", REQUIRED, 0, "");
+    param_declare_int(ps, "Seed", REQUIRED, 0, "Random number generator seed used for the phases of the Gaussian random field.");
     param_declare_int(ps, "MakeGlassGas", OPTIONAL, -1, "Generate Glass IC for gas instead of Grid IC.");
     param_declare_int(ps, "MakeGlassCDM", OPTIONAL, 0, "Generate Glass IC for CDM instead of Grid IC.");
 
@@ -66,8 +66,8 @@ create_parameters()
     param_declare_double(ps, "UnitLength_in_cm", OPTIONAL, CM_PER_MPC/1000, "Length unit in cm. Default is 1 kpc");
     param_declare_double(ps, "UnitMass_in_g", OPTIONAL, 1.989e43, "Mass unit in g. Default is 10^10 M_sun.");
 
-    param_declare_int(ps, "NumPartPerFile", OPTIONAL, 1024 * 1024 * 128, "");
-    param_declare_int(ps, "NumWriters", OPTIONAL, 0, "");
+    param_declare_int(ps, "NumPartPerFile", OPTIONAL, 1024 * 1024 * 128, "Number of particles per striped bigfile. Internal implementation detail.");
+    param_declare_int(ps, "NumWriters", OPTIONAL, 0, "Number of processors allowed to write at one time.");
     return ps;
 }
 

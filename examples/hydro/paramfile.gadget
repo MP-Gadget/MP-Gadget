@@ -52,10 +52,6 @@ InitGasTemp = 580.0        # always ignored if set to 0
 MinGasTemp = 5.0
 
 
-# Memory allocation
-
-PartAllocFactor = 2.0
-
 # Softening lengths
 
 MinGasHsmlFractional = 0.01

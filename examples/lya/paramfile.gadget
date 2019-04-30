@@ -34,15 +34,9 @@ DensityKernelType = cubic
 InitGasTemp = 270.
 MinGasTemp = 100
 
-# Memory allocation
-PartAllocFactor = 2.0
-
 #----------------------SFR Stuff-------------------------
-
-CritPhysDensity = 0       #  critical physical density for star formation in
-#  hydrogen number density in cm^(-3)
-CritOverDensity = 1000   #  overdensity threshold value
+CritOverDensity = 1000   #  overdensity threshold for stars value in units of critical density.
 QuickLymanAlphaProbability = 1 # Set to 1.0 to turn dense gas directly into stars.
 
-SnapshotWithFOF = 1
+SnapshotWithFOF = 0
 WindModel = nowind
