@@ -9,6 +9,10 @@
 #include <libgadget/utils.h>
 #include <libgadget/treewalk.h>
 #include <libgadget/cooling_rates.h>
+#include <libgadget/winds.h>
+#include <libgadget/sfr_eff.h>
+#include <libgadget/blackhole.h>
+#include <libgadget/fof.h>
 
 /* Optional parameters are passed the flag 0 and required parameters 1.
  * These macros are just to document the semantic meaning of these flags. */
@@ -182,7 +186,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "HydroCostFactor", OPTIONAL, 1, "Cost factor of hydro calculation: this allows gas particles to be considered more expensive than gravity computations.");
 
     param_declare_int(ps, "BytesPerFile", OPTIONAL, 1024 * 1024 * 1024, "number of bytes per file");
-    param_declare_int(ps, "NumWriters", OPTIONAL, NTask, "Max number of concurrent writer processes. 0 implies Number of Tasks; ");
+    param_declare_int(ps, "NumWriters", OPTIONAL, 0, "Max number of concurrent writer processes. 0 implies Number of Tasks; ");
     param_declare_int(ps, "MinNumWriters", OPTIONAL, 1, "Min number of concurrent writer processes. We increase number of Files to avoid too few writers. ");
     param_declare_int(ps, "WritersPerFile", OPTIONAL, 8, "Number of Writer groups assigned to a file; total number of writers is capped by NumWriters.");
 
@@ -426,6 +430,8 @@ void read_parameter_file(char *fname)
         All.IO.BytesPerFile = param_get_int(ps, "BytesPerFile");
         All.IO.UsePeculiarVelocity = 0; /* Will be set by the Initial Condition File */
         All.IO.NumWriters = param_get_int(ps, "NumWriters");
+        if(All.IO.NumWriters == 0)
+            MPI_Comm_size(MPI_COMM_WORLD, &All.IO.NumWriters);
         All.IO.MinNumWriters = param_get_int(ps, "MinNumWriters");
         All.IO.WritersPerFile = param_get_int(ps, "WritersPerFile");
         All.IO.AggregatedIOThreshold = param_get_int(ps, "AggregatedIOThreshold");
@@ -445,62 +451,13 @@ void read_parameter_file(char *fname)
         All.SlotsIncreaseFactor = param_get_double(ps, "SlotsIncreaseFactor");
 
         All.SnapshotWithFOF = param_get_int(ps, "SnapshotWithFOF");
-        All.FOFSaveParticles = param_get_int(ps, "FOFSaveParticles");
-        All.FOFHaloLinkingLength = param_get_double(ps, "FOFHaloLinkingLength");
-        All.FOFHaloMinLength = param_get_int(ps, "FOFHaloMinLength");
-        All.MinFoFMassForNewSeed = param_get_double(ps, "MinFoFMassForNewSeed");
-        All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
 
         All.RandomSeed = param_get_int(ps, "RandomSeed");
 
         All.BlackHoleOn = param_get_int(ps, "BlackHoleOn");
-    #ifdef BLACK_HOLES
-        All.BlackHoleSoundSpeedFromPressure = 0;
-
-        All.BlackHoleAccretionFactor = param_get_double(ps, "BlackHoleAccretionFactor");
-        All.BlackHoleEddingtonFactor = param_get_double(ps, "BlackHoleEddingtonFactor");
-        All.SeedBlackHoleMass = param_get_double(ps, "SeedBlackHoleMass");
-
-        All.BlackHoleNgbFactor = param_get_double(ps, "BlackHoleNgbFactor");
-
-        All.BlackHoleMaxAccretionRadius = param_get_double(ps, "BlackHoleMaxAccretionRadius");
-        All.BlackHoleFeedbackFactor = param_get_double(ps, "BlackHoleFeedbackFactor");
-        All.BlackHoleFeedbackRadius = param_get_double(ps, "BlackHoleFeedbackRadius");
-
-        All.BlackHoleFeedbackRadiusMaxPhys = param_get_double(ps, "BlackHoleFeedbackRadiusMaxPhys");
-
-        All.BlackHoleFeedbackMethod = param_get_enum(ps, "BlackHoleFeedbackMethod");
-
-    #endif
 
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.WindOn = param_get_int(ps, "WindOn");
-        /*Star formation parameters*/
-        All.StarformationCriterion = param_get_enum(ps, "StarformationCriterion");
-        All.CritOverDensity = param_get_double(ps, "CritOverDensity");
-        All.CritPhysDensity = param_get_double(ps, "CritPhysDensity");
-
-        All.FactorSN = param_get_double(ps, "FactorSN");
-        All.FactorEVP = param_get_double(ps, "FactorEVP");
-        All.TempSupernova = param_get_double(ps, "TempSupernova");
-        All.TempClouds = param_get_double(ps, "TempClouds");
-        All.MaxSfrTimescale = param_get_double(ps, "MaxSfrTimescale");
-
-        /*Wind model parameters*/
-        All.WindModel = param_get_enum(ps, "WindModel");
-        /* The following two are for VS08 and SH03*/
-        All.WindEfficiency = param_get_double(ps, "WindEfficiency");
-        All.WindEnergyFraction = param_get_double(ps, "WindEnergyFraction");
-
-        /* The following two are for OFJT10*/
-        All.WindSigma0 = param_get_double(ps, "WindSigma0");
-        All.WindSpeedFactor = param_get_double(ps, "WindSpeedFactor");
-
-        All.WindFreeTravelLength = param_get_double(ps, "WindFreeTravelLength");
-        All.WindFreeTravelDensFac = param_get_double(ps, "WindFreeTravelDensFac");
-
-        /*Lyman-alpha forest parameters*/
-        All.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
 
         param_get_string2(ps, "TreeCoolFile", All.TreeCoolFile);
         param_get_string2(ps, "UVFluctuationfile", All.UVFluctuationFile);
@@ -521,7 +478,12 @@ void read_parameter_file(char *fname)
             endrun(2, "You have enabled (kspace) massive neutrinos without radiation, but this will give an inconsistent cosmology!\n");
         /*End massive neutrino parameters*/
 
+        /*These two look like black hole parameters but they are really neighbour finding parameters*/
+        All.BlackHoleNgbFactor = param_get_double(ps, "BlackHoleNgbFactor");
+        All.BlackHoleMaxAccretionRadius = param_get_double(ps, "BlackHoleMaxAccretionRadius");
+
     #ifndef BLACK_HOLES
+
         if(All.BlackHoleOn)
         {
             endrun(1, "Code was compiled with black holes switched off but BlackHoleOn = 1. This does not work!\n");
@@ -558,6 +520,12 @@ void read_parameter_file(char *fname)
     set_cooling_params(ps);
     set_treewalk_params(ps);
     set_domain_params(ps);
+    set_sfr_params(ps);
+    set_winds_params(ps);
+    set_fof_params(ps);
+#ifdef BLACK_HOLES
+    set_blackhole_params(ps);
+#endif
 
     parameter_set_free(ps);
 }

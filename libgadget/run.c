@@ -121,6 +121,11 @@ void run(DomainDecomp * ddecomp)
     /*Is gas physics enabled?*/
     int GasEnabled = All.NTotalInit[0] > 0;
 
+#ifdef BLACK_HOLES
+    /* Stored scale factor of the next black hole seeding check*/
+    double TimeNextSeedingCheck = All.Time;
+#endif
+
     walltime_measure("/Misc");
 
     write_cpu_log(NumCurrentTiStep); /* produce some CPU usage info */
@@ -194,6 +199,19 @@ void run(DomainDecomp * ddecomp)
 
         /* update force to Ti_Current */
         compute_accelerations(is_PM, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
+
+        /* Note this must be after gravaccel and hydro,
+         * because new star particles are not in the tree,
+         * so mass conservation would be broken.*/
+        if(GasEnabled)
+        {
+    #ifdef BLACK_HOLES
+            /* Black hole accretion and feedback */
+            blackhole(&Tree, &TimeNextSeedingCheck);
+    #endif
+            /**** radiative cooling and star formation *****/
+            cooling_and_starformation(&Tree);
+        }
 
         /* Update velocity to Ti_Current; this synchonizes TiKick and TiDrift for the active particles */
 
@@ -349,19 +367,6 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridN
     if(FirstStep && All.TreeUseBH == 0)
         grav_short_tree(tree);
 
-    /* Note this must be after gravaccel and hydro,
-     * because new star particles are not in the tree,
-     * so mass conservation would be broken.*/
-    if(GasEnabled)
-    {
-#ifdef BLACK_HOLES
-        /* Black hole accretion and feedback */
-        blackhole(tree);
-#endif
-        /**** radiative cooling and star formation *****/
-        cooling_and_starformation(tree);
-    }
-
     MPI_Barrier(MPI_COMM_WORLD);
     message(0, "Forces computed.\n");
 }
@@ -369,6 +374,10 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridN
 void write_cpu_log(int NumCurrentTiStep)
 {
     walltime_summary(0, MPI_COMM_WORLD);
+
+    int NTask, ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
 
     if(ThisTask == 0)
     {

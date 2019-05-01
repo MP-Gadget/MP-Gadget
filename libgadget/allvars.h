@@ -61,37 +61,6 @@ enum ShortRangeForceWindowType {
     SHORTRANGE_FORCE_WINDOW_TYPE_ERFC = 1,
 };
 
-enum BlackHoleFeedbackMethod {
-     BH_FEEDBACK_TOPHAT   = 0x2,
-     BH_FEEDBACK_SPLINE   = 0x4,
-     BH_FEEDBACK_MASS     = 0x8,
-     BH_FEEDBACK_VOLUME   = 0x10,
-     BH_FEEDBACK_OPTTHIN  = 0x20,
-};
-
-/*
- * additional sfr criterion in addition to density threshold
- * All.StarformationCriterion */
-enum StarformationCriterion {
-    SFR_CRITERION_DENSITY = 1,
-    SFR_CRITERION_MOLECULAR_H2 = 3, /* 2 + 1 */
-    SFR_CRITERION_SELFGRAVITY = 5,  /* 4 + 1 */
-    /* below are additional flags in SELFGRAVITY */
-    SFR_CRITERION_CONVERGENT_FLOW = 13, /* 8 + 4 + 1 */
-    SFR_CRITERION_CONTINUOUS_CUTOFF= 21, /* 16 + 4 + 1 */
-};
-
-/*
- * wind models SH03, VS08 and OFJT10
- * All.WindModel */
-enum WindModel {
-    WIND_SUBGRID = 1,
-    WIND_DECOUPLE_SPH = 2,
-    WIND_USE_HALO = 4,
-    WIND_FIXED_EFFICIENCY = 8,
-    WIND_ISOTROPIC = 16,
-};
-
 enum DensityKernelType {
     DENSITY_KERNEL_CUBIC_SPLINE = 1,
     DENSITY_KERNEL_QUINTIC_SPLINE = 2,
@@ -120,8 +89,8 @@ static inline int IMIN(int a, int b) {
 /*  Global variables                                     */
 /*********************************************************/
 
+/* To be removed at some point*/
 extern int ThisTask;		/*!< the number of the local processor  */
-extern int NTask;		/*!< number of processors */
 
 /* variables for input/output , usually only used on process 0 */
 extern FILE *FdEnergy,			/*!< file handle for energy.txt log-file. */
@@ -176,6 +145,11 @@ extern struct global_data_all_processes
     /* some SPH parameters */
 
     int DesNumNgb;		/*!< Desired number of SPH neighbours */
+    /* These are for black hole neighbour finding and so belong in the density module, not the black hole module.*/
+    double BlackHoleNgbFactor;	/*!< Factor by which the normal SPH neighbour should be increased/decreased */
+    double BlackHoleMaxAccretionRadius;
+
+
     double DensityResolutionEta;		/*!< SPH resolution eta. See Price 2011. eq 12*/
     double MaxNumNgbDeviation;	/*!< Maximum allowed deviation neighbour number */
     double ArtBulkViscConst;	/*!< Sets the parameter \f$\alpha\f$ of the artificial viscosity */
@@ -213,9 +187,6 @@ extern struct global_data_all_processes
     double HybridVcrit; /*!< Critical velocity switching between particle
                           and analytic solvers when hybrid neutrinos are on*/
     double HybridNuPartTime; /*!< Redshift at which hybrid neutrinos switch on*/
-
-    enum StarformationCriterion StarformationCriterion;  /*!< flags that star formation is enabled */
-    enum WindModel WindModel;  /*!< flags that star formation is enabled */
 
     int FastParticleType; /*!< flags a particle species to exclude timestep calculations.*/
     /* parameters determining output frequency */
@@ -322,51 +293,7 @@ extern struct global_data_all_processes
     double OutputListTimes[8192];
     int OutputListLength;
 
-/*Star formation parameters*/
-    double CritOverDensity;
-    double CritPhysDensity;
-    double OverDensThresh;
-    double PhysDensThresh;
-    double EgySpecSN;
-    double FactorSN;
-    double EgySpecCold;
-    double FactorEVP;
-    double FeedbackEnergy;
-    double TempSupernova;
-    double TempClouds;
-    double MaxSfrTimescale;
-    /* star formation and feedback sector */
-    double WindFreeTravelLength;
-    double WindFreeTravelDensFac;
-    /* used in VS08 and SH03*/
-    double WindEfficiency;
-    double WindSpeed;
-    double WindEnergyFraction;
-    /* used in OFJT10*/
-    double WindSigma0;
-    double WindSpeedFactor;
-    /*Lyman alpha forest specific parameters*/
-    double QuickLymanAlphaProbability;
-
-    double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
-    double BlackHoleFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */
-    enum BlackHoleFeedbackMethod BlackHoleFeedbackMethod;	/*!< method of the feedback*/
-    double BlackHoleFeedbackRadius;	/*!< Radius the thermal feedback is fed comoving*/
-    double BlackHoleFeedbackRadiusMaxPhys;	/*!< Radius the thermal cap */
-    double SeedBlackHoleMass;	/*!< Seed black hole mass */
-    double BlackHoleNgbFactor;	/*!< Factor by which the normal SPH neighbour should be increased/decreased */
-    double BlackHoleMaxAccretionRadius;
-    double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
-    int BlackHoleSoundSpeedFromPressure; /* 0 from Entropy, 1 from Pressure; */
-
     int SnapshotWithFOF; /*Flag that doing FOF for snapshot outputs is on*/
-    int FOFSaveParticles ; /* saving particles in the fof group */
-    double MinFoFMassForNewSeed;	/* Halo mass required before new seed is put in */
-    double FOFHaloLinkingLength;
-    double FOFHaloComovingLinkingLength; /* in code units */
-    int FOFHaloMinLength;
-    double TimeNextSeedingCheck;  /*Time for the next seed check.*/
-    double TimeBetweenSeedingSearch; /*Factor to multiply TimeInit by to find the next seeding check.*/
 
     int RandomSeed; /*Initial seed for the random number table*/
 }

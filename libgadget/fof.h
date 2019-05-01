@@ -1,13 +1,15 @@
 #ifndef FOF_H
 #define FOF_H
 
-#include "allvars.h"
 #include "forcetree.h"
+#include "utils/paramset.h"
 
-void fof_init(void);
+void set_fof_params(ParameterSet * ps);
+
+void fof_init(double DMMeanSeparation);
 
 /*Computes the Group structure, saved as a global array below*/
-void fof_fof(ForceTree * tree);
+void fof_fof(ForceTree * tree, double BoxSize, MPI_Comm Comm);
 
 /*Frees the Group structure*/
 void
@@ -15,11 +17,11 @@ fof_finish(void);
 
 /*Uses the Group structure to seed blackholes*/
 void
-fof_seed(void);
+fof_seed(MPI_Comm Comm);
 
 /*Saves the Group structure to disc.*/
 void
-fof_save_groups(int num);
+fof_save_groups(int num, MPI_Comm Comm);
 
 extern int Ngroups;
 extern int64_t TotNgroups;

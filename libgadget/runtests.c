@@ -38,6 +38,8 @@ void runtests(DomainDecomp * ddecomp)
         P[PartManager->NumPart - 1].GravCost = 1e10;
     }
 
+    int NTask;
+    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     rebuild_activelist(All.Ti_Current, 0);
 
     ForceTree Tree = {0};
@@ -66,8 +68,8 @@ void runfof(int RestartSnapNum, DomainDecomp * ddecomp)
     /*FoF needs a tree*/
     int HybridNuGrav = All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime;
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav);
-    fof_fof(&Tree);
+    fof_fof(&Tree, All.BoxSize, MPI_COMM_WORLD);
     force_tree_free(&Tree);
-    fof_save_groups(RestartSnapNum);
+    fof_save_groups(RestartSnapNum, MPI_COMM_WORLD);
     fof_finish();
 }

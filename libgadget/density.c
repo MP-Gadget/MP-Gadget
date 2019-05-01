@@ -11,7 +11,7 @@
 #include "treewalk.h"
 #include "slotsmanager.h"
 #include "timestep.h"
-
+#include "winds.h"
 #include "utils.h"
 
 /*! Structure for communication during the density computation. Holds data that is sent to other processors.
@@ -325,8 +325,8 @@ density_ngbiter(
     const double r2 = iter->base.r2;
     const double * dist = iter->base.dist;
 
-    if(All.WindOn && HAS(All.WindModel, WIND_DECOUPLE_SPH)) {
-        if(SPHP(other).DelayTime > 0)	/* partner is a wind particle */
+    if(All.WindOn) {
+        if(winds_is_particle_decoupled(other))
             if(!(I->DelayTime > 0))	/* if I'm not wind, then ignore the wind particle */
                 return;
     }

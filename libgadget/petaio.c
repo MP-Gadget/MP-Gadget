@@ -160,6 +160,8 @@ static void petaio_save_internal(char * fname) {
     }
 
     if(All.MassiveNuLinRespOn) {
+        int ThisTask;
+        MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
         petaio_save_neutrinos(&bf, ThisTask);
     }
     if(0 != big_file_mpi_close(&bf, MPI_COMM_WORLD)){
@@ -170,28 +172,32 @@ static void petaio_save_internal(char * fname) {
     myfree(selection);
 }
 
-void petaio_read_internal(char * fname, int ic) {
+void petaio_read_internal(char * fname, int ic, MPI_Comm Comm) {
     int ptype;
     int i;
     BigFile bf = {0};
     BigBlock bh;
     message(0, "Reading snapshot %s\n", fname);
 
-    if(0 != big_file_mpi_open(&bf, fname, MPI_COMM_WORLD)) {
+    if(0 != big_file_mpi_open(&bf, fname, Comm)) {
         endrun(0, "Failed to open snapshot at %s:%s\n", fname,
                     big_file_get_error_message());
     }
 
     int64_t NTotal[6];
-    if(0 != big_file_mpi_open_block(&bf, &bh, "Header", MPI_COMM_WORLD)) {
+    if(0 != big_file_mpi_open_block(&bf, &bh, "Header", Comm)) {
         endrun(0, "Failed to create block at %s:%s\n", "Header",
                     big_file_get_error_message());
     }
     if ((0 != big_block_get_attr(&bh, "TotNumPart", NTotal, "u8", 6)) ||
-        (0 != big_block_mpi_close(&bh, MPI_COMM_WORLD))) {
+        (0 != big_block_mpi_close(&bh, Comm))) {
         endrun(0, "Failed to close block: %s\n",
                     big_file_get_error_message());
     }
+
+    int NTask, ThisTask;
+    MPI_Comm_size(Comm, &NTask);
+    MPI_Comm_rank(Comm, &ThisTask);
 
     /* sets the maximum number of particles that may reside on a processor */
     int MaxPart = (int) (All.PartAllocFactor * All.TotNumPartInit / NTask);
@@ -229,7 +235,7 @@ void petaio_read_internal(char * fname, int ic) {
      * This may be dynamically resized later!*/
 
     /*Ensure all processors have initially the same number of particle slots*/
-    MPI_Allreduce(MPI_IN_PLACE, newSlots, 6, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, newSlots, 6, MPI_INT, MPI_MAX, Comm);
     slots_reserve(0, newSlots);
 
     /* initialize particle types */
@@ -290,7 +296,7 @@ void petaio_read_internal(char * fname, int ic) {
             petaio_read_neutrinos(&bf, ThisTask);
     }
 
-    if(0 != big_file_mpi_close(&bf, MPI_COMM_WORLD)) {
+    if(0 != big_file_mpi_close(&bf, Comm)) {
         endrun(0, "Failed to close snapshot at %s:%s\n", fname,
                     big_file_get_error_message());
     }
@@ -326,7 +332,7 @@ petaio_read_header(int num)
 }
 
 void
-petaio_read_snapshot(int num)
+petaio_read_snapshot(int num, MPI_Comm Comm)
 {
     char * fname;
     if(num == -1) {
@@ -336,7 +342,7 @@ petaio_read_snapshot(int num)
          *  InitTemp in paramfile, then use init.c to convert to
          *  entropy.
          * */
-        petaio_read_internal(fname, 1);
+        petaio_read_internal(fname, 1, Comm);
 
         int i;
         /* touch up the mass -- IC files save mass in header */
@@ -362,7 +368,7 @@ petaio_read_snapshot(int num)
         /*
          * we always save the Entropy, init.c will not mess with the entropy
          * */
-        petaio_read_internal(fname, 0);
+        petaio_read_internal(fname, 0, Comm);
     }
     free(fname);
 }

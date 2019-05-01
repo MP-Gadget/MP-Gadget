@@ -67,7 +67,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
     init_drift_table(All.TimeInit, All.TimeMax);
 
     /*Read the snapshot*/
-    petaio_read_snapshot(RestartSnapNum);
+    petaio_read_snapshot(RestartSnapNum, MPI_COMM_WORLD);
 
     domain_test_id_uniqueness();
 
@@ -79,7 +79,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
      * on Task 0, there will be a lot of imbalance*/
     MPI_Barrier(MPI_COMM_WORLD);
 
-    fof_init();
+    fof_init(All.MeanSeparation[1]);
 
     All.SnapshotFileCount = RestartSnapNum + 1;
     All.InitSnapshotCount = RestartSnapNum + 1;
@@ -93,7 +93,8 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
 #ifdef BLACK_HOLES
         if(RestartSnapNum == -1 && P[i].Type == 5 )
         {
-            BHP(i).Mass = All.SeedBlackHoleMass;
+            /* Note: Gadget-3 sets this to the seed black hole mass.*/
+            BHP(i).Mass = P[i].Mass;
         }
 #endif
         P[i].Key = PEANO(P[i].Pos, All.BoxSize);

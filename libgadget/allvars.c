@@ -22,7 +22,6 @@
 
 
 int ThisTask;			/*!< the number of the local processor  */
-int NTask;			/*!< number of processors */
 
 /* variables for input/output , usually only used on process 0 */
 

@@ -1,6 +1,7 @@
 #ifndef PETAIO_H
 #define PETAIO_H
 
+#include <mpi.h>
 #include "bigfile.h"
 
 typedef void (*property_getter) (int i, void * result);
@@ -31,7 +32,7 @@ int petaio_read_block(BigFile * bf, char * blockname, BigArray * array, int requ
 
 void petaio_save_snapshot(const char * fmt, ...);
 void petaio_save_restart();
-void petaio_read_snapshot(int num);
+void petaio_read_snapshot(int num, MPI_Comm Comm);
 void petaio_read_header(int num);
 
 void
@@ -41,12 +42,12 @@ petaio_build_selection(int * selection,
     const int NumPart,
     int (*select_func)(int i)
     );
-/* 
- * Declares a io block with name (literal, not a string) 
- * 
+/*
+ * Declares a io block with name (literal, not a string)
+ *
  * will use GT ## name and PT ## name for getter and putter.
  * these functions shall be declared in the module IO_REG is called.
- * 
+ *
  * SIMPLE_GETTER defines a simple getter reading property from global particle
  * arrays.
  *
@@ -61,17 +62,17 @@ petaio_build_selection(int * selection,
     io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , NULL, 1)
 #define IO_REG_NONFATAL(name, dtype, items, ptype) \
     io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , (property_setter) ST ## name, 0)
-void io_register_io_block(char * name, 
-        char * dtype, 
-        int items, 
-        int ptype, 
+void io_register_io_block(char * name,
+        char * dtype,
+        int items,
+        int ptype,
         property_getter getter,
         property_setter setter,
         int required
         );
 
 
-/* 
+/*
  * define a simple getter function
  *
  * field: for example, P[i].Pos[0].
@@ -104,8 +105,8 @@ static void name(int i, type * out) { \
 #define SIMPLE_PROPERTY_TYPE(name, ptype, field, type, items) \
     SIMPLE_GETTER(GT ## ptype ## name , field, type, items) \
     SIMPLE_SETTER(ST ## ptype ## name , field, type, items) \
-/* 
- * currently 4096 entries are supported 
+/*
+ * currently 4096 entries are supported
  * */
 extern struct IOTable {
     IOTableEntry ent[4096];
