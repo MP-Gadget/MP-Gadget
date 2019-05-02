@@ -119,7 +119,7 @@ User Guide
 ----------
 
 A longer user guide in LaTeX can be found here:
-https://www.overleaf.com/6111733395bzrgntrgzphg
+https://www.overleaf.com/read/kzksrgnzhtnh
 
 IO Format
 ---------
