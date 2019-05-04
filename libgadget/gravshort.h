@@ -4,6 +4,13 @@
 #include "partmanager.h"
 #include "treewalk.h"
 
+#ifndef RCUT
+/*! RCUT gives the maximum distance (in units of the scale used for the force split) out to which short-range
+ * forces are evaluated in the short-range tree walk.
+ */
+#define RCUT  4.5
+#endif
+
 typedef struct {
     TreeWalkNgbIterBase base;
 } TreeWalkNgbIterGravShort;

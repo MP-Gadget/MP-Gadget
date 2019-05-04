@@ -19,8 +19,6 @@
 #include <mpi.h>
 #include <stdio.h>
 
-#include <gsl/gsl_rng.h>
-
 #include <signal.h>
 #define BREAKPOINT raise(SIGTRAP)
 #ifdef _OPENMP
@@ -43,19 +41,6 @@
 
 #define NEAREST(x) (((x)>0.5*All.BoxSize)?((x)-All.BoxSize):(((x)<-0.5*All.BoxSize)?((x)+All.BoxSize):(x)))
 
-#define MAXHSML 30000.0
-
-#define  MAX_REAL_NUMBER  1e37
-#define  MIN_REAL_NUMBER  1e-37
-
-#ifndef RCUT
-/*! RCUT gives the maximum distance (in units of the scale used for the force split) out to which short-range
- * forces are evaluated in the short-range tree walk.
- */
-#define RCUT  4.5
-#endif
-
-#define MAXITER 400
 enum ShortRangeForceWindowType {
     SHORTRANGE_FORCE_WINDOW_TYPE_EXACT = 0,
     SHORTRANGE_FORCE_WINDOW_TYPE_ERFC = 1,
