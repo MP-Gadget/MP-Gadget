@@ -768,7 +768,13 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
              *or if we are deep enough that we already spawned a lot.
              Note: final clause is much slower for some reason. */
             if(chldcnt > 1 && level < 513) {
-                #pragma omp task default(none) shared(tails, level, chldcnt, tree) firstprivate(j, nextsib, p)
+                /* We cannot use default(none) here because we need a const (HybridNuGrav),
+                 * which for gcc < 9 is default shared (and thus cannot be explicitly shared
+                 * without error) and for gcc == 9 must be explicitly shared. The other solution
+                 * is to make it firstprivate which I think will be excessively expensive for a
+                 * recursive call like this. See:
+                 * https://www.gnu.org/software/gcc/gcc-9/porting_to.html */
+                #pragma omp task shared(tails, level, chldcnt, tree) firstprivate(j, nextsib, p)
                 tails[j] = force_update_node_recursive(p, nextsib, level*chldcnt, tree, HybridNuGrav);
             }
             else

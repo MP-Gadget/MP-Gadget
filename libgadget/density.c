@@ -14,6 +14,8 @@
 #include "winds.h"
 #include "utils.h"
 
+#define MAXITER 400
+
 /*! Structure for communication during the density computation. Holds data that is sent to other processors.
 */
 typedef struct {

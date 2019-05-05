@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <math.h>
 #include <gsl/gsl_math.h>
+#include <gsl/gsl_errno.h>
 
 #include <libgadget/allvars.h>
 #include <libgadget/slotsmanager.h>

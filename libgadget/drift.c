@@ -12,6 +12,8 @@
 #include "partmanager.h"
 #include "utils.h"
 
+#define MAXHSML 30000.0
+
 static void real_drift_particle(int i, inttime_t ti1, const double ddrift);
 
 void lock_particle(int i) {
