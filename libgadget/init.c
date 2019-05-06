@@ -77,7 +77,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
 
     /* As the above will mostly take place
      * on Task 0, there will be a lot of imbalance*/
-    MPI_Barrier(MPI_COMM_WORLD);
+    MPIU_Barrier(MPI_COMM_WORLD);
 
     fof_init(All.MeanSeparation[1]);
 

@@ -247,7 +247,7 @@ void cooling_and_starformation(ForceTree * tree)
         fflush(FdSfr);
     }
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    MPIU_Barrier(MPI_COMM_WORLD);
     if(tot_spawned || tot_converted)
         message(0, "SFR: spawned %ld stars, converted %ld gas particles into stars\n", tot_spawned, tot_converted);
 

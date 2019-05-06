@@ -316,7 +316,7 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridN
         /***** update smoothing lengths in tree *****/
         force_update_hmax(ActiveParticle, NumActiveParticle, tree);
         /***** hydro forces *****/
-        MPI_Barrier(MPI_COMM_WORLD);
+        MPIU_Barrier(MPI_COMM_WORLD);
         message(0, "Start hydro-force computation...\n");
 
         hydro_force(tree);		/* adds hydrodynamical accelerations  and computes du/dt  */
@@ -367,7 +367,7 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridN
     if(FirstStep && All.TreeUseBH == 0)
         grav_short_tree(tree);
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Forces computed.\n");
 }
 

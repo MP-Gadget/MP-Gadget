@@ -255,7 +255,7 @@ void displacement_fields(enum TransferType Type, struct ic_part_data * dispICP, 
     message(0, "Max vel=%g km/s, vel_prefac= %g  hubble_a=%g fom=%g \n", sqrt(maxvel), vel_prefac, hubble_a, F_Omega(All.TimeIC));
 
     walltime_measure("/Disp/Finalize");
-    MPI_Barrier(MPI_COMM_WORLD);
+    MPIU_Barrier(MPI_COMM_WORLD);
 }
 
 /********************

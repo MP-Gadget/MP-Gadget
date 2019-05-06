@@ -58,7 +58,7 @@ void fof_save_particles(int num, int SaveParticles, MPI_Comm Comm)
         endrun(0, "Failed to open file at %s\n", fname);
     }
 
-    MPI_Barrier(Comm);
+    MPIU_Barrier(Comm);
     fof_write_header(&bf, Comm);
 
     for(i = 0; i < IOTable.used; i ++) {
