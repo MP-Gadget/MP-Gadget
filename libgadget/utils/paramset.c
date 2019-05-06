@@ -316,6 +316,9 @@ double
 param_get_double(ParameterSet * ps, char * name)
 {
     ParameterSchema * p = param_get_schema(ps, name);
+    if (param_is_nil(ps, name)) {
+        printf("Accessing an undefined parameter `%s`.\n", p->name);
+    }
     return ps->value[p->index].d;
 }
 
@@ -323,12 +326,18 @@ char *
 param_get_string(ParameterSet * ps, char * name)
 {
     ParameterSchema * p = param_get_schema(ps, name);
+    if (param_is_nil(ps, name)) {
+        printf("Accessing an undefined parameter `%s`.\n", p->name);
+    }
     return ps->value[p->index].s;
 }
 void
 param_get_string2(ParameterSet * ps, char * name, char * dst)
 {
     ParameterSchema * p = param_get_schema(ps, name);
+    if (param_is_nil(ps, name)) {
+        printf("Accessing an undefined parameter `%s`.\n", p->name);
+    }
     strcpy(dst, ps->value[p->index].s);
 }
 
@@ -336,6 +345,9 @@ int
 param_get_int(ParameterSet * ps, char * name)
 {
     ParameterSchema * p = param_get_schema(ps, name);
+    if (param_is_nil(ps, name)) {
+        printf("Accessing an undefined parameter `%s`.\n", p->name);
+    }
     return ps->value[p->index].i;
 }
 
@@ -343,6 +355,9 @@ int
 param_get_enum(ParameterSet * ps, char * name)
 {
     ParameterSchema * p = param_get_schema(ps, name);
+    if (param_is_nil(ps, name)) {
+        printf("Accessing an undefined parameter `%s`.\n", p->name);
+    }
     return ps->value[p->index].i;
 }
 
@@ -351,7 +366,7 @@ param_format_value(ParameterSet * ps, char * name)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     if(ps->value[p->index].nil) {
-        return fastpm_strdup("NIL");
+        return fastpm_strdup("UNDEFINED");
     }
     switch(p->type) {
         case INT:
