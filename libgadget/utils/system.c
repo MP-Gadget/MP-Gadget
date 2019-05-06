@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <string.h>
 #include <math.h>
 #include <time.h>
@@ -15,6 +16,7 @@
 
 #include "system.h"
 #include "mymalloc.h"
+#include "endrun.h"
 
 
 #define  RNDTABLE 8192
@@ -127,6 +129,79 @@ double timediff(double t0, double t1)
 
   return dt;
 }
+
+static int
+putline(const char * prefix, const char * line)
+{
+    const char * p, * q;
+    p = q = line;
+    int newline = 1;
+    while(*p != 0) {
+        if(newline)
+            write(STDOUT_FILENO, prefix, strlen(prefix));
+        if (*p == '\n') {
+            write(STDOUT_FILENO, q, p - q + 1);
+            q = p + 1;
+            newline = 1;
+            p ++;
+            continue;
+        }
+        newline = 0;
+        p++;
+    }
+    /* if the last line did not end with a new line, fix it here. */
+    if (q != p) {
+        const char * warning = "LASTMESSAGE did not end with new line: ";
+        write(STDOUT_FILENO, warning, strlen(warning));
+        write(STDOUT_FILENO, q, p - q);
+        write(STDOUT_FILENO, "\n", 1);
+    }
+    return 0;
+}
+
+
+/* Watch out:
+ *
+ * On some versions of OpenMPI with CPU frequency scaling we see negative time
+ * due to a bug in OpenMPI https://github.com/open-mpi/ompi/issues/3003
+ *
+ * But they have fixed it.
+ */
+
+static double _timestart = -1;
+
+void
+MPIU_tracev(MPI_Comm comm, int where, const char * fmt, va_list va)
+{
+    if(_timestart == -1) {
+        _timestart = MPI_Wtime();
+    }
+    int ThisTask;
+    MPI_Comm_rank(comm, &ThisTask);
+    char prefix[128];
+
+    char buf[4096];
+    vsprintf(buf, fmt, va);
+
+    if(where > 0) {
+        sprintf(prefix, "[ %09.2f ] Task %d: ", MPI_Wtime() - _timestart, ThisTask);
+    } else {
+        sprintf(prefix, "[ %09.2f ] ", MPI_Wtime() - _timestart);
+    }
+
+    if(ThisTask == 0 || where > 0) {
+        putline(prefix, buf);
+    }
+}
+
+void MPIU_trace(MPI_Comm comm, int where, const char * fmt, ...)
+{
+    va_list va;
+    va_start(va, fmt);
+    MPIU_tracev(comm, where, fmt, va);
+    va_end(va);
+}
+
 
 void
 sumup_large_ints(int n, int *src, int64_t *res)
@@ -451,6 +526,50 @@ get_physmem_bytes()
     }
 #endif
     return 64 * 1024 * 1024;
+}
+
+int
+_MPIU_Barrier(const char * fn, const int line, MPI_Comm comm)
+{
+    int ThisTask, NTask;
+    MPI_Comm_size(comm, &NTask);
+    MPI_Comm_rank(comm, &ThisTask);
+    int * recvbuf = malloc(sizeof(int) * NTask);
+    MPI_Request request;
+    int flag = 0;
+    int tag = 0;
+    int i;
+    for(i = 0; i < strlen(fn); i ++) {
+        tag += (int)fn[i] * 8;
+    }
+    tag += line;
+
+    MPI_Igather(&tag, 1, MPI_INT, recvbuf, 1, MPI_INT, 0, comm, &request);
+// #ifdef DEBUG TODO if this is a performance drag, change it to debug only
+    i = 0;
+    while(flag) {
+        MPI_Test(&request, &flag, MPI_STATUS_IGNORE);
+        usleep(50);
+        i = i + 1;
+        if(i == 100) {
+            if(ThisTask == 0) {
+                MPIU_trace(comm, 0, "Waited more than 5 seconds during barrier %s : %d \n", fn, line);
+            }
+            break;
+        }
+    }
+// #endif
+    MPI_Wait(&request, MPI_STATUS_IGNORE);
+/* now check if all ranks indeed hit the same barrier. Some MPIs do allow them to mix up! */
+    if (ThisTask == 0) {
+        for(i = 0; i < NTask; i ++) {
+            if(recvbuf[i] != tag) {
+                MPIU_trace(comm, 0, "Task %d Did not hit barrier at %s : %d; expecting %d, got %d\n", i, fn, line, tag, recvbuf[i]);
+            }
+        }
+    }
+    free(recvbuf);
+    return 0;
 }
 
 int
