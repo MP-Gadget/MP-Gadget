@@ -6,7 +6,7 @@
 enum ParameterFlag {
     REQUIRED = 0,
     OPTIONAL = 1,
-    OPTIONAL_NIL = 2,
+    OPTIONAL_UNDEF = 2, /* optional and the default is undefined param_is_nil() is true if no value is given. */
 };
 
 typedef struct ParameterEnum {
@@ -51,9 +51,6 @@ param_get_enum(ParameterSet * ps, char * name);
 
 char *
 param_format_value(ParameterSet * ps, char * name);
-
-void
-param_set_from_string(ParameterSet * ps, char * name, char * value);
 
 int param_parse (ParameterSet * ps, char * content);
 int param_parse_file (ParameterSet * ps, const char * filename);
