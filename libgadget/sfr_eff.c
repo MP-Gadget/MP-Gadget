@@ -549,10 +549,10 @@ starformation(int i, double *localsfr, double * sum_sm)
     int newstar = -1;
 
     double cloudfrac, trelax, egyhot;
-    double Ne = SPHP(i).Ne;
 
-    double rateOfSF = get_starformation_rate_full(i, dtime, &Ne, &trelax, &egyhot, &cloudfrac);
-    SPHP(i).Ne = Ne;
+    double dblNe = -1;
+    double rateOfSF = get_starformation_rate_full(i, dtime, &dblNe, &trelax, &egyhot, &cloudfrac);
+    SPHP(i).Ne = dblNe;
 
     /* amount of stars expect to form */
 
