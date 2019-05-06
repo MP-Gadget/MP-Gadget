@@ -3,6 +3,12 @@
 
 #include <stdio.h>
 
+enum ParameterFlag {
+    REQUIRED = 0,
+    OPTIONAL = 1,
+    OPTIONAL_NIL = 2,
+};
+
 typedef struct ParameterEnum {
     char * name;
     int value;
@@ -12,16 +18,16 @@ typedef struct ParameterSet ParameterSet;
 typedef int (*ParameterAction)(ParameterSet * ps, char * name, void * userdata);
 
 void
-param_declare_int(ParameterSet * ps, char * name, int required, int defvalue, char * help);
+param_declare_int(ParameterSet * ps, char * name, enum ParameterFlag required, int defvalue, char * help);
 
 void
-param_declare_double(ParameterSet * ps, char * name, int required, double defvalue, char * help);
+param_declare_double(ParameterSet * ps, char * name, enum ParameterFlag required, double defvalue, char * help);
 
 void
-param_declare_string(ParameterSet * ps, char * name, int required, char * defvalue, char * help);
+param_declare_string(ParameterSet * ps, char * name, enum ParameterFlag required, char * defvalue, char * help);
 
 void
-param_declare_enum(ParameterSet * ps, char * name, ParameterEnum * enumtable, int required, char * defvalue, char * help);
+param_declare_enum(ParameterSet * ps, char * name, ParameterEnum * enumtable, enum ParameterFlag required, char * defvalue, char * help);
 
 void
 param_set_action(ParameterSet * ps, char * name, ParameterAction action, void * userdata);

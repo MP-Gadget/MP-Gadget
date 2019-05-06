@@ -8,9 +8,6 @@
 #include <libgadget/physconst.h>
 #include <libgadget/utils.h>
 
-#define OPTIONAL 0
-#define REQUIRED 1
-
 static ParameterSet *
 create_parameters()
 {

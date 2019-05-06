@@ -74,7 +74,7 @@ typedef struct ParameterSchema {
     int type;
     ParameterValue defvalue;
     char * help;
-    int required;
+    enum ParameterFlag required;
     ParameterEnum * enumtable;
     ParameterAction action;
     void * action_data;
@@ -159,7 +159,7 @@ int param_validate(ParameterSet * ps)
     /* copy over the default values */
     for(i = 0; i < ps->size; i ++) {
         ParameterSchema * p = &ps->p[i];
-        if(p->required && ps->value[p->index].nil) {
+        if(p->required == REQUIRED && ps->value[p->index].nil) {
             printf("Parameter `%s` is required, but not set.\n", p->name);
             flag = 1;
         }
@@ -215,7 +215,7 @@ int param_parse_file (ParameterSet * ps, const char * filename)
 }
 
 static ParameterSchema * 
-param_declare(ParameterSet * ps, char * name, int type, int required, char * help)
+param_declare(ParameterSet * ps, char * name, int type, enum ParameterFlag required, char * help)
 {
     int free = ps->size;
     strncpy(ps->p[free].name, name, NAMESIZE);
@@ -234,28 +234,32 @@ param_declare(ParameterSet * ps, char * name, int type, int required, char * hel
 }
 
 void
-param_declare_int(ParameterSet * ps, char * name, int required, int defvalue, char * help)
+param_declare_int(ParameterSet * ps, char * name, enum ParameterFlag required, int defvalue, char * help)
 {
     ParameterSchema * p = param_declare(ps, name, INT, required, help);
-    if(!required) {
+    if(required == OPTIONAL) {
         p->defvalue.i = defvalue;
         p->defvalue.nil = 0;
+    } else {
+        p->defvalue.nil = 1;
     }
 }
 void
-param_declare_double(ParameterSet * ps, char * name, int required, double defvalue, char * help)
+param_declare_double(ParameterSet * ps, char * name, enum ParameterFlag required, double defvalue, char * help)
 {
     ParameterSchema * p = param_declare(ps, name, DOUBLE, required, help);
-    if(!required) {
+    if(required == OPTIONAL) {
         p->defvalue.d = defvalue;
         p->defvalue.nil = 0;
+    } else {
+        p->defvalue.nil = 1;
     }
 }
 void
-param_declare_string(ParameterSet * ps, char * name, int required, char * defvalue, char * help)
+param_declare_string(ParameterSet * ps, char * name, enum ParameterFlag required, char * defvalue, char * help)
 {
     ParameterSchema * p = param_declare(ps, name, STRING, required, help);
-    if(!required) {
+    if(required == OPTIONAL) {
         if(defvalue != NULL) {
             p->defvalue.s = fastpm_strdup(defvalue);
             p->defvalue.nil = 0;
@@ -265,17 +269,21 @@ param_declare_string(ParameterSet * ps, char * name, int required, char * defval
             p->defvalue.s = NULL;
             p->defvalue.nil = 1;
         }
+    } else {
+        p->defvalue.nil = 1;
     }
 }
 void
-param_declare_enum(ParameterSet * ps, char * name, ParameterEnum * enumtable, int required, char * defvalue, char * help)
+param_declare_enum(ParameterSet * ps, char * name, ParameterEnum * enumtable, enum ParameterFlag required, char * defvalue, char * help)
 {
     ParameterSchema * p = param_declare(ps, name, ENUM, required, help);
     p->enumtable = enumtable;
-    if(!required) {
+    if(required == OPTIONAL) {
         p->defvalue.i = parse_enum(enumtable, defvalue);
         /* Watch out, if enumtable is malloced we may core dump if it gets freed */
         p->defvalue.nil = 0;
+    } else {
+        p->defvalue.nil = 1;
     }
 }
 
