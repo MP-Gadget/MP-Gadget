@@ -21,6 +21,12 @@
 
 #define  RNDTABLE 8192
 
+/* NOTE:
+ *
+ * The MPIU_xxx functions must be called after the memory module is initalized.
+ * Shall split them to a new module.
+ *
+ * */
 
 #ifdef DEBUG
 #include <fenv.h>
@@ -471,14 +477,15 @@ cluster_get_hostid()
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     MPI_Allreduce(&l, &ml, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-    
+
+    /* Avoid ta_malloc since this can be called very early. */
     buffer = malloc(ml * NTask);
     nid = malloc(sizeof(int) * NTask);
     MPI_Allgather(hostname, ml, MPI_BYTE, buffer, ml, MPI_BYTE, MPI_COMM_WORLD);
 
     typedef int(*compar_fn)(const void *, const void *);
     qsort(buffer, NTask, ml, (compar_fn) strcmp);
-    
+
     nid[0] = 0;
     for(i = 1; i < NTask; i ++) {
         if(strcmp(buffer + i * ml, buffer + (i - 1) *ml)) {
@@ -549,7 +556,7 @@ _MPIU_Barrier(const char * fn, const int line, MPI_Comm comm)
     int ThisTask, NTask;
     MPI_Comm_size(comm, &NTask);
     MPI_Comm_rank(comm, &ThisTask);
-    int * recvbuf = malloc(sizeof(int) * NTask);
+    int * recvbuf = ta_malloc("tags", int, NTask);
     MPI_Request request;
     int tag = 0;
     int i;
@@ -586,7 +593,7 @@ _MPIU_Barrier(const char * fn, const int line, MPI_Comm comm)
             }
         }
     }
-    free(recvbuf);
+    ta_free(recvbuf);
     return 0;
 }
 
