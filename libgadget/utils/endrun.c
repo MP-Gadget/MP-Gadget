@@ -135,8 +135,11 @@ init_endrun()
 
 /*  This function aborts the simulation.
  *
- *  if where > 0, the error is uncollective.
- *  if where <= 0, the error is 'collective',  only the root rank prints the error.
+ *  if where > 0, a stacktrace is printed per rank calling endrun.
+ *  if where <= 0, the function shall be called by all ranks collectively.
+ *    and only the root rank prints the error. 
+ *
+ *  No barrier is applied.
  */
 void
 endrun(int where, const char * fmt, ...)
@@ -144,7 +147,7 @@ endrun(int where, const char * fmt, ...)
 
     va_list va;
     va_start(va, fmt);
-    MPIU_tracev(MPI_COMM_WORLD, where, fmt, va);
+    MPIU_Tracev(MPI_COMM_WORLD, where, fmt, va);
     va_end(va);
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
@@ -161,14 +164,16 @@ endrun(int where, const char * fmt, ...)
 /*  This function writes a message.
  *
  *  if where > 0, the message is uncollective.
- *  if where <= 0, the message is 'collective', only the root rank prints the message. A barrier is applied.
+ *  if where <= 0, the message is 'collective', only the root rank prints the message.
+ *
+ *  No barrier is applied.
  */
 
 void message(int where, const char * fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
-    MPIU_tracev(MPI_COMM_WORLD, where, fmt, va);
+    MPIU_Tracev(MPI_COMM_WORLD, where, fmt, va);
     va_end(va);
 }
 

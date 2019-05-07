@@ -169,9 +169,11 @@ putline(const char * prefix, const char * line)
  */
 
 static double _timestart = -1;
-
+/*
+ * va_list version of MPIU_Trace.
+ * */
 void
-MPIU_tracev(MPI_Comm comm, int where, const char * fmt, va_list va)
+MPIU_Tracev(MPI_Comm comm, int where, const char * fmt, va_list va)
 {
     if(_timestart == -1) {
         _timestart = MPI_Wtime();
@@ -194,11 +196,16 @@ MPIU_tracev(MPI_Comm comm, int where, const char * fmt, va_list va)
     }
 }
 
-void MPIU_trace(MPI_Comm comm, int where, const char * fmt, ...)
+/*
+ * Write a trace message to the communicator.
+ * if where > 0, write from all ranks.
+ * if where == 0, only write from root rank.
+ * */
+void MPIU_Trace(MPI_Comm comm, int where, const char * fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
-    MPIU_tracev(comm, where, fmt, va);
+    MPIU_Tracev(comm, where, fmt, va);
     va_end(va);
 }
 
@@ -528,6 +535,14 @@ get_physmem_bytes()
     return 64 * 1024 * 1024;
 }
 
+/**
+ * A facny MPI barrier (use MPIU_Barrier macro)
+ *
+ *  - aborts if barrier mismatch occurs
+ *  - warn if some ranks are very imbalanced.
+ *
+ * Shall only use in non-performance critical cituations.
+ */
 int
 _MPIU_Barrier(const char * fn, const int line, MPI_Comm comm)
 {
@@ -555,7 +570,7 @@ _MPIU_Barrier(const char * fn, const int line, MPI_Comm comm)
         i = i + 1;
         if(i == 50) {
             if(ThisTask == 0) {
-                MPIU_trace(comm, 0, "Waited more than %g seconds during barrier %s : %d \n", tsleep / 1000., fn, line);
+                MPIU_Trace(comm, 0, "Waited more than %g seconds during barrier %s : %d \n", tsleep / 1000., fn, line);
             }
             break;
         }
@@ -567,7 +582,7 @@ _MPIU_Barrier(const char * fn, const int line, MPI_Comm comm)
     if (ThisTask == 0) {
         for(i = 0; i < NTask; i ++) {
             if(recvbuf[i] != tag) {
-                MPIU_trace(comm, 0, "Task %d Did not hit barrier at %s : %d; expecting %d, got %d\n", i, fn, line, tag, recvbuf[i]);
+                MPIU_Trace(comm, 0, "Task %d Did not hit barrier at %s : %d; expecting %d, got %d\n", i, fn, line, tag, recvbuf[i]);
             }
         }
     }
