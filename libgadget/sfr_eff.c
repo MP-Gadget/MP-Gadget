@@ -63,7 +63,7 @@ static int starformation(int i, double *localsfr, double * sum_sm);
 static int quicklyastarformation(int i);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
-static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyhot_out, double * cloudfrac);
+static double get_starformation_rate_full(int i, double dtime, double * ne_new, double * trelax, double * egyhot_out, double * cloudfrac);
 static double find_star_mass(int i);
 /*Get enough memory for new star slots. This may be excessively slow! Don't do it too often.*/
 static int * sfr_reserve_slots(int * NewStars, int NumNewStar, ForceTree * tt);
@@ -549,7 +549,10 @@ starformation(int i, double *localsfr, double * sum_sm)
     int newstar = -1;
 
     double cloudfrac, trelax, egyhot;
-    double rateOfSF = get_starformation_rate_full(i, dtime, &SPHP(i).Ne, &trelax, &egyhot, &cloudfrac);
+
+    double dblNe = -1;
+    double rateOfSF = get_starformation_rate_full(i, dtime, &dblNe, &trelax, &egyhot, &cloudfrac);
+    SPHP(i).Ne = dblNe;
 
     /* amount of stars expect to form */
 
@@ -602,7 +605,7 @@ double get_starformation_rate(int i) {
     return get_starformation_rate_full(i, 0, NULL, NULL, NULL, NULL);
 }
 
-static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyhot_out, double * cloudfrac) {
+static double get_starformation_rate_full(int i, double dtime, double * ne_new, double * trelax, double * egyhot_out, double * cloudfrac) {
     double rateOfSF, tsfr;
     double factorEVP, egyhot, ne, tcool, y, x, cloudmass;
 

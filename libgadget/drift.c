@@ -45,7 +45,7 @@ void drift_particle(int i, inttime_t ti1) {
  * for gravity and hydro forces.
  * This is mostly used for artificial viscosity.*/
 static void
-sph_VelPred(int i, double * VelPred)
+sph_VelPred(int i, MyFloat * VelPred)
 {
     const int ti = P[i].Ti_drift;
     const double Fgravkick2 = get_gravkick_factor(P[i].Ti_kick, ti);
