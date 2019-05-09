@@ -775,12 +775,12 @@ static void GTNeutralHydrogenFraction(int i, float * out) {
 
 static void GTInternalEnergy(int i, float * out) {
     *out = DMAX(All.MinEgySpec,
-        SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+        SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1));
 }
 
 static void STInternalEnergy(int i, float * out) {
     float u = *out;
-    SPHP(i).Entropy = GAMMA_MINUS1 * u / pow(SPHP(i).EOMDensity * All.cf.a3inv , GAMMA_MINUS1);
+    SPHP(i).Entropy = GAMMA_MINUS1 * u / pow(SPH_EOMDensity(i) * All.cf.a3inv , GAMMA_MINUS1);
 }
 
 static int order_by_type(const void *a, const void *b)

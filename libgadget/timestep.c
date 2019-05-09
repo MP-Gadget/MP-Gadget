@@ -341,7 +341,7 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
         /* Implement an entropy floor*/
         if(All.MinEgySpec)
         {
-            const double minentropy = All.MinEgySpec * GAMMA_MINUS1 / pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1);
+            const double minentropy = All.MinEgySpec * GAMMA_MINUS1 / pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1);
             if(SPHP(i).Entropy < minentropy)
             {
                 SPHP(i).Entropy = minentropy;
@@ -462,8 +462,8 @@ get_timestep_ti(const int p, const inttime_t dti_max)
               );
         if(P[p].Type == 0)
             message(1, "hydro-frc=(%g|%g|%g) dens=%g hsml=%g numngb=%g egyrho=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g\n",
-                    SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1], SPHP(p).HydroAccel[2], SPHP(p).Density, P[p].Hsml, P[p].NumNgb, SPHP(p).EOMDensity,
-                    SPHP(p).DhsmlEOMDensityFactor, SPHP(p).Entropy, SPHP(p).DtEntropy);
+                    SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1], SPHP(p).HydroAccel[2], SPHP(p).Density, P[p].Hsml, P[p].NumNgb, SPH_EOMDensity(p),
+                    SPH_DhsmlDensityFactor(p), SPHP(p).Entropy, SPHP(p).DtEntropy);
 #ifdef BLACK_HOLES
         if(P[p].Type == 0) {
             message(1, "injected_energy = %g\n" , SPHP(p).Injected_BH_Energy);

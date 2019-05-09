@@ -308,7 +308,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
         #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++) {
             if(P[i].Type == 0) {
-                SPHP(i).Entropy = GAMMA_MINUS1 * u_init / pow(SPHP(i).EOMDensity/a3 , GAMMA_MINUS1);
+                SPHP(i).Entropy = GAMMA_MINUS1 * u_init / pow(SPH_EOMDensity(i)/a3 , GAMMA_MINUS1);
             }
         }
     }

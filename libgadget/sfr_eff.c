@@ -345,7 +345,7 @@ cooling_direct(int i) {
 
     double unew = DMAX(All.MinEgySpec,
             (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) /
-            GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+            GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1));
 
 #ifdef BLACK_HOLES
     if(SPHP(i).Injected_BH_Energy)
@@ -382,7 +382,7 @@ cooling_direct(int i) {
     {
         /* note: the adiabatic rate has been already added in ! */
         SPHP(i).DtEntropy = (unew * GAMMA_MINUS1 /
-                pow(SPHP(i).EOMDensity * All.cf.a3inv,
+                pow(SPH_EOMDensity(i) * All.cf.a3inv,
                     GAMMA_MINUS1) - SPHP(i).Entropy) / dloga;
 
         if(SPHP(i).DtEntropy < -0.5 * SPHP(i).Entropy / dloga)
@@ -427,7 +427,7 @@ double get_neutral_fraction_sfreff(int i, double redshift)
 
     if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(i)) {
         /*This gets the neutral fraction for standard gas*/
-        double InternalEnergy = DMAX(All.MinEgySpec, SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+        double InternalEnergy = DMAX(All.MinEgySpec, SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1));
         nh0 = GetNeutralFraction(InternalEnergy, physdens, &uvbg, SPHP(i).Ne);
     }
     else {
@@ -471,7 +471,7 @@ static int make_particle_star(int child, int parent, int placement)
 }
 
 static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
-    const double densityfac = pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+    const double densityfac = pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
     double egycurrent = SPHP(i).Entropy *  densityfac;
 
 #ifdef BLACK_HOLES
@@ -520,7 +520,7 @@ quicklyastarformation(int i)
     double dloga = get_dloga_for_bin(P[i].TimeBin);
     double unew = DMAX(All.MinEgySpec,
             (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) /
-            GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+            GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1));
 
     const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
     * All.UnitEnergy_in_cgs / All.UnitMass_in_g;

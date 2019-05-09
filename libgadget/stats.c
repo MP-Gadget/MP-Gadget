@@ -38,7 +38,7 @@ struct state_of_system
 
 /* This routine computes various global properties of the particle
  * distribution and stores the result in the struct `SysState'.
- * Currently, not all the information that's computed here is 
+ * Currently, not all the information that's computed here is
  * actually used (e.g. momentum is not really used anywhere),
  * just the energies are written to a log-file every once in a while.
  */
@@ -73,10 +73,10 @@ struct state_of_system compute_global_quantities_of_system(void)
         {
             struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
             entr = SPHP(i).Entropy;
-            egyspec = entr / (GAMMA_MINUS1) * pow(SPHP(i).EOMDensity / a3, GAMMA_MINUS1);
+            egyspec = entr / (GAMMA_MINUS1) * pow(SPH_EOMDensity(i) / a3, GAMMA_MINUS1);
             sys.EnergyIntComp[0] += P[i].Mass * egyspec;
             double ne = SPHP(i).Ne;
-            sys.TemperatureComp[0] += P[i].Mass * get_temp(SPHP(i).EOMDensity, egyspec, (1 - HYDROGEN_MASSFRAC), &uvbg, &ne);
+            sys.TemperatureComp[0] += P[i].Mass * get_temp(SPH_EOMDensity(i), egyspec, (1 - HYDROGEN_MASSFRAC), &uvbg, &ne);
         }
 
         for(j = 0; j < 3; j++)
