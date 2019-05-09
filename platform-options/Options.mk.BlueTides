@@ -2,8 +2,6 @@
 # that runs the BlueTides simulation
 # on BlueWaters
 # the silly compiler is 
-# off-tree build into $(DESTDIR)
-DESTDIR  = build/
 
 #CC       = cc -h gnu -h omp
 MPICC       = cc
@@ -16,7 +14,6 @@ GSL_INCL = -I$(GSL_DIR)/include
 GSL_LIBS = -L$(GSL_DIR)/lib -lgsl -lgslcblas
 #
 #--------------------------------------- Basic operation mode of code
-OPT += -DDENSITY_INDEPENDENT_SPH
 #OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development
 #OPT += VALGRIND  # allow debugging with valgrind, disable the GADGET memory allocator.
 OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR

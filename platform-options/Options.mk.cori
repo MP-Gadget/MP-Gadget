@@ -1,6 +1,3 @@
-# off-tree build into $(DESTDIR)
-DESTDIR  = build/
-
 #Uncomment below to specify default options
 
 MPICC       =   cc
@@ -16,7 +13,6 @@ GSL_LIBS = $(GSL) -lmvec -lmvec_nonshared
 
 #
 #--------------------------------------- Basic operation mode of code
-OPT += -DDENSITY_INDEPENDENT_SPH
 #OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development
 #OPT += VALGRIND  # allow debugging with valgrind, disable the GADGET memory allocator.
 OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR

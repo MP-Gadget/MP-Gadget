@@ -11,7 +11,6 @@ SHELL = /bin/bash
 OPT += -DDEBUG
 
 #--------------------------------------- Basic operation mode of code
-OPT += -DDENSITY_INDEPENDENT_SPH
 #OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development
 
 OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR

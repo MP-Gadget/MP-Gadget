@@ -1,6 +1,3 @@
-# off-tree build into $(DESTDIR)
-DESTDIR  = build/
-
 #Uncomment below to specify default options
 MPICC       =   mpicc
 MPICXX      = mpic++
@@ -13,7 +10,6 @@ GSL_INCL = $(shell pkg-config --cflags gsl)
 GSL_LIBS = $(filter-out -lm,$(shell pkg-config --libs gsl))
 
 #--------------------------------------- Basic operation mode of code
-OPT += -DDENSITY_INDEPENDENT_SPH
 #OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development
 #OPT += VALGRIND  # allow debugging with valgrind, disable the GADGET memory allocator.
 
