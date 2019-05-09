@@ -3,8 +3,8 @@ MP-Gadget
 
 Massively Parallel Cosmological SPH Simulation Software - MP-Gadget.
 
-`Source code browser <https://rainwoodman.github.io/MP-Gadget/classes.html>`_
-(maybe slightely out-sync from current master branch)
+`Source code browser <https://mp-gadget.github.io/MP-Gadget/classes.html>`_
+(may be slightly out-sync from current master branch)
 
 
 Description
@@ -42,8 +42,7 @@ First time users:
 
 .. code:: bash
 
-    git clone https://github.com/bluetides-project/MP-Gadget
-    # or git clone https://github.com/rainwoodman/MP-Gadget-private 
+    git clone https://github.com/MP-Gadget/MP-Gadget.git
     cd MP-Gadget
 
     bash bootstrap.sh
@@ -60,22 +59,35 @@ usually it can be loaded with
 On a common PC/Linux system, refer to your package vendor how to
 install gsl and gsl-devel.
 
+You need an Options.mk file. A good first default is Options.mk.example .
 Copy Options.mk.example to Options.mk
 
 .. code:: bash
 
     cp Options.mk.example Options.mk
 
-Edit Options.mk
+For other systems you should use the customised Options.mk file in the
+platform-options directory. For example, for Stampede 2 you should do:
 
-1. Set GSL flags according to the environment variables.
-   On coma, use Options.mk.example.coma.
+.. code:: bash
 
-2. Tweak the compilation options for features.
-   Most options are now set at runtime.
-   Remaining features which must be set at compile time are
-   Pressure-Entropy SPH and black holes. You may also enable debug options.
-   To run a N-Body sim, use IC files with no gas particles.
+    cp platform-options/Options.mk.stampede2 Options.mk
+
+You may also tweak the compilation options in Options.mk to enable various features.
+Unlike P-Gadget3, this is mostly unnecessary. Most options are now set at runtime.
+Remaining compule time flags are:
+There are still compile-time flags for:
+- DENSITY_INDEPENDENT_SPH which if set enables Pressure-Entropy SPH. This cannot be set at runtime.
+- BLACK_HOLES which is required if you want to enable the black hole model. You must also set the BlackHoleOn runtime flag.
+- SPH_GRAD_RHO which computes the SPH density gradient and is required for some advanced star formation routines.
+
+There are also some options useful for code debugging:
+- DEBUG which enables various internal code consistency checks for debugging.
+- VALGRIND which if set disables the internal memory allocator and allocates memory from the system. This is required for debugging memory allocation errors with valgrind of the address sanitizer.
+
+If compilation fails with errors related to the GSL, you may also need to set the GSL_INC or GSL_LIB variables in Options.mk to the filesystem path contianing the GSL headers and libraries.
+
+To run a N-Body sim, use IC files with no gas particles.
 
 Now we are ready to build
 
@@ -90,7 +102,7 @@ In the end, we will have 2 binaries:
 
 .. code::
 
-    ls build/MP-Gadget build/MP-GenIC
+    ls gadget/MP-Gadget genic/MP-GenIC
 
 1. MP-Gadget is the main simulation program.
 
