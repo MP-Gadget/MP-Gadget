@@ -30,6 +30,7 @@
 #include "fof.h"
 #include "cooling_qso_lightup.h"
 #include "lightcone.h"
+#include "uvbg.h"
 
 /* stats.c only used here */
 void energy_statistics(FILE * FdEnergy, const double Time,  struct part_manager_type * PartManager);
@@ -337,10 +338,12 @@ run(int RestartSnapNum)
 
         int WriteSnapshot = 0;
         int WriteFOF = 0;
+        int CalcUVBG = 0;
 
         if(planned_sync) {
             WriteSnapshot |= planned_sync->write_snapshot;
             WriteFOF |= planned_sync->write_fof;
+            CalcUVBG |= planned_sync->calc_uvbg;
         }
 
         if(is_PM) { /* the if here is unnecessary but to signify checkpointing occurs only at PM steps. */
@@ -385,6 +388,11 @@ run(int RestartSnapNum)
             fof_save_groups(&fof, SnapshotFileCount, MPI_COMM_WORLD);
             fof_finish(&fof);
         }
+        
+        if(CalcUVBG) {
+            calculate_uvbg();
+        }
+
 
         write_cpu_log(NumCurrentTiStep, FdCPU);    /* produce some CPU usage info */
 
