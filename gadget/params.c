@@ -14,11 +14,6 @@
 #include <libgadget/blackhole.h>
 #include <libgadget/fof.h>
 
-/* Optional parameters are passed the flag 0 and required parameters 1.
- * These macros are just to document the semantic meaning of these flags. */
-#define OPTIONAL 0
-#define REQUIRED 1
-
 static int
 BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
 {
