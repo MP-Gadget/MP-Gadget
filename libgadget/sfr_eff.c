@@ -26,6 +26,7 @@
 #include "cooling.h"
 #include "slotsmanager.h"
 #include "winds.h"
+#include "hydra.h"
 /*Only for the star slot reservation*/
 #include "forcetree.h"
 #include "timestep.h"

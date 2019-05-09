@@ -36,10 +36,11 @@ typedef struct
 
 typedef struct {
     TreeWalkResultBase base;
-#ifdef DENSITY_INDEPENDENT_SPH
+
+    /*These are only used for density independent SPH*/
     MyFloat EgyRho;
     MyFloat DhsmlEgyDensity;
-#endif
+
     MyFloat Rho;
     MyFloat DhsmlDensity;
     MyFloat Ngb;
@@ -284,10 +285,11 @@ density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMod
         TREEWALK_REDUCE(SPHP(place).GradRho[2], remote->GradRho[2]);
 #endif
 
-#ifdef DENSITY_INDEPENDENT_SPH
-        TREEWALK_REDUCE(SPHP(place).EgyWtDensity, remote->EgyRho);
-        TREEWALK_REDUCE(SPHP(place).DhsmlEgyDensityFactor, remote->DhsmlEgyDensity);
-#endif
+        /*Only used for density independent SPH*/
+        if(All.DensityIndependentSphOn) {
+            TREEWALK_REDUCE(SPHP(place).EgyWtDensity, remote->EgyRho);
+            TREEWALK_REDUCE(SPHP(place).DhsmlEgyDensityFactor, remote->DhsmlEgyDensity);
+        }
     }
 
 }
@@ -352,13 +354,15 @@ density_ngbiter(
 
         /* Hinv is here because O->DhsmlDensity is drho / dH.
          * nothing to worry here */
-        O->DhsmlDensity += mass_j * density_kernel_dW(&iter->kernel, u, wk, dwk);
+        double density_dW = density_kernel_dW(&iter->kernel, u, wk, dwk);
+        O->DhsmlDensity += mass_j * density_dW;
 
-#ifdef DENSITY_INDEPENDENT_SPH
-        const double EntPred = SPHP(other).EntVarPred;
-        O->EgyRho += mass_j * EntPred * wk;
-        O->DhsmlEgyDensity += mass_j * EntPred * density_kernel_dW(&iter->kernel, u, wk, dwk);
-#endif
+        if(All.DensityIndependentSphOn) {
+            const double EntPred = SPHP(other).EntVarPred;
+            O->EgyRho += mass_j * EntPred * wk;
+            O->DhsmlEgyDensity += mass_j * EntPred * density_dW;
+        }
+
 
 #ifdef SPH_GRAD_RHO
         if(r > 0)
@@ -420,21 +424,22 @@ density_postprocess(int i, TreeWalk * tw)
             else
                 SPHP(i).DhsmlDensityFactor = 1;
 
-#ifdef DENSITY_INDEPENDENT_SPH
-            const double EntPred = SPHP(i).EntVarPred;
-            if((EntPred > 0) && (SPHP(i).EgyWtDensity>0))
-            {
-                SPHP(i).DhsmlEgyDensityFactor *= P[i].Hsml/ (NUMDIMS * SPHP(i).EgyWtDensity);
-                SPHP(i).DhsmlEgyDensityFactor *= -SPHP(i).DhsmlDensityFactor;
-                SPHP(i).EgyWtDensity /= EntPred;
-            } else {
-                /* Use non-weighted densities for this.
-                 * This should never occur normally,
-                 * but will happen for every particle during init().*/
-                SPHP(i).DhsmlEgyDensityFactor=SPHP(i).DhsmlDensityFactor;
-                SPHP(i).EgyWtDensity=SPHP(i).Density;
+            /*Compute the EgyWeight factors, which are only useful for density independent SPH */
+            if(All.DensityIndependentSphOn) {
+                const double EntPred = SPHP(i).EntVarPred;
+                if((EntPred > 0) && (SPHP(i).EgyWtDensity>0))
+                {
+                    SPHP(i).DhsmlEgyDensityFactor *= P[i].Hsml/ (NUMDIMS * SPHP(i).EgyWtDensity);
+                    SPHP(i).DhsmlEgyDensityFactor *= -SPHP(i).DhsmlDensityFactor;
+                    SPHP(i).EgyWtDensity /= EntPred;
+                } else {
+                    /* Use non-weighted densities for this.
+                    * This should never occur normally,
+                    * but will happen for every particle during init().*/
+                    SPHP(i).DhsmlEgyDensityFactor=SPHP(i).DhsmlDensityFactor;
+                    SPHP(i).EgyWtDensity=SPHP(i).Density;
+                }
             }
-#endif
 
             SPHP(i).CurlVel = sqrt(SPHP(i).Rot[0] * SPHP(i).Rot[0] +
                     SPHP(i).Rot[1] * SPHP(i).Rot[1] +

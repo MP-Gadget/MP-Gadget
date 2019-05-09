@@ -14,6 +14,7 @@
 #include "checkpoint.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
+#include "hydra.h"
 #include "timestep.h"
 
 /*! \file timestep.c

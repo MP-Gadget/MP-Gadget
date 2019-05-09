@@ -163,9 +163,12 @@ extern struct global_data_all_processes
     int HydroOn;  /*  if hydro force is enabled */
     int DensityOn;  /*  if SPH density computation is enabled */
     int TreeGravOn;     /* tree gravity force is enabled*/
+    int DensityIndependentSphOn; /* Enables density independent (Pressure-entropy) SPH */
+
     int BlackHoleOn;  /* if black holes are enabled */
     int StarformationOn;  /* if star formation is enabled */
     int WindOn; /* if Wind is enabled */
+
     int MassiveNuLinRespOn; /*!< flags that massive neutrinos using the linear
                                  response code of Ali-Haimoud & Bird 2013.*/
     int HybridNeutrinosOn; /*!< Flags that hybrid neutrinos are enabled */

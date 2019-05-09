@@ -17,6 +17,7 @@
 #include "petaio.h"
 #include "domain.h"
 #include "slotsmanager.h"
+#include "hydra.h"
 #include "exchange.h"
 #include "fof.h"
 #include "timestep.h"
@@ -111,9 +112,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
         if(RestartSnapNum == -1)
         {
             SPHP(i).Density = -1;
-#ifdef DENSITY_INDEPENDENT_SPH
             SPHP(i).EgyWtDensity = -1;
-#endif
             SPHP(i).EntVarPred = -1;
             SPHP(i).Ne = 1.0;
             SPHP(i).DivVel = 0;
@@ -265,45 +264,46 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
 
         u_init /= molecular_weight;
 
-#ifdef DENSITY_INDEPENDENT_SPH
-        /* initialization of the entropy variable is a little trickier in this version of SPH,
-           since we need to make sure it 'talks to' the density appropriately */
-        message(0, "Converting u -> entropy, with density split sph\n");
+        if(All.DensityIndependentSphOn) {
+            /* initialization of the entropy variable is a little trickier in this version of SPH,
+            since we need to make sure it 'talks to' the density appropriately */
+            message(0, "Converting u -> entropy, with density split sph\n");
 
-        int j;
-        double * olddensity = (double *)mymalloc("olddensity ", PartManager->NumPart * sizeof(double));
-        for(j=0;j<100;j++)
-        {
-            /* since ICs give energies, not entropies, need to iterate get this initialized correctly */
-            #pragma omp parallel for
-            for(i = 0; i < PartManager->NumPart; i++)
+            int j;
+            double * olddensity = (double *)mymalloc("olddensity ", PartManager->NumPart * sizeof(double));
+            for(j=0;j<100;j++)
             {
-                if(P[i].Type == 0) {
-                    SPHP(i).Entropy = GAMMA_MINUS1 * u_init / pow(SPHP(i).EgyWtDensity / a3 , GAMMA_MINUS1);
-                    SPHP(i).EntVarPred = pow(SPHP(i).Entropy, 1/GAMMA);
-                    olddensity[i] = SPHP(i).EgyWtDensity;
+                /* since ICs give energies, not entropies, need to iterate get this initialized correctly */
+                #pragma omp parallel for
+                for(i = 0; i < PartManager->NumPart; i++)
+                {
+                    if(P[i].Type == 0) {
+                        SPHP(i).Entropy = GAMMA_MINUS1 * u_init / pow(SPHP(i).EgyWtDensity / a3 , GAMMA_MINUS1);
+                        SPHP(i).EntVarPred = pow(SPHP(i).Entropy, 1/GAMMA);
+                        olddensity[i] = SPHP(i).EgyWtDensity;
+                    }
                 }
-            }
-            density_update(&Tree);
-            double badness = 0;
+                density_update(&Tree);
+                double badness = 0;
 
-            #pragma omp parallel for reduction(max: badness)
-            for(i = 0; i < PartManager->NumPart; i++) {
-                if(P[i].Type == 0) {
-                    if(SPHP(i).EgyWtDensity <= 0)
-                        continue;
-                    double value = fabs(SPHP(i).EgyWtDensity - olddensity[i]) / SPHP(i).EgyWtDensity;
-                    badness = DMAX(badness,value);
+                #pragma omp parallel for reduction(max: badness)
+                for(i = 0; i < PartManager->NumPart; i++) {
+                    if(P[i].Type == 0) {
+                        if(SPHP(i).EgyWtDensity <= 0)
+                            continue;
+                        double value = fabs(SPHP(i).EgyWtDensity - olddensity[i]) / SPHP(i).EgyWtDensity;
+                        badness = DMAX(badness,value);
+                    }
                 }
+                MPI_Allreduce(MPI_IN_PLACE, &badness, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+
+                message(0, "iteration %03d, max relative difference = %g \n", j, badness);
+
+                if(badness < 1e-3) break;
             }
-            MPI_Allreduce(MPI_IN_PLACE, &badness, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-
-            message(0, "iteration %03d, max relative difference = %g \n", j, badness);
-
-            if(badness < 1e-3) break;
+            myfree(olddensity);
         }
-        myfree(olddensity);
-#endif //DENSITY_INDEPENDENT_SPH
+
         /*Initialize to initial energy*/
         #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++) {
@@ -322,9 +322,8 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
             SPHP(i).EntVarPred = pow(SPHP(i).Entropy, 1./GAMMA);
         }
     }
-#ifdef DENSITY_INDEPENDENT_SPH
-    density_update(&Tree);
-#endif //DENSITY_INDEPENDENT_SPH
+    if(All.DensityIndependentSphOn)
+        density_update(&Tree);
 
     force_tree_free(&Tree);
 }

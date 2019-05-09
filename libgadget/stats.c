@@ -8,6 +8,7 @@
 #include "timestep.h"
 #include "cooling.h"
 #include "slotsmanager.h"
+#include "hydra.h"
 #include "utils.h"
 
 /* global state of system

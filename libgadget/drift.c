@@ -115,10 +115,11 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift)
     {
         /* This accounts for adiabatic density changes,
          * and is a good predictor for most of the gas.*/
-        SPHP(i).Density *= exp(-SPHP(i).DivVel * ddrift);
-#ifdef DENSITY_INDEPENDENT_SPH
-        SPHP(i).EgyWtDensity *= exp(-SPHP(i).DivVel * ddrift);
-#endif
+        double densdriftfac = exp(-SPHP(i).DivVel * ddrift);
+        SPHP(i).Density *= densdriftfac;
+        if(All.DensityIndependentSphOn)
+            SPHP(i).EgyWtDensity *= densdriftfac;
+
         /* Evolve entropy at drift time: evolved dlog a.
          * Used to predict pressure and entropy for SPH*/
         double dloga = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick);

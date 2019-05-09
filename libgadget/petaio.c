@@ -15,6 +15,7 @@
 
 #include "petaio.h"
 #include "slotsmanager.h"
+#include "hydra.h"
 #include "partmanager.h"
 #include "config.h"
 #include "neutrinos_lra.h"
@@ -744,9 +745,7 @@ SIMPLE_PROPERTY(Generation, P[i].Generation, unsigned char, 1)
 SIMPLE_GETTER(GTPotential, P[i].Potential, float, 1)
 SIMPLE_PROPERTY(SmoothingLength, P[i].Hsml, float, 1)
 SIMPLE_PROPERTY(Density, SPHP(i).Density, float, 1)
-#ifdef DENSITY_INDEPENDENT_SPH
 SIMPLE_PROPERTY(EgyWtDensity, SPHP(i).EgyWtDensity, float, 1)
-#endif
 SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
 SIMPLE_PROPERTY_TYPE(StarFormationTime, 4, STARP(i).FormationTime, float, 1)
 SIMPLE_PROPERTY(BirthDensity, STARP(i).BirthDensity, float, 1)
@@ -821,9 +820,9 @@ static void register_io_blocks() {
     /* Bare Bone SPH*/
     IO_REG(SmoothingLength,  "f4", 1, 0);
     IO_REG(Density,          "f4", 1, 0);
-#ifdef DENSITY_INDEPENDENT_SPH
-    IO_REG(EgyWtDensity,          "f4", 1, 0);
-#endif
+
+    if(All.DensityIndependentSphOn)
+        IO_REG(EgyWtDensity,          "f4", 1, 0);
 
     /* On reload this sets the Entropy variable, need the densities.
      * Register this after Density and EgyWtDensity will ensure density is read
