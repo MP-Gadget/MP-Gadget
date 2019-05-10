@@ -51,6 +51,8 @@ static struct SFRParams
     double MaxSfrTimescale;
     /*Lyman alpha forest specific star formation.*/
     double QuickLymanAlphaProbability;
+    /* Number of stars to create from each gas particle*/
+    int Generations;
 } sfr_params;
 
 /*Cooling only: no star formation*/
@@ -85,6 +87,7 @@ void set_sfr_params(ParameterSet * ps)
         sfr_params.TempSupernova = param_get_double(ps, "TempSupernova");
         sfr_params.TempClouds = param_get_double(ps, "TempClouds");
         sfr_params.MaxSfrTimescale = param_get_double(ps, "MaxSfrTimescale");
+        sfr_params.Generations = param_get_int(ps, "Generations");
 
         /*Lyman-alpha forest parameters*/
         sfr_params.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
@@ -811,7 +814,7 @@ find_star_mass(int i)
     if(sfr_params.QuickLymanAlphaProbability > 0)
         return P[i].Mass;
 
-    double mass_of_star =  All.MassTable[0] / GENERATIONS;
+    double mass_of_star =  All.MassTable[0] / sfr_params.Generations;
     if(mass_of_star > P[i].Mass) {
         /* if some mass has been stolen by BH, e.g */
         mass_of_star = P[i].Mass;

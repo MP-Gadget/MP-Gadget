@@ -4,10 +4,6 @@
 #include "forcetree.h"
 #include "utils/paramset.h"
 
-#ifndef  GENERATIONS
-#define  GENERATIONS     4	/*!< Number of star particles that may be created per gas particle */
-#endif
-
 #define  METAL_YIELD       0.02	/*!< effective metal yield for star formation */
 
 /*
