@@ -74,11 +74,9 @@ platform-options directory. For example, for Stampede 2 you should do:
     cp platform-options/Options.mk.stampede2 Options.mk
 
 You may also tweak the compilation options in Options.mk to enable various features.
-Unlike P-Gadget3, this is mostly unnecessary. Most options are now set at runtime.
-Remaining compule time flags are:
-There are still compile-time flags for:
-- BLACK_HOLES which is required if you want to enable the black hole model. You must also set the BlackHoleOn runtime flag.
-- SPH_GRAD_RHO which computes the SPH density gradient and is required for some advanced star formation routines.
+Unlike P-Gadget3, this is mostly unnecessary. Almost all options are now set at runtime.
+The single remaining science compile time flag is SPH_GRAD_RHO, which enables computation of
+the SPH density gradient and is required for some advanced star formation routines.
 
 There are also some options useful for code debugging:
 - DEBUG which enables various internal code consistency checks for debugging.
