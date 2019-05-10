@@ -13,6 +13,8 @@ extern struct slots_manager_type {
         int maxsize; /* max number of supported slots */
         int size; /* currently used slots*/
         size_t elsize; /* itemsize */
+        char * scratchdata; /* Pointer to struct of pointers that store optional data for this type, which persists through one time step,
+                             but not beyond. Currently only used for SPH data.*/
         int enabled;
     } info[6];
     double increase; /* Percentage amount to increase
@@ -108,8 +110,12 @@ struct sph_particle_data
 
     MyFloat DelayTime;		/*!< SH03: remaining maximum decoupling time of wind particle */
                             /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
+};
 
-    MyFloat GradRho[3];
+struct sph_scratch_data
+{
+    /* Gradient of the SPH density. 3x vector*/
+    MyFloat * GradRho;
 };
 
 /* shortcuts for accessing different slots directly by the index */
@@ -121,6 +127,9 @@ struct sph_particle_data
 #define SPHP(i) SphP[P[i].PI]
 #define BHP(i) BhP[P[i].PI]
 #define STARP(i) StarP[P[i].PI]
+
+/*Shortcut for the extra data*/
+#define SphP_scratch ((struct sph_scratch_data*) SlotsManager->info[0].scratchdata)
 
 extern MPI_Datatype MPI_TYPE_PARTICLE;
 extern MPI_Datatype MPI_TYPE_SLOT[6];
@@ -142,6 +151,9 @@ int slots_gc(int * compact_slots);
 void slots_gc_sorted(void);
 void slots_reserve(int where, int atleast[6]);
 void slots_check_id_consistency();
+
+void slots_allocate_sph_scratch_data(int sph_grad_rho, int nsph);
+void slots_free_sph_scratch_data(struct sph_scratch_data * Scratch);
 
 typedef struct {
     EIBase base;

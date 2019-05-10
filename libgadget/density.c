@@ -280,9 +280,10 @@ density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMod
         TREEWALK_REDUCE(SPHP(place).Rot[2], remote->Rot[2]);
 
         if(sfr_need_to_compute_sph_grad_rho()) {
-            TREEWALK_REDUCE(SPHP(place).GradRho[0], remote->GradRho[0]);
-            TREEWALK_REDUCE(SPHP(place).GradRho[1], remote->GradRho[1]);
-            TREEWALK_REDUCE(SPHP(place).GradRho[2], remote->GradRho[2]);
+            int pi = P[place].PI;
+            TREEWALK_REDUCE(SphP_scratch->GradRho[3*pi], remote->GradRho[0]);
+            TREEWALK_REDUCE(SphP_scratch->GradRho[3*pi+1], remote->GradRho[1]);
+            TREEWALK_REDUCE(SphP_scratch->GradRho[3*pi+2], remote->GradRho[2]);
         }
 
         /*Only used for density independent SPH*/

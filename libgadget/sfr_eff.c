@@ -862,7 +862,7 @@ static double get_sfr_factor_due_to_h2(int i) {
         endrun(1, "Needed grad rho but not enabled! Should never happen!\n");
     double tau_fmol;
     double zoverzsun = SPHP(i).Metallicity/METAL_YIELD;
-    tau_fmol = ev_NH_from_GradRho(SPHP(i).GradRho,P[i].Hsml,SPHP(i).Density,1) * All.cf.a2inv;
+    tau_fmol = ev_NH_from_GradRho(&(SphP_scratch->GradRho[3*P[i].PI]),P[i].Hsml,SPHP(i).Density,1) * All.cf.a2inv;
     tau_fmol *= (0.1 + zoverzsun);
     if(tau_fmol>0) {
         tau_fmol *= 434.78*All.UnitDensity_in_cgs*All.CP.HubbleParam*All.UnitLength_in_cm;

@@ -643,3 +643,24 @@ slots_setup_id()
         BASESLOT(i)->IsGarbage = P[i].IsGarbage;
     }
 }
+
+/*Small structure of pointers*/
+static struct sph_scratch_data SphScratch;
+
+void
+slots_allocate_sph_scratch_data(int sph_grad_rho, int nsph)
+{
+    /*Data is allocated high so that we can free the tree around it*/
+    if(sph_grad_rho)
+        SphScratch.GradRho = mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * nsph);
+    else
+        SphScratch.GradRho = NULL;
+    SlotsManager->info[0].scratchdata = (char *) &SphScratch;
+}
+
+void
+slots_free_sph_scratch_data(struct sph_scratch_data * SphScratch)
+{
+    if(SphScratch->GradRho)
+        myfree(SphScratch->GradRho);
+}
