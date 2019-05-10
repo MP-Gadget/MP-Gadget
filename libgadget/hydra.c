@@ -330,10 +330,8 @@ hydro_ngbiter(
             hfc = hfc_visc = 0;
         }
 
-#ifndef NOACCEL
         for(d = 0; d < 3; d ++)
             O->Acc[d] += (-hfc * dist[d]);
-#endif
 
         O->DtEntropy += (0.5 * hfc_visc * vdotr2);
 
