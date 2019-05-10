@@ -242,7 +242,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "TimeBetweenSeedingSearch", OPTIONAL, 1e5, "Time Between Seeding Attempts: default to a a large value, meaning never.");
 
     /*Black holes*/
-    param_declare_int(ps, "BlackHoleOn", REQUIRED, 1, "Enable Blackhole ");
+    param_declare_int(ps, "BlackHoleOn", REQUIRED, 1, "Master switch to enable black hole formation and feedback. If this is on, type 5 particles are treated as black holes.");
     param_declare_double(ps, "BlackHoleAccretionFactor", OPTIONAL, 100, "BH accretion boosting factor relative to the rate from the Bondi accretion model.");
     param_declare_double(ps, "BlackHoleEddingtonFactor", OPTIONAL, 3, "Maximum Black hole accretion as a function of Eddington.");
     param_declare_double(ps, "SeedBlackHoleMass", OPTIONAL, 5e-5, "Mass of initial black hole seed in internal mass units.");
@@ -481,13 +481,6 @@ void read_parameter_file(char *fname)
         All.BlackHoleNgbFactor = param_get_double(ps, "BlackHoleNgbFactor");
         All.BlackHoleMaxAccretionRadius = param_get_double(ps, "BlackHoleMaxAccretionRadius");
 
-    #ifndef BLACK_HOLES
-
-        if(All.BlackHoleOn)
-        {
-            endrun(1, "Code was compiled with black holes switched off but BlackHoleOn = 1. This does not work!\n");
-        }
-    #endif
         if(All.StarformationOn == 0)
         {
             if(All.WindOn == 1) {
@@ -522,9 +515,7 @@ void read_parameter_file(char *fname)
     set_sfr_params(ps);
     set_winds_params(ps);
     set_fof_params(ps);
-#ifdef BLACK_HOLES
     set_blackhole_params(ps);
-#endif
 
     parameter_set_free(ps);
 }

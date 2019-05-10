@@ -83,9 +83,7 @@ extern FILE *FdEnergy,			/*!< file handle for energy.txt log-file. */
 
 extern FILE *FdSfr;		/*!< file handle for sfr.txt log-file. */
 
-#ifdef BLACK_HOLES
 extern FILE *FdBlackHoles;	/*!< file handle for blackholes.txt log-file. */
-#endif
 
 /*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
  * parameter file).  Holding this data in a structure is convenient for writing/reading the restart file, and

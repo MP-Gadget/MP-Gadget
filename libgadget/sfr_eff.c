@@ -348,8 +348,7 @@ cooling_direct(int i) {
             (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) /
             GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1));
 
-#ifdef BLACK_HOLES
-    if(SPHP(i).Injected_BH_Energy)
+    if(All.BlackHoleOn && SPHP(i).Injected_BH_Energy)
     {
         if(P[i].Mass == 0) {
             endrun(12, "Encoutered zero mass particle during sfr;"
@@ -370,7 +369,6 @@ cooling_direct(int i) {
 
         SPHP(i).Injected_BH_Energy = 0;
     }
-#endif
 
     double redshift = 1./All.Time - 1;
     struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
@@ -475,8 +473,7 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
     const double densityfac = pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
     double egycurrent = SPHP(i).Entropy *  densityfac;
 
-#ifdef BLACK_HOLES
-    if(SPHP(i).Injected_BH_Energy > 0)
+    if(All.BlackHoleOn && SPHP(i).Injected_BH_Energy > 0)
     {
         double redshift = 1./All.Time - 1;
         struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
@@ -501,7 +498,6 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
 
         SPHP(i).Injected_BH_Energy = 0;
     }
-#endif
 
     SPHP(i).Entropy =  (egyeff + (egycurrent - egyeff) * exp(-dtime / trelax)) /densityfac;
 

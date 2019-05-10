@@ -101,7 +101,7 @@ static void fof_finish_group_properties(struct Group * Group, double BoxSize);
 static void
 fof_compile_base(struct BaseGroup * base, MPI_Comm Comm);
 static void
-fof_compile_catalogue(struct Group * group, double BoxSize, MPI_Comm Comm);
+fof_compile_catalogue(struct Group * group, double BoxSize, int BlackHoleInfo, MPI_Comm Comm);
 
 static struct Group *
 fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt);
@@ -152,7 +152,7 @@ static MPI_Datatype MPI_TYPE_GROUP;
  *
  **/
 
-void fof_fof(ForceTree * tree, double BoxSize, MPI_Comm Comm)
+void fof_fof(ForceTree * tree, double BoxSize, int BlackHoleInfo, MPI_Comm Comm)
 {
     int i;
 
@@ -214,7 +214,7 @@ void fof_fof(ForceTree * tree, double BoxSize, MPI_Comm Comm)
 
     myfree(base);
 
-    fof_compile_catalogue(Group, BoxSize, Comm);
+    fof_compile_catalogue(Group, BoxSize, BlackHoleInfo, Comm);
 
     MPI_Barrier(Comm);
     message(0, "Finished FoF. Group properties are now allocated.. (presently allocated=%g MB)\n",
@@ -539,7 +539,6 @@ static void fof_reduce_group(void * pdst, void * psrc) {
     }
 
     gdst->Sfr += gsrc->Sfr;
-#ifdef BLACK_HOLES
     gdst->BH_Mdot += gsrc->BH_Mdot;
     gdst->BH_Mass += gsrc->BH_Mass;
     if(gsrc->MaxDens > gdst->MaxDens)
@@ -548,7 +547,6 @@ static void fof_reduce_group(void * pdst, void * psrc) {
         gdst->seed_index = gsrc->seed_index;
         gdst->seed_task = gsrc->seed_task;
     }
-#endif
 
     int d1, d2;
     for(d1 = 0; d1 < 3; d1++)
@@ -563,7 +561,7 @@ static void fof_reduce_group(void * pdst, void * psrc) {
 
 }
 
-static void add_particle_to_group(struct Group * gdst, int i, double BoxSize, int ThisTask) {
+static void add_particle_to_group(struct Group * gdst, int i, double BoxSize, int ThisTask, int BlackHoleOn) {
 
     /* My local number of particles contributing to the full catalogue. */
     const int index = i;
@@ -583,12 +581,13 @@ static void add_particle_to_group(struct Group * gdst, int i, double BoxSize, in
     if(P[index].Type == 0) {
         gdst->Sfr += get_starformation_rate(index);
     }
-#ifdef BLACK_HOLES
-    if(P[index].Type == 5)
+    if(BlackHoleOn && P[index].Type == 5)
     {
         gdst->BH_Mdot += BHP(index).Mdot;
         gdst->BH_Mass += BHP(index).Mass;
     }
+    /*This used to depend on black holes being enabled, but I do not see why.
+     * I think because it is only useful for seeding*/
     if(P[index].Type == 0)
     {
         /* make bh in non wind gas on bh wind*/
@@ -600,7 +599,6 @@ static void add_particle_to_group(struct Group * gdst, int i, double BoxSize, in
                 gdst->seed_task = ThisTask;
             }
     }
-#endif
 
     int d1, d2;
     double xyz[3];
@@ -755,7 +753,7 @@ fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt)
 }
 
 static void
-fof_compile_catalogue(struct Group * group, double BoxSize, MPI_Comm Comm)
+fof_compile_catalogue(struct Group * group, double BoxSize, int BlackHoleInfo, MPI_Comm Comm)
 {
     int i, start, ThisTask;
 
@@ -773,7 +771,7 @@ fof_compile_catalogue(struct Group * group, double BoxSize, MPI_Comm Comm)
             if(HaloLabel[start].MinID != Group[i].base.MinID) {
                 break;
             }
-            add_particle_to_group(&Group[i], HaloLabel[start].Pindex, BoxSize, ThisTask);
+            add_particle_to_group(&Group[i], HaloLabel[start].Pindex, BoxSize, ThisTask, BlackHoleInfo);
         }
     }
 
@@ -801,7 +799,7 @@ fof_compile_catalogue(struct Group * group, double BoxSize, MPI_Comm Comm)
     MPI_Allreduce(&Ngroups, &TotNgroups, 1, MPI_UINT64, MPI_SUM, Comm);
     MPI_Allreduce(&Nids, &TotNids, 1, MPI_INT64, MPI_SUM, Comm);
 
-    /* report some statictics */
+    /* report some statistics */
     int largestgroup;
     if(TotNgroups > 0)
     {
@@ -1307,10 +1305,8 @@ static void fof_seed_make_one(struct Group * g, int ThisTask) {
    if(g->seed_task != ThisTask) {
         endrun(7771, "Seed does not belong to the right task");
     }
-#ifdef BLACK_HOLES
     int index = g->seed_index;
     blackhole_make_one(index);
-#endif
 }
 
 static int fof_compare_HaloLabel_MinID(const void *a, const void *b)

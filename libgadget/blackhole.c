@@ -21,8 +21,6 @@
  *  \brief routines for gas accretion onto black holes, and black hole mergers
  */
 
-#ifdef BLACK_HOLES
-
 struct BlackholeParams
 {
     double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
@@ -277,7 +275,7 @@ blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
     if(All.Time >= *TimeNextSeedingCheck)
     {
         /* Seeding */
-        fof_fof(tree, All.BoxSize, MPI_COMM_WORLD);
+        fof_fof(tree, All.BoxSize, All.BlackHoleOn, MPI_COMM_WORLD);
         fof_seed(MPI_COMM_WORLD);
         fof_finish();
         *TimeNextSeedingCheck = All.Time * blackhole_params.TimeBetweenSeedingSearch;
@@ -734,6 +732,8 @@ blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum Tre
 }
 
 void blackhole_make_one(int index) {
+    if(!All.BlackHoleOn)
+        return;
     if(P[index].Type != 0)
         endrun(7772, "Only Gas turns into blackholes, what's wrong?");
 
@@ -787,5 +787,3 @@ decide_hsearch(double h)
     }
 }
 
-
-#endif

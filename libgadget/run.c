@@ -121,10 +121,8 @@ void run(DomainDecomp * ddecomp)
     /*Is gas physics enabled?*/
     int GasEnabled = All.NTotalInit[0] > 0;
 
-#ifdef BLACK_HOLES
     /* Stored scale factor of the next black hole seeding check*/
     double TimeNextSeedingCheck = All.Time;
-#endif
 
     walltime_measure("/Misc");
 
@@ -205,10 +203,8 @@ void run(DomainDecomp * ddecomp)
          * so mass conservation would be broken.*/
         if(GasEnabled)
         {
-    #ifdef BLACK_HOLES
             /* Black hole accretion and feedback */
             blackhole(&Tree, &TimeNextSeedingCheck);
-    #endif
             /**** radiative cooling and star formation *****/
             cooling_and_starformation(&Tree);
         }
@@ -432,13 +428,13 @@ open_outputfiles(int RestartSnapNum)
         endrun(1, "error in opening file '%s'\n", buf);
     free(buf);
 
-#ifdef BLACK_HOLES
-    buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, "blackholes.txt", postfix);
-    fastpm_path_ensure_dirname(buf);
-    if(!(FdBlackHoles = fopen(buf, mode)))
-        endrun(1, "error in opening file '%s'\n", buf);
-    free(buf);
-#endif
+    if(All.BlackHoleOn) {
+        buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, "blackholes.txt", postfix);
+        fastpm_path_ensure_dirname(buf);
+        if(!(FdBlackHoles = fopen(buf, mode)))
+            endrun(1, "error in opening file '%s'\n", buf);
+        free(buf);
+    }
 
 }
 
@@ -458,9 +454,8 @@ close_outputfiles(void)
 
     fclose(FdSfr);
 
-#ifdef BLACK_HOLES
-    fclose(FdBlackHoles);
-#endif
+    if(All.BlackHoleOn)
+        fclose(FdBlackHoles);
 }
 
 /*! Computes conversion factors between internal code units and the

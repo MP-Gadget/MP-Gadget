@@ -103,11 +103,10 @@ struct sph_particle_data
                    density normalized to the hydrogen number density. Gives
                    indirectly ionization state and mean molecular weight. */
 
-#ifdef BLACK_HOLES
     MyIDType SwallowID; /* Allows marking of a particle being eaten by a black hole. Used only in blackhole.c.
                            Set to -1 in init.c and only reinitialised if a merger takes place.*/
+    /*Used to store the BH feedback energy if black holes are on*/
     MyFloat       Injected_BH_Energy;
-#endif
 
     MyFloat DelayTime;		/*!< SH03: remaining maximum decoupling time of wind particle */
                             /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
