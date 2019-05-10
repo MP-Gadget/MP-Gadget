@@ -18,8 +18,5 @@ GSL_LIBS = $(GSL) -lmvec -lmvec_nonshared
 
 OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR
 
-#-------------------------------------- AGN stuff
-OPT	+=  -DBLACK_HOLES             # enables Black-Holes (master switch)
-
 #-------------------------------------------- Things for special behaviour
 OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV
