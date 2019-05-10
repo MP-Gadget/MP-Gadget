@@ -109,9 +109,7 @@ struct sph_particle_data
     MyFloat DelayTime;		/*!< SH03: remaining maximum decoupling time of wind particle */
                             /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
 
-#ifdef SPH_GRAD_RHO
     MyFloat GradRho[3];
-#endif
 };
 
 /* shortcuts for accessing different slots directly by the index */

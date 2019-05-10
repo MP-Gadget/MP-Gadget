@@ -31,4 +31,6 @@ double get_starformation_rate(int i);
  * when on the equation of state calls them separately for the cold and hot gas.*/
 double get_neutral_fraction_sfreff(int i, double redshift);
 
+/* Return whether we are using a star formation model that needs grad rho computed for the gas particles*/
+int sfr_need_to_compute_sph_grad_rho(void);
 #endif
