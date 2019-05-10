@@ -113,6 +113,8 @@ void set_blackhole_params(ParameterSet * ps)
     MPI_Bcast(&blackhole_params, sizeof(struct BlackholeParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
+/*Temporary array to store the IDs of the swallowing black hole for gas*/
+MyIDType * SPH_SwallowID;
 
 /* accretion routines */
 static void
@@ -222,6 +224,10 @@ blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
     N_sph_swallowed = N_BH_swallowed = 0;
 
     /* Let's determine which particles may be swalled and calculate total feedback weights */
+    SPH_SwallowID = mymalloc("SPH_SwallowID", SlotsManager->info[0].size * sizeof(MyIDType));
+    #pragma omp parallel for
+    for(i = 0; i < SlotsManager->info[0].size; i ++)
+        SPH_SwallowID[i] = -1;
 
     treewalk_run(tw_accretion, ActiveParticle, NumActiveParticle);
 
@@ -230,6 +236,8 @@ blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
 
     /* Now do the swallowing of particles and dump feedback energy */
     treewalk_run(tw_feedback, ActiveParticle, NumActiveParticle);
+
+    myfree(SPH_SwallowID);
 
     MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&N_BH_swallowed, &Ntot_BH_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -485,13 +493,13 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             {
                 if(P[other].Swallowed) {
                     /* Already marked, prefer to be swallowed by a bigger ID */
-                    if(SPHP(other).SwallowID < I->ID) {
-                        SPHP(other).SwallowID = I->ID;
+                    if(SPH_SwallowID[P[other].PI] < I->ID) {
+                        SPH_SwallowID[P[other].PI] = I->ID;
                     }
                 } else {
                     /* Unmarked mark it */
                     P[other].Swallowed = 1;
-                    SPHP(other).SwallowID = I->ID;
+                    SPH_SwallowID[P[other].PI] = I->ID;
                 }
             }
             unlock_particle(other);
@@ -619,7 +627,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     /* Swallowing a gas */
     if(P[other].Swallowed && P[other].Type == 0)
     {
-        if(SPHP(other).SwallowID != I->ID) return;
+        if(SPH_SwallowID[P[other].PI] != I->ID) return;
 
         lock_particle(other);
 
