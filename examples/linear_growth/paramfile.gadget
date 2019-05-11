@@ -26,6 +26,7 @@ HubbleParam = 0.6724      # Hubble paramater
 CoolingOn = 0
 StarformationOn = 0
 RadiationOn = 1
+DensityIndependentSphOn = 0
 HydroOn = 0
 WindOn = 0
 StarformationCriterion = density

@@ -23,6 +23,7 @@ CoolingOn = 1
 StarformationOn = 1
 RadiationOn = 1
 HydroOn = 1
+DensityIndependentSphOn = 0
 BlackHoleOn = 0
 WindOn = 0
 StarformationCriterion = density
