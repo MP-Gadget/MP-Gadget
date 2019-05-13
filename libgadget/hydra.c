@@ -320,7 +320,7 @@ hydro_ngbiter(
             }
         }
 
-        /* grad-h corrections: enabled if DensityIndependentSphOn = 0 is off, or DensityConstrastLimit >= 0 */
+        /* grad-h corrections: enabled if DensityIndependentSphOn = 0, or DensityConstrastLimit >= 0 */
         /* Formulation derived from the Lagrangian */
         hfc += P[other].Mass * (iter->p_over_rho2_i*I->SPH_DhsmlDensityFactor * dwk_i * r1
                  + p_over_rho2_j*SPH_DhsmlDensityFactor(other) * dwk_j * r2) / r;
