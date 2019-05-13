@@ -77,15 +77,11 @@ struct sph_particle_data
 {
     struct particle_data_ext base;
 
-#ifdef DENSITY_INDEPENDENT_SPH
+    /*These two data members are only used if DensityIndependentSph is on.
+     * If DensityIndependentSph is off then Density and DhsmlDensityFactor are used instead.*/
     MyFloat EgyWtDensity;           /*!< 'effective' rho to use in hydro equations */
     MyFloat DhsmlEgyDensityFactor;  /*!< correction factor for density-independent entropy formulation */
-#define EOMDensity EgyWtDensity
-#define DhsmlEOMDensityFactor DhsmlEgyDensityFactor
-#else
-#define EOMDensity Density
-#define DhsmlEOMDensityFactor DhsmlDensityFactor
-#endif
+
     MyFloat EntVarPred;         /*!< Predicted entropy at current particle drift time for SPH computation*/
     /* VelPred can always be derived from the current time and acceleration.
      * However, doing so makes the SPH and hydro code much (a factor of two)

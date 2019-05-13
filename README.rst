@@ -77,7 +77,6 @@ You may also tweak the compilation options in Options.mk to enable various featu
 Unlike P-Gadget3, this is mostly unnecessary. Most options are now set at runtime.
 Remaining compule time flags are:
 There are still compile-time flags for:
-- DENSITY_INDEPENDENT_SPH which if set enables Pressure-Entropy SPH. This cannot be set at runtime.
 - BLACK_HOLES which is required if you want to enable the black hole model. You must also set the BlackHoleOn runtime flag.
 - SPH_GRAD_RHO which computes the SPH density gradient and is required for some advanced star formation routines.
 

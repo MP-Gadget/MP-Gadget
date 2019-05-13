@@ -23,18 +23,33 @@
  *  (via artificial viscosity) is computed.
  */
 
+MyFloat SPH_EOMDensity(int i)
+{
+    if(All.DensityIndependentSphOn)
+        return SPHP(i).EgyWtDensity;
+    else
+        return SPHP(i).Density;
+}
+
+MyFloat SPH_DhsmlDensityFactor(int i)
+{
+    if(All.DensityIndependentSphOn)
+        return SPHP(i).DhsmlEgyDensityFactor;
+    else
+        return SPHP(i).DhsmlDensityFactor;
+}
+
 double
 PressurePred(int i)
 {
-    return pow(SPHP(i).EntVarPred * SPHP(i).EOMDensity, GAMMA);
+    return pow(SPHP(i).EntVarPred * SPH_EOMDensity(i), GAMMA);
 }
 
 typedef struct {
     TreeWalkQueryBase base;
-#ifdef DENSITY_INDEPENDENT_SPH
+    /* These are only used for DensityIndependentSphOn*/
     MyFloat EgyRho;
     MyFloat EntVarPred;
-#endif
 
     double Vel[3];
     MyFloat Hsml;
@@ -42,7 +57,7 @@ typedef struct {
     MyFloat Density;
     MyFloat Pressure;
     MyFloat F1;
-    MyFloat DhsmlEOMDensityFactor;
+    MyFloat SPH_DhsmlDensityFactor;
     signed char TimeBin;
 
 } TreeWalkQueryHydro;
@@ -139,16 +154,18 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
     input->Hsml = P[place].Hsml;
     input->Mass = P[place].Mass;
     input->Density = SPHP(place).Density;
-#ifdef DENSITY_INDEPENDENT_SPH
-    input->EgyRho = SPHP(place).EgyWtDensity;
-    input->EntVarPred = SPHP(place).EntVarPred;
-#endif
-    input->DhsmlEOMDensityFactor = SPHP(place).DhsmlEOMDensityFactor;
+
+    if(All.DensityIndependentSphOn) {
+        input->EgyRho = SPHP(place).EgyWtDensity;
+        input->EntVarPred = SPHP(place).EntVarPred;
+    }
+
+    input->SPH_DhsmlDensityFactor = SPH_DhsmlDensityFactor(place);
 
     input->Pressure = PressurePred(place);
     input->TimeBin = P[place].TimeBin;
     /* calculation of F1 */
-    soundspeed_i = sqrt(GAMMA * input->Pressure / SPHP(place).EOMDensity);
+    soundspeed_i = sqrt(GAMMA * input->Pressure / SPH_EOMDensity(place));
     input->F1 = fabs(SPHP(place).DivVel) /
         (fabs(SPHP(place).DivVel) + SPHP(place).CurlVel +
          0.0001 * soundspeed_i / P[place].Hsml / fac_mu);
@@ -190,22 +207,20 @@ hydro_ngbiter(
         iter->base.mask = 1;
         iter->base.symmetric = NGB_TREEFIND_SYMMETRIC;
 
-    #ifdef DENSITY_INDEPENDENT_SPH
-        iter->soundspeed_i = sqrt(GAMMA * I->Pressure / I->EgyRho);
-    #else
-        iter->soundspeed_i = sqrt(GAMMA * I->Pressure / I->Density);
-    #endif
+        if(All.DensityIndependentSphOn)
+            iter->soundspeed_i = sqrt(GAMMA * I->Pressure / I->EgyRho);
+        else
+            iter->soundspeed_i = sqrt(GAMMA * I->Pressure / I->Density);
 
         /* initialize variables before SPH loop is started */
 
         O->Acc[0] = O->Acc[1] = O->Acc[2] = O->DtEntropy = 0;
         density_kernel_init(&iter->kernel_i, I->Hsml);
 
-    #ifdef DENSITY_INDEPENDENT_SPH
-        iter->p_over_rho2_i = I->Pressure / (I->EgyRho * I->EgyRho);
-    #else
-        iter->p_over_rho2_i = I->Pressure / (I->Density * I->Density);
-    #endif
+        if(All.DensityIndependentSphOn)
+            iter->p_over_rho2_i = I->Pressure / (I->EgyRho * I->EgyRho);
+        else
+            iter->p_over_rho2_i = I->Pressure / (I->Density * I->Density);
 
         O->MaxSignalVel = iter->soundspeed_i;
         return;
@@ -228,8 +243,8 @@ hydro_ngbiter(
     if(r2 > 0 && (r2 < iter->kernel_i.HH || r2 < kernel_j.HH))
     {
         double Pressure_j = PressurePred(other);
-        double p_over_rho2_j = Pressure_j / (SPHP(other).EOMDensity * SPHP(other).EOMDensity);
-        double soundspeed_j = sqrt(GAMMA * Pressure_j / SPHP(other).EOMDensity);
+        double p_over_rho2_j = Pressure_j / (SPH_EOMDensity(other) * SPH_EOMDensity(other));
+        double soundspeed_j = sqrt(GAMMA * Pressure_j / SPH_EOMDensity(other));
 
         double dv[3];
         int d;
@@ -281,32 +296,34 @@ hydro_ngbiter(
         }
         double hfc_visc = 0.5 * P[other].Mass * visc * (dwk_i + dwk_j) / r;
         double hfc = hfc_visc;
-#ifndef DENSITY_INDEPENDENT_SPH
         double r1 = 1, r2 = 1;
-#else
-        double r1 = 0, r2 = 0;
-        /* leading-order term */
-        double EntOther = SPHP(other).EntVarPred;
 
-        hfc += P[other].Mass *
-            (dwk_i*iter->p_over_rho2_i*EntOther/I->EntVarPred +
-             dwk_j*p_over_rho2_j*I->EntVarPred/EntOther) / r;
+        if(All.DensityIndependentSphOn) {
+            /*This enables the grad-h corrections*/
+            r1 = 0, r2 = 0;
+            /* leading-order term */
+            double EntOther = SPHP(other).EntVarPred;
 
-        /* enable grad-h corrections only if contrastlimit is non negative */
-        if(All.DensityContrastLimit >= 0) {
-            r1 = I->EgyRho / I->Density;
-            r2 = SPHP(other).EgyWtDensity / SPHP(other).Density;
-            if(All.DensityContrastLimit > 0) {
-                /* apply the limit if it is enabled > 0*/
-                r1 = DMIN(r1, All.DensityContrastLimit);
-                r2 = DMIN(r2, All.DensityContrastLimit);
+            hfc += P[other].Mass *
+                (dwk_i*iter->p_over_rho2_i*EntOther/I->EntVarPred +
+                dwk_j*p_over_rho2_j*I->EntVarPred/EntOther) / r;
+
+            /* enable grad-h corrections only if contrastlimit is non negative */
+            if(All.DensityContrastLimit >= 0) {
+                r1 = I->EgyRho / I->Density;
+                r2 = SPHP(other).EgyWtDensity / SPHP(other).Density;
+                if(All.DensityContrastLimit > 0) {
+                    /* apply the limit if it is enabled > 0*/
+                    r1 = DMIN(r1, All.DensityContrastLimit);
+                    r2 = DMIN(r2, All.DensityContrastLimit);
+                }
             }
         }
-#endif
-        /* grad-h corrections: enabled if DENSITY_INDEPENDENT_SPH is off, or DensityConstrastLimit >= 0 */
+
+        /* grad-h corrections: enabled if DensityIndependentSphOn = 0, or DensityConstrastLimit >= 0 */
         /* Formulation derived from the Lagrangian */
-        hfc += P[other].Mass * (iter->p_over_rho2_i*I->DhsmlEOMDensityFactor * dwk_i * r1
-                 + p_over_rho2_j*SPHP(other).DhsmlEOMDensityFactor * dwk_j * r2) / r;
+        hfc += P[other].Mass * (iter->p_over_rho2_i*I->SPH_DhsmlDensityFactor * dwk_i * r1
+                 + p_over_rho2_j*SPH_DhsmlDensityFactor(other) * dwk_j * r2) / r;
 
         /* No force by wind particles */
         if(All.WindOn && winds_is_particle_decoupled(other)) {
@@ -336,7 +353,7 @@ hydro_postprocess(int i, TreeWalk * tw)
     if(P[i].Type == 0)
     {
         /* Translate energy change rate into entropy change rate */
-        SPHP(i).DtEntropy *= GAMMA_MINUS1 / (All.cf.hubble_a2 * pow(SPHP(i).EOMDensity, GAMMA_MINUS1));
+        SPHP(i).DtEntropy *= GAMMA_MINUS1 / (All.cf.hubble_a2 * pow(SPH_EOMDensity(i), GAMMA_MINUS1));
 
         /* if we have winds, we decouple particles briefly if delaytime>0 */
         if(All.WindOn && winds_is_particle_decoupled(i))

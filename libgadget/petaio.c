@@ -15,6 +15,7 @@
 
 #include "petaio.h"
 #include "slotsmanager.h"
+#include "hydra.h"
 #include "partmanager.h"
 #include "config.h"
 #include "neutrinos_lra.h"
@@ -744,9 +745,7 @@ SIMPLE_PROPERTY(Generation, P[i].Generation, unsigned char, 1)
 SIMPLE_GETTER(GTPotential, P[i].Potential, float, 1)
 SIMPLE_PROPERTY(SmoothingLength, P[i].Hsml, float, 1)
 SIMPLE_PROPERTY(Density, SPHP(i).Density, float, 1)
-#ifdef DENSITY_INDEPENDENT_SPH
 SIMPLE_PROPERTY(EgyWtDensity, SPHP(i).EgyWtDensity, float, 1)
-#endif
 SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
 SIMPLE_PROPERTY_TYPE(StarFormationTime, 4, STARP(i).FormationTime, float, 1)
 SIMPLE_PROPERTY(BirthDensity, STARP(i).BirthDensity, float, 1)
@@ -775,12 +774,12 @@ static void GTNeutralHydrogenFraction(int i, float * out) {
 
 static void GTInternalEnergy(int i, float * out) {
     *out = DMAX(All.MinEgySpec,
-        SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+        SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1));
 }
 
 static void STInternalEnergy(int i, float * out) {
     float u = *out;
-    SPHP(i).Entropy = GAMMA_MINUS1 * u / pow(SPHP(i).EOMDensity * All.cf.a3inv , GAMMA_MINUS1);
+    SPHP(i).Entropy = GAMMA_MINUS1 * u / pow(SPH_EOMDensity(i) * All.cf.a3inv , GAMMA_MINUS1);
 }
 
 static int order_by_type(const void *a, const void *b)
@@ -821,9 +820,9 @@ static void register_io_blocks() {
     /* Bare Bone SPH*/
     IO_REG(SmoothingLength,  "f4", 1, 0);
     IO_REG(Density,          "f4", 1, 0);
-#ifdef DENSITY_INDEPENDENT_SPH
-    IO_REG(EgyWtDensity,          "f4", 1, 0);
-#endif
+
+    if(All.DensityIndependentSphOn)
+        IO_REG(EgyWtDensity,          "f4", 1, 0);
 
     /* On reload this sets the Entropy variable, need the densities.
      * Register this after Density and EgyWtDensity will ensure density is read
