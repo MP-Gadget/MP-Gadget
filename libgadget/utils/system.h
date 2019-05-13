@@ -1,6 +1,8 @@
 #ifndef __UTILS_SYSTEM_H__
 #define __UTILS_SYSTEM_H__
 
+#include <stdint.h>
+
 /* Note on a 32-bit architecture MPI_LONG may be 32-bit,
  * so these should be MPI_LONG_LONG. But in
  * the future MPI_LONG_LONG may become 128-bit.*/
