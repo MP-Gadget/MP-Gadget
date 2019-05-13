@@ -7,7 +7,10 @@ MPICXX       =   mpic++
 # TACC_VEC_FLAGS define: -xCORE-AVX2 -axMIC-AVX512,CORE-AVX512 
 # which means the base instruction set is CORE-AVX2, and 
 # alternate versions of some routines are generated for KNL and SKX nodes.
-OPTIMIZE =  -fopenmp -O3 -g -Wall ${TACC_VEC_FLAGS} -fp-model fast=1
+#
+# The intel 18 compiler on stampede is buggy. You need to use the intelstampedefix branch.
+# -simd is important: it aligns various structures and without it intel's MPI crashes.
+OPTIMIZE =  -fopenmp -O3 -g -Wall ${TACC_VEC_FLAGS} -fp-model fast=1 -simd -ipo
 
 GSL_INCL = $(shell pkg-config --cflags gsl)
 GSL_LIBS = $(shell pkg-config --libs gsl)
