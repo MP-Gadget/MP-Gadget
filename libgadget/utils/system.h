@@ -81,12 +81,7 @@ void MPIU_Tracev(MPI_Comm comm, int where, const char * fmt, va_list va);
 
 int _MPIU_Barrier(const char * fn, const int ln, MPI_Comm comm);
 
-#ifdef DEBUG
+/* Fancy barrier which warns if there is a lot of imbalance. */
 #define MPIU_Barrier(comm) _MPIU_Barrier(__FILE__, __LINE__, comm)
-#else
-/* use faster MPI_Barrier by default, as _MPIU_Barrier gives
- * a 5% ~ 25% speed down, at least on shared memory MPI systems */
-#define MPIU_Barrier(comm) MPI_Barrier(comm)
-#endif
 
 #endif

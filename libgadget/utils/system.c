@@ -41,7 +41,7 @@ void enable_core_dumps_and_fpu_exceptions(void)
      feenableexcept(FE_DIVBYZERO | FE_INVALID);
    */
 
-  /* Note: FPU exceptions appear not to work properly 
+  /* Note: FPU exceptions appear not to work properly
    * when the Intel C-Compiler for Linux is used
    */
 
@@ -52,7 +52,7 @@ void enable_core_dumps_and_fpu_exceptions(void)
 
   /* MPICH catches the signales SIGSEGV, SIGBUS, and SIGFPE....
    * The following statements reset things to the default handlers,
-   * which will generate a core file.  
+   * which will generate a core file.
    */
   /*
      signal(SIGSEGV, catch_fatal);
@@ -118,8 +118,8 @@ double second(void)
   return MPI_Wtime();
 }
 
-/* returns the time difference between two measurements 
- * obtained with second(). The routine takes care of the 
+/* returns the time difference between two measurements
+ * obtained with second(). The routine takes care of the
  * possible overflow of the tick counter on 32bit systems.
  */
 double timediff(double t0, double t1)
@@ -305,8 +305,8 @@ size_t sizemax(size_t a, size_t b)
 
 int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
-        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm) 
-/* 
+        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm)
+/*
  * sdispls, recvcnts rdispls can be NULL,
  *
  * if recvbuf is NULL, returns total number of item required to hold the
@@ -361,11 +361,11 @@ int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
 
     if(tot_dense != 0) {
         ret = MPI_Alltoallv(sendbuf, sendcnts, sdispls,
-                    sendtype, recvbuf, 
+                    sendtype, recvbuf,
                     recvcnts, rdispls, recvtype, comm);
     } else {
         ret = MPI_Alltoallv_sparse(sendbuf, sendcnts, sdispls,
-                    sendtype, recvbuf, 
+                    sendtype, recvbuf,
                     recvcnts, rdispls, recvtype, comm);
 
     }
@@ -411,7 +411,7 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
         if(target >= NTask) continue;
         if(recvcnts[target] == 0) continue;
         MPI_Irecv(
-                ((char*) recvbuf) + recv_elsize * rdispls[target], 
+                ((char*) recvbuf) + recv_elsize * rdispls[target],
                 recvcnts[target],
                 recvtype, target, 101934, comm, &requests[n_requests++]);
     }
@@ -428,7 +428,7 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
         int target = ThisTask ^ ngrp;
         if(target >= NTask) continue;
         if(sendcnts[target] == 0) continue;
-        MPI_Isend(((char*) sendbuf) + send_elsize * sdispls[target], 
+        MPI_Isend(((char*) sendbuf) + send_elsize * sdispls[target],
                 sendcnts[target],
                 sendtype, target, 101934, comm, &requests[n_requests++]);
     }
@@ -442,12 +442,12 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
 
         if(target >= NTask) continue;
         if(sendcnts[target] == 0 && recvcnts[target] == 0) continue;
-        MPI_Sendrecv(((char*)sendbuf) + send_elsize * sdispls[target], 
-                sendcnts[target], sendtype, 
+        MPI_Sendrecv(((char*)sendbuf) + send_elsize * sdispls[target],
+                sendcnts[target], sendtype,
                 target, 101934,
                 ((char*)recvbuf) + recv_elsize * rdispls[target],
-                recvcnts[target], recvtype, 
-                target, 101934, 
+                recvcnts[target], recvtype,
+                target, 101934,
                 comm, MPI_STATUS_IGNORE);
 
     }
@@ -543,12 +543,11 @@ get_physmem_bytes()
 }
 
 /**
- * A facny MPI barrier (use MPIU_Barrier macro) mainly for -DDEBUG
+ * A fancy MPI barrier (use MPIU_Barrier macro)
  *
  *  - aborts if barrier mismatch occurs
  *  - warn if some ranks are very imbalanced.
  *
- * Shall only use in non-performance critical cituations.
  */
 int
 _MPIU_Barrier(const char * fn, const int line, MPI_Comm comm)
