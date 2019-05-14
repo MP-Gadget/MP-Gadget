@@ -225,9 +225,19 @@ blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
 
     /* Let's determine which particles may be swalled and calculate total feedback weights */
     SPH_SwallowID = mymalloc("SPH_SwallowID", SlotsManager->info[0].size * sizeof(MyIDType));
-    #pragma omp parallel for
-    for(i = 0; i < SlotsManager->info[0].size; i ++)
-        SPH_SwallowID[i] = -1;
+    if(ActiveParticle) {
+        #pragma omp parallel for
+        for(i = 0; i < NumActiveParticle; i ++) {
+            int p_i = ActiveParticle[i];
+            SPH_SwallowID[P[p_i].PI] = -1;
+        }
+    }
+    else {
+        #pragma omp parallel for
+        for(i = 0; i < SlotsManager->info[0].size; i ++) {
+            SPH_SwallowID[i] = -1;
+        }
+    }
 
     treewalk_run(tw_accretion, ActiveParticle, NumActiveParticle);
 
