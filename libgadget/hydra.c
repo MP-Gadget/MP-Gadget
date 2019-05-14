@@ -281,7 +281,6 @@ hydro_ngbiter(
             /* .... end artificial viscosity evaluation */
             /* now make sure that viscous acceleration is not too large */
 
-#ifndef NOVISCOSITYLIMITER
             /*XXX: why is this dloga ?*/
             double dloga = 2 * get_dloga_for_bin(IMAX(I->TimeBin, P[other].TimeBin));
             if(dloga > 0 && (dwk_i + dwk_j) < 0)
@@ -292,7 +291,6 @@ hydro_ngbiter(
                             (0.5 * (I->Mass + P[other].Mass) * (dwk_i + dwk_j) * r * dloga));
                 }
             }
-#endif
         }
         double hfc_visc = 0.5 * P[other].Mass * visc * (dwk_i + dwk_j) / r;
         double hfc = hfc_visc;
