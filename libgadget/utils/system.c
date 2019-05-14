@@ -543,7 +543,7 @@ get_physmem_bytes()
 }
 
 /**
- * A facny MPI barrier (use MPIU_Barrier macro)
+ * A facny MPI barrier (use MPIU_Barrier macro) mainly for -DDEBUG
  *
  *  - aborts if barrier mismatch occurs
  *  - warn if some ranks are very imbalanced.
@@ -557,34 +557,32 @@ _MPIU_Barrier(const char * fn, const int line, MPI_Comm comm)
     MPI_Comm_size(comm, &NTask);
     MPI_Comm_rank(comm, &ThisTask);
     int * recvbuf = ta_malloc("tags", int, NTask);
-    MPI_Request request;
     int tag = 0;
     int i;
-    for(i = 0; i < strlen(fn); i ++) {
+    for(i = 0; fn[i]; i ++) {
         tag += (int)fn[i] * 8;
     }
     tag += line;
 
+    MPI_Request request;
     MPI_Igather(&tag, 1, MPI_INT, recvbuf, 1, MPI_INT, 0, comm, &request);
-// #ifdef DEBUG TODO if this is a performance drag, change it to debug only
     i = 0;
     int flag = 1;
     int tsleep = 0;
     while(flag) {
         MPI_Test(&request, &flag, MPI_STATUS_IGNORE);
-        usleep(i * 20);
-        tsleep += i * 20;
+        if(flag) break;
+        usleep(i * 1000);
+        tsleep += i * 1000;
         i = i + 1;
         if(i == 50) {
             if(ThisTask == 0) {
-                MPIU_Trace(comm, 0, "Waited more than %g seconds during barrier %s : %d \n", tsleep / 1000., fn, line);
+                MPIU_Trace(comm, 0, "Waited more than %g seconds during barrier %s : %d \n", tsleep / 1000000., fn, line);
             }
             break;
         }
     }
-// #endif
     MPI_Wait(&request, MPI_STATUS_IGNORE);
-
     /* now check if all ranks indeed hit the same barrier. Some MPIs do allow them to mix up! */
     if (ThisTask == 0) {
         for(i = 0; i < NTask; i ++) {
