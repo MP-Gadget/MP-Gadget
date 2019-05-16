@@ -1,6 +1,8 @@
 CONFIG = ../Options.mk
 include $(CONFIG)
 
+.PHONY: depends
+.INTERMEDIATE: pfft
 LIBRARIES=lib/libbigfile-mpi.a lib/libmpsort-mpi.a
 FFTLIBRARIES=lib/libpfft_omp.a lib/libfftw3_mpi.a lib/libfftw3_omp.a
 depends: $(LIBRARIES) $(FFTLIBRARIES)
