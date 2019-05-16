@@ -112,9 +112,9 @@ init_itp_type(double * xarr, struct itp_type * Gamma, int Nelem)
 
 /* Helper function to correctly load a value in the TREECOOL file*/
 static double
-load_tree_value(void)
+load_tree_value(char ** saveptr)
 {
-    double data = atof(strtok(NULL, " \t"));
+    double data = atof(strtok_r(NULL, " \t", saveptr));
     if(data > 0)
         return log10(data);
     return -9000;
@@ -175,21 +175,22 @@ load_treecool(const char * TreeCoolFile)
         for(i = 0; i < NTreeCool; i++)
         {
             char buffer[1024];
+            char * saveptr;
             char * line = fgets(buffer, 1024, fd);
             /*Happens on end of file*/
             if(!line)
                 break;
-            char * retval = strtok(line, " \t");
+            char * retval = strtok_r(line, " \t", &saveptr);
             if(!retval || retval[0] == '#')
                 continue;
             Gamma_log1z[i] = atof(retval);
             /*Get the rest*/
-            Gamma_HI.ydata[i]   = load_tree_value();
-            Gamma_HeI.ydata[i]  = load_tree_value();
-            Gamma_HeII.ydata[i] = load_tree_value();
-            Eps_HI.ydata[i]     = load_tree_value();
-            Eps_HeI.ydata[i]    = load_tree_value();
-            Eps_HeII.ydata[i]   = load_tree_value();
+            Gamma_HI.ydata[i]   = load_tree_value(&saveptr);
+            Gamma_HeI.ydata[i]  = load_tree_value(&saveptr);
+            Gamma_HeII.ydata[i] = load_tree_value(&saveptr);
+            Eps_HI.ydata[i]     = load_tree_value(&saveptr);
+            Eps_HeI.ydata[i]    = load_tree_value(&saveptr);
+            Eps_HeII.ydata[i]   = load_tree_value(&saveptr);
         }
 
         fclose(fd);
