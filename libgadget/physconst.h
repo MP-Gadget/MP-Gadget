@@ -29,10 +29,7 @@
 #define  SEC_PER_MEGAYEAR   3.155e13
 #define  SEC_PER_YEAR       3.155e7
 
-#ifndef  GAMMA
 #define  GAMMA         (5.0/3.0)	/*!< adiabatic index of simulated gas */
-#endif
-
 #define  GAMMA_MINUS1  (GAMMA-1)
 
 #define  HYDROGEN_MASSFRAC 0.76	/*!< mass fraction of hydrogen, relevant only for radiative cooling */

@@ -1,9 +1,12 @@
 CONFIG = ../Options.mk
 include $(CONFIG)
 
+.PHONY: depends
+.INTERMEDIATE: pfft
 LIBRARIES=lib/libbigfile-mpi.a lib/libmpsort-mpi.a
 FFTLIBRARIES=lib/libpfft_omp.a lib/libfftw3_mpi.a lib/libfftw3_omp.a
 depends: $(LIBRARIES) $(FFTLIBRARIES)
+$(FFTLIBRARIES): pfft
 
 lib/libmpsort-mpi.a: mpsort/mpsort-mpi.c
 	mkdir -p lib; \
@@ -17,7 +20,7 @@ lib/libbigfile-mpi.a: bigfile/src/bigfile-mpi.c
 	cd bigfile/src; \
 	make install PREFIX=$(PWD) CC="$(MPICC)" MPICC="$(MPICC)" CFLAGS="$(OPTIMIZE)"
 
-lib/libpfft_omp.a:
+pfft:
 	mkdir -p lib; \
 	mkdir -p include; \
 	#Using -ipo causes icc to crash.
