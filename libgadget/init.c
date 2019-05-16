@@ -91,13 +91,11 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
         P[i].GravCost = 1;
         P[i].Ti_drift = P[i].Ti_kick = All.Ti_Current;
 
-#ifdef BLACK_HOLES
-        if(RestartSnapNum == -1 && P[i].Type == 5 )
+        if(All.BlackHoleOn && RestartSnapNum == -1 && P[i].Type == 5 )
         {
             /* Note: Gadget-3 sets this to the seed black hole mass.*/
             BHP(i).Mass = P[i].Mass;
         }
-#endif
         P[i].Key = PEANO(P[i].Pos, All.BoxSize);
 
         if(P[i].Type != 0) continue;
@@ -119,9 +117,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
         }
         SPHP(i).DelayTime = 0;
 
-#ifdef BLACK_HOLES
         SPHP(i).Injected_BH_Energy = 0;
-#endif
     }
 
     walltime_measure("/Init");
@@ -280,7 +276,6 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
         }
     }
 
-#ifdef BLACK_HOLES
     /* FIXME: move this inside the condition above and
       * save BHs in the snapshots to avoid this; */
     for(i = 0; i < PartManager->NumPart; i++)
@@ -290,7 +285,6 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
             P[i].Hsml = 0.01 * All.MeanSeparation[0];
             BHP(i).TimeBinLimit = -1;
         }
-#endif
 
     density(&Tree);
 

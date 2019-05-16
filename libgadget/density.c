@@ -461,10 +461,8 @@ void density_check_neighbours (int i, TreeWalk * tw) {
 
     double desnumngb = All.DesNumNgb;
 
-#ifdef BLACK_HOLES
-    if(P[i].Type == 5)
+    if(All.BlackHoleOn && P[i].Type == 5)
         desnumngb = All.DesNumNgb * All.BlackHoleNgbFactor;
-#endif
 
     MyFloat * Left = DENSITY_GET_PRIV(tw)->Left;
     MyFloat * Right = DENSITY_GET_PRIV(tw)->Right;
@@ -538,14 +536,12 @@ void density_check_neighbours (int i, TreeWalk * tw) {
         if(P[i].Hsml < All.MinGasHsml)
             P[i].Hsml = All.MinGasHsml;
 
-#ifdef BLACK_HOLES
-        if(P[i].Type == 5)
+        if(All.BlackHoleOn && P[i].Type == 5)
             if(Left[i] > All.BlackHoleMaxAccretionRadius)
             {
                 /* this will stop the search for a new BH smoothing length in the next iteration */
                 P[i].Hsml = Left[i] = Right[i] = All.BlackHoleMaxAccretionRadius;
             }
-#endif
 
     }
     else {

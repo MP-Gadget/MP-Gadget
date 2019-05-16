@@ -401,7 +401,6 @@ get_timestep_dloga(const int p)
             dt = dt_courant;
     }
 
-#ifdef BLACK_HOLES
     if(P[p].Type == 5)
     {
         if(BHP(p).Mdot > 0 && BHP(p).Mass > 0)
@@ -415,7 +414,6 @@ get_timestep_dloga(const int p)
             if (dt_limiter < dt) dt = dt_limiter;
         }
     }
-#endif
 
     /* d a / a = dt * H */
     double dloga = dt * All.cf.hubble;
@@ -462,14 +460,9 @@ get_timestep_ti(const int p, const inttime_t dti_max)
                 P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2]
               );
         if(P[p].Type == 0)
-            message(1, "hydro-frc=(%g|%g|%g) dens=%g hsml=%g numngb=%g egyrho=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g\n",
+            message(1, "hydro-frc=(%g|%g|%g) dens=%g hsml=%g numngb=%g egyrho=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g injected energy = %g\n",
                     SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1], SPHP(p).HydroAccel[2], SPHP(p).Density, P[p].Hsml, P[p].NumNgb, SPH_EOMDensity(p),
-                    SPH_DhsmlDensityFactor(p), SPHP(p).Entropy, SPHP(p).DtEntropy);
-#ifdef BLACK_HOLES
-        if(P[p].Type == 0) {
-            message(1, "injected_energy = %g\n" , SPHP(p).Injected_BH_Energy);
-        }
-#endif
+                    SPH_DhsmlDensityFactor(p), SPHP(p).Entropy, SPHP(p).DtEntropy, SPHP(p).Injected_BH_Energy);
     }
 
     return dti;
@@ -513,21 +506,21 @@ get_long_range_timestep_dloga()
 
     sumup_large_ints(6, count, count_sum);
 
-    /* add star and gas particles together to treat them on equal footing, using the original gas particle
-       spacing. */
+    /* add star, gas and black hole particles together to treat them on equal footing,
+     * using the original gas particle spacing. */
     if(All.StarformationOn) {
         v_sum[0] += v_sum[4];
         count_sum[0] += count_sum[4];
         v_sum[4] = v_sum[0];
         count_sum[4] = count_sum[0];
     }
-#ifdef BLACK_HOLES
-    v_sum[0] += v_sum[5];
-    count_sum[0] += count_sum[5];
-    v_sum[5] = v_sum[0];
-    count_sum[5] = count_sum[0];
-    min_mass[5] = min_mass[0];
-#endif
+    if(All.BlackHoleOn) {
+        v_sum[0] += v_sum[5];
+        count_sum[0] += count_sum[5];
+        v_sum[5] = v_sum[0];
+        count_sum[5] = count_sum[0];
+        min_mass[5] = min_mass[0];
+    }
 
     for(type = 0; type < 6; type++)
     {
@@ -536,9 +529,7 @@ get_long_range_timestep_dloga()
             double omega, dmean, dloga1;
             const double asmth = All.Asmth * All.BoxSize / All.Nmesh;
             if(type == 0 || (type == 4 && All.StarformationOn)
-#ifdef BLACK_HOLES
-                || (type == 5)
-#endif
+                || (type == 5 && All.BlackHoleOn)
                 ) {
                 omega = All.CP.OmegaBaryon;
             }

@@ -9,7 +9,7 @@ void set_fof_params(ParameterSet * ps);
 void fof_init(double DMMeanSeparation);
 
 /*Computes the Group structure, saved as a global array below*/
-void fof_fof(ForceTree * tree, double BoxSize, MPI_Comm Comm);
+void fof_fof(ForceTree * tree, double BoxSize, int BlackHoleInfo, MPI_Comm Comm);
 
 /*Frees the Group structure*/
 void
@@ -50,11 +50,11 @@ extern struct Group
     double Jmom[3]; /* sum M R_i x V_i  */
 
     double Sfr;
-#ifdef BLACK_HOLES
+    /*These are used for storing black hole properties*/
     double BH_Mass;
     double BH_Mdot;
     double MaxDens;
-#endif
+
     int seed_index;
     int seed_task;
 } * Group;

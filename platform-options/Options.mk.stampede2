@@ -21,6 +21,3 @@ GSL_LIBS = $(shell pkg-config --libs gsl)
 #OPT += -DDEBUG      # print a lot of debugging messages
 
 OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR
-
-#-------------------------------------- AGN stuff
-OPT	+=  -DBLACK_HOLES             # enables Black-Holes (master switch)
