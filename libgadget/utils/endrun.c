@@ -7,6 +7,7 @@
 #include <errno.h>
 
 #include "endrun.h"
+#include "system.h"
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -126,82 +127,19 @@ init_stacktrace()
     }
 }
 
-/* Watch out:
- *
- * On some versions of OpenMPI with CPU frequency scaling we see negative time
- * due to a bug in OpenMPI https://github.com/open-mpi/ompi/issues/3003
- *
- * But they have fixed it.
- */
-
-static double _timestart = -1;
-
 void
 init_endrun()
 {
-    _timestart = MPI_Wtime();
-
     init_stacktrace();
-}
-
-static int
-putline(const char * prefix, const char * line)
-{
-    const char * p, * q;
-    p = q = line;
-    int newline = 1;
-    while(*p != 0) {
-        if(newline)
-            write(STDOUT_FILENO, prefix, strlen(prefix));
-        if (*p == '\n') {
-            write(STDOUT_FILENO, q, p - q + 1);
-            q = p + 1;
-            newline = 1;
-            p ++;
-            continue;
-        }
-        newline = 0;
-        p++;
-    }
-    /* if the last line did not end with a new line, fix it here. */
-    if (q != p) {
-        const char * warning = "LASTMESSAGE did not end with new line: ";
-        write(STDOUT_FILENO, warning, strlen(warning));
-        write(STDOUT_FILENO, q, p - q);
-        write(STDOUT_FILENO, "\n", 1);
-    }
-    return 0;
-}
-
-static void
-messagev(int crash, int where, const char * fmt, va_list va)
-{
-    int ThisTask;
-    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-    char prefix[128];
-
-    char buf[4096];
-    vsprintf(buf, fmt, va);
-
-    if(where > 0) {
-        sprintf(prefix, "[ %09.2f ] Task %d: ", MPI_Wtime() - _timestart, ThisTask);
-    } else {
-        sprintf(prefix, "[ %09.2f ] ", MPI_Wtime() - _timestart);
-    }
-
-    if(ThisTask == 0 || where > 0) {
-        putline(prefix, buf);
-        if(crash) {
-            show_backtrace();
-            MPI_Abort(MPI_COMM_WORLD, where);
-        }
-    }
 }
 
 /*  This function aborts the simulation.
  *
- *  if where > 0, the error is uncollective.
- *  if where <= 0, the error is 'collective',  only the root rank prints the error.
+ *  if where > 0, a stacktrace is printed per rank calling endrun.
+ *  if where <= 0, the function shall be called by all ranks collectively.
+ *    and only the root rank prints the error. 
+ *
+ *  No barrier is applied.
  */
 void
 endrun(int where, const char * fmt, ...)
@@ -209,8 +147,14 @@ endrun(int where, const char * fmt, ...)
 
     va_list va;
     va_start(va, fmt);
-    messagev(1, where, fmt, va);
+    MPIU_Tracev(MPI_COMM_WORLD, where, fmt, va);
     va_end(va);
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask == 0 || where > 0) {
+        show_backtrace();
+        MPI_Abort(MPI_COMM_WORLD, where);
+    }
     /* This is here so the compiler knows this
      * function never returns. */
     exit(1);
@@ -220,14 +164,16 @@ endrun(int where, const char * fmt, ...)
 /*  This function writes a message.
  *
  *  if where > 0, the message is uncollective.
- *  if where <= 0, the message is 'collective', only the root rank prints the message. A barrier is applied.
+ *  if where <= 0, the message is 'collective', only the root rank prints the message.
+ *
+ *  No barrier is applied.
  */
 
 void message(int where, const char * fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
-    messagev(0, where, fmt, va);
+    MPIU_Tracev(MPI_COMM_WORLD, where, fmt, va);
     va_end(va);
 }
 

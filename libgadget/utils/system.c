@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <string.h>
 #include <math.h>
 #include <time.h>
@@ -15,10 +16,17 @@
 
 #include "system.h"
 #include "mymalloc.h"
+#include "endrun.h"
 
 
 #define  RNDTABLE 8192
 
+/* NOTE:
+ *
+ * The MPIU_xxx functions must be called after the memory module is initalized.
+ * Shall split them to a new module.
+ *
+ * */
 
 #ifdef DEBUG
 #include <fenv.h>
@@ -33,7 +41,7 @@ void enable_core_dumps_and_fpu_exceptions(void)
      feenableexcept(FE_DIVBYZERO | FE_INVALID);
    */
 
-  /* Note: FPU exceptions appear not to work properly 
+  /* Note: FPU exceptions appear not to work properly
    * when the Intel C-Compiler for Linux is used
    */
 
@@ -44,7 +52,7 @@ void enable_core_dumps_and_fpu_exceptions(void)
 
   /* MPICH catches the signales SIGSEGV, SIGBUS, and SIGFPE....
    * The following statements reset things to the default handlers,
-   * which will generate a core file.  
+   * which will generate a core file.
    */
   /*
      signal(SIGSEGV, catch_fatal);
@@ -110,8 +118,8 @@ double second(void)
   return MPI_Wtime();
 }
 
-/* returns the time difference between two measurements 
- * obtained with second(). The routine takes care of the 
+/* returns the time difference between two measurements
+ * obtained with second(). The routine takes care of the
  * possible overflow of the tick counter on 32bit systems.
  */
 double timediff(double t0, double t1)
@@ -127,6 +135,86 @@ double timediff(double t0, double t1)
 
   return dt;
 }
+
+static int
+putline(const char * prefix, const char * line)
+{
+    const char * p, * q;
+    p = q = line;
+    int newline = 1;
+    while(*p != 0) {
+        if(newline)
+            write(STDOUT_FILENO, prefix, strlen(prefix));
+        if (*p == '\n') {
+            write(STDOUT_FILENO, q, p - q + 1);
+            q = p + 1;
+            newline = 1;
+            p ++;
+            continue;
+        }
+        newline = 0;
+        p++;
+    }
+    /* if the last line did not end with a new line, fix it here. */
+    if (q != p) {
+        const char * warning = "LASTMESSAGE did not end with new line: ";
+        write(STDOUT_FILENO, warning, strlen(warning));
+        write(STDOUT_FILENO, q, p - q);
+        write(STDOUT_FILENO, "\n", 1);
+    }
+    return 0;
+}
+
+
+/* Watch out:
+ *
+ * On some versions of OpenMPI with CPU frequency scaling we see negative time
+ * due to a bug in OpenMPI https://github.com/open-mpi/ompi/issues/3003
+ *
+ * But they have fixed it.
+ */
+
+static double _timestart = -1;
+/*
+ * va_list version of MPIU_Trace.
+ * */
+void
+MPIU_Tracev(MPI_Comm comm, int where, const char * fmt, va_list va)
+{
+    if(_timestart == -1) {
+        _timestart = MPI_Wtime();
+    }
+    int ThisTask;
+    MPI_Comm_rank(comm, &ThisTask);
+    char prefix[128];
+
+    char buf[4096];
+    vsprintf(buf, fmt, va);
+
+    if(where > 0) {
+        sprintf(prefix, "[ %09.2f ] Task %d: ", MPI_Wtime() - _timestart, ThisTask);
+    } else {
+        sprintf(prefix, "[ %09.2f ] ", MPI_Wtime() - _timestart);
+    }
+
+    if(ThisTask == 0 || where > 0) {
+        putline(prefix, buf);
+    }
+}
+
+/*
+ * Write a trace message to the communicator.
+ * if where > 0, write from all ranks.
+ * if where == 0, only write from root rank.
+ * */
+void MPIU_Trace(MPI_Comm comm, int where, const char * fmt, ...)
+{
+    va_list va;
+    va_start(va, fmt);
+    MPIU_Tracev(comm, where, fmt, va);
+    va_end(va);
+}
+
 
 void
 sumup_large_ints(int n, int *src, int64_t *res)
@@ -217,8 +305,8 @@ size_t sizemax(size_t a, size_t b)
 
 int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
-        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm) 
-/* 
+        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm)
+/*
  * sdispls, recvcnts rdispls can be NULL,
  *
  * if recvbuf is NULL, returns total number of item required to hold the
@@ -273,11 +361,11 @@ int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
 
     if(tot_dense != 0) {
         ret = MPI_Alltoallv(sendbuf, sendcnts, sdispls,
-                    sendtype, recvbuf, 
+                    sendtype, recvbuf,
                     recvcnts, rdispls, recvtype, comm);
     } else {
         ret = MPI_Alltoallv_sparse(sendbuf, sendcnts, sdispls,
-                    sendtype, recvbuf, 
+                    sendtype, recvbuf,
                     recvcnts, rdispls, recvtype, comm);
 
     }
@@ -323,7 +411,7 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
         if(target >= NTask) continue;
         if(recvcnts[target] == 0) continue;
         MPI_Irecv(
-                ((char*) recvbuf) + recv_elsize * rdispls[target], 
+                ((char*) recvbuf) + recv_elsize * rdispls[target],
                 recvcnts[target],
                 recvtype, target, 101934, comm, &requests[n_requests++]);
     }
@@ -340,7 +428,7 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
         int target = ThisTask ^ ngrp;
         if(target >= NTask) continue;
         if(sendcnts[target] == 0) continue;
-        MPI_Isend(((char*) sendbuf) + send_elsize * sdispls[target], 
+        MPI_Isend(((char*) sendbuf) + send_elsize * sdispls[target],
                 sendcnts[target],
                 sendtype, target, 101934, comm, &requests[n_requests++]);
     }
@@ -354,12 +442,12 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
 
         if(target >= NTask) continue;
         if(sendcnts[target] == 0 && recvcnts[target] == 0) continue;
-        MPI_Sendrecv(((char*)sendbuf) + send_elsize * sdispls[target], 
-                sendcnts[target], sendtype, 
+        MPI_Sendrecv(((char*)sendbuf) + send_elsize * sdispls[target],
+                sendcnts[target], sendtype,
                 target, 101934,
                 ((char*)recvbuf) + recv_elsize * rdispls[target],
-                recvcnts[target], recvtype, 
-                target, 101934, 
+                recvcnts[target], recvtype,
+                target, 101934,
                 comm, MPI_STATUS_IGNORE);
 
     }
@@ -389,14 +477,15 @@ cluster_get_hostid()
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     MPI_Allreduce(&l, &ml, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-    
+
+    /* Avoid ta_malloc since this can be called very early. */
     buffer = malloc(ml * NTask);
     nid = malloc(sizeof(int) * NTask);
     MPI_Allgather(hostname, ml, MPI_BYTE, buffer, ml, MPI_BYTE, MPI_COMM_WORLD);
 
     typedef int(*compar_fn)(const void *, const void *);
     qsort(buffer, NTask, ml, (compar_fn) strcmp);
-    
+
     nid[0] = 0;
     for(i = 1; i < NTask; i ++) {
         if(strcmp(buffer + i * ml, buffer + (i - 1) *ml)) {
@@ -451,6 +540,58 @@ get_physmem_bytes()
     }
 #endif
     return 64 * 1024 * 1024;
+}
+
+/**
+ * A fancy MPI barrier (use MPIU_Barrier macro)
+ *
+ *  - aborts if barrier mismatch occurs
+ *  - warn if some ranks are very imbalanced.
+ *
+ */
+int
+_MPIU_Barrier(const char * fn, const int line, MPI_Comm comm)
+{
+    int ThisTask, NTask;
+    MPI_Comm_size(comm, &NTask);
+    MPI_Comm_rank(comm, &ThisTask);
+    int * recvbuf = ta_malloc("tags", int, NTask);
+    int tag = 0;
+    int i;
+    for(i = 0; fn[i]; i ++) {
+        tag += (int)fn[i] * 8;
+    }
+    tag += line;
+
+    MPI_Request request;
+    MPI_Igather(&tag, 1, MPI_INT, recvbuf, 1, MPI_INT, 0, comm, &request);
+    i = 0;
+    int flag = 1;
+    int tsleep = 0;
+    while(flag) {
+        MPI_Test(&request, &flag, MPI_STATUS_IGNORE);
+        if(flag) break;
+        usleep(i * 1000);
+        tsleep += i * 1000;
+        i = i + 1;
+        if(i == 50) {
+            if(ThisTask == 0) {
+                MPIU_Trace(comm, 0, "Waited more than %g seconds during barrier %s : %d \n", tsleep / 1000000., fn, line);
+            }
+            break;
+        }
+    }
+    MPI_Wait(&request, MPI_STATUS_IGNORE);
+    /* now check if all ranks indeed hit the same barrier. Some MPIs do allow them to mix up! */
+    if (ThisTask == 0) {
+        for(i = 0; i < NTask; i ++) {
+            if(recvbuf[i] != tag) {
+                MPIU_Trace(comm, 0, "Task %d Did not hit barrier at %s : %d; expecting %d, got %d\n", i, fn, line, tag, recvbuf[i]);
+            }
+        }
+    }
+    ta_free(recvbuf);
+    return 0;
 }
 
 int

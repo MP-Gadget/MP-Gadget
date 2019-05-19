@@ -771,7 +771,7 @@ static void pm_iterate(pm_iterator iterator, PetaPMRegion * regions) {
     for(i = 0; i < CPS->NumPart; i ++) {
         pm_iterate_one(i, iterator, regions); 
     }
-    MPI_Barrier(MPI_COMM_WORLD);
+    MPIU_Barrier(MPI_COMM_WORLD);
 }
 
 void petapm_region_init_strides(PetaPMRegion * region) {

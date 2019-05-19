@@ -176,13 +176,13 @@ void fof_fof(ForceTree * tree, double BoxSize, int BlackHoleInfo, MPI_Comm Comm)
     /* Fill FOFP_List of primary */
     fof_label_primary(tree, Comm);
 
-    MPI_Barrier(Comm);
+    MPIU_Barrier(Comm);
     message(0, "Group finding done.\n");
     walltime_measure("/FOF/Primary");
 
     /* Fill FOFP_List of secondary */
     fof_label_secondary(tree);
-    MPI_Barrier(Comm);
+    MPIU_Barrier(Comm);
     message(0, "Attached gas and star particles to nearest dm particles.\n");
 
     walltime_measure("/FOF/Secondary");
@@ -202,7 +202,7 @@ void fof_fof(ForceTree * tree, double BoxSize, int BlackHoleInfo, MPI_Comm Comm)
 
     fof_compile_base(base, Comm);
 
-    MPI_Barrier(Comm);
+    MPIU_Barrier(Comm);
     message(0, "Compiled local group data and catalogue.\n");
 
     walltime_measure("/FOF/Compile");
@@ -216,7 +216,7 @@ void fof_fof(ForceTree * tree, double BoxSize, int BlackHoleInfo, MPI_Comm Comm)
 
     fof_compile_catalogue(Group, BoxSize, BlackHoleInfo, Comm);
 
-    MPI_Barrier(Comm);
+    MPIU_Barrier(Comm);
     message(0, "Finished FoF. Group properties are now allocated.. (presently allocated=%g MB)\n",
             mymalloc_usedbytes() / (1024.0 * 1024.0));
 

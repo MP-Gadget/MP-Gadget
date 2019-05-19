@@ -1,6 +1,8 @@
 #ifndef __UTILS_SYSTEM_H__
 #define __UTILS_SYSTEM_H__
 
+#include <stdint.h>
+
 /* Note on a 32-bit architecture MPI_LONG may be 32-bit,
  * so these should be MPI_LONG_LONG. But in
  * the future MPI_LONG_LONG may become 128-bit.*/
@@ -73,5 +75,13 @@ static inline int atomic_add_and_fetch(int * ptr, int value) {
     }
     return k;
 }
+
+void MPIU_Trace(MPI_Comm comm, int where, const char * fmt, ...);
+void MPIU_Tracev(MPI_Comm comm, int where, const char * fmt, va_list va);
+
+int _MPIU_Barrier(const char * fn, const int ln, MPI_Comm comm);
+
+/* Fancy barrier which warns if there is a lot of imbalance. */
+#define MPIU_Barrier(comm) _MPIU_Barrier(__FILE__, __LINE__, comm)
 
 #endif

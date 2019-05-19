@@ -218,7 +218,7 @@ blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
     tw_feedback->result_type_elsize = sizeof(TreeWalkResultBHFeedback);
     tw_feedback->tree = tree;
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Beginning black-hole accretion\n");
 
     N_sph_swallowed = N_BH_swallowed = 0;
@@ -241,7 +241,7 @@ blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
 
     treewalk_run(tw_accretion, ActiveParticle, NumActiveParticle);
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Start swallowing of gas particles and black holes\n");
 
     /* Now do the swallowing of particles and dump feedback energy */
@@ -252,7 +252,7 @@ blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
     MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&N_BH_swallowed, &Ntot_BH_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Accretion done: %d gas particles swallowed, %d BH particles swallowed\n",
                 Ntot_gas_swallowed, Ntot_BH_swallowed);
 

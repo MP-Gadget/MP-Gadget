@@ -230,7 +230,7 @@ void domain_decompose_full(DomainDecomp * ddecomp)
     slots_gc_sorted();
 
     /*Ensure collective*/
-    MPI_Barrier(ddecomp->DomainComm);
+    MPIU_Barrier(ddecomp->DomainComm);
     message(0, "Domain decomposition done.\n");
 
     report_memory_usage("DOMAIN");
