@@ -46,7 +46,8 @@ static PetaPMGlobalFunctions global_functions = {NULL, NULL, potential_transfer}
 static PetaPMRegion * _prepare(void * userdata, int * Nregions);
 
 void gravpm_init_periodic() {
-    petapm_init(All.BoxSize, All.Nmesh, All.NumThreads);
+    petapm_init(All.BoxSize, All.Nmesh, MPI_COMM_WORLD);
+
     /*Initialise the kspace neutrino code if it is enabled.
      * Mpc units are used to match power spectrum code.*/
     if(All.MassiveNuLinRespOn) {

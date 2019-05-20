@@ -42,7 +42,8 @@ int main(int argc, char **argv)
   init_powerspectrum(ThisTask, All.TimeIC, All.UnitLength_in_cm, &All.CP, &All2.PowerP);
   All.NumThreads = omp_get_max_threads();
 
-  petapm_init(All.BoxSize, All.Nmesh, All.NumThreads);
+  petapm_module_init(All.NumThreads);
+  petapm_init(All.BoxSize, All.Nmesh, MPI_COMM_WORLD);
   /*Initialise particle spacings*/
   const double meanspacing = All.BoxSize / DMAX(All2.Ngrid, All2.NgridGas);
   const double shift_gas = -All2.ProduceGas * 0.5 * (All.CP.Omega0 - All.CP.OmegaBaryon) / All.CP.Omega0 * meanspacing;

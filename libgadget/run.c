@@ -16,6 +16,7 @@
 #include "cooling.h"
 #include "checkpoint.h"
 #include "petaio.h"
+#include "petapm.h"
 #include "timestep.h"
 #include "drift.h"
 #include "forcetree.h"
@@ -73,6 +74,7 @@ void begrun(int RestartSnapNum, DomainDecomp * ddecomp)
 
     hci_init(HCI_DEFAULT_MANAGER, All.OutputDir, All.TimeLimitCPU, All.AutoSnapshotTime);
 
+    petapm_module_init(All.NumThreads);
     petaio_init();
     walltime_init(&All.CT);
 
