@@ -11,8 +11,6 @@
 #include "treewalk.h"
 #include "slotsmanager.h"
 #include "timestep.h"
-/* For sfr_need_to_compute_sph_grad_rho*/
-#include "sfr_eff.h"
 #include "winds.h"
 #include "utils.h"
 
@@ -279,7 +277,7 @@ density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMod
         TREEWALK_REDUCE(SPHP(place).Rot[1], remote->Rot[1]);
         TREEWALK_REDUCE(SPHP(place).Rot[2], remote->Rot[2]);
 
-        if(sfr_need_to_compute_sph_grad_rho()) {
+        if(SphP_scratch->GradRho) {
             int pi = P[place].PI;
             TREEWALK_REDUCE(SphP_scratch->GradRho[3*pi], remote->GradRho[0]);
             TREEWALK_REDUCE(SphP_scratch->GradRho[3*pi+1], remote->GradRho[1]);
@@ -365,7 +363,7 @@ density_ngbiter(
         }
 
 
-        if(sfr_need_to_compute_sph_grad_rho()) {
+        if(SphP_scratch->GradRho) {
             if(r > 0)
             {
                 int d;

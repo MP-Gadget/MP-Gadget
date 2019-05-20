@@ -661,6 +661,8 @@ slots_allocate_sph_scratch_data(int sph_grad_rho, int nsph)
 void
 slots_free_sph_scratch_data(struct sph_scratch_data * SphScratch)
 {
-    if(SphScratch->GradRho)
+    if(SphScratch->GradRho) {
         myfree(SphScratch->GradRho);
+        SphScratch->GradRho = NULL;
+    }
 }
