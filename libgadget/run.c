@@ -211,8 +211,6 @@ void run(DomainDecomp * ddecomp)
             cooling_and_starformation(&Tree);
         }
 
-        slots_free_sph_scratch_data(SphP_scratch);
-
         /* Update velocity to Ti_Current; this synchonizes TiKick and TiDrift for the active particles */
 
         if(is_PM) {
@@ -252,6 +250,8 @@ void run(DomainDecomp * ddecomp)
         }
 
         write_checkpoint(WriteSnapshot, WriteFOF, &Tree);
+
+        slots_free_sph_scratch_data(SphP_scratch);
 
         write_cpu_log(NumCurrentTiStep);		/* produce some CPU usage info */
 
