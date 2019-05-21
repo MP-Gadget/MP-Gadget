@@ -19,7 +19,6 @@ GSL_LIBS = $(shell pkg-config --libs gsl)
 #OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development
 #OPT += VALGRIND     # allow debugging with valgrind, disable the GADGET memory allocator.
 #OPT += -DDEBUG      # print a lot of debugging messages
-OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR
 #Disable openmp locking. This means no threading. Required on mac.
 OPT += -DNO_OPENMP_SPINLOCK
 

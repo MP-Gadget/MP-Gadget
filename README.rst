@@ -73,16 +73,14 @@ platform-options directory. For example, for Stampede 2 you should do:
 
     cp platform-options/Options.mk.stampede2 Options.mk
 
-You may also tweak the compilation options in Options.mk to enable various features.
-Unlike P-Gadget3, this is mostly unnecessary. Almost all options are now set at runtime.
-The single remaining science compile time flag is SPH_GRAD_RHO, which enables computation of
-the SPH density gradient and is required for some advanced star formation routines.
+Compile-time options may be set in Options.mk. The remaining compile time options are generally only useful for development or debugging. All science options are set using a parameter file at runtime.
 
-There are also some options useful for code debugging:
 - DEBUG which enables various internal code consistency checks for debugging.
 - VALGRIND which if set disables the internal memory allocator and allocates memory from the system. This is required for debugging memory allocation errors with valgrind of the address sanitizer.
+- NO_ISEND_IRECV_IN_DOMAIN disables the use of asynchronous send and receive in our custom MPI_Alltoallv implementation, for buggy MPI libraries.
+- NO_OPENMP_SPINLOCK disables the use of OpenMP spinlocks and thus effectively disables threading. Necessary for platforms which do not provide an OpenMP header, such as Mac.
 
-If compilation fails with errors related to the GSL, you may also need to set the GSL_INC or GSL_LIB variables in Options.mk to the filesystem path contianing the GSL headers and libraries.
+If compilation fails with errors related to the GSL, you may also need to set the GSL_INC or GSL_LIB variables in Options.mk to the filesystem path containing the GSL headers and libraries.
 
 To run a N-Body sim, use IC files with no gas particles.
 
@@ -90,9 +88,9 @@ Now we are ready to build
 
 .. code:: bash
 
-    make -j 8
+    make -j
 
-It takes some time to build pfft, one of the bundled dependencies. 
+It takes some time to build pfft, a bundled dependency for pencil-based fast Fourier transforms.
 Other libraries are bigfile and mp-sort, which are written by Yu Feng and are quick to build. 
 
 In the end, we will have 2 binaries:

@@ -18,6 +18,7 @@
 #include "domain.h"
 #include "slotsmanager.h"
 #include "hydra.h"
+#include "sfr_eff.h"
 #include "exchange.h"
 #include "fof.h"
 #include "timestep.h"
@@ -286,6 +287,9 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
             BHP(i).TimeBinLimit = -1;
         }
 
+    /*Allocate the extra SPH data for transient SPH particle properties.*/
+    slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size);
+
     density(&Tree);
 
     /* for clean IC with U input only, we need to iterate to find entrpoy */
@@ -327,5 +331,6 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
     if(All.DensityIndependentSphOn)
         density_update(&Tree);
 
+    slots_free_sph_scratch_data(SphP_scratch);
     force_tree_free(&Tree);
 }

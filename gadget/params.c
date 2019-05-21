@@ -37,12 +37,6 @@ StarformationCriterionAction(ParameterSet * ps, char * name, void * data)
         message(1, "error: At least use SFR_CRITERION_DENSITY\n");
         return 1;
     }
-#if ! defined SPH_GRAD_RHO
-    if(HAS(v, SFR_CRITERION_MOLECULAR_H2)) {
-        message(1, "error: enable SPH_GRAD_RHO to use h2 criterion in sfr \n");
-        return 1;
-    }
-#endif
     return 0;
 }
 
@@ -270,8 +264,7 @@ create_gadget_parameter_set()
     static ParameterEnum StarformationCriterionEnum [] = {
         {"density", SFR_CRITERION_DENSITY}, /* SH03 density model for star formation*/
         {"h2", SFR_CRITERION_MOLECULAR_H2}, /* Form stars depending on the computed
-                                               molecular gas fraction as a function of metallicity.
-                                               Needs SPH_GRAD_RHO enabled at compile-time. */
+                                               molecular gas fraction as a function of metallicity. */
         {"selfgravity", SFR_CRITERION_SELFGRAVITY}, /* Form stars only when the gas is self-gravitating. From Phil Hopkins.*/
         {"convergent", SFR_CRITERION_CONVERGENT_FLOW}, /* Modify self-gravitating star formation to form stars only when the gas flow is convergent. From Phil Hopkins.*/
         {"continuous", SFR_CRITERION_CONTINUOUS_CUTOFF}, /* Modify self-gravitating star formation to smooth the star formation threshold. From Phil Hopkins.*/

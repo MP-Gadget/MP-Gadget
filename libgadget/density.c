@@ -49,10 +49,8 @@ typedef struct {
 
     int Ninteractions;
 
-
-#ifdef SPH_GRAD_RHO
+    /*Only used if sfr_need_to_compute_sph_grad_rho is true*/
     MyFloat GradRho[3];
-#endif
 } TreeWalkResultDensity;
 
 struct DensityPriv {
@@ -279,11 +277,12 @@ density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMod
         TREEWALK_REDUCE(SPHP(place).Rot[1], remote->Rot[1]);
         TREEWALK_REDUCE(SPHP(place).Rot[2], remote->Rot[2]);
 
-#ifdef SPH_GRAD_RHO
-        TREEWALK_REDUCE(SPHP(place).GradRho[0], remote->GradRho[0]);
-        TREEWALK_REDUCE(SPHP(place).GradRho[1], remote->GradRho[1]);
-        TREEWALK_REDUCE(SPHP(place).GradRho[2], remote->GradRho[2]);
-#endif
+        if(SphP_scratch->GradRho) {
+            int pi = P[place].PI;
+            TREEWALK_REDUCE(SphP_scratch->GradRho[3*pi], remote->GradRho[0]);
+            TREEWALK_REDUCE(SphP_scratch->GradRho[3*pi+1], remote->GradRho[1]);
+            TREEWALK_REDUCE(SphP_scratch->GradRho[3*pi+2], remote->GradRho[2]);
+        }
 
         /*Only used for density independent SPH*/
         if(All.DensityIndependentSphOn) {
@@ -364,15 +363,15 @@ density_ngbiter(
         }
 
 
-#ifdef SPH_GRAD_RHO
-        if(r > 0)
-        {
-            int d;
-            for (d = 0; d < 3; d ++) {
-                O->GradRho[d] += mass_j * dwk * dist[d] / r;
+        if(SphP_scratch->GradRho) {
+            if(r > 0)
+            {
+                int d;
+                for (d = 0; d < 3; d ++) {
+                    O->GradRho[d] += mass_j * dwk * dist[d] / r;
+                }
             }
         }
-#endif
 
         if(r > 0)
         {

@@ -830,7 +830,14 @@ find_star_mass(int i)
  * You may need a license to run with these modess.
 
  * */
-#if defined SPH_GRAD_RHO
+
+int sfr_need_to_compute_sph_grad_rho(void)
+{
+    if (HAS(sfr_params.StarformationCriterion, SFR_CRITERION_MOLECULAR_H2)) {
+        return 1;
+    }
+    return 0;
+}
 static double ev_NH_from_GradRho(MyFloat gradrho[3], double hsml, double rho, double include_h)
 {
     /* column density from GradRho, copied from gadget-p; what is it
@@ -845,23 +852,17 @@ static double ev_NH_from_GradRho(MyFloat gradrho[3], double hsml, double rho, do
     }
     return gradrho_mag; // *(Z/Zsolar) add metallicity dependence
 }
-#endif
 
 static double get_sfr_factor_due_to_h2(int i) {
     /*  Krumholz & Gnedin fitting function for f_H2 as a function of local
      *  properties, from gadget-p; we return the enhancement on SFR in this
      *  function */
 
-#if ! defined SPH_GRAD_RHO
-    /* if SPH_GRAD_RHO is not enabled, disable H2 molecular gas
-     * this really shall not happen because begrun will check against the
-     * condition. Ditto if not metal tracking.
-     * */
-    return 1.0;
-#else
+    if(!sfr_need_to_compute_sph_grad_rho())
+        endrun(1, "Needed grad rho but not enabled! Should never happen!\n");
     double tau_fmol;
     double zoverzsun = SPHP(i).Metallicity/METAL_YIELD;
-    tau_fmol = ev_NH_from_GradRho(SPHP(i).GradRho,P[i].Hsml,SPHP(i).Density,1) * All.cf.a2inv;
+    tau_fmol = ev_NH_from_GradRho(&(SphP_scratch->GradRho[3*P[i].PI]),P[i].Hsml,SPHP(i).Density,1) * All.cf.a2inv;
     tau_fmol *= (0.1 + zoverzsun);
     if(tau_fmol>0) {
         tau_fmol *= 434.78*All.UnitDensity_in_cgs*All.CP.HubbleParam*All.UnitLength_in_cm;
@@ -874,7 +875,6 @@ static double get_sfr_factor_due_to_h2(int i) {
 
     } // if(tau_fmol>0)
     return 1.0;
-#endif
 }
 
 static double get_sfr_factor_due_to_selfgravity(int i) {
