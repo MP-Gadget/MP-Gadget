@@ -46,6 +46,9 @@ struct cooling_params
     /*Threshold redshift above which the UVB is set to zero*/
     double UVRedshiftThreshold;
 
+    /* Hydrogen heating modifier */
+    double HydrogenHeatAmp;
+
     /*Parameters for the 'extra heating' Helium photoionization model.*/
     int HeliumHeatOn;
     double HeliumHeatThresh;
