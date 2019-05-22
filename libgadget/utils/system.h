@@ -27,6 +27,8 @@ int cluster_get_num_hosts();
 int cluster_get_hostid();
 double get_physmem_bytes();
 
+/* Gets a random number in the range [0, 1). Only the low bits of the id are used,
+ * and random deviates are drawn from a pre-seeded table so that they are independent of processor.*/
 double get_random_number(uint64_t id);
 void set_random_numbers(int seed);
 void sumup_large_ints(int n, int *src, int64_t *res);
