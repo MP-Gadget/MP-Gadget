@@ -761,6 +761,8 @@ void blackhole_make_one(int index) {
     BHP(child).Mdot = 0;
     BHP(child).FormationTime = All.Time;
 
+    BHP(child).QuasarTime = -1;
+
     /* It is important to initialize MinPotPos to the current position of
      * a BH to avoid drifting to unknown locations (0,0,0) immediately
      * after the BH is created. */

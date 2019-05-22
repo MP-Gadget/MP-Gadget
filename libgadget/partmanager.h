@@ -26,7 +26,8 @@ struct particle_data
         unsigned int Swallowed            :1; /* True if the particle is being swallowed; used in BH to determine swallower and swallowee;*/
         unsigned int spare_0            :1;
 
-        unsigned char Generation; /* How many particles it has spawned; used to generate unique particle ID.
+        unsigned int Ionized              :1; /*True if the particle has undergone helium reionization*/
+        unsigned char Generation;             /* How many particles it has spawned; used to generate unique particle ID.
                                      may wrap around with too many SFR/BH if a feedback model goes rogue */
 
         signed char TimeBin; /* Time step bin; -1 for unassigned.*/
