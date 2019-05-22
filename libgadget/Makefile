@@ -16,6 +16,7 @@ INCL = densitykernel.h \
 	allvars.h \
 	partmanager.h \
 	cooling.h   \
+	cooling_rates.h cooling_qso_lightup.h \
 	domain.h   \
 	exchange.h \
 	slotsmanager.h     \
@@ -91,8 +92,8 @@ GADGET_OBJS =  \
 	 blackhole.o timebinmgr.o \
 	 run.o drift.o stats.o \
 	 timestep.o init.o checkpoint.o \
-	 sfr_eff.o cooling.o cooling_rates.o cooling_uvfluc.o winds.o \
-	 density.o \
+	 sfr_eff.o cooling.o cooling_rates.o cooling_uvfluc.o cooling_qso_lightup.o \
+	 winds.o density.o \
 	 treewalk.o cosmology.o \
 	 gravshort-tree.o gravshort-pair.o hydra.o  timefac.o \
 	 gravpm.o powerspectrum.o \
