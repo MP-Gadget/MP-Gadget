@@ -146,6 +146,7 @@ static void test_DoCooling(void ** state)
     coolpar.PhotoIonizationOn = 1;
     coolpar.recomb = Cen92;
     coolpar.cooling = KWH92;
+    coolpar.HydrogenHeatAmp = 1;
     coolpar.HeliumHeatOn = 0;
     coolpar.HeliumHeatAmp = 1.;
     coolpar.HeliumHeatExp = 0.;
