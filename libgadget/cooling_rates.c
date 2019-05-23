@@ -188,7 +188,7 @@ load_treecool(const char * TreeCoolFile)
             Gamma_HI.ydata[i]   = load_tree_value(&saveptr);
             Gamma_HeI.ydata[i]  = load_tree_value(&saveptr);
             Gamma_HeII.ydata[i] = load_tree_value(&saveptr);
-            Eps_HI.ydata[i]     = load_tree_value(&saveptr) + log10(CoolingParams.HydrogenHeatAmp);
+            Eps_HI.ydata[i]     = load_tree_value(&saveptr)+ CoolingParams.HydrogenHeatAmp;
             Eps_HeI.ydata[i]    = load_tree_value(&saveptr);
             Eps_HeII.ydata[i]   = load_tree_value(&saveptr);
         }
@@ -944,7 +944,7 @@ set_cooling_params(ParameterSet * ps)
         CoolingParams.rho_crit_baryon = OmegaBaryon * 3.0 * pow(HubbleParam*HUBBLE,2.0) /(8.0*M_PI*GRAVITY);
         CoolingParams.MinGasTemp = param_get_double(ps, "MinGasTemp");
         CoolingParams.UVRedshiftThreshold = param_get_double(ps, "UVRedshiftThreshold");
-        CoolingParams.HydrogenHeatAmp = param_get_double(ps, "HydrogenHeatAmp");
+        CoolingParams.HydrogenHeatAmp = log10(param_get_double(ps, "HydrogenHeatAmp"));
 
         /*Helium model parameters*/
         CoolingParams.HeliumHeatOn = param_get_int(ps, "HeliumHeatOn");
