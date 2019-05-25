@@ -33,6 +33,8 @@
 #include "physconst.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
+#include "treewalk.h"
+#include "drift.h"
 #include "utils/endrun.h"
 #include "utils/system.h"
 #include "utils/paramset.h"
@@ -57,11 +59,14 @@ struct qso_lightup_params
 static struct qso_lightup_params QSOLightupParams;
 /* Memory for the helium reionization history*/
 static int Nreionhist;
-double * He_zz;
-double * XHeIII;
-double * LMFP;
-gsl_interp * HeIII_intp;
-gsl_interp * LMFP_intp;
+static double * He_zz;
+static double * XHeIII;
+static double * LMFP;
+static gsl_interp * HeIII_intp;
+static gsl_interp * LMFP_intp;
+/* Counters*/
+static int N_ionized;
+static double mass_ionized;
 
 /* Load in reionization history file and build the interpolators between redshift and XHeII.
  * Format is:
@@ -171,6 +176,8 @@ void
 init_qso_lightup(char * reion_hist_file)
 {
     load_heii_reion_hist(reion_hist_file);
+    N_ionized = 0;
+    mass_ionized = 0;
 }
 
 /* This function gets a random number from a Gaussian distribution using the Box-Muller transform.*/
@@ -281,16 +288,17 @@ quasar_emissivity_K15(double redshift, double alpha_q)
 static int
 need_more_quasars(double redshift)
 {
-    int i; 
-    int n_ionized = 0;
     int64_t n_ionized_tot = 0, n_gas_tot = 0;
+    /*int i, n_ionized = 0;
     for (i = 0; i < PartManager->NumPart; i++){
         if (P[i].Type == 0 && P[i].Ionized == 1){
             n_ionized ++;
         }
-    }
-    /* Get total ionization fraction*/
-    sumup_large_ints(1, &n_ionized, &n_ionized_tot);
+    }*/
+    /* Get total ionization fraction: note this
+     * includes all gas particles that have been ionized,
+     * thus gas has become stars.*/
+    sumup_large_ints(1, &N_ionized, &n_ionized_tot);
     sumup_large_ints(1, &SlotsManager->info[0].size, &n_gas_tot);
     double ionized_frac = (double) n_ionized_tot / (double) n_gas_tot;
 
@@ -299,49 +307,107 @@ need_more_quasars(double redshift)
     return ionized_frac < desired_frac;
 }
 
-/* Find all particles within the radius of the HeIII bubble and flag each particle as ionized.
- * FIXME: This should presumably heat the particles too?
+static void
+add_instantaneous_helium_heating(int other)
+{
+    /* Add some energy. FIXME: To implement.*/
+    SPHP(other).Entropy += 0;
+}
+
+/**
+ * Ionize and heat the particles
  */
 static void
-ionize_all_part(double redshift, double qso_ind)
+ionize_ngbiter(TreeWalkQueryBase * I,
+        TreeWalkResultBase * O,
+        TreeWalkNgbIterBase * iter,
+        LocalTreeWalk * lv)
 {
-    /* Get the size of the bubble around this quasar.*/
-    double max_distance = -1;
-    if(qso_ind > 0)
-        max_distance = gaussian_rng(QSOLightupParams.mean_bubble, QSOLightupParams.var_bubble, qso_ind)/2.;
-    MPI_Allreduce(&max_distance, &max_distance, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
 
-   /* This should be done by using a treewalk with a custom visit function which is similar to treewalk_ngbiter
-    * but with a constant spatial distance rather than the Hsml values. This will be O(N_Bh * logN_part) and so
-    * ought to be reasonably fast. You might have to worry about doing particles that are on other
-    * processors efficiently (by exporting the black hole?), but mostly this is a copy of blackhole.c
-    * All it does is find particles within a distance of a black hole and make them ionized.*/
+    if(iter->other == -1) {
+        /* Gas only*/
+        iter->mask = 1;
+        /* Bubble size*/
+        double bubble = gaussian_rng(QSOLightupParams.mean_bubble, sqrt(QSOLightupParams.var_bubble), I->ID);
+        iter->Hsml = bubble;
+        /* Don't care about gas HSML */
+        iter->symmetric = NGB_TREEFIND_ASYMMETRIC;
+        return;
+    }
 
-    /*tree = cKDTree(pos)
+    int other = iter->other;
 
+     /* This BH affects only non-ionized gas particles. */
+    if(P[other].Type != 0 || P[other].Ionized != 0)
+        return;
 
-    point_neighbors_list = [] # Put the neighbors of each point here
-    particle_IDs_list = [] # Put the neighbors of each point here
+    lock_particle(other);
 
-    distances, indices = tree.query(halo, len(pos), p=2, distance_upper_bound=max_distance)
-    point_neighbors = []
-    particle_IDs = []
-    for index, distance in zip(indices, distances):
-        if distance == np.inf:
-            break
-        point_neighbors.append(pos[index])
-        particle_IDs.append(IDs[index])
-     point_neighbors_list = np.vstack(point_neighbors)
+    /* Mark it ionized*/
+    P[other].Ionized = 1;
 
-    P[i].IsIonized == 1;
-    */
+    /* Heat the particle*/
+    add_instantaneous_helium_heating(other);
+
+    unlock_particle(other);
+
+    /* Add to the ionization counter*/
+    #pragma omp atomic
+    N_ionized++;
+
+    #pragma omp atomic
+    mass_ionized += P[other].Mass;
+}
+
+static void
+ionize_copy(int place, TreeWalkQueryBase * I, TreeWalk * tw)
+{
+    int k;
+    for(k = 0; k < 3; k++)
+    {
+        I->Pos[k] = P[place].Pos[k];
+    }
+    I->ID = P[place].ID;
+}
+
+/* Find all particles within the radius of the HeIII bubble,
+ * flag each particle as ionized and add instantaneous heating.
+ */
+static void
+ionize_all_part(int qso_ind, ForceTree * tree)
+{
+    /* This treewalk finds not yet ionized particles within the radius of the black hole, ionizes them and
+     * adds an instantaneous heating to them. */
+    TreeWalk tw[1] = {{0}};
+
+    tw->ev_label = "HELIUM";
+    /* This could select the black holes to be made quasars, but we do it below.*/
+    tw->haswork = NULL;
+    tw->tree = tree;
+
+    /* We set Hsml to a constant in ngbiter, so this
+     * searches a constant distance from the BH.*/
+    tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
+    tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBase);
+    tw->ngbiter = ionize_ngbiter;
+
+    tw->fill = (TreeWalkFillQueryFunction) ionize_copy;
+    tw->reduce = NULL;
+    tw->postprocess = NULL;
+    tw->UseNodeList = 1;
+    tw->query_type_elsize = sizeof(TreeWalkQueryBase);
+    tw->result_type_elsize = sizeof(TreeWalkResultBase);
+    tw->priv = NULL;
+
+    /* This runs only on one BH*/
+    treewalk_run(tw, &qso_ind, 1);
 }
 
 /* Sequentially turns on quasars.
  * Keeps adding new quasars until need_more_quasars() returns 0.
  */
 void
-turn_on_quasars(double redshift)
+turn_on_quasars(double redshift, ForceTree * tree)
 {
     int nqso;
     int * qso_cand;
@@ -350,7 +416,7 @@ turn_on_quasars(double redshift)
     while (need_more_quasars(redshift)){
         /* Get a new quasar*/
         int new_qso = choose_QSO_halo(ncand, nqso, MPI_COMM_WORLD);
-        ionize_all_part(redshift,new_qso);
+        ionize_all_part(new_qso, tree);
         /* Remove this candidate from the list by moving the list down.*/
         if( new_qso > 0) {
             memmove(qso_cand+new_qso, qso_cand+new_qso+1, ncand - new_qso);
@@ -362,10 +428,10 @@ turn_on_quasars(double redshift)
 
 /* Starts reionization by selecting the first halo and flagging all particles in the first HeIII bubble*/    
 void
-start_reionization(double redshift)
+start_reionization(double redshift, ForceTree * tree)
 {
     message(0, "HeII Reionization initiated.");
     if(redshift > QSOLightupParams.heIIIreion_start)
         return;
-    turn_on_quasars(redshift);
+    turn_on_quasars(redshift, tree);
 }
