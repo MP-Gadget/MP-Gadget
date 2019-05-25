@@ -171,8 +171,8 @@ load_treecool(const char * TreeCoolFile)
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0)
     {
-        int i;
-        for(i = 0; i < NTreeCool; i++)
+        int i = 0;
+        while(i < NTreeCool)
         {
             char buffer[1024];
             char * saveptr;
@@ -191,6 +191,7 @@ load_treecool(const char * TreeCoolFile)
             Eps_HI.ydata[i]     = load_tree_value(&saveptr);
             Eps_HeI.ydata[i]    = load_tree_value(&saveptr);
             Eps_HeII.ydata[i]   = load_tree_value(&saveptr);
+            i++;
         }
 
         fclose(fd);
