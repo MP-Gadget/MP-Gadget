@@ -29,7 +29,7 @@ struct cooling_units
 };
 
 /*Initialise the cooling module.*/
-void init_cooling(char * TreeCoolFile, char * MetalCoolFile, char * UVFluctuationFile, struct cooling_units cu, Cosmology * CP);
+void init_cooling(char * TreeCoolFile, char * MetalCoolFile, char * UVFluctuationFile, char * reion_hist_file, struct cooling_units cu, Cosmology * CP);
 
 /* Get the cooling time for a particle from the internal energy and density, specifying a UVB appropriately.
  * Sets ne_guess to the equilibrium electron density.*/

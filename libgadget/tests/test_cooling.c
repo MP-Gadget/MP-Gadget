@@ -27,6 +27,12 @@ double get_long_mean_free_path_heating(double redshift)
     return 0;
 }
 
+void
+init_qso_lightup(char * reion_hist_file)
+{
+    return;
+}
+
 #define NSTEP 20
 /*Pre-computed table of DoCooling outputs*/
 static double unew_table[NSTEP * NSTEP] = {
@@ -188,7 +194,7 @@ static void test_DoCooling(void ** state)
     CP.OmegaBaryon = coolpar.fBar * CP.OmegaCDM;
     CP.HubbleParam = HubbleParam;
     set_coolpar(coolpar);
-    init_cooling(TreeCool, MetalCool, UVFluc, coolunits, &CP);
+    init_cooling(TreeCool, MetalCool, UVFluc, NULL, coolunits, &CP);
     struct UVBG uvbg = get_global_UVBG(0);
     assert_true(fabs(uvbg.epsH0/3.65296e-25 -1) < 1e-5);
     assert_true(fabs(uvbg.epsHe0/3.98942e-25 -1) < 1e-5);

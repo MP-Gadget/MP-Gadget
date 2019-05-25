@@ -190,6 +190,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "CoolingOn", REQUIRED, 0, "Enables cooling");
     param_declare_string(ps, "TreeCoolFile", OPTIONAL, "", "Path to the Cooling Table");
     param_declare_string(ps, "MetalCoolFile", OPTIONAL, "", "Path to the Metal Cooling Table. Empty string disables metal cooling. Refer to cooling.c");
+    param_declare_string(ps, "ReionHistFile", OPTIONAL, "", "Path to the file containing the helium III reionization table. Used if QSOLightupOn = 1.");
     param_declare_string(ps, "UVFluctuationFile", OPTIONAL, "", "Path to the UVFluctation Table. Refer to cooling.c.");
 
     param_declare_double(ps, "UVRedshiftThreshold", OPTIONAL, -1.0, "Earliest Redshift that UV background is enabled. This modulates UVFluctuation and TreeCool globally. Default -1.0 means no modulation.");
@@ -472,6 +473,7 @@ void read_parameter_file(char *fname)
         param_get_string2(ps, "TreeCoolFile", All.TreeCoolFile, sizeof(All.TreeCoolFile));
         param_get_string2(ps, "UVFluctuationfile", All.UVFluctuationFile, sizeof(All.UVFluctuationFile));
         param_get_string2(ps, "MetalCoolFile", All.MetalCoolFile, sizeof(All.MetalCoolFile));
+        param_get_string2(ps, "ReionHistFile", All.ReionHistFile, sizeof(All.ReionHistFile));
 
         All.InitGasTemp = param_get_double(ps, "InitGasTemp");
 

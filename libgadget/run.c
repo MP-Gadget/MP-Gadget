@@ -27,6 +27,7 @@
 #include "slotsmanager.h"
 #include "hci.h"
 #include "fof.h"
+#include "cooling_qso_lightup.h"
 
 void energy_statistics(void); /* stats.c only used here */
 
@@ -246,6 +247,10 @@ run(int RestartSnapNum)
 
             /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
             slots_free_sph_scratch_data(SphP_scratch);
+
+            /* Helium reionization by switching on quasar bubbles*/
+            if(is_PM)
+                do_heiii_reionization(1/All.Time - 1, &Tree);
         }
 
         /* Update velocity to Ti_Current; this synchonizes TiKick and TiDrift for the active particles */
