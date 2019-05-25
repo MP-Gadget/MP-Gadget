@@ -41,7 +41,7 @@
 /*Parameters for the quasar driven helium reionization model.*/
 struct qso_lightup_params
 {
-    int HeliumReionOn; /* Master flag enabling the helium reioization heating model.*/
+    int QSOLightupOn; /* Master flag enabling the helium reioization heating model.*/
 
     double qso_spectral_index; /* Quasar spectral index. Read from the text file. */
     double qso_spectral_energy; /* Quasar spectral energy, read from the text file*/
@@ -67,6 +67,29 @@ static gsl_interp * LMFP_intp;
 /* Counters*/
 static int N_ionized;
 static double mass_ionized;
+
+
+/*This is a helper for the tests*/
+void set_qso_lightup_par(struct qso_lightup_params qso)
+{
+    QSOLightupParams = qso;
+}
+
+void
+set_qso_lightup_params(ParameterSet * ps)
+{
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask == 0) {
+        QSOLightupParams.QSOLightupOn = param_get_int(ps, "QSOLightupOn");
+        QSOLightupParams.qso_candidate_max_mass = param_get_double(ps, "QSOMaxMass");
+        QSOLightupParams.qso_candidate_min_mass = param_get_double(ps, "QSOMinMass");
+        QSOLightupParams.mean_bubble = param_get_double(ps, "QSOMeanBubble");
+        QSOLightupParams.var_bubble = param_get_double(ps, "QSOVarBubble");
+        QSOLightupParams.heIIIreion_start = param_get_double(ps, "QSOHeIIIReionStart");
+    }
+    MPI_Bcast(&QSOLightupParams, sizeof(struct qso_lightup_params), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
 
 /* Load in reionization history file and build the interpolators between redshift and XHeII.
  * Format is:
@@ -186,7 +209,7 @@ static double last_long_mfp_heating;
 double
 get_long_mean_free_path_heating(inttime_t ti)
 {
-    if(!QSOLightupParams.HeliumReionOn)
+    if(!QSOLightupParams.QSOLightupOn)
         return 0;
     if(ti == last_ti)
         return last_long_mfp_heating;
@@ -448,7 +471,7 @@ turn_on_quasars(double redshift, ForceTree * tree)
 void
 do_heiii_reionization(double redshift, ForceTree * tree)
 {
-    if(!QSOLightupParams.HeliumReionOn)
+    if(!QSOLightupParams.QSOLightupOn)
         return;
     if(redshift > QSOLightupParams.heIIIreion_start)
         return;
