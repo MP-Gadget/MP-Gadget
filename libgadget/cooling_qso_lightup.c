@@ -2,8 +2,9 @@
  *  A black hole particle with the right mass is chosen at random and an ionizing bubble created around it.
  *  Particles within that bubble are marked as ionized and heated according to emissivity.
  *  New bubbles are created until the total HeIII fraction matches the value in the external table.
- *  There is also a uniform background heating rate for long mean-free-path photons with very high energies
- * FIXME: Are these photons included in the HM12 background?
+ *  There is also a uniform background heating rate for long mean-free-path photons with very high energies.
+ *  This heating is added only to not-yet-ionized particles, and is done in cooling_rates.c. Whatever UVB you
+ *  use should not include these photons.
  *
  * The text file contains the reionization history and is generated from various physical processes
  * implemented in a python file. The text file fixes the end of helium reionization (which is reasonably well-known).
@@ -14,7 +15,7 @@
  * HeII_heating.py contains the details of the reionization history and how it is generated.
  *
  * This code should run only during a PM timestep, when all particles are active
- * FIXME: Is this right? We lose time resolution but I cannot think of another way to ensure cooling is modelled correctly.
+ * We lose time resolution but I cannot think of another way to ensure cooling is modelled correctly.
  */
 
 /* Need parameters: redshift at which start_reionization is called.
@@ -23,26 +24,25 @@
  *
  * */
 
-#include <omp.h>
 #include <math.h>
 #include <mpi.h>
-#include <stdio.h>
 #include <string.h>
 #include <gsl/gsl_interp.h>
-#include <gsl/gsl_randist.h>
 #include "physconst.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "treewalk.h"
 #include "drift.h"
+#include "timebinmgr.h"
 #include "utils/endrun.h"
-#include "utils/system.h"
 #include "utils/paramset.h"
 #include "utils/mymalloc.h"
 
 /*Parameters for the quasar driven helium reionization model.*/
 struct qso_lightup_params
 {
+    int HeliumReionOn; /* Master flag enabling the helium reioization heating model.*/
+
     double qso_spectral_index; /* Quasar spectral index. Read from the text file. */
     double qso_spectral_energy; /* Quasar spectral energy, read from the text file*/
 
@@ -178,6 +178,24 @@ init_qso_lightup(char * reion_hist_file)
     load_heii_reion_hist(reion_hist_file);
     N_ionized = 0;
     mass_ionized = 0;
+}
+
+static inttime_t last_ti;
+static double last_long_mfp_heating;
+
+double
+get_long_mean_free_path_heating(inttime_t ti)
+{
+    if(!QSOLightupParams.HeliumReionOn)
+        return 0;
+    if(ti == last_ti)
+        return last_long_mfp_heating;
+    double loga = loga_from_ti(ti);
+    double redshift = 1/exp(loga) - 1;
+    double long_mfp_heating = gsl_interp_eval(LMFP_intp, He_zz, LMFP, redshift, NULL);
+    last_ti = ti;
+    last_long_mfp_heating = long_mfp_heating;
+    return long_mfp_heating;
 }
 
 /* This function gets a random number from a Gaussian distribution using the Box-Muller transform.*/
@@ -406,7 +424,7 @@ ionize_all_part(int qso_ind, ForceTree * tree)
 /* Sequentially turns on quasars.
  * Keeps adding new quasars until need_more_quasars() returns 0.
  */
-void
+static void
 turn_on_quasars(double redshift, ForceTree * tree)
 {
     int nqso;
@@ -428,10 +446,13 @@ turn_on_quasars(double redshift, ForceTree * tree)
 
 /* Starts reionization by selecting the first halo and flagging all particles in the first HeIII bubble*/    
 void
-start_reionization(double redshift, ForceTree * tree)
+do_heiii_reionization(double redshift, ForceTree * tree)
 {
-    message(0, "HeII Reionization initiated.");
+    if(!QSOLightupParams.HeliumReionOn)
+        return;
     if(redshift > QSOLightupParams.heIIIreion_start)
         return;
+
+    message(0, "HeII Reionization initiated.");
     turn_on_quasars(redshift, tree);
 }
