@@ -13,6 +13,7 @@
 #include <libgadget/sfr_eff.h>
 #include <libgadget/blackhole.h>
 #include <libgadget/fof.h>
+#include <libgadget/cooling_qso_lightup.h>
 
 static int
 BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
@@ -519,6 +520,7 @@ void read_parameter_file(char *fname)
     /*Initialize per-module parameters.*/
 
     set_cooling_params(ps);
+    set_qso_lightup_params(ps);
     set_treewalk_params(ps);
     set_gravshort_tree_params(ps);
     set_domain_params(ps);

@@ -28,12 +28,12 @@
 #include <mpi.h>
 #include <string.h>
 #include <gsl/gsl_interp.h>
+#include "cooling_qso_lightup.h"
 #include "physconst.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "treewalk.h"
 #include "drift.h"
-#include "timebinmgr.h"
 #include "utils/endrun.h"
 #include "utils/paramset.h"
 #include "utils/mymalloc.h"
@@ -203,20 +203,20 @@ init_qso_lightup(char * reion_hist_file)
     mass_ionized = 0;
 }
 
-static inttime_t last_ti;
+static double last_zz;
 static double last_long_mfp_heating;
 
+/* Get the long mean free path heating.
+ * FIXME: Please check the units are correct! Should be */
 double
-get_long_mean_free_path_heating(inttime_t ti)
+get_long_mean_free_path_heating(double redshift)
 {
     if(!QSOLightupParams.QSOLightupOn)
         return 0;
-    if(ti == last_ti)
+    if(redshift == last_zz)
         return last_long_mfp_heating;
-    double loga = loga_from_ti(ti);
-    double redshift = 1/exp(loga) - 1;
     double long_mfp_heating = gsl_interp_eval(LMFP_intp, He_zz, LMFP, redshift, NULL);
-    last_ti = ti;
+    last_zz = redshift;
     last_long_mfp_heating = long_mfp_heating;
     return long_mfp_heating;
 }
