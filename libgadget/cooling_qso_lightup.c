@@ -299,7 +299,7 @@ choose_QSO_halo(int ncand, int nqsos, MPI_Comm Comm)
      * index of the quasar in the current candidate array.*/
     return qso - ncand_before;
 }
-    
+
 /* Proper emissivity of HeII ionizing photons per quasar per Gyr from Haardt & Madau (2012) (1105.2039.pdf eqn 37)*/
 static double
 quasar_emissivity_HM12(double redshift, double alpha_q)
@@ -311,8 +311,8 @@ quasar_emissivity_HM12(double redshift, double alpha_q)
     double e = epsilon_nu/(h_erg_s*alpha_q)/(pow(mpctocm,3))*pow(4.,(-alpha_q));
     return e;
     }
-    
-/*Proper emissivity of HeII ionizing photons per quasar per Gyr from Khaire + (2015)*/  
+
+/*Proper emissivity of HeII ionizing photons per quasar per Gyr from Khaire + (2015)*/
 static double
 quasar_emissivity_K15(double redshift, double alpha_q)
 {
@@ -355,6 +355,12 @@ add_instantaneous_helium_heating(int other)
     SPHP(other).Entropy += 0;
 }
 
+struct QSOPriv {
+    /* Particle SpinLocks*/
+    struct SpinLocks * spin;
+};
+#define QSO_GET_PRIV(tw) ((struct QSOPriv *) (tw->priv))
+
 /**
  * Ionize and heat the particles
  */
@@ -382,7 +388,9 @@ ionize_ngbiter(TreeWalkQueryBase * I,
     if(P[other].Type != 0 || P[other].Ionized != 0)
         return;
 
-    lock_particle(other);
+    struct SpinLocks * spin = QSO_GET_PRIV(lv->tw)->spin;
+
+    lock_spinlock(other, spin);
 
     /* Mark it ionized*/
     P[other].Ionized = 1;
@@ -390,7 +398,7 @@ ionize_ngbiter(TreeWalkQueryBase * I,
     /* Heat the particle*/
     add_instantaneous_helium_heating(other);
 
-    unlock_particle(other);
+    unlock_spinlock(other, spin);
 
     /* Add to the ionization counter*/
     #pragma omp atomic
@@ -435,10 +443,13 @@ ionize_all_part(int qso_ind, ForceTree * tree)
     tw->fill = (TreeWalkFillQueryFunction) ionize_copy;
     tw->reduce = NULL;
     tw->postprocess = NULL;
-    tw->UseNodeList = 1;
     tw->query_type_elsize = sizeof(TreeWalkQueryBase);
     tw->result_type_elsize = sizeof(TreeWalkResultBase);
-    tw->priv = NULL;
+
+    struct QSOPriv priv[1];
+    priv[0].spin = init_spinlocks(PartManager->NumPart);
+
+    tw->priv = priv;
 
     /* This runs only on one BH*/
     treewalk_run(tw, &qso_ind, 1);
@@ -467,7 +478,7 @@ turn_on_quasars(double redshift, ForceTree * tree)
     myfree(qso_cand);
 }
 
-/* Starts reionization by selecting the first halo and flagging all particles in the first HeIII bubble*/    
+/* Starts reionization by selecting the first halo and flagging all particles in the first HeIII bubble*/
 void
 do_heiii_reionization(double redshift, ForceTree * tree)
 {

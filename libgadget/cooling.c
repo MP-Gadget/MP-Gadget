@@ -21,13 +21,13 @@
 #include <string.h>
 #include <math.h>
 #include <bigfile.h>
-
 #include "utils/endrun.h"
 #include "utils/mymalloc.h"
 #include "utils/interp.h"
 #include "physconst.h"
 #include "cooling.h"
 #include "cooling_rates.h"
+#include "cooling_qso_lightup.h"
 
 static struct cooling_units coolunits;
 
@@ -44,10 +44,20 @@ void init_cooling(char * TreeCoolFile, char * MetalCoolFile, char * UVFluctuatio
 
 #define MAXITER 1000
 
+/* Wrapper function*/
+static double
+get_lambdanet(double rho, double u, double redshift, double Z, struct UVBG * uvbg, double * ne_guess, int isionized)
+{
+    double LambdaNet = get_heatingcooling_rate(rho, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
+    if(!isionized)
+        LambdaNet += get_long_mean_free_path_heating(redshift);
+    return LambdaNet;
+}
+
 /* returns new internal energy per unit mass.
  * Arguments are passed in code units, density is proper density.
  */
-double DoCooling(double redshift, double u_old, double rho, double dt, struct UVBG * uvbg, double *ne_guess, double Z, double MinEgySpec)
+double DoCooling(double redshift, double u_old, double rho, double dt, struct UVBG * uvbg, double *ne_guess, double Z, double MinEgySpec, int isionized)
 {
     if(!coolunits.CoolingOn) return 0;
 
@@ -67,7 +77,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
     u_lower = u;
     u_upper = u;
 
-    LambdaNet = get_heatingcooling_rate(rho, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
+    LambdaNet = get_lambdanet(rho, u, redshift, Z, uvbg, ne_guess, isionized);
 
     /* bracketing */
     if(u - u_old - LambdaNet * dt < 0)	/* heating */
@@ -76,7 +86,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
         {
             u_lower = u_upper;
             u_upper *= 1.1;
-        } while(u_upper - u_old - get_heatingcooling_rate(rho, u_upper, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess) * dt < 0);
+        } while(u_upper - u_old - get_lambdanet(rho, u_upper, redshift, Z, uvbg, ne_guess, isionized) * dt < 0);
     }
     else
     {
@@ -87,7 +97,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
             if(u_upper <= MinEgySpec) {
                 break;
             }
-        } while(u_lower - u_old - get_heatingcooling_rate(rho, u_lower, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess) * dt > 0);
+        } while(u_lower - u_old - get_lambdanet(rho, u_lower, redshift, Z, uvbg, ne_guess, isionized) * dt > 0);
     }
 
     do
@@ -100,7 +110,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
             break;
         }
 
-        LambdaNet = get_heatingcooling_rate(rho, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
+        LambdaNet = get_lambdanet(rho, u, redshift, Z, uvbg, ne_guess, isionized);
 
         if(u - u_old - LambdaNet * dt > 0)
         {
@@ -141,6 +151,7 @@ double GetCoolingTime(double redshift, double u_old, double rho, struct UVBG * u
     rho *= coolunits.density_in_phys_cgs / PROTONMASS;
     u_old *= coolunits.uu_in_cgs;
 
+    /* Note: this does not include the long mean free path heating from helium reionization*/
     double LambdaNet = get_heatingcooling_rate(rho, u_old, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
 
     if(LambdaNet >= 0)		/* ups, we have actually heating due to UV background */
