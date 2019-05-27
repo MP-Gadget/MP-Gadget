@@ -152,6 +152,7 @@ static void test_DoCooling(void ** state)
     coolpar.HeliumHeatThresh = 10;
     coolpar.MinGasTemp = 100;
     coolpar.UVRedshiftThreshold = -1;
+    coolpar.HydrogenHeatAmp = 0;
     coolpar.rho_crit_baryon = 0.045 * 3.0 * pow(0.7*HUBBLE,2.0) /(8.0*M_PI*GRAVITY);
 
     char * TreeCool = GADGET_TESTDATA_ROOT "/examples/TREECOOL_ep_2018p";

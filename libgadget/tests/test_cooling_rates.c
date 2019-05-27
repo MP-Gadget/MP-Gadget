@@ -37,6 +37,7 @@ static struct cooling_params get_test_coolpar(void)
     coolpar.UVRedshiftThreshold = -1;
     coolpar.MinGasTemp = 100;
     coolpar.HeliumHeatOn = 0;
+    coolpar.HydrogenHeatAmp = 0;
     return coolpar;
 }
 

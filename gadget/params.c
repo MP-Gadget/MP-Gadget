@@ -315,6 +315,7 @@ create_gadget_parameter_set()
 
     /*These parameters are Lyman alpha forest specific*/
     param_declare_double(ps, "QuickLymanAlphaProbability", OPTIONAL, 0, "Probability gas is turned directly into stars, irrespective of pressure. One is equivalent to quick lyman alpha star formation.");
+    param_declare_double(ps, "HydrogenHeatAmp", OPTIONAL, 1, "Density-independent heat boost to hydrogen.");
     /* Enable model for helium reionisation which adds extra photo-heating to under-dense gas.
      * Extra heating has the form: H = Amp * (rho / rho_c(z=0))^Exp
      * but is density-independent when rho / rho_c > Thresh. */
