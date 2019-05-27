@@ -424,6 +424,8 @@ run(int RestartSnapNum)
     }
 
     close_outputfiles();
+
+    free_permanent_uvbg_grids();
 }
 
 /*! This routine computes the accelerations for all active particles. Density, hydro and gravity are computed, in that order.

@@ -507,9 +507,7 @@ static int make_particle_star(int child, int parent, int placement)
     /*Copy metallicity*/
     STARP(child).Metallicity = oldslot.Metallicity;
 
-    // Add this to the gross stellar mass grid
-    UVBGgrids.stars[0]++;
-    // TODO(smutch): THIS!!!!
+    // TODO(smutch): Add mass to the UVBGgrids.stars grid
 
     return retflag;
 }
