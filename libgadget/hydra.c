@@ -303,6 +303,8 @@ hydro_ngbiter(
             if(vsig > O->MaxSignalVel)
                 O->MaxSignalVel = vsig;
 
+            /* Note this uses the CurlVel of an inactive particle, which may not be
+             * at the present drift time*/
             const double f2 = fabs(SPHP(other).DivVel) / (fabs(SPHP(other).DivVel) +
                     SPHP(other).CurlVel + 0.0001 * soundspeed_j / fac_mu / P[other].Hsml);
 

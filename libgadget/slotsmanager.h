@@ -99,6 +99,8 @@ struct sph_particle_data
     MyFloat       HydroAccel[3];	/*!< acceleration due to hydrodynamical force */
     MyFloat       DhsmlDensityFactor;	/*!< correction factor needed in entropy formulation of SPH */
     MyFloat       DivVel;		/*!< local velocity divergence */
+    /* CurlVel has to be here and not in scratch because we re-use the
+     * CurlVel of inactive particles inside the artificial viscosity calculation.*/
     MyFloat       CurlVel;     	        /*!< local velocity curl */
     MyFloat Ne;  /*!< electron fraction, expressed as local electron number
                    density normalized to the hydrogen number density. Gives
