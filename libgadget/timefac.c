@@ -215,6 +215,8 @@ double get_drift_factor(inttime_t ti0, inttime_t ti1)
  */
 double get_gravkick_factor(inttime_t ti0, inttime_t ti1)
 {
+  if(ti0 == ti1)
+      return 0;
   if(ti0 == gk_last_ti0 && ti1 == gk_last_ti1)
     return gk_last_value;
 
