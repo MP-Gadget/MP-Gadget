@@ -79,10 +79,9 @@ struct sph_particle_data
 {
     struct particle_data_ext base;
 
-    /*These two data members are only used if DensityIndependentSph is on.
-     * If DensityIndependentSph is off then Density and DhsmlDensityFactor are used instead.*/
+    /*This is only used if DensityIndependentSph is on.
+     * If DensityIndependentSph is off then Density is used instead.*/
     MyFloat EgyWtDensity;           /*!< 'effective' rho to use in hydro equations */
-    MyFloat DhsmlEgyDensityFactor;  /*!< correction factor for density-independent entropy formulation */
 
     MyFloat Metallicity;		/*!< metallicity of gas particle */
     MyFloat Entropy;		/*!< Entropy (actually entropic function) at kick time of particle */
@@ -90,7 +89,9 @@ struct sph_particle_data
     MyFloat       Density;		/*!< current baryonic mass density of particle */
     MyFloat       DtEntropy;		/*!< rate of change of entropy */
     MyFloat       HydroAccel[3];	/*!< acceleration due to hydrodynamical force */
-    MyFloat       DhsmlDensityFactor;	/*!< correction factor needed in entropy formulation of SPH */
+    /*!< correction factor for density-independent entropy formulation. If DensityIndependentSph = 0
+     then this is set to the DhsmlDensityFactor appropriate for the entropy formulation of SPH. */
+    MyFloat DhsmlEgyDensityFactor;
     MyFloat       DivVel;		/*!< local velocity divergence */
     /* CurlVel has to be here and not in scratch because we re-use the
      * CurlVel of inactive particles inside the artificial viscosity calculation.*/

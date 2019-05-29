@@ -88,6 +88,11 @@ typedef struct {
 struct DensityPriv {
     MyFloat *Left, *Right;
     MyFloat (*Rot)[3];
+    /* This is the DhsmlDensityFactor for the pure density,
+     * not the entropy weighted density. It is used here and
+     * copied to DhsmlEgyDensityFactor if DensityIndependentSphOn = 1
+     * If DensityIndependentSphOn = 0 it is used to set DhsmlEgyDensityFactor. */
+    MyFloat * DhsmlDensityFactor;
     int NIteration;
     int *NPLeft;
     int update_hsml;
@@ -165,6 +170,8 @@ density(int update_hsml, int DoEgyDensity, ForceTree * tree)
     DENSITY_GET_PRIV(tw)->Left = (MyFloat *) mymalloc("DENSITY_GET_PRIV(tw)->Left", PartManager->NumPart * sizeof(MyFloat));
     DENSITY_GET_PRIV(tw)->Right = (MyFloat *) mymalloc("DENSITY_GET_PRIV(tw)->Right", PartManager->NumPart * sizeof(MyFloat));
     DENSITY_GET_PRIV(tw)->Rot = (MyFloat (*) [3]) mymalloc("DENSITY_GET_PRIV(tw)->Rot", SlotsManager->info[0].size * sizeof(priv->Rot[0]));
+    DENSITY_GET_PRIV(tw)->DhsmlDensityFactor = (MyFloat *) mymalloc("DENSITY_GET_PRIV(tw)->DhsmlDensity", SlotsManager->info[0].size * sizeof(MyFloat));
+
     DENSITY_GET_PRIV(tw)->update_hsml = update_hsml;
     DENSITY_GET_PRIV(tw)->DoEgyDensity = DoEgyDensity;
 
@@ -235,6 +242,7 @@ density(int update_hsml, int DoEgyDensity, ForceTree * tree)
     } while(1);
 
     ta_free(DENSITY_GET_PRIV(tw)->NPLeft);
+    myfree(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor);
     myfree(DENSITY_GET_PRIV(tw)->Rot);
     myfree(DENSITY_GET_PRIV(tw)->Right);
     myfree(DENSITY_GET_PRIV(tw)->Left);
@@ -288,13 +296,14 @@ density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMod
     if(P[place].Type == 0)
     {
         TREEWALK_REDUCE(SPHP(place).Density, remote->Rho);
-        TREEWALK_REDUCE(SPHP(place).DhsmlDensityFactor, remote->DhsmlDensity);
+
 
         TREEWALK_REDUCE(SPHP(place).DivVel, remote->Div);
         int pi = P[place].PI;
         TREEWALK_REDUCE(DENSITY_GET_PRIV(tw)->Rot[pi][0], remote->Rot[0]);
         TREEWALK_REDUCE(DENSITY_GET_PRIV(tw)->Rot[pi][1], remote->Rot[1]);
         TREEWALK_REDUCE(DENSITY_GET_PRIV(tw)->Rot[pi][2], remote->Rot[2]);
+        TREEWALK_REDUCE(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[pi], remote->DhsmlDensity);
 
         if(SphP_scratch->GradRho) {
             TREEWALK_REDUCE(SphP_scratch->GradRho[3*pi], remote->GradRho[0]);
@@ -435,11 +444,12 @@ density_postprocess(int i, TreeWalk * tw)
     {
         if(SPHP(i).Density <= 0)
             endrun(12, "Particle %d has bad density: %g\n", i, SPHP(i).Density);
-        SPHP(i).DhsmlDensityFactor *= P[i].Hsml / (NUMDIMS * SPHP(i).Density);
-        if(SPHP(i).DhsmlDensityFactor > -0.9)	/* note: this would be -1 if only a single particle at zero lag is found */
-            SPHP(i).DhsmlDensityFactor = 1 / (1 + SPHP(i).DhsmlDensityFactor);
+        MyFloat * DhsmlDens = &(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[P[i].PI]);
+        *DhsmlDens *= P[i].Hsml / (NUMDIMS * SPHP(i).Density);
+        if(*DhsmlDens > -0.9)	/* note: this would be -1 if only a single particle at zero lag is found */
+            *DhsmlDens = 1 / (1 + *DhsmlDens);
         else
-            SPHP(i).DhsmlDensityFactor = 1;
+            *DhsmlDens = 1;
 
         /*Compute the EgyWeight factors, which are only useful for density independent SPH */
         if(DENSITY_GET_PRIV(tw)->DoEgyDensity) {
@@ -447,9 +457,11 @@ density_postprocess(int i, TreeWalk * tw)
             if(EntPred <= 0 || SPHP(i).EgyWtDensity <=0)
                 endrun(12, "Particle %d has bad predicted entropy: %g or EgyWtDensity: %g\n", i, EntPred, SPHP(i).EgyWtDensity);
             SPHP(i).DhsmlEgyDensityFactor *= P[i].Hsml/ (NUMDIMS * SPHP(i).EgyWtDensity);
-            SPHP(i).DhsmlEgyDensityFactor *= -SPHP(i).DhsmlDensityFactor;
+            SPHP(i).DhsmlEgyDensityFactor *= - (*DhsmlDens);
             SPHP(i).EgyWtDensity /= EntPred;
         }
+        else
+            SPHP(i).DhsmlEgyDensityFactor = *DhsmlDens;
 
         int PI = P[i].PI;
         MyFloat * Rot = DENSITY_GET_PRIV(tw)->Rot[PI];
@@ -513,7 +525,7 @@ void density_check_neighbours (int i, TreeWalk * tw) {
             {
                 if(P[i].Type == 0 && fabs(P[i].NumNgb - desnumngb) < 0.5 * desnumngb)
                 {
-                    double fac = 1 - (P[i].NumNgb - desnumngb) / (NUMDIMS * P[i].NumNgb) * SPHP(i).DhsmlDensityFactor;
+                    double fac = 1 - (P[i].NumNgb - desnumngb) / (NUMDIMS * P[i].NumNgb) * DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[P[i].PI];
 
                     if(fac < 1.26)
                         P[i].Hsml *= fac;
@@ -528,7 +540,7 @@ void density_check_neighbours (int i, TreeWalk * tw) {
             {
                 if(P[i].Type == 0 && fabs(P[i].NumNgb - desnumngb) < 0.5 * desnumngb)
                 {
-                    double fac = 1 - (P[i].NumNgb - desnumngb) / (NUMDIMS * P[i].NumNgb) * SPHP(i).DhsmlDensityFactor;
+                    double fac = 1 - (P[i].NumNgb - desnumngb) / (NUMDIMS * P[i].NumNgb) * DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[P[i].PI];
 
                     if(fac > 1 / 1.26)
                         P[i].Hsml *= fac;

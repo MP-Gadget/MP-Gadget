@@ -31,12 +31,9 @@ MyFloat SPH_EOMDensity(int i)
         return SPHP(i).Density;
 }
 
-MyFloat SPH_DhsmlDensityFactor(int i)
+static inline MyFloat SPH_DhsmlDensityFactor(int i)
 {
-    if(All.DensityIndependentSphOn)
         return SPHP(i).DhsmlEgyDensityFactor;
-    else
-        return SPHP(i).DhsmlDensityFactor;
 }
 
 double
