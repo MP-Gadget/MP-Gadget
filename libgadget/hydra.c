@@ -98,6 +98,11 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw);
 static void
 hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mode, TreeWalk * tw);
 
+/* Time-dependent constant factors, brought out here because
+ * they need an expensive pow().*/
+static double fac_mu;
+static double fac_vsic_fix;
+
 /*! This function is the driver routine for the calculation of hydrodynamical
  *  force and rate of change of entropy due to shock heating for all active
  *  particles .
@@ -126,6 +131,10 @@ void hydro_force(ForceTree * tree)
 
     walltime_measure("/Misc");
 
+    /* Initialize some time factors*/
+    fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
+    fac_vsic_fix = All.cf.hubble * pow(All.cf.a, 3 * GAMMA_MINUS1);
+
     treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
     /* collect some timing information */
@@ -146,7 +155,6 @@ static void
 hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
 {
     double soundspeed_i;
-    const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
     /*Compute predicted velocity*/
     input->Vel[0] = SPHP(place).VelPred[0];
     input->Vel[1] = SPHP(place).VelPred[1];
@@ -263,7 +271,6 @@ hydro_ngbiter(
         if(vdotr2 < 0)	/* ... artificial viscosity visc is 0 by default*/
         {
             /*See Gadget-2 paper: eq. 13*/
-            const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
             const double mu_ij = fac_mu * vdotr2 / r;	/* note: this is negative! */
             const double rho_ij = 0.5 * (I->Density + SPHP(other).Density);
             double vsig = iter->soundspeed_i + soundspeed_j;
@@ -286,7 +293,6 @@ hydro_ngbiter(
             if(dloga > 0 && (dwk_i + dwk_j) < 0)
             {
                 if((I->Mass + P[other].Mass) > 0) {
-                    double fac_vsic_fix = All.cf.hubble * pow(All.cf.a, 3 * GAMMA_MINUS1);
                     visc = DMIN(visc, 0.5 * fac_vsic_fix * vdotr2 /
                             (0.5 * (I->Mass + P[other].Mass) * (dwk_i + dwk_j) * r * dloga));
                 }
