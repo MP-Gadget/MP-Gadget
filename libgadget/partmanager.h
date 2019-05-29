@@ -67,7 +67,6 @@ struct particle_data
             /* used by fof.c which calls domain_exchange that doesn't uses peano_t */
             int64_t GrNr;
             int origintask;
-            int targettask;
         };
     };
 

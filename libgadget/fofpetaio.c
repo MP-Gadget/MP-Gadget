@@ -127,8 +127,10 @@ struct PartIndex {
 };
 
 static int fof_sorted_layout(int i, const void * userdata) {
-    return P[i].targettask;
+    int * targetTask = (int *) userdata;
+    return targetTask[i];
 }
+
 static int fof_origin_layout(int i, const void * userdata) {
     return P[i].origintask;
 }
@@ -186,7 +188,6 @@ static void fof_distribute_particles(MPI_Comm Comm) {
 #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i ++) {
         P[i].origintask = ThisTask;
-        P[i].targettask = ThisTask; //P[i].ID % NTask; /* default target */
     }
 
     //int64_t Npig = count_sum(NpigLocal);
@@ -205,16 +206,25 @@ static void fof_distribute_particles(MPI_Comm Comm) {
     }
     /* return pi to the original processors */
     mpsort_mpi(pi, NpigLocal, sizeof(struct PartIndex), fof_radix_origin, 8, NULL, Comm);
+    /* Copy the target task into a temporary array for all particles*/
+    int * targettask = mymalloc2("targettask", sizeof(int) * PartManager->NumPart);
+
+    /*By default particles stay where they are*/
+    #pragma omp parallel for
+    for(i = 0; i < PartManager->NumPart; i ++) {
+        targettask[i] = ThisTask;
+    }
     for(i = 0; i < NpigLocal; i ++) {
         int index = pi[i].origin % PartManager->MaxPart;
-        P[index].targettask = pi[i].targetTask;
+        targettask[index] = pi[i].targetTask;
     }
     myfree(pi);
 
-    if(domain_exchange(fof_sorted_layout, NULL, 1, Comm))
+    if(domain_exchange(fof_sorted_layout, targettask, 1, Comm))
         endrun(1930,"Could not exchange particles\n");
     /* sort SPH and Others independently */
 
+    myfree(targettask);
     GrNrMax = -1;
     for(i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].GrNr < 0) continue;
