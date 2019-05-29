@@ -100,7 +100,6 @@ struct sph_particle_data
     MyFloat       DhsmlDensityFactor;	/*!< correction factor needed in entropy formulation of SPH */
     MyFloat       DivVel;		/*!< local velocity divergence */
     MyFloat       CurlVel;     	        /*!< local velocity curl */
-    MyFloat       Rot[3];		/*!< local velocity curl */
     MyFloat Ne;  /*!< electron fraction, expressed as local electron number
                    density normalized to the hydrogen number density. Gives
                    indirectly ionization state and mean molecular weight. */
