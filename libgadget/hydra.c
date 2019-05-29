@@ -40,10 +40,21 @@ MyFloat SPH_DhsmlDensityFactor(int i)
 }
 
 double
-PressurePred(int i)
+PressurePred(int PI)
 {
-    return pow(SPHP(i).EntVarPred * SPH_EOMDensity(i), GAMMA);
+    MyFloat EOMDensity;
+    if(All.DensityIndependentSphOn)
+        EOMDensity = SphP[PI].EgyWtDensity;
+    else
+        EOMDensity = SphP[PI].Density;
+    return pow(SphP[PI].EntVarPred * EOMDensity, GAMMA);
 }
+
+struct HydraPriv {
+    double * PressurePred;
+};
+
+#define HYDRA_GET_PRIV(tw) ((struct HydraPriv*) ((tw)->priv))
 
 typedef struct {
     TreeWalkQueryBase base;
@@ -109,9 +120,12 @@ static double fac_vsic_fix;
  */
 void hydro_force(ForceTree * tree)
 {
+    int i;
     if(!All.HydroOn)
         return;
     TreeWalk tw[1] = {{0}};
+
+    struct HydraPriv priv[1];
 
     tw->ev_label = "HYDRO";
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
@@ -125,6 +139,14 @@ void hydro_force(ForceTree * tree)
     tw->query_type_elsize = sizeof(TreeWalkQueryHydro);
     tw->result_type_elsize = sizeof(TreeWalkResultHydro);
     tw->tree = tree;
+    tw->priv = priv;
+
+    /* Cache the pressure for speed*/
+    HYDRA_GET_PRIV(tw)->PressurePred = (double *) mymalloc("PressurePred", SlotsManager->info[0].size * sizeof(double));
+
+    #pragma omp parallel for
+    for(i = 0; i < SlotsManager->info[0].size; i++)
+        HYDRA_GET_PRIV(tw)->PressurePred[i] = PressurePred(i);
 
     double timeall = 0, timenetwork = 0;
     double timecomp, timecomm, timewait;
@@ -137,6 +159,7 @@ void hydro_force(ForceTree * tree)
 
     treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
+    myfree(HYDRA_GET_PRIV(tw)->PressurePred);
     /* collect some timing information */
 
     timeall += walltime_measure(WALLTIME_IGNORE);
@@ -170,7 +193,7 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
 
     input->SPH_DhsmlDensityFactor = SPH_DhsmlDensityFactor(place);
 
-    input->Pressure = PressurePred(place);
+    input->Pressure = HYDRA_GET_PRIV(tw)->PressurePred[P[place].PI];
     input->TimeBin = P[place].TimeBin;
     /* calculation of F1 */
     soundspeed_i = sqrt(GAMMA * input->Pressure / SPH_EOMDensity(place));
@@ -250,7 +273,7 @@ hydro_ngbiter(
 
     if(r2 > 0 && (r2 < iter->kernel_i.HH || r2 < kernel_j.HH))
     {
-        double Pressure_j = PressurePred(other);
+        double Pressure_j = HYDRA_GET_PRIV(lv->tw)->PressurePred[P[other].PI];
         double p_over_rho2_j = Pressure_j / (SPH_EOMDensity(other) * SPH_EOMDensity(other));
         double soundspeed_j = sqrt(GAMMA * Pressure_j / SPH_EOMDensity(other));
 

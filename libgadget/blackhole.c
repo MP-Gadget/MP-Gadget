@@ -480,7 +480,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             /* FIXME: volume correction doesn't work on BH yet. */
             O->Rho += (mass_j * wk);
 
-            O->SmoothedPressure += (mass_j * wk * PressurePred(other));
+            O->SmoothedPressure += (mass_j * wk * PressurePred(P[other].PI));
             O->SmoothedEntropy += (mass_j * wk * SPHP(other).Entropy);
             O->GasVel[0] += (mass_j * wk * SPHP(other).VelPred[0]);
             O->GasVel[1] += (mass_j * wk * SPHP(other).VelPred[1]);
