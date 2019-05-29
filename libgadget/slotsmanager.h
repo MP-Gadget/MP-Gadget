@@ -84,7 +84,6 @@ struct sph_particle_data
     MyFloat EgyWtDensity;           /*!< 'effective' rho to use in hydro equations */
     MyFloat DhsmlEgyDensityFactor;  /*!< correction factor for density-independent entropy formulation */
 
-    MyFloat EntVarPred;         /*!< Predicted entropy at current particle drift time for SPH computation*/
     /* VelPred can always be derived from the current time and acceleration.
      * However, doing so makes the SPH and hydro code much (a factor of two)
      * slower. It requires computing get_gravkick_factor twice with different arguments,
@@ -117,6 +116,8 @@ struct sph_scratch_data
 {
     /* Gradient of the SPH density. 3x vector*/
     MyFloat * GradRho;
+    /*!< Predicted entropy at current particle drift time for SPH computation*/
+    MyFloat * EntVarPred;
 };
 
 /* shortcuts for accessing different slots directly by the index */

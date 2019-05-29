@@ -16,6 +16,20 @@
 
 #define MAXITER 400
 
+/* The evolved entropy at drift time: evolved dlog a.
+ * Used to predict pressure and entropy for SPH */
+static MyFloat
+SPH_EntVarPred(int i)
+{
+        double dloga = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick);
+        double EntVarPred = SPHP(i).Entropy + SPHP(i).DtEntropy * dloga;
+        /*Entropy limiter for the predicted entropy: makes sure entropy stays positive. */
+        if(dloga > 0 && EntVarPred < 0.5*SPHP(i).Entropy)
+            EntVarPred = 0.5 * SPHP(i).Entropy;
+        EntVarPred = pow(EntVarPred, 1/GAMMA);
+        return EntVarPred;
+}
+
 /*! Structure for communication during the density computation. Holds data that is sent to other processors.
 */
 typedef struct {
@@ -159,15 +173,14 @@ density_internal(int update_hsml, ForceTree * tree)
      * The iteration will gradually turn DensityIterationDone on more particles.
      * */
     #pragma omp parallel for
-    for(i = 0; i < NumActiveParticle; i++)
+    for(i = 0; i < PartManager->NumPart; i++)
     {
-        int p_i = i;
-        if(ActiveParticle)
-            p_i = ActiveParticle[i];
-        P[p_i].DensityIterationDone = 0;
-        P[p_i].NumNgb = 0;
-        DENSITY_GET_PRIV(tw)->Left[p_i] = 0;
-        DENSITY_GET_PRIV(tw)->Right[p_i] = All.BoxSize;
+        P[i].DensityIterationDone = 0;
+        P[i].NumNgb = 0;
+        DENSITY_GET_PRIV(tw)->Left[i] = 0;
+        DENSITY_GET_PRIV(tw)->Right[i] = All.BoxSize;
+        if(P[i].Type == 0)
+            SphP_scratch->EntVarPred[P[i].PI] = SPH_EntVarPred(i);
     }
 
     /* allocate buffers to arrange communication */
@@ -359,7 +372,7 @@ density_ngbiter(
         O->DhsmlDensity += mass_j * density_dW;
 
         if(All.DensityIndependentSphOn) {
-            const double EntPred = SPHP(other).EntVarPred;
+            const double EntPred = SphP_scratch->EntVarPred[P[other].PI];
             O->EgyRho += mass_j * EntPred * wk;
             O->DhsmlEgyDensity += mass_j * EntPred * density_dW;
         }
@@ -427,7 +440,7 @@ density_postprocess(int i, TreeWalk * tw)
 
             /*Compute the EgyWeight factors, which are only useful for density independent SPH */
             if(All.DensityIndependentSphOn) {
-                const double EntPred = SPHP(i).EntVarPred;
+                const double EntPred = SphP_scratch->EntVarPred[P[i].PI];
                 if((EntPred > 0) && (SPHP(i).EgyWtDensity>0))
                 {
                     SPHP(i).DhsmlEgyDensityFactor *= P[i].Hsml/ (NUMDIMS * SPHP(i).EgyWtDensity);

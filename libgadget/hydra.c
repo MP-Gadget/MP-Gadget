@@ -47,7 +47,7 @@ PressurePred(int PI)
         EOMDensity = SphP[PI].EgyWtDensity;
     else
         EOMDensity = SphP[PI].Density;
-    return pow(SphP[PI].EntVarPred * EOMDensity, GAMMA);
+    return pow(SphP_scratch->EntVarPred[PI] * EOMDensity, GAMMA);
 }
 
 struct HydraPriv {
@@ -187,7 +187,7 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
 
     if(All.DensityIndependentSphOn) {
         input->EgyRho = SPHP(place).EgyWtDensity;
-        input->EntVarPred = SPHP(place).EntVarPred;
+        input->EntVarPred = SphP_scratch->EntVarPred[P[place].PI];
     }
 
     input->SPH_DhsmlDensityFactor = SPH_DhsmlDensityFactor(place);
@@ -330,7 +330,7 @@ hydro_ngbiter(
             /*This enables the grad-h corrections*/
             r1 = 0, r2 = 0;
             /* leading-order term */
-            double EntOther = SPHP(other).EntVarPred;
+            double EntOther = SphP_scratch->EntVarPred[P[other].PI];
 
             hfc += P[other].Mass *
                 (dwk_i*iter->p_over_rho2_i*EntOther/I->EntVarPred +
