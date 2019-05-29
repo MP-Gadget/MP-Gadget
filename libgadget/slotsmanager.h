@@ -84,12 +84,6 @@ struct sph_particle_data
     MyFloat EgyWtDensity;           /*!< 'effective' rho to use in hydro equations */
     MyFloat DhsmlEgyDensityFactor;  /*!< correction factor for density-independent entropy formulation */
 
-    /* VelPred can always be derived from the current time and acceleration.
-     * However, doing so makes the SPH and hydro code much (a factor of two)
-     * slower. It requires computing get_gravkick_factor twice with different arguments,
-     * which defeats the lookup cache in timefac.c. Because VelPred is used multiple times,
-     * it is much quicker to compute it once and re-use this*/
-    MyFloat VelPred[3];            /*!< Predicted velocity at current particle drift time for SPH*/
     MyFloat Metallicity;		/*!< metallicity of gas particle */
     MyFloat Entropy;		/*!< Entropy (actually entropic function) at kick time of particle */
     MyFloat MaxSignalVel;           /*!< maximum signal velocity */
@@ -118,6 +112,12 @@ struct sph_scratch_data
     MyFloat * GradRho;
     /*!< Predicted entropy at current particle drift time for SPH computation*/
     MyFloat * EntVarPred;
+    /* VelPred can always be derived from the current time and acceleration.
+     * However, doing so makes the SPH and hydro code much (a factor of two)
+     * slower. It requires computing get_gravkick_factor twice with different arguments,
+     * which defeats the lookup cache in timefac.c. Because VelPred is used multiple times,
+     * it is much quicker to compute it once and re-use this*/
+    MyFloat * VelPred;            /*!< Predicted velocity at current particle drift time for SPH. 3x vector.*/
 };
 
 /* shortcuts for accessing different slots directly by the index */

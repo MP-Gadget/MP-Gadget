@@ -178,9 +178,9 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
 {
     double soundspeed_i;
     /*Compute predicted velocity*/
-    input->Vel[0] = SPHP(place).VelPred[0];
-    input->Vel[1] = SPHP(place).VelPred[1];
-    input->Vel[2] = SPHP(place).VelPred[2];
+    input->Vel[0] = SphP_scratch->VelPred[3 * P[place].PI];
+    input->Vel[1] = SphP_scratch->VelPred[3 * P[place].PI + 1];
+    input->Vel[2] = SphP_scratch->VelPred[3 * P[place].PI + 2];
     input->Hsml = P[place].Hsml;
     input->Mass = P[place].Mass;
     input->Density = SPHP(place).Density;
@@ -279,7 +279,7 @@ hydro_ngbiter(
         double dv[3];
         int d;
         for(d = 0; d < 3; d++) {
-            dv[d] = I->Vel[d] - SPHP(other).VelPred[d];
+            dv[d] = I->Vel[d] - SphP_scratch->VelPred[3 * P[other].PI + d];
         }
 
         double vdotr = dotproduct(dist, dv);

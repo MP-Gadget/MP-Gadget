@@ -482,9 +482,9 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
             O->SmoothedPressure += (mass_j * wk * PressurePred(P[other].PI));
             O->SmoothedEntropy += (mass_j * wk * SPHP(other).Entropy);
-            O->GasVel[0] += (mass_j * wk * SPHP(other).VelPred[0]);
-            O->GasVel[1] += (mass_j * wk * SPHP(other).VelPred[1]);
-            O->GasVel[2] += (mass_j * wk * SPHP(other).VelPred[2]);
+            O->GasVel[0] += (mass_j * wk * SphP_scratch->VelPred[3 * P[other].PI]);
+            O->GasVel[1] += (mass_j * wk * SphP_scratch->VelPred[3 * P[other].PI+1]);
+            O->GasVel[2] += (mass_j * wk * SphP_scratch->VelPred[3 * P[other].PI+2]);
 
             /* here we have a gas particle; check for swallowing */
 

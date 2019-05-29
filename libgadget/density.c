@@ -9,6 +9,7 @@
 #include "cooling.h"
 #include "densitykernel.h"
 #include "treewalk.h"
+#include "timefac.h"
 #include "slotsmanager.h"
 #include "timestep.h"
 #include "winds.h"
@@ -28,6 +29,23 @@ SPH_EntVarPred(int i)
             EntVarPred = 0.5 * SPHP(i).Entropy;
         EntVarPred = pow(EntVarPred, 1/GAMMA);
         return EntVarPred;
+}
+
+/* Get the predicted velocity for a particle
+ * at the Force computation time, which always coincides with the Drift inttime.
+ * for gravity and hydro forces.*/
+static void
+SPH_VelPred(int i, MyFloat * VelPred)
+{
+    const int ti = P[i].Ti_drift;
+    const double Fgravkick2 = get_gravkick_factor(P[i].Ti_kick, ti);
+    const double Fhydrokick2 = get_hydrokick_factor(P[i].Ti_kick, ti);
+    const double FgravkickB = get_gravkick_factor(PM.Ti_kick, ti);
+    int j;
+    for(j = 0; j < 3; j++) {
+        VelPred[j] = P[i].Vel[j] + Fgravkick2 * P[i].GravAccel[j]
+            + P[i].GravPM[j] * FgravkickB + Fhydrokick2 * SPHP(i).HydroAccel[j];
+    }
 }
 
 /*! Structure for communication during the density computation. Holds data that is sent to other processors.
@@ -179,8 +197,10 @@ density_internal(int update_hsml, ForceTree * tree)
         P[i].NumNgb = 0;
         DENSITY_GET_PRIV(tw)->Left[i] = 0;
         DENSITY_GET_PRIV(tw)->Right[i] = All.BoxSize;
-        if(P[i].Type == 0)
+        if(P[i].Type == 0) {
             SphP_scratch->EntVarPred[P[i].PI] = SPH_EntVarPred(i);
+            SPH_VelPred(i, SphP_scratch->VelPred + 3 * P[i].PI);
+        }
     }
 
     /* allocate buffers to arrange communication */
@@ -265,9 +285,9 @@ density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw)
     }
     else
     {
-        I->Vel[0] = SPHP(place).VelPred[0];
-        I->Vel[1] = SPHP(place).VelPred[1];
-        I->Vel[2] = SPHP(place).VelPred[2];
+        I->Vel[0] = SphP_scratch->VelPred[3 * P[place].PI];
+        I->Vel[1] = SphP_scratch->VelPred[3 * P[place].PI + 1];
+        I->Vel[2] = SphP_scratch->VelPred[3 * P[place].PI + 2];
     }
 
     I->DelayTime = SPHP(place).DelayTime;
@@ -395,7 +415,7 @@ density_ngbiter(
             double rot[3];
             int d;
             for(d = 0; d < 3; d ++) {
-                dv[d] = I->Vel[d] - SPHP(other).VelPred[d];
+                dv[d] = I->Vel[d] - SphP_scratch->VelPred[3 * P[other].PI + d];
             }
             O->Div += -fac * dotproduct(dist, dv);
 
