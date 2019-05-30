@@ -285,7 +285,7 @@ build_qso_candidate_list(int ** qso_cand, int * nqso)
  * FIXME: Ideally we would choose quasars in parallel.
  */
 static int
-choose_QSO_halo(int ncand, int nqsos, MPI_Comm Comm)
+choose_QSO_halo(int ncand, int nqsos, int64_t * ncand_tot, MPI_Comm Comm)
 {
     int64_t ncand_total = 0, ncand_before = 0;
     int NTask, i, ThisTask;
@@ -303,9 +303,9 @@ choose_QSO_halo(int ncand, int nqsos, MPI_Comm Comm)
         ncand_total += candcounts[i];
     }
 
-    sumup_large_ints(1, &ncand, &ncand_total);
     double drand = get_random_number(nqsos);
     int qso = (drand * ncand_total);
+    *ncand_tot = ncand_total;
     /* No quasar on this processor*/
     if(qso < ncand_before && qso > ncand_before + ncand)
         return -1;
@@ -494,7 +494,7 @@ turn_on_quasars(double redshift, ForceTree * tree)
     int nqso;
     int * qso_cand;
     int ncand = build_qso_candidate_list(&qso_cand, &nqso);
-    int64_t n_gas_tot, tot_n_ionized;
+    int64_t n_gas_tot, tot_n_ionized, ncand_tot;
     sumup_large_ints(1, &SlotsManager->info[0].size, &n_gas_tot);
     const double desired_ion_frac = gsl_interp_eval(HeIII_intp, He_zz, XHeIII, redshift, NULL);
     /* If the desired ionization fraction is above a threshold (by default 0.95)
@@ -520,8 +520,11 @@ turn_on_quasars(double redshift, ForceTree * tree)
     double curionfrac = initionfrac;
     while (curionfrac < desired_ion_frac){
         /* Get a new quasar*/
-        /* FIXME: What if ncand == 0? */
-        int new_qso = choose_QSO_halo(ncand, nqso, MPI_COMM_WORLD);
+        int new_qso = choose_QSO_halo(ncand, nqso, &ncand_tot, MPI_COMM_WORLD);
+        /* Make sure someone has a quasar*/
+        if(ncand_tot == 0)
+            break;
+        /* Do the ionizations with a tree walk*/
         int n_ionized = ionize_all_part(new_qso, tree);
         /* Check that the ionization fraction changed*/
         sumup_large_ints(1, &n_ionized, &tot_n_ionized);
