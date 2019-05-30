@@ -757,12 +757,10 @@ void blackhole_make_one(int index) {
 
     int child = index;
 
-    /*If the particle mass is larger than that needed for a black hole, split off a new particle.*/
-    if(P[index].Mass > blackhole_params.SeedBlackHoleMass) {
-        child = slots_split_particle(index, blackhole_params.SeedBlackHoleMass);
-    }
-
-    /*Make the new particle a black hole.*/
+    /* Make the new particle a black hole: use all the P[i].Mass
+     * so we don't have lots of low mass tracers.
+     * If the BH seed mass is small this may lead to a mismatch
+     * between the gas and BH mass. */
     child = slots_convert(child, 5, -1);
 
     BHP(child).base.ID = P[child].ID;
