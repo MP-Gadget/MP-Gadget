@@ -315,29 +315,6 @@ choose_QSO_halo(int ncand, int nqsos, int64_t * ncand_tot, MPI_Comm Comm)
     return qso - ncand_before;
 }
 
-/* Proper emissivity of HeII ionizing photons per quasar per Gyr from Haardt & Madau (2012) (1105.2039.pdf eqn 37)*/
-static double
-quasar_emissivity_HM12(double redshift, double alpha_q)
-{
-    double mpctocm = 3.086e24;
-    double h_erg_s = 6.626e-27; /* erg s */
-    double enhance_fac = 1.0;
-    double epsilon_nu = enhance_fac * 3.98e24*pow((1+redshift), 7.68)*exp(-0.28*redshift)/(exp(1.77*redshift)+ 26.3); /*erg s^-1 MPc^-3 Hz^-1*/
-    double e = epsilon_nu/(h_erg_s*alpha_q)/(pow(mpctocm,3))*pow(4.,(-alpha_q));
-    return e;
-    }
-
-/*Proper emissivity of HeII ionizing photons per quasar per Gyr from Khaire + (2015)*/
-static double
-quasar_emissivity_K15(double redshift, double alpha_q)
-{
-    double mpctocm = 3.086e24;
-    double h_erg_s = 6.626e-27; /* erg s */
-    double epsilon_nu = pow(10.,24.6)*pow((1+redshift), 8.9)*exp(-0.36*redshift)/(exp(2.2*redshift)+ 25.1); /*erg s^-1 MPc^-3 Hz^-1)*/
-    double e = epsilon_nu/(h_erg_s*alpha_q)/(pow(mpctocm,3))*pow(4.,(-alpha_q));
-    return e;
-}
-
 /* Calculates the total ionization fraction of the box. If this is less than the desired ionization fraction, returns 1.
  * Otherwise returns 0
  */
@@ -360,7 +337,7 @@ gas_ionization_fraction(void)
 }
 
 /* Do the ionization for a single particle, marking it and adding the heat.
- * No locking is performed so ensure the particle is not being edited in parallel. 
+ * No locking is performed so ensure the particle is not being edited in parallel.
  * Returns 1 if ionization was done, 0 otherwise.*/
 static int
 ionize_single_particle(int other)
