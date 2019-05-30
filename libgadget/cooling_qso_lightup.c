@@ -67,10 +67,8 @@ static double * XHeIII;
 static double * LMFP;
 static gsl_interp * HeIII_intp;
 static gsl_interp * LMFP_intp;
-/* Counters*/
+/* Counter*/
 static int N_ionized;
-static double mass_ionized;
-
 
 /*This is a helper for the tests*/
 void set_qso_lightup_par(struct qso_lightup_params qso)
@@ -218,7 +216,6 @@ init_qso_lightup(char * reion_hist_file)
 {
     load_heii_reion_hist(reion_hist_file);
     N_ionized = 0;
-    mass_ionized = 0;
 }
 
 static double last_zz;
@@ -363,13 +360,14 @@ gas_ionization_fraction(void)
 }
 
 /* Do the ionization for a single particle, marking it and adding the heat.
- * Call this under a lock.*/
-static void
+ * No locking is performed so ensure the particle is not being edited in parallel. 
+ * Returns 1 if ionization was done, 0 otherwise.*/
+static int
 ionize_single_particle(int other)
 {
     /* Only ionize things once*/
     if(P[other].Ionized != 0)
-        return;
+        return 0;
 
     /* Mark it ionized*/
     P[other].Ionized = 1;
@@ -386,7 +384,7 @@ ionize_single_particle(int other)
     double utoentropy = GAMMA_MINUS1 * pow(SPH_EOMDensity(other) * All.cf.a3inv, GAMMA_MINUS1);
     /* Convert to entropy in internal units*/
     SPHP(other).Entropy += utoentropy * deltau / uu_in_cgs;
-    return;
+    return 1;
 }
 
 struct QSOPriv {
@@ -426,16 +424,16 @@ ionize_ngbiter(TreeWalkQueryBase * I,
 
     lock_spinlock(other, spin);
 
-    ionize_single_particle(other);
+    int ionized = ionize_single_particle(other);
 
     unlock_spinlock(other, spin);
 
+    if(!ionized)
+        return;
+
     /* Add to the ionization counter*/
     #pragma omp atomic
-    N_ionized++;
-
-    #pragma omp atomic
-    mass_ionized += P[other].Mass;
+    N_ionized ++;
 }
 
 static void
@@ -451,8 +449,9 @@ ionize_copy(int place, TreeWalkQueryBase * I, TreeWalk * tw)
 
 /* Find all particles within the radius of the HeIII bubble,
  * flag each particle as ionized and add instantaneous heating.
+ * Returns the number of particles ionized
  */
-static void
+static int
 ionize_all_part(int qso_ind, ForceTree * tree)
 {
     /* This treewalk finds not yet ionized particles within the radius of the black hole, ionizes them and
@@ -483,6 +482,7 @@ ionize_all_part(int qso_ind, ForceTree * tree)
 
     /* This runs only on one BH*/
     treewalk_run(tw, &qso_ind, 1);
+    return N_ionized;
 }
 
 /* Sequentially turns on quasars.
@@ -494,31 +494,50 @@ turn_on_quasars(double redshift, ForceTree * tree)
     int nqso;
     int * qso_cand;
     int ncand = build_qso_candidate_list(&qso_cand, &nqso);
+    int64_t n_gas_tot, tot_n_ionized;
+    sumup_large_ints(1, &SlotsManager->info[0].size, &n_gas_tot);
     const double desired_ion_frac = gsl_interp_eval(HeIII_intp, He_zz, XHeIII, redshift, NULL);
     /* If the desired ionization fraction is above a threshold (by default 0.95)
      * ionize all particles*/
     if(desired_ion_frac > QSOLightupParams.heIIIreion_finish_frac) {
-        int i;
-        #pragma omp parallel for
+        int i, nionized;
+        int64_t nion_tot;
+        #pragma omp parallel for reduction(+: nionized)
         for (i = 0; i < PartManager->NumPart; i++){
             if (P[i].Type == 0)
-                ionize_single_particle(i);
+                nionized += ionize_single_particle(i);
         }
+        sumup_large_ints(1, &nionized, &nion_tot);
+        message(0, "Helium ionization finished, flash-ionizing %ld particles (%g of total)\n", nion_tot, (double) nion_tot /(double) n_gas_tot);
     }
 
-    /* FIXME: If the ionization fraction stops changing, break the loop.*/
-    while (gas_ionization_fraction() < desired_ion_frac){
-
+    double rhobar = All.CP.OmegaBaryon * (3 * HUBBLE * All.CP.HubbleParam * HUBBLE * All.CP.HubbleParam)/ (8 * M_PI * GRAVITY) / pow(1 + redshift,3);
+    double totbubblegasmass = 4 * M_PI / 3. * pow(QSOLightupParams.mean_bubble, 3) * rhobar;
+    /* Total expected ionizations if the bubbles do not overlap at all
+     * and the bubble is at mean density.*/
+    int64_t non_overlapping_bubble_number = n_gas_tot * totbubblegasmass / All.CP.OmegaBaryon;
+    double initionfrac = gas_ionization_fraction();
+    double curionfrac = initionfrac;
+    while (curionfrac < desired_ion_frac){
         /* Get a new quasar*/
+        /* FIXME: What if ncand == 0? */
         int new_qso = choose_QSO_halo(ncand, nqso, MPI_COMM_WORLD);
-        ionize_all_part(new_qso, tree);
+        int n_ionized = ionize_all_part(new_qso, tree);
+        /* Check that the ionization fraction changed*/
+        sumup_large_ints(1, &n_ionized, &tot_n_ionized);
+        curionfrac += (double) tot_n_ionized / (double) n_gas_tot;
+        /* Break the loop if we do not ionize enough particles this round.
+         * Try again next timestep when we will hopefully have new BHs.*/
+        if(tot_n_ionized < 0.01 * non_overlapping_bubble_number)
+            break;
         /* Remove this candidate from the list by moving the list down.*/
-        if( new_qso > 0) {
+        if( new_qso >= 0) {
             memmove(qso_cand+new_qso, qso_cand+new_qso+1, ncand - new_qso);
             ncand--;
         }
     }
     myfree(qso_cand);
+    message(0, "He reionization changed the HeIII ionization fraction from %g -> %g, ionizing %ld\n", initionfrac, curionfrac, tot_n_ionized);
 }
 
 /* Starts reionization by selecting the first halo and flagging all particles in the first HeIII bubble*/
