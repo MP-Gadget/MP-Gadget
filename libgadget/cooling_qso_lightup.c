@@ -49,6 +49,8 @@ struct qso_lightup_params
     double mean_bubble; /* Mean size of the quasar bubble.*/
     double var_bubble; /* Variance of the quasar bubble size.*/
 
+    double heIIIreion_finish_frac; /* When the desired ionization fraction exceeds this value,
+                                      the code will flash-ionize all remaining particles*/
     double heIIIreion_start; /* Time at which start_reionization is called and helium III reionization begins*/
 };
 
@@ -88,6 +90,7 @@ set_qso_lightup_params(ParameterSet * ps)
         QSOLightupParams.mean_bubble = param_get_double(ps, "QSOMeanBubble");
         QSOLightupParams.var_bubble = param_get_double(ps, "QSOVarBubble");
         QSOLightupParams.heIIIreion_start = param_get_double(ps, "QSOHeIIIReionStart");
+        QSOLightupParams.heIIIreion_finish_frac = param_get_double(ps, "QSOHeIIIReionFinishFrac");
     }
     MPI_Bcast(&QSOLightupParams, sizeof(struct qso_lightup_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -222,7 +225,7 @@ static double last_zz;
 static double last_long_mfp_heating;
 
 /* Get the long mean free path heating. in erg/s/cm^3
- * FIXME: Please check the units are correct! Should be */
+ * FIXME: Please check the units are correct!*/
 double
 get_long_mean_free_path_heating(double redshift)
 {
@@ -341,11 +344,12 @@ quasar_emissivity_K15(double redshift, double alpha_q)
 /* Calculates the total ionization fraction of the box. If this is less than the desired ionization fraction, returns 1.
  * Otherwise returns 0
  */
-static int
-need_more_quasars(double redshift)
+static double
+gas_ionization_fraction(void)
 {
     int64_t n_ionized_tot = 0, n_gas_tot = 0;
     int i, n_ionized = 0;
+    #pragma omp parallel for reduction(+:n_ionized)
     for (i = 0; i < PartManager->NumPart; i++){
         if (P[i].Type == 0 && P[i].Ionized == 1){
             n_ionized ++;
@@ -355,13 +359,35 @@ need_more_quasars(double redshift)
      * Particles that become stars are not counted.*/
     sumup_large_ints(1, &n_ionized, &n_ionized_tot);
     sumup_large_ints(1, &SlotsManager->info[0].size, &n_gas_tot);
-    double ionized_frac = (double) n_ionized_tot / (double) n_gas_tot;
-
-    double desired_frac = gsl_interp_eval(HeIII_intp, He_zz, XHeIII, redshift, NULL);
-
-    return ionized_frac < desired_frac;
+    return (double) n_ionized_tot / (double) n_gas_tot;
 }
 
+/* Do the ionization for a single particle, marking it and adding the heat.
+ * Call this under a lock.*/
+static void
+ionize_single_particle(int other)
+{
+    /* Only ionize things once*/
+    if(P[other].Ionized != 0)
+        return;
+
+    /* Mark it ionized*/
+    P[other].Ionized = 1;
+
+    /* Heat the particle*/
+
+    /* Number of helium atoms per g in the particle*/
+    double nheperg = (1 - HYDROGEN_MASSFRAC) / (PROTONMASS * HEMASS);
+    /* Total heating per unit mass ergs/g for the particle*/
+    double deltau = qso_inst_heating * nheperg;
+    double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+
+    /* Conversion factor between internal energy and entropy.*/
+    double utoentropy = GAMMA_MINUS1 * pow(SPH_EOMDensity(other) * All.cf.a3inv, GAMMA_MINUS1);
+    /* Convert to entropy in internal units*/
+    SPHP(other).Entropy += utoentropy * deltau / uu_in_cgs;
+    return;
+}
 
 struct QSOPriv {
     /* Particle SpinLocks*/
@@ -400,25 +426,7 @@ ionize_ngbiter(TreeWalkQueryBase * I,
 
     lock_spinlock(other, spin);
 
-    /* Only ionize things once*/
-    if(P[other].Ionized != 0)
-        return;
-
-    /* Mark it ionized*/
-    P[other].Ionized = 1;
-
-    /* Heat the particle*/
-
-    /* Number of helium atoms per g in the particle*/
-    double nheperg = (1 - HYDROGEN_MASSFRAC) / (PROTONMASS * HEMASS);
-    /* Total heating per unit mass ergs/g for the particle*/
-    double deltau = qso_inst_heating * nheperg;
-    double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-
-    /* Conversion factor between internal energy and entropy.*/
-    double utoentropy = GAMMA_MINUS1 * pow(SPH_EOMDensity(other) * All.cf.a3inv, GAMMA_MINUS1);
-    /* Convert to entropy in internal units*/
-    SPHP(other).Entropy += utoentropy * deltau / uu_in_cgs;
+    ionize_single_particle(other);
 
     unlock_spinlock(other, spin);
 
@@ -486,8 +494,21 @@ turn_on_quasars(double redshift, ForceTree * tree)
     int nqso;
     int * qso_cand;
     int ncand = build_qso_candidate_list(&qso_cand, &nqso);
+    const double desired_ion_frac = gsl_interp_eval(HeIII_intp, He_zz, XHeIII, redshift, NULL);
+    /* If the desired ionization fraction is above a threshold (by default 0.95)
+     * ionize all particles*/
+    if(desired_ion_frac > QSOLightupParams.heIIIreion_finish_frac) {
+        int i;
+        #pragma omp parallel for
+        for (i = 0; i < PartManager->NumPart; i++){
+            if (P[i].Type == 0)
+                ionize_single_particle(i);
+        }
+    }
 
-    while (need_more_quasars(redshift)){
+    /* FIXME: If the ionization fraction stops changing, break the loop.*/
+    while (gas_ionization_fraction() < desired_ion_frac){
+
         /* Get a new quasar*/
         int new_qso = choose_QSO_halo(ncand, nqso, MPI_COMM_WORLD);
         ionize_all_part(new_qso, tree);
