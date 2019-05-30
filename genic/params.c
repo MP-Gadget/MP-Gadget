@@ -45,7 +45,7 @@ create_parameters()
     param_declare_double(ps, "Max_nuvel", OPTIONAL, 5000, "Maximum neutrino velocity sampled from the F-D distribution.");
 
     param_declare_int(ps, "DifferentTransferFunctions", OPTIONAL, 1, "Use species specific transfer functions for baryon and CDM.");
-    param_declare_int(ps, "ScaleDepVelocity", OPTIONAL, 1, "Use scale dependent velocity transfer functions obtained by differentiating sync. gauge velocity. Requires two transfer functions.");
+    param_declare_int(ps, "ScaleDepVelocity", OPTIONAL, -1, "Use scale dependent velocity transfer functions instead of the scale-independent Zel'dovich approximation. Enabled by default iff DifferentTransferFunctions = 1");
     param_declare_string(ps, "FileWithTransferFunction", OPTIONAL, "", "File containing CLASS formatted transfer functions with extra metric transfer functions=y.");
     param_declare_double(ps, "MaxMemSizePerNode", OPTIONAL, 0.6, "Maximum memory per node, in fraction of total memory, or MB if > 1.");
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255, "CMB temperature in K");
@@ -132,6 +132,10 @@ void read_parameterfile(char *fname)
     All2.PowerP.FileWithTransferFunction = param_get_string(ps, "FileWithTransferFunction");
     All2.PowerP.DifferentTransferFunctions = param_get_int(ps, "DifferentTransferFunctions");
     All2.PowerP.ScaleDepVelocity = param_get_int(ps, "ScaleDepVelocity");
+    /* By default ScaleDepVelocity follows DifferentTransferFunctions.*/
+    if(All2.PowerP.ScaleDepVelocity < 0) {
+        All2.PowerP.ScaleDepVelocity = All2.PowerP.DifferentTransferFunctions;
+    }
     All2.PowerP.WhichSpectrum = param_get_int(ps, "WhichSpectrum");
     All2.PowerP.PrimordialIndex = param_get_double(ps, "PrimordialIndex");
     All2.PowerP.PrimordialRunning = param_get_double(ps, "PrimordialRunning");
