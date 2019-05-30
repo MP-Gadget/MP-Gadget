@@ -330,16 +330,15 @@ static int
 need_more_quasars(double redshift)
 {
     int64_t n_ionized_tot = 0, n_gas_tot = 0;
-    /*int i, n_ionized = 0;
+    int i, n_ionized = 0;
     for (i = 0; i < PartManager->NumPart; i++){
         if (P[i].Type == 0 && P[i].Ionized == 1){
             n_ionized ++;
         }
-    }*/
-    /* Get total ionization fraction: note this
-     * includes all gas particles that have been ionized,
-     * thus gas has become stars.*/
-    sumup_large_ints(1, &N_ionized, &n_ionized_tot);
+    }
+    /* Get total ionization fraction: note this is only the current gas particles.
+     * Particles that become stars are not counted.*/
+    sumup_large_ints(1, &n_ionized, &n_ionized_tot);
     sumup_large_ints(1, &SlotsManager->info[0].size, &n_gas_tot);
     double ionized_frac = (double) n_ionized_tot / (double) n_gas_tot;
 
