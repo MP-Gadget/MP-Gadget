@@ -63,9 +63,6 @@
 #include "utils/paramset.h"
 #include "utils/mymalloc.h"
 
-/* 1 eV in ergs*/
-#define eVinergs 1.60218e-12
-
 static struct cooling_params CoolingParams;
 
 static gsl_interp * GrayOpac;

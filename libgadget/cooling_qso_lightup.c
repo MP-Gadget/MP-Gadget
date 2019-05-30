@@ -18,12 +18,6 @@
  * We lose time resolution but I cannot think of another way to ensure cooling is modelled correctly.
  */
 
-/* Need parameters: redshift at which start_reionization is called.
- *                  black hole mass parameter (accretion mass) specifies how clustered the quasars are.
- * start_reionization always switches on one quasar, then waits for the next one until HeIII fraction is high enough.
- *
- * */
-
 #include <math.h>
 #include <mpi.h>
 #include <string.h>
@@ -33,18 +27,20 @@
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "treewalk.h"
+#include "allvars.h"
+#include "hydra.h"
 #include "drift.h"
 #include "utils/endrun.h"
 #include "utils/paramset.h"
 #include "utils/mymalloc.h"
 
+#define E0_HeII 54.4 /* HeII ionization potential in eV*/
+#define HEMASS 4.002602 /* Helium mass in amu*/
+
 /*Parameters for the quasar driven helium reionization model.*/
 struct qso_lightup_params
 {
     int QSOLightupOn; /* Master flag enabling the helium reioization heating model.*/
-
-    double qso_spectral_index; /* Quasar spectral index. Read from the text file. */
-    double photon_threshold_energy; /* Photon threshold energy in eV, read from the text file*/
 
     double qso_candidate_min_mass; /* Minimum mass of a quasar black hole candidate.
                                   To become a quasar a black hole should have a mass between min and max. */
@@ -57,7 +53,12 @@ struct qso_lightup_params
 };
 
 static struct qso_lightup_params QSOLightupParams;
-/* Memory for the helium reionization history*/
+/* Memory for the helium reionization history. */
+/* Instantaneous heating from low-energy (short mean free path)
+ * photons to the Quasar to a newly ionized particle.
+ * Computed from parameters stored in the text file.
+ * In ergs.*/
+static double qso_inst_heating;
 static int Nreionhist;
 static double * He_zz;
 static double * XHeIII;
@@ -89,6 +90,19 @@ set_qso_lightup_params(ParameterSet * ps)
         QSOLightupParams.heIIIreion_start = param_get_double(ps, "QSOHeIIIReionStart");
     }
     MPI_Bcast(&QSOLightupParams, sizeof(struct qso_lightup_params), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
+
+/* Instantaneous heat injection from HeII reionization
+ * (absorption of photons with E<Emax) per helium atom [ergs]
+ */
+static double
+Q_inst(double Emax, double alpha_q)
+{
+    /* Total ionizing flux for the short mean free path photons*/
+    double intflux = (pow(Emax,-alpha_q+1.)-pow(E0_HeII,-alpha_q+1.))/(pow(Emax,-alpha_q)- pow(E0_HeII,-alpha_q));
+    /* Heating is input per unit mass, so quasars in denser areas will provide more heating.*/
+    double Q_inst = (alpha_q/(alpha_q - 1.0))*intflux -E0_HeII;
+    return eVinergs * Q_inst;
 }
 
 /* Load in reionization history file and build the interpolators between redshift and XHeII.
@@ -146,6 +160,7 @@ load_heii_reion_hist(const char * reion_hist_file)
 
     if(ThisTask == 0)
     {
+        double qso_spectral_index, photon_threshold_energy;
         int prei = 0;
         int i = 0;
         while(i < Nreionhist)
@@ -160,13 +175,13 @@ load_heii_reion_hist(const char * reion_hist_file)
                 continue;
             if(prei == 0)
             {
-                QSOLightupParams.qso_spectral_index = atof(retval);
+                qso_spectral_index = atof(retval);
                 prei++;
                 continue;
             }
             else if(prei == 1)
             {
-                QSOLightupParams.photon_threshold_energy = atof(retval);
+                photon_threshold_energy = atof(retval);
                 prei++;
                 continue;
             }
@@ -181,11 +196,11 @@ load_heii_reion_hist(const char * reion_hist_file)
             i++;
         }
         fclose(fd);
+        qso_inst_heating = Q_inst(photon_threshold_energy, qso_spectral_index);
     }
     /*Broadcast data to other processors*/
     MPI_Bcast(He_zz, 3 * Nreionhist, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&QSOLightupParams.qso_spectral_index, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&QSOLightupParams.photon_threshold_energy, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&qso_inst_heating, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     /* Initialize the interpolators*/
     HeIII_intp = gsl_interp_alloc(gsl_interp_linear,Nreionhist);
     LMFP_intp = gsl_interp_alloc(gsl_interp_linear,Nreionhist);
@@ -347,12 +362,6 @@ need_more_quasars(double redshift)
     return ionized_frac < desired_frac;
 }
 
-static void
-add_instantaneous_helium_heating(int other)
-{
-    /* Add some energy. FIXME: To implement.*/
-    SPHP(other).Entropy += 0;
-}
 
 struct QSOPriv {
     /* Particle SpinLocks*/
@@ -383,19 +392,33 @@ ionize_ngbiter(TreeWalkQueryBase * I,
 
     int other = iter->other;
 
-     /* This BH affects only non-ionized gas particles. */
-    if(P[other].Type != 0 || P[other].Ionized != 0)
+    /* Only ionize gas*/
+    if(P[other].Type != 0)
         return;
 
     struct SpinLocks * spin = QSO_GET_PRIV(lv->tw)->spin;
 
     lock_spinlock(other, spin);
 
+    /* Only ionize things once*/
+    if(P[other].Ionized != 0)
+        return;
+
     /* Mark it ionized*/
     P[other].Ionized = 1;
 
     /* Heat the particle*/
-    add_instantaneous_helium_heating(other);
+
+    /* Number of helium atoms per g in the particle*/
+    double nheperg = (1 - HYDROGEN_MASSFRAC) / (PROTONMASS * HEMASS);
+    /* Total heating per unit mass ergs/g for the particle*/
+    double deltau = qso_inst_heating * nheperg;
+    double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+
+    /* Conversion factor between internal energy and entropy.*/
+    double utoentropy = GAMMA_MINUS1 * pow(SPH_EOMDensity(other) * All.cf.a3inv, GAMMA_MINUS1);
+    /* Convert to entropy in internal units*/
+    SPHP(other).Entropy += utoentropy * deltau / uu_in_cgs;
 
     unlock_spinlock(other, spin);
 
