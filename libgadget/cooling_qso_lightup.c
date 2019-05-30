@@ -44,14 +44,14 @@ struct qso_lightup_params
     int QSOLightupOn; /* Master flag enabling the helium reioization heating model.*/
 
     double qso_spectral_index; /* Quasar spectral index. Read from the text file. */
-    double qso_spectral_energy; /* Quasar spectral energy, read from the text file*/
+    double photon_threshold_energy; /* Photon threshold energy in eV, read from the text file*/
 
     double qso_candidate_min_mass; /* Minimum mass of a quasar black hole candidate.
                                   To become a quasar a black hole should have a mass between min and max. */
     double qso_candidate_max_mass; /* Minimum mass of a quasar black hole candidate.*/
 
-    double mean_bubble; /* Mean size of the quasar bubble. FIXME: Does this affect the text file.*/
-    double var_bubble; /* Variance of the quasar bubble size. FIXME: Does this affect the text file.*/
+    double mean_bubble; /* Mean size of the quasar bubble.*/
+    double var_bubble; /* Variance of the quasar bubble size.*/
 
     double heIIIreion_start; /* Time at which start_reionization is called and helium III reionization begins*/
 };
@@ -98,7 +98,7 @@ set_qso_lightup_params(ParameterSet * ps)
  * Be careful. Do not double-count uniform long mean free path photons with the homogeneous UVB.
  *
  * quasar spectral index
- * quasar spectral energy
+ * instantaneous absorption threshold energy (in eV)
  * table of 3 columns, redshift, HeIII fraction, uniform background heating.
  * The text file specifies the end redshift of reionization.
  * */
@@ -166,7 +166,7 @@ load_heii_reion_hist(const char * reion_hist_file)
             }
             else if(prei == 1)
             {
-                QSOLightupParams.qso_spectral_energy = atof(retval);
+                QSOLightupParams.photon_threshold_energy = atof(retval);
                 prei++;
                 continue;
             }
@@ -185,7 +185,7 @@ load_heii_reion_hist(const char * reion_hist_file)
     /*Broadcast data to other processors*/
     MPI_Bcast(He_zz, 3 * Nreionhist, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&QSOLightupParams.qso_spectral_index, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&QSOLightupParams.qso_spectral_energy, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&QSOLightupParams.photon_threshold_energy, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     /* Initialize the interpolators*/
     HeIII_intp = gsl_interp_alloc(gsl_interp_linear,Nreionhist);
     LMFP_intp = gsl_interp_alloc(gsl_interp_linear,Nreionhist);
@@ -206,7 +206,7 @@ init_qso_lightup(char * reion_hist_file)
 static double last_zz;
 static double last_long_mfp_heating;
 
-/* Get the long mean free path heating.
+/* Get the long mean free path heating. in erg/s/cm^3
  * FIXME: Please check the units are correct! Should be */
 double
 get_long_mean_free_path_heating(double redshift)
