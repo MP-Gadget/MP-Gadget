@@ -338,6 +338,22 @@ sfr_reserve_slots(int * NewStars, int NumNewStar, ForceTree * tree)
         return NewStars;
 }
 
+/* Adds the injected black hole energy to an internal energy and caps it at a maximum temperature*/
+static double
+add_injected_BH_energy(double unew, double injected_BH_energy, double mass)
+{
+    unew += injected_BH_energy / mass;
+    const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
+    * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+
+    double temp = u_to_temp_fac * unew;
+
+    if(temp > 5.0e9)
+        unew = 5.0e9 / u_to_temp_fac;
+
+    return unew;
+}
+
 static void
 cooling_direct(int i) {
 
@@ -353,23 +369,7 @@ cooling_direct(int i) {
 
     if(All.BlackHoleOn && SPHP(i).Injected_BH_Energy)
     {
-        if(P[i].Mass == 0) {
-            endrun(12, "Encoutered zero mass particle during sfr;"
-                      " We haven't implemented tracer particles and this shall not happen\n");
-            /* This shall not happend */
-            SPHP(i).Injected_BH_Energy = 0;
-        }
-
-        unew += SPHP(i).Injected_BH_Energy / P[i].Mass;
-        const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
-        * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-
-        double temp = u_to_temp_fac * unew;
-
-
-        if(temp > 5.0e9)
-            unew = 5.0e9 / u_to_temp_fac;
-
+        unew = add_injected_BH_energy(unew, SPHP(i).Injected_BH_Energy, P[i].Mass);
         SPHP(i).Injected_BH_Energy = 0;
     }
 
@@ -478,20 +478,12 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
 
     if(All.BlackHoleOn && SPHP(i).Injected_BH_Energy > 0)
     {
-        double redshift = 1./All.Time - 1;
-        struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
-        egycurrent += SPHP(i).Injected_BH_Energy / P[i].Mass;
-
-        const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
-        * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-
-        double temp = u_to_temp_fac * egycurrent;
-
-        if(temp > 5.0e9)
-            egycurrent = 5.0e9 / u_to_temp_fac;
+        egycurrent = add_injected_BH_energy(egycurrent, SPHP(i).Injected_BH_Energy, P[i].Mass);
 
         if(egycurrent > egyeff)
         {
+            double redshift = 1./All.Time - 1;
+            struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
             double ne = SPHP(i).Ne;
             double tcool = GetCoolingTime(redshift, egycurrent, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, SPHP(i).Metallicity);
 
