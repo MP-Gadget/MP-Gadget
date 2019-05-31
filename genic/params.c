@@ -170,7 +170,7 @@ void read_parameterfile(char *fname)
 
     int64_t NumPartPerFile = param_get_int(ps, "NumPartPerFile");
 
-    int64_t Ngrid = All2.Ngrid;
+    int64_t Ngrid = DMAX(All2.Ngrid, All2.NgridGas);
     All2.NumFiles = ( Ngrid*Ngrid*Ngrid + NumPartPerFile - 1) / NumPartPerFile;
     All.IO.NumWriters = param_get_int(ps, "NumWriters");
     if(All2.PowerP.DifferentTransferFunctions && All2.PowerP.InputPowerRedshift != Redshift
@@ -183,7 +183,7 @@ void read_parameterfile(char *fname)
         endrun(0,"You want massive neutrinos but no background radiation: this will give an inconsistent cosmology.\n");
 
     if(All.Nmesh == 0) {
-        All.Nmesh = 2*Ngrid;
+        All.Nmesh = DMAX(2*Ngrid, 2*All2.NgridGas);
     }
     /*Set some units*/
     All.TimeIC = 1 / (1 + Redshift);
