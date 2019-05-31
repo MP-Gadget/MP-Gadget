@@ -796,7 +796,8 @@ fof_compile_catalogue(struct Group * group, double BoxSize, int BlackHoleInfo, M
     fof_finish_group_properties(Group, BoxSize);
 
     int64_t TotNids;
-    sumup_large_ints(1, &Ngroups, &TotNgroups);
+    TotNgroups = Ngroups;
+    MPI_Allreduce(MPI_IN_PLACE, &TotNgroups, 1, MPI_INT64, MPI_SUM, Comm);
     MPI_Allreduce(&Nids, &TotNids, 1, MPI_INT64, MPI_SUM, Comm);
 
     /* report some statistics */
