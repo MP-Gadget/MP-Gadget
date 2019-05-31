@@ -197,7 +197,7 @@ void cooling_and_starformation(ForceTree * tree)
     /* We ran out of slots! We must be forming a lot of stars.
      * There are things in the way of extending the slot list, so we have to move them.
      * The code in sfr_reserve_slots is not elegant, but I cannot think of a better way.*/
-    if(SlotsManager->info[4].size + NumNewStar >= SlotsManager->info[4].maxsize) {
+    if(All.StarformationOn && (SlotsManager->info[4].size + NumNewStar >= SlotsManager->info[4].maxsize)) {
         if(NewParents)
             NewParents = myrealloc(NewParents, sizeof(int) * NumNewStar);
         NewStars = sfr_reserve_slots(NewStars, NumNewStar, tree);
