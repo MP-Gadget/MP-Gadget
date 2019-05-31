@@ -43,7 +43,7 @@ int main(int argc, char **argv)
 
   petapm_init(All.BoxSize, All.Nmesh, All.NumThreads);
   /*Initialise particle spacings*/
-  const double meanspacing = All.BoxSize / All2.Ngrid;
+  const double meanspacing = All.BoxSize / DMAX(All2.Ngrid, All2.NgridGas);
   const double shift_gas = -All2.ProduceGas * 0.5 * (All.CP.Omega0 - All.CP.OmegaBaryon) / All.CP.Omega0 * meanspacing;
   double shift_dm = All2.ProduceGas * 0.5 * All.CP.OmegaBaryon / All.CP.Omega0 * meanspacing;
   double shift_nu = 0;
