@@ -223,7 +223,7 @@ blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
 
     N_sph_swallowed = N_BH_swallowed = 0;
 
-    /* Let's determine which particles may be swalled and calculate total feedback weights */
+    /* Let's determine which particles may be swallowed and calculate total feedback weights */
     SPH_SwallowID = mymalloc("SPH_SwallowID", SlotsManager->info[0].size * sizeof(MyIDType));
     if(ActiveParticle) {
         #pragma omp parallel for
@@ -244,6 +244,10 @@ blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Start swallowing of gas particles and black holes\n");
 
+    /* Allocate array for storing the feedback energy: FIXME: shouldn't this be applied by straightforwardly changing the entropy right here?
+     * It would be cleaner than going through the star formation code.*/
+    SphP_scratch->Injected_BH_Energy = mymalloc2("Injected_BH_Energy", SlotsManager->info[0].size * sizeof(MyFloat));
+    memset(SphP_scratch->Injected_BH_Energy, 0, SlotsManager->info[0].size * sizeof(MyFloat));
     /* Now do the swallowing of particles and dump feedback energy */
     treewalk_run(tw_feedback, ActiveParticle, NumActiveParticle);
 
@@ -627,7 +631,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
             if(I->FeedbackWeightSum > 0)
             {
-                SPHP(other).Injected_BH_Energy += (I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum);
+                SphP_scratch->Injected_BH_Energy[P[other].PI] += (I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum);
             }
 
             unlock_particle(other);
