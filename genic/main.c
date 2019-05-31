@@ -110,9 +110,9 @@ int main(int argc, char **argv)
   /*Make the table for the baryons if we need, using the second half of the memory.*/
   if(All2.ProduceGas) {
     if(!All2.MakeGlassGas) {
-        setup_grid(shift_gas, All2.NgridGas, mass[0], NumPartCDM, ICP+NumPartCDM);
+        setup_grid(shift_gas, All2.NgridGas, mass[0], NumPartGas, ICP+NumPartCDM);
     } else {
-        setup_glass(0, All2.NgridGas, GLASS_SEED_HASH(All2.Seed + 1), mass[0], NumPartCDM, ICP+NumPartCDM);
+        setup_glass(0, All2.NgridGas, GLASS_SEED_HASH(All2.Seed + 1), mass[0], NumPartGas, ICP+NumPartCDM);
     }
     /*Do coherent glass evolution to avoid close pairs*/
     if(All2.MakeGlassGas || All2.MakeGlassCDM)
