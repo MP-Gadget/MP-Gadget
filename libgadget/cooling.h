@@ -1,6 +1,8 @@
 #ifndef _COOLING_H_
 #define _COOLING_H_
 
+#include "cosmology.h"
+
 /* Ultra-violet background structure.
  * Can be changed on a particle-by-particle basis*/
 struct UVBG {
@@ -27,7 +29,7 @@ struct cooling_units
 };
 
 /*Initialise the cooling module.*/
-void init_cooling(char * TreeCoolFile, char * MetalCoolFile, char * UVFluctuationFile, struct cooling_units cu);
+void init_cooling(char * TreeCoolFile, char * MetalCoolFile, char * UVFluctuationFile, struct cooling_units cu, Cosmology * CP);
 
 /* Get the cooling time for a particle from the internal energy and density, specifying a UVB appropriately.
  * Sets ne_guess to the equilibrium electron density.*/
