@@ -98,10 +98,6 @@ struct sph_particle_data
     MyFloat Ne;  /*!< electron fraction, expressed as local electron number
                    density normalized to the hydrogen number density. Gives
                    indirectly ionization state and mean molecular weight. */
-
-    /*Used to store the BH feedback energy if black holes are on*/
-    MyFloat       Injected_BH_Energy;
-
     MyFloat DelayTime;		/*!< SH03: remaining maximum decoupling time of wind particle */
                             /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
 };

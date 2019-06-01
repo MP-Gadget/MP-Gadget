@@ -625,11 +625,20 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             else
             wk = 1.0;
 
-            if(I->FeedbackWeightSum > 0)
-            {
-                SPHP(other).Injected_BH_Energy += (I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum);
-            }
+            if(I->FeedbackWeightSum > 0 && I->FeedbackEnergy > 0) {
+                const double Injected_BH_Energy = (I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum);
+                const double entropy_to_u = GAMMA_MINUS1 * pow(SPH_EOMDensity(other) * All.cf.a3inv, GAMMA_MINUS1);
 
+                const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
+                                            * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+
+                SPHP(other).Entropy += Injected_BH_Energy / entropy_to_u / P[other].Mass;
+
+                const double maxentropy = 5.0e9 / u_to_temp_fac / entropy_to_u;
+
+                if(SPHP(other).Entropy > maxentropy)
+                    SPHP(other).Entropy = maxentropy;
+            }
             unlock_particle(other);
         }
     }
