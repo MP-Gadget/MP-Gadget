@@ -458,10 +458,7 @@ density_postprocess(int i, TreeWalk * tw)
         else
             DhsmlDens = &(SPHP(i).DhsmlEgyDensityFactor);
         *DhsmlDens *= P[i].Hsml / (NUMDIMS * SPHP(i).Density);
-        if(*DhsmlDens > -0.9)	/* note: this would be -1 if only a single particle at zero lag is found */
-            *DhsmlDens = 1 / (1 + *DhsmlDens);
-        else
-            *DhsmlDens = 1;
+        *DhsmlDens = 1 / (1 + *DhsmlDens);
 
         /*Compute the EgyWeight factors, which are only useful for density independent SPH */
         if(DENSITY_GET_PRIV(tw)->DoEgyDensity) {
