@@ -433,38 +433,29 @@ density_postprocess(int i, TreeWalk * tw)
 {
     if(P[i].Type == 0)
     {
-        if(SPHP(i).Density > 0)
-        {
-            SPHP(i).DhsmlDensityFactor *= P[i].Hsml / (NUMDIMS * SPHP(i).Density);
-            if(SPHP(i).DhsmlDensityFactor > -0.9)	/* note: this would be -1 if only a single particle at zero lag is found */
-                SPHP(i).DhsmlDensityFactor = 1 / (1 + SPHP(i).DhsmlDensityFactor);
-            else
-                SPHP(i).DhsmlDensityFactor = 1;
+        if(SPHP(i).Density <= 0)
+            endrun(12, "Particle %d has bad density: %g\n", i, SPHP(i).Density);
+        SPHP(i).DhsmlDensityFactor *= P[i].Hsml / (NUMDIMS * SPHP(i).Density);
+        if(SPHP(i).DhsmlDensityFactor > -0.9)	/* note: this would be -1 if only a single particle at zero lag is found */
+            SPHP(i).DhsmlDensityFactor = 1 / (1 + SPHP(i).DhsmlDensityFactor);
+        else
+            SPHP(i).DhsmlDensityFactor = 1;
 
-            /*Compute the EgyWeight factors, which are only useful for density independent SPH */
-            if(DENSITY_GET_PRIV(tw)->DoEgyDensity) {
-                const double EntPred = SphP_scratch->EntVarPred[P[i].PI];
-                if((EntPred > 0) && (SPHP(i).EgyWtDensity>0))
-                {
-                    SPHP(i).DhsmlEgyDensityFactor *= P[i].Hsml/ (NUMDIMS * SPHP(i).EgyWtDensity);
-                    SPHP(i).DhsmlEgyDensityFactor *= -SPHP(i).DhsmlDensityFactor;
-                    SPHP(i).EgyWtDensity /= EntPred;
-                } else {
-                    /* Use non-weighted densities for this.
-                    * This should never occur normally,
-                    * but will happen for every particle during init().*/
-                    SPHP(i).DhsmlEgyDensityFactor=SPHP(i).DhsmlDensityFactor;
-                    SPHP(i).EgyWtDensity=SPHP(i).Density;
-                }
-            }
-
-            int PI = P[i].PI;
-            MyFloat * Rot = DENSITY_GET_PRIV(tw)->Rot[PI];
-            SPHP(i).CurlVel = sqrt(Rot[0] * Rot[0] + Rot[1] * Rot[1] + Rot[2] * Rot[2]) / SPHP(i).Density;
-
-            SPHP(i).DivVel /= SPHP(i).Density;
-
+        /*Compute the EgyWeight factors, which are only useful for density independent SPH */
+        if(DENSITY_GET_PRIV(tw)->DoEgyDensity) {
+            const double EntPred = SphP_scratch->EntVarPred[P[i].PI];
+            if(EntPred <= 0 || SPHP(i).EgyWtDensity <=0)
+                endrun(12, "Particle %d has bad predicted entropy: %g or EgyWtDensity: %g\n", i, EntPred, SPHP(i).EgyWtDensity);
+            SPHP(i).DhsmlEgyDensityFactor *= P[i].Hsml/ (NUMDIMS * SPHP(i).EgyWtDensity);
+            SPHP(i).DhsmlEgyDensityFactor *= -SPHP(i).DhsmlDensityFactor;
+            SPHP(i).EgyWtDensity /= EntPred;
         }
+
+        int PI = P[i].PI;
+        MyFloat * Rot = DENSITY_GET_PRIV(tw)->Rot[PI];
+        SPHP(i).CurlVel = sqrt(Rot[0] * Rot[0] + Rot[1] * Rot[1] + Rot[2] * Rot[2]) / SPHP(i).Density;
+
+        SPHP(i).DivVel /= SPHP(i).Density;
     }
 
     /* This is slightly more complicated so we put it in a different function */
