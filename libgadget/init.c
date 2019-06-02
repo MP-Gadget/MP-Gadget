@@ -240,26 +240,25 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
 
     if(RestartSnapNum == -1)
     {
-#pragma omp parallel for
+        /* quick hack to adjust for the baryon fraction
+         * only this fraction of mass is of that type.
+         * this won't work for non-dm non baryon;
+         * ideally each node shall have separate count of
+         * ptypes of each type.
+         *
+         * Eventually the iteration will fix this. */
+         const double massfactor = 0.04/0.26;
+
+        #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++)
         {
-            int no = force_get_father(i, &Tree);
-            /* Don't need smoothing lengths for DM particles*/
-            if(P[i].Type != 0 && P[i].Type != 4 && P[i].Type != 5)
+            /* These initial smoothing lengths are only used for SPH.
+             * BH is set elsewhere. */
+            if(P[i].Type != 0)
                 continue;
-            /* quick hack to adjust for the baryon fraction
-             * only this fraction of mass is of that type.
-             * this won't work for non-dm non baryon;
-             * ideally each node shall have separate count of
-             * ptypes of each type.
-             *
-             * Eventually the iteration will fix this. */
-            double massfactor;
-            if(P[i].Type == 0) {
-                massfactor = 0.04 / 0.26;
-            } else {
-                massfactor = 1.0 - 0.04 / 0.26;
-            }
+
+            int no = force_get_father(i, &Tree);
+
             while(10 * All.DesNumNgb * P[i].Mass > massfactor * Tree.Nodes[no].u.d.mass)
             {
                 int p = force_get_father(no, &Tree);
