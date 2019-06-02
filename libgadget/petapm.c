@@ -417,7 +417,7 @@ static void layout_prepare (struct Layout * L, double * meshbuf, PetaPMRegion * 
 
     /* now shrink NpExport*/
     L->NpExport = NpAlloc;
-    while(L->PencilSend[L->NpExport - 1].len == 0) {
+    while(L->NpExport > 0 && L->PencilSend[L->NpExport - 1].len == 0) {
         L->NpExport --;
     }
 

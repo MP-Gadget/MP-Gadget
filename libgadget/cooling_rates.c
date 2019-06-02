@@ -50,6 +50,7 @@
 */
 
 #include "cooling_rates.h"
+#include "cosmology.h"
 
 #include <omp.h>
 #include <math.h>
@@ -933,16 +934,11 @@ set_cooling_params(ParameterSet * ps)
     if(ThisTask == 0) {
         /*Cooling rate network parameters*/
         CoolingParams.CMBTemperature = param_get_double(ps, "CMBTemperature");
-        double OmegaBaryon = param_get_double(ps, "OmegaBaryon");
-        double Omega0 = param_get_double(ps, "Omega0");
-        double HubbleParam = param_get_double(ps, "HubbleParam");
-        CoolingParams.fBar = OmegaBaryon / (Omega0 - OmegaBaryon);
         CoolingParams.cooling = param_get_enum(ps, "CoolingRates"); // Sherwood;
         CoolingParams.recomb = param_get_enum(ps, "RecombRates"); // Verner96;
         CoolingParams.SelfShieldingOn = param_get_int(ps, "SelfShieldingOn");
         CoolingParams.PhotoIonizeFactor = param_get_double(ps, "PhotoIonizeFactor");
         CoolingParams.PhotoIonizationOn = param_get_int(ps, "PhotoIonizationOn");
-        CoolingParams.rho_crit_baryon = OmegaBaryon * 3.0 * pow(HubbleParam*HUBBLE,2.0) /(8.0*M_PI*GRAVITY);
         CoolingParams.MinGasTemp = param_get_double(ps, "MinGasTemp");
         CoolingParams.UVRedshiftThreshold = param_get_double(ps, "UVRedshiftThreshold");
         CoolingParams.HydrogenHeatAmp = log10(param_get_double(ps, "HydrogenHeatAmp"));
@@ -959,8 +955,11 @@ set_cooling_params(ParameterSet * ps)
 /*Initialize the cooling rate module. This builds a lot of interpolation tables.
  * Defaults: TCMB 2.7255, recomb = Verner96, cooling = Sherwood.*/
 void
-init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile)
+init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, Cosmology * CP)
 {
+    CoolingParams.fBar = CP->OmegaBaryon / CP->OmegaCDM;
+    CoolingParams.rho_crit_baryon = CP->OmegaBaryon * 3.0 * pow(CP->HubbleParam*HUBBLE,2.0) /(8.0*M_PI*GRAVITY);
+
     /*Initialize the interpolation for the self-shielding module as a function of redshift.*/
     GrayOpac = gsl_interp_alloc(gsl_interp_cspline,NGRAY);
     gsl_interp_init(GrayOpac,GrayOpac_zz,GrayOpac_ydata, NGRAY);

@@ -11,6 +11,7 @@
 #include <string.h>
 #include <libgadget/config.h>
 #include <libgadget/physconst.h>
+#include <libgadget/cosmology.h>
 #include <libgadget/cooling.h>
 #include <libgadget/cooling_rates.h>
 #include <libgadget/allvars.h>
@@ -173,8 +174,12 @@ static void test_DoCooling(void ** state)
     coolunits.uu_in_cgs = UnitEnergy_in_cgs / UnitMass_in_g;
     coolunits.tt_in_s = UnitTime_in_s / HubbleParam;
 
+    Cosmology CP = {0};
+    CP.OmegaCDM = 0.3;
+    CP.OmegaBaryon = coolpar.fBar * CP.OmegaCDM;
+    CP.HubbleParam = HubbleParam;
     set_coolpar(coolpar);
-    init_cooling(TreeCool, MetalCool, UVFluc, coolunits);
+    init_cooling(TreeCool, MetalCool, UVFluc, coolunits, &CP);
     struct UVBG uvbg = get_global_UVBG(0);
     assert_true(fabs(uvbg.epsH0/3.65296e-25 -1) < 1e-5);
     assert_true(fabs(uvbg.epsHe0/3.98942e-25 -1) < 1e-5);

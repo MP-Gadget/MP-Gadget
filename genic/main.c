@@ -43,7 +43,7 @@ int main(int argc, char **argv)
 
   petapm_init(All.BoxSize, All.Nmesh, All.NumThreads);
   /*Initialise particle spacings*/
-  const double meanspacing = All.BoxSize / All2.Ngrid;
+  const double meanspacing = All.BoxSize / DMAX(All2.Ngrid, All2.NgridGas);
   const double shift_gas = -All2.ProduceGas * 0.5 * (All.CP.Omega0 - All.CP.OmegaBaryon) / All.CP.Omega0 * meanspacing;
   double shift_dm = All2.ProduceGas * 0.5 * All.CP.OmegaBaryon / All.CP.Omega0 * meanspacing;
   double shift_nu = 0;
@@ -110,44 +110,46 @@ int main(int argc, char **argv)
   /*Make the table for the baryons if we need, using the second half of the memory.*/
   if(All2.ProduceGas) {
     if(!All2.MakeGlassGas) {
-        setup_grid(shift_gas, All2.NgridGas, mass[0], NumPartCDM, ICP+NumPartCDM);
+        setup_grid(shift_gas, All2.NgridGas, mass[0], NumPartGas, ICP+NumPartCDM);
     } else {
-        setup_glass(0, All2.NgridGas, GLASS_SEED_HASH(All2.Seed + 1), mass[0], NumPartCDM, ICP+NumPartCDM);
+        setup_glass(0, All2.NgridGas, GLASS_SEED_HASH(All2.Seed + 1), mass[0], NumPartGas, ICP+NumPartCDM);
     }
     /*Do coherent glass evolution to avoid close pairs*/
     if(All2.MakeGlassGas || All2.MakeGlassCDM)
         glass_evolve(14, "powerspectrum-glass-tot", ICP, NumPartCDM+NumPartGas);
   }
 
-  displacement_fields(DMType, ICP, NumPartCDM);
+  if(NumPartCDM > 0) {
+    displacement_fields(DMType, ICP, NumPartCDM);
 
-  /*Add a thermal velocity to WDM particles*/
-  if(All2.WDM_therm_mass > 0){
-      int i;
-      double v_th = WDM_V0(All.TimeIC, All2.WDM_therm_mass, All.CP.Omega0 - All.CP.OmegaBaryon - get_omega_nu(&All.CP.ONu, 1), All.CP.HubbleParam, All.UnitVelocity_in_cm_per_s);
-      if(!All.IO.UsePeculiarVelocity)
-         v_th /= sqrt(All.TimeIC);
-      struct thermalvel WDM;
-      init_thermalvel(&WDM, v_th, 10000/v_th, 0);
-      unsigned int * seedtable = init_rng(All2.Seed+1,All2.Ngrid);
-      gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
-      /*Seed the random number table with the Id.*/
-      gsl_rng_set(g_rng, seedtable[0]);
+    /*Add a thermal velocity to WDM particles*/
+    if(All2.WDM_therm_mass > 0){
+        int i;
+        double v_th = WDM_V0(All.TimeIC, All2.WDM_therm_mass, All.CP.Omega0 - All.CP.OmegaBaryon - get_omega_nu(&All.CP.ONu, 1), All.CP.HubbleParam, All.UnitVelocity_in_cm_per_s);
+        if(!All.IO.UsePeculiarVelocity)
+           v_th /= sqrt(All.TimeIC);
+        struct thermalvel WDM;
+        init_thermalvel(&WDM, v_th, 10000/v_th, 0);
+        unsigned int * seedtable = init_rng(All2.Seed+1,All2.Ngrid);
+        gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
+        /*Seed the random number table with the Id.*/
+        gsl_rng_set(g_rng, seedtable[0]);
 
-      for(i = 0; i < NumPartCDM; i++) {
-           /*Find the slab, and reseed if it has zero z rank*/
-           if(i % All2.Ngrid == 0) {
-                uint64_t id = id_offset_from_index(i, All2.Ngrid);
-                /*Seed the random number table with x,y index.*/
-                gsl_rng_set(g_rng, seedtable[id / All2.Ngrid]);
-           }
-           add_thermal_speeds(&WDM, g_rng, ICP[i].Vel);
-      }
-      gsl_rng_free(g_rng);
-      myfree(seedtable);
+        for(i = 0; i < NumPartCDM; i++) {
+             /*Find the slab, and reseed if it has zero z rank*/
+             if(i % All2.Ngrid == 0) {
+                  uint64_t id = id_offset_from_index(i, All2.Ngrid);
+                  /*Seed the random number table with x,y index.*/
+                  gsl_rng_set(g_rng, seedtable[id / All2.Ngrid]);
+             }
+             add_thermal_speeds(&WDM, g_rng, ICP[i].Vel);
+        }
+        gsl_rng_free(g_rng);
+        myfree(seedtable);
+    }
+
+    write_particle_data(1, &bf, 0, All2.Ngrid, ICP, NumPartCDM);
   }
-
-  write_particle_data(1, &bf, 0, All2.Ngrid, ICP, NumPartCDM);
 
   /*Now make the gas if required*/
   if(All2.ProduceGas) {

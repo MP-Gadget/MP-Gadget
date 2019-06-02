@@ -197,7 +197,7 @@ void cooling_and_starformation(ForceTree * tree)
     /* We ran out of slots! We must be forming a lot of stars.
      * There are things in the way of extending the slot list, so we have to move them.
      * The code in sfr_reserve_slots is not elegant, but I cannot think of a better way.*/
-    if(SlotsManager->info[4].size + NumNewStar >= SlotsManager->info[4].maxsize) {
+    if(All.StarformationOn && (SlotsManager->info[4].size + NumNewStar >= SlotsManager->info[4].maxsize)) {
         if(NewParents)
             NewParents = myrealloc(NewParents, sizeof(int) * NumNewStar);
         NewStars = sfr_reserve_slots(NewStars, NumNewStar, tree);
@@ -702,7 +702,7 @@ void init_cooling_and_star_formation(void)
     coolunits.uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
     coolunits.tt_in_s = All.UnitTime_in_s / All.CP.HubbleParam;
 
-    init_cooling(All.TreeCoolFile, All.MetalCoolFile, All.UVFluctuationFile, coolunits);
+    init_cooling(All.TreeCoolFile, All.MetalCoolFile, All.UVFluctuationFile, coolunits, &All.CP);
 
     /* mean molecular weight assuming ZERO ionization NEUTRAL GAS*/
     double meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);
