@@ -52,6 +52,10 @@ PressurePred(int PI)
 
 struct HydraPriv {
     double * PressurePred;
+    /* Time-dependent constant factors, brought out here because
+     * they need an expensive pow().*/
+    double fac_mu;
+    double fac_vsic_fix;
 };
 
 #define HYDRA_GET_PRIV(tw) ((struct HydraPriv*) ((tw)->priv))
@@ -109,11 +113,6 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw);
 static void
 hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mode, TreeWalk * tw);
 
-/* Time-dependent constant factors, brought out here because
- * they need an expensive pow().*/
-static double fac_mu;
-static double fac_vsic_fix;
-
 /*! This function is the driver routine for the calculation of hydrodynamical
  *  force and rate of change of entropy due to shock heating for all active
  *  particles .
@@ -154,8 +153,8 @@ void hydro_force(ForceTree * tree)
     walltime_measure("/Misc");
 
     /* Initialize some time factors*/
-    fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
-    fac_vsic_fix = All.cf.hubble * pow(All.cf.a, 3 * GAMMA_MINUS1);
+    HYDRA_GET_PRIV(tw)->fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
+    HYDRA_GET_PRIV(tw)->fac_vsic_fix = All.cf.hubble * pow(All.cf.a, 3 * GAMMA_MINUS1);
 
     treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
@@ -199,7 +198,7 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
     soundspeed_i = sqrt(GAMMA * input->Pressure / SPH_EOMDensity(place));
     input->F1 = fabs(SPHP(place).DivVel) /
         (fabs(SPHP(place).DivVel) + SPHP(place).CurlVel +
-         0.0001 * soundspeed_i / P[place].Hsml / fac_mu);
+         0.0001 * soundspeed_i / P[place].Hsml / HYDRA_GET_PRIV(tw)->fac_mu);
 }
 
 static void
@@ -294,7 +293,7 @@ hydro_ngbiter(
         if(vdotr2 < 0)	/* ... artificial viscosity visc is 0 by default*/
         {
             /*See Gadget-2 paper: eq. 13*/
-            const double mu_ij = fac_mu * vdotr2 / r;	/* note: this is negative! */
+            const double mu_ij = HYDRA_GET_PRIV(lv->tw)->fac_mu * vdotr2 / r;	/* note: this is negative! */
             const double rho_ij = 0.5 * (I->Density + SPHP(other).Density);
             double vsig = iter->soundspeed_i + soundspeed_j;
 
@@ -306,7 +305,7 @@ hydro_ngbiter(
             /* Note this uses the CurlVel of an inactive particle, which may not be
              * at the present drift time*/
             const double f2 = fabs(SPHP(other).DivVel) / (fabs(SPHP(other).DivVel) +
-                    SPHP(other).CurlVel + 0.0001 * soundspeed_j / fac_mu / P[other].Hsml);
+                    SPHP(other).CurlVel + 0.0001 * soundspeed_j / HYDRA_GET_PRIV(lv->tw)->fac_mu / P[other].Hsml);
 
             /*Gadget-2 paper, eq. 14*/
             visc = 0.25 * All.ArtBulkViscConst * vsig * (-mu_ij) / rho_ij * (I->F1 + f2);
@@ -318,7 +317,7 @@ hydro_ngbiter(
             if(dloga > 0 && (dwk_i + dwk_j) < 0)
             {
                 if((I->Mass + P[other].Mass) > 0) {
-                    visc = DMIN(visc, 0.5 * fac_vsic_fix * vdotr2 /
+                    visc = DMIN(visc, 0.5 * HYDRA_GET_PRIV(lv->tw)->fac_vsic_fix * vdotr2 /
                             (0.5 * (I->Mass + P[other].Mass) * (dwk_i + dwk_j) * r * dloga));
                 }
             }
