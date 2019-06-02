@@ -285,7 +285,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
         }
 
     /*Allocate the extra SPH data for transient SPH particle properties.*/
-    slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size);
+    slots_allocate_sph_scratch_data(0, SlotsManager->info[0].size);
 
     density(&Tree);
 
