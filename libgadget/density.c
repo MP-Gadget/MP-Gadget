@@ -288,9 +288,8 @@ density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw)
         I->Vel[0] = SphP_scratch->VelPred[3 * P[place].PI];
         I->Vel[1] = SphP_scratch->VelPred[3 * P[place].PI + 1];
         I->Vel[2] = SphP_scratch->VelPred[3 * P[place].PI + 2];
+        I->DelayTime = SPHP(place).DelayTime;
     }
-
-    I->DelayTime = SPHP(place).DelayTime;
 
 }
 
