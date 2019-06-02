@@ -180,39 +180,39 @@ void check_positions(void)
 static void
 setup_density_indep_entropy(ForceTree * Tree, double u_init, double a3)
 {
+    int j;
     message(0, "Converting u -> entropy, with density split sph\n");
 
-    int j;
-    double * olddensity = (double *)mymalloc("olddensity ", PartManager->NumPart * sizeof(double));
+    /* This gives better convergence than initializing EgyWtDensity before Density is known*/
+    #pragma omp parallel for
+    for(j = 0; j < SlotsManager->info[0].size; j++)
+        SphP[j].EgyWtDensity = SphP[j].Density;
+
+    MyFloat * olddensity = (MyFloat *)mymalloc("olddensity ", SlotsManager->info[0].size * sizeof(MyFloat));
     for(j = 0; j < 100; j++)
     {
         int i;
         /* since ICs give energies, not entropies, need to iterate get this initialized correctly */
         #pragma omp parallel for
-        for(i = 0; i < PartManager->NumPart; i++)
-        {
-            if(P[i].Type == 0) {
-                SPHP(i).Entropy = GAMMA_MINUS1 * u_init / pow(SPHP(i).EgyWtDensity / a3 , GAMMA_MINUS1);
-                olddensity[i] = SPHP(i).EgyWtDensity;
-            }
+        for(i = 0; i < SlotsManager->info[0].size; i++) {
+            SphP[i].Entropy = GAMMA_MINUS1 * u_init / pow(SphP[i].EgyWtDensity / a3 , GAMMA_MINUS1);
+            olddensity[i] = SphP[i].EgyWtDensity;
         }
-        density_update(Tree);
-        double badness = 0;
+        /* Update the EgyWtDensity*/
+        density(0, All.DensityIndependentSphOn, Tree);
 
-        #pragma omp parallel for reduction(max: badness)
-        for(i = 0; i < PartManager->NumPart; i++) {
-            if(P[i].Type == 0) {
-                if(SPHP(i).EgyWtDensity <= 0)
-                    continue;
-                double value = fabs(SPHP(i).EgyWtDensity - olddensity[i]) / SPHP(i).EgyWtDensity;
-                badness = DMAX(badness,value);
-            }
+        double maxdiff = 0;
+        #pragma omp parallel for reduction(max: maxdiff)
+        for(i = 0; i < SlotsManager->info[0].size; i++) {
+            double value = fabs(SphP[i].EgyWtDensity - olddensity[i]) / SphP[i].EgyWtDensity;
+            maxdiff = DMAX(maxdiff,value);
         }
-        MPI_Allreduce(MPI_IN_PLACE, &badness, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+        MPI_Allreduce(MPI_IN_PLACE, &maxdiff, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
 
-        message(0, "iteration %03d, max relative difference = %g \n", j, badness);
+        message(0, "iteration %d, max relative change in EgyWtDensity = %g \n", j, maxdiff);
 
-        if(badness < 1e-3) break;
+        if(maxdiff < 1e-3)
+            break;
     }
     myfree(olddensity);
 }
@@ -287,7 +287,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
     /*Allocate the extra SPH data for transient SPH particle properties.*/
     slots_allocate_sph_scratch_data(0, SlotsManager->info[0].size);
 
-    density(&Tree);
+    density(1, 0, &Tree);
 
     /* for clean IC with U input only, we need to iterate to find entrpoy */
     if(RestartSnapNum == -1)
@@ -318,7 +318,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
     /* snapshot already has EgyWtDensity; hope it is read in correctly.
      * (need a test on this!) */
     if(All.DensityIndependentSphOn)
-        density_update(&Tree);
+        density(0, 1, &Tree);
 
     slots_free_sph_scratch_data(SphP_scratch);
     force_tree_free(&Tree);
