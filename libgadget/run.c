@@ -196,7 +196,8 @@ void run(DomainDecomp * ddecomp)
         force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav);
 
         /*Allocate the extra SPH data for transient SPH particle properties.*/
-        slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size);
+        if(GasEnabled)
+            slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size);
         /* update force to Ti_Current */
         compute_accelerations(is_PM, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
 
@@ -251,7 +252,8 @@ void run(DomainDecomp * ddecomp)
 
         write_checkpoint(WriteSnapshot, WriteFOF, &Tree);
 
-        slots_free_sph_scratch_data(SphP_scratch);
+        if(GasEnabled)
+            slots_free_sph_scratch_data(SphP_scratch);
 
         write_cpu_log(NumCurrentTiStep);		/* produce some CPU usage info */
 
