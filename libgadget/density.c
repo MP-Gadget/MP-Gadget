@@ -55,7 +55,7 @@ typedef struct {
 
 struct DensityPriv {
     MyFloat *Left, *Right;
-    MyFloat *Rot;
+    MyFloat (*Rot)[3];
     int NIteration;
     int *NPLeft;
     int update_hsml;
@@ -149,7 +149,7 @@ density_internal(int update_hsml, ForceTree * tree)
 
     DENSITY_GET_PRIV(tw)->Left = (MyFloat *) mymalloc("DENSITY_GET_PRIV(tw)->Left", PartManager->NumPart * sizeof(MyFloat));
     DENSITY_GET_PRIV(tw)->Right = (MyFloat *) mymalloc("DENSITY_GET_PRIV(tw)->Right", PartManager->NumPart * sizeof(MyFloat));
-    DENSITY_GET_PRIV(tw)->Rot = (MyFloat *) mymalloc("DENSITY_GET_PRIV(tw)->Rot", 3 * SlotsManager->info[0].size * sizeof(MyFloat));
+    DENSITY_GET_PRIV(tw)->Rot = (MyFloat (*) [3]) mymalloc("DENSITY_GET_PRIV(tw)->Rot", SlotsManager->info[0].size * sizeof(priv->Rot[0]));
     DENSITY_GET_PRIV(tw)->update_hsml = update_hsml;
 
     DENSITY_GET_PRIV(tw)->NIteration = 0;
@@ -276,10 +276,9 @@ density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMod
 
         TREEWALK_REDUCE(SPHP(place).DivVel, remote->Div);
         int pi = P[place].PI;
-        MyFloat * Rot = DENSITY_GET_PRIV(tw)->Rot;
-        TREEWALK_REDUCE(Rot[3*pi], remote->Rot[0]);
-        TREEWALK_REDUCE(Rot[3*pi+1], remote->Rot[1]);
-        TREEWALK_REDUCE(Rot[3*pi+2], remote->Rot[2]);
+        TREEWALK_REDUCE(DENSITY_GET_PRIV(tw)->Rot[pi][0], remote->Rot[0]);
+        TREEWALK_REDUCE(DENSITY_GET_PRIV(tw)->Rot[pi][1], remote->Rot[1]);
+        TREEWALK_REDUCE(DENSITY_GET_PRIV(tw)->Rot[pi][2], remote->Rot[2]);
 
         if(SphP_scratch->GradRho) {
             TREEWALK_REDUCE(SphP_scratch->GradRho[3*pi], remote->GradRho[0]);
@@ -443,10 +442,9 @@ density_postprocess(int i, TreeWalk * tw)
                 }
             }
 
-            MyFloat * Rot = DENSITY_GET_PRIV(tw)->Rot;
             int PI = P[i].PI;
-
-            SPHP(i).CurlVel = sqrt(Rot[3*PI] * Rot[3*PI] + Rot[3*PI+1] * Rot[3*PI+1] + Rot[3*PI+2] * Rot[3*PI+2]) / SPHP(i).Density;
+            MyFloat * Rot = DENSITY_GET_PRIV(tw)->Rot[PI];
+            SPHP(i).CurlVel = sqrt(Rot[0] * Rot[0] + Rot[1] * Rot[1] + Rot[2] * Rot[2]) / SPHP(i).Density;
 
             SPHP(i).DivVel /= SPHP(i).Density;
 
