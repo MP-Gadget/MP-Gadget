@@ -306,7 +306,12 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridN
 
     walltime_measure("/Misc");
 
-    /* We do this first so that the density is up to date for
+    /* density() happens before gravity because it also initializes the predicted variables.
+     * This ensures that prediction consistently uses the grav and hydro accel from the
+     * timestep before this one, which matches Gadget-2/3. It was tested to make a small difference,
+     * since prediction is only really used for artificial viscosity.
+     *
+     * Doing it first also means the density is up to date for
      * adaptive gravitational softenings. */
     if(GasEnabled)
     {
