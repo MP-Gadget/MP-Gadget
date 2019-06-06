@@ -116,6 +116,7 @@ extern struct global_data_all_processes
         int EnableAggregatedIO;  /* Enable aggregated IO policy for small files.*/
         size_t AggregatedIOThreshold; /* bytes per writer above which to use non-aggregated IO (avoid OOM)*/
         int UsePeculiarVelocity;
+        int UseGadgetVelocity; /* If this is true, output velocities in the Gadget-2/3 format, which is physical velocity divided by a^{1/2}. This matches the units of MP-GenIC*/
     } IO;
 
     double PartAllocFactor;	/*!< in order to maintain work-load balance, the particle load will usually

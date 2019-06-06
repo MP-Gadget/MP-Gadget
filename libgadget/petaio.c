@@ -35,7 +35,7 @@ void fof_register_io_blocks();
 struct IOTable IOTable;
 
 static void petaio_write_header(BigFile * bf, const int64_t * NTotal);
-static void petaio_read_header_internal(BigFile * bf);
+static void petaio_read_header_internal(BigFile * bf, int num);
 
 static void register_io_blocks();
 
@@ -323,7 +323,7 @@ petaio_read_header(int num)
                     big_file_get_error_message());
     }
 
-    petaio_read_header_internal(&bf);
+    petaio_read_header_internal(&bf, num);
 
     if(0 != big_file_mpi_close(&bf, MPI_COMM_WORLD)) {
         endrun(0, "Failed to close snapshot at %s:%s\n", fname,
@@ -350,19 +350,6 @@ petaio_read_snapshot(int num, MPI_Comm Comm)
         for(i = 0; i < PartManager->NumPart; i++)
         {
             P[i].Mass = All.MassTable[P[i].Type];
-        }
-
-        if (!All.IO.UsePeculiarVelocity ) {
-
-            /* fixing the unit of velocity from Legacy GenIC IC */
-            #pragma omp parallel for
-            for(i = 0; i < PartManager->NumPart; i++) {
-                int k;
-                /* for GenIC's Gadget-1 snapshot Unit to Gadget-2 Internal velocity unit */
-                for(k = 0; k < 3; k++)
-                    P[i].Vel[k] *= sqrt(All.cf.a) * All.cf.a;
-            }
-
         }
     } else {
         fname = fastpm_strdup_printf("%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
@@ -400,6 +387,7 @@ static void petaio_write_header(BigFile * bf, const int64_t * NTotal) {
     (0 != big_block_set_attr(&bh, "OmegaLambda", &All.CP.OmegaLambda, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "RSDFactor", &RSD, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "UsePeculiarVelocity", &All.IO.UsePeculiarVelocity, "i4", 1)) ||
+    (0 != big_block_set_attr(&bh, "UseGadgetVelocity", &All.IO.UseGadgetVelocity, "i4", 1)) ||
     (0 != big_block_set_attr(&bh, "Omega0", &All.CP.Omega0, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "CMBTemperature", &All.CP.CMBTemperature, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "OmegaBaryon", &All.CP.OmegaBaryon, "f8", 1)) ||
@@ -439,7 +427,7 @@ _get_attr_int(BigBlock * bh, char * name, int def)
 }
 
 static void
-petaio_read_header_internal(BigFile * bf) {
+petaio_read_header_internal(BigFile * bf, int num) {
     BigBlock bh;
     if(0 != big_file_mpi_open_block(bf, &bh, "Header", MPI_COMM_WORLD)) {
         endrun(0, "Failed to create block at %s:%s\n", "Header",
@@ -483,6 +471,10 @@ petaio_read_header_internal(BigFile * bf) {
 
     /* Fall back to use a**2 * dx/dt if UsePeculiarVelocity is not set in IC */
     All.IO.UsePeculiarVelocity = _get_attr_int(&bh, "UsePeculiarVelocity", 0);
+    /* Use the Gadget default velocity, which has a factor of 1/sqrt(a).
+     * If this flag is not present we assume that we have old MP-Gadget format velocities,
+     * which have the 1/sqrt(a) factor in the ICs but not in the snapshot. */
+    All.IO.UseGadgetVelocity = _get_attr_int(&bh, "UsePeculiarVelocity", num < 0);
 
     if(0 != big_block_get_attr(&bh, "TotNumPartInit", All.NTotalInit, "u8", 6)) {
         int ptype;
@@ -714,11 +706,11 @@ void io_register_io_block(char * name,
 SIMPLE_PROPERTY(Position, P[i].Pos[0], double, 3)
 static void GTVelocity(int i, float * out) {
     /* Convert to Peculiar Velocity if UsePeculiarVelocity is set */
-    double fac;
+    double fac = 1.0;
     if (All.IO.UsePeculiarVelocity) {
         fac = 1.0 / All.cf.a;
-    } else {
-        fac = 1.0;
+    } else if(All.IO.UseGadgetVelocity) {
+        fac = sqrt(All.cf.a3inv);
     }
 
     int d;
@@ -727,11 +719,11 @@ static void GTVelocity(int i, float * out) {
     }
 }
 static void STVelocity(int i, float * out) {
-    double fac;
+    double fac = 1.0;
     if (All.IO.UsePeculiarVelocity) {
         fac = All.cf.a;
-    } else {
-        fac = 1.0;
+    } else if(All.IO.UseGadgetVelocity) {
+        fac = 1./sqrt(All.cf.a3inv);
     }
 
     int d;

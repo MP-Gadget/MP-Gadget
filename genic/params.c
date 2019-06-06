@@ -142,6 +142,7 @@ void read_parameterfile(char *fname)
 
     /*Simulation parameters*/
     All.IO.UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
+    All.IO.UseGadgetVelocity = 1;
     All.BoxSize = param_get_double(ps, "BoxSize");
     All.Nmesh = param_get_int(ps, "Nmesh");
     All2.Ngrid = param_get_int(ps, "Ngrid");
