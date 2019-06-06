@@ -121,7 +121,7 @@ static void
 load_heii_reion_hist(const char * reion_hist_file)
 {
     int ThisTask;
-    FILE * fd;
+    FILE * fd = NULL;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
     if(ThisTask == 0) {
@@ -161,7 +161,7 @@ load_heii_reion_hist(const char * reion_hist_file)
 
     if(ThisTask == 0)
     {
-        double qso_spectral_index, photon_threshold_energy;
+        double qso_spectral_index = 0, photon_threshold_energy = 0;
         int prei = 0;
         int i = 0;
         while(i < Nreionhist)
@@ -468,7 +468,7 @@ ionize_all_part(int qso_ind, ForceTree * tree)
 static void
 turn_on_quasars(double redshift, ForceTree * tree)
 {
-    int nqso;
+    int nqso=0;
     int * qso_cand;
     int ncand = build_qso_candidate_list(&qso_cand, &nqso);
     int64_t n_gas_tot, tot_n_ionized, ncand_tot;
