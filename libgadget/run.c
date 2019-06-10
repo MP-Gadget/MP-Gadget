@@ -196,7 +196,8 @@ void run(DomainDecomp * ddecomp)
         force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav);
 
         /*Allocate the extra SPH data for transient SPH particle properties.*/
-        slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size);
+        if(GasEnabled)
+            slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size);
         /* update force to Ti_Current */
         compute_accelerations(is_PM, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
 
@@ -251,7 +252,8 @@ void run(DomainDecomp * ddecomp)
 
         write_checkpoint(WriteSnapshot, WriteFOF, &Tree);
 
-        slots_free_sph_scratch_data(SphP_scratch);
+        if(GasEnabled)
+            slots_free_sph_scratch_data(SphP_scratch);
 
         write_cpu_log(NumCurrentTiStep);		/* produce some CPU usage info */
 
@@ -304,7 +306,12 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridN
 
     walltime_measure("/Misc");
 
-    /* We do this first so that the density is up to date for
+    /* density() happens before gravity because it also initializes the predicted variables.
+     * This ensures that prediction consistently uses the grav and hydro accel from the
+     * timestep before this one, which matches Gadget-2/3. It was tested to make a small difference,
+     * since prediction is only really used for artificial viscosity.
+     *
+     * Doing it first also means the density is up to date for
      * adaptive gravitational softenings. */
     if(GasEnabled)
     {

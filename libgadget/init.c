@@ -112,7 +112,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
         {
             SPHP(i).Density = -1;
             SPHP(i).EgyWtDensity = -1;
-            SPHP(i).EntVarPred = -1;
+            SPHP(i).Entropy = -1;
             SPHP(i).Ne = 1.0;
             SPHP(i).DivVel = 0;
         }
@@ -195,7 +195,6 @@ setup_density_indep_entropy(ForceTree * Tree, double u_init, double a3)
         {
             if(P[i].Type == 0) {
                 SPHP(i).Entropy = GAMMA_MINUS1 * u_init / pow(SPHP(i).EgyWtDensity / a3 , GAMMA_MINUS1);
-                SPHP(i).EntVarPred = pow(SPHP(i).Entropy, 1/GAMMA);
                 olddensity[i] = SPHP(i).EgyWtDensity;
             }
         }
@@ -320,14 +319,6 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
     }
     /* snapshot already has EgyWtDensity; hope it is read in correctly.
      * (need a test on this!) */
-    /* regardless we initalize EntVarPred. This may be unnecessary*/
-#pragma omp parallel for
-    for(i = 0; i < PartManager->NumPart; i++) {
-        if(P[i].Type == 0) {
-            /* Convert from energy read in by the snapshot to entropy.*/
-            SPHP(i).EntVarPred = pow(SPHP(i).Entropy, 1./GAMMA);
-        }
-    }
     if(All.DensityIndependentSphOn)
         density_update(&Tree);
 

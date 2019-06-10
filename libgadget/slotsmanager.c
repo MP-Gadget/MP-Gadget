@@ -655,12 +655,16 @@ slots_allocate_sph_scratch_data(int sph_grad_rho, int nsph)
         SphScratch.GradRho = mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * nsph);
     else
         SphScratch.GradRho = NULL;
+    SphScratch.EntVarPred = mymalloc2("EntVarPred", sizeof(MyFloat) * nsph);
+    SphScratch.VelPred = mymalloc2("VelPred", sizeof(MyFloat) * 3 * nsph);
     SlotsManager->info[0].scratchdata = (char *) &SphScratch;
 }
 
 void
 slots_free_sph_scratch_data(struct sph_scratch_data * SphScratch)
 {
+    myfree(SphScratch->VelPred);
+    myfree(SphScratch->EntVarPred);
     if(SphScratch->GradRho) {
         myfree(SphScratch->GradRho);
         SphScratch->GradRho = NULL;

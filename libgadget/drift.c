@@ -40,24 +40,6 @@ void drift_particle(int i, inttime_t ti1) {
     unlock_particle(i);
 }
 
-/*Get the predicted velocity for a particle
- * at the Force computation time, which always coincides with the Drift inttime.
- * for gravity and hydro forces.
- * This is mostly used for artificial viscosity.*/
-static void
-sph_VelPred(int i, MyFloat * VelPred)
-{
-    const int ti = P[i].Ti_drift;
-    const double Fgravkick2 = get_gravkick_factor(P[i].Ti_kick, ti);
-    const double Fhydrokick2 = get_hydrokick_factor(P[i].Ti_kick, ti);
-    const double FgravkickB = get_gravkick_factor(PM.Ti_kick, ti);
-    int j;
-    for(j = 0; j < 3; j++) {
-        VelPred[j] = P[i].Vel[j] + Fgravkick2 * P[i].GravAccel[j]
-            + P[i].GravPM[j] * FgravkickB + Fhydrokick2 * SPHP(i).HydroAccel[j];
-    }
-}
-
 static void real_drift_particle(int i, inttime_t ti1, const double ddrift)
 {
     int j;
@@ -120,15 +102,6 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift)
         if(All.DensityIndependentSphOn)
             SPHP(i).EgyWtDensity *= densdriftfac;
 
-        /* Evolve entropy at drift time: evolved dlog a.
-         * Used to predict pressure and entropy for SPH*/
-        double dloga = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick);
-        SPHP(i).EntVarPred = SPHP(i).Entropy + SPHP(i).DtEntropy * dloga;
-        /*Entropy limiter for the predicted entropy: makes sure entropy stays positive. */
-        if(dloga > 0 && SPHP(i).EntVarPred < 0.5*SPHP(i).Entropy)
-            SPHP(i).EntVarPred = 0.5 * SPHP(i).Entropy;
-        SPHP(i).EntVarPred = pow(SPHP(i).EntVarPred, 1/GAMMA);
-        sph_VelPred(i, SPHP(i).VelPred);
         //      P[i].Hsml *= exp(0.333333333333 * SPHP(i).DivVel * ddrift);
         //---This was added
         double fac = exp(0.333333333333 * SPHP(i).DivVel * ddrift);
