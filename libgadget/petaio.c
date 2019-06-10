@@ -481,7 +481,10 @@ petaio_read_header_internal(BigFile * bf) {
         endrun(0, "Failed to read required cosmology from IC header\n");
     }
 
-    /* Fall back to use a**2 * dx/dt if UsePeculiarVelocity is not set in IC */
+    /* If UsePeculiarVelocity = 1 then snapshots save to the velocity field the physical peculiar velocity, v = a dx/dt (where x is comoving distance).
+     * If UsePeculiarVelocity = 0 then the velocity field is a * v = a^2 dx/dt in snapshots
+     * and v / sqrt(a) = sqrt(a) dx/dt in the ICs. Note that snapshots never match Gadget-2, which
+     * saves physical peculiar velocity / sqrt(a) in both ICs and snapshots. */
     All.IO.UsePeculiarVelocity = _get_attr_int(&bh, "UsePeculiarVelocity", 0);
 
     if(0 != big_block_get_attr(&bh, "TotNumPartInit", All.NTotalInit, "u8", 6)) {
