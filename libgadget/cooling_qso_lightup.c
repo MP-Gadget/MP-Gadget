@@ -124,6 +124,7 @@ load_heii_reion_hist(const char * reion_hist_file)
     FILE * fd = NULL;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
+    message(0, "Loading HeII reionization history from file: %s\n",reion_hist_file);
     if(ThisTask == 0) {
         fd = fopen(reion_hist_file, "r");
         if(!fd)
