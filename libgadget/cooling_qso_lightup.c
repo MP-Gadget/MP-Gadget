@@ -187,8 +187,8 @@ load_heii_reion_hist(const char * reion_hist_file)
                 prei++;
                 continue;
             }
-            /* First column: redshift*/
-            He_zz[i] = atof(retval);
+            /* First column: redshift. Convert to scale factor so it is increasing.*/
+            He_zz[i] = 1./(1+atof(retval));
             /* Second column: HeIII fraction.*/
             retval = strtok(NULL, " \t");
             XHeIII[i] = atof(retval);
@@ -209,7 +209,7 @@ load_heii_reion_hist(const char * reion_hist_file)
     gsl_interp_init(HeIII_intp, He_zz, XHeIII, Nreionhist);
     gsl_interp_init(HeIII_intp, He_zz, LMFP, Nreionhist);
 
-    message(0, "Read %d lines z = %g - %g from file %s\n", Nreionhist, He_zz[0], He_zz[Nreionhist-1], reion_hist_file);
+    message(0, "Read %d lines z = %g - %g from file %s\n", Nreionhist, 1/He_zz[0] -1, 1/He_zz[Nreionhist-1]-1, reion_hist_file);
 }
 
 void
@@ -231,7 +231,8 @@ get_long_mean_free_path_heating(double redshift)
         return 0;
     if(redshift == last_zz)
         return last_long_mfp_heating;
-    double long_mfp_heating = gsl_interp_eval(LMFP_intp, He_zz, LMFP, redshift, NULL);
+    double atime = 1/(1+redshift);
+    double long_mfp_heating = gsl_interp_eval(LMFP_intp, He_zz, LMFP, atime, NULL);
     last_zz = redshift;
     last_long_mfp_heating = long_mfp_heating;
     return long_mfp_heating;
@@ -474,7 +475,8 @@ turn_on_quasars(double redshift, ForceTree * tree)
     int ncand = build_qso_candidate_list(&qso_cand, &nqso);
     int64_t n_gas_tot, tot_n_ionized, ncand_tot;
     sumup_large_ints(1, &SlotsManager->info[0].size, &n_gas_tot);
-    const double desired_ion_frac = gsl_interp_eval(HeIII_intp, He_zz, XHeIII, redshift, NULL);
+    double atime = 1./(1 + redshift);
+    double desired_ion_frac = gsl_interp_eval(HeIII_intp, He_zz, XHeIII, atime, NULL);
     /* If the desired ionization fraction is above a threshold (by default 0.95)
      * ionize all particles*/
     if(desired_ion_frac > QSOLightupParams.heIIIreion_finish_frac) {
