@@ -314,18 +314,17 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
         }
 
         /* Code here imposes a hard limit (default to speed of light)
-         * on the gas velocity. Then a limit on the change in entropy
-         * FIXME: This should probably not be needed!*/
-        const double velfac = sqrt(All.cf.a3inv);
+         * on the gas velocity. This should rarely be hit.*/
         double vv=0;
         for(j=0; j < 3; j++)
             vv += P[i].Vel[j] * P[i].Vel[j];
         vv = sqrt(vv);
 
-        if(vv > All.MaxGasVel * velfac) {
+        if(vv/All.cf.a > All.MaxGasVel) {
+            message(1,"Gas Particle ID %ld exceeded the gas velocity limit: %g > %g\n",P[i].ID, vv / All.cf.a, All.MaxGasVel);
             for(j=0;j < 3; j++)
             {
-                P[i].Vel[j] *= All.MaxGasVel * velfac / vv;
+                P[i].Vel[j] *= All.MaxGasVel * All.cf.a / vv;
             }
         }
 
