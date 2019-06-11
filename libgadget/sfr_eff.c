@@ -51,6 +51,7 @@ static struct SFRParams
     double MaxSfrTimescale;
     /*Lyman alpha forest specific star formation.*/
     double QuickLymanAlphaProbability;
+    double QuickLymanAlphaTempThresh;
     /* Number of stars to create from each gas particle*/
     int Generations;
 } sfr_params;
@@ -91,6 +92,7 @@ void set_sfr_params(ParameterSet * ps)
 
         /*Lyman-alpha forest parameters*/
         sfr_params.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
+        sfr_params.QuickLymanAlphaTempThresh = param_get_double(ps, "QuickLymanAlphaTempThresh");
     }
     MPI_Bcast(&sfr_params, sizeof(struct SFRParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -527,7 +529,7 @@ quicklyastarformation(int i)
 
     double temp = u_to_temp_fac * unew;
 
-    if(temp >= 1.0e5)
+    if(temp >= sfr_params.QuickLymanAlphaTempThresh)
         return 0;
 
     if(get_random_number(P[i].ID + 1) < sfr_params.QuickLymanAlphaProbability)
