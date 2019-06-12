@@ -50,7 +50,7 @@ create_parameters()
     param_declare_double(ps, "MaxMemSizePerNode", OPTIONAL, 0.6, "Maximum memory per node, in fraction of total memory, or MB if > 1.");
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255, "CMB temperature in K");
     param_declare_double(ps, "RadiationOn", OPTIONAL, 1, "Include radiation in the background.");
-    param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 0, "Set up an run that uses Peculiar Velocity in IO");
+    param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 1, "Snapshots will save peculiar velocities to the Velocity field. If 0, then v/sqrt(a) will be used in the ICs to match Gadget-2, but snapshots will save v * a.");
     param_declare_int(ps, "InvertPhase", OPTIONAL, 0, "Flip phase for paired simulation");
 
     param_declare_double(ps, "PrimordialAmp", OPTIONAL, 2.215e-9, "Ignored, but used by external CLASS script to set powr spectrum amplitude.");

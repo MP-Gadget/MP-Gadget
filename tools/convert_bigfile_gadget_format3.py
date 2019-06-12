@@ -88,6 +88,9 @@ def write_hdf_file(bf, hdf5name, fnum, nfiles):
     endpart = startpart + (npart//nfiles)
     if fnum == nfiles - 1:
         endpart = npart
+    # Variables for the velocity factors
+    pecvel = bf["Header"].attrs["UsePeculiarVelocity"]
+    atime = bf["Header"].attrs["Time"]
 
     #Open the file
     hfile = hdf5name + "."+str(fnum)+".hdf5"
@@ -113,7 +116,18 @@ def write_hdf_file(bf, hdf5name, fnum, nfiles):
                 continue
             ptype = int(ptype)
             hname = names.get_hdf5_name(bname)
-            hdf5["PartType"+str(ptype)][hname] =  bf[block][startpart[ptype]:endpart[ptype]]
+            bfdata = bf[block][startpart[ptype]:endpart[ptype]]
+            #For velocity, Gadget-2/3 uses a^{1/2} dx / dt
+            #(where x is comoving distance).
+            if bname == "Velocity":
+                if pecvel:
+                    #pecvel is a dx/dt: (physical peculiar velocity)
+                    bfdata /= np.sqrt(atime)
+                else:
+                    #MP-Gadget old-school snapshots, used in BlueTides.
+                    # vel is a^2 dx/dt
+                    bfdata /= atime**(3/2.)
+            hdf5["PartType"+str(ptype)][hname] = bfdata
         #Gadget-3 requires an InternalEnergy block for ICs, even if it is zero.
         if "InternalEnergy" not in hdf5["PartType0"].keys():
             hdf5["PartType0"]["InternalEnergy"] = np.zeros(endpart[0]-startpart[0])
@@ -173,15 +187,16 @@ def write_bigfile_header(hdf5, bf):
         battr["UnitMass_in_g"] = 1.989e43
         battr["UnitVelocity_in_cm_per_s"] = 100000.
     #Some flags
-    battr["UsePeculiarVelocity"] = 0
+    battr["UsePeculiarVelocity"] = 1
     #Should be 1/Time^2/Hubble, but we don't know cosmology.
     battr["RSDFactor"] = np.nan
     #Pass other keys through unchanged. We whitelist expected keys to avoid confusing Gadget.
     hdfats = ["MassTable", "Time", "BoxSize", "Omega0", "OmegaLambda", "HubbleParam"]
     for attr in hdfats:
         battr[attr] = hattr[attr]
+    return hattr["Time"]
 
-def write_bf_segment(bf, hfile, startpart):
+def write_bf_segment(bf, hfile, startpart, atime):
     """Write the data arrays to an HDF5 file."""
     #Open the file
     with h5py.File(hfile,'r') as hdf5:
@@ -195,6 +210,9 @@ def write_bf_segment(bf, hfile, startpart):
                 block = names.get_bigfile_name(hname)
                 bname = "%d/%s" % (ptype, block)
                 harray = np.array(hdf5["PartType"+str(ptype)][hname])
+                # Convert velocity units to peculiar velocity, as MP-Gadget expects.
+                if hname == "Velocity":
+                    harray *= np.sqrt(atime)
                 #Beware this is not checked.
                 bf[bname].write(startpart[ptype], harray)
         return endpart
@@ -244,14 +262,14 @@ def write_big_file(bfname, hdf5name):
         raise IOError("%s is not hdf5!" % hdf5_files[0])
     hdf5 = h5py.File(hdf5_files[0], 'r')
     bf = bigfile.BigFile(bfname, create=True)
-    write_bigfile_header(hdf5, bf)
+    atime = write_bigfile_header(hdf5, bf)
     for n in range(6):
         bf.create(str(n))
     create_big_file_arrays(bf, hdf5)
     hdf5.close()
     startpart = np.zeros(6, dtype=np.int)
     for hfile in hdf5_files:
-        startpart = write_bf_segment(bf, hfile, startpart)
+        startpart = write_bf_segment(bf, hfile, startpart, atime)
         print("Copied HDF file %s" % hfile)
 
 if __name__ == "__main__":

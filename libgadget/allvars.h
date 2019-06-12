@@ -115,6 +115,11 @@ extern struct global_data_all_processes
         int MinNumWriters;        /* Min Number of concurrent writers, this caps number of writers */
         int EnableAggregatedIO;  /* Enable aggregated IO policy for small files.*/
         size_t AggregatedIOThreshold; /* bytes per writer above which to use non-aggregated IO (avoid OOM)*/
+        /* Changes the comoving factors of the snapshot outputs. Set in the ICs.
+         * If UsePeculiarVelocity = 1 then snapshots save to the velocity field the physical peculiar velocity, v = a dx/dt (where x is comoving distance).
+         * If UsePeculiarVelocity = 0 then the velocity field is a * v = a^2 dx/dt in snapshots
+         * and v / sqrt(a) = sqrt(a) dx/dt in the ICs. Note that snapshots never match Gadget-2, which
+         * saves physical peculiar velocity / sqrt(a) in both ICs and snapshots. */
         int UsePeculiarVelocity;
     } IO;
 
