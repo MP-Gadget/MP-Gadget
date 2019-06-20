@@ -579,7 +579,7 @@ static void add_particle_to_group(struct Group * gdst, int i, double BoxSize, in
 
 
     if(P[index].Type == 0) {
-        gdst->Sfr += get_starformation_rate(index);
+        gdst->Sfr += SPHP(index).Sfr;
     }
     if(BlackHoleOn && P[index].Type == 5)
     {

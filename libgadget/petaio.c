@@ -756,8 +756,7 @@ SIMPLE_PROPERTY_TYPE(Metallicity, 4, STARP(i).Metallicity, float, 1)
 SIMPLE_PROPERTY_TYPE(Metallicity, 0, SPHP(i).Metallicity, float, 1)
 static void GTStarFormationRate(int i, float * out) {
     /* Convert to Solar/year */
-    *out = get_starformation_rate(i)
-        * ((All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR));
+    *out = SPHP(i).Sfr * ((All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR));
 }
 SIMPLE_PROPERTY_TYPE(StarFormationTime, 5, BHP(i).FormationTime, float, 1)
 SIMPLE_PROPERTY(BlackholeMass, BHP(i).Mass, float, 1)
