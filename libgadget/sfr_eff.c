@@ -858,7 +858,7 @@ static double get_sfr_factor_due_to_h2(int i) {
      *  properties, from gadget-p; we return the enhancement on SFR in this
      *  function */
 
-    if(!sfr_need_to_compute_sph_grad_rho())
+    if(!SphP_scratch->GradRho)
         endrun(1, "Needed grad rho but not enabled! Should never happen!\n");
     double tau_fmol;
     double zoverzsun = SPHP(i).Metallicity/METAL_YIELD;
