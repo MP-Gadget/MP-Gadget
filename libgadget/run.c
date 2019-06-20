@@ -210,6 +210,9 @@ void run(DomainDecomp * ddecomp)
             blackhole(&Tree, &TimeNextSeedingCheck);
             /**** radiative cooling and star formation *****/
             cooling_and_starformation(&Tree);
+
+            /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
+            slots_free_sph_scratch_data(SphP_scratch);
         }
 
         /* Update velocity to Ti_Current; this synchonizes TiKick and TiDrift for the active particles */
@@ -251,9 +254,6 @@ void run(DomainDecomp * ddecomp)
         }
 
         write_checkpoint(WriteSnapshot, WriteFOF, &Tree);
-
-        if(GasEnabled)
-            slots_free_sph_scratch_data(SphP_scratch);
 
         write_cpu_log(NumCurrentTiStep);		/* produce some CPU usage info */
 
