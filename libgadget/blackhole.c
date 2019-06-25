@@ -600,20 +600,18 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         slots_mark_garbage(other);
         BHP(other).Mdot = 0;
 
+        unlock_particle(other);
+
 #pragma omp atomic
         N_BH_swallowed++;
-
-        unlock_particle(other);
     }
 
     /* Dump feedback energy */
-    if(P[other].Type == 0) {
+    if(!P[other].Swallowed && P[other].Type == 0) {
         if(r2 < iter->feedback_kernel.HH && P[other].Mass > 0) {
             double u = r * iter->feedback_kernel.Hinv;
-            double wk;
+            double wk = 1.0;
             double mass_j;
-
-            lock_particle(other);
 
             if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
                 mass_j = P[other].Mass;
@@ -622,8 +620,6 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             }
             if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
                 wk = density_kernel_wk(&iter->feedback_kernel, u);
-            else
-            wk = 1.0;
 
             if(I->FeedbackWeightSum > 0 && I->FeedbackEnergy > 0) {
                 const double Injected_BH_Energy = (I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum);
@@ -631,15 +627,17 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
                 const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
                                             * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+                const double maxentropy = 5.0e9 / u_to_temp_fac / entropy_to_u;
+
+                lock_particle(other);
 
                 SPHP(other).Entropy += Injected_BH_Energy / entropy_to_u / P[other].Mass;
 
-                const double maxentropy = 5.0e9 / u_to_temp_fac / entropy_to_u;
-
                 if(SPHP(other).Entropy > maxentropy)
                     SPHP(other).Entropy = maxentropy;
+
+                unlock_particle(other);
             }
-            unlock_particle(other);
         }
     }
 
@@ -661,9 +659,10 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
         slots_mark_garbage(other);
 
+        unlock_particle(other);
+
 #pragma omp atomic
         N_sph_swallowed++;
-        unlock_particle(other);
     }
 }
 
