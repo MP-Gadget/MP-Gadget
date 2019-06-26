@@ -614,7 +614,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     if(P[other].Type == 0) {
         if(r2 < iter->feedback_kernel.HH && P[other].Mass > 0) {
             double u = r * iter->feedback_kernel.Hinv;
-            double wk;
+            double wk = 1.0;
             double mass_j;
 
             lock_particle(other);
@@ -626,10 +626,8 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             }
             if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
                 wk = density_kernel_wk(&iter->feedback_kernel, u);
-            else
-            wk = 1.0;
 
-            if(I->FeedbackWeightSum > 0)
+            if(I->FeedbackWeightSum > 0 && I->FeedbackEnergy > 0)
             {
                 SphP_scratch->Injected_BH_Energy[P[other].PI] += (I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum);
             }
