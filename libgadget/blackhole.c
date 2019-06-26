@@ -603,36 +603,34 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
         slots_mark_garbage(other);
         BHP(other).Mdot = 0;
+        unlock_particle(other);
 
 #pragma omp atomic
         N_BH_swallowed++;
 
-        unlock_particle(other);
     }
 
     /* Dump feedback energy */
-    if(P[other].Type == 0) {
+    if(!P[other].Swallowed && P[other].Type == 0) {
         if(r2 < iter->feedback_kernel.HH && P[other].Mass > 0) {
-            double u = r * iter->feedback_kernel.Hinv;
-            double wk = 1.0;
-            double mass_j;
-
-            lock_particle(other);
-
-            if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
-                mass_j = P[other].Mass;
-            } else {
-                mass_j = P[other].Hsml * P[other].Hsml * P[other].Hsml;
-            }
-            if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
-                wk = density_kernel_wk(&iter->feedback_kernel, u);
-
             if(I->FeedbackWeightSum > 0 && I->FeedbackEnergy > 0)
             {
-                SphP_scratch->Injected_BH_Energy[P[other].PI] += (I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum);
-            }
+                double u = r * iter->feedback_kernel.Hinv;
+                double wk = 1.0;
+                double mass_j;
 
-            unlock_particle(other);
+                if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
+                    mass_j = P[other].Mass;
+                } else {
+                    mass_j = P[other].Hsml * P[other].Hsml * P[other].Hsml;
+                }
+                if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
+                    wk = density_kernel_wk(&iter->feedback_kernel, u);
+
+                lock_particle(other);
+                SphP_scratch->Injected_BH_Energy[P[other].PI] += (I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum);
+                unlock_particle(other);
+            }
         }
     }
 
@@ -653,10 +651,10 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         P[other].Mass = 0;
 
         slots_mark_garbage(other);
+        unlock_particle(other);
 
 #pragma omp atomic
         N_sph_swallowed++;
-        unlock_particle(other);
     }
 }
 
