@@ -488,8 +488,22 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
             double redshift = 1./All.Time - 1;
             struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
             double ne = SPHP(i).Ne;
+            /* In practice tcool << trelax*/
             double tcool = GetCoolingTime(redshift, egycurrent, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, SPHP(i).Metallicity);
 
+            /* If tcool is being used the exponential below is roughly zero. This could more compactly be written:
+             * if(Injected_BH_Energy && egycurrent > egyeff)
+             *      SPHP(i).Entropy = egyeff/densityfac.
+             * In other words, any star-forming gas which is heated by a black hole instantaneously cools
+             * to the effective equation of state temperature.
+             * This reduces the effect of black hole feedback marginally (a 5% reduction in star formation)
+             * and dates from the earliest versions of this code available.
+             * The effect is relatively small because star-forming gas cools onto the effective equation
+             * of state quickly anyway.
+             * It is not clear to me (SPB) what this is modelling but removing it causes hot dense particles
+             * with short timesteps to appear around the black holes and slows down the code.
+             * Someone might want to check at some point if removing this condition helps or hinders
+             * agreement with observations.*/
             if(tcool < trelax && tcool > 0)
                 trelax = tcool;
         }
