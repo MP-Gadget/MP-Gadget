@@ -228,8 +228,10 @@ void cooling_and_starformation(ForceTree * tree)
     myfree(NewParents);
 
     /* This is allocated high so has to be freed after the parents*/
-    if(All.BlackHoleOn)
+    if(SphP_scratch->Injected_BH_Energy) {
         myfree(SphP_scratch->Injected_BH_Energy);
+        SphP_scratch->Injected_BH_Energy = NULL;
+    }
 
     int64_t tot_spawned=0, tot_converted=0;
     sumup_large_ints(1, &stars_spawned, &tot_spawned);
@@ -371,7 +373,7 @@ cooling_direct(int i) {
             (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) /
             GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1));
 
-    if(All.BlackHoleOn && SphP_scratch->Injected_BH_Energy[P[i].PI] > 0)
+    if(SphP_scratch->Injected_BH_Energy && SphP_scratch->Injected_BH_Energy[P[i].PI] > 0)
     {
         unew = add_injected_BH_energy(unew, SphP_scratch->Injected_BH_Energy[P[i].PI], P[i].Mass);
     }
@@ -479,7 +481,7 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
     const double densityfac = pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
     double egycurrent = SPHP(i).Entropy *  densityfac;
 
-    if(All.BlackHoleOn && SphP_scratch->Injected_BH_Energy[P[i].PI] > 0)
+    if(SphP_scratch->Injected_BH_Energy && SphP_scratch->Injected_BH_Energy[P[i].PI] > 0)
     {
         egycurrent = add_injected_BH_energy(egycurrent, SphP_scratch->Injected_BH_Energy[P[i].PI], P[i].Mass);
 
