@@ -538,6 +538,6 @@ do_heiii_reionization(double redshift, ForceTree * tree)
         return;
 
     walltime_measure("/Misc");
-    message(0, "HeII Reionization initiated.");
+    message(0, "HeII Reionization initiated.\n");
     turn_on_quasars(redshift, tree);
 }
