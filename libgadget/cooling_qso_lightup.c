@@ -30,6 +30,7 @@
 #include "allvars.h"
 #include "hydra.h"
 #include "drift.h"
+#include "walltime.h"
 #include "utils/endrun.h"
 #include "utils/paramset.h"
 #include "utils/mymalloc.h"
@@ -474,6 +475,7 @@ turn_on_quasars(double redshift, ForceTree * tree)
     int nqso=0;
     int * qso_cand;
     int ncand = build_qso_candidate_list(&qso_cand, &nqso);
+    walltime_measure("/HeIII/Find");
     int64_t n_gas_tot, tot_n_ionized, ncand_tot;
     sumup_large_ints(1, &SlotsManager->info[0].size, &n_gas_tot);
     double atime = 1./(1 + redshift);
@@ -510,6 +512,7 @@ turn_on_quasars(double redshift, ForceTree * tree)
         /* Check that the ionization fraction changed*/
         sumup_large_ints(1, &n_ionized, &tot_n_ionized);
         curionfrac += (double) tot_n_ionized / (double) n_gas_tot;
+        message(0, "Quasar %d changed the HeIII ionization fraction to %g, ionizing %ld\n", new_qso, curionfrac, tot_n_ionized);
         /* Break the loop if we do not ionize enough particles this round.
          * Try again next timestep when we will hopefully have new BHs.*/
         if(tot_n_ionized < 0.01 * non_overlapping_bubble_number)
@@ -522,6 +525,7 @@ turn_on_quasars(double redshift, ForceTree * tree)
     }
     myfree(qso_cand);
     message(0, "He reionization changed the HeIII ionization fraction from %g -> %g, ionizing %ld\n", initionfrac, curionfrac, tot_n_ionized);
+    walltime_measure("/HeIII/Ionize");
 }
 
 /* Starts reionization by selecting the first halo and flagging all particles in the first HeIII bubble*/
@@ -533,6 +537,7 @@ do_heiii_reionization(double redshift, ForceTree * tree)
     if(redshift > QSOLightupParams.heIIIreion_start)
         return;
 
+    walltime_measure("/Misc");
     message(0, "HeII Reionization initiated.");
     turn_on_quasars(redshift, tree);
 }
