@@ -215,7 +215,8 @@ load_heii_reion_hist(const char * reion_hist_file)
 void
 init_qso_lightup(char * reion_hist_file)
 {
-    load_heii_reion_hist(reion_hist_file);
+    if(QSOLightupParams.QSOLightupOn)
+        load_heii_reion_hist(reion_hist_file);
     N_ionized = 0;
 }
 
