@@ -223,7 +223,7 @@ blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
 
     N_sph_swallowed = N_BH_swallowed = 0;
 
-    /* Let's determine which particles may be swalled and calculate total feedback weights */
+    /* Let's determine which particles may be swallowed and calculate total feedback weights */
     SPH_SwallowID = mymalloc("SPH_SwallowID", SlotsManager->info[0].size * sizeof(MyIDType));
     if(ActiveParticle) {
         #pragma omp parallel for
@@ -244,6 +244,10 @@ blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Start swallowing of gas particles and black holes\n");
 
+    /* Allocate array for storing the feedback energy: FIXME: shouldn't this be applied by straightforwardly changing the entropy right here?
+     * It would be cleaner than going through the star formation code.*/
+    SphP_scratch->Injected_BH_Energy = mymalloc2("Injected_BH_Energy", SlotsManager->info[0].size * sizeof(MyFloat));
+    memset(SphP_scratch->Injected_BH_Energy, 0, SlotsManager->info[0].size * sizeof(MyFloat));
     /* Now do the swallowing of particles and dump feedback energy */
     treewalk_run(tw_feedback, ActiveParticle, NumActiveParticle);
 
@@ -599,38 +603,34 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
         slots_mark_garbage(other);
         BHP(other).Mdot = 0;
+        unlock_particle(other);
 
 #pragma omp atomic
         N_BH_swallowed++;
 
-        unlock_particle(other);
     }
 
     /* Dump feedback energy */
-    if(P[other].Type == 0) {
+    if(!P[other].Swallowed && P[other].Type == 0) {
         if(r2 < iter->feedback_kernel.HH && P[other].Mass > 0) {
-            double u = r * iter->feedback_kernel.Hinv;
-            double wk;
-            double mass_j;
-
-            lock_particle(other);
-
-            if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
-                mass_j = P[other].Mass;
-            } else {
-                mass_j = P[other].Hsml * P[other].Hsml * P[other].Hsml;
-            }
-            if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
-                wk = density_kernel_wk(&iter->feedback_kernel, u);
-            else
-            wk = 1.0;
-
-            if(I->FeedbackWeightSum > 0)
+            if(I->FeedbackWeightSum > 0 && I->FeedbackEnergy > 0)
             {
-                SPHP(other).Injected_BH_Energy += (I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum);
-            }
+                double u = r * iter->feedback_kernel.Hinv;
+                double wk = 1.0;
+                double mass_j;
 
-            unlock_particle(other);
+                if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
+                    mass_j = P[other].Mass;
+                } else {
+                    mass_j = P[other].Hsml * P[other].Hsml * P[other].Hsml;
+                }
+                if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
+                    wk = density_kernel_wk(&iter->feedback_kernel, u);
+
+                lock_particle(other);
+                SphP_scratch->Injected_BH_Energy[P[other].PI] += (I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum);
+                unlock_particle(other);
+            }
         }
     }
 
@@ -651,10 +651,10 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         P[other].Mass = 0;
 
         slots_mark_garbage(other);
+        unlock_particle(other);
 
 #pragma omp atomic
         N_sph_swallowed++;
-        unlock_particle(other);
     }
 }
 

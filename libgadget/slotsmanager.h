@@ -98,10 +98,6 @@ struct sph_particle_data
     MyFloat Ne;  /*!< electron fraction, expressed as local electron number
                    density normalized to the hydrogen number density. Gives
                    indirectly ionization state and mean molecular weight. */
-
-    /*Used to store the BH feedback energy if black holes are on*/
-    MyFloat       Injected_BH_Energy;
-
     MyFloat DelayTime;		/*!< SH03: remaining maximum decoupling time of wind particle */
                             /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
 };
@@ -118,6 +114,8 @@ struct sph_scratch_data
      * which defeats the lookup cache in timefac.c. Because VelPred is used multiple times,
      * it is much quicker to compute it once and re-use this*/
     MyFloat * VelPred;            /*!< Predicted velocity at current particle drift time for SPH. 3x vector.*/
+    /*Used to store the BH feedback energy if black holes are on*/
+    MyFloat * Injected_BH_Energy;
 };
 
 /* shortcuts for accessing different slots directly by the index */

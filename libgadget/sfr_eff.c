@@ -229,6 +229,12 @@ void cooling_and_starformation(ForceTree * tree)
     /*Done with the parents*/
     myfree(NewParents);
 
+    /* This is allocated high so has to be freed after the parents*/
+    if(SphP_scratch->Injected_BH_Energy) {
+        myfree(SphP_scratch->Injected_BH_Energy);
+        SphP_scratch->Injected_BH_Energy = NULL;
+    }
+
     int64_t tot_spawned=0, tot_converted=0;
     sumup_large_ints(1, &stars_spawned, &tot_spawned);
     sumup_large_ints(1, &stars_converted, &tot_converted);
@@ -340,6 +346,22 @@ sfr_reserve_slots(int * NewStars, int NumNewStar, ForceTree * tree)
         return NewStars;
 }
 
+/* Adds the injected black hole energy to an internal energy and caps it at a maximum temperature*/
+static double
+add_injected_BH_energy(double unew, double injected_BH_energy, double mass)
+{
+    unew += injected_BH_energy / mass;
+    const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
+    * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+
+    double temp = u_to_temp_fac * unew;
+
+    if(temp > 5.0e9)
+        unew = 5.0e9 / u_to_temp_fac;
+
+    return unew;
+}
+
 static void
 cooling_direct(int i) {
 
@@ -353,26 +375,9 @@ cooling_direct(int i) {
             (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) /
             GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1));
 
-    if(All.BlackHoleOn && SPHP(i).Injected_BH_Energy)
+    if(SphP_scratch->Injected_BH_Energy && SphP_scratch->Injected_BH_Energy[P[i].PI] > 0)
     {
-        if(P[i].Mass == 0) {
-            endrun(12, "Encoutered zero mass particle during sfr;"
-                      " We haven't implemented tracer particles and this shall not happen\n");
-            /* This shall not happend */
-            SPHP(i).Injected_BH_Energy = 0;
-        }
-
-        unew += SPHP(i).Injected_BH_Energy / P[i].Mass;
-        const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
-        * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-
-        double temp = u_to_temp_fac * unew;
-
-
-        if(temp > 5.0e9)
-            unew = 5.0e9 / u_to_temp_fac;
-
-        SPHP(i).Injected_BH_Energy = 0;
+        unew = add_injected_BH_energy(unew, SphP_scratch->Injected_BH_Energy[P[i].PI], P[i].Mass);
     }
 
     double redshift = 1./All.Time - 1;
@@ -478,30 +483,34 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
     const double densityfac = pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
     double egycurrent = SPHP(i).Entropy *  densityfac;
 
-    if(All.BlackHoleOn && SPHP(i).Injected_BH_Energy > 0)
+    if(SphP_scratch->Injected_BH_Energy && SphP_scratch->Injected_BH_Energy[P[i].PI] > 0)
     {
-        double redshift = 1./All.Time - 1;
-        struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
-        egycurrent += SPHP(i).Injected_BH_Energy / P[i].Mass;
-
-        const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
-        * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-
-        double temp = u_to_temp_fac * egycurrent;
-
-        if(temp > 5.0e9)
-            egycurrent = 5.0e9 / u_to_temp_fac;
+        egycurrent = add_injected_BH_energy(egycurrent, SphP_scratch->Injected_BH_Energy[P[i].PI], P[i].Mass);
 
         if(egycurrent > egyeff)
         {
+            double redshift = 1./All.Time - 1;
+            struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
             double ne = SPHP(i).Ne;
+            /* In practice tcool << trelax*/
             double tcool = GetCoolingTime(redshift, egycurrent, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, SPHP(i).Metallicity);
 
+            /* If tcool is being used the exponential below is roughly zero. This could more compactly be written:
+             * if(Injected_BH_Energy && egycurrent > egyeff)
+             *      SPHP(i).Entropy = egyeff/densityfac.
+             * In other words, any star-forming gas which is heated by a black hole instantaneously cools
+             * to the effective equation of state temperature.
+             * This reduces the effect of black hole feedback marginally (a 5% reduction in star formation)
+             * and dates from the earliest versions of this code available.
+             * The effect is relatively small because star-forming gas cools onto the effective equation
+             * of state quickly anyway.
+             * It is not clear to me (SPB) what this is modelling but removing it causes hot dense particles
+             * with short timesteps to appear around the black holes and slows down the code.
+             * Someone might want to check at some point if removing this condition helps or hinders
+             * agreement with observations.*/
             if(tcool < trelax && tcool > 0)
                 trelax = tcool;
         }
-
-        SPHP(i).Injected_BH_Energy = 0;
     }
 
     SPHP(i).Entropy =  (egyeff + (egycurrent - egyeff) * exp(-dtime / trelax)) /densityfac;

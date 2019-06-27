@@ -655,6 +655,8 @@ slots_allocate_sph_scratch_data(int sph_grad_rho, int nsph)
         SphScratch.GradRho = mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * nsph);
     else
         SphScratch.GradRho = NULL;
+    /* Allocated in black hole, freed in sfr.*/
+    SphScratch.Injected_BH_Energy = NULL;
     SphScratch.EntVarPred = mymalloc2("EntVarPred", sizeof(MyFloat) * nsph);
     SphScratch.VelPred = mymalloc2("VelPred", sizeof(MyFloat) * 3 * nsph);
     SlotsManager->info[0].scratchdata = (char *) &SphScratch;

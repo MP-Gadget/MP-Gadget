@@ -117,8 +117,6 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
             SPHP(i).DivVel = 0;
         }
         SPHP(i).DelayTime = 0;
-
-        SPHP(i).Injected_BH_Energy = 0;
     }
 
     walltime_measure("/Init");
