@@ -476,15 +476,15 @@ turn_on_quasars(double redshift, ForceTree * tree)
     int * qso_cand;
     int ncand = build_qso_candidate_list(&qso_cand, &nqso);
     walltime_measure("/HeIII/Find");
-    int64_t n_gas_tot, tot_n_ionized, ncand_tot;
+    int64_t n_gas_tot=0, tot_n_ionized=0, ncand_tot=0;
     sumup_large_ints(1, &SlotsManager->info[0].size, &n_gas_tot);
     double atime = 1./(1 + redshift);
     double desired_ion_frac = gsl_interp_eval(HeIII_intp, He_zz, XHeIII, atime, NULL);
     /* If the desired ionization fraction is above a threshold (by default 0.95)
      * ionize all particles*/
     if(desired_ion_frac > QSOLightupParams.heIIIreion_finish_frac) {
-        int i, nionized;
-        int64_t nion_tot;
+        int i, nionized=0;
+        int64_t nion_tot=0;
         #pragma omp parallel for reduction(+: nionized)
         for (i = 0; i < PartManager->NumPart; i++){
             if (P[i].Type == 0)
