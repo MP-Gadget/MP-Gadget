@@ -298,7 +298,7 @@ choose_QSO_halo(int ncand, int nqsos, int64_t * ncand_tot, MPI_Comm Comm)
     int * candcounts = (int*) ta_malloc("qso_cand_counts", int, NTask);
 
     /* Get how many candidates are on each processor*/
-    MPI_Alltoall(&ncand, 1, MPI_INT, candcounts, 1, MPI_INT, Comm);
+    MPI_Allgather(&ncand, 1, MPI_INT, candcounts, 1, MPI_INT, Comm);
 
     for(i = 0; i < NTask; i++)
     {
