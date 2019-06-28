@@ -28,7 +28,6 @@ WindOn = 1
 WindModel = ofjt10,decouple
 MetalCoolFile = ../cooling_metal_UVB
 SnapshotWithFOF = 1
-
 #--------------------Helium Reionization----------------
 QSOLightupOn =  1
 #The default is a 30 Mpc bubble
@@ -43,5 +42,10 @@ QSOHeIIIReionStart = 5.8
 QSOHeIIIReionFinishFrac = 0.95
 #Min and max mass of black holes to form quasars in
 #internal mass units (10^10 solar masses)
-QSOMinMass = 0.01
+#WARNING!! This is unphysically small, again because of the small box
+QSOMinMass = 1e-4
 QSOMaxMass = 0.1
+
+#--------BH stuff to make sure we have some quasars------
+MinFoFMassForNewSeed = 1
+TimeBetweenSeedingSearch = 1.03
