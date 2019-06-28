@@ -518,7 +518,8 @@ turn_on_quasars(double redshift, ForceTree * tree)
         /* Check that the ionization fraction changed*/
         sumup_large_ints(1, &n_ionized, &tot_n_ionized);
         curionfrac += (double) tot_n_ionized / (double) n_gas_tot;
-        message(0, "Quasar %d changed the HeIII ionization fraction to %g, ionizing %ld\n", new_qso, curionfrac, tot_n_ionized);
+        if(new_qso > 0)
+            message(1, "Quasar %d changed the HeIII ionization fraction to %g, ionizing %ld\n", qso_cand[new_qso], curionfrac, tot_n_ionized);
         /* Break the loop if we do not ionize enough particles this round.
          * Try again next timestep when we will hopefully have new BHs.*/
         if(tot_n_ionized < 0.01 * non_overlapping_bubble_number)
