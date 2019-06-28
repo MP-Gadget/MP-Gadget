@@ -311,7 +311,7 @@ choose_QSO_halo(int ncand, int nqsos, int64_t * ncand_tot, MPI_Comm Comm)
     int qso = (drand * ncand_total);
     *ncand_tot = ncand_total;
     /* No quasar on this processor*/
-    if(qso < ncand_before && qso > ncand_before + ncand)
+    if(qso < ncand_before || qso > ncand_before + ncand)
         return -1;
 
     /* If the quasar is on this processor, return the
