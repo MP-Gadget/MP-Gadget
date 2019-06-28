@@ -208,7 +208,7 @@ load_heii_reion_hist(const char * reion_hist_file)
     HeIII_intp = gsl_interp_alloc(gsl_interp_linear,Nreionhist);
     LMFP_intp = gsl_interp_alloc(gsl_interp_linear,Nreionhist);
     gsl_interp_init(HeIII_intp, He_zz, XHeIII, Nreionhist);
-    gsl_interp_init(HeIII_intp, He_zz, LMFP, Nreionhist);
+    gsl_interp_init(LMFP_intp, He_zz, LMFP, Nreionhist);
 
     message(0, "Read %d lines z = %g - %g from file %s\n", Nreionhist, 1/He_zz[0] -1, 1/He_zz[Nreionhist-1]-1, reion_hist_file);
 }
