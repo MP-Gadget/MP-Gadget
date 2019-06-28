@@ -179,7 +179,7 @@ void run(DomainDecomp * ddecomp)
             /* FIXME: add a parameter for ddecomp_decompose_incremental */
             /* currently we drift all particles every step */
             /* If it is not a PM step, do a shorter version
-             * of the ddecomp decomp which just moves and exchanges drifted (active) particles.*/
+             * of the ddecomp decomp which just exchanges particles.*/
             domain_maintain(ddecomp);
         }
 
