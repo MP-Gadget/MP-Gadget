@@ -68,7 +68,7 @@ static double * XHeIII;
 static double * LMFP;
 static gsl_interp * HeIII_intp;
 static gsl_interp * LMFP_intp;
-/* Counter*/
+/* Counter for particles ionized this step*/
 static int N_ionized;
 
 /*This is a helper for the tests*/
@@ -443,6 +443,8 @@ ionize_all_part(int qso_ind, int * qso_cand, ForceTree * tree)
     tw->haswork = NULL;
     tw->tree = tree;
 
+    /* Reset the particles ionized this step*/
+    N_ionized = 0;
     /* We set Hsml to a constant in ngbiter, so this
      * searches a constant distance from the BH.*/
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
@@ -514,14 +516,16 @@ turn_on_quasars(double redshift, ForceTree * tree)
         }
         /* Do the ionizations with a tree walk*/
         int n_ionized = ionize_all_part(new_qso, qso_cand, tree);
+        int64_t tot_qso_ionized = 0;
         /* Check that the ionization fraction changed*/
-        sumup_large_ints(1, &n_ionized, &tot_n_ionized);
-        curionfrac += (double) tot_n_ionized / (double) n_gas_tot;
+        sumup_large_ints(1, &n_ionized, &tot_qso_ionized);
+        curionfrac += (double) tot_qso_ionized / (double) n_gas_tot;
+        tot_n_ionized += tot_qso_ionized;
         if(new_qso > 0)
-            message(1, "HeII: Quasar %d changed the HeIII ionization fraction to %g, ionizing %ld\n", qso_cand[new_qso], curionfrac, tot_n_ionized);
+            message(1, "HeII: Quasar %d changed the HeIII ionization fraction to %g, ionizing %ld\n", qso_cand[new_qso], curionfrac, tot_qso_ionized);
         /* Break the loop if we do not ionize enough particles this round.
          * Try again next timestep when we will hopefully have new BHs.*/
-        if(tot_n_ionized < 0.01 * non_overlapping_bubble_number)
+        if(tot_qso_ionized < 0.01 * non_overlapping_bubble_number)
             break;
         /* Remove this candidate from the list by moving the list down.*/
         if( new_qso >= 0) {
