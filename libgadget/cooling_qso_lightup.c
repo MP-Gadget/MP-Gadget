@@ -505,8 +505,11 @@ turn_on_quasars(double redshift, ForceTree * tree)
         /* Get a new quasar*/
         int new_qso = choose_QSO_halo(ncand, nqso, &ncand_tot, MPI_COMM_WORLD);
         /* Make sure someone has a quasar*/
-        if(ncand_tot == 0)
+        if(ncand_tot == 0) {
+            if(desired_ion_frac - curionfrac > 0.1)
+                message(0, "HeIII ionization was unable to reach desired ionization fraction of %g because not enough quasars\n", desired_ion_frac);
             break;
+        }
         /* Do the ionizations with a tree walk*/
         int n_ionized = ionize_all_part(new_qso, tree);
         /* Check that the ionization fraction changed*/
