@@ -319,8 +319,7 @@ choose_QSO_halo(int ncand, int nqsos, int64_t * ncand_tot, MPI_Comm Comm)
     return qso - ncand_before;
 }
 
-/* Calculates the total ionization fraction of the box. If this is less than the desired ionization fraction, returns 1.
- * Otherwise returns 0
+/* Calculates the total ionization fraction of the box.
  */
 static double
 gas_ionization_fraction(void)
