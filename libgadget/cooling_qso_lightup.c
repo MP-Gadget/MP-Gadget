@@ -534,7 +534,10 @@ turn_on_quasars(double redshift, ForceTree * tree)
         }
     }
     myfree(qso_cand);
-    message(0, "HeII: Reionization changed the HeIII fraction from %g -> %g, ionizing %ld\n", initionfrac, curionfrac, tot_n_ionized);
+    if(tot_n_ionized > 0)
+        message(0, "HeII: HeIII fraction from %g -> %g, ionizing %ld. Wanted %g.\n", initionfrac, curionfrac, tot_n_ionized, desired_ion_frac);
+    else
+        message(0, "HeII: HeIII fraction unchanged at %g. Wanted %g\n", curionfrac, desired_ion_frac);
     walltime_measure("/HeIII/Ionize");
 }
 
