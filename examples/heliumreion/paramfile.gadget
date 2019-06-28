@@ -31,9 +31,9 @@ SnapshotWithFOF = 1
 #--------------------Helium Reionization----------------
 QSOLightupOn =  1
 #The default is a 30 Mpc bubble
-#but for this small test box we use a smaller 1 Mpc bubble.
+#but for this small test box we use a smaller 2 Mpc bubble.
 #WARNING!! This is unphysical!
-QSOMeanBubble =  1000
+QSOMeanBubble =  2000
 #All bubble have the same size
 QSOVarBubble = 0
 #When HeIII reionization starts
