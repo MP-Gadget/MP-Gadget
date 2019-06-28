@@ -509,6 +509,8 @@ turn_on_quasars(double redshift, ForceTree * tree)
     while (curionfrac < desired_ion_frac){
         /* Get a new quasar*/
         int new_qso = choose_QSO_halo(ncand, nqso, &ncand_tot, MPI_COMM_WORLD);
+        if(new_qso >= ncand)
+            endrun(12, "HeII: QSO %d > no. candidates %d! Cannot happen\n", new_qso, ncand);
         /* Make sure someone has a quasar*/
         if(ncand_tot == 0) {
             if(desired_ion_frac - curionfrac > 0.1)
