@@ -307,6 +307,7 @@ choose_QSO_halo(int ncand, int nqsos, int64_t * ncand_tot, MPI_Comm Comm)
         ncand_total += candcounts[i];
     }
 
+    ta_free(candcounts);
     double drand = get_random_number(nqsos);
     int qso = (drand * ncand_total);
     *ncand_tot = ncand_total;
