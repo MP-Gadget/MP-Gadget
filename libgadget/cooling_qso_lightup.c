@@ -125,11 +125,11 @@ load_heii_reion_hist(const char * reion_hist_file)
     FILE * fd = NULL;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
-    message(0, "Loading HeII reionization history from file: %s\n",reion_hist_file);
+    message(0, "HeII: Loading HeII reionization history from file: %s\n",reion_hist_file);
     if(ThisTask == 0) {
         fd = fopen(reion_hist_file, "r");
         if(!fd)
-            endrun(456, "Could not open reionization history file at: '%s'\n", reion_hist_file);
+            endrun(456, "HeII: Could not open reionization history file at: '%s'\n", reion_hist_file);
 
         /*Find size of file*/
         Nreionhist = 0;
@@ -154,7 +154,7 @@ load_heii_reion_hist(const char * reion_hist_file)
     MPI_Bcast(&Nreionhist, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     if(Nreionhist<= 2)
-        endrun(1, "Reionization history contains: %d entries, not enough.\n", Nreionhist);
+        endrun(1, "HeII: Reionization history contains: %d entries, not enough.\n", Nreionhist);
 
     /*Allocate memory for the reionization history table.*/
     He_zz = mymalloc("ReionizationTable", 3 * Nreionhist * sizeof(double));
@@ -494,7 +494,7 @@ turn_on_quasars(double redshift, ForceTree * tree)
                 nionized += ionize_single_particle(i);
         }
         sumup_large_ints(1, &nionized, &nion_tot);
-        message(0, "Helium ionization finished, flash-ionizing %ld particles (%g of total)\n", nion_tot, (double) nion_tot /(double) n_gas_tot);
+        message(0, "HeII: Helium ionization finished, flash-ionizing %ld particles (%g of total)\n", nion_tot, (double) nion_tot /(double) n_gas_tot);
     }
 
     double rhobar = All.CP.OmegaBaryon * (3 * HUBBLE * All.CP.HubbleParam * HUBBLE * All.CP.HubbleParam)/ (8 * M_PI * GRAVITY) / pow(1 + redshift,3);
@@ -510,7 +510,7 @@ turn_on_quasars(double redshift, ForceTree * tree)
         /* Make sure someone has a quasar*/
         if(ncand_tot == 0) {
             if(desired_ion_frac - curionfrac > 0.1)
-                message(0, "HeIII ionization was unable to reach desired ionization fraction of %g because not enough quasars\n", desired_ion_frac);
+                message(0, "HeII: ionization was unable to reach desired ionization fraction of %g because not enough quasars\n", desired_ion_frac);
             break;
         }
         /* Do the ionizations with a tree walk*/
@@ -519,7 +519,7 @@ turn_on_quasars(double redshift, ForceTree * tree)
         sumup_large_ints(1, &n_ionized, &tot_n_ionized);
         curionfrac += (double) tot_n_ionized / (double) n_gas_tot;
         if(new_qso > 0)
-            message(1, "Quasar %d changed the HeIII ionization fraction to %g, ionizing %ld\n", qso_cand[new_qso], curionfrac, tot_n_ionized);
+            message(1, "HeII: Quasar %d changed the HeIII ionization fraction to %g, ionizing %ld\n", qso_cand[new_qso], curionfrac, tot_n_ionized);
         /* Break the loop if we do not ionize enough particles this round.
          * Try again next timestep when we will hopefully have new BHs.*/
         if(tot_n_ionized < 0.01 * non_overlapping_bubble_number)
@@ -531,7 +531,7 @@ turn_on_quasars(double redshift, ForceTree * tree)
         }
     }
     myfree(qso_cand);
-    message(0, "He reionization changed the HeIII ionization fraction from %g -> %g, ionizing %ld\n", initionfrac, curionfrac, tot_n_ionized);
+    message(0, "HeII: reionization changed the HeIII ionization fraction from %g -> %g, ionizing %ld\n", initionfrac, curionfrac, tot_n_ionized);
     walltime_measure("/HeIII/Ionize");
 }
 
@@ -545,6 +545,6 @@ do_heiii_reionization(double redshift, ForceTree * tree)
         return;
 
     walltime_measure("/Misc");
-    message(0, "HeII Reionization initiated.\n");
+    message(0, "HeII: Reionization initiated.\n");
     turn_on_quasars(redshift, tree);
 }
