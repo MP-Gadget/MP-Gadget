@@ -509,7 +509,7 @@ turn_on_quasars(double redshift, ForceTree * tree)
         /* Make sure someone has a quasar*/
         if(ncand_tot == 0) {
             if(desired_ion_frac - curionfrac > 0.1)
-                message(0, "HeII: ionization was unable to reach desired ionization fraction of %g because not enough quasars\n", desired_ion_frac);
+                message(0, "HeII: Ionization fraction %g less than desired ionization fraction of %g because not enough quasars\n", curionfrac, desired_ion_frac);
             break;
         }
         /* Do the ionizations with a tree walk*/
@@ -530,7 +530,7 @@ turn_on_quasars(double redshift, ForceTree * tree)
         }
     }
     myfree(qso_cand);
-    message(0, "HeII: reionization changed the HeIII ionization fraction from %g -> %g, ionizing %ld\n", initionfrac, curionfrac, tot_n_ionized);
+    message(0, "HeII: Reionization changed the HeIII fraction from %g -> %g, ionizing %ld\n", initionfrac, curionfrac, tot_n_ionized);
     walltime_measure("/HeIII/Ionize");
 }
 
@@ -544,6 +544,6 @@ do_heiii_reionization(double redshift, ForceTree * tree)
         return;
 
     walltime_measure("/Misc");
-    message(0, "HeII: Reionization initiated.\n");
+    //message(0, "HeII: Reionization initiated.\n");
     turn_on_quasars(redshift, tree);
 }
