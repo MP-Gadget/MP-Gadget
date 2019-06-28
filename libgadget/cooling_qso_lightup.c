@@ -433,7 +433,7 @@ ionize_copy(int place, TreeWalkQueryBase * I, TreeWalk * tw)
  * Returns the number of particles ionized
  */
 static int
-ionize_all_part(int qso_ind, ForceTree * tree)
+ionize_all_part(int qso_ind, int * qso_cand, ForceTree * tree)
 {
     /* This treewalk finds not yet ionized particles within the radius of the black hole, ionizes them and
      * adds an instantaneous heating to them. */
@@ -462,7 +462,10 @@ ionize_all_part(int qso_ind, ForceTree * tree)
     tw->priv = priv;
 
     /* This runs only on one BH*/
-    treewalk_run(tw, &qso_ind, 1);
+    if(qso_ind > 0)
+        treewalk_run(tw, &qso_cand[qso_ind], 1);
+    else
+        treewalk_run(tw, NULL, 0);
     return N_ionized;
 }
 
@@ -511,7 +514,7 @@ turn_on_quasars(double redshift, ForceTree * tree)
             break;
         }
         /* Do the ionizations with a tree walk*/
-        int n_ionized = ionize_all_part(new_qso, tree);
+        int n_ionized = ionize_all_part(new_qso, qso_cand, tree);
         /* Check that the ionization fraction changed*/
         sumup_large_ints(1, &n_ionized, &tot_n_ionized);
         curionfrac += (double) tot_n_ionized / (double) n_gas_tot;
