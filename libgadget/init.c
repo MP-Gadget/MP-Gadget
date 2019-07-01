@@ -96,6 +96,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
         {
             /* Note: Gadget-3 sets this to the seed black hole mass.*/
             BHP(i).Mass = P[i].Mass;
+            BHP(i).TimeBinLimit = -1;
         }
         P[i].Key = PEANO(P[i].Pos, All.BoxSize);
 
@@ -286,7 +287,6 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
             /* Anything non-zero would work, but since BH tends to be in high density region,
              *  use a small number */
             P[i].Hsml = 0.01 * All.MeanSeparation[0];
-            BHP(i).TimeBinLimit = -1;
         }
 
     /*Allocate the extra SPH data for transient SPH particle properties.*/
