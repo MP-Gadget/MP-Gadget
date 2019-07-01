@@ -97,6 +97,12 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
             /* Note: Gadget-3 sets this to the seed black hole mass.*/
             BHP(i).Mass = P[i].Mass;
             BHP(i).TimeBinLimit = -1;
+
+            /* Touch up potentially zero BH smoothing lengths, since they have historically not been saved in the snapshots.
+             * Anything non-zero would work, but since BH tends to be in high density region,
+             *  use a small number */
+            if(P[i].Hsml == 0)
+                P[i].Hsml = 0.01 * All.MeanSeparation[0];
         }
         P[i].Key = PEANO(P[i].Pos, All.BoxSize);
 
@@ -279,15 +285,6 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
                 P[i].Hsml = All.MeanSeparation[0];
         }
     }
-
-    /* FIXME: move this inside the condition above and
-      * save BHs in the snapshots to avoid this; */
-    for(i = 0; i < PartManager->NumPart; i++)
-        if(P[i].Type == 5) {
-            /* Anything non-zero would work, but since BH tends to be in high density region,
-             *  use a small number */
-            P[i].Hsml = 0.01 * All.MeanSeparation[0];
-        }
 
     /*Allocate the extra SPH data for transient SPH particle properties.*/
     slots_allocate_sph_scratch_data(0, SlotsManager->info[0].size);

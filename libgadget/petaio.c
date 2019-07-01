@@ -851,6 +851,9 @@ static void register_io_blocks() {
     IO_REG(BlackholeMinPotVel,   "f4", 3, 5);
     IO_REG(BlackholeJumpToMinPot,   "i4", 1, 5);
 
+    /* Smoothing lengths for black hole: this is a new addition*/
+    IO_REG_NONFATAL(SmoothingLength,  "f4", 1, 5);
+
     if(All.SnapshotWithFOF)
         fof_register_io_blocks();
 
