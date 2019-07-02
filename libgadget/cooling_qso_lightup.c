@@ -140,7 +140,7 @@ load_heii_reion_hist(const char * reion_hist_file)
             /*Happens on end of file*/
             if(!retval)
                 break;
-            retval = strtok(buffer, " \t");
+            retval = strtok(buffer, " \t\n");
             /*Discard comments*/
             if(!retval || retval[0] == '#')
                 continue;
@@ -173,7 +173,7 @@ load_heii_reion_hist(const char * reion_hist_file)
             /*Happens on end of file*/
             if(!line)
                 break;
-            char * retval = strtok(line, " \t");
+            char * retval = strtok(line, " \t\n");
             if(!retval || retval[0] == '#')
                 continue;
             if(prei == 0)
@@ -192,9 +192,13 @@ load_heii_reion_hist(const char * reion_hist_file)
             He_zz[i] = 1./(1+atof(retval));
             /* Second column: HeIII fraction.*/
             retval = strtok(NULL, " \t");
+            if(!retval)
+                endrun(12, "HeII: Line %s of reionization table was incomplete!\n", line);
             XHeIII[i] = atof(retval);
             /* Third column: long mean free path photons.*/
             retval = strtok(NULL, " \t");
+            if(!retval)
+                endrun(12, "HeII: Line %s of reionization table was incomplete!\n", line);
             LMFP[i] = atof(retval);
             i++;
         }
