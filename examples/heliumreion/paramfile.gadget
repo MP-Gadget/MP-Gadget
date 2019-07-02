@@ -3,11 +3,11 @@
 InitCondFile = output/IC
 OutputDir = output
 TreeCoolFile = ../TREECOOL_ep_2018p
-ReionHistFile = ../HeIIIReionizationTable
+ReionHistFile = ../HeIIReionizationTable
 OutputList = 0.1,0.15,0.166667,0.181818,0.2,0.212766,0.22222,0.238095,0.25
 
 # CPU time -limit
-TimeLimitCPU = 43000 #= 8 hours
+TimeLimitCPU = 7200 #= 2 hours
 
 # Memory allocation: set as desired
 #MaxMemSizePerNode = 0.05
