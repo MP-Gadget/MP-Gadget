@@ -254,7 +254,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
          * ptypes of each type.
          *
          * Eventually the iteration will fix this. */
-         const double massfactor = 0.04/0.26;
+         const double massfactor = All.CP.OmegaBaryon / All.CP.Omega0;
 
         #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++)
