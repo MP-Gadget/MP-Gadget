@@ -4,14 +4,14 @@ import scipy.integrate
 from scipy.interpolate import InterpolatedUnivariateSpline
 from scipy.interpolate import interp1d
 import os.path
-import rate_network as RN
+from fake_spectra import rate_network as RN
 import sys
 import warnings
 
 
 
 if len(sys.argv) == 1:
-    print('No input parameters detected. Please provide at minimum: (1) QSO Spectral index (2) Thresshold long-mean-free-path photon energy in eV')
+    print('No input parameters detected. Please provide at minimum: (1) QSO Spectral index (2) Threshold long-mean-free-path photon energy in eV')
 
 alpha_q = float(sys.argv[1])
 Emax = float(sys.argv[2])
