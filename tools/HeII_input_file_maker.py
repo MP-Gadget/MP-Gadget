@@ -6,6 +6,9 @@ from scipy.interpolate import interp1d
 import os.path
 import rate_network as RN
 import sys
+import warnings
+
+
 
 if len(sys.argv) == 1:
     print('No input parameters detected. Please provide at minimum: (1) QSO Spectral index (2) Thresshold long-mean-free-path photon energy in eV')
@@ -184,7 +187,7 @@ class HeII_history(object):
         self.mpctocm = 3.086e24
         try:
             self.xHeII_table = np.genfromtxt('xHeII.dat')
-        except IndexError:
+        except OSError:
             self.xHeII_table = np.zeros(0)
 
 
@@ -192,6 +195,7 @@ class HeII_history(object):
     def XHeIII(self, redshift, reion_z_f = 2, reion_z_i = 6, numz = 1000.):
         """HeIII fraction over cosmic time based on a QSO emissivity function."""
         try:
+            self.xHeII_table = np.genfromtxt('xHeII.dat')
             table = self.xHeII_table
             xHeII_interp = interp1d(table[:,0],table[:,1], bounds_error=False, fill_value=0.0)
         except IndexError:
