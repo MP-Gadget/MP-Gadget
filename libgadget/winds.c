@@ -179,6 +179,11 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
 
 static int* NPLeft;
 
+struct WindPriv {
+    struct SpinLocks * spin;
+};
+#define WIND_GET_PRIV(tw) ((struct WindPriv *) (tw->priv))
+
 /*Do a treewalk for the wind model. This only changes newly created star particles.*/
 void
 winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree)
@@ -224,6 +229,7 @@ winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree)
     int64_t totalleft = 0;
     sumup_large_ints(1, &NumNewStars, &totalleft);
     NPLeft = ta_malloc("NPLeft", int, NumThreads);
+
     while(totalleft > 0) {
         memset(NPLeft, 0, sizeof(int)*NumThreads);
 
@@ -243,8 +249,12 @@ winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree)
     tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_feedback_ngbiter;
     tw->postprocess = NULL;
     tw->reduce = NULL;
+    struct WindPriv priv[1];
+    tw->priv = priv;
 
+    priv[0].spin = init_spinlocks(PartManager->NumPart);
     treewalk_run(tw, NewStars, NumNewStars);
+    free_spinlocks(priv[0].spin);
     myfree(Winddata);
     walltime_measure("/Cooling/Wind");
 }
@@ -442,7 +452,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     /* in this case the particle is already locked by the tree walker */
     /* we may want to add another lock to avoid this. */
     if(P[other].ID != I->base.ID)
-        lock_particle(other);
+        lock_particle(other, WIND_GET_PRIV(lv->tw)->spin);
 
     double wk = 1.0;
     double p = windeff * wk * I->Mass / I->TotalWeight;
@@ -452,7 +462,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     }
 
     if(P[other].ID != I->base.ID)
-        unlock_particle(other);
+        unlock_particle(other, WIND_GET_PRIV(lv->tw)->spin);
 
 }
 

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <pthread.h>
 
 #include "slotsmanager.h"
 #include "partmanager.h"

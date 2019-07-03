@@ -44,6 +44,7 @@ utils/mymalloc.h \
 utils/system.h \
 utils/event.h \
 utils/openmpsort.h \
+utils/spinlocks.h \
 utils/string.h
 
 UTILS_TESTED = memory openmpsort interp
@@ -109,7 +110,8 @@ utils/system.o \
 utils/paramset.o \
 utils/event.o \
 utils/openmpsort.o \
-utils/string.o
+utils/string.o \
+utils/spinlocks.o
 
 
 GADGET_OBJS := $(GADGET_OBJS:%=.objs/%)

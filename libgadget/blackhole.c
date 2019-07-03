@@ -88,6 +88,11 @@ typedef struct {
     DensityKernel feedback_kernel;
 } TreeWalkNgbIterBHFeedback;
 
+struct BHPriv {
+    struct SpinLocks * spin;
+};
+#define BH_GET_PRIV(tw) ((struct BHPriv *) (tw->priv))
+
 /*Set the parameters of the BH module*/
 void set_blackhole_params(ParameterSet * ps)
 {
@@ -189,6 +194,7 @@ blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
 
     walltime_measure("/Misc");
     TreeWalk tw_accretion[1] = {{0}};
+    struct BHPriv priv[1];
 
     tw_accretion->ev_label = "BH_ACCRETION";
     tw_accretion->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
@@ -202,6 +208,7 @@ blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
     tw_accretion->query_type_elsize = sizeof(TreeWalkQueryBHAccretion);
     tw_accretion->result_type_elsize = sizeof(TreeWalkResultBHAccretion);
     tw_accretion->tree = tree;
+    tw_accretion->priv = priv;
 
     TreeWalk tw_feedback[1] = {{0}};
     tw_feedback->ev_label = "BH_FEEDBACK";
@@ -217,6 +224,7 @@ blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
     tw_feedback->query_type_elsize = sizeof(TreeWalkQueryBHFeedback);
     tw_feedback->result_type_elsize = sizeof(TreeWalkResultBHFeedback);
     tw_feedback->tree = tree;
+    tw_feedback->priv = priv;
 
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Beginning black-hole accretion\n");
@@ -239,6 +247,9 @@ blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
         }
     }
 
+    /* This allocates memory*/
+    priv[0].spin = init_spinlocks(PartManager->NumPart);
+
     treewalk_run(tw_accretion, ActiveParticle, NumActiveParticle);
 
     MPIU_Barrier(MPI_COMM_WORLD);
@@ -251,6 +262,7 @@ blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
     /* Now do the swallowing of particles and dump feedback energy */
     treewalk_run(tw_feedback, ActiveParticle, NumActiveParticle);
 
+    free_spinlocks(priv[0].spin);
     myfree(SPH_SwallowID);
 
     MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -445,11 +457,13 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     /* Accretion / merger doesn't do self iteraction */
     if(P[other].ID == I->ID) return;
 
+    struct SpinLocks * spin = BH_GET_PRIV(lv->tw)->spin;
+
     if(P[other].Type == 5 && r2 < iter->accretion_kernel.HH)	/* we have a black hole merger */
     {
         /* compute relative velocity of BHs */
 
-        lock_particle(other);
+        lock_particle(other, spin);
         int d;
         double vrel[3];
         for(d = 0; d < 3; d++)
@@ -472,7 +486,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
                 }
             }
         }
-        unlock_particle(other);
+        unlock_particle(other, spin);
     }
 
     if(P[other].Type == 0) {
@@ -492,7 +506,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
             /* here we have a gas particle; check for swallowing */
 
-            lock_particle(other);
+            lock_particle(other, spin);
             /* compute accretion probability */
             double p, w;
 
@@ -516,7 +530,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
                     SPH_SwallowID[P[other].PI] = I->ID;
                 }
             }
-            unlock_particle(other);
+            unlock_particle(other, spin);
         }
 
         if(r2 < iter->feedback_kernel.HH) {
@@ -582,11 +596,13 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
      /* BH does not accrete wind */
     if(P[other].Type == 0 && SPHP(other).DelayTime > 0) return;
 
+    struct SpinLocks * spin = BH_GET_PRIV(lv->tw)->spin;
+
     if(P[other].Swallowed && P[other].Type == 5)	/* we have a black hole merger */
     {
         if(BHP(other).SwallowID != I->ID) return;
 
-        lock_particle(other);
+        lock_particle(other, spin);
 
         int d;
         for(d = 0; d < 3; d++)
@@ -603,7 +619,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
         slots_mark_garbage(other);
         BHP(other).Mdot = 0;
-        unlock_particle(other);
+        unlock_particle(other, spin);
 
 #pragma omp atomic
         N_BH_swallowed++;
@@ -627,9 +643,9 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
                 if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
                     wk = density_kernel_wk(&iter->feedback_kernel, u);
 
-                lock_particle(other);
+                lock_particle(other, spin);
                 SphP_scratch->Injected_BH_Energy[P[other].PI] += (I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum);
-                unlock_particle(other);
+                unlock_particle(other, spin);
             }
         }
     }
@@ -639,7 +655,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     {
         if(SPH_SwallowID[P[other].PI] != I->ID) return;
 
-        lock_particle(other);
+        lock_particle(other, spin);
 
         int d;
         for(d = 0; d < 3; d++)
@@ -651,7 +667,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         P[other].Mass = 0;
 
         slots_mark_garbage(other);
-        unlock_particle(other);
+        unlock_particle(other, spin);
 
 #pragma omp atomic
         N_sph_swallowed++;

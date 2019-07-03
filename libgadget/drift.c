@@ -14,30 +14,21 @@
 
 #define MAXHSML 30000.0
 
+
 static void real_drift_particle(int i, inttime_t ti1, const double ddrift);
 
-void lock_particle(int i) {
-#ifndef NO_OPENMP_SPINLOCK
-    pthread_spin_lock(&P[i].SpinLock);
-#endif
-}
-void unlock_particle(int i) {
-#ifndef NO_OPENMP_SPINLOCK
-    pthread_spin_unlock(&P[i].SpinLock);
-#endif
-}
-
-void drift_particle(int i, inttime_t ti1) {
+/* Updates a single particle to the current drift time*/
+void drift_particle(int i, inttime_t ti1, struct SpinLocks * spin) {
     if(P[i].Ti_drift == ti1) return;
 
-    lock_particle(i);
+    lock_particle(i, spin);
     inttime_t ti0 = P[i].Ti_drift;
     if(ti0 != ti1) {
         const double ddrift = get_drift_factor(ti0, ti1);
         real_drift_particle(i, ti1, ddrift);
 #pragma omp flush
     }
-    unlock_particle(i);
+    unlock_particle(i, spin);
 }
 
 static void real_drift_particle(int i, inttime_t ti1, const double ddrift)
