@@ -11,7 +11,6 @@
 #include "densitykernel.h"
 #include "treewalk.h"
 #include "slotsmanager.h"
-#include "drift.h"
 #include "fof.h"
 #include "blackhole.h"
 #include "timestep.h"

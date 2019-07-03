@@ -10,7 +10,6 @@
 #include "utils.h"
 
 #include "allvars.h"
-#include "drift.h"
 #include "forcetree.h"
 #include "treewalk.h"
 #include "timestep.h"

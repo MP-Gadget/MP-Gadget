@@ -15,7 +15,6 @@
 #include "walltime.h"
 #include "sfr_eff.h"
 #include "blackhole.h"
-#include "drift.h"
 #include "domain.h"
 
 #include "forcetree.h"
