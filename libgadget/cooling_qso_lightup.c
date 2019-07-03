@@ -214,6 +214,9 @@ load_heii_reion_hist(const char * reion_hist_file)
     gsl_interp_init(HeIII_intp, He_zz, XHeIII, Nreionhist);
     gsl_interp_init(LMFP_intp, He_zz, LMFP, Nreionhist);
 
+    if(QSOLightupParams.heIIIreion_start > 1/He_zz[0]-1)
+        endrun(2, "HeII: Reionization table starts at z=%g but reionization starts earlier at z=%g\n", 1/He_zz[0]-1, QSOLightupParams.heIIIreion_start);
+
     message(0, "Read %d lines z = %g - %g from file %s\n", Nreionhist, 1/He_zz[0] -1, 1/He_zz[Nreionhist-1]-1, reion_hist_file);
 }
 
@@ -234,6 +237,8 @@ double
 get_long_mean_free_path_heating(double redshift)
 {
     if(!QSOLightupParams.QSOLightupOn)
+        return 0;
+    if(redshift > QSOLightupParams.heIIIreion_start)
         return 0;
     if(redshift == last_zz)
         return last_long_mfp_heating;
