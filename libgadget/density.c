@@ -91,6 +91,7 @@ struct DensityPriv {
     int NIteration;
     int *NPLeft;
     int update_hsml;
+    int DoEgyDensity;
 };
 
 #define DENSITY_GET_PRIV(tw) ((struct DensityPriv*) ((tw)->priv))
@@ -130,29 +131,11 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * that one has to deal with substantially more than normal number of
  * neighbours.)
  */
-
-static void
-density_internal(int update_hsml, ForceTree * tree);
-
 void
-density(ForceTree * tree)
-{
-    /* recompute hsml and pre hydro quantities */
-    density_internal(1, tree);
-}
-
-void
-density_update(ForceTree * tree)
-{
-    /* recompute pre hydro quantities without computing hsml */
-    density_internal(0, tree);
-}
-
-static void
-density_internal(int update_hsml, ForceTree * tree)
+density(int update_hsml, int DoEgyDensity, ForceTree * tree)
 {
     if(!All.DensityOn)
-	return;
+        return;
 
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
@@ -183,6 +166,7 @@ density_internal(int update_hsml, ForceTree * tree)
     DENSITY_GET_PRIV(tw)->Right = (MyFloat *) mymalloc("DENSITY_GET_PRIV(tw)->Right", PartManager->NumPart * sizeof(MyFloat));
     DENSITY_GET_PRIV(tw)->Rot = (MyFloat (*) [3]) mymalloc("DENSITY_GET_PRIV(tw)->Rot", SlotsManager->info[0].size * sizeof(priv->Rot[0]));
     DENSITY_GET_PRIV(tw)->update_hsml = update_hsml;
+    DENSITY_GET_PRIV(tw)->DoEgyDensity = DoEgyDensity;
 
     DENSITY_GET_PRIV(tw)->NIteration = 0;
 
@@ -288,9 +272,8 @@ density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw)
         I->Vel[0] = SphP_scratch->VelPred[3 * P[place].PI];
         I->Vel[1] = SphP_scratch->VelPred[3 * P[place].PI + 1];
         I->Vel[2] = SphP_scratch->VelPred[3 * P[place].PI + 2];
+        I->DelayTime = SPHP(place).DelayTime;
     }
-
-    I->DelayTime = SPHP(place).DelayTime;
 
 }
 
@@ -320,7 +303,7 @@ density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMod
         }
 
         /*Only used for density independent SPH*/
-        if(All.DensityIndependentSphOn) {
+        if(DENSITY_GET_PRIV(tw)->DoEgyDensity) {
             TREEWALK_REDUCE(SPHP(place).EgyWtDensity, remote->EgyRho);
             TREEWALK_REDUCE(SPHP(place).DhsmlEgyDensityFactor, remote->DhsmlEgyDensity);
         }
@@ -391,7 +374,7 @@ density_ngbiter(
         double density_dW = density_kernel_dW(&iter->kernel, u, wk, dwk);
         O->DhsmlDensity += mass_j * density_dW;
 
-        if(All.DensityIndependentSphOn) {
+        if(DENSITY_GET_PRIV(lv->tw)->DoEgyDensity) {
             const double EntPred = SphP_scratch->EntVarPred[P[other].PI];
             O->EgyRho += mass_j * EntPred * wk;
             O->DhsmlEgyDensity += mass_j * EntPred * density_dW;
@@ -450,38 +433,29 @@ density_postprocess(int i, TreeWalk * tw)
 {
     if(P[i].Type == 0)
     {
-        if(SPHP(i).Density > 0)
-        {
-            SPHP(i).DhsmlDensityFactor *= P[i].Hsml / (NUMDIMS * SPHP(i).Density);
-            if(SPHP(i).DhsmlDensityFactor > -0.9)	/* note: this would be -1 if only a single particle at zero lag is found */
-                SPHP(i).DhsmlDensityFactor = 1 / (1 + SPHP(i).DhsmlDensityFactor);
-            else
-                SPHP(i).DhsmlDensityFactor = 1;
+        if(SPHP(i).Density <= 0)
+            endrun(12, "Particle %d has bad density: %g\n", i, SPHP(i).Density);
+        SPHP(i).DhsmlDensityFactor *= P[i].Hsml / (NUMDIMS * SPHP(i).Density);
+        if(SPHP(i).DhsmlDensityFactor > -0.9)	/* note: this would be -1 if only a single particle at zero lag is found */
+            SPHP(i).DhsmlDensityFactor = 1 / (1 + SPHP(i).DhsmlDensityFactor);
+        else
+            SPHP(i).DhsmlDensityFactor = 1;
 
-            /*Compute the EgyWeight factors, which are only useful for density independent SPH */
-            if(All.DensityIndependentSphOn) {
-                const double EntPred = SphP_scratch->EntVarPred[P[i].PI];
-                if((EntPred > 0) && (SPHP(i).EgyWtDensity>0))
-                {
-                    SPHP(i).DhsmlEgyDensityFactor *= P[i].Hsml/ (NUMDIMS * SPHP(i).EgyWtDensity);
-                    SPHP(i).DhsmlEgyDensityFactor *= -SPHP(i).DhsmlDensityFactor;
-                    SPHP(i).EgyWtDensity /= EntPred;
-                } else {
-                    /* Use non-weighted densities for this.
-                    * This should never occur normally,
-                    * but will happen for every particle during init().*/
-                    SPHP(i).DhsmlEgyDensityFactor=SPHP(i).DhsmlDensityFactor;
-                    SPHP(i).EgyWtDensity=SPHP(i).Density;
-                }
-            }
-
-            int PI = P[i].PI;
-            MyFloat * Rot = DENSITY_GET_PRIV(tw)->Rot[PI];
-            SPHP(i).CurlVel = sqrt(Rot[0] * Rot[0] + Rot[1] * Rot[1] + Rot[2] * Rot[2]) / SPHP(i).Density;
-
-            SPHP(i).DivVel /= SPHP(i).Density;
-
+        /*Compute the EgyWeight factors, which are only useful for density independent SPH */
+        if(DENSITY_GET_PRIV(tw)->DoEgyDensity) {
+            const double EntPred = SphP_scratch->EntVarPred[P[i].PI];
+            if(EntPred <= 0 || SPHP(i).EgyWtDensity <=0)
+                endrun(12, "Particle %d has bad predicted entropy: %g or EgyWtDensity: %g\n", i, EntPred, SPHP(i).EgyWtDensity);
+            SPHP(i).DhsmlEgyDensityFactor *= P[i].Hsml/ (NUMDIMS * SPHP(i).EgyWtDensity);
+            SPHP(i).DhsmlEgyDensityFactor *= -SPHP(i).DhsmlDensityFactor;
+            SPHP(i).EgyWtDensity /= EntPred;
         }
+
+        int PI = P[i].PI;
+        MyFloat * Rot = DENSITY_GET_PRIV(tw)->Rot[PI];
+        SPHP(i).CurlVel = sqrt(Rot[0] * Rot[0] + Rot[1] * Rot[1] + Rot[2] * Rot[2]) / SPHP(i).Density;
+
+        SPHP(i).DivVel /= SPHP(i).Density;
     }
 
     /* This is slightly more complicated so we put it in a different function */

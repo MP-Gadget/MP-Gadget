@@ -318,7 +318,7 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridN
         /***** density *****/
         message(0, "Start density computation...\n");
 
-        density(tree);  /* computes density, and pressure */
+        density(1, All.DensityIndependentSphOn, tree);  /* computes density, and pressure */
 
         /***** update smoothing lengths in tree *****/
         force_update_hmax(ActiveParticle, NumActiveParticle, tree);
