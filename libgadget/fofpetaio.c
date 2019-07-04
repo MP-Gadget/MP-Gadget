@@ -173,7 +173,7 @@ static void fof_distribute_particles(MPI_Comm Comm) {
         int j = NpigLocal;
         if(P[i].GrNr < 0) continue;
         if(P[i].GrNr > GrNrMax) GrNrMax = P[i].GrNr;
-/* Yu: found it! this shall be int64 */
+        /* Yu: found it! this shall be int64 */
         // pi[j].origin =  ThisTask * PartManager->MaxPart + i;
         pi[j].origin = ((uint64_t) ThisTask) * PartManager->MaxPart + i;
         pi[j].sortKey = P[i].GrNr;

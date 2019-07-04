@@ -56,6 +56,21 @@ static struct SFRParams
     int Generations;
 } sfr_params;
 
+/* Structure storing the results of an evaluation of the star formation model*/
+struct sfr_eeqos_data
+{
+    /* Relaxation time*/
+    double trelax;
+    /* Star formation timescale*/
+    double tsfr;
+    /* Internal energy of the gas in the hot phase. */
+    double egyhot;
+    /* Fraction of the gas in the cold cloud phase. */
+    double cloudfrac;
+    /* Electron fraction after cooling. */
+    double ne;
+};
+
 /*Cooling only: no star formation*/
 static void cooling_direct(int i);
 
@@ -67,10 +82,11 @@ static int starformation(int i, double *localsfr, double * sum_sm);
 static int quicklyastarformation(int i);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
-static double get_starformation_rate_full(int i, double dtime, double * ne_new, double * trelax, double * egyhot_out, double * cloudfrac);
+static double get_starformation_rate_full(int i, struct sfr_eeqos_data sfr_data);
 static double find_star_mass(int i);
 /*Get enough memory for new star slots. This may be excessively slow! Don't do it too often.*/
 static int * sfr_reserve_slots(int * NewStars, int NumNewStar, ForceTree * tt);
+static struct sfr_eeqos_data get_sfr_eeqos(int i, double dtime);
 
 /*Set the parameters of the SFR module*/
 void set_sfr_params(ParameterSet * ps)
@@ -445,12 +461,10 @@ double get_neutral_fraction_sfreff(int i, double redshift)
          * fraction than the hot gas*/
         double dloga = get_dloga_for_bin(P[i].TimeBin);
         double dtime = dloga / All.cf.hubble;
-        double egyhot, cloudfrac;
-        double ne = SPHP(i).Ne;
-        get_starformation_rate_full(i, dtime, &ne, NULL, &egyhot, &cloudfrac);
-        double nh0cold = GetNeutralFraction(sfr_params.EgySpecCold, physdens, &uvbg, ne);
-        double nh0hot = GetNeutralFraction(egyhot, physdens, &uvbg, ne);
-        nh0 =  nh0cold * cloudfrac + (1-cloudfrac) * nh0hot;
+        struct sfr_eeqos_data sfr_data = get_sfr_eeqos(i, dtime);
+        double nh0cold = GetNeutralFraction(sfr_params.EgySpecCold, physdens, &uvbg, sfr_data.ne);
+        double nh0hot = GetNeutralFraction(sfr_data.egyhot, physdens, &uvbg, sfr_data.ne);
+        nh0 =  nh0cold * sfr_data.cloudfrac + (1-sfr_data.cloudfrac) * nh0hot;
     }
     return nh0;
 }
@@ -559,30 +573,28 @@ starformation(int i, double *localsfr, double * sum_sm)
     double dtime = dloga / All.cf.hubble;
     int newstar = -1;
 
-    double cloudfrac, trelax, egyhot;
-
-    double dblNe = -1;
-    double rateOfSF = get_starformation_rate_full(i, dtime, &dblNe, &trelax, &egyhot, &cloudfrac);
-    SPHP(i).Ne = dblNe;
+    struct sfr_eeqos_data sfr_data = get_sfr_eeqos(i, dtime);
+    SPHP(i).Sfr = get_starformation_rate_full(i, sfr_data);
+    SPHP(i).Ne = sfr_data.ne;
 
     /* amount of stars expect to form */
 
-    double sm = rateOfSF * dtime;
+    double sm = SPHP(i).Sfr * dtime;
 
     double p = sm / P[i].Mass;
 
     *sum_sm += P[i].Mass * (1 - exp(-p));
     /* convert to Solar per Year.*/
-    *localsfr += rateOfSF * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
+    *localsfr += SPHP(i).Sfr * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
 
     double w = get_random_number(P[i].ID);
     SPHP(i).Metallicity += w * METAL_YIELD * (1 - exp(-p));
 
     if(dloga > 0 && P[i].TimeBin)
     {
-        double egyeff = sfr_params.EgySpecCold * cloudfrac + (1 - cloudfrac) * egyhot;
+        double egyeff = sfr_params.EgySpecCold * sfr_data.cloudfrac + (1 - sfr_data.cloudfrac) * sfr_data.egyhot;
         /* upon start-up, we need to protect against dloga ==0 */
-        cooling_relaxed(i, egyeff, dtime, trelax);
+        cooling_relaxed(i, egyeff, dtime, sfr_data.trelax);
     }
 
     double mass_of_star = find_star_mass(i);
@@ -611,74 +623,56 @@ starformation(int i, double *localsfr, double * sum_sm)
     return newstar;
 }
 
-double get_starformation_rate(int i) {
-    /* returns SFR in internal units */
-    return get_starformation_rate_full(i, 0, NULL, NULL, NULL, NULL);
-}
+/* Get the parameters of the basic effective
+ * equation of state model for a particle.*/
+static struct sfr_eeqos_data get_sfr_eeqos(int i, double dtime)
+{
+    struct sfr_eeqos_data data;
+    /* Initialise data to something, just in case.*/
+    data.trelax = sfr_params.MaxSfrTimescale;
+    data.tsfr = sfr_params.MaxSfrTimescale;
+    data.egyhot = sfr_params.EgySpecCold;
+    data.cloudfrac = 0;
+    data.ne = 0;
 
-static double get_starformation_rate_full(int i, double dtime, double * ne_new, double * trelax, double * egyhot_out, double * cloudfrac) {
-    double rateOfSF, tsfr;
-    double factorEVP, egyhot, ne, tcool, y, x, cloudmass;
+    /* This shall never happen, but just in case*/
+    if(!All.StarformationOn || !sfreff_on_eeqos(i))
+        return data;
 
-    if(!All.StarformationOn || !sfreff_on_eeqos(i)) {
-        /* this shall not happen but let's put in some safe
-         * numbers in case the code runs away!
-         *
-         * the only case trelax and egyeff are
-         * required is in starformation(i)
-         * */
-        if (trelax) {
-            *trelax = sfr_params.MaxSfrTimescale;
-        }
-        if (egyhot_out) {
-            *egyhot_out = sfr_params.EgySpecCold;
-        }
-        if (cloudfrac) {
-            *cloudfrac = 0;
-        }
-
-        return 0;
-    }
-
-    tsfr = sqrt(sfr_params.PhysDensThresh / (SPHP(i).Density * All.cf.a3inv)) * sfr_params.MaxSfrTimescale;
+    data.ne = SPHP(i).Ne;
+    data.tsfr = sqrt(sfr_params.PhysDensThresh / (SPHP(i).Density * All.cf.a3inv)) * sfr_params.MaxSfrTimescale;
     /*
      * gadget-p doesn't have this cap.
      * without the cap sm can be bigger than cloudmass.
     */
-    if(tsfr < dtime)
-        tsfr = dtime;
+    if(data.tsfr < dtime)
+        data.tsfr = dtime;
 
     double redshift = 1./All.Time - 1;
     struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
 
-    factorEVP = pow(SPHP(i).Density * All.cf.a3inv / sfr_params.PhysDensThresh, -0.8) * sfr_params.FactorEVP;
+    double factorEVP = pow(SPHP(i).Density * All.cf.a3inv / sfr_params.PhysDensThresh, -0.8) * sfr_params.FactorEVP;
 
-    egyhot = sfr_params.EgySpecSN / (1 + factorEVP) + sfr_params.EgySpecCold;
+    data.egyhot = sfr_params.EgySpecSN / (1 + factorEVP) + sfr_params.EgySpecCold;
 
-    ne = SPHP(i).Ne;
+    double tcool = GetCoolingTime(redshift, data.egyhot, SPHP(i).Density * All.cf.a3inv, &uvbg, &data.ne, SPHP(i).Metallicity);
+    double y = data.tsfr / tcool * data.egyhot / (sfr_params.FactorSN * sfr_params.EgySpecSN - (1 - sfr_params.FactorSN) * sfr_params.EgySpecCold);
 
-    tcool = GetCoolingTime(redshift, egyhot, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, SPHP(i).Metallicity);
-    y = tsfr / tcool * egyhot / (sfr_params.FactorSN * sfr_params.EgySpecSN - (1 - sfr_params.FactorSN) * sfr_params.EgySpecCold);
+    data.cloudfrac = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
 
-    x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
+    data.trelax = data.tsfr * (1 - data.cloudfrac) / data.cloudfrac / (sfr_params.FactorSN * (1 + factorEVP));
+    return data;
+}
 
-    cloudmass = x * P[i].Mass;
-
-    rateOfSF = (1 - sfr_params.FactorSN) * cloudmass / tsfr;
-
-    if (ne_new ) {
-        *ne_new = ne;
+static double get_starformation_rate_full(int i, struct sfr_eeqos_data sfr_data)
+{
+    if(!All.StarformationOn || !sfreff_on_eeqos(i)) {
+        return 0;
     }
 
-    if (trelax) {
-        *trelax = tsfr * (1 - x) / x / (sfr_params.FactorSN * (1 + factorEVP));
-    }
-    if (cloudfrac) {
-        *cloudfrac = x;
-    }
-    if(egyhot_out) {
-        *egyhot_out = egyhot;
-    }
+    double cloudmass = sfr_data.cloudfrac * P[i].Mass;
+
+    double rateOfSF = (1 - sfr_params.FactorSN) * cloudmass / sfr_data.tsfr;
 
     if (HAS(sfr_params.StarformationCriterion, SFR_CRITERION_MOLECULAR_H2)) {
         rateOfSF *= get_sfr_factor_due_to_h2(i);
@@ -869,7 +863,7 @@ static double get_sfr_factor_due_to_h2(int i) {
      *  properties, from gadget-p; we return the enhancement on SFR in this
      *  function */
 
-    if(!sfr_need_to_compute_sph_grad_rho())
+    if(!SphP_scratch->GradRho)
         endrun(1, "Needed grad rho but not enabled! Should never happen!\n");
     double tau_fmol;
     double zoverzsun = SPHP(i).Metallicity/METAL_YIELD;

@@ -666,7 +666,9 @@ void
 slots_free_sph_scratch_data(struct sph_scratch_data * SphScratch)
 {
     myfree(SphScratch->VelPred);
+    SphScratch->VelPred = NULL;
     myfree(SphScratch->EntVarPred);
+    SphScratch->EntVarPred = NULL;
     if(SphScratch->GradRho) {
         myfree(SphScratch->GradRho);
         SphScratch->GradRho = NULL;
