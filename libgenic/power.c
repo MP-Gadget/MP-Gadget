@@ -399,7 +399,7 @@ int init_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in
         double Dplus = GrowthFactor(InitTime, 1/(1+ppar->InputPowerRedshift));
         if(ppar->InputPowerRedshift >= 0) {
             Norm *= Dplus;
-            message(0,"Growth factor to z=%g: %g \n", ppar->InputPowerRedshift, Dplus);
+            message(0,"Growth factor from z=%g (InputPowerRedshift) to z=%g (Init): %g \n", ppar->InputPowerRedshift, 1. / InitTime - 1, Dplus);
         }
         message(0, "Normalization adjusted to  Sigma8=%g (at z=0)  (Normfac=%g). \n", sqrt(TopHatSigma2(R8))/Dplus, Norm);
     }
