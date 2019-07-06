@@ -74,12 +74,13 @@ void read_parameterfile(char *fname)
     /* read parameter file on all processes for simplicty */
 
     ParameterSet * ps = create_parameters();
+    char * error;
 
-    if(0 != param_parse_file(ps, fname)) {
-        endrun(0, "Parsing %s failed.", fname);
+    if(0 != param_parse_file(ps, fname, &error)) {
+        endrun(0, "Parsing %s failed: %s\n", fname, *error);
     }
     if(0 != param_validate(ps)) {
-        endrun(0, "Validation of %s failed.", fname);
+        endrun(0, "Validation of %s failed.\n", fname);
     }
 
     message(0, "----------- Running with Parameters ----------\n");
