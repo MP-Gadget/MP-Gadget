@@ -31,14 +31,6 @@ MyFloat SPH_EOMDensity(int i)
         return SPHP(i).Density;
 }
 
-MyFloat SPH_DhsmlDensityFactor(int i)
-{
-    if(All.DensityIndependentSphOn)
-        return SPHP(i).DhsmlEgyDensityFactor;
-    else
-        return SPHP(i).DhsmlDensityFactor;
-}
-
 double
 PressurePred(int PI)
 {
@@ -190,7 +182,7 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
         input->EntVarPred = SphP_scratch->EntVarPred[P[place].PI];
     }
 
-    input->SPH_DhsmlDensityFactor = SPH_DhsmlDensityFactor(place);
+    input->SPH_DhsmlDensityFactor = SPHP(place).DhsmlEgyDensityFactor;
 
     input->Pressure = HYDRA_GET_PRIV(tw)->PressurePred[P[place].PI];
     input->TimeBin = P[place].TimeBin;
@@ -351,7 +343,7 @@ hydro_ngbiter(
         /* grad-h corrections: enabled if DensityIndependentSphOn = 0, or DensityConstrastLimit >= 0 */
         /* Formulation derived from the Lagrangian */
         hfc += P[other].Mass * (iter->p_over_rho2_i*I->SPH_DhsmlDensityFactor * dwk_i * r1
-                 + p_over_rho2_j*SPH_DhsmlDensityFactor(other) * dwk_j * r2) / r;
+                 + p_over_rho2_j*SPHP(other).DhsmlEgyDensityFactor * dwk_j * r2) / r;
 
         /* No force by wind particles */
         if(All.WindOn && winds_is_particle_decoupled(other)) {
