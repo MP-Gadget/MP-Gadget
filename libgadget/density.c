@@ -454,7 +454,7 @@ density_postprocess(int i, TreeWalk * tw)
             endrun(12, "Particle %d has bad density: %g\n", i, SPHP(i).Density);
         int PI = P[i].PI;
         MyFloat * DhsmlDens;
-        if(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor)
+        if(DENSITY_GET_PRIV(tw)->DoEgyDensity)
             DhsmlDens = &(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[PI]);
         else
             DhsmlDens = &(SPHP(i).DhsmlEgyDensityFactor);
@@ -533,7 +533,7 @@ void density_check_neighbours (int i, TreeWalk * tw) {
                 if(P[i].Type == 0 && fabs(P[i].NumNgb - desnumngb) < 0.5 * desnumngb)
                 {
                     MyFloat DensFac;
-                    if(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor)
+                    if(DENSITY_GET_PRIV(tw)->DoEgyDensity)
                         DensFac = DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[P[i].PI];
                     else
                         DensFac = SPHP(i).DhsmlEgyDensityFactor;
@@ -553,7 +553,7 @@ void density_check_neighbours (int i, TreeWalk * tw) {
                 if(P[i].Type == 0 && fabs(P[i].NumNgb - desnumngb) < 0.5 * desnumngb)
                 {
                     MyFloat DensFac;
-                    if(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor)
+                    if(DENSITY_GET_PRIV(tw)->DoEgyDensity)
                         DensFac = DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[P[i].PI];
                     else
                         DensFac = SPHP(i).DhsmlEgyDensityFactor;
