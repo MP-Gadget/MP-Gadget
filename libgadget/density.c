@@ -89,9 +89,10 @@ struct DensityPriv {
     MyFloat *Left, *Right;
     MyFloat (*Rot)[3];
     /* This is the DhsmlDensityFactor for the pure density,
-     * not the entropy weighted density. It is used here and
-     * copied to DhsmlEgyDensityFactor if DensityIndependentSphOn = 1
-     * If DensityIndependentSphOn = 0 it is used to set DhsmlEgyDensityFactor. */
+     * not the entropy weighted density.
+     * If DensityIndependentSphOn = 0 then DhsmlEgyDensityFactor and DhsmlDensityFactor
+     * are the same and this is not used.
+     * If DensityIndependentSphOn = 1 then this is used to set DhsmlEgyDensityFactor.*/
     MyFloat * DhsmlDensityFactor;
     int NIteration;
     int *NPLeft;
