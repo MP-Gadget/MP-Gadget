@@ -355,11 +355,12 @@ void read_parameter_file(char *fname)
 
     if(ThisTask == 0) {
 
-        if(0 != param_parse_file(ps, fname)) {
-            endrun(1, "Parsing %s failed.", fname);
+        char * error;
+        if(0 != param_parse_file(ps, fname, &error)) {
+            endrun(1, "Parsing %s failed: %s\n", fname, error);
         }
-        if(0 != param_validate(ps)) {
-            endrun(1, "Validation of %s failed.", fname);
+        if(0 != param_validate(ps, &error)) {
+            endrun(1, "Validation of %s failed: %s\n", fname, error);
         }
 
         message(1, "----------- Running with Parameters ----------\n");

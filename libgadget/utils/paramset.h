@@ -52,9 +52,11 @@ param_get_enum(ParameterSet * ps, char * name);
 char *
 param_format_value(ParameterSet * ps, char * name);
 
-int param_parse (ParameterSet * ps, char * content);
-int param_parse_file (ParameterSet * ps, const char * filename);
-int param_validate(ParameterSet * ps); /* 0 for good, 1 for bad; prints messages. */
+int param_parse (ParameterSet * ps, char * content, char **error);
+/* returns 0 on no error; 1 on error, and *error needs to be freed by the caller with free() */
+int param_parse_file (ParameterSet * ps, const char * filename, char **error);
+/* returns 0 on no error; 1 on error, and *error needs to be freed by the caller with free() */
+int param_validate(ParameterSet * ps, char **error);
 void param_dump(ParameterSet * ps, FILE * stream);
 
 ParameterSet *

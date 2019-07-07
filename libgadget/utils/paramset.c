@@ -103,7 +103,7 @@ static void
 param_set_from_string(ParameterSet * ps, char * name, char * value, int lineno);
 
 
-static int param_emit(ParameterSet * ps, char * start, int size, int lineno)
+static int param_emit(ParameterSet * ps, char * start, int size, int lineno, char **error)
 {
     /* parse a line */
     char * buf = alloca(size + 1);
@@ -135,7 +135,7 @@ static int param_emit(ParameterSet * ps, char * start, int size, int lineno)
     if (*ptr == 0 || strchr(comments, *ptr)) {
         /* This line is malformed, must have a value! */
         strncpy(buf, start, size);
-        printf("Line %d : `%s` is malformed.\n", lineno, buf);
+        *error = fastpm_strdup_printf("Line %d : `%s` is malformed.", lineno, buf);
         return 1;
     }
     value = ptr;
@@ -146,25 +146,34 @@ static int param_emit(ParameterSet * ps, char * start, int size, int lineno)
     /* now this line is important */
     ParameterSchema * p = param_get_schema(ps, name);
     if(!p) {
-        printf("Line %d: Parameter `%s` is unknown.\n", lineno, name);
+        *error = fastpm_strdup_printf("Line %d: Parameter `%s` is unknown.", lineno, name);
         return 1;
     }
     param_set_from_string(ps, name, value, lineno);
     if(p->action) {
-        printf("Triggering Action on `%s`\n", name);
-        return p->action(ps, name, p->action_data);
+        if(0 != p->action(ps, name, p->action_data)) {
+            *error = fastpm_strdup_printf("Triggering Action on `%s` failed.", name);
+            return 1;
+        } else {
+            return 0;
+        }
     }
     return 0;
 }
-int param_validate(ParameterSet * ps)
+int param_validate(ParameterSet * ps, char **error)
 {
     int i;
     int flag = 0;
+    *error = NULL;
     /* copy over the default values */
     for(i = 0; i < ps->size; i ++) {
         ParameterSchema * p = &ps->p[i];
         if(p->required == REQUIRED && ps->value[p->index].nil) {
-            printf("Parameter `%s` is required, but not set.\n", p->name);
+            char * error1 = fastpm_strdup_printf("Parameter `%s` is required, but not set.", p->name);
+            char * tmp = fastpm_strappend(*error, "\n", error1);
+            free(error1);
+            if(*error) free(*error);
+            *error = tmp;
             flag = 1;
         }
     }
@@ -187,7 +196,7 @@ void param_dump(ParameterSet * ps, FILE * stream)
     fflush(stream);
 }
 
-int param_parse (ParameterSet * ps, char * content)
+int param_parse (ParameterSet * ps, char * content, char **error)
 {
     int i;
     /* copy over the default values, include nil values */
@@ -198,9 +207,18 @@ int param_parse (ParameterSet * ps, char * content)
     char * p1 = content; /* begining of a line */
     int flag = 0;
     int lineno = 0;
+    *error = NULL;
     while(1) {
         if(*p == '\n' || *p == 0) {
-            flag |= param_emit(ps, p1, p - p1, lineno);
+            char * error1;
+            int flag1 = param_emit(ps, p1, p - p1, lineno, &error1);
+            if(flag1 != 0) {
+                char * tmp = fastpm_strappend(*error, "\n", error1);
+                free(error1);
+                if(*error) free(*error);
+                *error = tmp;
+            }
+            flag |= flag1;
             if(*p == 0) break;
             p++;
             p1 = p;
@@ -212,13 +230,14 @@ int param_parse (ParameterSet * ps, char * content)
     return flag;
 }
 
-int param_parse_file (ParameterSet * ps, const char * filename)
+int param_parse_file (ParameterSet * ps, const char * filename, char ** error)
 {
     char * content = fastpm_file_get_content(filename);
     if(content == NULL) {
+        *error = fastpm_strdup("Could not read file.");
         return -1;
     }
-    int val = param_parse(ps, content);
+    int val = param_parse(ps, content, error);
     free(content);
     return val;
 }
