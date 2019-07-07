@@ -169,7 +169,7 @@ int param_validate(ParameterSet * ps, char **error)
     for(i = 0; i < ps->size; i ++) {
         ParameterSchema * p = &ps->p[i];
         if(p->required == REQUIRED && ps->value[p->index].nil) {
-            char error1 = fastpm_strdup_printf("Parameter `%s` is required, but not set.", p->name);
+            char * error1 = fastpm_strdup_printf("Parameter `%s` is required, but not set.", p->name);
             char * tmp = fastpm_strappend(*error, "\n", error1);
             free(error1);
             if(*error) free(*error);
@@ -212,13 +212,13 @@ int param_parse (ParameterSet * ps, char * content, char **error)
         if(*p == '\n' || *p == 0) {
             char * error1;
             int flag1 = param_emit(ps, p1, p - p1, lineno, &error1);
-            flag |= flag1;
-            if(flag1) {
+            if(flag1 != 0) {
                 char * tmp = fastpm_strappend(*error, "\n", error1);
                 free(error1);
                 if(*error) free(*error);
                 *error = tmp;
             }
+            flag |= flag1;
             if(*p == 0) break;
             p++;
             p1 = p;
