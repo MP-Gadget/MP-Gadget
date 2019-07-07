@@ -135,7 +135,7 @@ static int param_emit(ParameterSet * ps, char * start, int size, int lineno, cha
     if (*ptr == 0 || strchr(comments, *ptr)) {
         /* This line is malformed, must have a value! */
         strncpy(buf, start, size);
-        *error = fastpm_strdup_printf("Line %d : `%s` is malformed.\n", lineno, buf);
+        *error = fastpm_strdup_printf("Line %d : `%s` is malformed.", lineno, buf);
         return 1;
     }
     value = ptr;
@@ -146,13 +146,13 @@ static int param_emit(ParameterSet * ps, char * start, int size, int lineno, cha
     /* now this line is important */
     ParameterSchema * p = param_get_schema(ps, name);
     if(!p) {
-        *error = fastpm_strdup_printf("Line %d: Parameter `%s` is unknown.\n", lineno, name);
+        *error = fastpm_strdup_printf("Line %d: Parameter `%s` is unknown.", lineno, name);
         return 1;
     }
     param_set_from_string(ps, name, value, lineno);
     if(p->action) {
         if(0 != p->action(ps, name, p->action_data)) {
-            *error = fastpm_strdup_printf("Triggering Action on `%s` failed\n", name);
+            *error = fastpm_strdup_printf("Triggering Action on `%s` failed.", name);
             return 1;
         } else {
             return 0;
@@ -160,15 +160,20 @@ static int param_emit(ParameterSet * ps, char * start, int size, int lineno, cha
     }
     return 0;
 }
-int param_validate(ParameterSet * ps)
+int param_validate(ParameterSet * ps, char **error)
 {
     int i;
     int flag = 0;
+    *error = NULL;
     /* copy over the default values */
     for(i = 0; i < ps->size; i ++) {
         ParameterSchema * p = &ps->p[i];
         if(p->required == REQUIRED && ps->value[p->index].nil) {
-            printf("Parameter `%s` is required, but not set.\n", p->name);
+            char error1 = fastpm_strdup_printf("Parameter `%s` is required, but not set.", p->name);
+            char * tmp = fastpm_strappend(*error, "\n", error1);
+            free(error1);
+            if(*error) free(*error);
+            *error = tmp;
             flag = 1;
         }
     }
@@ -202,15 +207,17 @@ int param_parse (ParameterSet * ps, char * content, char **error)
     char * p1 = content; /* begining of a line */
     int flag = 0;
     int lineno = 0;
-    *error = "";
+    *error = NULL;
     while(1) {
         if(*p == '\n' || *p == 0) {
             char * error1;
             int flag1 = param_emit(ps, p1, p - p1, lineno, &error1);
             flag |= flag1;
             if(flag1) {
-                *error = fastpm_strdup_printf("%s\n%s", *error, error1);
+                char * tmp = fastpm_strappend(*error, "\n", error1);
                 free(error1);
+                if(*error) free(*error);
+                *error = tmp;
             }
             if(*p == 0) break;
             p++;
