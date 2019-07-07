@@ -511,9 +511,15 @@ void density_check_neighbours (int i, TreeWalk * tw) {
             endrun(999993, "Already has DensityIterationDone set, bad memory intialization.");
         }
 
+        /* This condition is here to prevent the density code looping forever if it encounters
+         * multiple particles at the same position. If this happens you likely have worse
+         * problems anyway, so warn also. */
         if((Right[i] - Left[i]) < 1.0e-3 * Left[i])
         {
-            /* this one should be ok */
+            /* If this happens probably the exchange is screwed up and all your particles have moved to (0,0,0)*/
+            message(1, "Very tight Hsml bounds for i=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g pos=(%g|%g|%g)\n",
+             i, P[i].ID, P[i].Hsml, Left[i], Right[i], P[i].NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+            P[i].Hsml = Right[i];
             P[i].DensityIterationDone = 1;
             return;
         }
@@ -600,9 +606,9 @@ void density_check_neighbours (int i, TreeWalk * tw) {
 
     if(DENSITY_GET_PRIV(tw)->NIteration >= MAXITER - 10)
     {
-         message(1, "i=%d task=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
-             i, ThisTask, P[i].ID, P[i].Hsml, Left[i], Right[i],
-             (float) P[i].NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+         message(1, "i=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
+             i, P[i].ID, P[i].Hsml, Left[i], Right[i],
+             P[i].NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
     }
 
     if(!P[i].DensityIterationDone) {
