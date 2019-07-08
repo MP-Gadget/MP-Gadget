@@ -279,6 +279,7 @@ density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw)
         I->Vel[0] = P[place].Vel[0];
         I->Vel[1] = P[place].Vel[1];
         I->Vel[2] = P[place].Vel[2];
+        I->DelayTime = 0;
     }
     else
     {
@@ -365,7 +366,7 @@ density_ngbiter(
 
     if(All.WindOn) {
         if(winds_is_particle_decoupled(other))
-            if(!(I->DelayTime > 0))	/* if I'm not wind, then ignore the wind particle */
+            if(!(I->Type == 0 && I->DelayTime > 0))	/* if I'm not wind, then ignore the wind particle */
                 return;
     }
 
