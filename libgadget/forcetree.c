@@ -988,6 +988,10 @@ void force_treeupdate_pseudos(int no, const ForceTree * tree)
     tree->Nodes[no].u.d.MaxSoftening = -1;
     tree->Nodes[no].f.MixedSofteningsInNode = 0;
 
+    /* This happens if we have a trivial domain with only one entry*/
+    if(!tree->Nodes[no].f.InternalTopLevel)
+        return;
+
     p = tree->Nodes[no].u.d.nextnode;
 
     /* since we are dealing with top-level nodes, we know that there are 8 consecutive daughter nodes */
