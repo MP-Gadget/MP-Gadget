@@ -517,7 +517,7 @@ void density_check_neighbours (int i, TreeWalk * tw) {
         }
 
         /* Next step is geometric mean of previous. */
-        if(Right[i] < All.BoxSize && Left[i] > 0)
+        if(Right[i] < 0.99 * All.BoxSize && Left[i] > 0)
             P[i].Hsml = pow(0.5 * (pow(Left[i], 3) + pow(Right[i], 3)), 1.0 / 3);
         else
         {
