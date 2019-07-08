@@ -510,11 +510,9 @@ void density_check_neighbours (int i, TreeWalk * tw) {
         }
 
         /* If we need more neighbours, move the lower bound up. If we need fewer, move the upper bound down.*/
-        if(P[i].NumNgb < (desnumngb - All.MaxNumNgbDeviation)) {
-            if(Left[i] < P[i].Hsml)
+        if(P[i].NumNgb < desnumngb) {
                 Left[i] = P[i].Hsml;
         } else {
-            if(Right[i] > P[i].Hsml)
                 Right[i] = P[i].Hsml;
         }
 
