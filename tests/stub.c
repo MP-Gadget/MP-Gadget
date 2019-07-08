@@ -15,6 +15,10 @@
 int ThisTask;
 int NTask;
 
+#ifdef VALGRIND
+#define allocator_init allocator_malloc_init
+#endif
+
 int
 _cmocka_run_group_tests_mpi(const char * name, const struct CMUnitTest tests[], size_t size, void * p1, void * p2)
 {
