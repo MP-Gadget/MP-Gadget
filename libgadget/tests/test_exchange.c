@@ -22,6 +22,10 @@
 #include <libgadget/slotsmanager.c>
 #include "stub.h"
 
+double walltime_measure_full(char * name, char * file, int line) {
+    return MPI_Wtime();
+}
+
 struct part_manager_type PartManager[1] = {{0}};
 int NTask, ThisTask;
 int TotNumPart;
