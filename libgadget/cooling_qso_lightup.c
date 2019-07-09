@@ -243,7 +243,13 @@ get_long_mean_free_path_heating(double redshift)
     if(redshift == last_zz)
         return last_long_mfp_heating;
     double atime = 1/(1+redshift);
+
+    /* Guard against the end of the table*/
+    if(atime > He_zz[Nreionhist-1])
+        return 0;
+
     double long_mfp_heating = gsl_interp_eval(LMFP_intp, He_zz, LMFP, atime, NULL);
+
     last_zz = redshift;
     last_long_mfp_heating = long_mfp_heating;
     return long_mfp_heating;
@@ -560,6 +566,10 @@ do_heiii_reionization(double redshift, ForceTree * tree)
     if(!QSOLightupParams.QSOLightupOn)
         return;
     if(redshift > QSOLightupParams.heIIIreion_start)
+        return;
+
+    /* Do nothing if we are past the end of the table.*/
+    if(redshift < 1./He_zz[Nreionhist-1] - 1)
         return;
 
     walltime_measure("/Misc");
