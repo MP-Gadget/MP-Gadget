@@ -18,6 +18,14 @@
  * We lose time resolution but I cannot think of another way to ensure cooling is modelled correctly.
  */
 
+/*
+ * 1. Use a BH accretion rate threshold rather than a BH mass threshold.
+ * 2. Bubble size correlates with black hole mass.
+ *
+ * 3. Add a switch to place bubbles at random in massive halos if there are no black holes.
+ * 4. Bubble size correlates with halo mass.
+ */
+
 #include <math.h>
 #include <mpi.h>
 #include <string.h>
