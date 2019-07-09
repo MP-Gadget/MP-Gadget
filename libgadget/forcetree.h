@@ -8,6 +8,8 @@
  * ------------------
  */
 
+#define NMAXCHILD 11
+
 struct NODE
 {
     MyFloat len;			/*!< sidelength of treenode */
@@ -23,7 +25,14 @@ struct NODE
     } f;
     union
     {
-        int suns[8];		/*!< temporary pointers to daughter nodes */
+        struct
+        {
+            /*!< temporary pointers to daughter nodes or daughter particles. */
+            int suns[NMAXCHILD];
+            /* Number of daughter particles if node contains particles.
+             * During treebuild >= (1<<16) if node contains nodes.*/
+            int noccupied;
+        } s;
         struct
         {
             MyFloat s[3];		/*!< center of mass of node */
