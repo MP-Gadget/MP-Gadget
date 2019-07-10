@@ -204,27 +204,34 @@ density(int update_hsml, int DoEgyDensity, ForceTree * tree)
     DENSITY_GET_PRIV(tw)->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
     int alloc_high = 0;
     int * ReDoQueue = ActiveParticle;
-    int size = NumActiveParticle;
+    int size = SlotsManager->info[0].size + SlotsManager->info[5].size;
+    if(size > NumActiveParticle)
+        size = NumActiveParticle;
 
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
     do {
         int * CurQueue = ReDoQueue;
 
-        int tsize = NumActiveParticle / NumThreads + 2;
+        int tsize = size / NumThreads + 2;
         /* The ReDoQueue swaps between high and low allocations so we can have two allocated alternately*/
-        if(!alloc_high) {
-            ReDoQueue = (int *) mymalloc2("ReDoQueue", tsize * sizeof(int) * NumThreads);
-            alloc_high = 1;
-        }
-        else {
-            ReDoQueue = (int *) mymalloc("ReDoQueue", tsize * sizeof(int) * NumThreads);
-            alloc_high = 0;
-        }
-        gadget_setup_thread_arrays(ReDoQueue, DENSITY_GET_PRIV(tw)->NPRedo, DENSITY_GET_PRIV(tw)->NPLeft, tsize, NumThreads);
+        if(update_hsml) {
+            if(!alloc_high) {
+                ReDoQueue = (int *) mymalloc2("ReDoQueue", tsize * sizeof(int) * NumThreads);
+                alloc_high = 1;
+            }
+            else {
+                ReDoQueue = (int *) mymalloc("ReDoQueue", tsize * sizeof(int) * NumThreads);
+                alloc_high = 0;
+            }
+            gadget_setup_thread_arrays(ReDoQueue, DENSITY_GET_PRIV(tw)->NPRedo, DENSITY_GET_PRIV(tw)->NPLeft, tsize, NumThreads);
 
-        memset(DENSITY_GET_PRIV(tw)->NPLeft, 0, sizeof(int)*NumThreads);
-
+            memset(DENSITY_GET_PRIV(tw)->NPLeft, 0, sizeof(int)*NumThreads);
+        }
         treewalk_run(tw, CurQueue, size);
+
+        /* We can stop if we are not updating hsml*/
+        if(!update_hsml)
+            break;
 
         tw->haswork = NULL;
         /* Now done with the current queue*/
