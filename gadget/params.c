@@ -440,6 +440,8 @@ void read_parameter_file(char *fname)
         All.FastParticleType = param_get_int(ps, "FastParticleType");
         All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
         All.AutoSnapshotTime = param_get_double(ps, "AutoSnapshotTime");
+        All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
+
         All.GravitySoftening = param_get_double(ps, "GravitySoftening");
         All.GravitySofteningGas = param_get_double(ps, "GravitySofteningGas");
 

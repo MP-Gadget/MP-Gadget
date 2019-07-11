@@ -24,6 +24,7 @@
 #include "sfr_eff.h"
 #include "slotsmanager.h"
 #include "hci.h"
+#include "fof.h"
 
 void energy_statistics(void); /* stats.c only used here */
 void init(int snapnum, DomainDecomp * ddecomp); /* init.c only used here */
@@ -207,7 +208,17 @@ void run(DomainDecomp * ddecomp)
         if(GasEnabled)
         {
             /* Black hole accretion and feedback */
-            blackhole(&Tree, &TimeNextSeedingCheck);
+            blackhole(&Tree);
+            /* this will find new black hole seed halos */
+            if(All.BlackHoleOn && All.Time >= TimeNextSeedingCheck)
+            {
+                /* Seeding */
+                fof_fof(&Tree, All.BoxSize, All.BlackHoleOn, MPI_COMM_WORLD);
+                fof_seed(MPI_COMM_WORLD);
+                fof_finish();
+                TimeNextSeedingCheck = All.Time * All.TimeBetweenSeedingSearch;
+            }
+
             /**** radiative cooling and star formation *****/
             cooling_and_starformation(&Tree);
 

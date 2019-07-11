@@ -185,6 +185,7 @@ extern struct global_data_all_processes
     int SnapshotFileCount;	/*!< number of snapshot that is written next */
     int InitSnapshotCount;  /*!< Number of first snapshot written this run*/
     double AutoSnapshotTime;    /*!< cpu-time between regularly generated snapshots. */
+    double TimeBetweenSeedingSearch; /*Factor to multiply TimeInit by to find the next seeding check.*/
 
     /* Current time of the simulation, global step, and end of simulation */
 
