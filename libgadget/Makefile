@@ -66,7 +66,6 @@ MPI_TESTED = exchange
 TESTBIN :=$(UTILS_TESTED:%=.objs/utils/test_%) $(TESTED:%=.objs/test_%) $(MPI_TESTED:%=.objs/test_%)
 SUITE?= $(TESTED:%=test_%) $(UTILS_TESTED:%=utils/test_%)
 MPISUITE = $(MPI_TESTED:%=test_%)
-
 include ../Makefile.rules
 
 FILES = $(shell git ls-files)
@@ -114,24 +113,23 @@ utils/string.o
 
 GADGET_OBJS := $(GADGET_OBJS:%=.objs/%)
 GADGET_UTILS_OBJS := $(GADGET_UTILS_OBJS:%=.objs/%)
-
 all: libgadget.a libgadget-utils.a
 
 .PHONY: all test run-tests
 
 .objs/utils/test_%: tests/test_%.c .objs/utils/%.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
-	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
+	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 .objs/test_%: tests/test_%.c .objs/%.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
-	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
+	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 .objs/test_neutrinos_lra: tests/test_neutrinos_lra.c .objs/neutrinos_lra.o .objs/cosmology.o .objs/omega_nu_single.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
 
 .objs/test_cooling_rates: tests/test_cooling_rates.c .objs/cooling_rates.o .objs/cooling_uvfluc.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
-	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
+	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 .objs/test_cooling: tests/test_cooling.c .objs/cooling.o .objs/cooling_rates.o .objs/cooling_uvfluc.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
-	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
+	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
 build-tests: $(TESTBIN)
 
 test : build-tests

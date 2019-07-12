@@ -24,7 +24,7 @@ OBJS := $(OBJS:%.o=.objs/%.o)
 all : libgenic.a
 
 .objs/test_%: tests/test_%.c .objs/%.o ../tests/stub.c ../tests/cmocka.c ../libgadget/libgadget-utils.a ../libgadget/libgadget.a
-	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
+	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 build-tests: $(TESTBIN)
 
