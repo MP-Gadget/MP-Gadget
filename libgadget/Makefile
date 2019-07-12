@@ -6,7 +6,7 @@ CONFIG ?= ../Options.mk
 
 include $(CONFIG)
 
-INCL = config.h densitykernel.h \
+INCL = densitykernel.h \
 	forcetree.h \
 	hci.h \
 	petapm.h \
@@ -114,6 +114,7 @@ utils/string.o
 GADGET_OBJS := $(GADGET_OBJS:%=.objs/%)
 GADGET_UTILS_OBJS := $(GADGET_UTILS_OBJS:%=.objs/%)
 all: libgadget.a libgadget-utils.a
+.objs/petaio.o: config.h
 
 .PHONY: all test run-tests
 
