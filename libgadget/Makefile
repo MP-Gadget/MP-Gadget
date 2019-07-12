@@ -151,7 +151,15 @@ libgadget.a: $(GADGET_OBJS)
 clean:
 	rm -rf .objs libgadget.a libgadget-utils.a config.h
 
-config.h: Makefile $(CONFIG) $(INCL:config.h=)
+config.h: $(CONFIG)
 	mkdir -p `dirname $@`
 	MPICC="$(MPICC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" VERSION="$(VERSION)" bash makeconfig.sh $@
 
+#This snippet works out the current git revision and the git revision in config.h.
+#It checks whether they are the same.
+#If they are not the same it makes config.h as a PHONY target to be rebuilt.
+GIT=$(subst -,_,$(shell git describe --always --dirty --abbrev=10))
+EXISTGIT=$(shell grep "GADGET_VERSION" config.h)
+ifeq (,$(findstring $(GIT),$(EXISTGIT)))
+.PHONY: config.h
+endif
