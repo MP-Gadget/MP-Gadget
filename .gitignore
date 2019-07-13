@@ -4,7 +4,7 @@
 .*.swp
 .kdev4/
 .gdb_history
-config.h
+libgadget/config.c
 depends/bin
 depends/lib
 depends/share

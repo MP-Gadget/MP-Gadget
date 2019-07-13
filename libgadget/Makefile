@@ -97,6 +97,7 @@ GADGET_OBJS =  \
 	 runtests.o \
 	 neutrinos_lra.o \
      omega_nu_single.o \
+	 config.o
 
 GADGET_UTILS_OBJS= \
 utils/endrun.o \
@@ -114,7 +115,6 @@ utils/string.o
 GADGET_OBJS := $(GADGET_OBJS:%=.objs/%)
 GADGET_UTILS_OBJS := $(GADGET_UTILS_OBJS:%=.objs/%)
 all: libgadget.a libgadget-utils.a
-.objs/petaio.o: config.h
 
 .PHONY: all test run-tests
 
@@ -145,13 +145,13 @@ test : build-tests
 libgadget-utils.a: $(GADGET_UTILS_OBJS)
 	$(AR) rv $@ $(GADGET_UTILS_OBJS)
 
-libgadget.a: $(GADGET_OBJS)
+libgadget.a: $(GADGET_OBJS) config.o
 	$(AR) rv $@ $(GADGET_OBJS)
 
 clean:
 	rm -rf .objs libgadget.a libgadget-utils.a config.h
 
-config.h: $(CONFIG)
+config.c: $(CONFIG)
 	mkdir -p `dirname $@`
 	MPICC="$(MPICC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" VERSION="$(VERSION)" bash makeconfig.sh $@
 
@@ -159,7 +159,7 @@ config.h: $(CONFIG)
 #It checks whether they are the same.
 #If they are not the same it makes config.h as a PHONY target to be rebuilt.
 GIT=$(subst -,_,$(shell git describe --always --dirty --abbrev=10))
-EXISTGIT=$(shell grep "GADGET_VERSION" config.h)
+EXISTGIT=$(shell grep "GADGET_VERSION" config.c)
 ifeq (,$(findstring $(GIT),$(EXISTGIT)))
-.PHONY: config.h
+.PHONY: config.c
 endif
