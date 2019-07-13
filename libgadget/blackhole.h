@@ -18,7 +18,7 @@ void set_blackhole_params(ParameterSet * ps);
  * It will be compared to the current time and updated after seeding takes place.
  * tree is a valid ForceTree.
  */
-void blackhole(ForceTree * tree, double * TimeNextSeedingCheck);
+void blackhole(ForceTree * tree);
 
 /* Make a black hole from the particle at index*/
 void blackhole_make_one(int index);

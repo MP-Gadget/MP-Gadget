@@ -11,7 +11,6 @@
 #include "densitykernel.h"
 #include "treewalk.h"
 #include "slotsmanager.h"
-#include "fof.h"
 #include "blackhole.h"
 #include "timestep.h"
 #include "hydra.h"
@@ -30,7 +29,6 @@ struct BlackholeParams
     double SeedBlackHoleMass;	/*!< Seed black hole mass */
     double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
     int BlackHoleSoundSpeedFromPressure; /* 0 from Entropy, 1 from Pressure; */
-    double TimeBetweenSeedingSearch; /*Factor to multiply TimeInit by to find the next seeding check.*/
 } blackhole_params;
 
 typedef struct {
@@ -115,9 +113,6 @@ void set_blackhole_params(ParameterSet * ps)
         blackhole_params.BlackHoleFeedbackRadiusMaxPhys = param_get_double(ps, "BlackHoleFeedbackRadiusMaxPhys");
 
         blackhole_params.BlackHoleFeedbackMethod = param_get_enum(ps, "BlackHoleFeedbackMethod");
-
-        blackhole_params.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
-
     }
     MPI_Bcast(&blackhole_params, sizeof(struct BlackholeParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -185,9 +180,13 @@ static double blackhole_soundspeed(double entropy, double pressure, double rho) 
 }
 
 void
-blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
+blackhole(ForceTree * tree)
 {
-    if(!All.BlackHoleOn) return;
+    if(!All.BlackHoleOn)
+        return;
+    /* Do nothing if no black holes*/
+    if(SlotsManager->info[5].size == 0)
+        return;
     int i;
     int Ntot_gas_swallowed, Ntot_BH_swallowed;
 
@@ -254,8 +253,7 @@ blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Start swallowing of gas particles and black holes\n");
 
-    /* Allocate array for storing the feedback energy: FIXME: shouldn't this be applied by straightforwardly changing the entropy right here?
-     * It would be cleaner than going through the star formation code.*/
+    /* Allocate array for storing the feedback energy.*/
     SphP_scratch->Injected_BH_Energy = mymalloc2("Injected_BH_Energy", SlotsManager->info[0].size * sizeof(MyFloat));
     memset(SphP_scratch->Injected_BH_Energy, 0, SlotsManager->info[0].size * sizeof(MyFloat));
     /* Now do the swallowing of particles and dump feedback energy */
@@ -302,16 +300,6 @@ blackhole(ForceTree * tree, double * TimeNextSeedingCheck)
         fprintf(FdBlackHoles, "%g %d %g %g %g %g\n",
                 All.Time, SlotsManager->info[5].size, total_mass_holes, total_mdot, mdot_in_msun_per_year, total_mdoteddington);
         fflush(FdBlackHoles);
-    }
-
-    /* this will find new black hole seed halos */
-    if(All.Time >= *TimeNextSeedingCheck)
-    {
-        /* Seeding */
-        fof_fof(tree, All.BoxSize, All.BlackHoleOn, MPI_COMM_WORLD);
-        fof_seed(MPI_COMM_WORLD);
-        fof_finish();
-        *TimeNextSeedingCheck = All.Time * blackhole_params.TimeBetweenSeedingSearch;
     }
     walltime_measure("/BH");
 }
