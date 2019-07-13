@@ -16,18 +16,18 @@ struct SpinLocks
 
 static struct SpinLocks spin;
 
-void lock_particle(int i, struct SpinLocks * spin) {
+void lock_spinlock(int i, struct SpinLocks * spin) {
 #ifndef NO_OPENMP_SPINLOCK
     pthread_spin_lock(&spin->SpinLocks[i]);
 #endif
 }
-void unlock_particle(int i,  struct SpinLocks * spin) {
+void unlock_spinlock(int i,  struct SpinLocks * spin) {
 #ifndef NO_OPENMP_SPINLOCK
     pthread_spin_unlock(&spin->SpinLocks[i]);
 #endif
 }
 
-int try_lock_particle(int i,  struct SpinLocks * spin)
+int try_lock_spinlock(int i,  struct SpinLocks * spin)
 {
 #ifndef NO_OPENMP_SPINLOCK
     return pthread_spin_trylock(&spin->SpinLocks[i]);

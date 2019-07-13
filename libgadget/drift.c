@@ -21,14 +21,14 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift);
 void drift_particle(int i, inttime_t ti1, struct SpinLocks * spin) {
     if(P[i].Ti_drift == ti1) return;
 
-    lock_particle(i, spin);
+    lock_spinlock(i, spin);
     inttime_t ti0 = P[i].Ti_drift;
     if(ti0 != ti1) {
         const double ddrift = get_drift_factor(ti0, ti1);
         real_drift_particle(i, ti1, ddrift);
 #pragma omp flush
     }
-    unlock_particle(i, spin);
+    unlock_spinlock(i, spin);
 }
 
 static void real_drift_particle(int i, inttime_t ti1, const double ddrift)

@@ -451,7 +451,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     /* in this case the particle is already locked by the tree walker */
     /* we may want to add another lock to avoid this. */
     if(P[other].ID != I->base.ID)
-        lock_particle(other, WIND_GET_PRIV(lv->tw)->spin);
+        lock_spinlock(other, WIND_GET_PRIV(lv->tw)->spin);
 
     double wk = 1.0;
     double p = windeff * wk * I->Mass / I->TotalWeight;
@@ -461,7 +461,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     }
 
     if(P[other].ID != I->base.ID)
-        unlock_particle(other, WIND_GET_PRIV(lv->tw)->spin);
+        unlock_spinlock(other, WIND_GET_PRIV(lv->tw)->spin);
 
 }
 

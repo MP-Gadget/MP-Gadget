@@ -277,10 +277,10 @@ HEADl(int stop, int i, int locked, int * Head, struct SpinLocks * spin)
      * makes the locking code less clear, and doesn't lead to much of a speedup: the splay
      * means that the tree is shallow.*/
     if(locked < 0 || i < locked) {
-        lock_particle(i, spin);
+        lock_spinlock(i, spin);
     }
     else{
-        if(try_lock_particle(i, spin)) {
+        if(try_lock_spinlock(i, spin)) {
             /*This means some other thread already has the lock.
              *To avoid deadlocks we need to back off, unlock both particles and then retry.*/
             return -2;
@@ -298,7 +298,7 @@ HEADl(int stop, int i, int locked, int * Head, struct SpinLocks * spin)
     }
     /* this is not the root, keep going, but unlock first, since even if the root is modified by
      * another thread, what we get here is on the path, */
-    unlock_particle(i, spin);
+    unlock_spinlock(i, spin);
 //    printf("unlocking %d by %d in HEADl\n", i, omp_get_thread_num());
     r = HEADl(stop, next, locked, Head, spin);
     return r;
@@ -457,7 +457,7 @@ fofp_merge(int target, int other, TreeWalk * tw)
         /* We had a lock already taken on h2 by another thread.
          * We need to unlock h1 and retry to avoid deadlock loops.*/
         if(h2 == -2)
-            unlock_particle(h1, spin);
+            unlock_spinlock(h1, spin);
     } while(h2 == -2);
 
     if(h2 >=0)
@@ -472,7 +472,7 @@ fofp_merge(int target, int other, TreeWalk * tw)
             HaloLabel[h1].MinIDTask = HaloLabel[h2].MinIDTask;
         }
         //printf("unlocking %d by %d in merge\n", h2, omp_get_thread_num());
-        unlock_particle(h2, spin);
+        unlock_spinlock(h2, spin);
     }
 
     /* h1 must be the root of other and target both:
@@ -484,7 +484,7 @@ fofp_merge(int target, int other, TreeWalk * tw)
     update_root(other, h1, Head);
 
     //printf("unlocking %d by %d in merge\n", h1, omp_get_thread_num());
-    unlock_particle(h1, spin);
+    unlock_spinlock(h1, spin);
 }
 
 static void
@@ -512,14 +512,14 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
     {
             struct SpinLocks * spin = FOF_PRIMARY_GET_PRIV(tw)->spin;
 //        printf("locking %d by %d in ngbiter\n", other, omp_get_thread_num());
-        lock_particle(other, spin);
+        lock_spinlock(other, spin);
         if(HaloLabel[HEAD(other, tw)].MinID > I->MinID)
         {
             HaloLabel[HEAD(other, tw)].MinID = I->MinID;
             HaloLabel[HEAD(other, tw)].MinIDTask = I->MinIDTask;
         }
 //        printf("unlocking %d by %d in ngbiter\n", other, omp_get_thread_num());
-        unlock_particle(other, spin);
+        unlock_spinlock(other, spin);
     }
 }
 

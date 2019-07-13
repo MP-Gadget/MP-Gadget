@@ -424,7 +424,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         while(child >= tb.firstnode);
 
         /*Now lock this node.*/
-        lock_particle(this-tb.firstnode, spin);
+        lock_spinlock(this-tb.firstnode, spin);
 
         /*Check nothing changed when we took the lock*/
         #pragma omp atomic read
@@ -433,8 +433,8 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         while(child >= tb.firstnode)
         {
             /*Move the lock to the child*/
-            lock_particle(child-tb.firstnode, spin);
-            unlock_particle(this-tb.firstnode, spin);
+            lock_spinlock(child-tb.firstnode, spin);
+            unlock_spinlock(this-tb.firstnode, spin);
             this = child;
             /*New subnode*/
             subnode = get_subnode(&tb.Nodes[this], i);
@@ -453,7 +453,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         #pragma omp flush
 
         /*Unlock the parent*/
-        unlock_particle(this - tb.firstnode, spin);
+        unlock_spinlock(this - tb.firstnode, spin);
     }
     int totclose;
     MPI_Allreduce(&closepairs, &totclose, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
