@@ -6,7 +6,7 @@ CONFIG ?= ../Options.mk
 
 include $(CONFIG)
 
-INCL = config.h densitykernel.h \
+INCL = densitykernel.h \
 	forcetree.h \
 	hci.h \
 	petapm.h \
@@ -66,7 +66,6 @@ MPI_TESTED = exchange
 TESTBIN :=$(UTILS_TESTED:%=.objs/utils/test_%) $(TESTED:%=.objs/test_%) $(MPI_TESTED:%=.objs/test_%)
 SUITE?= $(TESTED:%=test_%) $(UTILS_TESTED:%=utils/test_%)
 MPISUITE = $(MPI_TESTED:%=test_%)
-
 include ../Makefile.rules
 
 FILES = $(shell git ls-files)
@@ -98,6 +97,7 @@ GADGET_OBJS =  \
 	 runtests.o \
 	 neutrinos_lra.o \
      omega_nu_single.o \
+	 config.o
 
 GADGET_UTILS_OBJS= \
 utils/endrun.o \
@@ -114,24 +114,23 @@ utils/string.o
 
 GADGET_OBJS := $(GADGET_OBJS:%=.objs/%)
 GADGET_UTILS_OBJS := $(GADGET_UTILS_OBJS:%=.objs/%)
-
 all: libgadget.a libgadget-utils.a
 
 .PHONY: all test run-tests
 
 .objs/utils/test_%: tests/test_%.c .objs/utils/%.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
-	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
+	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 .objs/test_%: tests/test_%.c .objs/%.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
-	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
+	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 .objs/test_neutrinos_lra: tests/test_neutrinos_lra.c .objs/neutrinos_lra.o .objs/cosmology.o .objs/omega_nu_single.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
 
 .objs/test_cooling_rates: tests/test_cooling_rates.c .objs/cooling_rates.o .objs/cooling_uvfluc.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
-	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
+	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 .objs/test_cooling: tests/test_cooling.c .objs/cooling.o .objs/cooling_rates.o .objs/cooling_uvfluc.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
-	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
+	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
 build-tests: $(TESTBIN)
 
 test : build-tests
@@ -146,13 +145,21 @@ test : build-tests
 libgadget-utils.a: $(GADGET_UTILS_OBJS)
 	$(AR) rv $@ $(GADGET_UTILS_OBJS)
 
-libgadget.a: $(GADGET_OBJS)
+libgadget.a: $(GADGET_OBJS) config.o
 	$(AR) rv $@ $(GADGET_OBJS)
 
 clean:
 	rm -rf .objs libgadget.a libgadget-utils.a config.h
 
-config.h: Makefile $(CONFIG) $(INCL:config.h=)
+config.c: $(CONFIG)
 	mkdir -p `dirname $@`
 	MPICC="$(MPICC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" VERSION="$(VERSION)" bash makeconfig.sh $@
 
+#This snippet works out the current git revision and the git revision in config.h.
+#It checks whether they are the same.
+#If they are not the same it makes config.h as a PHONY target to be rebuilt.
+GIT=$(subst -,_,$(shell git describe --always --dirty --abbrev=10))
+EXISTGIT=$(shell grep "GADGET_VERSION" config.c)
+ifeq (,$(findstring $(GIT),$(EXISTGIT)))
+.PHONY: config.c
+endif

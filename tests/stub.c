@@ -10,7 +10,6 @@
 #include <mpi.h>
 #include <cmocka.h>
 
-#include <libgadget/config.h>
 #include <libgadget/utils.h>
 
 int ThisTask;
@@ -33,7 +32,6 @@ _cmocka_run_group_tests_mpi(const char * name, const struct CMUnitTest tests[], 
     allocator_init(A_MAIN, "MAIN", 256 * 1024 * 1024, 1, NULL);
     allocator_init(A_TEMP, "TEMP", 8 * 1024 * 1024, 1, A_MAIN);
 
-    message(0, "GADGET_VERSION : %s\n", GADGET_VERSION);
     message(0, "GADGET_TESTDATA_ROOT : %s\n", GADGET_TESTDATA_ROOT);
 
     int rt = _cmocka_run_group_tests(name, tests, size, p1, p2);
