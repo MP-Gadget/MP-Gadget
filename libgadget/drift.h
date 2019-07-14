@@ -1,10 +1,7 @@
 #ifndef __DRIFT_H
 #define __DRIFT_H
 
-void drift_particle(int i, inttime_t ti1);
-void lock_particle(int i);
-void unlock_particle(int i);
-
+/* Updates all particles to the current drift time*/
 void drift_all_particles(inttime_t ti1);
 
 #endif

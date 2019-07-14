@@ -338,14 +338,6 @@ modify_internal_node(int parent, int subnode, int p_child, int p_toplace,
     return ret;
 }
 
-#ifndef NO_OPENMP_SPINLOCK
-#define LOCK_NODE(i) pthread_spin_lock(&SpinLocks[i])
-#define UNLOCK_NODE(i) pthread_spin_unlock(&SpinLocks[i])
-#else
-#define LOCK_NODE(i) (i)
-#define UNLOCK_NODE(i) (i)
-#endif
-
 /*! Does initial creation of the nodes for the gravitational oct-tree.
  **/
 int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize)
@@ -390,15 +382,11 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
     /* Stores the last-seen node on this thread.
      * Since most particles are close to each other, this should save a number of tree walks.*/
     int this_acc = tb.firstnode;
-    /* now we insert all particles */
-#ifndef NO_OPENMP_SPINLOCK
     /*Initialise some spinlocks off*/
-    pthread_spinlock_t * SpinLocks = mymalloc("NodeSpinlocks", (tb.lastnode - tb.firstnode)*sizeof(pthread_spinlock_t));
-    for(i=0; i < tb.lastnode - tb.firstnode; i++) {
-        pthread_spin_init(&SpinLocks[i],PTHREAD_PROCESS_PRIVATE);
-    }
+    struct SpinLocks * spin = init_spinlocks(tb.lastnode - tb.firstnode);
+
+    /* now we insert all particles */
     #pragma omp parallel for firstprivate(nc, this_acc) reduction(+: closepairs)
-#endif
     for(i = 0; i < npart; i++)
     {
         /*Can't break from openmp for*/
@@ -436,7 +424,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         while(child >= tb.firstnode);
 
         /*Now lock this node.*/
-        LOCK_NODE(this-tb.firstnode);
+        lock_spinlock(this-tb.firstnode, spin);
 
         /*Check nothing changed when we took the lock*/
         #pragma omp atomic read
@@ -445,8 +433,8 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         while(child >= tb.firstnode)
         {
             /*Move the lock to the child*/
-            LOCK_NODE(child-tb.firstnode);
-            UNLOCK_NODE(this-tb.firstnode);
+            lock_spinlock(child-tb.firstnode, spin);
+            unlock_spinlock(this-tb.firstnode, spin);
             this = child;
             /*New subnode*/
             subnode = get_subnode(&tb.Nodes[this], i);
@@ -465,7 +453,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         #pragma omp flush
 
         /*Unlock the parent*/
-        UNLOCK_NODE(this - tb.firstnode);
+        unlock_spinlock(this - tb.firstnode, spin);
     }
     int totclose;
     MPI_Allreduce(&closepairs, &totclose, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
@@ -473,13 +461,8 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         message(0,"Found %d close particle pairs when building tree.\n",totclose);
     }
 
-#ifndef NO_OPENMP_SPINLOCK
-    for(i=0; i < tb.lastnode - tb.firstnode; i++)
-            pthread_spin_destroy(&SpinLocks[i]);
-    /*Avoid a warning about discarding volatile*/
-    int * ss = (int *) SpinLocks;
-    myfree(ss);
-#endif
+    free_spinlocks(spin);
+
     return nnext - tb.firstnode;
 }
 

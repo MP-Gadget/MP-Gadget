@@ -20,4 +20,5 @@
 #include "utils/string.h"
 #include "utils/endrun.h"
 #include "utils/interp.h"
+#include "utils/spinlocks.h"
 #endif

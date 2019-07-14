@@ -1,8 +1,6 @@
 #ifndef _PART_DATA_H
 #define _PART_DATA_H
 
-#include <pthread.h>
-
 #include "types.h"
 #include "utils/peano.h"
 
@@ -11,10 +9,6 @@
  */
 struct particle_data
 {
-#ifndef NO_OPENMP_SPINLOCK
-    pthread_spinlock_t SpinLock;
-#endif
-
     float GravCost;     /*!< weight factor used for balancing the work-load */
 
     inttime_t Ti_drift;       /*!< current time of the particle position */

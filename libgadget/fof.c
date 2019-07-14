@@ -15,7 +15,6 @@
 #include "walltime.h"
 #include "sfr_eff.h"
 #include "blackhole.h"
-#include "drift.h"
 #include "domain.h"
 
 #include "forcetree.h"
@@ -240,6 +239,7 @@ fof_finish()
 
 struct FOFPrimaryPriv {
     int * Head;
+    struct SpinLocks * spin;
     char * PrimaryActive;
     MyIDType * OldMinID;
 };
@@ -265,7 +265,7 @@ struct FOFPrimaryPriv {
  *      -2 if locking might have deadlocked.
  */
 static int
-HEADl(int stop, int i, int locked, int * Head)
+HEADl(int stop, int i, int locked, int * Head, struct SpinLocks * spin)
 {
     int r, next;
     if (i == stop) {
@@ -277,10 +277,10 @@ HEADl(int stop, int i, int locked, int * Head)
      * makes the locking code less clear, and doesn't lead to much of a speedup: the splay
      * means that the tree is shallow.*/
     if(locked < 0 || i < locked) {
-        lock_particle(i);
+        lock_spinlock(i, spin);
     }
     else{
-        if(pthread_spin_trylock(&P[i].SpinLock)) {
+        if(try_lock_spinlock(i, spin)) {
             /*This means some other thread already has the lock.
              *To avoid deadlocks we need to back off, unlock both particles and then retry.*/
             return -2;
@@ -298,9 +298,9 @@ HEADl(int stop, int i, int locked, int * Head)
     }
     /* this is not the root, keep going, but unlock first, since even if the root is modified by
      * another thread, what we get here is on the path, */
-    unlock_particle(i);
+    unlock_spinlock(i, spin);
 //    printf("unlocking %d by %d in HEADl\n", i, omp_get_thread_num());
-    r = HEADl(stop, next, locked, Head);
+    r = HEADl(stop, next, locked, Head, spin);
     return r;
 }
 
@@ -398,6 +398,7 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
         HaloLabel[i].MinIDTask = ThisTask;
     }
 
+    priv[0].spin = init_spinlocks(PartManager->NumPart);
     do
     {
         t0 = second();
@@ -425,6 +426,8 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
     }
     while(link_across_tot > 0);
 
+    free_spinlocks(priv[0].spin);
+
     /* Update MinID of all linked (primary-linked) particles */
     for(i = 0; i < PartManager->NumPart; i++)
     {
@@ -444,16 +447,17 @@ fofp_merge(int target, int other, TreeWalk * tw)
 {
     /* this will lock h1 */
     int * Head = FOF_PRIMARY_GET_PRIV(tw)->Head;
+    struct SpinLocks * spin = FOF_PRIMARY_GET_PRIV(tw)->spin;
     int h1, h2;
 
     do {
-        h1 = HEADl(-1, target, -1, Head);
+        h1 = HEADl(-1, target, -1, Head, spin);
         /* stop looking if we find h1 along the path (because it is already owned by us) */
-        h2 = HEADl(h1, other, h1, Head);
+        h2 = HEADl(h1, other, h1, Head, spin);
         /* We had a lock already taken on h2 by another thread.
          * We need to unlock h1 and retry to avoid deadlock loops.*/
         if(h2 == -2)
-            unlock_particle(h1);
+            unlock_spinlock(h1, spin);
     } while(h2 == -2);
 
     if(h2 >=0)
@@ -468,7 +472,7 @@ fofp_merge(int target, int other, TreeWalk * tw)
             HaloLabel[h1].MinIDTask = HaloLabel[h2].MinIDTask;
         }
         //printf("unlocking %d by %d in merge\n", h2, omp_get_thread_num());
-        unlock_particle(h2);
+        unlock_spinlock(h2, spin);
     }
 
     /* h1 must be the root of other and target both:
@@ -480,7 +484,7 @@ fofp_merge(int target, int other, TreeWalk * tw)
     update_root(other, h1, Head);
 
     //printf("unlocking %d by %d in merge\n", h1, omp_get_thread_num());
-    unlock_particle(h1);
+    unlock_spinlock(h1, spin);
 }
 
 static void
@@ -506,15 +510,16 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
         }
     } else /* mode is 1, target is a ghost */
     {
+            struct SpinLocks * spin = FOF_PRIMARY_GET_PRIV(tw)->spin;
 //        printf("locking %d by %d in ngbiter\n", other, omp_get_thread_num());
-        lock_particle(other);
+        lock_spinlock(other, spin);
         if(HaloLabel[HEAD(other, tw)].MinID > I->MinID)
         {
             HaloLabel[HEAD(other, tw)].MinID = I->MinID;
             HaloLabel[HEAD(other, tw)].MinIDTask = I->MinIDTask;
         }
 //        printf("unlocking %d by %d in ngbiter\n", other, omp_get_thread_num());
-        unlock_particle(other);
+        unlock_spinlock(other, spin);
     }
 }
 

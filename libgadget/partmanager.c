@@ -28,13 +28,5 @@ particle_alloc_memory(int MaxPart)
      * (memory lock etc?)
      * */
     memset(P, 0, sizeof(struct particle_data) * MaxPart);
-#ifndef NO_OPENMP_SPINLOCK
-    {
-        int i;
-        for(i = 0; i < MaxPart; i ++) {
-            pthread_spin_init(&P[i].SpinLock, 0);
-        }
-    }
-#endif
     message(0, "Allocated %g MByte for particle storage.\n", bytes / (1024.0 * 1024.0));
 }
