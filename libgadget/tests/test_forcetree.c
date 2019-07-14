@@ -210,7 +210,7 @@ static int check_tree(const ForceTree * tb, const int nnodes, const int numpart)
         assert_int_equal(P[i].PI, 1);
     }
     printf("Tree filling factor: %g on %d nodes (wasted: %d empty: %d)\n", tot_empty/(8.*nrealnode), nrealnode, nnodes - nrealnode, sevens);
-    return nrealnode;
+    return nrealnode - sevens;
 }
 
 static void do_tree_test(const int numpart, const ForceTree tb, DomainDecomp * ddecomp)

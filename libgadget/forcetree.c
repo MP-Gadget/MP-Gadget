@@ -4,6 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <omp.h>
 
 #include "slotsmanager.h"
 #include "partmanager.h"
@@ -749,8 +750,18 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
     }
 
     int limit = noccupied;
-    if(noccupied >= 1<<16)
+    int childcnt = 0;
+    /* If this node contains nodes, remove any children that are empty.
+     * This sharply reduces the length of the treewalk.*/
+    if(noccupied >= 1<<16) {
         limit = 8;
+        /* Remove empty nodes from the tree*/
+        for(j=0; j < 8; j++)
+            if(tree->Nodes[suns[j]].u.s.noccupied == 0)
+                suns[j] = -1;
+            else
+                childcnt++;
+    }
     /*First do the children*/
     for(j = 0; j < limit; j++)
     {
@@ -766,18 +777,17 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
         }
         else {
             const int nextsib = force_get_sibling(sib, j, suns);
-            /*Don't spawn a new task if we only have one child,
-             *or if we are deep enough that we already spawned a lot.
+            /*Don't spawn a new task if we are deep enough that we already spawned a lot.
              Note: final clause is much slower for some reason. */
-            if(level < 513) {
+            if(childcnt > 1 && level < 128 * omp_get_num_threads()) {
                 /* We cannot use default(none) here because we need a const (HybridNuGrav),
                  * which for gcc < 9 is default shared (and thus cannot be explicitly shared
                  * without error) and for gcc == 9 must be explicitly shared. The other solution
                  * is to make it firstprivate which I think will be excessively expensive for a
                  * recursive call like this. See:
                  * https://www.gnu.org/software/gcc/gcc-9/porting_to.html */
-                #pragma omp task shared(tails, level, tree) firstprivate(j, nextsib, p)
-                tails[j] = force_update_node_recursive(p, nextsib, level*8, tree, HybridNuGrav);
+                #pragma omp task shared(tails, level, childcnt, tree) firstprivate(j, nextsib, p)
+                tails[j] = force_update_node_recursive(p, nextsib, level*childcnt, tree, HybridNuGrav);
             }
             else
                 tails[j] = force_update_node_recursive(p, nextsib, level, tree, HybridNuGrav);
