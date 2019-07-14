@@ -594,7 +594,6 @@ force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddeco
     for(i = 0; i < ddecomp->NTopLeaves; i++)
     {
         index = ddecomp->TopLeaves[i].treenode;
-
         if(ddecomp->TopLeaves[i].Task != ThisTask) {
             int sub = tree->Nodes[index].u.s.noccupied;
             if(tree->Nodes[index].u.s.noccupied > 0)
@@ -742,24 +741,24 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
     /*Last value of tails is the return value of this function*/
     int j, suns[NMAXCHILD], tails[NMAXCHILD];
 
-    /*Count how many internal children we have,
-     *so we can keep track of how many tasks we started*/
-    int chldcnt=0;
     /* this "backup" is necessary because the nextnode
      * entry will overwrite one element (union!) */
+    int noccupied = tree->Nodes[no].u.s.noccupied;
     for(j = 0; j < NMAXCHILD; j++) {
         suns[j] = tree->Nodes[no].u.s.suns[j];
-        if(suns[j] >= tree->firstnode && suns[j] < tree->lastnode)
-            chldcnt++;
     }
 
+    int limit = noccupied;
+    if(noccupied >= 1<<16)
+        limit = 8;
     /*First do the children*/
-    for(j = 0; j < NMAXCHILD; j++)
+    for(j = 0; j < limit; j++)
     {
         int p = suns[j];
         /*Empty slot*/
         if(p < 0)
             continue;
+
         /* For particles and pseudo particles we have nothing to update; */
         /* But the new tail is the last particle in the linked list. */
         if(p < tree->firstnode || p >= tree->lastnode) {
@@ -770,15 +769,15 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
             /*Don't spawn a new task if we only have one child,
              *or if we are deep enough that we already spawned a lot.
              Note: final clause is much slower for some reason. */
-            if(chldcnt > 1 && level < 513) {
+            if(level < 513) {
                 /* We cannot use default(none) here because we need a const (HybridNuGrav),
                  * which for gcc < 9 is default shared (and thus cannot be explicitly shared
                  * without error) and for gcc == 9 must be explicitly shared. The other solution
                  * is to make it firstprivate which I think will be excessively expensive for a
                  * recursive call like this. See:
                  * https://www.gnu.org/software/gcc/gcc-9/porting_to.html */
-                #pragma omp task shared(tails, level, chldcnt, tree) firstprivate(j, nextsib, p)
-                tails[j] = force_update_node_recursive(p, nextsib, level*chldcnt, tree, HybridNuGrav);
+                #pragma omp task shared(tails, level, tree) firstprivate(j, nextsib, p)
+                tails[j] = force_update_node_recursive(p, nextsib, level*8, tree, HybridNuGrav);
             }
             else
                 tails[j] = force_update_node_recursive(p, nextsib, level, tree, HybridNuGrav);
@@ -800,38 +799,37 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
     /*Make sure all child nodes are done*/
     #pragma omp taskwait
 
-    for(j = 0; j < NMAXCHILD; j++)
+    /* We have a node full of particles (or pseudo-particles)*/
+    if(noccupied < (1<<16))
     {
-        const int p = suns[j];
-        /*Empty slot*/
-        if(p < 0)
-            continue;
-
-        if(p >= tree->lastnode)	/* a pseudo particle */
-        {
-            /* nothing to be done here because the mass of the
-             * pseudo-particle is still zero. The node attributes will be changed
-             * later when we exchange the pseudo-particles.
-             */
-        }
-        else if(p < tree->lastnode && p >= tree->firstnode) /* a tree node */
-        {
-            tree->Nodes[no].u.d.mass += (tree->Nodes[p].u.d.mass);
-            tree->Nodes[no].u.d.s[0] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[0]);
-            tree->Nodes[no].u.d.s[1] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[1]);
-            tree->Nodes[no].u.d.s[2] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[2]);
-
-            if(tree->Nodes[p].u.d.hmax > tree->Nodes[no].u.d.hmax)
-                tree->Nodes[no].u.d.hmax = tree->Nodes[p].u.d.hmax;
-
-            force_adjust_node_softening(&tree->Nodes[no], tree->Nodes[p].u.d.MaxSoftening, tree->Nodes[p].f.MixedSofteningsInNode);
-        }
-        else /* a particle */
-        {
+        for(j = 0; j < noccupied; j++) {
+            const int p = suns[j];
+            /* nothing to be done for a pseudo particle because the mass of the
+                * pseudo-particle is still zero. The node attributes will be changed
+                * later when we exchange the pseudo-particles.
+                */
+            if(p > tree->lastnode)
+                continue;
             /*Hybrid particle neutrinos do not gravitate at early times.
                 * So do not add their masses to the node*/
             if(!HybridNuGrav || P[p].Type != ForceTreeParams.FastParticleType)
                 add_particle_moment_to_node(&tree->Nodes[no], p);
+        }
+    }
+    else {
+        for(j = 0; j < 8; j++)
+        {
+            const int p = suns[j];
+            if(p < 0)
+                continue;
+            tree->Nodes[no].u.d.mass += (tree->Nodes[p].u.d.mass);
+            tree->Nodes[no].u.d.s[0] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[0]);
+            tree->Nodes[no].u.d.s[1] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[1]);
+            tree->Nodes[no].u.d.s[2] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[2]);
+            if(tree->Nodes[p].u.d.hmax > tree->Nodes[no].u.d.hmax)
+                tree->Nodes[no].u.d.hmax = tree->Nodes[p].u.d.hmax;
+
+            force_adjust_node_softening(&tree->Nodes[no], tree->Nodes[p].u.d.MaxSoftening, tree->Nodes[p].f.MixedSofteningsInNode);
         }
     }
 
@@ -855,7 +853,7 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
       Note that tails[i] is the next node for suns[i-1].
       The the last tail needs to be the return value of this function.*/
     int tail = no;
-    for(j = 0; j < NMAXCHILD; j++)
+    for(j = 0; j < limit; j++)
     {
         if(suns[j] < 0)
             continue;
