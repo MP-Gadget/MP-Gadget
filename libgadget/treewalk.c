@@ -20,7 +20,7 @@ static int *Exportindex;
 static int *Send_offset, *Send_count, *Recv_count, *Recv_offset;
 
 /*!< Memory factor to leave for (N imported particles) > (N exported particles). */
-static double ImportBufferBoost;
+static int ImportBufferBoost;
 
 static struct data_nodelist
 {
@@ -48,8 +48,8 @@ static struct data_index *DataIndexTable;	/*!< the particles to be exported are 
 void set_treewalk_params(ParameterSet * ps)
 {
     if(ThisTask == 0)
-        ImportBufferBoost = param_get_double(ps, "ImportBufferBoost");
-    MPI_Bcast(&ImportBufferBoost, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        ImportBufferBoost = param_get_int(ps, "ImportBufferBoost");
+    MPI_Bcast(&ImportBufferBoost, 1, MPI_INT, 0, MPI_COMM_WORLD);
 }
 
 static void ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv);
@@ -172,9 +172,9 @@ ev_begin(TreeWalk * tw, int * active_set, const int size)
      * It is probable not a good idea to send too many particles around in one bunch anyways. */
     if(freebytes > 1024 * 1024 * 1024) freebytes =  1024 * 1024 * 1024;
 
-    tw->BunchSize = freebytes / bytesperbuffer - 4096 * 10;
+    tw->BunchSize = (int)floor(((double)freebytes  - 4096 * 10)/ bytesperbuffer);
     if(tw->BunchSize <= 0) {
-        endrun(1231245, "Not enough memory for exporting any particles. \n");
+        endrun(1231245, "Not enough memory for exporting any particles: needed %d bytes have %d. \n", bytesperbuffer, freebytes-4096*10);
     }
     DataIndexTable =
         (struct data_index *) mymalloc("DataIndexTable", tw->BunchSize * sizeof(struct data_index));
@@ -681,12 +681,14 @@ static void ev_get_remote(TreeWalk * tw)
     void * recvbuf = mymalloc("EvDataGet", tw->Nimport * tw->query_type_elsize);
     char * sendbuf = mymalloc("EvDataIn", tw->Nexport * tw->query_type_elsize);
 
+#ifdef DEBUG
     memset(sendbuf, -1, tw->Nexport * tw->query_type_elsize);
+#endif
 
     tstart = second();
     /* prepare particle data for export */
     //
-#pragma omp parallel for if (tw->Nexport > 128)
+#pragma omp parallel for
     for(j = 0; j < tw->Nexport; j++)
     {
         int place = DataIndexTable[j].Index;

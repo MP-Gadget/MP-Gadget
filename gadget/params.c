@@ -220,7 +220,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "GravitySoftening", OPTIONAL, 1./30., "Softening for collisionless particles; units of mean separation of DM. ForceSoftening is 2.8 times this.");
     param_declare_double(ps, "GravitySofteningGas", OPTIONAL, 1./30., "Softening for collisional particles (Gas); units of mean separation of DM; 0 to use Hsml of last step. ");
 
-    param_declare_int(ps, "ImportBufferBoost", OPTIONAL, 6, "Memory factor to allow for there being more particles imported during treewlk than exported. Increase this if code crashes during treewalk with out of memory.");
+    param_declare_int(ps, "ImportBufferBoost", OPTIONAL, 2, "Memory factor to allow for there being more particles imported during treewlk than exported. Increase this if code crashes during treewalk with out of memory.");
     param_declare_double(ps, "PartAllocFactor", OPTIONAL, 1.5, "Over-allocation factor of particles. The load can be imbalanced to allow for the work to be more balanced.");
     param_declare_double(ps, "TopNodeAllocFactor", OPTIONAL, 0.5, "Initial TopNode allocation as a fraction of maximum particle number.");
     param_declare_double(ps, "SlotsIncreaseFactor", OPTIONAL, 0.01, "Percentage factor to increase slot allocation by when requested.");
