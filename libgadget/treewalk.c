@@ -172,9 +172,9 @@ ev_begin(TreeWalk * tw, int * active_set, const int size)
      * It is probable not a good idea to send too many particles around in one bunch anyways. */
     if(freebytes > 1024 * 1024 * 1024) freebytes =  1024 * 1024 * 1024;
 
-    tw->BunchSize = freebytes / bytesperbuffer - 4096 * 10;
+    tw->BunchSize = (int)floor(((double)freebytes  - 4096 * 10)/ bytesperbuffer);
     if(tw->BunchSize <= 0) {
-        endrun(1231245, "Not enough memory for exporting any particles. \n");
+        endrun(1231245, "Not enough memory for exporting any particles: needed %d bytes have %d. \n", bytesperbuffer, freebytes-4096*10);
     }
     DataIndexTable =
         (struct data_index *) mymalloc("DataIndexTable", tw->BunchSize * sizeof(struct data_index));
