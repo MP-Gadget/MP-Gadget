@@ -185,7 +185,9 @@ blackhole(ForceTree * tree)
     if(!All.BlackHoleOn)
         return;
     /* Do nothing if no black holes*/
-    if(SlotsManager->info[5].size == 0)
+    int64_t totbh;
+    sumup_large_ints(1, &SlotsManager->info[5].size, &totbh);
+    if(totbh == 0)
         return;
     int i;
     int Ntot_gas_swallowed, Ntot_BH_swallowed;
