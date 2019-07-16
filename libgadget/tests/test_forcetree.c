@@ -47,6 +47,10 @@ struct forcetree_testdata
 
 void dump_snapshot() { }
 
+double walltime_measure_full(char * name, char * file, int line) {
+    return MPI_Wtime();
+}
+
 /*End dummies*/
 
 static int

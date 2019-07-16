@@ -15,6 +15,10 @@
 int ThisTask;
 int NTask;
 
+#ifdef VALGRIND
+#define allocator_init allocator_malloc_init
+#endif
+
 int
 _cmocka_run_group_tests_mpi(const char * name, const struct CMUnitTest tests[], size_t size, void * p1, void * p2)
 {
@@ -49,10 +53,6 @@ void * mymalloc_fullinfo(const char * string, size_t size, const char *func, con
 void myfree_fullinfo(void * ptr, const char *func, const char *file, int line)
 {
     free(ptr);
-}
-
-double walltime_measure_full(char * name, char * file, int line) {
-    return MPI_Wtime();
 }
 
 /*End dummies*/

@@ -611,7 +611,7 @@ treewalk_run(TreeWalk * tw, int * active_set, int size)
 
     if(tw->preprocess) {
         int i;
-        #pragma omp parallel for if(tw->WorkSetSize > 64)
+        #pragma omp parallel for
         for(i = 0; i < tw->WorkSetSize; i ++) {
             const int p_i = tw->WorkSet ? tw->WorkSet[i] : i;
             tw->preprocess(p_i, tw);
@@ -642,7 +642,7 @@ treewalk_run(TreeWalk * tw, int * active_set, int size)
 
     if(tw->postprocess) {
         int i;
-        #pragma omp parallel for if(tw->WorkSetSize > 64)
+        #pragma omp parallel for
         for(i = 0; i < tw->WorkSetSize; i ++) {
             const int p_i = tw->WorkSet ? tw->WorkSet[i] : i;
             tw->postprocess(p_i, tw);
