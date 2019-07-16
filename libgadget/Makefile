@@ -152,7 +152,7 @@ test : build-tests
 libgadget-utils.a: $(GADGET_UTILS_OBJS)
 	$(AR) rv $@ $(GADGET_UTILS_OBJS)
 
-libgadget.a: $(GADGET_OBJS) config.o
+libgadget.a: $(GADGET_OBJS)
 	$(AR) rv $@ $(GADGET_OBJS)
 
 clean:
