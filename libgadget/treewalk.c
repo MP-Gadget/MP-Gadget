@@ -20,7 +20,7 @@ static int *Exportindex;
 static int *Send_offset, *Send_count, *Recv_count, *Recv_offset;
 
 /*!< Memory factor to leave for (N imported particles) > (N exported particles). */
-static double ImportBufferBoost;
+static int ImportBufferBoost;
 
 static struct data_nodelist
 {
@@ -48,8 +48,8 @@ static struct data_index *DataIndexTable;	/*!< the particles to be exported are 
 void set_treewalk_params(ParameterSet * ps)
 {
     if(ThisTask == 0)
-        ImportBufferBoost = param_get_double(ps, "ImportBufferBoost");
-    MPI_Bcast(&ImportBufferBoost, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        ImportBufferBoost = param_get_int(ps, "ImportBufferBoost");
+    MPI_Bcast(&ImportBufferBoost, 1, MPI_INT, 0, MPI_COMM_WORLD);
 }
 
 static void ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv);
