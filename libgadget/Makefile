@@ -156,7 +156,7 @@ libgadget.a: $(GADGET_OBJS)
 	$(AR) rv $@ $(GADGET_OBJS)
 
 clean:
-	rm -rf .objs libgadget.a libgadget-utils.a config.h
+	rm -rf .objs libgadget.a libgadget-utils.a config.c
 
 config.c: $(CONFIG)
 	mkdir -p `dirname $@`
