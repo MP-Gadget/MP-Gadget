@@ -449,9 +449,6 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
 
         modify_internal_node(this, subnode, child, i, tb, &nnext, &nc, minlen, &closepairs);
 
-        /* Add an explicit flush because we are not using openmp's critical sections */
-        #pragma omp flush
-
         /*Unlock the parent*/
         unlock_spinlock(this - tb.firstnode, spin);
     }
