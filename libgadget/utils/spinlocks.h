@@ -5,7 +5,7 @@
  * free_spinlocks destroys and frees them.
  * (un)lock_spinlock locks and unlocks the i'th spinlock.
  * try_lock_spinlock trys to lock the particle, returning 0 on success.
- * Warning! If NO_OPENMP_SPINLOCK is defined, these functions do nothing!*/
+ */
 
 struct SpinLocks;
 
