@@ -578,6 +578,8 @@ force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddeco
         index = ddecomp->TopLeaves[i].treenode;
 
         if(ddecomp->TopLeaves[i].Task != ThisTask) {
+            if(tree->Nodes[index].u.suns[0] > -1)
+                endrun(1, "In node %d, want to overwrite child %d with pseudo particle %d\n", index, tree->Nodes[index].u.suns[0], i);
             tree->Nodes[index].u.suns[0] = firstpseudo + i;
             force_set_next_node(firstpseudo + i, -1, tree);
         }
