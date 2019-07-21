@@ -393,6 +393,9 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         if(nc.nnext_thread >= tb.lastnode-1)
             continue;
 
+        /* Do not add garbage particles to the tree*/
+        if(P[i].IsGarbage)
+            continue;
         /*First find the Node for the TopLeaf */
 
         int this;
