@@ -8,7 +8,13 @@
  * ------------------
  */
 
+/* Total allowed number of particle children for a node*/
 #define NMAXCHILD 11
+
+/* Defines for the type of node, classified by type of children.*/
+#define PARTICLE_NODE_TYPE 0
+#define NODE_NODE_TYPE 1
+#define PSEUDO_NODE_TYPE 2
 
 struct NODE
 {
@@ -21,7 +27,9 @@ struct NODE
         unsigned int TopLevel :1; /* Node corresponding to a toplevel node */
         unsigned int DependsOnLocalMass :1;  /* Intersects with local mass */
         unsigned int MixedSofteningsInNode:1;  /* Softening is mixed, need to open the node */
-        unsigned int NodeIsDirty :1; /*Node is a toplevel node containing local mass, and its moments need updating*/
+        unsigned int NodeIsDirty :1; /* Node is a toplevel node containing local mass, and its moments need updating*/
+        unsigned int ChildType :2; /* Specify the type of children this node has: particles, other nodes, or pseudo-particles.
+                                    * (should be an enum, but not standard in C).*/
     } f;
     union
     {

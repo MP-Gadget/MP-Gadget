@@ -220,6 +220,7 @@ static void init_internal_node(struct NODE *nfreep, struct NODE *parent, int sub
     nfreep->len = 0.5 * parent->len;
     nfreep->f.TopLevel = 0;
     nfreep->f.InternalTopLevel = 0;
+    nfreep->f.ChildType = PARTICLE_NODE_TYPE;
 
     for(j = 0; j < 3; j++) {
         /* Detect which quadrant we are in by testing the bits of subnode:
@@ -327,6 +328,7 @@ create_new_node_layer(int parent, int p_toplace,
     /* A new node is created. Mark the parent as an internal node with node children.
      * This goes last
      * so that we don't access the child before it is constructed.*/
+    nprnt->f.ChildType = NODE_NODE_TYPE;
     #pragma omp atomic write
     tb.Nodes[parent].u.s.noccupied = (1<<16);
     return 0;
@@ -355,6 +357,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         nfreep->father = -1;
         nfreep->f.TopLevel = 1;
         nfreep->f.InternalTopLevel = 0;
+        nfreep->f.ChildType = PARTICLE_NODE_TYPE;
         nnext++;
         /* create a set of empty nodes corresponding to the top-level ddecomp
          * grid. We need to generate these nodes first to make sure that we have a
@@ -546,6 +549,7 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
                 Nodes[no].u.s.suns[count] = *nextfree;
                 /*We are an internal top level node as we now have a child top level.*/
                 Nodes[no].f.InternalTopLevel = 1;
+                Nodes[no].f.ChildType = NODE_NODE_TYPE;
                 Nodes[no].u.s.noccupied = (1<<16);
 
                 const MyFloat lenhalf = 0.25 * Nodes[no].len;
@@ -557,6 +561,7 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
                 /*All nodes here are top level nodes*/
                 Nodes[*nextfree].f.TopLevel = 1;
                 Nodes[*nextfree].f.InternalTopLevel = 0;
+                Nodes[*nextfree].f.ChildType = PARTICLE_NODE_TYPE;
 
                 int n;
                 for(n = 0; n < NMAXCHILD; n++)
@@ -601,6 +606,7 @@ force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddeco
                 endrun(5, "In node %d, overwriting %d child particles (i = %d etc) with pseudo particle %d (%d)\n",index, sub, tree->Nodes[index].u.s.suns[0], i);
             tree->Nodes[index].u.s.suns[sub] = firstpseudo + i;
             tree->Nodes[index].u.s.noccupied++;
+            tree->Nodes[index].f.ChildType = PSEUDO_NODE_TYPE;
             force_set_next_node(firstpseudo + i, -1, tree);
         }
     }
@@ -753,7 +759,7 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
     int childcnt = 0;
     /* If this node contains nodes, remove any children that are empty.
      * This sharply reduces the length of the treewalk.*/
-    if(noccupied >= 1<<16) {
+    if(tree->Nodes[no].f.ChildType == NODE_NODE_TYPE) {
         limit = 8;
         /* Remove empty nodes from the tree*/
         for(j=0; j < 8; j++)
@@ -809,24 +815,18 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
     /*Make sure all child nodes are done*/
     #pragma omp taskwait
 
-    /* We have a node full of particles (or pseudo-particles)*/
-    if(noccupied < (1<<16))
+    /* We have a node full of particles*/
+    if(tree->Nodes[no].f.ChildType == PARTICLE_NODE_TYPE)
     {
         for(j = 0; j < noccupied; j++) {
             const int p = suns[j];
-            /* nothing to be done for a pseudo particle because the mass of the
-                * pseudo-particle is still zero. The node attributes will be changed
-                * later when we exchange the pseudo-particles.
-                */
-            if(p > tree->lastnode)
-                continue;
             /*Hybrid particle neutrinos do not gravitate at early times.
                 * So do not add their masses to the node*/
             if(!HybridNuGrav || P[p].Type != ForceTreeParams.FastParticleType)
                 add_particle_moment_to_node(&tree->Nodes[no], p);
         }
     }
-    else {
+    else if(tree->Nodes[no].f.ChildType == NODE_NODE_TYPE) {
         for(j = 0; j < 8; j++)
         {
             const int p = suns[j];
@@ -842,6 +842,10 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
             force_adjust_node_softening(&tree->Nodes[no], tree->Nodes[p].u.d.MaxSoftening, tree->Nodes[p].f.MixedSofteningsInNode);
         }
     }
+    /* nothing to be done for a pseudo particle because the mass of the
+    * pseudo-particle is still zero. The node attributes will be changed
+    * later when we exchange the pseudo-particles.*/
+
 
     /*Set the center of mass moments*/
     const double mass = tree->Nodes[no].u.d.mass;
