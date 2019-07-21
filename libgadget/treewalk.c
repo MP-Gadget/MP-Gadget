@@ -64,9 +64,6 @@ static int ev_ndone(TreeWalk * tw);
 static void
 treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_have_garbage);
 
-static void
-treewalk_init_evaluated(int * active_set, int size);
-
 static int
 ngb_treefind_threads(TreeWalkQueryBase * I,
         TreeWalkResultBase * O,
@@ -153,8 +150,6 @@ ev_begin(TreeWalk * tw, int * active_set, const int size)
      * the active list was just rebuilt. If we ever add a trivial haswork after
      * sfr/bh we should change this*/
     treewalk_build_queue(tw, active_set, size, 0);
-
-    treewalk_init_evaluated(active_set, size);
 
     Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * NumThreads * sizeof(int));
 
@@ -262,9 +257,6 @@ static void real_ev(TreeWalk * tw, int * ninter, int * nnodes) {
 
         const int i = tw->WorkSet ? tw->WorkSet[k] : k;
 #ifdef DEBUG
-        if(P[i].Evaluated) {
-            BREAKPOINT;
-        }
         if(tw->haswork && !tw->haswork(i, tw)) {
             BREAKPOINT;
         }
@@ -277,10 +269,8 @@ static void real_ev(TreeWalk * tw, int * ninter, int * nnodes) {
         const int rt = tw->visit(input, output, lv);
 
         if(rt < 0) {
-            P[i].Evaluated = 0;
             break; /* export buffer has filled up, redo this particle */
         } else {
-            P[i].Evaluated = 1;
             treewalk_reduce_result(tw, output, i, TREEWALK_PRIMARY);
         }
     }
@@ -301,18 +291,6 @@ cmpint(const void *a, const void *b)
 
 }
 #endif
-
-static void
-treewalk_init_evaluated(int * active_set, int size)
-{
-    int i;
-    #pragma omp parallel for
-    for(i=0; i < size; i++)
-    {
-        const int p_i = active_set ? active_set[i] : i;
-        P[p_i].Evaluated = 0;
-    }
-}
 
 static void
 treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_have_garbage) {
@@ -408,21 +386,6 @@ static int ev_primary(TreeWalk * tw)
 
     tend = second();
     tw->timecomp1 += timediff(tstart, tend);
-
-
-    /* touching up the export list, remove incomplete particles */
-#pragma omp parallel for if (tw->Nexport > 1024)
-    for(i = 0; i < tw->Nexport; i ++) {
-        /* if the NodeList of the particle is incomplete due
-         * to abandoned work, also do not export it */
-        int place = DataIndexTable[i].Index;
-        if(! P[place].Evaluated) {
-            /* NTask will be placed to the end by sorting */
-            DataIndexTable[i].Task = NTask;
-            /* put in some junk so that we can detect them */
-            DataNodeList[DataIndexTable[i].IndexGet].NodeList[0] = -2;
-        }
-    }
 
     qsort_openmp(DataIndexTable, tw->Nexport, sizeof(struct data_index), data_index_compare);
 
@@ -543,14 +506,13 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
     if(lv->mode != 0) {
         endrun(1, "Trying to export a ghost particle.\n");
     }
-    int target = lv->target;
+    const int target = lv->target;
     int *exportflag = lv->exportflag;
     int *exportnodecount = lv->exportnodecount;
     int *exportindex = lv->exportindex;
     TreeWalk * tw = lv->tw;
-    int task;
 
-    task = tw->tree->TopLeaves[no - tw->tree->lastnode].Task;
+    const int task = tw->tree->TopLeaves[no - tw->tree->lastnode].Task;
 
     if(exportflag[task] != target)
     {
@@ -560,25 +522,38 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
 
     if(exportnodecount[task] == NODELISTLENGTH)
     {
-        int nexp;
+        const int nexp = atomic_fetch_and_add(&tw->Nexport, 1);
 
-        if(tw->Nexport < tw->BunchSize) {
-            nexp = atomic_fetch_and_add(&tw->Nexport, 1);
-        } else {
-            nexp = tw->BunchSize;
-        }
-
+        /* out of buffer space. Need to discard work for this particle and interrupt */
         if(nexp >= tw->BunchSize) {
-            /* out of buffer space. Need to discard work for this particle and interrupt */
             tw->BufferFullFlag = 1;
-#pragma omp flush
+            /* This reduces the time until the other threads see the buffer is full and the loop can exit.
+             * Since it is a pure optimization, no need for a full atomic.*/
+            #pragma omp flush (tw)
+            /* Touch up the DataIndexTable, so that exports associated with the current particle
+             * won't be exported. This is expensive but rare. */
+            int i;
+            for(i=0; i < tw->BunchSize; i++) {
+                /* target is the current particle, so this reads the buffer looking for
+                 * exports associated with the current particle. We cannot just discard
+                 * from the end because of threading.*/
+                if(DataIndexTable[i].Index == target)
+                {
+                    /* NTask will be placed to the end by sorting */
+                    DataIndexTable[i].Task = tw->NTask;
+                    /* put in some junk so that we can detect them */
+                    DataNodeList[DataIndexTable[i].IndexGet].NodeList[0] = -2;
+                }
+            }
             return -1;
         }
-        exportnodecount[task] = 0;
-        exportindex[task] = nexp;
-        DataIndexTable[nexp].Task = task;
-        DataIndexTable[nexp].Index = target;
-        DataIndexTable[nexp].IndexGet = nexp;
+        else {
+            exportnodecount[task] = 0;
+            exportindex[task] = nexp;
+            DataIndexTable[nexp].Task = task;
+            DataIndexTable[nexp].Index = target;
+            DataIndexTable[nexp].IndexGet = nexp;
+        }
     }
 
     if(tw->UseNodeList)
@@ -820,7 +795,6 @@ static void fill_task_queue (TreeWalk * tw, struct ev_task * tq, int * pq, int l
        */
         tq[i].top_node = no;
         tq[i].place = pq[i];
-        P[pq[i]].Evaluated = 0;
     }
     // qsort_openmp(tq, length, sizeof(struct ev_task), ev_task_cmp_by_top_node);
 }
