@@ -534,6 +534,9 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
              * won't be exported. This is expensive but rare. */
             int i;
             for(i=0; i < tw->BunchSize; i++) {
+                /* target is the current particle, so this reads the buffer looking for
+                 * exports associated with the current particle. We cannot just discard
+                 * from the end because of threading.*/
                 if(DataIndexTable[i].Index == target)
                 {
                     /* NTask will be placed to the end by sorting */
