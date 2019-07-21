@@ -568,8 +568,10 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
                     Nodes[*nextfree].u.s.suns[n] = -1;
                 Nodes[*nextfree].u.s.noccupied = 0;
 
-                if(ddecomp->TopNodes[ddecomp->TopNodes[topnode].Daughter + sub].Daughter == -1)
-                    ddecomp->TopLeaves[ddecomp->TopNodes[ddecomp->TopNodes[topnode].Daughter + sub].Leaf].treenode = *nextfree;
+                const struct topnode_data curtopnode = ddecomp->TopNodes[ddecomp->TopNodes[topnode].Daughter + sub];
+                if(curtopnode.Daughter == -1) {
+                    ddecomp->TopLeaves[curtopnode.Leaf].treenode = *nextfree;
+                }
 
                 (*nextfree)++;
 
@@ -730,6 +732,90 @@ force_get_sibling(const int sib, const int j, const int * suns)
     }
     return nextsib;
 }
+/* This function zeros the parts of a node in a union with the suns array*/
+static void
+force_zero_union(struct NODE * node)
+{
+    memset(&(node->u.d.s),0,3*sizeof(MyFloat));
+    node->u.d.mass = 0;
+    node->u.d.hmax = 0;
+    node->u.d.MaxSoftening = -1;
+    node->f.DependsOnLocalMass = 0;
+    node->f.MixedSofteningsInNode = 0;
+}
+
+/* This does what is needed for a leaf node containing a pseudo particle.*/
+static int
+force_update_pseudo_node(int no, int sib, const ForceTree * tree)
+{
+    if(tree->Nodes[no].f.ChildType != PSEUDO_NODE_TYPE)
+        endrun(3, "force_update_pseudo_node called on node %d of wrong type!\n", no);
+
+    /* this "backup" is necessary because the nextnode
+     * entry will overwrite one element (union!) */
+    int ps = tree->Nodes[no].u.s.suns[0];
+    if(tree->Nodes[no].u.s.noccupied != 1)
+        endrun(5, "Too many children %d of pseudo particle node %d!\n", tree->Nodes[no].u.s.noccupied, no);
+
+    /*After this point the suns array is invalid!*/
+    force_zero_union(&tree->Nodes[no]);
+    tree->Nodes[no].u.d.sibling = sib;
+
+    /* nothing to be done for a pseudo particle because the mass of the
+    * pseudo-particle is still zero. The node attributes will be changed
+    * later when we exchange the pseudo-particles.*/
+
+    /*The the last tail needs to be the return value of this function.*/
+    /*Set NextNode for this node*/
+    force_set_next_node(no, ps, tree);
+    return ps;
+}
+
+static int
+force_update_particle_node(int no, int sib, const ForceTree * tree, const int HybridNuGrav)
+{
+    if(tree->Nodes[no].f.ChildType != PARTICLE_NODE_TYPE)
+        endrun(3, "force_update_particle_node called on node %d of wrong type!\n", no);
+    /*Last value of tails is the return value of this function*/
+    int j, suns[NMAXCHILD];
+
+    /* this "backup" is necessary because the nextnode
+     * entry will overwrite one element (union!) */
+    int noccupied = tree->Nodes[no].u.s.noccupied;
+    for(j = 0; j < NMAXCHILD; j++) {
+        suns[j] = tree->Nodes[no].u.s.suns[j];
+    }
+
+    /*After this point the suns array is invalid!*/
+    force_zero_union(&tree->Nodes[no]);
+    tree->Nodes[no].u.d.sibling = sib;
+
+    int tail = no;
+    /*Now we do the moments*/
+    for(j = 0; j < noccupied; j++) {
+        const int p = suns[j];
+        /*Hybrid particle neutrinos do not gravitate at early times.
+            * So do not add their masses to the node*/
+        if(!HybridNuGrav || P[p].Type != ForceTreeParams.FastParticleType)
+            add_particle_moment_to_node(&tree->Nodes[no], p);
+        /*This loop sets the next node value for the row we just computed.
+         * Note that tails[i] is the next node for suns[i-1].
+         * The last tail needs to be the return value of this function.*/
+        force_set_next_node(tail, p, tree);
+        tail = p;
+    }
+
+    /*Set the center of mass moments*/
+    const double mass = tree->Nodes[no].u.d.mass;
+    if(mass <= 0)
+        endrun(3, "Node %d containing %d particles has %g mass!\n", no, noccupied, mass);
+
+    tree->Nodes[no].u.d.s[0] /= mass;
+    tree->Nodes[no].u.d.s[1] /= mass;
+    tree->Nodes[no].u.d.s[2] /= mass;
+
+    return tail;
+}
 
 /*! this routine determines the multipole moments for a given internal node
  *  and all its subnodes using a recursive computation.  The result is
@@ -746,128 +832,88 @@ static int
 force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, const int HybridNuGrav)
 {
     /*Last value of tails is the return value of this function*/
-    int j, suns[NMAXCHILD], tails[NMAXCHILD];
+    int j, suns[8], tails[8];
 
     /* this "backup" is necessary because the nextnode
      * entry will overwrite one element (union!) */
-    int noccupied = tree->Nodes[no].u.s.noccupied;
-    for(j = 0; j < NMAXCHILD; j++) {
-        suns[j] = tree->Nodes[no].u.s.suns[j];
-    }
+    memcpy(suns, tree->Nodes[no].u.s.suns, 8 * sizeof(int));
 
-    int limit = noccupied;
     int childcnt = 0;
     /* If this node contains nodes, remove any children that are empty.
-     * This sharply reduces the length of the treewalk.*/
-    if(tree->Nodes[no].f.ChildType == NODE_NODE_TYPE) {
-        limit = 8;
-        /* Remove empty nodes from the tree*/
-        for(j=0; j < 8; j++)
-            if(tree->Nodes[suns[j]].u.s.noccupied == 0)
-                suns[j] = -1;
-            else
-                childcnt++;
-    }
+     * This sharply reduces the size of the tree.*/
+    /* Remove empty nodes from the tree*/
+    for(j=0; j < 8; j++)
+        if(tree->Nodes[suns[j]].u.s.noccupied == 0)
+            suns[j] = -1;
+        else
+            childcnt++;
     /*First do the children*/
-    for(j = 0; j < limit; j++)
+    for(j = 0; j < 8; j++)
     {
         int p = suns[j];
         /*Empty slot*/
         if(p < 0)
             continue;
 
-        /* For particles and pseudo particles we have nothing to update; */
-        /* But the new tail is the last particle in the linked list. */
-        if(p < tree->firstnode || p >= tree->lastnode) {
-            tails[j] = p;
+        const int nextsib = force_get_sibling(sib, j, suns);
+        /* Nodes containing particles or pseudo-particles*/
+        if(tree->Nodes[p].f.ChildType == PARTICLE_NODE_TYPE)
+            tails[j] = force_update_particle_node(p, nextsib, tree, HybridNuGrav);
+        else if(tree->Nodes[p].f.ChildType == PSEUDO_NODE_TYPE)
+            tails[j] = force_update_pseudo_node(p, nextsib, tree);
+        /*Don't spawn a new task if we are deep enough that we already spawned a lot.
+        Note: final clause is much slower for some reason. */
+        else if(childcnt > 1 && level < 128 * omp_get_num_threads()) {
+            /* We cannot use default(none) here because we need a const (HybridNuGrav),
+            * which for gcc < 9 is default shared (and thus cannot be explicitly shared
+            * without error) and for gcc == 9 must be explicitly shared. The other solution
+            * is to make it firstprivate which I think will be excessively expensive for a
+            * recursive call like this. See:
+            * https://www.gnu.org/software/gcc/gcc-9/porting_to.html */
+            #pragma omp task shared(tails, level, childcnt, tree) firstprivate(j, nextsib, p)
+            tails[j] = force_update_node_recursive(p, nextsib, level*childcnt, tree, HybridNuGrav);
         }
-        else {
-            const int nextsib = force_get_sibling(sib, j, suns);
-            /*Don't spawn a new task if we are deep enough that we already spawned a lot.
-             Note: final clause is much slower for some reason. */
-            if(childcnt > 1 && level < 128 * omp_get_num_threads()) {
-                /* We cannot use default(none) here because we need a const (HybridNuGrav),
-                 * which for gcc < 9 is default shared (and thus cannot be explicitly shared
-                 * without error) and for gcc == 9 must be explicitly shared. The other solution
-                 * is to make it firstprivate which I think will be excessively expensive for a
-                 * recursive call like this. See:
-                 * https://www.gnu.org/software/gcc/gcc-9/porting_to.html */
-                #pragma omp task shared(tails, level, childcnt, tree) firstprivate(j, nextsib, p)
-                tails[j] = force_update_node_recursive(p, nextsib, level*childcnt, tree, HybridNuGrav);
-            }
-            else
-                tails[j] = force_update_node_recursive(p, nextsib, level, tree, HybridNuGrav);
-        }
+        else
+            tails[j] = force_update_node_recursive(p, nextsib, level, tree, HybridNuGrav);
     }
 
-    /*Now we do the moments*/
     /*After this point the suns array is invalid!*/
-    memset(&(tree->Nodes[no].u.d.s),0,3*sizeof(MyFloat));
-
-    tree->Nodes[no].u.d.mass = 0;
-    tree->Nodes[no].u.d.hmax = 0;
-    tree->Nodes[no].u.d.MaxSoftening = -1;
-    tree->Nodes[no].f.DependsOnLocalMass = 0;
-    tree->Nodes[no].f.MixedSofteningsInNode = 0;
-
+    force_zero_union(&tree->Nodes[no]);
     tree->Nodes[no].u.d.sibling = sib;
 
     /*Make sure all child nodes are done*/
     #pragma omp taskwait
 
-    /* We have a node full of particles*/
-    if(tree->Nodes[no].f.ChildType == PARTICLE_NODE_TYPE)
+    /*Now we do the moments*/
+    for(j = 0; j < 8; j++)
     {
-        for(j = 0; j < noccupied; j++) {
-            const int p = suns[j];
-            /*Hybrid particle neutrinos do not gravitate at early times.
-                * So do not add their masses to the node*/
-            if(!HybridNuGrav || P[p].Type != ForceTreeParams.FastParticleType)
-                add_particle_moment_to_node(&tree->Nodes[no], p);
-        }
-    }
-    else if(tree->Nodes[no].f.ChildType == NODE_NODE_TYPE) {
-        for(j = 0; j < 8; j++)
-        {
-            const int p = suns[j];
-            if(p < 0)
-                continue;
-            tree->Nodes[no].u.d.mass += (tree->Nodes[p].u.d.mass);
-            tree->Nodes[no].u.d.s[0] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[0]);
-            tree->Nodes[no].u.d.s[1] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[1]);
-            tree->Nodes[no].u.d.s[2] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[2]);
-            if(tree->Nodes[p].u.d.hmax > tree->Nodes[no].u.d.hmax)
-                tree->Nodes[no].u.d.hmax = tree->Nodes[p].u.d.hmax;
+        const int p = suns[j];
+        if(p < 0)
+            continue;
+        tree->Nodes[no].u.d.mass += (tree->Nodes[p].u.d.mass);
+        tree->Nodes[no].u.d.s[0] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[0]);
+        tree->Nodes[no].u.d.s[1] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[1]);
+        tree->Nodes[no].u.d.s[2] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[2]);
+        if(tree->Nodes[p].u.d.hmax > tree->Nodes[no].u.d.hmax)
+            tree->Nodes[no].u.d.hmax = tree->Nodes[p].u.d.hmax;
 
-            force_adjust_node_softening(&tree->Nodes[no], tree->Nodes[p].u.d.MaxSoftening, tree->Nodes[p].f.MixedSofteningsInNode);
-        }
+        force_adjust_node_softening(&tree->Nodes[no], tree->Nodes[p].u.d.MaxSoftening, tree->Nodes[p].f.MixedSofteningsInNode);
     }
-    /* nothing to be done for a pseudo particle because the mass of the
-    * pseudo-particle is still zero. The node attributes will be changed
-    * later when we exchange the pseudo-particles.*/
-
 
     /*Set the center of mass moments*/
     const double mass = tree->Nodes[no].u.d.mass;
-    if(mass)
-    {
+    /* In principle all the children could be pseudo-particles*/
+    if(mass > 0) {
         tree->Nodes[no].u.d.s[0] /= mass;
         tree->Nodes[no].u.d.s[1] /= mass;
         tree->Nodes[no].u.d.s[2] /= mass;
-    }
-    /*This only happens for a pseudo particle*/
-    else
-    {
-        tree->Nodes[no].u.d.s[0] = tree->Nodes[no].center[0];
-        tree->Nodes[no].u.d.s[1] = tree->Nodes[no].center[1];
-        tree->Nodes[no].u.d.s[2] = tree->Nodes[no].center[2];
     }
 
     /*This loop sets the next node value for the row we just computed.
       Note that tails[i] is the next node for suns[i-1].
       The the last tail needs to be the return value of this function.*/
     int tail = no;
-    for(j = 0; j < limit; j++)
+    for(j = 0; j < 8; j++)
     {
         if(suns[j] < 0)
             continue;
@@ -898,7 +944,13 @@ force_update_node_parallel(const ForceTree * tree, const int HybridNuGrav)
 #pragma omp parallel
 #pragma omp single nowait
     {
-        tail = force_update_node_recursive(tree->firstnode, -1, 1, tree, HybridNuGrav);
+        /* Nodes containing other nodes: the overwhelmingly likely case.*/
+        if(tree->Nodes[tree->firstnode].f.ChildType == NODE_NODE_TYPE)
+            tail = force_update_node_recursive(tree->firstnode, -1, 1, tree, HybridNuGrav);
+        else if(tree->Nodes[tree->firstnode].f.ChildType == PARTICLE_NODE_TYPE)
+            tail = force_update_particle_node(tree->firstnode, -1, tree, HybridNuGrav);
+        else
+            tail = force_update_pseudo_node(tree->firstnode, -1, tree);
     }
     return tail;
 }
