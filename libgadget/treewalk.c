@@ -529,7 +529,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
             tw->BufferFullFlag = 1;
             /* This reduces the time until the other threads see the buffer is full and the loop can exit.
              * Since it is a pure optimization, no need for a full atomic.*/
-#pragma omp flush
+            #pragma omp flush (tw)
             /* Touch up the DataIndexTable, so that exports associated with the current particle
              * won't be exported. This is expensive but rare. */
             int i;
