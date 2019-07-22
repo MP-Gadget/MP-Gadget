@@ -583,7 +583,17 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
             }
 }
 
-
+/* This function zeros the parts of a node in a union with the suns array*/
+static void
+force_zero_union(struct NODE * node)
+{
+    memset(&(node->u.d.s),0,3*sizeof(MyFloat));
+    node->u.d.mass = 0;
+    node->u.d.hmax = 0;
+    node->u.d.MaxSoftening = -1;
+    node->f.DependsOnLocalMass = 0;
+    node->f.MixedSofteningsInNode = 0;
+}
 
 /*! this function inserts pseudo-particles which will represent the mass
  *  distribution of the other CPUs. Initially, the mass of the
@@ -603,12 +613,12 @@ force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddeco
     {
         index = ddecomp->TopLeaves[i].treenode;
         if(ddecomp->TopLeaves[i].Task != ThisTask) {
-            int sub = tree->Nodes[index].u.s.noccupied;
-            if(tree->Nodes[index].u.s.noccupied > 0)
-                endrun(5, "In node %d, overwriting %d child particles (i = %d etc) with pseudo particle %d (%d)\n",index, sub, tree->Nodes[index].u.s.suns[0], i);
-            tree->Nodes[index].u.s.suns[sub] = firstpseudo + i;
-            tree->Nodes[index].u.s.noccupied++;
+            if(tree->Nodes[index].u.s.noccupied != 0)
+                endrun(5, "In node %d, overwriting %d child particles (i = %d etc) with pseudo particle %d (%d)\n",
+                       index, tree->Nodes[index].u.s.noccupied, tree->Nodes[index].u.s.suns[0], i);
+            force_zero_union(&tree->Nodes[index]);
             tree->Nodes[index].f.ChildType = PSEUDO_NODE_TYPE;
+            force_set_next_node(index, firstpseudo + i, tree);
             force_set_next_node(firstpseudo + i, -1, tree);
         }
     }
@@ -732,43 +742,20 @@ force_get_sibling(const int sib, const int j, const int * suns)
     }
     return nextsib;
 }
-/* This function zeros the parts of a node in a union with the suns array*/
-static void
-force_zero_union(struct NODE * node)
-{
-    memset(&(node->u.d.s),0,3*sizeof(MyFloat));
-    node->u.d.mass = 0;
-    node->u.d.hmax = 0;
-    node->u.d.MaxSoftening = -1;
-    node->f.DependsOnLocalMass = 0;
-    node->f.MixedSofteningsInNode = 0;
-}
 
-/* This does what is needed for a leaf node containing a pseudo particle.*/
+/* Very little to be done for a pseudo particle because the mass of the
+* pseudo-particle is still zero. The node attributes will be changed
+* later when we exchange the pseudo-particles.*/
 static int
 force_update_pseudo_node(int no, int sib, const ForceTree * tree)
 {
     if(tree->Nodes[no].f.ChildType != PSEUDO_NODE_TYPE)
         endrun(3, "force_update_pseudo_node called on node %d of wrong type!\n", no);
 
-    /* this "backup" is necessary because the nextnode
-     * entry will overwrite one element (union!) */
-    int ps = tree->Nodes[no].u.s.suns[0];
-    if(tree->Nodes[no].u.s.noccupied != 1)
-        endrun(5, "Too many children %d of pseudo particle node %d!\n", tree->Nodes[no].u.s.noccupied, no);
-
-    /*After this point the suns array is invalid!*/
-    force_zero_union(&tree->Nodes[no]);
     tree->Nodes[no].u.d.sibling = sib;
 
-    /* nothing to be done for a pseudo particle because the mass of the
-    * pseudo-particle is still zero. The node attributes will be changed
-    * later when we exchange the pseudo-particles.*/
-
-    /*The the last tail needs to be the return value of this function.*/
-    /*Set NextNode for this node*/
-    force_set_next_node(no, ps, tree);
-    return ps;
+    /*The pseudo-particle is the return value of this function.*/
+    return force_get_next_node(no, tree);
 }
 
 static int
@@ -782,7 +769,7 @@ force_update_particle_node(int no, int sib, const ForceTree * tree, const int Hy
     /* this "backup" is necessary because the nextnode
      * entry will overwrite one element (union!) */
     int noccupied = tree->Nodes[no].u.s.noccupied;
-    for(j = 0; j < NMAXCHILD; j++) {
+    for(j = 0; j < noccupied; j++) {
         suns[j] = tree->Nodes[no].u.s.suns[j];
     }
 
@@ -839,14 +826,17 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
     memcpy(suns, tree->Nodes[no].u.s.suns, 8 * sizeof(int));
 
     int childcnt = 0;
-    /* If this node contains nodes, remove any children that are empty.
-     * This sharply reduces the size of the tree.*/
-    /* Remove empty nodes from the tree*/
-    for(j=0; j < 8; j++)
-        if(tree->Nodes[suns[j]].u.s.noccupied == 0)
-            suns[j] = -1;
-        else
+    /* Remove any empty children.
+     * This sharply reduces the size of the tree.
+     * Also count the node children for thread balancing.*/
+    for(j=0; j < 8; j++) {
+        /* Pseudo nodes may have zero occupation*/
+        if(tree->Nodes[suns[j]].f.ChildType == PARTICLE_NODE_TYPE &&
+            tree->Nodes[suns[j]].u.s.noccupied == 0)
+                suns[j] = -1;
+        else if(tree->Nodes[suns[j]].f.ChildType == NODE_NODE_TYPE)
             childcnt++;
+    }
     /*First do the children*/
     for(j = 0; j < 8; j++)
     {
