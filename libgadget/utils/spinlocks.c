@@ -1,64 +1,49 @@
 #include "spinlocks.h"
 #include "mymalloc.h"
-
-#ifndef NO_OPENMP_SPINLOCK
-#include <pthread.h>
-#endif
+#include "omp.h"
 
 /* Temporary array for spinlocks*/
 struct SpinLocks
 {
-#ifndef NO_OPENMP_SPINLOCK
-    pthread_spinlock_t * SpinLocks;
-#endif
+    omp_lock_t * SpinLocks;
     int NumSpinLock;
 };
 
 static struct SpinLocks spin;
 
 void lock_spinlock(int i, struct SpinLocks * spin) {
-#ifndef NO_OPENMP_SPINLOCK
-    pthread_spin_lock(&spin->SpinLocks[i]);
-#endif
+    omp_set_lock(&spin->SpinLocks[i]);
 }
 void unlock_spinlock(int i,  struct SpinLocks * spin) {
-#ifndef NO_OPENMP_SPINLOCK
-    pthread_spin_unlock(&spin->SpinLocks[i]);
-#endif
+    omp_unset_lock(&spin->SpinLocks[i]);
 }
 
 int try_lock_spinlock(int i,  struct SpinLocks * spin)
 {
-#ifndef NO_OPENMP_SPINLOCK
-    return pthread_spin_trylock(&spin->SpinLocks[i]);
-#else
-    return 0;
-#endif
+    /* omp_test_lock returns true if it got the lock, false otherwise.
+     * pthread_spin_trylock returns 0 (false) if it got the lock, EBUSY (true) otherwise*/
+    return !omp_test_lock(&spin->SpinLocks[i]);
 }
 
 struct SpinLocks * init_spinlocks(int NumLock)
 {
-#ifndef NO_OPENMP_SPINLOCK
     int i;
     /* Initialize the spinlocks*/
-    spin.SpinLocks = mymalloc("SpinLocks", NumLock * sizeof(pthread_spinlock_t));
+    spin.SpinLocks = mymalloc("SpinLocks", NumLock * sizeof(omp_lock_t));
     #pragma omp parallel for
     for(i = 0; i < NumLock; i ++) {
-        pthread_spin_init(&spin.SpinLocks[i], PTHREAD_PROCESS_PRIVATE);
+        omp_init_lock(&spin.SpinLocks[i]);
     }
-#endif
     spin.NumSpinLock = NumLock;
     return &spin;
 }
 
 void free_spinlocks(struct SpinLocks * spin)
 {
-#ifndef NO_OPENMP_SPINLOCK
     int i;
     for(i = 0; i < spin->NumSpinLock; i ++) {
-        pthread_spin_destroy(&(spin->SpinLocks[i]));
+        omp_destroy_lock(&(spin->SpinLocks[i]));
     }
     myfree((void *) spin->SpinLocks);
-#endif
 }
 
