@@ -27,7 +27,7 @@ ForceTree
 force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp);
 
 int
-force_update_node_parallel(const ForceTree * tree);
+force_update_node_parallel(const ForceTree * tree, const int HybridNuGrav);
 
 /*Particle data.*/
 struct part_manager_type PartManager[1] = {{0}};
@@ -166,23 +166,31 @@ static int check_tree(const ForceTree * tb, const int nnodes, const int numpart)
     for(i=firstnode; i<nnodes+firstnode; i++)
     {
         struct NODE * pNode = &(tb->Nodes[i]);
-        int empty = 0;
         /*Just reserved free space with nothing in it*/
         if(pNode->father < -1.5)
             continue;
 
         int j;
-        for(j=0; j<8; j++) {
-            /*Check children*/
-            int child = pNode->u.suns[j];
-            if(child == -1) {
-                empty++;
-                continue;
+        /* Full of particles*/
+        if(pNode->u.s.noccupied < 1<<16) {
+            tot_empty += NMAXCHILD - pNode->u.s.noccupied;
+            if(pNode->u.s.noccupied == 0)
+                sevens++;
+            for(j=0; j<pNode->u.s.noccupied; j++) {
+                int child = pNode->u.s.suns[j];
+                assert_true(child >= 0);
+                assert_true(child < firstnode);
+                P[child].PI += 1;
+                assert_int_equal(force_get_father(child, tb), i);
             }
-            assert_true(child < firstnode+nnodes);
-            assert_true(child >= 0);
-            /*If an internal node*/
-            if(child > firstnode) {
+        }
+        /* Node is full of other nodes*/
+        else {
+            for(j=0; j<8; j++) {
+                /*Check children*/
+                int child = pNode->u.s.suns[j];
+                assert_true(child < firstnode+nnodes);
+                assert_true(child >= firstnode);
                 assert_true(fabs(tb->Nodes[child].len/pNode->len - 0.5) < 1e-4);
                 int k;
                 for(k=0; k<3; k++) {
@@ -192,34 +200,7 @@ static int check_tree(const ForceTree * tb, const int nnodes, const int numpart)
                         assert_true(tb->Nodes[child].center[k] <= pNode->center[k]);
                 }
             }
-            /*Particle*/
-            else {
-                /* if the first particle suffers, then all particles on the list
-                 * must be suffering from particle-coupling */
-                do {
-                    P[child].PI += 1;
-                    if(tb->Nextnode[child] > -1) {
-                        assert_int_equal(force_get_father(child, tb), force_get_father(tb->Nextnode[child], tb));
-                    }
-                    /*Check in right quadrant*/
-                    int k;
-                    for(k=0; k<3; k++) {
-                        if(j & (1<<k)) {
-                            assert_true(P[child].Pos[k] > pNode->center[k]);
-                        }
-                        else
-                            assert_true(P[child].Pos[k] <= pNode->center[k]);
-                    }
-                    child = force_get_next_node(child, tb);
-                } while(child > -1);
-            }
         }
-        /*All nodes should have at least one thing in them:
-         * maybe particles or other nodes.*/
-        if(empty > 6)
-            sevens++;
-        assert_true(empty <= 7);
-        tot_empty += empty;
         nrealnode++;
     }
     assert_true(nnodes - nrealnode < omp_get_max_threads()*NODECACHE_SIZE);
@@ -228,8 +209,8 @@ static int check_tree(const ForceTree * tb, const int nnodes, const int numpart)
     {
         assert_int_equal(P[i].PI, 1);
     }
-    printf("Tree filling factor: %g on %d nodes (wasted: %d seven empty: %d)\n", tot_empty/(8.*nrealnode), nrealnode, nnodes - nrealnode, sevens);
-    return nrealnode;
+    printf("Tree filling factor: %g on %d nodes (wasted: %d empty: %d)\n", tot_empty/(8.*nrealnode), nrealnode, nnodes - nrealnode, sevens);
+    return nrealnode - sevens;
 }
 
 static void do_tree_test(const int numpart, const ForceTree tb, DomainDecomp * ddecomp)
@@ -259,7 +240,7 @@ static void do_tree_test(const int numpart, const ForceTree tb, DomainDecomp * d
     int nrealnode = check_tree(&tb, nodes, numpart);
     /* now compute the multipole moments recursively */
     start = MPI_Wtime();
-    int tail = force_update_node_parallel(&tb);
+    int tail = force_update_node_parallel(&tb, 0);
     force_set_next_node(tail, -1, &tb);
 /*     assert_true(tail < nodes); */
     end = MPI_Wtime();
@@ -396,8 +377,8 @@ void trivial_domain(DomainDecomp * ddecomp)
 static int setup_tree(void **state) {
     /*Set up the important parts of the All structure.*/
     /*Particles should not be outside this*/
-    int i;
     BoxSize = 8;
+    int i;
     for(i=0; i<6; i++)
         GravitySofteningTable[i] = 0.1 / 2.8;
 
