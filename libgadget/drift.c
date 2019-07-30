@@ -26,6 +26,7 @@ void drift_particle(int i, inttime_t ti1, struct SpinLocks * spin) {
     if(ti0 != ti1) {
         const double ddrift = get_drift_factor(ti0, ti1);
         real_drift_particle(i, ti1, ddrift);
+#pragma omp flush
     }
     unlock_spinlock(i, spin);
 }

@@ -73,11 +73,12 @@ platform-options directory. For example, for Stampede 2 you should do:
 
     cp platform-options/Options.mk.stampede2 Options.mk
 
-Compile-time options may be set in Options.mk. The remaining compile time options are only useful for development or debugging. All science options are set using a parameter file at runtime.
+Compile-time options may be set in Options.mk. The remaining compile time options are generally only useful for development or debugging. All science options are set using a parameter file at runtime.
 
 - DEBUG which enables various internal code consistency checks for debugging.
 - VALGRIND which if set disables the internal memory allocator and allocates memory from the system. This is required for debugging memory allocation errors with valgrind of the address sanitizer.
 - NO_ISEND_IRECV_IN_DOMAIN disables the use of asynchronous send and receive in our custom MPI_Alltoallv implementation, for buggy MPI libraries.
+- NO_OPENMP_SPINLOCK disables the use of OpenMP spinlocks and thus effectively disables threading. Necessary for platforms which do not provide an OpenMP header, such as Mac.
 
 If compilation fails with errors related to the GSL, you may also need to set the GSL_INC or GSL_LIB variables in Options.mk to the filesystem path containing the GSL headers and libraries.
 
