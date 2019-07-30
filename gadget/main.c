@@ -63,7 +63,12 @@ int main(int argc, char **argv)
 
     message(0, "This is MP-Gadget, version %s.\n", GADGET_VERSION);
     message(0, "Running on %d MPI Ranks.\n", NTask);
+#ifdef NO_OPENMP_SPINLOCK
+    message(0,"Code compiled with NO_OPENMP_SPINLOCK (no locks), so no OpenMP threads.\n");
+    omp_set_num_threads(1);
+#else
     message(0, "           %d OpenMP Threads.\n", omp_get_max_threads());
+#endif
     message(0, "Code was compiled with settings:\n"
            "%s\n", GADGET_COMPILER_SETTINGS);
     message(0, "Size of particle structure       %td  [bytes]\n",sizeof(struct particle_data));
