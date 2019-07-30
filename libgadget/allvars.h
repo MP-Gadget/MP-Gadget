@@ -23,7 +23,6 @@
 #define BREAKPOINT raise(SIGTRAP)
 #ifdef _OPENMP
 #include <omp.h>
-#include <pthread.h>
 #else
 #ifndef __clang_analyzer__
 #error no OMP

@@ -472,9 +472,6 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         else
             endrun(2, "Tried to convert already converted node %d with nocc = %d\n", this, nocc);
 
-        /* Add an explicit flush because we are not using openmp's critical sections */
-        #pragma omp flush
-
         /*Unlock the parent*/
         unlock_spinlock(this - tb.firstnode, spin);
     }
