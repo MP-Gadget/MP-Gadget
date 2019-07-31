@@ -425,7 +425,8 @@ pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int setUnitaryAmp
     unsigned int * seedtable[2][2];
     for(i = 0; i < 2; i ++)
     for(j = 0; j < 2; j ++) {
-            seedtable[i][j] = calloc(pm->ORegion.size[0] * pm->ORegion.size[1], sizeof(int));
+            seedtable[i][j] = mymalloc("seedtable", pm->ORegion.size[0] * pm->ORegion.size[1] * sizeof(int));
+            memset(seedtable[i][j], 0, pm->ORegion.size[0] * pm->ORegion.size[1] * sizeof(int));
     }
 
     for(i = 0; i < pm->Nmesh[0] / 2; i++) {
@@ -537,9 +538,9 @@ pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int setUnitaryAmp
         gsl_rng_free(lower_rng);
         gsl_rng_free(this_rng);
     }
-    for(i = 0; i < 2; i ++)
-    for(j = 0; j < 2; j ++) {
-        free(seedtable[i][j]);
+    for(i = 1; i >= 0; i --)
+    for(j = 1; j >= 0; j --) {
+        myfree(seedtable[i][j]);
     }
 /*
     char * fn[1000];
