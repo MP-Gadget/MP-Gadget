@@ -4,6 +4,7 @@
 
 #include "paramset.h"
 #include "string.h"
+#include "mymalloc.h"
 
 #define INT 1
 #define DOUBLE 3
@@ -17,7 +18,7 @@ static int parse_enum(ParameterEnum * table, const char * strchoices) {
     char * delim = ",;&| \t";
     char * token;
 
-    char * strchoices2 = strdup(strchoices);
+    char * strchoices2 = fastpm_strdup(strchoices);
     for(token = strtok(strchoices2, delim); token ; token = strtok(NULL, delim)) {
         for(p = table; p->name; p++) {
             if(strcasecmp(token, p->name) == 0) {
@@ -27,7 +28,7 @@ static int parse_enum(ParameterEnum * table, const char * strchoices) {
         }
         if(p->name == NULL) {
             /* error occured !*/
-            free(strchoices2);
+            myfree(strchoices2);
             return 0;
         }
     }
@@ -35,7 +36,7 @@ static int parse_enum(ParameterEnum * table, const char * strchoices) {
         /* none is specified, use default (NULL named entry) */
         value = p->value;
     }
-    free(strchoices2);
+    myfree(strchoices2);
     return value;
 }
 static char * format_enum(ParameterEnum * table, int value) {
@@ -171,8 +172,8 @@ int param_validate(ParameterSet * ps, char **error)
         if(p->required == REQUIRED && ps->value[p->index].nil) {
             char * error1 = fastpm_strdup_printf("Parameter `%s` is required, but not set.", p->name);
             char * tmp = fastpm_strappend(*error, "\n", error1);
-            free(error1);
-            if(*error) free(*error);
+            myfree(error1);
+            if(*error) myfree(*error);
             *error = tmp;
             flag = 1;
         }
@@ -191,7 +192,7 @@ void param_dump(ParameterSet * ps, FILE * stream)
         } else {
             fprintf(stream, "%-31s %-20s # Default  # %s \n", p->name, v, p->help);
         }
-        free(v);
+        myfree(v);
     }
     fflush(stream);
 }
@@ -214,8 +215,8 @@ int param_parse (ParameterSet * ps, char * content, char **error)
             int flag1 = param_emit(ps, p1, p - p1, lineno, &error1);
             if(flag1 != 0) {
                 char * tmp = fastpm_strappend(*error, "\n", error1);
-                free(error1);
-                if(*error) free(*error);
+                myfree(error1);
+                if(*error) myfree(*error);
                 *error = tmp;
             }
             flag |= flag1;
@@ -238,7 +239,7 @@ int param_parse_file (ParameterSet * ps, const char * filename, char ** error)
         return -1;
     }
     int val = param_parse(ps, content, error);
-    free(content);
+    myfree(content);
     return val;
 }
 
@@ -457,7 +458,7 @@ param_set_from_string(ParameterSet * ps, char * name, char * value, int lineno)
         {
             char * v = fastpm_strdup(value);
             ps->value[p->index].i = parse_enum(p->enumtable, v);
-            free(v);
+            myfree(v);
             ps->value[p->index].nil = 0;
         }
         break;
@@ -467,7 +468,7 @@ param_set_from_string(ParameterSet * ps, char * name, char * value, int lineno)
 ParameterSet *
 parameter_set_new()
 {
-    ParameterSet * ps = malloc(sizeof(ParameterSet));
+    ParameterSet * ps = ta_malloc("paramset", ParameterSet, 1);
     ps->size = 0;
     return ps;
 }
@@ -477,7 +478,7 @@ parameter_set_free(ParameterSet * ps) {
     int i;
     for(i = 0; i < ps->size; i ++) {
         if(ps->p[i].help) {
-            free(ps->p[i].help);
+            myfree(ps->p[i].help);
         }
         if(ps->p[i].type == STRING) {
             if(ps->p[i].defvalue.s) {
@@ -491,6 +492,6 @@ parameter_set_free(ParameterSet * ps) {
             }
         }
     }
-    free(ps);
+    myfree(ps);
 }
 

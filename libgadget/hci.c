@@ -28,7 +28,7 @@ hci_now(HCIManager * manager)
 void
 hci_init(HCIManager * manager, char * prefix, double WallClockTimeLimit, double AutoCheckPointTime)
 {
-    manager->prefix = strdup(prefix);
+    manager->prefix = fastpm_strdup(prefix);
     manager->timer_begin = hci_now(manager);
     manager->timer_query_begin = manager->timer_begin;
 
@@ -93,13 +93,13 @@ hci_query_filesystem(HCIManager * manager, char * filename, char ** request)
         } else {
             size = -1;
         }
-        free(fullname);
+        myfree(fullname);
     }
     MPI_Bcast(&size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     if(size != -1) {
         if(ThisTask != 0) {
-            content = calloc(size + 1, 1);
+            content = ta_malloc("hcicontent", char, size + 1);
         }
         MPI_Bcast(content, size+1, MPI_BYTE, 0, MPI_COMM_WORLD);
     } else {
@@ -168,7 +168,6 @@ hci_query(HCIManager * manager, HCIAction * action)
         message(0, "HCI: Stopping due to TimeLimitCPU, dumping a CheckPoint.\n");
         action->type = HCI_TIMEOUT;
         action->write_snapshot = 1;
-        free(request);
         return 1;
     }
 
@@ -180,7 +179,7 @@ hci_query(HCIManager * manager, HCIAction * action)
          * see the comment about update_IO_params
          * */
         message(0, "HCI: updating io parameters, this is not supported yet.\n");
-        free(request);
+        myfree(request);
         return 0;
     }
 
@@ -190,7 +189,7 @@ hci_query(HCIManager * manager, HCIAction * action)
         action->type = HCI_CHECKPOINT;
         /* will write checkpoint in this PM timestep */
         action->write_snapshot = 1;
-        free(request);
+        myfree(request);
         manager->TimeLastCheckPoint = hci_now(manager);
         return 0;
     }
@@ -201,7 +200,7 @@ hci_query(HCIManager * manager, HCIAction * action)
         /* will write checkpoint in this PM timestep, then stop */
         action->type = HCI_STOP;
         action->write_snapshot = 1;
-        free(request);
+        myfree(request);
         return 1;
     }
 
@@ -213,7 +212,7 @@ hci_query(HCIManager * manager, HCIAction * action)
          * This action is better than KILL as it avoids corrupt/incomplete snapshot files.*/
         action->type = HCI_TERMINATE;
         action->write_snapshot = 0;
-        free(request);
+        myfree(request);
         return 1;
     }
 
@@ -225,7 +224,6 @@ hci_query(HCIManager * manager, HCIAction * action)
         /* Write when the PM timestep completes*/
         action->write_snapshot = 1;
         manager->TimeLastCheckPoint = hci_now(manager);
-        free(request);
         return 0;
     }
 
@@ -256,7 +254,7 @@ update_IO_params(const char * ioctlfname)
             sscanf(line, "BytesPerFile %lu", &All.IO.BytesPerFile);
             sscanf(line, "NumWriters %d", &All.IO.NumWriters);
         }
-        free(line);
+        myfree(line);
         fclose(fd);
     }
 

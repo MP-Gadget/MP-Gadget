@@ -59,7 +59,7 @@ static int
 OutputListAction(ParameterSet * ps, char * name, void * data)
 {
     char * outputlist = param_get_string(ps, name);
-    char * strtmp=strdup(outputlist);
+    char * strtmp=fastpm_strdup(outputlist);
     char * token;
     int count;
 
@@ -94,7 +94,7 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
         All.OutputListTimes[count] = a;
 /*         message(1, "Output at: %g\n", All.OutputListTimes[count]); */
     }
-    free(strtmp);
+    myfree(strtmp);
     qsort(All.OutputListTimes, All.OutputListLength, sizeof(double), cmp_double);
     return 0;
 }

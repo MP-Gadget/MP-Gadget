@@ -71,7 +71,7 @@ setup_glass(double shift, int Ngrid, int seed, double mass, int NumPart, struct 
 
     char * fn = fastpm_strdup_printf("powerspectrum-glass-%08X", seed);
     glass_evolve(14, fn, ICP, NumPart);
-    free(fn);
+    myfree(fn);
 
     return NumPart;
 }

@@ -329,7 +329,7 @@ petaio_read_header(int num)
         endrun(0, "Failed to close snapshot at %s:%s\n", fname,
                     big_file_get_error_message());
     }
-    free(fname);
+    myfree(fname);
 }
 
 void
@@ -371,7 +371,7 @@ petaio_read_snapshot(int num, MPI_Comm Comm)
          * */
         petaio_read_internal(fname, 0, Comm);
     }
-    free(fname);
+    myfree(fname);
 }
 
 
