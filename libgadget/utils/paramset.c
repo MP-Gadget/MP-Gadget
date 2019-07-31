@@ -475,14 +475,17 @@ parameter_set_new()
 
 void
 parameter_set_free(ParameterSet * ps) {
-    int i;
-    for(i = 0; i < ps->size; i ++) {
+    /* Just reset the temp heap,
+     * since that is where the paramset is allocated*/
+    ta_reset();
+    /*    int i;
+     for(i = 0; i < ps->size; i ++) {
         if(ps->p[i].help) {
             myfree(ps->p[i].help);
         }
         if(ps->p[i].type == STRING) {
             if(ps->p[i].defvalue.s) {
-/* FIXME: memory corruption */
+                // FIXME: memory corruption
 //                free(ps->p[i].defvalue.s);
             }
             if(ps->value[ps->p[i].index].s != ps->p[i].defvalue.s) {
@@ -493,5 +496,6 @@ parameter_set_free(ParameterSet * ps) {
         }
     }
     myfree(ps);
+    */
 }
 
