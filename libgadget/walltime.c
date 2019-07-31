@@ -27,10 +27,10 @@ void walltime_init(struct ClockTable * ct) {
 }
 
 static void walltime_summary_clocks(struct Clock * C, int N, int root, MPI_Comm comm) {
-    double t[N];
-    double min[N];
-    double max[N];
-    double sum[N];
+    double * t = ta_malloc("clocks",double, 4 * N);
+    double * min = t + N;
+    double * max = t + 2 * N;
+    double * sum = t + 3 * N;
     int i;
     for(i = 0; i < CT->N; i ++) {
         t[i] = C[i].time;
@@ -47,6 +47,7 @@ static void walltime_summary_clocks(struct Clock * C, int N, int root, MPI_Comm 
         C[i].max = max[i];
         C[i].mean = sum[i] / NTask;
     }
+    ta_free(t);
 }
 
 /* put min max mean of MPI ranks to rank 0*/
