@@ -702,11 +702,15 @@ void io_register_io_block(char * name,
         property_setter setter,
         int required
         ) {
+    if (IOTable.used == IOTable.allocated) {
+        IOTable.ent = myrealloc(IOTable.ent, 2*IOTable.allocated*sizeof(IOTableEntry));
+        IOTable.allocated *= 2;
+    }
     IOTableEntry * ent = &IOTable.ent[IOTable.used];
-    strcpy(ent->name, name);
+    strncpy(ent->name, name, 64);
     ent->zorder = IOTable.used;
     ent->ptype = ptype;
-    strcpy(ent->dtype, dtype);
+    strncpy(ent->dtype, dtype, 8);
     ent->getter = getter;
     ent->setter = setter;
     ent->items = items;
@@ -801,7 +805,9 @@ static int order_by_type(const void *a, const void *b)
 
 static void register_io_blocks() {
     int i;
-    memset(&IOTable, 0, sizeof(IOTable));
+    IOTable.used = 0;
+    IOTable.allocated = 100;
+    IOTable.ent = mymalloc("IOTable", IOTable.allocated* sizeof(IOTableEntry));
     /* Bare Bone Gravity*/
     for(i = 0; i < 6; i ++) {
         IO_REG(Position, "f8", 3, i);

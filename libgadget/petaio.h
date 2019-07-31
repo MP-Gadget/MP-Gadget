@@ -109,8 +109,9 @@ static void name(int i, type * out) { \
  * currently 4096 entries are supported
  * */
 extern struct IOTable {
-    IOTableEntry ent[4096];
+    IOTableEntry * ent;
     int used;
+    int allocated;
 } IOTable;
 
 #endif
