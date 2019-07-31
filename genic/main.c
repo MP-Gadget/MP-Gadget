@@ -26,7 +26,8 @@ int main(int argc, char **argv)
   if(argc < 2)
     endrun(0,"Please pass a parameter file.\n");
 
-  /* fixme: make this a mpi bcast */
+  tamalloc_init();
+
   read_parameterfile(argv[1]);
 
   mymalloc_init(All.MaxMemSizePerNode);

@@ -25,15 +25,34 @@ Allocator A_TEMP[1];
 #endif
 
 void
+tamalloc_init(void)
+{
+    int Nt = omp_get_max_threads();
+    int NTask;
+    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+
+    /* reserve 128 bytes per task and 128 bytes per thread for TEMP storage.*/
+    size_t n = 4096 * 1024 + 128 * NTask + 128 * Nt * NTask;
+
+    message(0, "Reserving %td bytes per rank for TEMP memory allocator. \n", n);
+
+    if (MPIU_Any(ALLOC_ENOMEMORY == allocator_init(A_TEMP, "TEMP", n, 1, NULL), MPI_COMM_WORLD)) {
+        endrun(0, "Insufficient memory for the TEMP allocator on at least one nodes."
+                  "Requestion %td bytes. Try reducing MaxMemSizePerNode. Also check the node health status.\n", n);
+
+    }
+}
+
+void
 mymalloc_init(double MaxMemSizePerNode)
 {
     int Nhost = cluster_get_num_hosts();
-    int Nt = omp_get_max_threads();
 
     MPI_Comm comm = MPI_COMM_WORLD;
 
-    int NTask;
     int ThisTask;
+    int NTask;
+
     MPI_Comm_size(comm, &NTask);
     MPI_Comm_rank(comm, &ThisTask);
 
@@ -46,17 +65,6 @@ mymalloc_init(double MaxMemSizePerNode)
     if (MPIU_Any(ALLOC_ENOMEMORY == allocator_init(A_MAIN, "MAIN", n, 1, NULL), MPI_COMM_WORLD)) {
         endrun(0, "Insufficient memory for the MAIN allocator on at least one nodes."
                   "Requestion %td bytes. Try reducing MaxMemSizePerNode. Also check the node health status.\n", n);
-    }
-
-    /* reserve 128 bytes per task and 128 bytes per thread for TEMP storage.*/
-    n = 4096 * 1024 + 128 * NTask + 128 * Nt * NTask;
-
-    message(0, "Reserving %td bytes per rank for TEMP memory allocator. \n", n);
-
-    if (MPIU_Any(ALLOC_ENOMEMORY == allocator_init(A_TEMP, "TEMP", n, 1, A_MAIN), MPI_COMM_WORLD)) {
-        endrun(0, "Insufficient memory for the TEMP allocator on at least one nodes."
-                  "Requestion %td bytes. Try reducing MaxMemSizePerNode. Also check the node health status.\n", n);
-
     }
 }
 
