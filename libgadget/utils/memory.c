@@ -21,7 +21,7 @@ struct BlockHeader {
 } ;
 
 int
-allocator_init(Allocator * alloc, char * name, size_t request_size, int zero, Allocator * parent)
+allocator_init(Allocator * alloc, const char * name, size_t request_size, int zero, Allocator * parent)
 {
     size_t size = (request_size / ALIGNMENT + 1) * ALIGNMENT;
 
@@ -46,7 +46,7 @@ allocator_init(Allocator * alloc, char * name, size_t request_size, int zero, Al
 }
 
 int
-allocator_malloc_init(Allocator * alloc, char * name, size_t request_size, int zero, Allocator * parent)
+allocator_malloc_init(Allocator * alloc, const char * name, size_t request_size, int zero, Allocator * parent)
 {
     /* max support 4096 blocks; ignore request_size */
     size_t size = ALIGNMENT * 4096;
@@ -85,7 +85,7 @@ allocator_reset(Allocator * alloc, int zero)
 }
 
 static void *
-allocator_alloc_va(Allocator * alloc, char * name, size_t request_size, int dir, char * fmt, va_list va)
+allocator_alloc_va(Allocator * alloc, const char * name, size_t request_size, int dir, char * fmt, va_list va)
 {
     size_t size = request_size;
 
@@ -144,7 +144,7 @@ allocator_alloc_va(Allocator * alloc, char * name, size_t request_size, int dir,
     return (void*) (cptr);
 }
 void *
-allocator_alloc(Allocator * alloc, char * name, size_t request_size, int dir, char * fmt, ...)
+allocator_alloc(Allocator * alloc, const char * name, size_t request_size, int dir, char * fmt, ...)
 {
     va_list va;
     va_start(va, fmt);

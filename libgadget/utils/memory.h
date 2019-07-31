@@ -45,21 +45,21 @@ struct AllocatorIter {
 };
 
 int
-allocator_init(Allocator * alloc, char * name, size_t size, int zero, Allocator * parent);
+allocator_init(Allocator * alloc, const char * name, size_t size, int zero, Allocator * parent);
 
 int
 allocator_malloc_init(Allocator * alloc,
-        char * name, size_t size, int zero, Allocator * parent
+        const char * name, size_t size, int zero, Allocator * parent
         );
 
 int
-allocator_split(Allocator * alloc, Allocator * parent, char * name, size_t request_size, int zero);
+allocator_split(Allocator * alloc, Allocator * parent, const char * name, size_t request_size, int zero);
 
 int
 allocator_destroy(Allocator * alloc);
 
 void *
-allocator_alloc(Allocator * alloc, char * name, size_t size, int dir, char * fmt, ...);
+allocator_alloc(Allocator * alloc, const char * name, size_t size, int dir, char * fmt, ...);
 
 void *
 allocator_realloc_int(Allocator * alloc, void * ptr, size_t size, char * fmt, ...);
