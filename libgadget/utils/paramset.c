@@ -111,12 +111,12 @@ param_set_from_string(ParameterSet * ps, char * name, char * value, int lineno);
 static int param_emit(ParameterSet * ps, char * start, int size, int lineno, char **error)
 {
     /* parse a line */
-    char * buf = alloca(size + 1);
+    if (size == 0) return 0;
+    char * buf = ta_malloc2("line", char, size + 1);
     static char blanks[] = " \t\r\n=";
     static char comments[] =  "%#";
     strncpy(buf, start, size);
     buf[size] = 0;
-    if (size == 0) return 0;
 
     /* blank lines are OK */
     char * name = NULL;
@@ -127,6 +127,7 @@ static int param_emit(ParameterSet * ps, char * start, int size, int lineno, cha
     while(*ptr && strchr(blanks, *ptr)) ptr++;
     if (*ptr == 0 || strchr(comments, *ptr)) {
         /* This line is fully comment */
+        myfree(buf);
         return 0;
     }
     name = ptr;
@@ -141,6 +142,7 @@ static int param_emit(ParameterSet * ps, char * start, int size, int lineno, cha
         /* This line is malformed, must have a value! */
         strncpy(buf, start, size);
         *error = fastpm_strdup_printf("Line %d : `%s` is malformed.", lineno, buf);
+        myfree(buf);
         return 1;
     }
     value = ptr;
@@ -152,17 +154,18 @@ static int param_emit(ParameterSet * ps, char * start, int size, int lineno, cha
     ParameterSchema * p = param_get_schema(ps, name);
     if(!p) {
         *error = fastpm_strdup_printf("Line %d: Parameter `%s` is unknown.", lineno, name);
+        myfree(buf);
         return 1;
     }
     param_set_from_string(ps, name, value, lineno);
     if(p->action) {
         if(0 != p->action(ps, name, p->action_data)) {
             *error = fastpm_strdup_printf("Triggering Action on `%s` failed.", name);
+            myfree(buf);
             return 1;
-        } else {
-            return 0;
         }
     }
+    myfree(buf);
     return 0;
 }
 int param_validate(ParameterSet * ps, char **error)
