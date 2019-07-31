@@ -42,7 +42,7 @@ char *
 param_get_string(ParameterSet * ps, char * name);
 
 void
-param_get_string2(ParameterSet * ps, char * name, char * dest);
+param_get_string2(ParameterSet * ps, char * name, char * dest, size_t len);
 int
 param_get_int(ParameterSet * ps, char * name);
 

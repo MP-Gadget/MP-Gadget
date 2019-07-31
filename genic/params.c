@@ -156,8 +156,8 @@ void read_parameterfile(char *fname)
     All2.Max_nuvel = param_get_double(ps, "Max_nuvel") * pow(1+Redshift, 1.5) * (All.UnitVelocity_in_cm_per_s/1e5);
     All2.Seed = param_get_int(ps, "Seed");
     All2.UnitaryAmplitude = param_get_int(ps, "UnitaryAmplitude");
-    param_get_string2(ps, "OutputDir", All.OutputDir);
-    param_get_string2(ps, "FileBase", All.InitCondFile);
+    param_get_string2(ps, "OutputDir", All.OutputDir, sizeof(All.OutputDir));
+    param_get_string2(ps, "FileBase", All.InitCondFile, sizeof(All.InitCondFile));
     All2.MakeGlassGas = param_get_int(ps, "MakeGlassGas");
     /* We want to use a baryon glass by default if we have different transfer functions,
      * since that is the way we reproduce the linear growth. Otherwise use a grid by default.*/

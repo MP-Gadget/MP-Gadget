@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "paramset.h"
 #include "string.h"
@@ -40,6 +41,7 @@ static int parse_enum(ParameterEnum * table, const char * strchoices) {
     return value;
 }
 static char * format_enum(ParameterEnum * table, int value) {
+    int bleft = 2048;
     char buffer[2048];
     ParameterEnum * p;
     char * c = buffer;
@@ -52,11 +54,13 @@ static char * format_enum(ParameterEnum * table, int value) {
                 *(c++) = ' ';
             }
             first = 0;
-            strcpy(c, p->name);
-            c += strlen(p->name);
-            *c = 0;
-            if (c - buffer >= 2048-1)
+            strncpy(c, p->name, bleft);
+            bleft-= strlen(p->name);
+            if (bleft <= 0) {
+                *(c+bleft-1) = '\0';
                 break;
+            }
+            c += strlen(p->name);
         }
     }
     return fastpm_strdup(buffer);
@@ -352,13 +356,14 @@ param_get_string(ParameterSet * ps, char * name)
     return ps->value[p->index].s;
 }
 void
-param_get_string2(ParameterSet * ps, char * name, char * dst)
+param_get_string2(ParameterSet * ps, char * name, char * dst, size_t len)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     if (param_is_nil(ps, name)) {
         printf("Accessing an undefined parameter `%s`.\n", p->name);
     }
-    strcpy(dst, ps->value[p->index].s);
+    strncpy(dst, ps->value[p->index].s, len);
+    dst[len-1]='\0';
 }
 
 int
