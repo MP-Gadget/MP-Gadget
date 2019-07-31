@@ -33,6 +33,7 @@ fastpm_strdup(const char * str)
     size_t N = strlen(str);
     char * d = ta_malloc("strdup", char, N + 1);
     strcpy(d, str);
+    d[N] = '\0';
     return d;
 }
 
@@ -76,8 +77,9 @@ void
 fastpm_path_ensure_dirname(const char * path)
 {
     int i = strlen(path);
-    char * dup = alloca(strlen(path) + 1);
+    char * dup = ta_malloc("dirname", char, strlen(path) + 1);
     strcpy(dup, path);
+    dup[strlen(path)]='\0';
     char * p;
     for(p = i + dup; p >= dup && *p != '/'; p --) {
         continue;
@@ -88,13 +90,15 @@ fastpm_path_ensure_dirname(const char * path)
     /* p == '/', so set it to NULL, dup is the dirname */
     *p = 0;
     _mkdir(dup);
+    myfree(dup);
 }
 
 static void
 _mkdir(const char *dir)
 {
-    char * tmp = alloca(strlen(dir) + 1);
+    char * tmp= ta_malloc("dirname", char, strlen(dir) + 1);
     strcpy(tmp, dir);
+    tmp[strlen(dir)]='\0';
     char *p = NULL;
     size_t len;
 
@@ -108,6 +112,7 @@ _mkdir(const char *dir)
                     *p = '/';
             }
     mkdir(tmp, S_IRWXU | S_IRWXG | S_IRWXO);
+    myfree(tmp);
 }
 
 
