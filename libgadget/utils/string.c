@@ -19,7 +19,7 @@ fastpm_file_get_content(const char * filename)
     fseek(fp, 0, SEEK_END);
     size_t file_length = ftell(fp);
 
-    char * buf = ta_malloc(filename, char, file_length + 1);
+    char * buf = ta_malloc2(filename, char, file_length + 1);
     fseek(fp, 0, SEEK_SET);
     file_length = fread(buf, 1, file_length, fp);
     fclose(fp);
