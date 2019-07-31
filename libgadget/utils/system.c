@@ -478,9 +478,8 @@ cluster_get_hostid()
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     MPI_Allreduce(&l, &ml, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 
-    /* Avoid ta_malloc since this can be called very early. */
-    buffer = malloc(ml * NTask);
-    nid = malloc(sizeof(int) * NTask);
+    buffer = ta_malloc("buffer", char, ml * NTask);
+    nid = ta_malloc("nid", int, NTask);
     MPI_Allgather(hostname, ml, MPI_BYTE, buffer, ml, MPI_BYTE, MPI_COMM_WORLD);
 
     typedef int(*compar_fn)(const void *, const void *);
@@ -500,8 +499,8 @@ cluster_get_hostid()
         }
     }
     int rt = nid[i];
-    free(buffer);
-    free(nid);
+    ta_free(nid);
+    ta_free(buffer);
     MPI_Barrier(MPI_COMM_WORLD);
     return rt;
 }

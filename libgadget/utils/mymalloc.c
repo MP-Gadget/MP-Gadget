@@ -46,6 +46,7 @@ tamalloc_init(void)
 void
 mymalloc_init(double MaxMemSizePerNode)
 {
+    /* Warning: this uses ta_malloc*/
     int Nhost = cluster_get_num_hosts();
 
     MPI_Comm comm = MPI_COMM_WORLD;
