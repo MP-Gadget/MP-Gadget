@@ -1,6 +1,6 @@
 
 // # x(in mesh units) w_pot_1d(x)  w_force_1d(x) [erfc + other terms] w_pot_erf(x) w_force_erf(x) split=1.25
-const double shortrange_force_kernels[][5] = {
+static const double shortrange_force_kernels[][5] = {
 
 { 0.000000000000000e+00,1.000000000000000e+00,1.000000000000000e+00,1.000000000000000e+00,1.000000000000000e+00},
 { 2.446183953033465e-02,9.837775293677729e-01,9.999988674537058e-01,9.891582005837505e-01,9.999992953293793e-01},
@@ -516,5 +516,3 @@ const double shortrange_force_kernels[][5] = {
 { 1.250000000000001e+01,-1.383016973759626e-05,2.340030985340197e-05,1.651830916933130e-12,7.989179167688540e-11},
 
     };
-
-    
