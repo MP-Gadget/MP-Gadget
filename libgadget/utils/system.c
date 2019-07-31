@@ -608,33 +608,29 @@ MPIU_write_pids(char * filename)
     int ThisTask;
     MPI_Comm_size(comm, &NTask);
     MPI_Comm_rank(comm, &ThisTask);
-    pid_t my_pid;
-    char mode[8], buf[500];
-    FILE *fd;
-    int i;
 
-    my_pid = getpid();
+    int my_pid = getpid();
+    int * pids = ta_malloc("pids", int, NTask);
+    char * hosts = ta_malloc("hosts", char, NTask * 32);
+    char host[32]={"NULL"};
+    char * genv = getenv("HOST");
+    if(genv)
+        strncpy(host, genv, sizeof(host)-1);
+    MPI_Gather(&my_pid, 1, MPI_INT, pids, 1, MPI_INT, 0, comm);
+    MPI_Gather(host, 32, MPI_CHAR, hosts, 32, MPI_CHAR, 0, comm);
 
-    strcpy(mode, "a+");
-
-    for(i = 0; i < NTask; i++)
+    if(ThisTask == 0)
     {
-        if(ThisTask == i)
-        {
-            if(ThisTask == 0)
-                sprintf(mode, "w");
-            else
-                sprintf(mode, "a");
-
-            if((fd = fopen(buf, mode)))
-            {
-                fprintf(fd, "%s %d\n", getenv("HOST"), (int) my_pid);
-                fclose(fd);
-            }
-        }
-
-        MPI_Barrier(MPI_COMM_WORLD);
+        int i;
+        FILE *fd = fopen(filename, "w");
+        if(!fd)
+            endrun(5, "Could not open pidfile %s\n", filename);
+        for(i = 0; i < NTask; i++)
+            fprintf(fd, "host: %s pid: %d\n", hosts+i*32, pids[i]);
+        fclose(fd);
     }
+    myfree(hosts);
+    myfree(pids);
 }
 
 size_t gadget_compact_thread_arrays(int * dest, int * srcs[], size_t sizes[], int narrays)
