@@ -8,6 +8,7 @@
 
 #include <omp.h>
 #include "mymalloc.h"
+#include "string.h"
 #include "memory.h"
 #include "system.h"
 #include "endrun.h"
@@ -92,11 +93,11 @@ void report_detailed_memory_usage(const char *label, const char * fmt, ...)
     highest_memory_usage = allocator_get_used_size(A_MAIN, ALLOC_DIR_BOTH);
 
     va_list va;
-    char buf[4096];
     va_start(va, fmt);
-    vsprintf(buf, fmt, va);
+    char * buf = fastpm_strdup_vprintf(fmt, va);
     va_end(va);
 
     message(1, "Peak Memory usage induced by %s\n", buf);
+    myfree(buf);
     allocator_print(A_MAIN);
 }

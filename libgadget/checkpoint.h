@@ -5,6 +5,6 @@
 
 void write_checkpoint(int WriteSnapshot, int WriteFOF, ForceTree * tree);
 void dump_snapshot(void);
-int find_last_snapnum();
+int find_last_snapnum(void);
 
 #endif

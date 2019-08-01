@@ -18,6 +18,7 @@
 
 #include "utils/endrun.h"
 #include "utils/mymalloc.h"
+#include "utils/string.h"
 #include "petaio.h"
 #include "cosmology.h"
 #include "powerspectrum.h"
@@ -204,9 +205,8 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
 void powerspectrum_nu_save(struct _powerspectrum * PowerSpectrum, const char * OutputDir, const char * filename, const double Time)
 {
     int i;
-    char fname[1024];
+    char * fname = fastpm_strdup_printf("%s/%s-%0.4f.txt", OutputDir, filename, Time);
     /* Now save the neutrino power spectrum*/
-    snprintf(fname, 1024,"%s/%s-%0.4f.txt", OutputDir, filename, Time);
     FILE * fp = fopen(fname, "w");
     fprintf(fp, "# in Mpc/h Units \n");
     fprintf(fp, "# k P_nu(k) Nmodes\n");
@@ -216,6 +216,7 @@ void powerspectrum_nu_save(struct _powerspectrum * PowerSpectrum, const char * O
         fprintf(fp, "%g %g %ld\n", PowerSpectrum->kk[i], pow(delta_tot_table.delta_nu_last[i],2), PowerSpectrum->Nmodes[i]);
     }
     fclose(fp);
+    myfree(fname);
     /*Clean up the neutrino memory now we saved the power spectrum.*/
     gsl_interp_free(PowerSpectrum->nu_spline);
     gsl_interp_accel_free(PowerSpectrum->nu_acc);
