@@ -90,8 +90,7 @@ void powerspectrum_sum(struct _powerspectrum * PowerSpectrum, const double BoxSi
 void powerspectrum_save(struct _powerspectrum * PowerSpectrum, const char * OutputDir, const char * filename, const double Time, const double D1)
 {
         int i;
-        char fname[1024];
-        sprintf(fname, "%s/%s-%0.4f.txt", OutputDir, filename, Time);
+        char * fname = fastpm_strdup_printf("%s/%s-%0.4f.txt", OutputDir, filename, Time);
         message(1, "Writing Power Spectrum to %s\n", fname);
         FILE * fp = fopen(fname, "w");
         if(!fp)
@@ -106,4 +105,5 @@ void powerspectrum_save(struct _powerspectrum * PowerSpectrum, const char * Outp
             }
             fclose(fp);
         }
+        myfree(fname);
 }
