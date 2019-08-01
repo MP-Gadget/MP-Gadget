@@ -41,8 +41,9 @@ static int parse_enum(ParameterEnum * table, const char * strchoices) {
     return value;
 }
 static char * format_enum(ParameterEnum * table, int value) {
-    int bleft = 2048;
-    char buffer[2048];
+    int btotal = 200;
+    int bleft = btotal;
+    char * buffer = ta_malloc("formatbuffer", char, bleft);
     ParameterEnum * p;
     char * c = buffer;
     int first = 1;
@@ -54,16 +55,19 @@ static char * format_enum(ParameterEnum * table, int value) {
                 *(c++) = ' ';
             }
             first = 0;
-            strncpy(c, p->name, bleft);
             bleft-= strlen(p->name);
             if (bleft <= 0) {
-                *(c+bleft-1) = '\0';
+                int extra = (- bleft) + btotal;
+                buffer = myrealloc(buffer, btotal + extra);
+                btotal += extra;
+                bleft += extra;
                 break;
             }
+            strncpy(c, p->name, bleft);
             c += strlen(p->name);
         }
     }
-    return fastpm_strdup(buffer);
+    return buffer;
 }
 
 typedef struct ParameterValue {
