@@ -61,25 +61,13 @@ petaio_save_snapshot(const char *fmt, ...)
     va_list va;
     va_start(va, fmt);
 
-    char fname[4096];
-    vsprintf(fname, fmt, va);
+    char * fname = fastpm_strdup_vprintf(fmt, va);
     va_end(va);
     message(0, "saving snapshot into %s\n", fname);
 
     petaio_save_internal(fname);
+    myfree(fname);
 }
-
-/* this is unused.
-void petaio_save_restart() {
-    char fname[4096];
-    sprintf(fname, "%s/RESTART", All.OutputDir);
-    if(ThisTask == 0) {
-        printf("saving restart into %s\n", fname);
-        fflush(stdout);
-    }
-    petaio_save_internal(fname);
-}
-*/
 
 /* Build a list of the first particle of each type on the current processor.
  * This assumes that all particles are sorted!*/
