@@ -7,7 +7,7 @@
 #include "utils.h"
 
 /*! table with desired sync points. All forces and phase space variables are synchonized to the same order. */
-static SyncPoint SyncPoints[8192];
+static SyncPoint * SyncPoints;
 static int NSyncPoints;    /* number of times stored in table of desired sync points */
 
 /* This function compiles
@@ -27,7 +27,10 @@ setup_sync_points(double TimeIC, double no_snapshot_until_time)
 {
     int i;
 
-    memset(&SyncPoints[0], -1, sizeof(SyncPoints[0]) * 8192);
+    if(NSyncPoints > 0)
+        myfree(SyncPoints);
+    SyncPoints = mymalloc("SyncPoints", sizeof(SyncPoints) * (All.OutputListLength+2));
+    memset(&SyncPoints[0], -1, sizeof(SyncPoints[0]) * All.OutputListLength);
 
     /* Set up first and last entry to SyncPoints; TODO we can insert many more! */
 
