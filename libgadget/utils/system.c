@@ -458,65 +458,41 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
     return 0;
 }
 
+/* return the number of hosts */
 int
-cluster_get_hostid()
+cluster_get_num_hosts(void)
 {
     /* Find a unique hostid for the computing rank. */
-    char hostname[1024];
-    int i;
-    gethostname(hostname, 1024);
-
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    int l = strlen(hostname) + 4;
-    int ml = 0;
     int NTask;
     int ThisTask;
-    char * buffer;
-    int * nid;
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-    MPI_Allreduce(&l, &ml, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 
-    buffer = ta_malloc("buffer", char, ml * NTask);
-    nid = ta_malloc("nid", int, NTask);
-    MPI_Allgather(hostname, ml, MPI_BYTE, buffer, ml, MPI_BYTE, MPI_COMM_WORLD);
+    /* Size is set by the minimal size of the temp heap*/
+    const int bufsz = 256;
+    char * buffer = ta_malloc("buffer", char, bufsz * NTask);
 
-    typedef int(*compar_fn)(const void *, const void *);
-    qsort(buffer, NTask, ml, (compar_fn) strcmp);
+    int i, j;
+    gethostname(&buffer[bufsz*ThisTask], bufsz);
+    buffer[bufsz * ThisTask + bufsz - 1] = '\0';
+    MPI_Allgather(MPI_IN_PLACE, bufsz, MPI_CHAR, buffer, bufsz, MPI_CHAR, MPI_COMM_WORLD);
 
-    nid[0] = 0;
-    for(i = 1; i < NTask; i ++) {
-        if(strcmp(buffer + i * ml, buffer + (i - 1) *ml)) {
-            nid[i] = nid[i - 1] + 1;
-        } else {
-            nid[i] = nid[i - 1];
+    int nunique = 0;
+    /* Count unique entries*/
+    for(j = 0; j < NTask; j++) {
+        for(i = j+1; i < NTask; i++) {
+            if(strncmp(buffer + i * bufsz, buffer + j * bufsz, bufsz) == 0)
+                break;
         }
+        if(i == NTask)
+            nunique++;
     }
-    for(i = 0; i < NTask; i ++) {
-        if(!strcmp(hostname, buffer + i * ml)) {
-            break;
-        }
-    }
-    int rt = nid[i];
-    ta_free(nid);
     ta_free(buffer);
-    MPI_Barrier(MPI_COMM_WORLD);
-    return rt;
-}
-
-int
-cluster_get_num_hosts()
-{
-    /* return the number of hosts */
-    int id = cluster_get_hostid();
-    int maxid;
-    MPI_Allreduce(&id, &maxid, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-    return maxid + 1;
+    return nunique;
 }
 
 double
-get_physmem_bytes()
+get_physmem_bytes(void)
 {
 #if defined _SC_PHYS_PAGES && defined _SC_PAGESIZE
     { /* This works on linux-gnu, solaris2 and cygwin.  */
