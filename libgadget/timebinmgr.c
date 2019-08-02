@@ -10,6 +10,11 @@
 static SyncPoint * SyncPoints;
 static int NSyncPoints;    /* number of times stored in table of desired sync points */
 
+int cmp_double(const void * a, const void * b)
+{
+    return ( *(double*)a - *(double*)b );
+}
+
 /* This function compiles
  *
  * All.OutputListTimes, All.TimeIC, All.TimeMax
@@ -26,6 +31,8 @@ void
 setup_sync_points(double TimeIC, double no_snapshot_until_time)
 {
     int i;
+
+    qsort_openmp(All.OutputListTimes, All.OutputListLength, sizeof(double), cmp_double);
 
     if(NSyncPoints > 0)
         myfree(SyncPoints);

@@ -40,11 +40,6 @@ StarformationCriterionAction(ParameterSet * ps, char * name, void * data)
     return 0;
 }
 
-int cmp_double(const void * a, const void * b)
-{
-    return ( *(double*)a - *(double*)b );
-}
-
 /*! This function parses a string containing a comma-separated list of variables,
  *  each of which is interpreted as a double.
  *  The purpose is to read an array of output times into the code.
@@ -95,7 +90,6 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
 /*         message(1, "Output at: %g\n", All.OutputListTimes[count]); */
     }
     myfree(strtmp);
-    qsort(All.OutputListTimes, All.OutputListLength, sizeof(double), cmp_double);
     return 0;
 }
 
