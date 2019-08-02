@@ -231,11 +231,11 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     continue;
                 }
                 /* check in addition whether we lie inside the cell */
-                if(fabs(nop->center[0] - pos_x) < 0.60 * nop->len)
+                if(fabs(NEAREST(nop->center[0] - pos_x)) < 0.60 * nop->len)
                 {
-                    if(fabs(nop->center[1] - pos_y) < 0.60 * nop->len)
+                    if(fabs(NEAREST(nop->center[1] - pos_y)) < 0.60 * nop->len)
                     {
-                        if(fabs(nop->center[2] - pos_z) < 0.60 * nop->len)
+                        if(fabs(NEAREST(nop->center[2] - pos_z)) < 0.60 * nop->len)
                         {
                             no = nop->u.d.nextnode;
                             continue;
