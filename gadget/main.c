@@ -112,6 +112,10 @@ int main(int argc, char **argv)
     /*Initialize the memory manager*/
     mymalloc_init(All.MaxMemSizePerNode);
 
+    /* Make sure memory has finished initialising on all ranks before doing more.
+     * This may improve stability */
+    MPI_Barrier(MPI_COMM_WORLD);
+
     /*The main domain object. Will be allocated in begrun.*/
     DomainDecomp ddecomp = {0};
     begrun(RestartSnapNum, &ddecomp);
