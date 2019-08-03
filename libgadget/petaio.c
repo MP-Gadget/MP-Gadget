@@ -239,7 +239,7 @@ void petaio_read_internal(char * fname, int ic, MPI_Comm Comm) {
     }
 
     /* so we can set up the memory topology of secondary slots */
-    slots_setup_topology();
+    slots_setup_topology(SlotsManager);
 
     for(i = 0; i < IOTable.used; i ++) {
         /* only process the particle blocks */
@@ -291,7 +291,7 @@ void petaio_read_internal(char * fname, int ic, MPI_Comm Comm) {
     }
 
     /* now we have IDs, set up the ID consistency between slots. */
-    slots_setup_id();
+    slots_setup_id(SlotsManager);
 }
 void
 petaio_read_header(int num)

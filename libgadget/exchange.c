@@ -340,7 +340,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, MPI_Comm Comm)
 
 #ifdef DEBUG
     domain_test_id_uniqueness();
-    slots_check_id_consistency();
+    slots_check_id_consistency(SlotsManager);
 #endif
     walltime_measure("/Domain/exchange/finalize");
 

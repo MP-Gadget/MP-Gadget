@@ -4,7 +4,7 @@
 
 #include "utils.h"
 
-struct slots_manager_type SlotsManager[1] = {{0}};
+struct slots_manager_type SlotsManager[1];
 
 #define SLOTS_ENABLED(ptype) (SlotsManager->info[ptype].enabled)
 
@@ -258,47 +258,55 @@ static int slot_cmp_reverse_link(const void * b1in, const void * b2in) {
     }
     if(b1->IsGarbage) return 1;
     if(b2->IsGarbage) return -1;
-    return (b1->gc.ReverseLink > b2->gc.ReverseLink) - (b1->gc.ReverseLink < b2->gc.ReverseLink);
+    return (b1->ReverseLink > b2->ReverseLink) - (b1->ReverseLink < b2->ReverseLink);
 
 }
 
 static int
-slots_gc_mark()
+slots_gc_mark(const struct slots_manager_type * SlotsManager)
 {
     int i, ptype;
-    int gc_slots = 0;
-    for(ptype = 0; ptype < 6; ptype ++)
-        if(SLOTS_ENABLED(ptype))
-            gc_slots = 1;
-
-    if(!gc_slots)
+    if(!(SlotsManager->info[0].enabled ||
+       SlotsManager->info[1].enabled ||
+       SlotsManager->info[2].enabled ||
+       SlotsManager->info[3].enabled ||
+       SlotsManager->info[4].enabled ||
+       SlotsManager->info[5].enabled))
         return 0;
 
 #ifdef DEBUG
     /*Initially set all reverse links to an obviously invalid value*/
     for(ptype = 0; ptype < 6; ptype++)
     {
-        if(!SLOTS_ENABLED(ptype))
+        struct slot_info info = SlotsManager->info[ptype];
+        if(!info.enabled)
             continue;
         #pragma omp parallel for
-        for(i = 0; i < SlotsManager->info[ptype].size; i++) {
-            BASESLOT_PI(i, ptype)->gc.ReverseLink = PartManager->MaxPart + 100;
+        for(i = 0; i < info.size; i++) {
+            struct particle_data_ext * sdata = (struct particle_data_ext * )(info.ptr + info.elsize * i);
+            sdata->ReverseLink = PartManager->MaxPart + 100;
         }
     }
 #endif
 
 #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++) {
-        if(!SLOTS_ENABLED(P[i].Type)) continue;
+        struct slot_info info = SlotsManager->info[P[i].Type];
+        if(!info.enabled)
+            continue;
 
-        BASESLOT(i)->gc.ReverseLink = i;
+        int sind = P[i].PI;
+        if(sind > info.size)
+            endrun(1, "Particle %d, type %d has PI index %d beyond max slot size %d.\n", i, P[i].Type, sind, info.size);
+        struct particle_data_ext * sdata = (struct particle_data_ext * )(info.ptr + info.elsize * sind);
+        sdata->ReverseLink = i;
 
         /* two consistency checks.*/
 #ifdef DEBUG
-        if(P[i].IsGarbage && !BASESLOT(i)->IsGarbage) {
+        if(P[i].IsGarbage && !sdata->IsGarbage) {
             endrun(1, "IsGarbage flag inconsistent between base and secondary: P[%d].Type=%d\n", i, P[i].Type);
         }
-        if(!P[i].IsGarbage && BASESLOT(i)->IsGarbage) {
+        if(!P[i].IsGarbage && sdata->IsGarbage) {
             endrun(1, "IsGarbage flag inconsistent between secondary and base: P[%d].Type=%d\n", i, P[i].Type);
         }
 #endif
@@ -339,7 +347,7 @@ slots_gc_collect(int ptype)
         }
 #endif
 
-        P[BASESLOT_PI(i, ptype)->gc.ReverseLink].PI = i;
+        P[BASESLOT_PI(i, ptype)->ReverseLink].PI = i;
     }
 }
 
@@ -360,11 +368,11 @@ slots_gc_slots(int * compact_slots)
     }
 
 #ifdef DEBUG
-    slots_check_id_consistency();
+    slots_check_id_consistency(SlotsManager);
 #endif
 
     if(!disabled) {
-        slots_gc_mark();
+        slots_gc_mark(SlotsManager);
 
         for(ptype = 0; ptype < 6; ptype++) {
             if(!compact_slots[ptype])
@@ -374,7 +382,7 @@ slots_gc_slots(int * compact_slots)
         }
     }
 #ifdef DEBUG
-    slots_check_id_consistency();
+    slots_check_id_consistency(SlotsManager);
 #endif
     for(ptype = 0; ptype < 6; ptype ++) {
         sumup_large_ints(1, &SlotsManager->info[ptype].size, &total1[ptype]);
@@ -449,7 +457,7 @@ slots_gc_sorted()
     PartManager->NumPart = slots_get_last_garbage(0, PartManager->NumPart -1 , -1);
 
     /*Set up ReverseLink*/
-    slots_gc_mark();
+    slots_gc_mark(SlotsManager);
 
     for(ptype = 0; ptype < 6; ptype++) {
         if(!SLOTS_ENABLED(ptype))
@@ -466,7 +474,7 @@ slots_gc_sorted()
         slots_gc_collect(ptype);
     }
 #ifdef DEBUG
-    slots_check_id_consistency();
+    slots_check_id_consistency(SlotsManager);
 #endif
 }
 
@@ -565,7 +573,7 @@ slots_set_enabled(int ptype, size_t elsize)
 
 
 void
-slots_free()
+slots_free(struct slots_manager_type * SlotsManager)
 {
     myfree(SlotsManager->Base);
 }
@@ -581,15 +589,17 @@ slots_mark_garbage(int i)
 }
 
 void
-slots_check_id_consistency()
+slots_check_id_consistency(struct slots_manager_type * SlotsManager)
 {
     int used[6] = {0};
     int i;
 
     for(i = 0; i < PartManager->NumPart; i++) {
-        if(!SLOTS_ENABLED(P[i].Type)) continue;
+        struct slot_info info = SlotsManager->info[P[i].Type];
+        if(!info.enabled)
+            continue;
 
-        if(P[i].PI >= SlotsManager->info[P[i].Type].size) {
+        if(P[i].PI >= info.size) {
             endrun(1, "slot PI consistency failed2\n");
         }
         if(BASESLOT(i)->ID != P[i].ID) {
@@ -611,7 +621,7 @@ slots_check_id_consistency()
 
 /* this function needs the Type of P[i] to be setup */
 void
-slots_setup_topology()
+slots_setup_topology(struct slots_manager_type * SlotsManager)
 {
     int NLocal[6] = {0};
 
@@ -626,21 +636,31 @@ slots_setup_topology()
 
     int ptype;
     for(ptype = 0; ptype < 6; ptype ++) {
-        if(!SLOTS_ENABLED(P[i].Type)) continue;
+        struct slot_info info = SlotsManager->info[P[i].Type];
+        if(!info.enabled)
+            continue;
         SlotsManager->info[ptype].size = NLocal[ptype];
     }
 }
 void
-slots_setup_id()
+slots_setup_id(const struct slots_manager_type * SlotsManager)
 {
     int i;
     /* set up the cross check for child IDs */
-/* not bothering making this OMP */
+    /* not bothering making this OMP */
     for(i = 0; i < PartManager->NumPart; i++)
     {
-        if(!SLOTS_ENABLED(P[i].Type)) continue;
-        BASESLOT(i)->ID = P[i].ID;
-        BASESLOT(i)->IsGarbage = P[i].IsGarbage;
+        struct slot_info info = SlotsManager->info[P[i].Type];
+        if(!info.enabled)
+            continue;
+
+        int sind = P[i].PI;
+        if(sind > info.size)
+            endrun(1, "Particle %d, type %d has PI index %d beyond max slot size %d.\n", i, P[i].Type, sind, info.size);
+        struct particle_data_ext * sdata = (struct particle_data_ext * )(info.ptr + info.elsize * sind);
+        sdata->ReverseLink = i;
+        sdata->ID = P[i].ID;
+        sdata->IsGarbage = P[i].IsGarbage;
     }
 }
 

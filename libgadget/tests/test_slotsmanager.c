@@ -45,9 +45,9 @@ setup_particles(void ** state)
         P[i].ID = i;
         P[i].Type = i / (PartManager->NumPart / 6);
     }
-    slots_setup_topology();
+    slots_setup_topology(SlotsManager);
 
-    slots_setup_id();
+    slots_setup_id(SlotsManager);
 
     return 0;
 }
@@ -55,7 +55,7 @@ setup_particles(void ** state)
 static int
 teardown_particles(void **state)
 {
-    slots_free();
+    slots_free(SlotsManager);
     myfree(PartManager->Base);
     return 0;
 }
@@ -77,7 +77,7 @@ test_slots_gc(void **state)
     assert_int_equal(SlotsManager->info[4].size, 127);
     assert_int_equal(SlotsManager->info[5].size, 127);
 
-    slots_check_id_consistency();
+    slots_check_id_consistency(SlotsManager);
     teardown_particles(state);
     return;
 }
@@ -97,7 +97,7 @@ test_slots_gc_sorted(void **state)
     assert_int_equal(SlotsManager->info[4].size, 127);
     assert_int_equal(SlotsManager->info[5].size, 127);
 
-    slots_check_id_consistency();
+    slots_check_id_consistency(SlotsManager);
     teardown_particles(state);
     return;
 }
