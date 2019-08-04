@@ -54,7 +54,7 @@ static int
 OutputListAction(ParameterSet * ps, char * name, void * data)
 {
     char * outputlist = param_get_string(ps, name);
-    char * strtmp=fastpm_strdup(outputlist);
+    char * strtmp = fastpm_strdup(outputlist);
     char * token;
     int count;
 

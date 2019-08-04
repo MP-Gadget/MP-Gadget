@@ -6,6 +6,7 @@
 #include "paramset.h"
 #include "string.h"
 #include "mymalloc.h"
+#include "endrun.h"
 
 #define INT 1
 #define DOUBLE 3
@@ -369,6 +370,8 @@ param_get_string2(ParameterSet * ps, char * name, char * dst, size_t len)
     if (param_is_nil(ps, name)) {
         printf("Accessing an undefined parameter `%s`.\n", p->name);
     }
+    if(strlen(ps->value[p->index].s) > len)
+        endrun(1, "Parameter string %s too long for storage (%d)\n", ps->value[p->index].s, len);
     strncpy(dst, ps->value[p->index].s, len);
     dst[len-1]='\0';
 }

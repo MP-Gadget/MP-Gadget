@@ -468,7 +468,8 @@ cluster_get_num_hosts(void)
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
-    /* Size is set by the minimal size of the temp heap*/
+    /* Size is set by the size of the temp heap:
+     * this fills it and should be changed if needed.*/
     const int bufsz = 256;
     char * buffer = ta_malloc("buffer", char, bufsz * NTask);
 

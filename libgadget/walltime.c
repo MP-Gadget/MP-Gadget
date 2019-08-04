@@ -27,7 +27,7 @@ void walltime_init(struct ClockTable * ct) {
 }
 
 static void walltime_summary_clocks(struct Clock * C, int N, int root, MPI_Comm comm) {
-    double * t = ta_malloc("clocks",double, 4 * N);
+    double * t = ta_malloc("clocks", double, 4 * N);
     double * min = t + N;
     double * max = t + 2 * N;
     double * sum = t + 3 * N;
@@ -83,7 +83,7 @@ static int clockcmp(const void * c1, const void * c2) {
 static void walltime_clock_insert(char * name) {
     if(name[0] != '/') abort();
     if(strlen(name) > 1) {
-        char tmp[80] ={0};
+        char tmp[80] = {0};
         strncpy(tmp, name, 79);
         char * p;
         walltime_clock("/");
