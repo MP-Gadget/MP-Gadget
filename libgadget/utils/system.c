@@ -591,10 +591,12 @@ MPIU_write_pids(char * filename)
     /* Smaller buffer than in cluster_get_num_hosts because
      * here an overflow is harmless but running out of memory isn't*/
     int bufsz = 64;
-    char * hosts = ta_malloc("hosts", char, NTask * bufsz);
-    gethostname(&hosts[bufsz*ThisTask], bufsz);
-    hosts[bufsz * ThisTask + bufsz - 1] = '\0';
-    MPI_Gather(MPI_IN_PLACE, bufsz, MPI_CHAR, hosts, bufsz, MPI_CHAR, 0, comm);
+    char * hosts = ta_malloc("hosts", char, (NTask+1) * bufsz);
+    char * thishost = hosts + NTask * bufsz;
+    gethostname(thishost, bufsz);
+    thishost[bufsz - 1] = '\0';
+    /* MPI_IN_PLACE is not used here because the MPI on travis doesn't like it*/
+    MPI_Gather(thishost, bufsz, MPI_CHAR, hosts, bufsz, MPI_CHAR, 0, comm);
     MPI_Gather(&my_pid, 1, MPI_INT, pids, 1, MPI_INT, 0, comm);
 
     if(ThisTask == 0)
