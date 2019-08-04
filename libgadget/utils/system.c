@@ -588,13 +588,14 @@ MPIU_write_pids(char * filename)
 
     int my_pid = getpid();
     int * pids = ta_malloc("pids", int, NTask);
-    char * hosts = ta_malloc("hosts", char, NTask * 32);
-    char host[32]={"NULL"};
-    char * genv = getenv("HOST");
-    if(genv)
-        strncpy(host, genv, sizeof(host)-1);
+    /* Smaller buffer than in cluster_get_num_hosts because
+     * here an overflow is harmless but running out of memory isn't*/
+    int bufsz = 64;
+    char * hosts = ta_malloc("hosts", char, NTask * bufsz);
+    gethostname(&hosts[bufsz*ThisTask], bufsz);
+    hosts[bufsz * ThisTask + bufsz - 1] = '\0';
+    MPI_Gather(MPI_IN_PLACE, bufsz, MPI_CHAR, hosts, bufsz, MPI_CHAR, 0, comm);
     MPI_Gather(&my_pid, 1, MPI_INT, pids, 1, MPI_INT, 0, comm);
-    MPI_Gather(host, 32, MPI_CHAR, hosts, 32, MPI_CHAR, 0, comm);
 
     if(ThisTask == 0)
     {
@@ -603,7 +604,7 @@ MPIU_write_pids(char * filename)
         if(!fd)
             endrun(5, "Could not open pidfile %s\n", filename);
         for(i = 0; i < NTask; i++)
-            fprintf(fd, "host: %s pid: %d\n", hosts+i*32, pids[i]);
+            fprintf(fd, "host: %s pid: %d\n", hosts+i*bufsz, pids[i]);
         fclose(fd);
     }
     myfree(hosts);
