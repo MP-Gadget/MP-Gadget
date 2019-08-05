@@ -76,6 +76,8 @@ int main(int argc, char **argv)
     message(0, "Size of sph particle structure   %td  [bytes]\n",sizeof(struct sph_particle_data));
     message(0, "Size of star particle structure   %td  [bytes]\n",sizeof(struct star_particle_data));
 
+    tamalloc_init();
+
     read_parameter_file(argv[1]);	/* ... read in parameters for this run */
 
     int RestartFlag, RestartSnapNum;
@@ -109,6 +111,10 @@ int main(int argc, char **argv)
 
     /*Initialize the memory manager*/
     mymalloc_init(All.MaxMemSizePerNode);
+
+    /* Make sure memory has finished initialising on all ranks before doing more.
+     * This may improve stability */
+    MPI_Barrier(MPI_COMM_WORLD);
 
     /*The main domain object. Will be allocated in begrun.*/
     DomainDecomp ddecomp = {0};

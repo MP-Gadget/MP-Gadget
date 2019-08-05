@@ -723,7 +723,7 @@ static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountTyp
             tot_num_force += tot_count[i];
     }
 
-    char extra[1024] = {0};
+    char extra[20] = {0};
 
     if(is_PM_timestep(All.Ti_Current))
         strcat(extra, "PM-Step");

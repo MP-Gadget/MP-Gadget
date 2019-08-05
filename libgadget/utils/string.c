@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include "string.h"
+#include "mymalloc.h"
 
 char *
 fastpm_file_get_content(const char * filename)
@@ -18,7 +19,7 @@ fastpm_file_get_content(const char * filename)
     fseek(fp, 0, SEEK_END);
     size_t file_length = ftell(fp);
 
-    char * buf = malloc(file_length + 1);
+    char * buf = ta_malloc2(filename, char, file_length + 1);
     fseek(fp, 0, SEEK_SET);
     file_length = fread(buf, 1, file_length, fp);
     fclose(fp);
@@ -26,43 +27,13 @@ fastpm_file_get_content(const char * filename)
     return buf;
 }
 
-char **
-fastpm_strsplit(const char * str, const char * split)
-{
-    size_t N = 0;
-    const char * p1;
-    for(p1 = str; *p1; p1 ++) {
-        if(strchr(split, *p1)) N++;
-    }
-    N++;
-
-    char ** buf = malloc((N + 1) * sizeof(char*) + strlen(str) + 1);
-    /* The first part of the buffer is the pointer to the lines */
-    /* The second part of the buffer is the actually lines */
-    char * dup = (void*) (buf + (N + 1));
-    strcpy(dup, str);
-    ptrdiff_t i = 0;
-    char *p, *q = dup;
-    for(p = dup; *p; p ++) {
-        if(strchr(split, *p)) {
-            buf[i] = q;
-            i ++;
-            *p = 0;
-            q = p + 1;
-        }
-    }
-    buf[i] = q;
-    i++;
-    buf[i] = NULL;
-    return buf;
-}
-
 char *
 fastpm_strdup(const char * str)
 {
     size_t N = strlen(str);
-    char * d = malloc(N + 1);
+    char * d = ta_malloc("strdup", char, N + 1);
     strcpy(d, str);
+    d[N] = '\0';
     return d;
 }
 
@@ -92,7 +63,7 @@ fastpm_strdup_vprintf(const char * fmt, va_list va)
     char buf0[128];
     size_t N = vsnprintf(buf0, 1, fmt, va);
 
-    char * buf = malloc(N + 100);
+    char * buf = ta_malloc("strdup", char, N + 100);
     vsnprintf(buf, N + 1, fmt, va2);
     buf[N + 1] = 0;
     va_end(va2);
@@ -106,8 +77,9 @@ void
 fastpm_path_ensure_dirname(const char * path)
 {
     int i = strlen(path);
-    char * dup = alloca(strlen(path) + 1);
+    char * dup = ta_malloc("dirname", char, strlen(path) + 1);
     strcpy(dup, path);
+    dup[strlen(path)]='\0';
     char * p;
     for(p = i + dup; p >= dup && *p != '/'; p --) {
         continue;
@@ -118,13 +90,15 @@ fastpm_path_ensure_dirname(const char * path)
     /* p == '/', so set it to NULL, dup is the dirname */
     *p = 0;
     _mkdir(dup);
+    myfree(dup);
 }
 
 static void
 _mkdir(const char *dir)
 {
-    char * tmp = alloca(strlen(dir) + 1);
+    char * tmp= ta_malloc("dirname", char, strlen(dir) + 1);
     strcpy(tmp, dir);
+    tmp[strlen(dir)]='\0';
     char *p = NULL;
     size_t len;
 
@@ -138,6 +112,7 @@ _mkdir(const char *dir)
                     *p = '/';
             }
     mkdir(tmp, S_IRWXU | S_IRWXG | S_IRWXO);
+    myfree(tmp);
 }
 
 

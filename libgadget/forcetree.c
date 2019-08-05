@@ -125,7 +125,7 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSiz
 
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Tree construction done.\n");
-    walltime_measure("/Tree/Build");
+    walltime_measure("/Tree/Build/Moments");
 }
 
 /*! This function is a driver routine for constructing the gravitational
@@ -505,11 +505,11 @@ static int
 force_tree_build_single(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav)
 {
     int nnext = force_tree_create_nodes(tb, npart, ddecomp, BoxSize);
+    walltime_measure("/Tree/Build/Nodes");
     if(nnext >= tb.lastnode - tb.firstnode)
     {
         return -1;
     }
-
     /* insert the pseudo particles that represent the mass distribution of other ddecomps */
     force_insert_pseudo_particles(&tb, ddecomp);
 
@@ -853,7 +853,7 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
             tails[j] = force_update_pseudo_node(p, nextsib, tree);
         /*Don't spawn a new task if we are deep enough that we already spawned a lot.
         Note: final clause is much slower for some reason. */
-        else if(childcnt > 1 && level < 128 * omp_get_num_threads()) {
+        else if(childcnt > 1 && level < 256) {
             /* We cannot use default(none) here because we need a const (HybridNuGrav),
             * which for gcc < 9 is default shared (and thus cannot be explicitly shared
             * without error) and for gcc == 9 must be explicitly shared. The other solution

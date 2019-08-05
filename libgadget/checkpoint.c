@@ -66,22 +66,21 @@ write_snapshot(int num)
     walltime_measure("/Snapshot/Write");
 
     if(ThisTask == 0) {
-        char buf[1024];
-        sprintf(buf, "%s/Snapshots.txt", All.OutputDir);
+        char * buf = fastpm_strdup_printf("%s/Snapshots.txt", All.OutputDir);
         FILE * fd = fopen(buf, "a");
         fprintf(fd, "%03d %g\n", num, All.Time);
         fclose(fd);
+        myfree(buf);
     }
 }
 
 int
-find_last_snapnum()
+find_last_snapnum(void)
 {
     /* FIXME: this is very fragile; should be fine */
     int snapnumber = -1;
     if(ThisTask == 0) {
-        char buf[1024];
-        sprintf(buf, "%s/Snapshots.txt", All.OutputDir);
+        char * buf = fastpm_strdup_printf("%s/Snapshots.txt", All.OutputDir);
         FILE * fd = fopen(buf, "r");
         if(fd == NULL) {
             snapnumber = -1;
@@ -103,6 +102,7 @@ find_last_snapnum()
             }
             fclose(fd);
         }
+        myfree(buf);
     }
 
     MPI_Bcast(&snapnumber, 1, MPI_INT, 0, MPI_COMM_WORLD);

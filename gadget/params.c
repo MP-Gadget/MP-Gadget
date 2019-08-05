@@ -40,11 +40,6 @@ StarformationCriterionAction(ParameterSet * ps, char * name, void * data)
     return 0;
 }
 
-int cmp_double(const void * a, const void * b)
-{
-    return ( *(double*)a - *(double*)b );
-}
-
 /*! This function parses a string containing a comma-separated list of variables,
  *  each of which is interpreted as a double.
  *  The purpose is to read an array of output times into the code.
@@ -59,7 +54,7 @@ static int
 OutputListAction(ParameterSet * ps, char * name, void * data)
 {
     char * outputlist = param_get_string(ps, name);
-    char * strtmp=strdup(outputlist);
+    char * strtmp = fastpm_strdup(outputlist);
     char * token;
     int count;
 
@@ -94,8 +89,7 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
         All.OutputListTimes[count] = a;
 /*         message(1, "Output at: %g\n", All.OutputListTimes[count]); */
     }
-    free(strtmp);
-    qsort(All.OutputListTimes, All.OutputListLength, sizeof(double), cmp_double);
+    myfree(strtmp);
     return 0;
 }
 
@@ -370,13 +364,13 @@ void read_parameter_file(char *fname)
         All.NumThreads = omp_get_max_threads();
 
     /* Start reading the values */
-        param_get_string2(ps, "InitCondFile", All.InitCondFile);
-        param_get_string2(ps, "OutputDir", All.OutputDir);
-        param_get_string2(ps, "SnapshotFileBase", All.SnapshotFileBase);
-        param_get_string2(ps, "FOFFileBase", All.FOFFileBase);
-        param_get_string2(ps, "EnergyFile", All.EnergyFile);
+        param_get_string2(ps, "InitCondFile", All.InitCondFile, sizeof(All.InitCondFile));
+        param_get_string2(ps, "OutputDir", All.OutputDir, sizeof(All.OutputDir));
+        param_get_string2(ps, "SnapshotFileBase", All.SnapshotFileBase, sizeof(All.SnapshotFileBase));
+        param_get_string2(ps, "FOFFileBase", All.FOFFileBase, sizeof(All.FOFFileBase));
+        param_get_string2(ps, "EnergyFile", All.EnergyFile, sizeof(All.EnergyFile));
         All.OutputEnergyDebug = param_get_int(ps, "EnergyFile");
-        param_get_string2(ps, "CpuFile", All.CpuFile);
+        param_get_string2(ps, "CpuFile", All.CpuFile, sizeof(All.CpuFile));
 
         All.DensityKernelType = param_get_enum(ps, "DensityKernelType");
         All.CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
@@ -457,9 +451,9 @@ void read_parameter_file(char *fname)
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.WindOn = param_get_int(ps, "WindOn");
 
-        param_get_string2(ps, "TreeCoolFile", All.TreeCoolFile);
-        param_get_string2(ps, "UVFluctuationfile", All.UVFluctuationFile);
-        param_get_string2(ps, "MetalCoolFile", All.MetalCoolFile);
+        param_get_string2(ps, "TreeCoolFile", All.TreeCoolFile, sizeof(All.TreeCoolFile));
+        param_get_string2(ps, "UVFluctuationfile", All.UVFluctuationFile, sizeof(All.UVFluctuationFile));
+        param_get_string2(ps, "MetalCoolFile", All.MetalCoolFile, sizeof(All.MetalCoolFile));
 
         All.MinGasTemp = param_get_double(ps, "MinGasTemp");
         All.InitGasTemp = param_get_double(ps, "InitGasTemp");

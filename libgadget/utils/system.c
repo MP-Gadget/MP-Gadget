@@ -458,66 +458,42 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
     return 0;
 }
 
+/* return the number of hosts */
 int
-cluster_get_hostid()
+cluster_get_num_hosts(void)
 {
     /* Find a unique hostid for the computing rank. */
-    char hostname[1024];
-    int i;
-    gethostname(hostname, 1024);
-
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    int l = strlen(hostname) + 4;
-    int ml = 0;
     int NTask;
     int ThisTask;
-    char * buffer;
-    int * nid;
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-    MPI_Allreduce(&l, &ml, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 
-    /* Avoid ta_malloc since this can be called very early. */
-    buffer = malloc(ml * NTask);
-    nid = malloc(sizeof(int) * NTask);
-    MPI_Allgather(hostname, ml, MPI_BYTE, buffer, ml, MPI_BYTE, MPI_COMM_WORLD);
+    /* Size is set by the size of the temp heap:
+     * this fills it and should be changed if needed.*/
+    const int bufsz = 256;
+    char * buffer = ta_malloc("buffer", char, bufsz * NTask);
 
-    typedef int(*compar_fn)(const void *, const void *);
-    qsort(buffer, NTask, ml, (compar_fn) strcmp);
+    int i, j;
+    gethostname(&buffer[bufsz*ThisTask], bufsz);
+    buffer[bufsz * ThisTask + bufsz - 1] = '\0';
+    MPI_Allgather(MPI_IN_PLACE, bufsz, MPI_CHAR, buffer, bufsz, MPI_CHAR, MPI_COMM_WORLD);
 
-    nid[0] = 0;
-    for(i = 1; i < NTask; i ++) {
-        if(strcmp(buffer + i * ml, buffer + (i - 1) *ml)) {
-            nid[i] = nid[i - 1] + 1;
-        } else {
-            nid[i] = nid[i - 1];
+    int nunique = 0;
+    /* Count unique entries*/
+    for(j = 0; j < NTask; j++) {
+        for(i = j+1; i < NTask; i++) {
+            if(strncmp(buffer + i * bufsz, buffer + j * bufsz, bufsz) == 0)
+                break;
         }
+        if(i == NTask)
+            nunique++;
     }
-    for(i = 0; i < NTask; i ++) {
-        if(!strcmp(hostname, buffer + i * ml)) {
-            break;
-        }
-    }
-    int rt = nid[i];
-    free(buffer);
-    free(nid);
-    MPI_Barrier(MPI_COMM_WORLD);
-    return rt;
-}
-
-int
-cluster_get_num_hosts()
-{
-    /* return the number of hosts */
-    int id = cluster_get_hostid();
-    int maxid;
-    MPI_Allreduce(&id, &maxid, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-    return maxid + 1;
+    ta_free(buffer);
+    return nunique;
 }
 
 double
-get_physmem_bytes()
+get_physmem_bytes(void)
 {
 #if defined _SC_PHYS_PAGES && defined _SC_PAGESIZE
     { /* This works on linux-gnu, solaris2 and cygwin.  */
@@ -609,33 +585,32 @@ MPIU_write_pids(char * filename)
     int ThisTask;
     MPI_Comm_size(comm, &NTask);
     MPI_Comm_rank(comm, &ThisTask);
-    pid_t my_pid;
-    char mode[8], buf[500];
-    FILE *fd;
-    int i;
 
-    my_pid = getpid();
+    int my_pid = getpid();
+    int * pids = ta_malloc("pids", int, NTask);
+    /* Smaller buffer than in cluster_get_num_hosts because
+     * here an overflow is harmless but running out of memory isn't*/
+    int bufsz = 64;
+    char * hosts = ta_malloc("hosts", char, (NTask+1) * bufsz);
+    char * thishost = hosts + NTask * bufsz;
+    gethostname(thishost, bufsz);
+    thishost[bufsz - 1] = '\0';
+    /* MPI_IN_PLACE is not used here because the MPI on travis doesn't like it*/
+    MPI_Gather(thishost, bufsz, MPI_CHAR, hosts, bufsz, MPI_CHAR, 0, comm);
+    MPI_Gather(&my_pid, 1, MPI_INT, pids, 1, MPI_INT, 0, comm);
 
-    strcpy(mode, "a+");
-
-    for(i = 0; i < NTask; i++)
+    if(ThisTask == 0)
     {
-        if(ThisTask == i)
-        {
-            if(ThisTask == 0)
-                sprintf(mode, "w");
-            else
-                sprintf(mode, "a");
-
-            if((fd = fopen(buf, mode)))
-            {
-                fprintf(fd, "%s %d\n", getenv("HOST"), (int) my_pid);
-                fclose(fd);
-            }
-        }
-
-        MPI_Barrier(MPI_COMM_WORLD);
+        int i;
+        FILE *fd = fopen(filename, "w");
+        if(!fd)
+            endrun(5, "Could not open pidfile %s\n", filename);
+        for(i = 0; i < NTask; i++)
+            fprintf(fd, "host: %s pid: %d\n", hosts+i*bufsz, pids[i]);
+        fclose(fd);
     }
+    myfree(hosts);
+    myfree(pids);
 }
 
 size_t gadget_compact_thread_arrays(int * dest, int * srcs[], size_t sizes[], int narrays)

@@ -44,9 +44,8 @@ fof_petaio_select_func(int i)
 
 void fof_save_particles(int num, int SaveParticles, MPI_Comm Comm)
 {
-    char fname[4096];
     int i;
-    sprintf(fname, "%s/%s_%03d", All.OutputDir, All.FOFFileBase, num);
+    char * fname = fastpm_strdup_printf("%s/%s_%03d", All.OutputDir, All.FOFFileBase, num);
     message(0, "saving particle in group into %s\n", fname);
 
     /* sort the groups according to group-number */
@@ -57,6 +56,7 @@ void fof_save_particles(int num, int SaveParticles, MPI_Comm Comm)
     if(0 != big_file_mpi_create(&bf, fname, Comm)) {
         endrun(0, "Failed to open file at %s\n", fname);
     }
+    myfree(fname);
 
     MPIU_Barrier(Comm);
     fof_write_header(&bf, Comm);

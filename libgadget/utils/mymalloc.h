@@ -6,7 +6,10 @@
 extern Allocator A_MAIN[1];
 extern Allocator A_TEMP[1];
 
+/* Initialize the main memory block*/
 void mymalloc_init(double MemoryMB);
+/* Initialize the small temporary memory block*/
+void tamalloc_init(void);
 void report_detailed_memory_usage(const char *label, const char * fmt, ...);
 
 #define  mymalloc(name, size)            allocator_alloc_bot(A_MAIN, name, size)

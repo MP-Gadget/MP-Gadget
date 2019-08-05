@@ -56,9 +56,9 @@ int GDB_find_garbage(int from) {
 }
 
 char * GDB_format_particle(int i) {
-    static char buf[4096];
+    static char buf[1024];
     char * p = buf;
-    int n = 4096;
+    int n = 1024;
 
 #define add(fmt, ...) \
         snprintf(p, n - 1, fmt, __VA_ARGS__ ); \

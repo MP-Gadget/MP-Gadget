@@ -1,9 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "paramset.h"
 #include "string.h"
+#include "mymalloc.h"
+#include "endrun.h"
 
 #define INT 1
 #define DOUBLE 3
@@ -17,7 +20,7 @@ static int parse_enum(ParameterEnum * table, const char * strchoices) {
     char * delim = ",;&| \t";
     char * token;
 
-    char * strchoices2 = strdup(strchoices);
+    char * strchoices2 = fastpm_strdup(strchoices);
     for(token = strtok(strchoices2, delim); token ; token = strtok(NULL, delim)) {
         for(p = table; p->name; p++) {
             if(strcasecmp(token, p->name) == 0) {
@@ -27,7 +30,7 @@ static int parse_enum(ParameterEnum * table, const char * strchoices) {
         }
         if(p->name == NULL) {
             /* error occured !*/
-            free(strchoices2);
+            myfree(strchoices2);
             return 0;
         }
     }
@@ -35,11 +38,13 @@ static int parse_enum(ParameterEnum * table, const char * strchoices) {
         /* none is specified, use default (NULL named entry) */
         value = p->value;
     }
-    free(strchoices2);
+    myfree(strchoices2);
     return value;
 }
 static char * format_enum(ParameterEnum * table, int value) {
-    char buffer[2048];
+    int btotal = 200;
+    int bleft = btotal;
+    char * buffer = ta_malloc("formatbuffer", char, bleft);
     ParameterEnum * p;
     char * c = buffer;
     int first = 1;
@@ -51,14 +56,19 @@ static char * format_enum(ParameterEnum * table, int value) {
                 *(c++) = ' ';
             }
             first = 0;
-            strcpy(c, p->name);
-            c += strlen(p->name);
-            *c = 0;
-            if (c - buffer >= 2048-1)
+            bleft-= strlen(p->name);
+            if (bleft <= 0) {
+                int extra = (- bleft) + btotal;
+                buffer = myrealloc(buffer, btotal + extra);
+                btotal += extra;
+                bleft += extra;
                 break;
+            }
+            strncpy(c, p->name, bleft);
+            c += strlen(p->name);
         }
     }
-    return fastpm_strdup(buffer);
+    return buffer;
 }
 
 typedef struct ParameterValue {
@@ -106,12 +116,12 @@ param_set_from_string(ParameterSet * ps, char * name, char * value, int lineno);
 static int param_emit(ParameterSet * ps, char * start, int size, int lineno, char **error)
 {
     /* parse a line */
-    char * buf = alloca(size + 1);
+    if (size == 0) return 0;
+    char * buf = ta_malloc2("line", char, size + 1);
     static char blanks[] = " \t\r\n=";
     static char comments[] =  "%#";
     strncpy(buf, start, size);
     buf[size] = 0;
-    if (size == 0) return 0;
 
     /* blank lines are OK */
     char * name = NULL;
@@ -122,6 +132,7 @@ static int param_emit(ParameterSet * ps, char * start, int size, int lineno, cha
     while(*ptr && strchr(blanks, *ptr)) ptr++;
     if (*ptr == 0 || strchr(comments, *ptr)) {
         /* This line is fully comment */
+        myfree(buf);
         return 0;
     }
     name = ptr;
@@ -136,6 +147,7 @@ static int param_emit(ParameterSet * ps, char * start, int size, int lineno, cha
         /* This line is malformed, must have a value! */
         strncpy(buf, start, size);
         *error = fastpm_strdup_printf("Line %d : `%s` is malformed.", lineno, buf);
+        myfree(buf);
         return 1;
     }
     value = ptr;
@@ -147,17 +159,18 @@ static int param_emit(ParameterSet * ps, char * start, int size, int lineno, cha
     ParameterSchema * p = param_get_schema(ps, name);
     if(!p) {
         *error = fastpm_strdup_printf("Line %d: Parameter `%s` is unknown.", lineno, name);
+        myfree(buf);
         return 1;
     }
     param_set_from_string(ps, name, value, lineno);
     if(p->action) {
         if(0 != p->action(ps, name, p->action_data)) {
             *error = fastpm_strdup_printf("Triggering Action on `%s` failed.", name);
+            myfree(buf);
             return 1;
-        } else {
-            return 0;
         }
     }
+    myfree(buf);
     return 0;
 }
 int param_validate(ParameterSet * ps, char **error)
@@ -171,8 +184,8 @@ int param_validate(ParameterSet * ps, char **error)
         if(p->required == REQUIRED && ps->value[p->index].nil) {
             char * error1 = fastpm_strdup_printf("Parameter `%s` is required, but not set.", p->name);
             char * tmp = fastpm_strappend(*error, "\n", error1);
-            free(error1);
-            if(*error) free(*error);
+            myfree(error1);
+            if(*error) myfree(*error);
             *error = tmp;
             flag = 1;
         }
@@ -191,7 +204,7 @@ void param_dump(ParameterSet * ps, FILE * stream)
         } else {
             fprintf(stream, "%-31s %-20s # Default  # %s \n", p->name, v, p->help);
         }
-        free(v);
+        myfree(v);
     }
     fflush(stream);
 }
@@ -214,8 +227,8 @@ int param_parse (ParameterSet * ps, char * content, char **error)
             int flag1 = param_emit(ps, p1, p - p1, lineno, &error1);
             if(flag1 != 0) {
                 char * tmp = fastpm_strappend(*error, "\n", error1);
-                free(error1);
-                if(*error) free(*error);
+                myfree(error1);
+                if(*error) myfree(*error);
                 *error = tmp;
             }
             flag |= flag1;
@@ -238,7 +251,7 @@ int param_parse_file (ParameterSet * ps, const char * filename, char ** error)
         return -1;
     }
     int val = param_parse(ps, content, error);
-    free(content);
+    myfree(content);
     return val;
 }
 
@@ -351,13 +364,16 @@ param_get_string(ParameterSet * ps, char * name)
     return ps->value[p->index].s;
 }
 void
-param_get_string2(ParameterSet * ps, char * name, char * dst)
+param_get_string2(ParameterSet * ps, char * name, char * dst, size_t len)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     if (param_is_nil(ps, name)) {
         printf("Accessing an undefined parameter `%s`.\n", p->name);
     }
-    strcpy(dst, ps->value[p->index].s);
+    if(strlen(ps->value[p->index].s) > len)
+        endrun(1, "Parameter string %s too long for storage (%d)\n", ps->value[p->index].s, len);
+    strncpy(dst, ps->value[p->index].s, len);
+    dst[len-1]='\0';
 }
 
 int
@@ -457,7 +473,7 @@ param_set_from_string(ParameterSet * ps, char * name, char * value, int lineno)
         {
             char * v = fastpm_strdup(value);
             ps->value[p->index].i = parse_enum(p->enumtable, v);
-            free(v);
+            myfree(v);
             ps->value[p->index].nil = 0;
         }
         break;
@@ -467,21 +483,24 @@ param_set_from_string(ParameterSet * ps, char * name, char * value, int lineno)
 ParameterSet *
 parameter_set_new()
 {
-    ParameterSet * ps = malloc(sizeof(ParameterSet));
+    ParameterSet * ps = ta_malloc("paramset", ParameterSet, 1);
     ps->size = 0;
     return ps;
 }
 
 void
 parameter_set_free(ParameterSet * ps) {
-    int i;
-    for(i = 0; i < ps->size; i ++) {
+    /* Just reset the temp heap,
+     * since that is where the paramset is allocated*/
+    ta_reset();
+    /*    int i;
+     for(i = 0; i < ps->size; i ++) {
         if(ps->p[i].help) {
-            free(ps->p[i].help);
+            myfree(ps->p[i].help);
         }
         if(ps->p[i].type == STRING) {
             if(ps->p[i].defvalue.s) {
-/* FIXME: memory corruption */
+                // FIXME: memory corruption
 //                free(ps->p[i].defvalue.s);
             }
             if(ps->value[ps->p[i].index].s != ps->p[i].defvalue.s) {
@@ -491,6 +510,7 @@ parameter_set_free(ParameterSet * ps) {
             }
         }
     }
-    free(ps);
+    myfree(ps);
+    */
 }
 

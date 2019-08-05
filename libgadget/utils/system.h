@@ -23,9 +23,8 @@ void catch_fatal(int sig);
 void enable_core_dumps_and_fpu_exceptions(void);
 #endif
 
-int cluster_get_num_hosts();
-int cluster_get_hostid();
-double get_physmem_bytes();
+int cluster_get_num_hosts(void);
+double get_physmem_bytes(void);
 
 /* Gets a random number in the range [0, 1). Only the low bits of the id are used,
  * and random deviates are drawn from a pre-seeded table so that they are independent of processor.*/

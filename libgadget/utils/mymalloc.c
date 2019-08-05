@@ -8,6 +8,7 @@
 
 #include <omp.h>
 #include "mymalloc.h"
+#include "string.h"
 #include "memory.h"
 #include "system.h"
 #include "endrun.h"
@@ -25,15 +26,35 @@ Allocator A_TEMP[1];
 #endif
 
 void
+tamalloc_init(void)
+{
+    int Nt = omp_get_max_threads();
+    int NTask;
+    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+
+    /* Reserve 4MB, 128 bytes per task and 128 bytes per thread for TEMP storage.*/
+    size_t n = 4096 * 1024 + 128 * NTask + 128 * Nt * NTask;
+
+    message(0, "Reserving %td bytes per rank for TEMP memory allocator. \n", n);
+
+    if (MPIU_Any(ALLOC_ENOMEMORY == allocator_init(A_TEMP, "TEMP", n, 1, NULL), MPI_COMM_WORLD)) {
+        endrun(0, "Insufficient memory for the TEMP allocator on at least one nodes."
+                  "Requestion %td bytes. Try reducing MaxMemSizePerNode. Also check the node health status.\n", n);
+
+    }
+}
+
+void
 mymalloc_init(double MaxMemSizePerNode)
 {
+    /* Warning: this uses ta_malloc*/
     int Nhost = cluster_get_num_hosts();
-    int Nt = omp_get_max_threads();
 
     MPI_Comm comm = MPI_COMM_WORLD;
 
-    int NTask;
     int ThisTask;
+    int NTask;
+
     MPI_Comm_size(comm, &NTask);
     MPI_Comm_rank(comm, &ThisTask);
 
@@ -46,17 +67,6 @@ mymalloc_init(double MaxMemSizePerNode)
     if (MPIU_Any(ALLOC_ENOMEMORY == allocator_init(A_MAIN, "MAIN", n, 1, NULL), MPI_COMM_WORLD)) {
         endrun(0, "Insufficient memory for the MAIN allocator on at least one nodes."
                   "Requestion %td bytes. Try reducing MaxMemSizePerNode. Also check the node health status.\n", n);
-    }
-
-    /* reserve 128 bytes per task and 128 bytes per thread for TEMP storage.*/
-    n = 4096 * 1024 + 128 * NTask + 128 * Nt * NTask;
-
-    message(0, "Reserving %td bytes per rank for TEMP memory allocator. \n", n);
-
-    if (MPIU_Any(ALLOC_ENOMEMORY == allocator_init(A_TEMP, "TEMP", n, 1, A_MAIN), MPI_COMM_WORLD)) {
-        endrun(0, "Insufficient memory for the TEMP allocator on at least one nodes."
-                  "Requestion %td bytes. Try reducing MaxMemSizePerNode. Also check the node health status.\n", n);
-
     }
 }
 
@@ -83,11 +93,11 @@ void report_detailed_memory_usage(const char *label, const char * fmt, ...)
     highest_memory_usage = allocator_get_used_size(A_MAIN, ALLOC_DIR_BOTH);
 
     va_list va;
-    char buf[4096];
     va_start(va, fmt);
-    vsprintf(buf, fmt, va);
+    char * buf = fastpm_strdup_vprintf(fmt, va);
     va_end(va);
 
     message(1, "Peak Memory usage induced by %s\n", buf);
+    myfree(buf);
     allocator_print(A_MAIN);
 }

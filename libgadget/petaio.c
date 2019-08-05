@@ -61,25 +61,13 @@ petaio_save_snapshot(const char *fmt, ...)
     va_list va;
     va_start(va, fmt);
 
-    char fname[4096];
-    vsprintf(fname, fmt, va);
+    char * fname = fastpm_strdup_vprintf(fmt, va);
     va_end(va);
     message(0, "saving snapshot into %s\n", fname);
 
     petaio_save_internal(fname);
+    myfree(fname);
 }
-
-/* this is unused.
-void petaio_save_restart() {
-    char fname[4096];
-    sprintf(fname, "%s/RESTART", All.OutputDir);
-    if(ThisTask == 0) {
-        printf("saving restart into %s\n", fname);
-        fflush(stdout);
-    }
-    petaio_save_internal(fname);
-}
-*/
 
 /* Build a list of the first particle of each type on the current processor.
  * This assumes that all particles are sorted!*/
@@ -251,7 +239,7 @@ void petaio_read_internal(char * fname, int ic, MPI_Comm Comm) {
     }
 
     /* so we can set up the memory topology of secondary slots */
-    slots_setup_topology();
+    slots_setup_topology(SlotsManager);
 
     for(i = 0; i < IOTable.used; i ++) {
         /* only process the particle blocks */
@@ -303,7 +291,7 @@ void petaio_read_internal(char * fname, int ic, MPI_Comm Comm) {
     }
 
     /* now we have IDs, set up the ID consistency between slots. */
-    slots_setup_id();
+    slots_setup_id(SlotsManager);
 }
 void
 petaio_read_header(int num)
@@ -329,7 +317,7 @@ petaio_read_header(int num)
         endrun(0, "Failed to close snapshot at %s:%s\n", fname,
                     big_file_get_error_message());
     }
-    free(fname);
+    myfree(fname);
 }
 
 void
@@ -371,7 +359,7 @@ petaio_read_snapshot(int num, MPI_Comm Comm)
          * */
         petaio_read_internal(fname, 0, Comm);
     }
-    free(fname);
+    myfree(fname);
 }
 
 
@@ -702,11 +690,15 @@ void io_register_io_block(char * name,
         property_setter setter,
         int required
         ) {
+    if (IOTable.used == IOTable.allocated) {
+        IOTable.ent = myrealloc(IOTable.ent, 2*IOTable.allocated*sizeof(IOTableEntry));
+        IOTable.allocated *= 2;
+    }
     IOTableEntry * ent = &IOTable.ent[IOTable.used];
-    strcpy(ent->name, name);
+    strncpy(ent->name, name, 64);
     ent->zorder = IOTable.used;
     ent->ptype = ptype;
-    strcpy(ent->dtype, dtype);
+    strncpy(ent->dtype, dtype, 8);
     ent->getter = getter;
     ent->setter = setter;
     ent->items = items;
@@ -801,7 +793,9 @@ static int order_by_type(const void *a, const void *b)
 
 static void register_io_blocks() {
     int i;
-    memset(&IOTable, 0, sizeof(IOTable));
+    IOTable.used = 0;
+    IOTable.allocated = 100;
+    IOTable.ent = mymalloc("IOTable", IOTable.allocated* sizeof(IOTableEntry));
     /* Bare Bone Gravity*/
     for(i = 0; i < 6; i ++) {
         IO_REG(Position, "f8", 3, i);

@@ -17,7 +17,7 @@ touch(char * prefix, char * b)
 {
     char * fn = fastpm_strdup_printf("%s/%s", prefix, b);
     FILE * fp = fopen(fn, "w");
-    free(fn);
+    myfree(fn);
     fclose(fp);
 }
 
@@ -26,7 +26,7 @@ exists(char * prefix, char * b)
 {
     char * fn = fastpm_strdup_printf("%s/%s", prefix, b);
     FILE * fp = fopen(fn, "r");
-    free(fn);
+    myfree(fn);
     if(fp) {
         fclose(fp);
         return 1;

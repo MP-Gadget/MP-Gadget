@@ -65,9 +65,9 @@ setup_particles(int NType[6])
             ptype++; itype = 0;
         }
     }
-    slots_setup_topology();
+    slots_setup_topology(SlotsManager);
 
-    slots_setup_id();
+    slots_setup_id(SlotsManager);
 
     MPI_Allreduce(&PartManager->NumPart, &TotNumPart, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
@@ -83,7 +83,7 @@ teardown_particles(void **state)
 
     assert_int_equal(TotNumPart2, TotNumPart);
 
-    slots_free();
+    slots_free(SlotsManager);
     myfree(P);
     MPI_Barrier(MPI_COMM_WORLD);
     return 0;
@@ -109,7 +109,7 @@ test_exchange(void **state)
 
     assert_all_true(!fail);
 
-    slots_check_id_consistency();
+    slots_check_id_consistency(SlotsManager);
     domain_test_id_uniqueness();
 
     for(i = 0; i < PartManager->NumPart; i ++) {
@@ -133,7 +133,7 @@ test_exchange_zero_slots(void **state)
 
     assert_all_true(!fail);
 
-    slots_check_id_consistency();
+    slots_check_id_consistency(SlotsManager);
     domain_test_id_uniqueness();
 
     for(i = 0; i < PartManager->NumPart; i ++) {
@@ -160,7 +160,7 @@ test_exchange_with_garbage(void **state)
     assert_all_true(!fail);
 
     domain_test_id_uniqueness();
-    slots_check_id_consistency();
+    slots_check_id_consistency(SlotsManager);
 
     for(i = 0; i < PartManager->NumPart; i ++) {
         assert_true (P[i].ID % NTask == ThisTask);
@@ -200,7 +200,7 @@ test_exchange_uneven(void **state)
         assert_int_equal(SlotsManager->info[0].size, NUMPART1 * NTask);
     }
 
-    slots_check_id_consistency();
+    slots_check_id_consistency(SlotsManager);
     domain_test_id_uniqueness();
 
     for(i = 0; i < PartManager->NumPart; i ++) {

@@ -27,10 +27,10 @@ void walltime_init(struct ClockTable * ct) {
 }
 
 static void walltime_summary_clocks(struct Clock * C, int N, int root, MPI_Comm comm) {
-    double t[N];
-    double min[N];
-    double max[N];
-    double sum[N];
+    double * t = ta_malloc("clocks", double, 4 * N);
+    double * min = t + N;
+    double * max = t + 2 * N;
+    double * sum = t + 3 * N;
     int i;
     for(i = 0; i < CT->N; i ++) {
         t[i] = C[i].time;
@@ -47,6 +47,7 @@ static void walltime_summary_clocks(struct Clock * C, int N, int root, MPI_Comm 
         C[i].max = max[i];
         C[i].mean = sum[i] / NTask;
     }
+    ta_free(t);
 }
 
 /* put min max mean of MPI ranks to rank 0*/
@@ -82,8 +83,8 @@ static int clockcmp(const void * c1, const void * c2) {
 static void walltime_clock_insert(char * name) {
     if(name[0] != '/') abort();
     if(strlen(name) > 1) {
-        char tmp[80];
-        strcpy(tmp, name);
+        char tmp[80] = {0};
+        strncpy(tmp, name, 79);
         char * p;
         walltime_clock("/");
         for(p = tmp + 1; *p; p ++) {
@@ -98,8 +99,11 @@ static void walltime_clock_insert(char * name) {
         /* too many counters */
         abort();
     }
-    strcpy(CT->C[CT->N].name, name);
-    strcpy(CT->AC[CT->N].name, CT->C[CT->N].name);
+    const int nmsz = sizeof(CT->C[CT->N].name);
+    strncpy(CT->C[CT->N].name, name, nmsz);
+    CT->C[CT->N].name[nmsz-1] = '\0';
+    strncpy(CT->AC[CT->N].name, CT->C[CT->N].name, nmsz);
+    CT->AC[CT->N].name[nmsz-1] = '\0';
     CT->N ++;
     qsort_openmp(CT->C, CT->N, sizeof(struct Clock), clockcmp);
     qsort_openmp(CT->AC, CT->N, sizeof(struct Clock), clockcmp);
@@ -107,7 +111,9 @@ static void walltime_clock_insert(char * name) {
 
 int walltime_clock(char * name) {
     struct Clock dummy;
-    strcpy(dummy.name, name);
+    strncpy(dummy.name, name, sizeof(dummy.name));
+    dummy.name[sizeof(dummy.name)-1]='\0';
+
     struct Clock * rt = bsearch(&dummy, CT->C, CT->N, sizeof(struct Clock), clockcmp);
     if(rt == NULL) {
         walltime_clock_insert(name);

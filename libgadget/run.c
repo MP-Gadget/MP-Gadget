@@ -91,7 +91,7 @@ void begrun(int RestartSnapNum, DomainDecomp * ddecomp)
     char * pidfile = fastpm_strdup_printf("%s/%s", All.OutputDir, "PIDs.txt");
 
     MPIU_write_pids(pidfile);
-    free(pidfile);
+    myfree(pidfile);
 
     enable_core_dumps_and_fpu_exceptions();
 #endif
@@ -434,28 +434,28 @@ open_outputfiles(int RestartSnapNum)
     fastpm_path_ensure_dirname(buf);
     if(!(FdCPU = fopen(buf, mode)))
         endrun(1, "error in opening file '%s'\n", buf);
-    free(buf);
+    myfree(buf);
 
     if(All.OutputEnergyDebug) {
         buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, All.EnergyFile, postfix);
         fastpm_path_ensure_dirname(buf);
         if(!(FdEnergy = fopen(buf, mode)))
             endrun(1, "error in opening file '%s'\n", buf);
-        free(buf);
+        myfree(buf);
     }
 
     buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, "sfr.txt", postfix);
     fastpm_path_ensure_dirname(buf);
     if(!(FdSfr = fopen(buf, mode)))
         endrun(1, "error in opening file '%s'\n", buf);
-    free(buf);
+    myfree(buf);
 
     if(All.BlackHoleOn) {
         buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, "blackholes.txt", postfix);
         fastpm_path_ensure_dirname(buf);
         if(!(FdBlackHoles = fopen(buf, mode)))
             endrun(1, "error in opening file '%s'\n", buf);
-        free(buf);
+        myfree(buf);
     }
 
 }

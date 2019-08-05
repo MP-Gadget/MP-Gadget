@@ -6,17 +6,19 @@
 #include "types.h"
 #include "partmanager.h"
 
+struct slot_info {
+    char * ptr; /* aliasing ptr for this slot */
+    char * scratchdata; /* Pointer to struct of pointers that store optional data for this type, which persists through one time step,
+                         but not beyond. Currently only used for SPH data.*/
+    int maxsize; /* max number of supported slots */
+    int size; /* currently used slots*/
+    size_t elsize; /* itemsize */
+    int enabled;
+};
+
 extern struct slots_manager_type {
+    struct slot_info info[6];
     char * Base; /* memory ptr that holds of all slots */
-    struct {
-        char * ptr; /* aliasing ptr for this slot */
-        int maxsize; /* max number of supported slots */
-        int size; /* currently used slots*/
-        size_t elsize; /* itemsize */
-        char * scratchdata; /* Pointer to struct of pointers that store optional data for this type, which persists through one time step,
-                             but not beyond. Currently only used for SPH data.*/
-        int enabled;
-    } info[6];
     double increase; /* Percentage amount to increase
                       * slot reservation by when requested.*/
 } SlotsManager[1];
@@ -25,10 +27,8 @@ extern struct slots_manager_type {
  * then stars, then SPH. SPH still has some compile-time optional elements.
  * Each particle also has the base data, stored in particle_data.*/
 struct particle_data_ext {
-    struct {
-       /* used at GC for reverse link to P */
-        int ReverseLink;
-    } gc;
+    /* used at GC for reverse link to P */
+     int ReverseLink;
     unsigned int IsGarbage : 1; /* marked if the slot is garbage. use slots_mark_garbage to mark this with the base particle index*/
     MyIDType ID; /* for data consistency check, same as particle ID */
 };
@@ -144,16 +144,16 @@ extern MPI_Datatype MPI_TYPE_SLOT[6];
 void slots_init(double increase);
 /*Enable a slot on type ptype. All slots are disabled after slots_init().*/
 void slots_set_enabled(int ptype, size_t elsize);
-void slots_free();
+void slots_free(struct slots_manager_type * SlotsManager);
 void slots_mark_garbage(int i);
-void slots_setup_topology();
-void slots_setup_id();
+void slots_setup_topology(struct slots_manager_type * SlotsManager);
+void slots_setup_id(const struct slots_manager_type * SlotsManager);
 int slots_split_particle(int parent, double childmass);
 int slots_convert(int parent, int ptype, int placement);
 int slots_gc(int * compact_slots);
 void slots_gc_sorted(void);
 void slots_reserve(int where, int atleast[6]);
-void slots_check_id_consistency();
+void slots_check_id_consistency(struct slots_manager_type * SlotsManager);
 
 void slots_allocate_sph_scratch_data(int sph_grad_rho, int nsph);
 void slots_free_sph_scratch_data(struct sph_scratch_data * Scratch);
