@@ -296,7 +296,7 @@ slots_gc_mark(const struct slots_manager_type * SlotsManager)
             continue;
 
         int sind = P[i].PI;
-        if(sind > info.size)
+        if(sind >= info.size || sind < 0)
             endrun(1, "Particle %d, type %d has PI index %d beyond max slot size %d.\n", i, P[i].Type, sind, info.size);
         struct particle_data_ext * sdata = (struct particle_data_ext * )(info.ptr + info.elsize * sind);
         sdata->ReverseLink = i;
@@ -655,7 +655,7 @@ slots_setup_id(const struct slots_manager_type * SlotsManager)
             continue;
 
         int sind = P[i].PI;
-        if(sind > info.size)
+        if(sind >= info.size || sind < 0)
             endrun(1, "Particle %d, type %d has PI index %d beyond max slot size %d.\n", i, P[i].Type, sind, info.size);
         struct particle_data_ext * sdata = (struct particle_data_ext * )(info.ptr + info.elsize * sind);
         sdata->ReverseLink = i;
