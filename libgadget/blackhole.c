@@ -130,6 +130,10 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
 static void
 blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I, TreeWalk * tw);
 
+/* Initializes the minimum potentials*/
+static void
+blackhole_accretion_preprocess(int n, TreeWalk * tw);
+
 static void
 blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         TreeWalkResultBHAccretion * O,
@@ -137,9 +141,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         LocalTreeWalk * lv);
 
 /* feedback routines */
-
-static void
-blackhole_feedback_preprocess(int n, TreeWalk * tw);
 
 static void
 blackhole_feedback_postprocess(int n, TreeWalk * tw);
@@ -202,6 +203,7 @@ blackhole(ForceTree * tree)
     tw_accretion->ngbiter = (TreeWalkNgbIterFunction) blackhole_accretion_ngbiter;
     tw_accretion->haswork = blackhole_accretion_haswork;
     tw_accretion->postprocess = (TreeWalkProcessFunction) blackhole_accretion_postprocess;
+    tw_accretion->preprocess = (TreeWalkProcessFunction) blackhole_accretion_preprocess;
     tw_accretion->fill = (TreeWalkFillQueryFunction) blackhole_accretion_copy;
     tw_accretion->reduce = (TreeWalkReduceResultFunction) blackhole_accretion_reduce;
     tw_accretion->UseNodeList = 1;
@@ -218,7 +220,6 @@ blackhole(ForceTree * tree)
     tw_feedback->haswork = blackhole_feedback_haswork;
     tw_feedback->fill = (TreeWalkFillQueryFunction) blackhole_feedback_copy;
     tw_feedback->postprocess = (TreeWalkProcessFunction) blackhole_feedback_postprocess;
-    tw_feedback->preprocess = (TreeWalkProcessFunction) blackhole_feedback_preprocess;
     tw_feedback->reduce = (TreeWalkReduceResultFunction) blackhole_feedback_reduce;
     tw_feedback->UseNodeList = 1;
     tw_feedback->query_type_elsize = sizeof(TreeWalkQueryBHFeedback);
@@ -355,7 +356,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
 }
 
 static void
-blackhole_feedback_preprocess(int n, TreeWalk * tw)
+blackhole_accretion_preprocess(int n, TreeWalk * tw)
 {
     int j;
     for(j = 0; j < 3; j++) {
