@@ -265,7 +265,7 @@ static int slot_cmp_reverse_link(const void * b1in, const void * b2in) {
 static int
 slots_gc_mark(const struct slots_manager_type * SlotsManager)
 {
-    int i, ptype;
+    int i;
     if(!(SlotsManager->info[0].enabled ||
        SlotsManager->info[1].enabled ||
        SlotsManager->info[2].enabled ||
@@ -275,6 +275,7 @@ slots_gc_mark(const struct slots_manager_type * SlotsManager)
         return 0;
 
 #ifdef DEBUG
+    int ptype;
     /*Initially set all reverse links to an obviously invalid value*/
     for(ptype = 0; ptype < 6; ptype++)
     {
