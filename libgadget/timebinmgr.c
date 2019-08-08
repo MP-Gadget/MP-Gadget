@@ -36,8 +36,7 @@ setup_sync_points(double TimeIC, double no_snapshot_until_time)
 
     if(NSyncPoints > 0)
         myfree(SyncPoints);
-    SyncPoints = mymalloc("SyncPoints", sizeof(SyncPoints) * (All.OutputListLength+2));
-    memset(&SyncPoints[0], -1, sizeof(SyncPoints[0]) * All.OutputListLength);
+    SyncPoints = mymalloc("SyncPoints", sizeof(SyncPoint) * (All.OutputListLength+2));
 
     /* Set up first and last entry to SyncPoints; TODO we can insert many more! */
 
