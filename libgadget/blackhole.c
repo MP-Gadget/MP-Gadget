@@ -88,6 +88,10 @@ typedef struct {
 struct BHPriv {
     /*Temporary array to store the IDs of the swallowing black hole for gas*/
     MyIDType * SPH_SwallowID;
+    double  (* MinPotPos) [3];
+    MyFloat (* MinPotVel) [3];
+    MyFloat * MinPot;
+
     /* Particle SpinLocks*/
     struct SpinLocks * spin;
     /* Counters*/
@@ -252,7 +256,16 @@ blackhole(ForceTree * tree)
     /* This allocates memory*/
     priv[0].spin = init_spinlocks(PartManager->NumPart);
 
+    /* These are initialized in preprocess and used to reposition the BH in postprocess*/
+    priv->MinPot = mymalloc("BH_MinPot", SlotsManager->info[5].size * sizeof(MyFloat));
+    priv->MinPotPos = mymalloc("BH_MinPotPos", 3 * SlotsManager->info[5].size * sizeof(double));
+    priv->MinPotVel = mymalloc("BH_MinPotVel", 3 * SlotsManager->info[5].size * sizeof(MyFloat));
+
     treewalk_run(tw_accretion, ActiveParticle, NumActiveParticle);
+
+    myfree(priv->MinPotVel);
+    myfree(priv->MinPotPos);
+    myfree(priv->MinPot);
 
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Start swallowing of gas particles and black holes\n");
@@ -315,9 +328,13 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
     /* Move black hole here. WARNING! This breaks the tree consistency.
      * It is fine because the only tree walk after this is for winds,
      * which black holes do not participate in. */
-    if(BHP(i).MinPot < 0.5 * BHPOTVALUEINIT) {
+    MyFloat * MinPot = BH_GET_PRIV(tw)->MinPot;
+    double (* MinPotPos)[3] = BH_GET_PRIV(tw)->MinPotPos;
+    int PI = P[i].PI;
+
+    if(MinPot[PI] < 0.5 * BHPOTVALUEINIT) {
         for(k = 0; k < 3; k++)
-           P[i].Pos[k] = BHP(i).MinPotPos[k];
+           P[i].Pos[k] = MinPotPos[PI][k];
     }
     if(BHP(i).Density > 0)
     {
@@ -367,11 +384,17 @@ static void
 blackhole_accretion_preprocess(int n, TreeWalk * tw)
 {
     int j;
+    MyFloat * MinPot = BH_GET_PRIV(tw)->MinPot;
+    double (* MinPotPos)[3] = BH_GET_PRIV(tw)->MinPotPos;
+    MyFloat (* MinPotVel)[3] = BH_GET_PRIV(tw)->MinPotVel;
+
+    int PI = P[n].PI;
+
     for(j = 0; j < 3; j++) {
-        BHP(n).MinPotPos[j] = P[n].Pos[j];
-        BHP(n).MinPotVel[j] = P[n].Vel[j];
+        MinPotPos[PI][j] = P[n].Pos[j];
+        MinPotVel[PI][j] = P[n].Vel[j];
     }
-    BHP(n).MinPot = P[n].Potential;
+    MinPot[PI] = P[n].Potential;
 }
 
 static void
@@ -682,13 +705,17 @@ static void
 blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
 {
     int k;
-    if(mode == 0 || BHP(place).MinPot > remote->BH_MinPot)
+    MyFloat * MinPot = BH_GET_PRIV(tw)->MinPot;
+    double (* MinPotPos)[3] = BH_GET_PRIV(tw)->MinPotPos;
+    MyFloat (* MinPotVel)[3] = BH_GET_PRIV(tw)->MinPotVel;
+    int PI = P[place].PI;
+    if(mode == 0 || MinPot[PI] > remote->BH_MinPot)
     {
-        BHP(place).MinPot = remote->BH_MinPot;
+        MinPot[PI] = remote->BH_MinPot;
         for(k = 0; k < 3; k++) {
             /* Movement occurs in postprocessing*/
-            BHP(place).MinPotPos[k] = remote->BH_MinPotPos[k];
-            BHP(place).MinPotVel[k] = remote->BH_MinPotVel[k];
+            MinPotPos[PI][k] = remote->BH_MinPotPos[k];
+            MinPotVel[PI][k] = remote->BH_MinPotVel[k];
         }
     }
     if (mode == 0 ||
