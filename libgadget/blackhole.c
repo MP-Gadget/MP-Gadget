@@ -237,7 +237,8 @@ blackhole(ForceTree * tree)
         #pragma omp parallel for
         for(i = 0; i < NumActiveParticle; i ++) {
             int p_i = ActiveParticle[i];
-            priv->SPH_SwallowID[P[p_i].PI] = -1;
+            if(P[p_i].Type == 0)
+                priv->SPH_SwallowID[P[p_i].PI] = -1;
         }
     }
     else {
