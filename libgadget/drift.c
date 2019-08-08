@@ -39,41 +39,12 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift)
         endrun(12, "i=%d ti0=%d ti1=%d\n", i, ti0, ti1);
     }
 
-
 #ifdef LIGHTCONE
     double oldpos[3];
     for(j = 0; j < 3; j++) {
         oldpos[j] = P[i].Pos[j];
     }
 #endif
-
-    /* Jumping of BH */
-    if(P[i].Type == 5) {
-        int k;
-        /* this is currently disabled due to blackhole.c setting it always to zero;
-         * for unclear reason blackholes are randomly not catching up with the potmin in bt-ii
-         * branch so I am reverting it to the bt-i logic, where only Pos tracks potmin (and not drifted
-         * in predict.c may crash PM randomly), and velocity
-         * tracks the accretion feedback (which made not much sense). */
-
-        if (BHP(i).JumpToMinPot) {
-            for(k = 0; k < 3; k++) {
-                double dx = NEAREST(P[i].Pos[k] - BHP(i).MinPotPos[k]);
-                if(dx > 0.1 * All.BoxSize) {
-                    endrun(1, "Drifting blackhole very far, from %g %g %g to %g %g %g id = %ld. Likely due to the time step is too sparse.\n",
-                        P[i].Pos[0],
-                        P[i].Pos[1],
-                        P[i].Pos[2],
-                        BHP(i).MinPotPos[0],
-                        BHP(i).MinPotPos[1],
-                        BHP(i).MinPotPos[2], P[i].ID);
-                }
-                P[i].Pos[k] = BHP(i).MinPotPos[k];
-                P[i].Vel[k] = BHP(i).MinPotVel[k];
-            }
-        }
-        BHP(i).JumpToMinPot = 0;
-    }
 
     for(j = 0; j < 3; j++) {
         P[i].Pos[j] += P[i].Vel[j] * ddrift;

@@ -312,10 +312,9 @@ static void
 blackhole_accretion_postprocess(int i, TreeWalk * tw)
 {
     int k;
-
-    /* disable jumping in predict.c*/
-    BHP(i).JumpToMinPot = 0;
-    /* jumping here. may break consistency of tree. */
+    /* Move black hole here. WARNING! This breaks the tree consistency.
+     * It is fine because the only tree walk after this is for winds,
+     * which black holes do not participate in. */
     if(BHP(i).MinPot < 0.5 * BHPOTVALUEINIT) {
         for(k = 0; k < 3; k++)
            P[i].Pos[k] = BHP(i).MinPotPos[k];
@@ -700,7 +699,7 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     {
         BHP(place).MinPot = remote->BH_MinPot;
         for(k = 0; k < 3; k++) {
-            /* Movement occurs in predict.c if we set JumpToPotMin to 1. Currently we set it to 0.*/
+            /* Movement occurs in postprocessing*/
             BHP(place).MinPotPos[k] = remote->BH_MinPotPos[k];
             BHP(place).MinPotVel[k] = remote->BH_MinPotVel[k];
         }
