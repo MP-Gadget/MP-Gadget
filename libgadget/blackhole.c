@@ -434,34 +434,21 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
      /* BH does not accrete wind */
     if(P[other].Type == 0 && SPHP(other).DelayTime > 0) return;
 
-    /* Drifting the blackhole towards minimum. This shall be refactored to some sink.c etc */
-    if(r2 < iter->accretion_kernel.HH) // && r < All.FOFHaloComovingLinkingLength)
+    /* Find the black hole potential minimum. */
+    if(r2 < iter->accretion_kernel.HH)
     {
         if(P[other].Potential < O->BH_MinPot)
         {
-            if(P[other].Type == 0 || P[other].Type == 1 || P[other].Type == 4 || P[other].Type == 5)
-            {
-                /* FIXME: compute peculiar velocities between two objects; this shall be a function */
-                int d;
-                double vrel[3];
-                for(d = 0; d < 3; d++)
-                    vrel[d] = (P[other].Vel[d] - I->Vel[d]);
-
-                /* disable the sound speed check as we suspect this is causing the BH to drift away from center.*/
-/*                double vpec = sqrt(dotproduct(vrel, vrel)) / All.cf.a;
-                  if(vpec <= 0.25 * I->Csnd)*/
-                {
-                    O->BH_MinPot = P[other].Potential;
-                    for(d = 0; d < 3; d++) {
-                        O->BH_MinPotPos[d] = P[other].Pos[d];
-                        O->BH_MinPotVel[d] = P[other].Vel[d];
-                    }
-                }
+            int d;
+            O->BH_MinPot = P[other].Potential;
+            for(d = 0; d < 3; d++) {
+                O->BH_MinPotPos[d] = P[other].Pos[d];
+                O->BH_MinPotVel[d] = P[other].Vel[d];
             }
         }
     }
 
-    /* Accretion / merger doesn't do self iteraction */
+    /* Accretion / merger doesn't do self interaction */
     if(P[other].ID == I->ID) return;
 
     struct SpinLocks * spin = BH_GET_PRIV(lv->tw)->spin;
