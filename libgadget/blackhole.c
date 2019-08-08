@@ -45,7 +45,6 @@ typedef struct {
 typedef struct {
     TreeWalkResultBase base;
     MyFloat BH_MinPotPos[3];
-    MyFloat BH_MinPotVel[3];
     MyFloat BH_MinPot;
 
     int BH_TimeBinLimit;
@@ -89,7 +88,6 @@ struct BHPriv {
     /*Temporary array to store the IDs of the swallowing black hole for gas*/
     MyIDType * SPH_SwallowID;
     double  (* MinPotPos) [3];
-    MyFloat (* MinPotVel) [3];
     MyFloat * MinPot;
 
     /* Particle SpinLocks*/
@@ -259,11 +257,9 @@ blackhole(ForceTree * tree)
     /* These are initialized in preprocess and used to reposition the BH in postprocess*/
     priv->MinPot = mymalloc("BH_MinPot", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->MinPotPos = mymalloc("BH_MinPotPos", 3 * SlotsManager->info[5].size * sizeof(double));
-    priv->MinPotVel = mymalloc("BH_MinPotVel", 3 * SlotsManager->info[5].size * sizeof(MyFloat));
 
     treewalk_run(tw_accretion, ActiveParticle, NumActiveParticle);
 
-    myfree(priv->MinPotVel);
     myfree(priv->MinPotPos);
     myfree(priv->MinPot);
 
@@ -386,13 +382,11 @@ blackhole_accretion_preprocess(int n, TreeWalk * tw)
     int j;
     MyFloat * MinPot = BH_GET_PRIV(tw)->MinPot;
     double (* MinPotPos)[3] = BH_GET_PRIV(tw)->MinPotPos;
-    MyFloat (* MinPotVel)[3] = BH_GET_PRIV(tw)->MinPotVel;
 
     int PI = P[n].PI;
 
     for(j = 0; j < 3; j++) {
         MinPotPos[PI][j] = P[n].Pos[j];
-        MinPotVel[PI][j] = P[n].Vel[j];
     }
     MinPot[PI] = P[n].Potential;
 }
@@ -429,7 +423,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         int d;
         for(d = 0; d < 3; d++) {
             O->BH_MinPotPos[d] = I->base.Pos[d];
-            O->BH_MinPotVel[d] = I->Vel[d];
         }
         double hsearch;
         hsearch = decide_hsearch(I->Hsml);
@@ -466,7 +459,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             O->BH_MinPot = P[other].Potential;
             for(d = 0; d < 3; d++) {
                 O->BH_MinPotPos[d] = P[other].Pos[d];
-                O->BH_MinPotVel[d] = P[other].Vel[d];
             }
         }
     }
@@ -707,7 +699,6 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     int k;
     MyFloat * MinPot = BH_GET_PRIV(tw)->MinPot;
     double (* MinPotPos)[3] = BH_GET_PRIV(tw)->MinPotPos;
-    MyFloat (* MinPotVel)[3] = BH_GET_PRIV(tw)->MinPotVel;
     int PI = P[place].PI;
     if(mode == 0 || MinPot[PI] > remote->BH_MinPot)
     {
@@ -715,7 +706,6 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
         for(k = 0; k < 3; k++) {
             /* Movement occurs in postprocessing*/
             MinPotPos[PI][k] = remote->BH_MinPotPos[k];
-            MinPotVel[PI][k] = remote->BH_MinPotVel[k];
         }
     }
     if (mode == 0 ||
