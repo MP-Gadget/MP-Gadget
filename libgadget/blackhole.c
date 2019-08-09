@@ -670,11 +670,12 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     int k;
     MyFloat * MinPot = BH_GET_PRIV(tw)->MinPot;
     int PI = P[place].PI;
-    if(mode == 0 || MinPot[PI] > remote->BH_MinPot)
+    if(MinPot[PI] > remote->BH_MinPot)
     {
+        BHP(place).JumpToMinPot = 1;
         MinPot[PI] = remote->BH_MinPot;
         for(k = 0; k < 3; k++) {
-            /* Movement occurs in predict.c */
+            /* Movement occurs in drift.c */
             BHP(place).MinPotPos[k] = remote->BH_MinPotPos[k];
         }
     }
@@ -692,8 +693,6 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     TREEWALK_REDUCE(BHP(place).SurroundingGasVel[0], remote->GasVel[0]);
     TREEWALK_REDUCE(BHP(place).SurroundingGasVel[1], remote->GasVel[1]);
     TREEWALK_REDUCE(BHP(place).SurroundingGasVel[2], remote->GasVel[2]);
-
-    BHP(place).JumpToMinPot = 1;
 }
 
 static void
@@ -778,6 +777,7 @@ void blackhole_make_one(int index) {
     for(j = 0; j < 3; j++) {
         BHP(child).MinPotPos[j] = P[child].Pos[j];
     }
+    BHP(child).JumpToMinPot = 0;
 
     BHP(child).CountProgs = 1;
 }
