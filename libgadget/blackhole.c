@@ -45,7 +45,6 @@ typedef struct {
 typedef struct {
     TreeWalkResultBase base;
     MyFloat BH_MinPotPos[3];
-    MyFloat BH_MinPotVel[3];
     MyFloat BH_MinPot;
 
     int BH_TimeBinLimit;
@@ -368,7 +367,6 @@ blackhole_accretion_preprocess(int n, TreeWalk * tw)
 
     for(j = 0; j < 3; j++) {
         BHP(n).MinPotPos[j] = P[n].Pos[j];
-        BHP(n).MinPotVel[j] = P[n].Vel[j];
     }
 }
 
@@ -396,7 +394,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         int d;
         for(d = 0; d < 3; d++) {
             O->BH_MinPotPos[d] = I->base.Pos[d];
-            O->BH_MinPotVel[d] = I->Vel[d];
         }
         double hsearch;
         hsearch = decide_hsearch(I->Hsml);
@@ -433,7 +430,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             O->BH_MinPot = P[other].Potential;
             for(d = 0; d < 3; d++) {
                 O->BH_MinPotPos[d] = P[other].Pos[d];
-                O->BH_MinPotVel[d] = P[other].Vel[d];
             }
         }
     }
@@ -680,7 +676,6 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
         for(k = 0; k < 3; k++) {
             /* Movement occurs in predict.c */
             BHP(place).MinPotPos[k] = remote->BH_MinPotPos[k];
-            BHP(place).MinPotVel[k] = remote->BH_MinPotVel[k];
         }
     }
     if (mode == 0 ||
@@ -782,7 +777,6 @@ void blackhole_make_one(int index) {
     int j;
     for(j = 0; j < 3; j++) {
         BHP(child).MinPotPos[j] = P[child].Pos[j];
-        BHP(child).MinPotVel[j] = P[child].Vel[j];
     }
 
     BHP(child).CountProgs = 1;
