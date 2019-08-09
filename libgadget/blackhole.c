@@ -88,6 +88,8 @@ typedef struct {
 struct BHPriv {
     /*Temporary array to store the IDs of the swallowing black hole for gas*/
     MyIDType * SPH_SwallowID;
+    MyFloat * MinPot;
+
     /* Particle SpinLocks*/
     struct SpinLocks * spin;
     /* Counters*/
@@ -252,7 +254,10 @@ blackhole(ForceTree * tree)
     /* This allocates memory*/
     priv[0].spin = init_spinlocks(PartManager->NumPart);
 
+    /* These are initialized in preprocess and used to reposition the BH in postprocess*/
+    priv->MinPot = mymalloc("BH_MinPot", SlotsManager->info[5].size * sizeof(MyFloat));
     treewalk_run(tw_accretion, ActiveParticle, NumActiveParticle);
+    myfree(priv->MinPot);
 
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Start swallowing of gas particles and black holes\n");
@@ -359,11 +364,12 @@ static void
 blackhole_accretion_preprocess(int n, TreeWalk * tw)
 {
     int j;
+    BH_GET_PRIV(tw)->MinPot[P[n].PI] = P[n].Potential;
+
     for(j = 0; j < 3; j++) {
         BHP(n).MinPotPos[j] = P[n].Pos[j];
         BHP(n).MinPotVel[j] = P[n].Vel[j];
     }
-    BHP(n).MinPot = P[n].Potential;
 }
 
 static void
@@ -666,9 +672,11 @@ static void
 blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
 {
     int k;
-    if(mode == 0 || BHP(place).MinPot > remote->BH_MinPot)
+    MyFloat * MinPot = BH_GET_PRIV(tw)->MinPot;
+    int PI = P[place].PI;
+    if(mode == 0 || MinPot[PI] > remote->BH_MinPot)
     {
-        BHP(place).MinPot = remote->BH_MinPot;
+        MinPot[PI] = remote->BH_MinPot;
         for(k = 0; k < 3; k++) {
             /* Movement occurs in predict.c */
             BHP(place).MinPotPos[k] = remote->BH_MinPotPos[k];
@@ -777,7 +785,6 @@ void blackhole_make_one(int index) {
         BHP(child).MinPotVel[j] = P[child].Vel[j];
     }
 
-    BHP(child).MinPot = P[child].Potential;
     BHP(child).CountProgs = 1;
 }
 
