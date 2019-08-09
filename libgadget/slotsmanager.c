@@ -265,7 +265,7 @@ static int slot_cmp_reverse_link(const void * b1in, const void * b2in) {
 static int
 slots_gc_mark(const struct slots_manager_type * SlotsManager)
 {
-    int i, ptype;
+    int i;
     if(!(SlotsManager->info[0].enabled ||
        SlotsManager->info[1].enabled ||
        SlotsManager->info[2].enabled ||
@@ -275,6 +275,7 @@ slots_gc_mark(const struct slots_manager_type * SlotsManager)
         return 0;
 
 #ifdef DEBUG
+    int ptype;
     /*Initially set all reverse links to an obviously invalid value*/
     for(ptype = 0; ptype < 6; ptype++)
     {
@@ -296,7 +297,7 @@ slots_gc_mark(const struct slots_manager_type * SlotsManager)
             continue;
 
         int sind = P[i].PI;
-        if(sind > info.size)
+        if(sind >= info.size || sind < 0)
             endrun(1, "Particle %d, type %d has PI index %d beyond max slot size %d.\n", i, P[i].Type, sind, info.size);
         struct particle_data_ext * sdata = (struct particle_data_ext * )(info.ptr + info.elsize * sind);
         sdata->ReverseLink = i;
@@ -655,7 +656,7 @@ slots_setup_id(const struct slots_manager_type * SlotsManager)
             continue;
 
         int sind = P[i].PI;
-        if(sind > info.size)
+        if(sind >= info.size || sind < 0)
             endrun(1, "Particle %d, type %d has PI index %d beyond max slot size %d.\n", i, P[i].Type, sind, info.size);
         struct particle_data_ext * sdata = (struct particle_data_ext * )(info.ptr + info.elsize * sind);
         sdata->ReverseLink = i;

@@ -695,10 +695,12 @@ void io_register_io_block(char * name,
         IOTable.allocated *= 2;
     }
     IOTableEntry * ent = &IOTable.ent[IOTable.used];
-    strncpy(ent->name, name, 64);
+    strncpy(ent->name, name, 63);
+    ent->name[63] = '\0';
     ent->zorder = IOTable.used;
     ent->ptype = ptype;
-    strncpy(ent->dtype, dtype, 8);
+    strncpy(ent->dtype, dtype, 7);
+    ent->dtype[7] = '\0';
     ent->getter = getter;
     ent->setter = setter;
     ent->items = items;
