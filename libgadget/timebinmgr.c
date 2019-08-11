@@ -81,6 +81,8 @@ setup_sync_points(double TimeIC, double no_snapshot_until_time)
             if(All.SnapshotWithFOF) {
                 SyncPoints[j].write_fof = 1;
             }
+            else
+                SyncPoints[j].write_fof = 0;
         } else {
             SyncPoints[j].write_snapshot = 0;
             SyncPoints[j].write_fof = 0;
