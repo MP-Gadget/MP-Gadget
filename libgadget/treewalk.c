@@ -477,12 +477,6 @@ static void ev_secondary(TreeWalk * tw)
             TreeWalkQueryBase * input = (TreeWalkQueryBase*) (tw->dataget + j * tw->query_type_elsize);
             TreeWalkResultBase * output = (TreeWalkResultBase*)(tw->dataresult + j * tw->result_type_elsize);
             treewalk_init_result(tw, output, input);
-#ifdef DEBUG
-            if(!tw->UseNodeList) {
-                if(input->NodeList[0] != tw->tree->firstnode || input->NodeList[1] != -1)
-                     endrun(2, "Improper NodeList\n");
-            }
-#endif
             lv->target = -1;
             tw->visit(input, output, lv);
         }
@@ -556,14 +550,12 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
         }
     }
 
-    if(tw->UseNodeList)
-    {
-        DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
+    /* Set the NodeList entry*/
+    DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
             tw->tree->TopLeaves[no - tw->tree->lastnode].treenode;
 
-        if(exportnodecount[task] < NODELISTLENGTH)
+    if(exportnodecount[task] < NODELISTLENGTH)
             DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
-    }
     return 0;
 }
 
@@ -668,10 +660,7 @@ static void ev_get_remote(TreeWalk * tw)
     {
         int place = DataIndexTable[j].Index;
         TreeWalkQueryBase * input = (TreeWalkQueryBase*) (sendbuf + j * tw->query_type_elsize);
-        int * nodelist = NULL;
-        if(tw->UseNodeList) {
-            nodelist = DataNodeList[DataIndexTable[j].IndexGet].NodeList;
-        }
+        int * nodelist = DataNodeList[DataIndexTable[j].IndexGet].NodeList;
         treewalk_init_query(tw, input, place, nodelist);
     }
     tend = second();
@@ -931,7 +920,7 @@ cull_node(const TreeWalkQueryBase * const I, const TreeWalkNgbIterBase * const i
  * max(P[other].Hsml, iter->Hsml).
  *
  * Particle that intersects with other domains are marked for export.
- * The hosting nodes are exported as well, if tw->UseNodeList is True.
+ * The hosting nodes are exported as well.
  *
  * For all 'other' particle within the neighbourhood and are local on this processor,
  * this function calls the ngbiter member of the TreeWalk object.
@@ -963,29 +952,23 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         if(node_is_pseudo_particle(no, tree)) {
             /* pseudo particle */
             if(lv->mode == 1) {
-                if(!lv->tw->UseNodeList) {
-                    no = nextnode;
-                    continue;
-                } else {
-                    endrun(12312, "Touching outside of my domain from a node list of a ghost. This shall not happen.");
-                }
+                endrun(12312, "Touching outside of my domain from a node list of a ghost. This shall not happen.");
             } else {
                 if(-1 == treewalk_export_particle(lv, no))
                     return -1;
             }
-
             no = nextnode;
             continue;
         }
 
         struct NODE *current = &tree->Nodes[no];
 
+        /* When walking exported particles we start from the encompassing top-level node,
+         * so if we get back to a top-level node again we are done.*/
         if(lv->mode == 1) {
-            if (lv->tw->UseNodeList) {
-                if(current->f.TopLevel) {
-                    /* we reached a top-level node again, which means that we are done with the branch */
-                    break;
-                }
+            if(current->f.TopLevel) {
+                /* we reached a top-level node again, which means that we are done with the branch */
+                break;
             }
         }
 

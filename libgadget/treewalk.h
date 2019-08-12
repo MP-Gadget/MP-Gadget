@@ -96,7 +96,7 @@ struct TreeWalk {
     int NTask; /*Number of MPI tasks*/
     int NThread; /*Number of OpenMP threads*/
 
-    int UseNodeList;      /* Send tree branches or use the entire tree for ghost particles */
+    /* When exporting we now always send tree branches.*/
 
     char * dataget;
     char * dataresult;

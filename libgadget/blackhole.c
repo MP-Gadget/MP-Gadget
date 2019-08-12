@@ -206,7 +206,6 @@ blackhole(ForceTree * tree)
     tw_accretion->preprocess = (TreeWalkProcessFunction) blackhole_accretion_preprocess;
     tw_accretion->fill = (TreeWalkFillQueryFunction) blackhole_accretion_copy;
     tw_accretion->reduce = (TreeWalkReduceResultFunction) blackhole_accretion_reduce;
-    tw_accretion->UseNodeList = 1;
     tw_accretion->query_type_elsize = sizeof(TreeWalkQueryBHAccretion);
     tw_accretion->result_type_elsize = sizeof(TreeWalkResultBHAccretion);
     tw_accretion->tree = tree;
@@ -221,7 +220,6 @@ blackhole(ForceTree * tree)
     tw_feedback->fill = (TreeWalkFillQueryFunction) blackhole_feedback_copy;
     tw_feedback->postprocess = (TreeWalkProcessFunction) blackhole_feedback_postprocess;
     tw_feedback->reduce = (TreeWalkReduceResultFunction) blackhole_feedback_reduce;
-    tw_feedback->UseNodeList = 1;
     tw_feedback->query_type_elsize = sizeof(TreeWalkQueryBHFeedback);
     tw_feedback->result_type_elsize = sizeof(TreeWalkResultBHFeedback);
     tw_feedback->tree = tree;

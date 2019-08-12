@@ -57,7 +57,6 @@ void grav_short_tree(ForceTree * tree)
     tw->haswork = NULL;
     tw->reduce = (TreeWalkReduceResultFunction) grav_short_reduce;
     tw->postprocess = (TreeWalkProcessFunction) grav_short_postprocess;
-    tw->UseNodeList = 1;
 
     tw->query_type_elsize = sizeof(TreeWalkQueryGravShort);
     tw->result_type_elsize = sizeof(TreeWalkResultGravShort);

@@ -212,7 +212,6 @@ winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree)
     tw->ev_label = "SFR_WIND";
     tw->fill = (TreeWalkFillQueryFunction) sfr_wind_copy;
     tw->reduce = (TreeWalkReduceResultFunction) sfr_wind_reduce_weight;
-    tw->UseNodeList = 1;
     tw->query_type_elsize = sizeof(TreeWalkQueryWind);
     tw->result_type_elsize = sizeof(TreeWalkResultWind);
     tw->tree = tree;
