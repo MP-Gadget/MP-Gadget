@@ -126,7 +126,7 @@ void hydro_force(ForceTree * tree)
     tw->fill = (TreeWalkFillQueryFunction) hydro_copy;
     tw->reduce = (TreeWalkReduceResultFunction) hydro_reduce;
     tw->postprocess = (TreeWalkProcessFunction) hydro_postprocess;
-    tw->UseNodeList = 0;
+    tw->UseNodeList = 1;
     tw->query_type_elsize = sizeof(TreeWalkQueryHydro);
     tw->result_type_elsize = sizeof(TreeWalkResultHydro);
     tw->tree = tree;
