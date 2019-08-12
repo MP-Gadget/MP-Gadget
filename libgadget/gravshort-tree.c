@@ -115,7 +115,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
         LocalTreeWalk * lv)
 {
     /*Counters*/
-    int nnodesinlist = 0, ninteractions = 0;
+    int ninteractions = 0;
 
     /*Added to the particle struct at the end*/
     MyDouble pot = 0;
@@ -307,7 +307,6 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             if(no >= 0)
             {
                 no = tree->Nodes[no].u.d.nextnode;	/* open it */
-                nnodesinlist++;
                 listindex++;
             }
         }
@@ -319,8 +318,11 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     output->Ninteractions = ninteractions;
     output->Potential = pot;
 
-    lv->Ninteractions = ninteractions;
-    lv->Nnodesinlist = nnodesinlist;
+    lv->Ninteractions =+ ninteractions;
+    if(lv->mode == 1) {
+        lv->Nnodesinlist += listindex;
+        lv->Nlist += 1;
+    }
     return ninteractions;
 }
 

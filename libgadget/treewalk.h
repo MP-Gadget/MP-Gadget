@@ -51,6 +51,7 @@ typedef struct {
     int * ngblist;
     int64_t Ninteractions;
     int64_t Nnodesinlist;
+    int64_t Nlist;
 } LocalTreeWalk;
 
 typedef int (*TreeWalkVisitFunction) (TreeWalkQueryBase * input, TreeWalkResultBase * output, LocalTreeWalk * lv);
@@ -111,6 +112,7 @@ struct TreeWalk {
     double timecommsumm2;
     int64_t Ninteractions;
     int64_t Nnodesinlist;
+    int64_t Nlist;
     int64_t Nexport_sum;
     int64_t Niterations;
 

@@ -120,6 +120,7 @@ ev_init_thread(TreeWalk * const tw, LocalTreeWalk * lv)
     lv->exportindex = Exportindex + thread_id * NTask;
     lv->Ninteractions = 0;
     lv->Nnodesinlist = 0;
+    lv->Nlist = 0;
     lv->ngblist = Ngblist + thread_id * PartManager->NumPart;
     for(j = 0; j < NTask; j++)
         lv->exportflag[j] = -1;
@@ -237,7 +238,7 @@ treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum T
         tw->reduce(i, result, mode, tw);
 }
 
-static void real_ev(TreeWalk * tw, int * ninter, int * nnodes) {
+static void real_ev(TreeWalk * tw, int * ninter, int * nnodes, int * nlist) {
     int tid = omp_get_thread_num();
     LocalTreeWalk lv[1];
 
@@ -277,6 +278,7 @@ static void real_ev(TreeWalk * tw, int * ninter, int * nnodes) {
     tw->currentIndex[tid] = k;
     *ninter += lv->Ninteractions;
     *nnodes += lv->Nnodesinlist;
+    *nlist += lv->Nlist;
 }
 
 #ifdef DEBUG
@@ -369,12 +371,14 @@ static int ev_primary(TreeWalk * tw)
 
     int nint = tw->Ninteractions;
     int nnodes = tw->Nnodesinlist;
-#pragma omp parallel reduction(+: nint) reduction(+: nnodes)
+    int nlist = tw->Nlist;
+#pragma omp parallel reduction(+: nint) reduction(+: nnodes) reduction(+:nlist)
     {
-        real_ev(tw, &nint, &nnodes);
+        real_ev(tw, &nint, &nnodes, &nlist);
     }
     tw->Ninteractions = nint;
     tw->Nnodesinlist = nnodes;
+    tw->Nlist = nlist;
 
     ev_free_threadlocals();
 
@@ -464,8 +468,9 @@ static void ev_secondary(TreeWalk * tw)
 
     ev_alloc_threadlocals(tw->NTask * tw->NThread);
     int nint = tw->Ninteractions;
-    int nnodes = tw->Ninteractions;
-#pragma omp parallel reduction(+: nint) reduction(+: nnodes)
+    int nnodes = tw->Nnodesinlist;
+    int nlist = tw->Nlist;
+#pragma omp parallel reduction(+: nint) reduction(+: nnodes) reduction(+: nlist)
     {
         int j;
         LocalTreeWalk lv[1];
@@ -482,9 +487,11 @@ static void ev_secondary(TreeWalk * tw)
         }
         nint += lv->Ninteractions;
         nnodes += lv->Nnodesinlist;
+        nlist += lv->Nlist;
     }
     tw->Ninteractions = nint;
     tw->Nnodesinlist = nnodes;
+    tw->Nlist = nlist;
 
     ev_free_threadlocals();
     tend = second();
@@ -603,6 +610,12 @@ treewalk_run(TreeWalk * tw, int * active_set, int size)
         } while(ev_ndone(tw) < tw->NTask);
     }
 
+#ifdef DEBUG
+    int64_t totNodesinlist, totlist;
+    MPI_Reduce(&tw->Nnodesinlist,  &totNodesinlist, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tw->Nlist,  &totlist, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    message(0, "Nodes in nodelist: %g (avg). %ld nodes, %ld lists\n", ((double) totNodesinlist)/totlist, totlist, totNodesinlist);
+#endif
     double tstart, tend;
 
     tstart = second();
@@ -876,7 +889,10 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
     }
 
     lv->Ninteractions += ninteractions;
-    lv->Nnodesinlist += inode;
+    if(lv->mode == 1) {
+        lv->Nnodesinlist += inode;
+        lv->Nlist += 1;
+    }
     return 0;
 }
 
