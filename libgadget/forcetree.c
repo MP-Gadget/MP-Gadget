@@ -341,9 +341,6 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
     int i;
     int nnext = tb.firstnode;		/* index of first free node */
 
-    /*Count of how many times we hit this limit*/
-    int closepairs = 0;
-
     /* create an empty root node  */
     {
         struct NODE *nfreep = &tb.Nodes[nnext];	/* select first node */
@@ -382,7 +379,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
     struct SpinLocks * spin = init_spinlocks(tb.lastnode - tb.firstnode);
 
     /* now we insert all particles */
-    #pragma omp parallel for firstprivate(nc, this_acc) reduction(+: closepairs)
+    #pragma omp parallel for firstprivate(nc, this_acc)
     for(i = 0; i < npart; i++)
     {
         /*Can't break from openmp for*/
@@ -478,12 +475,6 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         /*Unlock the parent*/
         unlock_spinlock(this - tb.firstnode, spin);
     }
-    int totclose;
-    MPI_Allreduce(&closepairs, &totclose, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    if(totclose) {
-        message(0,"Found %d close particle pairs when building tree.\n",totclose);
-    }
-
     free_spinlocks(spin);
 
     return nnext - tb.firstnode;
