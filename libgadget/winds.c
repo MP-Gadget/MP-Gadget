@@ -30,7 +30,6 @@ static struct WindParams
 
 typedef struct {
     TreeWalkQueryBase base;
-    int NodeList[NODELISTLENGTH];
     double Sfr;
     double Dt;
     double Mass;
