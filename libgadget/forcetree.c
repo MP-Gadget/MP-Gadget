@@ -35,8 +35,6 @@ static struct forcetree_params
        particles needs usually about ~0.65*N nodes.
        If the allocated memory is not sufficient, this parameter will be increased.*/
     double TreeAllocFactor;
-    /* The minimum size of a Force Tree Node in length units. */
-    double TreeNodeMinSize;
     /*!< flags the particle species which will be excluded from the tree if the HybridNuGrav parameter is set.*/
     int FastParticleType;
 } ForceTreeParams;
@@ -45,15 +43,6 @@ void
 init_forcetree_params(const int FastParticleType, const double * GravitySofteningTable)
 {
     ForceTreeParams.TreeAllocFactor = 0.7;
-    int i;
-    double minsoft = 0;
-    for(i = 0; i<6; i++) {
-        if(GravitySofteningTable[i] <= 0) continue;
-        if(minsoft == 0 || minsoft > GravitySofteningTable[i])
-            minsoft = GravitySofteningTable[i];
-    }
-    /* FIXME: make this a parameter. */
-    ForceTreeParams.TreeNodeMinSize = 1.0e-3 * 2.8 * minsoft;
     ForceTreeParams.FastParticleType = FastParticleType;
 }
 
