@@ -126,7 +126,7 @@ static int check_moments(const ForceTree * tb, const int numpart, const int nrea
                 sibcntr++;
 
             if(!(tb->Nodes[node].u.d.mass < 0.5 && tb->Nodes[node].u.d.mass > -0.5)) {
-                printf("node %d (%d) mass %g / %g TL %d DLM %d MS %g MSN %d ITL %d\n", 
+                printf("node %d (%d) mass %g / %g TL %d DLM %d MS %g MSN %d ITL %d\n",
                     node, node - tb->firstnode, tb->Nodes[node].u.d.mass, oldmass[node - tb->firstnode],
                     tb->Nodes[node].f.TopLevel,
                     tb->Nodes[node].f.DependsOnLocalMass,
@@ -221,6 +221,8 @@ static void do_tree_test(const int numpart, const ForceTree tb, DomainDecomp * d
     for(i=0; i<numpart; i++) {
         P[i].Key = PEANO(P[i].Pos, BoxSize);
         P[i].Mass = 1;
+        P[i].PI = 0;
+        P[i].IsGarbage = 0;
     }
     qsort(P, numpart, sizeof(struct particle_data), order_by_type_and_key);
     int maxnode = numpart;
@@ -307,21 +309,18 @@ void do_random_test(gsl_rng * r, const int numpart, const ForceTree tb, DomainDe
     int i;
     for(i=0; i<numpart/4; i++) {
         P[i].Type = 1;
-        P[i].PI = 0;
         int j;
         for(j=0; j<3; j++)
             P[i].Pos[j] = BoxSize * gsl_rng_uniform(r);
     }
     for(i=numpart/4; i<3*numpart/4; i++) {
         P[i].Type = 1;
-        P[i].PI = 0;
         int j;
         for(j=0; j<3; j++)
             P[i].Pos[j] = BoxSize/2 + BoxSize/8 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
     for(i=3*numpart/4; i<numpart; i++) {
         P[i].Type = 1;
-        P[i].PI = 0;
         int j;
         for(j=0; j<3; j++)
             P[i].Pos[j] = BoxSize*0.1 + BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
