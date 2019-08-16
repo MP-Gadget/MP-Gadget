@@ -385,9 +385,9 @@ ionize_single_particle(int other)
     double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
 
     /* Conversion factor between internal energy and entropy.*/
-    double utoentropy = GAMMA_MINUS1 * pow(SPH_EOMDensity(other) * All.cf.a3inv, GAMMA_MINUS1);
+    double entropytou = pow(SPH_EOMDensity(other) * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
     /* Convert to entropy in internal units*/
-    SPHP(other).Entropy += utoentropy * deltau / uu_in_cgs;
+    SPHP(other).Entropy += deltau / uu_in_cgs / entropytou;
     return 1;
 }
 
