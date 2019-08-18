@@ -28,7 +28,6 @@ struct BlackholeParams
     double BlackHoleFeedbackRadiusMaxPhys;	/*!< Radius the thermal cap */
     double SeedBlackHoleMass;	/*!< Seed black hole mass */
     double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
-    int BlackHoleSoundSpeedFromPressure; /* 0 from Entropy, 1 from Pressure; */
 } blackhole_params;
 
 typedef struct {
@@ -104,8 +103,6 @@ void set_blackhole_params(ParameterSet * ps)
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0) {
-        blackhole_params.BlackHoleSoundSpeedFromPressure = 0;
-
         blackhole_params.BlackHoleAccretionFactor = param_get_double(ps, "BlackHoleAccretionFactor");
         blackhole_params.BlackHoleEddingtonFactor = param_get_double(ps, "BlackHoleEddingtonFactor");
         blackhole_params.SeedBlackHoleMass = param_get_double(ps, "SeedBlackHoleMass");
@@ -168,15 +165,9 @@ decide_hsearch(double h);
 
 #define BHPOTVALUEINIT 1.0e29
 
-static double blackhole_soundspeed(double entropy, double pressure, double rho) {
+static double blackhole_soundspeed(double entropy, double rho) {
     /* rho is comoving !*/
-    double cs;
-    if (blackhole_params.BlackHoleSoundSpeedFromPressure) {
-        cs = sqrt(GAMMA * pressure / rho);
-    } else {
-        cs = sqrt(GAMMA * entropy *
-                pow(rho, GAMMA_MINUS1));
-    }
+    double cs = sqrt(GAMMA * entropy * pow(rho, GAMMA_MINUS1));
 
     cs *= pow(All.Time, -1.5 * GAMMA_MINUS1);
 
@@ -339,7 +330,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
     bhvel /= All.cf.a;
     double rho_proper = rho * All.cf.a3inv;
 
-    double soundspeed = blackhole_soundspeed(BHP(i).Entropy, BHP(i).Pressure, rho);
+    double soundspeed = blackhole_soundspeed(BHP(i).Entropy, rho);
 
     /* Note: we take here a radiative efficiency of 0.1 for Eddington accretion */
     double meddington = (4 * M_PI * GRAVITY * LIGHTCGS * PROTONMASS / (0.1 * LIGHTCGS * LIGHTCGS * THOMPSON)) * BHP(i).Mass
@@ -712,10 +703,7 @@ blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I, TreeWalk * tw)
     I->Mass = P[place].Mass;
     I->BH_Mass = BHP(place).Mass;
     I->Density = BHP(place).Density;
-    I->Csnd = blackhole_soundspeed(
-                BHP(place).Entropy,
-                BHP(place).Pressure,
-                BHP(place).Density);
+    I->Csnd = blackhole_soundspeed(BHP(place).Entropy, BHP(place).Density);
     I->ID = P[place].ID;
 }
 
