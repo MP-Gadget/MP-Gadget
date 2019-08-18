@@ -58,7 +58,9 @@ struct bh_particle_data {
     MyIDType SwallowID; /* Allows marking of a merging particle. Used only in blackhole.c.
                            Set to -1 in init.c and only reinitialised if a merger takes place.*/
 
-    short int TimeBinLimit;
+    /* Stores the minimum timebins of all black hole neighbours.
+     * The black hole timebin is then set to this.*/
+    short int minTimeBin;
 };
 
 /*Data for each star particle*/

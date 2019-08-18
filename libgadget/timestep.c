@@ -408,9 +408,12 @@ get_timestep_dloga(const int p)
             if(dt_accr < dt)
                 dt = dt_accr;
         }
-        if(BHP(p).TimeBinLimit > 0) {
-            double dt_limiter = get_dloga_for_bin(BHP(p).TimeBinLimit) / All.cf.hubble;
-            if (dt_limiter < dt) dt = dt_limiter;
+        if(BHP(p).minTimeBin > 0 && BHP(p).minTimeBin < TIMEBINS) {
+            double dt_limiter = get_dloga_for_bin(BHP(p).minTimeBin) / All.cf.hubble;
+            /* Set the black hole timestep to the minimum timesteps of neighbouring gas particles.
+             * It should be at least this for accretion accuracy, and it does not make sense to
+             * make it less than this.*/
+            dt = dt_limiter;
         }
     }
 
