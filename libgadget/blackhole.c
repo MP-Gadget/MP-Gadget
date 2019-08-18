@@ -88,6 +88,8 @@ struct BHPriv {
     /*Temporary array to store the IDs of the swallowing black hole for gas*/
     MyIDType * SPH_SwallowID;
     MyFloat * MinPot;
+    /* Temporary for the velocity of the gas surrounding each black hole*/
+    MyFloat (*BH_SurroundingGasVel)[3];
 
     /* Particle SpinLocks*/
     struct SpinLocks * spin;
@@ -253,7 +255,10 @@ blackhole(ForceTree * tree)
 
     /* These are initialized in preprocess and used to reposition the BH in postprocess*/
     priv->MinPot = mymalloc("BH_MinPot", SlotsManager->info[5].size * sizeof(MyFloat));
+    /* Local to this treewalk*/
+    priv->BH_SurroundingGasVel = (MyFloat (*) [3]) mymalloc("BH_SurroundVel", 3* SlotsManager->info[5].size * sizeof(priv->BH_SurroundingGasVel[0]));
     treewalk_run(tw_accretion, ActiveParticle, NumActiveParticle);
+    myfree(priv->BH_SurroundingGasVel);
     myfree(priv->MinPot);
 
     MPIU_Barrier(MPI_COMM_WORLD);
@@ -313,22 +318,24 @@ blackhole(ForceTree * tree)
 static void
 blackhole_accretion_postprocess(int i, TreeWalk * tw)
 {
+    int k;
+    int PI = P[i].PI;
     if(BHP(i).Density > 0)
     {
         BHP(i).Entropy /= BHP(i).Density;
         BHP(i).Pressure /= BHP(i).Density;
 
-        BHP(i).SurroundingGasVel[0] /= BHP(i).Density;
-        BHP(i).SurroundingGasVel[1] /= BHP(i).Density;
-        BHP(i).SurroundingGasVel[2] /= BHP(i).Density;
+        for(k = 0; k < 3; k++)
+            BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][k] /= BHP(i).Density;
     }
     double mdot = 0;		/* if no accretion model is enabled, we have mdot=0 */
 
     double rho = BHP(i).Density;
-    double bhvel = sqrt(pow(P[i].Vel[0] - BHP(i).SurroundingGasVel[0], 2) +
-            pow(P[i].Vel[1] - BHP(i).SurroundingGasVel[1], 2) +
-            pow(P[i].Vel[2] - BHP(i).SurroundingGasVel[2], 2));
+    double bhvel = 0;
+    for(k = 0; k < 3; k++)
+        bhvel += pow(P[i].Vel[k] - BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][k], 2);
 
+    bhvel = sqrt(bhvel);
     bhvel /= All.cf.a;
     double rho_proper = rho * All.cf.a3inv;
 
@@ -687,9 +694,9 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     TREEWALK_REDUCE(BHP(place).Entropy, remote->SmoothedEntropy);
     TREEWALK_REDUCE(BHP(place).Pressure, remote->SmoothedPressure);
 
-    TREEWALK_REDUCE(BHP(place).SurroundingGasVel[0], remote->GasVel[0]);
-    TREEWALK_REDUCE(BHP(place).SurroundingGasVel[1], remote->GasVel[1]);
-    TREEWALK_REDUCE(BHP(place).SurroundingGasVel[2], remote->GasVel[2]);
+    TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][0], remote->GasVel[0]);
+    TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][1], remote->GasVel[1]);
+    TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][2], remote->GasVel[2]);
 }
 
 static void
