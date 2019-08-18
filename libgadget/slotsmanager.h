@@ -50,7 +50,6 @@ struct bh_particle_data {
 
     MyFloat accreted_Mass;
     MyFloat accreted_BHMass;
-    MyFloat accreted_momentum[3];
 
     int JumpToMinPot;
     double  MinPotPos[3];

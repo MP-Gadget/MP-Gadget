@@ -736,13 +736,8 @@ blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I, TreeWalk * tw)
 static void
 blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
 {
-    int k;
-
     TREEWALK_REDUCE(BHP(place).accreted_Mass, remote->Mass);
     TREEWALK_REDUCE(BHP(place).accreted_BHMass, remote->BH_Mass);
-    for(k = 0; k < 3; k++) {
-        TREEWALK_REDUCE(BHP(place).accreted_momentum[k], remote->AccretedMomentum[k]);
-    }
     TREEWALK_REDUCE(BHP(place).CountProgs, remote->BH_CountProgs);
 }
 
