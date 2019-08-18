@@ -44,7 +44,6 @@ struct bh_particle_data {
     MyFloat FeedbackWeightSum;
     MyFloat Density;
     MyFloat Entropy;
-    MyFloat Pressure;
     MyFloat FormationTime;  /*!< formation time of black hole. */
 
     MyFloat accreted_Mass;

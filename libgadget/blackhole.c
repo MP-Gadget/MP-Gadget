@@ -51,7 +51,6 @@ typedef struct {
 
     MyFloat Rho;
     MyFloat SmoothedEntropy;
-    MyFloat SmoothedPressure;
     MyFloat GasVel[3];
 } TreeWalkResultBHAccretion;
 
@@ -314,8 +313,6 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
     if(BHP(i).Density > 0)
     {
         BHP(i).Entropy /= BHP(i).Density;
-        BHP(i).Pressure /= BHP(i).Density;
-
         for(k = 0; k < 3; k++)
             BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][k] /= BHP(i).Density;
     }
@@ -475,7 +472,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             /* FIXME: volume correction doesn't work on BH yet. */
             O->Rho += (mass_j * wk);
 
-            O->SmoothedPressure += (mass_j * wk * PressurePred(P[other].PI));
             O->SmoothedEntropy += (mass_j * wk * SphP_scratch->EntVarPred[P[other].PI]);
             O->GasVel[0] += (mass_j * wk * SphP_scratch->VelPred[3 * P[other].PI]);
             O->GasVel[1] += (mass_j * wk * SphP_scratch->VelPred[3 * P[other].PI+1]);
@@ -683,7 +679,6 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     TREEWALK_REDUCE(BHP(place).Density, remote->Rho);
     TREEWALK_REDUCE(BHP(place).FeedbackWeightSum, remote->FeedbackWeightSum);
     TREEWALK_REDUCE(BHP(place).Entropy, remote->SmoothedEntropy);
-    TREEWALK_REDUCE(BHP(place).Pressure, remote->SmoothedPressure);
 
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][0], remote->GasVel[0]);
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][1], remote->GasVel[1]);
