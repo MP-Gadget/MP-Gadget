@@ -41,13 +41,8 @@ struct bh_particle_data {
 
     MyFloat Mass;
     MyFloat Mdot;
-    MyFloat FeedbackWeightSum;
     MyFloat Density;
-    MyFloat Entropy;
     MyFloat FormationTime;  /*!< formation time of black hole. */
-
-    MyFloat accreted_Mass;
-    MyFloat accreted_BHMass;
 
     int JumpToMinPot;
     double  MinPotPos[3];
