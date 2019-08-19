@@ -238,7 +238,7 @@ treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum T
         tw->reduce(i, result, mode, tw);
 }
 
-static void real_ev(TreeWalk * tw, int * ninter, int * nnodes, int * nlist) {
+static void real_ev(TreeWalk * tw, int * ninter) {
     int tid = omp_get_thread_num();
     LocalTreeWalk lv[1];
 
@@ -277,8 +277,6 @@ static void real_ev(TreeWalk * tw, int * ninter, int * nnodes, int * nlist) {
     }
     tw->currentIndex[tid] = k;
     *ninter += lv->Ninteractions;
-    *nnodes += lv->Nnodesinlist;
-    *nlist += lv->Nlist;
 }
 
 #ifdef DEBUG
@@ -370,15 +368,11 @@ static int ev_primary(TreeWalk * tw)
     ev_alloc_threadlocals(tw->NTask * tw->NThread);
 
     int nint = tw->Ninteractions;
-    int nnodes = tw->Nnodesinlist;
-    int nlist = tw->Nlist;
-#pragma omp parallel reduction(+: nint) reduction(+: nnodes) reduction(+:nlist)
+#pragma omp parallel reduction(+: nint)
     {
-        real_ev(tw, &nint, &nnodes, &nlist);
+        real_ev(tw, &nint);
     }
     tw->Ninteractions = nint;
-    tw->Nnodesinlist = nnodes;
-    tw->Nlist = nlist;
 
     ev_free_threadlocals();
 
