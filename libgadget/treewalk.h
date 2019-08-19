@@ -97,7 +97,7 @@ struct TreeWalk {
     int NTask; /*Number of MPI tasks*/
     int NThread; /*Number of OpenMP threads*/
 
-    /* When exporting we now always send tree branches.*/
+    /* Unlike in Gadget-3, when exporting we now always send tree branches.*/
 
     char * dataget;
     char * dataresult;
@@ -110,17 +110,29 @@ struct TreeWalk {
     double timecomp3;
     double timecommsumm1;
     double timecommsumm2;
+    /* Total number of interactions for all particles on this tree walk.*/
     int64_t Ninteractions;
+    /* For secondary tree walks this stores the
+     * total number of pseudo-particles in all
+     * node lists of exported particles.*/
     int64_t Nnodesinlist;
+    /* Stores the total number of node lists created for all exported particles.
+     * Used to find the average number of nodes in each nodelist.*/
     int64_t Nlist;
+    /* Total number of exported particles
+     * (Nexport is only the exported particles in the current export buffer). */
     int64_t Nexport_sum;
+    /* Number of times we filled up our export buffer*/
     int64_t Niterations;
 
     /* internal flags*/
-
+    /* Number of particles marked for export to another processor*/
     int Nexport;
+    /* Number of particles exported to this processor*/
     int Nimport;
+    /* Flags that our export buffer is full*/
     int BufferFullFlag;
+    /* Number of particles we can fit into the export buffer*/
     int BunchSize;
 
     int * WorkSet;

@@ -936,7 +936,7 @@ cull_node(const TreeWalkQueryBase * const I, const TreeWalkNgbIterBase * const i
  * max(P[other].Hsml, iter->Hsml).
  *
  * Particle that intersects with other domains are marked for export.
- * The hosting nodes are exported as well.
+ * The hosting nodes (leaves of the global tree) are exported as well.
  *
  * For all 'other' particle within the neighbourhood and are local on this processor,
  * this function calls the ngbiter member of the TreeWalk object.
