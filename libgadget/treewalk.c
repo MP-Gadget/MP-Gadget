@@ -612,8 +612,8 @@ treewalk_run(TreeWalk * tw, int * active_set, int size)
 
 #ifdef DEBUG
     int64_t totNodesinlist, totlist;
-    MPI_Reduce(&tw->Nnodesinlist,  &totNodesinlist, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&tw->Nlist,  &totlist, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tw->Nnodesinlist,  &totNodesinlist, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tw->Nlist,  &totlist, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
     message(0, "Nodes in nodelist: %g (avg). %ld nodes, %ld lists\n", ((double) totNodesinlist)/totlist, totlist, totNodesinlist);
 #endif
     double tstart, tend;
