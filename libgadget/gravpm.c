@@ -193,39 +193,26 @@ static int pm_mark_region_for_node(int startno, int rid, const ForceTree * tree)
         if(node_is_particle(no, tree))	/* single particle */
         {
             int p = no;
+            P[p].RegionInd = rid;
+#ifdef DEBUG
             /* when we are in PM, all particles must have been synced. */
             if (P[p].Ti_drift != All.Ti_Current) {
                 abort();
             }
-
-            P[p].RegionInd = rid;
-            /*
-             *
-             * Enlarge the startno so that it encloses all particles
-             * this happens if a BH particle is relocated to a PotMin
-             * out-side the (enlarged )drifted node.
-             * because the POTMIN relocation is unphysical, this can
-             * happen immediately after a BH is seeded at the dense-most
-             * gas particle. rare rare event!
-             *
-             * */
+            /* Check for particles outside of the node. This should never happen,
+             * unless there is a bug in tree build, or the particles are being moved.*/
             int k;
             for(k = 0; k < 3; k ++) {
-                double l = P[p].Pos[k] - tree->Nodes[startno].center[k];
-                if (l < - 0.5 * All.BoxSize) {
-                    l += All.BoxSize;
-                }
-                if (l > 0.5 * All.BoxSize) {
-                    l -= All.BoxSize;
-                }
+                double l = NEAREST(P[p].Pos[k] - tree->Nodes[startno].center[k]);
                 l = fabs(l * 2);
                 if (l > tree->Nodes[startno].len) {
                     if(l > tree->Nodes[startno].len * (1+ 1e-7))
-                    message(1, "enlarging node size from %g to %g, due to particle of type %d at %g %g %g id=%ld\n",
+                    endrun(1, "enlarging node size from %g to %g, due to particle of type %d at %g %g %g id=%ld\n",
                         tree->Nodes[startno].len, l, P[p].Type, P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].ID);
                     tree->Nodes[startno].len = l;
                 }
             }
+#endif
             numpart ++;
         }
 

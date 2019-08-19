@@ -155,7 +155,6 @@ density(int update_hsml, int DoEgyDensity, ForceTree * tree)
     tw->fill = (TreeWalkFillQueryFunction) density_copy;
     tw->reduce = (TreeWalkReduceResultFunction) density_reduce;
     tw->postprocess = (TreeWalkProcessFunction) density_postprocess;
-    tw->UseNodeList = 1;
     tw->query_type_elsize = sizeof(TreeWalkQueryDensity);
     tw->result_type_elsize = sizeof(TreeWalkResultDensity);
     tw->priv = priv;
