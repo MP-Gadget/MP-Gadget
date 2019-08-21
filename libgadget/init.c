@@ -304,7 +304,8 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
             molecular_weight = 4 / (1 + 3 * HYDROGEN_MASSFRAC);
 
         u_init /= molecular_weight;
-
+        if(u_init < All.MinEgySpec)
+            u_init = All.MinEgySpec;
         /* snapshot already has EgyWtDensity; hope it is read in correctly.
          * (need a test on this!) */
         if(All.DensityIndependentSphOn) {

@@ -455,7 +455,6 @@ void read_parameter_file(char *fname)
         param_get_string2(ps, "UVFluctuationfile", All.UVFluctuationFile, sizeof(All.UVFluctuationFile));
         param_get_string2(ps, "MetalCoolFile", All.MetalCoolFile, sizeof(All.MetalCoolFile));
 
-        All.MinGasTemp = param_get_double(ps, "MinGasTemp");
         All.InitGasTemp = param_get_double(ps, "InitGasTemp");
 
         /*Massive neutrino parameters*/
