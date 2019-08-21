@@ -47,7 +47,7 @@ void init_cooling(char * TreeCoolFile, char * MetalCoolFile, char * UVFluctuatio
 /* returns new internal energy per unit mass.
  * Arguments are passed in code units, density is proper density.
  */
-double DoCooling(double redshift, double u_old, double rho, double dt, struct UVBG * uvbg, double *ne_guess, double Z)
+double DoCooling(double redshift, double u_old, double rho, double dt, struct UVBG * uvbg, double *ne_guess, double Z, double MinEgySpec)
 {
     if(!coolunits.CoolingOn) return 0;
 
@@ -58,6 +58,9 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
 
     rho *= coolunits.density_in_phys_cgs / PROTONMASS;	/* convert to (physical) protons/cm^3 */
     u_old *= coolunits.uu_in_cgs;
+    MinEgySpec *= coolunits.uu_in_cgs;
+    if(u_old < MinEgySpec)
+        u_old = MinEgySpec;
     dt *= coolunits.tt_in_s;
 
     u = u_old;
@@ -67,33 +70,35 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
     LambdaNet = get_heatingcooling_rate(rho, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
 
     /* bracketing */
-
     if(u - u_old - LambdaNet * dt < 0)	/* heating */
     {
-        u_upper *= sqrt(1.1);
-        u_lower /= sqrt(1.1);
-            while(u_upper - u_old - get_heatingcooling_rate(rho, u_upper, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess) * dt < 0)
-            {
-                u_upper *= 1.1;
-                u_lower *= 1.1;
-            }
-
+        do
+        {
+            u_lower = u_upper;
+            u_upper *= 1.1;
+        } while(u_upper - u_old - get_heatingcooling_rate(rho, u_upper, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess) * dt < 0);
     }
-
-    if(u - u_old - LambdaNet * dt > 0)
+    else
     {
-        u_lower /= sqrt(1.1);
-        u_upper *= sqrt(1.1);
-            while(u_lower - u_old - get_heatingcooling_rate(rho, u_lower, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess) * dt > 0)
-            {
-                u_upper /= 1.1;
-                u_lower /= 1.1;
+        do {
+            u_upper = u_lower;
+            u_lower /= 1.1;
+            /* This means that we don't need an initial bracket*/
+            if(u_upper <= MinEgySpec) {
+                break;
             }
+        } while(u_lower - u_old - get_heatingcooling_rate(rho, u_lower, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess) * dt > 0);
     }
 
     do
     {
         u = 0.5 * (u_lower + u_upper);
+        /* If we know that the new energy
+         * is below the minimum gas internal energy, we are done here.*/
+        if(u_upper <= MinEgySpec) {
+                u = MinEgySpec;
+                break;
+        }
 
         LambdaNet = get_heatingcooling_rate(rho, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
 

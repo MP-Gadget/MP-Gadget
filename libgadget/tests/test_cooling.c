@@ -151,7 +151,6 @@ static void test_DoCooling(void ** state)
     coolpar.HeliumHeatAmp = 1.;
     coolpar.HeliumHeatExp = 0.;
     coolpar.HeliumHeatThresh = 10;
-    coolpar.MinGasTemp = 100;
     coolpar.UVRedshiftThreshold = -1;
     coolpar.HydrogenHeatAmp = 0;
     coolpar.rho_crit_baryon = 0.045 * 3.0 * pow(0.7*HUBBLE,2.0) /(8.0*M_PI*GRAVITY);
@@ -173,6 +172,9 @@ static void test_DoCooling(void ** state)
     coolunits.density_in_phys_cgs = UnitDensity_in_cgs * HubbleParam * HubbleParam;
     coolunits.uu_in_cgs = UnitEnergy_in_cgs / UnitMass_in_g;
     coolunits.tt_in_s = UnitTime_in_s / HubbleParam;
+    double meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);
+    double MinEgySpec = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * 1;
+    MinEgySpec /= coolunits.uu_in_cgs;
 
     Cosmology CP = {0};
     CP.OmegaCDM = 0.3;
@@ -192,7 +194,7 @@ static void test_DoCooling(void ** state)
     /*Check two particular values*/
     double tcool = GetCoolingTime(0, 949.755, 7.07946e-06, &uvbg, &ne, 0);
     assert_true(fabs(tcool/ 0.0172379) -1 < 1e-3);
-    double unew = DoCooling(0,  9828.44, 7.07946e-06, 0.2, &uvbg, &ne, 0);
+    double unew = DoCooling(0,  9828.44, 7.07946e-06, 0.2, &uvbg, &ne, 0, MinEgySpec);
     assert_true(fabs(unew/ 531.724) -1 < 1e-3);
 
     double dt = 0.2;
@@ -204,7 +206,7 @@ static void test_DoCooling(void ** state)
             double ne=1.0, ne2=1.0;
             double uu = exp(log(umin) +  j * (log(umax) - log(umin)) / 1. /NSTEP);
             double tcool = GetCoolingTime(0, uu, dens, &uvbg, &ne2, 0);
-            double unew = DoCooling(0, uu, dens, dt, &uvbg, &ne, 0);
+            double unew = DoCooling(0, uu, dens, dt, &uvbg, &ne, 0, MinEgySpec);
             assert_false(isnan(unew));
 //             message(0, "d = %g u = %g tcool = %g tcool_table = %g unew = %g ne_after = %g unew_table = %g\n", dens, uu, tcool, tcool_table[i*NSTEP + j], unew, ne, unew_table[i*NSTEP+j]);
             assert_true(fabs(unew/unew_table[i*NSTEP + j] - 1) < 5e-3);

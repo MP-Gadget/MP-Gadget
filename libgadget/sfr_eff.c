@@ -49,6 +49,9 @@ static struct SFRParams
     double TempSupernova;
     double TempClouds;
     double MaxSfrTimescale;
+    /*!< may be used to set a floor for the gas temperature */
+    double MinGasTemp;
+
     /*Lyman alpha forest specific star formation.*/
     double QuickLymanAlphaProbability;
     double QuickLymanAlphaTempThresh;
@@ -105,6 +108,7 @@ void set_sfr_params(ParameterSet * ps)
         sfr_params.TempClouds = param_get_double(ps, "TempClouds");
         sfr_params.MaxSfrTimescale = param_get_double(ps, "MaxSfrTimescale");
         sfr_params.Generations = param_get_int(ps, "Generations");
+        sfr_params.MinGasTemp = param_get_double(ps, "MinGasTemp");
 
         /*Lyman-alpha forest parameters*/
         sfr_params.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
@@ -398,7 +402,7 @@ cooling_direct(int i) {
 
     double redshift = 1./All.Time - 1;
     struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
-    unew = DoCooling(redshift, unew, SPHP(i).Density * All.cf.a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity);
+    unew = DoCooling(redshift, unew, SPHP(i).Density * All.cf.a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity, All.MinEgySpec);
 
     SPHP(i).Ne = ne;
 
@@ -707,14 +711,13 @@ void init_cooling_and_star_formation(void)
     coolunits.uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
     coolunits.tt_in_s = All.UnitTime_in_s / All.CP.HubbleParam;
 
-    init_cooling(All.TreeCoolFile, All.MetalCoolFile, All.UVFluctuationFile, coolunits, &All.CP);
-
     /* mean molecular weight assuming ZERO ionization NEUTRAL GAS*/
     double meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);
 
-    /*Used for cooling and for timestepping*/
-    All.MinEgySpec = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.MinGasTemp;
-    All.MinEgySpec *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
+    /*Enforces a minimum internal energy in cooling. */
+    All.MinEgySpec = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * sfr_params.MinGasTemp / coolunits.uu_in_cgs;
+
+    init_cooling(All.TreeCoolFile, All.MetalCoolFile, All.UVFluctuationFile, coolunits, &All.CP);
 
     if(!All.StarformationOn)
         return;
