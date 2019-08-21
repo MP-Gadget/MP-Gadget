@@ -391,9 +391,8 @@ cooling_direct(int i) {
 
     double ne = SPHP(i).Ne;	/* electron abundance (gives ionization state and mean molecular weight) */
 
-    double unew = DMAX(All.MinEgySpec,
-            (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) /
-            GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1));
+    const double enttou = pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+    double unew = (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) * enttou;
 
     if(SphP_scratch->Injected_BH_Energy && SphP_scratch->Injected_BH_Energy[P[i].PI] > 0)
     {
@@ -410,12 +409,7 @@ cooling_direct(int i) {
     if(dloga > 0)
     {
         /* note: the adiabatic rate has been already added in ! */
-        SPHP(i).DtEntropy = (unew * GAMMA_MINUS1 /
-                pow(SPH_EOMDensity(i) * All.cf.a3inv,
-                    GAMMA_MINUS1) - SPHP(i).Entropy) / dloga;
-
-        if(SPHP(i).DtEntropy < -0.5 * SPHP(i).Entropy / dloga)
-            SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dloga;
+        SPHP(i).DtEntropy = (unew / enttou - SPHP(i).Entropy) / dloga;
     }
 }
 
@@ -456,7 +450,7 @@ double get_neutral_fraction_sfreff(int i, double redshift)
 
     if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(i)) {
         /*This gets the neutral fraction for standard gas*/
-        double InternalEnergy = DMAX(All.MinEgySpec, SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1));
+        double InternalEnergy = SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1);
         nh0 = GetNeutralFraction(InternalEnergy, physdens, &uvbg, SPHP(i).Ne);
     }
     else {
@@ -547,12 +541,10 @@ quicklyastarformation(int i)
         return 0;
 
     double dloga = get_dloga_for_bin(P[i].TimeBin);
-    double unew = DMAX(All.MinEgySpec,
-            (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) /
-            GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1));
+    const double enttou = pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+    double unew = (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) * enttou;
 
-    const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
-    * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+    const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1 * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
 
     double temp = u_to_temp_fac * unew;
 
