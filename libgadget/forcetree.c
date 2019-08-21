@@ -130,6 +130,8 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
     int Numnodestree;
     ForceTree tree;
 
+    int TooManyNodes = 0;
+
     do
     {
         int maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->MaxPart + ddecomp->NTopNodes;
@@ -143,13 +145,18 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
             force_tree_free(&tree);
             message(1, "TreeAllocFactor from %g to %g\n", ForceTreeParams.TreeAllocFactor, ForceTreeParams.TreeAllocFactor*1.15);
             ForceTreeParams.TreeAllocFactor *= 1.15;
-            if(ForceTreeParams.TreeAllocFactor > 5.0)
-                endrun(2, "Too many tree nodes required.\n");
-            continue;
+            if(ForceTreeParams.TreeAllocFactor > 5.0) {
+                TooManyNodes = 1;
+                break;
+            }
         }
     }
     while(Numnodestree >= tree.lastnode - tree.firstnode);
 
+    if(MPIU_Any(TooManyNodes, MPI_COMM_WORLD)) {
+        dump_snapshot();
+        endrun(2, "Required too many nodes, snapshot dumped\n");
+    }
     walltime_measure("/Tree/Build/Nodes");
 
     /* insert the pseudo particles that represent the mass distribution of other ddecomps */
