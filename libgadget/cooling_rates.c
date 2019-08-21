@@ -650,7 +650,7 @@ scipy_optimize_fixed_point(double ne_init, double nh, double ienergy, double hel
         double d = ne0 + ne2 - 2.0 * ne1;
         double pp = ne2;
         /*This is del^2*/
-        if (d != 0.)
+        if (d > 1e-15 || d < -1e-15)
             pp = ne0 - (ne1 - ne0)*(ne1 - ne0) / d;
         ne0 = pp;
         /*Enforce positivity*/
