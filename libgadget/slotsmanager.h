@@ -54,8 +54,6 @@ struct bh_particle_data {
 
     int JumpToMinPot;
     double  MinPotPos[3];
-    MyFloat MinPotVel[3];
-    MyFloat MinPot;
 
     MyIDType SwallowID; /* Allows marking of a merging particle. Used only in blackhole.c.
                            Set to -1 in init.c and only reinitialised if a merger takes place.*/
