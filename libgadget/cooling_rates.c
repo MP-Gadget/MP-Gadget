@@ -297,8 +297,9 @@ self_shield_corr(double nh, double logt, double ssdens)
      * but I think it is more physical*/
     if(!CoolingParams.SelfShieldingOn || nh < ssdens * 0.01)
         return 1;
-    double T4 = exp(logt)/1e4;
-    double nSSh = 1.003*ssdens*pow(T4, 0.17);
+    /* T/1e4**0.17*/
+    double T4 = exp(0.17 * (logt - log(1e4)));
+    double nSSh = 1.003*ssdens*T4;
     return 0.98*pow(1+pow(nh/nSSh,1.64),-2.28)+0.02*pow(1+nh/nSSh, -0.84);
 }
 
