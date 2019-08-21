@@ -35,8 +35,6 @@ static struct forcetree_params
        particles needs usually about ~0.65*N nodes.
        If the allocated memory is not sufficient, this parameter will be increased.*/
     double TreeAllocFactor;
-    /* The minimum size of a Force Tree Node in length units. */
-    double TreeNodeMinSize;
     /*!< flags the particle species which will be excluded from the tree if the HybridNuGrav parameter is set.*/
     int FastParticleType;
 } ForceTreeParams;
@@ -45,23 +43,11 @@ void
 init_forcetree_params(const int FastParticleType, const double * GravitySofteningTable)
 {
     ForceTreeParams.TreeAllocFactor = 0.7;
-    int i;
-    double minsoft = 0;
-    for(i = 0; i<6; i++) {
-        if(GravitySofteningTable[i] <= 0) continue;
-        if(minsoft == 0 || minsoft > GravitySofteningTable[i])
-            minsoft = GravitySofteningTable[i];
-    }
-    /* FIXME: make this a parameter. */
-    ForceTreeParams.TreeNodeMinSize = 1.0e-3 * 2.8 * minsoft;
     ForceTreeParams.FastParticleType = FastParticleType;
 }
 
 static ForceTree
 force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav);
-
-static int
-force_tree_build_single(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav);
 
 /*Next three are not static as tested.*/
 int
@@ -128,48 +114,58 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSiz
     walltime_measure("/Tree/Build/Moments");
 }
 
-/*! This function is a driver routine for constructing the gravitational
- *  oct-tree, which is done by calling a small number of other functions.
- */
+/*! Constructs the gravitational oct-tree.
+ *
+ *  The index convention for accessing tree nodes is the following: the
+ *  indices 0...NumPart-1 reference single particles, the indices
+ *  PartManager->MaxPart.... PartManager->MaxPart+nodes-1 reference tree nodes. `Nodes_base'
+ *  points to the first tree node, while `nodes' is shifted such that
+ *  nodes[PartManager->MaxPart] gives the first tree node. Finally, node indices
+ *  with values 'PartManager->MaxPart + tb.lastnode' and larger indicate "pseudo
+ *  particles", i.e. multipole moments of top-level nodes that lie on
+ *  different CPUs. If such a node needs to be opened, the corresponding
+ *  particle must be exported to that CPU. */
 ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav)
 {
     int Numnodestree;
-    int flag;
-    int maxnodes;
     ForceTree tree;
+
+    int TooManyNodes = 0;
 
     do
     {
-        maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->MaxPart + ddecomp->NTopNodes;
-        /* construct tree if needed */
-        /* the tree is used in grav dens, hydro, bh and sfr */
+        int maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->MaxPart + ddecomp->NTopNodes;
+        /* Allocate memory. */
         tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp);
-        tree.NTopLeaves = ddecomp->NTopLeaves;
-        tree.TopLeaves = ddecomp->TopLeaves;
 
-        Numnodestree = force_tree_build_single(tree, npart, ddecomp, BoxSize, HybridNuGrav);
-        if(Numnodestree < 0)
-            message(1, "Not enough tree nodes (%d) for %d particles.\n", maxnodes, npart);
-
-        MPI_Allreduce(&Numnodestree, &flag, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-        if(flag == -1)
+        Numnodestree = force_tree_create_nodes(tree, npart, ddecomp, BoxSize);
+        if(Numnodestree >= tree.lastnode - tree.firstnode)
         {
+            message(1, "Not enough tree nodes (%d) for %d particles.\n", maxnodes, npart);
             force_tree_free(&tree);
-
-            message(0, "TreeAllocFactor from %g to %g\n", ForceTreeParams.TreeAllocFactor, ForceTreeParams.TreeAllocFactor*1.15);
-
+            message(1, "TreeAllocFactor from %g to %g\n", ForceTreeParams.TreeAllocFactor, ForceTreeParams.TreeAllocFactor*1.15);
             ForceTreeParams.TreeAllocFactor *= 1.15;
-
-            if(ForceTreeParams.TreeAllocFactor > 5.0)
-            {
-                message(0, "An excessively large number of tree nodes were required, stopping with particle dump.\n");
-                dump_snapshot();
-                endrun(0, "Too many tree nodes, snapshot saved.");
+            if(ForceTreeParams.TreeAllocFactor > 5.0) {
+                TooManyNodes = 1;
+                break;
             }
         }
     }
-    while(flag == -1);
+    while(Numnodestree >= tree.lastnode - tree.firstnode);
 
+    if(MPIU_Any(TooManyNodes, MPI_COMM_WORLD)) {
+        dump_snapshot();
+        endrun(2, "Required too many nodes, snapshot dumped\n");
+    }
+    walltime_measure("/Tree/Build/Nodes");
+
+    /* insert the pseudo particles that represent the mass distribution of other ddecomps */
+    force_insert_pseudo_particles(&tree, ddecomp);
+
+    /* now compute the multipole moments recursively */
+    force_update_node_parallel(&tree, HybridNuGrav);
+
+    /* Exchange the pseudo-data*/
     force_exchange_pseudodata(&tree, ddecomp);
 
     force_treeupdate_pseudos(PartManager->MaxPart, &tree);
@@ -479,40 +475,6 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
 
     return nnext - tb.firstnode;
 }
-
-
-/*! Constructs the gravitational oct-tree.
- *
- *  The index convention for accessing tree nodes is the following: the
- *  indices 0...NumPart-1 reference single particles, the indices
- *  PartManager->MaxPart.... PartManager->MaxPart+nodes-1 reference tree nodes. `Nodes_base'
- *  points to the first tree node, while `nodes' is shifted such that
- *  nodes[PartManager->MaxPart] gives the first tree node. Finally, node indices
- *  with values 'PartManager->MaxPart + tb.lastnode' and larger indicate "pseudo
- *  particles", i.e. multipole moments of top-level nodes that lie on
- *  different CPUs. If such a node needs to be opened, the corresponding
- *  particle must be exported to that CPU. */
-static int
-force_tree_build_single(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav)
-{
-    int nnext = force_tree_create_nodes(tb, npart, ddecomp, BoxSize);
-    walltime_measure("/Tree/Build/Nodes");
-    if(nnext >= tb.lastnode - tb.firstnode)
-    {
-        return -1;
-    }
-    /* insert the pseudo particles that represent the mass distribution of other ddecomps */
-    force_insert_pseudo_particles(&tb, ddecomp);
-
-    /* now compute the multipole moments recursively */
-    int tail = force_update_node_parallel(&tb, HybridNuGrav);
-
-    force_set_next_node(tail, -1, &tb);
-
-    return nnext;
-}
-
-
 
 /*! This function recursively creates a set of empty tree nodes which
  *  corresponds to the top-level tree for the ddecomp grid. This is done to
@@ -933,6 +895,9 @@ force_update_node_parallel(const ForceTree * tree, const int HybridNuGrav)
         else
             tail = force_update_pseudo_node(tree->firstnode, -1, tree);
     }
+
+    force_set_next_node(tail, -1, tree);
+
     return tail;
 }
 
