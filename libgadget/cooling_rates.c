@@ -498,12 +498,12 @@ recomb_GammaeHep(double temp)
 static double
 get_interpolated_recomb(double logt, double * rec_tab, double rec_func(double))
 {
-    /*Just call the function directly if we are out of interpolation range*/
-    if (logt >= temp_tab[NRECOMBTAB- 1] || logt < temp_tab[0])
-        return rec_func(exp(logt));
     /*Find the index to use in our temperature table.*/
     double dind = (logt - RECOMBTMIN) / (RECOMBTMAX - RECOMBTMIN) * NRECOMBTAB;
     int index = (int) dind;
+    /*Just call the function directly if we are out of interpolation range*/
+    if(index < 0 || index >= NRECOMBTAB-1)
+        return rec_func(exp(logt));
     //if (temp_tab[index] > logt || temp_tab[index+1] < logt || index < 0 || index >= NRECOMBTAB)
     //    endrun(2, "Incorrect indexing of recombination array\n");
     return rec_tab[index + 1] * (dind - index) + rec_tab[index] * (1 - (dind - index));
