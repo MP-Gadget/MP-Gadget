@@ -48,18 +48,16 @@ void
 mymalloc_init(double MaxMemSizePerNode)
 {
     /* Warning: this uses ta_malloc*/
-    int Nhost = cluster_get_num_hosts();
+    size_t Nhost = cluster_get_num_hosts();
 
     MPI_Comm comm = MPI_COMM_WORLD;
 
-    int ThisTask;
     int NTask;
 
     MPI_Comm_size(comm, &NTask);
-    MPI_Comm_rank(comm, &ThisTask);
 
-
-    size_t n = 1.0 * MaxMemSizePerNode * (1.0 * Nhost / NTask) * 1024 * 1024;
+    double nodespercpu = (1.0 * Nhost) / (1.0 * NTask);
+    size_t n = 1.0 * MaxMemSizePerNode * nodespercpu * 1024. * 1024.;
 
     message(0, "Nhost = %d\n", Nhost);
     message(0, "Reserving %td bytes per rank for MAIN memory allocator. \n", n);

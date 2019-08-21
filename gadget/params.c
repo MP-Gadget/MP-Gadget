@@ -389,7 +389,7 @@ void read_parameter_file(char *fname)
         All.OutputPotential = param_get_int(ps, "OutputPotential");
         double MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
         if(MaxMemSizePerNode <= 1) {
-            MaxMemSizePerNode *= get_physmem_bytes() / (1024 * 1024);
+            MaxMemSizePerNode *= get_physmem_bytes() / (1024. * 1024.);
         }
         All.MaxMemSizePerNode = MaxMemSizePerNode;
 
