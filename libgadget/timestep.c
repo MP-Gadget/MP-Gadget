@@ -320,7 +320,7 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
             vv += P[i].Vel[j] * P[i].Vel[j];
         vv = sqrt(vv);
 
-        if(vv/All.cf.a > All.MaxGasVel) {
+        if(vv > 0 && vv/All.cf.a > All.MaxGasVel) {
             message(1,"Gas Particle ID %ld exceeded the gas velocity limit: %g > %g\n",P[i].ID, vv / All.cf.a, All.MaxGasVel);
             for(j=0;j < 3; j++)
             {
@@ -356,7 +356,14 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
         if(SPHP(i).DtEntropy * dt_entr_next < - 0.5 * SPHP(i).Entropy)
             SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dt_entr_next;
     }
-
+#ifdef DEBUG
+    /* Check we have reasonable velocities. If we do not, try to explain why*/
+    if(isnan(P[i].Vel[0]) || isnan(P[i].Vel[1]) || isnan(P[i].Vel[2])) {
+        message(1, "Vel = %g %g %g Type = %d gk = %g a_g = %g %g %g\n",
+                P[i].Vel[0], P[i].Vel[1], P[i].Vel[2], P[i].Type,
+                Fgravkick, P[i].GravAccel[0], P[i].GravAccel[1], P[i].GravAccel[2]);
+    }
+#endif
 }
 
 double
