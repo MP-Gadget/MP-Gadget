@@ -242,7 +242,7 @@ extern struct global_data_all_processes
                                       this fraction. */
 
     double MaxGasVel; /* Limit on Gas velocity */
-    int MaxMemSizePerNode;
+    double MaxMemSizePerNode;
 
     double CourantFac;		/*!< SPH-Courant factor */
 
