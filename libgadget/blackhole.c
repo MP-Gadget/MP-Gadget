@@ -37,7 +37,6 @@ typedef struct {
     MyFloat Mass;
     MyFloat BH_Mass;
     MyFloat Vel[3];
-    MyFloat Csnd;
     MyIDType ID;
 } TreeWalkQueryBHAccretion;
 
@@ -710,13 +709,10 @@ blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I, TreeWalk * tw)
     {
         I->Vel[k] = P[place].Vel[k];
     }
-
-    int PI = P[place].PI;
     I->Hsml = P[place].Hsml;
     I->Mass = P[place].Mass;
     I->BH_Mass = BHP(place).Mass;
     I->Density = BHP(place).Density;
-    I->Csnd = blackhole_soundspeed(BH_GET_PRIV(tw)->BH_Entropy[PI], BHP(place).Density);
     I->ID = P[place].ID;
 }
 
