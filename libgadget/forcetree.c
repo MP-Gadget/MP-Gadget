@@ -791,6 +791,11 @@ force_update_particle_node(int no, int sib, const ForceTree * tree, const int Hy
 static int
 force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, const int HybridNuGrav)
 {
+#ifdef DEBUG
+    if(tree->Nodes[no].f.ChildType != NODE_NODE_TYPE)
+        endrun(3, "force_update_node_recursive called on node %d of type %d != %d!\n", no, tree->Nodes[no].f.ChildType, NODE_NODE_TYPE);
+#endif
+
     /*Last value of tails is the return value of this function*/
     int j, suns[8], tails[8];
 
@@ -1042,6 +1047,11 @@ void force_treeupdate_pseudos(int no, const ForceTree * tree)
         /*This may not happen as we are an internal top level node*/
         if(p < tree->firstnode || p >= tree->lastnode)
             endrun(6767, "Updating pseudos: %d -> %d which is not an internal node between %d and %d.",no, p, tree->firstnode, tree->lastnode);
+#ifdef DEBUG
+        /* Check we don't move to another part of the tree*/
+        if(tree->Nodes[p].father != no)
+            endrun(6767, "Tried to update toplevel node %d with parent %d != expected %d\n", p, tree->Nodes[p].father, no);
+#endif
 
         if(tree->Nodes[p].f.InternalTopLevel)
             force_treeupdate_pseudos(p, tree);
