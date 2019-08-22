@@ -458,29 +458,22 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
     if(P[other].Type == 5 && r2 < iter->accretion_kernel.HH)	/* we have a black hole merger */
     {
-        /* compute relative velocity of BHs */
+        /* We do not depend on the BH relative velocity.
+         * Because the BHs are not dissipative, their relative velocities
+         * can be large, causing clumps of BHs to build up
+         * at the same position without merging. */
 
         lock_spinlock(other, spin);
-        int d;
-        double vrel[3];
-        for(d = 0; d < 3; d++)
-            vrel[d] = (P[other].Vel[d] - I->Vel[d]);
-
-        double vpec = sqrt(dotproduct(vrel, vrel)) / All.cf.a;
-
-        if(vpec <= 0.5 * I->Csnd)
-        {
-            if(P[other].Swallowed) {
-                /* Already marked, prefer to be swallowed by a bigger ID */
-                if(BHP(other).SwallowID < I->ID) {
-                    BHP(other).SwallowID = I->ID;
-                }
-            } else {
-                /* Unmarked, the BH with bigger ID swallows */
-                if(P[other].ID < I->ID) {
-                    P[other].Swallowed = 1;
-                    BHP(other).SwallowID = I->ID;
-                }
+        if(P[other].Swallowed) {
+            /* Already marked, prefer to be swallowed by a bigger ID */
+            if(BHP(other).SwallowID < I->ID) {
+                BHP(other).SwallowID = I->ID;
+            }
+        } else {
+            /* Unmarked, the BH with bigger ID swallows */
+            if(P[other].ID < I->ID) {
+                P[other].Swallowed = 1;
+                BHP(other).SwallowID = I->ID;
             }
         }
         unlock_spinlock(other, spin);
