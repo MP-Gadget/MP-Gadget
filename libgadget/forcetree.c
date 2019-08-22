@@ -808,10 +808,18 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
      * This sharply reduces the size of the tree.
      * Also count the node children for thread balancing.*/
     for(j=0; j < 8; j++) {
-        /* Pseudo nodes may have zero occupation*/
-        if(tree->Nodes[suns[j]].f.ChildType == PARTICLE_NODE_TYPE &&
-            tree->Nodes[suns[j]].u.s.noccupied == 0)
+        /* Never remove empty top-level nodes so we don't
+         * mess up the pseudo-data exchange.
+         * This may happen for a pseudo particle host or, in very rare cases,
+         * when one of the local domains is empty. */
+        if(!tree->Nodes[suns[j]].f.TopLevel &&
+            tree->Nodes[suns[j]].f.ChildType == PARTICLE_NODE_TYPE &&
+            tree->Nodes[suns[j]].u.s.noccupied == 0) {
+                /* In principle the removed node will be
+                 * disconnected and never used, but zero it just in case.*/
+                force_zero_union(&tree->Nodes[suns[j]]);
                 suns[j] = -1;
+        }
         else if(tree->Nodes[suns[j]].f.ChildType == NODE_NODE_TYPE)
             childcnt++;
     }
