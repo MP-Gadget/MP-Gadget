@@ -41,16 +41,8 @@ struct bh_particle_data {
 
     MyFloat Mass;
     MyFloat Mdot;
-    MyFloat FeedbackWeightSum;
     MyFloat Density;
-    MyFloat Entropy;
-    MyFloat Pressure;
-    MyFloat SurroundingGasVel[3];
-    MyFloat FormationTime;		/*!< formation time of black hole. */
-
-    MyFloat accreted_Mass;
-    MyFloat accreted_BHMass;
-    MyFloat accreted_momentum[3];
+    MyFloat FormationTime;  /*!< formation time of black hole. */
 
     int JumpToMinPot;
     double  MinPotPos[3];
@@ -58,7 +50,9 @@ struct bh_particle_data {
     MyIDType SwallowID; /* Allows marking of a merging particle. Used only in blackhole.c.
                            Set to -1 in init.c and only reinitialised if a merger takes place.*/
 
-    short int TimeBinLimit;
+    /* Stores the minimum timebins of all black hole neighbours.
+     * The black hole timebin is then set to this.*/
+    short int minTimeBin;
 };
 
 /*Data for each star particle*/

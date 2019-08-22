@@ -96,7 +96,6 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
         {
             /* Note: Gadget-3 sets this to the seed black hole mass.*/
             BHP(i).Mass = P[i].Mass;
-            BHP(i).TimeBinLimit = -1;
 
             /* Touch up potentially zero BH smoothing lengths, since they have historically not been saved in the snapshots.
              * Anything non-zero would work, but since BH tends to be in high density region,

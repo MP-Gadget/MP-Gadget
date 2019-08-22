@@ -31,7 +31,7 @@ MyFloat SPH_EOMDensity(int i)
         return SPHP(i).Density;
 }
 
-double
+static double
 PressurePred(int PI)
 {
     MyFloat EOMDensity;
