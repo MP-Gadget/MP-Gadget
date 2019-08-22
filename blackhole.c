@@ -478,26 +478,16 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         /* compute relative velocity of BHs */
 
         lock_particle(other);
-        int d;
-        double vrel[3];
-        for(d = 0; d < 3; d++)
-            vrel[d] = (P[other].Vel[d] - I->Vel[d]);
-
-        double vpec = sqrt(dotproduct(vrel, vrel)) / All.cf.a;
-
-        if(vpec <= 0.5 * I->Csnd)
-        {
-            if(P[other].Swallowed) {
-                /* Already marked, prefer to be swallowed by a bigger ID */
-                if(P[other].SwallowID < I->ID) {
-                    P[other].SwallowID = I->ID;
-                }
-            } else {
-                /* Unmarked, the BH with bigger ID swallows */
-                if(P[other].ID < I->ID) {
-                    P[other].Swallowed = 1;
-                    P[other].SwallowID = I->ID;
-                }
+        if(P[other].Swallowed) {
+            /* Already marked, prefer to be swallowed by a bigger ID */
+            if(P[other].SwallowID < I->ID) {
+                P[other].SwallowID = I->ID;
+            }
+        } else {
+            /* Unmarked, the BH with bigger ID swallows */
+            if(P[other].ID < I->ID) {
+                P[other].Swallowed = 1;
+                P[other].SwallowID = I->ID;
             }
         }
         unlock_particle(other);
