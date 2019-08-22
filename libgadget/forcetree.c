@@ -268,73 +268,85 @@ modify_internal_node(int parent, int subnode, int p_toplace, const ForceTree tb)
 /* Create a new layer of nodes beneath the current node, and place the particle.
  * Must have node lock.*/
 static int
-create_new_node_layer(int parent, int p_toplace,
+create_new_node_layer(int firstparent, int p_toplace,
         const ForceTree tb, int *nnext, struct NodeCache *nc)
 {
-    int i;
-    int oldsuns[NMAXCHILD];
-    struct NODE *nprnt = &tb.Nodes[parent];
+    /* This is so we can defer changing
+     * the type of the existing node until the end.*/
+    int parent = firstparent;
 
-    /* Copy the old particles and a new one into a temporary array*/
-    memcpy(oldsuns, nprnt->u.s.suns, NMAXCHILD * sizeof(int));
+    do {
+        int i;
+        int oldsuns[NMAXCHILD];
 
-    /*We have two particles here, so create a new child node to store them both.*/
-    /* if we are here the node must be large enough, thus contain exactly one child. */
-    /* The parent is already a leaf, need to split */
-    for(i=0; i<8; i++) {
-        /* Get memory for an extra node from our cache.*/
-        nprnt->u.s.suns[i] = get_freenode(nnext, nc);
-        /*If we already have too many nodes, exit loop.*/
-        if(nc->nnext_thread >= tb.lastnode) {
-            /* This means that we have > NMAXCHILD particles in the same place,
-             * which usually indicates a bug in the particle evolution. Print some helpful debug information.*/
-            message(1, "Failed placing %d at %g %g %g, type %d, ID %ld. Others were %d (%g %g %g, t %d ID %ld) and %d (%g %g %g, t %d ID %ld).\n",
-                p_toplace, P[p_toplace].Pos[0], P[p_toplace].Pos[1], P[p_toplace].Pos[2], P[p_toplace].Type, P[p_toplace].ID,
-                oldsuns[0], P[oldsuns[0]].Pos[0], P[oldsuns[0]].Pos[1], P[oldsuns[0]].Pos[2], P[oldsuns[0]].Type, P[oldsuns[0]].ID,
-                oldsuns[1], P[oldsuns[1]].Pos[0], P[oldsuns[1]].Pos[1], P[oldsuns[1]].Pos[2], P[oldsuns[1]].Type, P[oldsuns[1]].ID
-            );
-            return 1;
+        struct NODE *nprnt = &tb.Nodes[parent];
+
+        /* Copy the old particles and a new one into a temporary array*/
+        memcpy(oldsuns, nprnt->u.s.suns, NMAXCHILD * sizeof(int));
+
+        /*We have two particles here, so create a new child node to store them both.*/
+        /* if we are here the node must be large enough, thus contain exactly one child. */
+        /* The parent is already a leaf, need to split */
+        for(i=0; i<8; i++) {
+            /* Get memory for an extra node from our cache.*/
+            nprnt->u.s.suns[i] = get_freenode(nnext, nc);
+            /*If we already have too many nodes, exit loop.*/
+            if(nc->nnext_thread >= tb.lastnode) {
+                /* This means that we have > NMAXCHILD particles in the same place,
+                * which usually indicates a bug in the particle evolution. Print some helpful debug information.*/
+                message(1, "Failed placing %d at %g %g %g, type %d, ID %ld. Others were %d (%g %g %g, t %d ID %ld) and %d (%g %g %g, t %d ID %ld).\n",
+                    p_toplace, P[p_toplace].Pos[0], P[p_toplace].Pos[1], P[p_toplace].Pos[2], P[p_toplace].Type, P[p_toplace].ID,
+                    oldsuns[0], P[oldsuns[0]].Pos[0], P[oldsuns[0]].Pos[1], P[oldsuns[0]].Pos[2], P[oldsuns[0]].Type, P[oldsuns[0]].ID,
+                    oldsuns[1], P[oldsuns[1]].Pos[0], P[oldsuns[1]].Pos[1], P[oldsuns[1]].Pos[2], P[oldsuns[1]].Type, P[oldsuns[1]].ID
+                );
+                return 1;
+            }
+            struct NODE *nfreep = &tb.Nodes[nprnt->u.s.suns[i]];
+            /* We create a new leaf node.*/
+            init_internal_node(nfreep, nprnt, i);
+            /*Set father of new node*/
+            nfreep->father = parent;
         }
-        struct NODE *nfreep = &tb.Nodes[nprnt->u.s.suns[i]];
-        /* We create a new leaf node.*/
-        init_internal_node(nfreep, nprnt, i);
-        /*Set father of new node*/
-        nfreep->father = parent;
-    }
-    /*Initialize the remaining entries to empty*/
-    for(i=8; i<NMAXCHILD;i++)
-        nprnt->u.s.suns[i] = -1;
+        /*Initialize the remaining entries to empty*/
+        for(i=8; i<NMAXCHILD;i++)
+            nprnt->u.s.suns[i] = -1;
 
-    for(i=0; i < NMAXCHILD; i++) {
-        /* Re-attach each particle to the appropriate new leaf.
-         * Notice that since we have NMAXCHILD slots on each child and NMAXCHILD particles,
-         * we will always have a free slot. */
-        int subnode = get_subnode(nprnt, oldsuns[i]);
+        for(i=0; i < NMAXCHILD; i++) {
+            /* Re-attach each particle to the appropriate new leaf.
+            * Notice that since we have NMAXCHILD slots on each child and NMAXCHILD particles,
+            * we will always have a free slot. */
+            int subnode = get_subnode(nprnt, oldsuns[i]);
+            int child = nprnt->u.s.suns[subnode];
+            struct NODE * nchild = &tb.Nodes[child];
+            modify_internal_node(child, nchild->u.s.noccupied, oldsuns[i], tb);
+            nchild->u.s.noccupied++;
+        }
+        /* Now try again to add the new particle*/
+        int subnode = get_subnode(nprnt, p_toplace);
         int child = nprnt->u.s.suns[subnode];
         struct NODE * nchild = &tb.Nodes[child];
-        modify_internal_node(child, nchild->u.s.noccupied, oldsuns[i], tb);
-        nchild->u.s.noccupied++;
-    }
-    /* Now try again to add the new particle*/
-    int subnode = get_subnode(nprnt, p_toplace);
-    int child = nprnt->u.s.suns[subnode];
-    struct NODE * nchild = &tb.Nodes[child];
-    if(nchild->u.s.noccupied < NMAXCHILD) {
-        modify_internal_node(child, nchild->u.s.noccupied, p_toplace, tb);
-        nchild->u.s.noccupied++;
-    }
-    else {
-        int ret = create_new_node_layer(child, p_toplace, tb, nnext, nc);
-        if(ret > 0)
-            return ret;
-    }
+        if(nchild->u.s.noccupied < NMAXCHILD) {
+            modify_internal_node(child, nchild->u.s.noccupied, p_toplace, tb);
+            nchild->u.s.noccupied++;
+            break;
+        }
+        /* The attached particles are already within one subnode of the new node.
+         * Iterate, creating a new layer beneath.*/
+        else {
+            /* The current child is going to have new nodes created beneath it,
+             * so mark it a Node-containing node. It cannot be accessed until
+             * we mark the top-level parent, so no need for atomics.*/
+            tb.Nodes[child].f.ChildType = NODE_NODE_TYPE;
+            tb.Nodes[child].u.s.noccupied = (1<<16);
+            parent = child;
+        }
+    } while(1);
 
-    /* A new node is created. Mark the parent as an internal node with node children.
-     * This goes last
-     * so that we don't access the child before it is constructed.*/
-    nprnt->f.ChildType = NODE_NODE_TYPE;
+    /* A new node is created. Mark the (original) parent as an internal node with node children.
+     * This goes last so that we don't access the child before it is constructed.*/
+    tb.Nodes[firstparent].f.ChildType = NODE_NODE_TYPE;
     #pragma omp atomic write
-    tb.Nodes[parent].u.s.noccupied = (1<<16);
+    tb.Nodes[firstparent].u.s.noccupied = (1<<16);
     return 0;
 }
 
