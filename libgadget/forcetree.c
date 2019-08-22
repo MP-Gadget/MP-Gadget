@@ -145,7 +145,7 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
             force_tree_free(&tree);
             message(1, "TreeAllocFactor from %g to %g\n", ForceTreeParams.TreeAllocFactor, ForceTreeParams.TreeAllocFactor*1.15);
             ForceTreeParams.TreeAllocFactor *= 1.15;
-            if(ForceTreeParams.TreeAllocFactor > 5.0) {
+            if(ForceTreeParams.TreeAllocFactor > 3.0) {
                 TooManyNodes = 1;
                 break;
             }
