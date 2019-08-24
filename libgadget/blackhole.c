@@ -72,7 +72,6 @@ typedef struct {
     TreeWalkResultBase base;
     MyFloat Mass;
     MyFloat BH_Mass;
-    MyFloat AccretedMomentum[3];
     int BH_CountProgs;
 } TreeWalkResultBHFeedback;
 
@@ -594,10 +593,6 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
         lock_spinlock(other, spin);
 
-        int d;
-        for(d = 0; d < 3; d++)
-            O->AccretedMomentum[d] += (P[other].Mass * P[other].Vel[d]);
-
         O->BH_CountProgs += BHP(other).CountProgs;
 
         /* We do not know how to notify the tree of mass changes. so
@@ -648,10 +643,6 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         if(SPH_SwallowID[P[other].PI] != I->ID) return;
 
         lock_spinlock(other, spin);
-
-        int d;
-        for(d = 0; d < 3; d++)
-            O->AccretedMomentum[d] += (P[other].Mass * P[other].Vel[d]);
 
         /* We do not know how to notify the tree of mass changes. so
          * blindly enforce a mass conservation for now. */
