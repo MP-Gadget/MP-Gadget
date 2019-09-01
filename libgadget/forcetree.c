@@ -145,7 +145,7 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
             force_tree_free(&tree);
             message(1, "TreeAllocFactor from %g to %g\n", ForceTreeParams.TreeAllocFactor, ForceTreeParams.TreeAllocFactor*1.15);
             ForceTreeParams.TreeAllocFactor *= 1.15;
-            if(ForceTreeParams.TreeAllocFactor > 5.0) {
+            if(ForceTreeParams.TreeAllocFactor > 3.0) {
                 TooManyNodes = 1;
                 break;
             }
@@ -268,65 +268,85 @@ modify_internal_node(int parent, int subnode, int p_toplace, const ForceTree tb)
 /* Create a new layer of nodes beneath the current node, and place the particle.
  * Must have node lock.*/
 static int
-create_new_node_layer(int parent, int p_toplace,
+create_new_node_layer(int firstparent, int p_toplace,
         const ForceTree tb, int *nnext, struct NodeCache *nc)
 {
-    int i;
-    int oldsuns[NMAXCHILD];
-    struct NODE *nprnt = &tb.Nodes[parent];
+    /* This is so we can defer changing
+     * the type of the existing node until the end.*/
+    int parent = firstparent;
 
-    /* Copy the old particles and a new one into a temporary array*/
-    memcpy(oldsuns, nprnt->u.s.suns, NMAXCHILD * sizeof(int));
+    do {
+        int i;
+        int oldsuns[NMAXCHILD];
 
-    /*We have two particles here, so create a new child node to store them both.*/
-    /* if we are here the node must be large enough, thus contain exactly one child. */
-    /* The parent is already a leaf, need to split */
-    for(i=0; i<8; i++) {
-        /* Get memory for an extra node from our cache.*/
-        nprnt->u.s.suns[i] = get_freenode(nnext, nc);
-        /*If we already have too many nodes, exit loop.*/
-        if(nc->nnext_thread >= tb.lastnode)
-            return 1;
-        struct NODE *nfreep = &tb.Nodes[nprnt->u.s.suns[i]];
-        /* We create a new leaf node.*/
-        init_internal_node(nfreep, nprnt, i);
-        /*Set father of new node*/
-        nfreep->father = parent;
-    }
-    /*Initialize the remaining entries to empty*/
-    for(i=8; i<NMAXCHILD;i++)
-        nprnt->u.s.suns[i] = -1;
+        struct NODE *nprnt = &tb.Nodes[parent];
 
-    for(i=0; i < NMAXCHILD; i++) {
-        /* Re-attach each particle to the appropriate new leaf.
-         * Notice that since we have NMAXCHILD slots on each child and NMAXCHILD particles,
-         * we will always have a free slot. */
-        int subnode = get_subnode(nprnt, oldsuns[i]);
+        /* Copy the old particles and a new one into a temporary array*/
+        memcpy(oldsuns, nprnt->u.s.suns, NMAXCHILD * sizeof(int));
+
+        /*We have two particles here, so create a new child node to store them both.*/
+        /* if we are here the node must be large enough, thus contain exactly one child. */
+        /* The parent is already a leaf, need to split */
+        for(i=0; i<8; i++) {
+            /* Get memory for an extra node from our cache.*/
+            nprnt->u.s.suns[i] = get_freenode(nnext, nc);
+            /*If we already have too many nodes, exit loop.*/
+            if(nc->nnext_thread >= tb.lastnode) {
+                /* This means that we have > NMAXCHILD particles in the same place,
+                * which usually indicates a bug in the particle evolution. Print some helpful debug information.*/
+                message(1, "Failed placing %d at %g %g %g, type %d, ID %ld. Others were %d (%g %g %g, t %d ID %ld) and %d (%g %g %g, t %d ID %ld).\n",
+                    p_toplace, P[p_toplace].Pos[0], P[p_toplace].Pos[1], P[p_toplace].Pos[2], P[p_toplace].Type, P[p_toplace].ID,
+                    oldsuns[0], P[oldsuns[0]].Pos[0], P[oldsuns[0]].Pos[1], P[oldsuns[0]].Pos[2], P[oldsuns[0]].Type, P[oldsuns[0]].ID,
+                    oldsuns[1], P[oldsuns[1]].Pos[0], P[oldsuns[1]].Pos[1], P[oldsuns[1]].Pos[2], P[oldsuns[1]].Type, P[oldsuns[1]].ID
+                );
+                return 1;
+            }
+            struct NODE *nfreep = &tb.Nodes[nprnt->u.s.suns[i]];
+            /* We create a new leaf node.*/
+            init_internal_node(nfreep, nprnt, i);
+            /*Set father of new node*/
+            nfreep->father = parent;
+        }
+        /*Initialize the remaining entries to empty*/
+        for(i=8; i<NMAXCHILD;i++)
+            nprnt->u.s.suns[i] = -1;
+
+        for(i=0; i < NMAXCHILD; i++) {
+            /* Re-attach each particle to the appropriate new leaf.
+            * Notice that since we have NMAXCHILD slots on each child and NMAXCHILD particles,
+            * we will always have a free slot. */
+            int subnode = get_subnode(nprnt, oldsuns[i]);
+            int child = nprnt->u.s.suns[subnode];
+            struct NODE * nchild = &tb.Nodes[child];
+            modify_internal_node(child, nchild->u.s.noccupied, oldsuns[i], tb);
+            nchild->u.s.noccupied++;
+        }
+        /* Now try again to add the new particle*/
+        int subnode = get_subnode(nprnt, p_toplace);
         int child = nprnt->u.s.suns[subnode];
         struct NODE * nchild = &tb.Nodes[child];
-        modify_internal_node(child, nchild->u.s.noccupied, oldsuns[i], tb);
-        nchild->u.s.noccupied++;
-    }
-    /* Now try again to add the new particle*/
-    int subnode = get_subnode(nprnt, p_toplace);
-    int child = nprnt->u.s.suns[subnode];
-    struct NODE * nchild = &tb.Nodes[child];
-    if(nchild->u.s.noccupied < NMAXCHILD) {
-        modify_internal_node(child, nchild->u.s.noccupied, p_toplace, tb);
-        nchild->u.s.noccupied++;
-    }
-    else {
-        int ret = create_new_node_layer(child, p_toplace, tb, nnext, nc);
-        if(ret > 0)
-            return ret;
-    }
+        if(nchild->u.s.noccupied < NMAXCHILD) {
+            modify_internal_node(child, nchild->u.s.noccupied, p_toplace, tb);
+            nchild->u.s.noccupied++;
+            break;
+        }
+        /* The attached particles are already within one subnode of the new node.
+         * Iterate, creating a new layer beneath.*/
+        else {
+            /* The current child is going to have new nodes created beneath it,
+             * so mark it a Node-containing node. It cannot be accessed until
+             * we mark the top-level parent, so no need for atomics.*/
+            tb.Nodes[child].f.ChildType = NODE_NODE_TYPE;
+            tb.Nodes[child].u.s.noccupied = (1<<16);
+            parent = child;
+        }
+    } while(1);
 
-    /* A new node is created. Mark the parent as an internal node with node children.
-     * This goes last
-     * so that we don't access the child before it is constructed.*/
-    nprnt->f.ChildType = NODE_NODE_TYPE;
+    /* A new node is created. Mark the (original) parent as an internal node with node children.
+     * This goes last so that we don't access the child before it is constructed.*/
+    tb.Nodes[firstparent].f.ChildType = NODE_NODE_TYPE;
     #pragma omp atomic write
-    tb.Nodes[parent].u.s.noccupied = (1<<16);
+    tb.Nodes[firstparent].u.s.noccupied = (1<<16);
     return 0;
 }
 
@@ -771,6 +791,11 @@ force_update_particle_node(int no, int sib, const ForceTree * tree, const int Hy
 static int
 force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, const int HybridNuGrav)
 {
+#ifdef DEBUG
+    if(tree->Nodes[no].f.ChildType != NODE_NODE_TYPE)
+        endrun(3, "force_update_node_recursive called on node %d of type %d != %d!\n", no, tree->Nodes[no].f.ChildType, NODE_NODE_TYPE);
+#endif
+
     /*Last value of tails is the return value of this function*/
     int j, suns[8], tails[8];
 
@@ -783,10 +808,18 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
      * This sharply reduces the size of the tree.
      * Also count the node children for thread balancing.*/
     for(j=0; j < 8; j++) {
-        /* Pseudo nodes may have zero occupation*/
-        if(tree->Nodes[suns[j]].f.ChildType == PARTICLE_NODE_TYPE &&
-            tree->Nodes[suns[j]].u.s.noccupied == 0)
+        /* Never remove empty top-level nodes so we don't
+         * mess up the pseudo-data exchange.
+         * This may happen for a pseudo particle host or, in very rare cases,
+         * when one of the local domains is empty. */
+        if(!tree->Nodes[suns[j]].f.TopLevel &&
+            tree->Nodes[suns[j]].f.ChildType == PARTICLE_NODE_TYPE &&
+            tree->Nodes[suns[j]].u.s.noccupied == 0) {
+                /* In principle the removed node will be
+                 * disconnected and never used, but zero it just in case.*/
+                force_zero_union(&tree->Nodes[suns[j]]);
                 suns[j] = -1;
+        }
         else if(tree->Nodes[suns[j]].f.ChildType == NODE_NODE_TYPE)
             childcnt++;
     }
@@ -1022,6 +1055,11 @@ void force_treeupdate_pseudos(int no, const ForceTree * tree)
         /*This may not happen as we are an internal top level node*/
         if(p < tree->firstnode || p >= tree->lastnode)
             endrun(6767, "Updating pseudos: %d -> %d which is not an internal node between %d and %d.",no, p, tree->firstnode, tree->lastnode);
+#ifdef DEBUG
+        /* Check we don't move to another part of the tree*/
+        if(tree->Nodes[p].father != no)
+            endrun(6767, "Tried to update toplevel node %d with parent %d != expected %d\n", p, tree->Nodes[p].father, no);
+#endif
 
         if(tree->Nodes[p].f.InternalTopLevel)
             force_treeupdate_pseudos(p, tree);

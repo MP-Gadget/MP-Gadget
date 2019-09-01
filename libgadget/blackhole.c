@@ -37,7 +37,6 @@ typedef struct {
     MyFloat Mass;
     MyFloat BH_Mass;
     MyFloat Vel[3];
-    MyFloat Csnd;
     MyIDType ID;
 } TreeWalkQueryBHAccretion;
 
@@ -73,7 +72,6 @@ typedef struct {
     TreeWalkResultBase base;
     MyFloat Mass;
     MyFloat BH_Mass;
-    MyFloat AccretedMomentum[3];
     int BH_CountProgs;
 } TreeWalkResultBHFeedback;
 
@@ -458,29 +456,22 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
     if(P[other].Type == 5 && r2 < iter->accretion_kernel.HH)	/* we have a black hole merger */
     {
-        /* compute relative velocity of BHs */
+        /* We do not depend on the BH relative velocity.
+         * Because the BHs are not dissipative, their relative velocities
+         * can be large, causing clumps of BHs to build up
+         * at the same position without merging. */
 
         lock_spinlock(other, spin);
-        int d;
-        double vrel[3];
-        for(d = 0; d < 3; d++)
-            vrel[d] = (P[other].Vel[d] - I->Vel[d]);
-
-        double vpec = sqrt(dotproduct(vrel, vrel)) / All.cf.a;
-
-        if(vpec <= 0.5 * I->Csnd)
-        {
-            if(P[other].Swallowed) {
-                /* Already marked, prefer to be swallowed by a bigger ID */
-                if(BHP(other).SwallowID < I->ID) {
-                    BHP(other).SwallowID = I->ID;
-                }
-            } else {
-                /* Unmarked, the BH with bigger ID swallows */
-                if(P[other].ID < I->ID) {
-                    P[other].Swallowed = 1;
-                    BHP(other).SwallowID = I->ID;
-                }
+        if(P[other].Swallowed) {
+            /* Already marked, prefer to be swallowed by a bigger ID */
+            if(BHP(other).SwallowID < I->ID) {
+                BHP(other).SwallowID = I->ID;
+            }
+        } else {
+            /* Unmarked, the BH with bigger ID swallows */
+            if(P[other].ID < I->ID) {
+                P[other].Swallowed = 1;
+                BHP(other).SwallowID = I->ID;
             }
         }
         unlock_spinlock(other, spin);
@@ -602,10 +593,6 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
         lock_spinlock(other, spin);
 
-        int d;
-        for(d = 0; d < 3; d++)
-            O->AccretedMomentum[d] += (P[other].Mass * P[other].Vel[d]);
-
         O->BH_CountProgs += BHP(other).CountProgs;
 
         /* We do not know how to notify the tree of mass changes. so
@@ -656,10 +643,6 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         if(SPH_SwallowID[P[other].PI] != I->ID) return;
 
         lock_spinlock(other, spin);
-
-        int d;
-        for(d = 0; d < 3; d++)
-            O->AccretedMomentum[d] += (P[other].Mass * P[other].Vel[d]);
 
         /* We do not know how to notify the tree of mass changes. so
          * blindly enforce a mass conservation for now. */
@@ -717,13 +700,10 @@ blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I, TreeWalk * tw)
     {
         I->Vel[k] = P[place].Vel[k];
     }
-
-    int PI = P[place].PI;
     I->Hsml = P[place].Hsml;
     I->Mass = P[place].Mass;
     I->BH_Mass = BHP(place).Mass;
     I->Density = BHP(place).Density;
-    I->Csnd = blackhole_soundspeed(BH_GET_PRIV(tw)->BH_Entropy[PI], BHP(place).Density);
     I->ID = P[place].ID;
 }
 
