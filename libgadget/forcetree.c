@@ -744,11 +744,8 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
 #endif
 
     /*Last value of tails is the return value of this function*/
-    int j, suns[8], tails[8];
-
-    /* this "backup" is necessary because the nextnode
-     * entry will overwrite one element (union!) */
-    memcpy(suns, tree->Nodes[no].u.s.suns, 8 * sizeof(int));
+    int j, tails[8];
+    int * suns = tree->Nodes[no].u.s.suns;
 
     int childcnt = 0;
     /* Remove any empty children.
@@ -800,7 +797,6 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
             tails[j] = force_update_node_recursive(p, nextsib, level, tree, HybridNuGrav);
     }
 
-    /*After this point the suns array is invalid!*/
     force_zero_union(&tree->Nodes[no]);
     tree->Nodes[no].u.d.sibling = sib;
 
