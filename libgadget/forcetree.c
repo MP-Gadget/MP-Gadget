@@ -609,23 +609,6 @@ force_get_father(int no, const ForceTree * tree)
 }
 
 int
-force_get_next_node(int no, const ForceTree * tree)
-{
-    if(no >= tree->firstnode && no < tree->lastnode) {
-        /* internal node */
-        return tree->Nodes[no].u.d.nextnode;
-    }
-    if(no < tree->firstnode) {
-        /* Particle */
-        return tree->Nextnode[no];
-    }
-    else { //if(no >= tb.lastnode) {
-        /* Pseudo Particle */
-        return tree->Nextnode[no - (tree->lastnode - tree->firstnode)];
-    }
-}
-
-int
 force_set_next_node(int no, int next, const ForceTree * tree)
 {
     if(no < 0) return next;
@@ -711,7 +694,7 @@ force_update_pseudo_node(int no, int sib, const ForceTree * tree)
     tree->Nodes[no].u.d.sibling = sib;
 
     /*The pseudo-particle is the return value of this function.*/
-    return force_get_next_node(no, tree);
+    return tree->Nodes[no].u.d.nextnode;
 }
 
 static int
