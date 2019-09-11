@@ -146,6 +146,52 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
         TreeParams.TreeUseBH = 0;
 }
 
+/* Add the acceleration from a node or particle to the output structure,
+ * computing the short-range kernel and softening.*/
+static void
+apply_accn_to_output(TreeWalkResultGravShort * output, double dx[3], double h, double mass, const double cellsize)
+{
+    double facpot, fac;
+
+    const double r2 = dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2];
+    const double r = sqrt(r2);
+
+    if(r >= h)
+    {
+        fac = mass / (r2 * r);
+        facpot = -mass / r;
+    }
+    else
+    {
+        double wp;
+        const double h_inv = 1.0 / h;
+        const double h3_inv = h_inv * h_inv * h_inv;
+        const double u = r * h_inv;
+        if(u < 0.5) {
+            fac = mass * h3_inv * (10.666666666667 + u * u * (32.0 * u - 38.4));
+            wp = -2.8 + u * u * (5.333333333333 + u * u * (6.4 * u - 9.6));
+        }
+        else {
+            fac =
+                mass * h3_inv * (21.333333333333 - 48.0 * u +
+                        38.4 * u * u - 10.666666666667 * u * u * u - 0.066666666667 / (u * u * u));
+            wp =
+                -3.2 + 0.066666666667 / u + u * u * (10.666666666667 +
+                        u * (-16.0 + u * (9.6 - 2.133333333333 * u)));
+        }
+
+        facpot = mass * h_inv * wp;
+    }
+
+    if(0 == grav_apply_short_range_window(r, &fac, &facpot, cellsize)) {
+        int i;
+        for(i = 0; i < 3; i++)
+            output->Acc[i] += dx[i] * fac;
+        output->Ninteractions++;
+        output->Potential += facpot;
+    }
+}
+
 /*! In the TreePM algorithm, the tree is walked only locally around the
  *  target coordinate.  Tree nodes that fall outside a box of half
  *  side-length Rcut= RCUT*ASMTH*MeshSize can be discarded. The short-range
@@ -160,14 +206,6 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
         TreeWalkResultGravShort * output,
         LocalTreeWalk * lv)
 {
-    /*Counters*/
-    int ninteractions = 0;
-
-    /*Added to the particle struct at the end*/
-    MyDouble pot = 0;
-    MyDouble acc_x = 0;
-    MyDouble acc_y = 0;
-    MyDouble acc_z = 0;
     const ForceTree * tree = lv->tw->tree;
     const double BoxSize = tree->BoxSize;
 
@@ -178,9 +216,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     const double aold = GRAV_GET_PRIV(lv->tw)->ErrTolForceAcc * input->OldAcc;
 
     /*Input particle data*/
-    const double pos_x = input->base.Pos[0];
-    const double pos_y = input->base.Pos[1];
-    const double pos_z = input->base.Pos[2];
+    const double * inpos= input->base.Pos;
 
     /*Start the tree walk*/
     int no = input->base.NodeList[0];
@@ -191,8 +227,8 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     {
         while(no >= 0)
         {
-            double mass, r2, h;
-            double dx, dy, dz;
+            double mass, h;
+            double dx[3];
             if(node_is_particle(no, tree))
             {
                 /*Hybrid particle neutrinos do not gravitate at early times*/
@@ -204,11 +240,9 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     continue;
                 }
 
-                dx = NEAREST(P[no].Pos[0] - pos_x, BoxSize);
-                dy = NEAREST(P[no].Pos[1] - pos_y, BoxSize);
-                dz = NEAREST(P[no].Pos[2] - pos_z, BoxSize);
-
-                r2 = dx * dx + dy * dy + dz * dz;
+                int i;
+                for(i = 0; i < 3; i++)
+                    dx[i] = NEAREST(P[no].Pos[i] - inpos[i], BoxSize);
 
                 mass = P[no].Mass;
 
@@ -218,7 +252,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     h = otherh;
                 no = force_get_next_node(no, tree);
             }
-            else			/* we have an  internal node */
+            else  /* we have an  internal node */
             {
                 struct NODE *nop;
                 if(node_is_pseudo_particle(no, tree))	/* pseudo particle */
@@ -243,11 +277,11 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     }
                 }
 
-                dx = NEAREST(nop->u.d.s[0] - pos_x, BoxSize);
-                dy = NEAREST(nop->u.d.s[1] - pos_y, BoxSize);
-                dz = NEAREST(nop->u.d.s[2] - pos_z, BoxSize);
+                int i;
+                for(i = 0; i < 3; i++)
+                    dx[i] = NEAREST(nop->u.d.s[i] - inpos[i], BoxSize);
 
-                r2 = dx * dx + dy * dy + dz * dz;
+                const double r2 = dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2];
 
                 /*This checks the distance from the node center of mass*/
                 if(r2 > rcut2)
@@ -256,9 +290,9 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     const double eff_dist = rcut + 0.5 * nop->len;
 
                     /*This checks whether we are also outside this region of the oct-tree*/
-                    if(fabs(NEAREST(nop->center[0] - pos_x, BoxSize)) > eff_dist ||
-                        fabs(NEAREST(nop->center[1] - pos_y, BoxSize)) > eff_dist ||
-                            fabs(NEAREST(nop->center[2] - pos_z, BoxSize)) > eff_dist
+                    if(fabs(NEAREST(nop->center[0] - inpos[0], BoxSize)) > eff_dist ||
+                        fabs(NEAREST(nop->center[1] - inpos[1], BoxSize)) > eff_dist ||
+                            fabs(NEAREST(nop->center[2] - inpos[2], BoxSize)) > eff_dist
                       )
                     {
                         no = nop->u.d.sibling;
@@ -276,11 +310,11 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     continue;
                 }
                 /* check in addition whether we lie inside the cell */
-                if(fabs(NEAREST(nop->center[0] - pos_x, BoxSize)) < 0.60 * nop->len)
+                if(fabs(NEAREST(nop->center[0] - inpos[0], BoxSize)) < 0.60 * nop->len)
                 {
-                    if(fabs(NEAREST(nop->center[1] - pos_y, BoxSize)) < 0.60 * nop->len)
+                    if(fabs(NEAREST(nop->center[1] - inpos[1], BoxSize)) < 0.60 * nop->len)
                     {
-                        if(fabs(NEAREST(nop->center[2] - pos_z, BoxSize)) < 0.60 * nop->len)
+                        if(fabs(NEAREST(nop->center[2] - inpos[2], BoxSize)) < 0.60 * nop->len)
                         {
                             no = nop->u.d.nextnode;
                             continue;
@@ -298,56 +332,19 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                         if(nop->f.MixedSofteningsInNode)
                         {
                             no = nop->u.d.nextnode;
-
                             continue;
                         }
                     }
                 }
                 no = nop->u.d.sibling;	/* ok, node can be used */
-
             }
-
-            double facpot, fac;
-
-            const double r = sqrt(r2);
-
-            if(r >= h)
-            {
-                fac = mass / (r2 * r);
-                facpot = -mass / r;
-            }
-            else
-            {
-                double wp;
-                const double h_inv = 1.0 / h;
-                const double h3_inv = h_inv * h_inv * h_inv;
-                const double u = r * h_inv;
-                if(u < 0.5) {
-                    fac = mass * h3_inv * (10.666666666667 + u * u * (32.0 * u - 38.4));
-                    wp = -2.8 + u * u * (5.333333333333 + u * u * (6.4 * u - 9.6));
-                }
-                else {
-                    fac =
-                        mass * h3_inv * (21.333333333333 - 48.0 * u +
-                                38.4 * u * u - 10.666666666667 * u * u * u - 0.066666666667 / (u * u * u));
-                    wp =
-                        -3.2 + 0.066666666667 / u + u * u * (10.666666666667 +
-                                u * (-16.0 + u * (9.6 - 2.133333333333 * u)));
-                }
-
-                facpot = mass * h_inv * wp;
-            }
-
-            if(0 == grav_apply_short_range_window(r, &fac, &facpot, cellsize)) {
-                acc_x += (dx * fac);
-                acc_y += (dy * fac);
-                acc_z += (dz * fac);
-                pot += facpot;
-                ninteractions++;
-            }
+            /* Compute the acceleration and apply it to the output structure*/
+            apply_accn_to_output(output, dx, h, mass, cellsize);
         }
 
-        if(listindex < NODELISTLENGTH)
+        /* Use the next node in the node list if we are doing a secondary walk.
+         * For a primary walk the node list only ever contains one node. */
+        if(lv->mode == 1 && listindex < NODELISTLENGTH)
         {
             no = input->base.NodeList[listindex];
             if(no >= 0)
@@ -356,20 +353,15 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                 listindex++;
             }
         }
+
     }
 
-    output->Acc[0] = acc_x;
-    output->Acc[1] = acc_y;
-    output->Acc[2] = acc_z;
-    output->Ninteractions = ninteractions;
-    output->Potential = pot;
-
-    lv->Ninteractions += ninteractions;
+    lv->Ninteractions += output->Ninteractions;
     if(lv->mode == 1) {
         lv->Nnodesinlist += listindex;
         lv->Nlist += 1;
     }
-    return ninteractions;
+    return output->Ninteractions;
 }
 
 
