@@ -487,7 +487,7 @@ slots_reserve(int where, int atleast[6])
     int good = 1;
 
     if(SlotsManager->Base == NULL) {
-        SlotsManager->Base = (char*) mymalloc("SlotsBase", 0);
+        SlotsManager->Base = (char*) mymalloc("SlotsBase", sizeof(struct sph_particle_data));
         /* This is so the ptr is never null! Avoid undefined behaviour. */
         for(ptype = 5; ptype >= 0; ptype--) {
             SlotsManager->info[ptype].ptr = SlotsManager->Base;
@@ -502,7 +502,7 @@ slots_reserve(int where, int atleast[6])
         newMaxSlots[ptype] = SlotsManager->info[ptype].maxsize;
         if(!SLOTS_ENABLED(ptype)) continue;
         /* if current empty slots is less than half of add, need to grow */
-        if (newMaxSlots[ptype] < atleast[ptype] + add / 2) {
+        if (newMaxSlots[ptype] <= atleast[ptype] + add / 2) {
             newMaxSlots[ptype] = atleast[ptype] + add;
             good = 0;
         }
