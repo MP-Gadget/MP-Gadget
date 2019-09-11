@@ -153,16 +153,17 @@ static void
 shall_we_compact_slots(int * compact, ExchangePlan * plan, MPI_Comm Comm)
 {
     int ptype;
+    int lcompact[6] = {0};
     for(ptype = 0; ptype < 6; ptype++) {
         /* gc if we are low on slot memory. */
         if (SlotsManager->info[ptype].size + plan->toGetSum.slots[ptype] > 0.95 * SlotsManager->info[ptype].maxsize)
-            compact[ptype] = 1;
+            lcompact[ptype] = 1;
         /* gc if we had a very large exchange. */
         if(plan->toGoSum.slots[ptype] > 0.1 * SlotsManager->info[ptype].size)
-            compact[ptype] = 1;
+            lcompact[ptype] = 1;
     }
     /*Make the slot compaction collective*/
-    MPI_Allreduce(MPI_IN_PLACE, compact, 6, MPI_INT, MPI_LOR, Comm);
+    MPI_Allreduce(lcompact, compact, 6, MPI_INT, MPI_LOR, Comm);
 }
 
 static int domain_exchange_once(ExchangePlan * plan, int do_gc, MPI_Comm Comm)
