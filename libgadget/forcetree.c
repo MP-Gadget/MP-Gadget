@@ -738,14 +738,10 @@ force_update_particle_node(int no, int sib, const ForceTree * tree, const int Hy
     if(tree->Nodes[no].f.ChildType != PARTICLE_NODE_TYPE)
         endrun(3, "force_update_particle_node called on node %d of wrong type!\n", no);
     /*Last value of tails is the return value of this function*/
-    int j, suns[NMAXCHILD];
+    int j;
 
-    /* this "backup" is necessary because the nextnode
-     * entry will overwrite one element (union!) */
-    int noccupied = tree->Nodes[no].u.s.noccupied;
-    for(j = 0; j < noccupied; j++) {
-        suns[j] = tree->Nodes[no].u.s.suns[j];
-    }
+    const int noccupied = tree->Nodes[no].u.s.noccupied;
+    int * suns = tree->Nodes[no].u.s.suns;
 
     /*After this point the suns array is invalid!*/
     force_zero_union(&tree->Nodes[no]);
