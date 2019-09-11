@@ -593,8 +593,8 @@ force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddeco
             tree->Nodes[index].u.s.suns[0] = firstpseudo + i;
             force_zero_union(&tree->Nodes[index]);
             tree->Nodes[index].f.ChildType = PSEUDO_NODE_TYPE;
-            force_set_next_node(index, firstpseudo + i, tree);
-            force_set_next_node(firstpseudo + i, -1, tree);
+            /* This node points to the pseudo particle*/
+            tree->Nodes[index].u.d.nextnode = firstpseudo + i;
         }
     }
 }
@@ -606,26 +606,6 @@ force_get_father(int no, const ForceTree * tree)
         return tree->Nodes[no].father;
     else
         return tree->Father[no];
-}
-
-int
-force_set_next_node(int no, int next, const ForceTree * tree)
-{
-    if(no < 0) return next;
-    if(no >= tree->firstnode && no < tree->lastnode) {
-        /* internal node */
-        tree->Nodes[no].u.d.nextnode = next;
-    }
-    if(no < tree->firstnode) {
-        /* Particle */
-        tree->Nextnode[no] = next;
-    }
-    if(no >= tree->lastnode) {
-        /* Pseudo Particle */
-        tree->Nextnode[no - (tree->lastnode - tree->firstnode)] = next;
-    }
-
-    return next;
 }
 
 /* Sets the node softening on a node.
@@ -693,8 +673,8 @@ force_update_pseudo_node(int no, int sib, const ForceTree * tree)
 
     tree->Nodes[no].u.d.sibling = sib;
 
-    /*The pseudo-particle is the return value of this function.*/
-    return tree->Nodes[no].u.d.nextnode;
+    /*The pseudo-particle does not need a tail set.*/
+    return -1;
 }
 
 static int
@@ -711,8 +691,8 @@ force_update_particle_node(int no, int sib, const ForceTree * tree, const int Hy
     /*After this point the suns array is invalid!*/
     force_zero_union(&tree->Nodes[no]);
     tree->Nodes[no].u.d.sibling = sib;
+    tree->Nodes[no].u.d.nextnode = suns[0];
 
-    int tail = no;
     /*Now we do the moments*/
     for(j = 0; j < noccupied; j++) {
         const int p = suns[j];
@@ -720,11 +700,6 @@ force_update_particle_node(int no, int sib, const ForceTree * tree, const int Hy
             * So do not add their masses to the node*/
         if(!HybridNuGrav || P[p].Type != ForceTreeParams.FastParticleType)
             add_particle_moment_to_node(&tree->Nodes[no], p);
-        /*This loop sets the next node value for the row we just computed.
-         * Note that tails[i] is the next node for suns[i-1].
-         * The last tail needs to be the return value of this function.*/
-        force_set_next_node(tail, p, tree);
-        tail = p;
     }
 
     /*Set the center of mass moments*/
@@ -739,7 +714,9 @@ force_update_particle_node(int no, int sib, const ForceTree * tree, const int Hy
             tree->Nodes[no].u.d.s[j] = tree->Nodes[no].center[j];
     }
 
-    return tail;
+    /* The tail of a particle node
+     * would be the last child particle, but this no longer needs nextnode set*/
+    return -1;
 }
 
 /*! this routine determines the multipole moments for a given internal node
@@ -859,7 +836,8 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
         if(suns[j] < 0)
             continue;
         /*Set NextNode for this node*/
-        force_set_next_node(tail, suns[j], tree);
+        if(tail >= tree->firstnode)
+            tree->Nodes[tail].u.d.nextnode = suns[j];
         tail = tails[j];
     }
     return tail;
@@ -894,7 +872,9 @@ force_update_node_parallel(const ForceTree * tree, const int HybridNuGrav)
             tail = force_update_pseudo_node(tree->firstnode, -1, tree);
     }
 
-    force_set_next_node(tail, -1, tree);
+    /* Round off the last entry*/
+    if(tail >= tree->firstnode)
+        tree->Nodes[tail].u.d.nextnode = -1;
 
     return tail;
 }

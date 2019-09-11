@@ -246,9 +246,7 @@ static void do_tree_test(const int numpart, const ForceTree tb, DomainDecomp * d
     int nrealnode = check_tree(&tb, nodes, numpart);
     /* now compute the multipole moments recursively */
     start = MPI_Wtime();
-    int tail = force_update_node_parallel(&tb, 0);
-    force_set_next_node(tail, -1, &tb);
-/*     assert_true(tail < nodes); */
+    force_update_node_parallel(&tb, 0);
     end = MPI_Wtime();
     ms = (end - start)*1000;
     printf("Updated moments in %.3g ms. Total mass: %g\n", ms, tb.Nodes[numpart].u.d.mass);
