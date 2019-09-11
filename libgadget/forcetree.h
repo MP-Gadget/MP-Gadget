@@ -30,7 +30,8 @@ struct NODE
         unsigned int ChildType :2; /* Specify the type of children this node has: particles, other nodes, or pseudo-particles.
                                     * (should be an enum, but not standard in C).*/
     } f;
-    union
+
+    struct
     {
         struct
         {
