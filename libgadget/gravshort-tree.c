@@ -149,11 +149,10 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
 /* Add the acceleration from a node or particle to the output structure,
  * computing the short-range kernel and softening.*/
 static void
-apply_accn_to_output(TreeWalkResultGravShort * output, double dx[3], double h, double mass, const double cellsize)
+apply_accn_to_output(TreeWalkResultGravShort * output, const double dx[3], const double r2, const double h, const double mass, const double cellsize)
 {
     double facpot, fac;
 
-    const double r2 = dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2];
     const double r = sqrt(r2);
 
     if(r >= h)
@@ -262,6 +261,8 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     const double aold = GRAV_GET_PRIV(lv->tw)->ErrTolForceAcc * input->OldAcc;
     const int TreeUseBH = GRAV_GET_PRIV(lv->tw)->TreeUseBH;
     const int BHOpeningAngle2 = GRAV_GET_PRIV(lv->tw)->BHOpeningAngle * GRAV_GET_PRIV(lv->tw)->BHOpeningAngle;
+    const int NeutrinoTracer = GRAV_GET_PRIV(lv->tw)->NeutrinoTracer;
+    const int FastParticleType = GRAV_GET_PRIV(lv->tw)->FastParticleType;
 
     /*Input particle data*/
     const double * inpos = input->base.Pos;
@@ -273,87 +274,44 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
 
     while(no >= 0)
     {
+        int numcand = 0;
         while(no >= 0)
         {
-            double mass, h;
-            double dx[3];
-            if(node_is_particle(no, tree))
-            {
-                /*Hybrid particle neutrinos do not gravitate at early times*/
+            /* The tree always walks internal nodes*/
+            struct NODE *nop = &tree->Nodes[no];
 
-                if(GRAV_GET_PRIV(lv->tw)->NeutrinoTracer &&
-                    P[no].Type == GRAV_GET_PRIV(lv->tw)->FastParticleType)
+            if(lv->mode == 1)
+            {
+                if(nop->f.TopLevel)	/* we reached a top-level node again, which means that we are done with the branch */
                 {
-                    no = force_get_next_node(no, tree);
+                    no = -1;
                     continue;
                 }
-
-                int i;
-                for(i = 0; i < 3; i++)
-                    dx[i] = NEAREST(P[no].Pos[i] - inpos[i], BoxSize);
-
-                mass = P[no].Mass;
-
-                h = input->Soft;
-                const double otherh = FORCE_SOFTENING(no);
-                if(h < otherh)
-                    h = otherh;
-                no = force_get_next_node(no, tree);
             }
-            else  /* we have an  internal node */
+
+            int i;
+            double dx[3];
+            for(i = 0; i < 3; i++)
+                dx[i] = NEAREST(nop->u.d.s[i] - inpos[i], BoxSize);
+            const double r2 = dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2];
+
+            /* Discard this node, move to sibling*/
+            if(shall_we_discard_node(nop->len, r2, nop->center, inpos, BoxSize, rcut, rcut2))
             {
-                struct NODE *nop;
-                if(node_is_pseudo_particle(no, tree))	/* pseudo particle */
-                {
-                    if(lv->mode == 0)
-                    {
-                        if(-1 == treewalk_export_particle(lv, no))
-                            return -1;
-                    }
-                    no = force_get_next_node(no, tree);
-                    continue;
-                }
+                no = nop->u.d.sibling;
+                /* Don't add this node*/
+                continue;
+            }
 
-                nop = &tree->Nodes[no];
-
-                if(lv->mode == 1)
-                {
-                    if(nop->f.TopLevel)	/* we reached a top-level node again, which means that we are done with the branch */
-                    {
-                        no = -1;
-                        continue;
-                    }
-                }
-
-                int i;
-                for(i = 0; i < 3; i++)
-                    dx[i] = NEAREST(nop->u.d.s[i] - inpos[i], BoxSize);
-                const double r2 = dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2];
-
-                /* Discard this node, move to sibling*/
-                if(shall_we_discard_node(nop->len, r2, nop->center, inpos, BoxSize, rcut, rcut2))
-                {
-                    no = nop->u.d.sibling;
-                    /* Don't add this node*/
-                    continue;
-                }
-
-                mass = nop->u.d.mass;
-
-                if(shall_we_open_node(nop->len, mass, r2, nop->center, inpos, BoxSize, aold, TreeUseBH, BHOpeningAngle2))
-                {
-                    /* open cell */
-                    no = nop->u.d.nextnode;
-                    continue;
-                }
-
-                h = input->Soft;
+            /* This node accelerates the particle directly, and is not opened.*/
+            if(!shall_we_open_node(nop->len, nop->u.d.mass, r2, nop->center, inpos, BoxSize, aold, TreeUseBH, BHOpeningAngle2))
+            {
+                double h = DMAX(input->Soft, nop->u.d.MaxSoftening);
                 /* Always open the node if it has a larger softening than the particle,
                  * and the particle is inside its softening radius.
                  * This condition essentially never happens, and it is not clear how much sense it makes. */
-                if(h < nop->u.d.MaxSoftening)
+                if(input->Soft < nop->u.d.MaxSoftening)
                 {
-                    h = nop->u.d.MaxSoftening;
                     if(r2 < h * h)
                         if(nop->f.MixedSofteningsInNode)
                         {
@@ -364,9 +322,56 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
 
                 /* ok, node can be used */
                 no = nop->u.d.sibling;
+                /* Compute the acceleration and apply it to the output structure*/
+                apply_accn_to_output(output, dx, r2, h, nop->u.d.mass, cellsize);
+                continue;
             }
+
+            /* Now we have a cell that needs to be opened.
+             * If it contains particles we can add them directly here */
+            if(nop->f.ChildType == PARTICLE_NODE_TYPE)
+            {
+                /* Loop over child particles*/
+                for(i = 0; i < nop->u.s.noccupied; i++) {
+                    int pp = nop->u.s.suns[i];
+                    lv->ngblist[numcand++] = pp;
+                }
+                no = nop->u.d.sibling;
+            }
+            else if (nop->f.ChildType == PSEUDO_NODE_TYPE)
+            {
+                if(lv->mode == 0)
+                {
+                    if(-1 == treewalk_export_particle(lv, nop->u.s.suns[0]))
+                        return -1;
+                }
+
+                /* Move to the sibling (likely also a pseudo node)*/
+                no = nop->u.d.sibling;
+            }
+            else if(nop->f.ChildType == NODE_NODE_TYPE)
+            {
+                /* This node contains other nodes and we need to open it.*/
+                no = nop->u.d.nextnode;
+            }
+        }
+        int i;
+        for(i = 0; i < numcand; i++)
+        {
+            int pp = lv->ngblist[i];
+            /* Fast particle neutrinos don't cause short-range acceleration before activation.*/
+            if(NeutrinoTracer && P[pp].Type == FastParticleType)
+                continue;
+
+            double dx[3];
+            int j;
+            for(j = 0; j < 3; j++)
+                dx[j] = NEAREST(P[pp].Pos[j] - inpos[j], BoxSize);
+            const double r2 = dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2];
+
+            double h = DMAX(input->Soft, FORCE_SOFTENING(pp));
             /* Compute the acceleration and apply it to the output structure*/
-            apply_accn_to_output(output, dx, h, mass, cellsize);
+            apply_accn_to_output(output, dx, r2, h, P[pp].Mass, cellsize);
         }
 
         /* Use the next node in the node list if we are doing a secondary walk.
