@@ -78,13 +78,18 @@ force_tree_eh_slots_fork(EIBase * event, void * userdata)
     EISlotsFork * ev = (EISlotsFork*) event;
     int parent = ev->parent;
     int child = ev->child;
-    int no;
     ForceTree * tree = (ForceTree * ) userdata;
-    no = tree->Nextnode[parent];
-    tree->Nextnode[parent] = child;
-    tree->Nextnode[child] = no;
-    tree->Father[child] = tree->Father[parent];
-
+    int no = force_get_father(parent, tree);
+    struct NODE * nop = &tree->Nodes[no];
+    /* FIXME: We lose particles if the node is full.
+     * At the moment this does not matter, because
+     * the only new particles are stars, which do not
+     * participate in the SPH tree walk.*/
+    if(nop->u.s.noccupied < NMAXCHILD) {
+       nop->u.s.suns[nop->u.s.noccupied-1] = child;
+        nop->u.s.noccupied++;
+    }
+    tree->Father[child] = no;
     return 0;
 }
 
