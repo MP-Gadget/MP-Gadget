@@ -1008,10 +1008,8 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
                 continue;
             }
         }
-
-        int nextnode = force_get_next_node(no, tree);
         /* ok, we need to open the node */
-        no = nextnode;
+        no = current->u.d.nextnode;
     }
 
     return numcand;
