@@ -200,7 +200,6 @@ void petaio_read_internal(char * fname, int ic, MPI_Comm Comm) {
         int64_t end = (ThisTask + 1) * NTotal[ptype] / NTask;
         NLocal[ptype] = end - start;
         PartManager->NumPart += NLocal[ptype];
-
     }
 
     /* Allocate enough memory for stars and black holes.
@@ -210,21 +209,18 @@ void petaio_read_internal(char * fname, int ic, MPI_Comm Comm) {
         endrun(1, "Overwhelmed by part: %d > %d\n", PartManager->NumPart, PartManager->MaxPart);
     }
 
-    int newSlots[6];
-
-    for(ptype = 0; ptype < 6; ptype++) {
-        /* initialize MaxSlots to zero, such that grow don't fail. */
-        newSlots[ptype] = 0;
-        if(NLocal[ptype] > 0) {
-            newSlots[ptype] = All.PartAllocFactor * NLocal[ptype];
-        }
-    }
-
     /* Now allocate memory for the secondary particle data arrays.
      * This may be dynamically resized later!*/
 
     /*Ensure all processors have initially the same number of particle slots*/
-    MPI_Allreduce(MPI_IN_PLACE, newSlots, 6, MPI_INT, MPI_MAX, Comm);
+    int newSlots[6] = {0};
+
+    MPI_Allreduce(NLocal, newSlots, 6, MPI_INT, MPI_MAX, Comm);
+
+    for(ptype = 0; ptype < 6; ptype ++) {
+            newSlots[ptype] *= All.PartAllocFactor;
+    }
+
     slots_reserve(0, newSlots);
 
     /* initialize particle types */
