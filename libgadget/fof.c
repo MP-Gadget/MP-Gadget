@@ -1295,7 +1295,6 @@ void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm
     if(Nimport + SlotsManager->info[5].size > SlotsManager->info[5].maxsize)
     {
         struct NODE * nodes_base_tmp=NULL;
-        int *Nextnode_tmp=NULL;
         int *Father_tmp=NULL;
         int *ActiveParticle_tmp=NULL;
         if(force_tree_allocated(tree)) {
@@ -1305,9 +1304,6 @@ void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm
             Father_tmp = mymalloc2("Father_tmp", PartManager->MaxPart * sizeof(int));
             memmove(Father_tmp, tree->Father, PartManager->MaxPart * sizeof(int));
             myfree(tree->Father);
-            Nextnode_tmp = mymalloc2("Nextnode_tmp", tree->Nnextnode * sizeof(int));
-            memmove(Nextnode_tmp, tree->Nextnode, tree->Nnextnode * sizeof(int));
-            myfree(tree->Nextnode);
         }
         /* This is only called on a PM step, so the condition should never be true*/
         if(act->ActiveParticle) {
@@ -1331,9 +1327,6 @@ void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm
             myfree(ActiveParticle_tmp);
         }
         if(force_tree_allocated(tree)) {
-            tree->Nextnode = mymalloc("Nextnode", tree->Nnextnode * sizeof(int));
-            memmove(tree->Nextnode, Nextnode_tmp, tree->Nnextnode * sizeof(int));
-            myfree(Nextnode_tmp);
             tree->Father = mymalloc("Father", PartManager->MaxPart * sizeof(int));
             memmove(tree->Father, Father_tmp, PartManager->MaxPart * sizeof(int));
             myfree(Father_tmp);
