@@ -133,9 +133,6 @@ node_is_node(int no, const ForceTree * tree)
 }
 
 int
-force_get_prev_node(int no, const ForceTree * tb);
-
-int
 force_get_next_node(int no, const ForceTree * tb);
 
 int
