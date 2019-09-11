@@ -725,9 +725,7 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
     if(tree->Nodes[no].f.ChildType != NODE_NODE_TYPE)
         endrun(3, "force_update_node_recursive called on node %d of type %d != %d!\n", no, tree->Nodes[no].f.ChildType, NODE_NODE_TYPE);
 #endif
-
-    /*Last value of tails is the return value of this function*/
-    int j, tails[8];
+    int j;
     int * suns = tree->Nodes[no].u.s.suns;
 
     int childcnt = 0;
@@ -747,6 +745,16 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
         else if(tree->Nodes[suns[j]].f.ChildType == NODE_NODE_TYPE)
             childcnt++;
     }
+
+    /* Nextnode for this node is the first non-zero child*/
+    /*First do the children*/
+    for(j = 0; j < 8; j++) {
+        if(suns[j] >= 0) {
+            tree->Nodes[no].u.d.nextnode = suns[j];
+            break;
+        }
+    }
+
     /*First do the children*/
     for(j = 0; j < 8; j++)
     {
@@ -758,9 +766,9 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
         const int nextsib = force_get_sibling(sib, j, suns);
         /* Nodes containing particles or pseudo-particles*/
         if(tree->Nodes[p].f.ChildType == PARTICLE_NODE_TYPE)
-            tails[j] = force_update_particle_node(p, nextsib, tree, HybridNuGrav);
+            force_update_particle_node(p, nextsib, tree, HybridNuGrav);
         else if(tree->Nodes[p].f.ChildType == PSEUDO_NODE_TYPE)
-            tails[j] = force_update_pseudo_node(p, nextsib, tree);
+            force_update_pseudo_node(p, nextsib, tree);
         /*Don't spawn a new task if we are deep enough that we already spawned a lot.
         Note: final clause is much slower for some reason. */
         else if(childcnt > 1 && level < 256) {
@@ -770,11 +778,11 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
             * is to make it firstprivate which I think will be excessively expensive for a
             * recursive call like this. See:
             * https://www.gnu.org/software/gcc/gcc-9/porting_to.html */
-            #pragma omp task shared(tails, level, childcnt, tree) firstprivate(j, nextsib, p)
-            tails[j] = force_update_node_recursive(p, nextsib, level*childcnt, tree, HybridNuGrav);
+            #pragma omp task shared(level, childcnt, tree) firstprivate(j, nextsib, p)
+            force_update_node_recursive(p, nextsib, level*childcnt, tree, HybridNuGrav);
         }
         else
-            tails[j] = force_update_node_recursive(p, nextsib, level, tree, HybridNuGrav);
+            force_update_node_recursive(p, nextsib, level, tree, HybridNuGrav);
     }
 
     tree->Nodes[no].u.d.sibling = sib;
@@ -807,20 +815,7 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
         tree->Nodes[no].u.d.s[2] /= mass;
     }
 
-    /*This loop sets the next node value for the row we just computed.
-      Note that tails[i] is the next node for suns[i-1].
-      The the last tail needs to be the return value of this function.*/
-    int tail = no;
-    for(j = 0; j < 8; j++)
-    {
-        if(suns[j] < 0)
-            continue;
-        /*Set NextNode for this node*/
-        if(tail >= tree->firstnode)
-            tree->Nodes[tail].u.d.nextnode = suns[j];
-        tail = tails[j];
-    }
-    return tail;
+    return -1;
 }
 
 /*! This routine determines the multipole moments for a given internal node
@@ -851,11 +846,6 @@ force_update_node_parallel(const ForceTree * tree, const int HybridNuGrav)
         else
             tail = force_update_pseudo_node(tree->firstnode, -1, tree);
     }
-
-    /* Round off the last entry*/
-    if(tail >= tree->firstnode)
-        tree->Nodes[tail].u.d.nextnode = -1;
-
     return tail;
 }
 
