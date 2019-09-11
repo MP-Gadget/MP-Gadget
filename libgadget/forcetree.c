@@ -1142,9 +1142,6 @@ ForceTree force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp)
     ForceTree tb;
 
     message(0, "Allocating memory for %d tree-nodes (MaxPart=%d).\n", maxnodes, maxpart);
-    tb.Nnextnode = maxpart + ddecomp->NTopNodes;
-    tb.Nextnode = (int *) mymalloc("Nextnode", bytes = tb.Nnextnode * sizeof(int));
-    allbytes += bytes;
     tb.Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
     allbytes += bytes;
     tb.Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (maxnodes + 1) * sizeof(struct NODE));
@@ -1174,6 +1171,5 @@ void force_tree_free(ForceTree * tree)
         return;
     myfree(tree->Nodes_base);
     myfree(tree->Father);
-    myfree(tree->Nextnode);
     tree->tree_allocated_flag = 0;
 }

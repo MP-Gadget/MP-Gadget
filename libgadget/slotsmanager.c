@@ -123,9 +123,8 @@ slots_split_particle(int parent, double childmass, struct part_manager_type * pm
     pman->Base[child].PI = -1;
 
     /*! When a new additional star particle is created, we can put it into the
-     *  tree at the position of the spawning gas particle. This is possible
-     *  because the Nextnode[] array essentially describes the full tree walk as a
-     *  link list. Multipole moments of tree nodes need not be changed.
+     *  tree at the position of the spawning gas particle. Multipole moments
+     *  of tree nodes need not be changed.
      */
     /* emit event for forcetree to deal with the new particle */
     EISlotsFork event = {

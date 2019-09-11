@@ -86,11 +86,6 @@ typedef struct ForceTree {
      * The exception is the crazy memory shifting done in sfr_eff.c*/
     /*This points to the actual memory allocated for the nodes.*/
     struct NODE * Nodes_base;
-    /* Gives next node in the tree walk for particles and pseudo particles.
-     * next node for the actual nodes is stored in Nodes*/
-    int * Nextnode;
-    /*Allocated length of the Nextnode array*/
-    int Nnextnode;
     /*!< gives parent node in tree for every particle */
     int *Father;
     /*!< Store the size of the box used to build the tree, for periodic walking.*/
