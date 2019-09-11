@@ -100,53 +100,57 @@ static int check_moments(const ForceTree * tb, const int numpart, const int nrea
     int counter = 0;
     int sibcntr = 0;
     while(node >= 0) {
-        assert_true(node >= -1 && node < tb->lastnode);
-        int next = force_get_next_node(node,tb);
-        /*If a real node*/
-        if(node >= tb->firstnode) {
-            /*Check sibling*/
-            assert_true(tb->Nodes[node].u.d.sibling >= -1 && tb->Nodes[node].u.d.sibling < tb->lastnode);
-            int sib = tb->Nodes[node].u.d.sibling;
-            int sfather = force_get_father(sib, tb);
-            int father = force_get_father(node, tb);
-            /* Our sibling should either be a true sibling, with the same father,
-             * or should be the child of one of our ancestors*/
-            if(sfather != father && sib != -1) {
-                int ances = father;
-                while(ances >= 0) {
-                    assert_true(ances >= tb->firstnode);
-                    ances = force_get_father(ances, tb);
-                    if(ances == sfather)
-                        break;
-                }
-                assert_int_equal(ances, sfather);
-/*                 printf("node %d ances %d sib %d next %d father %d sfather %d\n",node, ances, sib, force_get_next_node(node, tb), father, sfather); */
-            }
-            else if(sib == -1)
-                sibcntr++;
+        /* Assert a real node*/
+        assert_true(node >= -1 && node < tb->lastnode && node >= tb->firstnode);
+        struct NODE * nop = &tb->Nodes[node];
 
-            if(!(tb->Nodes[node].u.d.mass < 0.5 && tb->Nodes[node].u.d.mass > -0.5)) {
-                printf("node %d (%d) mass %g / %g TL %d DLM %d MS %g MSN %d ITL %d\n",
-                    node, node - tb->firstnode, tb->Nodes[node].u.d.mass, oldmass[node - tb->firstnode],
-                    tb->Nodes[node].f.TopLevel,
-                    tb->Nodes[node].f.DependsOnLocalMass,
-                    tb->Nodes[node].u.d.MaxSoftening,
-                    tb->Nodes[node].f.MixedSofteningsInNode,
-                    tb->Nodes[node].f.InternalTopLevel
-                    );
-                int nn = force_get_next_node(node, tb);
-                while(nn < tb->firstnode) { /* something is wrong show the particles */
-                    printf("particles P[%d], Mass=%g\n", nn, P[nn].Mass);
-                    nn = force_get_next_node(nn, tb);
-                }
+        /*Check sibling*/
+        assert_true(tb->Nodes[node].u.d.sibling >= -1 && tb->Nodes[node].u.d.sibling < tb->lastnode);
+        int sib = tb->Nodes[node].u.d.sibling;
+        int sfather = force_get_father(sib, tb);
+        int father = force_get_father(node, tb);
+        /* Our sibling should either be a true sibling, with the same father,
+            * or should be the child of one of our ancestors*/
+        if(sfather != father && sib != -1) {
+            int ances = father;
+            while(ances >= 0) {
+                assert_true(ances >= tb->firstnode);
+                ances = force_get_father(ances, tb);
+                if(ances == sfather)
+                    break;
             }
-            assert_true(tb->Nodes[node].u.d.mass < 0.5 && tb->Nodes[node].u.d.mass > -0.5);
-            /*Check center of mass moments*/
-            for(i=0; i<3; i++)
-                assert_true(tb->Nodes[node].u.d.s[i] <= BoxSize && tb->Nodes[node].u.d.s[i] >= 0);
-            counter++;
+            assert_int_equal(ances, sfather);
+/*                 printf("node %d ances %d sib %d next %d father %d sfather %d\n",node, ances, sib, nop->u.d.nextnode, father, sfather); */
         }
-        node = next;
+        else if(sib == -1)
+            sibcntr++;
+
+        if(!(tb->Nodes[node].u.d.mass < 0.5 && tb->Nodes[node].u.d.mass > -0.5)) {
+            printf("node %d (%d) mass %g / %g TL %d DLM %d MS %g MSN %d ITL %d\n",
+                node, node - tb->firstnode, tb->Nodes[node].u.d.mass, oldmass[node - tb->firstnode],
+                tb->Nodes[node].f.TopLevel,
+                tb->Nodes[node].f.DependsOnLocalMass,
+                tb->Nodes[node].u.d.MaxSoftening,
+                tb->Nodes[node].f.MixedSofteningsInNode,
+                tb->Nodes[node].f.InternalTopLevel
+            );
+            /* something is wrong show the particles */
+            if(tb->Nodes[node].f.ChildType == PARTICLE_NODE_TYPE)
+                for(i = 0; i < nop->u.s.noccupied; i++) {
+                    int nn = nop->u.s.suns[i];
+                    printf("particles P[%d], Mass=%g\n", nn, P[nn].Mass);
+                }
+        }
+        assert_true(tb->Nodes[node].u.d.mass < 0.5 && tb->Nodes[node].u.d.mass > -0.5);
+        /*Check center of mass moments*/
+        for(i=0; i<3; i++)
+            assert_true(tb->Nodes[node].u.d.s[i] <= BoxSize && tb->Nodes[node].u.d.s[i] >= 0);
+        counter++;
+
+        if(nop->f.ChildType == PARTICLE_NODE_TYPE)
+            node = nop->u.d.sibling;
+        else
+            node = nop->u.d.nextnode;
     }
     assert_int_equal(counter, nrealnode);
     assert_true(sibcntr < counter/100);
