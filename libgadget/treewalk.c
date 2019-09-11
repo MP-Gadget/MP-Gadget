@@ -956,22 +956,13 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
 
     while(no >= 0)
     {
-        int nextnode = force_get_next_node(no, tree);
-        if(node_is_particle(no, tree))  /* single particle */ {
-            lv->ngblist[numcand++] = no;
-            no = nextnode;
-            continue;
+        if(node_is_particle(no, tree)) {
+            int fat = force_get_father(no, tree);
+            endrun(12312, "Particles should be added before getting here! no = %d, father = %d (ptype = %d)\n", no, fat, tree->Nodes[fat].f.ChildType);
         }
         if(node_is_pseudo_particle(no, tree)) {
-            /* pseudo particle */
-            if(lv->mode == 1) {
-                endrun(12312, "Touching outside of my domain from a node list of a ghost. This shall not happen.");
-            } else {
-                if(-1 == treewalk_export_particle(lv, no))
-                    return -1;
-            }
-            no = nextnode;
-            continue;
+            int fat = force_get_father(no, tree);
+            endrun(12312, "Pseudo-Particles should be added before getting here! no = %d, father = %d (ptype = %d)\n", no, fat, tree->Nodes[fat].f.ChildType);
         }
 
         struct NODE *current = &tree->Nodes[no];
@@ -992,9 +983,32 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
             continue;
         }
 
+        /* Node contains relevant particles, add them.*/
+        if(current->f.ChildType == PARTICLE_NODE_TYPE) {
+            int i;
+            int * suns = current->u.s.suns;
+            for (i = 0; i < current->u.s.noccupied; i++) {
+                lv->ngblist[numcand++] = suns[i];
+            }
+            /* Move sideways*/
+            no = current->u.d.sibling;
+            continue;
+        }
+        else if(current->f.ChildType == PSEUDO_NODE_TYPE) {
+            /* pseudo particle */
+            if(lv->mode == 1) {
+                endrun(12312, "Touching outside of my domain from a node list of a ghost. This shall not happen.");
+            } else {
+                /* Export the pseudo particle*/
+                no = force_get_next_node(no, tree);
+                if(-1 == treewalk_export_particle(lv, no))
+                    return -1;
+            }
+        }
+
+        int nextnode = force_get_next_node(no, tree);
         /* ok, we need to open the node */
         no = nextnode;
-        continue;
     }
 
     return numcand;
