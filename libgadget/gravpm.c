@@ -196,33 +196,43 @@ static int pm_mark_region_for_node(int startno, int rid, int * RegionInd, const 
     int endno = tree->Nodes[startno].u.d.sibling;
     while(no >= 0 && no != endno)
     {
-        if(node_is_particle(no, tree))	/* single particle */
-        {
-            int p = no;
-            RegionInd[p] = rid;
+        struct NODE * nop = &tree->Nodes[no];
+        if(nop->f.ChildType == PARTICLE_NODE_TYPE) {
+            int i;
+            for(i = 0; i < nop->u.s.noccupied; i++) {
+                int p = nop->u.s.suns[i];
+                RegionInd[p] = rid;
 #ifdef DEBUG
-            /* when we are in PM, all particles must have been synced. */
-            if (P[p].Ti_drift != All.Ti_Current) {
-                abort();
-            }
-            /* Check for particles outside of the node. This should never happen,
-             * unless there is a bug in tree build, or the particles are being moved.*/
-            int k;
-            for(k = 0; k < 3; k ++) {
-                double l = P[p].Pos[k] - tree->Nodes[startno].center[k];
-                l = fabs(l * 2);
-                if (l > tree->Nodes[startno].len) {
-                    if(l > tree->Nodes[startno].len * (1+ 1e-7))
-                    endrun(1, "enlarging node size from %g to %g, due to particle of type %d at %g %g %g id=%ld\n",
-                        tree->Nodes[startno].len, l, P[p].Type, P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].ID);
-                    tree->Nodes[startno].len = l;
+                /* when we are in PM, all particles must have been synced. */
+                if (P[p].Ti_drift != All.Ti_Current) {
+                    abort();
                 }
-            }
+                /* Check for particles outside of the node. This should never happen,
+                * unless there is a bug in tree build, or the particles are being moved.*/
+                int k;
+                for(k = 0; k < 3; k ++) {
+                    double l = P[p].Pos[k] - tree->Nodes[startno].center[k];
+                    l = fabs(l * 2);
+                    if (l > tree->Nodes[startno].len) {
+                        if(l > tree->Nodes[startno].len * (1+ 1e-7))
+                        endrun(1, "enlarging node size from %g to %g, due to particle of type %d at %g %g %g id=%ld\n",
+                            tree->Nodes[startno].len, l, P[p].Type, P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].ID);
+                        tree->Nodes[startno].len = l;
+                    }
+                }
 #endif
-            numpart ++;
+            }
+            numpart += nop->u.s.noccupied;
+            /* Move to sibling*/
+            no = nop->u.d.sibling;
         }
-
-        no = force_get_next_node(no, tree);
+        /* This should never occur: this function should be handed only top leaves which cannot contain pseudo particles*/
+        else if(nop->f.ChildType == PSEUDO_NODE_TYPE)
+            endrun(122, "Region marking encountered a pseudo-particle, which should never happen!\n");
+        else if(nop->f.ChildType == NODE_NODE_TYPE)
+            no = nop->u.d.nextnode;
+        else
+            endrun(122, "Unrecognised Node type %d, memory corruption!\n", nop->f.ChildType);
     }
     return numpart;
 }
