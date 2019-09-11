@@ -233,6 +233,13 @@ static void init_internal_node(struct NODE *nfreep, struct NODE *parent, int sub
     for(j = 0; j < NMAXCHILD; j++)
         nfreep->u.s.suns[j] = -1;
     nfreep->u.s.noccupied = 0;
+    memset(&(nfreep->u.d.s),0,3*sizeof(MyFloat));
+    nfreep->u.d.mass = 0;
+    nfreep->u.d.hmax = 0;
+    nfreep->u.d.MaxSoftening = -1;
+    nfreep->f.DependsOnLocalMass = 0;
+    nfreep->f.MixedSofteningsInNode = 0;
+
 }
 
 /* Size of the free Node thread cache.
@@ -531,21 +538,12 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
                 Nodes[no].f.ChildType = NODE_NODE_TYPE;
                 Nodes[no].u.s.noccupied = (1<<16);
 
-                const MyFloat lenhalf = 0.25 * Nodes[no].len;
-                Nodes[*nextfree].len = 0.5 * Nodes[no].len;
-                Nodes[*nextfree].center[0] = Nodes[no].center[0] + (2 * i - 1) * lenhalf;
-                Nodes[*nextfree].center[1] = Nodes[no].center[1] + (2 * j - 1) * lenhalf;
-                Nodes[*nextfree].center[2] = Nodes[no].center[2] + (2 * k - 1) * lenhalf;
+                /* We create a new leaf node.*/
+                init_internal_node(&Nodes[*nextfree], &Nodes[no], count);
+                /*Set father of new node*/
                 Nodes[*nextfree].father = no;
                 /*All nodes here are top level nodes*/
                 Nodes[*nextfree].f.TopLevel = 1;
-                Nodes[*nextfree].f.InternalTopLevel = 0;
-                Nodes[*nextfree].f.ChildType = PARTICLE_NODE_TYPE;
-
-                int n;
-                for(n = 0; n < NMAXCHILD; n++)
-                    Nodes[*nextfree].u.s.suns[n] = -1;
-                Nodes[*nextfree].u.s.noccupied = 0;
 
                 const struct topnode_data curtopnode = ddecomp->TopNodes[ddecomp->TopNodes[topnode].Daughter + sub];
                 if(curtopnode.Daughter == -1) {
@@ -560,18 +558,6 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
                 force_create_node_for_topnode(*nextfree - 1, ddecomp->TopNodes[topnode].Daughter + sub, Nodes, ddecomp,
                         bits + 1, 2 * x + i, 2 * y + j, 2 * z + k, nextfree, lastnode);
             }
-}
-
-/* This function zeros the parts of a node in a union with the suns array*/
-static void
-force_zero_union(struct NODE * node)
-{
-    memset(&(node->u.d.s),0,3*sizeof(MyFloat));
-    node->u.d.mass = 0;
-    node->u.d.hmax = 0;
-    node->u.d.MaxSoftening = -1;
-    node->f.DependsOnLocalMass = 0;
-    node->f.MixedSofteningsInNode = 0;
 }
 
 /*! this function inserts pseudo-particles which will represent the mass
@@ -595,7 +581,6 @@ force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddeco
             if(tree->Nodes[index].u.s.noccupied != 0)
                 endrun(5, "In node %d, overwriting %d child particles (i = %d etc) with pseudo particle %d\n",
                        index, tree->Nodes[index].u.s.noccupied, tree->Nodes[index].u.s.suns[0], i);
-            force_zero_union(&tree->Nodes[index]);
             tree->Nodes[index].f.ChildType = PSEUDO_NODE_TYPE;
             /* This node points to the pseudo particle*/
             tree->Nodes[index].u.d.nextnode = firstpseudo + i;
@@ -692,8 +677,6 @@ force_update_particle_node(int no, int sib, const ForceTree * tree, const int Hy
     const int noccupied = tree->Nodes[no].u.s.noccupied;
     int * suns = tree->Nodes[no].u.s.suns;
 
-    /*After this point the suns array is invalid!*/
-    force_zero_union(&tree->Nodes[no]);
     tree->Nodes[no].u.d.sibling = sib;
     tree->Nodes[no].u.d.nextnode = suns[0];
 
@@ -758,9 +741,6 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
         if(!tree->Nodes[suns[j]].f.TopLevel &&
             tree->Nodes[suns[j]].f.ChildType == PARTICLE_NODE_TYPE &&
             tree->Nodes[suns[j]].u.s.noccupied == 0) {
-                /* In principle the removed node will be
-                 * disconnected and never used, but zero it just in case.*/
-                force_zero_union(&tree->Nodes[suns[j]]);
                 suns[j] = -1;
         }
         else if(tree->Nodes[suns[j]].f.ChildType == NODE_NODE_TYPE)
@@ -796,7 +776,6 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
             tails[j] = force_update_node_recursive(p, nextsib, level, tree, HybridNuGrav);
     }
 
-    force_zero_union(&tree->Nodes[no]);
     tree->Nodes[no].u.d.sibling = sib;
 
     /*Make sure all child nodes are done*/
@@ -923,6 +902,10 @@ void force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp)
         /*Set the local base nodes dependence on local mass*/
         while(no >= 0)
         {
+#ifdef DEBUG
+            if(tree->Nodes[no].f.ChildType == PSEUDO_NODE_TYPE)
+                endrun(333, "Pseudo node %d parent of a leaf on this processor %d\n", no, ddecomp->TopLeaves[i].treenode);
+#endif
             if(tree->Nodes[no].f.DependsOnLocalMass)
                 break;
 
