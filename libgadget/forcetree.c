@@ -646,25 +646,6 @@ force_set_next_node(int no, int next, const ForceTree * tree)
     return next;
 }
 
-int
-force_get_prev_node(int no, const ForceTree * tree)
-{
-    if(node_is_particle(no, tree)) {
-        /* Particle */
-        int t = tree->Father[no];
-        int next = force_get_next_node(t, tree);
-        while(next != no) {
-            t = next;
-            next = force_get_next_node(t, tree);
-        }
-        return t;
-    } else {
-        /* not implemented yet */
-        endrun(1, "get_prev_node on non particles is not implemented yet\n");
-        return 0;
-    }
-}
-
 /* Sets the node softening on a node.
  *
  * */
