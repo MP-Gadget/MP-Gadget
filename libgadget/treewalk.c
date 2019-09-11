@@ -1000,8 +1000,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
                 endrun(12312, "Touching outside of my domain from a node list of a ghost. This shall not happen.");
             } else {
                 /* Export the pseudo particle*/
-                int * suns = current->u.s.suns;
-                if(-1 == treewalk_export_particle(lv, suns[0]))
+                if(-1 == treewalk_export_particle(lv, current->u.d.nextnode))
                     return -1;
                 /* Move sideways*/
                 no = current->u.d.sibling;

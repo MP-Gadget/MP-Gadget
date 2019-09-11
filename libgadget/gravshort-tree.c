@@ -348,7 +348,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             {
                 if(lv->mode == 0)
                 {
-                    if(-1 == treewalk_export_particle(lv, nop->u.s.suns[0]))
+                    if(-1 == treewalk_export_particle(lv, nop->u.d.nextnode))
                         return -1;
                 }
 
