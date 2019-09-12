@@ -215,6 +215,7 @@ void petaio_read_internal(char * fname, int ic, MPI_Comm Comm) {
     /*Ensure all processors have initially the same number of particle slots*/
     int newSlots[6] = {0};
 
+    /* Can't use MPI_IN_PLACE, which is broken for arrays and MPI_MAX at least on intel mpi 19.0.5*/
     MPI_Allreduce(NLocal, newSlots, 6, MPI_INT, MPI_MAX, Comm);
 
     for(ptype = 0; ptype < 6; ptype ++) {
