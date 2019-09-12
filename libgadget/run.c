@@ -183,6 +183,7 @@ void run(DomainDecomp * ddecomp)
                 new_random_shift[i] = rr - All.CurrentParticleOffset[i];
                 All.CurrentParticleOffset[i] = rr;
             }
+            message(0, "Internal particle offset is now %g %g %g\n", All.CurrentParticleOffset[0], All.CurrentParticleOffset[1], All.CurrentParticleOffset[2]);
 #ifdef DEBUG
             /* Check explicitly that the vector is the same on all processors*/
             double test_random_shift[3] = {0};
