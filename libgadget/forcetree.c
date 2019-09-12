@@ -767,12 +767,15 @@ force_update_particle_node(int no, int sib, const ForceTree * tree, const int Hy
 
     /*Set the center of mass moments*/
     const double mass = tree->Nodes[no].u.d.mass;
-    if(mass <= 0)
-        endrun(3, "Node %d containing %d particles has %g mass!\n", no, noccupied, mass);
-
-    tree->Nodes[no].u.d.s[0] /= mass;
-    tree->Nodes[no].u.d.s[1] /= mass;
-    tree->Nodes[no].u.d.s[2] /= mass;
+    /* Be careful about empty nodes*/
+    if(mass > 0) {
+        for(j = 0; j < 3; j++)
+            tree->Nodes[no].u.d.s[j] /= mass;
+    }
+    else {
+        for(j = 0; j < 3; j++)
+            tree->Nodes[no].u.d.s[j] = tree->Nodes[no].center[j];
+    }
 
     return tail;
 }
