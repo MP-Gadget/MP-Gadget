@@ -167,8 +167,20 @@ void run(DomainDecomp * ddecomp)
                 endrun(0, "Human triggered termination.\n");
             }
         }
+
+        double new_random_shift[3] = {0};
+        if(NumCurrentTiStep > 0 && is_PM  && All.RandomParticleOffset > 0) {
+            int i;
+            for (i = 0; i < 3; i++) {
+                /* Note random number table is duplicated across processors*/
+                double rr = get_random_number(i) * All.RandomParticleOffset * All.BoxSize;
+                /* Subtract the old random shift first.*/
+                new_random_shift[i] = rr - All.CurrentParticleOffset[i];
+                All.CurrentParticleOffset[i] = rr;
+            }
+        }
         /* Sync positions of all particles */
-        drift_all_particles(All.Ti_Current);
+        drift_all_particles(All.Ti_Current, new_random_shift);
 
         /* drift and ddecomp decomposition */
 
@@ -266,7 +278,7 @@ void run(DomainDecomp * ddecomp)
 
         write_checkpoint(WriteSnapshot, WriteFOF, &Tree);
 
-        write_cpu_log(NumCurrentTiStep);		/* produce some CPU usage info */
+        write_cpu_log(NumCurrentTiStep);    /* produce some CPU usage info */
 
         NumCurrentTiStep++;
 

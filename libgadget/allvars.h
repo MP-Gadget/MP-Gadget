@@ -130,6 +130,19 @@ extern struct global_data_all_processes
     double SlotsIncreaseFactor; /* !< What percentage to increase the slot allocation by when requested*/
     int OutputPotential;        /*!< Flag whether to include the potential in snapshots*/
 
+    double RandomParticleOffset; /* If > 0, a random shift of max RandomParticleOffset * BoxSize is applied to every particle
+                                  * every time a full domain decomposition is done. The box is periodic and the offset
+                                  * is subtracted on output, so this only affects the internal gravity solver.
+                                  * The purpose of this is to avoid correlated errors in the tree code, which occur when
+                                  * the tree opening conditions are similar in every timestep and accumulate over a
+                                  * long period of time. Upstream Arepo says this substantially improves momentum conservation,
+                                  * and it has the side-effect of guarding against periodicity bugs.
+                                  */
+    /* Random shift applied to the box. This is changed
+     * every domain decomposition to prevent correlated
+     * errors building up in the tree force. */
+    double CurrentParticleOffset[3];
+
     /* some SPH parameters */
 
     int DesNumNgb;		/*!< Desired number of SPH neighbours */

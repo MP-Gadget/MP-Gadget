@@ -704,7 +704,21 @@ void io_register_io_block(char * name,
     IOTable.used ++;
 }
 
-SIMPLE_PROPERTY(Position, P[i].Pos[0], double, 3)
+static void GTPosition(int i, double * out) {
+    /* Remove the particle offset before saving*/
+    int d;
+    for(d = 0; d < 3; d ++) {
+        out[d] = P[i].Pos[d] - All.CurrentParticleOffset[d];
+    }
+}
+
+static void STPosition(int i, double * out) {
+    int d;
+    for(d = 0; d < 3; d ++) {
+        P[i].Pos[d] = out[d];
+    }
+}
+
 static void GTVelocity(int i, float * out) {
     /* Convert to Peculiar Velocity if UsePeculiarVelocity is set */
     double fac;
