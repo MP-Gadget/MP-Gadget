@@ -173,7 +173,12 @@ void run(DomainDecomp * ddecomp)
             int i;
             for (i = 0; i < 3; i++) {
                 /* Note random number table is duplicated across processors*/
-                double rr = get_random_number(i) * All.RandomParticleOffset * All.BoxSize;
+
+                double rr = get_random_number(i);
+                /* Upstream Gadget uses a random fraction of the box, but since all we need
+                 * is to adjust the tree openings, and the tree force is zero anyway on the
+                 * scale of a few PM grid cells, this seems enough.*/
+                rr *= All.RandomParticleOffset * All.BoxSize / All.Nmesh;
                 /* Subtract the old random shift first.*/
                 new_random_shift[i] = rr - All.CurrentParticleOffset[i];
                 All.CurrentParticleOffset[i] = rr;
