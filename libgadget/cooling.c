@@ -96,8 +96,8 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
         /* If we know that the new energy
          * is below the minimum gas internal energy, we are done here.*/
         if(u_upper <= MinEgySpec) {
-                u = MinEgySpec;
-                break;
+            u = MinEgySpec;
+            break;
         }
 
         LambdaNet = get_heatingcooling_rate(rho, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
