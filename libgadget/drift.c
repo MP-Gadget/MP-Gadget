@@ -34,6 +34,10 @@ void drift_particle(int i, inttime_t ti1, struct SpinLocks * spin) {
 static void real_drift_particle(int i, inttime_t ti1, const double ddrift)
 {
     int j;
+    if(P[i].IsGarbage) {
+        P[i].Ti_drift = ti1;
+        return;
+    }
     inttime_t ti0 = P[i].Ti_drift;
     if(ti1 < ti0) {
         endrun(12, "i=%d ti0=%d ti1=%d\n", i, ti0, ti1);
