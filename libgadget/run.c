@@ -500,7 +500,7 @@ set_units(void)
     init_cosmology(&All.CP, All.TimeIC);
 
     if(All.InitGasTemp < 0)
-        All.InitGasTemp = DMAX(All.MinGasTemp, All.CP.CMBTemperature / All.TimeInit);
+        All.InitGasTemp = All.CP.CMBTemperature / All.TimeInit;
     /*Initialise the hybrid neutrinos, after Omega_nu*/
     if(All.HybridNeutrinosOn)
         init_hybrid_nu(&All.CP.ONu.hybnu, All.CP.MNu, All.HybridVcrit, LIGHTCGS/1e5, All.HybridNuPartTime, All.CP.ONu.kBtnu);

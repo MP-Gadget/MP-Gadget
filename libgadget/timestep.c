@@ -330,7 +330,8 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
 
         /* In case of cooling, we prevent that the entropy (and
            hence temperature) decreases by more than a factor 0.5.
-           FIXME: Why is this and the last thing here? Should not be needed. */
+           This limiter is here as well as in sfr_eff.c because the
+           timestep may increase. */
 
         const double dt_entr = dloga_from_dti(tiend-tistart);
         if(SPHP(i).DtEntropy * dt_entr < -0.5 * SPHP(i).Entropy)
@@ -338,23 +339,10 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
         else
             SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
 
-        /* Implement an entropy floor*/
-        if(All.MinEgySpec)
-        {
-            const double minentropy = All.MinEgySpec * GAMMA_MINUS1 / pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1);
-            if(SPHP(i).Entropy < minentropy)
-            {
-                SPHP(i).Entropy = minentropy;
-                SPHP(i).DtEntropy = 0;
-            }
-        }
-
-        /* In case the timestep increases in the new step, we
-           make sure that we do not 'overcool' by bounding the entropy rate of next step */
-        double dt_entr_next = get_dloga_for_bin(P[i].TimeBin) / 2;
-
-        if(SPHP(i).DtEntropy * dt_entr_next < - 0.5 * SPHP(i).Entropy)
-            SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dt_entr_next;
+        /* Limit entropy in simulations with cooling disabled*/
+        const double enttou = pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+        if(SPHP(i).Entropy < All.MinEgySpec/enttou)
+            SPHP(i).Entropy = All.MinEgySpec / enttou;
     }
 #ifdef DEBUG
     /* Check we have reasonable velocities. If we do not, try to explain why*/

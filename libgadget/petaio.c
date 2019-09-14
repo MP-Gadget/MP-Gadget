@@ -762,8 +762,7 @@ static void GTNeutralHydrogenFraction(int i, float * out) {
 }
 
 static void GTInternalEnergy(int i, float * out) {
-    *out = DMAX(All.MinEgySpec,
-        SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1));
+    *out = SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1);
 }
 
 static void STInternalEnergy(int i, float * out) {

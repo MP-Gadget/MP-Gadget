@@ -297,8 +297,9 @@ self_shield_corr(double nh, double logt, double ssdens)
      * but I think it is more physical*/
     if(!CoolingParams.SelfShieldingOn || nh < ssdens * 0.01)
         return 1;
-    double T4 = exp(logt)/1e4;
-    double nSSh = 1.003*ssdens*pow(T4, 0.17);
+    /* T/1e4**0.17*/
+    double T4 = exp(0.17 * (logt - log(1e4)));
+    double nSSh = 1.003*ssdens*T4;
     return 0.98*pow(1+pow(nh/nSSh,1.64),-2.28)+0.02*pow(1+nh/nSSh, -0.84);
 }
 
@@ -497,12 +498,12 @@ recomb_GammaeHep(double temp)
 static double
 get_interpolated_recomb(double logt, double * rec_tab, double rec_func(double))
 {
-    /*Just call the function directly if we are out of interpolation range*/
-    if (logt >= temp_tab[NRECOMBTAB- 1] || logt < temp_tab[0])
-        return rec_func(exp(logt));
     /*Find the index to use in our temperature table.*/
     double dind = (logt - RECOMBTMIN) / (RECOMBTMAX - RECOMBTMIN) * NRECOMBTAB;
     int index = (int) dind;
+    /*Just call the function directly if we are out of interpolation range*/
+    if(index < 0 || index >= NRECOMBTAB-1)
+        return rec_func(exp(logt));
     //if (temp_tab[index] > logt || temp_tab[index+1] < logt || index < 0 || index >= NRECOMBTAB)
     //    endrun(2, "Incorrect indexing of recombination array\n");
     return rec_tab[index + 1] * (dind - index) + rec_tab[index] * (1 - (dind - index));
@@ -649,7 +650,7 @@ scipy_optimize_fixed_point(double ne_init, double nh, double ienergy, double hel
         double d = ne0 + ne2 - 2.0 * ne1;
         double pp = ne2;
         /*This is del^2*/
-        if (d != 0.)
+        if (d > 1e-15 || d < -1e-15)
             pp = ne0 - (ne1 - ne0)*(ne1 - ne0) / d;
         ne0 = pp;
         /*Enforce positivity*/

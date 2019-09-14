@@ -76,7 +76,8 @@ struct sph_particle_data
     MyFloat EgyWtDensity;           /*!< 'effective' rho to use in hydro equations */
 
     MyFloat Metallicity;		/*!< metallicity of gas particle */
-    MyFloat Entropy;		/*!< Entropy (actually entropic function) at kick time of particle */
+    MyFloat Entropy;		/*!< Entropy (actually entropic function) at kick time of particle.
+                                 * Defined as: P_i = A(s) rho_i^gamma. See Springel & Hernquist 2002.*/
     MyFloat MaxSignalVel;           /*!< maximum signal velocity */
     MyFloat       Density;		/*!< current baryonic mass density of particle */
     MyFloat       DtEntropy;		/*!< rate of change of entropy */

@@ -174,7 +174,7 @@ void check_positions(void)
     for(i=0; i< PartManager->NumPart; i++){
         int j;
         for(j=0; j<3; j++) {
-            if(P[i].Pos[j] < 0 || P[i].Pos[j] > All.BoxSize)
+            if(P[i].Pos[j] < 0 || P[i].Pos[j] > All.BoxSize || !isfinite(P[i].Pos[j]))
                 endrun(0,"Particle %d is outside the box (L=%g) at (%g %g %g)\n",i,All.BoxSize, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
         }
     }
@@ -284,6 +284,32 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
                 P[i].Hsml = All.MeanSeparation[0];
         }
     }
+    /* When we restart, validate the SPH properties of the particles.
+     * This also allows us to increase MinEgySpec on a restart if we choose.*/
+    else
+    {
+        int bad = 0;
+        double meanbar = All.CP.OmegaBaryon * 3 * HUBBLE * All.CP.HubbleParam * HUBBLE * All.CP.HubbleParam/ (8 * M_PI * GRAVITY);
+        #pragma omp parallel for reduction(+: bad)
+        for(i = 0; i < SlotsManager->info[0].size; i++) {
+            /* This allows us to continue gracefully if
+             * there was some kind of bug in the run that output the snapshot.
+             * density() below will fix this up.*/
+            if(SphP[i].Density <= 0 || !isfinite(SphP[i].Density)) {
+                SphP[i].Density = meanbar;
+                bad++;
+            }
+            if(SphP[i].EgyWtDensity <= 0 || !isfinite(SphP[i].EgyWtDensity)) {
+                SphP[i].EgyWtDensity = SphP[i].Density;
+            }
+            double minent = GAMMA_MINUS1 * All.MinEgySpec / pow(SphP[i].Density / a3 , GAMMA_MINUS1);
+            if(SphP[i].Entropy < minent)
+                SphP[i].Entropy = minent;
+        }
+        MPI_Allreduce(MPI_IN_PLACE, &bad, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+        if(bad > 0 && ThisTask == 0)
+            message(0, "Detected bad densities in %d particles on disc\n",bad);
+    }
 
     /*Allocate the extra SPH data for transient SPH particle properties.*/
     slots_allocate_sph_scratch_data(0, SlotsManager->info[0].size);
@@ -303,7 +329,8 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
             molecular_weight = 4 / (1 + 3 * HYDROGEN_MASSFRAC);
 
         u_init /= molecular_weight;
-
+        if(u_init < All.MinEgySpec)
+            u_init = All.MinEgySpec;
         /* snapshot already has EgyWtDensity; hope it is read in correctly.
          * (need a test on this!) */
         if(All.DensityIndependentSphOn) {

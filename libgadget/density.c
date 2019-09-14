@@ -27,6 +27,9 @@ SPH_EntVarPred(int i)
         /*Entropy limiter for the predicted entropy: makes sure entropy stays positive. */
         if(dloga > 0 && EntVarPred < 0.5*SPHP(i).Entropy)
             EntVarPred = 0.5 * SPHP(i).Entropy;
+        const double enttou = pow(SPHP(i).Density * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+        if(EntVarPred < All.MinEgySpec / enttou)
+            EntVarPred = All.MinEgySpec / enttou;
         EntVarPred = pow(EntVarPred, 1/GAMMA);
         return EntVarPred;
 }

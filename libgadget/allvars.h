@@ -143,8 +143,7 @@ extern struct global_data_all_processes
     double ArtBulkViscConst;	/*!< Sets the parameter \f$\alpha\f$ of the artificial viscosity */
 
     double InitGasTemp;		/*!< may be used to set the temperature in the IC's */
-    double MinGasTemp;		/*!< may be used to set a floor for the gas temperature */
-    double MinEgySpec;		/*!< the minimum allowed temperature expressed as energy per unit mass */
+    double MinEgySpec; /* Minimum internal energy for timestepping, converted from MinGasTemp*/
 
     /* system of units  */
 
