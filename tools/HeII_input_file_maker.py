@@ -4,14 +4,14 @@ import scipy.integrate
 from scipy.interpolate import InterpolatedUnivariateSpline
 from scipy.interpolate import interp1d
 import os.path
-from fake_spectra import rate_network as RN
+import rate_network as RN
 import sys
 import warnings
 
 
 
 if len(sys.argv) == 1:
-    print('No input parameters detected. Please provide at minimum: (1) QSO Spectral index (2) Threshold long-mean-free-path photon energy in eV')
+    print('No input parameters detected. Please provide at minimum: (1) QSO Spectral index (2) Thresshold long-mean-free-path photon energy in eV')
 
 alpha_q = float(sys.argv[1])
 Emax = float(sys.argv[2])
@@ -129,7 +129,7 @@ class HeIIheating(object):
     
       
     def dQ_hard_dz(self, redshift, Emax = Emax, E_lim = 1000.):   
-        """Uniform heating rate from long MFP hard photons, dQ/dz. Units are erg/s/cm^3. This is making the assumption that all Helium is in the form of HeII."""  
+        """Uniform heating rate from long MFP hard photons only (E_gamma > Emax), dQ/dz. This is making the assumption that all Helium is in the form of HeII."""  
         func = lambda E: ((E-self.E0_HeII)/E)*self.JE(redshift,E)*self.sigmaHeII(E)
         w = scipy.integrate.quad(func,Emax,E_lim)
         dQdz = 4.*np.pi*self.eVtoerg*self.nHe(redshift)*w[0]*1./(self.H(redshift)*(1+redshift)) 
@@ -138,7 +138,7 @@ class HeIIheating(object):
 
 
     def dGamma_hard_dt(self, redshift, Emax = Emax, E_lim = 1000.):
-        """Photoionization rate of hard photons only (E_gamma > Emax), dGamma/dt. Units are s^-1."""
+        """Photoionization heating of hard photons only (E_gamma > Emax), dGamma/dt. Units are erg/s/cm^3."""
         func = lambda E: ((E-self.E0_HeII)/E)*self.JE(redshift,E)*self.sigmaHeII(E)
         w = scipy.integrate.quad(func,Emax,E_lim)
         dGammadt = 4.*np.pi*w[0]*self.eVtoerg*self.nHe(redshift)
@@ -158,12 +158,12 @@ class HeIIheating(object):
             reion_z_f = 2.
             xHeII_interp = self.hist.makexHeIIInterp(reion_z_f, reion_z_i)
             for i in range(len(z_quasar)):
-                dQ_LMFP_dat[i] = self.dQ_hard_dz(z_quasar[i])
+                dQ_LMFP_dat[i] = self.dGamma_hard_dt(z_quasar[i])
                 XHeIII[i]  = xHeII_interp(z_quasar[i])
                 print(i, z_quasar[i], dQ_LMFP_dat[i])
         else:
             for i in range(len(z_quasar)):
-                dQ_LMFP_dat[i] = self.dQ_hard_dz(z_quasar[i])
+                dQ_LMFP_dat[i] = self.dGamma_hard_dt(z_quasar[i])
                 XHeIII[i]  = self.hist.XHeIII(z_quasar[i])
                 print(i, z_quasar[i], dQ_LMFP_dat[i])
         print('Creating table ',filename)
@@ -213,7 +213,7 @@ class HeII_history(object):
         """Sets up differential eq."""
         rn = RN.RateNetwork(redshift)
         HH = HeIIheating()
-        dXHeIIIdz = -(self.quasar_emissivity_K15(redshift) - clumping_fac*rn.recomb.alphaHepp(T_est)*HH.ne(redshift, T_est)*xHeIII*HH.nHe(redshift))/HH.nHe(redshift)/(HH.H(redshift)*(1+redshift))
+        dXHeIIIdz = -(self.quasar_emissivity_Kulkarni19(redshift) - clumping_fac*rn.recomb.alphaHepp(T_est)*HH.ne(redshift, T_est)*xHeIII*HH.nHe(redshift))/HH.nHe(redshift)/(HH.H(redshift)*(1+redshift))
         return dXHeIIIdz
 
 
@@ -239,7 +239,7 @@ class HeII_history(object):
 
 
     def quasar_emissivity_HM12(self, redshift, alpha_q = alpha_q):
-        """Proper emissivity of HeII ionizing photons per quasar per Gyr from Haardt & Madau (2012) (1105.2039.pdf eqn 37)"""
+        """Proper emissivity of HeII ionizing photons from Haardt & Madau (2012) (1105.2039.pdf eqn 37)"""
         enhance_fac=1
         epsilon_nu = enhance_fac*3.98e24*(1+redshift)**7.68*np.exp(-0.28*redshift)/(np.exp(1.77*redshift) + 26.3) #erg s^-1 MPc^-3 Hz^-1 
         e = epsilon_nu/(self.h_erg_s*alpha_q)/(self.mpctocm**3)*4.**(-alpha_q)
@@ -247,8 +247,14 @@ class HeII_history(object):
         
 
     def quasar_emissivity_K15(self, redshift, alpha_q = alpha_q):
-        """Proper emissivity of HeII ionizing photons per quasar per Gyr from Khaire + (2015)"""
+        """Proper emissivity of HeII ionizing photons from Khaire + (2015)"""
         epsilon_nu = 10.**(24.6)*(1.+redshift)**8.9 * np.exp(-0.36*redshift)/(np.exp(2.2*redshift)+25.1)  #erg s^-1 MPc^-3 Hz^-1
+        e = epsilon_nu/(self.h_erg_s*alpha_q)/(self.mpctocm**3)*4.**(-alpha_q)
+        return e
+        
+    def quasar_emissivity_Kulkarni19(self, redshift, alpha_q = alpha_q):
+        """Proper emissivity of HeII ionizing photons from Kulkarni + (2019)"""
+        epsilon_nu = 10.**(24.72)*(1.+redshift)**8.42 * np.exp(-2.1*redshift)/(np.exp(1.09*redshift)+38.56)  #erg s^-1 MPc^-3 Hz^-1
         e = epsilon_nu/(self.h_erg_s*alpha_q)/(self.mpctocm**3)*4.**(-alpha_q)
         return e
 
