@@ -46,13 +46,23 @@ void init_cooling(char * TreeCoolFile, char * MetalCoolFile, char * UVFluctuatio
 
 #define MAXITER 1000
 
-/* Wrapper function*/
+/* Wrapper function which returns the rate of change of internal energy in units of
+ * erg/s/g. Arguments:
+ * rho: density in protons/cm^3 (physical)
+ * u: internal energy in units of erg/g
+ * Z: metallicity
+ * redshift: redshift
+ * isionized: flags whether the particle has been HeII reionized.
+ */
 static double
 get_lambdanet(double rho, double u, double redshift, double Z, struct UVBG * uvbg, double * ne_guess, int isionized)
 {
     double LambdaNet = get_heatingcooling_rate(rho, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
-    if(!isionized)
-        LambdaNet += (get_long_mean_free_path_heating(redshift) *  rho / PROTONMASS);
+    if(!isionized) {
+        /* get_long_mean_free_path_heating returns the heating in units of erg/s/cm^3,
+         * the factor of rho converts to erg/s/proton and then PROTONMASS to erg/s/g */
+        LambdaNet += get_long_mean_free_path_heating(redshift)  / rho  * PROTONMASS;
+    }
     return LambdaNet;
 }
 
