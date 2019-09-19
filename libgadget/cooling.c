@@ -52,7 +52,7 @@ get_lambdanet(double rho, double u, double redshift, double Z, struct UVBG * uvb
 {
     double LambdaNet = get_heatingcooling_rate(rho, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
     if(!isionized)
-        LambdaNet += get_long_mean_free_path_heating(redshift);
+        LambdaNet += (get_long_mean_free_path_heating(redshift) *  rho / PROTONMASS);
     return LambdaNet;
 }
 
