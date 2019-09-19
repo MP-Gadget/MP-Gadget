@@ -291,6 +291,7 @@ blackhole(ForceTree * tree)
     message(0, "Accretion done: %d gas particles swallowed, %d BH particles swallowed\n",
                 Ntot_gas_swallowed, Ntot_BH_swallowed);
 
+    int total_bh;
     double total_mdoteddington;
     double total_mass_holes, total_mdot;
 
@@ -309,6 +310,7 @@ blackhole(ForceTree * tree)
     MPI_Reduce(&Local_BH_mass, &total_mass_holes, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&Local_BH_Mdot, &total_mdot, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&Local_BH_Medd, &total_mdoteddington, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&SlotsManager->info[5].size, &total_bh, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
     if(ThisTask == 0)
     {
@@ -320,7 +322,7 @@ blackhole(ForceTree * tree)
                     (0.1 * LIGHTCGS * LIGHTCGS * THOMPSON)) * All.UnitTime_in_s);
 
         fprintf(FdBlackHoles, "%g %d %g %g %g %g\n",
-                All.Time, SlotsManager->info[5].size, total_mass_holes, total_mdot, mdot_in_msun_per_year, total_mdoteddington);
+                All.Time, total_bh, total_mass_holes, total_mdot, mdot_in_msun_per_year, total_mdoteddington);
         fflush(FdBlackHoles);
     }
     walltime_measure("/BH");
