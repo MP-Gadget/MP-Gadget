@@ -239,8 +239,7 @@ init_qso_lightup(char * reion_hist_file)
 static double last_zz;
 static double last_long_mfp_heating;
 
-/* Get the long mean free path heating. in erg/s/cm^3
- * FIXME: Please check the units are correct!*/
+/* Get the long mean free path heating. in erg/s/cm^3 */
 double
 get_long_mean_free_path_heating(double redshift)
 {
@@ -308,8 +307,6 @@ build_qso_candidate_list(int ** qso_cand, int * nqso)
  * This function chooses a single quasar from the total candidate list of quasars on *all* processors.
  * We seed the random number generator off the number of existing quasars.
  * This is done carefully so that we get the same sequence of quasars irrespective of how many processors we are using.
- *
- * FIXME: Ideally we would choose quasars in parallel.
  */
 static int
 choose_QSO_halo(int ncand, int nqsos, int64_t * ncand_tot, MPI_Comm Comm)
