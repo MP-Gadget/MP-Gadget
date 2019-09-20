@@ -575,7 +575,7 @@ petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection,
     }
 }
 
-/* destropy a buffer, freeing its memory */
+/* destroy a buffer, freeing its memory */
 void petaio_destroy_buffer(BigArray * array) {
     myfree(array->data);
 }
