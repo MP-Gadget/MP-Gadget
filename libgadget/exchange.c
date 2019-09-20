@@ -47,9 +47,9 @@ typedef struct {
  * exchange particles according to layoutfunc.
  * layoutfunc gives the target task of particle p.
 */
-static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_manager_type * PartManager, MPI_Comm Comm);
+static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_manager_type * PartManager, struct slots_manager_type * SlotsManager, MPI_Comm Comm);
 static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * PartManager);
-static int domain_find_iter_space(ExchangePlan * plan, struct part_manager_type * PartManager);
+static int domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * PartManager, const struct slots_manager_type * SlotsManager);
 static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * PartManager, MPI_Comm Comm);
 
 /* This function builts the count/displ arrays from
@@ -73,7 +73,7 @@ _transpose_plan_entries(ExchangePlanEntry * entries, int * count, int ptype, int
 }
 
 /*Plan and execute a domain exchange, also performing a garbage collection if requested*/
-int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, int do_gc, struct part_manager_type * PartManager, MPI_Comm Comm) {
+int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, int do_gc, struct part_manager_type * PartManager, struct slots_manager_type * SlotsManager, MPI_Comm Comm) {
     int64_t sumtogo;
     int failure = 0;
 
@@ -113,7 +113,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
         }
 
         /* determine for each rank how many particles have to be shifted to other ranks */
-        plan.last = domain_find_iter_space(&plan, PartManager);
+        plan.last = domain_find_iter_space(&plan, PartManager, SlotsManager);
         domain_build_plan(layoutfunc, layout_userdata, &plan, PartManager);
         walltime_measure("/Domain/exchange/togo");
 
@@ -126,7 +126,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
          * and a gc will also be done if we have no space for particles.*/
         int really_do_gc = do_gc || (plan.last < plan.nexchange);
 
-        failure = domain_exchange_once(&plan, really_do_gc, PartManager, Comm);
+        failure = domain_exchange_once(&plan, really_do_gc, PartManager, SlotsManager, Comm);
 
         myfree(plan.ExchangeList);
 
@@ -147,7 +147,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
 /*Function decides whether the GC will compact slots.
  * Sets compact[6]. Is collective.*/
 static void
-shall_we_compact_slots(int * compact, ExchangePlan * plan, MPI_Comm Comm)
+shall_we_compact_slots(int * compact, ExchangePlan * plan, const struct slots_manager_type * SlotsManager, MPI_Comm Comm)
 {
     int ptype;
     int lcompact[6] = {0};
@@ -163,7 +163,7 @@ shall_we_compact_slots(int * compact, ExchangePlan * plan, MPI_Comm Comm)
     MPI_Allreduce(lcompact, compact, 6, MPI_INT, MPI_LOR, Comm);
 }
 
-static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_manager_type * PartManager, MPI_Comm Comm)
+static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_manager_type * PartManager, struct slots_manager_type * SlotsManager, MPI_Comm Comm)
 {
     int n, ptype;
     struct particle_data *partBuf;
@@ -220,7 +220,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
     if(MPIU_Any(shall_we_gc, Comm)) {
         /*Find which slots to gc*/
         int compact[6] = {0};
-        shall_we_compact_slots(compact, plan, Comm);
+        shall_we_compact_slots(compact, plan, SlotsManager, Comm);
         slots_gc(compact);
 
         walltime_measure("/Domain/exchange/garbage");
@@ -387,7 +387,7 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
 
 /*Find how many particles we can transfer in current exchange iteration*/
 static int
-domain_find_iter_space(ExchangePlan * plan, struct part_manager_type * PartManager)
+domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * PartManager, const struct slots_manager_type * SlotsManager)
 {
     int n, ptype;
     size_t nlimit = mymalloc_freebytes();
