@@ -21,15 +21,15 @@
 
 char * GDB_format_particle(int i);
 
-SIMPLE_PROPERTY(GravAccel, P[i].GravAccel[0], float, 3)
-SIMPLE_PROPERTY(GravPM, P[i].GravPM[0], float, 3)
+SIMPLE_GETTER(GTGravAccel, GravAccel[0], float, 3, struct particle_data)
+SIMPLE_GETTER(GTGravPM, GravPM[0], float, 3, struct particle_data)
 
 void register_extra_blocks(struct IOTable * IOTable)
 {
     int ptype;
     for(ptype = 0; ptype < 6; ptype++) {
-        IO_REG(GravAccel,       "f4", 3, ptype, IOTable);
-        IO_REG(GravPM,       "f4", 3, ptype, IOTable);
+        IO_REG_WRONLY(GravAccel,       "f4", 3, ptype, IOTable);
+        IO_REG_WRONLY(GravPM,       "f4", 3, ptype, IOTable);
     }
 }
 

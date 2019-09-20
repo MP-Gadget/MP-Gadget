@@ -18,7 +18,7 @@
 
 static void fof_register_io_blocks(struct IOTable * IOTable);
 static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm);
-static void build_buffer_fof(int Ngroups, BigArray * array, IOTableEntry * ent);
+static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * ent);
 
 static void fof_return_particles(MPI_Comm Comm);
 static void fof_distribute_particles(MPI_Comm Comm);
@@ -76,7 +76,7 @@ void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_Comm Co
         BigArray array = {0};
         if(ptype == PTYPE_FOF_GROUP) {
             sprintf(blockname, "FOFGroups/%s", FOFIOTable.ent[i].name);
-            build_buffer_fof(fof->Ngroups, &array, &FOFIOTable.ent[i]);
+            build_buffer_fof(fof, &array, &FOFIOTable.ent[i]);
             message(0, "Writing Block %s\n", blockname);
 
             petaio_save_block(&bf, blockname, &array, 1);
@@ -247,16 +247,16 @@ static void fof_return_particles(MPI_Comm Comm) {
         endrun(1931,"Could not exchange particles\n");
 }
 
-static void build_buffer_fof(int Ngroups, BigArray * array, IOTableEntry * ent) {
+static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * ent) {
 
-    int64_t npartLocal = Ngroups;
+    int64_t npartLocal = fof->Ngroups;
 
     petaio_alloc_buffer(array, ent, npartLocal);
     /* fill the buffer */
     char * p = array->data;
     int i;
-    for(i = 0; i < Ngroups; i ++) {
-        ent->getter(i, p);
+    for(i = 0; i < fof->Ngroups; i ++) {
+        ent->getter(i, p, fof->Group);
         p += array->strides[0];
     }
 }
@@ -301,15 +301,21 @@ static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm) {
     big_block_mpi_close(&bh, Comm);
 }
 
-SIMPLE_PROPERTY(GroupID, Group[i].base.GrNr, uint32_t, 1)
-SIMPLE_PROPERTY(MinID, Group[i].base.MinID, uint64_t, 1)
-SIMPLE_PROPERTY(FirstPos, Group[i].base.FirstPos[0], float, 3)
-SIMPLE_PROPERTY(MassCenterPosition, Group[i].CM[0], double, 3)
-SIMPLE_PROPERTY(Imom, Group[i].Imom[0][0], float, 9)
+
+#define SIMPLE_PROPERTY_FOF(name, field, type, items) \
+    SIMPLE_GETTER(GT ## name , field, type, items, struct Group ) \
+    SIMPLE_SETTER(ST ## name , field, type, items, struct Group) \
+
+SIMPLE_PROPERTY_FOF(GroupID, base.GrNr, uint32_t, 1)
+SIMPLE_PROPERTY_FOF(MinID, base.MinID, uint64_t, 1)
+SIMPLE_PROPERTY_FOF(FirstPos, base.FirstPos[0], float, 3)
+SIMPLE_PROPERTY_FOF(MassCenterPosition, CM[0], double, 3)
+SIMPLE_PROPERTY_FOF(Imom, Imom[0][0], float, 9)
 /* FIXME: set Jmom to use peculiar velocity */
-SIMPLE_PROPERTY(Jmom, Group[i].Jmom[0], float, 3)
-static void GTMassCenterVelocity(int i, float * out) {
+SIMPLE_PROPERTY_FOF(Jmom, Jmom[0], float, 3)
+static void GTMassCenterVelocity(int i, float * out, void * baseptr) {
     double fac;
+    struct Group * Group = (struct Group *) baseptr;
     if (All.IO.UsePeculiarVelocity) {
         fac = 1.0 / All.cf.a;
     } else {
@@ -321,12 +327,12 @@ static void GTMassCenterVelocity(int i, float * out) {
         out[d] = fac * Group[i].Vel[d];
     }
 }
-SIMPLE_PROPERTY(Mass, Group[i].Mass, float, 1)
-SIMPLE_PROPERTY(MassByType, Group[i].MassType[0], float, 6)
-SIMPLE_PROPERTY(LengthByType, Group[i].LenType[0], uint32_t , 6)
-SIMPLE_PROPERTY(StarFormationRate, Group[i].Sfr, float, 1)
-SIMPLE_PROPERTY(BlackholeMass, Group[i].BH_Mass, float, 1)
-SIMPLE_PROPERTY(BlackholeAccretionRate, Group[i].BH_Mdot, float, 1)
+SIMPLE_PROPERTY_FOF(Mass, Mass, float, 1)
+SIMPLE_PROPERTY_FOF(MassByType, MassType[0], float, 6)
+SIMPLE_PROPERTY_FOF(LengthByType, LenType[0], uint32_t , 6)
+SIMPLE_PROPERTY_FOF(StarFormationRate, Sfr, float, 1)
+SIMPLE_PROPERTY_FOF(BlackholeMass, BH_Mass, float, 1)
+SIMPLE_PROPERTY_FOF(BlackholeAccretionRate, BH_Mdot, float, 1)
 
 static void fof_register_io_blocks(struct IOTable * IOTable) {
     IOTable->used = 0;
