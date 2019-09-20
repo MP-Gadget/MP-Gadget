@@ -19,7 +19,7 @@ Omega0 = 0.2814      # Total matter density  (at z=0)
 #Full hydro with all physics
 CoolingOn = 1
 StarformationOn = 1
-BlackHoleOn = 1
+BlackHoleOn = 0
 HydroOn = 1
 DensityIndependentSphOn = 1
 RadiationOn = 1
@@ -40,12 +40,9 @@ QSOVarBubble = 0
 QSOHeIIIReionStart = 5.8
 #Ionization fraction when it finishes
 QSOHeIIIReionFinishFrac = 0.95
-#Min and max mass of black holes to form quasars in
+#Min and max mass of halos to form quasars in
 #internal mass units (10^10 solar masses)
 #WARNING!! This is unphysically small, again because of the small box
-QSOMinMass = 5e-5
-QSOMaxMass = 0.1
-
-#--------BH stuff to make sure we have some quasars------
-MinFoFMassForNewSeed = 1
-TimeBetweenSeedingSearch = 1.03
+#A better model (the default) has QSOMinMass = 100
+QSOMinMass = 0.1
+QSOMaxMass = 1000
