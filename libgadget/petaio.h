@@ -3,6 +3,7 @@
 
 #include <mpi.h>
 #include "bigfile.h"
+#include "partmanager.h"
 
 typedef void (*property_getter) (int i, void * result);
 typedef void (*property_setter) (int i, void * target);
@@ -51,8 +52,9 @@ void
 petaio_build_selection(int * selection,
     int * ptype_offset,
     int * ptype_count,
+    const struct particle_data * Parts,
     const int NumPart,
-    int (*select_func)(int i)
+    int (*select_func)(int i, const struct particle_data * Parts)
     );
 /*
  * Declares a io block with name (literal, not a string)
