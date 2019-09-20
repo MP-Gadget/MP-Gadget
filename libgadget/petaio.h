@@ -5,8 +5,8 @@
 #include "bigfile.h"
 #include "partmanager.h"
 
-typedef void (*property_getter) (int i, void * result);
-typedef void (*property_setter) (int i, void * target);
+typedef void (*property_getter) (int i, void * result, void * baseptr);
+typedef void (*property_setter) (int i, void * target, void * baseptr);
 typedef int (*petaio_selection) (int i);
 
 typedef struct IOTableEntry {
@@ -93,32 +93,26 @@ void io_register_io_block(char * name,
  * field: for example, P[i].Pos[0].
  *     i can be used to refer to the index of the particle being read.
  *
- * type:  a C type descr, float / double / int, it descirbes the
+ * type:  a C type descr, float / double / int, it describes the
  *     expected format of the output buffer; (compiler knows the format of field)
  *
  * items: number of items in one property. 1 for scalars.  (3 for pos, eg)
  *
+ * stype: type of the base pointer to use
  * */
-#define SIMPLE_GETTER(name, field, type, items) \
-static void name(int i, type * out) { \
+#define SIMPLE_GETTER(name, field, type, items, stype) \
+static void name(int i, type * out, void * baseptr) { \
     int k; \
     for(k = 0; k < items; k ++) { \
-        out[k] = *(&(field) + k); \
+        out[k] = *(&(((stype *)baseptr)[i].field) + k); \
     } \
 }
-#define SIMPLE_SETTER(name, field, type, items) \
-static void name(int i, type * out) { \
+#define SIMPLE_SETTER(name, field, type, items, stype) \
+static void name(int i, type * out, void * baseptr) { \
     int k; \
     for(k = 0; k < items; k ++) { \
-        *(&(field) + k) = out[k]; \
+        *(&(((stype *)baseptr)[i].field) + k) = out[k]; \
     } \
 }
-#define SIMPLE_PROPERTY(name, field, type, items) \
-    SIMPLE_GETTER(GT ## name , field, type, items) \
-    SIMPLE_SETTER(ST ## name , field, type, items) \
-/*A property with getters and setters that are type specific*/
-#define SIMPLE_PROPERTY_TYPE(name, ptype, field, type, items) \
-    SIMPLE_GETTER(GT ## ptype ## name , field, type, items) \
-    SIMPLE_SETTER(ST ## ptype ## name , field, type, items) \
 
 #endif
