@@ -497,12 +497,7 @@ static void
 turn_on_quasars(double redshift, ForceTree * tree)
 {
     int ncand;
-    int * qso_cand;
-    /* Run a halo finder*/
-    fof_fof(tree, All.BoxSize, 0, MPI_COMM_WORLD);
-    ncand = build_qso_candidate_list(&qso_cand);
-    fof_finish();
-    walltime_measure("/HeIII/Find");
+    int * qso_cand = NULL;
     int64_t n_gas_tot=0, tot_n_ionized=0, ncand_tot=0;
     sumup_large_ints(1, &SlotsManager->info[0].size, &n_gas_tot);
     double atime = 1./(1 + redshift);
@@ -528,6 +523,14 @@ turn_on_quasars(double redshift, ForceTree * tree)
     int64_t non_overlapping_bubble_number = n_gas_tot * totbubblegasmass / All.CP.OmegaBaryon;
     double initionfrac = gas_ionization_fraction();
     double curionfrac = initionfrac;
+
+    if(curionfrac < desired_ion_frac) {
+        /* Run a halo finder*/
+        fof_fof(tree, All.BoxSize, 0, MPI_COMM_WORLD);
+        ncand = build_qso_candidate_list(&qso_cand);
+        walltime_measure("/HeIII/Find");
+    }
+
     while (curionfrac < desired_ion_frac){
         /* Get a new quasar*/
         int new_qso = choose_QSO_halo(ncand, &ncand_tot, MPI_COMM_WORLD);
@@ -558,7 +561,11 @@ turn_on_quasars(double redshift, ForceTree * tree)
             ncand--;
         }
     }
-    myfree(qso_cand);
+    if(qso_cand) {
+        myfree(qso_cand);
+        fof_finish();
+    }
+
     if(tot_n_ionized > 0)
         message(0, "HeII: HeIII fraction from %g -> %g, ionizing %ld. Wanted %g.\n", initionfrac, curionfrac, tot_n_ionized, desired_ion_frac);
     else
