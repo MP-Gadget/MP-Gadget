@@ -532,7 +532,7 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
     char * p = array->data;
     for(i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].Type != ent->ptype) continue;
-        ent->setter(i, p, P);
+        ent->setter(i, p, P, SlotsManager);
         p += array->strides[0];
     }
 }
@@ -570,7 +570,7 @@ petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection,
             if(Parts[j].Type != ent->ptype) {
                 endrun(2, "Selection %d has type = %d != %d\n", j, Parts[j].Type, ent->ptype);
             }
-            ent->getter(j, p, Parts);
+            ent->getter(j, p, Parts, SlotsManager);
             p += array->strides[0];
         }
     }
@@ -705,7 +705,7 @@ void io_register_io_block(char * name,
     IOTable->used ++;
 }
 
-static void GTPosition(int i, double * out, void * baseptr) {
+static void GTPosition(int i, double * out, void * baseptr, void * slotptr) {
     /* Remove the particle offset before saving*/
     struct particle_data * part = (struct particle_data *) baseptr;
     int d;
@@ -716,7 +716,7 @@ static void GTPosition(int i, double * out, void * baseptr) {
     }
 }
 
-static void STPosition(int i, double * out, void * baseptr) {
+static void STPosition(int i, double * out, void * baseptr, void * slotptr) {
     int d;
     struct particle_data * part = (struct particle_data *) baseptr;
     for(d = 0; d < 3; d ++) {
@@ -733,32 +733,38 @@ static void STPosition(int i, double * out, void * baseptr) {
     SIMPLE_SETTER(ST ## ptype ## name , field, type, items, struct particle_data)
 
 /* A property that uses getters and setters via the PI of a particle data array.*/
-#define SIMPLE_GETTER_PI(name, field, type, items, slotarray) \
-static void name(int i, type * out, void * baseptr) { \
+#define SIMPLE_GETTER_PI(name, field, dtype, items, slottype) \
+static void name(int i, dtype * out, void * baseptr, void * slotptr) { \
     int PI = ((struct particle_data *) baseptr)[i].PI; \
+    int ptype = ((struct particle_data *) baseptr)[i].Type; \
+    struct slot_info * info = &(((struct slots_manager_type *) slotptr)->info[ptype]); \
+    slottype * sl = (slottype *) info->ptr; \
     int k; \
     for(k = 0; k < items; k ++) { \
-        out[k] = *(&(slotarray[PI].field) + k); \
+        out[k] = *(&(sl[PI].field) + k); \
     } \
 }
 
-#define SIMPLE_SETTER_PI(name, field, type, items, slotarray) \
-static void name(int i, type * out, void * baseptr) { \
+#define SIMPLE_SETTER_PI(name, field, dtype, items, slottype) \
+static void name(int i, dtype * out, void * baseptr, void * slotptr) { \
     int PI = ((struct particle_data *) baseptr)[i].PI; \
+    int ptype = ((struct particle_data *) baseptr)[i].Type; \
+    struct slot_info * info = &(((struct slots_manager_type *) slotptr)->info[ptype]); \
+    slottype * sl = (slottype *) info->ptr; \
     int k; \
     for(k = 0; k < items; k ++) { \
-        *(&(slotarray[PI].field) + k) = out[k]; \
+        *(&(sl[PI].field) + k) = out[k]; \
     } \
 }
 
-#define SIMPLE_PROPERTY_PI(name, field, type, items, slotarray) \
-    SIMPLE_GETTER_PI(GT ## name , field, type, items, slotarray) \
-    SIMPLE_SETTER_PI(ST ## name , field, type, items, slotarray)
-#define SIMPLE_PROPERTY_TYPE_PI(name, ptype, field, type, items, slotarray) \
-    SIMPLE_GETTER_PI(GT ## ptype ## name , field, type, items, slotarray) \
-    SIMPLE_SETTER_PI(ST ## ptype ## name , field, type, items, slotarray)
+#define SIMPLE_PROPERTY_PI(name, field, type, items, slottype) \
+    SIMPLE_GETTER_PI(GT ## name , field, type, items, slottype) \
+    SIMPLE_SETTER_PI(ST ## name , field, type, items, slottype)
+#define SIMPLE_PROPERTY_TYPE_PI(name, ptype, field, type, items, slottype) \
+    SIMPLE_GETTER_PI(GT ## ptype ## name , field, type, items, slottype) \
+    SIMPLE_SETTER_PI(ST ## ptype ## name , field, type, items, slottype)
 
-static void GTVelocity(int i, float * out, void * baseptr) {
+static void GTVelocity(int i, float * out, void * baseptr, void * slotptr) {
     /* Convert to Peculiar Velocity if UsePeculiarVelocity is set */
     double fac;
     struct particle_data * part = (struct particle_data *) baseptr;
@@ -773,7 +779,7 @@ static void GTVelocity(int i, float * out, void * baseptr) {
         out[d] = fac * part[i].Vel[d];
     }
 }
-static void STVelocity(int i, float * out, void * baseptr) {
+static void STVelocity(int i, float * out, void * baseptr, void * slotptr) {
     double fac;
     struct particle_data * part = (struct particle_data *) baseptr;
     if (All.IO.UsePeculiarVelocity) {
@@ -792,41 +798,50 @@ SIMPLE_PROPERTY(ID, ID, uint64_t, 1)
 SIMPLE_PROPERTY(Generation, Generation, unsigned char, 1)
 SIMPLE_GETTER(GTPotential, Potential, float, 1, struct particle_data)
 SIMPLE_PROPERTY(SmoothingLength, Hsml, float, 1)
-SIMPLE_PROPERTY_PI(Density, Density, float, 1, SphP)
-SIMPLE_PROPERTY_PI(EgyWtDensity, EgyWtDensity, float, 1, SphP)
-SIMPLE_PROPERTY_PI(ElectronAbundance, Ne, float, 1, SphP)
-SIMPLE_PROPERTY_PI(DelayTime, DelayTime, float, 1, SphP)
-SIMPLE_PROPERTY_TYPE_PI(StarFormationTime, 4, FormationTime, float, 1, StarP)
-SIMPLE_PROPERTY_PI(BirthDensity, BirthDensity, float, 1, StarP)
-SIMPLE_PROPERTY_TYPE_PI(Metallicity, 4, Metallicity, float, 1, StarP)
-SIMPLE_PROPERTY_TYPE_PI(Metallicity, 0, Metallicity, float, 1, SphP)
-static void GTStarFormationRate(int i, float * out, void * baseptr) {
+SIMPLE_PROPERTY_PI(Density, Density, float, 1, struct sph_particle_data)
+SIMPLE_PROPERTY_PI(EgyWtDensity, EgyWtDensity, float, 1, struct sph_particle_data)
+SIMPLE_PROPERTY_PI(ElectronAbundance, Ne, float, 1, struct sph_particle_data)
+SIMPLE_PROPERTY_PI(DelayTime, DelayTime, float, 1, struct sph_particle_data)
+SIMPLE_PROPERTY_TYPE_PI(StarFormationTime, 4, FormationTime, float, 1, struct star_particle_data)
+SIMPLE_PROPERTY_PI(BirthDensity, BirthDensity, float, 1, struct star_particle_data)
+SIMPLE_PROPERTY_TYPE_PI(Metallicity, 4, Metallicity, float, 1, struct star_particle_data)
+SIMPLE_PROPERTY_TYPE_PI(Metallicity, 0, Metallicity, float, 1, struct sph_particle_data)
+static void GTStarFormationRate(int i, float * out, void * baseptr, void * slotptr) {
     /* Convert to Solar/year */
     int PI = ((struct particle_data *) baseptr)[i].PI;
-    *out = SphP[PI].Sfr * ((All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR));
+    int ptype = ((struct particle_data *) baseptr)[i].Type;
+    struct slot_info * info = &(((struct slots_manager_type *) slotptr)->info[ptype]);
+    struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
+    *out = sl[PI].Sfr * ((All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR));
 }
-SIMPLE_PROPERTY_TYPE_PI(StarFormationTime, 5, FormationTime, float, 1, BhP)
-SIMPLE_PROPERTY_PI(BlackholeMass, Mass, float, 1, BhP)
-SIMPLE_PROPERTY_PI(BlackholeAccretionRate, Mdot, float, 1, BhP)
-SIMPLE_PROPERTY_PI(BlackholeProgenitors, CountProgs, float, 1, BhP)
-SIMPLE_PROPERTY_PI(BlackholeMinPotPos, MinPotPos[0], double, 3, BhP)
-SIMPLE_PROPERTY_PI(BlackholeJumpToMinPot, JumpToMinPot, int, 1, BhP)
+SIMPLE_PROPERTY_TYPE_PI(StarFormationTime, 5, FormationTime, float, 1, struct bh_particle_data)
+SIMPLE_PROPERTY_PI(BlackholeMass, Mass, float, 1, struct bh_particle_data)
+SIMPLE_PROPERTY_PI(BlackholeAccretionRate, Mdot, float, 1, struct bh_particle_data)
+SIMPLE_PROPERTY_PI(BlackholeProgenitors, CountProgs, float, 1, struct bh_particle_data)
+SIMPLE_PROPERTY_PI(BlackholeMinPotPos, MinPotPos[0], double, 3, struct bh_particle_data)
+SIMPLE_PROPERTY_PI(BlackholeJumpToMinPot, JumpToMinPot, int, 1, struct bh_particle_data)
 /*This is only used if FoF is enabled*/
 SIMPLE_GETTER(GTGroupID, GrNr, uint32_t, 1, struct particle_data)
-static void GTNeutralHydrogenFraction(int i, float * out, void * baseptr) {
+static void GTNeutralHydrogenFraction(int i, float * out, void * baseptr, void * slotptr) {
     double redshift = 1./All.Time - 1;
     *out = get_neutral_fraction_sfreff(i, redshift);
 }
 
-static void GTInternalEnergy(int i, float * out, void * baseptr) {
+static void GTInternalEnergy(int i, float * out, void * baseptr, void * slotptr) {
     int PI = ((struct particle_data *) baseptr)[i].PI;
-    *out = SphP[PI].Entropy / GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1);
+    int ptype = ((struct particle_data *) baseptr)[i].Type;
+    struct slot_info * info = &(((struct slots_manager_type *) slotptr)->info[ptype]);
+    struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
+    *out = sl[PI].Entropy / GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1);
 }
 
-static void STInternalEnergy(int i, float * out, void * baseptr) {
+static void STInternalEnergy(int i, float * out, void * baseptr, void * slotptr) {
     float u = *out;
     int PI = ((struct particle_data *) baseptr)[i].PI;
-    SphP[PI].Entropy  = GAMMA_MINUS1 * u / pow(SPH_EOMDensity(i) * All.cf.a3inv , GAMMA_MINUS1);
+    int ptype = ((struct particle_data *) baseptr)[i].Type;
+    struct slot_info * info = &(((struct slots_manager_type *) slotptr)->info[ptype]);
+    struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
+    sl[PI].Entropy  = GAMMA_MINUS1 * u / pow(SPH_EOMDensity(i) * All.cf.a3inv , GAMMA_MINUS1);
 }
 
 static int order_by_type(const void *a, const void *b)
@@ -914,13 +929,13 @@ SIMPLE_GETTER(GTGravAccel, GravAccel[0], float, 3, struct particle_data)
 SIMPLE_GETTER(GTGravPM, GravPM[0], float, 3, struct particle_data)
 SIMPLE_GETTER(GTTimeBin, TimeBin, int, 1, struct particle_data)
 SIMPLE_GETTER(GTGravCost, GravCost, int, 1, struct particle_data)
-SIMPLE_GETTER_PI(GTHydroAccel, HydroAccel[0], float, 3, SphP)
-SIMPLE_GETTER_PI(GTMaxSignalVel, MaxSignalVel, float, 1, SphP)
-SIMPLE_GETTER_PI(GTEntropy, Entropy, float, 1, SphP)
-SIMPLE_GETTER_PI(GTDtEntropy, DtEntropy, float, 1, SphP)
-SIMPLE_GETTER_PI(GTDhsmlEgyDensityFactor, DhsmlEgyDensityFactor, float, 1, SphP)
-SIMPLE_GETTER_PI(GTDivVel, DivVel, float, 1, SphP)
-SIMPLE_GETTER_PI(GTCurlVel, CurlVel, float, 1, SphP)
+SIMPLE_GETTER_PI(GTHydroAccel, HydroAccel[0], float, 3, struct sph_particle_data)
+SIMPLE_GETTER_PI(GTMaxSignalVel, MaxSignalVel, float, 1, struct sph_particle_data)
+SIMPLE_GETTER_PI(GTEntropy, Entropy, float, 1, struct sph_particle_data)
+SIMPLE_GETTER_PI(GTDtEntropy, DtEntropy, float, 1, struct sph_particle_data)
+SIMPLE_GETTER_PI(GTDhsmlEgyDensityFactor, DhsmlEgyDensityFactor, float, 1, struct sph_particle_data)
+SIMPLE_GETTER_PI(GTDivVel, DivVel, float, 1, struct sph_particle_data)
+SIMPLE_GETTER_PI(GTCurlVel, CurlVel, float, 1, struct sph_particle_data)
 
 void register_debug_io_blocks(struct IOTable * IOTable)
 {

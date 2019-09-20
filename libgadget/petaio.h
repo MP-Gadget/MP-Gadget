@@ -5,8 +5,8 @@
 #include "bigfile.h"
 #include "partmanager.h"
 
-typedef void (*property_getter) (int i, void * result, void * baseptr);
-typedef void (*property_setter) (int i, void * target, void * baseptr);
+typedef void (*property_getter) (int i, void * result, void * baseptr, void * slotptr);
+typedef void (*property_setter) (int i, void * target, void * baseptr, void * slotptr);
 typedef int (*petaio_selection) (int i);
 
 typedef struct IOTableEntry {
@@ -101,14 +101,14 @@ void io_register_io_block(char * name,
  * stype: type of the base pointer to use
  * */
 #define SIMPLE_GETTER(name, field, type, items, stype) \
-static void name(int i, type * out, void * baseptr) { \
+static void name(int i, type * out, void * baseptr, void * slotptr) { \
     int k; \
     for(k = 0; k < items; k ++) { \
         out[k] = *(&(((stype *)baseptr)[i].field) + k); \
     } \
 }
 #define SIMPLE_SETTER(name, field, type, items, stype) \
-static void name(int i, type * out, void * baseptr) { \
+static void name(int i, type * out, void * baseptr, void * slotptr) { \
     int k; \
     for(k = 0; k < items; k ++) { \
         *(&(((stype *)baseptr)[i].field) + k) = out[k]; \

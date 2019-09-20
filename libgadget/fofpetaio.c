@@ -260,7 +260,7 @@ static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * e
     char * p = array->data;
     int i;
     for(i = 0; i < fof->Ngroups; i ++) {
-        ent->getter(i, p, fof->Group);
+        ent->getter(i, p, fof->Group, NULL);
         p += array->strides[0];
     }
 }
@@ -317,7 +317,7 @@ SIMPLE_PROPERTY_FOF(MassCenterPosition, CM[0], double, 3)
 SIMPLE_PROPERTY_FOF(Imom, Imom[0][0], float, 9)
 /* FIXME: set Jmom to use peculiar velocity */
 SIMPLE_PROPERTY_FOF(Jmom, Jmom[0], float, 3)
-static void GTMassCenterVelocity(int i, float * out, void * baseptr) {
+static void GTMassCenterVelocity(int i, float * out, void * baseptr, void * slotptr) {
     double fac;
     struct Group * Group = (struct Group *) baseptr;
     if (All.IO.UsePeculiarVelocity) {
