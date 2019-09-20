@@ -39,6 +39,7 @@
 #include "hydra.h"
 #include "drift.h"
 #include "walltime.h"
+#include "fof.h"
 #include "utils/endrun.h"
 #include "utils/paramset.h"
 #include "utils/mymalloc.h"
@@ -51,9 +52,9 @@ struct qso_lightup_params
 {
     int QSOLightupOn; /* Master flag enabling the helium reioization heating model.*/
 
-    double qso_candidate_min_mass; /* Minimum mass of a quasar black hole candidate.
-                                  To become a quasar a black hole should have a mass between min and max. */
-    double qso_candidate_max_mass; /* Minimum mass of a quasar black hole candidate.*/
+    double qso_candidate_min_mass; /* Minimum mass of a quasar halo candidate.
+                                  To become a quasar a FOF group should have a mass between min and max. */
+    double qso_candidate_max_mass; /* Minimum mass of a quasar halo candidate.*/
 
     double mean_bubble; /* Mean size of the quasar bubble.*/
     double var_bubble; /* Variance of the quasar bubble size.*/
@@ -271,24 +272,21 @@ static double gaussian_rng(double mu, double sigma, const int64_t seed)
     return mu + sigma * z1;
 }
 
-/* Build a list of black hole particles which are candidates for becoming a quasar.
- * This excludes black hole particles which have already been quasars and which have the wrong mass.*/
+/* Build a list of halos which are candidates for becoming a quasar.
+ * We use only halos with the right mass range.*/
 static int
 build_qso_candidate_list(int ** qso_cand)
 {
-    /*Loop over all black holes, building the candidate list.*/
+    /* Run FOF to get a halo catalogue*/
+    /*Loop over all halos, building the candidate list.*/
     int i, ncand=0;
-    const int nbh = SlotsManager->info[5].size;
-    *qso_cand = mymalloc("Quasar_candidates", sizeof(int) * (nbh+1));
-    for(i = 0; i < PartManager->NumPart; i++)
+    *qso_cand = mymalloc("Quasar_candidates", sizeof(int) * (Ngroups+1));
+    for(i = 0; i < Ngroups; i++)
     {
-        /* Only want black holes*/
-        if(P[i].Type != 5 )
-            continue;
         /* Check that it has the right mass*/
-        if(BHP(i).Mass < QSOLightupParams.qso_candidate_min_mass)
+        if(Group[i].Mass < QSOLightupParams.qso_candidate_min_mass)
             continue;
-        if(BHP(i).Mass > QSOLightupParams.qso_candidate_max_mass)
+        if(Group[i].Mass > QSOLightupParams.qso_candidate_max_mass)
             continue;
         /*Add to the candidate list*/
         (*qso_cand)[ncand] = i;
@@ -325,7 +323,7 @@ choose_QSO_halo(int ncand, int64_t * ncand_tot, MPI_Comm Comm)
     }
 
     ta_free(candcounts);
-    double drand = get_random_number(ncand_tot);
+    double drand = get_random_number(TotNgroups);
     int qso = (drand * ncand_total);
     *ncand_tot = ncand_total;
     /* No quasar on this processor*/
@@ -438,11 +436,15 @@ static void
 ionize_copy(int place, TreeWalkQueryBase * I, TreeWalk * tw)
 {
     int k;
+    /* Strictly speaking this is inefficient:
+     * we are also copying the properties of the *particle*
+     * in place in treewalk.c. However, this does not matter unless
+     * there are more local groups than particles!*/
     for(k = 0; k < 3; k++)
     {
-        I->Pos[k] = P[place].Pos[k];
+        I->Pos[k] = Group[place].CM[k];
     }
-    I->ID = P[place].ID;
+    I->ID = Group[place].base.MinID;
 }
 
 /* Find all particles within the radius of the HeIII bubble,
@@ -464,7 +466,7 @@ ionize_all_part(int qso_ind, int * qso_cand, ForceTree * tree)
     /* Reset the particles ionized this step*/
     N_ionized = 0;
     /* We set Hsml to a constant in ngbiter, so this
-     * searches a constant distance from the BH.*/
+     * searches a constant distance from the halo.*/
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBase);
     tw->ngbiter = ionize_ngbiter;
@@ -496,7 +498,10 @@ turn_on_quasars(double redshift, ForceTree * tree)
 {
     int ncand;
     int * qso_cand;
+    /* Run a halo finder*/
+    fof_fof(tree, All.BoxSize, 0, MPI_COMM_WORLD);
     ncand = build_qso_candidate_list(&qso_cand);
+    fof_finish();
     walltime_measure("/HeIII/Find");
     int64_t n_gas_tot=0, tot_n_ionized=0, ncand_tot=0;
     sumup_large_ints(1, &SlotsManager->info[0].size, &n_gas_tot);

@@ -332,8 +332,8 @@ create_gadget_parameter_set()
     param_declare_int(ps, "QSOLightupOn", OPTIONAL, 0, "Enable the quasar lighup model for helium reionization");
     /* Default QSO BH masses correspond to the Illustris BHs hosted in halos between 2x10^12 and 10^13 solar masses.
      * In small boxes this may be too small.*/
-    param_declare_double(ps, "QSOMaxMass", OPTIONAL, 0.1, "Maximum mass of a quasar hosting black hole in internal mass units.");
-    param_declare_double(ps, "QSOMinMass", OPTIONAL, 0.01, "Minimum mass of a quasar hosting black hole in internal mass units.");
+    param_declare_double(ps, "QSOMaxMass", OPTIONAL, 1000, "Maximum mass of a halo potentially hosting a quasar in internal mass units.");
+    param_declare_double(ps, "QSOMinMass", OPTIONAL, 100, "Minimum mass of a halo potentially hosting a quasar in internal mass units.");
     param_declare_double(ps, "QSOMeanBubble", OPTIONAL, 30000, "Mean size of the ionizing bubble around a quasar. By default 30 Mpc.");
     param_declare_double(ps, "QSOVarBubble", OPTIONAL, 0, "Variance of the ionizing bubble around a quasar. By default zero so all bubbles are the same size");
     param_declare_double(ps, "QSOHeIIIReionStart", OPTIONAL, 5.8, "First redshift at which a QSO bubble will be placed.");
