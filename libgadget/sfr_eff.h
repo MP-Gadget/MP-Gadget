@@ -4,6 +4,8 @@
 #include "forcetree.h"
 #include "utils/paramset.h"
 #include "timestep.h"
+#include "partmanager.h"
+#include "slotsmanager.h"
 
 #define  METAL_YIELD       0.02	/*!< effective metal yield for star formation */
 
@@ -29,7 +31,7 @@ void cooling_and_starformation(ActiveParticles * act, ForceTree * tree);
 /*Get the neutral fraction of a particle correctly, even when on the star-forming equation of state.
  * This calls the cooling routines for the current internal energy when off the equation of state, but
  * when on the equation of state calls them separately for the cold and hot gas.*/
-double get_neutral_fraction_sfreff(int i, double redshift);
+double get_neutral_fraction_sfreff(double redshift, struct particle_data * partdata, struct sph_particle_data * sphdata);
 
 /* Return whether we are using a star formation model that needs grad rho computed for the gas particles*/
 int sfr_need_to_compute_sph_grad_rho(void);
