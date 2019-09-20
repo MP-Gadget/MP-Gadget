@@ -232,7 +232,7 @@ static void fof_distribute_particles(MPI_Comm Comm) {
     }
     myfree(pi);
 
-    if(domain_exchange(fof_sorted_layout, targettask, 1, Comm))
+    if(domain_exchange(fof_sorted_layout, targettask, 1, PartManager, Comm))
         endrun(1930,"Could not exchange particles\n");
     /* sort SPH and Others independently */
 
@@ -247,7 +247,7 @@ static void fof_distribute_particles(MPI_Comm Comm) {
 
 }
 static void fof_return_particles(MPI_Comm Comm) {
-    if(domain_exchange(fof_origin_layout, NULL, 1, Comm))
+    if(domain_exchange(fof_origin_layout, NULL, 1, PartManager, Comm))
         endrun(1931,"Could not exchange particles\n");
 }
 

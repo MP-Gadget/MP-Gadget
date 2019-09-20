@@ -171,7 +171,7 @@ void domain_decompose_full(DomainDecomp * ddecomp)
         domain_free(ddecomp);
 
 #ifdef DEBUG
-        domain_test_id_uniqueness();
+        domain_test_id_uniqueness(PartManager);
 #endif
         int MaxTopNodes = domain_allocate(ddecomp, &policies[i]);
 
@@ -210,7 +210,7 @@ void domain_decompose_full(DomainDecomp * ddecomp)
     myfree(OldTopLeaves);
     myfree(OldTopNodes);
 
-    if(domain_exchange(domain_layoutfunc, ddecomp, 0, ddecomp->DomainComm))
+    if(domain_exchange(domain_layoutfunc, ddecomp, 0, PartManager, ddecomp->DomainComm))
         endrun(1929,"Could not exchange particles\n");
 
     /*Do a garbage collection so that the slots are ordered
@@ -237,7 +237,7 @@ void domain_maintain(DomainDecomp * ddecomp)
     /* Try a domain exchange.
      * If we have no memory for the particles,
      * bail and do a full domain*/
-    if(0 != domain_exchange(domain_layoutfunc, ddecomp, 0, ddecomp->DomainComm)) {
+    if(0 != domain_exchange(domain_layoutfunc, ddecomp, 0, PartManager, ddecomp->DomainComm)) {
         domain_decompose_full(ddecomp);
         return;
     }

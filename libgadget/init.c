@@ -71,7 +71,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
     /*Read the snapshot*/
     petaio_read_snapshot(RestartSnapNum, MPI_COMM_WORLD);
 
-    domain_test_id_uniqueness();
+    domain_test_id_uniqueness(PartManager);
 
     check_omega();
 
