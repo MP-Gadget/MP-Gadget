@@ -139,7 +139,7 @@ static void petaio_save_internal(char * fname, struct IOTable * IOTable, int ver
             continue;
         }
         sprintf(blockname, "%d/%s", ptype, IOTable->ent[i].name);
-        petaio_build_buffer(&array, &IOTable->ent[i], selection + ptype_offset[ptype], ptype_count[ptype], P);
+        petaio_build_buffer(&array, &IOTable->ent[i], selection + ptype_offset[ptype], ptype_count[ptype], P, SlotsManager);
         petaio_save_block(&bf, blockname, &array, verbose);
         petaio_destroy_buffer(&array);
     }
@@ -541,7 +541,7 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
  * NOTE: selected range should contain only one particle type!
 */
 void
-petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int NumSelection, struct particle_data * Parts)
+petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int NumSelection, struct particle_data * Parts, struct slots_manager_type * SlotsManager)
 {
     if(selection == NULL) {
         endrun(-1, "NULL selection is not supported\n");

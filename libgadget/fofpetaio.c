@@ -111,7 +111,7 @@ void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_Comm Co
             BigArray array = {0};
             if(ptype < 6 && ptype >= 0) {
                 sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
-                petaio_build_buffer(&array, &IOTable.ent[i], selection + ptype_offset[ptype], ptype_count[ptype], P);
+                petaio_build_buffer(&array, &IOTable.ent[i], selection + ptype_offset[ptype], ptype_count[ptype], P, SlotsManager);
 
                 message(0, "Writing Block %s\n", blockname);
 

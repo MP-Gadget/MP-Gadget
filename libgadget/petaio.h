@@ -4,6 +4,7 @@
 #include <mpi.h>
 #include "bigfile.h"
 #include "partmanager.h"
+#include "slotsmanager.h"
 
 typedef void (*property_getter) (int i, void * result, void * baseptr, void * slotptr);
 typedef void (*property_setter) (int i, void * target, void * baseptr, void * slotptr);
@@ -37,7 +38,7 @@ void destroy_io_blocks(struct IOTable * IOTable);
 
 void petaio_init();
 void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t npartLocal);
-void petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int size, struct particle_data * Parts);
+void petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int NumSelection, struct particle_data * Parts, struct slots_manager_type * SlotsManager);
 void petaio_readout_buffer(BigArray * array, IOTableEntry * ent);
 void petaio_destroy_buffer(BigArray * array);
 
