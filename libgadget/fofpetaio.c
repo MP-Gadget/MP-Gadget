@@ -37,9 +37,9 @@ static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
 }
 
 static int
-fof_petaio_select_func(int i)
+fof_petaio_select_func(int i, const struct particle_data * Parts)
 {
-    if(P[i].GrNr < 0) return 0;
+    if(Parts[i].GrNr < 0) return 0;
     return 1;
 }
 
@@ -96,7 +96,7 @@ void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_Comm Co
 
         int ptype_offset[6]={0};
         int ptype_count[6]={0};
-        petaio_build_selection(selection, ptype_offset, ptype_count, PartManager->NumPart, fof_petaio_select_func);
+        petaio_build_selection(selection, ptype_offset, ptype_count, P, PartManager->NumPart, fof_petaio_select_func);
 
         /*Sort each type individually*/
         for(i = 0; i < 6; i++)

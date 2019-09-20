@@ -75,8 +75,9 @@ void
 petaio_build_selection(int * selection,
     int * ptype_offset,
     int * ptype_count,
+    const struct particle_data * Parts,
     const int NumPart,
-    int (*select_func)(int i)
+    int (*select_func)(int i, const struct particle_data * Parts)
     )
 {
     int i;
@@ -86,8 +87,8 @@ petaio_build_selection(int * selection,
     for(i = 0; i < NumPart; i ++) {
         if(P[i].IsGarbage)
             continue;
-        if((select_func == NULL) || (select_func(i) != 0)) {
-            int ptype = P[i].Type;
+        if((select_func == NULL) || (select_func(i, Parts) != 0)) {
+            int ptype = Parts[i].Type;
             ptype_count[ptype] ++;
         }
     }
@@ -98,10 +99,10 @@ petaio_build_selection(int * selection,
 
     ptype_count[5] = 0;
     for(i = 0; i < NumPart; i ++) {
-        int ptype = P[i].Type;
+        int ptype = Parts[i].Type;
         if(P[i].IsGarbage)
             continue;
-        if((select_func == NULL) || (select_func(i) != 0)) {
+        if((select_func == NULL) || (select_func(i, Parts) != 0)) {
             selection[ptype_offset[ptype] + ptype_count[ptype]] = i;
             ptype_count[ptype]++;
         }
@@ -121,7 +122,7 @@ static void petaio_save_internal(char * fname, struct IOTable * IOTable, int ver
 
     int * selection = mymalloc("Selection", sizeof(int) * PartManager->NumPart);
 
-    petaio_build_selection(selection, ptype_offset, ptype_count, PartManager->NumPart, NULL);
+    petaio_build_selection(selection, ptype_offset, ptype_count, P, PartManager->NumPart, NULL);
 
     sumup_large_ints(6, ptype_count, NTotal);
 
