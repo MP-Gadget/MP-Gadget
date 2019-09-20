@@ -109,11 +109,15 @@ void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_Comm Co
             char blockname[128];
             int ptype = IOTable.ent[i].ptype;
             BigArray array = {0};
-            sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
-            petaio_build_buffer(&array, &IOTable.ent[i], selection + ptype_offset[ptype], ptype_count[ptype]);
-            message(0, "Writing Block %s\n", blockname);
-            petaio_save_block(&bf, blockname, &array, 1);
-            petaio_destroy_buffer(&array);
+            if(ptype < 6 && ptype >= 0) {
+                sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
+                petaio_build_buffer(&array, &IOTable.ent[i], selection + ptype_offset[ptype], ptype_count[ptype], P);
+
+                message(0, "Writing Block %s\n", blockname);
+
+                petaio_save_block(&bf, blockname, &array, 1);
+                petaio_destroy_buffer(&array);
+            }
         }
         myfree(selection);
         walltime_measure("/FOF/IO/WriteParticles");

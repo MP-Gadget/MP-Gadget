@@ -139,7 +139,7 @@ static void petaio_save_internal(char * fname, struct IOTable * IOTable, int ver
             continue;
         }
         sprintf(blockname, "%d/%s", ptype, IOTable->ent[i].name);
-        petaio_build_buffer(&array, &IOTable->ent[i], selection + ptype_offset[ptype], ptype_count[ptype]);
+        petaio_build_buffer(&array, &IOTable->ent[i], selection + ptype_offset[ptype], ptype_count[ptype], P);
         petaio_save_block(&bf, blockname, &array, verbose);
         petaio_destroy_buffer(&array);
     }
@@ -541,7 +541,7 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
  * NOTE: selected range should contain only one particle type!
 */
 void
-petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int NumSelection)
+petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int NumSelection, struct particle_data * Parts)
 {
     if(selection == NULL) {
         endrun(-1, "NULL selection is not supported\n");
@@ -567,10 +567,10 @@ petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection,
         p += array->strides[0] * start;
         for(i = start; i < end; i ++) {
             const int j = selection[i];
-            if(P[j].Type != ent->ptype) {
-                endrun(2, "Selection %d has type = %d != %d\n", j, P[j].Type, ent->ptype);
+            if(Parts[j].Type != ent->ptype) {
+                endrun(2, "Selection %d has type = %d != %d\n", j, Parts[j].Type, ent->ptype);
             }
-            ent->getter(j, p, P);
+            ent->getter(j, p, Parts);
             p += array->strides[0];
         }
     }
