@@ -37,7 +37,7 @@ void destroy_io_blocks(struct IOTable * IOTable);
 
 void petaio_init();
 void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t npartLocal);
-void petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int size);
+void petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int size, struct particle_data * Parts);
 void petaio_readout_buffer(BigArray * array, IOTableEntry * ent);
 void petaio_destroy_buffer(BigArray * array);
 
