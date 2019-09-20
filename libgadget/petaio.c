@@ -820,7 +820,6 @@ SIMPLE_PROPERTY_PI(BlackholeAccretionRate, Mdot, float, 1, struct bh_particle_da
 SIMPLE_PROPERTY_PI(BlackholeProgenitors, CountProgs, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeMinPotPos, MinPotPos[0], double, 3, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeJumpToMinPot, JumpToMinPot, int, 1, struct bh_particle_data)
-SIMPLE_PROPERTY_PI(BlackholeQuasarTime, QuasarTime, float, 1, struct bh_particle_data)
 
 /*This is only used if FoF is enabled*/
 SIMPLE_GETTER(GTGroupID, GrNr, uint32_t, 1, struct particle_data)
@@ -849,12 +848,14 @@ static void STInternalEnergy(int i, float * out, void * baseptr, void * smanptr)
 }
 
 /* Can't use the macros because cannot take address of a bitfield*/
-static void GTHeIIIIonized(int i, unsigned char * out) {
-    *out = P[i].Ionized;
+static void GTHeIIIIonized(int i, unsigned char * out, void * baseptr, void * smanptr) {
+    struct particle_data * part = (struct particle_data *) baseptr;
+    *out = part[i].Ionized;
 }
 
-static void STHeIIIIonized(int i, unsigned char * out) {
-    P[i].Ionized = *out;
+static void STHeIIIIonized(int i, unsigned char * out, void * baseptr, void * smanptr) {
+    struct particle_data * part = (struct particle_data *) baseptr;
+    part[i].Ionized = *out;
 }
 
 static int order_by_type(const void *a, const void *b)
@@ -929,7 +930,6 @@ void register_io_blocks(struct IOTable * IOTable) {
     IO_REG(BlackholeProgenitors,   "i4", 1, 5, IOTable);
     IO_REG(BlackholeMinPotPos, "f8", 3, 5, IOTable);
     IO_REG(BlackholeJumpToMinPot,   "i4", 1, 5, IOTable);
-    IO_REG_NONFATAL(BlackholeQuasarTime,     "f4", 1, 5, IOTable);
 
     /* Smoothing lengths for black hole: this is a new addition*/
     IO_REG_NONFATAL(SmoothingLength,  "f4", 1, 5, IOTable);

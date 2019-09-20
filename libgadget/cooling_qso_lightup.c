@@ -274,7 +274,7 @@ static double gaussian_rng(double mu, double sigma, const int64_t seed)
 /* Build a list of black hole particles which are candidates for becoming a quasar.
  * This excludes black hole particles which have already been quasars and which have the wrong mass.*/
 static int
-build_qso_candidate_list(int ** qso_cand, int * nqso)
+build_qso_candidate_list(int ** qso_cand)
 {
     /*Loop over all black holes, building the candidate list.*/
     int i, ncand=0;
@@ -285,9 +285,6 @@ build_qso_candidate_list(int ** qso_cand, int * nqso)
         /* Only want black holes*/
         if(P[i].Type != 5 )
             continue;
-        /* Count how many particles which are already quasars we have*/
-        if(BHP(i).QuasarTime > 0)
-            (*nqso)++;
         /* Check that it has the right mass*/
         if(BHP(i).Mass < QSOLightupParams.qso_candidate_min_mass)
             continue;
@@ -309,7 +306,7 @@ build_qso_candidate_list(int ** qso_cand, int * nqso)
  * This is done carefully so that we get the same sequence of quasars irrespective of how many processors we are using.
  */
 static int
-choose_QSO_halo(int ncand, int nqsos, int64_t * ncand_tot, MPI_Comm Comm)
+choose_QSO_halo(int ncand, int64_t * ncand_tot, MPI_Comm Comm)
 {
     int64_t ncand_total = 0, ncand_before = 0;
     int NTask, i, ThisTask;
@@ -328,7 +325,7 @@ choose_QSO_halo(int ncand, int nqsos, int64_t * ncand_tot, MPI_Comm Comm)
     }
 
     ta_free(candcounts);
-    double drand = get_random_number(nqsos);
+    double drand = get_random_number(ncand_tot);
     int qso = (drand * ncand_total);
     *ncand_tot = ncand_total;
     /* No quasar on this processor*/
@@ -497,9 +494,9 @@ ionize_all_part(int qso_ind, int * qso_cand, ForceTree * tree)
 static void
 turn_on_quasars(double redshift, ForceTree * tree)
 {
-    int nqso=0;
+    int ncand;
     int * qso_cand;
-    int ncand = build_qso_candidate_list(&qso_cand, &nqso);
+    ncand = build_qso_candidate_list(&qso_cand);
     walltime_measure("/HeIII/Find");
     int64_t n_gas_tot=0, tot_n_ionized=0, ncand_tot=0;
     sumup_large_ints(1, &SlotsManager->info[0].size, &n_gas_tot);
@@ -528,7 +525,7 @@ turn_on_quasars(double redshift, ForceTree * tree)
     double curionfrac = initionfrac;
     while (curionfrac < desired_ion_frac){
         /* Get a new quasar*/
-        int new_qso = choose_QSO_halo(ncand, nqso, &ncand_tot, MPI_COMM_WORLD);
+        int new_qso = choose_QSO_halo(ncand, &ncand_tot, MPI_COMM_WORLD);
         if(new_qso >= ncand)
             endrun(12, "HeII: QSO %d > no. candidates %d! Cannot happen\n", new_qso, ncand);
         /* Make sure someone has a quasar*/

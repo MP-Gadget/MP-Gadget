@@ -36,7 +36,6 @@ struct bh_particle_data {
     MyFloat FormationTime;  /*!< formation time of black hole. */
 
     int JumpToMinPot;
-    MyFloat QuasarTime;         /* Time when this black hole last underwent a quasar phase. < 0 if black hole has never been a quasar. */
     double  MinPotPos[3];
 
     MyIDType SwallowID; /* Allows marking of a merging particle. Used only in blackhole.c.
