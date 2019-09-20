@@ -84,11 +84,7 @@ petapm_module_init(int Nthreads)
 {
     pfft_init();
 
-#ifdef _OPENMP
     pfft_plan_with_nthreads(Nthreads);
-#else
-    #warning without OpenMP the FFTs will be single threaded!
-#endif
 
     /* initialize the MPI Datatype of pencil */
     MPI_Type_contiguous(sizeof(struct Pencil), MPI_BYTE, &MPI_PENCIL);

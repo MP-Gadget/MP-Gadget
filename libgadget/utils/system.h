@@ -10,11 +10,9 @@
 #define MPI_INT64 MPI_LONG
 
 /* check the version of OPENMP */
-#if defined(_OPENMP)
 #if _OPENMP < 201107
 #error MP-Gadget requires OpenMP >= 3.1 if openmp is enabled. \
        Try to compile without openmp or use a newer compiler (gcc >= 4.7) .
-#endif
 #endif
 
 #ifdef DEBUG
