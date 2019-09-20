@@ -824,13 +824,16 @@ SIMPLE_PROPERTY_PI(BlackholeJumpToMinPot, JumpToMinPot, int, 1, struct bh_partic
 SIMPLE_GETTER(GTGroupID, GrNr, uint32_t, 1, struct particle_data)
 static void GTNeutralHydrogenFraction(int i, float * out, void * baseptr, void * slotptr) {
     double redshift = 1./All.Time - 1;
-    *out = get_neutral_fraction_sfreff(i, redshift);
+    struct particle_data * pl = ((struct particle_data *) baseptr)+i;
+    int PI = pl->PI;
+    struct slot_info * info = &(((struct slots_manager_type *) slotptr)->info[0]);
+    struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
+    *out = get_neutral_fraction_sfreff(redshift, pl, sl+PI);
 }
 
 static void GTInternalEnergy(int i, float * out, void * baseptr, void * slotptr) {
     int PI = ((struct particle_data *) baseptr)[i].PI;
-    int ptype = ((struct particle_data *) baseptr)[i].Type;
-    struct slot_info * info = &(((struct slots_manager_type *) slotptr)->info[ptype]);
+    struct slot_info * info = &(((struct slots_manager_type *) slotptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
     *out = sl[PI].Entropy / GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1);
 }
@@ -838,8 +841,7 @@ static void GTInternalEnergy(int i, float * out, void * baseptr, void * slotptr)
 static void STInternalEnergy(int i, float * out, void * baseptr, void * slotptr) {
     float u = *out;
     int PI = ((struct particle_data *) baseptr)[i].PI;
-    int ptype = ((struct particle_data *) baseptr)[i].Type;
-    struct slot_info * info = &(((struct slots_manager_type *) slotptr)->info[ptype]);
+    struct slot_info * info = &(((struct slots_manager_type *) slotptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
     sl[PI].Entropy  = GAMMA_MINUS1 * u / pow(SPH_EOMDensity(i) * All.cf.a3inv , GAMMA_MINUS1);
 }
