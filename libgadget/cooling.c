@@ -61,7 +61,7 @@ get_lambdanet(double rho, double u, double redshift, double Z, struct UVBG * uvb
     if(!isionized) {
         /* get_long_mean_free_path_heating returns the heating in units of erg/s/cm^3,
          * the factor of rho converts to erg/s/proton and then PROTONMASS to erg/s/g */
-        LambdaNet += get_long_mean_free_path_heating(redshift)  / rho  * PROTONMASS;
+        LambdaNet += get_long_mean_free_path_heating(redshift)  / (rho  * PROTONMASS);
     }
     return LambdaNet;
 }
