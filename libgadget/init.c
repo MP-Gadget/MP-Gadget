@@ -85,6 +85,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
 
     All.SnapshotFileCount = RestartSnapNum + 1;
     All.InitSnapshotCount = RestartSnapNum + 1;
+    All.CurrentParticleOffset[0] = All.CurrentParticleOffset[1] = All.CurrentParticleOffset[2] = 0;
 
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)	/* initialize sph_properties */

@@ -14,24 +14,33 @@
 
 #define MAXHSML 30000.0
 
-
-static void real_drift_particle(int i, inttime_t ti1, const double ddrift);
+static void
+real_drift_particle(int i, inttime_t ti1, const double ddrift, const double random_shift[3]);
 
 /* Updates a single particle to the current drift time*/
 void drift_particle(int i, inttime_t ti1, struct SpinLocks * spin) {
     if(P[i].Ti_drift == ti1) return;
 
+    double random_shift[3] = {0};
     lock_spinlock(i, spin);
     inttime_t ti0 = P[i].Ti_drift;
     if(ti0 != ti1) {
         const double ddrift = get_drift_factor(ti0, ti1);
-        real_drift_particle(i, ti1, ddrift);
+        real_drift_particle(i, ti1, ddrift, random_shift);
 #pragma omp flush
     }
     unlock_spinlock(i, spin);
 }
 
-static void real_drift_particle(int i, inttime_t ti1, const double ddrift)
+/* Drifts an individual particle to time ti1, by a drift factor ddrift.
+ * The final argument is a random shift vector applied uniformly to all particles before periodic wrapping.
+ * The box is periodic, so this does not affect real physics, but it avoids correlated errors
+ * in the tree expansion. The shift is relative to the current position. On most timesteps this is zero,
+ * signifying no change in the coordinate frame. On PM steps a random offset is generated, and the routine
+ * receives a shift vector removing the previous random shift and adding a new one.
+ * This function also updates the velocity and updates the density according to an adiabatic factor.
+ */
+static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const double random_shift[3])
 {
     int j;
     if(P[i].IsGarbage) {
@@ -73,7 +82,7 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift)
     }
 
     for(j = 0; j < 3; j++) {
-        P[i].Pos[j] += P[i].Vel[j] * ddrift;
+        P[i].Pos[j] += P[i].Vel[j] * ddrift + random_shift[j];
     }
 
 #ifdef LIGHTCONE
@@ -116,7 +125,8 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift)
     P[i].Ti_drift = ti1;
 }
 
-void drift_all_particles(inttime_t ti1)
+/* Update all particles to the current time, shifting them by a random vector.*/
+void drift_all_particles(inttime_t ti1, const double random_shift[3])
 {
     int i;
     walltime_measure("/Misc");
@@ -130,7 +140,7 @@ void drift_all_particles(inttime_t ti1)
         if(P[i].Ti_drift != ti0)
             endrun(10, "Drift time mismatch: (ids = %ld %ld) %d != %d\n",P[0].ID, P[i].ID, ti0,  P[i].Ti_drift);
 #endif
-        real_drift_particle(i, ti1, ddrift);
+        real_drift_particle(i, ti1, ddrift, random_shift);
     }
 
     walltime_measure("/Drift/All");
