@@ -35,7 +35,9 @@ void drift_particle(int i, inttime_t ti1, struct SpinLocks * spin) {
 /* Drifts an individual particle to time ti1, by a drift factor ddrift.
  * The final argument is a random shift vector applied uniformly to all particles before periodic wrapping.
  * The box is periodic, so this does not affect real physics, but it avoids correlated errors
- * in the tree expansion.
+ * in the tree expansion. The shift is relative to the current position. On most timesteps this is zero,
+ * signifying no change in the coordinate frame. On PM steps a random offset is generated, and the routine
+ * receives a shift vector removing the previous random shift and adding a new one.
  * This function also updates the velocity and updates the density according to an adiabatic factor.
  */
 static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const double random_shift[3])

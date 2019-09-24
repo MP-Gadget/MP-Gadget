@@ -41,6 +41,10 @@ void init(int snapnum, DomainDecomp * ddecomp); /* init.c only used here */
 static void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp);
 static void write_cpu_log(int NumCurrentTiStep);
 
+/* Updates the global storing the current random offset of the particles,
+ * and stores the relative offset from the last random offset in rel_random_shift*/
+static void update_random_offset(double * rel_random_shift);
+
 /*! \file begrun.c
  *  \brief initial set-up of a simulation run
  *
@@ -168,35 +172,12 @@ void run(DomainDecomp * ddecomp)
             }
         }
 
-        double new_random_shift[3] = {0};
+        double rel_random_shift[3] = {0};
         if(NumCurrentTiStep > 0 && is_PM  && All.RandomParticleOffset > 0) {
-            int i;
-            for (i = 0; i < 3; i++) {
-                /* Note random number table is duplicated across processors*/
-
-                double rr = get_random_number(i);
-                /* Upstream Gadget uses a random fraction of the box, but since all we need
-                 * is to adjust the tree openings, and the tree force is zero anyway on the
-                 * scale of a few PM grid cells, this seems enough.*/
-                rr *= All.RandomParticleOffset * All.BoxSize / All.Nmesh;
-                /* Subtract the old random shift first.*/
-                new_random_shift[i] = rr - All.CurrentParticleOffset[i];
-                All.CurrentParticleOffset[i] = rr;
-            }
-            message(0, "Internal particle offset is now %g %g %g\n", All.CurrentParticleOffset[0], All.CurrentParticleOffset[1], All.CurrentParticleOffset[2]);
-#ifdef DEBUG
-            /* Check explicitly that the vector is the same on all processors*/
-            double test_random_shift[3] = {0};
-            for (i = 0; i < 3; i++)
-                test_random_shift[i] = All.CurrentParticleOffset[i];
-            MPI_Bcast(test_random_shift, 3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-            for (i = 0; i < 3; i++)
-                if(test_random_shift[i] != All.CurrentParticleOffset[i])
-                    endrun(44, "Random shift %d is %g != %g on task 0!\n", i, test_random_shift[i], All.CurrentParticleOffset[i]);
-#endif
+            update_random_offset(rel_random_shift);
         }
         /* Sync positions of all particles */
-        drift_all_particles(All.Ti_Current, new_random_shift);
+        drift_all_particles(All.Ti_Current, rel_random_shift);
 
         /* drift and ddecomp decomposition */
 
@@ -434,6 +415,39 @@ void write_cpu_log(int NumCurrentTiStep)
     if(ThisTask == 0) {
         fflush(FdCPU);
     }
+}
+
+/* We operate in a situation where the particles are in a coordinate frame
+ * offset slightly from the ICs (to avoid correlated tree errors).
+ * This function updates the global variable containing that offset, and
+ * stores the relative shift from the last offset in the rel_random_shift output
+ * array. */
+static void
+update_random_offset(double * rel_random_shift)
+{
+            int i;
+            for (i = 0; i < 3; i++) {
+                /* Note random number table is duplicated across processors*/
+                double rr = get_random_number(i);
+                /* Upstream Gadget uses a random fraction of the box, but since all we need
+                 * is to adjust the tree openings, and the tree force is zero anyway on the
+                 * scale of a few PM grid cells, this seems enough.*/
+                rr *= All.RandomParticleOffset * All.BoxSize / All.Nmesh;
+                /* Subtract the old random shift first.*/
+                rel_random_shift[i] = rr - All.CurrentParticleOffset[i];
+                All.CurrentParticleOffset[i] = rr;
+            }
+            message(0, "Internal particle offset is now %g %g %g\n", All.CurrentParticleOffset[0], All.CurrentParticleOffset[1], All.CurrentParticleOffset[2]);
+#ifdef DEBUG
+            /* Check explicitly that the vector is the same on all processors*/
+            double test_random_shift[3] = {0};
+            for (i = 0; i < 3; i++)
+                test_random_shift[i] = All.CurrentParticleOffset[i];
+            MPI_Bcast(test_random_shift, 3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+            for (i = 0; i < 3; i++)
+                if(test_random_shift[i] != All.CurrentParticleOffset[i])
+                    endrun(44, "Random shift %d is %g != %g on task 0!\n", i, test_random_shift[i], All.CurrentParticleOffset[i]);
+#endif
 }
 
 /*!  This function opens various log-files that report on the status and
