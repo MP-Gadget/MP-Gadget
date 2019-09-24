@@ -425,28 +425,28 @@ void write_cpu_log(int NumCurrentTiStep)
 static void
 update_random_offset(double * rel_random_shift)
 {
-            int i;
-            for (i = 0; i < 3; i++) {
-                /* Note random number table is duplicated across processors*/
-                double rr = get_random_number(i);
-                /* Upstream Gadget uses a random fraction of the box, but since all we need
-                 * is to adjust the tree openings, and the tree force is zero anyway on the
-                 * scale of a few PM grid cells, this seems enough.*/
-                rr *= All.RandomParticleOffset * All.BoxSize / All.Nmesh;
-                /* Subtract the old random shift first.*/
-                rel_random_shift[i] = rr - All.CurrentParticleOffset[i];
-                All.CurrentParticleOffset[i] = rr;
-            }
-            message(0, "Internal particle offset is now %g %g %g\n", All.CurrentParticleOffset[0], All.CurrentParticleOffset[1], All.CurrentParticleOffset[2]);
+    int i;
+    for (i = 0; i < 3; i++) {
+        /* Note random number table is duplicated across processors*/
+        double rr = get_random_number(i);
+        /* Upstream Gadget uses a random fraction of the box, but since all we need
+            * is to adjust the tree openings, and the tree force is zero anyway on the
+            * scale of a few PM grid cells, this seems enough.*/
+        rr *= All.RandomParticleOffset * All.BoxSize / All.Nmesh;
+        /* Subtract the old random shift first.*/
+        rel_random_shift[i] = rr - All.CurrentParticleOffset[i];
+        All.CurrentParticleOffset[i] = rr;
+    }
+    message(0, "Internal particle offset is now %g %g %g\n", All.CurrentParticleOffset[0], All.CurrentParticleOffset[1], All.CurrentParticleOffset[2]);
 #ifdef DEBUG
-            /* Check explicitly that the vector is the same on all processors*/
-            double test_random_shift[3] = {0};
-            for (i = 0; i < 3; i++)
-                test_random_shift[i] = All.CurrentParticleOffset[i];
-            MPI_Bcast(test_random_shift, 3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-            for (i = 0; i < 3; i++)
-                if(test_random_shift[i] != All.CurrentParticleOffset[i])
-                    endrun(44, "Random shift %d is %g != %g on task 0!\n", i, test_random_shift[i], All.CurrentParticleOffset[i]);
+    /* Check explicitly that the vector is the same on all processors*/
+    double test_random_shift[3] = {0};
+    for (i = 0; i < 3; i++)
+        test_random_shift[i] = All.CurrentParticleOffset[i];
+    MPI_Bcast(test_random_shift, 3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    for (i = 0; i < 3; i++)
+        if(test_random_shift[i] != All.CurrentParticleOffset[i])
+            endrun(44, "Random shift %d is %g != %g on task 0!\n", i, test_random_shift[i], All.CurrentParticleOffset[i]);
 #endif
 }
 
