@@ -177,7 +177,7 @@ find_timesteps(inttime_t Ti_Current)
             endrun(1, "Inttimes out of sync: Particle %d (bin = %d, ID=%ld) Kick=%x != Drift=%x\n", i, P[i].TimeBin, P[i].ID, P[i].Ti_kick, P[i].Ti_drift);
         }
 
-        int dti;
+        inttime_t dti;
         if(All.ForceEqualTimesteps) {
             dti = dti_min;
         } else {
@@ -426,7 +426,7 @@ get_timestep_dloga(const int p)
 static inttime_t
 get_timestep_ti(const int p, const inttime_t dti_max)
 {
-    int dti;
+    inttime_t dti;
     /*Give a useful message if we are broken*/
     if(dti_max == 0)
         return 0;
@@ -448,7 +448,7 @@ get_timestep_ti(const int p, const inttime_t dti_max)
     /*
     sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / ac) * All.cf.hubble,
     */
-    if(dti <= 1 || (unsigned int) dti > TIMEBASE)
+    if(dti <= 1 || dti > (inttime_t) TIMEBASE)
     {
         message(1, "Bad timestep (%x) assigned! ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g)\n",
                 dti, P[p].ID, P[p].Type, dloga, dti_max,
@@ -563,7 +563,7 @@ get_PM_timestep_ti(inttime_t Ti_Current)
 {
     double dloga = get_long_range_timestep_dloga();
 
-    int dti = dti_from_dloga(dloga);
+    inttime_t dti = dti_from_dloga(dloga);
     dti = round_down_power_of_two(dti);
 
     SyncPoint * next = find_next_sync_point(Ti_Current);
@@ -582,13 +582,11 @@ int get_timestep_bin(inttime_t dti)
 {
    int bin = -1;
 
-   if(dti == 0)
+   if(dti <= 0)
        return 0;
 
    if(dti == 1)
-   {
        return -1;
-   }
 
    while(dti)
    {
