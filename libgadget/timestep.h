@@ -31,7 +31,6 @@ void apply_half_kick(void);
 void apply_PM_half_kick(void);
 
 int is_timebin_active(int i, inttime_t current);
-void set_timebin_active(binmask_t mask);
 
 inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin);
 
