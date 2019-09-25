@@ -267,7 +267,7 @@ find_timesteps(const ActiveParticles * act, inttime_t Ti_Current)
      * between PM timesteps, thus skipping the PM step entirely.*/
     if(isPM && PM.length > dti_from_timebin(maxTimeBin))
         PM.length = dti_from_timebin(maxTimeBin);
-    message(0, "PM timebin: %x dloga = %g  Max = (%g)\n", PM.length, dloga_from_dti(PM.length), TimestepParams.MaxSizeTimestep);
+    message(0, "PM timebin: %lx dloga = %g  Max = (%g)\n", PM.length, dloga_from_dti(PM.length), TimestepParams.MaxSizeTimestep);
 
     /* BH particles have their timesteps set by a timestep limiter.
      * On the first timestep this is not effective because all the particles have zero timestep.
@@ -802,7 +802,7 @@ static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountTyp
         strcat(extra, "PM-Step");
 
     z = 1.0 / (All.Time) - 1;
-    message(0, "Begin Step %d, Time: %g (%x), Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
+    message(0, "Begin Step %d, Time: %g (%lx), Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
                 NumCurrentTiStep, All.Time, All.Ti_Current, z, tot_num_force,
                 All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep),
                 extra);
