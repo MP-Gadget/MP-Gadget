@@ -93,6 +93,8 @@ petaio_build_selection(int * selection,
     ptype_count[0] = 0;
 
     for(i = 0; i < NumPart; i ++) {
+        if(P[i].IsGarbage)
+            continue;
         if((select_func == NULL) || (select_func(i) != 0)) {
             int ptype = P[i].Type;
             ptype_count[ptype] ++;
@@ -106,6 +108,8 @@ petaio_build_selection(int * selection,
     ptype_count[5] = 0;
     for(i = 0; i < NumPart; i ++) {
         int ptype = P[i].Type;
+        if(P[i].IsGarbage)
+            continue;
         if((select_func == NULL) || (select_func(i) != 0)) {
             selection[ptype_offset[ptype] + ptype_count[ptype]] = i;
             ptype_count[ptype]++;
