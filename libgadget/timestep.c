@@ -159,8 +159,7 @@ find_timesteps(inttime_t Ti_Current)
             if(dti < dti_min)
                 dti_min = dti;
         }
-        /* FIXME : this assumes inttime_t is int*/
-        MPI_Allreduce(MPI_IN_PLACE, &dti_min, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+        MPI_Allreduce(MPI_IN_PLACE, &dti_min, sizeof(inttime_t), MPI_BYTE, MPI_MIN, MPI_COMM_WORLD);
     }
 
     int badstepsizecount = 0;
