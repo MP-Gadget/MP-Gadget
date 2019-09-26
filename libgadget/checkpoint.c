@@ -55,6 +55,7 @@ dump_snapshot()
 {
     struct IOTable IOTable = {0};
     register_io_blocks(&IOTable);
+    register_debug_io_blocks(&IOTable);
     petaio_save_snapshot(&IOTable, "%s/CRASH-DUMP", All.OutputDir);
     free_io_blocks(&IOTable);
 }

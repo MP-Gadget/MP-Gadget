@@ -860,6 +860,41 @@ void register_io_blocks(struct IOTable * IOTable) {
     qsort_openmp(IOTable->ent, IOTable->used, sizeof(struct IOTableEntry), order_by_type);
 }
 
+/* Add extra debug blocks to the output*/
+/* Write (but don't read) them, only useful for debugging the particle structures.
+ * Warning: future code versions may change the units!*/
+SIMPLE_GETTER(GTGravAccel, P[i].GravAccel[0], float, 3)
+SIMPLE_GETTER(GTGravPM, P[i].GravPM[0], float, 3)
+SIMPLE_GETTER(GTTimeBin, P[i].TimeBin, int, 1)
+SIMPLE_GETTER(GTGravCost, P[i].GravCost, int, 1)
+SIMPLE_GETTER(GTHydroAccel, SPHP(i).HydroAccel[0], float, 3)
+SIMPLE_GETTER(GTMaxSignalVel, SPHP(i).MaxSignalVel, float, 1)
+SIMPLE_GETTER(GTEntropy, SPHP(i).Entropy, float, 1)
+SIMPLE_GETTER(GTDtEntropy, SPHP(i).DtEntropy, float, 1)
+SIMPLE_GETTER(GTDhsmlEgyDensityFactor, SPHP(i).DhsmlEgyDensityFactor, float, 1)
+SIMPLE_GETTER(GTDivVel, SPHP(i).DivVel, float, 1)
+SIMPLE_GETTER(GTCurlVel, SPHP(i).CurlVel, float, 1)
+
+void register_debug_io_blocks(struct IOTable * IOTable)
+{
+    int ptype;
+    for(ptype = 0; ptype < 6; ptype++) {
+        IO_REG_WRONLY(GravAccel,       "f4", 3, ptype);
+        IO_REG_WRONLY(GravPM,       "f4", 3, ptype);
+        IO_REG_WRONLY(TimeBin,       "u4", 1, ptype);
+        IO_REG_WRONLY(GravCost,       "f4", 1, ptype);
+    }
+    IO_REG_WRONLY(HydroAccel,       "f4", 3, 0);
+    IO_REG_WRONLY(MaxSignalVel,       "f4", 1, 0);
+    IO_REG_WRONLY(Entropy,       "f4", 1, 0);
+    IO_REG_WRONLY(DtEntropy,       "f4", 1, 0);
+    IO_REG_WRONLY(DhsmlEgyDensityFactor,       "f4", 1, 0);
+    IO_REG_WRONLY(DivVel,       "f4", 1, 0);
+    IO_REG_WRONLY(CurlVel,       "f4", 1, 0);
+    /*Sort IO blocks so similar types are together; then ordered by the sequence they are declared. */
+    qsort_openmp(IOTable->ent, IOTable->used, sizeof(struct IOTableEntry), order_by_type);
+}
+
 void free_io_blocks(struct IOTable * IOTable) {
     myfree(IOTable->ent);
     IOTable->allocated = 0;
