@@ -66,6 +66,8 @@ write_snapshot(int num)
     walltime_measure("/Misc");
     struct IOTable IOTable = {0};
     register_io_blocks(&IOTable);
+    if(All.OutputDebugFields)
+        register_debug_io_blocks(&IOTable);
     petaio_save_snapshot(&IOTable, "%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
 
     free_io_blocks(&IOTable);
