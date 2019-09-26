@@ -754,6 +754,7 @@ SIMPLE_PROPERTY(SmoothingLength, P[i].Hsml, float, 1)
 SIMPLE_PROPERTY(Density, SPHP(i).Density, float, 1)
 SIMPLE_PROPERTY(EgyWtDensity, SPHP(i).EgyWtDensity, float, 1)
 SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
+SIMPLE_PROPERTY(DelayTime, SPHP(i).DelayTime, float, 1)
 SIMPLE_PROPERTY_TYPE(StarFormationTime, 4, STARP(i).FormationTime, float, 1)
 SIMPLE_PROPERTY(BirthDensity, STARP(i).BirthDensity, float, 1)
 SIMPLE_PROPERTY_TYPE(Metallicity, 4, STARP(i).Metallicity, float, 1)
@@ -843,6 +844,8 @@ void register_io_blocks(struct IOTable * IOTable) {
     IO_REG_TYPE(StarFormationTime, "f4", 1, 4);
     IO_REG_TYPE(Metallicity,       "f4", 1, 0);
     IO_REG_TYPE(Metallicity,       "f4", 1, 4);
+    /* Another new addition: save the DelayTime for wind particles*/
+    IO_REG_NONFATAL(DelayTime,  "f4", 1, 0);
     /* end SF */
 
     /* Black hole */
