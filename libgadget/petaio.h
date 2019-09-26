@@ -66,13 +66,13 @@ petaio_build_selection(int * selection,
  * IO_REG_TYPE declares an io block which has a type-specific property setter.
  * IO_REG_WRONLY declares an io block which is written, but is not read on snapshot load.
  * */
-#define IO_REG(name, dtype, items, ptype) \
+#define IO_REG(name, dtype, items, ptype, IOTable) \
     io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , (property_setter) ST ## name, 1, IOTable)
-#define IO_REG_TYPE(name, dtype, items, ptype) \
+#define IO_REG_TYPE(name, dtype, items, ptype, IOTable) \
     io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## ptype ## name , (property_setter) ST ## ptype ## name, 0, IOTable)
-#define IO_REG_WRONLY(name, dtype, items, ptype) \
+#define IO_REG_WRONLY(name, dtype, items, ptype, IOTable) \
     io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , NULL, 1, IOTable)
-#define IO_REG_NONFATAL(name, dtype, items, ptype) \
+#define IO_REG_NONFATAL(name, dtype, items, ptype, IOTable) \
     io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , (property_setter) ST ## name, 0, IOTable)
 void io_register_io_block(char * name,
         char * dtype,

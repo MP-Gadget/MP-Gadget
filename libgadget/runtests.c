@@ -27,8 +27,8 @@ void register_extra_blocks(struct IOTable * IOTable)
 {
     int ptype;
     for(ptype = 0; ptype < 6; ptype++) {
-        IO_REG(GravAccel,       "f4", 3, ptype);
-        IO_REG(GravPM,       "f4", 3, ptype);
+        IO_REG(GravAccel,       "f4", 3, ptype, IOTable);
+        IO_REG(GravPM,       "f4", 3, ptype, IOTable);
     }
 }
 

@@ -809,55 +809,55 @@ void register_io_blocks(struct IOTable * IOTable) {
     IOTable->ent = mymalloc("IOTable", IOTable->allocated* sizeof(IOTableEntry));
     /* Bare Bone Gravity*/
     for(i = 0; i < 6; i ++) {
-        IO_REG(Position, "f8", 3, i);
-        IO_REG(Velocity, "f4", 3, i);
-        IO_REG(Mass,     "f4", 1, i);
-        IO_REG(ID,       "u8", 1, i);
+        IO_REG(Position, "f8", 3, i, IOTable);
+        IO_REG(Velocity, "f4", 3, i, IOTable);
+        IO_REG(Mass,     "f4", 1, i, IOTable);
+        IO_REG(ID,       "u8", 1, i, IOTable);
         if(All.OutputPotential)
-            IO_REG_WRONLY(Potential, "f4", 1, i);
+            IO_REG_WRONLY(Potential, "f4", 1, i, IOTable);
         if(All.SnapshotWithFOF)
-            IO_REG_WRONLY(GroupID, "u4", 1, i);
+            IO_REG_WRONLY(GroupID, "u4", 1, i, IOTable);
     }
 
-    IO_REG(Generation,       "u1", 1, 0);
-    IO_REG(Generation,       "u1", 1, 4);
-    IO_REG(Generation,       "u1", 1, 5);
+    IO_REG(Generation,       "u1", 1, 0, IOTable);
+    IO_REG(Generation,       "u1", 1, 4, IOTable);
+    IO_REG(Generation,       "u1", 1, 5, IOTable);
     /* Bare Bone SPH*/
-    IO_REG(SmoothingLength,  "f4", 1, 0);
-    IO_REG(Density,          "f4", 1, 0);
+    IO_REG(SmoothingLength,  "f4", 1, 0, IOTable);
+    IO_REG(Density,          "f4", 1, 0, IOTable);
 
     if(All.DensityIndependentSphOn)
-        IO_REG(EgyWtDensity,          "f4", 1, 0);
+        IO_REG(EgyWtDensity,          "f4", 1, 0, IOTable);
 
     /* On reload this sets the Entropy variable, need the densities.
      * Register this after Density and EgyWtDensity will ensure density is read
      * before this. */
-    IO_REG(InternalEnergy,   "f4", 1, 0);
+    IO_REG(InternalEnergy,   "f4", 1, 0, IOTable);
 
     /* Cooling */
-    IO_REG(ElectronAbundance,       "f4", 1, 0);
-    IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0);
+    IO_REG(ElectronAbundance,       "f4", 1, 0, IOTable);
+    IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0, IOTable);
 
     /* SF */
-    IO_REG_WRONLY(StarFormationRate, "f4", 1, 0);
-    IO_REG_NONFATAL(BirthDensity, "f4", 1, 4);
-    IO_REG_TYPE(StarFormationTime, "f4", 1, 4);
-    IO_REG_TYPE(Metallicity,       "f4", 1, 0);
-    IO_REG_TYPE(Metallicity,       "f4", 1, 4);
+    IO_REG_WRONLY(StarFormationRate, "f4", 1, 0, IOTable);
+    IO_REG_NONFATAL(BirthDensity, "f4", 1, 4, IOTable);
+    IO_REG_TYPE(StarFormationTime, "f4", 1, 4, IOTable);
+    IO_REG_TYPE(Metallicity,       "f4", 1, 0, IOTable);
+    IO_REG_TYPE(Metallicity,       "f4", 1, 4, IOTable);
     /* Another new addition: save the DelayTime for wind particles*/
-    IO_REG_NONFATAL(DelayTime,  "f4", 1, 0);
+    IO_REG_NONFATAL(DelayTime,  "f4", 1, 0, IOTable);
     /* end SF */
 
     /* Black hole */
-    IO_REG_TYPE(StarFormationTime, "f4", 1, 5);
-    IO_REG(BlackholeMass,          "f4", 1, 5);
-    IO_REG(BlackholeAccretionRate, "f4", 1, 5);
-    IO_REG(BlackholeProgenitors,   "i4", 1, 5);
-    IO_REG(BlackholeMinPotPos, "f8", 3, 5);
-    IO_REG(BlackholeJumpToMinPot,   "i4", 1, 5);
+    IO_REG_TYPE(StarFormationTime, "f4", 1, 5, IOTable);
+    IO_REG(BlackholeMass,          "f4", 1, 5, IOTable);
+    IO_REG(BlackholeAccretionRate, "f4", 1, 5, IOTable);
+    IO_REG(BlackholeProgenitors,   "i4", 1, 5, IOTable);
+    IO_REG(BlackholeMinPotPos, "f8", 3, 5, IOTable);
+    IO_REG(BlackholeJumpToMinPot,   "i4", 1, 5, IOTable);
 
     /* Smoothing lengths for black hole: this is a new addition*/
-    IO_REG_NONFATAL(SmoothingLength,  "f4", 1, 5);
+    IO_REG_NONFATAL(SmoothingLength,  "f4", 1, 5, IOTable);
 
     /*Sort IO blocks so similar types are together; then ordered by the sequence they are declared. */
     qsort_openmp(IOTable->ent, IOTable->used, sizeof(struct IOTableEntry), order_by_type);
@@ -882,18 +882,18 @@ void register_debug_io_blocks(struct IOTable * IOTable)
 {
     int ptype;
     for(ptype = 0; ptype < 6; ptype++) {
-        IO_REG_WRONLY(GravAccel,       "f4", 3, ptype);
-        IO_REG_WRONLY(GravPM,       "f4", 3, ptype);
-        IO_REG_WRONLY(TimeBin,       "u4", 1, ptype);
-        IO_REG_WRONLY(GravCost,       "f4", 1, ptype);
+        IO_REG_WRONLY(GravAccel,       "f4", 3, ptype, IOTable);
+        IO_REG_WRONLY(GravPM,       "f4", 3, ptype, IOTable);
+        IO_REG_WRONLY(TimeBin,       "u4", 1, ptype, IOTable);
+        IO_REG_WRONLY(GravCost,       "f4", 1, ptype, IOTable);
     }
-    IO_REG_WRONLY(HydroAccel,       "f4", 3, 0);
-    IO_REG_WRONLY(MaxSignalVel,       "f4", 1, 0);
-    IO_REG_WRONLY(Entropy,       "f4", 1, 0);
-    IO_REG_WRONLY(DtEntropy,       "f4", 1, 0);
-    IO_REG_WRONLY(DhsmlEgyDensityFactor,       "f4", 1, 0);
-    IO_REG_WRONLY(DivVel,       "f4", 1, 0);
-    IO_REG_WRONLY(CurlVel,       "f4", 1, 0);
+    IO_REG_WRONLY(HydroAccel,       "f4", 3, 0, IOTable);
+    IO_REG_WRONLY(MaxSignalVel,       "f4", 1, 0, IOTable);
+    IO_REG_WRONLY(Entropy,       "f4", 1, 0, IOTable);
+    IO_REG_WRONLY(DtEntropy,       "f4", 1, 0, IOTable);
+    IO_REG_WRONLY(DhsmlEgyDensityFactor,       "f4", 1, 0, IOTable);
+    IO_REG_WRONLY(DivVel,       "f4", 1, 0, IOTable);
+    IO_REG_WRONLY(CurlVel,       "f4", 1, 0, IOTable);
     /*Sort IO blocks so similar types are together; then ordered by the sequence they are declared. */
     qsort_openmp(IOTable->ent, IOTable->used, sizeof(struct IOTableEntry), order_by_type);
 }

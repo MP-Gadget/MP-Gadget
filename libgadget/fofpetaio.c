@@ -328,20 +328,20 @@ static void fof_register_io_blocks(struct IOTable * IOTable) {
     IOTable->allocated = 100;
     IOTable->ent = mymalloc("IOTable", IOTable->allocated* sizeof(IOTableEntry));
 
-    IO_REG(GroupID, "u4", 1, PTYPE_FOF_GROUP);
-    IO_REG(Mass, "f4", 1, PTYPE_FOF_GROUP);
-    IO_REG(MassCenterPosition, "f8", 3, PTYPE_FOF_GROUP);
-    IO_REG(FirstPos, "f4", 3, PTYPE_FOF_GROUP);
-    IO_REG(MinID, "u8", 1, PTYPE_FOF_GROUP);
-    IO_REG(Imom, "f4", 9, PTYPE_FOF_GROUP);
-    IO_REG(Jmom, "f4", 3, PTYPE_FOF_GROUP);
-    IO_REG_WRONLY(MassCenterVelocity, "f4", 3, PTYPE_FOF_GROUP);
-    IO_REG(LengthByType, "u4", 6, PTYPE_FOF_GROUP);
-    IO_REG(MassByType, "f4", 6, PTYPE_FOF_GROUP);
+    IO_REG(GroupID, "u4", 1, PTYPE_FOF_GROUP, IOTable);
+    IO_REG(Mass, "f4", 1, PTYPE_FOF_GROUP, IOTable);
+    IO_REG(MassCenterPosition, "f8", 3, PTYPE_FOF_GROUP, IOTable);
+    IO_REG(FirstPos, "f4", 3, PTYPE_FOF_GROUP, IOTable);
+    IO_REG(MinID, "u8", 1, PTYPE_FOF_GROUP, IOTable);
+    IO_REG(Imom, "f4", 9, PTYPE_FOF_GROUP, IOTable);
+    IO_REG(Jmom, "f4", 3, PTYPE_FOF_GROUP, IOTable);
+    IO_REG_WRONLY(MassCenterVelocity, "f4", 3, PTYPE_FOF_GROUP, IOTable);
+    IO_REG(LengthByType, "u4", 6, PTYPE_FOF_GROUP, IOTable);
+    IO_REG(MassByType, "f4", 6, PTYPE_FOF_GROUP, IOTable);
     if(All.StarformationOn)
-        IO_REG(StarFormationRate, "f4", 1, PTYPE_FOF_GROUP);
+        IO_REG(StarFormationRate, "f4", 1, PTYPE_FOF_GROUP, IOTable);
     if(All.BlackHoleOn) {
-        IO_REG(BlackholeMass, "f4", 1, PTYPE_FOF_GROUP);
-        IO_REG(BlackholeAccretionRate, "f4", 1, PTYPE_FOF_GROUP);
+        IO_REG(BlackholeMass, "f4", 1, PTYPE_FOF_GROUP, IOTable);
+        IO_REG(BlackholeAccretionRate, "f4", 1, PTYPE_FOF_GROUP, IOTable);
     }
 }
