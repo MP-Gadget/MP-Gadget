@@ -31,8 +31,8 @@ struct IOTable {
 void register_io_blocks(struct IOTable * IOTable);
 /* Write (but don't read) some extra output blocks useful for debugging the particle structure*/
 void register_debug_io_blocks(struct IOTable * IOTable);
-/* Free the IOTable.*/
-void free_io_blocks(struct IOTable * IOTable);
+/* Free the entries in the IOTable.*/
+void destroy_io_blocks(struct IOTable * IOTable);
 
 void petaio_init();
 void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t npartLocal);

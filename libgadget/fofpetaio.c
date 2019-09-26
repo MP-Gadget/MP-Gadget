@@ -78,7 +78,7 @@ void fof_save_particles(int num, int SaveParticles, MPI_Comm Comm)
             petaio_destroy_buffer(&array);
         }
     }
-    free_io_blocks(&FOFIOTable);
+    destroy_io_blocks(&FOFIOTable);
     walltime_measure("/FOF/IO/WriteFOF");
 
     if(SaveParticles) {
@@ -115,7 +115,7 @@ void fof_save_particles(int num, int SaveParticles, MPI_Comm Comm)
 
         fof_return_particles(Comm);
         walltime_measure("/FOF/IO/Return");
-        free_io_blocks(&IOTable);
+        destroy_io_blocks(&IOTable);
     }
 
     big_file_mpi_close(&bf, Comm);

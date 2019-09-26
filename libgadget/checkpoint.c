@@ -57,7 +57,7 @@ dump_snapshot()
     register_io_blocks(&IOTable);
     register_debug_io_blocks(&IOTable);
     petaio_save_snapshot(&IOTable, "%s/CRASH-DUMP", All.OutputDir);
-    free_io_blocks(&IOTable);
+    destroy_io_blocks(&IOTable);
 }
 
 static void
@@ -70,7 +70,7 @@ write_snapshot(int num)
         register_debug_io_blocks(&IOTable);
     petaio_save_snapshot(&IOTable, "%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
 
-    free_io_blocks(&IOTable);
+    destroy_io_blocks(&IOTable);
     walltime_measure("/Snapshot/Write");
 
     if(ThisTask == 0) {

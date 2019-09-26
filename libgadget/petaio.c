@@ -898,7 +898,7 @@ void register_debug_io_blocks(struct IOTable * IOTable)
     qsort_openmp(IOTable->ent, IOTable->used, sizeof(struct IOTableEntry), order_by_type);
 }
 
-void free_io_blocks(struct IOTable * IOTable) {
+void destroy_io_blocks(struct IOTable * IOTable) {
     myfree(IOTable->ent);
     IOTable->allocated = 0;
 }

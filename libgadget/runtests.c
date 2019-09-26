@@ -66,7 +66,7 @@ void runtests(DomainDecomp * ddecomp)
 
     petaio_save_snapshot(&IOTable, "%s/PART-tree-%03d-mpi", All.OutputDir, NTask);
 
-    free_io_blocks(&IOTable);
+    destroy_io_blocks(&IOTable);
 }
 
 void runfof(int RestartSnapNum, DomainDecomp * ddecomp)
