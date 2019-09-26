@@ -19,7 +19,18 @@ typedef struct IOTableEntry {
     property_setter setter;
 } IOTableEntry;
 
+struct IOTable {
+    IOTableEntry * ent;
+    int used;
+    int allocated;
+};
+
 #define PTYPE_FOF_GROUP  1024
+
+/* Populate an IOTable with the default set of blocks to read or write.*/
+void register_io_blocks(struct IOTable * IOTable);
+/* Free the IOTable.*/
+void free_io_blocks(struct IOTable * IOTable);
 
 void petaio_init();
 void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t npartLocal);
@@ -30,8 +41,7 @@ void petaio_destroy_buffer(BigArray * array);
 void petaio_save_block(BigFile * bf, char * blockname, BigArray * array);
 int petaio_read_block(BigFile * bf, char * blockname, BigArray * array, int required);
 
-void petaio_save_snapshot(const char * fmt, ...);
-void petaio_save_restart();
+void petaio_save_snapshot(struct IOTable * IOTable, const char *fmt, ...);
 void petaio_read_snapshot(int num, MPI_Comm Comm);
 void petaio_read_header(int num);
 
@@ -55,20 +65,21 @@ petaio_build_selection(int * selection,
  * IO_REG_WRONLY declares an io block which is written, but is not read on snapshot load.
  * */
 #define IO_REG(name, dtype, items, ptype) \
-    io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , (property_setter) ST ## name, 1)
+    io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , (property_setter) ST ## name, 1, IOTable)
 #define IO_REG_TYPE(name, dtype, items, ptype) \
-    io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## ptype ## name , (property_setter) ST ## ptype ## name, 0)
+    io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## ptype ## name , (property_setter) ST ## ptype ## name, 0, IOTable)
 #define IO_REG_WRONLY(name, dtype, items, ptype) \
-    io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , NULL, 1)
+    io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , NULL, 1, IOTable)
 #define IO_REG_NONFATAL(name, dtype, items, ptype) \
-    io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , (property_setter) ST ## name, 0)
+    io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , (property_setter) ST ## name, 0, IOTable)
 void io_register_io_block(char * name,
         char * dtype,
         int items,
         int ptype,
         property_getter getter,
         property_setter setter,
-        int required
+        int required,
+        struct IOTable * IOTable
         );
 
 
@@ -105,13 +116,5 @@ static void name(int i, type * out) { \
 #define SIMPLE_PROPERTY_TYPE(name, ptype, field, type, items) \
     SIMPLE_GETTER(GT ## ptype ## name , field, type, items) \
     SIMPLE_SETTER(ST ## ptype ## name , field, type, items) \
-/*
- * currently 4096 entries are supported
- * */
-extern struct IOTable {
-    IOTableEntry * ent;
-    int used;
-    int allocated;
-} IOTable;
 
 #endif

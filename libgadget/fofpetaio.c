@@ -16,6 +16,7 @@
 #include "exchange.h"
 #include "fof.h"
 
+static void fof_register_io_blocks(struct IOTable * IOTable);
 static void fof_write_header(BigFile * bf, MPI_Comm Comm);
 static void build_buffer_fof(BigArray * array, IOTableEntry * ent);
 
@@ -45,9 +46,11 @@ fof_petaio_select_func(int i)
 void fof_save_particles(int num, int SaveParticles, MPI_Comm Comm)
 {
     int i;
+    struct IOTable FOFIOTable = {0};
     char * fname = fastpm_strdup_printf("%s/%s_%03d", All.OutputDir, All.FOFFileBase, num);
     message(0, "saving particle in group into %s\n", fname);
 
+    fof_register_io_blocks(&FOFIOTable);
     /* sort the groups according to group-number */
     mpsort_mpi(Group, Ngroups, sizeof(struct Group),
             fof_radix_Group_GrNr, 8, NULL, Comm);
@@ -61,23 +64,26 @@ void fof_save_particles(int num, int SaveParticles, MPI_Comm Comm)
     MPIU_Barrier(Comm);
     fof_write_header(&bf, Comm);
 
-    for(i = 0; i < IOTable.used; i ++) {
+    for(i = 0; i < FOFIOTable.used; i ++) {
         /* only process the particle blocks */
         char blockname[128];
-        int ptype = IOTable.ent[i].ptype;
+        int ptype = FOFIOTable.ent[i].ptype;
         BigArray array = {0};
         if(ptype == PTYPE_FOF_GROUP) {
-            sprintf(blockname, "FOFGroups/%s", IOTable.ent[i].name);
-            build_buffer_fof(&array, &IOTable.ent[i]);
+            sprintf(blockname, "FOFGroups/%s", FOFIOTable.ent[i].name);
+            build_buffer_fof(&array, &FOFIOTable.ent[i]);
             message(0, "Writing Block %s\n", blockname);
 
             petaio_save_block(&bf, blockname, &array);
             petaio_destroy_buffer(&array);
         }
     }
+    free_io_blocks(&FOFIOTable);
     walltime_measure("/FOF/IO/WriteFOF");
 
     if(SaveParticles) {
+        struct IOTable IOTable = {0};
+        register_io_blocks(&IOTable);
         fof_distribute_particles(Comm);
         walltime_measure("/FOF/IO/Distribute");
 
@@ -98,21 +104,18 @@ void fof_save_particles(int num, int SaveParticles, MPI_Comm Comm)
             char blockname[128];
             int ptype = IOTable.ent[i].ptype;
             BigArray array = {0};
-            if(ptype < 6 && ptype >= 0) {
-                sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
-                petaio_build_buffer(&array, &IOTable.ent[i], selection + ptype_offset[ptype], ptype_count[ptype]);
-
-                message(0, "Writing Block %s\n", blockname);
-
-                petaio_save_block(&bf, blockname, &array);
-                petaio_destroy_buffer(&array);
-            }
+            sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
+            petaio_build_buffer(&array, &IOTable.ent[i], selection + ptype_offset[ptype], ptype_count[ptype]);
+            message(0, "Writing Block %s\n", blockname);
+            petaio_save_block(&bf, blockname, &array);
+            petaio_destroy_buffer(&array);
         }
         myfree(selection);
         walltime_measure("/FOF/IO/WriteParticles");
 
         fof_return_particles(Comm);
         walltime_measure("/FOF/IO/Return");
+        free_io_blocks(&IOTable);
     }
 
     big_file_mpi_close(&bf, Comm);
@@ -320,7 +323,7 @@ SIMPLE_PROPERTY(StarFormationRate, Group[i].Sfr, float, 1)
 SIMPLE_PROPERTY(BlackholeMass, Group[i].BH_Mass, float, 1)
 SIMPLE_PROPERTY(BlackholeAccretionRate, Group[i].BH_Mdot, float, 1)
 
-void fof_register_io_blocks() {
+static void fof_register_io_blocks(struct IOTable * IOTable) {
     IO_REG(GroupID, "u4", 1, PTYPE_FOF_GROUP);
     IO_REG(Mass, "f4", 1, PTYPE_FOF_GROUP);
     IO_REG(MassCenterPosition, "f8", 3, PTYPE_FOF_GROUP);
