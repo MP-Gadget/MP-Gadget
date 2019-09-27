@@ -201,8 +201,8 @@ dloga_from_dti(inttime_t dti)
 inttime_t
 dti_from_dloga(double loga)
 {
-    int ti = ti_from_loga(loga_from_ti(All.Ti_Current));
-    int tip = ti_from_loga(loga+loga_from_ti(All.Ti_Current));
+    inttime_t ti = ti_from_loga(loga_from_ti(All.Ti_Current));
+    inttime_t tip = ti_from_loga(loga+loga_from_ti(All.Ti_Current));
     return tip - ti;
 }
 

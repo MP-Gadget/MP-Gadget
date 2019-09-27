@@ -21,10 +21,6 @@
 #include "neutrinos_lra.h"
 
 #include "utils.h"
-
-/*Defined in fofpetaio.c and only used here*/
-void fof_register_io_blocks();
-
 /************
  *
  * The IO api , intented to replace io.c and read_ic.c
@@ -32,16 +28,12 @@ void fof_register_io_blocks();
  *
  */
 
-struct IOTable IOTable;
-
 static void petaio_write_header(BigFile * bf, const int64_t * NTotal);
 static void petaio_read_header_internal(BigFile * bf);
 
-static void register_io_blocks();
-
 /* these are only used in reading in */
-void petaio_init() {
-    /* Smaller files will do aggregareted IO.*/
+void petaio_init(void) {
+    /* Smaller files will do aggregated IO.*/
     if(All.IO.EnableAggregatedIO) {
         message(0, "Aggregated IO is enabled\n");
         big_file_mpi_set_aggregated_threshold(All.IO.AggregatedIOThreshold);
@@ -49,14 +41,13 @@ void petaio_init() {
         message(0, "Aggregated IO is disabled.\n");
         big_file_mpi_set_aggregated_threshold(0);
     }
-    register_io_blocks();
 }
 
 /* save a snapshot file */
-static void petaio_save_internal(char * fname);
+static void petaio_save_internal(char * fname, struct IOTable * IOTable);
 
 void
-petaio_save_snapshot(const char *fmt, ...)
+petaio_save_snapshot(struct IOTable * IOTable, const char *fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
@@ -65,7 +56,7 @@ petaio_save_snapshot(const char *fmt, ...)
     va_end(va);
     message(0, "saving snapshot into %s\n", fname);
 
-    petaio_save_internal(fname);
+    petaio_save_internal(fname, IOTable);
     myfree(fname);
 }
 
@@ -93,6 +84,8 @@ petaio_build_selection(int * selection,
     ptype_count[0] = 0;
 
     for(i = 0; i < NumPart; i ++) {
+        if(P[i].IsGarbage)
+            continue;
         if((select_func == NULL) || (select_func(i) != 0)) {
             int ptype = P[i].Type;
             ptype_count[ptype] ++;
@@ -106,6 +99,8 @@ petaio_build_selection(int * selection,
     ptype_count[5] = 0;
     for(i = 0; i < NumPart; i ++) {
         int ptype = P[i].Type;
+        if(P[i].IsGarbage)
+            continue;
         if((select_func == NULL) || (select_func(i) != 0)) {
             selection[ptype_offset[ptype] + ptype_count[ptype]] = i;
             ptype_count[ptype]++;
@@ -113,7 +108,7 @@ petaio_build_selection(int * selection,
     }
 }
 
-static void petaio_save_internal(char * fname) {
+static void petaio_save_internal(char * fname, struct IOTable * IOTable) {
     BigFile bf = {0};
     if(0 != big_file_mpi_create(&bf, fname, MPI_COMM_WORLD)) {
         endrun(0, "Failed to create snapshot at %s:%s\n", fname,
@@ -133,17 +128,17 @@ static void petaio_save_internal(char * fname) {
     petaio_write_header(&bf, NTotal);
 
     int i;
-    for(i = 0; i < IOTable.used; i ++) {
+    for(i = 0; i < IOTable->used; i ++) {
         /* only process the particle blocks */
         char blockname[128];
-        int ptype = IOTable.ent[i].ptype;
+        int ptype = IOTable->ent[i].ptype;
         BigArray array = {0};
         /*This exclude FOF blocks*/
         if(!(ptype < 6 && ptype >= 0)) {
             continue;
         }
-        sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
-        petaio_build_buffer(&array, &IOTable.ent[i], selection + ptype_offset[ptype], ptype_count[ptype]);
+        sprintf(blockname, "%d/%s", ptype, IOTable->ent[i].name);
+        petaio_build_buffer(&array, &IOTable->ent[i], selection + ptype_offset[ptype], ptype_count[ptype]);
         petaio_save_block(&bf, blockname, &array);
         petaio_destroy_buffer(&array);
     }
@@ -161,7 +156,7 @@ static void petaio_save_internal(char * fname) {
     myfree(selection);
 }
 
-void petaio_read_internal(char * fname, int ic, MPI_Comm Comm) {
+void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Comm Comm) {
     int ptype;
     int i;
     BigFile bf = {0};
@@ -238,10 +233,10 @@ void petaio_read_internal(char * fname, int ic, MPI_Comm Comm) {
     /* so we can set up the memory topology of secondary slots */
     slots_setup_topology(SlotsManager);
 
-    for(i = 0; i < IOTable.used; i ++) {
+    for(i = 0; i < IOTable->used; i ++) {
         /* only process the particle blocks */
         char blockname[128];
-        int ptype = IOTable.ent[i].ptype;
+        int ptype = IOTable->ent[i].ptype;
         BigArray array = {0};
         if(!(ptype < 6 && ptype >= 0)) {
             continue;
@@ -250,25 +245,25 @@ void petaio_read_internal(char * fname, int ic, MPI_Comm Comm) {
         if(ic) {
             /* for IC read in only three blocks */
             int keep = 0;
-            keep |= (0 == strcmp(IOTable.ent[i].name, "Position"));
-            keep |= (0 == strcmp(IOTable.ent[i].name, "Velocity"));
-            keep |= (0 == strcmp(IOTable.ent[i].name, "ID"));
+            keep |= (0 == strcmp(IOTable->ent[i].name, "Position"));
+            keep |= (0 == strcmp(IOTable->ent[i].name, "Velocity"));
+            keep |= (0 == strcmp(IOTable->ent[i].name, "ID"));
             if (ptype == 5) {
-                keep |= (0 == strcmp(IOTable.ent[i].name, "Mass"));
-                keep |= (0 == strcmp(IOTable.ent[i].name, "BlackholeMass"));
-                keep |= (0 == strcmp(IOTable.ent[i].name, "MinPotPos"));
+                keep |= (0 == strcmp(IOTable->ent[i].name, "Mass"));
+                keep |= (0 == strcmp(IOTable->ent[i].name, "BlackholeMass"));
+                keep |= (0 == strcmp(IOTable->ent[i].name, "MinPotPos"));
             }
             if(!keep) continue;
         }
-        if(IOTable.ent[i].setter == NULL) {
+        if(IOTable->ent[i].setter == NULL) {
             /* FIXME: do not know how to read this block; assume the fucker is
              * internally intialized; */
             continue;
         }
-        sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
-        petaio_alloc_buffer(&array, &IOTable.ent[i], NLocal[ptype]);
-        if(0 == petaio_read_block(&bf, blockname, &array, IOTable.ent[i].required))
-            petaio_readout_buffer(&array, &IOTable.ent[i]);
+        sprintf(blockname, "%d/%s", ptype, IOTable->ent[i].name);
+        petaio_alloc_buffer(&array, &IOTable->ent[i], NLocal[ptype]);
+        if(0 == petaio_read_block(&bf, blockname, &array, IOTable->ent[i].required))
+            petaio_readout_buffer(&array, &IOTable->ent[i]);
         petaio_destroy_buffer(&array);
     }
 
@@ -320,6 +315,10 @@ void
 petaio_read_snapshot(int num, MPI_Comm Comm)
 {
     char * fname;
+    struct IOTable IOTable = {0};
+
+    register_io_blocks(&IOTable);
+
     if(num == -1) {
         fname = fastpm_strdup_printf("%s", All.InitCondFile);
         /*
@@ -327,7 +326,7 @@ petaio_read_snapshot(int num, MPI_Comm Comm)
          *  InitTemp in paramfile, then use init.c to convert to
          *  entropy.
          * */
-        petaio_read_internal(fname, 1, Comm);
+        petaio_read_internal(fname, 1, &IOTable, Comm);
 
         int i;
         /* touch up the mass -- IC files save mass in header */
@@ -353,7 +352,7 @@ petaio_read_snapshot(int num, MPI_Comm Comm)
         /*
          * we always save the Entropy, init.c will not mess with the entropy
          * */
-        petaio_read_internal(fname, 0, Comm);
+        petaio_read_internal(fname, 0, &IOTable, Comm);
     }
     myfree(fname);
 }
@@ -684,16 +683,17 @@ void io_register_io_block(char * name,
         int ptype,
         property_getter getter,
         property_setter setter,
-        int required
+        int required,
+        struct IOTable * IOTable
         ) {
-    if (IOTable.used == IOTable.allocated) {
-        IOTable.ent = myrealloc(IOTable.ent, 2*IOTable.allocated*sizeof(IOTableEntry));
-        IOTable.allocated *= 2;
+    if (IOTable->used == IOTable->allocated) {
+        IOTable->ent = myrealloc(IOTable->ent, 2*IOTable->allocated*sizeof(IOTableEntry));
+        IOTable->allocated *= 2;
     }
-    IOTableEntry * ent = &IOTable.ent[IOTable.used];
+    IOTableEntry * ent = &IOTable->ent[IOTable->used];
     strncpy(ent->name, name, 63);
     ent->name[63] = '\0';
-    ent->zorder = IOTable.used;
+    ent->zorder = IOTable->used;
     ent->ptype = ptype;
     strncpy(ent->dtype, dtype, 7);
     ent->dtype[7] = '\0';
@@ -701,7 +701,7 @@ void io_register_io_block(char * name,
     ent->setter = setter;
     ent->items = items;
     ent->required = required;
-    IOTable.used ++;
+    IOTable->used ++;
 }
 
 static void GTPosition(int i, double * out) {
@@ -754,6 +754,7 @@ SIMPLE_PROPERTY(SmoothingLength, P[i].Hsml, float, 1)
 SIMPLE_PROPERTY(Density, SPHP(i).Density, float, 1)
 SIMPLE_PROPERTY(EgyWtDensity, SPHP(i).EgyWtDensity, float, 1)
 SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
+SIMPLE_PROPERTY(DelayTime, SPHP(i).DelayTime, float, 1)
 SIMPLE_PROPERTY_TYPE(StarFormationTime, 4, STARP(i).FormationTime, float, 1)
 SIMPLE_PROPERTY(BirthDensity, STARP(i).BirthDensity, float, 1)
 SIMPLE_PROPERTY_TYPE(Metallicity, 4, STARP(i).Metallicity, float, 1)
@@ -801,65 +802,104 @@ static int order_by_type(const void *a, const void *b)
     return 0;
 }
 
-static void register_io_blocks() {
+void register_io_blocks(struct IOTable * IOTable) {
     int i;
-    IOTable.used = 0;
-    IOTable.allocated = 100;
-    IOTable.ent = mymalloc("IOTable", IOTable.allocated* sizeof(IOTableEntry));
+    IOTable->used = 0;
+    IOTable->allocated = 100;
+    IOTable->ent = mymalloc("IOTable", IOTable->allocated* sizeof(IOTableEntry));
     /* Bare Bone Gravity*/
     for(i = 0; i < 6; i ++) {
-        IO_REG(Position, "f8", 3, i);
-        IO_REG(Velocity, "f4", 3, i);
-        IO_REG(Mass,     "f4", 1, i);
-        IO_REG(ID,       "u8", 1, i);
+        IO_REG(Position, "f8", 3, i, IOTable);
+        IO_REG(Velocity, "f4", 3, i, IOTable);
+        IO_REG(Mass,     "f4", 1, i, IOTable);
+        IO_REG(ID,       "u8", 1, i, IOTable);
         if(All.OutputPotential)
-            IO_REG_WRONLY(Potential, "f4", 1, i);
+            IO_REG_WRONLY(Potential, "f4", 1, i, IOTable);
         if(All.SnapshotWithFOF)
-            IO_REG_WRONLY(GroupID, "u4", 1, i);
+            IO_REG_WRONLY(GroupID, "u4", 1, i, IOTable);
     }
 
-    IO_REG(Generation,       "u1", 1, 0);
-    IO_REG(Generation,       "u1", 1, 4);
-    IO_REG(Generation,       "u1", 1, 5);
+    IO_REG(Generation,       "u1", 1, 0, IOTable);
+    IO_REG(Generation,       "u1", 1, 4, IOTable);
+    IO_REG(Generation,       "u1", 1, 5, IOTable);
     /* Bare Bone SPH*/
-    IO_REG(SmoothingLength,  "f4", 1, 0);
-    IO_REG(Density,          "f4", 1, 0);
+    IO_REG(SmoothingLength,  "f4", 1, 0, IOTable);
+    IO_REG(Density,          "f4", 1, 0, IOTable);
 
     if(All.DensityIndependentSphOn)
-        IO_REG(EgyWtDensity,          "f4", 1, 0);
+        IO_REG(EgyWtDensity,          "f4", 1, 0, IOTable);
 
     /* On reload this sets the Entropy variable, need the densities.
      * Register this after Density and EgyWtDensity will ensure density is read
      * before this. */
-    IO_REG(InternalEnergy,   "f4", 1, 0);
+    IO_REG(InternalEnergy,   "f4", 1, 0, IOTable);
 
     /* Cooling */
-    IO_REG(ElectronAbundance,       "f4", 1, 0);
-    IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0);
+    IO_REG(ElectronAbundance,       "f4", 1, 0, IOTable);
+    IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0, IOTable);
 
     /* SF */
-    IO_REG_WRONLY(StarFormationRate, "f4", 1, 0);
-    IO_REG_NONFATAL(BirthDensity, "f4", 1, 4);
-    IO_REG_TYPE(StarFormationTime, "f4", 1, 4);
-    IO_REG_TYPE(Metallicity,       "f4", 1, 0);
-    IO_REG_TYPE(Metallicity,       "f4", 1, 4);
+    IO_REG_WRONLY(StarFormationRate, "f4", 1, 0, IOTable);
+    IO_REG_NONFATAL(BirthDensity, "f4", 1, 4, IOTable);
+    IO_REG_TYPE(StarFormationTime, "f4", 1, 4, IOTable);
+    IO_REG_TYPE(Metallicity,       "f4", 1, 0, IOTable);
+    IO_REG_TYPE(Metallicity,       "f4", 1, 4, IOTable);
+    /* Another new addition: save the DelayTime for wind particles*/
+    IO_REG_NONFATAL(DelayTime,  "f4", 1, 0, IOTable);
     /* end SF */
 
     /* Black hole */
-    IO_REG_TYPE(StarFormationTime, "f4", 1, 5);
-    IO_REG(BlackholeMass,          "f4", 1, 5);
-    IO_REG(BlackholeAccretionRate, "f4", 1, 5);
-    IO_REG(BlackholeProgenitors,   "i4", 1, 5);
-    IO_REG(BlackholeMinPotPos, "f8", 3, 5);
-    IO_REG(BlackholeJumpToMinPot,   "i4", 1, 5);
+    IO_REG_TYPE(StarFormationTime, "f4", 1, 5, IOTable);
+    IO_REG(BlackholeMass,          "f4", 1, 5, IOTable);
+    IO_REG(BlackholeAccretionRate, "f4", 1, 5, IOTable);
+    IO_REG(BlackholeProgenitors,   "i4", 1, 5, IOTable);
+    IO_REG(BlackholeMinPotPos, "f8", 3, 5, IOTable);
+    IO_REG(BlackholeJumpToMinPot,   "i4", 1, 5, IOTable);
 
     /* Smoothing lengths for black hole: this is a new addition*/
-    IO_REG_NONFATAL(SmoothingLength,  "f4", 1, 5);
-
-    if(All.SnapshotWithFOF)
-        fof_register_io_blocks();
+    IO_REG_NONFATAL(SmoothingLength,  "f4", 1, 5, IOTable);
 
     /*Sort IO blocks so similar types are together; then ordered by the sequence they are declared. */
-    qsort_openmp(IOTable.ent, IOTable.used, sizeof(struct IOTableEntry), order_by_type);
+    qsort_openmp(IOTable->ent, IOTable->used, sizeof(struct IOTableEntry), order_by_type);
+}
+
+/* Add extra debug blocks to the output*/
+/* Write (but don't read) them, only useful for debugging the particle structures.
+ * Warning: future code versions may change the units!*/
+SIMPLE_GETTER(GTGravAccel, P[i].GravAccel[0], float, 3)
+SIMPLE_GETTER(GTGravPM, P[i].GravPM[0], float, 3)
+SIMPLE_GETTER(GTTimeBin, P[i].TimeBin, int, 1)
+SIMPLE_GETTER(GTGravCost, P[i].GravCost, int, 1)
+SIMPLE_GETTER(GTHydroAccel, SPHP(i).HydroAccel[0], float, 3)
+SIMPLE_GETTER(GTMaxSignalVel, SPHP(i).MaxSignalVel, float, 1)
+SIMPLE_GETTER(GTEntropy, SPHP(i).Entropy, float, 1)
+SIMPLE_GETTER(GTDtEntropy, SPHP(i).DtEntropy, float, 1)
+SIMPLE_GETTER(GTDhsmlEgyDensityFactor, SPHP(i).DhsmlEgyDensityFactor, float, 1)
+SIMPLE_GETTER(GTDivVel, SPHP(i).DivVel, float, 1)
+SIMPLE_GETTER(GTCurlVel, SPHP(i).CurlVel, float, 1)
+
+void register_debug_io_blocks(struct IOTable * IOTable)
+{
+    int ptype;
+    for(ptype = 0; ptype < 6; ptype++) {
+        IO_REG_WRONLY(GravAccel,       "f4", 3, ptype, IOTable);
+        IO_REG_WRONLY(GravPM,       "f4", 3, ptype, IOTable);
+        IO_REG_WRONLY(TimeBin,       "u4", 1, ptype, IOTable);
+        IO_REG_WRONLY(GravCost,       "f4", 1, ptype, IOTable);
+    }
+    IO_REG_WRONLY(HydroAccel,       "f4", 3, 0, IOTable);
+    IO_REG_WRONLY(MaxSignalVel,       "f4", 1, 0, IOTable);
+    IO_REG_WRONLY(Entropy,       "f4", 1, 0, IOTable);
+    IO_REG_WRONLY(DtEntropy,       "f4", 1, 0, IOTable);
+    IO_REG_WRONLY(DhsmlEgyDensityFactor,       "f4", 1, 0, IOTable);
+    IO_REG_WRONLY(DivVel,       "f4", 1, 0, IOTable);
+    IO_REG_WRONLY(CurlVel,       "f4", 1, 0, IOTable);
+    /*Sort IO blocks so similar types are together; then ordered by the sequence they are declared. */
+    qsort_openmp(IOTable->ent, IOTable->used, sizeof(struct IOTableEntry), order_by_type);
+}
+
+void destroy_io_blocks(struct IOTable * IOTable) {
+    myfree(IOTable->ent);
+    IOTable->allocated = 0;
 }
 

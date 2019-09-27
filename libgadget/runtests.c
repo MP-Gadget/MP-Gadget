@@ -23,14 +23,20 @@ char * GDB_format_particle(int i);
 SIMPLE_PROPERTY(GravAccel, P[i].GravAccel[0], float, 3)
 SIMPLE_PROPERTY(GravPM, P[i].GravPM[0], float, 3)
 
-void runtests(DomainDecomp * ddecomp)
+void register_extra_blocks(struct IOTable * IOTable)
 {
-
     int ptype;
     for(ptype = 0; ptype < 6; ptype++) {
-        IO_REG(GravAccel,       "f4", 3, ptype);
-        IO_REG(GravPM,       "f4", 3, ptype);
+        IO_REG(GravAccel,       "f4", 3, ptype, IOTable);
+        IO_REG(GravPM,       "f4", 3, ptype, IOTable);
     }
+}
+
+void runtests(DomainDecomp * ddecomp)
+{
+    struct IOTable IOTable = {0};
+    register_io_blocks(&IOTable);
+    register_extra_blocks(&IOTable);
 
     /* this produces a very imbalanced load to trigger Issue 86 */
     if(ThisTask == 0) {
@@ -49,7 +55,7 @@ void runtests(DomainDecomp * ddecomp)
 
     grav_short_pair(&Tree);
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));
-    petaio_save_snapshot("%s/PART-pairs-%03d-mpi", All.OutputDir, NTask);
+    petaio_save_snapshot(&IOTable, "%s/PART-pairs-%03d-mpi", All.OutputDir, NTask);
 
     grav_short_tree(&Tree);  /* computes gravity accel. */
     grav_short_tree(&Tree);  /* computes gravity accel. */
@@ -58,8 +64,9 @@ void runtests(DomainDecomp * ddecomp)
     message(0, "GravShort Tree %s\n", GDB_format_particle(0));
     force_tree_free(&Tree);
 
-    petaio_save_snapshot("%s/PART-tree-%03d-mpi", All.OutputDir, NTask);
+    petaio_save_snapshot(&IOTable, "%s/PART-tree-%03d-mpi", All.OutputDir, NTask);
 
+    destroy_io_blocks(&IOTable);
 }
 
 void runfof(int RestartSnapNum, DomainDecomp * ddecomp)

@@ -53,16 +53,24 @@ write_checkpoint(int WriteSnapshot, int WriteFOF, ForceTree * tree)
 void
 dump_snapshot()
 {
-    petaio_save_snapshot("%s/CRASH-DUMP", All.OutputDir);
+    struct IOTable IOTable = {0};
+    register_io_blocks(&IOTable);
+    register_debug_io_blocks(&IOTable);
+    petaio_save_snapshot(&IOTable, "%s/CRASH-DUMP", All.OutputDir);
+    destroy_io_blocks(&IOTable);
 }
 
 static void
 write_snapshot(int num)
 {
     walltime_measure("/Misc");
+    struct IOTable IOTable = {0};
+    register_io_blocks(&IOTable);
+    if(All.OutputDebugFields)
+        register_debug_io_blocks(&IOTable);
+    petaio_save_snapshot(&IOTable, "%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
 
-    petaio_save_snapshot("%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
-
+    destroy_io_blocks(&IOTable);
     walltime_measure("/Snapshot/Write");
 
     if(ThisTask == 0) {
