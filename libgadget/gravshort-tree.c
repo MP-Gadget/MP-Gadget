@@ -318,7 +318,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     output->Ninteractions = ninteractions;
     output->Potential = pot;
 
-    lv->Ninteractions =+ ninteractions;
+    lv->Ninteractions += ninteractions;
     if(lv->mode == 1) {
         lv->Nnodesinlist += listindex;
         lv->Nlist += 1;
