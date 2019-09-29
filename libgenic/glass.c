@@ -50,7 +50,8 @@ setup_glass(double shift, int Ngrid, int seed, double mass, int NumPart, struct 
     memset(ICP, 0, NumPart*sizeof(struct ic_part_data));
 
     int i;
-    #pragma omp parallel for
+    /* Note: this loop should nto be omp because
+     * of the call to gsl_rng_uniform*/
     for(i = 0; i < NumPart; i ++) {
         double x, y, z;
         x = i / (size[2] * size[1]) + offset[0];
