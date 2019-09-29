@@ -14,21 +14,21 @@
 #include <libgadget/utils.h>
 
 #define MESH2K(i) petapm_mesh_to_k(i)
-static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void vel_x_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void vel_y_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void vel_z_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void disp_y_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void readout_density(int i, double * mesh, double weight);
-static void readout_vel_x(int i, double * mesh, double weight);
-static void readout_vel_y(int i, double * mesh, double weight);
-static void readout_vel_z(int i, double * mesh, double weight);
-static void readout_disp_x(int i, double * mesh, double weight);
-static void readout_disp_y(int i, double * mesh, double weight);
-static void readout_disp_z(int i, double * mesh, double weight);
-static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int UnitaryAmplitude, int InvertPhase);
+static void density_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void vel_x_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void vel_y_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void vel_z_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void disp_x_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void disp_y_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void disp_z_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void readout_density(PetaPM * pm, int i, double * mesh, double weight);
+static void readout_vel_x(PetaPM * pm, int i, double * mesh, double weight);
+static void readout_vel_y(PetaPM * pm, int i, double * mesh, double weight);
+static void readout_vel_z(PetaPM * pm, int i, double * mesh, double weight);
+static void readout_disp_x(PetaPM * pm, int i, double * mesh, double weight);
+static void readout_disp_y(PetaPM * pm, int i, double * mesh, double weight);
+static void readout_disp_z(PetaPM * pm, int i, double * mesh, double weight);
+static void gaussian_fill(int Nmesh, PetaPMRegion * region, pfft_complex * rho_k, int UnitaryAmplitude, int InvertPhase);
 
 static inline double periodic_wrap(double x)
 {
@@ -49,10 +49,10 @@ ijk_to_id(int i, int j, int k, int Ngrid) {
 
 /*Helper function to get size and offset of particles to the global grid.*/
 int
-get_size_offset(int * size, int * offset, int Ngrid)
+get_size_offset(PetaPM * pm, int * size, int * offset, int Ngrid)
 {
-    int * ThisTask2d = petapm_get_thistask2d();
-    int * NTask2d = petapm_get_ntask2d();
+    int * ThisTask2d = petapm_get_thistask2d(pm);
+    int * NTask2d = petapm_get_ntask2d(pm);
     int k;
     int npart = 1;
     for(k = 0; k < 2; k ++) {
@@ -68,11 +68,11 @@ get_size_offset(int * size, int * offset, int Ngrid)
 }
 
 uint64_t
-id_offset_from_index(const int i, const int Ngrid)
+id_offset_from_index(PetaPM * pm, const int i, const int Ngrid)
 {
     int size[3];
     int offset[3];
-    get_size_offset(size, offset, Ngrid);
+    get_size_offset(pm, size, offset, Ngrid);
     int x = i / (size[2] * size[1]) + offset[0];
     int y = (i % (size[1] * size[2])) / size[2] + offset[1];
     int z = (i % size[2]) + offset[2];
@@ -80,11 +80,11 @@ id_offset_from_index(const int i, const int Ngrid)
 }
 
 int
-setup_grid(double shift, int Ngrid, double mass, int NumPart, struct ic_part_data * ICP)
+setup_grid(PetaPM * pm, double shift, int Ngrid, double mass, int NumPart, struct ic_part_data * ICP)
 {
     int size[3];
     int offset[3];
-    get_size_offset(size, offset, Ngrid);
+    get_size_offset(pm, size, offset, Ngrid);
     memset(ICP, 0, NumPart*sizeof(struct ic_part_data));
 
     int i;
@@ -108,7 +108,7 @@ struct ic_prep_data
     int NumPart;
 };
 
-static PetaPMRegion * makeregion(void * userdata, int * Nregions) {
+static PetaPMRegion * makeregion(PetaPM * pm, void * userdata, int * Nregions) {
     PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion));
     struct ic_prep_data * icprep = (struct ic_prep_data *) userdata;
     int NumPart = icprep->NumPart;
@@ -146,7 +146,8 @@ static enum TransferType ptype;
 /*Global to pass the particle data to the readout functions*/
 static struct ic_part_data * curICP;
 
-void displacement_fields(enum TransferType Type, struct ic_part_data * dispICP, const int NumPart) {
+void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_data * dispICP, const int NumPart) {
+
     /*MUST set this before doing force.*/
     ptype = Type;
     curICP = dispICP;
@@ -207,21 +208,21 @@ void displacement_fields(enum TransferType Type, struct ic_part_data * dispICP, 
     }
 
     struct ic_prep_data icprep = {dispICP, NumPart};
-    PetaPMRegion * regions = petapm_force_init(
+    PetaPMRegion * regions = petapm_force_init(pm,
            makeregion,
            &pstruct, &icprep);
 
     /*This allocates the memory*/
-    pfft_complex * rho_k = petapm_alloc_rhok();
+    pfft_complex * rho_k = petapm_alloc_rhok(pm);
 
-    gaussian_fill(petapm_get_fourier_region(),
+    gaussian_fill(pm->Nmesh, petapm_get_fourier_region(pm),
 		  rho_k, All2.UnitaryAmplitude, All2.InvertPhase);
 
-    petapm_force_c2r(rho_k, regions, functions);
+    petapm_force_c2r(pm, rho_k, regions, functions);
 
     myfree(rho_k);
     myfree(regions);
-    petapm_force_finish();
+    petapm_force_finish(pm);
 
     double maxdisp = 0, maxvel = 0;
 
@@ -268,7 +269,7 @@ void displacement_fields(enum TransferType Type, struct ic_part_data * dispICP, 
  *
  *********************/
 
-static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
+static void density_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
         /* density is smoothed in k space by a gaussian kernel of 1 mesh grid */
         double r2 = 1.0 / All.Nmesh;
@@ -283,7 +284,7 @@ static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     }
 }
 
-static void disp_transfer(int64_t k2, int kaxis, pfft_complex * value, int include_growth) {
+static void disp_transfer(PetaPM * pm, int64_t k2, int kaxis, pfft_complex * value, int include_growth) {
     if(k2) {
         double fac = 1./ (2 * M_PI) / sqrt(All.BoxSize) * kaxis / k2;
         /*
@@ -307,49 +308,49 @@ static void disp_transfer(int64_t k2, int kaxis, pfft_complex * value, int inclu
     }
 }
 
-static void vel_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
-    disp_transfer(k2, kpos[0], value, 1);
+static void vel_x_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+    disp_transfer(pm, k2, kpos[0], value, 1);
 }
-static void vel_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
-    disp_transfer(k2, kpos[1], value, 1);
+static void vel_y_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+    disp_transfer(pm, k2, kpos[1], value, 1);
 }
-static void vel_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
-    disp_transfer(k2, kpos[2], value, 1);
+static void vel_z_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+    disp_transfer(pm, k2, kpos[2], value, 1);
 }
 
-static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
-    disp_transfer(k2, kpos[0], value, 0);
+static void disp_x_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+    disp_transfer(pm, k2, kpos[0], value, 0);
 }
-static void disp_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
-    disp_transfer(k2, kpos[1], value, 0);
+static void disp_y_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+    disp_transfer(pm, k2, kpos[1], value, 0);
 }
-static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
-    disp_transfer(k2, kpos[2], value, 0);
+static void disp_z_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+    disp_transfer(pm, k2, kpos[2], value, 0);
 }
 
 /**************
  * functions iterating over particle / mesh pairs
  ***************/
-static void readout_density(int i, double * mesh, double weight) {
+static void readout_density(PetaPM * pm, int i, double * mesh, double weight) {
     curICP[i].Density += weight * mesh[0];
 }
-static void readout_vel_x(int i, double * mesh, double weight) {
+static void readout_vel_x(PetaPM * pm, int i, double * mesh, double weight) {
     curICP[i].Vel[0] += weight * mesh[0];
 }
-static void readout_vel_y(int i, double * mesh, double weight) {
+static void readout_vel_y(PetaPM * pm, int i, double * mesh, double weight) {
     curICP[i].Vel[1] += weight * mesh[0];
 }
-static void readout_vel_z(int i, double * mesh, double weight) {
+static void readout_vel_z(PetaPM * pm, int i, double * mesh, double weight) {
     curICP[i].Vel[2] += weight * mesh[0];
 }
 
-static void readout_disp_x(int i, double * mesh, double weight) {
+static void readout_disp_x(PetaPM * pm, int i, double * mesh, double weight) {
     curICP[i].Disp[0] += weight * mesh[0];
 }
-static void readout_disp_y(int i, double * mesh, double weight) {
+static void readout_disp_y(PetaPM * pm, int i, double * mesh, double weight) {
     curICP[i].Disp[1] += weight * mesh[0];
 }
-static void readout_disp_z(int i, double * mesh, double weight) {
+static void readout_disp_z(PetaPM * pm, int i, double * mesh, double weight) {
     curICP[i].Disp[2] += weight * mesh[0];
 }
 
@@ -357,13 +358,13 @@ static void readout_disp_z(int i, double * mesh, double weight) {
 #include "pmesh.h"
 
 static void
-gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int setUnitaryAmplitude, int setInvertPhase)
+gaussian_fill(int Nmesh, PetaPMRegion * region, pfft_complex * rho_k, int setUnitaryAmplitude, int setInvertPhase)
 {
     /* fastpm deals with strides properly; petapm not. So we translate it here. */
     PM pm[1];
     int d;
     for (d = 0; d < 3; d ++) {
-        pm->Nmesh[d] = All.Nmesh;
+        pm->Nmesh[d] = Nmesh;
     }
 
     pm->ORegion.start[0] = region->offset[2];

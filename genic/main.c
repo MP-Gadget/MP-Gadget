@@ -43,7 +43,7 @@ int main(int argc, char **argv)
   All.NumThreads = omp_get_max_threads();
 
   petapm_module_init(All.NumThreads);
-  petapm_init(All.BoxSize, All.Nmesh, MPI_COMM_WORLD);
+
   /*Initialise particle spacings*/
   const double meanspacing = All.BoxSize / DMAX(All2.Ngrid, All2.NgridGas);
   const double shift_gas = -All2.ProduceGas * 0.5 * (All.CP.Omega0 - All.CP.OmegaBaryon) / All.CP.Omega0 * meanspacing;
@@ -88,6 +88,9 @@ int main(int argc, char **argv)
       DMType = DELTA_CDM;
       GasType = DELTA_BAR;
   }
+  PetaPM pm[1];
+
+  petapm_init(pm, All.BoxSize, All.Nmesh, MPI_COMM_WORLD);
 
   /*First compute and write CDM*/
   double mass[6] = {0};
@@ -95,8 +98,8 @@ int main(int argc, char **argv)
   compute_mass(mass, TotNumPart, TotNumPartGas, 0, 0);
   /*Not used*/
   int size[3], offset[3];
-  int NumPartCDM = get_size_offset(size, offset, All2.Ngrid);
-  int NumPartGas = get_size_offset(size, offset, All2.NgridGas);
+  int NumPartCDM = get_size_offset(pm, size, offset, All2.Ngrid);
+  int NumPartGas = get_size_offset(pm, size, offset, All2.NgridGas);
   /*Space for both CDM and baryons*/
   struct ic_part_data * ICP = (struct ic_part_data *) mymalloc("PartTable", (NumPartCDM + All2.ProduceGas * NumPartGas)*sizeof(struct ic_part_data));
 
@@ -104,25 +107,25 @@ int main(int argc, char **argv)
    * to ensure that there are no close particle pairs*/
   /*Make the table for the CDM*/
   if(!All2.MakeGlassCDM) {
-      setup_grid(All2.ProduceGas * shift_dm, All2.Ngrid, mass[1], NumPartCDM, ICP);
+      setup_grid(pm, All2.ProduceGas * shift_dm, All2.Ngrid, mass[1], NumPartCDM, ICP);
   } else {
-      setup_glass(0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed), mass[1], NumPartCDM, ICP);
+      setup_glass(pm, 0, All2.Ngrid, GLASS_SEED_HASH(All2.Seed), mass[1], NumPartCDM, ICP);
   }
 
   /*Make the table for the baryons if we need, using the second half of the memory.*/
   if(All2.ProduceGas) {
     if(!All2.MakeGlassGas) {
-        setup_grid(shift_gas, All2.NgridGas, mass[0], NumPartGas, ICP+NumPartCDM);
+        setup_grid(pm, shift_gas, All2.NgridGas, mass[0], NumPartGas, ICP+NumPartCDM);
     } else {
-        setup_glass(0, All2.NgridGas, GLASS_SEED_HASH(All2.Seed + 1), mass[0], NumPartGas, ICP+NumPartCDM);
+        setup_glass(pm, 0, All2.NgridGas, GLASS_SEED_HASH(All2.Seed + 1), mass[0], NumPartGas, ICP+NumPartCDM);
     }
     /*Do coherent glass evolution to avoid close pairs*/
     if(All2.MakeGlassGas || All2.MakeGlassCDM)
-        glass_evolve(14, "powerspectrum-glass-tot", ICP, NumPartCDM+NumPartGas);
+        glass_evolve(pm, 14, "powerspectrum-glass-tot", ICP, NumPartCDM+NumPartGas);
   }
 
   if(NumPartCDM > 0) {
-    displacement_fields(DMType, ICP, NumPartCDM);
+    displacement_fields(pm, DMType, ICP, NumPartCDM);
 
     /*Add a thermal velocity to WDM particles*/
     if(All2.WDM_therm_mass > 0){
@@ -140,7 +143,7 @@ int main(int argc, char **argv)
         for(i = 0; i < NumPartCDM; i++) {
              /*Find the slab, and reseed if it has zero z rank*/
              if(i % All2.Ngrid == 0) {
-                  uint64_t id = id_offset_from_index(i, All2.Ngrid);
+                  uint64_t id = id_offset_from_index(pm, i, All2.Ngrid);
                   /*Seed the random number table with x,y index.*/
                   gsl_rng_set(g_rng, seedtable[id / All2.Ngrid]);
              }
@@ -150,32 +153,32 @@ int main(int argc, char **argv)
         myfree(seedtable);
     }
 
-    write_particle_data(1, &bf, 0, All2.Ngrid, ICP, NumPartCDM);
+    write_particle_data(pm, 1, &bf, 0, All2.Ngrid, ICP, NumPartCDM);
   }
 
   /*Now make the gas if required*/
   if(All2.ProduceGas) {
-    displacement_fields(GasType, ICP+NumPartCDM, NumPartGas);
-    write_particle_data(0, &bf, TotNumPart, All2.NgridGas, ICP+NumPartCDM, NumPartGas);
+    displacement_fields(pm, GasType, ICP+NumPartCDM, NumPartGas);
+    write_particle_data(pm, 0, &bf, TotNumPart, All2.NgridGas, ICP+NumPartCDM, NumPartGas);
   }
   myfree(ICP);
 
   /*Now add random velocity neutrino particles*/
   if(All2.NGridNu > 0) {
       int i;
-      int NumPartNu = get_size_offset(size, offset, All2.NGridNu);
+      int NumPartNu = get_size_offset(pm, size, offset, All2.NGridNu);
       ICP = (struct ic_part_data *) mymalloc("PartTable", NumPartNu*sizeof(struct ic_part_data));
 
-      NumPartNu = setup_grid(shift_nu, All2.NGridNu, NumPartNu, mass[2], ICP);
-      displacement_fields(NuType, ICP, NumPartNu);
-      unsigned int * seedtable = init_rng(All2.Seed+2,All2.Ngrid);
+      NumPartNu = setup_grid(pm, shift_nu, All2.NGridNu, NumPartNu, mass[2], ICP);
+      displacement_fields(pm, NuType, ICP, NumPartNu);
+      unsigned int * seedtable = init_rng(All2.Seed+2,All2.NGridNu);
       gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
       /*Just in case*/
       gsl_rng_set(g_rng, seedtable[0]);
       for(i = 0; i < NumPartNu; i++) {
            /*Find the slab, and reseed if it has zero z rank*/
            if(i % All2.Ngrid == 0) {
-                uint64_t id = id_offset_from_index(i, All2.Ngrid);
+                uint64_t id = id_offset_from_index(pm, i, All2.Ngrid);
                 /*Seed the random number table with x,y index.*/
                 gsl_rng_set(g_rng, seedtable[id / All2.Ngrid]);
            }
@@ -184,9 +187,11 @@ int main(int argc, char **argv)
       gsl_rng_free(g_rng);
       myfree(seedtable);
 
-      write_particle_data(2,&bf, TotNumPart+TotNumPartGas, All2.NGridNu, ICP, NumPartNu);
+      write_particle_data(pm, 2,&bf, TotNumPart+TotNumPartGas, All2.NGridNu, ICP, NumPartNu);
       myfree(ICP);
   }
+
+  petapm_destroy(pm);
   big_file_mpi_close(&bf, MPI_COMM_WORLD);
 
   walltime_summary(0, MPI_COMM_WORLD);

@@ -48,7 +48,10 @@ void powerspectrum_free(struct _powerspectrum * PowerSpectrum, const int Massive
 }
 
 /* Sum the different modes on each thread and processor together to get a power spectrum,
- * and fix the units.*/
+ * and fix the units.
+ *
+ * FIXME(rainwoodman): centralize BoxSize_in_cm to the object initialization!
+ * */
 void powerspectrum_sum(struct _powerspectrum * PowerSpectrum, const double BoxSize_in_cm)
 {
     /*Sum power spectrum thread-local storage*/

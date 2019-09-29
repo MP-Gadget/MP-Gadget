@@ -15,14 +15,14 @@
 
 
 struct _powerspectrum PowerSpectrum;
-static void measure_power_spectrum(int64_t k2, int kpos[3], pfft_complex * value);
-static void potential_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void force_x_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void force_y_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void force_z_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void readout_force_x(int i, double * mesh, double weight);
-static void readout_force_y(int i, double * mesh, double weight);
-static void readout_force_z(int i, double * mesh, double weight);
+static void measure_power_spectrum(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void potential_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void force_x_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void force_y_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void force_z_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void readout_force_x(PetaPM *pm, int i, double * mesh, double weight);
+static void readout_force_y(PetaPM *pm, int i, double * mesh, double weight);
+static void readout_force_z(PetaPM *pm, int i, double * mesh, double weight);
 static PetaPMFunctions functions [] =
 {
     {"ForceX", force_x_transfer, readout_force_x},
@@ -33,17 +33,17 @@ static PetaPMFunctions functions [] =
 
 static PetaPMGlobalFunctions global_functions = {measure_power_spectrum, NULL, potential_transfer};
 
-static PetaPMRegion * _prepare(void * userdata, int * Nregions);
+static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions);
 
-static void glass_force(double t_f, struct ic_part_data * ICP, const int NumPart);
+static void glass_force(PetaPM * pm, double t_f, struct ic_part_data * ICP, const int NumPart);
 static void glass_stats(struct ic_part_data * ICP, int NumPart);
 
 int
-setup_glass(double shift, int Ngrid, int seed, double mass, int NumPart, struct ic_part_data * ICP)
+setup_glass(PetaPM * pm, double shift, int Ngrid, int seed, double mass, int NumPart, struct ic_part_data * ICP)
 {
     int size[3];
     int offset[3];
-    get_size_offset(size, offset, Ngrid);
+    get_size_offset(pm, size, offset, Ngrid);
 
     gsl_rng * rng = gsl_rng_alloc(gsl_rng_ranlxd1);
     gsl_rng_set(rng, seed + ThisTask);
@@ -71,13 +71,13 @@ setup_glass(double shift, int Ngrid, int seed, double mass, int NumPart, struct 
     gsl_rng_free(rng);
 
     char * fn = fastpm_strdup_printf("powerspectrum-glass-%08X", seed);
-    glass_evolve(14, fn, ICP, NumPart);
+    glass_evolve(pm, 14, fn, ICP, NumPart);
     myfree(fn);
 
     return NumPart;
 }
 
-void glass_evolve(int nsteps, char * pkoutname, struct ic_part_data * ICP, const int NumPart)
+void glass_evolve(PetaPM * pm, int nsteps, char * pkoutname, struct ic_part_data * ICP, const int NumPart)
 {
     int i;
     int step = 0;
@@ -88,7 +88,7 @@ void glass_evolve(int nsteps, char * pkoutname, struct ic_part_data * ICP, const
     /*Allocate memory for a power spectrum*/
     powerspectrum_alloc(&PowerSpectrum, All.Nmesh, All.NumThreads, 0);
 
-    glass_force(t_x, ICP, NumPart);
+    glass_force(pm, t_x, ICP, NumPart);
 
     /* Our pick of the units ensures there is an oscillation period of 2 * M_PI.
      *
@@ -127,7 +127,7 @@ void glass_evolve(int nsteps, char * pkoutname, struct ic_part_data * ICP, const
         }
         t_v += dt;
 
-        glass_force(t_x, ICP, NumPart);
+        glass_force(pm, t_x, ICP, NumPart);
         t_f = t_x;
 
         /* Kick */
@@ -187,7 +187,7 @@ static struct ic_part_data * curICP;
 
 /* Computes the gravitational force on the PM grid
  * and saves the total matter power spectrum.*/
-static void glass_force(double t_f, struct ic_part_data * ICP, const int NumPart) {
+static void glass_force(PetaPM * pm, double t_f, struct ic_part_data * ICP, const int NumPart) {
 
     PetaPMParticleStruct pstruct = {
         ICP,
@@ -215,7 +215,7 @@ static void glass_force(double t_f, struct ic_part_data * ICP, const int NumPart
      * Therefore the force transfer functions are based on the potential,
      * not the density.
      * */
-    petapm_force(_prepare, &global_functions, functions, &pstruct, &icprep);
+    petapm_force(pm, _prepare, &global_functions, functions, &pstruct, &icprep);
 
     powerspectrum_sum(&PowerSpectrum, All.BoxSize*All.UnitLength_in_cm);
     walltime_measure("/LongRange");
@@ -223,7 +223,8 @@ static void glass_force(double t_f, struct ic_part_data * ICP, const int NumPart
 
 static double pot_factor;
 
-static PetaPMRegion * _prepare(void * userdata, int * Nregions)
+static PetaPMRegion *
+_prepare(PetaPM * pm, void * userdata, int * Nregions)
 {
     struct ic_prep_data * icprep = (struct ic_prep_data *) userdata;
     int NumPart = icprep->NumPart;
@@ -333,7 +334,7 @@ void powerspectrum_add_mode(const int64_t k2, const int kpos[3], pfft_complex * 
 }
 
 /*Just read the power spectrum, without changing the input value.*/
-static void measure_power_spectrum(int64_t k2, int kpos[3], pfft_complex *value) {
+static void measure_power_spectrum(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex *value) {
     double f = 1.0;
     /* the CIC deconvolution kernel is
      *
@@ -351,7 +352,7 @@ static void measure_power_spectrum(int64_t k2, int kpos[3], pfft_complex *value)
     powerspectrum_add_mode(k2, kpos, value, f);
 }
 
-static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
+static void potential_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex *value) {
 
     double f = 1.0;
     const double smth = 1.0 / k2;
@@ -395,7 +396,7 @@ static double diff_kernel(double w) {
     return 1 / 6.0 * (8 * sin (w) - sin (2 * w));
 }
 
-static void force_transfer(int k, pfft_complex * value) {
+static void force_transfer(PetaPM *pm, int k, pfft_complex * value) {
     double tmp0;
     double tmp1;
     /*
@@ -409,21 +410,21 @@ static void force_transfer(int k, pfft_complex * value) {
     value[0][0] = tmp0;
     value[0][1] = tmp1;
 }
-static void force_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
-    force_transfer(kpos[0], value);
+static void force_x_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex * value) {
+    force_transfer(pm, kpos[0], value);
 }
-static void force_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
-    force_transfer(kpos[1], value);
+static void force_y_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex * value) {
+    force_transfer(pm, kpos[1], value);
 }
-static void force_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
-    force_transfer(kpos[2], value);
+static void force_z_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex * value) {
+    force_transfer(pm, kpos[2], value);
 }
-static void readout_force_x(int i, double * mesh, double weight) {
+static void readout_force_x(PetaPM *pm, int i, double * mesh, double weight) {
     curICP[i].Disp[0] += weight * mesh[0];
 }
-static void readout_force_y(int i, double * mesh, double weight) {
+static void readout_force_y(PetaPM *pm, int i, double * mesh, double weight) {
     curICP[i].Disp[1] += weight * mesh[0];
 }
-static void readout_force_z(int i, double * mesh, double weight) {
+static void readout_force_z(PetaPM *pm, int i, double * mesh, double weight) {
     curICP[i].Disp[2] += weight * mesh[0];
 }

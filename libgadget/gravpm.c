@@ -22,16 +22,16 @@ static int pm_mark_region_for_node(int startno, int rid, const ForceTree * tt);
 static void convert_node_to_region(PetaPMRegion * r, struct NODE * Nodes);
 
 static int hybrid_nu_gravpm_is_active(int i);
-static void potential_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void measure_power_spectrum(int64_t k2, int kpos[3], pfft_complex * value);
-static void compute_neutrino_power(void);
-static void force_x_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void force_y_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void force_z_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void readout_potential(int i, double * mesh, double weight);
-static void readout_force_x(int i, double * mesh, double weight);
-static void readout_force_y(int i, double * mesh, double weight);
-static void readout_force_z(int i, double * mesh, double weight);
+static void potential_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void measure_power_spectrum(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void compute_neutrino_power(PetaPM * pm);
+static void force_x_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void force_y_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void force_z_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void readout_potential(PetaPM * pm, int i, double * mesh, double weight);
+static void readout_force_x(PetaPM * pm, int i, double * mesh, double weight);
+static void readout_force_y(PetaPM * pm, int i, double * mesh, double weight);
+static void readout_force_z(PetaPM * pm, int i, double * mesh, double weight);
 static PetaPMFunctions functions [] =
 {
     {"Potential", NULL, readout_potential},
@@ -43,10 +43,11 @@ static PetaPMFunctions functions [] =
 
 static PetaPMGlobalFunctions global_functions = {NULL, NULL, potential_transfer};
 
-static PetaPMRegion * _prepare(void * userdata, int * Nregions);
+static PetaPM pm[1];
+static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions);
 
 void gravpm_init_periodic() {
-    petapm_init(All.BoxSize, All.Nmesh, MPI_COMM_WORLD);
+    petapm_init(pm, All.BoxSize, All.Nmesh, MPI_COMM_WORLD);
 
     /*Initialise the kspace neutrino code if it is enabled.
      * Mpc units are used to match power spectrum code.*/
@@ -82,7 +83,7 @@ void gravpm_force(ForceTree * tree) {
      * Therefore the force transfer functions are based on the potential,
      * not the density.
      * */
-    petapm_force(_prepare, &global_functions, functions, &pstruct, tree);
+    petapm_force(pm, _prepare, &global_functions, functions, &pstruct, tree);
     powerspectrum_sum(&PowerSpectrum, All.BoxSize*All.UnitLength_in_cm);
     /*Now save the power spectrum*/
     if(ThisTask == 0)
@@ -96,11 +97,11 @@ void gravpm_force(ForceTree * tree) {
 
 static double pot_factor;
 
-static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
+static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions) {
     /* fac is - 4pi G     (L / 2pi) **2 / L ** 3
      *        Gravity       k2            DFT (dk **3, but )
      * */
-    pot_factor = - All.G / (M_PI * All.BoxSize);	/* to get potential */
+    pot_factor = - All.G / (M_PI * pm->BoxSize);	/* to get potential */
 
     /*
      *
@@ -131,7 +132,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
         }
         if(
             /* node is large */
-           (tree->Nodes[no].len <= All.BoxSize / All.Nmesh * 24)
+           (tree->Nodes[no].len <= pm->BoxSize / pm->Nmesh * 24)
            ||
             /* node is a top leaf */
             ( !tree->Nodes[no].f.InternalTopLevel && (tree->Nodes[no].f.TopLevel) )
@@ -268,11 +269,11 @@ static double sinc_unnormed(double x) {
     }
 }
 
-/* Compute neutrino power spectrum.
+/* Update the model prediction of LinResp neutrino power spectrum.
  * This should happen after the CFT is computed,
  * and after powerspectrum_add_mode() has been called,
  * but before potential_transfer is called.*/
-static void compute_neutrino_power() {
+static void compute_neutrino_power(PetaPM * pm) {
     if(!All.MassiveNuLinRespOn)
         return;
     /*Note the power spectrum is now in Mpc units*/
@@ -328,7 +329,7 @@ void powerspectrum_add_mode(const int64_t k2, const int kpos[3], pfft_complex * 
 }
 
 /*Just read the power spectrum, without changing the input value.*/
-static void measure_power_spectrum(int64_t k2, int kpos[3], pfft_complex *value) {
+static void measure_power_spectrum(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex *value) {
     double f = 1.0;
     /* the CIC deconvolution kernel is
      *
@@ -346,7 +347,7 @@ static void measure_power_spectrum(int64_t k2, int kpos[3], pfft_complex *value)
     powerspectrum_add_mode(k2, kpos, value, f);
 }
 
-static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
+static void potential_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex *value) {
 
     const double asmth2 = pow((2 * M_PI) * All.Asmth / All.Nmesh,2);
     double f = 1.0;
@@ -431,7 +432,7 @@ static int hybrid_nu_gravpm_is_active(int i) {
         return 1;
 }
 
-static void force_transfer(int k, pfft_complex * value) {
+static void force_transfer(PetaPM * pm, int k, pfft_complex * value) {
     double tmp0;
     double tmp1;
     /*
@@ -439,31 +440,31 @@ static void force_transfer(int k, pfft_complex * value) {
      *
      * filter is   i K(w)
      * */
-    double fac = -1 * diff_kernel (k * (2 * M_PI / All.Nmesh)) * (All.Nmesh / All.BoxSize);
+    double fac = -1 * diff_kernel (k * (2 * M_PI / pm->Nmesh)) * (pm->Nmesh / pm->BoxSize);
     tmp0 = - value[0][1] * fac;
     tmp1 = value[0][0] * fac;
     value[0][0] = tmp0;
     value[0][1] = tmp1;
 }
-static void force_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
-    force_transfer(kpos[0], value);
+static void force_x_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+    force_transfer(pm, kpos[0], value);
 }
-static void force_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
-    force_transfer(kpos[1], value);
+static void force_y_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+    force_transfer(pm, kpos[1], value);
 }
-static void force_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
-    force_transfer(kpos[2], value);
+static void force_z_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+    force_transfer(pm, kpos[2], value);
 }
-static void readout_potential(int i, double * mesh, double weight) {
+static void readout_potential(PetaPM * pm, int i, double * mesh, double weight) {
     P[i].Potential += weight * mesh[0];
 }
-static void readout_force_x(int i, double * mesh, double weight) {
+static void readout_force_x(PetaPM * pm, int i, double * mesh, double weight) {
     P[i].GravPM[0] += weight * mesh[0];
 }
-static void readout_force_y(int i, double * mesh, double weight) {
+static void readout_force_y(PetaPM * pm, int i, double * mesh, double weight) {
     P[i].GravPM[1] += weight * mesh[0];
 }
-static void readout_force_z(int i, double * mesh, double weight) {
+static void readout_force_z(PetaPM * pm, int i, double * mesh, double weight) {
     P[i].GravPM[2] += weight * mesh[0];
 }
 
