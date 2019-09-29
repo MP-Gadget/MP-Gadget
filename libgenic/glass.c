@@ -39,42 +39,34 @@ static void glass_force(PetaPM * pm, double t_f, struct ic_part_data * ICP, cons
 static void glass_stats(struct ic_part_data * ICP, int NumPart);
 
 int
-setup_glass(PetaPM * pm, double shift, int Ngrid, int seed, double mass, int NumPart, struct ic_part_data * ICP)
+setup_glass(IDGenerator * idgen, PetaPM * pm, double shift, int seed, double mass, struct ic_part_data * ICP)
 {
-    int size[3];
-    int offset[3];
-    get_size_offset(pm, size, offset, Ngrid);
-
     gsl_rng * rng = gsl_rng_alloc(gsl_rng_ranlxd1);
     gsl_rng_set(rng, seed + ThisTask);
-    memset(ICP, 0, NumPart*sizeof(struct ic_part_data));
+    memset(ICP, 0, idgen->NumPart*sizeof(struct ic_part_data));
 
     int i;
     /* Note: this loop should nto be omp because
      * of the call to gsl_rng_uniform*/
-    for(i = 0; i < NumPart; i ++) {
-        double x, y, z;
-        x = i / (size[2] * size[1]) + offset[0];
-        y = (i % (size[1] * size[2])) / size[2] + offset[1];
-        z = (i % size[2]) + offset[2];
+    for(i = 0; i < idgen->NumPart; i ++) {
+        int k;
+        idgen_create_pos_from_index(idgen, i, &ICP[i].Pos[0]);
         /* a spread of 3 will kill most of the grid anisotropy structure;
          * and still being local */
-        x += 3 * (gsl_rng_uniform(rng) - 0.5);
-        y += 3 * (gsl_rng_uniform(rng) - 0.5);
-        z += 3 * (gsl_rng_uniform(rng) - 0.5);
-        ICP[i].Pos[0] = x * All.BoxSize / Ngrid + shift;
-        ICP[i].Pos[1] = y * All.BoxSize / Ngrid + shift;
-        ICP[i].Pos[2] = z * All.BoxSize / Ngrid + shift;
+        for(k = 0; k < 3; k++) {
+            double rand = idgen->BoxSize / idgen->Ngrid * 3 * (gsl_rng_uniform(rng) - 0.5);
+            ICP[i].Pos[k] += shift + rand;
+        }
         ICP[i].Mass = mass;
     }
 
     gsl_rng_free(rng);
 
     char * fn = fastpm_strdup_printf("powerspectrum-glass-%08X", seed);
-    glass_evolve(pm, 14, fn, ICP, NumPart);
+    glass_evolve(pm, 14, fn, ICP, idgen->NumPart);
     myfree(fn);
 
-    return NumPart;
+    return idgen->NumPart;
 }
 
 void glass_evolve(PetaPM * pm, int nsteps, char * pkoutname, struct ic_part_data * ICP, const int NumPart)

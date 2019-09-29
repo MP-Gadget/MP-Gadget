@@ -56,7 +56,15 @@ static void saveblock(BigFile * bf, void * baseptr, int ptype, char * bname, cha
 }
 
 
-void write_particle_data(PetaPM * pm, const int Type, BigFile * bf, const uint64_t FirstID, const int Ngrid, struct ic_part_data * curICP, const int NumPart) {
+void
+write_particle_data(IDGenerator * idgen,
+                    const int Type,
+                    BigFile * bf,
+                    const uint64_t FirstID,
+                    const int Ngrid,
+                    struct ic_part_data * curICP,
+                    const int NumPart)
+{
     /* Write particles */
     saveblock(bf, &curICP[0].Density, Type, "ICDensity", "f4", 1, NumPart, sizeof(curICP[0]));
     saveblock(bf, &curICP[0].Pos, Type, "Position", "f8", 3, NumPart, sizeof(curICP[0]));
@@ -68,7 +76,7 @@ void write_particle_data(PetaPM * pm, const int Type, BigFile * bf, const uint64
     #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
     {
-        ids[i] = id_offset_from_index(pm, i, Ngrid) + FirstID;
+        ids[i] = idgen_create_id_from_index(idgen, i) + FirstID;
     }
     saveblock(bf, ids, Type, "ID", "u8", 1, NumPart, sizeof(uint64_t));
     myfree(ids);

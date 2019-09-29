@@ -41,65 +41,65 @@ static inline double periodic_wrap(double x)
   return x;
 }
 
+/* Watch out: only works for pencils along-z !*/
+void
+idgen_init(IDGenerator * idgen, PetaPM * pm, int Ngrid, double BoxSize)
+{
+
+    int * ThisTask2d = petapm_get_thistask2d(pm);
+    int * NTask2d = petapm_get_ntask2d(pm);
+    idgen->NumPart = 1;
+    int k;
+    for(k = 0; k < 2; k ++) {
+        idgen->offset[k] = (ThisTask2d[k]) * Ngrid / NTask2d[k];
+        idgen->size[k] = (ThisTask2d[k] + 1) * Ngrid / NTask2d[k];
+        idgen->size[k] -= idgen->offset[k];
+        idgen->NumPart *= idgen->size[k];
+    }
+    idgen->offset[2] = 0;
+    idgen->size[2] = Ngrid;
+    idgen->NumPart *= idgen->size[2];
+    idgen->Ngrid = Ngrid;
+    idgen->BoxSize = BoxSize;
+}
+
 uint64_t
-ijk_to_id(int i, int j, int k, int Ngrid) {
-    uint64_t id = ((uint64_t) i) * Ngrid * Ngrid + ((uint64_t)j) * Ngrid + k + 1;
+idgen_create_id_from_index(IDGenerator * idgen, int index)
+{
+    int i = index / (idgen->size[2] * idgen->size[1]) + idgen->offset[0];
+    int j = (index % (idgen->size[1] * idgen->size[2])) / idgen->size[2] + idgen->offset[1];
+    int k = (index % idgen->size[2]) + idgen->offset[2];
+    uint64_t id = ((uint64_t) i) * idgen->Ngrid * idgen->Ngrid + ((uint64_t)j) * idgen->Ngrid + k + 1;
     return id;
 }
 
-/*Helper function to get size and offset of particles to the global grid.*/
-int
-get_size_offset(PetaPM * pm, int * size, int * offset, int Ngrid)
+void
+idgen_create_pos_from_index(IDGenerator * idgen, int index, double pos[3])
 {
-    int * ThisTask2d = petapm_get_thistask2d(pm);
-    int * NTask2d = petapm_get_ntask2d(pm);
-    int k;
-    int npart = 1;
-    for(k = 0; k < 2; k ++) {
-        offset[k] = (ThisTask2d[k]) * Ngrid / NTask2d[k];
-        size[k] = (ThisTask2d[k] + 1) * Ngrid / NTask2d[k];
-        size[k] -= offset[k];
-        npart *= size[k];
-    }
-    offset[2] = 0;
-    size[2] = Ngrid;
-    npart *= size[2];
-    return npart;
-}
+    int x = index / (idgen->size[2] * idgen->size[1]) + idgen->offset[0];
+    int y = (index % (idgen->size[1] * idgen->size[2])) / idgen->size[2] + idgen->offset[1];
+    int z = (index % idgen->size[2]) + idgen->offset[2];
 
-uint64_t
-id_offset_from_index(PetaPM * pm, const int i, const int Ngrid)
-{
-    int size[3];
-    int offset[3];
-    get_size_offset(pm, size, offset, Ngrid);
-    int x = i / (size[2] * size[1]) + offset[0];
-    int y = (i % (size[1] * size[2])) / size[2] + offset[1];
-    int z = (i % size[2]) + offset[2];
-    return ijk_to_id(x, y, z, Ngrid);
+    pos[0] = x * idgen->BoxSize / idgen->Ngrid;
+    pos[1] = y * idgen->BoxSize / idgen->Ngrid;
+    pos[2] = z * idgen->BoxSize / idgen->Ngrid;
 }
 
 int
-setup_grid(PetaPM * pm, double shift, int Ngrid, double mass, int NumPart, struct ic_part_data * ICP)
+setup_grid(IDGenerator * idgen, double shift, double mass, struct ic_part_data * ICP)
 {
-    int size[3];
-    int offset[3];
-    get_size_offset(pm, size, offset, Ngrid);
-    memset(ICP, 0, NumPart*sizeof(struct ic_part_data));
+    memset(ICP, 0, idgen->NumPart*sizeof(struct ic_part_data));
 
     int i;
     #pragma omp parallel for
-    for(i = 0; i < NumPart; i ++) {
-        int x, y, z;
-        x = i / (size[2] * size[1]) + offset[0];
-        y = (i % (size[1] * size[2])) / size[2] + offset[1];
-        z = (i % size[2]) + offset[2];
-        ICP[i].Pos[0] = x * All.BoxSize / Ngrid + shift;
-        ICP[i].Pos[1] = y * All.BoxSize / Ngrid + shift;
-        ICP[i].Pos[2] = z * All.BoxSize / Ngrid + shift;
+    for(i = 0; i < idgen->NumPart; i ++) {
+        idgen_create_pos_from_index(idgen, i, &ICP[i].Pos[0]);
+        ICP[i].Pos[0] += shift;
+        ICP[i].Pos[1] += shift;
+        ICP[i].Pos[2] +=  shift;
         ICP[i].Mass = mass;
     }
-    return NumPart;
+    return idgen->NumPart;
 }
 
 struct ic_prep_data
