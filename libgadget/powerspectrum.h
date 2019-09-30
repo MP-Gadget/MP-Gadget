@@ -14,7 +14,7 @@ struct _powerspectrum {
     int nonzero;
     double Norm;
     /* Used to set the output units of the power to Mpc*/
-    double BoxSize_in_cm;
+    double BoxSize_in_MPC;
     /*These are for the LRA neutrino code*/
     /*log k bins and ratio of Pnu to Pcdm: stored so interpolation is accurate*/
     double * logknu;
