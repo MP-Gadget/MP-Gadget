@@ -61,24 +61,22 @@ write_particle_data(IDGenerator * idgen,
                     const int Type,
                     BigFile * bf,
                     const uint64_t FirstID,
-                    const int Ngrid,
-                    struct ic_part_data * curICP,
-                    const int NumPart)
+                    struct ic_part_data * curICP)
 {
     /* Write particles */
-    saveblock(bf, &curICP[0].Density, Type, "ICDensity", "f4", 1, NumPart, sizeof(curICP[0]));
-    saveblock(bf, &curICP[0].Pos, Type, "Position", "f8", 3, NumPart, sizeof(curICP[0]));
-    saveblock(bf, &curICP[0].Vel, Type, "Velocity", "f4", 3, NumPart, sizeof(curICP[0]));
+    saveblock(bf, &curICP[0].Density, Type, "ICDensity", "f4", 1, idgen->NumPart, sizeof(curICP[0]));
+    saveblock(bf, &curICP[0].Pos, Type, "Position", "f8", 3, idgen->NumPart, sizeof(curICP[0]));
+    saveblock(bf, &curICP[0].Vel, Type, "Velocity", "f4", 3, idgen->NumPart, sizeof(curICP[0]));
     /*Generate and write IDs*/
-    uint64_t * ids = mymalloc("IDs", NumPart * sizeof(uint64_t));
-    memset(ids, 0, NumPart * sizeof(uint64_t));
+    uint64_t * ids = mymalloc("IDs", idgen->NumPart * sizeof(uint64_t));
+    memset(ids, 0, idgen->NumPart * sizeof(uint64_t));
     int i;
     #pragma omp parallel for
-    for(i = 0; i < NumPart; i++)
+    for(i = 0; i < idgen->NumPart; i++)
     {
         ids[i] = idgen_create_id_from_index(idgen, i) + FirstID;
     }
-    saveblock(bf, ids, Type, "ID", "u8", 1, NumPart, sizeof(uint64_t));
+    saveblock(bf, ids, Type, "ID", "u8", 1, idgen->NumPart, sizeof(uint64_t));
     myfree(ids);
     walltime_measure("/Write");
 }

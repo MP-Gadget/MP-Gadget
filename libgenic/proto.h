@@ -44,14 +44,11 @@ void compute_mass(double * mass, int64_t TotNumPartCDM, int64_t TotNumPartGas, i
 
 /* Save positions, velocities and IDs of a particle type to the ICs. */
 void
-write_particle_data(
-        IDGenerator * idgen,
-        const int Type,
-        BigFile * bf,
-        const uint64_t FirstID,
-        const int Ngrid,
-        struct ic_part_data * curICP,
-        const int NumPart);
+write_particle_data(IDGenerator * idgen,
+                    const int Type,
+                    BigFile * bf,
+                    const uint64_t FirstID,
+                    struct ic_part_data * curICP);
 
 /*Read a parameter file*/
 void  read_parameterfile(char *fname);
