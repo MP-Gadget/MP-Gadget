@@ -11,6 +11,7 @@
 #include "petapm.h"
 #include "powerspectrum.h"
 #include "domain.h"
+#include "gravity.h"
 
 #include "cosmology.h"
 #include "neutrinos_lra.h"
@@ -46,13 +47,13 @@ static PetaPMGlobalFunctions global_functions = {NULL, NULL, potential_transfer}
 static PetaPM pm[1];
 static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions);
 
-void gravpm_init_periodic() {
-    petapm_init(pm, All.BoxSize, All.Nmesh, MPI_COMM_WORLD);
+void gravpm_init_periodic(double BoxSize, int Nmesh) {
+    petapm_init(pm, BoxSize, Nmesh, MPI_COMM_WORLD);
 
     /*Initialise the kspace neutrino code if it is enabled.
      * Mpc units are used to match power spectrum code.*/
     if(All.MassiveNuLinRespOn) {
-        init_neutrinos_lra(All.Nmesh, All.TimeIC, All.TimeMax, All.CP.Omega0, &All.CP.ONu, All.UnitTime_in_s, CM_PER_MPC);
+        init_neutrinos_lra(Nmesh, All.TimeIC, All.TimeMax, All.CP.Omega0, &All.CP.ONu, All.UnitTime_in_s, CM_PER_MPC);
         global_functions.global_readout = measure_power_spectrum;
         global_functions.global_analysis = compute_neutrino_power;
     }
@@ -180,7 +181,7 @@ static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions) {
     if(force_tree_allocated(tree)) force_tree_free(tree);
 
     /*Allocate memory for a power spectrum*/
-    powerspectrum_alloc(&PowerSpectrum, All.Nmesh, All.NumThreads, All.MassiveNuLinRespOn, All.BoxSize*All.UnitLength_in_cm);
+    powerspectrum_alloc(&PowerSpectrum, pm->Nmesh, All.NumThreads, All.MassiveNuLinRespOn, pm->BoxSize*All.UnitLength_in_cm);
 
     walltime_measure("/PMgrav/Regions");
     return regions;
@@ -226,7 +227,7 @@ static int pm_mark_region_for_node(int startno, int rid, const ForceTree * tree)
 
 static void convert_node_to_region(PetaPMRegion * r, struct NODE * Nodes) {
     int k;
-    double cellsize = All.BoxSize / All.Nmesh;
+    double cellsize = pm->BoxSize / pm->Nmesh;
     int no = r->no;
 #if 0
     printf("task = %d no = %d len = %g hmax = %g center = %g %g %g\n",
@@ -308,7 +309,7 @@ void powerspectrum_add_mode(const int64_t k2, const int kpos[3], pfft_complex * 
      * This is because of the symmetry of the real fft. */
     if(k2 > 0) {
         /*How many bins per unit (log) interval in k?*/
-        const double binsperunit=(PowerSpectrum.size-1)/log(sqrt(3)*All.Nmesh/2.0);
+        const double binsperunit=(PowerSpectrum.size-1)/log(sqrt(3)*pm->Nmesh/2.0);
         int kint=floor(binsperunit*log(k2)/2.);
         int w;
         const double keff = sqrt(kpos[0]*kpos[0]+kpos[1]*kpos[1]+kpos[2]*kpos[2]);
@@ -316,7 +317,7 @@ void powerspectrum_add_mode(const int64_t k2, const int kpos[3], pfft_complex * 
         /*Make sure we do not overflow (although this should never happen)*/
         if(kint >= PowerSpectrum.size)
             return;
-        if(kpos[2] == 0 || kpos[2] == All.Nmesh/2) w = 1;
+        if(kpos[2] == 0 || kpos[2] == pm->Nmesh/2) w = 1;
         else w = 2;
         /*Make sure we use thread-local memory to avoid racing.*/
         const int index = kint + omp_get_thread_num() * PowerSpectrum.size;
@@ -333,14 +334,14 @@ static void measure_power_spectrum(PetaPM * pm, int64_t k2, int kpos[3], pfft_co
     double f = 1.0;
     /* the CIC deconvolution kernel is
      *
-     * sinc_unnormed(k_x L / 2 All.Nmesh) ** 2
+     * sinc_unnormed(k_x L / 2 Nmesh) ** 2
      *
      * k_x = kpos * 2pi / L
      *
      * */
     int k;
     for(k = 0; k < 3; k ++) {
-        double tmp = (kpos[k] * M_PI) / All.Nmesh;
+        double tmp = (kpos[k] * M_PI) / pm->Nmesh;
         tmp = sinc_unnormed(tmp);
         f *= 1. / (tmp * tmp);
     }
@@ -349,19 +350,19 @@ static void measure_power_spectrum(PetaPM * pm, int64_t k2, int kpos[3], pfft_co
 
 static void potential_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex *value) {
 
-    const double asmth2 = pow((2 * M_PI) * All.Asmth / All.Nmesh,2);
+    const double asmth2 = pow((2 * M_PI) * All.Asmth / pm->Nmesh,2);
     double f = 1.0;
     const double smth = exp(-k2 * asmth2) / k2;
     /* the CIC deconvolution kernel is
      *
-     * sinc_unnormed(k_x L / 2 All.Nmesh) ** 2
+     * sinc_unnormed(k_x L / 2 Nmesh) ** 2
      *
      * k_x = kpos * 2pi / L
      *
      * */
     int k;
     for(k = 0; k < 3; k ++) {
-        double tmp = (kpos[k] * M_PI) / All.Nmesh;
+        double tmp = (kpos[k] * M_PI) / pm->Nmesh;
         tmp = sinc_unnormed(tmp);
         f *= 1. / (tmp * tmp);
     }
@@ -375,7 +376,7 @@ static void potential_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_comple
     /*Add neutrino power if desired*/
     if(All.MassiveNuLinRespOn && k2 > 0) {
         /* Change the units of k to match those of logkk*/
-        double logk2 = log(sqrt(k2) * 2 * M_PI / (All.BoxSize * All.UnitLength_in_cm/ CM_PER_MPC ));
+        double logk2 = log(sqrt(k2) * 2 * M_PI / (pm->BoxSize * All.UnitLength_in_cm/ CM_PER_MPC ));
         /* Floating point roundoff and the binning means there may be a mode just beyond the box size.*/
         if(logk2 < PowerSpectrum.logknu[0] && logk2 > PowerSpectrum.logknu[0]-log(2) )
             logk2 = PowerSpectrum.logknu[0];

@@ -106,7 +106,8 @@ void begrun(int RestartSnapNum, DomainDecomp * ddecomp)
 
     init_cooling_and_star_formation();
 
-    grav_init();
+    gravshort_fill_ntab();
+    gravpm_init_periodic(All.BoxSize, All.Nmesh);
 
     set_random_numbers(All.RandomSeed);
 

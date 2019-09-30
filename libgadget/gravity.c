@@ -11,7 +11,7 @@
  *  \brief driver routines for computation of long-range gravitational PM force
  */
 
-/* 
+/*
  * This table is computed by comparing with brute force calculation it matches the full PM exact up to 10 mesh sizes
  * for a point source. it is copied to a tighter array for better cache performance (hopefully)
  *
@@ -20,26 +20,11 @@
 #include "shortrange-kernel.c"
 #define NTAB (sizeof(shortrange_force_kernels) / sizeof(shortrange_force_kernels[0]))
 
-/*Defined in gravpm.c and only used here*/
-void  gravpm_init_periodic();
-
-static void fill_ntab();
-
-/*! Driver routine to call initializiation of periodic or/and non-periodic FFT
- *  routines.
- */
-void grav_init(void)
-{
-    fill_ntab();
-    gravpm_init_periodic();
-}
-
-
 /*! variables for short-range lookup table */
 static float shortrange_table[NTAB], shortrange_table_potential[NTAB], shortrange_table_tidal[NTAB];
 
-static void
-fill_ntab()
+void
+gravshort_fill_ntab(void)
 {
     if (All.ShortRangeForceWindowType == SHORTRANGE_FORCE_WINDOW_TYPE_EXACT) {
         if(All.Asmth != 1.25) {
