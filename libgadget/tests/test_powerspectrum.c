@@ -25,7 +25,7 @@ static void test_total_powerspectrum(void **state) {
     struct _powerspectrum PowerSpectrum;
     MPI_Comm_size(MPI_COMM_WORLD, &nmpi);
 
-    powerspectrum_alloc(&PowerSpectrum,15,NUM_THREADS, 0);
+    powerspectrum_alloc(&PowerSpectrum,15,NUM_THREADS, 0, 3.085678e24);
     assert_true(PowerSpectrum.Nmodes);
     assert_true(PowerSpectrum.Power);
     assert_true(PowerSpectrum.kk);
@@ -44,7 +44,7 @@ static void test_total_powerspectrum(void **state) {
     }
     PowerSpectrum.Norm = 1;
     /*Now every thread and every MPI has the same data. Sum it.*/
-    powerspectrum_sum(&PowerSpectrum,3.085678e24);
+    powerspectrum_sum(&PowerSpectrum);
 
     /*Check summation was done correctly*/
     assert_true(PowerSpectrum.Nmodes[0] == NUM_THREADS*nmpi);

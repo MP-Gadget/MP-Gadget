@@ -78,7 +78,7 @@ void glass_evolve(PetaPM * pm, int nsteps, char * pkoutname, struct ic_part_data
     double t_f = 0;
 
     /*Allocate memory for a power spectrum*/
-    powerspectrum_alloc(&PowerSpectrum, All.Nmesh, All.NumThreads, 0);
+    powerspectrum_alloc(&PowerSpectrum, All.Nmesh, All.NumThreads, 0, All.BoxSize*All.UnitLength_in_cm);
 
     glass_force(pm, t_x, ICP, NumPart);
 
@@ -209,7 +209,7 @@ static void glass_force(PetaPM * pm, double t_f, struct ic_part_data * ICP, cons
      * */
     petapm_force(pm, _prepare, &global_functions, functions, &pstruct, &icprep);
 
-    powerspectrum_sum(&PowerSpectrum, All.BoxSize*All.UnitLength_in_cm);
+    powerspectrum_sum(&PowerSpectrum);
     walltime_measure("/LongRange");
 }
 

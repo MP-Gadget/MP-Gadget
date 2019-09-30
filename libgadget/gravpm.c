@@ -84,7 +84,7 @@ void gravpm_force(ForceTree * tree) {
      * not the density.
      * */
     petapm_force(pm, _prepare, &global_functions, functions, &pstruct, tree);
-    powerspectrum_sum(&PowerSpectrum, All.BoxSize*All.UnitLength_in_cm);
+    powerspectrum_sum(&PowerSpectrum);
     /*Now save the power spectrum*/
     if(ThisTask == 0)
         powerspectrum_save(&PowerSpectrum, All.OutputDir, "powerspectrum", All.Time, GrowthFactor(All.Time, 1.0));
@@ -180,7 +180,7 @@ static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions) {
     if(force_tree_allocated(tree)) force_tree_free(tree);
 
     /*Allocate memory for a power spectrum*/
-    powerspectrum_alloc(&PowerSpectrum, All.Nmesh, All.NumThreads, All.MassiveNuLinRespOn);
+    powerspectrum_alloc(&PowerSpectrum, All.Nmesh, All.NumThreads, All.MassiveNuLinRespOn, All.BoxSize*All.UnitLength_in_cm);
 
     walltime_measure("/PMgrav/Regions");
     return regions;
@@ -277,7 +277,7 @@ static void compute_neutrino_power(PetaPM * pm) {
     if(!All.MassiveNuLinRespOn)
         return;
     /*Note the power spectrum is now in Mpc units*/
-    powerspectrum_sum(&PowerSpectrum, All.BoxSize*All.UnitLength_in_cm);
+    powerspectrum_sum(&PowerSpectrum);
     int i;
     /*Get delta_cdm_curr , which is P(k)^1/2.*/
     for(i=0; i<PowerSpectrum.nonzero; i++) {
