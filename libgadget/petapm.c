@@ -38,8 +38,10 @@ static int pos_get_target(PetaPM * pm, const int pos[2]);
 
 /* FIXME: move this to MPIU_. */
 static int64_t reduce_int64(int64_t input, MPI_Comm comm);
+#ifdef DEBUG
 /* for debugging */
 static void verify_density_field(PetaPM * pm, double * real, double * meshbuf, const size_t meshsize);
+#endif
 
 static MPI_Datatype MPI_PENCIL;
 
@@ -287,8 +289,10 @@ pfft_complex * petapm_force_r2c(PetaPM * pm,
     layout_build_and_exchange_cells_to_pfft(pm, &pm->priv->layout, pm->priv->meshbuf, real);
     walltime_measure("/PMgrav/comm2");
 
+#ifdef DEBUG
     verify_density_field(pm, real, pm->priv->meshbuf, pm->priv->meshbufsize);
     walltime_measure("/PMgrav/Misc");
+#endif
 
     pfft_complex * complx = (pfft_complex *) mymalloc("PMcomplex", pm->priv->fftsize * sizeof(double));
     pfft_execute_dft_r2c(pm->priv->plan_forw, real, complx);
@@ -841,6 +845,7 @@ static int pencil_cmp_target(const void * v1, const void * v2) {
         ((p2->meshbuf_first < p1->meshbuf_first) - (p1->meshbuf_first < p2->meshbuf_first));
 }
 
+#ifdef DEBUG
 static void verify_density_field(PetaPM * pm, double * real, double * meshbuf, const size_t meshsize) {
     /* verify the density field */
     double mass_Part = 0;
@@ -872,6 +877,7 @@ static void verify_density_field(PetaPM * pm, double * real, double * meshbuf, c
 
     message(0, "total Region mass err = %g CIC mass err = %g Particle mass = %g\n", totmass_Region / totmass_Part - 1, totmass_CIC / totmass_Part - 1, totmass_Part);
 }
+#endif
 
 static void pm_apply_transfer_function(PetaPM * pm,
         pfft_complex * src,
