@@ -326,7 +326,9 @@ SIMPLE_PROPERTY(BlackholeAccretionRate, Group[i].BH_Mdot, float, 1)
 static void fof_register_io_blocks(struct IOTable * IOTable) {
     IOTable->used = 0;
     IOTable->allocated = 100;
-    IOTable->ent = mymalloc("IOTable", IOTable->allocated* sizeof(IOTableEntry));
+    /* Allocate high so we can do a domain exchange,
+     * potentially increasing the slots, around this*/
+    IOTable->ent = mymalloc2("IOTable", IOTable->allocated* sizeof(IOTableEntry));
 
     IO_REG(GroupID, "u4", 1, PTYPE_FOF_GROUP, IOTable);
     IO_REG(Mass, "f4", 1, PTYPE_FOF_GROUP, IOTable);

@@ -5,7 +5,6 @@
 #include <math.h>
 /* do NOT use complex.h it breaks the code */
 #include <pfft.h>
-#include <gsl/gsl_rng.h>
 #include "allvars.h"
 #include "proto.h"
 #include "power.h"
@@ -15,21 +14,21 @@
 #include <libgadget/utils.h>
 
 #define MESH2K(i) petapm_mesh_to_k(i)
-static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void vel_x_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void vel_y_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void vel_z_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void disp_y_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void readout_density(int i, double * mesh, double weight);
-static void readout_vel_x(int i, double * mesh, double weight);
-static void readout_vel_y(int i, double * mesh, double weight);
-static void readout_vel_z(int i, double * mesh, double weight);
-static void readout_disp_x(int i, double * mesh, double weight);
-static void readout_disp_y(int i, double * mesh, double weight);
-static void readout_disp_z(int i, double * mesh, double weight);
-static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int UnitaryAmplitude, int InvertPhase);
+static void density_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void vel_x_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void vel_y_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void vel_z_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void disp_x_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void disp_y_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void disp_z_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void readout_density(PetaPM * pm, int i, double * mesh, double weight);
+static void readout_vel_x(PetaPM * pm, int i, double * mesh, double weight);
+static void readout_vel_y(PetaPM * pm, int i, double * mesh, double weight);
+static void readout_vel_z(PetaPM * pm, int i, double * mesh, double weight);
+static void readout_disp_x(PetaPM * pm, int i, double * mesh, double weight);
+static void readout_disp_y(PetaPM * pm, int i, double * mesh, double weight);
+static void readout_disp_z(PetaPM * pm, int i, double * mesh, double weight);
+static void gaussian_fill(int Nmesh, PetaPMRegion * region, pfft_complex * rho_k, int UnitaryAmplitude, int InvertPhase);
 
 static inline double periodic_wrap(double x)
 {
@@ -42,65 +41,65 @@ static inline double periodic_wrap(double x)
   return x;
 }
 
+/* Watch out: only works for pencils along-z !*/
+void
+idgen_init(IDGenerator * idgen, PetaPM * pm, int Ngrid, double BoxSize)
+{
+
+    int * ThisTask2d = petapm_get_thistask2d(pm);
+    int * NTask2d = petapm_get_ntask2d(pm);
+    idgen->NumPart = 1;
+    int k;
+    for(k = 0; k < 2; k ++) {
+        idgen->offset[k] = (ThisTask2d[k]) * Ngrid / NTask2d[k];
+        idgen->size[k] = (ThisTask2d[k] + 1) * Ngrid / NTask2d[k];
+        idgen->size[k] -= idgen->offset[k];
+        idgen->NumPart *= idgen->size[k];
+    }
+    idgen->offset[2] = 0;
+    idgen->size[2] = Ngrid;
+    idgen->NumPart *= idgen->size[2];
+    idgen->Ngrid = Ngrid;
+    idgen->BoxSize = BoxSize;
+}
+
 uint64_t
-ijk_to_id(int i, int j, int k, int Ngrid) {
-    uint64_t id = ((uint64_t) i) * Ngrid * Ngrid + ((uint64_t)j) * Ngrid + k + 1;
+idgen_create_id_from_index(IDGenerator * idgen, int index)
+{
+    int i = index / (idgen->size[2] * idgen->size[1]) + idgen->offset[0];
+    int j = (index % (idgen->size[1] * idgen->size[2])) / idgen->size[2] + idgen->offset[1];
+    int k = (index % idgen->size[2]) + idgen->offset[2];
+    uint64_t id = ((uint64_t) i) * idgen->Ngrid * idgen->Ngrid + ((uint64_t)j) * idgen->Ngrid + k + 1;
     return id;
 }
 
-/*Helper function to get size and offset of particles to the global grid.*/
-int
-get_size_offset(int * size, int * offset, int Ngrid)
+void
+idgen_create_pos_from_index(IDGenerator * idgen, int index, double pos[3])
 {
-    int * ThisTask2d = petapm_get_thistask2d();
-    int * NTask2d = petapm_get_ntask2d();
-    int k;
-    int npart = 1;
-    for(k = 0; k < 2; k ++) {
-        offset[k] = (ThisTask2d[k]) * Ngrid / NTask2d[k];
-        size[k] = (ThisTask2d[k] + 1) * Ngrid / NTask2d[k];
-        size[k] -= offset[k];
-        npart *= size[k];
-    }
-    offset[2] = 0;
-    size[2] = Ngrid;
-    npart *= size[2];
-    return npart;
-}
+    int x = index / (idgen->size[2] * idgen->size[1]) + idgen->offset[0];
+    int y = (index % (idgen->size[1] * idgen->size[2])) / idgen->size[2] + idgen->offset[1];
+    int z = (index % idgen->size[2]) + idgen->offset[2];
 
-uint64_t
-id_offset_from_index(const int i, const int Ngrid)
-{
-    int size[3];
-    int offset[3];
-    get_size_offset(size, offset, Ngrid);
-    int x = i / (size[2] * size[1]) + offset[0];
-    int y = (i % (size[1] * size[2])) / size[2] + offset[1];
-    int z = (i % size[2]) + offset[2];
-    return ijk_to_id(x, y, z, Ngrid);
+    pos[0] = x * idgen->BoxSize / idgen->Ngrid;
+    pos[1] = y * idgen->BoxSize / idgen->Ngrid;
+    pos[2] = z * idgen->BoxSize / idgen->Ngrid;
 }
 
 int
-setup_grid(double shift, int Ngrid, double mass, int NumPart, struct ic_part_data * ICP)
+setup_grid(IDGenerator * idgen, double shift, double mass, struct ic_part_data * ICP)
 {
-    int size[3];
-    int offset[3];
-    get_size_offset(size, offset, Ngrid);
-    memset(ICP, 0, NumPart*sizeof(struct ic_part_data));
+    memset(ICP, 0, idgen->NumPart*sizeof(struct ic_part_data));
 
     int i;
     #pragma omp parallel for
-    for(i = 0; i < NumPart; i ++) {
-        int x, y, z;
-        x = i / (size[2] * size[1]) + offset[0];
-        y = (i % (size[1] * size[2])) / size[2] + offset[1];
-        z = (i % size[2]) + offset[2];
-        ICP[i].Pos[0] = x * All.BoxSize / Ngrid + shift;
-        ICP[i].Pos[1] = y * All.BoxSize / Ngrid + shift;
-        ICP[i].Pos[2] = z * All.BoxSize / Ngrid + shift;
+    for(i = 0; i < idgen->NumPart; i ++) {
+        idgen_create_pos_from_index(idgen, i, &ICP[i].Pos[0]);
+        ICP[i].Pos[0] += shift;
+        ICP[i].Pos[1] += shift;
+        ICP[i].Pos[2] +=  shift;
         ICP[i].Mass = mass;
     }
-    return NumPart;
+    return idgen->NumPart;
 }
 
 struct ic_prep_data
@@ -109,7 +108,7 @@ struct ic_prep_data
     int NumPart;
 };
 
-static PetaPMRegion * makeregion(void * userdata, int * Nregions) {
+static PetaPMRegion * makeregion(PetaPM * pm, void * userdata, int * Nregions) {
     PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion));
     struct ic_prep_data * icprep = (struct ic_prep_data *) userdata;
     int NumPart = icprep->NumPart;
@@ -147,7 +146,8 @@ static enum TransferType ptype;
 /*Global to pass the particle data to the readout functions*/
 static struct ic_part_data * curICP;
 
-void displacement_fields(enum TransferType Type, struct ic_part_data * dispICP, const int NumPart) {
+void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_data * dispICP, const int NumPart) {
+
     /*MUST set this before doing force.*/
     ptype = Type;
     curICP = dispICP;
@@ -208,21 +208,21 @@ void displacement_fields(enum TransferType Type, struct ic_part_data * dispICP, 
     }
 
     struct ic_prep_data icprep = {dispICP, NumPart};
-    PetaPMRegion * regions = petapm_force_init(
+    PetaPMRegion * regions = petapm_force_init(pm,
            makeregion,
            &pstruct, &icprep);
 
     /*This allocates the memory*/
-    pfft_complex * rho_k = petapm_alloc_rhok();
+    pfft_complex * rho_k = petapm_alloc_rhok(pm);
 
-    gaussian_fill(petapm_get_fourier_region(),
+    gaussian_fill(pm->Nmesh, petapm_get_fourier_region(pm),
 		  rho_k, All2.UnitaryAmplitude, All2.InvertPhase);
 
-    petapm_force_c2r(rho_k, regions, functions);
+    petapm_force_c2r(pm, rho_k, regions, functions);
 
     myfree(rho_k);
     myfree(regions);
-    petapm_force_finish();
+    petapm_force_finish(pm);
 
     double maxdisp = 0, maxvel = 0;
 
@@ -269,7 +269,7 @@ void displacement_fields(enum TransferType Type, struct ic_part_data * dispICP, 
  *
  *********************/
 
-static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
+static void density_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
         /* density is smoothed in k space by a gaussian kernel of 1 mesh grid */
         double r2 = 1.0 / All.Nmesh;
@@ -284,7 +284,7 @@ static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     }
 }
 
-static void disp_transfer(int64_t k2, int kaxis, pfft_complex * value, int include_growth) {
+static void disp_transfer(PetaPM * pm, int64_t k2, int kaxis, pfft_complex * value, int include_growth) {
     if(k2) {
         double fac = 1./ (2 * M_PI) / sqrt(All.BoxSize) * kaxis / k2;
         /*
@@ -308,256 +308,63 @@ static void disp_transfer(int64_t k2, int kaxis, pfft_complex * value, int inclu
     }
 }
 
-static void vel_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
-    disp_transfer(k2, kpos[0], value, 1);
+static void vel_x_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+    disp_transfer(pm, k2, kpos[0], value, 1);
 }
-static void vel_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
-    disp_transfer(k2, kpos[1], value, 1);
+static void vel_y_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+    disp_transfer(pm, k2, kpos[1], value, 1);
 }
-static void vel_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
-    disp_transfer(k2, kpos[2], value, 1);
+static void vel_z_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+    disp_transfer(pm, k2, kpos[2], value, 1);
 }
 
-static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
-    disp_transfer(k2, kpos[0], value, 0);
+static void disp_x_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+    disp_transfer(pm, k2, kpos[0], value, 0);
 }
-static void disp_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
-    disp_transfer(k2, kpos[1], value, 0);
+static void disp_y_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+    disp_transfer(pm, k2, kpos[1], value, 0);
 }
-static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
-    disp_transfer(k2, kpos[2], value, 0);
+static void disp_z_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+    disp_transfer(pm, k2, kpos[2], value, 0);
 }
 
 /**************
  * functions iterating over particle / mesh pairs
  ***************/
-static void readout_density(int i, double * mesh, double weight) {
+static void readout_density(PetaPM * pm, int i, double * mesh, double weight) {
     curICP[i].Density += weight * mesh[0];
 }
-static void readout_vel_x(int i, double * mesh, double weight) {
+static void readout_vel_x(PetaPM * pm, int i, double * mesh, double weight) {
     curICP[i].Vel[0] += weight * mesh[0];
 }
-static void readout_vel_y(int i, double * mesh, double weight) {
+static void readout_vel_y(PetaPM * pm, int i, double * mesh, double weight) {
     curICP[i].Vel[1] += weight * mesh[0];
 }
-static void readout_vel_z(int i, double * mesh, double weight) {
+static void readout_vel_z(PetaPM * pm, int i, double * mesh, double weight) {
     curICP[i].Vel[2] += weight * mesh[0];
 }
 
-static void readout_disp_x(int i, double * mesh, double weight) {
+static void readout_disp_x(PetaPM * pm, int i, double * mesh, double weight) {
     curICP[i].Disp[0] += weight * mesh[0];
 }
-static void readout_disp_y(int i, double * mesh, double weight) {
+static void readout_disp_y(PetaPM * pm, int i, double * mesh, double weight) {
     curICP[i].Disp[1] += weight * mesh[0];
 }
-static void readout_disp_z(int i, double * mesh, double weight) {
+static void readout_disp_z(PetaPM * pm, int i, double * mesh, double weight) {
     curICP[i].Disp[2] += weight * mesh[0];
 }
 
-
-/*
- * The following functions are from fastpm/libfastpm/initialcondition.c.
- * Agrees with nbodykit's pmesh/whitenoise.c, which agrees with n-genic.
- * */
-typedef struct {
-    struct {
-        ptrdiff_t start[3];
-        ptrdiff_t size[3];
-        ptrdiff_t strides[3];
-        ptrdiff_t total;
-    } ORegion;
-    int Nmesh[3];
-} PM;
-
-static inline void
-SETSEED(PM * pm, unsigned int * table[2][2], int i, int j, gsl_rng * rng)
-{
-    unsigned int seed = 0x7fffffff * gsl_rng_uniform(rng);
-
-    int ii[2] = {i, (pm->Nmesh[0] - i) % pm->Nmesh[0]};
-    int jj[2] = {j, (pm->Nmesh[1] - j) % pm->Nmesh[1]};
-    int d1, d2;
-    for(d1 = 0; d1 < 2; d1++) {
-        ii[d1] -= pm->ORegion.start[0];
-        jj[d1] -= pm->ORegion.start[1];
-    }
-    for(d1 = 0; d1 < 2; d1++)
-    for(d2 = 0; d2 < 2; d2++) {
-        if( ii[d1] >= 0 &&
-            ii[d1] < pm->ORegion.size[0] &&
-            jj[d2] >= 0 &&
-            jj[d2] < pm->ORegion.size[1]
-        ) {
-            table[d1][d2][ii[d1] * pm->ORegion.size[1] + jj[d2]] = seed;
-        }
-    }
-}
-static inline unsigned int
-GETSEED(PM * pm, unsigned int * table[2][2], int i, int j, int d1, int d2)
-{
-    i -= pm->ORegion.start[0];
-    j -= pm->ORegion.start[1];
-    if(i < 0) abort();
-    if(j < 0) abort();
-    if(i >= pm->ORegion.size[0]) abort();
-    if(j >= pm->ORegion.size[1]) abort();
-    return table[d1][d2][i * pm->ORegion.size[1] + j];
-}
-
-static void
-SAMPLE(gsl_rng * rng, double * ampl, double * phase)
-{
-    *phase = gsl_rng_uniform(rng) * 2 * M_PI;
-    *ampl = 0;
-    do *ampl = gsl_rng_uniform(rng); while(*ampl == 0);
-}
-
-static void
-pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int setUnitaryAmplitude, int setInvertPhase)
-{
-    /* Fill delta_k with gadget scheme */
-    int d;
-    int i, j, k;
-
-    gsl_rng * rng = gsl_rng_alloc(gsl_rng_ranlxd1);
-    gsl_rng_set(rng, seed);
-
-    unsigned int * seedtable[2][2];
-    for(i = 0; i < 2; i ++)
-    for(j = 0; j < 2; j ++) {
-            seedtable[i][j] = mymalloc("seedtable", pm->ORegion.size[0] * pm->ORegion.size[1] * sizeof(int));
-            memset(seedtable[i][j], 0, pm->ORegion.size[0] * pm->ORegion.size[1] * sizeof(int));
-    }
-
-    for(i = 0; i < pm->Nmesh[0] / 2; i++) {
-        for(j = 0; j < i; j++) SETSEED(pm, seedtable, i, j, rng);
-        for(j = 0; j < i + 1; j++) SETSEED(pm, seedtable, j, i, rng);
-        for(j = 0; j < i; j++) SETSEED(pm, seedtable, pm->Nmesh[0] - 1 - i, j, rng);
-        for(j = 0; j < i + 1; j++) SETSEED(pm, seedtable, pm->Nmesh[1] - 1 - j, i, rng);
-        for(j = 0; j < i; j++) SETSEED(pm, seedtable, i, pm->Nmesh[1] - 1 - j, rng);
-        for(j = 0; j < i + 1; j++) SETSEED(pm, seedtable, j, pm->Nmesh[0] - 1 - i, rng);
-        for(j = 0; j < i; j++) SETSEED(pm, seedtable, pm->Nmesh[0] - 1 - i, pm->Nmesh[1] - 1 - j, rng);
-        for(j = 0; j < i + 1; j++) SETSEED(pm, seedtable, pm->Nmesh[1] - 1 - j, pm->Nmesh[0] - 1 - i, rng);
-    }
-    gsl_rng_free(rng);
-
-    ptrdiff_t irel[3];
-    for(i = pm->ORegion.start[0];
-        i < pm->ORegion.start[0] + pm->ORegion.size[0];
-        i ++) {
-
-        gsl_rng * lower_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
-        gsl_rng * this_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
-
-        int ci = pm->Nmesh[0] - i;
-        if(ci >= pm->Nmesh[0]) ci -= pm->Nmesh[0];
-
-        for(j = pm->ORegion.start[1];
-            j < pm->ORegion.start[1] + pm->ORegion.size[1];
-            j ++) {
-            /* always pull the gaussian from the lower quadrant plane for k = 0
-             * plane*/
-            /* always pull the whitenoise from the lower quadrant plane for k = 0
-             * plane and k == All.Nmesh / 2 plane*/
-            int d1 = 0, d2 = 0;
-            int cj = pm->Nmesh[1] - j;
-            if(cj >= pm->Nmesh[1]) cj -= pm->Nmesh[1];
-
-            /* d1, d2 points to the conjugate quandrant */
-            if( (ci == i && cj < j)
-             || (ci < i && cj != j)
-             || (ci < i && cj == j)) {
-                d1 = 1;
-                d2 = 1;
-            }
-
-            unsigned int seed_conj, seed_this;
-            /* the lower quadrant generator */
-            seed_conj = GETSEED(pm, seedtable, i, j, d1, d2);
-            gsl_rng_set(lower_rng, seed_conj);
-
-            seed_this = GETSEED(pm, seedtable, i, j, 0, 0);
-            gsl_rng_set(this_rng, seed_this);
-
-            for(k = 0; k <= pm->Nmesh[2] / 2; k ++) {
-                int use_conj = (d1 != 0 || d2 != 0) && (k == 0 || k == pm->Nmesh[2] / 2);
-
-                double ampl, phase;
-                if(use_conj) {
-                    /* on k = 0 and All.Nmesh/2 plane, we use the lower quadrant generator,
-                     * then hermit transform the result if it is nessessary */
-                    SAMPLE(this_rng, &ampl, &phase);
-                    SAMPLE(lower_rng, &ampl, &phase);
-                } else {
-                    SAMPLE(lower_rng, &ampl, &phase);
-                    SAMPLE(this_rng, &ampl, &phase);
-                }
-
-                ptrdiff_t iabs[3] = {i, j, k};
-                ptrdiff_t ip = 0;
-                for(d = 0; d < 3; d ++) {
-                    irel[d] = iabs[d] - pm->ORegion.start[d];
-                    ip += pm->ORegion.strides[d] * irel[d];
-                }
-
-                if(irel[2] < 0) continue;
-                if(irel[2] >= pm->ORegion.size[2]) continue;
-
-                /* we want two numbers that are of std ~ 1/sqrt(2) */
-                ampl = sqrt(- log(ampl));
-
-                if (setUnitaryAmplitude) ampl = 1.0; /* cos and sin gives 1/sqrt(2)*/
-
-
-                if (setInvertPhase){
-                  phase += M_PI; /*invert phase*/
-                }
-
-                (delta_k + 2 * ip)[0] = ampl * cos(phase);
-                (delta_k + 2 * ip)[1] = ampl * sin(phase);
-
-                if(use_conj) {
-                    (delta_k + 2 * ip)[1] *= -1;
-                }
-
-                if((pm->Nmesh[0] - iabs[0]) % pm->Nmesh[0] == iabs[0] &&
-                   (pm->Nmesh[1] - iabs[1]) % pm->Nmesh[1] == iabs[1] &&
-                   (pm->Nmesh[2] - iabs[2]) % pm->Nmesh[2] == iabs[2]) {
-                    /* The mode is self conjuguate, thus imaginary mode must be zero */
-                    (delta_k + 2 * ip)[1] = 0;
-                    (delta_k + 2 * ip)[0] = ampl * cos(phase);
-                }
-
-                if(iabs[0] == 0 && iabs[1] == 0 && iabs[2] == 0) {
-                    /* the mean is zero */
-                    (delta_k + 2 * ip)[0] = 0;
-                    (delta_k + 2 * ip)[1] = 0;
-                }
-            }
-        }
-        gsl_rng_free(lower_rng);
-        gsl_rng_free(this_rng);
-    }
-    for(i = 1; i >= 0; i --)
-    for(j = 1; j >= 0; j --) {
-        myfree(seedtable[i][j]);
-    }
-/*
-    char * fn[1000];
-    sprintf(fn, "canvas.dump.f4.%d", pm->ThisTask);
-    fwrite(pm->canvas, sizeof(pm->canvas[0]), pm->ORegion.total * 2, fopen(fn, "w"));
-*/
-}
-
 /* Using fastpm's gaussian_fill for ngenic agreement. */
+#include "pmesh.h"
+
 static void
-gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int setUnitaryAmplitude, int setInvertPhase)
+gaussian_fill(int Nmesh, PetaPMRegion * region, pfft_complex * rho_k, int setUnitaryAmplitude, int setInvertPhase)
 {
     /* fastpm deals with strides properly; petapm not. So we translate it here. */
     PM pm[1];
     int d;
     for (d = 0; d < 3; d ++) {
-        pm->Nmesh[d] = All.Nmesh;
+        pm->Nmesh[d] = Nmesh;
     }
 
     pm->ORegion.start[0] = region->offset[2];

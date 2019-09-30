@@ -13,13 +13,14 @@
 /*Power spectrum related functions*/
 
 /*Allocate memory for the power spectrum*/
-void powerspectrum_alloc(struct _powerspectrum * PowerSpectrum, const int nbins, const int nthreads, const int MassiveNuLinResp)
+void powerspectrum_alloc(struct _powerspectrum * PowerSpectrum, const int nbins, const int nthreads, const int MassiveNuLinResp, const double BoxSize_in_cm)
 {
     PowerSpectrum->size = nbins;
     const int nalloc = nbins*nthreads;
     PowerSpectrum->nalloc = nalloc;
     PowerSpectrum->kk = mymalloc("Powerspectrum", sizeof(double) * 2*nalloc);
     PowerSpectrum->Power = PowerSpectrum->kk + nalloc;
+    PowerSpectrum->BoxSize_in_MPC = BoxSize_in_cm / CM_PER_MPC;
     if(MassiveNuLinResp) {
         /*These arrays are stored separately to make interpolation more accurate*/
         PowerSpectrum->logknu = mymalloc("PowerNu", sizeof(double) * 2*nbins);
@@ -48,8 +49,8 @@ void powerspectrum_free(struct _powerspectrum * PowerSpectrum, const int Massive
 }
 
 /* Sum the different modes on each thread and processor together to get a power spectrum,
- * and fix the units.*/
-void powerspectrum_sum(struct _powerspectrum * PowerSpectrum, const double BoxSize_in_cm)
+ * and fix the units. */
+void powerspectrum_sum(struct _powerspectrum * PowerSpectrum)
 {
     /*Sum power spectrum thread-local storage*/
     int i,j;
@@ -75,8 +76,8 @@ void powerspectrum_sum(struct _powerspectrum * PowerSpectrum, const double BoxSi
         PowerSpectrum->Power[i] /= PowerSpectrum->Norm;
         PowerSpectrum->kk[i] /= PowerSpectrum->Nmodes[i];
         /* Mpc/h units */
-        PowerSpectrum->kk[i] *= 2 * M_PI / (BoxSize_in_cm / CM_PER_MPC );
-        PowerSpectrum->Power[i] *= pow(BoxSize_in_cm / CM_PER_MPC , 3.0);
+        PowerSpectrum->kk[i] *= 2 * M_PI / (PowerSpectrum->BoxSize_in_MPC);
+        PowerSpectrum->Power[i] *= pow(PowerSpectrum->BoxSize_in_MPC , 3.0);
         /*Move the power spectrum earlier, removing zero modes*/
         PowerSpectrum->Power[nk_nz] = PowerSpectrum->Power[i];
         PowerSpectrum->kk[nk_nz] = PowerSpectrum->kk[i];
