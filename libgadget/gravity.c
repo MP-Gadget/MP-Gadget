@@ -56,10 +56,9 @@ gravshort_fill_ntab(void)
 
 /* multiply force factor (*fac) and potential (*pot) by the shortrange force window function*/
 int
-grav_apply_short_range_window(double r, double * fac, double * pot)
+grav_apply_short_range_window(double r, double * fac, double * pot, const double cellsize)
 {
     const double dx = shortrange_force_kernels[1][0];
-    const double cellsize = All.BoxSize / All.Nmesh;
     double i = (r / cellsize / dx);
     int tabindex = floor(i);
     if(tabindex < NTAB - 1)

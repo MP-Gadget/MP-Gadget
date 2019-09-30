@@ -12,7 +12,7 @@
 #include "densitykernel.h"
 #include "treewalk.h"
 #include "timestep.h"
-
+#include "gravity.h"
 #include "gravshort.h"
 
 static void
@@ -67,6 +67,7 @@ grav_short_pair_ngbiter(
     double r = iter->base.r;
     double r2 = iter->base.r2;
     double * dist = iter->base.dist;
+    const double cellsize = All.BoxSize / All.Nmesh;
 
     if(P[other].Mass == 0) {
         endrun(12, "Encountered zero mass particle during density;"
@@ -105,7 +106,7 @@ grav_short_pair_ngbiter(
         pot = mass * h_inv * wp;
     }
 
-    if (grav_apply_short_range_window(r, &fac, &pot) == 0) {
+    if (grav_apply_short_range_window(r, &fac, &pot, cellsize) == 0) {
         int d;
         for(d = 0; d < 3; d ++)
             O->Acc[d] += - dist[d] * fac;

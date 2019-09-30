@@ -13,7 +13,7 @@
 #include "forcetree.h"
 #include "treewalk.h"
 #include "timestep.h"
-
+#include "gravity.h"
 #include "gravshort.h"
 
 /*! \file gravtree.c
@@ -127,7 +127,8 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     /*Hybrid particle neutrinos do not gravitate at early times*/
     const int NeutrinoTracer = All.HybridNeutrinosOn && (All.Time <= All.HybridNuPartTime);
     /*Tree-opening constants*/
-    const double rcut = RCUT * All.Asmth * All.BoxSize / All.Nmesh;
+    const double cellsize = All.BoxSize / All.Nmesh;
+    const double rcut = RCUT * All.Asmth * cellsize;
     const double rcut2 = rcut * rcut;
     const double aold = All.ErrTolForceAcc * input->OldAcc;
 
@@ -292,7 +293,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                 facpot = mass * h_inv * wp;
             }
 
-            if(0 == grav_apply_short_range_window(r, &fac, &facpot)) {
+            if(0 == grav_apply_short_range_window(r, &fac, &facpot, cellsize)) {
                 acc_x += (dx * fac);
                 acc_y += (dy * fac);
                 acc_z += (dz * fac);
