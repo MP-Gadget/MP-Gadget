@@ -243,7 +243,7 @@ void print_spec(void)
         message(1, "Failed to create powerspec file at:%s\n", buf);
         return;
       }
-      DDD = GrowthFactor(All.TimeIC, 1.0);
+      DDD = GrowthFactor(&All.CP, All.TimeIC, 1.0);
 
       fprintf(fd, "# %12g %12g\n", 1/All.TimeIC-1, DDD);
       /* print actual starting redshift and linear growth factor for this cosmology */

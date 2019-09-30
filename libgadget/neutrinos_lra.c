@@ -40,11 +40,11 @@ void update_delta_tot(_delta_tot_table * const d_tot, const double a, const doub
  * @param a Current scale factor.
  * @param delta_nu_curr Pointer to array to store square root of neutrino power spectrum. Main output.
  * @param mnu Neutrino mass in eV.*/
-void get_delta_nu(const _delta_tot_table * const d_tot, const double a, double delta_nu_curr[], const double mnu);
+void get_delta_nu(Cosmology * CP, const _delta_tot_table * const d_tot, const double a, double delta_nu_curr[], const double mnu);
 
 /** Function which wraps three get_delta_nu calls to get delta_nu three times,
  * so that the final value is for all neutrino species*/
-void get_delta_nu_combined(const _delta_tot_table * const d_tot, const double a, double delta_nu_curr[]);
+void get_delta_nu_combined(Cosmology * CP, const _delta_tot_table * const d_tot, const double a, double delta_nu_curr[]);
 
 /** Fit to the special function J(x) that is accurate to better than 3% relative and 0.07% absolute*/
 double specialJ(const double x, const double vcmnubylight, const double nufrac_low);
@@ -58,7 +58,7 @@ Arguments:
 @param light speed of light in internal length units.
 @returns free-streaming length in Unit_Length/Unit_Time (same units as light parameter).
 */
-double fslength(const double logai, const double logaf, const double light);
+double fslength(Cosmology * CP, const double logai, const double logaf, const double light);
 
 /** Combine the CDM and neutrino power spectra together to get the total power.
  * OmegaNua3 = OmegaNu(a) * a^3
@@ -156,7 +156,7 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
             delta_tot_first_init(&delta_tot_table, PowerSpectrum->nonzero, PowerSpectrum->kk, PowerSpectrum->Power, TimeIC);
 
         /*Initialise the first delta_nu*/
-        get_delta_nu_combined(&delta_tot_table, exp(delta_tot_table.scalefact[delta_tot_table.ia-1]), delta_tot_table.delta_nu_last);
+        get_delta_nu_combined(CP, &delta_tot_table, exp(delta_tot_table.scalefact[delta_tot_table.ia-1]), delta_tot_table.delta_nu_last);
         delta_tot_table.delta_tot_init_done = 1;
     }
     const double partnu = particle_nu_fraction(&CP->ONu.hybnu, Time, 0);
@@ -172,7 +172,7 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
         /*This increments the number of stored spectra, although the last one is not yet final.*/
         update_delta_tot(&delta_tot_table, Time, PowerSpectrum->Power, delta_tot_table.delta_nu_last, 0);
         /*Get the new delta_nu_curr*/
-        get_delta_nu_combined(&delta_tot_table, Time, delta_tot_table.delta_nu_last);
+        get_delta_nu_combined(CP, &delta_tot_table, Time, delta_tot_table.delta_nu_last);
         /* Decide whether we save the current time or not */
         if (Time > exp(delta_tot_table.scalefact[delta_tot_table.ia-2]) + 0.009) {
             /* If so update delta_tot(a) correctly, overwriting current power spectrum */
@@ -449,7 +449,7 @@ void init_neutrinos_lra(const int nk_in, const double TimeTransfer, const double
 
 /*Function which wraps three get_delta_nu calls to get delta_nu three times,
  * so that the final value is for all neutrino species*/
-void get_delta_nu_combined(const _delta_tot_table * const d_tot, const double a, double delta_nu_curr[])
+void get_delta_nu_combined(Cosmology * CP, const _delta_tot_table * const d_tot, const double a, double delta_nu_curr[])
 {
     const double Omega_nu_tot=get_omega_nu_nopart(d_tot->omnu, a);
     int mi;
@@ -462,7 +462,7 @@ void get_delta_nu_combined(const _delta_tot_table * const d_tot, const double a,
                  int ik;
                  double * delta_nu_single = mymalloc("delta_nu_single", sizeof(double) * d_tot->nk);
                  const double omeganu = d_tot->omnu->nu_degeneracies[mi] * omega_nu_single(d_tot->omnu, a, mi);
-                 get_delta_nu(d_tot, a, delta_nu_single,d_tot->omnu->RhoNuTab[mi].mnu);
+                 get_delta_nu(CP, d_tot, a, delta_nu_single,d_tot->omnu->RhoNuTab[mi].mnu);
                  for(ik=0; ik<d_tot->nk; ik++)
                     delta_nu_curr[ik]+=delta_nu_single[ik]*omeganu/Omega_nu_tot;
                  myfree(delta_nu_single);
@@ -493,9 +493,10 @@ void update_delta_tot(_delta_tot_table * const d_tot, const double a, const doub
 /*Kernel function for the fslength integration*/
 double fslength_int(const double loga, void *params)
 {
+    Cosmology * CP = (Cosmology *) params;
     /*This should be M_nu / k_B T_nu (which is dimensionless)*/
     const double a = exp(loga);
-    return 1./a/(a*hubble_function(a));
+    return 1./a/(a*hubble_function(CP, a));
 }
 
 /******************************************************************************************************
@@ -507,14 +508,14 @@ logaf - log of final scale factor
 light - speed of light in internal units.
 Result is in Unit_Length/Unit_Time.
 ******************************************************************************************************/
-double fslength(const double logai, const double logaf, const double light)
+double fslength(Cosmology * CP, const double logai, const double logaf, const double light)
 {
   double abserr;
   double fslength_val;
   gsl_function F;
   gsl_integration_workspace * w = gsl_integration_workspace_alloc (GSL_VAL);
   F.function = &fslength_int;
-  F.params = NULL;
+  F.params = CP;
   if(logai >= logaf)
       return 0;
   gsl_integration_qag (&F, logai, logaf, 0, 1e-6,GSL_VAL,6,w,&(fslength_val), &abserr);
@@ -587,6 +588,7 @@ struct _delta_nu_int_params
     double mnubykT;
     gsl_interp_accel *acc;
     gsl_interp *spline;
+    Cosmology * CP;
     /**Precomputed free-streaming lengths*/
     gsl_interp_accel *fs_acc;
     gsl_interp *fs_spline;
@@ -612,7 +614,7 @@ double get_delta_nu_int(double logai, void * params)
     double delta_tot_at_a = gsl_interp_eval(p->spline,p->scale,p->delta_tot,logai,p->acc);
     double specJ = specialJ(p->k*fsl_aia/p->mnubykT, p->qc, p->nufrac_low);
     double ai = exp(logai);
-    return fsl_aia/(ai*hubble_function(ai)) * specJ * delta_tot_at_a;
+    return fsl_aia/(ai*hubble_function(p->CP, ai)) * specJ * delta_tot_at_a;
 }
 
 /*
@@ -620,7 +622,7 @@ Main function: given tables of wavenumbers, total delta at Na earlier times (<= 
 and initial conditions for neutrinos, computes the current delta_nu.
 Na is the number of currently stored time steps.
 */
-void get_delta_nu(const _delta_tot_table * const d_tot, const double a, double delta_nu_curr[],const double mnu)
+void get_delta_nu(Cosmology * CP, const _delta_tot_table * const d_tot, const double a, double delta_nu_curr[],const double mnu)
 {
   double fsl_A0a,deriv_prefac;
   int ik;
@@ -634,9 +636,9 @@ void get_delta_nu(const _delta_tot_table * const d_tot, const double a, double d
   double relerr = 1e-6;
 //       message(0,"Start get_delta_nu: a=%g Na =%d wavenum[0]=%g delta_tot[0]=%g m_nu=%g\n",a,Na,wavenum[0],d_tot->delta_tot[0][Na-1],mnu);
 
-  fsl_A0a = fslength(log(d_tot->TimeTransfer), log(a),d_tot->light);
+  fsl_A0a = fslength(CP, log(d_tot->TimeTransfer), log(a),d_tot->light);
   /*Precompute factor used to get delta_nu_init. This assumes that delta ~ a, so delta-dot is roughly 1.*/
-  deriv_prefac = d_tot->TimeTransfer*(hubble_function(d_tot->TimeTransfer)/d_tot->light)* d_tot->TimeTransfer;
+  deriv_prefac = d_tot->TimeTransfer*(hubble_function(CP, d_tot->TimeTransfer)/d_tot->light)* d_tot->TimeTransfer;
   for (ik = 0; ik < d_tot->nk; ik++) {
       /* Initial condition piece, assuming linear evolution of delta with a up to startup redshift */
       /* This assumes that delta ~ a, so delta-dot is roughly 1. */
@@ -689,13 +691,13 @@ void get_delta_nu(const _delta_tot_table * const d_tot, const double a, double d
         int Nfs = Na*16;
         params.fs_acc = gsl_interp_accel_alloc();
         params.fs_spline=gsl_interp_alloc(gsl_interp_cspline,Nfs);
-
+        params.CP = CP;
         /*Pre-compute the free-streaming lengths, which are scale-independent*/
         double * fslengths = mymalloc("fslengths", Nfs* sizeof(double));
         double * fsscales = mymalloc("fsscales", Nfs* sizeof(double));
         for(ik=0; ik < Nfs; ik++) {
             fsscales[ik] = log(d_tot->TimeTransfer) + ik*(log(a) - log(d_tot->TimeTransfer))/(Nfs-1.);
-            fslengths[ik] = fslength(fsscales[ik], log(a),d_tot->light);
+            fslengths[ik] = fslength(CP, fsscales[ik], log(a),d_tot->light);
         }
         params.fslengths = fslengths;
         params.fsscales = fsscales;

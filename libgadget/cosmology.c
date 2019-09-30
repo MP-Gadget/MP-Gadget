@@ -10,12 +10,10 @@
 /*Stefan-Boltzmann constant in cgs units*/
 #define  STEFAN_BOLTZMANN 5.670373e-5
 
-static Cosmology * CP = NULL;
-static inline double OmegaFLD(const double a);
+static inline double OmegaFLD(const Cosmology * CP, const double a);
 
-void init_cosmology(Cosmology * CP_in, const double TimeBegin)
+void init_cosmology(Cosmology * CP, const double TimeBegin)
 {
-    CP = CP_in;
     /*With slightly relativistic massive neutrinos, for consistency we need to include radiation.
      * A note on normalisation (as of 08/02/2012):
      * CAMB appears to set Omega_Lambda + Omega_Matter+Omega_K = 1,
@@ -43,7 +41,7 @@ void init_cosmology(Cosmology * CP_in, const double TimeBegin)
 }
 
 /*Hubble function at scale factor a, in dimensions of CP.Hubble*/
-double hubble_function(double a)
+double hubble_function(const Cosmology * CP, double a)
 {
 
     double hubble_a;
@@ -51,7 +49,7 @@ double hubble_function(double a)
     /* first do the terms in SQRT */
     hubble_a = CP->OmegaLambda;
 
-    hubble_a += OmegaFLD(a);
+    hubble_a += OmegaFLD(CP, a);
     hubble_a += CP->OmegaK / (a * a);
     hubble_a += (CP->OmegaCDM + CP->OmegaBaryon) / (a * a * a);
 
@@ -65,16 +63,17 @@ double hubble_function(double a)
     return (hubble_a);
 }
 
-static double growth(double a, double *dDda);
+static double growth(Cosmology * CP, double a, double *dDda);
 
-double GrowthFactor(double astart, double aend)
+double GrowthFactor(Cosmology * CP, double astart, double aend)
 {
-    return growth(astart, NULL) / growth(aend, NULL);
+    return growth(CP, astart, NULL) / growth(CP, aend, NULL);
 }
 
 int growth_ode(double a, const double yy[], double dyda[], void * params)
 {
-    const double hub = hubble_function(a)/CP->Hubble;
+    Cosmology * CP = (Cosmology *) params;
+    const double hub = hubble_function(CP, a)/CP->Hubble;
     dyda[0] = yy[1]/pow(a,3)/hub;
     /*Only use gravitating part*/
     /* Note: we do not include neutrinos
@@ -95,11 +94,12 @@ int growth_ode(double a, const double yy[], double dyda[], void * params)
  * Define F = a^3 H dD/da
  * and we have: dF/da = 1.5 a H D
  */
-double growth(double a, double * dDda)
+double growth(Cosmology * CP, double a, double * dDda)
 {
   gsl_odeiv2_system FF;
   FF.function = &growth_ode;
   FF.jacobian = NULL;
+  FF.params = CP;
   FF.dimension = 2;
   gsl_odeiv2_driver * drive = gsl_odeiv2_driver_alloc_standard_new(&FF,gsl_odeiv2_step_rkf45, 1e-5, 1e-8,1e-8,1,1);
    /* We start early to avoid lambda.*/
@@ -108,7 +108,7 @@ double growth(double a, double * dDda)
    * the solution for a matter/radiation universe.*
    * Note the normalisation of D is arbitrary
    * and never seen outside this function.*/
-  double yinit[2] = {1.5 * (CP->OmegaCDM + CP->OmegaBaryon)/(curtime*curtime), pow(curtime,3)*hubble_function(curtime)/CP->Hubble * 1.5 * (CP->OmegaCDM + CP->OmegaBaryon)/(curtime*curtime*curtime)};
+  double yinit[2] = {1.5 * (CP->OmegaCDM + CP->OmegaBaryon)/(curtime*curtime), pow(curtime,3)*hubble_function(CP, curtime)/CP->Hubble * 1.5 * (CP->OmegaCDM + CP->OmegaBaryon)/(curtime*curtime*curtime)};
   if(CP->RadiationOn)
       yinit[0] += CP->OmegaG/pow(curtime, 4)+get_omega_nu(&CP->ONu, curtime);
 
@@ -119,7 +119,7 @@ double growth(double a, double * dDda)
   gsl_odeiv2_driver_free(drive);
   /*Store derivative of D if needed.*/
   if(dDda) {
-      *dDda = yinit[1]/pow(a,3)/(hubble_function(a)/CP->Hubble);
+      *dDda = yinit[1]/pow(a,3)/(hubble_function(CP, a)/CP->Hubble);
   }
   return yinit[0];
 }
@@ -128,17 +128,17 @@ double growth(double a, double * dDda)
  * This is the Zeldovich approximation prefactor,
  * f1 = d ln D1 / dlna = a / D (dD/da)
  */
-double F_Omega(double a)
+double F_Omega(Cosmology * CP, double a)
 {
     double dD1da=0;
-    double D1 = growth(a, &dD1da);
+    double D1 = growth(CP, a, &dD1da);
     return a / D1 * dD1da;
 }
 
 /*Dark energy density as a function of time:
  * OmegaFLD(a)  ~ exp(-3 int((1+w(a))/a da)_a^1
  * and w(a) = w0 + (1-a) wa*/
-static inline double OmegaFLD(const double a)
+static inline double OmegaFLD(const Cosmology * CP, const double a)
 {
     if(CP->Omega_fld == 0.)
         return 0;
