@@ -11,32 +11,6 @@
 #include "utils.h"
 #include "walltime.h"
 
-/* a layout is the communication object, represent 
- * pencil / cells exchanged  */
-
-struct Layout {
-    MPI_Comm comm;
-    int NpExport;
-    int NpImport;
-    int * NpSend;
-    int * NpRecv;
-    int * DpSend;
-    int * DpRecv;
-    struct Pencil * PencilSend;
-    struct Pencil * PencilRecv;
-
-    int NcExport;
-    int NcImport;
-    int * NcSend;
-    int * NcRecv;
-    int * DcSend;
-    int * DcRecv;
-
-    double * BufSend;
-    double * BufRecv;
-    int * ibuffer;
-};
-
 static void
 layout_prepare(PetaPM * pm,
                struct Layout * L,
@@ -66,20 +40,6 @@ static int pos_get_target(PetaPM * pm, const int pos[2]);
 static int64_t reduce_int64(int64_t input, MPI_Comm comm);
 /* for debugging */
 static void verify_density_field(PetaPM * pm, double * real, double * meshbuf, const size_t meshsize);
-
-struct PetaPMPriv {
-    /* These varibles are initialized by petapm_init*/
-
-    int fftsize;
-    pfft_plan plan_forw;
-    pfft_plan plan_back;
-    MPI_Comm comm_cart_2d;
-
-    /* these variables are allocated every force calculation */
-    double * meshbuf;
-    size_t meshbufsize;
-    struct Layout layout;
-};
 
 static MPI_Datatype MPI_PENCIL;
 
@@ -136,8 +96,6 @@ petapm_module_init(int Nthreads)
 void
 petapm_init(PetaPM * pm, double BoxSize, int Nmesh, MPI_Comm comm)
 {
-
-    pm->priv = mymalloc("PetaPMPriv", sizeof(PetaPMPriv));
 
     /* define the global long / short range force cut */
     pm->BoxSize = BoxSize;
@@ -262,7 +220,6 @@ petapm_destroy(PetaPM * pm)
     pfft_destroy_plan(pm->priv->plan_back);
     MPI_Comm_free(&pm->priv->comm_cart_2d);
     myfree(pm->Mesh2Task[0]);
-    myfree(pm->priv);
 }
 
 /* 

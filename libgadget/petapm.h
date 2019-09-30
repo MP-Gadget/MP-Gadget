@@ -16,7 +16,46 @@ typedef struct Region {
     int no; /* node number for debugging */
 } PetaPMRegion;
 
-typedef struct PetaPMPriv PetaPMPriv; /* private */
+/* a layout is the communication object, represent
+ * pencil / cells exchanged  */
+
+struct Layout {
+    MPI_Comm comm;
+    int NpExport;
+    int NpImport;
+    int * NpSend;
+    int * NpRecv;
+    int * DpSend;
+    int * DpRecv;
+    struct Pencil * PencilSend;
+    struct Pencil * PencilRecv;
+
+    int NcExport;
+    int NcImport;
+    int * NcSend;
+    int * NcRecv;
+    int * DcSend;
+    int * DcRecv;
+
+    double * BufSend;
+    double * BufRecv;
+    int * ibuffer;
+};
+
+/* Data which is private to the PetaPM structure. Don't access from outside.*/
+typedef struct PetaPMPriv {
+    /* These varibles are initialized by petapm_init*/
+
+    int fftsize;
+    pfft_plan plan_forw;
+    pfft_plan plan_back;
+    MPI_Comm comm_cart_2d;
+
+    /* these variables are allocated every force calculation */
+    double * meshbuf;
+    size_t meshbufsize;
+    struct Layout layout;
+} PetaPMPriv;
 
 typedef struct PetaPM {
     /* These varibles are initialized by petapm_init*/
@@ -26,7 +65,7 @@ typedef struct PetaPM {
     double CellSize;
     int Nmesh;
     double BoxSize;
-    PetaPMPriv * priv;
+    PetaPMPriv priv[1];
     int ThisTask2d[2];
     int NTask2d[2];
     int * (Mesh2Task[2]); /* conversion from real space mesh to task2d,  */
