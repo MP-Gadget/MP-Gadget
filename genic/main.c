@@ -129,7 +129,12 @@ int main(int argc, char **argv)
     if(All2.MakeGlassGas || All2.MakeGlassCDM)
         glass_evolve(pm, 14, "powerspectrum-glass-tot", ICP, NumPartCDM+NumPartGas);
   }
-
+  
+  /*Write initial positions into ICP struct*/
+  for(int j=0; j<NumPartCDM; j++)
+      for(int k=0; k<3; k++)
+          ICP[j].PrePos[k] = ICP[j].Pos[k];
+  
   if(NumPartCDM > 0) {
     displacement_fields(pm, DMType, ICP, NumPartCDM);
 
