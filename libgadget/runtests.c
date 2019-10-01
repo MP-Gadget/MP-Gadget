@@ -94,7 +94,7 @@ void runtests(int RestartSnapNum, DomainDecomp * ddecomp)
 
     copy_accns(PairAccn);
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));
-    petaio_save_snapshot(&IOTable, "%s/PART-pairs-%03d", All.OutputDir, RestartSnapNum);
+    petaio_save_snapshot(&IOTable, 0, "%s/PART-pairs-%03d", All.OutputDir, RestartSnapNum);
 
     treeacc.TreeUseBH = 1;
     grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType, treeacc);
@@ -102,7 +102,7 @@ void runtests(int RestartSnapNum, DomainDecomp * ddecomp)
     grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType, treeacc);
 
     message(0, "GravShort Tree %s\n", GDB_format_particle(0));
-    petaio_save_snapshot(&IOTable, "%s/PART-tree-%03d", All.OutputDir, RestartSnapNum);
+    petaio_save_snapshot(&IOTable, 0, "%s/PART-tree-%03d", All.OutputDir, RestartSnapNum);
 
     /* This checks tree force against pair force*/
     double meanerr = 0, maxerr=-1;
@@ -114,7 +114,7 @@ void runtests(int RestartSnapNum, DomainDecomp * ddecomp)
     treeacc.ErrTolForceAcc = 0;
     grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType, treeacc);
 
-    petaio_save_snapshot(&IOTable, "%s/PART-tree-open-%03d", All.OutputDir, RestartSnapNum);
+    petaio_save_snapshot(&IOTable, 0, "%s/PART-tree-open-%03d", All.OutputDir, RestartSnapNum);
 
     check_accns(&meanerr,&maxerr,PairAccn);
     message(0, "Max rel force error (tree only): %g mean: %g forcetol: %g\n", maxerr, meanerr, treeacc.ErrTolForceAcc);
@@ -123,7 +123,7 @@ void runtests(int RestartSnapNum, DomainDecomp * ddecomp)
     /* This checks the fully open tree against a larger Rcut.*/
     treeacc.Rcut = 9.5;
     grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType, treeacc);
-    petaio_save_snapshot(&IOTable, "%s/PART-tree-rcut-%03d", All.OutputDir, RestartSnapNum);
+    petaio_save_snapshot(&IOTable, 0, "%s/PART-tree-rcut-%03d", All.OutputDir, RestartSnapNum);
 
     check_accns(&meanerr,&maxerr,PairAccn);
     message(0, "Max rel force error (tree only): %g mean: %g Rcut = %g\n", maxerr, meanerr, treeacc.Rcut);

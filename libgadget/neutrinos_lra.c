@@ -259,18 +259,18 @@ void petaio_save_neutrinos(BigFile * bf, int ThisTask)
     }
     ptrdiff_t strides[2] = {sizeof(double) * ia, sizeof(double)};
     big_array_init(&deltas, delta_tot, "=f8", 2, dims, strides);
-    petaio_save_block(bf, "Neutrino/Deltas", &deltas);
+    petaio_save_block(bf, "Neutrino/Deltas", &deltas, 1);
     myfree(delta_tot);
     /*Now write the initial neutrino power*/
     BigArray delta_nu = {0};
     dims[1] = 1;
     strides[0] = sizeof(double);
     big_array_init(&delta_nu, delta_tot_table.delta_nu_init, "=f8", 2, dims, strides);
-    petaio_save_block(bf, "Neutrino/DeltaNuInit", &delta_nu);
+    petaio_save_block(bf, "Neutrino/DeltaNuInit", &delta_nu, 1);
     /*Now write the k values*/
     BigArray kvalue = {0};
     big_array_init(&kvalue, delta_tot_table.wavenum, "=f8", 2, dims, strides);
-    petaio_save_block(bf, "Neutrino/kvalue", &kvalue);
+    petaio_save_block(bf, "Neutrino/kvalue", &kvalue, 1);
     }
 }
 

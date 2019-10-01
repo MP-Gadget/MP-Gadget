@@ -56,7 +56,7 @@ dump_snapshot()
     struct IOTable IOTable = {0};
     register_io_blocks(&IOTable);
     register_debug_io_blocks(&IOTable);
-    petaio_save_snapshot(&IOTable, "%s/CRASH-DUMP", All.OutputDir);
+    petaio_save_snapshot(&IOTable, 1, "%s/CRASH-DUMP", All.OutputDir);
     destroy_io_blocks(&IOTable);
 }
 
@@ -68,7 +68,7 @@ write_snapshot(int num)
     register_io_blocks(&IOTable);
     if(All.OutputDebugFields)
         register_debug_io_blocks(&IOTable);
-    petaio_save_snapshot(&IOTable, "%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
+    petaio_save_snapshot(&IOTable, 1, "%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
 
     destroy_io_blocks(&IOTable);
     walltime_measure("/Snapshot/Write");
