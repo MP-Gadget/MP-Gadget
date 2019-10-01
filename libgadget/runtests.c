@@ -71,7 +71,7 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3
 }
 
 /* Run various checks on the gravity code. Check that the short-range/long-range force split is working.*/
-void runtests(DomainDecomp * ddecomp)
+void runtests(int RestartSnapNum, DomainDecomp * ddecomp)
 {
     struct IOTable IOTable = {0};
     register_io_blocks(&IOTable);
@@ -94,7 +94,7 @@ void runtests(DomainDecomp * ddecomp)
 
     copy_accns(PairAccn);
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));
-    petaio_save_snapshot(&IOTable, "%s/PART-pairs-%03d-mpi", All.OutputDir, NTask);
+    petaio_save_snapshot(&IOTable, "%s/PART-pairs-%03d", All.OutputDir, RestartSnapNum);
 
     treeacc.TreeUseBH = 1;
     grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType, treeacc);
@@ -102,7 +102,7 @@ void runtests(DomainDecomp * ddecomp)
     grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType, treeacc);
 
     message(0, "GravShort Tree %s\n", GDB_format_particle(0));
-    petaio_save_snapshot(&IOTable, "%s/PART-tree-%03d-mpi", All.OutputDir, NTask);
+    petaio_save_snapshot(&IOTable, "%s/PART-tree-%03d", All.OutputDir, RestartSnapNum);
 
 
     double meanerr = 0, maxerr=-1;

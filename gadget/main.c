@@ -125,7 +125,7 @@ int main(int argc, char **argv)
             runfof(RestartSnapNum, &ddecomp);
             break;
         case 99:
-            runtests(&ddecomp);
+            runtests(RestartSnapNum, &ddecomp);
             break;
         default:
             run(&ddecomp);			/* main simulation loop */
