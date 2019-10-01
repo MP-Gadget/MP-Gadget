@@ -39,8 +39,6 @@
 #include "physconst.h"
 #include "types.h"
 
-#define NEAREST(x) (((x)>0.5*All.BoxSize)?((x)-All.BoxSize):(((x)<-0.5*All.BoxSize)?((x)+All.BoxSize):(x)))
-
 enum ShortRangeForceWindowType {
     SHORTRANGE_FORCE_WINDOW_TYPE_EXACT = 0,
     SHORTRANGE_FORCE_WINDOW_TYPE_ERFC = 1,
@@ -51,24 +49,6 @@ enum DensityKernelType {
     DENSITY_KERNEL_QUINTIC_SPLINE = 2,
     DENSITY_KERNEL_QUARTIC_SPLINE = 4,
 };
-
-
-static inline double DMAX(double a, double b) {
-    if(a > b) return a;
-    return b;
-}
-static inline double DMIN(double a, double b) {
-    if(a < b) return a;
-    return b;
-}
-static inline int IMAX(int a, int b) {
-    if(a > b) return a;
-    return b;
-}
-static inline int IMIN(int a, int b) {
-    if(a < b) return a;
-    return b;
-}
 
 /*********************************************************/
 /*  Global variables                                     */

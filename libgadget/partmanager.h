@@ -92,4 +92,24 @@ static inline double FORCE_SOFTENING(int i)
     }
 }
 
+/* Finds the correct relative position accounting for periodicity*/
+#define NEAREST(x, BoxSize) (((x)>0.5*BoxSize)?((x)-BoxSize):(((x)<-0.5*BoxSize)?((x)+BoxSize):(x)))
+
+static inline double DMAX(double a, double b) {
+    if(a > b) return a;
+    return b;
+}
+static inline double DMIN(double a, double b) {
+    if(a < b) return a;
+    return b;
+}
+static inline int IMAX(int a, int b) {
+    if(a > b) return a;
+    return b;
+}
+static inline int IMIN(int a, int b) {
+    if(a < b) return a;
+    return b;
+}
+
 #endif

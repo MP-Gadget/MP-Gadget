@@ -123,6 +123,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     MyDouble acc_y = 0;
     MyDouble acc_z = 0;
     const ForceTree * tree = lv->tw->tree;
+    const double BoxSize = tree->BoxSize;
 
     /*Hybrid particle neutrinos do not gravitate at early times*/
     const int NeutrinoTracer = All.HybridNeutrinosOn && (All.Time <= All.HybridNuPartTime);
@@ -159,9 +160,9 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     }
                 }
 
-                dx = NEAREST(P[no].Pos[0] - pos_x);
-                dy = NEAREST(P[no].Pos[1] - pos_y);
-                dz = NEAREST(P[no].Pos[2] - pos_z);
+                dx = NEAREST(P[no].Pos[0] - pos_x, BoxSize);
+                dy = NEAREST(P[no].Pos[1] - pos_y, BoxSize);
+                dz = NEAREST(P[no].Pos[2] - pos_z, BoxSize);
 
                 r2 = dx * dx + dy * dy + dz * dz;
 
@@ -198,9 +199,9 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     }
                 }
 
-                dx = NEAREST(nop->u.d.s[0] - pos_x);
-                dy = NEAREST(nop->u.d.s[1] - pos_y);
-                dz = NEAREST(nop->u.d.s[2] - pos_z);
+                dx = NEAREST(nop->u.d.s[0] - pos_x, BoxSize);
+                dy = NEAREST(nop->u.d.s[1] - pos_y, BoxSize);
+                dz = NEAREST(nop->u.d.s[2] - pos_z, BoxSize);
 
                 r2 = dx * dx + dy * dy + dz * dz;
 
@@ -211,9 +212,9 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     const double eff_dist = rcut + 0.5 * nop->len;
 
                     /*This checks whether we are also outside this region of the oct-tree*/
-                    if(fabs(NEAREST(nop->center[0] - pos_x)) > eff_dist ||
-                        fabs(NEAREST(nop->center[1] - pos_y)) > eff_dist ||
-                            fabs(NEAREST(nop->center[2] - pos_z)) > eff_dist
+                    if(fabs(NEAREST(nop->center[0] - pos_x, BoxSize)) > eff_dist ||
+                        fabs(NEAREST(nop->center[1] - pos_y, BoxSize)) > eff_dist ||
+                            fabs(NEAREST(nop->center[2] - pos_z, BoxSize)) > eff_dist
                       )
                     {
                         no = nop->u.d.sibling;
@@ -231,11 +232,11 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     continue;
                 }
                 /* check in addition whether we lie inside the cell */
-                if(fabs(NEAREST(nop->center[0] - pos_x)) < 0.60 * nop->len)
+                if(fabs(NEAREST(nop->center[0] - pos_x, BoxSize)) < 0.60 * nop->len)
                 {
-                    if(fabs(NEAREST(nop->center[1] - pos_y)) < 0.60 * nop->len)
+                    if(fabs(NEAREST(nop->center[1] - pos_y, BoxSize)) < 0.60 * nop->len)
                     {
-                        if(fabs(NEAREST(nop->center[2] - pos_z)) < 0.60 * nop->len)
+                        if(fabs(NEAREST(nop->center[2] - pos_z, BoxSize)) < 0.60 * nop->len)
                         {
                             no = nop->u.d.nextnode;
                             continue;

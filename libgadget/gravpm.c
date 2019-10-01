@@ -206,7 +206,7 @@ static int pm_mark_region_for_node(int startno, int rid, const ForceTree * tree)
              * unless there is a bug in tree build, or the particles are being moved.*/
             int k;
             for(k = 0; k < 3; k ++) {
-                double l = NEAREST(P[p].Pos[k] - tree->Nodes[startno].center[k]);
+                double l = P[p].Pos[k] - tree->Nodes[startno].center[k];
                 l = fabs(l * 2);
                 if (l > tree->Nodes[startno].len) {
                     if(l > tree->Nodes[startno].len * (1+ 1e-7))

@@ -12,6 +12,7 @@
 #include <libgadget/walltime.h>
 #include <libgadget/petapm.h>
 #include <libgadget/utils.h>
+#include <libgadget/partmanager.h>
 
 #define GLASS_SEED_HASH(seed) ((seed) * 9999721L)
 

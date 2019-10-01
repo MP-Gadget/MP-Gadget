@@ -91,6 +91,8 @@ typedef struct ForceTree {
     int Nnextnode;
     /*!< gives parent node in tree for every particle */
     int *Father;
+    /*!< Store the size of the box used to build the tree, for periodic walking.*/
+    double BoxSize;
 } ForceTree;
 
 /*Initialize the internal parameters of the forcetree module*/

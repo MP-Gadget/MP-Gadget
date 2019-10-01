@@ -2,11 +2,11 @@
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
+#include <omp.h>
 
 #include "utils.h"
 
 #include "treewalk.h"
-#include "allvars.h"
 #include "partmanager.h"
 #include "domain.h"
 #include "forcetree.h"
@@ -47,6 +47,8 @@ static struct data_index *DataIndexTable;	/*!< the particles to be exported are 
 /*Initialise global treewalk parameters*/
 void set_treewalk_params(ParameterSet * ps)
 {
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0)
         ImportBufferBoost = param_get_int(ps, "ImportBufferBoost");
     MPI_Bcast(&ImportBufferBoost, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -822,6 +824,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
     /* Kick-start the iteration with other == -1 */
     iter->other = -1;
     lv->tw->ngbiter(I, O, iter, lv);
+    const double BoxSize = lv->tw->tree->BoxSize;
 
     int ninteractions = 0;
     int inode = 0;
@@ -865,7 +868,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
             double h2 = dist * dist;
             for(d = 0; d < 3; d ++) {
                 /* the distance vector points to 'other' */
-                iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d]);
+                iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d], BoxSize);
                 r2 += iter->dist[d] * iter->dist[d];
                 if(r2 > h2) break;
             }
@@ -897,7 +900,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
  * Returns 0 if the node has no business with this query.
  */
 static int
-cull_node(const TreeWalkQueryBase * const I, const TreeWalkNgbIterBase * const iter, const struct NODE * const current)
+cull_node(const TreeWalkQueryBase * const I, const TreeWalkNgbIterBase * const iter, const struct NODE * const current, const double BoxSize)
 {
     double dist;
     if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
@@ -911,7 +914,7 @@ cull_node(const TreeWalkQueryBase * const I, const TreeWalkNgbIterBase * const i
     /* do each direction */
     int d;
     for(d = 0; d < 3; d ++) {
-        dx = NEAREST(current->center[d] - I->Pos[d]);
+        dx = NEAREST(current->center[d] - I->Pos[d], BoxSize);
         if(dx > dist) return 0;
         if(dx < -dist) return 0;
         r2 += dx * dx;
@@ -948,7 +951,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
     int numcand = 0;
 
     const ForceTree * tree = lv->tw->tree;
-
+    const double BoxSize = tree->BoxSize;
     no = startnode;
 
     while(no >= 0)
@@ -983,7 +986,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         }
 
         /* Cull the node */
-        if(0 == cull_node(I, iter, current)) {
+        if(0 == cull_node(I, iter, current, BoxSize)) {
             /* in case the node can be discarded */
             no = current->u.d.sibling;
             continue;

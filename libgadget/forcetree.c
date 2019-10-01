@@ -138,6 +138,7 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
         /* Allocate memory. */
         tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp);
 
+        tree.BoxSize = BoxSize;
         Numnodestree = force_tree_create_nodes(tree, npart, ddecomp, BoxSize);
         if(Numnodestree >= tree.lastnode - tree.firstnode)
         {
