@@ -33,19 +33,27 @@ void register_extra_blocks(struct IOTable * IOTable)
     }
 }
 
-void copy_accns(double (* PairAccn)[3])
+double copy_accns(double (* PairAccn)[3])
 {
     int i;
-    #pragma omp parallel for
+    double meanacc = 0;
+    #pragma omp parallel for reduction(+: meanacc)
     for(i = 0; i < PartManager->NumPart; i++)
     {
         int k;
-        for(k=0; k<3; k++)
+        for(k=0; k<3; k++) {
             PairAccn[i][k] = P[i].GravPM[k] + P[i].GravAccel[k];
+            meanacc += fabs(PairAccn[i][k]);
+        }
     }
+    int64_t tot_npart;
+    sumup_large_ints(1, &PartManager->NumPart, &tot_npart);
+    MPI_Allreduce(MPI_IN_PLACE, &meanacc, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    meanacc/= (tot_npart*3.);
+    return meanacc;
 }
 
-void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3])
+void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3], double meanacc)
 {
     double meanerr=0, maxerr=-1;
     int i;
@@ -57,7 +65,7 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3
         for(k=0; k<3; k++) {
             double err = 0;
             if(PairAccn[i][k] != 0)
-                err = fabs((PairAccn[i][k] - (P[i].GravPM[k] + P[i].GravAccel[k]))/(PairAccn[i][k]));
+                err = fabs((PairAccn[i][k] - (P[i].GravPM[k] + P[i].GravAccel[k]))/meanacc);
             meanerr += err;
             if(maxerr < err)
                 maxerr = err;
@@ -68,7 +76,7 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3
     int64_t tot_npart;
     sumup_large_ints(1, &PartManager->NumPart, &tot_npart);
 
-    *meanerr_tot/= tot_npart;
+    *meanerr_tot/= (tot_npart*3.);
 }
 
 /* Run various checks on the gravity code. Check that the short-range/long-range force split is working.*/
@@ -76,6 +84,8 @@ void runtests(int RestartSnapNum)
 {
     PetaPM pm = gravpm_init_periodic(All.BoxSize, All.Nmesh);
     DomainDecomp ddecomp[1] = {0};
+    /* So we can run a test on the final snapshot*/
+    All.TimeMax = All.TimeInit * 1.1;
     init(RestartSnapNum, ddecomp);          /* ... read in initial model */
 
     struct IOTable IOTable = {0};
@@ -95,43 +105,77 @@ void runtests(int RestartSnapNum)
     const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
     grav_short_pair(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType, All.treeacc);
 
-    double (* PairAccn)[3] = mymalloc("PairAccns", 3*sizeof(double) * PartManager->NumPart);
+    double (* PairAccn)[3] = mymalloc2("PairAccns", 3*sizeof(double) * PartManager->NumPart);
 
-    copy_accns(PairAccn);
+    double meanacc = copy_accns(PairAccn);
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));
     petaio_save_snapshot(&IOTable, 0, "%s/PART-pairs-%03d", All.OutputDir, RestartSnapNum);
+
+    treeacc.ErrTolForceAcc = 0;
+    grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType, treeacc);
+
+    /* This checks fully opened tree force against pair force*/
+    double meanerr, maxerr;
+    check_accns(&meanerr,&maxerr,PairAccn, meanacc);
+    message(0, "Force error, open tree vs pairwise. max : %g mean: %g forcetol: %g\n", maxerr, meanerr, treeacc.ErrTolForceAcc);
+
+    if(maxerr > 0.1)
+        endrun(2, "Fully open tree force does not agree with pairwise calculation! maxerr %g > 0.1!\n", maxerr);
+
+    message(0, "GravShort Tree %s\n", GDB_format_particle(0));
+    petaio_save_snapshot(&IOTable, 0, "%s/PART-tree-open-%03d", All.OutputDir, RestartSnapNum);
+
+    /* This checks tree force against tree force with zero error (which always opens).*/
+    copy_accns(PairAccn);
+
+    treeacc.ErrTolForceAcc = All.treeacc.ErrTolForceAcc;
 
     treeacc.TreeUseBH = 1;
     grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType, treeacc);
     treeacc.TreeUseBH = 0;
     grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType, treeacc);
 
-    message(0, "GravShort Tree %s\n", GDB_format_particle(0));
     petaio_save_snapshot(&IOTable, 0, "%s/PART-tree-%03d", All.OutputDir, RestartSnapNum);
 
-    /* This checks tree force against pair force*/
-    double meanerr = 0, maxerr=-1;
-    check_accns(&meanerr,&maxerr,PairAccn);
-    message(0, "Max rel force error (tree vs pairwise): %g mean: %g forcetol: %g\n", maxerr, meanerr, treeacc.ErrTolForceAcc);
+    check_accns(&meanerr,&maxerr,PairAccn, meanacc);
+    message(0, "Force error, open tree vs tree.: %g mean: %g forcetol: %g\n", maxerr, meanerr, treeacc.ErrTolForceAcc);
 
-    /* This checks tree force against tree force with zero error (which always opens).*/
-    copy_accns(PairAccn);
-    treeacc.ErrTolForceAcc = 0;
-    grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType, treeacc);
-
-    petaio_save_snapshot(&IOTable, 0, "%s/PART-tree-open-%03d", All.OutputDir, RestartSnapNum);
-
-    check_accns(&meanerr,&maxerr,PairAccn);
-    message(0, "Max rel force error (tree only): %g mean: %g forcetol: %g\n", maxerr, meanerr, treeacc.ErrTolForceAcc);
+    if(meanerr > treeacc.ErrTolForceAcc* 1.2)
+        endrun(2, "Average force error is underestimated: %g > 1.2 * %g!\n", meanerr, treeacc.ErrTolForceAcc);
 
     copy_accns(PairAccn);
-    /* This checks the fully open tree against a larger Rcut.*/
+    /* This checks the tree against a larger Rcut.*/
     treeacc.Rcut = 9.5;
+    treeacc.TreeUseBH = 1;
+    grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType, treeacc);
+    treeacc.TreeUseBH = 0;
     grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType, treeacc);
     petaio_save_snapshot(&IOTable, 0, "%s/PART-tree-rcut-%03d", All.OutputDir, RestartSnapNum);
 
-    check_accns(&meanerr,&maxerr,PairAccn);
-    message(0, "Max rel force error (tree only): %g mean: %g Rcut = %g\n", maxerr, meanerr, treeacc.Rcut);
+    check_accns(&meanerr,&maxerr,PairAccn, meanacc);
+    message(0, "Force error, tree vs rcut.: %g mean: %g Rcut = %g\n", maxerr, meanerr, treeacc.Rcut);
+
+    if(maxerr > 0.2)
+        endrun(2, "Rcut decreased below desired value, error too large %g\n", maxerr);
+
+    /* This checks the tree against a box with a smaller Nmesh.*/
+    treeacc = All.treeacc;
+    force_tree_free(&Tree);
+    pm = gravpm_init_periodic(All.BoxSize, All.Nmesh/2.);
+    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1);
+    gravpm_force(&pm, &Tree);
+    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1);
+    treeacc.TreeUseBH = 1;
+    grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh/2., All.Asmth, rho0, 0, All.FastParticleType, treeacc);
+    treeacc.TreeUseBH = 0;
+    grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh/2., All.Asmth, rho0, 0, All.FastParticleType, treeacc);
+    petaio_save_snapshot(&IOTable, 0, "%s/PART-tree-nmesh2-%03d", All.OutputDir, RestartSnapNum);
+
+    check_accns(&meanerr,&maxerr,PairAccn, meanacc);
+    message(0, "Force error, nmesh %d vs %d: %g mean: %g \n", All.Nmesh, All.Nmesh/2, maxerr, meanerr);
+
+    if(maxerr > 0.5 || meanerr > 0.05)
+        endrun(2, "Nmesh sensitivity worse, something may be wrong\n");
 
     myfree(PairAccn);
     force_tree_free(&Tree);
