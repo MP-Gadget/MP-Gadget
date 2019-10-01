@@ -104,18 +104,33 @@ void runtests(int RestartSnapNum, DomainDecomp * ddecomp)
     message(0, "GravShort Tree %s\n", GDB_format_particle(0));
     petaio_save_snapshot(&IOTable, "%s/PART-tree-%03d", All.OutputDir, RestartSnapNum);
 
-
+    /* This checks tree force against pair force*/
     double meanerr = 0, maxerr=-1;
     check_accns(&meanerr,&maxerr,PairAccn);
+    message(0, "Max rel force error (tree vs pairwise): %g mean: %g forcetol: %g\n", maxerr, meanerr, treeacc.ErrTolForceAcc);
+
+    /* This checks tree force against tree force with zero error (which always opens).*/
+    copy_accns(PairAccn);
+    treeacc.ErrTolForceAcc = 0;
+    grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType, treeacc);
+
+    petaio_save_snapshot(&IOTable, "%s/PART-tree-open-%03d", All.OutputDir, RestartSnapNum);
+
+    check_accns(&meanerr,&maxerr,PairAccn);
+    message(0, "Max rel force error (tree only): %g mean: %g forcetol: %g\n", maxerr, meanerr, treeacc.ErrTolForceAcc);
+
+    copy_accns(PairAccn);
+    /* This checks the fully open tree against a larger Rcut.*/
+    treeacc.Rcut = 9.5;
+    grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType, treeacc);
+    petaio_save_snapshot(&IOTable, "%s/PART-tree-rcut-%03d", All.OutputDir, RestartSnapNum);
+
+    check_accns(&meanerr,&maxerr,PairAccn);
+    message(0, "Max rel force error (tree only): %g mean: %g Rcut = %g\n", maxerr, meanerr, treeacc.Rcut);
 
     myfree(PairAccn);
     force_tree_free(&Tree);
-
     destroy_io_blocks(&IOTable);
-
-    message(0, "Max rel force error (tree vs pairwise): %g mean: %g forcetol: %g\n", maxerr, meanerr, treeacc.ErrTolForceAcc);
-
-
 }
 
 void runfof(int RestartSnapNum, DomainDecomp * ddecomp)
