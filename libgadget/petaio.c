@@ -808,7 +808,7 @@ void register_io_blocks(struct IOTable * IOTable) {
     int i;
     IOTable->used = 0;
     IOTable->allocated = 100;
-    IOTable->ent = mymalloc("IOTable", IOTable->allocated* sizeof(IOTableEntry));
+    IOTable->ent = mymalloc2("IOTable", IOTable->allocated * sizeof(IOTableEntry));
     /* Bare Bone Gravity*/
     for(i = 0; i < 6; i ++) {
         IO_REG(Position, "f8", 3, i, IOTable);
