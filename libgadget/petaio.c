@@ -709,6 +709,8 @@ static void GTPosition(int i, double * out) {
     int d;
     for(d = 0; d < 3; d ++) {
         out[d] = P[i].Pos[d] - All.CurrentParticleOffset[d];
+        while(out[d] > All.BoxSize) out[d] -= All.BoxSize;
+        while(out[d] <= 0) out[d] += All.BoxSize;
     }
 }
 
