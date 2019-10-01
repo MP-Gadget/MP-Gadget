@@ -32,6 +32,44 @@ void register_extra_blocks(struct IOTable * IOTable)
     }
 }
 
+void copy_accns(double (* PairAccn)[3])
+{
+    int i;
+    #pragma omp parallel for
+    for(i = 0; i < PartManager->NumPart; i++)
+    {
+        int k;
+        for(k=0; k<3; k++)
+            PairAccn[i][k] = P[i].GravPM[k] + P[i].GravAccel[k];
+    }
+}
+
+void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3])
+{
+    double meanerr=0, maxerr=-1;
+    int i;
+    /* This checks that the short-range force accuracy is being correctly estimated.*/
+    #pragma omp parallel for reduction(+: meanerr) reduction(max:maxerr)
+    for(i = 0; i < PartManager->NumPart; i++)
+    {
+        int k;
+        for(k=0; k<3; k++) {
+            double err = 0;
+            if(PairAccn[i][k] != 0)
+                err = fabs((PairAccn[i][k] - (P[i].GravPM[k] + P[i].GravAccel[k]))/(PairAccn[i][k]));
+            meanerr += err;
+            if(maxerr < err)
+                maxerr = err;
+        }
+    }
+    MPI_Allreduce(&meanerr, meanerr_tot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&maxerr, maxerr_tot, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    int64_t tot_npart;
+    sumup_large_ints(1, &PartManager->NumPart, &tot_npart);
+
+    *meanerr_tot/= tot_npart;
+}
+
 /* Run various checks on the gravity code. Check that the short-range/long-range force split is working.*/
 void runtests(DomainDecomp * ddecomp)
 {
@@ -54,14 +92,7 @@ void runtests(DomainDecomp * ddecomp)
 
     double (* PairAccn)[3] = mymalloc("PairAccns", 3*sizeof(double) * PartManager->NumPart);
 
-    int i;
-    #pragma omp parallel for
-    for(i = 0; i < PartManager->NumPart; i++)
-    {
-        int k;
-        for(k=0; k<3; k++)
-            PairAccn[i][k] = P[i].GravPM[k] + P[i].GravAccel[k];
-    }
+    copy_accns(PairAccn);
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));
     petaio_save_snapshot(&IOTable, "%s/PART-pairs-%03d-mpi", All.OutputDir, NTask);
 
@@ -75,26 +106,8 @@ void runtests(DomainDecomp * ddecomp)
 
 
     double meanerr = 0, maxerr=-1;
-    /* This checks that the short-range force accuracy is being correctly estimated.*/
-    #pragma omp parallel for reduction(+: meanerr) reduction(max:maxerr)
-    for(i = 0; i < PartManager->NumPart; i++)
-    {
-        int k;
-        for(k=0; k<3; k++) {
-            double err = 0;
-            if(PairAccn[i][k] != 0)
-                err = fabs((PairAccn[i][k] - (P[i].GravPM[k] + P[i].GravAccel[k]))/(PairAccn[i][k]));
-            meanerr += err;
-            if(maxerr < err)
-                maxerr = err;
-        }
-    }
-    MPI_Allreduce(MPI_IN_PLACE, &meanerr, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &maxerr, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    int64_t tot_npart;
-    sumup_large_ints(1, &PartManager->NumPart, &tot_npart);
+    check_accns(&meanerr,&maxerr,PairAccn);
 
-    meanerr/= tot_npart;
     myfree(PairAccn);
     force_tree_free(&Tree);
 
