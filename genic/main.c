@@ -130,9 +130,10 @@ int main(int argc, char **argv)
         glass_evolve(pm, 14, "powerspectrum-glass-tot", ICP, NumPartCDM+NumPartGas);
   }
   
-  /*Write initial positions into ICP struct*/
-  for(int j=0; j<NumPartCDM; j++)
-      for(int k=0; k<3; k++)
+  /*Write initial positions into ICP struct (for CDM and gas)*/
+  int j,k;
+  for(j=0; j<NumPartCDM+NumPartGas; j++)
+      for(k=0; k<3; k++)
           ICP[j].PrePos[k] = ICP[j].Pos[k];
   
   if(NumPartCDM > 0) {
@@ -184,6 +185,12 @@ int main(int argc, char **argv)
       ICP = (struct ic_part_data *) mymalloc("PartTable", NumPartNu*sizeof(struct ic_part_data));
 
       NumPartNu = setup_grid(idgen_nu, shift_nu, mass[2], ICP);
+
+	  /*Write initial positions into ICP struct (for neutrinos)*/
+	  for(j=0; j<NumPartNu; j++)
+		  for(k=0; k<3; k++)
+		      ICP[j].PrePos[k] = ICP[j].Pos[k];
+
       displacement_fields(pm, NuType, ICP, NumPartNu);
       unsigned int * seedtable = init_rng(All2.Seed+2,All2.NGridNu);
       gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
