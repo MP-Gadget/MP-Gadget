@@ -64,6 +64,7 @@ write_particle_data(IDGenerator * idgen,
                     struct ic_part_data * curICP)
 {
     /* Write particles */
+    saveblock(bf, &curICP[0].PrePos, Type, "PrePosition", "f8", 3, idgen->NumPart, sizeof(curICP[0]));        
     saveblock(bf, &curICP[0].Density, Type, "ICDensity", "f4", 1, idgen->NumPart, sizeof(curICP[0]));
     saveblock(bf, &curICP[0].Pos, Type, "Position", "f8", 3, idgen->NumPart, sizeof(curICP[0]));
     saveblock(bf, &curICP[0].Vel, Type, "Velocity", "f4", 3, idgen->NumPart, sizeof(curICP[0]));

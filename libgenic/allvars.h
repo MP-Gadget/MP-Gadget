@@ -5,6 +5,7 @@
 
 struct ic_part_data
 {
+  double PrePos[3];
   double Pos[3];
   float Vel[3];
   float Disp[3];
