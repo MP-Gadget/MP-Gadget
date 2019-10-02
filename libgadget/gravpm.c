@@ -9,22 +9,17 @@
 #include "partmanager.h"
 #include "forcetree.h"
 #include "petapm.h"
-#include "powerspectrum.h"
 #include "domain.h"
 #include "gravity.h"
 
 #include "cosmology.h"
 #include "neutrinos_lra.h"
 
-/*Global variable to store power spectrum*/
-struct _powerspectrum PowerSpectrum;
-
 static int pm_mark_region_for_node(int startno, int rid, const ForceTree * tt);
-static void convert_node_to_region(PetaPMRegion * r, struct NODE * Nodes);
+static void convert_node_to_region(PetaPM * pm, PetaPMRegion * r, struct NODE * Nodes);
 
 static int hybrid_nu_gravpm_is_active(int i);
 static void potential_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
-static void measure_power_spectrum(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
 static void compute_neutrino_power(PetaPM * pm);
 static void force_x_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
 static void force_y_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
@@ -85,14 +80,14 @@ void gravpm_force(ForceTree * tree) {
      * not the density.
      * */
     petapm_force(pm, _prepare, &global_functions, functions, &pstruct, tree);
-    powerspectrum_sum(&PowerSpectrum);
+    powerspectrum_sum(pm->ps);
     /*Now save the power spectrum*/
     if(ThisTask == 0)
-        powerspectrum_save(&PowerSpectrum, All.OutputDir, "powerspectrum", All.Time, GrowthFactor(All.Time, 1.0));
+        powerspectrum_save(pm->ps, All.OutputDir, "powerspectrum", All.Time, GrowthFactor(All.Time, 1.0));
     if(ThisTask == 0 && All.MassiveNuLinRespOn)
-        powerspectrum_nu_save(&PowerSpectrum, All.OutputDir, "powerspectrum-nu", All.Time);
+        powerspectrum_nu_save(pm->ps, All.OutputDir, "powerspectrum-nu", All.Time);
     /*We are done with the power spectrum, free it*/
-    powerspectrum_free(&PowerSpectrum, All.MassiveNuLinRespOn);
+    powerspectrum_free(pm->ps, All.MassiveNuLinRespOn);
     walltime_measure("/LongRange");
 }
 
@@ -175,13 +170,13 @@ static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions) {
         endrun(1, "Processed only %d particles out of %d\n", numpart, PartManager->NumPart);
     }
     for(r =0; r < *Nregions; r++) {
-        convert_node_to_region(&regions[r], tree->Nodes);
+        convert_node_to_region(pm, &regions[r], tree->Nodes);
     }
     /*This is done to conserve memory during the PM step*/
     if(force_tree_allocated(tree)) force_tree_free(tree);
 
     /*Allocate memory for a power spectrum*/
-    powerspectrum_alloc(&PowerSpectrum, pm->Nmesh, All.NumThreads, All.MassiveNuLinRespOn, pm->BoxSize*All.UnitLength_in_cm);
+    powerspectrum_alloc(pm->ps, pm->Nmesh, All.NumThreads, All.MassiveNuLinRespOn, pm->BoxSize*All.UnitLength_in_cm);
 
     walltime_measure("/PMgrav/Regions");
     return regions;
@@ -225,7 +220,7 @@ static int pm_mark_region_for_node(int startno, int rid, const ForceTree * tree)
 }
 
 
-static void convert_node_to_region(PetaPMRegion * r, struct NODE * Nodes) {
+static void convert_node_to_region(PetaPM * pm, PetaPMRegion * r, struct NODE * Nodes) {
     int k;
     double cellsize = pm->BoxSize / pm->Nmesh;
     int no = r->no;
@@ -277,31 +272,33 @@ static double sinc_unnormed(double x) {
 static void compute_neutrino_power(PetaPM * pm) {
     if(!All.MassiveNuLinRespOn)
         return;
+    Power * ps = pm->ps;
     /*Note the power spectrum is now in Mpc units*/
-    powerspectrum_sum(&PowerSpectrum);
+    powerspectrum_sum(ps);
     int i;
     /*Get delta_cdm_curr , which is P(k)^1/2.*/
-    for(i=0; i<PowerSpectrum.nonzero; i++) {
-        PowerSpectrum.Power[i] = sqrt(PowerSpectrum.Power[i]);
+    for(i=0; i<ps->nonzero; i++) {
+        ps->Power[i] = sqrt(ps->Power[i]);
     }
     /*Get the neutrino power.*/
-    delta_nu_from_power(&PowerSpectrum, &All.CP, All.Time, All.TimeIC);
+    delta_nu_from_power(ps, &All.CP, All.Time, All.TimeIC);
 
     /*Initialize the interpolation for the neutrinos*/
-    PowerSpectrum.nu_spline = gsl_interp_alloc(gsl_interp_linear,PowerSpectrum.nonzero);
-    PowerSpectrum.nu_acc = gsl_interp_accel_alloc();
-    gsl_interp_init(PowerSpectrum.nu_spline,PowerSpectrum.logknu,PowerSpectrum.delta_nu_ratio,PowerSpectrum.nonzero);
+    ps->nu_spline = gsl_interp_alloc(gsl_interp_linear,ps->nonzero);
+    ps->nu_acc = gsl_interp_accel_alloc();
+    gsl_interp_init(ps->nu_spline,ps->logknu,ps->delta_nu_ratio,ps->nonzero);
     /*Zero power spectrum, which is stored with the neutrinos*/
-    powerspectrum_zero(&PowerSpectrum);
+    powerspectrum_zero(ps);
 }
 
 /* Compute the power spectrum of the fourier transformed grid in value.
  * Store it in the PowerSpectrum structure */
-void powerspectrum_add_mode(const int64_t k2, const int kpos[3], pfft_complex * const value, const double invwindow) {
-
+void
+powerspectrum_add_mode(Power * PowerSpectrum, const int64_t k2, const int kpos[3], pfft_complex * const value, const double invwindow, double Nmesh)
+{
     if(k2 == 0) {
         /* Save zero mode corresponding to the mean as the normalisation factor.*/
-        PowerSpectrum.Norm = (value[0][0] * value[0][0] + value[0][1] * value[0][1]);
+        PowerSpectrum->Norm = (value[0][0] * value[0][0] + value[0][1] * value[0][1]);
         return;
     }
     /* Measure power spectrum: we don't want the zero mode.
@@ -309,28 +306,29 @@ void powerspectrum_add_mode(const int64_t k2, const int kpos[3], pfft_complex * 
      * This is because of the symmetry of the real fft. */
     if(k2 > 0) {
         /*How many bins per unit (log) interval in k?*/
-        const double binsperunit=(PowerSpectrum.size-1)/log(sqrt(3)*pm->Nmesh/2.0);
+        const double binsperunit=(PowerSpectrum->size-1)/log(sqrt(3) * Nmesh/2.0);
         int kint=floor(binsperunit*log(k2)/2.);
         int w;
         const double keff = sqrt(kpos[0]*kpos[0]+kpos[1]*kpos[1]+kpos[2]*kpos[2]);
         const double m = (value[0][0] * value[0][0] + value[0][1] * value[0][1]);
         /*Make sure we do not overflow (although this should never happen)*/
-        if(kint >= PowerSpectrum.size)
+        if(kint >= PowerSpectrum->size)
             return;
-        if(kpos[2] == 0 || kpos[2] == pm->Nmesh/2) w = 1;
+        if(kpos[2] == 0 || kpos[2] == Nmesh/2) w = 1;
         else w = 2;
         /*Make sure we use thread-local memory to avoid racing.*/
-        const int index = kint + omp_get_thread_num() * PowerSpectrum.size;
+        const int index = kint + omp_get_thread_num() * PowerSpectrum->size;
         /*Multiply P(k) by inverse window function*/
-        PowerSpectrum.Power[index] += w * m * invwindow * invwindow;
-        PowerSpectrum.Nmodes[index] += w;
-        PowerSpectrum.kk[index] += w * keff;
+        PowerSpectrum->Power[index] += w * m * invwindow * invwindow;
+        PowerSpectrum->Nmodes[index] += w;
+        PowerSpectrum->kk[index] += w * keff;
     }
 
 }
 
 /*Just read the power spectrum, without changing the input value.*/
-static void measure_power_spectrum(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex *value) {
+void
+measure_power_spectrum(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex *value) {
     double f = 1.0;
     /* the CIC deconvolution kernel is
      *
@@ -345,11 +343,12 @@ static void measure_power_spectrum(PetaPM * pm, int64_t k2, int kpos[3], pfft_co
         tmp = sinc_unnormed(tmp);
         f *= 1. / (tmp * tmp);
     }
-    powerspectrum_add_mode(k2, kpos, value, f);
+    powerspectrum_add_mode(pm->ps, k2, kpos, value, f, pm->Nmesh);
 }
 
-static void potential_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex *value) {
-
+static void
+potential_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex *value)
+{
     const double asmth2 = pow((2 * M_PI) * All.Asmth / pm->Nmesh,2);
     double f = 1.0;
     const double smth = exp(-k2 * asmth2) / k2;
@@ -372,16 +371,17 @@ static void potential_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_comple
      * I don't understand the second yet!
      * */
     const double fac = pot_factor * smth * f * f;
+    Power * ps = pm->ps;
 
     /*Add neutrino power if desired*/
     if(All.MassiveNuLinRespOn && k2 > 0) {
         /* Change the units of k to match those of logkk*/
         double logk2 = log(sqrt(k2) * 2 * M_PI / (pm->BoxSize * All.UnitLength_in_cm/ CM_PER_MPC ));
         /* Floating point roundoff and the binning means there may be a mode just beyond the box size.*/
-        if(logk2 < PowerSpectrum.logknu[0] && logk2 > PowerSpectrum.logknu[0]-log(2) )
-            logk2 = PowerSpectrum.logknu[0];
-        else if( logk2 > PowerSpectrum.logknu[PowerSpectrum.nonzero-1])
-            logk2 = PowerSpectrum.logknu[PowerSpectrum.nonzero-1];
+        if(logk2 < ps->logknu[0] && logk2 > ps->logknu[0]-log(2) )
+            logk2 = ps->logknu[0];
+        else if( logk2 > ps->logknu[ps->nonzero-1])
+            logk2 = ps->logknu[ps->nonzero-1];
         /* Note get_neutrino_powerspec returns Omega_nu / (Omega0 -OmegaNu) * delta_nu / P_cdm^1/2, which is dimensionless.
          * So below is: M_cdm * delta_cdm (1 + Omega_nu/(Omega0-OmegaNu) (delta_nu / delta_cdm))
          *            = M_cdm * (delta_cdm (Omega0 - OmegaNu)/Omega0 + Omega_nu/Omega0 delta_nu) * Omega0 / (Omega0-OmegaNu)
@@ -390,18 +390,18 @@ static void potential_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_comple
          *            = (M_cdm + M_nu) * delta_t
          * This is correct for the forces, and gives the right power spectrum,
          * once we multiply PowerSpectrum.Norm by (Omega0 / (Omega0 - OmegaNu))**2 */
-        const double nufac = 1 + PowerSpectrum.nu_prefac * gsl_interp_eval(PowerSpectrum.nu_spline,PowerSpectrum.logknu,
-                                                                       PowerSpectrum.delta_nu_ratio,logk2,PowerSpectrum.nu_acc);
+        const double nufac = 1 + ps->nu_prefac * gsl_interp_eval(ps->nu_spline,ps->logknu,
+                                                                       ps->delta_nu_ratio,logk2,ps->nu_acc);
         value[0][0] *= nufac;
         value[0][1] *= nufac;
     }
 
     /*Compute the power spectrum*/
-    powerspectrum_add_mode(k2, kpos, value, f);
+    powerspectrum_add_mode(ps, k2, kpos, value, f, pm->Nmesh);
     if(k2 == 0) {
         if(All.MassiveNuLinRespOn) {
             const double MtotbyMcdm = All.CP.Omega0/(All.CP.Omega0 - pow(All.Time,3)*get_omega_nu_nopart(&All.CP.ONu, All.Time));
-            PowerSpectrum.Norm *= MtotbyMcdm*MtotbyMcdm;
+            ps->Norm *= MtotbyMcdm*MtotbyMcdm;
         }
         /* Remove zero mode corresponding to the mean.*/
         value[0][0] = 0.0;

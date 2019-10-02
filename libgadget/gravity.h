@@ -2,6 +2,8 @@
 #define LONGRANGE_H
 
 #include "forcetree.h"
+#include "petapm.h"
+#include "powerspectrum.h"
 
 struct TreeAccParams
 {
@@ -27,5 +29,11 @@ void gravpm_force(ForceTree * tree);
 
 void grav_short_pair(ForceTree * tree, double G, double BoxSize, double Nmesh, double Asmth, double rho0, int NeutrinoTracer, int FastParticleType, struct TreeAccParams treeacc);
 void grav_short_tree(ForceTree * tree, double G, double BoxSize, double Nmesh, double Asmth, double rho0, int NeutrinoTracer, int FastParticleType, struct TreeAccParams treeacc);
+
+/*Read the power spectrum, without changing the input value.*/
+void measure_power_spectrum(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex *value);
+
+/* Compute the power spectrum of the Fourier transformed grid in value.*/
+void powerspectrum_add_mode(Power * PowerSpectrum, const int64_t k2, const int kpos[3], pfft_complex * const value, const double invwindow, double Nmesh);
 
 #endif
