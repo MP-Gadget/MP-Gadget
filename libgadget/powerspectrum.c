@@ -13,7 +13,7 @@
 /*Power spectrum related functions*/
 
 /*Allocate memory for the power spectrum*/
-void powerspectrum_alloc(struct _powerspectrum * PowerSpectrum, const int nbins, const int nthreads, const int MassiveNuLinResp, const double BoxSize_in_cm)
+void powerspectrum_alloc(Power * PowerSpectrum, const int nbins, const int nthreads, const int MassiveNuLinResp, const double BoxSize_in_cm)
 {
     PowerSpectrum->size = nbins;
     const int nalloc = nbins*nthreads;
@@ -31,7 +31,7 @@ void powerspectrum_alloc(struct _powerspectrum * PowerSpectrum, const int nbins,
 }
 
 /*Zero memory for the power spectrum*/
-void powerspectrum_zero(struct _powerspectrum * PowerSpectrum)
+void powerspectrum_zero(Power * PowerSpectrum)
 {
     memset(PowerSpectrum->kk, 0, sizeof(double) * PowerSpectrum->nalloc);
     memset(PowerSpectrum->Power, 0, sizeof(double) * PowerSpectrum->nalloc);
@@ -40,7 +40,7 @@ void powerspectrum_zero(struct _powerspectrum * PowerSpectrum)
 }
 
 /*Free power spectrum memory*/
-void powerspectrum_free(struct _powerspectrum * PowerSpectrum, const int MassiveNuLinResp)
+void powerspectrum_free(Power * PowerSpectrum, const int MassiveNuLinResp)
 {
     myfree(PowerSpectrum->Nmodes);
     if(MassiveNuLinResp)
@@ -50,7 +50,7 @@ void powerspectrum_free(struct _powerspectrum * PowerSpectrum, const int Massive
 
 /* Sum the different modes on each thread and processor together to get a power spectrum,
  * and fix the units. */
-void powerspectrum_sum(struct _powerspectrum * PowerSpectrum)
+void powerspectrum_sum(Power * PowerSpectrum)
 {
     /*Sum power spectrum thread-local storage*/
     int i,j;
@@ -88,7 +88,7 @@ void powerspectrum_sum(struct _powerspectrum * PowerSpectrum)
 }
 
 /*Save the power spectrum to a file*/
-void powerspectrum_save(struct _powerspectrum * PowerSpectrum, const char * OutputDir, const char * filename, const double Time, const double D1)
+void powerspectrum_save(Power * PowerSpectrum, const char * OutputDir, const char * filename, const double Time, const double D1)
 {
         int i;
         char * fname = fastpm_strdup_printf("%s/%s-%0.4f.txt", OutputDir, filename, Time);
