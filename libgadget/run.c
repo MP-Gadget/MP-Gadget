@@ -13,6 +13,7 @@
 #include "density.h"
 #include "domain.h"
 #include "run.h"
+#include "init.h"
 #include "cooling.h"
 #include "checkpoint.h"
 #include "petaio.h"
@@ -28,7 +29,6 @@
 #include "fof.h"
 
 void energy_statistics(void); /* stats.c only used here */
-void init(int snapnum, DomainDecomp * ddecomp); /* init.c only used here */
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
@@ -69,7 +69,7 @@ close_outputfiles(void);
  *  parameterfile is set, then routines for setting units, reading
  *  ICs/restart-files are called, auxialiary memory is allocated, etc.
  */
-void begrun(int RestartSnapNum, DomainDecomp * ddecomp)
+void begrun(int RestartSnapNum)
 {
 
     hci_init(HCI_DEFAULT_MANAGER, All.OutputDir, All.TimeLimitCPU, All.AutoSnapshotTime);
@@ -111,8 +111,6 @@ void begrun(int RestartSnapNum, DomainDecomp * ddecomp)
 
     set_random_numbers(All.RandomSeed);
 
-    init(RestartSnapNum, ddecomp);			/* ... read in initial model */
-
 #ifdef LIGHTCONE
     lightcone_init(All.Time);
 #endif
@@ -120,7 +118,8 @@ void begrun(int RestartSnapNum, DomainDecomp * ddecomp)
     open_outputfiles(RestartSnapNum);
 }
 
-void run(DomainDecomp * ddecomp)
+void
+run(int RestartSnapNum)
 {
     /*Number of timesteps performed this run*/
     int NumCurrentTiStep = 0;
@@ -128,6 +127,9 @@ void run(DomainDecomp * ddecomp)
     int minTimeBin = 0;
     /*Is gas physics enabled?*/
     int GasEnabled = All.NTotalInit[0] > 0;
+
+    DomainDecomp ddecomp[1] = {0};
+    init(RestartSnapNum, ddecomp);          /* ... read in initial model */
 
     /* Stored scale factor of the next black hole seeding check*/
     double TimeNextSeedingCheck = All.Time;

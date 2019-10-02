@@ -116,19 +116,17 @@ int main(int argc, char **argv)
      * This may improve stability */
     MPI_Barrier(MPI_COMM_WORLD);
 
-    /*The main domain object. Will be allocated in begrun.*/
-    DomainDecomp ddecomp = {0};
-    begrun(RestartSnapNum, &ddecomp);
+    begrun(RestartSnapNum);
 
     switch(RestartFlag) {
         case 3:
-            runfof(RestartSnapNum, &ddecomp);
+            runfof(RestartSnapNum);
             break;
         case 99:
-            runtests(RestartSnapNum, &ddecomp);
+            runtests(RestartSnapNum);
             break;
         default:
-            run(&ddecomp);			/* main simulation loop */
+            run(RestartSnapNum);        /* main simulation loop */
             break;
     }
 byebye:

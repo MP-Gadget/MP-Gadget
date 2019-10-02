@@ -9,6 +9,7 @@
 #include "utils.h"
 
 #include "allvars.h"
+#include "init.h"
 #include "partmanager.h"
 #include "forcetree.h"
 #include "cooling.h"
@@ -71,8 +72,11 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3
 }
 
 /* Run various checks on the gravity code. Check that the short-range/long-range force split is working.*/
-void runtests(int RestartSnapNum, DomainDecomp * ddecomp)
+void runtests(int RestartSnapNum)
 {
+    DomainDecomp ddecomp[1] = {0};
+    init(RestartSnapNum, ddecomp);          /* ... read in initial model */
+
     struct IOTable IOTable = {0};
     register_io_blocks(&IOTable);
     register_extra_blocks(&IOTable);
@@ -133,8 +137,12 @@ void runtests(int RestartSnapNum, DomainDecomp * ddecomp)
     destroy_io_blocks(&IOTable);
 }
 
-void runfof(int RestartSnapNum, DomainDecomp * ddecomp)
+void
+runfof(int RestartSnapNum)
 {
+    DomainDecomp ddecomp[1] = {0};
+    init(RestartSnapNum, ddecomp);          /* ... read in initial model */
+
     ForceTree Tree = {0};
     /*FoF needs a tree*/
     int HybridNuGrav = All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime;
