@@ -74,6 +74,7 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3
 /* Run various checks on the gravity code. Check that the short-range/long-range force split is working.*/
 void runtests(int RestartSnapNum)
 {
+    PetaPM pm = gravpm_init_periodic(All.BoxSize, All.Nmesh);
     DomainDecomp ddecomp[1] = {0};
     init(RestartSnapNum, ddecomp);          /* ... read in initial model */
 
@@ -87,7 +88,7 @@ void runtests(int RestartSnapNum)
 
     ForceTree Tree = {0};
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1);
-    gravpm_force(&Tree);
+    gravpm_force(&pm, &Tree);
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1);
 
     struct TreeAccParams treeacc = All.treeacc;
@@ -135,6 +136,7 @@ void runtests(int RestartSnapNum)
     myfree(PairAccn);
     force_tree_free(&Tree);
     destroy_io_blocks(&IOTable);
+    petapm_destroy(&pm);
 }
 
 void

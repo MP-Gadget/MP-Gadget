@@ -39,7 +39,7 @@ void energy_statistics(void); /* stats.c only used here */
  * reached, when a `stop' file is found in the output directory, or
  * when the simulation ends because we arrived at TimeMax.
  */
-static void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp);
+static void compute_accelerations(int is_PM, PetaPM * pm, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp);
 static void write_cpu_log(int NumCurrentTiStep);
 
 /* Updates the global storing the current random offset of the particles,
@@ -107,7 +107,6 @@ void begrun(int RestartSnapNum)
     init_cooling_and_star_formation();
 
     gravshort_fill_ntab();
-    gravpm_init_periodic(All.BoxSize, All.Nmesh);
 
     set_random_numbers(All.RandomSeed);
 
@@ -127,6 +126,8 @@ run(int RestartSnapNum)
     int minTimeBin = 0;
     /*Is gas physics enabled?*/
     int GasEnabled = All.NTotalInit[0] > 0;
+
+    PetaPM pm = gravpm_init_periodic(All.BoxSize, All.Nmesh);
 
     DomainDecomp ddecomp[1] = {0};
     init(RestartSnapNum, ddecomp);          /* ... read in initial model */
@@ -214,7 +215,7 @@ run(int RestartSnapNum)
         if(GasEnabled)
             slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size);
         /* update force to Ti_Current */
-        compute_accelerations(is_PM, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
+        compute_accelerations(is_PM, &pm, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
 
         /* Note this must be after gravaccel and hydro,
          * because new star particles are not in the tree,
@@ -325,7 +326,7 @@ run(int RestartSnapNum)
  * be outside the allowed bounds, it will be readjusted by the function ensure_neighbours(), and for those
  * particle, the densities are recomputed accordingly. Finally, the hydrodynamical forces are added.
  */
-void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp)
+void compute_accelerations(int is_PM, PetaPM * pm, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp)
 {
     message(0, "Begin force computation.\n");
 
@@ -384,7 +385,7 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridN
 
     if(is_PM)
     {
-        gravpm_force(tree);
+        gravpm_force(pm, tree);
 
         /*Rebuild the force tree we freed in gravpm to save memory*/
         force_tree_rebuild(tree, ddecomp, All.BoxSize, HybridNuGrav);
