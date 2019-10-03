@@ -40,21 +40,7 @@
  *  communication.
  */
 
-/*Parameters of the domain decomposition, set by the input parameter file*/
-static struct DomainParams
-{
-    /* Number of TopLeaves (Peano-Hilbert segments) per processor. TopNodes are refined so that no TopLeaf contains
-     * no more than 1/(DODF * NTask) fraction of the work.
-     * The load balancer will assign these TopLeaves so that each MPI rank has a similar amount of work.*/
-    int DomainOverDecompositionFactor;
-    /** Use a global sort for the first few domain policies to try.*/
-    int DomainUseGlobalSorting;
-    /** Initial number of Top level tree nodes as a fraction of particles */
-    double TopNodeAllocFactor;
-    /** Fraction of local particle slots to leave free for, eg, star formation*/
-    double SetAsideFactor;
-} domain_params;
-
+static struct DomainParams domain_params;
 /**
  * Policy for domain decomposition.
  *
@@ -92,6 +78,12 @@ struct local_particle_data
     int64_t Cost;
 };
 
+/*This is a helper for the tests*/
+void set_domain_par(struct DomainParams dp)
+{
+    domain_params = dp;
+}
+
 /*Set the parameters of the domain module*/
 void set_domain_params(ParameterSet * ps)
 {
@@ -128,7 +120,6 @@ static void
 domain_balance(DomainDecomp * ddecomp);
 
 static int domain_determine_global_toptree(DomainDecompositionPolicy * policy, struct local_topnode_data * topTree, int * topTreeSize, MPI_Comm DomainComm);
-static void domain_free(DomainDecomp * ddecomp);
 
 static void
 domain_compute_costs(const DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopLeafCount);
