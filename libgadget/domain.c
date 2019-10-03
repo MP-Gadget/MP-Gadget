@@ -626,8 +626,6 @@ domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int Nsegmen
     while(nrounds < ddecomp->NTopLeaves) {
         int append = 0;
         int advance = 0;
-        if(TopLeafExt[curleaf].cost > maxleafcost)
-            maxleafcost = TopLeafExt[curleaf].cost;
         if(curleaf == ddecomp->NTopLeaves) {
             /* to maintain the invariance */
             advance = 1;
@@ -683,7 +681,10 @@ domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int Nsegmen
                 mean_task = 1.0 * totalcostLeft / NTask;
                 nrounds++;
             }
-            if(curleaf == ddecomp->NTopLeaves) break;
+            if(curleaf == ddecomp->NTopLeaves)
+                break;
+            if(TopLeafExt[curleaf].cost > maxleafcost)
+                maxleafcost = TopLeafExt[curleaf].cost;
         }
         //message(0, "curleaf = %d advance = %d append = %d, curload = %d cost=%ld left=%ld\n", curleaf, advance, append, curload, TopLeafExt[curleaf].cost, totalcostLeft);
     }
