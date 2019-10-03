@@ -1038,6 +1038,7 @@ domain_check_for_local_refine_subsample(
             /* two particles in a node? need refinement if possible. */
             if(0 != domain_toptree_split(topTree, topTreeSize, leaf)) {
                 /* out of memory, retry */
+                myfree(LP);
                 return 1;
             }
             /* pop the last particle and reinsert it */
