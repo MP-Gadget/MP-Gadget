@@ -2,7 +2,7 @@ language: c
 
 env:
     global:
-        - OMP_NUM_THREADS=1
+        - OMP_NUM_THREADS=2
 
 cache:
     - directories:
@@ -32,8 +32,6 @@ script:
     - python3 ../../tools/make_class_power.py paramfile.genic --extraz 82.3333 65.6667
     - mpirun -np 2 ../../genic/MP-GenIC paramfile.genic
     - mpirun -np 2 ../../gadget/MP-Gadget paramfile.gadget 1 # this starts from the IC
-    - python check-results.py
-    - mpirun -np 2 ../../gadget/MP-Gadget paramfile.gadget 2 1  #this starts again from 001
     - python check-results.py
     - mpirun -np 2 ../../gadget/MP-Gadget paramfile.gadget 99 #Checks the gravity force error
     - mpirun -np 2 ../../gadget/MP-Gadget paramfile.gadget 99 0

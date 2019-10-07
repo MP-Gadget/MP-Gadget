@@ -1,7 +1,7 @@
 MPICC       =   mpicc
 MPICXX       =   mpicxx
 
-OPTIMIZE =  -fPIC -fopenmp -O0 -g
+OPTIMIZE =  -fPIC -fopenmp -O2 -g
 GSL_INCL = 
 GSL_LIBS = -lgsl -lgslcblas
 
