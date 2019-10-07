@@ -16,7 +16,7 @@
 
 #define AMIN 0.005
 #define AMAX 1.0
-#define TIMEBINS 29
+#define LTIMEBINS 29
 
 static double OmegaM;
 /*Hubble function at scale factor a, in dimensions of All.Hubble*/
@@ -46,14 +46,14 @@ double fac_integ(double a, void *param)
 /*Get integer from real time*/
 double loga_from_ti(int ti)
 {
-    double logDTime = (log(AMAX) - log(AMIN)) / (1 << TIMEBINS);
+    double logDTime = (log(AMAX) - log(AMIN)) / (1 << LTIMEBINS);
     return log(AMIN) + ti * logDTime;
 }
 
 /*Get integer from real time*/
 static inline int get_ti(double aa)
 {
-    double logDTime = (log(AMAX) - log(AMIN)) / (1 << TIMEBINS);
+    double logDTime = (log(AMAX) - log(AMIN)) / (1 << LTIMEBINS);
     return (log(aa) - log(AMIN))/logDTime;
 }
 
@@ -90,9 +90,9 @@ void test_drift_factor(void ** state)
     assert_true(fabs(get_exact_drift_factor(get_ti(0.95), get_ti(0.98)) - exact_drift_factor(0.95, 0.98,3)) < 5e-5);
     assert_true(fabs(get_exact_drift_factor(get_ti(0.05), get_ti(0.06)) - exact_drift_factor(0.05, 0.06,3)) < 5e-5);
     /*Check boundary conditions*/
-    double logDtime = (log(AMAX)-log(AMIN))/(1<<TIMEBINS);
-    assert_true(fabs(get_exact_drift_factor(((1<<TIMEBINS)-1), 1<<TIMEBINS) - exact_drift_factor(AMAX-logDtime, AMAX,3)) < 5e-5);
-    assert_true(fabs(get_exact_drift_factor(0, 1) - exact_drift_factor(1.0 - exp(log(AMAX)-log(AMIN))/(1<<TIMEBINS), 1.0,3)) < 5e-5);
+    double logDtime = (log(AMAX)-log(AMIN))/(1<<LTIMEBINS);
+    assert_true(fabs(get_exact_drift_factor(((1<<LTIMEBINS)-1), 1<<LTIMEBINS) - exact_drift_factor(AMAX-logDtime, AMAX,3)) < 5e-5);
+    assert_true(fabs(get_exact_drift_factor(0, 1) - exact_drift_factor(1.0 - exp(log(AMAX)-log(AMIN))/(1<<LTIMEBINS), 1.0,3)) < 5e-5);
     /*Gravkick*/
     assert_true(fabs(get_gravkick_factor(get_ti(0.8), get_ti(0.85)) - exact_drift_factor(0.8, 0.85, 2)) < 5e-5);
     assert_true(fabs(get_gravkick_factor(get_ti(0.05), get_ti(0.06)) - exact_drift_factor(0.05, 0.06, 2)) < 5e-5);
