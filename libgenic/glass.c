@@ -139,7 +139,7 @@ void glass_evolve(PetaPM * pm, int nsteps, char * pkoutname, struct ic_part_data
     }
 
     /*We are done with the power spectrum, free it*/
-    powerspectrum_free(pm->ps, 0);
+    powerspectrum_free(pm->ps);
 }
 
 

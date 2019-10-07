@@ -85,12 +85,14 @@ gravpm_force(PetaPM * pm, ForceTree * tree) {
     petapm_force(pm, _prepare, &global_functions, functions, &pstruct, tree);
     powerspectrum_sum(pm->ps);
     /*Now save the power spectrum*/
-    if(ThisTask == 0)
+    if(ThisTask == 0) {
         powerspectrum_save(pm->ps, All.OutputDir, "powerspectrum", All.Time, GrowthFactor(All.Time, 1.0));
-    if(ThisTask == 0 && All.MassiveNuLinRespOn)
-        powerspectrum_nu_save(pm->ps, All.OutputDir, "powerspectrum-nu", All.Time);
+        /* Save the neutrino power if it is allocated*/
+        if(pm->ps->logknu)
+            powerspectrum_nu_save(pm->ps, All.OutputDir, "powerspectrum-nu", All.Time);
+    }
     /*We are done with the power spectrum, free it*/
-    powerspectrum_free(pm->ps, All.MassiveNuLinRespOn);
+    powerspectrum_free(pm->ps);
     walltime_measure("/LongRange");
 }
 
@@ -379,7 +381,7 @@ potential_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex *value)
     /*Add neutrino power if desired*/
     if(All.MassiveNuLinRespOn && k2 > 0) {
         /* Change the units of k to match those of logkk*/
-        double logk2 = log(sqrt(k2) * 2 * M_PI / (pm->BoxSize * All.UnitLength_in_cm/ CM_PER_MPC ));
+        double logk2 = log(sqrt(k2) * 2 * M_PI / ps->BoxSize_in_MPC);
         /* Floating point roundoff and the binning means there may be a mode just beyond the box size.*/
         if(logk2 < ps->logknu[0] && logk2 > ps->logknu[0]-log(2) )
             logk2 = ps->logknu[0];

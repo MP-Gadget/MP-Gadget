@@ -21,6 +21,7 @@ void powerspectrum_alloc(Power * PowerSpectrum, const int nbins, const int nthre
     PowerSpectrum->kk = mymalloc("Powerspectrum", sizeof(double) * 2*nalloc);
     PowerSpectrum->Power = PowerSpectrum->kk + nalloc;
     PowerSpectrum->BoxSize_in_MPC = BoxSize_in_cm / CM_PER_MPC;
+    PowerSpectrum->logknu = NULL;
     if(MassiveNuLinResp) {
         /*These arrays are stored separately to make interpolation more accurate*/
         PowerSpectrum->logknu = mymalloc("PowerNu", sizeof(double) * 2*nbins);
@@ -40,10 +41,10 @@ void powerspectrum_zero(Power * PowerSpectrum)
 }
 
 /*Free power spectrum memory*/
-void powerspectrum_free(Power * PowerSpectrum, const int MassiveNuLinResp)
+void powerspectrum_free(Power * PowerSpectrum)
 {
     myfree(PowerSpectrum->Nmodes);
-    if(MassiveNuLinResp)
+    if(PowerSpectrum->logknu)
         myfree(PowerSpectrum->logknu);
     myfree(PowerSpectrum->kk);
 }
