@@ -162,7 +162,7 @@ static int force_direct(struct gravshort_tree_params treeacc)
     myfree(accn);
     message(0, "Mean rel err is: %g max rel err is %g, meanacc %g mean grav force %g\n", meanerr, maxerr, meanacc, meanforce);
     /*Make some statements about the force error*/
-    assert_true(maxerr < 0.1);
+    assert_true(maxerr < 12*treeacc.ErrTolForceAcc);
     assert_true(meanerr < 1.2*treeacc.ErrTolForceAcc);
     return 0;
 }
@@ -258,10 +258,9 @@ static void test_force_flat(void ** state) {
     meanerr/= (tot_npart*3.);
 
     message(0, "Max force %g, mean grav force %g\n", maxerr, meanerr);
-    /*Make some statements about the force error:
-     this should be smaller!*/
-    assert_true(maxerr < 0.8);
-    assert_true(meanerr < 0.2);
+    /*Make some statements about the force error*/
+    assert_true(maxerr < 0.015);
+    assert_true(meanerr < 0.005);
     myfree(P);
 }
 
