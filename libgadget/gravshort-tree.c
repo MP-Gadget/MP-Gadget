@@ -26,6 +26,35 @@
  *  short-range part.
  */
 
+static struct gravshort_tree_params TreeParams;
+
+/*This is a helper for the tests*/
+void set_gravshort_treepar(struct gravshort_tree_params tree_params)
+{
+    TreeParams = tree_params;
+}
+
+struct gravshort_tree_params get_gravshort_treepar(void)
+{
+    return TreeParams;
+}
+
+/* Sets up the module*/
+void
+set_gravshort_tree_params(ParameterSet * ps)
+{
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask == 0) {
+        TreeParams.BHOpeningAngle = param_get_double(ps, "BHOpeningAngle");
+        TreeParams.ErrTolForceAcc = param_get_double(ps, "ErrTolForceAcc");
+        TreeParams.BHOpeningAngle = param_get_double(ps, "BHOpeningAngle");
+        TreeParams.TreeUseBH= param_get_int(ps, "TreeUseBH");
+        TreeParams.Rcut = param_get_double(ps, "TreeRcut");
+    }
+    MPI_Bcast(&TreeParams, sizeof(struct gravshort_tree_params), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
+
 /* According to upstream P-GADGET3
  * correct workcount slows it down and yields little benefits in load balancing
  *
@@ -46,7 +75,7 @@ force_treeev_shortrange(TreeWalkQueryGravShort * input,
  *  rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G)
  */
 void
-grav_short_tree(ForceTree * tree, double G, double BoxSize, double Nmesh, double Asmth, double rho0, int NeutrinoTracer, int FastParticleType, struct TreeAccParams treeacc)
+grav_short_tree(ForceTree * tree, double G, double BoxSize, double Nmesh, double Asmth, double rho0, int NeutrinoTracer, int FastParticleType)
 {
     double timeall = 0;
     double timetree, timewait, timecomm;
@@ -54,10 +83,10 @@ grav_short_tree(ForceTree * tree, double G, double BoxSize, double Nmesh, double
     TreeWalk tw[1] = {{0}};
     struct GravShortPriv priv;
     priv.cellsize = BoxSize / Nmesh;
-    priv.Rcut = treeacc.Rcut * Asmth * priv.cellsize;;
-    priv.ErrTolForceAcc = treeacc.ErrTolForceAcc;
-    priv.TreeUseBH = treeacc.TreeUseBH;
-    priv.BHOpeningAngle = treeacc.BHOpeningAngle;
+    priv.Rcut = TreeParams.Rcut * Asmth * priv.cellsize;;
+    priv.ErrTolForceAcc = TreeParams.ErrTolForceAcc;
+    priv.TreeUseBH = TreeParams.TreeUseBH;
+    priv.BHOpeningAngle = TreeParams.BHOpeningAngle;
     priv.FastParticleType = FastParticleType;
     priv.NeutrinoTracer = NeutrinoTracer;
     priv.G = G;
@@ -111,6 +140,10 @@ grav_short_tree(ForceTree * tree, double G, double BoxSize, double Nmesh, double
 
     walltime_add("/Tree/Misc", timeall - (timetree + timewait + timecomm));
 
+    /* TreeUseBH > 1 means use the BH criterion on the initial timestep only,
+     * avoiding the fully open O(N^2) case.*/
+    if(TreeParams.TreeUseBH > 1)
+        TreeParams.TreeUseBH = 0;
 }
 
 /*! In the TreePM algorithm, the tree is walked only locally around the

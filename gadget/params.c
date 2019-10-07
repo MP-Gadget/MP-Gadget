@@ -402,10 +402,6 @@ void read_parameter_file(char *fname)
 
         All.TimeMax = param_get_double(ps, "TimeMax");
         All.ErrTolIntAccuracy = param_get_double(ps, "ErrTolIntAccuracy");
-        All.treeacc.ErrTolForceAcc = param_get_double(ps, "ErrTolForceAcc");
-        All.treeacc.BHOpeningAngle = param_get_double(ps, "BHOpeningAngle");
-        All.treeacc.TreeUseBH= param_get_int(ps, "TreeUseBH");
-        All.treeacc.Rcut = param_get_double(ps, "TreeRcut");
         All.Asmth = param_get_double(ps, "Asmth");
         All.ShortRangeForceWindowType = param_get_enum(ps, "ShortRangeForceWindowType");
         All.Nmesh = param_get_int(ps, "Nmesh");
@@ -512,6 +508,7 @@ void read_parameter_file(char *fname)
 
     set_cooling_params(ps);
     set_treewalk_params(ps);
+    set_gravshort_tree_params(ps);
     set_domain_params(ps);
     set_sfr_params(ps);
     set_winds_params(ps);

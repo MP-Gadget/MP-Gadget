@@ -200,9 +200,6 @@ extern struct global_data_all_processes
     double TimeLimitCPU;
     struct ClockTable CT;
 
-    /* tree code opening criterion */
-    struct TreeAccParams treeacc;
-
     /*! The scale of the short-range/long-range force split in units of FFT-mesh cells */
     double Asmth;
     enum ShortRangeForceWindowType ShortRangeForceWindowType;	/*!< method of the feedback*/

@@ -366,11 +366,7 @@ void compute_accelerations(int is_PM, PetaPM * pm, int FirstStep, int GasEnabled
     const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
 
     if(All.TreeGravOn)
-        grav_short_tree(tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, NeutrinoTracer, All.FastParticleType, All.treeacc);
-    /* TreeUseBH > 1 means use the BH criterion on the initial timestep only,
-     * avoiding the fully open O(N^2) case.*/
-    if(All.treeacc.TreeUseBH > 1)
-        All.treeacc.TreeUseBH = 0;
+        grav_short_tree(tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, NeutrinoTracer, All.FastParticleType);
 
     /* We use the total gravitational acc.
      * to open the tree and total acc for the timestep.
@@ -400,8 +396,8 @@ void compute_accelerations(int is_PM, PetaPM * pm, int FirstStep, int GasEnabled
      * This happens after PM because we want to
      * use the total acceleration for tree opening.
      */
-    if(FirstStep && All.treeacc.TreeUseBH == 0)
-        grav_short_tree(tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, NeutrinoTracer, All.FastParticleType, All.treeacc);
+    if(FirstStep && All.TreeGravOn)
+        grav_short_tree(tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, NeutrinoTracer, All.FastParticleType);
 
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Forces computed.\n");
