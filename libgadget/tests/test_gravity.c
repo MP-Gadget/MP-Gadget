@@ -237,7 +237,7 @@ static void test_force_flat(void ** state) {
     }
     PartManager->NumPart = numpart;
     PartManager->MaxPart = numpart;
-    do_force_test(All.BoxSize, 32, 1.5, 0);
+    do_force_test(All.BoxSize, 48, 1.5, 0);
     /* For a homogeneous mass distribution, the force should be zero*/
     double meanerr=0, maxerr=-1;
     #pragma omp parallel for reduction(+: meanerr) reduction(max: maxerr)
@@ -282,7 +282,7 @@ static void test_force_close(void ** state) {
     }
     PartManager->NumPart = numpart;
     PartManager->MaxPart = numpart;
-    do_force_test(All.BoxSize, 32, 1.5, 1);
+    do_force_test(All.BoxSize, 48, 1.5, 1);
     myfree(P);
 }
 
@@ -308,7 +308,7 @@ void do_random_test(gsl_rng * r, const int numpart)
     }
     PartManager->NumPart = numpart;
     PartManager->MaxPart = numpart;
-    do_force_test(All.BoxSize, 32, 1.5, 1);
+    do_force_test(All.BoxSize, 48, 1.5, 1);
 }
 
 static void test_force_random(void ** state) {
