@@ -361,7 +361,7 @@ static void
 gaussian_fill(int Nmesh, PetaPMRegion * region, pfft_complex * rho_k, int setUnitaryAmplitude, int setInvertPhase)
 {
     /* fastpm deals with strides properly; petapm not. So we translate it here. */
-    PM pm[1];
+    PMField pm[1];
     int d;
     for (d = 0; d < 3; d ++) {
         pm->Nmesh[d] = Nmesh;
