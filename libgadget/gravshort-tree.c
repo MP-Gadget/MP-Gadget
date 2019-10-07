@@ -75,14 +75,14 @@ force_treeev_shortrange(TreeWalkQueryGravShort * input,
  *  rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G)
  */
 void
-grav_short_tree(ForceTree * tree, double G, double BoxSize, double Nmesh, double Asmth, double rho0, int NeutrinoTracer, int FastParticleType)
+grav_short_tree(ForceTree * tree, double G, double Nmesh, double Asmth, double rho0, int NeutrinoTracer, int FastParticleType)
 {
     double timeall = 0;
     double timetree, timewait, timecomm;
 
     TreeWalk tw[1] = {{0}};
     struct GravShortPriv priv;
-    priv.cellsize = BoxSize / Nmesh;
+    priv.cellsize = tree->BoxSize / Nmesh;
     priv.Rcut = TreeParams.Rcut * Asmth * priv.cellsize;;
     priv.ErrTolForceAcc = TreeParams.ErrTolForceAcc;
     priv.TreeUseBH = TreeParams.TreeUseBH;

@@ -38,8 +38,8 @@ struct gravshort_tree_params get_gravshort_treepar(void);
 /*Note: tree is rebuilt during this function*/
 void gravpm_force(PetaPM * pm, ForceTree * tree);
 
-void grav_short_pair(ForceTree * tree, double G, double BoxSize, double Nmesh, double Asmth, double Rcut, double rho0, int NeutrinoTracer, int FastParticleType);
-void grav_short_tree(ForceTree * tree, double G, double BoxSize, double Nmesh, double Asmth, double rho0, int NeutrinoTracer, int FastParticleType);
+void grav_short_pair(ForceTree * tree, double G, double Nmesh, double Asmth, double Rcut, double rho0, int NeutrinoTracer, int FastParticleType);
+void grav_short_tree(ForceTree * tree, double G, double Nmesh, double Asmth, double rho0, int NeutrinoTracer, int FastParticleType);
 
 /*Read the power spectrum, without changing the input value.*/
 void measure_power_spectrum(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex *value);

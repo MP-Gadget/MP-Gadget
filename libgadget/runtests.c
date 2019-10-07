@@ -101,11 +101,10 @@ void runtests(int RestartSnapNum)
     gravpm_force(&pm, &Tree);
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1);
 
-
     struct gravshort_tree_params origtreeacc = get_gravshort_treepar();
     struct gravshort_tree_params treeacc = origtreeacc;
     const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
-    grav_short_pair(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, treeacc.Rcut, rho0, 0, All.FastParticleType);
+    grav_short_pair(&Tree, All.G, All.Nmesh, All.Asmth, treeacc.Rcut, rho0, 0, All.FastParticleType);
 
     double (* PairAccn)[3] = mymalloc2("PairAccns", 3*sizeof(double) * PartManager->NumPart);
 
@@ -115,7 +114,7 @@ void runtests(int RestartSnapNum)
 
     treeacc.ErrTolForceAcc = 0;
     set_gravshort_treepar(treeacc);
-    grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType);
+    grav_short_tree(&Tree, All.G, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType);
 
     /* This checks fully opened tree force against pair force*/
     double meanerr, maxerr;
@@ -134,8 +133,8 @@ void runtests(int RestartSnapNum)
     treeacc = origtreeacc;
     set_gravshort_treepar(treeacc);
     /* Code automatically sets the UseTreeBH parameter.*/
-    grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType);
-    grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType);
+    grav_short_tree(&Tree, All.G, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType);
+    grav_short_tree(&Tree, All.G, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType);
 
     petaio_save_snapshot(&IOTable, 0, "%s/PART-tree-%03d", All.OutputDir, RestartSnapNum);
 
@@ -149,8 +148,8 @@ void runtests(int RestartSnapNum)
     /* This checks the tree against a larger Rcut.*/
     treeacc.Rcut = 9.5;
     set_gravshort_treepar(treeacc);
-    grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType);
-    grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType);
+    grav_short_tree(&Tree, All.G, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType);
+    grav_short_tree(&Tree, All.G, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType);
     petaio_save_snapshot(&IOTable, 0, "%s/PART-tree-rcut-%03d", All.OutputDir, RestartSnapNum);
 
     check_accns(&meanerr,&maxerr,PairAccn, meanacc);
@@ -167,8 +166,8 @@ void runtests(int RestartSnapNum)
     gravpm_force(&pm, &Tree);
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1);
     set_gravshort_treepar(treeacc);
-    grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh/2., All.Asmth, rho0, 0, All.FastParticleType);
-    grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh/2., All.Asmth, rho0, 0, All.FastParticleType);
+    grav_short_tree(&Tree, All.G, All.Nmesh/2., All.Asmth, rho0, 0, All.FastParticleType);
+    grav_short_tree(&Tree, All.G, All.Nmesh/2., All.Asmth, rho0, 0, All.FastParticleType);
     petaio_save_snapshot(&IOTable, 0, "%s/PART-tree-nmesh2-%03d", All.OutputDir, RestartSnapNum);
 
     check_accns(&meanerr,&maxerr,PairAccn, meanacc);
