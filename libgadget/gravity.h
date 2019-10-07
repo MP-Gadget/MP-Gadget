@@ -15,8 +15,13 @@ struct TreeAccParams
     double Rcut;
 };
 
+enum ShortRangeForceWindowType {
+    SHORTRANGE_FORCE_WINDOW_TYPE_EXACT = 0,
+    SHORTRANGE_FORCE_WINDOW_TYPE_ERFC = 1,
+};
+
 /* Fill the short-range gravity table*/
-void gravshort_fill_ntab(void);
+void gravshort_fill_ntab(const enum ShortRangeForceWindowType ShortRangeForceWindowType, const double Asmth);
 
 /*Defined in gravpm.c*/
 PetaPM gravpm_init_periodic(double BoxSize, int Nmesh);

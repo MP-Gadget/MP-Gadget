@@ -38,11 +38,6 @@
 #include "physconst.h"
 #include "types.h"
 
-enum ShortRangeForceWindowType {
-    SHORTRANGE_FORCE_WINDOW_TYPE_EXACT = 0,
-    SHORTRANGE_FORCE_WINDOW_TYPE_ERFC = 1,
-};
-
 enum DensityKernelType {
     DENSITY_KERNEL_CUBIC_SPLINE = 1,
     DENSITY_KERNEL_QUINTIC_SPLINE = 2,

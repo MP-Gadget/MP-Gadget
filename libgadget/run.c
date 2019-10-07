@@ -71,7 +71,6 @@ close_outputfiles(void);
  */
 void begrun(int RestartSnapNum)
 {
-
     hci_init(HCI_DEFAULT_MANAGER, All.OutputDir, All.TimeLimitCPU, All.AutoSnapshotTime);
 
     petapm_module_init(All.NumThreads);
@@ -106,7 +105,7 @@ void begrun(int RestartSnapNum)
 
     init_cooling_and_star_formation();
 
-    gravshort_fill_ntab();
+    gravshort_fill_ntab(All.ShortRangeForceWindowType, All.Asmth);
 
     set_random_numbers(All.RandomSeed);
 

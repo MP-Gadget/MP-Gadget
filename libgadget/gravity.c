@@ -5,11 +5,7 @@
 #include <math.h>
 
 #include "utils.h"
-
-#include "allvars.h"
-/*! \file longrange.c
- *  \brief driver routines for computation of long-range gravitational PM force
- */
+#include "gravity.h"
 
 /*
  * This table is computed by comparing with brute force calculation it matches the full PM exact up to 10 mesh sizes
@@ -24,11 +20,11 @@
 static float shortrange_table[NTAB], shortrange_table_potential[NTAB], shortrange_table_tidal[NTAB];
 
 void
-gravshort_fill_ntab(void)
+gravshort_fill_ntab(const enum ShortRangeForceWindowType ShortRangeForceWindowType, const double Asmth)
 {
-    if (All.ShortRangeForceWindowType == SHORTRANGE_FORCE_WINDOW_TYPE_EXACT) {
-        if(All.Asmth != 1.25) {
-            endrun(0, "The short range force window is calibrated for Asmth = 1.25, but running with %g\n", All.Asmth);
+    if (ShortRangeForceWindowType == SHORTRANGE_FORCE_WINDOW_TYPE_EXACT) {
+        if(Asmth != 1.25) {
+            endrun(0, "The short range force window is calibrated for Asmth = 1.25, but running with %g\n", Asmth);
         }
     }
 
@@ -36,8 +32,8 @@ gravshort_fill_ntab(void)
     for(i = 0; i < NTAB; i++)
     {
         /* force_kernels is in units of mesh points; */
-        double u = shortrange_force_kernels[i][0] * 0.5 / All.Asmth;
-        switch (All.ShortRangeForceWindowType) {
+        double u = shortrange_force_kernels[i][0] * 0.5 / Asmth;
+        switch (ShortRangeForceWindowType) {
             case SHORTRANGE_FORCE_WINDOW_TYPE_EXACT:
                 /* Notice that the table is only calibrated for smth of 1.25*/
                 shortrange_table[i] = shortrange_force_kernels[i][2]; /* ~ erfc(u) + 2.0 * u / sqrt(M_PI) * exp(-u * u); */
