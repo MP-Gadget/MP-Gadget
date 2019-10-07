@@ -66,9 +66,12 @@ gravpm_force(PetaPM * pm, ForceTree * tree) {
         (char*) &P[0].Pos[0]  - (char*) P,
         (char*) &P[0].Mass  - (char*) P,
         (char*) &P[0].RegionInd - (char*) P,
-        (All.HybridNeutrinosOn ? &hybrid_nu_gravpm_is_active : NULL),
+        NULL,
         PartManager->NumPart,
     };
+
+    if(All.HybridNeutrinosOn && particle_nu_fraction(&All.CP.ONu.hybnu, All.Time, 0) == 0.)
+        pstruct.active = &hybrid_nu_gravpm_is_active;
 
     int i;
     #pragma omp parallel for
@@ -432,7 +435,7 @@ static double diff_kernel(double w) {
 
 /*This function decides if a particle is actively gravitating; tracers are not.*/
 static int hybrid_nu_gravpm_is_active(int i) {
-    if (particle_nu_fraction(&All.CP.ONu.hybnu, All.Time, 0) == 0. && (P[i].Type == All.FastParticleType))
+    if (P[i].Type == All.FastParticleType)
         return 0;
     else
         return 1;
