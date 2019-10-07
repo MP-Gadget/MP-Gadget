@@ -42,9 +42,9 @@ static PetaPMGlobalFunctions global_functions = {NULL, NULL, potential_transfer}
 static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions);
 
 PetaPM
-gravpm_init_periodic(double BoxSize, int Nmesh) {
+gravpm_init_periodic(double BoxSize, double Asmth, int Nmesh) {
     PetaPM pm;
-    petapm_init(&pm, BoxSize, Nmesh, MPI_COMM_WORLD);
+    petapm_init(&pm, BoxSize, Asmth, Nmesh, MPI_COMM_WORLD);
 
     /*Initialise the kspace neutrino code if it is enabled.
      * Mpc units are used to match power spectrum code.*/
@@ -352,7 +352,7 @@ measure_power_spectrum(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex *value
 static void
 potential_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex *value)
 {
-    const double asmth2 = pow((2 * M_PI) * All.Asmth / pm->Nmesh,2);
+    const double asmth2 = pow((2 * M_PI) * pm->Asmth / pm->Nmesh,2);
     double f = 1.0;
     const double smth = exp(-k2 * asmth2) / k2;
     /* the CIC deconvolution kernel is

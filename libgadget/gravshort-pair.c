@@ -23,13 +23,13 @@ grav_short_pair_ngbiter(
         LocalTreeWalk * lv);
 
 void
-grav_short_pair(ForceTree * tree, double G, double Nmesh, double Asmth, double Rcut, double rho0, int NeutrinoTracer, int FastParticleType)
+grav_short_pair(PetaPM * pm, ForceTree * tree, double G, double Rcut, double rho0, int NeutrinoTracer, int FastParticleType)
 {
     TreeWalk tw[1] = {{0}};
 
     struct GravShortPriv priv;
-    priv.cellsize = tree->BoxSize / Nmesh;
-    priv.Rcut = Rcut * Asmth * priv.cellsize;
+    priv.cellsize = tree->BoxSize / pm->Nmesh;
+    priv.Rcut = Rcut * pm->Asmth * priv.cellsize;
     priv.FastParticleType = FastParticleType;
     priv.NeutrinoTracer = NeutrinoTracer;
     priv.G = G;

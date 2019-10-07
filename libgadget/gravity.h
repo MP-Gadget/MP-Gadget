@@ -24,7 +24,7 @@ enum ShortRangeForceWindowType {
 void gravshort_fill_ntab(const enum ShortRangeForceWindowType ShortRangeForceWindowType, const double Asmth);
 
 /*Defined in gravpm.c*/
-PetaPM gravpm_init_periodic(double BoxSize, int Nmesh);
+PetaPM gravpm_init_periodic(double BoxSize, double Asmth, int Nmesh);
 
 /* Apply the short-range window function, which includes the smoothing kernel.*/
 int grav_apply_short_range_window(double r, double * fac, double * pot, const double cellsize);
@@ -38,8 +38,8 @@ struct gravshort_tree_params get_gravshort_treepar(void);
 /*Note: tree is rebuilt during this function*/
 void gravpm_force(PetaPM * pm, ForceTree * tree);
 
-void grav_short_pair(ForceTree * tree, double G, double Nmesh, double Asmth, double Rcut, double rho0, int NeutrinoTracer, int FastParticleType);
-void grav_short_tree(ForceTree * tree, double G, double Nmesh, double Asmth, double rho0, int NeutrinoTracer, int FastParticleType);
+void grav_short_pair(PetaPM * pm, ForceTree * tree, double G,  double Rcut, double rho0, int NeutrinoTracer, int FastParticleType);
+void grav_short_tree(PetaPM * pm, ForceTree * tree, double G, double rho0, int NeutrinoTracer, int FastParticleType);
 
 /*Read the power spectrum, without changing the input value.*/
 void measure_power_spectrum(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex *value);
