@@ -10,7 +10,6 @@
 #include "slotsmanager.h"
 #include "treewalk.h"
 #include "densitykernel.h"
-#include "timestep.h"
 #include "hydra.h"
 #include "winds.h"
 #include "utils.h"
@@ -109,7 +108,7 @@ hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mo
  *  force and rate of change of entropy due to shock heating for all active
  *  particles .
  */
-void hydro_force(ForceTree * tree)
+void hydro_force(const ActiveParticles * act, ForceTree * tree)
 {
     int i;
     if(!All.HydroOn)
@@ -147,7 +146,7 @@ void hydro_force(ForceTree * tree)
     HYDRA_GET_PRIV(tw)->fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
     HYDRA_GET_PRIV(tw)->fac_vsic_fix = All.cf.hubble * pow(All.cf.a, 3 * GAMMA_MINUS1);
 
-    treewalk_run(tw, ActiveParticle, NumActiveParticle);
+    treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
 
     myfree(HYDRA_GET_PRIV(tw)->PressurePred);
     /* collect some timing information */

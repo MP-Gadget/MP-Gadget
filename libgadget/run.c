@@ -39,7 +39,7 @@ void energy_statistics(void); /* stats.c only used here */
  * reached, when a `stop' file is found in the output directory, or
  * when the simulation ends because we arrived at TimeMax.
  */
-static void compute_accelerations(int is_PM, PetaPM * pm, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp);
+static void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp);
 static void write_cpu_log(int NumCurrentTiStep);
 
 /* Updates the global storing the current random offset of the particles,
@@ -198,7 +198,8 @@ run(int RestartSnapNum)
             domain_maintain(ddecomp);
         }
 
-        rebuild_activelist(All.Ti_Current, NumCurrentTiStep);
+        ActiveParticles Act = {0};
+        rebuild_activelist(&Act, All.Ti_Current, NumCurrentTiStep);
 
         set_random_numbers(All.RandomSeed + All.Ti_Current);
 
@@ -214,7 +215,7 @@ run(int RestartSnapNum)
         if(GasEnabled)
             slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size);
         /* update force to Ti_Current */
-        compute_accelerations(is_PM, &pm, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
+        compute_accelerations(&Act, is_PM, &pm, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
 
         /* Note this must be after gravaccel and hydro,
          * because new star particles are not in the tree,
@@ -222,7 +223,7 @@ run(int RestartSnapNum)
         if(GasEnabled)
         {
             /* Black hole accretion and feedback */
-            blackhole(&Tree);
+            blackhole(&Act, &Tree);
             /* this will find new black hole seed halos */
             if(All.BlackHoleOn && All.Time >= TimeNextSeedingCheck)
             {
@@ -234,7 +235,7 @@ run(int RestartSnapNum)
             }
 
             /**** radiative cooling and star formation *****/
-            cooling_and_starformation(&Tree);
+            cooling_and_starformation(&Act, &Tree);
 
             /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
             slots_free_sph_scratch_data(SphP_scratch);
@@ -246,7 +247,7 @@ run(int RestartSnapNum)
             apply_PM_half_kick();
         }
 
-        apply_half_kick();
+        apply_half_kick(&Act);
 
         /* If a snapshot is requested, write it.
          * write_checkpoint is responsible to maintain a valid ddecomp and tree after it is called.
@@ -274,7 +275,7 @@ run(int RestartSnapNum)
 
             if(slots_gc(compact)) {
                 force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav);
-                NumActiveParticle = PartManager->NumPart;
+                Act.NumActiveParticle = PartManager->NumPart;
             }
         }
 
@@ -299,17 +300,17 @@ run(int RestartSnapNum)
         /* assign new timesteps to the active particles,
          * now that we know they have synched TiKick and TiDrift,
          * and advance the PM timestep.*/
-        minTimeBin = find_timesteps(All.Ti_Current);
+        minTimeBin = find_timesteps(&Act, All.Ti_Current);
 
         /* Update velocity to the new step, with the newly computed step size */
-        apply_half_kick();
+        apply_half_kick(&Act);
 
         if(is_PM) {
             apply_PM_half_kick();
         }
 
         /* We can now free the active list: the new step have new active particles*/
-        free_activelist();
+        free_activelist(&Act);
     }
 
     close_outputfiles();
@@ -325,7 +326,7 @@ run(int RestartSnapNum)
  * be outside the allowed bounds, it will be readjusted by the function ensure_neighbours(), and for those
  * particle, the densities are recomputed accordingly. Finally, the hydrodynamical forces are added.
  */
-void compute_accelerations(int is_PM, PetaPM * pm, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp)
+void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp)
 {
     message(0, "Begin force computation.\n");
 
@@ -343,15 +344,15 @@ void compute_accelerations(int is_PM, PetaPM * pm, int FirstStep, int GasEnabled
         /***** density *****/
         message(0, "Start density computation...\n");
 
-        density(1, All.DensityIndependentSphOn, tree);  /* computes density, and pressure */
+        density(act, 1, All.DensityIndependentSphOn, tree);  /* computes density, and pressure */
 
         /***** update smoothing lengths in tree *****/
-        force_update_hmax(ActiveParticle, NumActiveParticle, tree);
+        force_update_hmax(act->ActiveParticle, act->NumActiveParticle, tree);
         /***** hydro forces *****/
         MPIU_Barrier(MPI_COMM_WORLD);
         message(0, "Start hydro-force computation...\n");
 
-        hydro_force(tree);		/* adds hydrodynamical accelerations  and computes du/dt  */
+        hydro_force(act, tree);		/* adds hydrodynamical accelerations  and computes du/dt  */
     }
 
     /* The opening criterion for the gravtree
@@ -366,7 +367,7 @@ void compute_accelerations(int is_PM, PetaPM * pm, int FirstStep, int GasEnabled
     const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
 
     if(All.TreeGravOn)
-        grav_short_tree(pm, tree, All.G, rho0, NeutrinoTracer, All.FastParticleType);
+        grav_short_tree(act, pm, tree, All.G, rho0, NeutrinoTracer, All.FastParticleType);
 
     /* We use the total gravitational acc.
      * to open the tree and total acc for the timestep.
@@ -397,7 +398,7 @@ void compute_accelerations(int is_PM, PetaPM * pm, int FirstStep, int GasEnabled
      * use the total acceleration for tree opening.
      */
     if(FirstStep && All.TreeGravOn)
-        grav_short_tree(pm, tree, All.G, rho0, NeutrinoTracer, All.FastParticleType);
+        grav_short_tree(act, pm, tree, All.G, rho0, NeutrinoTracer, All.FastParticleType);
 
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Forces computed.\n");

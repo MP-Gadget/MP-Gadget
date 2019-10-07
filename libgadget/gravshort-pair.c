@@ -11,7 +11,6 @@
 #include "cooling.h"
 #include "densitykernel.h"
 #include "treewalk.h"
-#include "timestep.h"
 #include "gravshort.h"
 #include "walltime.h"
 
@@ -23,7 +22,7 @@ grav_short_pair_ngbiter(
         LocalTreeWalk * lv);
 
 void
-grav_short_pair(PetaPM * pm, ForceTree * tree, double G, double Rcut, double rho0, int NeutrinoTracer, int FastParticleType)
+grav_short_pair(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double G, double Rcut, double rho0, int NeutrinoTracer, int FastParticleType)
 {
     TreeWalk tw[1] = {{0}};
 
@@ -53,7 +52,7 @@ grav_short_pair(PetaPM * pm, ForceTree * tree, double G, double Rcut, double rho
 
     walltime_measure("/Misc");
 
-    treewalk_run(tw, ActiveParticle, NumActiveParticle);
+    treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
 
     walltime_measure("/Grav/Short");
 }
