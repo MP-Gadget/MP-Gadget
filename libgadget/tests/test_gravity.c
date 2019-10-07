@@ -202,7 +202,7 @@ static void do_force_test(double BoxSize, int Nmesh, double Asmth, int direct)
     struct gravshort_tree_params treeacc = {0};
     treeacc.BHOpeningAngle = 0.175;
     treeacc.TreeUseBH = 1;
-    treeacc.Rcut = 4.5;
+    treeacc.Rcut = 6;
     treeacc.ErrTolForceAcc = 0.005;
 
     set_gravshort_treepar(treeacc);
