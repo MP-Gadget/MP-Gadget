@@ -67,7 +67,9 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
 
     /*Allocate enough memory*/
     All.OutputListLength = count;
-    int maxcount = DMAX(sizeof(All.OutputListTimes) / sizeof(All.OutputListTimes[0]), MAXSNAPSHOTS);
+    int maxcount = sizeof(All.OutputListTimes) / sizeof(All.OutputListTimes[0]);
+    if(maxcount > (int) MAXSNAPSHOTS)
+        maxcount = MAXSNAPSHOTS;
     if(All.OutputListLength > maxcount) {
         message(1, "Too many entries (%d) in the OutputList, can take no more than %d.\n", All.OutputListLength, maxcount);
         return 1;
