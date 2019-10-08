@@ -11,6 +11,9 @@
 #include "domain.h"
 #include "forcetree.h"
 
+#include <signal.h>
+#define BREAKPOINT raise(SIGTRAP)
+
 #define FACT1 0.366025403785	/* FACT1 = 0.5 * (sqrt(3)-1) */
 
 static int *Ngblist;

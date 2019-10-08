@@ -145,6 +145,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "ErrTolIntAccuracy", OPTIONAL, 0.02, "Controls the length of the short-range timestep. Smaller values are shorter timesteps.");
     param_declare_double(ps, "ErrTolForceAcc", OPTIONAL, 0.005, "Force accuracy required from tree. Controls tree opening criteria. Lower values are more accurate.");
     param_declare_double(ps, "BHOpeningAngle", OPTIONAL, 0.175, "Barnes-Hut opening angle. Alternative purely geometric tree opening angle. Lower values are more accurate.");
+    param_declare_double(ps, "TreeRcut", OPTIONAL, 4.5, "Number of mesh cells at which we cease walking.");
     param_declare_int(ps, "TreeUseBH", OPTIONAL, 2, "If 1, use Barnes-Hut opening angle rather than the standard Gadget acceleration based opening angle. If 2, use BH criterion for the first timestep only, before we have relative accelerations.");
     param_declare_double(ps, "Asmth", OPTIONAL, 1.25, "The scale of the short-range/long-range force split in units of FFT-mesh cells."
                                                       "Larger values suppresses grid anisotropy. ShortRangeForceWindowType = erfc supports any value. 'exact' only support 1.25. ");
@@ -401,9 +402,10 @@ void read_parameter_file(char *fname)
 
         All.TimeMax = param_get_double(ps, "TimeMax");
         All.ErrTolIntAccuracy = param_get_double(ps, "ErrTolIntAccuracy");
-        All.ErrTolForceAcc = param_get_double(ps, "ErrTolForceAcc");
-        All.BHOpeningAngle = param_get_double(ps, "BHOpeningAngle");
-        All.TreeUseBH= param_get_int(ps, "TreeUseBH");
+        All.treeacc.ErrTolForceAcc = param_get_double(ps, "ErrTolForceAcc");
+        All.treeacc.BHOpeningAngle = param_get_double(ps, "BHOpeningAngle");
+        All.treeacc.TreeUseBH= param_get_int(ps, "TreeUseBH");
+        All.treeacc.Rcut = param_get_double(ps, "TreeRcut");
         All.Asmth = param_get_double(ps, "Asmth");
         All.ShortRangeForceWindowType = param_get_enum(ps, "ShortRangeForceWindowType");
         All.Nmesh = param_get_int(ps, "Nmesh");

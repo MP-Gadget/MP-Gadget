@@ -53,14 +53,16 @@ void runtests(DomainDecomp * ddecomp)
     gravpm_force(&Tree);
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1);
 
-    grav_short_pair(&Tree);
+    const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
+    grav_short_pair(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType, All.treeacc);
+
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));
     petaio_save_snapshot(&IOTable, "%s/PART-pairs-%03d-mpi", All.OutputDir, NTask);
 
-    grav_short_tree(&Tree);  /* computes gravity accel. */
-    grav_short_tree(&Tree);  /* computes gravity accel. */
-    grav_short_tree(&Tree);  /* computes gravity accel. */
-    grav_short_tree(&Tree);  /* computes gravity accel. */
+    grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType, All.treeacc);
+    grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType, All.treeacc);
+    grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType, All.treeacc);
+    grav_short_tree(&Tree, All.G, All.BoxSize, All.Nmesh, All.Asmth, rho0, 0, All.FastParticleType, All.treeacc);
     message(0, "GravShort Tree %s\n", GDB_format_particle(0));
     force_tree_free(&Tree);
 

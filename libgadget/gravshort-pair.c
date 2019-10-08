@@ -12,8 +12,8 @@
 #include "densitykernel.h"
 #include "treewalk.h"
 #include "timestep.h"
-#include "gravity.h"
 #include "gravshort.h"
+#include "walltime.h"
 
 static void
 grav_short_pair_ngbiter(
@@ -22,9 +22,18 @@ grav_short_pair_ngbiter(
         TreeWalkNgbIterGravShort * iter,
         LocalTreeWalk * lv);
 
-void grav_short_pair(ForceTree * tree)
+void
+grav_short_pair(ForceTree * tree, double G, double BoxSize, double Nmesh, double Asmth, double rho0, int NeutrinoTracer, int FastParticleType, struct TreeAccParams treeacc)
 {
     TreeWalk tw[1] = {{0}};
+
+    struct GravShortPriv priv;
+    priv.cellsize = BoxSize / Nmesh;
+    priv.Rcut = treeacc.Rcut * Asmth * priv.cellsize;
+    priv.FastParticleType = FastParticleType;
+    priv.NeutrinoTracer = NeutrinoTracer;
+    priv.G = G;
+    priv.cbrtrho0 = pow(rho0, 1.0 / 3);
 
     message(0, "Starting pair-wise short range gravity...\n");
 
@@ -40,6 +49,7 @@ void grav_short_pair(ForceTree * tree)
     tw->query_type_elsize = sizeof(TreeWalkQueryGravShort);
     tw->result_type_elsize = sizeof(TreeWalkResultGravShort);
     tw->tree = tree;
+    tw->priv = &priv;
 
     walltime_measure("/Misc");
 
@@ -56,8 +66,10 @@ grav_short_pair_ngbiter(
         TreeWalkNgbIterGravShort * iter,
         LocalTreeWalk * lv)
 {
+    const double cellsize = GRAV_GET_PRIV(lv->tw)->cellsize;
+
     if(iter->base.other == -1) {
-        iter->base.Hsml = RCUT * All.Asmth * All.BoxSize / All.Nmesh;
+        iter->base.Hsml = GRAV_GET_PRIV(lv->tw)->Rcut;
         iter->base.mask = 0xff; /* all particles */
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         return;
@@ -67,12 +79,15 @@ grav_short_pair_ngbiter(
     double r = iter->base.r;
     double r2 = iter->base.r2;
     double * dist = iter->base.dist;
-    const double cellsize = All.BoxSize / All.Nmesh;
 
     if(P[other].Mass == 0) {
         endrun(12, "Encountered zero mass particle during density;"
                   " We haven't implemented tracer particles and this shall not happen\n");
     }
+
+    /* Don't include neutrino tracers*/
+    if(GRAV_GET_PRIV(lv->tw)->NeutrinoTracer && P[other].Type == GRAV_GET_PRIV(lv->tw)->FastParticleType)
+        return;
 
     double mass = P[other].Mass;
 
