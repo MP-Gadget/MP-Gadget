@@ -226,8 +226,12 @@ int param_parse (ParameterSet * ps, char * content, char **error)
             char * error1;
             int flag1 = param_emit(ps, p1, p - p1, lineno, &error1);
             if(flag1 != 0) {
-                char * tmp = fastpm_strappend(*error, "\n", error1);
+                int len = strlen(error1);
+                char * tmp2 = ta_malloc2("tmp2", char, len);
+                strncpy(tmp2, error1, len);
                 myfree(error1);
+                char * tmp = fastpm_strappend(*error, "\n", tmp2);
+                myfree(tmp2);
                 if(*error) myfree(*error);
                 *error = tmp;
             }
@@ -255,7 +259,7 @@ int param_parse_file (ParameterSet * ps, const char * filename, char ** error)
     return val;
 }
 
-static ParameterSchema * 
+static ParameterSchema *
 param_declare(ParameterSet * ps, char * name, int type, enum ParameterFlag required, char * help)
 {
     int free = ps->size;
