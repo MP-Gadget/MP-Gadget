@@ -149,6 +149,8 @@ void read_parameterfile(char *fname)
     All2.NgridGas = param_get_int(ps, "NgridGas");
     if(All2.NgridGas < 0)
         All2.NgridGas = All2.Ngrid;
+    if(!All2.ProduceGas)
+        All2.NgridGas = 0;
     /*Enable 'hybrid' neutrinos*/
     All2.NGridNu = param_get_int(ps, "NgridNu");
     /* Convert physical km/s at z=0 in an unperturbed universe to
