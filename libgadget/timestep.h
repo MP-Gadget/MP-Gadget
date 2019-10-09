@@ -6,6 +6,7 @@
 set in rebuild_activelist.*/
 typedef struct ActiveParticles
 {
+    int MaxActiveParticle;
     int NumActiveParticle;
     int *ActiveParticle;
 } ActiveParticles;

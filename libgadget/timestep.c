@@ -55,8 +55,13 @@ timestep_eh_slots_fork(EIBase * event, void * userdata)
 
     if(is_timebin_active(P[parent].TimeBin, All.Ti_Current)) {
         int childactive = atomic_fetch_and_add(&act->NumActiveParticle, 1);
-        if(act->ActiveParticle)
+        if(act->ActiveParticle) {
+            /* This should never happen because we allocate as much space for active particles as we have space
+             * for particles, but just in case*/
+            if(childactive >= act->MaxActiveParticle)
+                endrun(5, "Tried to add %d active particles, more than %d allowed\n", childactive, act->MaxActiveParticle);
             act->ActiveParticle[childactive] = child;
+        }
     }
     return 0;
 }
@@ -665,6 +670,7 @@ int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurre
      * but we do not need space for the known-inactive particles*/
     if(act->ActiveParticle) {
         act->ActiveParticle = myrealloc(act->ActiveParticle, sizeof(int)*(act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
+        act->MaxActiveParticle = act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart;
         /* listen to the slots events such that we can set timebin of new particles */
     }
     event_listen(&EventSlotsFork, timestep_eh_slots_fork, act);
