@@ -16,7 +16,7 @@
 double specialJ(const double x, const double vcmnubylight, const double nufrac_low);
 double fslength(const double logai, const double logaf, const double light);
 
-void petaio_save_block(BigFile * bf, char * blockname, BigArray * array) {};
+void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, int verbose) {};
 int petaio_read_block(BigFile * bf, char * blockname, BigArray * array, int required)
 {
     return 0;
