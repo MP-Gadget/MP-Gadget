@@ -968,7 +968,7 @@ void force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp)
     for(i = ddecomp->Tasks[ThisTask].StartLeaf; i < ddecomp->Tasks[ThisTask].EndLeaf; i ++) {
         no = ddecomp->TopLeaves[i].treenode;
         if(ddecomp->TopLeaves[i].Task != ThisTask)
-            endrun(131231231, "TopLeave's Task table is corrupted");
+            endrun(131231231, "TopLeaf %d Task table is corrupted: task is %d\n", i, ddecomp->TopLeaves[i].Task);
 
         /* read out the multipole moments from the local base cells */
         TopLeafMoments[i].s[0] = tree->Nodes[no].u.d.s[0];

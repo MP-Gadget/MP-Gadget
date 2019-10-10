@@ -1256,8 +1256,10 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
 
     walltime_measure("/Domain/DetermineTopTree/Addnodes");
 
-    if(global_refine_failed)
+    if(global_refine_failed) {
+        message(0, "Global refine failed: toptreeSize = %d, MaxTopNodes = %d\n", *topTreeSize, MaxTopNodes);
         return 1;
+    }
 
     message(0, "Final local topTree size = %d per segment = %g.\n", *topTreeSize, 1.0 * (*topTreeSize) / (policy->NTopLeaves));
 
