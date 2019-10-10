@@ -30,24 +30,6 @@ struct forcetree_testdata
     gsl_rng * r;
 };
 
-static int
-order_by_type_and_key(const void *a, const void *b)
-{
-    const struct particle_data * pa  = (const struct particle_data *) a;
-    const struct particle_data * pb  = (const struct particle_data *) b;
-
-    if(pa->Type < pb->Type)
-        return -1;
-    if(pa->Type > pb->Type)
-        return +1;
-    if(pa->Key < pb->Key)
-        return -1;
-    if(pa->Key > pb->Key)
-        return +1;
-
-    return 0;
-}
-
 static void
 grav_force(const int this, const int other, const double * offset, double * accns)
 {
@@ -135,7 +117,7 @@ static void find_means(double * meangrav, double * suppmean, double * suppaccns)
 /* This checks the force on each particle using a direct summation:
  * very slow, but accurate.
  * Periodic boundary conditions are included by mirroring the box.*/
-static int force_direct(struct gravshort_tree_params treeacc)
+static int force_direct(double ErrTolForceAcc)
 {
     double * accn = (double *) mymalloc("accelerations", 3*sizeof(double) * PartManager->NumPart);
     memset(accn, 0, 3 * sizeof(double) * PartManager->NumPart);
@@ -162,12 +144,13 @@ static int force_direct(struct gravshort_tree_params treeacc)
     myfree(accn);
     message(0, "Mean rel err is: %g max rel err is %g, meanacc %g mean grav force %g\n", meanerr, maxerr, meanacc, meanforce);
     /*Make some statements about the force error*/
-    assert_true(maxerr < 12*treeacc.ErrTolForceAcc);
-    assert_true(meanerr < 1.2*treeacc.ErrTolForceAcc);
+    assert_true(maxerr < 12*ErrTolForceAcc);
+    assert_true(meanerr < 1.2*ErrTolForceAcc);
+
     return 0;
 }
 
-static void do_force_test(double BoxSize, int Nmesh, double Asmth, int direct)
+static void do_force_test(double BoxSize, int Nmesh, double Asmth, double ErrTolForceAcc, int direct)
 {
     /*Sort by peano key so this is more realistic*/
     int i;
@@ -181,7 +164,6 @@ static void do_force_test(double BoxSize, int Nmesh, double Asmth, int direct)
         P[i].IsGarbage = 0;
         P[i].GravCost = 1;
     }
-    qsort(P, PartManager->NumPart, sizeof(struct particle_data), order_by_type_and_key);
 
     ActiveParticles act = {0};
     act.NumActiveParticle = PartManager->NumPart;
@@ -202,12 +184,10 @@ static void do_force_test(double BoxSize, int Nmesh, double Asmth, int direct)
     struct gravshort_tree_params treeacc = {0};
     treeacc.BHOpeningAngle = 0.175;
     treeacc.TreeUseBH = 1;
-    treeacc.Rcut = 6;
-    treeacc.ErrTolForceAcc = 0.005;
+    treeacc.Rcut = 7;
+    treeacc.ErrTolForceAcc = ErrTolForceAcc;
 
     set_gravshort_treepar(treeacc);
-
-    void grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double G, double rho0, int NeutrinoTracer, int FastParticleType);
 
     /* Twice so the opening angle is consistent*/
     grav_short_tree(&act, &pm, &Tree, rho0, 0, 2);
@@ -217,7 +197,7 @@ static void do_force_test(double BoxSize, int Nmesh, double Asmth, int direct)
     petapm_destroy(&pm);
     domain_free(&ddecomp);
     if(direct)
-        force_direct(treeacc);
+        force_direct(ErrTolForceAcc);
 }
 
 static void test_force_flat(void ** state) {
@@ -237,7 +217,7 @@ static void test_force_flat(void ** state) {
     }
     PartManager->NumPart = numpart;
     PartManager->MaxPart = numpart;
-    do_force_test(All.BoxSize, 48, 1.5, 0);
+    do_force_test(All.BoxSize, 48, 1.5, 0.005, 0);
     /* For a homogeneous mass distribution, the force should be zero*/
     double meanerr=0, maxerr=-1;
     #pragma omp parallel for reduction(+: meanerr) reduction(max: maxerr)
@@ -281,7 +261,7 @@ static void test_force_close(void ** state) {
     }
     PartManager->NumPart = numpart;
     PartManager->MaxPart = numpart;
-    do_force_test(All.BoxSize, 48, 1.5, 1);
+    do_force_test(All.BoxSize, 48, 1.5, 0.005, 1);
     myfree(P);
 }
 
@@ -307,7 +287,7 @@ void do_random_test(gsl_rng * r, const int numpart)
     }
     PartManager->NumPart = numpart;
     PartManager->MaxPart = numpart;
-    do_force_test(All.BoxSize, 48, 1.5, 1);
+    do_force_test(All.BoxSize, 48, 1.5, 0.005, 1);
 }
 
 static void test_force_random(void ** state) {
@@ -353,7 +333,7 @@ static int setup_tree(void **state) {
     struct DomainParams dp = {0};
     dp.DomainOverDecompositionFactor = 2;
     dp.DomainUseGlobalSorting = 0;
-    dp.TopNodeAllocFactor = 0.5;
+    dp.TopNodeAllocFactor = 1.;
     dp.SetAsideFactor = 1;
     set_domain_par(dp);
     petapm_module_init(All.NumThreads);
