@@ -57,8 +57,6 @@ typedef struct {
 
 int MaxTopNodes;		/*!< Maximum number of nodes in the top-level tree used for domain decomposition */
 
-static void * TopTreeTempMemory;
-
 struct local_topnode_data
 {
     /*These members are copied into topnode_data*/
@@ -199,8 +197,8 @@ void domain_decompose_full(DomainDecomp * ddecomp)
     walltime_measure("/Domain/Decompose/Balance");
 
     /* copy the used nodes from temp to the true. */
-    void * OldTopLeaves = ddecomp->TopLeaves;
-    void * OldTopNodes = ddecomp->TopNodes;
+    struct topleaf_data * OldTopLeaves = ddecomp->TopLeaves;
+    struct topnode_data * OldTopNodes = ddecomp->TopNodes;
 
     ddecomp->TopNodes  = (struct topnode_data *) mymalloc2("TopNodes", sizeof(ddecomp->TopNodes[0]) * ddecomp->NTopNodes);
     /* add 1 extra to mark the end of TopLeaves; see assign */
@@ -210,8 +208,8 @@ void domain_decompose_full(DomainDecomp * ddecomp)
     memcpy(ddecomp->TopNodes, OldTopNodes, ddecomp->NTopNodes * sizeof(ddecomp->TopNodes[0]));
 
     /* no longer useful */
-    myfree(TopTreeTempMemory);
-    TopTreeTempMemory = NULL;
+    myfree(OldTopLeaves);
+    myfree(OldTopNodes);
 
     if(domain_exchange(domain_layoutfunc, ddecomp, 0, ddecomp->DomainComm))
         endrun(1929,"Could not exchange particles\n");
@@ -301,11 +299,13 @@ domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy)
 
     all_bytes += bytes;
 
-    TopTreeTempMemory = mymalloc("TopTreeWorkspace",
-        bytes = (MaxTopNodes * (sizeof(ddecomp->TopNodes[0]) + sizeof(ddecomp->TopLeaves[0]))));
+    ddecomp->TopNodes = mymalloc("TopNodes",
+        bytes = (MaxTopNodes * (sizeof(ddecomp->TopNodes[0]))));
 
-    ddecomp->TopNodes  = (struct topnode_data *) TopTreeTempMemory;
-    ddecomp->TopLeaves = (struct topleaf_data *) (ddecomp->TopNodes + MaxTopNodes);
+    all_bytes += bytes;
+
+    ddecomp->TopLeaves = mymalloc("TopNodes",
+        bytes = (MaxTopNodes * sizeof(ddecomp->TopLeaves[0])));
 
     all_bytes += bytes;
 
