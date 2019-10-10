@@ -126,7 +126,8 @@ run(int RestartSnapNum)
     /*Is gas physics enabled?*/
     int GasEnabled = All.NTotalInit[0] > 0;
 
-    PetaPM pm = gravpm_init_periodic(All.BoxSize, All.Asmth, All.Nmesh);
+    PetaPM pm = {0};
+    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh);
 
     DomainDecomp ddecomp[1] = {0};
     init(RestartSnapNum, ddecomp);          /* ... read in initial model */

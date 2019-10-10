@@ -82,7 +82,8 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3
 /* Run various checks on the gravity code. Check that the short-range/long-range force split is working.*/
 void runtests(int RestartSnapNum)
 {
-    PetaPM pm = gravpm_init_periodic(All.BoxSize, All.Asmth, All.Nmesh);
+    PetaPM pm = {0};
+    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh);
     DomainDecomp ddecomp[1] = {0};
     /* So we can run a test on the final snapshot*/
     All.TimeMax = All.TimeInit * 1.1;
@@ -162,7 +163,7 @@ void runtests(int RestartSnapNum)
     /* This checks the tree against a box with a smaller Nmesh.*/
     treeacc = origtreeacc;
     force_tree_free(&Tree);
-    pm = gravpm_init_periodic(All.BoxSize, All.Asmth, All.Nmesh/2.);
+    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh/2.);
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1);
     gravpm_force(&pm, &Tree);
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1);

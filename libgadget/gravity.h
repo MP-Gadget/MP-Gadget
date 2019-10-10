@@ -25,7 +25,7 @@ enum ShortRangeForceWindowType {
 void gravshort_fill_ntab(const enum ShortRangeForceWindowType ShortRangeForceWindowType, const double Asmth);
 
 /*Defined in gravpm.c*/
-PetaPM gravpm_init_periodic(double BoxSize, double Asmth, int Nmesh);
+void gravpm_init_periodic(PetaPM * pm, double BoxSize, double Asmth, int Nmesh);
 
 /* Apply the short-range window function, which includes the smoothing kernel.*/
 int grav_apply_short_range_window(double r, double * fac, double * pot, const double cellsize);
