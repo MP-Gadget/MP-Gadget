@@ -16,10 +16,10 @@ typedef struct {
         ptrdiff_t total;
     } ORegion;
     int Nmesh[3];
-} PM;
+} PMDesc;
 
 static inline void
-SETSEED(PM * pm, unsigned int * table[2][2], int i, int j, gsl_rng * rng)
+SETSEED(PMDesc * pm, unsigned int * table[2][2], int i, int j, gsl_rng * rng)
 {
     unsigned int seed = 0x7fffffff * gsl_rng_uniform(rng);
 
@@ -42,7 +42,7 @@ SETSEED(PM * pm, unsigned int * table[2][2], int i, int j, gsl_rng * rng)
     }
 }
 static inline unsigned int
-GETSEED(PM * pm, unsigned int * table[2][2], int i, int j, int d1, int d2)
+GETSEED(PMDesc * pm, unsigned int * table[2][2], int i, int j, int d1, int d2)
 {
     i -= pm->ORegion.start[0];
     j -= pm->ORegion.start[1];
@@ -62,7 +62,7 @@ SAMPLE(gsl_rng * rng, double * ampl, double * phase)
 }
 
 static void
-pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int setUnitaryAmplitude, int setInvertPhase)
+pmic_fill_gaussian_gadget(PMDesc * pm, double * delta_k, int seed, int setUnitaryAmplitude, int setInvertPhase)
 {
     /* Fill delta_k with gadget scheme */
     int d;

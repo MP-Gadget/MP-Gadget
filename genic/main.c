@@ -12,6 +12,7 @@
 #include <libgadget/walltime.h>
 #include <libgadget/petapm.h>
 #include <libgadget/utils.h>
+#include <libgadget/partmanager.h>
 
 #define GLASS_SEED_HASH(seed) ((seed) * 9999721L)
 
@@ -90,7 +91,7 @@ int main(int argc, char **argv)
   }
   PetaPM pm[1];
 
-  petapm_init(pm, All.BoxSize, All.Nmesh, MPI_COMM_WORLD);
+  petapm_init(pm, All.BoxSize, All.Asmth, All.Nmesh, All.G, MPI_COMM_WORLD);
 
   /*First compute and write CDM*/
   double mass[6] = {0};

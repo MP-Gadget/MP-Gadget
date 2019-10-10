@@ -13,6 +13,7 @@
 #include "density.h"
 #include "domain.h"
 #include "run.h"
+#include "init.h"
 #include "cooling.h"
 #include "checkpoint.h"
 #include "petaio.h"
@@ -28,7 +29,6 @@
 #include "fof.h"
 
 void energy_statistics(void); /* stats.c only used here */
-void init(int snapnum, DomainDecomp * ddecomp); /* init.c only used here */
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
@@ -39,7 +39,7 @@ void init(int snapnum, DomainDecomp * ddecomp); /* init.c only used here */
  * reached, when a `stop' file is found in the output directory, or
  * when the simulation ends because we arrived at TimeMax.
  */
-static void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp);
+static void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp);
 static void write_cpu_log(int NumCurrentTiStep);
 
 /* Updates the global storing the current random offset of the particles,
@@ -69,9 +69,8 @@ close_outputfiles(void);
  *  parameterfile is set, then routines for setting units, reading
  *  ICs/restart-files are called, auxialiary memory is allocated, etc.
  */
-void begrun(int RestartSnapNum, DomainDecomp * ddecomp)
+void begrun(int RestartSnapNum)
 {
-
     hci_init(HCI_DEFAULT_MANAGER, All.OutputDir, All.TimeLimitCPU, All.AutoSnapshotTime);
 
     petapm_module_init(All.NumThreads);
@@ -106,11 +105,9 @@ void begrun(int RestartSnapNum, DomainDecomp * ddecomp)
 
     init_cooling_and_star_formation();
 
-    grav_init();
+    gravshort_fill_ntab(All.ShortRangeForceWindowType, All.Asmth);
 
     set_random_numbers(All.RandomSeed);
-
-    init(RestartSnapNum, ddecomp);			/* ... read in initial model */
 
 #ifdef LIGHTCONE
     lightcone_init(All.Time);
@@ -119,7 +116,8 @@ void begrun(int RestartSnapNum, DomainDecomp * ddecomp)
     open_outputfiles(RestartSnapNum);
 }
 
-void run(DomainDecomp * ddecomp)
+void
+run(int RestartSnapNum)
 {
     /*Number of timesteps performed this run*/
     int NumCurrentTiStep = 0;
@@ -127,6 +125,12 @@ void run(DomainDecomp * ddecomp)
     int minTimeBin = 0;
     /*Is gas physics enabled?*/
     int GasEnabled = All.NTotalInit[0] > 0;
+
+    PetaPM pm = {0};
+    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.G);
+
+    DomainDecomp ddecomp[1] = {0};
+    init(RestartSnapNum, ddecomp);          /* ... read in initial model */
 
     /* Stored scale factor of the next black hole seeding check*/
     double TimeNextSeedingCheck = All.Time;
@@ -195,7 +199,8 @@ void run(DomainDecomp * ddecomp)
             domain_maintain(ddecomp);
         }
 
-        rebuild_activelist(All.Ti_Current, NumCurrentTiStep);
+        ActiveParticles Act = {0};
+        rebuild_activelist(&Act, All.Ti_Current, NumCurrentTiStep);
 
         set_random_numbers(All.RandomSeed + All.Ti_Current);
 
@@ -211,7 +216,7 @@ void run(DomainDecomp * ddecomp)
         if(GasEnabled)
             slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size);
         /* update force to Ti_Current */
-        compute_accelerations(is_PM, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
+        compute_accelerations(&Act, is_PM, &pm, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
 
         /* Note this must be after gravaccel and hydro,
          * because new star particles are not in the tree,
@@ -219,7 +224,7 @@ void run(DomainDecomp * ddecomp)
         if(GasEnabled)
         {
             /* Black hole accretion and feedback */
-            blackhole(&Tree);
+            blackhole(&Act, &Tree);
             /* this will find new black hole seed halos */
             if(All.BlackHoleOn && All.Time >= TimeNextSeedingCheck)
             {
@@ -231,7 +236,7 @@ void run(DomainDecomp * ddecomp)
             }
 
             /**** radiative cooling and star formation *****/
-            cooling_and_starformation(&Tree);
+            cooling_and_starformation(&Act, &Tree);
 
             /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
             slots_free_sph_scratch_data(SphP_scratch);
@@ -243,7 +248,7 @@ void run(DomainDecomp * ddecomp)
             apply_PM_half_kick();
         }
 
-        apply_half_kick();
+        apply_half_kick(&Act);
 
         /* If a snapshot is requested, write it.
          * write_checkpoint is responsible to maintain a valid ddecomp and tree after it is called.
@@ -271,7 +276,7 @@ void run(DomainDecomp * ddecomp)
 
             if(slots_gc(compact)) {
                 force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav);
-                NumActiveParticle = PartManager->NumPart;
+                Act.NumActiveParticle = PartManager->NumPart;
             }
         }
 
@@ -296,17 +301,17 @@ void run(DomainDecomp * ddecomp)
         /* assign new timesteps to the active particles,
          * now that we know they have synched TiKick and TiDrift,
          * and advance the PM timestep.*/
-        minTimeBin = find_timesteps(All.Ti_Current);
+        minTimeBin = find_timesteps(&Act, All.Ti_Current);
 
         /* Update velocity to the new step, with the newly computed step size */
-        apply_half_kick();
+        apply_half_kick(&Act);
 
         if(is_PM) {
             apply_PM_half_kick();
         }
 
         /* We can now free the active list: the new step have new active particles*/
-        free_activelist();
+        free_activelist(&Act);
     }
 
     close_outputfiles();
@@ -322,7 +327,7 @@ void run(DomainDecomp * ddecomp)
  * be outside the allowed bounds, it will be readjusted by the function ensure_neighbours(), and for those
  * particle, the densities are recomputed accordingly. Finally, the hydrodynamical forces are added.
  */
-void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp)
+void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp)
 {
     message(0, "Begin force computation.\n");
 
@@ -340,15 +345,15 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridN
         /***** density *****/
         message(0, "Start density computation...\n");
 
-        density(1, All.DensityIndependentSphOn, tree);  /* computes density, and pressure */
+        density(act, 1, All.DensityIndependentSphOn, tree);  /* computes density, and pressure */
 
         /***** update smoothing lengths in tree *****/
-        force_update_hmax(ActiveParticle, NumActiveParticle, tree);
+        force_update_hmax(act->ActiveParticle, act->NumActiveParticle, tree);
         /***** hydro forces *****/
         MPIU_Barrier(MPI_COMM_WORLD);
         message(0, "Start hydro-force computation...\n");
 
-        hydro_force(tree);		/* adds hydrodynamical accelerations  and computes du/dt  */
+        hydro_force(act, tree);		/* adds hydrodynamical accelerations  and computes du/dt  */
     }
 
     /* The opening criterion for the gravtree
@@ -359,11 +364,11 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridN
      * this timestep to GravPM. Note initially both
      * are zero and so the tree is opened maximally
      * on the first timestep.*/
-    grav_short_tree(tree);
-    /* TreeUseBH > 1 means use the BH criterion on the initial timestep only,
-     * avoiding the fully open O(N^2) case.*/
-    if(All.TreeUseBH > 1)
-        All.TreeUseBH = 0;
+    const int NeutrinoTracer =  All.HybridNeutrinosOn && (All.Time <= All.HybridNuPartTime);
+    const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
+
+    if(All.TreeGravOn)
+        grav_short_tree(act, pm, tree, rho0, NeutrinoTracer, All.FastParticleType);
 
     /* We use the total gravitational acc.
      * to open the tree and total acc for the timestep.
@@ -377,7 +382,7 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridN
 
     if(is_PM)
     {
-        gravpm_force(tree);
+        gravpm_force(pm, tree);
 
         /*Rebuild the force tree we freed in gravpm to save memory*/
         force_tree_rebuild(tree, ddecomp, All.BoxSize, HybridNuGrav);
@@ -393,8 +398,8 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled, int HybridN
      * This happens after PM because we want to
      * use the total acceleration for tree opening.
      */
-    if(FirstStep && All.TreeUseBH == 0)
-        grav_short_tree(tree);
+    if(FirstStep && All.TreeGravOn)
+        grav_short_tree(act, pm, tree, rho0, NeutrinoTracer, All.FastParticleType);
 
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Forces computed.\n");

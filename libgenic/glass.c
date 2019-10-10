@@ -12,10 +12,8 @@
 #include <libgadget/walltime.h>
 #include <libgadget/utils.h>
 #include <libgadget/powerspectrum.h>
+#include <libgadget/gravity.h>
 
-
-struct _powerspectrum PowerSpectrum;
-static void measure_power_spectrum(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex * value);
 static void potential_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex * value);
 static void force_x_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex * value);
 static void force_y_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex * value);
@@ -78,7 +76,7 @@ void glass_evolve(PetaPM * pm, int nsteps, char * pkoutname, struct ic_part_data
     double t_f = 0;
 
     /*Allocate memory for a power spectrum*/
-    powerspectrum_alloc(&PowerSpectrum, All.Nmesh, All.NumThreads, 0, All.BoxSize*All.UnitLength_in_cm);
+    powerspectrum_alloc(pm->ps, All.Nmesh, All.NumThreads, 0, All.BoxSize*All.UnitLength_in_cm);
 
     glass_force(pm, t_x, ICP, NumPart);
 
@@ -136,12 +134,12 @@ void glass_evolve(PetaPM * pm, int nsteps, char * pkoutname, struct ic_part_data
 
         /*Now save the power spectrum*/
         if(ThisTask == 0) {
-            powerspectrum_save(&PowerSpectrum, All.OutputDir, pkoutname, t_f, 1.0);
+            powerspectrum_save(pm->ps, All.OutputDir, pkoutname, t_f, 1.0);
         }
     }
 
     /*We are done with the power spectrum, free it*/
-    powerspectrum_free(&PowerSpectrum, 0);
+    powerspectrum_free(pm->ps);
 }
 
 
@@ -199,7 +197,7 @@ static void glass_force(PetaPM * pm, double t_f, struct ic_part_data * ICP, cons
         ICP[i].Disp[0] = ICP[i].Disp[1] = ICP[i].Disp[2] = 0;
     }
 
-    powerspectrum_zero(&PowerSpectrum);
+    powerspectrum_zero(pm->ps);
 
     struct ic_prep_data icprep = {ICP, NumPart};
     /*
@@ -209,7 +207,7 @@ static void glass_force(PetaPM * pm, double t_f, struct ic_part_data * ICP, cons
      * */
     petapm_force(pm, _prepare, &global_functions, functions, &pstruct, &icprep);
 
-    powerspectrum_sum(&PowerSpectrum);
+    powerspectrum_sum(pm->ps);
     walltime_measure("/LongRange");
 }
 
@@ -281,69 +279,6 @@ _prepare(PetaPM * pm, void * userdata, int * Nregions)
  *
  *********************/
 
-/* unnormalized sinc function sin(x) / x */
-static double sinc_unnormed(double x) {
-    if(x < 1e-5 && x > -1e-5) {
-        double x2 = x * x;
-        return 1.0 - x2 / 6. + x2  * x2 / 120.;
-    } else {
-        return sin(x) / x;
-    }
-}
-
-/* Compute the power spectrum of the fourier transformed grid in value.
- * Store it in the PowerSpectrum structure */
-void powerspectrum_add_mode(const int64_t k2, const int kpos[3], pfft_complex * const value, const double invwindow) {
-
-    if(k2 == 0) {
-        /* Save zero mode corresponding to the mean as the normalisation factor.*/
-        PowerSpectrum.Norm = (value[0][0] * value[0][0] + value[0][1] * value[0][1]);
-        return;
-    }
-    /* Measure power spectrum: we don't want the zero mode.
-     * Some modes with k_z = 0 or N/2 have weight 1, the rest have weight 2.
-     * This is because of the symmetry of the real fft. */
-    if(k2 > 0) {
-        /*How many bins per unit (log) interval in k?*/
-        const double binsperunit=(PowerSpectrum.size-1)/log(sqrt(3)*All.Nmesh/2.0);
-        int kint=floor(binsperunit*log(k2)/2.);
-        int w;
-        const double keff = sqrt(kpos[0]*kpos[0]+kpos[1]*kpos[1]+kpos[2]*kpos[2]);
-        const double m = (value[0][0] * value[0][0] + value[0][1] * value[0][1]);
-        /*Make sure we do not overflow (although this should never happen)*/
-        if(kint >= PowerSpectrum.size)
-            return;
-        if(kpos[2] == 0 || kpos[2] == All.Nmesh/2) w = 1;
-        else w = 2;
-        /*Make sure we use thread-local memory to avoid racing.*/
-        const int index = kint + omp_get_thread_num() * PowerSpectrum.size;
-        /*Multiply P(k) by inverse window function*/
-        PowerSpectrum.Power[index] += w * m * invwindow * invwindow;
-        PowerSpectrum.Nmodes[index] += w;
-        PowerSpectrum.kk[index] += w * keff;
-    }
-
-}
-
-/*Just read the power spectrum, without changing the input value.*/
-static void measure_power_spectrum(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex *value) {
-    double f = 1.0;
-    /* the CIC deconvolution kernel is
-     *
-     * sinc_unnormed(k_x L / 2 All.Nmesh) ** 2
-     *
-     * k_x = kpos * 2pi / L
-     *
-     * */
-    int k;
-    for(k = 0; k < 3; k ++) {
-        double tmp = (kpos[k] * M_PI) / All.Nmesh;
-        tmp = sinc_unnormed(tmp);
-        f *= 1. / (tmp * tmp);
-    }
-    powerspectrum_add_mode(k2, kpos, value, f);
-}
-
 static void potential_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex *value) {
 
     double f = 1.0;
@@ -363,7 +298,7 @@ static void potential_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex
     const double fac = pot_factor * smth * f * f;
 
     /*Compute the power spectrum*/
-    powerspectrum_add_mode(k2, kpos, value, f);
+    powerspectrum_add_mode(pm->ps, k2, kpos, value, f, pm->Nmesh);
 
     if(k2 == 0) {
         /* Remove zero mode corresponding to the mean.*/

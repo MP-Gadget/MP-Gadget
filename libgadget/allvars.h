@@ -19,8 +19,6 @@
 #include <mpi.h>
 #include <stdio.h>
 
-#include <signal.h>
-#define BREAKPOINT raise(SIGTRAP)
 #ifdef _OPENMP
 #include <omp.h>
 #include <pthread.h>
@@ -33,42 +31,18 @@
 #endif
 
 #include "cosmology.h"
+#include "gravity.h"
 #include "walltime.h"
 
 #include "assert.h"
 #include "physconst.h"
 #include "types.h"
 
-#define NEAREST(x) (((x)>0.5*All.BoxSize)?((x)-All.BoxSize):(((x)<-0.5*All.BoxSize)?((x)+All.BoxSize):(x)))
-
-enum ShortRangeForceWindowType {
-    SHORTRANGE_FORCE_WINDOW_TYPE_EXACT = 0,
-    SHORTRANGE_FORCE_WINDOW_TYPE_ERFC = 1,
-};
-
 enum DensityKernelType {
     DENSITY_KERNEL_CUBIC_SPLINE = 1,
     DENSITY_KERNEL_QUINTIC_SPLINE = 2,
     DENSITY_KERNEL_QUARTIC_SPLINE = 4,
 };
-
-
-static inline double DMAX(double a, double b) {
-    if(a > b) return a;
-    return b;
-}
-static inline double DMIN(double a, double b) {
-    if(a < b) return a;
-    return b;
-}
-static inline int IMAX(int a, int b) {
-    if(a > b) return a;
-    return b;
-}
-static inline int IMIN(int a, int b) {
-    if(a < b) return a;
-    return b;
-}
 
 /*********************************************************/
 /*  Global variables                                     */
@@ -225,13 +199,6 @@ extern struct global_data_all_processes
 
     double TimeLimitCPU;
     struct ClockTable CT;
-
-    /* tree code opening criterion */
-
-    double ErrTolForceAcc;	/*!< parameter for relative opening criterion in tree walk */
-    double BHOpeningAngle;	/*!< Barnes-Hut parameter for opening criterion in tree walk */
-    int TreeUseBH;              /*!< If true, use the BH opening angle. Otherwise use acceleration */
-
 
     /*! The scale of the short-range/long-range force split in units of FFT-mesh cells */
     double Asmth;

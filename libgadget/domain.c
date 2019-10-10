@@ -40,21 +40,7 @@
  *  communication.
  */
 
-/*Parameters of the domain decomposition, set by the input parameter file*/
-static struct DomainParams
-{
-    /* Number of TopLeaves (Peano-Hilbert segments) per processor. TopNodes are refined so that no TopLeaf contains
-     * no more than 1/(DODF * NTask) fraction of the work.
-     * The load balancer will assign these TopLeaves so that each MPI rank has a similar amount of work.*/
-    int DomainOverDecompositionFactor;
-    /** Use a global sort for the first few domain policies to try.*/
-    int DomainUseGlobalSorting;
-    /** Initial number of Top level tree nodes as a fraction of particles */
-    double TopNodeAllocFactor;
-    /** Fraction of local particle slots to leave free for, eg, star formation*/
-    double SetAsideFactor;
-} domain_params;
-
+static DomainParams domain_params;
 /**
  * Policy for domain decomposition.
  *
@@ -70,8 +56,6 @@ typedef struct {
 } DomainDecompositionPolicy;
 
 int MaxTopNodes;		/*!< Maximum number of nodes in the top-level tree used for domain decomposition */
-
-static void * TopTreeTempMemory;
 
 struct local_topnode_data
 {
@@ -92,6 +76,12 @@ struct local_particle_data
     int64_t Cost;
 };
 
+/*This is a helper for the tests*/
+void set_domain_par(DomainParams dp)
+{
+    domain_params = dp;
+}
+
 /*Set the parameters of the domain module*/
 void set_domain_params(ParameterSet * ps)
 {
@@ -106,7 +96,7 @@ void set_domain_params(ParameterSet * ps)
             || param_get_int(ps, "BlackHoleOn"))
             domain_params.SetAsideFactor = 0.95;
     }
-    MPI_Bcast(&domain_params, sizeof(struct DomainParams), MPI_BYTE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&domain_params, sizeof(DomainParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
 static int
@@ -128,7 +118,6 @@ static void
 domain_balance(DomainDecomp * ddecomp);
 
 static int domain_determine_global_toptree(DomainDecompositionPolicy * policy, struct local_topnode_data * topTree, int * topTreeSize, MPI_Comm DomainComm);
-static void domain_free(DomainDecomp * ddecomp);
 
 static void
 domain_compute_costs(const DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopLeafCount);
@@ -208,8 +197,8 @@ void domain_decompose_full(DomainDecomp * ddecomp)
     walltime_measure("/Domain/Decompose/Balance");
 
     /* copy the used nodes from temp to the true. */
-    void * OldTopLeaves = ddecomp->TopLeaves;
-    void * OldTopNodes = ddecomp->TopNodes;
+    struct topleaf_data * OldTopLeaves = ddecomp->TopLeaves;
+    struct topnode_data * OldTopNodes = ddecomp->TopNodes;
 
     ddecomp->TopNodes  = (struct topnode_data *) mymalloc2("TopNodes", sizeof(ddecomp->TopNodes[0]) * ddecomp->NTopNodes);
     /* add 1 extra to mark the end of TopLeaves; see assign */
@@ -219,8 +208,8 @@ void domain_decompose_full(DomainDecomp * ddecomp)
     memcpy(ddecomp->TopNodes, OldTopNodes, ddecomp->NTopNodes * sizeof(ddecomp->TopNodes[0]));
 
     /* no longer useful */
-    myfree(TopTreeTempMemory);
-    TopTreeTempMemory = NULL;
+    myfree(OldTopLeaves);
+    myfree(OldTopNodes);
 
     if(domain_exchange(domain_layoutfunc, ddecomp, 0, ddecomp->DomainComm))
         endrun(1929,"Could not exchange particles\n");
@@ -310,11 +299,13 @@ domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy)
 
     all_bytes += bytes;
 
-    TopTreeTempMemory = mymalloc("TopTreeWorkspace",
-        bytes = (MaxTopNodes * (sizeof(ddecomp->TopNodes[0]) + sizeof(ddecomp->TopLeaves[0]))));
+    ddecomp->TopNodes = mymalloc("TopNodes",
+        bytes = (MaxTopNodes * (sizeof(ddecomp->TopNodes[0]))));
 
-    ddecomp->TopNodes  = (struct topnode_data *) TopTreeTempMemory;
-    ddecomp->TopLeaves = (struct topleaf_data *) (ddecomp->TopNodes + MaxTopNodes);
+    all_bytes += bytes;
+
+    ddecomp->TopLeaves = mymalloc("TopNodes",
+        bytes = (MaxTopNodes * sizeof(ddecomp->TopLeaves[0])));
 
     all_bytes += bytes;
 
@@ -626,8 +617,6 @@ domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int Nsegmen
     while(nrounds < ddecomp->NTopLeaves) {
         int append = 0;
         int advance = 0;
-        if(TopLeafExt[curleaf].cost > maxleafcost)
-            maxleafcost = TopLeafExt[curleaf].cost;
         if(curleaf == ddecomp->NTopLeaves) {
             /* to maintain the invariance */
             advance = 1;
@@ -683,7 +672,10 @@ domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int Nsegmen
                 mean_task = 1.0 * totalcostLeft / NTask;
                 nrounds++;
             }
-            if(curleaf == ddecomp->NTopLeaves) break;
+            if(curleaf == ddecomp->NTopLeaves)
+                break;
+            if(TopLeafExt[curleaf].cost > maxleafcost)
+                maxleafcost = TopLeafExt[curleaf].cost;
         }
         //message(0, "curleaf = %d advance = %d append = %d, curload = %d cost=%ld left=%ld\n", curleaf, advance, append, curload, TopLeafExt[curleaf].cost, totalcostLeft);
     }
@@ -1038,6 +1030,7 @@ domain_check_for_local_refine_subsample(
             /* two particles in a node? need refinement if possible. */
             if(0 != domain_toptree_split(topTree, topTreeSize, leaf)) {
                 /* out of memory, retry */
+                myfree(LP);
                 return 1;
             }
             /* pop the last particle and reinsert it */
@@ -1263,8 +1256,10 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
 
     walltime_measure("/Domain/DetermineTopTree/Addnodes");
 
-    if(global_refine_failed)
+    if(global_refine_failed) {
+        message(0, "Global refine failed: toptreeSize = %d, MaxTopNodes = %d\n", *topTreeSize, MaxTopNodes);
         return 1;
+    }
 
     message(0, "Final local topTree size = %d per segment = %g.\n", *topTreeSize, 1.0 * (*topTreeSize) / (policy->NTopLeaves));
 

@@ -142,7 +142,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(int update_hsml, int DoEgyDensity, ForceTree * tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, ForceTree * tree)
 {
     if(!All.DensityOn)
         return;
@@ -205,10 +205,10 @@ density(int update_hsml, int DoEgyDensity, ForceTree * tree)
     DENSITY_GET_PRIV(tw)->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
     DENSITY_GET_PRIV(tw)->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
     int alloc_high = 0;
-    int * ReDoQueue = ActiveParticle;
+    int * ReDoQueue = act->ActiveParticle;
     int size = SlotsManager->info[0].size + SlotsManager->info[5].size;
-    if(size > NumActiveParticle)
-        size = NumActiveParticle;
+    if(size > act->NumActiveParticle)
+        size = act->NumActiveParticle;
 
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
     do {

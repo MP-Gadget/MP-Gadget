@@ -22,7 +22,7 @@ static void test_total_powerspectrum(void **state) {
     (void) state;
     /*Check allocation*/
     int nmpi;
-    struct _powerspectrum PowerSpectrum;
+    Power PowerSpectrum;
     MPI_Comm_size(MPI_COMM_WORLD, &nmpi);
 
     powerspectrum_alloc(&PowerSpectrum,15,NUM_THREADS, 0, 3.085678e24);

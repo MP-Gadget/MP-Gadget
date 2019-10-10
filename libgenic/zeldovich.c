@@ -8,6 +8,8 @@
 #include "allvars.h"
 #include "proto.h"
 #include "power.h"
+/* Using fastpm's gaussian_fill for ngenic agreement. */
+#include "pmesh.h"
 
 #include <libgadget/petapm.h>
 #include <libgadget/walltime.h>
@@ -354,14 +356,11 @@ static void readout_disp_z(PetaPM * pm, int i, double * mesh, double weight) {
     curICP[i].Disp[2] += weight * mesh[0];
 }
 
-/* Using fastpm's gaussian_fill for ngenic agreement. */
-#include "pmesh.h"
-
 static void
 gaussian_fill(int Nmesh, PetaPMRegion * region, pfft_complex * rho_k, int setUnitaryAmplitude, int setInvertPhase)
 {
     /* fastpm deals with strides properly; petapm not. So we translate it here. */
-    PM pm[1];
+    PMDesc pm[1];
     int d;
     for (d = 0; d < 3; d ++) {
         pm->Nmesh[d] = Nmesh;

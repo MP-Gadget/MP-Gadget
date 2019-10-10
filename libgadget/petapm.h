@@ -2,13 +2,15 @@
 #define __PETAPM_H__
 #include <pfft.h>
 
+#include "powerspectrum.h"
+
 typedef struct Region {
     /* represents a region in the FFT Mesh */
     ptrdiff_t offset[3];
     ptrdiff_t size[3];
     ptrdiff_t strides[3];
     size_t totalsize;
-    double * buffer; 
+    double * buffer;
     /* below are used mostly for investigation */
     double center[3];
     double len;
@@ -64,11 +66,14 @@ typedef struct PetaPM {
     PetaPMRegion fourier_space_region;
     double CellSize;
     int Nmesh;
+    double Asmth;
     double BoxSize;
+    double G;
     PetaPMPriv priv[1];
     int ThisTask2d[2];
     int NTask2d[2];
     int * (Mesh2Task[2]); /* conversion from real space mesh to task2d,  */
+    Power ps[1];
 } PetaPM;
 
 typedef void (*petapm_transfer_func)(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
@@ -105,7 +110,7 @@ typedef struct {
 
 void petapm_module_init(int Nthreads);
 
-void petapm_init(PetaPM * pm, double BoxSize, int Nmesh, MPI_Comm comm);
+void petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_Comm comm);
 void petapm_destroy(PetaPM * pm);
 void petapm_region_init_strides(PetaPMRegion * region);
 

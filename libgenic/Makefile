@@ -5,7 +5,7 @@ CONFIG ?= ../Options.mk
 include $(CONFIG)
 
 INCL=../libgadget/config.h \
-    power.h allvars.h thermal.h proto.h
+    power.h allvars.h thermal.h proto.h pmesh.h
 
 TESTED = power thermal
 TESTBIN := $(TESTED:%=.objs/test_%) $(MPI_TESTED:%=.objs/test_%)

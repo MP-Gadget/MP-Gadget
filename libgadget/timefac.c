@@ -109,7 +109,7 @@ void init_drift_table(double timeBegin, double timeMax)
   logTimeInit = log(timeBegin);
   logTimeMax = log(timeMax);
   if(logTimeMax <=logTimeInit)
-      endrun(1,"Error: Invalid drift table range: (%d->%d)\n", timeBegin, timeMax);
+      endrun(1,"Error: Invalid drift table range: (%g->%g)\n", timeBegin, timeMax);
 
   workspace = gsl_integration_workspace_alloc(WORKSIZE);
 

@@ -3,13 +3,7 @@
 
 #include "partmanager.h"
 #include "treewalk.h"
-
-#ifndef RCUT
-/*! RCUT gives the maximum distance (in units of the scale used for the force split) out to which short-range
- * forces are evaluated in the short-range tree walk.
- */
-#define RCUT  4.5
-#endif
+#include "gravity.h"
 
 typedef struct {
     TreeWalkNgbIterBase base;
@@ -31,21 +25,51 @@ typedef struct {
     int Ninteractions;
 } TreeWalkResultGravShort;
 
+struct GravShortPriv {
+    /* Size of a PM cell, in internal units. Box / Nmesh */
+    double cellsize;
+    /* How many PM cells do we go
+     * before we stop calculating the tree?*/
+    double Rcut;
+    /* Desired accuracy of the tree force in units of the old acceleration.*/
+    double ErrTolForceAcc;
+    /* If > 0, use the Barnes-Hut opening angle.
+     * If < 0, use the acceleration condition. */
+    int TreeUseBH;
+    /* Barnes-Hut opening angle to use.*/
+    double BHOpeningAngle;
+    /* Which particle type should we exclude from
+     * the tree calculation. */
+    int FastParticleType;
+    /* Are neutrinos tracers? If so, exclude them from the tree force*/
+    int NeutrinoTracer;
+    /* Newton's constant in internal units*/
+    double G;
+    /* Matter density in internal units.
+     * rho_0 = Omega0 * rho_crit
+     * rho_crit = 3 H^2 /(8 pi G).
+     * This is (rho_0)^(1/3) ,
+     * Note: should account for
+     * massive neutrinos, but doesn't. */
+    double cbrtrho0;
+};
+
+#define GRAV_GET_PRIV(tw) ((struct GravShortPriv *) ((tw)->priv))
 
 static void
 grav_short_postprocess(int i, TreeWalk * tw)
 {
-    P[i].GravAccel[0] *= All.G;
-    P[i].GravAccel[1] *= All.G;
-    P[i].GravAccel[2] *= All.G;
+    double G = GRAV_GET_PRIV(tw)->G;
+    P[i].GravAccel[0] *= G;
+    P[i].GravAccel[1] *= G;
+    P[i].GravAccel[2] *= G;
     /* calculate the potential */
     /* remove self-potential */
     P[i].Potential += P[i].Mass / (FORCE_SOFTENING(i) / 2.8);
 
-    P[i].Potential -= 2.8372975 * pow(P[i].Mass, 2.0 / 3) *
-        pow(All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G), 1.0 / 3);
+    P[i].Potential -= 2.8372975 * pow(P[i].Mass, 2.0 / 3) * GRAV_GET_PRIV(tw)->cbrtrho0;
 
-    P[i].Potential *= All.G;
+    P[i].Potential *= G;
 }
 
 static void
@@ -61,7 +85,7 @@ grav_short_copy(int place, TreeWalkQueryGravShort * input, TreeWalk * tw)
        aold += ax*ax;
     }
 
-    input->OldAcc = sqrt(aold)/All.G;
+    input->OldAcc = sqrt(aold)/GRAV_GET_PRIV(tw)->G;
 
 }
 static void
@@ -74,7 +98,5 @@ grav_short_reduce(int place, TreeWalkResultGravShort * result, enum TreeWalkRedu
     TREEWALK_REDUCE(P[place].GravCost, result->Ninteractions);
     TREEWALK_REDUCE(P[place].Potential, result->Potential);
 }
-
-int grav_apply_short_range_window(double r, double * fac, double * facpot);
 
 #endif

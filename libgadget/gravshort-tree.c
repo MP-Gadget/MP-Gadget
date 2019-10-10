@@ -9,12 +9,11 @@
 
 #include "utils.h"
 
-#include "allvars.h"
 #include "forcetree.h"
 #include "treewalk.h"
 #include "timestep.h"
-
 #include "gravshort.h"
+#include "walltime.h"
 
 /*! \file gravtree.c
  *  \brief main driver routines for gravitational (short-range) force computation
@@ -27,29 +26,71 @@
  *  short-range part.
  */
 
+static struct gravshort_tree_params TreeParams;
+
+/*This is a helper for the tests*/
+void set_gravshort_treepar(struct gravshort_tree_params tree_params)
+{
+    TreeParams = tree_params;
+}
+
+struct gravshort_tree_params get_gravshort_treepar(void)
+{
+    return TreeParams;
+}
+
+/* Sets up the module*/
+void
+set_gravshort_tree_params(ParameterSet * ps)
+{
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask == 0) {
+        TreeParams.BHOpeningAngle = param_get_double(ps, "BHOpeningAngle");
+        TreeParams.ErrTolForceAcc = param_get_double(ps, "ErrTolForceAcc");
+        TreeParams.BHOpeningAngle = param_get_double(ps, "BHOpeningAngle");
+        TreeParams.TreeUseBH= param_get_int(ps, "TreeUseBH");
+        TreeParams.Rcut = param_get_double(ps, "TreeRcut");
+    }
+    MPI_Bcast(&TreeParams, sizeof(struct gravshort_tree_params), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
+
 /* According to upstream P-GADGET3
  * correct workcount slows it down and yields little benefits in load balancing
  *
  * YF: anything we shall do about this?
  * */
 
-int force_treeev_shortrange(TreeWalkQueryGravShort * input,
+int
+force_treeev_shortrange(TreeWalkQueryGravShort * input,
         TreeWalkResultGravShort * output,
         LocalTreeWalk * lv);
+
 
 /*! This function computes the gravitational forces for all active particles.
  *  If needed, a new tree is constructed, otherwise the dynamically updated
  *  tree is used.  Particles are only exported to other processors when really
  *  needed, thereby allowing a good use of the communication buffer.
+ *  NeutrinoTracer = All.HybridNeutrinosOn && (All.Time <= All.HybridNuPartTime);
+ *  rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G)
  */
-void grav_short_tree(ForceTree * tree)
+void
+grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double rho0, int NeutrinoTracer, int FastParticleType)
 {
     double timeall = 0;
     double timetree, timewait, timecomm;
-    if(!All.TreeGravOn)
-        return;
 
     TreeWalk tw[1] = {{0}};
+    struct GravShortPriv priv;
+    priv.cellsize = tree->BoxSize / pm->Nmesh;
+    priv.Rcut = TreeParams.Rcut * pm->Asmth * priv.cellsize;;
+    priv.ErrTolForceAcc = TreeParams.ErrTolForceAcc;
+    priv.TreeUseBH = TreeParams.TreeUseBH;
+    priv.BHOpeningAngle = TreeParams.BHOpeningAngle;
+    priv.FastParticleType = FastParticleType;
+    priv.NeutrinoTracer = NeutrinoTracer;
+    priv.G = pm->G;
+    priv.cbrtrho0 = pow(rho0, 1.0 / 3);
 
     tw->ev_label = "FORCETREE_SHORTRANGE";
     tw->visit = (TreeWalkVisitFunction) force_treeev_shortrange;
@@ -62,6 +103,7 @@ void grav_short_tree(ForceTree * tree)
     tw->result_type_elsize = sizeof(TreeWalkResultGravShort);
     tw->fill = (TreeWalkFillQueryFunction) grav_short_copy;
     tw->tree = tree;
+    tw->priv = &priv;
 
     walltime_measure("/Misc");
 
@@ -71,7 +113,7 @@ void grav_short_tree(ForceTree * tree)
 
     walltime_measure("/Misc");
 
-    treewalk_run(tw, ActiveParticle, NumActiveParticle);
+    treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
 
     /* now add things for comoving integration */
 
@@ -98,6 +140,10 @@ void grav_short_tree(ForceTree * tree)
 
     walltime_add("/Tree/Misc", timeall - (timetree + timewait + timecomm));
 
+    /* TreeUseBH > 1 means use the BH criterion on the initial timestep only,
+     * avoiding the fully open O(N^2) case.*/
+    if(TreeParams.TreeUseBH > 1)
+        TreeParams.TreeUseBH = 0;
 }
 
 /*! In the TreePM algorithm, the tree is walked only locally around the
@@ -123,13 +169,13 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     MyDouble acc_y = 0;
     MyDouble acc_z = 0;
     const ForceTree * tree = lv->tw->tree;
+    const double BoxSize = tree->BoxSize;
 
-    /*Hybrid particle neutrinos do not gravitate at early times*/
-    const int NeutrinoTracer = All.HybridNeutrinosOn && (All.Time <= All.HybridNuPartTime);
     /*Tree-opening constants*/
-    const double rcut = RCUT * All.Asmth * All.BoxSize / All.Nmesh;
+    const double cellsize = GRAV_GET_PRIV(lv->tw)->cellsize;
+    const double rcut = GRAV_GET_PRIV(lv->tw)->Rcut;
     const double rcut2 = rcut * rcut;
-    const double aold = All.ErrTolForceAcc * input->OldAcc;
+    const double aold = GRAV_GET_PRIV(lv->tw)->ErrTolForceAcc * input->OldAcc;
 
     /*Input particle data*/
     const double pos_x = input->base.Pos[0];
@@ -149,18 +195,18 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             double dx, dy, dz;
             if(node_is_particle(no, tree))
             {
-                if(NeutrinoTracer)
+                /*Hybrid particle neutrinos do not gravitate at early times*/
+
+                if(GRAV_GET_PRIV(lv->tw)->NeutrinoTracer &&
+                    P[no].Type == GRAV_GET_PRIV(lv->tw)->FastParticleType)
                 {
-                    if(P[no].Type == All.FastParticleType)
-                    {
-                        no = force_get_next_node(no, tree);
-                        continue;
-                    }
+                    no = force_get_next_node(no, tree);
+                    continue;
                 }
 
-                dx = NEAREST(P[no].Pos[0] - pos_x);
-                dy = NEAREST(P[no].Pos[1] - pos_y);
-                dz = NEAREST(P[no].Pos[2] - pos_z);
+                dx = NEAREST(P[no].Pos[0] - pos_x, BoxSize);
+                dy = NEAREST(P[no].Pos[1] - pos_y, BoxSize);
+                dz = NEAREST(P[no].Pos[2] - pos_z, BoxSize);
 
                 r2 = dx * dx + dy * dy + dz * dz;
 
@@ -197,9 +243,9 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     }
                 }
 
-                dx = NEAREST(nop->u.d.s[0] - pos_x);
-                dy = NEAREST(nop->u.d.s[1] - pos_y);
-                dz = NEAREST(nop->u.d.s[2] - pos_z);
+                dx = NEAREST(nop->u.d.s[0] - pos_x, BoxSize);
+                dy = NEAREST(nop->u.d.s[1] - pos_y, BoxSize);
+                dz = NEAREST(nop->u.d.s[2] - pos_z, BoxSize);
 
                 r2 = dx * dx + dy * dy + dz * dz;
 
@@ -210,9 +256,9 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     const double eff_dist = rcut + 0.5 * nop->len;
 
                     /*This checks whether we are also outside this region of the oct-tree*/
-                    if(fabs(NEAREST(nop->center[0] - pos_x)) > eff_dist ||
-                        fabs(NEAREST(nop->center[1] - pos_y)) > eff_dist ||
-                            fabs(NEAREST(nop->center[2] - pos_z)) > eff_dist
+                    if(fabs(NEAREST(nop->center[0] - pos_x, BoxSize)) > eff_dist ||
+                        fabs(NEAREST(nop->center[1] - pos_y, BoxSize)) > eff_dist ||
+                            fabs(NEAREST(nop->center[2] - pos_z, BoxSize)) > eff_dist
                       )
                     {
                         no = nop->u.d.sibling;
@@ -222,19 +268,19 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
 
                 mass = nop->u.d.mass;
                 /*Check Barnes-Hut opening angle or relative opening criterion*/
-                if(((All.TreeUseBH > 0 && nop->len * nop->len > r2 * All.BHOpeningAngle * All.BHOpeningAngle)) ||
-                     (All.TreeUseBH == 0 && (mass * nop->len * nop->len > r2 * r2 * aold)))
+                if(((GRAV_GET_PRIV(lv->tw)->TreeUseBH > 0 && nop->len * nop->len > r2 * GRAV_GET_PRIV(lv->tw)->BHOpeningAngle * GRAV_GET_PRIV(lv->tw)->BHOpeningAngle)) ||
+                     (GRAV_GET_PRIV(lv->tw)->TreeUseBH == 0 && (mass * nop->len * nop->len > r2 * r2 * aold)))
                 {
                     /* open cell */
                     no = nop->u.d.nextnode;
                     continue;
                 }
                 /* check in addition whether we lie inside the cell */
-                if(fabs(NEAREST(nop->center[0] - pos_x)) < 0.60 * nop->len)
+                if(fabs(NEAREST(nop->center[0] - pos_x, BoxSize)) < 0.60 * nop->len)
                 {
-                    if(fabs(NEAREST(nop->center[1] - pos_y)) < 0.60 * nop->len)
+                    if(fabs(NEAREST(nop->center[1] - pos_y, BoxSize)) < 0.60 * nop->len)
                     {
-                        if(fabs(NEAREST(nop->center[2] - pos_z)) < 0.60 * nop->len)
+                        if(fabs(NEAREST(nop->center[2] - pos_z, BoxSize)) < 0.60 * nop->len)
                         {
                             no = nop->u.d.nextnode;
                             continue;
@@ -292,7 +338,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                 facpot = mass * h_inv * wp;
             }
 
-            if(0 == grav_apply_short_range_window(r, &fac, &facpot)) {
+            if(0 == grav_apply_short_range_window(r, &fac, &facpot, cellsize)) {
                 acc_x += (dx * fac);
                 acc_y += (dy * fac);
                 acc_z += (dz * fac);
