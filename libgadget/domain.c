@@ -40,7 +40,7 @@
  *  communication.
  */
 
-static struct DomainParams domain_params;
+static DomainParams domain_params;
 /**
  * Policy for domain decomposition.
  *
@@ -79,7 +79,7 @@ struct local_particle_data
 };
 
 /*This is a helper for the tests*/
-void set_domain_par(struct DomainParams dp)
+void set_domain_par(DomainParams dp)
 {
     domain_params = dp;
 }
@@ -98,7 +98,7 @@ void set_domain_params(ParameterSet * ps)
             || param_get_int(ps, "BlackHoleOn"))
             domain_params.SetAsideFactor = 0.95;
     }
-    MPI_Bcast(&domain_params, sizeof(struct DomainParams), MPI_BYTE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&domain_params, sizeof(DomainParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
 static int

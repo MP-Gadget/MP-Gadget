@@ -44,7 +44,7 @@ typedef struct DomainDecomp {
 } DomainDecomp;
 
 /*Parameters of the domain decomposition, set by the input parameter file*/
-struct DomainParams
+typedef struct DomainParams
 {
     /* Number of TopLeaves (Peano-Hilbert segments) per processor. TopNodes are refined so that no TopLeaf contains
      * no more than 1/(DODF * NTask) fraction of the work.
@@ -56,12 +56,12 @@ struct DomainParams
     double TopNodeAllocFactor;
     /** Fraction of local particle slots to leave free for, eg, star formation*/
     double SetAsideFactor;
-};
+} DomainParams;
 
 /*Set the parameters of the domain module*/
 void set_domain_params(ParameterSet * ps);
 /* Test helper*/
-void set_domain_par(struct DomainParams dp);
+void set_domain_par(DomainParams dp);
 
 /* Do a full domain decomposition, which splits the particles into even clumps*/
 void domain_decompose_full(DomainDecomp * ddecomp);
