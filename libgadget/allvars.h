@@ -33,16 +33,11 @@
 #include "cosmology.h"
 #include "gravity.h"
 #include "walltime.h"
+#include "densitykernel.h"
 
 #include "assert.h"
 #include "physconst.h"
 #include "types.h"
-
-enum DensityKernelType {
-    DENSITY_KERNEL_CUBIC_SPLINE = 1,
-    DENSITY_KERNEL_QUINTIC_SPLINE = 2,
-    DENSITY_KERNEL_QUARTIC_SPLINE = 4,
-};
 
 /*********************************************************/
 /*  Global variables                                     */

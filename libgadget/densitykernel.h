@@ -1,3 +1,6 @@
+#ifndef _DENSITY_KERNEL_H
+#define _DENSITY_KERNEL_H
+
 #if !defined(TWODIMS) && !defined(ONEDIM)
 #define  NUMDIMS 3		/*!< For 3D-normalized kernel */
 #define  NORM_COEFF      4.188790204786	/*!< Coefficient for kernel normalization. Note:  4.0/3 * PI = 4.188790204786 */
@@ -10,6 +13,12 @@
 #define  NORM_COEFF      2.0
 #endif
 #endif
+
+enum DensityKernelType {
+    DENSITY_KERNEL_CUBIC_SPLINE = 1,
+    DENSITY_KERNEL_QUINTIC_SPLINE = 2,
+    DENSITY_KERNEL_QUARTIC_SPLINE = 4,
+};
 
 typedef struct {
     double H;
@@ -26,9 +35,7 @@ typedef struct {
 double
 density_kernel_desnumngb(DensityKernel * kernel, double eta);
 void
-density_kernel_init(DensityKernel * kernel, double H);
-void
-density_kernel_init_with_type(DensityKernel * kernel, int type, double H);
+density_kernel_init(DensityKernel * kernel, double H, enum DensityKernelType type);
 double
 density_kernel_wk(DensityKernel * kernel, double u);
 double
@@ -66,3 +73,5 @@ static inline void crossproduct(const double v1[3], const double v2[3], double o
         out[d1] = (v1[d2] * v2[d3] -  v2[d2] * v1[d3]);
     }
 }
+
+#endif

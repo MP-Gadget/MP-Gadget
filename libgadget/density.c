@@ -383,7 +383,7 @@ density_ngbiter(
 {
     if(iter->base.other == -1) {
         const double h = I->Hsml;
-        density_kernel_init(&iter->kernel, h);
+        density_kernel_init(&iter->kernel, h, All.DensityKernelType);
         iter->kernel_volume = density_kernel_volume(&iter->kernel);
 
         iter->base.Hsml = h;
