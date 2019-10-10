@@ -1,15 +1,14 @@
 #include <math.h>
-#include "allvars.h"
 #include "densitykernel.h"
 
-#include "utils.h"
+#include "utils/endrun.h"
 
 /**
  *
  * We use Price 1012.1885 kernels
  * sml in Gadget is the support big H in Price,
  *
- * u = r / H 
+ * u = r / H
  * q = r / h
  *
  * luckily, wk = 1 / H ** 3 W_volker(u)
@@ -78,7 +77,7 @@ static double wk_qs(DensityKernel * kernel, double q) {
 }
 static double dwk_qs(DensityKernel * kernel, double q) {
     if(q < 1.0) {
-        return -5 * pow(3 - q, 4) + 30 * pow(2 - q, 4) 
+        return -5 * pow(3 - q, 4) + 30 * pow(2 - q, 4)
              - 75 * pow (1 - q, 4);
     }
     if(q < 2.0) {
@@ -97,7 +96,7 @@ static struct {
     double support; /* H / h, see Price 2011: arxiv 1012.1885*/
     double sigma[3];
 } KERNELS[] = {
-    { "CubicSpline", wk_cs, dwk_cs, 2., 
+    { "CubicSpline", wk_cs, dwk_cs, 2.,
         {2 / 3., 10 / (7 * M_PI), 1 / M_PI} },
     { "QuinticSpline", wk_qs, dwk_qs, 3.,
         {1 / 120., 7 / (478 * M_PI), 1 / (120 * M_PI)} },
@@ -106,10 +105,10 @@ static struct {
 };
 
 double
-density_kernel_dwk(DensityKernel * kernel, double u) 
+density_kernel_dwk(DensityKernel * kernel, double u)
 {
     double support = KERNELS[kernel->type].support;
-    return kernel->dWknorm * 
+    return kernel->dWknorm *
         KERNELS[kernel->type].dwk(kernel, u * support);
 }
 
@@ -117,7 +116,7 @@ double
 density_kernel_wk(DensityKernel * kernel, double u)
 {
     double support = KERNELS[kernel->type].support;
-    return kernel->Wknorm * 
+    return kernel->Wknorm *
         KERNELS[kernel->type].wk(kernel, u * support);
 }
 
@@ -137,25 +136,7 @@ density_kernel_volume(DensityKernel * kernel)
     return NORM_COEFF * pow(kernel->H, NUMDIMS);
 }
 
-void
-density_kernel_init(DensityKernel * kernel, double H)
-{
-    int t = -1;
-    if(All.DensityKernelType == DENSITY_KERNEL_CUBIC_SPLINE) {
-        t = 0;
-    } else
-    if(All.DensityKernelType == DENSITY_KERNEL_QUINTIC_SPLINE) {
-        t = 1;
-    } else
-    if(All.DensityKernelType == DENSITY_KERNEL_QUARTIC_SPLINE) {
-        t = 2;
-    } else {
-        endrun(1, "Density Kernel type is unknown\n");
-    }
-    density_kernel_init_with_type(kernel, t, H);
-}
-
-void
+static void
 density_kernel_init_with_type(DensityKernel * kernel, int type, double H)
 {
     kernel->H = H;
@@ -170,4 +151,22 @@ density_kernel_init_with_type(DensityKernel * kernel, int type, double H)
 
     kernel->Wknorm = sigma * pow(hinv, NUMDIMS);
     kernel->dWknorm = kernel->Wknorm * hinv;
+}
+
+void
+density_kernel_init(DensityKernel * kernel, double H, enum DensityKernelType type)
+{
+    int t = -1;
+    if(type == DENSITY_KERNEL_CUBIC_SPLINE) {
+        t = 0;
+    } else
+    if(type == DENSITY_KERNEL_QUINTIC_SPLINE) {
+        t = 1;
+    } else
+    if(type == DENSITY_KERNEL_QUARTIC_SPLINE) {
+        t = 2;
+    } else {
+        endrun(1, "Density Kernel type is unknown\n");
+    }
+    density_kernel_init_with_type(kernel, t, H);
 }

@@ -238,6 +238,14 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
     int i;
     const double a3 = All.Time * All.Time * All.Time;
 
+    int64_t tot_sph, tot_bh;
+    sumup_large_ints(1, &SlotsManager->info[0].size, &tot_sph);
+    sumup_large_ints(1, &SlotsManager->info[5].size, &tot_bh);
+
+    /* Do nothing if we are a pure DM run*/
+    if(tot_sph + tot_bh == 0)
+        return;
+
     ForceTree Tree = {0};
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 0);
 
