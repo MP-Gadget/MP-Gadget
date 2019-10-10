@@ -493,7 +493,7 @@ void read_parameter_file(char *fname)
         }
 
         DensityKernel kernel;
-        density_kernel_init(&kernel, 1.0);
+        density_kernel_init(&kernel, 1.0, All.DensityKernelType);
         All.DesNumNgb = density_kernel_desnumngb(&kernel, All.DensityResolutionEta);
 
         message(1, "The Density Kernel type is %s\n", kernel.name);
