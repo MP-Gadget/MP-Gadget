@@ -26,18 +26,18 @@ typedef struct _powerspectrum {
 } Power;
 
 /*Allocate memory for the power spectrum*/
-void powerspectrum_alloc(Power * PowerSpectrum, const int nbins, const int nthreads, const int MassiveNuLinResp, const double BoxSize_in_cm);
+void powerspectrum_alloc(Power * ps, const int nbins, const int nthreads, const int MassiveNuLinResp, const double BoxSize_in_cm);
 
 /*Zero memory for the power spectrum*/
-void powerspectrum_zero(Power * PowerSpectrum);
+void powerspectrum_zero(Power * ps);
 
 /*Free power spectrum memory*/
-void powerspectrum_free(Power * PowerSpectrum);
+void powerspectrum_free(Power * ps);
 
 /* Sum the different modes on each thread and processor together to get a power spectrum,
  * and fix the units.*/
-void powerspectrum_sum(Power * PowerSpectrum);
+void powerspectrum_sum(Power * ps);
 
 /*Save the power spectrum to a file*/
-void powerspectrum_save(Power * PowerSpectrum, const char * OutputDir, const char * filename, const double Time, const double D1);
+void powerspectrum_save(Power * ps, const char * OutputDir, const char * filename, const double Time, const double D1);
 #endif
