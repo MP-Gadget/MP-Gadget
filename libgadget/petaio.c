@@ -44,10 +44,10 @@ void petaio_init(void) {
 }
 
 /* save a snapshot file */
-static void petaio_save_internal(char * fname, struct IOTable * IOTable, int print);
+static void petaio_save_internal(char * fname, struct IOTable * IOTable, int verbose);
 
 void
-petaio_save_snapshot(struct IOTable * IOTable, int print, const char *fmt, ...)
+petaio_save_snapshot(struct IOTable * IOTable, int verbose, const char *fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
@@ -56,7 +56,7 @@ petaio_save_snapshot(struct IOTable * IOTable, int print, const char *fmt, ...)
     va_end(va);
     message(0, "saving snapshot into %s\n", fname);
 
-    petaio_save_internal(fname, IOTable, print);
+    petaio_save_internal(fname, IOTable, verbose);
     myfree(fname);
 }
 
@@ -108,7 +108,7 @@ petaio_build_selection(int * selection,
     }
 }
 
-static void petaio_save_internal(char * fname, struct IOTable * IOTable, int print) {
+static void petaio_save_internal(char * fname, struct IOTable * IOTable, int verbose) {
     BigFile bf = {0};
     if(0 != big_file_mpi_create(&bf, fname, MPI_COMM_WORLD)) {
         endrun(0, "Failed to create snapshot at %s:%s\n", fname,
@@ -139,7 +139,7 @@ static void petaio_save_internal(char * fname, struct IOTable * IOTable, int pri
         }
         sprintf(blockname, "%d/%s", ptype, IOTable->ent[i].name);
         petaio_build_buffer(&array, &IOTable->ent[i], selection + ptype_offset[ptype], ptype_count[ptype]);
-        petaio_save_block(&bf, blockname, &array, print);
+        petaio_save_block(&bf, blockname, &array, verbose);
         petaio_destroy_buffer(&array);
     }
 
@@ -606,7 +606,7 @@ int petaio_read_block(BigFile * bf, char * blockname, BigArray * array, int requ
 }
 
 /* save a block to disk */
-void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, int print)
+void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, int verbose)
 {
 
     BigBlock bb;
@@ -638,7 +638,7 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, int pri
         NumFiles = 0;
     }
 
-    if(print && size > 0) {
+    if(verbose && size > 0) {
         message(0, "Will write %td particles to %d Files for %s\n", size, NumFiles, blockname);
     }
     /* create the block */
@@ -654,7 +654,7 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, int pri
         endrun(0, "Failed to write :%s\n", big_file_get_error_message());
     }
 
-    if(print && size > 0)
+    if(verbose && size > 0)
         message(0, "Done writing %td particles to %d Files\n", size, NumFiles);
 
     if(0 != big_block_mpi_close(&bb, MPI_COMM_WORLD)) {

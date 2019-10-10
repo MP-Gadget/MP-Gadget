@@ -64,6 +64,7 @@ gravpm_force(PetaPM * pm, ForceTree * tree) {
         (char*) &P[0].Pos[0]  - (char*) P,
         (char*) &P[0].Mass  - (char*) P,
         (char*) &P[0].RegionInd - (char*) P,
+        /* By default all particles are active. For hybrid neutrinos set below.*/
         NULL,
         PartManager->NumPart,
     };

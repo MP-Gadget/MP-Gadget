@@ -48,7 +48,9 @@ struct GravShortPriv {
     /* Matter density in internal units.
      * rho_0 = Omega0 * rho_crit
      * rho_crit = 3 H^2 /(8 pi G).
-     * This is (rho_0)^(1/3) */
+     * This is (rho_0)^(1/3) ,
+     * Note: should account for
+     * massive neutrinos, but doesn't. */
     double cbrtrho0;
 };
 

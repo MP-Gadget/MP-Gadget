@@ -33,7 +33,7 @@ void register_extra_blocks(struct IOTable * IOTable)
     }
 }
 
-double copy_accns(double (* PairAccn)[3])
+double copy_and_mean_accn(double (* PairAccn)[3])
 {
     int i;
     double meanacc = 0;
@@ -110,7 +110,7 @@ void runtests(int RestartSnapNum)
 
     double (* PairAccn)[3] = mymalloc2("PairAccns", 3*sizeof(double) * PartManager->NumPart);
 
-    double meanacc = copy_accns(PairAccn);
+    double meanacc = copy_and_mean_accn(PairAccn);
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));
     petaio_save_snapshot(&IOTable, 0, "%s/PART-pairs-%03d", All.OutputDir, RestartSnapNum);
 
@@ -130,7 +130,7 @@ void runtests(int RestartSnapNum)
     petaio_save_snapshot(&IOTable, 0, "%s/PART-tree-open-%03d", All.OutputDir, RestartSnapNum);
 
     /* This checks tree force against tree force with zero error (which always opens).*/
-    copy_accns(PairAccn);
+    copy_and_mean_accn(PairAccn);
 
     treeacc = origtreeacc;
     set_gravshort_treepar(treeacc);
@@ -146,7 +146,7 @@ void runtests(int RestartSnapNum)
     if(meanerr > treeacc.ErrTolForceAcc* 1.2)
         endrun(2, "Average force error is underestimated: %g > 1.2 * %g!\n", meanerr, treeacc.ErrTolForceAcc);
 
-    copy_accns(PairAccn);
+    copy_and_mean_accn(PairAccn);
     /* This checks the tree against a larger Rcut.*/
     treeacc.Rcut = 9.5;
     set_gravshort_treepar(treeacc);
@@ -172,7 +172,7 @@ void runtests(int RestartSnapNum)
     grav_short_tree(&Act, &pm, &Tree, All.G, rho0, 0, All.FastParticleType);
     petaio_save_snapshot(&IOTable, 0, "%s/PART-tree-nmesh2-%03d", All.OutputDir, RestartSnapNum);
 
-    check_accns(&meanerr,&maxerr,PairAccn, meanacc);
+    check_accns(&meanerr, &maxerr, PairAccn, meanacc);
     message(0, "Force error, nmesh %d vs %d: %g mean: %g \n", All.Nmesh, All.Nmesh/2, maxerr, meanerr);
 
     if(maxerr > 0.5 || meanerr > 0.05)
