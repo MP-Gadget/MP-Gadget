@@ -22,7 +22,7 @@ grav_short_pair_ngbiter(
         LocalTreeWalk * lv);
 
 void
-grav_short_pair(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double G, double Rcut, double rho0, int NeutrinoTracer, int FastParticleType)
+grav_short_pair(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double Rcut, double rho0, int NeutrinoTracer, int FastParticleType)
 {
     TreeWalk tw[1] = {{0}};
 
@@ -31,7 +31,7 @@ grav_short_pair(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
     priv.Rcut = Rcut * pm->Asmth * priv.cellsize;
     priv.FastParticleType = FastParticleType;
     priv.NeutrinoTracer = NeutrinoTracer;
-    priv.G = G;
+    priv.G = pm->G;
     priv.cbrtrho0 = pow(rho0, 1.0 / 3);
 
     message(0, "Starting pair-wise short range gravity...\n");

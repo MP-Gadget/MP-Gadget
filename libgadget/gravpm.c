@@ -42,8 +42,8 @@ static PetaPMGlobalFunctions global_functions = {NULL, NULL, potential_transfer}
 static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions);
 
 void
-gravpm_init_periodic(PetaPM * pm, double BoxSize, double Asmth, int Nmesh) {
-    petapm_init(pm, BoxSize, Asmth, Nmesh, MPI_COMM_WORLD);
+gravpm_init_periodic(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G) {
+    petapm_init(pm, BoxSize, Asmth, Nmesh, G, MPI_COMM_WORLD);
 
     /*Initialise the kspace neutrino code if it is enabled.
      * Mpc units are used to match power spectrum code.*/
@@ -98,14 +98,7 @@ gravpm_force(PetaPM * pm, ForceTree * tree) {
     walltime_measure("/LongRange");
 }
 
-static double pot_factor;
-
 static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions) {
-    /* fac is - 4pi G     (L / 2pi) **2 / L ** 3
-     *        Gravity       k2            DFT (dk **3, but )
-     * */
-    pot_factor = - All.G / (M_PI * pm->BoxSize);	/* to get potential */
-
     /*
      *
      * walks down the tree, identify nodes that contains local mass and
@@ -359,6 +352,12 @@ potential_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex *value)
     const double asmth2 = pow((2 * M_PI) * pm->Asmth / pm->Nmesh,2);
     double f = 1.0;
     const double smth = exp(-k2 * asmth2) / k2;
+        /* fac is - 4pi G     (L / 2pi) **2 / L ** 3
+     *        Gravity       k2            DFT (dk **3, but )
+     * */
+    const double pot_factor = - pm->G / (M_PI * pm->BoxSize);	/* to get potential */
+
+
     /* the CIC deconvolution kernel is
      *
      * sinc_unnormed(k_x L / 2 Nmesh) ** 2

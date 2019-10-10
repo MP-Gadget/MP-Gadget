@@ -127,7 +127,7 @@ run(int RestartSnapNum)
     int GasEnabled = All.NTotalInit[0] > 0;
 
     PetaPM pm = {0};
-    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh);
+    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.G);
 
     DomainDecomp ddecomp[1] = {0};
     init(RestartSnapNum, ddecomp);          /* ... read in initial model */
@@ -368,7 +368,7 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
     const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
 
     if(All.TreeGravOn)
-        grav_short_tree(act, pm, tree, All.G, rho0, NeutrinoTracer, All.FastParticleType);
+        grav_short_tree(act, pm, tree, rho0, NeutrinoTracer, All.FastParticleType);
 
     /* We use the total gravitational acc.
      * to open the tree and total acc for the timestep.
@@ -399,7 +399,7 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
      * use the total acceleration for tree opening.
      */
     if(FirstStep && All.TreeGravOn)
-        grav_short_tree(act, pm, tree, All.G, rho0, NeutrinoTracer, All.FastParticleType);
+        grav_short_tree(act, pm, tree, rho0, NeutrinoTracer, All.FastParticleType);
 
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Forces computed.\n");

@@ -75,7 +75,7 @@ force_treeev_shortrange(TreeWalkQueryGravShort * input,
  *  rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G)
  */
 void
-grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double G, double rho0, int NeutrinoTracer, int FastParticleType)
+grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double rho0, int NeutrinoTracer, int FastParticleType)
 {
     double timeall = 0;
     double timetree, timewait, timecomm;
@@ -89,7 +89,7 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
     priv.BHOpeningAngle = TreeParams.BHOpeningAngle;
     priv.FastParticleType = FastParticleType;
     priv.NeutrinoTracer = NeutrinoTracer;
-    priv.G = G;
+    priv.G = pm->G;
     priv.cbrtrho0 = pow(rho0, 1.0 / 3);
 
     tw->ev_label = "FORCETREE_SHORTRANGE";
