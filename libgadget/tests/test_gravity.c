@@ -123,11 +123,12 @@ static int force_direct(double ErrTolForceAcc)
     memset(accn, 0, 3 * sizeof(double) * PartManager->NumPart);
 
     int xx, yy, zz;
+    /* Checked that increasing this has no visible effect on the computed force accuracy*/
     int repeat = 1;
     /* (slowly) compute gravitational force, accounting for periodicity by just inventing extra boxes on either side.*/
-    for(xx=-repeat; xx < repeat; xx++)
-        for(yy=-repeat; yy < repeat; yy++)
-            for(zz=-repeat; zz < repeat; zz++)
+    for(xx=-repeat; xx <= repeat; xx++)
+        for(yy=-repeat; yy <= repeat; yy++)
+            for(zz=-repeat; zz <= repeat; zz++)
             {
                 int i;
                 double offset[3] = {All.BoxSize * xx, All.BoxSize * yy, All.BoxSize * zz};
@@ -144,8 +145,8 @@ static int force_direct(double ErrTolForceAcc)
     myfree(accn);
     message(0, "Mean rel err is: %g max rel err is %g, meanacc %g mean grav force %g\n", meanerr, maxerr, meanacc, meanforce);
     /*Make some statements about the force error*/
-    assert_true(maxerr < 12*ErrTolForceAcc);
-    assert_true(meanerr < 1.2*ErrTolForceAcc);
+    assert_true(maxerr < 3*ErrTolForceAcc);
+    assert_true(meanerr < 0.8*ErrTolForceAcc);
 
     return 0;
 }
