@@ -169,21 +169,14 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, MPI_Comm Comm)
     struct particle_data *partBuf;
     char * slotBuf[6] = {NULL, NULL, NULL, NULL, NULL, NULL};
 
-    int bad_exh=0;
-
     /* Check whether the domain exchange will succeed.
      * Garbage particles will be collected after the particles are exported, so do not need to count.*/
-    if(PartManager->NumPart + plan->toGetSum.base - plan->toGoSum.base  - plan->ngarbage > PartManager->MaxPart){
+    int needed = PartManager->NumPart + plan->toGetSum.base - plan->toGoSum.base  - plan->ngarbage;
+    if(needed > PartManager->MaxPart)
         message(1,"Too many particles for exchange: NumPart=%d count_get = %d count_togo=%d garbage = %d MaxPart=%d\n",
                 PartManager->NumPart, plan->toGetSum.base, plan->toGoSum.base, plan->ngarbage, PartManager->MaxPart);
-        bad_exh = 1;
-    }
-
-    MPI_Allreduce(MPI_IN_PLACE, &bad_exh, 1, MPI_INT, MPI_LOR, Comm);
-
-    if(bad_exh) {
-        return bad_exh;
-    }
+    if(MPIU_Any(needed > PartManager->MaxPart, Comm))
+        return 1;
 
     partBuf = (struct particle_data *) mymalloc2("partBuf", plan->toGoSum.base * sizeof(struct particle_data));
 

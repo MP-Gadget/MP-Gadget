@@ -1169,7 +1169,7 @@ domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int *
         }
 
 loop_continue:
-        MPI_Allreduce(&errorflag, &errorflagall, 1, MPI_INT, MPI_LOR, DomainComm);
+        errorflagall = MPIU_Any(errorflag, DomainComm);
         if(errorflagall) {
             break;
         }
