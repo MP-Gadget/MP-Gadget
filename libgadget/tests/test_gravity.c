@@ -114,14 +114,13 @@ static void find_means(double * meangrav, double * suppmean, double * suppaccns)
     *meangrav/= (tot_npart*3.);
 }
 
+
 /* This checks the force on each particle using a direct summation:
  * very slow, but accurate.
  * Periodic boundary conditions are included by mirroring the box.*/
-static int force_direct(double ErrTolForceAcc)
+static void force_direct(double * accn)
 {
-    double * accn = (double *) mymalloc("accelerations", 3*sizeof(double) * PartManager->NumPart);
     memset(accn, 0, 3 * sizeof(double) * PartManager->NumPart);
-
     int xx, yy, zz;
     /* Checked that increasing this has no visible effect on the computed force accuracy*/
     int repeat = 1;
@@ -138,7 +137,12 @@ static int force_direct(double ErrTolForceAcc)
                         grav_force(i, j, offset, accn);
                 }
             }
+}
 
+static int check_against_force_direct(double ErrTolForceAcc)
+{
+    double * accn = (double *) mymalloc("accelerations", 3*sizeof(double) * PartManager->NumPart);
+    force_direct(accn);
     double meanerr=0, maxerr=-1, meanacc=0, meanforce=0;
     find_means(&meanacc, &meanforce, accn);
     check_accns(&meanerr, &maxerr, accn, meanacc);
@@ -198,7 +202,7 @@ static void do_force_test(double BoxSize, int Nmesh, double Asmth, double ErrTol
     petapm_destroy(&pm);
     domain_free(&ddecomp);
     if(direct)
-        force_direct(ErrTolForceAcc);
+        check_against_force_direct(ErrTolForceAcc);
 }
 
 static void test_force_flat(void ** state) {
