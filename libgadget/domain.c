@@ -1252,11 +1252,11 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
 
     /* now let's see whether we should still more refinements, based on the estimated cumulative cost/count in each cell */
 
-    int global_refine_failed = MPIU_Any(0 != domain_global_refine(topTree, topTreeSize, countlimit, costlimit), DomainComm);
+    int global_refine_failed = domain_global_refine(topTree, topTreeSize, countlimit, costlimit);
 
     walltime_measure("/Domain/DetermineTopTree/Addnodes");
 
-    if(global_refine_failed) {
+    if(MPIU_Any(global_refine_failed, DomainComm)) {
         message(0, "Global refine failed: toptreeSize = %d, MaxTopNodes = %d\n", *topTreeSize, MaxTopNodes);
         return 1;
     }
