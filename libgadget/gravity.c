@@ -23,8 +23,8 @@ void
 gravshort_fill_ntab(const enum ShortRangeForceWindowType ShortRangeForceWindowType, const double Asmth)
 {
     if (ShortRangeForceWindowType == SHORTRANGE_FORCE_WINDOW_TYPE_EXACT) {
-        if(Asmth != 1.25) {
-            endrun(0, "The short range force window is calibrated for Asmth = 1.25, but running with %g\n", Asmth);
+        if(Asmth != 1.5) {
+            endrun(0, "The short range force window is calibrated for Asmth = 1.5, but running with %g\n", Asmth);
         }
     }
 
