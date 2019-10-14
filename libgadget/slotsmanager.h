@@ -29,8 +29,8 @@ extern struct slots_manager_type {
 struct particle_data_ext {
     /* Used at GC for reverse link to P.
      * Garbage slots have this impossibly large. */
-    MyIDType ID; /* for data consistency check, same as particle ID */
     int ReverseLink;
+    MyIDType ID; /* for data consistency check, same as particle ID */
 };
 
 /* Data stored for each black hole in addition to collisionless data*/
