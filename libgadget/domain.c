@@ -55,17 +55,15 @@ typedef struct {
     int NTopLeaves; /** Number of Peano-Hilbert segments to create before balancing. Should be DomainOverDecompositionFactor * NTask*/
 } DomainDecompositionPolicy;
 
-int MaxTopNodes;		/*!< Maximum number of nodes in the top-level tree used for domain decomposition */
-
+/* It is important for the stability of the code that this struct is 64-bit aligned!*/
 struct local_topnode_data
 {
     /*These members are copied into topnode_data*/
     peano_t StartKey;		/*!< first Peano-Hilbert key in top-level node */
-    short int Shift;		/*!< log2 of number of Peano-Hilbert mesh-cells represented by top-level node */
+    int Shift;		/*!< log2 of number of Peano-Hilbert mesh-cells represented by top-level node */
     int Daughter;			/*!< index of first daughter cell (out of 8) of top-level node */
     /*Below members are only used in this file*/
     int Parent;
-    int PIndex;         /* FIXME: this appears to be useless now. first particle in node used only in top-level tree build (this file)*/
     int64_t Count;      /* the number of 'subsample' particles in this top-level node */
     int64_t Cost;       /* the cost of 'subsample' particle in this top-level node */
 };
@@ -107,31 +105,31 @@ mp_order_by_key(const void * data, void * radix, void * arg);
 static void
 domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int NsegmentPerTask);
 
-static void domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy);
+static int domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy);
 
 static int
 domain_check_memory_bound(const DomainDecomp * ddecomp, const int print_details, int64_t *TopLeafWork, int64_t *TopLeafCount);
 
-static int domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy);
+static int domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy, const int MaxTopNodes);
 
 static void
 domain_balance(DomainDecomp * ddecomp);
 
-static int domain_determine_global_toptree(DomainDecompositionPolicy * policy, struct local_topnode_data * topTree, int * topTreeSize, MPI_Comm DomainComm);
+static int domain_determine_global_toptree(DomainDecompositionPolicy * policy, struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes, MPI_Comm DomainComm);
 
 static void
 domain_compute_costs(const DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopLeafCount);
 
 static void
-domain_toptree_merge(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, int * treeASize);
+domain_toptree_merge(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, int * treeASize, const int MaxTopNodes);
 
 static int domain_check_for_local_refine_subsample(
     DomainDecompositionPolicy * policy,
-    struct local_topnode_data * topTree, int * topTreeSize
+    struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes
     );
 
 static int
-domain_global_refine(struct local_topnode_data * topTree, int * topTreeSize, int64_t countlimit, int64_t costlimit);
+domain_global_refine(struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes, int64_t countlimit, int64_t costlimit);
 
 static void
 domain_create_topleaves(DomainDecomp * ddecomp, int no, int * next);
@@ -175,12 +173,13 @@ void domain_decompose_full(DomainDecomp * ddecomp)
 #ifdef DEBUG
         domain_test_id_uniqueness();
 #endif
-        domain_allocate(ddecomp, &policies[i]);
+        int MaxTopNodes = domain_allocate(ddecomp, &policies[i]);
 
         message(0, "Attempting new domain decomposition policy: TopNodeAllocFactor=%g, UseglobalSort=%d, SubSampleDistance=%d UsePreSort=%d\n",
                 policies[i].TopNodeAllocFactor, policies[i].UseGlobalSort, policies[i].SubSampleDistance, policies[i].PreSort);
 
-        decompose_failed = MPIU_Any(0 != domain_attempt_decompose(ddecomp, &policies[i]), ddecomp->DomainComm);
+        decompose_failed = domain_attempt_decompose(ddecomp, &policies[i], MaxTopNodes);
+        decompose_failed = MPIU_Any(decompose_failed, ddecomp->DomainComm);
 
         if(!decompose_failed) {
             LastSuccessfulPolicy = i;
@@ -280,12 +279,12 @@ domain_policies_init(DomainDecompositionPolicy policies[],
 }
 
 /*! This function allocates all the stuff that will be required for the tree-construction/walk later on */
-static void
+static int
 domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy)
 {
     size_t bytes, all_bytes = 0;
 
-    MaxTopNodes = (int) (policy->TopNodeAllocFactor * PartManager->MaxPart + 1);
+    int MaxTopNodes = (int) (policy->TopNodeAllocFactor * PartManager->MaxPart + 1);
 
     /* Build the domain over the global all-processors communicator.
      * We use a symbol in case we want to do fancy things in the future.*/
@@ -312,6 +311,8 @@ domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy)
     message(0, "Allocated %g MByte for top-level domain structure\n", all_bytes / (1024.0 * 1024.0));
 
     ddecomp->domain_allocated_flag = 1;
+
+    return MaxTopNodes;
 }
 
 void domain_free(DomainDecomp * ddecomp)
@@ -342,7 +343,7 @@ domain_particle_costfactor(int i)
  *  PartAllocFactor.
  */
 static int
-domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy)
+domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy, const int MaxTopNodes)
 {
 
     int i;
@@ -362,7 +363,7 @@ domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * pol
 
     walltime_measure("/Domain/Decompose/Misc");
 
-    if(domain_determine_global_toptree(policy, topTree, &ddecomp->NTopNodes, ddecomp->DomainComm)) {
+    if(domain_determine_global_toptree(policy, topTree, &ddecomp->NTopNodes, MaxTopNodes, ddecomp->DomainComm)) {
         myfree(topTree);
         return 1;
     }
@@ -787,7 +788,7 @@ domain_toptree_insert(struct local_topnode_data * topTree,
 }
 
 static int
-domain_toptree_split(struct local_topnode_data * topTree, int * topTreeSize,
+domain_toptree_split(struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes,
     int i)
 {
     int j;
@@ -815,9 +816,7 @@ domain_toptree_split(struct local_topnode_data * topTree, int * topTreeSize,
         topTree[sub].Shift = topTree[i].Shift - 3;
         /* This is the region of peanospace covered by this node.*/
         topTree[sub].StartKey = topTree[i].StartKey + j * (1L << topTree[sub].Shift);
-        /* We will compute the cost and initialise the first particle in the node below.
-         * This PIndex value is never used*/
-        topTree[sub].PIndex = topTree[i].PIndex;
+        /* We will compute the cost in the node below.*/
         topTree[sub].Count = 0;
         topTree[sub].Cost = 0;
     }
@@ -926,7 +925,7 @@ domain_toptree_truncate(
 static int
 domain_check_for_local_refine_subsample(
     DomainDecompositionPolicy * policy,
-    struct local_topnode_data * topTree, int * topTreeSize
+    struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes
     )
 {
 
@@ -986,7 +985,6 @@ domain_check_for_local_refine_subsample(
     topTree[0].Parent = -1;
     topTree[0].Shift = BITS_PER_DIMENSION * 3;
     topTree[0].StartKey = 0;
-    topTree[0].PIndex = 0;
     topTree[0].Count = 0;
     topTree[0].Cost = 0;
 
@@ -1028,7 +1026,7 @@ domain_check_for_local_refine_subsample(
 
         if (leaf == last_leaf && topTree[leaf].Shift >= 3) {
             /* two particles in a node? need refinement if possible. */
-            if(0 != domain_toptree_split(topTree, topTreeSize, leaf)) {
+            if(0 != domain_toptree_split(topTree, topTreeSize, MaxTopNodes, leaf)) {
                 /* out of memory, retry */
                 myfree(LP);
                 return 1;
@@ -1080,8 +1078,8 @@ domain_check_for_local_refine_subsample(
 }
 
 /* Combine the toptree. Returns a (collective) error code which is non-zero if an error occured*/
-int
-domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int * topTreeSize, MPI_Comm DomainComm)
+static int
+domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes, MPI_Comm DomainComm)
 {
     /*
      * combine topTree non recursively, this uses MPI_Bcast within a group.
@@ -1093,11 +1091,7 @@ domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int *
      * but I couldn't figure out how to do it that way.
      * */
     int sep = 1;
-    MPI_Datatype MPI_TYPE_TOPNODE;
-    MPI_Type_contiguous(sizeof(struct local_topnode_data), MPI_BYTE, &MPI_TYPE_TOPNODE);
-    MPI_Type_commit(&MPI_TYPE_TOPNODE);
     int errorflag = 0;
-    int errorflagall = 0;
     /*Number of tasks to decompose to*/
     int NTask;
     MPI_Comm_size(DomainComm, &NTask);
@@ -1109,72 +1103,64 @@ domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int *
         /* build the subcommunicators for broadcasting */
         int Color = ThisTask / sep;
         int Key = ThisTask % sep;
-        int ntopnodes_import = 0;
-        struct local_topnode_data * topTree_import = NULL;
 
-        int recvTask = -1; /* by default do not communicate */
-
-        if(Key != 0) {
-            /* non leaders will skip exchanges */
-            goto loop_continue;
-        }
+        /* non leaders will skip exchanges */
+        if(Key != 0)
+            continue;
 
         /* leaders of even color will combine nodes from next odd color,
          * so that when sep is increased eventually rank 0 will have all
          * nodes */
         if(Color % 2 == 0) {
             /* even guys recv */
-            recvTask = ThisTask + sep;
+            int recvTask = ThisTask + sep;
+            int ntopnodes_import = 0;
             if(recvTask < NTask) {
-                MPI_Recv(
-                        &ntopnodes_import, 1, MPI_INT, recvTask, TAG_GRAV_A,
+                MPI_Recv(&ntopnodes_import, 1, MPI_INT, recvTask, TAG_GRAV_A,
                         DomainComm, MPI_STATUS_IGNORE);
-                topTree_import = (struct local_topnode_data *) mymalloc("topTree_import",
-                            (ntopnodes_import > *topTreeSize ? ntopnodes_import : *topTreeSize) * sizeof(struct local_topnode_data));
+                if(ntopnodes_import < 0) {
+                    endrun(1, "severe domain error using a unintended rank \n");
+                }
+                int mergesize = ntopnodes_import;
+                if(ntopnodes_import < *topTreeSize)
+                    mergesize = *topTreeSize;
+                struct local_topnode_data * topTree_import = (struct local_topnode_data *) mymalloc("topTree_import",
+                            mergesize * sizeof(struct local_topnode_data));
 
-                MPI_Recv(
-                        topTree_import,
-                        ntopnodes_import, MPI_TYPE_TOPNODE,
+                MPI_Recv(topTree_import,
+                        ntopnodes_import * sizeof(struct local_topnode_data), MPI_BYTE,
                         recvTask, TAG_GRAV_B,
                         DomainComm, MPI_STATUS_IGNORE);
-
 
                 if((*topTreeSize + ntopnodes_import) > MaxTopNodes) {
                     errorflag = 1;
                 } else {
-                    if(ntopnodes_import < 0) {
-                        endrun(1, "severe domain error using a unintended rank \n");
-                    }
                     if(ntopnodes_import > 0 ) {
-                        domain_toptree_merge(topTree, topTree_import, 0, 0, topTreeSize);
+                        domain_toptree_merge(topTree, topTree_import, 0, 0, topTreeSize, MaxTopNodes);
                     }
                 }
                 myfree(topTree_import);
             }
         } else {
             /* odd guys send */
-            recvTask = ThisTask - sep;
+            int recvTask = ThisTask - sep;
             if(recvTask >= 0) {
-                MPI_Send(topTreeSize, 1, MPI_INT, recvTask, TAG_GRAV_A,
-                        DomainComm);
-                MPI_Send(topTree,
-                        *topTreeSize, MPI_TYPE_TOPNODE,
-                        recvTask, TAG_GRAV_B,
-                        DomainComm);
+                MPI_Send(topTreeSize, 1, MPI_INT, recvTask, TAG_GRAV_A, DomainComm);
+                MPI_Send(topTree, (*topTreeSize) * sizeof(struct local_topnode_data), MPI_BYTE,
+                         recvTask, TAG_GRAV_B, DomainComm);
             }
             *topTreeSize = -1;
-        }
-
-loop_continue:
-        MPI_Allreduce(&errorflag, &errorflagall, 1, MPI_INT, MPI_LOR, DomainComm);
-        if(errorflagall) {
-            break;
         }
     }
 
     MPI_Bcast(topTreeSize, 1, MPI_INT, 0, DomainComm);
-    MPI_Bcast(topTree, *topTreeSize, MPI_TYPE_TOPNODE, 0, DomainComm);
-    MPI_Type_free(&MPI_TYPE_TOPNODE);
+    /* Check that the merge succeeded*/
+    if(*topTreeSize < 0 || *topTreeSize >= MaxTopNodes) {
+        errorflag = 1;
+    }
+    int errorflagall = MPIU_Any(errorflag, DomainComm);
+    if(errorflagall == 0)
+        MPI_Bcast(topTree, (*topTreeSize) * sizeof(struct local_topnode_data), MPI_BYTE, 0, DomainComm);
     return errorflagall;
 }
 
@@ -1185,7 +1171,7 @@ loop_continue:
  *  number of particles.
  */
 int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
-        struct local_topnode_data * topTree, int * topTreeSize, MPI_Comm DomainComm)
+        struct local_topnode_data * topTree, int * topTreeSize, int MaxTopNodes, MPI_Comm DomainComm)
 {
     walltime_measure("/Domain/DetermineTopTree/Misc");
 
@@ -1194,13 +1180,11 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
      * 1/16 is used because each local topTree node takes about 32 bytes.
      **/
 
-    int local_refine_failed = MPIU_Any(
-                0 != domain_check_for_local_refine_subsample(policy, topTree, topTreeSize),
-                        DomainComm);
+    int local_refine_failed = domain_check_for_local_refine_subsample(policy, topTree, topTreeSize, MaxTopNodes);
 
     walltime_measure("/Domain/DetermineTopTree/LocalRefine/Init");
 
-    if(local_refine_failed) {
+    if(MPIU_Any(local_refine_failed, DomainComm)) {
         message(0, "We are out of Topnodes. \n");
         return 1;
     }
@@ -1228,10 +1212,6 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
     sprintf(buf, "topnodes.bin.%d", ThisTask);
     FILE * fd = fopen(buf, "w");
 
-    /* these PIndex are non-essential in other modules, so we reset them */
-    for(i = 0; i < *topTreeSize; i ++) {
-        topTree[i].PIndex = -1;
-    }
     fwrite(topTree, sizeof(struct local_topnode_data), *topTreeSize, fd);
     fclose(fd);
 
@@ -1240,7 +1220,7 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
 #endif
 
     /* we now need to exchange tree parts and combine them as needed */
-    int combine_failed = domain_nonrecursively_combine_topTree(topTree, topTreeSize, DomainComm);
+    int combine_failed = domain_nonrecursively_combine_topTree(topTree, topTreeSize, MaxTopNodes, DomainComm);
 
     walltime_measure("/Domain/DetermineTopTree/Combine");
 
@@ -1252,11 +1232,11 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
 
     /* now let's see whether we should still more refinements, based on the estimated cumulative cost/count in each cell */
 
-    int global_refine_failed = MPIU_Any(0 != domain_global_refine(topTree, topTreeSize, countlimit, costlimit), DomainComm);
+    int global_refine_failed = domain_global_refine(topTree, topTreeSize, MaxTopNodes, countlimit, costlimit);
 
     walltime_measure("/Domain/DetermineTopTree/Addnodes");
 
-    if(global_refine_failed) {
+    if(MPIU_Any(global_refine_failed, DomainComm)) {
         message(0, "Global refine failed: toptreeSize = %d, MaxTopNodes = %d\n", *topTreeSize, MaxTopNodes);
         return 1;
     }
@@ -1268,7 +1248,7 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
 
 static int
 domain_global_refine(
-    struct local_topnode_data * topTree, int * topTreeSize,
+    struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes,
     int64_t countlimit, int64_t costlimit)
 {
     int i;
@@ -1391,7 +1371,7 @@ domain_compute_costs(const DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t
 static void
 domain_toptree_merge(struct local_topnode_data *treeA,
                      struct local_topnode_data *treeB,
-                     int noA, int noB, int * treeASize)
+                     int noA, int noB, int * treeASize, const int MaxTopNodes)
 {
     int j, sub;
     int64_t count;
@@ -1432,7 +1412,7 @@ domain_toptree_merge(struct local_topnode_data *treeA,
 
         /* find the sub node in A for me and merge, this would bring noB and sub on the same shift, drop to next case */
         sub = treeA[noA].Daughter + ((treeB[noB].StartKey - treeA[noA].StartKey) >> (treeA[noA].Shift - 3));
-        domain_toptree_merge(treeA, treeB, sub, noB, treeASize);
+        domain_toptree_merge(treeA, treeB, sub, noB, treeASize, MaxTopNodes);
     }
     else if(treeB[noB].Shift == treeA[noA].Shift)
     {
@@ -1449,7 +1429,7 @@ domain_toptree_merge(struct local_topnode_data *treeA,
                     endrun(1, "Child node %d has shift %d, parent %d has shift %d. treeB is corrupt. \n",
                         sub, treeB[sub].Shift, noB, treeB[noB].Shift);
                 }
-                domain_toptree_merge(treeA, treeB, noA, sub, treeASize);
+                domain_toptree_merge(treeA, treeB, noA, sub, treeASize, MaxTopNodes);
             }
         }
         else
@@ -1459,7 +1439,7 @@ domain_toptree_merge(struct local_topnode_data *treeA,
             if(treeA[noA].Daughter >= 0) {
                 for(j = 0; j < 8; j++) {
                     sub = treeA[noA].Daughter + j;
-                    domain_toptree_merge(treeA, treeB, sub, noB, treeASize);
+                    domain_toptree_merge(treeA, treeB, sub, noB, treeASize, MaxTopNodes);
                 }
             }
         }
@@ -1486,7 +1466,7 @@ domain_toptree_merge(struct local_topnode_data *treeA,
             if(treeA[noA].Daughter >= 0) {
                 for(j = 0; j < 8; j++) {
                     sub = treeA[noA].Daughter + j;
-                    domain_toptree_merge(treeA, treeB, sub, noB, treeASize);
+                    domain_toptree_merge(treeA, treeB, sub, noB, treeASize, MaxTopNodes);
                 }
             }
         }

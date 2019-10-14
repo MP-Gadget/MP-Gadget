@@ -90,8 +90,6 @@ void catch_fatal(int sig)
 
 static double RndTable[RNDTABLE];
 
-static gsl_rng *random_generator;	/*!< the random number generator used */
-
 double get_random_number(uint64_t id)
 {
     return RndTable[(int)(id % RNDTABLE)];
@@ -99,14 +97,16 @@ double get_random_number(uint64_t id)
 
 void set_random_numbers(int seed)
 {
-    random_generator = gsl_rng_alloc(gsl_rng_ranlxd1);
+    gsl_rng * random_generator = gsl_rng_alloc(gsl_rng_ranlxd1);
 
-    gsl_rng_set(random_generator, seed);	/* start-up seed */
+    /* start-up seed */
+    gsl_rng_set(random_generator, seed);
 
     int i;
-
     for(i = 0; i < RNDTABLE; i++)
         RndTable[i] = gsl_rng_uniform(random_generator);
+
+    gsl_rng_free(random_generator);
 }
 
 

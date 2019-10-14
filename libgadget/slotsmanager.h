@@ -27,10 +27,10 @@ extern struct slots_manager_type {
  * then stars, then SPH. SPH still has some compile-time optional elements.
  * Each particle also has the base data, stored in particle_data.*/
 struct particle_data_ext {
-    /* used at GC for reverse link to P */
-     int ReverseLink;
-    unsigned int IsGarbage : 1; /* marked if the slot is garbage. use slots_mark_garbage to mark this with the base particle index*/
+    /* Used at GC for reverse link to P.
+     * Garbage slots have this impossibly large. */
     MyIDType ID; /* for data consistency check, same as particle ID */
+    int ReverseLink;
 };
 
 /* Data stored for each black hole in addition to collisionless data*/
@@ -52,7 +52,7 @@ struct bh_particle_data {
 
     /* Stores the minimum timebins of all black hole neighbours.
      * The black hole timebin is then set to this.*/
-    short int minTimeBin;
+    int minTimeBin;
 };
 
 /*Data for each star particle*/
