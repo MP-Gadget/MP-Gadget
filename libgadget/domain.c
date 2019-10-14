@@ -64,8 +64,6 @@ struct local_topnode_data
     int Daughter;			/*!< index of first daughter cell (out of 8) of top-level node */
     /*Below members are only used in this file*/
     int Parent;
-    int PIndex;         /* This entry is now. first particle in node used only in top-level tree build (this file).
-                           Kept to align the struct. */
     int64_t Count;      /* the number of 'subsample' particles in this top-level node */
     int64_t Cost;       /* the cost of 'subsample' particle in this top-level node */
 };
@@ -818,9 +816,7 @@ domain_toptree_split(struct local_topnode_data * topTree, int * topTreeSize, con
         topTree[sub].Shift = topTree[i].Shift - 3;
         /* This is the region of peanospace covered by this node.*/
         topTree[sub].StartKey = topTree[i].StartKey + j * (1L << topTree[sub].Shift);
-        /* We will compute the cost and initialise the first particle in the node below.
-         * This PIndex value is never used*/
-        topTree[sub].PIndex = topTree[i].PIndex;
+        /* We will compute the cost in the node below.*/
         topTree[sub].Count = 0;
         topTree[sub].Cost = 0;
     }
@@ -989,7 +985,6 @@ domain_check_for_local_refine_subsample(
     topTree[0].Parent = -1;
     topTree[0].Shift = BITS_PER_DIMENSION * 3;
     topTree[0].StartKey = 0;
-    topTree[0].PIndex = 0;
     topTree[0].Count = 0;
     topTree[0].Cost = 0;
 
@@ -1221,10 +1216,6 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
     sprintf(buf, "topnodes.bin.%d", ThisTask);
     FILE * fd = fopen(buf, "w");
 
-    /* these PIndex are non-essential in other modules, so we reset them */
-    for(i = 0; i < *topTreeSize; i ++) {
-        topTree[i].PIndex = -1;
-    }
     fwrite(topTree, sizeof(struct local_topnode_data), *topTreeSize, fd);
     fclose(fd);
 
