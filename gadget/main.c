@@ -46,19 +46,15 @@ int main(int argc, char **argv)
 
     if(argc < 2)
     {
-        if(ThisTask == 0)
-        {
-            printf("Parameters are missing.\n");
-            printf("Call with <ParameterFile> [<RestartFlag>] [<RestartSnapNum>]\n");
-            printf("\n");
-            printf("   RestartFlag    Action\n");
-            printf("       1          Restart from last snapshot (LastSnapNum.txt) and continue simulation\n");
-            printf("       2          Restart from specified snapshot (-1 for Initial Condition) and continue simulation\n");
-            printf("       3          Run FOF if enabled\n");
-            printf("       99         Run Tests. \n");
-            printf("\n");
-        }
-        goto byebye;
+        message(0, "Parameters are missing.\n");
+        message(0, "Call with <ParameterFile> [<RestartFlag>] [<RestartSnapNum>]\n\n");
+        message(0, "   RestartFlag    Action\n");
+        message(0, "       1          Restart from last snapshot (LastSnapNum.txt) and continue simulation\n");
+        message(0, "       2          Restart from specified snapshot (-1 for Initial Condition) and continue simulation\n");
+        message(0, "       3          Run FOF if enabled\n");
+        message(0, "       99         Run Tests. \n\n");
+        MPI_Finalize();
+        return 1;
     }
 
     message(0, "This is MP-Gadget, version %s.\n", GADGET_VERSION);
@@ -129,7 +125,6 @@ int main(int argc, char **argv)
             run(RestartSnapNum);        /* main simulation loop */
             break;
     }
-byebye:
     MPI_Finalize();		/* clean up & finalize MPI */
 
     return 0;
