@@ -1100,7 +1100,6 @@ domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int *
     MPI_Type_contiguous(sizeof(struct local_topnode_data), MPI_BYTE, &MPI_TYPE_TOPNODE);
     MPI_Type_commit(&MPI_TYPE_TOPNODE);
     int errorflag = 0;
-    int errorflagall = 0;
     /*Number of tasks to decompose to*/
     int NTask;
     MPI_Comm_size(DomainComm, &NTask);
@@ -1117,10 +1116,9 @@ domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int *
 
         int recvTask = -1; /* by default do not communicate */
 
-        if(Key != 0) {
-            /* non leaders will skip exchanges */
-            goto loop_continue;
-        }
+        /* non leaders will skip exchanges */
+        if(Key != 0)
+            continue;
 
         /* leaders of even color will combine nodes from next odd color,
          * so that when sep is increased eventually rank 0 will have all
@@ -1167,18 +1165,12 @@ domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int *
             }
             *topTreeSize = -1;
         }
-
-loop_continue:
-        errorflagall = MPIU_Any(errorflag, DomainComm);
-        if(errorflagall) {
-            break;
-        }
     }
 
     MPI_Bcast(topTreeSize, 1, MPI_INT, 0, DomainComm);
     MPI_Bcast(topTree, *topTreeSize, MPI_TYPE_TOPNODE, 0, DomainComm);
     MPI_Type_free(&MPI_TYPE_TOPNODE);
-    return errorflagall;
+    return MPIU_Any(errorflag, DomainComm);
 }
 
 /*! This function constructs the global top-level tree node that is used
