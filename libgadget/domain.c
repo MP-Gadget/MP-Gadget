@@ -1091,9 +1091,6 @@ domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int *
      * but I couldn't figure out how to do it that way.
      * */
     int sep = 1;
-    MPI_Datatype MPI_TYPE_TOPNODE;
-    MPI_Type_contiguous(sizeof(struct local_topnode_data), MPI_BYTE, &MPI_TYPE_TOPNODE);
-    MPI_Type_commit(&MPI_TYPE_TOPNODE);
     int errorflag = 0;
     /*Number of tasks to decompose to*/
     int NTask;
@@ -1106,10 +1103,6 @@ domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int *
         /* build the subcommunicators for broadcasting */
         int Color = ThisTask / sep;
         int Key = ThisTask % sep;
-        int ntopnodes_import = 0;
-        struct local_topnode_data * topTree_import = NULL;
-
-        int recvTask = -1; /* by default do not communicate */
 
         /* non leaders will skip exchanges */
         if(Key != 0)
@@ -1120,27 +1113,28 @@ domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int *
          * nodes */
         if(Color % 2 == 0) {
             /* even guys recv */
-            recvTask = ThisTask + sep;
+            int recvTask = ThisTask + sep;
+            int ntopnodes_import = 0;
             if(recvTask < NTask) {
-                MPI_Recv(
-                        &ntopnodes_import, 1, MPI_INT, recvTask, TAG_GRAV_A,
+                MPI_Recv(&ntopnodes_import, 1, MPI_INT, recvTask, TAG_GRAV_A,
                         DomainComm, MPI_STATUS_IGNORE);
-                topTree_import = (struct local_topnode_data *) mymalloc("topTree_import",
-                            (ntopnodes_import > *topTreeSize ? ntopnodes_import : *topTreeSize) * sizeof(struct local_topnode_data));
+                if(ntopnodes_import < 0) {
+                    endrun(1, "severe domain error using a unintended rank \n");
+                }
+                int mergesize = ntopnodes_import;
+                if(ntopnodes_import < *topTreeSize)
+                    mergesize = *topTreeSize;
+                struct local_topnode_data * topTree_import = (struct local_topnode_data *) mymalloc("topTree_import",
+                            mergesize * sizeof(struct local_topnode_data));
 
-                MPI_Recv(
-                        topTree_import,
-                        ntopnodes_import, MPI_TYPE_TOPNODE,
+                MPI_Recv(topTree_import,
+                        ntopnodes_import * sizeof(struct local_topnode_data), MPI_BYTE,
                         recvTask, TAG_GRAV_B,
                         DomainComm, MPI_STATUS_IGNORE);
-
 
                 if((*topTreeSize + ntopnodes_import) > MaxTopNodes) {
                     errorflag = 1;
                 } else {
-                    if(ntopnodes_import < 0) {
-                        endrun(1, "severe domain error using a unintended rank \n");
-                    }
                     if(ntopnodes_import > 0 ) {
                         domain_toptree_merge(topTree, topTree_import, 0, 0, topTreeSize, MaxTopNodes);
                     }
@@ -1149,23 +1143,25 @@ domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int *
             }
         } else {
             /* odd guys send */
-            recvTask = ThisTask - sep;
+            int recvTask = ThisTask - sep;
             if(recvTask >= 0) {
-                MPI_Send(topTreeSize, 1, MPI_INT, recvTask, TAG_GRAV_A,
-                        DomainComm);
-                MPI_Send(topTree,
-                        *topTreeSize, MPI_TYPE_TOPNODE,
-                        recvTask, TAG_GRAV_B,
-                        DomainComm);
+                MPI_Send(topTreeSize, 1, MPI_INT, recvTask, TAG_GRAV_A, DomainComm);
+                MPI_Send(topTree, (*topTreeSize) * sizeof(struct local_topnode_data), MPI_BYTE,
+                         recvTask, TAG_GRAV_B, DomainComm);
             }
             *topTreeSize = -1;
         }
     }
 
     MPI_Bcast(topTreeSize, 1, MPI_INT, 0, DomainComm);
-    MPI_Bcast(topTree, *topTreeSize, MPI_TYPE_TOPNODE, 0, DomainComm);
-    MPI_Type_free(&MPI_TYPE_TOPNODE);
-    return MPIU_Any(errorflag, DomainComm);
+    /* Check that the merge succeeded*/
+    if(*topTreeSize < 0 || *topTreeSize >= MaxTopNodes) {
+        errorflag = 1;
+    }
+    int errorflagall = MPIU_Any(errorflag, DomainComm);
+    if(errorflagall == 0)
+        MPI_Bcast(topTree, (*topTreeSize) * sizeof(struct local_topnode_data), MPI_BYTE, 0, DomainComm);
+    return errorflagall;
 }
 
 /*! This function constructs the global top-level tree node that is used
