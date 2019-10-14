@@ -305,7 +305,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, MPI_Comm Comm)
             if(!SlotsManager->info[ptype].enabled) continue;
 
             if(BASESLOT(i)->ID != P[i].ID) {
-                endrun(1, "Exchange: P[%d].ID = %ld (type %d) != SLOT ID = %ld. garbage: %d slot: %d\n",i,P[i].ID, P[i].Type, BASESLOT(i)->ID, P[i].IsGarbage, BASESLOT(i)->IsGarbage);
+                endrun(1, "Exchange: P[%d].ID = %ld (type %d) != SLOT ID = %ld. garbage: %d ReverseLink: %d\n",i,P[i].ID, P[i].Type, BASESLOT(i)->ID, P[i].IsGarbage, BASESLOT(i)->ReverseLink);
             }
         }
         for(ptype = 0; ptype < 6; ptype ++) {
