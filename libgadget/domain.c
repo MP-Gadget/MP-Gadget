@@ -55,15 +55,17 @@ typedef struct {
     int NTopLeaves; /** Number of Peano-Hilbert segments to create before balancing. Should be DomainOverDecompositionFactor * NTask*/
 } DomainDecompositionPolicy;
 
+/* It is important for the stability of the code that this struct is 64-bit aligned!*/
 struct local_topnode_data
 {
     /*These members are copied into topnode_data*/
     peano_t StartKey;		/*!< first Peano-Hilbert key in top-level node */
-    short int Shift;		/*!< log2 of number of Peano-Hilbert mesh-cells represented by top-level node */
+    int Shift;		/*!< log2 of number of Peano-Hilbert mesh-cells represented by top-level node */
     int Daughter;			/*!< index of first daughter cell (out of 8) of top-level node */
     /*Below members are only used in this file*/
     int Parent;
-    int PIndex;         /* FIXME: this appears to be useless now. first particle in node used only in top-level tree build (this file)*/
+    int PIndex;         /* This entry is now. first particle in node used only in top-level tree build (this file).
+                           Kept to align the struct. */
     int64_t Count;      /* the number of 'subsample' particles in this top-level node */
     int64_t Cost;       /* the cost of 'subsample' particle in this top-level node */
 };
