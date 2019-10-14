@@ -45,7 +45,7 @@ typedef struct {
     MyFloat BH_MinPotPos[3];
     MyFloat BH_MinPot;
 
-    short int BH_minTimeBin;
+    int BH_minTimeBin;
     MyFloat FeedbackWeightSum;
 
     MyFloat Rho;
