@@ -111,7 +111,7 @@ OsSigHandler(int no)
 }
 
 static void
-init_stacktrace()
+init_stacktrace(void)
 {
     struct sigaction act, oact;
 
@@ -127,17 +127,21 @@ init_stacktrace()
     }
 }
 
+static int ShowBacktrace;
+
 void
-init_endrun()
+init_endrun(int backtrace)
 {
-    init_stacktrace();
+    ShowBacktrace = backtrace;
+    if(backtrace)
+        init_stacktrace();
 }
 
 /*  This function aborts the simulation.
  *
  *  if where > 0, a stacktrace is printed per rank calling endrun.
  *  if where <= 0, the function shall be called by all ranks collectively.
- *    and only the root rank prints the error. 
+ *    and only the root rank prints the error.
  *
  *  No barrier is applied.
  */
@@ -152,7 +156,8 @@ endrun(int where, const char * fmt, ...)
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0 || where > 0) {
-        show_backtrace();
+        if(ShowBacktrace)
+            show_backtrace();
         MPI_Abort(MPI_COMM_WORLD, where);
     }
     /* This is here so the compiler knows this

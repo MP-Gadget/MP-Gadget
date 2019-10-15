@@ -42,8 +42,6 @@ int main(int argc, char **argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
 
-    init_endrun();
-
     if(argc < 2)
     {
         message(0, "Parameters are missing.\n");
@@ -89,12 +87,12 @@ int main(int argc, char **argv)
         RestartSnapNum = -1;
 
     if(RestartFlag == 0) {
-        message(1, "Restart flag of 0 is deprecated. Use 2.\n");
+        message(0, "Restart flag of 0 is deprecated. Use 2.\n");
         RestartFlag = 2;
         RestartSnapNum = -1;
     }
     if(RestartFlag == 3 && RestartSnapNum < 0) {
-        endrun(1, "Need to give the snapshot number if FOF is selected for output\n");
+        endrun(0, "Need to give the snapshot number if FOF is selected for output\n");
     }
 
     if(RestartFlag == 1) {
@@ -111,6 +109,8 @@ int main(int argc, char **argv)
     /* Make sure memory has finished initialising on all ranks before doing more.
      * This may improve stability */
     MPI_Barrier(MPI_COMM_WORLD);
+
+    init_endrun(All.ShowBacktrace);
 
     begrun(RestartSnapNum);
 
