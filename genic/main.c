@@ -22,8 +22,6 @@ int main(int argc, char **argv)
 {
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-  init_endrun();
-
   if(argc < 2)
     endrun(0,"Please pass a parameter file.\n");
 
@@ -32,6 +30,8 @@ int main(int argc, char **argv)
   read_parameterfile(argv[1]);
 
   mymalloc_init(All.MaxMemSizePerNode);
+
+  init_endrun(All.ShowBacktrace);
 
   walltime_init(&All.CT);
 
@@ -130,13 +130,13 @@ int main(int argc, char **argv)
     if(All2.MakeGlassGas || All2.MakeGlassCDM)
         glass_evolve(pm, 14, "powerspectrum-glass-tot", ICP, NumPartCDM+NumPartGas);
   }
-  
+
   /*Write initial positions into ICP struct (for CDM and gas)*/
   int j,k;
   for(j=0; j<NumPartCDM+NumPartGas; j++)
       for(k=0; k<3; k++)
           ICP[j].PrePos[k] = ICP[j].Pos[k];
-  
+
   if(NumPartCDM > 0) {
     displacement_fields(pm, DMType, ICP, NumPartCDM);
 

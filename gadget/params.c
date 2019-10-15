@@ -132,6 +132,7 @@ create_gadget_parameter_set()
 
     param_declare_int(ps,    "OutputPotential", OPTIONAL, 1, "Save the potential in snapshots.");
     param_declare_int(ps,    "OutputDebugFields", OPTIONAL, 0, "Save a large number of debug fields in snapshots.");
+    param_declare_int(ps,    "ShowBacktrace", OPTIONAL, 1, "Print a backtrace on crash. Hangs on stampede.");
     param_declare_double(ps,    "MaxMemSizePerNode", OPTIONAL, 0.6, "Pre-allocate this much memory per computing node/ host, in MB. Defaults to 60\% of total available memory per node. Passing < 1 allocates a fraction of total available memory per node.");
     param_declare_double(ps, "AutoSnapshotTime", OPTIONAL, 0, "Seconds after which to automatically generate a snapshot if nothing is output.");
 
@@ -394,6 +395,7 @@ void read_parameter_file(char *fname)
 
         All.OutputPotential = param_get_int(ps, "OutputPotential");
         All.OutputDebugFields = param_get_int(ps, "OutputDebugFields");
+        All.ShowBacktrace = param_get_int(ps, "ShowBacktrace");
         double MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
         if(MaxMemSizePerNode <= 1) {
             MaxMemSizePerNode *= get_physmem_bytes() / (1024. * 1024.);
