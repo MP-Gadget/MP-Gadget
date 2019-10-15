@@ -132,7 +132,7 @@ void drift_all_particles(inttime_t ti1, const double random_shift[3])
     walltime_measure("/Misc");
 
     const inttime_t ti0 = P[0].Ti_drift;
-    const double ddrift = get_exact_drift_factor(ti0, ti1);
+    const double ddrift = get_exact_drift_factor(&All.CP, ti0, ti1);
 
 #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++) {

@@ -313,7 +313,7 @@ init_transfer_table(int ThisTask, double InitTime, const struct power_params * c
     /*Normalise the transfer functions.*/
 
     /*Now normalise the velocity transfer functions: divide by a * hubble, where hubble is the hubble function in Mpc^-1, so H0/c*/
-    const double fac = InitTime * hubble_function(InitTime)/CP->Hubble * 100 * CP->HubbleParam/(LIGHTCGS / 1e5);
+    const double fac = InitTime * hubble_function(CP, InitTime)/CP->Hubble * 100 * CP->HubbleParam/(LIGHTCGS / 1e5);
     const double onu = get_omega_nu(&CP->ONu, InitTime)*pow(InitTime,3);
     double meangrowth[VEL_TOT-VEL_BAR+1] = {0};
     /* At this point the transfer table contains: (3,4,5) t_b, 0.5 * h_prime, t_ncdm.
@@ -396,7 +396,7 @@ int init_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in
             double res = TopHatSigma2(R8);
             Norm = ppar->Sigma8 / sqrt(res);
         }
-        double Dplus = GrowthFactor(InitTime, 1/(1+ppar->InputPowerRedshift));
+        double Dplus = GrowthFactor(CP, InitTime, 1/(1+ppar->InputPowerRedshift));
         if(ppar->InputPowerRedshift >= 0) {
             Norm *= Dplus;
             message(0,"Growth factor from z=%g (InputPowerRedshift) to z=%g (Init): %g \n", ppar->InputPowerRedshift, 1. / InitTime - 1, Dplus);

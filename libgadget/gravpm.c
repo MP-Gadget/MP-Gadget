@@ -88,7 +88,7 @@ gravpm_force(PetaPM * pm, ForceTree * tree) {
     powerspectrum_sum(pm->ps);
     /*Now save the power spectrum*/
     if(ThisTask == 0) {
-        powerspectrum_save(pm->ps, All.OutputDir, "powerspectrum", All.Time, GrowthFactor(All.Time, 1.0));
+        powerspectrum_save(pm->ps, All.OutputDir, "powerspectrum", All.Time, GrowthFactor(&All.CP, All.Time, 1.0));
         /* Save the neutrino power if it is allocated*/
         if(pm->ps->logknu)
             powerspectrum_nu_save(pm->ps, All.OutputDir, "powerspectrum-nu", All.Time);

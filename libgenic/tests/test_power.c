@@ -90,9 +90,9 @@ test_growth_numerical(void ** state)
         newk/=1e3;
 /*         message(1,"k=%g G = %g F = %g G0 = %g\n",newk*1e3,dlogGrowth(newk, DELTA_TOT), F_Omega(0.01),dlogGrowth(newk, 1)); */
         //Total growth should be very close to F_Omega.
-        assert_true(fabs(dlogGrowth(newk,DELTA_TOT) / (F_Omega(0.01) * DeltaSpec(newk, DELTA_TOT)) -1) < 0.01);
+        assert_true(fabs(dlogGrowth(newk,DELTA_TOT) / (F_Omega(&CP, 0.01) * DeltaSpec(newk, DELTA_TOT)) -1) < 0.01);
         //Growth of CDM should be lower, growth of baryons should be higher.
-        assert_true(dlogGrowth(newk,DELTA_CDM) < F_Omega(0.01) * DeltaSpec(newk, DELTA_CDM));
+        assert_true(dlogGrowth(newk,DELTA_CDM) < F_Omega(&CP, 0.01) * DeltaSpec(newk, DELTA_CDM));
         assert_true(fabs(dlogGrowth(newk,DELTA_CDM) / DeltaSpec(newk, DELTA_CDM) - 0.9389) < 0.01);
         assert_true(dlogGrowth(newk,DELTA_BAR) > 1.318 * DeltaSpec(newk, DELTA_BAR));
         assert_true(dlogGrowth(newk,DELTA_BAR) < 1.35 * DeltaSpec(newk, DELTA_BAR));

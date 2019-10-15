@@ -39,11 +39,11 @@ double function_of_k_eval(FunctionOfK * fk, double k);
 double function_of_k_tophat_sigma(FunctionOfK * fk, double R);
 
 /*Hubble function at scale factor a, in dimensions of CP.Hubble*/
-double hubble_function(double a);
+double hubble_function(const Cosmology * CP, double a);
 /* Linear theory growth factor between astart and aend. */
-double GrowthFactor(double astart, double aend);
+double GrowthFactor(Cosmology * CP, double astart, double aend);
 /*Note this is only used in GenIC*/
-double F_Omega(double a);
+double F_Omega(Cosmology * CP, double a);
 
 /*Initialise the derived parts of the cosmology*/
 void init_cosmology(Cosmology *CP, double TimeBegin);

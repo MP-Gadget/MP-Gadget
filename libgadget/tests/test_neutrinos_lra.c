@@ -14,7 +14,7 @@
 #define T_CMB0 2.7255
 /** Fit to the special function J(x) that is accurate to better than 3% relative and 0.07% absolute*/
 double specialJ(const double x, const double vcmnubylight, const double nufrac_low);
-double fslength(const double logai, const double logaf, const double light);
+double fslength(Cosmology * CP, const double logai, const double logaf, const double light);
 
 void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, int verbose) {};
 int petaio_read_block(BigFile * bf, char * blockname, BigArray * array, int required)
@@ -104,10 +104,10 @@ static void test_fslength(void **state)
      *we use large masses so that we don't have to compute omega_nu in mathematica.*/
     double kT = BOLEVK*TNUCMB*T_CMB0;
     /*fslength function returns fslength * (MNu / kT)*/
-    assert_true(fabs(fslength(log(0.5), log(1), 299792.)/ 1272.92/(0.45/kT) -1 ) < 1e-5);
+    assert_true(fabs(fslength(&CP, log(0.5), log(1), 299792.)/ 1272.92/(0.45/kT) -1 ) < 1e-5);
     double MNu2[3] = {0.2, 0.2, 0.2};
     setup_cosmology(&CP, MNu2);
-    assert_true(fabs(fslength(log(0.1), log(0.5),299792.)/ 5427.8/(0.6/kT) -1 ) < 1e-5);
+    assert_true(fabs(fslength(&CP, log(0.1), log(0.5),299792.)/ 5427.8/(0.6/kT) -1 ) < 1e-5);
 }
 
 int main(void) {

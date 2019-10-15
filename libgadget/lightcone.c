@@ -55,10 +55,11 @@ M, L = self.M, self.L
 */
 static double kernel(double loga, void * params) {
     double a = exp(loga);
-    return 1 / hubble_function(a) * All.CP.Hubble / a;
+      Cosmology * CP = (Cosmology *) params;
+    return 1 / hubble_function(CP, a) * All.CP.Hubble / a;
 } 
 
-static void lightcone_init_entry(int i) {
+static void lightcone_init_entry(Cosmology * CP, int i) {
     tab_loga[i] = - dloga * (NENTRY - i - 1);
 
     gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000); 
@@ -67,7 +68,7 @@ static void lightcone_init_entry(int i) {
 
     gsl_function F;
     F.function = &kernel;
-
+    F.params = CP;
     gsl_integration_qags (&F, tab_loga[i], 0, 0, 1e-7, 1000,
             w, &result, &error); 
 
@@ -84,12 +85,12 @@ static void lightcone_init_entry(int i) {
 //    printf("a = %g z = %g Dc = %g\n", a, z, result);
 }
 
-void lightcone_init(double timeBegin)
+void lightcone_init(Cosmology * CP, double timeBegin)
 {
     int i;
     dloga = (0.0 - log(timeBegin)) / (NENTRY - 1);
     for(i = 0; i < NENTRY; i ++) {
-        lightcone_init_entry(i);
+        lightcone_init_entry(CP, i);
     };
     char buf[1024];
     int chunk = 100;
