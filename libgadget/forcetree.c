@@ -938,6 +938,15 @@ force_update_node_parallel(const ForceTree * tree, const int HybridNuGrav)
     return tail;
 }
 
+struct topleaf_momentsdata
+{
+    MyFloat s[3];
+    MyFloat mass;
+    MyFloat hmax;
+    MyFloat MaxSoftening;
+    int MixedSofteningsInNode;
+};
+
 /*! This function communicates the values of the multipole moments of the
  *  top-level tree-nodes of the ddecomp grid.  This data can then be used to
  *  update the pseudo-particles on each CPU accordingly.
@@ -945,70 +954,58 @@ force_update_node_parallel(const ForceTree * tree, const int HybridNuGrav)
 void force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp)
 {
     int NTask, ThisTask;
-    int i, no, ta, recvTask;
+    int i, no, ta, recvTask, nlocal;
     int *recvcounts, *recvoffset;
-    struct topleaf_momentsdata
-    {
-        MyFloat s[3];
-        MyFloat mass;
-        MyFloat hmax;
-        struct {
-            unsigned int MixedSofteningsInNode :1;
-        };
-        MyFloat MaxSoftening;
-    }
-    *TopLeafMoments;
+    size_t recvtotal;
+    struct topleaf_momentsdata * TopLeafMoments, * TopLeafLocal;
 
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
-    TopLeafMoments = (struct topleaf_momentsdata *) mymalloc("TopLeafMoments", ddecomp->NTopLeaves * sizeof(TopLeafMoments[0]));
+    TopLeafMoments = (struct topleaf_momentsdata *) mymalloc("TopLeafMoments", ddecomp->NTopLeaves * sizeof(struct topleaf_momentsdata));
     memset(&TopLeafMoments[0], 0, sizeof(TopLeafMoments[0]) * ddecomp->NTopLeaves);
 
-    for(i = ddecomp->Tasks[ThisTask].StartLeaf; i < ddecomp->Tasks[ThisTask].EndLeaf; i ++) {
-        no = ddecomp->TopLeaves[i].treenode;
-        if(ddecomp->TopLeaves[i].Task != ThisTask)
-            endrun(131231231, "TopLeaf %d Task table is corrupted: task is %d\n", i, ddecomp->TopLeaves[i].Task);
+    nlocal = ddecomp->Tasks[ThisTask].EndLeaf - ddecomp->Tasks[ThisTask].StartLeaf;
+    TopLeafLocal = (struct topleaf_momentsdata *) mymalloc("TopLeafLocals", nlocal * sizeof(struct topleaf_momentsdata));
+
+    for(i = 0; i < nlocal; i ++) {
+        int j = ddecomp->Tasks[ThisTask].StartLeaf + i;
+        no = ddecomp->TopLeaves[j].treenode;
+        if(ddecomp->TopLeaves[j].Task != ThisTask)
+            endrun(131231231, "TopLeaf %d Task table is corrupted: task is %d\n", j, ddecomp->TopLeaves[j].Task);
 
         /* read out the multipole moments from the local base cells */
-        TopLeafMoments[i].s[0] = tree->Nodes[no].u.d.s[0];
-        TopLeafMoments[i].s[1] = tree->Nodes[no].u.d.s[1];
-        TopLeafMoments[i].s[2] = tree->Nodes[no].u.d.s[2];
-        TopLeafMoments[i].mass = tree->Nodes[no].u.d.mass;
-        TopLeafMoments[i].hmax = tree->Nodes[no].u.d.hmax;
-        TopLeafMoments[i].MaxSoftening = tree->Nodes[no].u.d.MaxSoftening;
-        TopLeafMoments[i].MixedSofteningsInNode = tree->Nodes[no].f.MixedSofteningsInNode;
-
-        /*Set the local base nodes dependence on local mass*/
-        while(no >= 0)
-        {
-            if(tree->Nodes[no].f.DependsOnLocalMass)
-                break;
-
-            tree->Nodes[no].f.DependsOnLocalMass = 1;
-
-            no = tree->Nodes[no].father;
-        }
+        TopLeafLocal[i].s[0] = tree->Nodes[no].u.d.s[0];
+        TopLeafLocal[i].s[1] = tree->Nodes[no].u.d.s[1];
+        TopLeafLocal[i].s[2] = tree->Nodes[no].u.d.s[2];
+        TopLeafLocal[i].mass = tree->Nodes[no].u.d.mass;
+        TopLeafLocal[i].hmax = tree->Nodes[no].u.d.hmax;
+        TopLeafLocal[i].MaxSoftening = tree->Nodes[no].u.d.MaxSoftening;
+        TopLeafLocal[i].MixedSofteningsInNode = tree->Nodes[no].f.MixedSofteningsInNode;
     }
 
     /* share the pseudo-particle data across CPUs */
 
     recvcounts = (int *) mymalloc("recvcounts", sizeof(int) * NTask);
     recvoffset = (int *) mymalloc("recvoffset", sizeof(int) * NTask);
+    recvtotal = 0;
 
     for(recvTask = 0; recvTask < NTask; recvTask++)
     {
-        recvoffset[recvTask] = ddecomp->Tasks[recvTask].StartLeaf * sizeof(TopLeafMoments[0]);
-        recvcounts[recvTask] = (ddecomp->Tasks[recvTask].EndLeaf - ddecomp->Tasks[recvTask].StartLeaf) * sizeof(TopLeafMoments[0]);
+        recvoffset[recvTask] = ddecomp->Tasks[recvTask].StartLeaf * sizeof(struct topleaf_momentsdata);
+        recvcounts[recvTask] = (ddecomp->Tasks[recvTask].EndLeaf - ddecomp->Tasks[recvTask].StartLeaf) * sizeof(struct topleaf_momentsdata);
+        recvtotal += recvcounts[recvTask];
     }
 
-    MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
-            &TopLeafMoments[0], recvcounts, recvoffset,
-            MPI_BYTE, MPI_COMM_WORLD);
+    if(recvtotal > ddecomp->NTopLeaves * sizeof(struct topleaf_momentsdata))
+        endrun(5, "Corruption in the tree build: total domain tasks %d > top leaves %d\n", recvtotal, ddecomp->NTopLeaves);
+
+    MPI_Allgatherv(TopLeafLocal, nlocal * sizeof(struct topleaf_momentsdata), MPI_BYTE,
+            TopLeafMoments, recvcounts, recvoffset, MPI_BYTE, MPI_COMM_WORLD);
 
     myfree(recvoffset);
     myfree(recvcounts);
-
+    myfree(TopLeafLocal);
 
     for(ta = 0; ta < NTask; ta++) {
         if(ta == ThisTask) continue; /* bypass ThisTask since it is already up to date */
@@ -1023,6 +1020,16 @@ void force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp)
             tree->Nodes[no].u.d.hmax = TopLeafMoments[i].hmax;
             tree->Nodes[no].u.d.MaxSoftening = TopLeafMoments[i].MaxSoftening;
             tree->Nodes[no].f.MixedSofteningsInNode = TopLeafMoments[i].MixedSofteningsInNode;
+            /*Set the local base nodes dependence on local mass*/
+            while(no >= tree->firstnode)
+            {
+                if(tree->Nodes[no].f.DependsOnLocalMass)
+                    break;
+
+                tree->Nodes[no].f.DependsOnLocalMass = 1;
+
+                no = tree->Nodes[no].father;
+            }
          }
     }
     myfree(TopLeafMoments);
