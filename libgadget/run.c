@@ -50,7 +50,7 @@ static struct ClockTable Clocks;
  * reached, when a `stop' file is found in the output directory, or
  * when the simulation ends because we arrived at TimeMax.
  */
-static void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp);
+static void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, int PairwiseStep, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp);
 static void write_cpu_log(int NumCurrentTiStep, FILE * FdCPU);
 
 /* Updates the global storing the current random offset of the particles,
@@ -230,8 +230,10 @@ run(int RestartSnapNum)
         /*Allocate the extra SPH data for transient SPH particle properties.*/
         if(GasEnabled)
             slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size, &SlotsManager->sph_scratch);
+
+        int pairwisestep = Act.NumActiveParticle < All.PairwiseActiveFraction * PartManager->NumPart;
         /* update force to Ti_Current */
-        compute_accelerations(&Act, is_PM, &pm, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
+        compute_accelerations(&Act, is_PM, &pm, pairwisestep, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
 
         int didfof = 0;
         /* Note this must be after gravaccel and hydro,
@@ -365,7 +367,7 @@ run(int RestartSnapNum)
  * be outside the allowed bounds, it will be readjusted by the function ensure_neighbours(), and for those
  * particle, the densities are recomputed accordingly. Finally, the hydrodynamical forces are added.
  */
-void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp)
+void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, int PairwiseStep, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp)
 {
     message(0, "Begin force computation.\n");
 
@@ -408,8 +410,15 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
     const int NeutrinoTracer =  All.HybridNeutrinosOn && (All.Time <= All.HybridNuPartTime);
     const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
 
-    if(All.TreeGravOn)
-        grav_short_tree(act, pm, tree, rho0, NeutrinoTracer, All.FastParticleType);
+    if(All.TreeGravOn) {
+        /* Do a short range pairwise only step if desired*/
+        if(PairwiseStep) {
+            struct gravshort_tree_params gtp = get_gravshort_treepar();
+            grav_short_pair(act, pm, tree, gtp.Rcut, rho0, NeutrinoTracer, All.FastParticleType);
+        }
+        else
+            grav_short_tree(act, pm, tree, rho0, NeutrinoTracer, All.FastParticleType);
+    }
 
     /* We use the total gravitational acc.
      * to open the tree and total acc for the timestep.
