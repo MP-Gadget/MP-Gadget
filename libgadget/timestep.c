@@ -55,7 +55,7 @@ timestep_eh_slots_fork(EIBase * event, void * userdata)
     int parent = ev->parent;
     int child = ev->child;
 
-    if(is_timebin_active(P[parent].TimeBin, All.Ti_Current)) {
+    if(is_timebin_active(P[parent].TimeBin, All.Ti_Current) && !P[parent].Swallowed) {
         int childactive = atomic_fetch_and_add(&NumActiveParticle, 1);
         if(ActiveParticle)
             ActiveParticle[childactive] = child;
@@ -153,7 +153,7 @@ find_timesteps(inttime_t Ti_Current)
         {
             /* Because we don't GC on short timesteps, there can be garbage here.
              * Avoid making it active. */
-            if(P[i].IsGarbage)
+            if(P[i].IsGarbage || P[i].Swallowed)
                 continue;
             inttime_t dti = get_timestep_ti(i, dti_max);
             if(dti < dti_min)
@@ -169,7 +169,7 @@ find_timesteps(inttime_t Ti_Current)
     {
         const int i = get_active_particle(pa);
 
-        if(P[i].IsGarbage)
+        if(P[i].IsGarbage || P[i].Swallowed)
             continue;
 
         if(P[i].Ti_kick != P[i].Ti_drift) {
@@ -197,7 +197,7 @@ find_timesteps(inttime_t Ti_Current)
         {
             /* make sure the new step is currently active,
              * so that particles do not miss a step */
-            while(!is_timebin_active(bin, Ti_Current) && bin > binold && bin > 1)
+            while((!is_timebin_active(bin, Ti_Current) && bin > binold && bin > 1) || P[pa].Swallowed)
                 bin--;
         }
         /* This moves particles between time bins:
@@ -645,7 +645,7 @@ int rebuild_activelist(inttime_t Ti_Current, int NumCurrentTiStep)
     {
         const int bin = P[i].TimeBin;
         const int tid = omp_get_thread_num();
-        if(P[i].IsGarbage)
+        if(P[i].IsGarbage || P[i].Swallowed)
             continue;
         if(ActiveParticle && is_timebin_active(bin, Ti_Current))
         {
@@ -760,4 +760,3 @@ static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountTyp
         tot_type[0], tot_type[1], tot_type[2], tot_type[3], tot_type[4], tot_type[5], tot);
 
 }
-
