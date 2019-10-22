@@ -179,6 +179,7 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
 
         force_treeupdate_pseudos(PartManager->MaxPart, &tree);
         tree.moments_computed_flag = 1;
+        tree.hmax_computed_flag = 1;
     }
 
     tree.Nodes_base = myrealloc(tree.Nodes_base, (Numnodestree +1) * sizeof(struct NODE));
@@ -1026,23 +1027,37 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
 
     walltime_measure("/Misc");
 
+    /* If hmax has not yet been computed, do all particles*/
+    if(!tree->hmax_computed_flag) {
+        activeset = NULL;
+        size = PartManager->NumPart;
+    }
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
+    #pragma omp parallel for
     for(i = 0; i < size; i++)
     {
         const int p_i = activeset ? activeset[i] : i;
 
-        if(P[p_i].Type != 0)
+        if(P[p_i].Type != 0 || P[p_i].IsGarbage)
             continue;
 
         int no = tree->Father[p_i];
 
         while(no >= 0)
         {
-            if(P[p_i].Hsml <= tree->Nodes[no].mom.hmax)
+            MyFloat readhmax;
+            #pragma omp atomic read
+            readhmax = tree->Nodes[no].mom.hmax;
+            do {
+                if(P[i].Hsml <= readhmax)
+                    break;
+                /* Swap in the new hmax only if the old one hasn't changed. */
+            } while(!__atomic_compare_exchange(&(tree->Nodes[no].mom.hmax), &readhmax, &P[i].Hsml, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+
+            if(P[i].Hsml <= readhmax)
                 break;
-            tree->Nodes[no].mom.hmax = P[p_i].Hsml;
             no = tree->Nodes[no].father;
         }
     }
