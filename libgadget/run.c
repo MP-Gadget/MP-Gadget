@@ -229,9 +229,9 @@ run(int RestartSnapNum)
             if(All.BlackHoleOn && All.Time >= TimeNextSeedingCheck)
             {
                 /* Seeding */
-                fof_fof(&Tree, All.BoxSize, All.BlackHoleOn, MPI_COMM_WORLD);
-                fof_seed(MPI_COMM_WORLD);
-                fof_finish();
+                FOFGroups fof = fof_fof(&Tree, All.BoxSize, All.BlackHoleOn, MPI_COMM_WORLD);
+                fof_seed(&fof, MPI_COMM_WORLD);
+                fof_finish(&fof);
                 TimeNextSeedingCheck = All.Time * All.TimeBetweenSeedingSearch;
             }
 
