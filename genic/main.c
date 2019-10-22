@@ -20,7 +20,8 @@ void print_spec(void);
 
 int main(int argc, char **argv)
 {
-  MPI_Init(&argc, &argv);
+  int thread_provided;
+  MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &thread_provided);
   MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
   if(argc < 2)
     endrun(0,"Please pass a parameter file.\n");
