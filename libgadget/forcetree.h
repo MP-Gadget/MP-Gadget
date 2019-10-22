@@ -128,12 +128,6 @@ node_is_node(int no, const ForceTree * tree)
 }
 
 int
-force_get_next_node(int no, const ForceTree * tb);
-
-int
-force_set_next_node(int no, int next, const ForceTree * tb);
-
-int
 force_get_father(int no, const ForceTree * tt);
 
 #endif
