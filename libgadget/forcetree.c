@@ -275,6 +275,8 @@ modify_internal_node(int parent, int subnode, int p_toplace, const ForceTree tb)
 {
     tb.Father[p_toplace] = parent;
     tb.Nodes[parent].u.s.suns[subnode] = p_toplace;
+    if(subnode == 0)
+        tb.Nodes[parent].u.d.nextnode = tb.Nodes[parent].u.s.suns[0];
     return 0;
 }
 
@@ -321,6 +323,16 @@ create_new_node_layer(int firstparent, int p_toplace,
             /*Set father of new node*/
             nfreep->father = parent;
         }
+        /* Set nextnode and sibling for the new rank. Since empty at this point, point both of them onwards.*/
+        nprnt->u.d.nextnode = nprnt->u.s.suns[0];
+        for(i=0; i<7; i++) {
+            int child = nprnt->u.s.suns[i];
+            struct NODE * nchild = &tb.Nodes[child];
+            nchild->u.d.nextnode = nchild->u.d.sibling = nprnt->u.s.suns[i+1];
+        }
+        /* Final child needs special handling: we don't use its nextnode, so set to -1.*/
+        tb.Nodes[nprnt->u.s.suns[7]].u.d.nextnode = -1;
+
         /*Initialize the remaining entries to empty*/
         for(i=8; i<NMAXCHILD;i++)
             nprnt->u.s.suns[i] = -1;
@@ -543,6 +555,9 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
                 init_internal_node(&Nodes[*nextfree], &Nodes[no], count);
                 /*Set father of new node*/
                 Nodes[*nextfree].father = no;
+                /* Set nextnode */
+                if(count == 0)
+                    Nodes[no].u.d.nextnode = *nextfree;
                 /*All nodes here are top level nodes*/
                 Nodes[*nextfree].f.TopLevel = 1;
 
@@ -585,6 +600,7 @@ force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddeco
             tree->Nodes[index].f.ChildType = PSEUDO_NODE_TYPE;
             /* This node points to the pseudo particle*/
             tree->Nodes[index].u.d.nextnode = firstpseudo + i;
+            tree->Nodes[index].u.s.suns[0] = firstpseudo + i;
         }
     }
 }
@@ -679,7 +695,6 @@ force_update_particle_node(int no, int sib, const ForceTree * tree, const int Hy
     int * suns = tree->Nodes[no].u.s.suns;
 
     tree->Nodes[no].u.d.sibling = sib;
-    tree->Nodes[no].u.d.nextnode = suns[0];
 
     /*Now we do the moments*/
     for(j = 0; j < noccupied; j++) {
@@ -746,14 +761,14 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
             childcnt++;
     }
 
-    /* Nextnode for this node is the first non-zero child*/
-    /*First do the children*/
-    for(j = 0; j < 8; j++) {
-        if(suns[j] >= 0) {
-            tree->Nodes[no].u.d.nextnode = suns[j];
-            break;
+    /* Reset nextnode to point to a new child if needed.*/
+    if(childcnt < 8)
+        for(j = 0; j < 8; j++) {
+            if(suns[j] >= 0) {
+                tree->Nodes[no].u.d.nextnode = suns[j];
+                break;
+            }
         }
-    }
 
     /*First do the children*/
     for(j = 0; j < 8; j++)
@@ -966,7 +981,7 @@ void force_treeupdate_pseudos(int no, const ForceTree * tree)
     if(!tree->Nodes[no].f.InternalTopLevel)
         return;
 
-    p = tree->Nodes[no].u.d.nextnode;
+    p = tree->Nodes[no].u.s.suns[0];
 
     /* since we are dealing with top-level nodes, we know that there are 8 consecutive daughter nodes */
     for(j = 0; j < 8; j++)
