@@ -797,11 +797,11 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, double BoxSi
     fof_finish_group_properties(fof, BoxSize);
 
     int64_t TotNids;
-    MPI_Allreduce(&fof->Ngroups, &fof->TotNgroups, 1, MPI_INT64, MPI_SUM, Comm);
+    sumup_large_ints(1, &fof->Ngroups, &fof->TotNgroups);
     MPI_Allreduce(&Nids, &TotNids, 1, MPI_INT64, MPI_SUM, Comm);
 
     /* report some statistics */
-    int largestgroup;
+    int largestgroup = 0;
     if(fof->TotNgroups > 0)
     {
         int largestloc = 0;
@@ -811,8 +811,6 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, double BoxSi
                 largestloc = fof->Group[i].Length;
         MPI_Allreduce(&largestloc, &largestgroup, 1, MPI_INT, MPI_MAX, Comm);
     }
-    else
-        largestgroup = 0;
 
     message(0, "Total number of groups with at least %d particles: %ld\n", fof_params.FOFHaloMinLength, fof->TotNgroups);
     if(fof->TotNgroups > 0)
