@@ -241,7 +241,7 @@ run(int RestartSnapNum)
 
         /* Need to rebuild the force tree because all TopLeaves are out of date.*/
         ForceTree Tree = {0};
-        force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, All.OutputDir);
+        force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, !pairwisestep && All.TreeGravOn, All.OutputDir);
 
         /*Allocate the extra SPH data for transient SPH particle properties.*/
         if(GasEnabled)
@@ -330,7 +330,7 @@ run(int RestartSnapNum)
                     for(i = 0; i < PartManager->NumPart; i++)
                         P[i].Key = PEANO(P[i].Pos, All.BoxSize);
                 }
-                force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, All.OutputDir);
+                force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, 0, All.OutputDir);
                 Act.NumActiveParticle = PartManager->NumPart;
             }
         }
@@ -450,7 +450,7 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
         gravpm_force(pm, tree);
 
         /*Rebuild the force tree we freed in gravpm to save memory*/
-        force_tree_rebuild(tree, ddecomp, All.BoxSize, HybridNuGrav, All.OutputDir);
+        force_tree_rebuild(tree, ddecomp, All.BoxSize, HybridNuGrav, FirstStep && All.TreeGravOn, All.OutputDir);
 
         /* compute and output energy statistics if desired. */
         if(All.OutputEnergyDebug)

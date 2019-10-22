@@ -182,10 +182,10 @@ static void do_force_test(double BoxSize, int Nmesh, double Asmth, double ErrTol
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, BoxSize, Asmth, Nmesh, All.G);
     ForceTree Tree = {0};
-    force_tree_rebuild(&Tree, &ddecomp, BoxSize, 1, NULL);
+    force_tree_rebuild(&Tree, &ddecomp, BoxSize, 1, 1, NULL);
     gravshort_fill_ntab(SHORTRANGE_FORCE_WINDOW_TYPE_EXACT, Asmth);
     gravpm_force(&pm, &Tree);
-    force_tree_rebuild(&Tree, &ddecomp, BoxSize, 1, NULL);
+    force_tree_rebuild(&Tree, &ddecomp, BoxSize, 1, 1, NULL);
     const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
 
     /* Barnes-Hut on first iteration*/

@@ -47,7 +47,7 @@ init_forcetree_params(const int FastParticleType)
 }
 
 static ForceTree
-force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav, const char * EmergencyOutputDir);
+force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir);
 
 /*Next three are not static as tested.*/
 int
@@ -100,7 +100,7 @@ force_tree_allocated(const ForceTree * tree)
 }
 
 void
-force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav, const char * EmergencyOutputDir)
+force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir)
 {
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Tree construction.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
@@ -110,7 +110,7 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSiz
     }
     walltime_measure("/Misc");
 
-    *tree = force_tree_build(PartManager->NumPart, ddecomp, BoxSize, HybridNuGrav, EmergencyOutputDir);
+    *tree = force_tree_build(PartManager->NumPart, ddecomp, BoxSize, HybridNuGrav, DoMoments, EmergencyOutputDir);
 
     event_listen(&EventSlotsFork, force_tree_eh_slots_fork, tree);
 
@@ -130,7 +130,7 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSiz
  *  particles", i.e. multipole moments of top-level nodes that lie on
  *  different CPUs. If such a node needs to be opened, the corresponding
  *  particle must be exported to that CPU. */
-ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav, const char * EmergencyOutputDir)
+ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir)
 {
     int Numnodestree;
     ForceTree tree;
@@ -165,17 +165,21 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
         endrun(2, "Required too many nodes, snapshot dumped\n");
     }
     walltime_measure("/Tree/Build/Nodes");
-
     /* insert the pseudo particles that represent the mass distribution of other ddecomps */
     force_insert_pseudo_particles(&tree, ddecomp);
 
-    /* now compute the multipole moments recursively */
-    force_update_node_parallel(&tree, HybridNuGrav);
+    tree.moments_computed_flag = 0;
 
-    /* Exchange the pseudo-data*/
-    force_exchange_pseudodata(&tree, ddecomp);
+    if(DoMoments) {
+        /* now compute the multipole moments recursively */
+        force_update_node_parallel(&tree, HybridNuGrav);
 
-    force_treeupdate_pseudos(PartManager->MaxPart, &tree);
+        /* Exchange the pseudo-data*/
+        force_exchange_pseudodata(&tree, ddecomp);
+
+        force_treeupdate_pseudos(PartManager->MaxPart, &tree);
+        tree.moments_computed_flag = 1;
+    }
 
     tree.Nodes_base = myrealloc(tree.Nodes_base, (Numnodestree +1) * sizeof(struct NODE));
 

@@ -71,6 +71,8 @@ typedef struct ForceTree {
     int tree_allocated_flag;
     /* Flags that hmax has been computed for this tree*/
     int hmax_computed_flag;
+    /* Flags that the tree has fully computed and exchanged mass moments*/
+    int moments_computed_flag;
     /*Index of first internal node. Difference between Nodes and Nodes_base. == MaxPart*/
     int firstnode;
     /*Index of first pseudo-particle node*/
@@ -105,7 +107,7 @@ void force_update_hmax(int * activeset, int size, ForceTree * tt, DomainDecomp *
 /* This is the main constructor for the tree structure.
    The tree shall be either zero-filled, so that force_tree_allocated = 0, or a valid ForceTree.
 */
-void force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav, const char * EmergencyOutputDir);
+void force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir);
 
 /*Free the memory associated with the tree*/
 void   force_tree_free(ForceTree * tt);
