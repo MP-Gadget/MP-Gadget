@@ -319,7 +319,7 @@ run(int RestartSnapNum)
 
 /*! This routine computes the accelerations for all active particles.  First, the gravitational forces are
  * computed. This also reconstructs the tree, if needed, otherwise the drift/kick operations have updated the
- * tree to make it fullu usable at the current time.
+ * tree to make it fully usable at the current time.
  *
  * If gas particles are presented, the `interior' of the local ddecomp is determined. This region is guaranteed
  * to contain only particles local to the processor. This information will be used to reduce communication in
@@ -348,7 +348,7 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
         density(act, 1, All.DensityIndependentSphOn, tree);  /* computes density, and pressure */
 
         /***** update smoothing lengths in tree *****/
-        force_update_hmax(act->ActiveParticle, act->NumActiveParticle, tree);
+        force_update_hmax(act->ActiveParticle, act->NumActiveParticle, tree, ddecomp);
         /***** hydro forces *****/
         MPIU_Barrier(MPI_COMM_WORLD);
         message(0, "Start hydro-force computation...\n");
