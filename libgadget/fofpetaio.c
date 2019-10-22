@@ -17,8 +17,8 @@
 #include "fof.h"
 
 static void fof_register_io_blocks(struct IOTable * IOTable);
-static void fof_write_header(BigFile * bf, MPI_Comm Comm);
-static void build_buffer_fof(BigArray * array, IOTableEntry * ent);
+static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm);
+static void build_buffer_fof(int Ngroups, BigArray * array, IOTableEntry * ent);
 
 static void fof_return_particles(MPI_Comm Comm);
 static void fof_distribute_particles(MPI_Comm Comm);
@@ -43,7 +43,10 @@ fof_petaio_select_func(int i)
     return 1;
 }
 
-void fof_save_particles(int num, int SaveParticles, MPI_Comm Comm)
+/* Global for the particle saving routines*/
+struct Group * Group;
+
+void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_Comm Comm)
 {
     int i;
     struct IOTable FOFIOTable = {0};
@@ -52,8 +55,10 @@ void fof_save_particles(int num, int SaveParticles, MPI_Comm Comm)
 
     fof_register_io_blocks(&FOFIOTable);
     /* sort the groups according to group-number */
-    mpsort_mpi(Group, Ngroups, sizeof(struct Group),
+    mpsort_mpi(fof->Group, fof->Ngroups, sizeof(struct Group),
             fof_radix_Group_GrNr, 8, NULL, Comm);
+
+    Group = fof->Group;
 
     BigFile bf = {0};
     if(0 != big_file_mpi_create(&bf, fname, Comm)) {
@@ -62,7 +67,7 @@ void fof_save_particles(int num, int SaveParticles, MPI_Comm Comm)
     myfree(fname);
 
     MPIU_Barrier(Comm);
-    fof_write_header(&bf, Comm);
+    fof_write_header(&bf, fof->TotNgroups, Comm);
 
     for(i = 0; i < FOFIOTable.used; i ++) {
         /* only process the particle blocks */
@@ -71,7 +76,7 @@ void fof_save_particles(int num, int SaveParticles, MPI_Comm Comm)
         BigArray array = {0};
         if(ptype == PTYPE_FOF_GROUP) {
             sprintf(blockname, "FOFGroups/%s", FOFIOTable.ent[i].name);
-            build_buffer_fof(&array, &FOFIOTable.ent[i]);
+            build_buffer_fof(fof->Ngroups, &array, &FOFIOTable.ent[i]);
             message(0, "Writing Block %s\n", blockname);
 
             petaio_save_block(&bf, blockname, &array, 1);
@@ -242,7 +247,7 @@ static void fof_return_particles(MPI_Comm Comm) {
         endrun(1931,"Could not exchange particles\n");
 }
 
-static void build_buffer_fof(BigArray * array, IOTableEntry * ent) {
+static void build_buffer_fof(int Ngroups, BigArray * array, IOTableEntry * ent) {
 
     int64_t npartLocal = Ngroups;
 
@@ -256,7 +261,7 @@ static void build_buffer_fof(BigArray * array, IOTableEntry * ent) {
     }
 }
 
-static void fof_write_header(BigFile * bf, MPI_Comm Comm) {
+static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm) {
     BigBlock bh;
     if(0 != big_file_mpi_create_block(bf, &bh, "Header", NULL, 0, 0, 0, Comm)) {
         endrun(0, "Failed to create header\n");
