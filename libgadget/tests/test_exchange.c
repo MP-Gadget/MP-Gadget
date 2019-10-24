@@ -105,12 +105,12 @@ test_exchange(void **state)
 
     int i;
 
-    int fail = domain_exchange(&test_exchange_layout_func, NULL, 1, MPI_COMM_WORLD);
+    int fail = domain_exchange(&test_exchange_layout_func, NULL, 1, PartManager, SlotsManager, MPI_COMM_WORLD);
 
     assert_all_true(!fail);
 
     slots_check_id_consistency(SlotsManager);
-    domain_test_id_uniqueness();
+    domain_test_id_uniqueness(PartManager);
 
     for(i = 0; i < PartManager->NumPart; i ++) {
         assert_true(P[i].ID % NTask == ThisTask);
@@ -129,12 +129,12 @@ test_exchange_zero_slots(void **state)
 
     int i;
 
-    int fail = domain_exchange(&test_exchange_layout_func, NULL, 1, MPI_COMM_WORLD);
+    int fail = domain_exchange(&test_exchange_layout_func, NULL, 1, PartManager, SlotsManager, MPI_COMM_WORLD);
 
     assert_all_true(!fail);
 
     slots_check_id_consistency(SlotsManager);
-    domain_test_id_uniqueness();
+    domain_test_id_uniqueness(PartManager);
 
     for(i = 0; i < PartManager->NumPart; i ++) {
         assert_true (P[i].ID % NTask == ThisTask);
@@ -155,11 +155,11 @@ test_exchange_with_garbage(void **state)
     slots_mark_garbage(0); /* watch out! this propogates the garbage flag to children */
     TotNumPart -= NTask;
 
-    int fail = domain_exchange(&test_exchange_layout_func, NULL, 1, MPI_COMM_WORLD);
+    int fail = domain_exchange(&test_exchange_layout_func, NULL, 1, PartManager, SlotsManager, MPI_COMM_WORLD);
 
     assert_all_true(!fail);
 
-    domain_test_id_uniqueness();
+    domain_test_id_uniqueness(PartManager);
     slots_check_id_consistency(SlotsManager);
 
     for(i = 0; i < PartManager->NumPart; i ++) {
@@ -191,7 +191,7 @@ test_exchange_uneven(void **state)
     int i;
 
     /* this will trigger a slot growth on slot type 0 due to the inbalance */
-    int fail = domain_exchange(&test_exchange_layout_func_uneven, NULL, 1, MPI_COMM_WORLD);
+    int fail = domain_exchange(&test_exchange_layout_func_uneven, NULL, 1, PartManager, SlotsManager, MPI_COMM_WORLD);
 
     assert_all_true(!fail);
 
@@ -201,7 +201,7 @@ test_exchange_uneven(void **state)
     }
 
     slots_check_id_consistency(SlotsManager);
-    domain_test_id_uniqueness();
+    domain_test_id_uniqueness(PartManager);
 
     for(i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].Type == 0) {
