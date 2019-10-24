@@ -22,6 +22,9 @@ int main(int argc, char **argv)
 {
   int thread_provided;
   MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &thread_provided);
+  if(thread_provided != MPI_THREAD_FUNNELED)
+  	message(1, "MPI_Init_thread returned %d != MPI_THREAD_FUNNELED\n", thread_provided);
+
   MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
   if(argc < 2)
     endrun(0,"Please pass a parameter file.\n");
