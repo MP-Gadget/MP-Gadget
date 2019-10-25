@@ -193,7 +193,8 @@ static void fof_distribute_particles(struct part_manager_type * halopartmanager,
         }
     }
 
-    struct particle_data * halopart = mymalloc("HaloParticle", sizeof(struct particle_data) * NpigLocal);
+    halopartmanager->MaxPart = NpigLocal * 1.3;
+    struct particle_data * halopart = mymalloc("HaloParticle", sizeof(struct particle_data) * halopartmanager->MaxPart);
     halopartmanager->Base = halopart;
     halopartmanager->NumPart = NpigLocal;
 
@@ -209,6 +210,8 @@ static void fof_distribute_particles(struct part_manager_type * halopartmanager,
     int GrNrMax = -1;   /* will mark particles that are not in any group */
     int GrNrMaxGlobal = 0;
     NpigLocal = 0;
+    /* Yu: found it! this shall be int64 */
+    const uint64_t task_origin_offset = ((uint64_t) ThisTask) * (PartManager->MaxPart + 1Lu);
     for(i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].GrNr < 0)
             continue;
@@ -222,8 +225,7 @@ static void fof_distribute_particles(struct part_manager_type * halopartmanager,
             halopart[NpigLocal].PI = info->size;
             info->size++;
         }
-        /* Yu: found it! this shall be int64 */
-        pi[NpigLocal].origin = ((uint64_t) ThisTask) * PartManager->MaxPart + NpigLocal;
+        pi[NpigLocal].origin = task_origin_offset + NpigLocal;
         pi[NpigLocal].sortKey = P[i].GrNr;
         NpigLocal ++;
     }
@@ -257,7 +259,9 @@ static void fof_distribute_particles(struct part_manager_type * halopartmanager,
 
     #pragma omp parallel for
     for(i = 0; i < NpigLocal; i ++) {
-        int index = pi[i].origin % PartManager->MaxPart;
+        size_t index = pi[i].origin % (halopartmanager->NumPart + 1Lu);
+        if(index >= (size_t) NpigLocal)
+            endrun(23, "entry %d has index %lu (maxpart %lu npiglocal %d)\n", i, index, halopartmanager->NumPart + 1Lu, NpigLocal);
         targettask[index] = pi[i].targetTask;
     }
     myfree(pi);
