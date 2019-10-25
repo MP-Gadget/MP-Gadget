@@ -29,6 +29,7 @@
 #include "hydra.h"
 /*Only for the star slot reservation*/
 #include "forcetree.h"
+#include "timestep.h"
 #include "domain.h"
 
 /*Parameters of the star formation model*/
@@ -87,7 +88,7 @@ static double get_sfr_factor_due_to_h2(int i);
 static double get_starformation_rate_full(int i, struct sfr_eeqos_data sfr_data);
 static double find_star_mass(int i);
 /*Get enough memory for new star slots. This may be excessively slow! Don't do it too often.*/
-static int * sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTree * tt);
+static int * sfr_reserve_slots(int * NewStars, int NumNewStar, ForceTree * tt);
 static struct sfr_eeqos_data get_sfr_eeqos(int i, double dtime);
 
 /*Set the parameters of the SFR module*/
@@ -118,8 +119,7 @@ void set_sfr_params(ParameterSet * ps)
 
 
 /* cooling and star formation routine.*/
-void
-cooling_and_starformation(ActiveParticles * act, ForceTree * tree)
+void cooling_and_starformation(ForceTree * tree)
 {
     if(!All.CoolingOn)
         return;
@@ -135,7 +135,7 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree)
 
     /*Need to capture this so that when NumActiveParticle increases during the loop
      * we don't add extra loop iterations on particles with invalid slots.*/
-    const int nactive = act->NumActiveParticle;
+    const int nactive = NumActiveParticle;
 
     if(All.StarformationOn) {
         /* Need 1 extra for non-integer part and 1 extra
@@ -160,9 +160,9 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree)
         for(i=tid; i < nactive; i+=nthreads)
         {
             /*Use raw particle number if active_set is null, otherwise use active_set*/
-            const int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
-            /* Skip non-gas or garbage particles */
-            if(P[p_i].Type != 0 || P[p_i].IsGarbage || P[p_i].Mass <= 0)
+            const int p_i = ActiveParticle ? ActiveParticle[i] : i;
+            /* Skip non-gas or garbage or swallowed particles */
+            if(P[p_i].Type != 0 || P[p_i].IsGarbage || P[p_i].Swallowed || P[p_i].Mass <= 0)
                 continue;
 
             int shall_we_star_form = 0;
@@ -222,7 +222,7 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree)
     if(All.StarformationOn && (SlotsManager->info[4].size + NumNewStar >= SlotsManager->info[4].maxsize)) {
         if(NewParents)
             NewParents = myrealloc(NewParents, sizeof(int) * NumNewStar);
-        NewStars = sfr_reserve_slots(act, NewStars, NumNewStar, tree);
+        NewStars = sfr_reserve_slots(NewStars, NumNewStar, tree);
     }
     SlotsManager->info[4].size += NumNewStar;
 
@@ -296,7 +296,7 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree)
  * It is also not elegant, but I couldn't think of a better way. May be fragile and need updating
  * if memory allocation patterns change. */
 static int *
-sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTree * tree)
+sfr_reserve_slots(int * NewStars, int NumNewStar, ForceTree * tree)
 {
         /* SlotsManager is below Nodes and ActiveParticleList,
          * so we need to move them out of the way before we extend Nodes.
@@ -326,10 +326,10 @@ sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTr
             memmove(Nextnode_tmp, tree->Nextnode, tree->Nnextnode * sizeof(int));
             myfree(tree->Nextnode);
         }
-        if(act->ActiveParticle) {
-            ActiveParticle_tmp = mymalloc2("ActiveParticle_tmp", act->NumActiveParticle * sizeof(int));
-            memmove(ActiveParticle_tmp, act->ActiveParticle, act->NumActiveParticle * sizeof(int));
-            myfree(act->ActiveParticle);
+        if(ActiveParticle) {
+            ActiveParticle_tmp = mymalloc2("ActiveParticle_tmp", NumActiveParticle * sizeof(int));
+            memmove(ActiveParticle_tmp, ActiveParticle, NumActiveParticle * sizeof(int));
+            myfree(ActiveParticle);
         }
         /*Now we can extend the slots! */
         int atleast[6];
@@ -341,8 +341,8 @@ sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTr
 
         /*And now we need our memory back in the right place*/
         if(ActiveParticle_tmp) {
-            act->ActiveParticle = mymalloc("ActiveParticle", sizeof(int)*(act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
-            memmove(act->ActiveParticle, ActiveParticle_tmp, act->NumActiveParticle * sizeof(int));
+            ActiveParticle = mymalloc("ActiveParticle", sizeof(int)*(NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
+            memmove(ActiveParticle, ActiveParticle_tmp, NumActiveParticle * sizeof(int));
             myfree(ActiveParticle_tmp);
         }
         if(force_tree_allocated(tree)) {

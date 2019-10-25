@@ -30,11 +30,14 @@ static inline inttime_t dti_from_timebin(int bin) {
     /*Casts to work around bug in intel compiler 18.0*/
     return bin > 0 ? (1u << (unsigned) bin) : 0;
 }
+/*Flat array containing all active particles*/
+int NumActiveParticle;
+int *ActiveParticle;
 
-static inline int get_active_particle(const ActiveParticles * act, int pa)
+static inline int get_active_particle(int pa)
 {
-    if(act->ActiveParticle)
-        return act->ActiveParticle[pa];
+    if(ActiveParticle)
+        return ActiveParticle[pa];
     else
         return pa;
 }
@@ -51,17 +54,11 @@ timestep_eh_slots_fork(EIBase * event, void * userdata)
 
     int parent = ev->parent;
     int child = ev->child;
-    ActiveParticles * act = (ActiveParticles *) userdata;
 
-    if(is_timebin_active(P[parent].TimeBin, All.Ti_Current)) {
-        int childactive = atomic_fetch_and_add(&act->NumActiveParticle, 1);
-        if(act->ActiveParticle) {
-            /* This should never happen because we allocate as much space for active particles as we have space
-             * for particles, but just in case*/
-            if(childactive >= act->MaxActiveParticle)
-                endrun(5, "Tried to add %d active particles, more than %d allowed\n", childactive, act->MaxActiveParticle);
-            act->ActiveParticle[childactive] = child;
-        }
+    if(is_timebin_active(P[parent].TimeBin, All.Ti_Current) && !P[parent].Swallowed) {
+        int childactive = atomic_fetch_and_add(&NumActiveParticle, 1);
+        if(ActiveParticle)
+            ActiveParticle[childactive] = child;
     }
     return 0;
 }
@@ -86,6 +83,9 @@ init_timebins(double TimeInit)
     PM.length = 0;
     PM.Ti_kick = All.Ti_Current;
     PM.start = All.Ti_Current;
+
+    /* listen to the slots events such that we can set timebin of new particles */
+    event_listen(&EventSlotsFork, timestep_eh_slots_fork, NULL);
 }
 
 int is_timebin_active(int i, inttime_t current) {
@@ -115,8 +115,8 @@ set_global_time(double newtime) {
     All.cf.a2inv = 1 / (All.Time * All.Time);
     All.cf.a3inv = 1 / (All.Time * All.Time * All.Time);
     All.cf.fac_egy = pow(All.Time, 3 * GAMMA_MINUS1);
-    All.cf.hubble = hubble_function(&All.CP, All.Time);
-    All.cf.hubble_a2 = All.Time * All.Time * hubble_function(&All.CP, All.Time);
+    All.cf.hubble = hubble_function(All.Time);
+    All.cf.hubble_a2 = All.Time * All.Time * hubble_function(All.Time);
 
 #ifdef LIGHTCONE
     lightcone_set_time(All.cf.a);
@@ -128,7 +128,7 @@ set_global_time(double newtime) {
  * It will also shrink the PM timestep to the longest short-range timestep.
  * Returns the minimum timestep found.*/
 int
-find_timesteps(const ActiveParticles * act, inttime_t Ti_Current)
+find_timesteps(inttime_t Ti_Current)
 {
     int pa;
     inttime_t dti_min = TIMEBASE;
@@ -153,23 +153,23 @@ find_timesteps(const ActiveParticles * act, inttime_t Ti_Current)
         {
             /* Because we don't GC on short timesteps, there can be garbage here.
              * Avoid making it active. */
-            if(P[i].IsGarbage)
+            if(P[i].IsGarbage || P[i].Swallowed)
                 continue;
             inttime_t dti = get_timestep_ti(i, dti_max);
             if(dti < dti_min)
                 dti_min = dti;
         }
-        MPI_Allreduce(MPI_IN_PLACE, &dti_min, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+        MPI_Allreduce(MPI_IN_PLACE, &dti_min, sizeof(inttime_t), MPI_BYTE, MPI_MIN, MPI_COMM_WORLD);
     }
 
     int badstepsizecount = 0;
     int mTimeBin = TIMEBINS, maxTimeBin = 0;
     #pragma omp parallel for reduction(min: mTimeBin) reduction(+: badstepsizecount) reduction(max:maxTimeBin)
-    for(pa = 0; pa < act->NumActiveParticle; pa++)
+    for(pa = 0; pa < NumActiveParticle; pa++)
     {
-        const int i = get_active_particle(act, pa);
+        const int i = get_active_particle(pa);
 
-        if(P[i].IsGarbage)
+        if(P[i].IsGarbage || P[i].Swallowed)
             continue;
 
         if(P[i].Ti_kick != P[i].Ti_drift) {
@@ -197,7 +197,7 @@ find_timesteps(const ActiveParticles * act, inttime_t Ti_Current)
         {
             /* make sure the new step is currently active,
              * so that particles do not miss a step */
-            while(!is_timebin_active(bin, Ti_Current) && bin > binold && bin > 1)
+            while((!is_timebin_active(bin, Ti_Current) && bin > binold && bin > 1) || P[pa].Swallowed)
                 bin--;
         }
         /* This moves particles between time bins:
@@ -234,15 +234,15 @@ find_timesteps(const ActiveParticles * act, inttime_t Ti_Current)
 
 /* Apply half a kick, for the second half of the timestep.*/
 void
-apply_half_kick(const ActiveParticles * act)
+apply_half_kick(void)
 {
     int pa;
     walltime_measure("/Misc");
     /* Now assign new timesteps and kick */
     #pragma omp parallel for
-    for(pa = 0; pa < act->NumActiveParticle; pa++)
+    for(pa = 0; pa < NumActiveParticle; pa++)
     {
-        const int i = get_active_particle(act, pa);
+        const int i = get_active_particle(pa);
         int bin = P[i].TimeBin;
         inttime_t dti = dti_from_timebin(bin);
         /* current Kick time */
@@ -471,7 +471,7 @@ get_timestep_ti(const int p, const inttime_t dti_max)
  *  Note that the latter is estimated using the assigned particle masses, separately for each particle type.
  */
 double
-get_long_range_timestep_dloga(void)
+get_long_range_timestep_dloga()
 {
     int i, type;
     int count[6];
@@ -612,7 +612,7 @@ inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin)
 static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountType);
 
 /* mark the bins that will be active before the next kick*/
-int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurrentTiStep)
+int rebuild_activelist(inttime_t Ti_Current, int NumCurrentTiStep)
 {
     int i;
 
@@ -621,13 +621,13 @@ int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurre
 
     /*We know all particles are active on a PM timestep*/
     if(is_PM_timestep(Ti_Current)) {
-        act->ActiveParticle = NULL;
-        act->NumActiveParticle = PartManager->NumPart;
+        ActiveParticle = NULL;
+        NumActiveParticle = PartManager->NumPart;
     }
     else {
         /*Need space for more particles than we have, because of star formation*/
-        act->ActiveParticle = (int *) mymalloc("ActiveParticle", narr * All.NumThreads * sizeof(int));
-        act->NumActiveParticle = 0;
+        ActiveParticle = (int *) mymalloc("ActiveParticle", narr * All.NumThreads * sizeof(int));
+        NumActiveParticle = 0;
     }
 
     int * TimeBinCountType = mymalloc("TimeBinCountType", 6*(TIMEBINS+1)*All.NumThreads * sizeof(int));
@@ -636,7 +636,7 @@ int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurre
     /*We want a lockless algorithm which preserves the ordering of the particle list.*/
     size_t *NActiveThread = ta_malloc("NActiveThread", size_t, All.NumThreads);
     int **ActivePartSets = ta_malloc("ActivePartSets", int *, All.NumThreads);
-    gadget_setup_thread_arrays(act->ActiveParticle, ActivePartSets, NActiveThread, narr, All.NumThreads);
+    gadget_setup_thread_arrays(ActiveParticle, ActivePartSets, NActiveThread, narr, All.NumThreads);
 
     /* We enforce schedule static to ensure that each thread executes on contiguous particles.
      * chunk size is not specified and so is the largest possible.*/
@@ -645,9 +645,9 @@ int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurre
     {
         const int bin = P[i].TimeBin;
         const int tid = omp_get_thread_num();
-        if(P[i].IsGarbage)
+        if(P[i].IsGarbage || P[i].Swallowed)
             continue;
-        if(act->ActiveParticle && is_timebin_active(bin, Ti_Current))
+        if(ActiveParticle && is_timebin_active(bin, Ti_Current))
         {
             /* Store this particle in the ActiveSet for this thread*/
             ActivePartSets[tid][NActiveThread[tid]] = i;
@@ -655,9 +655,9 @@ int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurre
         }
         TimeBinCountType[(TIMEBINS + 1) * (6* tid + P[i].Type) + bin] ++;
     }
-    if(act->ActiveParticle) {
+    if(ActiveParticle) {
         /*Now we want a merge step for the ActiveParticle list.*/
-        act->NumActiveParticle = gadget_compact_thread_arrays(act->ActiveParticle, ActivePartSets, NActiveThread, All.NumThreads);
+        NumActiveParticle = gadget_compact_thread_arrays(ActiveParticle, ActivePartSets, NActiveThread, All.NumThreads);
     }
     ta_free(ActivePartSets);
     ta_free(NActiveThread);
@@ -668,23 +668,17 @@ int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurre
 
     /* Shrink the ActiveParticle array. We still need extra space for star formation,
      * but we do not need space for the known-inactive particles*/
-    if(act->ActiveParticle) {
-        act->ActiveParticle = myrealloc(act->ActiveParticle, sizeof(int)*(act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
-        act->MaxActiveParticle = act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart;
-        /* listen to the slots events such that we can set timebin of new particles */
-    }
-    event_listen(&EventSlotsFork, timestep_eh_slots_fork, act);
+    if(ActiveParticle)
+        ActiveParticle = myrealloc(ActiveParticle, sizeof(int)*(NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
     walltime_measure("/Timeline/Active");
 
     return 0;
 }
 
-void free_activelist(ActiveParticles * act)
+void free_activelist(void)
 {
-    if(act->ActiveParticle) {
-        myfree(act->ActiveParticle);
-    }
-    event_unlisten(&EventSlotsFork, timestep_eh_slots_fork, act);
+    if(ActiveParticle)
+        myfree(ActiveParticle);
 }
 
 /*! This routine writes one line for every timestep.
@@ -766,4 +760,3 @@ static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountTyp
         tot_type[0], tot_type[1], tot_type[2], tot_type[3], tot_type[4], tot_type[5], tot);
 
 }
-
