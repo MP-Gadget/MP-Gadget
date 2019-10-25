@@ -452,6 +452,8 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
         const int target = layoutfunc(i, layout_userdata);
         plan->layouts[n].ptype = PartManager->Base[i].Type;
         plan->layouts[n].target = target;
+        if(target >= plan->NTask || target < 0)
+            endrun(4, "layoutfunc for %d returned unreasonable %d for %d tasks\n", i, target, plan->NTask);
     }
 
     /*Do the sum*/
