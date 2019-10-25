@@ -66,7 +66,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
     /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
     set_global_time(exp(loga_from_ti(All.Ti_Current)));
 
-    init_drift_table(All.TimeInit, All.TimeMax);
+    init_drift_table(&All.CP, All.TimeInit, All.TimeMax);
 
     /*Read the snapshot*/
     petaio_read_snapshot(RestartSnapNum, MPI_COMM_WORLD);
@@ -130,10 +130,6 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
-    /*At the first time step all particles should be active*/
-    ActiveParticle = NULL;
-    NumActiveParticle = PartManager->NumPart;
-
     setup_smoothinglengths(RestartSnapNum, ddecomp);
 }
 
@@ -185,7 +181,7 @@ void check_positions(void)
  * Initialization of the entropy variable is a little trickier in this version of SPH,
  * since we need to make sure it 'talks to' the density appropriately */
 static void
-setup_density_indep_entropy(ForceTree * Tree, double u_init, double a3)
+setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, double u_init, double a3)
 {
     int j;
     int stop = 0;
@@ -208,7 +204,7 @@ setup_density_indep_entropy(ForceTree * Tree, double u_init, double a3)
             olddensity[i] = SphP[i].EgyWtDensity;
         }
         /* Update the EgyWtDensity*/
-        density(0, All.DensityIndependentSphOn, Tree);
+        density(act, 0, All.DensityIndependentSphOn, Tree);
         if(stop)
             break;
 
@@ -241,6 +237,14 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
 {
     int i;
     const double a3 = All.Time * All.Time * All.Time;
+
+    int64_t tot_sph, tot_bh;
+    sumup_large_ints(1, &SlotsManager->info[0].size, &tot_sph);
+    sumup_large_ints(1, &SlotsManager->info[5].size, &tot_bh);
+
+    /* Do nothing if we are a pure DM run*/
+    if(tot_sph + tot_bh == 0)
+        return;
 
     ForceTree Tree = {0};
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 0);
@@ -315,7 +319,12 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
     /*Allocate the extra SPH data for transient SPH particle properties.*/
     slots_allocate_sph_scratch_data(0, SlotsManager->info[0].size);
 
-    density(1, 0, &Tree);
+        /*At the first time step all particles should be active*/
+    ActiveParticles act = {0};
+    act.ActiveParticle = NULL;
+    act.NumActiveParticle = PartManager->NumPart;
+
+    density(&act, 1, 0, &Tree);
 
     /* for clean IC with U input only, we need to iterate to find entrpoy */
     if(RestartSnapNum == -1)
@@ -335,7 +344,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
         /* snapshot already has EgyWtDensity; hope it is read in correctly.
          * (need a test on this!) */
         if(All.DensityIndependentSphOn) {
-            setup_density_indep_entropy(&Tree, u_init, a3);
+            setup_density_indep_entropy(&act, &Tree, u_init, a3);
         }
         else {
            /*Initialize to initial energy*/

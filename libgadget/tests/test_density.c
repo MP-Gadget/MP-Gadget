@@ -99,7 +99,9 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     SlotsManager->info[0].size = numpart-npbh;
     SlotsManager->info[5].size = npbh;
     PartManager->NumPart = numpart;
-    NumActiveParticle = numpart;
+    ActiveParticles act = {0};
+    act.NumActiveParticle = numpart;
+    act.ActiveParticle = NULL;
     struct forcetree_testdata * data = * (struct forcetree_testdata **) state;
     DomainDecomp ddecomp = data->ddecomp;
     ddecomp.TopLeaves[0].topnode = PartManager->MaxPart;
@@ -111,7 +113,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     double start, end;
     start = MPI_Wtime();
     /*Find the density*/
-    density(1, 0, &tree);
+    density(&act, 1, 0, &tree);
     end = MPI_Wtime();
     double ms = (end - start)*1000;
     message(0, "Found densities in %.3g ms\n", ms);
@@ -134,7 +136,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
 
     start = MPI_Wtime();
     /*Find the density*/
-    density(1, 0, &tree);
+    density(&act, 1, 0, &tree);
     end = MPI_Wtime();
     ms = (end - start)*1000;
     message(0, "Found 1 dev densities in %.3g ms\n", ms);
@@ -307,8 +309,6 @@ static int setup_density(void **state) {
     particle_alloc_memory(maxpart);
     slots_reserve(1, atleast);
     slots_allocate_sph_scratch_data(0, maxpart);
-    ActiveParticle = NULL;
-    NumActiveParticle = maxpart;
     int i;
     for(i=0; i<6; i++)
         GravitySofteningTable[i] = 0.1 / 2.8;

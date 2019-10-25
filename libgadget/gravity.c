@@ -5,13 +5,9 @@
 #include <math.h>
 
 #include "utils.h"
+#include "gravity.h"
 
-#include "allvars.h"
-/*! \file longrange.c
- *  \brief driver routines for computation of long-range gravitational PM force
- */
-
-/* 
+/*
  * This table is computed by comparing with brute force calculation it matches the full PM exact up to 10 mesh sizes
  * for a point source. it is copied to a tighter array for better cache performance (hopefully)
  *
@@ -20,30 +16,15 @@
 #include "shortrange-kernel.c"
 #define NTAB (sizeof(shortrange_force_kernels) / sizeof(shortrange_force_kernels[0]))
 
-/*Defined in gravpm.c and only used here*/
-void  gravpm_init_periodic();
-
-static void fill_ntab();
-
-/*! Driver routine to call initializiation of periodic or/and non-periodic FFT
- *  routines.
- */
-void grav_init(void)
-{
-    fill_ntab();
-    gravpm_init_periodic();
-}
-
-
 /*! variables for short-range lookup table */
 static float shortrange_table[NTAB], shortrange_table_potential[NTAB], shortrange_table_tidal[NTAB];
 
-static void
-fill_ntab()
+void
+gravshort_fill_ntab(const enum ShortRangeForceWindowType ShortRangeForceWindowType, const double Asmth)
 {
-    if (All.ShortRangeForceWindowType == SHORTRANGE_FORCE_WINDOW_TYPE_EXACT) {
-        if(All.Asmth != 1.25) {
-            endrun(0, "The short range force window is calibrated for Asmth = 1.25, but running with %g\n", All.Asmth);
+    if (ShortRangeForceWindowType == SHORTRANGE_FORCE_WINDOW_TYPE_EXACT) {
+        if(Asmth != 1.5) {
+            endrun(0, "The short range force window is calibrated for Asmth = 1.5, but running with %g\n", Asmth);
         }
     }
 
@@ -51,8 +32,8 @@ fill_ntab()
     for(i = 0; i < NTAB; i++)
     {
         /* force_kernels is in units of mesh points; */
-        double u = shortrange_force_kernels[i][0] * 0.5 / All.Asmth;
-        switch (All.ShortRangeForceWindowType) {
+        double u = shortrange_force_kernels[i][0] * 0.5 / Asmth;
+        switch (ShortRangeForceWindowType) {
             case SHORTRANGE_FORCE_WINDOW_TYPE_EXACT:
                 /* Notice that the table is only calibrated for smth of 1.25*/
                 shortrange_table[i] = shortrange_force_kernels[i][2]; /* ~ erfc(u) + 2.0 * u / sqrt(M_PI) * exp(-u * u); */
@@ -71,10 +52,9 @@ fill_ntab()
 
 /* multiply force factor (*fac) and potential (*pot) by the shortrange force window function*/
 int
-grav_apply_short_range_window(double r, double * fac, double * pot)
+grav_apply_short_range_window(double r, double * fac, double * pot, const double cellsize)
 {
     const double dx = shortrange_force_kernels[1][0];
-    const double cellsize = All.BoxSize / All.Nmesh;
     double i = (r / cellsize / dx);
     int tabindex = floor(i);
     if(tabindex < NTAB - 1)

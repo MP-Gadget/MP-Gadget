@@ -12,7 +12,7 @@ struct topnode_data
 {
     peano_t StartKey;		/*!< first Peano-Hilbert key in top-level node */
     int Daughter;			/*!< index of first daughter cell (out of 8) of top-level node */
-    short int Shift;    /*!< level = log 2 of number of Peano-Hilbert mesh-cells represented by top-level node */
+    int Shift;    /*!< level = log 2 of number of Peano-Hilbert mesh-cells represented by top-level node */
     int Leaf ;			/*!< if the node is a leaf, this gives its index in topleaf_data */
 };
 
@@ -43,8 +43,25 @@ typedef struct DomainDecomp {
     MPI_Comm DomainComm;
 } DomainDecomp;
 
+/*Parameters of the domain decomposition, set by the input parameter file*/
+typedef struct DomainParams
+{
+    /* Number of TopLeaves (Peano-Hilbert segments) per processor. TopNodes are refined so that no TopLeaf contains
+     * no more than 1/(DODF * NTask) fraction of the work.
+     * The load balancer will assign these TopLeaves so that each MPI rank has a similar amount of work.*/
+    int DomainOverDecompositionFactor;
+    /** Use a global sort for the first few domain policies to try.*/
+    int DomainUseGlobalSorting;
+    /** Initial number of Top level tree nodes as a fraction of particles */
+    double TopNodeAllocFactor;
+    /** Fraction of local particle slots to leave free for, eg, star formation*/
+    double SetAsideFactor;
+} DomainParams;
+
 /*Set the parameters of the domain module*/
 void set_domain_params(ParameterSet * ps);
+/* Test helper*/
+void set_domain_par(DomainParams dp);
 
 /* Do a full domain decomposition, which splits the particles into even clumps*/
 void domain_decompose_full(DomainDecomp * ddecomp);
@@ -60,5 +77,7 @@ domain_get_topleaf(const peano_t key, const DomainDecomp * ddecomp) {
     no = ddecomp->TopNodes[no].Leaf;
     return no;
 };
+
+void domain_free(DomainDecomp * ddecomp);
 
 #endif

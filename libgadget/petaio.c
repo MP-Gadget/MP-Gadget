@@ -44,10 +44,10 @@ void petaio_init(void) {
 }
 
 /* save a snapshot file */
-static void petaio_save_internal(char * fname, struct IOTable * IOTable);
+static void petaio_save_internal(char * fname, struct IOTable * IOTable, int verbose);
 
 void
-petaio_save_snapshot(struct IOTable * IOTable, const char *fmt, ...)
+petaio_save_snapshot(struct IOTable * IOTable, int verbose, const char *fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
@@ -56,7 +56,7 @@ petaio_save_snapshot(struct IOTable * IOTable, const char *fmt, ...)
     va_end(va);
     message(0, "saving snapshot into %s\n", fname);
 
-    petaio_save_internal(fname, IOTable);
+    petaio_save_internal(fname, IOTable, verbose);
     myfree(fname);
 }
 
@@ -108,7 +108,7 @@ petaio_build_selection(int * selection,
     }
 }
 
-static void petaio_save_internal(char * fname, struct IOTable * IOTable) {
+static void petaio_save_internal(char * fname, struct IOTable * IOTable, int verbose) {
     BigFile bf = {0};
     if(0 != big_file_mpi_create(&bf, fname, MPI_COMM_WORLD)) {
         endrun(0, "Failed to create snapshot at %s:%s\n", fname,
@@ -139,7 +139,7 @@ static void petaio_save_internal(char * fname, struct IOTable * IOTable) {
         }
         sprintf(blockname, "%d/%s", ptype, IOTable->ent[i].name);
         petaio_build_buffer(&array, &IOTable->ent[i], selection + ptype_offset[ptype], ptype_count[ptype]);
-        petaio_save_block(&bf, blockname, &array);
+        petaio_save_block(&bf, blockname, &array, verbose);
         petaio_destroy_buffer(&array);
     }
 
@@ -441,9 +441,9 @@ petaio_read_header_internal(BigFile * bf) {
                     big_file_get_error_message());
     }
 
-    /*Set Nmesh to double the mean grid spacing of the dark matter by default.*/
+    /*Set Nmesh to triple the mean grid spacing of the dark matter by default.*/
     if(All.Nmesh  < 0)
-        All.Nmesh = 2*pow(2, (int)(log(NTotal[1])/3./log(2)) );
+        All.Nmesh = 3*pow(2, (int)(log(NTotal[1])/3./log(2)) );
     All.TimeInit = Time;
     if(0!= big_block_get_attr(&bh, "TimeIC", &All.TimeIC, "f8", 1))
         All.TimeIC = Time;
@@ -606,7 +606,7 @@ int petaio_read_block(BigFile * bf, char * blockname, BigArray * array, int requ
 }
 
 /* save a block to disk */
-void petaio_save_block(BigFile * bf, char * blockname, BigArray * array)
+void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, int verbose)
 {
 
     BigBlock bb;
@@ -638,7 +638,7 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array)
         NumFiles = 0;
     }
 
-    if(size > 0) {
+    if(verbose && size > 0) {
         message(0, "Will write %td particles to %d Files for %s\n", size, NumFiles, blockname);
     }
     /* create the block */
@@ -654,7 +654,7 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array)
         endrun(0, "Failed to write :%s\n", big_file_get_error_message());
     }
 
-    if(size > 0)
+    if(verbose && size > 0)
         message(0, "Done writing %td particles to %d Files\n", size, NumFiles);
 
     if(0 != big_block_mpi_close(&bb, MPI_COMM_WORLD)) {
@@ -709,6 +709,8 @@ static void GTPosition(int i, double * out) {
     int d;
     for(d = 0; d < 3; d ++) {
         out[d] = P[i].Pos[d] - All.CurrentParticleOffset[d];
+        while(out[d] > All.BoxSize) out[d] -= All.BoxSize;
+        while(out[d] <= 0) out[d] += All.BoxSize;
     }
 }
 
@@ -806,7 +808,7 @@ void register_io_blocks(struct IOTable * IOTable) {
     int i;
     IOTable->used = 0;
     IOTable->allocated = 100;
-    IOTable->ent = mymalloc("IOTable", IOTable->allocated* sizeof(IOTableEntry));
+    IOTable->ent = mymalloc2("IOTable", IOTable->allocated * sizeof(IOTableEntry));
     /* Bare Bone Gravity*/
     for(i = 0; i < 6; i ++) {
         IO_REG(Position, "f8", 3, i, IOTable);

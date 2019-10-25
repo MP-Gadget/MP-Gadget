@@ -30,6 +30,8 @@ struct particle_data
                                      may wrap around with too many SFR/BH if a feedback model goes rogue */
 
         signed char TimeBin; /* Time step bin; -1 for unassigned.*/
+        /* To ensure alignment to a 32-bit boundary.*/
+        char spare_1;
     };
 
     int PI; /* particle property index; used by BH, SPH and STAR.
@@ -90,6 +92,26 @@ static inline double FORCE_SOFTENING(int i)
         /* Force is newtonian beyond this.*/
         return 2.8 * GravitySofteningTable[P[i].Type];
     }
+}
+
+/* Finds the correct relative position accounting for periodicity*/
+#define NEAREST(x, BoxSize) (((x)>0.5*BoxSize)?((x)-BoxSize):(((x)<-0.5*BoxSize)?((x)+BoxSize):(x)))
+
+static inline double DMAX(double a, double b) {
+    if(a > b) return a;
+    return b;
+}
+static inline double DMIN(double a, double b) {
+    if(a < b) return a;
+    return b;
+}
+static inline int IMAX(int a, int b) {
+    if(a > b) return a;
+    return b;
+}
+static inline int IMIN(int a, int b) {
+    if(a < b) return a;
+    return b;
 }
 
 #endif

@@ -27,7 +27,6 @@ struct NODE
         unsigned int TopLevel :1; /* Node corresponding to a toplevel node */
         unsigned int DependsOnLocalMass :1;  /* Intersects with local mass */
         unsigned int MixedSofteningsInNode:1;  /* Softening is mixed, need to open the node */
-        unsigned int NodeIsDirty :1; /* Node is a toplevel node containing local mass, and its moments need updating*/
         unsigned int ChildType :2; /* Specify the type of children this node has: particles, other nodes, or pseudo-particles.
                                     * (should be an enum, but not standard in C).*/
     } f;
@@ -67,6 +66,8 @@ struct NODE
 typedef struct ForceTree {
     /*Is 1 if the tree is allocated. Only used inside force_tree_allocated() and when allocating.*/
     int tree_allocated_flag;
+    /* Flags that hmax has been computed for this tree*/
+    int hmax_computed_flag;
     /*Index of first internal node. Difference between Nodes and Nodes_base. == MaxPart*/
     int firstnode;
     /*Index of first pseudo-particle node*/
@@ -91,6 +92,8 @@ typedef struct ForceTree {
     int Nnextnode;
     /*!< gives parent node in tree for every particle */
     int *Father;
+    /*!< Store the size of the box used to build the tree, for periodic walking.*/
+    double BoxSize;
 } ForceTree;
 
 /*Initialize the internal parameters of the forcetree module*/
@@ -99,7 +102,7 @@ void init_forcetree_params(const int FastParticleType, const double * GravitySof
 int force_tree_allocated(const ForceTree * tt);
 
 /* This function propagates changed SPH smoothing lengths up the tree*/
-void force_update_hmax(int * activeset, int size, ForceTree * tt);
+void force_update_hmax(int * activeset, int size, ForceTree * tt, DomainDecomp * ddecomp);
 
 /* This is the main constructor for the tree structure.
    The tree shall be either zero-filled, so that force_tree_allocated = 0, or a valid ForceTree.

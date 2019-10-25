@@ -34,7 +34,6 @@ slots_connect_new_slot(int i, int pi, int type)
     memset(BASESLOT_PI(pi, type), 101, SlotsManager->info[type].elsize);
     /* book keeping ID: debug only */
     BASESLOT_PI(pi, type)->ID = P[i].ID;
-    BASESLOT_PI(pi, type)->IsGarbage = P[i].IsGarbage;
     /*Update the particle's pointer*/
     P[i].PI = pi;
 }
@@ -60,9 +59,9 @@ slots_connect_new_slot(int i, int pi, int type)
 int
 slots_convert(int parent, int ptype, int placement)
 {
-    /*Set old slot as garbage*/
+    /*Explicitly mark old slot as garbage*/
     if(P[parent].PI >= 0 && SLOTS_ENABLED(P[parent].Type))
-        BASESLOT_PI(P[parent].PI, P[parent].Type)->IsGarbage = 1;
+        BASESLOT_PI(P[parent].PI, P[parent].Type)->ReverseLink = PartManager->MaxPart + 100;
 
     /*Make a new slot*/
     if(SLOTS_ENABLED(ptype)) {
@@ -161,7 +160,7 @@ slots_gc(int * compact_slots)
 }
 
 
-#define GARBAGE(i, ptype) (ptype >= 0 ? BASESLOT_PI(i,ptype)->IsGarbage : P[i].IsGarbage)
+#define GARBAGE(i, ptype) (ptype >= 0 ? BASESLOT_PI(i,ptype)->ReverseLink > PartManager->MaxPart : P[i].IsGarbage)
 #define PART(i, ptype) (ptype >= 0 ? (void *) BASESLOT_PI(i, ptype) : (void *) &P[i])
 
 /*Find the next garbage particle*/
@@ -253,13 +252,7 @@ slots_gc_base()
 static int slot_cmp_reverse_link(const void * b1in, const void * b2in) {
     const struct particle_data_ext * b1 = (struct particle_data_ext *) b1in;
     const struct particle_data_ext * b2 = (struct particle_data_ext *) b2in;
-    if(b1->IsGarbage && b2->IsGarbage) {
-        return 0;
-    }
-    if(b1->IsGarbage) return 1;
-    if(b2->IsGarbage) return -1;
     return (b1->ReverseLink > b2->ReverseLink) - (b1->ReverseLink < b2->ReverseLink);
-
 }
 
 static int
@@ -295,22 +288,14 @@ slots_gc_mark(const struct slots_manager_type * SlotsManager)
         struct slot_info info = SlotsManager->info[P[i].Type];
         if(!info.enabled)
             continue;
-
         int sind = P[i].PI;
         if(sind >= info.size || sind < 0)
             endrun(1, "Particle %d, type %d has PI index %d beyond max slot size %d.\n", i, P[i].Type, sind, info.size);
         struct particle_data_ext * sdata = (struct particle_data_ext * )(info.ptr + info.elsize * sind);
         sdata->ReverseLink = i;
-
-        /* two consistency checks.*/
-#ifdef DEBUG
-        if(P[i].IsGarbage && !sdata->IsGarbage) {
-            endrun(1, "IsGarbage flag inconsistent between base and secondary: P[%d].Type=%d\n", i, P[i].Type);
-        }
-        if(!P[i].IsGarbage && sdata->IsGarbage) {
-            endrun(1, "IsGarbage flag inconsistent between secondary and base: P[%d].Type=%d\n", i, P[i].Type);
-        }
-#endif
+        /* Make the PI of garbage particles invalid*/
+        if(P[i].IsGarbage)
+            sdata->ReverseLink = PartManager->MaxPart + 100;
     }
     return 0;
 }
@@ -343,7 +328,7 @@ slots_gc_collect(int ptype)
         i ++) {
 
 #ifdef DEBUG
-        if(BASESLOT_PI(i, ptype)->IsGarbage) {
+        if(BASESLOT_PI(i, ptype)->ReverseLink >= PartManager->MaxPart) {
             endrun(1, "Shall not happen: i=%d ptype = %d\n", i,ptype);
         }
 #endif
@@ -585,7 +570,7 @@ slots_mark_garbage(int i)
 {
     P[i].IsGarbage = 1;
     if(SLOTS_ENABLED(P[i].Type)) {
-        BASESLOT(i)->IsGarbage = 1;
+        BASESLOT(i)->ReverseLink = PartManager->MaxPart + 100;
     }
 }
 
@@ -661,7 +646,8 @@ slots_setup_id(const struct slots_manager_type * SlotsManager)
         struct particle_data_ext * sdata = (struct particle_data_ext * )(info.ptr + info.elsize * sind);
         sdata->ReverseLink = i;
         sdata->ID = P[i].ID;
-        sdata->IsGarbage = P[i].IsGarbage;
+        if(P[i].IsGarbage)
+            sdata->ReverseLink = PartManager->MaxPart + 100;
     }
 }
 

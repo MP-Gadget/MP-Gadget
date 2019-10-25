@@ -10,7 +10,6 @@
 #include "slotsmanager.h"
 #include "treewalk.h"
 #include "densitykernel.h"
-#include "timestep.h"
 #include "hydra.h"
 #include "winds.h"
 #include "utils.h"
@@ -109,7 +108,7 @@ hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mo
  *  force and rate of change of entropy due to shock heating for all active
  *  particles .
  */
-void hydro_force(ForceTree * tree)
+void hydro_force(const ActiveParticles * act, ForceTree * tree)
 {
     int i;
     if(!All.HydroOn)
@@ -147,7 +146,7 @@ void hydro_force(ForceTree * tree)
     HYDRA_GET_PRIV(tw)->fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
     HYDRA_GET_PRIV(tw)->fac_vsic_fix = All.cf.hubble * pow(All.cf.a, 3 * GAMMA_MINUS1);
 
-    treewalk_run(tw, ActiveParticle, NumActiveParticle);
+    treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
 
     myfree(HYDRA_GET_PRIV(tw)->PressurePred);
     /* collect some timing information */
@@ -236,7 +235,7 @@ hydro_ngbiter(
         /* initialize variables before SPH loop is started */
 
         O->Acc[0] = O->Acc[1] = O->Acc[2] = O->DtEntropy = 0;
-        density_kernel_init(&iter->kernel_i, I->Hsml);
+        density_kernel_init(&iter->kernel_i, I->Hsml, All.DensityKernelType);
 
         if(All.DensityIndependentSphOn)
             iter->p_over_rho2_i = I->Pressure / (I->EgyRho * I->EgyRho);
@@ -259,7 +258,7 @@ hydro_ngbiter(
 
     DensityKernel kernel_j;
 
-    density_kernel_init(&kernel_j, P[other].Hsml);
+    density_kernel_init(&kernel_j, P[other].Hsml, All.DensityKernelType);
 
     if(r2 > 0 && (r2 < iter->kernel_i.HH || r2 < kernel_j.HH))
     {

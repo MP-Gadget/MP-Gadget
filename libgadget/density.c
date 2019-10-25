@@ -142,7 +142,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(int update_hsml, int DoEgyDensity, ForceTree * tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, ForceTree * tree)
 {
     if(!All.DensityOn)
         return;
@@ -190,7 +190,7 @@ density(int update_hsml, int DoEgyDensity, ForceTree * tree)
     {
         P[i].NumNgb = 0;
         DENSITY_GET_PRIV(tw)->Left[i] = 0;
-        DENSITY_GET_PRIV(tw)->Right[i] = All.BoxSize;
+        DENSITY_GET_PRIV(tw)->Right[i] = tree->BoxSize;
         if(P[i].Type == 0) {
             SphP_scratch->EntVarPred[P[i].PI] = SPH_EntVarPred(i);
             SPH_VelPred(i, SphP_scratch->VelPred + 3 * P[i].PI);
@@ -205,10 +205,10 @@ density(int update_hsml, int DoEgyDensity, ForceTree * tree)
     DENSITY_GET_PRIV(tw)->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
     DENSITY_GET_PRIV(tw)->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
     int alloc_high = 0;
-    int * ReDoQueue = ActiveParticle;
+    int * ReDoQueue = act->ActiveParticle;
     int size = SlotsManager->info[0].size + SlotsManager->info[5].size;
-    if(size > NumActiveParticle)
-        size = NumActiveParticle;
+    if(size > act->NumActiveParticle)
+        size = act->NumActiveParticle;
 
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
     do {
@@ -383,7 +383,7 @@ density_ngbiter(
 {
     if(iter->base.other == -1) {
         const double h = I->Hsml;
-        density_kernel_init(&iter->kernel, h);
+        density_kernel_init(&iter->kernel, h, All.DensityKernelType);
         iter->kernel_volume = density_kernel_volume(&iter->kernel);
 
         iter->base.Hsml = h;
@@ -554,15 +554,15 @@ void density_check_neighbours (int i, TreeWalk * tw)
         }
 
         /* Next step is geometric mean of previous. */
-        if(Right[i] < 0.99 * All.BoxSize && Left[i] > 0)
+        if(Right[i] < 0.99 * tw->tree->BoxSize && Left[i] > 0)
             P[i].Hsml = pow(0.5 * (pow(Left[i], 3) + pow(Right[i], 3)), 1.0 / 3);
         else
         {
-            if(Right[i] > 0.99 * All.BoxSize && Left[i] == 0)
+            if(Right[i] > 0.99 * tw->tree->BoxSize && Left[i] == 0)
                 endrun(8188, "Cannot occur. Check for memory corruption: L = %g R = %g N=%g.", Left[i], Right[i], P[i].NumNgb);
 
             /* If this is the first step we can be faster by increasing or decreasing current Hsml by a constant factor*/
-            if(Right[i] > 0.99 * All.BoxSize && Left[i] > 0)
+            if(Right[i] > 0.99 * tw->tree->BoxSize && Left[i] > 0)
             {
                 if(P[i].Type == 0 && fabs(P[i].NumNgb - desnumngb) < 0.5 * desnumngb)
                 {
@@ -582,7 +582,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
                     P[i].Hsml *= 1.26;
             }
 
-            if(Right[i] < 0.99*All.BoxSize && Left[i] == 0)
+            if(Right[i] < 0.99*tw->tree->BoxSize && Left[i] == 0)
             {
                 if(P[i].Type == 0 && fabs(P[i].NumNgb - desnumngb) < 0.5 * desnumngb)
                 {

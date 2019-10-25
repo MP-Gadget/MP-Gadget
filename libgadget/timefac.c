@@ -6,10 +6,9 @@
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_integration.h>
 
-#include "allvars.h"
+#include "physconst.h"
 #include "timefac.h"
 #include "timebinmgr.h"
-#include "cosmology.h"
 #include "utils.h"
 
 #define WORKSIZE 10000
@@ -45,17 +44,16 @@ static double gk_last_value;
 /* Integrand for the drift table*/
 static double drift_integ(double a, void *param)
 {
-  double h;
-  h = hubble_function(a);
+  Cosmology * CP = (Cosmology *) param;
+  double h = hubble_function(CP, a);
   return 1 / (h * a * a * a);
 }
 
 /* Integrand for the gravkick table*/
 static double gravkick_integ(double a, void *param)
 {
-  double h;
-
-  h = hubble_function(a);
+  Cosmology * CP = (Cosmology *) param;
+  double h = hubble_function(CP, a);
 
   return 1 / (h * a * a);
 }
@@ -66,13 +64,14 @@ static double hydrokick_integ(double a, void *param)
 {
   double h;
 
-  h = hubble_function(a);
+  Cosmology * CP = (Cosmology *) param;
+  h = hubble_function(CP, a);
 
   return 1 / (h * pow(a, 3 * GAMMA_MINUS1) * a);
 }
 
 /*Do the integral required to get a factor.*/
-static double get_exact_factor(inttime_t t0, inttime_t t1, double (*factor) (double, void *))
+static double get_exact_factor(Cosmology * CP, inttime_t t0, inttime_t t1, double (*factor) (double, void *))
 {
     double result, abserr;
     if(t0 == t1)
@@ -83,18 +82,19 @@ static double get_exact_factor(inttime_t t0, inttime_t t1, double (*factor) (dou
     gsl_integration_workspace *workspace;
     workspace = gsl_integration_workspace_alloc(WORKSIZE);
     F.function = factor;
+    F.params = CP;
     gsl_integration_qag(&F, a0, a1, 0, 1.0e-8, WORKSIZE, GSL_INTEG_GAUSS61, workspace, &result, &abserr);
     gsl_integration_workspace_free(workspace);
     return result;
 }
 
 /*Get the exact drift factor*/
-double get_exact_drift_factor(inttime_t ti0, inttime_t ti1)
+double get_exact_drift_factor(Cosmology * CP, inttime_t ti0, inttime_t ti1)
 {
-    return get_exact_factor(ti0, ti1, &drift_integ);
+    return get_exact_factor(CP, ti0, ti1, &drift_integ);
 }
 
-void init_drift_table(double timeBegin, double timeMax)
+void init_drift_table(Cosmology * CP, double timeBegin, double timeMax)
 {
   int i;
   double result, abserr;
@@ -109,7 +109,7 @@ void init_drift_table(double timeBegin, double timeMax)
   logTimeInit = log(timeBegin);
   logTimeMax = log(timeMax);
   if(logTimeMax <=logTimeInit)
-      endrun(1,"Error: Invalid drift table range: (%d->%d)\n", timeBegin, timeMax);
+      endrun(1,"Error: Invalid drift table range: (%g->%g)\n", timeBegin, timeMax);
 
   workspace = gsl_integration_workspace_alloc(WORKSIZE);
 
@@ -122,6 +122,7 @@ void init_drift_table(double timeBegin, double timeMax)
         DriftTable[i] = result;*/
 
         F.function = &gravkick_integ;
+        F.params = CP;
         gsl_integration_qag(&F, exp(logTimeInit),
 			  exp(logTimeInit + ((logTimeMax - logTimeInit) / DRIFT_TABLE_LENGTH) * (i + 1)), 0,
 			  1.0e-8, WORKSIZE, GSL_INTEG_GAUSS41, workspace, &result, &abserr);
@@ -129,6 +130,7 @@ void init_drift_table(double timeBegin, double timeMax)
 
 
         F.function = &hydrokick_integ;
+        F.params = CP;
         gsl_integration_qag(&F, exp(logTimeInit),
 			  exp(logTimeInit + ((logTimeMax - logTimeInit) / DRIFT_TABLE_LENGTH) * (i + 1)), 0,
 			  1.0e-8, WORKSIZE, GSL_INTEG_GAUSS41, workspace, &result, &abserr);

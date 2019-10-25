@@ -67,7 +67,9 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
 
     /*Allocate enough memory*/
     All.OutputListLength = count;
-    int maxcount = DMAX(sizeof(All.OutputListTimes) / sizeof(All.OutputListTimes[0]), MAXSNAPSHOTS);
+    int maxcount = sizeof(All.OutputListTimes) / sizeof(All.OutputListTimes[0]);
+    if(maxcount > (int) MAXSNAPSHOTS)
+        maxcount = MAXSNAPSHOTS;
     if(All.OutputListLength > maxcount) {
         message(1, "Too many entries (%d) in the OutputList, can take no more than %d.\n", All.OutputListLength, maxcount);
         return 1;
@@ -130,6 +132,7 @@ create_gadget_parameter_set()
 
     param_declare_int(ps,    "OutputPotential", OPTIONAL, 1, "Save the potential in snapshots.");
     param_declare_int(ps,    "OutputDebugFields", OPTIONAL, 0, "Save a large number of debug fields in snapshots.");
+    param_declare_int(ps,    "ShowBacktrace", OPTIONAL, 1, "Print a backtrace on crash. Hangs on stampede.");
     param_declare_double(ps,    "MaxMemSizePerNode", OPTIONAL, 0.6, "Pre-allocate this much memory per computing node/ host, in MB. Defaults to 60\% of total available memory per node. Passing < 1 allocates a fraction of total available memory per node.");
     param_declare_double(ps, "AutoSnapshotTime", OPTIONAL, 0, "Seconds after which to automatically generate a snapshot if nothing is output.");
 
@@ -141,11 +144,12 @@ create_gadget_parameter_set()
 
     param_declare_int   (ps, "DomainUseGlobalSorting", OPTIONAL, 1, "Determining the initial refinement of chunks globally. Enabling this produces better domains at costs of slowing down the domain decomposition.");
     param_declare_double(ps, "ErrTolIntAccuracy", OPTIONAL, 0.02, "Controls the length of the short-range timestep. Smaller values are shorter timesteps.");
-    param_declare_double(ps, "ErrTolForceAcc", OPTIONAL, 0.005, "Force accuracy required from tree. Controls tree opening criteria. Lower values are more accurate.");
+    param_declare_double(ps, "ErrTolForceAcc", OPTIONAL, 0.002, "Force accuracy required from tree. Controls tree opening criteria. Lower values are more accurate.");
     param_declare_double(ps, "BHOpeningAngle", OPTIONAL, 0.175, "Barnes-Hut opening angle. Alternative purely geometric tree opening angle. Lower values are more accurate.");
+    param_declare_double(ps, "TreeRcut", OPTIONAL, 6, "Number of mesh cells at which we cease walking.");
     param_declare_int(ps, "TreeUseBH", OPTIONAL, 2, "If 1, use Barnes-Hut opening angle rather than the standard Gadget acceleration based opening angle. If 2, use BH criterion for the first timestep only, before we have relative accelerations.");
-    param_declare_double(ps, "Asmth", OPTIONAL, 1.25, "The scale of the short-range/long-range force split in units of FFT-mesh cells."
-                                                      "Larger values suppresses grid anisotropy. ShortRangeForceWindowType = erfc supports any value. 'exact' only support 1.25. ");
+    param_declare_double(ps, "Asmth", OPTIONAL, 1.5, "The scale of the short-range/long-range force split in units of FFT-mesh cells."
+                                                      "Larger values suppresses grid anisotropy. ShortRangeForceWindowType = erfc supports any value. 'exact' only supports 1.5. ");
     param_declare_int(ps,    "Nmesh", OPTIONAL, -1, "Size of the PM grid on which to compute the long-range force.");
 
     static ParameterEnum ShortRangeForceWindowTypeEnum [] = {
@@ -391,6 +395,7 @@ void read_parameter_file(char *fname)
 
         All.OutputPotential = param_get_int(ps, "OutputPotential");
         All.OutputDebugFields = param_get_int(ps, "OutputDebugFields");
+        All.ShowBacktrace = param_get_int(ps, "ShowBacktrace");
         double MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
         if(MaxMemSizePerNode <= 1) {
             MaxMemSizePerNode *= get_physmem_bytes() / (1024. * 1024.);
@@ -399,9 +404,6 @@ void read_parameter_file(char *fname)
 
         All.TimeMax = param_get_double(ps, "TimeMax");
         All.ErrTolIntAccuracy = param_get_double(ps, "ErrTolIntAccuracy");
-        All.ErrTolForceAcc = param_get_double(ps, "ErrTolForceAcc");
-        All.BHOpeningAngle = param_get_double(ps, "BHOpeningAngle");
-        All.TreeUseBH= param_get_int(ps, "TreeUseBH");
         All.Asmth = param_get_double(ps, "Asmth");
         All.ShortRangeForceWindowType = param_get_enum(ps, "ShortRangeForceWindowType");
         All.Nmesh = param_get_int(ps, "Nmesh");
@@ -493,7 +495,7 @@ void read_parameter_file(char *fname)
         }
 
         DensityKernel kernel;
-        density_kernel_init(&kernel, 1.0);
+        density_kernel_init(&kernel, 1.0, All.DensityKernelType);
         All.DesNumNgb = density_kernel_desnumngb(&kernel, All.DensityResolutionEta);
 
         message(1, "The Density Kernel type is %s\n", kernel.name);
@@ -508,6 +510,7 @@ void read_parameter_file(char *fname)
 
     set_cooling_params(ps);
     set_treewalk_params(ps);
+    set_gravshort_tree_params(ps);
     set_domain_params(ps);
     set_sfr_params(ps);
     set_winds_params(ps);

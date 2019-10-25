@@ -29,7 +29,7 @@ static void layout_iterate_cells(PetaPM * pm, struct Layout * L, cell_iterator i
 struct Pencil { /* a pencil starting at offset, with lenght len */
     int offset[3];
     int len;
-    int first; 
+    int first;
     int meshbuf_first; /* first pixel in meshbuf */
     int task;
 };
@@ -96,12 +96,13 @@ petapm_module_init(int Nthreads)
 }
 
 void
-petapm_init(PetaPM * pm, double BoxSize, int Nmesh, MPI_Comm comm)
+petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_Comm comm)
 {
-
     /* define the global long / short range force cut */
     pm->BoxSize = BoxSize;
+    pm->Asmth = Asmth;
     pm->Nmesh = Nmesh;
+    pm->G = G;
     pm->CellSize = BoxSize / Nmesh;
     pm->comm = comm;
 
@@ -137,16 +138,16 @@ petapm_init(PetaPM * pm, double BoxSize, int Nmesh, MPI_Comm comm)
     if(pm->NTask2d[0] != np[0]) abort();
     if(pm->NTask2d[1] != np[1]) abort();
 
-    pm->priv->fftsize = 2 * pfft_local_size_dft_r2c_3d(n, pm->priv->comm_cart_2d, 
-           PFFT_TRANSPOSED_OUT, 
-           pm->real_space_region.size, pm->real_space_region.offset, 
+    pm->priv->fftsize = 2 * pfft_local_size_dft_r2c_3d(n, pm->priv->comm_cart_2d,
+           PFFT_TRANSPOSED_OUT,
+           pm->real_space_region.size, pm->real_space_region.offset,
            pm->fourier_space_region.size, pm->fourier_space_region.offset);
 
     /*
      * In fourier space, the transposed array is ordered in
      * are in (y, z, x). The strides and sizes returned
      * from local size is in (Nx, Ny, Nz), hence we roll them once
-     * so that the strides will give correct linear indexing for 
+     * so that the strides will give correct linear indexing for
      * integer coordinates given in order of (y, z, x).
      * */
 
@@ -176,7 +177,7 @@ petapm_init(PetaPM * pm, double BoxSize, int Nmesh, MPI_Comm comm)
         n, real, rho_k, pm->priv->comm_cart_2d, PFFT_FORWARD,
         PFFT_TRANSPOSED_OUT | PFFT_ESTIMATE | PFFT_TUNE | PFFT_DESTROY_INPUT);
     pm->priv->plan_back = pfft_plan_dft_c2r_3d(
-        n, complx, real, pm->priv->comm_cart_2d, PFFT_BACKWARD, 
+        n, complx, real, pm->priv->comm_cart_2d, PFFT_BACKWARD,
         PFFT_TRANSPOSED_IN | PFFT_ESTIMATE | PFFT_TUNE | PFFT_DESTROY_INPUT);
 
     myfree(complx);
@@ -186,12 +187,12 @@ petapm_init(PetaPM * pm, double BoxSize, int Nmesh, MPI_Comm comm)
     /* now lets fill up the mesh2task arrays */
 
 #if 0
-    message(1, "ThisTask = %d (%td %td %td) - (%td %td %td)\n", ThisTask, 
-            pm->real_space_region.offset[0], 
-            pm->real_space_region.offset[1], 
+    message(1, "ThisTask = %d (%td %td %td) - (%td %td %td)\n", ThisTask,
+            pm->real_space_region.offset[0],
+            pm->real_space_region.offset[1],
             pm->real_space_region.offset[2],
-            pm->real_space_region.size[0], 
-            pm->real_space_region.size[1], 
+            pm->real_space_region.size[0],
+            pm->real_space_region.size[1],
             pm->real_space_region.size[2]);
 #endif
 
@@ -224,17 +225,16 @@ petapm_destroy(PetaPM * pm)
     myfree(pm->Mesh2Task[0]);
 }
 
-/* 
- * read out field to particle i, with value no need to be thread safe 
+/*
+ * read out field to particle i, with value no need to be thread safe
  * (particle i is never done by same thread)
  * */
 typedef void (* pm_iterator)(PetaPM * pm, int i, double * mesh, double weight);
 static void pm_iterate(PetaPM * pm, pm_iterator iterator, PetaPMRegion * regions);
 /* apply transfer function to value, kpos array is in x, y, z order */
-typedef void (*transfer_function) (PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
 static void pm_apply_transfer_function(PetaPM * pm,
         pfft_complex * src,
-        pfft_complex * dst, transfer_function H);
+        pfft_complex * dst, petapm_transfer_func H);
 
 static void put_particle_to_mesh(PetaPM * pm, int i, double * mesh, double weight);
 
@@ -242,13 +242,13 @@ static void put_particle_to_mesh(PetaPM * pm, int i, double * mesh, double weigh
  * 1. calls prepare to build the Regions covering particles
  * 2. CIC the particles
  * 3. Transform to rho_k
- * 4. apply global_transfer (if not NULL -- 
+ * 4. apply global_transfer (if not NULL --
  *       this is the place to fill in gaussian seeds,
- *       the transfer is stacked onto all following transfers. 
+ *       the transfer is stacked onto all following transfers.
  * 5. for each transfer, readout in functions
  * 6.    apply transfer from global_transfer -> complex
  * 7.    transform to real
- * 8.    readout 
+ * 8.    readout
  * 9. free regions
  * */
 
@@ -279,7 +279,7 @@ pfft_complex * petapm_force_r2c(PetaPM * pm,
         ) {
     /* call pfft rho_k is CFT of rho */
 
-    /* this is because 
+    /* this is because
      *
      * CFT = DFT * dx **3
      * CFT[rho] = DFT [rho * dx **3] = DFT[CIC]
@@ -341,7 +341,7 @@ petapm_force_c2r(PetaPM * pm,
         /* read out the potential: this will copy and free real.*/
         layout_build_and_exchange_cells_to_local(pm, &pm->priv->layout, pm->priv->meshbuf, real);
         walltime_measure("/PMgrav/comm");
-        
+
         pm_iterate(pm, readout, regions);
         walltime_measure("/PMgrav/readout");
     }
@@ -353,9 +353,9 @@ void petapm_force_finish(PetaPM * pm) {
     myfree(pm->priv->meshbuf);
 }
 
-void petapm_force(PetaPM * pm, petapm_prepare_func prepare, 
+void petapm_force(PetaPM * pm, petapm_prepare_func prepare,
         PetaPMGlobalFunctions * global_functions, //petapm_transfer_func global_transfer,
-        PetaPMFunctions * functions, 
+        PetaPMFunctions * functions,
         PetaPMParticleStruct * pstruct,
         void * userdata) {
     PetaPMRegion * regions = petapm_force_init(pm, prepare, pstruct, userdata);
@@ -366,7 +366,7 @@ void petapm_force(PetaPM * pm, petapm_prepare_func prepare,
     myfree(regions);
     petapm_force_finish(pm);
 }
-    
+
 /* build a communication layout */
 
 static void layout_build_pencils(PetaPM * pm, struct Layout * L, double * meshbuf, PetaPMRegion * regions, const int Nregions);
@@ -547,7 +547,7 @@ static void layout_exchange_pencils(struct Layout * L) {
 
     MPI_Alltoallv(
             L->PencilSend, L->NpSend, L->DpSend, MPI_PENCIL,
-            L->PencilRecv, L->NpRecv, L->DpRecv, MPI_PENCIL, 
+            L->PencilRecv, L->NpRecv, L->DpRecv, MPI_PENCIL,
             L->comm);
 
     /* set first to point to absolute position in the full import cell buffer */
@@ -560,7 +560,7 @@ static void layout_exchange_pencils(struct Layout * L) {
         }
         offset += L->NpRecv[i];
     }
-    
+
     /* set first to point to absolute position in the full export cell buffer */
     offset = 0;
     for(i = 0; i < NTask; i ++) {
@@ -611,7 +611,7 @@ layout_build_and_exchange_cells_to_pfft(
     /* receive cells */
     MPI_Alltoallv(
             L->BufSend, L->NcSend, L->DcSend, MPI_DOUBLE,
-            L->BufRecv, L->NcRecv, L->DcRecv, MPI_DOUBLE, 
+            L->BufRecv, L->NcRecv, L->DcRecv, MPI_DOUBLE,
             L->comm);
 
 #if 0
@@ -636,7 +636,7 @@ layout_build_and_exchange_cells_to_pfft(
     myfree(L->BufSend);
 }
 
-/* readout cells on their pfft host, then exchange the cells to the domain 
+/* readout cells on their pfft host, then exchange the cells to the domain
  * host */
 static void to_region(double * cell, double * region) {
     *region = *cell;
@@ -664,7 +664,7 @@ layout_build_and_exchange_cells_to_local(
     /* exchange cells */
     /* notice the order is reversed from to_pfft */
     MPI_Alltoallv(
-            L->BufRecv, L->NcRecv, L->DcRecv, MPI_DOUBLE, 
+            L->BufRecv, L->NcRecv, L->DcRecv, MPI_DOUBLE,
             L->BufSend, L->NcSend, L->DcSend, MPI_DOUBLE,
             L->comm);
 
@@ -673,7 +673,7 @@ layout_build_and_exchange_cells_to_local(
     for(i = 0; i < L->NpExport; i ++) {
         struct Pencil * p = &L->PencilSend[i];
         memcpy(&meshbuf[p->meshbuf_first],
-                L->BufSend + offset, 
+                L->BufSend + offset,
                 sizeof(double) * p->len);
         offset += p->len;
     }
@@ -681,7 +681,7 @@ layout_build_and_exchange_cells_to_local(
     myfree(L->BufRecv);
 }
 
-/* iterate over the pairs of real field cells and RecvBuf cells 
+/* iterate over the pairs of real field cells and RecvBuf cells
  *
  * !!! iter has to be thread safe. !!!
  * */
@@ -718,8 +718,8 @@ layout_iterate_cells(PetaPM * pm,
                 abort();
             }
             ptrdiff_t linear = iz * pm->real_space_region.strides[2] + linear0;
-            /* 
-             * operate on the pencil, either modifying real or BufRecv 
+            /*
+             * operate on the pencil, either modifying real or BufRecv
              * */
             iter(&real[linear], &L->BufRecv[p->first + j]);
         }
@@ -794,17 +794,17 @@ pm_iterate_one(PetaPM * pm,
     }
 }
 
-/* 
- * iterate over all particle / mesh pairs, call iterator 
+/*
+ * iterate over all particle / mesh pairs, call iterator
  * function . iterator function shall be aware of thread safety.
- * no threads run on same particle same time but may 
+ * no threads run on same particle same time but may
  * access one mesh points same time.
  * */
 static void pm_iterate(PetaPM * pm, pm_iterator iterator, PetaPMRegion * regions) {
     int i;
-#pragma omp parallel for 
+#pragma omp parallel for
     for(i = 0; i < CPS->NumPart; i ++) {
-        pm_iterate_one(pm, i, iterator, regions); 
+        pm_iterate_one(pm, i, iterator, regions);
     }
     MPIU_Barrier(pm->comm);
 }
@@ -881,7 +881,7 @@ static void verify_density_field(PetaPM * pm, double * real, double * meshbuf, c
 
 static void pm_apply_transfer_function(PetaPM * pm,
         pfft_complex * src,
-        pfft_complex * dst, transfer_function H
+        pfft_complex * dst, petapm_transfer_func H
         ){
     size_t ip = 0;
 
@@ -941,7 +941,7 @@ static int64_t reduce_int64(int64_t input, MPI_Comm comm) {
 /** Some FFT notes
  *
  *
- * CFT = dx * iDFT (thus CFT has no 2pi factors and iCFT has, 
+ * CFT = dx * iDFT (thus CFT has no 2pi factors and iCFT has,
  *           same as wikipedia.)
  *
  * iCFT = dk * DFT

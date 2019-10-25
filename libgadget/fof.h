@@ -8,24 +8,6 @@ void set_fof_params(ParameterSet * ps);
 
 void fof_init(double DMMeanSeparation);
 
-/*Computes the Group structure, saved as a global array below*/
-void fof_fof(ForceTree * tree, double BoxSize, int BlackHoleInfo, MPI_Comm Comm);
-
-/*Frees the Group structure*/
-void
-fof_finish(void);
-
-/*Uses the Group structure to seed blackholes*/
-void
-fof_seed(MPI_Comm Comm);
-
-/*Saves the Group structure to disc.*/
-void
-fof_save_groups(int num, MPI_Comm Comm);
-
-extern int Ngroups;
-extern int64_t TotNgroups;
-
 struct BaseGroup {
     int OriginalTask;
     int OriginalIndex;
@@ -36,7 +18,7 @@ struct BaseGroup {
     float FirstPos[3];
 };
 
-extern struct Group
+struct Group
 {
     struct BaseGroup base;
     int Length;
@@ -57,6 +39,29 @@ extern struct Group
 
     int seed_index;
     int seed_task;
-} * Group;
+};
+
+/* Structure to hold all allocated FOF groups*/
+typedef struct FOFGroups
+{
+    struct Group * Group;
+    /* Ngroups is maximally NumPart,
+     * so can be 32-bit*/
+    int Ngroups;
+    int64_t TotNgroups;
+} FOFGroups;
+
+/*Computes the Group structure, saved as a global array below*/
+FOFGroups fof_fof(ForceTree * tree, double BoxSize, int BlackHoleInfo, MPI_Comm Comm);
+
+/*Frees the Group structure*/
+void fof_finish(FOFGroups * fof);
+
+/*Uses the Group structure to seed blackholes*/
+void fof_seed(FOFGroups * fof, MPI_Comm Comm);
+
+/*Saves the Group structure to disc.*/
+void fof_save_groups(FOFGroups * fof, int num, MPI_Comm Comm);
+
 
 #endif

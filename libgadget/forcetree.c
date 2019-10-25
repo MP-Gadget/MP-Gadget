@@ -138,6 +138,7 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
         /* Allocate memory. */
         tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp);
 
+        tree.BoxSize = BoxSize;
         Numnodestree = force_tree_create_nodes(tree, npart, ddecomp, BoxSize);
         if(Numnodestree >= tree.lastnode - tree.firstnode)
         {
@@ -967,7 +968,7 @@ void force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp)
     for(i = ddecomp->Tasks[ThisTask].StartLeaf; i < ddecomp->Tasks[ThisTask].EndLeaf; i ++) {
         no = ddecomp->TopLeaves[i].treenode;
         if(ddecomp->TopLeaves[i].Task != ThisTask)
-            endrun(131231231, "TopLeave's Task table is corrupted");
+            endrun(131231231, "TopLeaf %d Task table is corrupted: task is %d\n", i, ddecomp->TopLeaves[i].Task);
 
         /* read out the multipole moments from the local base cells */
         TopLeafMoments[i].s[0] = tree->Nodes[no].u.d.s[0];
@@ -1108,34 +1109,16 @@ void force_treeupdate_pseudos(int no, const ForceTree * tree)
  *  out just before the hydrodynamical SPH forces are computed, i.e. after
  *  density().
  */
-void force_update_hmax(int * activeset, int size, ForceTree * tree)
+void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp * ddecomp)
 {
-    int NTask, ThisTask;
+    int NTask, ThisTask, recvTask;
     int i, ta;
-    int *counts, *offsets;
-    struct dirty_node_data {
-        int treenode;
-        MyFloat hmax;
-    } * DirtyTopLevelNodes;
-
-    int NumDirtyTopLevelNodes;
+    int *recvcounts, *recvoffset;
 
     walltime_measure("/Misc");
 
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-
-    NumDirtyTopLevelNodes = 0;
-
-    /* At most NTopLeaves are dirty, since we are only concerned with TOPLEVEL nodes */
-    DirtyTopLevelNodes = (struct dirty_node_data*) mymalloc("DirtyTopLevelNodes", tree->NTopLeaves * sizeof(DirtyTopLevelNodes[0]));
-
-    /* FIXME: actually only TOPLEVEL nodes contains the local mass can potentially be dirty,
-     *  we may want to save a list of them to speed this up.
-     * */
-    for(i = tree->firstnode; i < tree->firstnode + tree->numnodes; i ++) {
-        tree->Nodes[i].f.NodeIsDirty = 0;
-    }
 
     for(i = 0; i < size; i++)
     {
@@ -1148,74 +1131,57 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree)
 
         while(no >= 0)
         {
-            if(P[p_i].Hsml <= tree->Nodes[no].u.d.hmax) break;
-
-            tree->Nodes[no].u.d.hmax = P[p_i].Hsml;
-
-            if(tree->Nodes[no].f.TopLevel) /* we reached a top-level node */
-            {
-                if (!tree->Nodes[no].f.NodeIsDirty) {
-                    tree->Nodes[no].f.NodeIsDirty = 1;
-                    DirtyTopLevelNodes[NumDirtyTopLevelNodes].treenode = no;
-                    DirtyTopLevelNodes[NumDirtyTopLevelNodes].hmax = tree->Nodes[no].u.d.hmax;
-                    NumDirtyTopLevelNodes ++;
-                }
+            if(P[p_i].Hsml <= tree->Nodes[no].u.d.hmax)
                 break;
-            }
-
+            tree->Nodes[no].u.d.hmax = P[p_i].Hsml;
             no = tree->Nodes[no].father;
         }
+    }
+
+    double * TopLeafhmax = (double *) mymalloc("TopLeafMoments", ddecomp->NTopLeaves * sizeof(double));
+    memset(&TopLeafhmax[0], 0, sizeof(double) * ddecomp->NTopLeaves);
+
+    for(i = ddecomp->Tasks[ThisTask].StartLeaf; i < ddecomp->Tasks[ThisTask].EndLeaf; i ++) {
+        int no = ddecomp->TopLeaves[i].treenode;
+        TopLeafhmax[i] = tree->Nodes[no].u.d.hmax;
     }
 
     /* share the hmax-data of the dirty nodes accross CPUs */
+    recvcounts = (int *) mymalloc("recvcounts", sizeof(int) * NTask);
+    recvoffset = (int *) mymalloc("recvoffset", sizeof(int) * NTask);
 
-    counts = (int *) mymalloc("counts", sizeof(int) * NTask);
-    offsets = (int *) mymalloc("offsets", sizeof(int) * (NTask + 1));
-
-    MPI_Allgather(&NumDirtyTopLevelNodes, 1, MPI_INT, counts, 1, MPI_INT, MPI_COMM_WORLD);
-
-    for(ta = 0, offsets[0] = 0; ta < NTask; ta++)
+    for(recvTask = 0; recvTask < NTask; recvTask++)
     {
-        offsets[ta + 1] = offsets[ta] + counts[ta];
+        recvoffset[recvTask] = ddecomp->Tasks[recvTask].StartLeaf;
+        recvcounts[recvTask] = ddecomp->Tasks[recvTask].EndLeaf - ddecomp->Tasks[recvTask].StartLeaf;
     }
-
-    message(0, "Hmax exchange: %d toplevel tree nodes out of %d\n", offsets[NTask], tree->NTopLeaves);
-
-    /* move to the right place for MPI_INPLACE*/
-    memmove(&DirtyTopLevelNodes[offsets[ThisTask]], &DirtyTopLevelNodes[0], NumDirtyTopLevelNodes * sizeof(DirtyTopLevelNodes[0]));
-
-    MPI_Datatype MPI_TYPE_DIRTY_NODES;
-    MPI_Type_contiguous(sizeof(DirtyTopLevelNodes[0]), MPI_BYTE, &MPI_TYPE_DIRTY_NODES);
-    MPI_Type_commit(&MPI_TYPE_DIRTY_NODES);
 
     MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
-            DirtyTopLevelNodes, counts, offsets, MPI_TYPE_DIRTY_NODES, MPI_COMM_WORLD);
+            &TopLeafhmax[0], recvcounts, recvoffset,
+            MPI_DOUBLE, MPI_COMM_WORLD);
 
-    MPI_Type_free(&MPI_TYPE_DIRTY_NODES);
+    myfree(recvoffset);
+    myfree(recvcounts);
 
-    for(i = 0; i < offsets[NTask]; i++)
-    {
-        int no = DirtyTopLevelNodes[i].treenode;
+    for(ta = 0; ta < NTask; ta++) {
+        if(ta == ThisTask)
+            continue; /* bypass ThisTask since it is already up to date */
+        for(i = ddecomp->Tasks[ta].StartLeaf; i < ddecomp->Tasks[ta].EndLeaf; i ++) {
+            int no = ddecomp->TopLeaves[i].treenode;
+            tree->Nodes[no].u.d.hmax = TopLeafhmax[i];
 
-        /* Why does this matter? The logic is simpler if we just blindly update them all.
-            ::: to avoid that the hmax is updated twice :::*/
-        if(tree->Nodes[no].f.DependsOnLocalMass)
-            no = tree->Nodes[no].father;
-
-        while(no >= 0)
-        {
-            if(DirtyTopLevelNodes[i].hmax <= tree->Nodes[no].u.d.hmax) break;
-
-            tree->Nodes[no].u.d.hmax = DirtyTopLevelNodes[i].hmax;
-
-            no = tree->Nodes[no].father;
-        }
+            while(no >= 0)
+            {
+                if(TopLeafhmax[i] <= tree->Nodes[no].u.d.hmax)
+                    break;
+                tree->Nodes[no].u.d.hmax = TopLeafhmax[i];
+                no = tree->Nodes[no].father;
+            }
+         }
     }
+    myfree(TopLeafhmax);
 
-    myfree(offsets);
-    myfree(counts);
-    myfree(DirtyTopLevelNodes);
-
+    tree->hmax_computed_flag = 1;
     walltime_measure("/Tree/HmaxUpdate");
 }
 

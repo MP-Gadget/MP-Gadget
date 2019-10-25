@@ -12,6 +12,7 @@
 #include <libgadget/walltime.h>
 #include <libgadget/petapm.h>
 #include <libgadget/utils.h>
+#include <libgadget/partmanager.h>
 
 #define GLASS_SEED_HASH(seed) ((seed) * 9999721L)
 
@@ -19,10 +20,12 @@ void print_spec(void);
 
 int main(int argc, char **argv)
 {
-  MPI_Init(&argc, &argv);
-  MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-  init_endrun();
+  int thread_provided;
+  MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &thread_provided);
+  if(thread_provided != MPI_THREAD_FUNNELED)
+  	message(1, "MPI_Init_thread returned %d != MPI_THREAD_FUNNELED\n", thread_provided);
 
+  MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
   if(argc < 2)
     endrun(0,"Please pass a parameter file.\n");
 
@@ -31,6 +34,8 @@ int main(int argc, char **argv)
   read_parameterfile(argv[1]);
 
   mymalloc_init(All.MaxMemSizePerNode);
+
+  init_endrun(All.ShowBacktrace);
 
   walltime_init(&All.CT);
 
@@ -90,7 +95,7 @@ int main(int argc, char **argv)
   }
   PetaPM pm[1];
 
-  petapm_init(pm, All.BoxSize, All.Nmesh, MPI_COMM_WORLD);
+  petapm_init(pm, All.BoxSize, All.Asmth, All.Nmesh, All.G, MPI_COMM_WORLD);
 
   /*First compute and write CDM*/
   double mass[6] = {0};
@@ -129,13 +134,13 @@ int main(int argc, char **argv)
     if(All2.MakeGlassGas || All2.MakeGlassCDM)
         glass_evolve(pm, 14, "powerspectrum-glass-tot", ICP, NumPartCDM+NumPartGas);
   }
-  
+
   /*Write initial positions into ICP struct (for CDM and gas)*/
   int j,k;
   for(j=0; j<NumPartCDM+NumPartGas; j++)
       for(k=0; k<3; k++)
           ICP[j].PrePos[k] = ICP[j].Pos[k];
-  
+
   if(NumPartCDM > 0) {
     displacement_fields(pm, DMType, ICP, NumPartCDM);
 
@@ -242,7 +247,7 @@ void print_spec(void)
         message(1, "Failed to create powerspec file at:%s\n", buf);
         return;
       }
-      DDD = GrowthFactor(All.TimeIC, 1.0);
+      DDD = GrowthFactor(&All.CP, All.TimeIC, 1.0);
 
       fprintf(fd, "# %12g %12g\n", 1/All.TimeIC-1, DDD);
       /* print actual starting redshift and linear growth factor for this cosmology */

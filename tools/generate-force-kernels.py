@@ -1,6 +1,7 @@
 """Script to generate the short-range force kernel tables for Gadget.
 These have to account for smoothing on large scales to match directly onto the PM force."""
 
+import os.path
 from itertools import product
 import numpy
 from scipy.special import erfc
@@ -44,7 +45,7 @@ class NDiff:
         assert self.norm  == 2.0 * s
 
     def __call__(self, ww):
-        return 2 * 1.0 / self.norm * numpy.sum(numpy.sin((i+1) * ww) * c for i, c in enumerate(self.coeffs))
+        return 2 * 1.0 / self.norm * numpy.sum([numpy.sin((i+1) * ww) * c for i, c in enumerate(self.coeffs)])
 
 def decic(k, v):
     """ Deconvolves the CIC window, once"""
@@ -131,21 +132,23 @@ def gravity_spline(dist, a):
     """This computes the direct gravitational force for a particle softened with a spline, as is done in Gadget."""
     # copied from Gadget / check for typos? But we really only care the very outside
     r = numpy.einsum('...j,...j->...', dist, dist) ** 0.5
-    fac = 1 / r ** 3
-    pot = - 1 / r
-
     u = r / a
+    fac = numpy.zeros_like(r)
 
     inner = u < 0.5
     mid   = (u >= 0.5) & (u < 1.0)
+    outer = u >= 1.0
     fac[inner] = (a ** -3 * ( 32. / 3 + u * u * (32.0 * u - 38.4)))[inner]
-    fac[mid] = (a ** -3 * ( 64. / 3 - 48.0 * u
-                            + 38.4 * u * u
-                            - 32.0 / 3 * u * u * u
-                            - 0.2/3 / (u * u * u)))[mid]
+    fac[mid] = (a ** -3 * ( 64. / 3 - 48.0 * u[mid]
+                            + 38.4 * u[mid]**2
+                            - 32.0 / 3 * u[mid]**3
+                            - 0.2/3 / (u[mid]**3)))
+    fac[outer] = 1 / r[outer] ** 3
 
+    pot = numpy.zeros_like(r)
     pot[inner] = (a**-1 * (-2.8 + u * u * (16./3 + u * u * (6.4 * u - 0.6))))[inner]
-    pot[mid]  = (a**-1 * (-3.2 + 0.2 / 3 / u + u * u * (32. / 3 + u * (-16.0 + u *(9.6 - 6.4 / 3 * u)))))[mid]
+    pot[mid]  = (a**-1 * (-3.2 + 0.2 / 3 / u[mid] + u[mid]**2 * (32. / 3 + u[mid] * (-16.0 + u[mid] *(9.6 - 6.4 / 3 * u[mid])))))
+    pot[outer] = - 1 / r[outer]
 
     return dist * fac[..., None], -pot
 
@@ -309,7 +312,7 @@ def main(ns):
     terms = [[],] * 8
 
     # Compute forces;
-    # to include effect of off-mesh, 
+    # to include effect of off-mesh,
     # randomly shift the test particle and source particle set,
     # keeping the distance.
 
@@ -378,7 +381,7 @@ def main(ns):
     ax.grid()
     ax.legend()
 
-    figure.savefig(ns.prefix + 'diagonstics-%.2f.png' % Split, dpi=200)
+    figure.savefig(os.path.join(ns.prefix, 'diagnostics-%.2f.png' % Split), dpi=200)
 
 
     table = numpy.array([rx, rp_1d, rf_1d, rp_erf, rf_erf]).T

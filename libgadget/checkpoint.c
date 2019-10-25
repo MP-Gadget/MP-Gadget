@@ -40,11 +40,11 @@ write_checkpoint(int WriteSnapshot, int WriteFOF, ForceTree * tree)
         /* Compute and save FOF*/
         message(0, "computing group catalogue...\n");
 
-        fof_fof(tree, All.BoxSize, All.BlackHoleOn, MPI_COMM_WORLD);
+        FOFGroups fof = fof_fof(tree, All.BoxSize, All.BlackHoleOn, MPI_COMM_WORLD);
         /* Tree is invalid now because of the exchange in FoF.*/
         force_tree_free(tree);
-        fof_save_groups(snapnum, MPI_COMM_WORLD);
-        fof_finish();
+        fof_save_groups(&fof, snapnum, MPI_COMM_WORLD);
+        fof_finish(&fof);
 
         message(0, "done with group catalogue.\n");
     }
@@ -56,7 +56,7 @@ dump_snapshot()
     struct IOTable IOTable = {0};
     register_io_blocks(&IOTable);
     register_debug_io_blocks(&IOTable);
-    petaio_save_snapshot(&IOTable, "%s/CRASH-DUMP", All.OutputDir);
+    petaio_save_snapshot(&IOTable, 1, "%s/CRASH-DUMP", All.OutputDir);
     destroy_io_blocks(&IOTable);
 }
 
@@ -68,7 +68,7 @@ write_snapshot(int num)
     register_io_blocks(&IOTable);
     if(All.OutputDebugFields)
         register_debug_io_blocks(&IOTable);
-    petaio_save_snapshot(&IOTable, "%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
+    petaio_save_snapshot(&IOTable, 1, "%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
 
     destroy_io_blocks(&IOTable);
     walltime_measure("/Snapshot/Write");

@@ -8,6 +8,8 @@
 #include "allvars.h"
 #include "proto.h"
 #include "power.h"
+/* Using fastpm's gaussian_fill for ngenic agreement. */
+#include "pmesh.h"
 
 #include <libgadget/petapm.h>
 #include <libgadget/walltime.h>
@@ -189,7 +191,7 @@ void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_dat
     };
 
     /*Set up the velocity pre-factors*/
-    const double hubble_a = hubble_function(All.TimeIC);
+    const double hubble_a = hubble_function(&All.CP, All.TimeIC);
 
     double vel_prefac = All.TimeIC * hubble_a;
 
@@ -201,7 +203,7 @@ void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_dat
     }
 
     if(!All2.PowerP.ScaleDepVelocity) {
-        vel_prefac *= F_Omega(All.TimeIC);
+        vel_prefac *= F_Omega(&All.CP, All.TimeIC);
         /* If different transfer functions are disabled, we can copy displacements to velocities
          * and we don't need the extra transfers.*/
         functions[4].name = NULL;
@@ -252,7 +254,7 @@ void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_dat
     message(0, "Type = %d max disp = %g in units of cell sep %g \n", ptype, maxdisp, maxdisp / (All.BoxSize / All.Nmesh) );
 
     MPI_Allreduce(MPI_IN_PLACE, &maxvel, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    message(0, "Max vel=%g km/s, vel_prefac= %g  hubble_a=%g fom=%g \n", sqrt(maxvel), vel_prefac, hubble_a, F_Omega(All.TimeIC));
+    message(0, "Max vel=%g km/s, vel_prefac= %g  hubble_a=%g fom=%g \n", sqrt(maxvel), vel_prefac, hubble_a, F_Omega(&All.CP, All.TimeIC));
 
     walltime_measure("/Disp/Finalize");
     MPIU_Barrier(MPI_COMM_WORLD);
@@ -354,14 +356,11 @@ static void readout_disp_z(PetaPM * pm, int i, double * mesh, double weight) {
     curICP[i].Disp[2] += weight * mesh[0];
 }
 
-/* Using fastpm's gaussian_fill for ngenic agreement. */
-#include "pmesh.h"
-
 static void
 gaussian_fill(int Nmesh, PetaPMRegion * region, pfft_complex * rho_k, int setUnitaryAmplitude, int setInvertPhase)
 {
     /* fastpm deals with strides properly; petapm not. So we translate it here. */
-    PM pm[1];
+    PMDesc pm[1];
     int d;
     for (d = 0; d < 3; d ++) {
         pm->Nmesh[d] = Nmesh;
