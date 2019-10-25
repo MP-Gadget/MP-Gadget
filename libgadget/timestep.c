@@ -55,7 +55,7 @@ timestep_eh_slots_fork(EIBase * event, void * userdata)
     int parent = ev->parent;
     int child = ev->child;
 
-    if(is_timebin_active(P[parent].TimeBin, All.Ti_Current) && !P[parent].Swallowed) {
+    if(is_timebin_active(P[parent].TimeBin, All.Ti_Current)) {
         int childactive = atomic_fetch_and_add(&NumActiveParticle, 1);
         if(ActiveParticle)
             ActiveParticle[childactive] = child;
@@ -197,7 +197,7 @@ find_timesteps(inttime_t Ti_Current)
         {
             /* make sure the new step is currently active,
              * so that particles do not miss a step */
-            while((!is_timebin_active(bin, Ti_Current) && bin > binold && bin > 1) || P[pa].Swallowed)
+            while(!is_timebin_active(bin, Ti_Current) && bin > binold && bin > 1)
                 bin--;
         }
         /* This moves particles between time bins:
