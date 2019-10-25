@@ -257,6 +257,15 @@ static void fof_distribute_particles(struct part_manager_type * halopartmanager,
     /* Copy the target task into a temporary array for all particles*/
     int * targettask = mymalloc2("targettask", sizeof(int) * NpigLocal);
 
+#ifdef DEBUG
+    int NTask;
+    MPI_Comm_size(Comm, &NTask);
+    for(i = 0; i < NpigLocal; i ++) {
+        targettask[i] = -1;
+        if(pi[i].targetTask >= NTask || pi[i].targetTask < 0)
+            endrun(23, "pi %d is impossible %d of %d tasks\n",i,pi[i].targetTask, NTask);
+    }
+#endif
     #pragma omp parallel for
     for(i = 0; i < NpigLocal; i ++) {
         size_t index = pi[i].origin % (halopartmanager->NumPart + 1Lu);
@@ -265,6 +274,12 @@ static void fof_distribute_particles(struct part_manager_type * halopartmanager,
         targettask[index] = pi[i].targetTask;
     }
     myfree(pi);
+#ifdef DEBUG
+    for(i = 0; i < NpigLocal; i ++) {
+        if(targettask[i] < 0)
+            endrun(4, "targettask %d not changed %d! neighbours: %d %d\n", i, targettask[i], targettask[i-1], targettask[i+1]);
+    }
+#endif
 
     /* sort SPH and Others independently */
     if(domain_exchange(fof_sorted_layout, targettask, 1, halopartmanager, haloslotmanager, Comm))
