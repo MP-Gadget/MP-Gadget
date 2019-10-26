@@ -11,6 +11,7 @@
 #include "mpsort.h"
 #include "system.h"
 #include "mymalloc.h"
+#include "openmpsort.h"
 
 typedef int (*_compar_fn_t)(const void * r1, const void * r2, size_t rsize);
 typedef void (*_bisect_fn_t)(void * r, const void * r1, const void * r2, size_t rsize);
@@ -120,16 +121,6 @@ static void _bisect_radix_be(void * r, const void * r1, const void * r2, size_t 
     _bisect_radix(r, r1, r2, rsize, +1);
 }
 
-/* implementation ; internal */
-int _compute_and_compar_radix(const void * p1, const void * p2, void * arg) {
-    struct crstruct * d = arg;
-    char r1[d->rsize], r2[d->rsize];
-    d->radix(p1, r1, d->arg);
-    d->radix(p2, r2, d->arg);
-    int c1 = d->compar(r1, r2, d->rsize);
-    return c1;
-}
-
 void _setup_radix_sort(
         struct crstruct *d,
         void * base,
@@ -183,16 +174,25 @@ void _setup_radix_sort(
  * internally this uses qsort_r of glibc.
  *
  **** */
+static struct crstruct _cacr_d;
 
-void radix_sort(void * base, size_t nmemb, size_t size,
+/* implementation ; internal */
+static int _compute_and_compar_radix(const void * p1, const void * p2) {
+    char r1[_cacr_d.rsize], r2[_cacr_d.rsize];
+    _cacr_d.radix(p1, r1, _cacr_d.arg);
+    _cacr_d.radix(p2, r2, _cacr_d.arg);
+    int c1 = _cacr_d.compar(r1, r2, _cacr_d.rsize);
+    return c1;
+}
+
+static void radix_sort(void * base, size_t nmemb, size_t size,
         void (*radix)(const void * ptr, void * radix, void * arg),
         size_t rsize,
         void * arg) {
 
-    struct crstruct d;
-    _setup_radix_sort(&d, base, nmemb, size, radix, rsize, arg);
+    _setup_radix_sort(&_cacr_d, base, nmemb, size, radix, rsize, arg);
 
-    qsort_r(d.base, d.nmemb, d.size, _compute_and_compar_radix, &d);
+    qsort_openmp(_cacr_d.base, _cacr_d.nmemb, _cacr_d.size, _compute_and_compar_radix);
 }
 
 

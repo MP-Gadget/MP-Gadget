@@ -1,18 +1,6 @@
-void radix_sort(void * base, size_t nmemb, size_t size,
-        void (*radix)(const void * ptr, void * radix, void * arg),
-        size_t rsize,
-        void * arg);
+#ifndef _UTILS_MPSORT_H
+#define _UTILS_MPSORT_H
 
-#ifdef _OPENMP
-/* openmp support */
-void mpsort_omp(void * base, size_t nmemb, size_t size,
-        void (*radix)(const void * ptr, void * radix, void * arg), 
-        size_t rsize, 
-        void * arg);
-
-#endif
-
-#ifdef MPI_VERSION
 /* MPI support */
 #define MPSORT_DISABLE_SPARSE_ALLTOALLV (1 << 1)
 #define MPSORT_DISABLE_IALLREDUCE (1 << 2)
@@ -36,4 +24,5 @@ void mpsort_mpi_newarray(void * base, size_t nmemb,
         void * arg, MPI_Comm comm);
 
 void mpsort_mpi_report_last_run();
+
 #endif
