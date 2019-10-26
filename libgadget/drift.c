@@ -65,7 +65,7 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const
         int k;
         if (BHP(i).JumpToMinPot) {
             for(k = 0; k < 3; k++) {
-                double dx = NEAREST(P[i].Pos[k] - BHP(i).MinPotPos[k]);
+                double dx = NEAREST(P[i].Pos[k] - BHP(i).MinPotPos[k], All.BoxSize);
                 if(dx > 0.1 * All.BoxSize) {
                     endrun(1, "Drifting blackhole very far, from %g %g %g to %g %g %g id = %ld. Likely due to the time step is too sparse.\n",
                         P[i].Pos[0],
@@ -132,7 +132,7 @@ void drift_all_particles(inttime_t ti1, const double random_shift[3])
     walltime_measure("/Misc");
 
     const inttime_t ti0 = P[0].Ti_drift;
-    const double ddrift = get_exact_drift_factor(ti0, ti1);
+    const double ddrift = get_exact_drift_factor(&All.CP, ti0, ti1);
 
 #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++) {
@@ -140,8 +140,8 @@ void drift_all_particles(inttime_t ti1, const double random_shift[3])
         if(P[i].Ti_drift != ti0)
             endrun(10, "Drift time mismatch: (ids = %ld %ld) %d != %d\n",P[0].ID, P[i].ID, ti0,  P[i].Ti_drift);
 #endif
-        if(P[i].Swallowed)
-          continue;
+		if(P[i].Swallowed)
+			continue;
         real_drift_particle(i, ti1, ddrift, random_shift);
     }
 

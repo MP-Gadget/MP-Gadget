@@ -45,7 +45,7 @@ typedef struct {
     MyFloat BH_MinPotPos[3];
     MyFloat BH_MinPot;
 
-    short int BH_minTimeBin;
+    int BH_minTimeBin;
     MyFloat FeedbackWeightSum;
 
     MyFloat Rho;
@@ -181,7 +181,7 @@ static double blackhole_soundspeed(double entropy, double rho) {
 }
 
 void
-blackhole(ForceTree * tree)
+blackhole(const ActiveParticles * act, ForceTree * tree)
 {
     if(!All.BlackHoleOn)
         return;
@@ -232,10 +232,10 @@ blackhole(ForceTree * tree)
 
     /* Let's determine which particles may be swallowed and calculate total feedback weights */
     priv->SPH_SwallowID = mymalloc("SPH_SwallowID", SlotsManager->info[0].size * sizeof(MyIDType));
-    if(ActiveParticle) {
+    if(act->ActiveParticle) {
         #pragma omp parallel for
-        for(i = 0; i < NumActiveParticle; i ++) {
-            int p_i = ActiveParticle[i];
+        for(i = 0; i < act->NumActiveParticle; i ++) {
+            int p_i = act->ActiveParticle[i];
             if(P[p_i].Type == 0)
                 priv->SPH_SwallowID[P[p_i].PI] = -1;
         }
@@ -259,7 +259,7 @@ blackhole(ForceTree * tree)
     /* Local to this treewalk*/
     priv->BH_Entropy = mymalloc("BH_Entropy", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_SurroundingGasVel = (MyFloat (*) [3]) mymalloc("BH_SurroundVel", 3* SlotsManager->info[5].size * sizeof(priv->BH_SurroundingGasVel[0]));
-    treewalk_run(tw_accretion, ActiveParticle, NumActiveParticle);
+    treewalk_run(tw_accretion, act->ActiveParticle, act->NumActiveParticle);
     myfree(priv->BH_SurroundingGasVel);
     myfree(priv->BH_Entropy);
     myfree(priv->MinPot);
@@ -275,7 +275,7 @@ blackhole(ForceTree * tree)
     /* Local to this treewalk*/
     priv->BH_accreted_Mass = mymalloc("BH_accretedmass", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_accreted_BHMass = mymalloc("BH_accreted_BHMass", SlotsManager->info[5].size * sizeof(MyFloat));
-    treewalk_run(tw_feedback, ActiveParticle, NumActiveParticle);
+    treewalk_run(tw_feedback, act->ActiveParticle, act->NumActiveParticle);
     myfree(priv->BH_accreted_BHMass);
     myfree(priv->BH_accreted_Mass);
 
@@ -419,8 +419,8 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         iter->base.Hsml = hsearch;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
 
-        density_kernel_init(&iter->accretion_kernel, I->Hsml);
-        density_kernel_init(&iter->feedback_kernel, hsearch);
+        density_kernel_init(&iter->accretion_kernel, I->Hsml, All.DensityKernelType);
+        density_kernel_init(&iter->feedback_kernel, hsearch, All.DensityKernelType);
         return;
     }
 
@@ -573,7 +573,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
          * we apply a cut in r to break the symmetry. */
         iter->base.symmetric = NGB_TREEFIND_SYMMETRIC;
 
-        density_kernel_init(&iter->feedback_kernel, hsearch);
+        density_kernel_init(&iter->feedback_kernel, hsearch, All.DensityKernelType);
         return;
     }
 
@@ -604,6 +604,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         P[other].Mass = 0;
         BHP(other).Mass = 0;
 
+        slots_mark_garbage(other);
         BHP(other).Mdot = 0;
         unlock_spinlock(other, spin);
 
@@ -791,3 +792,4 @@ decide_hsearch(double h)
         return h;
     }
 }
+
