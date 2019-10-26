@@ -10,6 +10,7 @@
 
 #include "mpsort.h"
 #include "system.h"
+#include "mymalloc.h"
 
 typedef int (*_compar_fn_t)(const void * r1, const void * r2, size_t rsize);
 typedef void (*_bisect_fn_t)(void * r, const void * r1, const void * r2, size_t rsize);
@@ -721,9 +722,9 @@ mpsort_mpi (void * mybase, size_t mynmemb, size_t size,
 static int
 mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER * tmr);
 
-static void *
+static void
 MPIU_Scatter (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffer, int nrecv, size_t elsize, int * totalnsend);
-static void *
+static void
 MPIU_Gather (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffer, int nsend, size_t elsize, int * totalnrecv);
 
 static uint64_t
@@ -807,8 +808,8 @@ mpsort_mpi_newarray (void * mybase, size_t mynmemb,
 
     if (groupsize > 1) {
         if(grouprank == seggrp->group_leader_rank) {
-            mysegmentbase = malloc(mysegmentnmemb * elsize);
-            myoutsegmentbase = malloc(myoutsegmentnmemb * elsize);
+            mysegmentbase = mymalloc("segmentbase", mysegmentnmemb * elsize);
+            myoutsegmentbase = mymalloc("outsegment", myoutsegmentnmemb * elsize);
         }
         MPIU_Gather(seggrp->Group, seggrp->group_leader_rank, mybase, mysegmentbase, mynmemb, elsize, NULL);
     } else {
@@ -845,10 +846,10 @@ mpsort_mpi_newarray (void * mybase, size_t mynmemb,
     }
 
     if(grouprank == seggrp->group_leader_rank) {
-        if(mysegmentbase != mybase)
-            free(mysegmentbase);
         if(myoutsegmentbase != myoutbase)
-            free(myoutsegmentbase);
+            myfree(myoutsegmentbase);
+        if(mysegmentbase != mybase)
+            myfree(mysegmentbase);
     }
 
     _destroy_segment_group(seggrp);
@@ -860,7 +861,7 @@ mpsort_mpi_newarray (void * mybase, size_t mynmemb,
     }
 }
 
-static void *
+static void
 MPIU_Gather (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffer, int nsend, size_t elsize, int * totalnrecv)
 {
     int NTask;
@@ -884,8 +885,6 @@ MPIU_Gather (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffer
     }
 
     if(ThisTask == root) {
-        if(recvbuffer == NULL)
-            recvbuffer = malloc(rdispls[NTask] * elsize);
         if(totalnrecv)
             *totalnrecv = rdispls[NTask];
     } else {
@@ -896,11 +895,9 @@ MPIU_Gather (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffer
     MPI_Gatherv(sendbuffer, nsend, dtype, recvbuffer, recvcount, rdispls, dtype, root, comm);
 
     MPI_Type_free(&dtype);
-
-    return recvbuffer;
 }
 
-static void *
+static void
 MPIU_Scatter (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffer, int nrecv, size_t elsize, int * totalnsend)
 {
     int NTask;
@@ -923,9 +920,6 @@ MPIU_Scatter (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffe
         sdispls[i] = sdispls[i - 1] + sendcount[i - 1];
     }
 
-    if(recvbuffer == NULL)
-        recvbuffer = malloc(nrecv * elsize);
-
     if(ThisTask == root) {
         if(totalnsend)
             *totalnsend = sdispls[NTask];
@@ -936,8 +930,6 @@ MPIU_Scatter (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffe
     MPI_Scatterv(sendbuffer, sendcount, sdispls, dtype, recvbuffer, nrecv, dtype, root, comm);
 
     MPI_Type_free(&dtype);
-
-    return recvbuffer;
 }
 
 static int
@@ -1203,7 +1195,7 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
     }
 #endif
     if(o.myoutbase == o.mybase)
-        buffer = malloc(d.size * o.myoutnmemb);
+        buffer = mymalloc("mpsortbuffer", d.size * o.myoutnmemb);
     else
         buffer = o.myoutbase;
 
@@ -1214,7 +1206,7 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
 
     if(o.myoutbase == o.mybase) {
         memcpy(o.myoutbase, buffer, o.myoutnmemb * d.size);
-        free(buffer);
+        myfree(buffer);
     }
 
     MPI_Barrier(o.comm);
