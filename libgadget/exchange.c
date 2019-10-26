@@ -1,13 +1,13 @@
 #include <mpi.h>
 #include <omp.h>
 #include <string.h>
-#include "mpsort.h"
 #include "exchange.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "walltime.h"
 
 #include "utils.h"
+#include "utils/mpsort.h"
 
 /*Number of structure types for particles*/
 typedef struct {

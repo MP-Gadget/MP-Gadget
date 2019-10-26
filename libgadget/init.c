@@ -4,8 +4,6 @@
 #include <mpi.h>
 #include <gsl/gsl_sf_gamma.h>
 
-#include <mpsort.h>
-
 #include "utils.h"
 
 #include "allvars.h"

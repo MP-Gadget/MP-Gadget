@@ -40,6 +40,7 @@ utils/interp.h \
 utils/paramset.h \
 utils/endrun.h \
 utils/memory.h \
+utils/mpsort.h \
 utils/mymalloc.h \
 utils/system.h \
 utils/event.h \
@@ -107,6 +108,7 @@ utils/endrun.o \
 utils/peano.o \
 utils/interp.o \
 utils/memory.o \
+utils/mpsort.o \
 utils/mymalloc.o \
 utils/system.o \
 utils/paramset.o \

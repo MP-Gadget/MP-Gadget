@@ -6,9 +6,9 @@
 #include <string.h>
 
 #include <bigfile-mpi.h>
-#include <mpsort.h>
 
 #include "utils.h"
+#include "utils/mpsort.h"
 
 #include "allvars.h"
 #include "partmanager.h"
