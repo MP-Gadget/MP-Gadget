@@ -987,42 +987,12 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
         iter ++;
         piter_bisect(&pi, P);
 
-#if MPI_VERSION >= 3
-        if (1 || mpsort_mpi_has_options(MPSORT_DISABLE_IALLREDUCE)
-        ) {
-            _histogram(P, o.NTask - 1, o.mybase, o.mynmemb, myCLT, myCLE, &d);
-
-            MPI_Allreduce(myCLT, CLT, o.NTask + 1, 
-                    MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
-            MPI_Allreduce(myCLE, CLE, o.NTask + 1, 
-                    MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
-        } else {
-            /* overlap allreduce with histogramming by pipelining */
-            MPI_Request r[1];
-
-            
-            _histogram(P, o.NTask - 1, o.mybase, o.mynmemb, myCLT, NULL, &d);
-            
-            /* reduce the bins just calculated */
-            MPI_Iallreduce(myCLT, CLT, o.NTask + 1,
-                    MPI_TYPE_PTRDIFF, MPI_SUM, o.comm, &r[0]);
-
-            _histogram(P, o.NTask - 1, o.mybase, o.mynmemb, myCLE, NULL, &d);
-
-            MPI_Waitall(1, r, MPI_STATUSES_IGNORE);
-
-            MPI_Allreduce(myCLE, CLE, o.NTask + 1, 
-                    MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
-
-        }
-#else
         _histogram(P, o.NTask - 1, o.mybase, o.mynmemb, myCLT, myCLE, &d);
 
-        MPI_Allreduce(myCLT, CLT, o.NTask + 1, 
+        MPI_Allreduce(myCLT, CLT, o.NTask + 1,
                 MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
-        MPI_Allreduce(myCLE, CLE, o.NTask + 1, 
+        MPI_Allreduce(myCLE, CLE, o.NTask + 1,
                 MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
-#endif
 
         (iter>10?tmr--:0, tmr->time = MPI_Wtime(), sprintf(tmr->name, "bisect%04d", iter), tmr++);
 
@@ -1344,16 +1314,10 @@ static void _mpsort_mpi_parse_env()
     if(_mpsort_env_parsed) return;
 
     _mpsort_env_parsed = 1;
-    if(getenv("MPSORT_DISABLE_SPARSE_ALLTOALLV"))
-        mpsort_mpi_set_options(MPSORT_DISABLE_SPARSE_ALLTOALLV);
-    if(getenv("MPSORT_DISABLE_IALLREDUCE"))
-        mpsort_mpi_set_options(MPSORT_DISABLE_IALLREDUCE);
     if(getenv("MPSORT_DISABLE_GATHER_SORT"))
         mpsort_mpi_set_options(MPSORT_DISABLE_GATHER_SORT);
     if(getenv("MPSORT_REQUIRE_GATHER_SORT "))
         mpsort_mpi_set_options(MPSORT_REQUIRE_GATHER_SORT );
-    if(getenv("MPSORT_REQUIRE_SPARSE_ALLTOALLV"))
-        mpsort_mpi_set_options(MPSORT_REQUIRE_SPARSE_ALLTOALLV);
 }
 
 void

@@ -2,11 +2,8 @@
 #define _UTILS_MPSORT_H
 
 /* MPI support */
-#define MPSORT_DISABLE_SPARSE_ALLTOALLV (1 << 1)
-#define MPSORT_DISABLE_IALLREDUCE (1 << 2)
 #define MPSORT_DISABLE_GATHER_SORT (1 << 3)
 #define MPSORT_REQUIRE_GATHER_SORT (1 << 4)
-#define MPSORT_REQUIRE_SPARSE_ALLTOALLV (1 << 6)
 
 void mpsort_mpi_set_options(int options);
 int mpsort_mpi_has_options(int options);
