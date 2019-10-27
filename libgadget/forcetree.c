@@ -404,7 +404,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
             continue;
 
         /* Do not add garbage particles to the tree*/
-        if(P[i].IsGarbage || P[i].Swallowed)
+        if(P[i].IsGarbage)
             continue;
         /*First find the Node for the TopLeaf */
 
