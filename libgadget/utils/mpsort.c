@@ -12,6 +12,7 @@
 #include "system.h"
 #include "mymalloc.h"
 #include "openmpsort.h"
+#include "endrun.h"
 
 typedef int (*_compar_fn_t)(const void * r1, const void * r2, size_t rsize);
 typedef void (*_bisect_fn_t)(void * r, const void * r1, const void * r2, size_t rsize);
@@ -498,9 +499,7 @@ _setup_mpsort_mpi(struct crmpistruct * o,
     MPI_Allreduce(&o->myoutnmemb, &o->outnmemb, 1, MPI_TYPE_PTRDIFF, MPI_SUM, comm);
 
     if(o->outnmemb != o->nmemb) {
-        fprintf(stderr, "total number of items in the item does not match the input %ld != %ld\n",
-                o->outnmemb, o->nmemb);
-        abort();
+        endrun(4, "total number of items in the item does not match the input %ld != %ld\n", o->outnmemb, o->nmemb);
     }
 
 
@@ -692,7 +691,7 @@ void mpsort_mpi_report_last_run() {
     double last = tmr->time;
     tmr ++;
     while(0 != strcmp(tmr->name, "END")) {
-        printf("%s: %g\n", tmr->name, tmr->time - last);
+        message(0, "%s: %g\n", tmr->name, tmr->time - last);
         last =tmr->time;
         tmr ++;
     }
@@ -856,8 +855,7 @@ mpsort_mpi_newarray (void * mybase, size_t mynmemb,
 
     uint64_t sum2 = checksum(myoutbase, elsize * myoutnmemb, comm);
     if (sum1 != sum2) {
-        fprintf(stderr, "Data changed after sorting; checksum mismatch.\n");
-        abort();
+        endrun(5, "Data changed after sorting; checksum mismatch.\n");
     }
 }
 
@@ -1095,14 +1093,12 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
         SendDispl[i] = SendDispl[i - 1] + SendCount[i - 1];
         RecvDispl[i] = RecvDispl[i - 1] + RecvCount[i - 1];
         if(SendDispl[i] != myC[i]) {
-            fprintf(stderr, "SendDispl error\n");
-            abort();
+            endrun(7, "SendDispl error\n");
         }
         totrecv += RecvCount[i];
     }
     if(totrecv != o.myoutnmemb) {
-        fprintf(stderr, "totrecv = %td, mismatch with %td\n", totrecv, o.myoutnmemb);
-        abort();
+        endrun(8, "totrecv = %td, mismatch with %td\n", totrecv, o.myoutnmemb);
     }
 #if 0
     {
@@ -1286,14 +1282,12 @@ _solve_for_layout_mpi (
         /* deficit solved */
         if(deficit == 0) break;
         if(deficit < 0) {
-            fprintf(stderr, "serious bug: more items than there should be: deficit=%ld\n", deficit);
-            abort();
+            endrun(10, "serious bug: more items than there should be: deficit=%ld\n", deficit);
         }
         /* how much task j can supply ? */
         ptrdiff_t supply = myT_CLE[j] - myT_C[j];
         if(supply < 0) {
-            fprintf(stderr, "serious bug: less items than there should be: supply =%ld\n", supply);
-            abort();
+            endrun(10, "serious bug: less items than there should be: supply =%ld\n", supply);
         }
         if(supply <= deficit) {
             myT_C[j] += supply;
