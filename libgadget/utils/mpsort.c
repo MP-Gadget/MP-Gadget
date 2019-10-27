@@ -553,7 +553,7 @@ _assign_colors(size_t glocalsize, size_t * sizes, size_t * outsizes, int * ncolo
     MPI_Comm_size(comm, &NTask);
 
     int i;
-    int mycolor;
+    int mycolor = -1;
     size_t current_size = 0;
     size_t current_outsize = 0;
     int current_color = 0;

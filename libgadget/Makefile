@@ -49,6 +49,7 @@ utils/spinlocks.h \
 utils/string.h
 
 UTILS_TESTED = memory openmpsort interp
+UTILS_MPI_TESTED = mpsort
 
 TESTED = hci \
 	slotsmanager \
@@ -67,9 +68,9 @@ TESTED = hci \
 
 MPI_TESTED = exchange
 
-TESTBIN :=$(UTILS_TESTED:%=.objs/utils/test_%) $(TESTED:%=.objs/test_%) $(MPI_TESTED:%=.objs/test_%)
+TESTBIN :=$(UTILS_TESTED:%=.objs/utils/test_%) $(UTILS_MPI_TESTED:%=.objs/utils/test_%) $(TESTED:%=.objs/test_%) $(MPI_TESTED:%=.objs/test_%)
 SUITE?= $(TESTED:%=test_%) $(UTILS_TESTED:%=utils/test_%)
-MPISUITE = $(MPI_TESTED:%=test_%)
+MPISUITE = $(MPI_TESTED:%=test_%) $(UTILS_MPI_TESTED:%=utils/test_%)
 include ../Makefile.rules
 
 FILES = $(shell git ls-files)
