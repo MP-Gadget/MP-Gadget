@@ -821,22 +821,17 @@ mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
         avgsegsize = 4 * 1024 * 1024 / elsize;
     }
     if(mpsort_mpi_has_options(MPSORT_REQUIRE_GATHER_SORT)) {
-        if(ThisTask == 0) {
-            fprintf(stderr, "MPSort: gathering all data to a single rank for sorting due to MPSORT_REQUIRE_GATHER_SORT. "
-                            "Total number of items is %ld. "
-                            "Caller site: %s:%d\n",
-                            totalsize, file, line);
-        }
+        message(0, "MPSort: gathering all data to a single rank for sorting due to MPSORT_REQUIRE_GATHER_SORT. "
+                   "Total number of items is %ld. Caller site: %s:%d\n",
+                   totalsize, file, line);
         avgsegsize = totalsize;
     }
 
     if(mpsort_mpi_has_options(MPSORT_DISABLE_GATHER_SORT)) {
         avgsegsize = 0;
-        if(ThisTask == 0) {
-            fprintf(stderr, "MPSort: disable gathering data into larger chunks due to MPSORT_DISABLE_GATHER_SORT. "
-                            "Caller site: %s:%d\n",
-                            file, line);
-        }
+        message(0, "MPSort: disable gathering data into larger chunks due to MPSORT_DISABLE_GATHER_SORT. "
+                   "Caller site: %s:%d\n",
+                   file, line);
     }
 
     /* use as many groups as possible (some will be empty) but at most 1 segment per group */
