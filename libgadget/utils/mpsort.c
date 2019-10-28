@@ -1274,10 +1274,10 @@ static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
     char myPmax[d->rsize];
     char myPmin[d->rsize];
 
-    size_t eachnmemb[o->NTask];
-    size_t eachoutnmemb[o->NTask];
-    char eachPmax[d->rsize * o->NTask];
-    char eachPmin[d->rsize * o->NTask];
+    size_t * eachnmemb = ta_malloc("eachnmemb", size_t, o->NTask);
+    size_t * eachoutnmemb = ta_malloc("eachoutnmemb", size_t, o->NTask);
+    char * eachPmax = mymalloc("eachPmax", d->rsize * o->NTask * sizeof(char));
+    char * eachPmin = mymalloc("eachPmin", d->rsize * o->NTask * sizeof(char));
     int i;
 
     if(mynmemb > 0) {
@@ -1310,6 +1310,11 @@ static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
             memcpy(Pmin, eachPmin + i * d->rsize, d->rsize);
         }
     }
+
+    myfree(eachPmin);
+    myfree(eachPmax);
+    myfree(eachoutnmemb);
+    myfree(eachnmemb);
 }
 
 static int
