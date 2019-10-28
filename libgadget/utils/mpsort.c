@@ -706,16 +706,16 @@ int mpsort_mpi_find_ntimers(struct TIMER * tmr) {
 }
 
 void
-mpsort_mpi (void * mybase, size_t mynmemb, size_t size,
+mpsort_mpi_impl (void * mybase, size_t mynmemb, size_t size,
         void (*radix)(const void * ptr, void * radix, void * arg), 
         size_t rsize, 
         void * arg, 
-        MPI_Comm comm)
+        MPI_Comm comm,
+        const int line, const char * file)
 {
-
-    mpsort_mpi_newarray(mybase, mynmemb,
+    mpsort_mpi_newarray_impl(mybase, mynmemb,
         mybase, mynmemb, 
-        size, radix, rsize, arg, comm);
+        size, radix, rsize, arg, comm, line, file);
 }
 
 static int
@@ -740,13 +740,15 @@ checksum(void * base, size_t nbytes, MPI_Comm comm)
 }
 
 void
-mpsort_mpi_newarray (void * mybase, size_t mynmemb, 
+mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
         void * myoutbase, size_t myoutnmemb,
         size_t elsize,
         void (*radix)(const void * ptr, void * radix, void * arg),
         size_t rsize,
         void * arg,
-        MPI_Comm comm)
+        MPI_Comm comm,
+        const int line,
+        const char * file)
 {
 
     if(MPI_TYPE_PTRDIFF == 0) {
@@ -768,7 +770,27 @@ mpsort_mpi_newarray (void * mybase, size_t mynmemb,
     uint64_t sum1 = checksum(mybase, elsize * mynmemb, comm);
 
     int NTask;
+    int ThisTask;
     MPI_Comm_size(comm, &NTask);
+    MPI_Comm_rank(comm, &ThisTask);
+
+    if(elsize > 8 && elsize % 8 != 0) {
+        if(ThisTask == 0) {
+            endrun(12, "MPSort: element size is large (%d) but not aligned to 8 bytes. "
+                            "This is known to frequently trigger MPI bugs. "
+                            "Caller site: %s:%d\n",
+                            elsize, file, line);
+        }
+    }
+    if(rsize > 8 && rsize % 8 != 0) {
+        if(ThisTask == 0) {
+            endrun(12, "MPSort: radix size is large (%d) but not aligned to 8 bytes. "
+                            "This is known to frequently trigger MPI bugs. "
+                            "Caller site: %s:%d\n",
+                            rsize, file, line);
+        }
+    }
+
     size_t sizes[NTask];
     size_t outsizes[NTask];
     size_t myoffset;
