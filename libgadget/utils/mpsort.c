@@ -810,8 +810,8 @@ mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
         }
     }
 
-    size_t sizes[NTask];
-    size_t outsizes[NTask];
+    size_t * sizes = ta_malloc("sizes", size_t, NTask);
+    size_t * outsizes = ta_malloc("sizes", size_t, NTask);
     size_t myoffset;
     size_t totalsize = _collect_sizes(mynmemb, sizes, &myoffset, comm);
 
@@ -837,6 +837,8 @@ mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
     /* use as many groups as possible (some will be empty) but at most 1 segment per group */
     _create_segment_group(seggrp, sizes, outsizes, avgsegsize, NTask, comm);
 
+    myfree(outsizes);
+    myfree(sizes);
     /* group comm == seg comm */
 
     void * mysegmentbase = NULL;
@@ -919,8 +921,8 @@ MPIU_Gather (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffer
     MPI_Type_contiguous(elsize, MPI_BYTE, &dtype);
     MPI_Type_commit(&dtype);
 
-    int recvcount[NTask];
-    int rdispls[NTask + 1];
+    int * recvcount = ta_malloc("recvcount", int, NTask);
+    int * rdispls = ta_malloc("rdispls", int, NTask+1);
     int i;
     MPI_Gather(&nsend, 1, MPI_INT, recvcount, 1, MPI_INT, root, comm);
 
@@ -939,6 +941,8 @@ MPIU_Gather (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffer
 
     MPI_Gatherv(sendbuffer, nsend, dtype, recvbuffer, recvcount, rdispls, dtype, root, comm);
 
+    ta_free(rdispls);
+    ta_free(recvcount);
     MPI_Type_free(&dtype);
 }
 
@@ -954,8 +958,8 @@ MPIU_Scatter (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffe
     MPI_Type_contiguous(elsize, MPI_BYTE, &dtype);
     MPI_Type_commit(&dtype);
 
-    int sendcount[NTask];
-    int sdispls[NTask + 1];
+    int * sendcount = ta_malloc("sendcount", int, NTask);
+    int * sdispls = ta_malloc("sdispls", int, NTask+1);
     int i;
 
     MPI_Gather(&nrecv, 1, MPI_INT, sendcount, 1, MPI_INT, root, comm);
@@ -974,6 +978,8 @@ MPIU_Scatter (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffe
     }
     MPI_Scatterv(sendbuffer, sendcount, sdispls, dtype, recvbuffer, nrecv, dtype, root, comm);
 
+    ta_free(sdispls);
+    ta_free(sendcount);
     MPI_Type_free(&dtype);
 }
 
