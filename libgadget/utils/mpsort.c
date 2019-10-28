@@ -614,9 +614,42 @@ struct SegmentGroupDescr {
     int group_leader_rank;
     int segment_leader_rank;
     MPI_Comm Group;  /* communicator for all ranks in the group */
-    MPI_Comm Leader; /* communicator for all ranks that are group leaders */
+    MPI_Comm Leaders; /* communicator for all ranks by leaders vs nonleaders */
     MPI_Comm Segment; /* communicator for all ranks in this segment */
 };
+
+/* Find the rank that has the value of MPI_MIN, or MPI_MAX.
+ * If there is degeneracy, return the lower rank.
+ * Avoids MPI_MINLOC and MPI_MAXLOC.
+ * */
+static int
+MPIU_GetLoc(const void * base, MPI_Datatype type, MPI_Op op, MPI_Comm comm)
+{
+    ptrdiff_t lb;
+    ptrdiff_t elsize;
+    MPI_Type_get_extent(type, &lb, &elsize);
+
+    void * tmp = malloc(elsize);
+    /* find the result of the reduction. */
+    MPI_Allreduce(base, tmp, 1, type, op, comm);
+
+    int ThisTask;
+    int NTask;
+    MPI_Comm_size(comm, &NTask);
+    MPI_Comm_rank(comm, &ThisTask);
+    int rank = NTask;
+    int ret = -1;
+    if (memcmp(base, tmp, elsize) == 0) {
+        rank = ThisTask;
+    }
+    /* find the rank that is the same as the reduction result */
+    /* avoid MPI_IN_PLACE, since if we are using this code, we have assumed we are using 
+     * a crazy MPI impl...
+     * */
+    MPI_Allreduce(&rank, &ret, 1, MPI_INT, MPI_MIN, comm);
+    free(tmp);
+    return ret;
+}
 
 static void
 _create_segment_group(struct SegmentGroupDescr * descr, size_t * sizes, size_t * outsizes, size_t avgsegsize, int Ngroup, MPI_Comm comm)
@@ -650,31 +683,17 @@ _create_segment_group(struct SegmentGroupDescr * descr, size_t * sizes, size_t *
 
     MPI_Comm_rank(descr->Group, &rank);
 
-    struct { 
-        size_t val;
-        int   rank;
-    } leader_st;
+    /* rank with most data in a group is the leader of the group. */
+    descr->group_leader_rank = MPIU_GetLoc(&sizes[ThisTask], MPI_LONG, MPI_MAX, descr->Group);
 
-    leader_st.val = sizes[ThisTask];
-    leader_st.rank = rank;
+    descr->is_group_leader = rank == descr->group_leader_rank;
 
-    MPI_Allreduce(MPI_IN_PLACE, &leader_st, 1, MPI_LONG_INT, MPI_MAXLOC, descr->Group);
-
-    descr->is_group_leader = rank == leader_st.rank;
-    descr->group_leader_rank = leader_st.rank;
-
-    MPI_Comm_split(comm, rank == leader_st.rank? 0 : 1, ThisTask, &descr->Leader);
+    MPI_Comm_split(comm, (rank == descr->group_leader_rank)? 0 : 1, ThisTask, &descr->Leaders);
 
     MPI_Comm_split(descr->Group, descr->ThisSegment, ThisTask, &descr->Segment);
-    int rank2;
 
-    MPI_Comm_rank(descr->Segment, &rank2);
-
-    leader_st.val = sizes[ThisTask];
-    leader_st.rank = rank2;
-
-    MPI_Allreduce(MPI_IN_PLACE, &leader_st, 1, MPI_LONG_INT, MPI_MINLOC, descr->Segment);
-    descr->segment_leader_rank = leader_st.rank;
+    /* rank with least data in a segment is the leader of the segment. */
+    descr->segment_leader_rank = MPIU_GetLoc(&sizes[ThisTask], MPI_LONG, MPI_MIN, descr->Segment);
 }
 
 static void
@@ -683,7 +702,7 @@ _destroy_segment_group(struct SegmentGroupDescr * descr)
 
     MPI_Comm_free(&descr->Segment);
     MPI_Comm_free(&descr->Group);
-    MPI_Comm_free(&descr->Leader);
+    MPI_Comm_free(&descr->Leaders);
 }
 
 void mpsort_mpi_report_last_run() {
@@ -802,11 +821,22 @@ mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
         avgsegsize = 4 * 1024 * 1024 / elsize;
     }
     if(mpsort_mpi_has_options(MPSORT_REQUIRE_GATHER_SORT)) {
+        if(ThisTask == 0) {
+            fprintf(stderr, "MPSort: gathering all data to a single rank for sorting due to MPSORT_REQUIRE_GATHER_SORT. "
+                            "Total number of items is %ld. "
+                            "Caller site: %s:%d\n",
+                            totalsize, file, line);
+        }
         avgsegsize = totalsize;
     }
 
     if(mpsort_mpi_has_options(MPSORT_DISABLE_GATHER_SORT)) {
         avgsegsize = 0;
+        if(ThisTask == 0) {
+            fprintf(stderr, "MPSort: disable gathering data into larger chunks due to MPSORT_DISABLE_GATHER_SORT. "
+                            "Caller site: %s:%d\n",
+                            file, line);
+        }
     }
 
     /* use as many groups as possible (some will be empty) but at most 1 segment per group */
@@ -846,7 +876,7 @@ mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
 
         _setup_radix_sort(&d, mysegmentbase, mysegmentnmemb, elsize, radix, rsize, arg);
 
-        _setup_mpsort_mpi(&o, &d, myoutsegmentbase, myoutsegmentnmemb, seggrp->Leader);
+        _setup_mpsort_mpi(&o, &d, myoutsegmentbase, myoutsegmentnmemb, seggrp->Leaders);
 
         mpsort_mpi_histogram_sort(d, o, tmr);
 
