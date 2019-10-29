@@ -386,10 +386,12 @@ static void piter_bisect(struct piter * pi, char * P) {
             /* in case the bisect can't move P beyond left,
              * the range is too small, so we set flag narrow,
              * and next iteration we will directly test Pright */
-            if(d->compar(&P[i * d->rsize],
-                &pi->Pleft[i * d->rsize], d->rsize) == 0) {
+            int leftcomp = d->compar(&P[i * d->rsize], &pi->Pleft[i * d->rsize], d->rsize);
+            if(leftcomp == 0) {
                 pi->narrow[i] = 1;
             }
+            if(leftcomp < 0)
+                endrun(5, "%d compares less than the lower limit %d!\n", P[i * d->rsize], pi->Pleft[i * d->rsize]);
         }
 #if 0
         printf("bisect %d %u %u %u\n", i, *(int*) &P[i * d->rsize],
