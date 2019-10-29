@@ -50,6 +50,7 @@
 */
 
 #include "cooling_rates.h"
+#include "cooling_qso_lightup.h"
 #include "cosmology.h"
 
 #include <omp.h>
@@ -275,7 +276,12 @@ struct UVBG get_global_UVBG(double redshift)
 
     GlobalUVBG.epsH0 = get_photo_rate(redshift, &Eps_HI);
     GlobalUVBG.epsHe0 = get_photo_rate(redshift, &Eps_HeI);
-    GlobalUVBG.epsHep = get_photo_rate(redshift, &Eps_HeII);
+    /* During helium reionization we have a model for the inhomogeneous non-equilibrium heating.
+     * To avoid double counting, remove the heating in the existing UVB*/
+    if(during_helium_reionization(redshift))
+        GlobalUVBG.epsHep = 0;
+    else
+        GlobalUVBG.epsHep = get_photo_rate(redshift, &Eps_HeII);
     GlobalUVBG.self_shield_dens = self_shield_dens(redshift, &GlobalUVBG);
     return GlobalUVBG;
 }

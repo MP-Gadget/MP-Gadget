@@ -13,6 +13,13 @@
 #include <libgadget/config.h>
 #include "stub.h"
 
+//Stub
+int
+during_helium_reionization(double redshift)
+{
+    return 0;
+}
+
 double recomb_alphaHp(double temp);
 
 #define NEXACT 20

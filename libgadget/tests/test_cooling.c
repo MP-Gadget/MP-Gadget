@@ -33,6 +33,12 @@ init_qso_lightup(char * reion_hist_file)
     return;
 }
 
+int
+during_helium_reionization(double redshift)
+{
+    return 0;
+}
+
 #define NSTEP 20
 /*Pre-computed table of DoCooling outputs*/
 static double unew_table[NSTEP * NSTEP] = {
