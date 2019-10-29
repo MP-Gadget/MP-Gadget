@@ -130,8 +130,12 @@ void _setup_radix_sort(
         void (*radix)(const void * ptr, void * radix, void * arg),
         size_t rsize,
         void * arg) {
-    const char deadbeef[] = "deadbeef";
-    const uint32_t * ideadbeef = (uint32_t *) deadbeef;
+
+    /* Cheers stack overflow*/
+    union {
+        uint32_t i;
+        char c[4];
+    } be_detect = {0x01020304};
     d->base = base;
     d->nmemb = nmemb;
     d->rsize = rsize;
@@ -152,7 +156,7 @@ void _setup_radix_sort(
             d->bisect = (_bisect_fn_t) _bisect_radix_uint64_t;
             break;
         default:
-            if(ideadbeef[0] != 0xdeadbeef) {
+            if(be_detect.c[0] != 1) {
                 if(rsize % 8 == 0) {
                     d->compar = _compar_radix_le_u8;
                 } else{
