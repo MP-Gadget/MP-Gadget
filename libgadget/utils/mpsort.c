@@ -448,10 +448,10 @@ static void piter_accept(struct piter * pi, char * P,
 
 static int _mpsort_mpi_options = 0;
 
-/* mpi version of radix sort; 
+/* mpi version of radix sort;
  *
  * each caller provides the distributed array and number of items.
- * the sorted array is returned to the original array pointed to by 
+ * the sorted array is returned to the original array pointed to by
  * mybase. (AKA no rebalancing is done.)
  *
  * NOTE: may need an api to return a balanced array!
@@ -515,18 +515,18 @@ static void _destroy_mpsort_mpi(struct crmpistruct * o) {
     MPI_Type_free(&o->MPI_TYPE_DATA);
 }
 
-static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb, 
+static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
         size_t myoutnmemb,
-        char * Pmax, char * Pmin, 
+        char * Pmax, char * Pmin,
         ptrdiff_t * C,
         struct crstruct * d,
         struct crmpistruct * o);
 
 static int _solve_for_layout_mpi (
-        int NTask, 
+        int NTask,
         ptrdiff_t * C,
-        ptrdiff_t * myT_CLT, 
-        ptrdiff_t * myT_CLE, 
+        ptrdiff_t * myT_CLT,
+        ptrdiff_t * myT_CLE,
         ptrdiff_t * myT_C,
         MPI_Comm comm);
 
@@ -643,7 +643,7 @@ MPIU_GetLoc(const void * base, MPI_Datatype type, MPI_Op op, MPI_Comm comm)
         rank = ThisTask;
     }
     /* find the rank that is the same as the reduction result */
-    /* avoid MPI_IN_PLACE, since if we are using this code, we have assumed we are using 
+    /* avoid MPI_IN_PLACE, since if we are using this code, we have assumed we are using
      * a crazy MPI impl...
      * */
     MPI_Allreduce(&rank, &ret, 1, MPI_INT, MPI_MIN, comm);
@@ -726,14 +726,14 @@ int mpsort_mpi_find_ntimers(struct TIMER * tmr) {
 
 void
 mpsort_mpi_impl (void * mybase, size_t mynmemb, size_t size,
-        void (*radix)(const void * ptr, void * radix, void * arg), 
-        size_t rsize, 
-        void * arg, 
+        void (*radix)(const void * ptr, void * radix, void * arg),
+        size_t rsize,
+        void * arg,
         MPI_Comm comm,
         const int line, const char * file)
 {
     mpsort_mpi_newarray_impl(mybase, mynmemb,
-        mybase, mynmemb, 
+        mybase, mynmemb,
         size, radix, rsize, arg, comm, line, file);
 }
 
@@ -1050,8 +1050,8 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
                 int i;
                 if(o.ThisTask != k) continue;
 
-                printf("P (%d): PMin %d PMax %d P ", 
-                        o.ThisTask, 
+                printf("P (%d): PMin %d PMax %d P ",
+                        o.ThisTask,
                         *(int*) Pmin,
                         *(int*) Pmax
                         );
@@ -1062,17 +1062,17 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
 
                 printf("C (%d): ", o.ThisTask);
                 for(i = 0; i < o.NTask + 1; i ++) {
-                    printf("%d ", C[i]);
+                    printf("%ld ", C[i]);
                 }
                 printf("\n");
                 printf("CLT (%d): ", o.ThisTask);
                 for(i = 0; i < o.NTask + 1; i ++) {
-                    printf("%d ", CLT[i]);
+                    printf("%ld ", CLT[i]);
                 }
                 printf("\n");
                 printf("CLE (%d): ", o.ThisTask);
                 for(i = 0; i < o.NTask + 1; i ++) {
-                    printf("%d ", CLE[i]);
+                    printf("%ld ", CLE[i]);
                 }
                 printf("\n");
 
@@ -1090,15 +1090,15 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
 
     /* transpose the matrix, could have been done with a new datatype */
     /*
-    MPI_Alltoall(myCLT, 1, MPI_TYPE_PTRDIFF, 
+    MPI_Alltoall(myCLT, 1, MPI_TYPE_PTRDIFF,
             myT_CLT, 1, MPI_TYPE_PTRDIFF, o.comm);
     */
-    MPI_Alltoall(myCLT + 1, 1, MPI_TYPE_PTRDIFF, 
+    MPI_Alltoall(myCLT + 1, 1, MPI_TYPE_PTRDIFF,
             myT_CLT, 1, MPI_TYPE_PTRDIFF, o.comm);
 
-    /*MPI_Alltoall(myCLE, 1, MPI_TYPE_PTRDIFF, 
+    /*MPI_Alltoall(myCLE, 1, MPI_TYPE_PTRDIFF,
             myT_CLE, 1, MPI_TYPE_PTRDIFF, o.comm); */
-    MPI_Alltoall(myCLE + 1, 1, MPI_TYPE_PTRDIFF, 
+    MPI_Alltoall(myCLE + 1, 1, MPI_TYPE_PTRDIFF,
             myT_CLE, 1, MPI_TYPE_PTRDIFF, o.comm);
 
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "LayDistr"), tmr++);
@@ -1106,7 +1106,7 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
     _solve_for_layout_mpi(o.NTask, C, myT_CLT, myT_CLE, myT_C, o.comm);
 
     myC[0] = 0;
-    MPI_Alltoall(myT_C, 1, MPI_TYPE_PTRDIFF, 
+    MPI_Alltoall(myT_C, 1, MPI_TYPE_PTRDIFF,
             myC + 1, 1, MPI_TYPE_PTRDIFF, o.comm);
 #if 0
     for(i = 0;i < o.NTask; i ++) {
@@ -1114,9 +1114,9 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
         MPI_Barrier(o.comm);
         if(o.ThisTask != i) continue;
         for(j = 0; j < o.NTask + 1; j ++) {
-            printf("%d %d %d, ", 
-                    myCLT[j], 
-                    myC[j], 
+            printf("%d %d %d, ",
+                    myCLT[j],
+                    myC[j],
                     myCLE[j]);
         }
         printf("\n");
@@ -1154,7 +1154,7 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
             MPI_Barrier(o.comm);
 
             if(o.ThisTask != k) continue;
-            
+
             printf("P (%d): ", o.ThisTask);
             for(i = 0; i < o.NTask - 1; i ++) {
                 printf("%d ", ((int*) P) [i]);
@@ -1214,7 +1214,7 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
 
     MPI_Alltoallv_smart(
             o.mybase, SendCount, SendDispl, o.MPI_TYPE_DATA,
-            buffer, RecvCount, RecvDispl, o.MPI_TYPE_DATA, 
+            buffer, RecvCount, RecvDispl, o.MPI_TYPE_DATA,
             o.comm);
 
     if(o.myoutbase == o.mybase) {
@@ -1234,9 +1234,9 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
     return 0;
 }
 
-static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb, 
+static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
         size_t myoutnmemb,
-        char * Pmax, char * Pmin, 
+        char * Pmax, char * Pmin,
         ptrdiff_t * C,
         struct crstruct * d,
         struct crmpistruct * o) {
@@ -1260,13 +1260,13 @@ static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
         memset(myPmax, 0, d->rsize);
     }
 
-    MPI_Allgather(&mynmemb, 1, MPI_TYPE_PTRDIFF, 
+    MPI_Allgather(&mynmemb, 1, MPI_TYPE_PTRDIFF,
             eachnmemb, 1, MPI_TYPE_PTRDIFF, o->comm);
-    MPI_Allgather(&myoutnmemb, 1, MPI_TYPE_PTRDIFF, 
+    MPI_Allgather(&myoutnmemb, 1, MPI_TYPE_PTRDIFF,
             eachoutnmemb, 1, MPI_TYPE_PTRDIFF, o->comm);
-    MPI_Allgather(myPmax, 1, o->MPI_TYPE_RADIX, 
+    MPI_Allgather(myPmax, 1, o->MPI_TYPE_RADIX,
             eachPmax, 1, o->MPI_TYPE_RADIX, o->comm);
-    MPI_Allgather(myPmin, 1, o->MPI_TYPE_RADIX, 
+    MPI_Allgather(myPmin, 1, o->MPI_TYPE_RADIX,
             eachPmin, 1, o->MPI_TYPE_RADIX, o->comm);
 
 
@@ -1286,10 +1286,10 @@ static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
 
 static int
 _solve_for_layout_mpi (
-        int NTask, 
+        int NTask,
         ptrdiff_t * C,
-        ptrdiff_t * myT_CLT, 
-        ptrdiff_t * myT_CLE, 
+        ptrdiff_t * myT_CLT,
+        ptrdiff_t * myT_CLE,
         ptrdiff_t * myT_C,
         MPI_Comm comm) {
     int i, j;
@@ -1301,13 +1301,13 @@ _solve_for_layout_mpi (
         myT_C[i] = myT_CLT[i];
     }
 
-    /* Solve for each receiving task i 
+    /* Solve for each receiving task i
      *
      * this solves for GL_C[..., i + 1], which depends on GL_C[..., i]
      *
      * and we have GL_C[..., 0] == 0 by definition.
      *
-     * this cannot be done in parallel wrt i because of the dependency. 
+     * this cannot be done in parallel wrt i because of the dependency.
      *
      *  a solution is guaranteed because GL_CLE and GL_CLT
      *  brackes the total counts C (we've found it with the
