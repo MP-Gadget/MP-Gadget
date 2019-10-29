@@ -48,7 +48,7 @@ generate(int64_t * data, size_t localsize, int bits, int seed)
 }
 
 static void
-check_sorted(int64_t * data, size_t localsize, MPI_Comm comm)
+check_sorted(void * data, int elsize, size_t localsize, int compar(void * d1, void * d2), MPI_Comm comm)
 {
     size_t i;
     int ThisTask, NTask;
@@ -57,47 +57,45 @@ check_sorted(int64_t * data, size_t localsize, MPI_Comm comm)
 
     const int TAG = 0xbeef;
 
-    ptrdiff_t dummy[1] = {INT64_MIN};
-
     for(i = 1; i < localsize; i ++) {
-        if(data[i] < data[i - 1]) {
-            endrun(12, "Ordering of local array is broken i=%ld, d=%ld d-1=%ld. \n", i, data[i], data[i-1]);
+        if(compar(data + i*elsize, data + (i - 1)*elsize) < 0) {
+            endrun(12, "Ordering of local array is broken i=%ld, d=%ld d-1=%ld. \n", i, ((int64_t *)data)[i], ((int64_t *)data)[i-1]);
         }
-        assert_true(data[i] >= data[i - 1]);
+        assert_true(compar(data + i*elsize, data + (i - 1)*elsize) >=0);
     }
 
     if(NTask == 1) return;
 
-
-    int64_t prev = -1;
+    char * prev = ta_malloc("prev", char, elsize);
+    memset(prev, -1000000, elsize);
 
     while(1) {
         if(ThisTask == 0) {
-            int64_t * ptr = dummy;
+            void * ptr = prev;
             if(localsize > 0) {
-                ptr = &data[localsize - 1];
+                ptr = data + elsize * (localsize - 1);
             }
-            MPI_Send(ptr, 1, MPI_LONG, ThisTask + 1, TAG, comm);
+            MPI_Send(ptr, elsize, MPI_BYTE, ThisTask + 1, TAG, comm);
             break;
         }
         if(ThisTask == NTask - 1) {
-            MPI_Recv(&prev, 1, MPI_LONG,
+            MPI_Recv(prev, elsize, MPI_BYTE,
                     ThisTask - 1, TAG, comm, MPI_STATUS_IGNORE);
             break;
         }
         /* else */
         if(localsize == 0) {
             /* simply pass through whatever we get */
-            MPI_Recv(&prev, 1, MPI_LONG, ThisTask - 1, TAG, comm, MPI_STATUS_IGNORE);
-            MPI_Send(&prev, 1, MPI_LONG, ThisTask + 1, TAG, comm);
+            MPI_Recv(prev, elsize, MPI_BYTE, ThisTask - 1, TAG, comm, MPI_STATUS_IGNORE);
+            MPI_Send(prev, elsize, MPI_BYTE, ThisTask + 1, TAG, comm);
             break;
         }
         else
         {
             MPI_Sendrecv(
-                    &data[localsize - 1], 1, MPI_LONG,
+                    data+(localsize - 1)*elsize, elsize, MPI_BYTE,
                     ThisTask + 1, TAG,
-                    &prev, 1, MPI_LONG,
+                    prev, elsize, MPI_BYTE,
                     ThisTask - 1, TAG, comm, MPI_STATUS_IGNORE);
             break;
         }
@@ -106,12 +104,24 @@ check_sorted(int64_t * data, size_t localsize, MPI_Comm comm)
     if(ThisTask > 1) {
         if(localsize > 0) {
 //                printf("ThisTask = %d prev = %d\n", ThisTask, prev);
-            if(prev > data[0]) {
-                endrun(12, "Ordering of global array is broken prev=%ld d=%ld. \n", prev, data[0]);
+            if(compar(prev, data) > 0) {
+                endrun(12, "Ordering of global array is broken prev=%ld d=%ld (comp: %d). \n", prev, *(int64_t *)data, compar(prev, data));
             }
-            assert_true(prev <= data[0]);
+            assert_true(compar(prev, data) <= 0);
         }
     }
+}
+
+int compar_int(void * d1, void * d2)
+{
+    int64_t * i1 = d1;
+    int64_t * i2 = d2;
+    if(*i1 < *i2)
+        return -1;
+    else if(*i1 == *i2)
+        return 0;
+    else
+        return 1;
 }
 
 static void
@@ -169,7 +179,7 @@ do_mpsort_test(int64_t srcsize, int bits, int staggered, int gather)
             MPI_Abort(MPI_COMM_WORLD, -1);
         }
 
-        check_sorted(dest, destsize, MPI_COMM_WORLD);
+        check_sorted(dest, sizeof(int64_t), destsize, compar_int, MPI_COMM_WORLD);
 
         message(0, "MPSort total time: %g\n", end - start);
 //         if(ThisTask == 0) {
