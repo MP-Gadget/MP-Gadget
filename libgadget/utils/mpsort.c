@@ -1273,7 +1273,7 @@ static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
         struct crstruct * d,
         struct crmpistruct * o) {
     memset(Pmax, 0, d->rsize);
-    memset(Pmin, 0, d->rsize);
+    memset(Pmin, -1, d->rsize);
 
     char myPmax[d->rsize];
     char myPmin[d->rsize];
