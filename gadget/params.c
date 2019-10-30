@@ -298,7 +298,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "TempSupernova", OPTIONAL, 1e8, "Temperature of the supernovae remnants in K.");
     param_declare_double(ps, "TempClouds", OPTIONAL, 1000, "Temperature of the cold star forming clouds in K.");
     param_declare_double(ps, "MaxSfrTimescale", OPTIONAL, 1.5, "Maximum star formation time in units of the density threshold.");
-    param_declare_int(ps, "Generations", OPTIONAL, 4, "Number of stars to create per gas particle.");
+    param_declare_int(ps, "Generations", OPTIONAL, 2, "Number of stars to create per gas particle.");
     param_declare_enum(ps, "WindModel", WindModelEnum, OPTIONAL, "ofjt10,isotropic", "Wind model to use. Default is the varying wind velocity model with isotropic winds.");
 
     /* The following two are for VS08 and SH03*/

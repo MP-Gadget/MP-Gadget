@@ -420,7 +420,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
 
         density_kernel_init(&iter->accretion_kernel, I->Hsml, All.DensityKernelType);
-        density_kernel_init(&iter->feedback_kernel, hsearch, All.DensityKernelType);
+        density_kernel_init(&iter->feedback_kernel, hsearch, DENSITY_KERNEL_CUBIC_SPLINE);
         return;
     }
 
@@ -573,7 +573,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
          * we apply a cut in r to break the symmetry. */
         iter->base.symmetric = NGB_TREEFIND_SYMMETRIC;
 
-        density_kernel_init(&iter->feedback_kernel, hsearch, All.DensityKernelType);
+        density_kernel_init(&iter->feedback_kernel, hsearch, DENSITY_KERNEL_CUBIC_SPLINE);
         return;
     }
 
