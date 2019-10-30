@@ -3,16 +3,10 @@ include $(CONFIG)
 
 .PHONY: depends
 .INTERMEDIATE: pfft
-LIBRARIES=lib/libbigfile-mpi.a lib/libmpsort-mpi.a
+LIBRARIES=lib/libbigfile-mpi.a
 FFTLIBRARIES=lib/libpfft_omp.a lib/libfftw3_mpi.a lib/libfftw3_omp.a
 depends: $(LIBRARIES) $(FFTLIBRARIES)
 $(FFTLIBRARIES): pfft
-
-lib/libmpsort-mpi.a: mpsort/mpsort-mpi.c
-	mkdir -p lib; \
-	mkdir -p include; \
-	cd mpsort; \
-	make install PREFIX=$(PWD) CC="$(MPICC)" MPICC="$(MPICC)" CFLAGS="$(OPTIMIZE)"
 
 lib/libbigfile-mpi.a: bigfile/src/bigfile-mpi.c
 	mkdir -p lib; \
@@ -32,7 +26,6 @@ clean: clean-fast clean-fft
 clean-fast:
 	rm -rf $(LIBRARIES)
 	cd bigfile/src; make clean
-	cd mpsort; make clean
 
 clean-fft:
 	rm -rf $(FFTLIBRARIES)

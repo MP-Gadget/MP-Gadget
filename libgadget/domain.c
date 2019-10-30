@@ -9,7 +9,6 @@
 
 #include "utils.h"
 
-#include "mpsort.h"
 #include "domain.h"
 #include "timestep.h"
 #include "timebinmgr.h"
@@ -19,6 +18,7 @@
 #include "walltime.h"
 #include "utils/paramset.h"
 #include "utils/peano.h"
+#include "utils/mpsort.h"
 
 #define TAG_GRAV_A        18
 #define TAG_GRAV_B        19

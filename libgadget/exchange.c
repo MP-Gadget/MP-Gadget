@@ -1,13 +1,13 @@
 #include <mpi.h>
 #include <omp.h>
 #include <string.h>
-#include "mpsort.h"
 #include "exchange.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "walltime.h"
 
 #include "utils.h"
+#include "utils/mpsort.h"
 
 /*Number of structure types for particles*/
 typedef struct {
@@ -200,9 +200,9 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, MPI_Comm Comm)
         int bufPI = toGoPtr[target].slots[type];
         toGoPtr[target].slots[type] ++;
         size_t elsize = SlotsManager->info[type].elsize;
-        memcpy(slotBuf[type] + (bufPI + plan->toGoOffset[target].slots[type]) * elsize,
+        if(SlotsManager->info[type].enabled)
+            memcpy(slotBuf[type] + (bufPI + plan->toGoOffset[target].slots[type]) * elsize,
                 (char*) SlotsManager->info[type].ptr + P[i].PI * elsize, elsize);
-
         /* now copy the base P; after PI has been updated */
         partBuf[plan->toGoOffset[target].base + toGoPtr[target].base] = P[i];
         toGoPtr[target].base ++;

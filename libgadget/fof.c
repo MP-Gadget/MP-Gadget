@@ -8,9 +8,9 @@
 #include <sys/types.h>
 #include <gsl/gsl_math.h>
 #include <inttypes.h>
-#include <mpsort.h>
 
 #include "utils.h"
+#include "utils/mpsort.h"
 
 #include "walltime.h"
 #include "sfr_eff.h"
