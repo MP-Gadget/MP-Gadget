@@ -59,11 +59,7 @@ struct particle_data
 
         int RegionInd; /* which region the particle belongs to; only by petapm.c */
 
-        struct {
-            /* used by fof.c which calls domain_exchange that doesn't uses peano_t */
-            int64_t GrNr;
-            int origintask;
-        };
+        int64_t GrNr;
     };
 
 };

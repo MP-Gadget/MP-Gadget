@@ -97,12 +97,16 @@ static void _bisect_radix(void * r, const void * r1, const void * r2, size_t rsi
     const unsigned char * u2 = r2;
     unsigned char * u = r;
     unsigned int carry = 0;
-    /* from most least significant */
+    if(dir > 0) {
+        u1 += rsize - 1;
+        u2 += rsize - 1;
+    }
+    /* from most significant */
     for(i = 0; i < rsize; i ++) {
         unsigned int tmp = (unsigned int) *u2 + *u1 + carry;
         if(tmp >= 256) carry = 1;
         else carry = 0;
-        *u = tmp;
+        *u = tmp % (UINT8_MAX+1);
         u -= dir;
         u1 -= dir;
         u2 -= dir;
@@ -195,6 +199,7 @@ static void radix_sort(void * base, size_t nmemb, size_t size,
         size_t rsize,
         void * arg) {
 
+    memset(&_cacr_d, 0, sizeof(struct crstruct));
     _setup_radix_sort(&_cacr_d, base, nmemb, size, radix, rsize, arg);
 
     qsort_openmp(_cacr_d.base, _cacr_d.nmemb, _cacr_d.size, _compute_and_compar_radix);
@@ -339,11 +344,15 @@ struct piter {
 static void piter_init(struct piter * pi,
         char * Pmin, char * Pmax, int Plength,
         struct crstruct * d) {
-    pi->stable = calloc(Plength, sizeof(int));
-    pi->narrow = calloc(Plength, sizeof(int));
+    pi->stable = ta_malloc("stable", int, Plength);
+    memset(pi->stable, 0, Plength * sizeof(int));
+    pi->narrow = ta_malloc("narrow", int, Plength);
+    memset(pi->narrow, 0, Plength * sizeof(int));
     pi->d = d;
-    pi->Pleft = calloc(Plength, d->rsize);
-    pi->Pright = calloc(Plength, d->rsize);
+    pi->Pleft = ta_malloc("left", char, Plength * d->rsize);
+    memset(pi->Pleft, 0, Plength * d->rsize * sizeof(char));
+    pi->Pright = ta_malloc("right", char, Plength * d->rsize);
+    memset(pi->Pright, 0, Plength * d->rsize * sizeof(char));
     pi->Plength = Plength;
 
     int i;
@@ -353,10 +362,10 @@ static void piter_init(struct piter * pi,
     }
 }
 static void piter_destroy(struct piter * pi) {
-    free(pi->stable);
-    free(pi->narrow);
-    free(pi->Pleft);
-    free(pi->Pright);
+    myfree(pi->Pright);
+    myfree(pi->Pleft);
+    myfree(pi->narrow);
+    myfree(pi->stable);
 }
 
 /*

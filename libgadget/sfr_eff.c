@@ -78,7 +78,7 @@ static void cooling_direct(int i);
 
 static void cooling_relaxed(int i, double egyeff, double dtime, double trelax);
 
-static int sfreff_on_eeqos(int i);
+static int sfreff_on_eeqos(const struct sph_particle_data * sph);
 static int make_particle_star(int child, int parent, int placement);
 static int starformation(int i, double *localsfr, double * sum_sm);
 static int quicklyastarformation(int i);
@@ -88,7 +88,7 @@ static double get_starformation_rate_full(int i, struct sfr_eeqos_data sfr_data)
 static double find_star_mass(int i);
 /*Get enough memory for new star slots. This may be excessively slow! Don't do it too often.*/
 static int * sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTree * tt);
-static struct sfr_eeqos_data get_sfr_eeqos(int i, double dtime);
+static struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_particle_data * sph, double dtime);
 
 /*Set the parameters of the SFR module*/
 void set_sfr_params(ParameterSet * ps)
@@ -173,7 +173,7 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree)
                 if(sfr_params.QuickLymanAlphaProbability > 0)
                     shall_we_star_form = quicklyastarformation(p_i);
                 else
-                    shall_we_star_form = sfreff_on_eeqos(p_i);
+                    shall_we_star_form = sfreff_on_eeqos(&SPHP(p_i));
             }
 
             if(shall_we_star_form) {
@@ -417,49 +417,48 @@ cooling_direct(int i) {
  * cooling via the relaxation equation and maybe forming stars.
  * 0 if the particle does not form stars, instead cooling normally.*/
 static int
-sfreff_on_eeqos(int i)
+sfreff_on_eeqos(const struct sph_particle_data * sph)
 {
     int flag = 0;
     /* no sfr: normal cooling*/
     if(!All.StarformationOn) {
         return 0;
     }
-    /* Check that starformation has not left a massless particle.*/
-    if(P[i].Mass == 0) {
-        endrun(12, "Particle %d in SFR has mass=%g. Does not happen as no tracer particles.\n", i, P[i].Mass);
-    }
 
-    if(SPHP(i).Density * All.cf.a3inv >= sfr_params.PhysDensThresh)
+    if(sph->Density * All.cf.a3inv >= sfr_params.PhysDensThresh)
         flag = 1;
 
-    if(SPHP(i).Density < sfr_params.OverDensThresh)
+    if(sph->Density < sfr_params.OverDensThresh)
         flag = 0;
 
-    if(SPHP(i).DelayTime > 0)
+    if(sph->DelayTime > 0)
         flag = 0;		/* only normal cooling for particles in the wind */
 
     return flag;
 }
 
 /*Get the neutral fraction of a particle correctly, accounting for being on the star-forming equation of state*/
-double get_neutral_fraction_sfreff(int i, double redshift)
+double get_neutral_fraction_sfreff(double redshift, struct particle_data * partdata, struct sph_particle_data * sphdata)
 {
     double nh0;
-    struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
-    double physdens = SPHP(i).Density * All.cf.a3inv;
+    struct UVBG uvbg = get_local_UVBG(redshift, partdata->Pos);
+    double physdens = sphdata->Density * All.cf.a3inv;
 
-    if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(i)) {
+    if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata)) {
         /*This gets the neutral fraction for standard gas*/
-        double InternalEnergy = SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1);
-        nh0 = GetNeutralFraction(InternalEnergy, physdens, &uvbg, SPHP(i).Ne);
+        double eomdensity = sphdata->Density;
+        if(All.DensityIndependentSphOn)
+            eomdensity  = sphdata->EgyWtDensity;
+        double InternalEnergy = sphdata->Entropy / GAMMA_MINUS1 * pow(eomdensity * All.cf.a3inv, GAMMA_MINUS1);
+        nh0 = GetNeutralFraction(InternalEnergy, physdens, &uvbg, sphdata->Ne);
     }
     else {
         /* This gets the neutral fraction for gas on the star-forming equation of state.
          * This needs special handling because the cold clouds have a different neutral
          * fraction than the hot gas*/
-        double dloga = get_dloga_for_bin(P[i].TimeBin);
+        double dloga = get_dloga_for_bin(partdata->TimeBin);
         double dtime = dloga / All.cf.hubble;
-        struct sfr_eeqos_data sfr_data = get_sfr_eeqos(i, dtime);
+        struct sfr_eeqos_data sfr_data = get_sfr_eeqos(partdata, sphdata, dtime);
         double nh0cold = GetNeutralFraction(sfr_params.EgySpecCold, physdens, &uvbg, sfr_data.ne);
         double nh0hot = GetNeutralFraction(sfr_data.egyhot, physdens, &uvbg, sfr_data.ne);
         nh0 =  nh0cold * sfr_data.cloudfrac + (1-sfr_data.cloudfrac) * nh0hot;
@@ -569,7 +568,7 @@ starformation(int i, double *localsfr, double * sum_sm)
     double dtime = dloga / All.cf.hubble;
     int newstar = -1;
 
-    struct sfr_eeqos_data sfr_data = get_sfr_eeqos(i, dtime);
+    struct sfr_eeqos_data sfr_data = get_sfr_eeqos(&P[i], &SPHP(i), dtime);
     SPHP(i).Sfr = get_starformation_rate_full(i, sfr_data);
     SPHP(i).Ne = sfr_data.ne;
 
@@ -621,7 +620,7 @@ starformation(int i, double *localsfr, double * sum_sm)
 
 /* Get the parameters of the basic effective
  * equation of state model for a particle.*/
-static struct sfr_eeqos_data get_sfr_eeqos(int i, double dtime)
+static struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_particle_data * sph, double dtime)
 {
     struct sfr_eeqos_data data;
     /* Initialise data to something, just in case.*/
@@ -632,11 +631,11 @@ static struct sfr_eeqos_data get_sfr_eeqos(int i, double dtime)
     data.ne = 0;
 
     /* This shall never happen, but just in case*/
-    if(!All.StarformationOn || !sfreff_on_eeqos(i))
+    if(!All.StarformationOn || !sfreff_on_eeqos(sph))
         return data;
 
-    data.ne = SPHP(i).Ne;
-    data.tsfr = sqrt(sfr_params.PhysDensThresh / (SPHP(i).Density * All.cf.a3inv)) * sfr_params.MaxSfrTimescale;
+    data.ne = sph->Ne;
+    data.tsfr = sqrt(sfr_params.PhysDensThresh / (sph->Density * All.cf.a3inv)) * sfr_params.MaxSfrTimescale;
     /*
      * gadget-p doesn't have this cap.
      * without the cap sm can be bigger than cloudmass.
@@ -645,13 +644,13 @@ static struct sfr_eeqos_data get_sfr_eeqos(int i, double dtime)
         data.tsfr = dtime;
 
     double redshift = 1./All.Time - 1;
-    struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
+    struct UVBG uvbg = get_local_UVBG(redshift, part->Pos);
 
-    double factorEVP = pow(SPHP(i).Density * All.cf.a3inv / sfr_params.PhysDensThresh, -0.8) * sfr_params.FactorEVP;
+    double factorEVP = pow(sph->Density * All.cf.a3inv / sfr_params.PhysDensThresh, -0.8) * sfr_params.FactorEVP;
 
     data.egyhot = sfr_params.EgySpecSN / (1 + factorEVP) + sfr_params.EgySpecCold;
 
-    double tcool = GetCoolingTime(redshift, data.egyhot, SPHP(i).Density * All.cf.a3inv, &uvbg, &data.ne, SPHP(i).Metallicity);
+    double tcool = GetCoolingTime(redshift, data.egyhot, sph->Density * All.cf.a3inv, &uvbg, &data.ne, sph->Metallicity);
     double y = data.tsfr / tcool * data.egyhot / (sfr_params.FactorSN * sfr_params.EgySpecSN - (1 - sfr_params.FactorSN) * sfr_params.EgySpecCold);
 
     data.cloudfrac = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
@@ -662,7 +661,7 @@ static struct sfr_eeqos_data get_sfr_eeqos(int i, double dtime)
 
 static double get_starformation_rate_full(int i, struct sfr_eeqos_data sfr_data)
 {
-    if(!All.StarformationOn || !sfreff_on_eeqos(i)) {
+    if(!All.StarformationOn || !sfreff_on_eeqos(&SPHP(i))) {
         return 0;
     }
 

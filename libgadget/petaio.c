@@ -75,8 +75,9 @@ void
 petaio_build_selection(int * selection,
     int * ptype_offset,
     int * ptype_count,
+    const struct particle_data * Parts,
     const int NumPart,
-    int (*select_func)(int i)
+    int (*select_func)(int i, const struct particle_data * Parts)
     )
 {
     int i;
@@ -86,8 +87,8 @@ petaio_build_selection(int * selection,
     for(i = 0; i < NumPart; i ++) {
         if(P[i].IsGarbage)
             continue;
-        if((select_func == NULL) || (select_func(i) != 0)) {
-            int ptype = P[i].Type;
+        if((select_func == NULL) || (select_func(i, Parts) != 0)) {
+            int ptype = Parts[i].Type;
             ptype_count[ptype] ++;
         }
     }
@@ -98,10 +99,10 @@ petaio_build_selection(int * selection,
 
     ptype_count[5] = 0;
     for(i = 0; i < NumPart; i ++) {
-        int ptype = P[i].Type;
+        int ptype = Parts[i].Type;
         if(P[i].IsGarbage)
             continue;
-        if((select_func == NULL) || (select_func(i) != 0)) {
+        if((select_func == NULL) || (select_func(i, Parts) != 0)) {
             selection[ptype_offset[ptype] + ptype_count[ptype]] = i;
             ptype_count[ptype]++;
         }
@@ -121,7 +122,7 @@ static void petaio_save_internal(char * fname, struct IOTable * IOTable, int ver
 
     int * selection = mymalloc("Selection", sizeof(int) * PartManager->NumPart);
 
-    petaio_build_selection(selection, ptype_offset, ptype_count, PartManager->NumPart, NULL);
+    petaio_build_selection(selection, ptype_offset, ptype_count, P, PartManager->NumPart, NULL);
 
     sumup_large_ints(6, ptype_count, NTotal);
 
@@ -138,7 +139,7 @@ static void petaio_save_internal(char * fname, struct IOTable * IOTable, int ver
             continue;
         }
         sprintf(blockname, "%d/%s", ptype, IOTable->ent[i].name);
-        petaio_build_buffer(&array, &IOTable->ent[i], selection + ptype_offset[ptype], ptype_count[ptype]);
+        petaio_build_buffer(&array, &IOTable->ent[i], selection + ptype_offset[ptype], ptype_count[ptype], P, SlotsManager);
         petaio_save_block(&bf, blockname, &array, verbose);
         petaio_destroy_buffer(&array);
     }
@@ -531,7 +532,7 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
     char * p = array->data;
     for(i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].Type != ent->ptype) continue;
-        ent->setter(i, p);
+        ent->setter(i, p, P, SlotsManager);
         p += array->strides[0];
     }
 }
@@ -540,7 +541,7 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
  * NOTE: selected range should contain only one particle type!
 */
 void
-petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int NumSelection)
+petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int NumSelection, struct particle_data * Parts, struct slots_manager_type * SlotsManager)
 {
     if(selection == NULL) {
         endrun(-1, "NULL selection is not supported\n");
@@ -566,16 +567,16 @@ petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection,
         p += array->strides[0] * start;
         for(i = start; i < end; i ++) {
             const int j = selection[i];
-            if(P[j].Type != ent->ptype) {
-                endrun(2, "Selection %d has type = %d != %d\n", j, P[j].Type, ent->ptype);
+            if(Parts[j].Type != ent->ptype) {
+                endrun(2, "Selection %d has type = %d != %d\n", j, Parts[j].Type, ent->ptype);
             }
-            ent->getter(j, p);
+            ent->getter(j, p, Parts, SlotsManager);
             p += array->strides[0];
         }
     }
 }
 
-/* destropy a buffer, freeing its memory */
+/* destroy a buffer, freeing its memory */
 void petaio_destroy_buffer(BigArray * array) {
     myfree(array->data);
 }
@@ -704,26 +705,69 @@ void io_register_io_block(char * name,
     IOTable->used ++;
 }
 
-static void GTPosition(int i, double * out) {
+static void GTPosition(int i, double * out, void * baseptr, void * smanptr) {
     /* Remove the particle offset before saving*/
+    struct particle_data * part = (struct particle_data *) baseptr;
     int d;
     for(d = 0; d < 3; d ++) {
-        out[d] = P[i].Pos[d] - All.CurrentParticleOffset[d];
+        out[d] = part[i].Pos[d] - All.CurrentParticleOffset[d];
         while(out[d] > All.BoxSize) out[d] -= All.BoxSize;
         while(out[d] <= 0) out[d] += All.BoxSize;
     }
 }
 
-static void STPosition(int i, double * out) {
+static void STPosition(int i, double * out, void * baseptr, void * smanptr) {
     int d;
+    struct particle_data * part = (struct particle_data *) baseptr;
     for(d = 0; d < 3; d ++) {
-        P[i].Pos[d] = out[d];
+        part[i].Pos[d] = out[d];
     }
 }
 
-static void GTVelocity(int i, float * out) {
+#define SIMPLE_PROPERTY(name, field, type, items) \
+    SIMPLE_GETTER(GT ## name , field, type, items, struct particle_data) \
+    SIMPLE_SETTER(ST ## name , field, type, items, struct particle_data)
+/*A property with getters and setters that are type specific*/
+#define SIMPLE_PROPERTY_TYPE(name, ptype, field, type, items) \
+    SIMPLE_GETTER(GT ## ptype ## name , field, type, items, struct particle_data) \
+    SIMPLE_SETTER(ST ## ptype ## name , field, type, items, struct particle_data)
+
+/* A property that uses getters and setters via the PI of a particle data array.*/
+#define SIMPLE_GETTER_PI(name, field, dtype, items, slottype) \
+static void name(int i, dtype * out, void * baseptr, void * smanptr) { \
+    int PI = ((struct particle_data *) baseptr)[i].PI; \
+    int ptype = ((struct particle_data *) baseptr)[i].Type; \
+    struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[ptype]); \
+    slottype * sl = (slottype *) info->ptr; \
+    int k; \
+    for(k = 0; k < items; k ++) { \
+        out[k] = *(&(sl[PI].field) + k); \
+    } \
+}
+
+#define SIMPLE_SETTER_PI(name, field, dtype, items, slottype) \
+static void name(int i, dtype * out, void * baseptr, void * smanptr) { \
+    int PI = ((struct particle_data *) baseptr)[i].PI; \
+    int ptype = ((struct particle_data *) baseptr)[i].Type; \
+    struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[ptype]); \
+    slottype * sl = (slottype *) info->ptr; \
+    int k; \
+    for(k = 0; k < items; k ++) { \
+        *(&(sl[PI].field) + k) = out[k]; \
+    } \
+}
+
+#define SIMPLE_PROPERTY_PI(name, field, type, items, slottype) \
+    SIMPLE_GETTER_PI(GT ## name , field, type, items, slottype) \
+    SIMPLE_SETTER_PI(ST ## name , field, type, items, slottype)
+#define SIMPLE_PROPERTY_TYPE_PI(name, ptype, field, type, items, slottype) \
+    SIMPLE_GETTER_PI(GT ## ptype ## name , field, type, items, slottype) \
+    SIMPLE_SETTER_PI(ST ## ptype ## name , field, type, items, slottype)
+
+static void GTVelocity(int i, float * out, void * baseptr, void * smanptr) {
     /* Convert to Peculiar Velocity if UsePeculiarVelocity is set */
     double fac;
+    struct particle_data * part = (struct particle_data *) baseptr;
     if (All.IO.UsePeculiarVelocity) {
         fac = 1.0 / All.cf.a;
     } else {
@@ -732,11 +776,12 @@ static void GTVelocity(int i, float * out) {
 
     int d;
     for(d = 0; d < 3; d ++) {
-        out[d] = fac * P[i].Vel[d];
+        out[d] = fac * part[i].Vel[d];
     }
 }
-static void STVelocity(int i, float * out) {
+static void STVelocity(int i, float * out, void * baseptr, void * smanptr) {
     double fac;
+    struct particle_data * part = (struct particle_data *) baseptr;
     if (All.IO.UsePeculiarVelocity) {
         fac = All.cf.a;
     } else {
@@ -745,46 +790,60 @@ static void STVelocity(int i, float * out) {
 
     int d;
     for(d = 0; d < 3; d ++) {
-        P[i].Vel[d] = out[d] * fac;
+        part[i].Vel[d] = out[d] * fac;
     }
 }
-SIMPLE_PROPERTY(Mass, P[i].Mass, float, 1)
-SIMPLE_PROPERTY(ID, P[i].ID, uint64_t, 1)
-SIMPLE_PROPERTY(Generation, P[i].Generation, unsigned char, 1)
-SIMPLE_GETTER(GTPotential, P[i].Potential, float, 1)
-SIMPLE_PROPERTY(SmoothingLength, P[i].Hsml, float, 1)
-SIMPLE_PROPERTY(Density, SPHP(i).Density, float, 1)
-SIMPLE_PROPERTY(EgyWtDensity, SPHP(i).EgyWtDensity, float, 1)
-SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
-SIMPLE_PROPERTY(DelayTime, SPHP(i).DelayTime, float, 1)
-SIMPLE_PROPERTY_TYPE(StarFormationTime, 4, STARP(i).FormationTime, float, 1)
-SIMPLE_PROPERTY(BirthDensity, STARP(i).BirthDensity, float, 1)
-SIMPLE_PROPERTY_TYPE(Metallicity, 4, STARP(i).Metallicity, float, 1)
-SIMPLE_PROPERTY_TYPE(Metallicity, 0, SPHP(i).Metallicity, float, 1)
-static void GTStarFormationRate(int i, float * out) {
+SIMPLE_PROPERTY(Mass, Mass, float, 1)
+SIMPLE_PROPERTY(ID, ID, uint64_t, 1)
+SIMPLE_PROPERTY(Generation, Generation, unsigned char, 1)
+SIMPLE_GETTER(GTPotential, Potential, float, 1, struct particle_data)
+SIMPLE_PROPERTY(SmoothingLength, Hsml, float, 1)
+SIMPLE_PROPERTY_PI(Density, Density, float, 1, struct sph_particle_data)
+SIMPLE_PROPERTY_PI(EgyWtDensity, EgyWtDensity, float, 1, struct sph_particle_data)
+SIMPLE_PROPERTY_PI(ElectronAbundance, Ne, float, 1, struct sph_particle_data)
+SIMPLE_PROPERTY_PI(DelayTime, DelayTime, float, 1, struct sph_particle_data)
+SIMPLE_PROPERTY_TYPE_PI(StarFormationTime, 4, FormationTime, float, 1, struct star_particle_data)
+SIMPLE_PROPERTY_PI(BirthDensity, BirthDensity, float, 1, struct star_particle_data)
+SIMPLE_PROPERTY_TYPE_PI(Metallicity, 4, Metallicity, float, 1, struct star_particle_data)
+SIMPLE_PROPERTY_TYPE_PI(Metallicity, 0, Metallicity, float, 1, struct sph_particle_data)
+static void GTStarFormationRate(int i, float * out, void * baseptr, void * smanptr) {
     /* Convert to Solar/year */
-    *out = SPHP(i).Sfr * ((All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR));
+    int PI = ((struct particle_data *) baseptr)[i].PI;
+    int ptype = ((struct particle_data *) baseptr)[i].Type;
+    struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[ptype]);
+    struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
+    *out = sl[PI].Sfr * ((All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR));
 }
-SIMPLE_PROPERTY_TYPE(StarFormationTime, 5, BHP(i).FormationTime, float, 1)
-SIMPLE_PROPERTY(BlackholeMass, BHP(i).Mass, float, 1)
-SIMPLE_PROPERTY(BlackholeAccretionRate, BHP(i).Mdot, float, 1)
-SIMPLE_PROPERTY(BlackholeProgenitors, BHP(i).CountProgs, float, 1)
-SIMPLE_PROPERTY(BlackholeMinPotPos, BHP(i).MinPotPos[0], double, 3)
-SIMPLE_PROPERTY(BlackholeJumpToMinPot, BHP(i).JumpToMinPot, int, 1)
+SIMPLE_PROPERTY_TYPE_PI(StarFormationTime, 5, FormationTime, float, 1, struct bh_particle_data)
+SIMPLE_PROPERTY_PI(BlackholeMass, Mass, float, 1, struct bh_particle_data)
+SIMPLE_PROPERTY_PI(BlackholeAccretionRate, Mdot, float, 1, struct bh_particle_data)
+SIMPLE_PROPERTY_PI(BlackholeProgenitors, CountProgs, float, 1, struct bh_particle_data)
+SIMPLE_PROPERTY_PI(BlackholeMinPotPos, MinPotPos[0], double, 3, struct bh_particle_data)
+SIMPLE_PROPERTY_PI(BlackholeJumpToMinPot, JumpToMinPot, int, 1, struct bh_particle_data)
 /*This is only used if FoF is enabled*/
-SIMPLE_GETTER(GTGroupID, P[i].GrNr, uint32_t, 1)
-static void GTNeutralHydrogenFraction(int i, float * out) {
+SIMPLE_GETTER(GTGroupID, GrNr, uint32_t, 1, struct particle_data)
+static void GTNeutralHydrogenFraction(int i, float * out, void * baseptr, void * smanptr) {
     double redshift = 1./All.Time - 1;
-    *out = get_neutral_fraction_sfreff(i, redshift);
+    struct particle_data * pl = ((struct particle_data *) baseptr)+i;
+    int PI = pl->PI;
+    struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
+    struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
+    *out = get_neutral_fraction_sfreff(redshift, pl, sl+PI);
 }
 
-static void GTInternalEnergy(int i, float * out) {
-    *out = SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1);
+static void GTInternalEnergy(int i, float * out, void * baseptr, void * smanptr) {
+    int PI = ((struct particle_data *) baseptr)[i].PI;
+    struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
+    struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
+    *out = sl[PI].Entropy / GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1);
 }
 
-static void STInternalEnergy(int i, float * out) {
+static void STInternalEnergy(int i, float * out, void * baseptr, void * smanptr) {
     float u = *out;
-    SPHP(i).Entropy = GAMMA_MINUS1 * u / pow(SPH_EOMDensity(i) * All.cf.a3inv , GAMMA_MINUS1);
+    int PI = ((struct particle_data *) baseptr)[i].PI;
+    struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
+    struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
+    sl[PI].Entropy  = GAMMA_MINUS1 * u / pow(SPH_EOMDensity(i) * All.cf.a3inv , GAMMA_MINUS1);
 }
 
 static int order_by_type(const void *a, const void *b)
@@ -868,17 +927,17 @@ void register_io_blocks(struct IOTable * IOTable) {
 /* Add extra debug blocks to the output*/
 /* Write (but don't read) them, only useful for debugging the particle structures.
  * Warning: future code versions may change the units!*/
-SIMPLE_GETTER(GTGravAccel, P[i].GravAccel[0], float, 3)
-SIMPLE_GETTER(GTGravPM, P[i].GravPM[0], float, 3)
-SIMPLE_GETTER(GTTimeBin, P[i].TimeBin, int, 1)
-SIMPLE_GETTER(GTGravCost, P[i].GravCost, int, 1)
-SIMPLE_GETTER(GTHydroAccel, SPHP(i).HydroAccel[0], float, 3)
-SIMPLE_GETTER(GTMaxSignalVel, SPHP(i).MaxSignalVel, float, 1)
-SIMPLE_GETTER(GTEntropy, SPHP(i).Entropy, float, 1)
-SIMPLE_GETTER(GTDtEntropy, SPHP(i).DtEntropy, float, 1)
-SIMPLE_GETTER(GTDhsmlEgyDensityFactor, SPHP(i).DhsmlEgyDensityFactor, float, 1)
-SIMPLE_GETTER(GTDivVel, SPHP(i).DivVel, float, 1)
-SIMPLE_GETTER(GTCurlVel, SPHP(i).CurlVel, float, 1)
+SIMPLE_GETTER(GTGravAccel, GravAccel[0], float, 3, struct particle_data)
+SIMPLE_GETTER(GTGravPM, GravPM[0], float, 3, struct particle_data)
+SIMPLE_GETTER(GTTimeBin, TimeBin, int, 1, struct particle_data)
+SIMPLE_GETTER(GTGravCost, GravCost, int, 1, struct particle_data)
+SIMPLE_GETTER_PI(GTHydroAccel, HydroAccel[0], float, 3, struct sph_particle_data)
+SIMPLE_GETTER_PI(GTMaxSignalVel, MaxSignalVel, float, 1, struct sph_particle_data)
+SIMPLE_GETTER_PI(GTEntropy, Entropy, float, 1, struct sph_particle_data)
+SIMPLE_GETTER_PI(GTDtEntropy, DtEntropy, float, 1, struct sph_particle_data)
+SIMPLE_GETTER_PI(GTDhsmlEgyDensityFactor, DhsmlEgyDensityFactor, float, 1, struct sph_particle_data)
+SIMPLE_GETTER_PI(GTDivVel, DivVel, float, 1, struct sph_particle_data)
+SIMPLE_GETTER_PI(GTCurlVel, CurlVel, float, 1, struct sph_particle_data)
 
 void register_debug_io_blocks(struct IOTable * IOTable)
 {
