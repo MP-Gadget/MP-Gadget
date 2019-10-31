@@ -386,7 +386,7 @@ static void piter_bisect(struct piter * pi, char * P) {
              * the range is too small, so we set flag narrow,
              * and next iteration we will directly test Pright */
             if(d->compar(&P[i * d->rsize],
-                &pi->Pleft[i * d->rsize], d->rsize) == 0) {
+                &pi->Pleft[i * d->rsize], d->rsize) <= 0) {
                 pi->narrow[i] = 1;
             }
         }
