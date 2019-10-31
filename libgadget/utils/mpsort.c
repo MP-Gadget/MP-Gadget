@@ -97,12 +97,16 @@ static void _bisect_radix(void * r, const void * r1, const void * r2, size_t rsi
     const unsigned char * u2 = r2;
     unsigned char * u = r;
     unsigned int carry = 0;
-    /* from most least significant */
+    if(dir > 0) {
+        u1 += rsize - 1;
+        u2 += rsize - 1;
+    }
+    /* from most significant */
     for(i = 0; i < rsize; i ++) {
         unsigned int tmp = (unsigned int) *u2 + *u1 + carry;
         if(tmp >= 256) carry = 1;
         else carry = 0;
-        *u = tmp;
+        *u = tmp % (UINT8_MAX+1);
         u -= dir;
         u1 -= dir;
         u2 -= dir;
@@ -195,6 +199,7 @@ static void radix_sort(void * base, size_t nmemb, size_t size,
         size_t rsize,
         void * arg) {
 
+    memset(&_cacr_d, 0, sizeof(struct crstruct));
     _setup_radix_sort(&_cacr_d, base, nmemb, size, radix, rsize, arg);
 
     qsort_openmp(_cacr_d.base, _cacr_d.nmemb, _cacr_d.size, _compute_and_compar_radix);
