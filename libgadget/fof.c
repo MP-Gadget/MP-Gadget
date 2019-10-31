@@ -791,7 +791,7 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, double BoxSi
 
         if(fof->Group[i].base.Length != fof->Group[i].Length) {
             /* These two shall be consistent */
-            endrun(3333, "Group base Length mismatch with Group Length");
+            endrun(3333, "i=%d Group base Length %d != Group Length %d\n", i, fof->Group[i].base.Length, fof->Group[i].Length);
         }
     }
 
@@ -955,10 +955,10 @@ static void fof_reduce_groups(
         struct BaseGroup * g1 = (struct BaseGroup*) ((char*) ghosts + i * elsize);
         struct BaseGroup * g2 = (struct BaseGroup*) ((char*) ghosts2 + i* elsize);
         if(g1->MinID != g2->MinID) {
-            abort();
+            endrun(2, "g1 minID %lu, g2 minID %lu\n", g1->MinID, g2->MinID);
         }
         if(g1->MinIDTask != g2->MinIDTask) {
-            abort();
+            endrun(2, "g1 minIDTask %d, g2 minIDTask %d\n", g1->MinIDTask, g2->MinIDTask);
         }
     }
     memcpy(ghosts, ghosts2, elsize * (nmemb - Nmine));
