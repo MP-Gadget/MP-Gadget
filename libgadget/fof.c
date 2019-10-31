@@ -22,6 +22,7 @@
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "densitykernel.h"
+#include "exchange.h"
 
 /*! \file fof.c
  *  \brief parallel FoF group finder
@@ -982,6 +983,110 @@ static void fof_reduce_groups(
 static void fof_radix_Group_TotalCountTaskDiffMinID(const void * a, void * radix, void * arg);
 static void fof_radix_Group_OriginalTaskMinID(const void * a, void * radix, void * arg);
 
+static int compar_bg(void * d1, void * d2)
+{
+    struct BaseGroup * i1 = d1;
+    struct BaseGroup * i2 = d2;
+    int dist1 = labs(i1->OriginalTask - i1->MinIDTask);
+    int dist2 = labs(i2->OriginalTask - i2->MinIDTask);
+    /* Note reversed sign! We want the largest groups first.*/
+    if(i1->Length < i2->Length)
+        return 1;
+    else if(i1->Length > i2->Length)
+        return -1;
+    if(i1->MinID < i2->MinID)
+        return -1;
+    else if(i1->MinID > i2->MinID)
+        return 1;
+    else if(dist1 < dist2)
+        return -1;
+    else if(dist1 > dist2)
+        return 1;
+    return 0;
+}
+
+static int compar_bg_return(void * d1, void * d2)
+{
+    struct BaseGroup * i1 = d1;
+    struct BaseGroup * i2 = d2;
+    /* Note reversed sign! We want the largest groups first.*/
+    if(i1->OriginalTask > i2->OriginalTask)
+        return 1;
+    if(i1->OriginalTask < i2->OriginalTask)
+        return -1;
+    if(i1->MinID < i2->MinID)
+        return -1;
+    else if(i1->MinID > i2->MinID)
+        return 1;
+    return 0;
+}
+
+void
+check_sorted(void * data, int elsize, size_t localsize, int compar(void * d1, void * d2), void * prev, MPI_Comm comm)
+{
+    size_t i;
+    int ThisTask, NTask;
+    MPI_Comm_rank(comm, &ThisTask);
+    MPI_Comm_size(comm, &NTask);
+
+    const int TAG = 0xbeef;
+
+    for(i = 1; i < localsize; i ++) {
+        if(compar(data + i*elsize, data + (i - 1)*elsize) < 0) {
+            struct BaseGroup * i1 = ((struct BaseGroup *)data) + i;
+            struct BaseGroup * i2= ((struct BaseGroup *)data) +(i-1);
+            message(1, "cur=(%ld %ld %ld) prev= (%ld %ld %ld)\n", labs(i1->OriginalTask - i1->MinIDTask), i1->MinID, i1->Length, labs(i2->OriginalTask - i2->MinIDTask), i2->MinID, i2->Length);
+            endrun(12, "Ordering of local array is broken i=%ld, d=%ld d-1=%ld. \n", i, ((int64_t *)data)[i], ((int64_t *)data)[i-1]);
+        }
+    }
+
+    if(NTask == 1) return;
+
+    while(1) {
+        if(ThisTask == 0) {
+            void * ptr = prev;
+            if(localsize > 0) {
+                ptr = data + elsize * (localsize - 1);
+            }
+            MPI_Send(ptr, elsize, MPI_BYTE, ThisTask + 1, TAG, comm);
+            break;
+        }
+        if(ThisTask == NTask - 1) {
+            MPI_Recv(prev, elsize, MPI_BYTE,
+                    ThisTask - 1, TAG, comm, MPI_STATUS_IGNORE);
+            break;
+        }
+        /* else */
+        if(localsize == 0) {
+            /* simply pass through whatever we get */
+            MPI_Recv(prev, elsize, MPI_BYTE, ThisTask - 1, TAG, comm, MPI_STATUS_IGNORE);
+            MPI_Send(prev, elsize, MPI_BYTE, ThisTask + 1, TAG, comm);
+            break;
+        }
+        else
+        {
+            MPI_Sendrecv(
+                    data+(localsize - 1)*elsize, elsize, MPI_BYTE,
+                    ThisTask + 1, TAG,
+                    prev, elsize, MPI_BYTE,
+                    ThisTask - 1, TAG, comm, MPI_STATUS_IGNORE);
+            break;
+        }
+    }
+
+    if(ThisTask > 1) {
+        if(localsize > 0) {
+            if(compar(prev, data) > 0) {
+                struct BaseGroup * i1 = ((struct BaseGroup *)data);
+                struct BaseGroup * i2= ((struct BaseGroup *)prev);
+                message(1, "cur=(%ld %ld %ld) prev= (%ld %ld %ld)\n", labs(i1->OriginalTask - i1->MinIDTask), i1->MinID, i1->Length, labs(i2->OriginalTask - i2->MinIDTask), i2->MinID, i2->Length);
+            //                printf("ThisTask = %d prev = %d\n", ThisTask, prev);
+                endrun(12, "Ordering of global array is broken prev=%ld d=%ld (comp: %d). \n", prev, *(int64_t *)data, compar(prev, data));
+            }
+        }
+    }
+}
+
 static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_Comm Comm)
 {
     int i, j, NTask, ThisTask;
@@ -989,13 +1094,25 @@ static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_C
     MPI_Comm_size(Comm, &NTask);
     MPI_Comm_rank(Comm, &ThisTask);
 
+    int64_t tot_length = 0, tot_length2 = 0;
     for(i = 0; i < NgroupsExt; i++)
     {
         base[i].OriginalTask = ThisTask;	/* original task */
+        tot_length += base[i].Length;
     }
 
+    MPI_Allreduce(MPI_IN_PLACE, &tot_length, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     mpsort_mpi(base, NgroupsExt, sizeof(base[0]),
             fof_radix_Group_TotalCountTaskDiffMinID, 24, NULL, Comm);
+
+   struct BaseGroup prev;
+   prev.Length = INT32_MAX;
+   prev.OriginalIndex = 0;
+   prev.MinID = 0;
+   prev.OriginalTask = -1;
+   prev.MinIDTask = -1;
+
+    check_sorted(base, sizeof(struct BaseGroup), NgroupsExt, compar_bg, &prev, MPI_COMM_WORLD);
 
     /* assign group numbers
      * at this point, both Group are is sorted by length,
@@ -1009,7 +1126,12 @@ static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_C
             ngr++;
         }
         base[i].GrNr = ngr;
+        tot_length2 += base[i].Length;
     }
+
+    MPI_Allreduce(MPI_IN_PLACE, &tot_length2, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    if(tot_length != tot_length2)
+        endrun(3, "Total lengths not preserved! %ld != %ld\n", tot_length, tot_length2);
 
     int64_t * ngra = ta_malloc("NGRA", int64_t, NTask);
 
@@ -1024,9 +1146,12 @@ static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_C
 
     ta_free(ngra);
 
+    message(0, "Doing second FOF sort\n");
     /* bring the group list back into the original task, sorted by MinID */
     mpsort_mpi(base, NgroupsExt, sizeof(base[0]),
             fof_radix_Group_OriginalTaskMinID, 16, NULL, Comm);
+
+    check_sorted(base, sizeof(struct BaseGroup), NgroupsExt, compar_bg_return, &prev, MPI_COMM_WORLD);
 
     for(i = 0; i < PartManager->NumPart; i++)
         P[i].GrNr = -1;	/* will mark particles that are not in any group */
@@ -1045,6 +1170,17 @@ static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_C
             P[HaloLabel[start].Pindex].GrNr = base[i].GrNr;
         }
     }
+
+    tot_length = 0;
+    for(i = 0; i < NgroupsExt; i++)
+    {
+        tot_length += base[i].Length;
+    }
+
+    MPI_Allreduce(MPI_IN_PLACE, &tot_length, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    if(tot_length != tot_length2)
+        endrun(3, "22! Total lengths not preserved! %ld != %ld\n", tot_length, tot_length2);
+
 }
 
 
@@ -1362,7 +1498,7 @@ static void fof_radix_Group_TotalCountTaskDiffMinID(const void * a, void * radix
     struct BaseGroup * f = (struct BaseGroup *) a;
     u[0] = labs(f->OriginalTask - f->MinIDTask);
     u[1] = f->MinID;
-    u[2] = UINT64_MAX - (f->Length);
+    u[2] = UINT32_MAX - (f->Length);
 }
 
 static void fof_radix_Group_OriginalTaskMinID(const void * a, void * radix, void * arg) {
