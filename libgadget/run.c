@@ -212,6 +212,21 @@ run(int RestartSnapNum)
         ForceTree Tree = {0};
         force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav);
 
+        /* this will find new black hole seed halos.
+         * Note: the FOF code does not know about garbage particles,
+         * so ensure we do not have garbage present when we call this.
+         * Also a good idea to only run it on a PM step.
+         * This does not break the tree because the new black holes do not move or change mass, just type.
+         * It does not matter that the velocities are half a step off because they are not used in the FoF code.*/
+        if(All.BlackHoleOn && GasEnabled && is_PM && All.Time >= TimeNextSeedingCheck)
+        {
+            /* Seeding */
+            FOFGroups fof = fof_fof(&Tree, All.BoxSize, All.BlackHoleOn, MPI_COMM_WORLD);
+            fof_seed(&fof, MPI_COMM_WORLD);
+            fof_finish(&fof);
+            TimeNextSeedingCheck = All.Time * All.TimeBetweenSeedingSearch;
+        }
+
         /*Allocate the extra SPH data for transient SPH particle properties.*/
         if(GasEnabled)
             slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size);
@@ -225,15 +240,6 @@ run(int RestartSnapNum)
         {
             /* Black hole accretion and feedback */
             blackhole(&Act, &Tree);
-            /* this will find new black hole seed halos */
-            if(All.BlackHoleOn && All.Time >= TimeNextSeedingCheck)
-            {
-                /* Seeding */
-                FOFGroups fof = fof_fof(&Tree, All.BoxSize, All.BlackHoleOn, MPI_COMM_WORLD);
-                fof_seed(&fof, MPI_COMM_WORLD);
-                fof_finish(&fof);
-                TimeNextSeedingCheck = All.Time * All.TimeBetweenSeedingSearch;
-            }
 
             /**** radiative cooling and star formation *****/
             cooling_and_starformation(&Act, &Tree);
@@ -269,7 +275,7 @@ run(int RestartSnapNum)
             WriteSnapshot |= action->write_snapshot;
         }
 
-        if(WriteSnapshot) {
+        if(WriteSnapshot || WriteFOF) {
             /* The accel may have created garbage -- collect them before writing a snapshot.
              * If we do collect, rebuild tree and reset active list size.*/
             int compact[6] = {0};
