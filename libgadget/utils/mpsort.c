@@ -344,11 +344,15 @@ struct piter {
 static void piter_init(struct piter * pi,
         char * Pmin, char * Pmax, int Plength,
         struct crstruct * d) {
-    pi->stable = calloc(Plength, sizeof(int));
-    pi->narrow = calloc(Plength, sizeof(int));
+    pi->stable = ta_malloc("stable", int, Plength);
+    memset(pi->stable, 0, Plength * sizeof(int));
+    pi->narrow = ta_malloc("narrow", int, Plength);
+    memset(pi->narrow, 0, Plength * sizeof(int));
     pi->d = d;
-    pi->Pleft = calloc(Plength, d->rsize);
-    pi->Pright = calloc(Plength, d->rsize);
+    pi->Pleft = ta_malloc("left", char, Plength * d->rsize);
+    memset(pi->Pleft, 0, Plength * d->rsize * sizeof(char));
+    pi->Pright = ta_malloc("right", char, Plength * d->rsize);
+    memset(pi->Pright, 0, Plength * d->rsize * sizeof(char));
     pi->Plength = Plength;
 
     int i;
@@ -358,10 +362,10 @@ static void piter_init(struct piter * pi,
     }
 }
 static void piter_destroy(struct piter * pi) {
-    free(pi->stable);
-    free(pi->narrow);
-    free(pi->Pleft);
-    free(pi->Pright);
+    myfree(pi->Pright);
+    myfree(pi->Pleft);
+    myfree(pi->narrow);
+    myfree(pi->stable);
 }
 
 /*
