@@ -29,7 +29,7 @@ setup_particles(void ** state)
     PartManager->Base = (struct particle_data *) mymalloc("P", PartManager->MaxPart* sizeof(struct particle_data));
     memset(PartManager->Base, 0, sizeof(struct particle_data) * PartManager->MaxPart);
 
-    slots_init(0.01, SlotsManager);
+    slots_init(0.01 * PartManager->MaxPart, SlotsManager);
     int ptype;
     slots_set_enabled(0, sizeof(struct sph_particle_data), SlotsManager);
     slots_set_enabled(4, sizeof(struct star_particle_data), SlotsManager);

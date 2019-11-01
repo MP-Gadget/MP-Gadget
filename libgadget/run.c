@@ -79,7 +79,7 @@ void begrun(int RestartSnapNum)
 
     petaio_read_header(RestartSnapNum);
 
-    slots_init(All.SlotsIncreaseFactor, SlotsManager);
+    slots_init(All.SlotsIncreaseFactor * PartManager->MaxPart, SlotsManager);
     /* Enable the slots: stars and BHs are allocated if there are some,
      * or if some will form*/
     if(All.NTotalInit[0] > 0)
