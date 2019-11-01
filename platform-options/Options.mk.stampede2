@@ -1,8 +1,3 @@
-#Uncomment below to specify default options
-
-MPICC       =   mpicc
-MPICXX       =   mpic++
-
 # Stampede 2 KNL nodes use icc.
 # TACC_VEC_FLAGS define: -xCORE-AVX2 -axMIC-AVX512,CORE-AVX512 
 # which means the base instruction set is CORE-AVX2, and 
@@ -10,10 +5,7 @@ MPICXX       =   mpic++
 #
 # The intel 18 compiler on stampede is buggy. You need to use the intelstampedefix branch.
 # -simd is important: it aligns various structures and without it intel's MPI crashes.
-OPTIMIZE =  -fopenmp -O3 -g -Wall ${TACC_VEC_FLAGS} -fp-model fast=1 -simd -ipo
-
-GSL_INCL = $(shell pkg-config --cflags gsl)
-GSL_LIBS = $(shell pkg-config --libs gsl)
+OPTIMIZE =  -fopenmp -O3 -g -Wall ${TACC_VEC_FLAGS} -Zp16 -fp-model fast=1 -simd -ipo
 
 #--------------------------------------- Basic operation mode of code
 #OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development

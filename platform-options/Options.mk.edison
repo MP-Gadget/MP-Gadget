@@ -1,20 +1,15 @@
-#Uncomment below to specify default options
-
 MPICC       =   cc
-MPICXX       =   CC
 
-#
-#
 # For GCC add -mpc64 if IEEE 64bit FP is desired.
 OPTIMIZE =  -fopenmp -O3 -g -Wall -ffast-math -march=native
 
 GSL_INCL = -I$(GSL_DIR)/include
 GSL_LIBS = $(GSL) -lmvec -lmvec_nonshared
 
-#
 #--------------------------------------- Basic operation mode of code
 #OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development
-#OPT += VALGRIND  # allow debugging with valgrind, disable the GADGET memory allocator.
+#OPT += -DDEBUG
+#OPT += -DVALGRIND  # allow debugging with valgrind, disable the GADGET memory allocator.
 
 #-------------------------------------------- Things for special behaviour
 OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV

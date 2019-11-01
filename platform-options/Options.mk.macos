@@ -1,23 +1,11 @@
-#Uncomment below to specify default options
-
-MPICC       =   mpicc
-MPICXX       =   mpic++
-
-#
-#
-# For GCC add -mpc64 if IEEE 64bit FP is desired.
 OPTIMIZE =  -fopenmp -O3 -g -Wall -ffast-math -march=native
 #This fixes linker errors on Mac.
 #Without it uninitialised variables are not included in static libraries.
 OPTIMIZE += -fnocommon
 
-GSL_INCL = $(shell pkg-config --cflags gsl)
-GSL_LIBS = $(shell pkg-config --libs gsl)
-
-#
 #--------------------------------------- Basic operation mode of code
 #OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development
-#OPT += VALGRIND     # allow debugging with valgrind, disable the GADGET memory allocator.
+#OPT += -DVALGRIND     # allow debugging with valgrind, disable the GADGET memory allocator.
 #OPT += -DDEBUG      # print a lot of debugging messages
 #Disable openmp locking. This means no threading. Required on mac.
 OPT += -DNO_OPENMP_SPINLOCK
