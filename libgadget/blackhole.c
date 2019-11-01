@@ -604,7 +604,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         P[other].Mass = 0;
         BHP(other).Mass = 0;
 
-        slots_mark_garbage(other);
+        slots_mark_garbage(other, PartManager, SlotsManager);
         BHP(other).Mdot = 0;
         unlock_spinlock(other, spin);
 
@@ -651,7 +651,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         O->Mass += (P[other].Mass);
         P[other].Mass = 0;
 
-        slots_mark_garbage(other);
+        slots_mark_garbage(other, PartManager, SlotsManager);
         unlock_spinlock(other, spin);
 
         #pragma omp atomic
@@ -752,7 +752,7 @@ void blackhole_make_one(int index) {
      * so we don't have lots of low mass tracers.
      * If the BH seed mass is small this may lead to a mismatch
      * between the gas and BH mass. */
-    child = slots_convert(child, 5, -1);
+    child = slots_convert(child, 5, -1, PartManager, SlotsManager);
 
     BHP(child).base.ID = P[child].ID;
     /* The accretion mass should always be the seed black hole mass,

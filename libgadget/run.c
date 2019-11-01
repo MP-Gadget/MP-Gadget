@@ -79,15 +79,15 @@ void begrun(int RestartSnapNum)
 
     petaio_read_header(RestartSnapNum);
 
-    slots_init(All.SlotsIncreaseFactor);
+    slots_init(All.SlotsIncreaseFactor, SlotsManager);
     /* Enable the slots: stars and BHs are allocated if there are some,
      * or if some will form*/
     if(All.NTotalInit[0] > 0)
-        slots_set_enabled(0, sizeof(struct sph_particle_data));
+        slots_set_enabled(0, sizeof(struct sph_particle_data), SlotsManager);
     if(All.StarformationOn || All.NTotalInit[4] > 0)
-        slots_set_enabled(4, sizeof(struct star_particle_data));
+        slots_set_enabled(4, sizeof(struct star_particle_data), SlotsManager);
     if(All.BlackHoleOn || All.NTotalInit[5] > 0)
-        slots_set_enabled(5, sizeof(struct bh_particle_data));
+        slots_set_enabled(5, sizeof(struct bh_particle_data), SlotsManager);
 
     set_softenings();
     set_units();
@@ -229,7 +229,7 @@ run(int RestartSnapNum)
 
         /*Allocate the extra SPH data for transient SPH particle properties.*/
         if(GasEnabled)
-            slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size);
+            slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size, &SlotsManager->sph_scratch);
         /* update force to Ti_Current */
         compute_accelerations(&Act, is_PM, &pm, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
 
@@ -280,7 +280,7 @@ run(int RestartSnapNum)
              * If we do collect, rebuild tree and reset active list size.*/
             int compact[6] = {0};
 
-            if(slots_gc(compact)) {
+            if(slots_gc(compact, PartManager, SlotsManager)) {
                 force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav);
                 Act.NumActiveParticle = PartManager->NumPart;
             }

@@ -207,7 +207,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
         partBuf[plan->toGoOffset[target].base + toGoPtr[target].base] = pman->Base[i];
         toGoPtr[target].base ++;
         /* mark the particle for removal. Both secondary and base slots will be marked. */
-        slots_mark_garbage(i);
+        slots_mark_garbage(i, pman, sman);
     }
 
     myfree(plan->layouts);
@@ -221,7 +221,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
         /*Find which slots to gc*/
         int compact[6] = {0};
         shall_we_compact_slots(compact, plan, sman, Comm);
-        slots_gc(compact);
+        slots_gc(compact, pman, sman);
 
         walltime_measure("/Domain/exchange/garbage");
     }
@@ -239,7 +239,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
         endrun(787878, "NumPart=%d MaxPart=%d\n", newNumPart, pman->MaxPart);
     }
 
-    slots_reserve(1, newSlots);
+    slots_reserve(1, newSlots, sman);
 
     int * sendcounts = (int*) ta_malloc("sendcounts", int, plan->NTask);
     int * senddispls = (int*) ta_malloc("senddispls", int, plan->NTask);
@@ -298,8 +298,8 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
             if(!sman->info[ptype].enabled) continue;
 
             int PI = pman->Base[i].PI;
-            if(BASESLOT_PI(PI, ptype)->ID != pman->Base[i].ID) {
-                endrun(1, "Exchange: P[%d].ID = %ld (type %d) != SLOT ID = %ld. garbage: %d ReverseLink: %d\n",i,pman->Base[i].ID, pman->Base[i].Type, BASESLOT_PI(PI, ptype)->ID, pman->Base[i].IsGarbage, BASESLOT_PI(PI, ptype)->ReverseLink);
+            if(BASESLOT_PI(PI, ptype, sman)->ID != pman->Base[i].ID) {
+                endrun(1, "Exchange: P[%d].ID = %ld (type %d) != SLOT ID = %ld. garbage: %d ReverseLink: %d\n",i,pman->Base[i].ID, pman->Base[i].Type, BASESLOT_PI(PI, ptype, sman)->ID, pman->Base[i].IsGarbage, BASESLOT_PI(PI, ptype, sman)->ReverseLink);
             }
         }
         for(ptype = 0; ptype < 6; ptype ++) {
@@ -332,7 +332,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
 
 #ifdef DEBUG
     domain_test_id_uniqueness(pman);
-    slots_check_id_consistency(sman);
+    slots_check_id_consistency(pman, sman);
 #endif
     walltime_measure("/Domain/exchange/finalize");
 
