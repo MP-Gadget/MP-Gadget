@@ -215,7 +215,7 @@ void domain_decompose_full(DomainDecomp * ddecomp)
 
     /*Do a garbage collection so that the slots are ordered
      *the same as the particles, garbage is at the end and all particles are in peano order.*/
-    slots_gc_sorted();
+    slots_gc_sorted(PartManager, SlotsManager);
 
     /*Ensure collective*/
     MPIU_Barrier(ddecomp->DomainComm);

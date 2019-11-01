@@ -337,7 +337,7 @@ sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTr
         for(i = 0; i < 6; i++)
             atleast[i] = SlotsManager->info[i].maxsize;
         atleast[4] += NumNewStar;
-        slots_reserve(1, atleast);
+        slots_reserve(1, atleast, SlotsManager);
 
         /*And now we need our memory back in the right place*/
         if(ActiveParticle_tmp) {
@@ -480,7 +480,7 @@ static int make_particle_star(int child, int parent, int placement)
     struct sph_particle_data oldslot = SPHP(parent);
 
     /*Convert the child slot to the new type.*/
-    child = slots_convert(child, 4, placement);
+    child = slots_convert(child, 4, placement, PartManager, SlotsManager);
 
     /*Set properties*/
     STARP(child).FormationTime = All.Time;
@@ -602,7 +602,7 @@ starformation(int i, double *localsfr, double * sum_sm)
         /* If we get a fraction of the mass we need to create
          * a new particle for the star and remove mass from i.*/
         if(P[i].Mass >= 1.1 * mass_of_star)
-            newstar = slots_split_particle(i, mass_of_star);
+            newstar = slots_split_particle(i, mass_of_star, PartManager);
     }
 
     /* Add the rest of the metals if we didn't form a star.

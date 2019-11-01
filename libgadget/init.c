@@ -22,6 +22,7 @@
 #include "timestep.h"
 #include "timebinmgr.h"
 #include "cosmology.h"
+#include "utils/mpsort.h"
 
 /*! \file init.c
  *  \brief code for initialisation of a simulation from initial conditions
@@ -68,6 +69,11 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
 
     /*Read the snapshot*/
     petaio_read_snapshot(RestartSnapNum, MPI_COMM_WORLD);
+
+    /* MP-Sort's gather sort is disabled as a temporary measure
+     * until we fix the bug in MP-Sort where at very low object loads
+     * the global sort fails.*/
+    mpsort_mpi_set_options(MPSORT_DISABLE_GATHER_SORT);
 
     domain_test_id_uniqueness(PartManager);
 
@@ -315,7 +321,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
     }
 
     /*Allocate the extra SPH data for transient SPH particle properties.*/
-    slots_allocate_sph_scratch_data(0, SlotsManager->info[0].size);
+    slots_allocate_sph_scratch_data(0, SlotsManager->info[0].size, &SlotsManager->sph_scratch);
 
         /*At the first time step all particles should be active*/
     ActiveParticles act = {0};

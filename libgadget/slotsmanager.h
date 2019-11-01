@@ -8,20 +8,11 @@
 
 struct slot_info {
     char * ptr; /* aliasing ptr for this slot */
-    char * scratchdata; /* Pointer to struct of pointers that store optional data for this type, which persists through one time step,
-                         but not beyond. Currently only used for SPH data.*/
     int maxsize; /* max number of supported slots */
     int size; /* currently used slots*/
     size_t elsize; /* itemsize */
     int enabled;
 };
-
-extern struct slots_manager_type {
-    struct slot_info info[6];
-    char * Base; /* memory ptr that holds of all slots */
-    double increase; /* Percentage amount to increase
-                      * slot reservation by when requested.*/
-} SlotsManager[1];
 
 /* Slot particle data structures: first the base extension slot, then black holes,
  * then stars, then SPH. SPH still has some compile-time optional elements.
@@ -114,6 +105,16 @@ struct sph_scratch_data
     MyFloat * Injected_BH_Energy;
 };
 
+extern struct slots_manager_type {
+    struct slot_info info[6];
+    char * Base; /* memory ptr that holds of all slots */
+    /* Pointer to struct of pointers that store optional data for this SPH data,
+     * which persists through one time step but not beyond. */
+    struct sph_scratch_data sph_scratch;
+    double increase; /* Percentage amount to increase
+                      * slot reservation by when requested.*/
+} SlotsManager[1];
+
 /* shortcuts for accessing different slots directly by the index */
 #define SphP ((struct sph_particle_data*) SlotsManager->info[0].ptr)
 #define StarP ((struct star_particle_data*) SlotsManager->info[4].ptr)
@@ -125,31 +126,30 @@ struct sph_scratch_data
 #define STARP(i) StarP[P[i].PI]
 
 /*Shortcut for the extra data*/
-#define SphP_scratch ((struct sph_scratch_data*) SlotsManager->info[0].scratchdata)
+#define SphP_scratch (&SlotsManager->sph_scratch)
 
 extern MPI_Datatype MPI_TYPE_PARTICLE;
 extern MPI_Datatype MPI_TYPE_SLOT[6];
 
 /* shortcuts to access base slot attributes */
-#define BASESLOT_PI(PI, ptype) ((struct particle_data_ext *)(SlotsManager->info[ptype].ptr + SlotsManager->info[ptype].elsize * (PI)))
-#define BASESLOT(i) BASESLOT_PI(P[i].PI, P[i].Type)
+#define BASESLOT_PI(PI, ptype, sman) ((struct particle_data_ext *)(sman->info[ptype].ptr + sman->info[ptype].elsize * (PI)))
 
-void slots_init(double increase);
+void slots_init(double increase, struct slots_manager_type * sman);
 /*Enable a slot on type ptype. All slots are disabled after slots_init().*/
-void slots_set_enabled(int ptype, size_t elsize);
-void slots_free(struct slots_manager_type * SlotsManager);
-void slots_mark_garbage(int i);
-void slots_setup_topology(struct slots_manager_type * SlotsManager);
-void slots_setup_id(const struct slots_manager_type * SlotsManager);
-int slots_split_particle(int parent, double childmass);
-int slots_convert(int parent, int ptype, int placement);
-int slots_gc(int * compact_slots);
-void slots_gc_sorted(void);
-void slots_reserve(int where, int atleast[6]);
-void slots_check_id_consistency(struct slots_manager_type * SlotsManager);
+void slots_set_enabled(int ptype, size_t elsize, struct slots_manager_type * sman);
+void slots_free(struct slots_manager_type * sman);
+void slots_mark_garbage(int i, struct part_manager_type * pman, struct slots_manager_type * sman);
+void slots_setup_topology(struct part_manager_type * pman, struct slots_manager_type * sman);
+void slots_setup_id(const struct part_manager_type * pman, struct slots_manager_type * sman);
+int slots_split_particle(int parent, double childmass, struct part_manager_type * pman);
+int slots_convert(int parent, int ptype, int placement, struct part_manager_type * pman, struct slots_manager_type * sman);
+int slots_gc(int * compact_slots, struct part_manager_type * pman, struct slots_manager_type * sman);
+void slots_gc_sorted(struct part_manager_type * pman, struct slots_manager_type * sman);
+void slots_reserve(int where, int atleast[6], struct slots_manager_type * sman);
+void slots_check_id_consistency(struct part_manager_type * pman, struct slots_manager_type * sman);
 
-void slots_allocate_sph_scratch_data(int sph_grad_rho, int nsph);
-void slots_free_sph_scratch_data(struct sph_scratch_data * Scratch);
+void slots_allocate_sph_scratch_data(int sph_grad_rho, int nsph, struct sph_scratch_data * sph_scratch);
+void slots_free_sph_scratch_data(struct sph_scratch_data * sph_scratch);
 
 typedef struct {
     EIBase base;

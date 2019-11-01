@@ -207,7 +207,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
         partBuf[plan->toGoOffset[target].base + toGoPtr[target].base] = pman->Base[i];
         toGoPtr[target].base ++;
         /* mark the particle for removal. Both secondary and base slots will be marked. */
-        slots_mark_garbage(i);
+        slots_mark_garbage(i, pman, sman);
     }
 
     myfree(plan->layouts);
@@ -221,7 +221,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
         /*Find which slots to gc*/
         int compact[6] = {0};
         shall_we_compact_slots(compact, plan, sman, Comm);
-        slots_gc(compact);
+        slots_gc(compact, pman, sman);
 
         walltime_measure("/Domain/exchange/garbage");
     }
@@ -239,7 +239,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
         endrun(787878, "NumPart=%d MaxPart=%d\n", newNumPart, pman->MaxPart);
     }
 
-    slots_reserve(1, newSlots);
+    slots_reserve(1, newSlots, sman);
 
     int * sendcounts = (int*) ta_malloc("sendcounts", int, plan->NTask);
     int * senddispls = (int*) ta_malloc("senddispls", int, plan->NTask);
@@ -298,8 +298,8 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
             if(!sman->info[ptype].enabled) continue;
 
             int PI = pman->Base[i].PI;
-            if(BASESLOT_PI(PI, ptype)->ID != pman->Base[i].ID) {
-                endrun(1, "Exchange: P[%d].ID = %ld (type %d) != SLOT ID = %ld. garbage: %d ReverseLink: %d\n",i,pman->Base[i].ID, pman->Base[i].Type, BASESLOT_PI(PI, ptype)->ID, pman->Base[i].IsGarbage, BASESLOT_PI(PI, ptype)->ReverseLink);
+            if(BASESLOT_PI(PI, ptype, sman)->ID != pman->Base[i].ID) {
+                endrun(1, "Exchange: P[%d].ID = %ld (type %d) != SLOT ID = %ld. garbage: %d ReverseLink: %d\n",i,pman->Base[i].ID, pman->Base[i].Type, BASESLOT_PI(PI, ptype, sman)->ID, pman->Base[i].IsGarbage, BASESLOT_PI(PI, ptype, sman)->ReverseLink);
             }
         }
         for(ptype = 0; ptype < 6; ptype ++) {
@@ -332,7 +332,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
 
 #ifdef DEBUG
     domain_test_id_uniqueness(pman);
-    slots_check_id_consistency(sman);
+    slots_check_id_consistency(pman, sman);
 #endif
     walltime_measure("/Domain/exchange/finalize");
 
@@ -496,20 +496,14 @@ void
 domain_test_id_uniqueness(struct part_manager_type * pman)
 {
     int i;
-    MyIDType *ids, *ids_first;
+    MyIDType *ids;
     int NTask, ThisTask;
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
     message(0, "Testing ID uniqueness...\n");
 
-    if(pman->NumPart == 0)
-    {
-        endrun(8, "need at least one particle per cpu\n");
-    }
-
     ids = (MyIDType *) mymalloc("ids", pman->NumPart * sizeof(MyIDType));
-    ids_first = (MyIDType *) mymalloc("ids_first", NTask * sizeof(MyIDType));
 
     #pragma omp parallel for
     for(i = 0; i < pman->NumPart; i++) {
@@ -528,22 +522,52 @@ domain_test_id_uniqueness(struct part_manager_type * pman)
 
     #pragma omp parallel for
     for(i = 1; i < nids; i++) {
-        if(ids[i] == ids[i - 1])
+        if(ids[i] <= ids[i - 1])
         {
-            endrun(12, "non-unique ID=%013ld found on task=%d (i=%d NumPart=%d)\n",
+            endrun(12, "non-unique (or non-ordered) ID=%013ld found on task=%d (i=%d NumPart=%d)\n",
                     ids[i], ThisTask, i, nids);
         }
     }
 
-    MPI_Allgather(&ids[0], sizeof(MyIDType), MPI_BYTE, ids_first, sizeof(MyIDType), MPI_BYTE, MPI_COMM_WORLD);
+    MyIDType * prev = ta_malloc("prev", MyIDType, 1);
+    memset(prev, 0, sizeof(MyIDType));
+    const int TAG = 0xdead;
 
-    if(ThisTask < NTask - 1)
-        if(ids[nids - 1] == ids_first[ThisTask + 1])
-        {
-            endrun(13, "non-unique ID=%d found on task=%d\n", (int) ids[nids - 1], ThisTask);
+    if(NTask > 1) {
+        if(ThisTask == 0) {
+            MyIDType * ptr = prev;
+            if(nids > 0) {
+                ptr = ids;
+            }
+            MPI_Send(ptr, sizeof(MyIDType), MPI_BYTE, ThisTask + 1, TAG, MPI_COMM_WORLD);
         }
+        else if(ThisTask == NTask - 1) {
+            MPI_Recv(prev, sizeof(MyIDType), MPI_BYTE,
+                    ThisTask - 1, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        }
+        else if(nids == 0) {
+            /* simply pass through whatever we get */
+            MPI_Recv(prev, sizeof(MyIDType), MPI_BYTE, ThisTask - 1, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Send(prev, sizeof(MyIDType), MPI_BYTE, ThisTask + 1, TAG, MPI_COMM_WORLD);
+        }
+        else
+        {
+            MPI_Sendrecv(
+                    ids+(nids - 1), sizeof(MyIDType), MPI_BYTE,
+                    ThisTask + 1, TAG,
+                    prev, sizeof(MyIDType), MPI_BYTE,
+                    ThisTask - 1, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        }
+    }
 
-    myfree(ids_first);
+    if(ThisTask > 1) {
+        if(nids > 0) {
+            if(ids[0] <= *prev && ids[0])
+                endrun(13, "non-unique ID=%ld found on task=%d\n", ids[0], ThisTask);
+        }
+    }
+
+    myfree(prev);
     myfree(ids);
 }
 

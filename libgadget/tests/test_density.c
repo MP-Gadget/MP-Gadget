@@ -300,15 +300,15 @@ static int setup_density(void **state) {
     All.MinGasHsml = 0.006;
     All.BlackHoleMaxAccretionRadius = 99999.;
     /*Reserve space for the slots*/
-    slots_init(0.01);
-    slots_set_enabled(0, sizeof(struct sph_particle_data));
+    slots_init(0.01 * PartManager->MaxPart, SlotsManager);
+    slots_set_enabled(0, sizeof(struct sph_particle_data), SlotsManager);
     int maxpart = pow(32,3);
     int atleast[6] = {0};
     atleast[0] = maxpart;
     atleast[5] = 2;
     particle_alloc_memory(maxpart);
-    slots_reserve(1, atleast);
-    slots_allocate_sph_scratch_data(0, maxpart);
+    slots_reserve(1, atleast, SlotsManager);
+    slots_allocate_sph_scratch_data(0, maxpart, &SlotsManager->sph_scratch);
     int i;
     for(i=0; i<6; i++)
         GravitySofteningTable[i] = 0.1 / 2.8;

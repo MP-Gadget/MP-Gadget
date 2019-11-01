@@ -100,10 +100,7 @@ void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_Comm Co
             }
         }
         myfree(selection);
-        for(i = 5; i >= 0; i--) {
-            if(halo_sman.info[i].enabled)
-                myfree(halo_sman.info[i].ptr);
-        }
+        myfree(halo_sman.Base);
         myfree(halo_pman.Base);
         walltime_measure("/FOF/IO/WriteParticles");
         destroy_io_blocks(&IOTable);
@@ -177,10 +174,13 @@ static void fof_distribute_particles(struct part_manager_type * halo_pman, struc
     /* SlotsManager Needs initializing!*/
     memcpy(halo_sman, SlotsManager, sizeof(struct slots_manager_type));
 
+    halo_sman->Base = NULL;
     for(i = 0; i < 6; i ++) {
         halo_sman->info[i].size = 0;
         halo_sman->info[i].maxsize = 0;
     }
+
+    int atleast[6]={0};
     /* Count how many particles we have*/
     //#pragma omp parallel for reduction(+: NpigLocal)
     for(i = 0; i < PartManager->NumPart; i ++) {
@@ -189,21 +189,19 @@ static void fof_distribute_particles(struct part_manager_type * halo_pman, struc
             int type = P[i].Type;
             /* How many of slot type?*/
             if(type < 6 && type >= 0 && halo_sman->info[type].enabled)
-                halo_sman->info[type].maxsize++;
+                atleast[type]++;
         }
     }
-    halo_pman->MaxPart = NpigLocal * 1.3;
+    halo_pman->MaxPart = NpigLocal * All.PartAllocFactor;
     struct particle_data * halopart = mymalloc("HaloParticle", sizeof(struct particle_data) * halo_pman->MaxPart);
     halo_pman->Base = halopart;
     halo_pman->NumPart = NpigLocal;
 
     /* We leave extra space in the hope that we can avoid compacting slots in the fof exchange*/
-    for(i = 0; i < 6; i ++) {
-        if(halo_sman->info[i].enabled) {
-            halo_sman->info[i].maxsize *= 1.3;
-            halo_sman->info[i].ptr = mymalloc("HaloSlots", halo_sman->info[i].elsize * halo_sman->info[i].maxsize);
-        }
-    }
+    for(i = 0; i < 6; i ++)
+        atleast[i]*= All.PartAllocFactor;
+
+    slots_reserve(0, atleast, halo_sman);
 
     struct PartIndex * pi = mymalloc("PartIndex", sizeof(struct PartIndex) * NpigLocal);
 
@@ -211,7 +209,7 @@ static void fof_distribute_particles(struct part_manager_type * halo_pman, struc
     int GrNrMaxGlobal = 0;
     NpigLocal = 0;
     /* Yu: found it! this shall be int64 */
-    const uint64_t task_origin_offset = ((uint64_t) ThisTask) * (PartManager->MaxPart + 1Lu);
+    const uint64_t task_origin_offset = PartManager->MaxPart + 1Lu;
     for(i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].GrNr < 0)
             continue;
@@ -221,16 +219,16 @@ static void fof_distribute_particles(struct part_manager_type * halo_pman, struc
         struct slot_info * info = &(halo_sman->info[P[i].Type]);
         char * oldslotptr = SlotsManager->info[P[i].Type].ptr;
         if(info->enabled) {
-            memcpy(info->ptr + info->size * info->elsize, oldslotptr+P[i].PI * info->elsize, sizeof(info->elsize));
+            memcpy(info->ptr + info->size * info->elsize, oldslotptr+P[i].PI * info->elsize, info->elsize);
             halopart[NpigLocal].PI = info->size;
             info->size++;
         }
-        pi[NpigLocal].origin = task_origin_offset + NpigLocal;
+        pi[NpigLocal].origin = task_origin_offset * ((uint64_t) ThisTask) + NpigLocal;
         pi[NpigLocal].sortKey = P[i].GrNr;
         NpigLocal ++;
     }
-    if(NpigLocal > halo_pman->NumPart)
-        endrun(3, "NpigLocal got bigger %d > %d!\n", NpigLocal, halo_pman->NumPart);
+    if(NpigLocal != halo_pman->NumPart)
+        endrun(3, "Error in NpigLocal %d != %d!\n", NpigLocal, halo_pman->NumPart);
     MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, Comm);
     message(0, "GrNrMax before exchange is %d\n", GrNrMaxGlobal);
     /* sort pi to decide targetTask */
@@ -268,9 +266,9 @@ static void fof_distribute_particles(struct part_manager_type * halo_pman, struc
 #endif
     #pragma omp parallel for
     for(i = 0; i < NpigLocal; i ++) {
-        size_t index = pi[i].origin % (halo_pman->NumPart + 1Lu);
+        size_t index = pi[i].origin % task_origin_offset;
         if(index >= (size_t) NpigLocal)
-            endrun(23, "entry %d has index %lu (maxpart %lu npiglocal %d)\n", i, index, halo_pman->NumPart + 1Lu, NpigLocal);
+            endrun(23, "entry %d has index %lu (npiglocal %d)\n", i, index, NpigLocal);
         targettask[index] = pi[i].targetTask;
     }
     myfree(pi);
