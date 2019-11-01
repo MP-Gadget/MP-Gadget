@@ -1,6 +1,3 @@
 [submodule "bigfile"]
 	path = depends/bigfile
 	url = https://github.com/rainwoodman/bigfile
-[submodule "radixsort"]
-	path = depends/mpsort
-	url = https://github.com/rainwoodman/MP-sort
