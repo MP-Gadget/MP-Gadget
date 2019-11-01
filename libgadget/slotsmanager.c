@@ -597,7 +597,7 @@ slots_check_id_consistency(struct part_manager_type * pman, struct slots_manager
             endrun(1, "slot PI consistency failed2\n");
         }
         if(BASESLOT_PI(PI, type, sman)->ID != pman->Base[i].ID) {
-            endrun(1, "slot id consistency failed2: i=%d P.ID = %ld SLOT.ID=%ld\n",i, pman->Base[i].ID, BASESLOT_PI(PI, type, sman)->ID);
+            endrun(1, "slot id consistency failed2: i=%d PI=%d type = %d P.ID = %ld SLOT.ID=%ld\n",i, PI, pman->Base[i].Type, pman->Base[i].ID, BASESLOT_PI(PI, type, sman)->ID);
         }
         used[type] ++;
     }

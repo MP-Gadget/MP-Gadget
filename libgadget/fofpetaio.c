@@ -100,10 +100,7 @@ void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_Comm Co
             }
         }
         myfree(selection);
-        for(i = 5; i >= 0; i--) {
-            if(halo_sman.info[i].enabled)
-                myfree(halo_sman.info[i].ptr);
-        }
+        myfree(halo_sman.Base);
         myfree(halo_pman.Base);
         walltime_measure("/FOF/IO/WriteParticles");
         destroy_io_blocks(&IOTable);
@@ -177,10 +174,13 @@ static void fof_distribute_particles(struct part_manager_type * halo_pman, struc
     /* SlotsManager Needs initializing!*/
     memcpy(halo_sman, SlotsManager, sizeof(struct slots_manager_type));
 
+    halo_sman->Base = NULL;
     for(i = 0; i < 6; i ++) {
         halo_sman->info[i].size = 0;
         halo_sman->info[i].maxsize = 0;
     }
+
+    int atleast[6]={0};
     /* Count how many particles we have*/
     //#pragma omp parallel for reduction(+: NpigLocal)
     for(i = 0; i < PartManager->NumPart; i ++) {
@@ -189,7 +189,7 @@ static void fof_distribute_particles(struct part_manager_type * halo_pman, struc
             int type = P[i].Type;
             /* How many of slot type?*/
             if(type < 6 && type >= 0 && halo_sman->info[type].enabled)
-                halo_sman->info[type].maxsize++;
+                atleast[type]++;
         }
     }
     halo_pman->MaxPart = NpigLocal * All.PartAllocFactor;
@@ -198,12 +198,10 @@ static void fof_distribute_particles(struct part_manager_type * halo_pman, struc
     halo_pman->NumPart = NpigLocal;
 
     /* We leave extra space in the hope that we can avoid compacting slots in the fof exchange*/
-    for(i = 0; i < 6; i ++) {
-        if(halo_sman->info[i].enabled) {
-            halo_sman->info[i].maxsize *= All.PartAllocFactor;
-            halo_sman->info[i].ptr = mymalloc("HaloSlots", halo_sman->info[i].elsize * halo_sman->info[i].maxsize);
-        }
-    }
+    for(i = 0; i < 6; i ++)
+        atleast[i]*= All.PartAllocFactor;
+
+    slots_reserve(0, atleast, halo_sman);
 
     struct PartIndex * pi = mymalloc("PartIndex", sizeof(struct PartIndex) * NpigLocal);
 
