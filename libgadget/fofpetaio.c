@@ -211,7 +211,7 @@ static void fof_distribute_particles(struct part_manager_type * halo_pman, struc
     int GrNrMaxGlobal = 0;
     NpigLocal = 0;
     /* Yu: found it! this shall be int64 */
-    const uint64_t task_origin_offset = ((uint64_t) ThisTask) * (PartManager->MaxPart + 1Lu);
+    const uint64_t task_origin_offset = PartManager->MaxPart + 1Lu;
     for(i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].GrNr < 0)
             continue;
@@ -225,12 +225,12 @@ static void fof_distribute_particles(struct part_manager_type * halo_pman, struc
             halopart[NpigLocal].PI = info->size;
             info->size++;
         }
-        pi[NpigLocal].origin = task_origin_offset + NpigLocal;
+        pi[NpigLocal].origin = task_origin_offset * ((uint64_t) ThisTask) + NpigLocal;
         pi[NpigLocal].sortKey = P[i].GrNr;
         NpigLocal ++;
     }
-    if(NpigLocal > halo_pman->NumPart)
-        endrun(3, "NpigLocal got bigger %d > %d!\n", NpigLocal, halo_pman->NumPart);
+    if(NpigLocal != halo_pman->NumPart)
+        endrun(3, "Error in NpigLocal %d != %d!\n", NpigLocal, halo_pman->NumPart);
     MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, Comm);
     message(0, "GrNrMax before exchange is %d\n", GrNrMaxGlobal);
     /* sort pi to decide targetTask */
@@ -268,9 +268,9 @@ static void fof_distribute_particles(struct part_manager_type * halo_pman, struc
 #endif
     #pragma omp parallel for
     for(i = 0; i < NpigLocal; i ++) {
-        size_t index = pi[i].origin % (halo_pman->NumPart + 1Lu);
+        size_t index = pi[i].origin % task_origin_offset;
         if(index >= (size_t) NpigLocal)
-            endrun(23, "entry %d has index %lu (maxpart %lu npiglocal %d)\n", i, index, halo_pman->NumPart + 1Lu, NpigLocal);
+            endrun(23, "entry %d has index %lu (npiglocal %d)\n", i, index, NpigLocal);
         targettask[index] = pi[i].targetTask;
     }
     myfree(pi);
