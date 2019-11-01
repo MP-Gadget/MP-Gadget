@@ -300,7 +300,7 @@ static int setup_density(void **state) {
     All.MinGasHsml = 0.006;
     All.BlackHoleMaxAccretionRadius = 99999.;
     /*Reserve space for the slots*/
-    slots_init(0.01, SlotsManager);
+    slots_init(0.01 * PartManager->MaxPart, SlotsManager);
     slots_set_enabled(0, sizeof(struct sph_particle_data), SlotsManager);
     int maxpart = pow(32,3);
     int atleast[6] = {0};
