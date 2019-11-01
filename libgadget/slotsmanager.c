@@ -195,7 +195,7 @@ slots_find_next_nongarbage(int start, int used, int ptype, struct part_manager_t
 
 /*Compaction algorithm*/
 static int
-slots_gc_compact(int used, int ptype, struct part_manager_type * pman, struct slots_manager_type * sman)
+slots_gc_compact(const int used, int ptype, struct part_manager_type * pman, struct slots_manager_type * sman)
 {
     /*Find first garbage particle: can't use bisection here as not sorted.*/
     int nextgc = slots_find_next_garbage(0, used, ptype, pman, sman);
@@ -414,6 +414,9 @@ order_by_type_and_key(const void *a, const void *b)
 int
 slots_get_last_garbage(int nfirst, int nlast, int ptype, const struct part_manager_type * pman, const struct slots_manager_type * sman)
 {
+    /* Enforce that we don't get a negative number for an empty array*/
+    if(nlast < 0)
+        return 0;
     /* nfirst is always not garbage, nlast is always garbage*/
     if(GARBAGE(nfirst, ptype, pman, sman))
         return nfirst;
