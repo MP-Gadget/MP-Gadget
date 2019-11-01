@@ -221,7 +221,7 @@ static void fof_distribute_particles(struct part_manager_type * halo_pman, struc
         struct slot_info * info = &(halo_sman->info[P[i].Type]);
         char * oldslotptr = SlotsManager->info[P[i].Type].ptr;
         if(info->enabled) {
-            memcpy(info->ptr + info->size * info->elsize, oldslotptr+P[i].PI * info->elsize, sizeof(info->elsize));
+            memcpy(info->ptr + info->size * info->elsize, oldslotptr+P[i].PI * info->elsize, info->elsize);
             halopart[NpigLocal].PI = info->size;
             info->size++;
         }
