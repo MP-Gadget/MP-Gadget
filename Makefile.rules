@@ -1,8 +1,13 @@
 # vim: set ft=make:
 #
 AR ?= ar
+MPICC ?= mpicc
 LOW_PRECISION ?= double
 HIGH_PRECISION ?= double
+
+OPTIMIZE ?= -g -fopenmp -Wall
+GSL_INCL ?= $(shell pkg-config --cflags gsl)
+GSL_LIBS ?= $(shell pkg-config --libs gsl)
 
 OPTIONS = $(OPTIMIZE) $(OPT)
 GADGET_TESTDATA_ROOT = $(CURDIR)/../
