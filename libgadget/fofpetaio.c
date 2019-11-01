@@ -192,16 +192,16 @@ static void fof_distribute_particles(struct part_manager_type * halo_pman, struc
                 halo_sman->info[type].maxsize++;
         }
     }
-
     halo_pman->MaxPart = NpigLocal * 1.3;
     struct particle_data * halopart = mymalloc("HaloParticle", sizeof(struct particle_data) * halo_pman->MaxPart);
     halo_pman->Base = halopart;
     halo_pman->NumPart = NpigLocal;
 
-    /* Note this means we will have to compact slots in the fof exchange*/
+    /* We leave extra space in the hope that we can avoid compacting slots in the fof exchange*/
     for(i = 0; i < 6; i ++) {
         if(halo_sman->info[i].enabled) {
-            halo_sman->info[i].ptr = mymalloc("HaloSlots", halo_sman->info[i].elsize * halo_sman->info[i].size);
+            halo_sman->info[i].maxsize *= 1.3;
+            halo_sman->info[i].ptr = mymalloc("HaloSlots", halo_sman->info[i].elsize * halo_sman->info[i].maxsize);
         }
     }
 
