@@ -317,7 +317,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
     }
 
     /*Allocate the extra SPH data for transient SPH particle properties.*/
-    slots_allocate_sph_scratch_data(0, SlotsManager->info[0].size);
+    slots_allocate_sph_scratch_data(0, SlotsManager->info[0].size, &SlotsManager->sph_scratch);
 
         /*At the first time step all particles should be active*/
     ActiveParticles act = {0};

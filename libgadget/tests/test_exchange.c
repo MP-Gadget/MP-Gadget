@@ -45,13 +45,13 @@ setup_particles(int NType[6])
     P = (struct particle_data *) mymalloc("P", PartManager->MaxPart * sizeof(struct particle_data));
     memset(P, 0, sizeof(struct particle_data) * PartManager->MaxPart);
 
-    slots_init(0.01);
-    slots_set_enabled(0, sizeof(struct sph_particle_data));
-    slots_set_enabled(4, sizeof(struct star_particle_data));
-    slots_set_enabled(5, sizeof(struct bh_particle_data));
+    slots_init(0.01, SlotsManager);
+    slots_set_enabled(0, sizeof(struct sph_particle_data), SlotsManager);
+    slots_set_enabled(4, sizeof(struct star_particle_data), SlotsManager);
+    slots_set_enabled(5, sizeof(struct bh_particle_data), SlotsManager);
 
 
-    slots_reserve(1, NType);
+    slots_reserve(1, NType, SlotsManager);
 
     int i;
 
@@ -65,9 +65,9 @@ setup_particles(int NType[6])
             ptype++; itype = 0;
         }
     }
-    slots_setup_topology(SlotsManager);
+    slots_setup_topology(PartManager, SlotsManager);
 
-    slots_setup_id(SlotsManager);
+    slots_setup_id(PartManager, SlotsManager);
 
     MPI_Allreduce(&PartManager->NumPart, &TotNumPart, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
@@ -109,7 +109,7 @@ test_exchange(void **state)
 
     assert_all_true(!fail);
 
-    slots_check_id_consistency(SlotsManager);
+    slots_check_id_consistency(PartManager, SlotsManager);
     domain_test_id_uniqueness(PartManager);
 
     for(i = 0; i < PartManager->NumPart; i ++) {
@@ -133,7 +133,7 @@ test_exchange_zero_slots(void **state)
 
     assert_all_true(!fail);
 
-    slots_check_id_consistency(SlotsManager);
+    slots_check_id_consistency(PartManager, SlotsManager);
     domain_test_id_uniqueness(PartManager);
 
     for(i = 0; i < PartManager->NumPart; i ++) {
@@ -152,7 +152,7 @@ test_exchange_with_garbage(void **state)
     setup_particles(newSlots);
     int i;
 
-    slots_mark_garbage(0); /* watch out! this propogates the garbage flag to children */
+    slots_mark_garbage(0, PartManager, SlotsManager); /* watch out! this propogates the garbage flag to children */
     TotNumPart -= NTask;
 
     int fail = domain_exchange(&test_exchange_layout_func, NULL, 1, PartManager, SlotsManager, MPI_COMM_WORLD);
@@ -160,7 +160,7 @@ test_exchange_with_garbage(void **state)
     assert_all_true(!fail);
 
     domain_test_id_uniqueness(PartManager);
-    slots_check_id_consistency(SlotsManager);
+    slots_check_id_consistency(PartManager, SlotsManager);
 
     for(i = 0; i < PartManager->NumPart; i ++) {
         assert_true (P[i].ID % NTask == ThisTask);
@@ -200,7 +200,7 @@ test_exchange_uneven(void **state)
         assert_int_equal(SlotsManager->info[0].size, NUMPART1 * NTask);
     }
 
-    slots_check_id_consistency(SlotsManager);
+    slots_check_id_consistency(PartManager, SlotsManager);
     domain_test_id_uniqueness(PartManager);
 
     for(i = 0; i < PartManager->NumPart; i ++) {

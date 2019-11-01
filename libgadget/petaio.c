@@ -218,7 +218,7 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
             newSlots[ptype] *= All.PartAllocFactor;
     }
 
-    slots_reserve(0, newSlots);
+    slots_reserve(0, newSlots, SlotsManager);
 
     /* initialize particle types */
     int offset = 0;
@@ -232,7 +232,7 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
     }
 
     /* so we can set up the memory topology of secondary slots */
-    slots_setup_topology(SlotsManager);
+    slots_setup_topology(PartManager, SlotsManager);
 
     for(i = 0; i < IOTable->used; i ++) {
         /* only process the particle blocks */
@@ -283,7 +283,7 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
     }
 
     /* now we have IDs, set up the ID consistency between slots. */
-    slots_setup_id(SlotsManager);
+    slots_setup_id(PartManager, SlotsManager);
 }
 void
 petaio_read_header(int num)
