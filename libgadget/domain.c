@@ -1202,9 +1202,9 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
 
     walltime_measure("/Domain/DetermineTopTree/LocalRefine/truncate");
 
-    if(*topTreeSize > 4 * policy->NTopLeaves) {
+    if(*topTreeSize > 10 * policy->NTopLeaves) {
         message(1, "local TopTree Size =%d >> expected = %d; Usually this indicates very bad imbalance, due to a giant density peak.\n",
-            *topTreeSize, 4 * policy->NTopLeaves);
+            *topTreeSize, policy->NTopLeaves);
     }
 
 #if 0
