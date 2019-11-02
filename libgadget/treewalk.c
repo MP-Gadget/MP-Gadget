@@ -347,7 +347,7 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
     /*Shrink memory*/
     tw->WorkSet = myrealloc(tw->WorkSet, sizeof(int) * nqueue);
 
-#ifdef DEBUG
+#if 0
     /* check the uniqueness of the active_set list. This is very slow. */
     qsort_openmp(tw->WorkSet, nqueue, sizeof(int), cmpint);
     for(i = 0; i < nqueue - 1; i ++) {
