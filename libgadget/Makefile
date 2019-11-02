@@ -158,10 +158,10 @@ test : build-tests
 	done; exit $$err
 
 libgadget-utils.a: $(GADGET_UTILS_OBJS)
-	$(AR) rv $@ $(GADGET_UTILS_OBJS)
+	$(AR) r $@ $(GADGET_UTILS_OBJS)
 
 libgadget.a: $(GADGET_OBJS)
-	$(AR) rv $@ $(GADGET_OBJS)
+	$(AR) r $@ $(GADGET_OBJS)
 
 clean:
 	rm -rf .objs libgadget.a libgadget-utils.a config.c

@@ -38,7 +38,7 @@ test : build-tests
 	done; exit $$err
 
 libgenic.a: $(OBJS)
-	$(AR) rv $@ $(OBJS)
+	$(AR) r $@ $(OBJS)
 
 clean:
 	rm -rf .objs libgenic.a

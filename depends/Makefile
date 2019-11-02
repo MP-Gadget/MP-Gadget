@@ -3,6 +3,8 @@ include $(CONFIG)
 
 .PHONY: depends
 .INTERMEDIATE: pfft
+MPICC ?= mpicc
+OPTIMIZE ?= -g -fopenmp -Wall
 LIBRARIES=lib/libbigfile-mpi.a
 FFTLIBRARIES=lib/libpfft_omp.a lib/libfftw3_mpi.a lib/libfftw3_omp.a
 depends: $(LIBRARIES) $(FFTLIBRARIES)
