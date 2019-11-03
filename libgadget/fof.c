@@ -1148,6 +1148,12 @@ static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_C
 
     message(0, "Doing second FOF sort\n");
     /* bring the group list back into the original task, sorted by MinID */
+    FILE * fp = fopen(fastpm_strdup_printf("mpsort_mpi.b%d.r%ld.%ld-%05d-of-%05d", sizeof(base[0]), 
+        ((char*) &base[0].MinID - (char*) base),
+        ((char*) &base[0].OriginalTask - (char*) base),
+        ThisTask, NTask), "w");
+    fwrite(base, sizeof(base[0]), NgroupsExt, fp);
+    fclose(fp);
     mpsort_mpi(base, NgroupsExt, sizeof(base[0]),
             fof_radix_Group_OriginalTaskMinID, 16, NULL, Comm);
 
