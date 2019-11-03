@@ -68,8 +68,8 @@ static int _compar_radix_u8(const void * r1, const void * r2, size_t rsize, int 
     const uint64_t * u1 = r1;
     const uint64_t * u2 = r2;
     if(dir < 0) {
-        u1 = (const uint64_t *) ((const char*) u1 + rsize - 8);
-        u2 = (const uint64_t *) ((const char*) u2 + rsize - 8);
+        u1 = (const uint64_t *) ((const unsigned char*) u1 + rsize - 8);
+        u2 = (const uint64_t *) ((const unsigned char*) u2 + rsize - 8);
     }
     for(i = 0; i < rsize; i += 8) {
         if(*u1 < *u2) return -1;
@@ -187,7 +187,7 @@ static struct crstruct _cacr_d;
 
 /* implementation ; internal */
 static int _compute_and_compar_radix(const void * p1, const void * p2) {
-    char r1[_cacr_d.rsize], r2[_cacr_d.rsize];
+    unsigned char r1[_cacr_d.rsize], r2[_cacr_d.rsize];
     _cacr_d.radix(p1, r1, _cacr_d.arg);
     _cacr_d.radix(p2, r2, _cacr_d.arg);
     int c1 = _cacr_d.compar(r1, r2, _cacr_d.rsize);
@@ -219,7 +219,7 @@ static ptrdiff_t _bsearch_last_lt(void * P,
 
     if (nmemb == 0) return -1;
 
-    char tmpradix[d->rsize];
+    unsigned char tmpradix[d->rsize];
     ptrdiff_t left = 0;
     ptrdiff_t right = nmemb - 1;
 
@@ -260,7 +260,7 @@ static ptrdiff_t _bsearch_last_le(void * P,
 
     if (nmemb == 0) return -1;
 
-    char tmpradix[d->rsize];
+    unsigned char tmpradix[d->rsize];
     ptrdiff_t left = 0;
     ptrdiff_t right = nmemb - 1;
 
@@ -302,7 +302,7 @@ static ptrdiff_t _bsearch_last_le(void * P,
  * myCLT[Plength + 1] is always mynmemb
  *
  * */
-static void _histogram(char * P, int Plength, void * mybase, size_t mynmemb,
+static void _histogram(unsigned char * P, int Plength, void * mybase, size_t mynmemb,
         ptrdiff_t * myCLT, ptrdiff_t * myCLE,
         struct crstruct * d) {
     int it;
@@ -337,21 +337,21 @@ struct piter {
     int * stable;
     int * narrow;
     int Plength;
-    char * Pleft;
-    char * Pright;
+    unsigned char * Pleft;
+    unsigned char * Pright;
     struct crstruct * d;
 };
 static void piter_init(struct piter * pi,
-        char * Pmin, char * Pmax, int Plength,
+        unsigned char * Pmin, unsigned char * Pmax, int Plength,
         struct crstruct * d) {
     pi->stable = ta_malloc("stable", int, Plength);
     memset(pi->stable, 0, Plength * sizeof(int));
     pi->narrow = ta_malloc("narrow", int, Plength);
     memset(pi->narrow, 0, Plength * sizeof(int));
     pi->d = d;
-    pi->Pleft = ta_malloc("left", char, Plength * d->rsize);
+    pi->Pleft = ta_malloc("left", unsigned char, Plength * d->rsize);
     memset(pi->Pleft, 0, Plength * d->rsize * sizeof(char));
-    pi->Pright = ta_malloc("right", char, Plength * d->rsize);
+    pi->Pright = ta_malloc("right", unsigned char, Plength * d->rsize);
     memset(pi->Pright, 0, Plength * d->rsize * sizeof(char));
     pi->Plength = Plength;
 
@@ -375,7 +375,7 @@ static void piter_destroy(struct piter * pi) {
  * the additional 'right]'. (usual bisect range is
  * '[left, right)' )
  * */
-static void piter_bisect(struct piter * pi, char * P) {
+static void piter_bisect(struct piter * pi, unsigned char * P) {
     struct crstruct * d = pi->d;
     int i;
     for(i = 0; i < pi->Plength; i ++) {
@@ -431,7 +431,7 @@ static int piter_all_done(struct piter * pi) {
  * test if the counts satisfies CLT < C <= CLE.
  * move Pleft / Pright accordingly.
  * */
-static void piter_accept(struct piter * pi, char * P,
+static void piter_accept(struct piter * pi, unsigned char * P,
         ptrdiff_t * C, ptrdiff_t * CLT, ptrdiff_t * CLE) {
     struct crstruct * d = pi->d;
     int i;
@@ -526,9 +526,9 @@ static void _destroy_mpsort_mpi(struct crmpistruct * o) {
     MPI_Type_free(&o->MPI_TYPE_DATA);
 }
 
-static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
+static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb, size_t nmemb,
         size_t myoutnmemb,
-        char * Pmax, char * Pmin,
+        unsigned char * Pmax, unsigned char * Pmin,
         ptrdiff_t * C,
         struct crstruct * d,
         struct crmpistruct * o);
@@ -1025,13 +1025,13 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
 
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "FirstSort"), tmr++);
 
-    char * P = ta_malloc("PP", char, d.rsize * (o.NTask - 1));
+    unsigned char * P = ta_malloc("PP", unsigned char, d.rsize * (o.NTask - 1));
     memset(P, 0, d.rsize * (o.NTask -1));
 
-    char Pmax[d.rsize];
-    char Pmin[d.rsize];
+    unsigned char Pmax[d.rsize];
+    unsigned char Pmin[d.rsize];
 
-    _find_Pmax_Pmin_C(o.mybase, o.mynmemb, o.myoutnmemb, Pmax, Pmin, C, &d, &o);
+    _find_Pmax_Pmin_C(o.mybase, o.mynmemb, o.nmemb, o.myoutnmemb, Pmax, Pmin, C, &d, &o);
 
     (tmr->time = MPI_Wtime(), strcpy(tmr->name, "PmaxPmin"), tmr++);
 
@@ -1276,22 +1276,22 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
     return 0;
 }
 
-static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
+static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb, size_t nmemb,
         size_t myoutnmemb,
-        char * Pmax, char * Pmin,
+        unsigned char * Pmax, unsigned char * Pmin,
         ptrdiff_t * C,
         struct crstruct * d,
         struct crmpistruct * o) {
     memset(Pmax, 0, d->rsize);
     memset(Pmin, -1, d->rsize);
 
-    char myPmax[d->rsize];
-    char myPmin[d->rsize];
+    unsigned char myPmax[d->rsize];
+    unsigned char myPmin[d->rsize];
 
     size_t * eachnmemb = ta_malloc("eachnmemb", size_t, o->NTask);
     size_t * eachoutnmemb = ta_malloc("eachoutnmemb", size_t, o->NTask);
-    char * eachPmax = mymalloc("eachPmax", d->rsize * o->NTask * sizeof(char));
-    char * eachPmin = mymalloc("eachPmin", d->rsize * o->NTask * sizeof(char));
+    unsigned char * eachPmax = mymalloc("eachPmax", d->rsize * o->NTask * sizeof(char));
+    unsigned char * eachPmin = mymalloc("eachPmin", d->rsize * o->NTask * sizeof(char));
     int i;
 
     if(mynmemb > 0) {
@@ -1315,6 +1315,7 @@ static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
     C[0] = 0;
     for(i = 0; i < o->NTask; i ++) {
         C[i + 1] = C[i] + eachoutnmemb[i];
+        /* Skip the rank, since it has no data to contribute to the reduction*/
         if(eachnmemb[i] == 0) continue;
 
         if(d->compar(eachPmax + i * d->rsize, Pmax, d->rsize) > 0) {
@@ -1323,6 +1324,11 @@ static void _find_Pmax_Pmin_C(void * mybase, size_t mynmemb,
         if(d->compar(eachPmin + i * d->rsize, Pmin, d->rsize) < 0) {
             memcpy(Pmin, eachPmin + i * d->rsize, d->rsize);
         }
+    }
+    /* no rank contributed to the reduction, set min, max to a sane value, 0 */
+    if(nmemb == 0) {
+        memset(Pmin, 0, d->rsize);
+        memset(Pmax, 0, d->rsize);
     }
 
     myfree(eachPmin);
