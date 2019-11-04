@@ -1156,6 +1156,13 @@ static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_C
     fclose(fp);
     mpsort_mpi(base, NgroupsExt, sizeof(base[0]),
             fof_radix_Group_OriginalTaskMinID, 16, NULL, Comm);
+    /* bring the group list back into the original task, sorted by MinID */
+    FILE * fp2 = fopen(fastpm_strdup_printf("mpsort_mpi_out.b%d.r%ld.%ld-%05d-of-%05d", sizeof(base[0]),
+        ((char*) &base[0].MinID - (char*) base),
+        ((char*) &base[0].OriginalTask - (char*) base),
+        ThisTask, NTask), "w");
+    fwrite(base, sizeof(base[0]), NgroupsExt, fp2);
+    fclose(fp2);
 
     check_sorted(base, sizeof(struct BaseGroup), NgroupsExt, compar_bg_return, &prev, MPI_COMM_WORLD);
 
