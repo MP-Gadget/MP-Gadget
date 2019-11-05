@@ -275,18 +275,18 @@ static double gaussian_rng(double mu, double sigma, const int64_t seed)
 /* Build a list of halos which are candidates for becoming a quasar.
  * We use only halos with the right mass range.*/
 static int
-build_qso_candidate_list(int ** qso_cand)
+build_qso_candidate_list(int ** qso_cand, FOFGroups * fof)
 {
     /* Run FOF to get a halo catalogue*/
     /*Loop over all halos, building the candidate list.*/
     int i, ncand=0;
-    *qso_cand = mymalloc("Quasar_candidates", sizeof(int) * (Ngroups+1));
-    for(i = 0; i < Ngroups; i++)
+    *qso_cand = mymalloc("Quasar_candidates", sizeof(int) * (fof->Ngroups+1));
+    for(i = 0; i < fof->Ngroups; i++)
     {
         /* Check that it has the right mass*/
-        if(Group[i].Mass < QSOLightupParams.qso_candidate_min_mass)
+        if(fof->Group[i].Mass < QSOLightupParams.qso_candidate_min_mass)
             continue;
-        if(Group[i].Mass > QSOLightupParams.qso_candidate_max_mass)
+        if(fof->Group[i].Mass > QSOLightupParams.qso_candidate_max_mass)
             continue;
         /*Add to the candidate list*/
         (*qso_cand)[ncand] = i;
@@ -304,7 +304,7 @@ build_qso_candidate_list(int ** qso_cand)
  * This is done carefully so that we get the same sequence of quasars irrespective of how many processors we are using.
  */
 static int
-choose_QSO_halo(int ncand, int64_t * ncand_tot, MPI_Comm Comm)
+choose_QSO_halo(int ncand, int64_t * ncand_tot, FOFGroups * fof, MPI_Comm Comm)
 {
     int64_t ncand_total = 0, ncand_before = 0;
     int NTask, i, ThisTask;
@@ -323,7 +323,7 @@ choose_QSO_halo(int ncand, int64_t * ncand_tot, MPI_Comm Comm)
     }
 
     ta_free(candcounts);
-    double drand = get_random_number(TotNgroups);
+    double drand = get_random_number(fof->TotNgroups);
     int qso = (drand * ncand_total);
     *ncand_tot = ncand_total;
     /* No quasar on this processor*/
@@ -386,6 +386,7 @@ ionize_single_particle(int other)
 struct QSOPriv {
     /* Particle SpinLocks*/
     struct SpinLocks * spin;
+    FOFGroups * fof;
 };
 #define QSO_GET_PRIV(tw) ((struct QSOPriv *) (tw->priv))
 
@@ -436,15 +437,16 @@ static void
 ionize_copy(int place, TreeWalkQueryBase * I, TreeWalk * tw)
 {
     int k;
+    FOFGroups * fof = QSO_GET_PRIV(tw)->fof;
     /* Strictly speaking this is inefficient:
      * we are also copying the properties of the *particle*
      * in place in treewalk.c. However, this does not matter unless
      * there are more local groups than particles!*/
     for(k = 0; k < 3; k++)
     {
-        I->Pos[k] = Group[place].CM[k];
+        I->Pos[k] = fof->Group[place].CM[k];
     }
-    I->ID = Group[place].base.MinID;
+    I->ID = fof->Group[place].base.MinID;
 }
 
 /* Find all particles within the radius of the HeIII bubble,
@@ -452,7 +454,7 @@ ionize_copy(int place, TreeWalkQueryBase * I, TreeWalk * tw)
  * Returns the number of particles ionized
  */
 static int
-ionize_all_part(int qso_ind, int * qso_cand, ForceTree * tree)
+ionize_all_part(int qso_ind, int * qso_cand, FOFGroups * fof, ForceTree * tree)
 {
     /* This treewalk finds not yet ionized particles within the radius of the black hole, ionizes them and
      * adds an instantaneous heating to them. */
@@ -479,6 +481,7 @@ ionize_all_part(int qso_ind, int * qso_cand, ForceTree * tree)
 
     struct QSOPriv priv[1];
     priv[0].spin = init_spinlocks(PartManager->NumPart);
+    priv[0].fof = fof;
 
     tw->priv = priv;
 
@@ -494,7 +497,7 @@ ionize_all_part(int qso_ind, int * qso_cand, ForceTree * tree)
  * Keeps adding new quasars until need_more_quasars() returns 0.
  */
 static void
-turn_on_quasars(double redshift, ForceTree * tree)
+turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree)
 {
     int ncand;
     int * qso_cand = NULL;
@@ -525,15 +528,13 @@ turn_on_quasars(double redshift, ForceTree * tree)
     double curionfrac = initionfrac;
 
     if(curionfrac < desired_ion_frac) {
-        /* Run a halo finder*/
-        fof_fof(tree, All.BoxSize, 0, MPI_COMM_WORLD);
-        ncand = build_qso_candidate_list(&qso_cand);
+        ncand = build_qso_candidate_list(&qso_cand, fof);
         walltime_measure("/HeIII/Find");
     }
 
     while (curionfrac < desired_ion_frac){
         /* Get a new quasar*/
-        int new_qso = choose_QSO_halo(ncand, &ncand_tot, MPI_COMM_WORLD);
+        int new_qso = choose_QSO_halo(ncand, &ncand_tot, fof, MPI_COMM_WORLD);
         if(new_qso >= ncand)
             endrun(12, "HeII: QSO %d > no. candidates %d! Cannot happen\n", new_qso, ncand);
         /* Make sure someone has a quasar*/
@@ -543,7 +544,7 @@ turn_on_quasars(double redshift, ForceTree * tree)
             break;
         }
         /* Do the ionizations with a tree walk*/
-        int n_ionized = ionize_all_part(new_qso, qso_cand, tree);
+        int n_ionized = ionize_all_part(new_qso, qso_cand, fof, tree);
         int64_t tot_qso_ionized = 0;
         /* Check that the ionization fraction changed*/
         sumup_large_ints(1, &n_ionized, &tot_qso_ionized);
@@ -563,7 +564,6 @@ turn_on_quasars(double redshift, ForceTree * tree)
     }
     if(qso_cand) {
         myfree(qso_cand);
-        fof_finish();
     }
 
     if(tot_n_ionized > 0)
@@ -575,7 +575,7 @@ turn_on_quasars(double redshift, ForceTree * tree)
 
 /* Starts reionization by selecting the first halo and flagging all particles in the first HeIII bubble*/
 void
-do_heiii_reionization(double redshift, ForceTree * tree)
+do_heiii_reionization(double redshift, FOFGroups * fof, ForceTree * tree)
 {
     if(!QSOLightupParams.QSOLightupOn)
         return;
@@ -588,5 +588,5 @@ do_heiii_reionization(double redshift, ForceTree * tree)
 
     walltime_measure("/Misc");
     //message(0, "HeII: Reionization initiated.\n");
-    turn_on_quasars(redshift, tree);
+    turn_on_quasars(redshift, fof, tree);
 }

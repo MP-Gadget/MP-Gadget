@@ -219,13 +219,21 @@ run(int RestartSnapNum)
          * Also a good idea to only run it on a PM step.
          * This does not break the tree because the new black holes do not move or change mass, just type.
          * It does not matter that the velocities are half a step off because they are not used in the FoF code.*/
-        if(All.BlackHoleOn && GasEnabled && is_PM && All.Time >= TimeNextSeedingCheck)
+        if(GasEnabled && is_PM)
         {
-            /* Seeding */
-            FOFGroups fof = fof_fof(&Tree, All.BoxSize, All.BlackHoleOn, MPI_COMM_WORLD);
-            fof_seed(&fof, MPI_COMM_WORLD);
-            fof_finish(&fof);
-            TimeNextSeedingCheck = All.Time * All.TimeBetweenSeedingSearch;
+            if ((All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) || during_helium_reionization(1/All.Time - 1)) {
+                /* Seeding */
+                FOFGroups fof = fof_fof(&Tree, All.BoxSize, All.BlackHoleOn, MPI_COMM_WORLD);
+                if(All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) {
+                    fof_seed(&fof, MPI_COMM_WORLD);
+                    TimeNextSeedingCheck = All.Time * All.TimeBetweenSeedingSearch;
+                }
+                if(during_helium_reionization(1/All.Time - 1)) {
+                    /* Helium reionization by switching on quasar bubbles*/
+                    do_heiii_reionization(1/All.Time - 1, &fof, &Tree);
+                }
+                fof_finish(&fof);
+            }
         }
 
         /*Allocate the extra SPH data for transient SPH particle properties.*/
@@ -247,10 +255,6 @@ run(int RestartSnapNum)
 
             /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
             slots_free_sph_scratch_data(SphP_scratch);
-
-            /* Helium reionization by switching on quasar bubbles*/
-            if(is_PM)
-                do_heiii_reionization(1/All.Time - 1, &Tree);
         }
 
         /* Update velocity to Ti_Current; this synchonizes TiKick and TiDrift for the active particles */
