@@ -158,29 +158,23 @@ class HeIIheating:
         dGammadt = 4.*np.pi*w[0]*self.eVtoerg*self.nHe(redshift)
         return dGammadt
 
-    def setUpInterpTable(self, numz = 100.):
+    def setUpInterpTable(self, numz = 100., outfile):
         """Built the interpolation table file, the main output of this code, loadable by the MP-Gadget reionization module."""
         print("Setting up interpolation table!")
-        directory = '.'
-        filename = directory + '/HeIIReionizationTable'
 
         z_quasar = np.logspace(np.log10(6.0),np.log10(2.8),numz)
-
         dQ_LMFP_dat = [self.dGamma_hard_dt(zqso) for zqso in z_quasar]
         XHeIII = [self.hist.XHeIII(zqso) for zqso in z_quasar]
 
-        print('Creating table ',filename)
-        f = open(filename, 'w')
-        header = "#File parameters for this input file: Emax = %g, alpha_q = %g, Clumping factor = %g, Simple linear history or QSO history = %s\n" % (self.Emax, self.alpha_q, self.clumping_fac, self.hist)
-        f.write(header)
-        f.write('#Units of heating rate (3rd column) are erg/s/cm^3 \n')
-        f.write('{0:f} \n'.format(self.alpha_q))
-        f.write('{0:f} \n'.format(self.Emax))
-        for zqso, xHe, dQ_LMFP in zip(z_quasar, XHeIII, dQ_LMFP_dat):
-            f.write('{0:e} {1:e} {2:e} \n'.format(zqso, xHe, dQ_LMFP))
-        f.close()
-
-        print('Done!')
+        print('Creating table ',outfile)
+        with open(outfile , 'w') as f:
+            header = "#File parameters for this input file: Emax = %g, alpha_q = %g, Clumping factor = %g, Simple linear history or QSO history = %s\n" % (self.Emax, self.alpha_q, self.clumping_fac, self.hist)
+            f.write(header)
+            f.write('#Units of heating rate (3rd column) are erg/s/cm^3 \n')
+            f.write('{0:f} \n'.format(self.alpha_q))
+            f.write('{0:f} \n'.format(self.Emax))
+            for zqso, xHe, dQ_LMFP in zip(z_quasar, XHeIII, dQ_LMFP_dat):
+                f.write('{0:e} {1:e} {2:e} \n'.format(zqso, xHe, dQ_LMFP))
 
 class LinearHistory:
     """Makes a HeII reionization history where X_HeIII is a linear function of redshift"""
@@ -274,4 +268,4 @@ if __name__ == "__main__":
         reion_z_f = float(sys.argv[5])
 
     heat = HeIIheating(hist = hist_i, z_i = reion_z_i, z_f= reion_z_f, Emax=Emax_i, alpha_q = alpha_q_i)
-    heat.setUpInterpTable()
+    heat.setUpInterpTable("HeIIReionizationTable")
