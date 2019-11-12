@@ -133,12 +133,13 @@ class HeIIheating:
 
 
     def a_norm(self, redshift, T_est = 15000.):
-        """Normalization of emissivity-- requires that the total ionizing emissivity of ionizing photons balances the number of ionizations plus recombinations. To do: put in better clumping factor prescription and T_est"""
+        """Normalization of emissivity-- requires that the total ionizing emissivity of ionizing photons balances the number of ionizations plus recombinations.
+        TODO: put in better clumping factor prescription and T_est"""
         rn = RN.RateNetwork(redshift)
         A = ((self.alpha_q)*self.nHe(redshift))/(self.E0_HeII**(-self.alpha_q))*(self.hist.dXHeIIIdz(redshift)*(-self.H(redshift)*(1+redshift))+ self.clumping_fac*rn.recomb.alphaHepp(T_est)*self.hist.XHeIII(redshift)*self.ne(redshift,T_est))
         return A
 
-    def JE(self, z0, E):
+    def specific_intensity(self, z0, E):
         """Specific intensity based on powerlaw QSO spectrum"""
         func = lambda z: (self.speed_of_light/(4.*np.pi))*(1./(self.H(z)*(1+z)))*(1+z0)**3./((1+z)**3.)*self.a_norm(z)*((E)**(-self.alpha_q))*np.exp(-self.tau(z,z0,E))
         J_E = scipy.integrate.quad(func,z0,10.)
@@ -146,14 +147,14 @@ class HeIIheating:
 
     def dQ_hard_dz(self, redshift, E_lim = 1000.):
         """Uniform heating rate from long MFP hard photons only (E_gamma > Emax), dQ/dz. This is making the assumption that all Helium is in the form of HeII."""
-        func = lambda E: ((E-self.E0_HeII)/E)*self.JE(redshift,E)*self.sigmaHeII(E)
+        func = lambda E: ((E-self.E0_HeII)/E)*self.specific_intensity(redshift,E)*self.sigmaHeII(E)
         w = scipy.integrate.quad(func,self.Emax,E_lim)
         dQdz = 4.*np.pi*self.eVtoerg*self.nHe(redshift)*w[0]*1./(self.H(redshift)*(1+redshift))
         return dQdz
 
     def dGamma_hard_dt(self, redshift, E_lim = 1000.):
         """Photoionization heating of hard photons only (E_gamma > Emax), dGamma/dt. Units are erg/s/cm^3."""
-        func = lambda E: ((E-self.E0_HeII)/E)*self.JE(redshift,E)*self.sigmaHeII(E)
+        func = lambda E: ((E-self.E0_HeII)/E)*self.specific_intensity(redshift,E)*self.sigmaHeII(E)
         w = scipy.integrate.quad(func,self.Emax,E_lim)
         dGammadt = 4.*np.pi*w[0]*self.eVtoerg*self.nHe(redshift)
         return dGammadt
@@ -165,29 +166,18 @@ class HeIIheating:
         filename = directory + '/HeIIReionizationTable'
 
         z_quasar = np.logspace(np.log10(6.0),np.log10(2.8),numz)
-        dQ_LMFP_dat = np.zeros(len(z_quasar))
-        XHeIII = np.zeros(len(z_quasar))
 
-        if self.hist != 'linear':
-            xHeII_interp = self.hist.makexHeIIInterp()
-            for i in range(len(z_quasar)):
-                dQ_LMFP_dat[i] = self.dGamma_hard_dt(z_quasar[i])
-                XHeIII[i]  = xHeII_interp(z_quasar[i])
-                print(i, z_quasar[i], dQ_LMFP_dat[i])
-        else:
-            for i in range(len(z_quasar)):
-                dQ_LMFP_dat[i] = self.dGamma_hard_dt(z_quasar[i])
-                XHeIII[i]  = self.hist.XHeIII(z_quasar[i])
-                print(i, z_quasar[i], dQ_LMFP_dat[i])
+        dQ_LMFP_dat = [self.dGamma_hard_dt(zqso) for zqso in z_quasar]
+        XHeIII = [self.hist.XHeIII(zqso) for zqso in z_quasar]
+
         print('Creating table ',filename)
-
         f = open(filename, 'w')
         f.write('#File parameters for this input file: Emax = ' + str(self.Emax) + ', alpha_q = ' + str(self.alpha_q)+ ', Clumping factor = ' + str(self.clumping_fac) +  ', Simple linear history (1) or QSO history (0) = ' + str(self.hist) + '\n')
         f.write('#Units of heating rate (3rd column) are erg/s/cm^3 \n')
         f.write('{0:f} \n'.format(self.alpha_q))
         f.write('{0:f} \n'.format(self.Emax))
-        for i in range(len(z_quasar)):
-            f.write('{0:e} {1:e} {2:e} \n'.format(z_quasar[i], XHeIII[i], dQ_LMFP_dat[i]))
+        for zqso, xHe, dQ_LMFP in zip(z_quasar, XHeIII, dQ_LMFP_dat):
+            f.write('{0:e} {1:e} {2:e} \n'.format(zqso, xHe, dQ_LMFP))
         f.close()
 
         print('Done!')
