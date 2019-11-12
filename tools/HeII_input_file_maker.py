@@ -33,7 +33,7 @@ The parameters used will be printed in a comment at the top of the output table.
 import sys
 import numpy as np
 import scipy.integrate
-from scipy.interpolate import interp1d
+import scipy.interpolate
 from fake_spectra import rate_network as RN
 
 class HeIIheating:
@@ -206,20 +206,11 @@ class QuasarHistory(LinearHistory):
         self.h_erg_s = 6.626e-27 #erg s
         self.mpctocm = 3.086e24
         self.alpha_q = alpha_q
-        self.filename = 'xHeII.dat'
-        try:
-            self.xHeII_table = np.genfromtxt(self.filename)
-        except OSError:
-            self.xHeII_table = np.zeros(0)
+        self.xHeII_interp = self._makexHeIIInterp()
 
     def XHeIII(self, redshift):
         """HeIII fraction over cosmic time based on a QSO emissivity function."""
-        try:
-            table = self.xHeII_table
-            xHeII_interp = interp1d(table[:,0],table[:,1], bounds_error=False, fill_value=0.0)
-        except IndexError:
-            xHeII_interp = self.makexHeIIInterp()
-        return xHeII_interp(redshift)
+        return self.xHeII_interp(redshift)
 
     def dXHeIIIdz(self, redshift, dz = 0.01):
         """Change in XHeIII, where XHeIII evolves based on a QSO emissivity function fit."""
@@ -241,12 +232,9 @@ class QuasarHistory(LinearHistory):
         dataarr[2,:] = scipy.integrate.odeint(self.dXHeIIIdz_int, np.zeros(numz), dataarr[0,:])[:,0]
         return dataarr
 
-    def makexHeIIInterp(self):
+    def _makexHeIIInterp(self):
         """Produces outfile where columns are z, xHeIII, and number of ionizing photons per nHe produced. Returns an interpolation function."""
         dataarr = self.xHeIII_quasar(self.z_f, self.z_i)
-        np.savetxt(self.filename, np.column_stack([dataarr[0,:], dataarr[1,:], dataarr[2,:]]), fmt='%.4e')
-        print('Saved xHeII history to ', self.filename)
-
         return scipy.interpolate.interp1d(dataarr[0,:], dataarr[1,:], bounds_error=False, fill_value=0.0)
 
     def quasar_emissivity_HM12(self, redshift):
