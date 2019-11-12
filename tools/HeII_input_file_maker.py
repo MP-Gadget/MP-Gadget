@@ -18,16 +18,6 @@ these two redshifts. This parameter is optional and will default to 'quasar' if 
 
 (6) If 'linear', the ending HeII reionization redshift. HeII reionization is observed to end at z ~ 2.8. Only to be used when (3) is 'linear'.
 
-The following examples provide recommended parameters:
-
-'Quasar' mode:
-
-`python HeII_input_file_maker.py 1.7 150.0`
-
-'Linear' mode:
-
-`python HeII_input_file_maker.py 1.7 150.0 'linear' 4.0 2.8`
-
 The parameters used will be printed in a comment at the top of the output table."""
 
 import argparse
