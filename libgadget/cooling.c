@@ -52,13 +52,13 @@ void init_cooling(char * TreeCoolFile, char * MetalCoolFile, char * UVFluctuatio
  * u: internal energy in units of erg/g
  * Z: metallicity
  * redshift: redshift
- * isionized: flags whether the particle has been HeII reionized.
+ * isHeIIIionized: flags whether the particle has been HeII reionized.
  */
 static double
-get_lambdanet(double rho, double u, double redshift, double Z, struct UVBG * uvbg, double * ne_guess, int isionized)
+get_lambdanet(double rho, double u, double redshift, double Z, struct UVBG * uvbg, double * ne_guess, int isHeIIIionized)
 {
     double LambdaNet = get_heatingcooling_rate(rho, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
-    if(!isionized) {
+    if(!isHeIIIionized) {
         /* get_long_mean_free_path_heating returns the heating in units of erg/s/cm^3,
          * the factor of rho converts to erg/s/proton and then PROTONMASS to erg/s/g */
         LambdaNet += get_long_mean_free_path_heating(redshift)  / (rho  * PROTONMASS);
@@ -69,7 +69,7 @@ get_lambdanet(double rho, double u, double redshift, double Z, struct UVBG * uvb
 /* returns new internal energy per unit mass.
  * Arguments are passed in code units, density is proper density.
  */
-double DoCooling(double redshift, double u_old, double rho, double dt, struct UVBG * uvbg, double *ne_guess, double Z, double MinEgySpec, int isionized)
+double DoCooling(double redshift, double u_old, double rho, double dt, struct UVBG * uvbg, double *ne_guess, double Z, double MinEgySpec, int isHeIIIionized)
 {
     if(!coolunits.CoolingOn) return 0;
 
@@ -89,7 +89,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
     u_lower = u;
     u_upper = u;
 
-    LambdaNet = get_lambdanet(rho, u, redshift, Z, uvbg, ne_guess, isionized);
+    LambdaNet = get_lambdanet(rho, u, redshift, Z, uvbg, ne_guess, isHeIIIionized);
 
     /* bracketing */
     if(u - u_old - LambdaNet * dt < 0)	/* heating */
@@ -98,7 +98,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
         {
             u_lower = u_upper;
             u_upper *= 1.1;
-        } while(u_upper - u_old - get_lambdanet(rho, u_upper, redshift, Z, uvbg, ne_guess, isionized) * dt < 0);
+        } while(u_upper - u_old - get_lambdanet(rho, u_upper, redshift, Z, uvbg, ne_guess, isHeIIIionized) * dt < 0);
     }
     else
     {
@@ -109,7 +109,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
             if(u_upper <= MinEgySpec) {
                 break;
             }
-        } while(u_lower - u_old - get_lambdanet(rho, u_lower, redshift, Z, uvbg, ne_guess, isionized) * dt > 0);
+        } while(u_lower - u_old - get_lambdanet(rho, u_lower, redshift, Z, uvbg, ne_guess, isHeIIIionized) * dt > 0);
     }
 
     do
@@ -122,7 +122,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
             break;
         }
 
-        LambdaNet = get_lambdanet(rho, u, redshift, Z, uvbg, ne_guess, isionized);
+        LambdaNet = get_lambdanet(rho, u, redshift, Z, uvbg, ne_guess, isHeIIIionized);
 
         if(u - u_old - LambdaNet * dt > 0)
         {

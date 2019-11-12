@@ -344,7 +344,7 @@ gas_ionization_fraction(void)
     int i, n_ionized = 0;
     #pragma omp parallel for reduction(+:n_ionized)
     for (i = 0; i < PartManager->NumPart; i++){
-        if (P[i].Type == 0 && P[i].Ionized == 1){
+        if (P[i].Type == 0 && P[i].HeIIIionized == 1){
             n_ionized ++;
         }
     }
@@ -362,11 +362,11 @@ static int
 ionize_single_particle(int other)
 {
     /* Only ionize things once*/
-    if(P[other].Ionized != 0)
+    if(P[other].HeIIIionized != 0)
         return 0;
 
     /* Mark it ionized*/
-    P[other].Ionized = 1;
+    P[other].HeIIIionized = 1;
 
     /* Heat the particle*/
 

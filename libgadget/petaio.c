@@ -850,12 +850,12 @@ static void STInternalEnergy(int i, float * out, void * baseptr, void * smanptr)
 /* Can't use the macros because cannot take address of a bitfield*/
 static void GTHeIIIIonized(int i, unsigned char * out, void * baseptr, void * smanptr) {
     struct particle_data * part = (struct particle_data *) baseptr;
-    *out = part[i].Ionized;
+    *out = part[i].HeIIIionized;
 }
 
 static void STHeIIIIonized(int i, unsigned char * out, void * baseptr, void * smanptr) {
     struct particle_data * part = (struct particle_data *) baseptr;
-    part[i].Ionized = *out;
+    part[i].HeIIIionized = *out;
 }
 
 static int order_by_type(const void *a, const void *b)

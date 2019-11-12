@@ -401,7 +401,7 @@ cooling_direct(int i) {
 
     double redshift = 1./All.Time - 1;
     struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
-    unew = DoCooling(redshift, unew, SPHP(i).Density * All.cf.a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity, All.MinEgySpec, P[i].Ionized);
+    unew = DoCooling(redshift, unew, SPHP(i).Density * All.cf.a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity, All.MinEgySpec, P[i].HeIIIionized);
 
     SPHP(i).Ne = ne;
 
