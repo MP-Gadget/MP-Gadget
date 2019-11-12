@@ -24,7 +24,19 @@ import argparse
 import numpy as np
 import scipy.integrate
 import scipy.interpolate
-from fake_spectra import rate_network as RN
+
+#Some recombination rates, used below.
+def _Verner96Fit(temp, aa, bb, temp0, temp1):
+    """Formula used as a fitting function in Verner & Ferland 1996 (astro-ph/9509083)."""
+    sqrttt0 = np.sqrt(temp/temp0)
+    sqrttt1 = np.sqrt(temp/temp1)
+    return aa / ( sqrttt0 * (1 + sqrttt0)**(1-bb)*(1+sqrttt1)**(1+bb) )
+
+def alphaHepp(temp):
+    """Recombination rate for doubly ionized helium, in cm^3/s. Accurate to 2%.
+    Temp in K."""
+    #See line 4 of V&F96 table 1.
+    return _Verner96Fit(temp, aa=1.891e-10, bb=0.7524, temp0=9.370, temp1=2.774e6)
 
 class HeIIheating:
     """Thermal state of gas due to HeII reionization.
@@ -48,6 +60,7 @@ class HeIIheating:
         self.sigma0 = 0.25* 6.35e-18 #cm^2
         self.h_eV_s = 4.135668e-15 #eV s
         self.eVtoerg = 1.6e-12
+        self.alphaHeppTest = alphaHepp(15000)
         self.hub = hub
         self.OmegaM = OmegaM
         self.OmegaK = 0
@@ -72,19 +85,19 @@ class HeIIheating:
         return Q_inst
 
     def nH(self, redshift, YHe = 0.25):
-        """Mean cosmic H density"""
+        """Mean cosmic H number density"""
         nh = (1.-YHe)*(self.h2rhocrit)*(self.Omegab)/(self.protonmass)*(1.+ redshift)**3.
         return nh
 
     def nHe(self, redshift, YHe = 0.25):
-        """Mean cosmic He density"""
+        """Mean cosmic He number density"""
         nhe = YHe*(self.h2rhocrit*self.Omegab)/(4.*self.protonmass)*(1.+ redshift)**3.
         return nhe
 
-    def ne(self, redshift , temp):
-        """Approximate!! pre-HeII reionization electron density-- this is used in computing the uniform Quasar heating"""
-        rn = RN.RateNetwork(redshift)
-        ne = (self.nH(redshift) + self.nHe(redshift))/((self.nH(redshift)*rn.recomb.alphaHp(temp)/rn.photo.gH0(redshift))+(self.nHe(redshift)*rn.recomb.alphaHep(temp)/rn.photo.gHe0(redshift))+1.)
+    def ne(self, redshift):
+        """Approximate pre-HeII reionization electron density -- this is used in computing the uniform Quasar heating.
+        This always appears with a clumping factor correction in front of it. It is just an ansatz, and assumes 1 e- for each H and He."""
+        ne = self.nH(redshift) + self.nHe(redshift)
         return ne
 
     def Hubble(self,redshift):
@@ -121,11 +134,10 @@ class HeIIheating:
         return t[0]
 
 
-    def a_norm(self, redshift, T_est = 15000.):
+    def a_norm(self, redshift):
         """Normalization of emissivity-- requires that the total ionizing emissivity of ionizing photons balances the number of ionizations plus recombinations.
         TODO: put in better clumping factor prescription and T_est"""
-        rn = RN.RateNetwork(redshift)
-        A = ((self.alpha_q)*self.nHe(redshift))/(self.E0_HeII**(-self.alpha_q))*(self.hist.dXHeIIIdz(redshift)*(-self.Hubble(redshift)*(1+redshift))+ self.clumping_fac*rn.recomb.alphaHepp(T_est)*self.hist.XHeIII(redshift)*self.ne(redshift,T_est))
+        A = ((self.alpha_q)*self.nHe(redshift))/(self.E0_HeII**(-self.alpha_q))*(self.hist.dXHeIIIdz(redshift)*(-self.Hubble(redshift)*(1+redshift))+ self.clumping_fac*self.alphaHeppTest*self.hist.XHeIII(redshift)*self.ne(redshift))
         return A
 
     def specific_intensity(self, z0, E):
@@ -192,6 +204,7 @@ class QuasarHistory(LinearHistory):
         self.mpctocm = 3.086e24
         self.alpha_q = alpha_q
         self.xHeII_interp = self._makexHeIIInterp()
+        self.alphaHeppTest = alphaHepp(15000)
 
     def XHeIII(self, redshift):
         """HeIII fraction over cosmic time based on a QSO emissivity function."""
@@ -201,11 +214,10 @@ class QuasarHistory(LinearHistory):
         """Change in XHeIII, where XHeIII evolves based on a QSO emissivity function fit."""
         return (self.XHeIII(redshift + dz) - self.XHeIII(redshift))/dz
 
-    def dXHeIIIdz_int(self, xHeIII, redshift, clumping_fac = 2., T_est = 15000.):
+    def dXHeIIIdz_int(self, xHeIII, redshift, clumping_fac = 2.):
         """Sets up differential eq."""
-        rn = RN.RateNetwork(redshift)
         HH = HeIIheating()
-        dXHeIIIdz = -(self.quasar_emissivity_Kulkarni19(redshift) - clumping_fac*rn.recomb.alphaHepp(T_est)*HH.ne(redshift, T_est)*xHeIII*HH.nHe(redshift))/HH.nHe(redshift)/(HH.Hubble(redshift)*(1+redshift))
+        dXHeIIIdz = -(self.quasar_emissivity_Kulkarni19(redshift) - clumping_fac*self.alphaHeppTest*HH.ne(redshift)*xHeIII*HH.nHe(redshift))/HH.nHe(redshift)/(HH.Hubble(redshift)*(1+redshift))
         return dXHeIIIdz
 
     def xHeIII_quasar(self, zmin, zmax, numz = 1000):
