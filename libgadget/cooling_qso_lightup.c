@@ -77,8 +77,6 @@ static double * XHeIII;
 static double * LMFP;
 static gsl_interp * HeIII_intp;
 static gsl_interp * LMFP_intp;
-/* Counter for particles ionized this step*/
-static int N_ionized;
 
 /*This is a helper for the tests*/
 void set_qso_lightup_par(struct qso_lightup_params qso)
@@ -237,7 +235,6 @@ init_qso_lightup(char * reion_hist_file)
 {
     if(QSOLightupParams.QSOLightupOn)
         load_heii_reion_hist(reion_hist_file);
-    N_ionized = 0;
 }
 
 static double last_zz;
@@ -389,6 +386,7 @@ struct QSOPriv {
     /* Particle SpinLocks*/
     struct SpinLocks * spin;
     FOFGroups * fof;
+    int64_t * N_ionized;
 };
 #define QSO_GET_PRIV(tw) ((struct QSOPriv *) (tw->priv))
 
@@ -430,9 +428,9 @@ ionize_ngbiter(TreeWalkQueryBase * I,
     if(!ionized)
         return;
 
-    /* Add to the ionization counter*/
-    #pragma omp atomic
-    N_ionized ++;
+    int tid = omp_get_thread_num();
+    /* Add to the ionization counter for this thread*/
+    QSO_GET_PRIV(lv->tw)->N_ionized[tid] ++;
 }
 
 static void
@@ -455,7 +453,7 @@ ionize_copy(int place, TreeWalkQueryBase * I, TreeWalk * tw)
  * flag each particle as ionized and add instantaneous heating.
  * Returns the number of particles ionized
  */
-static int
+static int64_t
 ionize_all_part(int qso_ind, int * qso_cand, FOFGroups * fof, ForceTree * tree)
 {
     /* This treewalk finds not yet ionized particles within the radius of the black hole, ionizes them and
@@ -467,8 +465,6 @@ ionize_all_part(int qso_ind, int * qso_cand, FOFGroups * fof, ForceTree * tree)
     tw->haswork = NULL;
     tw->tree = tree;
 
-    /* Reset the particles ionized this step*/
-    N_ionized = 0;
     /* We set Hsml to a constant in ngbiter, so this
      * searches a constant distance from the halo.*/
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
@@ -484,6 +480,9 @@ ionize_all_part(int qso_ind, int * qso_cand, FOFGroups * fof, ForceTree * tree)
     struct QSOPriv priv[1];
     priv[0].spin = init_spinlocks(PartManager->NumPart);
     priv[0].fof = fof;
+    /* Ionization counters*/
+    priv[0].N_ionized = ta_malloc("n_ionized", int64_t, omp_get_max_threads());
+    memset(priv[0].N_ionized, 0, sizeof(int64_t) * omp_get_max_threads());
 
     tw->priv = priv;
 
@@ -492,6 +491,14 @@ ionize_all_part(int qso_ind, int * qso_cand, FOFGroups * fof, ForceTree * tree)
         treewalk_run(tw, &qso_cand[qso_ind], 1);
     else
         treewalk_run(tw, NULL, 0);
+
+    int64_t N_ionized;
+    int i;
+    for(i = 0; i < omp_get_max_threads(); i++)
+        N_ionized += priv[0].N_ionized[i];
+
+    ta_free(priv[0].N_ionized);
+
     return N_ionized;
 }
 
@@ -546,10 +553,10 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree)
             break;
         }
         /* Do the ionizations with a tree walk*/
-        int n_ionized = ionize_all_part(new_qso, qso_cand, fof, tree);
+        int64_t n_ionized = ionize_all_part(new_qso, qso_cand, fof, tree);
         int64_t tot_qso_ionized = 0;
         /* Check that the ionization fraction changed*/
-        sumup_large_ints(1, &n_ionized, &tot_qso_ionized);
+        MPI_Allreduce(&n_ionized, &tot_qso_ionized, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
         curionfrac += (double) tot_qso_ionized / (double) n_gas_tot;
         tot_n_ionized += tot_qso_ionized;
         if(new_qso > 0)
