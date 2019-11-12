@@ -30,7 +30,7 @@ The following examples provide recommended parameters:
 
 The parameters used will be printed in a comment at the top of the output table."""
 
-import sys
+import argparse
 import numpy as np
 import scipy.integrate
 import scipy.interpolate
@@ -158,7 +158,7 @@ class HeIIheating:
         dGammadt = 4.*np.pi*w[0]*self.eVtoerg*self.nHe(redshift)
         return dGammadt
 
-    def setUpInterpTable(self, numz = 100., outfile):
+    def setUpInterpTable(self, outfile, numz = 100.):
         """Built the interpolation table file, the main output of this code, loadable by the MP-Gadget reionization module."""
         print("Setting up interpolation table!")
 
@@ -252,20 +252,26 @@ class QuasarHistory(LinearHistory):
         return e
 
 if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        print('No input parameters detected. Please provide at minimum: (1) QSO Spectral index (2) Thresshold long-mean-free-path photon energy in eV')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--alphaq', type=float, default=1.7, help='QSO spectral index', required=True)
+    parser.add_argument('--Emax', type=float, default=150, help='Threshold long-mean-free-path photon energy in eV', required=True)
+    parser.add_argument('--cf', type=float, default=3., help='Subgrid clumping factor', required=False)
+    parser.add_argument('--z_i', type=float, default=-1, help='Start redshift of helium reionization', required=False)
+    parser.add_argument('--z_f', type=float, default=-1, help='End redshift of helium reionization', required=False)
+    parser.add_argument('--hist', type=str, default="quasar", help='Type of reionization history', required=False)
+    parser.add_argument('--outfile', type=str, default="HeIIReionizationTable", help='Name of file to save to', required=False)
+    args = parser.parse_args()
 
-    alpha_q_i = float(sys.argv[1])
-    Emax_i = float(sys.argv[2])
-    reion_z_i = 6.
-    reion_z_f = 2.
-    if len(sys.argv) == 3:
-        hist_i = 'quasar'
-    else:
-        hist_i = sys.argv[3]
-    if hist_i == 'linear':
-        reion_z_i = float(sys.argv[4])
-        reion_z_f = float(sys.argv[5])
+    if args.z_i < 0:
+        if args.hist == "linear":
+            args.z_i = 4.0
+        else:
+            args.z_i = 6.0
+    if args.z_f < 0:
+        if args.hist == "linear":
+            args.z_f = 2.8
+        else:
+            args.z_f = 2.
 
-    heat = HeIIheating(hist = hist_i, z_i = reion_z_i, z_f= reion_z_f, Emax=Emax_i, alpha_q = alpha_q_i)
-    heat.setUpInterpTable("HeIIReionizationTable")
+    heat = HeIIheating(hist = args.hist, z_i = args.z_i, z_f= args.z_f, Emax=args.Emax, alpha_q = args.alphaq, clumping_fac = args.cf)
+    heat.setUpInterpTable(args.outfile)
