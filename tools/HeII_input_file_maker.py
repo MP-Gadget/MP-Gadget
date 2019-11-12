@@ -25,6 +25,41 @@ import numpy as np
 import scipy.integrate
 import scipy.interpolate
 
+class Cosmology:
+    """Little module to specify the mean densities and the Hubble rate"""
+    def __init__(self, hub=0.678, OmegaM = 0.3175, Omegab = 0.048):
+        self.hub = hub
+        self.OmegaM = OmegaM
+        self.OmegaK = 0
+        self.OmegaL = 1. - self.OmegaK - self.OmegaM
+        self.Omegab = Omegab
+        self.H0kmsMpc = 100.*self.hub
+        self.H0 = 3.241e-20*self.H0kmsMpc
+        self.protonmass = 1.67262178e-24 #g
+        Newton_G = 6.673e-8 #cm^3/s^2/g
+        self.h2rhocrit = 3./(8.*np.pi*Newton_G)*self.H0**2.
+
+    def Hubble(self,redshift):
+        """H(z), multiplied by km/Mpc to get s^-1"""
+        H_z = (self.H0**2.*(self.OmegaM*(1+redshift)**3. + self.OmegaK*(1+redshift)**2. + self.OmegaL))**0.5
+        return H_z
+
+    def nH(self, redshift, YHe = 0.25):
+        """Mean cosmic H number density"""
+        nh = (1.-YHe)*(self.h2rhocrit)*(self.Omegab)/(self.protonmass)*(1.+ redshift)**3.
+        return nh
+
+    def nHe(self, redshift, YHe = 0.25):
+        """Mean cosmic He number density"""
+        nhe = YHe*(self.h2rhocrit*self.Omegab)/(4.*self.protonmass)*(1.+ redshift)**3.
+        return nhe
+
+    def ne(self, redshift):
+        """Approximate pre-HeII reionization electron density -- this is used in computing the uniform Quasar heating.
+        This always appears with a clumping factor correction in front of it. It is just an ansatz, and assumes 1 e- for each H and He."""
+        ne = self.nH(redshift) + self.nHe(redshift)
+        return ne
+
 #Some recombination rates, used below.
 def _Verner96Fit(temp, aa, bb, temp0, temp1):
     """Formula used as a fitting function in Verner & Ferland 1996 (astro-ph/9509083)."""
@@ -45,10 +80,11 @@ class HeIIheating:
             2) uniform heating from harder photons that free stream through the IGM.
     Immediate TODO: double check approximations."""
     def __init__(self, hist=None, hub=0.678, OmegaM = 0.3175, Omegab = 0.048, z_i = 4.0, z_f = 2.8, alpha_q = 1.7, Emax = 150, clumping_fac = 3.):
+        self.cosmo = Cosmology(hub=hub, OmegaM = OmegaM, Omegab = Omegab)
         if hist == 'linear':
             self.hist = LinearHistory(z_i=z_i, z_f=z_f)
         else:
-            self.hist = QuasarHistory(z_i=z_i, z_f=z_f, alpha_q = alpha_q)
+            self.hist = QuasarHistory(z_i=z_i, z_f=z_f, alpha_q = alpha_q, cosmo=self.cosmo, clumping_fac = clumping_fac)
         self.alpha_q = alpha_q
         self.Emax = Emax
         self.clumping_fac = clumping_fac
@@ -56,23 +92,9 @@ class HeIIheating:
         self.E0_HeI = 24.6 #eV
         self.E0_HeII = 54.4 #eV
         self.speed_of_light = 3.0e10 #cm/s
-        self.kBeV = 8.6173e-5
         self.sigma0 = 0.25* 6.35e-18 #cm^2
-        self.h_eV_s = 4.135668e-15 #eV s
-        self.eVtoerg = 1.6e-12
         self.alphaHeppTest = alphaHepp(15000)
-        self.hub = hub
-        self.OmegaM = OmegaM
-        self.OmegaK = 0
-        self.OmegaL = 1. - self.OmegaK - self.OmegaM
-        self.Omegab = Omegab
-        self.H0kmsMpc = 100.*self.hub
-        self.H0 = 3.241e-20*self.H0kmsMpc
-        self.kB = 1.381e-16 #Boltzmann constant in cgs
         self.eVtoerg = 1.60217e-12
-        self.protonmass = 1.67262178e-24 #g
-        Newton_G = 6.673e-8 #cm^3/s^2/g
-        self.h2rhocrit = 3./(8.*np.pi*Newton_G)*self.H0**2.
 
     def EstEmax(self, redshift, XHeII):
         """Estimation of the threshold energy at which photons are no longer 'instantaneously' absorbed"""
@@ -81,29 +103,8 @@ class HeIIheating:
 
     def Delta_Q_inst(self, redshift):
         """Instantaneous heat injection from HeII reionization (absorption of photons with E<Emax) [eV/cm^3]"""
-        Q_inst = self.nHe(redshift)*((self.alpha_q/(self.alpha_q-1.))*((self.Emax**(-self.alpha_q+1.)-self.E0_HeII**(-self.alpha_q+1.))/(self.Emax**(-self.alpha_q)-self.E0_HeII**(-self.alpha_q)))-self.E0_HeII)
+        Q_inst = self.cosmo.nHe(redshift)*((self.alpha_q/(self.alpha_q-1.))*((self.Emax**(-self.alpha_q+1.)-self.E0_HeII**(-self.alpha_q+1.))/(self.Emax**(-self.alpha_q)-self.E0_HeII**(-self.alpha_q)))-self.E0_HeII)
         return Q_inst
-
-    def nH(self, redshift, YHe = 0.25):
-        """Mean cosmic H number density"""
-        nh = (1.-YHe)*(self.h2rhocrit)*(self.Omegab)/(self.protonmass)*(1.+ redshift)**3.
-        return nh
-
-    def nHe(self, redshift, YHe = 0.25):
-        """Mean cosmic He number density"""
-        nhe = YHe*(self.h2rhocrit*self.Omegab)/(4.*self.protonmass)*(1.+ redshift)**3.
-        return nhe
-
-    def ne(self, redshift):
-        """Approximate pre-HeII reionization electron density -- this is used in computing the uniform Quasar heating.
-        This always appears with a clumping factor correction in front of it. It is just an ansatz, and assumes 1 e- for each H and He."""
-        ne = self.nH(redshift) + self.nHe(redshift)
-        return ne
-
-    def Hubble(self,redshift):
-        """H(z), multiplied by km/Mpc to get s^-1"""
-        H_z = (self.H0**2.*(self.OmegaM*(1+redshift)**3. + self.OmegaK*(1+redshift)**2. + self.OmegaL))**0.5
-        return H_z
 
     def sigmaHI(self, E):
         """Fit for the photoionization cross section of HI (Hui & Gnedin '97)"""
@@ -112,7 +113,6 @@ class HeIIheating:
         P = 2.963
         ya = 32.88
         return sigma0*(E/E0 - 1.)*(E/E0-1.)*(E/E0)**(0.5*P-5.5)/(1.+np.sqrt(E/(E0*ya)))**P
-
 
     def sigmaHeII(self, E):
         """Fit for the photoionization cross section of HeII (Hui & Gnedin '97)"""
@@ -129,20 +129,20 @@ class HeIIheating:
         xHI = np.amax([1. - xHII, 0.]) #follows from above (xHI is effectively 0)
         xHeI = xHI #HeI should be ionized with HI by first galaxies
         xHeII = np.amax([1 - xHeI - self.hist.XHeIII(z), 0.]) #This essentially follows the evolution of HeIII fraction.
-        func = lambda z: self.speed_of_light/(self.Hubble(z)*(1+z))*self.sigmaHeII(E*(1.+z)/(1.+z0))*self.nHe(z)*xHeII
+        func = lambda z: self.speed_of_light/(self.cosmo.Hubble(z)*(1+z))*self.sigmaHeII(E*(1.+z)/(1.+z0))*self.cosmo.nHe(z)*xHeII
         t = scipy.integrate.quad(func,z0,z)
         return t[0]
-
 
     def a_norm(self, redshift):
         """Normalization of emissivity-- requires that the total ionizing emissivity of ionizing photons balances the number of ionizations plus recombinations.
         TODO: put in better clumping factor prescription and T_est"""
-        A = ((self.alpha_q)*self.nHe(redshift))/(self.E0_HeII**(-self.alpha_q))*(self.hist.dXHeIIIdz(redshift)*(-self.Hubble(redshift)*(1+redshift))+ self.clumping_fac*self.alphaHeppTest*self.hist.XHeIII(redshift)*self.ne(redshift))
+        absfac = self.clumping_fac*self.alphaHeppTest*self.hist.XHeIII(redshift)*self.cosmo.ne(redshift)
+        A = ((self.alpha_q)*self.cosmo.nHe(redshift))/(self.E0_HeII**(-self.alpha_q))*(self.hist.dXHeIIIdz(redshift)*(-self.cosmo.Hubble(redshift)*(1+redshift))+ absfac)
         return A
 
     def specific_intensity(self, z0, E):
         """Specific intensity based on powerlaw QSO spectrum"""
-        func = lambda z: (self.speed_of_light/(4.*np.pi))*(1./(self.Hubble(z)*(1+z)))*(1+z0)**3./((1+z)**3.)*self.a_norm(z)*((E)**(-self.alpha_q))*np.exp(-self.tau(z,z0,E))
+        func = lambda z: (self.speed_of_light/(4.*np.pi))*(1./(self.cosmo.Hubble(z)*(1+z)))*(1+z0)**3./((1+z)**3.)*self.a_norm(z)*((E)**(-self.alpha_q))*np.exp(-self.tau(z,z0,E))
         J_E = scipy.integrate.quad(func,z0,10.)
         return J_E[0]
 
@@ -150,14 +150,14 @@ class HeIIheating:
         """Uniform heating rate from long MFP hard photons only (E_gamma > Emax), dQ/dz. This is making the assumption that all Helium is in the form of HeII."""
         func = lambda E: ((E-self.E0_HeII)/E)*self.specific_intensity(redshift,E)*self.sigmaHeII(E)
         w = scipy.integrate.quad(func,self.Emax,E_lim)
-        dQdz = 4.*np.pi*self.eVtoerg*self.nHe(redshift)*w[0]*1./(self.Hubble(redshift)*(1+redshift))
+        dQdz = 4.*np.pi*self.eVtoerg*self.cosmo.nHe(redshift)*w[0]*1./(self.cosmo.Hubble(redshift)*(1+redshift))
         return dQdz
 
     def dGamma_hard_dt(self, redshift, E_lim = 1000.):
         """Photoionization heating of hard photons only (E_gamma > Emax), dGamma/dt. Units are erg/s/cm^3."""
         func = lambda E: ((E-self.E0_HeII)/E)*self.specific_intensity(redshift,E)*self.sigmaHeII(E)
         w = scipy.integrate.quad(func,self.Emax,E_lim)
-        dGammadt = 4.*np.pi*w[0]*self.eVtoerg*self.nHe(redshift)
+        dGammadt = 4.*np.pi*w[0]*self.eVtoerg*self.cosmo.nHe(redshift)
         return dGammadt
 
     def setUpInterpTable(self, outfile, numz = 100.):
@@ -198,13 +198,15 @@ class LinearHistory:
 
 class QuasarHistory(LinearHistory):
     """Determines the HeII reionization history from a quasar emissivity function"""
-    def __init__(self, z_i = 6, z_f = 2, alpha_q = 1.7):
+    def __init__(self, cosmo, z_i = 6, z_f = 2, alpha_q = 1.7, clumping_fac = 2.):
         super().__init__(z_i=z_i, z_f=z_f)
         self.h_erg_s = 6.626e-27 #erg s
         self.mpctocm = 3.086e24
         self.alpha_q = alpha_q
         self.xHeII_interp = self._makexHeIIInterp()
         self.alphaHeppTest = alphaHepp(15000)
+        self.cosmo=cosmo
+        self.clumping_fac = clumping_fac
 
     def XHeIII(self, redshift):
         """HeIII fraction over cosmic time based on a QSO emissivity function."""
@@ -214,10 +216,10 @@ class QuasarHistory(LinearHistory):
         """Change in XHeIII, where XHeIII evolves based on a QSO emissivity function fit."""
         return (self.XHeIII(redshift + dz) - self.XHeIII(redshift))/dz
 
-    def dXHeIIIdz_int(self, xHeIII, redshift, clumping_fac = 2.):
+    def dXHeIIIdz_int(self, xHeIII, redshift):
         """Sets up differential eq."""
-        HH = HeIIheating()
-        dXHeIIIdz = -(self.quasar_emissivity_Kulkarni19(redshift) - clumping_fac*self.alphaHeppTest*HH.ne(redshift)*xHeIII*HH.nHe(redshift))/HH.nHe(redshift)/(HH.Hubble(redshift)*(1+redshift))
+        cosfac = self.cosmo.nHe(redshift)*(self.cosmo.Hubble(redshift)*(1+redshift))
+        dXHeIIIdz = -(self.quasar_emissivity_Kulkarni19(redshift) - self.clumping_fac*self.alphaHeppTest*self.cosmo.ne(redshift)*xHeIII*self.cosmo.nHe(redshift))/cosfac
         return dXHeIIIdz
 
     def xHeIII_quasar(self, zmin, zmax, numz = 1000):
