@@ -209,12 +209,11 @@ class QuasarHistory(LinearHistory):
         return dXHeIIIdz
 
     def xHeIII_quasar(self, zmin, zmax, numz = 1000):
-        """Makes a table of HeII reionization history: z, XHeIII, and number of ionizing photons per nHe produced."""
-        dataarr = np.zeros([3,numz])
+        """Makes an interpolation table of the HeII reionization history: z, XHeIII"""
+        dataarr = np.zeros([2,numz])
         dataarr[0,:] = np.linspace(zmax,zmin, numz)
         x = scipy.integrate.odeint(self.dXHeIIIdz_int, np.zeros(numz), dataarr[0,:])
         dataarr[1,:] = [min(x[i,0], 1) for i in range(numz)]
-        dataarr[2,:] = scipy.integrate.odeint(self.dXHeIIIdz_int, np.zeros(numz), dataarr[0,:])[:,0]
         return dataarr
 
     def _makexHeIIInterp(self):
@@ -244,11 +243,11 @@ class QuasarHistory(LinearHistory):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--alphaq', type=float, default=1.7, help='QSO spectral index', required=True)
-    parser.add_argument('--Emax', type=float, default=150, help='Threshold long-mean-free-path photon energy in eV', required=True)
+    parser.add_argument('--Emax', type=float, default=150, help='Threshold long-mean-free-path photon energy in eV', required=False)
     parser.add_argument('--cf', type=float, default=3., help='Subgrid clumping factor', required=False)
     parser.add_argument('--z_i', type=float, default=-1, help='Start redshift of helium reionization', required=False)
     parser.add_argument('--z_f', type=float, default=-1, help='End redshift of helium reionization', required=False)
-    parser.add_argument('--hist', type=str, default="quasar", help='Type of reionization history', required=False)
+    parser.add_argument('--hist', type=str, default="quasar", help='Type of reionization history', required=True)
     parser.add_argument('--outfile', type=str, default="HeIIReionizationTable", help='Name of file to save to', required=False)
     args = parser.parse_args()
 
