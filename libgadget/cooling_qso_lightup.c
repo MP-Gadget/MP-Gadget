@@ -30,7 +30,6 @@
 #include <mpi.h>
 #include <string.h>
 #include <gsl/gsl_interp.h>
-#include "cooling_qso_lightup.h"
 #include "physconst.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
@@ -43,6 +42,7 @@
 #include "utils/endrun.h"
 #include "utils/paramset.h"
 #include "utils/mymalloc.h"
+#include "cooling_qso_lightup.h"
 
 #define E0_HeII 54.4 /* HeII ionization potential in eV*/
 #define HEMASS 4.002602 /* Helium mass in amu*/
@@ -126,6 +126,9 @@ Q_inst(double Emax, double alpha_q)
  * instantaneous absorption threshold energy (in eV)
  * table of 3 columns, redshift, HeIII fraction, uniform background heating.
  * The text file specifies the end redshift of reionization.
+ * To generate a helium reionization history file, use tools/HeII_input_file_maker.py
+ * and see the documentation to that file (tools/README_HeII_input_file_maker.py)
+ * An example may be found in examples/HeIIReionizationTable
  * */
 static void
 load_heii_reion_hist(const char * reion_hist_file)
@@ -277,7 +280,6 @@ static double gaussian_rng(double mu, double sigma, const int64_t seed)
 static int
 build_qso_candidate_list(int ** qso_cand, FOFGroups * fof)
 {
-    /* Run FOF to get a halo catalogue*/
     /*Loop over all halos, building the candidate list.*/
     int i, ncand=0;
     *qso_cand = mymalloc("Quasar_candidates", sizeof(int) * (fof->Ngroups+1));
@@ -312,7 +314,7 @@ choose_QSO_halo(int ncand, int64_t * ncand_tot, FOFGroups * fof, MPI_Comm Comm)
     MPI_Comm_rank(Comm, &ThisTask);
     int * candcounts = (int*) ta_malloc("qso_cand_counts", int, NTask);
 
-    /* Get how many candidates are on each processor*/
+    /* Get how many candidates are on each processor. TODO: Make a generic MPIU for this.*/
     MPI_Allgather(&ncand, 1, MPI_INT, candcounts, 1, MPI_INT, Comm);
 
     for(i = 0; i < NTask; i++)
@@ -401,7 +403,7 @@ ionize_ngbiter(TreeWalkQueryBase * I,
 {
 
     if(iter->other == -1) {
-        /* Gas only*/
+        /* Gas only ( 1 == 1 << 0, the bit for type 0)*/
         iter->mask = 1;
         /* Bubble size*/
         double bubble = gaussian_rng(QSOLightupParams.mean_bubble, sqrt(QSOLightupParams.var_bubble), I->ID);
