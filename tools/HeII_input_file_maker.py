@@ -171,7 +171,8 @@ class HeIIheating:
 
         print('Creating table ',filename)
         f = open(filename, 'w')
-        f.write('#File parameters for this input file: Emax = ' + str(self.Emax) + ', alpha_q = ' + str(self.alpha_q)+ ', Clumping factor = ' + str(self.clumping_fac) +  ', Simple linear history (1) or QSO history (0) = ' + str(self.hist) + '\n')
+        header = "#File parameters for this input file: Emax = %g, alpha_q = %g, Clumping factor = %g, Simple linear history or QSO history = %s\n" % (self.Emax, self.alpha_q, self.clumping_fac, self.hist)
+        f.write(header)
         f.write('#Units of heating rate (3rd column) are erg/s/cm^3 \n')
         f.write('{0:f} \n'.format(self.alpha_q))
         f.write('{0:f} \n'.format(self.Emax))
