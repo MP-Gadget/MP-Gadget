@@ -4,13 +4,17 @@ The parameters of HeII reionization must be input as command line arguments. The
 
 (1) Spectral index of quasars. The recommended range for this parameter is 1.1-2.0.
 
-(2) The threshold energy that separates long-mean-free-path photons (photons that heat the IGM uniformly) from short-mean-free-path photons (photons that contribute to the creation of HeIII bubbles) in electron volts. The thermal history is weakly dependent on this parameter, but recommended values are ~100-200.
+(2) The threshold energy that separates long-mean-free-path photons (photons that heat the IGM uniformly) from short-mean-free-path
+photons (photons that contribute to the creation of HeIII bubbles) in electron volts. The thermal history is weakly dependent on this parameter, but recommended values are ~100-200.
 
 (3) The clumping factor of the gas. This is dependent on the simulation, but shouldn't change too much between models. Recommended values are ~1.5-4.5-- 3 is a safe choice.
 
-(4) Duration and timing of HeII reionization. The options are 'quasar' and 'linear'. The 'quasar' option uses a quasar emissivity function to determine the reionization history. The quasar emissivity histories are from Khaire et al. (2015) and Haardt and Madau (2012). The default is Khaire et al. (2015). The 'linear' option allows the user to select the starting and ending redshift of HeII reionization. The HeIII fraction will be a linear function in redshift between these two redshifts. This parameter is optional and will default to 'quasar' if not provided.
+(4) Duration and timing of HeII reionization. The options are 'quasar' and 'linear'. The 'quasar' option uses a quasar emissivity function to determine the reionization history.
+The quasar emissivity histories are from Khaire et al. (2015) and Haardt and Madau (2012). The default is Khaire et al. (2015).
+The 'linear' option allows the user to select the starting and ending redshift of HeII reionization. The HeIII fraction will be a linear function in redshift between
+these two redshifts. This parameter is optional and will default to 'quasar' if not provided.
 
-(5) If 'linear', the starting HeII reionization redshift. Only to be used when (3) is 'linear'.
+(5) If 'linear', the starting HeII reionization redshift. Only to be used when (3) is 'linear'. Default is 4.0
 
 (6) If 'linear', the ending HeII reionization redshift. HeII reionization is observed to end at z ~ 2.8. Only to be used when (3) is 'linear'.
 
@@ -24,58 +28,57 @@ The following examples provide recommended parameters:
 
 `python HeII_input_file_maker.py 1.7 150.0 'linear' 4.0 2.8`
 
-Note, the parameters used will be printed in a comment at the top of the output table."""
+The parameters used will be printed in a comment at the top of the output table."""
 
-import numpy as np
-#import matplotlib.pyplot as plt
-import scipy.integrate
-from scipy.interpolate import InterpolatedUnivariateSpline
-from scipy.interpolate import interp1d
-import os.path
-import rate_network as RN
 import sys
-import warnings
+import numpy as np
+import scipy.integrate
+from scipy.interpolate import interp1d
+from fake_spectra import rate_network as RN
 
-class HeIIheating(object):
+class HeIIheating:
     """Thermal state of gas due to HeII reionization.
         HeII heating comes in two varieties:
             1) local instantaneous heating from HeIII front (the photons just above 4Ryd are approximated as being immediately absorbed)
             2) uniform heating from harder photons that free stream through the IGM.
-    Immediate TODO: change clumping factor prescription and double check approximations"""
-    def __init__(self, hist=None, hub=0.678, OmegaM = 0.3175, Omegab = 0.048):
+    Immediate TODO: double check approximations."""
+    def __init__(self, hist=None, hub=0.678, OmegaM = 0.3175, Omegab = 0.048, z_i = 4.0, z_f = 2.8, alpha_q = 1.7, Emax = 150, clumping_fac = 3.):
         if hist == 'linear':
-            self.hist = linear_history()
+            self.hist = LinearHistory(z_i=z_i, z_f=z_f)
         else:
-            self.hist = HeII_history()
+            self.hist = QuasarHistory(z_i=z_i, z_f=z_f, alpha_q = alpha_q)
+        self.alpha_q = alpha_q
+        self.Emax = Emax
+        self.clumping_fac = clumping_fac
         self.E0_HI = 13.6 #eV
         self.E0_HeI = 24.6 #eV
         self.E0_HeII = 54.4 #eV
-        self.c = 3.0e10 #cm/s
+        self.speed_of_light = 3.0e10 #cm/s
         self.kBeV = 8.6173e-5
         self.sigma0 = 0.25* 6.35e-18 #cm^2
         self.h_eV_s = 4.135668e-15 #eV s
         self.eVtoerg = 1.6e-12
-        self.h = hub
+        self.hub = hub
         self.OmegaM = OmegaM
         self.OmegaK = 0
         self.OmegaL = 1. - self.OmegaK - self.OmegaM
         self.Omegab = Omegab
-        self.H0kmsMpc = 100.*self.h
+        self.H0kmsMpc = 100.*self.hub
         self.H0 = 3.241e-20*self.H0kmsMpc
         self.kB = 1.381e-16 #Boltzmann constant in cgs
         self.eVtoerg = 1.60217e-12
         self.protonmass = 1.67262178e-24 #g
-        self.G = 6.673e-8 #cm^3/s^2/g
-        self.h2rhocrit = 3./(8.*np.pi*self.G)*self.H0**2.
+        Newton_G = 6.673e-8 #cm^3/s^2/g
+        self.h2rhocrit = 3./(8.*np.pi*Newton_G)*self.H0**2.
 
     def EstEmax(self, redshift, XHeII):
         """Estimation of the threshold energy at which photons are no longer 'instantaneously' absorbed"""
         Emax = (((1.+ redshift)/4.)**2.*(4. * XHeII))**(1./3.)*100.
         return Emax
 
-    def Delta_Q_inst(self, redshift, Emax = Emax, alpha_q = alpha_q):
+    def Delta_Q_inst(self, redshift):
         """Instantaneous heat injection from HeII reionization (absorption of photons with E<Emax) [eV/cm^3]"""
-        Q_inst = self.nHe(redshift)*((alpha_q/(alpha_q-1.))*((Emax**(-alpha_q+1.)-self.E0_HeII**(-alpha_q+1.))/(Emax**(-alpha_q)-self.E0_HeII**(-alpha_q)))-self.E0_HeII)
+        Q_inst = self.nHe(redshift)*((self.alpha_q/(self.alpha_q-1.))*((self.Emax**(-self.alpha_q+1.)-self.E0_HeII**(-self.alpha_q+1.))/(self.Emax**(-self.alpha_q)-self.E0_HeII**(-self.alpha_q)))-self.E0_HeII)
         return Q_inst
 
     def nH(self, redshift, YHe = 0.25):
@@ -124,42 +127,39 @@ class HeIIheating(object):
         xHI = np.amax([1. - xHII, 0.]) #follows from above (xHI is effectively 0)
         xHeI = xHI #HeI should be ionized with HI by first galaxies
         xHeII = np.amax([1 - xHeI - self.hist.XHeIII(z), 0.]) #This essentially follows the evolution of HeIII fraction.
-        func = lambda z: self.c/(self.H(z)*(1+z))*self.sigmaHeII(E*(1.+z)/(1.+z0))*self.nHe(z)*xHeII
+        func = lambda z: self.speed_of_light/(self.H(z)*(1+z))*self.sigmaHeII(E*(1.+z)/(1.+z0))*self.nHe(z)*xHeII
         t = scipy.integrate.quad(func,z0,z)
         return t[0]
 
 
-    def a_norm(self, redshift, alpha_q = alpha_q, clumping_fac = 2., T_est = 15000.):
+    def a_norm(self, redshift, T_est = 15000.):
         """Normalization of emissivity-- requires that the total ionizing emissivity of ionizing photons balances the number of ionizations plus recombinations. To do: put in better clumping factor prescription and T_est"""
         rn = RN.RateNetwork(redshift)
-        A = ((alpha_q)*self.nHe(redshift))/(self.E0_HeII**(-alpha_q))*(self.hist.dXHeIIIdz(redshift)*(-self.H(redshift)*(1+redshift))+ clumping_fac*rn.recomb.alphaHepp(T_est)*self.hist.XHeIII(redshift)*self.ne(redshift,T_est))
+        A = ((self.alpha_q)*self.nHe(redshift))/(self.E0_HeII**(-self.alpha_q))*(self.hist.dXHeIIIdz(redshift)*(-self.H(redshift)*(1+redshift))+ self.clumping_fac*rn.recomb.alphaHepp(T_est)*self.hist.XHeIII(redshift)*self.ne(redshift,T_est))
         return A
 
-
-    def JE(self, z0, E, alpha_q = alpha_q, clumping_fac = 2.):
+    def JE(self, z0, E):
         """Specific intensity based on powerlaw QSO spectrum"""
-        func = lambda z: (self.c/(4.*np.pi))*(1./(self.H(z)*(1+z)))*(1+z0)**3./((1+z)**3.)*self.a_norm(z)*((E)**(-alpha_q))*np.exp(-self.tau(z,z0,E))
+        func = lambda z: (self.speed_of_light/(4.*np.pi))*(1./(self.H(z)*(1+z)))*(1+z0)**3./((1+z)**3.)*self.a_norm(z)*((E)**(-self.alpha_q))*np.exp(-self.tau(z,z0,E))
         J_E = scipy.integrate.quad(func,z0,10.)
         return J_E[0]
 
-
-    def dQ_hard_dz(self, redshift, Emax = Emax, E_lim = 1000.):
+    def dQ_hard_dz(self, redshift, E_lim = 1000.):
         """Uniform heating rate from long MFP hard photons only (E_gamma > Emax), dQ/dz. This is making the assumption that all Helium is in the form of HeII."""
         func = lambda E: ((E-self.E0_HeII)/E)*self.JE(redshift,E)*self.sigmaHeII(E)
-        w = scipy.integrate.quad(func,Emax,E_lim)
+        w = scipy.integrate.quad(func,self.Emax,E_lim)
         dQdz = 4.*np.pi*self.eVtoerg*self.nHe(redshift)*w[0]*1./(self.H(redshift)*(1+redshift))
         return dQdz
 
-
-
-    def dGamma_hard_dt(self, redshift, Emax = Emax, E_lim = 1000.):
+    def dGamma_hard_dt(self, redshift, E_lim = 1000.):
         """Photoionization heating of hard photons only (E_gamma > Emax), dGamma/dt. Units are erg/s/cm^3."""
         func = lambda E: ((E-self.E0_HeII)/E)*self.JE(redshift,E)*self.sigmaHeII(E)
-        w = scipy.integrate.quad(func,Emax,E_lim)
+        w = scipy.integrate.quad(func,self.Emax,E_lim)
         dGammadt = 4.*np.pi*w[0]*self.eVtoerg*self.nHe(redshift)
         return dGammadt
 
-    def setUpInterpTable(self, Emax = Emax, alpha_q = alpha_q, clumping_fac = 2., numz = 100.):
+    def setUpInterpTable(self, numz = 100.):
+        """Built the interpolation table file, the main output of this code, loadable by the MP-Gadget reionization module."""
         print("Setting up interpolation table!")
         directory = '.'
         filename = directory + '/HeIIReionizationTable'
@@ -168,10 +168,8 @@ class HeIIheating(object):
         dQ_LMFP_dat = np.zeros(len(z_quasar))
         XHeIII = np.zeros(len(z_quasar))
 
-        if hist != 'linear':
-            reion_z_i = 6.
-            reion_z_f = 2.
-            xHeII_interp = self.hist.makexHeIIInterp(reion_z_f, reion_z_i)
+        if self.hist != 'linear':
+            xHeII_interp = self.hist.makexHeIIInterp()
             for i in range(len(z_quasar)):
                 dQ_LMFP_dat[i] = self.dGamma_hard_dt(z_quasar[i])
                 XHeIII[i]  = xHeII_interp(z_quasar[i])
@@ -184,45 +182,59 @@ class HeIIheating(object):
         print('Creating table ',filename)
 
         f = open(filename, 'w')
-        f.write('#File parameters for this input file: Emax = ' + str(Emax) + ', alpha_q = ' + str(alpha_q)+ ', Clumping factor = ' + str(clumping_fac) +  ', Simple linear history (1) or QSO history (0) = ' + str(hist) + '\n')
+        f.write('#File parameters for this input file: Emax = ' + str(self.Emax) + ', alpha_q = ' + str(self.alpha_q)+ ', Clumping factor = ' + str(self.clumping_fac) +  ', Simple linear history (1) or QSO history (0) = ' + str(self.hist) + '\n')
         f.write('#Units of heating rate (3rd column) are erg/s/cm^3 \n')
-        f.write('{0:f} \n'.format(alpha_q))
-        f.write('{0:f} \n'.format(Emax))
+        f.write('{0:f} \n'.format(self.alpha_q))
+        f.write('{0:f} \n'.format(self.Emax))
         for i in range(len(z_quasar)):
             f.write('{0:e} {1:e} {2:e} \n'.format(z_quasar[i], XHeIII[i], dQ_LMFP_dat[i]))
         f.close()
 
         print('Done!')
 
+class LinearHistory:
+    """Makes a HeII reionization history where X_HeIII is a linear function of redshift"""
+    def __init__(self, z_i, z_f):
+        self.z_i = z_i
+        self.z_f = z_f
 
-class HeII_history(object):
+    def XHeIII(self, redshift):
+        """XHeIII history that is linear with redshift.
+           Set initial and final HeII reion redshifts (default is reion_z_f=2.8)."""
+        return np.clip((redshift - self.z_i) /(self.z_f-self.z_i), a_min = 0, a_max = 1)
+
+    def dXHeIIIdz(self, redshift):
+        """Change in the derivative of XHeIII, where XHeIII evolves linearly with redshift.
+           Set initial and final HeII reion redshifts (default is reion_z_f=2.8)."""
+        if self.z_f <= redshift <= self.z_i:
+            return 1./(self.z_f-self.z_i)
+        return 0.
+
+class QuasarHistory(LinearHistory):
     """Determines the HeII reionization history from a quasar emissivity function"""
-    def __init__(self):
+    def __init__(self, z_i = 6, z_f = 2, alpha_q = 1.7):
+        super().__init__(z_i=z_i, z_f=z_f)
         self.h_erg_s = 6.626e-27 #erg s
         self.mpctocm = 3.086e24
+        self.alpha_q = alpha_q
+        self.filename = 'xHeII.dat'
         try:
-            self.xHeII_table = np.genfromtxt('xHeII.dat')
+            self.xHeII_table = np.genfromtxt(self.filename)
         except OSError:
             self.xHeII_table = np.zeros(0)
 
-
-
-    def XHeIII(self, redshift, reion_z_f = 2, reion_z_i = 6, numz = 1000.):
+    def XHeIII(self, redshift):
         """HeIII fraction over cosmic time based on a QSO emissivity function."""
         try:
-            self.xHeII_table = np.genfromtxt('xHeII.dat')
             table = self.xHeII_table
             xHeII_interp = interp1d(table[:,0],table[:,1], bounds_error=False, fill_value=0.0)
         except IndexError:
-            xHeII_interp = self.makexHeIIInterp(reion_z_f, reion_z_i)
+            xHeII_interp = self.makexHeIIInterp()
         return xHeII_interp(redshift)
-
 
     def dXHeIIIdz(self, redshift, dz = 0.01):
         """Change in XHeIII, where XHeIII evolves based on a QSO emissivity function fit."""
         return (self.XHeIII(redshift + dz) - self.XHeIII(redshift))/dz
-
-
 
     def dXHeIIIdz_int(self, xHeIII, redshift, clumping_fac = 2., T_est = 15000.):
         """Sets up differential eq."""
@@ -230,8 +242,6 @@ class HeII_history(object):
         HH = HeIIheating()
         dXHeIIIdz = -(self.quasar_emissivity_Kulkarni19(redshift) - clumping_fac*rn.recomb.alphaHepp(T_est)*HH.ne(redshift, T_est)*xHeIII*HH.nHe(redshift))/HH.nHe(redshift)/(HH.H(redshift)*(1+redshift))
         return dXHeIIIdz
-
-
 
     def xHeIII_quasar(self, zmin, zmax, numz = 1000):
         """Makes a table of HeII reionization history: z, XHeIII, and number of ionizing photons per nHe produced."""
@@ -242,67 +252,48 @@ class HeII_history(object):
         dataarr[2,:] = scipy.integrate.odeint(self.dXHeIIIdz_int, np.zeros(numz), dataarr[0,:])[:,0]
         return dataarr
 
-
-    def makexHeIIInterp(self, reion_z_f, reion_z_i):
+    def makexHeIIInterp(self):
         """Produces outfile where columns are z, xHeIII, and number of ionizing photons per nHe produced. Returns an interpolation function."""
-        dataarr = self.xHeIII_quasar(reion_z_f, reion_z_i)
-        filename = 'xHeII.dat'
-        np.savetxt(filename, np.column_stack([dataarr[0,:], dataarr[1,:], dataarr[2,:]]), fmt='%.4e')
-        print('Saved xHeII history to ', filename)
+        dataarr = self.xHeIII_quasar(self.z_f, self.z_i)
+        np.savetxt(self.filename, np.column_stack([dataarr[0,:], dataarr[1,:], dataarr[2,:]]), fmt='%.4e')
+        print('Saved xHeII history to ', self.filename)
 
         return scipy.interpolate.interp1d(dataarr[0,:], dataarr[1,:], bounds_error=False, fill_value=0.0)
 
-
-    def quasar_emissivity_HM12(self, redshift, alpha_q = alpha_q):
+    def quasar_emissivity_HM12(self, redshift):
         """Proper emissivity of HeII ionizing photons from Haardt & Madau (2012) (1105.2039.pdf eqn 37)"""
         enhance_fac=1
         epsilon_nu = enhance_fac*3.98e24*(1+redshift)**7.68*np.exp(-0.28*redshift)/(np.exp(1.77*redshift) + 26.3) #erg s^-1 MPc^-3 Hz^-1
-        e = epsilon_nu/(self.h_erg_s*alpha_q)/(self.mpctocm**3)*4.**(-alpha_q)
+        e = epsilon_nu/(self.h_erg_s*self.alpha_q)/(self.mpctocm**3)*4.**(-self.alpha_q)
         return e
 
-
-    def quasar_emissivity_K15(self, redshift, alpha_q = alpha_q):
+    def quasar_emissivity_K15(self, redshift):
         """Proper emissivity of HeII ionizing photons from Khaire + (2015)"""
         epsilon_nu = 10.**(24.6)*(1.+redshift)**8.9 * np.exp(-0.36*redshift)/(np.exp(2.2*redshift)+25.1)  #erg s^-1 MPc^-3 Hz^-1
-        e = epsilon_nu/(self.h_erg_s*alpha_q)/(self.mpctocm**3)*4.**(-alpha_q)
+        e = epsilon_nu/(self.h_erg_s*self.alpha_q)/(self.mpctocm**3)*4.**(-self.alpha_q)
         return e
 
-    def quasar_emissivity_Kulkarni19(self, redshift, alpha_q = alpha_q):
+    def quasar_emissivity_Kulkarni19(self, redshift):
         """Proper emissivity of HeII ionizing photons from Kulkarni + (2019)"""
         epsilon_nu = 10.**(24.72)*(1.+redshift)**8.42 * np.exp(-2.1*redshift)/(np.exp(1.09*redshift)+38.56)  #erg s^-1 MPc^-3 Hz^-1
-        e = epsilon_nu/(self.h_erg_s*alpha_q)/(self.mpctocm**3)*4.**(-alpha_q)
+        e = epsilon_nu/(self.h_erg_s*self.alpha_q)/(self.mpctocm**3)*4.**(-self.alpha_q)
         return e
-
-class linear_history(object):
-    """Makes a HeII reionization history where X_HeIII is a linear function of redshift"""
-
-    def XHeIII(self, redshift):
-        """XHeIII history that is linear with redshift.
-           Set initial and final HeII reion redshifts (default is reion_z_f=2.8)."""
-        return np.clip((redshift - reion_z_i) /(reion_z_f-reion_z_i), a_min = 0, a_max = 1)
-
-    def dXHeIIIdz(self, redshift):
-        """Change in the derivative of XHeIII, where XHeIII evolves linearly with redshift.
-           Set initial and final HeII reion redshifts (default is reion_z_f=2.8)."""
-        if redshift > reion_z_i:
-            return 0.
-        elif (redshift <= reion_z_i) and (redshift >= reion_z_f):
-            return 1./(reion_z_f-reion_z_i)
-        return 0.
 
 if __name__ == "__main__":
     if len(sys.argv) == 1:
         print('No input parameters detected. Please provide at minimum: (1) QSO Spectral index (2) Thresshold long-mean-free-path photon energy in eV')
 
-    alpha_q = float(sys.argv[1])
-    Emax = float(sys.argv[2])
+    alpha_q_i = float(sys.argv[1])
+    Emax_i = float(sys.argv[2])
+    reion_z_i = 6.
+    reion_z_f = 2.
     if len(sys.argv) == 3:
-        hist = 'quasar'
+        hist_i = 'quasar'
     else:
-        hist = sys.argv[3]
-    if (hist == 'linear'):
+        hist_i = sys.argv[3]
+    if hist_i == 'linear':
         reion_z_i = float(sys.argv[4])
         reion_z_f = float(sys.argv[5])
 
-    HeIIheating().setUpInterpTable()
-
+    heat = HeIIheating(hist = hist_i, z_i = reion_z_i, z_f= reion_z_f, Emax=Emax_i, alpha_q = alpha_q_i)
+    heat.setUpInterpTable()
