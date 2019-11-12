@@ -97,11 +97,10 @@ class HeIIheating:
         ne = (self.nH(redshift) + self.nHe(redshift))/((self.nH(redshift)*rn.recomb.alphaHp(temp)/rn.photo.gH0(redshift))+(self.nHe(redshift)*rn.recomb.alphaHep(temp)/rn.photo.gHe0(redshift))+1.)
         return ne
 
-    def H(self,redshift):
+    def Hubble(self,redshift):
         """H(z), multiplied by km/Mpc to get s^-1"""
         H_z = (self.H0**2.*(self.OmegaM*(1+redshift)**3. + self.OmegaK*(1+redshift)**2. + self.OmegaL))**0.5
         return H_z
-
 
     def sigmaHI(self, E):
         """Fit for the photoionization cross section of HI (Hui & Gnedin '97)"""
@@ -127,7 +126,7 @@ class HeIIheating:
         xHI = np.amax([1. - xHII, 0.]) #follows from above (xHI is effectively 0)
         xHeI = xHI #HeI should be ionized with HI by first galaxies
         xHeII = np.amax([1 - xHeI - self.hist.XHeIII(z), 0.]) #This essentially follows the evolution of HeIII fraction.
-        func = lambda z: self.speed_of_light/(self.H(z)*(1+z))*self.sigmaHeII(E*(1.+z)/(1.+z0))*self.nHe(z)*xHeII
+        func = lambda z: self.speed_of_light/(self.Hubble(z)*(1+z))*self.sigmaHeII(E*(1.+z)/(1.+z0))*self.nHe(z)*xHeII
         t = scipy.integrate.quad(func,z0,z)
         return t[0]
 
@@ -136,12 +135,12 @@ class HeIIheating:
         """Normalization of emissivity-- requires that the total ionizing emissivity of ionizing photons balances the number of ionizations plus recombinations.
         TODO: put in better clumping factor prescription and T_est"""
         rn = RN.RateNetwork(redshift)
-        A = ((self.alpha_q)*self.nHe(redshift))/(self.E0_HeII**(-self.alpha_q))*(self.hist.dXHeIIIdz(redshift)*(-self.H(redshift)*(1+redshift))+ self.clumping_fac*rn.recomb.alphaHepp(T_est)*self.hist.XHeIII(redshift)*self.ne(redshift,T_est))
+        A = ((self.alpha_q)*self.nHe(redshift))/(self.E0_HeII**(-self.alpha_q))*(self.hist.dXHeIIIdz(redshift)*(-self.Hubble(redshift)*(1+redshift))+ self.clumping_fac*rn.recomb.alphaHepp(T_est)*self.hist.XHeIII(redshift)*self.ne(redshift,T_est))
         return A
 
     def specific_intensity(self, z0, E):
         """Specific intensity based on powerlaw QSO spectrum"""
-        func = lambda z: (self.speed_of_light/(4.*np.pi))*(1./(self.H(z)*(1+z)))*(1+z0)**3./((1+z)**3.)*self.a_norm(z)*((E)**(-self.alpha_q))*np.exp(-self.tau(z,z0,E))
+        func = lambda z: (self.speed_of_light/(4.*np.pi))*(1./(self.Hubble(z)*(1+z)))*(1+z0)**3./((1+z)**3.)*self.a_norm(z)*((E)**(-self.alpha_q))*np.exp(-self.tau(z,z0,E))
         J_E = scipy.integrate.quad(func,z0,10.)
         return J_E[0]
 
@@ -149,7 +148,7 @@ class HeIIheating:
         """Uniform heating rate from long MFP hard photons only (E_gamma > Emax), dQ/dz. This is making the assumption that all Helium is in the form of HeII."""
         func = lambda E: ((E-self.E0_HeII)/E)*self.specific_intensity(redshift,E)*self.sigmaHeII(E)
         w = scipy.integrate.quad(func,self.Emax,E_lim)
-        dQdz = 4.*np.pi*self.eVtoerg*self.nHe(redshift)*w[0]*1./(self.H(redshift)*(1+redshift))
+        dQdz = 4.*np.pi*self.eVtoerg*self.nHe(redshift)*w[0]*1./(self.Hubble(redshift)*(1+redshift))
         return dQdz
 
     def dGamma_hard_dt(self, redshift, E_lim = 1000.):
@@ -230,7 +229,7 @@ class QuasarHistory(LinearHistory):
         """Sets up differential eq."""
         rn = RN.RateNetwork(redshift)
         HH = HeIIheating()
-        dXHeIIIdz = -(self.quasar_emissivity_Kulkarni19(redshift) - clumping_fac*rn.recomb.alphaHepp(T_est)*HH.ne(redshift, T_est)*xHeIII*HH.nHe(redshift))/HH.nHe(redshift)/(HH.H(redshift)*(1+redshift))
+        dXHeIIIdz = -(self.quasar_emissivity_Kulkarni19(redshift) - clumping_fac*rn.recomb.alphaHepp(T_est)*HH.ne(redshift, T_est)*xHeIII*HH.nHe(redshift))/HH.nHe(redshift)/(HH.Hubble(redshift)*(1+redshift))
         return dXHeIIIdz
 
     def xHeIII_quasar(self, zmin, zmax, numz = 1000):
