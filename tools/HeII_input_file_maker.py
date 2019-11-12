@@ -203,10 +203,10 @@ class QuasarHistory(LinearHistory):
         self.h_erg_s = 6.626e-27 #erg s
         self.mpctocm = 3.086e24
         self.alpha_q = alpha_q
-        self.xHeII_interp = self._makexHeIIInterp()
-        self.alphaHeppTest = alphaHepp(15000)
         self.cosmo=cosmo
+        self.alphaHeppTest = alphaHepp(15000)
         self.clumping_fac = clumping_fac
+        self.xHeII_interp = self._makexHeIIInterp()
 
     def XHeIII(self, redshift):
         """HeIII fraction over cosmic time based on a QSO emissivity function."""
