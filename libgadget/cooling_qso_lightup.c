@@ -297,10 +297,12 @@ build_qso_candidate_list(int ** qso_cand, FOFGroups * fof)
     return ncand;
 }
 
-/* Choose a black hole particle at random to host a quasar from the list of black hole particles.
+/* Choose a FOF halo at random to host a quasar from the list of FOF halos.
  * This function chooses a single quasar from the total candidate list of quasars on *all* processors.
  * We seed the random number generator off the number of existing quasars.
  * This is done carefully so that we get the same sequence of quasars irrespective of how many processors we are using.
+ *
+ * Returns: the local index of the halo in FOF if the halo is hosted on this rank, -1 if the halo is not hosted on this rank
  */
 static int
 choose_QSO_halo(int ncand, int64_t * ncand_tot, FOFGroups * fof, MPI_Comm Comm)

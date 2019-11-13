@@ -26,7 +26,8 @@ import scipy.integrate
 import scipy.interpolate
 
 class Cosmology:
-    """Little module to specify the mean densities and the Hubble rate"""
+    """Little module to specify the mean densities and the Hubble rate.
+    Neglects radiation and neutrinos, because at z < 2 they are usually not important!"""
     def __init__(self, hub=0.678, OmegaM = 0.3175, Omegab = 0.048):
         self.hub = hub
         self.OmegaM = OmegaM
@@ -160,7 +161,7 @@ class HeIIheating:
         dGammadt = 4.*np.pi*w[0]*self.eVtoerg*self.cosmo.nHe(redshift)
         return dGammadt
 
-    def setUpInterpTable(self, outfile, numz = 100.):
+    def WriteInterpTable(self, outfile, numz = 100.):
         """Built the interpolation table file, the main output of this code, loadable by the MP-Gadget reionization module."""
         print("Setting up interpolation table!")
 
@@ -277,4 +278,4 @@ if __name__ == "__main__":
             args.z_f = 2.
 
     heat = HeIIheating(hist = args.hist, z_i = args.z_i, z_f= args.z_f, Emax=args.Emax, alpha_q = args.alphaq, clumping_fac = args.cf)
-    heat.setUpInterpTable(args.outfile)
+    heat.WriteInterpTable(args.outfile)
