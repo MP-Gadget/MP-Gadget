@@ -581,7 +581,7 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree)
             message(1, "HeII: Quasar %d changed the HeIII ionization fraction to %g, ionizing %ld\n", qso_cand[new_qso], curionfrac, tot_qso_ionized);
         /* Break the loop if we do not ionize enough particles this round.
          * Try again next timestep when we will hopefully have new BHs.*/
-        if(tot_qso_ionized < 0.01 * non_overlapping_bubble_number)
+        if(tot_qso_ionized < 0.01 * non_overlapping_bubble_number && iteration > 10)
             break;
         /* Remove this candidate from the list by moving the list down.*/
         if( new_qso >= 0) {
