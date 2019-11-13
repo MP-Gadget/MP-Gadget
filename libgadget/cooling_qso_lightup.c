@@ -297,15 +297,12 @@ build_qso_candidate_list(int ** qso_cand, FOFGroups * fof)
     return ncand;
 }
 
-/* Choose a FOF halo at random to host a quasar from the list of FOF halos.
- * This function chooses a single quasar from the total candidate list of quasars on *all* processors.
- * We seed the random number generator off the number of existing quasars.
- * This is done carefully so that we get the same sequence of quasars irrespective of how many processors we are using.
- *
- * Returns: the local index of the halo in FOF if the halo is hosted on this rank, -1 if the halo is not hosted on this rank
+/* Count the number of halos present on all tasks, and the number of halos present on tasks
+ * earlier than this one, using an Allgather. Returns the number of halos present on tasks before this one
+ * and sets ncand_tot.
  */
 static int
-choose_QSO_halo(int ncand, int64_t * ncand_tot, FOFGroups * fof, MPI_Comm Comm)
+count_QSO_halos(int ncand, int64_t * ncand_tot, MPI_Comm Comm)
 {
     int64_t ncand_total = 0, ncand_before = 0;
     int NTask, i, ThisTask;
@@ -324,16 +321,32 @@ choose_QSO_halo(int ncand, int64_t * ncand_tot, FOFGroups * fof, MPI_Comm Comm)
     }
 
     ta_free(candcounts);
-    double drand = get_random_number(fof->TotNgroups);
-    int qso = (drand * ncand_total);
     *ncand_tot = ncand_total;
+    return ncand_before;
+}
+
+/* Choose a FOF halo at random to host a quasar
+ * This function chooses a single quasar from the total candidate list of quasars on *all* processors.
+ * We seed the random number generator off the number of existing quasars.
+ * This is done carefully so that we get the same sequence of quasars irrespective of how many processors we are using.
+ *
+ * Returns: the local index of the halo in FOF if the halo is hosted on this rank, -1 if the halo is not hosted on this rank
+ */
+static int
+choose_QSO_halo(int64_t ncand, int64_t * ncand_before, int64_t * ncand_tot, int64_t randseed)
+{
+    double drand = get_random_number(randseed);
+    int64_t qso = drand * (*ncand_tot);
+    (*ncand_tot)--;
     /* No quasar on this processor*/
-    if(qso < ncand_before || qso >= ncand_before + ncand)
+    if(qso < *ncand_before)
+        (*ncand_before)--;
+    if(qso < *ncand_before || qso >= *ncand_before + ncand)
         return -1;
 
     /* If the quasar is on this processor, return the
      * index of the quasar in the current candidate array.*/
-    return qso - ncand_before;
+    return qso - *ncand_before;
 }
 
 /* Calculates the total ionization fraction of the box.
@@ -494,7 +507,7 @@ ionize_all_part(int qso_ind, int * qso_cand, FOFGroups * fof, ForceTree * tree)
     else
         treewalk_run(tw, NULL, 0);
 
-    int64_t N_ionized;
+    int64_t N_ionized = 0;
     int i;
     for(i = 0; i < omp_get_max_threads(); i++)
         N_ionized += priv[0].N_ionized[i];
@@ -510,7 +523,7 @@ ionize_all_part(int qso_ind, int * qso_cand, FOFGroups * fof, ForceTree * tree)
 static void
 turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree)
 {
-    int ncand;
+    int ncand = 0;
     int * qso_cand = NULL;
     int64_t n_gas_tot=0, tot_n_ionized=0, ncand_tot=0;
     sumup_large_ints(1, &SlotsManager->info[0].size, &n_gas_tot);
@@ -543,9 +556,12 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree)
         walltime_measure("/HeIII/Find");
     }
 
-    while (curionfrac < desired_ion_frac){
+    int64_t ncand_before = count_QSO_halos(ncand, &ncand_tot, MPI_COMM_WORLD);
+    int iteration;
+
+    for(iteration = 0; curionfrac < desired_ion_frac; iteration++){
         /* Get a new quasar*/
-        int new_qso = choose_QSO_halo(ncand, &ncand_tot, fof, MPI_COMM_WORLD);
+        int new_qso = choose_QSO_halo(ncand, &ncand_before, &ncand_tot, fof->TotNgroups+iteration);
         if(new_qso >= ncand)
             endrun(12, "HeII: QSO %d > no. candidates %d! Cannot happen\n", new_qso, ncand);
         /* Make sure someone has a quasar*/
