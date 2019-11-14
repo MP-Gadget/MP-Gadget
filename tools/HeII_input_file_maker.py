@@ -144,7 +144,7 @@ class HeIIheating:
     def specific_intensity(self, z0, E):
         """Specific intensity based on powerlaw QSO spectrum"""
         func = lambda z: (self.speed_of_light/(4.*np.pi))*(1./(self.cosmo.Hubble(z)*(1+z)))*(1+z0)**3./((1+z)**3.)*self.a_norm(z)*((E)**(-self.alpha_q))*np.exp(-self.tau(z,z0,E))
-        J_E = scipy.integrate.quad(func,z0,10.)
+        J_E = scipy.integrate.quad(func,z0,10., limit=100)
         return J_E[0]
 
     def dQ_hard_dz(self, redshift, E_lim = 1000.):
