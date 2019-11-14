@@ -198,7 +198,8 @@ class LinearHistory:
         return 0.
 
 class QuasarHistory:
-    """Determines the HeII reionization history from a quasar emissivity function"""
+    """Determines the HeII reionization history from a quasar emissivity function.
+    Note: the initial reionization redshift is when the neutral fraction is zero"""
     def __init__(self, cosmo, z_i = 6, z_f = 2, alpha_q = 1.7, clumping_fac = 2.):
         self.h_erg_s = 6.626e-27 #erg s
         self.mpctocm = 3.086e24
@@ -212,7 +213,7 @@ class QuasarHistory:
 
     def XHeIII(self, redshift):
         """HeIII fraction over cosmic time based on a QSO emissivity function."""
-        return self.xHeII_interp(redshift)
+        return np.exp(self.xHeII_interp(redshift))-1e-30
 
     def dXHeIIIdz(self, redshift, dz = 0.01):
         """Change in XHeIII, where XHeIII evolves based on a QSO emissivity function fit."""
@@ -235,7 +236,7 @@ class QuasarHistory:
     def _makexHeIIInterp(self):
         """Produces outfile where columns are z, xHeIII, and number of ionizing photons per nHe produced. Returns an interpolation function."""
         dataarr = self.xHeIII_quasar(self.z_f, self.z_i)
-        return scipy.interpolate.interp1d(dataarr[0,:], dataarr[1,:], bounds_error=False, fill_value=0.0)
+        return scipy.interpolate.interp1d(dataarr[0,:], np.log(1e-30+dataarr[1,:]), bounds_error=False, fill_value=0.0)
 
     def quasar_emissivity_HM12(self, redshift):
         """Proper emissivity of HeII ionizing photons from Haardt & Madau (2012) (1105.2039.pdf eqn 37)"""
@@ -271,7 +272,7 @@ if __name__ == "__main__":
         if args.hist == "linear":
             args.z_i = 4.0
         else:
-            args.z_i = 5.0
+            args.z_i = 6.0
     if args.z_f < 0:
         if args.hist == "linear":
             args.z_f = 2.8
