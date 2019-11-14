@@ -222,7 +222,7 @@ class QuasarHistory:
     def dXHeIIIdz_int(self, xHeIII, redshift):
         """Sets up differential eq."""
         cosfac = self.cosmo.nHe(redshift)*(self.cosmo.Hubble(redshift)*(1+redshift))
-        dXHeIIIdz = -(self.quasar_emissivity_Kulkarni19(redshift) - self.clumping_fac*self.alphaHeppTest*self.cosmo.ne(redshift)*xHeIII*self.cosmo.nHe(redshift))/cosfac
+        dXHeIIIdz = -(self.quasar_emissivity_Kulkarni19_21(redshift) - self.clumping_fac*self.alphaHeppTest*self.cosmo.ne(redshift)*xHeIII*self.cosmo.nHe(redshift))/cosfac
         return dXHeIIIdz
 
     def xHeIII_quasar(self, zmin, zmax, numz = 1000):
@@ -251,9 +251,18 @@ class QuasarHistory:
         e = epsilon_nu/(self.h_erg_s*self.alpha_q)/(self.mpctocm**3)*4.**(-self.alpha_q)
         return e
 
-    def quasar_emissivity_Kulkarni19(self, redshift):
-        """Proper emissivity of HeII ionizing photons from Kulkarni + (2019)"""
-        epsilon_nu = 10.**(24.72)*(1.+redshift)**8.42 * np.exp(-2.1*redshift)/(np.exp(1.09*redshift)+38.56)  #erg s^-1 MPc^-3 Hz^-1
+    def quasar_emissivity_Kulkarni19_18(self, redshift):
+        """Proper emissivity of HeII ionizing photons from Kulkarni + (2019) with limiting magnitude -18"""
+        epsilon_nu1450 = 10.**(24.72)*(1.+redshift)**11.42 * np.exp(-2.1*redshift)/(np.exp(1.09*redshift)+38.56)  #erg s^-1 MPc^-3 Hz^-1
+        epsilon_nu = epsilon_nu1450*(912/1450)**0.61
+        e = epsilon_nu/(self.h_erg_s*self.alpha_q)/(self.mpctocm**3)*4.**(-self.alpha_q)
+        return e
+
+    def quasar_emissivity_Kulkarni19_21(self, redshift):
+        """Proper emissivity of HeII ionizing photons from Kulkarni + (2019) with limiting magnitude -21"""
+        #Note the factor of 1+z ^3 compared to Kulkarni 2019: there is a comoving change!
+        epsilon_nu1450 = 10.**(23.91)*(1.+redshift)**11.26 * np.exp(-1.3*redshift)/(np.exp(1.62*redshift)+13.6)  #erg s^-1 MPc^-3 Hz^-1
+        epsilon_nu = epsilon_nu1450*(912/1450)**0.61
         e = epsilon_nu/(self.h_erg_s*self.alpha_q)/(self.mpctocm**3)*4.**(-self.alpha_q)
         return e
 
