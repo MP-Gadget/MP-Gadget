@@ -165,7 +165,7 @@ class HeIIheating:
         """Built the interpolation table file, the main output of this code, loadable by the MP-Gadget reionization module."""
         print("Setting up interpolation table!")
 
-        z_quasar = np.logspace(np.log10(6.0),np.log10(2.8),numz)
+        z_quasar = np.logspace(np.log10(self.hist.z_i),np.log10(self.hist.z_f),numz)
         dQ_LMFP_dat = [self.dGamma_hard_dt(zqso) for zqso in z_quasar]
         XHeIII = [self.hist.XHeIII(zqso) for zqso in z_quasar]
 
@@ -197,16 +197,17 @@ class LinearHistory:
             return 1./(self.z_f-self.z_i)
         return 0.
 
-class QuasarHistory(LinearHistory):
+class QuasarHistory:
     """Determines the HeII reionization history from a quasar emissivity function"""
     def __init__(self, cosmo, z_i = 6, z_f = 2, alpha_q = 1.7, clumping_fac = 2.):
-        super().__init__(z_i=z_i, z_f=z_f)
         self.h_erg_s = 6.626e-27 #erg s
         self.mpctocm = 3.086e24
         self.alpha_q = alpha_q
         self.cosmo=cosmo
         self.alphaHeppTest = alphaHepp(15000)
         self.clumping_fac = clumping_fac
+        self.z_i = z_i
+        self.z_f = z_f
         self.xHeII_interp = self._makexHeIIInterp()
 
     def XHeIII(self, redshift):
@@ -270,12 +271,12 @@ if __name__ == "__main__":
         if args.hist == "linear":
             args.z_i = 4.0
         else:
-            args.z_i = 6.0
+            args.z_i = 5.0
     if args.z_f < 0:
         if args.hist == "linear":
             args.z_f = 2.8
         else:
-            args.z_f = 2.
+            args.z_f = 2.0
 
     heat = HeIIheating(hist = args.hist, z_i = args.z_i, z_f= args.z_f, Emax=args.Emax, alpha_q = args.alphaq, clumping_fac = args.cf)
     heat.WriteInterpTable(args.outfile)
