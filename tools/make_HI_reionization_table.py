@@ -22,16 +22,16 @@
 """
 
 import argparse
-import bigfile
-from pmesh.pm import ParticleMesh, RealField, ComplexField
 import logging
+import bigfile
 from mpi4py import MPI
 import numpy
 
+from pmesh.pm import ParticleMesh
 from fastpm.core import Solver
 from nbodykit.cosmology import Cosmology, LinearPower
 from astropy.cosmology import FlatLambdaCDM
-from astropy import units as U, constants as C
+from astropy import units as U
 
 ap = argparse.ArgumentParser("preion-make-zreion.py")
 ap.add_argument("output", help='name of bigfile to store the mesh')
@@ -45,6 +45,7 @@ logger = logging
 logging.basicConfig(level=logging.INFO)
 
 def tophat(R, k):
+    """Top hat filter for the reionization patches"""
     rk = R * k
     mask = rk == 0
     rk[mask] = 1
@@ -52,34 +53,37 @@ def tophat(R, k):
     ans[mask] = 1
     return ans
 
-def Bk(k):
-    # patchy reionization model
-    # FIXME: need a citation, any meta parameters?
+def Bofk(k):
+    """Patchy reionization model. This associates the overdensity
+    with a reionization probability, from Battaglia 2013."""
 
-    b0 = 1.0 / 1.686;
-    k0 = 0.185;
+    #Critical density.
+    b0 = 1.0 / 1.686
+    k0 = 0.185
     #k0 = 0.000185
-    al = 0.564;
-    ans =  b0/pow(1 + (k/k0),al);
-    return ans;
+    al = 0.564
+    ans =  b0/pow(1 + (k/k0),al)
+    return ans
 
 def get_lpt(pm,z):
+    """Evolve the linear power using a 2LPT solver,
+       so we get a good model of the density structure at the reionization redshift."""
     a = 1/(1+z)
-    Planck18 = FlatLambdaCDM(H0=67.36,Om0=0.3153,Tcmb0=2.7255*U.Unit('K'),Neff=3.046
-                ,m_nu=numpy.array([0,0,0.06])*U.Unit('eV'),Ob0=0.02237/0.6736/0.6736)
+    Planck18 = FlatLambdaCDM(H0=67.36,Om0=0.3153,Tcmb0=2.7255*U.Unit('K'),Neff=3.046,m_nu=numpy.array([0,0,0.06])*U.Unit('eV'),Ob0=0.02237/0.6736/0.6736)
     Planck18 = Cosmology.from_astropy(Planck18)
     Plin = LinearPower(Planck18, redshift=0, transfer='EisensteinHu')
     solver = Solver(pm, Planck18, B=1)
     Q = pm.generate_uniform_particle_grid()
 
     wn = solver.whitenoise(422317)
-    dlin = solver.linear(wn, lambda k: Plin(k))
+    dlin = solver.linear(wn, Plin)
 
     state = solver.lpt(dlin, Q, a=a, order=2)
 
     return state
 
 def main():
+    """Do the work and output the file"""
     ns = ap.parse_args()
     comm = MPI.COMM_WORLD
 
@@ -111,19 +115,19 @@ def main():
     real[...] /= mean
     real[...] -= 1
 
-    complex = real.r2c()
+    cmplx = real.r2c()
     logger.info("field transformed")
 
-    for k, i, slab in zip(complex.slabs.x, complex.slabs.i, complex.slabs):
+    for k, _, slab in zip(cmplx.slabs.x, cmplx.slabs.i, cmplx.slabs):
         k2 = sum(kd ** 2 for kd in k)
         # tophat
         f = tophat(ns.filtersize, k2 ** 0.5)
         slab[...] *= f
         # zreion
-        slab[...] *= Bk(k2 ** 0.5)
+        slab[...] *= Bofk(k2 ** 0.5)
         slab[...] *= (1 + Redshift)
 
-    real = complex.c2r()
+    real = cmplx.c2r()
     real[...] += Redshift
     logger.info("filters applied %d",real.size)
 
