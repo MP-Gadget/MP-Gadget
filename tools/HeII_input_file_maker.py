@@ -217,7 +217,7 @@ class QuasarHistory:
 
     def dXHeIIIdz(self, redshift, dz = 0.01):
         """Change in XHeIII, where XHeIII evolves based on a QSO emissivity function fit."""
-        return (self.XHeIII(redshift + dz) - self.XHeIII(redshift))/dz
+        return self.dXHeIIIdz_int(self.XHeIII(redshift), redshift)
 
     def dXHeIIIdz_int(self, xHeIII, redshift):
         """Sets up differential eq."""
