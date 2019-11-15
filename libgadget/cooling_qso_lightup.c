@@ -514,6 +514,8 @@ ionize_all_part(int qso_ind, int * qso_cand, FOFGroups * fof, ForceTree * tree)
 
     ta_free(priv[0].N_ionized);
 
+    free_spinlocks(priv[0].spin);
+
     return N_ionized;
 }
 
