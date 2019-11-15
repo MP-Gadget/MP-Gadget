@@ -50,6 +50,7 @@
 */
 
 #include "cooling_rates.h"
+#include "cooling_qso_lightup.h"
 #include "cosmology.h"
 
 #include <omp.h>
@@ -62,9 +63,6 @@
 #include "utils/endrun.h"
 #include "utils/paramset.h"
 #include "utils/mymalloc.h"
-
-/* 1 eV in ergs*/
-#define eVinergs 1.60218e-12
 
 static struct cooling_params CoolingParams;
 
@@ -278,7 +276,12 @@ struct UVBG get_global_UVBG(double redshift)
 
     GlobalUVBG.epsH0 = get_photo_rate(redshift, &Eps_HI);
     GlobalUVBG.epsHe0 = get_photo_rate(redshift, &Eps_HeI);
-    GlobalUVBG.epsHep = get_photo_rate(redshift, &Eps_HeII);
+    /* During helium reionization we have a model for the inhomogeneous non-equilibrium heating.
+     * To avoid double counting, remove the heating in the existing UVB*/
+    if(during_helium_reionization(redshift))
+        GlobalUVBG.epsHep = 0;
+    else
+        GlobalUVBG.epsHep = get_photo_rate(redshift, &Eps_HeII);
     GlobalUVBG.self_shield_dens = self_shield_dens(redshift, &GlobalUVBG);
     return GlobalUVBG;
 }
@@ -1084,7 +1087,7 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
 
     //message(1, "Heat = %g Lambda = %g MetalCool = %g LC = %g LR = %g LFF = %g LCmptn = %g, ne = %g, nH0 = %g, nHp = %g, nHe0 = %g, nHep = %g, nHepp = %g, nh=%g, temp=%g, ienergy=%g\n", Heat, Lambda, MetalCooling, LambdaCollis, LambdaRecomb, LambdaFF, LambdaCmptn, nebynh, nH0, nHp, nHe0, nHep, nHepp, nh, temp, ienergy);
 
-    /* LambdaNet in erg/s cm^3, Density in protons/cm^3, PROTONMASS in protons/g.
+    /* LambdaNet in erg cm^3 /s, Density in protons/cm^3, PROTONMASS in protons/g.
      * Convert to erg/s/g*/
     return LambdaNet * pow(1 - helium, 2) * density / PROTONMASS;
 }

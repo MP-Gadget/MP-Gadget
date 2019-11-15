@@ -13,6 +13,7 @@
 #include <libgadget/sfr_eff.h>
 #include <libgadget/blackhole.h>
 #include <libgadget/fof.h>
+#include <libgadget/cooling_qso_lightup.h>
 
 static int
 BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
@@ -189,6 +190,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "CoolingOn", REQUIRED, 0, "Enables cooling");
     param_declare_string(ps, "TreeCoolFile", OPTIONAL, "", "Path to the Cooling Table");
     param_declare_string(ps, "MetalCoolFile", OPTIONAL, "", "Path to the Metal Cooling Table. Empty string disables metal cooling. Refer to cooling.c");
+    param_declare_string(ps, "ReionHistFile", OPTIONAL, "", "Path to the file containing the helium III reionization table. Used if QSOLightupOn = 1.");
     param_declare_string(ps, "UVFluctuationFile", OPTIONAL, "", "Path to the UVFluctation Table. Refer to cooling.c.");
 
     param_declare_double(ps, "UVRedshiftThreshold", OPTIONAL, -1.0, "Earliest Redshift that UV background is enabled. This modulates UVFluctuation and TreeCool globally. Default -1.0 means no modulation.");
@@ -326,6 +328,16 @@ create_gadget_parameter_set()
     param_declare_double(ps, "HeliumHeatAmp", OPTIONAL, 1, "Density-independent heat boost. Changes mean temperature.");
     param_declare_double(ps, "HeliumHeatExp", OPTIONAL, 0, "Density dependent heat boost (exponent). Changes gamma.");
     /*End of star formation parameters*/
+    /* Parameters for the QSO lightup model for helium reionization*/
+    param_declare_int(ps, "QSOLightupOn", OPTIONAL, 0, "Enable the quasar lighup model for helium reionization");
+    /* Default QSO BH masses correspond to the Illustris BHs hosted in halos between 2x10^12 and 10^13 solar masses.
+     * In small boxes this may be too small.*/
+    param_declare_double(ps, "QSOMaxMass", OPTIONAL, 1000, "Maximum mass of a halo potentially hosting a quasar in internal mass units.");
+    param_declare_double(ps, "QSOMinMass", OPTIONAL, 100, "Minimum mass of a halo potentially hosting a quasar in internal mass units.");
+    param_declare_double(ps, "QSOMeanBubble", OPTIONAL, 30000, "Mean size of the ionizing bubble around a quasar. By default 30 Mpc.");
+    param_declare_double(ps, "QSOVarBubble", OPTIONAL, 0, "Variance of the ionizing bubble around a quasar. By default zero so all bubbles are the same size");
+    param_declare_double(ps, "QSOHeIIIReionStart", OPTIONAL, 5.8, "First redshift at which a QSO bubble will be placed.");
+    param_declare_double(ps, "QSOHeIIIReionFinishFrac", OPTIONAL, 0.95, "Reionization fraction at which all particles are flash-reionized instead of having quasar bubbles placed.");
 
     /*Parameters for the massive neutrino model*/
     param_declare_int(ps, "MassiveNuLinRespOn", REQUIRED, 0, "Enables linear response massive neutrinos of 1209.0461. Make sure you enable radiation too.");
@@ -461,6 +473,7 @@ void read_parameter_file(char *fname)
         param_get_string2(ps, "TreeCoolFile", All.TreeCoolFile, sizeof(All.TreeCoolFile));
         param_get_string2(ps, "UVFluctuationfile", All.UVFluctuationFile, sizeof(All.UVFluctuationFile));
         param_get_string2(ps, "MetalCoolFile", All.MetalCoolFile, sizeof(All.MetalCoolFile));
+        param_get_string2(ps, "ReionHistFile", All.ReionHistFile, sizeof(All.ReionHistFile));
 
         All.InitGasTemp = param_get_double(ps, "InitGasTemp");
 
@@ -509,6 +522,7 @@ void read_parameter_file(char *fname)
     /*Initialize per-module parameters.*/
 
     set_cooling_params(ps);
+    set_qso_lightup_params(ps);
     set_treewalk_params(ps);
     set_gravshort_tree_params(ps);
     set_domain_params(ps);

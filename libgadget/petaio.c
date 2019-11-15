@@ -820,6 +820,7 @@ SIMPLE_PROPERTY_PI(BlackholeAccretionRate, Mdot, float, 1, struct bh_particle_da
 SIMPLE_PROPERTY_PI(BlackholeProgenitors, CountProgs, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeMinPotPos, MinPotPos[0], double, 3, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeJumpToMinPot, JumpToMinPot, int, 1, struct bh_particle_data)
+
 /*This is only used if FoF is enabled*/
 SIMPLE_GETTER(GTGroupID, GrNr, uint32_t, 1, struct particle_data)
 static void GTNeutralHydrogenFraction(int i, float * out, void * baseptr, void * smanptr) {
@@ -844,6 +845,17 @@ static void STInternalEnergy(int i, float * out, void * baseptr, void * smanptr)
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
     sl[PI].Entropy  = GAMMA_MINUS1 * u / pow(SPH_EOMDensity(i) * All.cf.a3inv , GAMMA_MINUS1);
+}
+
+/* Can't use the macros because cannot take address of a bitfield*/
+static void GTHeIIIIonized(int i, unsigned char * out, void * baseptr, void * smanptr) {
+    struct particle_data * part = (struct particle_data *) baseptr;
+    *out = part[i].HeIIIionized;
+}
+
+static void STHeIIIIonized(int i, unsigned char * out, void * baseptr, void * smanptr) {
+    struct particle_data * part = (struct particle_data *) baseptr;
+    part[i].HeIIIionized = *out;
 }
 
 static int order_by_type(const void *a, const void *b)
@@ -898,6 +910,8 @@ void register_io_blocks(struct IOTable * IOTable) {
     /* Cooling */
     IO_REG(ElectronAbundance,       "f4", 1, 0, IOTable);
     IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0, IOTable);
+    /* Marks whether a particle has been HeIII ionized yet*/
+    IO_REG_NONFATAL(HeIIIIonized, "u1", 1, 0, IOTable);
 
     /* SF */
     IO_REG_WRONLY(StarFormationRate, "f4", 1, 0, IOTable);

@@ -1,0 +1,48 @@
+#  Relevant files
+
+InitCondFile = output/IC
+OutputDir = output
+TreeCoolFile = ../TREECOOL_fg19_eff_default.dat
+ReionHistFile = ../HeIIReionizationTable
+OutputList = 0.1,0.15,0.166667,0.181818,0.2,0.212766,0.22222,0.238095,0.25
+
+# CPU time -limit
+TimeLimitCPU = 7200 #= 2 hours
+
+# Memory allocation: set as desired
+#MaxMemSizePerNode = 0.05
+
+# Code options
+TimeMax = 0.25
+Omega0 = 0.2814      # Total matter density  (at z=0)
+
+#Full hydro with all physics
+CoolingOn = 1
+StarformationOn = 1
+BlackHoleOn = 0
+HydroOn = 1
+DensityIndependentSphOn = 1
+RadiationOn = 1
+MassiveNuLinRespOn = 0
+WindOn = 1
+WindModel = ofjt10,decouple
+MetalCoolFile = ../cooling_metal_UVB
+SnapshotWithFOF = 1
+#--------------------Helium Reionization----------------
+QSOLightupOn =  1
+#The default is a 30 Mpc bubble
+#but for this small test box we use a smaller 2 Mpc bubble.
+#WARNING!! This is unphysical!
+QSOMeanBubble =  2000
+#All bubble have the same size
+QSOVarBubble = 0
+#When HeIII reionization starts
+QSOHeIIIReionStart = 5.8
+#Ionization fraction when it finishes
+QSOHeIIIReionFinishFrac = 0.95
+#Min and max mass of halos to form quasars in
+#internal mass units (10^10 solar masses)
+#WARNING!! This is unphysically small, again because of the small box
+#A better model (the default) has QSOMinMass = 100
+QSOMinMass = 0.1
+QSOMaxMass = 1000

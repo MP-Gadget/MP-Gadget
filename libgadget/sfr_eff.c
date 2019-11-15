@@ -401,7 +401,7 @@ cooling_direct(int i) {
 
     double redshift = 1./All.Time - 1;
     struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
-    unew = DoCooling(redshift, unew, SPHP(i).Density * All.cf.a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity, All.MinEgySpec);
+    unew = DoCooling(redshift, unew, SPHP(i).Density * All.cf.a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity, All.MinEgySpec, P[i].HeIIIionized);
 
     SPHP(i).Ne = ne;
 
@@ -708,7 +708,7 @@ void init_cooling_and_star_formation(void)
     /*Enforces a minimum internal energy in cooling. */
     All.MinEgySpec = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * sfr_params.MinGasTemp / coolunits.uu_in_cgs;
 
-    init_cooling(All.TreeCoolFile, All.MetalCoolFile, All.UVFluctuationFile, coolunits, &All.CP);
+    init_cooling(All.TreeCoolFile, All.MetalCoolFile, All.UVFluctuationFile, All.ReionHistFile, coolunits, &All.CP);
 
     if(!All.StarformationOn)
         return;

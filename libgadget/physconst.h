@@ -11,6 +11,8 @@
 #define  BOLTZMANN   1.38066e-16
 /** The Boltzmann constant in units of eV/K*/
 #define BOLEVK 8.61734e-5
+/* 1 eV in ergs*/
+#define eVinergs 1.60218e-12
 #define  GAS_CONST   8.31425e7
 /** Speed of light in cm/s: used to be called 'C'*/
 #define  LIGHTCGS           2.99792458e10

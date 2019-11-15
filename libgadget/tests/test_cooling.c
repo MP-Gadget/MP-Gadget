@@ -20,6 +20,25 @@
 #include <libgadget/utils/endrun.h>
 #include "stub.h"
 
+/* Stub.*/
+double get_long_mean_free_path_heating(double redshift)
+{
+    redshift *= 2;
+    return 0;
+}
+
+void
+init_qso_lightup(char * reion_hist_file)
+{
+    return;
+}
+
+int
+during_helium_reionization(double redshift)
+{
+    return 0;
+}
+
 #define NSTEP 20
 /*Pre-computed table of DoCooling outputs*/
 static double unew_table[NSTEP * NSTEP] = {
@@ -181,7 +200,7 @@ static void test_DoCooling(void ** state)
     CP.OmegaBaryon = coolpar.fBar * CP.OmegaCDM;
     CP.HubbleParam = HubbleParam;
     set_coolpar(coolpar);
-    init_cooling(TreeCool, MetalCool, UVFluc, coolunits, &CP);
+    init_cooling(TreeCool, MetalCool, UVFluc, NULL, coolunits, &CP);
     struct UVBG uvbg = get_global_UVBG(0);
     assert_true(fabs(uvbg.epsH0/3.65296e-25 -1) < 1e-5);
     assert_true(fabs(uvbg.epsHe0/3.98942e-25 -1) < 1e-5);
@@ -194,7 +213,7 @@ static void test_DoCooling(void ** state)
     /*Check two particular values*/
     double tcool = GetCoolingTime(0, 949.755, 7.07946e-06, &uvbg, &ne, 0);
     assert_true(fabs(tcool/ 0.0172379) -1 < 1e-3);
-    double unew = DoCooling(0,  9828.44, 7.07946e-06, 0.2, &uvbg, &ne, 0, MinEgySpec);
+    double unew = DoCooling(0,  9828.44, 7.07946e-06, 0.2, &uvbg, &ne, 0, MinEgySpec, 1);
     assert_true(fabs(unew/ 531.724) -1 < 1e-3);
 
     double dt = 0.2;
@@ -206,7 +225,7 @@ static void test_DoCooling(void ** state)
             double ne=1.0, ne2=1.0;
             double uu = exp(log(umin) +  j * (log(umax) - log(umin)) / 1. /NSTEP);
             double tcool = GetCoolingTime(0, uu, dens, &uvbg, &ne2, 0);
-            double unew = DoCooling(0, uu, dens, dt, &uvbg, &ne, 0, MinEgySpec);
+            double unew = DoCooling(0, uu, dens, dt, &uvbg, &ne, 0, MinEgySpec, 1);
             assert_false(isnan(unew));
 //             message(0, "d = %g u = %g tcool = %g tcool_table = %g unew = %g ne_after = %g unew_table = %g\n", dens, uu, tcool, tcool_table[i*NSTEP + j], unew, ne, unew_table[i*NSTEP+j]);
             assert_true(fabs(unew/unew_table[i*NSTEP + j] - 1) < 5e-3);
