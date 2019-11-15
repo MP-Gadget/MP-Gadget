@@ -286,7 +286,7 @@ if __name__ == "__main__":
         if args.hist == "linear":
             args.z_f = 2.8
         else:
-            args.z_f = 2.0
+            args.z_f = 2.5
 
     heat = HeIIheating(hist = args.hist, z_i = args.z_i, z_f= args.z_f, Emax=args.Emax, alpha_q = args.alphaq, clumping_fac = args.cf)
     heat.WriteInterpTable(args.outfile)
