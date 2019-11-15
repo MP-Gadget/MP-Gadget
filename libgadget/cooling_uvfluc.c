@@ -7,13 +7,15 @@
 #include <string.h>
 #include <math.h>
 #include "cooling_rates.h"
+#include "physconst.h"
 #include "bigfile.h"
+#include "bigfile-mpi.h"
 #include "utils/mymalloc.h"
 #include "utils/interp.h"
 #include "utils/endrun.h"
 
 static struct {
-    int disabled;
+    int enabled;
     Interp interp;
     double * Table;
     ptrdiff_t Nside;
@@ -96,20 +98,47 @@ read_big_array(const char * filename, char * dataset, int * Nread)
  *
  * */
 void
-init_uvf_table(const char * UVFluctuationFile, const double BoxSize)
+init_uvf_table(const char * UVFluctuationFile, const double BoxSize, const double UnitLength_in_cm)
 {
     if(strlen(UVFluctuationFile) == 0) {
-        UVF.disabled = 1;
+        UVF.enabled = 0;
         return;
     }
 
-    message(0, "Using NON-UNIFORM UV BG fluctuations from %s\n", UVFluctuationFile);
-    UVF.disabled = 0;
+    /* Open and validate the UV fluctuation file*/
+    BigFile bf;
+    BigBlock bh;
+    if(0 != big_file_mpi_open(&bf, UVFluctuationFile, MPI_COMM_WORLD)) {
+        endrun(0, "Failed to open snapshot at %s:%s\n", UVFluctuationFile,
+                    big_file_get_error_message());
+    }
+
+    if(0 != big_file_mpi_open_block(&bf, &bh, "Zreion_Table", MPI_COMM_WORLD)) {
+        endrun(0, "Failed to create block at %s:%s\n", "Header",
+                    big_file_get_error_message());
+    }
+    double TableBoxSize;
+    double ReionRedshift;
+    if ((0 != big_block_get_attr(&bh, "Nmesh", &UVF.Nside, "u8", 1)) ||
+        (0 != big_block_get_attr(&bh, "BoxSize", &TableBoxSize, "f8", 1)) ||
+        (0 != big_block_get_attr(&bh, "Redshift", &ReionRedshift, "f8", 1)) ||
+        (0 != big_block_mpi_close(&bh, MPI_COMM_WORLD))) {
+        endrun(0, "Failed to close block: %s\n",
+                    big_file_get_error_message());
+    }
+    big_file_mpi_close(&bf, MPI_COMM_WORLD);
+    double BoxMpc = BoxSize * UnitLength_in_cm / CM_PER_MPC;
+    if(TableBoxSize != BoxMpc)
+        endrun(0, "Wrong UV fluctuation file! %s is for box size %g Mpc/h, but current box is %g Mpc/h\n", TableBoxSize, BoxMpc);
+
+    message(0, "Using NON-UNIFORM UV BG fluctuations from %s. Median reionization redshift is %g\n", UVFluctuationFile, ReionRedshift);
+    UVF.enabled = 1;
 
     int size;
     UVF.Table = read_big_array(UVFluctuationFile, "Zreion_Table", &size);
 
-    UVF.Nside = (int)cbrt(size);
+    if(UVF.Nside * UVF.Nside * UVF.Nside != size)
+        endrun(0, "Corrupt UV Fluctuation table: Nside = %ld, but table is %ld != %ld^3\n", UVF.Nside, size, UVF.Nside);
 
     int dims[] = {UVF.Nside, UVF.Nside, UVF.Nside};
     interp_init(&UVF.interp, 3, dims);
@@ -118,7 +147,7 @@ init_uvf_table(const char * UVFluctuationFile, const double BoxSize)
     interp_init_dim(&UVF.interp, 2, 0, BoxSize);
 
     if(UVF.Table[0] < 0.01 || UVF.Table[0] > 100.0) {
-        endrun(123, "UV Fluctuation out of range: %g\n", UVF.Table[0]);
+        endrun(0, "UV Fluctuation out of range: %g\n", UVF.Table[0]);
     }
 }
 
@@ -132,7 +161,7 @@ struct UVBG get_local_UVBG(double redshift, double * Pos)
     if(fabs(redshift - GlobalUVRed) > 1e-4)
         endrun(1, "Called with redshift %g not %g expected by the UVBG cache.\n", redshift, GlobalUVRed);
 
-    if(UVF.disabled) {
+    if(!UVF.enabled) {
         /* directly use the TREECOOL table if UVF is disabled */
         return GlobalUVBG;
     }

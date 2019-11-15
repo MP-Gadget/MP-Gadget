@@ -710,7 +710,7 @@ void init_cooling_and_star_formation(void)
 
     init_cooling(All.TreeCoolFile, All.MetalCoolFile, All.ReionHistFile, coolunits, &All.CP);
     /*Initialize the uv fluctuation table*/
-    init_uvf_table(All.UVFluctuationFile, All.BoxSize);
+    init_uvf_table(All.UVFluctuationFile, All.BoxSize, All.UnitLength_in_cm);
 
     if(!All.StarformationOn)
         return;
