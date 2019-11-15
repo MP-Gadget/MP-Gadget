@@ -18,9 +18,6 @@ static struct {
     Interp Finterp;
     double * Table;
     ptrdiff_t Nside;
-    double * Fraction;
-    double * Zbins;
-    int N_Zbins;
 } UVF;
 
 /*Global UVbackground stored to avoid extra interpolations.*/
@@ -110,15 +107,6 @@ init_uvf_table(const char * UVFluctuationFile)
     message(0, "Using NON-UNIFORM UV BG fluctuations from %s\n", UVFluctuationFile);
     UVF.disabled = 0;
 
-    {
-        /* read the reionized fraction */
-        UVF.Zbins = read_big_array(UVFluctuationFile, "Redshift_Bins", &UVF.N_Zbins);
-        UVF.Fraction = read_big_array(UVFluctuationFile, "ReionizedFraction", &UVF.N_Zbins);
-        int dims[] = {UVF.N_Zbins};
-        interp_init(&UVF.Finterp, 1, dims);
-        interp_init_dim(&UVF.Finterp, 0, UVF.Zbins[0], UVF.Zbins[UVF.N_Zbins - 1]);
-    }
-
     int Nside;
     double * XYZ_Bins = read_big_array(UVFluctuationFile, "XYZ_Bins", &Nside);
     int dims[] = {Nside, Nside, Nside};
@@ -135,26 +123,6 @@ init_uvf_table(const char * UVFluctuationFile)
         endrun(123, "UV Fluctuation out of range: %g\n", UVF.Table[0]);
     }
 }
-
-#if 0
-/* Fraction of total universe that is ionized.
- * currently unused. Unclear if the UVBG in Treecool shall be adjusted
- * by the factor or not. seems to be NOT after reading Giguere's paper.
- * */
-static double GetReionizedFraction(double time) {
-    if(UVF.disabled) {
-        return 1.0;
-    }
-    int status[1];
-    double redshift = 1 / time - 1;
-    double x[] = {redshift};
-    double fraction = interp_eval(&UVF.Finterp, x, UVF.Fraction, status);
-    if(status[0] < 0) return 0.0;
-    if(status[0] > 0) return 1.0;
-    return fraction;
-}
-
-#endif
 
 /*
  * returns the spatial dependent UVBG if UV fluctuation is enabled.
