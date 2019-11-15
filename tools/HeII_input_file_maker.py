@@ -273,7 +273,7 @@ if __name__ == "__main__":
     parser.add_argument('--cf', type=float, default=3., help='Subgrid clumping factor', required=False)
     parser.add_argument('--z_i', type=float, default=-1, help='Start redshift of helium reionization', required=False)
     parser.add_argument('--z_f', type=float, default=-1, help='End redshift of helium reionization', required=False)
-    parser.add_argument('--hist', type=str, default="quasar", help='Type of reionization history', required=True)
+    parser.add_argument('--hist', type=str, default="quasar", help='Type of reionization history', required=True, choices=["linear", "quasar"])
     parser.add_argument('--outfile', type=str, default="HeIIReionizationTable", help='Name of file to save to', required=False)
     args = parser.parse_args()
 
