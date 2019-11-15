@@ -24,10 +24,8 @@ struct particle_data
         unsigned int IsGarbage            :1; /* True for a garbage particle. readonly: Use slots_mark_garbage to mark this.*/
         unsigned int DensityIterationDone :1; /* True if the density-like iterations already finished; */
         unsigned int Swallowed            :1; /* True if the particle is being swallowed; used in BH to determine swallower and swallowee;*/
-        unsigned int spare_0            :1;
-
-        unsigned int HeIIIionized              :1; /*True if the particle has undergone helium reionization*/
-        unsigned char Generation;             /* How many particles it has spawned; used to generate unique particle ID.
+        unsigned int HeIIIionized         :1; /*True if the particle has undergone helium reionization*/
+        unsigned char Generation; /* How many particles it has spawned; used to generate unique particle ID.
                                      may wrap around with too many SFR/BH if a feedback model goes rogue */
 
         signed char TimeBin; /* Time step bin; -1 for unassigned.*/
