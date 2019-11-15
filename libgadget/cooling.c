@@ -32,14 +32,12 @@
 static struct cooling_units coolunits;
 
 /*Do initialisation for the cooling module*/
-void init_cooling(char * TreeCoolFile, char * MetalCoolFile, char * UVFluctuationFile, char * reion_hist_file, struct cooling_units cu, Cosmology * CP)
+void init_cooling(char * TreeCoolFile, char * MetalCoolFile, char * reion_hist_file, struct cooling_units cu, Cosmology * CP)
 {
     coolunits = cu;
 
     /*Initialize the cooling rates*/
     init_cooling_rates(TreeCoolFile, MetalCoolFile, CP);
-    /*Initialize the uv fluctuation table*/
-    init_uvf_table(UVFluctuationFile);
     /* Initialize the helium reionization model*/
     init_qso_lightup(reion_hist_file);
 }

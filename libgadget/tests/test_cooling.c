@@ -176,7 +176,6 @@ static void test_DoCooling(void ** state)
 
     char * TreeCool = GADGET_TESTDATA_ROOT "/examples/TREECOOL_ep_2018p";
     char * MetalCool = "";
-    char * UVFluc = "";
 
     /*unit system*/
     double HubbleParam = 0.7;
@@ -200,7 +199,7 @@ static void test_DoCooling(void ** state)
     CP.OmegaBaryon = coolpar.fBar * CP.OmegaCDM;
     CP.HubbleParam = HubbleParam;
     set_coolpar(coolpar);
-    init_cooling(TreeCool, MetalCool, UVFluc, NULL, coolunits, &CP);
+    init_cooling(TreeCool, MetalCool, NULL, coolunits, &CP);
     struct UVBG uvbg = get_global_UVBG(0);
     assert_true(fabs(uvbg.epsH0/3.65296e-25 -1) < 1e-5);
     assert_true(fabs(uvbg.epsHe0/3.98942e-25 -1) < 1e-5);

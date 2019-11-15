@@ -66,9 +66,6 @@ void set_coolpar(struct cooling_params cp);
  * Defaults: TCMB 2.7255, recomb = Verner96, cooling = Sherwood.*/
 void init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, Cosmology * CP);
 
-/*Reads and initialises the tables for a spatially varying redshift of reionization*/
-void init_uvf_table(const char * UVFluctuationFile);
-
 /* Reads and initializes the cloudy metal cooling table. Called in init_cooling_rates. No need to call it separately.*/
 void InitMetalCooling(const char * MetalCoolFile);
 

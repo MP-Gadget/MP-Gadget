@@ -15,7 +15,6 @@
 static struct {
     int disabled;
     Interp interp;
-    Interp Finterp;
     double * Table;
     ptrdiff_t Nside;
 } UVF;
@@ -97,7 +96,7 @@ read_big_array(const char * filename, char * dataset, int * Nread)
  *
  * */
 void
-init_uvf_table(const char * UVFluctuationFile)
+init_uvf_table(const char * UVFluctuationFile, const double BoxSize)
 {
     if(strlen(UVFluctuationFile) == 0) {
         UVF.disabled = 1;
@@ -107,18 +106,17 @@ init_uvf_table(const char * UVFluctuationFile)
     message(0, "Using NON-UNIFORM UV BG fluctuations from %s\n", UVFluctuationFile);
     UVF.disabled = 0;
 
-    int Nside;
-    double * XYZ_Bins = read_big_array(UVFluctuationFile, "XYZ_Bins", &Nside);
-    int dims[] = {Nside, Nside, Nside};
-    interp_init(&UVF.interp, 3, dims);
-    interp_init_dim(&UVF.interp, 0, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
-    interp_init_dim(&UVF.interp, 1, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
-    interp_init_dim(&UVF.interp, 2, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
-    myfree(XYZ_Bins);
-    UVF.Nside = Nside;
-
     int size;
     UVF.Table = read_big_array(UVFluctuationFile, "Zreion_Table", &size);
+
+    UVF.Nside = (int)cbrt(size);
+
+    int dims[] = {UVF.Nside, UVF.Nside, UVF.Nside};
+    interp_init(&UVF.interp, 3, dims);
+    interp_init_dim(&UVF.interp, 0, 0, BoxSize);
+    interp_init_dim(&UVF.interp, 1, 0, BoxSize);
+    interp_init_dim(&UVF.interp, 2, 0, BoxSize);
+
     if(UVF.Table[0] < 0.01 || UVF.Table[0] > 100.0) {
         endrun(123, "UV Fluctuation out of range: %g\n", UVF.Table[0]);
     }
