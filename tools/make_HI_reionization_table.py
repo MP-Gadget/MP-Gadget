@@ -21,11 +21,15 @@
 
 """
 
+import os.path
 import argparse
 import logging
 import bigfile
 from mpi4py import MPI
 import numpy
+
+import configobj
+import validate
 
 from pmesh.pm import ParticleMesh
 from fastpm.core import Solver
@@ -33,14 +37,33 @@ from nbodykit.cosmology import Cosmology, LinearPower
 from astropy.cosmology import FlatLambdaCDM
 from astropy import units as U
 
-ap = argparse.ArgumentParser("preion-make-zreion.py")
-ap.add_argument("output", help='name of bigfile to store the mesh')
-ap.add_argument("--dataset", default='Zreion_table', help='name of the dataset that stores the reionization redshift')
-ap.add_argument("--resolution", type=float, default=1.0, help='resolution in Mpc/h')
-ap.add_argument("--filtersize", type=float, default=1.0, help='resolution in Mpc/h')
-ap.add_argument("--chunksize", type=int, default=1024*1024*16, help='number of particle to read at once')
-ap.add_argument("--boxsize",type=float,default=400.,help='box size in Mpc/h')
-ap.add_argument("--redshift",type=float,default=8.,help='median redshift of reionisation')
+GenICconfigspec = """
+FileWithInputSpectrum = string(default='')
+FileWithTransferFunction = string(default='')
+Ngrid = integer(min=0)
+BoxSize = float(min=0)
+Omega0 = float(0,1)
+OmegaLambda = float(0,1)
+OmegaBaryon = float(0,1,default=0.0486)
+HubbleParam = float(0,2)
+Redshift = float(0,1100)
+Sigma8 = float(default=-1)
+Seed = integer(min=0)
+InputPowerRedshift = float(default=-1)
+DifferentTransferFunctions = integer(0,1, default=1)
+UnitLength_in_cm  = float(default=3.085678e21)
+Omega_fld = float(0,1,default=0)
+w0_fld = float(default=-1)
+wa_fld = float(default=0)
+MNue = float(min=0, default=0)
+MNum = float(min=0, default=0)
+MNut = float(min=0, default=0)
+MWDM_Therm = float(min=0, default=0)
+PrimordialIndex = float(default=0.971)
+PrimordialAmp = float(default=2.215e-9)
+PrimordialRunning = float(default=0)
+CMBTemperature = float(default=2.7255)""".split('\n')
+
 logger = logging
 logging.basicConfig(level=logging.INFO)
 
@@ -65,44 +88,49 @@ def Bofk(k):
     ans =  b0/pow(1 + (k/k0),al)
     return ans
 
-def get_lpt(pm,z):
+def get_lpt(pm,z, cosmology, seed):
     """Evolve the linear power using a 2LPT solver,
        so we get a good model of the density structure at the reionization redshift."""
     a = 1/(1+z)
-    Planck18 = FlatLambdaCDM(H0=67.36,Om0=0.3153,Tcmb0=2.7255*U.Unit('K'),Neff=3.046,m_nu=numpy.array([0,0,0.06])*U.Unit('eV'),Ob0=0.02237/0.6736/0.6736)
-    Planck18 = Cosmology.from_astropy(Planck18)
-    Plin = LinearPower(Planck18, redshift=0, transfer='EisensteinHu')
-    solver = Solver(pm, Planck18, B=1)
+    Plin = LinearPower(cosmology, redshift=0, transfer='EisensteinHu')
+    solver = Solver(pm, cosmology, B=1)
     Q = pm.generate_uniform_particle_grid()
 
-    wn = solver.whitenoise(422317)
+    wn = solver.whitenoise(seed)
     dlin = solver.linear(wn, Plin)
 
     state = solver.lpt(dlin, Q, a=a, order=2)
 
     return state
 
-def main():
+def main(paramfile, output, redshift, resolution, filtersize):
     """Do the work and output the file"""
-    ns = ap.parse_args()
+    config = configobj.ConfigObj(infile=paramfile, configspec=GenICconfigspec, file_error=True)
+    #Input sanitisation
+    vtor = validate.Validator()
+    config.validate(vtor)
     comm = MPI.COMM_WORLD
 
-    BoxSize = ns.boxsize
-    Redshift = ns.redshift
+    cm_per_mpc = 3.085678e24
+    BoxSize = config["BoxSize"] * config["UnitLength_in_cm"] / cm_per_mpc
+    Redshift = redshift
 
-    Nmesh = int(BoxSize / ns.resolution)
+    Nmesh = int(BoxSize / resolution)
     # round it to 8.
     Nmesh -= Nmesh % 8
 
     if comm.rank == 0:
-        logger.info("output = %s", ns.output)
+        logger.info("output = %s", output)
         logger.info("BoxSize = %g", BoxSize)
         logger.info("Redshift = %g", Redshift)
         logger.info("Nmesh = %g", Nmesh)
 
     pm = ParticleMesh([Nmesh, Nmesh, Nmesh], BoxSize, comm=comm)
 
-    state = get_lpt(pm,Redshift)
+    mnu = numpy.array([config["MNue"], config["MNum"], config["MNut"]])
+    omegacdm = config["Omega0"] - config["OmegaBaryon"] - numpy.sum(mnu)/93.14/config["HubbleParam"]**2
+    cosmo = Cosmology(h=config["HubbleParam"],Omega0_cdm=omegacdm,T0_cmb=config["CMBTemperature"])
+    state = get_lpt(pm,Redshift, cosmo, config["Seed"])
     real = state.to_mesh()
 
     logger.info("field painted")
@@ -121,7 +149,7 @@ def main():
     for k, _, slab in zip(cmplx.slabs.x, cmplx.slabs.i, cmplx.slabs):
         k2 = sum(kd ** 2 for kd in k)
         # tophat
-        f = tophat(ns.filtersize, k2 ** 0.5)
+        f = tophat(filtersize, k2 ** 0.5)
         slab[...] *= f
         # zreion
         slab[...] *= Bofk(k2 ** 0.5)
@@ -139,12 +167,14 @@ def main():
     real.sort(out=buffer)
     if comm.rank == 0:
         logger.info("sorted for output")
+    if os.path.exists(output):
+        raise IOError("Refusing to write to existing file: ",output)
 
-    with bigfile.BigFileMPI(comm, ns.output, create=True) as ff:
-        with ff.create_from_array(ns.dataset, buffer) as bb:
+    with bigfile.BigFileMPI(comm, output, create=True) as ff:
+        with ff.create_from_array("Zreion_table", buffer) as bb:
             bb.attrs['BoxSize'] = BoxSize
             bb.attrs['Redshift'] = Redshift
-            bb.attrs['TopHatFilterSize'] = ns.filtersize
+            bb.attrs['TopHatFilterSize'] = filtersize
             bb.attrs['Nmesh'] = Nmesh
         #
         # hack: compatible with current MPGadget. This is not really needed
@@ -158,4 +188,11 @@ def main():
         logger.info("done. written at %s", ns.output)
 
 if __name__ == '__main__':
-    main()
+    ap = argparse.ArgumentParser("preion-make-zreion.py")
+    ap.add_argument("--output", help='name of bigfile to store the mesh', required=True)
+    ap.add_argument("--genic", help="Name of genic parameter file to read for cosmology and box size", required=True)
+    ap.add_argument("--resolution", type=float, default=1.0, help='resolution of the grid in Mpc/h')
+    ap.add_argument("--filtersize", type=float, default=1.0, help='Size of the filter in Mpc/h')
+    ap.add_argument("--redshift",type=float,default=7.5,help='median redshift of reionisation')
+    ns = ap.parse_args()
+    main(output=ns.output, paramfile = ns.genic, resolution = ns.resolution, filtersize = ns.filtersize, redshift = ns.redshift)
