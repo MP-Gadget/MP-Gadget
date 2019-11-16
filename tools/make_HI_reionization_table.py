@@ -64,9 +64,6 @@ PrimordialAmp = float(default=2.215e-9)
 PrimordialRunning = float(default=0)
 CMBTemperature = float(default=2.7255)""".split('\n')
 
-logger = logging
-logging.basicConfig(level=logging.INFO)
-
 def tophat(R, k):
     """Top hat filter for the reionization patches"""
     rk = R * k
@@ -122,6 +119,7 @@ def generate_zreion_file(paramfile, output, redshift, resolution):
     config.validate(vtor)
     comm = MPI.COMM_WORLD
 
+    logger = logging
     cm_per_mpc = 3.085678e24
     BoxSize = config["BoxSize"] * config["UnitLength_in_cm"] / cm_per_mpc
     Redshift = redshift
@@ -200,7 +198,7 @@ def generate_zreion_file(paramfile, output, redshift, resolution):
                 bb.write(0, bins)
 
     if comm.rank == 0:
-        logger.info("done. written at %s", ns.output)
+        logger.info("done. written at %s", output)
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser("preion-make-zreion.py")
@@ -209,4 +207,6 @@ if __name__ == '__main__':
     ap.add_argument("--resolution", type=float, default=1.0, help='Resolution of the reionization field in Mpc/h. 1 Mpc is the value from Battaglia 2013')
     ap.add_argument("--redshift",type=float,default=7.5,help='median redshift of reionisation')
     ns = ap.parse_args()
+    logging.basicConfig(level=logging.INFO)
+
     generate_zreion_file(output=ns.output, paramfile = ns.genic, resolution=ns.resolution, redshift = ns.redshift)
