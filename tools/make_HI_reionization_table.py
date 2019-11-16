@@ -186,7 +186,7 @@ def generate_zreion_file(paramfile, output, redshift, resolution):
         raise IOError("Refusing to write to existing file: ",output)
 
     with bigfile.BigFileMPI(comm, output, create=True) as ff:
-        with ff.create_from_array("Zreion_table", buffer) as bb:
+        with ff.create_from_array("Zreion_Table", buffer) as bb:
             bb.attrs['BoxSize'] = BoxSize
             bb.attrs['Redshift'] = Redshift
             bb.attrs['TopHatFilterSize'] = filtersize
