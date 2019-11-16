@@ -179,7 +179,7 @@ def generate_zreion_file(paramfile, output, redshift, resolution):
         logger.info("zreion.mean = %s", mean)
 
     buffer = numpy.empty(real.size, real.dtype)
-    real.sort(out=buffer)
+    real.ravel(out=buffer)
     if comm.rank == 0:
         logger.info("sorted for output")
     if os.path.exists(output):
