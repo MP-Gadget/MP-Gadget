@@ -103,8 +103,19 @@ def get_lpt(pm,z, cosmology, seed):
 
     return state
 
-def main(paramfile, output, redshift, resolution, filtersize):
-    """Do the work and output the file"""
+def generate_zreion_file(paramfile, output, redshift, resolution):
+    """Do the work and output the file.
+    This reads parameters from the MP-GenIC paramfile, generates a table of patchy reionization redshifts, and saves it.
+    This table can be read by MP-Gadget. The core of the method is a correlation between large-scale overdensity and
+    redshift of reionization calibrated from a radiative transfer simulation. To realise this, the code needs to know the large
+    scale overdensity, which it does using FastPM.
+
+    Arguments:
+    - paramfile: genic parameter file to read from
+    - output: file to save the reionization table to
+    - redshift: redshift for the midpoint of reionization
+    - Nmesh: sie of the particle grid to use
+    """
     config = configobj.ConfigObj(infile=paramfile, configspec=GenICconfigspec, file_error=True)
     #Input sanitisation
     vtor = validate.Validator()
@@ -118,6 +129,10 @@ def main(paramfile, output, redshift, resolution, filtersize):
     Nmesh = int(BoxSize / resolution)
     # round it to 8.
     Nmesh -= Nmesh % 8
+
+    # Top-hat filter the density field on one grid scale
+    filtersize = resolution
+
 
     if comm.rank == 0:
         logger.info("output = %s", output)
@@ -191,8 +206,7 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser("preion-make-zreion.py")
     ap.add_argument("--output", help='name of bigfile to store the mesh', required=True)
     ap.add_argument("--genic", help="Name of genic parameter file to read for cosmology and box size", required=True)
-    ap.add_argument("--resolution", type=float, default=1.0, help='resolution of the grid in Mpc/h')
-    ap.add_argument("--filtersize", type=float, default=1.0, help='Size of the filter in Mpc/h')
+    ap.add_argument("--resolution", type=float, default=1.0, help='Resolution of the reionization field in Mpc/h. 1 Mpc is the value from Battaglia 2013')
     ap.add_argument("--redshift",type=float,default=7.5,help='median redshift of reionisation')
     ns = ap.parse_args()
-    main(output=ns.output, paramfile = ns.genic, resolution = ns.resolution, filtersize = ns.filtersize, redshift = ns.redshift)
+    generate_zreion_file(output=ns.output, paramfile = ns.genic, resolution=ns.resolution, redshift = ns.redshift)
