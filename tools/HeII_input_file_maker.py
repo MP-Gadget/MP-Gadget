@@ -125,17 +125,17 @@ class HeIIheating:
 
 
     def tau(self,z,z0,E):
-        """Approximate optical depth that long MFP photons see-- may want to replace this with something better later but it's probably good enough right now"""
-        xHII = 1. #appropriate for HeII reionization redshifts
-        xHI = np.amax([1. - xHII, 0.]) #follows from above (xHI is effectively 0)
-        xHeI = xHI #HeI should be ionized with HI by first galaxies
+        """Approximate optical depth that long MFP photons see-- may want to replace this with something better later
+        but it's probably good enough right now"""
+        xHeI = 0 #HeI should be ionized with HI by first galaxies
         xHeII = np.amax([1 - xHeI - self.hist.XHeIII(z), 0.]) #This essentially follows the evolution of HeIII fraction.
         func = lambda z: self.speed_of_light/(self.cosmo.Hubble(z)*(1+z))*self.sigmaHeII(E*(1.+z)/(1.+z0))*self.cosmo.nHe(z)*xHeII
         t = scipy.integrate.quad(func,z0,z)
         return t[0]
 
     def a_norm(self, redshift):
-        """Normalization of emissivity-- requires that the total ionizing emissivity of ionizing photons balances the number of ionizations plus recombinations.
+        """Normalization of emissivity-- requires that the total ionizing emissivity of ionizing photons
+        balances the number of ionizations plus recombinations.
         TODO: put in better clumping factor prescription and T_est"""
         absfac = self.clumping_fac*self.alphaHeppTest*self.hist.XHeIII(redshift)*self.cosmo.ne(redshift)
         A = ((self.alpha_q)*self.cosmo.nHe(redshift))/(self.E0_HeII**(-self.alpha_q))*(self.hist.dXHeIIIdz(redshift)*(-self.cosmo.Hubble(redshift)*(1+redshift))+ absfac)
@@ -143,21 +143,26 @@ class HeIIheating:
 
     def specific_intensity(self, z0, E):
         """Specific intensity based on powerlaw QSO spectrum"""
-        func = lambda z: (self.speed_of_light/(4.*np.pi))*(1./(self.cosmo.Hubble(z)*(1+z)))*(1+z0)**3./((1+z)**3.)*self.a_norm(z)*((E)**(-self.alpha_q))*np.exp(-self.tau(z,z0,E))
+        func = lambda z: (self.speed_of_light/(4.*np.pi))*(1./(self.cosmo.Hubble(z)*(1+z)))*(1+z0)**3./((1+z)**3.)*self.a_norm(z)*np.exp(-self.tau(z,z0,E))
         J_E = scipy.integrate.quad(func,z0,10., limit=100)
         return J_E[0]
 
     def dQ_hard_dz(self, redshift, E_lim = 1000.):
         """Uniform heating rate from long MFP hard photons only (E_gamma > Emax), dQ/dz. This is making the assumption that all Helium is in the form of HeII."""
-        func = lambda E: ((E-self.E0_HeII)/E)*self.specific_intensity(redshift,E)*self.sigmaHeII(E)
+        func = lambda E: ((E-self.E0_HeII)/E)*self.specific_intensity(redshift,E)*self.sigmaHeII(E)*(E)**(-self.alpha_q)
         w = scipy.integrate.quad(func,self.Emax,E_lim)
         dQdz = 4.*np.pi*self.eVtoerg*self.cosmo.nHe(redshift)*w[0]*1./(self.cosmo.Hubble(redshift)*(1+redshift))
         return dQdz
 
     def dGamma_hard_dt(self, redshift, E_lim = 1000.):
         """Photoionization heating of hard photons only (E_gamma > Emax), dGamma/dt. Units are erg/s/cm^3."""
-        func = lambda E: ((E-self.E0_HeII)/E)*self.specific_intensity(redshift,E)*self.sigmaHeII(E)
-        w = scipy.integrate.quad(func,self.Emax,E_lim)
+        def _dGamma_dt_int(zz, E):
+            """Integrand for the the double integration over E and J(E,z)"""
+            intensity = (self.speed_of_light/(4.*np.pi))*(1./(self.cosmo.Hubble(zz)*(1+zz)))*(1+redshift)**3./((1+zz)**3.)*self.a_norm(zz)*np.exp(-self.tau(zz,redshift,E))
+            dGamma_int = ((E-self.E0_HeII)/E)*intensity *self.sigmaHeII(E)*(E)**(-self.alpha_q)
+            return dGamma_int
+        #Do the double integral of E from Emax to Elim and zz from redshift to 10.
+        w = scipy.integrate.dblquad(_dGamma_dt_int,self.Emax,E_lim, redshift, 10)
         dGammadt = 4.*np.pi*w[0]*self.eVtoerg*self.cosmo.nHe(redshift)
         return dGammadt
 
@@ -215,7 +220,7 @@ class QuasarHistory:
         """HeIII fraction over cosmic time based on a QSO emissivity function."""
         return np.exp(self.xHeII_interp(redshift))-1e-30
 
-    def dXHeIIIdz(self, redshift, dz = 0.01):
+    def dXHeIIIdz(self, redshift):
         """Change in XHeIII, where XHeIII evolves based on a QSO emissivity function fit."""
         return self.dXHeIIIdz_int(self.XHeIII(redshift), redshift)
 
