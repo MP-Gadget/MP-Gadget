@@ -34,8 +34,6 @@ import validate
 from pmesh.pm import ParticleMesh
 from fastpm.core import Solver
 from nbodykit.cosmology import Cosmology, LinearPower
-from astropy.cosmology import FlatLambdaCDM
-from astropy import units as U
 
 GenICconfigspec = """
 FileWithInputSpectrum = string(default='')
