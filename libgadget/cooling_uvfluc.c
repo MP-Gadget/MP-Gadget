@@ -7,20 +7,18 @@
 #include <string.h>
 #include <math.h>
 #include "cooling_rates.h"
+#include "physconst.h"
 #include "bigfile.h"
+#include "bigfile-mpi.h"
 #include "utils/mymalloc.h"
 #include "utils/interp.h"
 #include "utils/endrun.h"
 
 static struct {
-    int disabled;
+    int enabled;
     Interp interp;
-    Interp Finterp;
     double * Table;
     ptrdiff_t Nside;
-    double * Fraction;
-    double * Zbins;
-    int N_Zbins;
 } UVF;
 
 /*Global UVbackground stored to avoid extra interpolations.*/
@@ -100,61 +98,58 @@ read_big_array(const char * filename, char * dataset, int * Nread)
  *
  * */
 void
-init_uvf_table(const char * UVFluctuationFile)
+init_uvf_table(const char * UVFluctuationFile, const double BoxSize, const double UnitLength_in_cm)
 {
     if(strlen(UVFluctuationFile) == 0) {
-        UVF.disabled = 1;
+        UVF.enabled = 0;
         return;
     }
 
-    message(0, "Using NON-UNIFORM UV BG fluctuations from %s\n", UVFluctuationFile);
-    UVF.disabled = 0;
-
-    {
-        /* read the reionized fraction */
-        UVF.Zbins = read_big_array(UVFluctuationFile, "Redshift_Bins", &UVF.N_Zbins);
-        UVF.Fraction = read_big_array(UVFluctuationFile, "ReionizedFraction", &UVF.N_Zbins);
-        int dims[] = {UVF.N_Zbins};
-        interp_init(&UVF.Finterp, 1, dims);
-        interp_init_dim(&UVF.Finterp, 0, UVF.Zbins[0], UVF.Zbins[UVF.N_Zbins - 1]);
+    /* Open and validate the UV fluctuation file*/
+    BigFile bf;
+    BigBlock bh;
+    if(0 != big_file_mpi_open(&bf, UVFluctuationFile, MPI_COMM_WORLD)) {
+        endrun(0, "Failed to open snapshot at %s:%s\n", UVFluctuationFile,
+                    big_file_get_error_message());
     }
 
-    int Nside;
-    double * XYZ_Bins = read_big_array(UVFluctuationFile, "XYZ_Bins", &Nside);
-    int dims[] = {Nside, Nside, Nside};
-    interp_init(&UVF.interp, 3, dims);
-    interp_init_dim(&UVF.interp, 0, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
-    interp_init_dim(&UVF.interp, 1, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
-    interp_init_dim(&UVF.interp, 2, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
-    myfree(XYZ_Bins);
-    UVF.Nside = Nside;
+    if(0 != big_file_mpi_open_block(&bf, &bh, "Zreion_Table", MPI_COMM_WORLD)) {
+        endrun(0, "Failed to create block at %s:%s\n", "Header",
+                    big_file_get_error_message());
+    }
+    double TableBoxSize;
+    double ReionRedshift;
+    if ((0 != big_block_get_attr(&bh, "Nmesh", &UVF.Nside, "u8", 1)) ||
+        (0 != big_block_get_attr(&bh, "BoxSize", &TableBoxSize, "f8", 1)) ||
+        (0 != big_block_get_attr(&bh, "Redshift", &ReionRedshift, "f8", 1)) ||
+        (0 != big_block_mpi_close(&bh, MPI_COMM_WORLD))) {
+        endrun(0, "Failed to close block: %s\n",
+                    big_file_get_error_message());
+    }
+    big_file_mpi_close(&bf, MPI_COMM_WORLD);
+    double BoxMpc = BoxSize * UnitLength_in_cm / CM_PER_MPC;
+    if(TableBoxSize != BoxMpc)
+        endrun(0, "Wrong UV fluctuation file! %s is for box size %g Mpc/h, but current box is %g Mpc/h\n", TableBoxSize, BoxMpc);
+
+    message(0, "Using NON-UNIFORM UV BG fluctuations from %s. Median reionization redshift is %g\n", UVFluctuationFile, ReionRedshift);
+    UVF.enabled = 1;
 
     int size;
     UVF.Table = read_big_array(UVFluctuationFile, "Zreion_Table", &size);
+
+    if(UVF.Nside * UVF.Nside * UVF.Nside != size)
+        endrun(0, "Corrupt UV Fluctuation table: Nside = %ld, but table is %ld != %ld^3\n", UVF.Nside, size, UVF.Nside);
+
+    int dims[] = {UVF.Nside, UVF.Nside, UVF.Nside};
+    interp_init(&UVF.interp, 3, dims);
+    interp_init_dim(&UVF.interp, 0, 0, BoxSize);
+    interp_init_dim(&UVF.interp, 1, 0, BoxSize);
+    interp_init_dim(&UVF.interp, 2, 0, BoxSize);
+
     if(UVF.Table[0] < 0.01 || UVF.Table[0] > 100.0) {
-        endrun(123, "UV Fluctuation out of range: %g\n", UVF.Table[0]);
+        endrun(0, "UV Fluctuation out of range: %g\n", UVF.Table[0]);
     }
 }
-
-#if 0
-/* Fraction of total universe that is ionized.
- * currently unused. Unclear if the UVBG in Treecool shall be adjusted
- * by the factor or not. seems to be NOT after reading Giguere's paper.
- * */
-static double GetReionizedFraction(double time) {
-    if(UVF.disabled) {
-        return 1.0;
-    }
-    int status[1];
-    double redshift = 1 / time - 1;
-    double x[] = {redshift};
-    double fraction = interp_eval(&UVF.Finterp, x, UVF.Fraction, status);
-    if(status[0] < 0) return 0.0;
-    if(status[0] > 0) return 1.0;
-    return fraction;
-}
-
-#endif
 
 /*
  * returns the spatial dependent UVBG if UV fluctuation is enabled.
@@ -166,7 +161,7 @@ struct UVBG get_local_UVBG(double redshift, double * Pos)
     if(fabs(redshift - GlobalUVRed) > 1e-4)
         endrun(1, "Called with redshift %g not %g expected by the UVBG cache.\n", redshift, GlobalUVRed);
 
-    if(UVF.disabled) {
+    if(!UVF.enabled) {
         /* directly use the TREECOOL table if UVF is disabled */
         return GlobalUVBG;
     }
