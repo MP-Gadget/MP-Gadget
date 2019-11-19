@@ -78,10 +78,10 @@ void read_parameterfile(char *fname)
     char * error;
 
     if(0 != param_parse_file(ps, fname, &error)) {
-        endrun(0, "Parsing %s failed: %s\n", fname, *error);
+        endrun(0, "Parsing %s failed: %s\n", fname, error);
     }
     if(0 != param_validate(ps, &error)) {
-        endrun(0, "Validation of %s failed: %s\n", fname, *error);
+        endrun(0, "Validation of %s failed: %s\n", fname, error);
     }
 
     message(0, "----------- Running with Parameters ----------\n");
