@@ -284,7 +284,7 @@ static void real_ev(TreeWalk * tw, int * ninter) {
     *ninter += lv->Ninteractions;
 }
 
-#ifdef DEBUG
+#if 0
 static int
 cmpint(const void *a, const void *b)
 {
