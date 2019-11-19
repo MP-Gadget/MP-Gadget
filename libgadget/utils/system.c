@@ -189,7 +189,8 @@ MPIU_Tracev(MPI_Comm comm, int where, const char * fmt, va_list va)
     char prefix[128];
 
     char buf[4096];
-    vsprintf(buf, fmt, va);
+    vsnprintf(buf, 4096, fmt, va);
+    buf[4095] = '\0';
 
     if(where > 0) {
         sprintf(prefix, "[ %09.2f ] Task %d: ", MPI_Wtime() - _timestart, ThisTask);
