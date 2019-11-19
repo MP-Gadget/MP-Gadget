@@ -95,7 +95,6 @@ set_qso_lightup_params(ParameterSet * ps)
         QSOLightupParams.qso_candidate_min_mass = param_get_double(ps, "QSOMinMass");
         QSOLightupParams.mean_bubble = param_get_double(ps, "QSOMeanBubble");
         QSOLightupParams.var_bubble = param_get_double(ps, "QSOVarBubble");
-        QSOLightupParams.heIIIreion_start = param_get_double(ps, "QSOHeIIIReionStart");
         QSOLightupParams.heIIIreion_finish_frac = param_get_double(ps, "QSOHeIIIReionFinishFrac");
     }
     MPI_Bcast(&QSOLightupParams, sizeof(struct qso_lightup_params), MPI_BYTE, 0, MPI_COMM_WORLD);
@@ -224,10 +223,9 @@ load_heii_reion_hist(const char * reion_hist_file)
     gsl_interp_init(HeIII_intp, He_zz, XHeIII, Nreionhist);
     gsl_interp_init(LMFP_intp, He_zz, LMFP, Nreionhist);
 
-    if(QSOLightupParams.heIIIreion_start > 1/He_zz[0]-1)
-        endrun(2, "HeII: Reionization table starts at z=%g but reionization starts earlier at z=%g\n", 1/He_zz[0]-1, QSOLightupParams.heIIIreion_start);
+    QSOLightupParams.heIIIreion_start = 1/He_zz[0]-1;
 
-    message(0, "Read %d lines z = %g - %g from file %s\n", Nreionhist, 1/He_zz[0] -1, 1/He_zz[Nreionhist-1]-1, reion_hist_file);
+    message(0, "HeII: Read %d lines z_reion = %g - %g from file %s\n", Nreionhist, 1/He_zz[0] -1, 1/He_zz[Nreionhist-1]-1, reion_hist_file);
 }
 
 void

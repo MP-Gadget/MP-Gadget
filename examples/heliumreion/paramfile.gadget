@@ -36,8 +36,6 @@ QSOLightupOn =  1
 QSOMeanBubble =  2000
 #All bubble have the same size
 QSOVarBubble = 0
-#When HeIII reionization starts
-QSOHeIIIReionStart = 5.8
 #Ionization fraction when it finishes
 QSOHeIIIReionFinishFrac = 0.95
 #Min and max mass of halos to form quasars in
