@@ -603,8 +603,6 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         O->BH_Mass += (BHP(other).Mass);
         P[other].Mass = 0;
         BHP(other).Mass = 0;
-
-        slots_mark_garbage(other, PartManager, SlotsManager);
         BHP(other).Mdot = 0;
         unlock_spinlock(other, spin);
 
@@ -792,4 +790,3 @@ decide_hsearch(double h)
         return h;
     }
 }
-

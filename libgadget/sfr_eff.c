@@ -161,8 +161,8 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree)
         {
             /*Use raw particle number if active_set is null, otherwise use active_set*/
             const int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
-            /* Skip non-gas or garbage particles */
-            if(P[p_i].Type != 0 || P[p_i].IsGarbage || P[p_i].Mass <= 0)
+            /* Skip non-gas, swallowed, or garbage particles */
+            if(P[p_i].Type != 0 || P[p_i].IsGarbage || P[p_i].Swallowed || P[p_i].Mass <= 0)
                 continue;
 
             int shall_we_star_form = 0;

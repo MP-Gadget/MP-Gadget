@@ -149,8 +149,14 @@ static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions) {
     message(0, "max number of regions is %d\n", maxNregions);
 
     int i;
+    int numswallowed = 0;
     for(i =0; i < PartManager->NumPart; i ++) {
-        P[i].RegionInd = -1;
+        if(P[i].Swallowed==1 && P[i].Type==5){
+            P[i].RegionInd = -2;
+            numswallowed++;
+        }
+        else
+            P[i].RegionInd = -1;
     }
 
     /* now lets mark particles to their hosting region */
@@ -166,7 +172,7 @@ static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions) {
         }
     }
     /* All particles shall have been processed just once. Otherwise we die */
-    if(numpart != PartManager->NumPart) {
+    if((numpart+numswallowed) != PartManager->NumPart) {
         endrun(1, "Processed only %d particles out of %d\n", numpart, PartManager->NumPart);
     }
     for(r =0; r < *Nregions; r++) {
@@ -474,4 +480,3 @@ static void readout_force_y(PetaPM * pm, int i, double * mesh, double weight) {
 static void readout_force_z(PetaPM * pm, int i, double * mesh, double weight) {
     P[i].GravPM[2] += weight * mesh[0];
 }
-

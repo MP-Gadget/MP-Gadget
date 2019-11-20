@@ -820,6 +820,7 @@ SIMPLE_PROPERTY_PI(BlackholeAccretionRate, Mdot, float, 1, struct bh_particle_da
 SIMPLE_PROPERTY_PI(BlackholeProgenitors, CountProgs, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeMinPotPos, MinPotPos[0], double, 3, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeJumpToMinPot, JumpToMinPot, int, 1, struct bh_particle_data)
+SIMPLE_PROPERTY(BlackholeSwallowed, Swallowed, int, 1)
 
 /*This is only used if FoF is enabled*/
 SIMPLE_GETTER(GTGroupID, GrNr, uint32_t, 1, struct particle_data)
@@ -930,6 +931,7 @@ void register_io_blocks(struct IOTable * IOTable) {
     IO_REG(BlackholeProgenitors,   "i4", 1, 5, IOTable);
     IO_REG(BlackholeMinPotPos, "f8", 3, 5, IOTable);
     IO_REG(BlackholeJumpToMinPot,   "i4", 1, 5, IOTable);
+    IO_REG(BlackholeSwallowed,   "i4", 1, 5, IOTable);
 
     /* Smoothing lengths for black hole: this is a new addition*/
     IO_REG_NONFATAL(SmoothingLength,  "f4", 1, 5, IOTable);
@@ -977,4 +979,3 @@ void destroy_io_blocks(struct IOTable * IOTable) {
     myfree(IOTable->ent);
     IOTable->allocated = 0;
 }
-

@@ -153,7 +153,7 @@ find_timesteps(const ActiveParticles * act, inttime_t Ti_Current)
         {
             /* Because we don't GC on short timesteps, there can be garbage here.
              * Avoid making it active. */
-            if(P[i].IsGarbage)
+            if(P[i].IsGarbage || P[i].Swallowed)
                 continue;
             inttime_t dti = get_timestep_ti(i, dti_max);
             if(dti < dti_min)
@@ -169,7 +169,7 @@ find_timesteps(const ActiveParticles * act, inttime_t Ti_Current)
     {
         const int i = get_active_particle(act, pa);
 
-        if(P[i].IsGarbage)
+        if(P[i].IsGarbage || P[i].Swallowed)
             continue;
 
         if(P[i].Ti_kick != P[i].Ti_drift) {
@@ -645,7 +645,7 @@ int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurre
     {
         const int bin = P[i].TimeBin;
         const int tid = omp_get_thread_num();
-        if(P[i].IsGarbage)
+        if(P[i].IsGarbage || P[i].Swallowed)
             continue;
         if(act->ActiveParticle && is_timebin_active(bin, Ti_Current))
         {
@@ -766,4 +766,3 @@ static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountTyp
         tot_type[0], tot_type[1], tot_type[2], tot_type[3], tot_type[4], tot_type[5], tot);
 
 }
-
