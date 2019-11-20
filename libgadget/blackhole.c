@@ -298,10 +298,14 @@ blackhole(const ActiveParticles * act, ForceTree * tree)
     double Local_BH_mass = 0;
     double Local_BH_Mdot = 0;
     double Local_BH_Medd = 0;
+    int Local_BH_num = 0;
     /* Compute total mass of black holes
      * present by summing contents of black hole array*/
     for(i = 0; i < SlotsManager->info[5].size; i ++)
     {
+        if(BhP[i].SwallowID != (MyIDType) -1)
+            continue;
+        Local_BH_num++;
         Local_BH_mass += BhP[i].Mass;
         Local_BH_Mdot += BhP[i].Mdot;
         Local_BH_Medd += BhP[i].Mdot/BhP[i].Mass;
@@ -310,7 +314,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree)
     MPI_Reduce(&Local_BH_mass, &total_mass_holes, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&Local_BH_Mdot, &total_mdot, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&Local_BH_Medd, &total_mdoteddington, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&SlotsManager->info[5].size, &total_bh, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&Local_BH_num, &total_bh, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
     if(ThisTask == 0)
     {
@@ -603,8 +607,6 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         O->BH_Mass += (BHP(other).Mass);
         P[other].Mass = 0;
         BHP(other).Mass = 0;
-
-        slots_mark_garbage(other, PartManager, SlotsManager);
         BHP(other).Mdot = 0;
         unlock_spinlock(other, spin);
 
@@ -662,7 +664,8 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 static int
 blackhole_accretion_haswork(int n, TreeWalk * tw)
 {
-    return (P[n].Type == 5) && (P[n].Mass > 0);
+    /* We need black holes not already swallowed (on a previous timestep).*/
+    return (P[n].Type == 5) && (P[n].Mass > 0) && (!P[n].Swallowed);
 }
 
 static void
@@ -760,6 +763,7 @@ void blackhole_make_one(int index) {
     BHP(child).Mass = blackhole_params.SeedBlackHoleMass;
     BHP(child).Mdot = 0;
     BHP(child).FormationTime = All.Time;
+    BHP(child).SwallowID = (MyIDType) -1;
 
     /* It is important to initialize MinPotPos to the current position of
      * a BH to avoid drifting to unknown locations (0,0,0) immediately
@@ -792,4 +796,3 @@ decide_hsearch(double h)
         return h;
     }
 }
-

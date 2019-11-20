@@ -757,6 +757,10 @@ pm_iterate_one(PetaPM * pm,
     double * Pos = POS(i);
     int RegionInd = REGION(i)[0];
 
+    /* Asserts that the swallowed particles are not considered (region -2) */
+    if(RegionInd<0)
+        return;
+
     PetaPMRegion * region = &regions[RegionInd];
     for(k = 0; k < 3; k++) {
         double tmp = Pos[k] / pm->CellSize;
