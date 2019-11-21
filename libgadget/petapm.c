@@ -756,7 +756,8 @@ pm_iterate_one(PetaPM * pm,
     double Res[3]; /* residual*/
     double * Pos = POS(i);
     int RegionInd = REGION(i)[0];
-
+    
+    /* Asserts that the swallowed particles are not considered (region -2) */
     if(RegionInd<0)
         return;
 

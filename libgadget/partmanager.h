@@ -16,7 +16,6 @@ struct particle_data
 
     double Pos[3];   /*!< particle position at its current time */
     float Mass;     /*!< particle mass */
-    int Swallowed; /* True if the particle is being swallowed; used in BH to determine swallower and swallowee;*/
 
     struct {
         /* particle type.  0=gas, 1=halo, 2=disk, 3=bulge, 4=stars, 5=bndry */
@@ -24,6 +23,7 @@ struct particle_data
 
         unsigned int IsGarbage            :1; /* True for a garbage particle. readonly: Use slots_mark_garbage to mark this.*/
         unsigned int DensityIterationDone :1; /* True if the density-like iterations already finished; */
+        unsigned int Swallowed            :1; /* True if the particle is being swallowed; used in BH to determine swallower and swallowee;*/
         unsigned int HeIIIionized         :1; /*True if the particle has undergone helium reionization*/
         unsigned char Generation; /* How many particles it has spawned; used to generate unique particle ID.
                                      may wrap around with too many SFR/BH if a feedback model goes rogue */
