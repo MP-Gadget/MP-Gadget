@@ -921,8 +921,6 @@ void register_io_blocks(struct IOTable * IOTable) {
     IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0, IOTable);
     /* Marks whether a particle has been HeIII ionized yet*/
     IO_REG_NONFATAL(HeIIIIonized, "u1", 1, 0, IOTable);
-    /* Marks whether a BH particle has been swallowed*/
-    IO_REG_NONFATAL(Swallowed, "u1", 1, 0, IOTable);
 
     /* SF */
     IO_REG_WRONLY(StarFormationRate, "f4", 1, 0, IOTable);
@@ -944,6 +942,8 @@ void register_io_blocks(struct IOTable * IOTable) {
 
     /* Smoothing lengths for black hole: this is a new addition*/
     IO_REG_NONFATAL(SmoothingLength,  "f4", 1, 5, IOTable);
+    /* Marks whether a BH particle has been swallowed*/
+    IO_REG_NONFATAL(Swallowed, "u1", 1, 5, IOTable);
 
     /*Sort IO blocks so similar types are together; then ordered by the sequence they are declared. */
     qsort_openmp(IOTable->ent, IOTable->used, sizeof(struct IOTableEntry), order_by_type);
