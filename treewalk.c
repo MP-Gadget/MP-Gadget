@@ -144,8 +144,9 @@ static void ev_begin(TreeWalk * tw)
         (struct data_index *) mymalloc("DataIndexTable", tw->BunchSize * sizeof(struct data_index));
     DataNodeList =
         (struct data_nodelist *) mymalloc("DataNodeList", tw->BunchSize * sizeof(struct data_nodelist));
-
+#ifdef DEBUG
     memset(DataNodeList, -1, sizeof(struct data_nodelist) * tw->BunchSize);
+#endif
 
     tw->PQueueSize = 0;
 
@@ -280,6 +281,7 @@ int * treewalk_get_queue(TreeWalk * tw, int * len) {
             if(!tw->isactive(i)) continue;
             queue[k++] = i;
         }
+#if 0
         /* check the uniqueness of ActiveParticle list. */
         qsort(queue, k, sizeof(int), cmpint);
         for(i = 0; i < k - 1; i ++) {
@@ -287,6 +289,7 @@ int * treewalk_get_queue(TreeWalk * tw, int * len) {
                 endrun(8829, "There are duplicated active particles.");
             }
         }
+#endif
     }
     *len = k;
     return queue;
