@@ -33,10 +33,3 @@ FILE 			/*!< file handle for info.txt log-file. */
 FILE *FdSfr;			/*!< file handle for sfr.txt log-file. */
 
 FILE *FdBlackHoles;		/*!< file handle for blackholes.txt log-file. */
-
-/*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
- * parameter file).  Holding this data in a structure is convenient for writing/reading the restart file, and
- * it allows the introduction of new global variables in a simple way. The only thing to do is to introduce
- * them into this structure.
- */
-struct global_data_all_processes All;

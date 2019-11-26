@@ -24,6 +24,7 @@
 #include <libgadget/petapm.h>
 #include <libgadget/timestep.h>
 
+struct global_data_all_processes All;
 /* The true struct for the state variable*/
 struct forcetree_testdata
 {
