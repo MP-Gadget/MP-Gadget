@@ -209,10 +209,13 @@ void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_dat
         functions[4].name = NULL;
     }
 
+    int Nregions;
     struct ic_prep_data icprep = {dispICP, NumPart};
     PetaPMRegion * regions = petapm_force_init(pm,
            makeregion,
-           &pstruct, &icprep);
+           &pstruct,
+           &Nregions,
+           &icprep);
 
     /*This allocates the memory*/
     pfft_complex * rho_k = petapm_alloc_rhok(pm);
@@ -220,7 +223,7 @@ void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_dat
     gaussian_fill(pm->Nmesh, petapm_get_fourier_region(pm),
 		  rho_k, All2.UnitaryAmplitude, All2.InvertPhase);
 
-    petapm_force_c2r(pm, rho_k, regions, functions);
+    petapm_force_c2r(pm, rho_k, regions, Nregions, functions);
 
     myfree(rho_k);
     myfree(regions);
