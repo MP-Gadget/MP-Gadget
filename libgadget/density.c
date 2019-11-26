@@ -471,6 +471,9 @@ density_ngbiter(
 static int
 density_haswork(int n, TreeWalk * tw)
 {
+    /* Don't want a density for swallowed black hole particles*/
+    if(P[n].Swallowed)
+        return 0;
     if(P[n].Type == 0 || P[n].Type == 5)
         return 1;
 

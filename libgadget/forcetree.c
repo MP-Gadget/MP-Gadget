@@ -403,11 +403,11 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         if(nc.nnext_thread >= tb.lastnode-1)
             continue;
 
-        /* Do not add garbage particles to the tree*/
-        if(P[i].IsGarbage)
+        /* Do not add garbage/swallowed particles to the tree*/
+        if(P[i].IsGarbage || (P[i].Swallowed && P[i].Type==5))
             continue;
-        /*First find the Node for the TopLeaf */
 
+        /*First find the Node for the TopLeaf */
         int this;
         if(inside_node(&tb.Nodes[this_acc], i)) {
             this = this_acc;

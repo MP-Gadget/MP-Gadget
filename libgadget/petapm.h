@@ -124,12 +124,14 @@ void petapm_force(PetaPM * pm,
 PetaPMRegion * petapm_force_init(PetaPM * pm,
         petapm_prepare_func prepare,
         PetaPMParticleStruct * pstruct,
+        int * Nregions,
         void * userdata);
 pfft_complex * petapm_force_r2c(PetaPM * pm,
         PetaPMGlobalFunctions * global_functions
         );
 void petapm_force_c2r(PetaPM * pm,
         pfft_complex * rho_k, PetaPMRegion * regions,
+        const int Nregions,
         PetaPMFunctions * functions);
 void petapm_force_finish(PetaPM * pm);
 

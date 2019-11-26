@@ -818,6 +818,8 @@ SIMPLE_PROPERTY_TYPE_PI(StarFormationTime, 5, FormationTime, float, 1, struct bh
 SIMPLE_PROPERTY_PI(BlackholeMass, Mass, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeAccretionRate, Mdot, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeProgenitors, CountProgs, float, 1, struct bh_particle_data)
+SIMPLE_PROPERTY_PI(BlackholeSwallowID, SwallowID, uint64_t, 1, struct bh_particle_data)
+SIMPLE_PROPERTY_PI(BlackholeSwallowTime, SwallowTime, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeMinPotPos, MinPotPos[0], double, 3, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeJumpToMinPot, JumpToMinPot, int, 1, struct bh_particle_data)
 
@@ -856,6 +858,15 @@ static void GTHeIIIIonized(int i, unsigned char * out, void * baseptr, void * sm
 static void STHeIIIIonized(int i, unsigned char * out, void * baseptr, void * smanptr) {
     struct particle_data * part = (struct particle_data *) baseptr;
     part[i].HeIIIionized = *out;
+}
+static void GTSwallowed(int i, unsigned char * out, void * baseptr, void * smanptr) {
+    struct particle_data * part = (struct particle_data *) baseptr;
+    *out = part[i].Swallowed;
+}
+
+static void STSwallowed(int i, unsigned char * out, void * baseptr, void * smanptr) {
+    struct particle_data * part = (struct particle_data *) baseptr;
+    part[i].Swallowed = *out;
 }
 
 static int order_by_type(const void *a, const void *b)
@@ -933,6 +944,12 @@ void register_io_blocks(struct IOTable * IOTable) {
 
     /* Smoothing lengths for black hole: this is a new addition*/
     IO_REG_NONFATAL(SmoothingLength,  "f4", 1, 5, IOTable);
+    /* Marks whether a BH particle has been swallowed*/
+    IO_REG_NONFATAL(Swallowed, "u1", 1, 5, IOTable);
+    /* ID of the swallowing black hole particle. If == -1, then particle is live*/
+    IO_REG_NONFATAL(BlackholeSwallowID, "u8", 1, 5, IOTable);
+    /* Time the BH was swallowed*/
+    IO_REG_NONFATAL(BlackholeSwallowTime, "f4", 1, 5, IOTable);
 
     /*Sort IO blocks so similar types are together; then ordered by the sequence they are declared. */
     qsort_openmp(IOTable->ent, IOTable->used, sizeof(struct IOTableEntry), order_by_type);
@@ -977,4 +994,3 @@ void destroy_io_blocks(struct IOTable * IOTable) {
     myfree(IOTable->ent);
     IOTable->allocated = 0;
 }
-

@@ -333,7 +333,8 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
         const int p_i = active_set ? active_set[i] : i;
 
         /* Skip the garbage particles */
-        if(P[p_i].IsGarbage) continue;
+        if(P[p_i].IsGarbage)
+            continue;
 
         if(tw->haswork && !tw->haswork(p_i, tw))
             continue;
@@ -847,8 +848,9 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
         for(numngb = 0; numngb < numcand; numngb ++) {
             int other = lv->ngblist[numngb];
 
-            /* skip garbage */
-            if(P[other].IsGarbage) continue;
+            /* Skip garbage*/
+            if(P[other].IsGarbage)
+                continue;
 
             /* must be the correct type */
             if(!((1<<P[other].Type) & iter->mask))

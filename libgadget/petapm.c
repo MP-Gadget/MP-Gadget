@@ -226,7 +226,7 @@ petapm_destroy(PetaPM * pm)
  * (particle i is never done by same thread)
  * */
 typedef void (* pm_iterator)(PetaPM * pm, int i, double * mesh, double weight);
-static void pm_iterate(PetaPM * pm, pm_iterator iterator, PetaPMRegion * regions);
+static void pm_iterate(PetaPM * pm, pm_iterator iterator, PetaPMRegion * regions, const int Nregions);
 /* apply transfer function to value, kpos array is in x, y, z order */
 static void pm_apply_transfer_function(PetaPM * pm,
         pfft_complex * src,
@@ -253,18 +253,19 @@ petapm_force_init(
         PetaPM * pm,
         petapm_prepare_func prepare,
         PetaPMParticleStruct * pstruct,
+        int * Nregions,
         void * userdata) {
     CPS = pstruct;
 
-    int Nregions = 0;
-    PetaPMRegion * regions = prepare(pm, userdata, &Nregions);
-    pm_init_regions(pm, regions, Nregions);
+    *Nregions = 0;
+    PetaPMRegion * regions = prepare(pm, userdata, Nregions);
+    pm_init_regions(pm, regions, *Nregions);
 
     walltime_measure("/PMgrav/Misc");
-    pm_iterate(pm, put_particle_to_mesh, regions);
+    pm_iterate(pm, put_particle_to_mesh, regions, *Nregions);
     walltime_measure("/PMgrav/cic");
 
-    layout_prepare(pm, &pm->priv->layout, pm->priv->meshbuf, regions, Nregions, pm->comm);
+    layout_prepare(pm, &pm->priv->layout, pm->priv->meshbuf, regions, *Nregions, pm->comm);
 
     walltime_measure("/PMgrav/comm");
     return regions;
@@ -317,6 +318,7 @@ void
 petapm_force_c2r(PetaPM * pm,
         pfft_complex * rho_k,
         PetaPMRegion * regions,
+        const int Nregions,
         PetaPMFunctions * functions)
 {
 
@@ -338,7 +340,7 @@ petapm_force_c2r(PetaPM * pm,
         layout_build_and_exchange_cells_to_local(pm, &pm->priv->layout, pm->priv->meshbuf, real);
         walltime_measure("/PMgrav/comm");
 
-        pm_iterate(pm, readout, regions);
+        pm_iterate(pm, readout, regions, Nregions);
         walltime_measure("/PMgrav/readout");
     }
     walltime_measure("/PMgrav/Misc");
@@ -354,10 +356,11 @@ void petapm_force(PetaPM * pm, petapm_prepare_func prepare,
         PetaPMFunctions * functions,
         PetaPMParticleStruct * pstruct,
         void * userdata) {
-    PetaPMRegion * regions = petapm_force_init(pm, prepare, pstruct, userdata);
+    int Nregions;
+    PetaPMRegion * regions = petapm_force_init(pm, prepare, pstruct, &Nregions, userdata);
     pfft_complex * rho_k = petapm_force_r2c(pm, global_functions);
     if(functions)
-        petapm_force_c2r(pm, rho_k, regions, functions);
+        petapm_force_c2r(pm, rho_k, regions, Nregions, functions);
     myfree(rho_k);
     myfree(regions);
     petapm_force_finish(pm);
@@ -749,13 +752,21 @@ static void
 pm_iterate_one(PetaPM * pm,
                int i,
                pm_iterator iterator,
-               PetaPMRegion * regions)
+               PetaPMRegion * regions,
+               const int Nregions)
 {
     int k;
     int iCell[3];  /* integer coordinate on the regional mesh */
     double Res[3]; /* residual*/
     double * Pos = POS(i);
     int RegionInd = REGION(i)[0];
+
+    /* Asserts that the swallowed particles are not considered (region -2).*/
+    if(RegionInd < 0)
+        return;
+    /* This should never happen: it is pure paranoia and to avoid icc being crazy*/
+    if(RegionInd >= Nregions)
+        endrun(1, "Particle %d has region %d out of bounds %d\n", i, RegionInd, Nregions);
 
     PetaPMRegion * region = &regions[RegionInd];
     for(k = 0; k < 3; k++) {
@@ -796,11 +807,11 @@ pm_iterate_one(PetaPM * pm,
  * no threads run on same particle same time but may
  * access one mesh points same time.
  * */
-static void pm_iterate(PetaPM * pm, pm_iterator iterator, PetaPMRegion * regions) {
+static void pm_iterate(PetaPM * pm, pm_iterator iterator, PetaPMRegion * regions, const int Nregions) {
     int i;
 #pragma omp parallel for
     for(i = 0; i < CPS->NumPart; i ++) {
-        pm_iterate_one(pm, i, iterator, regions);
+        pm_iterate_one(pm, i, iterator, regions, Nregions);
     }
     MPIU_Barrier(pm->comm);
 }
