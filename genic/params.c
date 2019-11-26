@@ -8,6 +8,9 @@
 #include <libgadget/physconst.h>
 #include <libgadget/utils.h>
 
+/* Genic Specific configuration structure*/
+struct genic_config All2;
+
 static ParameterSet *
 create_parameters()
 {
