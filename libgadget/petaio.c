@@ -819,6 +819,7 @@ SIMPLE_PROPERTY_PI(BlackholeMass, Mass, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeAccretionRate, Mdot, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeProgenitors, CountProgs, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeSwallowID, SwallowID, uint64_t, 1, struct bh_particle_data)
+SIMPLE_PROPERTY_PI(BlackholeSwallowTime, SwallowTime, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeMinPotPos, MinPotPos[0], double, 3, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeJumpToMinPot, JumpToMinPot, int, 1, struct bh_particle_data)
 
@@ -947,6 +948,8 @@ void register_io_blocks(struct IOTable * IOTable) {
     IO_REG_NONFATAL(Swallowed, "u1", 1, 5, IOTable);
     /* ID of the swallowing black hole particle. If == -1, then particle is live*/
     IO_REG_NONFATAL(BlackholeSwallowID, "u8", 1, 5, IOTable);
+    /* Time the BH was swallowed*/
+    IO_REG_NONFATAL(BlackholeSwallowTime, "f4", 1, 5, IOTable);
 
     /*Sort IO blocks so similar types are together; then ordered by the sequence they are declared. */
     qsort_openmp(IOTable->ent, IOTable->used, sizeof(struct IOTableEntry), order_by_type);

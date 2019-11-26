@@ -34,12 +34,14 @@ struct bh_particle_data {
     MyFloat Mdot;
     MyFloat Density;
     MyFloat FormationTime;  /*!< formation time of black hole. */
+    /* Merger time of the black hole.
+     * After this, all values are fixed. */
+    MyFloat SwallowTime;
 
     int JumpToMinPot;
     double  MinPotPos[3];
-
-    MyIDType SwallowID; /* Allows marking of a merging particle. Used only in blackhole.c.
-                           Set to -1 in init.c and only reinitialised if a merger takes place.*/
+    /* After a merger, this gives the ID of the particle which swallowed the BH. Used to keep track of merger trees.*/
+    MyIDType SwallowID;
 
     /* Stores the minimum timebins of all black hole neighbours.
      * The black hole timebin is then set to this.*/

@@ -478,6 +478,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             if(P[other].ID < I->ID) {
                 P[other].Swallowed = 1;
                 BHP(other).SwallowID = I->ID;
+                BHP(other).SwallowTime = All.Time;
             }
         }
         unlock_spinlock(other, spin);
