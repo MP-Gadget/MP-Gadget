@@ -190,7 +190,7 @@ struct state_of_system compute_global_quantities_of_system(void)
  * statistics about the energies in the various particle components to
  * the file FdEnergy.
  */
-void energy_statistics(void)
+void energy_statistics(FILE * FdEnergy)
 {
     struct state_of_system SysState = compute_global_quantities_of_system();
 

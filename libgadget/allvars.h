@@ -39,8 +39,7 @@
 extern int ThisTask;		/*!< the number of the local processor  */
 
 /* variables for input/output , usually only used on process 0 */
-extern FILE *FdEnergy,			/*!< file handle for energy.txt log-file. */
-       *FdCPU;			/*!< file handle for cpu.txt log-file. */
+extern FILE *FdCPU;			/*!< file handle for cpu.txt log-file. */
 
 extern FILE *FdSfr;		/*!< file handle for sfr.txt log-file. */
 

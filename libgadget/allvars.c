@@ -27,7 +27,6 @@ int ThisTask;			/*!< the number of the local processor  */
 
 
 FILE 			/*!< file handle for info.txt log-file. */
- *FdEnergy,			/*!< file handle for energy.txt log-file. */
  *FdCPU;			/*!< file handle for cpu.txt log-file. */
 
 FILE *FdSfr;			/*!< file handle for sfr.txt log-file. */
