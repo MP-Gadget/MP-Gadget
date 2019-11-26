@@ -469,6 +469,8 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
         lock_spinlock(other, spin);
         if(P[other].Swallowed) {
+            if(BHP(other).SwallowTime < All.Time)
+                endrun(2, "Encountered BH %i swallowed at earlier time %g\n", other, BHP(other).SwallowTime);
             /* Already marked, prefer to be swallowed by a bigger ID */
             if(BHP(other).SwallowID < I->ID) {
                 BHP(other).SwallowID = I->ID;
@@ -604,6 +606,8 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
          * so we can work out mass at merger. */
         O->Mass += (P[other].Mass);
         O->BH_Mass += (BHP(other).Mass);
+        if(BHP(other).SwallowTime < All.Time)
+            endrun(2, "Encountered BH %i swallowed at earlier time %g\n", other, BHP(other).SwallowTime);
 
         #pragma omp atomic
         BH_GET_PRIV(lv->tw)->N_BH_swallowed++;
