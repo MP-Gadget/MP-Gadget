@@ -26,6 +26,8 @@ struct genic_config {
     int MakeGlassGas;
     int MakeGlassCDM;
     int  NumFiles;
+    /* Whether to save the pre-displacement positions to the snapshot*/
+    int SavePrePos;
     struct power_params PowerP;
 } ;
 

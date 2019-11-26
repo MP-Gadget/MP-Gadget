@@ -61,10 +61,12 @@ write_particle_data(IDGenerator * idgen,
                     const int Type,
                     BigFile * bf,
                     const uint64_t FirstID,
+                    const int SavePrePos,
                     struct ic_part_data * curICP)
 {
     /* Write particles */
-    saveblock(bf, &curICP[0].PrePos, Type, "PrePosition", "f8", 3, idgen->NumPart, sizeof(curICP[0]));        
+    if(SavePrePos)
+        saveblock(bf, &curICP[0].PrePos, Type, "PrePosition", "f8", 3, idgen->NumPart, sizeof(curICP[0]));
     saveblock(bf, &curICP[0].Density, Type, "ICDensity", "f4", 1, idgen->NumPart, sizeof(curICP[0]));
     saveblock(bf, &curICP[0].Pos, Type, "Position", "f8", 3, idgen->NumPart, sizeof(curICP[0]));
     saveblock(bf, &curICP[0].Vel, Type, "Velocity", "f4", 3, idgen->NumPart, sizeof(curICP[0]));
