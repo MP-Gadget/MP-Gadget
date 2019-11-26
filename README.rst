@@ -161,7 +161,7 @@ MP-Gadget is maintained by Yu Feng and Simeon Bird.
 
 Contributors to MP-Gadget include:
 
-Nicholas Battaglia, Nishikanta Khandai, Chris Pederson and Lauren Anderson.
+Nicholas Battaglia, Nishikanta Khandai, Karime Maamari, Chris Pederson and Lauren Anderson.
 
 Citation
 --------
