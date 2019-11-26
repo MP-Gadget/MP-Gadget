@@ -589,7 +589,8 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     if(P[other].ID == I->ID) return;
 
      /* BH does not accrete wind */
-    if(P[other].Type == 0 && SPHP(other).DelayTime > 0) return;
+    if(P[other].Type == 0 && SPHP(other).DelayTime > 0)
+        return;
 
     struct SpinLocks * spin = BH_GET_PRIV(lv->tw)->spin;
 
@@ -597,18 +598,11 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     {
         if(BHP(other).SwallowID != I->ID) return;
 
-        lock_spinlock(other, spin);
-
         O->BH_CountProgs += BHP(other).CountProgs;
-
-        /* We do not know how to notify the tree of mass changes. so
-         * blindly enforce a mass conservation for now. */
+        /* Leave the swallowed BH mass around
+         * so we can work out mass at merger. */
         O->Mass += (P[other].Mass);
         O->BH_Mass += (BHP(other).Mass);
-        P[other].Mass = 0;
-        BHP(other).Mass = 0;
-        BHP(other).Mdot = 0;
-        unlock_spinlock(other, spin);
 
         #pragma omp atomic
         BH_GET_PRIV(lv->tw)->N_BH_swallowed++;
