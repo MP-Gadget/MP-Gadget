@@ -10,6 +10,7 @@
 #include "slotsmanager.h"
 #include "treewalk.h"
 #include "densitykernel.h"
+#include "density.h"
 #include "hydra.h"
 #include "winds.h"
 #include "utils.h"
@@ -235,7 +236,7 @@ hydro_ngbiter(
         /* initialize variables before SPH loop is started */
 
         O->Acc[0] = O->Acc[1] = O->Acc[2] = O->DtEntropy = 0;
-        density_kernel_init(&iter->kernel_i, I->Hsml, All.DensityKernelType);
+        density_kernel_init(&iter->kernel_i, I->Hsml, GetDensityKernelType());
 
         if(All.DensityIndependentSphOn)
             iter->p_over_rho2_i = I->Pressure / (I->EgyRho * I->EgyRho);
@@ -258,7 +259,7 @@ hydro_ngbiter(
 
     DensityKernel kernel_j;
 
-    density_kernel_init(&kernel_j, P[other].Hsml, All.DensityKernelType);
+    density_kernel_init(&kernel_j, P[other].Hsml, GetDensityKernelType());
 
     if(r2 > 0 && (r2 < iter->kernel_i.HH || r2 < kernel_j.HH))
     {

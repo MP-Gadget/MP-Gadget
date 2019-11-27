@@ -261,7 +261,8 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
          * ptypes of each type.
          *
          * Eventually the iteration will fix this. */
-         const double massfactor = All.CP.OmegaBaryon / All.CP.Omega0;
+        const double massfactor = All.CP.OmegaBaryon / All.CP.Omega0;
+        const double DesNumNgb = GetNumNgb(GetDensityKernelType());
 
         #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++)
@@ -273,7 +274,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
 
             int no = force_get_father(i, &Tree);
 
-            while(10 * All.DesNumNgb * P[i].Mass > massfactor * Tree.Nodes[no].u.d.mass)
+            while(10 * DesNumNgb * P[i].Mass > massfactor * Tree.Nodes[no].u.d.mass)
             {
                 int p = force_get_father(no, &Tree);
 
@@ -284,7 +285,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
             }
 
             P[i].Hsml =
-                pow(3.0 / (4 * M_PI) * All.DesNumNgb * P[i].Mass / (massfactor * Tree.Nodes[no].u.d.mass),
+                pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / (massfactor * Tree.Nodes[no].u.d.mass),
                         1.0 / 3) * Tree.Nodes[no].len;
 
             /* recover from a poor initial guess */

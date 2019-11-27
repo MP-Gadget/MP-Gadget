@@ -25,7 +25,6 @@
 #include "cosmology.h"
 #include "gravity.h"
 #include "walltime.h"
-#include "densitykernel.h"
 
 #include "assert.h"
 #include "physconst.h"
@@ -91,14 +90,6 @@ extern struct global_data_all_processes
 
     /* some SPH parameters */
 
-    double DesNumNgb;		/*!< Desired number of SPH neighbours */
-    /* These are for black hole neighbour finding and so belong in the density module, not the black hole module.*/
-    double BlackHoleNgbFactor;	/*!< Factor by which the normal SPH neighbour should be increased/decreased */
-    double BlackHoleMaxAccretionRadius;
-
-
-    double DensityResolutionEta;		/*!< SPH resolution eta. See Price 2011. eq 12*/
-    double MaxNumNgbDeviation;	/*!< Maximum allowed deviation neighbour number */
     double ArtBulkViscConst;	/*!< Sets the parameter \f$\alpha\f$ of the artificial viscosity */
 
     double InitGasTemp;		/*!< may be used to set the temperature in the IC's */
@@ -197,20 +188,6 @@ extern struct global_data_all_processes
 
     double CourantFac;		/*!< SPH-Courant factor */
 
-
-    /* gravitational and hydrodynamical softening lengths (given in terms of an `equivalent' Plummer softening
-     * length)
-     *
-     * five groups of particles are supported 0=gas,1=halo,2=disk,3=bulge,4=stars
-     */
-    double MinGasHsmlFractional,	/*!< minimum allowed SPH smoothing length in units of SPH gravitational
-                                      softening length */
-           MinGasHsml;			/*!< minimum allowed SPH smoothing length */
-
-
-    enum DensityKernelType DensityKernelType;  /* 0 for Cubic Spline,  (recmd NumNgb = 33)
-                               1 for Quintic spline (recmd  NumNgb = 97)
-                             */
     double DensityContrastLimit; /* limit of density contrast ratio for hydro force calculation */
     double HydroCostFactor; /* cost factor for hydro in load balancing. */
 

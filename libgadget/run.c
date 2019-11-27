@@ -601,14 +601,11 @@ static void
 set_softenings()
 {
     int i;
-
     for(i = 0; i < 6; i ++)
         GravitySofteningTable[i] = All.GravitySoftening * All.MeanSeparation[1];
 
     /* 0: Gas is collisional */
     GravitySofteningTable[0] = All.GravitySofteningGas * All.MeanSeparation[1];
-
-    All.MinGasHsml = All.MinGasHsmlFractional * GravitySofteningTable[1];
 
     for(i = 0; i < 6; i ++) {
         message(0, "GravitySoftening[%d] = %g\n", i, GravitySofteningTable[i]);

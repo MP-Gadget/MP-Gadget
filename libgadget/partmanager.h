@@ -77,6 +77,11 @@ extern struct part_manager_type {
 /*Allocate memory for the particles*/
 void particle_alloc_memory(int MaxPart);
 
+/* gravitational and hydrodynamical softening lengths (given in terms of an `equivalent' Plummer softening
+    * length)
+    *
+    * five groups of particles are supported 0=gas,1=halo,2=disk,3=bulge,4=stars
+    */
 extern double GravitySofteningTable[6];
 
 static inline double FORCE_SOFTENING(int i)

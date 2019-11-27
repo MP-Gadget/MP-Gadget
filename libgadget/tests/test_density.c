@@ -22,10 +22,12 @@
 #include "stub.h"
 
 struct global_data_all_processes All;
+
 /* The true struct for the state variable*/
-struct forcetree_testdata
+struct density_testdata
 {
     DomainDecomp ddecomp;
+    struct density_params dp;
     gsl_rng * r;
 };
 
@@ -37,7 +39,8 @@ static void set_init_hsml(ForceTree * Tree)
     {
         int no = force_get_father(i, Tree);
 
-        while(10 * All.DesNumNgb * P[i].Mass > Tree->Nodes[no].u.d.mass)
+        double DesNumNgb = GetNumNgb(GetDensityKernelType());
+        while(10 * DesNumNgb * P[i].Mass > Tree->Nodes[no].u.d.mass)
         {
             int p = force_get_father(no, Tree);
 
@@ -48,13 +51,13 @@ static void set_init_hsml(ForceTree * Tree)
         }
 
         P[i].Hsml =
-            pow(3.0 / (4 * M_PI) * All.DesNumNgb * P[i].Mass / (Tree->Nodes[no].u.d.mass),
+            pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / (Tree->Nodes[no].u.d.mass),
                     1.0 / 3) * Tree->Nodes[no].len;
     }
 }
 
 /* Perform some simple checks on the densities*/
-static void check_densities(void)
+static void check_densities(double MinGasHsml)
 {
     int i;
     double maxHsml=P[0].Hsml, minHsml= P[0].Hsml;
@@ -69,7 +72,7 @@ static void check_densities(void)
             maxHsml = P[i].Hsml;
     }
     assert_true(isfinite(minHsml));
-    assert_true(minHsml >= All.MinGasHsml);
+    assert_true(minHsml >= MinGasHsml);
     assert_true(maxHsml <= All.BoxSize);
 
 }
@@ -103,7 +106,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     ActiveParticles act = {0};
     act.NumActiveParticle = numpart;
     act.ActiveParticle = NULL;
-    struct forcetree_testdata * data = * (struct forcetree_testdata **) state;
+    struct density_testdata * data = * (struct density_testdata **) state;
     DomainDecomp ddecomp = data->ddecomp;
     ddecomp.TopLeaves[0].topnode = PartManager->MaxPart;
 
@@ -118,7 +121,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     end = MPI_Wtime();
     double ms = (end - start)*1000;
     message(0, "Found densities in %.3g ms\n", ms);
-    check_densities();
+    check_densities(data->dp.MinGasHsmlFractional);
 
     double avghsml = 0;
     #pragma omp parallel for reduction(+:avghsml)
@@ -133,7 +136,8 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     for(i=0; i<numpart; i++) {
         Hsml[i] = P[i].Hsml;
     }
-    All.MaxNumNgbDeviation = 1;
+    data->dp.MaxNumNgbDeviation = 0.5;
+    set_densitypar(data->dp);
 
     start = MPI_Wtime();
     /*Find the density*/
@@ -142,16 +146,18 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     ms = (end - start)*1000;
     message(0, "Found 1 dev densities in %.3g ms\n", ms);
     double diff = 0;
+    double DesNumNgb = GetNumNgb(GetDensityKernelType());
+
     #pragma omp parallel for reduction(max:diff)
     for(i=0; i<numpart; i++) {
-        assert_true(fabs(Hsml[i]/P[i].Hsml-1) < All.MaxNumNgbDeviation / All.DesNumNgb);
+        assert_true(fabs(Hsml[i]/P[i].Hsml-1) < data->dp.MaxNumNgbDeviation / DesNumNgb);
         if(fabs(Hsml[i] - P[i].Hsml) > diff)
             diff = fabs(Hsml[i] - P[i].Hsml);
     }
     message(0, "Max diff between Hsml: %g\n",diff);
     myfree(Hsml);
 
-    check_densities();
+    check_densities(data->dp.MinGasHsmlFractional);
     force_tree_free(&tree);
 }
 
@@ -241,7 +247,7 @@ void do_random_test(void **state, gsl_rng * r, const int numpart)
 static void test_density_random(void ** state) {
     /*Set up the particle data*/
     int ncbrt = 32;
-    struct forcetree_testdata * data = * (struct forcetree_testdata **) state;
+    struct density_testdata * data = * (struct density_testdata **) state;
     gsl_rng * r = (gsl_rng *) data->r;
     int numpart = ncbrt*ncbrt*ncbrt;
     /*Allocate tree*/
@@ -279,7 +285,7 @@ void trivial_domain(DomainDecomp * ddecomp)
 
 static int teardown_density(void **state) {
     slots_free_sph_scratch_data(SphP_scratch);
-    struct forcetree_testdata * data = (struct forcetree_testdata * ) *state;
+    struct density_testdata * data = (struct density_testdata * ) *state;
     myfree(data->ddecomp.Tasks);
     myfree(data->ddecomp.TopLeaves);
     myfree(data->ddecomp.TopNodes);
@@ -291,17 +297,6 @@ static int teardown_density(void **state) {
 static int setup_density(void **state) {
     /*Set up the important parts of the All structure.*/
     All.DensityOn = 1;
-    All.DensityResolutionEta = 1.;
-    All.BlackHoleNgbFactor = 2;
-    All.MaxNumNgbDeviation = 2;
-    All.DensityKernelType = DENSITY_KERNEL_CUBIC_SPLINE;
-    DensityKernel kernel;
-    density_kernel_init(&kernel, 1.0, All.DensityKernelType);
-    All.DesNumNgb = density_kernel_desnumngb(&kernel, All.DensityResolutionEta);
-
-    All.BoxSize = 8;
-    All.MinGasHsml = 0.006;
-    All.BlackHoleMaxAccretionRadius = 99999.;
     /*Reserve space for the slots*/
     slots_init(0.01 * PartManager->MaxPart, SlotsManager);
     slots_set_enabled(0, sizeof(struct sph_particle_data), SlotsManager);
@@ -314,9 +309,19 @@ static int setup_density(void **state) {
     slots_allocate_sph_scratch_data(0, maxpart, &SlotsManager->sph_scratch);
     walltime_init(&All.CT);
     init_forcetree_params(2);
+    struct density_testdata *data = mymalloc("data", sizeof(struct density_testdata));
     /*Set up the top-level domain grid*/
-    struct forcetree_testdata *data = mymalloc("data", sizeof(struct forcetree_testdata));
     trivial_domain(&data->ddecomp);
+    data->dp.DensityResolutionEta = 1.;
+    data->dp.BlackHoleNgbFactor = 2;
+    data->dp.MaxNumNgbDeviation = 2;
+    data->dp.DensityKernelType = DENSITY_KERNEL_CUBIC_SPLINE;
+    All.BoxSize = 8;
+    data->dp.MinGasHsmlFractional = 0.006;
+    GravitySofteningTable[1] = 1;
+    data->dp.BlackHoleMaxAccretionRadius = 99999.;
+
+    set_densitypar(data->dp);
     data->r = gsl_rng_alloc(gsl_rng_mt19937);
     gsl_rng_set(data->r, 0);
     *state = (void *) data;

@@ -14,6 +14,7 @@
 #include "blackhole.h"
 #include "timestep.h"
 #include "hydra.h"
+#include "density.h"
 #include "sfr_eff.h"
 /*! \file blackhole.c
  *  \brief routines for gas accretion onto black holes, and black hole mergers
@@ -423,7 +424,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         iter->base.Hsml = hsearch;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
 
-        density_kernel_init(&iter->accretion_kernel, I->Hsml, All.DensityKernelType);
+        density_kernel_init(&iter->accretion_kernel, I->Hsml, GetDensityKernelType());
         density_kernel_init(&iter->feedback_kernel, hsearch, DENSITY_KERNEL_CUBIC_SPLINE);
         return;
     }
