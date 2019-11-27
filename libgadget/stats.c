@@ -49,6 +49,7 @@ struct state_of_system compute_global_quantities_of_system(void)
     struct state_of_system sys;
     struct state_of_system SysState;
     double a1, a2, a3;
+    int ThisTask;
 
     a1 = All.Time;
     a2 = All.Time * All.Time;
@@ -105,7 +106,7 @@ struct state_of_system compute_global_quantities_of_system(void)
     MPI_Reduce(&sys.CenterOfMassComp[0][0], &SysState.CenterOfMassComp[0][0], 6 * 4, MPI_DOUBLE, MPI_SUM, 0,
             MPI_COMM_WORLD);
 
-
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0)
     {
         for(i = 0; i < 6; i++) {

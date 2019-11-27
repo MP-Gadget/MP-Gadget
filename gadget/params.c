@@ -372,6 +372,8 @@ void read_parameter_file(char *fname)
 {
     ParameterSet * ps = create_gadget_parameter_set();
 
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0) {
 
         char * error;

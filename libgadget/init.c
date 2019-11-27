@@ -315,7 +315,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
                 SphP[i].Entropy = minent;
         }
         MPI_Allreduce(MPI_IN_PLACE, &bad, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-        if(bad > 0 && ThisTask == 0)
+        if(bad > 0)
             message(0, "Detected bad densities in %d particles on disc\n",bad);
     }
 

@@ -88,6 +88,7 @@ void read_parameterfile(char *fname)
 
     ParameterSet * ps = create_parameters();
     char * error;
+    int ThisTask;
 
     if(0 != param_parse_file(ps, fname, &error)) {
         endrun(0, "Parsing %s failed: %s\n", fname, error);
@@ -97,6 +98,8 @@ void read_parameterfile(char *fname)
     }
 
     message(0, "----------- Running with Parameters ----------\n");
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0)
         param_dump(ps, stdout);
 

@@ -31,13 +31,6 @@
 #include "physconst.h"
 #include "types.h"
 
-/*********************************************************/
-/*  Global variables                                     */
-/*********************************************************/
-
-/* To be removed at some point*/
-extern int ThisTask;		/*!< the number of the local processor  */
-
 /*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
  * parameter file).  Holding this data in a structure is convenient for writing/reading the restart file, and
  * it allows the introduction of new global variables in a simple way. The only thing to do is to introduce
@@ -45,7 +38,7 @@ extern int ThisTask;		/*!< the number of the local processor  */
  */
 extern struct global_data_all_processes
 {
-/* THe following variables are set by petaio_read_header */
+    /* The following variables are set by petaio_read_header */
     int64_t TotNumPartInit; /* The initial total number of particles; we probably want to get rid of all references to this. */
     int64_t NTotalInit[6]; /* The initial number of total particles in the IC. */
     double TimeInit;		/* time of simulation start: if restarting from a snapshot this holds snapshot time.*/

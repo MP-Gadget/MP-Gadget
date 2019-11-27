@@ -40,7 +40,6 @@ int main(int argc, char **argv)
     int NTask;
     int thread_provided;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &thread_provided);
-    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     if(thread_provided != MPI_THREAD_FUNNELED)
         message(1, "MPI_Init_thread returned %d != MPI_THREAD_FUNNELED\n", thread_provided);

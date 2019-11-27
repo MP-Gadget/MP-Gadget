@@ -73,6 +73,8 @@ write_snapshot(int num)
     destroy_io_blocks(&IOTable);
     walltime_measure("/Snapshot/Write");
 
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0) {
         char * buf = fastpm_strdup_printf("%s/Snapshots.txt", All.OutputDir);
         FILE * fd = fopen(buf, "a");
@@ -87,6 +89,8 @@ find_last_snapnum(void)
 {
     /* FIXME: this is very fragile; should be fine */
     int snapnumber = -1;
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0) {
         char * buf = fastpm_strdup_printf("%s/Snapshots.txt", All.OutputDir);
         FILE * fd = fopen(buf, "r");

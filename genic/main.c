@@ -16,16 +16,15 @@
 
 #define GLASS_SEED_HASH(seed) ((seed) * 9999721L)
 
-void print_spec(void);
+static void print_spec(int ThisTask);
 
 int main(int argc, char **argv)
 {
-  int thread_provided;
+  int thread_provided, ThisTask;
   MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &thread_provided);
   if(thread_provided != MPI_THREAD_FUNNELED)
-  	message(1, "MPI_Init_thread returned %d != MPI_THREAD_FUNNELED\n", thread_provided);
+    message(1, "MPI_Init_thread returned %d != MPI_THREAD_FUNNELED\n", thread_provided);
 
-  MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
   if(argc < 2)
     endrun(0,"Please pass a parameter file.\n");
 
@@ -44,6 +43,7 @@ int main(int argc, char **argv)
 
   init_cosmology(&All.CP, All.TimeIC);
 
+  MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
   init_powerspectrum(ThisTask, All.TimeIC, All.UnitLength_in_cm, &All.CP, &All2.PowerP);
   All.NumThreads = omp_get_max_threads();
 
@@ -226,13 +226,13 @@ int main(int argc, char **argv)
   message(0, "IC's generated.\n");
   message(0, "Initial scale factor = %g\n", All.TimeIC);
 
-  print_spec();
+  print_spec(ThisTask);
 
   MPI_Finalize();		/* clean up & finalize MPI */
   return 0;
 }
 
-void print_spec(void)
+void print_spec(int ThisTask)
 {
   if(ThisTask == 0)
     {
