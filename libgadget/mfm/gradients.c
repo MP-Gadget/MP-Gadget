@@ -1006,16 +1006,6 @@ int GasGrad_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                     MINMAX_CHECK(dc,out.Minima.SoundSpeed,out.Maxima.SoundSpeed);
                     if(swap_to_j) {MINMAX_CHECK(-dc,GasGradDataPasser[j].Minima.SoundSpeed,GasGradDataPasser[j].Maxima.SoundSpeed);}
 #endif
-#ifdef MAGNETIC
-                    double Bj[3],dB[3];
-                    for(k=0;k<3;k++)
-                    {
-                        Bj[k] = Get_Particle_BField(j,k);
-                        dB[k] = Bj[k] - local.GQuant.B[k];
-                        MINMAX_CHECK(dB[k],out.Minima.B[k],out.Maxima.B[k]);
-                        if(swap_to_j) {MINMAX_CHECK(-dB[k],GasGradDataPasser[j].Minima.B[k],GasGradDataPasser[j].Maxima.B[k]);}
-                    }
-#endif
 #if defined(DIVBCLEANING_DEDNER) && !defined(MHD_CONSTRAINED_GRADIENT_MIDPOINT)
                     double dphi = Get_Particle_PhiField(j) - local.GQuant.Phi;
                     MINMAX_CHECK(dphi,out.Minima.Phi,out.Maxima.Phi);
@@ -1053,22 +1043,6 @@ int GasGrad_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                     out.alpha_limiter += NV_MYSIGN(SphP[j].NV_DivVel) * P[j].Mass * kernel.wk_i;
                     if(swap_to_j) SphP[j].alpha_limiter += NV_MYSIGN(local.NV_DivVel) * local.Mass * kernel.wk_j;
 #endif
-#ifdef MAGNETIC
-                    double mji_dwk_r = P[j].Mass * kernel.dwk_i / kernel.r;
-                    double mij_dwk_r = local.Mass * kernel.dwk_j / kernel.r;
-                    for(k=0;k<3;k++)
-                    {
-                        for(k2=0;k2<3;k2++)
-                        {
-                            out.DtB[k] += local.GQuant.B[k2] * mji_dwk_r * kernel.dp[k2] * dv[k];
-                            if(swap_to_j) SphP[j].DtB[k] += Bj[k2] * mij_dwk_r * kernel.dp[k2] * dv[k];
-                        }
-#ifdef DIVBCLEANING_DEDNER
-                        out.divB += dB[k] * kernel.dp[k] * mji_dwk_r;
-                        if(swap_to_j) SphP[j].divB += dB[k] * kernel.dp[k] * mij_dwk_r;
-#endif
-                    }
-#endif
 #endif
                     /* end of additional/miscellaneous operators block */
                     /* ------------------------------------------------------------------------------------------------ */
@@ -1095,12 +1069,6 @@ int GasGrad_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #endif
 #ifdef DOGRAD_SOUNDSPEED
                             out.Gradients[k].SoundSpeed += wk_xyz_i * dc;
-#endif
-#ifdef MAGNETIC
-                            for(k2=0;k2<3;k2++) {out.Gradients[k].B[k2] += wk_xyz_i * dB[k2];}
-#if defined(DIVBCLEANING_DEDNER) && !defined(MHD_CONSTRAINED_GRADIENT_MIDPOINT)
-                            out.Gradients[k].Phi += wk_xyz_i * dphi;
-#endif
 #endif
 #if defined(TURB_DIFF_METALS) && !defined(TURB_DIFF_METALS_LOWORDER)
                             for(k2=0;k2<NUM_METAL_SPECIES;k2++) {out.Gradients[k].Metallicity[k2] += wk_xyz_i * dmetal[k2];}
@@ -1133,16 +1101,6 @@ int GasGrad_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #endif
 #ifdef DOGRAD_SOUNDSPEED
                             SphP[j].Gradients.SoundSpeed[k] += wk_xyz_j * dc;
-#endif
-#ifdef MAGNETIC
-#ifdef MHD_CONSTRAINED_GRADIENT
-                            for(k2=0;k2<3;k2++) {GasGradDataPasser[j].BGrad[k2][k] += wk_xyz_j * dB[k2];}
-#else
-                            for(k2=0;k2<3;k2++) {SphP[j].Gradients.B[k2][k] += wk_xyz_j * dB[k2];}
-#endif
-#if defined(DIVBCLEANING_DEDNER) && !defined(MHD_CONSTRAINED_GRADIENT_MIDPOINT)
-                            SphP[j].Gradients.Phi[k] += wk_xyz_j * dphi;
-#endif
 #endif
 #if defined(TURB_DIFF_METALS) && !defined(TURB_DIFF_METALS_LOWORDER)
                             for(k2=0;k2<NUM_METAL_SPECIES;k2++) {SphP[j].Gradients.Metallicity[k2][k] += wk_xyz_j * dmetal[k2];}

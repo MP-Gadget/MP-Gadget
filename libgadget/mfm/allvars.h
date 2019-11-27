@@ -221,9 +221,6 @@
 #define SINGLE_STAR_SINK_FORMATION (0+1+2+4+8+16+32) // 0=density threshold, 1=virial criterion, 2=convergent flow, 4=local extremum, 8=no sink in kernel, 16=not falling into sink, 32=hill (tidal) criterion
 #define DEVELOPER_MODE
 #define IO_SUPPRESS_TIMEBIN_STDOUT 10 //only prints outputs to log file if the highest active timebin index is within n of the highest timebin (dt_bin=2^(-N)*dt_bin,max)
-#ifdef MAGNETIC
-#define MHD_CONSTRAINED_GRADIENT 1
-#endif
 #define RT_DISABLE_R15_GRADIENTFIX
 #endif // SINGLE_STAR_SINK_DYNAMICS_MG_DG_TEST_PACKAGE
 
@@ -472,17 +469,6 @@
 /* this is a ryu+jones type energy/entropy switch. it can help with some problems, but can also generate significant 
  errors in other types of problems. in general, even for pure hydro, this isn't recommended; use it for special problems if you know what you are doing. */
 
-
-
-
-#ifdef MAGNETIC
-/* recommended MHD switches -- only turn these off for de-bugging */
-#define DIVBCLEANING_DEDNER         /* hyperbolic/parabolic div-cleaing (Dedner 2002), with TP improvements */
-/* MHD switches specific to SPH MHD */
-#ifdef HYDRO_SPH
-#define SPH_TP12_ARTIFICIAL_RESISTIVITY   /* turns on magnetic dissipation ('artificial resistivity'): uses tricco switch =h*|gradB|/|B| */
-#endif
-#endif
 
 
 #if defined(TURB_DIFF_ENERGY) || defined(TURB_DIFF_VELOCITY) || defined(TURB_DIFF_MASS) || defined(TURB_DIFF_METALS)
@@ -806,11 +792,7 @@ typedef unsigned long long peanokey;
 #define  MAX_REAL_NUMBER  1e37
 #define  MIN_REAL_NUMBER  1e-37
 
-#if (defined(MAGNETIC) && !defined(COOLING))
-#define  CONDITION_NUMBER_DANGER  1.0e7 /*!< condition number above which we will not trust matrix-based gradients */
-#else
 #define  CONDITION_NUMBER_DANGER  1.0e3 /*!< condition number above which we will not trust matrix-based gradients */
-#endif
 
 #ifdef USE_PREGENERATED_RANDOM_NUMBER_TABLE
 #define  RNDTABLE 16384 /*!< this is arbitrary, but some power of 2 makes much easier */
@@ -1486,10 +1468,6 @@ extern struct global_data_all_processes
 #endif
     /* Cosmology */
 
-#ifdef MAGNETIC
-  double UnitMagneticField_in_gauss; /*!< factor to convert internal magnetic field (B) unit to gauss (cgs) units */
-#endif
-    
   double Hubble_H0_CodeUnits;		/*!< Hubble-constant (unit-ed version: 100 km/s/Mpc) in internal units */
   double Omega0,		/*!< matter density in units of the critical density (at z=0) */
     OmegaLambda,		/*!< vaccum energy density relative to crictical density (at z=0) */
@@ -1810,22 +1788,6 @@ extern struct global_data_all_processes
     double ElectronFreePathFactor;	/*!< Factor to get electron mean free path */
 #endif
 
-    
-#ifdef MAGNETIC
-#ifdef MHD_B_SET_IN_PARAMS
-  double BiniX, BiniY, BiniZ;	/*!< Initial values for B */
-#endif
-#ifdef SPH_TP12_ARTIFICIAL_RESISTIVITY
-  double ArtMagDispConst;	/*!< Sets the parameter \f$\alpha\f$ of the artificial magnetic disipation */
-#endif
-#ifdef DIVBCLEANING_DEDNER
-  double FastestWaveSpeed;
-  double FastestWaveDecay;
-  double DivBcleanParabolicSigma;
-  double DivBcleanHyperbolicSigma;
-#endif
-#endif /* MAGNETIC */
-    
 #if defined(BLACK_HOLES) || defined(GALSF_SUBGRID_WINDS)
   double TimeNextOnTheFlyFoF;
   double TimeBetOnTheFlyFoF;
@@ -2169,26 +2131,6 @@ extern struct sph_particle_data
     //MyDouble dMomentum[3];        /*!< change in momentum from hydro step (conserved variable) */ //manifest-indiv-timestep-debug//
     MyDouble HydroAccel[3];         /*!< acceleration due to hydrodynamical force (for drifting) */
     
-#ifdef MAGNETIC
-    MyDouble Face_Area[3];          /*!< vector sum of effective areas of 'faces'; this is used to check closure for meshless methods */
-    MyDouble BPred[3];              /*!< current magnetic field strength */
-    MyDouble B[3];                  /*!< actual B (conserved variable used for integration; can be B*V for flux schemes) */
-    MyDouble DtB[3];                /*!< time derivative of B-field (of -conserved- B-field) */
-    MyFloat divB;                   /*!< storage for the 'effective' divB used in div-cleaning procedure */
-#ifdef DIVBCLEANING_DEDNER
-    MyDouble DtB_PhiCorr[3];        /*!< correction forces for mid-face update to phi-field */
-    MyDouble PhiPred;               /*!< current value of Phi */
-    MyDouble Phi;                   /*!< scalar field for Dedner divergence cleaning */
-    MyDouble DtPhi;                 /*!< time derivative of Phi-field */
-#endif
-#ifdef MHD_CONSTRAINED_GRADIENT
-    int FlagForConstrainedGradients;/*!< flag indicating whether the B-field gradient is a 'standard' one or the constrained-divB version */
-#endif
-#if defined(SPH_TP12_ARTIFICIAL_RESISTIVITY)
-    MyFloat Balpha;                 /*!< effective resistivity coefficient */
-#endif
-#endif /* MAGNETIC */
-
 #if defined(KERNEL_CRK_FACES)
     MyFloat Tensor_CRK_Face_Corrections[16]; /*!< tensor set for face-area correction terms for the CRK formulation of SPH or MFM/V areas */
 #endif
@@ -2212,12 +2154,6 @@ extern struct sph_particle_data
         MyDouble PressureMagnitude;
 #endif      
         MyDouble Velocity[3][3];
-#ifdef MAGNETIC
-        MyDouble B[3][3];
-#ifdef DIVBCLEANING_DEDNER
-        MyDouble Phi[3];
-#endif
-#endif
 #ifdef DOGRAD_SOUNDSPEED
         MyDouble SoundSpeed[3];
 #endif

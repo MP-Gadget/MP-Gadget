@@ -20,14 +20,6 @@
 #if defined(TURB_DIFFUSION)
 #define SAVE_FACE_DENSITY 1
 #endif
-#if defined(MAGNETIC)
-#define SAVE_FACE_BFIELD 1
-#endif
-#if defined(VISCOSITY) && defined(MAGNETIC)
-//#define SAVE_FACE_VFIELD 1 // for now we use a simpler midpoint velocity; this should be updated for hydro solvers (not just mhd) //
-#endif
-
-
 /*
  * This file was written by Phil Hopkins (phopkins@caltech.edu) for GIZMO. 
  *   However some of the sub-routines here are adopted from other codes, in particular

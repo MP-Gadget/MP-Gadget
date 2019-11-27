@@ -117,10 +117,6 @@ extern pthread_mutex_t mutex_partnodedrift;
 
 
 static double fac_mu, fac_vsic_fix;
-#ifdef MAGNETIC
-static double fac_magnetic_pressure;
-#endif
-
 
 /* --------------------------------------------------------------------------------- */
 /* define the kernel structure -- purely for handy purposes to clean up notation */
@@ -133,13 +129,6 @@ struct Conserved_var_Riemann
     MyDouble v[3];
     MyDouble u;
     MyDouble cs;
-#ifdef MAGNETIC
-    MyDouble B[3];
-    MyDouble B_normal_corrected;
-#ifdef DIVBCLEANING_DEDNER
-    MyDouble phi;
-#endif
-#endif
 };
 
 
@@ -154,13 +143,6 @@ struct kernel_hydra
 #ifdef HYDRO_SPH
     double p_over_rho2_i;
 #endif
-#ifdef MAGNETIC
-    double b2_i, b2_j;
-    double alfven2_i, alfven2_j;
-#ifdef HYDRO_SPH
-    double mf_i, mf_j;
-#endif
-#endif // MAGNETIC //
 };
 #ifndef HYDRO_SPH
 #include "reimann.h"
@@ -195,12 +177,6 @@ struct hydrodata_in
         MyDouble Density[3];
         MyDouble Pressure[3];
         MyDouble Velocity[3][3];
-#ifdef MAGNETIC
-        MyDouble B[3][3];
-#ifdef DIVBCLEANING_DEDNER
-        MyDouble Phi[3];
-#endif
-#endif
 #if defined(TURB_DIFF_METALS) && !defined(TURB_DIFF_METALS_LOWORDER)
         MyDouble Metallicity[NUM_METAL_SPECIES][3];
 #endif
@@ -265,17 +241,6 @@ struct hydrodata_in
     MyFloat Zeta_BulkViscosity;
 #endif
     
-#ifdef MAGNETIC
-    MyFloat BPred[3];
-#if defined(SPH_TP12_ARTIFICIAL_RESISTIVITY)
-    MyFloat Balpha;
-#endif
-#ifdef DIVBCLEANING_DEDNER
-    MyFloat PhiPred;
-#endif
-#endif // MAGNETIC //
-
-    
 #ifdef GALSF_SUBGRID_WINDS
     MyDouble DelayTime;
 #endif
@@ -324,16 +289,6 @@ struct hydrodata_out
     MyFloat Dt_Flux[N_RT_FREQ_BINS][3];
 #endif
     
-#if defined(MAGNETIC)
-    MyDouble Face_Area[3];
-    MyFloat DtB[3];
-    MyFloat divB;
-#if defined(DIVBCLEANING_DEDNER)
-    MyFloat DtB_PhiCorr[3];
-#endif
-#endif // MAGNETIC //
-    
-
 }
 *HydroDataResult, *HydroDataOut;
 
@@ -396,12 +351,6 @@ static inline void particle2in_hydra(struct hydrodata_in *in, int i)
         in->Gradients.Density[k] = SphP[i].Gradients.Density[k];
         in->Gradients.Pressure[k] = SphP[i].Gradients.Pressure[k];
         for(j=0;j<3;j++) {in->Gradients.Velocity[j][k] = SphP[i].Gradients.Velocity[j][k];}
-#ifdef MAGNETIC
-        for(j=0;j<3;j++) {in->Gradients.B[j][k] = SphP[i].Gradients.B[j][k];}
-#ifdef DIVBCLEANING_DEDNER
-        in->Gradients.Phi[k] = SphP[i].Gradients.Phi[k];
-#endif
-#endif
 #if defined(TURB_DIFF_METALS) && !defined(TURB_DIFF_METALS_LOWORDER)
         for(j=0;j<NUM_METAL_SPECIES;j++) {in->Gradients.Metallicity[j][k] = SphP[i].Gradients.Metallicity[j][k];}
 #endif
@@ -463,17 +412,6 @@ static inline void particle2in_hydra(struct hydrodata_in *in, int i)
     in->Zeta_BulkViscosity = SphP[i].Zeta_BulkViscosity;
 #endif
     
-#ifdef MAGNETIC
-    for(k = 0; k < 3; k++) {in->BPred[k] = Get_Particle_BField(i,k);}
-#if defined(SPH_TP12_ARTIFICIAL_RESISTIVITY)
-    in->Balpha = SphP[i].Balpha;
-#endif
-#ifdef DIVBCLEANING_DEDNER
-    in->PhiPred = Get_Particle_PhiField(i);
-#endif
-#endif // MAGNETIC //
-    
-
 #ifdef EOS_ELASTIC
     in->CompositionType = SphP[i].CompositionType;
     {int k_v; for(k=0;k<3;k++) {for(k_v=0;k_v<3;k_v++) {in->Elastic_Stress_Tensor[k][k_v] = SphP[i].Elastic_Stress_Tensor_Pred[k][k_v];}}}
@@ -531,21 +469,6 @@ static inline void out2particle_hydra(struct hydrodata_out *out, int i, int mode
 #if defined(RT_EVOLVE_FLUX)
     for(k=0;k<N_RT_FREQ_BINS;k++) {int k_dir; for(k_dir=0;k_dir<3;k_dir++) {SphP[i].Dt_Flux[k][k_dir] += out->Dt_Flux[k][k_dir];}}
 #endif
-
-    
-#if defined(MAGNETIC)
-    /* can't just do DtB += out-> DtB, because for SPH methods, the induction equation is solved in the density loop; need to simply add it here */
-    for(k=0;k<3;k++)
-    {
-        SphP[i].DtB[k] += out->DtB[k];
-        SphP[i].Face_Area[k] += out->Face_Area[k];
-    }
-    SphP[i].divB += out->divB;
-#if defined(DIVBCLEANING_DEDNER)
-    for(k=0;k<3;k++) {SphP[i].DtB_PhiCorr[k] += out->DtB_PhiCorr[k];}
-#endif // Dedner //
-#endif // MAGNETIC //
-
 }
 
 
@@ -570,70 +493,6 @@ void hydro_final_operations_and_cleanup(void)
             double dt;
             dt = (P[i].TimeBin ? (((integertime) 1) << P[i].TimeBin) : 0) * All.Timebase_interval / All.cf_hubble_a;
             
-#if defined(MAGNETIC)
-            /* need to subtract out the source terms proportional to the (non-zero) B-field divergence; to stabilize the scheme */
-            for(k = 0; k < 3; k++)
-            {
-#ifndef HYDRO_SPH
-                /* this part of the induction equation has to do with advection of div-B, it is not present in SPH */
-                SphP[i].DtB[k] -= SphP[i].divB * SphP[i].VelPred[k]/All.cf_atime;
-#endif
-                SphP[i].HydroAccel[k] -= SphP[i].divB * Get_Particle_BField(i,k)*All.cf_a2inv;
-                SphP[i].DtInternalEnergy -= SphP[i].divB * (SphP[i].VelPred[k]/All.cf_atime) * Get_Particle_BField(i,k)*All.cf_a2inv;
-            }
-
-            double magnorm_closure = Get_DtB_FaceArea_Limiter(i);
-
-#if defined(DIVBCLEANING_DEDNER) && !defined(HYDRO_SPH)
-            // ok now deal with the divB correction forces and damping fields //
-            double tolerance_for_correction,db_vsig_h_norm;
-            tolerance_for_correction = 10.0;
-            db_vsig_h_norm = 0.1; // can be as low as 0.03 //
-#ifdef PM_HIRES_REGION_CLIPPING
-            tolerance_for_correction = 0.5; // could be as high as 0.75 //
-            //db_vsig_h_norm = 0.03;
-#endif
-
-            double DtB_PhiCorr=0,DtB_UnCorr=0,db_vsig_h=0,PhiCorr_Norm=1.0;
-            for(k=0; k<3; k++)
-            {
-                DtB_UnCorr += SphP[i].DtB[k] * SphP[i].DtB[k]; // physical units //
-                db_vsig_h = db_vsig_h_norm * (SphP[i].BPred[k]*All.cf_atime) * (0.5*SphP[i].MaxSignalVel*All.cf_afac3) / (Get_Particle_Size(i)*All.cf_atime);
-                DtB_UnCorr += db_vsig_h * db_vsig_h;
-                DtB_PhiCorr += SphP[i].DtB_PhiCorr[k] * SphP[i].DtB_PhiCorr[k];
-            }
-            
-            /* take a high power of these: here we'll use 4, so it works like a threshold */
-            DtB_UnCorr*=DtB_UnCorr; DtB_PhiCorr*=DtB_PhiCorr; tolerance_for_correction *= tolerance_for_correction;
-            /* now re-normalize the correction term if its unacceptably large */
-            if((DtB_PhiCorr > 0)&&(!isnan(DtB_PhiCorr))&&(DtB_UnCorr>0)&&(!isnan(DtB_UnCorr))&&(tolerance_for_correction>0)&&(!isnan(tolerance_for_correction)))
-            {
-                
-                if(DtB_PhiCorr > tolerance_for_correction * DtB_UnCorr) {PhiCorr_Norm *= tolerance_for_correction * DtB_UnCorr / DtB_PhiCorr;}
-                for(k=0; k<3; k++)
-                {
-                    SphP[i].DtB[k] += PhiCorr_Norm * SphP[i].DtB_PhiCorr[k];
-                    SphP[i].DtInternalEnergy += PhiCorr_Norm * SphP[i].DtB_PhiCorr[k] * Get_Particle_BField(i,k)*All.cf_a2inv;
-                }
-            }
-            
-            SphP[i].DtPhi = 0;
-            if((!isnan(SphP[i].divB))&&(PPP[i].Hsml>0)&&(SphP[i].divB!=0)&&(SphP[i].Density>0))
-            {
-                double tmp_ded = 0.5 * SphP[i].MaxSignalVel / (fac_mu*All.cf_atime); // has units of v_physical now
-                /* do a check to make sure divB isn't something wildly divergent (owing to particles being too close) */
-                double b2_max = 0.0;
-                for(k=0;k<3;k++) {b2_max += Get_Particle_BField(i,k)*Get_Particle_BField(i,k);}
-                b2_max = 100.0 * fabs( sqrt(b2_max) * All.cf_a2inv * P[i].Mass / (SphP[i].Density*All.cf_a3inv) * 1.0 / (PPP[i].Hsml*All.cf_atime) );
-                if(fabs(SphP[i].divB) > b2_max) {SphP[i].divB *= b2_max / fabs(SphP[i].divB);}
-                /* ok now can apply this to get the growth rate of phi */
-                // SphP[i].DtPhi -= tmp_ded * tmp_ded * All.DivBcleanHyperbolicSigma * SphP[i].divB;
-                SphP[i].DtPhi -= tmp_ded * tmp_ded * All.DivBcleanHyperbolicSigma * SphP[i].divB * SphP[i].Density*All.cf_a3inv; // mass-based phi-flux
-            }
-#endif
-#endif // MAGNETIC
-            
-            
             /* we calculated the flux of conserved variables: these are used in the kick operation. But for
              intermediate drift operations, we need the primive variables, so reduce to those here 
              (remembering that v_phys = v_code/All.cf_atime, for the sake of doing the unit conversions to physical) */
@@ -644,15 +503,6 @@ void hydro_final_operations_and_cleanup(void)
                 SphP[i].HydroAccel[k] /= P[i].Mass; /* we solved for momentum flux */
             }
             
-#ifdef MAGNETIC
-#ifndef HYDRO_SPH
-            for(k=0;k<3;k++)
-            {
-                SphP[i].DtInternalEnergy += -Get_Particle_BField(i,k)*All.cf_a2inv * SphP[i].DtB[k];
-            }
-#endif
-            for(k=0;k<3;k++) {SphP[i].DtB[k] *= magnorm_closure;}
-#endif
             SphP[i].DtInternalEnergy /= P[i].Mass;
             /* ok, now: HydroAccel = dv/dt, DtInternalEnergy = du/dt (energy per unit mass) */
             
@@ -734,13 +584,6 @@ void hydro_final_operations_and_cleanup(void)
             {
                 SphP[i].DtInternalEnergy = 0;//SphP[i].dInternalEnergy = 0;//manifest-indiv-timestep-debug//
                 for(k = 0; k < 3; k++) SphP[i].HydroAccel[k] = 0;//SphP[i].dMomentum[k] = 0;//manifest-indiv-timestep-debug//
-#ifdef MAGNETIC
-                for(k = 0; k < 3; k++) SphP[i].DtB[k] = 0;
-#ifdef DIVBCLEANING_DEDNER
-                for(k = 0; k < 3; k++) SphP[i].DtB_PhiCorr[k] = 0;
-                SphP[i].DtPhi = 0;
-#endif
-#endif
 #ifdef SPH_BND_BFLD
                 for(k = 0; k < 3; k++) SphP[i].B[k] = 0;
 #endif
@@ -794,20 +637,6 @@ void hydro_force(void)
             for(k=0;k<N_RT_FREQ_BINS;k++) {int k_dir; for(k_dir=0;k_dir<3;k_dir++) {SphP[i].Dt_Flux[k][k_dir] = 0;}}
 #endif
             
-#ifdef MAGNETIC
-            SphP[i].divB = 0;
-            for(k=0;k<3;k++) {SphP[i].Face_Area[k] = 0;}
-#ifdef DIVBCLEANING_DEDNER
-            for(k=0;k<3;k++) {SphP[i].DtB_PhiCorr[k] = 0;}
-#endif
-#ifndef HYDRO_SPH
-            for(k=0;k<3;k++) {SphP[i].DtB[k] = 0;}
-#ifdef DIVBCLEANING_DEDNER
-            SphP[i].DtPhi = 0;
-#endif
-#endif
-#endif // magnetic //
-
 #ifdef WAKEUP
             PPPZ[i].wakeup = 0;
 #endif
@@ -819,12 +648,6 @@ void hydro_force(void)
     // code_vel * fac_mu = sqrt[code_pressure/code_density] = code_soundspeed //
     // note also that signal_vel in forms below should be in units of code_soundspeed //
     fac_vsic_fix = All.cf_hubble_a * All.cf_afac1;
-#ifdef MAGNETIC
-    fac_magnetic_pressure = All.cf_afac1 / All.cf_atime;
-    // code_Bfield*code_Bfield * fac_magnetic_pressure = code_pressure //
-    // -- use this to get alfven velocities, etc, as well as comoving units for magnetic integration //
-#endif
-    
     /* --------------------------------------------------------------------------------- */
     /* allocate buffers to arrange communication */
     long long NTaskTimesNumPart;
