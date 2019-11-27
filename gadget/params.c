@@ -13,6 +13,7 @@
 #include <libgadget/sfr_eff.h>
 #include <libgadget/blackhole.h>
 #include <libgadget/density.h>
+#include <libgadget/hydra.h>
 #include <libgadget/fof.h>
 #include <libgadget/cooling_qso_lightup.h>
 
@@ -432,10 +433,8 @@ void read_parameter_file(char *fname)
         All.MinSizeTimestep = param_get_double(ps, "MinSizeTimestep");
         All.ForceEqualTimesteps = param_get_int(ps, "ForceEqualTimesteps");
         All.MaxRMSDisplacementFac = param_get_double(ps, "MaxRMSDisplacementFac");
-        All.ArtBulkViscConst = param_get_double(ps, "ArtBulkViscConst");
         All.CourantFac = param_get_double(ps, "CourantFac");
         All.HydroCostFactor = param_get_double(ps, "HydroCostFactor");
-        All.DensityContrastLimit = param_get_double(ps, "DensityContrastLimit");
 
         All.IO.BytesPerFile = param_get_int(ps, "BytesPerFile");
         All.IO.UsePeculiarVelocity = 0; /* Will be set by the Initial Condition File */
@@ -450,7 +449,6 @@ void read_parameter_file(char *fname)
         All.CoolingOn = param_get_int(ps, "CoolingOn");
         All.HydroOn = param_get_int(ps, "HydroOn");
         All.DensityOn = param_get_int(ps, "DensityOn");
-        All.DensityIndependentSphOn= param_get_int(ps, "DensityIndependentSphOn");
         All.TreeGravOn = param_get_int(ps, "TreeGravOn");
         All.FastParticleType = param_get_int(ps, "FastParticleType");
         All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
@@ -513,6 +511,7 @@ void read_parameter_file(char *fname)
 
     set_cooling_params(ps);
     set_density_params(ps);
+    set_hydro_params(ps);
     set_qso_lightup_params(ps);
     set_treewalk_params(ps);
     set_gravshort_tree_params(ps);

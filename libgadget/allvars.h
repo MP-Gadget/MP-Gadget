@@ -90,8 +90,6 @@ extern struct global_data_all_processes
 
     /* some SPH parameters */
 
-    double ArtBulkViscConst;	/*!< Sets the parameter \f$\alpha\f$ of the artificial viscosity */
-
     double InitGasTemp;		/*!< may be used to set the temperature in the IC's */
     double MinEgySpec; /* Minimum internal energy for timestepping, converted from MinGasTemp*/
 
@@ -115,7 +113,6 @@ extern struct global_data_all_processes
     int HydroOn;  /*  if hydro force is enabled */
     int DensityOn;  /*  if SPH density computation is enabled */
     int TreeGravOn;     /* tree gravity force is enabled*/
-    int DensityIndependentSphOn; /* Enables density independent (Pressure-entropy) SPH */
 
     int BlackHoleOn;  /* if black holes are enabled */
     int StarformationOn;  /* if star formation is enabled */
@@ -188,7 +185,6 @@ extern struct global_data_all_processes
 
     double CourantFac;		/*!< SPH-Courant factor */
 
-    double DensityContrastLimit; /* limit of density contrast ratio for hydro force calculation */
     double HydroCostFactor; /* cost factor for hydro in load balancing. */
 
     double GravitySoftening; /* Softening as a fraction of DM mean separation. */

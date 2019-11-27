@@ -28,7 +28,7 @@ set_densitypar(struct density_params dp)
     DensityParams = dp;
 }
 
-/*Set the parameters of the BH module*/
+/*Set the parameters of the density module*/
 void
 set_density_params(ParameterSet * ps)
 {

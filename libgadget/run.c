@@ -366,7 +366,7 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
         message(0, "Start density computation...\n");
 
         if(All.DensityOn)
-            density(act, 1, All.DensityIndependentSphOn, All.BlackHoleOn, All.WindOn, All.HydroCostFactor, All.MinEgySpec, All.cf.a, tree);  /* computes density, and pressure */
+            density(act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.WindOn, All.HydroCostFactor, All.MinEgySpec, All.cf.a, tree);  /* computes density, and pressure */
 
         /***** update smoothing lengths in tree *****/
         force_update_hmax(act->ActiveParticle, act->NumActiveParticle, tree, ddecomp);
@@ -374,7 +374,9 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
         MPIU_Barrier(MPI_COMM_WORLD);
         message(0, "Start hydro-force computation...\n");
 
-        hydro_force(act, tree);		/* adds hydrodynamical accelerations  and computes du/dt  */
+        /* adds hydrodynamical accelerations  and computes du/dt  */
+        if(All.HydroOn)
+            hydro_force(act, All.WindOn, All.HydroCostFactor, All.cf.hubble, All.cf.a, tree);
     }
 
     /* The opening criterion for the gravtree

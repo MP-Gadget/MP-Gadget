@@ -913,7 +913,7 @@ void register_io_blocks(struct IOTable * IOTable) {
     IO_REG(SmoothingLength,  "f4", 1, 0, IOTable);
     IO_REG(Density,          "f4", 1, 0, IOTable);
 
-    if(All.DensityIndependentSphOn)
+    if(DensityIndependentSphOn())
         IO_REG(EgyWtDensity,          "f4", 1, 0, IOTable);
 
     /* On reload this sets the Entropy variable, need the densities.

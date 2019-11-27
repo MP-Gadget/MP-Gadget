@@ -103,8 +103,8 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const
          * and is a good predictor for most of the gas.*/
         double densdriftfac = exp(-SPHP(i).DivVel * ddrift);
         SPHP(i).Density *= densdriftfac;
-        if(All.DensityIndependentSphOn)
-            SPHP(i).EgyWtDensity *= densdriftfac;
+        /* Only does something when Pressure-entropy is enabled*/
+        SPHP(i).EgyWtDensity *= densdriftfac;
 
         //      P[i].Hsml *= exp(0.333333333333 * SPHP(i).DivVel * ddrift);
         //---This was added

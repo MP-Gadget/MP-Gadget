@@ -208,7 +208,7 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, doubl
             olddensity[i] = SphP[i].EgyWtDensity;
         }
         /* Update the EgyWtDensity*/
-        density(act, 0, All.DensityIndependentSphOn, All.BlackHoleOn, All.WindOn, All.HydroCostFactor, 0,  All.cf.a, Tree);
+        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, All.WindOn, All.HydroCostFactor, 0,  All.cf.a, Tree);
         if(stop)
             break;
 
@@ -348,7 +348,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
             u_init = All.MinEgySpec;
         /* snapshot already has EgyWtDensity; hope it is read in correctly.
          * (need a test on this!) */
-        if(All.DensityIndependentSphOn) {
+        if(DensityIndependentSphOn()) {
             setup_density_indep_entropy(&act, &Tree, u_init, a3);
         }
         else {

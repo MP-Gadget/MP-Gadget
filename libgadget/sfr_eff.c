@@ -447,7 +447,7 @@ double get_neutral_fraction_sfreff(double redshift, struct particle_data * partd
     if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata)) {
         /*This gets the neutral fraction for standard gas*/
         double eomdensity = sphdata->Density;
-        if(All.DensityIndependentSphOn)
+        if(DensityIndependentSphOn())
             eomdensity  = sphdata->EgyWtDensity;
         double InternalEnergy = sphdata->Entropy / GAMMA_MINUS1 * pow(eomdensity * All.cf.a3inv, GAMMA_MINUS1);
         nh0 = GetNeutralFraction(InternalEnergy, physdens, &uvbg, sphdata->Ne);
