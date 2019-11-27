@@ -91,7 +91,7 @@ extern struct global_data_all_processes
 
     /* some SPH parameters */
 
-    int DesNumNgb;		/*!< Desired number of SPH neighbours */
+    double DesNumNgb;		/*!< Desired number of SPH neighbours */
     /* These are for black hole neighbour finding and so belong in the density module, not the black hole module.*/
     double BlackHoleNgbFactor;	/*!< Factor by which the normal SPH neighbour should be increased/decreased */
     double BlackHoleMaxAccretionRadius;
