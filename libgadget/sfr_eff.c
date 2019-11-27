@@ -119,7 +119,7 @@ void set_sfr_params(ParameterSet * ps)
 
 /* cooling and star formation routine.*/
 void
-cooling_and_starformation(ActiveParticles * act, ForceTree * tree)
+cooling_and_starformation(ActiveParticles * act, ForceTree * tree, FILE * FdSfr)
 {
     if(!All.CoolingOn)
         return;

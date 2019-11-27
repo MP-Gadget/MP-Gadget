@@ -38,13 +38,6 @@
 /* To be removed at some point*/
 extern int ThisTask;		/*!< the number of the local processor  */
 
-/* variables for input/output , usually only used on process 0 */
-extern FILE *FdCPU;			/*!< file handle for cpu.txt log-file. */
-
-extern FILE *FdSfr;		/*!< file handle for sfr.txt log-file. */
-
-extern FILE *FdBlackHoles;	/*!< file handle for blackholes.txt log-file. */
-
 /*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
  * parameter file).  Holding this data in a structure is convenient for writing/reading the restart file, and
  * it allows the introduction of new global variables in a simple way. The only thing to do is to introduce

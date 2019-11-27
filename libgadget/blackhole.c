@@ -181,7 +181,7 @@ static double blackhole_soundspeed(double entropy, double rho) {
 }
 
 void
-blackhole(const ActiveParticles * act, ForceTree * tree)
+blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles)
 {
     if(!All.BlackHoleOn)
         return;

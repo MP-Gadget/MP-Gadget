@@ -32,6 +32,9 @@
 void energy_statistics(FILE * FdEnergy); /* stats.c only used here */
 /*!< file handle for energy.txt log-file. */
 static FILE * FdEnergy;
+static FILE  *FdCPU;    /*!< file handle for cpu.txt log-file. */
+static FILE *FdSfr;     /*!< file handle for sfr.txt log-file. */
+static FILE *FdBlackHoles;  /*!< file handle for blackholes.txt log-file. */
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
@@ -250,10 +253,10 @@ run(int RestartSnapNum)
         if(GasEnabled)
         {
             /* Black hole accretion and feedback */
-            blackhole(&Act, &Tree);
+            blackhole(&Act, &Tree, FdBlackHoles);
 
             /**** radiative cooling and star formation *****/
-            cooling_and_starformation(&Act, &Tree);
+            cooling_and_starformation(&Act, &Tree, FdSfr);
 
             /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
             slots_free_sph_scratch_data(SphP_scratch);

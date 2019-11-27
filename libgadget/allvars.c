@@ -19,16 +19,4 @@
 /*  Global variables                                     */
 /*********************************************************/
 
-
-
 int ThisTask;			/*!< the number of the local processor  */
-
-/* variables for input/output , usually only used on process 0 */
-
-
-FILE 			/*!< file handle for info.txt log-file. */
- *FdCPU;			/*!< file handle for cpu.txt log-file. */
-
-FILE *FdSfr;			/*!< file handle for sfr.txt log-file. */
-
-FILE *FdBlackHoles;		/*!< file handle for blackholes.txt log-file. */
