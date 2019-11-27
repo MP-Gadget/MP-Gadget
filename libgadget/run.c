@@ -228,7 +228,7 @@ run(int RestartSnapNum)
         {
             if ((All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) || during_helium_reionization(1/All.Time - 1)) {
                 /* Seeding */
-                FOFGroups fof = fof_fof(&Tree, All.BoxSize, All.BlackHoleOn, MPI_COMM_WORLD);
+                FOFGroups fof = fof_fof(&Tree, All.BlackHoleOn, MPI_COMM_WORLD);
                 if(All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) {
                     fof_seed(&fof, MPI_COMM_WORLD);
                     TimeNextSeedingCheck = All.Time * All.TimeBetweenSeedingSearch;

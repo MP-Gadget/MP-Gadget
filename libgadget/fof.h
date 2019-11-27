@@ -56,7 +56,7 @@ typedef struct FOFGroups
 } FOFGroups;
 
 /*Computes the Group structure, saved as a global array below*/
-FOFGroups fof_fof(ForceTree * tree, double BoxSize, int BlackHoleInfo, MPI_Comm Comm);
+FOFGroups fof_fof(ForceTree * tree, int BlackHoleInfo, MPI_Comm Comm);
 
 /*Frees the Group structure*/
 void fof_finish(FOFGroups * fof);
