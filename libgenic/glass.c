@@ -78,7 +78,7 @@ void glass_evolve(PetaPM * pm, int nsteps, char * pkoutname, struct ic_part_data
     double t_f = 0;
 
     /*Allocate memory for a power spectrum*/
-    powerspectrum_alloc(pm->ps, All.Nmesh, All.NumThreads, 0, All.BoxSize*All.UnitLength_in_cm);
+    powerspectrum_alloc(pm->ps, All.Nmesh, omp_get_max_threads(), 0, All.BoxSize*All.UnitLength_in_cm);
 
     glass_force(pm, t_x, ICP, NumPart);
 

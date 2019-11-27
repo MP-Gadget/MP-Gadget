@@ -182,7 +182,7 @@ static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions) {
     if(force_tree_allocated(tree)) force_tree_free(tree);
 
     /*Allocate memory for a power spectrum*/
-    powerspectrum_alloc(pm->ps, pm->Nmesh, All.NumThreads, All.MassiveNuLinRespOn, pm->BoxSize*All.UnitLength_in_cm);
+    powerspectrum_alloc(pm->ps, pm->Nmesh, omp_get_max_threads(), All.MassiveNuLinRespOn, pm->BoxSize*All.UnitLength_in_cm);
 
     walltime_measure("/PMgrav/Regions");
     return regions;

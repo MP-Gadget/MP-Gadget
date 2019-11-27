@@ -79,7 +79,7 @@ void begrun(int RestartSnapNum)
 {
     hci_init(HCI_DEFAULT_MANAGER, All.OutputDir, All.TimeLimitCPU, All.AutoSnapshotTime);
 
-    petapm_module_init(All.NumThreads);
+    petapm_module_init(omp_get_max_threads());
     petaio_init();
     walltime_init(&All.CT);
 
@@ -433,7 +433,7 @@ void write_cpu_log(int NumCurrentTiStep, FILE * FdCPU)
     {
         int NTask;
         MPI_Comm_size(MPI_COMM_WORLD, &NTask);
-        fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads: %d Elapsed: %g\n", NumCurrentTiStep, All.Time, NTask, All.NumThreads, All.CT.ElapsedTime);
+        fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads: %d Elapsed: %g\n", NumCurrentTiStep, All.Time, NTask, omp_get_max_threads(), All.CT.ElapsedTime);
         walltime_report(FdCPU, 0, MPI_COMM_WORLD);
         fflush(FdCPU);
     }

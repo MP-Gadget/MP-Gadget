@@ -388,8 +388,6 @@ void read_parameter_file(char *fname)
         param_dump(ps, stdout);
         message(1, "----------------------------------------------\n");
 
-        All.NumThreads = omp_get_max_threads();
-
     /* Start reading the values */
         param_get_string2(ps, "InitCondFile", All.InitCondFile, sizeof(All.InitCondFile));
         param_get_string2(ps, "OutputDir", All.OutputDir, sizeof(All.OutputDir));

@@ -297,7 +297,6 @@ static int setup_density(void **state) {
     All.DesNumNgb = 35;
     All.DensityKernelType = DENSITY_KERNEL_CUBIC_SPLINE;
     All.BoxSize = 8;
-    All.NumThreads = omp_get_max_threads();
     All.MinGasHsml = 0.006;
     All.BlackHoleMaxAccretionRadius = 99999.;
     /*Reserve space for the slots*/

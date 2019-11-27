@@ -45,9 +45,8 @@ int main(int argc, char **argv)
 
   MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
   init_powerspectrum(ThisTask, All.TimeIC, All.UnitLength_in_cm, &All.CP, &All2.PowerP);
-  All.NumThreads = omp_get_max_threads();
 
-  petapm_module_init(All.NumThreads);
+  petapm_module_init(omp_get_max_threads());
 
   /*Initialise particle spacings*/
   const double meanspacing = All.BoxSize / DMAX(All2.Ngrid, All2.NgridGas);
