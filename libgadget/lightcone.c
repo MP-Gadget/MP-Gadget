@@ -21,14 +21,14 @@ static double dloga;
 static double tab_Dc[NENTRY];
 /*
  * light cone on the fly:
- * 
+ *
  * assuming the origin is at (0, 0, 0)
  *
  * */
 
-/* 
+/*
  * replicas to consider, function of redshift;
- * 
+ *
  * */
 static int Nreplica;
 static int BoxBoost = 20;
@@ -57,12 +57,12 @@ static double kernel(double loga, void * params) {
     double a = exp(loga);
       Cosmology * CP = (Cosmology *) params;
     return 1 / hubble_function(CP, a) * All.CP.Hubble / a;
-} 
+}
 
 static void lightcone_init_entry(Cosmology * CP, int i) {
     tab_loga[i] = - dloga * (NENTRY - i - 1);
 
-    gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000); 
+    gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
 
     double result, error;
 
@@ -70,7 +70,7 @@ static void lightcone_init_entry(Cosmology * CP, int i) {
     F.function = &kernel;
     F.params = CP;
     gsl_integration_qags (&F, tab_loga[i], 0, 0, 1e-7, 1000,
-            w, &result, &error); 
+            w, &result, &error);
 
     /* result is in DH, hubble distance */
     /* convert to cm / h */
@@ -94,6 +94,9 @@ void lightcone_init(Cosmology * CP, double timeBegin)
     };
     char buf[1024];
     int chunk = 100;
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+
     sprintf(buf, "%s/lightcone/", All.OutputDir);
     mkdir(buf, 02755);
     sprintf(buf, "%s/lightcone/%03d/", All.OutputDir, (int)(ThisTask / chunk));
@@ -180,20 +183,17 @@ void lightcone_set_time(double a) {
              */
             /* This is the angular resolution rule */
             SampleFraction = HorizonDistanceRef / HorizonDistance;
-            SampleFraction *= SampleFraction; 
-            SampleFraction *= SampleFraction; 
+            SampleFraction *= SampleFraction;
+            SampleFraction *= SampleFraction;
             /* This is the luminosity resolution rule */
 #if 0
             SampleFraction = HorizonDistanceRef / HorizonDistance;
             SampleFraction *= (1 + ReferenceRedshift) / (1 + z);
-            SampleFraction *= SampleFraction; 
+            SampleFraction *= SampleFraction;
 
 #endif
         }
-        if(ThisTask == 0) {
-            printf("RefRedeshit=%g, SampleFraction=%g HorizonDistance=%g\n", 
-                    ReferenceRedshift, SampleFraction, HorizonDistance);
-        }
+        message(0,"RefRedeshit=%g, SampleFraction=%g HorizonDistance=%g\n", ReferenceRedshift, SampleFraction, HorizonDistance);
     } else {
         SampleFraction = 0;
     }
@@ -238,7 +238,7 @@ void lightcone_cross(int p, double oldpos[3]) {
                  * this partilce is moving along the horizon! */
                 u1 = u2 = 0.5;
             }
-        
+
             /* write particle position */
             for(k = 0; k < 3; k ++) {
                 p3[k] = pold[k] * u2 + pnew[k] * u1;
