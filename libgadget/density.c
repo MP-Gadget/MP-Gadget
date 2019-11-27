@@ -4,10 +4,11 @@
 #include <string.h>
 #include <math.h>
 #include <gsl/gsl_math.h>
+#include <omp.h>
 
 #include "allvars.h"
+#include "walltime.h"
 #include "cooling.h"
-#include "densitykernel.h"
 #include "density.h"
 #include "treewalk.h"
 #include "timefac.h"
@@ -156,6 +157,10 @@ struct DensityPriv {
     double MinGasHsml;
     /* Are there potentially black holes?*/
     int BlackHoleOn;
+    /* Are there potentially wind particles?*/
+    int WindOn;
+    /* The current hydro cost factor*/
+    double HydroCostFactor;
 };
 
 #define DENSITY_GET_PRIV(tw) ((struct DensityPriv*) ((tw)->priv))
@@ -196,7 +201,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, ForceTree * tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, int WindOn, double HydroCostFactor, ForceTree * tree)
 {
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
@@ -239,6 +244,8 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     DENSITY_GET_PRIV(tw)->MinGasHsml = DensityParams.MinGasHsmlFractional * GravitySofteningTable[1];
 
     DENSITY_GET_PRIV(tw)->BlackHoleOn = BlackHoleOn;
+    DENSITY_GET_PRIV(tw)->WindOn = WindOn;
+    DENSITY_GET_PRIV(tw)->HydroCostFactor = HydroCostFactor;
 
     /* Init Left and Right: this has to be done before treewalk */
     #pragma omp parallel for
@@ -387,7 +394,7 @@ density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMod
     TREEWALK_REDUCE(P[place].NumNgb, remote->Ngb);
 
     /* these will be added */
-    P[place].GravCost += All.HydroCostFactor * All.cf.a * remote->Ninteractions;
+    P[place].GravCost += DENSITY_GET_PRIV(tw)->HydroCostFactor * remote->Ninteractions;
 
     if(P[place].Type == 0)
     {
@@ -452,7 +459,7 @@ density_ngbiter(
     const double r2 = iter->base.r2;
     const double * dist = iter->base.dist;
 
-    if(All.WindOn) {
+    if(DENSITY_GET_PRIV(lv->tw)->WindOn) {
         if(winds_is_particle_decoupled(other))
             if(!(I->Type == 0 && I->DelayTime > 0))	/* if I'm not wind, then ignore the wind particle */
                 return;
