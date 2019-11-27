@@ -156,7 +156,7 @@ init_uvf_table(const char * UVFluctuationFile, const double BoxSize, const doubl
  * Otherwise returns the global UVBG passed in.
  *
  * */
-struct UVBG get_local_UVBG(double redshift, double * Pos)
+struct UVBG get_local_UVBG(double redshift, double * Pos, double * PosOffset)
 {
     if(fabs(redshift - GlobalUVRed) > 1e-4)
         endrun(1, "Called with redshift %g not %g expected by the UVBG cache.\n", redshift, GlobalUVRed);
@@ -170,7 +170,11 @@ struct UVBG get_local_UVBG(double redshift, double * Pos)
 
     uvbg.self_shield_dens = GlobalUVBG.self_shield_dens;
 
-    double zreion = interp_eval_periodic(&UVF.interp, Pos, UVF.Table);
+    double corrpos[3];
+    int i;
+    for(i = 0; i < 3; i++)
+        corrpos[i] = Pos[i] - PosOffset[i];
+    double zreion = interp_eval_periodic(&UVF.interp, corrpos, UVF.Table);
     if(zreion < redshift) {
         return uvbg;
     }
