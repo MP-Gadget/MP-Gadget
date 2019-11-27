@@ -358,11 +358,48 @@ static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm) {
 
 SIMPLE_PROPERTY_FOF(GroupID, base.GrNr, uint32_t, 1)
 SIMPLE_PROPERTY_FOF(MinID, base.MinID, uint64_t, 1)
-SIMPLE_PROPERTY_FOF(FirstPos, base.FirstPos[0], float, 3)
-SIMPLE_PROPERTY_FOF(MassCenterPosition, CM[0], double, 3)
 SIMPLE_PROPERTY_FOF(Imom, Imom[0][0], float, 9)
 /* FIXME: set Jmom to use peculiar velocity */
 SIMPLE_PROPERTY_FOF(Jmom, Jmom[0], float, 3)
+
+static void GTFirstPos(int i, float * out, void * baseptr, void * smanptr) {
+    /* Remove the particle offset before saving*/
+    struct Group * grp = (struct Group *) baseptr;
+    int d;
+    for(d = 0; d < 3; d ++) {
+        out[d] = grp[i].base.FirstPos[d] - All.CurrentParticleOffset[d];
+        while(out[d] > All.BoxSize) out[d] -= All.BoxSize;
+        while(out[d] <= 0) out[d] += All.BoxSize;
+    }
+}
+
+static void STFirstPos(int i, float * out, void * baseptr, void * smanptr) {
+    int d;
+    struct Group * grp = (struct Group *) baseptr;
+    for(d = 0; d < 3; d ++) {
+        grp->base.FirstPos[i] = out[d];
+    }
+}
+
+static void GTMassCenterPosition(int i, double * out, void * baseptr, void * smanptr) {
+    /* Remove the particle offset before saving*/
+    struct Group * grp = (struct Group *) baseptr;
+    int d;
+    for(d = 0; d < 3; d ++) {
+        out[d] = grp[i].CM[d] - All.CurrentParticleOffset[d];
+        while(out[d] > All.BoxSize) out[d] -= All.BoxSize;
+        while(out[d] <= 0) out[d] += All.BoxSize;
+    }
+}
+
+static void STMassCenterPosition(int i, double * out, void * baseptr, void * smanptr) {
+    int d;
+    struct Group * grp = (struct Group *) baseptr;
+    for(d = 0; d < 3; d ++) {
+        grp->CM[d] = out[d];
+    }
+}
+
 static void GTMassCenterVelocity(int i, float * out, void * baseptr, void * slotptr) {
     double fac;
     struct Group * Group = (struct Group *) baseptr;

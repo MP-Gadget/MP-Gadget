@@ -15,6 +15,8 @@ struct BaseGroup {
     int GrNr;
     MyIDType MinID;
     int MinIDTask;
+    /* Note: this is in the translated frame,
+     * subtract CurrentParticleOffset to get the physical frame.*/
     float FirstPos[3];
 };
 
@@ -25,6 +27,8 @@ struct Group
     int LenType[6];
     double MassType[6];
     double Mass;
+    /* Note: this is in the translated frame,
+     * subtract CurrentParticleOffset to get the physical frame.*/
     double CM[3];
     double Vel[3];
 
