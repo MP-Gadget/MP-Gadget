@@ -107,7 +107,7 @@ void begrun(int RestartSnapNum)
     enable_core_dumps_and_fpu_exceptions();
 #endif
 
-    init_forcetree_params(All.FastParticleType, GravitySofteningTable);
+    init_forcetree_params(All.FastParticleType);
 
     init_cooling_and_star_formation();
 

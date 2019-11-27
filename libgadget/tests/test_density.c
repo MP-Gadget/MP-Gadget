@@ -309,12 +309,8 @@ static int setup_density(void **state) {
     particle_alloc_memory(maxpart);
     slots_reserve(1, atleast, SlotsManager);
     slots_allocate_sph_scratch_data(0, maxpart, &SlotsManager->sph_scratch);
-    int i;
-    for(i=0; i<6; i++)
-        GravitySofteningTable[i] = 0.1 / 2.8;
-
     walltime_init(&All.CT);
-    init_forcetree_params(2, GravitySofteningTable);
+    init_forcetree_params(2);
     /*Set up the top-level domain grid*/
     struct forcetree_testdata *data = mymalloc("data", sizeof(struct forcetree_testdata));
     trivial_domain(&data->ddecomp);

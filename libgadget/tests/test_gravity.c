@@ -342,7 +342,7 @@ static int setup_tree(void **state) {
     dp.SetAsideFactor = 1;
     set_domain_par(dp);
     petapm_module_init(omp_get_max_threads());
-    init_forcetree_params(2, GravitySofteningTable);
+    init_forcetree_params(2);
     init_cosmology(&All.CP, 0.01);
     /*Set up the top-level domain grid*/
     struct forcetree_testdata *data = malloc(sizeof(struct forcetree_testdata));

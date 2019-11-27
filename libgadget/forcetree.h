@@ -97,7 +97,7 @@ typedef struct ForceTree {
 } ForceTree;
 
 /*Initialize the internal parameters of the forcetree module*/
-void init_forcetree_params(const int FastParticleType, const double * GravitySofteningTable);
+void init_forcetree_params(const int FastParticleType);
 
 int force_tree_allocated(const ForceTree * tt);
 
