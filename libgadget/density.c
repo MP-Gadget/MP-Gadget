@@ -154,6 +154,8 @@ struct DensityPriv {
     double DesNumNgb;
     /*!< minimum allowed SPH smoothing length */
     double MinGasHsml;
+    /* Are there potentially black holes?*/
+    int BlackHoleOn;
 };
 
 #define DENSITY_GET_PRIV(tw) ((struct DensityPriv*) ((tw)->priv))
@@ -194,7 +196,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, ForceTree * tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, ForceTree * tree)
 {
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
@@ -235,6 +237,8 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, ForceTre
 
     DENSITY_GET_PRIV(tw)->DesNumNgb = GetNumNgb(DensityParams.DensityKernelType);
     DENSITY_GET_PRIV(tw)->MinGasHsml = DensityParams.MinGasHsmlFractional * GravitySofteningTable[1];
+
+    DENSITY_GET_PRIV(tw)->BlackHoleOn = BlackHoleOn;
 
     /* Init Left and Right: this has to be done before treewalk */
     #pragma omp parallel for
@@ -580,7 +584,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
 
     double desnumngb = DENSITY_GET_PRIV(tw)->DesNumNgb;
 
-    if(All.BlackHoleOn && P[i].Type == 5)
+    if(DENSITY_GET_PRIV(tw)->BlackHoleOn && P[i].Type == 5)
         desnumngb = desnumngb * DensityParams.BlackHoleNgbFactor;
 
     MyFloat * Left = DENSITY_GET_PRIV(tw)->Left;
@@ -659,7 +663,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
             }
         }
 
-        if(All.BlackHoleOn && P[i].Type == 5)
+        if(DENSITY_GET_PRIV(tw)->BlackHoleOn && P[i].Type == 5)
             if(Left[i] > DensityParams.BlackHoleMaxAccretionRadius)
             {
                 P[i].Hsml = DensityParams.BlackHoleMaxAccretionRadius;
@@ -677,7 +681,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
     }
     else {
         /* We might have got here by serendipity, without bounding.*/
-        if(All.BlackHoleOn && P[i].Type == 5)
+        if(DENSITY_GET_PRIV(tw)->BlackHoleOn && P[i].Type == 5)
             if(P[i].Hsml > DensityParams.BlackHoleMaxAccretionRadius)
                 P[i].Hsml = DensityParams.BlackHoleMaxAccretionRadius;
         if(P[i].Hsml < DENSITY_GET_PRIV(tw)->MinGasHsml)
