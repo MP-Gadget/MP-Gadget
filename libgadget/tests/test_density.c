@@ -171,7 +171,7 @@ static void test_density_flat(void ** state) {
         P[i].Pos[1] = (All.BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
         P[i].Pos[2] = (All.BoxSize/ncbrt) * (i % ncbrt);
     }
-    do_density_test(state, numpart, 0.508875, 1e-4);
+    do_density_test(state, numpart, 0.501747, 1e-4);
 }
 
 static void test_density_close(void ** state) {
@@ -203,7 +203,7 @@ static void test_density_close(void ** state) {
     }
     P[numpart-1].Type = 5;
 
-    do_density_test(state, numpart, 0.127294, 1e-4);
+    do_density_test(state, numpart, 0.125414, 1e-4);
 }
 
 void do_random_test(void **state, gsl_rng * r, const int numpart)
@@ -235,7 +235,7 @@ void do_random_test(void **state, gsl_rng * r, const int numpart)
         for(j=0; j<3; j++)
             P[i].Pos[j] = All.BoxSize*0.1 + All.BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
-    do_density_test(state, numpart,0.1908, 1e-3);
+    do_density_test(state, numpart, 0.187515, 1e-3);
 }
 
 static void test_density_random(void ** state) {
@@ -294,8 +294,11 @@ static int setup_density(void **state) {
     All.DensityResolutionEta = 1.;
     All.BlackHoleNgbFactor = 2;
     All.MaxNumNgbDeviation = 2;
-    All.DesNumNgb = 35;
     All.DensityKernelType = DENSITY_KERNEL_CUBIC_SPLINE;
+    DensityKernel kernel;
+    density_kernel_init(&kernel, 1.0, All.DensityKernelType);
+    All.DesNumNgb = density_kernel_desnumngb(&kernel, All.DensityResolutionEta);
+
     All.BoxSize = 8;
     All.MinGasHsml = 0.006;
     All.BlackHoleMaxAccretionRadius = 99999.;
