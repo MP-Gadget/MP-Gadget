@@ -113,9 +113,6 @@
         double press_j_tot = Pressure_j + SphP[j].Density * v2_approach;
         double press_tot_limiter;
         press_tot_limiter = 1.1 * All.cf_a3inv * DMAX( press_i_tot , press_j_tot );
-#if defined(EOS_GENERAL)
-        press_tot_limiter *= 2.0;
-#endif
         if(recon_mode==0) {press_tot_limiter = DMAX(press_tot_limiter , DMAX(DMAX(Pressure_i,Pressure_j),2.*DMAX(local.Density,SphP[j].Density)*v2_approach));}
         
         /* --------------------------------------------------------------------------------- */
@@ -193,54 +190,6 @@
                 // alright, if we've come this far, we need to subtract -off- the thermal energy part of the flux, and replace it //
                 if(use_entropic_energy_equation) {Fluxes.p = du_new;}
             }
-            
-#else
-            /* the fluxes have been calculated in the rest frame of the interface: we need to de-boost to the 'simulation frame'
-             which we do following Pakmor et al. 2011 */
-            for(k=0;k<3;k++)
-            {
-                Riemann_out.Fluxes.p += v_frame[k] * Riemann_out.Fluxes.v[k];
-            }
-            
-            /* ok now we can actually apply this to the EOM */
-            Fluxes.p = Face_Area_Norm * Riemann_out.Fluxes.p; // this is really Dt of --total-- energy, need to subtract KE component for e */
-            for(k=0;k<3;k++) {Fluxes.v[k] = Face_Area_Norm * Riemann_out.Fluxes.v[k];} // momentum flux (need to divide by mass) //
-
-#if defined(HYDRO_MESHLESS_FINITE_MASS) && (SLOPE_LIMITER_TOLERANCE < 2)
-            /* for MFM, do the face correction for adiabatic flows here */
-            double SM_over_ceff = fabs(Riemann_out.S_M) / DMIN(kernel.sound_i,kernel.sound_j); // for now use sound speed here (more conservative) vs magnetosonic speed //
-            /* if SM is sufficiently large, we do nothing to the equations */
-            if(SM_over_ceff < epsilon_entropic_eos_big)
-            {
-                /* ok SM is small, we should use adiabatic equations instead */
-                int use_entropic_energy_equation = 1;
-                double facenorm_pm = Riemann_out.P_M * Face_Area_Norm;
-                double PdV_fac = Riemann_out.P_M * vdotr2_phys / All.cf_a2inv;
-                double PdV_i = kernel.dwk_i * V_i*V_i * local.DhsmlNgbFactor * PdV_fac;
-                double PdV_j = kernel.dwk_j * V_j*V_j * PPP[j].DhsmlNgbFactor * PdV_fac;
-                double du_old = facenorm_pm * (Riemann_out.S_M + face_area_dot_vel);
-                double du_new = 0.5 * (PdV_i - PdV_j + facenorm_pm * (face_vel_i+face_vel_j));
-                // more detailed check for intermediate cases //
-                double cnum2 = SphP[j].ConditionNumber*SphP[j].ConditionNumber;
-                if(SM_over_ceff > epsilon_entropic_eos_small && cnum2 < cnumcrit2)
-                {
-                    if(Pressure_i/local.Density > Pressure_j/SphP[j].Density)
-                    {
-                        double dtoj = -du_old + facenorm_pm * face_vel_j;
-                        if(dtoj > 0) {use_entropic_energy_equation=0;} else {
-                            if(dtoj > -du_new+facenorm_pm*face_vel_j) {use_entropic_energy_equation=0;}}
-                    } else {
-                        double dtoi = du_old - facenorm_pm * face_vel_i;
-                        if(dtoi > 0) {use_entropic_energy_equation=0;} else {
-                            if(dtoi > du_new-facenorm_pm*face_vel_i) {use_entropic_energy_equation=0;}}
-                    }
-                }
-                if(cnum2 >= cnumcrit2) {use_entropic_energy_equation=1;}
-                // alright, if we've come this far, we need to subtract -off- the thermal energy part of the flux, and replace it //
-                if(use_entropic_energy_equation) {Fluxes.p += du_new - du_old;}
-            }
-#endif // closes MFM check // 
-
 #endif // endif for clause opening full fluxes (mfv or magnetic)
         } else {
             /* nothing but bad riemann solutions found! */

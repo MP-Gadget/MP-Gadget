@@ -30,21 +30,7 @@
 #define SHOULD_I_USE_SPH_GRADIENTS(condition_number) ((condition_number > CONDITION_NUMBER_DANGER) ? (1):(0))
 
 
-
-#if defined(MHD_CONSTRAINED_GRADIENT)
-#if (MHD_CONSTRAINED_GRADIENT > 1)
-#define NUMBER_OF_GRADIENT_ITERATIONS 3
-#else
-#define NUMBER_OF_GRADIENT_ITERATIONS 2
-#endif
-#else
 #define NUMBER_OF_GRADIENT_ITERATIONS 1
-#endif
-
-#if defined(RT_EVOLVE_EDDINGTON_TENSOR) && !defined(RT_EVOLVE_NGAMMA)
-#define E_gamma_Pred E_gamma
-#endif
-
 
 #ifdef PTHREADS_NUM_THREADS
 extern pthread_mutex_t mutex_nexport;
@@ -609,12 +595,6 @@ void hydro_gradient_calc(void)
             /* fraction of H at which maximum reconstruction is allowed (=0.5 for 'standard'); for pure hydro we can
              be a little more aggresive and the equations are still stable (but this is as far as you want to push it) */
             double a_limiter = 0.25; if(SphP[i].ConditionNumber>100) a_limiter=DMIN(0.5, 0.25 + 0.25 * (SphP[i].ConditionNumber-100)/100);
-#if (SLOPE_LIMITER_TOLERANCE == 2)
-            h_lim = PPP[i].Hsml; a_limiter *= 0.5; stol = 0.125;
-#endif
-#if (SLOPE_LIMITER_TOLERANCE == 0)
-            a_limiter *= 2.0; stol = 0.0;
-#endif
 
             local_slopelimiter(SphP[i].Gradients.Density,GasGradDataPasser[i].Maxima.Density,GasGradDataPasser[i].Minima.Density,a_limiter,h_lim,0);
             local_slopelimiter(SphP[i].Gradients.Pressure,GasGradDataPasser[i].Maxima.Pressure,GasGradDataPasser[i].Minima.Pressure,a_limiter,h_lim,stol);
@@ -711,7 +691,6 @@ int GasGrad_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                 if(j >= N_gas) continue;
 
                 integertime TimeStep_J = (P[j].TimeBin ? (((integertime) 1) << P[j].TimeBin) : 0);
-#ifndef BOX_SHEARING // (shearing box means the fluxes at the boundaries are not actually symmetric, so can't do this) //
                 if(local.Timestep > TimeStep_J) continue; /* compute from particle with smaller timestep */
                 /* use relative positions to break degeneracy */
                 if(local.Timestep == TimeStep_J)
@@ -720,9 +699,6 @@ int GasGrad_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                     if(local.Pos[n0] < P[j].Pos[n0]) continue;
                 }
                 swap_to_j = TimeBinActive[P[j].TimeBin];
-#else
-                swap_to_j = 0;
-#endif
                 if(P[j].Mass <= 0) continue;
                 if(SphP[j].Density <= 0) continue;
                 
@@ -738,12 +714,6 @@ int GasGrad_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                 if(r2 <= 0) continue;
 #else
                 if(r2 <= 0) {swap_to_j = 0;}
-#endif
-#ifdef TURB_DIFF_DYNAMIC
-#ifdef GALSF_SUBGRID_WINDS
-                if (gradient_iteration == 0 && ((SphP[j].DelayTime == 0 && local.DelayTime == 0) || (SphP[j].DelayTime > 0 && local.DelayTime > 0))) {
-#else
-                if (gradient_iteration == 0) {
 #endif
                     hhat_i = All.TurbDynamicDiffFac * kernel.h_i; hhat_j = All.TurbDynamicDiffFac * h_j;
                     if((r2 >= (hhat_i * hhat_i)) && (r2 >= (hhat_j * hhat_j))) continue;
@@ -794,17 +764,8 @@ int GasGrad_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                 }
                 
                 
-#if defined(MHD_CONSTRAINED_GRADIENT)
-                double V_j = P[j].Mass / SphP[j].Density;
-                double Face_Area_Vec[3];
-                double wt_i,wt_j;
-#ifdef COOLING
-                //wt_i=wt_j = 2.*V_i*V_j / (V_i + V_j); // more conservatively, could use DMIN(V_i,V_j), but that is less accurate
-                if((fabs(V_i-V_j)/DMIN(V_i,V_j))/NUMDIMS > 1.25) {wt_i=wt_j=2.*V_i*V_j/(V_i+V_j);} else {wt_i=V_i; wt_j=V_j;}
-#else
                 //wt_i=wt_j = (V_i*PPP[j].Hsml + V_j*local.Hsml) / (local.Hsml+PPP[j].Hsml); // should these be H, or be -effective sizes- //
                 if((fabs(V_i-V_j)/DMIN(V_i,V_j))/NUMDIMS > 1.50) {wt_i=wt_j=(V_i*PPP[j].Hsml+V_j*local.Hsml)/(local.Hsml+PPP[j].Hsml);} else {wt_i=V_i; wt_j=V_j;}
-#endif
                 for(k=0;k<3;k++)
                 {
                     /* calculate the face area between the particles (must match what is done in the actual hydro routine! */
@@ -877,38 +838,6 @@ int GasGrad_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                     if(swap_to_j) GasGradDataPasser[j].FaceDotB -= Face_Area_Vec[k] * (Bjk + Q_R);
                 }
                 
-#if defined(MHD_CONSTRAINED_GRADIENT_MIDPOINT)
-                /* this will fit the gradient at the -midpoint- as opposed to at the j locations, i.e.
-                 attempting to minimize the quantity phi_L - phi_R, at face locations */
-                double dphi = Get_Particle_PhiField(j) - local.GQuant.Phi;
-                if(gradient_iteration == 0)
-                {
-                    MINMAX_CHECK(dphi,out.Minima.Phi,out.Maxima.Phi);
-                    if(swap_to_j) {MINMAX_CHECK(-dphi,GasGradDataPasser[j].Minima.Phi,GasGradDataPasser[j].Maxima.Phi);}
-                }
-
-                // dphi = phi_j - phi_i :: if phi_i = 0, dphi = phi_j //
-                double dphi_grad_j = 0, dphi_grad_i = 0;
-                for(k=0;k<3;k++)
-                {
-                    dphi_grad_j += 0.5 * kernel.dp[k] * SphP[j].Gradients.Phi[k];
-                    dphi_grad_i -= 0.5 * kernel.dp[k] * local.PhiGrad[k];
-                }
-                if(dphi > 0)
-                {
-                    if(dphi_grad_j>0) {dphi_grad_j=0;} else {if(dphi_grad_j<0.5*dphi) dphi_grad_j=0.5*dphi;}
-                    if(dphi_grad_i<0) {dphi_grad_i=0;} else {if(dphi_grad_i>0.5*dphi) dphi_grad_i=0.5*dphi;}
-                } else {
-                    if(dphi_grad_j<0) {dphi_grad_j=0;} else {if(dphi_grad_j>0.5*dphi) dphi_grad_j=0.5*dphi;}
-                    if(dphi_grad_i>0) {dphi_grad_i=0;} else {if(dphi_grad_i<0.5*dphi) dphi_grad_i=0.5*dphi;}
-                }
-                double dphi_j = dphi + dphi_grad_j;
-                double dphi_i = dphi - dphi_grad_i;
-                if(sph_gradients_flag_i) {dphi_j *= -2*kernel.wk_i;} else {dphi_j *= kernel.dwk_i/kernel.r * P[j].Mass;}
-                if(sph_gradients_flag_j) {dphi_i *= -2*kernel.wk_j;} else {dphi_i *= kernel.dwk_j/kernel.r * local.Mass;}
-                if(gradient_iteration == 0) {for(k=0;k<3;k++) {out.Gradients[k].Phi += dphi_j * kernel.dp[k];}} else {for(k=0;k<3;k++) {out_iter.PhiGrad[k] += dphi_j * kernel.dp[k];}}
-                if(swap_to_j) {for(k=0;k<3;k++) {GasGradDataPasser[j].PhiGrad[k] += dphi_i * kernel.dp[k];}}
-#endif
 #endif
                 
                 if(gradient_iteration == 0)
@@ -927,20 +856,6 @@ int GasGrad_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                     double dp = SphP[j].Pressure - local.GQuant.Pressure;
                     MINMAX_CHECK(dp,out.Minima.Pressure,out.Maxima.Pressure);
                     if(swap_to_j) {MINMAX_CHECK(-dp,GasGradDataPasser[j].Minima.Pressure,GasGradDataPasser[j].Maxima.Pressure);}
-
-#ifdef TURB_DIFF_DYNAMIC
-                    double dv_bar[3]; /* Need to calculate the filtered velocity gradient for the filtered shear */
-                    for (k = 0; k < 3; k++) {
-                        dv_bar[k] = SphP[j].Velocity_bar[k] - local.GQuant.Velocity_bar[k];
-#ifdef SHEARING_BOX
-                        if (k == SHEARING_BOX_PHI_COORDINATE) {
-                            if (local.Pos[0] - P[j].Pos[0] > +boxHalf_X) {dv_bar[k] -= Shearing_Box_Vel_Offset;}
-                            if (local.Pos[0] - P[j].Pos[0] < -boxHalf_X) {dv_bar[k] += Shearing_Box_Vel_Offset;}}
-#endif
-                        MINMAX_CHECK(dv_bar[k], out.Minima.Velocity_bar[k], out.Maxima.Velocity_bar[k]);
-                        if (swap_to_j) {MINMAX_CHECK(-dv_bar[k], GasGradDataPasser[j].Minima.Velocity_bar[k], GasGradDataPasser[j].Maxima.Velocity_bar[k]);}
-                    }
-#endif
 
 #if defined(KERNEL_CRK_FACES)
                     {
@@ -985,65 +900,16 @@ int GasGrad_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                     for(k=0;k<3;k++)
                     {
                         dv[k] = SphP[j].VelPred[k] - local.GQuant.Velocity[k];
-#ifdef BOX_SHEARING
-                        if(k==BOX_SHEARING_PHI_COORDINATE)
-                        {
-                            if(local.Pos[0] - P[j].Pos[0] > +boxHalf_X) {dv[k] -= Shearing_Box_Vel_Offset;}
-                            if(local.Pos[0] - P[j].Pos[0] < -boxHalf_X) {dv[k] += Shearing_Box_Vel_Offset;}
-                        }
-#endif
                         MINMAX_CHECK(dv[k],out.Minima.Velocity[k],out.Maxima.Velocity[k]);
                         if(swap_to_j) {MINMAX_CHECK(-dv[k],GasGradDataPasser[j].Minima.Velocity[k],GasGradDataPasser[j].Maxima.Velocity[k]);}
                     }
 
-#ifdef DOGRAD_INTERNAL_ENERGY
-                    double du = SphP[j].InternalEnergyPred - local.GQuant.InternalEnergy;
-                    MINMAX_CHECK(du,out.Minima.InternalEnergy,out.Maxima.InternalEnergy);
-                    if(swap_to_j) {MINMAX_CHECK(-du,GasGradDataPasser[j].Minima.InternalEnergy,GasGradDataPasser[j].Maxima.InternalEnergy);}
-#endif
-#ifdef DOGRAD_SOUNDSPEED
-                    double dc = Particle_effective_soundspeed_i(j) - local.GQuant.SoundSpeed;
-                    MINMAX_CHECK(dc,out.Minima.SoundSpeed,out.Maxima.SoundSpeed);
-                    if(swap_to_j) {MINMAX_CHECK(-dc,GasGradDataPasser[j].Minima.SoundSpeed,GasGradDataPasser[j].Maxima.SoundSpeed);}
-#endif
-#if defined(DIVBCLEANING_DEDNER) && !defined(MHD_CONSTRAINED_GRADIENT_MIDPOINT)
-                    double dphi = Get_Particle_PhiField(j) - local.GQuant.Phi;
-                    MINMAX_CHECK(dphi,out.Minima.Phi,out.Maxima.Phi);
-                    if(swap_to_j) {MINMAX_CHECK(-dphi,GasGradDataPasser[j].Minima.Phi,GasGradDataPasser[j].Maxima.Phi);}
-#endif
-#if defined(TURB_DIFF_METALS) && !defined(TURB_DIFF_METALS_LOWORDER)
-                    double dmetal[NUM_METAL_SPECIES];
-                    for(k = 0; k < NUM_METAL_SPECIES; k++)
-                    {
-                        dmetal[k] = P[j].Metallicity[k] - local.GQuant.Metallicity[k];
-                        MINMAX_CHECK(dmetal[k],out.Minima.Metallicity[k],out.Maxima.Metallicity[k]);
-                        if(swap_to_j) {MINMAX_CHECK(-dmetal[k],GasGradDataPasser[j].Minima.Metallicity[k],GasGradDataPasser[j].Maxima.Metallicity[k]);}
-                    }
-#endif
-#ifdef RT_EVOLVE_EDDINGTON_TENSOR
-                    double dnET[N_RT_FREQ_BINS][6];
-                    double dn[N_RT_FREQ_BINS];
-                    double V_i_inv = 1/V_i, V_j_inv = SphP[j].Density/P[j].Mass;
-                    for(k = 0; k < N_RT_FREQ_BINS; k++)
-                    {
-                        int k_dE; for(k_dE=0;k_dE<6;k_dE++) {dnET[k][k_dE] = SphP[j].E_gamma_Pred[k]*SphP[j].ET[k][k_dE]*V_j_inv - local.GQuant.E_gamma[k]*local.GQuant.E_gamma_ET[k][k_dE]*V_i_inv;}
-                        dn[k] = SphP[j].E_gamma_Pred[k]*V_j_inv - local.GQuant.E_gamma[k]*V_i_inv;
-                        MINMAX_CHECK(dn[k],out.Minima.E_gamma[k],out.Maxima.E_gamma[k]);
-                        if(swap_to_j) {MINMAX_CHECK(-dn[k],GasGradDataPasser[j].Minima.E_gamma[k],GasGradDataPasser[j].Maxima.E_gamma[k]);}
-                    }
-#endif
                     /* end of difference and slope-limiter (min/max) block */
                     /* ------------------------------------------------------------------------------------------------ */
 
 
                     /* ------------------------------------------------------------------------------------------------ */
                     /*  Here we insert additional operations we want to fit into the gradients loop. at the moment, all of these are SPH-specific */
-#ifdef HYDRO_SPH
-#ifdef SPHAV_CD10_VISCOSITY_SWITCH
-                    out.alpha_limiter += NV_MYSIGN(SphP[j].NV_DivVel) * P[j].Mass * kernel.wk_i;
-                    if(swap_to_j) SphP[j].alpha_limiter += NV_MYSIGN(local.NV_DivVel) * local.Mass * kernel.wk_j;
-#endif
-#endif
                     /* end of additional/miscellaneous operators block */
                     /* ------------------------------------------------------------------------------------------------ */
 
@@ -1061,25 +927,6 @@ int GasGrad_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                             out.Gradients[k].Density += wk_xyz_i * d_rho;
                             out.Gradients[k].Pressure += wk_xyz_i * dp;
                             for(k2=0;k2<3;k2++) {out.Gradients[k].Velocity[k2] += wk_xyz_i * dv[k2];}
-#ifdef TURB_DIFF_DYNAMIC
-                            for (k2 = 0; k2 < 3; k2++) {out.Gradients[k].Velocity_bar[k2] += wk_xyz_i * dv_bar[k2];}
-#endif
-#ifdef DOGRAD_INTERNAL_ENERGY
-                            out.Gradients[k].InternalEnergy += wk_xyz_i * du;
-#endif
-#ifdef DOGRAD_SOUNDSPEED
-                            out.Gradients[k].SoundSpeed += wk_xyz_i * dc;
-#endif
-#if defined(TURB_DIFF_METALS) && !defined(TURB_DIFF_METALS_LOWORDER)
-                            for(k2=0;k2<NUM_METAL_SPECIES;k2++) {out.Gradients[k].Metallicity[k2] += wk_xyz_i * dmetal[k2];}
-#endif
-#ifdef RT_EVOLVE_EDDINGTON_TENSOR
-                            for(k2=0;k2<N_RT_FREQ_BINS;k2++) 
-                            {
-                            	out.Gradients[k].E_gamma[k2] += wk_xyz_i * dn[k2];
-                            	int k_et; for(k_et=0;k_et<6;k_et++) out.Gradients[k].E_gamma_ET[k2][k_et] += wk_xyz_i * dnET[k2][k_et];
-                            } 
-#endif
                         }
                     }
                     
@@ -1093,36 +940,6 @@ int GasGrad_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                             SphP[j].Gradients.Density[k] += wk_xyz_j * d_rho;
                             SphP[j].Gradients.Pressure[k] += wk_xyz_j * dp;
                             for(k2=0;k2<3;k2++) {SphP[j].Gradients.Velocity[k2][k] += wk_xyz_j * dv[k2];}
-#ifdef TURB_DIFF_DYNAMIC
-                            for (k2 = 0; k2 < 3; k2++) {GasGradDataPasser[j].GradVelocity_bar[k2][k] += wk_xyz_j * dv_bar[k2];}
-#endif
-#ifdef DOGRAD_INTERNAL_ENERGY
-                            SphP[j].Gradients.InternalEnergy[k] += wk_xyz_j * du;
-#endif
-#ifdef DOGRAD_SOUNDSPEED
-                            SphP[j].Gradients.SoundSpeed[k] += wk_xyz_j * dc;
-#endif
-#if defined(TURB_DIFF_METALS) && !defined(TURB_DIFF_METALS_LOWORDER)
-                            for(k2=0;k2<NUM_METAL_SPECIES;k2++) {SphP[j].Gradients.Metallicity[k2][k] += wk_xyz_j * dmetal[k2];}
-#endif
-#ifdef RT_EVOLVE_EDDINGTON_TENSOR
-                            for(k2=0;k2<N_RT_FREQ_BINS;k2++) 
-                            {
-                            	GasGradDataPasser[j].Gradients_E_gamma[k2][k] += wk_xyz_j * dn[k2];
-								/* below we have the gradient dotted into the Eddington tensor (more complicated than a scalar gradient, but should recover full anisotropy */
-								int k_freq=k2,k_xyz,j_xyz,i_xyz=k,k_et_loop[3]; // recall, for ET: 0=xx,1=yy,2=zz,3=xy,4=yz,5=xz
-								for(k_xyz=0;k_xyz<3;k_xyz++)
-								{
-									if(k_xyz==0) {k_et_loop[0]=0; k_et_loop[1]=3; k_et_loop[2]=5;}
-									if(k_xyz==1) {k_et_loop[0]=3; k_et_loop[1]=1; k_et_loop[2]=4;}
-									if(k_xyz==2) {k_et_loop[0]=5; k_et_loop[1]=4; k_et_loop[2]=2;}
-									for(j_xyz=0;j_xyz<3;j_xyz++)
-									{
-										SphP[j].Gradients.E_gamma_ET[k_freq][k_xyz] += SphP[j].NV_T[j_xyz][i_xyz] * wk_xyz_j * dnET[k_freq][k_et_loop[j_xyz]];
-									}
-								}
-                            }
-#endif
                         }
                     }
 

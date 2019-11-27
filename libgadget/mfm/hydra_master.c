@@ -109,13 +109,6 @@ extern pthread_mutex_t mutex_partnodedrift;
 */
 
 
-
-/* determine if we need to evolve the radiation fields in the hydro routine with the flag below */
-#if defined(RT_EVOLVE_NGAMMA)
-#define RT_EVOLVE_NGAMMA_IN_HYDRO
-#endif
-
-
 static double fac_mu, fac_vsic_fix;
 
 /* --------------------------------------------------------------------------------- */
@@ -177,81 +170,11 @@ struct hydrodata_in
         MyDouble Density[3];
         MyDouble Pressure[3];
         MyDouble Velocity[3][3];
-#if defined(TURB_DIFF_METALS) && !defined(TURB_DIFF_METALS_LOWORDER)
-        MyDouble Metallicity[NUM_METAL_SPECIES][3];
-#endif
-#ifdef DOGRAD_INTERNAL_ENERGY
-        MyDouble InternalEnergy[3];
-#endif
-#ifdef DOGRAD_SOUNDSPEED
-        MyDouble SoundSpeed[3];
-#endif
-#if defined(RT_DIFFUSION_EXPLICIT) && defined(RT_EVOLVE_EDDINGTON_TENSOR)
-        MyDouble E_gamma_ET[N_RT_FREQ_BINS][3];
-#endif
     } Gradients;
     MyFloat NV_T[3][3];
     
 #if defined(KERNEL_CRK_FACES)
     MyFloat Tensor_CRK_Face_Corrections[16];
-#endif
-#ifdef HYDRO_PRESSURE_SPH
-    MyFloat EgyWtRho;
-#endif
-
-#if defined(TURB_DIFF_METALS)
-    MyFloat Metallicity[NUM_METAL_SPECIES];
-#endif
-
-#ifdef CHIMES_TURB_DIFF_IONS 
-    MyDouble ChimesNIons[TOTSIZE]; 
-#endif 
-    
-#ifdef RT_DIFFUSION_EXPLICIT
-    MyDouble E_gamma[N_RT_FREQ_BINS];
-    MyDouble Kappa_RT[N_RT_FREQ_BINS];
-    MyDouble RT_DiffusionCoeff[N_RT_FREQ_BINS];
-#if defined(RT_EVOLVE_FLUX) || defined(HYDRO_SPH)
-    MyDouble ET[N_RT_FREQ_BINS][6];
-#endif
-#ifdef RT_EVOLVE_FLUX
-    MyDouble Flux[N_RT_FREQ_BINS][3];
-#endif
-#ifdef RT_INFRARED
-    MyDouble Radiation_Temperature;
-#endif
-#endif
-    
-#ifdef TURB_DIFFUSION
-    MyFloat TD_DiffCoeff;
-#endif
-    
-#ifdef CONDUCTION
-    MyFloat Kappa_Conduction;
-#endif
-
-#ifdef MHD_NON_IDEAL
-    MyFloat Eta_MHD_OhmicResistivity_Coeff;
-    MyFloat Eta_MHD_HallEffect_Coeff;
-    MyFloat Eta_MHD_AmbiPolarDiffusion_Coeff;
-#endif
-    
-#ifdef VISCOSITY
-    MyFloat Eta_ShearViscosity;
-    MyFloat Zeta_BulkViscosity;
-#endif
-    
-#ifdef GALSF_SUBGRID_WINDS
-    MyDouble DelayTime;
-#endif
-    
-#ifdef EOS_ELASTIC
-    int CompositionType;
-    MyFloat Elastic_Stress_Tensor[3][3];
-#endif
-    
-#ifndef DONOTUSENODELIST
-    int NodeList[NODELISTLENGTH];
 #endif
 }
 *HydroDataIn, *HydroDataGet;
@@ -270,23 +193,6 @@ struct hydrodata_out
     MyFloat MaxSignalVel;
 #ifdef ENERGY_ENTROPY_SWITCH_IS_ACTIVE
     MyFloat MaxKineticEnergyNgb;
-#endif
-#if defined(TURB_DIFF_METALS)
-    MyFloat Dyield[NUM_METAL_SPECIES];
-#endif
-
-#ifdef CHIMES_TURB_DIFF_IONS 
-    MyDouble ChimesIonsYield[TOTSIZE]; 
-#endif 
-    
-#if defined(RT_EVOLVE_NGAMMA_IN_HYDRO)
-    MyFloat Dt_E_gamma[N_RT_FREQ_BINS];
-#if defined(RT_INFRARED)
-    MyFloat Dt_E_gamma_T_weighted_IR;
-#endif
-#endif
-#if defined(RT_EVOLVE_FLUX)
-    MyFloat Dt_Flux[N_RT_FREQ_BINS][3];
 #endif
     
 }
@@ -316,22 +222,10 @@ static inline void particle2in_hydra(struct hydrodata_in *in, int i)
     in->SoundSpeed = Particle_effective_soundspeed_i(i);
     in->Timestep = (P[i].TimeBin ? (((integertime) 1) << P[i].TimeBin) : 0);
     in->ConditionNumber = SphP[i].ConditionNumber;
-#ifdef MHD_CONSTRAINED_GRADIENT
-    /* since it is not used elsewhere, we can use the sign of the condition number as a bit 
-        to conveniently indicate the status of the parent particle flag, for the constrained gradients */
-    if(SphP[i].FlagForConstrainedGradients == 0) {in->ConditionNumber *= -1;}
-#endif
-#ifdef BH_WIND_SPAWN
-    if(P[i].ID == All.AGNWindID) {in->ConditionNumber *= -1;} /* as above, use sign of condition number as a bitflag to indicate if this is, or is not, a wind particle */
-#endif
     in->DhsmlNgbFactor = PPP[i].DhsmlNgbFactor;
 #ifdef HYDRO_SPH
     in->DhsmlHydroSumFactor = SphP[i].DhsmlHydroSumFactor;
-#if defined(SPHAV_CD10_VISCOSITY_SWITCH)
-    in->alpha = SphP[i].alpha_limiter * SphP[i].alpha;
-#else
     in->alpha = SphP[i].alpha_limiter;
-#endif
 #endif
     
 #ifdef HYDRO_PRESSURE_SPH
@@ -351,75 +245,7 @@ static inline void particle2in_hydra(struct hydrodata_in *in, int i)
         in->Gradients.Density[k] = SphP[i].Gradients.Density[k];
         in->Gradients.Pressure[k] = SphP[i].Gradients.Pressure[k];
         for(j=0;j<3;j++) {in->Gradients.Velocity[j][k] = SphP[i].Gradients.Velocity[j][k];}
-#if defined(TURB_DIFF_METALS) && !defined(TURB_DIFF_METALS_LOWORDER)
-        for(j=0;j<NUM_METAL_SPECIES;j++) {in->Gradients.Metallicity[j][k] = SphP[i].Gradients.Metallicity[j][k];}
-#endif
-#ifdef DOGRAD_INTERNAL_ENERGY
-        in->Gradients.InternalEnergy[k] = SphP[i].Gradients.InternalEnergy[k];
-#endif
-#ifdef DOGRAD_SOUNDSPEED
-        in->Gradients.SoundSpeed[k] = SphP[i].Gradients.SoundSpeed[k];
-#endif
-#if defined(RT_DIFFUSION_EXPLICIT) && defined(RT_EVOLVE_EDDINGTON_TENSOR)
-        for(j=0;j<N_RT_FREQ_BINS;j++) {in->Gradients.E_gamma_ET[j][k] = SphP[i].Gradients.E_gamma_ET[j][k];}
-#endif
     }
-
-#ifdef RT_DIFFUSION_EXPLICIT
-    for(k=0;k<N_RT_FREQ_BINS;k++)
-    {
-        in->E_gamma[k] = SphP[i].E_gamma_Pred[k];
-        in->Kappa_RT[k] = SphP[i].Kappa_RT[k];
-        in->RT_DiffusionCoeff[k] = rt_diffusion_coefficient(i,k);
-#if defined(RT_EVOLVE_FLUX) || defined(HYDRO_SPH)
-        int k_dir; for(k_dir=0;k_dir<6;k_dir++) in->ET[k][k_dir] = SphP[i].ET[k][k_dir];
-#endif
-#ifdef RT_EVOLVE_FLUX
-        for(k_dir=0;k_dir<3;k_dir++) in->Flux[k][k_dir] = SphP[i].Flux_Pred[k][k_dir];
-#endif
-    }
-#ifdef RT_INFRARED
-        in->Radiation_Temperature = SphP[i].Radiation_Temperature;
-#endif
-#endif
-
-#if defined(TURB_DIFF_METALS)
-    for(k=0;k<NUM_METAL_SPECIES;k++) {in->Metallicity[k] = P[i].Metallicity[k];}
-#endif
-
-#ifdef CHIMES_TURB_DIFF_IONS  
-    for (k = 0; k < ChimesGlobalVars.totalNumberOfSpecies; k++) 
-      in->ChimesNIons[k] = SphP[i].ChimesNIons[k]; 
-#endif 
-    
-#ifdef TURB_DIFFUSION
-    in->TD_DiffCoeff = SphP[i].TD_DiffCoeff;
-#endif
-    
-#ifdef CONDUCTION
-    in->Kappa_Conduction = SphP[i].Kappa_Conduction;
-#endif
-    
-#ifdef MHD_NON_IDEAL
-    in->Eta_MHD_OhmicResistivity_Coeff = SphP[i].Eta_MHD_OhmicResistivity_Coeff;
-    in->Eta_MHD_HallEffect_Coeff = SphP[i].Eta_MHD_HallEffect_Coeff;
-    in->Eta_MHD_AmbiPolarDiffusion_Coeff = SphP[i].Eta_MHD_AmbiPolarDiffusion_Coeff;
-#endif
-    
-
-#ifdef VISCOSITY
-    in->Eta_ShearViscosity = SphP[i].Eta_ShearViscosity;
-    in->Zeta_BulkViscosity = SphP[i].Zeta_BulkViscosity;
-#endif
-    
-#ifdef EOS_ELASTIC
-    in->CompositionType = SphP[i].CompositionType;
-    {int k_v; for(k=0;k<3;k++) {for(k_v=0;k_v<3;k_v++) {in->Elastic_Stress_Tensor[k][k_v] = SphP[i].Elastic_Stress_Tensor_Pred[k][k_v];}}}
-#endif
-    
-#ifdef GALSF_SUBGRID_WINDS
-    in->DelayTime = SphP[i].DelayTime;
-#endif
 
 }
 
@@ -445,29 +271,6 @@ static inline void out2particle_hydra(struct hydrodata_out *out, int i, int mode
 #ifdef ENERGY_ENTROPY_SWITCH_IS_ACTIVE
     if(SphP[i].MaxKineticEnergyNgb < out->MaxKineticEnergyNgb)
         SphP[i].MaxKineticEnergyNgb = out->MaxKineticEnergyNgb;
-#endif
-#if defined(TURB_DIFF_METALS)
-    for(k=0;k<NUM_METAL_SPECIES;k++)
-    {
-        double z_tmp = P[i].Metallicity[k] + out->Dyield[k] / P[i].Mass;
-        z_tmp = DMAX(z_tmp , 0.5 * P[i].Metallicity[k]);
-        P[i].Metallicity[k] = z_tmp;
-    }
-#endif
-
-#ifdef CHIMES_TURB_DIFF_IONS  
-    for (k = 0; k < ChimesGlobalVars.totalNumberOfSpecies; k++) 
-      SphP[i].ChimesNIons[k] = DMAX(SphP[i].ChimesNIons[k] + out->ChimesIonsYield[k], 0.5 * SphP[i].ChimesNIons[k]); 
-#endif 
-    
-#if defined(RT_EVOLVE_NGAMMA_IN_HYDRO)
-    for(k=0;k<N_RT_FREQ_BINS;k++) {SphP[i].Dt_E_gamma[k] += out->Dt_E_gamma[k];}
-#if defined(RT_INFRARED)
-    SphP[i].Dt_E_gamma_T_weighted_IR += out->Dt_E_gamma_T_weighted_IR;
-#endif
-#endif
-#if defined(RT_EVOLVE_FLUX)
-    for(k=0;k<N_RT_FREQ_BINS;k++) {int k_dir; for(k_dir=0;k_dir<3;k_dir++) {SphP[i].Dt_Flux[k][k_dir] += out->Dt_Flux[k][k_dir];}}
 #endif
 }
 
@@ -513,83 +316,6 @@ void hydro_final_operations_and_cleanup(void)
             if(All.ComovingIntegrationOn) SphP[i].DtInternalEnergy -= 3*GAMMA_MINUS1 * SphP[i].InternalEnergyPred * All.cf_hubble_a;
             // = du/dlna -3*(gamma-1)*u ; then dlna/dt = H(z) =  All.cf_hubble_a //
             
-            
-#ifdef RT_RAD_PRESSURE_FORCES
-#if defined(RT_EVOLVE_FLUX)
-            /* calculate the radiation pressure force */
-            double radacc[3]; radacc[0]=radacc[1]=radacc[2]=0; int k2;
-            // a = kappa*F/c = Gradients.E_gamma_ET[gradient of photon energy density] / rho[gas_density] //
-            double L_particle = Get_Particle_Size(i)*All.cf_atime; // particle effective size/slab thickness
-            double Sigma_particle = P[i].Mass / (M_PI*L_particle*L_particle); // effective surface density through particle
-            double abs_per_kappa_dt = RT_SPEEDOFLIGHT_REDUCTION * (C/All.UnitVelocity_in_cm_per_s) * (SphP[i].Density*All.cf_a3inv) * dt; // fractional absorption over timestep
-            for(k2=0;k2<N_RT_FREQ_BINS;k2++)
-            {
-                // want to average over volume (through-slab) and over time (over absorption): both give one 'slab_fac' below //
-                double slabfac = 1;// slab_averaging_function(SphP[i].Kappa_RT[k2]*Sigma_particle) * slab_averaging_function(SphP[i].Kappa_RT[k2]*abs_per_kappa_dt); // (actually dt average not appropriate if there is a source, dx average implicit -already- in averaging operation of Riemann problem //
-#ifdef RT_DISABLE_R15_GRADIENTFIX
-                // use actual flux -- appropriate for highly optically-thick, multiple scattering bands //
-                for(k=0;k<3;k++) {radacc[k] += slabfac * SphP[i].Kappa_RT[k2] * (SphP[i].Flux_Pred[k2][k] * SphP[i].Density/P[i].Mass) / (RT_SPEEDOFLIGHT_REDUCTION * C / All.UnitVelocity_in_cm_per_s);}
-#else
-                // use optically-thin flux: for optically thin cases this is better, but actually for thick cases, if optical depth is highly un-resolved, this is also better (see Appendices and discussion of Rosdahl et al. 2015)
-                double Fmag=0; for(k=0;k<3;k++) {Fmag+=SphP[i].Flux_Pred[k2][k]*SphP[i].Flux_Pred[k2][k];}
-#ifdef RT_INFRARED
-                if(k2==RT_FREQ_BIN_INFRARED)
-                    for(k=0;k<3;k++) {radacc[k] += slabfac * SphP[i].Kappa_RT[k2] * (SphP[i].Flux_Pred[k2][k] * SphP[i].Density/P[i].Mass) / (RT_SPEEDOFLIGHT_REDUCTION * C / All.UnitVelocity_in_cm_per_s);}
-                else
-#endif
-                if(Fmag > 0)
-                {
-                    Fmag = sqrt(Fmag);
-                    double Fthin = SphP[i].E_gamma[k2] * (RT_SPEEDOFLIGHT_REDUCTION * C / All.UnitVelocity_in_cm_per_s);
-                    double F_eff = DMAX(Fthin , Fmag);
-                    for(k=0;k<3;k++) {radacc[k] += (F_eff/Fmag) * slabfac * SphP[i].Kappa_RT[k2] * (SphP[i].Flux_Pred[k2][k] * SphP[i].Density/P[i].Mass) / (RT_SPEEDOFLIGHT_REDUCTION * C / All.UnitVelocity_in_cm_per_s);}
-                }
-#endif
-//#elif defined(RT_EVOLVE_EDDINGTON_TENSOR)
-                    /* // -- moved for OTVET+FLD to drift-kick operation to deal with limiters more accurately -- // */
-                    //radacc[k] += -slabfac * SphP[i].Lambda_FluxLim[k2] * SphP[i].Gradients.E_gamma_ET[k2][k] / SphP[i].Density; // no speed of light reduction multiplier here //
-            }
-            for(k=0;k<3;k++)
-            {
-#ifdef RT_RAD_PRESSURE_OUTPUT
-                SphP[i].RadAccel[k] = radacc[k];
-#else
-                SphP[i].HydroAccel[k] += radacc[k];
-#endif
-            } 
-#endif
-#endif
-
-            
-            
-            
-#ifdef GALSF_SUBGRID_WINDS
-            /* if we have winds, we decouple particles briefly if delaytime>0 */
-            if(SphP[i].DelayTime > 0)
-            {
-                for(k = 0; k < 3; k++)
-                    SphP[i].HydroAccel[k] = 0;//SphP[i].dMomentum[k] = 0;
-                SphP[i].DtInternalEnergy = 0; //SphP[i].dInternalEnergy = 0;
-                double windspeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency) * All.Time;
-                windspeed *= fac_mu;
-                double hsml_c = pow(All.WindFreeTravelDensFac * All.PhysDensThresh / (SphP[i].Density * All.cf_a3inv), (1. / 3.));
-                SphP[i].MaxSignalVel = hsml_c * DMAX((2 * windspeed), SphP[i].MaxSignalVel);
-            }
-#endif
-            
-            
-#ifdef BOX_BND_PARTICLES
-            /* this flag signals all particles with id=0 are frozen (boundary particles) */
-            if(P[i].ID == 0)
-            {
-                SphP[i].DtInternalEnergy = 0;//SphP[i].dInternalEnergy = 0;//manifest-indiv-timestep-debug//
-                for(k = 0; k < 3; k++) SphP[i].HydroAccel[k] = 0;//SphP[i].dMomentum[k] = 0;//manifest-indiv-timestep-debug//
-#ifdef SPH_BND_BFLD
-                for(k = 0; k < 3; k++) SphP[i].B[k] = 0;
-#endif
-            }
-#endif
-        
         } // closes P[i].Type==0 check and so closes loop over particles i
     } // for (loop over active particles) //
     
@@ -627,19 +353,6 @@ void hydro_force(void)
             {
                 SphP[i].HydroAccel[k] = 0;//SphP[i].dMomentum[k] = 0;//manifest-indiv-timestep-debug//
             }
-#if defined(RT_EVOLVE_NGAMMA_IN_HYDRO)
-            for(k=0;k<N_RT_FREQ_BINS;k++) {SphP[i].Dt_E_gamma[k] = 0;}
-#if defined(RT_INFRARED)
-            SphP[i].Dt_E_gamma_T_weighted_IR = 0;
-#endif
-#endif
-#if defined(RT_EVOLVE_FLUX)
-            for(k=0;k<N_RT_FREQ_BINS;k++) {int k_dir; for(k_dir=0;k_dir<3;k_dir++) {SphP[i].Dt_Flux[k][k_dir] = 0;}}
-#endif
-            
-#ifdef WAKEUP
-            PPPZ[i].wakeup = 0;
-#endif
         }
     
     /* --------------------------------------------------------------------------------- */
@@ -791,11 +504,6 @@ void hydro_force(void)
         {
             place = DataIndexTable[j].Index;
             particle2in_hydra(&HydroDataIn[j], place);		// MADE D_IND CHANGE IN HERE
-#ifndef DONOTUSENODELIST
-            memcpy(HydroDataIn[j].NodeList,
-                   DataNodeList[DataIndexTable[j].IndexGet].NodeList, NODELISTLENGTH * sizeof(int));
-#endif
-            
         }
         
         /* exchange particle data */

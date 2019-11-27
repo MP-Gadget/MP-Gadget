@@ -11,15 +11,6 @@
 #define TOL_ITER 1.e-6
 #define NMAX_ITER 1000
 
-#ifdef MHD_CONSTRAINED_GRADIENT
-#define DEDNER_IMPLICIT_LIMITER 0.25
-#else 
-#define DEDNER_IMPLICIT_LIMITER 0.75
-#endif
-
-#if defined(TURB_DIFFUSION)
-#define SAVE_FACE_DENSITY 1
-#endif
 /*
  * This file was written by Phil Hopkins (phopkins@caltech.edu) for GIZMO. 
  *   However some of the sub-routines here are adopted from other codes, in particular
@@ -108,16 +99,6 @@ void reconstruct_face_states(double Q_i, MyFloat Grad_Q_i[3], double Q_j, MyFloa
     double Qmin,Qmax,Qmed,Qmax_eff,Qmin_eff,fac,Qmed_max,Qmed_min;
     double fac_minmax = 0.5; /* 0.5, 0.1 works; 1.0 unstable; 0.75 is stable but begins to 'creep' */
     double fac_meddev = 0.375; /* 0.25,0.375 work well; 0.5 unstable; 0.44 is on-edge */
-#if (SLOPE_LIMITER_TOLERANCE == 2)
-    fac_minmax=0.75;
-    fac_meddev=0.40;
-#endif
-#endif
-#if (SLOPE_LIMITER_TOLERANCE == 0)
-    fac_minmax=0.0;
-    fac_meddev=0.0;
-#endif
-    
     /* get the max/min vals, difference, and midpoint value */
     Qmed = 0.5*(Q_i+Q_j);
     if(Q_i<Q_j) {Qmax=Q_j; Qmin=Q_i;} else {Qmax=Q_i; Qmin=Q_j;}
@@ -216,13 +197,11 @@ void Riemann_solver(struct Input_vec_Riemann Riemann_vec, struct Riemann_outputs
         Riemann_vec.L.p *= All.cf_a3inv / All.cf_afac1;
         Riemann_vec.R.p *= All.cf_a3inv / All.cf_afac1;
     }
-#ifndef EOS_GENERAL
     /* here we haven't reconstructed the sound speeds and internal energies explicitly, so need to do it from pressure, density */
     Riemann_vec.L.cs = sqrt(GAMMA * Riemann_vec.L.p / Riemann_vec.L.rho);
     Riemann_vec.R.cs = sqrt(GAMMA * Riemann_vec.R.p / Riemann_vec.R.rho);
     Riemann_vec.L.u  = Riemann_vec.L.p / (GAMMA_MINUS1 * Riemann_vec.L.rho);
     Riemann_vec.R.u  = Riemann_vec.R.p / (GAMMA_MINUS1 * Riemann_vec.R.rho);
-#endif
     
     double cs_L = Riemann_vec.L.cs;
     double cs_R = Riemann_vec.R.cs;
