@@ -365,7 +365,8 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
         /***** density *****/
         message(0, "Start density computation...\n");
 
-        density(act, 1, All.DensityIndependentSphOn, tree);  /* computes density, and pressure */
+        if(All.DensityOn)
+            density(act, 1, All.DensityIndependentSphOn, tree);  /* computes density, and pressure */
 
         /***** update smoothing lengths in tree *****/
         force_update_hmax(act->ActiveParticle, act->NumActiveParticle, tree, ddecomp);

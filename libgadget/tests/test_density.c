@@ -295,8 +295,6 @@ static int teardown_density(void **state) {
 }
 
 static int setup_density(void **state) {
-    /*Set up the important parts of the All structure.*/
-    All.DensityOn = 1;
     /*Reserve space for the slots*/
     slots_init(0.01 * PartManager->MaxPart, SlotsManager);
     slots_set_enabled(0, sizeof(struct sph_particle_data), SlotsManager);

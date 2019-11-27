@@ -196,9 +196,6 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
 void
 density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, ForceTree * tree)
 {
-    if(!All.DensityOn)
-        return;
-
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
 

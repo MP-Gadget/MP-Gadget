@@ -133,7 +133,8 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
-    setup_smoothinglengths(RestartSnapNum, ddecomp);
+    if(All.DensityOn)
+        setup_smoothinglengths(RestartSnapNum, ddecomp);
 }
 
 
