@@ -114,9 +114,7 @@ set_global_time(double newtime) {
     All.cf.a = All.Time;
     All.cf.a2inv = 1 / (All.Time * All.Time);
     All.cf.a3inv = 1 / (All.Time * All.Time * All.Time);
-    All.cf.fac_egy = pow(All.Time, 3 * GAMMA_MINUS1);
     All.cf.hubble = hubble_function(&All.CP, All.Time);
-    All.cf.hubble_a2 = All.Time * All.Time * All.cf.hubble;
 
 #ifdef LIGHTCONE
     lightcone_set_time(All.cf.a);

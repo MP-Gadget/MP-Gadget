@@ -881,7 +881,7 @@ static double get_sfr_factor_due_to_h2(int i) {
 static double get_sfr_factor_due_to_selfgravity(int i) {
     double divv = SPHP(i).DivVel * All.cf.a2inv;
 
-    divv += 3.0*All.cf.hubble_a2; // hubble-flow correction
+    divv += 3.0*All.cf.hubble * All.cf.a * All.cf.a; // hubble-flow correction
 
     if(HAS(sfr_params.StarformationCriterion, SFR_CRITERION_CONVERGENT_FLOW)) {
         if( divv>=0 ) return 0; // restrict to convergent flows (optional) //

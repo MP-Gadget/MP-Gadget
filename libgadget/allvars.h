@@ -143,9 +143,7 @@ extern struct global_data_all_processes
         double a;
         double a3inv;
         double a2inv;
-        double fac_egy;
         double hubble;
-        double hubble_a2;
     } cf;
 
     /* variables for organizing discrete timeline */
