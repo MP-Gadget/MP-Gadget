@@ -6,7 +6,7 @@
 #include <gsl/gsl_math.h>
 #include <omp.h>
 
-#include "allvars.h"
+#include "physconst.h"
 #include "walltime.h"
 #include "cooling.h"
 #include "density.h"
@@ -69,16 +69,16 @@ GetDensityKernelType(void)
 /* The evolved entropy at drift time: evolved dlog a.
  * Used to predict pressure and entropy for SPH */
 static MyFloat
-SPH_EntVarPred(int i)
+SPH_EntVarPred(int i, double MinEgySpec, double a3inv)
 {
         double dloga = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick);
         double EntVarPred = SPHP(i).Entropy + SPHP(i).DtEntropy * dloga;
         /*Entropy limiter for the predicted entropy: makes sure entropy stays positive. */
         if(dloga > 0 && EntVarPred < 0.5*SPHP(i).Entropy)
             EntVarPred = 0.5 * SPHP(i).Entropy;
-        const double enttou = pow(SPHP(i).Density * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
-        if(EntVarPred < All.MinEgySpec / enttou)
-            EntVarPred = All.MinEgySpec / enttou;
+        const double enttou = pow(SPHP(i).Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+        if(EntVarPred < MinEgySpec / enttou)
+            EntVarPred = MinEgySpec / enttou;
         EntVarPred = pow(EntVarPred, 1/GAMMA);
         return EntVarPred;
 }
@@ -201,7 +201,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, int WindOn, double HydroCostFactor, ForceTree * tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, int WindOn, double HydroCostFactor, double MinEgySpec, double atime, ForceTree * tree)
 {
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
@@ -245,9 +245,11 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
     DENSITY_GET_PRIV(tw)->BlackHoleOn = BlackHoleOn;
     DENSITY_GET_PRIV(tw)->WindOn = WindOn;
-    DENSITY_GET_PRIV(tw)->HydroCostFactor = HydroCostFactor;
+    DENSITY_GET_PRIV(tw)->HydroCostFactor = HydroCostFactor * atime;
 
     /* Init Left and Right: this has to be done before treewalk */
+    double a3inv = pow(atime, -3);
+
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)
     {
@@ -255,7 +257,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
         DENSITY_GET_PRIV(tw)->Left[i] = 0;
         DENSITY_GET_PRIV(tw)->Right[i] = tree->BoxSize;
         if(P[i].Type == 0) {
-            SphP_scratch->EntVarPred[P[i].PI] = SPH_EntVarPred(i);
+            SphP_scratch->EntVarPred[P[i].PI] = SPH_EntVarPred(i, MinEgySpec, a3inv);
             SPH_VelPred(i, SphP_scratch->VelPred + 3 * P[i].PI);
         }
     }
