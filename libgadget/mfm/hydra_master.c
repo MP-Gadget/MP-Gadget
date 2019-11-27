@@ -175,9 +175,6 @@ struct hydrodata_in
     /* basic hydro variables */
     MyDouble Pos[3];
     MyFloat Vel[3];
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME
-    MyFloat ParticleVel[3];
-#endif
     MyFloat Hsml;
     MyFloat Mass;
     MyFloat Density;
@@ -226,7 +223,7 @@ struct hydrodata_in
     MyFloat EgyWtRho;
 #endif
 
-#if defined(TURB_DIFF_METALS) || (defined(METALS) && defined(HYDRO_MESHLESS_FINITE_VOLUME))
+#if defined(TURB_DIFF_METALS)
     MyFloat Metallicity[NUM_METAL_SPECIES];
 #endif
 
@@ -309,13 +306,7 @@ struct hydrodata_out
 #ifdef ENERGY_ENTROPY_SWITCH_IS_ACTIVE
     MyFloat MaxKineticEnergyNgb;
 #endif
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME
-    MyLongDouble DtMass;
-    MyLongDouble dMass;
-    MyLongDouble GravWorkTerm[3];
-#endif
-    
-#if defined(TURB_DIFF_METALS) || (defined(METALS) && defined(HYDRO_MESHLESS_FINITE_VOLUME))
+#if defined(TURB_DIFF_METALS)
     MyFloat Dyield[NUM_METAL_SPECIES];
 #endif
 
@@ -338,9 +329,6 @@ struct hydrodata_out
     MyFloat DtB[3];
     MyFloat divB;
 #if defined(DIVBCLEANING_DEDNER)
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME // mass-based phi-flux
-    MyFloat DtPhi;
-#endif
     MyFloat DtB_PhiCorr[3];
 #endif
 #endif // MAGNETIC //
@@ -364,9 +352,6 @@ static inline void particle2in_hydra(struct hydrodata_in *in, int i)
     {
         in->Pos[k] = P[i].Pos[k];
         in->Vel[k] = SphP[i].VelPred[k];
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME
-        in->ParticleVel[k] = SphP[i].ParticleVel[k];
-#endif
     }
     in->Hsml = PPP[i].Hsml;
     in->Mass = P[i].Mass;
@@ -449,7 +434,7 @@ static inline void particle2in_hydra(struct hydrodata_in *in, int i)
 #endif
 #endif
 
-#if defined(TURB_DIFF_METALS) || (defined(METALS) && defined(HYDRO_MESHLESS_FINITE_VOLUME))
+#if defined(TURB_DIFF_METALS)
     for(k=0;k<NUM_METAL_SPECIES;k++) {in->Metallicity[k] = P[i].Metallicity[k];}
 #endif
 
@@ -517,18 +502,13 @@ static inline void out2particle_hydra(struct hydrodata_out *out, int i, int mode
     SphP[i].DtInternalEnergy += out->DtInternalEnergy;
     //SphP[i].dInternalEnergy += out->dInternalEnergy; //manifest-indiv-timestep-debug//
 
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME
-    SphP[i].DtMass += out->DtMass;
-    SphP[i].dMass += out->dMass;
-    for(k=0;k<3;k++) {SphP[i].GravWorkTerm[k] += out->GravWorkTerm[k];}
-#endif
     if(SphP[i].MaxSignalVel < out->MaxSignalVel)
         SphP[i].MaxSignalVel = out->MaxSignalVel;
 #ifdef ENERGY_ENTROPY_SWITCH_IS_ACTIVE
     if(SphP[i].MaxKineticEnergyNgb < out->MaxKineticEnergyNgb)
         SphP[i].MaxKineticEnergyNgb = out->MaxKineticEnergyNgb;
 #endif
-#if defined(TURB_DIFF_METALS) || (defined(METALS) && defined(HYDRO_MESHLESS_FINITE_VOLUME))
+#if defined(TURB_DIFF_METALS)
     for(k=0;k<NUM_METAL_SPECIES;k++)
     {
         double z_tmp = P[i].Metallicity[k] + out->Dyield[k] / P[i].Mass;
@@ -562,9 +542,6 @@ static inline void out2particle_hydra(struct hydrodata_out *out, int i, int mode
     }
     SphP[i].divB += out->divB;
 #if defined(DIVBCLEANING_DEDNER)
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME // mass-based phi-flux
-    SphP[i].DtPhi += out->DtPhi;
-#endif
     for(k=0;k<3;k++) {SphP[i].DtB_PhiCorr[k] += out->DtB_PhiCorr[k];}
 #endif // Dedner //
 #endif // MAGNETIC //
@@ -593,13 +570,6 @@ void hydro_final_operations_and_cleanup(void)
             double dt;
             dt = (P[i].TimeBin ? (((integertime) 1) << P[i].TimeBin) : 0) * All.Timebase_interval / All.cf_hubble_a;
             
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME
-            /* signal velocity needs to include rate of gas flow -over- the resolution element, which can be non-zero here */
-            double v2_p = SphP[i].MaxSignalVel*SphP[i].MaxSignalVel;
-            for(k=0;k<3;k++) {v2_p += (SphP[i].VelPred[k]-SphP[i].ParticleVel[k])*(SphP[i].VelPred[k]-SphP[i].ParticleVel[k]);}
-            SphP[i].MaxSignalVel = sqrt(v2_p);
-#endif
-
 #if defined(MAGNETIC)
             /* need to subtract out the source terms proportional to the (non-zero) B-field divergence; to stabilize the scheme */
             for(k = 0; k < 3; k++)
@@ -647,11 +617,7 @@ void hydro_final_operations_and_cleanup(void)
                 }
             }
             
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME // mass-based phi-flux
-            SphP[i].DtPhi *= magnorm_closure;
-#else
             SphP[i].DtPhi = 0;
-#endif
             if((!isnan(SphP[i].divB))&&(PPP[i].Hsml>0)&&(SphP[i].divB!=0)&&(SphP[i].Density>0))
             {
                 double tmp_ded = 0.5 * SphP[i].MaxSignalVel / (fac_mu*All.cf_atime); // has units of v_physical now
@@ -675,18 +641,9 @@ void hydro_final_operations_and_cleanup(void)
             {
                 SphP[i].DtInternalEnergy -= (SphP[i].VelPred[k]/All.cf_atime) * SphP[i].HydroAccel[k];
                 /* we solved for total energy flux (and remember, HydroAccel is still momentum -- keep units straight here!) */
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME
-                SphP[i].DtInternalEnergy += 0.5 * (SphP[i].VelPred[k]/All.cf_atime) * (SphP[i].VelPred[k]/All.cf_atime) * SphP[i].DtMass;
-                SphP[i].HydroAccel[k] -= (SphP[i].VelPred[k]/All.cf_atime) * SphP[i].DtMass; /* we solved for momentum flux */
-#endif
                 SphP[i].HydroAccel[k] /= P[i].Mass; /* we solved for momentum flux */
             }
             
-            
-            
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME
-            SphP[i].DtInternalEnergy -= SphP[i].InternalEnergyPred * SphP[i].DtMass;
-#endif
 #ifdef MAGNETIC
 #ifndef HYDRO_SPH
             for(k=0;k<3;k++)
@@ -775,11 +732,6 @@ void hydro_final_operations_and_cleanup(void)
             /* this flag signals all particles with id=0 are frozen (boundary particles) */
             if(P[i].ID == 0)
             {
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME
-                SphP[i].DtMass = 0;
-                SphP[i].dMass = 0;
-                for(k = 0; k < 3; k++) SphP[i].GravWorkTerm[k] = 0;
-#endif
                 SphP[i].DtInternalEnergy = 0;//SphP[i].dInternalEnergy = 0;//manifest-indiv-timestep-debug//
                 for(k = 0; k < 3; k++) SphP[i].HydroAccel[k] = 0;//SphP[i].dMomentum[k] = 0;//manifest-indiv-timestep-debug//
 #ifdef MAGNETIC
@@ -832,11 +784,6 @@ void hydro_force(void)
             {
                 SphP[i].HydroAccel[k] = 0;//SphP[i].dMomentum[k] = 0;//manifest-indiv-timestep-debug//
             }
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME
-            SphP[i].DtMass = 0;
-            SphP[i].dMass = 0;
-            for(k=0;k<3;k++) SphP[i].GravWorkTerm[k] = 0;
-#endif
 #if defined(RT_EVOLVE_NGAMMA_IN_HYDRO)
             for(k=0;k<N_RT_FREQ_BINS;k++) {SphP[i].Dt_E_gamma[k] = 0;}
 #if defined(RT_INFRARED)

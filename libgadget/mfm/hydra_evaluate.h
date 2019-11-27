@@ -147,9 +147,6 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
                 rinv_soft = 1.0 / sqrt(r2 + 0.0001*kernel.h_i*kernel.h_i);
                 /* faster to just set a pointer directly */
                 MyDouble *VelPred_j = SphP[j].VelPred;
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME
-                MyDouble *ParticleVel_j = SphP[j].ParticleVel;
-#endif
                 kernel.dv[0] = local.Vel[0] - VelPred_j[0];
                 kernel.dv[1] = local.Vel[1] - VelPred_j[1];
                 kernel.dv[2] = local.Vel[2] - VelPred_j[2];
@@ -164,7 +161,7 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
                 if(All.ComovingIntegrationOn) kernel.vdotr2 += All.cf_hubble_a2 * r2;
                 if(kernel.vdotr2 < 0)
                 {
-#if defined(HYDRO_SPH) || defined(HYDRO_MESHLESS_FINITE_VOLUME)
+#if defined(HYDRO_SPH)
                     kernel.vsig -= 3 * fac_mu * kernel.vdotr2 * rinv;
 #else
                     kernel.vsig -= fac_mu * kernel.vdotr2 * rinv;
@@ -221,50 +218,17 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
                 /* --------------------------------------------------------------------------------- */
                 /* now we will actually assign the hydro variables for the evolution step */
                 /* --------------------------------------------------------------------------------- */
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME
-                double dmass_holder = Fluxes.rho * dt_hydrostep, dmass_limiter;
-                if(dmass_holder > 0) {dmass_limiter=P[j].Mass;} else {dmass_limiter=local.Mass;}
-                dmass_limiter *= 0.1;
-                if(fabs(dmass_holder) > dmass_limiter) {dmass_holder *= dmass_limiter / fabs(dmass_holder);}
-                out.dMass += dmass_holder;
-                out.DtMass += Fluxes.rho;
-                SphP[j].dMass -= dmass_holder;
-                double gravwork[3]; gravwork[0]=Fluxes.rho*kernel.dp[0]; gravwork[1]=Fluxes.rho*kernel.dp[1]; gravwork[2]=Fluxes.rho*kernel.dp[2];
-                for(k=0;k<3;k++) {out.GravWorkTerm[k] += gravwork[k];}
-#endif
                 for(k=0;k<3;k++) {out.Acc[k] += Fluxes.v[k];}
                 out.DtInternalEnergy += Fluxes.p;                
                 
                 /* if this is particle j's active timestep, you should sent them the time-derivative information as well, for their subsequent drift operations */
                 if(j_is_active_for_fluxes)
                 {
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME
-                    SphP[j].DtMass -= Fluxes.rho;
-                    for(k=0;k<3;k++) {SphP[j].GravWorkTerm[k] -= gravwork[k];}
-#endif
                     for(k=0;k<3;k++) {SphP[j].HydroAccel[k] -= Fluxes.v[k];}
                     SphP[j].DtInternalEnergy -= Fluxes.p;
                 }
 
                 /* if we have mass fluxes, we need to have metal fluxes if we're using them (or any other passive scalars) */
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME
-                if(dmass_holder != 0)
-                {
-#ifdef METALS
-                    if(Fluxes.rho > 0)
-                    {
-                        /* particle i gains mass from particle j */
-                        for(k=0;k<NUM_METAL_SPECIES;k++)
-                            out.Dyield[k] += (P[j].Metallicity[k] - local.Metallicity[k]) * dmass_holder;
-                    } else {
-                        /* particle j gains mass from particle i */
-                        dmass_holder /= -P[j].Mass;
-                        for(k=0;k<NUM_METAL_SPECIES;k++)
-                            P[j].Metallicity[k] += (local.Metallicity[k] - P[j].Metallicity[k]) * dmass_holder;
-                    }
-#endif
-                }
-#endif
 
                 /* --------------------------------------------------------------------------------- */
                 /* don't forget to save the signal velocity for time-stepping! */

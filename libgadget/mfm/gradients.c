@@ -112,9 +112,6 @@ static struct temporary_data_topass
     struct Quantities_for_Gradients Maxima;
     struct Quantities_for_Gradients Minima;
     MyFloat MaxDistance;
-#if defined(HYDRO_MESHLESS_FINITE_VOLUME) && (HYDRO_FIX_MESH_MOTION==6)
-    MyFloat GlassAcc[3];
-#endif
 }
 *GasGradDataPasser;
 
@@ -168,9 +165,6 @@ static inline void out2particle_GasGrad(struct GasGraddata_out *out, int i, int 
         int j,k;
         MAX_ADD(GasGradDataPasser[i].MaxDistance,out->MaxDistance,mode);
         
-#if defined(HYDRO_MESHLESS_FINITE_VOLUME) && (HYDRO_FIX_MESH_MOTION==6)
-        for(k=0;k<3;k++) {ASSIGN_ADD_PRESET(GasGradDataPasser[i].GlassAcc[k],out->GlassAcc[k],mode);}
-#endif
         MAX_ADD(GasGradDataPasser[i].Maxima.Density,out->Maxima.Density,mode);
         MIN_ADD(GasGradDataPasser[i].Minima.Density,out->Minima.Density,mode);
         MAX_ADD(GasGradDataPasser[i].Maxima.Pressure,out->Maxima.Pressure,mode);
@@ -626,23 +620,6 @@ void hydro_gradient_calc(void)
             local_slopelimiter(SphP[i].Gradients.Pressure,GasGradDataPasser[i].Maxima.Pressure,GasGradDataPasser[i].Minima.Pressure,a_limiter,h_lim,stol);
             stol_tmp = stol;
             for(k1=0;k1<3;k1++) {local_slopelimiter(SphP[i].Gradients.Velocity[k1],GasGradDataPasser[i].Maxima.Velocity[k1],GasGradDataPasser[i].Minima.Velocity[k1],a_limiter,h_lim,stol_tmp);}
-
-#if defined(HYDRO_MESHLESS_FINITE_VOLUME) && (HYDRO_FIX_MESH_MOTION==6)
-            /* if the mesh motion is specified to be glass-generating, this is where we apply the appropriate mesh velocity */
-            if(All.Time > 0)
-            {
-                double cs_invelunits = Particle_effective_soundspeed_i(i) * All.cf_afac3 * All.cf_atime; // soundspeed, converted to units of code velocity
-                double L_i_code = Get_Particle_Size(i); // particle effective size (in code units)
-                double dvel[3]={0}, velnorm=0; for(k=0;k<3;k++) {dvel[k] = L_i_code*L_i_code*GasGradDataPasser[i].GlassAcc[k]; velnorm += dvel[k]*dvel[k];} // calculate quantities to use for glass
-                double dtx = P[i].dt_step * All.Timebase_interval / All.cf_hubble_a; // need timestep for limiter below
-                if(velnorm > 0 && dtx > 0)
-                {
-                    velnorm = sqrt(velnorm); // normalization for glass 'force'
-                    double v00 = 0.5 * DMIN(cs_invelunits*(0.5*velnorm) , All.CourantFac*(L_i_code/dtx)/All.cf_a2inv); // limit added velocity of mesh-generating point to Courant factor
-                    for(k=0;k<3;k++) {SphP[i].ParticleVel[k] += v00 * (dvel[k]/velnorm);} // actually add the correction velocity to the mesh velocity
-                }
-            }
-#endif
         }
     
 
@@ -1019,15 +996,6 @@ int GasGrad_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                         if(swap_to_j) {MINMAX_CHECK(-dv[k],GasGradDataPasser[j].Minima.Velocity[k],GasGradDataPasser[j].Maxima.Velocity[k]);}
                     }
 
-#if defined(HYDRO_MESHLESS_FINITE_VOLUME) && (HYDRO_FIX_MESH_MOTION==6)
-                    for(k=0;k<3;k++)
-                    {
-                        double GlassAcc = kernel.dp[k] / (kernel.r*kernel.r*kernel.r); // acceleration to apply to force cells into a glass
-                        out.GlassAcc[k] += GlassAcc;
-                        if(swap_to_j) {GasGradDataPasser[j].GlassAcc[k] -= GlassAcc;}
-                    }
-#endif
-                    
 #ifdef DOGRAD_INTERNAL_ENERGY
                     double du = SphP[j].InternalEnergyPred - local.GQuant.InternalEnergy;
                     MINMAX_CHECK(du,out.Minima.InternalEnergy,out.Maxima.InternalEnergy);

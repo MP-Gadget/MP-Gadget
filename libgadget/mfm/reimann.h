@@ -257,11 +257,6 @@ void HLLC_Riemann_solver(struct Input_vec_Riemann Riemann_vec, struct Riemann_ou
 {
     double S_L,S_R;
     get_wavespeeds_and_pressure_star(Riemann_vec, Riemann_out, n_unit,  v_line_L, v_line_R, cs_L, cs_R, h_L, h_R, &S_L, &S_R, press_tot_limiter);
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME
-    /* check if we have a valid solution, and if so, compute the fluxes */
-    if((Riemann_out->P_M>0)&&(!isnan(Riemann_out->P_M)))
-        HLLC_fluxes(Riemann_vec, Riemann_out, n_unit,  v_line_L, v_line_R, cs_L, cs_R, h_L, h_R, S_L, S_R);
-#endif
 }
 
 
@@ -280,20 +275,6 @@ void Riemann_solver_Rusanov(struct Input_vec_Riemann Riemann_vec, struct Riemann
     S_M = 0.5 * ((v_line_R+v_line_L) + (Riemann_vec.L.p-Riemann_vec.R.p) / (rho_csnd_hat));
     Riemann_out->P_M = P_M;
     Riemann_out->S_M = S_M;
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME
-    int k;
-    if((P_M > 0)&&(!isnan(P_M)))
-    {
-        /* flux = (1/2) * ( F_L + F_R ) - (S_plus/2) * (Q_R - Q_L) */
-        double f_rho_left = Riemann_vec.L.rho * (v_line_L + S_plus);
-        double f_rho_right = Riemann_vec.R.rho * (v_line_R - S_plus);
-        Riemann_out->Fluxes.rho = 0.5 * (f_rho_left + f_rho_right);
-        for(k=0;k<3;k++)
-            Riemann_out->Fluxes.v[k] = 0.5 * (f_rho_left * Riemann_vec.L.v[k] + f_rho_right * Riemann_vec.R.v[k] +
-                                              (Riemann_vec.L.p + Riemann_vec.R.p) * n_unit[k]);
-        Riemann_out->Fluxes.p = 0.5 * (f_rho_left * h_L + f_rho_right * h_R + S_plus * (Riemann_vec.R.p - Riemann_vec.L.p));
-    }
-#endif
     return;
 }
 
@@ -453,9 +434,6 @@ void Riemann_solver_exact(struct Input_vec_Riemann Riemann_vec, struct Riemann_o
     {
         /* we're in a Vaccuum! */
         Riemann_out->P_M = Riemann_out->S_M = 0;
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME
-        Riemann_out->Fluxes.rho = Riemann_out->Fluxes.p = Riemann_out->Fluxes.v[0] = Riemann_out->Fluxes.v[1] = Riemann_out->Fluxes.v[2] = 0;
-#endif
         return;
     }
     /* the usual situation is here:: */
@@ -480,10 +458,6 @@ void Riemann_solver_exact(struct Input_vec_Riemann Riemann_vec, struct Riemann_o
         if(Riemann_vec.R.rho>0)
             sample_reimann_vaccum_left(0.0,Riemann_vec,Riemann_out,n_unit,v_line_L,v_line_R,cs_L,cs_R);
     }
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME
-    /* if we got a valid solution, this solver returns face states: need to convert these to fluxes */
-    convert_face_to_flux(Riemann_out, n_unit);
-#endif
 }
 
 
@@ -496,41 +470,10 @@ void sample_reimann_vaccum_left(double S, struct Input_vec_Riemann Riemann_vec, 
                                 double n_unit[3], double v_line_L, double v_line_R, double cs_L, double cs_R)
 {
     double S_R = v_line_R - GAMMA_G4 * cs_R;
-#ifndef HYDRO_MESHLESS_FINITE_VOLUME
     /* in this code mode, we are -always- moving with the contact discontinuity so density flux = 0; 
      this constrains where we reside in the solution fan */
     Riemann_out->P_M = 0;
     Riemann_out->S_M = S_R;
-    return;
-#endif
-
-    if(S_R > S)
-    {
-        /* vacuum */
-        Riemann_out->P_M = 0;
-        Riemann_out->S_M = S_R;
-        Riemann_out->Fluxes.rho = 0;
-    } else {
-        /* right fan */
-        double S_R_check = v_line_R + cs_R;
-        if(S_R_check > S)
-        {
-            /* rarefaction fan right state */
-            double C_eff = GAMMA_G5 * (cs_R - GAMMA_G7 * (v_line_R - S));
-            Riemann_out->P_M = Riemann_vec.R.p * pow(C_eff / cs_R, GAMMA_G3);
-            Riemann_out->S_M = GAMMA_G5 * (-cs_R + GAMMA_G7 * v_line_R + S);
-            Riemann_out->Fluxes.rho = Riemann_vec.R.rho * pow(C_eff / cs_R, GAMMA_G4);
-        } else {
-            /* right data state */
-            Riemann_out->P_M = Riemann_vec.R.p;
-            Riemann_out->S_M = v_line_R;
-            Riemann_out->Fluxes.rho = Riemann_vec.R.rho;
-        }
-    }
-    Riemann_out->Fluxes.p = Riemann_out->P_M;
-    int k;
-    for(k=0;k<3;k++)
-        Riemann_out->Fluxes.v[k] = Riemann_vec.R.v[k] + (Riemann_out->S_M - v_line_R) * n_unit[k];
     return;
 }
 
@@ -545,41 +488,10 @@ void sample_reimann_vaccum_right(double S, struct Input_vec_Riemann Riemann_vec,
 {
     //double S_L = v_line_L - GAMMA_G4 * cs_L;
     double S_L = v_line_L + GAMMA_G4 * cs_L; // above line was a sign error, caught by Bert Vandenbroucke
-#ifndef HYDRO_MESHLESS_FINITE_VOLUME
     /* in this code mode, we are -always- moving with the contact discontinuity so density flux = 0;
      this constrains where we reside in the solution fan */
     Riemann_out->P_M = 0;
     Riemann_out->S_M = S_L;
-    return;
-#endif
-    
-    if(S_L < S)
-    {
-        /* vacuum */
-        Riemann_out->P_M = 0;
-        Riemann_out->S_M = S_L;
-        Riemann_out->Fluxes.rho = 0;
-    } else {
-        /* left fan */
-        double S_L_check = v_line_L - cs_L;
-        if(S_L_check < S)
-        {
-            /* rarefaction fan left state */
-            double C_eff = GAMMA_G5 * (cs_L + GAMMA_G7 * (v_line_L - S));
-            Riemann_out->P_M = Riemann_vec.L.p * pow(C_eff / cs_L, GAMMA_G3);
-            Riemann_out->S_M = GAMMA_G5 * (cs_L + GAMMA_G7 * v_line_L + S);
-            Riemann_out->Fluxes.rho = Riemann_vec.L.rho * pow(C_eff / cs_L, GAMMA_G4);
-        } else {
-            /* left data state */
-            Riemann_out->P_M = Riemann_vec.L.p;
-            Riemann_out->S_M = v_line_L;
-            Riemann_out->Fluxes.rho = Riemann_vec.L.rho;
-        }
-    }
-    Riemann_out->Fluxes.p = Riemann_out->P_M;
-    int k;
-    for(k=0;k<3;k++)
-        Riemann_out->Fluxes.v[k] = Riemann_vec.L.v[k] + (Riemann_out->S_M - v_line_L) * n_unit[k];
     return;
 }
 
@@ -611,14 +523,6 @@ void sample_reimann_vaccum_internal(double S, struct Input_vec_Riemann Riemann_v
         /* vacuum in between */
         Riemann_out->P_M = 0;
         Riemann_out->S_M = S;
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME
-        Riemann_out->Fluxes.rho = 0;
-        Riemann_out->Fluxes.p = Riemann_out->P_M;
-        int k;
-        for(k=0;k<3;k++)
-            Riemann_out->Fluxes.v[k] = (Riemann_vec.L.v[k] + (Riemann_vec.R.v[k]-Riemann_vec.L.v[k]) * (S-S_L)/(S_R-S_L)) *
-            (1-n_unit[k]) + S * n_unit[k];
-#endif
     }
 }
 
@@ -633,156 +537,9 @@ void sample_reimann_vaccum_internal(double S, struct Input_vec_Riemann Riemann_v
 void sample_reimann_standard(double S, struct Input_vec_Riemann Riemann_vec, struct Riemann_outputs *Riemann_out,
                              double n_unit[3], double v_line_L, double v_line_R, double cs_L, double cs_R)
 {
-#ifndef HYDRO_MESHLESS_FINITE_VOLUME
     /* we don't actually need to evaluate the fluxes, and we already have P_M and S_M, which define the 
      contact discontinuity where the rho flux = 0; so can simply exit this routine */
     return;
-#endif
-    int k; double C_eff,S_eff;
-    if(S <= Riemann_out->S_M)  /* sample point is left of contact discontinuity */
-    {
-        if(Riemann_out->P_M <= Riemann_vec.L.p)	/* left fan (rarefaction) */
-        {
-            double S_check_L = v_line_L - cs_L;
-            if(S <= S_check_L) /* left data state */
-            {
-                Riemann_out->Fluxes.p = Riemann_vec.L.p;
-                Riemann_out->Fluxes.rho = Riemann_vec.L.rho;
-                for(k=0;k<3;k++)
-                    Riemann_out->Fluxes.v[k] = Riemann_vec.L.v[k];
-                return;
-            }
-            else
-            {
-                double C_eff_L = cs_L * pow(Riemann_out->P_M / Riemann_vec.L.p, GAMMA_G1);
-                double S_tmp_L = Riemann_out->S_M - C_eff_L;
-                
-                if(S > S_tmp_L)	/* middle left state */
-                {
-                    Riemann_out->Fluxes.rho = Riemann_vec.L.rho * pow(Riemann_out->P_M / Riemann_vec.L.p, GAMMA_G8);
-                    Riemann_out->Fluxes.p = Riemann_out->P_M;
-                    for(k=0;k<3;k++)
-                        Riemann_out->Fluxes.v[k] = Riemann_vec.L.v[k] + (Riemann_out->S_M-v_line_L)*n_unit[k];
-                    return;
-                }
-                else		/* left state inside fan */
-                {
-                    S_eff = GAMMA_G5 * (cs_L + GAMMA_G7 * v_line_L + S);
-                    C_eff = GAMMA_G5 * (cs_L + GAMMA_G7 * (v_line_L - S));
-                    Riemann_out->Fluxes.rho = Riemann_vec.L.rho * pow(C_eff / cs_L, GAMMA_G4);
-                    Riemann_out->Fluxes.p = Riemann_vec.L.p * pow(C_eff / cs_L, GAMMA_G3);
-                    for(k=0;k<3;k++)
-                        Riemann_out->Fluxes.v[k] = Riemann_vec.L.v[k] + (S_eff-v_line_L)*n_unit[k];
-                    return;
-                }
-            }
-        }
-        else			/* left shock */
-        {
-            if(Riemann_vec.L.p > 0)
-            {
-                double pml = Riemann_out->P_M / Riemann_vec.L.p;
-                double S_L = v_line_L - cs_L * sqrt(GAMMA_G2 * pml + GAMMA_G1);
-                
-                if(S <= S_L)	/* left data state */
-                {
-                    Riemann_out->Fluxes.p = Riemann_vec.L.p;
-                    Riemann_out->Fluxes.rho = Riemann_vec.L.rho;
-                    for(k=0;k<3;k++)
-                        Riemann_out->Fluxes.v[k] = Riemann_vec.L.v[k];
-                    return;
-                }
-                else		/* middle left state behind shock */
-                {
-                    Riemann_out->Fluxes.rho = Riemann_vec.L.rho * (pml + GAMMA_G6) / (pml * GAMMA_G6 + 1.0);
-                    Riemann_out->Fluxes.p = Riemann_out->P_M;
-                    for(k=0;k<3;k++)
-                        Riemann_out->Fluxes.v[k] = Riemann_vec.L.v[k] + (Riemann_out->S_M-v_line_L)*n_unit[k];
-                    return;
-                }
-            }
-            else
-            {
-                Riemann_out->Fluxes.rho = Riemann_vec.L.rho / GAMMA_G6;
-                Riemann_out->Fluxes.p = Riemann_out->P_M;
-                for(k=0;k<3;k++)
-                    Riemann_out->Fluxes.v[k] = Riemann_vec.L.v[k] + (Riemann_out->S_M-v_line_L)*n_unit[k];
-                return;
-            }
-        }
-    }
-    else    /* sample point is right of contact discontinuity */
-    {
-        if(Riemann_out->P_M > Riemann_vec.R.p)	/* right shock */
-        {
-            if(Riemann_vec.R.p > 0)
-            {
-                double pmr = Riemann_out->P_M / Riemann_vec.R.p;
-                double S_R = v_line_R + cs_R * sqrt(GAMMA_G2 * pmr + GAMMA_G1);
-                
-                if(S >= S_R)	/* right data state */
-                {
-                    Riemann_out->Fluxes.p = Riemann_vec.R.p;
-                    Riemann_out->Fluxes.rho = Riemann_vec.R.rho;
-                    for(k=0;k<3;k++)
-                        Riemann_out->Fluxes.v[k] = Riemann_vec.R.v[k];
-                    return;
-                }
-                else		/* middle right state behind shock */
-                {
-                    Riemann_out->Fluxes.rho = Riemann_vec.R.rho * (pmr + GAMMA_G6) / (pmr * GAMMA_G6 + 1.0);
-                    Riemann_out->Fluxes.p = Riemann_out->P_M;
-                    for(k=0;k<3;k++)
-                        Riemann_out->Fluxes.v[k] = Riemann_vec.R.v[k] + (Riemann_out->S_M-v_line_R)*n_unit[k];
-                    return;
-                }
-            }
-            else
-            {
-                Riemann_out->Fluxes.rho = Riemann_vec.R.rho / GAMMA_G6;
-                Riemann_out->Fluxes.p = Riemann_out->P_M;
-                for(k=0;k<3;k++)
-                    Riemann_out->Fluxes.v[k] = Riemann_vec.R.v[k] + (Riemann_out->S_M-v_line_R)*n_unit[k];
-                return;
-            }
-        }
-        else			/* right fan */
-        {
-            double S_check_R = v_line_R + cs_R;
-            if(S >= S_check_R)		/* right data state */
-            {
-                Riemann_out->Fluxes.p = Riemann_vec.R.p;
-                Riemann_out->Fluxes.rho = Riemann_vec.R.rho;
-                for(k=0;k<3;k++)
-                    Riemann_out->Fluxes.v[k] = Riemann_vec.R.v[k];
-                return;
-            }
-            else
-            {
-                double C_eff_R = cs_R * pow(Riemann_out->P_M / Riemann_vec.R.p, GAMMA_G1);
-                double S_tmp_R = Riemann_out->S_M + C_eff_R;
-
-                if(S <= S_tmp_R)	/* middle right state */
-                {
-                    Riemann_out->Fluxes.rho = Riemann_vec.R.rho * pow(Riemann_out->P_M / Riemann_vec.R.p, GAMMA_G8);
-                    Riemann_out->Fluxes.p = Riemann_out->P_M;
-                    for(k=0;k<3;k++)
-                        Riemann_out->Fluxes.v[k] = Riemann_vec.R.v[k] + (Riemann_out->S_M-v_line_R)*n_unit[k];
-                    return;
-                }
-                else		/* fan right state */
-                {
-                    S_eff = GAMMA_G5 * (-cs_R + GAMMA_G7 * v_line_R + S);
-                    C_eff = GAMMA_G5 * (cs_R - GAMMA_G7 * (v_line_R - S));
-                    Riemann_out->Fluxes.rho = Riemann_vec.R.rho * pow(C_eff / cs_R, GAMMA_G4);
-                    Riemann_out->Fluxes.p = Riemann_vec.R.p * pow(C_eff / cs_R, GAMMA_G3);
-                    for(k=0;k<3;k++)
-                        Riemann_out->Fluxes.v[k] = Riemann_vec.R.v[k] + (S_eff-v_line_R)*n_unit[k];
-                    return;
-                }
-            }
-        }
-    }
 }
 
 

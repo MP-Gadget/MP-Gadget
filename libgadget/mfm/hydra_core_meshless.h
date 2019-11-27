@@ -76,9 +76,6 @@
         for(k=0;k<3;k++) {distance_from_j[k] = distance_from_i[k] * s_j; distance_from_i[k] *= s_i;}
         //for(k=0;k<3;k++) {v_frame[k] = 0.5 * (VelPred_j[k] + local.Vel[k]);}
         for(k=0;k<3;k++) {v_frame[k] = rinv * (-s_i*VelPred_j[k] + s_j*local.Vel[k]);} // allows for face to be off-center (to second-order)
-#if defined(HYDRO_MESHLESS_FINITE_VOLUME)
-        for(k=0;k<3;k++) {v_frame[k] = rinv * (-s_i*ParticleVel_j[k] + s_j*local.ParticleVel[k]);}
-#endif
         // (note that in the above, the s_i/s_j terms are crossed with the opposing velocity terms: this is because the face is closer to the
         //   particle with the smaller smoothing length; so it's values are slightly up-weighted //
         
@@ -116,7 +113,7 @@
         double press_j_tot = Pressure_j + SphP[j].Density * v2_approach;
         double press_tot_limiter;
         press_tot_limiter = 1.1 * All.cf_a3inv * DMAX( press_i_tot , press_j_tot );
-#if defined(EOS_GENERAL) || defined(HYDRO_MESHLESS_FINITE_VOLUME)
+#if defined(EOS_GENERAL)
         press_tot_limiter *= 2.0;
 #endif
         if(recon_mode==0) {press_tot_limiter = DMAX(press_tot_limiter , DMAX(DMAX(Pressure_i,Pressure_j),2.*DMAX(local.Density,SphP[j].Density)*v2_approach));}
@@ -203,17 +200,9 @@
             for(k=0;k<3;k++)
             {
                 Riemann_out.Fluxes.p += v_frame[k] * Riemann_out.Fluxes.v[k];
-#if defined(HYDRO_MESHLESS_FINITE_VOLUME)
-                /* Riemann_out->Fluxes.rho is un-modified */
-                Riemann_out.Fluxes.p += (0.5*v_frame[k]*v_frame[k])*Riemann_out.Fluxes.rho;
-                Riemann_out.Fluxes.v[k] += v_frame[k] * Riemann_out.Fluxes.rho; /* just boost by frame vel (as we would in non-moving frame) */
-#endif
             }
             
             /* ok now we can actually apply this to the EOM */
-#if defined(HYDRO_MESHLESS_FINITE_VOLUME)
-            Fluxes.rho = Face_Area_Norm * Riemann_out.Fluxes.rho;
-#endif
             Fluxes.p = Face_Area_Norm * Riemann_out.Fluxes.p; // this is really Dt of --total-- energy, need to subtract KE component for e */
             for(k=0;k<3;k++) {Fluxes.v[k] = Face_Area_Norm * Riemann_out.Fluxes.v[k];} // momentum flux (need to divide by mass) //
 

@@ -75,11 +75,7 @@
 #endif
 
 /* lock the 'default' hydro mode */
-#if (defined(HYDRO_FIX_MESH_MOTION) || defined(HYDRO_REGULAR_GRID)) && !defined(HYDRO_MESHLESS_FINITE_VOLUME)
-#define HYDRO_MESHLESS_FINITE_VOLUME /* only makes sense to use this modules with this 'backbone' of MFV here */
-#elif !(defined(HYDRO_MESHLESS_FINITE_MASS) || defined(HYDRO_MESHLESS_FINITE_VOLUME) || defined(HYDRO_DENSITY_SPH) || defined(HYDRO_PRESSURE_SPH))
 #define HYDRO_MESHLESS_FINITE_MASS   /* otherwise default to MFM if nothing is specified */
-#endif
 
 /* define the default mesh-motion assumption, if this is not provided by the user */
 #if !defined(HYDRO_FIX_MESH_MOTION)
@@ -2162,13 +2158,6 @@ extern struct sph_particle_data
 {
     /* the PRIMITIVE and CONSERVED hydro variables used in STATE reconstruction */
     MyDouble Density;               /*!< current baryonic mass density of particle */
-#ifdef HYDRO_MESHLESS_FINITE_VOLUME
-    MyDouble MassTrue;              /*!< true particle mass ('mass' now is -predicted- mass */
-    MyDouble dMass;                 /*!< change in particle masses from hydro step (conserved variable) */
-    MyDouble DtMass;                /*!< rate-of-change of particle masses (for drifting) */
-    MyDouble GravWorkTerm[3];       /*!< correction term needed for hydro mass flux in gravity */
-    MyDouble ParticleVel[3];        /*!< actual velocity of the mesh-generating points */
-#endif
 
     MyDouble Pressure;              /*!< current pressure */
     MyDouble InternalEnergy;        /*!< internal energy of particle */
