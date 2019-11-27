@@ -264,7 +264,7 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, FILE * FdSfr)
     MPI_Reduce(&localsfr, &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&sum_sm, &total_sm, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&sum_mass_stars, &total_sum_mass_stars, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    if(ThisTask == 0)
+    if(FdSfr)
     {
         double rate = 0;
         if(All.TimeStep > 0)

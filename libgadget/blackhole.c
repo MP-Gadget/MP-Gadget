@@ -316,7 +316,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles)
     MPI_Reduce(&Local_BH_Medd, &total_mdoteddington, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&Local_BH_num, &total_bh, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
-    if(ThisTask == 0)
+    if(FdBlackHoles)
     {
         /* convert to solar masses per yr */
         double mdot_in_msun_per_year =

@@ -197,7 +197,7 @@ void energy_statistics(FILE * FdEnergy)
     message(0, "Time %g Mean Temperature of Gas %g\n",
                 All.Time, SysState.TemperatureComp[0]);
 
-    if(ThisTask == 0)
+    if(FdEnergy)
     {
         fprintf(FdEnergy,
                 "%g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",

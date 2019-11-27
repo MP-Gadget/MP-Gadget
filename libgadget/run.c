@@ -46,7 +46,7 @@ static FILE *FdBlackHoles;  /*!< file handle for blackholes.txt log-file. */
  * when the simulation ends because we arrived at TimeMax.
  */
 static void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp);
-static void write_cpu_log(int NumCurrentTiStep);
+static void write_cpu_log(int NumCurrentTiStep, FILE * FdCPU);
 
 /* Updates the global storing the current random offset of the particles,
  * and stores the relative offset from the last random offset in rel_random_shift*/
@@ -118,8 +118,6 @@ void begrun(int RestartSnapNum)
 #ifdef LIGHTCONE
     lightcone_init(All.Time);
 #endif
-
-    open_outputfiles(RestartSnapNum);
 }
 
 void
@@ -143,7 +141,9 @@ run(int RestartSnapNum)
 
     walltime_measure("/Misc");
 
-    write_cpu_log(NumCurrentTiStep); /* produce some CPU usage info */
+    open_outputfiles(RestartSnapNum);
+
+    write_cpu_log(NumCurrentTiStep, FdCPU); /* produce some CPU usage info */
 
     while(1) /* main loop */
     {
@@ -302,7 +302,7 @@ run(int RestartSnapNum)
 
         write_checkpoint(WriteSnapshot, WriteFOF, &Tree);
 
-        write_cpu_log(NumCurrentTiStep);    /* produce some CPU usage info */
+        write_cpu_log(NumCurrentTiStep, FdCPU);    /* produce some CPU usage info */
 
         NumCurrentTiStep++;
 
@@ -425,21 +425,16 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
     message(0, "Forces computed.\n");
 }
 
-void write_cpu_log(int NumCurrentTiStep)
+void write_cpu_log(int NumCurrentTiStep, FILE * FdCPU)
 {
     walltime_summary(0, MPI_COMM_WORLD);
 
-    int NTask, ThisTask;
-    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
-
-    if(ThisTask == 0)
+    if(FdCPU)
     {
+        int NTask;
+        MPI_Comm_size(MPI_COMM_WORLD, &NTask);
         fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads: %d Elapsed: %g\n", NumCurrentTiStep, All.Time, NTask, All.NumThreads, All.CT.ElapsedTime);
-        fflush(FdCPU);
-    }
-    walltime_report(FdCPU, 0, MPI_COMM_WORLD);
-    if(ThisTask == 0) {
+        walltime_report(FdCPU, 0, MPI_COMM_WORLD);
         fflush(FdCPU);
     }
 }
@@ -487,8 +482,14 @@ open_outputfiles(int RestartSnapNum)
     const char mode[3]="a+";
     char * buf;
     char * postfix;
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
     if(ThisTask != 0) {
+        FdCPU = NULL;
+        FdEnergy = NULL;
+        FdBlackHoles = NULL;
+        FdSfr = NULL;
         /* only the root processors writes to the log files */
         return;
     }
@@ -526,7 +527,6 @@ open_outputfiles(int RestartSnapNum)
             endrun(1, "error in opening file '%s'\n", buf);
         myfree(buf);
     }
-
 }
 
 
@@ -535,17 +535,13 @@ open_outputfiles(int RestartSnapNum)
 static void
 close_outputfiles(void)
 {
-
-    if(ThisTask != 0)		/* only the root processors writes to the log files */
-        return;
-
-    fclose(FdCPU);
-    if(All.OutputEnergyDebug)
+    if(FdCPU)
+        fclose(FdCPU);
+    if(FdEnergy)
         fclose(FdEnergy);
-
-    fclose(FdSfr);
-
-    if(All.BlackHoleOn)
+    if(FdSfr)
+        fclose(FdSfr);
+    if(FdBlackHoles)
         fclose(FdBlackHoles);
 }
 
