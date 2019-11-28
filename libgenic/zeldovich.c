@@ -12,6 +12,7 @@
 #include "pmesh.h"
 
 #include <libgadget/petapm.h>
+#include <libgadget/allvars.h>
 #include <libgadget/walltime.h>
 #include <libgadget/utils.h>
 
@@ -30,7 +31,7 @@ static void readout_vel_z(PetaPM * pm, int i, double * mesh, double weight);
 static void readout_disp_x(PetaPM * pm, int i, double * mesh, double weight);
 static void readout_disp_y(PetaPM * pm, int i, double * mesh, double weight);
 static void readout_disp_z(PetaPM * pm, int i, double * mesh, double weight);
-static void gaussian_fill(int Nmesh, PetaPMRegion * region, pfft_complex * rho_k, int UnitaryAmplitude, int InvertPhase);
+static void gaussian_fill(int Nmesh, PetaPMRegion * region, pfft_complex * rho_k, int UnitaryAmplitude, int InvertPhase, const int Seed);
 
 static inline double periodic_wrap(double x)
 {
@@ -148,7 +149,7 @@ static enum TransferType ptype;
 /*Global to pass the particle data to the readout functions*/
 static struct ic_part_data * curICP;
 
-void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_data * dispICP, const int NumPart) {
+void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_data * dispICP, const int NumPart, const struct genic_config GenicConfig) {
 
     /*MUST set this before doing force.*/
     ptype = Type;
@@ -202,7 +203,7 @@ void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_dat
         vel_prefac /= sqrt(All.TimeIC);	/* converts to Gadget velocity */
     }
 
-    if(!All2.PowerP.ScaleDepVelocity) {
+    if(!GenicConfig.PowerP.ScaleDepVelocity) {
         vel_prefac *= F_Omega(&All.CP, All.TimeIC);
         /* If different transfer functions are disabled, we can copy displacements to velocities
          * and we don't need the extra transfers.*/
@@ -221,7 +222,7 @@ void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_dat
     pfft_complex * rho_k = petapm_alloc_rhok(pm);
 
     gaussian_fill(pm->Nmesh, petapm_get_fourier_region(pm),
-		  rho_k, All2.UnitaryAmplitude, All2.InvertPhase);
+		  rho_k, GenicConfig.UnitaryAmplitude, GenicConfig.InvertPhase, GenicConfig.Seed);
 
     petapm_force_c2r(pm, rho_k, regions, Nregions, functions);
 
@@ -244,7 +245,7 @@ void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_dat
             /*Copy displacements to positions.*/
             curICP[i].Pos[k] += curICP[i].Disp[k];
             /*Copy displacements to velocities if not done already*/
-            if(!All2.PowerP.ScaleDepVelocity)
+            if(!GenicConfig.PowerP.ScaleDepVelocity)
                 curICP[i].Vel[k] = curICP[i].Disp[k];
             curICP[i].Vel[k] *= vel_prefac;
             absv += curICP[i].Vel[k] * curICP[i].Vel[k];
@@ -360,7 +361,7 @@ static void readout_disp_z(PetaPM * pm, int i, double * mesh, double weight) {
 }
 
 static void
-gaussian_fill(int Nmesh, PetaPMRegion * region, pfft_complex * rho_k, int setUnitaryAmplitude, int setInvertPhase)
+gaussian_fill(int Nmesh, PetaPMRegion * region, pfft_complex * rho_k, int setUnitaryAmplitude, int setInvertPhase, const int Seed)
 {
     /* fastpm deals with strides properly; petapm not. So we translate it here. */
     PMDesc pm[1];
@@ -380,7 +381,7 @@ gaussian_fill(int Nmesh, PetaPMRegion * region, pfft_complex * rho_k, int setUni
     pm->ORegion.strides[2] = region->strides[1];
 
     pm->ORegion.total = region->totalsize;
-    pmic_fill_gaussian_gadget(pm, (double*) rho_k, All2.Seed, setUnitaryAmplitude, setInvertPhase);
+    pmic_fill_gaussian_gadget(pm, (double*) rho_k, Seed, setUnitaryAmplitude, setInvertPhase);
 
 #if 0
     /* dump the gaussian field for debugging
