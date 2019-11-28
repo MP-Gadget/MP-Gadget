@@ -218,7 +218,8 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
             newSlots[ptype] *= All.PartAllocFactor;
     }
 
-    slots_reserve(0, newSlots, SlotsManager);
+    size_t total_bytes = slots_reserve(0, newSlots, SlotsManager);
+    memset(SlotsManager->Base, 0, total_bytes);
 
     /* initialize particle types */
     int offset = 0;
