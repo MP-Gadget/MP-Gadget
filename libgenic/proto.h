@@ -48,6 +48,7 @@ write_particle_data(IDGenerator * idgen,
                     const int Type,
                     BigFile * bf,
                     const uint64_t FirstID,
+                    const int SavePrePos,
                     struct ic_part_data * curICP);
 
 /*Read a parameter file*/

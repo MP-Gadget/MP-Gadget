@@ -51,6 +51,7 @@ create_parameters()
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255, "CMB temperature in K");
     param_declare_double(ps, "RadiationOn", OPTIONAL, 1, "Include radiation in the background.");
     param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 1, "Snapshots will save peculiar velocities to the Velocity field. If 0, then v/sqrt(a) will be used in the ICs to match Gadget-2, but snapshots will save v * a.");
+    param_declare_int(ps, "SavePrePos", OPTIONAL, 1, "Save the pre-displacement positions in the snapshot.");
     param_declare_int(ps, "InvertPhase", OPTIONAL, 0, "Flip phase for paired simulation");
     param_declare_int(ps,    "ShowBacktrace", OPTIONAL, 1, "Print a backtrace on crash. Hangs on stampede.");
 
@@ -146,6 +147,7 @@ void read_parameterfile(char *fname)
 
     /*Simulation parameters*/
     All.IO.UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
+    All2.SavePrePos = param_get_int(ps, "SavePrePos");
     All.BoxSize = param_get_double(ps, "BoxSize");
     All.Nmesh = param_get_int(ps, "Nmesh");
     All2.Ngrid = param_get_int(ps, "Ngrid");

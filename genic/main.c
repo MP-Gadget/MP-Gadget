@@ -170,13 +170,13 @@ int main(int argc, char **argv)
         myfree(seedtable);
     }
 
-    write_particle_data(idgen_cdm, 1, &bf, 0, ICP);
+    write_particle_data(idgen_cdm, 1, &bf, 0, All2.SavePrePos, ICP);
   }
 
   /*Now make the gas if required*/
   if(All2.ProduceGas) {
     displacement_fields(pm, GasType, ICP+NumPartCDM, NumPartGas);
-    write_particle_data(idgen_gas, 0, &bf, TotNumPart, ICP+NumPartCDM);
+    write_particle_data(idgen_gas, 0, &bf, TotNumPart, All2.SavePrePos, ICP+NumPartCDM);
   }
   myfree(ICP);
 
@@ -213,7 +213,7 @@ int main(int argc, char **argv)
       gsl_rng_free(g_rng);
       myfree(seedtable);
 
-      write_particle_data(idgen_nu, 2, &bf, TotNumPart+TotNumPartGas, ICP);
+      write_particle_data(idgen_nu, 2, &bf, TotNumPart+TotNumPartGas, All2.SavePrePos, ICP);
       myfree(ICP);
   }
 
