@@ -99,12 +99,7 @@ extern struct global_data_all_processes
            UnitDensity_in_cgs,		/*!< factor to convert internal length unit to g/cm^3*h^2 */
            UnitEnergy_in_cgs,		/*!< factor to convert internal energy to cgs units */
            UnitTime_in_Megayears,	/*!< factor to convert internal time to megayears/h */
-           GravityConstantInternal,	/*!< If set to zero in the parameterfile, the internal value of the
-                                      gravitational constant is set to the Newtonian value based on the system of
-                                      units specified. Otherwise the value provided is taken as internal gravity
-                                      constant G. */
            G;				/*!< Gravity-constant in internal units */
-    double UnitDensity_in_Gev_per_cm3; /*!< factor to convert internal density unit to GeV/c^2 / cm^3 */
     /* Cosmology */
     Cosmology CP;
 
