@@ -464,11 +464,6 @@ void read_parameter_file(char *fname)
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.WindOn = param_get_int(ps, "WindOn");
 
-        param_get_string2(ps, "TreeCoolFile", All.TreeCoolFile, sizeof(All.TreeCoolFile));
-        param_get_string2(ps, "UVFluctuationfile", All.UVFluctuationFile, sizeof(All.UVFluctuationFile));
-        param_get_string2(ps, "MetalCoolFile", All.MetalCoolFile, sizeof(All.MetalCoolFile));
-        param_get_string2(ps, "ReionHistFile", All.ReionHistFile, sizeof(All.ReionHistFile));
-
         All.InitGasTemp = param_get_double(ps, "InitGasTemp");
 
         /*Massive neutrino parameters*/

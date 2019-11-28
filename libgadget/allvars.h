@@ -177,11 +177,6 @@ extern struct global_data_all_processes
          FOFFileBase[100],
          EnergyFile[100],
          CpuFile[100];
-    char TreeCoolFile[100];
-    char MetalCoolFile[100];
-    char UVFluctuationFile[100];
-    /* File with the helium reionization table*/
-    char ReionHistFile[100];
 
     /*Should we store the energy to EnergyFile on PM timesteps.*/
     int OutputEnergyDebug;
