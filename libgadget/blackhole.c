@@ -16,6 +16,7 @@
 #include "hydra.h"
 #include "density.h"
 #include "sfr_eff.h"
+#include "walltime.h"
 /*! \file blackhole.c
  *  \brief routines for gas accretion onto black holes, and black hole mergers
  */

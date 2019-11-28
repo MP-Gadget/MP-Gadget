@@ -8,6 +8,7 @@
 #include "allvars.h"
 #include "proto.h"
 
+#include <libgadget/allvars.h>
 #include <libgadget/petapm.h>
 #include <libgadget/walltime.h>
 #include <libgadget/utils.h>

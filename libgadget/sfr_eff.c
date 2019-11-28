@@ -25,6 +25,7 @@
 #include "sfr_eff.h"
 #include "cooling.h"
 #include "slotsmanager.h"
+#include "walltime.h"
 #include "winds.h"
 #include "hydra.h"
 /*Only for the star slot reservation*/
@@ -56,6 +57,13 @@ static struct SFRParams
     double QuickLymanAlphaTempThresh;
     /* Number of stars to create from each gas particle*/
     int Generations;
+
+    /* Input files for the various cooling modules*/
+    char TreeCoolFile[100];
+    char MetalCoolFile[100];
+    char UVFluctuationFile[100];
+    /* File with the helium reionization table*/
+    char ReionHistFile[100];
 } sfr_params;
 
 /* Structure storing the results of an evaluation of the star formation model*/
@@ -112,6 +120,12 @@ void set_sfr_params(ParameterSet * ps)
         /*Lyman-alpha forest parameters*/
         sfr_params.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
         sfr_params.QuickLymanAlphaTempThresh = param_get_double(ps, "QuickLymanAlphaTempThresh");
+
+        /* File names*/
+        param_get_string2(ps, "TreeCoolFile", sfr_params.TreeCoolFile, sizeof(sfr_params.TreeCoolFile));
+        param_get_string2(ps, "UVFluctuationfile", sfr_params.UVFluctuationFile, sizeof(sfr_params.UVFluctuationFile));
+        param_get_string2(ps, "MetalCoolFile", sfr_params.MetalCoolFile, sizeof(sfr_params.MetalCoolFile));
+        param_get_string2(ps, "ReionHistFile", sfr_params.ReionHistFile, sizeof(sfr_params.ReionHistFile));
     }
     MPI_Bcast(&sfr_params, sizeof(struct SFRParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -708,9 +722,9 @@ void init_cooling_and_star_formation(void)
     /*Enforces a minimum internal energy in cooling. */
     All.MinEgySpec = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * sfr_params.MinGasTemp / coolunits.uu_in_cgs;
 
-    init_cooling(All.TreeCoolFile, All.MetalCoolFile, All.ReionHistFile, coolunits, &All.CP);
+    init_cooling(sfr_params.TreeCoolFile, sfr_params.MetalCoolFile, sfr_params.ReionHistFile, coolunits, &All.CP);
     /*Initialize the uv fluctuation table*/
-    init_uvf_table(All.UVFluctuationFile, All.BoxSize, All.UnitLength_in_cm);
+    init_uvf_table(sfr_params.UVFluctuationFile, All.BoxSize, All.UnitLength_in_cm);
 
     if(!All.StarformationOn)
         return;

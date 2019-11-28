@@ -6,6 +6,7 @@
 #include <libgadget/allvars.h>
 #include <libgadget/densitykernel.h>
 #include <libgadget/timebinmgr.h>
+#include <libgadget/timestep.h>
 #include <libgadget/utils.h>
 #include <libgadget/treewalk.h>
 #include <libgadget/cooling_rates.h>
@@ -422,18 +423,10 @@ void read_parameter_file(char *fname)
         All.MaxMemSizePerNode = MaxMemSizePerNode;
 
         All.TimeMax = param_get_double(ps, "TimeMax");
-        All.ErrTolIntAccuracy = param_get_double(ps, "ErrTolIntAccuracy");
         All.Asmth = param_get_double(ps, "Asmth");
         All.ShortRangeForceWindowType = param_get_enum(ps, "ShortRangeForceWindowType");
         All.Nmesh = param_get_int(ps, "Nmesh");
 
-        All.MaxGasVel = param_get_double(ps, "MaxGasVel");
-        All.MaxSizeTimestep = param_get_double(ps, "MaxSizeTimestep");
-
-        All.MinSizeTimestep = param_get_double(ps, "MinSizeTimestep");
-        All.ForceEqualTimesteps = param_get_int(ps, "ForceEqualTimesteps");
-        All.MaxRMSDisplacementFac = param_get_double(ps, "MaxRMSDisplacementFac");
-        All.CourantFac = param_get_double(ps, "CourantFac");
         All.HydroCostFactor = param_get_double(ps, "HydroCostFactor");
 
         All.IO.BytesPerFile = param_get_int(ps, "BytesPerFile");
@@ -471,11 +464,6 @@ void read_parameter_file(char *fname)
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.WindOn = param_get_int(ps, "WindOn");
 
-        param_get_string2(ps, "TreeCoolFile", All.TreeCoolFile, sizeof(All.TreeCoolFile));
-        param_get_string2(ps, "UVFluctuationfile", All.UVFluctuationFile, sizeof(All.UVFluctuationFile));
-        param_get_string2(ps, "MetalCoolFile", All.MetalCoolFile, sizeof(All.MetalCoolFile));
-        param_get_string2(ps, "ReionHistFile", All.ReionHistFile, sizeof(All.ReionHistFile));
-
         All.InitGasTemp = param_get_double(ps, "InitGasTemp");
 
         /*Massive neutrino parameters*/
@@ -509,6 +497,7 @@ void read_parameter_file(char *fname)
 
     /*Initialize per-module parameters.*/
 
+    set_timestep_params(ps);
     set_cooling_params(ps);
     set_density_params(ps);
     set_hydro_params(ps);

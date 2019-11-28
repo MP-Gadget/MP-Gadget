@@ -9,18 +9,12 @@
 #include <libgadget/physconst.h>
 #include <libgadget/utils.h>
 
-/*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
- * parameter file).  Holding this data in a structure is convenient for writing/reading the restart file, and
- * it allows the introduction of new global variables in a simple way. The only thing to do is to introduce
- * them into this structure.
+/*! This structure contains configuration data from libgadget.
  */
 struct global_data_all_processes All;
 
-/* Genic Specific configuration structure*/
-struct genic_config All2;
-
 static ParameterSet *
-create_parameters()
+create_parameters(void)
 {
     ParameterSet * ps = parameter_set_new();
 
@@ -81,11 +75,10 @@ create_parameters()
     return ps;
 }
 
-void read_parameterfile(char *fname)
+void read_parameterfile(char *fname, struct genic_config * GenicConfig)
 {
 
     /* read parameter file on all processes for simplicty */
-
     ParameterSet * ps = create_parameters();
     char * error;
     int ThisTask;
@@ -121,15 +114,15 @@ void read_parameterfile(char *fname)
     All.CP.MNu[0] = param_get_double(ps, "MNue");
     All.CP.MNu[1] = param_get_double(ps, "MNum");
     All.CP.MNu[2] = param_get_double(ps, "MNut");
-    All2.WDM_therm_mass = param_get_double(ps, "MWDM_therm");
+    GenicConfig->WDM_therm_mass = param_get_double(ps, "MWDM_therm");
     double MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
     if(MaxMemSizePerNode <= 1) {
         MaxMemSizePerNode *= get_physmem_bytes() / (1024 * 1024);
     }
     All.MaxMemSizePerNode = MaxMemSizePerNode;
 
-    All2.ProduceGas = param_get_int(ps, "ProduceGas");
-    All2.InvertPhase = param_get_int(ps, "InvertPhase");
+    GenicConfig->ProduceGas = param_get_int(ps, "ProduceGas");
+    GenicConfig->InvertPhase = param_get_int(ps, "InvertPhase");
     /*Unit system*/
     All.UnitVelocity_in_cm_per_s = param_get_double(ps, "UnitVelocity_in_cm_per_s");
     All.UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
@@ -140,68 +133,68 @@ void read_parameterfile(char *fname)
     double Redshift = param_get_double(ps, "Redshift");
 
     /*Parameters of the power spectrum*/
-    All2.PowerP.InputPowerRedshift = param_get_double(ps, "InputPowerRedshift");
-    if(All2.PowerP.InputPowerRedshift < 0)
-        All2.PowerP.InputPowerRedshift = Redshift;
-    All2.PowerP.Sigma8 = param_get_double(ps, "Sigma8");
+    GenicConfig->PowerP.InputPowerRedshift = param_get_double(ps, "InputPowerRedshift");
+    if(GenicConfig->PowerP.InputPowerRedshift < 0)
+        GenicConfig->PowerP.InputPowerRedshift = Redshift;
+    GenicConfig->PowerP.Sigma8 = param_get_double(ps, "Sigma8");
     /*Always specify Sigm8 at z=0*/
-    if(All2.PowerP.Sigma8 > 0)
-        All2.PowerP.InputPowerRedshift = 0;
-    All2.PowerP.FileWithInputSpectrum = param_get_string(ps, "FileWithInputSpectrum");
-    All2.PowerP.FileWithTransferFunction = param_get_string(ps, "FileWithTransferFunction");
-    All2.PowerP.DifferentTransferFunctions = param_get_int(ps, "DifferentTransferFunctions");
-    All2.PowerP.ScaleDepVelocity = param_get_int(ps, "ScaleDepVelocity");
+    if(GenicConfig->PowerP.Sigma8 > 0)
+        GenicConfig->PowerP.InputPowerRedshift = 0;
+    GenicConfig->PowerP.FileWithInputSpectrum = param_get_string(ps, "FileWithInputSpectrum");
+    GenicConfig->PowerP.FileWithTransferFunction = param_get_string(ps, "FileWithTransferFunction");
+    GenicConfig->PowerP.DifferentTransferFunctions = param_get_int(ps, "DifferentTransferFunctions");
+    GenicConfig->PowerP.ScaleDepVelocity = param_get_int(ps, "ScaleDepVelocity");
     /* By default ScaleDepVelocity follows DifferentTransferFunctions.*/
-    if(All2.PowerP.ScaleDepVelocity < 0) {
-        All2.PowerP.ScaleDepVelocity = All2.PowerP.DifferentTransferFunctions;
+    if(GenicConfig->PowerP.ScaleDepVelocity < 0) {
+        GenicConfig->PowerP.ScaleDepVelocity = GenicConfig->PowerP.DifferentTransferFunctions;
     }
-    All2.PowerP.WhichSpectrum = param_get_int(ps, "WhichSpectrum");
-    All2.PowerP.PrimordialIndex = param_get_double(ps, "PrimordialIndex");
-    All2.PowerP.PrimordialRunning = param_get_double(ps, "PrimordialRunning");
+    GenicConfig->PowerP.WhichSpectrum = param_get_int(ps, "WhichSpectrum");
+    GenicConfig->PowerP.PrimordialIndex = param_get_double(ps, "PrimordialIndex");
+    GenicConfig->PowerP.PrimordialRunning = param_get_double(ps, "PrimordialRunning");
 
     /*Simulation parameters*/
     All.IO.UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
-    All2.SavePrePos = param_get_int(ps, "SavePrePos");
+    GenicConfig->SavePrePos = param_get_int(ps, "SavePrePos");
     All.BoxSize = param_get_double(ps, "BoxSize");
     All.Nmesh = param_get_int(ps, "Nmesh");
-    All2.Ngrid = param_get_int(ps, "Ngrid");
-    All2.NgridGas = param_get_int(ps, "NgridGas");
-    if(All2.NgridGas < 0)
-        All2.NgridGas = All2.Ngrid;
-    if(!All2.ProduceGas)
-        All2.NgridGas = 0;
+    GenicConfig->Ngrid = param_get_int(ps, "Ngrid");
+    GenicConfig->NgridGas = param_get_int(ps, "NgridGas");
+    if(GenicConfig->NgridGas < 0)
+        GenicConfig->NgridGas = GenicConfig->Ngrid;
+    if(!GenicConfig->ProduceGas)
+        GenicConfig->NgridGas = 0;
     /*Enable 'hybrid' neutrinos*/
-    All2.NGridNu = param_get_int(ps, "NgridNu");
+    GenicConfig->NGridNu = param_get_int(ps, "NgridNu");
     /* Convert physical km/s at z=0 in an unperturbed universe to
      * internal gadget (comoving) velocity units at starting redshift.*/
-    All2.Max_nuvel = param_get_double(ps, "Max_nuvel") * pow(1+Redshift, 1.5) * (All.UnitVelocity_in_cm_per_s/1e5);
-    All2.Seed = param_get_int(ps, "Seed");
-    All2.UnitaryAmplitude = param_get_int(ps, "UnitaryAmplitude");
+    GenicConfig->Max_nuvel = param_get_double(ps, "Max_nuvel") * pow(1+Redshift, 1.5) * (All.UnitVelocity_in_cm_per_s/1e5);
+    GenicConfig->Seed = param_get_int(ps, "Seed");
+    GenicConfig->UnitaryAmplitude = param_get_int(ps, "UnitaryAmplitude");
     param_get_string2(ps, "OutputDir", All.OutputDir, sizeof(All.OutputDir));
     param_get_string2(ps, "FileBase", All.InitCondFile, sizeof(All.InitCondFile));
-    All2.MakeGlassGas = param_get_int(ps, "MakeGlassGas");
+    GenicConfig->MakeGlassGas = param_get_int(ps, "MakeGlassGas");
     /* We want to use a baryon glass by default if we have different transfer functions,
      * since that is the way we reproduce the linear growth. Otherwise use a grid by default.*/
-    if(All2.MakeGlassGas < 0) {
-        if(All2.PowerP.DifferentTransferFunctions)
-            All2.MakeGlassGas = 1;
+    if(GenicConfig->MakeGlassGas < 0) {
+        if(GenicConfig->PowerP.DifferentTransferFunctions)
+            GenicConfig->MakeGlassGas = 1;
         else
-            All2.MakeGlassGas = 0;
+            GenicConfig->MakeGlassGas = 0;
     }
-    All2.MakeGlassCDM = param_get_int(ps, "MakeGlassCDM");
+    GenicConfig->MakeGlassCDM = param_get_int(ps, "MakeGlassCDM");
 
     int64_t NumPartPerFile = param_get_int(ps, "NumPartPerFile");
 
-    int64_t Ngrid = All2.Ngrid;
-    if(Ngrid < All2.NgridGas)
-        Ngrid = All2.NgridGas;
-    All2.NumFiles = ( Ngrid*Ngrid*Ngrid + NumPartPerFile - 1) / NumPartPerFile;
+    int64_t Ngrid = GenicConfig->Ngrid;
+    if(Ngrid < GenicConfig->NgridGas)
+        Ngrid = GenicConfig->NgridGas;
+    GenicConfig->NumFiles = ( Ngrid*Ngrid*Ngrid + NumPartPerFile - 1) / NumPartPerFile;
     All.IO.NumWriters = param_get_int(ps, "NumWriters");
-    if(All2.PowerP.DifferentTransferFunctions && All2.PowerP.InputPowerRedshift != Redshift
-        && (All2.ProduceGas || All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2]))
+    if(GenicConfig->PowerP.DifferentTransferFunctions && GenicConfig->PowerP.InputPowerRedshift != Redshift
+        && (GenicConfig->ProduceGas || All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2]))
         message(0, "WARNING: Using different transfer functions but also rescaling power to account for linear growth. NOT what you want!\n");
-    if((All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2] > 0) || All2.PowerP.DifferentTransferFunctions || All2.PowerP.ScaleDepVelocity)
-        if(0 == strlen(All2.PowerP.FileWithTransferFunction))
+    if((All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2] > 0) || GenicConfig->PowerP.DifferentTransferFunctions || GenicConfig->PowerP.ScaleDepVelocity)
+        if(0 == strlen(GenicConfig->PowerP.FileWithTransferFunction))
             endrun(0,"For massive neutrinos, different transfer functions, or scale dependent growth functions you must specify a transfer function file\n");
     if(!All.CP.RadiationOn && (All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2] > 0))
         endrun(0,"You want massive neutrinos but no background radiation: this will give an inconsistent cosmology.\n");

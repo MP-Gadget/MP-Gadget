@@ -10,6 +10,7 @@
 #include "allvars.h"
 #include "petaio.h"
 #include "checkpoint.h"
+#include "walltime.h"
 #include "fof.h"
 
 #include "utils.h"

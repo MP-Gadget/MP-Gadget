@@ -6,6 +6,7 @@
 #include <gsl/gsl_math.h>
 #include "allvars.h"
 #include "drift.h"
+#include "walltime.h"
 #include "timefac.h"
 #include "timestep.h"
 #include "slotsmanager.h"

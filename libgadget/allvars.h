@@ -1,32 +1,16 @@
 /*! \file allvars.h
- *  \brief declares global variables.
+ *  \brief declares the All structure.
  *
- *  This file declares all global variables. Further variables should be added here, and declared as
- *  'extern'. The actual existence of these variables is provided by the file 'allvars.c'. To produce
- *  'allvars.c' from 'allvars.h', do the following:
- *
- *     - Erase all #define statements
- *     - add #include "allvars.h"
- *     - delete all keywords 'extern'
- *     - delete all struct definitions enclosed in {...}, e.g.
- *        "extern struct global_data_all_processes {....} All;"
- *        becomes "struct global_data_all_processes All;"
  */
 
 #ifndef ALLVARS_H
 #define ALLVARS_H
 
 #include <mpi.h>
-#include <stdio.h>
-
 #include <omp.h>
-#include <pthread.h>
 
 #include "cosmology.h"
 #include "gravity.h"
-#include "walltime.h"
-
-#include "assert.h"
 #include "physconst.h"
 #include "types.h"
 
@@ -99,12 +83,7 @@ extern struct global_data_all_processes
            UnitDensity_in_cgs,		/*!< factor to convert internal length unit to g/cm^3*h^2 */
            UnitEnergy_in_cgs,		/*!< factor to convert internal energy to cgs units */
            UnitTime_in_Megayears,	/*!< factor to convert internal time to megayears/h */
-           GravityConstantInternal,	/*!< If set to zero in the parameterfile, the internal value of the
-                                      gravitational constant is set to the Newtonian value based on the system of
-                                      units specified. Otherwise the value provided is taken as internal gravity
-                                      constant G. */
            G;				/*!< Gravity-constant in internal units */
-    double UnitDensity_in_Gev_per_cm3; /*!< factor to convert internal density unit to GeV/c^2 / cm^3 */
     /* Cosmology */
     Cosmology CP;
 
@@ -155,33 +134,12 @@ extern struct global_data_all_processes
     /* variables that keep track of cumulative CPU consumption */
 
     double TimeLimitCPU;
-    struct ClockTable CT;
 
     /*! The scale of the short-range/long-range force split in units of FFT-mesh cells */
     double Asmth;
     enum ShortRangeForceWindowType ShortRangeForceWindowType;	/*!< method of the feedback*/
 
-    /* adjusts accuracy of time-integration */
-
-    double ErrTolIntAccuracy;	/*!< accuracy tolerance parameter \f$ \eta \f$ for timestep criterion. The
-                                  timesteps is \f$ \Delta t = \sqrt{\frac{2 \eta eps}{a}} \f$ */
-
-    int ForceEqualTimesteps; /*If true, all timesteps have the same timestep, the smallest allowed.*/
-    double MinSizeTimestep,	/*!< minimum allowed timestep. Normally, the simulation terminates if the
-                              timestep determined by the timestep criteria falls below this limit. */
-           MaxSizeTimestep;		/*!< maximum allowed timestep */
-
-    double MaxRMSDisplacementFac;	/*!< this determines a global timestep criterion for cosmological simulations
-                                      in comoving coordinates.  To this end, the code computes the rms velocity
-                                      of all particles, and limits the timestep such that the rms displacement
-                                      is a fraction of the mean particle separation (determined from the
-                                      particle mass and the cosmological parameters). This parameter specifies
-                                      this fraction. */
-
-    double MaxGasVel; /* Limit on Gas velocity */
     double MaxMemSizePerNode;
-
-    double CourantFac;		/*!< SPH-Courant factor */
 
     double HydroCostFactor; /* cost factor for hydro in load balancing. */
 
@@ -197,11 +155,6 @@ extern struct global_data_all_processes
          FOFFileBase[100],
          EnergyFile[100],
          CpuFile[100];
-    char TreeCoolFile[100];
-    char MetalCoolFile[100];
-    char UVFluctuationFile[100];
-    /* File with the helium reionization table*/
-    char ReionHistFile[100];
 
     /*Should we store the energy to EnergyFile on PM timesteps.*/
     int OutputEnergyDebug;

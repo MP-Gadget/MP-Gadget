@@ -1,6 +1,6 @@
-#include <stdint.h>
-#include <libgadget/cosmology.h>
-#include <libgadget/allvars.h>
+#ifndef _GENIC_ALLVARS_H
+#define _GENIC_ALLVARS_H
+
 #include "power.h"
 
 struct ic_part_data
@@ -29,8 +29,6 @@ struct genic_config {
     /* Whether to save the pre-displacement positions to the snapshot*/
     int SavePrePos;
     struct power_params PowerP;
-} ;
+};
 
-
-extern struct genic_config All2;
-
+#endif

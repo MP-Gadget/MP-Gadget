@@ -9,6 +9,7 @@
 #include <libgenic/allvars.h>
 #include <libgenic/proto.h>
 #include <libgenic/thermal.h>
+#include <libgadget/allvars.h>
 #include <libgadget/walltime.h>
 #include <libgadget/petapm.h>
 #include <libgadget/utils.h>
@@ -16,7 +17,7 @@
 
 #define GLASS_SEED_HASH(seed) ((seed) * 9999721L)
 
-static void print_spec(int ThisTask);
+static void print_spec(int ThisTask, int Ngrid);
 
 int main(int argc, char **argv)
 {
@@ -30,13 +31,18 @@ int main(int argc, char **argv)
 
   tamalloc_init();
 
-  read_parameterfile(argv[1]);
+
+  /* Genic Specific configuration structure*/
+  struct genic_config All2 = {0};
+
+  read_parameterfile(argv[1], &All2);
 
   mymalloc_init(All.MaxMemSizePerNode);
 
   init_endrun(All.ShowBacktrace);
 
-  walltime_init(&All.CT);
+  struct ClockTable Clocks;
+  walltime_init(&Clocks);
 
   int64_t TotNumPart = (int64_t) All2.Ngrid*All2.Ngrid*All2.Ngrid;
   int64_t TotNumPartGas = (int64_t) All2.ProduceGas*All2.NgridGas*All2.NgridGas*All2.NgridGas;
@@ -79,7 +85,7 @@ int main(int argc, char **argv)
     total_nufrac = init_thermalvel(&nu_therm, v_th, All2.Max_nuvel/v_th, 0);
     message(0,"F-D velocity scale: %g. Max particle vel: %g. Fraction of mass in particles: %g\n",v_th*sqrt(All.TimeIC), All2.Max_nuvel*sqrt(All.TimeIC), total_nufrac);
   }
-  saveheader(&bf, TotNumPart, TotNumPartGas, TotNu, total_nufrac);
+  saveheader(&bf, TotNumPart, TotNumPartGas, TotNu, total_nufrac, All2);
 
   /*Save the transfer functions*/
   save_all_transfer_tables(&bf, ThisTask);
@@ -141,7 +147,7 @@ int main(int argc, char **argv)
           ICP[j].PrePos[k] = ICP[j].Pos[k];
 
   if(NumPartCDM > 0) {
-    displacement_fields(pm, DMType, ICP, NumPartCDM);
+    displacement_fields(pm, DMType, ICP, NumPartCDM, All2);
 
     /*Add a thermal velocity to WDM particles*/
     if(All2.WDM_therm_mass > 0){
@@ -169,13 +175,13 @@ int main(int argc, char **argv)
         myfree(seedtable);
     }
 
-    write_particle_data(idgen_cdm, 1, &bf, 0, All2.SavePrePos, ICP);
+    write_particle_data(idgen_cdm, 1, &bf, 0, All2.SavePrePos, All2.NumFiles, ICP);
   }
 
   /*Now make the gas if required*/
   if(All2.ProduceGas) {
-    displacement_fields(pm, GasType, ICP+NumPartCDM, NumPartGas);
-    write_particle_data(idgen_gas, 0, &bf, TotNumPart, All2.SavePrePos, ICP+NumPartCDM);
+    displacement_fields(pm, GasType, ICP+NumPartCDM, NumPartGas, All2);
+    write_particle_data(idgen_gas, 0, &bf, TotNumPart, All2.SavePrePos, All2.NumFiles, ICP+NumPartCDM);
   }
   myfree(ICP);
 
@@ -195,7 +201,7 @@ int main(int argc, char **argv)
 		  for(k=0; k<3; k++)
 		      ICP[j].PrePos[k] = ICP[j].Pos[k];
 
-      displacement_fields(pm, NuType, ICP, NumPartNu);
+      displacement_fields(pm, NuType, ICP, NumPartNu, All2);
       unsigned int * seedtable = init_rng(All2.Seed+2,All2.NGridNu);
       gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
       /*Just in case*/
@@ -212,7 +218,7 @@ int main(int argc, char **argv)
       gsl_rng_free(g_rng);
       myfree(seedtable);
 
-      write_particle_data(idgen_nu, 2, &bf, TotNumPart+TotNumPartGas, All2.SavePrePos, ICP);
+      write_particle_data(idgen_nu, 2, &bf, TotNumPart+TotNumPartGas, All2.SavePrePos, All2.NumFiles, ICP);
       myfree(ICP);
   }
 
@@ -225,13 +231,13 @@ int main(int argc, char **argv)
   message(0, "IC's generated.\n");
   message(0, "Initial scale factor = %g\n", All.TimeIC);
 
-  print_spec(ThisTask);
+  print_spec(ThisTask, All2.Ngrid);
 
   MPI_Finalize();		/* clean up & finalize MPI */
   return 0;
 }
 
-void print_spec(int ThisTask)
+void print_spec(int ThisTask, const int Ngrid)
 {
   if(ThisTask == 0)
     {
@@ -251,7 +257,7 @@ void print_spec(int ThisTask)
       fprintf(fd, "# %12g %12g\n", 1/All.TimeIC-1, DDD);
       /* print actual starting redshift and linear growth factor for this cosmology */
       kstart = 2 * M_PI / (2*All.BoxSize * (CM_PER_MPC / All.UnitLength_in_cm));	/* 2x box size Mpc/h */
-      kend = 2 * M_PI / (All.BoxSize/(8*All2.Ngrid) * (CM_PER_MPC / All.UnitLength_in_cm));	/* 1/8 mean spacing Mpc/h */
+      kend = 2 * M_PI / (All.BoxSize/(8*Ngrid) * (CM_PER_MPC / All.UnitLength_in_cm));	/* 1/8 mean spacing Mpc/h */
 
       message(1,"kstart=%lg kend=%lg\n",kstart,kend);
 

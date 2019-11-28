@@ -2,10 +2,10 @@
 #define GADGET_WALLTIME_H
 
 int walltime_clock(char * name);
-void walltime_reset();
+void walltime_reset(void);
 #define WALLTIME_IGNORE "."
 #define LINENO(a, b) a ":" # b
-#define walltime_measure(name) walltime_measure_full(name, __FILE__ , __LINE__) 
+#define walltime_measure(name) walltime_measure_full(name, __FILE__ , __LINE__)
 #define walltime_add(name, dt) walltime_add_full(name, dt,  __FILE__, __LINE__)
 double walltime_measure_internal(char * name);
 double walltime_add_internal(char * name, double dt);

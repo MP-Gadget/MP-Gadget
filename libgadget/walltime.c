@@ -221,7 +221,7 @@ void walltime_report(FILE * fp, int root, MPI_Comm comm) {
     int rank;
     MPI_Comm_rank(comm, &rank);
     if(rank != root) return;
-    int i; 
+    int i;
     for(i = 0; i < CT->N; i ++) {
         char * name = CT->C[i].name;
         int level = 0;
