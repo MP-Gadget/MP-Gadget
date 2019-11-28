@@ -49,6 +49,7 @@ struct state_of_system compute_global_quantities_of_system(void)
     struct state_of_system sys;
     struct state_of_system SysState;
     double a1, a2, a3;
+    int ThisTask;
 
     a1 = All.Time;
     a2 = All.Time * All.Time;
@@ -105,7 +106,7 @@ struct state_of_system compute_global_quantities_of_system(void)
     MPI_Reduce(&sys.CenterOfMassComp[0][0], &SysState.CenterOfMassComp[0][0], 6 * 4, MPI_DOUBLE, MPI_SUM, 0,
             MPI_COMM_WORLD);
 
-
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0)
     {
         for(i = 0; i < 6; i++) {
@@ -190,14 +191,14 @@ struct state_of_system compute_global_quantities_of_system(void)
  * statistics about the energies in the various particle components to
  * the file FdEnergy.
  */
-void energy_statistics(void)
+void energy_statistics(FILE * FdEnergy)
 {
     struct state_of_system SysState = compute_global_quantities_of_system();
 
     message(0, "Time %g Mean Temperature of Gas %g\n",
                 All.Time, SysState.TemperatureComp[0]);
 
-    if(ThisTask == 0)
+    if(FdEnergy)
     {
         fprintf(FdEnergy,
                 "%g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",

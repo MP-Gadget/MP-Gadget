@@ -24,6 +24,7 @@
 #include <libgadget/petapm.h>
 #include <libgadget/timestep.h>
 
+struct global_data_all_processes All;
 /* The true struct for the state variable*/
 struct forcetree_testdata
 {
@@ -314,7 +315,6 @@ static int setup_tree(void **state) {
     /*Set up the important parts of the All structure.*/
     /*Particles should not be outside this*/
     All.BoxSize = 8;
-    All.NumThreads = omp_get_max_threads();
     All.MassiveNuLinRespOn = 0;
     All.FastParticleType = 2;
     All.CP.MNu[0] = All.CP.MNu[1] = All.CP.MNu[2] = 0;
@@ -341,8 +341,8 @@ static int setup_tree(void **state) {
     dp.TopNodeAllocFactor = 1.;
     dp.SetAsideFactor = 1;
     set_domain_par(dp);
-    petapm_module_init(All.NumThreads);
-    init_forcetree_params(2, GravitySofteningTable);
+    petapm_module_init(omp_get_max_threads());
+    init_forcetree_params(2);
     init_cosmology(&All.CP, 0.01);
     /*Set up the top-level domain grid*/
     struct forcetree_testdata *data = malloc(sizeof(struct forcetree_testdata));

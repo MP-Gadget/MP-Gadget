@@ -25,26 +25,10 @@
 #include "cosmology.h"
 #include "gravity.h"
 #include "walltime.h"
-#include "densitykernel.h"
 
 #include "assert.h"
 #include "physconst.h"
 #include "types.h"
-
-/*********************************************************/
-/*  Global variables                                     */
-/*********************************************************/
-
-/* To be removed at some point*/
-extern int ThisTask;		/*!< the number of the local processor  */
-
-/* variables for input/output , usually only used on process 0 */
-extern FILE *FdEnergy,			/*!< file handle for energy.txt log-file. */
-       *FdCPU;			/*!< file handle for cpu.txt log-file. */
-
-extern FILE *FdSfr;		/*!< file handle for sfr.txt log-file. */
-
-extern FILE *FdBlackHoles;	/*!< file handle for blackholes.txt log-file. */
 
 /*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
  * parameter file).  Holding this data in a structure is convenient for writing/reading the restart file, and
@@ -53,7 +37,7 @@ extern FILE *FdBlackHoles;	/*!< file handle for blackholes.txt log-file. */
  */
 extern struct global_data_all_processes
 {
-/* THe following variables are set by petaio_read_header */
+    /* The following variables are set by petaio_read_header */
     int64_t TotNumPartInit; /* The initial total number of particles; we probably want to get rid of all references to this. */
     int64_t NTotalInit[6]; /* The initial number of total particles in the IC. */
     double TimeInit;		/* time of simulation start: if restarting from a snapshot this holds snapshot time.*/
@@ -66,8 +50,6 @@ extern struct global_data_all_processes
 
 
 /* end of read_header parameters */
-
-    int NumThreads;     /* number of threads used to simulate OpenMP tls */
 
     struct {
         size_t BytesPerFile;   /* Number of bytes per physical file; this decides how many files bigfile creates each block */
@@ -108,16 +90,6 @@ extern struct global_data_all_processes
 
     /* some SPH parameters */
 
-    int DesNumNgb;		/*!< Desired number of SPH neighbours */
-    /* These are for black hole neighbour finding and so belong in the density module, not the black hole module.*/
-    double BlackHoleNgbFactor;	/*!< Factor by which the normal SPH neighbour should be increased/decreased */
-    double BlackHoleMaxAccretionRadius;
-
-
-    double DensityResolutionEta;		/*!< SPH resolution eta. See Price 2011. eq 12*/
-    double MaxNumNgbDeviation;	/*!< Maximum allowed deviation neighbour number */
-    double ArtBulkViscConst;	/*!< Sets the parameter \f$\alpha\f$ of the artificial viscosity */
-
     double InitGasTemp;		/*!< may be used to set the temperature in the IC's */
     double MinEgySpec; /* Minimum internal energy for timestepping, converted from MinGasTemp*/
 
@@ -141,7 +113,6 @@ extern struct global_data_all_processes
     int HydroOn;  /*  if hydro force is enabled */
     int DensityOn;  /*  if SPH density computation is enabled */
     int TreeGravOn;     /* tree gravity force is enabled*/
-    int DensityIndependentSphOn; /* Enables density independent (Pressure-entropy) SPH */
 
     int BlackHoleOn;  /* if black holes are enabled */
     int StarformationOn;  /* if star formation is enabled */
@@ -172,9 +143,7 @@ extern struct global_data_all_processes
         double a;
         double a3inv;
         double a2inv;
-        double fac_egy;
         double hubble;
-        double hubble_a2;
     } cf;
 
     /* variables for organizing discrete timeline */
@@ -214,21 +183,6 @@ extern struct global_data_all_processes
 
     double CourantFac;		/*!< SPH-Courant factor */
 
-
-    /* gravitational and hydrodynamical softening lengths (given in terms of an `equivalent' Plummer softening
-     * length)
-     *
-     * five groups of particles are supported 0=gas,1=halo,2=disk,3=bulge,4=stars
-     */
-    double MinGasHsmlFractional,	/*!< minimum allowed SPH smoothing length in units of SPH gravitational
-                                      softening length */
-           MinGasHsml;			/*!< minimum allowed SPH smoothing length */
-
-
-    enum DensityKernelType DensityKernelType;  /* 0 for Cubic Spline,  (recmd NumNgb = 33)
-                               1 for Quintic spline (recmd  NumNgb = 97)
-                             */
-    double DensityContrastLimit; /* limit of density contrast ratio for hydro force calculation */
     double HydroCostFactor; /* cost factor for hydro in load balancing. */
 
     double GravitySoftening; /* Softening as a fraction of DM mean separation. */

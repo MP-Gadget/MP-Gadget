@@ -5,8 +5,19 @@
 #include <string.h>
 #include <mpi.h>
 #include <libgenic/allvars.h>
+#include <libgadget/allvars.h>
 #include <libgadget/physconst.h>
 #include <libgadget/utils.h>
+
+/*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
+ * parameter file).  Holding this data in a structure is convenient for writing/reading the restart file, and
+ * it allows the introduction of new global variables in a simple way. The only thing to do is to introduce
+ * them into this structure.
+ */
+struct global_data_all_processes All;
+
+/* Genic Specific configuration structure*/
+struct genic_config All2;
 
 static ParameterSet *
 create_parameters()
@@ -77,6 +88,7 @@ void read_parameterfile(char *fname)
 
     ParameterSet * ps = create_parameters();
     char * error;
+    int ThisTask;
 
     if(0 != param_parse_file(ps, fname, &error)) {
         endrun(0, "Parsing %s failed: %s\n", fname, error);
@@ -86,6 +98,8 @@ void read_parameterfile(char *fname)
     }
 
     message(0, "----------- Running with Parameters ----------\n");
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0)
         param_dump(ps, stdout);
 

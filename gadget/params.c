@@ -12,8 +12,17 @@
 #include <libgadget/winds.h>
 #include <libgadget/sfr_eff.h>
 #include <libgadget/blackhole.h>
+#include <libgadget/density.h>
+#include <libgadget/hydra.h>
 #include <libgadget/fof.h>
 #include <libgadget/cooling_qso_lightup.h>
+
+/*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
+ * parameter file).  Holding this data in a structure is convenient for writing/reading the restart file, and
+ * it allows the introduction of new global variables in a simple way. The only thing to do is to introduce
+ * them into this structure.
+ */
+struct global_data_all_processes All;
 
 static int
 BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
@@ -365,6 +374,8 @@ void read_parameter_file(char *fname)
 {
     ParameterSet * ps = create_gadget_parameter_set();
 
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0) {
 
         char * error;
@@ -379,8 +390,6 @@ void read_parameter_file(char *fname)
         param_dump(ps, stdout);
         message(1, "----------------------------------------------\n");
 
-        All.NumThreads = omp_get_max_threads();
-
     /* Start reading the values */
         param_get_string2(ps, "InitCondFile", All.InitCondFile, sizeof(All.InitCondFile));
         param_get_string2(ps, "OutputDir", All.OutputDir, sizeof(All.OutputDir));
@@ -390,7 +399,6 @@ void read_parameter_file(char *fname)
         All.OutputEnergyDebug = param_get_int(ps, "EnergyFile");
         param_get_string2(ps, "CpuFile", All.CpuFile, sizeof(All.CpuFile));
 
-        All.DensityKernelType = param_get_enum(ps, "DensityKernelType");
         All.CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
         All.CP.RadiationOn = param_get_int(ps, "RadiationOn");
         All.CP.Omega0 = param_get_double(ps, "Omega0");
@@ -419,19 +427,14 @@ void read_parameter_file(char *fname)
         All.ShortRangeForceWindowType = param_get_enum(ps, "ShortRangeForceWindowType");
         All.Nmesh = param_get_int(ps, "Nmesh");
 
-        All.MinGasHsmlFractional = param_get_double(ps, "MinGasHsmlFractional");
         All.MaxGasVel = param_get_double(ps, "MaxGasVel");
         All.MaxSizeTimestep = param_get_double(ps, "MaxSizeTimestep");
 
         All.MinSizeTimestep = param_get_double(ps, "MinSizeTimestep");
         All.ForceEqualTimesteps = param_get_int(ps, "ForceEqualTimesteps");
         All.MaxRMSDisplacementFac = param_get_double(ps, "MaxRMSDisplacementFac");
-        All.ArtBulkViscConst = param_get_double(ps, "ArtBulkViscConst");
         All.CourantFac = param_get_double(ps, "CourantFac");
-        All.DensityResolutionEta = param_get_double(ps, "DensityResolutionEta");
         All.HydroCostFactor = param_get_double(ps, "HydroCostFactor");
-        All.DensityContrastLimit = param_get_double(ps, "DensityContrastLimit");
-        All.MaxNumNgbDeviation = param_get_double(ps, "MaxNumNgbDeviation");
 
         All.IO.BytesPerFile = param_get_int(ps, "BytesPerFile");
         All.IO.UsePeculiarVelocity = 0; /* Will be set by the Initial Condition File */
@@ -446,7 +449,6 @@ void read_parameter_file(char *fname)
         All.CoolingOn = param_get_int(ps, "CoolingOn");
         All.HydroOn = param_get_int(ps, "HydroOn");
         All.DensityOn = param_get_int(ps, "DensityOn");
-        All.DensityIndependentSphOn= param_get_int(ps, "DensityIndependentSphOn");
         All.TreeGravOn = param_get_int(ps, "TreeGravOn");
         All.FastParticleType = param_get_int(ps, "FastParticleType");
         All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
@@ -488,10 +490,6 @@ void read_parameter_file(char *fname)
             endrun(2, "You have enabled (kspace) massive neutrinos without radiation, but this will give an inconsistent cosmology!\n");
         /*End massive neutrino parameters*/
 
-        /*These two look like black hole parameters but they are really neighbour finding parameters*/
-        All.BlackHoleNgbFactor = param_get_double(ps, "BlackHoleNgbFactor");
-        All.BlackHoleMaxAccretionRadius = param_get_double(ps, "BlackHoleMaxAccretionRadius");
-
         if(All.StarformationOn == 0)
         {
             if(All.WindOn == 1) {
@@ -505,15 +503,6 @@ void read_parameter_file(char *fname)
                           "but you did not switch on cooling.\nThis mode is not supported.\n");
             }
         }
-
-        DensityKernel kernel;
-        density_kernel_init(&kernel, 1.0, All.DensityKernelType);
-        All.DesNumNgb = density_kernel_desnumngb(&kernel, All.DensityResolutionEta);
-
-        message(1, "The Density Kernel type is %s\n", kernel.name);
-        message(1, "The Density resolution is %g * mean separation, or %d neighbours\n",
-                    All.DensityResolutionEta, All.DesNumNgb);
-
     }
 
     MPI_Bcast(&All, sizeof(All), MPI_BYTE, 0, MPI_COMM_WORLD);
@@ -521,6 +510,8 @@ void read_parameter_file(char *fname)
     /*Initialize per-module parameters.*/
 
     set_cooling_params(ps);
+    set_density_params(ps);
+    set_hydro_params(ps);
     set_qso_lightup_params(ps);
     set_treewalk_params(ps);
     set_gravshort_tree_params(ps);

@@ -381,7 +381,7 @@ static int setup_tree(void **state) {
     for(i=0; i<6; i++)
         GravitySofteningTable[i] = 0.1 / 2.8;
 
-    init_forcetree_params(2, GravitySofteningTable);
+    init_forcetree_params(2);
     /*Set up the top-level domain grid*/
     struct forcetree_testdata *data = malloc(sizeof(struct forcetree_testdata));
     trivial_domain(&data->ddecomp);

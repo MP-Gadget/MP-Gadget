@@ -14,6 +14,7 @@
 #include "blackhole.h"
 #include "timestep.h"
 #include "hydra.h"
+#include "density.h"
 #include "sfr_eff.h"
 /*! \file blackhole.c
  *  \brief routines for gas accretion onto black holes, and black hole mergers
@@ -181,7 +182,7 @@ static double blackhole_soundspeed(double entropy, double rho) {
 }
 
 void
-blackhole(const ActiveParticles * act, ForceTree * tree)
+blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles)
 {
     if(!All.BlackHoleOn)
         return;
@@ -316,7 +317,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree)
     MPI_Reduce(&Local_BH_Medd, &total_mdoteddington, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&Local_BH_num, &total_bh, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
-    if(ThisTask == 0)
+    if(FdBlackHoles)
     {
         /* convert to solar masses per yr */
         double mdot_in_msun_per_year =
@@ -423,7 +424,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         iter->base.Hsml = hsearch;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
 
-        density_kernel_init(&iter->accretion_kernel, I->Hsml, All.DensityKernelType);
+        density_kernel_init(&iter->accretion_kernel, I->Hsml, GetDensityKernelType());
         density_kernel_init(&iter->feedback_kernel, hsearch, DENSITY_KERNEL_CUBIC_SPLINE);
         return;
     }

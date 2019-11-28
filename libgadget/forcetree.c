@@ -40,7 +40,7 @@ static struct forcetree_params
 } ForceTreeParams;
 
 void
-init_forcetree_params(const int FastParticleType, const double * GravitySofteningTable)
+init_forcetree_params(const int FastParticleType)
 {
     ForceTreeParams.TreeAllocFactor = 0.7;
     ForceTreeParams.FastParticleType = FastParticleType;

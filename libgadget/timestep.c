@@ -114,9 +114,7 @@ set_global_time(double newtime) {
     All.cf.a = All.Time;
     All.cf.a2inv = 1 / (All.Time * All.Time);
     All.cf.a3inv = 1 / (All.Time * All.Time * All.Time);
-    All.cf.fac_egy = pow(All.Time, 3 * GAMMA_MINUS1);
     All.cf.hubble = hubble_function(&All.CP, All.Time);
-    All.cf.hubble_a2 = All.Time * All.Time * hubble_function(&All.CP, All.Time);
 
 #ifdef LIGHTCONE
     lightcone_set_time(All.cf.a);
@@ -616,8 +614,9 @@ int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurre
 {
     int i;
 
+    int NumThreads = omp_get_max_threads();
     /*Since we use a static schedule, only need NumPart/NumThreads elements per thread.*/
-    int narr = PartManager->NumPart / All.NumThreads + 2;
+    int narr = PartManager->NumPart / NumThreads + 2;
 
     /*We know all particles are active on a PM timestep*/
     if(is_PM_timestep(Ti_Current)) {
@@ -626,17 +625,17 @@ int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurre
     }
     else {
         /*Need space for more particles than we have, because of star formation*/
-        act->ActiveParticle = (int *) mymalloc("ActiveParticle", narr * All.NumThreads * sizeof(int));
+        act->ActiveParticle = (int *) mymalloc("ActiveParticle", narr * NumThreads * sizeof(int));
         act->NumActiveParticle = 0;
     }
 
-    int * TimeBinCountType = mymalloc("TimeBinCountType", 6*(TIMEBINS+1)*All.NumThreads * sizeof(int));
-    memset(TimeBinCountType, 0, 6 * (TIMEBINS+1) * All.NumThreads * sizeof(int));
+    int * TimeBinCountType = mymalloc("TimeBinCountType", 6*(TIMEBINS+1)*NumThreads * sizeof(int));
+    memset(TimeBinCountType, 0, 6 * (TIMEBINS+1) * NumThreads * sizeof(int));
 
     /*We want a lockless algorithm which preserves the ordering of the particle list.*/
-    size_t *NActiveThread = ta_malloc("NActiveThread", size_t, All.NumThreads);
-    int **ActivePartSets = ta_malloc("ActivePartSets", int *, All.NumThreads);
-    gadget_setup_thread_arrays(act->ActiveParticle, ActivePartSets, NActiveThread, narr, All.NumThreads);
+    size_t *NActiveThread = ta_malloc("NActiveThread", size_t, NumThreads);
+    int **ActivePartSets = ta_malloc("ActivePartSets", int *, NumThreads);
+    gadget_setup_thread_arrays(act->ActiveParticle, ActivePartSets, NActiveThread, narr, NumThreads);
 
     /* We enforce schedule static to ensure that each thread executes on contiguous particles.
      * chunk size is not specified and so is the largest possible.*/
@@ -657,7 +656,7 @@ int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurre
     }
     if(act->ActiveParticle) {
         /*Now we want a merge step for the ActiveParticle list.*/
-        act->NumActiveParticle = gadget_compact_thread_arrays(act->ActiveParticle, ActivePartSets, NActiveThread, All.NumThreads);
+        act->NumActiveParticle = gadget_compact_thread_arrays(act->ActiveParticle, ActivePartSets, NActiveThread, NumThreads);
     }
     ta_free(ActivePartSets);
     ta_free(NActiveThread);
@@ -701,8 +700,9 @@ static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountTyp
     int64_t tot_num_force = 0;
     int64_t TotNumPart = 0, TotNumType[6] = {0};
 
+    int NumThreads = omp_get_max_threads();
     /*Sum the thread-local memory*/
-    for(i = 1; i < All.NumThreads; i ++) {
+    for(i = 1; i < NumThreads; i ++) {
         int j;
         for(j=0; j < 6 * (TIMEBINS+1); j++)
             TimeBinCountType[j] += TimeBinCountType[6 * (TIMEBINS+1) * i + j];

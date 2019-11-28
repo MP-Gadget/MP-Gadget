@@ -119,7 +119,7 @@ void set_sfr_params(ParameterSet * ps)
 
 /* cooling and star formation routine.*/
 void
-cooling_and_starformation(ActiveParticles * act, ForceTree * tree)
+cooling_and_starformation(ActiveParticles * act, ForceTree * tree, FILE * FdSfr)
 {
     if(!All.CoolingOn)
         return;
@@ -264,7 +264,7 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree)
     MPI_Reduce(&localsfr, &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&sum_sm, &total_sm, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&sum_mass_stars, &total_sum_mass_stars, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    if(ThisTask == 0)
+    if(FdSfr)
     {
         double rate = 0;
         if(All.TimeStep > 0)
@@ -447,7 +447,7 @@ double get_neutral_fraction_sfreff(double redshift, struct particle_data * partd
     if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata)) {
         /*This gets the neutral fraction for standard gas*/
         double eomdensity = sphdata->Density;
-        if(All.DensityIndependentSphOn)
+        if(DensityIndependentSphOn())
             eomdensity  = sphdata->EgyWtDensity;
         double InternalEnergy = sphdata->Entropy / GAMMA_MINUS1 * pow(eomdensity * All.cf.a3inv, GAMMA_MINUS1);
         nh0 = GetNeutralFraction(InternalEnergy, physdens, &uvbg, sphdata->Ne);
@@ -881,7 +881,7 @@ static double get_sfr_factor_due_to_h2(int i) {
 static double get_sfr_factor_due_to_selfgravity(int i) {
     double divv = SPHP(i).DivVel * All.cf.a2inv;
 
-    divv += 3.0*All.cf.hubble_a2; // hubble-flow correction
+    divv += 3.0*All.cf.hubble * All.cf.a * All.cf.a; // hubble-flow correction
 
     if(HAS(sfr_params.StarformationCriterion, SFR_CRITERION_CONVERGENT_FLOW)) {
         if( divv>=0 ) return 0; // restrict to convergent flows (optional) //

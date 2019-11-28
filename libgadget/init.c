@@ -133,7 +133,8 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
-    setup_smoothinglengths(RestartSnapNum, ddecomp);
+    if(All.DensityOn)
+        setup_smoothinglengths(RestartSnapNum, ddecomp);
 }
 
 
@@ -207,7 +208,7 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, doubl
             olddensity[i] = SphP[i].EgyWtDensity;
         }
         /* Update the EgyWtDensity*/
-        density(act, 0, All.DensityIndependentSphOn, Tree);
+        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, All.WindOn, All.HydroCostFactor, 0,  All.cf.a, Tree);
         if(stop)
             break;
 
@@ -261,7 +262,8 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
          * ptypes of each type.
          *
          * Eventually the iteration will fix this. */
-         const double massfactor = All.CP.OmegaBaryon / All.CP.Omega0;
+        const double massfactor = All.CP.OmegaBaryon / All.CP.Omega0;
+        const double DesNumNgb = GetNumNgb(GetDensityKernelType());
 
         #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++)
@@ -273,7 +275,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
 
             int no = force_get_father(i, &Tree);
 
-            while(10 * All.DesNumNgb * P[i].Mass > massfactor * Tree.Nodes[no].u.d.mass)
+            while(10 * DesNumNgb * P[i].Mass > massfactor * Tree.Nodes[no].u.d.mass)
             {
                 int p = force_get_father(no, &Tree);
 
@@ -284,7 +286,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
             }
 
             P[i].Hsml =
-                pow(3.0 / (4 * M_PI) * All.DesNumNgb * P[i].Mass / (massfactor * Tree.Nodes[no].u.d.mass),
+                pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / (massfactor * Tree.Nodes[no].u.d.mass),
                         1.0 / 3) * Tree.Nodes[no].len;
 
             /* recover from a poor initial guess */
@@ -315,7 +317,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
                 SphP[i].Entropy = minent;
         }
         MPI_Allreduce(MPI_IN_PLACE, &bad, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-        if(bad > 0 && ThisTask == 0)
+        if(bad > 0)
             message(0, "Detected bad densities in %d particles on disc\n",bad);
     }
 
@@ -327,7 +329,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
     act.ActiveParticle = NULL;
     act.NumActiveParticle = PartManager->NumPart;
 
-    density(&act, 1, 0, &Tree);
+    density(&act, 1, 0, All.BlackHoleOn, All.WindOn, All.HydroCostFactor, 0,  All.cf.a, &Tree);
 
     /* for clean IC with U input only, we need to iterate to find entrpoy */
     if(RestartSnapNum == -1)
@@ -346,7 +348,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
             u_init = All.MinEgySpec;
         /* snapshot already has EgyWtDensity; hope it is read in correctly.
          * (need a test on this!) */
-        if(All.DensityIndependentSphOn) {
+        if(DensityIndependentSphOn()) {
             setup_density_indep_entropy(&act, &Tree, u_init, a3);
         }
         else {

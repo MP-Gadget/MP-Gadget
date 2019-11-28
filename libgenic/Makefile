@@ -14,8 +14,7 @@ MPISUITE = $(MPI_TESTED:%=test_%)
 
 include ../Makefile.rules
 
-OBJS = power.o allvars.o \
-  	zeldovich.o glass.o save.o thermal.o
+OBJS = power.o zeldovich.o glass.o save.o thermal.o
 
 OBJS := $(OBJS:%.o=.objs/%.o)
 

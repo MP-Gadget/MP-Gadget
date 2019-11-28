@@ -29,7 +29,12 @@
 #include "fof.h"
 #include "cooling_qso_lightup.h"
 
-void energy_statistics(void); /* stats.c only used here */
+void energy_statistics(FILE * FdEnergy); /* stats.c only used here */
+/*!< file handle for energy.txt log-file. */
+static FILE * FdEnergy;
+static FILE  *FdCPU;    /*!< file handle for cpu.txt log-file. */
+static FILE *FdSfr;     /*!< file handle for sfr.txt log-file. */
+static FILE *FdBlackHoles;  /*!< file handle for blackholes.txt log-file. */
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
@@ -41,7 +46,7 @@ void energy_statistics(void); /* stats.c only used here */
  * when the simulation ends because we arrived at TimeMax.
  */
 static void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp);
-static void write_cpu_log(int NumCurrentTiStep);
+static void write_cpu_log(int NumCurrentTiStep, FILE * FdCPU);
 
 /* Updates the global storing the current random offset of the particles,
  * and stores the relative offset from the last random offset in rel_random_shift*/
@@ -74,7 +79,7 @@ void begrun(int RestartSnapNum)
 {
     hci_init(HCI_DEFAULT_MANAGER, All.OutputDir, All.TimeLimitCPU, All.AutoSnapshotTime);
 
-    petapm_module_init(All.NumThreads);
+    petapm_module_init(omp_get_max_threads());
     petaio_init();
     walltime_init(&All.CT);
 
@@ -102,7 +107,7 @@ void begrun(int RestartSnapNum)
     enable_core_dumps_and_fpu_exceptions();
 #endif
 
-    init_forcetree_params(All.FastParticleType, GravitySofteningTable);
+    init_forcetree_params(All.FastParticleType);
 
     init_cooling_and_star_formation();
 
@@ -113,8 +118,6 @@ void begrun(int RestartSnapNum)
 #ifdef LIGHTCONE
     lightcone_init(All.Time);
 #endif
-
-    open_outputfiles(RestartSnapNum);
 }
 
 void
@@ -138,7 +141,9 @@ run(int RestartSnapNum)
 
     walltime_measure("/Misc");
 
-    write_cpu_log(NumCurrentTiStep); /* produce some CPU usage info */
+    open_outputfiles(RestartSnapNum);
+
+    write_cpu_log(NumCurrentTiStep, FdCPU); /* produce some CPU usage info */
 
     while(1) /* main loop */
     {
@@ -223,7 +228,7 @@ run(int RestartSnapNum)
         {
             if ((All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) || during_helium_reionization(1/All.Time - 1)) {
                 /* Seeding */
-                FOFGroups fof = fof_fof(&Tree, All.BoxSize, All.BlackHoleOn, MPI_COMM_WORLD);
+                FOFGroups fof = fof_fof(&Tree, All.BlackHoleOn, MPI_COMM_WORLD);
                 if(All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) {
                     fof_seed(&fof, MPI_COMM_WORLD);
                     TimeNextSeedingCheck = All.Time * All.TimeBetweenSeedingSearch;
@@ -248,10 +253,10 @@ run(int RestartSnapNum)
         if(GasEnabled)
         {
             /* Black hole accretion and feedback */
-            blackhole(&Act, &Tree);
+            blackhole(&Act, &Tree, FdBlackHoles);
 
             /**** radiative cooling and star formation *****/
-            cooling_and_starformation(&Act, &Tree);
+            cooling_and_starformation(&Act, &Tree, FdSfr);
 
             /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
             slots_free_sph_scratch_data(SphP_scratch);
@@ -297,7 +302,7 @@ run(int RestartSnapNum)
 
         write_checkpoint(WriteSnapshot, WriteFOF, &Tree);
 
-        write_cpu_log(NumCurrentTiStep);    /* produce some CPU usage info */
+        write_cpu_log(NumCurrentTiStep, FdCPU);    /* produce some CPU usage info */
 
         NumCurrentTiStep++;
 
@@ -360,7 +365,8 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
         /***** density *****/
         message(0, "Start density computation...\n");
 
-        density(act, 1, All.DensityIndependentSphOn, tree);  /* computes density, and pressure */
+        if(All.DensityOn)
+            density(act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.WindOn, All.HydroCostFactor, All.MinEgySpec, All.cf.a, tree);  /* computes density, and pressure */
 
         /***** update smoothing lengths in tree *****/
         force_update_hmax(act->ActiveParticle, act->NumActiveParticle, tree, ddecomp);
@@ -368,7 +374,9 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
         MPIU_Barrier(MPI_COMM_WORLD);
         message(0, "Start hydro-force computation...\n");
 
-        hydro_force(act, tree);		/* adds hydrodynamical accelerations  and computes du/dt  */
+        /* adds hydrodynamical accelerations  and computes du/dt  */
+        if(All.HydroOn)
+            hydro_force(act, All.WindOn, All.HydroCostFactor, All.cf.hubble, All.cf.a, tree);
     }
 
     /* The opening criterion for the gravtree
@@ -404,7 +412,7 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
 
         /* compute and output energy statistics if desired. */
         if(All.OutputEnergyDebug)
-            energy_statistics();
+            energy_statistics(FdEnergy);
     }
 
     /* For the first timestep, we do tree force twice
@@ -420,21 +428,16 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
     message(0, "Forces computed.\n");
 }
 
-void write_cpu_log(int NumCurrentTiStep)
+void write_cpu_log(int NumCurrentTiStep, FILE * FdCPU)
 {
     walltime_summary(0, MPI_COMM_WORLD);
 
-    int NTask, ThisTask;
-    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
-
-    if(ThisTask == 0)
+    if(FdCPU)
     {
-        fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads: %d Elapsed: %g\n", NumCurrentTiStep, All.Time, NTask, All.NumThreads, All.CT.ElapsedTime);
-        fflush(FdCPU);
-    }
-    walltime_report(FdCPU, 0, MPI_COMM_WORLD);
-    if(ThisTask == 0) {
+        int NTask;
+        MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+        fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads: %d Elapsed: %g\n", NumCurrentTiStep, All.Time, NTask, omp_get_max_threads(), All.CT.ElapsedTime);
+        walltime_report(FdCPU, 0, MPI_COMM_WORLD);
         fflush(FdCPU);
     }
 }
@@ -482,8 +485,14 @@ open_outputfiles(int RestartSnapNum)
     const char mode[3]="a+";
     char * buf;
     char * postfix;
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
     if(ThisTask != 0) {
+        FdCPU = NULL;
+        FdEnergy = NULL;
+        FdBlackHoles = NULL;
+        FdSfr = NULL;
         /* only the root processors writes to the log files */
         return;
     }
@@ -521,7 +530,6 @@ open_outputfiles(int RestartSnapNum)
             endrun(1, "error in opening file '%s'\n", buf);
         myfree(buf);
     }
-
 }
 
 
@@ -530,17 +538,13 @@ open_outputfiles(int RestartSnapNum)
 static void
 close_outputfiles(void)
 {
-
-    if(ThisTask != 0)		/* only the root processors writes to the log files */
-        return;
-
-    fclose(FdCPU);
-    if(All.OutputEnergyDebug)
+    if(FdCPU)
+        fclose(FdCPU);
+    if(FdEnergy)
         fclose(FdEnergy);
-
-    fclose(FdSfr);
-
-    if(All.BlackHoleOn)
+    if(FdSfr)
+        fclose(FdSfr);
+    if(FdBlackHoles)
         fclose(FdBlackHoles);
 }
 
@@ -600,14 +604,11 @@ static void
 set_softenings()
 {
     int i;
-
     for(i = 0; i < 6; i ++)
         GravitySofteningTable[i] = All.GravitySoftening * All.MeanSeparation[1];
 
     /* 0: Gas is collisional */
     GravitySofteningTable[0] = All.GravitySofteningGas * All.MeanSeparation[1];
-
-    All.MinGasHsml = All.MinGasHsmlFractional * GravitySofteningTable[1];
 
     for(i = 0; i < 6; i ++) {
         message(0, "GravitySoftening[%d] = %g\n", i, GravitySofteningTable[i]);

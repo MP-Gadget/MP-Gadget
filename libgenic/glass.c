@@ -40,6 +40,8 @@ int
 setup_glass(IDGenerator * idgen, PetaPM * pm, double shift, int seed, double mass, struct ic_part_data * ICP)
 {
     gsl_rng * rng = gsl_rng_alloc(gsl_rng_ranlxd1);
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     gsl_rng_set(rng, seed + ThisTask);
     memset(ICP, 0, idgen->NumPart*sizeof(struct ic_part_data));
 
@@ -76,7 +78,7 @@ void glass_evolve(PetaPM * pm, int nsteps, char * pkoutname, struct ic_part_data
     double t_f = 0;
 
     /*Allocate memory for a power spectrum*/
-    powerspectrum_alloc(pm->ps, All.Nmesh, All.NumThreads, 0, All.BoxSize*All.UnitLength_in_cm);
+    powerspectrum_alloc(pm->ps, All.Nmesh, omp_get_max_threads(), 0, All.BoxSize*All.UnitLength_in_cm);
 
     glass_force(pm, t_x, ICP, NumPart);
 
@@ -133,9 +135,7 @@ void glass_evolve(PetaPM * pm, int nsteps, char * pkoutname, struct ic_part_data
         glass_stats(ICP, NumPart);
 
         /*Now save the power spectrum*/
-        if(ThisTask == 0) {
-            powerspectrum_save(pm->ps, All.OutputDir, pkoutname, t_f, 1.0);
-        }
+        powerspectrum_save(pm->ps, All.OutputDir, pkoutname, t_f, 1.0);
     }
 
     /*We are done with the power spectrum, free it*/

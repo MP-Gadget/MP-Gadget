@@ -88,7 +88,7 @@ include ../Makefile.version
 GADGET_OBJS =  \
 	 gdbtools.o hci.o\
 	 fof.o fofpetaio.o petaio.o \
-	 domain.o exchange.o slotsmanager.o allvars.o partmanager.o \
+	 domain.o exchange.o slotsmanager.o partmanager.o \
 	 blackhole.o timebinmgr.o \
 	 run.o drift.o stats.o \
 	 timestep.o init.o checkpoint.o \

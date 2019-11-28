@@ -87,12 +87,10 @@ gravpm_force(PetaPM * pm, ForceTree * tree) {
     petapm_force(pm, _prepare, &global_functions, functions, &pstruct, tree);
     powerspectrum_sum(pm->ps);
     /*Now save the power spectrum*/
-    if(ThisTask == 0) {
-        powerspectrum_save(pm->ps, All.OutputDir, "powerspectrum", All.Time, GrowthFactor(&All.CP, All.Time, 1.0));
-        /* Save the neutrino power if it is allocated*/
-        if(pm->ps->logknu)
-            powerspectrum_nu_save(pm->ps, All.OutputDir, "powerspectrum-nu", All.Time);
-    }
+    powerspectrum_save(pm->ps, All.OutputDir, "powerspectrum", All.Time, GrowthFactor(&All.CP, All.Time, 1.0));
+    /* Save the neutrino power if it is allocated*/
+    if(pm->ps->logknu)
+        powerspectrum_nu_save(pm->ps, All.OutputDir, "powerspectrum-nu", All.Time);
     /*We are done with the power spectrum, free it*/
     powerspectrum_free(pm->ps);
     walltime_measure("/LongRange");
@@ -184,7 +182,7 @@ static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions) {
     if(force_tree_allocated(tree)) force_tree_free(tree);
 
     /*Allocate memory for a power spectrum*/
-    powerspectrum_alloc(pm->ps, pm->Nmesh, All.NumThreads, All.MassiveNuLinRespOn, pm->BoxSize*All.UnitLength_in_cm);
+    powerspectrum_alloc(pm->ps, pm->Nmesh, omp_get_max_threads(), All.MassiveNuLinRespOn, pm->BoxSize*All.UnitLength_in_cm);
 
     walltime_measure("/PMgrav/Regions");
     return regions;

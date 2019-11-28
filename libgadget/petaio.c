@@ -16,6 +16,7 @@
 #include "petaio.h"
 #include "slotsmanager.h"
 #include "hydra.h"
+#include "density.h"
 #include "partmanager.h"
 #include "config.h"
 #include "neutrinos_lra.h"
@@ -375,6 +376,7 @@ static void petaio_write_header(BigFile * bf, const int64_t * NTotal) {
         RSD /= All.cf.a; /* Conversion from internal velocity to RSD */
     }
 
+    enum DensityKernelType dk = GetDensityKernelType();
     if(
     (0 != big_block_set_attr(&bh, "TotNumPart", NTotal, "u8", 6)) ||
     (0 != big_block_set_attr(&bh, "TotNumPartInit", All.NTotalInit, "u8", 6)) ||
@@ -393,7 +395,7 @@ static void petaio_write_header(BigFile * bf, const int64_t * NTotal) {
     (0 != big_block_set_attr(&bh, "UnitVelocity_in_cm_per_s", &All.UnitVelocity_in_cm_per_s, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "CodeVersion", GADGET_VERSION, "S1", strlen(GADGET_VERSION))) ||
     (0 != big_block_set_attr(&bh, "CompilerSettings", GADGET_COMPILER_SETTINGS, "S1", strlen(GADGET_COMPILER_SETTINGS))) ||
-    (0 != big_block_set_attr(&bh, "DensityKernel", &All.DensityKernelType, "u8", 1)) ||
+    (0 != big_block_set_attr(&bh, "DensityKernel", &dk, "u8", 1)) ||
     (0 != big_block_set_attr(&bh, "HubbleParam", &All.CP.HubbleParam, "f8", 1)) ) {
         endrun(0, "Failed to write attributes %s\n",
                     big_file_get_error_message());
@@ -911,7 +913,7 @@ void register_io_blocks(struct IOTable * IOTable) {
     IO_REG(SmoothingLength,  "f4", 1, 0, IOTable);
     IO_REG(Density,          "f4", 1, 0, IOTable);
 
-    if(All.DensityIndependentSphOn)
+    if(DensityIndependentSphOn())
         IO_REG(EgyWtDensity,          "f4", 1, 0, IOTable);
 
     /* On reload this sets the Entropy variable, need the densities.

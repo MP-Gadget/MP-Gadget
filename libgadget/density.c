@@ -4,10 +4,12 @@
 #include <string.h>
 #include <math.h>
 #include <gsl/gsl_math.h>
+#include <omp.h>
 
-#include "allvars.h"
+#include "physconst.h"
+#include "walltime.h"
 #include "cooling.h"
-#include "densitykernel.h"
+#include "density.h"
 #include "treewalk.h"
 #include "timefac.h"
 #include "slotsmanager.h"
@@ -17,19 +19,66 @@
 
 #define MAXITER 400
 
+static struct density_params DensityParams;
+
+/*Set cooling module parameters from a cooling_params struct for the tests*/
+void
+set_densitypar(struct density_params dp)
+{
+    DensityParams = dp;
+}
+
+/*Set the parameters of the density module*/
+void
+set_density_params(ParameterSet * ps)
+{
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask == 0) {
+        DensityParams.DensityKernelType = param_get_enum(ps, "DensityKernelType");
+        DensityParams.MaxNumNgbDeviation = param_get_double(ps, "MaxNumNgbDeviation");
+        DensityParams.DensityResolutionEta = param_get_double(ps, "DensityResolutionEta");
+        DensityParams.MinGasHsmlFractional = param_get_double(ps, "MinGasHsmlFractional");
+
+        DensityKernel kernel;
+        density_kernel_init(&kernel, 1.0, DensityParams.DensityKernelType);
+        message(1, "The Density Kernel type is %s\n", kernel.name);
+        message(1, "The Density resolution is %g * mean separation, or %d neighbours\n",
+                    DensityParams.DensityResolutionEta, GetNumNgb(GetDensityKernelType()));
+        /*These two look like black hole parameters but they are really neighbour finding parameters*/
+        DensityParams.BlackHoleNgbFactor = param_get_double(ps, "BlackHoleNgbFactor");
+        DensityParams.BlackHoleMaxAccretionRadius = param_get_double(ps, "BlackHoleMaxAccretionRadius");
+    }
+    MPI_Bcast(&DensityParams, sizeof(struct density_params), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
+
+double
+GetNumNgb(enum DensityKernelType KernelType)
+{
+    DensityKernel kernel;
+    density_kernel_init(&kernel, 1.0, KernelType);
+    return density_kernel_desnumngb(&kernel, DensityParams.DensityResolutionEta);
+}
+
+enum DensityKernelType
+GetDensityKernelType(void)
+{
+    return DensityParams.DensityKernelType;
+}
+
 /* The evolved entropy at drift time: evolved dlog a.
  * Used to predict pressure and entropy for SPH */
 static MyFloat
-SPH_EntVarPred(int i)
+SPH_EntVarPred(int i, double MinEgySpec, double a3inv)
 {
         double dloga = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick);
         double EntVarPred = SPHP(i).Entropy + SPHP(i).DtEntropy * dloga;
         /*Entropy limiter for the predicted entropy: makes sure entropy stays positive. */
         if(dloga > 0 && EntVarPred < 0.5*SPHP(i).Entropy)
             EntVarPred = 0.5 * SPHP(i).Entropy;
-        const double enttou = pow(SPHP(i).Density * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
-        if(EntVarPred < All.MinEgySpec / enttou)
-            EntVarPred = All.MinEgySpec / enttou;
+        const double enttou = pow(SPHP(i).Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+        if(EntVarPred < MinEgySpec / enttou)
+            EntVarPred = MinEgySpec / enttou;
         EntVarPred = pow(EntVarPred, 1/GAMMA);
         return EntVarPred;
 }
@@ -102,6 +151,16 @@ struct DensityPriv {
     int **NPRedo;
     int update_hsml;
     int DoEgyDensity;
+    /*!< Desired number of SPH neighbours */
+    double DesNumNgb;
+    /*!< minimum allowed SPH smoothing length */
+    double MinGasHsml;
+    /* Are there potentially black holes?*/
+    int BlackHoleOn;
+    /* Are there potentially wind particles?*/
+    int WindOn;
+    /* The current hydro cost factor*/
+    double HydroCostFactor;
 };
 
 #define DENSITY_GET_PRIV(tw) ((struct DensityPriv*) ((tw)->priv))
@@ -142,11 +201,8 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, ForceTree * tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, int WindOn, double HydroCostFactor, double MinEgySpec, double atime, ForceTree * tree)
 {
-    if(!All.DensityOn)
-        return;
-
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
 
@@ -184,7 +240,16 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, ForceTre
 
     DENSITY_GET_PRIV(tw)->NIteration = 0;
 
+    DENSITY_GET_PRIV(tw)->DesNumNgb = GetNumNgb(DensityParams.DensityKernelType);
+    DENSITY_GET_PRIV(tw)->MinGasHsml = DensityParams.MinGasHsmlFractional * GravitySofteningTable[1];
+
+    DENSITY_GET_PRIV(tw)->BlackHoleOn = BlackHoleOn;
+    DENSITY_GET_PRIV(tw)->WindOn = WindOn;
+    DENSITY_GET_PRIV(tw)->HydroCostFactor = HydroCostFactor * atime;
+
     /* Init Left and Right: this has to be done before treewalk */
+    double a3inv = pow(atime, -3);
+
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)
     {
@@ -192,7 +257,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, ForceTre
         DENSITY_GET_PRIV(tw)->Left[i] = 0;
         DENSITY_GET_PRIV(tw)->Right[i] = tree->BoxSize;
         if(P[i].Type == 0) {
-            SphP_scratch->EntVarPred[P[i].PI] = SPH_EntVarPred(i);
+            SphP_scratch->EntVarPred[P[i].PI] = SPH_EntVarPred(i, MinEgySpec, a3inv);
             SPH_VelPred(i, SphP_scratch->VelPred + 3 * P[i].PI);
         }
     }
@@ -331,7 +396,7 @@ density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMod
     TREEWALK_REDUCE(P[place].NumNgb, remote->Ngb);
 
     /* these will be added */
-    P[place].GravCost += All.HydroCostFactor * All.cf.a * remote->Ninteractions;
+    P[place].GravCost += DENSITY_GET_PRIV(tw)->HydroCostFactor * remote->Ninteractions;
 
     if(P[place].Type == 0)
     {
@@ -383,7 +448,7 @@ density_ngbiter(
 {
     if(iter->base.other == -1) {
         const double h = I->Hsml;
-        density_kernel_init(&iter->kernel, h, All.DensityKernelType);
+        density_kernel_init(&iter->kernel, h, DensityParams.DensityKernelType);
         iter->kernel_volume = density_kernel_volume(&iter->kernel);
 
         iter->base.Hsml = h;
@@ -396,7 +461,7 @@ density_ngbiter(
     const double r2 = iter->base.r2;
     const double * dist = iter->base.dist;
 
-    if(All.WindOn) {
+    if(DENSITY_GET_PRIV(lv->tw)->WindOn) {
         if(winds_is_particle_decoupled(other))
             if(!(I->Type == 0 && I->DelayTime > 0))	/* if I'm not wind, then ignore the wind particle */
                 return;
@@ -526,16 +591,16 @@ void density_check_neighbours (int i, TreeWalk * tw)
 {
     /* now check whether we had enough neighbours */
 
-    double desnumngb = All.DesNumNgb;
+    double desnumngb = DENSITY_GET_PRIV(tw)->DesNumNgb;
 
-    if(All.BlackHoleOn && P[i].Type == 5)
-        desnumngb = All.DesNumNgb * All.BlackHoleNgbFactor;
+    if(DENSITY_GET_PRIV(tw)->BlackHoleOn && P[i].Type == 5)
+        desnumngb = desnumngb * DensityParams.BlackHoleNgbFactor;
 
     MyFloat * Left = DENSITY_GET_PRIV(tw)->Left;
     MyFloat * Right = DENSITY_GET_PRIV(tw)->Right;
 
-    if(P[i].NumNgb < (desnumngb - All.MaxNumNgbDeviation) ||
-            (P[i].NumNgb > (desnumngb + All.MaxNumNgbDeviation)))
+    if(P[i].NumNgb < (desnumngb - DensityParams.MaxNumNgbDeviation) ||
+            (P[i].NumNgb > (desnumngb + DensityParams.MaxNumNgbDeviation)))
     {
         /* This condition is here to prevent the density code looping forever if it encounters
          * multiple particles at the same position. If this happens you likely have worse
@@ -607,15 +672,15 @@ void density_check_neighbours (int i, TreeWalk * tw)
             }
         }
 
-        if(All.BlackHoleOn && P[i].Type == 5)
-            if(Left[i] > All.BlackHoleMaxAccretionRadius)
+        if(DENSITY_GET_PRIV(tw)->BlackHoleOn && P[i].Type == 5)
+            if(Left[i] > DensityParams.BlackHoleMaxAccretionRadius)
             {
-                P[i].Hsml = All.BlackHoleMaxAccretionRadius;
+                P[i].Hsml = DensityParams.BlackHoleMaxAccretionRadius;
                 return;
             }
 
-        if(Right[i] < All.MinGasHsml) {
-            P[i].Hsml = All.MinGasHsml;
+        if(Right[i] < DENSITY_GET_PRIV(tw)->MinGasHsml) {
+            P[i].Hsml = DENSITY_GET_PRIV(tw)->MinGasHsml;
             return;
         }
         /* More work needed: add this particle to the redo queue*/
@@ -625,11 +690,11 @@ void density_check_neighbours (int i, TreeWalk * tw)
     }
     else {
         /* We might have got here by serendipity, without bounding.*/
-        if(All.BlackHoleOn && P[i].Type == 5)
-            if(P[i].Hsml > All.BlackHoleMaxAccretionRadius)
-                P[i].Hsml = All.BlackHoleMaxAccretionRadius;
-        if(P[i].Hsml < All.MinGasHsml)
-            P[i].Hsml = All.MinGasHsml;
+        if(DENSITY_GET_PRIV(tw)->BlackHoleOn && P[i].Type == 5)
+            if(P[i].Hsml > DensityParams.BlackHoleMaxAccretionRadius)
+                P[i].Hsml = DensityParams.BlackHoleMaxAccretionRadius;
+        if(P[i].Hsml < DENSITY_GET_PRIV(tw)->MinGasHsml)
+            P[i].Hsml = DENSITY_GET_PRIV(tw)->MinGasHsml;
     }
 
     if(DENSITY_GET_PRIV(tw)->NIteration >= MAXITER - 10)

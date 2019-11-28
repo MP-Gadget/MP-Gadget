@@ -40,7 +40,7 @@ write_checkpoint(int WriteSnapshot, int WriteFOF, ForceTree * tree)
         /* Compute and save FOF*/
         message(0, "computing group catalogue...\n");
 
-        FOFGroups fof = fof_fof(tree, All.BoxSize, All.BlackHoleOn, MPI_COMM_WORLD);
+        FOFGroups fof = fof_fof(tree, All.BlackHoleOn, MPI_COMM_WORLD);
         /* Tree is invalid now because of the exchange in FoF.*/
         force_tree_free(tree);
         fof_save_groups(&fof, snapnum, MPI_COMM_WORLD);
@@ -73,6 +73,8 @@ write_snapshot(int num)
     destroy_io_blocks(&IOTable);
     walltime_measure("/Snapshot/Write");
 
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0) {
         char * buf = fastpm_strdup_printf("%s/Snapshots.txt", All.OutputDir);
         FILE * fd = fopen(buf, "a");
@@ -87,6 +89,8 @@ find_last_snapnum(void)
 {
     /* FIXME: this is very fragile; should be fine */
     int snapnumber = -1;
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0) {
         char * buf = fastpm_strdup_printf("%s/Snapshots.txt", All.OutputDir);
         FILE * fd = fopen(buf, "r");

@@ -12,8 +12,6 @@
 #include "partmanager.h"
 #include "utils.h"
 
-#define MAXHSML 30000.0
-
 static void
 real_drift_particle(int i, inttime_t ti1, const double ddrift, const double random_shift[3]);
 
@@ -105,8 +103,8 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const
          * and is a good predictor for most of the gas.*/
         double densdriftfac = exp(-SPHP(i).DivVel * ddrift);
         SPHP(i).Density *= densdriftfac;
-        if(All.DensityIndependentSphOn)
-            SPHP(i).EgyWtDensity *= densdriftfac;
+        /* Only does something when Pressure-entropy is enabled*/
+        SPHP(i).EgyWtDensity *= densdriftfac;
 
         //      P[i].Hsml *= exp(0.333333333333 * SPHP(i).DivVel * ddrift);
         //---This was added
@@ -114,15 +112,6 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const
         if(fac > 1.25)
             fac = 1.25;
         P[i].Hsml *= fac;
-        if(P[i].Hsml > MAXHSML)
-        {
-            message(1, "warning: we reached Hsml=%g for ID=%lu\n", P[i].Hsml, P[i].ID);
-            P[i].Hsml = MAXHSML;
-        }
-        //---This was added
-
-        if(P[i].Hsml < All.MinGasHsml)
-            P[i].Hsml = All.MinGasHsml;
     }
 
     P[i].Ti_drift = ti1;
