@@ -117,10 +117,15 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
         {
             SPHP(i).Density = -1;
             SPHP(i).EgyWtDensity = -1;
+            SPHP(i).DhsmlEgyDensityFactor = -1;
             SPHP(i).Entropy = -1;
             SPHP(i).Ne = 1.0;
             SPHP(i).DivVel = 0;
+            SPHP(i).CurlVel = 0;
             SPHP(i).DelayTime = 0;
+            SPHP(i).Metallicity = 0;
+            SPHP(i).Sfr = 0;
+            SPHP(i).MaxSignalVel = 0;
         }
     }
 
