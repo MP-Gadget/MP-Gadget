@@ -89,10 +89,11 @@ SPH_EntVarPred(int i, double MinEgySpec, double a3inv)
 static void
 SPH_VelPred(int i, MyFloat * VelPred)
 {
-    const int ti = P[i].Ti_drift;
+    const inttime_t ti = P[i].Ti_drift;
     const double Fgravkick2 = get_gravkick_factor(P[i].Ti_kick, ti);
     const double Fhydrokick2 = get_hydrokick_factor(P[i].Ti_kick, ti);
-    const double FgravkickB = get_gravkick_factor(PM.Ti_kick, ti);
+    inttime_t PMKick = get_pm_kick();
+    const double FgravkickB = get_gravkick_factor(PMKick, ti);
     int j;
     for(j = 0; j < 3; j++) {
         VelPred[j] = P[i].Vel[j] + Fgravkick2 * P[i].GravAccel[j]

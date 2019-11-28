@@ -23,7 +23,19 @@
  */
 
 /*PM timesteps*/
-TimeSpan PM;
+/* variables for organizing PM steps of discrete timeline */
+typedef struct {
+    inttime_t length; /*!< Duration of the current PM integer timestep*/
+    inttime_t start;           /* current start point of the PM step*/
+    inttime_t Ti_kick;  /* current inttime of PM Kick (velocity) */
+} TimeSpan;
+
+static TimeSpan PM;
+
+inttime_t get_pm_kick(void)
+{
+    return PM.Ti_kick;
+}
 
 /*Get the dti from the timebin*/
 static inline inttime_t dti_from_timebin(int bin) {
