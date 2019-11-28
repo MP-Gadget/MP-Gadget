@@ -161,27 +161,7 @@ extern struct global_data_all_processes
     double Asmth;
     enum ShortRangeForceWindowType ShortRangeForceWindowType;	/*!< method of the feedback*/
 
-    /* adjusts accuracy of time-integration */
-
-    double ErrTolIntAccuracy;	/*!< accuracy tolerance parameter \f$ \eta \f$ for timestep criterion. The
-                                  timesteps is \f$ \Delta t = \sqrt{\frac{2 \eta eps}{a}} \f$ */
-
-    int ForceEqualTimesteps; /*If true, all timesteps have the same timestep, the smallest allowed.*/
-    double MinSizeTimestep,	/*!< minimum allowed timestep. Normally, the simulation terminates if the
-                              timestep determined by the timestep criteria falls below this limit. */
-           MaxSizeTimestep;		/*!< maximum allowed timestep */
-
-    double MaxRMSDisplacementFac;	/*!< this determines a global timestep criterion for cosmological simulations
-                                      in comoving coordinates.  To this end, the code computes the rms velocity
-                                      of all particles, and limits the timestep such that the rms displacement
-                                      is a fraction of the mean particle separation (determined from the
-                                      particle mass and the cosmological parameters). This parameter specifies
-                                      this fraction. */
-
-    double MaxGasVel; /* Limit on Gas velocity */
     double MaxMemSizePerNode;
-
-    double CourantFac;		/*!< SPH-Courant factor */
 
     double HydroCostFactor; /* cost factor for hydro in load balancing. */
 

@@ -21,6 +21,48 @@
  *  \brief routines for 'kicking' particles in
  *  momentum space and assigning new timesteps
  */
+static struct timestep_params
+{
+    /* adjusts accuracy of time-integration */
+
+    double ErrTolIntAccuracy;   /*!< accuracy tolerance parameter \f$ \eta \f$ for timestep criterion. The
+                                  timesteps is \f$ \Delta t = \sqrt{\frac{2 \eta eps}{a}} \f$ */
+
+    int ForceEqualTimesteps; /*If true, all timesteps have the same timestep, the smallest allowed.*/
+    double MinSizeTimestep,     /*!< minimum allowed timestep. Normally, the simulation terminates if the
+                              timestep determined by the timestep criteria falls below this limit. */
+           MaxSizeTimestep;     /*!< maximum allowed timestep */
+
+    double MaxRMSDisplacementFac;   /*!< this determines a global timestep criterion for cosmological simulations
+                                      in comoving coordinates.  To this end, the code computes the rms velocity
+                                      of all particles, and limits the timestep such that the rms displacement
+                                      is a fraction of the mean particle separation (determined from the
+                                      particle mass and the cosmological parameters). This parameter specifies
+                                      this fraction. */
+
+    double MaxGasVel; /* Limit on Gas velocity */
+    double CourantFac;		/*!< SPH-Courant factor */
+} TimestepParams;
+
+/*Set the parameters of the hydro module*/
+void
+set_timestep_params(ParameterSet * ps)
+{
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask == 0) {
+        TimestepParams.ErrTolIntAccuracy = param_get_double(ps, "ErrTolIntAccuracy");
+        TimestepParams.MaxGasVel = param_get_double(ps, "MaxGasVel");
+        TimestepParams.MaxSizeTimestep = param_get_double(ps, "MaxSizeTimestep");
+
+        TimestepParams.MinSizeTimestep = param_get_double(ps, "MinSizeTimestep");
+        TimestepParams.ForceEqualTimesteps = param_get_int(ps, "ForceEqualTimesteps");
+        TimestepParams.MaxRMSDisplacementFac = param_get_double(ps, "MaxRMSDisplacementFac");
+        TimestepParams.CourantFac = param_get_double(ps, "CourantFac");
+    }
+    MPI_Bcast(&TimestepParams, sizeof(struct timestep_params), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
+
 
 /*PM timesteps*/
 /* variables for organizing PM steps of discrete timeline */
@@ -156,7 +198,7 @@ find_timesteps(const ActiveParticles * act, inttime_t Ti_Current)
     }
 
     /* Now assign new timesteps and kick */
-    if(All.ForceEqualTimesteps) {
+    if(TimestepParams.ForceEqualTimesteps) {
         int i;
         #pragma omp parallel for reduction(min:dti_min)
         for(i = 0; i < PartManager->NumPart; i++)
@@ -187,7 +229,7 @@ find_timesteps(const ActiveParticles * act, inttime_t Ti_Current)
         }
 
         inttime_t dti;
-        if(All.ForceEqualTimesteps) {
+        if(TimestepParams.ForceEqualTimesteps) {
             dti = dti_min;
         } else {
             dti = get_timestep_ti(i, dti_max);
@@ -231,7 +273,7 @@ find_timesteps(const ActiveParticles * act, inttime_t Ti_Current)
      * between PM timesteps, thus skipping the PM step entirely.*/
     if(isPM && PM.length > dti_from_timebin(maxTimeBin))
         PM.length = dti_from_timebin(maxTimeBin);
-    message(0, "PM timebin: %x dloga = %g  Max = (%g)\n", PM.length, dloga_from_dti(PM.length), All.MaxSizeTimestep);
+    message(0, "PM timebin: %x dloga = %g  Max = (%g)\n", PM.length, dloga_from_dti(PM.length), TimestepParams.MaxSizeTimestep);
 
     if(badstepsizecount) {
         message(0, "bad timestep spotted: terminating and saving snapshot.\n");
@@ -329,11 +371,11 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
             vv += P[i].Vel[j] * P[i].Vel[j];
         vv = sqrt(vv);
 
-        if(vv > 0 && vv/All.cf.a > All.MaxGasVel) {
-            message(1,"Gas Particle ID %ld exceeded the gas velocity limit: %g > %g\n",P[i].ID, vv / All.cf.a, All.MaxGasVel);
+        if(vv > 0 && vv/All.cf.a > TimestepParams.MaxGasVel) {
+            message(1,"Gas Particle ID %ld exceeded the gas velocity limit: %g > %g\n",P[i].ID, vv / All.cf.a, TimestepParams.MaxGasVel);
             for(j=0;j < 3; j++)
             {
-                P[i].Vel[j] *= All.MaxGasVel * All.cf.a / vv;
+                P[i].Vel[j] *= TimestepParams.MaxGasVel * All.cf.a / vv;
             }
         }
 
@@ -394,12 +436,12 @@ get_timestep_dloga(const int p)
         ac = 1.0e-30;
 
     /* mind the factor 2.8 difference between gravity and softening used here. */
-    dt = sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * (FORCE_SOFTENING(p) / 2.8) / ac);
+    dt = sqrt(2 * TimestepParams.ErrTolIntAccuracy * All.cf.a * (FORCE_SOFTENING(p) / 2.8) / ac);
 
     if(P[p].Type == 0)
     {
         const double fac3 = pow(All.Time, 3 * (1 - GAMMA) / 2.0);
-        dt_courant = 2 * All.CourantFac * All.Time * P[p].Hsml / (fac3 * SPHP(p).MaxSignalVel);
+        dt_courant = 2 * TimestepParams.CourantFac * All.Time * P[p].Hsml / (fac3 * SPHP(p).MaxSignalVel);
         if(dt_courant < dt)
             dt = dt_courant;
     }
@@ -446,8 +488,8 @@ get_timestep_ti(const int p, const inttime_t dti_max)
 
     double dloga = get_timestep_dloga(p);
 
-    if(dloga < All.MinSizeTimestep)
-        dloga = All.MinSizeTimestep;
+    if(dloga < TimestepParams.MinSizeTimestep)
+        dloga = TimestepParams.MinSizeTimestep;
 
     dti = dti_from_dloga(dloga);
 
@@ -487,7 +529,7 @@ get_long_range_timestep_dloga(void)
     int count[6];
     int64_t count_sum[6];
     double v[6], v_sum[6], mim[6], min_mass[6];
-    double dloga = All.MaxSizeTimestep;
+    double dloga = TimestepParams.MaxSizeTimestep;
 
     for(type = 0; type < 6; type++)
     {
@@ -549,7 +591,7 @@ get_long_range_timestep_dloga(void)
             /* "Avg. radius" of smallest particle: (min_mass/total_mass)^1/3 */
             dmean = pow(min_mass[type] / (omega * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G)), 1.0 / 3);
 
-            dloga1 = All.MaxRMSDisplacementFac * All.cf.hubble * All.cf.a * All.cf.a * DMIN(asmth, dmean) / sqrt(v_sum[type] / count_sum[type]);
+            dloga1 = TimestepParams.MaxRMSDisplacementFac * All.cf.hubble * All.cf.a * All.cf.a * DMIN(asmth, dmean) / sqrt(v_sum[type] / count_sum[type]);
             message(0, "type=%d  dmean=%g asmth=%g minmass=%g a=%g  sqrt(<p^2>)=%g  dlogmax=%g\n",
                     type, dmean, asmth, min_mass[type], All.Time, sqrt(v_sum[type] / count_sum[type]), dloga);
 
@@ -559,8 +601,8 @@ get_long_range_timestep_dloga(void)
         }
     }
 
-    if(dloga < All.MinSizeTimestep) {
-        dloga = All.MinSizeTimestep;
+    if(dloga < TimestepParams.MinSizeTimestep) {
+        dloga = TimestepParams.MinSizeTimestep;
     }
 
     return dloga;

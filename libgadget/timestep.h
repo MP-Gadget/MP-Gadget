@@ -1,6 +1,7 @@
 #ifndef TIMESTEP_H
 #define TIMESTEP_H
 
+#include "utils/paramset.h"
 #include "timebinmgr.h"
 /*Flat array containing all active particles:
 set in rebuild_activelist.*/
@@ -35,4 +36,7 @@ int is_PM_timestep(inttime_t ti);
 
 /* Gets the kick time of the PM step*/
 inttime_t get_pm_kick(void);
+
+void set_timestep_params(ParameterSet * ps);
+
 #endif
