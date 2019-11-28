@@ -147,7 +147,7 @@ int slots_split_particle(int parent, double childmass, struct part_manager_type 
 int slots_convert(int parent, int ptype, int placement, struct part_manager_type * pman, struct slots_manager_type * sman);
 int slots_gc(int * compact_slots, struct part_manager_type * pman, struct slots_manager_type * sman);
 void slots_gc_sorted(struct part_manager_type * pman, struct slots_manager_type * sman);
-void slots_reserve(int where, int atleast[6], struct slots_manager_type * sman);
+size_t slots_reserve(int where, int atleast[6], struct slots_manager_type * sman);
 void slots_check_id_consistency(struct part_manager_type * pman, struct slots_manager_type * sman);
 
 void slots_allocate_sph_scratch_data(int sph_grad_rho, int nsph, struct sph_scratch_data * sph_scratch);

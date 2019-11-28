@@ -472,7 +472,7 @@ slots_gc_sorted(struct part_manager_type * pman, struct slots_manager_type * sma
 #endif
 }
 
-void
+size_t
 slots_reserve(int where, int atleast[6], struct slots_manager_type * sman)
 {
     int newMaxSlots[6];
@@ -500,10 +500,6 @@ slots_reserve(int where, int atleast[6], struct slots_manager_type * sman)
             good = 0;
         }
     }
-    /* no need to grow, already have enough */
-    if (good) {
-        return;
-    }
 
     size_t total_bytes = 0;
     size_t offsets[6];
@@ -513,6 +509,10 @@ slots_reserve(int where, int atleast[6], struct slots_manager_type * sman)
         offsets[ptype] = total_bytes;
         bytes[ptype] = sman->info[ptype].elsize * newMaxSlots[ptype];
         total_bytes += bytes[ptype];
+    }
+    /* no need to grow, already have enough */
+    if (good) {
+        return total_bytes;
     }
     char * newSlotsBase = myrealloc(sman->Base, total_bytes);
 
@@ -544,6 +544,7 @@ slots_reserve(int where, int atleast[6], struct slots_manager_type * sman)
     GDB_SphP = (struct sph_particle_data *) sman->info[0].ptr;
     GDB_StarP = (struct star_particle_data *) sman->info[4].ptr;
     GDB_BhP = (struct bh_particle_data *) sman->info[5].ptr;
+    return total_bytes;
 }
 
 void
