@@ -14,6 +14,7 @@
 #include "timefac.h"
 #include "petaio.h"
 #include "domain.h"
+#include "walltime.h"
 #include "slotsmanager.h"
 #include "hydra.h"
 #include "sfr_eff.h"

@@ -24,7 +24,6 @@
 
 #include "cosmology.h"
 #include "gravity.h"
-#include "walltime.h"
 
 #include "assert.h"
 #include "physconst.h"
@@ -150,7 +149,6 @@ extern struct global_data_all_processes
     /* variables that keep track of cumulative CPU consumption */
 
     double TimeLimitCPU;
-    struct ClockTable CT;
 
     /*! The scale of the short-range/long-range force split in units of FFT-mesh cells */
     double Asmth;

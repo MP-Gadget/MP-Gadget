@@ -18,6 +18,7 @@
 #include <libgadget/utils/endrun.h>
 #include <libgadget/allvars.h>
 #include <libgadget/partmanager.h>
+#include <libgadget/walltime.h>
 #include <libgadget/domain.h>
 #include <libgadget/forcetree.h>
 #include <libgadget/gravity.h>
@@ -25,6 +26,7 @@
 #include <libgadget/timestep.h>
 
 struct global_data_all_processes All;
+static struct ClockTable CT;
 /* The true struct for the state variable*/
 struct forcetree_testdata
 {
@@ -311,7 +313,7 @@ static void test_force_random(void ** state) {
 }
 
 static int setup_tree(void **state) {
-    walltime_init(&All.CT);
+    walltime_init(&CT);
     /*Set up the important parts of the All structure.*/
     /*Particles should not be outside this*/
     All.BoxSize = 8;

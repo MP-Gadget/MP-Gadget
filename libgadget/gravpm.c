@@ -10,6 +10,7 @@
 #include "forcetree.h"
 #include "petapm.h"
 #include "domain.h"
+#include "walltime.h"
 #include "gravity.h"
 
 #include "cosmology.h"

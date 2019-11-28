@@ -8,6 +8,7 @@
 #include "treewalk.h"
 #include "slotsmanager.h"
 #include "timebinmgr.h"
+#include "walltime.h"
 #include "allvars.h"
 
 /*Parameters of the wind model*/

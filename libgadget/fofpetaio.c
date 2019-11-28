@@ -16,6 +16,7 @@
 #include "petaio.h"
 #include "exchange.h"
 #include "fof.h"
+#include "walltime.h"
 
 static void fof_register_io_blocks(struct IOTable * IOTable);
 static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm);

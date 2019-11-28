@@ -12,6 +12,7 @@
 
 #include <libgadget/allvars.h>
 #include <libgadget/partmanager.h>
+#include <libgadget/walltime.h>
 #include <libgadget/slotsmanager.h>
 #include <libgadget/utils/mymalloc.h>
 #include <libgadget/density.h>
@@ -294,6 +295,8 @@ static int teardown_density(void **state) {
     return 0;
 }
 
+static struct ClockTable CT;
+
 static int setup_density(void **state) {
     /*Reserve space for the slots*/
     slots_init(0.01 * PartManager->MaxPart, SlotsManager);
@@ -305,7 +308,7 @@ static int setup_density(void **state) {
     particle_alloc_memory(maxpart);
     slots_reserve(1, atleast, SlotsManager);
     slots_allocate_sph_scratch_data(0, maxpart, &SlotsManager->sph_scratch);
-    walltime_init(&All.CT);
+    walltime_init(&CT);
     init_forcetree_params(2);
     struct density_testdata *data = mymalloc("data", sizeof(struct density_testdata));
     /*Set up the top-level domain grid*/

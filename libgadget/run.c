@@ -9,6 +9,7 @@
 #include "utils.h"
 
 #include "allvars.h"
+#include "walltime.h"
 #include "gravity.h"
 #include "density.h"
 #include "domain.h"
@@ -35,6 +36,8 @@ static FILE * FdEnergy;
 static FILE  *FdCPU;    /*!< file handle for cpu.txt log-file. */
 static FILE *FdSfr;     /*!< file handle for sfr.txt log-file. */
 static FILE *FdBlackHoles;  /*!< file handle for blackholes.txt log-file. */
+
+static struct ClockTable Clocks;
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
@@ -81,7 +84,7 @@ void begrun(int RestartSnapNum)
 
     petapm_module_init(omp_get_max_threads());
     petaio_init();
-    walltime_init(&All.CT);
+    walltime_init(&Clocks);
 
     petaio_read_header(RestartSnapNum);
 
@@ -433,7 +436,7 @@ void write_cpu_log(int NumCurrentTiStep, FILE * FdCPU)
     {
         int NTask;
         MPI_Comm_size(MPI_COMM_WORLD, &NTask);
-        fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads: %d Elapsed: %g\n", NumCurrentTiStep, All.Time, NTask, omp_get_max_threads(), All.CT.ElapsedTime);
+        fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads: %d Elapsed: %g\n", NumCurrentTiStep, All.Time, NTask, omp_get_max_threads(), Clocks.ElapsedTime);
         walltime_report(FdCPU, 0, MPI_COMM_WORLD);
         fflush(FdCPU);
     }

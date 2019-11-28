@@ -41,7 +41,8 @@ int main(int argc, char **argv)
 
   init_endrun(All.ShowBacktrace);
 
-  walltime_init(&All.CT);
+  struct ClockTable Clocks;
+  walltime_init(&Clocks);
 
   int64_t TotNumPart = (int64_t) All2.Ngrid*All2.Ngrid*All2.Ngrid;
   int64_t TotNumPartGas = (int64_t) All2.ProduceGas*All2.NgridGas*All2.NgridGas*All2.NgridGas;

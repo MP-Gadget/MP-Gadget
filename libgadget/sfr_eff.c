@@ -25,6 +25,7 @@
 #include "sfr_eff.h"
 #include "cooling.h"
 #include "slotsmanager.h"
+#include "walltime.h"
 #include "winds.h"
 #include "hydra.h"
 /*Only for the star slot reservation*/
