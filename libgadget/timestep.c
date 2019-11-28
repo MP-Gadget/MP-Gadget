@@ -162,13 +162,18 @@ is_PM_timestep(inttime_t ti)
 }
 
 void
-set_global_time(double newtime) {
-    All.TimeStep = newtime - All.Time;
+set_global_time(const inttime_t Ti_Current) {
+    double oldtime = All.Time;
+    double newtime = exp(loga_from_ti(Ti_Current));
+    All.TimeStep = newtime - oldtime;
     All.Time = newtime;
     All.cf.a = All.Time;
     All.cf.a2inv = 1 / (All.Time * All.Time);
     All.cf.a3inv = 1 / (All.Time * All.Time * All.Time);
     All.cf.hubble = hubble_function(&All.CP, All.Time);
+
+    if(All.TimeStep < 0)
+        endrun(1, "Negative timestep: %g New Time: %g!\n", All.TimeStep, All.Time);
 
 #ifdef LIGHTCONE
     lightcone_set_time(All.cf.a);

@@ -14,7 +14,7 @@ typedef struct ActiveParticles
 
 int rebuild_activelist(ActiveParticles * act, inttime_t ti_current, int NumCurrentTiStep);
 void free_activelist(ActiveParticles * act);
-void set_global_time(double newtime);
+void set_global_time(const inttime_t Ti_Current);
 
 /* This function assigns new short-range timesteps to particles.
  * It will also advance the PM timestep and set the new timestep length.
