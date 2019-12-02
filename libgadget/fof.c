@@ -301,7 +301,8 @@ HEADl(int stop, int i, int locked, int * Head, struct SpinLocks * spin)
 }
 
 /* Rewrite a tree so that all values in it point directly to the true root.
- * This means that the trees are O(1) deep and speeds up future accesses. */
+ * This means that the trees are O(1) deep and speeds up future accesses.
+ * See https://arxiv.org/abs/1607.03224 */
 static void
 update_root(int i, const int r, int * Head)
 {
@@ -316,19 +317,14 @@ update_root(int i, const int r, int * Head)
     } while(t != i);
 }
 
+/* Find the current head particle by walking the tree. No updates are done
+ * so this can be performed from a threaded context. */
 static int
 HEAD(int i, TreeWalk * tw)
 {
-    /* accelerate with a splay: see https://arxiv.org/abs/1607.03224 */
-    int r;
-    r = i;
+    int r = i;
     while(FOF_PRIMARY_GET_PRIV(tw)->Head[r] != r) {
         r = FOF_PRIMARY_GET_PRIV(tw)->Head[r];
-    }
-    while(FOF_PRIMARY_GET_PRIV(tw)->Head[i] != i) {
-        int t = FOF_PRIMARY_GET_PRIV(tw)->Head[i];
-        FOF_PRIMARY_GET_PRIV(tw)->Head[i]= r;
-        i = t;
     }
     return r;
 }
