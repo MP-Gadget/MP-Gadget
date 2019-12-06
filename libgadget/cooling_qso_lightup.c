@@ -551,6 +551,7 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree)
     double initionfrac = gas_ionization_fraction();
     double curionfrac = initionfrac;
 
+    message(0, "HeII: Started helium reionization model with ionization fraction %d\n", initionfrac);
     if(curionfrac < desired_ion_frac) {
         ncand = build_qso_candidate_list(&qso_cand, fof);
         walltime_measure("/HeIII/Find");
@@ -559,6 +560,7 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree)
     int64_t ncand_before = count_QSO_halos(ncand, &ncand_tot, MPI_COMM_WORLD);
     int iteration;
 
+    message(0, "HeII: Built quasar candidate list from %d quasars\n", ncand_tot);
     for(iteration = 0; curionfrac < desired_ion_frac; iteration++){
         /* Get a new quasar*/
         int new_qso = choose_QSO_halo(ncand, &ncand_before, &ncand_tot, fof->TotNgroups+iteration);
@@ -581,8 +583,10 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree)
             message(1, "HeII: Quasar %d changed the HeIII ionization fraction to %g, ionizing %ld\n", qso_cand[new_qso], curionfrac, tot_qso_ionized);
         /* Break the loop if we do not ionize enough particles this round.
          * Try again next timestep when we will hopefully have new BHs.*/
-        if(tot_qso_ionized < 0.01 * non_overlapping_bubble_number && iteration > 10)
+        if(tot_qso_ionized < 0.01 * non_overlapping_bubble_number && iteration > 10) {
+            message(0, "HeII: Stopping ionization at iteration %d because insufficient ionization happened.\n", iteration);
             break;
+        }
         /* Remove this candidate from the list by moving the list down.*/
         if( new_qso >= 0) {
             memmove(qso_cand+new_qso, qso_cand+new_qso+1, ncand - new_qso+1);
