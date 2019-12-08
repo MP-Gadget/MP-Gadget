@@ -19,4 +19,6 @@ double get_long_mean_free_path_heating(double redshift);
 /* Returns 1 if helium reionization is in progress, 0 otherwise*/
 int during_helium_reionization(double redshift);
 
+/* Returns 1 if there is any work to do to ionize more particles, 0 otherwise*/
+int need_change_helium_ionization_fraction(double atime);
 #endif

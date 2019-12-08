@@ -226,7 +226,8 @@ run(int RestartSnapNum)
          * It does not matter that the velocities are half a step off because they are not used in the FoF code.*/
         if(GasEnabled && is_PM)
         {
-            if ((All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) || during_helium_reionization(1/All.Time - 1)) {
+            if ((All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) ||
+                (during_helium_reionization(1/All.Time - 1) && need_change_helium_ionization_fraction(All.Time))) {
                 /* Seeding */
                 FOFGroups fof = fof_fof(&Tree, All.BlackHoleOn, MPI_COMM_WORLD);
                 if(All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) {

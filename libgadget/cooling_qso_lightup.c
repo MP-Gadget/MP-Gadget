@@ -623,6 +623,16 @@ do_heiii_reionization(double redshift, FOFGroups * fof, ForceTree * tree)
 }
 
 int
+need_change_helium_ionization_fraction(double atime)
+{
+    double desired_ion_frac = gsl_interp_eval(HeIII_intp, He_zz, XHeIII, atime, NULL);
+    double curionfrac = gas_ionization_fraction();
+    if(curionfrac < desired_ion_frac)
+        return 1;
+    return 0;
+}
+
+int
 during_helium_reionization(double redshift)
 {
     if(!QSOLightupParams.QSOLightupOn)
