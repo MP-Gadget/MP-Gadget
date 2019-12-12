@@ -218,16 +218,26 @@ run(int RestartSnapNum)
         ForceTree Tree = {0};
         force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav);
 
-        /* this will find new black hole seed halos.
-         * Note: the FOF code does not know about garbage particles,
-         * so ensure we do not have garbage present when we call this.
-         * Also a good idea to only run it on a PM step.
-         * This does not break the tree because the new black holes do not move or change mass, just type.
-         * It does not matter that the velocities are half a step off because they are not used in the FoF code.*/
-        if(GasEnabled && is_PM)
+        /*Allocate the extra SPH data for transient SPH particle properties.*/
+        if(GasEnabled)
+            slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size, &SlotsManager->sph_scratch);
+        /* update force to Ti_Current */
+        compute_accelerations(&Act, is_PM, &pm, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
+
+        int didfof = 0;
+        /* Note this must be after gravaccel and hydro,
+         * because new star particles are not in the tree,
+         * so mass conservation would be broken.*/
+        if(GasEnabled)
         {
-            if ((All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) ||
-                (during_helium_reionization(1/All.Time - 1) && need_change_helium_ionization_fraction(All.Time))) {
+            /* this will find new black hole seed halos.
+             * Note: the FOF code does not know about garbage particles,
+             * so ensure we do not have garbage present when we call this.
+             * Also a good idea to only run it on a PM step.
+             * This does not break the tree because the new black holes do not move or change mass, just type.
+             * It does not matter that the velocities are half a step off because they are not used in the FoF code.*/
+            if (is_PM && ((All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) ||
+                (during_helium_reionization(1/All.Time - 1) && need_change_helium_ionization_fraction(All.Time)))) {
                 /* Seeding */
                 FOFGroups fof = fof_fof(&Tree, All.BlackHoleOn, MPI_COMM_WORLD);
                 if(All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) {
@@ -239,20 +249,9 @@ run(int RestartSnapNum)
                     do_heiii_reionization(1/All.Time - 1, &fof, &Tree);
                 }
                 fof_finish(&fof);
+                didfof = 1;
             }
-        }
 
-        /*Allocate the extra SPH data for transient SPH particle properties.*/
-        if(GasEnabled)
-            slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size, &SlotsManager->sph_scratch);
-        /* update force to Ti_Current */
-        compute_accelerations(&Act, is_PM, &pm, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
-
-        /* Note this must be after gravaccel and hydro,
-         * because new star particles are not in the tree,
-         * so mass conservation would be broken.*/
-        if(GasEnabled)
-        {
             /* Black hole accretion and feedback */
             blackhole(&Act, &Tree, FdBlackHoles);
 
@@ -296,6 +295,13 @@ run(int RestartSnapNum)
             int compact[6] = {0};
 
             if(slots_gc(compact, PartManager, SlotsManager)) {
+                /* We did a FOF this timestep so we need to recompute the peano keys, which were over-written*/
+                if(didfof) {
+                    int i;
+                    #pragma omp parallel for
+                    for(i = 0; i < PartManager->NumPart; i++)
+                        P[i].Key = PEANO(P[i].Pos, All.BoxSize);
+                }
                 force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav);
                 Act.NumActiveParticle = PartManager->NumPart;
             }

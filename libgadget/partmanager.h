@@ -46,13 +46,13 @@ struct particle_data
 
     MyFloat Hsml;
 
-    /* The peano key is a hash of the position used in the domain decomposition.
-     * It is slow to generate so we store it here.*/
-    peano_t Key; /* only by domain.c and forcetre.c */
-
+    /* Union these two because they are transients: they are hard to move
+     * to private arrays because they need to travel with the particle during exchange*/
     union {
-        /* the following variables are transients.
-         * FIXME: move them into the corresponding modules! Is it possible? */
+        /* The peano key is a hash of the position used in the domain decomposition.
+         * It is slow to generate so we store it here.*/
+        peano_t Key; /* only by domain.c and force_tree_rebuild */
+        /* FOF Group number: only has meaning during FOF.*/
         int64_t GrNr;
     };
 
