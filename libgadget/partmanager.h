@@ -54,8 +54,6 @@ struct particle_data
         /* the following variables are transients.
          * FIXME: move them into the corresponding modules! Is it possible? */
 
-        MyFloat NumNgb; /* Number of neighbours; only used in density.c */
-
         int RegionInd; /* which region the particle belongs to; only by petapm.c */
 
         int64_t GrNr;
