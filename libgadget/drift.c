@@ -42,7 +42,7 @@ void drift_particle(int i, inttime_t ti1, struct SpinLocks * spin) {
 static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const double random_shift[3])
 {
     int j;
-    if(P[i].IsGarbage) {
+    if(P[i].IsGarbage || P[i].Swallowed) {
         P[i].Ti_drift = ti1;
         return;
     }
@@ -61,9 +61,6 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const
 
     /* Jumping of BH */
     if(P[i].Type == 5) {
-        /* Swallowed particles will stop dead where they are*/
-        if(P[i].Swallowed)
-            return;
         int k;
         if (BHP(i).JumpToMinPot) {
             for(k = 0; k < 3; k++) {
