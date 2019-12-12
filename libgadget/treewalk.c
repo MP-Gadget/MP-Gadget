@@ -262,11 +262,6 @@ static void real_ev(TreeWalk * tw, int * ninter) {
         if(tw->BufferFullFlag) break;
 
         const int i = tw->WorkSet ? tw->WorkSet[k] : k;
-#ifdef DEBUG
-        if(tw->haswork && !tw->haswork(i, tw)) {
-            BREAKPOINT;
-        }
-#endif
         /* Primary never uses node list */
         treewalk_init_query(tw, input, i, NULL);
         treewalk_init_result(tw, output, input);
