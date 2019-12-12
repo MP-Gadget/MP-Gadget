@@ -111,7 +111,7 @@ struct ic_prep_data
     int NumPart;
 };
 
-static PetaPMRegion * makeregion(PetaPM * pm, void * userdata, int * Nregions) {
+static PetaPMRegion * makeregion(PetaPM * pm, PetaPMParticleStruct * pstruct, void * userdata, int * Nregions) {
     PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion));
     struct ic_prep_data * icprep = (struct ic_prep_data *) userdata;
     int NumPart = icprep->NumPart;
@@ -129,7 +129,6 @@ static PetaPMRegion * makeregion(PetaPM * pm, void * userdata, int * Nregions) {
             if(max[k] < ICP[i].Pos[k])
                 max[k] = ICP[i].Pos[k];
         }
-        ICP[i].RegionInd = 0;
     }
 
     for(k = 0; k < 3; k ++) {
@@ -159,7 +158,7 @@ void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_dat
         sizeof(curICP[0]),
         ((char*) &curICP[0].Pos[0]) - (char*) curICP,
         ((char*) &curICP[0].Mass) - (char*) curICP,
-        ((char*) &curICP[0].RegionInd) - (char*) curICP,
+        NULL,
         NULL,
         NumPart,
     };

@@ -16,7 +16,7 @@
 #include "cosmology.h"
 #include "neutrinos_lra.h"
 
-static int pm_mark_region_for_node(int startno, int rid, const ForceTree * tt);
+static int pm_mark_region_for_node(int startno, int rid, int * RegionInd, const ForceTree * tt);
 static void convert_node_to_region(PetaPM * pm, PetaPMRegion * r, struct NODE * Nodes);
 
 static int hybrid_nu_gravpm_is_active(int i);
@@ -40,7 +40,7 @@ static PetaPMFunctions functions [] =
 
 static PetaPMGlobalFunctions global_functions = {NULL, NULL, potential_transfer};
 
-static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions);
+static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void * userdata, int * Nregions);
 
 void
 gravpm_init_periodic(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G) {
@@ -64,7 +64,8 @@ gravpm_force(PetaPM * pm, ForceTree * tree) {
         sizeof(P[0]),
         (char*) &P[0].Pos[0]  - (char*) P,
         (char*) &P[0].Mass  - (char*) P,
-        (char*) &P[0].RegionInd - (char*) P,
+        /* Regions allocated inside _prepare*/
+        NULL,
         /* By default all particles are active. For hybrid neutrinos set below.*/
         NULL,
         PartManager->NumPart,
@@ -97,7 +98,7 @@ gravpm_force(PetaPM * pm, ForceTree * tree) {
     walltime_measure("/LongRange");
 }
 
-static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions) {
+static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void * userdata, int * Nregions) {
     /*
      *
      * walks down the tree, identify nodes that contains local mass and
@@ -110,11 +111,10 @@ static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions) {
      *
      * */
     ForceTree * tree = (ForceTree *) userdata;
-
     /* In worst case, each topleave becomes a region: thus
      * NTopLeaves is sufficient */
     PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion) * tree->NTopLeaves);
-
+    pstruct->RegionInd = mymalloc2("RegionInd", PartManager->NumPart * sizeof(int));
     int r = 0;
 
     int no = tree->firstnode; /* start with the root */
@@ -149,26 +149,27 @@ static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions) {
 
     int i;
     int numswallowed = 0;
+    #pragma omp parallel for reduction(+: numswallowed)
     for(i =0; i < PartManager->NumPart; i ++) {
         /* Swallowed black hole particles stick around but should not gravitate.
          * Short-range is handled by not adding them to the tree. */
-        if(P[i].Swallowed && P[i].Type==5){
-            P[i].RegionInd = -2;
+        if(All.BlackHoleOn && P[i].Swallowed && P[i].Type==5){
+            pstruct->RegionInd[i] = -2;
             numswallowed++;
         }
         else
-            P[i].RegionInd = -1;
+            pstruct->RegionInd[i] = -1;
     }
 
     /* now lets mark particles to their hosting region */
     int numpart = 0;
 #pragma omp parallel for reduction(+: numpart)
     for(r = 0; r < *Nregions; r++) {
-        regions[r].numpart = pm_mark_region_for_node(regions[r].no, r, tree);
+        regions[r].numpart = pm_mark_region_for_node(regions[r].no, r, pstruct->RegionInd, tree);
         numpart += regions[r].numpart;
     }
     for(i =0; i < PartManager->NumPart; i ++) {
-        if(P[i].RegionInd == -1) {
+        if(pstruct->RegionInd[i] == -1) {
             message(1, "i = %d not assigned to a region\n", i);
         }
     }
@@ -189,7 +190,7 @@ static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions) {
     return regions;
 }
 
-static int pm_mark_region_for_node(int startno, int rid, const ForceTree * tree) {
+static int pm_mark_region_for_node(int startno, int rid, int * RegionInd, const ForceTree * tree) {
     int numpart = 0;
     int no = startno;
     int endno = tree->Nodes[startno].u.d.sibling;
@@ -198,7 +199,7 @@ static int pm_mark_region_for_node(int startno, int rid, const ForceTree * tree)
         if(node_is_particle(no, tree))	/* single particle */
         {
             int p = no;
-            P[p].RegionInd = rid;
+            RegionInd[p] = rid;
 #ifdef DEBUG
             /* when we are in PM, all particles must have been synced. */
             if (P[p].Ti_drift != All.Ti_Current) {

@@ -11,7 +11,6 @@ struct ic_part_data
   float Disp[3];
   float Density;
   float Mass;
-  int RegionInd;
 };
 
 struct genic_config {

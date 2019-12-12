@@ -32,7 +32,7 @@ static PetaPMFunctions functions [] =
 
 static PetaPMGlobalFunctions global_functions = {measure_power_spectrum, NULL, potential_transfer};
 
-static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions);
+static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void * userdata, int * Nregions);
 
 static void glass_force(PetaPM * pm, double t_f, struct ic_part_data * ICP, const int NumPart);
 static void glass_stats(struct ic_part_data * ICP, int NumPart);
@@ -185,7 +185,7 @@ static void glass_force(PetaPM * pm, double t_f, struct ic_part_data * ICP, cons
         sizeof(ICP[0]),
         (char*) &ICP[0].Pos[0]  - (char*) ICP,
         (char*) &ICP[0].Mass  - (char*) ICP,
-        (char*) &ICP[0].RegionInd - (char*) ICP,
+        NULL,
         NULL,
         NumPart,
     };
@@ -215,7 +215,7 @@ static void glass_force(PetaPM * pm, double t_f, struct ic_part_data * ICP, cons
 static double pot_factor;
 
 static PetaPMRegion *
-_prepare(PetaPM * pm, void * userdata, int * Nregions)
+_prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void * userdata, int * Nregions)
 {
     struct ic_prep_data * icprep = (struct ic_prep_data *) userdata;
     int NumPart = icprep->NumPart;
@@ -246,7 +246,6 @@ _prepare(PetaPM * pm, void * userdata, int * Nregions)
         }
 
         totmass += ICP[i].Mass;
-        ICP[i].RegionInd = 0;
     }
 
     MPI_Allreduce(MPI_IN_PLACE, &totmass, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);

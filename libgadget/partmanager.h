@@ -53,9 +53,6 @@ struct particle_data
     union {
         /* the following variables are transients.
          * FIXME: move them into the corresponding modules! Is it possible? */
-
-        int RegionInd; /* which region the particle belongs to; only by petapm.c */
-
         int64_t GrNr;
     };
 
