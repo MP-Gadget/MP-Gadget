@@ -172,10 +172,6 @@ struct hydrodata_in
         MyDouble Velocity[3][3];
     } Gradients;
     MyFloat NV_T[3][3];
-    
-#if defined(KERNEL_CRK_FACES)
-    MyFloat Tensor_CRK_Face_Corrections[16];
-#endif
 }
 *HydroDataIn, *HydroDataGet;
 
@@ -231,10 +227,6 @@ static inline void particle2in_hydra(struct hydrodata_in *in, int i)
 #ifdef HYDRO_PRESSURE_SPH
     in->EgyWtRho = SphP[i].EgyWtDensity;
 #endif
-#if defined(KERNEL_CRK_FACES)
-    for(k=0;k<16;k++) {in->Tensor_CRK_Face_Corrections[k] = SphP[i].Tensor_CRK_Face_Corrections[k];}
-#endif
-
     int j;
     for(j=0;j<3;j++) {for(k=0;k<3;k++) {in->NV_T[j][k] = SphP[i].NV_T[j][k];}}
 

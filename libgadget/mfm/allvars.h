@@ -606,9 +606,6 @@ extern struct sph_particle_data
     //MyDouble dMomentum[3];        /*!< change in momentum from hydro step (conserved variable) */ //manifest-indiv-timestep-debug//
     MyDouble HydroAccel[3];         /*!< acceleration due to hydrodynamical force (for drifting) */
     
-#if defined(KERNEL_CRK_FACES)
-    MyFloat Tensor_CRK_Face_Corrections[16]; /*!< tensor set for face-area correction terms for the CRK formulation of SPH or MFM/V areas */
-#endif
     /* matrix of the primitive variable gradients: rho, P, vx, vy, vz, B, phi */
     struct
     {
