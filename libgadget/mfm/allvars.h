@@ -43,32 +43,12 @@
 /* lock the 'default' hydro mode */
 #define HYDRO_MESHLESS_FINITE_MASS   /* otherwise default to MFM if nothing is specified */
 
-/* define the default mesh-motion assumption, if this is not provided by the user */
-#if !defined(HYDRO_FIX_MESH_MOTION)
-#if defined(HYDRO_REGULAR_GRID)
-#define HYDRO_FIX_MESH_MOTION 0     /* default to non-moving for regular grids */
-#else
-#define HYDRO_FIX_MESH_MOTION 5     /* otherwise default to smoothed motion, only relevant for MFV (MFM/SPH will always move with flow) */
-#endif
-#endif
-
-/* determine whether the mesh is adaptive via splitting/merging (refinement) or 'frozen' to the initial number of elements */
-#if !defined(PREVENT_PARTICLE_MERGE_SPLIT) && (HYDRO_FIX_MESH_MOTION<5)
-#define PREVENT_PARTICLE_MERGE_SPLIT  /* particle merging/splitting doesn't make sense with frozen grids */
-#endif
-
-
-
 #if (defined(HYDRO_DENSITY_SPH) || defined(HYDRO_PRESSURE_SPH)) && !defined(HYDRO_SPH)
 #define HYDRO_SPH               /* master flag for SPH: must be enabled if any SPH method is used */
 #endif
 #ifdef HYDRO_SPH
-#if !defined(SPH_DISABLE_CD10_ARTVISC) && !(defined(EOS_TILLOTSON) || defined(EOS_ELASTIC)) // fancy viscosity switches assume positive pressures //
 #define SPHAV_CD10_VISCOSITY_SWITCH 0.05   /* Enables Cullen & Dehnen 2010 'inviscid sph' (viscosity suppression outside shocks) */
-#endif
-#ifndef SPH_DISABLE_PM_CONDUCTIVITY
 #define SPHAV_ARTIFICIAL_CONDUCTIVITY      /* Enables mixing entropy (J.Read's improved Price-Monaghan conductivity with Cullen-Dehnen switches) */
-#endif
 #endif
 
 #ifdef PERIODIC
