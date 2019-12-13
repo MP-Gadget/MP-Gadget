@@ -514,8 +514,8 @@ get_timestep_ti(const int p, const inttime_t dti_max)
                 P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2]
               );
         if(P[p].Type == 0)
-            message(1, "hydro-frc=(%g|%g|%g) dens=%g hsml=%g numngb=%g egyrho=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g\n",
-                    SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1], SPHP(p).HydroAccel[2], SPHP(p).Density, P[p].Hsml, P[p].NumNgb, SPH_EOMDensity(p),
+            message(1, "hydro-frc=(%g|%g|%g) dens=%g hsml=%g egyrho=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g\n",
+                    SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1], SPHP(p).HydroAccel[2], SPHP(p).Density, P[p].Hsml, SPH_EOMDensity(p),
                     SPHP(p).DhsmlEgyDensityFactor, SPHP(p).Entropy, SPHP(p).DtEntropy);
     }
 

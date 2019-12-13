@@ -336,6 +336,8 @@ static void fof_primary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
 }
 
 static int fof_primary_haswork(int n, TreeWalk * tw) {
+    if(P[n].IsGarbage || P[n].Swallowed)
+        return 0;
     return (((1 << P[n].Type) & (FOF_PRIMARY_LINK_TYPES))) && FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[n];
 }
 
@@ -1069,6 +1071,8 @@ static void fof_secondary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
     I->Hsml = FOF_SECONDARY_GET_PRIV(tw)->hsml[place];
 }
 static int fof_secondary_haswork(int n, TreeWalk * tw) {
+    if(P[n].IsGarbage || P[n].Swallowed)
+        return 0;
     return (((1 << P[n].Type) & (FOF_SECONDARY_LINK_TYPES)));
 }
 static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, enum TreeWalkReduceMode mode, TreeWalk * tw) {

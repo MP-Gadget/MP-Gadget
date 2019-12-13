@@ -59,7 +59,6 @@ static void pm_init_regions(PetaPM * pm, PetaPMRegion * regions, const int Nregi
 static PetaPMParticleStruct * CPS; /* stored by petapm_force, how to access the P array */
 #define POS(i) ((double*)  (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS->offset_pos]))
 #define MASS(i) ((float*) (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS->offset_mass]))
-#define REGION(i) ((int*)  (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS->offset_regionind]))
 #define INACTIVE(i) (CPS->active && !CPS->active(i))
 
 PetaPMRegion * petapm_get_fourier_region(PetaPM * pm) {
@@ -258,7 +257,7 @@ petapm_force_init(
     CPS = pstruct;
 
     *Nregions = 0;
-    PetaPMRegion * regions = prepare(pm, userdata, Nregions);
+    PetaPMRegion * regions = prepare(pm, pstruct, userdata, Nregions);
     pm_init_regions(pm, regions, *Nregions);
 
     walltime_measure("/PMgrav/Misc");
@@ -362,6 +361,8 @@ void petapm_force(PetaPM * pm, petapm_prepare_func prepare,
     if(functions)
         petapm_force_c2r(pm, rho_k, regions, Nregions, functions);
     myfree(rho_k);
+    if(CPS->RegionInd)
+        myfree(CPS->RegionInd);
     myfree(regions);
     petapm_force_finish(pm);
 }
@@ -759,7 +760,7 @@ pm_iterate_one(PetaPM * pm,
     int iCell[3];  /* integer coordinate on the regional mesh */
     double Res[3]; /* residual*/
     double * Pos = POS(i);
-    int RegionInd = REGION(i)[0];
+    const int RegionInd = CPS->RegionInd ? CPS->RegionInd[i] : 0;
 
     /* Asserts that the swallowed particles are not considered (region -2).*/
     if(RegionInd < 0)

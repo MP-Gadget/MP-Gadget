@@ -139,6 +139,9 @@ typedef struct {
 } TreeWalkResultDensity;
 
 struct DensityPriv {
+    /* Current number of neighbours*/
+    MyFloat *NumNgb;
+    /* Lower and upper bounds on smoothing length*/
     MyFloat *Left, *Right;
     MyFloat (*Rot)[3];
     /* This is the DhsmlDensityFactor for the pure density,
@@ -228,9 +231,10 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
     walltime_measure("/Misc");
 
-    DENSITY_GET_PRIV(tw)->Left = (MyFloat *) mymalloc("DENSITY_GET_PRIV(tw)->Left", PartManager->NumPart * sizeof(MyFloat));
-    DENSITY_GET_PRIV(tw)->Right = (MyFloat *) mymalloc("DENSITY_GET_PRIV(tw)->Right", PartManager->NumPart * sizeof(MyFloat));
-    DENSITY_GET_PRIV(tw)->Rot = (MyFloat (*) [3]) mymalloc("DENSITY_GET_PRIV(tw)->Rot", SlotsManager->info[0].size * sizeof(priv->Rot[0]));
+    DENSITY_GET_PRIV(tw)->Left = (MyFloat *) mymalloc("DENS_PRIV->Left", PartManager->NumPart * sizeof(MyFloat));
+    DENSITY_GET_PRIV(tw)->Right = (MyFloat *) mymalloc("DENS_PRIV->Right", PartManager->NumPart * sizeof(MyFloat));
+    DENSITY_GET_PRIV(tw)->NumNgb = (MyFloat *) mymalloc("DENS_PRIV->NumNgb", PartManager->NumPart * sizeof(MyFloat));
+    DENSITY_GET_PRIV(tw)->Rot = (MyFloat (*) [3]) mymalloc("DENS_PRIV->Rot", SlotsManager->info[0].size * sizeof(priv->Rot[0]));
     if(DoEgyDensity)
         DENSITY_GET_PRIV(tw)->DhsmlDensityFactor = (MyFloat *) mymalloc("DENSITY_GET_PRIV(tw)->DhsmlDensity", SlotsManager->info[0].size * sizeof(MyFloat));
     else
@@ -254,7 +258,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)
     {
-        P[i].NumNgb = 0;
+        DENSITY_GET_PRIV(tw)->NumNgb[i] = 0;
         DENSITY_GET_PRIV(tw)->Left[i] = 0;
         DENSITY_GET_PRIV(tw)->Right[i] = tree->BoxSize;
         if(P[i].Type == 0) {
@@ -349,6 +353,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     if(DoEgyDensity)
         myfree(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor);
     myfree(DENSITY_GET_PRIV(tw)->Rot);
+    myfree(DENSITY_GET_PRIV(tw)->NumNgb);
     myfree(DENSITY_GET_PRIV(tw)->Right);
     myfree(DENSITY_GET_PRIV(tw)->Left);
 
@@ -394,7 +399,7 @@ density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw)
 static void
 density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
 {
-    TREEWALK_REDUCE(P[place].NumNgb, remote->Ngb);
+    TREEWALK_REDUCE(DENSITY_GET_PRIV(tw)->NumNgb[place], remote->Ngb);
 
     /* these will be added */
     P[place].GravCost += DENSITY_GET_PRIV(tw)->HydroCostFactor * remote->Ninteractions;
@@ -578,7 +583,7 @@ density_postprocess(int i, TreeWalk * tw)
 
             SPHP(i).DivVel /= SPHP(i).Density;
         }
-        else if(P[i].NumNgb > 0) {
+        else if(DENSITY_GET_PRIV(tw)->NumNgb[i] > 0) {
             endrun(12, "Particle %d has bad density: %g\n", i, SPHP(i).Density);
         }
     }
@@ -599,9 +604,10 @@ void density_check_neighbours (int i, TreeWalk * tw)
 
     MyFloat * Left = DENSITY_GET_PRIV(tw)->Left;
     MyFloat * Right = DENSITY_GET_PRIV(tw)->Right;
+    MyFloat * NumNgb = DENSITY_GET_PRIV(tw)->NumNgb;
 
-    if(P[i].NumNgb < (desnumngb - DensityParams.MaxNumNgbDeviation) ||
-            (P[i].NumNgb > (desnumngb + DensityParams.MaxNumNgbDeviation)))
+    if(NumNgb[i] < (desnumngb - DensityParams.MaxNumNgbDeviation) ||
+            (NumNgb[i] > (desnumngb + DensityParams.MaxNumNgbDeviation)))
     {
         /* This condition is here to prevent the density code looping forever if it encounters
          * multiple particles at the same position. If this happens you likely have worse
@@ -610,13 +616,13 @@ void density_check_neighbours (int i, TreeWalk * tw)
         {
             /* If this happens probably the exchange is screwed up and all your particles have moved to (0,0,0)*/
             message(1, "Very tight Hsml bounds for i=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g pos=(%g|%g|%g)\n",
-             i, P[i].ID, P[i].Hsml, Left[i], Right[i], P[i].NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+             i, P[i].ID, P[i].Hsml, Left[i], Right[i], NumNgb[i], Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
             P[i].Hsml = Right[i];
             return;
         }
 
         /* If we need more neighbours, move the lower bound up. If we need fewer, move the upper bound down.*/
-        if(P[i].NumNgb < desnumngb) {
+        if(NumNgb[i] < desnumngb) {
                 Left[i] = P[i].Hsml;
         } else {
                 Right[i] = P[i].Hsml;
@@ -628,19 +634,19 @@ void density_check_neighbours (int i, TreeWalk * tw)
         else
         {
             if(Right[i] > 0.99 * tw->tree->BoxSize && Left[i] == 0)
-                endrun(8188, "Cannot occur. Check for memory corruption: L = %g R = %g N=%g.", Left[i], Right[i], P[i].NumNgb);
+                endrun(8188, "Cannot occur. Check for memory corruption: L = %g R = %g N=%g.", Left[i], Right[i], NumNgb[i]);
 
             /* If this is the first step we can be faster by increasing or decreasing current Hsml by a constant factor*/
             if(Right[i] > 0.99 * tw->tree->BoxSize && Left[i] > 0)
             {
-                if(P[i].Type == 0 && fabs(P[i].NumNgb - desnumngb) < 0.5 * desnumngb)
+                if(P[i].Type == 0 && fabs(NumNgb[i] - desnumngb) < 0.5 * desnumngb)
                 {
                     MyFloat DensFac;
                     if(DENSITY_GET_PRIV(tw)->DoEgyDensity)
                         DensFac = DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[P[i].PI];
                     else
                         DensFac = SPHP(i).DhsmlEgyDensityFactor;
-                    double fac = 1 - (P[i].NumNgb - desnumngb) / (NUMDIMS * P[i].NumNgb) * DensFac;
+                    double fac = 1 - (NumNgb[i] - desnumngb) / (NUMDIMS * NumNgb[i]) * DensFac;
 
                     if(fac < 1.26)
                         P[i].Hsml *= fac;
@@ -653,7 +659,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
 
             if(Right[i] < 0.99*tw->tree->BoxSize && Left[i] == 0)
             {
-                if(P[i].Type == 0 && fabs(P[i].NumNgb - desnumngb) < 0.5 * desnumngb)
+                if(P[i].Type == 0 && fabs(NumNgb[i] - desnumngb) < 0.5 * desnumngb)
                 {
                     MyFloat DensFac;
                     if(DENSITY_GET_PRIV(tw)->DoEgyDensity)
@@ -661,7 +667,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
                     else
                         DensFac = SPHP(i).DhsmlEgyDensityFactor;
 
-                    double fac = 1 - (P[i].NumNgb - desnumngb) / (NUMDIMS * P[i].NumNgb) * DensFac;
+                    double fac = 1 - (NumNgb[i] - desnumngb) / (NUMDIMS * NumNgb[i]) * DensFac;
 
                     if(fac > 1 / 1.26)
                         P[i].Hsml *= fac;
@@ -702,7 +708,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
     {
          message(1, "i=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
              i, P[i].ID, P[i].Hsml, Left[i], Right[i],
-             P[i].NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+             NumNgb[i], Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
     }
 }
 
