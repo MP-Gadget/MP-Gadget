@@ -629,12 +629,12 @@ void density_check_neighbours (int i, TreeWalk * tw)
         }
 
         /* Next step is geometric mean of previous. */
-        if(Right[i] < 0.99 * tw->tree->BoxSize && Left[i] > 0)
+        if(Right[i] < tw->tree->BoxSize && Left[i] > 0)
             P[i].Hsml = pow(0.5 * (pow(Left[i], 3) + pow(Right[i], 3)), 1.0 / 3);
         else
         {
-            if(Right[i] > 0.99 * tw->tree->BoxSize && Left[i] == 0)
-                endrun(8188, "Cannot occur. Check for memory corruption: L = %g R = %g N=%g.", Left[i], Right[i], NumNgb[i]);
+            if(!(Right[i] < tw->tree->BoxSize) && Left[i] == 0)
+                endrun(8188, "Cannot occur. Check for memory corruption: i=%d L = %g R = %g N=%g. Type %d, Pos %g %g %g", i, Left[i], Right[i], NumNgb[i], P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
 
             /* If this is the first step we can be faster by increasing or decreasing current Hsml by a constant factor*/
             if(Right[i] > 0.99 * tw->tree->BoxSize && Left[i] > 0)
