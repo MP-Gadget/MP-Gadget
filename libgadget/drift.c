@@ -110,6 +110,11 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const
         if(fac > 1.25)
             fac = 1.25;
         P[i].Hsml *= fac;
+        /* Cap the Hsml: if DivVel is large for a particle with a long timestep
+         * (most likely a wind particle) Hsml can very rarely run away*/
+        const double Maxhsml = All.BoxSize /2.;
+        if(P[i].Hsml > Maxhsml)
+            P[i].Hsml = Maxhsml;
     }
 
     P[i].Ti_drift = ti1;
