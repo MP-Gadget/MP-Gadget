@@ -246,7 +246,7 @@ find_timesteps(const ActiveParticles * act, inttime_t Ti_Current)
 
         int bin = get_timestep_bin(dti);
         if(bin < 1) {
-            message(1, "Time-step of integer size %d not allowed, id = %lu, debugging info follows. %d\n", dti, P[i].ID);
+            message(1, "Time-step of integer size %d not allowed, id = %lu, debugging info follows.\n", dti, P[i].ID);
             badstepsizecount++;
         }
         int binold = P[i].TimeBin;
