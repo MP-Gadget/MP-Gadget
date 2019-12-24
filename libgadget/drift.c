@@ -107,9 +107,16 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const
         //      P[i].Hsml *= exp(0.333333333333 * SPHP(i).DivVel * ddrift);
         //---This was added
         double fac = exp(0.333333333333 * SPHP(i).DivVel * ddrift);
+        inttime_t ti_step = (1u << (unsigned) P[i].TimeBin);
+
         if(fac > 1.25)
             fac = 1.25;
-        P[i].Hsml *= fac;
+
+        /* During deep timestep hierarchies the
+         * expansion factor may get out of control,
+         * so don't let it do that.*/
+        if(ti_step <= 8*(ti1-ti0))
+            P[i].Hsml *= fac;
         /* Cap the Hsml: if DivVel is large for a particle with a long timestep
          * (most likely a wind particle) Hsml can very rarely run away*/
         const double Maxhsml = All.BoxSize /2.;
