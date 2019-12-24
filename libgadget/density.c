@@ -341,6 +341,12 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
         if(DENSITY_GET_PRIV(tw)->NIteration > 0) {
             message(0, "ngb iteration %d: need to repeat for %ld particles.\n", DENSITY_GET_PRIV(tw)->NIteration, ntot);
+#ifdef DEBUG
+            if(ntot == 1 && size > 0 && DENSITY_GET_PRIV(tw)->NIteration > 20 ) {
+                int pp = ReDoQueue[0];
+                message(1, "Remaining i=%d, t %d, pos %g %g %g, hsml: %g ngb: %g\n", pp, P[pp].Type, P[pp].Pos[0], P[pp].Pos[1], P[pp].Pos[2], P[pp].Hsml, DENSITY_GET_PRIV(tw)->NumNgb[pp]);
+            }
+#endif
         }
 
         if(DENSITY_GET_PRIV(tw)->NIteration > MAXITER) {
