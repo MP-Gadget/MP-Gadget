@@ -155,7 +155,7 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
     while(Numnodestree >= tree.lastnode - tree.firstnode);
 
     if(MPIU_Any(TooManyNodes, MPI_COMM_WORLD)) {
-        dump_snapshot();
+        dump_snapshot("FORCETREE-DUMP");
         endrun(2, "Required too many nodes, snapshot dumped\n");
     }
     walltime_measure("/Tree/Build/Nodes");

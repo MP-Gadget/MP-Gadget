@@ -1,3 +1,6 @@
+#ifndef _HCI_H
+#define _HCI_H
+
 typedef struct HCIManager {
     /* private: */
     char * prefix;
@@ -42,3 +45,5 @@ hci_query(HCIManager * manager, HCIAction * action);
 
 void
 hci_override_now(HCIManager * manager, double now);
+
+#endif
