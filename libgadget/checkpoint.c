@@ -52,12 +52,12 @@ write_checkpoint(int WriteSnapshot, int WriteFOF, ForceTree * tree)
 }
 
 void
-dump_snapshot()
+dump_snapshot(const char * dump)
 {
     struct IOTable IOTable = {0};
     register_io_blocks(&IOTable);
     register_debug_io_blocks(&IOTable);
-    petaio_save_snapshot(&IOTable, 1, "%s/CRASH-DUMP", All.OutputDir);
+    petaio_save_snapshot(&IOTable, 1, "%s/%s", All.OutputDir, dump);
     destroy_io_blocks(&IOTable);
 }
 

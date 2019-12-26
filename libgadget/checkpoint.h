@@ -4,7 +4,7 @@
 #include "forcetree.h"
 
 void write_checkpoint(int WriteSnapshot, int WriteFOF, ForceTree * tree);
-void dump_snapshot(void);
+void dump_snapshot(const char * dump);
 int find_last_snapnum(void);
 
 #endif
