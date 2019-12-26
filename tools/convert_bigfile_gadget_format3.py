@@ -74,6 +74,7 @@ def write_hdf_header(bf, hdf5, nfiles, npart_file):
     hattr["Flag_Feedback"] = 0
     hattr["Flag_DoublePrecision"] = (bf["1/Position"].dtype == np.float64)
     hattr["Flag_IC_Info"] = 0
+    hattr["Flag_Entropy_ICs"] = 0
     hattr["Redshift"] = 1./battr["Time"] - 1
     #Pass other keys through unchanged. We whitelist expected keys to avoid confusing Gadget.
     hdfats = ["MassTable", "Time", "BoxSize", "Omega0", "OmegaLambda", "HubbleParam", "OmegaBaryon", "UnitLength_in_cm", "UnitMass_in_g", "UnitVelocity_in_cm_per_s"]
@@ -91,6 +92,13 @@ def write_hdf_file(bf, hdf5name, fnum, nfiles):
     # Variables for the velocity factors
     pecvel = bf["Header"].attrs["UsePeculiarVelocity"]
     atime = bf["Header"].attrs["Time"]
+
+    #detect ICs by the lack of a DM mass field
+    ics = False
+    try:
+        bf["1/Mass"]
+    except bigfile.pyxbigfile.Error:
+        ics = True
 
     #Open the file
     hfile = hdf5name + "."+str(fnum)+".hdf5"
@@ -125,8 +133,10 @@ def write_hdf_file(bf, hdf5name, fnum, nfiles):
                     bfdata /= np.sqrt(atime)
                 else:
                     #MP-Gadget old-school snapshots, used in BlueTides.
-                    # vel is a^2 dx/dt
-                    bfdata /= atime**(3/2.)
+                    # vel is a^2 dx/dt in snapshots and dx/dt /sqrt(a)
+                    #in the ICs.
+                    if not ics:
+                        bfdata /= atime**(3/2.)
             hdf5["PartType"+str(ptype)][hname] = bfdata
         #Gadget-3 requires an InternalEnergy block for ICs, even if it is zero.
         if "InternalEnergy" not in hdf5["PartType0"].keys():
