@@ -161,8 +161,6 @@ struct DensityPriv {
     double MinGasHsml;
     /* Are there potentially black holes?*/
     int BlackHoleOn;
-    /* Are there potentially wind particles?*/
-    int WindOn;
     /* The current hydro cost factor*/
     double HydroCostFactor;
 };
@@ -205,7 +203,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, int WindOn, double HydroCostFactor, double MinEgySpec, double atime, ForceTree * tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double HydroCostFactor, double MinEgySpec, double atime, ForceTree * tree)
 {
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
@@ -249,7 +247,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     DENSITY_GET_PRIV(tw)->MinGasHsml = DensityParams.MinGasHsmlFractional * GravitySofteningTable[1];
 
     DENSITY_GET_PRIV(tw)->BlackHoleOn = BlackHoleOn;
-    DENSITY_GET_PRIV(tw)->WindOn = WindOn;
     DENSITY_GET_PRIV(tw)->HydroCostFactor = HydroCostFactor * atime;
 
     /* Init Left and Right: this has to be done before treewalk */
@@ -472,12 +469,6 @@ density_ngbiter(
     const double r = iter->base.r;
     const double r2 = iter->base.r2;
     const double * dist = iter->base.dist;
-
-    if(DENSITY_GET_PRIV(lv->tw)->WindOn) {
-        if(winds_is_particle_decoupled(other))
-            if(!(I->Type == 0 && I->DelayTime > 0))	/* if I'm not wind, then ignore the wind particle */
-                return;
-    }
 
     if(P[other].Mass == 0) {
         endrun(12, "Encountered zero mass particle during density;"

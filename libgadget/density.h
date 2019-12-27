@@ -33,7 +33,7 @@ void set_densitypar(struct density_params dp);
  * it just computes densities.
  * If DoEgyDensity is true it also computes the entropy-weighted density for
  * pressure-entropy SPH. */
-void density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, int WindOn, double HydroCostFactor, double MinEgySpec, double atime, ForceTree * tree);
+void density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double HydroCostFactor, double MinEgySpec, double atime, ForceTree * tree);
 
 /* Get the desired nuber of neighbours for the supplied kernel*/
 double GetNumNgb(enum DensityKernelType KernelType);

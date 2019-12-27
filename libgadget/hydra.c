@@ -354,7 +354,7 @@ hydro_ngbiter(
                 }
             }
         }
-        double hfc_visc = 0.5 * P[other].Mass * visc * (dwk_i + dwk_j) / r;
+        const double hfc_visc = 0.5 * P[other].Mass * visc * (dwk_i + dwk_j) / r;
         double hfc = hfc_visc;
         double r1 = 1, r2 = 1;
 
