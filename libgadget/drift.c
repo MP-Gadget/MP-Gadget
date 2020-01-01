@@ -44,6 +44,16 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const
     int j;
     if(P[i].IsGarbage || P[i].Swallowed) {
         P[i].Ti_drift = ti1;
+        /* Keep the random shift updated so the
+         * physical position of swallowed particles remains unchanged.*/
+        for(j = 0; j < 3; j++) {
+            P[i].Pos[j] += random_shift[j];
+            while(P[i].Pos[j] > All.BoxSize) P[i].Pos[j] -= All.BoxSize;
+            while(P[i].Pos[j] <= 0) P[i].Pos[j] += All.BoxSize;
+        }
+        /* Swallowed particles still need a peano key.*/
+        if(P[i].Swallowed)
+            P[i].Key = PEANO(P[i].Pos, All.BoxSize);
         return;
     }
     inttime_t ti0 = P[i].Ti_drift;
