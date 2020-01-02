@@ -292,12 +292,18 @@ hydro_ngbiter(
                   " We haven't implemented tracer particles and this shall not happen\n");
     }
 
+    /* Wind particles do not interact hydrodynamically: don't produce hydro acceleration
+     * or change the signalvel.*/
+    if(HYDRA_GET_PRIV(lv->tw)->WindOn && winds_is_particle_decoupled(other))
+        return;
+
     DensityKernel kernel_j;
 
     density_kernel_init(&kernel_j, P[other].Hsml, GetDensityKernelType());
 
     if(r2 > 0 && (r2 < iter->kernel_i.HH || r2 < kernel_j.HH))
     {
+
         double Pressure_j = HYDRA_GET_PRIV(lv->tw)->PressurePred[P[other].PI];
         double p_over_rho2_j = Pressure_j / (SPH_EOMDensity(other) * SPH_EOMDensity(other));
         double soundspeed_j = sqrt(GAMMA * Pressure_j / SPH_EOMDensity(other));
@@ -348,7 +354,7 @@ hydro_ngbiter(
                 }
             }
         }
-        double hfc_visc = 0.5 * P[other].Mass * visc * (dwk_i + dwk_j) / r;
+        const double hfc_visc = 0.5 * P[other].Mass * visc * (dwk_i + dwk_j) / r;
         double hfc = hfc_visc;
         double r1 = 1, r2 = 1;
 
@@ -378,11 +384,6 @@ hydro_ngbiter(
         /* Formulation derived from the Lagrangian */
         hfc += P[other].Mass * (iter->p_over_rho2_i*I->SPH_DhsmlDensityFactor * dwk_i * r1
                  + p_over_rho2_j*SPHP(other).DhsmlEgyDensityFactor * dwk_j * r2) / r;
-
-        /* No force by wind particles */
-        if(HYDRA_GET_PRIV(lv->tw)->WindOn && winds_is_particle_decoupled(other)) {
-            hfc = hfc_visc = 0;
-        }
 
         for(d = 0; d < 3; d ++)
             O->Acc[d] += (-hfc * dist[d]);

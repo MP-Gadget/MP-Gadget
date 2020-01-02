@@ -209,7 +209,7 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, doubl
             olddensity[i] = SphP[i].EgyWtDensity;
         }
         /* Update the EgyWtDensity*/
-        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, All.WindOn, All.HydroCostFactor, 0,  All.cf.a, Tree);
+        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, 0,  All.cf.a, Tree);
         if(stop)
             break;
 
@@ -330,7 +330,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
     act.ActiveParticle = NULL;
     act.NumActiveParticle = PartManager->NumPart;
 
-    density(&act, 1, 0, All.BlackHoleOn, All.WindOn, All.HydroCostFactor, 0,  All.cf.a, &Tree);
+    density(&act, 1, 0, All.BlackHoleOn, All.HydroCostFactor, 0,  All.cf.a, &Tree);
 
     /* for clean IC with U input only, we need to iterate to find entrpoy */
     if(RestartSnapNum == -1)

@@ -161,8 +161,6 @@ struct DensityPriv {
     double MinGasHsml;
     /* Are there potentially black holes?*/
     int BlackHoleOn;
-    /* Are there potentially wind particles?*/
-    int WindOn;
     /* The current hydro cost factor*/
     double HydroCostFactor;
 };
@@ -205,7 +203,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, int WindOn, double HydroCostFactor, double MinEgySpec, double atime, ForceTree * tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double HydroCostFactor, double MinEgySpec, double atime, ForceTree * tree)
 {
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
@@ -249,7 +247,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     DENSITY_GET_PRIV(tw)->MinGasHsml = DensityParams.MinGasHsmlFractional * GravitySofteningTable[1];
 
     DENSITY_GET_PRIV(tw)->BlackHoleOn = BlackHoleOn;
-    DENSITY_GET_PRIV(tw)->WindOn = WindOn;
     DENSITY_GET_PRIV(tw)->HydroCostFactor = HydroCostFactor * atime;
 
     /* Init Left and Right: this has to be done before treewalk */
@@ -341,6 +338,12 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
         if(DENSITY_GET_PRIV(tw)->NIteration > 0) {
             message(0, "ngb iteration %d: need to repeat for %ld particles.\n", DENSITY_GET_PRIV(tw)->NIteration, ntot);
+#ifdef DEBUG
+            if(ntot == 1 && size > 0 && DENSITY_GET_PRIV(tw)->NIteration > 20 ) {
+                int pp = ReDoQueue[0];
+                message(1, "Remaining i=%d, t %d, pos %g %g %g, hsml: %g ngb: %g\n", pp, P[pp].Type, P[pp].Pos[0], P[pp].Pos[1], P[pp].Pos[2], P[pp].Hsml, DENSITY_GET_PRIV(tw)->NumNgb[pp]);
+            }
+#endif
         }
 
         if(DENSITY_GET_PRIV(tw)->NIteration > MAXITER) {
@@ -466,12 +469,6 @@ density_ngbiter(
     const double r = iter->base.r;
     const double r2 = iter->base.r2;
     const double * dist = iter->base.dist;
-
-    if(DENSITY_GET_PRIV(lv->tw)->WindOn) {
-        if(winds_is_particle_decoupled(other))
-            if(!(I->Type == 0 && I->DelayTime > 0))	/* if I'm not wind, then ignore the wind particle */
-                return;
-    }
 
     if(P[other].Mass == 0) {
         endrun(12, "Encountered zero mass particle during density;"
@@ -629,12 +626,12 @@ void density_check_neighbours (int i, TreeWalk * tw)
         }
 
         /* Next step is geometric mean of previous. */
-        if(Right[i] < 0.99 * tw->tree->BoxSize && Left[i] > 0)
+        if(Right[i] < tw->tree->BoxSize && Left[i] > 0)
             P[i].Hsml = pow(0.5 * (pow(Left[i], 3) + pow(Right[i], 3)), 1.0 / 3);
         else
         {
-            if(Right[i] > 0.99 * tw->tree->BoxSize && Left[i] == 0)
-                endrun(8188, "Cannot occur. Check for memory corruption: L = %g R = %g N=%g.", Left[i], Right[i], NumNgb[i]);
+            if(!(Right[i] < tw->tree->BoxSize) && Left[i] == 0)
+                endrun(8188, "Cannot occur. Check for memory corruption: i=%d L = %g R = %g N=%g. Type %d, Pos %g %g %g", i, Left[i], Right[i], NumNgb[i], P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
 
             /* If this is the first step we can be faster by increasing or decreasing current Hsml by a constant factor*/
             if(Right[i] > 0.99 * tw->tree->BoxSize && Left[i] > 0)
