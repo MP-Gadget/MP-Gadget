@@ -84,7 +84,7 @@ struct sfr_eeqos_data
 /*Cooling only: no star formation*/
 static void cooling_direct(int i);
 
-static void cooling_relaxed(int i, double egyeff, double dtime, double trelax);
+static void cooling_relaxed(int i, double dtime, struct sfr_eeqos_data sfr_data);
 
 static int sfreff_on_eeqos(const struct sph_particle_data * sph);
 static int make_particle_star(int child, int parent, int placement);
@@ -504,9 +504,14 @@ static int make_particle_star(int child, int parent, int placement)
     return retflag;
 }
 
-static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
-    const double densityfac = pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
-    double egycurrent = SPHP(i).Entropy *  densityfac;
+/* This function cools gas on the effective equation of state*/
+static void cooling_relaxed(int i, double dtime, struct sfr_eeqos_data sfr_data)
+{
+    const double egyeff = sfr_params.EgySpecCold * sfr_data.cloudfrac + (1 - sfr_data.cloudfrac) * sfr_data.egyhot;
+    const double Density = SPH_EOMDensity(i);
+    const double densityfac = pow(Density * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+    double egycurrent = SPHP(i).Entropy * densityfac;
+    double trelax = sfr_data.trelax;
 
     if(SphP_scratch->Injected_BH_Energy && SphP_scratch->Injected_BH_Energy[P[i].PI] > 0)
     {
@@ -535,6 +540,11 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
              * agreement with observations.*/
             if(tcool < trelax && tcool > 0)
                 trelax = tcool;
+            /* We set MaxSignalVel to be maximally the pressure in the cold phase,
+             * since that dominates the density.
+             * From hydra c_s = GAMMA P / rho and P = (S rho)^GAMMA*/
+            double Pressure = pow(sfr_params.EgySpecCold * Density, GAMMA);
+            SPHP(i).MaxSignalVel = DMIN(SPHP(i).MaxSignalVel, sqrt(GAMMA * Pressure / Density));
         }
     }
 
@@ -599,12 +609,9 @@ starformation(int i, double *localsfr, double * sum_sm)
     double w = get_random_number(P[i].ID);
     SPHP(i).Metallicity += w * METAL_YIELD * (1 - exp(-p));
 
+    /* upon start-up, we need to protect against dloga ==0 */
     if(dloga > 0 && P[i].TimeBin)
-    {
-        double egyeff = sfr_params.EgySpecCold * sfr_data.cloudfrac + (1 - sfr_data.cloudfrac) * sfr_data.egyhot;
-        /* upon start-up, we need to protect against dloga ==0 */
-        cooling_relaxed(i, egyeff, dtime, sfr_data.trelax);
-    }
+        cooling_relaxed(i, dtime, sfr_data);
 
     double mass_of_star = find_star_mass(i);
     double prob = P[i].Mass / mass_of_star * (1 - exp(-p));
