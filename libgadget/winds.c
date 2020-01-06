@@ -364,8 +364,6 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
 
     if(P[other].Type == 0) {
         if(r > I->Hsml) return;
-        /* Ignore wind particles */
-        if(SPHP(other).DelayTime > 0) return;
         /* NOTE: think twice if we want a symmetric tree walk when wk is used. */
         //double wk = density_kernel_wk(&kernel, r);
         double wk = 1.0;
@@ -453,9 +451,6 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     int other = iter->base.other;
     double r = iter->base.r;
 
-    /* skip wind particles */
-    if(SPHP(other).DelayTime > 0) return;
-
     /* this is radius cut is redundant because the tree walk is asymmetric
      * we may want to use fancier weighting that requires symmetric in the future. */
     if(r > I->Hsml) return;
@@ -482,7 +477,10 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     double random = get_random_number(I->base.ID + P[other].ID);
     if (random < p) {
         adjust_wind_velocity(other, v, I->Vmean);
-        SPHP(other).DelayTime = wind_params.WindFreeTravelLength / (v / All.cf.a);
+        /* If the particle is already a wind, just use the largest DelayTime, and still add wind energy.
+         * If we ignore wind particles, as was done before, we end up giving each particle the velocity dispersion
+         * associated with the first particle that hits it, which is very timing dependent in threaded environments. */
+        SPHP(other).DelayTime = DMAX(wind_params.WindFreeTravelLength / (v / All.cf.a), SPHP(other).DelayTime);
     }
 
     if(P[other].ID != I->base.ID)
