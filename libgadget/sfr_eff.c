@@ -446,7 +446,7 @@ sfreff_on_eeqos(const struct sph_particle_data * sph)
         flag = 0;
 
     if(sph->DelayTime > 0)
-        flag = 0;		/* only normal cooling for particles in the wind */
+        flag = 0;   /* only normal cooling for particles in the wind */
 
     return flag;
 }

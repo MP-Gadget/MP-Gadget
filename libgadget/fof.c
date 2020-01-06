@@ -16,6 +16,7 @@
 #include "sfr_eff.h"
 #include "blackhole.h"
 #include "domain.h"
+#include "winds.h"
 
 #include "forcetree.h"
 #include "treewalk.h"
@@ -587,17 +588,14 @@ static void add_particle_to_group(struct Group * gdst, int i, double BoxSize, in
     }
     /*This used to depend on black holes being enabled, but I do not see why.
      * I think because it is only useful for seeding*/
-    if(P[index].Type == 0)
-    {
-        /* make bh in non wind gas on bh wind*/
-        if(SPHP(index).DelayTime <= 0)
-            if(SPHP(index).Density > gdst->MaxDens)
-            {
-                gdst->MaxDens = SPHP(index).Density;
-                gdst->seed_index = index;
-                gdst->seed_task = ThisTask;
-            }
-    }
+    /* Don't make bh in wind.*/
+    if(P[index].Type == 0 && !winds_is_particle_decoupled(index))
+        if(SPHP(index).Density > gdst->MaxDens)
+        {
+            gdst->MaxDens = SPHP(index).Density;
+            gdst->seed_index = index;
+            gdst->seed_task = ThisTask;
+        }
 
     int d1, d2;
     double xyz[3];

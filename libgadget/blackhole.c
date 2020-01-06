@@ -16,6 +16,7 @@
 #include "hydra.h"
 #include "density.h"
 #include "sfr_eff.h"
+#include "winds.h"
 #include "walltime.h"
 /*! \file blackhole.c
  *  \brief routines for gas accretion onto black holes, and black hole mergers
@@ -442,7 +443,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     }
 
      /* BH does not accrete wind */
-    if(P[other].Type == 0 && SPHP(other).DelayTime > 0) return;
+    if(winds_is_particle_decoupled(other)) return;
 
     /* Find the black hole potential minimum. */
     if(r2 < iter->accretion_kernel.HH)
@@ -594,7 +595,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     if(P[other].ID == I->ID) return;
 
      /* BH does not accrete wind */
-    if(P[other].Type == 0 && SPHP(other).DelayTime > 0)
+    if(winds_is_particle_decoupled(other))
         return;
 
     struct SpinLocks * spin = BH_GET_PRIV(lv->tw)->spin;
