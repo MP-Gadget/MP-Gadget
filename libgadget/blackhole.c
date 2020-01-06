@@ -645,9 +645,8 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     {
         MyIDType * SPH_SwallowID = BH_GET_PRIV(lv->tw)->SPH_SwallowID;
 
+        /* This will only be true on one thread so we do not need a lock here*/
         if(SPH_SwallowID[P[other].PI] != I->ID) return;
-
-        lock_spinlock(other, spin);
 
         /* We do not know how to notify the tree of mass changes. so
          * blindly enforce a mass conservation for now. */
@@ -655,7 +654,6 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         P[other].Mass = 0;
 
         slots_mark_garbage(other, PartManager, SlotsManager);
-        unlock_spinlock(other, spin);
 
         #pragma omp atomic
         BH_GET_PRIV(lv->tw)->N_sph_swallowed++;
