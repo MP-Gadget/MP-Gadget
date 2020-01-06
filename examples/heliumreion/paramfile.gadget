@@ -25,7 +25,7 @@ DensityIndependentSphOn = 1
 RadiationOn = 1
 MassiveNuLinRespOn = 0
 WindOn = 1
-WindModel = ofjt10,decouple
+WindModel = ofjt10,isotropic
 MetalCoolFile = ../cooling_metal_UVB
 SnapshotWithFOF = 1
 #--------------------Helium Reionization----------------

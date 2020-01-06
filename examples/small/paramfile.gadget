@@ -88,7 +88,7 @@ FactorSN = 0.1
 FactorEVP = 1000.0
 
 WindOn = 1
-WindModel = ofjt10,decouple
+WindModel = ofjt10,isotropic
 WindEfficiency = 2.0
 WindEnergyFraction = 1.0
 WindSigma0 = 353.0 #km/s
