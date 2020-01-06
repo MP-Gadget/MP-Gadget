@@ -597,8 +597,6 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     if(P[other].Type == 0 && SPHP(other).DelayTime > 0)
         return;
 
-    struct SpinLocks * spin = BH_GET_PRIV(lv->tw)->spin;
-
     if(P[other].Swallowed && P[other].Type == 5)	/* we have a black hole merger */
     {
         if(BHP(other).SwallowID != I->ID) return;
@@ -633,9 +631,10 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
                 if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
                     wk = density_kernel_wk(&iter->feedback_kernel, u);
 
-                lock_spinlock(other, spin);
-                SphP_scratch->Injected_BH_Energy[P[other].PI] += (I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum);
-                unlock_spinlock(other, spin);
+                double * iBHPI = &SphP_scratch->Injected_BH_Energy[P[other].PI];
+                const double injected_BH = I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum;
+                #pragma omp atomic update
+                (*iBHPI) += injected_BH;
             }
         }
     }
