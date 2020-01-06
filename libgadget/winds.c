@@ -71,9 +71,6 @@ static struct winddata {
 
 #define WINDP(i) Winddata[P[i].PI]
 
-/*Make a particle a wind particle by changing DelayTime to a positive number*/
-int make_particle_wind(int i, double v, double vmean[3]);
-
 /*Set the parameters of the domain module*/
 void set_winds_params(ParameterSet * ps)
 {
@@ -134,22 +131,6 @@ winds_decoupled_hydro(int i, double atime)
     windspeed *= fac_mu;
     double hsml_c = cbrt(wind_params.WindFreeTravelDensThresh /SPHP(i).Density) * atime;
     SPHP(i).MaxSignalVel = hsml_c * DMAX((2 * windspeed), SPHP(i).MaxSignalVel);
-}
-
-int winds_make_after_sf(int i, double sm, double atime)
-{
-    if(!HAS(wind_params.WindModel, WIND_SUBGRID))
-        return 0;
-    /* Here comes the Springel Hernquist 03 wind model */
-    /* Notice that this is the mass of the gas particle after forking a star, 1/GENERATIONS
-        * what it was before.*/
-    double pw = wind_params.WindEfficiency * sm / P[i].Mass;
-    double prob = 1 - exp(-pw);
-    double zero[3] = {0, 0, 0};
-    if(get_random_number(P[i].ID + 2) < prob)
-        return make_particle_wind(i, wind_params.WindSpeed * atime, zero);
-
-    return 0;
 }
 
 static int
@@ -407,6 +388,50 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
     */
 }
 
+
+static int
+adjust_wind_velocity(int i, double v, double vmean[3]) {
+    /* v and vmean are in internal units (km/s *a ), not km/s !*/
+    /* returns 0 if particle i is converted to wind. */
+    // message(1, "%ld Making ID=%ld (%g %g %g) to wind with v= %g\n", ID, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], v);
+    int j;
+    /* ok, make the particle go into the wind */
+    double dir[3];
+    if(HAS(wind_params.WindModel, WIND_ISOTROPIC)) {
+        double theta = acos(2 * get_random_number(P[i].ID + 3) - 1);
+        double phi = 2 * M_PI * get_random_number(P[i].ID + 4);
+
+        dir[0] = sin(theta) * cos(phi);
+        dir[1] = sin(theta) * sin(phi);
+        dir[2] = cos(theta);
+    } else {
+        double vel[3];
+        for(j = 0; j < 3; j++) {
+            vel[j] = P[i].Vel[j] - vmean[j];
+        }
+        /*FIXME: Shouldn't this be total accel, not short-range accel?*/
+        dir[0] = P[i].GravAccel[1] * vel[2] - P[i].GravAccel[2] * vel[1];
+        dir[1] = P[i].GravAccel[2] * vel[0] - P[i].GravAccel[0] * vel[2];
+        dir[2] = P[i].GravAccel[0] * vel[1] - P[i].GravAccel[1] * vel[0];
+        double norm = 0;
+        for(j = 0; j < 3; j++)
+            norm += dir[j] * dir[j];
+
+        norm = sqrt(norm);
+        if(get_random_number(P[i].ID + 5) < 0.5)
+            norm = -norm;
+        if(norm != 0)
+            for(j = 0; j < 3; j++)
+                dir[j] /= norm;
+    }
+
+    for(j = 0; j < 3; j++)
+    {
+        P[i].Vel[j] += v * dir[j];
+    }
+    return 0;
+}
+
 static void
 sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
         TreeWalkResultWind * O,
@@ -456,7 +481,8 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     double p = windeff * wk * I->Mass / I->TotalWeight;
     double random = get_random_number(I->base.ID + P[other].ID);
     if (random < p) {
-        make_particle_wind(other, v, I->Vmean);
+        adjust_wind_velocity(other, v, I->Vmean);
+        SPHP(other).DelayTime = wind_params.WindFreeTravelLength / (v / All.cf.a);
     }
 
     if(P[other].ID != I->base.ID)
@@ -465,50 +491,20 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
 }
 
 int
-make_particle_wind(int i, double v, double vmean[3]) {
-    /* v and vmean are in internal units (km/s *a ), not km/s !*/
-    /* returns 0 if particle i is converted to wind. */
-    // message(1, "%ld Making ID=%ld (%g %g %g) to wind with v= %g\n", ID, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], v);
-    int j;
-    /* ok, make the particle go into the wind */
-    double dir[3];
-    if(HAS(wind_params.WindModel, WIND_ISOTROPIC)) {
-        double theta = acos(2 * get_random_number(P[i].ID + 3) - 1);
-        double phi = 2 * M_PI * get_random_number(P[i].ID + 4);
-
-        dir[0] = sin(theta) * cos(phi);
-        dir[1] = sin(theta) * sin(phi);
-        dir[2] = cos(theta);
-    } else {
-        double vel[3];
-        for(j = 0; j < 3; j++) {
-            vel[j] = P[i].Vel[j] - vmean[j];
-        }
-        /*FIXME: Shouldn't this be total accel, not short-range accel?*/
-        dir[0] = P[i].GravAccel[1] * vel[2] - P[i].GravAccel[2] * vel[1];
-        dir[1] = P[i].GravAccel[2] * vel[0] - P[i].GravAccel[0] * vel[2];
-        dir[2] = P[i].GravAccel[0] * vel[1] - P[i].GravAccel[1] * vel[0];
+winds_make_after_sf(int i, double sm, double atime)
+{
+    if(!HAS(wind_params.WindModel, WIND_SUBGRID))
+        return 0;
+    /* Here comes the Springel Hernquist 03 wind model */
+    /* Notice that this is the mass of the gas particle after forking a star, 1/GENERATIONS
+        * what it was before.*/
+    double pw = wind_params.WindEfficiency * sm / P[i].Mass;
+    double prob = 1 - exp(-pw);
+    double zero[3] = {0, 0, 0};
+    if(get_random_number(P[i].ID + 2) < prob) {
+        adjust_wind_velocity(i, wind_params.WindSpeed * atime, zero);
+        SPHP(i).DelayTime = wind_params.WindFreeTravelLength / (wind_params.WindSpeed * atime / All.cf.a);
     }
 
-    double norm = 0;
-    for(j = 0; j < 3; j++)
-        norm += dir[j] * dir[j];
-
-    /*FIXME: Should this be inside the !WIND_ISOTROPIC case?*/
-    norm = sqrt(norm);
-    if(get_random_number(P[i].ID + 5) < 0.5)
-        norm = -norm;
-
-    if(norm != 0)
-    {
-        for(j = 0; j < 3; j++)
-            dir[j] /= norm;
-
-        for(j = 0; j < 3; j++)
-        {
-            P[i].Vel[j] += v * dir[j];
-        }
-        SPHP(i).DelayTime = wind_params.WindFreeTravelLength / (v / All.cf.a);
-    }
     return 0;
 }
