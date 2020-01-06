@@ -346,7 +346,7 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
 {
     /* this evaluator walks the tree and sums the total mass of surrounding gas
      * particles as described in VS08. */
-    /* it also calculates the DM dispersion of the nearest 40 DM paritlces */
+    /* it also calculates the DM dispersion of the nearest 40 DM particles */
     if(iter->base.other == -1) {
         double hsearch = DMAX(I->Hsml, I->DMRadius);
         iter->base.Hsml = hsearch;
@@ -470,15 +470,12 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
         endrun(1, "WindModel = 0x%X is strange. This shall not happen.\n", wind_params.WindModel);
     }
 
-    //double wk = density_kernel_wk(&kernel, r);
-
     /* in this case the particle is already locked by the tree walker */
     /* we may want to add another lock to avoid this. */
     if(P[other].ID != I->base.ID)
         lock_spinlock(other, WIND_GET_PRIV(lv->tw)->spin);
 
-    double wk = 1.0;
-    double p = windeff * wk * I->Mass / I->TotalWeight;
+    double p = windeff * I->Mass / I->TotalWeight;
     double random = get_random_number(I->base.ID + P[other].ID);
     if (random < p) {
         adjust_wind_velocity(other, v, I->Vmean);
