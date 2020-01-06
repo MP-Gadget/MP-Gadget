@@ -368,20 +368,23 @@ gas_ionization_fraction(void)
 }
 
 /* Do the ionization for a single particle, marking it and adding the heat.
- * No locking is performed so ensure the particle is not being edited in parallel.
+ * An atomic is used to ensure the particle is only ionized once.
  * Returns 1 if ionization was done, 0 otherwise.*/
 static int
 ionize_single_particle(int other)
 {
-    /* Only ionize things once*/
-    if(P[other].HeIIIionized != 0)
+    int alreadydone = 0;
+    /* Mark it ionized and capture the old value.*/
+    #pragma omp atomic capture
+    {
+        alreadydone = P[other].HeIIIionized;
+        P[other].HeIIIionized = 1;
+    }
+
+    if(alreadydone)
         return 0;
 
-    /* Mark it ionized*/
-    P[other].HeIIIionized = 1;
-
     /* Heat the particle*/
-
     /* Number of helium atoms per g in the particle*/
     double nheperg = (1 - HYDROGEN_MASSFRAC) / (PROTONMASS * HEMASS);
     /* Total heating per unit mass ergs/g for the particle*/
@@ -396,8 +399,6 @@ ionize_single_particle(int other)
 }
 
 struct QSOPriv {
-    /* Particle SpinLocks*/
-    struct SpinLocks * spin;
     FOFGroups * fof;
     int64_t * N_ionized;
 };
@@ -430,13 +431,7 @@ ionize_ngbiter(TreeWalkQueryBase * I,
     if(P[other].Type != 0)
         return;
 
-    struct SpinLocks * spin = QSO_GET_PRIV(lv->tw)->spin;
-
-    lock_spinlock(other, spin);
-
     int ionized = ionize_single_particle(other);
-
-    unlock_spinlock(other, spin);
 
     if(!ionized)
         return;
@@ -491,7 +486,6 @@ ionize_all_part(int qso_ind, int * qso_cand, FOFGroups * fof, ForceTree * tree)
     tw->result_type_elsize = sizeof(TreeWalkResultBase);
 
     struct QSOPriv priv[1];
-    priv[0].spin = init_spinlocks(PartManager->NumPart);
     priv[0].fof = fof;
     /* Ionization counters*/
     priv[0].N_ionized = ta_malloc("n_ionized", int64_t, omp_get_max_threads());
@@ -511,8 +505,6 @@ ionize_all_part(int qso_ind, int * qso_cand, FOFGroups * fof, ForceTree * tree)
         N_ionized += priv[0].N_ionized[i];
 
     ta_free(priv[0].N_ionized);
-
-    free_spinlocks(priv[0].spin);
 
     return N_ionized;
 }
