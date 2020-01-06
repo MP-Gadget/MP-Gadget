@@ -101,7 +101,8 @@ struct BHPriv {
     /* Particle SpinLocks*/
     struct SpinLocks * spin;
     /* Counters*/
-    int N_sph_swallowed, N_BH_swallowed;
+    int64_t * N_sph_swallowed;
+    int64_t * N_BH_swallowed;
 };
 #define BH_GET_PRIV(tw) ((struct BHPriv *) (tw->priv))
 
@@ -193,7 +194,6 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles)
     if(totbh == 0)
         return;
     int i;
-    int Ntot_gas_swallowed, Ntot_BH_swallowed;
 
     walltime_measure("/Misc");
     TreeWalk tw_accretion[1] = {{0}};
@@ -229,8 +229,6 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles)
 
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Beginning black-hole accretion\n");
-
-    priv->N_sph_swallowed = priv->N_BH_swallowed = 0;
 
     /* Let's determine which particles may be swallowed and calculate total feedback weights */
     priv->SPH_SwallowID = mymalloc("SPH_SwallowID", SlotsManager->info[0].size * sizeof(MyIDType));
@@ -274,6 +272,12 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles)
     memset(SphP_scratch->Injected_BH_Energy, 0, SlotsManager->info[0].size * sizeof(MyFloat));
     /* Now do the swallowing of particles and dump feedback energy */
 
+    /* Ionization counters*/
+    priv[0].N_sph_swallowed = ta_malloc("n_sph_swallowed", int64_t, omp_get_max_threads());
+    priv[0].N_BH_swallowed = ta_malloc("n_BH_swallowed", int64_t, omp_get_max_threads());
+    memset(priv[0].N_sph_swallowed, 0, sizeof(int64_t) * omp_get_max_threads());
+    memset(priv[0].N_BH_swallowed, 0, sizeof(int64_t) * omp_get_max_threads());
+
     /* Local to this treewalk*/
     priv->BH_accreted_Mass = mymalloc("BH_accretedmass", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_accreted_BHMass = mymalloc("BH_accreted_BHMass", SlotsManager->info[5].size * sizeof(MyFloat));
@@ -286,8 +290,17 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles)
     free_spinlocks(priv[0].spin);
     myfree(priv->SPH_SwallowID);
 
-    MPI_Reduce(&priv->N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&priv->N_BH_swallowed, &Ntot_BH_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    int64_t Ntot_gas_swallowed, Ntot_BH_swallowed;
+    int64_t N_sph_swallowed = 0, N_BH_swallowed = 0;
+    for(i = 0; i < omp_get_max_threads(); i++) {
+        N_sph_swallowed += priv[0].N_sph_swallowed[i];
+        N_BH_swallowed += priv[0].N_BH_swallowed[i];
+    }
+    ta_free(priv[0].N_BH_swallowed);
+    ta_free(priv[0].N_sph_swallowed);
+
+    MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&N_BH_swallowed, &Ntot_BH_swallowed, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
 
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Accretion done: %d gas particles swallowed, %d BH particles swallowed\n",
@@ -609,8 +622,8 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         if(BHP(other).SwallowTime < All.Time)
             endrun(2, "Encountered BH %i swallowed at earlier time %g\n", other, BHP(other).SwallowTime);
 
-        #pragma omp atomic
-        BH_GET_PRIV(lv->tw)->N_BH_swallowed++;
+        int tid = omp_get_thread_num();
+        BH_GET_PRIV(lv->tw)->N_BH_swallowed[tid]++;
 
     }
 
@@ -654,8 +667,8 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
         slots_mark_garbage(other, PartManager, SlotsManager);
 
-        #pragma omp atomic
-        BH_GET_PRIV(lv->tw)->N_sph_swallowed++;
+        int tid = omp_get_thread_num();
+        BH_GET_PRIV(lv->tw)->N_sph_swallowed[tid]++;
     }
 }
 
