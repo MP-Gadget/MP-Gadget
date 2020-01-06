@@ -247,9 +247,6 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles)
         }
     }
 
-    /* This allocates memory*/
-    priv[0].spin = init_spinlocks(PartManager->NumPart);
-
     /* Computed in accretion, used in feedback*/
     priv->BH_FeedbackWeightSum = mymalloc("BH_FeedbackWeightSum", SlotsManager->info[5].size * sizeof(MyFloat));
 
@@ -259,7 +256,12 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles)
     /* Local to this treewalk*/
     priv->BH_Entropy = mymalloc("BH_Entropy", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_SurroundingGasVel = (MyFloat (*) [3]) mymalloc("BH_SurroundVel", 3* SlotsManager->info[5].size * sizeof(priv->BH_SurroundingGasVel[0]));
+
+    /* This allocates memory*/
+    priv[0].spin = init_spinlocks(PartManager->NumPart);
     treewalk_run(tw_accretion, act->ActiveParticle, act->NumActiveParticle);
+    free_spinlocks(priv[0].spin);
+
     myfree(priv->BH_SurroundingGasVel);
     myfree(priv->BH_Entropy);
     myfree(priv->MinPot);
@@ -287,7 +289,6 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles)
 
     myfree(priv->BH_FeedbackWeightSum );
 
-    free_spinlocks(priv[0].spin);
     myfree(priv->SPH_SwallowID);
 
     int64_t Ntot_gas_swallowed, Ntot_BH_swallowed;
