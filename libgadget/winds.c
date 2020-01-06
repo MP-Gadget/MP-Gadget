@@ -71,7 +71,10 @@ static struct winddata {
 
 #define WINDP(i) Winddata[P[i].PI]
 
-/*Set the parameters of the domain module*/
+/*Set the parameters of the wind module.
+ ofjt10 is Okamoto, Frenk, Jenkins and Theuns 2010 https://arxiv.org/abs/0909.0265
+ VS08 is Dalla Vecchia & Schaye 2008 https://arxiv.org/abs/0801.2770
+ SH03 is Springel & Hernquist 2003 https://arxiv.org/abs/astro-ph/0206395*/
 void set_winds_params(ParameterSet * ps)
 {
     int ThisTask;
