@@ -517,21 +517,18 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
             /* here we have a gas particle; check for swallowing */
 
-            lock_spinlock(other, spin);
             /* compute accretion probability */
-            double p, w;
+            double p = 0;
 
             if((I->BH_Mass - I->Mass) > 0 && I->Density > 0)
                 p = (I->BH_Mass - I->Mass) * wk / I->Density;
-            else
-                p = 0;
 
             /* compute random number, uniform in [0,1] */
-            w = get_random_number(P[other].ID);
+            const double w = get_random_number(P[other].ID);
             if(w < p)
             {
                 MyIDType * SPH_SwallowID = BH_GET_PRIV(lv->tw)->SPH_SwallowID;
-
+                lock_spinlock(other, spin);
                 if(P[other].Swallowed) {
                     /* Already marked, prefer to be swallowed by a bigger ID */
                     if(SPH_SwallowID[P[other].PI] < I->ID) {
@@ -542,8 +539,8 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
                     P[other].Swallowed = 1;
                     SPH_SwallowID[P[other].PI] = I->ID;
                 }
+                unlock_spinlock(other, spin);
             }
-            unlock_spinlock(other, spin);
         }
 
         if(r2 < iter->feedback_kernel.HH) {
