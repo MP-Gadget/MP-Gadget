@@ -507,16 +507,22 @@ get_timestep_ti(const int p, const inttime_t dti_max)
     */
     if(dti <= 1 || dti > (inttime_t) TIMEBASE)
     {
-        message(1, "Bad timestep (%x) assigned! ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g)\n",
+        if(P[p].Type == 0)
+            message(1, "Bad timestep (%x) assigned! ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g) hydro-frc=(%g|%g|%g) dens=%g hsml=%g egyrho=%g Entropy=%g, dtEntropy=%g maxsignal=%g\n",
+                dti, P[p].ID, P[p].Type, dloga, dti_max,
+                P[p].Pos[0], P[p].Pos[1], P[p].Pos[2],
+                P[p].GravAccel[0], P[p].GravAccel[1], P[p].GravAccel[2],
+                P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2],
+                SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1], SPHP(p).HydroAccel[2],
+                SPHP(p).Density, P[p].Hsml, SPH_EOMDensity(p),
+                SPHP(p).Entropy, SPHP(p).DtEntropy, SPHP(p).MaxSignalVel);
+        else
+            message(1, "Bad timestep (%x) assigned! ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g)\n",
                 dti, P[p].ID, P[p].Type, dloga, dti_max,
                 P[p].Pos[0], P[p].Pos[1], P[p].Pos[2],
                 P[p].GravAccel[0], P[p].GravAccel[1], P[p].GravAccel[2],
                 P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2]
               );
-        if(P[p].Type == 0)
-            message(1, "hydro-frc=(%g|%g|%g) dens=%g hsml=%g egyrho=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g\n",
-                    SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1], SPHP(p).HydroAccel[2], SPHP(p).Density, P[p].Hsml, SPH_EOMDensity(p),
-                    SPHP(p).DhsmlEgyDensityFactor, SPHP(p).Entropy, SPHP(p).DtEntropy);
     }
 
     return dti;

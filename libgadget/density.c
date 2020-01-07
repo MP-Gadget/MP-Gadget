@@ -14,7 +14,6 @@
 #include "timefac.h"
 #include "slotsmanager.h"
 #include "timestep.h"
-#include "winds.h"
 #include "utils.h"
 
 #define MAXITER 400
@@ -114,8 +113,6 @@ typedef struct
     TreeWalkQueryBase base;
     double Vel[3];
     MyFloat Hsml;
-    /*Wind model*/
-    MyFloat DelayTime;
     int Type;
 } TreeWalkQueryDensity;
 
@@ -387,14 +384,12 @@ density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw)
         I->Vel[0] = P[place].Vel[0];
         I->Vel[1] = P[place].Vel[1];
         I->Vel[2] = P[place].Vel[2];
-        I->DelayTime = 0;
     }
     else
     {
         I->Vel[0] = SphP_scratch->VelPred[3 * P[place].PI];
         I->Vel[1] = SphP_scratch->VelPred[3 * P[place].PI + 1];
         I->Vel[2] = SphP_scratch->VelPred[3 * P[place].PI + 2];
-        I->DelayTime = SPHP(place).DelayTime;
     }
 
 }

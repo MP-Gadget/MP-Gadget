@@ -50,4 +50,4 @@ CritOverDensity = 0   #  overdensity threshold value
 
 QuickLymanAlphaProbability = 0.001 # Set to 1.0 to turn dense gas directly into stars.
 WindOn = 1
-WindModel = ofjt10
+WindModel = ofjt10,isotropic

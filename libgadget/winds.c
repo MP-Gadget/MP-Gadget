@@ -71,10 +71,10 @@ static struct winddata {
 
 #define WINDP(i) Winddata[P[i].PI]
 
-/*Make a particle a wind particle by changing DelayTime to a positive number*/
-int make_particle_wind(int i, double v, double vmean[3]);
-
-/*Set the parameters of the domain module*/
+/*Set the parameters of the wind module.
+ ofjt10 is Okamoto, Frenk, Jenkins and Theuns 2010 https://arxiv.org/abs/0909.0265
+ VS08 is Dalla Vecchia & Schaye 2008 https://arxiv.org/abs/0801.2770
+ SH03 is Springel & Hernquist 2003 https://arxiv.org/abs/astro-ph/0206395*/
 void set_winds_params(ParameterSet * ps)
 {
     int ThisTask;
@@ -134,22 +134,6 @@ winds_decoupled_hydro(int i, double atime)
     windspeed *= fac_mu;
     double hsml_c = cbrt(wind_params.WindFreeTravelDensThresh /SPHP(i).Density) * atime;
     SPHP(i).MaxSignalVel = hsml_c * DMAX((2 * windspeed), SPHP(i).MaxSignalVel);
-}
-
-int winds_make_after_sf(int i, double sm, double atime)
-{
-    if(!HAS(wind_params.WindModel, WIND_SUBGRID))
-        return 0;
-    /* Here comes the Springel Hernquist 03 wind model */
-    /* Notice that this is the mass of the gas particle after forking a star, 1/GENERATIONS
-        * what it was before.*/
-    double pw = wind_params.WindEfficiency * sm / P[i].Mass;
-    double prob = 1 - exp(-pw);
-    double zero[3] = {0, 0, 0};
-    if(get_random_number(P[i].ID + 2) < prob)
-        return make_particle_wind(i, wind_params.WindSpeed * atime, zero);
-
-    return 0;
 }
 
 static int
@@ -365,7 +349,7 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
 {
     /* this evaluator walks the tree and sums the total mass of surrounding gas
      * particles as described in VS08. */
-    /* it also calculates the DM dispersion of the nearest 40 DM paritlces */
+    /* it also calculates the DM dispersion of the nearest 40 DM particles */
     if(iter->base.other == -1) {
         double hsearch = DMAX(I->Hsml, I->DMRadius);
         iter->base.Hsml = hsearch;
@@ -380,8 +364,6 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
 
     if(P[other].Type == 0) {
         if(r > I->Hsml) return;
-        /* Ignore wind particles */
-        if(SPHP(other).DelayTime > 0) return;
         /* NOTE: think twice if we want a symmetric tree walk when wk is used. */
         //double wk = density_kernel_wk(&kernel, r);
         double wk = 1.0;
@@ -407,65 +389,9 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
     */
 }
 
-static void
-sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
-        TreeWalkResultWind * O,
-        TreeWalkNgbIterWind * iter,
-        LocalTreeWalk * lv)
-{
 
-    /* this evaluator walks the tree and blows wind. */
-
-    if(iter->base.other == -1) {
-        iter->base.mask = 1;
-        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
-        iter->base.Hsml = I->Hsml;
-        return;
-    }
-    int other = iter->base.other;
-    double r = iter->base.r;
-
-    /* skip wind particles */
-    if(SPHP(other).DelayTime > 0) return;
-
-    /* this is radius cut is redundant because the tree walk is asymmetric
-     * we may want to use fancier weighting that requires symmetric in the future. */
-    if(r > I->Hsml) return;
-
-    double windeff=0;
-    double v=0;
-    if(HAS(wind_params.WindModel, WIND_FIXED_EFFICIENCY)) {
-        windeff = wind_params.WindEfficiency;
-        v = wind_params.WindSpeed * All.cf.a;
-    } else if(HAS(wind_params.WindModel, WIND_USE_HALO)) {
-        windeff = 1.0 / (I->Vdisp / All.cf.a / wind_params.WindSigma0);
-        windeff *= windeff;
-        v = wind_params.WindSpeedFactor * I->Vdisp;
-    } else {
-        endrun(1, "WindModel = 0x%X is strange. This shall not happen.\n", wind_params.WindModel);
-    }
-
-    //double wk = density_kernel_wk(&kernel, r);
-
-    /* in this case the particle is already locked by the tree walker */
-    /* we may want to add another lock to avoid this. */
-    if(P[other].ID != I->base.ID)
-        lock_spinlock(other, WIND_GET_PRIV(lv->tw)->spin);
-
-    double wk = 1.0;
-    double p = windeff * wk * I->Mass / I->TotalWeight;
-    double random = get_random_number(I->base.ID + P[other].ID);
-    if (random < p) {
-        make_particle_wind(other, v, I->Vmean);
-    }
-
-    if(P[other].ID != I->base.ID)
-        unlock_spinlock(other, WIND_GET_PRIV(lv->tw)->spin);
-
-}
-
-int
-make_particle_wind(int i, double v, double vmean[3]) {
+static int
+adjust_wind_velocity(int i, double v, double vmean[3]) {
     /* v and vmean are in internal units (km/s *a ), not km/s !*/
     /* returns 0 if particle i is converted to wind. */
     // message(1, "%ld Making ID=%ld (%g %g %g) to wind with v= %g\n", ID, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], v);
@@ -488,27 +414,93 @@ make_particle_wind(int i, double v, double vmean[3]) {
         dir[0] = P[i].GravAccel[1] * vel[2] - P[i].GravAccel[2] * vel[1];
         dir[1] = P[i].GravAccel[2] * vel[0] - P[i].GravAccel[0] * vel[2];
         dir[2] = P[i].GravAccel[0] * vel[1] - P[i].GravAccel[1] * vel[0];
+        double norm = 0;
+        for(j = 0; j < 3; j++)
+            norm += dir[j] * dir[j];
+
+        norm = sqrt(norm);
+        if(get_random_number(P[i].ID + 5) < 0.5)
+            norm = -norm;
+        if(norm != 0)
+            for(j = 0; j < 3; j++)
+                dir[j] /= norm;
     }
 
-    double norm = 0;
     for(j = 0; j < 3; j++)
-        norm += dir[j] * dir[j];
-
-    /*FIXME: Should this be inside the !WIND_ISOTROPIC case?*/
-    norm = sqrt(norm);
-    if(get_random_number(P[i].ID + 5) < 0.5)
-        norm = -norm;
-
-    if(norm != 0)
     {
-        for(j = 0; j < 3; j++)
-            dir[j] /= norm;
-
-        for(j = 0; j < 3; j++)
-        {
-            P[i].Vel[j] += v * dir[j];
-        }
-        SPHP(i).DelayTime = wind_params.WindFreeTravelLength / (v / All.cf.a);
+        P[i].Vel[j] += v * dir[j];
     }
+    return 0;
+}
+
+static void
+sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
+        TreeWalkResultWind * O,
+        TreeWalkNgbIterWind * iter,
+        LocalTreeWalk * lv)
+{
+
+    /* this evaluator walks the tree and blows wind. */
+
+    if(iter->base.other == -1) {
+        iter->base.mask = 1;
+        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
+        iter->base.Hsml = I->Hsml;
+        return;
+    }
+    int other = iter->base.other;
+    double r = iter->base.r;
+
+    /* this is radius cut is redundant because the tree walk is asymmetric
+     * we may want to use fancier weighting that requires symmetric in the future. */
+    if(r > I->Hsml) return;
+
+    double windeff=0;
+    double v=0;
+    if(HAS(wind_params.WindModel, WIND_FIXED_EFFICIENCY)) {
+        windeff = wind_params.WindEfficiency;
+        v = wind_params.WindSpeed * All.cf.a;
+    } else if(HAS(wind_params.WindModel, WIND_USE_HALO)) {
+        windeff = 1.0 / (I->Vdisp / All.cf.a / wind_params.WindSigma0);
+        windeff *= windeff;
+        v = wind_params.WindSpeedFactor * I->Vdisp;
+    } else {
+        endrun(1, "WindModel = 0x%X is strange. This shall not happen.\n", wind_params.WindModel);
+    }
+
+    double p = windeff * I->Mass / I->TotalWeight;
+    double random = get_random_number(I->base.ID + P[other].ID);
+    if (random < p) {
+        /* in this case the particle is already locked by the tree walker */
+        /* we may want to add another lock to avoid this. */
+        if(P[other].ID != I->base.ID)
+            lock_spinlock(other, WIND_GET_PRIV(lv->tw)->spin);
+
+        adjust_wind_velocity(other, v, I->Vmean);
+        /* If the particle is already a wind, just use the largest DelayTime, and still add wind energy.
+         * If we ignore wind particles, as was done before, we end up giving each particle the velocity dispersion
+         * associated with the first particle that hits it, which is very timing dependent in threaded environments. */
+        SPHP(other).DelayTime = DMAX(wind_params.WindFreeTravelLength / (v / All.cf.a), SPHP(other).DelayTime);
+        if(P[other].ID != I->base.ID)
+            unlock_spinlock(other, WIND_GET_PRIV(lv->tw)->spin);
+    }
+}
+
+int
+winds_make_after_sf(int i, double sm, double atime)
+{
+    if(!HAS(wind_params.WindModel, WIND_SUBGRID))
+        return 0;
+    /* Here comes the Springel Hernquist 03 wind model */
+    /* Notice that this is the mass of the gas particle after forking a star, 1/GENERATIONS
+        * what it was before.*/
+    double pw = wind_params.WindEfficiency * sm / P[i].Mass;
+    double prob = 1 - exp(-pw);
+    double zero[3] = {0, 0, 0};
+    if(get_random_number(P[i].ID + 2) < prob) {
+        adjust_wind_velocity(i, wind_params.WindSpeed * atime, zero);
+        SPHP(i).DelayTime = wind_params.WindFreeTravelLength / (wind_params.WindSpeed * atime / All.cf.a);
+    }
+
     return 0;
 }
