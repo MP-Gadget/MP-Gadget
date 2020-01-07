@@ -1,4 +1,4 @@
-OPTIMIZE =  -fPIC -fopenmp -O2 -g
+OPTIMIZE =  -fopenmp -O2 -g -std=gnu99
 GSL_INCL = 
 GSL_LIBS = -lgsl -lgslcblas
 
