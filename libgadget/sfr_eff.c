@@ -390,8 +390,8 @@ add_injected_BH_energy(double unew, double injected_BH_energy, double mass)
 
     double temp = u_to_temp_fac * unew;
 
-    if(temp > 5.0e9)
-        unew = 5.0e9 / u_to_temp_fac;
+    if(temp > 1.0e9)
+        unew = 1.0e9 / u_to_temp_fac;
 
     return unew;
 }
