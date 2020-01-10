@@ -255,7 +255,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
         DENSITY_GET_PRIV(tw)->NumNgb[i] = 0;
         DENSITY_GET_PRIV(tw)->Left[i] = 0;
         DENSITY_GET_PRIV(tw)->Right[i] = tree->BoxSize;
-        if(P[i].Type == 0) {
+        if(P[i].Type == 0 && !P[i].IsGarbage) {
             SphP_scratch->EntVarPred[P[i].PI] = SPH_EntVarPred(i, MinEgySpec, a3inv);
             SPH_VelPred(i, SphP_scratch->VelPred + 3 * P[i].PI);
         }

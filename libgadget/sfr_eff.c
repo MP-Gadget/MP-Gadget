@@ -390,15 +390,15 @@ add_injected_BH_energy(double unew, double injected_BH_energy, double mass)
 
     double temp = u_to_temp_fac * unew;
 
-    if(temp > 5.0e9)
-        unew = 5.0e9 / u_to_temp_fac;
+    if(temp > 1.0e9)
+        unew = 1.0e9 / u_to_temp_fac;
 
     return unew;
 }
 
 static void
-cooling_direct(int i) {
-
+cooling_direct(int i)
+{
     /*  the actual time-step */
     double dloga = get_dloga_for_bin(P[i].TimeBin);
     double dtime = dloga / All.cf.hubble;
@@ -406,25 +406,33 @@ cooling_direct(int i) {
     double ne = SPHP(i).Ne;	/* electron abundance (gives ionization state and mean molecular weight) */
 
     const double enttou = pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
-    double unew = (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) * enttou;
 
+    /* Current internal energy including adiabatic change*/
+    double uold = (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) * enttou;
+    /* We want the injected black hole energy to change the entropy
+     * but we don't want it to contribute to increase the predicted entropy in EntVarPred*/
     if(SphP_scratch->Injected_BH_Energy && SphP_scratch->Injected_BH_Energy[P[i].PI] > 0)
     {
-        unew = add_injected_BH_energy(unew, SphP_scratch->Injected_BH_Energy[P[i].PI], P[i].Mass);
+        uold = add_injected_BH_energy(uold, SphP_scratch->Injected_BH_Energy[P[i].PI], P[i].Mass);
+        /* This includes the adiabatic rate.
+         * This means that the DtEntropy (used for prediction) from the
+         * adiabatic heating is zero when DtEntropy is set below.
+         * This makes sense since heated gas shocks.*/
+        SPHP(i).Entropy = uold / enttou;
     }
 
     double redshift = 1./All.Time - 1;
     struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos, All.CurrentParticleOffset);
-    unew = DoCooling(redshift, unew, SPHP(i).Density * All.cf.a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity, All.MinEgySpec, P[i].HeIIIionized);
+    double unew = DoCooling(redshift, uold, SPHP(i).Density * All.cf.a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity, All.MinEgySpec, P[i].HeIIIionized);
 
     SPHP(i).Ne = ne;
 
     /* upon start-up, we need to protect against dt==0 */
-    if(dloga > 0)
-    {
-        /* note: the adiabatic rate has been already added in ! */
-        SPHP(i).DtEntropy = (unew / enttou - SPHP(i).Entropy) / dloga;
-    }
+    if(dloga <= 0)
+        return;
+
+    /* DtEntropy now includes the cooling and adiabatic rate, but NOT the BH heating.*/
+    SPHP(i).DtEntropy = (unew / enttou - SPHP(i).Entropy) / dloga;
 }
 
 /* returns 1 if the particle is on the effective equation of state,
