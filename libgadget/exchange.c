@@ -34,12 +34,12 @@ typedef struct {
     /*List of particles to exchange*/
     int * ExchangeList;
     /*Total number of exchanged particles*/
-    int nexchange;
+    size_t nexchange;
     /*Number of garbage particles*/
     int ngarbage;
     /* last particle in current batch of the exchange.
      * Exchange stops when last == nexchange.*/
-    int last;
+    size_t last;
     ExchangePartCache * layouts;
 } ExchangePlan;
 /*
@@ -49,7 +49,7 @@ typedef struct {
 */
 static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman);
-static int domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pman, const struct slots_manager_type * sman);
+static size_t domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pman, const struct slots_manager_type * sman);
 static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm);
 
 /* This function builts the count/displ arrays from
@@ -390,11 +390,11 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
 }
 
 /*Find how many particles we can transfer in current exchange iteration*/
-static int
+static size_t
 domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pman, const struct slots_manager_type * sman)
 {
-    int n, ptype;
-    size_t nlimit = mymalloc_freebytes();
+    int ptype;
+    size_t n, nlimit = mymalloc_freebytes();
     /* Limit us to 4GB exchanges to help out MPI*/
     if (nlimit > 1024*1024*2030)
         nlimit = 1024*1024*2030;
@@ -446,7 +446,8 @@ domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pma
 static void
 domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman)
 {
-    int ptype, n;
+    int ptype;
+    size_t n;
 
     memset(plan->toGo, 0, sizeof(plan->toGo[0]) * plan->NTask);
 
