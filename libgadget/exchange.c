@@ -135,7 +135,12 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
         iter++;
     }
     while(MPIU_Any(plan.last < plan.nexchange, Comm));
-
+#ifdef DEBUG
+    domain_build_exchange_list(layoutfunc, layout_userdata, &plan, pman, Comm);
+    if(plan.nexchange > 0)
+        endrun(5, "Still have %ld particles in exchange list\n", plan.nexchange);
+    myfree(plan.ExchangeList);
+#endif
     myfree(plan.toGetOffset);
     myfree(plan.toGet);
     myfree(plan.toGoOffset);
