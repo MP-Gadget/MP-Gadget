@@ -85,8 +85,6 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
 
     /*Structure for building a list of particles that will be exchanged*/
     ExchangePlan plan;
-    plan.last = 0;
-    plan.nexchange = pman->NumPart;
 
     MPI_Comm_size(Comm, &plan.NTask);
     /*! toGo[0][task*NTask + partner] gives the number of particles in task 'task'
@@ -351,7 +349,8 @@ static void
 domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm)
 {
     int i;
-    int numthreads = omp_get_max_threads();
+    size_t numthreads = omp_get_max_threads();
+    plan->nexchange = pman->NumPart;
     /*static schedule below so we only need this much memory*/
     int narr = plan->nexchange/numthreads+2;
     plan->ExchangeList = mymalloc2("exchangelist", sizeof(int) * narr * numthreads);
