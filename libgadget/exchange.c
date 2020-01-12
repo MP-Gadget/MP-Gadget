@@ -73,7 +73,7 @@ _transpose_plan_entries(ExchangePlanEntry * entries, int * count, int ptype, int
 }
 
 /*Plan and execute a domain exchange, also performing a garbage collection if requested*/
-int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, int do_gc, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm) {
+int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, int do_gc, struct part_manager_type * pman, struct slots_manager_type * sman, int maxiter, MPI_Comm Comm) {
     int64_t sumtogo;
     int failure = 0;
 
@@ -101,6 +101,8 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     int iter = 0;
 
     do {
+        if(iter >= maxiter)
+            endrun(5, "Too many exchange iterations\n");
         domain_build_exchange_list(layoutfunc, layout_userdata, &plan, pman, Comm);
 
         /*Exit early if nothing to do*/

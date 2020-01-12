@@ -281,7 +281,7 @@ static void fof_distribute_particles(struct part_manager_type * halo_pman, struc
 #endif
 
     /* sort SPH and Others independently */
-    if(domain_exchange(fof_sorted_layout, targettask, 1, halo_pman, halo_sman, Comm))
+    if(domain_exchange(fof_sorted_layout, targettask, 1, halo_pman, halo_sman, 1, Comm))
         endrun(1930,"Could not exchange particles\n");
 
     myfree(targettask);
