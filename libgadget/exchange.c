@@ -34,12 +34,12 @@ typedef struct {
     /*List of particles to exchange*/
     int * ExchangeList;
     /*Total number of exchanged particles*/
-    int nexchange;
+    size_t nexchange;
     /*Number of garbage particles*/
     int ngarbage;
     /* last particle in current batch of the exchange.
      * Exchange stops when last == nexchange.*/
-    int last;
+    size_t last;
     ExchangePartCache * layouts;
 } ExchangePlan;
 /*
@@ -49,7 +49,7 @@ typedef struct {
 */
 static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman);
-static int domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pman, const struct slots_manager_type * sman);
+static size_t domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pman, const struct slots_manager_type * sman);
 static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm);
 
 /* This function builts the count/displ arrays from
@@ -73,7 +73,7 @@ _transpose_plan_entries(ExchangePlanEntry * entries, int * count, int ptype, int
 }
 
 /*Plan and execute a domain exchange, also performing a garbage collection if requested*/
-int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, int do_gc, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm) {
+int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, int do_gc, struct part_manager_type * pman, struct slots_manager_type * sman, int maxiter, MPI_Comm Comm) {
     int64_t sumtogo;
     int failure = 0;
 
@@ -85,8 +85,6 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
 
     /*Structure for building a list of particles that will be exchanged*/
     ExchangePlan plan;
-    plan.last = 0;
-    plan.nexchange = pman->NumPart;
 
     MPI_Comm_size(Comm, &plan.NTask);
     /*! toGo[0][task*NTask + partner] gives the number of particles in task 'task'
@@ -103,6 +101,8 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     int iter = 0;
 
     do {
+        if(iter >= maxiter)
+            endrun(5, "Too many exchange iterations\n");
         domain_build_exchange_list(layoutfunc, layout_userdata, &plan, pman, Comm);
 
         /*Exit early if nothing to do*/
@@ -135,7 +135,12 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
         iter++;
     }
     while(MPIU_Any(plan.last < plan.nexchange, Comm));
-
+#ifdef DEBUG
+    domain_build_exchange_list(layoutfunc, layout_userdata, &plan, pman, Comm);
+    if(plan.nexchange > 0)
+        endrun(5, "Still have %ld particles in exchange list\n", plan.nexchange);
+    myfree(plan.ExchangeList);
+#endif
     myfree(plan.toGetOffset);
     myfree(plan.toGet);
     myfree(plan.toGoOffset);
@@ -346,7 +351,8 @@ static void
 domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm)
 {
     int i;
-    int numthreads = omp_get_max_threads();
+    size_t numthreads = omp_get_max_threads();
+    plan->nexchange = pman->NumPart;
     /*static schedule below so we only need this much memory*/
     int narr = plan->nexchange/numthreads+2;
     plan->ExchangeList = mymalloc2("exchangelist", sizeof(int) * narr * numthreads);
@@ -386,11 +392,14 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
 }
 
 /*Find how many particles we can transfer in current exchange iteration*/
-static int
+static size_t
 domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pman, const struct slots_manager_type * sman)
 {
-    int n, ptype;
-    size_t nlimit = mymalloc_freebytes();
+    int ptype;
+    size_t n, nlimit = mymalloc_freebytes();
+    /* Limit us to 4GB exchanges to help out MPI*/
+    if (nlimit > 1024*1024*2030)
+        nlimit = 1024*1024*2030;
 
     if (nlimit <  4096 * 2 + plan->NTask * 2 * sizeof(MPI_Request))
         endrun(1, "Not enough memory free to store requests!\n");
@@ -439,7 +448,8 @@ domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pma
 static void
 domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman)
 {
-    int ptype, n;
+    int ptype;
+    size_t n;
 
     memset(plan->toGo, 0, sizeof(plan->toGo[0]) * plan->NTask);
 
