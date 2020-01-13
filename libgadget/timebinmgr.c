@@ -192,7 +192,7 @@ dloga_from_dti(inttime_t dti)
         sign = -1;
     }
     if((unsigned int) dti > TIMEBASE) {
-        endrun(1, "Requesting dti %d larger than TIMEBASE %u\n", dti, TIMEBASE);
+        endrun(1, "Requesting dti %d larger than TIMEBASE %u\n", sign*dti, TIMEBASE);
     }
     return Dloga * dti * sign;
 }
