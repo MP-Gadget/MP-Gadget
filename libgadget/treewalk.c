@@ -162,21 +162,21 @@ ev_begin(TreeWalk * tw, int * active_set, const int size)
     report_memory_usage(tw->ev_label);
 
     /*The amount of memory eventually allocated per tree buffer*/
-    int bytesperbuffer = sizeof(struct data_index) + sizeof(struct data_nodelist) + tw->query_type_elsize;
+    size_t bytesperbuffer = sizeof(struct data_index) + sizeof(struct data_nodelist) + tw->query_type_elsize;
     /*This memory scales like the number of imports. In principle this could be much larger than Nexport
      * if the tree is very imbalanced and many processors all need to export to this one. In practice I have
      * not seen this happen, but provide a parameter to boost the memory for Nimport just in case.*/
     bytesperbuffer += ImportBufferBoost * (tw->query_type_elsize + tw->result_type_elsize);
     /*Use all free bytes for the tree buffer, as in exchange. Leave some free memory for array overhead.*/
     size_t freebytes = mymalloc_freebytes();
-    /* if freebytes is greater than 2GB we run into issues computing BunchSize.
-     * It is probable not a good idea to send too many particles around in one bunch anyways. */
-    if(freebytes > 1024 * 1024 * 1024) freebytes =  1024 * 1024 * 1024;
-
-    tw->BunchSize = (int)floor(((double)freebytes  - 4096 * 10)/ bytesperbuffer);
-    if(tw->BunchSize <= 0) {
+    if(freebytes <= 4096 * 11 * bytesperbuffer) {
         endrun(1231245, "Not enough memory for exporting any particles: needed %d bytes have %d. \n", bytesperbuffer, freebytes-4096*10);
     }
+    freebytes -= 4096 * 10 * bytesperbuffer;
+    /* if freebytes is greater than 2GB some MPIs have issues */
+    if(freebytes > 1024 * 1024 * 2030) freebytes =  1024 * 1024 * 2030;
+
+    tw->BunchSize = (int64_t) floor(((double)freebytes)/ bytesperbuffer);
     DataIndexTable =
         (struct data_index *) mymalloc("DataIndexTable", tw->BunchSize * sizeof(struct data_index));
     DataNodeList =
