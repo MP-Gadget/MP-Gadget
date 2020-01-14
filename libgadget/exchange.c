@@ -397,9 +397,11 @@ domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pma
 {
     int ptype;
     size_t n, nlimit = mymalloc_freebytes();
-    /* Limit us to 4GB exchanges to help out MPI*/
+#ifdef MPI_LARGE_EXCHANGE_BROKEN
+    /* Limit us to 2GB exchanges to help out MPI*/
     if (nlimit > 1024*1024*2030)
-        nlimit = 1024*1024*2030;
+       nlimit = 1024*1024*2030;
+#endif
 
     if (nlimit <  4096 * 2 + plan->NTask * 2 * sizeof(MPI_Request))
         endrun(1, "Not enough memory free to store requests!\n");
