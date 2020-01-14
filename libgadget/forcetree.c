@@ -588,7 +588,7 @@ force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddeco
         index = ddecomp->TopLeaves[i].treenode;
         if(ddecomp->TopLeaves[i].Task != ThisTask) {
             if(tree->Nodes[index].u.s.noccupied != 0)
-                endrun(5, "In node %d, overwriting %d child particles (i = %d etc) with pseudo particle %d (%d)\n",
+                endrun(5, "In node %d, overwriting %d child particles (i = %d etc) with pseudo particle %d\n",
                        index, tree->Nodes[index].u.s.noccupied, tree->Nodes[index].u.s.suns[0], i);
             force_zero_union(&tree->Nodes[index]);
             tree->Nodes[index].f.ChildType = PSEUDO_NODE_TYPE;
