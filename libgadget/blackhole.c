@@ -84,7 +84,8 @@ typedef struct {
 } TreeWalkNgbIterBHFeedback;
 
 struct BHPriv {
-    /*Temporary array to store the IDs of the swallowing black hole for gas*/
+    /* Temporary array to store the IDs of the swallowing black hole for gas.
+     * We store ID + 1 so that SwallowID == 0 can correspond to the unswallowed case. */
     MyIDType * SPH_SwallowID;
     /* These are temporaries used in the accretion treewalk*/
     MyFloat * MinPot;
@@ -233,20 +234,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles)
 
     /* Let's determine which particles may be swallowed and calculate total feedback weights */
     priv->SPH_SwallowID = mymalloc("SPH_SwallowID", SlotsManager->info[0].size * sizeof(MyIDType));
-    if(act->ActiveParticle) {
-        #pragma omp parallel for
-        for(i = 0; i < act->NumActiveParticle; i ++) {
-            int p_i = act->ActiveParticle[i];
-            if(P[p_i].Type == 0)
-                priv->SPH_SwallowID[P[p_i].PI] = -1;
-        }
-    }
-    else {
-        #pragma omp parallel for
-        for(i = 0; i < SlotsManager->info[0].size; i ++) {
-            priv->SPH_SwallowID[i] = -1;
-        }
-    }
+    memset(priv->SPH_SwallowID, 0, SlotsManager->info[0].size * sizeof(MyIDType));
 
     /* Computed in accretion, used in feedback*/
     priv->BH_FeedbackWeightSum = mymalloc("BH_FeedbackWeightSum", SlotsManager->info[5].size * sizeof(MyFloat));
@@ -531,15 +519,10 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             {
                 MyIDType * SPH_SwallowID = BH_GET_PRIV(lv->tw)->SPH_SwallowID;
                 lock_spinlock(other, spin);
-                if(P[other].Swallowed) {
-                    /* Already marked, prefer to be swallowed by a bigger ID */
-                    if(SPH_SwallowID[P[other].PI] < I->ID) {
-                        SPH_SwallowID[P[other].PI] = I->ID;
-                    }
-                } else {
-                    /* Unmarked mark it */
-                    P[other].Swallowed = 1;
-                    SPH_SwallowID[P[other].PI] = I->ID;
+                /* Already marked, prefer to be swallowed by a bigger ID.
+                 * Not marked, the SwallowID is 0 */
+                if(SPH_SwallowID[P[other].PI] < I->ID+1) {
+                    SPH_SwallowID[P[other].PI] = I->ID+1;
                 }
                 unlock_spinlock(other, spin);
             }
@@ -651,14 +634,14 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         }
     }
 
+    MyIDType * SPH_SwallowID = BH_GET_PRIV(lv->tw)->SPH_SwallowID;
+
     /* Swallowing a gas */
-    if(P[other].Swallowed && P[other].Type == 0)
+    /* This will only be true on one thread so we do not need a lock here*/
+    /* Note that it will rarely happen that gas is swallowed by a BH which is itself swallowed.
+     * In that case we do not swallow this particle: all swallowing changes before this are temporary*/
+    if(P[other].Type == 0 && SPH_SwallowID[P[other].PI] == I->ID+1)
     {
-        MyIDType * SPH_SwallowID = BH_GET_PRIV(lv->tw)->SPH_SwallowID;
-
-        /* This will only be true on one thread so we do not need a lock here*/
-        if(SPH_SwallowID[P[other].PI] != I->ID) return;
-
         /* We do not know how to notify the tree of mass changes. so
          * blindly enforce a mass conservation for now. */
         O->Mass += (P[other].Mass);
