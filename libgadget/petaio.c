@@ -837,6 +837,30 @@ static void GTNeutralHydrogenFraction(int i, float * out, void * baseptr, void *
     *out = get_neutral_fraction_sfreff(redshift, pl, sl+PI);
 }
 
+static void GTHeliumIFraction(int i, float * out, void * baseptr, void * smanptr) {
+    double redshift = 1./All.Time - 1;
+    struct particle_data * pl = ((struct particle_data *) baseptr)+i;
+    int PI = pl->PI;
+    struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
+    struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
+    *out = get_helium_neutral_fraction_sfreff(0, redshift, pl, sl+PI);
+}
+static void GTHeliumIIFraction(int i, float * out, void * baseptr, void * smanptr) {
+    double redshift = 1./All.Time - 1;
+    struct particle_data * pl = ((struct particle_data *) baseptr)+i;
+    int PI = pl->PI;
+    struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
+    struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
+    *out = get_helium_neutral_fraction_sfreff(1, redshift, pl, sl+PI);
+}
+static void GTHeliumIIIFraction(int i, float * out, void * baseptr, void * smanptr) {
+    double redshift = 1./All.Time - 1;
+    struct particle_data * pl = ((struct particle_data *) baseptr)+i;
+    int PI = pl->PI;
+    struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
+    struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
+    *out = get_helium_neutral_fraction_sfreff(2, redshift, pl, sl+PI);
+}
 static void GTInternalEnergy(int i, float * out, void * baseptr, void * smanptr) {
     int PI = ((struct particle_data *) baseptr)[i].PI;
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
@@ -924,6 +948,11 @@ void register_io_blocks(struct IOTable * IOTable) {
     /* Cooling */
     IO_REG(ElectronAbundance,       "f4", 1, 0, IOTable);
     IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0, IOTable);
+    if(All.OutputHeliumFractions) {
+        IO_REG_WRONLY(HeliumIFraction, "f4", 1, 0, IOTable);
+        IO_REG_WRONLY(HeliumIIFraction, "f4", 1, 0, IOTable);
+        IO_REG_WRONLY(HeliumIIIFraction, "f4", 1, 0, IOTable);
+    }
     /* Marks whether a particle has been HeIII ionized yet*/
     IO_REG_NONFATAL(HeIIIIonized, "u1", 1, 0, IOTable);
 

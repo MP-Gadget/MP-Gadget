@@ -62,4 +62,9 @@ double get_temp(double density, double ienergy, double helium, const struct UVBG
   physical protons/cm^3 inside the function. */
 double GetNeutralFraction(double u_old, double rho, const struct UVBG * uvbg, double ne);
 
+/*Gets the helium ionic fractions from density and internal energy in internal units.
+  u_old is in internal units. rho is in internal physical density units and is converted to
+  physical protons/cm^3 inside the function. */
+double GetHeliumIonFraction(int ion, double u_old, double rho, const struct UVBG * uvbg, double ne_init);
+
 #endif

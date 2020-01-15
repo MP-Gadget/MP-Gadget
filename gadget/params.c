@@ -142,6 +142,7 @@ create_gadget_parameter_set()
     /*End cosmology parameters*/
 
     param_declare_int(ps,    "OutputPotential", OPTIONAL, 1, "Save the potential in snapshots.");
+    param_declare_int(ps,    "OutputHeliumFractions", OPTIONAL, 0, "Save the helium ionic fractions in snapshots.");
     param_declare_int(ps,    "OutputDebugFields", OPTIONAL, 0, "Save a large number of debug fields in snapshots.");
     param_declare_int(ps,    "ShowBacktrace", OPTIONAL, 1, "Print a backtrace on crash. Hangs on stampede.");
     param_declare_double(ps,    "MaxMemSizePerNode", OPTIONAL, 0.6, "Pre-allocate this much memory per computing node/ host, in MB. Defaults to 60\% of total available memory per node. Passing < 1 allocates a fraction of total available memory per node.");
@@ -414,6 +415,7 @@ void read_parameter_file(char *fname)
         All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
 
         All.OutputPotential = param_get_int(ps, "OutputPotential");
+        All.OutputHeliumFractions = param_get_int(ps, "OutputHeliumFractions");
         All.OutputDebugFields = param_get_int(ps, "OutputDebugFields");
         All.ShowBacktrace = param_get_int(ps, "ShowBacktrace");
         double MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");

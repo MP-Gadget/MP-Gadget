@@ -185,3 +185,14 @@ GetNeutralFraction(double u_old, double rho, const struct UVBG * uvbg, double ne
     double nh0 = get_neutral_fraction_phys_cgs(rho, u_old, 1 - HYDROGEN_MASSFRAC, uvbg, &ne_init);
     return nh0;
 }
+
+/*Gets the helium ion fraction from density and internal energy in internal units*/
+double
+GetHeliumIonFraction(int ion, double u_old, double rho, const struct UVBG * uvbg, double ne_init)
+{
+    /* convert to physical cgs units */
+    rho *= coolunits.density_in_phys_cgs / PROTONMASS;
+    u_old *= coolunits.uu_in_cgs;
+    double helium_ion = get_helium_ion_phys_cgs(ion, rho, u_old, 1 - HYDROGEN_MASSFRAC, uvbg, ne_init);
+    return helium_ion;
+}
