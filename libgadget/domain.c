@@ -1043,7 +1043,8 @@ domain_check_for_local_refine_subsample(
                  * This shall not happen when key is already sorted;
                  * due to the sorting.
                  */
-                endrun(10, "Failed to build the toptree\n");
+                endrun(10, "toptree[%d].Count=%d, shift %d, last_leaf=%d key = %ld i= %d Nsample = %d\n",
+                        leaf, topTree[leaf].Count, topTree[leaf].Shift, last_leaf,LP[i].Key, i, Nsample);
             }
             /* this will create a new node. */
             last_key = LP[i].Key;
