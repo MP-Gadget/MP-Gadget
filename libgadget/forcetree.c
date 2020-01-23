@@ -330,8 +330,8 @@ create_new_node_layer(int firstparent, int p_toplace,
             struct NODE * nchild = &tb.Nodes[child];
             nchild->u.d.nextnode = nchild->u.d.sibling = nprnt->u.s.suns[i+1];
         }
-        /* Final child needs special handling: we don't use its nextnode, so set to -1.*/
-        tb.Nodes[nprnt->u.s.suns[7]].u.d.nextnode = -1;
+        /* Final child needs special handling: set to the parent's sibling/nextnode.*/
+        tb.Nodes[nprnt->u.s.suns[7]].u.d.nextnode = tb.Nodes[nprnt->u.s.suns[7]].u.d.sibling = nprnt->u.d.sibling;
 
         /*Initialize the remaining entries to empty*/
         for(i=8; i<NMAXCHILD;i++)
@@ -394,6 +394,8 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
             nfreep->u.s.suns[i] = -1;
         nfreep->u.s.noccupied = 0;
         nfreep->father = -1;
+        nfreep->u.d.sibling = -1;
+        nfreep->u.d.nextnode = -1;
         nfreep->f.TopLevel = 1;
         nfreep->f.InternalTopLevel = 0;
         nfreep->f.ChildType = PARTICLE_NODE_TYPE;
@@ -555,9 +557,6 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
                 init_internal_node(&Nodes[*nextfree], &Nodes[no], count);
                 /*Set father of new node*/
                 Nodes[*nextfree].father = no;
-                /* Set nextnode */
-                if(count == 0)
-                    Nodes[no].u.d.nextnode = *nextfree;
                 /*All nodes here are top level nodes*/
                 Nodes[*nextfree].f.TopLevel = 1;
 
@@ -570,10 +569,24 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
 
                 if(*nextfree >= lastnode)
                     endrun(11, "Not enough force nodes to topnode grid: need %d\n",lastnode);
-
-                force_create_node_for_topnode(*nextfree - 1, ddecomp->TopNodes[topnode].Daughter + sub, Nodes, ddecomp,
+            }
+    /* Set nextnode on the parent, sibling on the child*/
+    Nodes[no].u.d.nextnode = Nodes[no].u.s.suns[0];
+    for(j=0; j<7; j++) {
+        int chld = Nodes[no].u.s.suns[j];
+        Nodes[chld].u.d.nextnode = Nodes[chld].u.d.sibling = Nodes[no].u.s.suns[j+1];
+    }
+    Nodes[Nodes[no].u.s.suns[7]].u.d.nextnode = Nodes[Nodes[no].u.s.suns[7]].u.d.sibling = Nodes[no].u.d.sibling;
+    for(i = 0; i < 2; i++)
+        for(j = 0; j < 2; j++)
+            for(k = 0; k < 2; k++)
+            {
+                int sub = 7 & peano_hilbert_key((x << 1) + i, (y << 1) + j, (z << 1) + k, bits);
+                int count = i + 2 * j + 4 * k;
+                force_create_node_for_topnode(Nodes[no].u.s.suns[count], ddecomp->TopNodes[topnode].Daughter + sub, Nodes, ddecomp,
                         bits + 1, 2 * x + i, 2 * y + j, 2 * z + k, nextfree, lastnode);
             }
+
 }
 
 /*! this function inserts pseudo-particles which will represent the mass
@@ -832,7 +845,6 @@ int
 force_update_node_parallel(const ForceTree * tree, const int HybridNuGrav)
 {
     int tail;
-    tree->Nodes[tree->firstnode].u.d.sibling = -1;
 #pragma omp parallel
 #pragma omp single nowait
     {
