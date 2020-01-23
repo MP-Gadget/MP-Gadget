@@ -27,10 +27,12 @@ struct NodeChild
 
 struct NODE
 {
+    int sibling;		/*!< this gives the next node in the walk in case the current node can be used */
+    int nextnode;		/*!< this gives the next node in case the current node needs to be opened */
+    int father;		/*!< this gives the parent node of each node (or -1 if we have the root node) */
     MyFloat len;			/*!< sidelength of treenode */
     MyFloat center[3];		/*!< geometrical center of node */
 
-    int father;		/*!< this gives the parent node of each node (or -1 if we have the root node) */
     struct {
         unsigned int InternalTopLevel :1; /* TopLevel and has a child which is also TopLevel*/
         unsigned int TopLevel :1; /* Node corresponding to a toplevel node */
@@ -38,25 +40,19 @@ struct NODE
         unsigned int MixedSofteningsInNode:1;  /* Softening is mixed, need to open the node */
         unsigned int ChildType :2; /* Specify the type of children this node has: particles, other nodes, or pseudo-particles.
                                     * (should be an enum, but not standard in C).*/
+        unsigned int unused : 2; /* Spare bits*/
     } f;
 
-    struct
-    {
-        struct NodeChild s;
-        struct
-        {
-            MyFloat s[3];		/*!< center of mass of node */
-            MyFloat mass;		/*!< mass of node */
-            int sibling;		/*!< this gives the next node in the walk in case the current node can be used */
-            int nextnode;		/*!< this gives the next node in case the current node needs to be opened */
-            MyFloat hmax;			/*!< maximum SPH smoothing length in node. Only used for gas particles */
-            MyFloat MaxSoftening;  /* Stores the largest softening in the node. The short-range
-                                 * gravitational force solver will check this and use it
-                                 * open the node if a particle is closer.*/
-        }
-        d;
-    }
-    u;
+    struct {
+        MyFloat cofm[3];		/*!< center of mass of node */
+        MyFloat mass;		/*!< mass of node */
+        MyFloat hmax;			/*!< maximum SPH smoothing length in node. Only used for gas particles */
+        MyFloat MaxSoftening;  /* Stores the largest softening in the node. The short-range
+                         * gravitational force solver will check this and use it
+                         * open the node if a particle is closer.*/
+    } mom;
+
+    struct NodeChild s;
 };
 
 /*Structure containing the Node pointer, and various Tree metadata.*/

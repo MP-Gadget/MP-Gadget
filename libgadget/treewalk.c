@@ -902,7 +902,7 @@ cull_node(const TreeWalkQueryBase * const I, const TreeWalkNgbIterBase * const i
 {
     double dist;
     if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
-        dist = DMAX(current->u.d.hmax, iter->Hsml) + 0.5 * current->len;
+        dist = DMAX(current->mom.hmax, iter->Hsml) + 0.5 * current->len;
     } else {
         dist = iter->Hsml + 0.5 * current->len;
     }
@@ -979,19 +979,19 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         /* Cull the node */
         if(0 == cull_node(I, iter, current, BoxSize)) {
             /* in case the node can be discarded */
-            no = current->u.d.sibling;
+            no = current->sibling;
             continue;
         }
 
         /* Node contains relevant particles, add them.*/
         if(current->f.ChildType == PARTICLE_NODE_TYPE) {
             int i;
-            int * suns = current->u.s.suns;
-            for (i = 0; i < current->u.s.noccupied; i++) {
+            int * suns = current->s.suns;
+            for (i = 0; i < current->s.noccupied; i++) {
                 lv->ngblist[numcand++] = suns[i];
             }
             /* Move sideways*/
-            no = current->u.d.sibling;
+            no = current->sibling;
             continue;
         }
         else if(current->f.ChildType == PSEUDO_NODE_TYPE) {
@@ -1000,15 +1000,15 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
                 endrun(12312, "Touching outside of my domain from a node list of a ghost. This shall not happen.");
             } else {
                 /* Export the pseudo particle*/
-                if(-1 == treewalk_export_particle(lv, current->u.d.nextnode))
+                if(-1 == treewalk_export_particle(lv, current->nextnode))
                     return -1;
                 /* Move sideways*/
-                no = current->u.d.sibling;
+                no = current->sibling;
                 continue;
             }
         }
         /* ok, we need to open the node */
-        no = current->u.d.nextnode;
+        no = current->nextnode;
     }
 
     return numcand;

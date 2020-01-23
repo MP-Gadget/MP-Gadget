@@ -81,7 +81,7 @@ static int check_moments(const ForceTree * tb, const int numpart, const int nrea
     int i;
 
     for(i=tb->firstnode; i < tb->numnodes + tb->firstnode; i ++) {
-        oldmass[i - tb->firstnode] = tb->Nodes[i].u.d.mass;
+        oldmass[i - tb->firstnode] = tb->Nodes[i].mom.mass;
     }
 
     for(i=0; i<numpart; i++)
@@ -90,7 +90,7 @@ static int check_moments(const ForceTree * tb, const int numpart, const int nrea
         /*Subtract mass so that nothing is left.*/
         assert_true(fnode >= tb->firstnode && fnode < tb->lastnode);
         while(fnode > 0) {
-            tb->Nodes[fnode].u.d.mass -= P[i].Mass;
+            tb->Nodes[fnode].mom.mass -= P[i].Mass;
             fnode = tb->Nodes[fnode].father;
             /*Validate father*/
             assert_true((fnode >= tb->firstnode && fnode < tb->lastnode) || fnode == -1);
@@ -105,8 +105,8 @@ static int check_moments(const ForceTree * tb, const int numpart, const int nrea
         struct NODE * nop = &tb->Nodes[node];
 
         /*Check sibling*/
-        assert_true(tb->Nodes[node].u.d.sibling >= -1 && tb->Nodes[node].u.d.sibling < tb->lastnode);
-        int sib = tb->Nodes[node].u.d.sibling;
+        assert_true(tb->Nodes[node].sibling >= -1 && tb->Nodes[node].sibling < tb->lastnode);
+        int sib = tb->Nodes[node].sibling;
         int sfather = force_get_father(sib, tb);
         int father = force_get_father(node, tb);
         /* Our sibling should either be a true sibling, with the same father,
@@ -120,37 +120,37 @@ static int check_moments(const ForceTree * tb, const int numpart, const int nrea
                     break;
             }
             assert_int_equal(ances, sfather);
-/*                 printf("node %d ances %d sib %d next %d father %d sfather %d\n",node, ances, sib, nop->u.d.nextnode, father, sfather); */
+/*                 printf("node %d ances %d sib %d next %d father %d sfather %d\n",node, ances, sib, nop->nextnode, father, sfather); */
         }
         else if(sib == -1)
             sibcntr++;
 
-        if(!(tb->Nodes[node].u.d.mass < 0.5 && tb->Nodes[node].u.d.mass > -0.5)) {
+        if(!(tb->Nodes[node].mom.mass < 0.5 && tb->Nodes[node].mom.mass > -0.5)) {
             printf("node %d (%d) mass %g / %g TL %d DLM %d MS %g MSN %d ITL %d\n",
-                node, node - tb->firstnode, tb->Nodes[node].u.d.mass, oldmass[node - tb->firstnode],
+                node, node - tb->firstnode, tb->Nodes[node].mom.mass, oldmass[node - tb->firstnode],
                 tb->Nodes[node].f.TopLevel,
                 tb->Nodes[node].f.DependsOnLocalMass,
-                tb->Nodes[node].u.d.MaxSoftening,
+                tb->Nodes[node].mom.MaxSoftening,
                 tb->Nodes[node].f.MixedSofteningsInNode,
                 tb->Nodes[node].f.InternalTopLevel
             );
             /* something is wrong show the particles */
             if(tb->Nodes[node].f.ChildType == PARTICLE_NODE_TYPE)
-                for(i = 0; i < nop->u.s.noccupied; i++) {
-                    int nn = nop->u.s.suns[i];
+                for(i = 0; i < nop->s.noccupied; i++) {
+                    int nn = nop->s.suns[i];
                     printf("particles P[%d], Mass=%g\n", nn, P[nn].Mass);
                 }
         }
-        assert_true(tb->Nodes[node].u.d.mass < 0.5 && tb->Nodes[node].u.d.mass > -0.5);
+        assert_true(tb->Nodes[node].mom.mass < 0.5 && tb->Nodes[node].mom.mass > -0.5);
         /*Check center of mass moments*/
         for(i=0; i<3; i++)
-            assert_true(tb->Nodes[node].u.d.s[i] <= BoxSize && tb->Nodes[node].u.d.s[i] >= 0);
+            assert_true(tb->Nodes[node].mom.cofm[i] <= BoxSize && tb->Nodes[node].mom.cofm[i] >= 0);
         counter++;
 
         if(nop->f.ChildType == PARTICLE_NODE_TYPE)
-            node = nop->u.d.sibling;
+            node = nop->sibling;
         else
-            node = nop->u.d.nextnode;
+            node = nop->nextnode;
     }
     assert_int_equal(counter, nrealnode);
     assert_true(sibcntr < counter/100);
@@ -176,12 +176,12 @@ static int check_tree(const ForceTree * tb, const int nnodes, const int numpart)
 
         int j;
         /* Full of particles*/
-        if(pNode->u.s.noccupied < 1<<16) {
-            tot_empty += NMAXCHILD - pNode->u.s.noccupied;
-            if(pNode->u.s.noccupied == 0)
+        if(pNode->s.noccupied < 1<<16) {
+            tot_empty += NMAXCHILD - pNode->s.noccupied;
+            if(pNode->s.noccupied == 0)
                 sevens++;
-            for(j=0; j<pNode->u.s.noccupied; j++) {
-                int child = pNode->u.s.suns[j];
+            for(j=0; j<pNode->s.noccupied; j++) {
+                int child = pNode->s.suns[j];
                 assert_true(child >= 0);
                 assert_true(child < firstnode);
                 P[child].PI += 1;
@@ -192,7 +192,7 @@ static int check_tree(const ForceTree * tb, const int nnodes, const int numpart)
         else {
             for(j=0; j<8; j++) {
                 /*Check children*/
-                int child = pNode->u.s.suns[j];
+                int child = pNode->s.suns[j];
                 assert_true(child < firstnode+nnodes);
                 assert_true(child >= firstnode);
                 assert_true(fabs(tb->Nodes[child].len/pNode->len - 0.5) < 1e-4);
@@ -249,8 +249,8 @@ static void do_tree_test(const int numpart, const ForceTree tb, DomainDecomp * d
     force_update_node_parallel(&tb, 0);
     end = MPI_Wtime();
     ms = (end - start)*1000;
-    printf("Updated moments in %.3g ms. Total mass: %g\n", ms, tb.Nodes[numpart].u.d.mass);
-    assert_true(fabs(tb.Nodes[numpart].u.d.mass - numpart) < 0.5);
+    printf("Updated moments in %.3g ms. Total mass: %g\n", ms, tb.Nodes[numpart].mom.mass);
+    assert_true(fabs(tb.Nodes[numpart].mom.mass - numpart) < 0.5);
     check_moments(&tb, numpart, nrealnode);
 }
 
