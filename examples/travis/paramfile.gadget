@@ -39,8 +39,6 @@ PartAllocFactor = 2.0
 #----------------------BH Stuff-------------------------
 BlackHoleOn = 1
 BlackHoleFeedbackMethod = spline | mass
-MinFoFMassForNewSeed = 1
-TimeBetweenSeedingSearch 1.03
 
 #----------------------SFR Stuff-------------------------
 CritPhysDensity = 0       #  critical physical density for star formation in

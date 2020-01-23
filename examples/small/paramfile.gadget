@@ -61,13 +61,9 @@ BlackHoleFeedbackFactor = 0.05
 BlackHoleFeedbackRadius = 0.
 BlackHoleFeedbackRadiusMaxPhys = 0.
 BlackHoleFeedbackMethod = spline | mass
-SeedBlackHoleMass = 5.0e-5
 BlackHoleAccretionFactor = 100.0
 BlackHoleNgbFactor = 2.0
 BlackHoleEddingtonFactor = 3.0
-
-MinFoFMassForNewSeed = 1
-TimeBetweenSeedingSearch = 1.03
 
 #----------------------SFR Stuff-------------------------
 
