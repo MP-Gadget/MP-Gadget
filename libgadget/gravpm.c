@@ -226,9 +226,11 @@ static int pm_mark_region_for_node(int startno, int rid, int * RegionInd, const 
             /* Move to sibling*/
             no = nop->u.d.sibling;
         }
-        /* This should never occur: this function should be handed only top leaves which cannot contain pseudo particles*/
+        /* Generally this function should be handed top leaves which do not contain pseudo particles.
+         * However, sometimes it will receive an internal top node which can, if that top node is small enough.
+         * In this case, just move to the sibling: no particles to mark here.*/
         else if(nop->f.ChildType == PSEUDO_NODE_TYPE)
-            endrun(122, "Region marking encountered a pseudo-particle, which should never happen!\n");
+            no = nop->u.d.sibling;
         else if(nop->f.ChildType == NODE_NODE_TYPE)
             no = nop->u.d.nextnode;
         else
