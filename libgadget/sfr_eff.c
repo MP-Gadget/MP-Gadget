@@ -488,6 +488,33 @@ double get_neutral_fraction_sfreff(double redshift, struct particle_data * partd
     return nh0;
 }
 
+double get_helium_neutral_fraction_sfreff(int ion, double redshift, struct particle_data * partdata, struct sph_particle_data * sphdata)
+{
+    double helium;
+    struct UVBG uvbg = get_local_UVBG(redshift, partdata->Pos, All.CurrentParticleOffset);
+    double physdens = sphdata->Density * All.cf.a3inv;
+
+    if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata)) {
+        /*This gets the neutral fraction for standard gas*/
+        double eomdensity = sphdata->Density;
+        if(DensityIndependentSphOn())
+            eomdensity  = sphdata->EgyWtDensity;
+        double InternalEnergy = sphdata->Entropy / GAMMA_MINUS1 * pow(eomdensity * All.cf.a3inv, GAMMA_MINUS1);
+        helium = GetHeliumIonFraction(ion, InternalEnergy, physdens, &uvbg, sphdata->Ne);
+    }
+    else {
+        /* This gets the neutral fraction for gas on the star-forming equation of state.
+         * This needs special handling because the cold clouds have a different neutral
+         * fraction than the hot gas*/
+        double dloga = get_dloga_for_bin(partdata->TimeBin);
+        double dtime = dloga / All.cf.hubble;
+        struct sfr_eeqos_data sfr_data = get_sfr_eeqos(partdata, sphdata, dtime);
+        double nh0cold = GetHeliumIonFraction(ion, sfr_params.EgySpecCold, physdens, &uvbg, sfr_data.ne);
+        double nh0hot = GetHeliumIonFraction(ion, sfr_data.egyhot, physdens, &uvbg, sfr_data.ne);
+        helium =  nh0cold * sfr_data.cloudfrac + (1-sfr_data.cloudfrac) * nh0hot;
+    }
+    return helium;
+}
 /* This function turns a particle into a star. It returns 1 if a particle was
  * converted and 2 if a new particle was spawned. This is used
  * above to set stars_{spawned|converted}*/
