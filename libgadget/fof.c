@@ -61,9 +61,10 @@ void set_fof_params(ParameterSet * ps)
     MPI_Bcast(&fof_params, sizeof(struct FOFParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
-void fof_init(double DMMeanSeparation)
+void fof_init(double DMMeanSeparation, double ParticleMass)
 {
     fof_params.FOFHaloComovingLinkingLength = fof_params.FOFHaloLinkingLength * DMMeanSeparation;
+    fof_params.MinFoFMassForNewSeed = fof_params.MinFoFMassForNewSeed * ParticleMass;
 }
 
 static double fof_periodic(double x, double BoxSize)

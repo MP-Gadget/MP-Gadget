@@ -6,7 +6,7 @@
 
 void set_fof_params(ParameterSet * ps);
 
-void fof_init(double DMMeanSeparation);
+void fof_init(double DMMeanSeparation, double ParticleMass);
 
 struct BaseGroup {
     int OriginalTask;

@@ -28,7 +28,7 @@
  *  \brief code for initialisation of a simulation from initial conditions
  */
 
-static void check_omega(void);
+static double check_omega(const struct part_manager_type * PartManager);
 static void check_positions(void);
 
 static void
@@ -72,7 +72,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
 
     domain_test_id_uniqueness(PartManager);
 
-    check_omega();
+    double meandmmass = check_omega(PartManager);
 
     check_positions();
 
@@ -80,7 +80,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
      * on Task 0, there will be a lot of imbalance*/
     MPIU_Barrier(MPI_COMM_WORLD);
 
-    fof_init(All.MeanSeparation[1]);
+    fof_init(All.MeanSeparation[1], meandmmass);
 
     All.SnapshotFileCount = RestartSnapNum + 1;
     All.InitSnapshotCount = RestartSnapNum + 1;
@@ -141,17 +141,26 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
 
 /*! This routine computes the mass content of the box and compares it to the
  * specified value of Omega-matter.  If discrepant, the run is terminated.
+ * Returns the mean dark matter particle mass.
  */
-void check_omega(void)
+static double check_omega(const struct part_manager_type * PartManager)
 {
-    double mass = 0, masstot, omega;
+    double mass = 0, masstot, omega, dmmass=0, dmmasstot;
+    int64_t ndm = 0, ndmtot;
     int i;
 
-    #pragma omp parallel for reduction(+: mass)
-    for(i = 0; i < PartManager->NumPart; i++)
-        mass += P[i].Mass;
+    #pragma omp parallel for reduction(+: mass) reduction(+: ndm) reduction(+:dmmass)
+    for(i = 0; i < PartManager->NumPart; i++) {
+        mass += PartManager->Base[i].Mass;
+        if(PartManager->Base[i].Type == 1) {
+            ndm ++;
+            dmmass += PartManager->Base[i].Mass;
+        }
+    }
 
     MPI_Allreduce(&mass, &masstot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&dmmass, &dmmasstot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&ndm, &ndmtot, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
     omega =
         masstot / (All.BoxSize * All.BoxSize * All.BoxSize) / (3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G));
@@ -161,9 +170,10 @@ void check_omega(void)
         omega += get_omega_nu_nopart(&All.CP.ONu, 1);
     if(fabs(omega - All.CP.Omega0) > 1.0e-3)
     {
-        endrun(0, "The mass content accounts only for Omega=%g,\nbut you specified Omega=%g in the parameterfile.\n",
+        endrun(0, "Simulation particles give Omega=%g != Omega=%g in the parameterfile.\n",
                 omega, All.CP.Omega0);
     }
+    return dmmasstot / ndm;
 }
 
 /*! This routine checks that the initial positions of the particles are within the box.
