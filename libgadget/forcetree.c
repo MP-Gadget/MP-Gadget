@@ -509,8 +509,24 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
     int i, j, k;
 
     /*We reached the leaf of the toptree*/
-    if(ddecomp->TopNodes[topnode].Daughter < 0)
+    if(ddecomp->TopNodes[topnode].Daughter < 0) {
+        int i;
+        if(*nextfree >= lastnode-8)
+            endrun(11, "Not enough force nodes to topnode grid: need %d\n",lastnode);
+
+        struct NODE *nprnt = &Nodes[no];
+        /* Get several new child nodes.*/
+        for(i=0; i<8; i++) {
+            nprnt->u.s.suns[i] = *nextfree;
+            (*nextfree)++;
+            struct NODE *nfreep = &Nodes[nprnt->u.s.suns[i]];
+            /* We create a new leaf node.*/
+            init_internal_node(nfreep, nprnt, i);
+            /*Set father of new node*/
+            nfreep->father = no;
+        }
         return;
+    }
 
     for(i = 0; i < 2; i++)
         for(j = 0; j < 2; j++)
