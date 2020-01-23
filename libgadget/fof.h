@@ -62,7 +62,7 @@ FOFGroups fof_fof(ForceTree * tree, int BlackHoleInfo, MPI_Comm Comm);
 void fof_finish(FOFGroups * fof);
 
 /*Uses the Group structure to seed blackholes*/
-void fof_seed(FOFGroups * fof, MPI_Comm Comm);
+void fof_seed(FOFGroups * fof, const double Time, MPI_Comm Comm);
 
 /*Saves the Group structure to disc.*/
 void fof_save_groups(FOFGroups * fof, int num, MPI_Comm Comm);

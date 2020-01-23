@@ -14,7 +14,6 @@
 
 #include "walltime.h"
 #include "sfr_eff.h"
-#include "blackhole.h"
 #include "domain.h"
 #include "winds.h"
 
@@ -45,6 +44,7 @@ struct FOFParams
     double FOFHaloLinkingLength;
     double FOFHaloComovingLinkingLength; /* in code units */
     int FOFHaloMinLength;
+    double SeedBlackHoleMass;	/*!< Seed black hole mass */
 } fof_params;
 
 /*Set the parameters of the BH module*/
@@ -57,6 +57,7 @@ void set_fof_params(ParameterSet * ps)
         fof_params.FOFHaloLinkingLength = param_get_double(ps, "FOFHaloLinkingLength");
         fof_params.FOFHaloMinLength = param_get_int(ps, "FOFHaloMinLength");
         fof_params.MinFoFMassForNewSeed = param_get_double(ps, "MinFoFMassForNewSeed");
+        fof_params.SeedBlackHoleMass = param_get_double(ps, "SeedBlackHoleMass");
     }
     MPI_Bcast(&fof_params, sizeof(struct FOFParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -1226,9 +1227,9 @@ static int cmp_seed_task(const void * c1, const void * c2) {
 
     return g1->seed_task - g2->seed_task;
 }
-static void fof_seed_make_one(struct Group * g, int ThisTask);
+static void fof_seed_make_one(struct Group * g, int ThisTask, const double Time);
 
-void fof_seed(FOFGroups * fof, MPI_Comm Comm)
+void fof_seed(FOFGroups * fof, const double Time, MPI_Comm Comm)
 {
     int i, j, n, ntot;
 
@@ -1291,7 +1292,7 @@ void fof_seed(FOFGroups * fof, MPI_Comm Comm)
 
     for(n = 0; n < Nimport; n++)
     {
-        fof_seed_make_one(&ImportGroups[n], ThisTask);
+        fof_seed_make_one(&ImportGroups[n], ThisTask, Time);
     }
 
     myfree(ImportGroups);
@@ -1304,12 +1305,45 @@ void fof_seed(FOFGroups * fof, MPI_Comm Comm)
     walltime_measure("/FOF/Seeding");
 }
 
-static void fof_seed_make_one(struct Group * g, int ThisTask) {
+/* Make a black hole from the particle at index*/
+static void blackhole_make_one(const int index, const double Time) {
+    if(P[index].Type != 0)
+        endrun(7772, "Only Gas turns into blackholes, what's wrong?");
+
+    int child = index;
+
+    /* Make the new particle a black hole: use all the P[i].Mass
+     * so we don't have lots of low mass tracers.
+     * If the BH seed mass is small this may lead to a mismatch
+     * between the gas and BH mass. */
+    child = slots_convert(child, 5, -1, PartManager, SlotsManager);
+
+    BHP(child).base.ID = P[child].ID;
+    /* The accretion mass should always be the seed black hole mass,
+     * irrespective of the gravitational mass of the particle.*/
+    BHP(child).Mass = fof_params.SeedBlackHoleMass;
+    BHP(child).Mdot = 0;
+    BHP(child).FormationTime = Time;
+    BHP(child).SwallowID = (MyIDType) -1;
+
+    /* It is important to initialize MinPotPos to the current position of
+     * a BH to avoid drifting to unknown locations (0,0,0) immediately
+     * after the BH is created. */
+    int j;
+    for(j = 0; j < 3; j++) {
+        BHP(child).MinPotPos[j] = P[child].Pos[j];
+    }
+    BHP(child).JumpToMinPot = 0;
+
+    BHP(child).CountProgs = 1;
+}
+
+static void fof_seed_make_one(struct Group * g, int ThisTask, const double Time) {
    if(g->seed_task != ThisTask) {
         endrun(7771, "Seed does not belong to the right task");
     }
     int index = g->seed_index;
-    blackhole_make_one(index);
+    blackhole_make_one(index, Time);
 }
 
 static int fof_compare_HaloLabel_MinID(const void *a, const void *b)

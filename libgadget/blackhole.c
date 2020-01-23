@@ -29,7 +29,6 @@ struct BlackholeParams
     enum BlackHoleFeedbackMethod BlackHoleFeedbackMethod;	/*!< method of the feedback*/
     double BlackHoleFeedbackRadius;	/*!< Radius the thermal feedback is fed comoving*/
     double BlackHoleFeedbackRadiusMaxPhys;	/*!< Radius the thermal cap */
-    double SeedBlackHoleMass;	/*!< Seed black hole mass */
     double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
 } blackhole_params;
 
@@ -116,7 +115,6 @@ void set_blackhole_params(ParameterSet * ps)
     if(ThisTask == 0) {
         blackhole_params.BlackHoleAccretionFactor = param_get_double(ps, "BlackHoleAccretionFactor");
         blackhole_params.BlackHoleEddingtonFactor = param_get_double(ps, "BlackHoleEddingtonFactor");
-        blackhole_params.SeedBlackHoleMass = param_get_double(ps, "SeedBlackHoleMass");
 
         blackhole_params.BlackHoleFeedbackFactor = param_get_double(ps, "BlackHoleFeedbackFactor");
         blackhole_params.BlackHoleFeedbackRadius = param_get_double(ps, "BlackHoleFeedbackRadius");
@@ -734,40 +732,6 @@ blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum Tre
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_accreted_Mass[PI], remote->Mass);
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_accreted_BHMass[PI], remote->BH_Mass);
     TREEWALK_REDUCE(BHP(place).CountProgs, remote->BH_CountProgs);
-}
-
-void blackhole_make_one(int index) {
-    if(!All.BlackHoleOn)
-        return;
-    if(P[index].Type != 0)
-        endrun(7772, "Only Gas turns into blackholes, what's wrong?");
-
-    int child = index;
-
-    /* Make the new particle a black hole: use all the P[i].Mass
-     * so we don't have lots of low mass tracers.
-     * If the BH seed mass is small this may lead to a mismatch
-     * between the gas and BH mass. */
-    child = slots_convert(child, 5, -1, PartManager, SlotsManager);
-
-    BHP(child).base.ID = P[child].ID;
-    /* The accretion mass should always be the seed black hole mass,
-     * irrespective of the gravitational mass of the particle.*/
-    BHP(child).Mass = blackhole_params.SeedBlackHoleMass;
-    BHP(child).Mdot = 0;
-    BHP(child).FormationTime = All.Time;
-    BHP(child).SwallowID = (MyIDType) -1;
-
-    /* It is important to initialize MinPotPos to the current position of
-     * a BH to avoid drifting to unknown locations (0,0,0) immediately
-     * after the BH is created. */
-    int j;
-    for(j = 0; j < 3; j++) {
-        BHP(child).MinPotPos[j] = P[child].Pos[j];
-    }
-    BHP(child).JumpToMinPot = 0;
-
-    BHP(child).CountProgs = 1;
 }
 
 static double

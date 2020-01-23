@@ -21,7 +21,4 @@ void set_blackhole_params(ParameterSet * ps);
  */
 void blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles);
 
-/* Make a black hole from the particle at index*/
-void blackhole_make_one(int index);
-
 #endif
