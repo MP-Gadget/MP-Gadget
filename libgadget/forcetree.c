@@ -668,23 +668,8 @@ force_get_sibling(const int sib, const int j, const int * suns)
     return nextsib;
 }
 
-/* Very little to be done for a pseudo particle because the mass of the
-* pseudo-particle is still zero. The node attributes will be changed
-* later when we exchange the pseudo-particles.*/
 static int
-force_update_pseudo_node(int no, int sib, const ForceTree * tree)
-{
-    if(tree->Nodes[no].f.ChildType != PSEUDO_NODE_TYPE)
-        endrun(3, "force_update_pseudo_node called on node %d of wrong type!\n", no);
-
-    tree->Nodes[no].u.d.sibling = sib;
-
-    /*The pseudo-particle does not need a tail set.*/
-    return -1;
-}
-
-static int
-force_update_particle_node(int no, int sib, const ForceTree * tree, const int HybridNuGrav)
+force_update_particle_node(int no, const ForceTree * tree, const int HybridNuGrav)
 {
     if(tree->Nodes[no].f.ChildType != PARTICLE_NODE_TYPE)
         endrun(3, "force_update_particle_node called on node %d of wrong type!\n", no);
@@ -693,8 +678,6 @@ force_update_particle_node(int no, int sib, const ForceTree * tree, const int Hy
 
     const int noccupied = tree->Nodes[no].u.s.noccupied;
     int * suns = tree->Nodes[no].u.s.suns;
-
-    tree->Nodes[no].u.d.sibling = sib;
 
     /*Now we do the moments*/
     for(j = 0; j < noccupied; j++) {
@@ -777,30 +760,29 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
         /*Empty slot*/
         if(p < 0)
             continue;
-
         const int nextsib = force_get_sibling(sib, j, suns);
+        /* This is set in create_nodes but needed because we may remove empty nodes above.*/
+        tree->Nodes[p].u.d.sibling = nextsib;
         /* Nodes containing particles or pseudo-particles*/
         if(tree->Nodes[p].f.ChildType == PARTICLE_NODE_TYPE)
-            force_update_particle_node(p, nextsib, tree, HybridNuGrav);
-        else if(tree->Nodes[p].f.ChildType == PSEUDO_NODE_TYPE)
-            force_update_pseudo_node(p, nextsib, tree);
-        /*Don't spawn a new task if we are deep enough that we already spawned a lot.
-        Note: final clause is much slower for some reason. */
-        else if(childcnt > 1 && level < 256) {
-            /* We cannot use default(none) here because we need a const (HybridNuGrav),
-            * which for gcc < 9 is default shared (and thus cannot be explicitly shared
-            * without error) and for gcc == 9 must be explicitly shared. The other solution
-            * is to make it firstprivate which I think will be excessively expensive for a
-            * recursive call like this. See:
-            * https://www.gnu.org/software/gcc/gcc-9/porting_to.html */
-            #pragma omp task shared(level, childcnt, tree) firstprivate(j, nextsib, p)
-            force_update_node_recursive(p, nextsib, level*childcnt, tree, HybridNuGrav);
+            force_update_particle_node(p, tree, HybridNuGrav);
+        if(tree->Nodes[p].f.ChildType == NODE_NODE_TYPE) {
+            /* Don't spawn a new task if we are deep enough that we already spawned a lot.
+             * Note: final clause is much slower for some reason. */
+            if(childcnt > 1 && level < 256) {
+                /* We cannot use default(none) here because we need a const (HybridNuGrav),
+                * which for gcc < 9 is default shared (and thus cannot be explicitly shared
+                * without error) and for gcc == 9 must be explicitly shared. The other solution
+                * is to make it firstprivate which I think will be excessively expensive for a
+                * recursive call like this. See:
+                * https://www.gnu.org/software/gcc/gcc-9/porting_to.html */
+                #pragma omp task shared(level, childcnt, tree) firstprivate(nextsib, p)
+                force_update_node_recursive(p, nextsib, level*childcnt, tree, HybridNuGrav);
+            }
+            else
+                force_update_node_recursive(p, nextsib, level, tree, HybridNuGrav);
         }
-        else
-            force_update_node_recursive(p, nextsib, level, tree, HybridNuGrav);
     }
-
-    tree->Nodes[no].u.d.sibling = sib;
 
     /*Make sure all child nodes are done*/
     #pragma omp taskwait
@@ -850,6 +832,7 @@ int
 force_update_node_parallel(const ForceTree * tree, const int HybridNuGrav)
 {
     int tail;
+    tree->Nodes[tree->firstnode].u.d.sibling = -1;
 #pragma omp parallel
 #pragma omp single nowait
     {
@@ -857,9 +840,7 @@ force_update_node_parallel(const ForceTree * tree, const int HybridNuGrav)
         if(tree->Nodes[tree->firstnode].f.ChildType == NODE_NODE_TYPE)
             tail = force_update_node_recursive(tree->firstnode, -1, 1, tree, HybridNuGrav);
         else if(tree->Nodes[tree->firstnode].f.ChildType == PARTICLE_NODE_TYPE)
-            tail = force_update_particle_node(tree->firstnode, -1, tree, HybridNuGrav);
-        else
-            tail = force_update_pseudo_node(tree->firstnode, -1, tree);
+            tail = force_update_particle_node(tree->firstnode, tree, HybridNuGrav);
     }
     return tail;
 }
