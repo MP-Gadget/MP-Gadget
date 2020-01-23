@@ -85,9 +85,9 @@ force_tree_eh_slots_fork(EIBase * event, void * userdata)
      * At the moment this does not matter, because
      * the only new particles are stars, which do not
      * participate in the SPH tree walk.*/
-    if(nop->u.s.noccupied < NMAXCHILD) {
-       nop->u.s.suns[nop->u.s.noccupied-1] = child;
-        nop->u.s.noccupied++;
+    if(nop->s.noccupied < NMAXCHILD) {
+       nop->s.suns[nop->s.noccupied-1] = child;
+        nop->s.noccupied++;
     }
     tree->Father[child] = no;
     return 0;
@@ -232,12 +232,12 @@ static void init_internal_node(struct NODE *nfreep, struct NODE *parent, int sub
         nfreep->center[j] = parent->center[j] + sign*lenhalf;
     }
     for(j = 0; j < NMAXCHILD; j++)
-        nfreep->u.s.suns[j] = -1;
-    nfreep->u.s.noccupied = 0;
-    memset(&(nfreep->u.d.s),0,3*sizeof(MyFloat));
-    nfreep->u.d.mass = 0;
-    nfreep->u.d.hmax = 0;
-    nfreep->u.d.MaxSoftening = -1;
+        nfreep->s.suns[j] = -1;
+    nfreep->s.noccupied = 0;
+    memset(&(nfreep->mom.cofm),0,3*sizeof(MyFloat));
+    nfreep->mom.mass = 0;
+    nfreep->mom.hmax = 0;
+    nfreep->mom.MaxSoftening = -1;
     nfreep->f.DependsOnLocalMass = 0;
     nfreep->f.MixedSofteningsInNode = 0;
 
@@ -274,9 +274,9 @@ static int
 modify_internal_node(int parent, int subnode, int p_toplace, const ForceTree tb)
 {
     tb.Father[p_toplace] = parent;
-    tb.Nodes[parent].u.s.suns[subnode] = p_toplace;
+    tb.Nodes[parent].s.suns[subnode] = p_toplace;
     if(subnode == 0)
-        tb.Nodes[parent].u.d.nextnode = tb.Nodes[parent].u.s.suns[0];
+        tb.Nodes[parent].nextnode = tb.Nodes[parent].s.suns[0];
     return 0;
 }
 
@@ -298,14 +298,14 @@ create_new_node_layer(int firstparent, int p_toplace,
         struct NODE *nprnt = &tb.Nodes[parent];
 
         /* Copy the old particles and a new one into a temporary array*/
-        memcpy(oldsuns, nprnt->u.s.suns, NMAXCHILD * sizeof(int));
+        memcpy(oldsuns, nprnt->s.suns, NMAXCHILD * sizeof(int));
 
         /*We have two particles here, so create a new child node to store them both.*/
         /* if we are here the node must be large enough, thus contain exactly one child. */
         /* The parent is already a leaf, need to split */
         for(i=0; i<8; i++) {
             /* Get memory for an extra node from our cache.*/
-            nprnt->u.s.suns[i] = get_freenode(nnext, nc);
+            nprnt->s.suns[i] = get_freenode(nnext, nc);
             /*If we already have too many nodes, exit loop.*/
             if(nc->nnext_thread >= tb.lastnode) {
                 /* This means that we have > NMAXCHILD particles in the same place,
@@ -317,43 +317,43 @@ create_new_node_layer(int firstparent, int p_toplace,
                 );
                 return 1;
             }
-            struct NODE *nfreep = &tb.Nodes[nprnt->u.s.suns[i]];
+            struct NODE *nfreep = &tb.Nodes[nprnt->s.suns[i]];
             /* We create a new leaf node.*/
             init_internal_node(nfreep, nprnt, i);
             /*Set father of new node*/
             nfreep->father = parent;
         }
         /* Set nextnode and sibling for the new rank. Since empty at this point, point both of them onwards.*/
-        nprnt->u.d.nextnode = nprnt->u.s.suns[0];
+        nprnt->nextnode = nprnt->s.suns[0];
         for(i=0; i<7; i++) {
-            int child = nprnt->u.s.suns[i];
+            int child = nprnt->s.suns[i];
             struct NODE * nchild = &tb.Nodes[child];
-            nchild->u.d.nextnode = nchild->u.d.sibling = nprnt->u.s.suns[i+1];
+            nchild->nextnode = nchild->sibling = nprnt->s.suns[i+1];
         }
         /* Final child needs special handling: set to the parent's sibling/nextnode.*/
-        tb.Nodes[nprnt->u.s.suns[7]].u.d.nextnode = tb.Nodes[nprnt->u.s.suns[7]].u.d.sibling = nprnt->u.d.sibling;
+        tb.Nodes[nprnt->s.suns[7]].nextnode = tb.Nodes[nprnt->s.suns[7]].sibling = nprnt->sibling;
 
         /*Initialize the remaining entries to empty*/
         for(i=8; i<NMAXCHILD;i++)
-            nprnt->u.s.suns[i] = -1;
+            nprnt->s.suns[i] = -1;
 
         for(i=0; i < NMAXCHILD; i++) {
             /* Re-attach each particle to the appropriate new leaf.
             * Notice that since we have NMAXCHILD slots on each child and NMAXCHILD particles,
             * we will always have a free slot. */
             int subnode = get_subnode(nprnt, oldsuns[i]);
-            int child = nprnt->u.s.suns[subnode];
+            int child = nprnt->s.suns[subnode];
             struct NODE * nchild = &tb.Nodes[child];
-            modify_internal_node(child, nchild->u.s.noccupied, oldsuns[i], tb);
-            nchild->u.s.noccupied++;
+            modify_internal_node(child, nchild->s.noccupied, oldsuns[i], tb);
+            nchild->s.noccupied++;
         }
         /* Now try again to add the new particle*/
         int subnode = get_subnode(nprnt, p_toplace);
-        int child = nprnt->u.s.suns[subnode];
+        int child = nprnt->s.suns[subnode];
         struct NODE * nchild = &tb.Nodes[child];
-        if(nchild->u.s.noccupied < NMAXCHILD) {
-            modify_internal_node(child, nchild->u.s.noccupied, p_toplace, tb);
-            nchild->u.s.noccupied++;
+        if(nchild->s.noccupied < NMAXCHILD) {
+            modify_internal_node(child, nchild->s.noccupied, p_toplace, tb);
+            nchild->s.noccupied++;
             break;
         }
         /* The attached particles are already within one subnode of the new node.
@@ -363,7 +363,7 @@ create_new_node_layer(int firstparent, int p_toplace,
              * so mark it a Node-containing node. It cannot be accessed until
              * we mark the top-level parent, so no need for atomics.*/
             tb.Nodes[child].f.ChildType = NODE_NODE_TYPE;
-            tb.Nodes[child].u.s.noccupied = (1<<16);
+            tb.Nodes[child].s.noccupied = (1<<16);
             parent = child;
         }
     } while(1);
@@ -372,7 +372,7 @@ create_new_node_layer(int firstparent, int p_toplace,
      * This goes last so that we don't access the child before it is constructed.*/
     tb.Nodes[firstparent].f.ChildType = NODE_NODE_TYPE;
     #pragma omp atomic write
-    tb.Nodes[firstparent].u.s.noccupied = (1<<16);
+    tb.Nodes[firstparent].s.noccupied = (1<<16);
     return 0;
 }
 
@@ -391,11 +391,11 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         for(i = 0; i < 3; i++)
             nfreep->center[i] = BoxSize/2.;
         for(i = 0; i < NMAXCHILD; i++)
-            nfreep->u.s.suns[i] = -1;
-        nfreep->u.s.noccupied = 0;
+            nfreep->s.suns[i] = -1;
+        nfreep->s.noccupied = 0;
         nfreep->father = -1;
-        nfreep->u.d.sibling = -1;
-        nfreep->u.d.nextnode = -1;
+        nfreep->sibling = -1;
+        nfreep->nextnode = -1;
         nfreep->f.TopLevel = 1;
         nfreep->f.InternalTopLevel = 0;
         nfreep->f.ChildType = PARTICLE_NODE_TYPE;
@@ -450,7 +450,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         {
             /*No lock needed: if we have an internal node here it will be stable*/
             #pragma omp atomic read
-            nocc = tb.Nodes[this].u.s.noccupied;
+            nocc = tb.Nodes[this].s.noccupied;
 
             /* This node still has space for a particle (or needs conversion)*/
             if(nocc < (1 << 16))
@@ -459,7 +459,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
             /* This node has child subnodes: find them.*/
             int subnode = get_subnode(&tb.Nodes[this], i);
             /*No lock needed: if we have an internal node here it will be stable*/
-            child = tb.Nodes[this].u.s.suns[subnode];
+            child = tb.Nodes[this].s.suns[subnode];
 
             if(child > tb.lastnode || child < tb.firstnode)
                 endrun(1,"Corruption in tree build: N[%d].[%d] = %d > lastnode (%d)\n",this, subnode, child, tb.lastnode);
@@ -470,13 +470,13 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         /*Now lock this node.*/
         lock_spinlock(this-tb.firstnode, spin);
         /* We have a guaranteed spot.*/
-        nocc = atomic_fetch_and_add(&tb.Nodes[this].u.s.noccupied, 1);
+        nocc = atomic_fetch_and_add(&tb.Nodes[this].s.noccupied, 1);
 
         /* Check whether there is now a new layer of nodes and if so walk down until there isn't.*/
         if(nocc >= (1<<16)) {
             /* This node has child subnodes: find them.*/
             int subnode = get_subnode(&tb.Nodes[this], i);
-            child = tb.Nodes[this].u.s.suns[subnode];
+            child = tb.Nodes[this].s.suns[subnode];
             while(child >= tb.firstnode)
             {
                 /*Move the lock to the child*/
@@ -486,7 +486,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
 
                 /*No lock needed: if we have an internal node here it will be stable*/
                 #pragma omp atomic read
-                nocc = tb.Nodes[this].u.s.noccupied;
+                nocc = tb.Nodes[this].s.noccupied;
                 /* This node still has space for a particle (or needs conversion)*/
                 if(nocc < (1 << 16))
                     break;
@@ -494,10 +494,10 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
                 /* This node has child subnodes: find them.*/
                 subnode = get_subnode(&tb.Nodes[this], i);
                 /*No lock needed: if we have an internal node here it will be stable*/
-                child = tb.Nodes[this].u.s.suns[subnode];
+                child = tb.Nodes[this].s.suns[subnode];
             }
             /* Get the free spot under the lock.*/
-            nocc = atomic_fetch_and_add(&tb.Nodes[this].u.s.noccupied, 1);
+            nocc = atomic_fetch_and_add(&tb.Nodes[this].s.noccupied, 1);
         }
 
         /*Update last-used cache*/
@@ -547,11 +547,11 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
 
                 int count = i + 2 * j + 4 * k;
 
-                Nodes[no].u.s.suns[count] = *nextfree;
+                Nodes[no].s.suns[count] = *nextfree;
                 /*We are an internal top level node as we now have a child top level.*/
                 Nodes[no].f.InternalTopLevel = 1;
                 Nodes[no].f.ChildType = NODE_NODE_TYPE;
-                Nodes[no].u.s.noccupied = (1<<16);
+                Nodes[no].s.noccupied = (1<<16);
 
                 /* We create a new leaf node.*/
                 init_internal_node(&Nodes[*nextfree], &Nodes[no], count);
@@ -571,19 +571,19 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
                     endrun(11, "Not enough force nodes to topnode grid: need %d\n",lastnode);
             }
     /* Set nextnode on the parent, sibling on the child*/
-    Nodes[no].u.d.nextnode = Nodes[no].u.s.suns[0];
+    Nodes[no].nextnode = Nodes[no].s.suns[0];
     for(j=0; j<7; j++) {
-        int chld = Nodes[no].u.s.suns[j];
-        Nodes[chld].u.d.nextnode = Nodes[chld].u.d.sibling = Nodes[no].u.s.suns[j+1];
+        int chld = Nodes[no].s.suns[j];
+        Nodes[chld].nextnode = Nodes[chld].sibling = Nodes[no].s.suns[j+1];
     }
-    Nodes[Nodes[no].u.s.suns[7]].u.d.nextnode = Nodes[Nodes[no].u.s.suns[7]].u.d.sibling = Nodes[no].u.d.sibling;
+    Nodes[Nodes[no].s.suns[7]].nextnode = Nodes[Nodes[no].s.suns[7]].sibling = Nodes[no].sibling;
     for(i = 0; i < 2; i++)
         for(j = 0; j < 2; j++)
             for(k = 0; k < 2; k++)
             {
                 int sub = 7 & peano_hilbert_key((x << 1) + i, (y << 1) + j, (z << 1) + k, bits);
                 int count = i + 2 * j + 4 * k;
-                force_create_node_for_topnode(Nodes[no].u.s.suns[count], ddecomp->TopNodes[topnode].Daughter + sub, Nodes, ddecomp,
+                force_create_node_for_topnode(Nodes[no].s.suns[count], ddecomp->TopNodes[topnode].Daughter + sub, Nodes, ddecomp,
                         bits + 1, 2 * x + i, 2 * y + j, 2 * z + k, nextfree, lastnode);
             }
 
@@ -607,13 +607,13 @@ force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddeco
     {
         index = ddecomp->TopLeaves[i].treenode;
         if(ddecomp->TopLeaves[i].Task != ThisTask) {
-            if(tree->Nodes[index].u.s.noccupied != 0)
+            if(tree->Nodes[index].s.noccupied != 0)
                 endrun(5, "In node %d, overwriting %d child particles (i = %d etc) with pseudo particle %d\n",
-                       index, tree->Nodes[index].u.s.noccupied, tree->Nodes[index].u.s.suns[0], i);
+                       index, tree->Nodes[index].s.noccupied, tree->Nodes[index].s.suns[0], i);
             tree->Nodes[index].f.ChildType = PSEUDO_NODE_TYPE;
             /* This node points to the pseudo particle*/
-            tree->Nodes[index].u.d.nextnode = firstpseudo + i;
-            tree->Nodes[index].u.s.suns[0] = firstpseudo + i;
+            tree->Nodes[index].nextnode = firstpseudo + i;
+            tree->Nodes[index].s.suns[0] = firstpseudo + i;
         }
     }
 }
@@ -634,14 +634,14 @@ static void
 force_adjust_node_softening(struct NODE * pnode, double MaxSoftening, int mixed)
 {
 
-    if(pnode->u.d.MaxSoftening > 0) {
+    if(pnode->mom.MaxSoftening > 0) {
         /* already set? mark MixedSoftenings */
-        if(MaxSoftening != pnode->u.d.MaxSoftening) {
+        if(MaxSoftening != pnode->mom.MaxSoftening) {
             pnode->f.MixedSofteningsInNode = 1;
         }
     }
-    if(MaxSoftening > pnode->u.d.MaxSoftening) {
-        pnode->u.d.MaxSoftening = MaxSoftening;
+    if(MaxSoftening > pnode->mom.MaxSoftening) {
+        pnode->mom.MaxSoftening = MaxSoftening;
     }
     if(mixed) {
         pnode->f.MixedSofteningsInNode = 1;
@@ -652,14 +652,14 @@ static void
 add_particle_moment_to_node(struct NODE * pnode, int i)
 {
     int k;
-    pnode->u.d.mass += (P[i].Mass);
+    pnode->mom.mass += (P[i].Mass);
     for(k=0; k<3; k++)
-        pnode->u.d.s[k] += (P[i].Mass * P[i].Pos[k]);
+        pnode->mom.cofm[k] += (P[i].Mass * P[i].Pos[k]);
 
     if(P[i].Type == 0)
     {
-        if(P[i].Hsml > pnode->u.d.hmax)
-            pnode->u.d.hmax = P[i].Hsml;
+        if(P[i].Hsml > pnode->mom.hmax)
+            pnode->mom.hmax = P[i].Hsml;
     }
 
     force_adjust_node_softening(pnode, FORCE_SOFTENING(i), 0);
@@ -689,8 +689,8 @@ force_update_particle_node(int no, const ForceTree * tree, const int HybridNuGra
     /*Last value of tails is the return value of this function*/
     int j;
 
-    const int noccupied = tree->Nodes[no].u.s.noccupied;
-    int * suns = tree->Nodes[no].u.s.suns;
+    const int noccupied = tree->Nodes[no].s.noccupied;
+    int * suns = tree->Nodes[no].s.suns;
 
     /*Now we do the moments*/
     for(j = 0; j < noccupied; j++) {
@@ -702,15 +702,15 @@ force_update_particle_node(int no, const ForceTree * tree, const int HybridNuGra
     }
 
     /*Set the center of mass moments*/
-    const double mass = tree->Nodes[no].u.d.mass;
+    const double mass = tree->Nodes[no].mom.mass;
     /* Be careful about empty nodes*/
     if(mass > 0) {
         for(j = 0; j < 3; j++)
-            tree->Nodes[no].u.d.s[j] /= mass;
+            tree->Nodes[no].mom.cofm[j] /= mass;
     }
     else {
         for(j = 0; j < 3; j++)
-            tree->Nodes[no].u.d.s[j] = tree->Nodes[no].center[j];
+            tree->Nodes[no].mom.cofm[j] = tree->Nodes[no].center[j];
     }
 
     /* The tail of a particle node
@@ -737,7 +737,7 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
         endrun(3, "force_update_node_recursive called on node %d of type %d != %d!\n", no, tree->Nodes[no].f.ChildType, NODE_NODE_TYPE);
 #endif
     int j;
-    int * suns = tree->Nodes[no].u.s.suns;
+    int * suns = tree->Nodes[no].s.suns;
 
     int childcnt = 0;
     /* Remove any empty children.
@@ -750,7 +750,7 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
          * when one of the local domains is empty. */
         if(!tree->Nodes[suns[j]].f.TopLevel &&
             tree->Nodes[suns[j]].f.ChildType == PARTICLE_NODE_TYPE &&
-            tree->Nodes[suns[j]].u.s.noccupied == 0) {
+            tree->Nodes[suns[j]].s.noccupied == 0) {
                 suns[j] = -1;
         }
         else if(tree->Nodes[suns[j]].f.ChildType == NODE_NODE_TYPE)
@@ -761,7 +761,7 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
     if(childcnt < 8)
         for(j = 0; j < 8; j++) {
             if(suns[j] >= 0) {
-                tree->Nodes[no].u.d.nextnode = suns[j];
+                tree->Nodes[no].nextnode = suns[j];
                 break;
             }
         }
@@ -775,7 +775,7 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
             continue;
         const int nextsib = force_get_sibling(sib, j, suns);
         /* This is set in create_nodes but needed because we may remove empty nodes above.*/
-        tree->Nodes[p].u.d.sibling = nextsib;
+        tree->Nodes[p].sibling = nextsib;
         /* Nodes containing particles or pseudo-particles*/
         if(tree->Nodes[p].f.ChildType == PARTICLE_NODE_TYPE)
             force_update_particle_node(p, tree, HybridNuGrav);
@@ -806,23 +806,23 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
         const int p = suns[j];
         if(p < 0)
             continue;
-        tree->Nodes[no].u.d.mass += (tree->Nodes[p].u.d.mass);
-        tree->Nodes[no].u.d.s[0] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[0]);
-        tree->Nodes[no].u.d.s[1] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[1]);
-        tree->Nodes[no].u.d.s[2] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[2]);
-        if(tree->Nodes[p].u.d.hmax > tree->Nodes[no].u.d.hmax)
-            tree->Nodes[no].u.d.hmax = tree->Nodes[p].u.d.hmax;
+        tree->Nodes[no].mom.mass += (tree->Nodes[p].mom.mass);
+        tree->Nodes[no].mom.cofm[0] += (tree->Nodes[p].mom.mass * tree->Nodes[p].mom.cofm[0]);
+        tree->Nodes[no].mom.cofm[1] += (tree->Nodes[p].mom.mass * tree->Nodes[p].mom.cofm[1]);
+        tree->Nodes[no].mom.cofm[2] += (tree->Nodes[p].mom.mass * tree->Nodes[p].mom.cofm[2]);
+        if(tree->Nodes[p].mom.hmax > tree->Nodes[no].mom.hmax)
+            tree->Nodes[no].mom.hmax = tree->Nodes[p].mom.hmax;
 
-        force_adjust_node_softening(&tree->Nodes[no], tree->Nodes[p].u.d.MaxSoftening, tree->Nodes[p].f.MixedSofteningsInNode);
+        force_adjust_node_softening(&tree->Nodes[no], tree->Nodes[p].mom.MaxSoftening, tree->Nodes[p].f.MixedSofteningsInNode);
     }
 
     /*Set the center of mass moments*/
-    const double mass = tree->Nodes[no].u.d.mass;
+    const double mass = tree->Nodes[no].mom.mass;
     /* In principle all the children could be pseudo-particles*/
     if(mass > 0) {
-        tree->Nodes[no].u.d.s[0] /= mass;
-        tree->Nodes[no].u.d.s[1] /= mass;
-        tree->Nodes[no].u.d.s[2] /= mass;
+        tree->Nodes[no].mom.cofm[0] /= mass;
+        tree->Nodes[no].mom.cofm[1] /= mass;
+        tree->Nodes[no].mom.cofm[2] /= mass;
     }
 
     return -1;
@@ -890,12 +890,12 @@ void force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp)
             endrun(131231231, "TopLeaf %d Task table is corrupted: task is %d\n", i, ddecomp->TopLeaves[i].Task);
 
         /* read out the multipole moments from the local base cells */
-        TopLeafMoments[i].s[0] = tree->Nodes[no].u.d.s[0];
-        TopLeafMoments[i].s[1] = tree->Nodes[no].u.d.s[1];
-        TopLeafMoments[i].s[2] = tree->Nodes[no].u.d.s[2];
-        TopLeafMoments[i].mass = tree->Nodes[no].u.d.mass;
-        TopLeafMoments[i].hmax = tree->Nodes[no].u.d.hmax;
-        TopLeafMoments[i].MaxSoftening = tree->Nodes[no].u.d.MaxSoftening;
+        TopLeafMoments[i].s[0] = tree->Nodes[no].mom.cofm[0];
+        TopLeafMoments[i].s[1] = tree->Nodes[no].mom.cofm[1];
+        TopLeafMoments[i].s[2] = tree->Nodes[no].mom.cofm[2];
+        TopLeafMoments[i].mass = tree->Nodes[no].mom.mass;
+        TopLeafMoments[i].hmax = tree->Nodes[no].mom.hmax;
+        TopLeafMoments[i].MaxSoftening = tree->Nodes[no].mom.MaxSoftening;
         TopLeafMoments[i].MixedSofteningsInNode = tree->Nodes[no].f.MixedSofteningsInNode;
 
         /*Set the local base nodes dependence on local mass*/
@@ -939,12 +939,12 @@ void force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp)
         for(i = ddecomp->Tasks[ta].StartLeaf; i < ddecomp->Tasks[ta].EndLeaf; i ++) {
             no = ddecomp->TopLeaves[i].treenode;
 
-            tree->Nodes[no].u.d.s[0] = TopLeafMoments[i].s[0];
-            tree->Nodes[no].u.d.s[1] = TopLeafMoments[i].s[1];
-            tree->Nodes[no].u.d.s[2] = TopLeafMoments[i].s[2];
-            tree->Nodes[no].u.d.mass = TopLeafMoments[i].mass;
-            tree->Nodes[no].u.d.hmax = TopLeafMoments[i].hmax;
-            tree->Nodes[no].u.d.MaxSoftening = TopLeafMoments[i].MaxSoftening;
+            tree->Nodes[no].mom.cofm[0] = TopLeafMoments[i].s[0];
+            tree->Nodes[no].mom.cofm[1] = TopLeafMoments[i].s[1];
+            tree->Nodes[no].mom.cofm[2] = TopLeafMoments[i].s[2];
+            tree->Nodes[no].mom.mass = TopLeafMoments[i].mass;
+            tree->Nodes[no].mom.hmax = TopLeafMoments[i].hmax;
+            tree->Nodes[no].mom.MaxSoftening = TopLeafMoments[i].MaxSoftening;
             tree->Nodes[no].f.MixedSofteningsInNode = TopLeafMoments[i].MixedSofteningsInNode;
          }
     }
@@ -967,14 +967,14 @@ void force_treeupdate_pseudos(int no, const ForceTree * tree)
     s[2] = 0;
     hmax = 0;
 
-    tree->Nodes[no].u.d.MaxSoftening = -1;
+    tree->Nodes[no].mom.MaxSoftening = -1;
     tree->Nodes[no].f.MixedSofteningsInNode = 0;
 
     /* This happens if we have a trivial domain with only one entry*/
     if(!tree->Nodes[no].f.InternalTopLevel)
         return;
 
-    p = tree->Nodes[no].u.s.suns[0];
+    p = tree->Nodes[no].s.suns[0];
 
     /* since we are dealing with top-level nodes, we know that there are 8 consecutive daughter nodes */
     for(j = 0; j < 8; j++)
@@ -991,17 +991,17 @@ void force_treeupdate_pseudos(int no, const ForceTree * tree)
         if(tree->Nodes[p].f.InternalTopLevel)
             force_treeupdate_pseudos(p, tree);
 
-        mass += (tree->Nodes[p].u.d.mass);
-        s[0] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[0]);
-        s[1] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[1]);
-        s[2] += (tree->Nodes[p].u.d.mass * tree->Nodes[p].u.d.s[2]);
+        mass += (tree->Nodes[p].mom.mass);
+        s[0] += (tree->Nodes[p].mom.mass * tree->Nodes[p].mom.cofm[0]);
+        s[1] += (tree->Nodes[p].mom.mass * tree->Nodes[p].mom.cofm[1]);
+        s[2] += (tree->Nodes[p].mom.mass * tree->Nodes[p].mom.cofm[2]);
 
-        if(tree->Nodes[p].u.d.hmax > hmax)
-            hmax = tree->Nodes[p].u.d.hmax;
+        if(tree->Nodes[p].mom.hmax > hmax)
+            hmax = tree->Nodes[p].mom.hmax;
 
-        force_adjust_node_softening(&tree->Nodes[no], tree->Nodes[p].u.d.MaxSoftening, tree->Nodes[p].f.MixedSofteningsInNode);
+        force_adjust_node_softening(&tree->Nodes[no], tree->Nodes[p].mom.MaxSoftening, tree->Nodes[p].f.MixedSofteningsInNode);
 
-        p = tree->Nodes[p].u.d.sibling;
+        p = tree->Nodes[p].sibling;
     }
 
     if(mass)
@@ -1017,12 +1017,12 @@ void force_treeupdate_pseudos(int no, const ForceTree * tree)
         s[2] = tree->Nodes[no].center[2];
     }
 
-    tree->Nodes[no].u.d.s[0] = s[0];
-    tree->Nodes[no].u.d.s[1] = s[1];
-    tree->Nodes[no].u.d.s[2] = s[2];
-    tree->Nodes[no].u.d.mass = mass;
+    tree->Nodes[no].mom.cofm[0] = s[0];
+    tree->Nodes[no].mom.cofm[1] = s[1];
+    tree->Nodes[no].mom.cofm[2] = s[2];
+    tree->Nodes[no].mom.mass = mass;
 
-    tree->Nodes[no].u.d.hmax = hmax;
+    tree->Nodes[no].mom.hmax = hmax;
 }
 
 /*! This function updates the hmax-values in tree nodes that hold SPH
@@ -1054,9 +1054,9 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
 
         while(no >= 0)
         {
-            if(P[p_i].Hsml <= tree->Nodes[no].u.d.hmax)
+            if(P[p_i].Hsml <= tree->Nodes[no].mom.hmax)
                 break;
-            tree->Nodes[no].u.d.hmax = P[p_i].Hsml;
+            tree->Nodes[no].mom.hmax = P[p_i].Hsml;
             no = tree->Nodes[no].father;
         }
     }
@@ -1066,7 +1066,7 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
 
     for(i = ddecomp->Tasks[ThisTask].StartLeaf; i < ddecomp->Tasks[ThisTask].EndLeaf; i ++) {
         int no = ddecomp->TopLeaves[i].treenode;
-        TopLeafhmax[i] = tree->Nodes[no].u.d.hmax;
+        TopLeafhmax[i] = tree->Nodes[no].mom.hmax;
     }
 
     /* share the hmax-data of the dirty nodes accross CPUs */
@@ -1091,13 +1091,13 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
             continue; /* bypass ThisTask since it is already up to date */
         for(i = ddecomp->Tasks[ta].StartLeaf; i < ddecomp->Tasks[ta].EndLeaf; i ++) {
             int no = ddecomp->TopLeaves[i].treenode;
-            tree->Nodes[no].u.d.hmax = TopLeafhmax[i];
+            tree->Nodes[no].mom.hmax = TopLeafhmax[i];
 
             while(no >= 0)
             {
-                if(TopLeafhmax[i] <= tree->Nodes[no].u.d.hmax)
+                if(TopLeafhmax[i] <= tree->Nodes[no].mom.hmax)
                     break;
-                tree->Nodes[no].u.d.hmax = TopLeafhmax[i];
+                tree->Nodes[no].mom.hmax = TopLeafhmax[i];
                 no = tree->Nodes[no].father;
             }
          }

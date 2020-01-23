@@ -122,7 +122,7 @@ static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void
 
         if(!(tree->Nodes[no].f.DependsOnLocalMass)) {
             /* node doesn't contain particles on this process, do not open */
-            no = tree->Nodes[no].u.d.sibling;
+            no = tree->Nodes[no].sibling;
             continue;
         }
         if(
@@ -135,11 +135,11 @@ static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void
             regions[r].no = no;
             r ++;
             /* do not open */
-            no = tree->Nodes[no].u.d.sibling;
+            no = tree->Nodes[no].sibling;
             continue;
         }
         /* open */
-        no = tree->Nodes[no].u.d.nextnode;
+        no = tree->Nodes[no].nextnode;
     }
 
     *Nregions = r;
@@ -193,14 +193,14 @@ static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void
 static int pm_mark_region_for_node(int startno, int rid, int * RegionInd, const ForceTree * tree) {
     int numpart = 0;
     int no = startno;
-    int endno = tree->Nodes[startno].u.d.sibling;
+    int endno = tree->Nodes[startno].sibling;
     while(no >= 0 && no != endno)
     {
         struct NODE * nop = &tree->Nodes[no];
         if(nop->f.ChildType == PARTICLE_NODE_TYPE) {
             int i;
-            for(i = 0; i < nop->u.s.noccupied; i++) {
-                int p = nop->u.s.suns[i];
+            for(i = 0; i < nop->s.noccupied; i++) {
+                int p = nop->s.suns[i];
                 RegionInd[p] = rid;
 #ifdef DEBUG
                 /* when we are in PM, all particles must have been synced. */
@@ -222,17 +222,17 @@ static int pm_mark_region_for_node(int startno, int rid, int * RegionInd, const 
                 }
 #endif
             }
-            numpart += nop->u.s.noccupied;
+            numpart += nop->s.noccupied;
             /* Move to sibling*/
-            no = nop->u.d.sibling;
+            no = nop->sibling;
         }
         /* Generally this function should be handed top leaves which do not contain pseudo particles.
          * However, sometimes it will receive an internal top node which can, if that top node is small enough.
          * In this case, just move to the sibling: no particles to mark here.*/
         else if(nop->f.ChildType == PSEUDO_NODE_TYPE)
-            no = nop->u.d.sibling;
+            no = nop->sibling;
         else if(nop->f.ChildType == NODE_NODE_TYPE)
-            no = nop->u.d.nextnode;
+            no = nop->nextnode;
         else
             endrun(122, "Unrecognised Node type %d, memory corruption!\n", nop->f.ChildType);
     }

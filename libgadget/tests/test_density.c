@@ -39,7 +39,7 @@ static void set_init_hsml(ForceTree * Tree)
         int no = force_get_father(i, Tree);
 
         double DesNumNgb = GetNumNgb(GetDensityKernelType());
-        while(10 * DesNumNgb * P[i].Mass > Tree->Nodes[no].u.d.mass)
+        while(10 * DesNumNgb * P[i].Mass > Tree->Nodes[no].mom.mass)
         {
             int p = force_get_father(no, Tree);
 
@@ -50,7 +50,7 @@ static void set_init_hsml(ForceTree * Tree)
         }
 
         P[i].Hsml =
-            pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / (Tree->Nodes[no].u.d.mass),
+            pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / (Tree->Nodes[no].mom.mass),
                     1.0 / 3) * Tree->Nodes[no].len;
     }
 }

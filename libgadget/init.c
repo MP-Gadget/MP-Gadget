@@ -377,7 +377,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
 
             int no = force_get_father(i, &Tree);
 
-            while(10 * DesNumNgb * P[i].Mass > massfactor * Tree.Nodes[no].u.d.mass)
+            while(10 * DesNumNgb * P[i].Mass > massfactor * Tree.Nodes[no].mom.mass)
             {
                 int p = force_get_father(no, &Tree);
 
@@ -388,7 +388,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
             }
 
             P[i].Hsml =
-                pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / (massfactor * Tree.Nodes[no].u.d.mass),
+                pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / (massfactor * Tree.Nodes[no].mom.mass),
                         1.0 / 3) * Tree.Nodes[no].len;
 
             /* recover from a poor initial guess */

@@ -298,38 +298,38 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             int i;
             double dx[3];
             for(i = 0; i < 3; i++)
-                dx[i] = NEAREST(nop->u.d.s[i] - inpos[i], BoxSize);
+                dx[i] = NEAREST(nop->mom.cofm[i] - inpos[i], BoxSize);
             const double r2 = dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2];
 
             /* Discard this node, move to sibling*/
             if(shall_we_discard_node(nop->len, r2, nop->center, inpos, BoxSize, rcut, rcut2))
             {
-                no = nop->u.d.sibling;
+                no = nop->sibling;
                 /* Don't add this node*/
                 continue;
             }
 
             /* This node accelerates the particle directly, and is not opened.*/
-            if(!shall_we_open_node(nop->len, nop->u.d.mass, r2, nop->center, inpos, BoxSize, aold, TreeUseBH, BHOpeningAngle2))
+            if(!shall_we_open_node(nop->len, nop->mom.mass, r2, nop->center, inpos, BoxSize, aold, TreeUseBH, BHOpeningAngle2))
             {
-                double h = DMAX(input->Soft, nop->u.d.MaxSoftening);
+                double h = DMAX(input->Soft, nop->mom.MaxSoftening);
                 /* Always open the node if it has a larger softening than the particle,
                  * and the particle is inside its softening radius.
                  * This condition essentially never happens, and it is not clear how much sense it makes. */
-                if(input->Soft < nop->u.d.MaxSoftening)
+                if(input->Soft < nop->mom.MaxSoftening)
                 {
                     if(r2 < h * h)
                         if(nop->f.MixedSofteningsInNode)
                         {
-                            no = nop->u.d.nextnode;
+                            no = nop->nextnode;
                             continue;
                         }
                 }
 
                 /* ok, node can be used */
-                no = nop->u.d.sibling;
+                no = nop->sibling;
                 /* Compute the acceleration and apply it to the output structure*/
-                apply_accn_to_output(output, dx, r2, h, nop->u.d.mass, cellsize);
+                apply_accn_to_output(output, dx, r2, h, nop->mom.mass, cellsize);
                 continue;
             }
 
@@ -338,27 +338,27 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             if(nop->f.ChildType == PARTICLE_NODE_TYPE)
             {
                 /* Loop over child particles*/
-                for(i = 0; i < nop->u.s.noccupied; i++) {
-                    int pp = nop->u.s.suns[i];
+                for(i = 0; i < nop->s.noccupied; i++) {
+                    int pp = nop->s.suns[i];
                     lv->ngblist[numcand++] = pp;
                 }
-                no = nop->u.d.sibling;
+                no = nop->sibling;
             }
             else if (nop->f.ChildType == PSEUDO_NODE_TYPE)
             {
                 if(lv->mode == 0)
                 {
-                    if(-1 == treewalk_export_particle(lv, nop->u.d.nextnode))
+                    if(-1 == treewalk_export_particle(lv, nop->nextnode))
                         return -1;
                 }
 
                 /* Move to the sibling (likely also a pseudo node)*/
-                no = nop->u.d.sibling;
+                no = nop->sibling;
             }
             else if(nop->f.ChildType == NODE_NODE_TYPE)
             {
                 /* This node contains other nodes and we need to open it.*/
-                no = nop->u.d.nextnode;
+                no = nop->nextnode;
             }
         }
         int i;
