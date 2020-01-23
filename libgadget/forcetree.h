@@ -52,6 +52,11 @@ struct NODE
                          * open the node if a particle is closer.*/
     } mom;
 
+    /* In principle storing this here wastes memory, because we only use it for the leaf nodes.
+     * However, in practice the wasted memory is fairly small: there are sum(1/8^n) ~ 0.15 internal nodes
+     * for each leaf node, and we are losing 30% of the memory per node, so the total lost is 5%.
+     * Any attempt to get it back by using a separate allocation means we lost the ability to resize
+     * the Nodes array and that is always worse.*/
     struct NodeChild s;
 };
 
