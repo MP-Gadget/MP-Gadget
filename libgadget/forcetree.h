@@ -16,6 +16,15 @@
 #define NODE_NODE_TYPE 1
 #define PSEUDO_NODE_TYPE 2
 
+struct NodeChild
+{
+    /*!< pointers to daughter nodes or daughter particles. */
+    int suns[NMAXCHILD];
+    /* Number of daughter particles if node contains particles.
+     * During treebuild >= (1<<16) if node contains nodes.*/
+    int noccupied;
+};
+
 struct NODE
 {
     MyFloat len;			/*!< sidelength of treenode */
@@ -33,14 +42,7 @@ struct NODE
 
     struct
     {
-        struct
-        {
-            /*!< temporary pointers to daughter nodes or daughter particles. */
-            int suns[NMAXCHILD];
-            /* Number of daughter particles if node contains particles.
-             * During treebuild >= (1<<16) if node contains nodes.*/
-            int noccupied;
-        } s;
+        struct NodeChild s;
         struct
         {
             MyFloat s[3];		/*!< center of mass of node */
