@@ -66,6 +66,9 @@ void fof_init(double DMMeanSeparation, double ParticleMass)
 {
     fof_params.FOFHaloComovingLinkingLength = fof_params.FOFHaloLinkingLength * DMMeanSeparation;
     fof_params.MinFoFMassForNewSeed = fof_params.MinFoFMassForNewSeed * ParticleMass;
+    /* Black hole seed mass is a constant fraction of the smallest seed halo and thus a constant fraction
+     * of the particle mass. */
+    fof_params.SeedBlackHoleMass = fof_params.SeedBlackHoleMass * fof_params.MinFoFMassForNewSeed;
 }
 
 static double fof_periodic(double x, double BoxSize)
