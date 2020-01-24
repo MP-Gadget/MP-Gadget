@@ -170,7 +170,8 @@ shall_we_compact_slots(int * compact, ExchangePlan * plan, const struct slots_ma
 
 static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm)
 {
-    int n, ptype;
+    size_t n;
+    int ptype;
     struct particle_data *partBuf;
     char * slotBuf[6] = {NULL, NULL, NULL, NULL, NULL, NULL};
 
