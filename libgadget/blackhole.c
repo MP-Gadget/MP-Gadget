@@ -517,13 +517,15 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             if(w < p)
             {
                 MyIDType * SPH_SwallowID = BH_GET_PRIV(lv->tw)->SPH_SwallowID;
-                lock_spinlock(other, spin);
                 /* Already marked, prefer to be swallowed by a bigger ID.
                  * Not marked, the SwallowID is 0 */
-                if(SPH_SwallowID[P[other].PI] < I->ID+1) {
-                    SPH_SwallowID[P[other].PI] = I->ID+1;
+                int PI = P[other].PI;
+                MyIDType maxsw;
+                #pragma omp atomic capture
+                {
+                    maxsw = SPH_SwallowID[PI];
+                    SPH_SwallowID[PI] = (maxsw > I->ID+1 ? maxsw : I->ID+1);
                 }
-                unlock_spinlock(other, spin);
             }
         }
 
