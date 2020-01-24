@@ -33,7 +33,9 @@ void sumup_longs(int n, int64_t *src, int64_t *res);
 int64_t count_sum(int64_t countLocal);
 //int64_t count_to_offset(int64_t countLocal);
 
+/* Returns true if condition is true on ANY processor*/
 int MPIU_Any(int condition, MPI_Comm comm);
+
 void MPIU_write_pids(char * filename);
 
 /* Compact an array which has segments (usually corresponding to different threads).
