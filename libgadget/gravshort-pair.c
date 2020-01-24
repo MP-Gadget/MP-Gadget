@@ -53,7 +53,7 @@ grav_short_pair(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
 
     treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
 
-    walltime_measure("/Grav/Short");
+    walltime_measure("/Tree/Pairwise");
 }
 
 
