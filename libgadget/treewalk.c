@@ -830,9 +830,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
 
     for(inode = 0; inode < NODELISTLENGTH && I->NodeList[inode] >= 0; inode++)
     {
-        int startnode = lv->tw->tree->Nodes[I->NodeList[inode]].u.d.nextnode;  /* open it */
-
-        int numcand = ngb_treefind_threads(I, O, iter, startnode, lv);
+        int numcand = ngb_treefind_threads(I, O, iter, I->NodeList[inode], lv);
         /* Export buffer is full end prematurally */
         if(numcand < 0) return numcand;
 
@@ -952,6 +950,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
 
     const ForceTree * tree = lv->tw->tree;
     const double BoxSize = tree->BoxSize;
+
     no = startnode;
 
     while(no >= 0)
@@ -970,7 +969,8 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         /* When walking exported particles we start from the encompassing top-level node,
          * so if we get back to a top-level node again we are done.*/
         if(lv->mode == 1) {
-            if(current->f.TopLevel) {
+            /* The first node is always top-level*/
+            if(current->f.TopLevel && no != startnode) {
                 /* we reached a top-level node again, which means that we are done with the branch */
                 break;
             }
