@@ -268,13 +268,19 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     const double * inpos = input->base.Pos;
 
     /*Start the tree walk*/
-    int no = input->base.NodeList[0];
-    int listindex = 1;
-    no = tree->Nodes[no].u.d.nextnode;	/* open it */
+    int listindex;
 
-    while(no >= 0)
+    /* Primary treewalk only ever has one nodelist entry*/
+    for(listindex = 0; listindex < NODELISTLENGTH && (lv->mode == 1 || listindex < 1); listindex++)
     {
         int numcand = 0;
+        /* Use the next node in the node list if we are doing a secondary walk.
+         * For a primary walk the node list only ever contains one node. */
+        int no = input->base.NodeList[listindex];
+        int startno = no;
+        if(no < 0)
+            break;
+
         while(no >= 0)
         {
             /* The tree always walks internal nodes*/
@@ -282,7 +288,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
 
             if(lv->mode == 1)
             {
-                if(nop->f.TopLevel)	/* we reached a top-level node again, which means that we are done with the branch */
+                if(nop->f.TopLevel && no != startno)	/* we reached a top-level node again, which means that we are done with the branch */
                 {
                     no = -1;
                     continue;
@@ -373,19 +379,6 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             /* Compute the acceleration and apply it to the output structure*/
             apply_accn_to_output(output, dx, r2, h, P[pp].Mass, cellsize);
         }
-
-        /* Use the next node in the node list if we are doing a secondary walk.
-         * For a primary walk the node list only ever contains one node. */
-        if(lv->mode == 1 && listindex < NODELISTLENGTH)
-        {
-            no = input->base.NodeList[listindex];
-            if(no >= 0)
-            {
-                no = tree->Nodes[no].u.d.nextnode;	/* open it */
-                listindex++;
-            }
-        }
-
     }
 
     lv->Ninteractions += output->Ninteractions;
