@@ -100,8 +100,6 @@ struct BHPriv {
      * in the feedback treewalk*/
     MyFloat * BH_FeedbackWeightSum;
 
-    /* Particle SpinLocks*/
-    struct SpinLocks * spin;
     /* Counters*/
     int64_t * N_sph_swallowed;
     int64_t * N_BH_swallowed;
@@ -246,10 +244,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles)
     priv->BH_Entropy = mymalloc("BH_Entropy", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_SurroundingGasVel = (MyFloat (*) [3]) mymalloc("BH_SurroundVel", 3* SlotsManager->info[5].size * sizeof(priv->BH_SurroundingGasVel[0]));
 
-    /* This allocates memory*/
-    priv[0].spin = init_spinlocks(PartManager->NumPart);
     treewalk_run(tw_accretion, act->ActiveParticle, act->NumActiveParticle);
-    free_spinlocks(priv[0].spin);
 
     myfree(priv->BH_SurroundingGasVel);
     myfree(priv->BH_Entropy);
