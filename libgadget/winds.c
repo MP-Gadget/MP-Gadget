@@ -159,7 +159,6 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
 static int* NPLeft;
 
 struct WindPriv {
-    struct SpinLocks * spin;
 };
 #define WIND_GET_PRIV(tw) ((struct WindPriv *) (tw->priv))
 
@@ -230,9 +229,7 @@ winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree)
     struct WindPriv priv[1];
     tw->priv = priv;
 
-    priv[0].spin = init_spinlocks(PartManager->NumPart);
     treewalk_run(tw, NewStars, NumNewStars);
-    free_spinlocks(priv[0].spin);
     myfree(Winddata);
     walltime_measure("/Cooling/Wind");
 }
@@ -437,21 +434,22 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     if (random < p) {
         double dir[3];
         get_wind_dir(other, dir);
-        /* in this case the particle is already locked by the tree walker */
-        /* we may want to add another lock to avoid this. */
-        if(P[other].ID != I->base.ID)
-            lock_spinlock(other, WIND_GET_PRIV(lv->tw)->spin);
         int j;
         for(j = 0; j < 3; j++)
         {
+            #pragma omp atomic update
             P[other].Vel[j] += v * dir[j];
         }
         /* If the particle is already a wind, just use the largest DelayTime, and still add wind energy.
          * If we ignore wind particles, as was done before, we end up giving each particle the velocity dispersion
          * associated with the first particle that hits it, which is very timing dependent in threaded environments. */
-        SPHP(other).DelayTime = DMAX(wind_params.WindFreeTravelLength / (v / All.cf.a), SPHP(other).DelayTime);
-        if(P[other].ID != I->base.ID)
-            unlock_spinlock(other, WIND_GET_PRIV(lv->tw)->spin);
+        double newdelay = wind_params.WindFreeTravelLength / (v / All.cf.a);
+        #pragma omp atomic capture
+        {
+            /* Set this and DO NOT USE IT so we fulfil the capture form*/
+            windeff = SPHP(other).DelayTime;
+            SPHP(other).DelayTime = (newdelay > windeff ? newdelay : windeff);
+        }
     }
 }
 
