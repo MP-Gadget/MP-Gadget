@@ -131,6 +131,19 @@ int begrun(int RestartFlag, int RestartSnapNum)
     return RestartSnapNum;
 }
 
+/* Small function to decide - collectively - whether to use pairwise gravity this step*/
+static int
+use_pairwise_gravity(ActiveParticles * Act, struct part_manager_type * PartManager)
+{
+    /* Find total number of active particles*/
+    int64_t total_active, total_particle;
+    sumup_large_ints(1, &Act->NumActiveParticle, &total_active);
+    sumup_large_ints(1, &PartManager->NumPart, &total_particle);
+
+    /* Since the pairwise step is O(N^2) and tree is O(NlogN) we should scale the condition like O(N)*/
+    return total_active < All.PairwiseActiveFraction * total_particle;
+}
+
 void
 run(int RestartSnapNum)
 {
@@ -223,6 +236,9 @@ run(int RestartSnapNum)
          * If so we need to add them to the tree.*/
         int HybridNuGrav = All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime;
 
+        /* Collective: total number of active particles must be small enough*/
+        int pairwisestep = use_pairwise_gravity(&Act, PartManager);
+
         /* Need to rebuild the force tree because all TopLeaves are out of date.*/
         ForceTree Tree = {0};
         force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, All.OutputDir);
@@ -231,7 +247,6 @@ run(int RestartSnapNum)
         if(GasEnabled)
             slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size, &SlotsManager->sph_scratch);
 
-        int pairwisestep = Act.NumActiveParticle < All.PairwiseActiveFraction * PartManager->NumPart;
         /* update force to Ti_Current */
         compute_accelerations(&Act, is_PM, &pm, pairwisestep, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
 
