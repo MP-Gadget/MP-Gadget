@@ -24,13 +24,16 @@ struct particle_data
         unsigned int IsGarbage            :1; /* True for a garbage particle. readonly: Use slots_mark_garbage to mark this.*/
         unsigned int DensityIterationDone :1; /* True if the density-like iterations already finished; */
         unsigned int Swallowed            :1; /* True if the particle is being swallowed; used in BH to determine swallower and swallowee;*/
-        unsigned int HeIIIionized         :1; /*True if the particle has undergone helium reionization*/
+        unsigned int spare_1              :1; /*Unused, ensures alignment to a char*/
         unsigned char Generation; /* How many particles it has spawned; used to generate unique particle ID.
                                      may wrap around with too many SFR/BH if a feedback model goes rogue */
 
         signed char TimeBin; /* Time step bin; -1 for unassigned.*/
         /* To ensure alignment to a 32-bit boundary.*/
-        char spare_1;
+        unsigned char HeIIIionized; /* True if the particle has undergone helium reionization.
+                                     * This could be a bitfield: it isn't because we need to change it in an atomic.
+                                     * Changing a bitfield in an atomic seems to work in OpenMP 5.0 on gcc 9 and icc 18 and 19,
+                                     * so we should be able to make it a bitfield at some point. */
     };
 
     int PI; /* particle property index; used by BH, SPH and STAR.
