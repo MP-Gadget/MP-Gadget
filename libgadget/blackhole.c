@@ -463,7 +463,9 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     /* Accretion / merger doesn't do self interaction */
     if(P[other].ID == I->ID) return;
 
-    struct SpinLocks * spin = BH_GET_PRIV(lv->tw)->spin;
+    /* This variable has to be set so the atomic
+     * satisfies the atomic capture form, but it is not used*/
+    MyIDType maxsw = (MyIDType) -1;
 
     if(P[other].Type == 5 && r2 < iter->accretion_kernel.HH)	/* we have a black hole merger */
     {
@@ -472,22 +474,19 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
          * can be large, causing clumps of BHs to build up
          * at the same position without merging. */
 
-        lock_spinlock(other, spin);
-        if(BHP(other).SwallowID != (MyIDType) -1) {
-           /* Here we mark the black hole as "ready to be swallowed" using the SwallowID.
-            * The actual swallowing is done in the feedback treewalk by setting Swallowed = 1
-            * and merging the masses.*/
+        /* Here we mark the black hole as "ready to be swallowed" using the SwallowID.
+        * The actual swallowing is done in the feedback treewalk by setting Swallowed = 1
+        * and merging the masses.*/
+        int PI = P[other].PI;
+        #pragma omp atomic capture
+        {
+            maxsw = BhP[PI].SwallowID;
             /* Already marked, prefer to be swallowed by a bigger ID */
-            if(BHP(other).SwallowID < I->ID) {
-                BHP(other).SwallowID = I->ID;
-            }
-        } else {
             /* Unmarked, the BH with bigger ID swallows */
-            if(P[other].ID < I->ID) {
-                BHP(other).SwallowID = I->ID;
-            }
+            BhP[PI].SwallowID = ((maxsw != (MyIDType) -1) && (maxsw < I->ID)) ||
+                                ((maxsw == (MyIDType) -1) && (P[other].ID < I->ID))
+                                        ? I->ID : maxsw;
         }
-        unlock_spinlock(other, spin);
     }
 
     if(P[other].Type == 0) {
@@ -520,7 +519,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
                 /* Already marked, prefer to be swallowed by a bigger ID.
                  * Not marked, the SwallowID is 0 */
                 int PI = P[other].PI;
-                MyIDType maxsw;
                 #pragma omp atomic capture
                 {
                     maxsw = SPH_SwallowID[PI];
