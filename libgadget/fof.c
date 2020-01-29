@@ -1227,19 +1227,14 @@ static int cmp_seed_task(const void * c1, const void * c2) {
 }
 static void fof_seed_make_one(struct Group * g, int ThisTask);
 
-void fof_seed(FOFGroups * fof, MPI_Comm Comm)
+void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm Comm)
 {
     int i, j, n, ntot;
 
     int NTask;
     MPI_Comm_size(Comm, &NTask);
-    int * Send_count = ta_malloc("Send_count", int, NTask);
-    int * Recv_count = ta_malloc("Recv_count", int, NTask);
 
-    for(n = 0; n < NTask; n++)
-        Send_count[n] = 0;
-
-    char * Marked = mymalloc("SeedMark", fof->Ngroups);
+    char * Marked = mymalloc2("SeedMark", fof->Ngroups);
 
     int Nexport = 0;
     for(i = 0; i < fof->Ngroups; i++)
@@ -1259,8 +1254,14 @@ void fof_seed(FOFGroups * fof, MPI_Comm Comm)
             j++;
         }
     }
+    myfree(Marked);
+
     qsort_openmp(ExportGroups, Nexport, sizeof(ExportGroups[0]), cmp_seed_task);
 
+    int * Send_count = ta_malloc("Send_count", int, NTask);
+    int * Recv_count = ta_malloc("Recv_count", int, NTask);
+
+    memset(Send_count, 0, NTask * sizeof(int));
     for(i = 0; i < Nexport; i++) {
         Send_count[ExportGroups[i].seed_task]++;
     }
@@ -1275,15 +1276,74 @@ void fof_seed(FOFGroups * fof, MPI_Comm Comm)
     }
 
     struct Group * ImportGroups = (struct Group *)
-            mymalloc("ImportGroups", Nimport * sizeof(struct Group));
+            mymalloc2("ImportGroups", Nimport * sizeof(struct Group));
 
     MPI_Alltoallv_smart(ExportGroups, Send_count, NULL, MPI_TYPE_GROUP,
                         ImportGroups, Recv_count, NULL, MPI_TYPE_GROUP,
                         Comm);
 
+    myfree(ExportGroups);
+    ta_free(Recv_count);
+    ta_free(Send_count);
+
     MPI_Allreduce(&Nimport, &ntot, 1, MPI_INT, MPI_SUM, Comm);
 
     message(0, "Making %d new black hole particles.\n", ntot);
+
+    /* Do we have enough black hole slots to create this many black holes?
+     * If not, allocate more slots. */
+    if(Nimport + SlotsManager->info[i].size > SlotsManager->info[i].maxsize)
+    {
+        struct NODE * nodes_base_tmp=NULL;
+        int *Nextnode_tmp=NULL;
+        int *Father_tmp=NULL;
+        int *ActiveParticle_tmp=NULL;
+        if(force_tree_allocated(tree)) {
+            nodes_base_tmp = mymalloc2("nodesbasetmp", tree->numnodes * sizeof(struct NODE));
+            memmove(nodes_base_tmp, tree->Nodes_base, tree->numnodes * sizeof(struct NODE));
+            myfree(tree->Nodes_base);
+            Father_tmp = mymalloc2("Father_tmp", PartManager->MaxPart * sizeof(int));
+            memmove(Father_tmp, tree->Father, PartManager->MaxPart * sizeof(int));
+            myfree(tree->Father);
+            Nextnode_tmp = mymalloc2("Nextnode_tmp", tree->Nnextnode * sizeof(int));
+            memmove(Nextnode_tmp, tree->Nextnode, tree->Nnextnode * sizeof(int));
+            myfree(tree->Nextnode);
+        }
+        /* This is only called on a PM step, so the condition should never be true*/
+        if(act->ActiveParticle) {
+            ActiveParticle_tmp = mymalloc2("ActiveParticle_tmp", act->NumActiveParticle * sizeof(int));
+            memmove(ActiveParticle_tmp, act->ActiveParticle, act->NumActiveParticle * sizeof(int));
+            myfree(act->ActiveParticle);
+        }
+
+        /*Now we can extend the slots! */
+        int atleast[6];
+        int i;
+        for(i = 0; i < 6; i++)
+            atleast[i] = SlotsManager->info[i].maxsize;
+        atleast[5] += ntot*1.1;
+        slots_reserve(1, atleast, SlotsManager);
+
+        /*And now we need our memory back in the right place*/
+        if(ActiveParticle_tmp) {
+            act->ActiveParticle = mymalloc("ActiveParticle", sizeof(int)*(act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
+            memmove(act->ActiveParticle, ActiveParticle_tmp, act->NumActiveParticle * sizeof(int));
+            myfree(ActiveParticle_tmp);
+        }
+        if(force_tree_allocated(tree)) {
+            tree->Nextnode = mymalloc("Nextnode", tree->Nnextnode * sizeof(int));
+            memmove(tree->Nextnode, Nextnode_tmp, tree->Nnextnode * sizeof(int));
+            myfree(Nextnode_tmp);
+            tree->Father = mymalloc("Father", PartManager->MaxPart * sizeof(int));
+            memmove(tree->Father, Father_tmp, PartManager->MaxPart * sizeof(int));
+            myfree(Father_tmp);
+            tree->Nodes_base = mymalloc("Nodes_base", tree->numnodes * sizeof(struct NODE));
+            memmove(tree->Nodes_base, nodes_base_tmp, tree->numnodes * sizeof(struct NODE));
+            myfree(nodes_base_tmp);
+            /*Don't forget to update the Node pointer as well as Node_base!*/
+            tree->Nodes = tree->Nodes_base - tree->firstnode;
+        }
+    }
 
     int ThisTask;
     MPI_Comm_rank(Comm, &ThisTask);
@@ -1294,11 +1354,6 @@ void fof_seed(FOFGroups * fof, MPI_Comm Comm)
     }
 
     myfree(ImportGroups);
-    myfree(ExportGroups);
-    myfree(Marked);
-
-    ta_free(Recv_count);
-    ta_free(Send_count);
 
     walltime_measure("/FOF/Seeding");
 }

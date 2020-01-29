@@ -3,6 +3,7 @@
 
 #include "forcetree.h"
 #include "utils/paramset.h"
+#include "timestep.h"
 
 void set_fof_params(ParameterSet * ps);
 
@@ -61,8 +62,9 @@ FOFGroups fof_fof(ForceTree * tree, int BlackHoleInfo, MPI_Comm Comm);
 /*Frees the Group structure*/
 void fof_finish(FOFGroups * fof);
 
-/*Uses the Group structure to seed blackholes*/
-void fof_seed(FOFGroups * fof, MPI_Comm Comm);
+/*Uses the Group structure to seed blackholes.
+ * The tree and active particle structs are used only because we may need to reallocate them. */
+void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm Comm);
 
 /*Saves the Group structure to disc.*/
 void fof_save_groups(FOFGroups * fof, int num, MPI_Comm Comm);
