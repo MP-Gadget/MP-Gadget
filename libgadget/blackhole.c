@@ -51,7 +51,6 @@ typedef struct {
     int BH_minTimeBin;
     MyFloat FeedbackWeightSum;
 
-    MyFloat Rho;
     MyFloat SmoothedEntropy;
     MyFloat GasVel[3];
 } TreeWalkResultBHAccretion;
@@ -495,9 +494,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             double wk = density_kernel_wk(&iter->accretion_kernel, u);
             float mass_j = P[other].Mass;
 
-            /* FIXME: volume correction doesn't work on BH yet. */
-            O->Rho += (mass_j * wk);
-
             O->SmoothedEntropy += (mass_j * wk * SphP_scratch->EntVarPred[P[other].PI]);
             O->GasVel[0] += (mass_j * wk * SphP_scratch->VelPred[3 * P[other].PI]);
             O->GasVel[1] += (mass_j * wk * SphP_scratch->VelPred[3 * P[other].PI+1]);
@@ -698,8 +694,6 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     if (mode == 0 || BHP(place).minTimeBin > remote->BH_minTimeBin) {
         BHP(place).minTimeBin = remote->BH_minTimeBin;
     }
-
-    TREEWALK_REDUCE(BHP(place).Density, remote->Rho);
 
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_FeedbackWeightSum[PI], remote->FeedbackWeightSum);
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_Entropy[PI], remote->SmoothedEntropy);
