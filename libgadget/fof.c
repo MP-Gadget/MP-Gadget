@@ -1292,7 +1292,7 @@ void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm
 
     /* Do we have enough black hole slots to create this many black holes?
      * If not, allocate more slots. */
-    if(Nimport + SlotsManager->info[i].size > SlotsManager->info[i].maxsize)
+    if(Nimport + SlotsManager->info[5].size > SlotsManager->info[5].maxsize)
     {
         struct NODE * nodes_base_tmp=NULL;
         int *Nextnode_tmp=NULL;
