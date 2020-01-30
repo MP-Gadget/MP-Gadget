@@ -293,7 +293,7 @@ create_gadget_parameter_set()
         {"sh03", WIND_SUBGRID | WIND_DECOUPLE_SPH | WIND_FIXED_EFFICIENCY} , /*The canonical model of Spring & Hernquist 2003*/
         {"vs08", WIND_FIXED_EFFICIENCY},
         {"ofjt10", WIND_USE_HALO | WIND_DECOUPLE_SPH},
-        {"isotropic", WIND_ISOTROPIC }, /*If enabled, wind direction is random and isotropic. If disabled it goes in the direction of the local gravitational acceleration*/
+        {"isotropic", 0}, /*Wind direction is always random and isotropic.*/
         {NULL, WIND_SUBGRID | WIND_DECOUPLE_SPH | WIND_FIXED_EFFICIENCY},
     };
 
@@ -312,7 +312,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "TempClouds", OPTIONAL, 1000, "Temperature of the cold star forming clouds in K.");
     param_declare_double(ps, "MaxSfrTimescale", OPTIONAL, 1.5, "Maximum star formation time in units of the density threshold.");
     param_declare_int(ps, "Generations", OPTIONAL, 2, "Number of stars to create per gas particle.");
-    param_declare_enum(ps, "WindModel", WindModelEnum, OPTIONAL, "ofjt10,isotropic", "Wind model to use. Default is the varying wind velocity model with isotropic winds.");
+    param_declare_enum(ps, "WindModel", WindModelEnum, OPTIONAL, "ofjt10", "Wind model to use. Default is the varying wind velocity model with isotropic winds.");
 
     /* The following two are for VS08 and SH03*/
     param_declare_double(ps, "WindEfficiency", OPTIONAL, 2.0, "Fraction of the stellar mass that goes into a wind. Needs sh03 or vs08 wind models.");

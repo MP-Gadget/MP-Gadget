@@ -38,7 +38,6 @@ typedef struct {
     double TotalWeight;
     double DMRadius;
     double Vdisp;
-    double Vmean[3];
 } TreeWalkQueryWind;
 
 typedef struct {
@@ -62,10 +61,7 @@ static struct winddata {
         double Vdisp;
         double V2sum;
     };
-    union {
-        double Vmean[3];
-        double V1sum[3];
-    };
+    double V1sum[3];
     int Ngb;
 } * Winddata;
 
@@ -288,8 +284,7 @@ sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
         double vdisp = WINDP(i).V2sum / WINDP(i).Ngb;
         int d;
         for(d = 0; d < 3; d ++) {
-            WINDP(i).Vmean[d] = WINDP(i).V1sum[d] / WINDP(i).Ngb;
-            vdisp -= WINDP(i).Vmean[d] * WINDP(i).Vmean[d];
+            vdisp -= pow(WINDP(i).V1sum[d] / WINDP(i).Ngb,2);
         }
         WINDP(i).Vdisp = sqrt(vdisp / 3);
     } else {
@@ -335,10 +330,6 @@ sfr_wind_copy(int place, TreeWalkQueryWind * input, TreeWalk * tw)
 
     input->DMRadius = WINDP(place).DMRadius;
     input->Vdisp = WINDP(place).Vdisp;
-
-    int k;
-    for (k = 0; k < 3; k ++)
-        input->Vmean[k] = WINDP(place).Vmean[k];
 }
 
 static void
@@ -391,45 +382,17 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
 
 
 static int
-adjust_wind_velocity(int i, double v, double vmean[3]) {
+get_wind_dir(int i, double dir[3]) {
     /* v and vmean are in internal units (km/s *a ), not km/s !*/
     /* returns 0 if particle i is converted to wind. */
     // message(1, "%ld Making ID=%ld (%g %g %g) to wind with v= %g\n", ID, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], v);
-    int j;
     /* ok, make the particle go into the wind */
-    double dir[3];
-    if(HAS(wind_params.WindModel, WIND_ISOTROPIC)) {
-        double theta = acos(2 * get_random_number(P[i].ID + 3) - 1);
-        double phi = 2 * M_PI * get_random_number(P[i].ID + 4);
+    double theta = acos(2 * get_random_number(P[i].ID + 3) - 1);
+    double phi = 2 * M_PI * get_random_number(P[i].ID + 4);
 
-        dir[0] = sin(theta) * cos(phi);
-        dir[1] = sin(theta) * sin(phi);
-        dir[2] = cos(theta);
-    } else {
-        double vel[3];
-        for(j = 0; j < 3; j++) {
-            vel[j] = P[i].Vel[j] - vmean[j];
-        }
-        /*FIXME: Shouldn't this be total accel, not short-range accel?*/
-        dir[0] = P[i].GravAccel[1] * vel[2] - P[i].GravAccel[2] * vel[1];
-        dir[1] = P[i].GravAccel[2] * vel[0] - P[i].GravAccel[0] * vel[2];
-        dir[2] = P[i].GravAccel[0] * vel[1] - P[i].GravAccel[1] * vel[0];
-        double norm = 0;
-        for(j = 0; j < 3; j++)
-            norm += dir[j] * dir[j];
-
-        norm = sqrt(norm);
-        if(get_random_number(P[i].ID + 5) < 0.5)
-            norm = -norm;
-        if(norm != 0)
-            for(j = 0; j < 3; j++)
-                dir[j] /= norm;
-    }
-
-    for(j = 0; j < 3; j++)
-    {
-        P[i].Vel[j] += v * dir[j];
-    }
+    dir[0] = sin(theta) * cos(phi);
+    dir[1] = sin(theta) * sin(phi);
+    dir[2] = cos(theta);
     return 0;
 }
 
@@ -470,13 +433,19 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
 
     double p = windeff * I->Mass / I->TotalWeight;
     double random = get_random_number(I->base.ID + P[other].ID);
+
     if (random < p) {
+        double dir[3];
+        get_wind_dir(other, dir);
         /* in this case the particle is already locked by the tree walker */
         /* we may want to add another lock to avoid this. */
         if(P[other].ID != I->base.ID)
             lock_spinlock(other, WIND_GET_PRIV(lv->tw)->spin);
-
-        adjust_wind_velocity(other, v, I->Vmean);
+        int j;
+        for(j = 0; j < 3; j++)
+        {
+            P[other].Vel[j] += v * dir[j];
+        }
         /* If the particle is already a wind, just use the largest DelayTime, and still add wind energy.
          * If we ignore wind particles, as was done before, we end up giving each particle the velocity dispersion
          * associated with the first particle that hits it, which is very timing dependent in threaded environments. */
@@ -496,9 +465,15 @@ winds_make_after_sf(int i, double sm, double atime)
         * what it was before.*/
     double pw = wind_params.WindEfficiency * sm / P[i].Mass;
     double prob = 1 - exp(-pw);
-    double zero[3] = {0, 0, 0};
     if(get_random_number(P[i].ID + 2) < prob) {
-        adjust_wind_velocity(i, wind_params.WindSpeed * atime, zero);
+        double dir[3];
+        get_wind_dir(i, dir);
+        int j;
+        for(j = 0; j < 3; j++)
+        {
+            P[i].Vel[j] += wind_params.WindSpeed * atime * dir[j];
+        }
+
         SPHP(i).DelayTime = wind_params.WindFreeTravelLength / (wind_params.WindSpeed * atime / All.cf.a);
     }
 
