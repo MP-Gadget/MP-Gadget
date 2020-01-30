@@ -29,6 +29,29 @@ def get_gsmf(pig,Lbox, hh):
     smf = massfunc(fofmasses[fofmasses>rsl],Lbox)
     return smf
 
+def getbmf(pig,Lbox, hh):
+    """Get the black hole mass function"""
+    #Swallowed black holes are never added to the FOF table
+    bhmasses = (pig['5/BlackholeMass'][:])*10**10/hh
+    bmf = massfunc(bhmasses,Lbox)
+    return bmf
+
+def plot_bhmf(pig):
+    """Plot a black hole mass function from a FOF table."""
+    bf = BigFile(pig)
+    redshift = bf['Header'].attrs['Time']-1
+    hh = bf['Header'].attrs['HubbleParam']
+    lbox = bf['Header'].attrs['BoxSize']/1000/hh
+    lfm = getbmf(bf,lbox, hh)
+    plt.plot(lfm[0],lfm[1],label='z=%.1f'%redshift)
+    plt.fill_between(lfm[0],lfm[2],lfm[3],alpha=0.2)
+    plt.xlabel(r'$\mathrm{log}_{10} [M_{\rm BH}/M_{\odot}]$',fontsize=17)
+    plt.ylabel(r'$\mathrm{log}_{10} \phi/[\mathrm{dex}^{-1} \mathrm{Mpc}^{-3}]$',fontsize=15)
+    plt.xlim(6,12)
+    plt.ylim(-7,-2.5)
+    plt.title('BH Mass function',fontsize=15)
+    plt.legend(fontsize=15)
+
 def plot_gsmf(pig, label=None):
     """Plot a galaxy stellar mass function from a FOF table, compared to some observations."""
     fig = plt.Figure()
