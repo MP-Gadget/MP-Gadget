@@ -39,7 +39,7 @@ def getbmf(pig,Lbox, hh):
 def plot_bhmf(pig):
     """Plot a black hole mass function from a FOF table."""
     bf = BigFile(pig)
-    redshift = bf['Header'].attrs['Time']-1
+    redshift = 1/bf['Header'].attrs['Time']-1
     hh = bf['Header'].attrs['HubbleParam']
     lbox = bf['Header'].attrs['BoxSize']/1000/hh
     lfm = getbmf(bf,lbox, hh)
@@ -58,7 +58,7 @@ def plot_gsmf(pig, label=None):
     ax = fig.add_subplot(111)
 
     bf = BigFile(pig)
-    redshift = bf['Header'].attrs['Time']-1
+    redshift = 1/bf['Header'].attrs['Time']-1
     #Note! Assumes kpc units!
     hh = bf['Header'].attrs['HubbleParam']
     lbox = bf['Header'].attrs['BoxSize']/1000/hh
