@@ -484,7 +484,8 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             }
             else
                 break;
-        /* Swap in the new id only if the old one hasn't changed*/
+        /* Swap in the new id only if the old one hasn't changed:
+         * in principle an extension, but supported on at least clang >= 9, gcc >= 5 and icc >= 18.*/
         } while(!__atomic_compare_exchange_n(&(BHP(other).SwallowID), &readid, newswallowid, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
     }
 
