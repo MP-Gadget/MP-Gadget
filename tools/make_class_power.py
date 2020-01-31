@@ -18,11 +18,10 @@ Call with:
     where the second external power spectrum file is optional and is a primordial power spectrum for CLASS."""
 
 from __future__ import print_function
-import sys
 import math
 import os.path
-import numpy as np
 import argparse
+import numpy as np
 import classylss
 import classylss.binding as CLASS
 import configobj
@@ -85,7 +84,8 @@ def _build_cosmology_params(config):
 
     omegak = 1-config['OmegaLambda']-config['Omega0']
     # avoid numerical issue due to very small OmegaK
-    if np.abs(omegak) < 1e-9: omegak = 0
+    if np.abs(omegak) < 1e-9:
+        omegak = 0
 
     gparams = {'h':config['HubbleParam'], 'Omega_cdm':ocdm,'Omega_b':config['OmegaBaryon'], 'Omega_k':omegak, 'n_s': config['PrimordialIndex'], 'alpha_s': config['PrimordialRunning'],'T_cmb':config["CMBTemperature"]}
     #One may specify either OmegaLambda or Omega_fld,
@@ -193,7 +193,7 @@ def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
     if config['DifferentTransferFunctions'] == 1.:
         tfile = os.path.join(sdir, config['FileWithTransferFunction'])
         if os.path.exists(tfile):
-            raise IOError("Refusing to write to existing file: ",transferfile)
+            raise IOError("Refusing to write to existing file: ",tfile)
         save_transfer(trans, tfile)
     #fp-roundoff
     trans['k'][-1] *= 0.9999
@@ -208,7 +208,7 @@ def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
             trans = powspec.get_transfer(z=red)
             tfile = os.path.join(sdir, config['FileWithTransferFunction']+"-"+str(red))
             if os.path.exists(tfile):
-                raise IOError("Refusing to write to existing file: ",transferfile)
+                raise IOError("Refusing to write to existing file: ",tfile)
             save_transfer(trans, tfile)
             trans['k'][-1] *= 0.9999
             #Get and save the matter power spectrum
