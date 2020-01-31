@@ -100,8 +100,6 @@ struct BHPriv {
      * in the feedback treewalk*/
     MyFloat * BH_FeedbackWeightSum;
 
-    /* Particle SpinLocks*/
-    struct SpinLocks * spin;
     /* Counters*/
     int64_t * N_sph_swallowed;
     int64_t * N_BH_swallowed;
@@ -247,9 +245,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles)
     priv->BH_SurroundingGasVel = (MyFloat (*) [3]) mymalloc("BH_SurroundVel", 3* SlotsManager->info[5].size * sizeof(priv->BH_SurroundingGasVel[0]));
 
     /* This allocates memory*/
-    priv[0].spin = init_spinlocks(PartManager->NumPart);
     treewalk_run(tw_accretion, act->ActiveParticle, act->NumActiveParticle);
-    free_spinlocks(priv[0].spin);
 
     myfree(priv->BH_SurroundingGasVel);
     myfree(priv->BH_Entropy);
@@ -463,31 +459,33 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     /* Accretion / merger doesn't do self interaction */
     if(P[other].ID == I->ID) return;
 
-    struct SpinLocks * spin = BH_GET_PRIV(lv->tw)->spin;
-
     if(P[other].Type == 5 && r2 < iter->accretion_kernel.HH)	/* we have a black hole merger */
     {
         /* We do not depend on the BH relative velocity.
          * Because the BHs are not dissipative, their relative velocities
          * can be large, causing clumps of BHs to build up
          * at the same position without merging. */
+        MyIDType readid, newswallowid;
 
-        lock_spinlock(other, spin);
-        if(BHP(other).SwallowID != (MyIDType) -1) {
-           /* Here we mark the black hole as "ready to be swallowed" using the SwallowID.
-            * The actual swallowing is done in the feedback treewalk by setting Swallowed = 1
-            * and merging the masses.*/
-            /* Already marked, prefer to be swallowed by a bigger ID */
-            if(BHP(other).SwallowID < I->ID) {
-                BHP(other).SwallowID = I->ID;
+        #pragma omp atomic read
+        readid = (BHP(other).SwallowID);
+
+        /* Here we mark the black hole as "ready to be swallowed" using the SwallowID.
+         * The actual swallowing is done in the feedback treewalk by setting Swallowed = 1
+         * and merging the masses.*/
+        do {
+            /* Generate the new ID from the old*/
+            if(readid != (MyIDType) -1 && readid < I->ID ) {
+                /* Already marked, prefer to be swallowed by a bigger ID */
+                newswallowid = I->ID;
+            } else if(readid == (MyIDType) -1 && P[other].ID < I->ID) {
+                /* Unmarked, the BH with bigger ID swallows */
+                newswallowid = I->ID;
             }
-        } else {
-            /* Unmarked, the BH with bigger ID swallows */
-            if(P[other].ID < I->ID) {
-                BHP(other).SwallowID = I->ID;
-            }
-        }
-        unlock_spinlock(other, spin);
+            else
+                break;
+        /* Swap in the new id only if the old one hasn't changed*/
+        } while(!__atomic_compare_exchange_n(&(BHP(other).SwallowID), &readid, newswallowid, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
     }
 
     if(P[other].Type == 0) {
@@ -517,13 +515,19 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             if(w < p)
             {
                 MyIDType * SPH_SwallowID = BH_GET_PRIV(lv->tw)->SPH_SwallowID;
-                lock_spinlock(other, spin);
-                /* Already marked, prefer to be swallowed by a bigger ID.
-                 * Not marked, the SwallowID is 0 */
-                if(SPH_SwallowID[P[other].PI] < I->ID+1) {
-                    SPH_SwallowID[P[other].PI] = I->ID+1;
-                }
-                unlock_spinlock(other, spin);
+                MyIDType readid, newswallowid;
+                #pragma omp atomic read
+                readid = SPH_SwallowID[P[other].PI];
+                do {
+                    /* Already marked, prefer to be swallowed by a bigger ID.
+                     * Not marked, the SwallowID is 0 */
+                    if(readid < I->ID + 1) {
+                        newswallowid = I->ID + 1;
+                    }
+                    else
+                        break;
+                    /* Swap in the new id only if the old one hasn't changed*/
+                } while(!__atomic_compare_exchange_n(&SPH_SwallowID[P[other].PI], &readid, newswallowid, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
             }
         }
 
