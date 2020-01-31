@@ -14,7 +14,6 @@ enum WindModel {
     WIND_DECOUPLE_SPH = 2,
     WIND_USE_HALO = 4,
     WIND_FIXED_EFFICIENCY = 8,
-    WIND_ISOTROPIC = 16,
 };
 
 /*Set the parameters of the wind model*/

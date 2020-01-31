@@ -473,9 +473,10 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
          * at the same position without merging. */
 
         lock_spinlock(other, spin);
-        if(P[other].Swallowed) {
-            if(BHP(other).SwallowTime < All.Time)
-                endrun(2, "Encountered BH %i swallowed at earlier time %g\n", other, BHP(other).SwallowTime);
+        if(BHP(other).SwallowID != (MyIDType) -1) {
+           /* Here we mark the black hole as "ready to be swallowed" using the SwallowID.
+            * The actual swallowing is done in the feedback treewalk by setting Swallowed = 1
+            * and merging the masses.*/
             /* Already marked, prefer to be swallowed by a bigger ID */
             if(BHP(other).SwallowID < I->ID) {
                 BHP(other).SwallowID = I->ID;
@@ -483,9 +484,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         } else {
             /* Unmarked, the BH with bigger ID swallows */
             if(P[other].ID < I->ID) {
-                P[other].Swallowed = 1;
                 BHP(other).SwallowID = I->ID;
-                BHP(other).SwallowTime = All.Time;
             }
         }
         unlock_spinlock(other, spin);
@@ -592,10 +591,25 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     if(winds_is_particle_decoupled(other))
         return;
 
-    if(P[other].Swallowed && P[other].Type == 5)	/* we have a black hole merger */
+     /* we have a black hole merger! */
+    if(P[other].Type == 5 && BHP(other).SwallowID != (MyIDType) -1)
     {
         if(BHP(other).SwallowID != I->ID) return;
 
+        /* Swallow the particle*/
+        /* A note on Swallowed vs SwallowID: black hole particles which have been completely swallowed
+         * (ie, their mass has been added to another particle) have Swallowed = 1.
+         * These particles are ignored in future tree walks. We set Swallowed here so that this process is atomic:
+         * the total mass in the tree is always conserved.
+         *
+         * We also set SwallowID != -1 in the accretion treewalk. This marks the black hole as ready to be swallowed
+         * by something. It is actually swallowed only by the nearby black hole with the largest ID. In rare cases
+         * it may happen that the swallower is itself swallowed before swallowing the marked black hole. However,
+         * in practice the new swallower should also take the marked black hole next timestep.
+         */
+
+        BHP(other).SwallowTime = All.Time;
+        P[other].Swallowed = 1;
         O->BH_CountProgs += BHP(other).CountProgs;
         /* Leave the swallowed BH mass around
          * so we can work out mass at merger. */
@@ -610,7 +624,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     }
 
     /* Dump feedback energy */
-    if(!P[other].Swallowed && P[other].Type == 0) {
+    if(P[other].Type == 0) {
         if(r2 < iter->feedback_kernel.HH && P[other].Mass > 0) {
             if(I->FeedbackWeightSum > 0 && I->FeedbackEnergy > 0)
             {
@@ -709,7 +723,7 @@ static int
 blackhole_feedback_haswork(int n, TreeWalk * tw)
 {
     /*Black hole not being swallowed*/
-    return (P[n].Type == 5) && (!P[n].Swallowed);
+    return (P[n].Type == 5) && (!P[n].Swallowed) && (BHP(n).SwallowID == (MyIDType) -1);
 }
 
 static void
