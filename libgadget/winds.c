@@ -250,7 +250,7 @@ winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree)
         ReDoQueue = myrealloc(ReDoQueue, sizeof(int) * size);
 
         iter++;
-        message(0, "Star DM iteration Total left = %ld\n", totalleft);
+        message(0, "iter=%d star-DM iteration. Total left = %ld\n", iter, totalleft);
     } while(1);
 
     ta_free(priv->NPRedo);
