@@ -206,7 +206,7 @@ winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree)
         int n = NewStars[i];
         priv->Winddata[n].DMRadius = 2 * P[n].Hsml;
         priv->Winddata[n].Left = 0;
-        priv->Winddata[n].Right = -1;
+        priv->Winddata[n].Right = tree->BoxSize;
     }
 
     int alloc_high = 0;
@@ -302,13 +302,8 @@ sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
     } else {
         done = 1;
     }
-    if(WINDP(i, tw).Right >= 0) {
-        /* if Ngb hasn't converged to 40, see if DMRadius converged*/
-        if(WINDP(i, tw).Right - WINDP(i, tw).Left < 1e-2) {
-            done = 1;
-        } else {
-            WINDP(i, tw).DMRadius = 0.5 * (WINDP(i, tw).Left + WINDP(i, tw).Right);
-        }
+    if(WINDP(i, tw).Right < tw->tree->BoxSize * 0.99 && WINDP(i, tw).Left > 0) {
+        WINDP(i, tw).DMRadius = pow(0.5 * pow(WINDP(i, tw).Left, 3) + pow(WINDP(i, tw).Right, 3), 1./3);
     } else {
         WINDP(i, tw).DMRadius *= 1.3;
     }
