@@ -246,7 +246,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "FOFSaveParticles", OPTIONAL, 1, "Save particles in the FOF catalog.");
     param_declare_double(ps, "FOFHaloLinkingLength", OPTIONAL, 0.2, "Linking length for Friends of Friends halos.");
     param_declare_int(ps, "FOFHaloMinLength", OPTIONAL, 32, "Minimum number of particles per FOF Halo.");
-    param_declare_double(ps, "MinFoFMassForNewSeed", OPTIONAL, 0.5, "Minimal halo mass for seeding tracer particles in internal mass units.");
+    param_declare_double(ps, "MinFoFMassForNewSeed", OPTIONAL, 5, "Minimal halo mass for seeding tracer particles in internal mass units.");
     param_declare_double(ps, "TimeBetweenSeedingSearch", OPTIONAL, 1.04, "Scale factor fraction increase between Seeding Attempts.");
 
     /*Black holes*/
