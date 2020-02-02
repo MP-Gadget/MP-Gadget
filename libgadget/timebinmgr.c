@@ -155,7 +155,7 @@ loga_from_ti(inttime_t ti)
 {
     inttime_t lastsnap = ti >> TIMEBINS;
     if(lastsnap > NSyncPoints) {
-        endrun(1, "Requesting becond last sync point\n");
+        endrun(1, "Requesting snap %d, from ti %d, beyond last sync point %d\n", lastsnap, ti, NSyncPoints);
     }
     double last = SyncPoints[lastsnap].loga;
     inttime_t dti = ti & (TIMEBASE - 1);
