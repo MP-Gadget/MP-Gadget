@@ -651,8 +651,12 @@ add_particle_moment_to_node(struct NODE * pnode, int i)
 
     if(P[i].Type == 0)
     {
-        if(P[i].Hsml > pnode->mom.hmax)
-            pnode->mom.hmax = P[i].Hsml;
+        int j;
+        /* Maximal distance any of the member particles peek out from the side of the node.
+         * May be at most hmax, as |Pos - Center| < len.*/
+        for(j = 0; j < 3; j++) {
+            pnode->mom.hmax = DMAX(pnode->mom.hmax, fabs(P[i].Pos[j] - pnode->center[j]) + P[i].Hsml - pnode->len);
+        }
     }
 
     force_adjust_node_softening(pnode, FORCE_SOFTENING(i));
@@ -1013,11 +1017,15 @@ void force_treeupdate_pseudos(int no, const ForceTree * tree)
 }
 
 /*! This function updates the hmax-values in tree nodes that hold SPH
- *  particles. These values are needed to find all neighbors in the
- *  hydro-force computation.  Since the Hsml-values are potentially changed
+ *  particles. Since the Hsml-values are potentially changed for active particles
  *  in the SPH-density computation, force_update_hmax() should be carried
  *  out just before the hydrodynamical SPH forces are computed, i.e. after
  *  density().
+ *
+ *  The purpose of the hmax node is for a symmetric treewalk (currently only the hydro).
+ *  Particles where P[i].Pos + Hsml pokes beyond the exterior of the tree node may mean
+ *  that a tree node should be included when it would normally be culled. Therefore we don't really
+ *  want hmax, we want the maximum amount P[i].Pos + Hsml pokes beyond the tree node.
  */
 void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp * ddecomp)
 {
@@ -1047,16 +1055,31 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
 
         while(no >= 0)
         {
-            MyFloat readhmax;
+            /* How much does this particle peek beyond this node?
+             * Note len does not change so we can read it without a lock or atomic. */
+            MyFloat readhmax, newhmax = 0;
+            int j, done = 0;
+            for(j = 0; j < 3; j++) {
+                /* Compute each direction independently and take the maximum.
+                 * This is the largest possible distance away from node center within a cube bounding hsml.
+                 * Note that because Pos - Center < len, the maximum value this can have is Hsml.*/
+                newhmax = DMAX(newhmax, fabs(P[p_i].Pos[j] - tree->Nodes[no].center[j]) + P[p_i].Hsml - tree->Nodes[no].len);
+            }
+            /* Most particles will lie fully inside a node. No need then for the atomic! */
+            if(newhmax <= 0)
+                break;
+
             #pragma omp atomic read
             readhmax = tree->Nodes[no].mom.hmax;
             do {
-                if(P[i].Hsml <= readhmax)
+                if(newhmax <= readhmax) {
+                    done = 1;
                     break;
+                }
                 /* Swap in the new hmax only if the old one hasn't changed. */
-            } while(!__atomic_compare_exchange(&(tree->Nodes[no].mom.hmax), &readhmax, &P[i].Hsml, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+            } while(!__atomic_compare_exchange(&(tree->Nodes[no].mom.hmax), &readhmax, &newhmax, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
 
-            if(P[i].Hsml <= readhmax)
+            if(done)
                 break;
             no = tree->Nodes[no].father;
         }

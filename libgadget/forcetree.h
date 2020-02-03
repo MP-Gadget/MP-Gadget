@@ -45,7 +45,7 @@ struct NODE
     struct {
         MyFloat cofm[3];		/*!< center of mass of node */
         MyFloat mass;		/*!< mass of node */
-        MyFloat hmax;			/*!< maximum SPH smoothing length in node. Only used for gas particles */
+        MyFloat hmax;           /*!< maximum amount by which Pos + Hsml of all gas particles in the node exceeds len for this node. */
         MyFloat MaxSoftening;  /* Stores the largest softening in the node. The short-range
                          * gravitational force solver will check this and use it
                          * open the node if a particle is closer.*/
