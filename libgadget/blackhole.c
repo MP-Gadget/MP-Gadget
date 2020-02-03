@@ -365,8 +365,6 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
     if(norm > 0)
         mdot = 4. * M_PI * blackhole_params.BlackHoleAccretionFactor * All.G * All.G *
             BHP(i).Mass * BHP(i).Mass * rho_proper / norm;
-    else
-        mdot = 0;
 
     if(blackhole_params.BlackHoleEddingtonFactor > 0.0 &&
         mdot > blackhole_params.BlackHoleEddingtonFactor * meddington) {
