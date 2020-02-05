@@ -126,12 +126,11 @@ static int check_moments(const ForceTree * tb, const int numpart, const int nrea
             sibcntr++;
 
         if(!(tb->Nodes[node].mom.mass < 0.5 && tb->Nodes[node].mom.mass > -0.5)) {
-            printf("node %d (%d) mass %g / %g TL %d DLM %d MS %g MSN %d ITL %d\n",
+            printf("node %d (%d) mass %g / %g TL %d DLM %d MS %g ITL %d\n",
                 node, node - tb->firstnode, tb->Nodes[node].mom.mass, oldmass[node - tb->firstnode],
                 tb->Nodes[node].f.TopLevel,
                 tb->Nodes[node].f.DependsOnLocalMass,
                 tb->Nodes[node].mom.MaxSoftening,
-                tb->Nodes[node].f.MixedSofteningsInNode,
                 tb->Nodes[node].f.InternalTopLevel
             );
             /* something is wrong show the particles */
