@@ -239,8 +239,6 @@ static void init_internal_node(struct NODE *nfreep, struct NODE *parent, int sub
     nfreep->mom.hmax = 0;
     nfreep->mom.MaxSoftening = -1;
     nfreep->f.DependsOnLocalMass = 0;
-    nfreep->f.MixedSofteningsInNode = 0;
-
 }
 
 /* Size of the free Node thread cache.
@@ -631,20 +629,10 @@ force_get_father(int no, const ForceTree * tree)
  *
  * */
 static void
-force_adjust_node_softening(struct NODE * pnode, double MaxSoftening, int mixed)
+force_adjust_node_softening(struct NODE * pnode, double MaxSoftening)
 {
-
-    if(pnode->mom.MaxSoftening > 0) {
-        /* already set? mark MixedSoftenings */
-        if(MaxSoftening != pnode->mom.MaxSoftening) {
-            pnode->f.MixedSofteningsInNode = 1;
-        }
-    }
     if(MaxSoftening > pnode->mom.MaxSoftening) {
         pnode->mom.MaxSoftening = MaxSoftening;
-    }
-    if(mixed) {
-        pnode->f.MixedSofteningsInNode = 1;
     }
 }
 
@@ -662,7 +650,7 @@ add_particle_moment_to_node(struct NODE * pnode, int i)
             pnode->mom.hmax = P[i].Hsml;
     }
 
-    force_adjust_node_softening(pnode, FORCE_SOFTENING(i), 0);
+    force_adjust_node_softening(pnode, FORCE_SOFTENING(i));
 }
 
 /*Get the sibling of a node, using the suns array. Only to be used in the tree build, before update_node_recursive is called.*/
@@ -813,7 +801,7 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
         if(tree->Nodes[p].mom.hmax > tree->Nodes[no].mom.hmax)
             tree->Nodes[no].mom.hmax = tree->Nodes[p].mom.hmax;
 
-        force_adjust_node_softening(&tree->Nodes[no], tree->Nodes[p].mom.MaxSoftening, tree->Nodes[p].f.MixedSofteningsInNode);
+        force_adjust_node_softening(&tree->Nodes[no], tree->Nodes[p].mom.MaxSoftening);
     }
 
     /*Set the center of mass moments*/
@@ -871,9 +859,6 @@ void force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp)
         MyFloat s[3];
         MyFloat mass;
         MyFloat hmax;
-        struct {
-            unsigned int MixedSofteningsInNode :1;
-        };
         MyFloat MaxSoftening;
     }
     *TopLeafMoments;
@@ -896,7 +881,6 @@ void force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp)
         TopLeafMoments[i].mass = tree->Nodes[no].mom.mass;
         TopLeafMoments[i].hmax = tree->Nodes[no].mom.hmax;
         TopLeafMoments[i].MaxSoftening = tree->Nodes[no].mom.MaxSoftening;
-        TopLeafMoments[i].MixedSofteningsInNode = tree->Nodes[no].f.MixedSofteningsInNode;
 
         /*Set the local base nodes dependence on local mass*/
         while(no >= 0)
@@ -945,7 +929,6 @@ void force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp)
             tree->Nodes[no].mom.mass = TopLeafMoments[i].mass;
             tree->Nodes[no].mom.hmax = TopLeafMoments[i].hmax;
             tree->Nodes[no].mom.MaxSoftening = TopLeafMoments[i].MaxSoftening;
-            tree->Nodes[no].f.MixedSofteningsInNode = TopLeafMoments[i].MixedSofteningsInNode;
          }
     }
     myfree(TopLeafMoments);
@@ -968,7 +951,6 @@ void force_treeupdate_pseudos(int no, const ForceTree * tree)
     hmax = 0;
 
     tree->Nodes[no].mom.MaxSoftening = -1;
-    tree->Nodes[no].f.MixedSofteningsInNode = 0;
 
     /* This happens if we have a trivial domain with only one entry*/
     if(!tree->Nodes[no].f.InternalTopLevel)
@@ -999,7 +981,7 @@ void force_treeupdate_pseudos(int no, const ForceTree * tree)
         if(tree->Nodes[p].mom.hmax > hmax)
             hmax = tree->Nodes[p].mom.hmax;
 
-        force_adjust_node_softening(&tree->Nodes[no], tree->Nodes[p].mom.MaxSoftening, tree->Nodes[p].f.MixedSofteningsInNode);
+        force_adjust_node_softening(&tree->Nodes[no], tree->Nodes[p].mom.MaxSoftening);
 
         p = tree->Nodes[p].sibling;
     }

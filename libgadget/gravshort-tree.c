@@ -319,11 +319,10 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                 if(input->Soft < nop->mom.MaxSoftening)
                 {
                     if(r2 < h * h)
-                        if(nop->f.MixedSofteningsInNode)
-                        {
-                            no = nop->nextnode;
-                            continue;
-                        }
+                    {
+                        no = nop->nextnode;
+                        continue;
+                    }
                 }
 
                 /* ok, node can be used */

@@ -37,10 +37,9 @@ struct NODE
         unsigned int InternalTopLevel :1; /* TopLevel and has a child which is also TopLevel*/
         unsigned int TopLevel :1; /* Node corresponding to a toplevel node */
         unsigned int DependsOnLocalMass :1;  /* Intersects with local mass */
-        unsigned int MixedSofteningsInNode:1;  /* Softening is mixed, need to open the node */
         unsigned int ChildType :2; /* Specify the type of children this node has: particles, other nodes, or pseudo-particles.
                                     * (should be an enum, but not standard in C).*/
-        unsigned int unused : 2; /* Spare bits*/
+        unsigned int unused : 3; /* Spare bits*/
     } f;
 
     struct {
