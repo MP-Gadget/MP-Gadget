@@ -166,7 +166,7 @@ class HeIIheating:
         dGammadt = 4.*np.pi*w[0]*self.eVtoerg*self.cosmo.nHe(redshift)
         return dGammadt
 
-    def WriteInterpTable(self, outfile, numz = 100.):
+    def WriteInterpTable(self, outfile, numz = 100):
         """Built the interpolation table file, the main output of this code, loadable by the MP-Gadget reionization module."""
         print("Setting up interpolation table!")
 
