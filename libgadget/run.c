@@ -494,13 +494,13 @@ open_outputfiles(int RestartSnapNum)
     char * postfix;
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    FdCPU = NULL;
+    FdEnergy = NULL;
+    FdBlackHoles = NULL;
+    FdSfr = NULL;
 
+    /* only the root processors writes to the log files */
     if(ThisTask != 0) {
-        FdCPU = NULL;
-        FdEnergy = NULL;
-        FdBlackHoles = NULL;
-        FdSfr = NULL;
-        /* only the root processors writes to the log files */
         return;
     }
 
