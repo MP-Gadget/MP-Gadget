@@ -819,6 +819,7 @@ static void GTStarFormationRate(int i, float * out, void * baseptr, void * smanp
 }
 SIMPLE_PROPERTY_TYPE_PI(StarFormationTime, 5, FormationTime, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeMass, Mass, float, 1, struct bh_particle_data)
+SIMPLE_PROPERTY_PI(BlackholeDensity, Density, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeAccretionRate, Mdot, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeProgenitors, CountProgs, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeSwallowID, SwallowID, uint64_t, 1, struct bh_particle_data)
@@ -969,6 +970,7 @@ void register_io_blocks(struct IOTable * IOTable) {
     /* Black hole */
     IO_REG_TYPE(StarFormationTime, "f4", 1, 5, IOTable);
     IO_REG(BlackholeMass,          "f4", 1, 5, IOTable);
+    IO_REG(BlackholeDensity,          "f4", 1, 5, IOTable);
     IO_REG(BlackholeAccretionRate, "f4", 1, 5, IOTable);
     IO_REG(BlackholeProgenitors,   "i4", 1, 5, IOTable);
     IO_REG(BlackholeMinPotPos, "f8", 3, 5, IOTable);
