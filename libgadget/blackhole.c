@@ -502,6 +502,13 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             /* compute accretion probability */
             double p = 0;
 
+            /* This is an averaged Mdot, because Mdot increases BH_Mass but not Mass.
+             * So if the total accretion is significantly above the dynamical mass,
+             * a particle is swallowed. Note that if a large number of black holes
+             * are swallowed with a BH mass less than the dynamical mass,
+             * this will not increase and gas accretion will be suppressed.
+             * To avoid this, ensure that the BH seed mass is not much less
+             * than the dynamical mass. */
             if((I->BH_Mass - I->Mass) > 0 && I->Density > 0)
                 p = (I->BH_Mass - I->Mass) * wk / I->Density;
 
