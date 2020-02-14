@@ -37,7 +37,7 @@ create_parameters(void)
     param_declare_int(ps, "MakeGlassGas", OPTIONAL, -1, "Generate Glass IC for gas instead of Grid IC.");
     param_declare_int(ps, "MakeGlassCDM", OPTIONAL, 0, "Generate Glass IC for CDM instead of Grid IC.");
 
-    param_declare_int(ps, "UnitaryAmplitude", OPTIONAL, 0, "If non-zero, generate unitary gaussians where |g| == 1.0.");
+    param_declare_int(ps, "UnitaryAmplitude", OPTIONAL, 1, "If 0, each Fourier mode in the initial power spectrum is scattered. If 1 each Fourier mode is not scattered and we generate unitary gaussians for the initial phases.");
     param_declare_int(ps, "WhichSpectrum", OPTIONAL, 2, "Type of spectrum, 2 for file ");
     param_declare_double(ps, "Omega_fld", OPTIONAL, 0, "Energy density of dark energy fluid.");
     param_declare_double(ps, "w0_fld", OPTIONAL, -1., "Dark energy equation of state");
