@@ -301,6 +301,8 @@ apply_half_kick(const ActiveParticles * act)
     for(pa = 0; pa < act->NumActiveParticle; pa++)
     {
         const int i = get_active_particle(act, pa);
+        if(P[i].Swallowed || P[i].IsGarbage)
+            continue;
         int bin = P[i].TimeBin;
         inttime_t dti = dti_from_timebin(bin);
         /* current Kick time */
@@ -335,6 +337,8 @@ do_the_long_range_kick(inttime_t tistart, inttime_t tiend)
     for(i = 0; i < PartManager->NumPart; i++)
     {
         int j;
+        if(P[i].Swallowed || P[i].IsGarbage)
+            continue;
         for(j = 0; j < 3; j++)	/* do the kick */
             P[i].Vel[j] += P[i].GravPM[j] * Fgravkick;
     }
@@ -460,11 +464,14 @@ get_timestep_dloga(const int p)
             if(dt_accr < dt)
                 dt = dt_accr;
         }
-        if(BHP(p).minTimeBin > 0 && BHP(p).minTimeBin < TIMEBINS) {
-            double dt_limiter = get_dloga_for_bin(BHP(p).minTimeBin) / All.cf.hubble;
+        if(BHP(p).minTimeBin > 0 && BHP(p).minTimeBin+1 < TIMEBINS) {
+            double dt_limiter = get_dloga_for_bin(BHP(p).minTimeBin+1) / All.cf.hubble;
             /* Set the black hole timestep to the minimum timesteps of neighbouring gas particles.
              * It should be at least this for accretion accuracy, and it does not make sense to
-             * make it less than this.*/
+             * make it less than this. We go one timestep up because often the smallest
+             * timebin particle is cooling, and so increases its timestep. Then the smallest timebin
+             * contains only the BH which doesn't make much numerical sense. Accretion accuracy is not much changed
+             * by one timestep difference.*/
             dt = dt_limiter;
         }
     }

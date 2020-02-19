@@ -427,6 +427,11 @@ density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMod
         else
             TREEWALK_REDUCE(SPHP(place).DhsmlEgyDensityFactor, remote->DhsmlDensity);
     }
+    else if(P[place].Type == 5)
+    {
+        TREEWALK_REDUCE(BHP(place).Density, remote->Rho);
+
+    }
 
 }
 
@@ -479,16 +484,15 @@ density_ngbiter(
         const double wk = density_kernel_wk(&iter->kernel, u);
         O->Ngb += wk * iter->kernel_volume;
 
-        /* For the BH only Ngb is used. BH density is
-         * computed during accretion.*/
-        if(I->Type == 5)
-            return;
-
         const double dwk = density_kernel_dwk(&iter->kernel, u);
 
         const double mass_j = P[other].Mass;
 
         O->Rho += (mass_j * wk);
+
+        /* For the BH only density is used.*/
+        if(I->Type == 5)
+            return;
 
         /* Hinv is here because O->DhsmlDensity is drho / dH.
          * nothing to worry here */

@@ -51,7 +51,6 @@ typedef struct {
     int BH_minTimeBin;
     MyFloat FeedbackWeightSum;
 
-    MyFloat Rho;
     MyFloat SmoothedEntropy;
     MyFloat GasVel[3];
 } TreeWalkResultBHAccretion;
@@ -366,8 +365,6 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
     if(norm > 0)
         mdot = 4. * M_PI * blackhole_params.BlackHoleAccretionFactor * All.G * All.G *
             BHP(i).Mass * BHP(i).Mass * rho_proper / norm;
-    else
-        mdot = 0;
 
     if(blackhole_params.BlackHoleEddingtonFactor > 0.0 &&
         mdot > blackhole_params.BlackHoleEddingtonFactor * meddington) {
@@ -495,9 +492,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             double wk = density_kernel_wk(&iter->accretion_kernel, u);
             float mass_j = P[other].Mass;
 
-            /* FIXME: volume correction doesn't work on BH yet. */
-            O->Rho += (mass_j * wk);
-
             O->SmoothedEntropy += (mass_j * wk * SphP_scratch->EntVarPred[P[other].PI]);
             O->GasVel[0] += (mass_j * wk * SphP_scratch->VelPred[3 * P[other].PI]);
             O->GasVel[1] += (mass_j * wk * SphP_scratch->VelPred[3 * P[other].PI+1]);
@@ -508,6 +502,13 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             /* compute accretion probability */
             double p = 0;
 
+            /* This is an averaged Mdot, because Mdot increases BH_Mass but not Mass.
+             * So if the total accretion is significantly above the dynamical mass,
+             * a particle is swallowed. Note that if a large number of black holes
+             * are swallowed with a BH mass less than the dynamical mass,
+             * this will not increase and gas accretion will be suppressed.
+             * To avoid this, ensure that the BH seed mass is not much less
+             * than the dynamical mass. */
             if((I->BH_Mass - I->Mass) > 0 && I->Density > 0)
                 p = (I->BH_Mass - I->Mass) * wk / I->Density;
 
@@ -698,8 +699,6 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     if (mode == 0 || BHP(place).minTimeBin > remote->BH_minTimeBin) {
         BHP(place).minTimeBin = remote->BH_minTimeBin;
     }
-
-    TREEWALK_REDUCE(BHP(place).Density, remote->Rho);
 
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_FeedbackWeightSum[PI], remote->FeedbackWeightSum);
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_Entropy[PI], remote->SmoothedEntropy);

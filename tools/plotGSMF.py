@@ -33,7 +33,8 @@ def getbmf(pig,Lbox, hh):
     """Get the black hole mass function"""
     #Swallowed black holes are never added to the FOF table
     bhmasses = (pig['5/BlackholeMass'][:])*10**10/hh
-    bmf = massfunc(bhmasses,Lbox)
+    swallowed = np.array(pig['5/Swallowed'][:])
+    bmf = massfunc(bhmasses[np.where(swallowed < 1)],Lbox)
     return bmf
 
 def plot_bhmf(pig):
