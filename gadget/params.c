@@ -145,7 +145,7 @@ create_gadget_parameter_set()
     param_declare_int(ps,    "OutputHeliumFractions", OPTIONAL, 0, "Save the helium ionic fractions in snapshots.");
     param_declare_int(ps,    "OutputDebugFields", OPTIONAL, 0, "Save a large number of debug fields in snapshots.");
     param_declare_int(ps,    "ShowBacktrace", OPTIONAL, 1, "Print a backtrace on crash. Hangs on stampede.");
-    param_declare_double(ps,    "MaxMemSizePerNode", OPTIONAL, 0.6, "Pre-allocate this much memory per computing node/ host, in MB. Defaults to 60\% of total available memory per node. Passing < 1 allocates a fraction of total available memory per node.");
+    param_declare_double(ps,    "MaxMemSizePerNode", OPTIONAL, 0.6, "Pre-allocate this much memory per computing node/ host, in MB. Defaults to 60%% of total available memory per node. Passing < 1 allocates a fraction of total available memory per node.");
     param_declare_double(ps, "AutoSnapshotTime", OPTIONAL, 0, "Seconds after which to automatically generate a snapshot if nothing is output.");
 
     param_declare_double(ps, "TimeMax", OPTIONAL, 1.0, "Scale factor to end run.");
