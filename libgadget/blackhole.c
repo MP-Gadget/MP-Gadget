@@ -109,22 +109,28 @@ struct BHPriv {
 #define BH_GET_PRIV(tw) ((struct BHPriv *) (tw->priv))
 
 struct BHinfo{
-    
+
     MyIDType ID;
     MyFloat Mass;
     MyFloat Mdot;
     MyFloat Density;
     int minTimeBin;
+
     double  MinPotPos[3];
-    
     MyFloat MinPot;
     MyFloat BH_Entropy;
     MyFloat BH_SurroundingGasVel[3];
-    
+
     MyFloat BH_accreted_Mass;
     MyFloat BH_accreted_BHMass;
+    MyFloat BH_FeedbackWeightSum;
+
     MyIDType SPH_SwallowID;
-    
+    MyIDType SwallowID;
+
+    int CountProgs;
+    int Swallowed;
+
     MyDouble a;
 };
 
@@ -238,7 +244,12 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
         
         info.BH_accreted_BHMass = priv->BH_accreted_BHMass[PI];
         info.BH_accreted_Mass = priv->BH_accreted_Mass[PI];
-        info.SPH_SwallowID = priv->SPH_SwallowID[PI];
+        info.BH_FeedbackWeightSum = priv->BH_FeedbackWeightSum[PI];
+        
+        info.SPH_SwallowID = priv->SPH_SwallowID[PI];       
+        info.SwallowID =  BHP(p_i).SwallowID;
+        info.CountProgs = BHP(p_i).CountProgs;
+        info.Swallowed =  P[p_i].Swallowed;
         
         info.a = All.Time;
         
