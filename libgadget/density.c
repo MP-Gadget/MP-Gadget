@@ -42,7 +42,7 @@ set_density_params(ParameterSet * ps)
         DensityKernel kernel;
         density_kernel_init(&kernel, 1.0, DensityParams.DensityKernelType);
         message(1, "The Density Kernel type is %s\n", kernel.name);
-        message(1, "The Density resolution is %g * mean separation, or %d neighbours\n",
+        message(1, "The Density resolution is %g * mean separation, or %g neighbours\n",
                     DensityParams.DensityResolutionEta, GetNumNgb(GetDensityKernelType()));
         /*These two look like black hole parameters but they are really neighbour finding parameters*/
         DensityParams.BlackHoleNgbFactor = param_get_double(ps, "BlackHoleNgbFactor");
