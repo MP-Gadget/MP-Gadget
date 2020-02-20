@@ -36,6 +36,7 @@ static FILE * FdEnergy;
 static FILE  *FdCPU;    /*!< file handle for cpu.txt log-file. */
 static FILE *FdSfr;     /*!< file handle for sfr.txt log-file. */
 static FILE *FdBlackHoles;  /*!< file handle for blackholes.txt log-file. */
+static FILE *FdBlackholeDetails;  /*!< file handle for BlackholeDetails binary file. */
 
 static struct ClockTable Clocks;
 
@@ -253,7 +254,7 @@ run(int RestartSnapNum)
             }
 
             /* Black hole accretion and feedback */
-            blackhole(&Act, &Tree, FdBlackHoles);
+            blackhole(&Act, &Tree, FdBlackHoles, FdBlackholeDetails);
 
             /**** radiative cooling and star formation *****/
             cooling_and_starformation(&Act, &Tree, FdSfr);
@@ -498,6 +499,16 @@ open_outputfiles(int RestartSnapNum)
     FdEnergy = NULL;
     FdBlackHoles = NULL;
     FdSfr = NULL;
+    FdBlackholeDetails = NULL;
+    
+    /* all the processors write to separate files*/
+    if(All.BlackHoleOn && All.WriteBlackHoleDetails){
+        buf = fastpm_strdup_printf("%s/%s/%06X", All.OutputDir,"BlackholeDetails",ThisTask);
+        fastpm_path_ensure_dirname(buf);
+        if(!(FdBlackholeDetails = fopen(buf,"a")))
+            endrun(1, "Failed to open blackhole detail %s\n", buf);
+        myfree(buf);
+    }
 
     /* only the root processors writes to the log files */
     if(ThisTask != 0) {
@@ -553,6 +564,8 @@ close_outputfiles(void)
         fclose(FdSfr);
     if(FdBlackHoles)
         fclose(FdBlackHoles);
+    if(FdBlackholeDetails)
+        fclose(FdBlackholeDetails);
 }
 
 /*! Computes conversion factors between internal code units and the

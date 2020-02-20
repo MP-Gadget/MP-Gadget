@@ -97,6 +97,8 @@ extern struct global_data_all_processes
     int BlackHoleOn;  /* if black holes are enabled */
     int StarformationOn;  /* if star formation is enabled */
     int WindOn; /* if Wind is enabled */
+    
+    int WriteBlackHoleDetails; /* write BH details every time step*/
 
     int MassiveNuLinRespOn; /*!< flags that massive neutrinos using the linear
                                  response code of Ali-Haimoud & Bird 2013.*/
