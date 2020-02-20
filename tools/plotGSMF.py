@@ -33,7 +33,8 @@ def getbmf(pig,Lbox, hh):
     """Get the black hole mass function"""
     #Swallowed black holes are never added to the FOF table
     bhmasses = (pig['5/BlackholeMass'][:])*10**10/hh
-    bmf = massfunc(bhmasses,Lbox)
+    swallowed = np.array(pig['5/Swallowed'][:])
+    bmf = massfunc(bhmasses[np.where(swallowed < 1)],Lbox)
     return bmf
 
 def plot_bhmf(pig):
@@ -54,9 +55,6 @@ def plot_bhmf(pig):
 
 def plot_gsmf(pig, label=None):
     """Plot a galaxy stellar mass function from a FOF table, compared to some observations."""
-    fig = plt.Figure()
-    ax = fig.add_subplot(111)
-
     bf = BigFile(pig)
     redshift = 1/bf['Header'].attrs['Time']-1
     #Note! Assumes kpc units!
@@ -65,8 +63,8 @@ def plot_gsmf(pig, label=None):
     print ('z=',redshift)
 
     lfm = get_gsmf(bf,lbox, hh)
-    ax.plot(lfm[0],lfm[1], label=label)
-    ax.fill_between(lfm[0],lfm[2],lfm[3],alpha=0.2)
+    plt.plot(lfm[0],lfm[1], label=label)
+    plt.fill_between(lfm[0],lfm[2],lfm[3],alpha=0.2)
 
     color2 = {'Song2016':'#0099e6','Grazian2015':'#7f8c83','Gonzalez2011':'#ffa64d',\
           'Duncan2014':'#F08080','Stefanon2017':'#30ba52'}
@@ -84,11 +82,11 @@ def plot_gsmf(pig, label=None):
             data[:,1:] = np.log10(data[:,1:])
             color      = color2[label]
             marker     = marker2[label]
-            ax.errorbar(data[:,0],  data[:,1], yerr = [data[:,1]-data[:,3],data[:,2]- data[:,1]],\
+            plt.errorbar(data[:,0],  data[:,1], yerr = [data[:,1]-data[:,3],data[:,2]- data[:,1]],\
                         label=label,color=color,fmt=marker)
         else:
             continue
 
-    ax.legend(fontsize=14)
-    ax.set_title('GSMF,bhfdbk,z=%.1f'%redshift,fontsize=15)
-    ax.set_ylabel(r'$\mathrm{log}_{10} \phi/[\mathrm{dex}^{-1} \mathrm{Mpc}^{-3}]$',fontsize=15)
+    plt.legend(fontsize=14)
+    plt.title('GSMF,bhfdbk,z=%.1f'%redshift,fontsize=15)
+    plt.ylabel(r'$\mathrm{log}_{10} \phi/[\mathrm{dex}^{-1} \mathrm{Mpc}^{-3}]$',fontsize=15)

@@ -390,8 +390,8 @@ add_injected_BH_energy(double unew, double injected_BH_energy, double mass)
 
     double temp = u_to_temp_fac * unew;
 
-    if(temp > 1.0e8)
-        unew = 1.0e8 / u_to_temp_fac;
+    if(temp > 5.0e8)
+        unew = 5.0e8 / u_to_temp_fac;
 
     return unew;
 }
@@ -575,11 +575,6 @@ static void cooling_relaxed(int i, double dtime, struct sfr_eeqos_data sfr_data)
              * agreement with observations.*/
             if(tcool < trelax && tcool > 0)
                 trelax = tcool;
-            /* We set MaxSignalVel to be maximally the pressure in the cold phase,
-             * since that dominates the density.
-             * From hydra c_s = GAMMA P / rho and P = (S rho)^GAMMA*/
-            double Pressure = pow(sfr_params.EgySpecCold * Density, GAMMA);
-            SPHP(i).MaxSignalVel = DMIN(SPHP(i).MaxSignalVel, sqrt(GAMMA * Pressure / Density));
         }
     }
 
