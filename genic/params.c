@@ -129,7 +129,7 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
     All.UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
     GenicConfig->UnitVelocity_in_cm_per_s = param_get_double(ps, "UnitVelocity_in_cm_per_s");
     GenicConfig->UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
-    //GenicConfig->UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
+    GenicConfig->UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
 
 
     *ShowBacktrace = param_get_int(ps, "ShowBacktrace");
@@ -157,7 +157,7 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
     GenicConfig->PowerP.PrimordialRunning = param_get_double(ps, "PrimordialRunning");
 
     /*Simulation parameters*/
-    All.IO.UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
+    GenicConfig->UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
     GenicConfig->SavePrePos = param_get_int(ps, "SavePrePos");
     All.BoxSize = param_get_double(ps, "BoxSize");
     All.Nmesh = param_get_int(ps, "Nmesh");
@@ -193,7 +193,7 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
     if(Ngrid < GenicConfig->NgridGas)
         Ngrid = GenicConfig->NgridGas;
     GenicConfig->NumFiles = ( Ngrid*Ngrid*Ngrid + NumPartPerFile - 1) / NumPartPerFile;
-    All.IO.NumWriters = param_get_int(ps, "NumWriters");
+    GenicConfig->NumWriters = param_get_int(ps, "NumWriters");
     if(GenicConfig->PowerP.DifferentTransferFunctions && GenicConfig->PowerP.InputPowerRedshift != Redshift
         && (GenicConfig->ProduceGas || All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2]))
         message(0, "WARNING: Using different transfer functions but also rescaling power to account for linear growth. NOT what you want!\n");
@@ -210,6 +210,5 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
     GenicConfig->TimeIC = 1 / (1 + Redshift);
     All.UnitTime_in_s = All.UnitLength_in_cm / All.UnitVelocity_in_cm_per_s;
 
-    All.G = GRAVITY / pow(All.UnitLength_in_cm, 3) * All.UnitMass_in_g * pow(All.UnitTime_in_s, 2);
     All.CP.Hubble = HUBBLE * All.UnitTime_in_s;
 }

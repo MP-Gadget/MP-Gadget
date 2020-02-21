@@ -25,15 +25,17 @@ struct genic_config {
     int MakeGlassGas;
     int MakeGlassCDM;
     int  NumFiles;
+    int  NumWriters;
     /* Whether to save the pre-displacement positions to the snapshot*/
     int SavePrePos;
     struct power_params PowerP;
     double UnitLength_in_cm;
     double UnitVelocity_in_cm_per_s;
-    //double UnitMass_in_g;
+    double UnitMass_in_g;
     char OutputDir[100];
     char InitCondFile[100];
     double TimeIC;
+    int UsePeculiarVelocity;
 };
 
 #endif

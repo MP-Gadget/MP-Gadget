@@ -52,7 +52,7 @@ int main(int argc, char **argv)
   init_cosmology(&All.CP, All2.TimeIC);
 
   MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-  init_powerspectrum(ThisTask, All2.TimeIC, All.UnitLength_in_cm, &All.CP, &All2.PowerP);
+  init_powerspectrum(ThisTask, All2.TimeIC, All2.UnitLength_in_cm, &All.CP, &All2.PowerP);
 
   petapm_module_init(omp_get_max_threads());
 
@@ -70,7 +70,6 @@ int main(int argc, char **argv)
   /*Write the header*/
   char buf[4096];
   snprintf(buf, 4096, "%s/%s", All2.OutputDir, All2.InitCondFile);
-  message(0, "%s\n", buf);
   BigFile bf;
   if(0 != big_file_mpi_create(&bf, buf, MPI_COMM_WORLD)) {
       endrun(0, "%s\n", big_file_get_error_message());
@@ -83,12 +82,12 @@ int main(int argc, char **argv)
   if(TotNu > 0) {
     const double kBMNu = 3*All.CP.ONu.kBtnu / (All.CP.MNu[0]+All.CP.MNu[1]+All.CP.MNu[2]);
     double v_th = NU_V0(All2.TimeIC, kBMNu, All2.UnitVelocity_in_cm_per_s);
-    if(!All.IO.UsePeculiarVelocity)
+    if(!All2.UsePeculiarVelocity)
         v_th /= sqrt(All2.TimeIC);
     total_nufrac = init_thermalvel(&nu_therm, v_th, All2.Max_nuvel/v_th, 0);
     message(0,"F-D velocity scale: %g. Max particle vel: %g. Fraction of mass in particles: %g\n",v_th*sqrt(All2.TimeIC), All2.Max_nuvel*sqrt(All2.TimeIC), total_nufrac);
   }
-  saveheader(&bf, TotNumPart, TotNumPartGas, TotNu, total_nufrac, All2);
+  saveheader(&bf, TotNumPart, TotNumPartGas, TotNu, total_nufrac, All.BoxSize, &All.CP, All2);
 
   /*Save the transfer functions*/
   save_all_transfer_tables(&bf, ThisTask);
@@ -103,12 +102,15 @@ int main(int argc, char **argv)
   }
   PetaPM pm[1];
 
-  petapm_init(pm, All.BoxSize, All.Asmth, All.Nmesh, All.G, MPI_COMM_WORLD);
+  double UnitTime_in_s = All2.UnitLength_in_cm / All2.UnitVelocity_in_cm_per_s;
+  double Grav = GRAVITY / pow(All2.UnitLength_in_cm, 3) * All2.UnitMass_in_g * pow(UnitTime_in_s, 2);
+
+  petapm_init(pm, All.BoxSize, All.Asmth, All.Nmesh, Grav, MPI_COMM_WORLD);
 
   /*First compute and write CDM*/
   double mass[6] = {0};
   /*Can neglect neutrinos since this only matters for the glass force.*/
-  compute_mass(mass, TotNumPart, TotNumPartGas, 0, 0);
+  compute_mass(mass, TotNumPart, TotNumPartGas, 0, 0, All.BoxSize, &All.CP, All2);
   /*Not used*/
   IDGenerator idgen_cdm[1];
   IDGenerator idgen_gas[1];
@@ -150,13 +152,13 @@ int main(int argc, char **argv)
           ICP[j].PrePos[k] = ICP[j].Pos[k];
 
   if(NumPartCDM > 0) {
-    displacement_fields(pm, DMType, ICP, NumPartCDM, All2);
+    displacement_fields(pm, DMType, ICP, NumPartCDM, &All.CP, All2);
 
     /*Add a thermal velocity to WDM particles*/
     if(All2.WDM_therm_mass > 0){
         int i;
         double v_th = WDM_V0(All2.TimeIC, All2.WDM_therm_mass, All.CP.Omega0 - All.CP.OmegaBaryon - get_omega_nu(&All.CP.ONu, 1), All.CP.HubbleParam, All.UnitVelocity_in_cm_per_s);
-        if(!All.IO.UsePeculiarVelocity)
+        if(!All2.UsePeculiarVelocity)
            v_th /= sqrt(All2.TimeIC);
         struct thermalvel WDM;
         init_thermalvel(&WDM, v_th, 10000/v_th, 0);
@@ -178,13 +180,13 @@ int main(int argc, char **argv)
         myfree(seedtable);
     }
 
-    write_particle_data(idgen_cdm, 1, &bf, 0, All2.SavePrePos, All2.NumFiles, ICP);
+    write_particle_data(idgen_cdm, 1, &bf, 0, All2.SavePrePos, All2.NumFiles, All2.NumWriters, ICP);
   }
 
   /*Now make the gas if required*/
   if(All2.ProduceGas) {
-    displacement_fields(pm, GasType, ICP+NumPartCDM, NumPartGas, All2);
-    write_particle_data(idgen_gas, 0, &bf, TotNumPart, All2.SavePrePos, All2.NumFiles, ICP+NumPartCDM);
+    displacement_fields(pm, GasType, ICP+NumPartCDM, NumPartGas, &All.CP, All2);
+    write_particle_data(idgen_gas, 0, &bf, TotNumPart, All2.SavePrePos, All2.NumFiles, All2.NumWriters, ICP+NumPartCDM);
   }
   myfree(ICP);
 
@@ -204,7 +206,7 @@ int main(int argc, char **argv)
 		  for(k=0; k<3; k++)
 		      ICP[j].PrePos[k] = ICP[j].Pos[k];
 
-      displacement_fields(pm, NuType, ICP, NumPartNu, All2);
+      displacement_fields(pm, NuType, ICP, NumPartNu, &All.CP, All2);
       unsigned int * seedtable = init_rng(All2.Seed+2,All2.NGridNu);
       gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
       /*Just in case*/
@@ -221,7 +223,7 @@ int main(int argc, char **argv)
       gsl_rng_free(g_rng);
       myfree(seedtable);
 
-      write_particle_data(idgen_nu, 2, &bf, TotNumPart+TotNumPartGas, All2.SavePrePos, All2.NumFiles, ICP);
+      write_particle_data(idgen_nu, 2, &bf, TotNumPart+TotNumPartGas, All2.SavePrePos, All2.NumFiles, All2.NumWriters, ICP);
       myfree(ICP);
   }
 

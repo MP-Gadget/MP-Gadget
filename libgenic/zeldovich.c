@@ -12,7 +12,6 @@
 #include "pmesh.h"
 
 #include <libgadget/petapm.h>
-#include <libgadget/allvars.h>
 #include <libgadget/walltime.h>
 #include <libgadget/utils.h>
 
@@ -148,7 +147,7 @@ static enum TransferType ptype;
 /*Global to pass the particle data to the readout functions*/
 static struct ic_part_data * curICP;
 
-void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_data * dispICP, const int NumPart, const struct genic_config GenicConfig) {
+void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_data * dispICP, const int NumPart, Cosmology * CP, const struct genic_config GenicConfig) {
 
     /*MUST set this before doing force.*/
     ptype = Type;
@@ -191,11 +190,11 @@ void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_dat
     };
 
     /*Set up the velocity pre-factors*/
-    const double hubble_a = hubble_function(&All.CP, GenicConfig.TimeIC);
+    const double hubble_a = hubble_function(CP, GenicConfig.TimeIC);
 
     double vel_prefac = GenicConfig.TimeIC * hubble_a;
 
-    if(All.IO.UsePeculiarVelocity) {
+    if(GenicConfig.UsePeculiarVelocity) {
         /* already for peculiar velocity */
         message(0, "Producing Peculiar Velocity in the output.\n");
     } else {
@@ -203,7 +202,7 @@ void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_dat
     }
 
     if(!GenicConfig.PowerP.ScaleDepVelocity) {
-        vel_prefac *= F_Omega(&All.CP, GenicConfig.TimeIC);
+        vel_prefac *= F_Omega(CP, GenicConfig.TimeIC);
         /* If different transfer functions are disabled, we can copy displacements to velocities
          * and we don't need the extra transfers.*/
         functions[4].name = NULL;
@@ -257,7 +256,7 @@ void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_dat
     message(0, "Type = %d max disp = %g in units of cell sep %g \n", ptype, maxdisp, maxdisp / (pm->BoxSize / pm->Nmesh) );
 
     MPI_Allreduce(MPI_IN_PLACE, &maxvel, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    message(0, "Max vel=%g km/s, vel_prefac= %g  hubble_a=%g fom=%g \n", sqrt(maxvel), vel_prefac, hubble_a, F_Omega(&All.CP, GenicConfig.TimeIC));
+    message(0, "Max vel=%g km/s, vel_prefac= %g  hubble_a=%g fom=%g \n", sqrt(maxvel), vel_prefac, hubble_a, F_Omega(CP, GenicConfig.TimeIC));
 
     walltime_measure("/Disp/Finalize");
     MPIU_Barrier(MPI_COMM_WORLD);
