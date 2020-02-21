@@ -86,14 +86,14 @@ write_snapshot(int num)
 }
 
 int
-find_last_snapnum(void)
+find_last_snapnum(const char * OutputDir)
 {
     /* FIXME: this is very fragile; should be fine */
     int snapnumber = -1;
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0) {
-        char * buf = fastpm_strdup_printf("%s/Snapshots.txt", All.OutputDir);
+        char * buf = fastpm_strdup_printf("%s/Snapshots.txt", OutputDir);
         FILE * fd = fopen(buf, "r");
         if(fd == NULL) {
             snapnumber = -1;

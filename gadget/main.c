@@ -98,7 +98,7 @@ int main(int argc, char **argv)
     }
 
     if(RestartFlag == 1) {
-        RestartSnapNum = find_last_snapnum();
+        RestartSnapNum = find_last_snapnum(All.OutputDir);
         message(0, "Last Snapshot number is %d.\n", RestartSnapNum);
     }
 
