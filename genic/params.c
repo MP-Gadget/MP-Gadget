@@ -5,6 +5,7 @@
 #include <string.h>
 #include <mpi.h>
 #include <libgenic/allvars.h>
+#include <libgenic/proto.h>
 #include <libgadget/allvars.h>
 #include <libgadget/physconst.h>
 #include <libgadget/utils.h>
@@ -75,7 +76,7 @@ create_parameters(void)
     return ps;
 }
 
-void read_parameterfile(char *fname, struct genic_config * GenicConfig)
+void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * ShowBacktrace, double * MaxMemSizePerNode)
 {
 
     /* read parameter file on all processes for simplicty */
@@ -115,11 +116,10 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig)
     All.CP.MNu[1] = param_get_double(ps, "MNum");
     All.CP.MNu[2] = param_get_double(ps, "MNut");
     GenicConfig->WDM_therm_mass = param_get_double(ps, "MWDM_therm");
-    double MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
-    if(MaxMemSizePerNode <= 1) {
-        MaxMemSizePerNode *= get_physmem_bytes() / (1024 * 1024);
+    *MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
+    if(*MaxMemSizePerNode <= 1) {
+        (*MaxMemSizePerNode) *= get_physmem_bytes() / (1024 * 1024);
     }
-    All.MaxMemSizePerNode = MaxMemSizePerNode;
 
     GenicConfig->ProduceGas = param_get_int(ps, "ProduceGas");
     GenicConfig->InvertPhase = param_get_int(ps, "InvertPhase");
@@ -128,7 +128,7 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig)
     All.UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
     All.UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
 
-    All.ShowBacktrace = param_get_int(ps, "ShowBacktrace");
+    *ShowBacktrace = param_get_int(ps, "ShowBacktrace");
 
     double Redshift = param_get_double(ps, "Redshift");
 

@@ -35,11 +35,13 @@ int main(int argc, char **argv)
   /* Genic Specific configuration structure*/
   struct genic_config All2 = {0};
 
-  read_parameterfile(argv[1], &All2);
+  int ShowBacktrace;
+  double MaxMemSizePerNode;
+  read_parameterfile(argv[1], &All2, &ShowBacktrace, &MaxMemSizePerNode);
 
-  mymalloc_init(All.MaxMemSizePerNode);
+  mymalloc_init(MaxMemSizePerNode);
 
-  init_endrun(All.ShowBacktrace);
+  init_endrun(ShowBacktrace);
 
   struct ClockTable Clocks;
   walltime_init(&Clocks);

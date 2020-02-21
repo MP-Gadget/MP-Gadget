@@ -54,5 +54,5 @@ write_particle_data(IDGenerator * idgen,
                     struct ic_part_data * curICP);
 
 /*Read a parameter file*/
-void  read_parameterfile(char *fname, struct genic_config * GenicConfig);
+void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * ShowBacktrace, double * MaxMemSizePerNode);
 #endif
