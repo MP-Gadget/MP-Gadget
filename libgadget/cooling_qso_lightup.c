@@ -371,7 +371,7 @@ gas_ionization_fraction(void)
  * No locking is performed so ensure the particle is not being edited in parallel.
  * Returns 1 if ionization was done, 0 otherwise.*/
 static int
-ionize_single_particle(int other)
+ionize_single_particle(int other, double a3inv, double uu_in_cgs)
 {
     /* Mark it ionized if not done so already.*/
     int done;
@@ -389,10 +389,9 @@ ionize_single_particle(int other)
     double nheperg = (1 - HYDROGEN_MASSFRAC) / (PROTONMASS * HEMASS);
     /* Total heating per unit mass ergs/g for the particle*/
     double deltau = qso_inst_heating * nheperg;
-    double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
 
     /* Conversion factor between internal energy and entropy.*/
-    double entropytou = pow(SPH_EOMDensity(other) * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+    double entropytou = pow(SPH_EOMDensity(other) * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
     /* Convert to entropy in internal units*/
     /* Only one thread may get here*/
     SPHP(other).Entropy += deltau / uu_in_cgs / entropytou;
@@ -402,6 +401,8 @@ ionize_single_particle(int other)
 struct QSOPriv {
     FOFGroups * fof;
     int64_t * N_ionized;
+    double a3inv;
+    double uu_in_cgs;
 };
 #define QSO_GET_PRIV(tw) ((struct QSOPriv *) (tw->priv))
 
@@ -432,7 +433,7 @@ ionize_ngbiter(TreeWalkQueryBase * I,
     if(P[other].Type != 0)
         return;
 
-    int ionized = ionize_single_particle(other);
+    int ionized = ionize_single_particle(other, QSO_GET_PRIV(lv->tw)->a3inv, QSO_GET_PRIV(lv->tw)->uu_in_cgs);
 
     if(!ionized)
         return;
@@ -490,6 +491,9 @@ ionize_all_part(int qso_ind, int * qso_cand, FOFGroups * fof, ForceTree * tree)
     priv[0].fof = fof;
     /* Ionization counters*/
     priv[0].N_ionized = ta_malloc("n_ionized", int64_t, omp_get_max_threads());
+    priv[0].uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+    priv[0].a3inv = 1/pow(All.Time, 3);
+
     memset(priv[0].N_ionized, 0, sizeof(int64_t) * omp_get_max_threads());
 
     tw->priv = priv;
@@ -527,10 +531,12 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree)
     if(desired_ion_frac > QSOLightupParams.heIIIreion_finish_frac) {
         int i, nionized=0;
         int64_t nion_tot=0;
+        double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+        double a3inv = 1/pow(All.Time, 3);
         #pragma omp parallel for reduction(+: nionized)
         for (i = 0; i < PartManager->NumPart; i++){
             if (P[i].Type == 0)
-                nionized += ionize_single_particle(i);
+                nionized += ionize_single_particle(i, a3inv, uu_in_cgs);
         }
         sumup_large_ints(1, &nionized, &nion_tot);
         message(0, "HeII: Helium ionization finished, flash-ionizing %ld particles (%g of total)\n", nion_tot, (double) nion_tot /(double) n_gas_tot);
