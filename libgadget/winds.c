@@ -9,7 +9,6 @@
 #include "slotsmanager.h"
 #include "timebinmgr.h"
 #include "walltime.h"
-#include "allvars.h"
 
 /*Parameters of the wind model*/
 static struct WindParams
@@ -159,12 +158,14 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
 static int* NPLeft;
 
 struct WindPriv {
+    double Time;
+    double hubble;
 };
 #define WIND_GET_PRIV(tw) ((struct WindPriv *) (tw->priv))
 
 /*Do a treewalk for the wind model. This only changes newly created star particles.*/
 void
-winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree)
+winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const double hubble, ForceTree * tree)
 {
     /*The subgrid model does nothing here*/
     if(HAS(wind_params.WindModel, WIND_SUBGRID))
@@ -202,6 +203,10 @@ winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree)
     tw->haswork = sfr_wind_weight_haswork;
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw->postprocess = (TreeWalkProcessFunction) sfr_wind_weight_postprocess;
+    struct WindPriv priv[1];
+    priv[0].Time = Time;
+    priv[0].hubble = hubble;
+    tw->priv = priv;
 
     int64_t totalleft = 0;
     sumup_large_ints(1, &NumNewStars, &totalleft);
@@ -226,8 +231,6 @@ winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree)
     tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_feedback_ngbiter;
     tw->postprocess = NULL;
     tw->reduce = NULL;
-    struct WindPriv priv[1];
-    tw->priv = priv;
 
     treewalk_run(tw, NewStars, NumNewStars);
     myfree(Winddata);
@@ -319,7 +322,7 @@ sfr_wind_reduce_weight(int place, TreeWalkResultWind * O, enum TreeWalkReduceMod
 static void
 sfr_wind_copy(int place, TreeWalkQueryWind * input, TreeWalk * tw)
 {
-    double dtime = get_dloga_for_bin(P[place].TimeBin) / All.cf.hubble;
+    double dtime = get_dloga_for_bin(P[place].TimeBin) / WIND_GET_PRIV(tw)->hubble;
     input->Dt = dtime;
     input->Mass = P[place].Mass;
     input->Hsml = P[place].Hsml;
@@ -359,12 +362,13 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
     }
 
     if(P[other].Type == 1) {
+        const double atime = WIND_GET_PRIV(lv->tw)->Time;
         if(r > I->DMRadius) return;
         O->Ngb ++;
         int d;
         for(d = 0; d < 3; d ++) {
             /* Add hubble flow; FIXME: this shall be a function, and the direction looks wrong too. */
-            double vel = P[other].Vel[d] + All.cf.hubble * All.cf.a * All.cf.a * dist[d];
+            double vel = P[other].Vel[d] + WIND_GET_PRIV(lv->tw)->hubble * atime * atime * dist[d];
             O->V1sum[d] += vel;
             O->V2sum += vel * vel;
         }
@@ -419,9 +423,9 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     double v=0;
     if(HAS(wind_params.WindModel, WIND_FIXED_EFFICIENCY)) {
         windeff = wind_params.WindEfficiency;
-        v = wind_params.WindSpeed * All.cf.a;
+        v = wind_params.WindSpeed * WIND_GET_PRIV(lv->tw)->Time;
     } else if(HAS(wind_params.WindModel, WIND_USE_HALO)) {
-        windeff = 1.0 / (I->Vdisp / All.cf.a / wind_params.WindSigma0);
+        windeff = 1.0 / (I->Vdisp / WIND_GET_PRIV(lv->tw)->Time / wind_params.WindSigma0);
         windeff *= windeff;
         v = wind_params.WindSpeedFactor * I->Vdisp;
     } else {
@@ -449,7 +453,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
         #pragma omp atomic read
         readdelay = SPHP(other).DelayTime;
         do {
-            newdelay = DMAX(wind_params.WindFreeTravelLength / (v / All.cf.a), readdelay);
+            newdelay = DMAX(wind_params.WindFreeTravelLength / (v / WIND_GET_PRIV(lv->tw)->Time), readdelay);
             /* Swap in the new id only if the old one hasn't changed:
              * in principle an extension, but supported on at least clang >= 9, gcc >= 5 and icc >= 18.*/
         } while(!__atomic_compare_exchange(&(SPHP(other).DelayTime), &readdelay, &newdelay, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
@@ -475,7 +479,7 @@ winds_make_after_sf(int i, double sm, double atime)
             P[i].Vel[j] += wind_params.WindSpeed * atime * dir[j];
         }
 
-        SPHP(i).DelayTime = wind_params.WindFreeTravelLength / (wind_params.WindSpeed * atime / All.cf.a);
+        SPHP(i).DelayTime = wind_params.WindFreeTravelLength / wind_params.WindSpeed;
     }
 
     return 0;
