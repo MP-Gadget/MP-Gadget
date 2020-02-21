@@ -17,7 +17,7 @@
 
 #define GLASS_SEED_HASH(seed) ((seed) * 9999721L)
 
-static void print_spec(int ThisTask, int Ngrid);
+static void print_spec(int ThisTask, int Ngrid, struct genic_config All2);
 
 int main(int argc, char **argv)
 {
@@ -69,7 +69,8 @@ int main(int argc, char **argv)
 
   /*Write the header*/
   char buf[4096];
-  snprintf(buf, 4096, "%s/%s", All.OutputDir, All.InitCondFile);
+  snprintf(buf, 4096, "%s/%s", All2.OutputDir, All2.InitCondFile);
+  message(0, "%s\n", buf);
   BigFile bf;
   if(0 != big_file_mpi_create(&bf, buf, MPI_COMM_WORLD)) {
       endrun(0, "%s\n", big_file_get_error_message());
@@ -81,7 +82,7 @@ int main(int argc, char **argv)
   struct thermalvel nu_therm;
   if(TotNu > 0) {
     const double kBMNu = 3*All.CP.ONu.kBtnu / (All.CP.MNu[0]+All.CP.MNu[1]+All.CP.MNu[2]);
-    double v_th = NU_V0(All.TimeIC, kBMNu, All.UnitVelocity_in_cm_per_s);
+    double v_th = NU_V0(All.TimeIC, kBMNu, All2.UnitVelocity_in_cm_per_s);
     if(!All.IO.UsePeculiarVelocity)
         v_th /= sqrt(All.TimeIC);
     total_nufrac = init_thermalvel(&nu_therm, v_th, All2.Max_nuvel/v_th, 0);
@@ -127,7 +128,7 @@ int main(int argc, char **argv)
   if(!All2.MakeGlassCDM) {
       setup_grid(idgen_cdm, All2.ProduceGas * shift_dm, mass[1], ICP);
   } else {
-      setup_glass(idgen_cdm, pm, 0, GLASS_SEED_HASH(All2.Seed), mass[1], ICP);
+      setup_glass(idgen_cdm, pm, 0, GLASS_SEED_HASH(All2.Seed), mass[1], ICP, All2.UnitLength_in_cm, All2.OutputDir);
   }
 
   /*Make the table for the baryons if we need, using the second half of the memory.*/
@@ -135,11 +136,11 @@ int main(int argc, char **argv)
     if(!All2.MakeGlassGas) {
         setup_grid(idgen_gas, shift_gas, mass[0], ICP+NumPartCDM);
     } else {
-        setup_glass(idgen_gas, pm, 0, GLASS_SEED_HASH(All2.Seed + 1), mass[0], ICP+NumPartCDM);
+        setup_glass(idgen_gas, pm, 0, GLASS_SEED_HASH(All2.Seed + 1), mass[0], ICP+NumPartCDM, All2.UnitLength_in_cm, All2.OutputDir);
     }
     /*Do coherent glass evolution to avoid close pairs*/
     if(All2.MakeGlassGas || All2.MakeGlassCDM)
-        glass_evolve(pm, 14, "powerspectrum-glass-tot", ICP, NumPartCDM+NumPartGas);
+        glass_evolve(pm, 14, "powerspectrum-glass-tot", ICP, NumPartCDM+NumPartGas, All2.UnitLength_in_cm, All2.OutputDir);
   }
 
   /*Write initial positions into ICP struct (for CDM and gas)*/
@@ -233,13 +234,13 @@ int main(int argc, char **argv)
   message(0, "IC's generated.\n");
   message(0, "Initial scale factor = %g\n", All.TimeIC);
 
-  print_spec(ThisTask, All2.Ngrid);
+  print_spec(ThisTask, All2.Ngrid, All2);
 
   MPI_Finalize();		/* clean up & finalize MPI */
   return 0;
 }
 
-void print_spec(int ThisTask, const int Ngrid)
+void print_spec(int ThisTask, const int Ngrid, struct genic_config All2)
 {
   if(ThisTask == 0)
     {
@@ -247,7 +248,7 @@ void print_spec(int ThisTask, const int Ngrid)
       char buf[1000];
       FILE *fd;
 
-      sprintf(buf, "%s/inputspec_%s.txt", All.OutputDir, All.InitCondFile);
+      sprintf(buf, "%s/inputspec_%s.txt", All2.OutputDir, All2.InitCondFile);
 
       fd = fopen(buf, "w");
       if (fd == NULL) {
@@ -258,8 +259,8 @@ void print_spec(int ThisTask, const int Ngrid)
 
       fprintf(fd, "# %12g %12g\n", 1/All.TimeIC-1, DDD);
       /* print actual starting redshift and linear growth factor for this cosmology */
-      kstart = 2 * M_PI / (2*All.BoxSize * (CM_PER_MPC / All.UnitLength_in_cm));	/* 2x box size Mpc/h */
-      kend = 2 * M_PI / (All.BoxSize/(8*Ngrid) * (CM_PER_MPC / All.UnitLength_in_cm));	/* 1/8 mean spacing Mpc/h */
+      kstart = 2 * M_PI / (2*All.BoxSize * (CM_PER_MPC / All2.UnitLength_in_cm));	/* 2x box size Mpc/h */
+      kend = 2 * M_PI / (All.BoxSize/(8*Ngrid) * (CM_PER_MPC / All2.UnitLength_in_cm));	/* 1/8 mean spacing Mpc/h */
 
       message(1,"kstart=%lg kend=%lg\n",kstart,kend);
 

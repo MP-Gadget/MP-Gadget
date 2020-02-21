@@ -110,7 +110,7 @@ void compute_mass(double * mass, int64_t TotNumPartCDM, int64_t TotNumPartGas, i
 void saveheader(BigFile * bf, int64_t TotNumPartCDM, int64_t TotNumPartGas, int64_t TotNuPart, double nufrac, const struct genic_config GenicConfig) {
     BigBlock bheader;
     if(0 != big_file_mpi_create_block(bf, &bheader, "Header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
-        endrun(0, "failed to create block %s:%s", "Header",
+        endrun(0, "failed to create block %s:%s\n", "Header",
                 big_file_get_error_message());
     }
 

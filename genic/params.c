@@ -127,6 +127,10 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
     All.UnitVelocity_in_cm_per_s = param_get_double(ps, "UnitVelocity_in_cm_per_s");
     All.UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
     All.UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
+    GenicConfig->UnitVelocity_in_cm_per_s = param_get_double(ps, "UnitVelocity_in_cm_per_s");
+    GenicConfig->UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
+    //GenicConfig->UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
+
 
     *ShowBacktrace = param_get_int(ps, "ShowBacktrace");
 
@@ -170,8 +174,8 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
     GenicConfig->Max_nuvel = param_get_double(ps, "Max_nuvel") * pow(1+Redshift, 1.5) * (All.UnitVelocity_in_cm_per_s/1e5);
     GenicConfig->Seed = param_get_int(ps, "Seed");
     GenicConfig->UnitaryAmplitude = param_get_int(ps, "UnitaryAmplitude");
-    param_get_string2(ps, "OutputDir", All.OutputDir, sizeof(All.OutputDir));
-    param_get_string2(ps, "FileBase", All.InitCondFile, sizeof(All.InitCondFile));
+    param_get_string2(ps, "OutputDir", GenicConfig->OutputDir, sizeof(GenicConfig->OutputDir));
+    param_get_string2(ps, "FileBase", GenicConfig->InitCondFile, sizeof(GenicConfig->InitCondFile));
     GenicConfig->MakeGlassGas = param_get_int(ps, "MakeGlassGas");
     /* We want to use a baryon glass by default if we have different transfer functions,
      * since that is the way we reproduce the linear growth. Otherwise use a grid by default.*/

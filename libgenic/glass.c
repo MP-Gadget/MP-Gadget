@@ -2,13 +2,13 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <omp.h>
 
 #include <gsl/gsl_rng.h>
 
 #include "allvars.h"
 #include "proto.h"
 
-#include <libgadget/allvars.h>
 #include <libgadget/petapm.h>
 #include <libgadget/walltime.h>
 #include <libgadget/utils.h>
@@ -38,7 +38,7 @@ static void glass_force(PetaPM * pm, double t_f, struct ic_part_data * ICP, cons
 static void glass_stats(struct ic_part_data * ICP, int NumPart);
 
 int
-setup_glass(IDGenerator * idgen, PetaPM * pm, double shift, int seed, double mass, struct ic_part_data * ICP)
+setup_glass(IDGenerator * idgen, PetaPM * pm, double shift, int seed, double mass, struct ic_part_data * ICP, const double UnitLength_in_cm, const char * OutputDir)
 {
     gsl_rng * rng = gsl_rng_alloc(gsl_rng_ranlxd1);
     int ThisTask;
@@ -64,13 +64,13 @@ setup_glass(IDGenerator * idgen, PetaPM * pm, double shift, int seed, double mas
     gsl_rng_free(rng);
 
     char * fn = fastpm_strdup_printf("powerspectrum-glass-%08X", seed);
-    glass_evolve(pm, 14, fn, ICP, idgen->NumPart);
+    glass_evolve(pm, 14, fn, ICP, idgen->NumPart, UnitLength_in_cm, OutputDir);
     myfree(fn);
 
     return idgen->NumPart;
 }
 
-void glass_evolve(PetaPM * pm, int nsteps, char * pkoutname, struct ic_part_data * ICP, const int NumPart)
+void glass_evolve(PetaPM * pm, int nsteps, char * pkoutname, struct ic_part_data * ICP, const int NumPart, const double UnitLength_in_cm, const char * OutputDir)
 {
     int i;
     int step = 0;
@@ -79,7 +79,7 @@ void glass_evolve(PetaPM * pm, int nsteps, char * pkoutname, struct ic_part_data
     double t_f = 0;
 
     /*Allocate memory for a power spectrum*/
-    powerspectrum_alloc(pm->ps, All.Nmesh, omp_get_max_threads(), 0, All.BoxSize*All.UnitLength_in_cm);
+    powerspectrum_alloc(pm->ps, pm->Nmesh, omp_get_max_threads(), 0, pm->BoxSize*UnitLength_in_cm);
 
     glass_force(pm, t_x, ICP, NumPart);
 
@@ -136,7 +136,7 @@ void glass_evolve(PetaPM * pm, int nsteps, char * pkoutname, struct ic_part_data
         glass_stats(ICP, NumPart);
 
         /*Now save the power spectrum*/
-        powerspectrum_save(pm->ps, All.OutputDir, pkoutname, t_f, 1.0);
+        powerspectrum_save(pm->ps, OutputDir, pkoutname, t_f, 1.0);
     }
 
     /*We are done with the power spectrum, free it*/
@@ -227,13 +227,13 @@ _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void * userdata, int * Nre
      *
      * (2pi / L) ** -2 is for kint -> k.
      * Need to divide by mean mass per cell to get delta */
-    pot_factor = -1 * (-1) * pow(2 * M_PI / All.BoxSize, -2);
+    pot_factor = -1 * (-1) * pow(2 * M_PI / pm->BoxSize, -2);
 
     PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion));
     int k;
     int r = 0;
     int i;
-    double min[3] = {All.BoxSize, All.BoxSize, All.BoxSize};
+    double min[3] = {pm->BoxSize, pm->BoxSize, pm->BoxSize};
     double max[3] = {0, 0, 0.};
     double totmass = 0;
 
@@ -250,12 +250,12 @@ _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void * userdata, int * Nre
 
     MPI_Allreduce(MPI_IN_PLACE, &totmass, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-    /* 1 / pow(All.Nmesh, 3) is included by the FFT, so just use total mass. */
+    /* 1 / pow(pm->Nmesh, 3) is included by the FFT, so just use total mass. */
     pot_factor /= totmass;
 
     for(k = 0; k < 3; k ++) {
-        regions[r].offset[k] = floor(min[k] / All.BoxSize * All.Nmesh - 1);
-        regions[r].size[k] = ceil(max[k] / All.BoxSize * All.Nmesh + 2);
+        regions[r].offset[k] = floor(min[k] / pm->BoxSize * pm->Nmesh - 1);
+        regions[r].size[k] = ceil(max[k] / pm->BoxSize * pm->Nmesh + 2);
         regions[r].size[k] -= regions[r].offset[k];
     }
 
@@ -285,7 +285,7 @@ static void potential_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex
     const double smth = 1.0 / k2;
     /* the CIC deconvolution kernel is
      *
-     * sinc_unnormed(k_x L / 2 All.Nmesh) ** 2
+     * sinc_unnormed(k_x L / 2 pm->Nmesh) ** 2
      *
      * k_x = kpos * 2pi / L
      *
@@ -331,7 +331,7 @@ static void force_transfer(PetaPM *pm, int k, pfft_complex * value) {
      *
      * filter is   i K(w)
      * */
-    double fac = -1 * diff_kernel (k * (2 * M_PI / All.Nmesh)) * (All.Nmesh / All.BoxSize);
+    double fac = -1 * diff_kernel (k * (2 * M_PI / pm->Nmesh)) * (pm->Nmesh / pm->BoxSize);
     tmp0 = - value[0][1] * fac;
     tmp1 = value[0][0] * fac;
     value[0][0] = tmp0;
