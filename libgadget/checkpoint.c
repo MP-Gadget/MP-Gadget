@@ -7,7 +7,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "allvars.h"
 #include "petaio.h"
 #include "checkpoint.h"
 #include "walltime.h"
@@ -22,19 +21,17 @@
  */
 
 static void
-write_snapshot(int num);
+write_snapshot(int num, double Time, const char * OutputDir, const char * SnapshotFileBase, const int OutputDebugFields);
 
 void
-write_checkpoint(int WriteSnapshot, int WriteFOF, ForceTree * tree)
+write_checkpoint(int snapnum, int WriteSnapshot, int WriteFOF, double Time, const char * OutputDir, const char * SnapshotFileBase, const int OutputDebugFields, ForceTree * tree)
 {
     if(!WriteSnapshot && !WriteFOF) return;
-
-    int snapnum = All.SnapshotFileCount++;
 
     if(WriteSnapshot)
     {
         /* write snapshot of particles */
-        write_snapshot(snapnum);
+        write_snapshot(snapnum, Time, OutputDir, SnapshotFileBase, OutputDebugFields);
     }
 
     if(WriteFOF) {
@@ -52,24 +49,24 @@ write_checkpoint(int WriteSnapshot, int WriteFOF, ForceTree * tree)
 }
 
 void
-dump_snapshot(const char * dump)
+dump_snapshot(const char * dump, const char * OutputDir)
 {
     struct IOTable IOTable = {0};
     register_io_blocks(&IOTable);
     register_debug_io_blocks(&IOTable);
-    petaio_save_snapshot(&IOTable, 1, "%s/%s", All.OutputDir, dump);
+    petaio_save_snapshot(&IOTable, 1, "%s/%s", OutputDir, dump);
     destroy_io_blocks(&IOTable);
 }
 
 static void
-write_snapshot(int num)
+write_snapshot(int num, double Time, const char * OutputDir, const char * SnapshotFileBase, const int OutputDebugFields)
 {
     walltime_measure("/Misc");
     struct IOTable IOTable = {0};
     register_io_blocks(&IOTable);
-    if(All.OutputDebugFields)
+    if(OutputDebugFields)
         register_debug_io_blocks(&IOTable);
-    petaio_save_snapshot(&IOTable, 1, "%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
+    petaio_save_snapshot(&IOTable, 1, "%s/%s_%03d", OutputDir, SnapshotFileBase, num);
 
     destroy_io_blocks(&IOTable);
     walltime_measure("/Snapshot/Write");
@@ -77,9 +74,9 @@ write_snapshot(int num)
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0) {
-        char * buf = fastpm_strdup_printf("%s/Snapshots.txt", All.OutputDir);
+        char * buf = fastpm_strdup_printf("%s/Snapshots.txt", OutputDir);
         FILE * fd = fopen(buf, "a");
-        fprintf(fd, "%03d %g\n", num, All.Time);
+        fprintf(fd, "%03d %g\n", num, Time);
         fclose(fd);
         myfree(buf);
     }

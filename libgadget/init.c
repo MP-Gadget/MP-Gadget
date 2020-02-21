@@ -82,8 +82,6 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
 
     fof_init(All.MeanSeparation[1]);
 
-    All.SnapshotFileCount = RestartSnapNum + 1;
-    All.InitSnapshotCount = RestartSnapNum + 1;
     All.CurrentParticleOffset[0] = All.CurrentParticleOffset[1] = All.CurrentParticleOffset[2] = 0;
 
     #pragma omp parallel for
@@ -252,7 +250,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
         return;
 
     ForceTree Tree = {0};
-    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 0);
+    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 0, All.OutputDir);
 
     if(RestartSnapNum == -1)
     {

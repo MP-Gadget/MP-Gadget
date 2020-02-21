@@ -97,7 +97,7 @@ extern struct global_data_all_processes
     int BlackHoleOn;  /* if black holes are enabled */
     int StarformationOn;  /* if star formation is enabled */
     int WindOn; /* if Wind is enabled */
-    
+
     int WriteBlackHoleDetails; /* write BH details every time step*/
 
     int MassiveNuLinRespOn; /*!< flags that massive neutrinos using the linear
@@ -108,10 +108,8 @@ extern struct global_data_all_processes
     double HybridNuPartTime; /*!< Redshift at which hybrid neutrinos switch on*/
 
     int FastParticleType; /*!< flags a particle species to exclude timestep calculations.*/
-    /* parameters determining output frequency */
 
-    int SnapshotFileCount;	/*!< number of snapshot that is written next */
-    int InitSnapshotCount;  /*!< Number of first snapshot written this run*/
+    /* parameters determining output frequency */
     double AutoSnapshotTime;    /*!< cpu-time between regularly generated snapshots. */
     double TimeBetweenSeedingSearch; /*Factor to multiply TimeInit by to find the next seeding check.*/
 

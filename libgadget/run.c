@@ -134,6 +134,7 @@ run(int RestartSnapNum)
     /*Is gas physics enabled?*/
     int GasEnabled = All.NTotalInit[0] > 0;
 
+    int SnapshotFileCount = RestartSnapNum;
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.G);
 
@@ -217,7 +218,7 @@ run(int RestartSnapNum)
 
         /* Need to rebuild the force tree because all TopLeaves are out of date.*/
         ForceTree Tree = {0};
-        force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav);
+        force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, All.OutputDir);
 
         /*Allocate the extra SPH data for transient SPH particle properties.*/
         if(GasEnabled)
@@ -303,12 +304,12 @@ run(int RestartSnapNum)
                     for(i = 0; i < PartManager->NumPart; i++)
                         P[i].Key = PEANO(P[i].Pos, All.BoxSize);
                 }
-                force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav);
+                force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, All.OutputDir);
                 Act.NumActiveParticle = PartManager->NumPart;
             }
         }
 
-        write_checkpoint(WriteSnapshot, WriteFOF, &Tree);
+        write_checkpoint(SnapshotFileCount++, WriteSnapshot, WriteFOF, All.Time, All.OutputDir, All.SnapshotFileBase, All.OutputDebugFields, &Tree);
 
         write_cpu_log(NumCurrentTiStep, FdCPU);    /* produce some CPU usage info */
 
@@ -416,7 +417,7 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
         gravpm_force(pm, tree);
 
         /*Rebuild the force tree we freed in gravpm to save memory*/
-        force_tree_rebuild(tree, ddecomp, All.BoxSize, HybridNuGrav);
+        force_tree_rebuild(tree, ddecomp, All.BoxSize, HybridNuGrav, All.OutputDir);
 
         /* compute and output energy statistics if desired. */
         if(All.OutputEnergyDebug)
