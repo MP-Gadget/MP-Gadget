@@ -298,6 +298,8 @@ run(int RestartSnapNum)
         }
 
         if(WriteSnapshot || WriteFOF) {
+            /* Get a new snapshot*/
+            SnapshotFileCount++;
             /* The accel may have created garbage -- collect them before writing a snapshot.
              * If we do collect, rebuild tree and reset active list size.*/
             int compact[6] = {0};
@@ -315,7 +317,7 @@ run(int RestartSnapNum)
             }
         }
 
-        write_checkpoint(SnapshotFileCount++, WriteSnapshot, WriteFOF, All.Time, All.OutputDir, All.SnapshotFileBase, All.OutputDebugFields, &Tree);
+        write_checkpoint(SnapshotFileCount, WriteSnapshot, WriteFOF, All.Time, All.OutputDir, All.SnapshotFileBase, All.OutputDebugFields, &Tree);
 
         write_cpu_log(NumCurrentTiStep, FdCPU);    /* produce some CPU usage info */
 
