@@ -290,8 +290,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
                 alloc_high = 0;
             }
             gadget_setup_thread_arrays(ReDoQueue, DENSITY_GET_PRIV(tw)->NPRedo, DENSITY_GET_PRIV(tw)->NPLeft, tsize, NumThreads);
-
-            memset(DENSITY_GET_PRIV(tw)->NPLeft, 0, sizeof(int)*NumThreads);
         }
         treewalk_run(tw, CurQueue, size);
 
