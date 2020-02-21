@@ -6,13 +6,8 @@
 #include <mpi.h>
 #include <libgenic/allvars.h>
 #include <libgenic/proto.h>
-#include <libgadget/allvars.h>
 #include <libgadget/physconst.h>
 #include <libgadget/utils.h>
-
-/*! This structure contains configuration data from libgadget.
- */
-struct global_data_all_processes All;
 
 static ParameterSet *
 create_parameters(void)
@@ -124,9 +119,6 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
     GenicConfig->ProduceGas = param_get_int(ps, "ProduceGas");
     GenicConfig->InvertPhase = param_get_int(ps, "InvertPhase");
     /*Unit system*/
-    All.UnitVelocity_in_cm_per_s = param_get_double(ps, "UnitVelocity_in_cm_per_s");
-    All.UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
-    All.UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
     GenicConfig->UnitVelocity_in_cm_per_s = param_get_double(ps, "UnitVelocity_in_cm_per_s");
     GenicConfig->UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
     GenicConfig->UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
@@ -159,8 +151,8 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
     /*Simulation parameters*/
     GenicConfig->UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
     GenicConfig->SavePrePos = param_get_int(ps, "SavePrePos");
-    All.BoxSize = param_get_double(ps, "BoxSize");
-    All.Nmesh = param_get_int(ps, "Nmesh");
+    GenicConfig->BoxSize = param_get_double(ps, "BoxSize");
+    GenicConfig->Nmesh = param_get_int(ps, "Nmesh");
     GenicConfig->Ngrid = param_get_int(ps, "Ngrid");
     GenicConfig->NgridGas = param_get_int(ps, "NgridGas");
     if(GenicConfig->NgridGas < 0)
@@ -203,8 +195,8 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
     if(!CP->RadiationOn && (CP->MNu[0] + CP->MNu[1] + CP->MNu[2] > 0))
         endrun(0,"You want massive neutrinos but no background radiation: this will give an inconsistent cosmology.\n");
 
-    if(All.Nmesh == 0) {
-        All.Nmesh = 2*Ngrid;
+    if(GenicConfig->Nmesh == 0) {
+        GenicConfig->Nmesh = 2*Ngrid;
     }
     /*Set some units*/
     GenicConfig->TimeIC = 1 / (1 + Redshift);

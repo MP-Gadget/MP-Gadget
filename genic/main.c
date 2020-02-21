@@ -9,8 +9,8 @@
 #include <libgenic/allvars.h>
 #include <libgenic/proto.h>
 #include <libgenic/thermal.h>
-#include <libgadget/allvars.h>
 #include <libgadget/walltime.h>
+#include <libgadget/physconst.h>
 #include <libgadget/petapm.h>
 #include <libgadget/utils.h>
 #include <libgadget/partmanager.h>
@@ -58,7 +58,7 @@ int main(int argc, char **argv)
   petapm_module_init(omp_get_max_threads());
 
   /*Initialise particle spacings*/
-  const double meanspacing = All.BoxSize / DMAX(All2.Ngrid, All2.NgridGas);
+  const double meanspacing = All2.BoxSize / DMAX(All2.Ngrid, All2.NgridGas);
   const double shift_gas = -All2.ProduceGas * 0.5 * (CP.Omega0 - CP.OmegaBaryon) / CP.Omega0 * meanspacing;
   double shift_dm = All2.ProduceGas * 0.5 * CP.OmegaBaryon / CP.Omega0 * meanspacing;
   double shift_nu = 0;
@@ -88,7 +88,7 @@ int main(int argc, char **argv)
     total_nufrac = init_thermalvel(&nu_therm, v_th, All2.Max_nuvel/v_th, 0);
     message(0,"F-D velocity scale: %g. Max particle vel: %g. Fraction of mass in particles: %g\n",v_th*sqrt(All2.TimeIC), All2.Max_nuvel*sqrt(All2.TimeIC), total_nufrac);
   }
-  saveheader(&bf, TotNumPart, TotNumPartGas, TotNu, total_nufrac, All.BoxSize, &CP, All2);
+  saveheader(&bf, TotNumPart, TotNumPartGas, TotNu, total_nufrac, All2.BoxSize, &CP, All2);
 
   /*Save the transfer functions*/
   save_all_transfer_tables(&bf, ThisTask);
@@ -106,18 +106,18 @@ int main(int argc, char **argv)
   double UnitTime_in_s = All2.UnitLength_in_cm / All2.UnitVelocity_in_cm_per_s;
   double Grav = GRAVITY / pow(All2.UnitLength_in_cm, 3) * All2.UnitMass_in_g * pow(UnitTime_in_s, 2);
 
-  petapm_init(pm, All.BoxSize, 0, All.Nmesh, Grav, MPI_COMM_WORLD);
+  petapm_init(pm, All2.BoxSize, 0, All2.Nmesh, Grav, MPI_COMM_WORLD);
 
   /*First compute and write CDM*/
   double mass[6] = {0};
   /*Can neglect neutrinos since this only matters for the glass force.*/
-  compute_mass(mass, TotNumPart, TotNumPartGas, 0, 0, All.BoxSize, &CP, All2);
+  compute_mass(mass, TotNumPart, TotNumPartGas, 0, 0, All2.BoxSize, &CP, All2);
   /*Not used*/
   IDGenerator idgen_cdm[1];
   IDGenerator idgen_gas[1];
 
-  idgen_init(idgen_cdm, pm, All2.Ngrid, All.BoxSize);
-  idgen_init(idgen_gas, pm, All2.NgridGas, All.BoxSize);
+  idgen_init(idgen_cdm, pm, All2.Ngrid, All2.BoxSize);
+  idgen_init(idgen_gas, pm, All2.NgridGas, All2.BoxSize);
 
   int NumPartCDM = idgen_cdm->NumPart;
   int NumPartGas = idgen_gas->NumPart;
@@ -195,7 +195,7 @@ int main(int argc, char **argv)
   if(All2.NGridNu > 0) {
       int i;
       IDGenerator idgen_nu[1];
-      idgen_init(idgen_nu, pm, All2.NGridNu, All.BoxSize);
+      idgen_init(idgen_nu, pm, All2.NGridNu, All2.BoxSize);
 
       int NumPartNu = idgen_nu->NumPart;
       ICP = (struct ic_part_data *) mymalloc("PartTable", NumPartNu*sizeof(struct ic_part_data));
@@ -262,8 +262,8 @@ void print_spec(int ThisTask, const int Ngrid, struct genic_config All2, Cosmolo
 
       fprintf(fd, "# %12g %12g\n", 1/All2.TimeIC-1, DDD);
       /* print actual starting redshift and linear growth factor for this cosmology */
-      kstart = 2 * M_PI / (2*All.BoxSize * (CM_PER_MPC / All2.UnitLength_in_cm));	/* 2x box size Mpc/h */
-      kend = 2 * M_PI / (All.BoxSize/(8*Ngrid) * (CM_PER_MPC / All2.UnitLength_in_cm));	/* 1/8 mean spacing Mpc/h */
+      kstart = 2 * M_PI / (2*All2.BoxSize * (CM_PER_MPC / All2.UnitLength_in_cm));	/* 2x box size Mpc/h */
+      kend = 2 * M_PI / (All2.BoxSize/(8*Ngrid) * (CM_PER_MPC / All2.UnitLength_in_cm));	/* 1/8 mean spacing Mpc/h */
 
       message(1,"kstart=%lg kend=%lg\n",kstart,kend);
 

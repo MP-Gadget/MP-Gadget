@@ -15,7 +15,8 @@ struct ic_part_data
 
 struct genic_config {
     int Ngrid, NgridGas, NGridNu;
-
+    int Nmesh;
+    double BoxSize;
     int ProduceGas;
     int Seed;
     int UnitaryAmplitude;
