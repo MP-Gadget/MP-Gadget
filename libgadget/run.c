@@ -79,8 +79,13 @@ close_outputfiles(void);
  *  parameterfile is set, then routines for setting units, reading
  *  ICs/restart-files are called, auxialiary memory is allocated, etc.
  */
-void begrun(int RestartSnapNum)
+int begrun(int RestartSnapNum)
 {
+    if(RestartSnapNum == -2) {
+        RestartSnapNum = find_last_snapnum(All.OutputDir);
+        message(0, "Last Snapshot number is %d.\n", RestartSnapNum);
+    }
+
     hci_init(HCI_DEFAULT_MANAGER, All.OutputDir, All.TimeLimitCPU, All.AutoSnapshotTime);
 
     petapm_module_init(omp_get_max_threads());
@@ -122,6 +127,7 @@ void begrun(int RestartSnapNum)
 #ifdef LIGHTCONE
     lightcone_init(All.Time);
 #endif
+    return RestartSnapNum;
 }
 
 void

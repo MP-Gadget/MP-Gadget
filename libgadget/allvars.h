@@ -58,7 +58,6 @@ extern struct global_data_all_processes
     int OutputPotential;        /*!< Flag whether to include the potential in snapshots*/
     int OutputHeliumFractions;  /*!< Flag whether to output the helium ionic fractions in snapshots*/
     int OutputDebugFields;      /* Flag whether to include a lot of debug output in snapshots*/
-    int ShowBacktrace;          /* Flag to enable or disable the backtrace printing code*/
 
     double RandomParticleOffset; /* If > 0, a random shift of max RandomParticleOffset * BoxSize is applied to every particle
                                   * every time a full domain decomposition is done. The box is periodic and the offset
@@ -139,8 +138,6 @@ extern struct global_data_all_processes
     /*! The scale of the short-range/long-range force split in units of FFT-mesh cells */
     double Asmth;
     enum ShortRangeForceWindowType ShortRangeForceWindowType;	/*!< method of the feedback*/
-
-    double MaxMemSizePerNode;
 
     double HydroCostFactor; /* cost factor for hydro in load balancing. */
 
