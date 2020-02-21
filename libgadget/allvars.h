@@ -35,21 +35,6 @@ extern struct global_data_all_processes
 
 /* end of read_header parameters */
 
-    struct {
-        size_t BytesPerFile;   /* Number of bytes per physical file; this decides how many files bigfile creates each block */
-        int WritersPerFile;    /* Number of concurrent writers per file; this decides number of writers */
-        int NumWriters;        /* Number of concurrent writers, this caps number of writers */
-        int MinNumWriters;        /* Min Number of concurrent writers, this caps number of writers */
-        int EnableAggregatedIO;  /* Enable aggregated IO policy for small files.*/
-        size_t AggregatedIOThreshold; /* bytes per writer above which to use non-aggregated IO (avoid OOM)*/
-        /* Changes the comoving factors of the snapshot outputs. Set in the ICs.
-         * If UsePeculiarVelocity = 1 then snapshots save to the velocity field the physical peculiar velocity, v = a dx/dt (where x is comoving distance).
-         * If UsePeculiarVelocity = 0 then the velocity field is a * v = a^2 dx/dt in snapshots
-         * and v / sqrt(a) = sqrt(a) dx/dt in the ICs. Note that snapshots never match Gadget-2, which
-         * saves physical peculiar velocity / sqrt(a) in both ICs and snapshots. */
-        int UsePeculiarVelocity;
-    } IO;
-
     double PartAllocFactor;	/*!< in order to maintain work-load balance, the particle load will usually
                               NOT be balanced.  Each processor allocates memory for PartAllocFactor times
                               the average number of particles to allow for that */

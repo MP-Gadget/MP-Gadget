@@ -28,6 +28,44 @@
  * currently we have a function to register the blocks and enumerate the blocks
  *
  */
+static struct petaio_params {
+    size_t BytesPerFile;   /* Number of bytes per physical file; this decides how many files bigfile creates each block */
+    int WritersPerFile;    /* Number of concurrent writers per file; this decides number of writers */
+    int NumWriters;        /* Number of concurrent writers, this caps number of writers */
+    int MinNumWriters;        /* Min Number of concurrent writers, this caps number of writers */
+    int EnableAggregatedIO;  /* Enable aggregated IO policy for small files.*/
+    size_t AggregatedIOThreshold; /* bytes per writer above which to use non-aggregated IO (avoid OOM)*/
+    /* Changes the comoving factors of the snapshot outputs. Set in the ICs.
+     * If UsePeculiarVelocity = 1 then snapshots save to the velocity field the physical peculiar velocity, v = a dx/dt (where x is comoving distance).
+     * If UsePeculiarVelocity = 0 then the velocity field is a * v = a^2 dx/dt in snapshots
+     * and v / sqrt(a) = sqrt(a) dx/dt in the ICs. Note that snapshots never match Gadget-2, which
+     * saves physical peculiar velocity / sqrt(a) in both ICs and snapshots. */
+    int UsePeculiarVelocity;
+} IO;
+
+/*Set the IO parameters*/
+void
+set_petaio_params(ParameterSet * ps)
+{
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask == 0) {
+        IO.BytesPerFile = param_get_int(ps, "BytesPerFile");
+        IO.UsePeculiarVelocity = 0; /* Will be set by the Initial Condition File */
+        IO.NumWriters = param_get_int(ps, "NumWriters");
+        IO.MinNumWriters = param_get_int(ps, "MinNumWriters");
+        IO.WritersPerFile = param_get_int(ps, "WritersPerFile");
+        IO.AggregatedIOThreshold = param_get_int(ps, "AggregatedIOThreshold");
+        IO.EnableAggregatedIO = param_get_int(ps, "EnableAggregatedIO");
+
+    }
+    MPI_Bcast(&IO, sizeof(struct petaio_params), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
+
+int GetUsePeculiarVelocity(void)
+{
+    return IO.UsePeculiarVelocity;
+}
 
 static void petaio_write_header(BigFile * bf, const int64_t * NTotal);
 static void petaio_read_header_internal(BigFile * bf);
@@ -35,13 +73,15 @@ static void petaio_read_header_internal(BigFile * bf);
 /* these are only used in reading in */
 void petaio_init(void) {
     /* Smaller files will do aggregated IO.*/
-    if(All.IO.EnableAggregatedIO) {
+    if(IO.EnableAggregatedIO) {
         message(0, "Aggregated IO is enabled\n");
-        big_file_mpi_set_aggregated_threshold(All.IO.AggregatedIOThreshold);
+        big_file_mpi_set_aggregated_threshold(IO.AggregatedIOThreshold);
     } else {
         message(0, "Aggregated IO is disabled.\n");
         big_file_mpi_set_aggregated_threshold(0);
     }
+    if(IO.NumWriters == 0)
+        MPI_Comm_size(MPI_COMM_WORLD, &IO.NumWriters);
 }
 
 /* save a snapshot file */
@@ -338,7 +378,7 @@ petaio_read_snapshot(int num, MPI_Comm Comm)
             P[i].Mass = All.MassTable[P[i].Type];
         }
 
-        if (!All.IO.UsePeculiarVelocity ) {
+        if (!IO.UsePeculiarVelocity ) {
 
             /* fixing the unit of velocity from Legacy GenIC IC */
             #pragma omp parallel for
@@ -372,7 +412,7 @@ static void petaio_write_header(BigFile * bf, const int64_t * NTotal) {
     /* conversion from peculiar velocity to RSD */
     double RSD = 1.0 / (All.cf.a * All.cf.hubble);
 
-    if(!All.IO.UsePeculiarVelocity) {
+    if(!IO.UsePeculiarVelocity) {
         RSD /= All.cf.a; /* Conversion from internal velocity to RSD */
     }
 
@@ -386,7 +426,7 @@ static void petaio_write_header(BigFile * bf, const int64_t * NTotal) {
     (0 != big_block_set_attr(&bh, "BoxSize", &All.BoxSize, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "OmegaLambda", &All.CP.OmegaLambda, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "RSDFactor", &RSD, "f8", 1)) ||
-    (0 != big_block_set_attr(&bh, "UsePeculiarVelocity", &All.IO.UsePeculiarVelocity, "i4", 1)) ||
+    (0 != big_block_set_attr(&bh, "UsePeculiarVelocity", &IO.UsePeculiarVelocity, "i4", 1)) ||
     (0 != big_block_set_attr(&bh, "Omega0", &All.CP.Omega0, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "CMBTemperature", &All.CP.CMBTemperature, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "OmegaBaryon", &All.CP.OmegaBaryon, "f8", 1)) ||
@@ -472,7 +512,7 @@ petaio_read_header_internal(BigFile * bf) {
      * If UsePeculiarVelocity = 0 then the velocity field is a * v = a^2 dx/dt in snapshots
      * and v / sqrt(a) = sqrt(a) dx/dt in the ICs. Note that snapshots never match Gadget-2, which
      * saves physical peculiar velocity / sqrt(a) in both ICs and snapshots. */
-    All.IO.UsePeculiarVelocity = _get_attr_int(&bh, "UsePeculiarVelocity", 0);
+    IO.UsePeculiarVelocity = _get_attr_int(&bh, "UsePeculiarVelocity", 0);
 
     if(0 != big_block_get_attr(&bh, "TotNumPartInit", All.NTotalInit, "u8", 6)) {
         int ptype;
@@ -599,7 +639,7 @@ int petaio_read_block(BigFile * bf, char * blockname, BigArray * array, int requ
     if(0 != big_block_seek(&bb, &ptr, 0)) {
             endrun(1, "Failed to seek block %s: %s\n", blockname, big_file_get_error_message());
     }
-    if(0 != big_block_mpi_read(&bb, &ptr, array, All.IO.NumWriters, MPI_COMM_WORLD)) {
+    if(0 != big_block_mpi_read(&bb, &ptr, array, IO.NumWriters, MPI_COMM_WORLD)) {
         endrun(1, "Failed to read from block %s: %s\n", blockname, big_file_get_error_message());
     }
     if(0 != big_block_mpi_close(&bb, MPI_COMM_WORLD)) {
@@ -618,20 +658,20 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, int ver
 
     int elsize = big_file_dtype_itemsize(array->dtype);
 
-    int NumWriters = All.IO.NumWriters;
+    int NumWriters = IO.NumWriters;
 
     size_t size = count_sum(array->dims[0]);
     int NumFiles;
 
-    if(All.IO.EnableAggregatedIO) {
-        NumFiles = (size * elsize + All.IO.BytesPerFile - 1) / All.IO.BytesPerFile;
-        if(NumWriters > NumFiles * All.IO.WritersPerFile) {
-            NumWriters = NumFiles * All.IO.WritersPerFile;
+    if(IO.EnableAggregatedIO) {
+        NumFiles = (size * elsize + IO.BytesPerFile - 1) / IO.BytesPerFile;
+        if(NumWriters > NumFiles * IO.WritersPerFile) {
+            NumWriters = NumFiles * IO.WritersPerFile;
             message(0, "Throttling NumWriters to %d.\n", NumWriters);
         }
-        if(NumWriters < All.IO.MinNumWriters) {
-            NumWriters = All.IO.MinNumWriters;
-            NumFiles = (NumWriters + All.IO.WritersPerFile - 1) / All.IO.WritersPerFile ;
+        if(NumWriters < IO.MinNumWriters) {
+            NumWriters = IO.MinNumWriters;
+            NumFiles = (NumWriters + IO.WritersPerFile - 1) / IO.WritersPerFile ;
             message(0, "Throttling NumWriters to %d.\n", NumWriters);
         }
     } else {
@@ -771,7 +811,7 @@ static void GTVelocity(int i, float * out, void * baseptr, void * smanptr) {
     /* Convert to Peculiar Velocity if UsePeculiarVelocity is set */
     double fac;
     struct particle_data * part = (struct particle_data *) baseptr;
-    if (All.IO.UsePeculiarVelocity) {
+    if (IO.UsePeculiarVelocity) {
         fac = 1.0 / All.cf.a;
     } else {
         fac = 1.0;
@@ -785,7 +825,7 @@ static void GTVelocity(int i, float * out, void * baseptr, void * smanptr) {
 static void STVelocity(int i, float * out, void * baseptr, void * smanptr) {
     double fac;
     struct particle_data * part = (struct particle_data *) baseptr;
-    if (All.IO.UsePeculiarVelocity) {
+    if (IO.UsePeculiarVelocity) {
         fac = All.cf.a;
     } else {
         fac = 1.0;

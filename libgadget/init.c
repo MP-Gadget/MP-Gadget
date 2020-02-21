@@ -76,16 +76,6 @@ set_init_params(ParameterSet * ps)
 
         All.HydroCostFactor = param_get_double(ps, "HydroCostFactor");
 
-        All.IO.BytesPerFile = param_get_int(ps, "BytesPerFile");
-        All.IO.UsePeculiarVelocity = 0; /* Will be set by the Initial Condition File */
-        All.IO.NumWriters = param_get_int(ps, "NumWriters");
-        if(All.IO.NumWriters == 0)
-            MPI_Comm_size(MPI_COMM_WORLD, &All.IO.NumWriters);
-        All.IO.MinNumWriters = param_get_int(ps, "MinNumWriters");
-        All.IO.WritersPerFile = param_get_int(ps, "WritersPerFile");
-        All.IO.AggregatedIOThreshold = param_get_int(ps, "AggregatedIOThreshold");
-        All.IO.EnableAggregatedIO = param_get_int(ps, "EnableAggregatedIO");
-
         All.CoolingOn = param_get_int(ps, "CoolingOn");
         All.HydroOn = param_get_int(ps, "HydroOn");
         All.DensityOn = param_get_int(ps, "DensityOn");

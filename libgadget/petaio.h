@@ -3,6 +3,7 @@
 
 #include <mpi.h>
 #include "bigfile.h"
+#include "utils/paramset.h"
 #include "partmanager.h"
 #include "slotsmanager.h"
 
@@ -36,6 +37,8 @@ void register_debug_io_blocks(struct IOTable * IOTable);
 /* Free the entries in the IOTable.*/
 void destroy_io_blocks(struct IOTable * IOTable);
 
+void set_petaio_params(ParameterSet *ps);
+int GetUsePeculiarVelocity(void);
 void petaio_init();
 void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t npartLocal);
 void petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int NumSelection, struct particle_data * Parts, struct slots_manager_type * SlotsManager);
