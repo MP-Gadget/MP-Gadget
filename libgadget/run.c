@@ -197,7 +197,7 @@ run(int RestartSnapNum)
             update_random_offset(rel_random_shift);
         }
         /* Sync positions of all particles */
-        drift_all_particles(All.Ti_Current, rel_random_shift);
+        drift_all_particles(All.Ti_Current, All.BoxSize, &All.CP, rel_random_shift);
 
         /* drift and ddecomp decomposition */
 
