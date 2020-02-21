@@ -33,13 +33,13 @@ static void readout_disp_y(PetaPM * pm, int i, double * mesh, double weight);
 static void readout_disp_z(PetaPM * pm, int i, double * mesh, double weight);
 static void gaussian_fill(int Nmesh, PetaPMRegion * region, pfft_complex * rho_k, int UnitaryAmplitude, int InvertPhase, const int Seed);
 
-static inline double periodic_wrap(double x)
+static inline double periodic_wrap(double x, const double BoxSize)
 {
-  while(x >= All.BoxSize)
-    x -= All.BoxSize;
+  while(x >= BoxSize)
+    x -= BoxSize;
 
   while(x < 0)
-    x += All.BoxSize;
+    x += BoxSize;
 
   return x;
 }
@@ -119,7 +119,7 @@ static PetaPMRegion * makeregion(PetaPM * pm, PetaPMParticleStruct * pstruct, vo
     int k;
     int r = 0;
     int i;
-    double min[3] = {All.BoxSize, All.BoxSize, All.BoxSize};
+    double min[3] = {pm->BoxSize, pm->BoxSize, pm->BoxSize};
     double max[3] = {0, 0, 0.};
 
     for(i = 0; i < NumPart; i ++) {
@@ -132,8 +132,8 @@ static PetaPMRegion * makeregion(PetaPM * pm, PetaPMParticleStruct * pstruct, vo
     }
 
     for(k = 0; k < 3; k ++) {
-        regions[r].offset[k] = floor(min[k] / All.BoxSize * All.Nmesh - 1);
-        regions[r].size[k] = ceil(max[k] / All.BoxSize * All.Nmesh + 2);
+        regions[r].offset[k] = floor(min[k] / pm->BoxSize * pm->Nmesh - 1);
+        regions[r].size[k] = ceil(max[k] / pm->BoxSize * pm->Nmesh + 2);
         regions[r].size[k] -= regions[r].offset[k];
     }
 
@@ -248,13 +248,13 @@ void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_dat
                 curICP[i].Vel[k] = curICP[i].Disp[k];
             curICP[i].Vel[k] *= vel_prefac;
             absv += curICP[i].Vel[k] * curICP[i].Vel[k];
-            curICP[i].Pos[k] = periodic_wrap(curICP[i].Pos[k]);
+            curICP[i].Pos[k] = periodic_wrap(curICP[i].Pos[k], pm->BoxSize);
         }
         if(absv > maxvel)
             maxvel = absv;
     }
     MPI_Allreduce(MPI_IN_PLACE, &maxdisp, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    message(0, "Type = %d max disp = %g in units of cell sep %g \n", ptype, maxdisp, maxdisp / (All.BoxSize / All.Nmesh) );
+    message(0, "Type = %d max disp = %g in units of cell sep %g \n", ptype, maxdisp, maxdisp / (pm->BoxSize / pm->Nmesh) );
 
     MPI_Allreduce(MPI_IN_PLACE, &maxvel, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     message(0, "Max vel=%g km/s, vel_prefac= %g  hubble_a=%g fom=%g \n", sqrt(maxvel), vel_prefac, hubble_a, F_Omega(&All.CP, All.TimeIC));
@@ -277,12 +277,12 @@ void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_dat
 static void density_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
         /* density is smoothed in k space by a gaussian kernel of 1 mesh grid */
-        double r2 = 1.0 / All.Nmesh;
+        double r2 = 1.0 / pm->Nmesh;
         r2 *= r2;
         double fac = exp(- k2 * r2);
 
-        double kmag = sqrt(k2) * 2 * M_PI / All.BoxSize;
-        fac *= DeltaSpec(kmag, ptype) / sqrt(All.BoxSize * All.BoxSize * All.BoxSize);
+        double kmag = sqrt(k2) * 2 * M_PI / pm->BoxSize;
+        fac *= DeltaSpec(kmag, ptype) / sqrt(pm->BoxSize * pm->BoxSize * pm->BoxSize);
 
         value[0][0] *= fac;
         value[0][1] *= fac;
@@ -291,17 +291,17 @@ static void density_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex 
 
 static void disp_transfer(PetaPM * pm, int64_t k2, int kaxis, pfft_complex * value, int include_growth) {
     if(k2) {
-        double fac = 1./ (2 * M_PI) / sqrt(All.BoxSize) * kaxis / k2;
+        double fac = 1./ (2 * M_PI) / sqrt(pm->BoxSize) * kaxis / k2;
         /*
          We avoid high precision kernels to maintain compatibility with N-GenIC.
          The following formular shall cross check with fac in the limit of
          native diff_kernel (disp_y, disp_z shall match too!)
 
-        double fac1 = (2 * M_PI) / All.BoxSize;
-        double fac = diff_kernel(kaxis * (2 * M_PI / All.Nmesh)) * (All.Nmesh / All.BoxSize) / (
+        double fac1 = (2 * M_PI) / pm->BoxSize;
+        double fac = diff_kernel(kaxis * (2 * M_PI / pm->Nmesh)) * (pm->Nmesh / pm->BoxSize) / (
                     k2 * fac1 * fac1);
                     */
-        double kmag = sqrt(k2) * 2 * M_PI / All.BoxSize;
+        double kmag = sqrt(k2) * 2 * M_PI / pm->BoxSize;
         /*Multiply by derivative of scale-dependent growth function*/
         if(include_growth)
             fac *= dlogGrowth(kmag, ptype);
