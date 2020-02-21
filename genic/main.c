@@ -17,7 +17,7 @@
 
 #define GLASS_SEED_HASH(seed) ((seed) * 9999721L)
 
-static void print_spec(int ThisTask, int Ngrid, struct genic_config All2);
+static void print_spec(int ThisTask, const int Ngrid, struct genic_config All2, Cosmology * CP);
 
 int main(int argc, char **argv)
 {
@@ -35,9 +35,10 @@ int main(int argc, char **argv)
   /* Genic Specific configuration structure*/
   struct genic_config All2 = {0};
 
+  Cosmology CP;
   int ShowBacktrace;
   double MaxMemSizePerNode;
-  read_parameterfile(argv[1], &All2, &ShowBacktrace, &MaxMemSizePerNode);
+  read_parameterfile(argv[1], &All2, &ShowBacktrace, &MaxMemSizePerNode, &CP);
 
   mymalloc_init(MaxMemSizePerNode);
 
@@ -49,22 +50,22 @@ int main(int argc, char **argv)
   int64_t TotNumPart = (int64_t) All2.Ngrid*All2.Ngrid*All2.Ngrid;
   int64_t TotNumPartGas = (int64_t) All2.ProduceGas*All2.NgridGas*All2.NgridGas*All2.NgridGas;
 
-  init_cosmology(&All.CP, All2.TimeIC);
+  init_cosmology(&CP, All2.TimeIC);
 
   MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-  init_powerspectrum(ThisTask, All2.TimeIC, All2.UnitLength_in_cm, &All.CP, &All2.PowerP);
+  init_powerspectrum(ThisTask, All2.TimeIC, All2.UnitLength_in_cm, &CP, &All2.PowerP);
 
   petapm_module_init(omp_get_max_threads());
 
   /*Initialise particle spacings*/
   const double meanspacing = All.BoxSize / DMAX(All2.Ngrid, All2.NgridGas);
-  const double shift_gas = -All2.ProduceGas * 0.5 * (All.CP.Omega0 - All.CP.OmegaBaryon) / All.CP.Omega0 * meanspacing;
-  double shift_dm = All2.ProduceGas * 0.5 * All.CP.OmegaBaryon / All.CP.Omega0 * meanspacing;
+  const double shift_gas = -All2.ProduceGas * 0.5 * (CP.Omega0 - CP.OmegaBaryon) / CP.Omega0 * meanspacing;
+  double shift_dm = All2.ProduceGas * 0.5 * CP.OmegaBaryon / CP.Omega0 * meanspacing;
   double shift_nu = 0;
   if(!All2.ProduceGas && All2.NGridNu > 0) {
-      double OmegaNu = get_omega_nu(&All.CP.ONu, 1);
-      shift_nu = -0.5 * (All.CP.Omega0 - OmegaNu) / All.CP.Omega0 * meanspacing;
-      shift_dm = 0.5 * OmegaNu / All.CP.Omega0 * meanspacing;
+      double OmegaNu = get_omega_nu(&CP.ONu, 1);
+      shift_nu = -0.5 * (CP.Omega0 - OmegaNu) / CP.Omega0 * meanspacing;
+      shift_dm = 0.5 * OmegaNu / CP.Omega0 * meanspacing;
   }
 
   /*Write the header*/
@@ -80,14 +81,14 @@ int main(int argc, char **argv)
   double total_nufrac = 0;
   struct thermalvel nu_therm;
   if(TotNu > 0) {
-    const double kBMNu = 3*All.CP.ONu.kBtnu / (All.CP.MNu[0]+All.CP.MNu[1]+All.CP.MNu[2]);
+    const double kBMNu = 3*CP.ONu.kBtnu / (CP.MNu[0]+CP.MNu[1]+CP.MNu[2]);
     double v_th = NU_V0(All2.TimeIC, kBMNu, All2.UnitVelocity_in_cm_per_s);
     if(!All2.UsePeculiarVelocity)
         v_th /= sqrt(All2.TimeIC);
     total_nufrac = init_thermalvel(&nu_therm, v_th, All2.Max_nuvel/v_th, 0);
     message(0,"F-D velocity scale: %g. Max particle vel: %g. Fraction of mass in particles: %g\n",v_th*sqrt(All2.TimeIC), All2.Max_nuvel*sqrt(All2.TimeIC), total_nufrac);
   }
-  saveheader(&bf, TotNumPart, TotNumPartGas, TotNu, total_nufrac, All.BoxSize, &All.CP, All2);
+  saveheader(&bf, TotNumPart, TotNumPartGas, TotNu, total_nufrac, All.BoxSize, &CP, All2);
 
   /*Save the transfer functions*/
   save_all_transfer_tables(&bf, ThisTask);
@@ -110,7 +111,7 @@ int main(int argc, char **argv)
   /*First compute and write CDM*/
   double mass[6] = {0};
   /*Can neglect neutrinos since this only matters for the glass force.*/
-  compute_mass(mass, TotNumPart, TotNumPartGas, 0, 0, All.BoxSize, &All.CP, All2);
+  compute_mass(mass, TotNumPart, TotNumPartGas, 0, 0, All.BoxSize, &CP, All2);
   /*Not used*/
   IDGenerator idgen_cdm[1];
   IDGenerator idgen_gas[1];
@@ -152,12 +153,12 @@ int main(int argc, char **argv)
           ICP[j].PrePos[k] = ICP[j].Pos[k];
 
   if(NumPartCDM > 0) {
-    displacement_fields(pm, DMType, ICP, NumPartCDM, &All.CP, All2);
+    displacement_fields(pm, DMType, ICP, NumPartCDM, &CP, All2);
 
     /*Add a thermal velocity to WDM particles*/
     if(All2.WDM_therm_mass > 0){
         int i;
-        double v_th = WDM_V0(All2.TimeIC, All2.WDM_therm_mass, All.CP.Omega0 - All.CP.OmegaBaryon - get_omega_nu(&All.CP.ONu, 1), All.CP.HubbleParam, All.UnitVelocity_in_cm_per_s);
+        double v_th = WDM_V0(All2.TimeIC, All2.WDM_therm_mass, CP.Omega0 - CP.OmegaBaryon - get_omega_nu(&CP.ONu, 1), CP.HubbleParam, All.UnitVelocity_in_cm_per_s);
         if(!All2.UsePeculiarVelocity)
            v_th /= sqrt(All2.TimeIC);
         struct thermalvel WDM;
@@ -185,7 +186,7 @@ int main(int argc, char **argv)
 
   /*Now make the gas if required*/
   if(All2.ProduceGas) {
-    displacement_fields(pm, GasType, ICP+NumPartCDM, NumPartGas, &All.CP, All2);
+    displacement_fields(pm, GasType, ICP+NumPartCDM, NumPartGas, &CP, All2);
     write_particle_data(idgen_gas, 0, &bf, TotNumPart, All2.SavePrePos, All2.NumFiles, All2.NumWriters, ICP+NumPartCDM);
   }
   myfree(ICP);
@@ -206,7 +207,7 @@ int main(int argc, char **argv)
 		  for(k=0; k<3; k++)
 		      ICP[j].PrePos[k] = ICP[j].Pos[k];
 
-      displacement_fields(pm, NuType, ICP, NumPartNu, &All.CP, All2);
+      displacement_fields(pm, NuType, ICP, NumPartNu, &CP, All2);
       unsigned int * seedtable = init_rng(All2.Seed+2,All2.NGridNu);
       gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
       /*Just in case*/
@@ -236,13 +237,13 @@ int main(int argc, char **argv)
   message(0, "IC's generated.\n");
   message(0, "Initial scale factor = %g\n", All2.TimeIC);
 
-  print_spec(ThisTask, All2.Ngrid, All2);
+  print_spec(ThisTask, All2.Ngrid, All2, &CP);
 
   MPI_Finalize();		/* clean up & finalize MPI */
   return 0;
 }
 
-void print_spec(int ThisTask, const int Ngrid, struct genic_config All2)
+void print_spec(int ThisTask, const int Ngrid, struct genic_config All2, Cosmology * CP)
 {
   if(ThisTask == 0)
     {
@@ -257,7 +258,7 @@ void print_spec(int ThisTask, const int Ngrid, struct genic_config All2)
         message(1, "Failed to create powerspec file at:%s\n", buf);
         return;
       }
-      DDD = GrowthFactor(&All.CP, All2.TimeIC, 1.0);
+      DDD = GrowthFactor(CP, All2.TimeIC, 1.0);
 
       fprintf(fd, "# %12g %12g\n", 1/All2.TimeIC-1, DDD);
       /* print actual starting redshift and linear growth factor for this cosmology */

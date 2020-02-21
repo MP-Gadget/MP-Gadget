@@ -76,7 +76,7 @@ create_parameters(void)
     return ps;
 }
 
-void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * ShowBacktrace, double * MaxMemSizePerNode)
+void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * ShowBacktrace, double * MaxMemSizePerNode, Cosmology * CP)
 {
 
     /* read parameter file on all processes for simplicty */
@@ -100,21 +100,21 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
     message(0, "----------------------------------------------\n");
 
     /*Cosmology*/
-    All.CP.Omega0 = param_get_double(ps, "Omega0");
-    All.CP.OmegaLambda = param_get_double(ps, "OmegaLambda");
-    All.CP.OmegaBaryon = param_get_double(ps, "OmegaBaryon");
-    All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
-    All.CP.Omega_fld = param_get_double(ps, "Omega_fld");
-    All.CP.w0_fld = param_get_double(ps,"w0_fld");
-    All.CP.wa_fld = param_get_double(ps,"wa_fld");
-    All.CP.Omega_ur = param_get_double(ps, "Omega_ur");
-    if(All.CP.OmegaLambda > 0 && All.CP.Omega_fld > 0)
+    CP->Omega0 = param_get_double(ps, "Omega0");
+    CP->OmegaLambda = param_get_double(ps, "OmegaLambda");
+    CP->OmegaBaryon = param_get_double(ps, "OmegaBaryon");
+    CP->HubbleParam = param_get_double(ps, "HubbleParam");
+    CP->Omega_fld = param_get_double(ps, "Omega_fld");
+    CP->w0_fld = param_get_double(ps,"w0_fld");
+    CP->wa_fld = param_get_double(ps,"wa_fld");
+    CP->Omega_ur = param_get_double(ps, "Omega_ur");
+    if(CP->OmegaLambda > 0 && CP->Omega_fld > 0)
         endrun(0, "Cannot have OmegaLambda and Omega_fld (evolving dark energy) at the same time!\n");
-    All.CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
-    All.CP.RadiationOn = param_get_double(ps, "RadiationOn");
-    All.CP.MNu[0] = param_get_double(ps, "MNue");
-    All.CP.MNu[1] = param_get_double(ps, "MNum");
-    All.CP.MNu[2] = param_get_double(ps, "MNut");
+    CP->CMBTemperature = param_get_double(ps, "CMBTemperature");
+    CP->RadiationOn = param_get_double(ps, "RadiationOn");
+    CP->MNu[0] = param_get_double(ps, "MNue");
+    CP->MNu[1] = param_get_double(ps, "MNum");
+    CP->MNu[2] = param_get_double(ps, "MNut");
     GenicConfig->WDM_therm_mass = param_get_double(ps, "MWDM_therm");
     *MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
     if(*MaxMemSizePerNode <= 1) {
@@ -195,12 +195,12 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
     GenicConfig->NumFiles = ( Ngrid*Ngrid*Ngrid + NumPartPerFile - 1) / NumPartPerFile;
     GenicConfig->NumWriters = param_get_int(ps, "NumWriters");
     if(GenicConfig->PowerP.DifferentTransferFunctions && GenicConfig->PowerP.InputPowerRedshift != Redshift
-        && (GenicConfig->ProduceGas || All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2]))
+        && (GenicConfig->ProduceGas || CP->MNu[0] + CP->MNu[1] + CP->MNu[2]))
         message(0, "WARNING: Using different transfer functions but also rescaling power to account for linear growth. NOT what you want!\n");
-    if((All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2] > 0) || GenicConfig->PowerP.DifferentTransferFunctions || GenicConfig->PowerP.ScaleDepVelocity)
+    if((CP->MNu[0] + CP->MNu[1] + CP->MNu[2] > 0) || GenicConfig->PowerP.DifferentTransferFunctions || GenicConfig->PowerP.ScaleDepVelocity)
         if(0 == strlen(GenicConfig->PowerP.FileWithTransferFunction))
             endrun(0,"For massive neutrinos, different transfer functions, or scale dependent growth functions you must specify a transfer function file\n");
-    if(!All.CP.RadiationOn && (All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2] > 0))
+    if(!CP->RadiationOn && (CP->MNu[0] + CP->MNu[1] + CP->MNu[2] > 0))
         endrun(0,"You want massive neutrinos but no background radiation: this will give an inconsistent cosmology.\n");
 
     if(All.Nmesh == 0) {
@@ -210,5 +210,5 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
     GenicConfig->TimeIC = 1 / (1 + Redshift);
     All.UnitTime_in_s = All.UnitLength_in_cm / All.UnitVelocity_in_cm_per_s;
 
-    All.CP.Hubble = HUBBLE * All.UnitTime_in_s;
+    CP->Hubble = HUBBLE * All.UnitTime_in_s;
 }
