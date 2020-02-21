@@ -9,6 +9,4 @@ void init(int snapnum, DomainDecomp * ddecomp);
 
 void set_init_params(ParameterSet * ps);
 
-int OutputListAction(ParameterSet * ps, char * name, void * data);
-
 #endif

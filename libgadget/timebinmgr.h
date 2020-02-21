@@ -15,6 +15,7 @@
 #define MAXSNAPSHOTS (1u<<(30-TIMEBINS))
 
 #include "types.h"
+#include "utils/paramset.h"
 
 typedef struct SyncPoint SyncPoint;
 
@@ -51,6 +52,8 @@ inttime_t find_next_outputtime(inttime_t ti_curr);
 /*Get whatever is the last output number from ti*/
 inttime_t out_from_ti(inttime_t ti);
 
+int OutputListAction(ParameterSet * ps, char * name, void * data);
+void set_sync_params(int OutputListLength, double * OutputListTimes);
 void setup_sync_points(double TimeIC, double no_snapshot_until_time);
 
 SyncPoint *

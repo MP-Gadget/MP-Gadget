@@ -133,61 +133,6 @@ set_init_params(ParameterSet * ps)
     MPI_Bcast(&All, sizeof(All), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
-/*! This function parses a string containing a comma-separated list of variables,
- *  each of which is interpreted as a double.
- *  The purpose is to read an array of output times into the code.
- *  So specifying the output list now looks like:
- *  OutputList  0.1,0.3,0.5,1.0
- *
- *  We sort the input after reading it, so that the initial list need not be sorted.
- *  This function could be repurposed for reading generic arrays in future.
- */
-
-int
-OutputListAction(ParameterSet * ps, char * name, void * data)
-{
-    char * outputlist = param_get_string(ps, name);
-    char * strtmp = fastpm_strdup(outputlist);
-    char * token;
-    int count;
-
-    /* Note TimeInit and TimeMax not yet initialised here*/
-
-    /*First parse the string to get the number of outputs*/
-    for(count=0, token=strtok(strtmp,","); token; count++, token=strtok(NULL, ","))
-    {}
-/*     message(1, "Found %d times in output list.\n", count); */
-
-    /*Allocate enough memory*/
-    All.OutputListLength = count;
-    int maxcount = sizeof(All.OutputListTimes) / sizeof(All.OutputListTimes[0]);
-    if(maxcount > (int) MAXSNAPSHOTS)
-        maxcount = MAXSNAPSHOTS;
-    if(All.OutputListLength > maxcount) {
-        message(1, "Too many entries (%d) in the OutputList, can take no more than %d.\n", All.OutputListLength, maxcount);
-        return 1;
-    }
-    /*Now read in the values*/
-    for(count=0,token=strtok(outputlist,","); count < All.OutputListLength && token; count++, token=strtok(NULL,","))
-    {
-        /* Skip a leading quote if one exists.
-         * Extra characters are ignored by atof, so
-         * no need to skip matching char.*/
-        if(token[0] == '"')
-            token+=1;
-
-        double a = atof(token);
-
-        if(a < 0.0) {
-            endrun(1, "Requesting a negative output scaling factor a = %g\n", a);
-        }
-        All.OutputListTimes[count] = a;
-/*         message(1, "Output at: %g\n", All.OutputListTimes[count]); */
-    }
-    myfree(strtmp);
-    return 0;
-}
-
 static void check_omega(void);
 static void check_positions(void);
 

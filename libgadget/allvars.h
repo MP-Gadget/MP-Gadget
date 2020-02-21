@@ -142,9 +142,6 @@ extern struct global_data_all_processes
     /*Should we store the energy to EnergyFile on PM timesteps.*/
     int OutputEnergyDebug;
 
-    double OutputListTimes[1024];
-    int OutputListLength;
-
     int SnapshotWithFOF; /*Flag that doing FOF for snapshot outputs is on*/
 
     int RandomSeed; /*Initial seed for the random number table*/
