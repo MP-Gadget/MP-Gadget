@@ -90,7 +90,7 @@ void runtests(int RestartSnapNum)
     init(RestartSnapNum, ddecomp);          /* ... read in initial model */
 
     struct IOTable IOTable = {0};
-    register_io_blocks(&IOTable);
+    register_io_blocks(&IOTable, 0);
     register_extra_blocks(&IOTable);
 
     int NTask;

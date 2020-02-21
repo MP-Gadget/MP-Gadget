@@ -360,7 +360,7 @@ petaio_read_snapshot(int num, MPI_Comm Comm)
     char * fname;
     struct IOTable IOTable = {0};
 
-    register_io_blocks(&IOTable);
+    register_io_blocks(&IOTable, 0);
 
     if(num == -1) {
         fname = fastpm_strdup_printf("%s", All.InitCondFile);
@@ -954,7 +954,7 @@ static int order_by_type(const void *a, const void *b)
     return 0;
 }
 
-void register_io_blocks(struct IOTable * IOTable) {
+void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
     int i;
     IOTable->used = 0;
     IOTable->allocated = 100;
@@ -967,7 +967,7 @@ void register_io_blocks(struct IOTable * IOTable) {
         IO_REG(ID,       "u8", 1, i, IOTable);
         if(All.OutputPotential)
             IO_REG_WRONLY(Potential, "f4", 1, i, IOTable);
-        if(All.SnapshotWithFOF)
+        if(WriteGroupID)
             IO_REG_WRONLY(GroupID, "u4", 1, i, IOTable);
     }
 

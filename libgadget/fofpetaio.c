@@ -71,7 +71,7 @@ void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_Comm Co
 
     if(SaveParticles) {
         struct IOTable IOTable = {0};
-        register_io_blocks(&IOTable);
+        register_io_blocks(&IOTable, 1);
         struct part_manager_type halo_pman;
         struct slots_manager_type halo_sman;
         fof_distribute_particles(&halo_pman, &halo_sman, Comm);

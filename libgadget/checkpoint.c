@@ -20,19 +20,34 @@
  *  This file delegates the functions to petaio and fof.
  */
 
-static void
-write_snapshot(int num, double Time, const char * OutputDir, const char * SnapshotFileBase, const int OutputDebugFields);
-
 void
 write_checkpoint(int snapnum, int WriteSnapshot, int WriteFOF, double Time, const char * OutputDir, const char * SnapshotFileBase, const int OutputDebugFields, ForceTree * tree)
 {
     if(!WriteSnapshot && !WriteFOF) return;
 
+    walltime_measure("/Misc");
     if(WriteSnapshot)
     {
         /* write snapshot of particles */
-        write_snapshot(snapnum, Time, OutputDir, SnapshotFileBase, OutputDebugFields);
-    }
+        struct IOTable IOTable = {0};
+        register_io_blocks(&IOTable, WriteFOF);
+        if(OutputDebugFields)
+            register_debug_io_blocks(&IOTable);
+        petaio_save_snapshot(&IOTable, 1, "%s/%s_%03d", OutputDir, SnapshotFileBase, snapnum);
+
+        destroy_io_blocks(&IOTable);
+        walltime_measure("/Snapshot/Write");
+
+        int ThisTask;
+        MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+        if(ThisTask == 0) {
+            char * buf = fastpm_strdup_printf("%s/Snapshots.txt", OutputDir);
+            FILE * fd = fopen(buf, "a");
+            fprintf(fd, "%03d %g\n", snapnum, Time);
+            fclose(fd);
+            myfree(buf);
+        }
+     }
 
     if(WriteFOF) {
         /* Compute and save FOF*/
@@ -52,34 +67,10 @@ void
 dump_snapshot(const char * dump, const char * OutputDir)
 {
     struct IOTable IOTable = {0};
-    register_io_blocks(&IOTable);
+    register_io_blocks(&IOTable, 0);
     register_debug_io_blocks(&IOTable);
     petaio_save_snapshot(&IOTable, 1, "%s/%s", OutputDir, dump);
     destroy_io_blocks(&IOTable);
-}
-
-static void
-write_snapshot(int num, double Time, const char * OutputDir, const char * SnapshotFileBase, const int OutputDebugFields)
-{
-    walltime_measure("/Misc");
-    struct IOTable IOTable = {0};
-    register_io_blocks(&IOTable);
-    if(OutputDebugFields)
-        register_debug_io_blocks(&IOTable);
-    petaio_save_snapshot(&IOTable, 1, "%s/%s_%03d", OutputDir, SnapshotFileBase, num);
-
-    destroy_io_blocks(&IOTable);
-    walltime_measure("/Snapshot/Write");
-
-    int ThisTask;
-    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-    if(ThisTask == 0) {
-        char * buf = fastpm_strdup_printf("%s/Snapshots.txt", OutputDir);
-        FILE * fd = fopen(buf, "a");
-        fprintf(fd, "%03d %g\n", num, Time);
-        fclose(fd);
-        myfree(buf);
-    }
 }
 
 int
