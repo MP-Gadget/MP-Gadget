@@ -335,7 +335,6 @@ static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm) {
     /* conversion from peculiar velocity to RSD */
     double RSD = 1.0 / (All.cf.a * All.cf.hubble);
 
-
     if(!GetUsePeculiarVelocity()) {
         RSD /= All.cf.a; /* Conversion from internal velocity to RSD */
     }
@@ -406,7 +405,7 @@ static void GTMassCenterVelocity(int i, float * out, void * baseptr, void * slot
     double fac;
     struct Group * Group = (struct Group *) baseptr;
     if (GetUsePeculiarVelocity()) {
-        fac = 1.0 / All.cf.a;
+        fac = 1.0 / All.Time;
     } else {
         fac = 1.0;
     }
