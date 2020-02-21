@@ -106,7 +106,7 @@ int main(int argc, char **argv)
   double UnitTime_in_s = All2.UnitLength_in_cm / All2.UnitVelocity_in_cm_per_s;
   double Grav = GRAVITY / pow(All2.UnitLength_in_cm, 3) * All2.UnitMass_in_g * pow(UnitTime_in_s, 2);
 
-  petapm_init(pm, All.BoxSize, All.Asmth, All.Nmesh, Grav, MPI_COMM_WORLD);
+  petapm_init(pm, All.BoxSize, 0, All.Nmesh, Grav, MPI_COMM_WORLD);
 
   /*First compute and write CDM*/
   double mass[6] = {0};
@@ -158,7 +158,7 @@ int main(int argc, char **argv)
     /*Add a thermal velocity to WDM particles*/
     if(All2.WDM_therm_mass > 0){
         int i;
-        double v_th = WDM_V0(All2.TimeIC, All2.WDM_therm_mass, CP.Omega0 - CP.OmegaBaryon - get_omega_nu(&CP.ONu, 1), CP.HubbleParam, All.UnitVelocity_in_cm_per_s);
+        double v_th = WDM_V0(All2.TimeIC, All2.WDM_therm_mass, CP.Omega0 - CP.OmegaBaryon - get_omega_nu(&CP.ONu, 1), CP.HubbleParam, All2.UnitVelocity_in_cm_per_s);
         if(!All2.UsePeculiarVelocity)
            v_th /= sqrt(All2.TimeIC);
         struct thermalvel WDM;
