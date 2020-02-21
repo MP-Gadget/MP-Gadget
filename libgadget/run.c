@@ -30,7 +30,8 @@
 #include "fof.h"
 #include "cooling_qso_lightup.h"
 
-void energy_statistics(FILE * FdEnergy); /* stats.c only used here */
+/* stats.c only used here */
+void energy_statistics(FILE * FdEnergy, const double Time, const double CurrentParticleOffset[3]);
 /*!< file handle for energy.txt log-file. */
 static FILE * FdEnergy;
 static FILE  *FdCPU;    /*!< file handle for cpu.txt log-file. */
@@ -429,7 +430,7 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
 
         /* compute and output energy statistics if desired. */
         if(All.OutputEnergyDebug)
-            energy_statistics(FdEnergy);
+            energy_statistics(FdEnergy, All.Time, All.CurrentParticleOffset);
     }
 
     /* For the first timestep, we do tree force twice
