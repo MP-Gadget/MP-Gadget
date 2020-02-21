@@ -49,10 +49,10 @@ int main(int argc, char **argv)
   int64_t TotNumPart = (int64_t) All2.Ngrid*All2.Ngrid*All2.Ngrid;
   int64_t TotNumPartGas = (int64_t) All2.ProduceGas*All2.NgridGas*All2.NgridGas*All2.NgridGas;
 
-  init_cosmology(&All.CP, All.TimeIC);
+  init_cosmology(&All.CP, All2.TimeIC);
 
   MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-  init_powerspectrum(ThisTask, All.TimeIC, All.UnitLength_in_cm, &All.CP, &All2.PowerP);
+  init_powerspectrum(ThisTask, All2.TimeIC, All.UnitLength_in_cm, &All.CP, &All2.PowerP);
 
   petapm_module_init(omp_get_max_threads());
 
@@ -82,11 +82,11 @@ int main(int argc, char **argv)
   struct thermalvel nu_therm;
   if(TotNu > 0) {
     const double kBMNu = 3*All.CP.ONu.kBtnu / (All.CP.MNu[0]+All.CP.MNu[1]+All.CP.MNu[2]);
-    double v_th = NU_V0(All.TimeIC, kBMNu, All2.UnitVelocity_in_cm_per_s);
+    double v_th = NU_V0(All2.TimeIC, kBMNu, All2.UnitVelocity_in_cm_per_s);
     if(!All.IO.UsePeculiarVelocity)
-        v_th /= sqrt(All.TimeIC);
+        v_th /= sqrt(All2.TimeIC);
     total_nufrac = init_thermalvel(&nu_therm, v_th, All2.Max_nuvel/v_th, 0);
-    message(0,"F-D velocity scale: %g. Max particle vel: %g. Fraction of mass in particles: %g\n",v_th*sqrt(All.TimeIC), All2.Max_nuvel*sqrt(All.TimeIC), total_nufrac);
+    message(0,"F-D velocity scale: %g. Max particle vel: %g. Fraction of mass in particles: %g\n",v_th*sqrt(All2.TimeIC), All2.Max_nuvel*sqrt(All2.TimeIC), total_nufrac);
   }
   saveheader(&bf, TotNumPart, TotNumPartGas, TotNu, total_nufrac, All2);
 
@@ -155,9 +155,9 @@ int main(int argc, char **argv)
     /*Add a thermal velocity to WDM particles*/
     if(All2.WDM_therm_mass > 0){
         int i;
-        double v_th = WDM_V0(All.TimeIC, All2.WDM_therm_mass, All.CP.Omega0 - All.CP.OmegaBaryon - get_omega_nu(&All.CP.ONu, 1), All.CP.HubbleParam, All.UnitVelocity_in_cm_per_s);
+        double v_th = WDM_V0(All2.TimeIC, All2.WDM_therm_mass, All.CP.Omega0 - All.CP.OmegaBaryon - get_omega_nu(&All.CP.ONu, 1), All.CP.HubbleParam, All.UnitVelocity_in_cm_per_s);
         if(!All.IO.UsePeculiarVelocity)
-           v_th /= sqrt(All.TimeIC);
+           v_th /= sqrt(All2.TimeIC);
         struct thermalvel WDM;
         init_thermalvel(&WDM, v_th, 10000/v_th, 0);
         unsigned int * seedtable = init_rng(All2.Seed+1,All2.Ngrid);
@@ -232,7 +232,7 @@ int main(int argc, char **argv)
   walltime_report(stdout, 0, MPI_COMM_WORLD);
 
   message(0, "IC's generated.\n");
-  message(0, "Initial scale factor = %g\n", All.TimeIC);
+  message(0, "Initial scale factor = %g\n", All2.TimeIC);
 
   print_spec(ThisTask, All2.Ngrid, All2);
 
@@ -255,9 +255,9 @@ void print_spec(int ThisTask, const int Ngrid, struct genic_config All2)
         message(1, "Failed to create powerspec file at:%s\n", buf);
         return;
       }
-      DDD = GrowthFactor(&All.CP, All.TimeIC, 1.0);
+      DDD = GrowthFactor(&All.CP, All2.TimeIC, 1.0);
 
-      fprintf(fd, "# %12g %12g\n", 1/All.TimeIC-1, DDD);
+      fprintf(fd, "# %12g %12g\n", 1/All2.TimeIC-1, DDD);
       /* print actual starting redshift and linear growth factor for this cosmology */
       kstart = 2 * M_PI / (2*All.BoxSize * (CM_PER_MPC / All2.UnitLength_in_cm));	/* 2x box size Mpc/h */
       kend = 2 * M_PI / (All.BoxSize/(8*Ngrid) * (CM_PER_MPC / All2.UnitLength_in_cm));	/* 1/8 mean spacing Mpc/h */

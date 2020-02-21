@@ -33,6 +33,7 @@ struct genic_config {
     //double UnitMass_in_g;
     char OutputDir[100];
     char InitCondFile[100];
+    double TimeIC;
 };
 
 #endif

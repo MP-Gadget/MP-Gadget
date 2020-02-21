@@ -118,11 +118,11 @@ void saveheader(BigFile * bf, int64_t TotNumPartCDM, int64_t TotNumPartGas, int6
     double mass[6] = {0};
     compute_mass(mass, TotNumPartCDM, TotNumPartGas, TotNuPart, nufrac);
 
-    double redshift = 1.0 / All.TimeIC - 1.;
+    double redshift = 1.0 / GenicConfig.TimeIC - 1.;
 
     int rt =(0 != big_block_set_attr(&bheader, "TotNumPart", totnumpart, "i8", 6)) ||
             (0 != big_block_set_attr(&bheader, "MassTable", mass, "f8", 6)) ||
-            (big_block_set_attr(&bheader, "Time", &All.TimeIC, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "Time", &GenicConfig.TimeIC, "f8", 1)) ||
             (big_block_set_attr(&bheader, "Redshift", &redshift, "f8", 1)) ||
             (big_block_set_attr(&bheader, "BoxSize", &All.BoxSize, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UsePeculiarVelocity", &All.IO.UsePeculiarVelocity, "i4", 1)) ||

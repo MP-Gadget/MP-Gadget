@@ -207,7 +207,7 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
         All.Nmesh = 2*Ngrid;
     }
     /*Set some units*/
-    All.TimeIC = 1 / (1 + Redshift);
+    GenicConfig->TimeIC = 1 / (1 + Redshift);
     All.UnitTime_in_s = All.UnitLength_in_cm / All.UnitVelocity_in_cm_per_s;
 
     All.G = GRAVITY / pow(All.UnitLength_in_cm, 3) * All.UnitMass_in_g * pow(All.UnitTime_in_s, 2);
