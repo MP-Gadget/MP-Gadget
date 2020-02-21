@@ -240,7 +240,7 @@ run(int RestartSnapNum)
             if (is_PM && ((All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) ||
                 (during_helium_reionization(1/All.Time - 1) && need_change_helium_ionization_fraction(All.Time)))) {
                 /* Seeding */
-                FOFGroups fof = fof_fof(&Tree, All.BlackHoleOn, MPI_COMM_WORLD);
+                FOFGroups fof = fof_fof(&Tree, MPI_COMM_WORLD);
                 if(All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) {
                     fof_seed(&fof, &Tree, &Act, MPI_COMM_WORLD);
                     TimeNextSeedingCheck = All.Time * All.TimeBetweenSeedingSearch;
@@ -500,7 +500,7 @@ open_outputfiles(int RestartSnapNum)
     FdBlackHoles = NULL;
     FdSfr = NULL;
     FdBlackholeDetails = NULL;
-    
+
     /* all the processors write to separate files*/
     if(All.BlackHoleOn && All.WriteBlackHoleDetails){
         buf = fastpm_strdup_printf("%s/%s/%06X", All.OutputDir,"BlackholeDetails",ThisTask);

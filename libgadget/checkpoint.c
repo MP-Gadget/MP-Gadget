@@ -41,7 +41,7 @@ write_checkpoint(int WriteSnapshot, int WriteFOF, ForceTree * tree)
         /* Compute and save FOF*/
         message(0, "computing group catalogue...\n");
 
-        FOFGroups fof = fof_fof(tree, All.BlackHoleOn, MPI_COMM_WORLD);
+        FOFGroups fof = fof_fof(tree, MPI_COMM_WORLD);
         /* Tree is invalid now because of the exchange in FoF.*/
         force_tree_free(tree);
         fof_save_groups(&fof, snapnum, MPI_COMM_WORLD);
