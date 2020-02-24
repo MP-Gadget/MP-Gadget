@@ -14,23 +14,6 @@
 
 static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const double BoxSize, const double random_shift[3]);
 
-#if 0
-/* Updates a single particle to the current drift time*/
-void drift_particle(int i, inttime_t ti1, struct SpinLocks * spin) {
-    if(P[i].Ti_drift == ti1) return;
-
-    double random_shift[3] = {0};
-    lock_spinlock(i, spin);
-    inttime_t ti0 = P[i].Ti_drift;
-    if(ti0 != ti1) {
-        const double ddrift = get_drift_factor(ti0, ti1);
-        real_drift_particle(i, ti1, ddrift, random_shift);
-#pragma omp flush
-    }
-    unlock_spinlock(i, spin);
-}
-#endif
-
 /* Drifts an individual particle to time ti1, by a drift factor ddrift.
  * The final argument is a random shift vector applied uniformly to all particles before periodic wrapping.
  * The box is periodic, so this does not affect real physics, but it avoids correlated errors
