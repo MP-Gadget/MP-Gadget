@@ -100,7 +100,7 @@ static void fof_reduce_groups(
 static void fof_finish_group_properties(FOFGroups * fof, double BoxSize);
 
 static int fof_compile_base(struct BaseGroup * base, int NgroupsExt, MPI_Comm Comm);
-static void fof_compile_catalogue(FOFGroups * fof, const int NgroupsExt, double BoxSize, int BlackHoleInfo, MPI_Comm Comm);
+static void fof_compile_catalogue(FOFGroups * fof, const int NgroupsExt, double BoxSize, MPI_Comm Comm);
 
 static struct Group *
 fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt);
@@ -145,7 +145,7 @@ static MPI_Datatype MPI_TYPE_GROUP;
  **/
 
 FOFGroups
-fof_fof(ForceTree * tree, int BlackHoleInfo, MPI_Comm Comm)
+fof_fof(ForceTree * tree, MPI_Comm Comm)
 {
     int i;
 
@@ -208,7 +208,7 @@ fof_fof(ForceTree * tree, int BlackHoleInfo, MPI_Comm Comm)
 
     myfree(base);
 
-    fof_compile_catalogue(&fof, NgroupsExt, tree->BoxSize, BlackHoleInfo, Comm);
+    fof_compile_catalogue(&fof, NgroupsExt, tree->BoxSize, Comm);
 
     MPIU_Barrier(Comm);
     message(0, "Finished FoF. Group properties are now allocated.. (presently allocated=%g MB)\n",
@@ -561,7 +561,7 @@ static void fof_reduce_group(void * pdst, void * psrc) {
 
 }
 
-static void add_particle_to_group(struct Group * gdst, int i, double BoxSize, int ThisTask, int BlackHoleOn) {
+static void add_particle_to_group(struct Group * gdst, int i, double BoxSize, int ThisTask) {
 
     /* My local number of particles contributing to the full catalogue. */
     const int index = i;
@@ -581,7 +581,7 @@ static void add_particle_to_group(struct Group * gdst, int i, double BoxSize, in
     if(P[index].Type == 0) {
         gdst->Sfr += SPHP(index).Sfr;
     }
-    if(BlackHoleOn && P[index].Type == 5)
+    if(P[index].Type == 5)
     {
         gdst->BH_Mdot += BHP(index).Mdot;
         gdst->BH_Mass += BHP(index).Mass;
@@ -751,7 +751,7 @@ fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt)
 }
 
 static void
-fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, double BoxSize, int BlackHoleInfo, MPI_Comm Comm)
+fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, double BoxSize, MPI_Comm Comm)
 {
     int i, start, ThisTask;
 
@@ -769,7 +769,7 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, double BoxSi
             if(HaloLabel[start].MinID != fof->Group[i].base.MinID) {
                 break;
             }
-            add_particle_to_group(&fof->Group[i], HaloLabel[start].Pindex, BoxSize, ThisTask, BlackHoleInfo);
+            add_particle_to_group(&fof->Group[i], HaloLabel[start].Pindex, BoxSize, ThisTask);
         }
     }
 

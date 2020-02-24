@@ -10,7 +10,6 @@
 #include <time.h>
 #include <gsl/gsl_rng.h>
 
-#include <libgadget/allvars.h>
 #include <libgadget/partmanager.h>
 #include <libgadget/walltime.h>
 #include <libgadget/slotsmanager.h>
@@ -22,8 +21,7 @@
 
 #include "stub.h"
 
-struct global_data_all_processes All;
-
+static double BoxSize;
 /* The true struct for the state variable*/
 struct density_testdata
 {
@@ -74,7 +72,7 @@ static void check_densities(double MinGasHsml)
     }
     assert_true(isfinite(minHsml));
     assert_true(minHsml >= MinGasHsml);
-    assert_true(maxHsml <= All.BoxSize);
+    assert_true(maxHsml <= BoxSize);
 
 }
 
@@ -84,7 +82,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     #pragma omp parallel for reduction(+: npbh)
     for(i=0; i<numpart; i++) {
         int j;
-        P[i].Key = PEANO(P[i].Pos, All.BoxSize);
+        P[i].Key = PEANO(P[i].Pos, BoxSize);
         P[i].Mass = 1;
         P[i].TimeBin = 0;
         P[i].GravCost = 1;
@@ -112,7 +110,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     ddecomp.TopLeaves[0].topnode = PartManager->MaxPart;
 
     ForceTree tree = {0};
-    force_tree_rebuild(&tree, &ddecomp, All.BoxSize, 0);
+    force_tree_rebuild(&tree, &ddecomp, BoxSize, 0, NULL);
     set_init_hsml(&tree);
     /*Time doing the density finding*/
     double start, end;
@@ -173,10 +171,10 @@ static void test_density_flat(void ** state) {
     for(i=0; i<numpart; i++) {
         P[i].Type = 0;
         P[i].PI = i;
-        P[i].Hsml = 1.5*All.BoxSize/cbrt(numpart);
-        P[i].Pos[0] = (All.BoxSize/ncbrt) * (i/ncbrt/ncbrt);
-        P[i].Pos[1] = (All.BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
-        P[i].Pos[2] = (All.BoxSize/ncbrt) * (i % ncbrt);
+        P[i].Hsml = 1.5*BoxSize/cbrt(numpart);
+        P[i].Pos[0] = (BoxSize/ncbrt) * (i/ncbrt/ncbrt);
+        P[i].Pos[1] = (BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
+        P[i].Pos[2] = (BoxSize/ncbrt) * (i % ncbrt);
     }
     do_density_test(state, numpart, 0.501747, 1e-4);
 }
@@ -192,10 +190,10 @@ static void test_density_close(void ** state) {
     for(i=0; i<numpart/8; i++) {
         P[i].Type = 0;
         P[i].PI = i;
-        P[i].Hsml = 4*All.BoxSize/cbrt(numpart/8);
-        P[i].Pos[0] = (All.BoxSize/ncbrt) * (i/(ncbrt/2.)/(ncbrt/2.));
-        P[i].Pos[1] = (All.BoxSize/ncbrt) * ((i*2/ncbrt) % (ncbrt/2));
-        P[i].Pos[2] = (All.BoxSize/ncbrt) * (i % (ncbrt/2));
+        P[i].Hsml = 4*BoxSize/cbrt(numpart/8);
+        P[i].Pos[0] = (BoxSize/ncbrt) * (i/(ncbrt/2.)/(ncbrt/2.));
+        P[i].Pos[1] = (BoxSize/ncbrt) * ((i*2/ncbrt) % (ncbrt/2));
+        P[i].Pos[2] = (BoxSize/ncbrt) * (i % (ncbrt/2));
     }
 
     /* Create particles clustered in one place, all of type 0.*/
@@ -220,27 +218,27 @@ void do_random_test(void **state, gsl_rng * r, const int numpart)
     for(i=0; i<numpart/4; i++) {
         P[i].Type = 0;
         P[i].PI = i;
-        P[i].Hsml = All.BoxSize/cbrt(numpart);
+        P[i].Hsml = BoxSize/cbrt(numpart);
 
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = All.BoxSize * gsl_rng_uniform(r);
+            P[i].Pos[j] = BoxSize * gsl_rng_uniform(r);
     }
     for(i=numpart/4; i<3*numpart/4; i++) {
         P[i].Type = 0;
         P[i].PI = i;
-        P[i].Hsml = All.BoxSize/cbrt(numpart);
+        P[i].Hsml = BoxSize/cbrt(numpart);
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = All.BoxSize/2 + All.BoxSize/8 * exp(pow(gsl_rng_uniform(r)-0.5,2));
+            P[i].Pos[j] = BoxSize/2 + BoxSize/8 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
     for(i=3*numpart/4; i<numpart; i++) {
         P[i].Type = 0;
         P[i].PI = i;
-        P[i].Hsml = All.BoxSize/cbrt(numpart);
+        P[i].Hsml = BoxSize/cbrt(numpart);
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = All.BoxSize*0.1 + All.BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
+            P[i].Pos[j] = BoxSize*0.1 + BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
     do_density_test(state, numpart, 0.187515, 1e-3);
 }
@@ -317,7 +315,7 @@ static int setup_density(void **state) {
     data->dp.BlackHoleNgbFactor = 2;
     data->dp.MaxNumNgbDeviation = 2;
     data->dp.DensityKernelType = DENSITY_KERNEL_CUBIC_SPLINE;
-    All.BoxSize = 8;
+    BoxSize = 8;
     data->dp.MinGasHsmlFractional = 0.006;
     GravitySofteningTable[1] = 1;
     data->dp.BlackHoleMaxAccretionRadius = 99999.;

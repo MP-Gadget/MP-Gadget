@@ -19,6 +19,8 @@ particle_alloc_memory(int MaxPart)
     PartManager->Base = (struct particle_data *) mymalloc("P", bytes = MaxPart * sizeof(struct particle_data));
     PartManager->MaxPart = MaxPart;
     PartManager->NumPart = 0;
+    memset(PartManager->CurrentParticleOffset, 0, 3*sizeof(double));
+
     /* clear the memory to avoid valgrind errors;
      *
      * note that I tried to set each component in P to zero but

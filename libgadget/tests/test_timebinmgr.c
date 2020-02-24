@@ -97,16 +97,18 @@ static int
 setup(void * p1, void * p2)
 {
     int i;
+    double OutputListTimes[4];
     for(i = 0; i < 4; i ++) {
-        All.OutputListTimes[i] = outs[i];
+        OutputListTimes[i] = outs[i];
         logouts[i] = log(outs[i]);
     }
 
-    All.OutputListLength = 4;
+    int OutputListLength = 4;
 
     All.TimeIC = 0.1;
     All.TimeMax = 1.0;
 
+    set_sync_params(OutputListLength, OutputListTimes);
     return 0;
 }
 static int

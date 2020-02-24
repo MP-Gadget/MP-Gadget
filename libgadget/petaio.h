@@ -3,6 +3,7 @@
 
 #include <mpi.h>
 #include "bigfile.h"
+#include "utils/paramset.h"
 #include "partmanager.h"
 #include "slotsmanager.h"
 
@@ -30,12 +31,14 @@ struct IOTable {
 #define PTYPE_FOF_GROUP  1024
 
 /* Populate an IOTable with the default set of blocks to read or write.*/
-void register_io_blocks(struct IOTable * IOTable);
+void register_io_blocks(struct IOTable * IOTable, int WriteGroupID);
 /* Write (but don't read) some extra output blocks useful for debugging the particle structure*/
 void register_debug_io_blocks(struct IOTable * IOTable);
 /* Free the entries in the IOTable.*/
 void destroy_io_blocks(struct IOTable * IOTable);
 
+void set_petaio_params(ParameterSet *ps);
+int GetUsePeculiarVelocity(void);
 void petaio_init();
 void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t npartLocal);
 void petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int NumSelection, struct particle_data * Parts, struct slots_manager_type * SlotsManager);

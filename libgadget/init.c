@@ -28,6 +28,111 @@
  *  \brief code for initialisation of a simulation from initial conditions
  */
 
+/*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
+ * parameter file).  Holding this data in a structure is convenient for writing/reading the restart file, and
+ * it allows the introduction of new global variables in a simple way. The only thing to do is to introduce
+ * them into this structure.
+ */
+struct global_data_all_processes All;
+
+/*Set the parameters of the hydro module*/
+void
+set_init_params(ParameterSet * ps)
+{
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+
+    if(ThisTask == 0) {
+        /* Start reading the values */
+        param_get_string2(ps, "InitCondFile", All.InitCondFile, sizeof(All.InitCondFile));
+        param_get_string2(ps, "OutputDir", All.OutputDir, sizeof(All.OutputDir));
+        param_get_string2(ps, "SnapshotFileBase", All.SnapshotFileBase, sizeof(All.SnapshotFileBase));
+        param_get_string2(ps, "FOFFileBase", All.FOFFileBase, sizeof(All.FOFFileBase));
+        param_get_string2(ps, "EnergyFile", All.EnergyFile, sizeof(All.EnergyFile));
+        All.OutputEnergyDebug = param_get_int(ps, "EnergyFile");
+        param_get_string2(ps, "CpuFile", All.CpuFile, sizeof(All.CpuFile));
+
+        All.CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
+        All.CP.RadiationOn = param_get_int(ps, "RadiationOn");
+        All.CP.Omega0 = param_get_double(ps, "Omega0");
+        All.CP.OmegaBaryon = param_get_double(ps, "OmegaBaryon");
+        All.CP.OmegaLambda = param_get_double(ps, "OmegaLambda");
+        All.CP.Omega_fld = param_get_double(ps, "Omega_fld");
+        if(All.CP.OmegaLambda > 0 && All.CP.Omega_fld > 0)
+            endrun(0, "Cannot have OmegaLambda and Omega_fld (evolving dark energy) at the same time!\n");
+        All.CP.w0_fld = param_get_double(ps,"w0_fld");
+        All.CP.wa_fld = param_get_double(ps,"wa_fld");
+        All.CP.Omega_ur = param_get_double(ps, "Omega_ur");
+        All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
+
+        All.OutputPotential = param_get_int(ps, "OutputPotential");
+        All.OutputHeliumFractions = param_get_int(ps, "OutputHeliumFractions");
+        All.OutputDebugFields = param_get_int(ps, "OutputDebugFields");
+
+        All.TimeMax = param_get_double(ps, "TimeMax");
+        All.Asmth = param_get_double(ps, "Asmth");
+        All.ShortRangeForceWindowType = param_get_enum(ps, "ShortRangeForceWindowType");
+        All.Nmesh = param_get_int(ps, "Nmesh");
+
+        All.HydroCostFactor = param_get_double(ps, "HydroCostFactor");
+
+        All.CoolingOn = param_get_int(ps, "CoolingOn");
+        All.HydroOn = param_get_int(ps, "HydroOn");
+        All.DensityOn = param_get_int(ps, "DensityOn");
+        All.TreeGravOn = param_get_int(ps, "TreeGravOn");
+        All.FastParticleType = param_get_int(ps, "FastParticleType");
+        All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
+        All.AutoSnapshotTime = param_get_double(ps, "AutoSnapshotTime");
+        All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
+        All.RandomParticleOffset = param_get_double(ps, "RandomParticleOffset");
+
+        All.GravitySoftening = param_get_double(ps, "GravitySoftening");
+        All.GravitySofteningGas = param_get_double(ps, "GravitySofteningGas");
+
+        All.PartAllocFactor = param_get_double(ps, "PartAllocFactor");
+        All.SlotsIncreaseFactor = param_get_double(ps, "SlotsIncreaseFactor");
+
+        All.SnapshotWithFOF = param_get_int(ps, "SnapshotWithFOF");
+
+        All.RandomSeed = param_get_int(ps, "RandomSeed");
+
+        All.BlackHoleOn = param_get_int(ps, "BlackHoleOn");
+        All.WriteBlackHoleDetails = param_get_int(ps,"WriteBlackHoleDetails");
+
+        All.StarformationOn = param_get_int(ps, "StarformationOn");
+        All.WindOn = param_get_int(ps, "WindOn");
+
+        All.InitGasTemp = param_get_double(ps, "InitGasTemp");
+
+        /*Massive neutrino parameters*/
+        All.MassiveNuLinRespOn = param_get_int(ps, "MassiveNuLinRespOn");
+        All.HybridNeutrinosOn = param_get_int(ps, "HybridNeutrinosOn");
+        All.CP.MNu[0] = param_get_double(ps, "MNue");
+        All.CP.MNu[1] = param_get_double(ps, "MNum");
+        All.CP.MNu[2] = param_get_double(ps, "MNut");
+        All.HybridVcrit = param_get_double(ps, "Vcrit");
+        All.HybridNuPartTime = param_get_double(ps, "NuPartTime");
+        if(All.MassiveNuLinRespOn && !All.CP.RadiationOn)
+            endrun(2, "You have enabled (kspace) massive neutrinos without radiation, but this will give an inconsistent cosmology!\n");
+        /*End massive neutrino parameters*/
+
+        if(All.StarformationOn == 0)
+        {
+            if(All.WindOn == 1) {
+                endrun(1, "You try to use the code with wind enabled,\n"
+                          "but you did not switch on starformation.\nThis mode is not supported.\n");
+            }
+        } else {
+            if(All.CoolingOn == 0)
+            {
+                endrun(1, "You try to use the code with star formation enabled,\n"
+                          "but you did not switch on cooling.\nThis mode is not supported.\n");
+            }
+        }
+    }
+    MPI_Bcast(&All, sizeof(All), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
+
 static void check_omega(void);
 static void check_positions(void);
 
@@ -81,10 +186,6 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
     MPIU_Barrier(MPI_COMM_WORLD);
 
     fof_init(All.MeanSeparation[1]);
-
-    All.SnapshotFileCount = RestartSnapNum + 1;
-    All.InitSnapshotCount = RestartSnapNum + 1;
-    All.CurrentParticleOffset[0] = All.CurrentParticleOffset[1] = All.CurrentParticleOffset[2] = 0;
 
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)	/* initialize sph_properties */
@@ -209,7 +310,7 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, doubl
             olddensity[i] = SphP[i].EgyWtDensity;
         }
         /* Update the EgyWtDensity*/
-        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, 0,  All.cf.a, Tree);
+        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, 0,  All.Time, Tree);
         if(stop)
             break;
 
@@ -252,7 +353,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
         return;
 
     ForceTree Tree = {0};
-    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 0);
+    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 0, All.OutputDir);
 
     if(RestartSnapNum == -1)
     {
@@ -330,7 +431,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
     act.ActiveParticle = NULL;
     act.NumActiveParticle = PartManager->NumPart;
 
-    density(&act, 1, 0, All.BlackHoleOn, All.HydroCostFactor, 0,  All.cf.a, &Tree);
+    density(&act, 1, 0, All.BlackHoleOn, All.HydroCostFactor, 0,  All.Time, &Tree);
 
     /* for clean IC with U input only, we need to iterate to find entrpoy */
     if(RestartSnapNum == -1)

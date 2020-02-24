@@ -47,7 +47,7 @@ init_forcetree_params(const int FastParticleType)
 }
 
 static ForceTree
-force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav);
+force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav, const char * EmergencyOutputDir);
 
 /*Next three are not static as tested.*/
 int
@@ -95,7 +95,7 @@ force_tree_allocated(const ForceTree * tree)
 }
 
 void
-force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav)
+force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav, const char * EmergencyOutputDir)
 {
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Tree construction.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
@@ -105,7 +105,7 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSiz
     }
     walltime_measure("/Misc");
 
-    *tree = force_tree_build(PartManager->NumPart, ddecomp, BoxSize, HybridNuGrav);
+    *tree = force_tree_build(PartManager->NumPart, ddecomp, BoxSize, HybridNuGrav, EmergencyOutputDir);
 
     event_listen(&EventSlotsFork, force_tree_eh_slots_fork, tree);
 
@@ -125,7 +125,7 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSiz
  *  particles", i.e. multipole moments of top-level nodes that lie on
  *  different CPUs. If such a node needs to be opened, the corresponding
  *  particle must be exported to that CPU. */
-ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav)
+ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav, const char * EmergencyOutputDir)
 {
     int Numnodestree;
     ForceTree tree;
@@ -155,7 +155,8 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
     while(Numnodestree >= tree.lastnode - tree.firstnode);
 
     if(MPIU_Any(TooManyNodes, MPI_COMM_WORLD)) {
-        dump_snapshot("FORCETREE-DUMP");
+        if(EmergencyOutputDir)
+            dump_snapshot("FORCETREE-DUMP", EmergencyOutputDir);
         endrun(2, "Required too many nodes, snapshot dumped\n");
     }
     walltime_measure("/Tree/Build/Nodes");

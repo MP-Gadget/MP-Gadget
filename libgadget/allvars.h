@@ -35,21 +35,6 @@ extern struct global_data_all_processes
 
 /* end of read_header parameters */
 
-    struct {
-        size_t BytesPerFile;   /* Number of bytes per physical file; this decides how many files bigfile creates each block */
-        int WritersPerFile;    /* Number of concurrent writers per file; this decides number of writers */
-        int NumWriters;        /* Number of concurrent writers, this caps number of writers */
-        int MinNumWriters;        /* Min Number of concurrent writers, this caps number of writers */
-        int EnableAggregatedIO;  /* Enable aggregated IO policy for small files.*/
-        size_t AggregatedIOThreshold; /* bytes per writer above which to use non-aggregated IO (avoid OOM)*/
-        /* Changes the comoving factors of the snapshot outputs. Set in the ICs.
-         * If UsePeculiarVelocity = 1 then snapshots save to the velocity field the physical peculiar velocity, v = a dx/dt (where x is comoving distance).
-         * If UsePeculiarVelocity = 0 then the velocity field is a * v = a^2 dx/dt in snapshots
-         * and v / sqrt(a) = sqrt(a) dx/dt in the ICs. Note that snapshots never match Gadget-2, which
-         * saves physical peculiar velocity / sqrt(a) in both ICs and snapshots. */
-        int UsePeculiarVelocity;
-    } IO;
-
     double PartAllocFactor;	/*!< in order to maintain work-load balance, the particle load will usually
                               NOT be balanced.  Each processor allocates memory for PartAllocFactor times
                               the average number of particles to allow for that */
@@ -58,7 +43,6 @@ extern struct global_data_all_processes
     int OutputPotential;        /*!< Flag whether to include the potential in snapshots*/
     int OutputHeliumFractions;  /*!< Flag whether to output the helium ionic fractions in snapshots*/
     int OutputDebugFields;      /* Flag whether to include a lot of debug output in snapshots*/
-    int ShowBacktrace;          /* Flag to enable or disable the backtrace printing code*/
 
     double RandomParticleOffset; /* If > 0, a random shift of max RandomParticleOffset * BoxSize is applied to every particle
                                   * every time a full domain decomposition is done. The box is periodic and the offset
@@ -68,11 +52,6 @@ extern struct global_data_all_processes
                                   * long period of time. Upstream Arepo says this substantially improves momentum conservation,
                                   * and it has the side-effect of guarding against periodicity bugs.
                                   */
-    /* Random shift applied to the box. This is changed
-     * every domain decomposition to prevent correlated
-     * errors building up in the tree force. */
-    double CurrentParticleOffset[3];
-
     /* some SPH parameters */
 
     double InitGasTemp;		/*!< may be used to set the temperature in the IC's */
@@ -97,7 +76,7 @@ extern struct global_data_all_processes
     int BlackHoleOn;  /* if black holes are enabled */
     int StarformationOn;  /* if star formation is enabled */
     int WindOn; /* if Wind is enabled */
-    
+
     int WriteBlackHoleDetails; /* write BH details every time step*/
 
     int MassiveNuLinRespOn; /*!< flags that massive neutrinos using the linear
@@ -108,10 +87,8 @@ extern struct global_data_all_processes
     double HybridNuPartTime; /*!< Redshift at which hybrid neutrinos switch on*/
 
     int FastParticleType; /*!< flags a particle species to exclude timestep calculations.*/
-    /* parameters determining output frequency */
 
-    int SnapshotFileCount;	/*!< number of snapshot that is written next */
-    int InitSnapshotCount;  /*!< Number of first snapshot written this run*/
+    /* parameters determining output frequency */
     double AutoSnapshotTime;    /*!< cpu-time between regularly generated snapshots. */
     double TimeBetweenSeedingSearch; /*Factor to multiply TimeInit by to find the next seeding check.*/
 
@@ -142,8 +119,6 @@ extern struct global_data_all_processes
     double Asmth;
     enum ShortRangeForceWindowType ShortRangeForceWindowType;	/*!< method of the feedback*/
 
-    double MaxMemSizePerNode;
-
     double HydroCostFactor; /* cost factor for hydro in load balancing. */
 
     double GravitySoftening; /* Softening as a fraction of DM mean separation. */
@@ -161,9 +136,6 @@ extern struct global_data_all_processes
 
     /*Should we store the energy to EnergyFile on PM timesteps.*/
     int OutputEnergyDebug;
-
-    double OutputListTimes[1024];
-    int OutputListLength;
 
     int SnapshotWithFOF; /*Flag that doing FOF for snapshot outputs is on*/
 

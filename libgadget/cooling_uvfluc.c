@@ -156,7 +156,7 @@ init_uvf_table(const char * UVFluctuationFile, const double BoxSize, const doubl
  * Otherwise returns the global UVBG passed in.
  *
  * */
-struct UVBG get_local_UVBG(double redshift, double * Pos, double * PosOffset)
+struct UVBG get_local_UVBG(double redshift, double * Pos, const double * PosOffset)
 {
     if(fabs(redshift - GlobalUVRed) > 1e-4)
         endrun(1, "Called with redshift %g not %g expected by the UVBG cache.\n", redshift, GlobalUVRed);

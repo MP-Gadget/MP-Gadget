@@ -30,7 +30,8 @@
 #include "fof.h"
 #include "cooling_qso_lightup.h"
 
-void energy_statistics(FILE * FdEnergy); /* stats.c only used here */
+/* stats.c only used here */
+void energy_statistics(FILE * FdEnergy, const double Time,  struct part_manager_type * PartManager);
 /*!< file handle for energy.txt log-file. */
 static FILE * FdEnergy;
 static FILE  *FdCPU;    /*!< file handle for cpu.txt log-file. */
@@ -79,8 +80,13 @@ close_outputfiles(void);
  *  parameterfile is set, then routines for setting units, reading
  *  ICs/restart-files are called, auxialiary memory is allocated, etc.
  */
-void begrun(int RestartSnapNum)
+int begrun(int RestartFlag, int RestartSnapNum)
 {
+    if(RestartFlag == 1) {
+        RestartSnapNum = find_last_snapnum(All.OutputDir);
+        message(0, "Last Snapshot number is %d.\n", RestartSnapNum);
+    }
+
     hci_init(HCI_DEFAULT_MANAGER, All.OutputDir, All.TimeLimitCPU, All.AutoSnapshotTime);
 
     petapm_module_init(omp_get_max_threads());
@@ -122,6 +128,7 @@ void begrun(int RestartSnapNum)
 #ifdef LIGHTCONE
     lightcone_init(All.Time);
 #endif
+    return RestartSnapNum;
 }
 
 void
@@ -134,6 +141,7 @@ run(int RestartSnapNum)
     /*Is gas physics enabled?*/
     int GasEnabled = All.NTotalInit[0] > 0;
 
+    int SnapshotFileCount = RestartSnapNum;
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.G);
 
@@ -190,7 +198,7 @@ run(int RestartSnapNum)
             update_random_offset(rel_random_shift);
         }
         /* Sync positions of all particles */
-        drift_all_particles(All.Ti_Current, rel_random_shift);
+        drift_all_particles(All.Ti_Current, All.BoxSize, &All.CP, rel_random_shift);
 
         /* drift and ddecomp decomposition */
 
@@ -217,7 +225,7 @@ run(int RestartSnapNum)
 
         /* Need to rebuild the force tree because all TopLeaves are out of date.*/
         ForceTree Tree = {0};
-        force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav);
+        force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, All.OutputDir);
 
         /*Allocate the extra SPH data for transient SPH particle properties.*/
         if(GasEnabled)
@@ -240,7 +248,7 @@ run(int RestartSnapNum)
             if (is_PM && ((All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) ||
                 (during_helium_reionization(1/All.Time - 1) && need_change_helium_ionization_fraction(All.Time)))) {
                 /* Seeding */
-                FOFGroups fof = fof_fof(&Tree, All.BlackHoleOn, MPI_COMM_WORLD);
+                FOFGroups fof = fof_fof(&Tree, MPI_COMM_WORLD);
                 if(All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) {
                     fof_seed(&fof, &Tree, &Act, MPI_COMM_WORLD);
                     TimeNextSeedingCheck = All.Time * All.TimeBetweenSeedingSearch;
@@ -291,6 +299,8 @@ run(int RestartSnapNum)
         }
 
         if(WriteSnapshot || WriteFOF) {
+            /* Get a new snapshot*/
+            SnapshotFileCount++;
             /* The accel may have created garbage -- collect them before writing a snapshot.
              * If we do collect, rebuild tree and reset active list size.*/
             int compact[6] = {0};
@@ -303,12 +313,12 @@ run(int RestartSnapNum)
                     for(i = 0; i < PartManager->NumPart; i++)
                         P[i].Key = PEANO(P[i].Pos, All.BoxSize);
                 }
-                force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav);
+                force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, All.OutputDir);
                 Act.NumActiveParticle = PartManager->NumPart;
             }
         }
 
-        write_checkpoint(WriteSnapshot, WriteFOF, &Tree);
+        write_checkpoint(SnapshotFileCount, WriteSnapshot, WriteFOF, All.Time, All.OutputDir, All.SnapshotFileBase, All.OutputDebugFields, &Tree);
 
         write_cpu_log(NumCurrentTiStep, FdCPU);    /* produce some CPU usage info */
 
@@ -416,11 +426,11 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
         gravpm_force(pm, tree);
 
         /*Rebuild the force tree we freed in gravpm to save memory*/
-        force_tree_rebuild(tree, ddecomp, All.BoxSize, HybridNuGrav);
+        force_tree_rebuild(tree, ddecomp, All.BoxSize, HybridNuGrav, All.OutputDir);
 
         /* compute and output energy statistics if desired. */
         if(All.OutputEnergyDebug)
-            energy_statistics(FdEnergy);
+            energy_statistics(FdEnergy, All.Time, PartManager);
     }
 
     /* For the first timestep, we do tree force twice
@@ -467,19 +477,19 @@ update_random_offset(double * rel_random_shift)
          * scale of a few PM grid cells, this seems enough.*/
         rr *= All.RandomParticleOffset * All.BoxSize / All.Nmesh;
         /* Subtract the old random shift first.*/
-        rel_random_shift[i] = rr - All.CurrentParticleOffset[i];
-        All.CurrentParticleOffset[i] = rr;
+        rel_random_shift[i] = rr - PartManager->CurrentParticleOffset[i];
+        PartManager->CurrentParticleOffset[i] = rr;
     }
-    message(0, "Internal particle offset is now %g %g %g\n", All.CurrentParticleOffset[0], All.CurrentParticleOffset[1], All.CurrentParticleOffset[2]);
+    message(0, "Internal particle offset is now %g %g %g\n", PartManager->CurrentParticleOffset[0], PartManager->CurrentParticleOffset[1], PartManager->CurrentParticleOffset[2]);
 #ifdef DEBUG
     /* Check explicitly that the vector is the same on all processors*/
     double test_random_shift[3] = {0};
     for (i = 0; i < 3; i++)
-        test_random_shift[i] = All.CurrentParticleOffset[i];
+        test_random_shift[i] = PartManager->CurrentParticleOffset[i];
     MPI_Bcast(test_random_shift, 3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     for (i = 0; i < 3; i++)
-        if(test_random_shift[i] != All.CurrentParticleOffset[i])
-            endrun(44, "Random shift %d is %g != %g on task 0!\n", i, test_random_shift[i], All.CurrentParticleOffset[i]);
+        if(test_random_shift[i] != PartManager->CurrentParticleOffset[i])
+            endrun(44, "Random shift %d is %g != %g on task 0!\n", i, test_random_shift[i], PartManager->CurrentParticleOffset[i]);
 #endif
 }
 
@@ -500,7 +510,7 @@ open_outputfiles(int RestartSnapNum)
     FdBlackHoles = NULL;
     FdSfr = NULL;
     FdBlackholeDetails = NULL;
-    
+
     /* all the processors write to separate files*/
     if(All.BlackHoleOn && All.WriteBlackHoleDetails){
         buf = fastpm_strdup_printf("%s/%s/%06X", All.OutputDir,"BlackholeDetails",ThisTask);

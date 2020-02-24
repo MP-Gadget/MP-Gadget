@@ -71,7 +71,7 @@ void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_Comm Co
 
     if(SaveParticles) {
         struct IOTable IOTable = {0};
-        register_io_blocks(&IOTable);
+        register_io_blocks(&IOTable, 1);
         struct part_manager_type halo_pman;
         struct slots_manager_type halo_sman;
         fof_distribute_particles(&halo_pman, &halo_sman, Comm);
@@ -335,7 +335,7 @@ static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm) {
     /* conversion from peculiar velocity to RSD */
     double RSD = 1.0 / (All.cf.a * All.cf.hubble);
 
-    if(!All.IO.UsePeculiarVelocity) {
+    if(!GetUsePeculiarVelocity()) {
         RSD /= All.cf.a; /* Conversion from internal velocity to RSD */
     }
     big_block_set_attr(&bh, "NumPartInGroupTotal", npartTotal, "u8", 6);
@@ -368,7 +368,7 @@ static void GTFirstPos(int i, float * out, void * baseptr, void * smanptr) {
     struct Group * grp = (struct Group *) baseptr;
     int d;
     for(d = 0; d < 3; d ++) {
-        out[d] = grp[i].base.FirstPos[d] - All.CurrentParticleOffset[d];
+        out[d] = grp[i].base.FirstPos[d] - PartManager->CurrentParticleOffset[d];
         while(out[d] > All.BoxSize) out[d] -= All.BoxSize;
         while(out[d] <= 0) out[d] += All.BoxSize;
     }
@@ -387,7 +387,7 @@ static void GTMassCenterPosition(int i, double * out, void * baseptr, void * sma
     struct Group * grp = (struct Group *) baseptr;
     int d;
     for(d = 0; d < 3; d ++) {
-        out[d] = grp[i].CM[d] - All.CurrentParticleOffset[d];
+        out[d] = grp[i].CM[d] - PartManager->CurrentParticleOffset[d];
         while(out[d] > All.BoxSize) out[d] -= All.BoxSize;
         while(out[d] <= 0) out[d] += All.BoxSize;
     }
@@ -404,8 +404,8 @@ static void STMassCenterPosition(int i, double * out, void * baseptr, void * sma
 static void GTMassCenterVelocity(int i, float * out, void * baseptr, void * slotptr) {
     double fac;
     struct Group * Group = (struct Group *) baseptr;
-    if (All.IO.UsePeculiarVelocity) {
-        fac = 1.0 / All.cf.a;
+    if (GetUsePeculiarVelocity()) {
+        fac = 1.0 / All.Time;
     } else {
         fac = 1.0;
     }

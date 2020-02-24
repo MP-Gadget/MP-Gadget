@@ -7,7 +7,6 @@
 
 #include "utils.h"
 
-#include "allvars.h"
 #include "cooling.h"
 #include "densitykernel.h"
 #include "treewalk.h"

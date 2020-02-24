@@ -7,8 +7,8 @@
 #include <math.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_errno.h>
+#include <omp.h>
 
-#include <libgadget/allvars.h>
 #include <libgadget/slotsmanager.h>
 #include <libgadget/partmanager.h>
 
@@ -74,7 +74,9 @@ int main(int argc, char **argv)
 
     tamalloc_init();
 
-    read_parameter_file(argv[1]);	/* ... read in parameters for this run */
+    int ShowBacktrace;
+    double MaxMemSizePerNode;
+    read_parameter_file(argv[1], &ShowBacktrace, &MaxMemSizePerNode);	/* ... read in parameters for this run */
 
     int RestartFlag, RestartSnapNum;
 
@@ -97,24 +99,20 @@ int main(int argc, char **argv)
         endrun(0, "Need to give the snapshot number if FOF is selected for output\n");
     }
 
-    if(RestartFlag == 1) {
-        RestartSnapNum = find_last_snapnum();
-        message(0, "Last Snapshot number is %d.\n", RestartSnapNum);
-    }
-
     /*Set up GSL so it gives a proper MPI termination*/
     gsl_set_error_handler(gsl_handler);
 
     /*Initialize the memory manager*/
-    mymalloc_init(All.MaxMemSizePerNode);
+    mymalloc_init(MaxMemSizePerNode);
 
     /* Make sure memory has finished initialising on all ranks before doing more.
      * This may improve stability */
     MPI_Barrier(MPI_COMM_WORLD);
 
-    init_endrun(All.ShowBacktrace);
+    init_endrun(ShowBacktrace);
 
-    begrun(RestartSnapNum);
+    /* Last snapshot will be detected in begrun*/
+    RestartSnapNum = begrun(RestartFlag, RestartSnapNum);
 
     switch(RestartFlag) {
         case 3:

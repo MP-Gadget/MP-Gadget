@@ -9,7 +9,6 @@
 #include "slotsmanager.h"
 #include "timebinmgr.h"
 #include "walltime.h"
-#include "allvars.h"
 
 /*Parameters of the wind model*/
 static struct WindParams
@@ -51,21 +50,6 @@ typedef struct {
 typedef struct {
     TreeWalkNgbIterBase base;
 } TreeWalkNgbIterWind;
-
-static struct winddata {
-    double DMRadius;
-    double Left;
-    double Right;
-    double TotalWeight;
-    union {
-        double Vdisp;
-        double V2sum;
-    };
-    double V1sum[3];
-    int Ngb;
-} * Winddata;
-
-#define WINDP(i) Winddata[P[i].PI]
 
 /*Set the parameters of the wind module.
  ofjt10 is Okamoto, Frenk, Jenkins and Theuns 2010 https://arxiv.org/abs/0909.0265
@@ -132,9 +116,6 @@ winds_decoupled_hydro(int i, double atime)
     SPHP(i).MaxSignalVel = hsml_c * DMAX((2 * windspeed), SPHP(i).MaxSignalVel);
 }
 
-static int
-sfr_wind_weight_haswork(int target, TreeWalk * tw);
-
 static void
 sfr_wind_reduce_weight(int place, TreeWalkResultWind * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
 
@@ -156,15 +137,33 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
         TreeWalkNgbIterWind * iter,
         LocalTreeWalk * lv);
 
-static int* NPLeft;
+struct winddata {
+    double DMRadius;
+    double Left;
+    double Right;
+    double TotalWeight;
+    union {
+        double Vdisp;
+        double V2sum;
+    };
+    double V1sum[3];
+    int Ngb;
+};
 
 struct WindPriv {
+    double Time;
+    double hubble;
+    struct winddata * Winddata;
+    size_t * NPLeft;
+    int** NPRedo;
 };
+
 #define WIND_GET_PRIV(tw) ((struct WindPriv *) (tw->priv))
+#define WINDP(i, wind) wind[P[i].PI]
 
 /*Do a treewalk for the wind model. This only changes newly created star particles.*/
 void
-winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree)
+winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const double hubble, ForceTree * tree)
 {
     /*The subgrid model does nothing here*/
     if(HAS(wind_params.WindModel, WIND_SUBGRID))
@@ -172,18 +171,6 @@ winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree)
 
     if(!MPIU_Any(NumNewStars > 0, MPI_COMM_WORLD))
         return;
-    Winddata = (struct winddata * ) mymalloc("WindExtraData", SlotsManager->info[4].size * sizeof(struct winddata));
-
-    int i;
-    /*Initialise DensityIterationDone and the Wind array*/
-    #pragma omp parallel for
-    for (i = 0; i < NumNewStars; i++) {
-        int n = NewStars[i];
-        WINDP(n).DMRadius = 2 * P[n].Hsml;
-        WINDP(n).Left = 0;
-        WINDP(n).Right = -1;
-        P[n].DensityIterationDone = 0;
-    }
 
     TreeWalk tw[1] = {{0}};
 
@@ -199,38 +186,83 @@ winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree)
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterWind);
     tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_weight_ngbiter;
 
-    tw->haswork = sfr_wind_weight_haswork;
+    tw->haswork = NULL;
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw->postprocess = (TreeWalkProcessFunction) sfr_wind_weight_postprocess;
+    struct WindPriv priv[1];
+    priv[0].Time = Time;
+    priv[0].hubble = hubble;
+    tw->priv = priv;
 
     int64_t totalleft = 0;
     sumup_large_ints(1, &NumNewStars, &totalleft);
-    NPLeft = ta_malloc("NPLeft", int, NumThreads);
+    priv->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
+    priv->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
+    priv->Winddata = (struct winddata * ) mymalloc("WindExtraData", SlotsManager->info[4].size * sizeof(struct winddata));
 
-    while(totalleft > 0) {
-        memset(NPLeft, 0, sizeof(int)*NumThreads);
-
-        treewalk_run(tw, NewStars, NumNewStars);
-        int Nleft = 0;
-
-        for(i = 0; i< NumThreads; i++)
-            Nleft += NPLeft[i];
-
-        sumup_large_ints(1, &Nleft, &totalleft);
-        message(0, "Star DM iteration Total left = %ld\n", totalleft);
+    int i;
+    /*Initialise the WINDP array*/
+    #pragma omp parallel for
+    for (i = 0; i < NumNewStars; i++) {
+        int n = NewStars[i];
+        WINDP(n, priv->Winddata).DMRadius = 2 * P[n].Hsml;
+        WINDP(n, priv->Winddata).Left = 0;
+        WINDP(n, priv->Winddata).Right = -1;
     }
-    ta_free(NPLeft);
+
+    int alloc_high = 0;
+    int * ReDoQueue = NewStars;
+    int size = NumNewStars;
+    int iter=0;
+
+    /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
+    do {
+        int * CurQueue = ReDoQueue;
+        int tsize = NumNewStars / NumThreads + 2;
+        /* The ReDoQueue swaps between high and low allocations so we can have two allocated alternately*/
+        if(!alloc_high) {
+            ReDoQueue = (int *) mymalloc2("redoqueue", tsize * sizeof(int) * NumThreads);
+            alloc_high = 1;
+        }
+        else {
+            ReDoQueue = (int *) mymalloc("redoqueue", tsize * sizeof(int) * NumThreads);
+            alloc_high = 0;
+        }
+        gadget_setup_thread_arrays(ReDoQueue, WIND_GET_PRIV(tw)->NPRedo, WIND_GET_PRIV(tw)->NPLeft, tsize, NumThreads);
+
+        treewalk_run(tw, CurQueue, size);
+
+        /* Now done with the current queue*/
+        if(iter > 0)
+            myfree(CurQueue);
+
+        /* Set up the next queue*/
+        size = gadget_compact_thread_arrays(ReDoQueue, WIND_GET_PRIV(tw)->NPRedo, WIND_GET_PRIV(tw)->NPLeft, NumThreads);
+
+        sumup_large_ints(1, &size, &totalleft);
+        if(totalleft == 0){
+            myfree(ReDoQueue);
+            break;
+        }
+
+        /*Shrink memory*/
+        ReDoQueue = myrealloc(ReDoQueue, sizeof(int) * size);
+
+        iter++;
+        message(0, "iter=%d star-DM iteration. Total left = %ld\n", iter, totalleft);
+    } while(1);
+
+    ta_free(priv->NPRedo);
+    ta_free(priv->NPLeft);
 
     /* Then run feedback */
     tw->haswork = NULL;
     tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_feedback_ngbiter;
     tw->postprocess = NULL;
     tw->reduce = NULL;
-    struct WindPriv priv[1];
-    tw->priv = priv;
 
     treewalk_run(tw, NewStars, NumNewStars);
-    myfree(Winddata);
+    myfree(priv->Winddata);
     walltime_measure("/Cooling/Wind");
 }
 
@@ -254,61 +286,57 @@ winds_evolve(int i, double a3inv, double hubble)
 static void
 sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
 {
+    int done = 0;
     if(P[i].Type != 4)
         endrun(23, "Wind called on something not a star particle: (i=%d, t=%d, id = %ld)\n", i, P[i].Type, P[i].ID);
-    int diff = WINDP(i).Ngb - 40;
+    struct winddata * Windd = WIND_GET_PRIV(tw)->Winddata;
+    int diff = WINDP(i, Windd).Ngb - 40;
     if(diff < -2) {
         /* too few */
-        WINDP(i).Left = WINDP(i).DMRadius;
+        WINDP(i, Windd).Left = WINDP(i, Windd).DMRadius;
     } else if(diff > 2) {
         /* too many */
-        WINDP(i).Right = WINDP(i).DMRadius;
+        WINDP(i, Windd).Right = WINDP(i, Windd).DMRadius;
     } else {
-        P[i].DensityIterationDone = 1;
+        done = 1;
     }
-    if(WINDP(i).Right >= 0) {
+    if(WINDP(i, Windd).Right >= 0) {
         /* if Ngb hasn't converged to 40, see if DMRadius converged*/
-        if(WINDP(i).Right - WINDP(i).Left < 1e-2) {
-            P[i].DensityIterationDone = 1;
+        if(WINDP(i, Windd).Right - WINDP(i, Windd).Left < 1e-2) {
+            done = 1;
         } else {
-            WINDP(i).DMRadius = 0.5 * (WINDP(i).Left + WINDP(i).Right);
+            WINDP(i, Windd).DMRadius = 0.5 * (WINDP(i, Windd).Left + WINDP(i, Windd).Right);
         }
     } else {
-        WINDP(i).DMRadius *= 1.3;
+        WINDP(i, Windd).DMRadius *= 1.3;
     }
 
-    if(P[i].DensityIterationDone) {
-        double vdisp = WINDP(i).V2sum / WINDP(i).Ngb;
+    if(done) {
+        double vdisp = WINDP(i, Windd).V2sum / WINDP(i, Windd).Ngb;
         int d;
         for(d = 0; d < 3; d ++) {
-            vdisp -= pow(WINDP(i).V1sum[d] / WINDP(i).Ngb,2);
+            vdisp -= pow(WINDP(i, Windd).V1sum[d] / WINDP(i, Windd).Ngb,2);
         }
-        WINDP(i).Vdisp = sqrt(vdisp / 3);
+        WINDP(i, Windd).Vdisp = sqrt(vdisp / 3);
     } else {
+        /* More work needed: add this particle to the redo queue*/
         int tid = omp_get_thread_num();
-        NPLeft[tid] ++;
+        WIND_GET_PRIV(tw)->NPRedo[tid][WIND_GET_PRIV(tw)->NPLeft[tid]] = i;
+        WIND_GET_PRIV(tw)->NPLeft[tid] ++;
     }
-}
-
-static int
-sfr_wind_weight_haswork(int target, TreeWalk * tw)
-{
-    if(P[target].Type == 4 && !P[target].DensityIterationDone) {
-        return 1;
-    }
-    return 0;
 }
 
 static void
 sfr_wind_reduce_weight(int place, TreeWalkResultWind * O, enum TreeWalkReduceMode mode, TreeWalk * tw)
 {
-    TREEWALK_REDUCE(WINDP(place).TotalWeight, O->TotalWeight);
+    struct winddata * Windd = WIND_GET_PRIV(tw)->Winddata;
+    TREEWALK_REDUCE(WINDP(place, Windd).TotalWeight, O->TotalWeight);
     int k;
     for(k = 0; k < 3; k ++) {
-        TREEWALK_REDUCE(WINDP(place).V1sum[k], O->V1sum[k]);
+        TREEWALK_REDUCE(WINDP(place, Windd).V1sum[k], O->V1sum[k]);
     }
-    TREEWALK_REDUCE(WINDP(place).V2sum, O->V2sum);
-    TREEWALK_REDUCE(WINDP(place).Ngb, O->Ngb);
+    TREEWALK_REDUCE(WINDP(place, Windd).V2sum, O->V2sum);
+    TREEWALK_REDUCE(WINDP(place, Windd).Ngb, O->Ngb);
     /*
     message(1, "Reduce ID=%ld, NGB=%d TotalWeight=%g V2sum=%g V1sum=%g %g %g\n",
             P[place].ID, O->Ngb, O->TotalWeight, O->V2sum,
@@ -319,14 +347,16 @@ sfr_wind_reduce_weight(int place, TreeWalkResultWind * O, enum TreeWalkReduceMod
 static void
 sfr_wind_copy(int place, TreeWalkQueryWind * input, TreeWalk * tw)
 {
-    double dtime = get_dloga_for_bin(P[place].TimeBin) / All.cf.hubble;
+    double dtime = get_dloga_for_bin(P[place].TimeBin) / WIND_GET_PRIV(tw)->hubble;
+    struct winddata * Windd = WIND_GET_PRIV(tw)->Winddata;
+
     input->Dt = dtime;
     input->Mass = P[place].Mass;
     input->Hsml = P[place].Hsml;
-    input->TotalWeight = WINDP(place).TotalWeight;
+    input->TotalWeight = WINDP(place, Windd).TotalWeight;
 
-    input->DMRadius = WINDP(place).DMRadius;
-    input->Vdisp = WINDP(place).Vdisp;
+    input->DMRadius = WINDP(place, Windd).DMRadius;
+    input->Vdisp = WINDP(place, Windd).Vdisp;
 }
 
 static void
@@ -359,12 +389,13 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
     }
 
     if(P[other].Type == 1) {
+        const double atime = WIND_GET_PRIV(lv->tw)->Time;
         if(r > I->DMRadius) return;
         O->Ngb ++;
         int d;
         for(d = 0; d < 3; d ++) {
             /* Add hubble flow; FIXME: this shall be a function, and the direction looks wrong too. */
-            double vel = P[other].Vel[d] + All.cf.hubble * All.cf.a * All.cf.a * dist[d];
+            double vel = P[other].Vel[d] + WIND_GET_PRIV(lv->tw)->hubble * atime * atime * dist[d];
             O->V1sum[d] += vel;
             O->V2sum += vel * vel;
         }
@@ -419,9 +450,9 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     double v=0;
     if(HAS(wind_params.WindModel, WIND_FIXED_EFFICIENCY)) {
         windeff = wind_params.WindEfficiency;
-        v = wind_params.WindSpeed * All.cf.a;
+        v = wind_params.WindSpeed * WIND_GET_PRIV(lv->tw)->Time;
     } else if(HAS(wind_params.WindModel, WIND_USE_HALO)) {
-        windeff = 1.0 / (I->Vdisp / All.cf.a / wind_params.WindSigma0);
+        windeff = 1.0 / (I->Vdisp / WIND_GET_PRIV(lv->tw)->Time / wind_params.WindSigma0);
         windeff *= windeff;
         v = wind_params.WindSpeedFactor * I->Vdisp;
     } else {
@@ -449,7 +480,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
         #pragma omp atomic read
         readdelay = SPHP(other).DelayTime;
         do {
-            newdelay = DMAX(wind_params.WindFreeTravelLength / (v / All.cf.a), readdelay);
+            newdelay = DMAX(wind_params.WindFreeTravelLength / (v / WIND_GET_PRIV(lv->tw)->Time), readdelay);
             /* Swap in the new id only if the old one hasn't changed:
              * in principle an extension, but supported on at least clang >= 9, gcc >= 5 and icc >= 18.*/
         } while(!__atomic_compare_exchange(&(SPHP(other).DelayTime), &readdelay, &newdelay, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
@@ -475,7 +506,7 @@ winds_make_after_sf(int i, double sm, double atime)
             P[i].Vel[j] += wind_params.WindSpeed * atime * dir[j];
         }
 
-        SPHP(i).DelayTime = wind_params.WindFreeTravelLength / (wind_params.WindSpeed * atime / All.cf.a);
+        SPHP(i).DelayTime = wind_params.WindFreeTravelLength / wind_params.WindSpeed;
     }
 
     return 0;

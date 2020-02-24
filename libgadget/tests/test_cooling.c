@@ -14,7 +14,6 @@
 #include <libgadget/cosmology.h>
 #include <libgadget/cooling.h>
 #include <libgadget/cooling_rates.h>
-#include <libgadget/allvars.h>
 #include <libgadget/utils/peano.h>
 #include <libgadget/partmanager.h>
 #include <libgadget/utils/endrun.h>
@@ -151,7 +150,6 @@ static double tcool_table[NSTEP * NSTEP] = {
 0.00213226 , 0.00278914 , 0.00355539
 };
 
-struct global_data_all_processes All;
 struct part_manager_type PartManager[1];
 /* Check that DoCooling and GetCoolingTime both return
  * a stable value over a wide range of internal energies and densities.*/

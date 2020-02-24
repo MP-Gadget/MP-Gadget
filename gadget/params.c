@@ -3,7 +3,7 @@
 #include <string.h>
 #include <math.h>
 
-#include <libgadget/allvars.h>
+#include <libgadget/gravity.h>
 #include <libgadget/densitykernel.h>
 #include <libgadget/timebinmgr.h>
 #include <libgadget/timestep.h>
@@ -16,14 +16,10 @@
 #include <libgadget/density.h>
 #include <libgadget/hydra.h>
 #include <libgadget/fof.h>
+#include <libgadget/init.h>
+#include <libgadget/timebinmgr.h>
+#include <libgadget/petaio.h>
 #include <libgadget/cooling_qso_lightup.h>
-
-/*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
- * parameter file).  Holding this data in a structure is convenient for writing/reading the restart file, and
- * it allows the introduction of new global variables in a simple way. The only thing to do is to introduce
- * them into this structure.
- */
-struct global_data_all_processes All;
 
 static int
 BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
@@ -48,61 +44,6 @@ StarformationCriterionAction(ParameterSet * ps, char * name, void * data)
         message(1, "error: At least use SFR_CRITERION_DENSITY\n");
         return 1;
     }
-    return 0;
-}
-
-/*! This function parses a string containing a comma-separated list of variables,
- *  each of which is interpreted as a double.
- *  The purpose is to read an array of output times into the code.
- *  So specifying the output list now looks like:
- *  OutputList  0.1,0.3,0.5,1.0
- *
- *  We sort the input after reading it, so that the initial list need not be sorted.
- *  This function could be repurposed for reading generic arrays in future.
- */
-
-static int
-OutputListAction(ParameterSet * ps, char * name, void * data)
-{
-    char * outputlist = param_get_string(ps, name);
-    char * strtmp = fastpm_strdup(outputlist);
-    char * token;
-    int count;
-
-    /* Note TimeInit and TimeMax not yet initialised here*/
-
-    /*First parse the string to get the number of outputs*/
-    for(count=0, token=strtok(strtmp,","); token; count++, token=strtok(NULL, ","))
-    {}
-/*     message(1, "Found %d times in output list.\n", count); */
-
-    /*Allocate enough memory*/
-    All.OutputListLength = count;
-    int maxcount = sizeof(All.OutputListTimes) / sizeof(All.OutputListTimes[0]);
-    if(maxcount > (int) MAXSNAPSHOTS)
-        maxcount = MAXSNAPSHOTS;
-    if(All.OutputListLength > maxcount) {
-        message(1, "Too many entries (%d) in the OutputList, can take no more than %d.\n", All.OutputListLength, maxcount);
-        return 1;
-    }
-    /*Now read in the values*/
-    for(count=0,token=strtok(outputlist,","); count < All.OutputListLength && token; count++, token=strtok(NULL,","))
-    {
-        /* Skip a leading quote if one exists.
-         * Extra characters are ignored by atof, so
-         * no need to skip matching char.*/
-        if(token[0] == '"')
-            token+=1;
-
-        double a = atof(token);
-
-        if(a < 0.0) {
-            endrun(1, "Requesting a negative output scaling factor a = %g\n", a);
-        }
-        All.OutputListTimes[count] = a;
-/*         message(1, "Output at: %g\n", All.OutputListTimes[count]); */
-    }
-    myfree(strtmp);
     return 0;
 }
 
@@ -373,134 +314,35 @@ create_gadget_parameter_set()
  *  exactly once in the parameterfile, otherwise error messages are
  *  produced that complain about the missing parameters.
  */
-void read_parameter_file(char *fname)
+void read_parameter_file(char *fname, int * ShowBacktrace, double * MaxMemSizePerNode)
 {
     ParameterSet * ps = create_gadget_parameter_set();
 
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-    if(ThisTask == 0) {
 
-        char * error;
-        if(0 != param_parse_file(ps, fname, &error)) {
-            endrun(1, "Parsing %s failed: %s\n", fname, error);
-        }
-        if(0 != param_validate(ps, &error)) {
-            endrun(1, "Validation of %s failed: %s\n", fname, error);
-        }
-
-        message(1, "----------- Running with Parameters ----------\n");
-        param_dump(ps, stdout);
-        message(1, "----------------------------------------------\n");
-
-    /* Start reading the values */
-        param_get_string2(ps, "InitCondFile", All.InitCondFile, sizeof(All.InitCondFile));
-        param_get_string2(ps, "OutputDir", All.OutputDir, sizeof(All.OutputDir));
-        param_get_string2(ps, "SnapshotFileBase", All.SnapshotFileBase, sizeof(All.SnapshotFileBase));
-        param_get_string2(ps, "FOFFileBase", All.FOFFileBase, sizeof(All.FOFFileBase));
-        param_get_string2(ps, "EnergyFile", All.EnergyFile, sizeof(All.EnergyFile));
-        All.OutputEnergyDebug = param_get_int(ps, "EnergyFile");
-        param_get_string2(ps, "CpuFile", All.CpuFile, sizeof(All.CpuFile));
-
-        All.CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
-        All.CP.RadiationOn = param_get_int(ps, "RadiationOn");
-        All.CP.Omega0 = param_get_double(ps, "Omega0");
-        All.CP.OmegaBaryon = param_get_double(ps, "OmegaBaryon");
-        All.CP.OmegaLambda = param_get_double(ps, "OmegaLambda");
-        All.CP.Omega_fld = param_get_double(ps, "Omega_fld");
-        if(All.CP.OmegaLambda > 0 && All.CP.Omega_fld > 0)
-            endrun(0, "Cannot have OmegaLambda and Omega_fld (evolving dark energy) at the same time!\n");
-        All.CP.w0_fld = param_get_double(ps,"w0_fld");
-        All.CP.wa_fld = param_get_double(ps,"wa_fld");
-        All.CP.Omega_ur = param_get_double(ps, "Omega_ur");
-        All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
-
-        All.OutputPotential = param_get_int(ps, "OutputPotential");
-        All.OutputHeliumFractions = param_get_int(ps, "OutputHeliumFractions");
-        All.OutputDebugFields = param_get_int(ps, "OutputDebugFields");
-        All.ShowBacktrace = param_get_int(ps, "ShowBacktrace");
-        double MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
-        if(MaxMemSizePerNode <= 1) {
-            MaxMemSizePerNode *= get_physmem_bytes() / (1024. * 1024.);
-        }
-        All.MaxMemSizePerNode = MaxMemSizePerNode;
-
-        All.TimeMax = param_get_double(ps, "TimeMax");
-        All.Asmth = param_get_double(ps, "Asmth");
-        All.ShortRangeForceWindowType = param_get_enum(ps, "ShortRangeForceWindowType");
-        All.Nmesh = param_get_int(ps, "Nmesh");
-
-        All.HydroCostFactor = param_get_double(ps, "HydroCostFactor");
-
-        All.IO.BytesPerFile = param_get_int(ps, "BytesPerFile");
-        All.IO.UsePeculiarVelocity = 0; /* Will be set by the Initial Condition File */
-        All.IO.NumWriters = param_get_int(ps, "NumWriters");
-        if(All.IO.NumWriters == 0)
-            MPI_Comm_size(MPI_COMM_WORLD, &All.IO.NumWriters);
-        All.IO.MinNumWriters = param_get_int(ps, "MinNumWriters");
-        All.IO.WritersPerFile = param_get_int(ps, "WritersPerFile");
-        All.IO.AggregatedIOThreshold = param_get_int(ps, "AggregatedIOThreshold");
-        All.IO.EnableAggregatedIO = param_get_int(ps, "EnableAggregatedIO");
-
-        All.CoolingOn = param_get_int(ps, "CoolingOn");
-        All.HydroOn = param_get_int(ps, "HydroOn");
-        All.DensityOn = param_get_int(ps, "DensityOn");
-        All.TreeGravOn = param_get_int(ps, "TreeGravOn");
-        All.FastParticleType = param_get_int(ps, "FastParticleType");
-        All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
-        All.AutoSnapshotTime = param_get_double(ps, "AutoSnapshotTime");
-        All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
-        All.RandomParticleOffset = param_get_double(ps, "RandomParticleOffset");
-
-        All.GravitySoftening = param_get_double(ps, "GravitySoftening");
-        All.GravitySofteningGas = param_get_double(ps, "GravitySofteningGas");
-
-        All.PartAllocFactor = param_get_double(ps, "PartAllocFactor");
-        All.SlotsIncreaseFactor = param_get_double(ps, "SlotsIncreaseFactor");
-
-        All.SnapshotWithFOF = param_get_int(ps, "SnapshotWithFOF");
-
-        All.RandomSeed = param_get_int(ps, "RandomSeed");
-
-        All.BlackHoleOn = param_get_int(ps, "BlackHoleOn");
-        All.WriteBlackHoleDetails = param_get_int(ps,"WriteBlackHoleDetails");
-
-        All.StarformationOn = param_get_int(ps, "StarformationOn");
-        All.WindOn = param_get_int(ps, "WindOn");
-
-        All.InitGasTemp = param_get_double(ps, "InitGasTemp");
-
-        /*Massive neutrino parameters*/
-        All.MassiveNuLinRespOn = param_get_int(ps, "MassiveNuLinRespOn");
-        All.HybridNeutrinosOn = param_get_int(ps, "HybridNeutrinosOn");
-        All.CP.MNu[0] = param_get_double(ps, "MNue");
-        All.CP.MNu[1] = param_get_double(ps, "MNum");
-        All.CP.MNu[2] = param_get_double(ps, "MNut");
-        All.HybridVcrit = param_get_double(ps, "Vcrit");
-        All.HybridNuPartTime = param_get_double(ps, "NuPartTime");
-        if(All.MassiveNuLinRespOn && !All.CP.RadiationOn)
-            endrun(2, "You have enabled (kspace) massive neutrinos without radiation, but this will give an inconsistent cosmology!\n");
-        /*End massive neutrino parameters*/
-
-        if(All.StarformationOn == 0)
-        {
-            if(All.WindOn == 1) {
-                endrun(1, "You try to use the code with wind enabled,\n"
-                          "but you did not switch on starformation.\nThis mode is not supported.\n");
-            }
-        } else {
-            if(All.CoolingOn == 0)
-            {
-                endrun(1, "You try to use the code with star formation enabled,\n"
-                          "but you did not switch on cooling.\nThis mode is not supported.\n");
-            }
-        }
+    char * error;
+    if(0 != param_parse_file(ps, fname, &error)) {
+        endrun(1, "Parsing %s failed: %s\n", fname, error);
+    }
+    if(0 != param_validate(ps, &error)) {
+        endrun(1, "Validation of %s failed: %s\n", fname, error);
     }
 
-    MPI_Bcast(&All, sizeof(All), MPI_BYTE, 0, MPI_COMM_WORLD);
+    message(0, "----------- Running with Parameters ----------\n");
+    if(ThisTask == 0)
+        param_dump(ps, stdout);
+    message(0, "----------------------------------------------\n");
+
+    *ShowBacktrace = param_get_int(ps, "ShowBacktrace");
+    *MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
+    if(*MaxMemSizePerNode <= 1) {
+        *MaxMemSizePerNode *= get_physmem_bytes() / (1024. * 1024.);
+    }
 
     /*Initialize per-module parameters.*/
-
+    set_init_params(ps);
+    set_petaio_params(ps);
     set_timestep_params(ps);
     set_cooling_params(ps);
     set_density_params(ps);

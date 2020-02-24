@@ -9,15 +9,83 @@
 /*! table with desired sync points. All forces and phase space variables are synchonized to the same order. */
 static SyncPoint * SyncPoints;
 static int NSyncPoints;    /* number of times stored in table of desired sync points */
+static struct sync_params
+{
+    int OutputListLength;
+    double OutputListTimes[1024];
+} Sync;
 
 int cmp_double(const void * a, const void * b)
 {
     return ( *(double*)a - *(double*)b );
 }
 
+/*! This function parses a string containing a comma-separated list of variables,
+ *  each of which is interpreted as a double.
+ *  The purpose is to read an array of output times into the code.
+ *  So specifying the output list now looks like:
+ *  OutputList  0.1,0.3,0.5,1.0
+ *
+ *  We sort the input after reading it, so that the initial list need not be sorted.
+ *  This function could be repurposed for reading generic arrays in future.
+ */
+int
+OutputListAction(ParameterSet * ps, char * name, void * data)
+{
+    char * outputlist = param_get_string(ps, name);
+    char * strtmp = fastpm_strdup(outputlist);
+    char * token;
+    int count;
+
+    /* Note TimeInit and TimeMax not yet initialised here*/
+
+    /*First parse the string to get the number of outputs*/
+    for(count=0, token=strtok(strtmp,","); token; count++, token=strtok(NULL, ","))
+    {}
+/*     message(1, "Found %d times in output list.\n", count); */
+
+    /*Allocate enough memory*/
+    Sync.OutputListLength = count;
+    int maxcount = sizeof(Sync.OutputListTimes) / sizeof(Sync.OutputListTimes[0]);
+    if(maxcount > (int) MAXSNAPSHOTS)
+        maxcount = MAXSNAPSHOTS;
+    if(Sync.OutputListLength > maxcount) {
+        message(1, "Too many entries (%d) in the OutputList, can take no more than %d.\n", Sync.OutputListLength, maxcount);
+        return 1;
+    }
+    /*Now read in the values*/
+    for(count=0,token=strtok(outputlist,","); count < Sync.OutputListLength && token; count++, token=strtok(NULL,","))
+    {
+        /* Skip a leading quote if one exists.
+         * Extra characters are ignored by atof, so
+         * no need to skip matching char.*/
+        if(token[0] == '"')
+            token+=1;
+
+        double a = atof(token);
+
+        if(a < 0.0) {
+            endrun(1, "Requesting a negative output scaling factor a = %g\n", a);
+        }
+        Sync.OutputListTimes[count] = a;
+/*         message(1, "Output at: %g\n", Sync.OutputListTimes[count]); */
+    }
+    myfree(strtmp);
+    return 0;
+}
+
+/* For the tests*/
+void set_sync_params(int OutputListLength, double * OutputListTimes)
+{
+    int i;
+    Sync.OutputListLength = OutputListLength;
+    for(i = 0; i < OutputListLength; i++)
+        Sync.OutputListTimes[i] = OutputListTimes[i];
+}
+
 /* This function compiles
  *
- * All.OutputListTimes, All.TimeIC, All.TimeMax
+ * Sync.OutputListTimes, All.TimeIC, All.TimeMax
  *
  * into a list of SyncPoint objects.
  *
@@ -32,11 +100,11 @@ setup_sync_points(double TimeIC, double no_snapshot_until_time)
 {
     int i;
 
-    qsort_openmp(All.OutputListTimes, All.OutputListLength, sizeof(double), cmp_double);
+    qsort_openmp(Sync.OutputListTimes, Sync.OutputListLength, sizeof(double), cmp_double);
 
     if(NSyncPoints > 0)
         myfree(SyncPoints);
-    SyncPoints = mymalloc("SyncPoints", sizeof(SyncPoint) * (All.OutputListLength+2));
+    SyncPoints = mymalloc("SyncPoints", sizeof(SyncPoint) * (Sync.OutputListLength+2));
 
     /* Set up first and last entry to SyncPoints; TODO we can insert many more! */
 
@@ -51,9 +119,9 @@ setup_sync_points(double TimeIC, double no_snapshot_until_time)
     NSyncPoints = 2;
 
     /* we do an insertion sort here. A heap is faster but who cares the speed for this? */
-    for(i = 0; i < All.OutputListLength; i ++) {
+    for(i = 0; i < Sync.OutputListLength; i ++) {
         int j = 0;
-        double a = All.OutputListTimes[i];
+        double a = Sync.OutputListTimes[i];
         double loga = log(a);
 
         for(j = 0; j < NSyncPoints; j ++) {
