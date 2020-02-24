@@ -67,6 +67,10 @@ extern struct part_manager_type {
     int NumPart;
     /*!< Amount of memory we have available for particles locally: maximum size of P array. */
     int MaxPart;
+    /* Random shift applied to the box. This is changed
+     * every domain decomposition to prevent correlated
+     * errors building up in the tree force. */
+    double CurrentParticleOffset[3];
 } PartManager[1];
 
 /*Compatibility define*/

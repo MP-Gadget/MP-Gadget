@@ -52,11 +52,6 @@ extern struct global_data_all_processes
                                   * long period of time. Upstream Arepo says this substantially improves momentum conservation,
                                   * and it has the side-effect of guarding against periodicity bugs.
                                   */
-    /* Random shift applied to the box. This is changed
-     * every domain decomposition to prevent correlated
-     * errors building up in the tree force. */
-    double CurrentParticleOffset[3];
-
     /* some SPH parameters */
 
     double InitGasTemp;		/*!< may be used to set the temperature in the IC's */

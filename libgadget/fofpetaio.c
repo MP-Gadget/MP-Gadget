@@ -368,7 +368,7 @@ static void GTFirstPos(int i, float * out, void * baseptr, void * smanptr) {
     struct Group * grp = (struct Group *) baseptr;
     int d;
     for(d = 0; d < 3; d ++) {
-        out[d] = grp[i].base.FirstPos[d] - All.CurrentParticleOffset[d];
+        out[d] = grp[i].base.FirstPos[d] - PartManager->CurrentParticleOffset[d];
         while(out[d] > All.BoxSize) out[d] -= All.BoxSize;
         while(out[d] <= 0) out[d] += All.BoxSize;
     }
@@ -387,7 +387,7 @@ static void GTMassCenterPosition(int i, double * out, void * baseptr, void * sma
     struct Group * grp = (struct Group *) baseptr;
     int d;
     for(d = 0; d < 3; d ++) {
-        out[d] = grp[i].CM[d] - All.CurrentParticleOffset[d];
+        out[d] = grp[i].CM[d] - PartManager->CurrentParticleOffset[d];
         while(out[d] > All.BoxSize) out[d] -= All.BoxSize;
         while(out[d] <= 0) out[d] += All.BoxSize;
     }

@@ -187,8 +187,6 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
 
     fof_init(All.MeanSeparation[1]);
 
-    All.CurrentParticleOffset[0] = All.CurrentParticleOffset[1] = All.CurrentParticleOffset[2] = 0;
-
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)	/* initialize sph_properties */
     {

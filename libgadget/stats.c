@@ -43,7 +43,7 @@ struct state_of_system
  * actually used (e.g. momentum is not really used anywhere),
  * just the energies are written to a log-file every once in a while.
  */
-struct state_of_system compute_global_quantities_of_system(const double Time, const double CurrentParticleOffset[3])
+struct state_of_system compute_global_quantities_of_system(const double Time,  struct part_manager_type * PartManager)
 {
     int i, j;
     struct state_of_system sys;
@@ -73,7 +73,7 @@ struct state_of_system compute_global_quantities_of_system(const double Time, co
 
         if(P[i].Type == 0)
         {
-            struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos, CurrentParticleOffset);
+            struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos, PartManager->CurrentParticleOffset);
             entr = SPHP(i).Entropy;
             egyspec = entr / (GAMMA_MINUS1) * pow(SPH_EOMDensity(i) / a3, GAMMA_MINUS1);
             sys.EnergyIntComp[0] += P[i].Mass * egyspec;
@@ -191,9 +191,9 @@ struct state_of_system compute_global_quantities_of_system(const double Time, co
  * statistics about the energies in the various particle components to
  * the file FdEnergy.
  */
-void energy_statistics(FILE * FdEnergy, const double Time, const double CurrentParticleOffset[3])
+void energy_statistics(FILE * FdEnergy, const double Time, struct part_manager_type * PartManager)
 {
-    struct state_of_system SysState = compute_global_quantities_of_system(Time, CurrentParticleOffset);
+    struct state_of_system SysState = compute_global_quantities_of_system(Time, PartManager);
 
     message(0, "Time %g Mean Temperature of Gas %g\n",
                 Time, SysState.TemperatureComp[0]);
