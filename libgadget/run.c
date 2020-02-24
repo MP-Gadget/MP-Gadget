@@ -80,9 +80,9 @@ close_outputfiles(void);
  *  parameterfile is set, then routines for setting units, reading
  *  ICs/restart-files are called, auxialiary memory is allocated, etc.
  */
-int begrun(int RestartSnapNum)
+int begrun(int RestartFlag, int RestartSnapNum)
 {
-    if(RestartSnapNum == -2) {
+    if(RestartFlag == 1) {
         RestartSnapNum = find_last_snapnum(All.OutputDir);
         message(0, "Last Snapshot number is %d.\n", RestartSnapNum);
     }

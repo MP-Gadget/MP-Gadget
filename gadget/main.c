@@ -99,11 +99,6 @@ int main(int argc, char **argv)
         endrun(0, "Need to give the snapshot number if FOF is selected for output\n");
     }
 
-    if(RestartFlag == 1) {
-        /* Last snapshot will be detected in begrun*/
-        RestartSnapNum = -2;
-    }
-
     /*Set up GSL so it gives a proper MPI termination*/
     gsl_set_error_handler(gsl_handler);
 
@@ -116,7 +111,8 @@ int main(int argc, char **argv)
 
     init_endrun(ShowBacktrace);
 
-    RestartSnapNum = begrun(RestartSnapNum);
+    /* Last snapshot will be detected in begrun*/
+    RestartSnapNum = begrun(RestartFlag, RestartSnapNum);
 
     switch(RestartFlag) {
         case 3:
