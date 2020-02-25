@@ -213,16 +213,16 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
 {
     int i;
     int c=0;
-    
+
     for(i = 0; i < NumActiveParticle; i++)
     {
         int p_i = ActiveParticle ? ActiveParticle[i] : i;
-        
+
         if(P[p_i].Type != 5 || P[p_i].IsGarbage || P[p_i].Mass <= 0)
           continue;
-        
+
         int PI = P[p_i].PI;
-        
+
         struct BHinfo info;
         info.ID = P[p_i].ID;
         info.Mass = BHP(p_i).Mass;
@@ -232,35 +232,35 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
         info.MinPotPos[0] = BHP(p_i).MinPotPos[0];
         info.MinPotPos[1] = BHP(p_i).MinPotPos[1];
         info.MinPotPos[2] = BHP(p_i).MinPotPos[2];
-        
+
         info.MinPot = priv->MinPot[PI];
         info.BH_Entropy = priv->BH_Entropy[PI];
         info.BH_SurroundingGasVel[0] = priv->BH_SurroundingGasVel[PI][0];
         info.BH_SurroundingGasVel[1] = priv->BH_SurroundingGasVel[PI][1];
         info.BH_SurroundingGasVel[2] = priv->BH_SurroundingGasVel[PI][2];
-        
+
         info.BH_accreted_BHMass = priv->BH_accreted_BHMass[PI];
         info.BH_accreted_Mass = priv->BH_accreted_Mass[PI];
         info.BH_FeedbackWeightSum = priv->BH_FeedbackWeightSum[PI];
-        
-        info.SPH_SwallowID = priv->SPH_SwallowID[PI];       
+
+        info.SPH_SwallowID = priv->SPH_SwallowID[PI];
         info.SwallowID =  BHP(p_i).SwallowID;
         info.CountProgs = BHP(p_i).CountProgs;
         info.Swallowed =  P[p_i].Swallowed;
-        
+
         info.a = All.Time;
-        
+
         int size = sizeof(info);
-        
+
         fwrite(&size, sizeof(size), 1, FdBlackholeDetails);
         fwrite(&info,sizeof(info),1,FdBlackholeDetails);
         fwrite(&size, sizeof(size), 1, FdBlackholeDetails);
         c++;
     }
-    
+
     fflush(FdBlackholeDetails);
     int64_t totalN;
-    
+
     sumup_large_ints(1, &c, &totalN);
     message(0, "Written details of %ld blackholes.\n", totalN);
 }
@@ -348,18 +348,18 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     priv->BH_accreted_Mass = mymalloc("BH_accretedmass", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_accreted_BHMass = mymalloc("BH_accreted_BHMass", SlotsManager->info[5].size * sizeof(MyFloat));
     treewalk_run(tw_feedback, act->ActiveParticle, act->NumActiveParticle);
-    
-    if(FdBlackholeDetails){    
+
+    if(FdBlackholeDetails){
         collect_BH_info(act->ActiveParticle, act->NumActiveParticle, priv, FdBlackholeDetails);
     }
-    
+
     myfree(priv->BH_accreted_BHMass);
     myfree(priv->BH_accreted_Mass);
-    
+
     myfree(priv->BH_SurroundingGasVel);
     myfree(priv->BH_Entropy);
     myfree(priv->MinPot);
-    
+
     myfree(priv->BH_FeedbackWeightSum);
     myfree(priv->SPH_SwallowID);
 
@@ -863,6 +863,7 @@ void blackhole_make_one(int index) {
     BHP(child).Mdot = 0;
     BHP(child).FormationTime = All.Time;
     BHP(child).SwallowID = (MyIDType) -1;
+    BHP(child).Density = 0;
 
     /* It is important to initialize MinPotPos to the current position of
      * a BH to avoid drifting to unknown locations (0,0,0) immediately
