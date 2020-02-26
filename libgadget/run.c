@@ -205,7 +205,11 @@ run(int RestartSnapNum)
         /* at first step this is a noop */
         if(is_PM) {
             /* full decomposition rebuilds the tree */
+            int i;
             domain_decompose_full(ddecomp);
+            #pragma omp parallel for
+            for(i = 0; i < PartManager->NumPart; i++)
+                P[i].GravCost = 1;
         } else {
             /* FIXME: add a parameter for ddecomp_decompose_incremental */
             /* currently we drift all particles every step */

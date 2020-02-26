@@ -71,7 +71,7 @@ struct local_topnode_data
 struct local_particle_data
 {
     peano_t Key;
-    int64_t Cost;
+    uint64_t Cost;
 };
 
 /*This is a helper for the tests*/
@@ -326,14 +326,11 @@ void domain_free(DomainDecomp * ddecomp)
     }
 }
 
-static int64_t
+static uint64_t
 domain_particle_costfactor(int i)
 {
     /* We round off GravCost to integer*/
-    if(P[i].TimeBin)
-        return (1 + P[i].GravCost) * (TIMEBASE / (1 << P[i].TimeBin));
-    else
-        return (1 + P[i].GravCost); /* assuming on the full step */
+    return (1 + P[i].GravCost); /* assuming on the full step */
 }
 
 /*! This function carries out the actual domain decomposition for all
