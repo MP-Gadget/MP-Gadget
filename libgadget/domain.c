@@ -414,8 +414,10 @@ domain_balance(DomainDecomp * ddecomp)
 
     walltime_measure("/Domain/Decompose/Sumcost");
 
-    /* first try work balance */
-    domain_assign_balanced(ddecomp, TopLeafWork, 1);
+    /* Use a particle load balance instead of work balance.
+     * I was unable to find a workload where the work balance
+     * was significantly faster and several where it was much slower. */
+    domain_assign_balanced(ddecomp, TopLeafCount, 1);
 
     walltime_measure("/Domain/Decompose/assignbalance");
 
