@@ -355,15 +355,7 @@ run(int RestartSnapNum)
     close_outputfiles();
 }
 
-/*! This routine computes the accelerations for all active particles.  First, the gravitational forces are
- * computed. This also reconstructs the tree, if needed, otherwise the drift/kick operations have updated the
- * tree to make it fully usable at the current time.
- *
- * If gas particles are presented, the `interior' of the local ddecomp is determined. This region is guaranteed
- * to contain only particles local to the processor. This information will be used to reduce communication in
- * the hydro part.  The density for active SPH particles is computed next. If the number of neighbours should
- * be outside the allowed bounds, it will be readjusted by the function ensure_neighbours(), and for those
- * particle, the densities are recomputed accordingly. Finally, the hydrodynamical forces are added.
+/*! This routine computes the accelerations for all active particles. Density, hydro and gravity are computed, in that order.
  */
 void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp)
 {
