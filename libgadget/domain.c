@@ -326,16 +326,6 @@ void domain_free(DomainDecomp * ddecomp)
     }
 }
 
-static int64_t
-domain_particle_costfactor(int i)
-{
-    /* We round off GravCost to integer*/
-    if(P[i].TimeBin)
-        return (1 + P[i].GravCost) * (TIMEBASE / (1 << P[i].TimeBin));
-    else
-        return (1 + P[i].GravCost); /* assuming on the full step */
-}
-
 /*! This function carries out the actual domain decomposition for all
  *  particle types. It will try to balance the work-load for each ddecomp,
  *  as estimated based on the P[i]-GravCost values.  The decomposition will
@@ -956,7 +946,7 @@ domain_check_for_local_refine_subsample(
     for(i = 0; i < PartManager->NumPart; i ++)
     {
         LP[i].Key = P[i].Key;
-        LP[i].Cost = domain_particle_costfactor(i);
+        LP[i].Cost = 1;
     }
 
     /* First sort to ensure spatially 'even' subsamples; FIXME: This can probably
@@ -1331,7 +1321,7 @@ domain_compute_costs(const DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t
                 continue;
             int no = domain_get_topleaf(P[n].Key, ddecomp);
 
-            mylocal_TopLeafWork[no] += domain_particle_costfactor(n);
+            mylocal_TopLeafWork[no] += 1;
 
             mylocal_TopLeafCount[no] += 1;
         }

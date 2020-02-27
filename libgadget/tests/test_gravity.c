@@ -170,7 +170,6 @@ static void do_force_test(double BoxSize, int Nmesh, double Asmth, double ErrTol
         P[i].ID = i;
         P[i].TimeBin = 0;
         P[i].IsGarbage = 0;
-        P[i].GravCost = 1;
     }
 
     ActiveParticles act = {0};

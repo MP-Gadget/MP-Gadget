@@ -397,9 +397,6 @@ density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMod
 {
     TREEWALK_REDUCE(DENSITY_GET_PRIV(tw)->NumNgb[place], remote->Ngb);
 
-    /* these will be added */
-    P[place].GravCost += DENSITY_GET_PRIV(tw)->HydroCostFactor * remote->Ninteractions;
-
     if(P[place].Type == 0)
     {
         TREEWALK_REDUCE(SPHP(place).Density, remote->Rho);

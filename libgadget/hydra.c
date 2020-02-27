@@ -239,8 +239,6 @@ hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mo
 
     TREEWALK_REDUCE(SPHP(place).DtEntropy, result->DtEntropy);
 
-    P[place].GravCost += HYDRA_GET_PRIV(tw)->HydroCostFactor * result->Ninteractions;
-
     if(mode == TREEWALK_PRIMARY || SPHP(place).MaxSignalVel < result->MaxSignalVel)
         SPHP(place).MaxSignalVel = result->MaxSignalVel;
 

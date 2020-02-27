@@ -190,7 +190,6 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)	/* initialize sph_properties */
     {
-        P[i].GravCost = 1;
         P[i].Ti_drift = P[i].Ti_kick = All.Ti_Current;
 
         if(All.BlackHoleOn && RestartSnapNum == -1 && P[i].Type == 5 )

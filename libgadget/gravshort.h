@@ -95,7 +95,6 @@ grav_short_reduce(int place, TreeWalkResultGravShort * result, enum TreeWalkRedu
     for(k = 0; k < 3; k++)
         TREEWALK_REDUCE(P[place].GravAccel[k], result->Acc[k]);
 
-    TREEWALK_REDUCE(P[place].GravCost, result->Ninteractions);
     TREEWALK_REDUCE(P[place].Potential, result->Potential);
 }
 
