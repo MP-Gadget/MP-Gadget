@@ -251,7 +251,8 @@ find_timesteps(const ActiveParticles * act, inttime_t Ti_Current)
         }
         int binold = P[i].TimeBin;
 
-        if(bin > binold)		/* timestep wants to increase */
+        /* timestep wants to increase */
+        if(bin > binold)
         {
             /* make sure the new step is currently active,
              * so that particles do not miss a step */
@@ -281,6 +282,17 @@ find_timesteps(const ActiveParticles * act, inttime_t Ti_Current)
         PM.length = dti_from_timebin(maxTimeBin);
     message(0, "PM timebin: %x dloga = %g  Max = (%g)\n", PM.length, dloga_from_dti(PM.length), TimestepParams.MaxSizeTimestep);
 
+    /* BH particles have their timesteps set by a timestep limiter.
+     * On the first timestep this is not effective because all the particles have zero timestep.
+     * So on the first timestep only set all BH particles to the smallest allowable timestep*/
+    if(All.TimeStep == 0) {
+        #pragma omp parallel for
+        for(pa = 0; pa < PartManager->NumPart; pa++)
+        {
+            if(P[pa].Type == 5)
+                P[pa].TimeBin = mTimeBin;
+        }
+    }
     if(badstepsizecount) {
         message(0, "bad timestep spotted: terminating and saving snapshot.\n");
         dump_snapshot("TIMESTEP-DUMP", All.OutputDir);
