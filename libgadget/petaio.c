@@ -1035,7 +1035,6 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
 SIMPLE_GETTER(GTGravAccel, GravAccel[0], float, 3, struct particle_data)
 SIMPLE_GETTER(GTGravPM, GravPM[0], float, 3, struct particle_data)
 SIMPLE_GETTER(GTTimeBin, TimeBin, int, 1, struct particle_data)
-SIMPLE_GETTER(GTGravCost, GravCost, int, 1, struct particle_data)
 SIMPLE_GETTER_PI(GTHydroAccel, HydroAccel[0], float, 3, struct sph_particle_data)
 SIMPLE_GETTER_PI(GTMaxSignalVel, MaxSignalVel, float, 1, struct sph_particle_data)
 SIMPLE_GETTER_PI(GTEntropy, Entropy, float, 1, struct sph_particle_data)
@@ -1051,7 +1050,6 @@ void register_debug_io_blocks(struct IOTable * IOTable)
         IO_REG_WRONLY(GravAccel,       "f4", 3, ptype, IOTable);
         IO_REG_WRONLY(GravPM,       "f4", 3, ptype, IOTable);
         IO_REG_WRONLY(TimeBin,       "u4", 1, ptype, IOTable);
-        IO_REG_WRONLY(GravCost,       "f4", 1, ptype, IOTable);
     }
     IO_REG_WRONLY(HydroAccel,       "f4", 3, 0, IOTable);
     IO_REG_WRONLY(MaxSignalVel,       "f4", 1, 0, IOTable);

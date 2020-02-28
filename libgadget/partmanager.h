@@ -9,8 +9,6 @@
  */
 struct particle_data
 {
-    float GravCost;     /*!< weight factor used for balancing the work-load */
-
     inttime_t Ti_drift;       /*!< current time of the particle position */
     inttime_t Ti_kick;        /*!< current time of the particle momentum */
 
