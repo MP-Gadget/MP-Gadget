@@ -50,7 +50,7 @@ static struct ClockTable Clocks;
  * reached, when a `stop' file is found in the output directory, or
  * when the simulation ends because we arrived at TimeMax.
  */
-static void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp);
+static void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, int PairwiseStep, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp);
 static void write_cpu_log(int NumCurrentTiStep, FILE * FdCPU);
 
 /* Updates the global storing the current random offset of the particles,
@@ -129,6 +129,19 @@ int begrun(int RestartFlag, int RestartSnapNum)
     lightcone_init(All.Time);
 #endif
     return RestartSnapNum;
+}
+
+/* Small function to decide - collectively - whether to use pairwise gravity this step*/
+static int
+use_pairwise_gravity(ActiveParticles * Act, struct part_manager_type * PartManager)
+{
+    /* Find total number of active particles*/
+    int64_t total_active, total_particle;
+    sumup_large_ints(1, &Act->NumActiveParticle, &total_active);
+    sumup_large_ints(1, &PartManager->NumPart, &total_particle);
+
+    /* Since the pairwise step is O(N^2) and tree is O(NlogN) we should scale the condition like O(N)*/
+    return total_active < All.PairwiseActiveFraction * total_particle;
 }
 
 void
@@ -223,15 +236,19 @@ run(int RestartSnapNum)
          * If so we need to add them to the tree.*/
         int HybridNuGrav = All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime;
 
+        /* Collective: total number of active particles must be small enough*/
+        int pairwisestep = use_pairwise_gravity(&Act, PartManager);
+
         /* Need to rebuild the force tree because all TopLeaves are out of date.*/
         ForceTree Tree = {0};
-        force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, All.OutputDir);
+        force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, !pairwisestep && All.TreeGravOn, All.OutputDir);
 
         /*Allocate the extra SPH data for transient SPH particle properties.*/
         if(GasEnabled)
             slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size, &SlotsManager->sph_scratch);
+
         /* update force to Ti_Current */
-        compute_accelerations(&Act, is_PM, &pm, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
+        compute_accelerations(&Act, is_PM, &pm, pairwisestep, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
 
         int didfof = 0;
         /* Note this must be after gravaccel and hydro,
@@ -313,7 +330,7 @@ run(int RestartSnapNum)
                     for(i = 0; i < PartManager->NumPart; i++)
                         P[i].Key = PEANO(P[i].Pos, All.BoxSize);
                 }
-                force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, All.OutputDir);
+                force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, 0, All.OutputDir);
                 Act.NumActiveParticle = PartManager->NumPart;
             }
         }
@@ -365,7 +382,7 @@ run(int RestartSnapNum)
  * be outside the allowed bounds, it will be readjusted by the function ensure_neighbours(), and for those
  * particle, the densities are recomputed accordingly. Finally, the hydrodynamical forces are added.
  */
-void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp)
+void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, int PairwiseStep, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp)
 {
     message(0, "Begin force computation.\n");
 
@@ -408,8 +425,15 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
     const int NeutrinoTracer =  All.HybridNeutrinosOn && (All.Time <= All.HybridNuPartTime);
     const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
 
-    if(All.TreeGravOn)
-        grav_short_tree(act, pm, tree, rho0, NeutrinoTracer, All.FastParticleType);
+    if(All.TreeGravOn) {
+        /* Do a short range pairwise only step if desired*/
+        if(PairwiseStep) {
+            struct gravshort_tree_params gtp = get_gravshort_treepar();
+            grav_short_pair(act, pm, tree, gtp.Rcut, rho0, NeutrinoTracer, All.FastParticleType);
+        }
+        else
+            grav_short_tree(act, pm, tree, rho0, NeutrinoTracer, All.FastParticleType);
+    }
 
     /* We use the total gravitational acc.
      * to open the tree and total acc for the timestep.
@@ -426,7 +450,7 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
         gravpm_force(pm, tree);
 
         /*Rebuild the force tree we freed in gravpm to save memory*/
-        force_tree_rebuild(tree, ddecomp, All.BoxSize, HybridNuGrav, All.OutputDir);
+        force_tree_rebuild(tree, ddecomp, All.BoxSize, HybridNuGrav, FirstStep && All.TreeGravOn, All.OutputDir);
 
         /* compute and output energy statistics if desired. */
         if(All.OutputEnergyDebug)

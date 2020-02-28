@@ -81,6 +81,7 @@ set_init_params(ParameterSet * ps)
         All.DensityOn = param_get_int(ps, "DensityOn");
         All.TreeGravOn = param_get_int(ps, "TreeGravOn");
         All.FastParticleType = param_get_int(ps, "FastParticleType");
+        All.PairwiseActiveFraction = param_get_double(ps, "PairwiseActiveFraction");
         All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
         All.AutoSnapshotTime = param_get_double(ps, "AutoSnapshotTime");
         All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
@@ -352,7 +353,8 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
         return;
 
     ForceTree Tree = {0};
-    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 0, All.OutputDir);
+    /* Need moments because we use them to set Hsml*/
+    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 0, 1, All.OutputDir);
 
     if(RestartSnapNum == -1)
     {
@@ -376,7 +378,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
 
             int no = force_get_father(i, &Tree);
 
-            while(10 * DesNumNgb * P[i].Mass > massfactor * Tree.Nodes[no].u.d.mass)
+            while(10 * DesNumNgb * P[i].Mass > massfactor * Tree.Nodes[no].mom.mass)
             {
                 int p = force_get_father(no, &Tree);
 
@@ -387,7 +389,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
             }
 
             P[i].Hsml =
-                pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / (massfactor * Tree.Nodes[no].u.d.mass),
+                pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / (massfactor * Tree.Nodes[no].mom.mass),
                         1.0 / 3) * Tree.Nodes[no].len;
 
             /* recover from a poor initial guess */

@@ -87,6 +87,8 @@ extern struct global_data_all_processes
     double HybridNuPartTime; /*!< Redshift at which hybrid neutrinos switch on*/
 
     int FastParticleType; /*!< flags a particle species to exclude timestep calculations.*/
+    /* parameters determining output frequency */
+    double PairwiseActiveFraction; /* Fraction of particles active for which we do a pairwise computation instead of a tree*/
 
     /* parameters determining output frequency */
     double AutoSnapshotTime;    /*!< cpu-time between regularly generated snapshots. */

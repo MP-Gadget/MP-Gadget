@@ -830,9 +830,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
 
     for(inode = 0; inode < NODELISTLENGTH && I->NodeList[inode] >= 0; inode++)
     {
-        int startnode = lv->tw->tree->Nodes[I->NodeList[inode]].u.d.nextnode;  /* open it */
-
-        int numcand = ngb_treefind_threads(I, O, iter, startnode, lv);
+        int numcand = ngb_treefind_threads(I, O, iter, I->NodeList[inode], lv);
         /* Export buffer is full end prematurally */
         if(numcand < 0) return numcand;
 
@@ -904,7 +902,7 @@ cull_node(const TreeWalkQueryBase * const I, const TreeWalkNgbIterBase * const i
 {
     double dist;
     if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
-        dist = DMAX(current->u.d.hmax, iter->Hsml) + 0.5 * current->len;
+        dist = DMAX(current->mom.hmax, iter->Hsml) + 0.5 * current->len;
     } else {
         dist = iter->Hsml + 0.5 * current->len;
     }
@@ -952,26 +950,18 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
 
     const ForceTree * tree = lv->tw->tree;
     const double BoxSize = tree->BoxSize;
+
     no = startnode;
 
     while(no >= 0)
     {
-        int nextnode = force_get_next_node(no, tree);
-        if(node_is_particle(no, tree))  /* single particle */ {
-            lv->ngblist[numcand++] = no;
-            no = nextnode;
-            continue;
+        if(node_is_particle(no, tree)) {
+            int fat = force_get_father(no, tree);
+            endrun(12312, "Particles should be added before getting here! no = %d, father = %d (ptype = %d)\n", no, fat, tree->Nodes[fat].f.ChildType);
         }
         if(node_is_pseudo_particle(no, tree)) {
-            /* pseudo particle */
-            if(lv->mode == 1) {
-                endrun(12312, "Touching outside of my domain from a node list of a ghost. This shall not happen.");
-            } else {
-                if(-1 == treewalk_export_particle(lv, no))
-                    return -1;
-            }
-            no = nextnode;
-            continue;
+            int fat = force_get_father(no, tree);
+            endrun(12312, "Pseudo-Particles should be added before getting here! no = %d, father = %d (ptype = %d)\n", no, fat, tree->Nodes[fat].f.ChildType);
         }
 
         struct NODE *current = &tree->Nodes[no];
@@ -979,7 +969,8 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         /* When walking exported particles we start from the encompassing top-level node,
          * so if we get back to a top-level node again we are done.*/
         if(lv->mode == 1) {
-            if(current->f.TopLevel) {
+            /* The first node is always top-level*/
+            if(current->f.TopLevel && no != startnode) {
                 /* we reached a top-level node again, which means that we are done with the branch */
                 break;
             }
@@ -988,13 +979,36 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         /* Cull the node */
         if(0 == cull_node(I, iter, current, BoxSize)) {
             /* in case the node can be discarded */
-            no = current->u.d.sibling;
+            no = current->sibling;
             continue;
         }
 
+        /* Node contains relevant particles, add them.*/
+        if(current->f.ChildType == PARTICLE_NODE_TYPE) {
+            int i;
+            int * suns = current->s.suns;
+            for (i = 0; i < current->s.noccupied; i++) {
+                lv->ngblist[numcand++] = suns[i];
+            }
+            /* Move sideways*/
+            no = current->sibling;
+            continue;
+        }
+        else if(current->f.ChildType == PSEUDO_NODE_TYPE) {
+            /* pseudo particle */
+            if(lv->mode == 1) {
+                endrun(12312, "Touching outside of my domain from a node list of a ghost. This shall not happen.");
+            } else {
+                /* Export the pseudo particle*/
+                if(-1 == treewalk_export_particle(lv, current->nextnode))
+                    return -1;
+                /* Move sideways*/
+                no = current->sibling;
+                continue;
+            }
+        }
         /* ok, we need to open the node */
-        no = nextnode;
-        continue;
+        no = current->nextnode;
     }
 
     return numcand;

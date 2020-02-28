@@ -39,7 +39,7 @@ static void set_init_hsml(ForceTree * Tree)
         int no = force_get_father(i, Tree);
 
         double DesNumNgb = GetNumNgb(GetDensityKernelType());
-        while(10 * DesNumNgb * P[i].Mass > Tree->Nodes[no].u.d.mass)
+        while(10 * DesNumNgb * P[i].Mass > Tree->Nodes[no].mom.mass)
         {
             int p = force_get_father(no, Tree);
 
@@ -50,7 +50,7 @@ static void set_init_hsml(ForceTree * Tree)
         }
 
         P[i].Hsml =
-            pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / (Tree->Nodes[no].u.d.mass),
+            pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / (Tree->Nodes[no].mom.mass),
                     1.0 / 3) * Tree->Nodes[no].len;
     }
 }
@@ -109,8 +109,10 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     ddecomp.TopLeaves[0].topnode = PartManager->MaxPart;
 
     ForceTree tree = {0};
-    force_tree_rebuild(&tree, &ddecomp, BoxSize, 0, NULL);
+    force_tree_rebuild(&tree, &ddecomp, BoxSize, 0, 1, NULL);
     set_init_hsml(&tree);
+    /* Rebuild without moments to check it works*/
+    force_tree_rebuild(&tree, &ddecomp, BoxSize, 0, 0, NULL);
     /*Time doing the density finding*/
     double start, end;
     start = MPI_Wtime();
