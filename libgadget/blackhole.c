@@ -87,10 +87,11 @@ struct BHPriv {
     /* Temporary array to store the IDs of the swallowing black hole for gas.
      * We store ID + 1 so that SwallowID == 0 can correspond to the unswallowed case. */
     MyIDType * SPH_SwallowID;
-    /* These are temporaries used in the accretion treewalk*/
-    MyFloat * MinPot;
+    /* These are temporaries used in the accretion treewalk.*/
     MyFloat * BH_Entropy;
     MyFloat (*BH_SurroundingGasVel)[3];
+    /* NULL if repositioning is not enabled*/
+    MyFloat * MinPot;
 
     /* These are temporaries used in the feedback treewalk.*/
     MyFloat * BH_accreted_Mass;
@@ -103,6 +104,7 @@ struct BHPriv {
     /* Counters*/
     int64_t * N_sph_swallowed;
     int64_t * N_BH_swallowed;
+
 };
 #define BH_GET_PRIV(tw) ((struct BHPriv *) (tw->priv))
 
@@ -268,7 +270,7 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
 
 
 void
-blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FILE * FdBlackholeDetails)
+blackhole(int Reposition, const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FILE * FdBlackholeDetails)
 {
     if(!All.BlackHoleOn)
         return;
@@ -289,7 +291,8 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     tw_accretion->ngbiter = (TreeWalkNgbIterFunction) blackhole_accretion_ngbiter;
     tw_accretion->haswork = blackhole_accretion_haswork;
     tw_accretion->postprocess = (TreeWalkProcessFunction) blackhole_accretion_postprocess;
-    tw_accretion->preprocess = (TreeWalkProcessFunction) blackhole_accretion_preprocess;
+    if(Reposition)
+        tw_accretion->preprocess = (TreeWalkProcessFunction) blackhole_accretion_preprocess;
     tw_accretion->fill = (TreeWalkFillQueryFunction) blackhole_accretion_copy;
     tw_accretion->reduce = (TreeWalkReduceResultFunction) blackhole_accretion_reduce;
     tw_accretion->query_type_elsize = sizeof(TreeWalkQueryBHAccretion);
@@ -322,7 +325,8 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     priv->BH_FeedbackWeightSum = mymalloc("BH_FeedbackWeightSum", SlotsManager->info[5].size * sizeof(MyFloat));
 
     /* These are initialized in preprocess and used to reposition the BH in postprocess*/
-    priv->MinPot = mymalloc("BH_MinPot", SlotsManager->info[5].size * sizeof(MyFloat));
+    if(Reposition)
+        priv->MinPot = mymalloc("BH_MinPot", SlotsManager->info[5].size * sizeof(MyFloat));
 
     /* Local to this treewalk*/
     priv->BH_Entropy = mymalloc("BH_Entropy", SlotsManager->info[5].size * sizeof(MyFloat));
@@ -359,7 +363,8 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
 
     myfree(priv->BH_SurroundingGasVel);
     myfree(priv->BH_Entropy);
-    myfree(priv->MinPot);
+    if(priv->MinPot)
+        myfree(priv->MinPot);
 
     myfree(priv->BH_FeedbackWeightSum);
     myfree(priv->SPH_SwallowID);
@@ -470,10 +475,12 @@ static void
 blackhole_accretion_preprocess(int n, TreeWalk * tw)
 {
     int j;
-    BH_GET_PRIV(tw)->MinPot[P[n].PI] = P[n].Potential;
+    if(BH_GET_PRIV(tw)->MinPot) {
+        BH_GET_PRIV(tw)->MinPot[P[n].PI] = P[n].Potential;
 
-    for(j = 0; j < 3; j++) {
-        BHP(n).MinPotPos[j] = P[n].Pos[j];
+        for(j = 0; j < 3; j++) {
+            BHP(n).MinPotPos[j] = P[n].Pos[j];
+        }
     }
 }
 
@@ -527,10 +534,11 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     }
 
      /* BH does not accrete wind */
-    if(winds_is_particle_decoupled(other)) return;
+    if(winds_is_particle_decoupled(other))
+        return;
 
-    /* Find the black hole potential minimum. */
-    if(r2 < iter->accretion_kernel.HH)
+    /* Find the black hole potential minimum if repositioning is enabled. */
+    if(BH_GET_PRIV(lv->tw)->MinPot && (r2 < iter->accretion_kernel.HH))
     {
         if(P[other].Potential < O->BH_MinPot)
         {
@@ -544,7 +552,8 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     }
 
     /* Accretion / merger doesn't do self interaction */
-    if(P[other].ID == I->ID) return;
+    if(P[other].ID == I->ID)
+        return;
 
     if(P[other].Type == 5 && r2 < iter->accretion_kernel.HH)	/* we have a black hole merger */
     {
@@ -777,7 +786,7 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     int k;
     MyFloat * MinPot = BH_GET_PRIV(tw)->MinPot;
     int PI = P[place].PI;
-    if(MinPot[PI] > remote->BH_MinPot)
+    if(MinPot && MinPot[PI] > remote->BH_MinPot)
     {
         BHP(place).JumpToMinPot = 1;
         MinPot[PI] = remote->BH_MinPot;
