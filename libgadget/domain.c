@@ -157,7 +157,7 @@ void domain_decompose_full(DomainDecomp * ddecomp)
 
     if (Npolicies == 0) {
         const int NincreaseAlloc = 16;
-        Npolicies = domain_policies_init(policies, NincreaseAlloc, 8);
+        Npolicies = domain_policies_init(policies, NincreaseAlloc, 4);
     }
 
     walltime_measure("/Misc");
@@ -256,23 +256,22 @@ domain_policies_init(DomainDecompositionPolicy policies[],
     int i;
     for(i = 0; i < NincreaseAlloc; i ++) {
         policies[i].TopNodeAllocFactor = domain_params.TopNodeAllocFactor * pow(1.3, i);
-        policies[i].UseGlobalSort = domain_params.DomainUseGlobalSorting;
-        /* The extent of the global sorting may be different from the extent of the Domain communicator*/
-        policies[i].GlobalSortComm = MPI_COMM_WORLD;
-        policies[i].PreSort = 0;
-        policies[i].SubSampleDistance = 16;
-        /* Desired number of TopLeaves should scale like the total number of processors*/
-        policies[i].NTopLeaves = domain_params.DomainOverDecompositionFactor * NTask;
-    }
-
-    for(i = SwitchToGlobal; i < NincreaseAlloc; i ++) {
         /* global sorting is slower than a local sorting, but tends to produce a more
          * balanced domain tree that is easier to merge.
          * */
-        policies[i].UseGlobalSort = 1;
+        policies[i].UseGlobalSort = domain_params.DomainUseGlobalSorting;
+        if(i >= SwitchToGlobal)
+            policies[i].UseGlobalSort = 1;
+        /* The extent of the global sorting may be different from the extent of the Domain communicator*/
+        policies[i].GlobalSortComm = MPI_COMM_WORLD;
         /* global sorting of particles is slow, so we add a slower presort to even the local
          * particle distribution before subsampling, improves the balance, too */
-        policies[i].PreSort = 1;
+        policies[i].PreSort = 0;
+        if(i >= 1)
+            policies[i].PreSort = 1;
+        policies[i].SubSampleDistance = 16;
+        /* Desired number of TopLeaves should scale like the total number of processors*/
+        policies[i].NTopLeaves = domain_params.DomainOverDecompositionFactor * NTask;
     }
 
     return NincreaseAlloc;
