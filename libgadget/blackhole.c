@@ -226,7 +226,7 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
 
         int PI = P[p_i].PI;
 
-        struct BHinfo info;
+        struct BHinfo info = {0};
         info.ID = P[p_i].ID;
         info.Mass = BHP(p_i).Mass;
         info.Mdot = BHP(p_i).Mdot;
@@ -236,7 +236,9 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
         info.MinPotPos[1] = BHP(p_i).MinPotPos[1];
         info.MinPotPos[2] = BHP(p_i).MinPotPos[2];
 
-        info.MinPot = priv->MinPot[PI];
+        if(priv->MinPot) {
+            info.MinPot = priv->MinPot[PI];
+        }
         info.BH_Entropy = priv->BH_Entropy[PI];
         info.BH_SurroundingGasVel[0] = priv->BH_SurroundingGasVel[PI][0];
         info.BH_SurroundingGasVel[1] = priv->BH_SurroundingGasVel[PI][1];
@@ -283,7 +285,7 @@ blackhole(int Reposition, const ActiveParticles * act, ForceTree * tree, FILE * 
 
     walltime_measure("/Misc");
     TreeWalk tw_accretion[1] = {{0}};
-    struct BHPriv priv[1];
+    struct BHPriv priv[1] = {0};
 
     tw_accretion->ev_label = "BH_ACCRETION";
     tw_accretion->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
