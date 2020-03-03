@@ -232,9 +232,9 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
         info.Mdot = BHP(p_i).Mdot;
         info.Density = BHP(p_i).Density;
         info.minTimeBin = BHP(p_i).minTimeBin;
-        info.MinPotPos[0] = BHP(p_i).MinPotPos[0];
-        info.MinPotPos[1] = BHP(p_i).MinPotPos[1];
-        info.MinPotPos[2] = BHP(p_i).MinPotPos[2];
+        info.MinPotPos[0] = BHP(p_i).MinPotPos[0] - PartManager->CurrentParticleOffset[0];
+        info.MinPotPos[1] = BHP(p_i).MinPotPos[1] - PartManager->CurrentParticleOffset[1];
+        info.MinPotPos[2] = BHP(p_i).MinPotPos[2] - PartManager->CurrentParticleOffset[2];
 
         if(priv->MinPot) {
             info.MinPot = priv->MinPot[PI];
