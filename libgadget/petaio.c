@@ -864,8 +864,22 @@ SIMPLE_PROPERTY_PI(BlackholeAccretionRate, Mdot, float, 1, struct bh_particle_da
 SIMPLE_PROPERTY_PI(BlackholeProgenitors, CountProgs, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeSwallowID, SwallowID, uint64_t, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeSwallowTime, SwallowTime, float, 1, struct bh_particle_data)
-SIMPLE_PROPERTY_PI(BlackholeMinPotPos, MinPotPos[0], double, 3, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeJumpToMinPot, JumpToMinPot, int, 1, struct bh_particle_data)
+
+SIMPLE_SETTER_PI(STBlackholeMinPotPos , MinPotPos[0], double, 3, struct bh_particle_data)
+static void GTBlackholeMinPotPos(int i, double * out, void * baseptr, void * smanptr) {
+    /* Remove the particle offset before saving*/
+    struct particle_data * part = (struct particle_data *) baseptr;
+    int PI = part[i].PI;
+    struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[5]);
+    struct bh_particle_data * sl = (struct bh_particle_data *) info->ptr;
+    int d;
+    for(d = 0; d < 3; d ++) {
+        out[d] = sl[PI].MinPotPos[d] - PartManager->CurrentParticleOffset[d];
+        while(out[d] > All.BoxSize) out[d] -= All.BoxSize;
+        while(out[d] <= 0) out[d] += All.BoxSize;
+    }
+}
 
 /*This is only used if FoF is enabled*/
 SIMPLE_GETTER(GTGroupID, GrNr, uint32_t, 1, struct particle_data)
