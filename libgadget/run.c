@@ -261,10 +261,8 @@ run(int RestartSnapNum)
                 didfof = 1;
             }
 
-            /* Black hole accretion and feedback:
-             * black hole repositioning only takes place on a PM timestep because
-             * that is the only time the full potential is computed. */
-            blackhole(is_PM, &Act, &Tree, FdBlackHoles, FdBlackholeDetails);
+            /* Black hole accretion and feedback */
+            blackhole(&Act, &Tree, FdBlackHoles, FdBlackholeDetails);
 
             /**** radiative cooling and star formation *****/
             cooling_and_starformation(&Act, &Tree, FdSfr);

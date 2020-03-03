@@ -15,11 +15,11 @@ enum BlackHoleFeedbackMethod {
 void set_blackhole_params(ParameterSet * ps);
 
 /* Does the black hole feedback and accretion.
- * Repositioning to the potential minimum is done if Reposition is true.
- * This should be enabled only if the potential was computed this step (ie a PM step)
- * tree is a valid ForceTree. The last two are file handles for output.
+ * TimeNextSeedingCheck is the time of the BH next seeding check.
+ * It will be compared to the current time and updated after seeding takes place.
+ * tree is a valid ForceTree.
  */
-void blackhole(int Reposition, const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FILE * FdBlackholeDetails);
+void blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FILE * FdBlackholeDetails);
 
 /* Make a black hole from the particle at index*/
 void blackhole_make_one(int index);
