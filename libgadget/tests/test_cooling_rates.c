@@ -252,11 +252,69 @@ static void test_heatingcooling_rate(void ** state)
     assert_true(fabs(LambdaNet/ (-1.64834) - 1) < 1e-3);
 }
 
+
+/* This test checks that the heating and cooling rate is as expected.
+ * In particular the physical density threshold is checked. */
+static void test_heatingcooling_rate_sherwood(void ** state)
+{
+    struct cooling_params coolpar = get_test_coolpar();
+    coolpar.recomb = Verner96;
+    coolpar.cooling = Sherwood;
+//     coolpar.recomb = Cen92;
+//     coolpar.cooling = KWH92;
+
+    coolpar.SelfShieldingOn = 0;
+    coolpar.MinGasTemp = 0;
+
+    const char * TreeCool = GADGET_TESTDATA_ROOT "/examples/TREECOOL_ep_2018p";
+    const char * MetalCool = "";
+
+    /*unit system*/
+    double HubbleParam = 0.679;
+    Cosmology CP = {0};
+    CP.OmegaCDM = 0.264;
+    CP.OmegaBaryon = coolpar.fBar * CP.OmegaCDM;
+    CP.HubbleParam = HubbleParam;
+
+    set_coolpar(coolpar);
+    init_cooling_rates(TreeCool, MetalCool, &CP);
+
+    /* temp at mean cosmological density */
+    double rhocb = CP.OmegaBaryon * 3.0 * pow(CP.HubbleParam*HUBBLE,2.0) /(8.0*M_PI*GRAVITY)/PROTONMASS;
+    double ne = rhocb;
+
+    /* Loop over redshift*/
+    /* Now check that we get the desired cooling rate with a UVB*/
+    struct UVBG uvbg = get_global_UVBG(2);
+    double ienergy = 2.105e12;
+    double temp = get_temp(rhocb, ienergy, 1 - HYDROGEN_MASSFRAC, &uvbg, &ne);
+    int i;
+    FILE * fd = fopen("cooling_rates_sherwood.txt", "w");
+    fprintf(fd, "#density = %g temp = %g\n", rhocb, temp);
+    fprintf(fd, "#zz LambdaNet Heat FF Collis Recomb Cmptn temp ne\n");
+    for(i = 0; i < 500; i++)
+    {
+        double zz = i * 6./ 500.;
+        struct UVBG uvbg = get_global_UVBG(zz);
+        double dens = rhocb * pow(1+zz,3);
+        double LambdaNet = get_heatingcooling_rate(dens, ienergy, 1 - HYDROGEN_MASSFRAC, zz, 0, &uvbg, &ne);
+        double LambdaCmptn = get_compton_cooling(dens, ienergy, 1 - HYDROGEN_MASSFRAC, zz, ne);
+        double LambdaCollis = get_individual_cooling(COLLIS, dens, ienergy, 1 - HYDROGEN_MASSFRAC, &uvbg, &ne);
+        double LambdaRecomb = get_individual_cooling(RECOMB, dens, ienergy, 1 - HYDROGEN_MASSFRAC, &uvbg, &ne);
+        double LambdaFF = get_individual_cooling(FREEFREE, dens, ienergy, 1 - HYDROGEN_MASSFRAC, &uvbg, &ne);
+        double Heat = get_individual_cooling(HEAT, dens, ienergy, 1 - HYDROGEN_MASSFRAC, &uvbg, &ne);
+        double temp = get_temp(dens, ienergy, 1 - HYDROGEN_MASSFRAC, &uvbg, &ne);
+        fprintf(fd, "%g %g %g %g %g %g %g %g %g\n",zz, LambdaNet, Heat, LambdaFF, LambdaCollis, LambdaRecomb, LambdaCmptn, temp, ne);
+    }
+    fclose(fd);
+}
+
 int main(void) {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_recomb_rates),
         cmocka_unit_test(test_rate_network),
         cmocka_unit_test(test_heatingcooling_rate),
+        cmocka_unit_test(test_heatingcooling_rate_sherwood),
         cmocka_unit_test(test_uvbg_loader)
     };
     return cmocka_run_group_tests_mpi(tests, NULL, NULL);

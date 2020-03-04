@@ -91,6 +91,19 @@ double get_ne_by_nh(double density, double ienergy, double helium, const struct 
  */
 double get_heatingcooling_rate(double density, double ienergy, double helium, double redshift, double metallicity, const struct UVBG * uvbg, double * ne_equilib);
 
+enum CoolProcess {
+    RECOMB,
+    COLLIS,
+    FREEFREE,
+    HEAT
+};
+
+/* As above but returns only the specified heating rate. */
+double get_individual_cooling(enum CoolProcess process, double density, double ienergy, double helium, const struct UVBG * uvbg, double *ne_equilib);
+
+/* As above but returns only the Compton cooling. */
+double get_compton_cooling(double density, double ienergy, double helium, double redshift, double nebynh);
+
 /*Get the neutral hydrogen fraction at a given temperature and density.
 density is gas density in protons/cm^3
 Internal energy is in J/kg == 10^-10 ergs/g.

@@ -1021,6 +1021,69 @@ init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, Cosmol
     InitMetalCooling(MetalCoolFile);
 }
 
+/* Split out the Compton cooling*/
+double
+get_compton_cooling(double density, double ienergy, double helium, double redshift, double nebynh)
+{
+    double nh = density * (1 - helium);
+    double temp = get_temp_internal(nebynh, ienergy, helium);
+    /*Compton cooling in erg/s cm^3*/
+    double LambdaCmptn = -1*nebynh * cool_InverseCompton(temp, redshift) / nh;
+    return LambdaCmptn * pow(1 - helium, 2) * density / PROTONMASS;
+}
+
+/* Get an individual cooling or heating process. For tests.
+ */
+double
+get_individual_cooling(enum CoolProcess process, double density, double ienergy, double helium, const struct UVBG * uvbg, double *ne_equilib)
+{
+    double logt;
+    double ne = get_equilib_ne(density, ienergy, helium, &logt, uvbg, *ne_equilib);
+    double nh = density * (1 - helium);
+    double nebynh = ne/nh;
+    /*Faster than running the exp.*/
+    double temp = get_temp_internal(nebynh, ienergy, helium);
+    double photofac = self_shield_corr(nh, logt, uvbg->self_shield_dens);
+    double nH0 = nH0_internal(logt, ne, uvbg, photofac);
+    double nHp = nHp_internal(nH0);
+    /*The helium number fraction*/
+    double yy = helium / 4 / (1 - helium);
+    struct he_ions He = nHe_internal(nh, logt, ne, uvbg, photofac);
+    /*Put the abundances in units of nH to avoid underflows*/
+    He.nHep*= yy/nh;
+    He.nHe0*= yy/nh;
+    He.nHepp*= yy/nh;
+
+    /*Compton cooling in erg/s cm^3*/
+    double Lambda = 0;
+
+    if(process == FREEFREE) {
+        double cff = get_interpolated_recomb(logt, cool_freefree1, cool_FreeFree1);
+        if(CoolingParams.cooling == Enzo2Nyx) {
+            Lambda = -1*nebynh * (cff * (nHp + He.nHep) + cool_FreeFree(temp, 2) * He.nHepp);
+        } else {
+            /*The factor of (zz=2)^2 has been pulled out, so if we use the Spitzer gaunt factor we don't need
+            * to call the FreeFree function again.*/
+            Lambda = -1*nebynh * (cff * (nHp + He.nHep) + 4 * cff * He.nHepp);
+        }
+    } else if(process == HEAT) {
+            /*Total heating rate per proton in erg/s cm^3*/
+            Lambda = (nH0 * uvbg->epsH0 + He.nHe0 * uvbg->epsHe0 + He.nHep * uvbg->epsHep)/nh;
+    }
+    else if(process == RECOMB) {
+        Lambda = -1*nebynh * (get_interpolated_recomb(logt, cool_recombHp, cool_RecombHp) * nHp +
+            get_interpolated_recomb(logt, cool_recombHeP, cool_RecombHeP) * He.nHep +
+            get_interpolated_recomb(logt, cool_recombHePP, cool_RecombHePP) * He.nHepp);
+    }
+    else if(process == COLLIS) {
+        Lambda = -1*nebynh * (get_interpolated_recomb(logt, cool_collisH0, cool_CollisionalH0) * nH0 +
+            get_interpolated_recomb(logt, cool_collisHe0, cool_CollisionalHe0) * He.nHe0 +
+            get_interpolated_recomb(logt, cool_collisHeP, cool_CollisionalHeP) * He.nHep);
+    }
+
+    return Lambda * pow(1 - helium, 2) * density / PROTONMASS;
+}
+
 /*Get the total change in internal energy per unit time in erg/s/g for a given temperature (internal energy) and density.
   density is total gas density in protons/cm^3
   Internal energy is in ergs/g.
