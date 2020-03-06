@@ -4,7 +4,6 @@ chmod +x miniconda.sh
 export PATH=$HOME/miniconda/bin:$PATH
 conda update --yes conda
 conda create --yes -n test python=3.6
-source $HOME/miniconda/bin/activate test
+source activate test
 conda install --yes -c bccp nbodykit matplotlib numpy
-
 

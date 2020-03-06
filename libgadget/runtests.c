@@ -90,7 +90,7 @@ void runtests(int RestartSnapNum)
     init(RestartSnapNum, ddecomp);          /* ... read in initial model */
 
     struct IOTable IOTable = {0};
-    register_io_blocks(&IOTable);
+    register_io_blocks(&IOTable, 0);
     register_extra_blocks(&IOTable);
 
     int NTask;
@@ -99,9 +99,9 @@ void runtests(int RestartSnapNum)
     rebuild_activelist(&Act, All.Ti_Current, 0);
 
     ForceTree Tree = {0};
-    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1);
+    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1, 1, All.OutputDir);
     gravpm_force(&pm, &Tree);
-    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1);
+    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1, 1, All.OutputDir);
 
     struct gravshort_tree_params origtreeacc = get_gravshort_treepar();
     struct gravshort_tree_params treeacc = origtreeacc;
@@ -164,9 +164,9 @@ void runtests(int RestartSnapNum)
     treeacc = origtreeacc;
     force_tree_free(&Tree);
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh/2., All.G);
-    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1);
+    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1, 1, All.OutputDir);
     gravpm_force(&pm, &Tree);
-    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1);
+    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1, 1, All.OutputDir);
     set_gravshort_treepar(treeacc);
     grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
     grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
@@ -193,8 +193,8 @@ runfof(int RestartSnapNum)
     ForceTree Tree = {0};
     /*FoF needs a tree*/
     int HybridNuGrav = All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime;
-    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav);
-    FOFGroups fof = fof_fof(&Tree, All.BoxSize, All.BlackHoleOn, MPI_COMM_WORLD);
+    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, 0, All.OutputDir);
+    FOFGroups fof = fof_fof(&Tree, MPI_COMM_WORLD);
     force_tree_free(&Tree);
     fof_save_groups(&fof, RestartSnapNum, MPI_COMM_WORLD);
     fof_finish(&fof);

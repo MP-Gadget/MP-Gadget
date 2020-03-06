@@ -5,11 +5,11 @@
 #include <math.h>
 #include <gsl/gsl_math.h>
 
-
-#include "allvars.h"
+#include "physconst.h"
+#include "walltime.h"
 #include "slotsmanager.h"
 #include "treewalk.h"
-#include "densitykernel.h"
+#include "density.h"
 #include "hydra.h"
 #include "winds.h"
 #include "utils.h"
@@ -22,9 +22,38 @@
  *  (via artificial viscosity) is computed.
  */
 
+static struct hydro_params
+{
+    /* Enables density independent (Pressure-entropy) SPH */
+    int DensityIndependentSphOn;
+    /* limit of density contrast ratio for hydro force calculation (only effective with Density Indep. Sph) */
+    double DensityContrastLimit;
+    /*!< Sets the parameter \f$\alpha\f$ of the artificial viscosity */
+    double ArtBulkViscConst;
+} HydroParams;
+
+/*Set the parameters of the hydro module*/
+void
+set_hydro_params(ParameterSet * ps)
+{
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask == 0) {
+        HydroParams.ArtBulkViscConst = param_get_double(ps, "ArtBulkViscConst");
+        HydroParams.DensityContrastLimit = param_get_double(ps, "DensityContrastLimit");
+        HydroParams.DensityIndependentSphOn= param_get_int(ps, "DensityIndependentSphOn");
+    }
+    MPI_Bcast(&HydroParams, sizeof(struct hydro_params), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
+
+int DensityIndependentSphOn(void)
+{
+    return HydroParams.DensityIndependentSphOn;
+}
+
 MyFloat SPH_EOMDensity(int i)
 {
-    if(All.DensityIndependentSphOn)
+    if(HydroParams.DensityIndependentSphOn)
         return SPHP(i).EgyWtDensity;
     else
         return SPHP(i).Density;
@@ -34,7 +63,7 @@ static double
 PressurePred(int PI)
 {
     MyFloat EOMDensity;
-    if(All.DensityIndependentSphOn)
+    if(HydroParams.DensityIndependentSphOn)
         EOMDensity = SphP[PI].EgyWtDensity;
     else
         EOMDensity = SphP[PI].Density;
@@ -47,6 +76,10 @@ struct HydraPriv {
      * they need an expensive pow().*/
     double fac_mu;
     double fac_vsic_fix;
+    double HydroCostFactor;
+    double hubble_a2;
+    double atime;
+    int WindOn;
 };
 
 #define HYDRA_GET_PRIV(tw) ((struct HydraPriv*) ((tw)->priv))
@@ -108,11 +141,10 @@ hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mo
  *  force and rate of change of entropy due to shock heating for all active
  *  particles .
  */
-void hydro_force(const ActiveParticles * act, ForceTree * tree)
+void
+hydro_force(const ActiveParticles * act, int WindOn, const double HydroCostFactor, const double hubble, const double atime, ForceTree * tree)
 {
     int i;
-    if(!All.HydroOn)
-        return;
     TreeWalk tw[1] = {{0}};
 
     struct HydraPriv priv[1];
@@ -130,6 +162,8 @@ void hydro_force(const ActiveParticles * act, ForceTree * tree)
     tw->tree = tree;
     tw->priv = priv;
 
+    if(!tree->hmax_computed_flag)
+        endrun(5, "Hydro called before hmax computed\n");
     /* Cache the pressure for speed*/
     HYDRA_GET_PRIV(tw)->PressurePred = (double *) mymalloc("PressurePred", SlotsManager->info[0].size * sizeof(double));
 
@@ -143,8 +177,12 @@ void hydro_force(const ActiveParticles * act, ForceTree * tree)
     walltime_measure("/Misc");
 
     /* Initialize some time factors*/
-    HYDRA_GET_PRIV(tw)->fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
-    HYDRA_GET_PRIV(tw)->fac_vsic_fix = All.cf.hubble * pow(All.cf.a, 3 * GAMMA_MINUS1);
+    HYDRA_GET_PRIV(tw)->fac_mu = pow(atime, 3 * (GAMMA - 1) / 2) / atime;
+    HYDRA_GET_PRIV(tw)->fac_vsic_fix = hubble * pow(atime, 3 * GAMMA_MINUS1);
+    HYDRA_GET_PRIV(tw)->HydroCostFactor = HydroCostFactor * atime;
+    HYDRA_GET_PRIV(tw)->WindOn = WindOn;
+    HYDRA_GET_PRIV(tw)->atime = atime;
+    HYDRA_GET_PRIV(tw)->hubble_a2 = hubble * atime * atime;
 
     treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
 
@@ -175,7 +213,7 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
     input->Mass = P[place].Mass;
     input->Density = SPHP(place).Density;
 
-    if(All.DensityIndependentSphOn) {
+    if(HydroParams.DensityIndependentSphOn) {
         input->EgyRho = SPHP(place).EgyWtDensity;
         input->EntVarPred = SphP_scratch->EntVarPred[P[place].PI];
     }
@@ -203,8 +241,6 @@ hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mo
 
     TREEWALK_REDUCE(SPHP(place).DtEntropy, result->DtEntropy);
 
-    P[place].GravCost += All.HydroCostFactor * All.cf.a * result->Ninteractions;
-
     if(mode == TREEWALK_PRIMARY || SPHP(place).MaxSignalVel < result->MaxSignalVel)
         SPHP(place).MaxSignalVel = result->MaxSignalVel;
 
@@ -227,7 +263,7 @@ hydro_ngbiter(
         iter->base.mask = 1;
         iter->base.symmetric = NGB_TREEFIND_SYMMETRIC;
 
-        if(All.DensityIndependentSphOn)
+        if(HydroParams.DensityIndependentSphOn)
             iter->soundspeed_i = sqrt(GAMMA * I->Pressure / I->EgyRho);
         else
             iter->soundspeed_i = sqrt(GAMMA * I->Pressure / I->Density);
@@ -235,9 +271,9 @@ hydro_ngbiter(
         /* initialize variables before SPH loop is started */
 
         O->Acc[0] = O->Acc[1] = O->Acc[2] = O->DtEntropy = 0;
-        density_kernel_init(&iter->kernel_i, I->Hsml, All.DensityKernelType);
+        density_kernel_init(&iter->kernel_i, I->Hsml, GetDensityKernelType());
 
-        if(All.DensityIndependentSphOn)
+        if(HydroParams.DensityIndependentSphOn)
             iter->p_over_rho2_i = I->Pressure / (I->EgyRho * I->EgyRho);
         else
             iter->p_over_rho2_i = I->Pressure / (I->Density * I->Density);
@@ -256,12 +292,18 @@ hydro_ngbiter(
                   " We haven't implemented tracer particles and this shall not happen\n");
     }
 
+    /* Wind particles do not interact hydrodynamically: don't produce hydro acceleration
+     * or change the signalvel.*/
+    if(HYDRA_GET_PRIV(lv->tw)->WindOn && winds_is_particle_decoupled(other))
+        return;
+
     DensityKernel kernel_j;
 
-    density_kernel_init(&kernel_j, P[other].Hsml, All.DensityKernelType);
+    density_kernel_init(&kernel_j, P[other].Hsml, GetDensityKernelType());
 
     if(r2 > 0 && (r2 < iter->kernel_i.HH || r2 < kernel_j.HH))
     {
+
         double Pressure_j = HYDRA_GET_PRIV(lv->tw)->PressurePred[P[other].PI];
         double p_over_rho2_j = Pressure_j / (SPH_EOMDensity(other) * SPH_EOMDensity(other));
         double soundspeed_j = sqrt(GAMMA * Pressure_j / SPH_EOMDensity(other));
@@ -273,7 +315,7 @@ hydro_ngbiter(
         }
 
         double vdotr = dotproduct(dist, dv);
-        double vdotr2 = vdotr + All.cf.hubble_a2 * r2;
+        double vdotr2 = vdotr + HYDRA_GET_PRIV(lv->tw)->hubble_a2 * r2;
 
         double dwk_i = density_kernel_dwk(&iter->kernel_i, r * iter->kernel_i.Hinv);
         double dwk_j = density_kernel_dwk(&kernel_j, r * kernel_j.Hinv);
@@ -298,7 +340,7 @@ hydro_ngbiter(
                     SPHP(other).CurlVel + 0.0001 * soundspeed_j / HYDRA_GET_PRIV(lv->tw)->fac_mu / P[other].Hsml);
 
             /*Gadget-2 paper, eq. 14*/
-            visc = 0.25 * All.ArtBulkViscConst * vsig * (-mu_ij) / rho_ij * (I->F1 + f2);
+            visc = 0.25 * HydroParams.ArtBulkViscConst * vsig * (-mu_ij) / rho_ij * (I->F1 + f2);
             /* .... end artificial viscosity evaluation */
             /* now make sure that viscous acceleration is not too large */
 
@@ -312,11 +354,11 @@ hydro_ngbiter(
                 }
             }
         }
-        double hfc_visc = 0.5 * P[other].Mass * visc * (dwk_i + dwk_j) / r;
+        const double hfc_visc = 0.5 * P[other].Mass * visc * (dwk_i + dwk_j) / r;
         double hfc = hfc_visc;
         double r1 = 1, r2 = 1;
 
-        if(All.DensityIndependentSphOn) {
+        if(HydroParams.DensityIndependentSphOn) {
             /*This enables the grad-h corrections*/
             r1 = 0, r2 = 0;
             /* leading-order term */
@@ -327,13 +369,13 @@ hydro_ngbiter(
                 dwk_j*p_over_rho2_j*I->EntVarPred/EntOther) / r;
 
             /* enable grad-h corrections only if contrastlimit is non negative */
-            if(All.DensityContrastLimit >= 0) {
+            if(HydroParams.DensityContrastLimit >= 0) {
                 r1 = I->EgyRho / I->Density;
                 r2 = SPHP(other).EgyWtDensity / SPHP(other).Density;
-                if(All.DensityContrastLimit > 0) {
+                if(HydroParams.DensityContrastLimit > 0) {
                     /* apply the limit if it is enabled > 0*/
-                    r1 = DMIN(r1, All.DensityContrastLimit);
-                    r2 = DMIN(r2, All.DensityContrastLimit);
+                    r1 = DMIN(r1, HydroParams.DensityContrastLimit);
+                    r2 = DMIN(r2, HydroParams.DensityContrastLimit);
                 }
             }
         }
@@ -342,11 +384,6 @@ hydro_ngbiter(
         /* Formulation derived from the Lagrangian */
         hfc += P[other].Mass * (iter->p_over_rho2_i*I->SPH_DhsmlDensityFactor * dwk_i * r1
                  + p_over_rho2_j*SPHP(other).DhsmlEgyDensityFactor * dwk_j * r2) / r;
-
-        /* No force by wind particles */
-        if(All.WindOn && winds_is_particle_decoupled(other)) {
-            hfc = hfc_visc = 0;
-        }
 
         for(d = 0; d < 3; d ++)
             O->Acc[d] += (-hfc * dist[d]);
@@ -369,12 +406,12 @@ hydro_postprocess(int i, TreeWalk * tw)
     if(P[i].Type == 0)
     {
         /* Translate energy change rate into entropy change rate */
-        SPHP(i).DtEntropy *= GAMMA_MINUS1 / (All.cf.hubble_a2 * pow(SPH_EOMDensity(i), GAMMA_MINUS1));
+        SPHP(i).DtEntropy *= GAMMA_MINUS1 / (HYDRA_GET_PRIV(tw)->hubble_a2 * pow(SPH_EOMDensity(i), GAMMA_MINUS1));
 
         /* if we have winds, we decouple particles briefly if delaytime>0 */
-        if(All.WindOn && winds_is_particle_decoupled(i))
+        if(HYDRA_GET_PRIV(tw)->WindOn && winds_is_particle_decoupled(i))
         {
-            winds_decoupled_hydro(i, All.cf.a);
+            winds_decoupled_hydro(i, HYDRA_GET_PRIV(tw)->atime);
         }
     }
 }

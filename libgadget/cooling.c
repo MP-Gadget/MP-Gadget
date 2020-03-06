@@ -21,33 +21,53 @@
 #include <string.h>
 #include <math.h>
 #include <bigfile.h>
-
 #include "utils/endrun.h"
 #include "utils/mymalloc.h"
 #include "utils/interp.h"
 #include "physconst.h"
 #include "cooling.h"
 #include "cooling_rates.h"
+#include "cooling_qso_lightup.h"
 
 static struct cooling_units coolunits;
 
 /*Do initialisation for the cooling module*/
-void init_cooling(char * TreeCoolFile, char * MetalCoolFile, char * UVFluctuationFile, struct cooling_units cu, Cosmology * CP)
+void init_cooling(char * TreeCoolFile, char * MetalCoolFile, char * reion_hist_file, struct cooling_units cu, Cosmology * CP)
 {
     coolunits = cu;
 
     /*Initialize the cooling rates*/
     init_cooling_rates(TreeCoolFile, MetalCoolFile, CP);
-    /*Initialize the uv fluctuation table*/
-    init_uvf_table(UVFluctuationFile);
+    /* Initialize the helium reionization model*/
+    init_qso_lightup(reion_hist_file);
 }
 
 #define MAXITER 1000
 
+/* Wrapper function which returns the rate of change of internal energy in units of
+ * erg/s/g. Arguments:
+ * rho: density in protons/cm^3 (physical)
+ * u: internal energy in units of erg/g
+ * Z: metallicity
+ * redshift: redshift
+ * isHeIIIionized: flags whether the particle has been HeII reionized.
+ */
+static double
+get_lambdanet(double rho, double u, double redshift, double Z, struct UVBG * uvbg, double * ne_guess, int isHeIIIionized)
+{
+    double LambdaNet = get_heatingcooling_rate(rho, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
+    if(!isHeIIIionized) {
+        /* get_long_mean_free_path_heating returns the heating in units of erg/s/cm^3,
+         * the factor of rho converts to erg/s/proton and then PROTONMASS to erg/s/g */
+        LambdaNet += get_long_mean_free_path_heating(redshift)  / (rho  * PROTONMASS);
+    }
+    return LambdaNet;
+}
+
 /* returns new internal energy per unit mass.
  * Arguments are passed in code units, density is proper density.
  */
-double DoCooling(double redshift, double u_old, double rho, double dt, struct UVBG * uvbg, double *ne_guess, double Z, double MinEgySpec)
+double DoCooling(double redshift, double u_old, double rho, double dt, struct UVBG * uvbg, double *ne_guess, double Z, double MinEgySpec, int isHeIIIionized)
 {
     if(!coolunits.CoolingOn) return 0;
 
@@ -67,7 +87,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
     u_lower = u;
     u_upper = u;
 
-    LambdaNet = get_heatingcooling_rate(rho, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
+    LambdaNet = get_lambdanet(rho, u, redshift, Z, uvbg, ne_guess, isHeIIIionized);
 
     /* bracketing */
     if(u - u_old - LambdaNet * dt < 0)	/* heating */
@@ -76,7 +96,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
         {
             u_lower = u_upper;
             u_upper *= 1.1;
-        } while(u_upper - u_old - get_heatingcooling_rate(rho, u_upper, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess) * dt < 0);
+        } while(u_upper - u_old - get_lambdanet(rho, u_upper, redshift, Z, uvbg, ne_guess, isHeIIIionized) * dt < 0);
     }
     else
     {
@@ -87,7 +107,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
             if(u_upper <= MinEgySpec) {
                 break;
             }
-        } while(u_lower - u_old - get_heatingcooling_rate(rho, u_lower, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess) * dt > 0);
+        } while(u_lower - u_old - get_lambdanet(rho, u_lower, redshift, Z, uvbg, ne_guess, isHeIIIionized) * dt > 0);
     }
 
     do
@@ -100,7 +120,7 @@ double DoCooling(double redshift, double u_old, double rho, double dt, struct UV
             break;
         }
 
-        LambdaNet = get_heatingcooling_rate(rho, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
+        LambdaNet = get_lambdanet(rho, u, redshift, Z, uvbg, ne_guess, isHeIIIionized);
 
         if(u - u_old - LambdaNet * dt > 0)
         {
@@ -141,6 +161,7 @@ double GetCoolingTime(double redshift, double u_old, double rho, struct UVBG * u
     rho *= coolunits.density_in_phys_cgs / PROTONMASS;
     u_old *= coolunits.uu_in_cgs;
 
+    /* Note: this does not include the long mean free path heating from helium reionization*/
     double LambdaNet = get_heatingcooling_rate(rho, u_old, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
 
     if(LambdaNet >= 0)		/* ups, we have actually heating due to UV background */
@@ -163,4 +184,15 @@ GetNeutralFraction(double u_old, double rho, const struct UVBG * uvbg, double ne
     u_old *= coolunits.uu_in_cgs;
     double nh0 = get_neutral_fraction_phys_cgs(rho, u_old, 1 - HYDROGEN_MASSFRAC, uvbg, &ne_init);
     return nh0;
+}
+
+/*Gets the helium ion fraction from density and internal energy in internal units*/
+double
+GetHeliumIonFraction(int ion, double u_old, double rho, const struct UVBG * uvbg, double ne_init)
+{
+    /* convert to physical cgs units */
+    rho *= coolunits.density_in_phys_cgs / PROTONMASS;
+    u_old *= coolunits.uu_in_cgs;
+    double helium_ion = get_helium_ion_phys_cgs(ion, rho, u_old, 1 - HYDROGEN_MASSFRAC, uvbg, ne_init);
+    return helium_ion;
 }

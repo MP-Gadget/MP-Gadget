@@ -9,8 +9,6 @@
  */
 struct particle_data
 {
-    float GravCost;     /*!< weight factor used for balancing the work-load */
-
     inttime_t Ti_drift;       /*!< current time of the particle position */
     inttime_t Ti_kick;        /*!< current time of the particle momentum */
 
@@ -22,16 +20,18 @@ struct particle_data
         unsigned int Type                 :4;
 
         unsigned int IsGarbage            :1; /* True for a garbage particle. readonly: Use slots_mark_garbage to mark this.*/
-        unsigned int DensityIterationDone :1; /* True if the density-like iterations already finished; */
         unsigned int Swallowed            :1; /* True if the particle is being swallowed; used in BH to determine swallower and swallowee;*/
-        unsigned int spare_0            :1;
-
+        unsigned int spare_1              :1; /*Unused, ensures alignment to a char*/
+        unsigned int spare_2              :1;
         unsigned char Generation; /* How many particles it has spawned; used to generate unique particle ID.
                                      may wrap around with too many SFR/BH if a feedback model goes rogue */
 
         signed char TimeBin; /* Time step bin; -1 for unassigned.*/
         /* To ensure alignment to a 32-bit boundary.*/
-        char spare_1;
+        unsigned char HeIIIionized; /* True if the particle has undergone helium reionization.
+                                     * This could be a bitfield: it isn't because we need to change it in an atomic.
+                                     * Changing a bitfield in an atomic seems to work in OpenMP 5.0 on gcc 9 and icc 18 and 19,
+                                     * so we should be able to make it a bitfield at some point. */
     };
 
     int PI; /* particle property index; used by BH, SPH and STAR.
@@ -47,18 +47,13 @@ struct particle_data
 
     MyFloat Hsml;
 
-    /* The peano key is a hash of the position used in the domain decomposition.
-     * It is slow to generate so we store it here.*/
-    peano_t Key; /* only by domain.c and forcetre.c */
-
+    /* Union these two because they are transients: they are hard to move
+     * to private arrays because they need to travel with the particle during exchange*/
     union {
-        /* the following variables are transients.
-         * FIXME: move them into the corresponding modules! Is it possible? */
-
-        MyFloat NumNgb; /* Number of neighbours; only used in density.c */
-
-        int RegionInd; /* which region the particle belongs to; only by petapm.c */
-
+        /* The peano key is a hash of the position used in the domain decomposition.
+         * It is slow to generate so we store it here.*/
+        peano_t Key; /* only by domain.c and force_tree_rebuild */
+        /* FOF Group number: only has meaning during FOF.*/
         int64_t GrNr;
     };
 
@@ -70,6 +65,10 @@ extern struct part_manager_type {
     int NumPart;
     /*!< Amount of memory we have available for particles locally: maximum size of P array. */
     int MaxPart;
+    /* Random shift applied to the box. This is changed
+     * every domain decomposition to prevent correlated
+     * errors building up in the tree force. */
+    double CurrentParticleOffset[3];
 } PartManager[1];
 
 /*Compatibility define*/
@@ -78,6 +77,11 @@ extern struct part_manager_type {
 /*Allocate memory for the particles*/
 void particle_alloc_memory(int MaxPart);
 
+/* gravitational and hydrodynamical softening lengths (given in terms of an `equivalent' Plummer softening
+    * length)
+    *
+    * five groups of particles are supported 0=gas,1=halo,2=disk,3=bulge,4=stars
+    */
 extern double GravitySofteningTable[6];
 
 static inline double FORCE_SOFTENING(int i)

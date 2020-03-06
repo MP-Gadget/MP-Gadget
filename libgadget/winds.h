@@ -14,7 +14,6 @@ enum WindModel {
     WIND_DECOUPLE_SPH = 2,
     WIND_USE_HALO = 4,
     WIND_FIXED_EFFICIENCY = 8,
-    WIND_ISOTROPIC = 16,
 };
 
 /*Set the parameters of the wind model*/
@@ -27,7 +26,7 @@ void init_winds(double FactorSN, double EgySpecSN, double PhysDensThresh);
 void winds_evolve(int i, double a3inv, double hubble);
 
 /*do the treewalk for the wind model*/
-void winds_and_feedback(int * NewStars, int NumNewStars, ForceTree * tree);
+void winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const double hubble, ForceTree * tree);
 
 /*Make a wind particle at the site of recent star formation.*/
 int winds_make_after_sf(int i, double sm, double atime);

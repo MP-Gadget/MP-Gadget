@@ -5,11 +5,12 @@
 #include <string.h>
 #include <mpi.h>
 #include <libgenic/allvars.h>
+#include <libgenic/proto.h>
 #include <libgadget/physconst.h>
 #include <libgadget/utils.h>
 
 static ParameterSet *
-create_parameters()
+create_parameters(void)
 {
     ParameterSet * ps = parameter_set_new();
 
@@ -32,7 +33,7 @@ create_parameters()
     param_declare_int(ps, "MakeGlassGas", OPTIONAL, -1, "Generate Glass IC for gas instead of Grid IC.");
     param_declare_int(ps, "MakeGlassCDM", OPTIONAL, 0, "Generate Glass IC for CDM instead of Grid IC.");
 
-    param_declare_int(ps, "UnitaryAmplitude", OPTIONAL, 0, "If non-zero, generate unitary gaussians where |g| == 1.0.");
+    param_declare_int(ps, "UnitaryAmplitude", OPTIONAL, 1, "If 0, each Fourier mode in the initial power spectrum is scattered. If 1 each Fourier mode is not scattered and we generate unitary gaussians for the initial phases.");
     param_declare_int(ps, "WhichSpectrum", OPTIONAL, 2, "Type of spectrum, 2 for file ");
     param_declare_double(ps, "Omega_fld", OPTIONAL, 0, "Energy density of dark energy fluid.");
     param_declare_double(ps, "w0_fld", OPTIONAL, -1., "Dark energy equation of state");
@@ -51,7 +52,9 @@ create_parameters()
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255, "CMB temperature in K");
     param_declare_double(ps, "RadiationOn", OPTIONAL, 1, "Include radiation in the background.");
     param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 1, "Snapshots will save peculiar velocities to the Velocity field. If 0, then v/sqrt(a) will be used in the ICs to match Gadget-2, but snapshots will save v * a.");
+    param_declare_int(ps, "SavePrePos", OPTIONAL, 1, "Save the pre-displacement positions in the snapshot.");
     param_declare_int(ps, "InvertPhase", OPTIONAL, 0, "Flip phase for paired simulation");
+    param_declare_int(ps,    "ShowBacktrace", OPTIONAL, 1, "Print a backtrace on crash. Hangs on stampede.");
 
     param_declare_double(ps, "PrimordialAmp", OPTIONAL, 2.215e-9, "Ignored, but used by external CLASS script to set powr spectrum amplitude.");
     param_declare_double(ps, "Sigma8", OPTIONAL, -1, "Renormalise Sigma8 to this number if positive");
@@ -68,132 +71,136 @@ create_parameters()
     return ps;
 }
 
-void read_parameterfile(char *fname)
+void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * ShowBacktrace, double * MaxMemSizePerNode, Cosmology * CP)
 {
 
     /* read parameter file on all processes for simplicty */
-
     ParameterSet * ps = create_parameters();
     char * error;
+    int ThisTask;
 
     if(0 != param_parse_file(ps, fname, &error)) {
-        endrun(0, "Parsing %s failed: %s\n", fname, *error);
+        endrun(0, "Parsing %s failed: %s\n", fname, error);
     }
     if(0 != param_validate(ps, &error)) {
-        endrun(0, "Validation of %s failed: %s\n", fname, *error);
+        endrun(0, "Validation of %s failed: %s\n", fname, error);
     }
 
     message(0, "----------- Running with Parameters ----------\n");
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0)
         param_dump(ps, stdout);
 
     message(0, "----------------------------------------------\n");
 
     /*Cosmology*/
-    All.CP.Omega0 = param_get_double(ps, "Omega0");
-    All.CP.OmegaLambda = param_get_double(ps, "OmegaLambda");
-    All.CP.OmegaBaryon = param_get_double(ps, "OmegaBaryon");
-    All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
-    All.CP.Omega_fld = param_get_double(ps, "Omega_fld");
-    All.CP.w0_fld = param_get_double(ps,"w0_fld");
-    All.CP.wa_fld = param_get_double(ps,"wa_fld");
-    All.CP.Omega_ur = param_get_double(ps, "Omega_ur");
-    if(All.CP.OmegaLambda > 0 && All.CP.Omega_fld > 0)
+    CP->Omega0 = param_get_double(ps, "Omega0");
+    CP->OmegaLambda = param_get_double(ps, "OmegaLambda");
+    CP->OmegaBaryon = param_get_double(ps, "OmegaBaryon");
+    CP->HubbleParam = param_get_double(ps, "HubbleParam");
+    CP->Omega_fld = param_get_double(ps, "Omega_fld");
+    CP->w0_fld = param_get_double(ps,"w0_fld");
+    CP->wa_fld = param_get_double(ps,"wa_fld");
+    CP->Omega_ur = param_get_double(ps, "Omega_ur");
+    if(CP->OmegaLambda > 0 && CP->Omega_fld > 0)
         endrun(0, "Cannot have OmegaLambda and Omega_fld (evolving dark energy) at the same time!\n");
-    All.CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
-    All.CP.RadiationOn = param_get_double(ps, "RadiationOn");
-    All.CP.MNu[0] = param_get_double(ps, "MNue");
-    All.CP.MNu[1] = param_get_double(ps, "MNum");
-    All.CP.MNu[2] = param_get_double(ps, "MNut");
-    All2.WDM_therm_mass = param_get_double(ps, "MWDM_therm");
-    double MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
-    if(MaxMemSizePerNode <= 1) {
-        MaxMemSizePerNode *= get_physmem_bytes() / (1024 * 1024);
+    CP->CMBTemperature = param_get_double(ps, "CMBTemperature");
+    CP->RadiationOn = param_get_double(ps, "RadiationOn");
+    CP->MNu[0] = param_get_double(ps, "MNue");
+    CP->MNu[1] = param_get_double(ps, "MNum");
+    CP->MNu[2] = param_get_double(ps, "MNut");
+    GenicConfig->WDM_therm_mass = param_get_double(ps, "MWDM_therm");
+    *MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
+    if(*MaxMemSizePerNode <= 1) {
+        (*MaxMemSizePerNode) *= get_physmem_bytes() / (1024 * 1024);
     }
-    All.MaxMemSizePerNode = MaxMemSizePerNode;
 
-    All2.ProduceGas = param_get_int(ps, "ProduceGas");
-    All2.InvertPhase = param_get_int(ps, "InvertPhase");
+    GenicConfig->ProduceGas = param_get_int(ps, "ProduceGas");
+    GenicConfig->InvertPhase = param_get_int(ps, "InvertPhase");
     /*Unit system*/
-    All.UnitVelocity_in_cm_per_s = param_get_double(ps, "UnitVelocity_in_cm_per_s");
-    All.UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
-    All.UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
+    GenicConfig->UnitVelocity_in_cm_per_s = param_get_double(ps, "UnitVelocity_in_cm_per_s");
+    GenicConfig->UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
+    GenicConfig->UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
+
+
+    *ShowBacktrace = param_get_int(ps, "ShowBacktrace");
 
     double Redshift = param_get_double(ps, "Redshift");
 
     /*Parameters of the power spectrum*/
-    All2.PowerP.InputPowerRedshift = param_get_double(ps, "InputPowerRedshift");
-    if(All2.PowerP.InputPowerRedshift < 0)
-        All2.PowerP.InputPowerRedshift = Redshift;
-    All2.PowerP.Sigma8 = param_get_double(ps, "Sigma8");
+    GenicConfig->PowerP.InputPowerRedshift = param_get_double(ps, "InputPowerRedshift");
+    if(GenicConfig->PowerP.InputPowerRedshift < 0)
+        GenicConfig->PowerP.InputPowerRedshift = Redshift;
+    GenicConfig->PowerP.Sigma8 = param_get_double(ps, "Sigma8");
     /*Always specify Sigm8 at z=0*/
-    if(All2.PowerP.Sigma8 > 0)
-        All2.PowerP.InputPowerRedshift = 0;
-    All2.PowerP.FileWithInputSpectrum = param_get_string(ps, "FileWithInputSpectrum");
-    All2.PowerP.FileWithTransferFunction = param_get_string(ps, "FileWithTransferFunction");
-    All2.PowerP.DifferentTransferFunctions = param_get_int(ps, "DifferentTransferFunctions");
-    All2.PowerP.ScaleDepVelocity = param_get_int(ps, "ScaleDepVelocity");
+    if(GenicConfig->PowerP.Sigma8 > 0)
+        GenicConfig->PowerP.InputPowerRedshift = 0;
+    GenicConfig->PowerP.FileWithInputSpectrum = param_get_string(ps, "FileWithInputSpectrum");
+    GenicConfig->PowerP.FileWithTransferFunction = param_get_string(ps, "FileWithTransferFunction");
+    GenicConfig->PowerP.DifferentTransferFunctions = param_get_int(ps, "DifferentTransferFunctions");
+    GenicConfig->PowerP.ScaleDepVelocity = param_get_int(ps, "ScaleDepVelocity");
     /* By default ScaleDepVelocity follows DifferentTransferFunctions.*/
-    if(All2.PowerP.ScaleDepVelocity < 0) {
-        All2.PowerP.ScaleDepVelocity = All2.PowerP.DifferentTransferFunctions;
+    if(GenicConfig->PowerP.ScaleDepVelocity < 0) {
+        GenicConfig->PowerP.ScaleDepVelocity = GenicConfig->PowerP.DifferentTransferFunctions;
     }
-    All2.PowerP.WhichSpectrum = param_get_int(ps, "WhichSpectrum");
-    All2.PowerP.PrimordialIndex = param_get_double(ps, "PrimordialIndex");
-    All2.PowerP.PrimordialRunning = param_get_double(ps, "PrimordialRunning");
+    GenicConfig->PowerP.WhichSpectrum = param_get_int(ps, "WhichSpectrum");
+    GenicConfig->PowerP.PrimordialIndex = param_get_double(ps, "PrimordialIndex");
+    GenicConfig->PowerP.PrimordialRunning = param_get_double(ps, "PrimordialRunning");
 
     /*Simulation parameters*/
-    All.IO.UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
-    All.BoxSize = param_get_double(ps, "BoxSize");
-    All.Nmesh = param_get_int(ps, "Nmesh");
-    All2.Ngrid = param_get_int(ps, "Ngrid");
-    All2.NgridGas = param_get_int(ps, "NgridGas");
-    if(All2.NgridGas < 0)
-        All2.NgridGas = All2.Ngrid;
-    if(!All2.ProduceGas)
-        All2.NgridGas = 0;
+    GenicConfig->UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
+    GenicConfig->SavePrePos = param_get_int(ps, "SavePrePos");
+    GenicConfig->BoxSize = param_get_double(ps, "BoxSize");
+    GenicConfig->Nmesh = param_get_int(ps, "Nmesh");
+    GenicConfig->Ngrid = param_get_int(ps, "Ngrid");
+    GenicConfig->NgridGas = param_get_int(ps, "NgridGas");
+    if(GenicConfig->NgridGas < 0)
+        GenicConfig->NgridGas = GenicConfig->Ngrid;
+    if(!GenicConfig->ProduceGas)
+        GenicConfig->NgridGas = 0;
     /*Enable 'hybrid' neutrinos*/
-    All2.NGridNu = param_get_int(ps, "NgridNu");
+    GenicConfig->NGridNu = param_get_int(ps, "NgridNu");
     /* Convert physical km/s at z=0 in an unperturbed universe to
      * internal gadget (comoving) velocity units at starting redshift.*/
-    All2.Max_nuvel = param_get_double(ps, "Max_nuvel") * pow(1+Redshift, 1.5) * (All.UnitVelocity_in_cm_per_s/1e5);
-    All2.Seed = param_get_int(ps, "Seed");
-    All2.UnitaryAmplitude = param_get_int(ps, "UnitaryAmplitude");
-    param_get_string2(ps, "OutputDir", All.OutputDir, sizeof(All.OutputDir));
-    param_get_string2(ps, "FileBase", All.InitCondFile, sizeof(All.InitCondFile));
-    All2.MakeGlassGas = param_get_int(ps, "MakeGlassGas");
+    GenicConfig->Max_nuvel = param_get_double(ps, "Max_nuvel") * pow(1+Redshift, 1.5) * (GenicConfig->UnitVelocity_in_cm_per_s/1e5);
+    GenicConfig->Seed = param_get_int(ps, "Seed");
+    GenicConfig->UnitaryAmplitude = param_get_int(ps, "UnitaryAmplitude");
+    param_get_string2(ps, "OutputDir", GenicConfig->OutputDir, sizeof(GenicConfig->OutputDir));
+    param_get_string2(ps, "FileBase", GenicConfig->InitCondFile, sizeof(GenicConfig->InitCondFile));
+    GenicConfig->MakeGlassGas = param_get_int(ps, "MakeGlassGas");
     /* We want to use a baryon glass by default if we have different transfer functions,
      * since that is the way we reproduce the linear growth. Otherwise use a grid by default.*/
-    if(All2.MakeGlassGas < 0) {
-        if(All2.PowerP.DifferentTransferFunctions)
-            All2.MakeGlassGas = 1;
+    if(GenicConfig->MakeGlassGas < 0) {
+        if(GenicConfig->PowerP.DifferentTransferFunctions)
+            GenicConfig->MakeGlassGas = 1;
         else
-            All2.MakeGlassGas = 0;
+            GenicConfig->MakeGlassGas = 0;
     }
-    All2.MakeGlassCDM = param_get_int(ps, "MakeGlassCDM");
+    GenicConfig->MakeGlassCDM = param_get_int(ps, "MakeGlassCDM");
 
     int64_t NumPartPerFile = param_get_int(ps, "NumPartPerFile");
 
-    int64_t Ngrid = All2.Ngrid;
-    if(Ngrid < All2.NgridGas)
-        Ngrid = All2.NgridGas;
-    All2.NumFiles = ( Ngrid*Ngrid*Ngrid + NumPartPerFile - 1) / NumPartPerFile;
-    All.IO.NumWriters = param_get_int(ps, "NumWriters");
-    if(All2.PowerP.DifferentTransferFunctions && All2.PowerP.InputPowerRedshift != Redshift
-        && (All2.ProduceGas || All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2]))
+    int64_t Ngrid = GenicConfig->Ngrid;
+    if(Ngrid < GenicConfig->NgridGas)
+        Ngrid = GenicConfig->NgridGas;
+    GenicConfig->NumFiles = ( Ngrid*Ngrid*Ngrid + NumPartPerFile - 1) / NumPartPerFile;
+    GenicConfig->NumWriters = param_get_int(ps, "NumWriters");
+    if(GenicConfig->PowerP.DifferentTransferFunctions && GenicConfig->PowerP.InputPowerRedshift != Redshift
+        && (GenicConfig->ProduceGas || CP->MNu[0] + CP->MNu[1] + CP->MNu[2]))
         message(0, "WARNING: Using different transfer functions but also rescaling power to account for linear growth. NOT what you want!\n");
-    if((All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2] > 0) || All2.PowerP.DifferentTransferFunctions || All2.PowerP.ScaleDepVelocity)
-        if(0 == strlen(All2.PowerP.FileWithTransferFunction))
+    if((CP->MNu[0] + CP->MNu[1] + CP->MNu[2] > 0) || GenicConfig->PowerP.DifferentTransferFunctions || GenicConfig->PowerP.ScaleDepVelocity)
+        if(0 == strlen(GenicConfig->PowerP.FileWithTransferFunction))
             endrun(0,"For massive neutrinos, different transfer functions, or scale dependent growth functions you must specify a transfer function file\n");
-    if(!All.CP.RadiationOn && (All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2] > 0))
+    if(!CP->RadiationOn && (CP->MNu[0] + CP->MNu[1] + CP->MNu[2] > 0))
         endrun(0,"You want massive neutrinos but no background radiation: this will give an inconsistent cosmology.\n");
 
-    if(All.Nmesh == 0) {
-        All.Nmesh = 2*Ngrid;
+    if(GenicConfig->Nmesh == 0) {
+        GenicConfig->Nmesh = 2*Ngrid;
     }
     /*Set some units*/
-    All.TimeIC = 1 / (1 + Redshift);
-    All.UnitTime_in_s = All.UnitLength_in_cm / All.UnitVelocity_in_cm_per_s;
+    GenicConfig->TimeIC = 1 / (1 + Redshift);
+    double UnitTime_in_s = GenicConfig->UnitLength_in_cm / GenicConfig->UnitVelocity_in_cm_per_s;
 
-    All.G = GRAVITY / pow(All.UnitLength_in_cm, 3) * All.UnitMass_in_g * pow(All.UnitTime_in_s, 2);
-    All.CP.Hubble = HUBBLE * All.UnitTime_in_s;
+    CP->Hubble = HUBBLE * UnitTime_in_s;
 }

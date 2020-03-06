@@ -123,9 +123,8 @@ slots_split_particle(int parent, double childmass, struct part_manager_type * pm
     pman->Base[child].PI = -1;
 
     /*! When a new additional star particle is created, we can put it into the
-     *  tree at the position of the spawning gas particle. This is possible
-     *  because the Nextnode[] array essentially describes the full tree walk as a
-     *  link list. Multipole moments of tree nodes need not be changed.
+     *  tree at the position of the spawning gas particle. Multipole moments
+     *  of tree nodes need not be changed.
      */
     /* emit event for forcetree to deal with the new particle */
     EISlotsFork event = {
@@ -472,7 +471,7 @@ slots_gc_sorted(struct part_manager_type * pman, struct slots_manager_type * sma
 #endif
 }
 
-void
+size_t
 slots_reserve(int where, int atleast[6], struct slots_manager_type * sman)
 {
     int newMaxSlots[6];
@@ -500,10 +499,6 @@ slots_reserve(int where, int atleast[6], struct slots_manager_type * sman)
             good = 0;
         }
     }
-    /* no need to grow, already have enough */
-    if (good) {
-        return;
-    }
 
     size_t total_bytes = 0;
     size_t offsets[6];
@@ -513,6 +508,10 @@ slots_reserve(int where, int atleast[6], struct slots_manager_type * sman)
         offsets[ptype] = total_bytes;
         bytes[ptype] = sman->info[ptype].elsize * newMaxSlots[ptype];
         total_bytes += bytes[ptype];
+    }
+    /* no need to grow, already have enough */
+    if (good) {
+        return total_bytes;
     }
     char * newSlotsBase = myrealloc(sman->Base, total_bytes);
 
@@ -544,6 +543,7 @@ slots_reserve(int where, int atleast[6], struct slots_manager_type * sman)
     GDB_SphP = (struct sph_particle_data *) sman->info[0].ptr;
     GDB_StarP = (struct star_particle_data *) sman->info[4].ptr;
     GDB_BhP = (struct bh_particle_data *) sman->info[5].ptr;
+    return total_bytes;
 }
 
 void

@@ -21,6 +21,7 @@
         get_temp() - gets the temperature from the density and internal energy.
         get_heatingcooling_rate() - gets the total (net) heating and cooling rate from density and internal energy.
         get_neutral_fraction_phys_cgs() - gets the neutral fraction from the rate network given density and internal energy in physical cgs units.
+        get_helium_ion_fraction_phys_cgs() - gets the neutral fraction from the rate network given density and internal energy in physical cgs units.
         get_global_UVBG() - Interpolates the TreeCool table to a desired redshift and returns a struct UVBG.
     Two useful helper functions:
         get_equilib_ne() - gets the equilibrium electron density.
@@ -50,6 +51,7 @@
 */
 
 #include "cooling_rates.h"
+#include "cooling_qso_lightup.h"
 #include "cosmology.h"
 
 #include <omp.h>
@@ -62,9 +64,6 @@
 #include "utils/endrun.h"
 #include "utils/paramset.h"
 #include "utils/mymalloc.h"
-
-/* 1 eV in ergs*/
-#define eVinergs 1.60218e-12
 
 static struct cooling_params CoolingParams;
 
@@ -278,7 +277,12 @@ struct UVBG get_global_UVBG(double redshift)
 
     GlobalUVBG.epsH0 = get_photo_rate(redshift, &Eps_HI);
     GlobalUVBG.epsHe0 = get_photo_rate(redshift, &Eps_HeI);
-    GlobalUVBG.epsHep = get_photo_rate(redshift, &Eps_HeII);
+    /* During helium reionization we have a model for the inhomogeneous non-equilibrium heating.
+     * To avoid double counting, remove the heating in the existing UVB*/
+    if(during_helium_reionization(redshift))
+        GlobalUVBG.epsHep = 0;
+    else
+        GlobalUVBG.epsHep = get_photo_rate(redshift, &Eps_HeII);
     GlobalUVBG.self_shield_dens = self_shield_dens(redshift, &GlobalUVBG);
     return GlobalUVBG;
 }
@@ -658,7 +662,7 @@ scipy_optimize_fixed_point(double ne_init, double nh, double ienergy, double hel
             ne0 = 0;
     }
     if (!isfinite(ne0) || i == MAXITER)
-        endrun(1, "Ionization rate network failed to converge for nh = %g temp = %g helium=%g: last ne = %g (init=%g)\n", nh, get_temp_internal(ne0, ienergy, helium), helium, ne0, ne_init);
+        endrun(1, "Ionization rate network failed to converge for nh = %g temp = %g helium=%g ienergy=%g: last ne = %g (init=%g)\n", nh, get_temp_internal(ne0, ienergy, helium), helium, ienergy, ne0, ne_init);
     return ne0 * nh;
 }
 
@@ -1084,7 +1088,7 @@ get_heatingcooling_rate(double density, double ienergy, double helium, double re
 
     //message(1, "Heat = %g Lambda = %g MetalCool = %g LC = %g LR = %g LFF = %g LCmptn = %g, ne = %g, nH0 = %g, nHp = %g, nHe0 = %g, nHep = %g, nHepp = %g, nh=%g, temp=%g, ienergy=%g\n", Heat, Lambda, MetalCooling, LambdaCollis, LambdaRecomb, LambdaFF, LambdaCmptn, nebynh, nH0, nHp, nHe0, nHep, nHepp, nh, temp, ienergy);
 
-    /* LambdaNet in erg/s cm^3, Density in protons/cm^3, PROTONMASS in protons/g.
+    /* LambdaNet in erg cm^3 /s, Density in protons/cm^3, PROTONMASS in protons/g.
      * Convert to erg/s/g*/
     return LambdaNet * pow(1 - helium, 2) * density / PROTONMASS;
 }
@@ -1103,7 +1107,7 @@ get_temp(double density, double ienergy, double helium, const struct UVBG * uvbg
     return get_temp_internal(ne/nh, ienergy, helium);
 }
 
-/*Get the neutral hydrogen fraction at a given temperature and density.
+/* Get the neutral hydrogen fraction at a given temperature and density.
 density is gas density in protons/cm^3
 Internal energy is in ergs/g.
 helium is a mass fraction.*/
@@ -1116,4 +1120,26 @@ get_neutral_fraction_phys_cgs(double density, double ienergy, double helium, con
     double photofac = self_shield_corr(nh, logt, uvbg->self_shield_dens);
     *ne_init = ne/nh;
     return nH0_internal(logt, ne, uvbg, photofac);
+}
+
+/* Get the helium ionization fractions at a given temperature and density.
+ * ion is 0, 1, 2 for He, He+ and He++
+density is gas density in protons/cm^3
+Internal energy is in ergs/g.
+helium is a mass fraction.*/
+double
+get_helium_ion_phys_cgs(int ion, double density, double ienergy, double helium, const struct UVBG * uvbg, double ne_init)
+{
+    double logt;
+    double ne = get_equilib_ne(density, ienergy, helium, &logt, uvbg, ne_init);
+    double yy = helium / 4 / (1 - helium);
+    double nh = density * (1-helium);
+    double photofac = self_shield_corr(nh, logt, uvbg->self_shield_dens);
+    struct he_ions He = nHe_internal(nh, logt, ne, uvbg, photofac);
+    if(ion == 0)
+        return yy * He.nHe0 / nh;
+    else if (ion == 1)
+        return yy * He.nHep / nh;
+    else
+        return yy * He.nHepp / nh;
 }

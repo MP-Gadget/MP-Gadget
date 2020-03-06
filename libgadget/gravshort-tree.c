@@ -92,6 +92,9 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
     priv.G = pm->G;
     priv.cbrtrho0 = pow(rho0, 1.0 / 3);
 
+    if(!tree->moments_computed_flag)
+        endrun(2, "Gravtree called before tree moments computed!\n");
+
     tw->ev_label = "FORCETREE_SHORTRANGE";
     tw->visit = (TreeWalkVisitFunction) force_treeev_shortrange;
     /* gravity applies to all particles. Including Tracer particles to enhance numerical stability. */
@@ -146,6 +149,97 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
         TreeParams.TreeUseBH = 0;
 }
 
+/* Add the acceleration from a node or particle to the output structure,
+ * computing the short-range kernel and softening.*/
+static void
+apply_accn_to_output(TreeWalkResultGravShort * output, const double dx[3], const double r2, const double h, const double mass, const double cellsize)
+{
+    double facpot, fac;
+
+    const double r = sqrt(r2);
+
+    if(r >= h)
+    {
+        fac = mass / (r2 * r);
+        facpot = -mass / r;
+    }
+    else
+    {
+        double wp;
+        const double h_inv = 1.0 / h;
+        const double h3_inv = h_inv * h_inv * h_inv;
+        const double u = r * h_inv;
+        if(u < 0.5) {
+            fac = mass * h3_inv * (10.666666666667 + u * u * (32.0 * u - 38.4));
+            wp = -2.8 + u * u * (5.333333333333 + u * u * (6.4 * u - 9.6));
+        }
+        else {
+            fac =
+                mass * h3_inv * (21.333333333333 - 48.0 * u +
+                        38.4 * u * u - 10.666666666667 * u * u * u - 0.066666666667 / (u * u * u));
+            wp =
+                -3.2 + 0.066666666667 / u + u * u * (10.666666666667 +
+                        u * (-16.0 + u * (9.6 - 2.133333333333 * u)));
+        }
+
+        facpot = mass * h_inv * wp;
+    }
+
+    if(0 == grav_apply_short_range_window(r, &fac, &facpot, cellsize)) {
+        int i;
+        for(i = 0; i < 3; i++)
+            output->Acc[i] += dx[i] * fac;
+        output->Ninteractions++;
+        output->Potential += facpot;
+    }
+}
+
+/* Check whether a node should be discarded completely, its contents not contributing
+ * to the acceleration. This happens if the node is further away than the short-range force cutoff.
+ * Return 1 if the node should be discarded, 0 otherwise. */
+static int
+shall_we_discard_node(const double len, const double r2, const double center[3], const double inpos[3], const double BoxSize, const double rcut, const double rcut2)
+{
+    /* This checks the distance from the node center of mass
+     * is greater than the cutoff. */
+    if(r2 > rcut2)
+    {
+        /* check whether we can stop walking along this branch */
+        const double eff_dist = rcut + 0.5 * len;
+        int i;
+        /*This checks whether we are also outside this region of the oct-tree*/
+        /* As long as one dimension is outside, we are fine*/
+        for(i=0; i < 3; i++)
+            if(fabs(NEAREST(center[i] - inpos[i], BoxSize)) > eff_dist)
+                return 1;
+    }
+    return 0;
+}
+
+/* This function tests whether a node shall be opened (ie, should the next node be .
+ * If it should be discarded, 0 is returned.
+ * If it should be used, 1 is returned, otherwise zero is returned. */
+static int
+shall_we_open_node(const double len, const double mass, const double r2, const double center[3], const double inpos[3], const double BoxSize, const double aold, const int TreeUseBH, const double BHOpeningAngle2)
+{
+    /* Check the relative acceleration opening condition*/
+    if((TreeUseBH == 0) && (mass * len * len > r2 * r2 * aold))
+         return 1;
+     /*Check Barnes-Hut opening angle*/
+    if((TreeUseBH > 0) && (len * len > r2 * BHOpeningAngle2))
+         return 1;
+
+    const double inside = 0.6 * len;
+    /* Open the cell if we are inside it, even if the opening criterion is not satisfied.*/
+    if(fabs(NEAREST(center[0] - inpos[0], BoxSize)) < inside &&
+        fabs(NEAREST(center[1] - inpos[1], BoxSize)) < inside &&
+        fabs(NEAREST(center[2] - inpos[2], BoxSize)) < inside)
+        return 1;
+
+    /* ok, node can be used */
+    return 0;
+}
+
 /*! In the TreePM algorithm, the tree is walked only locally around the
  *  target coordinate.  Tree nodes that fall outside a box of half
  *  side-length Rcut= RCUT*ASMTH*MeshSize can be discarded. The short-range
@@ -160,14 +254,6 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
         TreeWalkResultGravShort * output,
         LocalTreeWalk * lv)
 {
-    /*Counters*/
-    int ninteractions = 0;
-
-    /*Added to the particle struct at the end*/
-    MyDouble pot = 0;
-    MyDouble acc_x = 0;
-    MyDouble acc_y = 0;
-    MyDouble acc_z = 0;
     const ForceTree * tree = lv->tw->tree;
     const double BoxSize = tree->BoxSize;
 
@@ -176,200 +262,133 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     const double rcut = GRAV_GET_PRIV(lv->tw)->Rcut;
     const double rcut2 = rcut * rcut;
     const double aold = GRAV_GET_PRIV(lv->tw)->ErrTolForceAcc * input->OldAcc;
+    const int TreeUseBH = GRAV_GET_PRIV(lv->tw)->TreeUseBH;
+    const double BHOpeningAngle2 = GRAV_GET_PRIV(lv->tw)->BHOpeningAngle * GRAV_GET_PRIV(lv->tw)->BHOpeningAngle;
+    const int NeutrinoTracer = GRAV_GET_PRIV(lv->tw)->NeutrinoTracer;
+    const int FastParticleType = GRAV_GET_PRIV(lv->tw)->FastParticleType;
 
     /*Input particle data*/
-    const double pos_x = input->base.Pos[0];
-    const double pos_y = input->base.Pos[1];
-    const double pos_z = input->base.Pos[2];
+    const double * inpos = input->base.Pos;
 
     /*Start the tree walk*/
-    int no = input->base.NodeList[0];
-    int listindex = 1;
-    no = tree->Nodes[no].u.d.nextnode;	/* open it */
+    int listindex;
 
-    while(no >= 0)
+    /* Primary treewalk only ever has one nodelist entry*/
+    for(listindex = 0; listindex < NODELISTLENGTH && (lv->mode == 1 || listindex < 1); listindex++)
     {
+        int numcand = 0;
+        /* Use the next node in the node list if we are doing a secondary walk.
+         * For a primary walk the node list only ever contains one node. */
+        int no = input->base.NodeList[listindex];
+        int startno = no;
+        if(no < 0)
+            break;
+
         while(no >= 0)
         {
-            double mass, r2, h;
-            double dx, dy, dz;
-            if(node_is_particle(no, tree))
-            {
-                /*Hybrid particle neutrinos do not gravitate at early times*/
+            /* The tree always walks internal nodes*/
+            struct NODE *nop = &tree->Nodes[no];
 
-                if(GRAV_GET_PRIV(lv->tw)->NeutrinoTracer &&
-                    P[no].Type == GRAV_GET_PRIV(lv->tw)->FastParticleType)
+            if(lv->mode == 1)
+            {
+                if(nop->f.TopLevel && no != startno)	/* we reached a top-level node again, which means that we are done with the branch */
                 {
-                    no = force_get_next_node(no, tree);
+                    no = -1;
                     continue;
                 }
-
-                dx = NEAREST(P[no].Pos[0] - pos_x, BoxSize);
-                dy = NEAREST(P[no].Pos[1] - pos_y, BoxSize);
-                dz = NEAREST(P[no].Pos[2] - pos_z, BoxSize);
-
-                r2 = dx * dx + dy * dy + dz * dz;
-
-                mass = P[no].Mass;
-
-                h = input->Soft;
-                const double otherh = FORCE_SOFTENING(no);
-                if(h < otherh)
-                    h = otherh;
-                no = force_get_next_node(no, tree);
             }
-            else			/* we have an  internal node */
+
+            int i;
+            double dx[3];
+            for(i = 0; i < 3; i++)
+                dx[i] = NEAREST(nop->mom.cofm[i] - inpos[i], BoxSize);
+            const double r2 = dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2];
+
+            /* Discard this node, move to sibling*/
+            if(shall_we_discard_node(nop->len, r2, nop->center, inpos, BoxSize, rcut, rcut2))
             {
-                struct NODE *nop;
-                if(node_is_pseudo_particle(no, tree))	/* pseudo particle */
+                no = nop->sibling;
+                /* Don't add this node*/
+                continue;
+            }
+
+            /* This node accelerates the particle directly, and is not opened.*/
+            if(!shall_we_open_node(nop->len, nop->mom.mass, r2, nop->center, inpos, BoxSize, aold, TreeUseBH, BHOpeningAngle2))
+            {
+                double h = DMAX(input->Soft, nop->mom.MaxSoftening);
+                /* Always open the node if it has a larger softening than the particle,
+                 * and the particle is inside its softening radius.
+                 * This condition essentially never happens, and it is not clear how much sense it makes. */
+                if(input->Soft < nop->mom.MaxSoftening)
                 {
-                    if(lv->mode == 0)
-                    {
-                        if(-1 == treewalk_export_particle(lv, no))
-                            return -1;
-                    }
-                    no = force_get_next_node(no, tree);
-                    continue;
-                }
-
-                nop = &tree->Nodes[no];
-
-                if(lv->mode == 1)
-                {
-                    if(nop->f.TopLevel)	/* we reached a top-level node again, which means that we are done with the branch */
-                    {
-                        no = -1;
-                        continue;
-                    }
-                }
-
-                dx = NEAREST(nop->u.d.s[0] - pos_x, BoxSize);
-                dy = NEAREST(nop->u.d.s[1] - pos_y, BoxSize);
-                dz = NEAREST(nop->u.d.s[2] - pos_z, BoxSize);
-
-                r2 = dx * dx + dy * dy + dz * dz;
-
-                /*This checks the distance from the node center of mass*/
-                if(r2 > rcut2)
-                {
-                    /* check whether we can stop walking along this branch */
-                    const double eff_dist = rcut + 0.5 * nop->len;
-
-                    /*This checks whether we are also outside this region of the oct-tree*/
-                    if(fabs(NEAREST(nop->center[0] - pos_x, BoxSize)) > eff_dist ||
-                        fabs(NEAREST(nop->center[1] - pos_y, BoxSize)) > eff_dist ||
-                            fabs(NEAREST(nop->center[2] - pos_z, BoxSize)) > eff_dist
-                      )
-                    {
-                        no = nop->u.d.sibling;
-                        continue;
-                    }
-                }
-
-                mass = nop->u.d.mass;
-                /*Check Barnes-Hut opening angle or relative opening criterion*/
-                if(((GRAV_GET_PRIV(lv->tw)->TreeUseBH > 0 && nop->len * nop->len > r2 * GRAV_GET_PRIV(lv->tw)->BHOpeningAngle * GRAV_GET_PRIV(lv->tw)->BHOpeningAngle)) ||
-                     (GRAV_GET_PRIV(lv->tw)->TreeUseBH == 0 && (mass * nop->len * nop->len > r2 * r2 * aold)))
-                {
-                    /* open cell */
-                    no = nop->u.d.nextnode;
-                    continue;
-                }
-                /* check in addition whether we lie inside the cell */
-                if(fabs(NEAREST(nop->center[0] - pos_x, BoxSize)) < 0.60 * nop->len)
-                {
-                    if(fabs(NEAREST(nop->center[1] - pos_y, BoxSize)) < 0.60 * nop->len)
-                    {
-                        if(fabs(NEAREST(nop->center[2] - pos_z, BoxSize)) < 0.60 * nop->len)
-                        {
-                            no = nop->u.d.nextnode;
-                            continue;
-                        }
-                    }
-                }
-
-                h = input->Soft;
-                const double otherh = nop->u.d.MaxSoftening;
-                if(h < otherh)
-                {
-                    h = otherh;
                     if(r2 < h * h)
                     {
-                        if(nop->f.MixedSofteningsInNode)
-                        {
-                            no = nop->u.d.nextnode;
-
-                            continue;
-                        }
+                        no = nop->nextnode;
+                        continue;
                     }
                 }
-                no = nop->u.d.sibling;	/* ok, node can be used */
 
+                /* ok, node can be used */
+                no = nop->sibling;
+                /* Compute the acceleration and apply it to the output structure*/
+                apply_accn_to_output(output, dx, r2, h, nop->mom.mass, cellsize);
+                continue;
             }
 
-            double facpot, fac;
-
-            const double r = sqrt(r2);
-
-            if(r >= h)
+            /* Now we have a cell that needs to be opened.
+             * If it contains particles we can add them directly here */
+            if(nop->f.ChildType == PARTICLE_NODE_TYPE)
             {
-                fac = mass / (r2 * r);
-                facpot = -mass / r;
-            }
-            else
-            {
-                double wp;
-                const double h_inv = 1.0 / h;
-                const double h3_inv = h_inv * h_inv * h_inv;
-                const double u = r * h_inv;
-                if(u < 0.5) {
-                    fac = mass * h3_inv * (10.666666666667 + u * u * (32.0 * u - 38.4));
-                    wp = -2.8 + u * u * (5.333333333333 + u * u * (6.4 * u - 9.6));
+                /* Loop over child particles*/
+                for(i = 0; i < nop->s.noccupied; i++) {
+                    int pp = nop->s.suns[i];
+                    lv->ngblist[numcand++] = pp;
                 }
-                else {
-                    fac =
-                        mass * h3_inv * (21.333333333333 - 48.0 * u +
-                                38.4 * u * u - 10.666666666667 * u * u * u - 0.066666666667 / (u * u * u));
-                    wp =
-                        -3.2 + 0.066666666667 / u + u * u * (10.666666666667 +
-                                u * (-16.0 + u * (9.6 - 2.133333333333 * u)));
+                no = nop->sibling;
+            }
+            else if (nop->f.ChildType == PSEUDO_NODE_TYPE)
+            {
+                if(lv->mode == 0)
+                {
+                    if(-1 == treewalk_export_particle(lv, nop->nextnode))
+                        return -1;
                 }
 
-                facpot = mass * h_inv * wp;
+                /* Move to the sibling (likely also a pseudo node)*/
+                no = nop->sibling;
             }
-
-            if(0 == grav_apply_short_range_window(r, &fac, &facpot, cellsize)) {
-                acc_x += (dx * fac);
-                acc_y += (dy * fac);
-                acc_z += (dz * fac);
-                pot += facpot;
-                ninteractions++;
+            else if(nop->f.ChildType == NODE_NODE_TYPE)
+            {
+                /* This node contains other nodes and we need to open it.*/
+                no = nop->nextnode;
             }
         }
-
-        if(listindex < NODELISTLENGTH)
+        int i;
+        for(i = 0; i < numcand; i++)
         {
-            no = input->base.NodeList[listindex];
-            if(no >= 0)
-            {
-                no = tree->Nodes[no].u.d.nextnode;	/* open it */
-                listindex++;
-            }
+            int pp = lv->ngblist[i];
+            /* Fast particle neutrinos don't cause short-range acceleration before activation.*/
+            if(NeutrinoTracer && P[pp].Type == FastParticleType)
+                continue;
+
+            double dx[3];
+            int j;
+            for(j = 0; j < 3; j++)
+                dx[j] = NEAREST(P[pp].Pos[j] - inpos[j], BoxSize);
+            const double r2 = dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2];
+
+            double h = DMAX(input->Soft, FORCE_SOFTENING(pp));
+            /* Compute the acceleration and apply it to the output structure*/
+            apply_accn_to_output(output, dx, r2, h, P[pp].Mass, cellsize);
         }
     }
 
-    output->Acc[0] = acc_x;
-    output->Acc[1] = acc_y;
-    output->Acc[2] = acc_z;
-    output->Ninteractions = ninteractions;
-    output->Potential = pot;
-
-    lv->Ninteractions += ninteractions;
+    lv->Ninteractions += output->Ninteractions;
     if(lv->mode == 1) {
         lv->Nnodesinlist += listindex;
         lv->Nlist += 1;
     }
-    return ninteractions;
+    return output->Ninteractions;
 }
 
 

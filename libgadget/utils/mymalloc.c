@@ -58,9 +58,11 @@ mymalloc_init(double MaxMemSizePerNode)
 
     double nodespercpu = (1.0 * Nhost) / (1.0 * NTask);
     size_t n = 1.0 * MaxMemSizePerNode * nodespercpu * 1024. * 1024.;
-
     message(0, "Nhost = %d\n", Nhost);
     message(0, "Reserving %td bytes per rank for MAIN memory allocator. \n", n);
+    if(n < 1)
+        endrun(2, "Mem too small! MB/node=%g, nodespercpu = %g NTask = %d\n", MaxMemSizePerNode, nodespercpu, NTask);
+
 
     if (MPIU_Any(ALLOC_ENOMEMORY == allocator_init(A_MAIN, "MAIN", n, 1, NULL), MPI_COMM_WORLD)) {
         endrun(0, "Insufficient memory for the MAIN allocator on at least one nodes."

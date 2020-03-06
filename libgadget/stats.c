@@ -4,8 +4,8 @@
 #include <string.h>
 #include <math.h>
 
-#include "allvars.h"
 #include "timestep.h"
+#include "physconst.h"
 #include "cooling.h"
 #include "slotsmanager.h"
 #include "hydra.h"
@@ -43,18 +43,19 @@ struct state_of_system
  * actually used (e.g. momentum is not really used anywhere),
  * just the energies are written to a log-file every once in a while.
  */
-struct state_of_system compute_global_quantities_of_system(void)
+struct state_of_system compute_global_quantities_of_system(const double Time,  struct part_manager_type * PartManager)
 {
     int i, j;
     struct state_of_system sys;
     struct state_of_system SysState;
     double a1, a2, a3;
+    int ThisTask;
 
-    a1 = All.Time;
-    a2 = All.Time * All.Time;
-    a3 = All.Time * All.Time * All.Time;
+    a1 = Time;
+    a2 = Time * Time;
+    a3 = Time * Time * Time;
 
-    double redshift = 1. / All.Time - 1;
+    double redshift = 1. / Time - 1;
     memset(&sys, 0, sizeof(sys));
 
     #pragma omp parallel for
@@ -72,7 +73,7 @@ struct state_of_system compute_global_quantities_of_system(void)
 
         if(P[i].Type == 0)
         {
-            struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos);
+            struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos, PartManager->CurrentParticleOffset);
             entr = SPHP(i).Entropy;
             egyspec = entr / (GAMMA_MINUS1) * pow(SPH_EOMDensity(i) / a3, GAMMA_MINUS1);
             sys.EnergyIntComp[0] += P[i].Mass * egyspec;
@@ -105,7 +106,7 @@ struct state_of_system compute_global_quantities_of_system(void)
     MPI_Reduce(&sys.CenterOfMassComp[0][0], &SysState.CenterOfMassComp[0][0], 6 * 4, MPI_DOUBLE, MPI_SUM, 0,
             MPI_COMM_WORLD);
 
-
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0)
     {
         for(i = 0; i < 6; i++) {
@@ -190,18 +191,18 @@ struct state_of_system compute_global_quantities_of_system(void)
  * statistics about the energies in the various particle components to
  * the file FdEnergy.
  */
-void energy_statistics(void)
+void energy_statistics(FILE * FdEnergy, const double Time, struct part_manager_type * PartManager)
 {
-    struct state_of_system SysState = compute_global_quantities_of_system();
+    struct state_of_system SysState = compute_global_quantities_of_system(Time, PartManager);
 
     message(0, "Time %g Mean Temperature of Gas %g\n",
-                All.Time, SysState.TemperatureComp[0]);
+                Time, SysState.TemperatureComp[0]);
 
-    if(ThisTask == 0)
+    if(FdEnergy)
     {
         fprintf(FdEnergy,
                 "%g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
-                All.Time, SysState.TemperatureComp[0], SysState.EnergyInt, SysState.EnergyPot, SysState.EnergyKin, SysState.EnergyIntComp[0],
+                Time, SysState.TemperatureComp[0], SysState.EnergyInt, SysState.EnergyPot, SysState.EnergyKin, SysState.EnergyIntComp[0],
                 SysState.EnergyPotComp[0], SysState.EnergyKinComp[0], SysState.EnergyIntComp[1],
                 SysState.EnergyPotComp[1], SysState.EnergyKinComp[1], SysState.EnergyIntComp[2],
                 SysState.EnergyPotComp[2], SysState.EnergyKinComp[2], SysState.EnergyIntComp[3],

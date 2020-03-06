@@ -16,44 +16,47 @@
 #define NODE_NODE_TYPE 1
 #define PSEUDO_NODE_TYPE 2
 
+struct NodeChild
+{
+    /*!< pointers to daughter nodes or daughter particles. */
+    int suns[NMAXCHILD];
+    /* Number of daughter particles if node contains particles.
+     * During treebuild >= (1<<16) if node contains nodes.*/
+    int noccupied;
+};
+
 struct NODE
 {
+    int sibling;		/*!< this gives the next node in the walk in case the current node can be used */
+    int nextnode;		/*!< this gives the next node in case the current node needs to be opened */
+    int father;		/*!< this gives the parent node of each node (or -1 if we have the root node) */
     MyFloat len;			/*!< sidelength of treenode */
     MyFloat center[3];		/*!< geometrical center of node */
 
-    int father;		/*!< this gives the parent node of each node (or -1 if we have the root node) */
     struct {
         unsigned int InternalTopLevel :1; /* TopLevel and has a child which is also TopLevel*/
         unsigned int TopLevel :1; /* Node corresponding to a toplevel node */
         unsigned int DependsOnLocalMass :1;  /* Intersects with local mass */
-        unsigned int MixedSofteningsInNode:1;  /* Softening is mixed, need to open the node */
         unsigned int ChildType :2; /* Specify the type of children this node has: particles, other nodes, or pseudo-particles.
                                     * (should be an enum, but not standard in C).*/
+        unsigned int unused : 3; /* Spare bits*/
     } f;
-    union
-    {
-        struct
-        {
-            /*!< temporary pointers to daughter nodes or daughter particles. */
-            int suns[NMAXCHILD];
-            /* Number of daughter particles if node contains particles.
-             * During treebuild >= (1<<16) if node contains nodes.*/
-            int noccupied;
-        } s;
-        struct
-        {
-            MyFloat s[3];		/*!< center of mass of node */
-            MyFloat mass;		/*!< mass of node */
-            int sibling;		/*!< this gives the next node in the walk in case the current node can be used */
-            int nextnode;		/*!< this gives the next node in case the current node needs to be opened */
-            MyFloat hmax;			/*!< maximum SPH smoothing length in node. Only used for gas particles */
-            MyFloat MaxSoftening;  /* Stores the largest softening in the node. The short-range
-                                 * gravitational force solver will check this and use it
-                                 * open the node if a particle is closer.*/
-        }
-        d;
-    }
-    u;
+
+    struct {
+        MyFloat cofm[3];		/*!< center of mass of node */
+        MyFloat mass;		/*!< mass of node */
+        MyFloat hmax;           /*!< maximum amount by which Pos + Hsml of all gas particles in the node exceeds len for this node. */
+        MyFloat MaxSoftening;  /* Stores the largest softening in the node. The short-range
+                         * gravitational force solver will check this and use it
+                         * open the node if a particle is closer.*/
+    } mom;
+
+    /* In principle storing this here wastes memory, because we only use it for the leaf nodes.
+     * However, in practice the wasted memory is fairly small: there are sum(1/8^n) ~ 0.15 internal nodes
+     * for each leaf node, and we are losing 30% of the memory per node, so the total lost is 5%.
+     * Any attempt to get it back by using a separate allocation means we lost the ability to resize
+     * the Nodes array and that is always worse.*/
+    struct NodeChild s;
 };
 
 /*Structure containing the Node pointer, and various Tree metadata.*/
@@ -68,6 +71,8 @@ typedef struct ForceTree {
     int tree_allocated_flag;
     /* Flags that hmax has been computed for this tree*/
     int hmax_computed_flag;
+    /* Flags that the tree has fully computed and exchanged mass moments*/
+    int moments_computed_flag;
     /*Index of first internal node. Difference between Nodes and Nodes_base. == MaxPart*/
     int firstnode;
     /*Index of first pseudo-particle node*/
@@ -85,11 +90,6 @@ typedef struct ForceTree {
      * The exception is the crazy memory shifting done in sfr_eff.c*/
     /*This points to the actual memory allocated for the nodes.*/
     struct NODE * Nodes_base;
-    /* Gives next node in the tree walk for particles and pseudo particles.
-     * next node for the actual nodes is stored in Nodes*/
-    int * Nextnode;
-    /*Allocated length of the Nextnode array*/
-    int Nnextnode;
     /*!< gives parent node in tree for every particle */
     int *Father;
     /*!< Store the size of the box used to build the tree, for periodic walking.*/
@@ -97,7 +97,7 @@ typedef struct ForceTree {
 } ForceTree;
 
 /*Initialize the internal parameters of the forcetree module*/
-void init_forcetree_params(const int FastParticleType, const double * GravitySofteningTable);
+void init_forcetree_params(const int FastParticleType);
 
 int force_tree_allocated(const ForceTree * tt);
 
@@ -107,7 +107,7 @@ void force_update_hmax(int * activeset, int size, ForceTree * tt, DomainDecomp *
 /* This is the main constructor for the tree structure.
    The tree shall be either zero-filled, so that force_tree_allocated = 0, or a valid ForceTree.
 */
-void force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav);
+void force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir);
 
 /*Free the memory associated with the tree*/
 void   force_tree_free(ForceTree * tt);
@@ -130,15 +130,6 @@ node_is_node(int no, const ForceTree * tree)
 {
     return (no >= tree->firstnode) && (no < tree->lastnode);
 }
-
-int
-force_get_prev_node(int no, const ForceTree * tb);
-
-int
-force_get_next_node(int no, const ForceTree * tb);
-
-int
-force_set_next_node(int no, int next, const ForceTree * tb);
 
 int
 force_get_father(int no, const ForceTree * tt);

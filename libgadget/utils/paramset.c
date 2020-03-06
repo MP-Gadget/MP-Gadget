@@ -230,9 +230,10 @@ int param_parse (ParameterSet * ps, char * content, char **error)
             char * error1;
             int flag1 = param_emit(ps, p1, p - p1, lineno, &error1);
             if(flag1 != 0) {
-                int len = strlen(error1);
+                int len = strlen(error1)+1;
                 char * tmp2 = ta_malloc2("tmp2", char, len);
                 strncpy(tmp2, error1, len);
+                tmp2[len-1] = '\0';
                 myfree(error1);
                 char * tmp = fastpm_strappend(*error, "\n", tmp2);
                 myfree(tmp2);
@@ -259,6 +260,7 @@ int param_parse_file (ParameterSet * ps, const char * filename, char ** error)
         return -1;
     }
     int val = param_parse(ps, content, error);
+
     myfree(content);
     return val;
 }

@@ -18,12 +18,15 @@
 #include <libgadget/utils/endrun.h>
 #include <libgadget/allvars.h>
 #include <libgadget/partmanager.h>
+#include <libgadget/walltime.h>
 #include <libgadget/domain.h>
 #include <libgadget/forcetree.h>
 #include <libgadget/gravity.h>
 #include <libgadget/petapm.h>
 #include <libgadget/timestep.h>
 
+struct global_data_all_processes All;
+static struct ClockTable CT;
 /* The true struct for the state variable*/
 struct forcetree_testdata
 {
@@ -167,7 +170,6 @@ static void do_force_test(double BoxSize, int Nmesh, double Asmth, double ErrTol
         P[i].ID = i;
         P[i].TimeBin = 0;
         P[i].IsGarbage = 0;
-        P[i].GravCost = 1;
     }
 
     ActiveParticles act = {0};
@@ -179,10 +181,10 @@ static void do_force_test(double BoxSize, int Nmesh, double Asmth, double ErrTol
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, BoxSize, Asmth, Nmesh, All.G);
     ForceTree Tree = {0};
-    force_tree_rebuild(&Tree, &ddecomp, BoxSize, 1);
+    force_tree_rebuild(&Tree, &ddecomp, BoxSize, 1, 1, NULL);
     gravshort_fill_ntab(SHORTRANGE_FORCE_WINDOW_TYPE_EXACT, Asmth);
     gravpm_force(&pm, &Tree);
-    force_tree_rebuild(&Tree, &ddecomp, BoxSize, 1);
+    force_tree_rebuild(&Tree, &ddecomp, BoxSize, 1, 1, NULL);
     const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
 
     /* Barnes-Hut on first iteration*/
@@ -310,11 +312,10 @@ static void test_force_random(void ** state) {
 }
 
 static int setup_tree(void **state) {
-    walltime_init(&All.CT);
+    walltime_init(&CT);
     /*Set up the important parts of the All structure.*/
     /*Particles should not be outside this*/
     All.BoxSize = 8;
-    All.NumThreads = omp_get_max_threads();
     All.MassiveNuLinRespOn = 0;
     All.FastParticleType = 2;
     All.CP.MNu[0] = All.CP.MNu[1] = All.CP.MNu[2] = 0;
@@ -341,8 +342,8 @@ static int setup_tree(void **state) {
     dp.TopNodeAllocFactor = 1.;
     dp.SetAsideFactor = 1;
     set_domain_par(dp);
-    petapm_module_init(All.NumThreads);
-    init_forcetree_params(2, GravitySofteningTable);
+    petapm_module_init(omp_get_max_threads());
+    init_forcetree_params(2);
     init_cosmology(&All.CP, 0.01);
     /*Set up the top-level domain grid*/
     struct forcetree_testdata *data = malloc(sizeof(struct forcetree_testdata));

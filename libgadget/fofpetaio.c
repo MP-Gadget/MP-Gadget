@@ -16,6 +16,7 @@
 #include "petaio.h"
 #include "exchange.h"
 #include "fof.h"
+#include "walltime.h"
 
 static void fof_register_io_blocks(struct IOTable * IOTable);
 static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm);
@@ -70,7 +71,7 @@ void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_Comm Co
 
     if(SaveParticles) {
         struct IOTable IOTable = {0};
-        register_io_blocks(&IOTable);
+        register_io_blocks(&IOTable, 1);
         struct part_manager_type halo_pman;
         struct slots_manager_type halo_sman;
         fof_distribute_particles(&halo_pman, &halo_sman, Comm);
@@ -280,7 +281,7 @@ static void fof_distribute_particles(struct part_manager_type * halo_pman, struc
 #endif
 
     /* sort SPH and Others independently */
-    if(domain_exchange(fof_sorted_layout, targettask, 1, halo_pman, halo_sman, Comm))
+    if(domain_exchange(fof_sorted_layout, targettask, 1, halo_pman, halo_sman, 1, Comm))
         endrun(1930,"Could not exchange particles\n");
 
     myfree(targettask);
@@ -334,7 +335,7 @@ static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm) {
     /* conversion from peculiar velocity to RSD */
     double RSD = 1.0 / (All.cf.a * All.cf.hubble);
 
-    if(!All.IO.UsePeculiarVelocity) {
+    if(!GetUsePeculiarVelocity()) {
         RSD /= All.cf.a; /* Conversion from internal velocity to RSD */
     }
     big_block_set_attr(&bh, "NumPartInGroupTotal", npartTotal, "u8", 6);
@@ -358,16 +359,53 @@ static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm) {
 
 SIMPLE_PROPERTY_FOF(GroupID, base.GrNr, uint32_t, 1)
 SIMPLE_PROPERTY_FOF(MinID, base.MinID, uint64_t, 1)
-SIMPLE_PROPERTY_FOF(FirstPos, base.FirstPos[0], float, 3)
-SIMPLE_PROPERTY_FOF(MassCenterPosition, CM[0], double, 3)
 SIMPLE_PROPERTY_FOF(Imom, Imom[0][0], float, 9)
 /* FIXME: set Jmom to use peculiar velocity */
 SIMPLE_PROPERTY_FOF(Jmom, Jmom[0], float, 3)
+
+static void GTFirstPos(int i, float * out, void * baseptr, void * smanptr) {
+    /* Remove the particle offset before saving*/
+    struct Group * grp = (struct Group *) baseptr;
+    int d;
+    for(d = 0; d < 3; d ++) {
+        out[d] = grp[i].base.FirstPos[d] - PartManager->CurrentParticleOffset[d];
+        while(out[d] > All.BoxSize) out[d] -= All.BoxSize;
+        while(out[d] <= 0) out[d] += All.BoxSize;
+    }
+}
+
+static void STFirstPos(int i, float * out, void * baseptr, void * smanptr) {
+    int d;
+    struct Group * grp = (struct Group *) baseptr;
+    for(d = 0; d < 3; d ++) {
+        grp->base.FirstPos[i] = out[d];
+    }
+}
+
+static void GTMassCenterPosition(int i, double * out, void * baseptr, void * smanptr) {
+    /* Remove the particle offset before saving*/
+    struct Group * grp = (struct Group *) baseptr;
+    int d;
+    for(d = 0; d < 3; d ++) {
+        out[d] = grp[i].CM[d] - PartManager->CurrentParticleOffset[d];
+        while(out[d] > All.BoxSize) out[d] -= All.BoxSize;
+        while(out[d] <= 0) out[d] += All.BoxSize;
+    }
+}
+
+static void STMassCenterPosition(int i, double * out, void * baseptr, void * smanptr) {
+    int d;
+    struct Group * grp = (struct Group *) baseptr;
+    for(d = 0; d < 3; d ++) {
+        grp->CM[d] = out[d];
+    }
+}
+
 static void GTMassCenterVelocity(int i, float * out, void * baseptr, void * slotptr) {
     double fac;
     struct Group * Group = (struct Group *) baseptr;
-    if (All.IO.UsePeculiarVelocity) {
-        fac = 1.0 / All.cf.a;
+    if (GetUsePeculiarVelocity()) {
+        fac = 1.0 / All.Time;
     } else {
         fac = 1.0;
     }

@@ -4,32 +4,80 @@
 #include <string.h>
 #include <math.h>
 #include <gsl/gsl_math.h>
+#include <omp.h>
 
-#include "allvars.h"
+#include "physconst.h"
+#include "walltime.h"
 #include "cooling.h"
-#include "densitykernel.h"
+#include "density.h"
 #include "treewalk.h"
 #include "timefac.h"
 #include "slotsmanager.h"
 #include "timestep.h"
-#include "winds.h"
 #include "utils.h"
 
 #define MAXITER 400
 
+static struct density_params DensityParams;
+
+/*Set cooling module parameters from a cooling_params struct for the tests*/
+void
+set_densitypar(struct density_params dp)
+{
+    DensityParams = dp;
+}
+
+/*Set the parameters of the density module*/
+void
+set_density_params(ParameterSet * ps)
+{
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask == 0) {
+        DensityParams.DensityKernelType = param_get_enum(ps, "DensityKernelType");
+        DensityParams.MaxNumNgbDeviation = param_get_double(ps, "MaxNumNgbDeviation");
+        DensityParams.DensityResolutionEta = param_get_double(ps, "DensityResolutionEta");
+        DensityParams.MinGasHsmlFractional = param_get_double(ps, "MinGasHsmlFractional");
+
+        DensityKernel kernel;
+        density_kernel_init(&kernel, 1.0, DensityParams.DensityKernelType);
+        message(1, "The Density Kernel type is %s\n", kernel.name);
+        message(1, "The Density resolution is %g * mean separation, or %g neighbours\n",
+                    DensityParams.DensityResolutionEta, GetNumNgb(GetDensityKernelType()));
+        /*These two look like black hole parameters but they are really neighbour finding parameters*/
+        DensityParams.BlackHoleNgbFactor = param_get_double(ps, "BlackHoleNgbFactor");
+        DensityParams.BlackHoleMaxAccretionRadius = param_get_double(ps, "BlackHoleMaxAccretionRadius");
+    }
+    MPI_Bcast(&DensityParams, sizeof(struct density_params), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
+
+double
+GetNumNgb(enum DensityKernelType KernelType)
+{
+    DensityKernel kernel;
+    density_kernel_init(&kernel, 1.0, KernelType);
+    return density_kernel_desnumngb(&kernel, DensityParams.DensityResolutionEta);
+}
+
+enum DensityKernelType
+GetDensityKernelType(void)
+{
+    return DensityParams.DensityKernelType;
+}
+
 /* The evolved entropy at drift time: evolved dlog a.
  * Used to predict pressure and entropy for SPH */
 static MyFloat
-SPH_EntVarPred(int i)
+SPH_EntVarPred(int i, double MinEgySpec, double a3inv)
 {
         double dloga = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick);
         double EntVarPred = SPHP(i).Entropy + SPHP(i).DtEntropy * dloga;
         /*Entropy limiter for the predicted entropy: makes sure entropy stays positive. */
         if(dloga > 0 && EntVarPred < 0.5*SPHP(i).Entropy)
             EntVarPred = 0.5 * SPHP(i).Entropy;
-        const double enttou = pow(SPHP(i).Density * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
-        if(EntVarPred < All.MinEgySpec / enttou)
-            EntVarPred = All.MinEgySpec / enttou;
+        const double enttou = pow(SPHP(i).Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+        if(EntVarPred < MinEgySpec / enttou)
+            EntVarPred = MinEgySpec / enttou;
         EntVarPred = pow(EntVarPred, 1/GAMMA);
         return EntVarPred;
 }
@@ -40,10 +88,11 @@ SPH_EntVarPred(int i)
 static void
 SPH_VelPred(int i, MyFloat * VelPred)
 {
-    const int ti = P[i].Ti_drift;
+    const inttime_t ti = P[i].Ti_drift;
     const double Fgravkick2 = get_gravkick_factor(P[i].Ti_kick, ti);
     const double Fhydrokick2 = get_hydrokick_factor(P[i].Ti_kick, ti);
-    const double FgravkickB = get_gravkick_factor(PM.Ti_kick, ti);
+    inttime_t PMKick = get_pm_kick();
+    const double FgravkickB = get_gravkick_factor(PMKick, ti);
     int j;
     for(j = 0; j < 3; j++) {
         VelPred[j] = P[i].Vel[j] + Fgravkick2 * P[i].GravAccel[j]
@@ -64,8 +113,6 @@ typedef struct
     TreeWalkQueryBase base;
     double Vel[3];
     MyFloat Hsml;
-    /*Wind model*/
-    MyFloat DelayTime;
     int Type;
 } TreeWalkQueryDensity;
 
@@ -89,6 +136,9 @@ typedef struct {
 } TreeWalkResultDensity;
 
 struct DensityPriv {
+    /* Current number of neighbours*/
+    MyFloat *NumNgb;
+    /* Lower and upper bounds on smoothing length*/
     MyFloat *Left, *Right;
     MyFloat (*Rot)[3];
     /* This is the DhsmlDensityFactor for the pure density,
@@ -102,6 +152,14 @@ struct DensityPriv {
     int **NPRedo;
     int update_hsml;
     int DoEgyDensity;
+    /*!< Desired number of SPH neighbours */
+    double DesNumNgb;
+    /*!< minimum allowed SPH smoothing length */
+    double MinGasHsml;
+    /* Are there potentially black holes?*/
+    int BlackHoleOn;
+    /* The current hydro cost factor*/
+    double HydroCostFactor;
 };
 
 #define DENSITY_GET_PRIV(tw) ((struct DensityPriv*) ((tw)->priv))
@@ -142,11 +200,8 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, ForceTree * tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double HydroCostFactor, double MinEgySpec, double atime, ForceTree * tree)
 {
-    if(!All.DensityOn)
-        return;
-
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
 
@@ -171,9 +226,10 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, ForceTre
 
     walltime_measure("/Misc");
 
-    DENSITY_GET_PRIV(tw)->Left = (MyFloat *) mymalloc("DENSITY_GET_PRIV(tw)->Left", PartManager->NumPart * sizeof(MyFloat));
-    DENSITY_GET_PRIV(tw)->Right = (MyFloat *) mymalloc("DENSITY_GET_PRIV(tw)->Right", PartManager->NumPart * sizeof(MyFloat));
-    DENSITY_GET_PRIV(tw)->Rot = (MyFloat (*) [3]) mymalloc("DENSITY_GET_PRIV(tw)->Rot", SlotsManager->info[0].size * sizeof(priv->Rot[0]));
+    DENSITY_GET_PRIV(tw)->Left = (MyFloat *) mymalloc("DENS_PRIV->Left", PartManager->NumPart * sizeof(MyFloat));
+    DENSITY_GET_PRIV(tw)->Right = (MyFloat *) mymalloc("DENS_PRIV->Right", PartManager->NumPart * sizeof(MyFloat));
+    DENSITY_GET_PRIV(tw)->NumNgb = (MyFloat *) mymalloc("DENS_PRIV->NumNgb", PartManager->NumPart * sizeof(MyFloat));
+    DENSITY_GET_PRIV(tw)->Rot = (MyFloat (*) [3]) mymalloc("DENS_PRIV->Rot", SlotsManager->info[0].size * sizeof(priv->Rot[0]));
     if(DoEgyDensity)
         DENSITY_GET_PRIV(tw)->DhsmlDensityFactor = (MyFloat *) mymalloc("DENSITY_GET_PRIV(tw)->DhsmlDensity", SlotsManager->info[0].size * sizeof(MyFloat));
     else
@@ -184,15 +240,23 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, ForceTre
 
     DENSITY_GET_PRIV(tw)->NIteration = 0;
 
+    DENSITY_GET_PRIV(tw)->DesNumNgb = GetNumNgb(DensityParams.DensityKernelType);
+    DENSITY_GET_PRIV(tw)->MinGasHsml = DensityParams.MinGasHsmlFractional * GravitySofteningTable[1];
+
+    DENSITY_GET_PRIV(tw)->BlackHoleOn = BlackHoleOn;
+    DENSITY_GET_PRIV(tw)->HydroCostFactor = HydroCostFactor * atime;
+
     /* Init Left and Right: this has to be done before treewalk */
+    double a3inv = pow(atime, -3);
+
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)
     {
-        P[i].NumNgb = 0;
+        DENSITY_GET_PRIV(tw)->NumNgb[i] = 0;
         DENSITY_GET_PRIV(tw)->Left[i] = 0;
         DENSITY_GET_PRIV(tw)->Right[i] = tree->BoxSize;
-        if(P[i].Type == 0) {
-            SphP_scratch->EntVarPred[P[i].PI] = SPH_EntVarPred(i);
+        if(P[i].Type == 0 && !P[i].IsGarbage) {
+            SphP_scratch->EntVarPred[P[i].PI] = SPH_EntVarPred(i, MinEgySpec, a3inv);
             SPH_VelPred(i, SphP_scratch->VelPred + 3 * P[i].PI);
         }
     }
@@ -226,8 +290,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, ForceTre
                 alloc_high = 0;
             }
             gadget_setup_thread_arrays(ReDoQueue, DENSITY_GET_PRIV(tw)->NPRedo, DENSITY_GET_PRIV(tw)->NPLeft, tsize, NumThreads);
-
-            memset(DENSITY_GET_PRIV(tw)->NPLeft, 0, sizeof(int)*NumThreads);
         }
         treewalk_run(tw, CurQueue, size);
 
@@ -271,6 +333,12 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, ForceTre
 
         if(DENSITY_GET_PRIV(tw)->NIteration > 0) {
             message(0, "ngb iteration %d: need to repeat for %ld particles.\n", DENSITY_GET_PRIV(tw)->NIteration, ntot);
+#ifdef DEBUG
+            if(ntot == 1 && size > 0 && DENSITY_GET_PRIV(tw)->NIteration > 20 ) {
+                int pp = ReDoQueue[0];
+                message(1, "Remaining i=%d, t %d, pos %g %g %g, hsml: %g ngb: %g\n", pp, P[pp].Type, P[pp].Pos[0], P[pp].Pos[1], P[pp].Pos[2], P[pp].Hsml, DENSITY_GET_PRIV(tw)->NumNgb[pp]);
+            }
+#endif
         }
 
         if(DENSITY_GET_PRIV(tw)->NIteration > MAXITER) {
@@ -283,6 +351,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, ForceTre
     if(DoEgyDensity)
         myfree(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor);
     myfree(DENSITY_GET_PRIV(tw)->Rot);
+    myfree(DENSITY_GET_PRIV(tw)->NumNgb);
     myfree(DENSITY_GET_PRIV(tw)->Right);
     myfree(DENSITY_GET_PRIV(tw)->Left);
 
@@ -313,14 +382,12 @@ density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw)
         I->Vel[0] = P[place].Vel[0];
         I->Vel[1] = P[place].Vel[1];
         I->Vel[2] = P[place].Vel[2];
-        I->DelayTime = 0;
     }
     else
     {
         I->Vel[0] = SphP_scratch->VelPred[3 * P[place].PI];
         I->Vel[1] = SphP_scratch->VelPred[3 * P[place].PI + 1];
         I->Vel[2] = SphP_scratch->VelPred[3 * P[place].PI + 2];
-        I->DelayTime = SPHP(place).DelayTime;
     }
 
 }
@@ -328,10 +395,7 @@ density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw)
 static void
 density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
 {
-    TREEWALK_REDUCE(P[place].NumNgb, remote->Ngb);
-
-    /* these will be added */
-    P[place].GravCost += All.HydroCostFactor * All.cf.a * remote->Ninteractions;
+    TREEWALK_REDUCE(DENSITY_GET_PRIV(tw)->NumNgb[place], remote->Ngb);
 
     if(P[place].Type == 0)
     {
@@ -358,6 +422,11 @@ density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMod
         else
             TREEWALK_REDUCE(SPHP(place).DhsmlEgyDensityFactor, remote->DhsmlDensity);
     }
+    else if(P[place].Type == 5)
+    {
+        TREEWALK_REDUCE(BHP(place).Density, remote->Rho);
+
+    }
 
 }
 
@@ -383,7 +452,7 @@ density_ngbiter(
 {
     if(iter->base.other == -1) {
         const double h = I->Hsml;
-        density_kernel_init(&iter->kernel, h, All.DensityKernelType);
+        density_kernel_init(&iter->kernel, h, DensityParams.DensityKernelType);
         iter->kernel_volume = density_kernel_volume(&iter->kernel);
 
         iter->base.Hsml = h;
@@ -395,12 +464,6 @@ density_ngbiter(
     const double r = iter->base.r;
     const double r2 = iter->base.r2;
     const double * dist = iter->base.dist;
-
-    if(All.WindOn) {
-        if(winds_is_particle_decoupled(other))
-            if(!(I->Type == 0 && I->DelayTime > 0))	/* if I'm not wind, then ignore the wind particle */
-                return;
-    }
 
     if(P[other].Mass == 0) {
         endrun(12, "Encountered zero mass particle during density;"
@@ -416,16 +479,15 @@ density_ngbiter(
         const double wk = density_kernel_wk(&iter->kernel, u);
         O->Ngb += wk * iter->kernel_volume;
 
-        /* For the BH only Ngb is used. BH density is
-         * computed during accretion.*/
-        if(I->Type == 5)
-            return;
-
         const double dwk = density_kernel_dwk(&iter->kernel, u);
 
         const double mass_j = P[other].Mass;
 
         O->Rho += (mass_j * wk);
+
+        /* For the BH only density is used.*/
+        if(I->Type == 5)
+            return;
 
         /* Hinv is here because O->DhsmlDensity is drho / dH.
          * nothing to worry here */
@@ -471,6 +533,9 @@ density_ngbiter(
 static int
 density_haswork(int n, TreeWalk * tw)
 {
+    /* Don't want a density for swallowed black hole particles*/
+    if(P[n].Swallowed)
+        return 0;
     if(P[n].Type == 0 || P[n].Type == 5)
         return 1;
 
@@ -509,7 +574,7 @@ density_postprocess(int i, TreeWalk * tw)
 
             SPHP(i).DivVel /= SPHP(i).Density;
         }
-        else if(P[i].NumNgb > 0) {
+        else if(DENSITY_GET_PRIV(tw)->NumNgb[i] > 0) {
             endrun(12, "Particle %d has bad density: %g\n", i, SPHP(i).Density);
         }
     }
@@ -523,16 +588,17 @@ void density_check_neighbours (int i, TreeWalk * tw)
 {
     /* now check whether we had enough neighbours */
 
-    double desnumngb = All.DesNumNgb;
+    double desnumngb = DENSITY_GET_PRIV(tw)->DesNumNgb;
 
-    if(All.BlackHoleOn && P[i].Type == 5)
-        desnumngb = All.DesNumNgb * All.BlackHoleNgbFactor;
+    if(DENSITY_GET_PRIV(tw)->BlackHoleOn && P[i].Type == 5)
+        desnumngb = desnumngb * DensityParams.BlackHoleNgbFactor;
 
     MyFloat * Left = DENSITY_GET_PRIV(tw)->Left;
     MyFloat * Right = DENSITY_GET_PRIV(tw)->Right;
+    MyFloat * NumNgb = DENSITY_GET_PRIV(tw)->NumNgb;
 
-    if(P[i].NumNgb < (desnumngb - All.MaxNumNgbDeviation) ||
-            (P[i].NumNgb > (desnumngb + All.MaxNumNgbDeviation)))
+    if(NumNgb[i] < (desnumngb - DensityParams.MaxNumNgbDeviation) ||
+            (NumNgb[i] > (desnumngb + DensityParams.MaxNumNgbDeviation)))
     {
         /* This condition is here to prevent the density code looping forever if it encounters
          * multiple particles at the same position. If this happens you likely have worse
@@ -541,37 +607,37 @@ void density_check_neighbours (int i, TreeWalk * tw)
         {
             /* If this happens probably the exchange is screwed up and all your particles have moved to (0,0,0)*/
             message(1, "Very tight Hsml bounds for i=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g pos=(%g|%g|%g)\n",
-             i, P[i].ID, P[i].Hsml, Left[i], Right[i], P[i].NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+             i, P[i].ID, P[i].Hsml, Left[i], Right[i], NumNgb[i], Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
             P[i].Hsml = Right[i];
             return;
         }
 
         /* If we need more neighbours, move the lower bound up. If we need fewer, move the upper bound down.*/
-        if(P[i].NumNgb < desnumngb) {
+        if(NumNgb[i] < desnumngb) {
                 Left[i] = P[i].Hsml;
         } else {
                 Right[i] = P[i].Hsml;
         }
 
         /* Next step is geometric mean of previous. */
-        if(Right[i] < 0.99 * tw->tree->BoxSize && Left[i] > 0)
+        if(Right[i] < tw->tree->BoxSize && Left[i] > 0)
             P[i].Hsml = pow(0.5 * (pow(Left[i], 3) + pow(Right[i], 3)), 1.0 / 3);
         else
         {
-            if(Right[i] > 0.99 * tw->tree->BoxSize && Left[i] == 0)
-                endrun(8188, "Cannot occur. Check for memory corruption: L = %g R = %g N=%g.", Left[i], Right[i], P[i].NumNgb);
+            if(!(Right[i] < tw->tree->BoxSize) && Left[i] == 0)
+                endrun(8188, "Cannot occur. Check for memory corruption: i=%d L = %g R = %g N=%g. Type %d, Pos %g %g %g", i, Left[i], Right[i], NumNgb[i], P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
 
             /* If this is the first step we can be faster by increasing or decreasing current Hsml by a constant factor*/
             if(Right[i] > 0.99 * tw->tree->BoxSize && Left[i] > 0)
             {
-                if(P[i].Type == 0 && fabs(P[i].NumNgb - desnumngb) < 0.5 * desnumngb)
+                if(P[i].Type == 0 && fabs(NumNgb[i] - desnumngb) < 0.5 * desnumngb)
                 {
                     MyFloat DensFac;
                     if(DENSITY_GET_PRIV(tw)->DoEgyDensity)
                         DensFac = DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[P[i].PI];
                     else
                         DensFac = SPHP(i).DhsmlEgyDensityFactor;
-                    double fac = 1 - (P[i].NumNgb - desnumngb) / (NUMDIMS * P[i].NumNgb) * DensFac;
+                    double fac = 1 - (NumNgb[i] - desnumngb) / (NUMDIMS * NumNgb[i]) * DensFac;
 
                     if(fac < 1.26)
                         P[i].Hsml *= fac;
@@ -584,7 +650,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
 
             if(Right[i] < 0.99*tw->tree->BoxSize && Left[i] == 0)
             {
-                if(P[i].Type == 0 && fabs(P[i].NumNgb - desnumngb) < 0.5 * desnumngb)
+                if(P[i].Type == 0 && fabs(NumNgb[i] - desnumngb) < 0.5 * desnumngb)
                 {
                     MyFloat DensFac;
                     if(DENSITY_GET_PRIV(tw)->DoEgyDensity)
@@ -592,7 +658,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
                     else
                         DensFac = SPHP(i).DhsmlEgyDensityFactor;
 
-                    double fac = 1 - (P[i].NumNgb - desnumngb) / (NUMDIMS * P[i].NumNgb) * DensFac;
+                    double fac = 1 - (NumNgb[i] - desnumngb) / (NUMDIMS * NumNgb[i]) * DensFac;
 
                     if(fac > 1 / 1.26)
                         P[i].Hsml *= fac;
@@ -604,15 +670,15 @@ void density_check_neighbours (int i, TreeWalk * tw)
             }
         }
 
-        if(All.BlackHoleOn && P[i].Type == 5)
-            if(Left[i] > All.BlackHoleMaxAccretionRadius)
+        if(DENSITY_GET_PRIV(tw)->BlackHoleOn && P[i].Type == 5)
+            if(Left[i] > DensityParams.BlackHoleMaxAccretionRadius)
             {
-                P[i].Hsml = All.BlackHoleMaxAccretionRadius;
+                P[i].Hsml = DensityParams.BlackHoleMaxAccretionRadius;
                 return;
             }
 
-        if(Right[i] < All.MinGasHsml) {
-            P[i].Hsml = All.MinGasHsml;
+        if(Right[i] < DENSITY_GET_PRIV(tw)->MinGasHsml) {
+            P[i].Hsml = DENSITY_GET_PRIV(tw)->MinGasHsml;
             return;
         }
         /* More work needed: add this particle to the redo queue*/
@@ -622,18 +688,18 @@ void density_check_neighbours (int i, TreeWalk * tw)
     }
     else {
         /* We might have got here by serendipity, without bounding.*/
-        if(All.BlackHoleOn && P[i].Type == 5)
-            if(P[i].Hsml > All.BlackHoleMaxAccretionRadius)
-                P[i].Hsml = All.BlackHoleMaxAccretionRadius;
-        if(P[i].Hsml < All.MinGasHsml)
-            P[i].Hsml = All.MinGasHsml;
+        if(DENSITY_GET_PRIV(tw)->BlackHoleOn && P[i].Type == 5)
+            if(P[i].Hsml > DensityParams.BlackHoleMaxAccretionRadius)
+                P[i].Hsml = DensityParams.BlackHoleMaxAccretionRadius;
+        if(P[i].Hsml < DENSITY_GET_PRIV(tw)->MinGasHsml)
+            P[i].Hsml = DENSITY_GET_PRIV(tw)->MinGasHsml;
     }
 
     if(DENSITY_GET_PRIV(tw)->NIteration >= MAXITER - 10)
     {
          message(1, "i=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
              i, P[i].ID, P[i].Hsml, Left[i], Right[i],
-             P[i].NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+             NumNgb[i], Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
     }
 }
 

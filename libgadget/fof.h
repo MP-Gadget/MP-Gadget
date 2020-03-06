@@ -3,6 +3,7 @@
 
 #include "forcetree.h"
 #include "utils/paramset.h"
+#include "timestep.h"
 
 void set_fof_params(ParameterSet * ps);
 
@@ -15,6 +16,8 @@ struct BaseGroup {
     int GrNr;
     MyIDType MinID;
     int MinIDTask;
+    /* Note: this is in the translated frame,
+     * subtract CurrentParticleOffset to get the physical frame.*/
     float FirstPos[3];
 };
 
@@ -25,6 +28,8 @@ struct Group
     int LenType[6];
     double MassType[6];
     double Mass;
+    /* Note: this is in the translated frame,
+     * subtract CurrentParticleOffset to get the physical frame.*/
     double CM[3];
     double Vel[3];
 
@@ -52,13 +57,14 @@ typedef struct FOFGroups
 } FOFGroups;
 
 /*Computes the Group structure, saved as a global array below*/
-FOFGroups fof_fof(ForceTree * tree, double BoxSize, int BlackHoleInfo, MPI_Comm Comm);
+FOFGroups fof_fof(ForceTree * tree, MPI_Comm Comm);
 
 /*Frees the Group structure*/
 void fof_finish(FOFGroups * fof);
 
-/*Uses the Group structure to seed blackholes*/
-void fof_seed(FOFGroups * fof, MPI_Comm Comm);
+/*Uses the Group structure to seed blackholes.
+ * The tree and active particle structs are used only because we may need to reallocate them. */
+void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm Comm);
 
 /*Saves the Group structure to disc.*/
 void fof_save_groups(FOFGroups * fof, int num, MPI_Comm Comm);

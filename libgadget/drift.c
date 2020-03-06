@@ -4,33 +4,15 @@
 #include <string.h>
 #include <math.h>
 #include <gsl/gsl_math.h>
-#include "allvars.h"
 #include "drift.h"
+#include "walltime.h"
 #include "timefac.h"
 #include "timestep.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "utils.h"
 
-#define MAXHSML 30000.0
-
-static void
-real_drift_particle(int i, inttime_t ti1, const double ddrift, const double random_shift[3]);
-
-/* Updates a single particle to the current drift time*/
-void drift_particle(int i, inttime_t ti1, struct SpinLocks * spin) {
-    if(P[i].Ti_drift == ti1) return;
-
-    double random_shift[3] = {0};
-    lock_spinlock(i, spin);
-    inttime_t ti0 = P[i].Ti_drift;
-    if(ti0 != ti1) {
-        const double ddrift = get_drift_factor(ti0, ti1);
-        real_drift_particle(i, ti1, ddrift, random_shift);
-#pragma omp flush
-    }
-    unlock_spinlock(i, spin);
-}
+static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const double BoxSize, const double random_shift[3]);
 
 /* Drifts an individual particle to time ti1, by a drift factor ddrift.
  * The final argument is a random shift vector applied uniformly to all particles before periodic wrapping.
@@ -40,11 +22,21 @@ void drift_particle(int i, inttime_t ti1, struct SpinLocks * spin) {
  * receives a shift vector removing the previous random shift and adding a new one.
  * This function also updates the velocity and updates the density according to an adiabatic factor.
  */
-static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const double random_shift[3])
+static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const double BoxSize, const double random_shift[3])
 {
     int j;
-    if(P[i].IsGarbage) {
+    if(P[i].IsGarbage || P[i].Swallowed) {
         P[i].Ti_drift = ti1;
+        /* Keep the random shift updated so the
+         * physical position of swallowed particles remains unchanged.*/
+        for(j = 0; j < 3; j++) {
+            P[i].Pos[j] += random_shift[j];
+            while(P[i].Pos[j] > BoxSize) P[i].Pos[j] -= BoxSize;
+            while(P[i].Pos[j] <= 0) P[i].Pos[j] += BoxSize;
+        }
+        /* Swallowed particles still need a peano key.*/
+        if(P[i].Swallowed)
+            P[i].Key = PEANO(P[i].Pos, BoxSize);
         return;
     }
     inttime_t ti0 = P[i].Ti_drift;
@@ -65,8 +57,8 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const
         int k;
         if (BHP(i).JumpToMinPot) {
             for(k = 0; k < 3; k++) {
-                double dx = NEAREST(P[i].Pos[k] - BHP(i).MinPotPos[k], All.BoxSize);
-                if(dx > 0.1 * All.BoxSize) {
+                double dx = NEAREST(P[i].Pos[k] - BHP(i).MinPotPos[k], BoxSize);
+                if(dx > 0.1 * BoxSize) {
                     endrun(1, "Drifting blackhole very far, from %g %g %g to %g %g %g id = %ld. Likely due to the time step is too sparse.\n",
                         P[i].Pos[0],
                         P[i].Pos[1],
@@ -90,11 +82,11 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const
 #endif
 
     for(j = 0; j < 3; j ++) {
-        while(P[i].Pos[j] > All.BoxSize) P[i].Pos[j] -= All.BoxSize;
-        while(P[i].Pos[j] <= 0) P[i].Pos[j] += All.BoxSize;
+        while(P[i].Pos[j] > BoxSize) P[i].Pos[j] -= BoxSize;
+        while(P[i].Pos[j] <= 0) P[i].Pos[j] += BoxSize;
     }
     /* avoid recomputing them during layout and force tree build.*/
-    P[i].Key = PEANO(P[i].Pos, All.BoxSize);
+    P[i].Key = PEANO(P[i].Pos, BoxSize);
 
     if(P[i].Type == 0)
     {
@@ -102,37 +94,40 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const
          * and is a good predictor for most of the gas.*/
         double densdriftfac = exp(-SPHP(i).DivVel * ddrift);
         SPHP(i).Density *= densdriftfac;
-        if(All.DensityIndependentSphOn)
-            SPHP(i).EgyWtDensity *= densdriftfac;
+        /* Only does something when Pressure-entropy is enabled*/
+        SPHP(i).EgyWtDensity *= densdriftfac;
 
         //      P[i].Hsml *= exp(0.333333333333 * SPHP(i).DivVel * ddrift);
         //---This was added
         double fac = exp(0.333333333333 * SPHP(i).DivVel * ddrift);
+        inttime_t ti_step = (1u << (unsigned) P[i].TimeBin);
+
         if(fac > 1.25)
             fac = 1.25;
-        P[i].Hsml *= fac;
-        if(P[i].Hsml > MAXHSML)
-        {
-            message(1, "warning: we reached Hsml=%g for ID=%lu\n", P[i].Hsml, P[i].ID);
-            P[i].Hsml = MAXHSML;
-        }
-        //---This was added
 
-        if(P[i].Hsml < All.MinGasHsml)
-            P[i].Hsml = All.MinGasHsml;
+        /* During deep timestep hierarchies the
+         * expansion factor may get out of control,
+         * so don't let it do that.*/
+        if(ti_step <= 8*(ti1-ti0))
+            P[i].Hsml *= fac;
+        /* Cap the Hsml: if DivVel is large for a particle with a long timestep
+         * (most likely a wind particle) Hsml can very rarely run away*/
+        const double Maxhsml = BoxSize /2.;
+        if(P[i].Hsml > Maxhsml)
+            P[i].Hsml = Maxhsml;
     }
 
     P[i].Ti_drift = ti1;
 }
 
 /* Update all particles to the current time, shifting them by a random vector.*/
-void drift_all_particles(inttime_t ti1, const double random_shift[3])
+void drift_all_particles(inttime_t ti1, const double BoxSize, Cosmology * CP, const double random_shift[3])
 {
     int i;
     walltime_measure("/Misc");
 
     const inttime_t ti0 = P[0].Ti_drift;
-    const double ddrift = get_exact_drift_factor(&All.CP, ti0, ti1);
+    const double ddrift = get_exact_drift_factor(CP, ti0, ti1);
 
 #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++) {
@@ -140,7 +135,7 @@ void drift_all_particles(inttime_t ti1, const double random_shift[3])
         if(P[i].Ti_drift != ti0)
             endrun(10, "Drift time mismatch: (ids = %ld %ld) %d != %d\n",P[0].ID, P[i].ID, ti0,  P[i].Ti_drift);
 #endif
-        real_drift_particle(i, ti1, ddrift, random_shift);
+        real_drift_particle(i, ti1, ddrift, BoxSize, random_shift);
     }
 
     walltime_measure("/Drift/All");

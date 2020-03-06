@@ -13,7 +13,7 @@
 #include <signal.h>
 #include <gsl/gsl_rng.h>
 
-
+#define __UTILS_SYSTEM_C
 #include "system.h"
 #include "mymalloc.h"
 #include "endrun.h"
@@ -189,7 +189,8 @@ MPIU_Tracev(MPI_Comm comm, int where, const char * fmt, va_list va)
     char prefix[128];
 
     char buf[4096];
-    vsprintf(buf, fmt, va);
+    vsnprintf(buf, 4096, fmt, va);
+    buf[4095] = '\0';
 
     if(where > 0) {
         sprintf(prefix, "[ %09.2f ] Task %d: ", MPI_Wtime() - _timestart, ThisTask);
@@ -635,3 +636,93 @@ void gadget_setup_thread_arrays(int * dest, int * srcs[], size_t sizes[], size_t
         sizes[i] = 0;
     }
 }
+
+#ifdef DEBUG
+
+static void
+check_reduce(const void *inputcpy, const void * recvbuf, const int count, MPI_Datatype datatype, MPI_Op op, const int line, const char * file)
+{
+    int i;
+    /* Check that the max/min we got back is larger than or equal to the input*/
+    for(i=0; i < count; i++) {
+        if(op == MPI_MAX) {
+            if(datatype == MPI_INT) {
+                if(((int *) inputcpy)[i] > ((int *) recvbuf)[i])
+                    endrun(12, "MPI_Allreduce with MPI_INT MPI_MAX | MPI_SUM has int %d bad: (input %d > out %d) at %s:%d\n", i, *((int*) inputcpy), *((int*) recvbuf), file, line);
+            }
+            else if (datatype == MPI_LONG) {
+                if(((long *) inputcpy)[i] > ((long *) recvbuf)[i])
+                    endrun(12, "MPI_Allreduce with MPI_LONG MPI_MAX | MPI_SUM has int %d bad: (input %ld > out %ld) at %s:%d\n", i, *((long*) inputcpy), *((long*) recvbuf), file, line);
+            }
+            else if(datatype == MPI_DOUBLE) {
+                if(((double *) inputcpy)[i] > ((double *) recvbuf)[i])
+                    endrun(12, "MPI_Allreduce with MPI_DOUBLE MPI_MAX | MPI_SUM has int %d bad: (input %g > out %g) at %s:%d\n", i, *((double*) inputcpy), *((double*) recvbuf), file, line);
+            }
+        } else if (op == MPI_MIN) {
+            if(datatype == MPI_INT) {
+                if(((int *) inputcpy)[i] < ((int *) recvbuf)[i])
+                    endrun(12, "MPI_Allreduce with MPI_INT MPI_MAX | MPI_SUM has int %d bad: (input %d < out %d) at %s:%d\n", i, *((int*) inputcpy), *((int*) recvbuf), file, line);
+            }
+            else if (datatype == MPI_LONG) {
+                if(((long *) inputcpy)[i] < ((long *) recvbuf)[i])
+                    endrun(12, "MPI_Allreduce with MPI_LONG MPI_MAX | MPI_SUM has int %d bad: (input %ld < out %ld) at %s:%d\n", i, *((long*) inputcpy), *((long*) recvbuf), file, line);
+            }
+            else if(datatype == MPI_DOUBLE) {
+                if(((double *) inputcpy)[i] < ((double *) recvbuf)[i])
+                    endrun(12, "MPI_Allreduce with MPI_DOUBLE MPI_MAX | MPI_SUM has int %d bad: (input %g < out %g) at %s:%d\n", i, *((double*) inputcpy), *((double*) recvbuf), file, line);
+            }
+        }
+    }
+}
+
+int
+MPI_Allreduce_Checked(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm, const int line, const char * file)
+{
+    /* Make a copy of the input data*/
+    size_t datasz = sizeof(char);
+    if(datatype == MPI_INT)
+        datasz = sizeof(int);
+    else if(datatype == MPI_DOUBLE)
+        datasz = sizeof(double);
+    else if (datatype == MPI_LONG || datatype == MPI_INT64)
+        datasz = sizeof(long);
+    void * inputcpy = alloca(datasz * count);
+    if(sendbuf != MPI_IN_PLACE)
+        memcpy(inputcpy, sendbuf, datasz * count);
+    else
+        memcpy(inputcpy, recvbuf, datasz * count);
+    int retval = MPI_Allreduce(sendbuf, recvbuf, count, datatype, op, comm);
+
+    /* Check that the reduction is sane*/
+    check_reduce(inputcpy, recvbuf, count, datatype, op, line, file);
+
+    return retval;
+}
+
+int
+MPI_Reduce_Checked(const void *sendbuf, void *recvbuf, int count,
+                      MPI_Datatype datatype, MPI_Op op, int root,
+                      MPI_Comm comm, const int line, const char * file)
+{
+    int ThisTask;
+    MPI_Comm_rank(comm, &ThisTask);
+    int datasz = sizeof(int);
+    /* Make a copy of the input data*/
+    if(datatype == MPI_DOUBLE)
+        datasz = sizeof(double);
+    else if (datatype == MPI_LONG)
+        datasz = sizeof(long);
+    void * inputcpy = alloca(datasz * count);
+    if(sendbuf != MPI_IN_PLACE)
+        memcpy(inputcpy, sendbuf, datasz * count);
+    else
+        memcpy(inputcpy, recvbuf, datasz * count);
+    int retval = MPI_Reduce(sendbuf, recvbuf, count, datatype, op, root, comm);
+    /* Check that the reduction is sane*/
+    if(ThisTask == root)
+        check_reduce(inputcpy, recvbuf, count, datatype, op, line, file);
+
+    return retval;
+}
+
+#endif

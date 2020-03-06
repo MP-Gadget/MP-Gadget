@@ -162,21 +162,21 @@ ev_begin(TreeWalk * tw, int * active_set, const int size)
     report_memory_usage(tw->ev_label);
 
     /*The amount of memory eventually allocated per tree buffer*/
-    int bytesperbuffer = sizeof(struct data_index) + sizeof(struct data_nodelist) + tw->query_type_elsize;
+    size_t bytesperbuffer = sizeof(struct data_index) + sizeof(struct data_nodelist) + tw->query_type_elsize;
     /*This memory scales like the number of imports. In principle this could be much larger than Nexport
      * if the tree is very imbalanced and many processors all need to export to this one. In practice I have
      * not seen this happen, but provide a parameter to boost the memory for Nimport just in case.*/
     bytesperbuffer += ImportBufferBoost * (tw->query_type_elsize + tw->result_type_elsize);
     /*Use all free bytes for the tree buffer, as in exchange. Leave some free memory for array overhead.*/
     size_t freebytes = mymalloc_freebytes();
-    /* if freebytes is greater than 2GB we run into issues computing BunchSize.
-     * It is probable not a good idea to send too many particles around in one bunch anyways. */
-    if(freebytes > 1024 * 1024 * 1024) freebytes =  1024 * 1024 * 1024;
-
-    tw->BunchSize = (int)floor(((double)freebytes  - 4096 * 10)/ bytesperbuffer);
-    if(tw->BunchSize <= 0) {
+    if(freebytes <= 4096 * 11 * bytesperbuffer) {
         endrun(1231245, "Not enough memory for exporting any particles: needed %d bytes have %d. \n", bytesperbuffer, freebytes-4096*10);
     }
+    freebytes -= 4096 * 10 * bytesperbuffer;
+    /* if freebytes is greater than 2GB some MPIs have issues */
+    if(freebytes > 1024 * 1024 * 2030) freebytes =  1024 * 1024 * 2030;
+
+    tw->BunchSize = (int64_t) floor(((double)freebytes)/ bytesperbuffer);
     DataIndexTable =
         (struct data_index *) mymalloc("DataIndexTable", tw->BunchSize * sizeof(struct data_index));
     DataNodeList =
@@ -262,11 +262,6 @@ static void real_ev(TreeWalk * tw, int * ninter) {
         if(tw->BufferFullFlag) break;
 
         const int i = tw->WorkSet ? tw->WorkSet[k] : k;
-#ifdef DEBUG
-        if(tw->haswork && !tw->haswork(i, tw)) {
-            BREAKPOINT;
-        }
-#endif
         /* Primary never uses node list */
         treewalk_init_query(tw, input, i, NULL);
         treewalk_init_result(tw, output, input);
@@ -284,7 +279,7 @@ static void real_ev(TreeWalk * tw, int * ninter) {
     *ninter += lv->Ninteractions;
 }
 
-#ifdef DEBUG
+#if 0
 static int
 cmpint(const void *a, const void *b)
 {
@@ -333,7 +328,8 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
         const int p_i = active_set ? active_set[i] : i;
 
         /* Skip the garbage particles */
-        if(P[p_i].IsGarbage) continue;
+        if(P[p_i].IsGarbage)
+            continue;
 
         if(tw->haswork && !tw->haswork(p_i, tw))
             continue;
@@ -834,9 +830,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
 
     for(inode = 0; inode < NODELISTLENGTH && I->NodeList[inode] >= 0; inode++)
     {
-        int startnode = lv->tw->tree->Nodes[I->NodeList[inode]].u.d.nextnode;  /* open it */
-
-        int numcand = ngb_treefind_threads(I, O, iter, startnode, lv);
+        int numcand = ngb_treefind_threads(I, O, iter, I->NodeList[inode], lv);
         /* Export buffer is full end prematurally */
         if(numcand < 0) return numcand;
 
@@ -847,8 +841,9 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
         for(numngb = 0; numngb < numcand; numngb ++) {
             int other = lv->ngblist[numngb];
 
-            /* skip garbage */
-            if(P[other].IsGarbage) continue;
+            /* Skip garbage*/
+            if(P[other].IsGarbage)
+                continue;
 
             /* must be the correct type */
             if(!((1<<P[other].Type) & iter->mask))
@@ -907,7 +902,7 @@ cull_node(const TreeWalkQueryBase * const I, const TreeWalkNgbIterBase * const i
 {
     double dist;
     if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
-        dist = DMAX(current->u.d.hmax, iter->Hsml) + 0.5 * current->len;
+        dist = DMAX(current->mom.hmax, iter->Hsml) + 0.5 * current->len;
     } else {
         dist = iter->Hsml + 0.5 * current->len;
     }
@@ -955,26 +950,18 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
 
     const ForceTree * tree = lv->tw->tree;
     const double BoxSize = tree->BoxSize;
+
     no = startnode;
 
     while(no >= 0)
     {
-        int nextnode = force_get_next_node(no, tree);
-        if(node_is_particle(no, tree))  /* single particle */ {
-            lv->ngblist[numcand++] = no;
-            no = nextnode;
-            continue;
+        if(node_is_particle(no, tree)) {
+            int fat = force_get_father(no, tree);
+            endrun(12312, "Particles should be added before getting here! no = %d, father = %d (ptype = %d)\n", no, fat, tree->Nodes[fat].f.ChildType);
         }
         if(node_is_pseudo_particle(no, tree)) {
-            /* pseudo particle */
-            if(lv->mode == 1) {
-                endrun(12312, "Touching outside of my domain from a node list of a ghost. This shall not happen.");
-            } else {
-                if(-1 == treewalk_export_particle(lv, no))
-                    return -1;
-            }
-            no = nextnode;
-            continue;
+            int fat = force_get_father(no, tree);
+            endrun(12312, "Pseudo-Particles should be added before getting here! no = %d, father = %d (ptype = %d)\n", no, fat, tree->Nodes[fat].f.ChildType);
         }
 
         struct NODE *current = &tree->Nodes[no];
@@ -982,7 +969,8 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         /* When walking exported particles we start from the encompassing top-level node,
          * so if we get back to a top-level node again we are done.*/
         if(lv->mode == 1) {
-            if(current->f.TopLevel) {
+            /* The first node is always top-level*/
+            if(current->f.TopLevel && no != startnode) {
                 /* we reached a top-level node again, which means that we are done with the branch */
                 break;
             }
@@ -991,13 +979,36 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         /* Cull the node */
         if(0 == cull_node(I, iter, current, BoxSize)) {
             /* in case the node can be discarded */
-            no = current->u.d.sibling;
+            no = current->sibling;
             continue;
         }
 
+        /* Node contains relevant particles, add them.*/
+        if(current->f.ChildType == PARTICLE_NODE_TYPE) {
+            int i;
+            int * suns = current->s.suns;
+            for (i = 0; i < current->s.noccupied; i++) {
+                lv->ngblist[numcand++] = suns[i];
+            }
+            /* Move sideways*/
+            no = current->sibling;
+            continue;
+        }
+        else if(current->f.ChildType == PSEUDO_NODE_TYPE) {
+            /* pseudo particle */
+            if(lv->mode == 1) {
+                endrun(12312, "Touching outside of my domain from a node list of a ghost. This shall not happen.");
+            } else {
+                /* Export the pseudo particle*/
+                if(-1 == treewalk_export_particle(lv, current->nextnode))
+                    return -1;
+                /* Move sideways*/
+                no = current->sibling;
+                continue;
+            }
+        }
         /* ok, we need to open the node */
-        no = nextnode;
-        continue;
+        no = current->nextnode;
     }
 
     return numcand;

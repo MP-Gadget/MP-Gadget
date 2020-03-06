@@ -10,12 +10,13 @@
 #include "forcetree.h"
 #include "petapm.h"
 #include "domain.h"
+#include "walltime.h"
 #include "gravity.h"
 
 #include "cosmology.h"
 #include "neutrinos_lra.h"
 
-static int pm_mark_region_for_node(int startno, int rid, const ForceTree * tt);
+static int pm_mark_region_for_node(int startno, int rid, int * RegionInd, const ForceTree * tt);
 static void convert_node_to_region(PetaPM * pm, PetaPMRegion * r, struct NODE * Nodes);
 
 static int hybrid_nu_gravpm_is_active(int i);
@@ -39,7 +40,7 @@ static PetaPMFunctions functions [] =
 
 static PetaPMGlobalFunctions global_functions = {NULL, NULL, potential_transfer};
 
-static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions);
+static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void * userdata, int * Nregions);
 
 void
 gravpm_init_periodic(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G) {
@@ -63,7 +64,8 @@ gravpm_force(PetaPM * pm, ForceTree * tree) {
         sizeof(P[0]),
         (char*) &P[0].Pos[0]  - (char*) P,
         (char*) &P[0].Mass  - (char*) P,
-        (char*) &P[0].RegionInd - (char*) P,
+        /* Regions allocated inside _prepare*/
+        NULL,
         /* By default all particles are active. For hybrid neutrinos set below.*/
         NULL,
         PartManager->NumPart,
@@ -87,18 +89,16 @@ gravpm_force(PetaPM * pm, ForceTree * tree) {
     petapm_force(pm, _prepare, &global_functions, functions, &pstruct, tree);
     powerspectrum_sum(pm->ps);
     /*Now save the power spectrum*/
-    if(ThisTask == 0) {
-        powerspectrum_save(pm->ps, All.OutputDir, "powerspectrum", All.Time, GrowthFactor(&All.CP, All.Time, 1.0));
-        /* Save the neutrino power if it is allocated*/
-        if(pm->ps->logknu)
-            powerspectrum_nu_save(pm->ps, All.OutputDir, "powerspectrum-nu", All.Time);
-    }
+    powerspectrum_save(pm->ps, All.OutputDir, "powerspectrum", All.Time, GrowthFactor(&All.CP, All.Time, 1.0));
+    /* Save the neutrino power if it is allocated*/
+    if(pm->ps->logknu)
+        powerspectrum_nu_save(pm->ps, All.OutputDir, "powerspectrum-nu", All.Time);
     /*We are done with the power spectrum, free it*/
     powerspectrum_free(pm->ps);
     walltime_measure("/LongRange");
 }
 
-static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions) {
+static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void * userdata, int * Nregions) {
     /*
      *
      * walks down the tree, identify nodes that contains local mass and
@@ -111,11 +111,10 @@ static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions) {
      *
      * */
     ForceTree * tree = (ForceTree *) userdata;
-
     /* In worst case, each topleave becomes a region: thus
      * NTopLeaves is sufficient */
     PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion) * tree->NTopLeaves);
-
+    pstruct->RegionInd = mymalloc2("RegionInd", PartManager->NumPart * sizeof(int));
     int r = 0;
 
     int no = tree->firstnode; /* start with the root */
@@ -123,7 +122,7 @@ static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions) {
 
         if(!(tree->Nodes[no].f.DependsOnLocalMass)) {
             /* node doesn't contain particles on this process, do not open */
-            no = tree->Nodes[no].u.d.sibling;
+            no = tree->Nodes[no].sibling;
             continue;
         }
         if(
@@ -136,11 +135,11 @@ static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions) {
             regions[r].no = no;
             r ++;
             /* do not open */
-            no = tree->Nodes[no].u.d.sibling;
+            no = tree->Nodes[no].sibling;
             continue;
         }
         /* open */
-        no = tree->Nodes[no].u.d.nextnode;
+        no = tree->Nodes[no].nextnode;
     }
 
     *Nregions = r;
@@ -149,24 +148,33 @@ static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions) {
     message(0, "max number of regions is %d\n", maxNregions);
 
     int i;
+    int numswallowed = 0;
+    #pragma omp parallel for reduction(+: numswallowed)
     for(i =0; i < PartManager->NumPart; i ++) {
-        P[i].RegionInd = -1;
+        /* Swallowed black hole particles stick around but should not gravitate.
+         * Short-range is handled by not adding them to the tree. */
+        if(All.BlackHoleOn && P[i].Swallowed && P[i].Type==5){
+            pstruct->RegionInd[i] = -2;
+            numswallowed++;
+        }
+        else
+            pstruct->RegionInd[i] = -1;
     }
 
     /* now lets mark particles to their hosting region */
     int numpart = 0;
 #pragma omp parallel for reduction(+: numpart)
     for(r = 0; r < *Nregions; r++) {
-        regions[r].numpart = pm_mark_region_for_node(regions[r].no, r, tree);
+        regions[r].numpart = pm_mark_region_for_node(regions[r].no, r, pstruct->RegionInd, tree);
         numpart += regions[r].numpart;
     }
     for(i =0; i < PartManager->NumPart; i ++) {
-        if(P[i].RegionInd == -1) {
+        if(pstruct->RegionInd[i] == -1) {
             message(1, "i = %d not assigned to a region\n", i);
         }
     }
     /* All particles shall have been processed just once. Otherwise we die */
-    if(numpart != PartManager->NumPart) {
+    if((numpart+numswallowed) != PartManager->NumPart) {
         endrun(1, "Processed only %d particles out of %d\n", numpart, PartManager->NumPart);
     }
     for(r =0; r < *Nregions; r++) {
@@ -176,45 +184,57 @@ static PetaPMRegion * _prepare(PetaPM * pm, void * userdata, int * Nregions) {
     if(force_tree_allocated(tree)) force_tree_free(tree);
 
     /*Allocate memory for a power spectrum*/
-    powerspectrum_alloc(pm->ps, pm->Nmesh, All.NumThreads, All.MassiveNuLinRespOn, pm->BoxSize*All.UnitLength_in_cm);
+    powerspectrum_alloc(pm->ps, pm->Nmesh, omp_get_max_threads(), All.MassiveNuLinRespOn, pm->BoxSize*All.UnitLength_in_cm);
 
     walltime_measure("/PMgrav/Regions");
     return regions;
 }
 
-static int pm_mark_region_for_node(int startno, int rid, const ForceTree * tree) {
+static int pm_mark_region_for_node(int startno, int rid, int * RegionInd, const ForceTree * tree) {
     int numpart = 0;
     int no = startno;
-    int endno = tree->Nodes[startno].u.d.sibling;
+    int endno = tree->Nodes[startno].sibling;
     while(no >= 0 && no != endno)
     {
-        if(node_is_particle(no, tree))	/* single particle */
-        {
-            int p = no;
-            P[p].RegionInd = rid;
+        struct NODE * nop = &tree->Nodes[no];
+        if(nop->f.ChildType == PARTICLE_NODE_TYPE) {
+            int i;
+            for(i = 0; i < nop->s.noccupied; i++) {
+                int p = nop->s.suns[i];
+                RegionInd[p] = rid;
 #ifdef DEBUG
-            /* when we are in PM, all particles must have been synced. */
-            if (P[p].Ti_drift != All.Ti_Current) {
-                abort();
-            }
-            /* Check for particles outside of the node. This should never happen,
-             * unless there is a bug in tree build, or the particles are being moved.*/
-            int k;
-            for(k = 0; k < 3; k ++) {
-                double l = P[p].Pos[k] - tree->Nodes[startno].center[k];
-                l = fabs(l * 2);
-                if (l > tree->Nodes[startno].len) {
-                    if(l > tree->Nodes[startno].len * (1+ 1e-7))
-                    endrun(1, "enlarging node size from %g to %g, due to particle of type %d at %g %g %g id=%ld\n",
-                        tree->Nodes[startno].len, l, P[p].Type, P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].ID);
-                    tree->Nodes[startno].len = l;
+                /* when we are in PM, all particles must have been synced. */
+                if (P[p].Ti_drift != All.Ti_Current) {
+                    abort();
                 }
-            }
+                /* Check for particles outside of the node. This should never happen,
+                * unless there is a bug in tree build, or the particles are being moved.*/
+                int k;
+                for(k = 0; k < 3; k ++) {
+                    double l = P[p].Pos[k] - tree->Nodes[startno].center[k];
+                    l = fabs(l * 2);
+                    if (l > tree->Nodes[startno].len) {
+                        if(l > tree->Nodes[startno].len * (1+ 1e-7))
+                        endrun(1, "enlarging node size from %g to %g, due to particle of type %d at %g %g %g id=%ld\n",
+                            tree->Nodes[startno].len, l, P[p].Type, P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].ID);
+                        tree->Nodes[startno].len = l;
+                    }
+                }
 #endif
-            numpart ++;
+            }
+            numpart += nop->s.noccupied;
+            /* Move to sibling*/
+            no = nop->sibling;
         }
-
-        no = force_get_next_node(no, tree);
+        /* Generally this function should be handed top leaves which do not contain pseudo particles.
+         * However, sometimes it will receive an internal top node which can, if that top node is small enough.
+         * In this case, just move to the sibling: no particles to mark here.*/
+        else if(nop->f.ChildType == PSEUDO_NODE_TYPE)
+            no = nop->sibling;
+        else if(nop->f.ChildType == NODE_NODE_TYPE)
+            no = nop->nextnode;
+        else
+            endrun(122, "Unrecognised Node type %d, memory corruption!\n", nop->f.ChildType);
     }
     return numpart;
 }
@@ -474,4 +494,3 @@ static void readout_force_y(PetaPM * pm, int i, double * mesh, double weight) {
 static void readout_force_z(PetaPM * pm, int i, double * mesh, double weight) {
     P[i].GravPM[2] += weight * mesh[0];
 }
-

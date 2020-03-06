@@ -16,6 +16,7 @@
 #include "sfr_eff.h"
 #include "blackhole.h"
 #include "domain.h"
+#include "winds.h"
 
 #include "forcetree.h"
 #include "treewalk.h"
@@ -99,7 +100,7 @@ static void fof_reduce_groups(
 static void fof_finish_group_properties(FOFGroups * fof, double BoxSize);
 
 static int fof_compile_base(struct BaseGroup * base, int NgroupsExt, MPI_Comm Comm);
-static void fof_compile_catalogue(FOFGroups * fof, const int NgroupsExt, double BoxSize, int BlackHoleInfo, MPI_Comm Comm);
+static void fof_compile_catalogue(FOFGroups * fof, const int NgroupsExt, double BoxSize, MPI_Comm Comm);
 
 static struct Group *
 fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt);
@@ -144,7 +145,7 @@ static MPI_Datatype MPI_TYPE_GROUP;
  **/
 
 FOFGroups
-fof_fof(ForceTree * tree, double BoxSize, int BlackHoleInfo, MPI_Comm Comm)
+fof_fof(ForceTree * tree, MPI_Comm Comm)
 {
     int i;
 
@@ -207,7 +208,7 @@ fof_fof(ForceTree * tree, double BoxSize, int BlackHoleInfo, MPI_Comm Comm)
 
     myfree(base);
 
-    fof_compile_catalogue(&fof, NgroupsExt, BoxSize, BlackHoleInfo, Comm);
+    fof_compile_catalogue(&fof, NgroupsExt, tree->BoxSize, Comm);
 
     MPIU_Barrier(Comm);
     message(0, "Finished FoF. Group properties are now allocated.. (presently allocated=%g MB)\n",
@@ -301,7 +302,8 @@ HEADl(int stop, int i, int locked, int * Head, struct SpinLocks * spin)
 }
 
 /* Rewrite a tree so that all values in it point directly to the true root.
- * This means that the trees are O(1) deep and speeds up future accesses. */
+ * This means that the trees are O(1) deep and speeds up future accesses.
+ * See https://arxiv.org/abs/1607.03224 */
 static void
 update_root(int i, const int r, int * Head)
 {
@@ -316,19 +318,14 @@ update_root(int i, const int r, int * Head)
     } while(t != i);
 }
 
+/* Find the current head particle by walking the tree. No updates are done
+ * so this can be performed from a threaded context. */
 static int
 HEAD(int i, TreeWalk * tw)
 {
-    /* accelerate with a splay: see https://arxiv.org/abs/1607.03224 */
-    int r;
-    r = i;
+    int r = i;
     while(FOF_PRIMARY_GET_PRIV(tw)->Head[r] != r) {
         r = FOF_PRIMARY_GET_PRIV(tw)->Head[r];
-    }
-    while(FOF_PRIMARY_GET_PRIV(tw)->Head[i] != i) {
-        int t = FOF_PRIMARY_GET_PRIV(tw)->Head[i];
-        FOF_PRIMARY_GET_PRIV(tw)->Head[i]= r;
-        i = t;
     }
     return r;
 }
@@ -340,6 +337,8 @@ static void fof_primary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
 }
 
 static int fof_primary_haswork(int n, TreeWalk * tw) {
+    if(P[n].IsGarbage || P[n].Swallowed)
+        return 0;
     return (((1 << P[n].Type) & (FOF_PRIMARY_LINK_TYPES))) && FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[n];
 }
 
@@ -562,7 +561,7 @@ static void fof_reduce_group(void * pdst, void * psrc) {
 
 }
 
-static void add_particle_to_group(struct Group * gdst, int i, double BoxSize, int ThisTask, int BlackHoleOn) {
+static void add_particle_to_group(struct Group * gdst, int i, double BoxSize, int ThisTask) {
 
     /* My local number of particles contributing to the full catalogue. */
     const int index = i;
@@ -582,24 +581,21 @@ static void add_particle_to_group(struct Group * gdst, int i, double BoxSize, in
     if(P[index].Type == 0) {
         gdst->Sfr += SPHP(index).Sfr;
     }
-    if(BlackHoleOn && P[index].Type == 5)
+    if(P[index].Type == 5)
     {
         gdst->BH_Mdot += BHP(index).Mdot;
         gdst->BH_Mass += BHP(index).Mass;
     }
     /*This used to depend on black holes being enabled, but I do not see why.
      * I think because it is only useful for seeding*/
-    if(P[index].Type == 0)
-    {
-        /* make bh in non wind gas on bh wind*/
-        if(SPHP(index).DelayTime <= 0)
-            if(SPHP(index).Density > gdst->MaxDens)
-            {
-                gdst->MaxDens = SPHP(index).Density;
-                gdst->seed_index = index;
-                gdst->seed_task = ThisTask;
-            }
-    }
+    /* Don't make bh in wind.*/
+    if(P[index].Type == 0 && !winds_is_particle_decoupled(index))
+        if(SPHP(index).Density > gdst->MaxDens)
+        {
+            gdst->MaxDens = SPHP(index).Density;
+            gdst->seed_index = index;
+            gdst->seed_task = ThisTask;
+        }
 
     int d1, d2;
     double xyz[3];
@@ -755,7 +751,7 @@ fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt)
 }
 
 static void
-fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, double BoxSize, int BlackHoleInfo, MPI_Comm Comm)
+fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, double BoxSize, MPI_Comm Comm)
 {
     int i, start, ThisTask;
 
@@ -773,7 +769,7 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, double BoxSi
             if(HaloLabel[start].MinID != fof->Group[i].base.MinID) {
                 break;
             }
-            add_particle_to_group(&fof->Group[i], HaloLabel[start].Pindex, BoxSize, ThisTask, BlackHoleInfo);
+            add_particle_to_group(&fof->Group[i], HaloLabel[start].Pindex, BoxSize, ThisTask);
         }
     }
 
@@ -1073,6 +1069,8 @@ static void fof_secondary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
     I->Hsml = FOF_SECONDARY_GET_PRIV(tw)->hsml[place];
 }
 static int fof_secondary_haswork(int n, TreeWalk * tw) {
+    if(P[n].IsGarbage || P[n].Swallowed)
+        return 0;
     return (((1 << P[n].Type) & (FOF_SECONDARY_LINK_TYPES)));
 }
 static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, enum TreeWalkReduceMode mode, TreeWalk * tw) {
@@ -1229,19 +1227,14 @@ static int cmp_seed_task(const void * c1, const void * c2) {
 }
 static void fof_seed_make_one(struct Group * g, int ThisTask);
 
-void fof_seed(FOFGroups * fof, MPI_Comm Comm)
+void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm Comm)
 {
     int i, j, n, ntot;
 
     int NTask;
     MPI_Comm_size(Comm, &NTask);
-    int * Send_count = ta_malloc("Send_count", int, NTask);
-    int * Recv_count = ta_malloc("Recv_count", int, NTask);
 
-    for(n = 0; n < NTask; n++)
-        Send_count[n] = 0;
-
-    char * Marked = mymalloc("SeedMark", fof->Ngroups);
+    char * Marked = mymalloc2("SeedMark", fof->Ngroups);
 
     int Nexport = 0;
     for(i = 0; i < fof->Ngroups; i++)
@@ -1261,8 +1254,14 @@ void fof_seed(FOFGroups * fof, MPI_Comm Comm)
             j++;
         }
     }
+    myfree(Marked);
+
     qsort_openmp(ExportGroups, Nexport, sizeof(ExportGroups[0]), cmp_seed_task);
 
+    int * Send_count = ta_malloc("Send_count", int, NTask);
+    int * Recv_count = ta_malloc("Recv_count", int, NTask);
+
+    memset(Send_count, 0, NTask * sizeof(int));
     for(i = 0; i < Nexport; i++) {
         Send_count[ExportGroups[i].seed_task]++;
     }
@@ -1277,15 +1276,67 @@ void fof_seed(FOFGroups * fof, MPI_Comm Comm)
     }
 
     struct Group * ImportGroups = (struct Group *)
-            mymalloc("ImportGroups", Nimport * sizeof(struct Group));
+            mymalloc2("ImportGroups", Nimport * sizeof(struct Group));
 
     MPI_Alltoallv_smart(ExportGroups, Send_count, NULL, MPI_TYPE_GROUP,
                         ImportGroups, Recv_count, NULL, MPI_TYPE_GROUP,
                         Comm);
 
+    myfree(ExportGroups);
+    ta_free(Recv_count);
+    ta_free(Send_count);
+
     MPI_Allreduce(&Nimport, &ntot, 1, MPI_INT, MPI_SUM, Comm);
 
     message(0, "Making %d new black hole particles.\n", ntot);
+
+    /* Do we have enough black hole slots to create this many black holes?
+     * If not, allocate more slots. */
+    if(Nimport + SlotsManager->info[5].size > SlotsManager->info[5].maxsize)
+    {
+        struct NODE * nodes_base_tmp=NULL;
+        int *Father_tmp=NULL;
+        int *ActiveParticle_tmp=NULL;
+        if(force_tree_allocated(tree)) {
+            nodes_base_tmp = mymalloc2("nodesbasetmp", tree->numnodes * sizeof(struct NODE));
+            memmove(nodes_base_tmp, tree->Nodes_base, tree->numnodes * sizeof(struct NODE));
+            myfree(tree->Nodes_base);
+            Father_tmp = mymalloc2("Father_tmp", PartManager->MaxPart * sizeof(int));
+            memmove(Father_tmp, tree->Father, PartManager->MaxPart * sizeof(int));
+            myfree(tree->Father);
+        }
+        /* This is only called on a PM step, so the condition should never be true*/
+        if(act->ActiveParticle) {
+            ActiveParticle_tmp = mymalloc2("ActiveParticle_tmp", act->NumActiveParticle * sizeof(int));
+            memmove(ActiveParticle_tmp, act->ActiveParticle, act->NumActiveParticle * sizeof(int));
+            myfree(act->ActiveParticle);
+        }
+
+        /*Now we can extend the slots! */
+        int atleast[6];
+        int i;
+        for(i = 0; i < 6; i++)
+            atleast[i] = SlotsManager->info[i].maxsize;
+        atleast[5] += ntot*1.1;
+        slots_reserve(1, atleast, SlotsManager);
+
+        /*And now we need our memory back in the right place*/
+        if(ActiveParticle_tmp) {
+            act->ActiveParticle = mymalloc("ActiveParticle", sizeof(int)*(act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
+            memmove(act->ActiveParticle, ActiveParticle_tmp, act->NumActiveParticle * sizeof(int));
+            myfree(ActiveParticle_tmp);
+        }
+        if(force_tree_allocated(tree)) {
+            tree->Father = mymalloc("Father", PartManager->MaxPart * sizeof(int));
+            memmove(tree->Father, Father_tmp, PartManager->MaxPart * sizeof(int));
+            myfree(Father_tmp);
+            tree->Nodes_base = mymalloc("Nodes_base", tree->numnodes * sizeof(struct NODE));
+            memmove(tree->Nodes_base, nodes_base_tmp, tree->numnodes * sizeof(struct NODE));
+            myfree(nodes_base_tmp);
+            /*Don't forget to update the Node pointer as well as Node_base!*/
+            tree->Nodes = tree->Nodes_base - tree->firstnode;
+        }
+    }
 
     int ThisTask;
     MPI_Comm_rank(Comm, &ThisTask);
@@ -1296,11 +1347,6 @@ void fof_seed(FOFGroups * fof, MPI_Comm Comm)
     }
 
     myfree(ImportGroups);
-    myfree(ExportGroups);
-    myfree(Marked);
-
-    ta_free(Recv_count);
-    ta_free(Send_count);
 
     walltime_measure("/FOF/Seeding");
 }

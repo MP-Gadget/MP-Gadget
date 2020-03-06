@@ -3,16 +3,23 @@
 #include <string.h>
 #include <math.h>
 
-#include <libgadget/allvars.h>
+#include <libgadget/gravity.h>
 #include <libgadget/densitykernel.h>
 #include <libgadget/timebinmgr.h>
+#include <libgadget/timestep.h>
 #include <libgadget/utils.h>
 #include <libgadget/treewalk.h>
 #include <libgadget/cooling_rates.h>
 #include <libgadget/winds.h>
 #include <libgadget/sfr_eff.h>
 #include <libgadget/blackhole.h>
+#include <libgadget/density.h>
+#include <libgadget/hydra.h>
 #include <libgadget/fof.h>
+#include <libgadget/init.h>
+#include <libgadget/timebinmgr.h>
+#include <libgadget/petaio.h>
+#include <libgadget/cooling_qso_lightup.h>
 
 static int
 BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
@@ -37,61 +44,6 @@ StarformationCriterionAction(ParameterSet * ps, char * name, void * data)
         message(1, "error: At least use SFR_CRITERION_DENSITY\n");
         return 1;
     }
-    return 0;
-}
-
-/*! This function parses a string containing a comma-separated list of variables,
- *  each of which is interpreted as a double.
- *  The purpose is to read an array of output times into the code.
- *  So specifying the output list now looks like:
- *  OutputList  0.1,0.3,0.5,1.0
- *
- *  We sort the input after reading it, so that the initial list need not be sorted.
- *  This function could be repurposed for reading generic arrays in future.
- */
-
-static int
-OutputListAction(ParameterSet * ps, char * name, void * data)
-{
-    char * outputlist = param_get_string(ps, name);
-    char * strtmp = fastpm_strdup(outputlist);
-    char * token;
-    int count;
-
-    /* Note TimeInit and TimeMax not yet initialised here*/
-
-    /*First parse the string to get the number of outputs*/
-    for(count=0, token=strtok(strtmp,","); token; count++, token=strtok(NULL, ","))
-    {}
-/*     message(1, "Found %d times in output list.\n", count); */
-
-    /*Allocate enough memory*/
-    All.OutputListLength = count;
-    int maxcount = sizeof(All.OutputListTimes) / sizeof(All.OutputListTimes[0]);
-    if(maxcount > (int) MAXSNAPSHOTS)
-        maxcount = MAXSNAPSHOTS;
-    if(All.OutputListLength > maxcount) {
-        message(1, "Too many entries (%d) in the OutputList, can take no more than %d.\n", All.OutputListLength, maxcount);
-        return 1;
-    }
-    /*Now read in the values*/
-    for(count=0,token=strtok(outputlist,","); count < All.OutputListLength && token; count++, token=strtok(NULL,","))
-    {
-        /* Skip a leading quote if one exists.
-         * Extra characters are ignored by atof, so
-         * no need to skip matching char.*/
-        if(token[0] == '"')
-            token+=1;
-
-        double a = atof(token);
-
-        if(a < 0.0) {
-            endrun(1, "Requesting a negative output scaling factor a = %g\n", a);
-        }
-        All.OutputListTimes[count] = a;
-/*         message(1, "Output at: %g\n", All.OutputListTimes[count]); */
-    }
-    myfree(strtmp);
     return 0;
 }
 
@@ -131,9 +83,10 @@ create_gadget_parameter_set()
     /*End cosmology parameters*/
 
     param_declare_int(ps,    "OutputPotential", OPTIONAL, 1, "Save the potential in snapshots.");
+    param_declare_int(ps,    "OutputHeliumFractions", OPTIONAL, 0, "Save the helium ionic fractions in snapshots.");
     param_declare_int(ps,    "OutputDebugFields", OPTIONAL, 0, "Save a large number of debug fields in snapshots.");
     param_declare_int(ps,    "ShowBacktrace", OPTIONAL, 1, "Print a backtrace on crash. Hangs on stampede.");
-    param_declare_double(ps,    "MaxMemSizePerNode", OPTIONAL, 0.6, "Pre-allocate this much memory per computing node/ host, in MB. Defaults to 60\% of total available memory per node. Passing < 1 allocates a fraction of total available memory per node.");
+    param_declare_double(ps,    "MaxMemSizePerNode", OPTIONAL, 0.6, "Pre-allocate this much memory per computing node/ host, in MB. Passing < 1 allocates a fraction of total available memory per node, defaults to 0.6 available memory.");
     param_declare_double(ps, "AutoSnapshotTime", OPTIONAL, 0, "Seconds after which to automatically generate a snapshot if nothing is output.");
 
     param_declare_double(ps, "TimeMax", OPTIONAL, 1.0, "Scale factor to end run.");
@@ -189,6 +142,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "CoolingOn", REQUIRED, 0, "Enables cooling");
     param_declare_string(ps, "TreeCoolFile", OPTIONAL, "", "Path to the Cooling Table");
     param_declare_string(ps, "MetalCoolFile", OPTIONAL, "", "Path to the Metal Cooling Table. Empty string disables metal cooling. Refer to cooling.c");
+    param_declare_string(ps, "ReionHistFile", OPTIONAL, "", "Path to the file containing the helium III reionization table. Used if QSOLightupOn = 1.");
     param_declare_string(ps, "UVFluctuationFile", OPTIONAL, "", "Path to the UVFluctation Table. Refer to cooling.c.");
 
     param_declare_double(ps, "UVRedshiftThreshold", OPTIONAL, -1.0, "Earliest Redshift that UV background is enabled. This modulates UVFluctuation and TreeCool globally. Default -1.0 means no modulation.");
@@ -217,6 +171,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "TreeGravOn", OPTIONAL, 1, "Enables tree gravity");
     param_declare_int(ps, "RadiationOn", OPTIONAL, 1, "Include radiation density in the background evolution.");
     param_declare_int(ps, "FastParticleType", OPTIONAL, 2, "Particles of this type will not decrease the timestep. Default neutrinos.");
+    param_declare_double(ps, "PairwiseActiveFraction", OPTIONAL, 5e-7, "Pairwise gravity instead of tree gravity is used if N(active particles) / N(particles) is less than this.");
 
     param_declare_double(ps, "GravitySoftening", OPTIONAL, 1./30., "Softening for collisionless particles; units of mean separation of DM. ForceSoftening is 2.8 times this.");
     param_declare_double(ps, "GravitySofteningGas", OPTIONAL, 1./30., "Softening for collisional particles (Gas); units of mean separation of DM; 0 to use Hsml of last step. ");
@@ -233,8 +188,8 @@ create_gadget_parameter_set()
     param_declare_int(ps, "FOFSaveParticles", OPTIONAL, 1, "Save particles in the FOF catalog.");
     param_declare_double(ps, "FOFHaloLinkingLength", OPTIONAL, 0.2, "Linking length for Friends of Friends halos.");
     param_declare_int(ps, "FOFHaloMinLength", OPTIONAL, 32, "Minimum number of particles per FOF Halo.");
-    param_declare_double(ps, "MinFoFMassForNewSeed", OPTIONAL, 5e2, "Minimal Mass for seeding tracer particles ");
-    param_declare_double(ps, "TimeBetweenSeedingSearch", OPTIONAL, 1e5, "Time Between Seeding Attempts: default to a a large value, meaning never.");
+    param_declare_double(ps, "MinFoFMassForNewSeed", OPTIONAL, 5, "Minimal halo mass for seeding tracer particles in internal mass units.");
+    param_declare_double(ps, "TimeBetweenSeedingSearch", OPTIONAL, 1.04, "Scale factor fraction increase between Seeding Attempts.");
 
     /*Black holes*/
     param_declare_int(ps, "BlackHoleOn", REQUIRED, 1, "Master switch to enable black hole formation and feedback. If this is on, type 5 particles are treated as black holes.");
@@ -249,6 +204,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "BlackHoleFeedbackRadius", OPTIONAL, 0, "If set, the comoving radius at which the black hole feedback energy is deposited.");
 
     param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", OPTIONAL, 0, "If set, the physical radius at which the black hole feedback energy is deposited. When both this flag and BlackHoleFeedbackRadius are both set, the smaller radius is used.");
+    param_declare_int(ps,"WriteBlackHoleDetails",OPTIONAL, 0, "If set, output BH details at every time step.");
 
     static ParameterEnum BlackHoleFeedbackMethodEnum [] = {
         {"mass", BH_FEEDBACK_MASS},
@@ -280,7 +236,7 @@ create_gadget_parameter_set()
         {"sh03", WIND_SUBGRID | WIND_DECOUPLE_SPH | WIND_FIXED_EFFICIENCY} , /*The canonical model of Spring & Hernquist 2003*/
         {"vs08", WIND_FIXED_EFFICIENCY},
         {"ofjt10", WIND_USE_HALO | WIND_DECOUPLE_SPH},
-        {"isotropic", WIND_ISOTROPIC }, /*If enabled, wind direction is random and isotropic. If disabled it goes in the direction of the local gravitational acceleration*/
+        {"isotropic", 0}, /*Wind direction is always random and isotropic.*/
         {NULL, WIND_SUBGRID | WIND_DECOUPLE_SPH | WIND_FIXED_EFFICIENCY},
     };
 
@@ -299,7 +255,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "TempClouds", OPTIONAL, 1000, "Temperature of the cold star forming clouds in K.");
     param_declare_double(ps, "MaxSfrTimescale", OPTIONAL, 1.5, "Maximum star formation time in units of the density threshold.");
     param_declare_int(ps, "Generations", OPTIONAL, 2, "Number of stars to create per gas particle.");
-    param_declare_enum(ps, "WindModel", WindModelEnum, OPTIONAL, "ofjt10,isotropic", "Wind model to use. Default is the varying wind velocity model with isotropic winds.");
+    param_declare_enum(ps, "WindModel", WindModelEnum, OPTIONAL, "ofjt10", "Wind model to use. Default is the varying wind velocity model with isotropic winds.");
 
     /* The following two are for VS08 and SH03*/
     param_declare_double(ps, "WindEfficiency", OPTIONAL, 2.0, "Fraction of the stellar mass that goes into a wind. Needs sh03 or vs08 wind models.");
@@ -309,8 +265,8 @@ create_gadget_parameter_set()
     param_declare_double(ps, "WindSigma0", OPTIONAL, 353, "Reference halo circular velocity at which to evaluate wind speed. Needs ofjt10 wind model.");
     param_declare_double(ps, "WindSpeedFactor", OPTIONAL, 3.7, "Factor connecting wind speed to halo circular velocity. ofjt10 wind model.");
 
-    param_declare_double(ps, "WindFreeTravelLength", OPTIONAL, 20, "Expected decoupling distance for the wind in physical km.");
-    param_declare_double(ps, "WindFreeTravelDensFac", OPTIONAL, 0., "If the density of the wind particle drops below this factor of the star formation density threshold, the gas will recouple.");
+    param_declare_double(ps, "WindFreeTravelLength", OPTIONAL, 20, "Expected decoupling distance for the wind in internal distance units.");
+    param_declare_double(ps, "WindFreeTravelDensFac", OPTIONAL, 0.1, "If the density of the wind particle drops below this factor of the star formation density threshold, the gas will recouple.");
 
     param_declare_int(ps, "RandomSeed", OPTIONAL, 42, "Random number generator initial seed. Used to form stars.");
 
@@ -326,6 +282,15 @@ create_gadget_parameter_set()
     param_declare_double(ps, "HeliumHeatAmp", OPTIONAL, 1, "Density-independent heat boost. Changes mean temperature.");
     param_declare_double(ps, "HeliumHeatExp", OPTIONAL, 0, "Density dependent heat boost (exponent). Changes gamma.");
     /*End of star formation parameters*/
+    /* Parameters for the QSO lightup model for helium reionization*/
+    param_declare_int(ps, "QSOLightupOn", OPTIONAL, 0, "Enable the quasar lighup model for helium reionization");
+    /* Default QSO BH masses correspond to the Illustris BHs hosted in halos between 2x10^12 and 10^13 solar masses.
+     * In small boxes this may be too small.*/
+    param_declare_double(ps, "QSOMaxMass", OPTIONAL, 1000, "Maximum mass of a halo potentially hosting a quasar in internal mass units.");
+    param_declare_double(ps, "QSOMinMass", OPTIONAL, 100, "Minimum mass of a halo potentially hosting a quasar in internal mass units.");
+    param_declare_double(ps, "QSOMeanBubble", OPTIONAL, 30000, "Mean size of the ionizing bubble around a quasar. By default 30 Mpc.");
+    param_declare_double(ps, "QSOVarBubble", OPTIONAL, 0, "Variance of the ionizing bubble around a quasar. By default zero so all bubbles are the same size");
+    param_declare_double(ps, "QSOHeIIIReionFinishFrac", OPTIONAL, 0.95, "Reionization fraction at which all particles are flash-reionized instead of having quasar bubbles placed.");
 
     /*Parameters for the massive neutrino model*/
     param_declare_int(ps, "MassiveNuLinRespOn", REQUIRED, 0, "Enables linear response massive neutrinos of 1209.0461. Make sure you enable radiation too.");
@@ -350,165 +315,40 @@ create_gadget_parameter_set()
  *  exactly once in the parameterfile, otherwise error messages are
  *  produced that complain about the missing parameters.
  */
-void read_parameter_file(char *fname)
+void read_parameter_file(char *fname, int * ShowBacktrace, double * MaxMemSizePerNode)
 {
     ParameterSet * ps = create_gadget_parameter_set();
 
-    if(ThisTask == 0) {
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
-        char * error;
-        if(0 != param_parse_file(ps, fname, &error)) {
-            endrun(1, "Parsing %s failed: %s\n", fname, error);
-        }
-        if(0 != param_validate(ps, &error)) {
-            endrun(1, "Validation of %s failed: %s\n", fname, error);
-        }
-
-        message(1, "----------- Running with Parameters ----------\n");
-        param_dump(ps, stdout);
-        message(1, "----------------------------------------------\n");
-
-        All.NumThreads = omp_get_max_threads();
-
-    /* Start reading the values */
-        param_get_string2(ps, "InitCondFile", All.InitCondFile, sizeof(All.InitCondFile));
-        param_get_string2(ps, "OutputDir", All.OutputDir, sizeof(All.OutputDir));
-        param_get_string2(ps, "SnapshotFileBase", All.SnapshotFileBase, sizeof(All.SnapshotFileBase));
-        param_get_string2(ps, "FOFFileBase", All.FOFFileBase, sizeof(All.FOFFileBase));
-        param_get_string2(ps, "EnergyFile", All.EnergyFile, sizeof(All.EnergyFile));
-        All.OutputEnergyDebug = param_get_int(ps, "EnergyFile");
-        param_get_string2(ps, "CpuFile", All.CpuFile, sizeof(All.CpuFile));
-
-        All.DensityKernelType = param_get_enum(ps, "DensityKernelType");
-        All.CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
-        All.CP.RadiationOn = param_get_int(ps, "RadiationOn");
-        All.CP.Omega0 = param_get_double(ps, "Omega0");
-        All.CP.OmegaBaryon = param_get_double(ps, "OmegaBaryon");
-        All.CP.OmegaLambda = param_get_double(ps, "OmegaLambda");
-        All.CP.Omega_fld = param_get_double(ps, "Omega_fld");
-        if(All.CP.OmegaLambda > 0 && All.CP.Omega_fld > 0)
-            endrun(0, "Cannot have OmegaLambda and Omega_fld (evolving dark energy) at the same time!\n");
-        All.CP.w0_fld = param_get_double(ps,"w0_fld");
-        All.CP.wa_fld = param_get_double(ps,"wa_fld");
-        All.CP.Omega_ur = param_get_double(ps, "Omega_ur");
-        All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
-
-        All.OutputPotential = param_get_int(ps, "OutputPotential");
-        All.OutputDebugFields = param_get_int(ps, "OutputDebugFields");
-        All.ShowBacktrace = param_get_int(ps, "ShowBacktrace");
-        double MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
-        if(MaxMemSizePerNode <= 1) {
-            MaxMemSizePerNode *= get_physmem_bytes() / (1024. * 1024.);
-        }
-        All.MaxMemSizePerNode = MaxMemSizePerNode;
-
-        All.TimeMax = param_get_double(ps, "TimeMax");
-        All.ErrTolIntAccuracy = param_get_double(ps, "ErrTolIntAccuracy");
-        All.Asmth = param_get_double(ps, "Asmth");
-        All.ShortRangeForceWindowType = param_get_enum(ps, "ShortRangeForceWindowType");
-        All.Nmesh = param_get_int(ps, "Nmesh");
-
-        All.MinGasHsmlFractional = param_get_double(ps, "MinGasHsmlFractional");
-        All.MaxGasVel = param_get_double(ps, "MaxGasVel");
-        All.MaxSizeTimestep = param_get_double(ps, "MaxSizeTimestep");
-
-        All.MinSizeTimestep = param_get_double(ps, "MinSizeTimestep");
-        All.ForceEqualTimesteps = param_get_int(ps, "ForceEqualTimesteps");
-        All.MaxRMSDisplacementFac = param_get_double(ps, "MaxRMSDisplacementFac");
-        All.ArtBulkViscConst = param_get_double(ps, "ArtBulkViscConst");
-        All.CourantFac = param_get_double(ps, "CourantFac");
-        All.DensityResolutionEta = param_get_double(ps, "DensityResolutionEta");
-        All.HydroCostFactor = param_get_double(ps, "HydroCostFactor");
-        All.DensityContrastLimit = param_get_double(ps, "DensityContrastLimit");
-        All.MaxNumNgbDeviation = param_get_double(ps, "MaxNumNgbDeviation");
-
-        All.IO.BytesPerFile = param_get_int(ps, "BytesPerFile");
-        All.IO.UsePeculiarVelocity = 0; /* Will be set by the Initial Condition File */
-        All.IO.NumWriters = param_get_int(ps, "NumWriters");
-        if(All.IO.NumWriters == 0)
-            MPI_Comm_size(MPI_COMM_WORLD, &All.IO.NumWriters);
-        All.IO.MinNumWriters = param_get_int(ps, "MinNumWriters");
-        All.IO.WritersPerFile = param_get_int(ps, "WritersPerFile");
-        All.IO.AggregatedIOThreshold = param_get_int(ps, "AggregatedIOThreshold");
-        All.IO.EnableAggregatedIO = param_get_int(ps, "EnableAggregatedIO");
-
-        All.CoolingOn = param_get_int(ps, "CoolingOn");
-        All.HydroOn = param_get_int(ps, "HydroOn");
-        All.DensityOn = param_get_int(ps, "DensityOn");
-        All.DensityIndependentSphOn= param_get_int(ps, "DensityIndependentSphOn");
-        All.TreeGravOn = param_get_int(ps, "TreeGravOn");
-        All.FastParticleType = param_get_int(ps, "FastParticleType");
-        All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
-        All.AutoSnapshotTime = param_get_double(ps, "AutoSnapshotTime");
-        All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
-        All.RandomParticleOffset = param_get_double(ps, "RandomParticleOffset");
-
-        All.GravitySoftening = param_get_double(ps, "GravitySoftening");
-        All.GravitySofteningGas = param_get_double(ps, "GravitySofteningGas");
-
-        All.PartAllocFactor = param_get_double(ps, "PartAllocFactor");
-        All.SlotsIncreaseFactor = param_get_double(ps, "SlotsIncreaseFactor");
-
-        All.SnapshotWithFOF = param_get_int(ps, "SnapshotWithFOF");
-
-        All.RandomSeed = param_get_int(ps, "RandomSeed");
-
-        All.BlackHoleOn = param_get_int(ps, "BlackHoleOn");
-
-        All.StarformationOn = param_get_int(ps, "StarformationOn");
-        All.WindOn = param_get_int(ps, "WindOn");
-
-        param_get_string2(ps, "TreeCoolFile", All.TreeCoolFile, sizeof(All.TreeCoolFile));
-        param_get_string2(ps, "UVFluctuationfile", All.UVFluctuationFile, sizeof(All.UVFluctuationFile));
-        param_get_string2(ps, "MetalCoolFile", All.MetalCoolFile, sizeof(All.MetalCoolFile));
-
-        All.InitGasTemp = param_get_double(ps, "InitGasTemp");
-
-        /*Massive neutrino parameters*/
-        All.MassiveNuLinRespOn = param_get_int(ps, "MassiveNuLinRespOn");
-        All.HybridNeutrinosOn = param_get_int(ps, "HybridNeutrinosOn");
-        All.CP.MNu[0] = param_get_double(ps, "MNue");
-        All.CP.MNu[1] = param_get_double(ps, "MNum");
-        All.CP.MNu[2] = param_get_double(ps, "MNut");
-        All.HybridVcrit = param_get_double(ps, "Vcrit");
-        All.HybridNuPartTime = param_get_double(ps, "NuPartTime");
-        if(All.MassiveNuLinRespOn && !All.CP.RadiationOn)
-            endrun(2, "You have enabled (kspace) massive neutrinos without radiation, but this will give an inconsistent cosmology!\n");
-        /*End massive neutrino parameters*/
-
-        /*These two look like black hole parameters but they are really neighbour finding parameters*/
-        All.BlackHoleNgbFactor = param_get_double(ps, "BlackHoleNgbFactor");
-        All.BlackHoleMaxAccretionRadius = param_get_double(ps, "BlackHoleMaxAccretionRadius");
-
-        if(All.StarformationOn == 0)
-        {
-            if(All.WindOn == 1) {
-                endrun(1, "You try to use the code with wind enabled,\n"
-                          "but you did not switch on starformation.\nThis mode is not supported.\n");
-            }
-        } else {
-            if(All.CoolingOn == 0)
-            {
-                endrun(1, "You try to use the code with star formation enabled,\n"
-                          "but you did not switch on cooling.\nThis mode is not supported.\n");
-            }
-        }
-
-        DensityKernel kernel;
-        density_kernel_init(&kernel, 1.0, All.DensityKernelType);
-        All.DesNumNgb = density_kernel_desnumngb(&kernel, All.DensityResolutionEta);
-
-        message(1, "The Density Kernel type is %s\n", kernel.name);
-        message(1, "The Density resolution is %g * mean separation, or %d neighbours\n",
-                    All.DensityResolutionEta, All.DesNumNgb);
-
+    char * error;
+    if(0 != param_parse_file(ps, fname, &error)) {
+        endrun(1, "Parsing %s failed: %s\n", fname, error);
+    }
+    if(0 != param_validate(ps, &error)) {
+        endrun(1, "Validation of %s failed: %s\n", fname, error);
     }
 
-    MPI_Bcast(&All, sizeof(All), MPI_BYTE, 0, MPI_COMM_WORLD);
+    message(0, "----------- Running with Parameters ----------\n");
+    if(ThisTask == 0)
+        param_dump(ps, stdout);
+    message(0, "----------------------------------------------\n");
+
+    *ShowBacktrace = param_get_int(ps, "ShowBacktrace");
+    *MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
+    if(*MaxMemSizePerNode <= 1) {
+        *MaxMemSizePerNode *= get_physmem_bytes() / (1024. * 1024.);
+    }
 
     /*Initialize per-module parameters.*/
-
+    set_init_params(ps);
+    set_petaio_params(ps);
+    set_timestep_params(ps);
     set_cooling_params(ps);
+    set_density_params(ps);
+    set_hydro_params(ps);
+    set_qso_lightup_params(ps);
     set_treewalk_params(ps);
     set_gravshort_tree_params(ps);
     set_domain_params(ps);

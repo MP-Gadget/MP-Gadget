@@ -76,9 +76,19 @@ typedef struct PetaPM {
     Power ps[1];
 } PetaPM;
 
+typedef struct {
+    void * Parts;
+    size_t elsize;
+    size_t offset_pos;
+    size_t offset_mass;
+    int * RegionInd;
+    int (*active) (int i);
+    int NumPart;
+} PetaPMParticleStruct;
+
 typedef void (*petapm_transfer_func)(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
 typedef void (*petapm_readout_func)(PetaPM * pm, int i, double * mesh, double weight);
-typedef PetaPMRegion * (*petapm_prepare_func)(PetaPM * pm, void * data, int *Nregions);
+typedef PetaPMRegion * (*petapm_prepare_func)(PetaPM * pm, PetaPMParticleStruct * pstruct, void * data, int *Nregions);
 
 typedef struct {
     char * name;
@@ -98,16 +108,6 @@ typedef struct {
 typedef void * (*petapm_malloc_func)(char * name, size_t * size);
 typedef void * (*petapm_mfree_func)(void * ptr);
 
-typedef struct {
-    void * Parts;
-    size_t elsize;
-    size_t offset_pos;
-    size_t offset_mass;
-    size_t offset_regionind;
-    int (*active) (int i);
-    int NumPart;
-} PetaPMParticleStruct;
-
 void petapm_module_init(int Nthreads);
 
 void petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_Comm comm);
@@ -124,12 +124,14 @@ void petapm_force(PetaPM * pm,
 PetaPMRegion * petapm_force_init(PetaPM * pm,
         petapm_prepare_func prepare,
         PetaPMParticleStruct * pstruct,
+        int * Nregions,
         void * userdata);
 pfft_complex * petapm_force_r2c(PetaPM * pm,
         PetaPMGlobalFunctions * global_functions
         );
 void petapm_force_c2r(PetaPM * pm,
         pfft_complex * rho_k, PetaPMRegion * regions,
+        const int Nregions,
         PetaPMFunctions * functions);
 void petapm_force_finish(PetaPM * pm);
 

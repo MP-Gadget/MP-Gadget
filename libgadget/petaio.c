@@ -16,6 +16,7 @@
 #include "petaio.h"
 #include "slotsmanager.h"
 #include "hydra.h"
+#include "density.h"
 #include "partmanager.h"
 #include "config.h"
 #include "neutrinos_lra.h"
@@ -27,6 +28,44 @@
  * currently we have a function to register the blocks and enumerate the blocks
  *
  */
+static struct petaio_params {
+    size_t BytesPerFile;   /* Number of bytes per physical file; this decides how many files bigfile creates each block */
+    int WritersPerFile;    /* Number of concurrent writers per file; this decides number of writers */
+    int NumWriters;        /* Number of concurrent writers, this caps number of writers */
+    int MinNumWriters;        /* Min Number of concurrent writers, this caps number of writers */
+    int EnableAggregatedIO;  /* Enable aggregated IO policy for small files.*/
+    size_t AggregatedIOThreshold; /* bytes per writer above which to use non-aggregated IO (avoid OOM)*/
+    /* Changes the comoving factors of the snapshot outputs. Set in the ICs.
+     * If UsePeculiarVelocity = 1 then snapshots save to the velocity field the physical peculiar velocity, v = a dx/dt (where x is comoving distance).
+     * If UsePeculiarVelocity = 0 then the velocity field is a * v = a^2 dx/dt in snapshots
+     * and v / sqrt(a) = sqrt(a) dx/dt in the ICs. Note that snapshots never match Gadget-2, which
+     * saves physical peculiar velocity / sqrt(a) in both ICs and snapshots. */
+    int UsePeculiarVelocity;
+} IO;
+
+/*Set the IO parameters*/
+void
+set_petaio_params(ParameterSet * ps)
+{
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask == 0) {
+        IO.BytesPerFile = param_get_int(ps, "BytesPerFile");
+        IO.UsePeculiarVelocity = 0; /* Will be set by the Initial Condition File */
+        IO.NumWriters = param_get_int(ps, "NumWriters");
+        IO.MinNumWriters = param_get_int(ps, "MinNumWriters");
+        IO.WritersPerFile = param_get_int(ps, "WritersPerFile");
+        IO.AggregatedIOThreshold = param_get_int(ps, "AggregatedIOThreshold");
+        IO.EnableAggregatedIO = param_get_int(ps, "EnableAggregatedIO");
+
+    }
+    MPI_Bcast(&IO, sizeof(struct petaio_params), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
+
+int GetUsePeculiarVelocity(void)
+{
+    return IO.UsePeculiarVelocity;
+}
 
 static void petaio_write_header(BigFile * bf, const int64_t * NTotal);
 static void petaio_read_header_internal(BigFile * bf);
@@ -34,13 +73,15 @@ static void petaio_read_header_internal(BigFile * bf);
 /* these are only used in reading in */
 void petaio_init(void) {
     /* Smaller files will do aggregated IO.*/
-    if(All.IO.EnableAggregatedIO) {
+    if(IO.EnableAggregatedIO) {
         message(0, "Aggregated IO is enabled\n");
-        big_file_mpi_set_aggregated_threshold(All.IO.AggregatedIOThreshold);
+        big_file_mpi_set_aggregated_threshold(IO.AggregatedIOThreshold);
     } else {
         message(0, "Aggregated IO is disabled.\n");
         big_file_mpi_set_aggregated_threshold(0);
     }
+    if(IO.NumWriters == 0)
+        MPI_Comm_size(MPI_COMM_WORLD, &IO.NumWriters);
 }
 
 /* save a snapshot file */
@@ -218,7 +259,8 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
             newSlots[ptype] *= All.PartAllocFactor;
     }
 
-    slots_reserve(0, newSlots, SlotsManager);
+    size_t total_bytes = slots_reserve(0, newSlots, SlotsManager);
+    memset(SlotsManager->Base, 0, total_bytes);
 
     /* initialize particle types */
     int offset = 0;
@@ -318,7 +360,7 @@ petaio_read_snapshot(int num, MPI_Comm Comm)
     char * fname;
     struct IOTable IOTable = {0};
 
-    register_io_blocks(&IOTable);
+    register_io_blocks(&IOTable, 0);
 
     if(num == -1) {
         fname = fastpm_strdup_printf("%s", All.InitCondFile);
@@ -336,7 +378,7 @@ petaio_read_snapshot(int num, MPI_Comm Comm)
             P[i].Mass = All.MassTable[P[i].Type];
         }
 
-        if (!All.IO.UsePeculiarVelocity ) {
+        if (!IO.UsePeculiarVelocity ) {
 
             /* fixing the unit of velocity from Legacy GenIC IC */
             #pragma omp parallel for
@@ -370,10 +412,11 @@ static void petaio_write_header(BigFile * bf, const int64_t * NTotal) {
     /* conversion from peculiar velocity to RSD */
     double RSD = 1.0 / (All.cf.a * All.cf.hubble);
 
-    if(!All.IO.UsePeculiarVelocity) {
+    if(!IO.UsePeculiarVelocity) {
         RSD /= All.cf.a; /* Conversion from internal velocity to RSD */
     }
 
+    int dk = GetDensityKernelType();
     if(
     (0 != big_block_set_attr(&bh, "TotNumPart", NTotal, "u8", 6)) ||
     (0 != big_block_set_attr(&bh, "TotNumPartInit", All.NTotalInit, "u8", 6)) ||
@@ -383,7 +426,7 @@ static void petaio_write_header(BigFile * bf, const int64_t * NTotal) {
     (0 != big_block_set_attr(&bh, "BoxSize", &All.BoxSize, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "OmegaLambda", &All.CP.OmegaLambda, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "RSDFactor", &RSD, "f8", 1)) ||
-    (0 != big_block_set_attr(&bh, "UsePeculiarVelocity", &All.IO.UsePeculiarVelocity, "i4", 1)) ||
+    (0 != big_block_set_attr(&bh, "UsePeculiarVelocity", &IO.UsePeculiarVelocity, "i4", 1)) ||
     (0 != big_block_set_attr(&bh, "Omega0", &All.CP.Omega0, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "CMBTemperature", &All.CP.CMBTemperature, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "OmegaBaryon", &All.CP.OmegaBaryon, "f8", 1)) ||
@@ -392,7 +435,7 @@ static void petaio_write_header(BigFile * bf, const int64_t * NTotal) {
     (0 != big_block_set_attr(&bh, "UnitVelocity_in_cm_per_s", &All.UnitVelocity_in_cm_per_s, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "CodeVersion", GADGET_VERSION, "S1", strlen(GADGET_VERSION))) ||
     (0 != big_block_set_attr(&bh, "CompilerSettings", GADGET_COMPILER_SETTINGS, "S1", strlen(GADGET_COMPILER_SETTINGS))) ||
-    (0 != big_block_set_attr(&bh, "DensityKernel", &All.DensityKernelType, "u8", 1)) ||
+    (0 != big_block_set_attr(&bh, "DensityKernel", &dk, "i4", 1)) ||
     (0 != big_block_set_attr(&bh, "HubbleParam", &All.CP.HubbleParam, "f8", 1)) ) {
         endrun(0, "Failed to write attributes %s\n",
                     big_file_get_error_message());
@@ -469,7 +512,7 @@ petaio_read_header_internal(BigFile * bf) {
      * If UsePeculiarVelocity = 0 then the velocity field is a * v = a^2 dx/dt in snapshots
      * and v / sqrt(a) = sqrt(a) dx/dt in the ICs. Note that snapshots never match Gadget-2, which
      * saves physical peculiar velocity / sqrt(a) in both ICs and snapshots. */
-    All.IO.UsePeculiarVelocity = _get_attr_int(&bh, "UsePeculiarVelocity", 0);
+    IO.UsePeculiarVelocity = _get_attr_int(&bh, "UsePeculiarVelocity", 0);
 
     if(0 != big_block_get_attr(&bh, "TotNumPartInit", All.NTotalInit, "u8", 6)) {
         int ptype;
@@ -596,7 +639,7 @@ int petaio_read_block(BigFile * bf, char * blockname, BigArray * array, int requ
     if(0 != big_block_seek(&bb, &ptr, 0)) {
             endrun(1, "Failed to seek block %s: %s\n", blockname, big_file_get_error_message());
     }
-    if(0 != big_block_mpi_read(&bb, &ptr, array, All.IO.NumWriters, MPI_COMM_WORLD)) {
+    if(0 != big_block_mpi_read(&bb, &ptr, array, IO.NumWriters, MPI_COMM_WORLD)) {
         endrun(1, "Failed to read from block %s: %s\n", blockname, big_file_get_error_message());
     }
     if(0 != big_block_mpi_close(&bb, MPI_COMM_WORLD)) {
@@ -615,20 +658,20 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, int ver
 
     int elsize = big_file_dtype_itemsize(array->dtype);
 
-    int NumWriters = All.IO.NumWriters;
+    int NumWriters = IO.NumWriters;
 
     size_t size = count_sum(array->dims[0]);
     int NumFiles;
 
-    if(All.IO.EnableAggregatedIO) {
-        NumFiles = (size * elsize + All.IO.BytesPerFile - 1) / All.IO.BytesPerFile;
-        if(NumWriters > NumFiles * All.IO.WritersPerFile) {
-            NumWriters = NumFiles * All.IO.WritersPerFile;
+    if(IO.EnableAggregatedIO) {
+        NumFiles = (size * elsize + IO.BytesPerFile - 1) / IO.BytesPerFile;
+        if(NumWriters > NumFiles * IO.WritersPerFile) {
+            NumWriters = NumFiles * IO.WritersPerFile;
             message(0, "Throttling NumWriters to %d.\n", NumWriters);
         }
-        if(NumWriters < All.IO.MinNumWriters) {
-            NumWriters = All.IO.MinNumWriters;
-            NumFiles = (NumWriters + All.IO.WritersPerFile - 1) / All.IO.WritersPerFile ;
+        if(NumWriters < IO.MinNumWriters) {
+            NumWriters = IO.MinNumWriters;
+            NumFiles = (NumWriters + IO.WritersPerFile - 1) / IO.WritersPerFile ;
             message(0, "Throttling NumWriters to %d.\n", NumWriters);
         }
     } else {
@@ -710,7 +753,7 @@ static void GTPosition(int i, double * out, void * baseptr, void * smanptr) {
     struct particle_data * part = (struct particle_data *) baseptr;
     int d;
     for(d = 0; d < 3; d ++) {
-        out[d] = part[i].Pos[d] - All.CurrentParticleOffset[d];
+        out[d] = part[i].Pos[d] - PartManager->CurrentParticleOffset[d];
         while(out[d] > All.BoxSize) out[d] -= All.BoxSize;
         while(out[d] <= 0) out[d] += All.BoxSize;
     }
@@ -768,7 +811,7 @@ static void GTVelocity(int i, float * out, void * baseptr, void * smanptr) {
     /* Convert to Peculiar Velocity if UsePeculiarVelocity is set */
     double fac;
     struct particle_data * part = (struct particle_data *) baseptr;
-    if (All.IO.UsePeculiarVelocity) {
+    if (IO.UsePeculiarVelocity) {
         fac = 1.0 / All.cf.a;
     } else {
         fac = 1.0;
@@ -782,7 +825,7 @@ static void GTVelocity(int i, float * out, void * baseptr, void * smanptr) {
 static void STVelocity(int i, float * out, void * baseptr, void * smanptr) {
     double fac;
     struct particle_data * part = (struct particle_data *) baseptr;
-    if (All.IO.UsePeculiarVelocity) {
+    if (IO.UsePeculiarVelocity) {
         fac = All.cf.a;
     } else {
         fac = 1.0;
@@ -816,10 +859,14 @@ static void GTStarFormationRate(int i, float * out, void * baseptr, void * smanp
 }
 SIMPLE_PROPERTY_TYPE_PI(StarFormationTime, 5, FormationTime, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeMass, Mass, float, 1, struct bh_particle_data)
+SIMPLE_PROPERTY_PI(BlackholeDensity, Density, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeAccretionRate, Mdot, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeProgenitors, CountProgs, float, 1, struct bh_particle_data)
+SIMPLE_PROPERTY_PI(BlackholeSwallowID, SwallowID, uint64_t, 1, struct bh_particle_data)
+SIMPLE_PROPERTY_PI(BlackholeSwallowTime, SwallowTime, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeMinPotPos, MinPotPos[0], double, 3, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeJumpToMinPot, JumpToMinPot, int, 1, struct bh_particle_data)
+
 /*This is only used if FoF is enabled*/
 SIMPLE_GETTER(GTGroupID, GrNr, uint32_t, 1, struct particle_data)
 static void GTNeutralHydrogenFraction(int i, float * out, void * baseptr, void * smanptr) {
@@ -831,6 +878,30 @@ static void GTNeutralHydrogenFraction(int i, float * out, void * baseptr, void *
     *out = get_neutral_fraction_sfreff(redshift, pl, sl+PI);
 }
 
+static void GTHeliumIFraction(int i, float * out, void * baseptr, void * smanptr) {
+    double redshift = 1./All.Time - 1;
+    struct particle_data * pl = ((struct particle_data *) baseptr)+i;
+    int PI = pl->PI;
+    struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
+    struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
+    *out = get_helium_neutral_fraction_sfreff(0, redshift, pl, sl+PI);
+}
+static void GTHeliumIIFraction(int i, float * out, void * baseptr, void * smanptr) {
+    double redshift = 1./All.Time - 1;
+    struct particle_data * pl = ((struct particle_data *) baseptr)+i;
+    int PI = pl->PI;
+    struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
+    struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
+    *out = get_helium_neutral_fraction_sfreff(1, redshift, pl, sl+PI);
+}
+static void GTHeliumIIIFraction(int i, float * out, void * baseptr, void * smanptr) {
+    double redshift = 1./All.Time - 1;
+    struct particle_data * pl = ((struct particle_data *) baseptr)+i;
+    int PI = pl->PI;
+    struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
+    struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
+    *out = get_helium_neutral_fraction_sfreff(2, redshift, pl, sl+PI);
+}
 static void GTInternalEnergy(int i, float * out, void * baseptr, void * smanptr) {
     int PI = ((struct particle_data *) baseptr)[i].PI;
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
@@ -844,6 +915,26 @@ static void STInternalEnergy(int i, float * out, void * baseptr, void * smanptr)
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
     sl[PI].Entropy  = GAMMA_MINUS1 * u / pow(SPH_EOMDensity(i) * All.cf.a3inv , GAMMA_MINUS1);
+}
+
+/* Can't use the macros because cannot take address of a bitfield*/
+static void GTHeIIIIonized(int i, unsigned char * out, void * baseptr, void * smanptr) {
+    struct particle_data * part = (struct particle_data *) baseptr;
+    *out = part[i].HeIIIionized;
+}
+
+static void STHeIIIIonized(int i, unsigned char * out, void * baseptr, void * smanptr) {
+    struct particle_data * part = (struct particle_data *) baseptr;
+    part[i].HeIIIionized = *out;
+}
+static void GTSwallowed(int i, unsigned char * out, void * baseptr, void * smanptr) {
+    struct particle_data * part = (struct particle_data *) baseptr;
+    *out = part[i].Swallowed;
+}
+
+static void STSwallowed(int i, unsigned char * out, void * baseptr, void * smanptr) {
+    struct particle_data * part = (struct particle_data *) baseptr;
+    part[i].Swallowed = *out;
 }
 
 static int order_by_type(const void *a, const void *b)
@@ -863,7 +954,7 @@ static int order_by_type(const void *a, const void *b)
     return 0;
 }
 
-void register_io_blocks(struct IOTable * IOTable) {
+void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
     int i;
     IOTable->used = 0;
     IOTable->allocated = 100;
@@ -876,7 +967,7 @@ void register_io_blocks(struct IOTable * IOTable) {
         IO_REG(ID,       "u8", 1, i, IOTable);
         if(All.OutputPotential)
             IO_REG_WRONLY(Potential, "f4", 1, i, IOTable);
-        if(All.SnapshotWithFOF)
+        if(WriteGroupID)
             IO_REG_WRONLY(GroupID, "u4", 1, i, IOTable);
     }
 
@@ -887,7 +978,7 @@ void register_io_blocks(struct IOTable * IOTable) {
     IO_REG(SmoothingLength,  "f4", 1, 0, IOTable);
     IO_REG(Density,          "f4", 1, 0, IOTable);
 
-    if(All.DensityIndependentSphOn)
+    if(DensityIndependentSphOn())
         IO_REG(EgyWtDensity,          "f4", 1, 0, IOTable);
 
     /* On reload this sets the Entropy variable, need the densities.
@@ -898,6 +989,13 @@ void register_io_blocks(struct IOTable * IOTable) {
     /* Cooling */
     IO_REG(ElectronAbundance,       "f4", 1, 0, IOTable);
     IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0, IOTable);
+    if(All.OutputHeliumFractions) {
+        IO_REG_WRONLY(HeliumIFraction, "f4", 1, 0, IOTable);
+        IO_REG_WRONLY(HeliumIIFraction, "f4", 1, 0, IOTable);
+        IO_REG_WRONLY(HeliumIIIFraction, "f4", 1, 0, IOTable);
+    }
+    /* Marks whether a particle has been HeIII ionized yet*/
+    IO_REG_NONFATAL(HeIIIIonized, "u1", 1, 0, IOTable);
 
     /* SF */
     IO_REG_WRONLY(StarFormationRate, "f4", 1, 0, IOTable);
@@ -912,6 +1010,7 @@ void register_io_blocks(struct IOTable * IOTable) {
     /* Black hole */
     IO_REG_TYPE(StarFormationTime, "f4", 1, 5, IOTable);
     IO_REG(BlackholeMass,          "f4", 1, 5, IOTable);
+    IO_REG(BlackholeDensity,          "f4", 1, 5, IOTable);
     IO_REG(BlackholeAccretionRate, "f4", 1, 5, IOTable);
     IO_REG(BlackholeProgenitors,   "i4", 1, 5, IOTable);
     IO_REG(BlackholeMinPotPos, "f8", 3, 5, IOTable);
@@ -919,6 +1018,12 @@ void register_io_blocks(struct IOTable * IOTable) {
 
     /* Smoothing lengths for black hole: this is a new addition*/
     IO_REG_NONFATAL(SmoothingLength,  "f4", 1, 5, IOTable);
+    /* Marks whether a BH particle has been swallowed*/
+    IO_REG_NONFATAL(Swallowed, "u1", 1, 5, IOTable);
+    /* ID of the swallowing black hole particle. If == -1, then particle is live*/
+    IO_REG_NONFATAL(BlackholeSwallowID, "u8", 1, 5, IOTable);
+    /* Time the BH was swallowed*/
+    IO_REG_NONFATAL(BlackholeSwallowTime, "f4", 1, 5, IOTable);
 
     /*Sort IO blocks so similar types are together; then ordered by the sequence they are declared. */
     qsort_openmp(IOTable->ent, IOTable->used, sizeof(struct IOTableEntry), order_by_type);
@@ -930,7 +1035,6 @@ void register_io_blocks(struct IOTable * IOTable) {
 SIMPLE_GETTER(GTGravAccel, GravAccel[0], float, 3, struct particle_data)
 SIMPLE_GETTER(GTGravPM, GravPM[0], float, 3, struct particle_data)
 SIMPLE_GETTER(GTTimeBin, TimeBin, int, 1, struct particle_data)
-SIMPLE_GETTER(GTGravCost, GravCost, int, 1, struct particle_data)
 SIMPLE_GETTER_PI(GTHydroAccel, HydroAccel[0], float, 3, struct sph_particle_data)
 SIMPLE_GETTER_PI(GTMaxSignalVel, MaxSignalVel, float, 1, struct sph_particle_data)
 SIMPLE_GETTER_PI(GTEntropy, Entropy, float, 1, struct sph_particle_data)
@@ -946,7 +1050,6 @@ void register_debug_io_blocks(struct IOTable * IOTable)
         IO_REG_WRONLY(GravAccel,       "f4", 3, ptype, IOTable);
         IO_REG_WRONLY(GravPM,       "f4", 3, ptype, IOTable);
         IO_REG_WRONLY(TimeBin,       "u4", 1, ptype, IOTable);
-        IO_REG_WRONLY(GravCost,       "f4", 1, ptype, IOTable);
     }
     IO_REG_WRONLY(HydroAccel,       "f4", 3, 0, IOTable);
     IO_REG_WRONLY(MaxSignalVel,       "f4", 1, 0, IOTable);
@@ -963,4 +1066,3 @@ void destroy_io_blocks(struct IOTable * IOTable) {
     myfree(IOTable->ent);
     IOTable->allocated = 0;
 }
-

@@ -11,7 +11,6 @@
 #include <stdint.h>
 
 #include "stub.h"
-#include <libgadget/allvars.h>
 #include <libgadget/timefac.h>
 
 #define AMIN 0.005
