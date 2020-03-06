@@ -26,11 +26,12 @@ struct cooling_units
     double uu_in_cgs; //All.UnitEnergy_in_cgs / All.UnitMass_in_cgs
     /*Factor to convert time to s. By default should be UnitTime_in_s / h */
     double tt_in_s; //All.UnitTime_in_s / All.CP.HubbleParam
+    /* Baryonic critial density in g cm^-3 at z=0 */
+    double rho_crit_baryon;
 };
 
 /*Initialise the cooling module.*/
 void init_cooling(char * TreeCoolFile, char * MetalCoolFile, char * reion_hist_file, struct cooling_units cu, Cosmology * CP);
-double rho_crit_baryon;
 
 /*Reads and initialises the tables for a spatially varying redshift of reionization*/
 void init_uvf_table(const char * UVFluctuationFile, const double BoxSize, const double UnitLength_in_cm);
