@@ -26,6 +26,8 @@ struct cooling_units
     double uu_in_cgs; //All.UnitEnergy_in_cgs / All.UnitMass_in_cgs
     /*Factor to convert time to s. By default should be UnitTime_in_s / h */
     double tt_in_s; //All.UnitTime_in_s / All.CP.HubbleParam
+    /* Baryonic critial density in g cm^-3 at z=0 */
+    double rho_crit_baryon;
 };
 
 /*Initialise the cooling module.*/

@@ -28,6 +28,7 @@
 #include "cooling.h"
 #include "cooling_rates.h"
 #include "cooling_qso_lightup.h"
+#include "cosmology.h"
 
 static struct cooling_units coolunits;
 
@@ -35,7 +36,8 @@ static struct cooling_units coolunits;
 void init_cooling(char * TreeCoolFile, char * MetalCoolFile, char * reion_hist_file, struct cooling_units cu, Cosmology * CP)
 {
     coolunits = cu;
-
+    /* Get mean cosmic baryon density for photoheating rate from long mean free path photons */
+    coolunits.rho_crit_baryon =  3 * pow(CP->HubbleParam * HUBBLE,2) * CP->OmegaBaryon / (8 * M_PI * GRAVITY);
     /*Initialize the cooling rates*/
     init_cooling_rates(TreeCoolFile, MetalCoolFile, CP);
     /* Initialize the helium reionization model*/
@@ -58,8 +60,8 @@ get_lambdanet(double rho, double u, double redshift, double Z, struct UVBG * uvb
     double LambdaNet = get_heatingcooling_rate(rho, u, 1 - HYDROGEN_MASSFRAC, redshift, Z, uvbg, ne_guess);
     if(!isHeIIIionized) {
         /* get_long_mean_free_path_heating returns the heating in units of erg/s/cm^3,
-         * the factor of rho converts to erg/s/proton and then PROTONMASS to erg/s/g */
-        LambdaNet += get_long_mean_free_path_heating(redshift)  / (rho  * PROTONMASS);
+         * the factor of the mean density converts from erg/s/cm^3 to erg/s/g */
+        LambdaNet += get_long_mean_free_path_heating(redshift) / (coolunits.rho_crit_baryon * pow(1 + redshift,3));
     }
     return LambdaNet;
 }
