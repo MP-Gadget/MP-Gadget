@@ -36,13 +36,12 @@ static struct cooling_units coolunits;
 void init_cooling(char * TreeCoolFile, char * MetalCoolFile, char * reion_hist_file, struct cooling_units cu, Cosmology * CP)
 {
     coolunits = cu;
-
+    /* Get mean cosmic baryon density for photoheating rate from long mean free path photons */
+    coolunits.rho_crit_baryon =  3 * pow(CP->HubbleParam * HUBBLE,2) * CP->OmegaBaryon / (8 * M_PI * GRAVITY);
     /*Initialize the cooling rates*/
     init_cooling_rates(TreeCoolFile, MetalCoolFile, CP);
     /* Initialize the helium reionization model*/
     init_qso_lightup(reion_hist_file);
-    /* Get mean cosmic baryon density for photoheating rate from long mean free path photons */
-    rho_crit_baryon =  3 * pow(CP->HubbleParam * HUBBLE,2) * CP->OmegaBaryon / (8 * M_PI * GRAVITY);
 }
 
 #define MAXITER 1000
@@ -62,7 +61,7 @@ get_lambdanet(double rho, double u, double redshift, double Z, struct UVBG * uvb
     if(!isHeIIIionized) {
         /* get_long_mean_free_path_heating returns the heating in units of erg/s/cm^3,
          * the factor of the mean density converts from erg/s/cm^3 to erg/s/g */
-        LambdaNet += get_long_mean_free_path_heating(redshift) / (rho_crit_baryon * pow(1 + redshift,3));
+        LambdaNet += get_long_mean_free_path_heating(redshift) / (coolunits.rho_crit_baryon * pow(1 + redshift,3));
     }
     return LambdaNet;
 }
