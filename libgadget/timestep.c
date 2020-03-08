@@ -172,10 +172,6 @@ set_global_time(const inttime_t Ti_Current) {
     All.cf.a2inv = 1 / (All.Time * All.Time);
     All.cf.a3inv = 1 / (All.Time * All.Time * All.Time);
     All.cf.hubble = hubble_function(&All.CP, All.Time);
-
-#ifdef LIGHTCONE
-    lightcone_set_time(All.cf.a);
-#endif
     set_global_uvbg(1./All.Time - 1);
 }
 

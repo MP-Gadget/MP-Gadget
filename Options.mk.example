@@ -8,7 +8,6 @@ OPTIMIZE =  -fopenmp -O3 -g -Wall -ffast-math
 #OPTIMIZE =  -fopenmp -O0 -g -Wall
 
 #--------------------------------------- Basic operation mode of code
-#OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development
 #OPT += VALGRIND     # allow debugging with valgrind, disable the GADGET memory allocator.
 #OPT += -DDEBUG      # print a lot of debugging messages
 #Disable openmp locking. This means no threading.
