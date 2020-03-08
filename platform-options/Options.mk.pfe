@@ -1,9 +1,7 @@
 OPTIMIZE =  -fopenmp -O3 -g
 GSL_INCL = -I$(HOME)/anaconda3/envs/3.5/include
 GSL_LIBS = $(HOME)/anaconda3/envs/3.5/lib/libgsl.a $(HOME)/anaconda3/envs/3.5/lib/libgslcblas.a
-#--------------------------------------- Basic operation mode of code
-#OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development
+
 #OPT += -DVALGRIND  # allow debugging with valgrind, disable the GADGET memory allocator.
 #OPT += -DDEBUG      # print a lot of debugging messages
-#-------------------------------------------- Things for special behaviour
 #OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV

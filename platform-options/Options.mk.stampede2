@@ -7,7 +7,5 @@
 # -simd is important: it aligns various structures and without it intel's MPI crashes.
 OPTIMIZE =  -fopenmp -O3 -g -Wall ${TACC_VEC_FLAGS} -Zp16 -fp-model fast=1 -simd -ipo
 
-#--------------------------------------- Basic operation mode of code
-#OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development
 #OPT += VALGRIND     # allow debugging with valgrind, disable the GADGET memory allocator.
 #OPT += -DDEBUG      # print a lot of debugging messages
