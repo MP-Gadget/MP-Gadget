@@ -182,6 +182,8 @@ run(int RestartSnapNum)
 
         /*Convert back to floating point time*/
         set_global_time(All.Ti_Current);
+        if(All.TimeStep < 0)
+            endrun(1, "Negative timestep: %g New Time: %g!\n", All.TimeStep, All.Time);
 
         int is_PM = is_PM_timestep(All.Ti_Current);
 
