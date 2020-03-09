@@ -292,10 +292,12 @@ static void test_heatingcooling_rate_sherwood(void ** state)
     FILE * fd = fopen("cooling_rates_sherwood.txt", "w");
     fprintf(fd, "#density = %g temp = %g\n", rhocb, temp);
     fprintf(fd, "#zz LambdaNet Heat FF Collis Recomb Cmptn temp ne\n");
+    FILE * fd2 = fopen("ion_state.txt", "w");
+    fprintf(fd2, "#zz nhcgs nH0 nHe0 nHep nHepp\n");
     for(i = 0; i < 500; i++)
     {
         double zz = i * 6./ 500.;
-        struct UVBG uvbg = get_global_UVBG(zz);
+        uvbg = get_global_UVBG(zz);
         double dens = rhocb * pow(1+zz,3);
         double LambdaNet = get_heatingcooling_rate(dens, ienergy, 1 - HYDROGEN_MASSFRAC, zz, 0, &uvbg, &ne);
         double LambdaCmptn = get_compton_cooling(dens, ienergy, 1 - HYDROGEN_MASSFRAC, zz, ne);
@@ -305,8 +307,14 @@ static void test_heatingcooling_rate_sherwood(void ** state)
         double Heat = get_individual_cooling(HEAT, dens, ienergy, 1 - HYDROGEN_MASSFRAC, &uvbg, &ne);
         double temp = get_temp(dens, ienergy, 1 - HYDROGEN_MASSFRAC, &uvbg, &ne);
         fprintf(fd, "%g %g %g %g %g %g %g %g %g\n",zz, LambdaNet, Heat, LambdaFF, LambdaCollis, LambdaRecomb, LambdaCmptn, temp, ne);
+        double nH0 = get_neutral_fraction_phys_cgs(dens, ienergy, 1 - HYDROGEN_MASSFRAC, &uvbg, &ne);
+        double He0 = get_helium_ion_phys_cgs(0, dens, ienergy, 1 - HYDROGEN_MASSFRAC, &uvbg, ne);
+        double Hep = get_helium_ion_phys_cgs(1, dens, ienergy, 1 - HYDROGEN_MASSFRAC, &uvbg, ne);
+        double Hepp = get_helium_ion_phys_cgs(2, dens, ienergy, 1 - HYDROGEN_MASSFRAC, &uvbg, ne);
+        fprintf(fd2, "%g %g %g %g %g %g\n", zz, dens * HYDROGEN_MASSFRAC, nH0, He0, Hep, Hepp);
     }
     fclose(fd);
+    fclose(fd2);
 }
 
 int main(void) {
