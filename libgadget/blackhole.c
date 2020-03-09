@@ -46,6 +46,7 @@ typedef struct {
 typedef struct {
     TreeWalkResultBase base;
     MyFloat BH_MinPotPos[3];
+    MyFloat BH_MinPotVel[3];
     MyFloat BH_MinPot;
 
     int BH_minTimeBin;
@@ -213,54 +214,56 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
 {
     int i;
     int c=0;
-    
+
     for(i = 0; i < NumActiveParticle; i++)
     {
         int p_i = ActiveParticle ? ActiveParticle[i] : i;
-        
+
         if(P[p_i].Type != 5 || P[p_i].IsGarbage || P[p_i].Mass <= 0)
           continue;
-        
+
         int PI = P[p_i].PI;
-        
-        struct BHinfo info;
+
+        struct BHinfo info = {0};
         info.ID = P[p_i].ID;
         info.Mass = BHP(p_i).Mass;
         info.Mdot = BHP(p_i).Mdot;
         info.Density = BHP(p_i).Density;
         info.minTimeBin = BHP(p_i).minTimeBin;
-        info.MinPotPos[0] = BHP(p_i).MinPotPos[0];
-        info.MinPotPos[1] = BHP(p_i).MinPotPos[1];
-        info.MinPotPos[2] = BHP(p_i).MinPotPos[2];
-        
-        info.MinPot = priv->MinPot[PI];
+        info.MinPotPos[0] = BHP(p_i).MinPotPos[0] - PartManager->CurrentParticleOffset[0];
+        info.MinPotPos[1] = BHP(p_i).MinPotPos[1] - PartManager->CurrentParticleOffset[1];
+        info.MinPotPos[2] = BHP(p_i).MinPotPos[2] - PartManager->CurrentParticleOffset[2];
+
+        if(priv->MinPot) {
+            info.MinPot = priv->MinPot[PI];
+        }
         info.BH_Entropy = priv->BH_Entropy[PI];
         info.BH_SurroundingGasVel[0] = priv->BH_SurroundingGasVel[PI][0];
         info.BH_SurroundingGasVel[1] = priv->BH_SurroundingGasVel[PI][1];
         info.BH_SurroundingGasVel[2] = priv->BH_SurroundingGasVel[PI][2];
-        
+
         info.BH_accreted_BHMass = priv->BH_accreted_BHMass[PI];
         info.BH_accreted_Mass = priv->BH_accreted_Mass[PI];
         info.BH_FeedbackWeightSum = priv->BH_FeedbackWeightSum[PI];
-        
-        info.SPH_SwallowID = priv->SPH_SwallowID[PI];       
+
+        info.SPH_SwallowID = priv->SPH_SwallowID[PI];
         info.SwallowID =  BHP(p_i).SwallowID;
         info.CountProgs = BHP(p_i).CountProgs;
         info.Swallowed =  P[p_i].Swallowed;
-        
+
         info.a = All.Time;
-        
+
         int size = sizeof(info);
-        
+
         fwrite(&size, sizeof(size), 1, FdBlackholeDetails);
         fwrite(&info,sizeof(info),1,FdBlackholeDetails);
         fwrite(&size, sizeof(size), 1, FdBlackholeDetails);
         c++;
     }
-    
+
     fflush(FdBlackholeDetails);
     int64_t totalN;
-    
+
     sumup_large_ints(1, &c, &totalN);
     message(0, "Written details of %ld blackholes.\n", totalN);
 }
@@ -280,7 +283,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
 
     walltime_measure("/Misc");
     TreeWalk tw_accretion[1] = {{0}};
-    struct BHPriv priv[1];
+    struct BHPriv priv[1] = {0};
 
     tw_accretion->ev_label = "BH_ACCRETION";
     tw_accretion->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
@@ -348,18 +351,18 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     priv->BH_accreted_Mass = mymalloc("BH_accretedmass", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_accreted_BHMass = mymalloc("BH_accreted_BHMass", SlotsManager->info[5].size * sizeof(MyFloat));
     treewalk_run(tw_feedback, act->ActiveParticle, act->NumActiveParticle);
-    
-    if(FdBlackholeDetails){    
+
+    if(FdBlackholeDetails){
         collect_BH_info(act->ActiveParticle, act->NumActiveParticle, priv, FdBlackholeDetails);
     }
-    
+
     myfree(priv->BH_accreted_BHMass);
     myfree(priv->BH_accreted_Mass);
-    
+
     myfree(priv->BH_SurroundingGasVel);
     myfree(priv->BH_Entropy);
     myfree(priv->MinPot);
-    
+
     myfree(priv->BH_FeedbackWeightSum);
     myfree(priv->SPH_SwallowID);
 
@@ -510,7 +513,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
 
         density_kernel_init(&iter->accretion_kernel, I->Hsml, GetDensityKernelType());
-        density_kernel_init(&iter->feedback_kernel, hsearch, DENSITY_KERNEL_CUBIC_SPLINE);
+        density_kernel_init(&iter->feedback_kernel, hsearch, GetDensityKernelType());
         return;
     }
 
@@ -537,6 +540,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             O->BH_MinPot = P[other].Potential;
             for(d = 0; d < 3; d++) {
                 O->BH_MinPotPos[d] = P[other].Pos[d];
+                O->BH_MinPotVel[d] = P[other].Vel[d];
             }
         }
     }
@@ -782,6 +786,9 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
         for(k = 0; k < 3; k++) {
             /* Movement occurs in drift.c */
             BHP(place).MinPotPos[k] = remote->BH_MinPotPos[k];
+            /* We set the velocity as well because
+             * we don't want drift to move us too far.*/
+            P[place].Vel[k] = remote->BH_MinPotVel[k];
         }
     }
     if (mode == 0 || BHP(place).minTimeBin > remote->BH_minTimeBin) {
@@ -863,6 +870,7 @@ void blackhole_make_one(int index) {
     BHP(child).Mdot = 0;
     BHP(child).FormationTime = All.Time;
     BHP(child).SwallowID = (MyIDType) -1;
+    BHP(child).Density = 0;
 
     /* It is important to initialize MinPotPos to the current position of
      * a BH to avoid drifting to unknown locations (0,0,0) immediately
