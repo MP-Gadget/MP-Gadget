@@ -76,6 +76,8 @@ extern struct global_data_all_processes
     int BlackHoleOn;  /* if black holes are enabled */
     int StarformationOn;  /* if star formation is enabled */
     int WindOn; /* if Wind is enabled */
+    int LightconeOn;    /* Enable the light cone module,
+                           which writes a list of particles to a file as they cross a light cone*/
 
     int WriteBlackHoleDetails; /* write BH details every time step*/
 

@@ -168,6 +168,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "HydroOn", OPTIONAL, 1, "Enables hydro force");
     param_declare_int(ps, "DensityOn", OPTIONAL, 1, "Enables SPH density computation.");
     param_declare_int(ps, "DensityIndependentSphOn", REQUIRED, 1, "Enables density-independent (pressure-entropy) SPH.");
+    param_declare_int(ps, "LightconeOn", OPTIONAL, 0, "Enables a wildly experimental lightcone algorithm that writes particles crossing a lightcone boundary to a file. May not work!");
     param_declare_int(ps, "TreeGravOn", OPTIONAL, 1, "Enables tree gravity");
     param_declare_int(ps, "RadiationOn", OPTIONAL, 1, "Include radiation density in the background evolution.");
     param_declare_int(ps, "FastParticleType", OPTIONAL, 2, "Particles of this type will not decrease the timestep. Default neutrinos.");

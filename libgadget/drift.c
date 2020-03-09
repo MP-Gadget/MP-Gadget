@@ -44,14 +44,6 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const
         endrun(12, "i=%d ti0=%d ti1=%d\n", i, ti0, ti1);
     }
 
-
-#ifdef LIGHTCONE
-    double oldpos[3];
-    for(j = 0; j < 3; j++) {
-        oldpos[j] = P[i].Pos[j];
-    }
-#endif
-
     /* Jumping of BH */
     if(P[i].Type == 5) {
         int k;
@@ -76,10 +68,6 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const
     for(j = 0; j < 3; j++) {
         P[i].Pos[j] += P[i].Vel[j] * ddrift + random_shift[j];
     }
-
-#ifdef LIGHTCONE
-    lightcone_cross(i, oldpos);
-#endif
 
     for(j = 0; j < 3; j ++) {
         while(P[i].Pos[j] > BoxSize) P[i].Pos[j] -= BoxSize;

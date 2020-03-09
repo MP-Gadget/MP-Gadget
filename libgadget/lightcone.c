@@ -12,6 +12,7 @@
 #include "utils.h"
 
 #include "allvars.h"
+#include "timefac.h"
 #include "partmanager.h"
 #include "cosmology.h"
 
@@ -45,6 +46,8 @@ static double SampleFraction; /* current fraction of particle gets written */
 static FILE * fd_lightcone;
 
 static double lightcone_get_horizon(double a);
+static void lightcone_cross(int p, double ddrift);
+static void lightcone_set_time(double a);
 /*
 M, L = self.M, self.L
   logx = numpy.linspace(log10amin, 0, Np)
@@ -56,7 +59,7 @@ M, L = self.M, self.L
 static double kernel(double loga, void * params) {
     double a = exp(loga);
       Cosmology * CP = (Cosmology *) params;
-    return 1 / hubble_function(CP, a) * All.CP.Hubble / a;
+    return 1 / hubble_function(CP, a) * CP->Hubble / a;
 }
 
 static void lightcone_init_entry(Cosmology * CP, int i) {
@@ -167,6 +170,22 @@ static void update_replicas(double a) {
         }
     }
 }
+
+/* Compute a list of particles which crossed
+ * the lightcone boundaries on this timestep and
+ * write them to the lightcone file*/
+void lightcone_compute(double a, Cosmology * CP, inttime_t ti_curr, inttime_t ti_next)
+{
+    int i;
+    lightcone_set_time(a);
+    const double ddrift = get_exact_drift_factor(CP, ti_curr, ti_next);
+    #pragma omp parallel for
+    for(i = 0; i < PartManager->NumPart; i++)
+    {
+        lightcone_cross(i, ddrift);
+    }
+}
+
 void lightcone_set_time(double a) {
     double z = 1 / a - 1;
     if(z > zmin && z < zmax) {
@@ -200,7 +219,7 @@ void lightcone_set_time(double a) {
 }
 
 /* check crossing of the horizon, write the particle */
-void lightcone_cross(int p, double oldpos[3]) {
+static void lightcone_cross(int p, double ddrift) {
     if(SampleFraction <= 0.0) return;
     int i;
     int k;
@@ -216,8 +235,8 @@ void lightcone_cross(int p, double oldpos[3]) {
         double p3[4];
         double dnew = 0, dold = 0;
         for(k = 0; k < 3; k ++) {
-            pnew[k] = P[p].Pos[k] + Reps[i][k];
-            pold[k] = oldpos[k] + Reps[i][k];
+            pold[k] = P[p].Pos[k] + Reps[i][k] - PartManager->CurrentParticleOffset[k];
+            pnew[k] = P[p].Pos[k] + P[i].Vel[k] * ddrift - PartManager->CurrentParticleOffset[k];
             dnew += pnew[k] * pnew[k];
             dold += pold[k] * pold[k];
         }

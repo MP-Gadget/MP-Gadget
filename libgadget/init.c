@@ -80,6 +80,7 @@ set_init_params(ParameterSet * ps)
         All.HydroOn = param_get_int(ps, "HydroOn");
         All.DensityOn = param_get_int(ps, "DensityOn");
         All.TreeGravOn = param_get_int(ps, "TreeGravOn");
+        All.LightconeOn = param_get_int(ps, "LightconeOn");
         All.FastParticleType = param_get_int(ps, "FastParticleType");
         All.PairwiseActiveFraction = param_get_double(ps, "PairwiseActiveFraction");
         All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");

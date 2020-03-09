@@ -29,6 +29,7 @@
 #include "hci.h"
 #include "fof.h"
 #include "cooling_qso_lightup.h"
+#include "lightcone.h"
 
 /* stats.c only used here */
 void energy_statistics(FILE * FdEnergy, const double Time,  struct part_manager_type * PartManager);
@@ -125,9 +126,8 @@ int begrun(int RestartFlag, int RestartSnapNum)
 
     set_random_numbers(All.RandomSeed);
 
-#ifdef LIGHTCONE
-    lightcone_init(All.Time);
-#endif
+    if(All.LightconeOn)
+        lightcone_init(&All.CP, All.Time);
     return RestartSnapNum;
 }
 
@@ -178,7 +178,13 @@ run(int RestartSnapNum)
          * all bins except the zeroth are inactive and so we return 0 from this function.
          * This ensures we run the force calculation for the first timestep.
          */
-        All.Ti_Current = find_next_kick(All.Ti_Current, minTimeBin);
+        inttime_t Ti_Next = find_next_kick(All.Ti_Current, minTimeBin);
+
+        /* Compute the list of particles that cross a lightcone and write it to disc.*/
+        if(All.LightconeOn)
+            lightcone_compute(All.Time, &All.CP, All.Ti_Current, Ti_Next);
+
+        All.Ti_Current = Ti_Next;
 
         /*Convert back to floating point time*/
         set_global_time(All.Ti_Current);
