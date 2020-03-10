@@ -1,7 +1,10 @@
-OPTIMIZE =  -fopenmp -O3 -g -Wall -ffast-math -march=native
-#This fixes linker errors on Mac.
+OPTIMIZE = -O3 -g -Wall -ffast-math -march=native
+#-fnocommon fixes linker errors on Mac.
 #Without it uninitialised variables are not included in static libraries.
-OPTIMIZE += -fnocommon
+# -Xpreprocessor is necessary to load the openmp libraries.
+# For some reason apple clang doesn't build openmp into their binary.
+# You must install llvm openmp before use with, eg, "brew install libomp"
+OPTIMIZE += -fnocommon -Xpreprocessor -fopenmp -lomp
 
 #OPT += -DVALGRIND     # allow debugging with valgrind, disable the GADGET memory allocator.
 #OPT += -DDEBUG      # print a lot of debugging messages
