@@ -315,12 +315,13 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             /* This node accelerates the particle directly, and is not opened.*/
             if(!shall_we_open_node(nop->len, nop->mom.mass, r2, nop->center, inpos, BoxSize, aold, TreeUseBH, BHOpeningAngle2))
             {
-                double h = DMAX(input->Soft, nop->mom.MaxSoftening);
-                /* Always open the node if it has a larger softening than the particle,
-                 * and the particle is inside its softening radius.
-                 * This condition essentially never happens, and it is not clear how much sense it makes. */
-                if(input->Soft < nop->mom.MaxSoftening)
+                double h = input->Soft;
+                if(GravitySofteningTable[0] == 0 && (input->Soft < nop->mom.hmax))
                 {
+                    /* Always open the node if it has a larger softening than the particle,
+                     * and the particle is inside its softening radius.
+                     * This condition only ever applies for adaptive softenings. It may or may not make sense. */
+                    h = DMAX(input->Soft, nop->mom.hmax);
                     if(r2 < h * h)
                     {
                         no = nop->nextnode;

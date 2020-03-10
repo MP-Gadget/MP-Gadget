@@ -46,9 +46,6 @@ struct NODE
         MyFloat cofm[3];		/*!< center of mass of node */
         MyFloat mass;		/*!< mass of node */
         MyFloat hmax;           /*!< maximum amount by which Pos + Hsml of all gas particles in the node exceeds len for this node. */
-        MyFloat MaxSoftening;  /* Stores the largest softening in the node. The short-range
-                         * gravitational force solver will check this and use it
-                         * open the node if a particle is closer.*/
     } mom;
 
     /* In principle storing this here wastes memory, because we only use it for the leaf nodes.
