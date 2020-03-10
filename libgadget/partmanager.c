@@ -9,9 +9,6 @@
  */
 struct part_manager_type PartManager[1] = {{0}};
 
-/*Softening table*/
-double GravitySofteningTable[6];
-
 void
 particle_alloc_memory(int MaxPart)
 {

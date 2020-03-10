@@ -318,7 +318,7 @@ static int setup_density(void **state) {
     data->dp.DensityKernelType = DENSITY_KERNEL_CUBIC_SPLINE;
     BoxSize = 8;
     data->dp.MinGasHsmlFractional = 0.006;
-    GravitySofteningTable[1] = 1;
+    gravshort_set_softenings(MeanDMSeparation);
     data->dp.BlackHoleMaxAccretionRadius = 99999.;
 
     set_densitypar(data->dp);

@@ -14,6 +14,10 @@ struct gravshort_tree_params
     /*! RCUT gives the maximum distance (in units of the scale used for the force split) out to which short-range
      * forces are evaluated in the short-range tree walk.*/
     double Rcut;
+    /* Softening as a fraction of DM mean separation. */
+    double FractionalGravitySoftening;
+    /* if 1, enable adaptive gravitational softening for gas particles, which uses the Hsml as the ForceSoftening */
+    int AdaptiveSoftening;
 };
 
 enum ShortRangeForceWindowType {
@@ -23,6 +27,13 @@ enum ShortRangeForceWindowType {
 
 /* Fill the short-range gravity table*/
 void gravshort_fill_ntab(const enum ShortRangeForceWindowType ShortRangeForceWindowType, const double Asmth);
+
+/*! Sets the (comoving) softening length, converting from units of the mean DM separation to comoving internal units. */
+void gravshort_set_softenings(double MeanDMSeparation);
+
+/* gravitational softening length
+ * (given in terms of an `equivalent' Plummer softening length) */
+double FORCE_SOFTENING(int i, int type);
 
 /*Defined in gravpm.c*/
 void gravpm_init_periodic(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G);

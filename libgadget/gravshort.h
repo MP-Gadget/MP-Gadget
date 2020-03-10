@@ -65,7 +65,7 @@ grav_short_postprocess(int i, TreeWalk * tw)
     P[i].GravAccel[2] *= G;
     /* calculate the potential */
     /* remove self-potential */
-    P[i].Potential += P[i].Mass / (FORCE_SOFTENING(i) / 2.8);
+    P[i].Potential += P[i].Mass / (FORCE_SOFTENING(i, P[i].Type) / 2.8);
 
     P[i].Potential -= 2.8372975 * pow(P[i].Mass, 2.0 / 3) * GRAV_GET_PRIV(tw)->cbrtrho0;
 
@@ -76,7 +76,7 @@ static void
 grav_short_copy(int place, TreeWalkQueryGravShort * input, TreeWalk * tw)
 {
     input->Type = P[place].Type;
-    input->Soft = FORCE_SOFTENING(place);
+    input->Soft = FORCE_SOFTENING(place, input->Type);
     /*Compute old acceleration before we over-write things*/
     double aold=0;
     int i;

@@ -48,7 +48,7 @@ grav_force(const int this, const int other, const double * offset, double * accn
 
     const double r = sqrt(r2);
 
-    const double h = FORCE_SOFTENING(1);
+    const double h = FORCE_SOFTENING(1, 1);
 
     double fac = 1 / (r2 * r);
     if(r < h) {
@@ -193,8 +193,11 @@ static void do_force_test(double BoxSize, int Nmesh, double Asmth, double ErrTol
     treeacc.TreeUseBH = 1;
     treeacc.Rcut = 7;
     treeacc.ErrTolForceAcc = ErrTolForceAcc;
+    treeacc.AdaptiveSoftening = 0;
+    treeacc.FractionalGravitySoftening = 1./30.;
 
     set_gravshort_treepar(treeacc);
+    gravshort_set_softenings(All.BoxSize / cbrt(PartManager->NumPart));
 
     /* Twice so the opening angle is consistent*/
     grav_short_tree(&act, &pm, &Tree, rho0, 0, 2);
@@ -331,10 +334,6 @@ static int setup_tree(void **state) {
     All.UnitLength_in_cm = CM_PER_MPC/1000.;
     strncpy(All.OutputDir, ".", 5);
     PartManager->NumPart = 16*16*16;
-
-    int i;
-    for(i=0; i<6; i++)
-        GravitySofteningTable[i] = All.BoxSize / cbrt(PartManager->NumPart) / 30.;
 
     struct DomainParams dp = {0};
     dp.DomainOverDecompositionFactor = 2;
