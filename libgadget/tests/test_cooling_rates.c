@@ -252,7 +252,7 @@ static void test_heatingcooling_rate(void ** state)
     assert_true(fabs(LambdaNet/ (-1.64834) - 1) < 1e-3);
 }
 
-
+#if 0
 /* This test checks that the heating and cooling rate is as expected.
  * In particular the physical density threshold is checked. */
 static void test_heatingcooling_rate_sherwood(void ** state)
@@ -316,13 +316,13 @@ static void test_heatingcooling_rate_sherwood(void ** state)
     fclose(fd);
     fclose(fd2);
 }
+#endif
 
 int main(void) {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_recomb_rates),
         cmocka_unit_test(test_rate_network),
         cmocka_unit_test(test_heatingcooling_rate),
-        cmocka_unit_test(test_heatingcooling_rate_sherwood),
         cmocka_unit_test(test_uvbg_loader)
     };
     return cmocka_run_group_tests_mpi(tests, NULL, NULL);
