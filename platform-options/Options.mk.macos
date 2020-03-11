@@ -1,10 +1,9 @@
 OPTIMIZE = -O3 -g -Wall -ffast-math -march=native
 #-fnocommon fixes linker errors on Mac.
 #Without it uninitialised variables are not included in static libraries.
-# -Xpreprocessor is necessary to load the openmp libraries.
 # For some reason apple clang doesn't build openmp into their binary.
-# You must install llvm openmp before use with, eg, "brew install libomp"
-OPTIMIZE += -fnocommon -Xpreprocessor -fopenmp -lomp
+# You must install openmpi from homebrew using gcc first with, eg, "brew install open-mpi --cc=gcc-9 --build-from-source"
+OPTIMIZE += -fno-common -fopenmp
 
 #OPT += -DVALGRIND     # allow debugging with valgrind, disable the GADGET memory allocator.
 #OPT += -DDEBUG      # print a lot of debugging messages
