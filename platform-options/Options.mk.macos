@@ -5,7 +5,7 @@ OPTIMIZE = -O3 -g -Wall -ffast-math -march=native
 # You must install openmpi from homebrew using gcc first with, eg, "brew install open-mpi --cc=gcc-9 --build-from-source"
 OPTIMIZE += -fno-common -fopenmp
 
-#OPT += -DVALGRIND     # allow debugging with valgrind, disable the GADGET memory allocator.
+OPT += -DVALGRIND     # allow debugging with valgrind, disable the GADGET memory allocator.
 #OPT += -DDEBUG      # print a lot of debugging messages
 #Use alternative OpenMP locks, instead of the pthread spinlocks. Required on mac.
 OPT += -DNO_OPENMP_SPINLOCK
