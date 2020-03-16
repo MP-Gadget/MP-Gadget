@@ -52,10 +52,10 @@ struct SpinLocks * init_spinlocks(int NumLock)
     /* Initialize the spinlocks*/
 #ifndef NO_OPENMP_SPINLOCK
     spin.SpinLocks = mymalloc("SpinLocks", NumLock * sizeof(pthread_spinlock_t));
+    #pragma omp parallel for
 #else
     spin.SpinLocks = mymalloc("SpinLocks", NumLock * sizeof(omp_lock_t));
 #endif
-    #pragma omp parallel for
     for(i = 0; i < NumLock; i ++) {
 #ifndef NO_OPENMP_SPINLOCK
         pthread_spin_init(&spin.SpinLocks[i], PTHREAD_PROCESS_PRIVATE);
