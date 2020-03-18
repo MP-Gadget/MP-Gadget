@@ -226,6 +226,8 @@ static void init_internal_node(struct NODE *nfreep, struct NODE *parent, int sub
     const MyFloat lenhalf = 0.25 * parent->len;
 
     nfreep->len = 0.5 * parent->len;
+    nfreep->sibling = -10;
+    nfreep->nextnode = -10;
     nfreep->f.TopLevel = 0;
     nfreep->f.InternalTopLevel = 0;
     nfreep->f.ChildType = PARTICLE_NODE_TYPE;
