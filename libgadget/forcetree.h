@@ -125,7 +125,7 @@ node_is_particle(int no, const ForceTree * tree)
 static inline int
 node_is_node(int no, const ForceTree * tree)
 {
-    return (no >= tree->firstnode) && (no < tree->lastnode);
+    return (no >= tree->firstnode) && (no < tree->firstnode + tree->numnodes);
 }
 
 int

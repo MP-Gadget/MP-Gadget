@@ -71,6 +71,34 @@ force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp);
 static void
 force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddecomp);
 
+#ifdef DEBUG
+/* Walk the constructed tree, validating sibling and nextnode as we go*/
+static void force_validate_nextlist(const ForceTree * tree)
+{
+    int no = tree->firstnode;
+    while(no != -1)
+    {
+        struct NODE * current = &tree->Nodes[no];
+        if(current->sibling != -1 && !node_is_node(current->sibling, tree))
+            endrun(5, "Node %d (type %d) has sibling %d next %d father %d first %d final %d last %d ntop %d\n", no, current->f.ChildType, current->sibling, current->nextnode, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
+
+        if(current->f.ChildType == PSEUDO_NODE_TYPE) {
+            /* pseudo particle: nextnode should be a pseudo particle, sibling should be a node. */
+            if(!node_is_pseudo_particle(current->nextnode, tree))
+                endrun(5, "Pseudo Node %d has next node %d sibling %d father %d first %d final %d last %d ntop %d\n", no, current->nextnode, current->sibling, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
+        }
+        else if(current->f.ChildType == NODE_NODE_TYPE) {
+            /* Next node should be another node */
+            if(!node_is_node(current->nextnode, tree))
+                endrun(5, "Node Node %d has next node which is particle %d sibling %d father %d first %d final %d last %d ntop %d\n", no, current->nextnode, current->sibling, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
+            no = current->nextnode;
+            continue;
+        }
+        no = current->sibling;
+    }
+}
+#endif
+
 static int
 force_tree_eh_slots_fork(EIBase * event, void * userdata)
 {
@@ -133,7 +161,6 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSiz
  *  particle must be exported to that CPU. */
 ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir)
 {
-    int Numnodestree;
     ForceTree tree;
 
     int TooManyNodes = 0;
@@ -145,8 +172,8 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
         tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp);
 
         tree.BoxSize = BoxSize;
-        Numnodestree = force_tree_create_nodes(tree, npart, ddecomp, BoxSize);
-        if(Numnodestree >= tree.lastnode - tree.firstnode)
+        tree.numnodes = force_tree_create_nodes(tree, npart, ddecomp, BoxSize);
+        if(tree.numnodes >= tree.lastnode - tree.firstnode)
         {
             message(1, "Not enough tree nodes (%d) for %d particles.\n", maxnodes, npart);
             force_tree_free(&tree);
@@ -158,7 +185,7 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
             }
         }
     }
-    while(Numnodestree >= tree.lastnode - tree.firstnode);
+    while(tree.numnodes >= tree.lastnode - tree.firstnode);
 
     if(MPIU_Any(TooManyNodes, MPI_COMM_WORLD)) {
         if(EmergencyOutputDir)
@@ -166,14 +193,23 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
         endrun(2, "Required too many nodes, snapshot dumped\n");
     }
     walltime_measure("/Tree/Build/Nodes");
+#ifdef DEBUG
+    force_validate_nextlist(&tree);
+#endif
     /* insert the pseudo particles that represent the mass distribution of other ddecomps */
     force_insert_pseudo_particles(&tree, ddecomp);
+#ifdef DEBUG
+    force_validate_nextlist(&tree);
+#endif
 
     tree.moments_computed_flag = 0;
 
     if(DoMoments) {
         /* now compute the multipole moments recursively */
         force_update_node_parallel(&tree, HybridNuGrav);
+#ifdef DEBUG
+        force_validate_nextlist(&tree);
+#endif
 
         /* Exchange the pseudo-data*/
         force_exchange_pseudodata(&tree, ddecomp);
@@ -182,13 +218,13 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
         tree.moments_computed_flag = 1;
         tree.hmax_computed_flag = 1;
     }
-
-    tree.Nodes_base = myrealloc(tree.Nodes_base, (Numnodestree +1) * sizeof(struct NODE));
+    tree.Nodes_base = myrealloc(tree.Nodes_base, (tree.numnodes +1) * sizeof(struct NODE));
 
     /*Update the oct-tree struct so it knows about the memory change*/
-    tree.numnodes = Numnodestree;
     tree.Nodes = tree.Nodes_base - tree.firstnode;
-
+#ifdef DEBUG
+        force_validate_nextlist(&tree);
+#endif
     return tree;
 }
 
@@ -1135,7 +1171,7 @@ ForceTree force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp)
     allbytes += bytes;
     tb.firstnode = maxpart;
     tb.lastnode = maxpart + maxnodes;
-    tb.numnodes = maxnodes;
+    tb.numnodes = 0;
     tb.Nodes = tb.Nodes_base - maxpart;
     tb.tree_allocated_flag = 1;
     tb.NTopLeaves = ddecomp->NTopLeaves;
