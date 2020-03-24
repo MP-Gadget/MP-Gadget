@@ -39,4 +39,10 @@ inttime_t get_pm_kick(void);
 
 void set_timestep_params(ParameterSet * ps);
 
+/*Get the dti from the timebin*/
+static inline inttime_t dti_from_timebin(int bin) {
+    /*Casts to work around bug in intel compiler 18.0*/
+    return bin > 0 ? (1Lu << (unsigned) bin) : 0;
+}
+
 #endif
