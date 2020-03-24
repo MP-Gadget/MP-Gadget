@@ -112,7 +112,7 @@ domain_check_memory_bound(const DomainDecomp * ddecomp, int64_t *TopLeafWork, in
 
 static int domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy, const int MaxTopNodes);
 
-static void
+static int
 domain_balance(DomainDecomp * ddecomp);
 
 static int domain_determine_global_toptree(DomainDecompositionPolicy * policy, struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes, MPI_Comm DomainComm);
@@ -181,19 +181,17 @@ void domain_decompose_full(DomainDecomp * ddecomp)
         decompose_failed = domain_attempt_decompose(ddecomp, &policies[i], MaxTopNodes);
         decompose_failed = MPIU_Any(decompose_failed, ddecomp->DomainComm);
 
-        if(!decompose_failed) {
-            LastSuccessfulPolicy = i;
+        if(decompose_failed)
+            continue;
+
+        LastSuccessfulPolicy = i;
+        if(domain_balance(ddecomp) == 0)
             break;
-        }
     }
 
     if(decompose_failed) {
         endrun(0, "No suitable domain decomposition policy worked for this particle distribution\n");
     }
-
-    domain_balance(ddecomp);
-
-    walltime_measure("/Domain/Decompose/Balance");
 
     /* copy the used nodes from temp to the true. */
     struct topleaf_data * OldTopLeaves = ddecomp->TopLeaves;
@@ -394,7 +392,7 @@ domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * pol
  * attempt to assign segments to tasks such that the load or work is balanced.
  *
  * */
-static void
+static int
 domain_balance(DomainDecomp * ddecomp)
 {
     /*!< a table that gives the total number of particles held by each processor */
@@ -411,13 +409,13 @@ domain_balance(DomainDecomp * ddecomp)
 
     int status = domain_check_memory_bound(ddecomp, NULL, TopLeafCount);
     if(status != 0)
-    {
-        endrun(0, "No domain decomposition that stays within memory bounds is possible.\n");
-    }
+        message(0, "Domain decomposition is outside memory bounds.\n");
 
     walltime_measure("/Domain/Decompose/memorybound");
 
     myfree(TopLeafCount);
+
+    return status;
 }
 
 static int
