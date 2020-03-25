@@ -69,7 +69,6 @@ static void update_random_offset(double * rel_random_shift);
 
 
 static void set_units();
-static void set_softenings();
 
 static void
 open_outputfiles(int RestartSnapNum);
@@ -106,7 +105,6 @@ int begrun(int RestartFlag, int RestartSnapNum)
     if(All.BlackHoleOn || All.NTotalInit[5] > 0)
         slots_set_enabled(5, sizeof(struct bh_particle_data), SlotsManager);
 
-    set_softenings();
     set_units();
 
 #ifdef DEBUG
@@ -122,6 +120,7 @@ int begrun(int RestartFlag, int RestartSnapNum)
 
     init_cooling_and_star_formation();
 
+    gravshort_set_softenings(All.MeanSeparation[1]);
     gravshort_fill_ntab(All.ShortRangeForceWindowType, All.Asmth);
 
     set_random_numbers(All.RandomSeed);
@@ -649,23 +648,3 @@ set_units(void)
     }
     message(0, "\n");
 }
-
-/*! This function sets the (comoving) softening length of all particle
- *  types in the table All.SofteningTable[...].  We check that the physical
- *  softening length is bounded by the Softening-MaxPhys values.
- */
-static void
-set_softenings()
-{
-    int i;
-    for(i = 0; i < 6; i ++)
-        GravitySofteningTable[i] = All.GravitySoftening * All.MeanSeparation[1];
-
-    /* 0: Gas is collisional */
-    GravitySofteningTable[0] = All.GravitySofteningGas * All.MeanSeparation[1];
-
-    for(i = 0; i < 6; i ++) {
-        message(0, "GravitySoftening[%d] = %g\n", i, GravitySofteningTable[i]);
-    }
-}
-

@@ -88,9 +88,6 @@ set_init_params(ParameterSet * ps)
         All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
         All.RandomParticleOffset = param_get_double(ps, "RandomParticleOffset");
 
-        All.GravitySoftening = param_get_double(ps, "GravitySoftening");
-        All.GravitySofteningGas = param_get_double(ps, "GravitySofteningGas");
-
         All.PartAllocFactor = param_get_double(ps, "PartAllocFactor");
         All.SlotsIncreaseFactor = param_get_double(ps, "SlotsIncreaseFactor");
 

@@ -27,6 +27,29 @@
  */
 
 static struct gravshort_tree_params TreeParams;
+/*Softening length*/
+double GravitySoftening;
+
+/* gravitational softening length
+ * (given in terms of an `equivalent' Plummer softening length)
+ */
+double FORCE_SOFTENING(int i, int type)
+{
+    if (TreeParams.AdaptiveSoftening == 1 && type == 0) {
+        return P[i].Hsml;
+    }
+    /* Force is Newtonian beyond this.*/
+    return 2.8 * GravitySoftening;
+}
+
+/*! Sets the (comoving) softening length, converting from units of the mean separation to comoving internal units. */
+void
+gravshort_set_softenings(double MeanSeparation)
+{
+    GravitySoftening = TreeParams.FractionalGravitySoftening * MeanSeparation;
+    /* 0: Gas is collisional */
+    message(0, "GravitySoftening = %g\n", GravitySoftening);
+}
 
 /*This is a helper for the tests*/
 void set_gravshort_treepar(struct gravshort_tree_params tree_params)
@@ -51,6 +74,10 @@ set_gravshort_tree_params(ParameterSet * ps)
         TreeParams.BHOpeningAngle = param_get_double(ps, "BHOpeningAngle");
         TreeParams.TreeUseBH= param_get_int(ps, "TreeUseBH");
         TreeParams.Rcut = param_get_double(ps, "TreeRcut");
+        TreeParams.FractionalGravitySoftening = param_get_double(ps, "GravitySoftening");
+        TreeParams.AdaptiveSoftening = !param_get_int(ps, "GravitySofteningGas");
+
+
     }
     MPI_Bcast(&TreeParams, sizeof(struct gravshort_tree_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -315,12 +342,13 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             /* This node accelerates the particle directly, and is not opened.*/
             if(!shall_we_open_node(nop->len, nop->mom.mass, r2, nop->center, inpos, BoxSize, aold, TreeUseBH, BHOpeningAngle2))
             {
-                double h = DMAX(input->Soft, nop->mom.MaxSoftening);
-                /* Always open the node if it has a larger softening than the particle,
-                 * and the particle is inside its softening radius.
-                 * This condition essentially never happens, and it is not clear how much sense it makes. */
-                if(input->Soft < nop->mom.MaxSoftening)
+                double h = input->Soft;
+                if(TreeParams.AdaptiveSoftening == 1 && (input->Soft < nop->mom.hmax))
                 {
+                    /* Always open the node if it has a larger softening than the particle,
+                     * and the particle is inside its softening radius.
+                     * This condition only ever applies for adaptive softenings. It may or may not make sense. */
+                    h = DMAX(input->Soft, nop->mom.hmax);
                     if(r2 < h * h)
                     {
                         no = nop->nextnode;
@@ -377,7 +405,9 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                 dx[j] = NEAREST(P[pp].Pos[j] - inpos[j], BoxSize);
             const double r2 = dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2];
 
-            double h = DMAX(input->Soft, FORCE_SOFTENING(pp));
+            double h = input->Soft;
+            if(TreeParams.AdaptiveSoftening == 1)
+                h = DMAX(h, FORCE_SOFTENING(pp, P[pp].Type));
             /* Compute the acceleration and apply it to the output structure*/
             apply_accn_to_output(output, dx, r2, h, P[pp].Mass, cellsize);
         }

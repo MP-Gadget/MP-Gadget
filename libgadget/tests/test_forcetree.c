@@ -31,7 +31,6 @@ force_update_node_parallel(const ForceTree * tree, const int HybridNuGrav);
 
 /*Particle data.*/
 struct part_manager_type PartManager[1] = {{0}};
-double GravitySofteningTable[6];
 double BoxSize;
 
 /* The true struct for the state variable*/
@@ -126,11 +125,10 @@ static int check_moments(const ForceTree * tb, const int numpart, const int nrea
             sibcntr++;
 
         if(!(tb->Nodes[node].mom.mass < 0.5 && tb->Nodes[node].mom.mass > -0.5)) {
-            printf("node %d (%d) mass %g / %g TL %d DLM %d MS %g ITL %d\n",
+            printf("node %d (%d) mass %g / %g TL %d DLM %d ITL %d\n",
                 node, node - tb->firstnode, tb->Nodes[node].mom.mass, oldmass[node - tb->firstnode],
                 tb->Nodes[node].f.TopLevel,
                 tb->Nodes[node].f.DependsOnLocalMass,
-                tb->Nodes[node].mom.MaxSoftening,
                 tb->Nodes[node].f.InternalTopLevel
             );
             /* something is wrong show the particles */
@@ -378,10 +376,6 @@ static int setup_tree(void **state) {
     /*Set up the important parts of the All structure.*/
     /*Particles should not be outside this*/
     BoxSize = 8;
-    int i;
-    for(i=0; i<6; i++)
-        GravitySofteningTable[i] = 0.1 / 2.8;
-
     init_forcetree_params(2);
     /*Set up the top-level domain grid*/
     struct forcetree_testdata *data = malloc(sizeof(struct forcetree_testdata));

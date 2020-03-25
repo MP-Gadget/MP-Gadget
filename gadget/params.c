@@ -175,7 +175,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "PairwiseActiveFraction", OPTIONAL, 5e-7, "Pairwise gravity instead of tree gravity is used if N(active particles) / N(particles) is less than this.");
 
     param_declare_double(ps, "GravitySoftening", OPTIONAL, 1./30., "Softening for collisionless particles; units of mean separation of DM. ForceSoftening is 2.8 times this.");
-    param_declare_double(ps, "GravitySofteningGas", OPTIONAL, 1./30., "Softening for collisional particles (Gas); units of mean separation of DM; 0 to use Hsml of last step. ");
+    param_declare_int(ps, "GravitySofteningGas", OPTIONAL, 1, "0 to use adaptive softening, where the gas softening is the smoothing length of the last step.");
 
     param_declare_int(ps, "ImportBufferBoost", OPTIONAL, 2, "Memory factor to allow for there being more particles imported during treewlk than exported. Increase this if code crashes during treewalk with out of memory.");
     param_declare_double(ps, "PartAllocFactor", OPTIONAL, 1.5, "Over-allocation factor of particles. The load can be imbalanced to allow for the work to be more balanced.");

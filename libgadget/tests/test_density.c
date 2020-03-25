@@ -18,6 +18,7 @@
 #include <libgadget/domain.h>
 #include <libgadget/forcetree.h>
 #include <libgadget/timestep.h>
+#include <libgadget/gravity.h>
 
 #include "stub.h"
 
@@ -318,7 +319,11 @@ static int setup_density(void **state) {
     data->dp.DensityKernelType = DENSITY_KERNEL_CUBIC_SPLINE;
     BoxSize = 8;
     data->dp.MinGasHsmlFractional = 0.006;
-    GravitySofteningTable[1] = 1;
+    struct gravshort_tree_params tree_params = {0};
+    tree_params.FractionalGravitySoftening = 1;
+    set_gravshort_treepar(tree_params);
+
+    gravshort_set_softenings(1);
     data->dp.BlackHoleMaxAccretionRadius = 99999.;
 
     set_densitypar(data->dp);

@@ -451,7 +451,7 @@ get_timestep_dloga(const int p)
         ac = 1.0e-30;
 
     /* mind the factor 2.8 difference between gravity and softening used here. */
-    dt = sqrt(2 * TimestepParams.ErrTolIntAccuracy * All.cf.a * (FORCE_SOFTENING(p) / 2.8) / ac);
+    dt = sqrt(2 * TimestepParams.ErrTolIntAccuracy * All.cf.a * (FORCE_SOFTENING(p, P[p].Type) / 2.8) / ac);
 
     if(P[p].Type == 0)
     {

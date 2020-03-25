@@ -15,6 +15,7 @@
 #include "slotsmanager.h"
 #include "timestep.h"
 #include "utils.h"
+#include "gravity.h"
 
 #define MAXITER 400
 
@@ -241,7 +242,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     DENSITY_GET_PRIV(tw)->NIteration = 0;
 
     DENSITY_GET_PRIV(tw)->DesNumNgb = GetNumNgb(DensityParams.DensityKernelType);
-    DENSITY_GET_PRIV(tw)->MinGasHsml = DensityParams.MinGasHsmlFractional * GravitySofteningTable[1];
+    DENSITY_GET_PRIV(tw)->MinGasHsml = DensityParams.MinGasHsmlFractional * (FORCE_SOFTENING(1, 1)/2.8);
 
     DENSITY_GET_PRIV(tw)->BlackHoleOn = BlackHoleOn;
     DENSITY_GET_PRIV(tw)->HydroCostFactor = HydroCostFactor * atime;
