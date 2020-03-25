@@ -1018,6 +1018,10 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         /* Cull the node */
         if(0 == cull_node(I, iter, current, BoxSize)) {
             /* in case the node can be discarded */
+            if(current->sibling != -1 && !node_is_node(current->sibling, tree)) {
+                int fat = force_get_father(no, tree);
+                endrun(12312, "Culling to invalid node! no = %d, sib %d, father = %d (ptype = %d) start = %d\n", no, current->sibling, fat, tree->Nodes[no].f.ChildType, startnode);
+            }
             no = current->sibling;
             continue;
         }
@@ -1030,6 +1034,10 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
                 lv->ngblist[numcand++] = suns[i];
             }
             /* Move sideways*/
+            if(current->sibling != -1 && !node_is_node(current->sibling, tree)) {
+                int fat = force_get_father(no, tree);
+                endrun(12312, "Moving sideways to a non node! no = %d, sib %d father = %d (ptype = %d)\n", no, current->sibling, fat, tree->Nodes[fat].f.ChildType);
+            }
             no = current->sibling;
             continue;
         }
@@ -1042,11 +1050,19 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
                 if(-1 == treewalk_export_particle(lv, current->nextnode))
                     return -1;
                 /* Move sideways*/
+        if(current->sibling != -1 && !node_is_node(current->sibling, tree)) {
+            int fat = force_get_father(no, tree);
+            endrun(12312, "After export moving to a non node! no = %d, sib %d father = %d (ptype = %d)\n", no, current->sibling, fat, tree->Nodes[no].f.ChildType);
+        }
                 no = current->sibling;
                 continue;
             }
         }
         /* ok, we need to open the node */
+        if(current->nextnode != -1 && !node_is_node(current->nextnode, tree)) {
+            int fat = force_get_father(no, tree);
+            endrun(12312, "Moving down to a particles from a non particle node! no = %d, sib %d next %d father = %d (ptype = %d)\n", no, current->sibling, current->nextnode, fat, tree->Nodes[fat].f.ChildType);
+        }
         no = current->nextnode;
     }
 
