@@ -113,10 +113,11 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSiz
     *tree = force_tree_build(PartManager->NumPart, ddecomp, BoxSize, HybridNuGrav, DoMoments, EmergencyOutputDir);
 
     event_listen(&EventSlotsFork, force_tree_eh_slots_fork, tree);
-
-    MPIU_Barrier(MPI_COMM_WORLD);
-    message(0, "Tree construction done.\n");
     walltime_measure("/Tree/Build/Moments");
+
+    message(0, "Tree constructed (moments: %d). First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
+            tree->moments_computed_flag, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
+    MPIU_Barrier(MPI_COMM_WORLD);
 }
 
 /*! Constructs the gravitational oct-tree.
@@ -1128,7 +1129,6 @@ ForceTree force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp)
     size_t allbytes = 0;
     ForceTree tb;
 
-    message(0, "Allocating memory for %d tree-nodes (MaxPart=%d).\n", maxnodes, maxpart);
     tb.Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
     allbytes += bytes;
     tb.Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (maxnodes + 1) * sizeof(struct NODE));
@@ -1140,9 +1140,8 @@ ForceTree force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp)
     tb.tree_allocated_flag = 1;
     tb.NTopLeaves = ddecomp->NTopLeaves;
     tb.TopLeaves = ddecomp->TopLeaves;
-
-    message(0, "Allocated %g MByte for BH-tree, (presently allocated %g MB)\n",
-         allbytes / (1024.0 * 1024.0),
+    message(0, "Allocated %g MByte for %d tree nodes. firstnode %d. (presently allocated %g MB)\n",
+         allbytes / (1024.0 * 1024.0), maxnodes, maxpart,
          mymalloc_usedbytes() / (1024.0 * 1024.0));
     return tb;
 }
