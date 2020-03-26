@@ -17,10 +17,10 @@ typedef struct {
 
 static MPI_Datatype MPI_TYPE_PLAN_ENTRY = 0;
 
-/*Small bitfield struct to cache the layout function and particle data*/
+/*Small struct to cache the layout function and particle data*/
 typedef struct {
-    unsigned int ptype : 3;
-    unsigned int target : 8 * sizeof(int) - 3;
+    unsigned int ptype;
+    unsigned int target ;
 } ExchangePartCache;
 
 typedef struct {
