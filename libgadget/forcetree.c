@@ -1166,8 +1166,14 @@ ForceTree force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp)
     ForceTree tb;
 
     tb.Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
+#ifdef DEBUG
+    memset(tb.Father, -1, bytes);
+#endif
     allbytes += bytes;
     tb.Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (maxnodes + 1) * sizeof(struct NODE));
+#ifdef DEBUG
+    memset(tb.Nodes_base, -1, bytes);
+#endif
     allbytes += bytes;
     tb.firstnode = maxpart;
     tb.lastnode = maxpart + maxnodes;
