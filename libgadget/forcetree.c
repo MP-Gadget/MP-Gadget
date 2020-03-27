@@ -224,13 +224,15 @@ static void init_internal_node(struct NODE *nfreep, struct NODE *parent, int sub
 {
     int j;
     const MyFloat lenhalf = 0.25 * parent->len;
-
     nfreep->len = 0.5 * parent->len;
     nfreep->sibling = -10;
     nfreep->nextnode = -10;
+    nfreep->father = -10;
     nfreep->f.TopLevel = 0;
     nfreep->f.InternalTopLevel = 0;
+    nfreep->f.DependsOnLocalMass = 0;
     nfreep->f.ChildType = PARTICLE_NODE_TYPE;
+    nfreep->f.unused = 0;
 
     for(j = 0; j < 3; j++) {
         /* Detect which quadrant we are in by testing the bits of subnode:
@@ -244,7 +246,6 @@ static void init_internal_node(struct NODE *nfreep, struct NODE *parent, int sub
     memset(&(nfreep->mom.cofm),0,3*sizeof(MyFloat));
     nfreep->mom.mass = 0;
     nfreep->mom.hmax = 0;
-    nfreep->f.DependsOnLocalMass = 0;
 }
 
 /* Size of the free Node thread cache.
@@ -402,7 +403,12 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         nfreep->nextnode = -1;
         nfreep->f.TopLevel = 1;
         nfreep->f.InternalTopLevel = 0;
+        nfreep->f.DependsOnLocalMass = 0;
         nfreep->f.ChildType = PARTICLE_NODE_TYPE;
+        nfreep->f.unused = 0;
+        memset(&(nfreep->mom.cofm),0,3*sizeof(MyFloat));
+        nfreep->mom.mass = 0;
+        nfreep->mom.hmax = 0;
         nnext++;
         /* create a set of empty nodes corresponding to the top-level ddecomp
          * grid. We need to generate these nodes first to make sure that we have a
