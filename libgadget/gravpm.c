@@ -168,9 +168,9 @@ static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void
         regions[r].numpart = pm_mark_region_for_node(regions[r].no, r, pstruct->RegionInd, tree);
         numpart += regions[r].numpart;
     }
-    for(i =0; i < PartManager->NumPart; i ++) {
+    for(i = 0; i < PartManager->NumPart; i ++) {
         if(pstruct->RegionInd[i] == -1) {
-            message(1, "i = %d not assigned to a region\n", i);
+            message(1, "i = %d father %d not assigned to a region\n", i, force_get_father(i, tree));
         }
     }
     /* All particles shall have been processed just once. Otherwise we die */
