@@ -175,7 +175,7 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
         tree.numnodes = force_tree_create_nodes(tree, npart, ddecomp, BoxSize);
         if(tree.numnodes >= tree.lastnode - tree.firstnode)
         {
-            message(1, "Not enough tree nodes (%d) for %d particles.\n", maxnodes, npart);
+            message(1, "Not enough tree nodes (%d) for %d particles. Created %d\n", maxnodes, npart, tree.numnodes);
             force_tree_free(&tree);
             message(1, "TreeAllocFactor from %g to %g\n", ForceTreeParams.TreeAllocFactor, ForceTreeParams.TreeAllocFactor*1.15);
             ForceTreeParams.TreeAllocFactor *= 1.15;
@@ -357,6 +357,7 @@ create_new_node_layer(int firstparent, int p_toplace,
                     oldsuns[0], P[oldsuns[0]].Pos[0], P[oldsuns[0]].Pos[1], P[oldsuns[0]].Pos[2], P[oldsuns[0]].Type, P[oldsuns[0]].ID,
                     oldsuns[1], P[oldsuns[1]].Pos[0], P[oldsuns[1]].Pos[1], P[oldsuns[1]].Pos[2], P[oldsuns[1]].Type, P[oldsuns[1]].ID
                 );
+                nc->nnext_thread = tb.lastnode + 10 * NODECACHE_SIZE;
                 return 1;
             }
             struct NODE *nfreep = &tb.Nodes[nprnt->s.suns[i]];
@@ -474,7 +475,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
     for(i = 0; i < npart; i++)
     {
         /*Can't break from openmp for*/
-        if(nc.nnext_thread >= tb.lastnode-1)
+        if(nc.nnext_thread >= tb.lastnode)
             continue;
 
         /* Do not add garbage/swallowed particles to the tree*/
