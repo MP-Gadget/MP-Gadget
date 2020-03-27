@@ -1183,6 +1183,8 @@ ForceTree force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp)
     allbytes += bytes;
     tb.firstnode = maxpart;
     tb.lastnode = maxpart + maxnodes;
+    if(tb.lastnode < 0)
+        endrun(5, "Size of tree overflowed for maxpart = %d, maxnodes = %d!\n", maxpart, maxnodes);
     tb.numnodes = 0;
     tb.Nodes = tb.Nodes_base - maxpart;
     tb.tree_allocated_flag = 1;
