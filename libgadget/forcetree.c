@@ -335,19 +335,20 @@ create_new_node_layer(int firstparent, int p_toplace,
 
     do {
         int i;
-        int oldsuns[NMAXCHILD];
-
         struct NODE *nprnt = &tb.Nodes[parent];
 
-        /* Copy the old particles and a new one into a temporary array*/
-        memcpy(oldsuns, nprnt->s.suns, NMAXCHILD * sizeof(int));
+        /* Braces to scope oldsuns and newsuns*/
+        {
+        int newsuns[NMAXCHILD];
+
+        int * oldsuns = nprnt->s.suns;
 
         /*We have two particles here, so create a new child node to store them both.*/
         /* if we are here the node must be large enough, thus contain exactly one child. */
         /* The parent is already a leaf, need to split */
         for(i=0; i<8; i++) {
             /* Get memory for an extra node from our cache.*/
-            nprnt->s.suns[i] = get_freenode(nnext, nc);
+            newsuns[i] = get_freenode(nnext, nc);
             /*If we already have too many nodes, exit loop.*/
             if(nc->nnext_thread >= tb.lastnode) {
                 /* This means that we have > NMAXCHILD particles in the same place,
@@ -360,12 +361,30 @@ create_new_node_layer(int firstparent, int p_toplace,
                 nc->nnext_thread = tb.lastnode + 10 * NODECACHE_SIZE;
                 return 1;
             }
-            struct NODE *nfreep = &tb.Nodes[nprnt->s.suns[i]];
+            struct NODE *nfreep = &tb.Nodes[newsuns[i]];
             /* We create a new leaf node.*/
             init_internal_node(nfreep, nprnt, i);
             /*Set father of new node*/
             nfreep->father = parent;
         }
+        /*Initialize the remaining entries to empty*/
+        for(i=8; i<NMAXCHILD;i++)
+            newsuns[i] = -1;
+
+        for(i=0; i < NMAXCHILD; i++) {
+            /* Re-attach each particle to the appropriate new leaf.
+            * Notice that since we have NMAXCHILD slots on each child and NMAXCHILD particles,
+            * we will always have a free slot. */
+            int subnode = get_subnode(nprnt, oldsuns[i]);
+            int child = newsuns[subnode];
+            struct NODE * nchild = &tb.Nodes[child];
+            modify_internal_node(child, nchild->s.noccupied, oldsuns[i], tb);
+            nchild->s.noccupied++;
+        }
+        /* Copy the new node array into the node*/
+        memcpy(nprnt->s.suns, newsuns, NMAXCHILD * sizeof(int));
+        } /* After this brace oldsuns and newsuns are invalid*/
+
         /* Set nextnode and sibling for the new rank. Since empty at this point, point both of them onwards.*/
         nprnt->nextnode = nprnt->s.suns[0];
         for(i=0; i<7; i++) {
@@ -376,20 +395,6 @@ create_new_node_layer(int firstparent, int p_toplace,
         /* Final child needs special handling: set to the parent's sibling/nextnode.*/
         tb.Nodes[nprnt->s.suns[7]].nextnode = tb.Nodes[nprnt->s.suns[7]].sibling = nprnt->sibling;
 
-        /*Initialize the remaining entries to empty*/
-        for(i=8; i<NMAXCHILD;i++)
-            nprnt->s.suns[i] = -1;
-
-        for(i=0; i < NMAXCHILD; i++) {
-            /* Re-attach each particle to the appropriate new leaf.
-            * Notice that since we have NMAXCHILD slots on each child and NMAXCHILD particles,
-            * we will always have a free slot. */
-            int subnode = get_subnode(nprnt, oldsuns[i]);
-            int child = nprnt->s.suns[subnode];
-            struct NODE * nchild = &tb.Nodes[child];
-            modify_internal_node(child, nchild->s.noccupied, oldsuns[i], tb);
-            nchild->s.noccupied++;
-        }
         /* Now try again to add the new particle*/
         int subnode = get_subnode(nprnt, p_toplace);
         int child = nprnt->s.suns[subnode];
