@@ -1027,6 +1027,8 @@ cull_node(const TreeWalkQueryBase * const I, const TreeWalkNgbIterBase * const i
  * iter->base.other, iter->base.dist iter->base.r2, iter->base.r, are properly initialized.
  *
  * */
+#define NHIST 100
+
 static int
 ngb_treefind_threads(TreeWalkQueryBase * I,
         TreeWalkResultBase * O,
@@ -1039,11 +1041,23 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
 
     const ForceTree * tree = lv->tw->tree;
     const double BoxSize = tree->BoxSize;
+    int walkhist[NHIST] = {0};
+    int walks = 0;
 
     no = startnode;
 
     while(no >= 0)
     {
+        if(walks < NHIST) {
+            /* Store the last few walks*/
+            walkhist[walks++] = no;
+            /* Reset it*/
+            if(walks == NHIST-1)
+            {
+                memcpy(walkhist, walkhist + NHIST - 10, 10 * sizeof(int));
+                walks = 9;
+            }
+        }
         if(node_is_particle(no, tree)) {
             int fat = force_get_father(no, tree);
             endrun(12312, "Particles should be added before getting here! no = %d, father = %d (ptype = %d) start=%d mode = %d\n", no, fat, tree->Nodes[fat].f.ChildType, startnode, lv->mode);
@@ -1070,7 +1084,16 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
             /* in case the node can be discarded */
             if(current->sibling != -1 && !node_is_node(current->sibling, tree)) {
                 int fat = force_get_father(no, tree);
-                endrun(12312, "Culling to invalid node! no = %d, sib %d, father = %d (ptype = %d) start = %d\n", no, current->sibling, fat, tree->Nodes[no].f.ChildType, startnode);
+                int i;
+                for(i = 0; i < walks; i++)
+                    message(1, "walking: %d\n", walkhist[i]);
+                endrun(12312, "Culling to invalid node! no = %d, sib %d, father = %d (ptype = %d) len %g center (%g %g %g) mass %g cofm %g %g %g TL %d DLM %d ITL %d nocc %d suns %d %d %d %d start = %d mode %d Ipos %g %g %g\n",
+                no, current->sibling, fat, current->f.ChildType,
+                current->len, current->center[0], current->center[1], current->center[2],
+                current->mom.mass, current->mom.cofm[0], current->mom.cofm[1], current->mom.cofm[2],
+                current->f.TopLevel, current->f.DependsOnLocalMass, current->f.InternalTopLevel, current->s.noccupied,
+                current->s.suns[0], current->s.suns[1], current->s.suns[2], current->s.suns[3],
+                startnode, lv->mode, I->Pos[0], I->Pos[1], I->Pos[2]);
             }
             no = current->sibling;
             continue;
