@@ -201,7 +201,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double HydroCostFactor, double MinEgySpec, double atime, ForceTree * tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double HydroCostFactor, double MinEgySpec, double atime, const ForceTree * const tree)
 {
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
