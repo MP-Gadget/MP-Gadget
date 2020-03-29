@@ -214,7 +214,7 @@ static int check_tree(const ForceTree * tb, const int nnodes, const int numpart)
     return nrealnode - sevens;
 }
 
-static void do_tree_test(const int numpart, const ForceTree tb, DomainDecomp * ddecomp)
+static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp)
 {
     /*Sort by peano key so this is more realistic*/
     int i;
@@ -230,12 +230,13 @@ static void do_tree_test(const int numpart, const ForceTree tb, DomainDecomp * d
     PartManager->MaxPart = numpart;
     assert_true(tb.Nodes != NULL);
     /*So we know which nodes we have initialised*/
-    for(i=0; i< tb.numnodes+1; i++)
+    for(i=0; i< maxnode; i++)
         tb.Nodes_base[i].father = -2;
     /*Time creating the nodes*/
     double start, end;
     start = MPI_Wtime();
     int nodes = force_tree_create_nodes(tb, numpart, ddecomp, BoxSize);
+    tb.numnodes = nodes;
     assert_true(nodes < maxnode);
     end = MPI_Wtime();
     double ms = (end - start)*1000;

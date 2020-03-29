@@ -957,7 +957,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
     {
         if(node_is_particle(no, tree)) {
             int fat = force_get_father(no, tree);
-            endrun(12312, "Particles should be added before getting here! no = %d, father = %d (ptype = %d)\n", no, fat, tree->Nodes[fat].f.ChildType);
+            endrun(12312, "Particles should be added before getting here! no = %d, father = %d (ptype = %d) start=%d mode = %d\n", no, fat, tree->Nodes[fat].f.ChildType, startnode, lv->mode);
         }
         if(node_is_pseudo_particle(no, tree)) {
             int fat = force_get_father(no, tree);
