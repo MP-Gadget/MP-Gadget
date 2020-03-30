@@ -34,15 +34,3 @@ if ! grep PFFT_DONE ${LOGFILE}.double > /dev/null; then
     tail ${LOGFILE}.double
     exit 1
 fi
-(
-mkdir -p single;cd single
-../pfft-${PFFT_VERSION}/configure --prefix=$PREFIX --enable-single --disable-shared --enable-static --enable-openmp \
---disable-fortran --disable-dependency-tracking --disable-doc --enable-mpi $2 ${OPTIMIZE1} &&
-make -j 4  &&
-make install && echo "PFFT_DONE"
-) 2>&1 > ${LOGFILE}.single
-
-if ! grep PFFT_DONE ${LOGFILE}.single > /dev/null; then
-    tail ${LOGFILE}.single
-    exit 1
-fi
