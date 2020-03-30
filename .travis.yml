@@ -3,6 +3,22 @@ language: c
 env:
     global:
         - OMP_NUM_THREADS=1
+   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
+   #   via the "travis encrypt" command using the project repo's public key
+        - secure: "IWnlUcO9bM6vSKJmyRncODlKgy7FTP8i6sehTB7kItuwteAM9gCjcDHC+P6AZPfLtbgzhO89fCKCswK8OtAtdm/BAFO3wk97Omg6DyJBZXUaDriFb6q3TZVUv/Op6q2GfMag+zuLQ2oNr0XwEqvoMapczAKU4SOLfzu6RKtg1XKxWrBR0kPD5tBOWjQnKy/1woDc8Aw01vkHj9BnKhX0pY808gZaC9AbvfM3T1NeblsajRCi6uh2VTnO24KwfSFFSjRVleuCqV4YatDb1UMTsraODm/MssQhWh165R2CVD4qokckmPYJMtvJIRMyhBNt5ziNYvcHzx+VomdqHznlz2J37ZfmBknJmuQqeyQaRep/Zs4BV0eh8S/LprRkO5ZXHueNJGf2+r7L3EemdU2IkCi8f6QvHtPIA09swrWXNV9yZGkzBGnjkAfk0xlEFN1zo1OigF3SxxBOGcR7U9jmU8c1OBA94bu5NE65+ipzEMTnagvFWpqYnqa3ZoLwIHMRgomq/bemux5MhWUA2vLEZ0PavofF7s82x4pDcDriLm76R1gecsvrTq/NdiA2cwANr1mRuoEqb7aR47fvCwtuiUx4pfXRad7Yags9t7xezF8wRvJZoDlajzT7pW+O9OIm5LuOgJA85A57G9kXD8Dhm9k2wGifQ1AVmn7sstuG5ro="
+
+before_install:
+  - echo -n | openssl s_client -connect https://scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
+
+addons:
+  coverity_scan:
+    project:
+      name: "sbird/MP-Gadget3"
+      description: "Cosmological simulation code"
+    notification_email: sbird@ucr.edu
+    build_command_prepend:
+    build_command: "make -j"
+    branch_pattern: coverity_scan
 
 cache:
     - directories:
