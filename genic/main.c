@@ -59,13 +59,20 @@ int main(int argc, char **argv)
 
   /*Initialise particle spacings*/
   const double meanspacing = All2.BoxSize / DMAX(All2.Ngrid, All2.NgridGas);
-  const double shift_gas = -All2.ProduceGas * 0.5 * (CP.Omega0 - CP.OmegaBaryon) / CP.Omega0 * meanspacing;
+  double shift_gas = -All2.ProduceGas * 0.5 * (CP.Omega0 - CP.OmegaBaryon) / CP.Omega0 * meanspacing;
   double shift_dm = All2.ProduceGas * 0.5 * CP.OmegaBaryon / CP.Omega0 * meanspacing;
+  
   double shift_nu = 0;
   if(!All2.ProduceGas && All2.NGridNu > 0) {
       double OmegaNu = get_omega_nu(&CP.ONu, 1);
       shift_nu = -0.5 * (CP.Omega0 - OmegaNu) / CP.Omega0 * meanspacing;
       shift_dm = 0.5 * OmegaNu / CP.Omega0 * meanspacing;
+  }
+    
+  if(All2.PrePosGridCenter){
+      shift_dm += 0.5 * meanspacing;
+      shift_gas += 0.5 * meanspacing;
+      shift_nu += 0.5 * meanspacing;
   }
 
   /*Write the header*/
@@ -129,7 +136,7 @@ int main(int argc, char **argv)
    * to ensure that there are no close particle pairs*/
   /*Make the table for the CDM*/
   if(!All2.MakeGlassCDM) {
-      setup_grid(idgen_cdm, All2.ProduceGas * shift_dm, mass[1], ICP);
+      setup_grid(idgen_cdm, shift_dm, mass[1], ICP);
   } else {
       setup_glass(idgen_cdm, pm, 0, GLASS_SEED_HASH(All2.Seed), mass[1], ICP, All2.UnitLength_in_cm, All2.OutputDir);
   }
