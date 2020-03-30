@@ -41,7 +41,6 @@ set_init_params(ParameterSet * ps)
 {
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-
     if(ThisTask == 0) {
         /* Start reading the values */
         param_get_string2(ps, "InitCondFile", All.InitCondFile, sizeof(All.InitCondFile));
