@@ -5,7 +5,6 @@ shift
 OPTIMIZE="$*"
 OPTIMIZE1="$*"
 echo "Optimization for double" ${OPTIMIZE}
-echo "Optimization for single" ${OPTIMIZE1}
 
 PFFT_VERSION=1.0.8-alpha2-fftw3
 TMP="tmp-pfft-$PFFT_VERSION"
@@ -26,23 +25,11 @@ mkdir -p double;cd double
 
 ../pfft-${PFFT_VERSION}/configure --prefix=$PREFIX --disable-shared --enable-static --enable-openmp \
 --disable-fortran --disable-dependency-tracking --disable-doc --enable-mpi ${OPTIMIZE} &&
-make -j 4   &&
+make -j 8   &&
 make install && echo "PFFT_DONE"
 ) 2>&1 > ${LOGFILE}.double
 
 if ! grep PFFT_DONE ${LOGFILE}.double > /dev/null; then
     tail ${LOGFILE}.double
-    exit 1
-fi
-(
-mkdir -p single;cd single
-../pfft-${PFFT_VERSION}/configure --prefix=$PREFIX --enable-single --disable-shared --enable-static --enable-openmp \
---disable-fortran --disable-dependency-tracking --disable-doc --enable-mpi $2 ${OPTIMIZE1} &&
-make -j 4  &&
-make install && echo "PFFT_DONE"
-) 2>&1 > ${LOGFILE}.single
-
-if ! grep PFFT_DONE ${LOGFILE}.single > /dev/null; then
-    tail ${LOGFILE}.single
     exit 1
 fi
