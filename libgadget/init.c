@@ -49,7 +49,7 @@ set_init_params(ParameterSet * ps)
         param_get_string2(ps, "SnapshotFileBase", All.SnapshotFileBase, sizeof(All.SnapshotFileBase));
         param_get_string2(ps, "FOFFileBase", All.FOFFileBase, sizeof(All.FOFFileBase));
         param_get_string2(ps, "EnergyFile", All.EnergyFile, sizeof(All.EnergyFile));
-        All.OutputEnergyDebug = param_get_int(ps, "EnergyFile");
+        All.OutputEnergyDebug = param_get_int(ps, "OutputEnergyDebug");
         param_get_string2(ps, "CpuFile", All.CpuFile, sizeof(All.CpuFile));
 
         All.CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
