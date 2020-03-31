@@ -32,8 +32,8 @@ tamalloc_init(void)
     int NTask;
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
 
-    /* Reserve 4MB, 128 bytes per task and 128 bytes per thread for TEMP storage.*/
-    size_t n = 4096 * 1024 + 128 * NTask + 128 * Nt * NTask;
+    /* Reserve 4MB, 512 bytes per thread, 128 bytes per task and 128 bytes per thread per task (for export) for TEMP storage.*/
+    size_t n = 4096 * 1024 + 128 * NTask + 128 * Nt * NTask + 512 * Nt;
 
     message(0, "Reserving %td bytes per rank for TEMP memory allocator. \n", n);
 
