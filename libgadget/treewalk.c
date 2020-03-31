@@ -17,15 +17,21 @@
 #define FACT1 0.366025403785	/* FACT1 = 0.5 * (sqrt(3)-1) */
 
 static int *Ngblist;
-static int *Exportflag;    /*!< Buffer used for flagging whether a particle needs to be exported to another process */
-static int *Exportnodecount;
-static int *Exportindex;
 
+/* Structure to store the (task-level) counts for particles
+ * to be sent to each process*/
 struct SendRecvBuffer
 {
     int *Send_offset, *Send_count;
     int *Recv_offset, *Recv_count;
-    void * sendbuf, * recvbuf;
+};
+
+/* Structure to store the thread local counts of exported particles*/
+struct ExportCount
+{
+    int *Exportflag;    /*!< Buffer used for flagging whether a particle needs to be exported to another process */
+    int *Exportnodecount;
+    int *Exportindex;
 };
 
 /*!< Memory factor to leave for (N imported particles) > (N exported particles). */
@@ -63,7 +69,7 @@ void set_treewalk_params(ParameterSet * ps)
     MPI_Bcast(&ImportBufferBoost, 1, MPI_INT, 0, MPI_COMM_WORLD);
 }
 
-static void ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv);
+static void ev_init_thread(const struct ExportCount export, TreeWalk * const tw, LocalTreeWalk * lv);
 static void ev_begin(TreeWalk * tw, int * active_set, const int size);
 static void ev_finish(TreeWalk * tw);
 static struct SendRecvBuffer ev_primary(TreeWalk * tw);
@@ -120,15 +126,15 @@ static int data_index_compare(const void *a, const void *b)
 static TreeWalk * GDB_current_ev = NULL;
 
 static void
-ev_init_thread(TreeWalk * const tw, LocalTreeWalk * lv)
+ev_init_thread(const struct ExportCount export, TreeWalk * const tw, LocalTreeWalk * lv)
 {
     const int thread_id = omp_get_thread_num();
     const int NTask = tw->NTask;
     int j;
     lv->tw = tw;
-    lv->exportflag = Exportflag + thread_id * NTask;
-    lv->exportnodecount = Exportnodecount + thread_id * NTask;
-    lv->exportindex = Exportindex + thread_id * NTask;
+    lv->exportflag = export.Exportflag + thread_id * NTask;
+    lv->exportnodecount = export.Exportnodecount + thread_id * NTask;
+    lv->exportindex = export.Exportindex + thread_id * NTask;
     lv->Ninteractions = 0;
     lv->Nnodesinlist = 0;
     lv->Nlist = 0;
@@ -137,18 +143,20 @@ ev_init_thread(TreeWalk * const tw, LocalTreeWalk * lv)
         lv->exportflag[j] = -1;
 }
 
-static void
+static struct ExportCount
 ev_alloc_threadlocals(const int NTaskTimesThreads)
 {
-    Exportflag = (int *) ta_malloc2("Exportthreads", int, 3*NTaskTimesThreads);
-    Exportindex = Exportflag + NTaskTimesThreads;
-    Exportnodecount = Exportflag + 2*NTaskTimesThreads;
+    struct ExportCount export = {0};
+    export.Exportflag = (int *) ta_malloc2("Exportthreads", int, 3*NTaskTimesThreads);
+    export.Exportindex = export.Exportflag + NTaskTimesThreads;
+    export.Exportnodecount = export.Exportflag + 2*NTaskTimesThreads;
+    return export;
 }
 
 static void
-ev_free_threadlocals()
+ev_free_threadlocals(struct ExportCount export)
 {
-    ta_free(Exportflag);
+    ta_free(export.Exportflag);
 }
 
 static void
@@ -230,6 +238,10 @@ treewalk_init_query(TreeWalk * tw, TreeWalkQueryBase * query, int i, int * NodeL
     } else {
         query->NodeList[0] = tw->tree->firstnode; /* root node */
         query->NodeList[1] = -1; /* terminate immediately */
+        /* Zero the rest of the nodelist*/
+#ifdef DEBUG
+        memset(query->NodeList+2, 0, sizeof(int) * (NODELISTLENGTH-2));
+#endif
     }
 
     tw->fill(i, query, tw);
@@ -249,11 +261,11 @@ treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum T
         tw->reduce(i, result, mode, tw);
 }
 
-static void real_ev(TreeWalk * tw, int * ninter) {
+static void real_ev(struct ExportCount export, TreeWalk * tw, int * ninter) {
     int tid = omp_get_thread_num();
     LocalTreeWalk lv[1];
 
-    ev_init_thread(tw, lv);
+    ev_init_thread(export, tw, lv);
     lv->mode = 0;
 
     /* Note: exportflag is local to each thread */
@@ -372,16 +384,16 @@ static struct SendRecvBuffer ev_primary(TreeWalk * tw)
     int i;
     tstart = second();
 
-    ev_alloc_threadlocals(tw->NTask * tw->NThread);
+    struct ExportCount export = ev_alloc_threadlocals(tw->NTask * tw->NThread);
 
     int nint = tw->Ninteractions;
 #pragma omp parallel reduction(+: nint)
     {
-        real_ev(tw, &nint);
+        real_ev(export, tw, &nint);
     }
     tw->Ninteractions = nint;
 
-    ev_free_threadlocals();
+    ev_free_threadlocals(export);
 
     /* Nexport may go off too much after BunchSize
      * as we don't protect it from over adding in _export_particle
@@ -468,7 +480,7 @@ static void ev_secondary(TreeWalk * tw)
     tstart = second();
     tw->dataresult = mymalloc("EvDataResult", tw->Nimport * tw->result_type_elsize);
 
-    ev_alloc_threadlocals(tw->NTask * tw->NThread);
+    struct ExportCount export = ev_alloc_threadlocals(tw->NTask * tw->NThread);
     int nint = tw->Ninteractions;
     int nnodes = tw->Nnodesinlist;
     int nlist = tw->Nlist;
@@ -477,7 +489,7 @@ static void ev_secondary(TreeWalk * tw)
         int j;
         LocalTreeWalk lv[1];
 
-        ev_init_thread(tw, lv);
+        ev_init_thread(export, tw, lv);
         lv->mode = 1;
 #pragma omp for
         for(j = 0; j < tw->Nimport; j++) {
@@ -495,7 +507,7 @@ static void ev_secondary(TreeWalk * tw)
     tw->Nnodesinlist = nnodes;
     tw->Nlist = nlist;
 
-    ev_free_threadlocals();
+    ev_free_threadlocals(export);
     tend = second();
     tw->timecomp2 += timediff(tstart, tend);
 }
