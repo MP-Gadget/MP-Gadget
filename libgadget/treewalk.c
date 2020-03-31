@@ -692,13 +692,8 @@ static void ev_get_remote(const struct SendRecvBuffer sndrcv, TreeWalk * tw)
     void * recvbuf = mymalloc("EvDataGet", tw->Nimport * tw->query_type_elsize);
     char * sendbuf = mymalloc("EvDataIn", tw->Nexport * tw->query_type_elsize);
 
-#ifdef DEBUG
-    memset(sendbuf, -1, tw->Nexport * tw->query_type_elsize);
-#endif
-
     tstart = second();
     /* prepare particle data for export */
-    //
 #pragma omp parallel for
     for(j = 0; j < tw->Nexport; j++)
     {
