@@ -20,9 +20,9 @@ enum TreeWalkReduceMode {
 typedef struct TreeWalk TreeWalk;
 
 typedef struct {
+    double Pos[3];
     MyIDType ID;
     int NodeList[NODELISTLENGTH];
-    double Pos[3];
 } TreeWalkQueryBase;
 
 typedef struct {
