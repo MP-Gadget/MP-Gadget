@@ -26,12 +26,18 @@ struct SendRecvBuffer
     int *Recv_offset, *Recv_count;
 };
 
-/* Structure to store the thread local counts of exported particles*/
-struct ExportCount
+/* Structure to store the thread local memory for each treewalk*/
+struct TreeWalkThreadLocals
 {
     int *Exportflag;    /*!< Buffer used for flagging whether a particle needs to be exported to another process */
     int *Exportnodecount;
     int *Exportindex;
+    /* Temporary memory for input, output and iteration.
+     * Note that despite the pointer types the memory is allocated with size
+     * tw->query_type_elsize tw->result_type_elsize and tw->ngbiter_type_elsize */
+    TreeWalkQueryBase * input;
+    TreeWalkResultBase * output;
+    TreeWalkNgbIterBase * ngbiter;
 };
 
 /*!< Memory factor to leave for (N imported particles) > (N exported particles). */
@@ -69,7 +75,7 @@ void set_treewalk_params(ParameterSet * ps)
     MPI_Bcast(&ImportBufferBoost, 1, MPI_INT, 0, MPI_COMM_WORLD);
 }
 
-static void ev_init_thread(const struct ExportCount export, TreeWalk * const tw, LocalTreeWalk * lv);
+static void ev_init_thread(const struct TreeWalkThreadLocals export, TreeWalk * const tw, LocalTreeWalk * lv);
 static void ev_begin(TreeWalk * tw, int * active_set, const int size);
 static void ev_finish(TreeWalk * tw);
 static struct SendRecvBuffer ev_primary(TreeWalk * tw);
@@ -126,7 +132,7 @@ static int data_index_compare(const void *a, const void *b)
 static TreeWalk * GDB_current_ev = NULL;
 
 static void
-ev_init_thread(const struct ExportCount export, TreeWalk * const tw, LocalTreeWalk * lv)
+ev_init_thread(const struct TreeWalkThreadLocals export, TreeWalk * const tw, LocalTreeWalk * lv)
 {
     const int thread_id = omp_get_thread_num();
     const int NTask = tw->NTask;
@@ -139,23 +145,30 @@ ev_init_thread(const struct ExportCount export, TreeWalk * const tw, LocalTreeWa
     lv->Nnodesinlist = 0;
     lv->Nlist = 0;
     lv->ngblist = Ngblist + thread_id * PartManager->NumPart;
+    lv->ngbiter = (TreeWalkNgbIterBase *)((char *) export.ngbiter + thread_id * tw->ngbiter_type_elsize);
     for(j = 0; j < NTask; j++)
         lv->exportflag[j] = -1;
 }
 
-static struct ExportCount
-ev_alloc_threadlocals(const int NTaskTimesThreads)
+static struct TreeWalkThreadLocals
+ev_alloc_threadlocals(TreeWalk * tw, const int NTask, const int NumThreads)
 {
-    struct ExportCount export = {0};
-    export.Exportflag = (int *) ta_malloc2("Exportthreads", int, 3*NTaskTimesThreads);
-    export.Exportindex = export.Exportflag + NTaskTimesThreads;
-    export.Exportnodecount = export.Exportflag + 2*NTaskTimesThreads;
+    struct TreeWalkThreadLocals export = {0};
+    export.Exportflag = (int *) ta_malloc2("Exportthreads", int, 3*NTask*NumThreads);
+    export.Exportindex = export.Exportflag + NTask*NumThreads;
+    export.Exportnodecount = export.Exportflag + 2*NTask*NumThreads;
+    export.input = (TreeWalkQueryBase*) allocator_alloc_bot(A_TEMP, "inputquery", tw->query_type_elsize * NumThreads);
+    export.output = (TreeWalkResultBase*) allocator_alloc_bot(A_TEMP, "outresult", tw->result_type_elsize * NumThreads);
+    export.ngbiter = (TreeWalkNgbIterBase*) allocator_alloc_bot(A_TEMP, "ngbiter", tw->ngbiter_type_elsize * NumThreads);
     return export;
 }
 
 static void
-ev_free_threadlocals(struct ExportCount export)
+ev_free_threadlocals(struct TreeWalkThreadLocals export)
 {
+    ta_free(export.ngbiter);
+    ta_free(export.output);
+    ta_free(export.input);
     ta_free(export.Exportflag);
 }
 
@@ -261,7 +274,7 @@ treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum T
         tw->reduce(i, result, mode, tw);
 }
 
-static void real_ev(struct ExportCount export, TreeWalk * tw, int * ninter) {
+static void real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, int * ninter) {
     int tid = omp_get_thread_num();
     LocalTreeWalk lv[1];
 
@@ -271,8 +284,8 @@ static void real_ev(struct ExportCount export, TreeWalk * tw, int * ninter) {
     /* Note: exportflag is local to each thread */
     int k;
     /* use old index to recover from a buffer overflow*/;
-    TreeWalkQueryBase * input = alloca(tw->query_type_elsize);
-    TreeWalkResultBase * output = alloca(tw->result_type_elsize);
+    TreeWalkQueryBase * input = (TreeWalkQueryBase *) ((char *) export.input + tid * tw->query_type_elsize);
+    TreeWalkResultBase * output = (TreeWalkResultBase *) ((char *) export.output + tid * tw->result_type_elsize);
 
     for(k = tw->currentIndex[tid];
         k < tw->currentEnd[tid];
@@ -384,7 +397,7 @@ static struct SendRecvBuffer ev_primary(TreeWalk * tw)
     int i;
     tstart = second();
 
-    struct ExportCount export = ev_alloc_threadlocals(tw->NTask * tw->NThread);
+    struct TreeWalkThreadLocals export = ev_alloc_threadlocals(tw, tw->NTask, tw->NThread);
 
     int nint = tw->Ninteractions;
 #pragma omp parallel reduction(+: nint)
@@ -480,7 +493,7 @@ static void ev_secondary(TreeWalk * tw)
     tstart = second();
     tw->dataresult = mymalloc("EvDataResult", tw->Nimport * tw->result_type_elsize);
 
-    struct ExportCount export = ev_alloc_threadlocals(tw->NTask * tw->NThread);
+    struct TreeWalkThreadLocals export = ev_alloc_threadlocals(tw, tw->NTask, tw->NThread);
     int nint = tw->Ninteractions;
     int nnodes = tw->Nnodesinlist;
     int nlist = tw->Nlist;
@@ -837,7 +850,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
             LocalTreeWalk * lv)
 {
 
-    TreeWalkNgbIterBase * iter = alloca(lv->tw->ngbiter_type_elsize);
+    TreeWalkNgbIterBase * iter = lv->ngbiter;
 
     /* Kick-start the iteration with other == -1 */
     iter->other = -1;
