@@ -20,7 +20,13 @@ static int *Ngblist;
 static int *Exportflag;    /*!< Buffer used for flagging whether a particle needs to be exported to another process */
 static int *Exportnodecount;
 static int *Exportindex;
-static int *Send_offset, *Send_count, *Recv_count, *Recv_offset;
+
+struct SendRecvBuffer
+{
+    int *Send_offset, *Send_count;
+    int *Recv_offset, *Recv_count;
+    void * sendbuf, * recvbuf;
+};
 
 /*!< Memory factor to leave for (N imported particles) > (N exported particles). */
 static int ImportBufferBoost;
@@ -60,10 +66,10 @@ void set_treewalk_params(ParameterSet * ps)
 static void ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv);
 static void ev_begin(TreeWalk * tw, int * active_set, const int size);
 static void ev_finish(TreeWalk * tw);
-static int ev_primary(TreeWalk * tw);
-static void ev_get_remote(TreeWalk * tw);
+static struct SendRecvBuffer ev_primary(TreeWalk * tw);
+static void ev_get_remote(const struct SendRecvBuffer sndrcv, TreeWalk * tw);
 static void ev_secondary(TreeWalk * tw);
-static void ev_reduce_result(TreeWalk * tw);
+static void ev_reduce_result(const struct SendRecvBuffer sndrcv, TreeWalk * tw);
 static int ev_ndone(TreeWalk * tw);
 
 static void
@@ -355,8 +361,8 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
     tw->WorkSetSize = nqueue;
 }
 
-/* returns number of exports */
-static int ev_primary(TreeWalk * tw)
+/* returns struct containing export counts */
+static struct SendRecvBuffer ev_primary(TreeWalk * tw)
 {
     const int NTask = tw->NTask;
     double tstart, tend;
@@ -401,37 +407,38 @@ static int ev_primary(TreeWalk * tw)
         endrun(1231245, "Buffer too small for even one particle. For example, there are too many nodes");
     }
 
-    Send_count = (int *) ta_malloc("Send_count", int, 4*NTask);
-    Recv_count = Send_count + NTask;
-    Send_offset = Send_count + 2*NTask;
-    Recv_offset = Send_count + 3*NTask;
+    struct SendRecvBuffer sndrcv = {0};
+    sndrcv.Send_count = (int *) ta_malloc("Send_count", int, 4*NTask);
+    sndrcv.Recv_count = sndrcv.Send_count + NTask;
+    sndrcv.Send_offset = sndrcv.Send_count + 2*NTask;
+    sndrcv.Recv_offset = sndrcv.Send_count + 3*NTask;
     /*
      * fill the communication layouts,
      * here we reuse the legacy global variable names;
      * really should move them to local variables for the evaluator.
      * */
-    memset(Send_count, 0, sizeof(int)*NTask);
+    memset(sndrcv.Send_count, 0, sizeof(int)*NTask);
     for(i = 0; i < tw->Nexport; i++) {
-        Send_count[DataIndexTable[i].Task]++;
+        sndrcv.Send_count[DataIndexTable[i].Task]++;
     }
 
     tstart = second();
-    MPI_Alltoall(Send_count, 1, MPI_INT, Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
+    MPI_Alltoall(sndrcv.Send_count, 1, MPI_INT, sndrcv.Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
     tend = second();
     tw->timewait1 += timediff(tstart, tend);
 
-    for(i = 0, tw->Nimport = 0, Recv_offset[0] = 0, Send_offset[0] = 0; i < NTask; i++)
+    for(i = 0, tw->Nimport = 0, sndrcv.Recv_offset[0] = 0, sndrcv.Send_offset[0] = 0; i < NTask; i++)
     {
-        tw->Nimport += Recv_count[i];
+        tw->Nimport += sndrcv.Recv_count[i];
 
         if(i > 0)
         {
-            Send_offset[i] = Send_offset[i - 1] + Send_count[i - 1];
-            Recv_offset[i] = Recv_offset[i - 1] + Recv_count[i - 1];
+            sndrcv.Send_offset[i] = sndrcv.Send_offset[i - 1] + sndrcv.Send_count[i - 1];
+            sndrcv.Recv_offset[i] = sndrcv.Recv_offset[i - 1] + sndrcv.Recv_count[i - 1];
         }
     }
 
-    return tw->Nexport;
+    return sndrcv;
 }
 
 static int ev_ndone(TreeWalk * tw)
@@ -590,18 +597,18 @@ treewalk_run(TreeWalk * tw, int * active_set, int size)
     if(tw->visit) {
         do
         {
-            ev_primary(tw); /* do local particles and prepare export list */
+            const struct SendRecvBuffer sndrcv = ev_primary(tw); /* do local particles and prepare export list */
             /* exchange particle data */
-            ev_get_remote(tw);
+            ev_get_remote(sndrcv, tw);
             /* now do the particles that were sent to us */
             ev_secondary(tw);
 
             /* import the result to local particles */
-            ev_reduce_result(tw);
+            ev_reduce_result(sndrcv, tw);
 
             tw->Niterations ++;
             tw->Nexport_sum += tw->Nexport;
-            ta_free(Send_count);
+            ta_free(sndrcv.Send_count);
         } while(ev_ndone(tw) < tw->NTask);
     }
 
@@ -629,7 +636,7 @@ treewalk_run(TreeWalk * tw, int * active_set, int size)
 }
 
 static void
-ev_communicate(void * sendbuf, void * recvbuf, size_t elsize, int import) {
+ev_communicate(void * sendbuf, void * recvbuf, size_t elsize, const struct SendRecvBuffer sndrcv, int import) {
     /* if import is 1, import the results from neigbhours */
     MPI_Datatype type;
     MPI_Type_contiguous(elsize, MPI_BYTE, &type);
@@ -637,18 +644,18 @@ ev_communicate(void * sendbuf, void * recvbuf, size_t elsize, int import) {
 
     if(import) {
         MPI_Alltoallv_sparse(
-                sendbuf, Recv_count, Recv_offset, type,
-                recvbuf, Send_count, Send_offset, type, MPI_COMM_WORLD);
+                sendbuf, sndrcv.Recv_count, sndrcv.Recv_offset, type,
+                recvbuf, sndrcv.Send_count, sndrcv.Send_offset, type, MPI_COMM_WORLD);
     } else {
         MPI_Alltoallv_sparse(
-                sendbuf, Send_count, Send_offset, type,
-                recvbuf, Recv_count, Recv_offset, type, MPI_COMM_WORLD);
+                sendbuf, sndrcv.Send_count, sndrcv.Send_offset, type,
+                recvbuf, sndrcv.Recv_count, sndrcv.Recv_offset, type, MPI_COMM_WORLD);
     }
     MPI_Type_free(&type);
 }
 
 /* returns the remote particles */
-static void ev_get_remote(TreeWalk * tw)
+static void ev_get_remote(const struct SendRecvBuffer sndrcv, TreeWalk * tw)
 {
     int j;
     double tstart, tend;
@@ -675,7 +682,7 @@ static void ev_get_remote(TreeWalk * tw)
     tw->timecomp1 += timediff(tstart, tend);
 
     tstart = second();
-    ev_communicate(sendbuf, recvbuf, tw->query_type_elsize, 0);
+    ev_communicate(sendbuf, recvbuf, tw->query_type_elsize, sndrcv, 0);
     tend = second();
     tw->timecommsumm1 += timediff(tstart, tend);
     myfree(sendbuf);
@@ -699,7 +706,7 @@ static int data_index_compare_by_index(const void *a, const void *b)
     return 0;
 }
 
-static void ev_reduce_result(TreeWalk * tw)
+static void ev_reduce_result(const struct SendRecvBuffer sndrcv, TreeWalk * tw)
 {
 
     int j;
@@ -711,7 +718,7 @@ static void ev_reduce_result(TreeWalk * tw)
                 Nexport * tw->result_type_elsize);
 
     tstart = second();
-    ev_communicate(sendbuf, recvbuf, tw->result_type_elsize, 1);
+    ev_communicate(sendbuf, recvbuf, tw->result_type_elsize, sndrcv, 1);
     tend = second();
     tw->timecommsumm2 += timediff(tstart, tend);
 
