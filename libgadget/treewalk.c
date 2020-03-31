@@ -860,7 +860,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
     int ninteractions = 0;
     int inode = 0;
 
-    for(inode = 0; inode < NODELISTLENGTH && I->NodeList[inode] >= 0; inode++)
+    for(inode = 0; (lv->mode == 0 && inode < 1)|| (lv->mode == 1 && inode < NODELISTLENGTH && I->NodeList[inode] >= 0); inode++)
     {
         int numcand = ngb_treefind_threads(I, O, iter, I->NodeList[inode], lv);
         /* Export buffer is full end prematurally */
