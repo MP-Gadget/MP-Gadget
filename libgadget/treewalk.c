@@ -365,6 +365,10 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
 
         if(tw->haswork && !tw->haswork(p_i, tw))
             continue;
+#ifdef DEBUG
+        if(nqthr[tid] >= tsize)
+            endrun(5, "tid = %d nqthr = %d, tsize = %d size = %d, tw->Nthread = %d i = %d\n", tid, nqthr[tid], tsize, size, tw->NThread, i);
+#endif
         thrqueue[tid][nqthr[tid]] = p_i;
         nqthr[tid]++;
     }
