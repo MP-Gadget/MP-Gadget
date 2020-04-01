@@ -257,6 +257,10 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
         DENSITY_GET_PRIV(tw)->Left[i] = 0;
         DENSITY_GET_PRIV(tw)->Right[i] = tree->BoxSize;
         if(P[i].Type == 0 && !P[i].IsGarbage) {
+#ifdef DEBUG
+            if(P[i].PI < 0 || P[i].PI > SlotsManager->info[0].size)
+                endrun(6, "Invalid PI: i = %d PI = %d\n", i, P[i].PI);
+#endif
             SphP_scratch->EntVarPred[P[i].PI] = SPH_EntVarPred(i, MinEgySpec, a3inv);
             SPH_VelPred(i, SphP_scratch->VelPred + 3 * P[i].PI);
         }
