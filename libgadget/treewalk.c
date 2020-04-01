@@ -350,8 +350,10 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may
 
     gadget_setup_thread_arrays(tw->WorkSet, thrqueue, nqthr, tsize, tw->NThread);
 
-    /* We enforce schedule static to ensure that each thread executes on contiguous particles.*/
-    #pragma omp parallel for schedule(static)
+    /* We enforce schedule static to ensure that each thread executes on contiguous particles.
+     * Note static enforces the monotonic modifier but on OpenMP 5.0 nonmonotonic is the default.
+     * static also ensures that no single thread gets more than tsize elements.*/
+    #pragma omp parallel for schedule(static, tsize)
     for(i=0; i < size; i++)
     {
         const int tid = omp_get_thread_num();

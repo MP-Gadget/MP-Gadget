@@ -715,9 +715,9 @@ int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurre
     int **ActivePartSets = ta_malloc("ActivePartSets", int *, NumThreads);
     gadget_setup_thread_arrays(act->ActiveParticle, ActivePartSets, NActiveThread, narr, NumThreads);
 
-    /* We enforce schedule static to ensure that each thread executes on contiguous particles.
-     * chunk size is not specified and so is the largest possible.*/
-    #pragma omp parallel for schedule(static)
+    /* We enforce schedule static to imply monotonic, ensure that each thread executes on contiguous particles
+     * and ensure no thread gets more than narr particles.*/
+    #pragma omp parallel for schedule(static, narr)
     for(i = 0; i < PartManager->NumPart; i++)
     {
         const int bin = P[i].TimeBin;
