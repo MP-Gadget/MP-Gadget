@@ -31,7 +31,7 @@ struct TreeWalkThreadLocals
 {
     int *Exportflag;    /*!< Buffer used for flagging whether a particle needs to be exported to another process */
     int *Exportnodecount;
-    int *Exportindex;
+    size_t *Exportindex;
     /* Temporary memory for input, output and iteration.
      * Note that despite the pointer types the memory is allocated with size
      * tw->query_type_elsize tw->result_type_elsize and tw->ngbiter_type_elsize */
@@ -154,9 +154,9 @@ static struct TreeWalkThreadLocals
 ev_alloc_threadlocals(TreeWalk * tw, const int NTask, const int NumThreads)
 {
     struct TreeWalkThreadLocals export = {0};
-    export.Exportflag = (int *) ta_malloc2("Exportthreads", int, 3*NTask*NumThreads);
-    export.Exportindex = export.Exportflag + NTask*NumThreads;
-    export.Exportnodecount = export.Exportflag + 2*NTask*NumThreads;
+    export.Exportflag = ta_malloc2("Exportthreads", int, 2*NTask*NumThreads);
+    export.Exportnodecount = export.Exportflag + NTask*NumThreads;
+    export.Exportindex = ta_malloc2("Exportindex", size_t, NTask*NumThreads);
     export.input = (TreeWalkQueryBase*) allocator_alloc_bot(A_TEMP, "inputquery", tw->query_type_elsize * NumThreads);
     export.output = (TreeWalkResultBase*) allocator_alloc_bot(A_TEMP, "outresult", tw->result_type_elsize * NumThreads);
     export.ngbiter = (TreeWalkNgbIterBase*) allocator_alloc_bot(A_TEMP, "ngbiter", tw->ngbiter_type_elsize * NumThreads);
@@ -169,6 +169,7 @@ ev_free_threadlocals(struct TreeWalkThreadLocals export)
     ta_free(export.ngbiter);
     ta_free(export.output);
     ta_free(export.input);
+    ta_free(export.Exportindex);
     ta_free(export.Exportflag);
 }
 
@@ -394,7 +395,7 @@ static struct SendRecvBuffer ev_primary(TreeWalk * tw)
     tw->BufferFullFlag = 0;
     tw->Nexport = 0;
 
-    int i;
+    size_t i;
     tstart = second();
 
     struct TreeWalkThreadLocals export = ev_alloc_threadlocals(tw, tw->NTask, tw->NThread);
@@ -452,7 +453,7 @@ static struct SendRecvBuffer ev_primary(TreeWalk * tw)
     tend = second();
     tw->timewait1 += timediff(tstart, tend);
 
-    for(i = 0, tw->Nimport = 0, sndrcv.Recv_offset[0] = 0, sndrcv.Send_offset[0] = 0; i < NTask; i++)
+    for(i = 0, tw->Nimport = 0, sndrcv.Recv_offset[0] = 0, sndrcv.Send_offset[0] = 0; i < (size_t) NTask; i++)
     {
         tw->Nimport += sndrcv.Recv_count[i];
 
@@ -472,7 +473,7 @@ static int ev_ndone(TreeWalk * tw)
     double tstart, tend;
     tstart = second();
     int done = 1;
-    int i;
+    size_t i;
     for(i = 0; i < tw->NThread; i ++) {
         if(tw->currentIndex[i] < tw->currentEnd[i]) {
             done = 0;
@@ -499,7 +500,7 @@ static void ev_secondary(TreeWalk * tw)
     int nlist = tw->Nlist;
 #pragma omp parallel reduction(+: nint) reduction(+: nnodes) reduction(+: nlist)
     {
-        int j;
+        size_t j;
         LocalTreeWalk lv[1];
 
         ev_init_thread(export, tw, lv);
@@ -537,7 +538,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
     const int target = lv->target;
     int *exportflag = lv->exportflag;
     int *exportnodecount = lv->exportnodecount;
-    int *exportindex = lv->exportindex;
+    size_t *exportindex = lv->exportindex;
     TreeWalk * tw = lv->tw;
 
     const int task = tw->tree->TopLeaves[no - tw->tree->lastnode].Task;
@@ -550,8 +551,12 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
 
     if(exportnodecount[task] == NODELISTLENGTH)
     {
-        const int nexp = atomic_fetch_and_add(&tw->Nexport, 1);
-
+        size_t nexp;
+        #pragma omp atomic capture
+        {
+            nexp = tw->Nexport;
+            tw->Nexport++;
+        }
         /* out of buffer space. Need to discard work for this particle and interrupt */
         if(nexp >= tw->BunchSize) {
             #pragma omp atomic write
@@ -559,7 +564,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
 
             /* Touch up the DataIndexTable, so that exports associated with the current particle
              * won't be exported. This is expensive but rare. */
-            int i;
+            size_t i;
             for(i=0; i < tw->BunchSize; i++) {
                 /* target is the current particle, so this reads the buffer looking for
                  * exports associated with the current particle. We cannot just discard
@@ -681,7 +686,7 @@ ev_communicate(void * sendbuf, void * recvbuf, size_t elsize, const struct SendR
 /* returns the remote particles */
 static void ev_get_remote(const struct SendRecvBuffer sndrcv, TreeWalk * tw)
 {
-    int j;
+    size_t j;
     double tstart, tend;
 
     void * recvbuf = mymalloc("EvDataGet", tw->Nimport * tw->query_type_elsize);

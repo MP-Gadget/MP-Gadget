@@ -48,7 +48,7 @@ typedef struct {
     TreeWalkNgbIterBase *ngbiter;
     int *exportflag;
     int *exportnodecount;
-    int *exportindex;
+    size_t *exportindex;
     int * ngblist;
     int64_t Ninteractions;
     int64_t Nnodesinlist;
@@ -96,7 +96,7 @@ struct TreeWalk {
     TreeWalkProcessFunction postprocess; /* postprocess finalizes quantities for each particle, e.g. divide the normalization */
     TreeWalkProcessFunction preprocess; /* Preprocess initializes quantities for each particle */
     int NTask; /*Number of MPI tasks*/
-    int NThread; /*Number of OpenMP threads*/
+    size_t NThread; /*Number of OpenMP threads*/
 
     /* Unlike in Gadget-3, when exporting we now always send tree branches.*/
 
@@ -128,13 +128,13 @@ struct TreeWalk {
 
     /* internal flags*/
     /* Number of particles marked for export to another processor*/
-    int Nexport;
+    size_t Nexport;
     /* Number of particles exported to this processor*/
-    int Nimport;
+    size_t Nimport;
     /* Flags that our export buffer is full*/
     int BufferFullFlag;
     /* Number of particles we can fit into the export buffer*/
-    int BunchSize;
+    size_t BunchSize;
 
     int * WorkSet;
     int WorkSetSize;
