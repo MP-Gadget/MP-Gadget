@@ -76,7 +76,7 @@ void set_treewalk_params(ParameterSet * ps)
 }
 
 static void ev_init_thread(const struct TreeWalkThreadLocals export, TreeWalk * const tw, LocalTreeWalk * lv);
-static void ev_begin(TreeWalk * tw, int * active_set, const int size);
+static void ev_begin(TreeWalk * tw, int * active_set, const size_t size);
 static void ev_finish(TreeWalk * tw);
 static struct SendRecvBuffer ev_primary(TreeWalk * tw);
 static void ev_get_remote(const struct SendRecvBuffer sndrcv, TreeWalk * tw);
@@ -85,7 +85,7 @@ static void ev_reduce_result(const struct SendRecvBuffer sndrcv, TreeWalk * tw);
 static int ev_ndone(TreeWalk * tw);
 
 static void
-treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_have_garbage);
+treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may_have_garbage);
 
 static int
 ngb_treefind_threads(TreeWalkQueryBase * I,
@@ -174,7 +174,7 @@ ev_free_threadlocals(struct TreeWalkThreadLocals export)
 }
 
 static void
-ev_begin(TreeWalk * tw, int * active_set, const int size)
+ev_begin(TreeWalk * tw, int * active_set, const size_t size)
 {
     const int NumThreads = omp_get_max_threads();
     MPI_Comm_size(MPI_COMM_WORLD, &tw->NTask);
@@ -325,9 +325,8 @@ cmpint(const void *a, const void *b)
 #endif
 
 static void
-treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_have_garbage) {
-    int i;
-
+treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may_have_garbage)
+{
     if(!tw->haswork && !may_have_garbage)
     {
         tw->WorkSetSize = size;
@@ -338,12 +337,12 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
 
     /* Since we use a static schedule below we only need size / tw->NThread elements per thread.
      * Add 2 for non-integer parts.*/
-    int tsize = size / tw->NThread + 2;
+    size_t tsize = size / tw->NThread + 2;
     /*Watch out: tw->WorkSet may change a few lines later due to the realloc*/
     tw->WorkSet = mymalloc("ActiveQueue", tsize * sizeof(int) * tw->NThread);
     tw->work_set_stolen_from_active = 0;
-
-    int nqueue = 0;
+    size_t i;
+    size_t nqueue = 0;
 
     /*We want a lockless algorithm which preserves the ordering of the particle list.*/
     size_t *nqthr = ta_malloc("nqthr", size_t, tw->NThread);
@@ -357,7 +356,7 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
     {
         const int tid = omp_get_thread_num();
         /*Use raw particle number if active_set is null, otherwise use active_set*/
-        const int p_i = active_set ? active_set[i] : i;
+        const int p_i = active_set ? active_set[i] : (int) i;
 
         /* Skip the garbage particles */
         if(P[p_i].IsGarbage)
@@ -608,7 +607,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
  *
  * */
 void
-treewalk_run(TreeWalk * tw, int * active_set, int size)
+treewalk_run(TreeWalk * tw, int * active_set, size_t size)
 {
     if(!force_tree_allocated(tw->tree)) {
         endrun(0, "Tree has been freed before this treewalk.\n");
@@ -619,10 +618,10 @@ treewalk_run(TreeWalk * tw, int * active_set, int size)
     ev_begin(tw, active_set, size);
 
     if(tw->preprocess) {
-        int i;
+        size_t i;
         #pragma omp parallel for
         for(i = 0; i < tw->WorkSetSize; i ++) {
-            const int p_i = tw->WorkSet ? tw->WorkSet[i] : i;
+            const int p_i = tw->WorkSet ? tw->WorkSet[i] : (int) i;
             tw->preprocess(p_i, tw);
         }
     }
@@ -656,10 +655,10 @@ treewalk_run(TreeWalk * tw, int * active_set, int size)
     tstart = second();
 
     if(tw->postprocess) {
-        int i;
+        size_t i;
         #pragma omp parallel for
         for(i = 0; i < tw->WorkSetSize; i ++) {
-            const int p_i = tw->WorkSet ? tw->WorkSet[i] : i;
+            const int p_i = tw->WorkSet ? tw->WorkSet[i] : (int) i;
             tw->postprocess(p_i, tw);
         }
     }

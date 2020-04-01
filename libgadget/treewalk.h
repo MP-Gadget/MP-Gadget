@@ -137,7 +137,7 @@ struct TreeWalk {
     size_t BunchSize;
 
     int * WorkSet;
-    int WorkSetSize;
+    size_t WorkSetSize;
     /*Did we use the active_set array as the WorkSet?*/
     int work_set_stolen_from_active;
 
@@ -150,7 +150,7 @@ struct TreeWalk {
 /*Initialise treewalk parameters on first run*/
 void set_treewalk_params(ParameterSet * ps);
 
-void treewalk_run(TreeWalk * tw, int * active_set, int size);
+void treewalk_run(TreeWalk * tw, int * active_set, size_t size);
 
 int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
             TreeWalkResultBase * O,
