@@ -226,15 +226,28 @@ allocator_iter_ended(AllocatorIter * iter)
 size_t
 allocator_get_free_size(Allocator * alloc)
 {
-    /*For malloc, return an arbitrary large number*/
-    if(alloc->use_malloc)
-        return 1L<<47;
+    /*For malloc, return a fixed 2GB */
+    if(alloc->use_malloc) {
+            return 2L*1024L*1024L*1024L;
+    }
     return (alloc->top - alloc->bottom);
 }
 
 size_t
 allocator_get_used_size(Allocator * alloc, int dir)
 {
+    /* For malloc sum up the requested memory.
+     * I considered mallinfo, but there may be multiple memory arenas. */
+    if(alloc->use_malloc) {
+        size_t total = 0;
+        AllocatorIter iter[1];
+        for(allocator_iter_start(iter, alloc); !allocator_iter_ended(iter);
+            allocator_iter_next(iter))
+        {
+            total += iter->request_size;
+        }
+        return total;
+    }
     if (dir == ALLOC_DIR_TOP) {
         return (alloc->size - alloc->top);
     }
