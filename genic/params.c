@@ -54,7 +54,8 @@ create_parameters(void)
     param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 1, "Snapshots will save peculiar velocities to the Velocity field. If 0, then v/sqrt(a) will be used in the ICs to match Gadget-2, but snapshots will save v * a.");
     param_declare_int(ps, "SavePrePos", OPTIONAL, 1, "Save the pre-displacement positions in the snapshot.");
     param_declare_int(ps, "InvertPhase", OPTIONAL, 0, "Flip phase for paired simulation");
-    param_declare_int(ps,    "ShowBacktrace", OPTIONAL, 1, "Print a backtrace on crash. Hangs on stampede.");
+    param_declare_int(ps, "PrePosGridCenter", OPTIONAL, 0, "Set pre-displacement positions at the center of the grid");
+    param_declare_int(ps, "ShowBacktrace", OPTIONAL, 1, "Print a backtrace on crash. Hangs on stampede.");
 
     param_declare_double(ps, "PrimordialAmp", OPTIONAL, 2.215e-9, "Ignored, but used by external CLASS script to set powr spectrum amplitude.");
     param_declare_double(ps, "Sigma8", OPTIONAL, -1, "Renormalise Sigma8 to this number if positive");
@@ -151,6 +152,7 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
     /*Simulation parameters*/
     GenicConfig->UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
     GenicConfig->SavePrePos = param_get_int(ps, "SavePrePos");
+    GenicConfig->PrePosGridCenter = param_get_int(ps, "PrePosGridCenter");
     GenicConfig->BoxSize = param_get_double(ps, "BoxSize");
     GenicConfig->Nmesh = param_get_int(ps, "Nmesh");
     GenicConfig->Ngrid = param_get_int(ps, "Ngrid");
