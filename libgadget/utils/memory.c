@@ -26,12 +26,14 @@ allocator_init(Allocator * alloc, const char * name, size_t request_size, int ze
     size_t size = (request_size / ALIGNMENT + 1) * ALIGNMENT;
 
     void * rawbase;
-    if (parent)
+    if (parent) {
         rawbase = allocator_alloc(parent, name, size + ALIGNMENT, ALLOC_DIR_BOT, "Child");
+        if(rawbase == NULL)
+            return ALLOC_ENOMEMORY;
+    }
     else
-        rawbase = malloc(size + ALIGNMENT);
-
-    if (rawbase == NULL) return ALLOC_ENOMEMORY;
+        if(posix_memalign(&rawbase, ALIGNMENT, size + ALIGNMENT))
+            return ALLOC_ENOMEMORY;
 
     alloc->parent = parent;
     alloc->rawbase = rawbase;
@@ -52,12 +54,14 @@ allocator_malloc_init(Allocator * alloc, const char * name, size_t request_size,
     size_t size = ALIGNMENT * 4096;
 
     void * rawbase;
-    if (parent)
+    if (parent) {
         rawbase = allocator_alloc(parent, name, size + ALIGNMENT, ALLOC_DIR_BOT, "Child");
+        if (rawbase == NULL) return ALLOC_ENOMEMORY;
+    }
     else
-        rawbase = malloc(size + ALIGNMENT);
+        if(posix_memalign(&rawbase, ALIGNMENT, size + ALIGNMENT))
+            return ALLOC_ENOMEMORY;
 
-    if (rawbase == NULL) return ALLOC_ENOMEMORY;
 
     alloc->parent = parent;
     alloc->use_malloc = 1;
@@ -130,18 +134,19 @@ allocator_alloc_va(Allocator * alloc, const char * name, size_t request_size, in
 
     vsprintf(header->annotation, fmt, va);
 
-    char * cptr;
+    void * cptr;
     if(alloc->use_malloc) {
         /* prepend a copy of the header to the malloc block; allocator_free will use it*/
-        cptr = malloc(request_size + ALIGNMENT);
-        header->ptr = cptr + ALIGNMENT;
+        if(posix_memalign(&cptr, ALIGNMENT, request_size + ALIGNMENT))
+            endrun(1, "Failed malloc: %lu bytes for %s\n", request_size, header->name);
+        header->ptr = (char *) cptr + ALIGNMENT;
         memcpy(cptr, header, ALIGNMENT);
-        cptr += ALIGNMENT;
+        cptr = header->ptr;
     } else {
-        cptr = ptr + ALIGNMENT;
+        cptr = (char *) ptr + ALIGNMENT;
         header->ptr = cptr;
     }
-    return (void*) (cptr);
+    return cptr;
 }
 void *
 allocator_alloc(Allocator * alloc, const char * name, size_t request_size, int dir, char * fmt, ...)
