@@ -72,8 +72,8 @@ void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_Comm Co
     if(SaveParticles) {
         struct IOTable IOTable = {0};
         register_io_blocks(&IOTable, 1);
-        struct part_manager_type halo_pman;
-        struct slots_manager_type halo_sman;
+        struct part_manager_type halo_pman = {0};
+        struct slots_manager_type halo_sman = {0};
         fof_distribute_particles(&halo_pman, &halo_sman, Comm);
         walltime_measure("/FOF/IO/Distribute");
 
@@ -197,6 +197,7 @@ static void fof_distribute_particles(struct part_manager_type * halo_pman, struc
     struct particle_data * halopart = mymalloc("HaloParticle", sizeof(struct particle_data) * halo_pman->MaxPart);
     halo_pman->Base = halopart;
     halo_pman->NumPart = NpigLocal;
+    memcpy(halo_pman->CurrentParticleOffset, PartManager->CurrentParticleOffset, 3 * sizeof(PartManager->CurrentParticleOffset[0]));
 
     /* We leave extra space in the hope that we can avoid compacting slots in the fof exchange*/
     for(i = 0; i < 6; i ++)
