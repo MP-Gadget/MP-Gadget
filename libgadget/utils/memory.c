@@ -225,7 +225,7 @@ allocator_iter_next(
     }
     if (! is_header(header)) {
         /* several corruption that shall not happen */
-        abort();
+        endrun(5, "Ptr %p is not a magic header\n", header);
     }
     iter->ptr =  header->ptr;
     iter->name = header->name;
@@ -247,7 +247,7 @@ allocator_get_free_size(Allocator * alloc)
 {
     /*For malloc, return a fixed 2GB */
     if(alloc->use_malloc) {
-            return 2L*1024L*1024L*1024L;
+        return 2L*1024L*1024L*1024L;
     }
     return (alloc->top - alloc->bottom);
 }
