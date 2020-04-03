@@ -22,7 +22,7 @@ static void fof_register_io_blocks(struct IOTable * IOTable);
 static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm);
 static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * ent);
 
-static void fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, MPI_Comm Comm);
+static int fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, MPI_Comm Comm);
 
 static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg);
 static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
@@ -74,7 +74,12 @@ void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_Comm Co
         register_io_blocks(&IOTable, 1);
         struct part_manager_type halo_pman = {0};
         struct slots_manager_type halo_sman = {0};
-        fof_distribute_particles(&halo_pman, &halo_sman, Comm);
+        if(fof_distribute_particles(&halo_pman, &halo_sman, Comm)) {
+            myfree(halo_sman.Base);
+            myfree(halo_pman.Base);
+            destroy_io_blocks(&IOTable);
+            return;
+        }
         walltime_measure("/FOF/IO/Distribute");
 
         int * selection = mymalloc("Selection", sizeof(int) * halo_pman.NumPart);
@@ -168,7 +173,8 @@ order_by_type_and_grnr(const void *a, const void *b)
     return 0;
 }
 
-static void fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, MPI_Comm Comm) {
+static int
+fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, MPI_Comm Comm) {
     int i, ThisTask;
     MPI_Comm_rank(Comm, &ThisTask);
     int NpigLocal = 0;
@@ -282,8 +288,11 @@ static void fof_distribute_particles(struct part_manager_type * halo_pman, struc
 #endif
 
     /* sort SPH and Others independently */
-    if(domain_exchange(fof_sorted_layout, targettask, 1, halo_pman, halo_sman, 1, Comm))
-        endrun(1930,"Could not exchange particles\n");
+    if(domain_exchange(fof_sorted_layout, targettask, 1, halo_pman, halo_sman, 1, Comm)) {
+        message(1930, "Failed to exchange and write particles for the FOF. This is non-fatal, continuing\n");
+        myfree(targettask);
+        return 1;
+    }
 
     myfree(targettask);
 
@@ -297,6 +306,7 @@ static void fof_distribute_particles(struct part_manager_type * halo_pman, struc
     }
     MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, Comm);
     message(0, "GrNrMax after exchange is %d\n", GrNrMaxGlobal);
+    return 0;
 }
 
 static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * ent) {
