@@ -338,8 +338,8 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may
     }
 
     /* Since we use a static schedule below we only need size / tw->NThread elements per thread.
-     * Add 2 for non-integer parts.*/
-    size_t tsize = size / tw->NThread + 2;
+     * Add NThread so that each thread has a little extra space.*/
+    size_t tsize = size / tw->NThread + tw->NThread;
     /*Watch out: tw->WorkSet may change a few lines later due to the realloc*/
     tw->WorkSet = mymalloc("ActiveQueue", tsize * sizeof(int) * tw->NThread);
     tw->work_set_stolen_from_active = 0;
@@ -355,7 +355,8 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may
     /* We enforce schedule static to ensure that each thread executes on contiguous particles.
      * Note static enforces the monotonic modifier but on OpenMP 5.0 nonmonotonic is the default.
      * static also ensures that no single thread gets more than tsize elements.*/
-    #pragma omp parallel for schedule(static, tsize)
+    size_t schedsz = size/tw->NThread+1;
+    #pragma omp parallel for schedule(static, schedsz)
     for(i=0; i < size; i++)
     {
         const int tid = omp_get_thread_num();

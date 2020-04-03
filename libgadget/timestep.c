@@ -694,7 +694,7 @@ int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurre
 
     int NumThreads = omp_get_max_threads();
     /*Since we use a static schedule, only need NumPart/NumThreads elements per thread.*/
-    int narr = PartManager->NumPart / NumThreads + 2;
+    size_t narr = PartManager->NumPart / NumThreads + NumThreads;
 
     /*We know all particles are active on a PM timestep*/
     if(is_PM_timestep(Ti_Current)) {
@@ -717,7 +717,8 @@ int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurre
 
     /* We enforce schedule static to imply monotonic, ensure that each thread executes on contiguous particles
      * and ensure no thread gets more than narr particles.*/
-    #pragma omp parallel for schedule(static, narr)
+    size_t schedsz = PartManager->NumPart / NumThreads + 1;
+    #pragma omp parallel for schedule(static, schedsz)
     for(i = 0; i < PartManager->NumPart; i++)
     {
         const int bin = P[i].TimeBin;

@@ -354,7 +354,7 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
     size_t numthreads = omp_get_max_threads();
     plan->nexchange = pman->NumPart;
     /*static schedule below so we only need this much memory*/
-    int narr = plan->nexchange/numthreads+2;
+    size_t narr = plan->nexchange/numthreads+numthreads;
     plan->ExchangeList = mymalloc2("exchangelist", sizeof(int) * narr * numthreads);
     /*Garbage particles are counted so we have an accurate memory estimate*/
     int ngarbage = 0;
@@ -367,7 +367,8 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
     MPI_Comm_rank(Comm, &ThisTask);
 
     /* flag the particles that need to be exported */
-    #pragma omp parallel for schedule(static) reduction(+: ngarbage)
+    size_t schedsz = plan->nexchange/numthreads+1;
+    #pragma omp parallel for schedule(static, schedsz) reduction(+: ngarbage)
     for(i=0; i < pman->NumPart; i++)
     {
         if(pman->Base[i].IsGarbage) {
