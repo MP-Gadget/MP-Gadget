@@ -41,6 +41,9 @@ allocator_init(Allocator * alloc, const char * name, size_t request_size, int ze
     alloc->size = size;
     alloc->use_malloc = 0;
     strncpy(alloc->name, name, 11);
+    alloc->refcount = 1;
+    alloc->top = alloc->size;
+    alloc->bottom = 0;
 
     allocator_reset(alloc, zero);
 
@@ -69,6 +72,9 @@ allocator_malloc_init(Allocator * alloc, const char * name, size_t request_size,
     alloc->base = rawbase;
     alloc->size = size;
     strncpy(alloc->name, name, 11);
+    alloc->refcount = 1;
+    alloc->top = alloc->size;
+    alloc->bottom = 0;
 
     allocator_reset(alloc, zero);
 
@@ -78,6 +84,14 @@ allocator_malloc_init(Allocator * alloc, const char * name, size_t request_size,
 int
 allocator_reset(Allocator * alloc, int zero)
 {
+    /* Free the memory when using malloc*/
+    if(alloc->use_malloc) {
+        AllocatorIter iter[1];
+        for(allocator_iter_start(iter, alloc); !allocator_iter_ended(iter); allocator_iter_next(iter))
+        {
+            free(iter->ptr - ALIGNMENT);
+        }
+    }
     alloc->refcount = 1;
     alloc->top = alloc->size;
     alloc->bottom = 0;
