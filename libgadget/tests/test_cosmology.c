@@ -33,7 +33,11 @@ void setup_cosmology(Cosmology * CP, double Omega0, double OmegaBaryon, double H
     CP->OmegaBaryon = OmegaBaryon;
     CP->HubbleParam = H0;
     CP->RadiationOn = 1;
-    CP->Omega_fld = 0;
+    CP->Omega_fld = 0; /*Energy density of dark energy fluid at z=0*/
+    CP->w0_fld = -1; /*Dark energy equation of state parameter*/
+    CP->wa_fld = 0; /*Dark energy equation of state evolution parameter*/
+    CP->Omega_ur = 0;
+    CP->MNu[0] = CP->MNu[1] = CP->MNu[2] = 0;
     /*Default value for L=kpc v=km/s*/
     double UnitTime_in_s = 3.08568e+16;
     /*Should be 0.1*/
@@ -43,7 +47,7 @@ void setup_cosmology(Cosmology * CP, double Omega0, double OmegaBaryon, double H
 }
 
 static inline double radgrow(double aa, double omegar) {
-    return omegar + 1.5 * 1. * aa; 
+    return omegar + 1.5 * 1. * aa;
 }
 
 //Omega_L + Omega_M = 1 => D+ ~ Gauss hypergeometric function

@@ -98,6 +98,8 @@ show_backtrace(void)
     return 0;
 }
 
+static int ShowBacktrace;
+
 static void
 OsSigHandler(int no)
 {
@@ -105,9 +107,9 @@ OsSigHandler(int no)
     char buf[128];
     sprintf(buf, btline, no);
     write(STDOUT_FILENO, buf, strlen(buf));
-
-    show_backtrace();
-    exit(-no);
+    if(ShowBacktrace)
+        show_backtrace();
+    MPI_Abort(MPI_COMM_WORLD, no);
 }
 
 static void
@@ -127,14 +129,11 @@ init_stacktrace(void)
     }
 }
 
-static int ShowBacktrace;
-
 void
 init_endrun(int backtrace)
 {
     ShowBacktrace = backtrace;
-    if(backtrace)
-        init_stacktrace();
+    init_stacktrace();
 }
 
 /*  This function aborts the simulation.
