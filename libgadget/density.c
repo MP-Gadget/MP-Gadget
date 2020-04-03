@@ -201,7 +201,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double HydroCostFactor, double MinEgySpec, double atime, ForceTree * tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double HydroCostFactor, double MinEgySpec, double atime, const ForceTree * const tree)
 {
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
@@ -257,6 +257,10 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
         DENSITY_GET_PRIV(tw)->Left[i] = 0;
         DENSITY_GET_PRIV(tw)->Right[i] = tree->BoxSize;
         if(P[i].Type == 0 && !P[i].IsGarbage) {
+#ifdef DEBUG
+            if(P[i].PI < 0 || P[i].PI > SlotsManager->info[0].size)
+                endrun(6, "Invalid PI: i = %d PI = %d\n", i, P[i].PI);
+#endif
             SphP_scratch->EntVarPred[P[i].PI] = SPH_EntVarPred(i, MinEgySpec, a3inv);
             SPH_VelPred(i, SphP_scratch->VelPred + 3 * P[i].PI);
         }
@@ -277,20 +281,21 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
     do {
+        /* The RedoQueue needs enough memory to store every particle on every thread, because
+         * we cannot guarantee that the sph particles are evenly spread across threads!*/
         int * CurQueue = ReDoQueue;
 
-        int tsize = size / NumThreads + 2;
         /* The ReDoQueue swaps between high and low allocations so we can have two allocated alternately*/
         if(update_hsml) {
             if(!alloc_high) {
-                ReDoQueue = (int *) mymalloc2("ReDoQueue", tsize * sizeof(int) * NumThreads);
+                ReDoQueue = (int *) mymalloc2("ReDoQueue", size * sizeof(int) * NumThreads);
                 alloc_high = 1;
             }
             else {
-                ReDoQueue = (int *) mymalloc("ReDoQueue", tsize * sizeof(int) * NumThreads);
+                ReDoQueue = (int *) mymalloc("ReDoQueue", size * sizeof(int) * NumThreads);
                 alloc_high = 0;
             }
-            gadget_setup_thread_arrays(ReDoQueue, DENSITY_GET_PRIV(tw)->NPRedo, DENSITY_GET_PRIV(tw)->NPLeft, tsize, NumThreads);
+            gadget_setup_thread_arrays(ReDoQueue, DENSITY_GET_PRIV(tw)->NPRedo, DENSITY_GET_PRIV(tw)->NPLeft, size, NumThreads);
         }
         treewalk_run(tw, CurQueue, size);
 

@@ -473,7 +473,7 @@ cluster_get_num_hosts(void)
      * this fills it and should be changed if needed.*/
     const int bufsz = 256;
     char * buffer = ta_malloc("buffer", char, bufsz * NTask);
-
+    memset(buffer, 0, bufsz * NTask);
     int i, j;
     gethostname(&buffer[bufsz*ThisTask], bufsz);
     buffer[bufsz * ThisTask + bufsz - 1] = '\0';

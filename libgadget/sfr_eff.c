@@ -156,7 +156,7 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, FILE * FdSfr)
     if(All.StarformationOn) {
         /* Need 1 extra for non-integer part and 1 extra
          * for the case where one thread loops an extra time*/
-        int narr = nactive/nthreads+2;
+        int narr = nactive/nthreads+nthreads;
         NewStars = mymalloc("NewStars", narr * sizeof(int) * nthreads);
         gadget_setup_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, narr, nthreads);
         NewParents = mymalloc2("NewParents", narr * sizeof(int) * nthreads);

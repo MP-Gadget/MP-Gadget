@@ -96,6 +96,19 @@ static void force_validate_nextlist(const ForceTree * tree)
         }
         no = current->sibling;
     }
+    /* Every node should have a valid father: collect those that do not.*/
+    for(no = tree->firstnode; no < tree->firstnode + tree->numnodes; no++)
+    {
+        if(!node_is_node(tree->Nodes[no].father, tree) && tree->Nodes[no].father != -1) {
+            struct NODE *current = &tree->Nodes[no];
+            message(1, "Danger! no %d has father %d, next %d sib %d, (ptype = %d) len %g center (%g %g %g) mass %g cofm %g %g %g TL %d DLM %d ITL %d nocc %d suns %d %d %d %d\n", no, current->father, current->nextnode, current->sibling, current->f.ChildType,
+                current->len, current->center[0], current->center[1], current->center[2],
+                current->mom.mass, current->mom.cofm[0], current->mom.cofm[1], current->mom.cofm[2],
+                current->f.TopLevel, current->f.DependsOnLocalMass, current->f.InternalTopLevel, current->s.noccupied,
+                current->s.suns[0], current->s.suns[1], current->s.suns[2], current->s.suns[3]);
+        }
+    }
+
 }
 #endif
 

@@ -218,17 +218,16 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
     do {
         int * CurQueue = ReDoQueue;
-        int tsize = NumNewStars / NumThreads + 2;
         /* The ReDoQueue swaps between high and low allocations so we can have two allocated alternately*/
         if(!alloc_high) {
-            ReDoQueue = (int *) mymalloc2("redoqueue", tsize * sizeof(int) * NumThreads);
+            ReDoQueue = (int *) mymalloc2("redoqueue", size * sizeof(int) * NumThreads);
             alloc_high = 1;
         }
         else {
-            ReDoQueue = (int *) mymalloc("redoqueue", tsize * sizeof(int) * NumThreads);
+            ReDoQueue = (int *) mymalloc("redoqueue", size * sizeof(int) * NumThreads);
             alloc_high = 0;
         }
-        gadget_setup_thread_arrays(ReDoQueue, WIND_GET_PRIV(tw)->NPRedo, WIND_GET_PRIV(tw)->NPLeft, tsize, NumThreads);
+        gadget_setup_thread_arrays(ReDoQueue, WIND_GET_PRIV(tw)->NPRedo, WIND_GET_PRIV(tw)->NPLeft, size, NumThreads);
 
         treewalk_run(tw, CurQueue, size);
 

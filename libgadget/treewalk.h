@@ -20,9 +20,9 @@ enum TreeWalkReduceMode {
 typedef struct TreeWalk TreeWalk;
 
 typedef struct {
+    double Pos[3];
     MyIDType ID;
     int NodeList[NODELISTLENGTH];
-    double Pos[3];
 } TreeWalkQueryBase;
 
 typedef struct {
@@ -45,9 +45,10 @@ typedef struct {
     int mode; /* 0 for Primary, 1 for Secondary */
     int target; /* defined only for primary (mode == 0) */
 
+    TreeWalkNgbIterBase *ngbiter;
     int *exportflag;
     int *exportnodecount;
-    int *exportindex;
+    size_t *exportindex;
     int * ngblist;
     int64_t Ninteractions;
     int64_t Nnodesinlist;
@@ -74,7 +75,7 @@ struct TreeWalk {
     void * priv;
 
     /* A pointer to the force tree structure to walk.*/
-    ForceTree * tree;
+    const ForceTree * tree;
 
     /* name of the evaluator (used in printing messages) */
     char * ev_label;
@@ -95,7 +96,7 @@ struct TreeWalk {
     TreeWalkProcessFunction postprocess; /* postprocess finalizes quantities for each particle, e.g. divide the normalization */
     TreeWalkProcessFunction preprocess; /* Preprocess initializes quantities for each particle */
     int NTask; /*Number of MPI tasks*/
-    int NThread; /*Number of OpenMP threads*/
+    size_t NThread; /*Number of OpenMP threads*/
 
     /* Unlike in Gadget-3, when exporting we now always send tree branches.*/
 
@@ -127,16 +128,16 @@ struct TreeWalk {
 
     /* internal flags*/
     /* Number of particles marked for export to another processor*/
-    int Nexport;
+    size_t Nexport;
     /* Number of particles exported to this processor*/
-    int Nimport;
+    size_t Nimport;
     /* Flags that our export buffer is full*/
     int BufferFullFlag;
     /* Number of particles we can fit into the export buffer*/
-    int BunchSize;
+    size_t BunchSize;
 
     int * WorkSet;
-    int WorkSetSize;
+    size_t WorkSetSize;
     /*Did we use the active_set array as the WorkSet?*/
     int work_set_stolen_from_active;
 
@@ -149,7 +150,7 @@ struct TreeWalk {
 /*Initialise treewalk parameters on first run*/
 void set_treewalk_params(ParameterSet * ps);
 
-void treewalk_run(TreeWalk * tw, int * active_set, int size);
+void treewalk_run(TreeWalk * tw, int * active_set, size_t size);
 
 int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
             TreeWalkResultBase * O,

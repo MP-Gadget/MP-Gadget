@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/resource.h>
 #include <unistd.h>
 #include <math.h>
 #include <gsl/gsl_math.h>
@@ -67,6 +68,14 @@ int main(int argc, char **argv)
     message(0, "Size of sph particle structure   %td  [bytes]\n",sizeof(struct sph_particle_data));
     message(0, "Size of star particle structure   %td  [bytes]\n",sizeof(struct star_particle_data));
 
+    /* Avoid dumping core, except for the master process. For large jobs writing core
+     * with all of main memory can be very bad. */
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask != 0) {
+        struct rlimit rlim = {0};
+        setrlimit(RLIMIT_CORE, &rlim);
+    }
     tamalloc_init();
 
     int ShowBacktrace;
