@@ -591,6 +591,8 @@ slots_check_id_consistency(struct part_manager_type * pman, struct slots_manager
 
     for(i = 0; i < pman->NumPart; i++) {
         int type = pman->Base[i].Type;
+        if(pman->Base[i].IsGarbage)
+            continue;
         struct slot_info info = sman->info[type];
         if(!info.enabled)
             continue;
