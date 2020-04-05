@@ -660,7 +660,7 @@ slots_setup_id(const struct part_manager_type * pman, struct slots_manager_type 
         int sind = pman->Base[i].PI;
         if(sind >= info.size || sind < 0)
             endrun(1, "Particle %d, type %d has PI index %d beyond max slot size %d.\n", i, pman->Base[i].Type, sind, info.size);
-        struct particle_data_ext * sdata = (struct particle_data_ext * )(info.ptr + info.elsize * sind);
+        struct particle_data_ext * sdata = (struct particle_data_ext * )(info.ptr + info.elsize * (size_t) sind);
         sdata->ReverseLink = i;
         sdata->ID = pman->Base[i].ID;
         if(pman->Base[i].IsGarbage)
