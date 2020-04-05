@@ -626,13 +626,15 @@ slots_setup_topology(struct part_manager_type * pman, int * NLocal, struct slots
     int ptype, offset = 0;
     for(ptype = 0; ptype < 6; ptype ++) {
         int i;
+        struct slot_info info = sman->info[ptype];
         #pragma omp parallel for
         for(i = 0; i < NLocal[ptype]; i++)
         {
             size_t j = offset + i;
             pman->Base[j].Type = ptype;
             pman->Base[j].IsGarbage = 0;
-            pman->Base[j].PI = i;
+            if(info.enabled)
+                pman->Base[j].PI = i;
         }
         offset += NLocal[ptype];
     }
@@ -653,7 +655,7 @@ slots_setup_id(const struct part_manager_type * pman, struct slots_manager_type 
     #pragma omp parallel for
     for(i = 0; i < pman->NumPart; i++)
     {
-        struct slot_info info = sman->info[P[i].Type];
+        struct slot_info info = sman->info[pman->Base[i].Type];
         if(!info.enabled)
             continue;
 
