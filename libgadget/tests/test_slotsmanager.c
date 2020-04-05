@@ -40,12 +40,13 @@ setup_particles(void ** state)
 
     slots_reserve(1, newSlots, SlotsManager);
 
+    slots_setup_topology(PartManager, newSlots, SlotsManager);
+
     int i;
+    #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i ++) {
         P[i].ID = i;
-        P[i].Type = i / (PartManager->NumPart / 6);
     }
-    slots_setup_topology(PartManager, SlotsManager);
 
     slots_setup_id(PartManager, SlotsManager);
 

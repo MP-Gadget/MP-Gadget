@@ -620,20 +620,23 @@ slots_check_id_consistency(struct part_manager_type * pman, struct slots_manager
 
 /* this function needs the Type of P[i] to be setup */
 void
-slots_setup_topology(struct part_manager_type * pman, struct slots_manager_type * sman)
+slots_setup_topology(struct part_manager_type * pman, int * NLocal, struct slots_manager_type * sman)
 {
-    int NLocal[6] = {0};
-
-    int i;
-/* not bothering making this OMP */
-    for(i = 0; i < pman->NumPart; i ++) {
-        int ptype = pman->Base[i].Type;
-        /* atomic fetch add */
-        pman->Base[i].PI = NLocal[ptype];
-        NLocal[ptype] ++;
+    /* initialize particle types */
+    int ptype, offset = 0;
+    for(ptype = 0; ptype < 6; ptype ++) {
+        int i;
+        #pragma omp parallel for
+        for(i = 0; i < NLocal[ptype]; i++)
+        {
+            size_t j = offset + i;
+            pman->Base[j].Type = ptype;
+            pman->Base[j].IsGarbage = 0;
+            pman->Base[j].PI = i;
+        }
+        offset += NLocal[ptype];
     }
 
-    int ptype;
     for(ptype = 0; ptype < 6; ptype ++) {
         struct slot_info info = sman->info[ptype];
         if(!info.enabled)
@@ -647,7 +650,7 @@ slots_setup_id(const struct part_manager_type * pman, struct slots_manager_type 
 {
     int i;
     /* set up the cross check for child IDs */
-    /* not bothering making this OMP */
+    #pragma omp parallel for
     for(i = 0; i < pman->NumPart; i++)
     {
         struct slot_info info = sman->info[P[i].Type];

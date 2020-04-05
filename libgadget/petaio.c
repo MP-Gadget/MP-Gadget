@@ -262,19 +262,8 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
     size_t total_bytes = slots_reserve(0, newSlots, SlotsManager);
     memset(SlotsManager->Base, 0, total_bytes);
 
-    /* initialize particle types */
-    int offset = 0;
-    for(ptype = 0; ptype < 6; ptype ++) {
-        for(i = 0; i < NLocal[ptype]; i++)
-        {
-            int j = offset + i;
-            P[j].Type = ptype;
-        }
-        offset += NLocal[ptype];
-    }
-
     /* so we can set up the memory topology of secondary slots */
-    slots_setup_topology(PartManager, SlotsManager);
+    slots_setup_topology(PartManager, NLocal, SlotsManager);
 
     for(i = 0; i < IOTable->used; i ++) {
         /* only process the particle blocks */
@@ -323,10 +312,10 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
         endrun(0, "Failed to close snapshot at %s:%s\n", fname,
                     big_file_get_error_message());
     }
-
     /* now we have IDs, set up the ID consistency between slots. */
     slots_setup_id(PartManager, SlotsManager);
 }
+
 void
 petaio_read_header(int num)
 {
@@ -373,13 +362,13 @@ petaio_read_snapshot(int num, MPI_Comm Comm)
 
         int i;
         /* touch up the mass -- IC files save mass in header */
+        #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++)
         {
             P[i].Mass = All.MassTable[P[i].Type];
         }
 
         if (!IO.UsePeculiarVelocity ) {
-
             /* fixing the unit of velocity from Legacy GenIC IC */
             #pragma omp parallel for
             for(i = 0; i < PartManager->NumPart; i++) {
