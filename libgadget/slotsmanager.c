@@ -663,8 +663,6 @@ slots_setup_id(const struct part_manager_type * pman, struct slots_manager_type 
         struct particle_data_ext * sdata = (struct particle_data_ext * )(info.ptr + info.elsize * (size_t) sind);
         sdata->ReverseLink = i;
         sdata->ID = pman->Base[i].ID;
-        if(pman->Base[i].IsGarbage)
-            sdata->ReverseLink = pman->MaxPart + 100;
     }
 }
 
