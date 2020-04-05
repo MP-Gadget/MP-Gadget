@@ -635,7 +635,7 @@ slots_setup_topology(struct part_manager_type * pman, struct slots_manager_type 
 
     int ptype;
     for(ptype = 0; ptype < 6; ptype ++) {
-        struct slot_info info = sman->info[pman->Base[i].Type];
+        struct slot_info info = sman->info[ptype];
         if(!info.enabled)
             continue;
         sman->info[ptype].size = NLocal[ptype];
