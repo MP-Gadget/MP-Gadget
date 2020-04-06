@@ -108,6 +108,10 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
         MPI_Type_commit(&MPI_TYPE_PLAN_ENTRY);
     }
 
+#ifdef DEBUG
+        slots_check_id_consistency(pman, sman);
+#endif
+
     /*Structure for building a list of particles that will be exchanged*/
     ExchangePlan plan = domain_init_exchangeplan(Comm);
 
