@@ -230,7 +230,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
             memcpy(slotBuf[type] + (bufPI + plan->toGoOffset[target].slots[type]) * elsize,
                 (char*) sman->info[type].ptr + pman->Base[i].PI * elsize, elsize);
         /* now copy the base P; after PI has been updated */
-        partBuf[plan->toGoOffset[target].base + toGoPtr[target].base] = pman->Base[i];
+        memcpy(&(partBuf[plan->toGoOffset[target].base + toGoPtr[target].base]), pman->Base+i, sizeof(struct particle_data));
         toGoPtr[target].base ++;
         /* mark the particle for removal. Both secondary and base slots will be marked. */
         slots_mark_garbage(i, pman, sman);
