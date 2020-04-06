@@ -11,8 +11,8 @@
 
 /*Number of structure types for particles*/
 typedef struct {
-    size_t base;
-    size_t slots[6];
+    int base;
+    int slots[6];
 } ExchangePlanEntry;
 
 static MPI_Datatype MPI_TYPE_PLAN_ENTRY = 0;
@@ -20,7 +20,7 @@ static MPI_Datatype MPI_TYPE_PLAN_ENTRY = 0;
 /*Small struct to cache the layout function and particle data*/
 typedef struct {
     unsigned int ptype;
-    unsigned int target;
+    unsigned int target ;
 } ExchangePartCache;
 
 typedef struct {
@@ -36,7 +36,7 @@ typedef struct {
     /*Total number of exchanged particles*/
     size_t nexchange;
     /*Number of garbage particles*/
-    size_t ngarbage;
+    int ngarbage;
     /* last particle in current batch of the exchange.
      * Exchange stops when last == nexchange.*/
     size_t last;
@@ -134,7 +134,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
         domain_build_plan(layoutfunc, layout_userdata, &plan, pman);
         walltime_measure("/Domain/exchange/togo");
 
-        MPI_Allreduce(&plan.toGoSum.base, &sumtogo, 1, MPI_INT64_T, MPI_SUM, Comm);
+        sumup_large_ints(1, &plan.toGoSum.base, &sumtogo);
 
         message(0, "iter=%d exchange of %013ld particles\n", iter, sumtogo);
 
@@ -242,7 +242,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
 
     /* Do a gc if we were asked to, or if we need one
      * to have enough space for the incoming material*/
-    int shall_we_gc = do_gc || (pman->NumPart + plan->toGetSum.base > (size_t) pman->MaxPart);
+    int shall_we_gc = do_gc || (pman->NumPart + plan->toGetSum.base > pman->MaxPart);
     if(MPIU_Any(shall_we_gc, Comm)) {
         /*Find which slots to gc*/
         int compact[6] = {0};
@@ -304,8 +304,8 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
     int src;
     for(src = 0; src < plan->NTask; src++) {
         /* unpack each source rank */
-        size_t newPI[6];
-        size_t i;
+        int newPI[6];
+        int i;
         for(ptype = 0; ptype < 6; ptype ++) {
             newPI[ptype] = sman->info[ptype].size + plan->toGetOffset[src].slots[ptype];
         }
@@ -315,6 +315,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
             i++) {
 
             int ptype = pman->Base[i].Type;
+
 
             pman->Base[i].PI = newPI[ptype];
 
