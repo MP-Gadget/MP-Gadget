@@ -141,7 +141,7 @@ void slots_init(double increase, struct slots_manager_type * sman);
 void slots_set_enabled(int ptype, size_t elsize, struct slots_manager_type * sman);
 void slots_free(struct slots_manager_type * sman);
 void slots_mark_garbage(int i, struct part_manager_type * pman, struct slots_manager_type * sman);
-void slots_setup_topology(struct part_manager_type * pman, struct slots_manager_type * sman);
+void slots_setup_topology(struct part_manager_type * pman, int * NLocal, struct slots_manager_type * sman);
 void slots_setup_id(const struct part_manager_type * pman, struct slots_manager_type * sman);
 int slots_split_particle(int parent, double childmass, struct part_manager_type * pman);
 int slots_convert(int parent, int ptype, int placement, struct part_manager_type * pman, struct slots_manager_type * sman);

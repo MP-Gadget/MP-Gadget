@@ -53,19 +53,13 @@ setup_particles(int NType[6])
 
     slots_reserve(1, NType, SlotsManager);
 
-    int i;
+    slots_setup_topology(PartManager, NType, SlotsManager);
 
-    ptype = 0;
-    int itype = 0;
+    int i;
+    #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i ++) {
         P[i].ID = i + PartManager->NumPart * ThisTask;
-        P[i].Type = ptype;
-        itype ++;
-        if(itype == NType[ptype]) {
-            ptype++; itype = 0;
-        }
     }
-    slots_setup_topology(PartManager, SlotsManager);
 
     slots_setup_id(PartManager, SlotsManager);
 

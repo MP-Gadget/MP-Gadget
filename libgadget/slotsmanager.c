@@ -591,6 +591,8 @@ slots_check_id_consistency(struct part_manager_type * pman, struct slots_manager
 
     for(i = 0; i < pman->NumPart; i++) {
         int type = pman->Base[i].Type;
+        if(pman->Base[i].IsGarbage)
+            continue;
         struct slot_info info = sman->info[type];
         if(!info.enabled)
             continue;
@@ -618,22 +620,27 @@ slots_check_id_consistency(struct part_manager_type * pman, struct slots_manager
 
 /* this function needs the Type of P[i] to be setup */
 void
-slots_setup_topology(struct part_manager_type * pman, struct slots_manager_type * sman)
+slots_setup_topology(struct part_manager_type * pman, int * NLocal, struct slots_manager_type * sman)
 {
-    int NLocal[6] = {0};
-
-    int i;
-/* not bothering making this OMP */
-    for(i = 0; i < pman->NumPart; i ++) {
-        int ptype = pman->Base[i].Type;
-        /* atomic fetch add */
-        pman->Base[i].PI = NLocal[ptype];
-        NLocal[ptype] ++;
+    /* initialize particle types */
+    int ptype, offset = 0;
+    for(ptype = 0; ptype < 6; ptype ++) {
+        int i;
+        struct slot_info info = sman->info[ptype];
+        #pragma omp parallel for
+        for(i = 0; i < NLocal[ptype]; i++)
+        {
+            size_t j = offset + i;
+            pman->Base[j].Type = ptype;
+            pman->Base[j].IsGarbage = 0;
+            if(info.enabled)
+                pman->Base[j].PI = i;
+        }
+        offset += NLocal[ptype];
     }
 
-    int ptype;
     for(ptype = 0; ptype < 6; ptype ++) {
-        struct slot_info info = sman->info[pman->Base[i].Type];
+        struct slot_info info = sman->info[ptype];
         if(!info.enabled)
             continue;
         sman->info[ptype].size = NLocal[ptype];
@@ -645,21 +652,19 @@ slots_setup_id(const struct part_manager_type * pman, struct slots_manager_type 
 {
     int i;
     /* set up the cross check for child IDs */
-    /* not bothering making this OMP */
+    #pragma omp parallel for
     for(i = 0; i < pman->NumPart; i++)
     {
-        struct slot_info info = sman->info[P[i].Type];
+        struct slot_info info = sman->info[pman->Base[i].Type];
         if(!info.enabled)
             continue;
 
         int sind = pman->Base[i].PI;
         if(sind >= info.size || sind < 0)
             endrun(1, "Particle %d, type %d has PI index %d beyond max slot size %d.\n", i, pman->Base[i].Type, sind, info.size);
-        struct particle_data_ext * sdata = (struct particle_data_ext * )(info.ptr + info.elsize * sind);
+        struct particle_data_ext * sdata = (struct particle_data_ext * )(info.ptr + info.elsize * (size_t) sind);
         sdata->ReverseLink = i;
         sdata->ID = pman->Base[i].ID;
-        if(pman->Base[i].IsGarbage)
-            sdata->ReverseLink = pman->MaxPart + 100;
     }
 }
 
