@@ -135,7 +135,7 @@ struct TreeWalk {
     size_t BunchSize;
 
     int * WorkSet;
-    size_t WorkSetSize;
+    int WorkSetSize;
     /*Did we use the active_set array as the WorkSet?*/
     int work_set_stolen_from_active;
 
