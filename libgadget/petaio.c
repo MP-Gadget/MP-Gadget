@@ -491,7 +491,7 @@ petaio_read_header_internal(BigFile * bf) {
         0 != big_block_get_attr(&bh, "OmegaBaryon", &All.CP.OmegaBaryon, "f8", 1) ) ||
         (All.CP.HubbleParam < 0 &&
         0 != big_block_get_attr(&bh, "HubbleParam", &All.CP.HubbleParam, "f8", 1) )||
-        (All.CP.HubbleParam < 0 &&
+        (All.CP.OmegaLambda < 0 &&
         0 != big_block_get_attr(&bh, "OmegaLambda", &All.CP.OmegaLambda, "f8", 1) )
     ) {
         endrun(0, "Failed to read required cosmology from IC header\n");
