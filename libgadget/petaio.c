@@ -486,16 +486,22 @@ petaio_read_header_internal(BigFile * bf) {
     All.UnitLength_in_cm = _get_attr_double(&bh, "UnitLength_in_cm",  3.085678e21); /* 1.0 Kpc /h */
     All.UnitMass_in_g = _get_attr_double(&bh, "UnitMass_in_g", 1.989e43); /* 1e10 Msun/h */
 
+    double OmegaBaryon = All.CP.OmegaBaryon;
+    double HubbleParam = All.CP.HubbleParam;
+    double OmegaLambda = All.CP.OmegaLambda;
     if(
-        (All.CP.OmegaBaryon < 0 &&
-        0 != big_block_get_attr(&bh, "OmegaBaryon", &All.CP.OmegaBaryon, "f8", 1) ) ||
-        (All.CP.HubbleParam < 0 &&
-        0 != big_block_get_attr(&bh, "HubbleParam", &All.CP.HubbleParam, "f8", 1) )||
-        (All.CP.HubbleParam < 0 &&
-        0 != big_block_get_attr(&bh, "OmegaLambda", &All.CP.OmegaLambda, "f8", 1) )
+        0 != big_block_get_attr(&bh, "OmegaBaryon", &All.CP.OmegaBaryon, "f8", 1) ||
+        0 != big_block_get_attr(&bh, "HubbleParam", &All.CP.HubbleParam, "f8", 1) ||
+        0 != big_block_get_attr(&bh, "OmegaLambda", &All.CP.OmegaLambda, "f8", 1)
     ) {
         endrun(0, "Failed to read required cosmology from IC header\n");
     }
+    if(OmegaBaryon > 0 && fabs(All.CP.OmegaBaryon - OmegaBaryon) > 1e-3)
+        endrun(0,"IC Header has Omega_b = %g but paramfile wants %g\n", All.CP.OmegaBaryon, OmegaBaryon);
+    if(HubbleParam > 0 && fabs(All.CP.HubbleParam - HubbleParam) > 1e-3)
+        message(0,"IC Header has HubbleParam = %g but paramfile wants %g\n", All.CP.HubbleParam, HubbleParam);
+    if(OmegaLambda > 0 && fabs(All.CP.OmegaLambda - OmegaLambda) > 1e-3)
+        message(0,"IC Header has Omega_L = %g but paramfile wants %g\n", All.CP.OmegaLambda, OmegaLambda);
 
     /* If UsePeculiarVelocity = 1 then snapshots save to the velocity field the physical peculiar velocity, v = a dx/dt (where x is comoving distance).
      * If UsePeculiarVelocity = 0 then the velocity field is a * v = a^2 dx/dt in snapshots

@@ -618,7 +618,14 @@ set_units(void)
     /* convert some physical input parameters to internal units */
 
     All.CP.Hubble = HUBBLE * All.UnitTime_in_s;
+
     init_cosmology(&All.CP, All.TimeIC);
+    /* Detect cosmologies that are likely to be typos in the parameter files*/
+    if(All.CP.HubbleParam < 0.1 || All.CP.HubbleParam > 10 ||
+        All.CP.OmegaLambda < 0 || All.CP.OmegaBaryon < 0 || All.CP.OmegaG < 0 || All.CP.OmegaCDM < 0)
+        endrun(5, "Bad cosmology: H0 = %g OL = %g Ob = %g Og = %g Ocdm = %g\n",
+               All.CP.HubbleParam, All.CP.OmegaLambda, All.CP.OmegaBaryon, All.CP.OmegaCDM);
+
 
     if(All.InitGasTemp < 0)
         All.InitGasTemp = All.CP.CMBTemperature / All.TimeInit;
@@ -634,6 +641,7 @@ set_units(void)
     message(0, "UnitVelocity_in_cm_per_s = %g \n", All.UnitVelocity_in_cm_per_s);
     message(0, "UnitDensity_in_cgs = %g \n", All.UnitDensity_in_cgs);
     message(0, "UnitEnergy_in_cgs = %g \n", All.UnitEnergy_in_cgs);
+    message(0, "Dark energy model: OmegaL = %g OmegaFLD = %g\n",All.CP.OmegaLambda, All.CP.Omega_fld);
     message(0, "Photon density OmegaG = %g\n",All.CP.OmegaG);
     if(!All.MassiveNuLinRespOn)
         message(0, "Massless Neutrino density OmegaNu0 = %g\n",get_omega_nu(&All.CP.ONu, 1));
