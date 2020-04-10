@@ -403,16 +403,11 @@ cooling_direct(int i, const double a3inv, const double hubble)
     const double enttou = pow(SPH_EOMDensity(i) * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
 
     /* Current internal energy including adiabatic change*/
-    double uold = (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) * enttou;
-    /* We want the injected black hole energy to change the entropy
-     * but we don't want it to contribute to increase the predicted entropy in EntVarPred*/
+    double uold = SPHP(i).Entropy * enttou;
+    /* Add the injected black hole energy to change the entropy.*/
     if(SphP_scratch->Injected_BH_Energy && SphP_scratch->Injected_BH_Energy[P[i].PI] > 0)
     {
         uold = add_injected_BH_energy(uold, SphP_scratch->Injected_BH_Energy[P[i].PI], P[i].Mass);
-        /* This includes the adiabatic rate.
-         * This means that the DtEntropy (used for prediction) from the
-         * adiabatic heating is zero when DtEntropy is set below.
-         * This makes sense since heated gas shocks.*/
         SPHP(i).Entropy = uold / enttou;
     }
 
@@ -421,13 +416,8 @@ cooling_direct(int i, const double a3inv, const double hubble)
     double unew = DoCooling(redshift, uold, SPHP(i).Density * a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity, All.MinEgySpec, P[i].HeIIIionized);
 
     SPHP(i).Ne = ne;
-
-    /* upon start-up, we need to protect against dt==0 */
-    if(dloga <= 0)
-        return;
-
-    /* DtEntropy now includes the cooling and adiabatic rate, but NOT the BH heating.*/
-    SPHP(i).DtEntropy = (unew / enttou - SPHP(i).Entropy) / dloga;
+    /* Update the entropy. This is done after synchronizing kicks and drifts, as per run.c.*/
+    SPHP(i).Entropy = unew / enttou;
 }
 
 /* returns 1 if the particle is on the effective equation of state,
@@ -548,11 +538,7 @@ cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_eeqos_data s
     {
         egycurrent = add_injected_BH_energy(egycurrent, SphP_scratch->Injected_BH_Energy[P[i].PI], P[i].Mass);
     }
-
     SPHP(i).Entropy =  (egyeff + (egycurrent - egyeff) * exp(-dtime / trelax)) /densityfac;
-
-    SPHP(i).DtEntropy = 0;
-
 }
 
 /*Forms stars according to the quick lyman alpha star formation criterion,
@@ -564,9 +550,8 @@ quicklyastarformation(int i, const double a3inv)
     if(SPHP(i).Density <= sfr_params.OverDensThresh)
         return 0;
 
-    double dloga = get_dloga_for_bin(P[i].TimeBin);
     const double enttou = pow(SPH_EOMDensity(i) * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
-    double unew = (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) * enttou;
+    double unew = SPHP(i).Entropy * enttou;
 
     const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1 * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
 
