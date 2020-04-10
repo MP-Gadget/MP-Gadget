@@ -265,12 +265,6 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, FILE * FdSfr)
     /*Done with the parents*/
     myfree(NewParents);
 
-    /* This is allocated high so has to be freed after the parents*/
-    if(SphP_scratch->Injected_BH_Energy) {
-        myfree(SphP_scratch->Injected_BH_Energy);
-        SphP_scratch->Injected_BH_Energy = NULL;
-    }
-
     int64_t tot_spawned=0, tot_converted=0;
     sumup_large_ints(1, &stars_spawned, &tot_spawned);
     sumup_large_ints(1, &stars_converted, &tot_converted);
@@ -375,22 +369,6 @@ sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTr
         return NewStars;
 }
 
-/* Adds the injected black hole energy to an internal energy and caps it at a maximum temperature*/
-static double
-add_injected_BH_energy(double unew, double injected_BH_energy, double mass)
-{
-    unew += injected_BH_energy / mass;
-    const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
-    * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-
-    double temp = u_to_temp_fac * unew;
-
-    if(temp > 5.0e8)
-        unew = 5.0e8 / u_to_temp_fac;
-
-    return unew;
-}
-
 static void
 cooling_direct(int i, const double a3inv, const double hubble)
 {
@@ -404,12 +382,6 @@ cooling_direct(int i, const double a3inv, const double hubble)
 
     /* Current internal energy including adiabatic change*/
     double uold = SPHP(i).Entropy * enttou;
-    /* Add the injected black hole energy to change the entropy.*/
-    if(SphP_scratch->Injected_BH_Energy && SphP_scratch->Injected_BH_Energy[P[i].PI] > 0)
-    {
-        uold = add_injected_BH_energy(uold, SphP_scratch->Injected_BH_Energy[P[i].PI], P[i].Mass);
-        SPHP(i).Entropy = uold / enttou;
-    }
 
     double redshift = 1./All.Time - 1;
     struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos, PartManager->CurrentParticleOffset);
@@ -534,10 +506,6 @@ cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_eeqos_data s
     double egycurrent = SPHP(i).Entropy * densityfac;
     double trelax = sfr_data.trelax;
 
-    if(SphP_scratch->Injected_BH_Energy && SphP_scratch->Injected_BH_Energy[P[i].PI] > 0)
-    {
-        egycurrent = add_injected_BH_energy(egycurrent, SphP_scratch->Injected_BH_Energy[P[i].PI], P[i].Mass);
-    }
     SPHP(i).Entropy =  (egyeff + (egycurrent - egyeff) * exp(-dtime / trelax)) /densityfac;
 }
 

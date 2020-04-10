@@ -95,6 +95,7 @@ struct BHPriv {
     /* These are temporaries used in the feedback treewalk.*/
     MyFloat * BH_accreted_Mass;
     MyFloat * BH_accreted_BHMass;
+    MyFloat * Injected_BH_Energy;
 
     /* This is a temporary computed in the accretion treewalk and used
      * in the feedback treewalk*/
@@ -207,6 +208,22 @@ static double blackhole_soundspeed(double entropy, double rho) {
     cs *= pow(All.Time, -1.5 * GAMMA_MINUS1);
 
     return cs;
+}
+
+/* Adds the injected black hole energy to an internal energy and caps it at a maximum temperature*/
+static double
+add_injected_BH_energy(double unew, double injected_BH_energy, double mass)
+{
+    unew += injected_BH_energy / mass;
+    const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
+    * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+
+    double temp = u_to_temp_fac * unew;
+
+    if(temp > 5.0e8)
+        unew = 5.0e8 / u_to_temp_fac;
+
+    return unew;
 }
 
 static void
@@ -336,9 +353,6 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Start swallowing of gas particles and black holes\n");
 
-    /* Allocate array for storing the feedback energy.*/
-    SphP_scratch->Injected_BH_Energy = mymalloc2("Injected_BH_Energy", SlotsManager->info[0].size * sizeof(MyFloat));
-    memset(SphP_scratch->Injected_BH_Energy, 0, SlotsManager->info[0].size * sizeof(MyFloat));
     /* Now do the swallowing of particles and dump feedback energy */
 
     /* Ionization counters*/
@@ -350,12 +364,31 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     /* Local to this treewalk*/
     priv->BH_accreted_Mass = mymalloc("BH_accretedmass", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_accreted_BHMass = mymalloc("BH_accreted_BHMass", SlotsManager->info[5].size * sizeof(MyFloat));
+    /* Allocate array for storing the feedback energy.*/
+    priv->Injected_BH_Energy = mymalloc2("Injected_BH_Energy", SlotsManager->info[0].size * sizeof(MyFloat));
+    memset(priv->Injected_BH_Energy, 0, SlotsManager->info[0].size * sizeof(MyFloat));
+
     treewalk_run(tw_feedback, act->ActiveParticle, act->NumActiveParticle);
 
     if(FdBlackholeDetails){
         collect_BH_info(act->ActiveParticle, act->NumActiveParticle, priv, FdBlackholeDetails);
     }
 
+    const double a3inv = 1./(All.Time * All.Time * All.Time);
+    /* This function changes the entropy of the particle due to the BH heating. */
+    #pragma omp parallel for
+    for(i = 0; i < PartManager->NumPart; i++)
+    {
+        if(P[i].Type == 0 && priv->Injected_BH_Energy[P[i].PI] > 0)
+        {
+            const double enttou = pow(SPH_EOMDensity(i) * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+            double uold = SPHP(i).Entropy * enttou;
+            uold = add_injected_BH_energy(uold, priv->Injected_BH_Energy[P[i].PI], P[i].Mass);
+            SPHP(i).Entropy = uold / enttou;
+        }
+    }
+
+    myfree(priv->Injected_BH_Energy);
     myfree(priv->BH_accreted_BHMass);
     myfree(priv->BH_accreted_Mass);
 
@@ -738,7 +771,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
                 if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
                     wk = density_kernel_wk(&iter->feedback_kernel, u);
 
-                double * iBHPI = &SphP_scratch->Injected_BH_Energy[P[other].PI];
+                double * iBHPI = &BH_GET_PRIV(lv->tw)->Injected_BH_Energy[P[other].PI];
                 const double injected_BH = I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum;
                 #pragma omp atomic update
                 (*iBHPI) += injected_BH;
