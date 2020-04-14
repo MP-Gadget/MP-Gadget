@@ -103,8 +103,6 @@ struct sph_scratch_data
      * which defeats the lookup cache in timefac.c. Because VelPred is used multiple times,
      * it is much quicker to compute it once and re-use this*/
     MyFloat * VelPred;            /*!< Predicted velocity at current particle drift time for SPH. 3x vector.*/
-    /*Used to store the BH feedback energy if black holes are on*/
-    MyFloat * Injected_BH_Energy;
 };
 
 extern struct slots_manager_type {

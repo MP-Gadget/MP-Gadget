@@ -265,12 +265,6 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, FILE * FdSfr)
     /*Done with the parents*/
     myfree(NewParents);
 
-    /* This is allocated high so has to be freed after the parents*/
-    if(SphP_scratch->Injected_BH_Energy) {
-        myfree(SphP_scratch->Injected_BH_Energy);
-        SphP_scratch->Injected_BH_Energy = NULL;
-    }
-
     int64_t tot_spawned=0, tot_converted=0;
     sumup_large_ints(1, &stars_spawned, &tot_spawned);
     sumup_large_ints(1, &stars_converted, &tot_converted);
@@ -375,22 +369,6 @@ sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTr
         return NewStars;
 }
 
-/* Adds the injected black hole energy to an internal energy and caps it at a maximum temperature*/
-static double
-add_injected_BH_energy(double unew, double injected_BH_energy, double mass)
-{
-    unew += injected_BH_energy / mass;
-    const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
-    * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-
-    double temp = u_to_temp_fac * unew;
-
-    if(temp > 5.0e8)
-        unew = 5.0e8 / u_to_temp_fac;
-
-    return unew;
-}
-
 static void
 cooling_direct(int i, const double a3inv, const double hubble)
 {
@@ -403,31 +381,15 @@ cooling_direct(int i, const double a3inv, const double hubble)
     const double enttou = pow(SPH_EOMDensity(i) * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
 
     /* Current internal energy including adiabatic change*/
-    double uold = (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) * enttou;
-    /* We want the injected black hole energy to change the entropy
-     * but we don't want it to contribute to increase the predicted entropy in EntVarPred*/
-    if(SphP_scratch->Injected_BH_Energy && SphP_scratch->Injected_BH_Energy[P[i].PI] > 0)
-    {
-        uold = add_injected_BH_energy(uold, SphP_scratch->Injected_BH_Energy[P[i].PI], P[i].Mass);
-        /* This includes the adiabatic rate.
-         * This means that the DtEntropy (used for prediction) from the
-         * adiabatic heating is zero when DtEntropy is set below.
-         * This makes sense since heated gas shocks.*/
-        SPHP(i).Entropy = uold / enttou;
-    }
+    double uold = SPHP(i).Entropy * enttou;
 
     double redshift = 1./All.Time - 1;
     struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos, PartManager->CurrentParticleOffset);
     double unew = DoCooling(redshift, uold, SPHP(i).Density * a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity, All.MinEgySpec, P[i].HeIIIionized);
 
     SPHP(i).Ne = ne;
-
-    /* upon start-up, we need to protect against dt==0 */
-    if(dloga <= 0)
-        return;
-
-    /* DtEntropy now includes the cooling and adiabatic rate, but NOT the BH heating.*/
-    SPHP(i).DtEntropy = (unew / enttou - SPHP(i).Entropy) / dloga;
+    /* Update the entropy. This is done after synchronizing kicks and drifts, as per run.c.*/
+    SPHP(i).Entropy = unew / enttou;
 }
 
 /* returns 1 if the particle is on the effective equation of state,
@@ -544,15 +506,7 @@ cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_eeqos_data s
     double egycurrent = SPHP(i).Entropy * densityfac;
     double trelax = sfr_data.trelax;
 
-    if(SphP_scratch->Injected_BH_Energy && SphP_scratch->Injected_BH_Energy[P[i].PI] > 0)
-    {
-        egycurrent = add_injected_BH_energy(egycurrent, SphP_scratch->Injected_BH_Energy[P[i].PI], P[i].Mass);
-    }
-
     SPHP(i).Entropy =  (egyeff + (egycurrent - egyeff) * exp(-dtime / trelax)) /densityfac;
-
-    SPHP(i).DtEntropy = 0;
-
 }
 
 /*Forms stars according to the quick lyman alpha star formation criterion,
@@ -564,9 +518,8 @@ quicklyastarformation(int i, const double a3inv)
     if(SPHP(i).Density <= sfr_params.OverDensThresh)
         return 0;
 
-    double dloga = get_dloga_for_bin(P[i].TimeBin);
     const double enttou = pow(SPH_EOMDensity(i) * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
-    double unew = (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) * enttou;
+    double unew = SPHP(i).Entropy * enttou;
 
     const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1 * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
 

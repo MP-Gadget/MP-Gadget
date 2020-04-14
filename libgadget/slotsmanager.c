@@ -676,8 +676,6 @@ slots_allocate_sph_scratch_data(int sph_grad_rho, int nsph, struct sph_scratch_d
         sph_scratch->GradRho = mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * nsph);
     else
         sph_scratch->GradRho = NULL;
-    /* Allocated in black hole, freed in sfr.*/
-    sph_scratch->Injected_BH_Energy = NULL;
     sph_scratch->EntVarPred = mymalloc2("EntVarPred", sizeof(MyFloat) * nsph);
     sph_scratch->VelPred = mymalloc2("VelPred", sizeof(MyFloat) * 3 * nsph);
 }

@@ -257,10 +257,34 @@ run(int RestartSnapNum)
         /* update force to Ti_Current */
         compute_accelerations(&Act, is_PM, &pm, pairwisestep, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
 
+        /* Update velocity to Ti_Current; this synchonizes TiKick and TiDrift for the active particles */
+
+        if(is_PM) {
+            apply_PM_half_kick();
+        }
+
+        apply_half_kick(&Act);
+
         int didfof = 0;
-        /* Note this must be after gravaccel and hydro,
-         * because new star particles are not in the tree,
-         * so mass conservation would be broken.*/
+        /* Cooling and extra physics show up as a source term in the evolution equations.
+         * Formally you can write the structure of the partial differential equations:
+           dU/dt +  div(F) = S
+         * where the cooling, BH and SFR are the source term S.
+         * The extra physics is done after the kick, using a Strang split operator.
+         * Gadget3/Arepo tries to follow the general operator splitting ansatz (often called Strang splitting).
+         * Here you alternate the evolution under the operator generating the time evolution of the homogenous system (ie, without S)
+         * with the operator generating the time evolution under the source function alone.
+         * This means to advance the full system by dt, you first evolve dU/dt = S
+         * by dt, and then dU/dt +  div(F) = 0 by dt.
+         * [Actually, for second-order convergence in time, you should rather evolve S for dt/2, then the homogenous part for dt, and then S again for dt/2.]
+
+         * The operator-split approach offers a number of practical advantages when the source function is stiff.
+         * You can, for example, solve dU/dt = S in a robust and stable fashion with an implict solver, whereas the Gadget2 approach is severely challenged
+         * and either requires an artficial clipping of the maximum allowed cooling rate, or a severe reduction of the timestep, otherwise the
+         * predicted entropy due to cooling someting during the timestep can become severely wrong. Also, the source term approach can be easily
+         * used to treat effectively instantaneous injections of energy (like from BHs), which is again hard to properly incorporate in the
+         * time-integration approach where you want to have a "full" dU/dt all times. (Volker Springel 2020).
+         */
         if(GasEnabled)
         {
             /* this will find new black hole seed halos.
@@ -294,14 +318,6 @@ run(int RestartSnapNum)
             /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
             slots_free_sph_scratch_data(SphP_scratch);
         }
-
-        /* Update velocity to Ti_Current; this synchonizes TiKick and TiDrift for the active particles */
-
-        if(is_PM) {
-            apply_PM_half_kick();
-        }
-
-        apply_half_kick(&Act);
 
         /* If a snapshot is requested, write it.
          * write_checkpoint is responsible to maintain a valid ddecomp and tree after it is called.
