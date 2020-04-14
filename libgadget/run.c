@@ -456,15 +456,6 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
             energy_statistics(FdEnergy, All.Time, PartManager);
     }
 
-    /* For the first timestep, we do tree force twice
-     * to allow usage of relative opening
-     * criterion for consistent accuracy.
-     * This happens after PM because we want to
-     * use the total acceleration for tree opening.
-     */
-    if(FirstStep && All.TreeGravOn)
-        grav_short_tree(act, pm, tree, rho0, NeutrinoTracer, All.FastParticleType);
-
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Forces computed.\n");
 }
