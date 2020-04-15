@@ -414,6 +414,11 @@ static struct SendRecvBuffer ev_primary(TreeWalk * tw)
 
     ev_free_threadlocals(export);
 
+    if(tw->Nexport >= tw->BunchSize) {
+        message(1, "Tree export buffer full with %d particles. This is not fatal but slows the treewalk. Increase free memory during treewalk if possible.\n", tw->Nexport);
+        tw->BufferFullFlag = 1;
+    }
+
     /* Nexport may go off too much after BunchSize
      * as we don't protect it from over adding in _export_particle
      * */
@@ -430,11 +435,7 @@ static struct SendRecvBuffer ev_primary(TreeWalk * tw)
         tw->Nexport --;
     }
 
-    if(tw->BufferFullFlag) {
-        message(1, "Tree export buffer full with %d particles. This is not fatal but slows the treewalk. Increase free memory during treewalk if possible.\n", tw->Nexport);
-    }
-
-    if(tw->Nexport == 0 && tw->BufferFullFlag) {
+    if(tw->BunchSize < 1) {
         endrun(1231245, "Buffer too small for even one particle. For example, there are too many nodes");
     }
 
@@ -477,14 +478,7 @@ static int ev_ndone(TreeWalk * tw)
     int ndone;
     double tstart, tend;
     tstart = second();
-    int done = 1;
-    size_t i;
-    for(i = 0; i < tw->NThread; i ++) {
-        if(tw->currentIndex[i] < tw->currentEnd[i]) {
-            done = 0;
-            break;
-        }
-    }
+    int done = !(tw->BufferFullFlag);
     MPI_Allreduce(&done, &ndone, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     tend = second();
     tw->timewait2 += timediff(tstart, tend);
@@ -561,11 +555,9 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
         }
         /* out of buffer space. Need to discard work for this particle and interrupt */
         if(nexp >= tw->BunchSize) {
-            #pragma omp atomic write
-            tw->BufferFullFlag = 1;
-
             /* Touch up the DataIndexTable, so that exports associated with the current particle
-             * won't be exported. This is expensive but rare. */
+             * won't be exported. This is expensive but rare. No lock is needed
+             * because only one thread considers each particle.*/
             size_t i;
             for(i=0; i < tw->BunchSize; i++) {
                 /* target is the current particle, so this reads the buffer looking for
