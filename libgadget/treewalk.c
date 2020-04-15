@@ -432,6 +432,24 @@ static struct SendRecvBuffer ev_primary(TreeWalk * tw)
     if(tw->Nexport >= tw->BunchSize) {
         message(1, "Tree export buffer full with %d particles. start %d lastsucceeded: %d.\n", tw->Nexport, tw->WorkSetStart, lastSucceeded);
         tw->BufferFullFlag = 1;
+        /* Touch up the DataIndexTable, so that partial particle exports are discarded.*/
+        size_t i;
+        /* This assumes that the WorkSet is monotonic, which is guaranteed by the static schedule in
+         * treewalk_begin_queue*/
+        const int lastreal = tw->WorkSet ? tw->WorkSet[lastSucceeded] : lastSucceeded;
+        for(i=0; i < tw->BunchSize; i++) {
+            /* target is the current particle, so this reads the buffer looking for
+                * exports associated with the current particle. We cannot just discard
+                * from the end because of threading.*/
+            if(DataIndexTable[i].Index > lastreal)
+            {
+                /* NTask will be placed to the end by sorting */
+                DataIndexTable[i].Task = tw->NTask;
+                /* put in some junk so that we can detect them */
+                DataNodeList[DataIndexTable[i].IndexGet].NodeList[0] = -2;
+            }
+        }
+
     }
 
     /* Set the place to start the next iteration. Note that because lastSucceeded
@@ -579,24 +597,8 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
             nexp = tw->Nexport;
             tw->Nexport++;
         }
-        /* out of buffer space. Need to discard work for this particle and interrupt */
+        /* out of buffer space. Need to interrupt. */
         if(nexp >= tw->BunchSize) {
-            /* Touch up the DataIndexTable, so that exports associated with the current particle
-             * won't be exported. This is expensive but rare. No lock is needed
-             * because only one thread considers each particle.*/
-            size_t i;
-            for(i=0; i < tw->BunchSize; i++) {
-                /* target is the current particle, so this reads the buffer looking for
-                 * exports associated with the current particle. We cannot just discard
-                 * from the end because of threading.*/
-                if(DataIndexTable[i].Index == target)
-                {
-                    /* NTask will be placed to the end by sorting */
-                    DataIndexTable[i].Task = tw->NTask;
-                    /* put in some junk so that we can detect them */
-                    DataNodeList[DataIndexTable[i].IndexGet].NodeList[0] = -2;
-                }
-            }
             return -1;
         }
         else {
