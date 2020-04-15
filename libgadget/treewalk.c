@@ -185,6 +185,9 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
      * sfr/bh we should change this*/
     treewalk_build_queue(tw, active_set, size, 0);
 
+    /* Start first iteration at the beginning*/
+    tw->WorkSetStart = 0;
+
     Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * NumThreads * sizeof(int));
 
     report_memory_usage(tw->ev_label);
@@ -215,20 +218,10 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
 #ifdef DEBUG
     memset(DataNodeList, -1, sizeof(struct data_nodelist) * tw->BunchSize);
 #endif
-    tw->currentIndex = ta_malloc("currentIndexPerThread", int,  NumThreads);
-    tw->currentEnd = ta_malloc("currentEndPerThread", int, NumThreads);
-
-    int i;
-    for(i = 0; i < NumThreads; i ++) {
-        tw->currentIndex[i] = ((size_t) i) * tw->WorkSetSize / NumThreads;
-        tw->currentEnd[i] = ((size_t) i + 1) * tw->WorkSetSize / NumThreads;
-    }
 }
 
 static void ev_finish(TreeWalk * tw)
 {
-    ta_free(tw->currentEnd);
-    ta_free(tw->currentIndex);
     myfree(DataNodeList);
     myfree(DataIndexTable);
     myfree(Ngblist);
@@ -277,39 +270,55 @@ treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum T
         tw->reduce(i, result, mode, tw);
 }
 
-static void real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw) {
-    int tid = omp_get_thread_num();
+static void real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, int *lastSucceeded, int * currentIndex) {
     LocalTreeWalk lv[1];
-
+    /* Note: exportflag is local to each thread */
     ev_init_thread(export, tw, lv);
     lv->mode = 0;
 
-    /* Note: exportflag is local to each thread */
-    int k;
+    int tid = omp_get_thread_num();
+
     /* use old index to recover from a buffer overflow*/;
     TreeWalkQueryBase * input = (TreeWalkQueryBase *) ((char *) export.input + tid * tw->query_type_elsize);
     TreeWalkResultBase * output = (TreeWalkResultBase *) ((char *) export.output + tid * tw->result_type_elsize);
 
-    for(k = tw->currentIndex[tid];
-        k < tw->currentEnd[tid];
-        k++) {
-        if(tw->BufferFullFlag) break;
+    /* We must schedule monotonically so that if the export buffer fills up
+     * it is guaranteed that earlier particles are already done.
+     * However, we schedule dynamically so that we have reduced imbalance.
+     * chunk size: 1 and 1000 were slightly (3 percent) slower than 8.
+     * We do not use the openmp dynamic scheduling, but roll our own
+     * so that we can break from the loop if needed.*/
+    int chnk = 0;
+    const int chnksz = 8;
+    do {
+        /* Get another chunk from the global queue*/
+        chnk = atomic_fetch_and_add(currentIndex, chnksz);
+        /* This is a hand-rolled version of what openmp dynamic scheduling is doing.*/
+        int end = chnk + chnksz;
+        /* Make sure we do not overflow the loop*/
+        if(end > tw->WorkSetSize)
+            end = tw->WorkSetSize;
+        int k;
+        for(k = chnk; k < end; k++) {
+            const int i = tw->WorkSet ? tw->WorkSet[k] : k;
+            /* Primary never uses node list */
+            treewalk_init_query(tw, input, i, NULL);
+            treewalk_init_result(tw, output, input);
 
-        const int i = tw->WorkSet ? tw->WorkSet[k] : k;
-        /* Primary never uses node list */
-        treewalk_init_query(tw, input, i, NULL);
-        treewalk_init_result(tw, output, input);
-
-        lv->target = i;
-        const int rt = tw->visit(input, output, lv);
-
-        if(rt < 0) {
-            break; /* export buffer has filled up, redo this particle */
-        } else {
-            treewalk_reduce_result(tw, output, i, TREEWALK_PRIMARY);
+            lv->target = i;
+            const int rt = tw->visit(input, output, lv);
+            if(rt < 0) {
+                /* export buffer has filled up, can't do more work.*/
+                return;
+            } else {
+                treewalk_reduce_result(tw, output, i, TREEWALK_PRIMARY);
+                /* We need lastSucceeded as well as currentIndex so that
+                 * if the export buffer fills up in the middle of a
+                 * chunk we still get the right answer. Notice it is thread-local*/
+                *lastSucceeded = k;
+            }
         }
-    }
-    tw->currentIndex[tid] = k;
+    } while(chnk < tw->WorkSetSize);
 }
 
 #if 0
@@ -402,14 +411,18 @@ static struct SendRecvBuffer ev_primary(TreeWalk * tw)
     tw->BufferFullFlag = 0;
     tw->Nexport = 0;
 
+
     size_t i;
+    int lastSucceeded = tw->WorkSetStart - 1;
+
     tstart = second();
 
     struct TreeWalkThreadLocals export = ev_alloc_threadlocals(tw, tw->NTask, tw->NThread);
+    int currentIndex = tw->WorkSetStart;
 
-#pragma omp parallel
+#pragma omp parallel reduction(min: lastSucceeded)
     {
-        real_ev(export, tw);
+        real_ev(export, tw, &lastSucceeded, &currentIndex);
     }
 
     ev_free_threadlocals(export);
@@ -418,6 +431,17 @@ static struct SendRecvBuffer ev_primary(TreeWalk * tw)
         message(1, "Tree export buffer full with %d particles. This is not fatal but slows the treewalk. Increase free memory during treewalk if possible.\n", tw->Nexport);
         tw->BufferFullFlag = 1;
     }
+
+    /* Set the place to start the next iteration. Note that because lastSucceeded
+     * is the minimum entry across all threads, some particles may have their trees walked twice locally.
+     * This could be a problem if the export buffer filled up in a physics module with locks,
+     * ie, which is pairwise and changes the other particle in the treewalk.
+     * In practice almost all of these algorithms either set a flag
+     * in the particle to indicate that it has been finished (HeIII reion),
+     * or find a maximum (BH). The only exception is the wind velocity code,
+     * but there are few enough stars in a treewalk that this
+     * should not fill up often.*/
+    tw->WorkSetStart = lastSucceeded + 1;
 
     /* Nexport may go off too much after BunchSize
      * as we don't protect it from over adding in _export_particle

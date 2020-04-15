@@ -134,20 +134,24 @@ struct TreeWalk {
     /* Number of particles we can fit into the export buffer*/
     size_t BunchSize;
 
+    /* Index into WorkSet to start iteration.
+     * Will be !=0 if the export buffer fills up*/
+    int WorkSetStart;
+    /* The list of particles to work on. May be NULL, in which case all particles are used.*/
     int * WorkSet;
+    /* Size of the workset list*/
     int WorkSetSize;
     /*Did we use the active_set array as the WorkSet?*/
     int work_set_stolen_from_active;
-
-    /* per worker thread*/
-    int *currentIndex;
-    int *currentEnd;
 
 };
 
 /*Initialise treewalk parameters on first run*/
 void set_treewalk_params(ParameterSet * ps);
 
+/* Do the distributed tree walking. Warning: as this is a threaded treewalk,
+ * it may call tw->visit on particles more than once and in a noneterministic order.
+ * Your module should behave correctly in this case! */
 void treewalk_run(TreeWalk * tw, int * active_set, size_t size);
 
 int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
