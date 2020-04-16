@@ -137,6 +137,11 @@ typedef struct {
 } TreeWalkResultDensity;
 
 struct DensityPriv {
+    /* Predicted quantities computed during for density and reused during hydro.*/
+    struct sph_pred_data * SPH_predicted;
+    /* The gradient of the density, used sometimes during star formation.
+     * May be NULL.*/
+    MyFloat * GradRho;
     /* Current number of neighbours*/
     MyFloat *NumNgb;
     /* Lower and upper bounds on smoothing length*/
@@ -201,7 +206,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double HydroCostFactor, double MinEgySpec, double atime, const ForceTree * const tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double HydroCostFactor, double MinEgySpec, double atime, struct sph_pred_data * SPH_predicted, MyFloat * GradRho, const ForceTree * const tree)
 {
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
@@ -246,6 +251,8 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
     DENSITY_GET_PRIV(tw)->BlackHoleOn = BlackHoleOn;
     DENSITY_GET_PRIV(tw)->HydroCostFactor = HydroCostFactor * atime;
+    DENSITY_GET_PRIV(tw)->SPH_predicted = SPH_predicted;
+    DENSITY_GET_PRIV(tw)->GradRho = GradRho;
 
     /* Init Left and Right: this has to be done before treewalk */
     double a3inv = pow(atime, -3);
@@ -261,8 +268,8 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
             if(P[i].PI < 0 || P[i].PI > SlotsManager->info[0].size)
                 endrun(6, "Invalid PI: i = %d PI = %d\n", i, P[i].PI);
 #endif
-            SphP_scratch->EntVarPred[P[i].PI] = SPH_EntVarPred(i, MinEgySpec, a3inv);
-            SPH_VelPred(i, SphP_scratch->VelPred + 3 * P[i].PI);
+            SPH_predicted->EntVarPred[P[i].PI] = SPH_EntVarPred(i, MinEgySpec, a3inv);
+            SPH_VelPred(i, SPH_predicted->VelPred + 3 * P[i].PI);
         }
     }
 
@@ -391,9 +398,10 @@ density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw)
     }
     else
     {
-        I->Vel[0] = SphP_scratch->VelPred[3 * P[place].PI];
-        I->Vel[1] = SphP_scratch->VelPred[3 * P[place].PI + 1];
-        I->Vel[2] = SphP_scratch->VelPred[3 * P[place].PI + 2];
+        MyFloat * velpred = DENSITY_GET_PRIV(tw)->SPH_predicted->VelPred;
+        I->Vel[0] = velpred[3 * P[place].PI];
+        I->Vel[1] = velpred[3 * P[place].PI + 1];
+        I->Vel[2] = velpred[3 * P[place].PI + 2];
     }
 
 }
@@ -413,10 +421,12 @@ density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMod
         TREEWALK_REDUCE(DENSITY_GET_PRIV(tw)->Rot[pi][1], remote->Rot[1]);
         TREEWALK_REDUCE(DENSITY_GET_PRIV(tw)->Rot[pi][2], remote->Rot[2]);
 
-        if(SphP_scratch->GradRho) {
-            TREEWALK_REDUCE(SphP_scratch->GradRho[3*pi], remote->GradRho[0]);
-            TREEWALK_REDUCE(SphP_scratch->GradRho[3*pi+1], remote->GradRho[1]);
-            TREEWALK_REDUCE(SphP_scratch->GradRho[3*pi+2], remote->GradRho[2]);
+        MyFloat * gradrho = DENSITY_GET_PRIV(tw)->GradRho;
+
+        if(gradrho) {
+            TREEWALK_REDUCE(gradrho[3*pi], remote->GradRho[0]);
+            TREEWALK_REDUCE(gradrho[3*pi+1], remote->GradRho[1]);
+            TREEWALK_REDUCE(gradrho[3*pi+2], remote->GradRho[2]);
         }
 
         /*Only used for density independent SPH*/
@@ -500,6 +510,8 @@ density_ngbiter(
         double density_dW = density_kernel_dW(&iter->kernel, u, wk, dwk);
         O->DhsmlDensity += mass_j * density_dW;
 
+        struct sph_pred_data * SphP_scratch = DENSITY_GET_PRIV(lv->tw)->SPH_predicted;
+
         if(DENSITY_GET_PRIV(lv->tw)->DoEgyDensity) {
             const double EntPred = SphP_scratch->EntVarPred[P[other].PI];
             O->EgyRho += mass_j * EntPred * wk;
@@ -507,7 +519,7 @@ density_ngbiter(
         }
 
 
-        if(SphP_scratch->GradRho) {
+        if(DENSITY_GET_PRIV(lv->tw)->GradRho) {
             if(r > 0)
             {
                 int d;
@@ -567,6 +579,7 @@ density_postprocess(int i, TreeWalk * tw)
 
             /*Compute the EgyWeight factors, which are only useful for density independent SPH */
             if(DENSITY_GET_PRIV(tw)->DoEgyDensity) {
+                struct sph_pred_data * SphP_scratch = DENSITY_GET_PRIV(tw)->SPH_predicted;
                 const double EntPred = SphP_scratch->EntVarPred[P[i].PI];
                 if(EntPred <= 0 || SPHP(i).EgyWtDensity <=0)
                     endrun(12, "Particle %d has bad predicted entropy: %g or EgyWtDensity: %g\n", i, EntPred, SPHP(i).EgyWtDensity);
@@ -709,3 +722,22 @@ void density_check_neighbours (int i, TreeWalk * tw)
     }
 }
 
+
+struct sph_pred_data
+slots_allocate_sph_pred_data(int nsph)
+{
+    struct sph_pred_data sph_scratch;
+    /*Data is allocated high so that we can free the tree around it*/
+    sph_scratch.EntVarPred = mymalloc2("EntVarPred", sizeof(MyFloat) * nsph);
+    sph_scratch.VelPred = mymalloc2("VelPred", sizeof(MyFloat) * 3 * nsph);
+    return sph_scratch;
+}
+
+void
+slots_free_sph_pred_data(struct sph_pred_data * sph_scratch)
+{
+    myfree(sph_scratch->VelPred);
+    sph_scratch->VelPred = NULL;
+    myfree(sph_scratch->EntVarPred);
+    sph_scratch->EntVarPred = NULL;
+}

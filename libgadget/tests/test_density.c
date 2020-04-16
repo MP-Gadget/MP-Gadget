@@ -26,6 +26,7 @@ static double BoxSize;
 /* The true struct for the state variable*/
 struct density_testdata
 {
+    struct sph_pred_data sph_pred;
     DomainDecomp ddecomp;
     struct density_params dp;
     gsl_rng * r;
@@ -118,7 +119,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     double start, end;
     start = MPI_Wtime();
     /*Find the density*/
-    density(&act, 1, 0, 0, 1, 0, 0.01, &tree);
+    density(&act, 1, 0, 0, 1, 0, 0.01, &data->sph_pred, NULL, &tree);
     end = MPI_Wtime();
     double ms = (end - start)*1000;
     message(0, "Found densities in %.3g ms\n", ms);
@@ -142,7 +143,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
 
     start = MPI_Wtime();
     /*Find the density*/
-    density(&act, 1, 0, 0, 1, 0, 0.01, &tree);
+    density(&act, 1, 0, 0, 1, 0, 0.01, &data->sph_pred, NULL, &tree);
     end = MPI_Wtime();
     ms = (end - start)*1000;
     message(0, "Found 1 dev densities in %.3g ms\n", ms);
@@ -285,8 +286,8 @@ void trivial_domain(DomainDecomp * ddecomp)
 }
 
 static int teardown_density(void **state) {
-    slots_free_sph_scratch_data(SphP_scratch);
     struct density_testdata * data = (struct density_testdata * ) *state;
+    slots_free_sph_pred_data(&data->sph_pred);
     myfree(data->ddecomp.Tasks);
     myfree(data->ddecomp.TopLeaves);
     myfree(data->ddecomp.TopNodes);
@@ -307,10 +308,10 @@ static int setup_density(void **state) {
     atleast[5] = 2;
     particle_alloc_memory(maxpart);
     slots_reserve(1, atleast, SlotsManager);
-    slots_allocate_sph_scratch_data(0, maxpart, &SlotsManager->sph_scratch);
     walltime_init(&CT);
     init_forcetree_params(2);
     struct density_testdata *data = mymalloc("data", sizeof(struct density_testdata));
+    data->sph_pred = slots_allocate_sph_pred_data(maxpart);
     /*Set up the top-level domain grid*/
     trivial_domain(&data->ddecomp);
     data->dp.DensityResolutionEta = 1.;

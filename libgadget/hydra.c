@@ -60,18 +60,19 @@ MyFloat SPH_EOMDensity(int i)
 }
 
 static double
-PressurePred(int PI)
+PressurePred(int PI, double EntVarPred)
 {
     MyFloat EOMDensity;
     if(HydroParams.DensityIndependentSphOn)
         EOMDensity = SphP[PI].EgyWtDensity;
     else
         EOMDensity = SphP[PI].Density;
-    return pow(SphP_scratch->EntVarPred[PI] * EOMDensity, GAMMA);
+    return pow(EntVarPred * EOMDensity, GAMMA);
 }
 
 struct HydraPriv {
     double * PressurePred;
+    struct sph_pred_data * SPH_predicted;
     /* Time-dependent constant factors, brought out here because
      * they need an expensive pow().*/
     double fac_mu;
@@ -142,7 +143,7 @@ hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mo
  *  particles .
  */
 void
-hydro_force(const ActiveParticles * act, int WindOn, const double HydroCostFactor, const double hubble, const double atime, ForceTree * tree)
+hydro_force(const ActiveParticles * act, int WindOn, const double HydroCostFactor, const double hubble, const double atime, struct sph_pred_data * SPH_predicted, const ForceTree * const tree)
 {
     int i;
     TreeWalk tw[1] = {{0}};
@@ -165,11 +166,12 @@ hydro_force(const ActiveParticles * act, int WindOn, const double HydroCostFacto
     if(!tree->hmax_computed_flag)
         endrun(5, "Hydro called before hmax computed\n");
     /* Cache the pressure for speed*/
+    HYDRA_GET_PRIV(tw)->SPH_predicted = SPH_predicted;
     HYDRA_GET_PRIV(tw)->PressurePred = (double *) mymalloc("PressurePred", SlotsManager->info[0].size * sizeof(double));
 
     #pragma omp parallel for
     for(i = 0; i < SlotsManager->info[0].size; i++)
-        HYDRA_GET_PRIV(tw)->PressurePred[i] = PressurePred(i);
+        HYDRA_GET_PRIV(tw)->PressurePred[i] = PressurePred(i, SPH_predicted->EntVarPred[i]);
 
     double timeall = 0, timenetwork = 0;
     double timecomp, timecomm, timewait;
@@ -205,17 +207,20 @@ static void
 hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
 {
     double soundspeed_i;
+    MyFloat * velpred = HYDRA_GET_PRIV(tw)->SPH_predicted->VelPred;
     /*Compute predicted velocity*/
-    input->Vel[0] = SphP_scratch->VelPred[3 * P[place].PI];
-    input->Vel[1] = SphP_scratch->VelPred[3 * P[place].PI + 1];
-    input->Vel[2] = SphP_scratch->VelPred[3 * P[place].PI + 2];
+    input->Vel[0] = velpred[3 * P[place].PI];
+    input->Vel[1] = velpred[3 * P[place].PI + 1];
+    input->Vel[2] = velpred[3 * P[place].PI + 2];
     input->Hsml = P[place].Hsml;
     input->Mass = P[place].Mass;
     input->Density = SPHP(place).Density;
 
     if(HydroParams.DensityIndependentSphOn) {
         input->EgyRho = SPHP(place).EgyWtDensity;
-        input->EntVarPred = SphP_scratch->EntVarPred[P[place].PI];
+        MyFloat * entvarpred = HYDRA_GET_PRIV(tw)->SPH_predicted->EntVarPred;
+
+        input->EntVarPred = entvarpred[P[place].PI];
     }
 
     input->SPH_DhsmlDensityFactor = SPHP(place).DhsmlEgyDensityFactor;
@@ -308,10 +313,12 @@ hydro_ngbiter(
         double p_over_rho2_j = Pressure_j / (SPH_EOMDensity(other) * SPH_EOMDensity(other));
         double soundspeed_j = sqrt(GAMMA * Pressure_j / SPH_EOMDensity(other));
 
+        MyFloat * velpred = HYDRA_GET_PRIV(lv->tw)->SPH_predicted->VelPred;
+
         double dv[3];
         int d;
         for(d = 0; d < 3; d++) {
-            dv[d] = I->Vel[d] - SphP_scratch->VelPred[3 * P[other].PI + d];
+            dv[d] = I->Vel[d] - velpred[3 * P[other].PI + d];
         }
 
         double vdotr = dotproduct(dist, dv);
@@ -361,8 +368,9 @@ hydro_ngbiter(
         if(HydroParams.DensityIndependentSphOn) {
             /*This enables the grad-h corrections*/
             r1 = 0, r2 = 0;
+            MyFloat * entvarpred = HYDRA_GET_PRIV(lv->tw)->SPH_predicted->EntVarPred;
             /* leading-order term */
-            double EntOther = SphP_scratch->EntVarPred[P[other].PI];
+            double EntOther = entvarpred[P[other].PI];
 
             hfc += P[other].Mass *
                 (dwk_i*iter->p_over_rho2_i*EntOther/I->EntVarPred +

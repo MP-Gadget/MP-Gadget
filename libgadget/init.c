@@ -284,7 +284,7 @@ void check_positions(void)
  * Initialization of the entropy variable is a little trickier in this version of SPH,
  * since we need to make sure it 'talks to' the density appropriately */
 static void
-setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, double u_init, double a3)
+setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, struct sph_pred_data * sph_pred, double u_init, double a3)
 {
     int j;
     int stop = 0;
@@ -307,7 +307,7 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, doubl
             olddensity[i] = SphP[i].EgyWtDensity;
         }
         /* Update the EgyWtDensity*/
-        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, 0,  All.Time, Tree);
+        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, 0,  All.Time, sph_pred, NULL, Tree);
         if(stop)
             break;
 
@@ -348,7 +348,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
     /* Do nothing if we are a pure DM run*/
     if(tot_sph + tot_bh == 0)
         return;
-
+//
     ForceTree Tree = {0};
     /* Need moments because we use them to set Hsml*/
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 0, 1, All.OutputDir);
@@ -422,14 +422,14 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
     }
 
     /*Allocate the extra SPH data for transient SPH particle properties.*/
-    slots_allocate_sph_scratch_data(0, SlotsManager->info[0].size, &SlotsManager->sph_scratch);
+    struct sph_pred_data sph_pred = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
 
-        /*At the first time step all particles should be active*/
+    /*At the first time step all particles should be active*/
     ActiveParticles act = {0};
     act.ActiveParticle = NULL;
     act.NumActiveParticle = PartManager->NumPart;
 
-    density(&act, 1, 0, All.BlackHoleOn, All.HydroCostFactor, 0,  All.Time, &Tree);
+    density(&act, 1, 0, All.BlackHoleOn, All.HydroCostFactor, 0,  All.Time, &sph_pred, NULL, &Tree);
 
     /* for clean IC with U input only, we need to iterate to find entrpoy */
     if(RestartSnapNum == -1)
@@ -449,7 +449,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
         /* snapshot already has EgyWtDensity; hope it is read in correctly.
          * (need a test on this!) */
         if(DensityIndependentSphOn()) {
-            setup_density_indep_entropy(&act, &Tree, u_init, a3);
+            setup_density_indep_entropy(&act, &Tree, &sph_pred, u_init, a3);
         }
         else {
            /*Initialize to initial energy*/
@@ -458,6 +458,6 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
                 SphP[i].Entropy = GAMMA_MINUS1 * u_init / pow(SphP[i].Density / a3 , GAMMA_MINUS1);
         }
     }
-    slots_free_sph_scratch_data(SphP_scratch);
+    slots_free_sph_pred_data(&sph_pred);
     force_tree_free(&Tree);
 }

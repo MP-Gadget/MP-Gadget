@@ -51,7 +51,7 @@ static struct ClockTable Clocks;
  * reached, when a `stop' file is found in the output directory, or
  * when the simulation ends because we arrived at TimeMax.
  */
-static void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, int PairwiseStep, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp);
+static void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, MyFloat * GradRho, int PairwiseStep, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp);
 static void write_cpu_log(int NumCurrentTiStep, FILE * FdCPU);
 
 /* Updates the global storing the current random offset of the particles,
@@ -250,8 +250,12 @@ run(int RestartSnapNum)
         ForceTree Tree = {0};
         force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, !pairwisestep && All.TreeGravOn, All.OutputDir);
 
+        MyFloat * GradRho = NULL;
+        if(sfr_need_to_compute_sph_grad_rho())
+            GradRho = mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
+
         /* update force to Ti_Current */
-        compute_accelerations(&Act, is_PM, &pm, pairwisestep, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
+        compute_accelerations(&Act, is_PM, &pm, GradRho, pairwisestep, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
 
         /* Update velocity to Ti_Current; this synchonizes TiKick and TiDrift for the active particles */
 
@@ -309,11 +313,11 @@ run(int RestartSnapNum)
             blackhole(&Act, &Tree, FdBlackHoles, FdBlackholeDetails);
 
             /**** radiative cooling and star formation *****/
-            cooling_and_starformation(&Act, &Tree, FdSfr);
+            cooling_and_starformation(&Act, &Tree, GradRho, FdSfr);
 
-            if(SlotsManager->sph_scratch.GradRho) {
-                myfree(SlotsManager->sph_scratch.GradRho);
-                SlotsManager->sph_scratch.GradRho = NULL;
+            if(GradRho) {
+                myfree(GradRho);
+                GradRho = NULL;
             }
         }
 
@@ -395,7 +399,7 @@ run(int RestartSnapNum)
 
 /*! This routine computes the accelerations for all active particles. Density, hydro and gravity are computed, in that order.
  */
-void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, int PairwiseStep, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp)
+void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, MyFloat * GradRho, int PairwiseStep, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp)
 {
     message(0, "Begin force computation.\n");
 
@@ -413,11 +417,11 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
         /***** density *****/
         message(0, "Start density computation...\n");
 
-        /*Allocate the extra SPH data for transient SPH particle properties.*/
-        slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size, &SlotsManager->sph_scratch);
+        /*Allocate the memory for predicted SPH data.*/
+        struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
 
         if(All.DensityOn)
-            density(act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, All.MinEgySpec, All.cf.a, tree);  /* computes density, and pressure */
+            density(act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, All.MinEgySpec, All.cf.a, &sph_predicted, GradRho, tree);  /* computes density, and pressure */
 
         /***** update smoothing lengths in tree *****/
         force_update_hmax(act->ActiveParticle, act->NumActiveParticle, tree, ddecomp);
@@ -427,10 +431,10 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
 
         /* adds hydrodynamical accelerations  and computes du/dt  */
         if(All.HydroOn)
-            hydro_force(act, All.WindOn, All.HydroCostFactor, All.cf.hubble, All.cf.a, tree);
+            hydro_force(act, All.WindOn, All.HydroCostFactor, All.cf.hubble, All.cf.a, &sph_predicted, tree);
 
         /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
-        slots_free_sph_scratch_data(SphP_scratch);
+        slots_free_sph_pred_data(&sph_predicted);
     }
 
     /* The opening criterion for the gravtree
