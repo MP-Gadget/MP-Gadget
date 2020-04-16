@@ -94,35 +94,6 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         int startnode,
         LocalTreeWalk * lv);
 
-
-/*! This function is used as a comparison kernel in a sort routine. It is
- *  used to group particles in the communication buffer that are going to
- *  be sent to the same CPU.
- */
-static int data_index_compare(const void *a, const void *b)
-{
-    if(((struct data_index *) a)->Task < (((struct data_index *) b)->Task))
-        return -1;
-
-    if(((struct data_index *) a)->Task > (((struct data_index *) b)->Task))
-        return +1;
-
-    if(((struct data_index *) a)->Index < (((struct data_index *) b)->Index))
-        return -1;
-
-    if(((struct data_index *) a)->Index > (((struct data_index *) b)->Index))
-        return +1;
-
-    if(((struct data_index *) a)->IndexGet < (((struct data_index *) b)->IndexGet))
-        return -1;
-
-    if(((struct data_index *) a)->IndexGet > (((struct data_index *) b)->IndexGet))
-        return +1;
-
-    return 0;
-}
-
-
 /*
  * for debugging
  */
@@ -410,13 +381,10 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may
 static void
 ev_primary(TreeWalk * tw)
 {
-    const int NTask = tw->NTask;
     double tstart, tend;
     tw->BufferFullFlag = 0;
     tw->Nexport = 0;
 
-
-    size_t i;
     tstart = second();
 
     struct TreeWalkThreadLocals export = ev_alloc_threadlocals(tw, tw->NTask, tw->NThread);
@@ -666,10 +634,8 @@ ev_communicate(void * sendbuf, void * recvbuf, size_t elsize, const struct SendR
 /* returns the remote particles */
 static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
 {
-    /* Can I avoid doing this sort?*/
-    qsort_openmp(DataIndexTable, tw->Nexport, sizeof(struct data_index), data_index_compare);
-    int NTask = tw->NTask;
-    int i;
+    const int NTask = tw->NTask;
+    size_t i;
     double tstart, tend;
 
     struct SendRecvBuffer sndrcv = {0};
@@ -684,7 +650,6 @@ static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
     for(i = 0; i < tw->Nexport; i++) {
         sndrcv.Send_count[DataIndexTable[i].Task]++;
     }
-    tw->Nexport -= sndrcv.Send_count[NTask];
 
     tstart = second();
     MPI_Alltoall(sndrcv.Send_count, 1, MPI_INT, sndrcv.Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
@@ -707,15 +672,28 @@ static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
     char * sendbuf = mymalloc("EvDataIn", tw->Nexport * tw->query_type_elsize);
 
     tstart = second();
-    /* prepare particle data for export */
-#pragma omp parallel for
+    int * localsendcount = ta_malloc("localsendcount", int, NTask);
+    memset(localsendcount, 0, sizeof(int)*NTask);
+    /* prepare particle data for export, building the sendbuffer.
+     * Set DataIndexTable.IndexGet to the index in the send buffer. */
     for(j = 0; j < tw->Nexport; j++)
     {
         int place = DataIndexTable[j].Index;
-        TreeWalkQueryBase * input = (TreeWalkQueryBase*) (sendbuf + j * tw->query_type_elsize);
+        /* Get the index in the send buffer*/
+        int task = DataIndexTable[j].Task;
+        if(task >= tw->NTask)
+            continue;
+        int startsend = sndrcv.Send_offset[DataIndexTable[j].Task];
+        int indexsend = startsend + localsendcount[task];
+        TreeWalkQueryBase * input = (TreeWalkQueryBase*) (sendbuf + indexsend * tw->query_type_elsize);
         int * nodelist = DataNodeList[DataIndexTable[j].IndexGet].NodeList;
         treewalk_init_query(tw, input, place, nodelist);
+        /* We have exported this particle, increment*/
+        localsendcount[task]++;
+        /* Set IndexGet which is used in the reduction.*/
+        DataIndexTable[j].IndexGet = indexsend;
     }
+    ta_free(localsendcount);
     tend = second();
     tw->timecomp1 += timediff(tstart, tend);
 
@@ -763,11 +741,7 @@ static void ev_reduce_result(const struct SendRecvBuffer sndrcv, TreeWalk * tw)
 
     tstart = second();
 
-    for(j = 0; j < Nexport; j++) {
-        DataIndexTable[j].IndexGet = j;
-    }
-
-    /* mysort is a lie! */
+    /* Sort the dataindextable by the index in the send buffer */
     qsort_openmp(DataIndexTable, Nexport, sizeof(struct data_index), data_index_compare_by_index);
 
     int * UniqueOff = mymalloc("UniqueIndex", sizeof(int) * (Nexport + 1));
