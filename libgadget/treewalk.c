@@ -782,7 +782,7 @@ static void ev_reduce_result(const struct SendRecvBuffer sndrcv, TreeWalk * tw)
         UniqueOff[++Nunique] = Nexport;
 
     if(tw->reduce != NULL) {
-#pragma omp parallel for private(j) if(Nunique > 16)
+#pragma omp parallel for
         for(j = 0; j < Nunique; j++)
         {
             int k;
