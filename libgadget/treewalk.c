@@ -78,8 +78,8 @@ void set_treewalk_params(ParameterSet * ps)
 static void ev_init_thread(const struct TreeWalkThreadLocals export, TreeWalk * const tw, LocalTreeWalk * lv);
 static void ev_begin(TreeWalk * tw, int * active_set, const size_t size);
 static void ev_finish(TreeWalk * tw);
-static struct SendRecvBuffer ev_primary(TreeWalk * tw);
-static void ev_get_remote(const struct SendRecvBuffer sndrcv, TreeWalk * tw);
+static void ev_primary(TreeWalk * tw);
+static struct SendRecvBuffer ev_get_remote(TreeWalk * tw);
 static void ev_secondary(TreeWalk * tw);
 static void ev_reduce_result(const struct SendRecvBuffer sndrcv, TreeWalk * tw);
 static int ev_ndone(TreeWalk * tw);
@@ -407,7 +407,8 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may
 }
 
 /* returns struct containing export counts */
-static struct SendRecvBuffer ev_primary(TreeWalk * tw)
+static void
+ev_primary(TreeWalk * tw)
 {
     const int NTask = tw->NTask;
     double tstart, tend;
@@ -472,41 +473,6 @@ static struct SendRecvBuffer ev_primary(TreeWalk * tw)
 
     tend = second();
     tw->timecomp1 += timediff(tstart, tend);
-
-    /* Can I avoid doing this sort?*/
-    qsort_openmp(DataIndexTable, tw->Nexport, sizeof(struct data_index), data_index_compare);
-
-    struct SendRecvBuffer sndrcv = {0};
-    sndrcv.Send_count = (int *) ta_malloc("Send_count", int, 4*NTask+1);
-    sndrcv.Recv_count = sndrcv.Send_count + NTask+1;
-    sndrcv.Send_offset = sndrcv.Send_count + 2*NTask+1;
-    sndrcv.Recv_offset = sndrcv.Send_count + 3*NTask+1;
-
-    /* Fill the communication layouts */
-    /* Use the last element of SendCount to store the partially exported particles.*/
-    memset(sndrcv.Send_count, 0, sizeof(int)*(NTask+1));
-    for(i = 0; i < tw->Nexport; i++) {
-        sndrcv.Send_count[DataIndexTable[i].Task]++;
-    }
-    tw->Nexport -= sndrcv.Send_count[NTask];
-
-    tstart = second();
-    MPI_Alltoall(sndrcv.Send_count, 1, MPI_INT, sndrcv.Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
-    tend = second();
-    tw->timewait1 += timediff(tstart, tend);
-
-    for(i = 0, tw->Nimport = 0, sndrcv.Recv_offset[0] = 0, sndrcv.Send_offset[0] = 0; i < (size_t) NTask; i++)
-    {
-        tw->Nimport += sndrcv.Recv_count[i];
-
-        if(i > 0)
-        {
-            sndrcv.Send_offset[i] = sndrcv.Send_offset[i - 1] + sndrcv.Send_count[i - 1];
-            sndrcv.Recv_offset[i] = sndrcv.Recv_offset[i - 1] + sndrcv.Recv_count[i - 1];
-        }
-    }
-
-    return sndrcv;
 }
 
 static int ev_ndone(TreeWalk * tw)
@@ -640,9 +606,9 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
     if(tw->visit) {
         do
         {
-            const struct SendRecvBuffer sndrcv = ev_primary(tw); /* do local particles and prepare export list */
+            ev_primary(tw); /* do local particles and prepare export list */
             /* exchange particle data */
-            ev_get_remote(sndrcv, tw);
+            const struct SendRecvBuffer sndrcv = ev_get_remote(tw);
             /* now do the particles that were sent to us */
             ev_secondary(tw);
 
@@ -698,11 +664,45 @@ ev_communicate(void * sendbuf, void * recvbuf, size_t elsize, const struct SendR
 }
 
 /* returns the remote particles */
-static void ev_get_remote(const struct SendRecvBuffer sndrcv, TreeWalk * tw)
+static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
 {
-    size_t j;
+    /* Can I avoid doing this sort?*/
+    qsort_openmp(DataIndexTable, tw->Nexport, sizeof(struct data_index), data_index_compare);
+    int NTask = tw->NTask;
+    int i;
     double tstart, tend;
 
+    struct SendRecvBuffer sndrcv = {0};
+    sndrcv.Send_count = (int *) ta_malloc("Send_count", int, 4*NTask+1);
+    sndrcv.Recv_count = sndrcv.Send_count + NTask+1;
+    sndrcv.Send_offset = sndrcv.Send_count + 2*NTask+1;
+    sndrcv.Recv_offset = sndrcv.Send_count + 3*NTask+1;
+
+    /* Fill the communication layouts */
+    /* Use the last element of SendCount to store the partially exported particles.*/
+    memset(sndrcv.Send_count, 0, sizeof(int)*(NTask+1));
+    for(i = 0; i < tw->Nexport; i++) {
+        sndrcv.Send_count[DataIndexTable[i].Task]++;
+    }
+    tw->Nexport -= sndrcv.Send_count[NTask];
+
+    tstart = second();
+    MPI_Alltoall(sndrcv.Send_count, 1, MPI_INT, sndrcv.Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
+    tend = second();
+    tw->timewait1 += timediff(tstart, tend);
+
+    for(i = 0, tw->Nimport = 0, sndrcv.Recv_offset[0] = 0, sndrcv.Send_offset[0] = 0; i < (size_t) NTask; i++)
+    {
+        tw->Nimport += sndrcv.Recv_count[i];
+
+        if(i > 0)
+        {
+            sndrcv.Send_offset[i] = sndrcv.Send_offset[i - 1] + sndrcv.Send_count[i - 1];
+            sndrcv.Recv_offset[i] = sndrcv.Recv_offset[i - 1] + sndrcv.Recv_count[i - 1];
+        }
+    }
+
+    size_t j;
     void * recvbuf = mymalloc("EvDataGet", tw->Nimport * tw->query_type_elsize);
     char * sendbuf = mymalloc("EvDataIn", tw->Nexport * tw->query_type_elsize);
 
@@ -725,6 +725,7 @@ static void ev_get_remote(const struct SendRecvBuffer sndrcv, TreeWalk * tw)
     tw->timecommsumm1 += timediff(tstart, tend);
     myfree(sendbuf);
     tw->dataget = recvbuf;
+    return sndrcv;
 }
 
 static int data_index_compare_by_index(const void *a, const void *b)
