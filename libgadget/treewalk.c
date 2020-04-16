@@ -437,6 +437,7 @@ static struct SendRecvBuffer ev_primary(TreeWalk * tw)
         /* This assumes that the WorkSet is monotonic, which is guaranteed by the static schedule in
          * treewalk_begin_queue*/
         const int lastreal = tw->WorkSet ? tw->WorkSet[lastSucceeded] : lastSucceeded;
+        #pragma omp parallel for
         for(i=0; i < tw->BunchSize; i++) {
             /* target is the current particle, so this reads the buffer looking for
                 * exports associated with the current particle. We cannot just discard
