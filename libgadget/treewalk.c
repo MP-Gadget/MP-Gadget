@@ -473,31 +473,22 @@ static struct SendRecvBuffer ev_primary(TreeWalk * tw)
     tend = second();
     tw->timecomp1 += timediff(tstart, tend);
 
+    /* Can I avoid doing this sort?*/
     qsort_openmp(DataIndexTable, tw->Nexport, sizeof(struct data_index), data_index_compare);
 
-    /* adjust Nexport to skip the allocated but unused ones due to threads */
-    while (tw->Nexport > 0 && DataIndexTable[tw->Nexport - 1].Task == NTask) {
-        tw->Nexport --;
-    }
-
-    if(tw->BunchSize < 1) {
-        endrun(1231245, "Buffer too small for even one particle. For example, there are too many nodes");
-    }
-
     struct SendRecvBuffer sndrcv = {0};
-    sndrcv.Send_count = (int *) ta_malloc("Send_count", int, 4*NTask);
-    sndrcv.Recv_count = sndrcv.Send_count + NTask;
-    sndrcv.Send_offset = sndrcv.Send_count + 2*NTask;
-    sndrcv.Recv_offset = sndrcv.Send_count + 3*NTask;
-    /*
-     * fill the communication layouts,
-     * here we reuse the legacy global variable names;
-     * really should move them to local variables for the evaluator.
-     * */
-    memset(sndrcv.Send_count, 0, sizeof(int)*NTask);
+    sndrcv.Send_count = (int *) ta_malloc("Send_count", int, 4*NTask+1);
+    sndrcv.Recv_count = sndrcv.Send_count + NTask+1;
+    sndrcv.Send_offset = sndrcv.Send_count + 2*NTask+1;
+    sndrcv.Recv_offset = sndrcv.Send_count + 3*NTask+1;
+
+    /* Fill the communication layouts */
+    /* Use the last element of SendCount to store the partially exported particles.*/
+    memset(sndrcv.Send_count, 0, sizeof(int)*(NTask+1));
     for(i = 0; i < tw->Nexport; i++) {
         sndrcv.Send_count[DataIndexTable[i].Task]++;
     }
+    tw->Nexport -= sndrcv.Send_count[NTask];
 
     tstart = second();
     MPI_Alltoall(sndrcv.Send_count, 1, MPI_INT, sndrcv.Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
