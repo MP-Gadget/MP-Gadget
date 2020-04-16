@@ -250,10 +250,6 @@ run(int RestartSnapNum)
         ForceTree Tree = {0};
         force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, !pairwisestep && All.TreeGravOn, All.OutputDir);
 
-        /*Allocate the extra SPH data for transient SPH particle properties.*/
-        if(GasEnabled)
-            slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size, &SlotsManager->sph_scratch);
-
         /* update force to Ti_Current */
         compute_accelerations(&Act, is_PM, &pm, pairwisestep, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
 
@@ -315,8 +311,10 @@ run(int RestartSnapNum)
             /**** radiative cooling and star formation *****/
             cooling_and_starformation(&Act, &Tree, FdSfr);
 
-            /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
-            slots_free_sph_scratch_data(SphP_scratch);
+            if(SlotsManager->sph_scratch.GradRho) {
+                myfree(SlotsManager->sph_scratch.GradRho);
+                SlotsManager->sph_scratch.GradRho = NULL;
+            }
         }
 
         /* If a snapshot is requested, write it.
@@ -415,6 +413,9 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
         /***** density *****/
         message(0, "Start density computation...\n");
 
+        /*Allocate the extra SPH data for transient SPH particle properties.*/
+        slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size, &SlotsManager->sph_scratch);
+
         if(All.DensityOn)
             density(act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, All.MinEgySpec, All.cf.a, tree);  /* computes density, and pressure */
 
@@ -427,6 +428,9 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
         /* adds hydrodynamical accelerations  and computes du/dt  */
         if(All.HydroOn)
             hydro_force(act, All.WindOn, All.HydroCostFactor, All.cf.hubble, All.cf.a, tree);
+
+        /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
+        slots_free_sph_scratch_data(SphP_scratch);
     }
 
     /* The opening criterion for the gravtree

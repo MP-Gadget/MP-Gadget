@@ -687,8 +687,4 @@ slots_free_sph_scratch_data(struct sph_scratch_data * sph_scratch)
     sph_scratch->VelPred = NULL;
     myfree(sph_scratch->EntVarPred);
     sph_scratch->EntVarPred = NULL;
-    if(sph_scratch->GradRho) {
-        myfree(sph_scratch->GradRho);
-        sph_scratch->GradRho = NULL;
-    }
 }
