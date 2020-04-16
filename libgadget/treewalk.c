@@ -270,7 +270,7 @@ treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum T
         tw->reduce(i, result, mode, tw);
 }
 
-static void real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, int *lastSucceeded, int * currentIndex) {
+static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, int * currentIndex) {
     LocalTreeWalk lv[1];
     /* Note: exportflag is local to each thread */
     ev_init_thread(export, tw, lv);
@@ -282,6 +282,7 @@ static void real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, int *last
     TreeWalkQueryBase * input = (TreeWalkQueryBase *) ((char *) export.input + tid * tw->query_type_elsize);
     TreeWalkResultBase * output = (TreeWalkResultBase *) ((char *) export.output + tid * tw->result_type_elsize);
 
+    int lastSucceeded = tw->WorkSetStart - 1;
     /* We must schedule monotonically so that if the export buffer fills up
      * it is guaranteed that earlier particles are already done.
      * However, we schedule dynamically so that we have reduced imbalance.
@@ -309,16 +310,18 @@ static void real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, int *last
             const int rt = tw->visit(input, output, lv);
             if(rt < 0) {
                 /* export buffer has filled up, can't do more work.*/
-                return;
+                return lastSucceeded;
             } else {
                 treewalk_reduce_result(tw, output, i, TREEWALK_PRIMARY);
                 /* We need lastSucceeded as well as currentIndex so that
                  * if the export buffer fills up in the middle of a
                  * chunk we still get the right answer. Notice it is thread-local*/
-                *lastSucceeded = k;
+                lastSucceeded = k;
             }
         }
     } while(chnk < tw->WorkSetSize);
+
+    return lastSucceeded;
 }
 
 #if 0
@@ -413,22 +416,21 @@ static struct SendRecvBuffer ev_primary(TreeWalk * tw)
 
 
     size_t i;
-    int lastSucceeded = tw->WorkSetStart - 1;
-
     tstart = second();
 
     struct TreeWalkThreadLocals export = ev_alloc_threadlocals(tw, tw->NTask, tw->NThread);
     int currentIndex = tw->WorkSetStart;
+    int lastSucceeded = tw->WorkSetSize;
 
 #pragma omp parallel reduction(min: lastSucceeded)
     {
-        real_ev(export, tw, &lastSucceeded, &currentIndex);
+        lastSucceeded = real_ev(export, tw, &currentIndex);
     }
 
     ev_free_threadlocals(export);
 
     if(tw->Nexport >= tw->BunchSize) {
-        message(1, "Tree export buffer full with %d particles. This is not fatal but slows the treewalk. Increase free memory during treewalk if possible.\n", tw->Nexport);
+        message(1, "Tree export buffer full with %d particles. start %d lastsucceeded: %d.\n", tw->Nexport, tw->WorkSetStart, lastSucceeded);
         tw->BufferFullFlag = 1;
     }
 
