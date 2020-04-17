@@ -681,8 +681,11 @@ static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
         int place = DataIndexTable[j].Index;
         /* Get the index in the send buffer*/
         int task = DataIndexTable[j].Task;
-        if(task >= tw->NTask)
+        if(task >= tw->NTask) {
+            DataIndexTable[j].IndexGet = 2 * tw->BunchSize;
+            DataIndexTable[j].Index = 2 * PartManager->NumPart;
             continue;
+        }
         int startsend = sndrcv.Send_offset[DataIndexTable[j].Task];
         int indexsend = startsend + localsendcount[task];
         TreeWalkQueryBase * input = (TreeWalkQueryBase*) (sendbuf + indexsend * tw->query_type_elsize);
@@ -729,10 +732,9 @@ static void ev_reduce_result(const struct SendRecvBuffer sndrcv, TreeWalk * tw)
     int j;
     double tstart, tend;
 
-    const int Nexport = tw->Nexport;
     void * sendbuf = tw->dataresult;
     char * recvbuf = (char*) mymalloc("EvDataOut",
-                Nexport * tw->result_type_elsize);
+                tw->Nexport * tw->result_type_elsize);
 
     tstart = second();
     ev_communicate(sendbuf, recvbuf, tw->result_type_elsize, sndrcv, 1);
@@ -742,8 +744,12 @@ static void ev_reduce_result(const struct SendRecvBuffer sndrcv, TreeWalk * tw)
     tstart = second();
 
     /* Sort the dataindextable by the index in the send buffer */
-    qsort_openmp(DataIndexTable, Nexport, sizeof(struct data_index), data_index_compare_by_index);
+    qsort_openmp(DataIndexTable, tw->Nexport, sizeof(struct data_index), data_index_compare_by_index);
 
+    while(tw->Nexport > 0 && DataIndexTable[tw->Nexport - 1].Index > PartManager->NumPart)
+        tw->Nexport--;
+
+    const int Nexport = tw->Nexport;
     int * UniqueOff = mymalloc("UniqueIndex", sizeof(int) * (Nexport + 1));
     UniqueOff[0] = 0;
     int Nunique = 0;
