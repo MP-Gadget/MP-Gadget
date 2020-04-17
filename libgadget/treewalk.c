@@ -410,13 +410,10 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may
 static void
 ev_primary(TreeWalk * tw)
 {
-    const int NTask = tw->NTask;
     double tstart, tend;
     tw->BufferFullFlag = 0;
     tw->Nexport = 0;
 
-
-    size_t i;
     tstart = second();
 
     struct TreeWalkThreadLocals export = ev_alloc_threadlocals(tw, tw->NTask, tw->NThread);
@@ -669,7 +666,7 @@ static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
     /* Can I avoid doing this sort?*/
     qsort_openmp(DataIndexTable, tw->Nexport, sizeof(struct data_index), data_index_compare);
     int NTask = tw->NTask;
-    int i;
+    size_t i;
     double tstart, tend;
 
     struct SendRecvBuffer sndrcv = {0};
