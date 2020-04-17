@@ -201,12 +201,16 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
         endrun(1231245, "Not enough memory for exporting any particles: needed %d bytes have %d. \n", bytesperbuffer, freebytes-4096*10);
     }
     freebytes -= 4096 * 10 * bytesperbuffer;
-    /* if freebytes is greater than 2GB some MPIs have issues */
-    if(freebytes > 1024 * 1024 * 2030) freebytes =  1024 * 1024 * 2030;
 
     tw->BunchSize = (size_t) floor(((double)freebytes)/ bytesperbuffer);
+    /* if the send/recv buffer is greater than 2GB some MPIs have issues. */
+    const size_t twogb = 1024*1024*2030L;
+    if(tw->BunchSize * tw->query_type_elsize > twogb)
+        tw->BunchSize = twogb / tw->query_type_elsize;
+
     if(tw->BunchSize < 100)
         endrun(2,"Only enough free memory to export %d elements.\n", tw->BunchSize);
+
     DataIndexTable =
         (struct data_index *) mymalloc("DataIndexTable", tw->BunchSize * sizeof(struct data_index));
     DataNodeList =
