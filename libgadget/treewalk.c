@@ -464,7 +464,6 @@ static struct SendRecvBuffer ev_primary(TreeWalk * tw)
     for(i = 0; i < tw->Nexport; i++) {
         sndrcv.Send_count[DataIndexTable[i].Task]++;
     }
-
     tstart = second();
     MPI_Alltoall(sndrcv.Send_count, 1, MPI_INT, sndrcv.Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
     tend = second();
@@ -725,6 +724,24 @@ static void ev_get_remote(const struct SendRecvBuffer sndrcv, TreeWalk * tw)
     tw->timecommsumm1 += timediff(tstart, tend);
     myfree(sendbuf);
     tw->dataget = recvbuf;
+#if 0
+    /* Check nodelist utilisation*/
+    size_t total_full_nodes = 0;
+    size_t nodelist_hist[NODELISTLENGTH] = {0};
+    for(i = 0; i < tw->Nexport; i++) {
+        int j;
+        for(j = 0; j < NODELISTLENGTH; j++)
+            if(DataNodeList[i].NodeList[j] == -1 || j == NODELISTLENGTH-1) {
+                total_full_nodes+=j;
+                if(j == NODELISTLENGTH -1)
+                    nodelist_hist[j]++;
+                else
+                    nodelist_hist[j-1]++;
+                break;
+            }
+    }
+    message(1, "Avg. node utilisation: %g Nodes %lu %lu %lu %lu %lu %lu %lu %lu\n", (double)total_full_nodes/tw->Nexport,nodelist_hist[0], nodelist_hist[1],nodelist_hist[2], nodelist_hist[3], nodelist_hist[4],nodelist_hist[5], nodelist_hist[6], nodelist_hist[7] );
+#endif
 }
 
 static int data_index_compare_by_index(const void *a, const void *b)
