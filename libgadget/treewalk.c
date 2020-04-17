@@ -279,6 +279,10 @@ treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum T
 {
     if(tw->reduce != NULL)
         tw->reduce(i, result, mode, tw);
+#ifdef DEBUG
+    if(P[i].ID != result->ID)
+        endrun(2, "Mismatched ID (%ld != %ld) for particle %d in treewalk reduction, mode %d\n", P[i].ID, result->ID, i, mode);
+#endif
 }
 
 static void real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw) {
