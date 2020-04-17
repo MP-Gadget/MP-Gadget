@@ -12,7 +12,6 @@ typedef struct {
 typedef struct
 {
     TreeWalkQueryBase base;
-    int Type;
     /*Used for adaptive gravitational softening*/
     MyFloat Soft;
     MyFloat OldAcc;
@@ -75,8 +74,7 @@ grav_short_postprocess(int i, TreeWalk * tw)
 static void
 grav_short_copy(int place, TreeWalkQueryGravShort * input, TreeWalk * tw)
 {
-    input->Type = P[place].Type;
-    input->Soft = FORCE_SOFTENING(place, input->Type);
+    input->Soft = FORCE_SOFTENING(place, P[place].Type);
     /*Compute old acceleration before we over-write things*/
     double aold=0;
     int i;
