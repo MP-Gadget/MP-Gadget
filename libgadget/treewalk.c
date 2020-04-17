@@ -242,7 +242,9 @@ int data_index_compare(const void *a, const void *b);
 static void
 treewalk_init_query(TreeWalk * tw, TreeWalkQueryBase * query, int i, int * NodeList)
 {
+#ifdef DEBUG
     query->ID = P[i].ID;
+#endif
 
     int d;
     for(d = 0; d < 3; d ++) {
@@ -267,7 +269,9 @@ static void
 treewalk_init_result(TreeWalk * tw, TreeWalkResultBase * result, TreeWalkQueryBase * query)
 {
     memset(result, 0, tw->result_type_elsize);
+#ifdef DEBUG
     result->ID = query->ID;
+#endif
 }
 
 static void
