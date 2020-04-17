@@ -30,6 +30,7 @@ static struct WindParams
 
 typedef struct {
     TreeWalkQueryBase base;
+    MyIDType ID;
     double Sfr;
     double Dt;
     double Mass;
@@ -459,7 +460,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     }
 
     double p = windeff * I->Mass / I->TotalWeight;
-    double random = get_random_number(I->base.ID + P[other].ID);
+    double random = get_random_number(I->ID + P[other].ID);
 
     if (random < p) {
         double dir[3];

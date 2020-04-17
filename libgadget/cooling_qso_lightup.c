@@ -47,6 +47,12 @@
 #define E0_HeII 54.4 /* HeII ionization potential in eV*/
 #define HEMASS 4.002602 /* Helium mass in amu*/
 
+typedef struct
+{
+    TreeWalkQueryBase base;
+    MyIDType ID;
+} TreeWalkQueryQSOLightup;
+
 /*Parameters for the quasar driven helium reionization model.*/
 struct qso_lightup_params
 {
@@ -410,7 +416,7 @@ struct QSOPriv {
  * Ionize and heat the particles
  */
 static void
-ionize_ngbiter(TreeWalkQueryBase * I,
+ionize_ngbiter(TreeWalkQueryQSOLightup * I,
         TreeWalkResultBase * O,
         TreeWalkNgbIterBase * iter,
         LocalTreeWalk * lv)
@@ -444,7 +450,7 @@ ionize_ngbiter(TreeWalkQueryBase * I,
 }
 
 static void
-ionize_copy(int place, TreeWalkQueryBase * I, TreeWalk * tw)
+ionize_copy(int place, TreeWalkQueryQSOLightup * I, TreeWalk * tw)
 {
     int k;
     FOFGroups * fof = QSO_GET_PRIV(tw)->fof;
@@ -454,7 +460,7 @@ ionize_copy(int place, TreeWalkQueryBase * I, TreeWalk * tw)
      * there are more local groups than particles!*/
     for(k = 0; k < 3; k++)
     {
-        I->Pos[k] = fof->Group[place].CM[k];
+        I->base.Pos[k] = fof->Group[place].CM[k];
     }
     I->ID = fof->Group[place].base.MinID;
 }
@@ -479,12 +485,12 @@ ionize_all_part(int qso_ind, int * qso_cand, FOFGroups * fof, ForceTree * tree)
      * searches a constant distance from the halo.*/
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBase);
-    tw->ngbiter = ionize_ngbiter;
+    tw->ngbiter = (TreeWalkNgbIterFunction) ionize_ngbiter;
 
     tw->fill = (TreeWalkFillQueryFunction) ionize_copy;
     tw->reduce = NULL;
     tw->postprocess = NULL;
-    tw->query_type_elsize = sizeof(TreeWalkQueryBase);
+    tw->query_type_elsize = sizeof(TreeWalkQueryQSOLightup);
     tw->result_type_elsize = sizeof(TreeWalkResultBase);
 
     struct QSOPriv priv[1];

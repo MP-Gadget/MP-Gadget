@@ -204,12 +204,16 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
         endrun(1231245, "Not enough memory for exporting any particles: needed %d bytes have %d. \n", bytesperbuffer, freebytes-4096*10);
     }
     freebytes -= 4096 * 10 * bytesperbuffer;
-    /* if freebytes is greater than 2GB some MPIs have issues */
-    if(freebytes > 1024 * 1024 * 2030) freebytes =  1024 * 1024 * 2030;
 
     tw->BunchSize = (size_t) floor(((double)freebytes)/ bytesperbuffer);
+    /* if the send/recv buffer is greater than 2GB some MPIs have issues. */
+    const size_t twogb = 1024*1024*2030L;
+    if(tw->BunchSize * tw->query_type_elsize > twogb)
+        tw->BunchSize = twogb / tw->query_type_elsize;
+
     if(tw->BunchSize < 100)
         endrun(2,"Only enough free memory to export %d elements.\n", tw->BunchSize);
+
     DataIndexTable =
         (struct data_index *) mymalloc("DataIndexTable", tw->BunchSize * sizeof(struct data_index));
     DataNodeList =
@@ -235,7 +239,9 @@ int data_index_compare(const void *a, const void *b);
 static void
 treewalk_init_query(TreeWalk * tw, TreeWalkQueryBase * query, int i, int * NodeList)
 {
+#ifdef DEBUG
     query->ID = P[i].ID;
+#endif
 
     int d;
     for(d = 0; d < 3; d ++) {
@@ -260,7 +266,9 @@ static void
 treewalk_init_result(TreeWalk * tw, TreeWalkResultBase * result, TreeWalkQueryBase * query)
 {
     memset(result, 0, tw->result_type_elsize);
+#ifdef DEBUG
     result->ID = query->ID;
+#endif
 }
 
 static void
@@ -268,6 +276,10 @@ treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum T
 {
     if(tw->reduce != NULL)
         tw->reduce(i, result, mode, tw);
+#ifdef DEBUG
+    if(P[i].ID != result->ID)
+        endrun(2, "Mismatched ID (%ld != %ld) for particle %d in treewalk reduction, mode %d\n", P[i].ID, result->ID, i, mode);
+#endif
 }
 
 static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, int * currentIndex) {
@@ -722,7 +734,25 @@ static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
     tw->timecommsumm1 += timediff(tstart, tend);
     myfree(sendbuf);
     tw->dataget = recvbuf;
-    return sndrcv;
+#if 0
+    /* Check nodelist utilisation*/
+    size_t total_full_nodes = 0;
+    size_t nodelist_hist[NODELISTLENGTH] = {0};
+    for(i = 0; i < tw->Nexport; i++) {
+        int j;
+        for(j = 0; j < NODELISTLENGTH; j++)
+            if(DataNodeList[i].NodeList[j] == -1 || j == NODELISTLENGTH-1) {
+                total_full_nodes+=j;
+                if(j == NODELISTLENGTH -1)
+                    nodelist_hist[j]++;
+                else
+                    nodelist_hist[j-1]++;
+                break;
+            }
+    }
+    message(1, "Avg. node utilisation: %g Nodes %lu %lu %lu %lu %lu %lu %lu %lu\n", (double)total_full_nodes/tw->Nexport,nodelist_hist[0], nodelist_hist[1],nodelist_hist[2], nodelist_hist[3], nodelist_hist[4],nodelist_hist[5], nodelist_hist[6], nodelist_hist[7] );
+#endif
+      return sndrcv;
 }
 
 static int data_index_compare_by_index(const void *a, const void *b)

@@ -21,12 +21,16 @@ typedef struct TreeWalk TreeWalk;
 
 typedef struct {
     double Pos[3];
+#ifdef DEBUG
     MyIDType ID;
+#endif
     int NodeList[NODELISTLENGTH];
 } TreeWalkQueryBase;
 
 typedef struct {
+#ifdef DEBUG
     MyIDType ID;
+#endif
 } TreeWalkResultBase;
 
 typedef struct {

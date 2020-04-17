@@ -4,6 +4,7 @@
 #include "forcetree.h"
 #include "types.h"
 #include "timestep.h"
+#include "density.h"
 #include "utils/paramset.h"
 
 /* Function to get the center of mass density and HSML correction factor for an SPH particle with index i.
@@ -11,7 +12,7 @@
 MyFloat SPH_EOMDensity(int i);
 
 /*Function to compute hydro accelerations and adiabatic entropy change*/
-void hydro_force(const ActiveParticles * act, int WindOn, const double HydroCostFactor, const double hubble, const double atime, ForceTree * tree);
+void hydro_force(const ActiveParticles * act, int WindOn, const double HydroCostFactor, const double hubble, const double atime, struct sph_pred_data * SPH_predicted, const ForceTree * const tree);
 
 void set_hydro_params(ParameterSet * ps);
 
