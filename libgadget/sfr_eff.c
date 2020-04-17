@@ -88,11 +88,11 @@ static void cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_
 
 static int sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv);
 static int make_particle_star(int child, int parent, int placement);
-static int starformation(int i, double *localsfr, double * sum_sm, const double a3inv, const double hubble);
+static int starformation(int i, double *localsfr, double * sum_sm, MyFloat * GradRho, const double a3inv, const double hubble);
 static int quicklyastarformation(int i, const double a3inv);
 static double get_sfr_factor_due_to_selfgravity(int i);
-static double get_sfr_factor_due_to_h2(int i);
-static double get_starformation_rate_full(int i, struct sfr_eeqos_data sfr_data, const double a3inv);
+static double get_sfr_factor_due_to_h2(int i, MyFloat * GradRho);
+static double get_starformation_rate_full(int i, MyFloat * GradRho, struct sfr_eeqos_data sfr_data, const double a3inv);
 static double find_star_mass(int i);
 /*Get enough memory for new star slots. This may be excessively slow! Don't do it too often.*/
 static int * sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTree * tt);
@@ -133,7 +133,7 @@ void set_sfr_params(ParameterSet * ps)
 
 /* cooling and star formation routine.*/
 void
-cooling_and_starformation(ActiveParticles * act, ForceTree * tree, FILE * FdSfr)
+cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * GradRho, FILE * FdSfr)
 {
     if(!All.CoolingOn)
         return;
@@ -198,7 +198,7 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, FILE * FdSfr)
                     /*New star is always the same particle as the parent for quicklya*/
                     newstar = p_i;
                 } else {
-                    newstar = starformation(p_i, &localsfr, &sum_sm, a3inv, hubble);
+                    newstar = starformation(p_i, &localsfr, &sum_sm, GradRho, a3inv, hubble);
                 }
                 /*Add this particle to the stellar conversion queue if necessary.*/
                 if(newstar >= 0) {
@@ -539,7 +539,7 @@ quicklyastarformation(int i, const double a3inv)
  * The star slot is not actually created here, but a particle for it is.
  */
 static int
-starformation(int i, double *localsfr, double * sum_sm, const double a3inv, const double hubble)
+starformation(int i, double *localsfr, double * sum_sm, MyFloat * GradRho, const double a3inv, const double hubble)
 {
     /*  the proper time-step */
     double dloga = get_dloga_for_bin(P[i].TimeBin);
@@ -547,7 +547,7 @@ starformation(int i, double *localsfr, double * sum_sm, const double a3inv, cons
     int newstar = -1;
 
     struct sfr_eeqos_data sfr_data = get_sfr_eeqos(&P[i], &SPHP(i), dtime, a3inv);
-    SPHP(i).Sfr = get_starformation_rate_full(i, sfr_data, a3inv);
+    SPHP(i).Sfr = get_starformation_rate_full(i, GradRho, sfr_data, a3inv);
     SPHP(i).Ne = sfr_data.ne;
 
     /* amount of stars expect to form */
@@ -634,7 +634,7 @@ static struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct s
     return data;
 }
 
-static double get_starformation_rate_full(int i, struct sfr_eeqos_data sfr_data, const double a3inv)
+static double get_starformation_rate_full(int i, MyFloat * GradRho, struct sfr_eeqos_data sfr_data, const double a3inv)
 {
     if(!All.StarformationOn || !sfreff_on_eeqos(&SPHP(i), a3inv)) {
         return 0;
@@ -645,7 +645,9 @@ static double get_starformation_rate_full(int i, struct sfr_eeqos_data sfr_data,
     double rateOfSF = (1 - sfr_params.FactorSN) * cloudmass / sfr_data.tsfr;
 
     if (HAS(sfr_params.StarformationCriterion, SFR_CRITERION_MOLECULAR_H2)) {
-        rateOfSF *= get_sfr_factor_due_to_h2(i);
+        if(!GradRho)
+            endrun(1, "GradRho not allocated but has SFR_CRITERION_MOLECULAR_H2. Should never happen!\n");
+        rateOfSF *= get_sfr_factor_due_to_h2(i, GradRho);
     }
     if (HAS(sfr_params.StarformationCriterion, SFR_CRITERION_SELFGRAVITY)) {
         rateOfSF *= get_sfr_factor_due_to_selfgravity(i);
@@ -829,16 +831,13 @@ static double ev_NH_from_GradRho(MyFloat gradrho[3], double hsml, double rho, do
     return gradrho_mag; // *(Z/Zsolar) add metallicity dependence
 }
 
-static double get_sfr_factor_due_to_h2(int i) {
+static double get_sfr_factor_due_to_h2(int i, MyFloat * GradRho) {
     /*  Krumholz & Gnedin fitting function for f_H2 as a function of local
      *  properties, from gadget-p; we return the enhancement on SFR in this
      *  function */
-
-    if(!SphP_scratch->GradRho)
-        endrun(1, "Needed grad rho but not enabled! Should never happen!\n");
     double tau_fmol;
     double zoverzsun = SPHP(i).Metallicity/METAL_YIELD;
-    tau_fmol = ev_NH_from_GradRho(&(SphP_scratch->GradRho[3*P[i].PI]),P[i].Hsml,SPHP(i).Density,1) * All.cf.a2inv;
+    tau_fmol = ev_NH_from_GradRho(&(GradRho[3*P[i].PI]),P[i].Hsml,SPHP(i).Density,1) * All.cf.a2inv;
     tau_fmol *= (0.1 + zoverzsun);
     if(tau_fmol>0) {
         tau_fmol *= 434.78*All.UnitDensity_in_cgs*All.CP.HubbleParam*All.UnitLength_in_cm;

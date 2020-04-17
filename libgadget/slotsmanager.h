@@ -91,26 +91,9 @@ struct sph_particle_data
                     it depends on the scratch variable GradRho and thus cannot be recomputed after a fof-exchange. */
 };
 
-struct sph_scratch_data
-{
-    /* Gradient of the SPH density. 3x vector*/
-    MyFloat * GradRho;
-    /*!< Predicted entropy at current particle drift time for SPH computation*/
-    MyFloat * EntVarPred;
-    /* VelPred can always be derived from the current time and acceleration.
-     * However, doing so makes the SPH and hydro code much (a factor of two)
-     * slower. It requires computing get_gravkick_factor twice with different arguments,
-     * which defeats the lookup cache in timefac.c. Because VelPred is used multiple times,
-     * it is much quicker to compute it once and re-use this*/
-    MyFloat * VelPred;            /*!< Predicted velocity at current particle drift time for SPH. 3x vector.*/
-};
-
 extern struct slots_manager_type {
     struct slot_info info[6];
     char * Base; /* memory ptr that holds of all slots */
-    /* Pointer to struct of pointers that store optional data for this SPH data,
-     * which persists through one time step but not beyond. */
-    struct sph_scratch_data sph_scratch;
     double increase; /* Percentage amount to increase
                       * slot reservation by when requested.*/
 } SlotsManager[1];
@@ -124,9 +107,6 @@ extern struct slots_manager_type {
 #define SPHP(i) SphP[P[i].PI]
 #define BHP(i) BhP[P[i].PI]
 #define STARP(i) StarP[P[i].PI]
-
-/*Shortcut for the extra data*/
-#define SphP_scratch (&SlotsManager->sph_scratch)
 
 extern MPI_Datatype MPI_TYPE_PARTICLE;
 extern MPI_Datatype MPI_TYPE_SLOT[6];
@@ -147,9 +127,6 @@ int slots_gc(int * compact_slots, struct part_manager_type * pman, struct slots_
 void slots_gc_sorted(struct part_manager_type * pman, struct slots_manager_type * sman);
 size_t slots_reserve(int where, int atleast[6], struct slots_manager_type * sman);
 void slots_check_id_consistency(struct part_manager_type * pman, struct slots_manager_type * sman);
-
-void slots_allocate_sph_scratch_data(int sph_grad_rho, int nsph, struct sph_scratch_data * sph_scratch);
-void slots_free_sph_scratch_data(struct sph_scratch_data * sph_scratch);
 
 typedef struct {
     EIBase base;

@@ -667,28 +667,3 @@ slots_setup_id(const struct part_manager_type * pman, struct slots_manager_type 
         sdata->ID = pman->Base[i].ID;
     }
 }
-
-void
-slots_allocate_sph_scratch_data(int sph_grad_rho, int nsph, struct sph_scratch_data * sph_scratch)
-{
-    /*Data is allocated high so that we can free the tree around it*/
-    if(sph_grad_rho)
-        sph_scratch->GradRho = mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * nsph);
-    else
-        sph_scratch->GradRho = NULL;
-    sph_scratch->EntVarPred = mymalloc2("EntVarPred", sizeof(MyFloat) * nsph);
-    sph_scratch->VelPred = mymalloc2("VelPred", sizeof(MyFloat) * 3 * nsph);
-}
-
-void
-slots_free_sph_scratch_data(struct sph_scratch_data * sph_scratch)
-{
-    myfree(sph_scratch->VelPred);
-    sph_scratch->VelPred = NULL;
-    myfree(sph_scratch->EntVarPred);
-    sph_scratch->EntVarPred = NULL;
-    if(sph_scratch->GradRho) {
-        myfree(sph_scratch->GradRho);
-        sph_scratch->GradRho = NULL;
-    }
-}

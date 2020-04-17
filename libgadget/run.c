@@ -51,7 +51,7 @@ static struct ClockTable Clocks;
  * reached, when a `stop' file is found in the output directory, or
  * when the simulation ends because we arrived at TimeMax.
  */
-static void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, int PairwiseStep, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp);
+static void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, MyFloat * GradRho, int PairwiseStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp);
 static void write_cpu_log(int NumCurrentTiStep, FILE * FdCPU);
 
 /* Updates the global storing the current random offset of the particles,
@@ -250,12 +250,12 @@ run(int RestartSnapNum)
         ForceTree Tree = {0};
         force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, !pairwisestep && All.TreeGravOn, All.OutputDir);
 
-        /*Allocate the extra SPH data for transient SPH particle properties.*/
-        if(GasEnabled)
-            slots_allocate_sph_scratch_data(sfr_need_to_compute_sph_grad_rho(), SlotsManager->info[0].size, &SlotsManager->sph_scratch);
+        MyFloat * GradRho = NULL;
+        if(sfr_need_to_compute_sph_grad_rho())
+            GradRho = mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
 
         /* update force to Ti_Current */
-        compute_accelerations(&Act, is_PM, &pm, pairwisestep, NumCurrentTiStep == 0, GasEnabled, HybridNuGrav, &Tree, ddecomp);
+        compute_accelerations(&Act, is_PM, &pm, GradRho, pairwisestep, GasEnabled, HybridNuGrav, &Tree, ddecomp);
 
         /* Update velocity to Ti_Current; this synchonizes TiKick and TiDrift for the active particles */
 
@@ -287,6 +287,11 @@ run(int RestartSnapNum)
          */
         if(GasEnabled)
         {
+            if(is_PM) {
+                /*Rebuild the force tree we freed in gravpm to save memory*/
+                force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, 0, All.OutputDir);
+            }
+
             /* this will find new black hole seed halos.
              * Note: the FOF code does not know about garbage particles,
              * so ensure we do not have garbage present when we call this.
@@ -295,6 +300,7 @@ run(int RestartSnapNum)
              * It does not matter that the velocities are half a step off because they are not used in the FoF code.*/
             if (is_PM && ((All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) ||
                 (during_helium_reionization(1/All.Time - 1) && need_change_helium_ionization_fraction(All.Time)))) {
+
                 /* Seeding */
                 FOFGroups fof = fof_fof(&Tree, MPI_COMM_WORLD);
                 if(All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) {
@@ -313,10 +319,12 @@ run(int RestartSnapNum)
             blackhole(&Act, &Tree, FdBlackHoles, FdBlackholeDetails);
 
             /**** radiative cooling and star formation *****/
-            cooling_and_starformation(&Act, &Tree, FdSfr);
+            cooling_and_starformation(&Act, &Tree, GradRho, FdSfr);
 
-            /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
-            slots_free_sph_scratch_data(SphP_scratch);
+            if(GradRho) {
+                myfree(GradRho);
+                GradRho = NULL;
+            }
         }
 
         /* If a snapshot is requested, write it.
@@ -397,7 +405,7 @@ run(int RestartSnapNum)
 
 /*! This routine computes the accelerations for all active particles. Density, hydro and gravity are computed, in that order.
  */
-void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, int PairwiseStep, int FirstStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp)
+void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, MyFloat * GradRho, int PairwiseStep, int GasEnabled, int HybridNuGrav, ForceTree * tree, DomainDecomp * ddecomp)
 {
     message(0, "Begin force computation.\n");
 
@@ -415,8 +423,11 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
         /***** density *****/
         message(0, "Start density computation...\n");
 
+        /*Allocate the memory for predicted SPH data.*/
+        struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
+
         if(All.DensityOn)
-            density(act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, All.MinEgySpec, All.cf.a, tree);  /* computes density, and pressure */
+            density(act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, All.MinEgySpec, All.cf.a, &sph_predicted, GradRho, tree);  /* computes density, and pressure */
 
         /***** update smoothing lengths in tree *****/
         force_update_hmax(act->ActiveParticle, act->NumActiveParticle, tree, ddecomp);
@@ -426,7 +437,10 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
 
         /* adds hydrodynamical accelerations  and computes du/dt  */
         if(All.HydroOn)
-            hydro_force(act, All.WindOn, All.HydroCostFactor, All.cf.hubble, All.cf.a, tree);
+            hydro_force(act, All.WindOn, All.HydroCostFactor, All.cf.hubble, All.cf.a, &sph_predicted, tree);
+
+        /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
+        slots_free_sph_pred_data(&sph_predicted);
     }
 
     /* The opening criterion for the gravtree
@@ -463,9 +477,6 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
     if(is_PM)
     {
         gravpm_force(pm, tree);
-
-        /*Rebuild the force tree we freed in gravpm to save memory*/
-        force_tree_rebuild(tree, ddecomp, All.BoxSize, HybridNuGrav, FirstStep && All.TreeGravOn, All.OutputDir);
 
         /* compute and output energy statistics if desired. */
         if(All.OutputEnergyDebug)
