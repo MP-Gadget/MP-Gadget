@@ -465,8 +465,10 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     if (random < p) {
         double dir[3];
         get_wind_dir(other, dir);
-        /* in this case the particle is already locked by the tree walker */
-        /* we may want to add another lock to avoid this. */
+        /* This is technically a bug: if the treewalk export buffer fill up during
+         * wind evaluation we may have a particle kicked twice by the same wind.
+         * I have never seen this happen for the wind treewalk, as there are not usually
+         * many new stars in a single timestep, but it shall be fixed.*/
         int j;
         for(j = 0; j < 3; j++)
         {
