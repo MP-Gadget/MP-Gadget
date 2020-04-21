@@ -784,31 +784,33 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
     int * suns = tree->Nodes[no].s.suns;
 
     int childcnt = 0;
-    /* Remove any empty children.
+    /* Remove any empty children, moving the suns array around
+     * so non-empty entries are contiguous at the beginning of the array.
      * This sharply reduces the size of the tree.
      * Also count the node children for thread balancing.*/
-    for(j=0; j < 8; j++) {
+    int jj = 0;
+    for(j=0; j < 8; j++, jj++) {
         /* Never remove empty top-level nodes so we don't
          * mess up the pseudo-data exchange.
          * This may happen for a pseudo particle host or, in very rare cases,
          * when one of the local domains is empty. */
-        if(!tree->Nodes[suns[j]].f.TopLevel &&
-            tree->Nodes[suns[j]].f.ChildType == PARTICLE_NODE_TYPE &&
-            tree->Nodes[suns[j]].s.noccupied == 0) {
-                suns[j] = -1;
+        while(jj < 8 && !tree->Nodes[suns[jj]].f.TopLevel &&
+            tree->Nodes[suns[jj]].f.ChildType == PARTICLE_NODE_TYPE &&
+            tree->Nodes[suns[jj]].s.noccupied == 0) {
+                    jj++;
         }
-        else if(tree->Nodes[suns[j]].f.ChildType == NODE_NODE_TYPE)
+        if(jj < 8)
+            suns[j] = suns[jj];
+        else
+            suns[j] = -1;
+        if(suns[j] >= 0 && tree->Nodes[suns[j]].f.ChildType == NODE_NODE_TYPE)
             childcnt++;
     }
 
     /* Reset nextnode to point to a new child if needed.*/
-    if(childcnt < 8)
-        for(j = 0; j < 8; j++) {
-            if(suns[j] >= 0) {
-                tree->Nodes[no].nextnode = suns[j];
-                break;
-            }
-        }
+    if(suns[0] >= 0) {
+        tree->Nodes[no].nextnode = suns[0];
+    }
 
     /*First do the children*/
     for(j = 0; j < 8; j++)
