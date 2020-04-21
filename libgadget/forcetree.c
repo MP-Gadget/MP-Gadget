@@ -80,18 +80,18 @@ static void force_validate_nextlist(const ForceTree * tree)
     {
         struct NODE * current = &tree->Nodes[no];
         if(current->sibling != -1 && !node_is_node(current->sibling, tree))
-            endrun(5, "Node %d (type %d) has sibling %d next %d father %d first %d final %d last %d ntop %d\n", no, current->f.ChildType, current->sibling, current->nextnode, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
+            endrun(5, "Node %d (type %d) has sibling %d next %d father %d first %d final %d last %d ntop %d\n", no, current->f.ChildType, current->sibling, current->s.suns[0], current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
 
         if(current->f.ChildType == PSEUDO_NODE_TYPE) {
             /* pseudo particle: nextnode should be a pseudo particle, sibling should be a node. */
-            if(!node_is_pseudo_particle(current->nextnode, tree))
-                endrun(5, "Pseudo Node %d has next node %d sibling %d father %d first %d final %d last %d ntop %d\n", no, current->nextnode, current->sibling, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
+            if(!node_is_pseudo_particle(current->s.suns[0], tree))
+                endrun(5, "Pseudo Node %d has next node %d sibling %d father %d first %d final %d last %d ntop %d\n", no, current->s.suns[0], current->sibling, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
         }
         else if(current->f.ChildType == NODE_NODE_TYPE) {
             /* Next node should be another node */
-            if(!node_is_node(current->nextnode, tree))
-                endrun(5, "Node Node %d has next node which is particle %d sibling %d father %d first %d final %d last %d ntop %d\n", no, current->nextnode, current->sibling, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
-            no = current->nextnode;
+            if(!node_is_node(current->s.suns[0], tree))
+                endrun(5, "Node Node %d has next node which is particle %d sibling %d father %d first %d final %d last %d ntop %d\n", no, current->s.suns[0], current->sibling, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
+            no = current->s.suns[0];
             continue;
         }
         no = current->sibling;
@@ -101,7 +101,7 @@ static void force_validate_nextlist(const ForceTree * tree)
     {
         if(!node_is_node(tree->Nodes[no].father, tree) && tree->Nodes[no].father != -1) {
             struct NODE *current = &tree->Nodes[no];
-            message(1, "Danger! no %d has father %d, next %d sib %d, (ptype = %d) len %g center (%g %g %g) mass %g cofm %g %g %g TL %d DLM %d ITL %d nocc %d suns %d %d %d %d\n", no, current->father, current->nextnode, current->sibling, current->f.ChildType,
+            message(1, "Danger! no %d has father %d, next %d sib %d, (ptype = %d) len %g center (%g %g %g) mass %g cofm %g %g %g TL %d DLM %d ITL %d nocc %d suns %d %d %d %d\n", no, current->father, current->s.suns[0], current->sibling, current->f.ChildType,
                 current->len, current->center[0], current->center[1], current->center[2],
                 current->mom.mass, current->mom.cofm[0], current->mom.cofm[1], current->mom.cofm[2],
                 current->f.TopLevel, current->f.DependsOnLocalMass, current->f.InternalTopLevel, current->s.noccupied,
