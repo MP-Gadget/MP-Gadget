@@ -80,18 +80,18 @@ static void force_validate_nextlist(const ForceTree * tree)
     {
         struct NODE * current = &tree->Nodes[no];
         if(current->sibling != -1 && !node_is_node(current->sibling, tree))
-            endrun(5, "Node %d (type %d) has sibling %d next %d father %d first %d final %d last %d ntop %d\n", no, current->f.ChildType, current->sibling, current->nextnode, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
+            endrun(5, "Node %d (type %d) has sibling %d next %d father %d first %d final %d last %d ntop %d\n", no, current->f.ChildType, current->sibling, current->s.suns[0], current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
 
         if(current->f.ChildType == PSEUDO_NODE_TYPE) {
             /* pseudo particle: nextnode should be a pseudo particle, sibling should be a node. */
-            if(!node_is_pseudo_particle(current->nextnode, tree))
-                endrun(5, "Pseudo Node %d has next node %d sibling %d father %d first %d final %d last %d ntop %d\n", no, current->nextnode, current->sibling, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
+            if(!node_is_pseudo_particle(current->s.suns[0], tree))
+                endrun(5, "Pseudo Node %d has next node %d sibling %d father %d first %d final %d last %d ntop %d\n", no, current->s.suns[0], current->sibling, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
         }
         else if(current->f.ChildType == NODE_NODE_TYPE) {
             /* Next node should be another node */
-            if(!node_is_node(current->nextnode, tree))
-                endrun(5, "Node Node %d has next node which is particle %d sibling %d father %d first %d final %d last %d ntop %d\n", no, current->nextnode, current->sibling, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
-            no = current->nextnode;
+            if(!node_is_node(current->s.suns[0], tree))
+                endrun(5, "Node Node %d has next node which is particle %d sibling %d father %d first %d final %d last %d ntop %d\n", no, current->s.suns[0], current->sibling, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
+            no = current->s.suns[0];
             continue;
         }
         no = current->sibling;
@@ -101,7 +101,7 @@ static void force_validate_nextlist(const ForceTree * tree)
     {
         if(!node_is_node(tree->Nodes[no].father, tree) && tree->Nodes[no].father != -1) {
             struct NODE *current = &tree->Nodes[no];
-            message(1, "Danger! no %d has father %d, next %d sib %d, (ptype = %d) len %g center (%g %g %g) mass %g cofm %g %g %g TL %d DLM %d ITL %d nocc %d suns %d %d %d %d\n", no, current->father, current->nextnode, current->sibling, current->f.ChildType,
+            message(1, "Danger! no %d has father %d, next %d sib %d, (ptype = %d) len %g center (%g %g %g) mass %g cofm %g %g %g TL %d DLM %d ITL %d nocc %d suns %d %d %d %d\n", no, current->father, current->s.suns[0], current->sibling, current->f.ChildType,
                 current->len, current->center[0], current->center[1], current->center[2],
                 current->mom.mass, current->mom.cofm[0], current->mom.cofm[1], current->mom.cofm[2],
                 current->f.TopLevel, current->f.DependsOnLocalMass, current->f.InternalTopLevel, current->s.noccupied,
@@ -276,7 +276,6 @@ static void init_internal_node(struct NODE *nfreep, struct NODE *parent, int sub
     const MyFloat lenhalf = 0.25 * parent->len;
     nfreep->len = 0.5 * parent->len;
     nfreep->sibling = -10;
-    nfreep->nextnode = -10;
     nfreep->father = -10;
     nfreep->f.TopLevel = 0;
     nfreep->f.InternalTopLevel = 0;
@@ -330,8 +329,6 @@ modify_internal_node(int parent, int subnode, int p_toplace, const ForceTree tb)
 {
     tb.Father[p_toplace] = parent;
     tb.Nodes[parent].s.suns[subnode] = p_toplace;
-    if(subnode == 0)
-        tb.Nodes[parent].nextnode = tb.Nodes[parent].s.suns[0];
     return 0;
 }
 
@@ -398,15 +395,14 @@ create_new_node_layer(int firstparent, int p_toplace,
         memcpy(nprnt->s.suns, newsuns, NMAXCHILD * sizeof(int));
         } /* After this brace oldsuns and newsuns are invalid*/
 
-        /* Set nextnode and sibling for the new rank. Since empty at this point, point both of them onwards.*/
-        nprnt->nextnode = nprnt->s.suns[0];
+        /* Set sibling for the new rank. Since empty at this point, point onwards.*/
         for(i=0; i<7; i++) {
             int child = nprnt->s.suns[i];
             struct NODE * nchild = &tb.Nodes[child];
-            nchild->nextnode = nchild->sibling = nprnt->s.suns[i+1];
+            nchild->sibling = nprnt->s.suns[i+1];
         }
-        /* Final child needs special handling: set to the parent's sibling/nextnode.*/
-        tb.Nodes[nprnt->s.suns[7]].nextnode = tb.Nodes[nprnt->s.suns[7]].sibling = nprnt->sibling;
+        /* Final child needs special handling: set to the parent's sibling.*/
+        tb.Nodes[nprnt->s.suns[7]].sibling = nprnt->sibling;
 
         /* Now try again to add the new particle*/
         int subnode = get_subnode(nprnt, p_toplace);
@@ -456,7 +452,6 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         nfreep->s.noccupied = 0;
         nfreep->father = -1;
         nfreep->sibling = -1;
-        nfreep->nextnode = -1;
         nfreep->f.TopLevel = 1;
         nfreep->f.InternalTopLevel = 0;
         nfreep->f.DependsOnLocalMass = 0;
@@ -633,13 +628,12 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
                 if(*nextfree >= lastnode)
                     endrun(11, "Not enough force nodes to topnode grid: need %d\n",lastnode);
             }
-    /* Set nextnode on the parent, sibling on the child*/
-    Nodes[no].nextnode = Nodes[no].s.suns[0];
+    /* Set sibling on the child*/
     for(j=0; j<7; j++) {
         int chld = Nodes[no].s.suns[j];
-        Nodes[chld].nextnode = Nodes[chld].sibling = Nodes[no].s.suns[j+1];
+        Nodes[chld].sibling = Nodes[no].s.suns[j+1];
     }
-    Nodes[Nodes[no].s.suns[7]].nextnode = Nodes[Nodes[no].s.suns[7]].sibling = Nodes[no].sibling;
+    Nodes[Nodes[no].s.suns[7]].sibling = Nodes[no].sibling;
     for(i = 0; i < 2; i++)
         for(j = 0; j < 2; j++)
             for(k = 0; k < 2; k++)
@@ -675,7 +669,6 @@ force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddeco
                        index, tree->Nodes[index].s.noccupied, tree->Nodes[index].s.suns[0], i);
             tree->Nodes[index].f.ChildType = PSEUDO_NODE_TYPE;
             /* This node points to the pseudo particle*/
-            tree->Nodes[index].nextnode = firstpseudo + i;
             tree->Nodes[index].s.suns[0] = firstpseudo + i;
         }
     }
@@ -758,7 +751,7 @@ force_update_particle_node(int no, const ForceTree * tree, const int HybridNuGra
     }
 
     /* The tail of a particle node
-     * would be the last child particle, but this no longer needs nextnode set*/
+     * used to be the last child particle, but this no longer exists. */
     return -1;
 }
 
@@ -784,31 +777,28 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
     int * suns = tree->Nodes[no].s.suns;
 
     int childcnt = 0;
-    /* Remove any empty children.
+    /* Remove any empty children, moving the suns array around
+     * so non-empty entries are contiguous at the beginning of the array.
      * This sharply reduces the size of the tree.
      * Also count the node children for thread balancing.*/
-    for(j=0; j < 8; j++) {
+    int jj = 0;
+    for(j=0; j < 8; j++, jj++) {
         /* Never remove empty top-level nodes so we don't
          * mess up the pseudo-data exchange.
          * This may happen for a pseudo particle host or, in very rare cases,
          * when one of the local domains is empty. */
-        if(!tree->Nodes[suns[j]].f.TopLevel &&
-            tree->Nodes[suns[j]].f.ChildType == PARTICLE_NODE_TYPE &&
-            tree->Nodes[suns[j]].s.noccupied == 0) {
-                suns[j] = -1;
+        while(jj < 8 && !tree->Nodes[suns[jj]].f.TopLevel &&
+            tree->Nodes[suns[jj]].f.ChildType == PARTICLE_NODE_TYPE &&
+            tree->Nodes[suns[jj]].s.noccupied == 0) {
+                    jj++;
         }
-        else if(tree->Nodes[suns[j]].f.ChildType == NODE_NODE_TYPE)
+        if(jj < 8)
+            suns[j] = suns[jj];
+        else
+            suns[j] = -1;
+        if(suns[j] >= 0 && tree->Nodes[suns[j]].f.ChildType == NODE_NODE_TYPE)
             childcnt++;
     }
-
-    /* Reset nextnode to point to a new child if needed.*/
-    if(childcnt < 8)
-        for(j = 0; j < 8; j++) {
-            if(suns[j] >= 0) {
-                tree->Nodes[no].nextnode = suns[j];
-                break;
-            }
-        }
 
     /*First do the children*/
     for(j = 0; j < 8; j++)

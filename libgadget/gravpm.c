@@ -139,7 +139,7 @@ static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void
             continue;
         }
         /* open */
-        no = tree->Nodes[no].nextnode;
+        no = tree->Nodes[no].s.suns[0];
     }
 
     *Nregions = r;
@@ -232,7 +232,7 @@ static int pm_mark_region_for_node(int startno, int rid, int * RegionInd, const 
         else if(nop->f.ChildType == PSEUDO_NODE_TYPE)
             no = nop->sibling;
         else if(nop->f.ChildType == NODE_NODE_TYPE)
-            no = nop->nextnode;
+            no = nop->s.suns[0];
         else
             endrun(122, "Unrecognised Node type %d, memory corruption!\n", nop->f.ChildType);
     }

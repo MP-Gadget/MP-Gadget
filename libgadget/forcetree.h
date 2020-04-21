@@ -28,7 +28,6 @@ struct NodeChild
 struct NODE
 {
     int sibling;		/*!< this gives the next node in the walk in case the current node can be used */
-    int nextnode;		/*!< this gives the next node in case the current node needs to be opened */
     int father;		/*!< this gives the parent node of each node (or -1 if we have the root node) */
     MyFloat len;			/*!< sidelength of treenode */
     MyFloat center[3];		/*!< geometrical center of node */
@@ -48,7 +47,8 @@ struct NODE
         MyFloat hmax;           /*!< maximum amount by which Pos + Hsml of all gas particles in the node exceeds len for this node. */
     } mom;
 
-    /* In principle storing this here wastes memory, because we only use it for the leaf nodes.
+    /* If the current node needs to be opened, go to the first element of this array.
+     * In principle storing the full array wastes memory, because we only use it for the leaf nodes.
      * However, in practice the wasted memory is fairly small: there are sum(1/8^n) ~ 0.15 internal nodes
      * for each leaf node, and we are losing 30% of the memory per node, so the total lost is 5%.
      * Any attempt to get it back by using a separate allocation means we lost the ability to resize

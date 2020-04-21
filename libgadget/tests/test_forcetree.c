@@ -119,7 +119,7 @@ static int check_moments(const ForceTree * tb, const int numpart, const int nrea
                     break;
             }
             assert_int_equal(ances, sfather);
-/*                 printf("node %d ances %d sib %d next %d father %d sfather %d\n",node, ances, sib, nop->nextnode, father, sfather); */
+/*                 printf("node %d ances %d sib %d next %d father %d sfather %d\n",node, ances, sib, nop->s.suns[0], father, sfather); */
         }
         else if(sib == -1)
             sibcntr++;
@@ -147,7 +147,7 @@ static int check_moments(const ForceTree * tb, const int numpart, const int nrea
         if(nop->f.ChildType == PARTICLE_NODE_TYPE)
             node = nop->sibling;
         else
-            node = nop->nextnode;
+            node = nop->s.suns[0];
     }
     assert_int_equal(counter, nrealnode);
     assert_true(sibcntr < counter/100);
