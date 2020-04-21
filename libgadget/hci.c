@@ -190,7 +190,7 @@ hci_query(HCIManager * manager, HCIAction * action)
         /* will write checkpoint in this PM timestep */
         action->write_snapshot = 1;
         myfree(request);
-        manager->TimeLastCheckPoint = hci_now(manager);
+        manager->TimeLastCheckPoint = hci_get_elapsed_time(manager);
         return 0;
     }
 
@@ -223,7 +223,7 @@ hci_query(HCIManager * manager, HCIAction * action)
         action->type = HCI_AUTO_CHECKPOINT;
         /* Write when the PM timestep completes*/
         action->write_snapshot = 1;
-        manager->TimeLastCheckPoint = hci_now(manager);
+        manager->TimeLastCheckPoint = hci_get_elapsed_time(manager);
         return 0;
     }
 
