@@ -351,7 +351,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     h = DMAX(input->Soft, nop->mom.hmax);
                     if(r2 < h * h)
                     {
-                        no = nop->nextnode;
+                        no = nop->s.suns[0];
                         continue;
                     }
                 }
@@ -378,7 +378,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             {
                 if(lv->mode == 0)
                 {
-                    if(-1 == treewalk_export_particle(lv, nop->nextnode))
+                    if(-1 == treewalk_export_particle(lv, nop->s.suns[0]))
                         return -1;
                 }
 
@@ -388,7 +388,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             else if(nop->f.ChildType == NODE_NODE_TYPE)
             {
                 /* This node contains other nodes and we need to open it.*/
-                no = nop->nextnode;
+                no = nop->s.suns[0];
             }
         }
         int i;

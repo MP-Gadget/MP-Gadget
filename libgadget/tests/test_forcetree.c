@@ -147,7 +147,7 @@ static int check_moments(const ForceTree * tb, const int numpart, const int nrea
         if(nop->f.ChildType == PARTICLE_NODE_TYPE)
             node = nop->sibling;
         else
-            node = nop->nextnode;
+            node = nop->s.suns[0];
     }
     assert_int_equal(counter, nrealnode);
     assert_true(sibcntr < counter/100);
