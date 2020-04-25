@@ -56,7 +56,7 @@ force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddec
 ForceTree
 force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp);
 
-int
+void
 force_update_node_parallel(const ForceTree * tree, const int HybridNuGrav);
 
 static void
@@ -873,20 +873,17 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
  * - A final recursive moment calculation is run in serial for the top 3 levels of the tree. When it encounters one of the pre-computed nodes, it
  * searches the list of pre-computed tail values to set the next node as if it had recursed and continues.
  */
-int
-force_update_node_parallel(const ForceTree * tree, const int HybridNuGrav)
+void force_update_node_parallel(const ForceTree * tree, const int HybridNuGrav)
 {
-    int tail;
 #pragma omp parallel
 #pragma omp single nowait
     {
         /* Nodes containing other nodes: the overwhelmingly likely case.*/
         if(tree->Nodes[tree->firstnode].f.ChildType == NODE_NODE_TYPE)
-            tail = force_update_node_recursive(tree->firstnode, -1, 1, tree, HybridNuGrav);
+            force_update_node_recursive(tree->firstnode, -1, 1, tree, HybridNuGrav);
         else if(tree->Nodes[tree->firstnode].f.ChildType == PARTICLE_NODE_TYPE)
-            tail = force_update_particle_node(tree->firstnode, tree, HybridNuGrav);
+            force_update_particle_node(tree->firstnode, tree, HybridNuGrav);
     }
-    return tail;
 }
 
 /*! This function communicates the values of the multipole moments of the
