@@ -12,7 +12,7 @@ photons (photons that contribute to the creation of HeIII bubbles) in electron v
 (4) Duration and timing of HeII reionization. The options are 'quasar' and 'linear'. The 'quasar' option uses a quasar emissivity function to determine the reionization history.
 The quasar emissivity histories are from Khaire et al. (2015) and Haardt and Madau (2012). The default is Khaire et al. (2015).
 The 'linear' option allows the user to select the starting and ending redshift of HeII reionization. The HeIII fraction will be a linear function in redshift between
-these two redshifts. This parameter is optional and will default to 'quasar' if not provided.
+these two redshifts. This parameter is optional and will default to 'linear' if not provided.
 
 (5) If 'linear', the starting HeII reionization redshift. Only to be used when (3) is 'linear'. Default is 4.0
 
