@@ -21,7 +21,7 @@
 /*Defined in forcetree.c*/
 /*Next three are not static as tested.*/
 int
-force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize);
+force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav);
 
 ForceTree
 force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp);
@@ -235,7 +235,7 @@ static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp
     /*Time creating the nodes*/
     double start, end;
     start = MPI_Wtime();
-    int nodes = force_tree_create_nodes(tb, numpart, ddecomp, BoxSize);
+    int nodes = force_tree_create_nodes(tb, numpart, ddecomp, BoxSize, 0);
     tb.numnodes = nodes;
     assert_true(nodes < maxnode);
     end = MPI_Wtime();
