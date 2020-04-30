@@ -511,7 +511,8 @@ get_timestep_ti(const int p, const inttime_t dti_max)
 
     dti = dti_from_dloga(dloga);
 
-    if(dti > dti_max)
+    /* Check for overflow*/
+    if(dti > dti_max || dti < 0)
         dti = dti_max;
 
     /*
