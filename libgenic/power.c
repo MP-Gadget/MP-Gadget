@@ -13,7 +13,6 @@
 #include <libgadget/physconst.h>
 #include "power.h"
 #include "proto.h"
-
 static double Delta_EH(double k);
 static double Delta_Tabulated(double k, enum TransferType Type);
 static double sigma2_int(double k, void * params);
@@ -27,6 +26,9 @@ static double PrimordialIndex;
 static double UnitLength_in_cm;
 static Cosmology * CP;
 
+/* Small factor so a zero in the power spectrum is not
+ * a log(0) = -INF*/
+#define NUGGET 1e-30
 #define MAXCOLS 9
 
 struct table
@@ -83,7 +85,7 @@ static double get_Tabulated(double k, enum TransferType Type, double oobval)
 
     /*Convert delta from (Mpc/h)^3/2 to kpc/h^3/2*/
     logD += 1.5 * log10(scale);
-    double delta = pow(10.0, logD) * trans;
+    double delta = (pow(10.0, logD)-NUGGET) * trans;
     if(!isfinite(delta))
         endrun(1,"infinite delta or growth: %g for k = %g, Type = %d (tk = %g, logD = %g)\n",delta, k, Type, trans, logD);
     return delta;
@@ -171,7 +173,7 @@ void parse_power(int i, double k, char * line, struct table *out_tab, int * Inpu
         endrun(1,"Incomplete line in power spectrum: %s\n",line);
     double p = atof(retval);
     if ((*InputInLog10) == 0)
-        p = log10(p);
+        p = log10(p+NUGGET);
     /*Store delta, square root of power*/
     out_tab->logD[0][i] = p/2;
 }
