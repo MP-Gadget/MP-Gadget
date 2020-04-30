@@ -265,7 +265,6 @@ dloga_from_dti(inttime_t dti)
     return Dloga * dti * sign;
 }
 
-/* This function is only used for testing. Do not use in code. */
 inttime_t
 dti_from_dloga(double loga)
 {
