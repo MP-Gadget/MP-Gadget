@@ -265,7 +265,6 @@ dloga_from_dti(inttime_t dti)
     return Dloga * dti * sign;
 }
 
-/* This function is only used for testing. Do not use in code. */
 inttime_t
 dti_from_dloga(double loga)
 {
@@ -286,8 +285,13 @@ round_down_power_of_two(inttime_t dti)
 {
     /* make dti a power 2 subdivision */
     inttime_t ti_min = TIMEBASE;
+    int sign = 1;
+    if(dti < 0) {
+        dti = -dti;
+        sign = -1;
+    }
     while(ti_min > dti)
         ti_min >>= 1;
-    return ti_min;
+    return ti_min * sign;
 }
 
