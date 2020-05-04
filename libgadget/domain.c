@@ -1003,10 +1003,14 @@ domain_check_for_local_refine_subsample(
             /* retry the current particle. */
             continue;
         } else {
-            if(topTree[leaf].Count != 0) {
+            if(topTree[leaf].Count != 0 && leaf != last_leaf) {
                 /* meeting a node that's already been finished ?
                  * This shall not happen when key is already sorted;
                  * due to the sorting.
+                 *
+                 * If the Key hasn't changed sufficiently with this new particle we will see the last leaf again.
+                 * Normally we would refine, but if Shift == 0 we don't have space.
+                 * In this case we just add the current particle sample to the last toptree node.
                  */
                 endrun(10, "toptree[%d].Count=%d, shift %d, last_leaf=%d key = %ld i= %d Nsample = %d\n",
                         leaf, topTree[leaf].Count, topTree[leaf].Shift, last_leaf,LP[i].Key, i, Nsample);
