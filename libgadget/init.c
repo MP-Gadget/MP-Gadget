@@ -266,18 +266,28 @@ void check_omega(void)
 
 /*! This routine checks that the initial positions of the particles are within the box.
  * If not, there is likely a bug in the IC generator and we abort.
+ * It also checks for multiple zeros in the positions, guarding against a common fs bug.
  */
 void check_positions(void)
 {
     int i;
-    #pragma omp parallel for
+    int numzero = 0;
+    int lastzero = -1;
+    #pragma omp parallel for reduction(+: numzero) reduction(max:lastzero)
     for(i=0; i< PartManager->NumPart; i++){
         int j;
         for(j=0; j<3; j++) {
             if(P[i].Pos[j] < 0 || P[i].Pos[j] > All.BoxSize || !isfinite(P[i].Pos[j]))
                 endrun(0,"Particle %d is outside the box (L=%g) at (%g %g %g)\n",i,All.BoxSize, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
         }
+        if((P[i].Pos[0] < 1e-35) && (P[i].Pos[1] < 1e-35) && (P[i].Pos[2] < 1e-35)) {
+            numzero++;
+            lastzero = i;
+        }
     }
+    if(numzero > 1)
+        endrun(5, "Particle positions contain %d zeros at particle %d. Pos %g %g %g. Likely write corruption!\n",
+                numzero, lastzero, P[lastzero].Pos[0], P[lastzero].Pos[1], P[lastzero].Pos[2]);
 }
 
 /* Initialize the entropy variable in Pressure-Entropy Sph.
