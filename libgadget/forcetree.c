@@ -51,13 +51,13 @@ force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSize, const 
 
 /*Next three are not static as tested.*/
 int
-force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize);
+force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav);
 
 ForceTree
 force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp);
 
 void
-force_update_node_parallel(const ForceTree * tree, const int HybridNuGrav);
+force_update_node_parallel(const ForceTree * tree);
 
 static void
 force_treeupdate_pseudos(int no, const ForceTree * tree);
@@ -70,6 +70,9 @@ force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp);
 
 static void
 force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddecomp);
+
+static void
+add_particle_moment_to_node(struct NODE * pnode, int i);
 
 #ifdef DEBUG
 /* Walk the constructed tree, validating sibling and nextnode as we go*/
@@ -185,7 +188,7 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
         tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp);
 
         tree.BoxSize = BoxSize;
-        tree.numnodes = force_tree_create_nodes(tree, npart, ddecomp, BoxSize);
+        tree.numnodes = force_tree_create_nodes(tree, npart, ddecomp, BoxSize, HybridNuGrav);
         if(tree.numnodes >= tree.lastnode - tree.firstnode)
         {
             message(1, "Not enough tree nodes (%d) for %d particles. Created %d\n", maxnodes, npart, tree.numnodes);
@@ -219,7 +222,7 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
 
     if(DoMoments) {
         /* now compute the multipole moments recursively */
-        force_update_node_parallel(&tree, HybridNuGrav);
+        force_update_node_parallel(&tree);
 #ifdef DEBUG
         force_validate_nextlist(&tree);
 #endif
@@ -325,10 +328,12 @@ int get_freenode(int * nnext, struct NodeCache *nc)
 /* Add a particle to a node in a known empty location.
  * Parent is assumed to be locked.*/
 static int
-modify_internal_node(int parent, int subnode, int p_toplace, const ForceTree tb)
+modify_internal_node(int parent, int subnode, int p_toplace, const ForceTree tb, const int HybridNuGrav)
 {
     tb.Father[p_toplace] = parent;
     tb.Nodes[parent].s.suns[subnode] = p_toplace;
+    if(!HybridNuGrav || P[p_toplace].Type != ForceTreeParams.FastParticleType)
+        add_particle_moment_to_node(&tb.Nodes[parent], p_toplace);
     return 0;
 }
 
@@ -337,7 +342,7 @@ modify_internal_node(int parent, int subnode, int p_toplace, const ForceTree tb)
  * Must have node lock.*/
 static int
 create_new_node_layer(int firstparent, int p_toplace,
-        const ForceTree tb, int *nnext, struct NodeCache *nc)
+        const int HybridNuGrav, const ForceTree tb, int *nnext, struct NodeCache *nc)
 {
     /* This is so we can defer changing
      * the type of the existing node until the end.*/
@@ -388,7 +393,7 @@ create_new_node_layer(int firstparent, int p_toplace,
             int subnode = get_subnode(nprnt, oldsuns[i]);
             int child = newsuns[subnode];
             struct NODE * nchild = &tb.Nodes[child];
-            modify_internal_node(child, nchild->s.noccupied, oldsuns[i], tb);
+            modify_internal_node(child, nchild->s.noccupied, oldsuns[i], tb, HybridNuGrav);
             nchild->s.noccupied++;
         }
         /* Copy the new node array into the node*/
@@ -403,13 +408,15 @@ create_new_node_layer(int firstparent, int p_toplace,
         }
         /* Final child needs special handling: set to the parent's sibling.*/
         tb.Nodes[nprnt->s.suns[7]].sibling = nprnt->sibling;
+        /* Zero the momenta for the parent*/
+        memset(&nprnt->mom, 0, sizeof(nprnt->mom));
 
         /* Now try again to add the new particle*/
         int subnode = get_subnode(nprnt, p_toplace);
         int child = nprnt->s.suns[subnode];
         struct NODE * nchild = &tb.Nodes[child];
         if(nchild->s.noccupied < NMAXCHILD) {
-            modify_internal_node(child, nchild->s.noccupied, p_toplace, tb);
+            modify_internal_node(child, nchild->s.noccupied, p_toplace, tb, HybridNuGrav);
             nchild->s.noccupied++;
             break;
         }
@@ -435,7 +442,7 @@ create_new_node_layer(int firstparent, int p_toplace,
 
 /*! Does initial creation of the nodes for the gravitational oct-tree.
  **/
-int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize)
+int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav)
 {
     int i;
     int nnext = tb.firstnode;		/* index of first free node */
@@ -567,10 +574,10 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         /* Now we have something that isn't an internal node, and we have a lock on it,
          * so we know it won't change. We can place the particle! */
         if(nocc < NMAXCHILD)
-            modify_internal_node(this, nocc, i, tb);
+            modify_internal_node(this, nocc, i, tb, HybridNuGrav);
         /* In this case we need to create a new layer of nodes beneath this one*/
         else if(nocc < 1<<16)
-            create_new_node_layer(this, i, tb, &nnext, &nc);
+            create_new_node_layer(this, i, HybridNuGrav, tb, &nnext, &nc);
         else
             endrun(2, "Tried to convert already converted node %d with nocc = %d\n", this, nocc);
 
@@ -718,26 +725,15 @@ force_get_sibling(const int sib, const int j, const int * suns)
     return nextsib;
 }
 
-static int
-force_update_particle_node(int no, const ForceTree * tree, const int HybridNuGrav)
+/* Set the center of mass of the current node*/
+static void
+force_update_particle_node(int no, const ForceTree * tree)
 {
+#ifdef DEBUG
     if(tree->Nodes[no].f.ChildType != PARTICLE_NODE_TYPE)
         endrun(3, "force_update_particle_node called on node %d of wrong type!\n", no);
-    /*Last value of tails is the return value of this function*/
+#endif
     int j;
-
-    const int noccupied = tree->Nodes[no].s.noccupied;
-    int * suns = tree->Nodes[no].s.suns;
-
-    /*Now we do the moments*/
-    for(j = 0; j < noccupied; j++) {
-        const int p = suns[j];
-        /*Hybrid particle neutrinos do not gravitate at early times.
-            * So do not add their masses to the node*/
-        if(!HybridNuGrav || P[p].Type != ForceTreeParams.FastParticleType)
-            add_particle_moment_to_node(&tree->Nodes[no], p);
-    }
-
     /*Set the center of mass moments*/
     const double mass = tree->Nodes[no].mom.mass;
     /* Be careful about empty nodes*/
@@ -749,10 +745,6 @@ force_update_particle_node(int no, const ForceTree * tree, const int HybridNuGra
         for(j = 0; j < 3; j++)
             tree->Nodes[no].mom.cofm[j] = tree->Nodes[no].center[j];
     }
-
-    /* The tail of a particle node
-     * used to be the last child particle, but this no longer exists. */
-    return -1;
 }
 
 /*! this routine determines the multipole moments for a given internal node
@@ -767,7 +759,7 @@ force_update_particle_node(int no, const ForceTree * tree, const int HybridNuGra
  *
  */
 static int
-force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, const int HybridNuGrav)
+force_update_node_recursive(int no, int sib, int level, const ForceTree * tree)
 {
 #ifdef DEBUG
     if(tree->Nodes[no].f.ChildType != NODE_NODE_TYPE)
@@ -812,22 +804,15 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
         tree->Nodes[p].sibling = nextsib;
         /* Nodes containing particles or pseudo-particles*/
         if(tree->Nodes[p].f.ChildType == PARTICLE_NODE_TYPE)
-            force_update_particle_node(p, tree, HybridNuGrav);
+            force_update_particle_node(p, tree);
         if(tree->Nodes[p].f.ChildType == NODE_NODE_TYPE) {
-            /* Don't spawn a new task if we are deep enough that we already spawned a lot.
-             * Note: final clause is much slower for some reason. */
-            if(childcnt > 1 && level < 256) {
-                /* We cannot use default(none) here because we need a const (HybridNuGrav),
-                * which for gcc < 9 is default shared (and thus cannot be explicitly shared
-                * without error) and for gcc == 9 must be explicitly shared. The other solution
-                * is to make it firstprivate which I think will be excessively expensive for a
-                * recursive call like this. See:
-                * https://www.gnu.org/software/gcc/gcc-9/porting_to.html */
-                #pragma omp task shared(level, childcnt, tree) firstprivate(nextsib, p)
-                force_update_node_recursive(p, nextsib, level*childcnt, tree, HybridNuGrav);
+            /* Don't spawn a new task if we are deep enough that we already spawned a lot.*/
+            if(childcnt > 1 && level < 64) {
+                #pragma omp task default(none) shared(level, childcnt, tree) firstprivate(nextsib, p)
+                force_update_node_recursive(p, nextsib, level*childcnt, tree);
             }
             else
-                force_update_node_recursive(p, nextsib, level, tree, HybridNuGrav);
+                force_update_node_recursive(p, nextsib, level, tree);
         }
     }
 
@@ -873,16 +858,16 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree, 
  * - A final recursive moment calculation is run in serial for the top 3 levels of the tree. When it encounters one of the pre-computed nodes, it
  * searches the list of pre-computed tail values to set the next node as if it had recursed and continues.
  */
-void force_update_node_parallel(const ForceTree * tree, const int HybridNuGrav)
+void force_update_node_parallel(const ForceTree * tree)
 {
 #pragma omp parallel
 #pragma omp single nowait
     {
         /* Nodes containing other nodes: the overwhelmingly likely case.*/
         if(tree->Nodes[tree->firstnode].f.ChildType == NODE_NODE_TYPE)
-            force_update_node_recursive(tree->firstnode, -1, 1, tree, HybridNuGrav);
+            force_update_node_recursive(tree->firstnode, -1, 1, tree);
         else if(tree->Nodes[tree->firstnode].f.ChildType == PARTICLE_NODE_TYPE)
-            force_update_particle_node(tree->firstnode, tree, HybridNuGrav);
+            force_update_particle_node(tree->firstnode, tree);
     }
 }
 
