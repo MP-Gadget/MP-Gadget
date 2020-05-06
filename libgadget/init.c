@@ -131,7 +131,7 @@ set_init_params(ParameterSet * ps)
     MPI_Bcast(&All, sizeof(All), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
-static void check_omega(void);
+static void check_omega(int generations);
 static void check_positions(void);
 
 static void
@@ -175,7 +175,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
 
     domain_test_id_uniqueness(PartManager);
 
-    check_omega();
+    check_omega(get_generations());
 
     check_positions();
 
@@ -240,14 +240,19 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
 /*! This routine computes the mass content of the box and compares it to the
  * specified value of Omega-matter.  If discrepant, the run is terminated.
  */
-void check_omega(void)
+void check_omega(int generations)
 {
     double mass = 0, masstot, omega;
     int i;
 
     #pragma omp parallel for reduction(+: mass)
-    for(i = 0; i < PartManager->NumPart; i++)
+    for(i = 0; i < PartManager->NumPart; i++) {
+        /* In case zeros have been written to the saved mass array,
+         * recover the true masses*/
+        if(P[i].Mass == 0)
+            P[i].Mass = All.MassTable[P[i].Type] * ( 1. - (double)P[i].Generation/generations);
         mass += P[i].Mass;
+    }
 
     MPI_Allreduce(&mass, &masstot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 

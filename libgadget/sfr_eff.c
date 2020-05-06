@@ -66,6 +66,12 @@ static struct SFRParams
     char ReionHistFile[100];
 } sfr_params;
 
+
+int get_generations(void)
+{
+    return sfr_params.Generations;
+}
+
 /* Structure storing the results of an evaluation of the star formation model*/
 struct sfr_eeqos_data
 {
