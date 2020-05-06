@@ -49,7 +49,6 @@ typedef struct {
     int mode; /* 0 for Primary, 1 for Secondary */
     int target; /* defined only for primary (mode == 0) */
 
-    TreeWalkNgbIterBase *ngbiter;
     int *exportflag;
     int *exportnodecount;
     size_t *exportindex;
