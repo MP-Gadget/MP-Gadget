@@ -275,8 +275,6 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, int * curr
     ev_init_thread(export, tw, lv);
     lv->mode = 0;
 
-    int tid = omp_get_thread_num();
-
     /* use old index to recover from a buffer overflow*/;
     TreeWalkQueryBase * input = alloca(tw->query_type_elsize);
     TreeWalkResultBase * output = alloca(tw->result_type_elsize);
