@@ -970,9 +970,11 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
     IOTable->ent = mymalloc2("IOTable", IOTable->allocated * sizeof(IOTableEntry));
     /* Bare Bone Gravity*/
     for(i = 0; i < 6; i ++) {
+        /* We put Mass first because sometimes there is
+         * corruption in the first array and we can recover from Mass corruption*/
+        IO_REG(Mass,     "f4", 1, i, IOTable);
         IO_REG(Position, "f8", 3, i, IOTable);
         IO_REG(Velocity, "f4", 3, i, IOTable);
-        IO_REG(Mass,     "f4", 1, i, IOTable);
         IO_REG(ID,       "u8", 1, i, IOTable);
         if(All.OutputPotential)
             IO_REG_WRONLY(Potential, "f4", 1, i, IOTable);
