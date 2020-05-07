@@ -243,18 +243,25 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
 void check_omega(int generations)
 {
     double mass = 0, masstot, omega;
-    int i;
+    int i, badmass = 0;
+    int64_t totbad;
 
-    #pragma omp parallel for reduction(+: mass)
+    #pragma omp parallel for reduction(+: mass) reduction(+: badmass)
     for(i = 0; i < PartManager->NumPart; i++) {
         /* In case zeros have been written to the saved mass array,
          * recover the true masses*/
-        if(P[i].Mass == 0)
+        if(P[i].Mass == 0) {
             P[i].Mass = All.MassTable[P[i].Type] * ( 1. - (double)P[i].Generation/generations);
+            badmass++;
+        }
         mass += P[i].Mass;
     }
 
     MPI_Allreduce(&mass, &masstot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+    sumup_large_ints(1, &badmass, &totbad);
+    if(totbad)
+        message(0, "Warning: recovering from %ld Mass entries corrupted on disc\n",totbad);
 
     omega =
         masstot / (All.BoxSize * All.BoxSize * All.BoxSize) / (3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G));
