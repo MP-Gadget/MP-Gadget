@@ -40,4 +40,8 @@ double get_helium_neutral_fraction_sfreff(int ion, double redshift, struct parti
 
 /* Return whether we are using a star formation model that needs grad rho computed for the gas particles*/
 int sfr_need_to_compute_sph_grad_rho(void);
+
+/* Get the number of generations of stars that may form*/
+int get_generations(void);
+
 #endif

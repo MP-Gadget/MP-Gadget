@@ -481,6 +481,10 @@ petaio_read_header_internal(BigFile * bf) {
     if(0!= big_block_get_attr(&bh, "TimeIC", &All.TimeIC, "f8", 1))
         All.TimeIC = Time;
 
+    /* Set a reasonable MassTable entry for stars and BHs*/
+    All.MassTable[4] = All.MassTable[0] / get_generations();
+    All.MassTable[5] = All.MassTable[4];
+
     /* fall back to traditional MP-Gadget Units if not given in the snapshot file. */
     All.UnitVelocity_in_cm_per_s = _get_attr_double(&bh, "UnitVelocity_in_cm_per_s", 1e5); /* 1 km/sec */
     All.UnitLength_in_cm = _get_attr_double(&bh, "UnitLength_in_cm",  3.085678e21); /* 1.0 Kpc /h */
@@ -970,9 +974,11 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
     IOTable->ent = mymalloc2("IOTable", IOTable->allocated * sizeof(IOTableEntry));
     /* Bare Bone Gravity*/
     for(i = 0; i < 6; i ++) {
+        /* We put Mass first because sometimes there is
+         * corruption in the first array and we can recover from Mass corruption*/
+        IO_REG(Mass,     "f4", 1, i, IOTable);
         IO_REG(Position, "f8", 3, i, IOTable);
         IO_REG(Velocity, "f4", 3, i, IOTable);
-        IO_REG(Mass,     "f4", 1, i, IOTable);
         IO_REG(ID,       "u8", 1, i, IOTable);
         if(All.OutputPotential)
             IO_REG_WRONLY(Potential, "f4", 1, i, IOTable);
