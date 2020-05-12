@@ -16,7 +16,6 @@
 #include <libgadget/slotsmanager.h>
 
 struct part_manager_type PartManager[1] = {{0}};
-int NTask, ThisTask;
 
 static int
 setup_particles(void ** state)

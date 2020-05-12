@@ -41,6 +41,8 @@ setup_particles(int NType[6])
     for(ptype = 0; ptype < 6; ptype ++) {
         PartManager->NumPart += NType[ptype];
     }
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
 
     P = (struct particle_data *) mymalloc("P", PartManager->MaxPart * sizeof(struct particle_data));
     memset(P, 0, sizeof(struct particle_data) * PartManager->MaxPart);
