@@ -283,11 +283,12 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, int * curr
     /* We must schedule monotonically so that if the export buffer fills up
      * it is guaranteed that earlier particles are already done.
      * However, we schedule dynamically so that we have reduced imbalance.
-     * chunk size: 1 and 1000 were slightly (3 percent) slower than 8.
      * We do not use the openmp dynamic scheduling, but roll our own
      * so that we can break from the loop if needed.*/
     int chnk = 0;
-    const int chnksz = 8;
+    /* chunk size: 1 and 1000 were slightly (3 percent) slower than 8.
+     * FoF treewalk needs a larger chnksz to avoid contention.*/
+    const int chnksz = 200;
     do {
         /* Get another chunk from the global queue*/
         chnk = atomic_fetch_and_add(currentIndex, chnksz);
