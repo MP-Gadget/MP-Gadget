@@ -505,16 +505,17 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
         }
     } else /* mode is 1, target is a ghost */
     {
-            struct SpinLocks * spin = FOF_PRIMARY_GET_PRIV(tw)->spin;
+        int head = HEAD(other, tw);
+        struct SpinLocks * spin = FOF_PRIMARY_GET_PRIV(tw)->spin;
 //        printf("locking %d by %d in ngbiter\n", other, omp_get_thread_num());
-        lock_spinlock(other, spin);
-        if(HaloLabel[HEAD(other, tw)].MinID > I->MinID)
+        lock_spinlock(head, spin);
+        if(HaloLabel[head].MinID > I->MinID)
         {
-            HaloLabel[HEAD(other, tw)].MinID = I->MinID;
-            HaloLabel[HEAD(other, tw)].MinIDTask = I->MinIDTask;
+            HaloLabel[head].MinID = I->MinID;
+            HaloLabel[head].MinIDTask = I->MinIDTask;
         }
 //        printf("unlocking %d by %d in ngbiter\n", other, omp_get_thread_num());
-        unlock_spinlock(other, spin);
+        unlock_spinlock(head, spin);
     }
 }
 
