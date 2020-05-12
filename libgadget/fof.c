@@ -315,7 +315,10 @@ update_root(int i, const int r, int * Head)
             t = Head[i];
             Head[i]= r;
         }
-    } while(t != i);
+        /* Stop if we reached the top (new head is the same as the old)
+         * or if the new head is less than or equal to the desired head, indicating
+         * another thread changed us*/
+    } while(t != i && (t > r));
 }
 
 /* Find the current head particle by walking the tree. No updates are done
