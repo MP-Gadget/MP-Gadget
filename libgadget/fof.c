@@ -321,17 +321,17 @@ update_root(int i, const int r, int * Head)
 /* Find the current head particle by walking the tree. No updates are done
  * so this can be performed from a threaded context. */
 static int
-HEAD(int i, TreeWalk * tw)
+HEAD(int i, const int * const Head)
 {
     int r = i;
-    while(FOF_PRIMARY_GET_PRIV(tw)->Head[r] != r) {
-        r = FOF_PRIMARY_GET_PRIV(tw)->Head[r];
+    while(Head[r] != r) {
+        r = Head[r];
     }
     return r;
 }
 
 static void fof_primary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
-    int head = HEAD(place, tw);
+    int head = HEAD(place, FOF_PRIMARY_GET_PRIV(tw)->Head);
     I->MinID = HaloLabel[head].MinID;
     I->MinIDTask = HaloLabel[head].MinIDTask;
 }
@@ -407,7 +407,8 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
         link_across = 0;
 #pragma omp parallel for reduction(+: link_across)
         for(i = 0; i < PartManager->NumPart; i++) {
-            MyIDType newMinID = HaloLabel[HEAD(i, tw)].MinID;
+            int head = HEAD(i, FOF_PRIMARY_GET_PRIV(tw)->Head);
+            MyIDType newMinID = HaloLabel[head].MinID;
             if(newMinID != FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i]) {
                 FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[i] = 1;
                 link_across ++;
@@ -426,8 +427,9 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
     /* Update MinID of all linked (primary-linked) particles */
     for(i = 0; i < PartManager->NumPart; i++)
     {
-        HaloLabel[i].MinID = HaloLabel[HEAD(i, tw)].MinID;
-        HaloLabel[i].MinIDTask = HaloLabel[HEAD(i, tw)].MinIDTask;
+        int head = HEAD(i, FOF_PRIMARY_GET_PRIV(tw)->Head);
+        HaloLabel[i].MinID = HaloLabel[head].MinID;
+        HaloLabel[i].MinIDTask = HaloLabel[head].MinIDTask;
     }
 
     message(0, "Local groups found.\n");
@@ -503,9 +505,10 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
             // printf("locked merge %d %d by %d\n", lv->target, other, omp_get_thread_num());
             fofp_merge(lv->target, other, tw);
         }
-    } else /* mode is 1, target is a ghost */
+    }
+    else /* mode is 1, target is a ghost */
     {
-        int head = HEAD(other, tw);
+        int head = HEAD(other, FOF_PRIMARY_GET_PRIV(tw)->Head);
         struct SpinLocks * spin = FOF_PRIMARY_GET_PRIV(tw)->spin;
 //        printf("locking %d by %d in ngbiter\n", other, omp_get_thread_num());
         lock_spinlock(head, spin);
