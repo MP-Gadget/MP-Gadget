@@ -401,13 +401,24 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
         treewalk_run(tw, NULL, PartManager->NumPart);
 
         t1 = second();
-
+        /* Just in case we missed some during HEAD building.*/
+        for(i = 0; i < PartManager->NumPart; i++) {
+            int head = HEAD(i, FOF_PRIMARY_GET_PRIV(tw)->Head);
+            if(HaloLabel[head].MinID > HaloLabel[i].MinID) {
+                HaloLabel[head].MinID = HaloLabel[i].MinID;
+                HaloLabel[head].MinIDTask = HaloLabel[i].MinIDTask;
+            }
+        }
         /* let's check out which particles have changed their MinID,
          * mark them for next round. */
         link_across = 0;
 #pragma omp parallel for reduction(+: link_across)
         for(i = 0; i < PartManager->NumPart; i++) {
             int head = HEAD(i, FOF_PRIMARY_GET_PRIV(tw)->Head);
+            if(i != head) {
+                HaloLabel[i].MinID = HaloLabel[head].MinID;
+                HaloLabel[i].MinIDTask = HaloLabel[head].MinIDTask;
+            }
             MyIDType newMinID = HaloLabel[head].MinID;
             if(newMinID != FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i]) {
                 FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[i] = 1;
@@ -423,14 +434,6 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
     while(link_across_tot > 0);
 
     free_spinlocks(priv[0].spin);
-
-    /* Update MinID of all linked (primary-linked) particles */
-    for(i = 0; i < PartManager->NumPart; i++)
-    {
-        int head = HEAD(i, FOF_PRIMARY_GET_PRIV(tw)->Head);
-        HaloLabel[i].MinID = HaloLabel[head].MinID;
-        HaloLabel[i].MinIDTask = HaloLabel[head].MinIDTask;
-    }
 
     message(0, "Local groups found.\n");
 
