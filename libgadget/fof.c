@@ -378,7 +378,11 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
         treewalk_run(tw, NULL, PartManager->NumPart);
 
         t1 = second();
-        /* Just in case we missed some during HEAD building.*/
+        /* This sets the MinID of the head particle to the minimum ID 
+         * of the child particles. We set this inside the treewalk,
+         * but the locking allows a race, where the particle with MinID set
+         * is no longer the one which is the true Head of the group.
+         * So we must check it again here.*/
         for(i = 0; i < PartManager->NumPart; i++) {
             int head = HEAD(i, FOF_PRIMARY_GET_PRIV(tw)->Head);
             if(HaloLabel[head].MinID > HaloLabel[i].MinID) {
@@ -392,6 +396,8 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
 #pragma omp parallel for reduction(+: link_across)
         for(i = 0; i < PartManager->NumPart; i++) {
             int head = HEAD(i, FOF_PRIMARY_GET_PRIV(tw)->Head);
+            /* This loop sets the MinID of the children to the minID of the head.
+             * The minID of the head is set above and is stable at this point.*/
             if(i != head) {
                 HaloLabel[i].MinID = HaloLabel[head].MinID;
                 HaloLabel[i].MinIDTask = HaloLabel[head].MinIDTask;
@@ -432,7 +438,9 @@ fofp_merge(int target, int other, TreeWalk * tw)
         h2 = HEADl(h1, other, Head);
         if(h2 < 0)
             return;
-        /* Ensure that we always merge to the lower entry*/
+        /* Ensure that we always merge to the lower entry.
+         * This avoids circular loops in the Head entries:
+         * a -> b -> a */
         if(h1 > h2) {
             int tmp = h2;
             h2 = h1;
