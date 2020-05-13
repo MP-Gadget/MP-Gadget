@@ -359,6 +359,7 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
 
     t0 = second();
 
+    #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)
     {
         FOF_PRIMARY_GET_PRIV(tw)->Head[i] = i;
