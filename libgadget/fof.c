@@ -113,15 +113,14 @@ extern void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_
 typedef struct {
     TreeWalkQueryBase base;
     MyFloat Hsml;
-    MyIDType MinID;
+    __int128 MinIDandTask;
     MyIDType MinIDTask;
 } TreeWalkQueryFOF;
 
 typedef struct {
     TreeWalkResultBase base;
     MyFloat Distance;
-    MyIDType MinID;
-    MyIDType MinIDTask;
+    __int128 MinIDandTask;
 } TreeWalkResultFOF;
 
 typedef struct {
@@ -130,11 +129,35 @@ typedef struct {
 
 static struct fof_particle_list
 {
-    MyIDType MinID;
-    MyIDType MinIDTask;
+    /* This variable is MinID * 1<<64 + MinIDTask
+     * and is defined as such to allow us to use
+     * the __atomic_exchange functions.
+     * Semantically this definition is:
+     * MyIDType MinID
+     * MyIDType MinIDTask*/
+    __int128 MinIDandTask;
     int Pindex;
 }
 *HaloLabel;
+
+/* Accessor functions*/
+static inline MyIDType MinID(__int128 MinIDandTask)
+{
+    return MinIDandTask >> 64L;
+}
+
+static inline MyIDType MinIDTask(__int128 MinIDandTask)
+{
+    return MinIDandTask % 64L;
+}
+
+static inline __int128 MinIDandTask(MyIDType MinID, MyIDType MinIDTask)
+{
+    __int128 MinIDandTask = MinID;
+    MinIDandTask <<= 64L;
+    MinIDandTask += MinIDTask;
+    return MinIDandTask;
+}
 
 static MPI_Datatype MPI_TYPE_GROUP;
 
@@ -183,7 +206,7 @@ fof_fof(ForceTree * tree, MPI_Comm Comm)
     int NgroupsExt = 0;
 
     for(i = 0; i < PartManager->NumPart; i ++) {
-        if(i == 0 || HaloLabel[i].MinID != HaloLabel[i - 1].MinID) NgroupsExt ++;
+        if(i == 0 || MinID(HaloLabel[i].MinIDandTask) != MinID(HaloLabel[i - 1].MinIDandTask)) NgroupsExt ++;
     }
 
     /* The first round is to eliminate groups that are too short. */
@@ -308,8 +331,7 @@ HEAD(int i, const int * const Head)
 
 static void fof_primary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
     int head = HEAD(place, FOF_PRIMARY_GET_PRIV(tw)->Head);
-    I->MinID = HaloLabel[head].MinID;
-    I->MinIDTask = HaloLabel[head].MinIDTask;
+    I->MinIDandTask = HaloLabel[head].MinIDandTask;
 }
 
 static int fof_primary_haswork(int n, TreeWalk * tw) {
@@ -365,9 +387,7 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
         FOF_PRIMARY_GET_PRIV(tw)->Head[i] = i;
         FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i]= P[i].ID;
         FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[i] = 1;
-
-        HaloLabel[i].MinID = P[i].ID;
-        HaloLabel[i].MinIDTask = ThisTask;
+        HaloLabel[i].MinIDandTask = MinIDandTask(P[i].ID, ThisTask);
     }
 
     /* The lock is used to protect MinID*/
@@ -386,9 +406,8 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
          * So we must check it again here.*/
         for(i = 0; i < PartManager->NumPart; i++) {
             int head = HEAD(i, FOF_PRIMARY_GET_PRIV(tw)->Head);
-            if(HaloLabel[head].MinID > HaloLabel[i].MinID) {
-                HaloLabel[head].MinID = HaloLabel[i].MinID;
-                HaloLabel[head].MinIDTask = HaloLabel[i].MinIDTask;
+            if(MinID(HaloLabel[head].MinIDandTask) > MinID(HaloLabel[i].MinIDandTask)) {
+                HaloLabel[head].MinIDandTask = HaloLabel[i].MinIDandTask;
             }
         }
         /* let's check out which particles have changed their MinID,
@@ -400,10 +419,9 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
             /* This loop sets the MinID of the children to the minID of the head.
              * The minID of the head is set above and is stable at this point.*/
             if(i != head) {
-                HaloLabel[i].MinID = HaloLabel[head].MinID;
-                HaloLabel[i].MinIDTask = HaloLabel[head].MinIDTask;
+                HaloLabel[i].MinIDandTask = HaloLabel[head].MinIDandTask;
             }
-            MyIDType newMinID = HaloLabel[head].MinID;
+            MyIDType newMinID = MinID(HaloLabel[head].MinIDandTask);
             if(newMinID != FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i]) {
                 FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[i] = 1;
                 link_across ++;
@@ -459,10 +477,8 @@ fofp_merge(int target, int other, TreeWalk * tw)
      * so we need to double check later.
      * lock h1 so we don't change MinID but not MinIDTask.*/
     lock_spinlock(h1, spin);
-    if(HaloLabel[h1].MinID > HaloLabel[h2].MinID)
-    {
-        HaloLabel[h1].MinID = HaloLabel[h2].MinID;
-        HaloLabel[h1].MinIDTask = HaloLabel[h2].MinIDTask;
+    if(MinID(HaloLabel[h1].MinIDandTask) > MinID(HaloLabel[h2].MinIDandTask)) {
+        HaloLabel[h1].MinIDandTask = HaloLabel[h2].MinIDandTask;
     }
     unlock_spinlock(h1, spin);
 
@@ -504,10 +520,8 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
         struct SpinLocks * spin = FOF_PRIMARY_GET_PRIV(tw)->spin;
 //        printf("locking %d by %d in ngbiter\n", other, omp_get_thread_num());
         lock_spinlock(head, spin);
-        if(HaloLabel[head].MinID > I->MinID)
-        {
-            HaloLabel[head].MinID = I->MinID;
-            HaloLabel[head].MinIDTask = I->MinIDTask;
+        if(MinID(HaloLabel[head].MinIDandTask) > MinID(I->MinIDandTask)) {
+            HaloLabel[head].MinIDandTask = I->MinIDandTask;
         }
 //        printf("unlocking %d by %d in ngbiter\n", other, omp_get_thread_num());
         unlock_spinlock(head, spin);
@@ -683,9 +697,9 @@ fof_compile_base(struct BaseGroup * base, int NgroupsExt, MPI_Comm Comm)
     start = 0;
     for(i = 0; i < PartManager->NumPart; i++)
     {
-        if(i == 0 || HaloLabel[i].MinID != HaloLabel[i - 1].MinID) {
-            base[start].MinID = HaloLabel[i].MinID;
-            base[start].MinIDTask = HaloLabel[i].MinIDTask;
+        if(i == 0 || MinID(HaloLabel[i].MinIDandTask) != MinID(HaloLabel[i - 1].MinIDandTask)) {
+            base[start].MinID = MinID(HaloLabel[i].MinIDandTask);
+            base[start].MinIDTask = MinIDTask(HaloLabel[i].MinIDandTask);
             int d;
             for(d = 0; d < 3; d ++) {
                 base[start].FirstPos[d] = P[HaloLabel[i].Pindex].Pos[d];
@@ -695,17 +709,18 @@ fof_compile_base(struct BaseGroup * base, int NgroupsExt, MPI_Comm Comm)
     }
 
     /* count local lengths */
-    /* This works because base is sorted by MinID by construction. */
+    /* This works because base is sorted by MinID by construction.
+     * FIXME: This could be faster as a binary search.*/
     start = 0;
     for(i = 0; i < NgroupsExt; i++)
     {
         /* find the first particle */
         for(;start < PartManager->NumPart; start++) {
-            if(HaloLabel[start].MinID >= base[i].MinID) break;
+            if(MinID(HaloLabel[start].MinIDandTask) >= base[i].MinID) break;
         }
         /* count particles */
         for(;start < PartManager->NumPart; start++) {
-            if(HaloLabel[start].MinID != base[i].MinID) {
+            if(MinID(HaloLabel[start].MinIDandTask) != base[i].MinID) {
                 break;
             }
             base[i].Length ++;
@@ -753,16 +768,17 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, double BoxSi
 
     MPI_Comm_rank(Comm, &ThisTask);
 
+    /* FIXME: Extract to a function with fof_compile_base, use binary search*/
     start = 0;
     for(i = 0; i < NgroupsExt; i++)
     {
         /* find the first particle */
         for(;start < PartManager->NumPart; start++) {
-            if(HaloLabel[start].MinID >= fof->Group[i].base.MinID) break;
+            if(MinID(HaloLabel[start].MinIDandTask) >= fof->Group[i].base.MinID) break;
         }
         /* add particles */
         for(;start < PartManager->NumPart; start++) {
-            if(HaloLabel[start].MinID != fof->Group[i].base.MinID) {
+            if(MinID(HaloLabel[start].MinIDandTask) != fof->Group[i].base.MinID) {
                 break;
             }
             add_particle_to_group(&fof->Group[i], HaloLabel[start].Pindex, BoxSize, ThisTask);
@@ -1023,16 +1039,17 @@ static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_C
     for(i = 0; i < PartManager->NumPart; i++)
         P[i].GrNr = -1;	/* will mark particles that are not in any group */
 
+    /* FIXME: Binary search*/
     int start = 0;
     for(i = 0; i < NgroupsExt; i++)
     {
         for(;start < PartManager->NumPart; start++) {
-            if (HaloLabel[start].MinID >= base[i].MinID)
+            if (MinID(HaloLabel[start].MinIDandTask) >= base[i].MinID)
                 break;
         }
 
         for(;start < PartManager->NumPart; start++) {
-            if (HaloLabel[start].MinID != base[i].MinID)
+            if (MinID(HaloLabel[start].MinIDandTask) != base[i].MinID)
                 break;
             P[HaloLabel[start].Pindex].GrNr = base[i].GrNr;
         }
@@ -1073,8 +1090,7 @@ static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, enum TreeWalk
     if(O->Distance < FOF_SECONDARY_GET_PRIV(tw)->distance[place])
     {
         FOF_SECONDARY_GET_PRIV(tw)->distance[place] = O->Distance;
-        HaloLabel[place].MinID = O->MinID;
-        HaloLabel[place].MinIDTask = O->MinIDTask;
+        HaloLabel[place].MinIDandTask = O->MinIDandTask;
     }
 }
 static void
@@ -1204,8 +1220,7 @@ fof_secondary_ngbiter( TreeWalkQueryFOF * I,
     if(r < O->Distance && r < I->Hsml)
     {
         O->Distance = r;
-        O->MinID = HaloLabel[other].MinID;
-        O->MinIDTask = HaloLabel[other].MinIDTask;
+        O->MinIDandTask = HaloLabel[other].MinIDandTask;
     }
 }
 
@@ -1357,10 +1372,11 @@ static void fof_seed_make_one(struct Group * g, int ThisTask) {
 
 static int fof_compare_HaloLabel_MinID(const void *a, const void *b)
 {
-    if(((struct fof_particle_list *) a)->MinID < ((struct fof_particle_list *) b)->MinID)
+    MyIDType amin = MinID(((struct fof_particle_list *) a)->MinIDandTask);
+    MyIDType bmin = MinID(((struct fof_particle_list *) b)->MinIDandTask);
+    if(amin < bmin)
         return -1;
-
-    if(((struct fof_particle_list *) a)->MinID > ((struct fof_particle_list *) b)->MinID)
+    if(amin > bmin)
         return +1;
 
     return 0;
