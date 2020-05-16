@@ -25,6 +25,17 @@ LIBS  = -lm $(GSL_LIBS)
 LIBS += -L../depends/lib $(BUNDLEDLIBS)
 V ?= 0
 
+#Detect gcc: if so we need an extra library for cmpxchg16 in fof
+CCVER:=$(shell $(MPICC) --version)
+ifeq (gcc,$(findstring gcc,${CCVER}))
+       LIBS += -latomic
+endif
+#Enable cmpxchg16 instruction generation on clang
+ifeq (clang,$(findstring clang,${CCVER}))
+       LIBS += -mcx16
+endif
+#icc does this automatically.
+
 .objs/%.o: %.c $(INCL) Makefile $(CONFIG)
 	@cmd="$(MPICC) -c -o $@ $(CFLAGS) $<"; \
 	if test "x$(V)" = "x1" ; then echo $$cmd; fi; \

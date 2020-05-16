@@ -110,17 +110,20 @@ static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_C
 void fof_label_primary(ForceTree * tree, MPI_Comm Comm);
 extern void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_Comm Comm);
 
+/* The alignment is important for the hardware atomic instruction to work*/
+#define __aint128 __int128 __attribute__ (( aligned(16)))
+
 typedef struct {
     TreeWalkQueryBase base;
     MyFloat Hsml;
-    __int128 MinIDandTask;
+    __aint128 MinIDandTask;
     MyIDType MinIDTask;
 } TreeWalkQueryFOF;
 
 typedef struct {
     TreeWalkResultBase base;
     MyFloat Distance;
-    __int128 MinIDandTask;
+    __aint128 MinIDandTask;
 } TreeWalkResultFOF;
 
 typedef struct {
@@ -135,7 +138,7 @@ static struct fof_particle_list
      * Semantically this definition is:
      * MyIDType MinID
      * MyIDType MinIDTask*/
-    __int128 MinIDandTask;
+    __aint128 MinIDandTask;
     int Pindex;
 }
 *HaloLabel;
@@ -151,9 +154,9 @@ static inline MyIDType MinIDTask(__int128 MinIDandTask)
     return MinIDandTask % 64L;
 }
 
-static inline __int128 MinIDandTask(MyIDType MinID, MyIDType MinIDTask)
+static inline __aint128 MinIDandTask(MyIDType MinID, MyIDType MinIDTask)
 {
-    __int128 MinIDandTask = MinID;
+    __aint128 MinIDandTask = MinID;
     MinIDandTask <<= 64L;
     MinIDandTask += MinIDTask;
     return MinIDandTask;
@@ -259,7 +262,6 @@ fof_finish(FOFGroups * fof)
 
 struct FOFPrimaryPriv {
     int * Head;
-    struct SpinLocks * spin;
     char * PrimaryActive;
     MyIDType * OldMinID;
 };
@@ -390,8 +392,6 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
         HaloLabel[i].MinIDandTask = MinIDandTask(P[i].ID, ThisTask);
     }
 
-    /* The lock is used to protect MinID*/
-    priv[0].spin = init_spinlocks(PartManager->NumPart);
     do
     {
         t0 = second();
@@ -435,8 +435,6 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
     }
     while(link_across_tot > 0);
 
-    free_spinlocks(priv[0].spin);
-
     message(0, "Local groups found.\n");
 
     myfree(FOF_PRIMARY_GET_PRIV(tw)->OldMinID);
@@ -469,18 +467,22 @@ fofp_merge(int target, int other, TreeWalk * tw)
       * Set Head[h2] = h1 iff Head[h2] is still h2. Otherwise loop.*/
     } while(!__atomic_compare_exchange(&Head[h2], &h2, &h1, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
 
-    struct SpinLocks * spin = FOF_PRIMARY_GET_PRIV(tw)->spin;
-
     /* update MinID of h1: h2 is now just another child of h1
      * so h2 does not need to be locked.
      * h1 may not be its own head anymore,
-     * so we need to double check later.
-     * lock h1 so we don't change MinID but not MinIDTask.*/
-    lock_spinlock(h1, spin);
-    if(MinID(HaloLabel[h1].MinIDandTask) > MinID(HaloLabel[h2].MinIDandTask)) {
-        HaloLabel[h1].MinIDandTask = HaloLabel[h2].MinIDandTask;
-    }
-    unlock_spinlock(h1, spin);
+     * so we need to double check later.*/
+    __aint128 h1minread, h2minread;
+    do {
+        #pragma omp atomic read
+        h1minread = HaloLabel[h1].MinIDandTask;
+        #pragma omp atomic read
+        h2minread = HaloLabel[h2].MinIDandTask;
+        /* We want the minimum ID. No update if that didn't change. */
+        if(MinID(h1minread) <= MinID(h2minread))
+            break;
+     /* Atomic compare exchange to update minID.
+      * Expensive but rare.*/
+    } while(!__atomic_compare_exchange(&HaloLabel[h1].MinIDandTask, &h1minread, &h2minread, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
 
     /* h1 must be the root of other and target both:
      * do the splay to speed up future accesses.
@@ -517,14 +519,16 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
     else /* mode is 1, target is a ghost */
     {
         int head = HEAD(other, FOF_PRIMARY_GET_PRIV(tw)->Head);
-        struct SpinLocks * spin = FOF_PRIMARY_GET_PRIV(tw)->spin;
-//        printf("locking %d by %d in ngbiter\n", other, omp_get_thread_num());
-        lock_spinlock(head, spin);
-        if(MinID(HaloLabel[head].MinIDandTask) > MinID(I->MinIDandTask)) {
-            HaloLabel[head].MinIDandTask = I->MinIDandTask;
-        }
-//        printf("unlocking %d by %d in ngbiter\n", other, omp_get_thread_num());
-        unlock_spinlock(head, spin);
+        /* update MinID.*/
+        __aint128 hminread;
+        do {
+            #pragma omp atomic read
+            hminread = HaloLabel[head].MinIDandTask;
+            /* We want the minimum ID. No update if that didn't change. */
+            if(MinID(hminread) <= MinID(I->MinIDandTask))
+                break;
+        /* Atomic compare exchange to update MinID. Expensive but rare.*/
+        } while(!__atomic_compare_exchange(&HaloLabel[head].MinIDandTask, &hminread, &(I->MinIDandTask), 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
     }
 }
 
