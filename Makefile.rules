@@ -26,8 +26,9 @@ LIBS += -L../depends/lib $(BUNDLEDLIBS)
 V ?= 0
 
 #Detect gcc: if so we need an extra library for cmpxchg16 in fof
+#Look for the FSF string in the copyright version info
 CCVER:=$(shell $(MPICC) --version)
-ifeq (gcc,$(findstring gcc,${CCVER}))
+ifeq (Free Software Foundation,$(findstring Free Software Foundation,${CCVER}))
        LIBS += -latomic
 endif
 #Enable cmpxchg16 instruction generation on clang
