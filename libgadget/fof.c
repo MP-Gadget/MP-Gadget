@@ -473,9 +473,7 @@ fofp_merge(int target, int other, TreeWalk * tw)
      * so we need to double check later.*/
     __aint128 h1minread, h2minread;
     do {
-        #pragma omp atomic read
         h1minread = HaloLabel[h1].MinIDandTask;
-        #pragma omp atomic read
         h2minread = HaloLabel[h2].MinIDandTask;
         /* We want the minimum ID. No update if that didn't change. */
         if(MinID(h1minread) <= MinID(h2minread))
@@ -522,7 +520,6 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
         /* update MinID.*/
         __aint128 hminread;
         do {
-            #pragma omp atomic read
             hminread = HaloLabel[head].MinIDandTask;
             /* We want the minimum ID. No update if that didn't change. */
             if(MinID(hminread) <= MinID(I->MinIDandTask))
