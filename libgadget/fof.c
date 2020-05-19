@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <gsl/gsl_math.h>
 #include <inttypes.h>
+#include <omp.h>
 
 #include "utils.h"
 #include "utils/mpsort.h"
@@ -1054,8 +1055,8 @@ fof_save_groups(FOFGroups * fof, int num, MPI_Comm Comm)
 struct FOFSecondaryPriv {
     float *distance;
     float *hsml;
-    int count;
-    int npleft;
+    int *count;
+    int *npleft;
 };
 
 #define FOF_SECONDARY_GET_PRIV(tw) ((struct FOFSecondaryPriv *) (tw->priv))
@@ -1086,16 +1087,16 @@ fof_secondary_ngbiter(TreeWalkQueryFOF * I,
 static void
 fof_secondary_postprocess(int p, TreeWalk * tw)
 {
-#pragma omp atomic
-    FOF_SECONDARY_GET_PRIV(tw)->count ++;
+    /* More work needed: add this particle to the redo queue*/
+    int tid = omp_get_thread_num();
+    FOF_SECONDARY_GET_PRIV(tw)->count[tid]++;
 
     if(FOF_SECONDARY_GET_PRIV(tw)->distance[p] > 0.5 * LARGE)
     {
         if(FOF_SECONDARY_GET_PRIV(tw)->hsml[p] < 4 * fof_params.FOFHaloComovingLinkingLength)  /* we only search out to a maximum distance */
         {
             /* need to redo this particle */
-#pragma omp atomic
-            FOF_SECONDARY_GET_PRIV(tw)->npleft++;
+            FOF_SECONDARY_GET_PRIV(tw)->npleft[tid]++;
             FOF_SECONDARY_GET_PRIV(tw)->hsml[p] *= 2.0;
 /*
             if(iter >= MAXITER - 10)
@@ -1158,16 +1159,23 @@ static void fof_label_secondary(ForceTree * tree)
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
 
     message(0, "fof-nearest iteration started\n");
+    int NumThreads = omp_get_max_threads();
+    FOF_SECONDARY_GET_PRIV(tw)->npleft = ta_malloc("NPLeft", int, NumThreads);
+    FOF_SECONDARY_GET_PRIV(tw)->count = ta_malloc("Count", int, NumThreads);
 
     do
     {
-        FOF_SECONDARY_GET_PRIV(tw)->npleft = 0;
-        FOF_SECONDARY_GET_PRIV(tw)->count = 0;
+        memset(FOF_SECONDARY_GET_PRIV(tw)->npleft, 0, sizeof(int) * NumThreads);
+        memset(FOF_SECONDARY_GET_PRIV(tw)->count, 0, sizeof(int) * NumThreads);
 
         treewalk_run(tw, NULL, PartManager->NumPart);
 
-        sumup_large_ints(1, &FOF_SECONDARY_GET_PRIV(tw)->npleft, &ntot);
-        sumup_large_ints(1, &FOF_SECONDARY_GET_PRIV(tw)->count, &counttot);
+        for(n = 1; n < NumThreads; n++) {
+            FOF_SECONDARY_GET_PRIV(tw)->npleft[0] += FOF_SECONDARY_GET_PRIV(tw)->npleft[n];
+            FOF_SECONDARY_GET_PRIV(tw)->count[0] += FOF_SECONDARY_GET_PRIV(tw)->count[n];
+        }
+        sumup_large_ints(1, &FOF_SECONDARY_GET_PRIV(tw)->npleft[0], &ntot);
+        sumup_large_ints(1, &FOF_SECONDARY_GET_PRIV(tw)->count[0], &counttot);
 
         message(0, "fof-nearest iteration %d: need to repeat for %010ld /%010ld particles.\n", iter, ntot, counttot);
 
@@ -1183,6 +1191,8 @@ static void fof_label_secondary(ForceTree * tree)
     }
     while(ntot > 0);
 
+    ta_free(FOF_SECONDARY_GET_PRIV(tw)->count);
+    ta_free(FOF_SECONDARY_GET_PRIV(tw)->npleft);
     myfree(FOF_SECONDARY_GET_PRIV(tw)->hsml);
     myfree(FOF_SECONDARY_GET_PRIV(tw)->distance);
 }
