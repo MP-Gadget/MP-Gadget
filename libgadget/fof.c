@@ -1148,7 +1148,7 @@ static void fof_label_secondary(ForceTree * tree)
                 /* use gas sml as a hint (faster convergence than 0.1 fof_params.FOFHaloComovingLinkingLength at high-z */
                 FOF_SECONDARY_GET_PRIV(tw)->hsml[n] = 0.5 * P[n].Hsml;
             } else {
-                FOF_SECONDARY_GET_PRIV(tw)->hsml[n] = 0.1 * fof_params.FOFHaloComovingLinkingLength;
+                FOF_SECONDARY_GET_PRIV(tw)->hsml[n] = 0.4 * fof_params.FOFHaloComovingLinkingLength;
             }
         }
     }
