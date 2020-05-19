@@ -245,60 +245,33 @@ struct FOFPrimaryPriv {
 /* This function walks the particle tree starting at particle i until it reaches
  * a particle which has Head[i] = i, the root node (particles are initialised in
  * this state, so this is equivalent to finding a particle which has yet to be merged).
- * Each particle is locked along the way, and unlocked once it is clear that it is not a root.
- * Once it reaches a root, it returns that particle number with the lock still held.
- * There are two other arguments:
+ * Once it reaches a root, it returns that particle number.
+ * Arguments:
  *
  * stop: When this particle is reached, return -1. We use this to find an already merged tree.
- *
- * locked: This particle is already locked (setting locked = -1 means no other locks are taken).
- *         When we try to lock a particle locked by another thread, the code checks whether
- *         it can safely take a second lock. If it cannot, it returns -2, with the expectation
- *         that the first lock is released before a retry.
  *
  * Returns:
  *      root particle if found
  *      -1 if stop particle reached
- *      -2 if locking might have deadlocked.
  */
 static int
-HEADl(int stop, int i, int locked, int * Head, struct SpinLocks * spin)
+HEADl(int stop, int i, const int * const Head)
 {
-    int r, next;
-    if (i == stop) {
-        return -1;
-    }
-//    printf("locking %d by %d in HEADl stop = %d\n", i, omp_get_thread_num(), stop);
-    /* Try to lock the particle. Wait on the lock if it is less than the already locked particle,
-     * or if such a particle does not exist. We could use atomic to avoid the lock, but this
-     * makes the locking code less clear, and doesn't lead to much of a speedup: the splay
-     * means that the tree is shallow.*/
-    if(locked < 0 || i < locked) {
-        lock_spinlock(i, spin);
-    }
-    else{
-        if(try_lock_spinlock(i, spin)) {
-            /*This means some other thread already has the lock.
-             *To avoid deadlocks we need to back off, unlock both particles and then retry.*/
-            return -2;
-        }
-    }
-//    printf("locked %d by %d in HEADl, next = %d\n", i, omp_get_thread_num(), FOF_PRIMARY_GET_PRIV(tw)->Head[i]);
-    /* atomic read because we may change
-     * this in update_root without the lock: not necessary on x86_64, but avoids tears elsewhere*/
-    #pragma omp atomic read
-    next = Head[i];
+    int next = i;
 
-    if(next == i) {
-        /* return locked */
-        return i;
-    }
-    /* this is not the root, keep going, but unlock first, since even if the root is modified by
-     * another thread, what we get here is on the path, */
-    unlock_spinlock(i, spin);
-//    printf("unlocking %d by %d in HEADl\n", i, omp_get_thread_num());
-    r = HEADl(stop, next, locked, Head, spin);
-    return r;
+    do {
+        i = next;
+        /* Reached stop, return*/
+        if(i == stop)
+            return -1;
+        /* atomic read because we may change
+         * this in update_root: not necessary on x86_64, but avoids tears elsewhere*/
+        #pragma omp atomic read
+        next = Head[i];
+    } while(next != i);
+
+    /* return unmerged particle*/
+    return i;
 }
 
 /* Rewrite a tree so that all values in it point directly to the true root.
@@ -315,23 +288,26 @@ update_root(int i, const int r, int * Head)
             t = Head[i];
             Head[i]= r;
         }
-    } while(t != i);
+        /* Stop if we reached the top (new head is the same as the old)
+         * or if the new head is less than or equal to the desired head, indicating
+         * another thread changed us*/
+    } while(t != i && (t > r));
 }
 
 /* Find the current head particle by walking the tree. No updates are done
  * so this can be performed from a threaded context. */
 static int
-HEAD(int i, TreeWalk * tw)
+HEAD(int i, const int * const Head)
 {
     int r = i;
-    while(FOF_PRIMARY_GET_PRIV(tw)->Head[r] != r) {
-        r = FOF_PRIMARY_GET_PRIV(tw)->Head[r];
+    while(Head[r] != r) {
+        r = Head[r];
     }
     return r;
 }
 
 static void fof_primary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
-    int head = HEAD(place, tw);
+    int head = HEAD(place, FOF_PRIMARY_GET_PRIV(tw)->Head);
     I->MinID = HaloLabel[head].MinID;
     I->MinIDTask = HaloLabel[head].MinIDTask;
 }
@@ -383,6 +359,7 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
 
     t0 = second();
 
+    #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)
     {
         FOF_PRIMARY_GET_PRIV(tw)->Head[i] = i;
@@ -393,6 +370,7 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
         HaloLabel[i].MinIDTask = ThisTask;
     }
 
+    /* The lock is used to protect MinID*/
     priv[0].spin = init_spinlocks(PartManager->NumPart);
     do
     {
@@ -401,13 +379,31 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
         treewalk_run(tw, NULL, PartManager->NumPart);
 
         t1 = second();
-
+        /* This sets the MinID of the head particle to the minimum ID 
+         * of the child particles. We set this inside the treewalk,
+         * but the locking allows a race, where the particle with MinID set
+         * is no longer the one which is the true Head of the group.
+         * So we must check it again here.*/
+        for(i = 0; i < PartManager->NumPart; i++) {
+            int head = HEAD(i, FOF_PRIMARY_GET_PRIV(tw)->Head);
+            if(HaloLabel[head].MinID > HaloLabel[i].MinID) {
+                HaloLabel[head].MinID = HaloLabel[i].MinID;
+                HaloLabel[head].MinIDTask = HaloLabel[i].MinIDTask;
+            }
+        }
         /* let's check out which particles have changed their MinID,
          * mark them for next round. */
         link_across = 0;
 #pragma omp parallel for reduction(+: link_across)
         for(i = 0; i < PartManager->NumPart; i++) {
-            MyIDType newMinID = HaloLabel[HEAD(i, tw)].MinID;
+            int head = HEAD(i, FOF_PRIMARY_GET_PRIV(tw)->Head);
+            /* This loop sets the MinID of the children to the minID of the head.
+             * The minID of the head is set above and is stable at this point.*/
+            if(i != head) {
+                HaloLabel[i].MinID = HaloLabel[head].MinID;
+                HaloLabel[i].MinIDTask = HaloLabel[head].MinIDTask;
+            }
+            MyIDType newMinID = HaloLabel[head].MinID;
             if(newMinID != FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i]) {
                 FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[i] = 1;
                 link_across ++;
@@ -423,13 +419,6 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
 
     free_spinlocks(priv[0].spin);
 
-    /* Update MinID of all linked (primary-linked) particles */
-    for(i = 0; i < PartManager->NumPart; i++)
-    {
-        HaloLabel[i].MinID = HaloLabel[HEAD(i, tw)].MinID;
-        HaloLabel[i].MinIDTask = HaloLabel[HEAD(i, tw)].MinIDTask;
-    }
-
     message(0, "Local groups found.\n");
 
     myfree(FOF_PRIMARY_GET_PRIV(tw)->OldMinID);
@@ -442,33 +431,40 @@ fofp_merge(int target, int other, TreeWalk * tw)
 {
     /* this will lock h1 */
     int * Head = FOF_PRIMARY_GET_PRIV(tw)->Head;
-    struct SpinLocks * spin = FOF_PRIMARY_GET_PRIV(tw)->spin;
     int h1, h2;
-
     do {
-        h1 = HEADl(-1, target, -1, Head, spin);
-        /* stop looking if we find h1 along the path (because it is already owned by us) */
-        h2 = HEADl(h1, other, h1, Head, spin);
-        /* We had a lock already taken on h2 by another thread.
-         * We need to unlock h1 and retry to avoid deadlock loops.*/
-        if(h2 == -2)
-            unlock_spinlock(h1, spin);
-    } while(h2 == -2);
-
-    if(h2 >=0)
-    {
-        /* h2 as a sub-tree of h1 */
-        Head[h2] = h1;
-
-        /* update MinID of h1 */
-        if(HaloLabel[h1].MinID > HaloLabel[h2].MinID)
-        {
-            HaloLabel[h1].MinID = HaloLabel[h2].MinID;
-            HaloLabel[h1].MinIDTask = HaloLabel[h2].MinIDTask;
+        h1 = HEADl(-1, target, Head);
+        /* Done if we find h1 along the path
+         * (because other is already in the same halo) */
+        h2 = HEADl(h1, other, Head);
+        if(h2 < 0)
+            return;
+        /* Ensure that we always merge to the lower entry.
+         * This avoids circular loops in the Head entries:
+         * a -> b -> a */
+        if(h1 > h2) {
+            int tmp = h2;
+            h2 = h1;
+            h1 = tmp;
         }
-        //printf("unlocking %d by %d in merge\n", h2, omp_get_thread_num());
-        unlock_spinlock(h2, spin);
+     /* Atomic compare exchange to make h2 a subtree of h1.
+      * Set Head[h2] = h1 iff Head[h2] is still h2. Otherwise loop.*/
+    } while(!__atomic_compare_exchange(&Head[h2], &h2, &h1, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+
+    struct SpinLocks * spin = FOF_PRIMARY_GET_PRIV(tw)->spin;
+
+    /* update MinID of h1: h2 is now just another child of h1
+     * so h2 does not need to be locked.
+     * h1 may not be its own head anymore,
+     * so we need to double check later.
+     * lock h1 so we don't change MinID but not MinIDTask.*/
+    lock_spinlock(h1, spin);
+    if(HaloLabel[h1].MinID > HaloLabel[h2].MinID)
+    {
+        HaloLabel[h1].MinID = HaloLabel[h2].MinID;
+        HaloLabel[h1].MinIDTask = HaloLabel[h2].MinIDTask;
     }
+    unlock_spinlock(h1, spin);
 
     /* h1 must be the root of other and target both:
      * do the splay to speed up future accesses.
@@ -478,8 +474,6 @@ fofp_merge(int target, int other, TreeWalk * tw)
     update_root(target, h1, Head);
     update_root(other, h1, Head);
 
-    //printf("unlocking %d by %d in merge\n", h1, omp_get_thread_num());
-    unlock_spinlock(h1, spin);
 }
 
 static void
@@ -503,18 +497,20 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
             // printf("locked merge %d %d by %d\n", lv->target, other, omp_get_thread_num());
             fofp_merge(lv->target, other, tw);
         }
-    } else /* mode is 1, target is a ghost */
+    }
+    else /* mode is 1, target is a ghost */
     {
-            struct SpinLocks * spin = FOF_PRIMARY_GET_PRIV(tw)->spin;
+        int head = HEAD(other, FOF_PRIMARY_GET_PRIV(tw)->Head);
+        struct SpinLocks * spin = FOF_PRIMARY_GET_PRIV(tw)->spin;
 //        printf("locking %d by %d in ngbiter\n", other, omp_get_thread_num());
-        lock_spinlock(other, spin);
-        if(HaloLabel[HEAD(other, tw)].MinID > I->MinID)
+        lock_spinlock(head, spin);
+        if(HaloLabel[head].MinID > I->MinID)
         {
-            HaloLabel[HEAD(other, tw)].MinID = I->MinID;
-            HaloLabel[HEAD(other, tw)].MinIDTask = I->MinIDTask;
+            HaloLabel[head].MinID = I->MinID;
+            HaloLabel[head].MinIDTask = I->MinIDTask;
         }
 //        printf("unlocking %d by %d in ngbiter\n", other, omp_get_thread_num());
-        unlock_spinlock(other, spin);
+        unlock_spinlock(head, spin);
     }
 }
 
