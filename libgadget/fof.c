@@ -379,7 +379,7 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
         treewalk_run(tw, NULL, PartManager->NumPart);
 
         t1 = second();
-        /* This sets the MinID of the head particle to the minimum ID 
+        /* This sets the MinID of the head particle to the minimum ID
          * of the child particles. We set this inside the treewalk,
          * but the locking allows a race, where the particle with MinID set
          * is no longer the one which is the true Head of the group.
@@ -1137,6 +1137,7 @@ static void fof_label_secondary(ForceTree * tree)
     FOF_SECONDARY_GET_PRIV(tw)->distance = (float *) mymalloc("FOF_SECONDARY->distance", sizeof(float) * PartManager->NumPart);
     FOF_SECONDARY_GET_PRIV(tw)->hsml = (float *) mymalloc("FOF_SECONDARY->hsml", sizeof(float) * PartManager->NumPart);
 
+    #pragma omp parallel for
     for(n = 0; n < PartManager->NumPart; n++)
     {
         if(fof_secondary_haswork(n, tw))
