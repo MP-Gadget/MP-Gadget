@@ -1145,14 +1145,11 @@ static void fof_label_secondary(ForceTree * tree)
     for(n = 0; n < PartManager->NumPart; n++)
     {
         FOF_SECONDARY_GET_PRIV(tw)->distance[n] = LARGE;
-        if(fof_secondary_haswork(n, tw))
-        {
-            if(P[n].Type == 0) {
-                /* use gas sml as a hint (faster convergence than 0.1 fof_params.FOFHaloComovingLinkingLength at high-z */
-                FOF_SECONDARY_GET_PRIV(tw)->hsml[n] = 0.5 * P[n].Hsml;
-            } else {
-                FOF_SECONDARY_GET_PRIV(tw)->hsml[n] = 0.4 * fof_params.FOFHaloComovingLinkingLength;
-            }
+        if(P[n].Type == 0) {
+            /* use gas sml as a hint (faster convergence than 0.1 fof_params.FOFHaloComovingLinkingLength at high-z */
+            FOF_SECONDARY_GET_PRIV(tw)->hsml[n] = 0.5 * P[n].Hsml;
+        } else {
+            FOF_SECONDARY_GET_PRIV(tw)->hsml[n] = 0.4 * fof_params.FOFHaloComovingLinkingLength;
         }
     }
 
