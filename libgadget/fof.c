@@ -1068,6 +1068,9 @@ static void fof_secondary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
 static int fof_secondary_haswork(int n, TreeWalk * tw) {
     if(P[n].IsGarbage || P[n].Swallowed)
         return 0;
+    /* Exclude particles where we already found a neighbour*/
+    if(FOF_SECONDARY_GET_PRIV(tw)->distance[n] < 0.5 * LARGE)
+        return 0;
     return (((1 << P[n].Type) & (FOF_SECONDARY_LINK_TYPES)));
 }
 static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, enum TreeWalkReduceMode mode, TreeWalk * tw) {
@@ -1141,9 +1144,9 @@ static void fof_label_secondary(ForceTree * tree)
     #pragma omp parallel for
     for(n = 0; n < PartManager->NumPart; n++)
     {
+        FOF_SECONDARY_GET_PRIV(tw)->distance[n] = LARGE;
         if(fof_secondary_haswork(n, tw))
         {
-            FOF_SECONDARY_GET_PRIV(tw)->distance[n] = LARGE;
             if(P[n].Type == 0) {
                 /* use gas sml as a hint (faster convergence than 0.1 fof_params.FOFHaloComovingLinkingLength at high-z */
                 FOF_SECONDARY_GET_PRIV(tw)->hsml[n] = 0.5 * P[n].Hsml;
