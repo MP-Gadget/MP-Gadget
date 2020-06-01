@@ -425,20 +425,13 @@ layout_prepare (PetaPM * pm,
 
     /* count total number of cells to be exported */
     int NcExport = 0;
-#pragma omp parallel for reduction(+: NcExport)
     for(i = 0; i < L->NpExport; i++) {
+        int task = L->PencilSend[i].task;
+        L->NcSend[task] += L->PencilSend[i].len;
         NcExport += L->PencilSend[i].len;
+        L->NpSend[task] ++;
     }
     L->NcExport = NcExport;
-
-#pragma omp parallel for
-    for(i = 0; i < L->NpExport; i ++) {
-        int task = L->PencilSend[i].task;
-#pragma omp atomic
-        L->NpSend[task] ++;
-#pragma omp atomic
-        L->NcSend[task] += L->PencilSend[i].len;
-    }
 
     MPI_Alltoall(L->NpSend, 1, MPI_INT, L->NpRecv, 1, MPI_INT, L->comm);
     MPI_Alltoall(L->NcSend, 1, MPI_INT, L->NcRecv, 1, MPI_INT, L->comm);
