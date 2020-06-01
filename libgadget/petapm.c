@@ -582,7 +582,7 @@ static void layout_finish(struct Layout * L) {
 /* exchange cells to their pfft host, then reduce the cells to the pfft
  * array */
 static void to_pfft(double * cell, double * buf) {
-#pragma omp atomic
+#pragma omp atomic update
             cell[0] += buf[0];
 }
 
@@ -937,7 +937,7 @@ static void put_particle_to_mesh(PetaPM * pm, int i, double * mesh, double weigh
     double Mass = *MASS(i);
     if(INACTIVE(i))
         return;
-#pragma omp atomic
+#pragma omp atomic update
     mesh[0] += weight * Mass;
 }
 static int64_t reduce_int64(int64_t input, MPI_Comm comm) {
