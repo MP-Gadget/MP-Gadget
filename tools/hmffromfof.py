@@ -20,7 +20,7 @@ def HMFFromFOF(foftable, h0=False, bins='auto'):
     msun_in_g = 1.989e33
     #1 Mpc in cm
     Mpc_in_cm = 3.085678e+24
-    #In units of 10^10 M_sun by default.
+    #In units of 10^10 M_sun/h by default.
     try:
         imass_in_g = bf["Header"].attrs["UnitMass_in_g"]
     except KeyError:
@@ -34,7 +34,8 @@ def HMFFromFOF(foftable, h0=False, bins='auto'):
     box = bf["Header"].attrs["BoxSize"]
     #Convert to Mpc from kpc/h:
     box *= ilength_in_cm / hub / Mpc_in_cm
-    masses = bf["FOFGroups/Mass"][:]
+    # Convert from 10^10 Msun/h to 10^10 Msun
+    masses = bf["FOFGroups/Mass"][:] / hub
     #This is N(M) evenly spaced in log(M)
     NM, Mbins = np.histogram(np.log10(masses), bins=bins)
     #Convert Mbins to Msun
