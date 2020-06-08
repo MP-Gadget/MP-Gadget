@@ -1,0 +1,5 @@
+include src/*.c
+include src/*.h
+include bigfile/*.pyx
+include bigfile/*.c
+README.rst
