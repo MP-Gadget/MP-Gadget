@@ -1,3 +1,0 @@
-[submodule "bigfile"]
-	path = depends/bigfile
-	url = https://github.com/rainwoodman/bigfile
