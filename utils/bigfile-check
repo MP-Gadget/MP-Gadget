@@ -1,0 +1,74 @@
+#! /bin/bash
+
+usage() {
+    echo 'Usage: bigfile-check file [block ...]' >&2
+    exit;
+}
+
+fail () {
+    exit;
+}
+
+
+VERBOSE=0
+while getopts ":v" opt; do
+    case $opt in 
+        v )
+        VERBOSE="-v"
+        ;;
+        \? )
+        usage
+        ;;
+    esac
+done
+
+shift $(($OPTIND-1))
+ROOT=`dirname $0`
+FILE=$1
+shift
+
+if [ "x$FILE" == "x" ]; then
+    usage
+fi;
+
+check() {
+    local BLOCK
+    BLOCK=$1
+    
+
+    if [ $VERBOSE ]; then
+        echo checking $BLOCK >&2
+    fi;
+    local sumreal
+    local sumheader
+    sum=`$ROOT/bigfile-cat -b $FILE $BLOCK | sum -s | awk '{print $1}'`
+    if [ $? != 0 ]; then
+        echo cat failed
+        fail
+    fi
+    expectedsum=`$ROOT/bigfile-ls -l $FILE $BLOCK | awk '{print $5}'`
+    if [ $? != 0 ]; then
+        echo ls failed
+        fail
+    fi
+    if [ $sum -ne $expectedsum ]; then
+        echo check sum failed $BLOCK $sum  $expectedsum
+        fail
+    fi
+}
+if [ -z $1 ]; then
+    BLOCKS=`$ROOT/bigfile-ls $FILE`
+else
+    BLOCKS="$*"
+fi
+JOBS=
+for block in $BLOCKS ; do
+    ( check $block ) &
+    JOBS="$JOBS $!"
+done
+for job in $JOBS ; do
+    wait $job
+    if [ $? != 0 ]; then
+       fail
+    fi
+done

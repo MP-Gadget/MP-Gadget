@@ -1,0 +1,14 @@
+#! /bin/bash
+
+usage() {
+    echo 'Usage: bigfile-rename file block newname' >&2
+}
+
+if [ "x$1" == "x-h" ]; then
+    usage;
+    exit
+fi;
+
+FILE=$1
+shift
+mv  $FILE/$1 $FILE/$2

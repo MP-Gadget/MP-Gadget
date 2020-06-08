@@ -1,0 +1,16 @@
+#! /bin/bash
+
+usage() {
+    echo 'Usage: bigfile-rm file [block ...]' >&2
+}
+
+if [ "x$1" == "x-h" ]; then
+    usage;
+    exit
+fi;
+
+FILE=$1
+shift
+for i in $*; do
+    rm -r $FILE/$i;
+done
