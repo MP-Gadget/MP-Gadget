@@ -5,7 +5,7 @@ MPICC ?= mpicc
 LOW_PRECISION ?= double
 HIGH_PRECISION ?= double
 
-OPTIMIZE ?= -g -fopenmp -Wall
+OPTIMIZE ?= -O2 -g -fopenmp -Wall
 GSL_INCL ?= $(shell pkg-config --cflags gsl)
 GSL_LIBS ?= $(shell pkg-config --libs gsl)
 
