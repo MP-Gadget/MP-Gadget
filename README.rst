@@ -33,6 +33,7 @@ Physics models:
 - Various wind feedback and blackhole feedback models
 - Various star formation criteria
 - Primordial and metal cooling using updated recombination rates from the Sherwood simulation.
+- Helium reionization
 - Fluctuating UV background
 
 Installation
@@ -44,8 +45,7 @@ First time users:
 
     git clone https://github.com/MP-Gadget/MP-Gadget.git
     cd MP-Gadget
-
-    bash bootstrap.sh
+    make -j
 
 We will need gsl. On HPC systems with the modules command, 
 usually it can be loaded with 
@@ -59,8 +59,7 @@ usually it can be loaded with
 On a common PC/Linux system, refer to your package vendor how to
 install gsl and gsl-devel.
 
-You need an Options.mk file. A good first default is Options.mk.example .
-Copy Options.mk.example to Options.mk
+If you wish to perform compile-time customisation (to, eg, change optimizations or use different compilers), you need an Options.mk file. A good first default with documentation is Options.mk.example:
 
 .. code:: bash
 
@@ -72,6 +71,8 @@ platform-options directory. For example, for Stampede 2 you should do:
 .. code:: bash
 
     cp platform-options/Options.mk.stampede2 Options.mk
+
+For generic intel compiler based clusters, start with platform-options/Options.mk.icc
 
 Compile-time options may be set in Options.mk. The remaining compile time options are generally only useful for development or debugging. All science options are set using a parameter file at runtime.
 
