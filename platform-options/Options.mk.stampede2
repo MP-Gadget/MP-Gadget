@@ -3,9 +3,8 @@
 # which means the base instruction set is CORE-AVX2, and 
 # alternate versions of some routines are generated for KNL and SKX nodes.
 #
-# The intel 18 compiler on stampede is buggy. You need to use the intelstampedefix branch.
 # -simd is important: it aligns various structures and without it intel's MPI crashes.
-OPTIMIZE =  -fopenmp -O3 -g -Wall ${TACC_VEC_FLAGS} -Zp16 -fp-model fast=1 -simd -ipo
+OPTIMIZE =  -fopenmp -O3 -g -Wall ${TACC_VEC_FLAGS} -Zp16 -fp-model fast=1 -simd
 
 #OPT += VALGRIND     # allow debugging with valgrind, disable the GADGET memory allocator.
 #OPT += -DDEBUG      # print a lot of debugging messages
