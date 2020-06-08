@@ -59,11 +59,7 @@ usually it can be loaded with
 On a common PC/Linux system, refer to your package vendor how to
 install gsl and gsl-devel.
 
-If you wish to perform compile-time customisation (to, eg, change optimizations or use different compilers), you need an Options.mk file. A good first default with documentation is Options.mk.example:
-
-.. code:: bash
-
-    cp Options.mk.example Options.mk
+If you wish to perform compile-time customisation (to, eg, change optimizations or use different compilers), you need an Options.mk file. The initial defaults are stored in Options.mk.example.
 
 For other systems you should use the customised Options.mk file in the
 platform-options directory. For example, for Stampede 2 you should do:
@@ -90,9 +86,6 @@ Now we are ready to build
 .. code:: bash
 
     make -j
-
-It takes some time to build pfft, a bundled dependency for pencil-based fast Fourier transforms.
-Other libraries are bigfile and mp-sort, which are written by Yu Feng and are quick to build. 
 
 In the end, we will have 2 binaries:
 
@@ -121,7 +114,7 @@ Find examples in examples/.
 - hydro : hydro
 - small : hydro with low resolution
 
-Control number of threads with `OMP_NUM_THREADS`.
+Control number of threads with `OMP_NUM_THREADS`. A good value is 10-20 threads.
 
 User Guide
 ----------
