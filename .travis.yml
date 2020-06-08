@@ -19,7 +19,6 @@ before_install:
     - conda install --yes gsl configobj gcc_linux-64
 
 install:
-    - sh bootstrap.sh
     - cp platform-options/Options.mk.travis Options.mk
     - make
 
