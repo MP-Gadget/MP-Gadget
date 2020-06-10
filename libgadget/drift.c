@@ -47,7 +47,7 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const
     /* Jumping of BH */
     if(P[i].Type == 5) {
         int k;
-        if (BHP(i).JumpToMinPot) {
+        if (BHP(i).JumpToMinPot && All.BH_DynamicalFriction == 3) {
             for(k = 0; k < 3; k++) {
                 double dx = NEAREST(P[i].Pos[k] - BHP(i).MinPotPos[k], BoxSize);
                 if(dx > 0.1 * BoxSize) {

@@ -126,7 +126,8 @@ extern struct global_data_all_processes
     double HydroCostFactor; /* cost factor for hydro in load balancing. */
 
     double MeanSeparation[6]; /* mean separation between particles. 0 if the species doesn't exist. */
-
+    double FractionalGravitySoftening;
+    
     /* some filenames */
     char InitCondFile[100],
          OutputDir[100],
