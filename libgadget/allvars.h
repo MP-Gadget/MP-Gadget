@@ -80,6 +80,7 @@ extern struct global_data_all_processes
                            which writes a list of particles to a file as they cross a light cone*/
 
     int WriteBlackHoleDetails; /* write BH details every time step*/
+    int BH_DynamicalFriction;
 
     int MassiveNuLinRespOn; /*!< flags that massive neutrinos using the linear
                                  response code of Ali-Haimoud & Bird 2013.*/

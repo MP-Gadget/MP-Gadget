@@ -1055,9 +1055,9 @@ blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I, TreeWalk * tw)
     /****************************************************************************************/
     /* Need BH vel for density calculation */
 
-    for(k = 0; k < 3; k++)
+    for(int k = 0; k < 3; k++)
     {
-        I->Vel[k] = P[place].Vel[k];
+        I->Vel[k] = P[i].Vel[k];
     }
     I->SurroundingDensity = BH_GET_PRIV(tw)->BH_SurroundingDensity[PI];
     for(k = 0; k < 3; k++)
