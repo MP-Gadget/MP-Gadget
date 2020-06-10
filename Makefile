@@ -1,13 +1,16 @@
 # Customization; see Options.mk.example
 CONFIG ?= Options.mk
 
+include $(CONFIG)
+#
 # define the version
 # (easier to extract from other utils, e.g. python)
 include Makefile.version
+#
 
 FILES = $(shell git ls-files)
 
-all: $(CONFIG)
+all:
 	cd depends; $(MAKE)
 	cd libgadget; $(MAKE)
 	cd libgenic; $(MAKE)
@@ -20,13 +23,10 @@ clean :
 	cd gadget; $(MAKE) clean
 	cd genic; $(MAKE) clean
 
-test: $(CONFIG)
+test:
 	cd depends; $(MAKE)
 	cd libgadget; $(MAKE) test
 	cd libgenic; $(MAKE) test
-
-$(CONFIG):
-	cp Options.mk.example $(CONFIG)
 
 depclean: clean
 	cd depends; $(MAKE) clean

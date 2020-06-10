@@ -33,7 +33,6 @@ Physics models:
 - Various wind feedback and blackhole feedback models
 - Various star formation criteria
 - Primordial and metal cooling using updated recombination rates from the Sherwood simulation.
-- Helium reionization
 - Fluctuating UV background
 
 Installation
@@ -45,7 +44,8 @@ First time users:
 
     git clone https://github.com/MP-Gadget/MP-Gadget.git
     cd MP-Gadget
-    make -j
+
+    bash bootstrap.sh
 
 We will need gsl. On HPC systems with the modules command, 
 usually it can be loaded with 
@@ -59,7 +59,12 @@ usually it can be loaded with
 On a common PC/Linux system, refer to your package vendor how to
 install gsl and gsl-devel.
 
-If you wish to perform compile-time customisation (to, eg, change optimizations or use different compilers), you need an Options.mk file. The initial defaults are stored in Options.mk.example.
+You need an Options.mk file. A good first default is Options.mk.example .
+Copy Options.mk.example to Options.mk
+
+.. code:: bash
+
+    cp Options.mk.example Options.mk
 
 For other systems you should use the customised Options.mk file in the
 platform-options directory. For example, for Stampede 2 you should do:
@@ -67,8 +72,6 @@ platform-options directory. For example, for Stampede 2 you should do:
 .. code:: bash
 
     cp platform-options/Options.mk.stampede2 Options.mk
-
-For generic intel compiler based clusters, start with platform-options/Options.mk.icc
 
 Compile-time options may be set in Options.mk. The remaining compile time options are generally only useful for development or debugging. All science options are set using a parameter file at runtime.
 
@@ -86,6 +89,9 @@ Now we are ready to build
 .. code:: bash
 
     make -j
+
+It takes some time to build pfft, a bundled dependency for pencil-based fast Fourier transforms.
+Other libraries are bigfile and mp-sort, which are written by Yu Feng and are quick to build. 
 
 In the end, we will have 2 binaries:
 
@@ -114,7 +120,7 @@ Find examples in examples/.
 - hydro : hydro
 - small : hydro with low resolution
 
-Control number of threads with `OMP_NUM_THREADS`. A good value is 10-20 threads.
+Control number of threads with `OMP_NUM_THREADS`.
 
 User Guide
 ----------
@@ -144,16 +150,6 @@ A good move but it happens to be a buggy version of GLIBC:
 https://sourceware.org/bugzilla/show_bug.cgi?id=19590
 causing non-existing symbols like `_ZGVcN4v___log_finite`.
 Adding `-lmvec -lmvec_nonshared` to GSL_LIBS works around the issue.
-
-Bigfile
--------
-
-Bigfile is incorporated using git-subtree, in the depends/bigfile prefix.
-The command to update it (squash is currently mandatory) is:
-
-.. code:: bash
-
-    git subtree pull --prefix depends/bigfile "https://github.com/rainwoodman/bigfile.git" master --squash
 
 Contributors
 ------------
