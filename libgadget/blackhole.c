@@ -57,7 +57,7 @@ typedef struct {
 
     /*************************************************************************/
 
-    MyFloat SurroundingVel[3]  /* Include both DM and Star*/
+    MyFloat SurroundingVel[3];  /* Include both DM and Star*/
     MyFloat SurroundingDensity;
 
     /*************************************************************************/
@@ -123,12 +123,17 @@ struct BHPriv {
     /*************************************************************************/
     /* Temporaries computed in the accretion treewalk and used
      * in the feedback treewalk*/
-    MyFloat *BH_SurroundingDensity;
+    MyFloat * BH_SurroundingDensity;
     MyFloat (*BH_SurroundingVel)[3];
+
+    MyFloat * BH_DFAllMass;
+    MyFloat * BH_DFFracMass;
+
+
 
     /*************************************************************************/
 
-    MyFloat (*BH_SurroundingGasVel)[3];
+    MyFloat (*BH_SurroundingGasVel)[3];
 
     /* These are temporaries used in the feedback treewalk.*/
     MyFloat * BH_accreted_Mass;
@@ -391,6 +396,8 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
 
     priv->BH_SurroundingVel = (MyFloat (*) [3]) mymalloc("BH_SurroundingVel", 3* SlotsManager->info[5].size * sizeof(priv->BH_SurroundingVel[0]));
     priv->BH_SurroundingDensity = mymalloc("BH_SurroundingDensity", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingDensity));
+    priv->BH_DFAllMass = mymalloc("BH_DFAllMass", SlotsManager->info[5].size * sizeof(priv->BH_DFAllMass));
+    priv->BH_DFFracMass = mymalloc("BH_DFFracMass", SlotsManager->info[5].size * sizeof(priv->BH_DFFracMass));
 
     /*************************************************************************/
 
@@ -440,14 +447,16 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     myfree(priv->BH_accreted_BHMass);
     myfree(priv->BH_accreted_Mass);
 
-    myfree(priv->BH_SurroundingGasVel);
-
     /*****************************************************************/
 
+    myfree(priv->BH_DFFracMass);
+    myfree(priv->BH_DFAllMass);
     myfree(priv->BH_SurroundingDensity);
     myfree(priv->BH_SurroundingVel);
 
     /*****************************************************************/
+
+    myfree(priv->BH_SurroundingGasVel);
 
     myfree(priv->BH_Entropy);
     myfree(priv->MinPot);
@@ -624,7 +633,7 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
         for(j = 0; j < 3; j++) 
         {
             P[n].GravAccel[j] -= 4. * M_PI * All.G * All.G * P[n].Mass * rho_frac * 
-            log_lam * (P[n].Vel[k] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][k]) / pow(bhvel, 3);
+            log_lam * (P[n].Vel[j] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j]) / pow(bhvel, 3);
         }
     }
 
