@@ -107,6 +107,12 @@ typedef struct {
 
 typedef struct {
     TreeWalkNgbIterBase base;
+    /*************************************************************************/
+
+    DensityKernel accretion_kernel;
+
+    /*************************************************************************/
+
     DensityKernel feedback_kernel;
 } TreeWalkNgbIterBHFeedback;
 
@@ -627,7 +633,7 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
 
         bmax = All.FractionalGravitySoftening * All.MeanSeparation[1]; 
         log_lam = log(bmax/bmin);
-        rho_frac =   BH_GET_PRIV(tw)->BH_DFFracMass / BH_GET_PRIV(tw)->BH_DFAllMass * BH_GET_PRIV(tw)->BH_SurroundingDensity;
+        rho_frac =   (*BH_GET_PRIV(tw)->BH_DFFracMass) / (*BH_GET_PRIV(tw)->BH_DFAllMass) * (*BH_GET_PRIV(tw)->BH_SurroundingDensity);
 
         /* Simplified Version from Tremmel 2015 Eq. (3) */
         for(j = 0; j < 3; j++) 
@@ -847,7 +853,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         /* Swallow is symmetric, but feedback dumping is asymetric;
          * we apply a cut in r to break the symmetry. */
         iter->base.symmetric = NGB_TREEFIND_SYMMETRIC;
-
+        density_kernel_init(&iter->accretion_kernel, I->Hsml, GetDensityKernelType());
         density_kernel_init(&iter->feedback_kernel, hsearch, DENSITY_KERNEL_CUBIC_SPLINE);
         return;
     }
@@ -954,8 +960,8 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             /* Calculate relative velocity */
             for(k = 0; k < 3; k++) 
             {
-                bhvel += pow(I->Vel[k] - I->SurroundingVel[PI][k], 2);
-                othervel += pow(P[other].Vel[k] - I->SurroundingVel[PI][k], 2);
+                bhvel += pow(I->Vel[k] - I->SurroundingVel[k], 2);
+                othervel += pow(P[other].Vel[k] - I->SurroundingVel[k], 2);
             }
             bhvel = sqrt(bhvel);
             othervel = sqrt(othervel);
@@ -1060,7 +1066,7 @@ blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I, TreeWalk * tw)
         I->Vel[k] = P[i].Vel[k];
     }
     I->SurroundingDensity = BH_GET_PRIV(tw)->BH_SurroundingDensity[PI];
-    for(k = 0; k < 3; k++)
+    for(int k = 0; k < 3; k++)
     {
         I->SurroundingVel[k] = BH_GET_PRIV(tw)->BH_SurroundingVel[PI][k];
     }
