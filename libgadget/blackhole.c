@@ -603,10 +603,6 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
 {
     int j;
     int PI = P[n].PI;
-    double bhvel, c_over_sqrt2;
-    double bmax, bmin;
-    double log_lam, rho_frac;
-
 
     if(BH_GET_PRIV(tw)->BH_accreted_Mass[PI] > 0)
     {
@@ -617,6 +613,10 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
     /*******************************************************************/
     /* Add accel. except for reposition case */
     if(All.BH_DynamicalFriction < 3){ 
+        double bhvel, c_over_sqrt2;
+        double bmax, bmin;
+        double log_lam, rho_frac;
+
         /* Calculate Coulumb Logarithm */
         c_over_sqrt2 = LIGHTCGS * All.UnitVelocity_in_cm_per_s / sqrt(2.);
 
