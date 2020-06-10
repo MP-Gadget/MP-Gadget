@@ -613,7 +613,8 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
     /*******************************************************************/
     /* Add accel. except for reposition case */
     if(All.BH_DynamicalFriction < 3){ 
-        double bhvel, c_over_sqrt2;
+        double bhvel = 0;
+        double c_over_sqrt2;
         double bmax, bmin;
         double log_lam, rho_frac;
 
