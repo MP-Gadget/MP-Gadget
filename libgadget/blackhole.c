@@ -170,7 +170,7 @@ struct BHinfo{
     MyFloat BH_SurroundingGasVel[3];
 
     /**************************************************************/
-    
+
     MyFloat BH_SurroundingDensity;
     MyFloat BH_SurroundingVel[3];
 
@@ -329,8 +329,8 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
         info.BH_SurroundingVel[1] = priv->BH_SurroundingVel[PI][1];
         info.BH_SurroundingVel[2] = priv->BH_SurroundingVel[PI][2];
 
-        info.BH_DFAllMass = priv->BH_DFAllMass;
-        info.BH_DFFracMass = priv->BH_DFFracMass;
+        info.BH_DFAllMass = priv->BH_DFAllMass[PI];
+        info.BH_DFFracMass = priv->BH_DFFracMass[PI];
 
         info.BH_DFAccel[0] = BHP(p_i).DFAccel[0];
         info.BH_DFAccel[1] = BHP(p_i).DFAccel[1];
@@ -662,7 +662,7 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
 
         bmax = All.FractionalGravitySoftening * All.MeanSeparation[1]; 
         log_lam = log(bmax/bmin);
-        rho_frac =   (*BH_GET_PRIV(tw)->BH_DFFracMass) / (*BH_GET_PRIV(tw)->BH_DFAllMass) * (*BH_GET_PRIV(tw)->BH_SurroundingDensity);
+        rho_frac =   BH_GET_PRIV(tw)->BH_DFFracMass[PI] / BH_GET_PRIV(tw)->BH_DFAllMass[PI] * BH_GET_PRIV(tw)->BH_SurroundingDensity[PI];
 
         /* Simplified Version from Tremmel 2015 Eq. (3) */
         for(j = 0; j < 3; j++) 
