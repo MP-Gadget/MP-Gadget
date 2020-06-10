@@ -145,6 +145,16 @@ https://sourceware.org/bugzilla/show_bug.cgi?id=19590
 causing non-existing symbols like `_ZGVcN4v___log_finite`.
 Adding `-lmvec -lmvec_nonshared` to GSL_LIBS works around the issue.
 
+Bigfile
+-------
+
+Bigfile is incorporated using git-subtree, in the depends/bigfile prefix.
+The command to update it (squash is currently mandatory) is:
+
+.. code:: bash
+
+    git subtree pull --prefix depends/bigfile "https://github.com/rainwoodman/bigfile.git" master --squash
+
 Contributors
 ------------
 
