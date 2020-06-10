@@ -45,8 +45,6 @@ struct rotation_matrix
 /* --------------------------------------------------------------------------------- */
 /* function definitions */
 /* --------------------------------------------------------------------------------- */
-static inline double actual_slopelimiter(double dQ_1, double dQ_2);
-static inline double get_dQ_from_slopelimiter(double dQ_1, MyFloat grad[3], struct kernel_hydra kernel, double rinv);
 void Riemann_solver(struct Input_vec_Riemann Riemann_vec, struct Riemann_outputs *Riemann_out, double n_unit[3], double press_tot_limiter);
 double guess_for_pressure(struct Input_vec_Riemann Riemann_vec, struct Riemann_outputs *Riemann_out,
                           double v_line_L, double v_line_R, double cs_L, double cs_R);
@@ -60,13 +58,9 @@ void sample_reimann_vaccum_left(double S, struct Input_vec_Riemann Riemann_vec, 
                                 double n_unit[3], double v_line_L, double v_line_R, double cs_L, double cs_R);
 void Riemann_solver_exact(struct Input_vec_Riemann Riemann_vec, struct Riemann_outputs *Riemann_out, double n_unit[3],
                             double v_line_L, double v_line_R, double cs_L, double cs_R, double h_L, double h_R);
-void HLLC_fluxes(struct Input_vec_Riemann Riemann_vec, struct Riemann_outputs *Riemann_out, double n_unit[3],
-                 double v_line_L, double v_line_R, double cs_L, double cs_R, double h_L, double h_R, double S_L, double S_R);
 void get_wavespeeds_and_pressure_star(struct Input_vec_Riemann Riemann_vec, struct Riemann_outputs *Riemann_out, double n_unit[3],
                                       double v_line_L, double v_line_R, double cs_L, double cs_R, double h_L, double h_R,
                                       double *S_L_out, double *S_R_out, double press_tot_limiter);
-void Riemann_solver_Rusanov(struct Input_vec_Riemann Riemann_vec, struct Riemann_outputs *Riemann_out, double n_unit[3],
-                            double v_line_L, double v_line_R, double cs_L, double cs_R, double h_L, double h_R);
 void HLLC_Riemann_solver(struct Input_vec_Riemann Riemann_vec, struct Riemann_outputs *Riemann_out, double n_unit[3],
                          double v_line_L, double v_line_R, double cs_L, double cs_R, double h_L, double h_R, double press_tot_limiter);
 void convert_face_to_flux(struct Riemann_outputs *Riemann_out, double n_unit[3]);
@@ -138,37 +132,6 @@ void reconstruct_face_states(double Q_i, MyFloat Grad_Q_i[3], double Q_j, MyFloa
 
 
 /* --------------------------------------------------------------------------------- */
-/* slope limiter: put other limiters here, will replace all calculations with this */
-/*  (not currently used, but optional if we want to use other limiters, cited as noted below) */
-/* --------------------------------------------------------------------------------- */
-static inline double actual_slopelimiter(double dQ_1, double dQ_2)
-{
-    //return dQ_2; /* no limiter (unstable, use for tests) */
-    if(((dQ_1<0)&&(dQ_2<0))||((dQ_1>0)&&(dQ_2>0)))
-    {
-        if(dQ_1<0) {return DMAX(dQ_1,dQ_2);} else {return DMIN(dQ_1,dQ_2);} /* Sweby: minmod */
-        //return dQ_2 * DMIN(DMIN(2,0.5*(1+dQ_1/dQ_2)),2*dQ_1/dQ_2); /* monotonized central slope limiter */
-        //return 2*dQ_1*dQ_2/(dQ_1+dQ_2); /* Van Leer (1974, 2006) limiter */
-        //return dQ_2 * DMAX(DMIN(1,2*dQ_1/dQ_2),DMIN(2,dQ_1/dQ_2)); /* Sweby: superbee */
-    } else {
-        return 0;
-    }
-}
-
-
-
-/* --------------------------------------------------------------------------------- */
-/* simple function to get the slope limiter from the difference and gradient vectors */
-/*  (not currently used, but optional if we want to use other limiters, cited as noted below) */
-/* --------------------------------------------------------------------------------- */
-static inline double get_dQ_from_slopelimiter(double dQ_1, MyFloat grad[3], struct kernel_hydra kernel, double rinv)
-{
-    double dQ_2 = (grad[0]*kernel.dp[0] + grad[1]*kernel.dp[1] + grad[2]*kernel.dp[2]) * rinv;
-    return actual_slopelimiter(dQ_1,dQ_2);
-}
-
-
-/* --------------------------------------------------------------------------------- */
 /* Master Riemann solver routine: call this, it will call sub-routines */
 /*  (written by P. Hopkins, this is just a wrapper though for the various sub-routines) */
 /* --------------------------------------------------------------------------------- */
@@ -213,15 +176,9 @@ void Riemann_solver(struct Input_vec_Riemann Riemann_vec, struct Riemann_outputs
     HLLC_Riemann_solver(Riemann_vec, Riemann_out, n_unit, v_line_L, v_line_R, cs_L, cs_R, h_L, h_R, press_tot_limiter);
 }
 
-
-
-
-
-
 /* -------------------------------------------------------------------------------------------------------------- */
 /* the HLLC Riemann solver: try this first - it's approximate, but fast, and accurate for our purposes */
 /*  (wrapper for sub-routines to evaluate hydro reimann problem) */
-/* -------------------------------------------------------------------------------------------------------------- */
 /* HLLC: hydro (no MHD) */
 void HLLC_Riemann_solver(struct Input_vec_Riemann Riemann_vec, struct Riemann_outputs *Riemann_out, double n_unit[3],
                         double v_line_L, double v_line_R, double cs_L, double cs_R, double h_L, double h_R, double press_tot_limiter)
@@ -229,27 +186,6 @@ void HLLC_Riemann_solver(struct Input_vec_Riemann Riemann_vec, struct Riemann_ou
     double S_L,S_R;
     get_wavespeeds_and_pressure_star(Riemann_vec, Riemann_out, n_unit,  v_line_L, v_line_R, cs_L, cs_R, h_L, h_R, &S_L, &S_R, press_tot_limiter);
 }
-
-
-
-/*  Rusanov flux: generally not used, because it's too diffusive. But here if we need it. 
-        (this implementation written by P. Hopkins) */
-void Riemann_solver_Rusanov(struct Input_vec_Riemann Riemann_vec, struct Riemann_outputs *Riemann_out, double n_unit[3],
-                            double v_line_L, double v_line_R, double cs_L, double cs_R, double h_L, double h_R)
-{
-    /* estimate wave speed and simplest-average intermediate state
-     (Primitive Variable Riemann Solvers approximate Riemann solver from Toro) */
-    double S_L, S_R, S_plus, rho_csnd_hat, P_M, S_M;
-    S_plus = DMAX(DMAX(fabs(v_line_L - cs_L), fabs(v_line_R - cs_R)), DMAX(fabs(v_line_L + cs_L), fabs(v_line_R + cs_R)));
-    S_L=-S_plus; S_R=S_plus; rho_csnd_hat=0.5*(Riemann_vec.L.rho+Riemann_vec.R.rho) * 0.5*(cs_L+cs_R);
-    P_M = 0.5 * ((Riemann_vec.L.p + Riemann_vec.R.p) + (v_line_L-v_line_R) * rho_csnd_hat);
-    S_M = 0.5 * ((v_line_R+v_line_L) + (Riemann_vec.L.p-Riemann_vec.R.p) / (rho_csnd_hat));
-    Riemann_out->P_M = P_M;
-    Riemann_out->S_M = S_M;
-    return;
-}
-
-
 
 /* here we obtain wave-speed and pressure estimates for the 'star' region for the HLLC solver or the 
     Lagrangian (contact-wave) method; note we keep trying several methods here in the hopes of eventually getting a
@@ -318,80 +254,6 @@ void get_wavespeeds_and_pressure_star(struct Input_vec_Riemann Riemann_vec, stru
     *S_L_out = S_L; *S_R_out = S_R;
     return;
 } // if((Riemann_out->P_M <= 0)||(isnan(Riemann_out->P_M))) //
-
-
-
-
-
-/* --------------------------------------------------------------------------------- */
-/* ... fluxes from HLLC four-wave sampling ... */
-/*  (written by P. Hopkins) */
-/* --------------------------------------------------------------------------------- */
-void HLLC_fluxes(struct Input_vec_Riemann Riemann_vec, struct Riemann_outputs *Riemann_out, double n_unit[3],
-                 double v_line_L, double v_line_R, double cs_L, double cs_R, double h_L, double h_R, double S_L, double S_R)
-{
-    /* note that we are solving everything in the REST FRAME of the interface, then de-boosting the Riemann solution in the main loop */
-    double P_M = Riemann_out->P_M; double S_M = Riemann_out->S_M;
-    if((P_M <= 0)||(isnan(P_M))) return;
-    
-    double nfac,eK,dv2=0,v_line_frame=0; int k;
-    if((S_M==S_L)||(S_M==S_R)||(S_M==v_line_frame))
-    {
-        /* trap for this case, which gives NAN below but is actually very simple */
-        Riemann_out->Fluxes.rho = 0;
-        Riemann_out->Fluxes.p = Riemann_out->P_M * Riemann_out->S_M;
-        for(k=0;k<3;k++)
-            Riemann_out->Fluxes.v[k] = Riemann_out->P_M * n_unit[k];
-        return;
-    }
-    if(v_line_frame < S_L)
-    {
-        Riemann_out->Fluxes.rho = Riemann_vec.L.rho * (v_line_L - v_line_frame);
-        Riemann_out->Fluxes.p = Riemann_vec.L.rho * h_L * (v_line_L - v_line_frame) + Riemann_vec.L.p * v_line_frame;
-        for(k=0;k<3;k++)
-            Riemann_out->Fluxes.v[k] = Riemann_out->Fluxes.rho * Riemann_vec.L.v[k] + Riemann_vec.L.p * n_unit[k];
-    } else {
-        if((S_L <= v_line_frame)&&(v_line_frame <= S_M))
-        {
-            nfac = Riemann_vec.L.rho * (S_L-v_line_L)/(S_L-S_M);
-            if(nfac < 0) nfac=0; /* protect against too large expansion estimate */
-            Riemann_out->Fluxes.rho = Riemann_vec.L.rho * (v_line_L - S_L) + nfac * (S_L - v_line_frame);
-            
-            eK = Riemann_vec.L.rho * h_L - Riemann_vec.L.p;
-            Riemann_out->Fluxes.p = (Riemann_vec.L.rho * h_L * v_line_L - eK * S_L) + (S_L - v_line_frame) * nfac *
-                (eK/Riemann_vec.L.rho + (S_M-v_line_L) * (S_M + Riemann_vec.L.p/(Riemann_vec.L.rho * (S_L-v_line_L))));
-            
-            dv2 = nfac * (S_L - v_line_frame) * (S_M - v_line_L) + Riemann_vec.L.p;
-            for(k=0;k<3;k++)
-                Riemann_out->Fluxes.v[k] = Riemann_out->Fluxes.rho * Riemann_vec.L.v[k] + dv2 * n_unit[k];
-        } else {
-            if((S_M <= v_line_frame)&&(v_line_frame <= S_R))
-            {
-                nfac = Riemann_vec.R.rho * (S_R-v_line_R)/(S_R-S_M);
-                if(nfac < 0) nfac=0; /* protect against too large expansion estimate */
-                Riemann_out->Fluxes.rho = Riemann_vec.R.rho * (v_line_R - S_R) + nfac * (S_R - v_line_frame);
-                
-                eK = Riemann_vec.R.rho * h_R - Riemann_vec.R.p;
-                Riemann_out->Fluxes.p = (Riemann_vec.R.rho * h_R * v_line_R - eK * S_R) + (S_R - v_line_frame) * nfac *
-                    (eK/Riemann_vec.R.rho + (S_M-v_line_R) * (S_M + Riemann_vec.R.p/(Riemann_vec.R.rho * (S_R-v_line_R))));
-                
-                dv2 = nfac * (S_R - v_line_frame) * (S_M - v_line_R) + Riemann_vec.R.p;
-                for(k=0;k<3;k++)
-                    Riemann_out->Fluxes.v[k] = Riemann_out->Fluxes.rho * Riemann_vec.R.v[k] + dv2 * n_unit[k];
-            } else {
-                Riemann_out->Fluxes.rho = Riemann_vec.R.rho * (v_line_R - v_line_frame);
-                Riemann_out->Fluxes.p = Riemann_vec.R.rho * h_R * (v_line_R - v_line_frame) + Riemann_vec.R.p * v_line_frame;
-                for(k=0;k<3;k++)
-                    Riemann_out->Fluxes.v[k] = Riemann_out->Fluxes.rho * Riemann_vec.R.v[k] + Riemann_vec.R.p * n_unit[k];
-            }
-        }
-    }
-    return;
-}
-
-
-
-
 
 /* --------------------------------------------------------------------------------- */
 /*  exact Riemann solver here -- deals with all the problematic states! */
