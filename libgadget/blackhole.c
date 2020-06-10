@@ -1050,12 +1050,12 @@ blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I, TreeWalk * tw)
     {
         I->Vel[k] = P[place].Vel[k];
     }
-    I->SurroundingDensity = BH_GET_PRIV(tw)->BH_SurroundingDensity[PI]
+    I->SurroundingDensity = BH_GET_PRIV(tw)->BH_SurroundingDensity[PI];
     for(k = 0; k < 3; k++)
     {
         I->SurroundingVel[k] = BH_GET_PRIV(tw)->BH_SurroundingVel[PI][k];
     }
-    I->Mass = P[i].Mass
+    I->Mass = P[i].Mass;
 
     /****************************************************************************************/
 
