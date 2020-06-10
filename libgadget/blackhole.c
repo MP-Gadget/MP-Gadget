@@ -169,6 +169,18 @@ struct BHinfo{
     MyFloat BH_Entropy;
     MyFloat BH_SurroundingGasVel[3];
 
+    /**************************************************************/
+    
+    MyFloat BH_SurroundingDensity;
+    MyFloat BH_SurroundingVel[3];
+
+    MyFloat BH_DFAllMass;
+    MyFloat BH_DFFracMass;
+
+    double BH_DFAccel[3];
+
+    /**************************************************************/
+
     MyFloat BH_accreted_Mass;
     MyFloat BH_accreted_BHMass;
     MyFloat BH_FeedbackWeightSum;
@@ -309,6 +321,22 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
         info.BH_SurroundingGasVel[0] = priv->BH_SurroundingGasVel[PI][0];
         info.BH_SurroundingGasVel[1] = priv->BH_SurroundingGasVel[PI][1];
         info.BH_SurroundingGasVel[2] = priv->BH_SurroundingGasVel[PI][2];
+
+        /****************************************************************************/
+        /* Output some DF info for debugging */
+        info.BH_SurroundingDensity = priv->BH_SurroundingDensity[PI];
+        info.BH_SurroundingVel[0] = priv->BH_SurroundingVel[PI][0];
+        info.BH_SurroundingVel[1] = priv->BH_SurroundingVel[PI][1];
+        info.BH_SurroundingVel[2] = priv->BH_SurroundingVel[PI][2];
+
+        info.BH_DFAllMass = priv->BH_DFAllMass;
+        info.BH_DFFracMass = priv->BH_DFFracMass;
+
+        info.BH_DFAccel[0] = BHP(p_i).DFAccel[0];
+        info.BH_DFAccel[1] = BHP(p_i).DFAccel[1];
+        info.BH_DFAccel[2] = BHP(p_i).DFAccel[2];
+
+        /****************************************************************************/
 
         info.BH_accreted_BHMass = priv->BH_accreted_BHMass[PI];
         info.BH_accreted_Mass = priv->BH_accreted_Mass[PI];
@@ -639,8 +667,9 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
         /* Simplified Version from Tremmel 2015 Eq. (3) */
         for(j = 0; j < 3; j++) 
         {
-            P[n].GravAccel[j] -= 4. * M_PI * All.G * All.G * P[n].Mass * rho_frac * 
+            BHP(n).DFAccel[j] = - 4. * M_PI * All.G * All.G * P[n].Mass * rho_frac * 
             log_lam * (P[n].Vel[j] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j]) / pow(bhvel, 3);
+            P[n].GravAccel[j]  += BHP(n).DFAccel[j];
         }
     }
 

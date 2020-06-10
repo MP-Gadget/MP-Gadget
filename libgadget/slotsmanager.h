@@ -38,6 +38,10 @@ struct bh_particle_data {
      * After this, all values are fixed. */
     MyFloat SwallowTime;
 
+    /*******************************************************/
+    double DFAccel[3];
+    /*******************************************************/
+
     int JumpToMinPot;
     double  MinPotPos[3];
     /* After a merger, this gives the ID of the particle which swallowed the BH. Used to keep track of merger trees.*/
