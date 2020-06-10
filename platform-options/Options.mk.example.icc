@@ -1,9 +1,11 @@
 # Optimized defaults for icc
-OPTIMIZE =  -fopenmp -O3 -ipo -g -Wall -xHost -no-prec-div -fp-model fast -wd11021
-
-#We don't want to add -lm here on icc
-GSL_LIBS = $(filter-out -lm,$(shell pkg-config --libs gsl))
+# -ipo is unreliable. 
+# -xHost may or may not be optimal: enabling AVX512 is a pessimisation for us,
+# probably because of the lower clockspeeds.
+# -Zp16 is unportant for structure alignment
+OPTIMIZE =  -fopenmp -O3 -g -Wall -Zp16 -xHost -fp-model fast=1
 
 #OPT += -DDEBUG
 #OPT += -DVALGRIND  # allow debugging with valgrind, disable the GADGET memory allocator.
-OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV
+#Avoid ISEND IRECV which sometimes causes crashes with buggy MPI
+#OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN
