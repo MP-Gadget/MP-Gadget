@@ -366,9 +366,6 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
         /****************************************************************************/
 
 
-
-
-
         int size = sizeof(info);
 
         fwrite(&size, sizeof(size), 1, FdBlackholeDetails);
@@ -919,6 +916,40 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     if(winds_is_particle_decoupled(other))
         return;
 
+    /****************************************************************************************/
+    /* Compute fractional density for DF */
+     if(P[other].Type == 1 || P[other].Type == 4) 
+     {
+        if(r2 < iter->feedback_kernel.HH)
+        {
+             /* Compute fractional mass based on velocity criterion */
+            int k;
+
+            double bhvel = 0;
+            double othervel = 0;
+
+            O->DFAllMass += P[other].Mass;
+            
+            /* Calculate relative velocity */
+            for(k = 0; k < 3; k++) 
+            {
+                bhvel += pow(I->Vel[k] - I->SurroundingVel[k], 2);
+                othervel += pow(P[other].Vel[k] - I->SurroundingVel[k], 2);
+            }
+            bhvel = sqrt(bhvel);
+            othervel = sqrt(othervel);
+
+        
+            if (othervel < bhvel)
+            { /* add into fractional density*/
+                O->DFFracMass += P[other].Mass;
+            }
+        }
+    }
+
+    /****************************************************************************************/
+
+
      /* we have a black hole merger! */
     if(P[other].Type == 5 && BHP(other).SwallowID != (MyIDType) -1)
     {
@@ -994,37 +1025,6 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         int tid = omp_get_thread_num();
         BH_GET_PRIV(lv->tw)->N_sph_swallowed[tid]++;
     }
-
-    /****************************************************************************************/
-
-     if(P[other].Type == 1 || P[other].Type == 4) 
-     {
-        if(r2 < iter->feedback_kernel.HH)
-        {
-             /* Compute fractional mass based on velocity criterion */
-            int k;
-
-            double bhvel = 0;
-            double othervel = 0;
-            
-            /* Calculate relative velocity */
-            for(k = 0; k < 3; k++) 
-            {
-                bhvel += pow(I->Vel[k] - I->SurroundingVel[k], 2);
-                othervel += pow(P[other].Vel[k] - I->SurroundingVel[k], 2);
-            }
-            bhvel = sqrt(bhvel);
-            othervel = sqrt(othervel);
-
-            O->DFAllMass += P[other].Mass;
-            if (othervel < bhvel)
-            { /* add into fractional density*/
-                O->DFFracMass += P[other].Mass;
-            }
-        }
-    }
-
-    /****************************************************************************************/
 
 
 }
