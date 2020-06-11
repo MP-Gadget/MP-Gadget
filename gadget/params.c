@@ -206,6 +206,7 @@ create_gadget_parameter_set()
 
     param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", OPTIONAL, 0, "If set, the physical radius at which the black hole feedback energy is deposited. When both this flag and BlackHoleFeedbackRadius are both set, the smaller radius is used.");
     param_declare_int(ps,"WriteBlackHoleDetails",OPTIONAL, 0, "If set, output BH details at every time step.");
+    param_declare_int(ps,"BH_DynamicalFriction",OPTIONAL, 3, "If set, dynamical friction is applied instead of repositioning.");
 
     static ParameterEnum BlackHoleFeedbackMethodEnum [] = {
         {"mass", BH_FEEDBACK_MASS},
