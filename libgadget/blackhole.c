@@ -124,7 +124,8 @@ struct BHPriv {
     /* These are temporaries used in the accretion treewalk*/
     MyFloat * MinPot;
     MyFloat * BH_Entropy;
-    
+
+    MyFloat (*BH_SurroundingGasVel)[3];
 
     /*************************************************************************/
     /* Temporaries computed in the accretion treewalk and used
@@ -135,11 +136,7 @@ struct BHPriv {
     MyFloat * BH_DFAllMass;
     MyFloat * BH_DFFracMass;
 
-
-
     /*************************************************************************/
-
-    MyFloat (*BH_SurroundingGasVel)[3];
 
     /* These are temporaries used in the feedback treewalk.*/
     MyFloat * BH_accreted_Mass;
@@ -169,17 +166,19 @@ struct BHinfo{
     MyFloat BH_Entropy;
     MyFloat BH_SurroundingGasVel[3];
 
-    /**************************************************************/
-
-    MyFloat BH_SurroundingDensity;
-    MyFloat BH_SurroundingVel[3];
-
-    MyFloat BH_DFAllMass;
-    MyFloat BH_DFFracMass;
-
-    double BH_DFAccel[3];
 
     /**************************************************************/
+
+    MyFloat BH_SurroundingDensity; /* 0 */
+    MyFloat BH_SurroundingVel[3]; /* 0 */
+
+    MyFloat BH_DFAllMass; /* 0 */
+    MyFloat BH_DFFracMass; /* 0 */
+
+    double BH_DFAccel[3]; /* NaN */
+
+    /**************************************************************/
+
 
     MyFloat BH_accreted_Mass;
     MyFloat BH_accreted_BHMass;
@@ -192,6 +191,14 @@ struct BHinfo{
     int Swallowed;
 
     MyDouble a;
+
+    /**************************************************************/
+    double BH_Pos[3];
+    /**************************************************************/
+
+
+
+
 };
 
 /*Set the parameters of the BH module*/
@@ -322,6 +329,7 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
         info.BH_SurroundingGasVel[1] = priv->BH_SurroundingGasVel[PI][1];
         info.BH_SurroundingGasVel[2] = priv->BH_SurroundingGasVel[PI][2];
 
+
         /****************************************************************************/
         /* Output some DF info for debugging */
         info.BH_SurroundingDensity = priv->BH_SurroundingDensity[PI];
@@ -338,6 +346,7 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
 
         /****************************************************************************/
 
+
         info.BH_accreted_BHMass = priv->BH_accreted_BHMass[PI];
         info.BH_accreted_Mass = priv->BH_accreted_Mass[PI];
         info.BH_FeedbackWeightSum = priv->BH_FeedbackWeightSum[PI];
@@ -348,6 +357,17 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
         info.Swallowed =  P[p_i].Swallowed;
 
         info.a = All.Time;
+        /****************************************************************************/
+
+        info.BH_Pos[0] = P[p_i].Pos[0]
+        info.BH_Pos[1] = P[p_i].Pos[1]
+        info.BH_Pos[2] = P[p_i].Pos[2]
+
+        /****************************************************************************/
+
+
+
+
 
         int size = sizeof(info);
 
@@ -979,11 +999,11 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
      if(P[other].Type == 1 || P[other].Type == 4) 
      {
-        if(r2 < iter->accretion_kernel.HH)
+        if(r2 < iter->feedback_kernel.HH)
         {
              /* Compute fractional mass based on velocity criterion */
             int k;
-            double mass_j;
+
             double bhvel = 0;
             double othervel = 0;
             
@@ -996,15 +1016,12 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             bhvel = sqrt(bhvel);
             othervel = sqrt(othervel);
 
-            mass_j = P[other].Mass;
-            O->DFAllMass += mass_j;
+            O->DFAllMass += P[other].Mass;
             if (othervel < bhvel)
             { /* add into fractional density*/
-                O->DFFracMass += mass_j;
+                O->DFFracMass += P[other].Mass;
             }
         }
-       
-        
     }
 
     /****************************************************************************************/
