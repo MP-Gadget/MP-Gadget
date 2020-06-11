@@ -897,7 +897,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         TreeWalkNgbIterBHFeedback * iter,
         LocalTreeWalk * lv)
 {
-    endrun(2, "ENTERED INTO FDBKNGBITER");
+//   endrun(2, "ENTERED INTO FDBKNGBITER\n");
 //    message(0, "ENTERED INTO FDBKNGBITER");
 
     if(iter->base.other == -1) {
@@ -913,7 +913,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         density_kernel_init(&iter->feedback_kernel, hsearch, DENSITY_KERNEL_CUBIC_SPLINE);
         return;
     }
-    endrun(2, "SURVIVED THE FIRST RETURN");
+    endrun(2, "SURVIVED THE FIRST RETURN\n");
 //    message(0, "SURVIVED THE FIRST RETURN");
     int other = iter->base.other;
     double r2 = iter->base.r2;
@@ -930,7 +930,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     /* Compute fractional density for DF */
      if(P[other].Type == 1 || P[other].Type == 4) 
      {
-        endrun(2, "FOUND AT LEAST SOME DM/STAR");
+        endrun(2, "FOUND AT LEAST SOME DM/STAR\n");
 //        message(0, "FOUND AT LEAST SOME DM/STAR");
 	if(r2 < iter->feedback_kernel.HH)
         {
