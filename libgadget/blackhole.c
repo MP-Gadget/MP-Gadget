@@ -913,8 +913,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         density_kernel_init(&iter->feedback_kernel, hsearch, DENSITY_KERNEL_CUBIC_SPLINE);
         return;
     }
-    endrun(2, "SURVIVED THE FIRST RETURN\n");
-//    message(0, "SURVIVED THE FIRST RETURN");
+    
     int other = iter->base.other;
     double r2 = iter->base.r2;
     double r = iter->base.r;
@@ -925,6 +924,8 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
      /* BH does not accrete wind */
     if(winds_is_particle_decoupled(other))
         return;
+
+    message(0, "SURVIVED SECOND RETURN\n");
 
     /****************************************************************************************/
     /* Compute fractional density for DF */
