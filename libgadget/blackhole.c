@@ -447,8 +447,6 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
 
     priv->BH_SurroundingVel = (MyFloat (*) [3]) mymalloc("BH_SurroundingVel", 3* SlotsManager->info[5].size * sizeof(priv->BH_SurroundingVel[0]));
     priv->BH_SurroundingDensity = mymalloc("BH_SurroundingDensity", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingDensity));
-    priv->BH_DFAllMass = mymalloc("BH_DFAllMass", SlotsManager->info[5].size * sizeof(priv->BH_DFAllMass));
-    priv->BH_DFFracMass = mymalloc("BH_DFFracMass", SlotsManager->info[5].size * sizeof(priv->BH_DFFracMass));
 
     /*************************************************************************/
 
@@ -468,6 +466,15 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     memset(priv[0].N_BH_swallowed, 0, sizeof(int64_t) * omp_get_max_threads());
 
     /* Local to this treewalk*/
+    /*************************************************************************/
+
+    priv->BH_DFAllMass = mymalloc("BH_DFAllMass", SlotsManager->info[5].size * sizeof(priv->BH_DFAllMass));
+    priv->BH_DFFracMass = mymalloc("BH_DFFracMass", SlotsManager->info[5].size * sizeof(priv->BH_DFFracMass));
+
+    /*************************************************************************/
+
+
+
     priv->BH_accreted_Mass = mymalloc("BH_accretedmass", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_accreted_BHMass = mymalloc("BH_accreted_BHMass", SlotsManager->info[5].size * sizeof(MyFloat));
     /* Allocate array for storing the feedback energy.*/
@@ -890,7 +897,8 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         TreeWalkNgbIterBHFeedback * iter,
         LocalTreeWalk * lv)
 {
-    message(0, "ENTERED INTO FDBKNGBITER");
+    endrun(2, "ENTERED INTO FDBKNGBITER");
+//    message(0, "ENTERED INTO FDBKNGBITER");
 
     if(iter->base.other == -1) {
         double hsearch;
@@ -905,7 +913,8 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         density_kernel_init(&iter->feedback_kernel, hsearch, DENSITY_KERNEL_CUBIC_SPLINE);
         return;
     }
-    message(0, "SURVIVED THE FIRST RETURN");
+    endrun(2, "SURVIVED THE FIRST RETURN");
+//    message(0, "SURVIVED THE FIRST RETURN");
     int other = iter->base.other;
     double r2 = iter->base.r2;
     double r = iter->base.r;
@@ -921,7 +930,8 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     /* Compute fractional density for DF */
      if(P[other].Type == 1 || P[other].Type == 4) 
      {
-        message(0, "FOUND AT LEAST SOME DM/STAR");
+        endrun(2, "FOUND AT LEAST SOME DM/STAR");
+//        message(0, "FOUND AT LEAST SOME DM/STAR");
 	if(r2 < iter->feedback_kernel.HH)
         {
              /* Compute fractional mass based on velocity criterion */
