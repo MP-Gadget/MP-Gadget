@@ -925,11 +925,11 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     if(winds_is_particle_decoupled(other))
         return;
 
-    message(0, "SURVIVED SECOND RETURN\n");
+    message(0, "SURVIVED SECOND RETURN, other type: %i\n", P[other].Type);
 
     /****************************************************************************************/
     /* Compute fractional density for DF */
-     if(P[other].Type == 1 || P[other].Type == 4) 
+     if(P[other].Type == 1 || P[other].Type == 4 || ) 
      {
         endrun(2, "FOUND AT LEAST SOME DM/STAR\n");
 //        message(0, "FOUND AT LEAST SOME DM/STAR");
