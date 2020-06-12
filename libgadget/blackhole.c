@@ -904,7 +904,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
         /**************************************************************/
         /* Need to visit all types for DF computation so changed mask */
-        
+
         iter->base.mask = 1 + 2 + 4 + 8 + 16 + 32;
         /**************************************************************/
 
@@ -932,7 +932,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     /* Compute fractional density for DF */
      if(P[other].Type == 1 || P[other].Type == 4) 
      {
-	    if(r2 < iter->feedback_kernel.HH)
+	    if(r2 < iter->accretion_kernel.HH)
         {
              /* Compute fractional mass based on velocity criterion */
             int k;
