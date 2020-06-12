@@ -696,6 +696,13 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
             P[n].GravAccel[j]  += BHP(n).DFAccel[j];
         }
     }
+    else
+    {
+        for(j = 0; j < 3; j++) 
+        {
+            BHP(n).DFAccel[j] = 0;
+        }
+    }
 
     /*******************************************************************/
 
