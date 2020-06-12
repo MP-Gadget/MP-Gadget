@@ -169,13 +169,13 @@ struct BHinfo{
 
     /**************************************************************/
 
-    MyFloat BH_SurroundingDensity; /* 0 */
-    MyFloat BH_SurroundingVel[3]; /* 0 */
+    MyFloat BH_SurroundingDensity; 
+    MyFloat BH_SurroundingVel[3]; 
 
-    MyFloat BH_DFAllMass; /* 0 */
-    MyFloat BH_DFFracMass; /* 0 */
+    MyFloat BH_DFAllMass; 
+    MyFloat BH_DFFracMass; 
 
-    double BH_DFAccel[3]; /* NaN */
+    double BH_DFAccel[3]; // changed to fractional acc
 
     /**************************************************************/
 
@@ -340,9 +340,9 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
         info.BH_DFAllMass = priv->BH_DFAllMass[PI];
         info.BH_DFFracMass = priv->BH_DFFracMass[PI];
 
-        info.BH_DFAccel[0] = BHP(p_i).DFAccel[0];
-        info.BH_DFAccel[1] = BHP(p_i).DFAccel[1];
-        info.BH_DFAccel[2] = BHP(p_i).DFAccel[2];
+        info.BH_DFAccel[0] = BHP(p_i).DFAccel[0] / P[p_i].GravAccel[0];
+        info.BH_DFAccel[1] = BHP(p_i).DFAccel[1] / P[p_i].GravAccel[1];
+        info.BH_DFAccel[2] = BHP(p_i).DFAccel[2] / P[p_i].GravAccel[2];
 
         /****************************************************************************/
 
@@ -359,9 +359,9 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
         info.a = All.Time;
         /****************************************************************************/
 
-        info.BH_Pos[0] = P[p_i].Pos[0];
-        info.BH_Pos[1] = P[p_i].Pos[1];
-        info.BH_Pos[2] = P[p_i].Pos[2];
+        info.BH_Pos[0] = P[p_i].Pos[0] - PartManager->CurrentParticleOffset[0];;
+        info.BH_Pos[1] = P[p_i].Pos[1] - PartManager->CurrentParticleOffset[1];;
+        info.BH_Pos[2] = P[p_i].Pos[2] - PartManager->CurrentParticleOffset[2];;
 
         /****************************************************************************/
 
