@@ -904,7 +904,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         double hsearch;
         hsearch = decide_hsearch(I->Hsml);
 
-        iter->base.mask = 1 + 32;
+        iter->base.mask = 1 + 2 + 4 + 8 + 16 + 32;
         iter->base.Hsml = hsearch;
         /* Swallow is symmetric, but feedback dumping is asymetric;
          * we apply a cut in r to break the symmetry. */
@@ -929,7 +929,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
     /****************************************************************************************/
     /* Compute fractional density for DF */
-     if(P[other].Type == 1 || P[other].Type == 4 || ) 
+     if(P[other].Type == 1 || P[other].Type == 4) 
      {
         endrun(2, "FOUND AT LEAST SOME DM/STAR\n");
 //        message(0, "FOUND AT LEAST SOME DM/STAR");
