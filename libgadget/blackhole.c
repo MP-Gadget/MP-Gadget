@@ -359,9 +359,9 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
         info.a = All.Time;
         /****************************************************************************/
 
-        info.BH_Pos[0] = P[p_i].Pos[0] - PartManager->CurrentParticleOffset[0];;
-        info.BH_Pos[1] = P[p_i].Pos[1] - PartManager->CurrentParticleOffset[1];;
-        info.BH_Pos[2] = P[p_i].Pos[2] - PartManager->CurrentParticleOffset[2];;
+        info.BH_Pos[0] = P[p_i].Pos[0] - PartManager->CurrentParticleOffset[0];
+        info.BH_Pos[1] = P[p_i].Pos[1] - PartManager->CurrentParticleOffset[1];
+        info.BH_Pos[2] = P[p_i].Pos[2] - PartManager->CurrentParticleOffset[2];
 
         /****************************************************************************/
 
