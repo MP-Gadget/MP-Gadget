@@ -897,14 +897,17 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         TreeWalkNgbIterBHFeedback * iter,
         LocalTreeWalk * lv)
 {
-//   endrun(2, "ENTERED INTO FDBKNGBITER\n");
-//    message(0, "ENTERED INTO FDBKNGBITER");
 
     if(iter->base.other == -1) {
         double hsearch;
         hsearch = decide_hsearch(I->Hsml);
 
+        /**************************************************************/
+        /* Need to visit all types for DF computation so changed mask */
+        
         iter->base.mask = 1 + 2 + 4 + 8 + 16 + 32;
+        /**************************************************************/
+
         iter->base.Hsml = hsearch;
         /* Swallow is symmetric, but feedback dumping is asymetric;
          * we apply a cut in r to break the symmetry. */
@@ -925,15 +928,11 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     if(winds_is_particle_decoupled(other))
         return;
 
-    message(0, "SURVIVED SECOND RETURN, other type: %i\n", P[other].Type);
-
     /****************************************************************************************/
     /* Compute fractional density for DF */
      if(P[other].Type == 1 || P[other].Type == 4) 
      {
-        endrun(2, "FOUND AT LEAST SOME DM/STAR\n");
-//        message(0, "FOUND AT LEAST SOME DM/STAR");
-	if(r2 < iter->feedback_kernel.HH)
+	    if(r2 < iter->feedback_kernel.HH)
         {
              /* Compute fractional mass based on velocity criterion */
             int k;
