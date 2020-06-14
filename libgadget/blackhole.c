@@ -593,7 +593,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
  
     /*************************************************************************/
 
-    /* Set Surr.Dens for BHP and normalize velocity */
+    /* normalize velocity */
     if(BH_GET_PRIV(tw)->BH_SurroundingDensity[PI] > 0){
         for(k = 0; k < 3; k++)
             BH_GET_PRIV(tw)->BH_SurroundingVel[PI][k] /= BH_GET_PRIV(tw)->BH_SurroundingDensity[PI];
@@ -693,7 +693,7 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
         {
             BHP(n).DFAccel[j] = - 4. * M_PI * All.G * All.G * P[n].Mass * rho_frac * 
             log_lam * (P[n].Vel[j] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j]) / pow(bhvel, 3);
-            P[n].GravAccel[j]  += BHP(n).DFAccel[j];
+            P[n].GravAccel[j]  += All.BH_DFBoost * BHP(n).DFAccel[j]; // Add a boost factor
         }
     }
     else
@@ -799,8 +799,8 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
     /*************************************************************************/
 
-    /* Collect surrounding DM/Star density/velocity for DF computation */
-    if(P[other].Type == 1 || P[other].Type == 4){
+    /* Collect surrounding DM/Star (optional gas) density/velocity for DF computation */
+    if(P[other].Type == 1 || P[other].Type == 4 || (P[other].Type == 0 && All.BH_DynamicalFriction == 0) ){
         if(r2 < iter->accretion_kernel.HH) {
             double u = r * iter->accretion_kernel.Hinv;
             double wk = density_kernel_wk(&iter->accretion_kernel, u);
@@ -936,8 +936,8 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         return;
 
     /****************************************************************************************/
-    /* Compute fractional density for DF */
-     if(P[other].Type == 1 || P[other].Type == 4) 
+    /* Compute fractional density for DF (Optional Gas) */
+     if(P[other].Type == 1 || P[other].Type == 4 || (P[other].Type == 0 && All.BH_DynamicalFriction == 0)) 
      {
 	    if(r2 < iter->accretion_kernel.HH)
         {

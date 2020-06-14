@@ -81,6 +81,7 @@ extern struct global_data_all_processes
 
     int WriteBlackHoleDetails; /* write BH details every time step*/
     int BH_DynamicalFriction;
+    int BH_DFBoost;
 
     int MassiveNuLinRespOn; /*!< flags that massive neutrinos using the linear
                                  response code of Ali-Haimoud & Bird 2013.*/
