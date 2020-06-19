@@ -1068,10 +1068,15 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
         for(k = 0; k < 3; k++) {
             /* Movement occurs in drift.c */
             BHP(place).MinPotPos[k] = remote->BH_MinPotPos[k];
-            /* We set the velocity as well because
-             * we don't want drift to move us too far.*/
-            P[place].Vel[k] = remote->BH_MinPotVel[k];
+            /*********************************************************************/
+            if (All.BH_DynamicalFriction > 3){ /* reset vel only when reposition is on*/
+                /* We set the velocity as well because
+                 * we don't want drift to move us too far.*/
+                P[place].Vel[k] = remote->BH_MinPotVel[k];
+            }
+            /******************************************************************/
         }
+        
     }
     if (mode == 0 || BHP(place).minTimeBin > remote->BH_minTimeBin) {
         BHP(place).minTimeBin = remote->BH_minTimeBin;
