@@ -31,6 +31,7 @@ struct BlackholeParams
     double BlackHoleFeedbackRadiusMaxPhys;	/*!< Radius the thermal cap */
     double SeedBlackHoleMass;	/*!< Seed black hole mass */
     double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
+    int BlackHoleRepositionEnabled; /* If true, enable repositioning the BH to the potential minimum*/
 } blackhole_params;
 
 typedef struct {
@@ -152,6 +153,7 @@ void set_blackhole_params(ParameterSet * ps)
         blackhole_params.BlackHoleFeedbackRadiusMaxPhys = param_get_double(ps, "BlackHoleFeedbackRadiusMaxPhys");
 
         blackhole_params.BlackHoleFeedbackMethod = param_get_enum(ps, "BlackHoleFeedbackMethod");
+        blackhole_params.BlackHoleRepositionEnabled = param_get_int(ps, "BlackHoleRepositionEnabled");
     }
     MPI_Bcast(&blackhole_params, sizeof(struct BlackholeParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -838,7 +840,7 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     int PI = P[place].PI;
     if(MinPot[PI] > remote->BH_MinPot)
     {
-        BHP(place).JumpToMinPot = 1;
+        BHP(place).JumpToMinPot = blackhole_params.BlackHoleRepositionEnabled;
         MinPot[PI] = remote->BH_MinPot;
         for(k = 0; k < 3; k++) {
             /* Movement occurs in drift.c */

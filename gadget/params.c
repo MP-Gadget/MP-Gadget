@@ -203,6 +203,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "BlackHoleMaxAccretionRadius", OPTIONAL, 99999., "Maximum neighbour search radius for black holes. Rarely needed.");
     param_declare_double(ps, "BlackHoleFeedbackFactor", OPTIONAL, 0.05, " Fraction of the black hole luminosity to turn into thermal energy");
     param_declare_double(ps, "BlackHoleFeedbackRadius", OPTIONAL, 0, "If set, the comoving radius at which the black hole feedback energy is deposited.");
+    param_declare_int(ps, "BlackHoleRepositionEnabled", OPTIONAL, 1, "Enables Black hole repositioning to the potential minimum.");
 
     param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", OPTIONAL, 0, "If set, the physical radius at which the black hole feedback energy is deposited. When both this flag and BlackHoleFeedbackRadius are both set, the smaller radius is used.");
     param_declare_int(ps,"WriteBlackHoleDetails",OPTIONAL, 0, "If set, output BH details at every time step.");
