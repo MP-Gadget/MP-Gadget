@@ -60,6 +60,7 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const
                         BHP(i).MinPotPos[2], P[i].ID);
                 }
                 P[i].Pos[k] = BHP(i).MinPotPos[k];
+                P[i].Vel[k] = BHP(i).MinPotVel[k];
             }
         }
         BHP(i).JumpToMinPot = 0;

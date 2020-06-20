@@ -39,7 +39,8 @@ struct bh_particle_data {
     MyFloat SwallowTime;
 
     int JumpToMinPot;
-    double  MinPotPos[3];
+    double MinPotPos[3];
+    MyFloat MinPotVel[3];
     /* After a merger, this gives the ID of the particle which swallowed the BH. Used to keep track of merger trees.*/
     MyIDType SwallowID;
 

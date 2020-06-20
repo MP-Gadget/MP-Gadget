@@ -31,6 +31,7 @@ struct BlackholeParams
     double BlackHoleFeedbackRadiusMaxPhys;	/*!< Radius the thermal cap */
     double SeedBlackHoleMass;	/*!< Seed black hole mass */
     double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
+    int BlackHoleRepositionEnabled; /* If true, enable repositioning the BH to the potential minimum*/
 } blackhole_params;
 
 typedef struct {
@@ -74,6 +75,7 @@ typedef struct {
 typedef struct {
     TreeWalkResultBase base;
     MyFloat Mass;
+    MyFloat AccretedMomentum[3];
     MyFloat BH_Mass;
     int BH_CountProgs;
 } TreeWalkResultBHFeedback;
@@ -91,6 +93,7 @@ struct BHPriv {
     MyFloat * MinPot;
     MyFloat * BH_Entropy;
     MyFloat (*BH_SurroundingGasVel)[3];
+    MyFloat (*BH_accreted_momentum)[3];
 
     /* These are temporaries used in the feedback treewalk.*/
     MyFloat * BH_accreted_Mass;
@@ -119,6 +122,7 @@ struct BHinfo{
     MyFloat MinPot;
     MyFloat BH_Entropy;
     MyFloat BH_SurroundingGasVel[3];
+    MyFloat BH_accreted_momentum[3];
 
     MyFloat BH_accreted_Mass;
     MyFloat BH_accreted_BHMass;
@@ -149,6 +153,7 @@ void set_blackhole_params(ParameterSet * ps)
         blackhole_params.BlackHoleFeedbackRadiusMaxPhys = param_get_double(ps, "BlackHoleFeedbackRadiusMaxPhys");
 
         blackhole_params.BlackHoleFeedbackMethod = param_get_enum(ps, "BlackHoleFeedbackMethod");
+        blackhole_params.BlackHoleRepositionEnabled = param_get_int(ps, "BlackHoleRepositionEnabled");
     }
     MPI_Bcast(&blackhole_params, sizeof(struct BlackholeParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -255,9 +260,11 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
             info.MinPot = priv->MinPot[PI];
         }
         info.BH_Entropy = priv->BH_Entropy[PI];
-        info.BH_SurroundingGasVel[0] = priv->BH_SurroundingGasVel[PI][0];
-        info.BH_SurroundingGasVel[1] = priv->BH_SurroundingGasVel[PI][1];
-        info.BH_SurroundingGasVel[2] = priv->BH_SurroundingGasVel[PI][2];
+        int k;
+        for(k=0; k < 3; k++) {
+            info.BH_SurroundingGasVel[k] = priv->BH_SurroundingGasVel[PI][k];
+            info.BH_accreted_momentum[k] = priv->BH_accreted_momentum[PI][k];
+        }
 
         info.BH_accreted_BHMass = priv->BH_accreted_BHMass[PI];
         info.BH_accreted_Mass = priv->BH_accreted_Mass[PI];
@@ -364,6 +371,8 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     /* Local to this treewalk*/
     priv->BH_accreted_Mass = mymalloc("BH_accretedmass", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_accreted_BHMass = mymalloc("BH_accreted_BHMass", SlotsManager->info[5].size * sizeof(MyFloat));
+    priv->BH_accreted_momentum = (MyFloat (*) [3]) mymalloc("BH_accretemom", 3* SlotsManager->info[5].size * sizeof(priv->BH_accreted_momentum[0]));
+
     /* Allocate array for storing the feedback energy.*/
     priv->Injected_BH_Energy = mymalloc2("Injected_BH_Energy", SlotsManager->info[0].size * sizeof(MyFloat));
     memset(priv->Injected_BH_Energy, 0, SlotsManager->info[0].size * sizeof(MyFloat));
@@ -389,6 +398,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     }
 
     myfree(priv->Injected_BH_Energy);
+    myfree(priv->BH_accreted_momentum);
     myfree(priv->BH_accreted_BHMass);
     myfree(priv->BH_accreted_Mass);
 
@@ -515,10 +525,17 @@ blackhole_accretion_preprocess(int n, TreeWalk * tw)
 static void
 blackhole_feedback_postprocess(int n, TreeWalk * tw)
 {
-    int PI = P[n].PI;
+    const int PI = P[n].PI;
     if(BH_GET_PRIV(tw)->BH_accreted_Mass[PI] > 0)
     {
-        P[n].Mass += BH_GET_PRIV(tw)->BH_accreted_Mass[PI];
+        /* velocity feedback due to accretion; momentum conservation.
+         * This does nothing with repositioning on.*/
+        const MyFloat accmass = BH_GET_PRIV(tw)->BH_accreted_Mass[PI];
+        int k;
+        for(k = 0; k < 3; k++)
+            P[n].Vel[k] = (P[n].Vel[k] * P[n].Mass + BH_GET_PRIV(tw)->BH_accreted_momentum[PI][k]) /
+                    (P[n].Mass + accmass);
+        P[n].Mass += accmass;
         BHP(n).Mass += BH_GET_PRIV(tw)->BH_accreted_BHMass[PI];
     }
 }
@@ -746,6 +763,11 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
          * so we can work out mass at merger. */
         O->Mass += (P[other].Mass);
         O->BH_Mass += (BHP(other).Mass);
+        /* Conserve momentum during accretion*/
+        int d;
+        for(d = 0; d < 3; d++)
+            O->AccretedMomentum[d] += (P[other].Mass * P[other].Vel[d]);
+
         if(BHP(other).SwallowTime < All.Time)
             endrun(2, "Encountered BH %i swallowed at earlier time %g\n", other, BHP(other).SwallowTime);
 
@@ -791,6 +813,10 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
          * blindly enforce a mass conservation for now. */
         O->Mass += (P[other].Mass);
         P[other].Mass = 0;
+        /* Conserve momentum during accretion*/
+        int d;
+        for(d = 0; d < 3; d++)
+            O->AccretedMomentum[d] += (P[other].Mass * P[other].Vel[d]);
 
         slots_mark_garbage(other, PartManager, SlotsManager);
 
@@ -814,14 +840,12 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     int PI = P[place].PI;
     if(MinPot[PI] > remote->BH_MinPot)
     {
-        BHP(place).JumpToMinPot = 1;
+        BHP(place).JumpToMinPot = blackhole_params.BlackHoleRepositionEnabled;
         MinPot[PI] = remote->BH_MinPot;
         for(k = 0; k < 3; k++) {
             /* Movement occurs in drift.c */
             BHP(place).MinPotPos[k] = remote->BH_MinPotPos[k];
-            /* We set the velocity as well because
-             * we don't want drift to move us too far.*/
-            P[place].Vel[k] = remote->BH_MinPotVel[k];
+            BHP(place).MinPotVel[k] = remote->BH_MinPotVel[k];
         }
     }
     if (mode == 0 || BHP(place).minTimeBin > remote->BH_minTimeBin) {
@@ -876,9 +900,14 @@ blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I, TreeWalk * tw)
 static void
 blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
 {
+    int k;
     int PI = P[place].PI;
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_accreted_Mass[PI], remote->Mass);
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_accreted_BHMass[PI], remote->BH_Mass);
+    for(k = 0; k < 3; k++) {
+        TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_accreted_momentum[PI][k], remote->AccretedMomentum[k]);
+    }
+
     TREEWALK_REDUCE(BHP(place).CountProgs, remote->BH_CountProgs);
 }
 
