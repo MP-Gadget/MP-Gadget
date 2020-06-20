@@ -44,4 +44,6 @@ int sfr_need_to_compute_sph_grad_rho(void);
 /* Get the number of generations of stars that may form*/
 int get_generations(void);
 
+/* Get the effective entropy, accounting for the cold cloud fraction. */
+MyFloat get_effective_entropy(int i, double dtime, const double a3inv);
 #endif

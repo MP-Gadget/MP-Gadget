@@ -502,6 +502,22 @@ static int make_particle_star(int child, int parent, int placement)
     return retflag;
 }
 
+/* If gas is not star forming, return the standard entropy.
+ * If gas is star forming, get the cold-cloud mass-weighted entropy,
+ * an entropy which accounts for the cold cloud fraction.
+ * This is used for the BH accretion.*/
+MyFloat
+get_effective_entropy(int i, double dtime, const double a3inv)
+{
+    /* Normal entropy if not star-forming*/
+    if(!sfreff_on_eeqos(&SPHP(i), a3inv))
+        return SPHP(i).Entropy;
+    struct sfr_eeqos_data sfr_data = get_sfr_eeqos(&P[i], &SPHP(i), dtime, a3inv);
+    const double egyeff = sfr_params.EgySpecCold * sfr_data.cloudfrac + (1 - sfr_data.cloudfrac) * sfr_data.egyhot;
+    const double enttou = pow(SPH_EOMDensity(i) * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+    return egyeff/enttou;
+}
+
 /* This function cools gas on the effective equation of state*/
 static void
 cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_eeqos_data sfr_data)

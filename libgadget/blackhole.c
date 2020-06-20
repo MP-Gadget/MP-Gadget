@@ -633,8 +633,10 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             double u = r * iter->accretion_kernel.Hinv;
             double wk = density_kernel_wk(&iter->accretion_kernel, u);
             float mass_j = P[other].Mass;
+            double dtime = get_dloga_for_bin(P[other].TimeBin) / All.cf.hubble;
 
-            O->SmoothedEntropy += (mass_j * wk * SPHP(other).Entropy);
+            MyFloat enteff = get_effective_entropy(other, dtime, All.cf.a3inv);
+            O->SmoothedEntropy += (mass_j * wk * enteff);
             O->GasVel[0] += (mass_j * wk * P[other].Vel[0]);
             O->GasVel[1] += (mass_j * wk * P[other].Vel[1]);
             O->GasVel[2] += (mass_j * wk * P[other].Vel[2]);
