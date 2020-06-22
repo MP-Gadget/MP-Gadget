@@ -395,10 +395,7 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
         }
 
         /* In case of cooling, we prevent that the entropy (and
-           hence temperature) decreases by more than a factor 0.5.
-           This limiter is here as well as in sfr_eff.c because the
-           timestep may increase. */
-
+           hence temperature) decreases by more than a factor 0.5. */
         const double dt_entr = dloga_from_dti(tiend-tistart);
         if(SPHP(i).DtEntropy * dt_entr < -0.5 * SPHP(i).Entropy)
             SPHP(i).Entropy *= 0.5;
