@@ -44,4 +44,6 @@ int sfr_need_to_compute_sph_grad_rho(void);
 /* Get the number of generations of stars that may form*/
 int get_generations(void);
 
+/* Returns 1 if particle is on effective EOS, 0 otherwise*/
+int sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv);
 #endif
