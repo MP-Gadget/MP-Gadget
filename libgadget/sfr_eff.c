@@ -92,7 +92,6 @@ static void cooling_direct(int i, const double a3inv, const double hubble);
 
 static void cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_eeqos_data sfr_data);
 
-static int sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv);
 static int make_particle_star(int child, int parent, int placement);
 static int starformation(int i, double *localsfr, double * sum_sm, MyFloat * GradRho, const double a3inv, const double hubble);
 static int quicklyastarformation(int i, const double a3inv);
@@ -410,7 +409,7 @@ cooling_direct(int i, const double a3inv, const double hubble)
 /* returns 1 if the particle is on the effective equation of state,
  * cooling via the relaxation equation and maybe forming stars.
  * 0 if the particle does not form stars, instead cooling normally.*/
-static int
+int
 sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
 {
     int flag = 0;
