@@ -49,6 +49,7 @@ static struct SFRParams
     double TempSupernova;
     double TempClouds;
     double MaxSfrTimescale;
+    int BHFeedbackUseTcool;
     /*!< may be used to set a floor for the gas temperature */
     double MinGasTemp;
 
@@ -121,7 +122,7 @@ void set_sfr_params(ParameterSet * ps)
         sfr_params.MaxSfrTimescale = param_get_double(ps, "MaxSfrTimescale");
         sfr_params.Generations = param_get_int(ps, "Generations");
         sfr_params.MinGasTemp = param_get_double(ps, "MinGasTemp");
-
+        sfr_params.BHFeedbackUseTcool = param_get_int(ps, "BHFeedbackUseTcool");
         /*Lyman-alpha forest parameters*/
         sfr_params.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
         sfr_params.QuickLymanAlphaTempThresh = param_get_double(ps, "QuickLymanAlphaTempThresh");
@@ -519,6 +520,28 @@ cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_eeqos_data s
     const double densityfac = pow(Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
     double egycurrent = SPHP(i).Entropy * densityfac;
     double trelax = sfr_data.trelax;
+    if(sfr_params.BHFeedbackUseTcool == 1 && P[i].BHHeated)
+    {
+        if(egycurrent > egyeff)
+        {
+            double redshift = 1./All.Time - 1;
+            struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos, PartManager->CurrentParticleOffset);
+            double ne = SPHP(i).Ne;
+            /* In practice tcool << trelax*/
+            double tcool = GetCoolingTime(redshift, egycurrent, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, SPHP(i).Metallicity);
+
+            /* The point of the star-forming equation of state is to pressurize the gas. However,
+             * when the gas has been heated above the equation of state it is pressurized and does not cool successfully.
+             * This code uses the cooling time rather than the relaxation time.
+             * This reduces the effect of black hole feedback marginally (a 5% reduction in star formation)
+             * and dates from the earliest versions of this code available.
+             * The main impact is on the high end of the black hole mass function: turning this off
+             * removes most massive black holes. */
+            if(tcool < trelax && tcool > 0)
+                trelax = tcool;
+        }
+        P[i].BHHeated = 0;
+    }
 
     SPHP(i).Entropy =  (egyeff + (egycurrent - egyeff) * exp(-dtime / trelax)) /densityfac;
 }

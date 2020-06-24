@@ -390,6 +390,11 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     {
         if(P[i].Type == 0 && priv->Injected_BH_Energy[P[i].PI] > 0)
         {
+            /* Set a flag for star-forming particles:
+             * we want these to cool to the EEQOS via
+             * tcool rather than trelax.*/
+            if(sfreff_on_eeqos(&SPHP(i), a3inv))
+                P[i].BHHeated = 1;
             const double enttou = pow(SPH_EOMDensity(i) * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
             double uold = SPHP(i).Entropy * enttou;
             uold = add_injected_BH_energy(uold, priv->Injected_BH_Energy[P[i].PI], P[i].Mass);

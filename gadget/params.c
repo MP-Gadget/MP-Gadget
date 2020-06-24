@@ -251,6 +251,8 @@ create_gadget_parameter_set()
     param_declare_double(ps, "CritOverDensity", OPTIONAL, 57.7, "Threshold over-density (in units of the critical density) for gas to be star forming.");
     param_declare_double(ps, "CritPhysDensity", OPTIONAL, 0, "Threshold physical density (in protons/cm^3) for gas to be star forming. If zero this is worked out from CritOverDensity.");
 
+    param_declare_int(ps, "BHFeedbackUseTcool", OPTIONAL, 1, "Gas which is heated by a BH cools using the cooling time rather than the relaxation time.");
+    param_get_int(ps, "BHFeedbackUseTcool");
     param_declare_double(ps, "FactorSN", OPTIONAL, 0.1, "Fraction of the gas energy which is locally returned as supernovae on star formation.");
     param_declare_double(ps, "FactorEVP", OPTIONAL, 1000, "Parameter of the SH03 model, controlling the energy of the hot gas.");
     param_declare_double(ps, "TempSupernova", OPTIONAL, 1e8, "Temperature of the supernovae remnants in K.");
