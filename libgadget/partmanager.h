@@ -22,7 +22,7 @@ struct particle_data
         unsigned int IsGarbage            :1; /* True for a garbage particle. readonly: Use slots_mark_garbage to mark this.*/
         unsigned int Swallowed            :1; /* True if the particle is being swallowed; used in BH to determine swallower and swallowee;*/
         unsigned int spare_1              :1; /*Unused, ensures alignment to a char*/
-        unsigned int spare_2              :1;
+        unsigned int BHHeated              :1; /* Flags that particle was heated by a BH this timestep*/
         unsigned char Generation; /* How many particles it has spawned; used to generate unique particle ID.
                                      may wrap around with too many SFR/BH if a feedback model goes rogue */
 

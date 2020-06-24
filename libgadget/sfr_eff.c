@@ -49,6 +49,7 @@ static struct SFRParams
     double TempSupernova;
     double TempClouds;
     double MaxSfrTimescale;
+    int BHFeedbackUseTcool;
     /*!< may be used to set a floor for the gas temperature */
     double MinGasTemp;
 
@@ -121,7 +122,7 @@ void set_sfr_params(ParameterSet * ps)
         sfr_params.MaxSfrTimescale = param_get_double(ps, "MaxSfrTimescale");
         sfr_params.Generations = param_get_int(ps, "Generations");
         sfr_params.MinGasTemp = param_get_double(ps, "MinGasTemp");
-
+        sfr_params.BHFeedbackUseTcool = param_get_int(ps, "BHFeedbackUseTcool");
         /*Lyman-alpha forest parameters*/
         sfr_params.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
         sfr_params.QuickLymanAlphaTempThresh = param_get_double(ps, "QuickLymanAlphaTempThresh");
@@ -510,6 +511,39 @@ cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_eeqos_data s
     const double densityfac = pow(Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
     double egycurrent = SPHP(i).Entropy * densityfac;
     double trelax = sfr_data.trelax;
+    if(P[i].BHHeated && sfr_params.BHFeedbackUseTcool)
+    {
+        if(egycurrent > egyeff)
+        {
+            double redshift = 1./All.Time - 1;
+            struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos, PartManager->CurrentParticleOffset);
+            double ne = SPHP(i).Ne;
+            /* In practice tcool << trelax*/
+            double tcool = GetCoolingTime(redshift, egycurrent, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, SPHP(i).Metallicity);
+
+            /* If tcool is being used the exponential below is roughly zero. This could more compactly be written:
+             * if(Injected_BH_Energy && egycurrent > egyeff)
+             *      SPHP(i).Entropy = egyeff/densityfac.
+             * In other words, any star-forming gas which is heated by a black hole instantaneously cools
+             * to the effective equation of state temperature.
+             * This reduces the effect of black hole feedback marginally (a 5% reduction in star formation)
+             * and dates from the earliest versions of this code available.
+             * The effect is relatively small because star-forming gas cools onto the effective equation
+             * of state quickly anyway.
+             * It is not clear to me (SPB) what this is modelling but removing it causes hot dense particles
+             * with short timesteps to appear around the black holes and slows down the code.
+             * Someone might want to check at some point if removing this condition helps or hinders
+             * agreement with observations.*/
+            if(tcool < trelax && tcool > 0)
+                trelax = tcool;
+            /* We set MaxSignalVel to be maximally the pressure in the cold phase,
+             * since that dominates the density.
+             * From hydra c_s = GAMMA P / rho and P = (S rho)^GAMMA*/
+            double Pressure = pow(sfr_params.EgySpecCold * Density, GAMMA);
+            SPHP(i).MaxSignalVel = DMIN(SPHP(i).MaxSignalVel, sqrt(GAMMA * Pressure / Density));
+        }
+        P[i].BHHeated = 0;
+    }
 
     SPHP(i).Entropy =  (egyeff + (egycurrent - egyeff) * exp(-dtime / trelax)) /densityfac;
 }
