@@ -413,6 +413,17 @@ sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
     if(sph->Density * a3inv >= sfr_params.PhysDensThresh)
         flag = 1;
 
+    if(sfr_params.BHFeedbackUseTcool == 2) {
+        const double enttou = pow(sph->EgyWtDensity * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+        double unew = sph->Entropy * enttou;
+        const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1 * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+
+        double temp = u_to_temp_fac * unew;
+
+        if(temp >= sfr_params.QuickLymanAlphaTempThresh)
+            flag = 0;
+    }
+
     if(sph->Density < sfr_params.OverDensThresh)
         flag = 0;
 
@@ -511,7 +522,7 @@ cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_eeqos_data s
     const double densityfac = pow(Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
     double egycurrent = SPHP(i).Entropy * densityfac;
     double trelax = sfr_data.trelax;
-    if(P[i].BHHeated && sfr_params.BHFeedbackUseTcool)
+    if(P[i].BHHeated && sfr_params.BHFeedbackUseTcool == 1)
     {
         if(egycurrent > egyeff)
         {
