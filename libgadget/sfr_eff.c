@@ -420,7 +420,7 @@ sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
 
         double temp = u_to_temp_fac * unew;
 
-        if(temp >= sfr_params.QuickLymanAlphaTempThresh)
+        if(temp >= 10*sfr_params.QuickLymanAlphaTempThresh)
             flag = 0;
     }
 
