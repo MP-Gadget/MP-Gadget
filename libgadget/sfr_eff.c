@@ -99,10 +99,12 @@ static int quicklyastarformation(int i, const double a3inv);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i, MyFloat * GradRho);
 static double get_starformation_rate_full(int i, MyFloat * GradRho, struct sfr_eeqos_data sfr_data, const double a3inv);
+static double get_egyeff(double dens, struct UVBG * uvbg);
 static double find_star_mass(int i);
 /*Get enough memory for new star slots. This may be excessively slow! Don't do it too often.*/
 static int * sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTree * tt);
 static struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_particle_data * sph, double dtime, const double a3inv);
+
 
 /*Set the parameters of the SFR module*/
 void set_sfr_params(ParameterSet * ps)
@@ -428,6 +430,18 @@ sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
     if(sph->DelayTime > 0)
         flag = 0;   /* only normal cooling for particles in the wind */
 
+    /* The model from 0904.2572 makes gas not star forming if more than 0.5 dex above
+     * the effective equation of state (at z=0). This in practice means black hole heated.*/
+    if(flag == 1 && sfr_params.BHFeedbackUseTcool == 2) {
+        struct UVBG uvbg = {0};
+        double egyeff = get_egyeff(sph->Density, &uvbg);
+        const double enttou = pow(sph->EgyWtDensity * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+        double unew = sph->Entropy * enttou;
+        /* 0.5 dex = 10^0.5 = 3.2 */
+        if(unew >= egyeff * 3.2)
+            flag = 0;
+    }
+
     return flag;
 }
 
@@ -584,6 +598,7 @@ starformation(int i, double *localsfr, double * sum_sm, MyFloat * GradRho, const
     int newstar = -1;
 
     struct sfr_eeqos_data sfr_data = get_sfr_eeqos(&P[i], &SPHP(i), dtime, a3inv);
+
     double smr = get_starformation_rate_full(i, GradRho, sfr_data, a3inv);
 
     double sm = smr * dtime;
@@ -808,7 +823,6 @@ void init_cooling_and_star_formation(void)
         message(0, "Isotherm sheet central density: %g   z0=%g\n",
                 M_PI * All.G * sigma * sigma / (2 * GAMMA_MINUS1) / u4,
                 GAMMA_MINUS1 * u4 / (2 * M_PI * All.G * sigma));
-
     }
 
     if(All.WindOn) {
