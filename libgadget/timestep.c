@@ -470,13 +470,10 @@ get_timestep_dloga(const int p)
                 dt = dt_accr;
         }
         if(BHP(p).minTimeBin > 0 && BHP(p).minTimeBin+1 < TIMEBINS) {
-            double dt_limiter = get_dloga_for_bin(BHP(p).minTimeBin+1) / All.cf.hubble;
+            double dt_limiter = get_dloga_for_bin(BHP(p).minTimeBin) / All.cf.hubble;
             /* Set the black hole timestep to the minimum timesteps of neighbouring gas particles.
              * It should be at least this for accretion accuracy, and it does not make sense to
-             * make it less than this. We go one timestep up because often the smallest
-             * timebin particle is cooling, and so increases its timestep. Then the smallest timebin
-             * contains only the BH which doesn't make much numerical sense. Accretion accuracy is not much changed
-             * by one timestep difference.*/
+             * make it less than this.*/
             dt = dt_limiter;
         }
     }
