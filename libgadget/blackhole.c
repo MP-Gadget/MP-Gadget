@@ -65,8 +65,9 @@ typedef struct {
 
     /*************************************************************************/
 
-    MyFloat SurroundingVel[3];  /* Include both DM and Star*/
+    MyFloat SurroundingVel[3];
     MyFloat SurroundingDensity;
+    MyFloat SurroundingParticles;
 
     /*************************************************************************/
 
@@ -91,6 +92,7 @@ typedef struct {
 
     MyFloat SurroundingVel[3];  /* Include both DM and Star*/
     MyFloat SurroundingDensity;
+    MyFloat SurroundingParticles;
     MyFloat Vel[3];
     MyFloat Mass;
 
@@ -135,6 +137,7 @@ struct BHPriv {
     /* Temporaries computed in the accretion treewalk and used
      * in the feedback treewalk*/
     MyFloat * BH_SurroundingDensity;
+    MyFloat * BH_SurroundingParticles;
     MyFloat (*BH_SurroundingVel)[3];
 
     MyFloat * BH_DFAllMass;
@@ -188,6 +191,7 @@ struct BHinfo{
     /**************************************************************/
     double Pos[3];
     MyFloat BH_SurroundingDensity; 
+    MyFloat BH_SurroundingParticles;
     MyFloat BH_SurroundingVel[3]; 
 
     MyFloat BH_DFAllMass; 
@@ -346,6 +350,7 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
         /****************************************************************************/
         /* Output some DF info for debugging */
         info.BH_SurroundingDensity = priv->BH_SurroundingDensity[PI];
+        info.BH_SurroundingParticles = priv->BH_SurroundingParticles[PI];
         info.BH_SurroundingVel[0] = priv->BH_SurroundingVel[PI][0];
         info.BH_SurroundingVel[1] = priv->BH_SurroundingVel[PI][1];
         info.BH_SurroundingVel[2] = priv->BH_SurroundingVel[PI][2];
@@ -449,6 +454,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     /*************************************************************************/
 
     priv->BH_SurroundingVel = (MyFloat (*) [3]) mymalloc("BH_SurroundingVel", 3* SlotsManager->info[5].size * sizeof(priv->BH_SurroundingVel[0]));
+    priv->BH_SurroundingParticles = mymalloc("BH_SurroundingParticles", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingParticles));
     priv->BH_SurroundingDensity = mymalloc("BH_SurroundingDensity", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingDensity));
 
     /*************************************************************************/
@@ -519,6 +525,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     myfree(priv->BH_DFFracMass);
     myfree(priv->BH_DFAllMass);
     myfree(priv->BH_SurroundingDensity);
+    myfree(priv->BH_SurroundingParticles);
     myfree(priv->BH_SurroundingVel);
 
     /*****************************************************************/
@@ -837,6 +844,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             double wk = density_kernel_wk(&iter->accretion_kernel, u);
             float mass_j = P[other].Mass;
 
+            O->SurroundingParticles += 1
             O->SurroundingDensity += (mass_j * wk);
             O->SurroundingVel[0] += (mass_j * wk * P[other].Vel[0]);
             O->SurroundingVel[1] += (mass_j * wk * P[other].Vel[1]);
@@ -1121,6 +1129,7 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     /****************************************************************************************/
 
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingDensity[PI], remote->SurroundingDensity);
+    TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingParticles[PI], remote->SurroundingParticles);
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingVel[PI][0], remote->SurroundingVel[0]);
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingVel[PI][1], remote->SurroundingVel[1]);
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingVel[PI][2], remote->SurroundingVel[2]);
