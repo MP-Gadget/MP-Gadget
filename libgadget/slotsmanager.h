@@ -38,6 +38,10 @@ struct bh_particle_data {
      * After this, all values are fixed. */
     MyFloat SwallowTime;
 
+    /*******************************************************/
+    double DFAccel[3];
+    /*******************************************************/
+
     int JumpToMinPot;
     double MinPotPos[3];
     MyFloat MinPotVel[3];

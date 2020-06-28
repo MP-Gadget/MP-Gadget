@@ -73,6 +73,7 @@ set_init_params(ParameterSet * ps)
         All.ShortRangeForceWindowType = param_get_enum(ps, "ShortRangeForceWindowType");
         All.Nmesh = param_get_int(ps, "Nmesh");
 
+        All.FractionalGravitySoftening = param_get_double(ps, "GravitySoftening");
         All.HydroCostFactor = param_get_double(ps, "HydroCostFactor");
 
         All.CoolingOn = param_get_int(ps, "CoolingOn");
@@ -96,6 +97,9 @@ set_init_params(ParameterSet * ps)
 
         All.BlackHoleOn = param_get_int(ps, "BlackHoleOn");
         All.WriteBlackHoleDetails = param_get_int(ps,"WriteBlackHoleDetails");
+        
+        All.BH_DynamicalFriction = param_get_int(ps,"BH_DynamicalFriction");
+        All.BH_DFBoost = param_get_int(ps,"BH_DFBoost");
 
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.WindOn = param_get_int(ps, "WindOn");
