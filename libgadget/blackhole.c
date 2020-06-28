@@ -35,7 +35,7 @@ struct BlackholeParams
     
     /**********************************************************************/
 
-    int BH_DynFrictionMethod;/*0 for off; 1 for DM Only; 2 for DM+Star; 3 for DM+Star+Gas */
+    int BH_DynFrictionMethod;/*0 for off; 1 for Star Only; 2 for DM+Star; 3 for DM+Star+Gas */
     int BH_DFBoostFactor; /*Optional boost factor for DF*/
     int BH_DRAG; /*Hydro drag force*/
     /************************************************************************/
@@ -340,6 +340,7 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
             info.BH_DragAccel[k] = BHP(p_i).DragAccel[k];
             info.BH_GravAccel[k] = P[p_i].GravAccel[k];
             info.Pos[k] = P[p_i].Pos[k] - PartManager->CurrentParticleOffset[k];
+            info.BH_DFAccel[k] = BHP(p_i).DFAccel[k]
         }
 
         /****************************************************************************/
@@ -351,10 +352,6 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
 
         info.BH_DFAllMass = priv->BH_DFAllMass[PI];
         info.BH_DFFracMass = priv->BH_DFFracMass[PI];
-
-        info.BH_DFAccel[0] = BHP(p_i).DFAccel[0] / P[p_i].GravAccel[0];
-        info.BH_DFAccel[1] = BHP(p_i).DFAccel[1] / P[p_i].GravAccel[1];
-        info.BH_DFAccel[2] = BHP(p_i).DFAccel[2] / P[p_i].GravAccel[2];
 
         /****************************************************************************/
 
