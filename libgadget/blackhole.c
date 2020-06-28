@@ -844,7 +844,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             double wk = density_kernel_wk(&iter->accretion_kernel, u);
             float mass_j = P[other].Mass;
 
-            O->SurroundingParticles += 1
+            O->SurroundingParticles += 1;
             O->SurroundingDensity += (mass_j * wk);
             O->SurroundingVel[0] += (mass_j * wk * P[other].Vel[0]);
             O->SurroundingVel[1] += (mass_j * wk * P[other].Vel[1]);
