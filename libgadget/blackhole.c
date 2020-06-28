@@ -976,7 +976,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     /****************************************************************************************/
     /* Compute fractional density for DF (Optional Gas) */
      if(P[other].Type == 4 || (P[other].Type == 1 && blackhole_params.BH_DynFrictionMethod > 1) || 
-        (P[other].Type == 0 && blackhole_params.BH_DynFrictionMethod == 3) ){
+        (P[other].Type == 0 && blackhole_params.BH_DynFrictionMethod == 3) )
      {
         if(r2 < iter->accretion_kernel.HH)
         {
