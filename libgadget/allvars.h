@@ -81,9 +81,6 @@ extern struct global_data_all_processes
 
     int WriteBlackHoleDetails; /* write BH details every time step*/
 
-    int BH_DynamicalFriction;
-    int BH_DFBoost;
-
     int MassiveNuLinRespOn; /*!< flags that massive neutrinos using the linear
                                  response code of Ali-Haimoud & Bird 2013.*/
     int HybridNeutrinosOn; /*!< Flags that hybrid neutrinos are enabled */
@@ -129,7 +126,6 @@ extern struct global_data_all_processes
     double HydroCostFactor; /* cost factor for hydro in load balancing. */
 
     double MeanSeparation[6]; /* mean separation between particles. 0 if the species doesn't exist. */
-    double FractionalGravitySoftening;
 
     /* some filenames */
     char InitCondFile[100],

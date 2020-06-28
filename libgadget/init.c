@@ -98,8 +98,11 @@ set_init_params(ParameterSet * ps)
         All.BlackHoleOn = param_get_int(ps, "BlackHoleOn");
         All.WriteBlackHoleDetails = param_get_int(ps,"WriteBlackHoleDetails");
         
-        All.BH_DynamicalFriction = param_get_int(ps,"BH_DynamicalFriction");
-        All.BH_DFBoost = param_get_int(ps,"BH_DFBoost");
+        /*********************************************************************/
+        All.BH_DynFrictionMethod = param_get_int(ps,"BH_DynFrictionMethod");
+        All.BH_DFBoostFactor = param_get_int(ps,"BH_DFBoostFactor");
+        All.BH_DRAG = param_get_int(ps,"BH_DRAG");
+        /*********************************************************************/
 
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.WindOn = param_get_int(ps, "WindOn");
