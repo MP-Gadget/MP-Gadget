@@ -692,21 +692,20 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
         BHP(n).Mass += BH_GET_PRIV(tw)->BH_accreted_BHMass[PI];
     }
 
-
+    
     /*******************************************************************/
     /* Add accel. when DF turned on */
     if(blackhole_params.BH_DynFrictionMethod > 0){ 
 
-        const double c_over_sqrt2;
-        int j;
+        const double c_over_sqrt2 = LIGHTCGS * All.UnitVelocity_in_cm_per_s / sqrt(2.);
+        
         double bhvel = 0;
         double bmax, bmin;
         double log_lam, rho_frac;
 
         /* Calculate Coulumb Logarithm */
-        c_over_sqrt2 = LIGHTCGS * All.UnitVelocity_in_cm_per_s / sqrt(2.);
-
-        for(j = 0; j < 3; j++) 
+        
+        for(int j = 0; j < 3; j++) 
         {
             bhvel += pow(P[n].Vel[j] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j], 2);
         }
@@ -722,7 +721,7 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
         rho_frac =   BH_GET_PRIV(tw)->BH_DFFracMass[PI] / BH_GET_PRIV(tw)->BH_DFAllMass[PI] * BH_GET_PRIV(tw)->BH_SurroundingDensity[PI];
 
         /* Simplified Version from Tremmel 2015 Eq. (3) */
-        for(j = 0; j < 3; j++) 
+        for(int j = 0; j < 3; j++) 
         {
             BHP(n).DFAccel[j] = - 4. * M_PI * All.G * All.G * P[n].Mass * rho_frac * 
             log_lam * (P[n].Vel[j] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j]) / pow(bhvel, 3);
@@ -731,7 +730,7 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
     }
     else
     {
-        for(j = 0; j < 3; j++) 
+        for(int j = 0; j < 3; j++) 
         {
             BHP(n).DFAccel[j] = 0;
         }
