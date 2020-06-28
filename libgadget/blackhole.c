@@ -340,7 +340,7 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
             info.BH_DragAccel[k] = BHP(p_i).DragAccel[k];
             info.BH_GravAccel[k] = P[p_i].GravAccel[k];
             info.Pos[k] = P[p_i].Pos[k] - PartManager->CurrentParticleOffset[k];
-            info.BH_DFAccel[k] = BHP(p_i).DFAccel[k]
+            info.BH_DFAccel[k] = BHP(p_i).DFAccel[k];
         }
 
         /****************************************************************************/
