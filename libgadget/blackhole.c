@@ -662,7 +662,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
     }
     else{ 
         for(k = 0; k < 3; k++){
-            BHP(i).DragAccel[k] = -1;
+            BHP(i).DragAccel[k] = 0;
         }
     }
     /*************************************************************************/
@@ -699,7 +699,7 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
     
     /*******************************************************************/
     /* Add accel. when DF turned on */
-    if(blackhole_params.BH_DynFrictionMethod > 0){ 
+    if(blackhole_params.BH_DynFrictionMethod > 0 && BH_GET_PRIV(tw)->BH_DFAllMass[PI] > 0){ 
 
         const double c_over_sqrt2 = LIGHTCGS * All.UnitVelocity_in_cm_per_s / sqrt(2.);
         
@@ -733,7 +733,9 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
         }
     }
     else
-    {
+    {   if (BH_GET_PRIV(tw)->BH_DFAllMass[PI] == 0){
+            message(0, "No particle for DF, kernel may be too small.\n");
+        }
         for(int j = 0; j < 3; j++) 
         {
             BHP(n).DFAccel[j] = 0;
