@@ -272,10 +272,6 @@ blackhole_dynfric_reduce(int place, TreeWalkResultBHDynfric * remote, enum TreeW
 static void
 blackhole_dynfric_copy(int place, TreeWalkQueryBHDynfric * I, TreeWalk * tw);
 
-/* Initializes the minimum potentials*/
-static void
-blackhole_dynfric_preprocess(int n, TreeWalk * tw);
-
 static void
 blackhole_dynfric_ngbiter(TreeWalkQueryBHDynfric * I,
         TreeWalkResultBHDynfric * O,
