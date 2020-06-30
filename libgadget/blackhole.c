@@ -657,7 +657,7 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
 
     if(blackhole_params.BH_DynFrictionMethod > 0 && BH_GET_PRIV(tw)->BH_SurroundingDensity[PI] > 0){ 
 
-        double bhvel = 0;
+        double bhvel;
         double lambda, x, f_of_x;
         const double a_erf = 8 * (M_PI - 3) / (3 * M_PI * (4. - M_PI));
 
@@ -670,6 +670,7 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
 
 
         /* Calculate Coulumb Logarithm */
+        bhvel = 0;
         for(int j = 0; j < 3; j++) 
         {
             bhvel += pow(P[n].Vel[j] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j], 2);
