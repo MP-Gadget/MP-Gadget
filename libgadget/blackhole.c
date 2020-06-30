@@ -678,7 +678,7 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
         bhvel = sqrt(bhvel); /****** Why is this in physical unit in PGadget3 ??? ********/
 
         
-        x = sqrt(bhvel) / sqrt(2) / BH_GET_PRIV(tw)->BH_SurroundingRmsVel[PI] / 3;
+        x = sqrt(bhvel) / sqrt(2) / (BH_GET_PRIV(tw)->BH_SurroundingRmsVel[PI] / 3);
         /* First term is aproximation of the error function */
         f_of_x = x / fabs(x) * sqrt(1 - exp(-x * x * (4 / M_PI + a_erf * x * x) 
             / (1 + a_erf * x * x))) - 2 * x / sqrt(M_PI) * exp(-x * x);
