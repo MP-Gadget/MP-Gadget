@@ -645,7 +645,8 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
     /***********************************************************************************/
     /* Compute/add accel. when DF turned on */
     /* averaged value for colomb logarithm and integral over the distribution function */
-    /* fac_friction = log(lambda) * [erf(x) - 2*x*exp(-x^2)/sqrt(pi)]                  */
+    /* acc_friction = -4*pi*G^2 * Mbh * log(lambda) * rho * f_of_x * bhvel / |bhvel^3| */
+    /*       f_of_x = [erf(x) - 2*x*exp(-x^2)/sqrt(pi)]                                */
     /*       lambda = b_max * v^2 / G / (M+m)                                          */
     /*        b_max = Size of system (e.g. Rvir)                                       */
     /*            v = Relative velocity of BH with respect to the environment          */
@@ -675,9 +676,10 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
         {
             bhvel += pow(P[n].Vel[j] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j], 2);
         }
-        bhvel = sqrt(bhvel); /****** Why is this in physical unit in PGadget3 ??? ********/
+        bhvel = sqrt(bhvel);
 
-        
+        /* There is no parameter in physical unit, so I kept everything in code unit */
+
         x = sqrt(bhvel) / sqrt(2) / (BH_GET_PRIV(tw)->BH_SurroundingRmsVel[PI] / 3);
         /* First term is aproximation of the error function */
         f_of_x = x / fabs(x) * sqrt(1 - exp(-x * x * (4 / M_PI + a_erf * x * x) 
@@ -694,7 +696,6 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
             log(lambda) * f_of_x * (P[n].Vel[j] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j]) / pow(bhvel, 3);
             P[n].GravAccel[j]  += blackhole_params.BH_DFBoostFactor * BHP(n).DFAccel[j]; // Add a boost factor
         }
-
     }
     else
     {   
