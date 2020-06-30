@@ -696,6 +696,8 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
             log(lambda) * f_of_x * (P[n].Vel[j] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j]) / pow(bhvel, 3);
             P[n].GravAccel[j]  += blackhole_params.BH_DFBoostFactor * BHP(n).DFAccel[j]; // Add a boost factor
         }
+        message(0,"x=%e, log(lambda)=%e, fof_x=%e, Mbh=%e, ratio=%e \n",
+           x,log(lambda),f_of_x,P[n].Mass,BHP(n).DFAccel[0]/P[n].GravAccel[0]);
     }
     else
     {   
