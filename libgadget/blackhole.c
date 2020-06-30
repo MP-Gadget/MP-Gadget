@@ -88,7 +88,6 @@ typedef struct {
     MyFloat SurroundingParticles;
     MyFloat SurroundingRmsVel;
 
-
 } TreeWalkResultBHDynfric;
 
 typedef struct {
@@ -663,7 +662,7 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
     if(blackhole_params.BH_DynFrictionMethod > 0 && BH_GET_PRIV(tw)->BH_SurroundingDensity[PI] > 0){ 
 
         double bhvel = 0;
-        double lambda, f_of_x;
+        double lambda, x, f_of_x;
         const double a_erf = 8 * (M_PI - 3) / (3 * M_PI * (4. - M_PI));
 
 
@@ -701,9 +700,8 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
 
     }
     else
-    {   if (BH_GET_PRIV(tw)->BH_DFAllMass[PI] == 0){
-            message(0, "Density is zero in DF kernel, kernel may be too small.\n");
-        }
+    {   
+        message(0, "Density is zero in DF kernel, kernel may be too small.\n");
         for(int j = 0; j < 3; j++) 
         {
             BHP(n).DFAccel[j] = 0;
@@ -727,7 +725,7 @@ blackhole_dynfric_reduce(int place, TreeWalkResultBHDynfric * remote, enum TreeW
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingVel[PI][0], remote->SurroundingVel[0]);
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingVel[PI][1], remote->SurroundingVel[1]);
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingVel[PI][2], remote->SurroundingVel[2]);
-    TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingRmsVel[PI], remote->BH_SurroundingRmsVel);
+    TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingRmsVel[PI], remote->SurroundingRmsVel);
 
 }
 
