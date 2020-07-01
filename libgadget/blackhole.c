@@ -194,7 +194,7 @@ struct BHinfo{
     MyFloat BH_SurroundingRmsVel; 
 
 
-    double BH_DFAccel[3]; // changed to fractional acc
+    double BH_DFAccel[3];
     double BH_DragAccel[3];
     double BH_GravAccel[3];
     /**************************************************************/
@@ -707,13 +707,13 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
             BHP(n).DFAccel[j] = 0;
         }
     }
-
-    /*******************************************************************/}
+}
+    /*******************************************************************/
 
 static int
 blackhole_dynfric_haswork(int n, TreeWalk * tw){
     /*Black hole not being swallowed*/
-    return (P[n].Type == 5) && (!P[n].Swallowed) && (BHP(n).SwallowID == (MyIDType) -1 && (blackhole_params.BH_DynFrictionMethod > 0));
+    return (P[n].Type == 5) && (!P[n].Swallowed) && (blackhole_params.BH_DynFrictionMethod > 0);
 }
 
 static void
@@ -830,7 +830,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
     
     if(blackhole_params.BH_DRAG > 0){
         double fac = 0;
-        if (blackhole_params.BH_DRAG == 1) fac = BHP(i).Mdot/BHP(i).Mass; 
+        if (blackhole_params.BH_DRAG == 1) fac = BHP(i).Mdot/P[i].Mass; 
         if (blackhole_params.BH_DRAG == 2) fac = blackhole_params.BlackHoleEddingtonFactor * meddington/BHP(i).Mass;
         for(k = 0; k < 3; k++) {
             BHP(i).DragAccel[k] = -(P[i].Vel[k] - BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][k])*fac;
