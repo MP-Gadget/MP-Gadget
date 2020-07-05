@@ -396,6 +396,8 @@ cooling_direct(int i, const double a3inv, const double hubble)
     SPHP(i).Ne = ne;
     /* Update the entropy. This is done after synchronizing kicks and drifts, as per run.c.*/
     SPHP(i).Entropy = unew / enttou;
+    /* Cooling gas is not forming stars*/
+    SPHP(i).Sfr = 0;
 }
 
 /* returns 1 if the particle is on the effective equation of state,
