@@ -553,18 +553,17 @@ starformation(int i, double *localsfr, double * sum_sm, MyFloat * GradRho, const
     int newstar = -1;
 
     struct sfr_eeqos_data sfr_data = get_sfr_eeqos(&P[i], &SPHP(i), dtime, a3inv);
-    SPHP(i).Sfr = get_starformation_rate_full(i, GradRho, sfr_data, a3inv);
-    SPHP(i).Ne = sfr_data.ne;
+    double smr = get_starformation_rate_full(i, GradRho, sfr_data, a3inv);
 
-    /* amount of stars expect to form */
-
-    double sm = SPHP(i).Sfr * dtime;
+    double sm = smr * dtime;
 
     double p = sm / P[i].Mass;
 
-    *sum_sm += P[i].Mass * (1 - exp(-p));
     /* convert to Solar per Year.*/
-    *localsfr += SPHP(i).Sfr * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
+    SPHP(i).Sfr = smr * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
+    SPHP(i).Ne = sfr_data.ne;
+    *sum_sm += P[i].Mass * (1 - exp(-p));
+    *localsfr += SPHP(i).Sfr;
 
     double w = get_random_number(P[i].ID);
     SPHP(i).Metallicity += w * METAL_YIELD * (1 - exp(-p));
