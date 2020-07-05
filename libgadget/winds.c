@@ -117,6 +117,9 @@ winds_decoupled_hydro(int i, double atime)
     SPHP(i).MaxSignalVel = hsml_c * DMAX((2 * windspeed), SPHP(i).MaxSignalVel);
 }
 
+static int
+get_wind_dir(int i, double dir[3]);
+
 static void
 sfr_wind_reduce_weight(int place, TreeWalkResultWind * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
 
@@ -155,8 +158,11 @@ struct WindPriv {
     double Time;
     double hubble;
     struct winddata * Winddata;
+    double * StarKickVelocity;
+    double * StarDistance;
     size_t * NPLeft;
     int** NPRedo;
+    struct SpinLocks * spin;
 };
 
 #define WIND_GET_PRIV(tw) ((struct WindPriv *) (tw->priv))
@@ -255,13 +261,48 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
     ta_free(priv->NPRedo);
     ta_free(priv->NPLeft);
 
+    /* Some particles may be kicked by multiple stars on the same timestep.
+     * To ensure this happens only once and does not depend on the order in
+     * which the loops are executed, particles are kicked by the nearest new star.*/
+    priv->StarKickVelocity = (double * ) mymalloc("NearestStar", SlotsManager->info[0].size * sizeof(double));
+    priv->StarDistance = (double * ) mymalloc("StarDistance", SlotsManager->info[0].size * sizeof(double));
+
+    #pragma omp parallel for
+    for(i = 0; i < SlotsManager->info[0].size; i++) {
+        priv->StarDistance[i] = tree->BoxSize;
+    }
+
     /* Then run feedback */
     tw->haswork = NULL;
     tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_feedback_ngbiter;
     tw->postprocess = NULL;
     tw->reduce = NULL;
 
+    priv->spin = init_spinlocks(SlotsManager->info[0].size);
     treewalk_run(tw, NewStars, NumNewStars);
+    free_spinlocks(priv->spin);
+
+    #pragma omp parallel for
+    for(i = 0; i < PartManager->NumPart; i++) {
+        /* Only want gas*/
+        if(P[i].Type != 0 || P[i].IsGarbage || P[i].Swallowed)
+            continue;
+        /* Kick the gas particle*/
+        if(priv->StarDistance[P[i].PI] < tree->BoxSize) {
+            double dir[3];
+            get_wind_dir(i, dir);
+            double v = priv->StarKickVelocity[P[i].PI];
+            int j;
+            for(j = 0; j < 3; j++)
+            {
+                P[i].Vel[j] += v * dir[j];
+            }
+            SPHP(i).DelayTime = wind_params.WindFreeTravelLength / (v / Time);
+        }
+    }
+
+    myfree(priv->StarDistance);
+    myfree(priv->StarKickVelocity);
     myfree(priv->Winddata);
     walltime_measure("/Cooling/Wind");
 }
@@ -463,29 +504,13 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     double random = get_random_number(I->ID + P[other].ID);
 
     if (random < p) {
-        double dir[3];
-        get_wind_dir(other, dir);
-        /* This is technically a bug: if the treewalk export buffer fill up during
-         * wind evaluation we may have a particle kicked twice by the same wind.
-         * I have never seen this happen for the wind treewalk, as there are not usually
-         * many new stars in a single timestep, but it shall be fixed.*/
-        int j;
-        for(j = 0; j < 3; j++)
-        {
-            #pragma omp atomic update
-            P[other].Vel[j] += v * dir[j];
+        /* If this is the closest star, do the kick*/
+        lock_spinlock(other, WIND_GET_PRIV(lv->tw)->spin);
+        if(WIND_GET_PRIV(lv->tw)->StarDistance[P[other].PI] > r) {
+            WIND_GET_PRIV(lv->tw)->StarDistance[P[other].PI] = r;
+            WIND_GET_PRIV(lv->tw)->StarKickVelocity[P[other].PI] = v;
         }
-        /* If the particle is already a wind, just use the largest DelayTime, and still add wind energy.
-         * If we ignore wind particles, as was done before, we end up giving each particle the velocity dispersion
-         * associated with the first particle that hits it, which is very timing dependent in threaded environments. */
-        MyFloat readdelay, newdelay;
-        #pragma omp atomic read
-        readdelay = SPHP(other).DelayTime;
-        do {
-            newdelay = DMAX(wind_params.WindFreeTravelLength / (v / WIND_GET_PRIV(lv->tw)->Time), readdelay);
-            /* Swap in the new id only if the old one hasn't changed:
-             * in principle an extension, but supported on at least clang >= 9, gcc >= 5 and icc >= 18.*/
-        } while(!__atomic_compare_exchange(&(SPHP(other).DelayTime), &readdelay, &newdelay, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+        unlock_spinlock(other, WIND_GET_PRIV(lv->tw)->spin);
     }
 }
 
