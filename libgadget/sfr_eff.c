@@ -203,6 +203,7 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
                 if(sfr_params.QuickLymanAlphaProbability > 0) {
                     /*New star is always the same particle as the parent for quicklya*/
                     newstar = p_i;
+                    sum_sm += P[i].Mass;
                 } else {
                     newstar = starformation(p_i, &localsfr, &sum_sm, GradRho, a3inv, hubble);
                 }
