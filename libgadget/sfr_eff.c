@@ -291,6 +291,12 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
 
         double rate_in_msunperyear = rate * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
 
+        /* Format:
+         * All.Time = current scale factor,
+         * total_sm = expected change in stellar mass this timestep,
+         * totsfrrate = current star formation rate in active particles in Msun/year,
+         * rate_in_msunperyear = expected stellar mass formation rate in Msun/year from total_sm,
+         * total_sum_mass_stars = actual mass of stars formed this timestep (discretized total_sm) */
         fprintf(FdSfr, "%g %g %g %g %g\n", All.Time, total_sm, totsfrrate, rate_in_msunperyear,
                 total_sum_mass_stars);
         fflush(FdSfr);
