@@ -203,6 +203,7 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
                 if(sfr_params.QuickLymanAlphaProbability > 0) {
                     /*New star is always the same particle as the parent for quicklya*/
                     newstar = p_i;
+                    sum_sm += P[i].Mass;
                 } else {
                     newstar = starformation(p_i, &localsfr, &sum_sm, GradRho, a3inv, hubble);
                 }
@@ -290,6 +291,12 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
 
         double rate_in_msunperyear = rate * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
 
+        /* Format:
+         * All.Time = current scale factor,
+         * total_sm = expected change in stellar mass this timestep,
+         * totsfrrate = current star formation rate in active particles in Msun/year,
+         * rate_in_msunperyear = expected stellar mass formation rate in Msun/year from total_sm,
+         * total_sum_mass_stars = actual mass of stars formed this timestep (discretized total_sm) */
         fprintf(FdSfr, "%g %g %g %g %g\n", All.Time, total_sm, totsfrrate, rate_in_msunperyear,
                 total_sum_mass_stars);
         fflush(FdSfr);
@@ -396,6 +403,8 @@ cooling_direct(int i, const double a3inv, const double hubble)
     SPHP(i).Ne = ne;
     /* Update the entropy. This is done after synchronizing kicks and drifts, as per run.c.*/
     SPHP(i).Entropy = unew / enttou;
+    /* Cooling gas is not forming stars*/
+    SPHP(i).Sfr = 0;
 }
 
 /* returns 1 if the particle is on the effective equation of state,
@@ -553,18 +562,17 @@ starformation(int i, double *localsfr, double * sum_sm, MyFloat * GradRho, const
     int newstar = -1;
 
     struct sfr_eeqos_data sfr_data = get_sfr_eeqos(&P[i], &SPHP(i), dtime, a3inv);
-    SPHP(i).Sfr = get_starformation_rate_full(i, GradRho, sfr_data, a3inv);
-    SPHP(i).Ne = sfr_data.ne;
+    double smr = get_starformation_rate_full(i, GradRho, sfr_data, a3inv);
 
-    /* amount of stars expect to form */
-
-    double sm = SPHP(i).Sfr * dtime;
+    double sm = smr * dtime;
 
     double p = sm / P[i].Mass;
 
-    *sum_sm += P[i].Mass * (1 - exp(-p));
     /* convert to Solar per Year.*/
-    *localsfr += SPHP(i).Sfr * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
+    SPHP(i).Sfr = smr * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
+    SPHP(i).Ne = sfr_data.ne;
+    *sum_sm += P[i].Mass * (1 - exp(-p));
+    *localsfr += SPHP(i).Sfr;
 
     double w = get_random_number(P[i].ID);
     SPHP(i).Metallicity += w * METAL_YIELD * (1 - exp(-p));

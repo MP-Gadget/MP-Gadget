@@ -848,14 +848,8 @@ SIMPLE_PROPERTY_TYPE_PI(StarFormationTime, 4, FormationTime, float, 1, struct st
 SIMPLE_PROPERTY_PI(BirthDensity, BirthDensity, float, 1, struct star_particle_data)
 SIMPLE_PROPERTY_TYPE_PI(Metallicity, 4, Metallicity, float, 1, struct star_particle_data)
 SIMPLE_PROPERTY_TYPE_PI(Metallicity, 0, Metallicity, float, 1, struct sph_particle_data)
-static void GTStarFormationRate(int i, float * out, void * baseptr, void * smanptr) {
-    /* Convert to Solar/year */
-    int PI = ((struct particle_data *) baseptr)[i].PI;
-    int ptype = ((struct particle_data *) baseptr)[i].Type;
-    struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[ptype]);
-    struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
-    *out = sl[PI].Sfr * ((All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR));
-}
+
+SIMPLE_GETTER_PI(GTStarFormationRate, Sfr, float, 1, struct sph_particle_data)
 SIMPLE_PROPERTY_TYPE_PI(StarFormationTime, 5, FormationTime, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeMass, Mass, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeDensity, Density, float, 1, struct bh_particle_data)
