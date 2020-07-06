@@ -428,6 +428,10 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
 
     if(P[other].Type == 0) {
         if(r > I->Hsml) return;
+        /* skip earlier wind particles, which receive
+         * no feedback energy */
+        if(SPHP(other).DelayTime > 0) return;
+
         /* NOTE: think twice if we want a symmetric tree walk when wk is used. */
         //double wk = density_kernel_wk(&kernel, r);
         double wk = 1.0;
@@ -491,6 +495,12 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     /* this is radius cut is redundant because the tree walk is asymmetric
      * we may want to use fancier weighting that requires symmetric in the future. */
     if(r > I->Hsml) return;
+
+    /* skip earlier wind particles */
+    if(SPHP(other).DelayTime > 0) return;
+
+    /* No eligible gas particles not in wind*/
+    if(I->TotalWeight == 0) return;
 
     double windeff=0;
     double v=0;
