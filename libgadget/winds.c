@@ -160,6 +160,7 @@ struct WindPriv {
     struct winddata * Winddata;
     double * StarKickVelocity;
     double * StarDistance;
+    MyIDType * StarID;
     size_t * NPLeft;
     int** NPRedo;
     struct SpinLocks * spin;
@@ -266,6 +267,7 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
      * which the loops are executed, particles are kicked by the nearest new star.*/
     priv->StarKickVelocity = (double * ) mymalloc("NearestStar", SlotsManager->info[0].size * sizeof(double));
     priv->StarDistance = (double * ) mymalloc("StarDistance", SlotsManager->info[0].size * sizeof(double));
+    priv->StarID = (MyIDType * ) mymalloc("StarID", SlotsManager->info[0].size * sizeof(MyIDType));
 
     #pragma omp parallel for
     for(i = 0; i < SlotsManager->info[0].size; i++) {
@@ -281,6 +283,7 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
     priv->spin = init_spinlocks(SlotsManager->info[0].size);
     treewalk_run(tw, NewStars, NumNewStars);
     free_spinlocks(priv->spin);
+    myfree(priv->StarID);
 
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++) {
@@ -506,8 +509,13 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     if (random < p) {
         /* If this is the closest star, do the kick*/
         lock_spinlock(other, WIND_GET_PRIV(lv->tw)->spin);
-        if(WIND_GET_PRIV(lv->tw)->StarDistance[P[other].PI] > r) {
+        if(WIND_GET_PRIV(lv->tw)->StarDistance[P[other].PI] > r ||
+            /* Break ties with ID*/
+            ((WIND_GET_PRIV(lv->tw)->StarDistance[P[other].PI] == r) &&
+            (WIND_GET_PRIV(lv->tw)->StarID[P[other].PI] < I->ID))
+        ) {
             WIND_GET_PRIV(lv->tw)->StarDistance[P[other].PI] = r;
+            WIND_GET_PRIV(lv->tw)->StarID[P[other].PI] = I->ID;
             WIND_GET_PRIV(lv->tw)->StarKickVelocity[P[other].PI] = v;
         }
         unlock_spinlock(other, WIND_GET_PRIV(lv->tw)->spin);
