@@ -280,6 +280,8 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
     tw->postprocess = NULL;
     tw->reduce = NULL;
 
+    message(0, "Starting feedback treewalk\n");
+
     priv->spin = init_spinlocks(SlotsManager->info[0].size);
     treewalk_run(tw, NewStars, NumNewStars);
     free_spinlocks(priv->spin);
@@ -507,18 +509,19 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     double random = get_random_number(I->ID + P[other].ID);
 
     if (random < p) {
+        int PI = P[other].PI;
         /* If this is the closest star, do the kick*/
-        lock_spinlock(other, WIND_GET_PRIV(lv->tw)->spin);
-        if(WIND_GET_PRIV(lv->tw)->StarDistance[P[other].PI] > r ||
+        lock_spinlock(PI, WIND_GET_PRIV(lv->tw)->spin);
+        if(WIND_GET_PRIV(lv->tw)->StarDistance[PI] > r ||
             /* Break ties with ID*/
-            ((WIND_GET_PRIV(lv->tw)->StarDistance[P[other].PI] == r) &&
-            (WIND_GET_PRIV(lv->tw)->StarID[P[other].PI] < I->ID))
+            ((WIND_GET_PRIV(lv->tw)->StarDistance[PI] == r) &&
+            (WIND_GET_PRIV(lv->tw)->StarID[PI] < I->ID))
         ) {
-            WIND_GET_PRIV(lv->tw)->StarDistance[P[other].PI] = r;
-            WIND_GET_PRIV(lv->tw)->StarID[P[other].PI] = I->ID;
-            WIND_GET_PRIV(lv->tw)->StarKickVelocity[P[other].PI] = v;
+            WIND_GET_PRIV(lv->tw)->StarDistance[PI] = r;
+            WIND_GET_PRIV(lv->tw)->StarID[PI] = I->ID;
+            WIND_GET_PRIV(lv->tw)->StarKickVelocity[PI] = v;
         }
-        unlock_spinlock(other, WIND_GET_PRIV(lv->tw)->spin);
+        unlock_spinlock(PI, WIND_GET_PRIV(lv->tw)->spin);
     }
 }
 
