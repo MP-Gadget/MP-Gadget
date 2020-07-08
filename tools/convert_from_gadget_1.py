@@ -14,7 +14,7 @@ from argparse import ArgumentParser
 import glob
 import os.path
 import numpy
-from nbodykit.lab import Gadget1Catalog
+from nbodykit.source.catalog import Gadget1Catalog
 
 ap = ArgumentParser()
 ap.add_argument('source', help='Gadget filename base, EXCLUDING the ".0".')
