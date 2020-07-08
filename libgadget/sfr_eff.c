@@ -443,6 +443,19 @@ sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
         if(unew >= egyeff * 3.2)
             flag = 0;
     }
+    if(flag == 1 && sfr_params.BHFeedbackUseTcool == 3) {
+        const double enttou = pow(sph->EgyWtDensity * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+        double unew = sph->Entropy * enttou;
+        const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1 * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+
+        double temp = u_to_temp_fac * unew;
+
+        /* The equation of state in practice is 10^4 - 10^5 K, so use
+         * the quick Lyman alpha star formation temperature threshold.*/
+        if(temp >= sfr_params.QuickLymanAlphaTempThresh)
+            flag = 0;
+    }
+
 
     return flag;
 }
