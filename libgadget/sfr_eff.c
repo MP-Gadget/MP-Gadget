@@ -99,7 +99,7 @@ static int quicklyastarformation(int i, const double a3inv);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i, MyFloat * GradRho);
 static double get_starformation_rate_full(int i, MyFloat * GradRho, struct sfr_eeqos_data sfr_data, const double a3inv);
-static double get_egyeff(double dens, struct UVBG * uvbg);
+static double get_egyeff(double redshift, double dens, struct UVBG * uvbg);
 static double find_star_mass(int i);
 /*Get enough memory for new star slots. This may be excessively slow! Don't do it too often.*/
 static int * sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTree * tt);
@@ -433,8 +433,10 @@ sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
     /* The model from 0904.2572 makes gas not star forming if more than 0.5 dex above
      * the effective equation of state (at z=0). This in practice means black hole heated.*/
     if(flag == 1 && sfr_params.BHFeedbackUseTcool == 2) {
-        struct UVBG uvbg = {0};
-        double egyeff = get_egyeff(sph->Density, &uvbg);
+        //Redshift is the argument
+        double redshift = pow(a3inv, 1./3.)-1;
+        struct UVBG uvbg = get_global_UVBG(redshift);
+        double egyeff = get_egyeff(redshift, sph->Density, &uvbg);
         const double enttou = pow(sph->EgyWtDensity * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
         double unew = sph->Entropy * enttou;
         /* 0.5 dex = 10^0.5 = 3.2 */
@@ -706,16 +708,16 @@ static double get_starformation_rate_full(int i, MyFloat * GradRho, struct sfr_e
     return rateOfSF;
 }
 
-/*Gets the effective energy at z=0*/
+/*Gets the effective energy*/
 static double
-get_egyeff(double dens, struct UVBG * uvbg)
+get_egyeff(double redshift, double dens, struct UVBG * uvbg)
 {
     double tsfr = sqrt(sfr_params.PhysDensThresh / (dens)) * sfr_params.MaxSfrTimescale;
     double factorEVP = pow(dens / sfr_params.PhysDensThresh, -0.8) * sfr_params.FactorEVP;
     double egyhot = sfr_params.EgySpecSN / (1 + factorEVP) + sfr_params.EgySpecCold;
 
     double ne = 0.5;
-    double tcool = GetCoolingTime(0, egyhot, dens, uvbg, &ne, 0.0);
+    double tcool = GetCoolingTime(redshift, egyhot, dens, uvbg, &ne, 0.0);
 
     double y = tsfr / tcool * egyhot / (sfr_params.FactorSN * sfr_params.EgySpecSN - (1 - sfr_params.FactorSN) * sfr_params.EgySpecCold);
     double x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
@@ -800,7 +802,7 @@ void init_cooling_and_star_formation(void)
         double neff;
         do
         {
-            double egyeff = get_egyeff(dens, &uvbg);
+            double egyeff = get_egyeff(0, dens, &uvbg);
 
             double peff = GAMMA_MINUS1 * dens * egyeff;
 
@@ -808,7 +810,7 @@ void init_cooling_and_star_formation(void)
             neff = -log(peff) * fac;
 
             dens *= 1.025;
-            egyeff = get_egyeff(dens, &uvbg);
+            egyeff = get_egyeff(0, dens, &uvbg);
             peff = GAMMA_MINUS1 * dens * egyeff;
 
             neff += log(peff) * fac;
