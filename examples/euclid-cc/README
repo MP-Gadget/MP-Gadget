@@ -1,17 +1,20 @@
-Download the snapshot files from
+To use:
+
+sh get_ic.sh
+
+and then start the simulation as normal.
+
+Simulation is public at:
 
 https://www.ics.uzh.ch/~aurel/euclid.htm
 
-Download the IC file from
-
+IC files are from:
 https://www.ics.uzh.ch/~aurel/euclidIC_2048/
 
-Too for conversion:
-(needs nbodykit)
+Converted to bigfile using the script in
+tools/convert_from_gadget_1.py
 
-https://github.com/rainwoodman/fastpm/blob/master/python/convert-from-gadget-1.py
-
-From Aurel site:
+From Aurel's site:
 
 COSMOLOGICAL PARAMETERS FOR THE REFERENCE RUN
 (L=500 Mpc/h, N=2048^3)
@@ -22,5 +25,3 @@ Omega_b = 0.0483
 ns      = 0.9611
 sigma8  = 0.8288
 H0      = 67.77
-
-Also added the PK files.
