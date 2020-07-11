@@ -195,7 +195,7 @@ create_gadget_parameter_set()
     /*Black holes*/
     param_declare_int(ps, "BlackHoleOn", REQUIRED, 1, "Master switch to enable black hole formation and feedback. If this is on, type 5 particles are treated as black holes.");
     param_declare_double(ps, "BlackHoleAccretionFactor", OPTIONAL, 100, "BH accretion boosting factor relative to the rate from the Bondi accretion model.");
-    param_declare_double(ps, "BlackHoleEddingtonFactor", OPTIONAL, 3, "Maximum Black hole accretion as a function of Eddington.");
+    param_declare_double(ps, "BlackHoleEddingtonFactor", OPTIONAL, 2.1, "Maximum Black hole accretion as a function of Eddington.");
     param_declare_double(ps, "SeedBlackHoleMass", OPTIONAL, 5e-5, "Mass of initial black hole seed in internal mass units.");
 
     param_declare_double(ps, "BlackHoleNgbFactor", OPTIONAL, 2, "Factor by which to increase the number of neighbours for a black hole.");

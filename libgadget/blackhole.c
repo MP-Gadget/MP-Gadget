@@ -497,7 +497,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
 
     /* Note: we take here a radiative efficiency of 0.1 for Eddington accretion */
     double meddington = (4 * M_PI * GRAVITY * LIGHTCGS * PROTONMASS / (0.1 * LIGHTCGS * LIGHTCGS * THOMPSON)) * BHP(i).Mass
-        * All.UnitTime_in_s;
+        * All.UnitTime_in_s / All.HubbleParam;
 
     double norm = pow((pow(soundspeed, 2) + pow(bhvel, 2)), 1.5);
 
