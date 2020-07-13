@@ -73,21 +73,6 @@ int get_generations(void)
     return sfr_params.Generations;
 }
 
-/* Structure storing the results of an evaluation of the star formation model*/
-struct sfr_eeqos_data
-{
-    /* Relaxation time*/
-    double trelax;
-    /* Star formation timescale*/
-    double tsfr;
-    /* Internal energy of the gas in the hot phase. */
-    double egyhot;
-    /* Fraction of the gas in the cold cloud phase. */
-    double cloudfrac;
-    /* Electron fraction after cooling. */
-    double ne;
-};
-
 /*Cooling only: no star formation*/
 static void cooling_direct(int i, const double a3inv, const double hubble);
 
@@ -103,8 +88,6 @@ static double get_egyeff(double redshift, double dens, struct UVBG * uvbg);
 static double find_star_mass(int i);
 /*Get enough memory for new star slots. This may be excessively slow! Don't do it too often.*/
 static int * sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTree * tt);
-static struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_particle_data * sph, double dtime, const double a3inv);
-
 
 /*Set the parameters of the SFR module*/
 void set_sfr_params(ParameterSet * ps)
@@ -661,7 +644,7 @@ starformation(int i, double *localsfr, double * sum_sm, MyFloat * GradRho, const
 
 /* Get the parameters of the basic effective
  * equation of state model for a particle.*/
-static struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_particle_data * sph, double dtime, const double a3inv)
+struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_particle_data * sph, double dtime, const double a3inv)
 {
     struct sfr_eeqos_data data;
     /* Initialise data to something, just in case.*/
@@ -690,6 +673,7 @@ static struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct s
     double factorEVP = pow(sph->Density * a3inv / sfr_params.PhysDensThresh, -0.8) * sfr_params.FactorEVP;
 
     data.egyhot = sfr_params.EgySpecSN / (1 + factorEVP) + sfr_params.EgySpecCold;
+    data.egycold = sfr_params.EgySpecCold;
 
     double tcool = GetCoolingTime(redshift, data.egyhot, sph->Density * a3inv, &uvbg, &data.ne, sph->Metallicity);
     double y = data.tsfr / tcool * data.egyhot / (sfr_params.FactorSN * sfr_params.EgySpecSN - (1 - sfr_params.FactorSN) * sfr_params.EgySpecCold);
