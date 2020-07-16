@@ -14,6 +14,7 @@ from argparse import ArgumentParser
 import glob
 import os.path
 import numpy
+import dask
 from nbodykit.source.catalog import Gadget1Catalog
 
 ap = ArgumentParser()
@@ -64,10 +65,17 @@ def main(ns):
     #Convert from Gadget-format velocities.
     cat['Velocity'] = cat['GadgetVelocity'] * a ** 0.5
 
+    # The IDs may wrap around after 2^32 and become non-unique.
+    #This should hopefully be small
+    ii = dask.array.argwhere(cat["ID"] == 0).compute()
+    #Add 2**32 for each wrap around
+    if ii.size > 1:
+        for ind in ii[0][1:]:
+            cat["ID"] += 2**32*(dask.array.arange(cat["ID"].size) >= ind)
     if ns.subsample is not None:
         cat = cat[::ns.subsample]
 
-    ptypes = [str(pt) for pt in range(6)  if (cat.attrs['TotNumPart'][pt] > 0)]
+    ptypes = [str(pt) for pt in range(6)  if cat.attrs['TotNumPart'][pt] > 0]
 
     #Use all existing columns, remove
     columns = cat.columns
