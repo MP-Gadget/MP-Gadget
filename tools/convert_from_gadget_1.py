@@ -28,7 +28,11 @@ def main(ns):
     if os.path.exists(ns.source):
         cat = Gadget1Catalog(ns.source)
     else:
-        gg = glob.glob(ns.source+"*")
+        #Ensure files are sorted
+        gg =  sorted(glob.glob(ns.source+".?"))
+        gg += sorted(glob.glob(ns.source+".??"))
+        gg += sorted(glob.glob(ns.source+".???"))
+        gg += sorted(glob.glob(ns.source+".????"))
         cat = Gadget1Catalog(gg)
     print("Loaded %d files" % len(gg))
 
