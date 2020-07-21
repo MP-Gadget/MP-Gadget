@@ -74,10 +74,10 @@ def main(ns):
 
     # The IDs may wrap around after 2^32 and become non-unique.
     #This should hopefully be small
-    ii = dask.array.argwhere(cat["ID"] == 0).compute()
+    ii = dask.array.argwhere(cat["ID"] == cat["ID"][0]).compute()
     #Add 2**32 for each wrap around
     if ii.size > 1:
-        for ind in ii[0][1:]:
+        for ind in ii[1:]:
             cat["ID"] += 2**32*(dask.array.arange(cat["ID"].size) >= ind)
     if ns.subsample is not None:
         cat = cat[::ns.subsample]
