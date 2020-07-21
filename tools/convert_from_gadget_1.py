@@ -24,19 +24,26 @@ ap.add_argument('--time-ic', type=float, default=None, help='Time of IC of this 
 ap.add_argument('--unit-system', choices=['Mpc', 'Kpc'], default='Kpc')
 ap.add_argument('--subsample', type=int, help='keep every n particles')
 
-def main(ns):
-    """Load the Gadget 1 Catalog and do the conversion, taking care of velocity units."""
-    if os.path.exists(ns.source):
-        cat = Gadget1Catalog(ns.source)
+def getg1cat(root):
+    """glob multiple files to get all the Gadget type 1 snapshot files in order"""
+    if os.path.exists(root):
+        cat = Gadget1Catalog(root)
     else:
         #Ensure files are sorted
-        gg =  sorted(glob.glob(ns.source+".?"))
-        gg += sorted(glob.glob(ns.source+".??"))
-        gg += sorted(glob.glob(ns.source+".???"))
-        gg += sorted(glob.glob(ns.source+".????"))
+        gg =  sorted(glob.glob(root+".?"))
+        gg += sorted(glob.glob(root+".??"))
+        gg += sorted(glob.glob(root+".???"))
+        gg += sorted(glob.glob(root+".????"))
+        assert len(set(gg)) == len(gg)
         cat = Gadget1Catalog(gg)
     print("Loaded %d files" % len(gg))
+    return cat
 
+def main(ns):
+    """Load the Gadget 1 Catalog and do the conversion, taking care of velocity units."""
+    cat = getg1cat(ns.source)
+
+    #Fix up the header
     attrs = cat.attrs.copy()
     cat.attrs.clear()
 
