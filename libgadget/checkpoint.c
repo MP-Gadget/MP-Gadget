@@ -21,16 +21,14 @@
  */
 
 void
-write_checkpoint(int snapnum, int WriteSnapshot, int WriteFOF, double Time, const char * OutputDir, const char * SnapshotFileBase, const int OutputDebugFields, ForceTree * tree)
+write_checkpoint(int snapnum, int WriteSnapshot, int WriteGroupID, double Time, const char * OutputDir, const char * SnapshotFileBase, const int OutputDebugFields)
 {
-    if(!WriteSnapshot && !WriteFOF) return;
-
     walltime_measure("/Misc");
     if(WriteSnapshot)
     {
         /* write snapshot of particles */
         struct IOTable IOTable = {0};
-        register_io_blocks(&IOTable, WriteFOF);
+        register_io_blocks(&IOTable, WriteGroupID);
         if(OutputDebugFields)
             register_debug_io_blocks(&IOTable);
         petaio_save_snapshot(&IOTable, 1, "%s/%s_%03d", OutputDir, SnapshotFileBase, snapnum);
@@ -48,19 +46,6 @@ write_checkpoint(int snapnum, int WriteSnapshot, int WriteFOF, double Time, cons
             myfree(buf);
         }
      }
-
-    if(WriteFOF) {
-        /* Compute and save FOF*/
-        message(0, "computing group catalogue...\n");
-
-        FOFGroups fof = fof_fof(tree, MPI_COMM_WORLD);
-        /* Tree is invalid now because of the exchange in FoF.*/
-        force_tree_free(tree);
-        fof_save_groups(&fof, snapnum, MPI_COMM_WORLD);
-        fof_finish(&fof);
-
-        message(0, "done with group catalogue.\n");
-    }
 }
 
 void
