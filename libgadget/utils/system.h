@@ -78,7 +78,7 @@ static inline int atomic_add_and_fetch(int * ptr, int value) {
 }
 
 void MPIU_Trace(MPI_Comm comm, int where, const char * fmt, ...);
-void MPIU_Tracev(MPI_Comm comm, int where, const char * fmt, va_list va);
+void MPIU_Tracev(MPI_Comm comm, int where, int error, const char * fmt, va_list va);
 
 int _MPIU_Barrier(const char * fn, const int ln, MPI_Comm comm);
 

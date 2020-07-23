@@ -150,7 +150,7 @@ endrun(int where, const char * fmt, ...)
 
     va_list va;
     va_start(va, fmt);
-    MPIU_Tracev(MPI_COMM_WORLD, where, fmt, va);
+    MPIU_Tracev(MPI_COMM_WORLD, where, 1, fmt, va);
     va_end(va);
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
@@ -177,7 +177,7 @@ void message(int where, const char * fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
-    MPIU_Tracev(MPI_COMM_WORLD, where, fmt, va);
+    MPIU_Tracev(MPI_COMM_WORLD, where, 0, fmt, va);
     va_end(va);
 }
 

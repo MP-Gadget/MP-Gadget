@@ -179,7 +179,7 @@ static double _timestart = -1;
  * va_list version of MPIU_Trace.
  * */
 void
-MPIU_Tracev(MPI_Comm comm, int where, const char * fmt, va_list va)
+MPIU_Tracev(MPI_Comm comm, int where, int error, const char * fmt, va_list va)
 {
     if(_timestart == -1) {
         _timestart = MPI_Wtime();
@@ -191,11 +191,15 @@ MPIU_Tracev(MPI_Comm comm, int where, const char * fmt, va_list va)
     char buf[4096];
     vsnprintf(buf, 4096, fmt, va);
     buf[4095] = '\0';
+    char err[] = "ERROR: ";
+    /* Print nothing if not an error*/
+    if(!error)
+        err[0] = '\0';
 
     if(where > 0) {
-        sprintf(prefix, "[ %09.2f ] Task %d: ", MPI_Wtime() - _timestart, ThisTask);
+        sprintf(prefix, "[ %09.2f ] %sTask %d: ", MPI_Wtime() - _timestart, err, ThisTask);
     } else {
-        sprintf(prefix, "[ %09.2f ] ", MPI_Wtime() - _timestart);
+        sprintf(prefix, "[ %09.2f ] %s", MPI_Wtime() - _timestart, err);
     }
 
     if(ThisTask == 0 || where > 0) {
@@ -212,7 +216,7 @@ void MPIU_Trace(MPI_Comm comm, int where, const char * fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
-    MPIU_Tracev(comm, where, fmt, va);
+    MPIU_Tracev(comm, where, 0, fmt, va);
     va_end(va);
 }
 
