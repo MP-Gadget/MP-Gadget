@@ -345,16 +345,23 @@ run(int RestartSnapNum)
         if(is_PM) { /* the if here is unnecessary but to signify checkpointing occurs only at PM steps. */
             WriteSnapshot |= action->write_snapshot;
         }
-
         if(WriteSnapshot || WriteFOF) {
             /* Get a new snapshot*/
             SnapshotFileCount++;
             /* The accel may have created garbage -- collect them before writing a snapshot.
-             * If we do collect, rebuild tree and reset active list size.*/
+             * If we do collect, free tree and reset active list size.*/
             int compact[6] = {0};
-
             if(slots_gc(compact, PartManager, SlotsManager)) {
-                /* We did a FOF this timestep so we need to recompute the peano keys, which were over-written*/
+                force_tree_free(&Tree);
+                Act.NumActiveParticle = PartManager->NumPart;
+            }
+        }
+        FOFGroups fof = {0};
+        if(WriteFOF) {
+            /* Compute FOF, rebuilding tree if necessary*/
+            if(!force_tree_allocated(&Tree)) {
+                /* To rebuild the force tree we need the Peano keys, but if we did a FOF this timestep they were over-written with GrNr,
+                 * so we need to recompute them. */
                 if(didfof) {
                     int i;
                     #pragma omp parallel for
@@ -362,20 +369,27 @@ run(int RestartSnapNum)
                         P[i].Key = PEANO(P[i].Pos, All.BoxSize);
                 }
                 force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, 0, All.OutputDir);
-                Act.NumActiveParticle = PartManager->NumPart;
             }
+            fof = fof_fof(&Tree, MPI_COMM_WORLD);
         }
 
-        write_checkpoint(SnapshotFileCount, WriteSnapshot, WriteFOF, All.Time, All.OutputDir, All.SnapshotFileBase, All.OutputDebugFields, &Tree);
+        /* We don't need this timestep's tree anymore.*/
+        force_tree_free(&Tree);
+
+        /* WriteFOF just reminds the checkpoint code to save GroupID*/
+        write_checkpoint(SnapshotFileCount, WriteSnapshot, WriteFOF, All.Time, All.OutputDir, All.SnapshotFileBase, All.OutputDebugFields);
+
+        /* Save FOF tables after checkpoint so that if there is a FOF save bug we have particle tables available to debug it*/
+        if(WriteFOF) {
+            fof_save_groups(&fof, SnapshotFileCount, MPI_COMM_WORLD);
+            fof_finish(&fof);
+        }
 
         write_cpu_log(NumCurrentTiStep, FdCPU);    /* produce some CPU usage info */
 
         NumCurrentTiStep++;
 
         report_memory_usage("RUN");
-
-        /*Note FoF may free the tree too*/
-        force_tree_free(&Tree);
 
         if(!next_sync || stop) {
             /* out of sync points, or a requested stop, the run has finally finished! Yay.*/
