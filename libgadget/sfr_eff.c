@@ -49,6 +49,7 @@ static struct SFRParams
     double TempSupernova;
     double TempClouds;
     double MaxSfrTimescale;
+    int BHFeedbackUseTcool;
     /*!< may be used to set a floor for the gas temperature */
     double MinGasTemp;
 
@@ -72,21 +73,6 @@ int get_generations(void)
     return sfr_params.Generations;
 }
 
-/* Structure storing the results of an evaluation of the star formation model*/
-struct sfr_eeqos_data
-{
-    /* Relaxation time*/
-    double trelax;
-    /* Star formation timescale*/
-    double tsfr;
-    /* Internal energy of the gas in the hot phase. */
-    double egyhot;
-    /* Fraction of the gas in the cold cloud phase. */
-    double cloudfrac;
-    /* Electron fraction after cooling. */
-    double ne;
-};
-
 /*Cooling only: no star formation*/
 static void cooling_direct(int i, const double a3inv, const double hubble);
 
@@ -98,10 +84,10 @@ static int quicklyastarformation(int i, const double a3inv);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i, MyFloat * GradRho);
 static double get_starformation_rate_full(int i, MyFloat * GradRho, struct sfr_eeqos_data sfr_data, const double a3inv);
+static double get_egyeff(double redshift, double dens, struct UVBG * uvbg);
 static double find_star_mass(int i);
 /*Get enough memory for new star slots. This may be excessively slow! Don't do it too often.*/
 static int * sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTree * tt);
-static struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_particle_data * sph, double dtime, const double a3inv);
 
 /*Set the parameters of the SFR module*/
 void set_sfr_params(ParameterSet * ps)
@@ -121,7 +107,9 @@ void set_sfr_params(ParameterSet * ps)
         sfr_params.MaxSfrTimescale = param_get_double(ps, "MaxSfrTimescale");
         sfr_params.Generations = param_get_int(ps, "Generations");
         sfr_params.MinGasTemp = param_get_double(ps, "MinGasTemp");
-
+        sfr_params.BHFeedbackUseTcool = param_get_int(ps, "BHFeedbackUseTcool");
+        if(sfr_params.BHFeedbackUseTcool > 2 || sfr_params.BHFeedbackUseTcool < 0)
+            endrun(0, "BHFeedbackUseTcool mode %d not supported\n", sfr_params.BHFeedbackUseTcool);
         /*Lyman-alpha forest parameters*/
         sfr_params.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
         sfr_params.QuickLymanAlphaTempThresh = param_get_double(ps, "QuickLymanAlphaTempThresh");
@@ -427,6 +415,19 @@ sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
     if(sph->DelayTime > 0)
         flag = 0;   /* only normal cooling for particles in the wind */
 
+    /* The model from 0904.2572 makes gas not star forming if more than 0.5 dex above
+     * the effective equation of state (at z=0). This in practice means black hole heated.*/
+    if(flag == 1 && sfr_params.BHFeedbackUseTcool == 2) {
+        //Redshift is the argument
+        double redshift = pow(a3inv, 1./3.)-1;
+        struct UVBG uvbg = get_global_UVBG(redshift);
+        double egyeff = get_egyeff(redshift, sph->Density, &uvbg);
+        const double enttou = pow(sph->EgyWtDensity * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+        double unew = sph->Entropy * enttou;
+        /* 0.5 dex = 10^0.5 = 3.2 */
+        if(unew >= egyeff * 3.2)
+            flag = 0;
+    }
     return flag;
 }
 
@@ -519,6 +520,28 @@ cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_eeqos_data s
     const double densityfac = pow(Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
     double egycurrent = SPHP(i).Entropy * densityfac;
     double trelax = sfr_data.trelax;
+    if(sfr_params.BHFeedbackUseTcool == 1 && P[i].BHHeated)
+    {
+        if(egycurrent > egyeff)
+        {
+            double redshift = 1./All.Time - 1;
+            struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos, PartManager->CurrentParticleOffset);
+            double ne = SPHP(i).Ne;
+            /* In practice tcool << trelax*/
+            double tcool = GetCoolingTime(redshift, egycurrent, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, SPHP(i).Metallicity);
+
+            /* The point of the star-forming equation of state is to pressurize the gas. However,
+             * when the gas has been heated above the equation of state it is pressurized and does not cool successfully.
+             * This code uses the cooling time rather than the relaxation time.
+             * This reduces the effect of black hole feedback marginally (a 5% reduction in star formation)
+             * and dates from the earliest versions of this code available.
+             * The main impact is on the high end of the black hole mass function: turning this off
+             * removes most massive black holes. */
+            if(tcool < trelax && tcool > 0)
+                trelax = tcool;
+        }
+        P[i].BHHeated = 0;
+    }
 
     SPHP(i).Entropy =  (egyeff + (egycurrent - egyeff) * exp(-dtime / trelax)) /densityfac;
 }
@@ -561,6 +584,7 @@ starformation(int i, double *localsfr, double * sum_sm, MyFloat * GradRho, const
     int newstar = -1;
 
     struct sfr_eeqos_data sfr_data = get_sfr_eeqos(&P[i], &SPHP(i), dtime, a3inv);
+
     double smr = get_starformation_rate_full(i, GradRho, sfr_data, a3inv);
 
     double sm = smr * dtime;
@@ -608,7 +632,7 @@ starformation(int i, double *localsfr, double * sum_sm, MyFloat * GradRho, const
 
 /* Get the parameters of the basic effective
  * equation of state model for a particle.*/
-static struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_particle_data * sph, double dtime, const double a3inv)
+struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_particle_data * sph, double dtime, const double a3inv)
 {
     struct sfr_eeqos_data data;
     /* Initialise data to something, just in case.*/
@@ -637,6 +661,7 @@ static struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct s
     double factorEVP = pow(sph->Density * a3inv / sfr_params.PhysDensThresh, -0.8) * sfr_params.FactorEVP;
 
     data.egyhot = sfr_params.EgySpecSN / (1 + factorEVP) + sfr_params.EgySpecCold;
+    data.egycold = sfr_params.EgySpecCold;
 
     double tcool = GetCoolingTime(redshift, data.egyhot, sph->Density * a3inv, &uvbg, &data.ne, sph->Metallicity);
     double y = data.tsfr / tcool * data.egyhot / (sfr_params.FactorSN * sfr_params.EgySpecSN - (1 - sfr_params.FactorSN) * sfr_params.EgySpecCold);
@@ -668,16 +693,16 @@ static double get_starformation_rate_full(int i, MyFloat * GradRho, struct sfr_e
     return rateOfSF;
 }
 
-/*Gets the effective energy at z=0*/
+/*Gets the effective energy*/
 static double
-get_egyeff(double dens, struct UVBG * uvbg)
+get_egyeff(double redshift, double dens, struct UVBG * uvbg)
 {
     double tsfr = sqrt(sfr_params.PhysDensThresh / (dens)) * sfr_params.MaxSfrTimescale;
     double factorEVP = pow(dens / sfr_params.PhysDensThresh, -0.8) * sfr_params.FactorEVP;
     double egyhot = sfr_params.EgySpecSN / (1 + factorEVP) + sfr_params.EgySpecCold;
 
     double ne = 0.5;
-    double tcool = GetCoolingTime(0, egyhot, dens, uvbg, &ne, 0.0);
+    double tcool = GetCoolingTime(redshift, egyhot, dens, uvbg, &ne, 0.0);
 
     double y = tsfr / tcool * egyhot / (sfr_params.FactorSN * sfr_params.EgySpecSN - (1 - sfr_params.FactorSN) * sfr_params.EgySpecCold);
     double x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
@@ -762,7 +787,7 @@ void init_cooling_and_star_formation(void)
         double neff;
         do
         {
-            double egyeff = get_egyeff(dens, &uvbg);
+            double egyeff = get_egyeff(0, dens, &uvbg);
 
             double peff = GAMMA_MINUS1 * dens * egyeff;
 
@@ -770,7 +795,7 @@ void init_cooling_and_star_formation(void)
             neff = -log(peff) * fac;
 
             dens *= 1.025;
-            egyeff = get_egyeff(dens, &uvbg);
+            egyeff = get_egyeff(0, dens, &uvbg);
             peff = GAMMA_MINUS1 * dens * egyeff;
 
             neff += log(peff) * fac;
@@ -785,7 +810,6 @@ void init_cooling_and_star_formation(void)
         message(0, "Isotherm sheet central density: %g   z0=%g\n",
                 M_PI * All.G * sigma * sigma / (2 * GAMMA_MINUS1) / u4,
                 GAMMA_MINUS1 * u4 / (2 * M_PI * All.G * sigma));
-
     }
 
     if(All.WindOn) {

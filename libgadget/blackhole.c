@@ -390,6 +390,11 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     {
         if(P[i].Type == 0 && priv->Injected_BH_Energy[P[i].PI] > 0)
         {
+            /* Set a flag for star-forming particles:
+             * we want these to cool to the EEQOS via
+             * tcool rather than trelax.*/
+            if(sfreff_on_eeqos(&SPHP(i), a3inv))
+                P[i].BHHeated = 1;
             const double enttou = pow(SPH_EOMDensity(i) * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
             double uold = SPHP(i).Entropy * enttou;
             uold = add_injected_BH_energy(uold, priv->Injected_BH_Energy[P[i].PI], P[i].Mass);
@@ -492,7 +497,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
 
     /* Note: we take here a radiative efficiency of 0.1 for Eddington accretion */
     double meddington = (4 * M_PI * GRAVITY * LIGHTCGS * PROTONMASS / (0.1 * LIGHTCGS * LIGHTCGS * THOMPSON)) * BHP(i).Mass
-        * All.UnitTime_in_s;
+        * All.UnitTime_in_s / All.CP.HubbleParam;
 
     double norm = pow((pow(soundspeed, 2) + pow(bhvel, 2)), 1.5);
 
