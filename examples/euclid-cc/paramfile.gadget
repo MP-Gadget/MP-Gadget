@@ -26,6 +26,6 @@ WindOn = 0
 MassiveNuLinRespOn = 0
 
 # Accuracy of time integration
-SnapshotWithFOF = 1
+SnapshotWithFOF = 0
 FOFHaloLinkingLength = 0.2
 FOFHaloMinLength = 32
