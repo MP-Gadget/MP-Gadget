@@ -482,8 +482,8 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
         for(k = 0; k < 3; k++)
             BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][k] /= BHP(i).Density;
     }
+    double mdot = 0;		/* if no accretion model is enabled, we have mdot=0 */
 
-    /* Compute the Bondi accretion rate*/
     double rho = BHP(i).Density;
     double bhvel = 0;
     for(k = 0; k < 3; k++)
@@ -493,44 +493,17 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
     bhvel /= All.cf.a;
     double rho_proper = rho * All.cf.a3inv;
 
-    /* Density factor for Bondi mdot. This is rho / (c_s^2 + v^2)^(1/2),
-     * but is complicated for two-phase gas.*/
-    double mdot_density = 0;
+    double soundspeed = blackhole_soundspeed(BH_GET_PRIV(tw)->BH_Entropy[PI], rho);
 
-    /* The gas on the effective equation of state is two-phase:
-     * it has a cold sound speed and a hot sound speed, and we should compute
-     * the accretion rate separately for both.*/
-    if(sfreff_on_eeqos(&SPHP(i), All.cf.a3inv)) {
-        /* Get the cold fraction, the hot phase energy and the cold phase energy, which is enough to implement a weighted average
-         * quantity correctly on the two-phase eeqos. Should only be called on gas on the star forming equation of state.
-         */
-        double dloga = get_dloga_for_bin(P[i].TimeBin);
-        double dtime = dloga / All.cf.hubble;
-        struct sfr_eeqos_data sfr_data = get_sfr_eeqos(&P[i], &SPHP(i), dtime, All.cf.a3inv);
-
-        double soundspeed_cold = sqrt(GAMMA*GAMMA_MINUS1*sfr_data.egycold);
-        double norm_cold = pow((pow(soundspeed_cold, 2) + pow(bhvel, 2)), 1.5);
-
-        double soundspeed_hot = sqrt(GAMMA*GAMMA_MINUS1*sfr_data.egyhot);
-        double norm_hot = pow((pow(soundspeed_hot, 2) + pow(bhvel, 2)), 1.5);
-        mdot_density = (sfr_data.cloudfrac * rho_proper / norm_cold + (1 - sfr_data.cloudfrac) * rho_proper / norm_hot);
-    }
-    else {
-        double soundspeed = blackhole_soundspeed(BH_GET_PRIV(tw)->BH_Entropy[PI], rho);
-        double norm = pow((pow(soundspeed, 2) + pow(bhvel, 2)), 1.5);
-
-        if (norm > 0)
-            mdot_density = rho_proper / norm;
-    }
-
-    /* Bondi accretion rate. Relevant especially during early growth of the BH*/
-    double mdot = 4. * M_PI * blackhole_params.BlackHoleAccretionFactor * All.G * All.G *
-            BHP(i).Mass * BHP(i).Mass * mdot_density;
-
-    /* We are also Eddington-limited, which is the practical limit once the BH > 10^6 or so.*/
     /* Note: we take here a radiative efficiency of 0.1 for Eddington accretion */
     double meddington = (4 * M_PI * GRAVITY * LIGHTCGS * PROTONMASS / (0.1 * LIGHTCGS * LIGHTCGS * THOMPSON)) * BHP(i).Mass
         * All.UnitTime_in_s / All.CP.HubbleParam;
+
+    double norm = pow((pow(soundspeed, 2) + pow(bhvel, 2)), 1.5);
+
+    if(norm > 0)
+        mdot = 4. * M_PI * blackhole_params.BlackHoleAccretionFactor * All.G * All.G *
+            BHP(i).Mass * BHP(i).Mass * rho_proper / norm;
 
     if(blackhole_params.BlackHoleEddingtonFactor > 0.0 &&
         mdot > blackhole_params.BlackHoleEddingtonFactor * meddington) {
