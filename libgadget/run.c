@@ -600,11 +600,13 @@ open_outputfiles(int RestartSnapNum)
         myfree(buf);
     }
 
-    buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, "sfr.txt", postfix);
-    fastpm_path_ensure_dirname(buf);
-    if(!(FdSfr = fopen(buf, mode)))
-        endrun(1, "error in opening file '%s'\n", buf);
-    myfree(buf);
+    if(All.StarformationOn) {
+        buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, "sfr.txt", postfix);
+        fastpm_path_ensure_dirname(buf);
+        if(!(FdSfr = fopen(buf, mode)))
+            endrun(1, "error in opening file '%s'\n", buf);
+        myfree(buf);
+    }
 
     if(All.BlackHoleOn) {
         buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, "blackholes.txt", postfix);
