@@ -1,0 +1,27 @@
+To use:
+
+sh get_ic.sh
+
+and then start the simulation as normal.
+
+Simulation is public at:
+
+https://www.ics.uzh.ch/~aurel/euclid.htm
+
+IC files are from:
+https://www.ics.uzh.ch/~aurel/euclidIC_2048/
+
+Converted to bigfile using the script in
+tools/convert_from_gadget_1.py
+
+From Aurel's site:
+
+COSMOLOGICAL PARAMETERS FOR THE REFERENCE RUN
+(L=500 Mpc/h, N=2048^3)
+
+Omega_m = 0.3071
+Omega_l = 0.6929
+Omega_b = 0.0483
+ns      = 0.9611
+sigma8  = 0.8288
+H0      = 67.77
