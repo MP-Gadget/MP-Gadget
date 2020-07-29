@@ -96,6 +96,7 @@ set_init_params(ParameterSet * ps)
 
         All.BlackHoleOn = param_get_int(ps, "BlackHoleOn");
         All.WriteBlackHoleDetails = param_get_int(ps,"WriteBlackHoleDetails");
+        
 
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.WindOn = param_get_int(ps, "WindOn");

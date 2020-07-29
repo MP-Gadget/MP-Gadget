@@ -208,6 +208,11 @@ create_gadget_parameter_set()
     param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", OPTIONAL, 0, "If set, the physical radius at which the black hole feedback energy is deposited. When both this flag and BlackHoleFeedbackRadius are both set, the smaller radius is used.");
     param_declare_int(ps,"WriteBlackHoleDetails",OPTIONAL, 0, "If set, output BH details at every time step.");
 
+    param_declare_int(ps,"BH_DynFrictionMethod",OPTIONAL, 0, "If set to non-zero, dynamical friction is applied through this method.");
+    param_declare_int(ps,"BH_DFBoostFactor",OPTIONAL, 1, "If set, dynamical friction is boosted by this factor.");
+    param_declare_int(ps,"BH_DFbmax",OPTIONAL, 20, "Maximum impact parameter for dynamical friction.");
+    param_declare_int(ps,"BH_DRAG",OPTIONAL, 0, "Add drag force to the BH dynamic");
+    
     static ParameterEnum BlackHoleFeedbackMethodEnum [] = {
         {"mass", BH_FEEDBACK_MASS},
         {"volume", BH_FEEDBACK_VOLUME},

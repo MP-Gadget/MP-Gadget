@@ -108,8 +108,10 @@ void set_sfr_params(ParameterSet * ps)
         sfr_params.Generations = param_get_int(ps, "Generations");
         sfr_params.MinGasTemp = param_get_double(ps, "MinGasTemp");
         sfr_params.BHFeedbackUseTcool = param_get_int(ps, "BHFeedbackUseTcool");
+
         if(sfr_params.BHFeedbackUseTcool > 2 || sfr_params.BHFeedbackUseTcool < 0)
             endrun(0, "BHFeedbackUseTcool mode %d not supported\n", sfr_params.BHFeedbackUseTcool);
+
         /*Lyman-alpha forest parameters*/
         sfr_params.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
         sfr_params.QuickLymanAlphaTempThresh = param_get_double(ps, "QuickLymanAlphaTempThresh");
@@ -408,6 +410,17 @@ sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
 
     if(sph->Density * a3inv >= sfr_params.PhysDensThresh)
         flag = 1;
+
+    if(sfr_params.BHFeedbackUseTcool == 2) {
+        const double enttou = pow(sph->EgyWtDensity * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+        double unew = sph->Entropy * enttou;
+        const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1 * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+
+        double temp = u_to_temp_fac * unew;
+
+        if(temp >= 10*sfr_params.QuickLymanAlphaTempThresh)
+            flag = 0;
+    }
 
     if(sph->Density < sfr_params.OverDensThresh)
         flag = 0;
