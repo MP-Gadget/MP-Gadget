@@ -193,10 +193,11 @@ struct BHinfo{
     MyFloat BH_SurroundingVel[3]; 
     MyFloat BH_SurroundingRmsVel; 
 
-
     double BH_DFAccel[3];
     double BH_DragAccel[3];
     double BH_GravAccel[3];
+    
+    double Velocity[3];
     /**************************************************************/
 
     MyDouble a;
@@ -368,6 +369,7 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
             info.BH_DragAccel[k] = BHP(p_i).DragAccel[k];
             info.BH_GravAccel[k] = P[p_i].GravAccel[k];
             info.Pos[k] = P[p_i].Pos[k] - PartManager->CurrentParticleOffset[k];
+            info.Velocity[k] = P[p_i].Vel[k]
             info.BH_DFAccel[k] = BHP(p_i).DFAccel[k];
         }
 
@@ -381,8 +383,6 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
         info.BH_SurroundingVel[2] = priv->BH_SurroundingVel[PI][2];
 
         /****************************************************************************/
-
-
 
         info.BH_accreted_BHMass = priv->BH_accreted_BHMass[PI];
         info.BH_accreted_Mass = priv->BH_accreted_Mass[PI];
