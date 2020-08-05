@@ -688,7 +688,7 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
         if (f_of_x < 0)
             f_of_x = 0;
 
-        lambda = blackhole_params.BH_DFbmax * bhvel / All.G / P[n].Mass;
+        lambda = 1. + blackhole_params.BH_DFbmax * pow(bhvel,2) / All.G / P[n].Mass;
 
         for(int j = 0; j < 3; j++) 
         {
