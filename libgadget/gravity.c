@@ -57,14 +57,11 @@ grav_apply_short_range_window(double r, double * fac, double * pot, const double
     const double dx = shortrange_force_kernels[1][0];
     double i = (r / cellsize / dx);
     int tabindex = floor(i);
-    if(tabindex < NTAB - 1)
-    {
-        /* use a linear interpolation; */
-        *fac *= (tabindex + 1 - i) * shortrange_table[tabindex] + (i - tabindex) * shortrange_table[tabindex + 1];
-        *pot *= (tabindex + 1 - i) * shortrange_table_potential[tabindex] + (i - tabindex) * shortrange_table_potential[tabindex];
-        return 0;
-    } else {
+    if(tabindex >= NTAB - 1)
         return 1;
-    }
+    /* use a linear interpolation; */
+    *fac *= (tabindex + 1 - i) * shortrange_table[tabindex] + (i - tabindex) * shortrange_table[tabindex + 1];
+    *pot *= (tabindex + 1 - i) * shortrange_table_potential[tabindex] + (i - tabindex) * shortrange_table_potential[tabindex];
+    return 0;
 }
 
