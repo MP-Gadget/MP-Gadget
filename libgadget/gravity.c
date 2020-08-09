@@ -28,7 +28,7 @@ gravshort_fill_ntab(const enum ShortRangeForceWindowType ShortRangeForceWindowTy
         }
     }
 
-    int i;
+    size_t i;
     for(i = 0; i < NTAB; i++)
     {
         /* force_kernels is in units of mesh points; */
@@ -56,7 +56,7 @@ grav_apply_short_range_window(double r, double * fac, double * pot, const double
 {
     const double dx = shortrange_force_kernels[1][0];
     double i = (r / cellsize / dx);
-    int tabindex = floor(i);
+    size_t tabindex = floor(i);
     if(tabindex >= NTAB - 1)
         return 1;
     /* use a linear interpolation; */
