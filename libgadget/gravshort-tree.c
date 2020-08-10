@@ -399,8 +399,9 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                 dx[j] = NEAREST(P[pp].Pos[j] - inpos[j], BoxSize);
             const double r2 = dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2];
 
-            /* This is always the Newtonian softening*/
-            double h = FORCE_SOFTENING(pp, 1);
+            /* This is always the Newtonian softening,
+             * match the default from FORCE_SOFTENING. */
+            double h = 2.8 * GravitySoftening;
             if(TreeParams.AdaptiveSoftening == 1) {
                 h = DMAX(input->Soft, FORCE_SOFTENING(pp, P[pp].Type));
             }
