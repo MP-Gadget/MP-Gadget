@@ -34,7 +34,8 @@ struct BlackholeParams
     int BlackHoleRepositionEnabled; /* If true, enable repositioning the BH to the potential minimum*/
     
     /**********************************************************************/
-
+    int MergeGravBound; /*if 1, apply gravitational bound criteria for BH mergers */
+    
     int BH_DynFrictionMethod;/*0 for off; 1 for Star Only; 2 for DM+Star; 3 for DM+Star+Gas */
     int BH_DFBoostFactor; /*Optional boost factor for DF*/
     double BH_DFbmax; /* keep it as a parameter for tuning purpose */
@@ -231,10 +232,8 @@ void set_blackhole_params(ParameterSet * ps)
         blackhole_params.BH_DFBoostFactor = param_get_int(ps, "BH_DFBoostFactor");
         blackhole_params.BH_DFbmax = param_get_int(ps, "BH_DFbmax");
         blackhole_params.BH_DRAG = param_get_int(ps, "BH_DRAG");
+        blackhole_params.MergeGravBound = param_get_int(ps, "MergeGravBound");
         /***********************************************************************************/
-
-
-
     }
     MPI_Bcast(&blackhole_params, sizeof(struct BlackholeParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -779,10 +778,6 @@ blackhole_dynfric_ngbiter(TreeWalkQueryBHDynfric * I,
 /*************************************************************************************/
 
 
-
-
-
-
 static void
 blackhole_accretion_postprocess(int i, TreeWalk * tw)
 {
@@ -964,32 +959,49 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
     if(P[other].Type == 5 && r2 < iter->accretion_kernel.HH)	/* we have a black hole merger */
     {
-        /* We do not depend on the BH relative velocity.
-         * Because the BHs are not dissipative, their relative velocities
-         * can be large, causing clumps of BHs to build up
-         * at the same position without merging. */
-        MyIDType readid, newswallowid;
+        
+        int d;
+        double COMvel[3];
+        double KE = 0;
+        
+        for(d = 0; d < 3; d++){
+            COMvel[d] = (I->Mass * I->Vel[d] + P[other].Mass * P[other].Vel[d])/(I->Mass + P[other].Mass);
+        }
+        
+        for(d = 0; d < 3; d++){
+            KE += 0.5 * (I->Mass * pow(I->Vel[d] - COMvel[d], 2) + P[other].Mass * pow(P[other].Vel[d] - COMvel[d], 2));
+        }
+        KE /= (All.cf.a*All.cf.a); /* convert to proper velocity */
+        
+        double PE = - All.G * I->Mass * P[other].Mass / (r * All.cf.a); /* convert to proper distance */
+        
+        /* merge the BHs if they are gravitationally bounded */
+        if(PE + KE < 0 && blackhole_params.MergeGravBound == 1)
+        {
+            
+            MyIDType readid, newswallowid;
 
-        #pragma omp atomic read
-        readid = (BHP(other).SwallowID);
+            #pragma omp atomic read
+            readid = (BHP(other).SwallowID);
 
-        /* Here we mark the black hole as "ready to be swallowed" using the SwallowID.
-         * The actual swallowing is done in the feedback treewalk by setting Swallowed = 1
-         * and merging the masses.*/
-        do {
-            /* Generate the new ID from the old*/
-            if(readid != (MyIDType) -1 && readid < I->ID ) {
-                /* Already marked, prefer to be swallowed by a bigger ID */
-                newswallowid = I->ID;
-            } else if(readid == (MyIDType) -1 && P[other].ID < I->ID) {
-                /* Unmarked, the BH with bigger ID swallows */
-                newswallowid = I->ID;
-            }
-            else
-                break;
-        /* Swap in the new id only if the old one hasn't changed:
-         * in principle an extension, but supported on at least clang >= 9, gcc >= 5 and icc >= 18.*/
-        } while(!__atomic_compare_exchange_n(&(BHP(other).SwallowID), &readid, newswallowid, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+            /* Here we mark the black hole as "ready to be swallowed" using the SwallowID.
+             * The actual swallowing is done in the feedback treewalk by setting Swallowed = 1
+             * and merging the masses.*/
+            do {
+                /* Generate the new ID from the old*/
+                if(readid != (MyIDType) -1 && readid < I->ID ) {
+                    /* Already marked, prefer to be swallowed by a bigger ID */
+                    newswallowid = I->ID;
+                } else if(readid == (MyIDType) -1 && P[other].ID < I->ID) {
+                    /* Unmarked, the BH with bigger ID swallows */
+                    newswallowid = I->ID;
+                }
+                else
+                    break;
+            /* Swap in the new id only if the old one hasn't changed:
+             * in principle an extension, but supported on at least clang >= 9, gcc >= 5 and icc >= 18.*/
+            } while(!__atomic_compare_exchange_n(&(BHP(other).SwallowID), &readid, newswallowid, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+        }
     }
 
 

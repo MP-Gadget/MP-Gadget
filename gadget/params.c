@@ -212,6 +212,7 @@ create_gadget_parameter_set()
     param_declare_int(ps,"BH_DFBoostFactor",OPTIONAL, 1, "If set, dynamical friction is boosted by this factor.");
     param_declare_int(ps,"BH_DFbmax",OPTIONAL, 20, "Maximum impact parameter for dynamical friction.");
     param_declare_int(ps,"BH_DRAG",OPTIONAL, 0, "Add drag force to the BH dynamic");
+    param_declare_int(ps,"MergeGravBound",OPTIONAL, 1, "if set to 1, apply gravitational bound criteria for merging event"); 
     
     static ParameterEnum BlackHoleFeedbackMethodEnum [] = {
         {"mass", BH_FEEDBACK_MASS},
