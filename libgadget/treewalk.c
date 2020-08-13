@@ -908,10 +908,6 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
             if(!((1<<P[other].Type) & iter->mask))
                 continue;
 
-            /* must be the correct time bin */
-            if(lv->tw->type == TREEWALK_SPLIT && !(BINMASK(P[other].TimeBin) & lv->tw->bgmask))
-                continue;
-
             double dist;
 
             if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
