@@ -22,6 +22,8 @@
 #include "neutrinos_lra.h"
 
 #include "utils.h"
+#include "uvbg.h"
+
 /************
  *
  * The IO api , intented to replace io.c and read_ic.c
@@ -230,6 +232,9 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
 
     /*Allocate the particle memory*/
     particle_alloc_memory(MaxPart);
+
+    /*Allocate Permanent UV grids*/
+    malloc_permanent_uvbg_grids();
 
     int NLocal[6];
     for(ptype = 0; ptype < 6; ptype ++) {
