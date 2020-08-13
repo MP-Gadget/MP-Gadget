@@ -47,6 +47,7 @@ struct bh_particle_data {
     /*******************************************************/
     double DragAccel[3];
     double DFAccel[3];
+    double HaloMinPotPos[3];
     /*******************************************************/
 
     /* Stores the minimum timebins of all black hole neighbours.
