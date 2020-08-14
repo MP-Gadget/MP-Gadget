@@ -981,10 +981,9 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         
         double PE = - All.G * I->Mass * P[other].Mass / (r * All.cf.a); /* convert to proper distance */
         
-        /* merge the BHs if they are gravitationally bounded */
-        if(PE + KE < 0 && blackhole_params.MergeGravBound == 1)
-        {
-            
+        /* add option to merge the BHs if they are gravitationally bounded */
+        if(blackhole_params.BlackHoleRepositionEnabled == 1 || blackhole_params.MergeGravBound == 0 || (PE + KE < 0 && blackhole_params.MergeGravBound == 1))
+        {   
             MyIDType readid, newswallowid;
 
             #pragma omp atomic read
