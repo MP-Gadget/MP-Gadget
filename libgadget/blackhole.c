@@ -65,11 +65,11 @@ typedef struct {
     MyFloat BH_HaloMinPot;
     /******************************/
     int BH_minTimeBin;
+    int encounter;
     MyFloat FeedbackWeightSum;
 
     MyFloat SmoothedEntropy;
     MyFloat GasVel[3];
-
 
 } TreeWalkResultBHAccretion;
 
@@ -176,6 +176,7 @@ struct BHinfo{
     MyFloat Mdot;
     MyFloat Density;
     int minTimeBin;
+    int encounter;
 
     double  MinPotPos[3];
     MyFloat MinPot;
@@ -361,6 +362,7 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
         info.Mdot = BHP(p_i).Mdot;
         info.Density = BHP(p_i).Density;
         info.minTimeBin = BHP(p_i).minTimeBin;
+        info.encounter = BHP(p_i).encounter;
 
         if(priv->MinPot) {
             info.MinPot = priv->MinPot[PI];
@@ -794,8 +796,6 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
             BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][k] /= BHP(i).Density;
     }
 
-
-
     double mdot = 0;		/* if no accretion model is enabled, we have mdot=0 */
 
     double rho = BHP(i).Density;
@@ -894,6 +894,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
     if(iter->base.other == -1) {
         O->BH_minTimeBin = TIMEBINS;
+        O->encounter = 0;
 
         O->BH_MinPot = BHPOTVALUEINIT;
         O->BH_HaloMinPot = BHPOTVALUEINIT;
@@ -965,6 +966,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     /* we have a black hole merger, use 2 times GravitationalSoftening as merging criteria*/
     if(P[other].Type == 5 && r2 < (2*FORCE_SOFTENING(0,1)/2.8))	
     {
+        O->encounter = 1; // mark the event when two BHs encounter each other
         
         int d;
         double COMvel[3];
@@ -984,6 +986,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         /* add option to merge the BHs if they are gravitationally bounded */
         if(blackhole_params.BlackHoleRepositionEnabled == 1 || blackhole_params.MergeGravBound == 0 || (PE + KE < 0 && blackhole_params.MergeGravBound == 1))
         {   
+            O->encounter = 0;
             MyIDType readid, newswallowid;
 
             #pragma omp atomic read
@@ -1233,7 +1236,7 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     MyFloat * MinPot = BH_GET_PRIV(tw)->MinPot;
     /****************************************************************************/
     MyFloat * HaloMinPot = BH_GET_PRIV(tw)->HaloMinPot;
-   /****************************************************************************/
+    /****************************************************************************/
     int PI = P[place].PI;
     if(MinPot[PI] > remote->BH_MinPot)
     {
@@ -1254,7 +1257,8 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
             BHP(place).HaloMinPotPos[k] = remote->BH_HaloMinPotPos[k];
         }
     }
-   /****************************************************************************/
+    /****************************************************************************/
+    BHP(place).encounter = remote->encounter;
     
     if (mode == 0 || BHP(place).minTimeBin > remote->BH_minTimeBin) {
         BHP(place).minTimeBin = remote->BH_minTimeBin;
