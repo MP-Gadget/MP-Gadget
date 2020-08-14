@@ -69,19 +69,9 @@ typedef struct {
 typedef struct {
     TreeWalkQueryBase base;
     MyFloat Hsml;
-    MyFloat BH_Mass;
-    MyIDType ID;
     MyFloat FeedbackEnergy;
     MyFloat FeedbackWeightSum;
 } TreeWalkQueryBHFeedback;
-
-typedef struct {
-    TreeWalkResultBase base;
-    MyFloat Mass;
-    MyFloat AccretedMomentum[3];
-    MyFloat BH_Mass;
-    int BH_CountProgs;
-} TreeWalkResultBHFeedback;
 
 typedef struct {
     TreeWalkNgbIterBase base;
@@ -232,7 +222,7 @@ blackhole_feedback_copy(int place, TreeWalkQueryBHFeedback * I, TreeWalk * tw);
 
 static void
 blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
-        TreeWalkResultBHFeedback * O,
+        TreeWalkResultBase * O,
         TreeWalkNgbIterBHFeedback * iter,
         LocalTreeWalk * lv);
 
@@ -374,7 +364,6 @@ blackhole_swallow_particle(swallow_pair pair, MyFloat * AccretedMomentum, MyFloa
         BHP(swallower).CountProgs += BHP(other).CountProgs;
     }
     /* Swallowing something else (usually a gas). */
-    /* Note that it will rarely happen that gas is swallowed by a BH which is itself swallowed.*/
     else
     {
         /* Enforce mass conservation even though particle is now garbage. */
@@ -571,7 +560,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     tw_feedback->postprocess = NULL;
     tw_feedback->reduce = NULL;
     tw_feedback->query_type_elsize = sizeof(TreeWalkQueryBHFeedback);
-    tw_feedback->result_type_elsize = sizeof(TreeWalkResultBHFeedback);
+    tw_feedback->result_type_elsize = sizeof(TreeWalkResultBase);
     tw_feedback->tree = tree;
     tw_feedback->priv = priv;
 
@@ -801,7 +790,8 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     }
 
     /* Accretion / merger doesn't do self interaction */
-    if(P[other].ID == I->ID) return;
+    if(P[other].ID == I->ID)
+        return;
 
     /* Only process feedback or mergers with gas or BH*/
     if(!(P[other].Type == 5 || P[other].Type == 0))
@@ -810,7 +800,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     /* Possible accretion*/
     if(r2 < iter->accretion_kernel.HH)
     {
-        double p = 1;
+        double p = 0;
         /* Compute BH thermo quantities*/
         if(P[other].Type == 0) {
             double u = r * iter->accretion_kernel.Hinv;
@@ -883,66 +873,52 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     }
 }
 
-
 /**
  * perform blackhole swallow / merger;
  */
 static void
 blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
-        TreeWalkResultBHFeedback * O,
+        TreeWalkResultBase * O,
         TreeWalkNgbIterBHFeedback * iter,
         LocalTreeWalk * lv)
 {
-
     if(iter->base.other == -1) {
-        double hsearch;
-        hsearch = decide_hsearch(I->Hsml);
-
-        iter->base.mask = 1 + 32;
-        iter->base.Hsml = hsearch;
-        /* Swallow is symmetric, but feedback dumping is asymetric;
-         * we apply a cut in r to break the symmetry. */
-        iter->base.symmetric = NGB_TREEFIND_SYMMETRIC;
-
-        density_kernel_init(&iter->feedback_kernel, hsearch, DENSITY_KERNEL_CUBIC_SPLINE);
+        /* Only feedback on gas*/
+        iter->base.mask = 1;
+        /* Feedback dumping is asymmetric. */
+        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
+        iter->base.Hsml = decide_hsearch(I->Hsml);
+        density_kernel_init(&iter->feedback_kernel, iter->base.Hsml, DENSITY_KERNEL_CUBIC_SPLINE);
         return;
     }
 
     int other = iter->base.other;
-    double r2 = iter->base.r2;
     double r = iter->base.r;
-    /* Exclude self interaction */
-
-    if(P[other].ID == I->ID) return;
-
      /* BH does not feedback on wind */
     if(winds_is_particle_decoupled(other))
         return;
 
+    if(I->FeedbackWeightSum <= 0 || I->FeedbackEnergy <= 0)
+        return;
+
     /* Dump feedback energy */
-    if(P[other].Type == 0) {
-        if(r2 < iter->feedback_kernel.HH && P[other].Mass > 0) {
-            if(I->FeedbackWeightSum > 0 && I->FeedbackEnergy > 0)
-            {
-                double u = r * iter->feedback_kernel.Hinv;
-                double wk = 1.0;
-                double mass_j;
+    double u = r * iter->feedback_kernel.Hinv;
+    double wk = 1.0;
+    double mass_j;
 
-                if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
-                    mass_j = P[other].Mass;
-                } else {
-                    mass_j = P[other].Hsml * P[other].Hsml * P[other].Hsml;
-                }
-                if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
-                    wk = density_kernel_wk(&iter->feedback_kernel, u);
-
-                double * iBHPI = &BH_GET_PRIV(lv->tw)->Injected_BH_Energy[P[other].PI];
-                const double injected_BH = I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum;
-                #pragma omp atomic update
-                (*iBHPI) += injected_BH;
-            }
-        }
+    if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
+        mass_j = P[other].Mass;
+    } else {
+        mass_j = P[other].Hsml * P[other].Hsml * P[other].Hsml;
     }
+    if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
+        wk = density_kernel_wk(&iter->feedback_kernel, u);
+
+    double * iBHPI = &BH_GET_PRIV(lv->tw)->Injected_BH_Energy[P[other].PI];
+    const double injected_BH = I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum;
+    #pragma omp atomic update
+    (*iBHPI) += injected_BH;
+
 }
 
 static int
@@ -1000,15 +976,13 @@ static int
 blackhole_feedback_haswork(int n, TreeWalk * tw)
 {
     /*Black hole not being swallowed*/
-    return (P[n].Type == 5) && (!P[n].Swallowed) && (BHP(n).SwallowID == (MyIDType) -1);
+    return (P[n].Type == 5) && (!P[n].Swallowed);
 }
 
 static void
 blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I, TreeWalk * tw)
 {
     I->Hsml = P[i].Hsml;
-    I->BH_Mass = BHP(i).Mass;
-    I->ID = P[i].ID;
     int PI = P[i].PI;
     I->FeedbackWeightSum = BH_GET_PRIV(tw)->BH_FeedbackWeightSum[PI];
 
@@ -1061,8 +1035,7 @@ decide_hsearch(double h)
          * The Phys radius is capped by BlackHoleFeedbackRadiusMaxPhys
          * just like how it was done for grav smoothing.
          * */
-        double rds;
-        rds = blackhole_params.BlackHoleFeedbackRadiusMaxPhys / All.cf.a;
+        double rds = blackhole_params.BlackHoleFeedbackRadiusMaxPhys / All.cf.a;
 
         if(rds > blackhole_params.BlackHoleFeedbackRadius) {
             rds = blackhole_params.BlackHoleFeedbackRadius;
