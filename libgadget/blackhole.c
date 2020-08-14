@@ -40,6 +40,8 @@ struct BlackholeParams
     int BH_DFBoostFactor; /*Optional boost factor for DF*/
     double BH_DFbmax; /* keep it as a parameter for tuning purpose */
     int BH_DRAG; /*Hydro drag force*/
+    
+    double SeedBHDynMass; /* The initial dynamic mass of BH particle */
     /************************************************************************/
 } blackhole_params;
 
@@ -233,6 +235,7 @@ void set_blackhole_params(ParameterSet * ps)
         blackhole_params.BH_DFbmax = param_get_int(ps, "BH_DFbmax");
         blackhole_params.BH_DRAG = param_get_int(ps, "BH_DRAG");
         blackhole_params.MergeGravBound = param_get_int(ps, "MergeGravBound");
+        blackhole_params.SeedBHDynMass = param_get_double(ps,"SeedBHDynMass");
         /***********************************************************************************/
     }
     MPI_Bcast(&blackhole_params, sizeof(struct BlackholeParams), MPI_BYTE, 0, MPI_COMM_WORLD);
@@ -1145,8 +1148,16 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         O->BH_CountProgs += BHP(other).CountProgs;
         /* Leave the swallowed BH mass around
          * so we can work out mass at merger. */
-        O->Mass += (P[other].Mass);
         O->BH_Mass += (BHP(other).Mass);
+        
+        /* Prevent large DynMass accumulates during merger */
+        if (I->BH_Mass + BHP(other).Mass < blackhole_params.SeedBHDynMass) {
+            O->Mass += BHP(other).Mass;
+        }
+        else {
+            O->Mass += (P[other].Mass);
+        }
+
         /* Conserve momentum during accretion*/
         int d;
         for(d = 0; d < 3; d++)
@@ -1342,6 +1353,10 @@ void blackhole_make_one(int index) {
         BHP(child).HaloMinPotPos[j] = P[child].Pos[j];
     }
     BHP(child).JumpToMinPot = 0;
+    
+    if (blackhole_params.SeedBHDynMass>0){
+        P[child].Mass = blackhole_params.SeedBHDynMass;
+    }
 
     BHP(child).CountProgs = 1;
 }
