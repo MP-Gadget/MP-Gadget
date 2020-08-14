@@ -960,7 +960,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     if(P[other].ID == I->ID) return;
     
     /* we have a black hole merger, use 2 times GravitationalSoftening as merging criteria*/
-    if(P[other].Type == 5 && r2 < (2*FORCE_SOFTENING(p, P[p].Type)/2.8))	
+    if(P[other].Type == 5 && r2 < (2*FORCE_SOFTENING(0,1)/2.8))	
     {
         
         int d;
