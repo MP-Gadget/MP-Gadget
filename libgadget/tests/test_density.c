@@ -303,10 +303,13 @@ static int setup_density(void **state) {
     /*Reserve space for the slots*/
     slots_init(0.01 * PartManager->MaxPart, SlotsManager);
     slots_set_enabled(0, sizeof(struct sph_particle_data), SlotsManager);
-    int maxpart = pow(32,3);
     int atleast[6] = {0};
-    atleast[0] = maxpart;
+    atleast[0] = pow(32,3);
     atleast[5] = 2;
+    int maxpart = 0;
+    int i;
+    for(i = 0; i < 6; i++)
+        maxpart+=atleast[i];
     particle_alloc_memory(maxpart);
     slots_reserve(1, atleast, SlotsManager);
     walltime_init(&CT);
