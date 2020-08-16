@@ -52,6 +52,8 @@ typedef struct {
     MyFloat Mass;
     MyFloat BH_Mass;
     MyFloat Vel[3];
+    MyFloat Accel[3];
+    MyFloat Pos[3];
     MyIDType ID;
 } TreeWalkQueryBHAccretion;
 
@@ -964,24 +966,21 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     if(P[other].ID == I->ID) return;
     
     /* we have a black hole merger, use 2 times GravitationalSoftening as merging criteria*/
-    if(P[other].Type == 5 && r2 < (2*FORCE_SOFTENING(0,1)/2.8))	
+    if(P[other].Type == 5 && r < (2*FORCE_SOFTENING(0,1)/2.8))	
     {
         O->encounter = 1; // mark the event when two BHs encounter each other
         
         int d;
-        double COMvel[3];
         double KE = 0;
+        double PE = 0;
         
         for(d = 0; d < 3; d++){
-            COMvel[d] = (I->Mass * I->Vel[d] + P[other].Mass * P[other].Vel[d])/(I->Mass + P[other].Mass);
+            KE += 0.5 * pow(I->Vel[d] - P[other].Vel[d], 2);
+            PE += (I->Accel[d] - P[other].GravAccel[d]) * (I->Pos[d] - P[other].Pos[d]);
         }
         
-        for(d = 0; d < 3; d++){
-            KE += 0.5 * (I->Mass * pow(I->Vel[d] - COMvel[d], 2) + P[other].Mass * pow(P[other].Vel[d] - COMvel[d], 2));
-        }
         KE /= (All.cf.a*All.cf.a); /* convert to proper velocity */
-        
-        double PE = - All.G * I->Mass * P[other].Mass / (r * All.cf.a); /* convert to proper distance */
+        PE /= All.cf.a; /* convert to proper unit */
         
         /* add option to merge the BHs if they are gravitationally bounded */
         if(blackhole_params.BlackHoleRepositionEnabled == 1 || blackhole_params.MergeGravBound == 0 || (PE + KE < 0 && blackhole_params.MergeGravBound == 1))
@@ -1278,6 +1277,8 @@ blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I, TreeWalk * tw)
     for(k = 0; k < 3; k++)
     {
         I->Vel[k] = P[place].Vel[k];
+        I->Accel[k] = P[place].GravAccel[k];
+        I->Pos[k] = P[place].Pos[k];
     }
     I->Hsml = P[place].Hsml;
     I->Mass = P[place].Mass;
