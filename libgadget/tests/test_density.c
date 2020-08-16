@@ -133,7 +133,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     message(0, "Average Hsml: %g Expected %g +- %g\n",avghsml/numpart, expectedhsml, hsmlerr);
     assert_true(fabs(avghsml/numpart - expectedhsml) < hsmlerr);
     /* Make MaxNumNgbDeviation smaller and check we get a consistent result.*/
-    double * Hsml = mymalloc("Hsml", numpart * sizeof(double));
+    double * Hsml = mymalloc2("Hsml", numpart * sizeof(double));
     #pragma omp parallel for
     for(i=0; i<numpart; i++) {
         Hsml[i] = P[i].Hsml;
@@ -149,6 +149,8 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     message(0, "Found 1 dev densities in %.3g ms\n", ms);
     double diff = 0;
     double DesNumNgb = GetNumNgb(GetDensityKernelType());
+    /* Free tree before checks so that we still recover if checks fail*/
+    force_tree_free(&tree);
 
     #pragma omp parallel for reduction(max:diff)
     for(i=0; i<numpart; i++) {
@@ -160,7 +162,6 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     myfree(Hsml);
 
     check_densities(data->dp.MinGasHsmlFractional);
-    force_tree_free(&tree);
 }
 
 static void test_density_flat(void ** state) {
@@ -190,7 +191,7 @@ static void test_density_close(void ** state) {
     int i;
     /* A few particles scattered about the place so the tree is not sparse*/
     #pragma omp parallel for
-    for(i=0; i<numpart/8; i++) {
+    for(i=0; i<numpart/4; i++) {
         P[i].Type = 0;
         P[i].PI = i;
         P[i].Hsml = 4*BoxSize/cbrt(numpart/8);
@@ -211,7 +212,7 @@ static void test_density_close(void ** state) {
     }
     P[numpart-1].Type = 5;
 
-    do_density_test(state, numpart, 0.125414, 1e-4);
+    do_density_test(state, numpart, 0.131726, 1e-4);
 }
 
 void do_random_test(void **state, gsl_rng * r, const int numpart)
@@ -302,10 +303,13 @@ static int setup_density(void **state) {
     /*Reserve space for the slots*/
     slots_init(0.01 * PartManager->MaxPart, SlotsManager);
     slots_set_enabled(0, sizeof(struct sph_particle_data), SlotsManager);
-    int maxpart = pow(32,3);
     int atleast[6] = {0};
-    atleast[0] = maxpart;
+    atleast[0] = pow(32,3);
     atleast[5] = 2;
+    int maxpart = 0;
+    int i;
+    for(i = 0; i < 6; i++)
+        maxpart+=atleast[i];
     particle_alloc_memory(maxpart);
     slots_reserve(1, atleast, SlotsManager);
     walltime_init(&CT);
