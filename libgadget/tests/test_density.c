@@ -191,7 +191,7 @@ static void test_density_close(void ** state) {
     int i;
     /* A few particles scattered about the place so the tree is not sparse*/
     #pragma omp parallel for
-    for(i=0; i<numpart/8; i++) {
+    for(i=0; i<numpart/4; i++) {
         P[i].Type = 0;
         P[i].PI = i;
         P[i].Hsml = 4*BoxSize/cbrt(numpart/8);
@@ -212,7 +212,7 @@ static void test_density_close(void ** state) {
     }
     P[numpart-1].Type = 5;
 
-    do_density_test(state, numpart, 0.125414, 1e-4);
+    do_density_test(state, numpart, 0.131726, 1e-4);
 }
 
 void do_random_test(void **state, gsl_rng * r, const int numpart)
