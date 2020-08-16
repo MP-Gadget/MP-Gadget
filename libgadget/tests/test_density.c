@@ -133,7 +133,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     message(0, "Average Hsml: %g Expected %g +- %g\n",avghsml/numpart, expectedhsml, hsmlerr);
     assert_true(fabs(avghsml/numpart - expectedhsml) < hsmlerr);
     /* Make MaxNumNgbDeviation smaller and check we get a consistent result.*/
-    double * Hsml = mymalloc("Hsml", numpart * sizeof(double));
+    double * Hsml = mymalloc2("Hsml", numpart * sizeof(double));
     #pragma omp parallel for
     for(i=0; i<numpart; i++) {
         Hsml[i] = P[i].Hsml;
@@ -149,6 +149,8 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     message(0, "Found 1 dev densities in %.3g ms\n", ms);
     double diff = 0;
     double DesNumNgb = GetNumNgb(GetDensityKernelType());
+    /* Free tree before checks so that we still recover if checks fail*/
+    force_tree_free(&tree);
 
     #pragma omp parallel for reduction(max:diff)
     for(i=0; i<numpart; i++) {
@@ -160,7 +162,6 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     myfree(Hsml);
 
     check_densities(data->dp.MinGasHsmlFractional);
-    force_tree_free(&tree);
 }
 
 static void test_density_flat(void ** state) {
