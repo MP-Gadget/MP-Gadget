@@ -211,6 +211,7 @@ static void test_density_close(void ** state) {
         P[i].Pos[2] = 4.1 + (i % ncbrt)/close;
     }
     P[numpart-1].Type = 5;
+    P[numpart-1].PI = 0;
 
     do_density_test(state, numpart, 0.131726, 1e-4);
 }
