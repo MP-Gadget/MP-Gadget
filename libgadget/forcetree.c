@@ -131,7 +131,7 @@ force_tree_eh_slots_fork(EIBase * event, void * userdata)
      * participate in the SPH tree walk.*/
     if(nop->s.noccupied < NMAXCHILD) {
        nop->s.suns[nop->s.noccupied] = child;
-       nop->s.Types += P[child].Type << (3*nop->s.noccupied);
+       nop->s.Types += (1Lu * P[child].Type) << (3*nop->s.noccupied);
        nop->s.noccupied++;
     }
     tree->Father[child] = no;
@@ -335,7 +335,7 @@ modify_internal_node(int parent, int subnode, int p_toplace, const ForceTree tb,
     tb.Father[p_toplace] = parent;
     tb.Nodes[parent].s.suns[subnode] = p_toplace;
     /* Encode the type in the Types array*/
-    tb.Nodes[parent].s.Types += P[p_toplace].Type << (3*subnode);
+    tb.Nodes[parent].s.Types += (1Lu * P[p_toplace].Type) << (3*subnode);
     if(!HybridNuGrav || P[p_toplace].Type != ForceTreeParams.FastParticleType)
         add_particle_moment_to_node(&tb.Nodes[parent], p_toplace);
     return 0;
