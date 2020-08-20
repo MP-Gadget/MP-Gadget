@@ -411,17 +411,6 @@ sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
     if(sph->Density * a3inv >= sfr_params.PhysDensThresh)
         flag = 1;
 
-    if(sfr_params.BHFeedbackUseTcool == 2) {
-        const double enttou = pow(sph->EgyWtDensity * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
-        double unew = sph->Entropy * enttou;
-        const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1 * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-
-        double temp = u_to_temp_fac * unew;
-
-        if(temp >= 10*sfr_params.QuickLymanAlphaTempThresh)
-            flag = 0;
-    }
-
     if(sph->Density < sfr_params.OverDensThresh)
         flag = 0;
 
