@@ -316,6 +316,9 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 static double
 decide_hsearch(double h);
 
+static double 
+periodic_wrap(double x, double BoxSize);
+
 #define BHPOTVALUEINIT 1.0e29
 
 static double blackhole_soundspeed(double entropy, double rho) {
@@ -705,7 +708,7 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
             BHP(n).DFAccel[j] = - 4. * M_PI * All.G * All.G * P[n].Mass * BH_GET_PRIV(tw)->BH_SurroundingDensity[PI] * 
             log(lambda) * f_of_x * (P[n].Vel[j] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j]) / pow(bhvel, 3);
             BHP(n).DFAccel[j] *= All.cf.a;  // convert to code unit of acceleration
-            BHP(n).DFAccel[j] *= blackhole_params.BH_DFBoostFactor // Add a boost factor
+            BHP(n).DFAccel[j] *= blackhole_params.BH_DFBoostFactor; // Add a boost factor
         }
         message(0,"x=%e, log(lambda)=%e, fof_x=%e, Mbh=%e, ratio=%e \n",
            x,log(lambda),f_of_x,P[n].Mass,BHP(n).DFAccel[0]/P[n].GravAccel[0]);
