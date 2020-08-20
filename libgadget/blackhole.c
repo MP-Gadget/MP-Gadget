@@ -37,8 +37,8 @@ struct BlackholeParams
     int MergeGravBound; /*if 1, apply gravitational bound criteria for BH mergers */
     
     int BH_DynFrictionMethod;/*0 for off; 1 for Star Only; 2 for DM+Star; 3 for DM+Star+Gas */
-    int BH_DFBoostFactor; /*Optional boost factor for DF*/
-    double BH_DFbmax; /* keep it as a parameter for tuning purpose */
+    int BH_DFBoostFactor; /*Optional boost factor for DF */
+    double BH_DFbmax; /* the maximum impact range, in unit of kpc/h. */
     int BH_DRAG; /*Hydro drag force*/
     
     double SeedBHDynMass; /* The initial dynamic mass of BH particle */
@@ -702,7 +702,7 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
         if (f_of_x < 0)
             f_of_x = 0;
 
-        lambda = 1. + blackhole_params.BH_DFbmax * pow((bhvel/All.cf.a),2) / All.G / P[n].Mass;
+        lambda = 1. + (blackhole_params.BH_DFbmax * All.cf.a) * pow((bhvel/All.cf.a),2) / All.G / P[n].Mass;
 
         for(int j = 0; j < 3; j++) 
         {
