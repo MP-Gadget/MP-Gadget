@@ -480,8 +480,9 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     priv->BH_SurroundingVel = (MyFloat (*) [3]) mymalloc("BH_SurroundingVel", 3* SlotsManager->info[5].size * sizeof(priv->BH_SurroundingVel[0]));
     priv->BH_SurroundingParticles = mymalloc("BH_SurroundingParticles", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingParticles));
     priv->BH_SurroundingDensity = mymalloc("BH_SurroundingDensity", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingDensity));
-
-    treewalk_run(tw_dynfric, act->ActiveParticle, act->NumActiveParticle);
+    /* guard treewalk */
+    if (blackhole_params.BH_DynFrictionMethod > 0) 
+        treewalk_run(tw_dynfric, act->ActiveParticle, act->NumActiveParticle);
     
     /*************************************************************************/
 
