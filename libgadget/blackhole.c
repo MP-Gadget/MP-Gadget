@@ -705,7 +705,7 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
             BHP(n).DFAccel[j] = - 4. * M_PI * All.G * All.G * P[n].Mass * BH_GET_PRIV(tw)->BH_SurroundingDensity[PI] * 
             log(lambda) * f_of_x * (P[n].Vel[j] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j]) / pow(bhvel, 3);
             BHP(n).DFAccel[j] *= All.cf.a;  // convert to code unit of acceleration
-            P[n].GravAccel[j]  += blackhole_params.BH_DFBoostFactor * BHP(n).DFAccel[j]; // Add a boost factor
+            BHP(n).DFAccel[j] *= blackhole_params.BH_DFBoostFactor // Add a boost factor
         }
         message(0,"x=%e, log(lambda)=%e, fof_x=%e, Mbh=%e, ratio=%e \n",
            x,log(lambda),f_of_x,P[n].Mass,BHP(n).DFAccel[0]/P[n].GravAccel[0]);
@@ -840,7 +840,6 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
         for(k = 0; k < 3; k++) {
             fac *= All.cf.a; /* dv = acc * kick_fac = acc * a^{-1}dt, therefore acc = a*dv/dt  */
             BHP(i).DragAccel[k] = -(P[i].Vel[k] - BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][k])*fac;
-            P[i].GravAccel[k]  += BHP(i).DragAccel[k]; 
         }
     }
     else{ 
