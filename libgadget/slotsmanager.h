@@ -36,8 +36,7 @@ struct bh_particle_data {
     MyFloat FormationTime;  /*!< formation time of black hole. */
     /* Merger time of the black hole.
      * After this, all values are fixed. */
-    MyFloat SwallowTime;
-    
+    MyFloat SwallowTime;    
     int JumpToMinPot;
     double MinPotPos[3];
     MyFloat MinPotVel[3];

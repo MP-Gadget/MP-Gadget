@@ -38,7 +38,7 @@ struct BlackholeParams
     
     int BH_DynFrictionMethod;/*0 for off; 1 for Star Only; 2 for DM+Star; 3 for DM+Star+Gas */
     int BH_DFBoostFactor; /*Optional boost factor for DF */
-    double BH_DFbmax; /* the maximum impact range, in unit of kpc/h. */
+    double BH_DFbmax; /* the maximum impact range, in physical unit of kpc. */
     int BH_DRAG; /*Hydro drag force*/
     
     /************************************************************************/
@@ -61,7 +61,6 @@ typedef struct {
     MyFloat BH_MinPotPos[3];
     MyFloat BH_MinPotVel[3];
     MyFloat BH_MinPot;
-    
     int BH_minTimeBin;
     int encounter;
     MyFloat FeedbackWeightSum;
@@ -109,7 +108,6 @@ typedef struct {
     MyFloat FeedbackEnergy;
     MyFloat FeedbackWeightSum;
 
-
 } TreeWalkQueryBHFeedback;
 
 typedef struct {
@@ -118,13 +116,11 @@ typedef struct {
     MyFloat AccretedMomentum[3];
     MyFloat BH_Mass;
     int BH_CountProgs;
-
 } TreeWalkResultBHFeedback;
 
 typedef struct {
     TreeWalkNgbIterBase base;
     DensityKernel feedback_kernel;
-
 } TreeWalkNgbIterBHFeedback;
 
 struct BHPriv {
@@ -658,21 +654,20 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
 
     if(blackhole_params.BH_DynFrictionMethod > 0 && BH_GET_PRIV(tw)->BH_SurroundingDensity[PI] > 0){ 
 
+        int j;
         double bhvel;
         double lambda, x, f_of_x;
         const double a_erf = 8 * (M_PI - 3) / (3 * M_PI * (4. - M_PI));
 
-
         /* normalize velocity/dispersion */
         BH_GET_PRIV(tw)->BH_SurroundingRmsVel[PI] /= BH_GET_PRIV(tw)->BH_SurroundingDensity[PI];
         BH_GET_PRIV(tw)->BH_SurroundingRmsVel[PI] = sqrt(BH_GET_PRIV(tw)->BH_SurroundingRmsVel[PI]);
-        for(int k = 0; k < 3; k++)
-            BH_GET_PRIV(tw)->BH_SurroundingVel[PI][k] /= BH_GET_PRIV(tw)->BH_SurroundingDensity[PI];
-
+        for(j = 0; j < 3; j++)
+            BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j] /= BH_GET_PRIV(tw)->BH_SurroundingDensity[PI];
 
         /* Calculate Coulumb Logarithm */
         bhvel = 0;
-        for(int j = 0; j < 3; j++) 
+        for(j = 0; j < 3; j++) 
         {
             bhvel += pow(P[n].Vel[j] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j], 2);
         }
@@ -688,9 +683,9 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
         if (f_of_x < 0)
             f_of_x = 0;
 
-        lambda = 1. + (blackhole_params.BH_DFbmax * All.cf.a) * pow((bhvel/All.cf.a),2) / All.G / P[n].Mass;
+        lambda = 1. + blackhole_params.BH_DFbmax * pow((bhvel/All.cf.a),2) / All.G / P[n].Mass;
 
-        for(int j = 0; j < 3; j++) 
+        for(j = 0; j < 3; j++) 
         {
             BHP(n).DFAccel[j] = - 4. * M_PI * All.G * All.G * P[n].Mass * BH_GET_PRIV(tw)->BH_SurroundingDensity[PI] * 
             log(lambda) * f_of_x * (P[n].Vel[j] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j]) / pow(bhvel, 3);
@@ -703,7 +698,7 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
     else
     {   
         message(0, "Density is zero in DF kernel, kernel may be too small.\n");
-        for(int j = 0; j < 3; j++) 
+        for(j = 0; j < 3; j++) 
         {
             BHP(n).DFAccel[j] = 0;
         }
@@ -714,7 +709,7 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
 static int
 blackhole_dynfric_haswork(int n, TreeWalk * tw){
     /*Black hole not being swallowed*/
-    return (P[n].Type == 5) && (!P[n].Swallowed) && (blackhole_params.BH_DynFrictionMethod > 0);
+    return (P[n].Type == 5) && (!P[n].Swallowed);
 }
 
 static void
@@ -868,7 +863,6 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
         P[n].Mass += accmass;
         BHP(n).Mass += BH_GET_PRIV(tw)->BH_accreted_BHMass[PI];
     }
-
 }
 
 static void
@@ -1125,9 +1119,8 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         O->BH_CountProgs += BHP(other).CountProgs;
         /* Leave the swallowed BH mass around
          * so we can work out mass at merger. */
-        O->BH_Mass += (BHP(other).Mass);
         O->Mass += (P[other].Mass);
-
+        O->BH_Mass += (BHP(other).Mass);        
         /* Conserve momentum during accretion*/
         int d;
         for(d = 0; d < 3; d++)
