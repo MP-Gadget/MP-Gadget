@@ -68,7 +68,6 @@ typedef struct {
 
     MyFloat SmoothedEntropy;
     MyFloat GasVel[3];
-
 } TreeWalkResultBHAccretion;
 
 typedef struct {
@@ -138,8 +137,7 @@ struct BHPriv {
     MyFloat (*BH_SurroundingGasVel)[3];
     
     /*************************************************************************/
-    /* Temporaries computed in the accretion treewalk and used
-     * in the feedback treewalk*/
+    /* used in the dynamic friction treewalk*/
     MyFloat * BH_SurroundingDensity;
     MyFloat * BH_SurroundingParticles;
     MyFloat (*BH_SurroundingVel)[3];
@@ -228,7 +226,7 @@ void set_blackhole_params(ParameterSet * ps)
         /***********************************************************************************/
         blackhole_params.BH_DynFrictionMethod = param_get_int(ps, "BH_DynFrictionMethod");
         blackhole_params.BH_DFBoostFactor = param_get_int(ps, "BH_DFBoostFactor");
-        blackhole_params.BH_DFbmax = param_get_int(ps, "BH_DFbmax");
+        blackhole_params.BH_DFbmax = param_get_double(ps, "BH_DFbmax");
         blackhole_params.BH_DRAG = param_get_int(ps, "BH_DRAG");
         blackhole_params.MergeGravBound = param_get_int(ps, "MergeGravBound");
         /***********************************************************************************/
@@ -307,9 +305,6 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
 static double
 decide_hsearch(double h);
-
-static double 
-periodic_wrap(double x, double BoxSize);
 
 #define BHPOTVALUEINIT 1.0e29
 
@@ -955,7 +950,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
             for(d = 0; d < 3; d++){
                 KE += 0.5 * pow(I->Vel[d] - P[other].Vel[d], 2);
-                double dx = periodic_wrap(I->Pos[d] - P[other].Pos[d], All.BoxSize);
+                double dx = NEAREST(I->Pos[d] - P[other].Pos[d], All.BoxSize);
                 double da = (I->Accel[d] - P[other].GravAccel[d] - P[other].GravPM[d] - BHP(other).DFAccel[d]);
                 PE += da * dx;
             }
@@ -967,7 +962,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
                 flag = 1; 
         }
         
-        /* perform the merge */
+        /* do the merge */
         if(flag == 1)
         {   
             O->encounter = 0;
@@ -1343,14 +1338,3 @@ decide_hsearch(double h)
         return h;
     }
 }
-
-static double 
-periodic_wrap(double x, double BoxSize)
-{
-    if(x >= 0.5*BoxSize)
-        x -= BoxSize;
-    if(x <= -0.5*BoxSize)
-        x += BoxSize;
-    return x;
-}
-
