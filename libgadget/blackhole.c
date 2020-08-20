@@ -975,7 +975,9 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         
         for(d = 0; d < 3; d++){
             KE += 0.5 * pow(I->Vel[d] - P[other].Vel[d], 2);
-            PE += (I->Accel[d] - P[other].GravAccel[d]) * (I->Pos[d] - P[other].Pos[d]);
+            double dx = periodic_wrap(I->Pos[d] - P[other].Pos[d], All.BoxSize);
+            double da = (I->Accel[d] - P[other].GravAccel[d] - P[other].GravPM[d] - BHP(other).DFAccel[d]);
+            PE += da * dx;
         }
         
         KE /= (All.cf.a*All.cf.a); /* convert to proper velocity */
@@ -1276,7 +1278,7 @@ blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I, TreeWalk * tw)
     for(k = 0; k < 3; k++)
     {
         I->Vel[k] = P[place].Vel[k];
-        I->Accel[k] = P[place].GravAccel[k];
+        I->Accel[k] = P[place].GravAccel[k] + P[place].GravPM[k] + BHP(place).DFAccel[k];
         I->Pos[k] = P[place].Pos[k];
     }
     I->Hsml = P[place].Hsml;
@@ -1382,5 +1384,15 @@ decide_hsearch(double h)
     } else {
         return h;
     }
+}
+
+static double 
+periodic_wrap(double x, double BoxSize)
+{
+    if(x >= 0.5*BoxSize)
+        x -= BoxSize;
+    if(x <= -0.5*BoxSize)
+        x += BoxSize;
+    return x;
 }
 
