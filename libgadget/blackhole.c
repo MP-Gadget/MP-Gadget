@@ -32,6 +32,9 @@ struct BlackholeParams
     double SeedBlackHoleMass;	/*!< Seed black hole mass */
     double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
     int BlackHoleRepositionEnabled; /* If true, enable repositioning the BH to the potential minimum*/
+    
+    double SeedBHDynMass; /* The initial dynamic mass of BH particle */
+    
 } blackhole_params;
 
 typedef struct {
@@ -66,6 +69,7 @@ typedef struct {
 typedef struct {
     TreeWalkQueryBase base;
     MyFloat Hsml;
+    MyFloat Mass;
     MyFloat BH_Mass;
     MyIDType ID;
     MyFloat FeedbackEnergy;
@@ -154,6 +158,7 @@ void set_blackhole_params(ParameterSet * ps)
 
         blackhole_params.BlackHoleFeedbackMethod = param_get_enum(ps, "BlackHoleFeedbackMethod");
         blackhole_params.BlackHoleRepositionEnabled = param_get_int(ps, "BlackHoleRepositionEnabled");
+        blackhole_params.SeedBHDynMass = param_get_double(ps,"SeedBHDynMass");
     }
     MPI_Bcast(&blackhole_params, sizeof(struct BlackholeParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -705,7 +710,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             }
         }
     }
-
 }
 
 
@@ -766,8 +770,17 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         O->BH_CountProgs += BHP(other).CountProgs;
         /* Leave the swallowed BH mass around
          * so we can work out mass at merger. */
-        O->Mass += (P[other].Mass);
+        
         O->BH_Mass += (BHP(other).Mass);
+        
+        /* Prevent large DynMass accumulates during merger */
+        if (I->BH_Mass + BHP(other).Mass < blackhole_params.SeedBHDynMass) {
+            O->Mass += 0; 
+        }
+        else {
+            O->Mass += I->BH_Mass + BHP(other).Mass - I->Mass; 
+        }
+        
         /* Conserve momentum during accretion*/
         int d;
         for(d = 0; d < 3; d++)
@@ -892,6 +905,7 @@ blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I, TreeWalk * tw)
 {
     I->Hsml = P[i].Hsml;
     I->BH_Mass = BHP(i).Mass;
+    I->Mass = P[i].Mass;
     I->ID = P[i].ID;
     int PI = P[i].PI;
     I->FeedbackWeightSum = BH_GET_PRIV(tw)->BH_FeedbackWeightSum[PI];
@@ -947,6 +961,10 @@ void blackhole_make_one(int index) {
         BHP(child).MinPotPos[j] = P[child].Pos[j];
     }
     BHP(child).JumpToMinPot = 0;
+    
+    if (blackhole_params.SeedBHDynMass>0){
+        P[child].Mass = blackhole_params.SeedBHDynMass;
+    }
 
     BHP(child).CountProgs = 1;
 }

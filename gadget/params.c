@@ -207,6 +207,8 @@ create_gadget_parameter_set()
 
     param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", OPTIONAL, 0, "If set, the physical radius at which the black hole feedback energy is deposited. When both this flag and BlackHoleFeedbackRadius are both set, the smaller radius is used.");
     param_declare_int(ps,"WriteBlackHoleDetails",OPTIONAL, 0, "If set, output BH details at every time step.");
+    
+    param_declare_double(ps, "SeedBHDynMass", OPTIONAL, -1, "The initial dynamic mass of BH, default -1 will use the mass of gas particle. Larger Mdyn would help to stablize the BH in the early phase if turning off reposition.");
 
     static ParameterEnum BlackHoleFeedbackMethodEnum [] = {
         {"mass", BH_FEEDBACK_MASS},
