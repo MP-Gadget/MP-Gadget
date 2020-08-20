@@ -1106,11 +1106,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         double hsearch;
         hsearch = decide_hsearch(I->Hsml);
 
-        /**************************************************************/
-        /* Need to visit all types for DF computation so changed mask */
-
-        iter->base.mask = 1 + 2 + 4 + 8 + 16 + 32;
-        /**************************************************************/
+        iter->base.mask = 1 + 32;
         iter->base.Hsml = hsearch;
         /* Swallow is symmetric, but feedback dumping is asymetric;
          * we apply a cut in r to break the symmetry. */
