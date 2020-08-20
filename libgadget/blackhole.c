@@ -973,22 +973,34 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     {
         O->encounter = 1; // mark the event when two BHs encounter each other
         
-        int d;
-        double KE = 0;
-        double PE = 0;
+        int flag = 0; // the flag for BH merge
         
-        for(d = 0; d < 3; d++){
-            KE += 0.5 * pow(I->Vel[d] - P[other].Vel[d], 2);
-            double dx = periodic_wrap(I->Pos[d] - P[other].Pos[d], All.BoxSize);
-            double da = (I->Accel[d] - P[other].GravAccel[d] - P[other].GravPM[d] - BHP(other).DFAccel[d]);
-            PE += da * dx;
+        if(blackhole_params.BlackHoleRepositionEnabled == 1) // directly merge if reposition is enabled
+            flag = 1;
+        if(blackhole_params.MergeGravBound == 0)
+            flag = 1;
+        if(blackhole_params.MergeGravBound == 1){ 
+            /* check if the two BHs are gravitationally bounded */
+            int d;
+            double KE = 0;
+            double PE = 0;
+
+            for(d = 0; d < 3; d++){
+                KE += 0.5 * pow(I->Vel[d] - P[other].Vel[d], 2);
+                double dx = periodic_wrap(I->Pos[d] - P[other].Pos[d], All.BoxSize);
+                double da = (I->Accel[d] - P[other].GravAccel[d] - P[other].GravPM[d] - BHP(other).DFAccel[d]);
+                PE += da * dx;
+            }
+        
+            KE /= (All.cf.a*All.cf.a); /* convert to proper velocity */
+            PE /= All.cf.a; /* convert to proper unit */
+            
+            if(PE + KE < 0) // merge the BHs if they are gravitationally bounded
+                flag = 1; 
         }
         
-        KE /= (All.cf.a*All.cf.a); /* convert to proper velocity */
-        PE /= All.cf.a; /* convert to proper unit */
-        
-        /* add option to merge the BHs if they are gravitationally bounded */
-        if(blackhole_params.BlackHoleRepositionEnabled == 1 || blackhole_params.MergeGravBound == 0 || (PE + KE < 0 && blackhole_params.MergeGravBound == 1))
+        /* perform the merge */
+        if(flag == 1)
         {   
             O->encounter = 0;
             MyIDType readid, newswallowid;
