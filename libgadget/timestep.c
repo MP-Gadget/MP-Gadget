@@ -373,8 +373,8 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
     }
     
     if(P[i].Type == 5) {
-        P[i].Vel[j] += P[i].DFAccel[j] * Fgravkick;
-        P[i].Vel[j] += P[i].DragAccel[j] * Fgravkick;
+        P[i].Vel[j] += BHP(i).DFAccel[j] * Fgravkick;
+        P[i].Vel[j] += BHP(i).DragAccel[j] * Fgravkick;
     }
 
     if(P[i].Type == 0) {
