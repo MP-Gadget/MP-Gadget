@@ -329,6 +329,28 @@ add_injected_BH_energy(double unew, double injected_BH_energy, double mass)
     return unew;
 }
 
+/* check if two BHs are gravitationally bounded, input dv, da, dx in code unit */
+/* same as Bellovary2011, Tremmel2017 */
+static int
+check_grav_bound(double dx[3], double dv[3], double da[3])
+{
+    int j;
+    double KE = 0;
+    double PE = 0;
+
+    for(j = 0; j < 3; j++){
+        KE += 0.5 * pow(dv[j], 2);
+        PE += da[j] * dx[j];
+    }
+    
+    KE /= (All.cf.a*All.cf.a); /* convert to proper velocity */
+    PE /= All.cf.a; /* convert to proper unit */
+    
+    return (PE + KE < 0);   
+}
+
+ 
+
 static void
 collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv, FILE * FdBlackholeDetails)
 {
@@ -481,8 +503,8 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     priv->BH_SurroundingParticles = mymalloc("BH_SurroundingParticles", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingParticles));
     priv->BH_SurroundingDensity = mymalloc("BH_SurroundingDensity", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingDensity));
     /* guard treewalk */
-    if (blackhole_params.BH_DynFrictionMethod > 0) 
-        treewalk_run(tw_dynfric, act->ActiveParticle, act->NumActiveParticle);
+    //if (blackhole_params.BH_DynFrictionMethod > 0) 
+    treewalk_run(tw_dynfric, act->ActiveParticle, act->NumActiveParticle);
     
     /*************************************************************************/
 
@@ -638,6 +660,7 @@ static void
 blackhole_dynfric_postprocess(int n, TreeWalk * tw){   
 
     int PI = P[n].PI;
+    int j;
 
     /***********************************************************************************/
     /* This is Gizmo's implementation of dynamic friction                              */
@@ -657,7 +680,6 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
 
     if(blackhole_params.BH_DynFrictionMethod > 0 && BH_GET_PRIV(tw)->BH_SurroundingDensity[PI] > 0){ 
 
-        int j;
         double bhvel;
         double lambda, x, f_of_x;
         const double a_erf = 8 * (M_PI - 3) / (3 * M_PI * (4. - M_PI));
@@ -699,7 +721,7 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
            x,log(lambda),f_of_x,P[n].Mass,BHP(n).DFAccel[0]/P[n].GravAccel[0]);
     }
     else
-    {   
+    {
         message(0, "Density is zero in DF kernel, kernel may be too small.\n");
         for(j = 0; j < 3; j++) 
         {
@@ -942,25 +964,20 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             flag = 1;
         if(blackhole_params.MergeGravBound == 0)
             flag = 1;
-        if(blackhole_params.MergeGravBound == 1){ 
-            /* check if the two BHs are gravitationally bounded */
-            int d;
-            double KE = 0;
-            double PE = 0;
-
-            for(d = 0; d < 3; d++){
-                KE += 0.5 * pow(I->Vel[d] - P[other].Vel[d], 2);
-                double dx = NEAREST(I->Pos[d] - P[other].Pos[d], All.BoxSize);
-                /* we include long range PM force, short range force and DF */
-                double da = (I->Accel[d] - P[other].GravAccel[d] - P[other].GravPM[d] - BHP(other).DFAccel[d]);
-                PE += da * dx;
-            }
-        
-            KE /= (All.cf.a*All.cf.a); /* convert to proper velocity */
-            PE /= All.cf.a; /* convert to proper unit */
+        if(blackhole_params.MergeGravBound == 1){    
             
-            if(PE + KE < 0) // merge the BHs if they are gravitationally bounded
-                flag = 1; 
+            double dx[3];
+            double dv[3];
+            double da[3];
+            int d;
+            
+            for(d = 0; d < 3; d++){                
+                dx[d] = NEAREST(I->Pos[d] - P[other].Pos[d], All.BoxSize);
+                dv[d] = I->Vel[d] - P[other].Vel[d];
+                /* we include long range PM force, short range force and DF */
+                da[d] = (I->Accel[d] - P[other].GravAccel[d] - P[other].GravPM[d] - BHP(other).DFAccel[d]);
+            }
+            flag = check_grav_bound(dx,dv,da);
         }
         
         /* do the merge */
