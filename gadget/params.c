@@ -210,7 +210,7 @@ create_gadget_parameter_set()
  
     param_declare_int(ps,"BH_DynFrictionMethod",OPTIONAL, 0, "If set to non-zero, dynamical friction is applied through this method. Setting BH_DynFrictionMethod = 1, = 2, = 3 uses stars only (=1), dark matter + stars (=2), all mass (=3) to compute the DF force.");
     param_declare_int(ps,"BH_DFBoostFactor",OPTIONAL, 1, "If set, dynamical friction is boosted by this factor.");
-    param_declare_int(ps,"BH_DFbmax",OPTIONAL, 20, "Maximum impact parameter for dynamical friction.");
+    param_declare_double(ps,"BH_DFbmax",OPTIONAL, 20, "Maximum impact range for dynamical friction. We use 20 pkpc as default value.");
     param_declare_int(ps,"BH_DRAG",OPTIONAL, 0, "Add drag force to the BH dynamic");
     param_declare_int(ps,"MergeGravBound",OPTIONAL, 1, "If set to 1, apply gravitational bound criteria for merging event. This criteria would be automatically turned off if reposition is enabled."); 
     
