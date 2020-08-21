@@ -640,7 +640,9 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
     int PI = P[n].PI;
 
     /***********************************************************************************/
-    /* Compute/add accel. when DF turned on */
+    /* This is Gizmo's implementation of dynamic friction                              */
+    /* c.f. section 3.1 in http://www.tapir.caltech.edu/~phopkins/public/notes_blackholes.pdf */
+    /* Compute dynamic friction accel when DF turned on                                */
     /* averaged value for colomb logarithm and integral over the distribution function */
     /* acc_friction = -4*pi*G^2 * Mbh * log(lambda) * rho * f_of_x * bhvel / |bhvel^3| */
     /*       f_of_x = [erf(x) - 2*x*exp(-x^2)/sqrt(pi)]                                */
@@ -820,6 +822,9 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
     /*************************************************************************/
     
     if(blackhole_params.BH_DRAG > 0){
+        /* a_BH = (v_gas - v_BH) Mdot/M_BH                                   */
+        /* motivated by BH gaining momentum from the accreted gas            */
+        /*c.f.section 3.2,in http://www.tapir.caltech.edu/~phopkins/public/notes_blackholes.pdf */
         double fac = 0;
         if (blackhole_params.BH_DRAG == 1) fac = BHP(i).Mdot/P[i].Mass; 
         if (blackhole_params.BH_DRAG == 2) fac = blackhole_params.BlackHoleEddingtonFactor * meddington/BHP(i).Mass;
@@ -926,8 +931,8 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     /* Accretion / merger doesn't do self interaction */
     if(P[other].ID == I->ID) return;
     
-    /* we have a black hole merger, use 2 times GravitationalSoftening as merging criteria*/
-    if(P[other].Type == 5 && r < (2*FORCE_SOFTENING(0,1)/2.8))	
+    /* we have a black hole merger. Now we use 2 times GravitationalSoftening as merging criteria, (previously we uses the SPH smoothing length.) */
+    if(P[other].Type == 5 && r < (2*FORCE_SOFTENING(0,1)/2.8)) 
     {
         O->encounter = 1; // mark the event when two BHs encounter each other
         
@@ -946,6 +951,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             for(d = 0; d < 3; d++){
                 KE += 0.5 * pow(I->Vel[d] - P[other].Vel[d], 2);
                 double dx = NEAREST(I->Pos[d] - P[other].Pos[d], All.BoxSize);
+                /* we include long range PM force, short range force and DF */
                 double da = (I->Accel[d] - P[other].GravAccel[d] - P[other].GravPM[d] - BHP(other).DFAccel[d]);
                 PE += da * dx;
             }
