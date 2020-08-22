@@ -1329,6 +1329,8 @@ void blackhole_make_one(int index) {
     int j;
     for(j = 0; j < 3; j++) {
         BHP(child).MinPotPos[j] = P[child].Pos[j];
+        BHP(child).DFAccel[j] = 0;
+        BHP(child).DragAccel[j] = 0;
     }
     BHP(child).JumpToMinPot = 0;
 
