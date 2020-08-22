@@ -373,18 +373,11 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
     }
     
     /* Add kick from dynamic friction and hydro drag for BHs. */
-    if(All.DynFrictionMethod>0){
-        if(P[i].Type == 5) {
-            for(j = 0; j < 3; j++){
-                P[i].Vel[j] += BHP(i).DFAccel[j] * Fgravkick;
-            }
-        }
-    }
-    
     if(P[i].Type == 5) {
         for(j = 0; j < 3; j++){
-                P[i].Vel[j] += BHP(i).DragAccel[j] * Fgravkick;
-            }  
+            P[i].Vel[j] += BHP(i).DFAccel[j] * Fgravkick;
+            P[i].Vel[j] += BHP(i).DragAccel[j] * Fgravkick;
+        }
     }
     
     if(P[i].Type == 0) {

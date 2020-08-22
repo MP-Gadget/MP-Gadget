@@ -678,8 +678,7 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
     /*        sigma = width of the max. distr. of the host system                      */
     /*                (e.g. sigma = v_disp / 3                                         */
 
-    if(blackhole_params.BH_DynFrictionMethod > 0 && BH_GET_PRIV(tw)->BH_SurroundingDensity[PI] > 0){ 
-
+    if(BH_GET_PRIV(tw)->BH_SurroundingDensity[PI] > 0){ 
         double bhvel;
         double lambda, x, f_of_x;
         const double a_erf = 8 * (M_PI - 3) / (3 * M_PI * (4. - M_PI));
