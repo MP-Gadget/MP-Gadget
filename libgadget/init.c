@@ -201,6 +201,15 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
             if(P[i].Hsml == 0)
                 P[i].Hsml = 0.01 * All.MeanSeparation[0];
         }
+        
+        if(All.BlackHoleOn && P[i].Type == 5)
+        {
+            for(j = 0; j < 3; j++) {
+                BHP(i).DFAccel[j] = 0;
+                BHP(i).DragAccel[j] = 0;
+            }
+        }
+        
         P[i].Key = PEANO(P[i].Pos, All.BoxSize);
 
         if(P[i].Type != 0) continue;
