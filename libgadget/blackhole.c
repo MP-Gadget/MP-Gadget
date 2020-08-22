@@ -107,7 +107,6 @@ typedef struct {
     MyIDType ID;
     MyFloat FeedbackEnergy;
     MyFloat FeedbackWeightSum;
-
 } TreeWalkQueryBHFeedback;
 
 typedef struct {
@@ -171,7 +170,6 @@ struct BHinfo{
     MyFloat MinPot;
     MyFloat BH_Entropy;
     MyFloat BH_SurroundingGasVel[3];
-
     MyFloat BH_accreted_momentum[3];
 
     MyFloat BH_accreted_Mass;
@@ -184,7 +182,7 @@ struct BHinfo{
     int CountProgs;
     int Swallowed;
 
-    /**************************************************************/
+    /****************************************/
     double Pos[3];
     MyFloat BH_SurroundingDensity; 
     MyFloat BH_SurroundingParticles;
@@ -193,13 +191,10 @@ struct BHinfo{
 
     double BH_DFAccel[3];
     double BH_DragAccel[3];
-    double BH_GravAccel[3];
-    
+    double BH_GravAccel[3];    
     double Velocity[3];
-    /**************************************************************/
 
     MyDouble a;
-
 };
 
 /*Set the parameters of the BH module*/
