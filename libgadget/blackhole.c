@@ -52,7 +52,6 @@ typedef struct {
     MyFloat BH_Mass;
     MyFloat Vel[3];
     MyFloat Accel[3];
-    MyFloat Pos[3];
     MyIDType ID;
 } TreeWalkQueryBHAccretion;
 
@@ -966,7 +965,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             int d;
             
             for(d = 0; d < 3; d++){                
-                dx[d] = NEAREST(I->Pos[d] - P[other].Pos[d], All.BoxSize);
+                dx[d] = NEAREST(I->base.Pos[d] - P[other].Pos[d], All.BoxSize);
                 dv[d] = I->Vel[d] - P[other].Vel[d];
                 /* we include long range PM force, short range force and DF */
                 da[d] = (I->Accel[d] - P[other].GravAccel[d] - P[other].GravPM[d] - BHP(other).DFAccel[d]);
@@ -1248,7 +1247,6 @@ blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I, TreeWalk * tw)
     {
         I->Vel[k] = P[place].Vel[k];
         I->Accel[k] = P[place].GravAccel[k] + P[place].GravPM[k] + BHP(place).DFAccel[k];
-        I->Pos[k] = P[place].Pos[k];
     }
     I->Hsml = P[place].Hsml;
     I->Mass = P[place].Mass;
