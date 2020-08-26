@@ -36,17 +36,22 @@ struct bh_particle_data {
     MyFloat FormationTime;  /*!< formation time of black hole. */
     /* Merger time of the black hole.
      * After this, all values are fixed. */
-    MyFloat SwallowTime;
-
+    MyFloat SwallowTime;    
     int JumpToMinPot;
     double MinPotPos[3];
     MyFloat MinPotVel[3];
     /* After a merger, this gives the ID of the particle which swallowed the BH. Used to keep track of merger trees.*/
     MyIDType SwallowID;
-
+    
+    /*******************************************************/
+    double DragAccel[3];
+    double DFAccel[3];
+    /*******************************************************/
+    
     /* Stores the minimum timebins of all black hole neighbours.
      * The black hole timebin is then set to this.*/
     int minTimeBin;
+    int encounter; /* mark the event when BH encounters another BH */
 };
 
 /*Data for each star particle*/
