@@ -880,6 +880,9 @@ static void
 blackhole_feedback_postprocess(int n, TreeWalk * tw)
 {
     const int PI = P[n].PI;
+    if(BH_GET_PRIV(tw)->BH_accreted_BHMass[PI] > 0){
+       BHP(n).Mass += BH_GET_PRIV(tw)->BH_accreted_BHMass[PI]; 
+    }    
     if(BH_GET_PRIV(tw)->BH_accreted_Mass[PI] > 0)
     {
         /* velocity feedback due to accretion; momentum conservation.
@@ -889,8 +892,7 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
         for(k = 0; k < 3; k++)
             P[n].Vel[k] = (P[n].Vel[k] * P[n].Mass + BH_GET_PRIV(tw)->BH_accreted_momentum[PI][k]) /
                     (P[n].Mass + accmass);
-        P[n].Mass += accmass;
-        BHP(n).Mass += BH_GET_PRIV(tw)->BH_accreted_BHMass[PI];
+        P[n].Mass += accmass;        
     }
     
     if(blackhole_params.SeedBHDynMass>0){
