@@ -52,6 +52,7 @@ struct bh_particle_data {
      * The black hole timebin is then set to this.*/
     int minTimeBin;
     int encounter; /* mark the event when BH encounters another BH */
+    double Mtrack; /*Swallow gas particle when BHP.Mass accretes from SeedBHMass to SeedDynMass for mass conservation */
 };
 
 /*Data for each star particle*/
