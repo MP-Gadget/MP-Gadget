@@ -893,11 +893,14 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
         BHP(n).Mass += BH_GET_PRIV(tw)->BH_accreted_BHMass[PI];
     }
     
-    if(BH_GET_PRIV(tw)->BH_accreted_Mtrack[PI] > 0)
-    {
-        BHP(n).Mtrack += BH_GET_PRIV(tw)->BH_accreted_Mtrack[PI];
+    if(blackhole_params.SeedBHDynMass>0){
+        if(BH_GET_PRIV(tw)->BH_accreted_Mtrack[PI] > 0){
+            BHP(n).Mtrack += BH_GET_PRIV(tw)->BH_accreted_Mtrack[PI];
+        }
+        if(BHP(n).Mtrack > blackhole_params.SeedBHDynMass){
+            BHP(n).Mtrack = blackhole_params.SeedBHDynMass; /*cap Mtrack at SeedBHDynMass*/
+        }
     }
-    
 }
 
 static void
