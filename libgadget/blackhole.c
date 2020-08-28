@@ -197,6 +197,8 @@ struct BHinfo{
     double BH_DragAccel[3];
     double BH_GravAccel[3];    
     double Velocity[3];
+    double Mtrack;
+    double Mdyn;
 
     MyDouble a;
 };
@@ -409,6 +411,8 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
         info.SwallowID =  BHP(p_i).SwallowID;
         info.CountProgs = BHP(p_i).CountProgs;
         info.Swallowed =  P[p_i].Swallowed;
+        info.Mtrack = BHP(p_i).Mtrack;
+        info.Mdyn = P[p_i].Mass;
 
         info.a = All.Time;
 
@@ -1348,6 +1352,7 @@ blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I, TreeWalk * tw)
     I->Hsml = P[i].Hsml;
     I->BH_Mass = BHP(i).Mass;
     I->ID = P[i].ID;
+    I->Mtrack = BHP(i).Mtrack;
     int PI = P[i].PI;
 
     I->FeedbackWeightSum = BH_GET_PRIV(tw)->BH_FeedbackWeightSum[PI];
