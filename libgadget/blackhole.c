@@ -41,7 +41,7 @@ struct BlackholeParams
     double BH_DFbmax; /* the maximum impact range, in physical unit of kpc. */
     int BH_DRAG; /*Hydro drag force*/
     
-    double SeedBHDynMass; /* The initial dynamic mass of BH particle */
+    double SeedBHDynMass; /* The initial dynamic mass of BH particle */    
     /************************************************************************/
 } blackhole_params;
 
@@ -402,7 +402,6 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
         info.BH_SurroundingVel[2] = priv->BH_SurroundingVel[PI][2];
 
         /****************************************************************************/
-
         info.BH_accreted_BHMass = priv->BH_accreted_BHMass[PI];
         info.BH_accreted_Mass = priv->BH_accreted_Mass[PI];
         info.BH_FeedbackWeightSum = priv->BH_FeedbackWeightSum[PI];
@@ -411,7 +410,15 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
         info.SwallowID =  BHP(p_i).SwallowID;
         info.CountProgs = BHP(p_i).CountProgs;
         info.Swallowed =  P[p_i].Swallowed;
-        info.Mtrack = BHP(p_i).Mtrack;
+        /************************************************************************************************/
+        /* When SeedBHDynMass is larger than gas particle mass, we have three mass tracer of blackhole. */
+        /* BHP(p_i).Mass : intrinsic mass of BH, accreted every (active) time step.                     */
+        /* P[p_i].Mass :  Dynamic mass of BH, used for gravitational interaction.                       */
+        /*                Starts to accrete gas particle when BHP(p_i).Mass > SeedBHDynMass             */
+        /* BHP(p_i).Mtrack: Initialized as gas particle mass, and is capped at SeedBHDynMass,           */
+        /*                 it traces BHP(p_i).Mass by swallowing gas when BHP(p_i).Mass < SeedBHDynMass */
+        /************************************************************************************************/
+        info.Mtrack = BHP(p_i).Mtrack; 
         info.Mdyn = P[p_i].Mass;
 
         info.a = All.Time;
@@ -1044,11 +1051,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
             /* This is an averaged Mdot, because Mdot increases BH_Mass but not Mass.
              * So if the total accretion is significantly above the dynamical mass,
-             * a particle is swallowed. Note that if a large number of black holes
-             * are swallowed with a BH mass less than the dynamical mass,
-             * this will not increase and gas accretion will be suppressed.
-             * To avoid this, ensure that the BH seed mass is not much less
-             * than the dynamical mass. */
+             * a particle is swallowed. */
             if((I->BH_Mass - I->Mass) > 0 && I->Density > 0)
                 p = (I->BH_Mass - I->Mass) * wk / I->Density;
 
@@ -1072,13 +1075,15 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
                 } while(!__atomic_compare_exchange_n(&SPH_SwallowID[P[other].PI], &readid, newswallowid, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
             }
             
-            /* If SeedBHDynMass is much larger than SeedBHMass, 
-             * We should still swallow gas when BH accretes to SeedBHDynMass for mass conservation.
-             * Mtrack is updated after swallow gas, and would be capped by SeedBHDynMass, 
-             * therefore the swallow of gas would only happen either from above criteria or below. 
-             * Here we mark swallowed gas as I->ID+2 and will not add to P[i].Mass in postprocess. */
+            /* If SeedBHDynMass is larger than gas paricle mass, we use Mtrack to do the gas accretion
+             * when BHP.Mass < SeedBHDynMass. Mtrack is initialized as gas particle mass and is capped
+             * at SeedBHDynMass. Mtrack traces the BHP.Mass by stochastically swallowing gas and 
+             * therefore ensures mass conservation. 
+             * We mark swallowed gas that to be added to Mtrack (instead of P[i].Mass) as ID+2. */
             if(blackhole_params.SeedBHDynMass>0){                
                 p = 0;
+                /* （Mtrack<SeedBHDynMass）and (I->BH_Mass>I->Mass) are mutually exclusive, therefore 
+                    a gas particle can either be added to Mass or to Mtrack. */
                 if((I->Mtrack < blackhole_params.SeedBHDynMass) && (I->BH_Mass - I->Mtrack) > 0 && I->Density > 0)
                     p = (I->BH_Mass - I->Mtrack) * wk / I->Density;
                 
@@ -1188,20 +1193,27 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         O->BH_CountProgs += BHP(other).CountProgs;
         O->BH_Mass += (BHP(other).Mass); 
         
-        if (blackhole_params.SeedBHDynMass>0 && I->Mtrack>0){           
+        if (blackhole_params.SeedBHDynMass>0 && I->Mtrack>0){
+        /* Make sure that the final dynamic mass (I->Mass + O->Mass) = MAX(SeedDynMass, total_gas_accreted),
+           I->Mtrack only need to be updated when I->Mtrack < SeedBHDynMass, */            
             if(I->Mtrack < blackhole_params.SeedBHDynMass && BHP(other).Mtrack < blackhole_params.SeedBHDynMass){
+            /* I->Mass = SeedBHDynMass, total_gas_accreted = I->Mtrack + BHP(other).Mtrack */
                 O->acMtrack += BHP(other).Mtrack;
                 double delta_m = I->Mtrack + BHP(other).Mtrack - blackhole_params.SeedBHDynMass;
-                O->Mass += ((0<delta_m)?delta_m:0);
+                O->Mass += DMAX(0,delta_m);
             }
             if(I->Mtrack >= blackhole_params.SeedBHDynMass && BHP(other).Mtrack < blackhole_params.SeedBHDynMass){
+            /* I->Mass = gas_accreted, total_gas_accreted = I->Mass + BHP(other).Mtrack */
                 O->Mass += BHP(other).Mtrack;
             }
             if(I->Mtrack < blackhole_params.SeedBHDynMass && BHP(other).Mtrack >= blackhole_params.SeedBHDynMass){
+            /* I->Mass = SeedBHDynMass, P[other].Mass = gas_accreted, 
+               total_gas_accreted = I->track + P[other].Mass */
                 O->acMtrack += BHP(other).Mtrack;
                 O->Mass += (P[other].Mass + I->Mtrack - blackhole_params.SeedBHDynMass);
             }
             if(I->Mtrack >= blackhole_params.SeedBHDynMass && BHP(other).Mtrack >= blackhole_params.SeedBHDynMass){
+            /* trivial case, total_gas_accreted = I->Mass + P[other].Mass */
                 O->Mass += P[other].Mass;
             }  
         }
