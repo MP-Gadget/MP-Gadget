@@ -104,6 +104,9 @@ double growth(Cosmology * CP, double a, double * dDda)
   gsl_odeiv2_driver * drive = gsl_odeiv2_driver_alloc_standard_new(&FF,gsl_odeiv2_step_rkf45, 1e-5, 1e-8,1e-8,1,1);
    /* We start early to avoid lambda.*/
   double curtime = 1e-5;
+  /* Handle even earlier times*/
+  if(a < curtime)
+      curtime = a / 10;
   /* Initial velocity chosen so that D = Omegar + 3/2 Omega_m a,
    * the solution for a matter/radiation universe.*
    * Note the normalisation of D is arbitrary
