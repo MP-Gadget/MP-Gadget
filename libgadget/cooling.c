@@ -33,7 +33,7 @@
 static struct cooling_units coolunits;
 
 /*Do initialisation for the cooling module*/
-void init_cooling(char * TreeCoolFile, char * MetalCoolFile, char * reion_hist_file, struct cooling_units cu, Cosmology * CP)
+void init_cooling(const char * TreeCoolFile, const char * MetalCoolFile, char * reion_hist_file, struct cooling_units cu, Cosmology * CP)
 {
     coolunits = cu;
     /* Get mean cosmic baryon density for photoheating rate from long mean free path photons */
