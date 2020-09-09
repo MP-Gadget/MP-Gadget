@@ -965,8 +965,9 @@ init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, Cosmol
     CoolingParams.fBar = CP->OmegaBaryon / CP->OmegaCDM;
     CoolingParams.rho_crit_baryon = CP->OmegaBaryon * 3.0 * pow(CP->HubbleParam*HUBBLE,2.0) /(8.0*M_PI*GRAVITY);
 
-    /*Initialize the interpolation for the self-shielding module as a function of redshift.*/
-    GrayOpac = gsl_interp_alloc(gsl_interp_cspline,NGRAY);
+    /* Initialize the interpolation for the self-shielding module as a function of redshift.
+     * A crash has been observed in GSL with a cspline interpolator. */
+    GrayOpac = gsl_interp_alloc(gsl_interp_linear,NGRAY);
     gsl_interp_init(GrayOpac,GrayOpac_zz,GrayOpac_ydata, NGRAY);
 
     if(strlen(TreeCoolFile) == 0) {
