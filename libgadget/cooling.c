@@ -39,7 +39,8 @@ void init_cooling(const char * TreeCoolFile, const char * MetalCoolFile, char * 
     /* Get mean cosmic baryon density for photoheating rate from long mean free path photons */
     coolunits.rho_crit_baryon =  3 * pow(CP->HubbleParam * HUBBLE,2) * CP->OmegaBaryon / (8 * M_PI * GRAVITY);
     /*Initialize the cooling rates*/
-    init_cooling_rates(TreeCoolFile, MetalCoolFile, CP);
+    if(coolunits.CoolingOn)
+        init_cooling_rates(TreeCoolFile, MetalCoolFile, CP);
     /* Initialize the helium reionization model*/
     init_qso_lightup(reion_hist_file);
 }
