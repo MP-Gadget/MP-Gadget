@@ -1401,12 +1401,12 @@ _solve_for_layout_mpi (
         /* deficit solved */
         if(deficit == 0) break;
         if(deficit < 0) {
-            endrun(10, "serious bug: more items than there should be: deficit=%ld\n", deficit);
+            endrun(10, "More items than there should be at j=%d: deficit=%ld\n (C: %ld sure %ld)", j, deficit, C[ThisTask+1], sure);
         }
         /* how much task j can supply ? */
         ptrdiff_t supply = myT_CLE[j] - myT_C[j];
         if(supply < 0) {
-            endrun(10, "serious bug: less items than there should be: supply =%ld\n", supply);
+            endrun(10, "Less items than there should be at j=%d: supply=%ld (myTCLE %ld myTC %ld)\n", j, supply, myT_CLE[j], myT_C[j]);
         }
         if(supply <= deficit) {
             myT_C[j] += supply;
