@@ -72,7 +72,7 @@ static gsl_interp * GrayOpac;
 /*Tables for the self-shielding correction. Note these are not well-measured for z > 5!*/
 #define NGRAY 6
 /*  Gray Opacity for the Faucher-Giguere 2009 UVB. HM2018 is a little larger and would lead to a 10% higher self-shielding threshold.*/
-static double GrayOpac_ydata[NGRAY] = { 2.59e-18, 2.37e-18, 2.27e-18, 2.15e-18, 2.02e-18, 1.94e-18};
+static const double GrayOpac_ydata[NGRAY] = { 2.59e-18, 2.37e-18, 2.27e-18, 2.15e-18, 2.02e-18, 1.94e-18};
 static const double GrayOpac_zz[NGRAY] = {0, 1, 2, 3, 4, 5};
 
 /*Convenience structure bundling together the gsl interpolation routines.*/
