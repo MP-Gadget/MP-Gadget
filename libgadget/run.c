@@ -118,7 +118,7 @@ int begrun(int RestartFlag, int RestartSnapNum)
 
     init_forcetree_params(All.FastParticleType);
 
-    init_cooling_and_star_formation();
+    init_cooling_and_star_formation(All.CoolingOn);
 
     gravshort_set_softenings(All.MeanSeparation[1]);
     gravshort_fill_ntab(All.ShortRangeForceWindowType, All.Asmth);
@@ -319,7 +319,8 @@ run(int RestartSnapNum)
             blackhole(&Act, &Tree, FdBlackHoles, FdBlackholeDetails);
 
             /**** radiative cooling and star formation *****/
-            cooling_and_starformation(&Act, &Tree, GradRho, FdSfr);
+            if(All.CoolingOn)
+                cooling_and_starformation(&Act, &Tree, GradRho, FdSfr);
 
             if(GradRho) {
                 myfree(GradRho);

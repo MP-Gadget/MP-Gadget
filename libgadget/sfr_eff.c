@@ -128,9 +128,6 @@ void set_sfr_params(ParameterSet * ps)
 void
 cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * GradRho, FILE * FdSfr)
 {
-    if(!All.CoolingOn)
-        return;
-
     const int nthreads = omp_get_max_threads();
     /*This is a queue for the new stars and their parents, so we can reallocate the slots after the main cooling loop.*/
     int * NewStars = NULL;
@@ -709,10 +706,10 @@ get_egyeff(double redshift, double dens, struct UVBG * uvbg)
     return egyhot * (1 - x) + sfr_params.EgySpecCold * x;
 }
 
-void init_cooling_and_star_formation(void)
+void init_cooling_and_star_formation(int CoolingOn)
 {
     struct cooling_units coolunits;
-    coolunits.CoolingOn = All.CoolingOn;
+    coolunits.CoolingOn = CoolingOn;
     coolunits.density_in_phys_cgs = All.UnitDensity_in_cgs * All.CP.HubbleParam * All.CP.HubbleParam;
     coolunits.uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
     coolunits.tt_in_s = All.UnitTime_in_s / All.CP.HubbleParam;
