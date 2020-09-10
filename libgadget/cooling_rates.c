@@ -970,7 +970,7 @@ init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, Cosmol
     GrayOpac = gsl_interp_alloc(gsl_interp_linear,NGRAY);
     gsl_interp_init(GrayOpac,GrayOpac_zz,GrayOpac_ydata, NGRAY);
 
-    if(strnlen(TreeCoolFile,100) == 0) {
+    if(!TreeCoolFile || strnlen(TreeCoolFile,100) == 0) {
         CoolingParams.PhotoIonizationOn = 0;
         message(0, "No TreeCool file is provided. Cooling is broken. OK for DM only runs. \n");
     }
