@@ -150,7 +150,7 @@ init_uvf_table(const char * UVFluctuationFile, const double BoxSize, const doubl
  * Otherwise returns the global UVBG passed in.
  *
  * */
-struct UVBG _get_local_UVBG_from_global(double redshift, double * Pos, const double * PosOffset)
+static struct UVBG get_local_UVBG_from_global(double redshift, double * Pos, const double * PosOffset)
 {
     if(fabs(redshift - GlobalUVRed) > 1e-4) {
         GlobalUVBG = get_global_UVBG(redshift);
@@ -181,7 +181,7 @@ struct UVBG _get_local_UVBG_from_global(double redshift, double * Pos, const dou
 
 // TODO (jdavies): have some sort of flag to switch between UBVG models:
 // also, redshift and PosOffset argument not used yet
-struct UVBG _get_local_UVBG_from_J21(double redshift, double * Pos, const double * PosOffset) {
+static struct UVBG get_local_UVBG_from_J21(double redshift, double * Pos, const double * PosOffset, int heiiionized) {
     int ind[3] = {-1};
     for (int ii = 0; ii<3; ii++)
     {
@@ -211,8 +211,7 @@ struct UVBG _get_local_UVBG_from_J21(double redshift, double * Pos, const double
     uvbg.epsHe0 = J21toUV.epsHe0 * J21 * 1.60218e-12;  // erg s-1
 
     //TODO:put a flag here or utilise the Upton-Sanderbeck code in cooling_qso_lightup.c to tell if heii is ionised
-    int heliumii = 0;
-    if(heliumii){
+    if(heiiionized){
         uvbg.gJHep  = J21toUV.gJHep * J21; // s-1
         uvbg.epsHep = J21toUV.epsHep * J21 * 1.60218e-12;  // erg s-1
     }
@@ -245,17 +244,17 @@ struct UVBG _get_local_UVBG_from_J21(double redshift, double * Pos, const double
     return uvbg;
 }
 
-//placeholder function so i don't have to delete old get_local_UVBG yet, or replace with a proper flag
-struct UVBG get_local_UVBG(double redshift, double * Pos, const double * PosOffset)
+//placeholder function so i don't have to delete old get_local_UVBG yet
+struct UVBG get_local_UVBG(double redshift, double * Pos, const double * PosOffset, int heiiionized)
 {
     if(All.ExcursionSetFlag)
     {
-        return _get_local_UVBG_from_J21(redshift,Pos,PosOffset);
+        return get_local_UVBG_from_J21(redshift,Pos,PosOffset,heiiionized);
     }
     else
     {
-        return _get_local_UVBG_from_global(redshift,Pos,PosOffset);
-
+        //(jdavies): I'm assuming the global UVBG properly deals with heii ionization, although i could modify it
+        return get_local_UVBG_from_global(redshift,Pos,PosOffset);
     }
 }
 

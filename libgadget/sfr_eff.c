@@ -382,7 +382,7 @@ cooling_direct(int i, const double a3inv, const double hubble)
     double uold = SPHP(i).Entropy * enttou;
 
     double redshift = 1./All.Time - 1;
-    struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos, PartManager->CurrentParticleOffset);
+    struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos, PartManager->CurrentParticleOffset, P[i]->HeIIIionized);
 
 
     double unew = DoCooling(redshift, uold, SPHP(i).Density * a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity, All.MinEgySpec, P[i].HeIIIionized);
@@ -435,7 +435,7 @@ sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
 double get_neutral_fraction_sfreff(double redshift, struct particle_data * partdata, struct sph_particle_data * sphdata)
 {
     double nh0;
-    struct UVBG uvbg = get_local_UVBG(redshift, partdata->Pos, PartManager->CurrentParticleOffset);
+    struct UVBG uvbg = get_local_UVBG(redshift, partdata->Pos, PartManager->CurrentParticleOffset,partdata->HeIIIionized);
     double physdens = sphdata->Density * All.cf.a3inv;
 
     if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, All.cf.a3inv)) {
@@ -463,7 +463,7 @@ double get_neutral_fraction_sfreff(double redshift, struct particle_data * partd
 double get_helium_neutral_fraction_sfreff(int ion, double redshift, struct particle_data * partdata, struct sph_particle_data * sphdata)
 {
     double helium;
-    struct UVBG uvbg = get_local_UVBG(redshift, partdata->Pos, PartManager->CurrentParticleOffset);
+    struct UVBG uvbg = get_local_UVBG(redshift, partdata->Pos, PartManager->CurrentParticleOffset,partdata->HeIIIionized);
     double physdens = sphdata->Density * All.cf.a3inv;
 
     if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, All.cf.a3inv)) {
@@ -670,7 +670,7 @@ struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_part
         data.tsfr = dtime;
 
     double redshift = 1./All.Time - 1;
-    struct UVBG uvbg = get_local_UVBG(redshift, part->Pos, PartManager->CurrentParticleOffset);
+    struct UVBG uvbg = get_local_UVBG(redshift, part->Pos, PartManager->CurrentParticleOffset,part->HeIIIionized);
 
     double factorEVP = pow(sph->Density * a3inv / sfr_params.PhysDensThresh, -0.8) * sfr_params.FactorEVP;
 
