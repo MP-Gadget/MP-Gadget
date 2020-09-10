@@ -72,7 +72,7 @@ static gsl_interp * GrayOpac;
 /*Tables for the self-shielding correction. Note these are not well-measured for z > 5!*/
 #define NGRAY 6
 /*  Gray Opacity for the Faucher-Giguere 2009 UVB. HM2018 is a little larger and would lead to a 10% higher self-shielding threshold.*/
-static double GrayOpac_ydata[NGRAY] = { 2.59e-18, 2.37e-18, 2.27e-18, 2.15e-18, 2.02e-18, 1.94e-18};
+static const double GrayOpac_ydata[NGRAY] = { 2.59e-18, 2.37e-18, 2.27e-18, 2.15e-18, 2.02e-18, 1.94e-18};
 static const double GrayOpac_zz[NGRAY] = {0, 1, 2, 3, 4, 5};
 
 /*Convenience structure bundling together the gsl interpolation routines.*/
@@ -965,11 +965,12 @@ init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, Cosmol
     CoolingParams.fBar = CP->OmegaBaryon / CP->OmegaCDM;
     CoolingParams.rho_crit_baryon = CP->OmegaBaryon * 3.0 * pow(CP->HubbleParam*HUBBLE,2.0) /(8.0*M_PI*GRAVITY);
 
-    /*Initialize the interpolation for the self-shielding module as a function of redshift.*/
-    GrayOpac = gsl_interp_alloc(gsl_interp_cspline,NGRAY);
+    /* Initialize the interpolation for the self-shielding module as a function of redshift.
+     * A crash has been observed in GSL with a cspline interpolator. */
+    GrayOpac = gsl_interp_alloc(gsl_interp_linear,NGRAY);
     gsl_interp_init(GrayOpac,GrayOpac_zz,GrayOpac_ydata, NGRAY);
 
-    if(strlen(TreeCoolFile) == 0) {
+    if(!TreeCoolFile || strnlen(TreeCoolFile,100) == 0) {
         CoolingParams.PhotoIonizationOn = 0;
         message(0, "No TreeCool file is provided. Cooling is broken. OK for DM only runs. \n");
     }

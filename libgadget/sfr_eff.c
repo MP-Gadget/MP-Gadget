@@ -128,9 +128,6 @@ void set_sfr_params(ParameterSet * ps)
 void
 cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * GradRho, FILE * FdSfr)
 {
-    if(!All.CoolingOn)
-        return;
-
     const int nthreads = omp_get_max_threads();
     /*This is a queue for the new stars and their parents, so we can reallocate the slots after the main cooling loop.*/
     int * NewStars = NULL;
@@ -709,10 +706,10 @@ get_egyeff(double redshift, double dens, struct UVBG * uvbg)
     return egyhot * (1 - x) + sfr_params.EgySpecCold * x;
 }
 
-void init_cooling_and_star_formation(void)
+void init_cooling_and_star_formation(int CoolingOn)
 {
     struct cooling_units coolunits;
-    coolunits.CoolingOn = All.CoolingOn;
+    coolunits.CoolingOn = CoolingOn;
     coolunits.density_in_phys_cgs = All.UnitDensity_in_cgs * All.CP.HubbleParam * All.CP.HubbleParam;
     coolunits.uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
     coolunits.tt_in_s = All.UnitTime_in_s / All.CP.HubbleParam;
@@ -724,6 +721,10 @@ void init_cooling_and_star_formation(void)
     All.MinEgySpec = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * sfr_params.MinGasTemp / coolunits.uu_in_cgs;
 
     init_cooling(sfr_params.TreeCoolFile, sfr_params.MetalCoolFile, sfr_params.ReionHistFile, coolunits, &All.CP);
+
+    if(!CoolingOn)
+        return;
+
     /*Initialize the uv fluctuation table*/
     init_uvf_table(sfr_params.UVFluctuationFile, All.BoxSize, All.UnitLength_in_cm);
 
