@@ -34,4 +34,8 @@ void mpsort_mpi_newarray_impl(void * base, size_t nmemb,
 
 void mpsort_mpi_report_last_run();
 
+void mpsort_setup_timers(int ntimers);
+
+void mpsort_free_timers(void);
+
 #endif
