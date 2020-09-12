@@ -130,8 +130,9 @@ force_tree_eh_slots_fork(EIBase * event, void * userdata)
      * the only new particles are stars, which do not
      * participate in the SPH tree walk.*/
     if(nop->s.noccupied < NMAXCHILD) {
-       nop->s.suns[nop->s.noccupied-1] = child;
-        nop->s.noccupied++;
+       nop->s.suns[nop->s.noccupied] = child;
+       nop->s.Types += P[child].Type << (3*nop->s.noccupied);
+       nop->s.noccupied++;
     }
     tree->Father[child] = no;
     return 0;
@@ -295,6 +296,7 @@ static void init_internal_node(struct NODE *nfreep, struct NODE *parent, int sub
     for(j = 0; j < NMAXCHILD; j++)
         nfreep->s.suns[j] = -1;
     nfreep->s.noccupied = 0;
+    nfreep->s.Types = 0;
     memset(&(nfreep->mom.cofm),0,3*sizeof(MyFloat));
     nfreep->mom.mass = 0;
     nfreep->mom.hmax = 0;
@@ -332,6 +334,8 @@ modify_internal_node(int parent, int subnode, int p_toplace, const ForceTree tb,
 {
     tb.Father[p_toplace] = parent;
     tb.Nodes[parent].s.suns[subnode] = p_toplace;
+    /* Encode the type in the Types array*/
+    tb.Nodes[parent].s.Types += P[p_toplace].Type << (3*subnode);
     if(!HybridNuGrav || P[p_toplace].Type != ForceTreeParams.FastParticleType)
         add_particle_moment_to_node(&tb.Nodes[parent], p_toplace);
     return 0;
@@ -456,6 +460,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
             nfreep->center[i] = BoxSize/2.;
         for(i = 0; i < NMAXCHILD; i++)
             nfreep->s.suns[i] = -1;
+        nfreep->s.Types = 0;
         nfreep->s.noccupied = 0;
         nfreep->father = -1;
         nfreep->sibling = -1;
@@ -612,6 +617,7 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
 
                 int count = i + 2 * j + 4 * k;
 
+                Nodes[no].s.Types = 0;
                 Nodes[no].s.suns[count] = *nextfree;
                 /*We are an internal top level node as we now have a child top level.*/
                 Nodes[no].f.InternalTopLevel = 1;

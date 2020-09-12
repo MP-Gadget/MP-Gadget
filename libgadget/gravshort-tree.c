@@ -181,21 +181,16 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
 static void
 apply_accn_to_output(TreeWalkResultGravShort * output, const double dx[3], const double r2, const double h, const double mass, const double cellsize)
 {
-    double facpot, fac;
-
     const double r = sqrt(r2);
 
-    if(r >= h)
-    {
-        fac = mass / (r2 * r);
-        facpot = -mass / r;
-    }
-    else
+    double fac = mass / (r2 * r);
+    double facpot = -mass / r;
+
+    if(r2 < h*h)
     {
         double wp;
-        const double h_inv = 1.0 / h;
-        const double h3_inv = h_inv * h_inv * h_inv;
-        const double u = r * h_inv;
+        const double h3_inv = 1.0 / h / h / h;
+        const double u = r / h;
         if(u < 0.5) {
             fac = mass * h3_inv * (10.666666666667 + u * u * (32.0 * u - 38.4));
             wp = -2.8 + u * u * (5.333333333333 + u * u * (6.4 * u - 9.6));
@@ -208,8 +203,7 @@ apply_accn_to_output(TreeWalkResultGravShort * output, const double dx[3], const
                 -3.2 + 0.066666666667 / u + u * u * (10.666666666667 +
                         u * (-16.0 + u * (9.6 - 2.133333333333 * u)));
         }
-
-        facpot = mass * h_inv * wp;
+        facpot = mass / h * wp;
     }
 
     if(0 == grav_apply_short_range_window(r, &fac, &facpot, cellsize)) {
@@ -405,9 +399,12 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                 dx[j] = NEAREST(P[pp].Pos[j] - inpos[j], BoxSize);
             const double r2 = dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2];
 
-            double h = input->Soft;
-            if(TreeParams.AdaptiveSoftening == 1)
-                h = DMAX(h, FORCE_SOFTENING(pp, P[pp].Type));
+            /* This is always the Newtonian softening,
+             * match the default from FORCE_SOFTENING. */
+            double h = 2.8 * GravitySoftening;
+            if(TreeParams.AdaptiveSoftening == 1) {
+                h = DMAX(input->Soft, FORCE_SOFTENING(pp, P[pp].Type));
+            }
             /* Compute the acceleration and apply it to the output structure*/
             apply_accn_to_output(output, dx, r2, h, P[pp].Mass, cellsize);
         }
