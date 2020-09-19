@@ -7,6 +7,7 @@
 #include "utils.h"
 
 #include "allvars.h"
+#include "timebinmgr.h"
 #include "domain.h"
 #include "timefac.h"
 #include "cosmology.h"
@@ -78,12 +79,6 @@ static TimeSpan PM;
 inttime_t get_pm_kick(void)
 {
     return PM.Ti_kick;
-}
-
-/*Get the dti from the timebin*/
-static inline inttime_t dti_from_timebin(int bin) {
-    /*Casts to work around bug in intel compiler 18.0*/
-    return bin > 0 ? (1u << (unsigned) bin) : 0;
 }
 
 static inline int get_active_particle(const ActiveParticles * act, int pa)
@@ -371,7 +366,7 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
     {
         P[i].Vel[j] += P[i].GravAccel[j] * Fgravkick;
     }
-    
+
     /* Add kick from dynamic friction and hydro drag for BHs. */
     if(P[i].Type == 5) {
         for(j = 0; j < 3; j++){
@@ -379,7 +374,7 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
             P[i].Vel[j] += BHP(i).DragAccel[j] * Fgravkick;
         }
     }
-    
+
     if(P[i].Type == 0) {
         const double Fhydrokick = get_hydrokick_factor(tistart, tiend);
         /* Add kick from hydro and SPH stuff */
