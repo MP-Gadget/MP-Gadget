@@ -251,9 +251,9 @@ ti_from_loga(double loga)
 }
 
 double
-dloga_from_dti(inttime_t dti)
+dloga_from_dti(inttime_t dti, const inttime_t Ti_Current)
 {
-    double Dloga = Dloga_interval_ti(All.Ti_Current);
+    double Dloga = Dloga_interval_ti(Ti_Current);
     int sign = 1;
     if(dti < 0) {
         dti = -dti;
@@ -266,17 +266,17 @@ dloga_from_dti(inttime_t dti)
 }
 
 inttime_t
-dti_from_dloga(double loga)
+dti_from_dloga(double loga, const inttime_t Ti_Current)
 {
-    inttime_t ti = ti_from_loga(loga_from_ti(All.Ti_Current));
-    inttime_t tip = ti_from_loga(loga+loga_from_ti(All.Ti_Current));
+    inttime_t ti = ti_from_loga(loga_from_ti(Ti_Current));
+    inttime_t tip = ti_from_loga(loga+loga_from_ti(Ti_Current));
     return tip - ti;
 }
 
 double
-get_dloga_for_bin(int timebin)
+get_dloga_for_bin(int timebin, const inttime_t Ti_Current)
 {
-    double logDTime = Dloga_interval_ti(All.Ti_Current);
+    double logDTime = Dloga_interval_ti(Ti_Current);
     return (timebin > 0 ? (1u << (unsigned) timebin) : 0 ) * logDTime;
 }
 

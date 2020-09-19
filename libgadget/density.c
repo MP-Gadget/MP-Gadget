@@ -71,7 +71,7 @@ GetDensityKernelType(void)
 static MyFloat
 SPH_EntVarPred(int i, double MinEgySpec, double a3inv)
 {
-        double dloga = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick);
+        double dloga = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick, P[i].Ti_drift);
         double EntVarPred = SPHP(i).Entropy + SPHP(i).DtEntropy * dloga;
         /*Entropy limiter for the predicted entropy: makes sure entropy stays positive. */
         if(dloga > 0 && EntVarPred < 0.5*SPHP(i).Entropy)

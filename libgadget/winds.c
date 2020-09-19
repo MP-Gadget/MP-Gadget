@@ -321,7 +321,7 @@ winds_evolve(int i, double a3inv, double hubble)
     }
     /*Reduce the time until the particle can form stars again by the current timestep*/
     if(SPHP(i).DelayTime > 0) {
-        const double dloga = get_dloga_for_bin(P[i].TimeBin);
+        const double dloga = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift);
         /*  the proper time duration of the step */
         const double dtime = dloga / hubble;
         SPHP(i).DelayTime = DMAX(SPHP(i).DelayTime - dtime, 0);
@@ -392,7 +392,7 @@ sfr_wind_reduce_weight(int place, TreeWalkResultWind * O, enum TreeWalkReduceMod
 static void
 sfr_wind_copy(int place, TreeWalkQueryWind * input, TreeWalk * tw)
 {
-    double dtime = get_dloga_for_bin(P[place].TimeBin) / WIND_GET_PRIV(tw)->hubble;
+    double dtime = get_dloga_for_bin(P[place].TimeBin, P[place].Ti_drift) / WIND_GET_PRIV(tw)->hubble;
     struct winddata * Windd = WIND_GET_PRIV(tw)->Winddata;
 
     input->ID = P[place].ID;

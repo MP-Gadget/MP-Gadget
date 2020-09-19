@@ -34,11 +34,11 @@ double loga_from_ti(inttime_t ti);
 inttime_t ti_from_loga(double loga);
 
 /*Convert changes in loga to and from ti*/
-inttime_t dti_from_dloga(double loga);
-double dloga_from_dti(inttime_t ti);
+inttime_t dti_from_dloga(double loga, const inttime_t Ti_Current);
+double dloga_from_dti(inttime_t dti, const inttime_t Ti_Current);
 
 /*Get dloga from a timebin*/
-double get_dloga_for_bin(int timebin);
+double get_dloga_for_bin(int timebin, const inttime_t Ti_Current);
 
 /*Get the dti from the timebin*/
 static inline inttime_t dti_from_timebin(int bin) {

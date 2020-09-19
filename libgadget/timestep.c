@@ -103,7 +103,7 @@ timestep_eh_slots_fork(EIBase * event, void * userdata)
     int child = ev->child;
     ActiveParticles * act = (ActiveParticles *) userdata;
 
-    if(is_timebin_active(P[parent].TimeBin, All.Ti_Current)) {
+    if(is_timebin_active(P[parent].TimeBin, P[parent].Ti_drift)) {
         int childactive = atomic_fetch_and_add(&act->NumActiveParticle, 1);
         if(act->ActiveParticle) {
             /* This should never happen because we allocate as much space for active particles as we have space
@@ -268,7 +268,7 @@ find_timesteps(const ActiveParticles * act, inttime_t Ti_Current)
      * between PM timesteps, thus skipping the PM step entirely.*/
     if(isPM && PM.length > dti_from_timebin(maxTimeBin))
         PM.length = dti_from_timebin(maxTimeBin);
-    message(0, "PM timebin: %x dloga = %g  Max = (%g)\n", PM.length, dloga_from_dti(PM.length), TimestepParams.MaxSizeTimestep);
+    message(0, "PM timebin: %x dloga = %g  Max = (%g)\n", PM.length, dloga_from_dti(PM.length, Ti_Current), TimestepParams.MaxSizeTimestep);
 
     /* BH particles have their timesteps set by a timestep limiter.
      * On the first timestep this is not effective because all the particles have zero timestep.
@@ -402,7 +402,7 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
            This limiter is here as well as in sfr_eff.c because the
            timestep may increase. */
 
-        const double dt_entr = dloga_from_dti(tiend-tistart);
+        const double dt_entr = dloga_from_dti(tiend-tistart, P[i].Ti_drift);
         if(SPHP(i).DtEntropy * dt_entr < -0.5 * SPHP(i).Entropy)
             SPHP(i).Entropy *= 0.5;
         else
@@ -473,7 +473,7 @@ get_timestep_dloga(const int p)
                 dt = dt_accr;
         }
         if(BHP(p).minTimeBin > 0 && BHP(p).minTimeBin+1 < TIMEBINS) {
-            double dt_limiter = get_dloga_for_bin(BHP(p).minTimeBin+1) / All.cf.hubble;
+            double dt_limiter = get_dloga_for_bin(BHP(p).minTimeBin+1, P[p].Ti_drift) / All.cf.hubble;
             /* Set the black hole timestep to the minimum timesteps of neighbouring gas particles.
              * It should be at least this for accretion accuracy, and it does not make sense to
              * make it less than this. We go one timestep up because often the smallest
@@ -512,7 +512,7 @@ get_timestep_ti(const int p, const inttime_t dti_max)
     if(dloga < TimestepParams.MinSizeTimestep)
         dloga = TimestepParams.MinSizeTimestep;
 
-    dti = dti_from_dloga(dloga);
+    dti = dti_from_dloga(dloga, P[p].Ti_drift);
 
     /* Check for overflow*/
     if(dti > dti_max || dti < 0)
@@ -642,7 +642,7 @@ get_PM_timestep_ti(inttime_t Ti_Current)
 {
     double dloga = get_long_range_timestep_dloga();
 
-    inttime_t dti = dti_from_dloga(dloga);
+    inttime_t dti = dti_from_dloga(dloga, Ti_Current);
     dti = round_down_power_of_two(dti);
 
     SyncPoint * next = find_next_sync_point(Ti_Current);
@@ -833,7 +833,7 @@ static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountTyp
                 tot_count_type[3][i],
                 tot_count_type[4][i],
                 tot_count_type[5][i],
-                get_dloga_for_bin(i));
+                get_dloga_for_bin(i, All.Ti_Current));
 
         if(is_timebin_active(i, All.Ti_Current))
         {

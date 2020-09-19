@@ -23,8 +23,6 @@ static void test_conversions(void ** state) {
 
     setup_sync_points(All.TimeIC, 0.0);
 
-    All.Ti_Current = ti_from_loga(log(0.55));
-
     /*Convert an integer to and from loga*/
     /* double loga_from_ti(unsigned int ti); */
     assert_true(fabs(loga_from_ti(0) - logouts[0]) < 1e-6);
@@ -75,16 +73,16 @@ static void test_dloga(void ** state) {
 
     setup_sync_points(All.TimeIC, 0.0);
 
-    All.Ti_Current = ti_from_loga(log(0.55));
+    inttime_t Ti_Current = ti_from_loga(log(0.55));
 
     /* unsigned int dti_from_dloga(double loga); */
     /* double dloga_from_dti(unsigned int ti); */
 
     /*Get dloga from a timebin*/
     /* double get_dloga_for_bin(int timebin); */
-    assert_true(fabs(get_dloga_for_bin(0))<1e-6);
-    assert_true(fabs(get_dloga_for_bin(TIMEBINS)-(logouts[2]-logouts[1]))<1e-6);
-    assert_true(fabs(get_dloga_for_bin(TIMEBINS-2)-(logouts[2]-logouts[1])/4)<1e-6);
+    assert_true(fabs(get_dloga_for_bin(0, Ti_Current ))<1e-6);
+    assert_true(fabs(get_dloga_for_bin(TIMEBINS, Ti_Current )-(logouts[2]-logouts[1]))<1e-6);
+    assert_true(fabs(get_dloga_for_bin(TIMEBINS-2, Ti_Current)-(logouts[2]-logouts[1])/4)<1e-6);
 
     /*Enforce that an integer time is a power of two*/
     /* unsigned int round_down_power_of_two(unsigned int ti); */

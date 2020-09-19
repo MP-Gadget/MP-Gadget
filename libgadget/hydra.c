@@ -352,7 +352,7 @@ hydro_ngbiter(
             /* now make sure that viscous acceleration is not too large */
 
             /*XXX: why is this dloga ?*/
-            double dloga = 2 * get_dloga_for_bin(IMAX(I->TimeBin, P[other].TimeBin));
+            double dloga = 2 * get_dloga_for_bin(IMAX(I->TimeBin, P[other].TimeBin), P[other].Ti_drift);
             if(dloga > 0 && (dwk_i + dwk_j) < 0)
             {
                 if((I->Mass + P[other].Mass) > 0) {
