@@ -124,18 +124,19 @@ static void do_the_long_range_kick(inttime_t tistart, inttime_t tiend);
 static inttime_t get_PM_timestep_ti(inttime_t Ti_Current);
 
 /*Initialise the integer timeline*/
-void
+inttime_t
 init_timebins(double TimeInit)
 {
-    All.Ti_Current = ti_from_loga(log(TimeInit));
+    inttime_t Ti_Current = ti_from_loga(log(TimeInit));
     /*Enforce Ti_Current is initially even*/
-    if(All.Ti_Current % 2 == 1)
-        All.Ti_Current++;
-    message(0, "Initial TimeStep at TimeInit %g Ti_Current = %d \n", TimeInit, All.Ti_Current);
+    if(Ti_Current % 2 == 1)
+        Ti_Current++;
+    message(0, "Initial TimeStep at TimeInit %g Ti_Current = %d \n", TimeInit, Ti_Current);
     /* this makes sure the first step is a PM step. */
     PM.length = 0;
-    PM.Ti_kick = All.Ti_Current;
-    PM.start = All.Ti_Current;
+    PM.Ti_kick = Ti_Current;
+    PM.start = Ti_Current;
+    return Ti_Current;
 }
 
 int is_timebin_active(int i, inttime_t current) {

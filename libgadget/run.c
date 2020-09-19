@@ -158,7 +158,7 @@ run(int RestartSnapNum)
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.G);
 
     DomainDecomp ddecomp[1] = {0};
-    init(RestartSnapNum, ddecomp);          /* ... read in initial model */
+    inttime_t Ti_Current = init(RestartSnapNum, ddecomp);          /* ... read in initial model */
 
     /* Stored scale factor of the next black hole seeding check*/
     double TimeNextSeedingCheck = All.Time;
@@ -177,26 +177,26 @@ run(int RestartSnapNum)
          * all bins except the zeroth are inactive and so we return 0 from this function.
          * This ensures we run the force calculation for the first timestep.
          */
-        inttime_t Ti_Next = find_next_kick(All.Ti_Current, minTimeBin);
+        inttime_t Ti_Next = find_next_kick(Ti_Current, minTimeBin);
 
         /* Compute the list of particles that cross a lightcone and write it to disc.*/
         if(All.LightconeOn)
-            lightcone_compute(All.Time, &All.CP, All.Ti_Current, Ti_Next);
+            lightcone_compute(All.Time, &All.CP, Ti_Current, Ti_Next);
 
-        All.Ti_Current = Ti_Next;
+        Ti_Current = Ti_Next;
 
         /*Convert back to floating point time*/
-        set_global_time(All.Ti_Current);
+        set_global_time(Ti_Current);
         if(All.TimeStep < 0)
             endrun(1, "Negative timestep: %g New Time: %g!\n", All.TimeStep, All.Time);
 
-        int is_PM = is_PM_timestep(All.Ti_Current);
+        int is_PM = is_PM_timestep(Ti_Current);
 
         SyncPoint * next_sync; /* if we are out of planned sync points, terminate */
         SyncPoint * planned_sync; /* NULL; if the step is not a planned sync point. */
 
-        next_sync = find_next_sync_point(All.Ti_Current);
-        planned_sync = find_current_sync_point(All.Ti_Current);
+        next_sync = find_next_sync_point(Ti_Current);
+        planned_sync = find_current_sync_point(Ti_Current);
 
         HCIAction action[1];
 
@@ -218,7 +218,7 @@ run(int RestartSnapNum)
             update_random_offset(rel_random_shift);
         }
         /* Sync positions of all particles */
-        drift_all_particles(All.Ti_Current, All.BoxSize, &All.CP, rel_random_shift);
+        drift_all_particles(Ti_Current, All.BoxSize, &All.CP, rel_random_shift);
 
         /* drift and ddecomp decomposition */
 
@@ -235,9 +235,9 @@ run(int RestartSnapNum)
         }
 
         ActiveParticles Act = {0};
-        rebuild_activelist(&Act, All.Ti_Current, NumCurrentTiStep);
+        rebuild_activelist(&Act, Ti_Current, NumCurrentTiStep);
 
-        set_random_numbers(All.RandomSeed + All.Ti_Current);
+        set_random_numbers(All.RandomSeed + Ti_Current);
 
         /* Are the particle neutrinos gravitating this timestep?
          * If so we need to add them to the tree.*/
@@ -402,7 +402,7 @@ run(int RestartSnapNum)
         /* assign new timesteps to the active particles,
          * now that we know they have synched TiKick and TiDrift,
          * and advance the PM timestep.*/
-        minTimeBin = find_timesteps(&Act, All.Ti_Current);
+        minTimeBin = find_timesteps(&Act, Ti_Current);
 
         /* Update velocity to the new step, with the newly computed step size */
         apply_half_kick(&Act);

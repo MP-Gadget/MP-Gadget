@@ -30,7 +30,7 @@ int is_timebin_active(int i, inttime_t current);
 
 inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin);
 
-void init_timebins(double TimeInit);
+inttime_t init_timebins(double TimeInit);
 
 int is_PM_timestep(inttime_t ti);
 

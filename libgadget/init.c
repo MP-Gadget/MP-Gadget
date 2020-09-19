@@ -142,7 +142,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp);
  *  intial domain decomposition is performed. If SPH particles are present,
  *  the initial SPH smoothing lengths are determined.
  */
-void init(int RestartSnapNum, DomainDecomp * ddecomp)
+inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
 {
     int i, j;
 
@@ -163,10 +163,10 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
         }
     }
 
-    init_timebins(All.TimeInit);
+    inttime_t Ti_Current = init_timebins(All.TimeInit);
 
     /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
-    set_global_time(All.Ti_Current);
+    set_global_time(Ti_Current);
 
     init_drift_table(&All.CP, All.TimeInit, All.TimeMax);
 
@@ -188,7 +188,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)	/* initialize sph_properties */
     {
-        P[i].Ti_drift = P[i].Ti_kick = All.Ti_Current;
+        P[i].Ti_drift = P[i].Ti_kick = Ti_Current;
 
         if(All.BlackHoleOn && RestartSnapNum == -1 && P[i].Type == 5 )
         {
@@ -201,7 +201,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
             if(P[i].Hsml == 0)
                 P[i].Hsml = 0.01 * All.MeanSeparation[0];
         }
-        
+
         if(All.BlackHoleOn && P[i].Type == 5)
         {
             for(j = 0; j < 3; j++) {
@@ -209,7 +209,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
                 BHP(i).DragAccel[j] = 0;
             }
         }
-        
+
         P[i].Key = PEANO(P[i].Pos, All.BoxSize);
 
         if(P[i].Type != 0) continue;
@@ -243,6 +243,8 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
 
     if(All.DensityOn)
         setup_smoothinglengths(RestartSnapNum, ddecomp);
+
+    return Ti_Current;
 }
 
 

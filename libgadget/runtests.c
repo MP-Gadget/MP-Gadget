@@ -87,7 +87,7 @@ void runtests(int RestartSnapNum)
     DomainDecomp ddecomp[1] = {0};
     /* So we can run a test on the final snapshot*/
     All.TimeMax = All.TimeInit * 1.1;
-    init(RestartSnapNum, ddecomp);          /* ... read in initial model */
+    inttime_t Ti_Current = init(RestartSnapNum, ddecomp);          /* ... read in initial model */
 
     struct IOTable IOTable = {0};
     register_io_blocks(&IOTable, 0);
@@ -96,7 +96,7 @@ void runtests(int RestartSnapNum)
     int NTask;
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     ActiveParticles Act = {0};
-    rebuild_activelist(&Act, All.Ti_Current, 0);
+    rebuild_activelist(&Act, Ti_Current, 0);
 
     ForceTree Tree = {0};
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1, 1, All.OutputDir);
