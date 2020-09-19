@@ -1,9 +1,8 @@
 #include <math.h>
 #include <string.h>
+#include <stdlib.h>
 
-#include "allvars.h"
 #include "timebinmgr.h"
-
 #include "utils.h"
 
 /*! table with desired sync points. All forces and phase space variables are synchonized to the same order. */
@@ -96,7 +95,7 @@ void set_sync_params(int OutputListLength, double * OutputListTimes)
  * integer stamps.
  **/
 void
-setup_sync_points(double TimeIC, double no_snapshot_until_time)
+setup_sync_points(double TimeIC, double TimeMax, double no_snapshot_until_time, int SnapshotWithFOF)
 {
     int i;
 
@@ -112,8 +111,8 @@ setup_sync_points(double TimeIC, double no_snapshot_until_time)
     SyncPoints[0].loga = log(TimeIC);
     SyncPoints[0].write_snapshot = 0; /* by default no output here. */
     SyncPoints[0].write_fof = 0;
-    SyncPoints[1].a = All.TimeMax;
-    SyncPoints[1].loga = log(All.TimeMax);
+    SyncPoints[1].a = TimeMax;
+    SyncPoints[1].loga = log(TimeMax);
     SyncPoints[1].write_snapshot = 1;
     SyncPoints[1].write_fof = 0;
     NSyncPoints = 2;
@@ -146,7 +145,7 @@ setup_sync_points(double TimeIC, double no_snapshot_until_time)
         }
         if(SyncPoints[j].a > no_snapshot_until_time) {
             SyncPoints[j].write_snapshot = 1;
-            if(All.SnapshotWithFOF) {
+            if(SnapshotWithFOF) {
                 SyncPoints[j].write_fof = 1;
             }
             else
