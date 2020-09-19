@@ -174,7 +174,7 @@ set_global_time(const inttime_t Ti_Current) {
  * It will also shrink the PM timestep to the longest short-range timestep.
  * Returns the minimum timestep found.*/
 int
-find_timesteps(const ActiveParticles * act, inttime_t Ti_Current)
+find_timesteps(const ActiveParticles * act, const inttime_t Ti_Current)
 {
     int pa;
     inttime_t dti_min = TIMEBASE;
@@ -689,7 +689,7 @@ inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin)
     return Ti_Current + dti_from_timebin(minTimeBin);
 }
 
-static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountType);
+static void print_timebin_statistics(const inttime_t Ti_Current, const int NumCurrentTiStep, int * TimeBinCountType);
 
 /* mark the bins that will be active before the next kick*/
 int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurrentTiStep)
@@ -745,7 +745,7 @@ int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurre
     ta_free(NActiveThread);
 
     /*Print statistics for this time bin*/
-    print_timebin_statistics(NumCurrentTiStep, TimeBinCountType);
+    print_timebin_statistics(Ti_Current, NumCurrentTiStep, TimeBinCountType);
     myfree(TimeBinCountType);
 
     /* Shrink the ActiveParticle array. We still need extra space for star formation,
@@ -773,7 +773,7 @@ void free_activelist(ActiveParticles * act)
  * FdCPU the cumulative cpu-time consumption in various parts of the
  * code is stored.
  */
-static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountType)
+static void print_timebin_statistics(const inttime_t Ti_Current, const int NumCurrentTiStep, int * TimeBinCountType)
 {
     double z;
     int i;
@@ -803,18 +803,18 @@ static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountTyp
             TotNumType[j] += tot_count_type[j][i];
             TotNumPart += tot_count_type[j][i];
         }
-        if(is_timebin_active(i, All.Ti_Current))
+        if(is_timebin_active(i, Ti_Current))
             tot_num_force += tot_count[i];
     }
 
     char extra[20] = {0};
 
-    if(is_PM_timestep(All.Ti_Current))
+    if(is_PM_timestep(Ti_Current))
         strcat(extra, "PM-Step");
 
     z = 1.0 / (All.Time) - 1;
     message(0, "Begin Step %d, Time: %g (%x), Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
-                NumCurrentTiStep, All.Time, All.Ti_Current, z, tot_num_force,
+                NumCurrentTiStep, All.Time, Ti_Current, z, tot_num_force,
                 All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep),
                 extra);
 
@@ -825,7 +825,7 @@ static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountTyp
     for(i = TIMEBINS;  i >= 0; i--) {
         if(tot_count[i] == 0) continue;
         message(0, " %c bin=%2d % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld %6g\n",
-                is_timebin_active(i, All.Ti_Current) ? 'X' : ' ',
+                is_timebin_active(i, Ti_Current) ? 'X' : ' ',
                 i,
                 tot_count_type[0][i],
                 tot_count_type[1][i],
@@ -833,9 +833,9 @@ static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountTyp
                 tot_count_type[3][i],
                 tot_count_type[4][i],
                 tot_count_type[5][i],
-                get_dloga_for_bin(i, All.Ti_Current));
+                get_dloga_for_bin(i, Ti_Current));
 
-        if(is_timebin_active(i, All.Ti_Current))
+        if(is_timebin_active(i, Ti_Current))
         {
             tot += tot_count[i];
             int ptype;
