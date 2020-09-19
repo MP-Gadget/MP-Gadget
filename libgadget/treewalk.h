@@ -89,8 +89,6 @@ struct TreeWalk {
     size_t result_type_elsize;
     size_t ngbiter_type_elsize;
 
-    binmask_t bgmask; /* if set, the bins to compute force from; used if TreeWalkType is SPLIT */
-
     TreeWalkVisitFunction visit;                /* Function to be called between a tree node and a particle */
     TreeWalkHasWorkFunction haswork; /* Is the particle part of this interaction? */
     TreeWalkFillQueryFunction fill;       /* Copy the useful attributes of a particle to a query */
