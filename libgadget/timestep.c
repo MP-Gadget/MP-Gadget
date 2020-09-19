@@ -729,6 +729,11 @@ int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurre
         const int tid = omp_get_thread_num();
         if(P[i].IsGarbage || P[i].Swallowed)
             continue;
+        /* when we are in PM, all particles must have been synced. */
+        if (P[i].Ti_drift != Ti_Current) {
+            endrun(5, "Particle %d type %d has drift time %x not ti_current %x!",i, P[i].Type, P[i].Ti_drift, Ti_Current);
+        }
+
         if(act->ActiveParticle && is_timebin_active(bin, Ti_Current))
         {
             /* Store this particle in the ActiveSet for this thread*/
