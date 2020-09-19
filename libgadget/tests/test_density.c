@@ -119,7 +119,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     double start, end;
     start = MPI_Wtime();
     /*Find the density*/
-    density(&act, 1, 0, 0, 1, 0, 0.01, &data->sph_pred, NULL, &tree);
+    density(&act, 1, 0, 0, 1, 0, 0, &data->sph_pred, NULL, &tree);
     end = MPI_Wtime();
     double ms = (end - start)*1000;
     message(0, "Found densities in %.3g ms\n", ms);
@@ -143,7 +143,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
 
     start = MPI_Wtime();
     /*Find the density*/
-    density(&act, 1, 0, 0, 1, 0, 0.01, &data->sph_pred, NULL, &tree);
+    density(&act, 1, 0, 0, 1, 0, 0, &data->sph_pred, NULL, &tree);
     end = MPI_Wtime();
     ms = (end - start)*1000;
     message(0, "Found 1 dev densities in %.3g ms\n", ms);
@@ -301,6 +301,9 @@ static int teardown_density(void **state) {
 static struct ClockTable CT;
 
 static int setup_density(void **state) {
+    /* Needed so the integer timeline works*/
+    setup_sync_points(0.01, 0.1, 0.0, 0);
+
     /*Reserve space for the slots*/
     slots_init(0.01 * PartManager->MaxPart, SlotsManager);
     slots_set_enabled(0, sizeof(struct sph_particle_data), SlotsManager);

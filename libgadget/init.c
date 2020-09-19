@@ -135,7 +135,7 @@ static void check_omega(int generations);
 static void check_positions(void);
 
 static void
-setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp);
+setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime_t Ti_Current);
 
 /*! This function reads the initial conditions, and allocates storage for the
  *  tree(s). Various variables of the particle data are initialised and An
@@ -242,7 +242,7 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
     if(All.DensityOn)
-        setup_smoothinglengths(RestartSnapNum, ddecomp);
+        setup_smoothinglengths(RestartSnapNum, ddecomp, Ti_Current);
 
     return Ti_Current;
 }
@@ -317,7 +317,7 @@ void check_positions(void)
  * Initialization of the entropy variable is a little trickier in this version of SPH,
  * since we need to make sure it 'talks to' the density appropriately */
 static void
-setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, struct sph_pred_data * sph_pred, double u_init, double a3)
+setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, struct sph_pred_data * sph_pred, double u_init, double a3, const inttime_t Ti_Current)
 {
     int j;
     int stop = 0;
@@ -340,7 +340,7 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, struc
             olddensity[i] = SphP[i].EgyWtDensity;
         }
         /* Update the EgyWtDensity*/
-        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, 0,  All.Time, sph_pred, NULL, Tree);
+        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, 0,  Ti_Current, sph_pred, NULL, Tree);
         if(stop)
             break;
 
@@ -369,7 +369,7 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, struc
  *  then iterate if needed to find the right smoothing length.
  */
 static void
-setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
+setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime_t Ti_Current)
 {
     int i;
     const double a3 = All.Time * All.Time * All.Time;
@@ -462,7 +462,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
     act.ActiveParticle = NULL;
     act.NumActiveParticle = PartManager->NumPart;
 
-    density(&act, 1, 0, All.BlackHoleOn, All.HydroCostFactor, 0,  All.Time, &sph_pred, NULL, &Tree);
+    density(&act, 1, 0, All.BlackHoleOn, All.HydroCostFactor, 0,  Ti_Current, &sph_pred, NULL, &Tree);
 
     /* for clean IC with U input only, we need to iterate to find entrpoy */
     if(RestartSnapNum == -1)
@@ -482,7 +482,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
         /* snapshot already has EgyWtDensity; hope it is read in correctly.
          * (need a test on this!) */
         if(DensityIndependentSphOn()) {
-            setup_density_indep_entropy(&act, &Tree, &sph_pred, u_init, a3);
+            setup_density_indep_entropy(&act, &Tree, &sph_pred, u_init, a3, Ti_Current);
         }
         else {
            /*Initialize to initial energy*/
