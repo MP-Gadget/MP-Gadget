@@ -88,12 +88,10 @@ SPH_EntVarPred(int i, double MinEgySpec, double a3inv)
  * which always coincides with the Drift inttime.
  * For hydro forces.*/
 static void
-SPH_VelPred(int i, MyFloat * VelPred, const inttime_t ti)
+SPH_VelPred(int i, MyFloat * VelPred, const double FgravkickB, const inttime_t ti)
 {
     const double Fgravkick2 = get_gravkick_factor(P[i].Ti_kick, ti);
     const double Fhydrokick2 = get_hydrokick_factor(P[i].Ti_kick, ti);
-    inttime_t PMKick = get_pm_kick();
-    const double FgravkickB = get_gravkick_factor(PMKick, ti);
     int j;
     for(j = 0; j < 3; j++) {
         VelPred[j] = P[i].Vel[j] + Fgravkick2 * P[i].GravAccel[j]
@@ -256,6 +254,10 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     DENSITY_GET_PRIV(tw)->SPH_predicted = SPH_predicted;
     DENSITY_GET_PRIV(tw)->GradRho = GradRho;
 
+    const inttime_t PMKick = get_pm_kick();
+    /* Factor this out since all particles have the same drift time*/
+    const double FgravkickB = get_gravkick_factor(PMKick, Ti_Current);
+
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)
     {
@@ -269,7 +271,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
                 endrun(6, "Invalid PI: i = %d PI = %d\n", i, P[i].PI);
 #endif
             SPH_predicted->EntVarPred[P[i].PI] = SPH_EntVarPred(i, MinEgySpec, a3inv);
-            SPH_VelPred(i, SPH_predicted->VelPred + 3 * P[i].PI, Ti_Current);
+            SPH_VelPred(i, SPH_predicted->VelPred + 3 * P[i].PI, FgravkickB, Ti_Current);
         }
     }
 
