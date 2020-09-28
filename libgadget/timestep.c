@@ -11,7 +11,6 @@
 #include "domain.h"
 #include "timefac.h"
 #include "cosmology.h"
-#include "cooling.h"
 #include "checkpoint.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
@@ -168,7 +167,6 @@ set_global_time(const inttime_t Ti_Current) {
     All.cf.a2inv = 1 / (All.Time * All.Time);
     All.cf.a3inv = 1 / (All.Time * All.Time * All.Time);
     All.cf.hubble = hubble_function(&All.CP, All.Time);
-    set_global_uvbg(1./All.Time - 1);
 }
 
 /* This function assigns new short-range timesteps to particles.

@@ -25,14 +25,6 @@ static struct {
 static struct UVBG GlobalUVBG = {0};
 static double GlobalUVRed = -1;
 
-/*Sets the global variable corresponding to the uniform part of the UV background.*/
-void
-set_global_uvbg(double redshift)
-{
-    GlobalUVBG = get_global_UVBG(redshift);
-    GlobalUVRed = redshift;
-}
-
 /* Read a big array from filename/dataset into an array, allocating memory in buffer.
  * which is returned. Nread argument is set equal to number of elements read.*/
 static double *
@@ -158,8 +150,10 @@ init_uvf_table(const char * UVFluctuationFile, const double BoxSize, const doubl
  * */
 struct UVBG get_local_UVBG(double redshift, double * Pos, const double * PosOffset)
 {
-    if(fabs(redshift - GlobalUVRed) > 1e-4)
-        endrun(1, "Called with redshift %g not %g expected by the UVBG cache.\n", redshift, GlobalUVRed);
+    if(fabs(redshift - GlobalUVRed) > 1e-4) {
+        GlobalUVBG = get_global_UVBG(redshift);
+        GlobalUVRed = redshift;
+    }
 
     if(!UVF.enabled) {
         /* directly use the TREECOOL table if UVF is disabled */
