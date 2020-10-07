@@ -64,7 +64,8 @@ static char * format_enum(ParameterEnum * table, int value) {
                 bleft += extra;
                 break;
             }
-            strncpy(c, p->name, bleft);
+            /* The above ensures a large enough buffer*/
+            strcpy(c, p->name);
             c += strlen(p->name);
         }
     }
