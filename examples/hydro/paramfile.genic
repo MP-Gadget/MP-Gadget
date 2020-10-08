@@ -1,4 +1,4 @@
-OutputDir = output # Directory for output
+OutputDir = ICS # Directory for output
 FileBase = IC              # Base-filename of output files
 
 Ngrid = 64 # Size of cubic grid on which to create particles.
