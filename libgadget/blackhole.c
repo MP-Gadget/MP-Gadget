@@ -849,7 +849,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
     }
     BHP(i).Mdot = mdot;
 
-    double dtime = get_dloga_for_bin(P[i].TimeBin) / All.cf.hubble;
+    double dtime = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift) / All.cf.hubble;
 
     BHP(i).Mass += BHP(i).Mdot * dtime;
 
@@ -1369,7 +1369,7 @@ blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I, TreeWalk * tw)
 
     I->FeedbackWeightSum = BH_GET_PRIV(tw)->BH_FeedbackWeightSum[PI];
 
-    double dtime = get_dloga_for_bin(P[i].TimeBin) / All.cf.hubble;
+    double dtime = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift) / All.cf.hubble;
 
     I->FeedbackEnergy = blackhole_params.BlackHoleFeedbackFactor * 0.1 * BHP(i).Mdot * dtime *
                 pow(LIGHTCGS / All.UnitVelocity_in_cm_per_s, 2);

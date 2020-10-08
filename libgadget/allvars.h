@@ -12,7 +12,6 @@
 #include "cosmology.h"
 #include "gravity.h"
 #include "physconst.h"
-#include "types.h"
 
 /*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
  * parameter file).  Holding this data in a structure is convenient for writing/reading the restart file, and
@@ -108,10 +107,6 @@ extern struct global_data_all_processes
         double a2inv;
         double hubble;
     } cf;
-
-    /* variables for organizing discrete timeline */
-
-    inttime_t Ti_Current;		/*!< current time on integer timeline */
 
     int Nmesh;
 

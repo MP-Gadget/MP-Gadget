@@ -7,6 +7,7 @@
 #include "utils.h"
 
 #include "allvars.h"
+#include "timebinmgr.h"
 #include "domain.h"
 #include "timefac.h"
 #include "cosmology.h"
@@ -80,12 +81,6 @@ inttime_t get_pm_kick(void)
     return PM.Ti_kick;
 }
 
-/*Get the dti from the timebin*/
-static inline inttime_t dti_from_timebin(int bin) {
-    /*Casts to work around bug in intel compiler 18.0*/
-    return bin > 0 ? (1u << (unsigned) bin) : 0;
-}
-
 static inline int get_active_particle(const ActiveParticles * act, int pa)
 {
     if(act->ActiveParticle)
@@ -108,7 +103,7 @@ timestep_eh_slots_fork(EIBase * event, void * userdata)
     int child = ev->child;
     ActiveParticles * act = (ActiveParticles *) userdata;
 
-    if(is_timebin_active(P[parent].TimeBin, All.Ti_Current)) {
+    if(is_timebin_active(P[parent].TimeBin, P[parent].Ti_drift)) {
         int childactive = atomic_fetch_and_add(&act->NumActiveParticle, 1);
         if(act->ActiveParticle) {
             /* This should never happen because we allocate as much space for active particles as we have space
@@ -129,18 +124,19 @@ static void do_the_long_range_kick(inttime_t tistart, inttime_t tiend);
 static inttime_t get_PM_timestep_ti(inttime_t Ti_Current);
 
 /*Initialise the integer timeline*/
-void
+inttime_t
 init_timebins(double TimeInit)
 {
-    All.Ti_Current = ti_from_loga(log(TimeInit));
+    inttime_t Ti_Current = ti_from_loga(log(TimeInit));
     /*Enforce Ti_Current is initially even*/
-    if(All.Ti_Current % 2 == 1)
-        All.Ti_Current++;
-    message(0, "Initial TimeStep at TimeInit %g Ti_Current = %d \n", TimeInit, All.Ti_Current);
+    if(Ti_Current % 2 == 1)
+        Ti_Current++;
+    message(0, "Initial TimeStep at TimeInit %g Ti_Current = %d \n", TimeInit, Ti_Current);
     /* this makes sure the first step is a PM step. */
     PM.length = 0;
-    PM.Ti_kick = All.Ti_Current;
-    PM.start = All.Ti_Current;
+    PM.Ti_kick = Ti_Current;
+    PM.start = Ti_Current;
+    return Ti_Current;
 }
 
 int is_timebin_active(int i, inttime_t current) {
@@ -179,7 +175,7 @@ set_global_time(const inttime_t Ti_Current) {
  * It will also shrink the PM timestep to the longest short-range timestep.
  * Returns the minimum timestep found.*/
 int
-find_timesteps(const ActiveParticles * act, inttime_t Ti_Current)
+find_timesteps(const ActiveParticles * act, const inttime_t Ti_Current)
 {
     int pa;
     inttime_t dti_min = TIMEBASE;
@@ -273,7 +269,7 @@ find_timesteps(const ActiveParticles * act, inttime_t Ti_Current)
      * between PM timesteps, thus skipping the PM step entirely.*/
     if(isPM && PM.length > dti_from_timebin(maxTimeBin))
         PM.length = dti_from_timebin(maxTimeBin);
-    message(0, "PM timebin: %x dloga = %g  Max = (%g)\n", PM.length, dloga_from_dti(PM.length), TimestepParams.MaxSizeTimestep);
+    message(0, "PM timebin: %x dloga = %g  Max = (%g)\n", PM.length, dloga_from_dti(PM.length, Ti_Current), TimestepParams.MaxSizeTimestep);
 
     /* BH particles have their timesteps set by a timestep limiter.
      * On the first timestep this is not effective because all the particles have zero timestep.
@@ -371,7 +367,7 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
     {
         P[i].Vel[j] += P[i].GravAccel[j] * Fgravkick;
     }
-    
+
     /* Add kick from dynamic friction and hydro drag for BHs. */
     if(P[i].Type == 5) {
         for(j = 0; j < 3; j++){
@@ -379,7 +375,7 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
             P[i].Vel[j] += BHP(i).DragAccel[j] * Fgravkick;
         }
     }
-    
+
     if(P[i].Type == 0) {
         const double Fhydrokick = get_hydrokick_factor(tistart, tiend);
         /* Add kick from hydro and SPH stuff */
@@ -407,7 +403,7 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
            This limiter is here as well as in sfr_eff.c because the
            timestep may increase. */
 
-        const double dt_entr = dloga_from_dti(tiend-tistart);
+        const double dt_entr = dloga_from_dti(tiend-tistart, P[i].Ti_drift);
         if(SPHP(i).DtEntropy * dt_entr < -0.5 * SPHP(i).Entropy)
             SPHP(i).Entropy *= 0.5;
         else
@@ -478,7 +474,7 @@ get_timestep_dloga(const int p)
                 dt = dt_accr;
         }
         if(BHP(p).minTimeBin > 0 && BHP(p).minTimeBin+1 < TIMEBINS) {
-            double dt_limiter = get_dloga_for_bin(BHP(p).minTimeBin+1) / All.cf.hubble;
+            double dt_limiter = get_dloga_for_bin(BHP(p).minTimeBin+1, P[p].Ti_drift) / All.cf.hubble;
             /* Set the black hole timestep to the minimum timesteps of neighbouring gas particles.
              * It should be at least this for accretion accuracy, and it does not make sense to
              * make it less than this. We go one timestep up because often the smallest
@@ -517,7 +513,7 @@ get_timestep_ti(const int p, const inttime_t dti_max)
     if(dloga < TimestepParams.MinSizeTimestep)
         dloga = TimestepParams.MinSizeTimestep;
 
-    dti = dti_from_dloga(dloga);
+    dti = dti_from_dloga(dloga, P[p].Ti_drift);
 
     /* Check for overflow*/
     if(dti > dti_max || dti < 0)
@@ -647,7 +643,7 @@ get_PM_timestep_ti(inttime_t Ti_Current)
 {
     double dloga = get_long_range_timestep_dloga();
 
-    inttime_t dti = dti_from_dloga(dloga);
+    inttime_t dti = dti_from_dloga(dloga, Ti_Current);
     dti = round_down_power_of_two(dti);
 
     SyncPoint * next = find_next_sync_point(Ti_Current);
@@ -694,7 +690,7 @@ inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin)
     return Ti_Current + dti_from_timebin(minTimeBin);
 }
 
-static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountType);
+static void print_timebin_statistics(const inttime_t Ti_Current, const int NumCurrentTiStep, int * TimeBinCountType);
 
 /* mark the bins that will be active before the next kick*/
 int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurrentTiStep)
@@ -734,6 +730,11 @@ int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurre
         const int tid = omp_get_thread_num();
         if(P[i].IsGarbage || P[i].Swallowed)
             continue;
+        /* when we are in PM, all particles must have been synced. */
+        if (P[i].Ti_drift != Ti_Current) {
+            endrun(5, "Particle %d type %d has drift time %x not ti_current %x!",i, P[i].Type, P[i].Ti_drift, Ti_Current);
+        }
+
         if(act->ActiveParticle && is_timebin_active(bin, Ti_Current))
         {
             /* Store this particle in the ActiveSet for this thread*/
@@ -750,7 +751,7 @@ int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurre
     ta_free(NActiveThread);
 
     /*Print statistics for this time bin*/
-    print_timebin_statistics(NumCurrentTiStep, TimeBinCountType);
+    print_timebin_statistics(Ti_Current, NumCurrentTiStep, TimeBinCountType);
     myfree(TimeBinCountType);
 
     /* Shrink the ActiveParticle array. We still need extra space for star formation,
@@ -778,7 +779,7 @@ void free_activelist(ActiveParticles * act)
  * FdCPU the cumulative cpu-time consumption in various parts of the
  * code is stored.
  */
-static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountType)
+static void print_timebin_statistics(const inttime_t Ti_Current, const int NumCurrentTiStep, int * TimeBinCountType)
 {
     double z;
     int i;
@@ -808,18 +809,18 @@ static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountTyp
             TotNumType[j] += tot_count_type[j][i];
             TotNumPart += tot_count_type[j][i];
         }
-        if(is_timebin_active(i, All.Ti_Current))
+        if(is_timebin_active(i, Ti_Current))
             tot_num_force += tot_count[i];
     }
 
     char extra[20] = {0};
 
-    if(is_PM_timestep(All.Ti_Current))
+    if(is_PM_timestep(Ti_Current))
         strcat(extra, "PM-Step");
 
     z = 1.0 / (All.Time) - 1;
     message(0, "Begin Step %d, Time: %g (%x), Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
-                NumCurrentTiStep, All.Time, All.Ti_Current, z, tot_num_force,
+                NumCurrentTiStep, All.Time, Ti_Current, z, tot_num_force,
                 All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep),
                 extra);
 
@@ -830,7 +831,7 @@ static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountTyp
     for(i = TIMEBINS;  i >= 0; i--) {
         if(tot_count[i] == 0) continue;
         message(0, " %c bin=%2d % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld %6g\n",
-                is_timebin_active(i, All.Ti_Current) ? 'X' : ' ',
+                is_timebin_active(i, Ti_Current) ? 'X' : ' ',
                 i,
                 tot_count_type[0][i],
                 tot_count_type[1][i],
@@ -838,9 +839,9 @@ static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountTyp
                 tot_count_type[3][i],
                 tot_count_type[4][i],
                 tot_count_type[5][i],
-                get_dloga_for_bin(i));
+                get_dloga_for_bin(i, Ti_Current));
 
-        if(is_timebin_active(i, All.Ti_Current))
+        if(is_timebin_active(i, Ti_Current))
         {
             tot += tot_count[i];
             int ptype;

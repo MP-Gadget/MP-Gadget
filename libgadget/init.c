@@ -135,38 +135,38 @@ static void check_omega(int generations);
 static void check_positions(void);
 
 static void
-setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp);
+setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime_t Ti_Current);
 
 /*! This function reads the initial conditions, and allocates storage for the
  *  tree(s). Various variables of the particle data are initialised and An
  *  intial domain decomposition is performed. If SPH particles are present,
  *  the initial SPH smoothing lengths are determined.
  */
-void init(int RestartSnapNum, DomainDecomp * ddecomp)
+inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
 {
     int i, j;
 
     /*Add TimeInit and TimeMax to the output list*/
     if (RestartSnapNum < 0) {
         /* allow a first snapshot at IC time; */
-        setup_sync_points(All.TimeIC, 0.0);
+        setup_sync_points(All.TimeIC, All.TimeMax, 0.0, All.SnapshotWithFOF);
     } else {
         /* skip dumping the exactly same snapshot */
-        setup_sync_points(All.TimeIC, All.TimeInit);
+        setup_sync_points(All.TimeIC, All.TimeMax, All.TimeInit, All.SnapshotWithFOF);
         /* If TimeInit is not in a sensible place on the integer timeline
          * (can happen if the outputs changed since it was written)
          * start the integer timeline anew from TimeInit */
         inttime_t ti_init = ti_from_loga(log(All.TimeInit)) % TIMEBASE;
         if(round_down_power_of_two(ti_init) != ti_init) {
             message(0,"Resetting integer timeline (as %x != %x) to current snapshot\n",ti_init, round_down_power_of_two(ti_init));
-            setup_sync_points(All.TimeInit, All.TimeInit);
+            setup_sync_points(All.TimeInit, All.TimeMax, All.TimeInit, All.SnapshotWithFOF);
         }
     }
 
-    init_timebins(All.TimeInit);
+    inttime_t Ti_Current = init_timebins(All.TimeInit);
 
     /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
-    set_global_time(All.Ti_Current);
+    set_global_time(Ti_Current);
 
     init_drift_table(&All.CP, All.TimeInit, All.TimeMax);
 
@@ -188,7 +188,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)	/* initialize sph_properties */
     {
-        P[i].Ti_drift = P[i].Ti_kick = All.Ti_Current;
+        P[i].Ti_drift = P[i].Ti_kick = Ti_Current;
 
         if(All.BlackHoleOn && RestartSnapNum == -1 && P[i].Type == 5 )
         {
@@ -201,7 +201,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
             if(P[i].Hsml == 0)
                 P[i].Hsml = 0.01 * All.MeanSeparation[0];
         }
-        
+
         if(All.BlackHoleOn && P[i].Type == 5)
         {
             for(j = 0; j < 3; j++) {
@@ -209,7 +209,7 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
                 BHP(i).DragAccel[j] = 0;
             }
         }
-        
+
         P[i].Key = PEANO(P[i].Pos, All.BoxSize);
 
         if(P[i].Type != 0) continue;
@@ -242,7 +242,9 @@ void init(int RestartSnapNum, DomainDecomp * ddecomp)
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
     if(All.DensityOn)
-        setup_smoothinglengths(RestartSnapNum, ddecomp);
+        setup_smoothinglengths(RestartSnapNum, ddecomp, Ti_Current);
+
+    return Ti_Current;
 }
 
 
@@ -315,7 +317,7 @@ void check_positions(void)
  * Initialization of the entropy variable is a little trickier in this version of SPH,
  * since we need to make sure it 'talks to' the density appropriately */
 static void
-setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, struct sph_pred_data * sph_pred, double u_init, double a3)
+setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, struct sph_pred_data * sph_pred, double u_init, double a3, const inttime_t Ti_Current)
 {
     int j;
     int stop = 0;
@@ -338,7 +340,7 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, struc
             olddensity[i] = SphP[i].EgyWtDensity;
         }
         /* Update the EgyWtDensity*/
-        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, 0,  All.Time, sph_pred, NULL, Tree);
+        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, 0,  Ti_Current, sph_pred, NULL, Tree);
         if(stop)
             break;
 
@@ -367,7 +369,7 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, struc
  *  then iterate if needed to find the right smoothing length.
  */
 static void
-setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
+setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime_t Ti_Current)
 {
     int i;
     const double a3 = All.Time * All.Time * All.Time;
@@ -460,7 +462,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
     act.ActiveParticle = NULL;
     act.NumActiveParticle = PartManager->NumPart;
 
-    density(&act, 1, 0, All.BlackHoleOn, All.HydroCostFactor, 0,  All.Time, &sph_pred, NULL, &Tree);
+    density(&act, 1, 0, All.BlackHoleOn, All.HydroCostFactor, 0,  Ti_Current, &sph_pred, NULL, &Tree);
 
     /* for clean IC with U input only, we need to iterate to find entrpoy */
     if(RestartSnapNum == -1)
@@ -480,7 +482,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp)
         /* snapshot already has EgyWtDensity; hope it is read in correctly.
          * (need a test on this!) */
         if(DensityIndependentSphOn()) {
-            setup_density_indep_entropy(&act, &Tree, &sph_pred, u_init, a3);
+            setup_density_indep_entropy(&act, &Tree, &sph_pred, u_init, a3, Ti_Current);
         }
         else {
            /*Initialize to initial energy*/
