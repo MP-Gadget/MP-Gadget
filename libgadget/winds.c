@@ -31,7 +31,6 @@ static struct WindParams
 typedef struct {
     TreeWalkQueryBase base;
     MyIDType ID;
-    double Sfr;
     double Dt;
     double Mass;
     double Hsml;
@@ -396,6 +395,7 @@ sfr_wind_copy(int place, TreeWalkQueryWind * input, TreeWalk * tw)
     double dtime = get_dloga_for_bin(P[place].TimeBin) / WIND_GET_PRIV(tw)->hubble;
     struct winddata * Windd = WIND_GET_PRIV(tw)->Winddata;
 
+    input->ID = P[place].ID;
     input->Dt = dtime;
     input->Mass = P[place].Mass;
     input->Hsml = P[place].Hsml;

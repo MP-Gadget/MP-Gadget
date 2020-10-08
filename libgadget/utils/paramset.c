@@ -64,7 +64,8 @@ static char * format_enum(ParameterEnum * table, int value) {
                 bleft += extra;
                 break;
             }
-            strncpy(c, p->name, bleft);
+            /* The above ensures a large enough buffer*/
+            strcpy(c, p->name);
             c += strlen(p->name);
         }
     }
@@ -183,7 +184,7 @@ int param_validate(ParameterSet * ps, char **error)
         ParameterSchema * p = &ps->p[i];
         if(p->required == REQUIRED && ps->value[p->index].nil) {
             char * error1 = fastpm_strdup_printf("Parameter `%s` is required, but not set.", p->name);
-            int len = strlen(error1);
+            int len = strlen(error1)+1;
             char * tmp2 = ta_malloc2("tmp2", char, len);
             strncpy(tmp2, error1, len);
             myfree(error1);
