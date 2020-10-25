@@ -203,10 +203,6 @@ static int pm_mark_region_for_node(int startno, int rid, int * RegionInd, const 
                 int p = nop->s.suns[i];
                 RegionInd[p] = rid;
 #ifdef DEBUG
-                /* when we are in PM, all particles must have been synced. */
-                if (P[p].Ti_drift != All.Ti_Current) {
-                    abort();
-                }
                 /* Check for particles outside of the node. This should never happen,
                 * unless there is a bug in tree build, or the particles are being moved.*/
                 int k;

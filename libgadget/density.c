@@ -71,7 +71,7 @@ GetDensityKernelType(void)
 static MyFloat
 SPH_EntVarPred(int i, double MinEgySpec, double a3inv)
 {
-        double dloga = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick);
+        double dloga = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick, P[i].Ti_drift);
         double EntVarPred = SPHP(i).Entropy + SPHP(i).DtEntropy * dloga;
         /*Entropy limiter for the predicted entropy: makes sure entropy stays positive. */
         if(dloga > 0 && EntVarPred < 0.5*SPHP(i).Entropy)
@@ -84,16 +84,14 @@ SPH_EntVarPred(int i, double MinEgySpec, double a3inv)
 }
 
 /* Get the predicted velocity for a particle
- * at the Force computation time, which always coincides with the Drift inttime.
- * for gravity and hydro forces.*/
+ * at the current Force computation time ti,
+ * which always coincides with the Drift inttime.
+ * For hydro forces.*/
 static void
-SPH_VelPred(int i, MyFloat * VelPred)
+SPH_VelPred(int i, MyFloat * VelPred, const double FgravkickB, const inttime_t ti)
 {
-    const inttime_t ti = P[i].Ti_drift;
     const double Fgravkick2 = get_gravkick_factor(P[i].Ti_kick, ti);
     const double Fhydrokick2 = get_hydrokick_factor(P[i].Ti_kick, ti);
-    inttime_t PMKick = get_pm_kick();
-    const double FgravkickB = get_gravkick_factor(PMKick, ti);
     int j;
     for(j = 0; j < 3; j++) {
         VelPred[j] = P[i].Vel[j] + Fgravkick2 * P[i].GravAccel[j]
@@ -206,7 +204,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double HydroCostFactor, double MinEgySpec, double atime, struct sph_pred_data * SPH_predicted, MyFloat * GradRho, const ForceTree * const tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double HydroCostFactor, double MinEgySpec, const inttime_t Ti_Current, struct sph_pred_data * SPH_predicted, MyFloat * GradRho, const ForceTree * const tree)
 {
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
@@ -229,6 +227,8 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
     double timeall = 0;
     double timecomp, timecomm, timewait;
+    const double atime = exp(loga_from_ti(Ti_Current));
+    const double a3inv = pow(atime, -3);
 
     walltime_measure("/Misc");
 
@@ -254,12 +254,14 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     DENSITY_GET_PRIV(tw)->SPH_predicted = SPH_predicted;
     DENSITY_GET_PRIV(tw)->GradRho = GradRho;
 
-    /* Init Left and Right: this has to be done before treewalk */
-    double a3inv = pow(atime, -3);
+    const inttime_t PMKick = get_pm_kick();
+    /* Factor this out since all particles have the same drift time*/
+    const double FgravkickB = get_gravkick_factor(PMKick, Ti_Current);
 
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)
     {
+        /* Init Left and Right: this has to be done before treewalk */
         DENSITY_GET_PRIV(tw)->NumNgb[i] = 0;
         DENSITY_GET_PRIV(tw)->Left[i] = 0;
         DENSITY_GET_PRIV(tw)->Right[i] = tree->BoxSize;
@@ -269,7 +271,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
                 endrun(6, "Invalid PI: i = %d PI = %d\n", i, P[i].PI);
 #endif
             SPH_predicted->EntVarPred[P[i].PI] = SPH_EntVarPred(i, MinEgySpec, a3inv);
-            SPH_VelPred(i, SPH_predicted->VelPred + 3 * P[i].PI);
+            SPH_VelPred(i, SPH_predicted->VelPred + 3 * P[i].PI, FgravkickB, Ti_Current);
         }
     }
 

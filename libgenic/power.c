@@ -394,7 +394,10 @@ int init_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in
         const double R8 = 8 * (CM_PER_MPC / UnitLength_in_cm);	/* 8 Mpc/h */
         if(ppar->Sigma8 > 0) {
             double res = TopHatSigma2(R8);
-            Norm = ppar->Sigma8 / sqrt(res);
+            if(isfinite(res) && res > 0)
+                Norm = ppar->Sigma8 / sqrt(res);
+            else
+                endrun(1, "Could not normalize P(k) to Sigma8=%g! Measured Sigma8^2 is %g\n", ppar->Sigma8, res);
         }
         double Dplus = GrowthFactor(CP, InitTime, 1/(1+ppar->InputPowerRedshift));
         if(ppar->InputPowerRedshift >= 0) {

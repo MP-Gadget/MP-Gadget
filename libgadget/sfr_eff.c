@@ -128,9 +128,6 @@ void set_sfr_params(ParameterSet * ps)
 void
 cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * GradRho, FILE * FdSfr)
 {
-    if(!All.CoolingOn)
-        return;
-
     const int nthreads = omp_get_max_threads();
     /*This is a queue for the new stars and their parents, so we can reallocate the slots after the main cooling loop.*/
     int * NewStars = NULL;
@@ -373,7 +370,7 @@ static void
 cooling_direct(int i, const double a3inv, const double hubble)
 {
     /*  the actual time-step */
-    double dloga = get_dloga_for_bin(P[i].TimeBin);
+    double dloga = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift);
     double dtime = dloga / hubble;
 
     double ne = SPHP(i).Ne;	/* electron abundance (gives ionization state and mean molecular weight) */
@@ -450,7 +447,7 @@ double get_neutral_fraction_sfreff(double redshift, struct particle_data * partd
         /* This gets the neutral fraction for gas on the star-forming equation of state.
          * This needs special handling because the cold clouds have a different neutral
          * fraction than the hot gas*/
-        double dloga = get_dloga_for_bin(partdata->TimeBin);
+        double dloga = get_dloga_for_bin(partdata->TimeBin, partdata->Ti_drift);
         double dtime = dloga / All.cf.hubble;
         struct sfr_eeqos_data sfr_data = get_sfr_eeqos(partdata, sphdata, dtime, All.cf.a3inv);
         double nh0cold = GetNeutralFraction(sfr_params.EgySpecCold, physdens, &uvbg, sfr_data.ne);
@@ -478,7 +475,7 @@ double get_helium_neutral_fraction_sfreff(int ion, double redshift, struct parti
         /* This gets the neutral fraction for gas on the star-forming equation of state.
          * This needs special handling because the cold clouds have a different neutral
          * fraction than the hot gas*/
-        double dloga = get_dloga_for_bin(partdata->TimeBin);
+        double dloga = get_dloga_for_bin(partdata->TimeBin, partdata->Ti_drift);
         double dtime = dloga / All.cf.hubble;
         struct sfr_eeqos_data sfr_data = get_sfr_eeqos(partdata, sphdata, dtime, All.cf.a3inv);
         double nh0cold = GetHeliumIonFraction(ion, sfr_params.EgySpecCold, physdens, &uvbg, sfr_data.ne);
@@ -579,7 +576,7 @@ static int
 starformation(int i, double *localsfr, double * sum_sm, MyFloat * GradRho, const double a3inv, const double hubble)
 {
     /*  the proper time-step */
-    double dloga = get_dloga_for_bin(P[i].TimeBin);
+    double dloga = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift);
     double dtime = dloga / hubble;
     int newstar = -1;
 
@@ -709,10 +706,10 @@ get_egyeff(double redshift, double dens, struct UVBG * uvbg)
     return egyhot * (1 - x) + sfr_params.EgySpecCold * x;
 }
 
-void init_cooling_and_star_formation(void)
+void init_cooling_and_star_formation(int CoolingOn)
 {
     struct cooling_units coolunits;
-    coolunits.CoolingOn = All.CoolingOn;
+    coolunits.CoolingOn = CoolingOn;
     coolunits.density_in_phys_cgs = All.UnitDensity_in_cgs * All.CP.HubbleParam * All.CP.HubbleParam;
     coolunits.uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
     coolunits.tt_in_s = All.UnitTime_in_s / All.CP.HubbleParam;
@@ -724,6 +721,10 @@ void init_cooling_and_star_formation(void)
     All.MinEgySpec = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * sfr_params.MinGasTemp / coolunits.uu_in_cgs;
 
     init_cooling(sfr_params.TreeCoolFile, sfr_params.MetalCoolFile, sfr_params.ReionHistFile, coolunits, &All.CP);
+
+    if(!CoolingOn)
+        return;
+
     /*Initialize the uv fluctuation table*/
     init_uvf_table(sfr_params.UVFluctuationFile, All.BoxSize, All.UnitLength_in_cm);
 

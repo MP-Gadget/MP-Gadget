@@ -513,7 +513,6 @@ _setup_mpsort_mpi(struct crmpistruct * o,
         endrun(4, "total number of items in the item does not match the input %ld != %ld\n", o->outnmemb, o->nmemb);
     }
 
-
     MPI_Type_contiguous(d->rsize, MPI_BYTE, &o->MPI_TYPE_RADIX);
     MPI_Type_commit(&o->MPI_TYPE_RADIX);
 
@@ -541,10 +540,16 @@ static int _solve_for_layout_mpi (
         ptrdiff_t * myT_C,
         MPI_Comm comm);
 
-static struct TIMER {
+struct TIMER {
     double time;
     char name[20];
-} _TIMERS[512];
+};
+
+static struct TIMERS {
+    struct TIMER * tmr;
+    int curtmr;
+    int ntimer;
+} _TIMERS;
 
 static int
 _assign_colors(size_t glocalsize, size_t * sizes, int * ncolor, MPI_Comm comm)
@@ -709,29 +714,61 @@ _create_segment_group(struct SegmentGroupDescr * descr, size_t * sizes, size_t a
 static void
 _destroy_segment_group(struct SegmentGroupDescr * descr)
 {
-
     MPI_Comm_free(&descr->Segment);
     MPI_Comm_free(&descr->Group);
     MPI_Comm_free(&descr->Leaders);
 }
 
-void mpsort_mpi_report_last_run() {
-    struct TIMER * tmr = _TIMERS;
-    double last = tmr->time;
-    tmr ++;
-    while(0 != strcmp(tmr->name, "END")) {
-        message(0, "%s: %g\n", tmr->name, tmr->time - last);
-        last =tmr->time;
-        tmr ++;
+static void
+mpsort_increment_timer(const char * name, int erase)
+{
+    if(!(_TIMERS.tmr))
+        return;
+    struct TIMER * tmr = _TIMERS.tmr+_TIMERS.curtmr;
+    if(erase && _TIMERS.curtmr > 0)
+        _TIMERS.curtmr --;
+    tmr->time = MPI_Wtime();
+    strncpy(tmr->name, name, 19);
+    tmr->name[19] = '\0';
+    _TIMERS.curtmr++;
+}
+
+void mpsort_setup_timers(int ntimers)
+{
+    if(!(_TIMERS.tmr)) {
+        _TIMERS.tmr = mymalloc2("timers", ntimers * sizeof(struct TIMER));
+        _TIMERS.ntimer = ntimers;
+        _TIMERS.curtmr = 0;
     }
 }
-int mpsort_mpi_find_ntimers(struct TIMER * tmr) {
-    int n = 0;
-    while(0 != strcmp(tmr->name, "END")) {
-        tmr ++;
-        n++;
+
+void mpsort_free_timers(void)
+{
+    if(!(_TIMERS.tmr)) {
+        myfree(_TIMERS.tmr);
+        _TIMERS.tmr = NULL;
+        _TIMERS.ntimer = 0;
+        _TIMERS.curtmr = 0;
     }
-    return n;
+}
+
+
+void mpsort_mpi_report_last_run() {
+    if(!(_TIMERS.tmr))
+        return;
+    double last = _TIMERS.tmr[0].time;
+    int i;
+    for(i = 1; i < _TIMERS.curtmr; i++) {
+        struct TIMER * tmr = &_TIMERS.tmr[i];
+        if(0 == strncmp(tmr->name, "END", 20))
+            break;
+        message(0, "%s: %g\n", tmr->name, tmr->time - last);
+        last = tmr->time;
+    }
+}
+
+int mpsort_mpi_find_ntimers(struct TIMERS * timers) {
+    return _TIMERS.curtmr;
 }
 
 void
@@ -748,7 +785,7 @@ mpsort_mpi_impl (void * mybase, size_t mynmemb, size_t size,
 }
 
 static int
-mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER * tmr);
+mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o);
 
 static void
 MPIU_Scatter (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffer, int nrecv, size_t elsize, int * totalnsend);
@@ -779,23 +816,10 @@ mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
         const int line,
         const char * file)
 {
-
     if(MPI_TYPE_PTRDIFF == 0) {
-        if(sizeof(ptrdiff_t) == sizeof(long)) {
-            MPI_TYPE_PTRDIFF = MPI_LONG;
-        }
-        else if(sizeof(ptrdiff_t) == sizeof(long long)) {
-            MPI_TYPE_PTRDIFF = MPI_LONG_LONG;
-        }
-        else if(sizeof(ptrdiff_t) == sizeof(int)) {
-            MPI_TYPE_PTRDIFF = MPI_INT;
-        }
-        else {
+        if(MPI_SUCCESS != MPI_Type_match_size(MPI_TYPECLASS_INTEGER, sizeof(ptrdiff_t), &MPI_TYPE_PTRDIFF))
             endrun(3, "Ptrdiff size %ld not recognised\n", sizeof(ptrdiff_t));
-        }
     }
-
-    struct TIMER * tmr = _TIMERS;
 
     struct SegmentGroupDescr seggrp[1];
 
@@ -886,7 +910,7 @@ mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
 
         _setup_mpsort_mpi(&o, &d, myoutsegmentbase, myoutsegmentnmemb, seggrp->Leaders);
 
-        mpsort_mpi_histogram_sort(d, o, tmr);
+        mpsort_mpi_histogram_sort(d, o);
 
         _destroy_mpsort_mpi(&o);
     }
@@ -895,14 +919,14 @@ mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
         MPIU_Scatter(seggrp->Group, seggrp->group_leader_rank, myoutsegmentbase, myoutbase, myoutnmemb, elsize, NULL);
     }
 
-    {
+/*    {
         int ntmr;
         if(seggrp->is_group_leader)
             ntmr = (mpsort_mpi_find_ntimers(tmr) + 1);
 
         MPI_Bcast(&ntmr, 1, MPI_INT, seggrp->group_leader_rank, seggrp->Group);
         MPI_Bcast(tmr, sizeof(tmr[0]) * ntmr, MPI_BYTE, seggrp->group_leader_rank, seggrp->Group);
-    }
+    }*/
 
     if(grouprank == seggrp->group_leader_rank) {
         if(myoutsegmentbase != myoutbase)
@@ -995,7 +1019,7 @@ MPIU_Scatter (MPI_Comm comm, int root, const void * sendbuffer, void * recvbuffe
 }
 
 static int
-mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER * tmr)
+mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o)
 {
     ptrdiff_t * myC = mymalloc("myhistC", (o.NTask + 1) * sizeof(ptrdiff_t));
 
@@ -1013,14 +1037,14 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
     char * buffer;
     int i;
 
-    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "START"), tmr++);
+    mpsort_increment_timer("START", 0);
 
     /* and sort the local array */
     radix_sort(d.base, d.nmemb, d.size, d.radix, d.rsize, d.arg);
 
     MPI_Barrier(o.comm);
 
-    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "FirstSort"), tmr++);
+    mpsort_increment_timer("FirstSort", 0);
 
     char * P = ta_malloc("PP", char, d.rsize * (o.NTask - 1));
     memset(P, 0, d.rsize * (o.NTask -1));
@@ -1030,7 +1054,7 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
 
     _find_Pmax_Pmin_C(o.mybase, o.mynmemb, o.myoutnmemb, Pmax, Pmin, C, &d, &o);
 
-    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "PmaxPmin"), tmr++);
+    mpsort_increment_timer("PmaxPmin", 0);
 
     struct piter pi;
 
@@ -1047,7 +1071,9 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
         MPI_Allreduce(myCLE, CLE, o.NTask + 1,
                 MPI_TYPE_PTRDIFF, MPI_SUM, o.comm);
 
-        (iter>10?tmr--:0, tmr->time = MPI_Wtime(), sprintf(tmr->name, "bisect%04d", iter), tmr++);
+        char bisectnum[20];
+        snprintf(bisectnum, 20, "bisect%04d", iter);
+        mpsort_increment_timer(bisectnum, iter > 10);
 
         piter_accept(&pi, P, C, CLT, CLE);
 #if 0
@@ -1096,7 +1122,7 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
 
     ta_free(P);
 
-    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "findP"), tmr++);
+    mpsort_increment_timer("findP", 0);
 
     ptrdiff_t * myT_C = mymalloc("myhistT_C", (o.NTask) * sizeof(ptrdiff_t));
     ptrdiff_t * myT_CLT = mymalloc("myhistCLT", (o.NTask) * sizeof(ptrdiff_t));
@@ -1115,7 +1141,7 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
     MPI_Alltoall(myCLE + 1, 1, MPI_TYPE_PTRDIFF,
             myT_CLE, 1, MPI_TYPE_PTRDIFF, o.comm);
 
-    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "LayDistr"), tmr++);
+    mpsort_increment_timer("LayDistr", 0);
 
     _solve_for_layout_mpi(o.NTask, C, myT_CLT, myT_CLE, myT_C, o.comm);
 
@@ -1157,7 +1183,7 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
     int * RecvCount = ta_malloc("RecvCount", int, o.NTask);
     int * RecvDispl = ta_malloc("RecvDispl", int, o.NTask);
 
-    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "LaySolve"), tmr++);
+    mpsort_increment_timer("LaySolve", 0);
 
     for(i = 0; i < o.NTask; i ++) {
         SendCount[i] = myC[i + 1] - myC[i];
@@ -1262,14 +1288,16 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o, struct TIMER 
 
     myfree(myC);
     MPI_Barrier(o.comm);
-    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "Exchange"), tmr++);
+    mpsort_increment_timer("Exchange", 0);
 
     radix_sort(o.myoutbase, o.myoutnmemb, d.size, d.radix, d.rsize, d.arg);
 
     MPI_Barrier(o.comm);
-    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "SecondSort"), tmr++);
 
-    (tmr->time = MPI_Wtime(), strcpy(tmr->name, "END"), tmr++);
+    mpsort_increment_timer("SecondSort", 0);
+
+    mpsort_increment_timer("End", 0);
+
     return 0;
 }
 
@@ -1373,12 +1401,12 @@ _solve_for_layout_mpi (
         /* deficit solved */
         if(deficit == 0) break;
         if(deficit < 0) {
-            endrun(10, "serious bug: more items than there should be: deficit=%ld\n", deficit);
+            endrun(10, "More items than there should be at j=%d: deficit=%ld\n (C: %ld sure %ld)", j, deficit, C[ThisTask+1], sure);
         }
         /* how much task j can supply ? */
         ptrdiff_t supply = myT_CLE[j] - myT_C[j];
         if(supply < 0) {
-            endrun(10, "serious bug: less items than there should be: supply =%ld\n", supply);
+            endrun(10, "Less items than there should be at j=%d: supply=%ld (myTCLE %ld myTC %ld)\n", j, supply, myT_CLE[j], myT_C[j]);
         }
         if(supply <= deficit) {
             myT_C[j] += supply;

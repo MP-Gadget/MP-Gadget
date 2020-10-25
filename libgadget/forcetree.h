@@ -9,7 +9,7 @@
  */
 
 /* Total allowed number of particle children for a node*/
-#define NMAXCHILD 11
+#define NMAXCHILD 8
 
 /* Defines for the type of node, classified by type of children.*/
 #define PARTICLE_NODE_TYPE 0
@@ -18,6 +18,9 @@
 
 struct NodeChild
 {
+    /* Stores the types of the child particles. Uses a bit field, 3 bits per particle.
+     */
+    unsigned int Types;
     /*!< pointers to daughter nodes or daughter particles. */
     int suns[NMAXCHILD];
     /* Number of daughter particles if node contains particles.

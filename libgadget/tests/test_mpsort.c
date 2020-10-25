@@ -169,10 +169,12 @@ do_mpsort_test(int64_t srcsize, int bits, int staggered, int gather)
     generate(src, srcsize, bits, seed);
 
     int64_t srcsum = checksum(src, srcsize, MPI_COMM_WORLD);
-
+//         if(ThisTask == 0)
+//        mpsort_setup_timers(512);
     {
         double start = MPI_Wtime();
 
+        mpsort_setup_timers(512);
         mpsort_mpi_newarray(src, srcsize,
                             dest, destsize,
                             sizeof(int64_t),
@@ -194,6 +196,7 @@ do_mpsort_test(int64_t srcsize, int bits, int staggered, int gather)
         message(0, "MPSort total time: %g\n", end - start);
 //         if(ThisTask == 0) {
 //             mpsort_mpi_report_last_run();
+//                mpsort_free_timers();
 //         }
     }
 

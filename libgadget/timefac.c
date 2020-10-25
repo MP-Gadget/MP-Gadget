@@ -18,21 +18,14 @@
 static double logTimeInit;
 static double logTimeMax;
 
-/*! table for the cosmological drift factors */
-static double * DriftTable;
-
 /*! table for the cosmological kick factor for gravitational forces */
 static double * GravKickTable;
 
 /*! table for the cosmological kick factor for hydrodynmical forces */
 static double * HydroKickTable;
 
-/* Simple single-value cache for the drift table,
+/* Simple single-value cache for the kick table,
  * which is the same for all particles*/
-static inttime_t df_last_ti0 = -1, df_last_ti1 = -1;
-static double df_last_value;
-#pragma omp threadprivate(df_last_ti0, df_last_ti1, df_last_value)
-
 static inttime_t hk_last_ti0 = -1, hk_last_ti1 = -1;
 static double hk_last_value;
 #pragma omp threadprivate(hk_last_ti0, hk_last_ti1, hk_last_value)
@@ -101,7 +94,6 @@ void init_drift_table(Cosmology * CP, double timeBegin, double timeMax)
 
   GravKickTable = mymalloc("gravkicktable", sizeof(double) * DRIFT_TABLE_LENGTH);
   HydroKickTable = mymalloc("hydrokicktable", sizeof(double) * DRIFT_TABLE_LENGTH);
-  //DriftTable = mymalloc("drifttable", sizeof(double) * DRIFT_TABLE_LENGTH);
 
   gsl_function F;
   gsl_integration_workspace *workspace;
@@ -115,12 +107,6 @@ void init_drift_table(Cosmology * CP, double timeBegin, double timeMax)
 
   for(i = 0; i < DRIFT_TABLE_LENGTH; i++)
     {
-        /*F.function = &drift_integ;
-        gsl_integration_qag(&F, exp(logTimeInit),
-            exp(logTimeInit + ((logTimeMax - logTimeInit) / DRIFT_TABLE_LENGTH) * (i + 1)), 0,
-                1.0e-8, WORKSIZE, GSL_INTEG_GAUSS41, workspace, &result, &abserr);
-        DriftTable[i] = result;*/
-
         F.function = &gravkick_integ;
         F.params = CP;
         gsl_integration_qag(&F, exp(logTimeInit),
@@ -138,7 +124,7 @@ void init_drift_table(Cosmology * CP, double timeBegin, double timeMax)
 
     }
   gsl_integration_workspace_free(workspace);
-  df_last_ti0 = df_last_ti1 = gk_last_ti0 = gk_last_ti1 = hk_last_ti0 = hk_last_ti1 = -1;
+  gk_last_ti0 = gk_last_ti1 = hk_last_ti0 = hk_last_ti1 = -1;
 }
 
 /*Find which bin in the table we are looking up.
@@ -185,28 +171,6 @@ static double get_cached_kick_factor(const inttime_t ti0, const inttime_t ti1, c
     df2 = table[i2 - 1] + (table[i2] - table[i2 - 1]) * (u2 - i2);
 
   return df2 - df1;
-}
-
-/*! This function integrates the cosmological prefactor for a drift
- *   step between ti0 and ti1. The value returned is
- *  \f[ \int_{a_0}^{a_1} \frac{{\rm d}a}{H(a) a^3}
- *  \f]
- *
- *  A cached value is used for reasons of speed.
- */
-double get_drift_factor(inttime_t ti0, inttime_t ti1)
-{
-  if(ti0 == df_last_ti0 && ti1 == df_last_ti1)
-    return df_last_value;
-
-  df_last_ti0 = ti0;
-  df_last_ti1 = ti1;
-
-  if(!DriftTable)
-    endrun(1, "Drift table not allocated!\n");
-  df_last_value = get_cached_kick_factor(ti0, ti1, DriftTable);
-
-  return df_last_value;
 }
 
 /*! This function looks up a cosmological prefactor in

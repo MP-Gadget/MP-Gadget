@@ -97,6 +97,11 @@ void powerspectrum_save(Power * ps, const char * OutputDir, const char * filenam
         if(ThisTask != 0)
             return;
         char * fname = fastpm_strdup_printf("%s/%s-%0.4f.txt", OutputDir, filename, Time);
+        /* Avoid -0.0000.txt at high z*/
+        if(Time <= 1e-4) {
+            myfree(fname);
+            fname = fastpm_strdup_printf("%s/%s-%0.4e.txt", OutputDir, filename, Time);
+        }
         message(1, "Writing Power Spectrum to %s\n", fname);
         FILE * fp = fopen(fname, "w");
         if(!fp)

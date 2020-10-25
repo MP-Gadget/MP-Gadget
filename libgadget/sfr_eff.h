@@ -24,7 +24,7 @@ enum StarformationCriterion {
 /*Set the parameters of the star formation module*/
 void set_sfr_params(ParameterSet * ps);
 
-void init_cooling_and_star_formation(void);
+void init_cooling_and_star_formation(int CoolingOn);
 /*Do the cooling and the star formation. The tree is required for the winds only.*/
 void cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * GradRho, FILE * FdSfr);
 

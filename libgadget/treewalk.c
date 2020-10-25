@@ -903,14 +903,11 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
             /* Skip garbage*/
             if(P[other].IsGarbage)
                 continue;
-
-            /* must be the correct type */
-            if(!((1<<P[other].Type) & iter->mask))
+            /* In case the type of the particle has changed since the tree was built.
+             * Happens for wind treewalk for gas turned into stars on this timestep.*/
+            if(!((1<<P[other].Type) & iter->mask)) {
                 continue;
-
-            /* must be the correct time bin */
-            if(lv->tw->type == TREEWALK_SPLIT && !(BINMASK(P[other].TimeBin) & lv->tw->bgmask))
-                continue;
+            }
 
             double dist;
 
@@ -1047,6 +1044,14 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
             int i;
             int * suns = current->s.suns;
             for (i = 0; i < current->s.noccupied; i++) {
+                /* must be the correct type: compare the
+                 * current type for this subnode extracted
+                 * from the bitfield to the mask.*/
+                int type = (current->s.Types >> (3*i)) % 8;
+
+                if(!((1<<type) & iter->mask))
+                    continue;
+
                 lv->ngblist[numcand++] = suns[i];
             }
             /* Move sideways*/
