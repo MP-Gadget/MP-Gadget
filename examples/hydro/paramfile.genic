@@ -1,5 +1,3 @@
-# This is wmap9 cosmology from Table 2 (WMAP9 data column) of 1212.5226
-
 OutputDir = ICS # Directory for output
 FileBase = IC              # Base-filename of output files
 
@@ -22,7 +20,7 @@ FileWithTransferFunction = ../class_tk_99.dat  # filename of transfer functions 
 
                                     # Note: This can be chosen different from UnitLength_in_cm
 # Only used by the CLASS script.
-PrimordialAmp = 2.186e-9  # A_s at k_pivot = 0.05 Mpc^-1, took by make_class_power.py
+PrimordialAmp = 2.215e-9
 # May be used to tilt the primordial index. Only used if WhichSpectum != 2
 PrimordialIndex  = 0.971
 
