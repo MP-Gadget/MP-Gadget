@@ -8,6 +8,7 @@ struct power_params
 {
     int WhichSpectrum;
     int DifferentTransferFunctions;
+    int Nnu_transfer;  /*Number of neutrino species in the transfer function*/
     int ScaleDepVelocity;
     char * FileWithTransferFunction;
     char * FileWithInputSpectrum;

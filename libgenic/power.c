@@ -41,7 +41,7 @@ struct table
 };
 
 /*Typedef for a function that parses the table from text*/
-typedef void (*_parse_fn)(int i, double k, char * line, struct table *, int *InputInLog10, const double InitTime);
+typedef void (*_parse_fn)(int i, double k, char * line, struct table *, int *InputInLog10, const double InitTime, int nnu);
 
 
 static struct table power_table;
@@ -156,7 +156,7 @@ void save_all_transfer_tables(BigFile * bf, int ThisTask)
 }
 
 
-void parse_power(int i, double k, char * line, struct table *out_tab, int * InputInLog10, const double InitTime)
+void parse_power(int i, double k, char * line, struct table *out_tab, int * InputInLog10, const double InitTime, int nnu)
 {
     char * retval;
     if((*InputInLog10) == 0) {
@@ -178,10 +178,9 @@ void parse_power(int i, double k, char * line, struct table *out_tab, int * Inpu
     out_tab->logD[0][i] = p/2;
 }
 
-void parse_transfer(int i, double k, char * line, struct table *out_tab, int * InputInLog10, const double InitTime)
+void parse_transfer(int i, double k, char * line, struct table *out_tab, int * InputInLog10, const double InitTime, int nnu)
 {
     int j;
-    const int nnu = (CP->MNu[0] > 0) + (CP->MNu[1] > 0) + (CP->MNu[2] > 0);
     const int ncols = 15 + nnu * 2;
     double * transfers = mymalloc("transfers", sizeof(double) * ncols);
     k = log10(k);
@@ -236,7 +235,7 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
     myfree(transfers);
 }
 
-void read_power_table(int ThisTask, const char * inputfile, const int ncols, struct table * out_tab, const double InitTime, _parse_fn parse_line)
+void read_power_table(int ThisTask, const char * inputfile, const int ncols, struct table * out_tab, const double InitTime, int nnu, _parse_fn parse_line)
 {
     FILE *fd = NULL;
     int j;
@@ -284,7 +283,7 @@ void read_power_table(int ThisTask, const char * inputfile, const int ncols, str
             if(!retval || retval[0] == '#')
                 continue;
             double k = atof(retval);
-            parse_line(i, k, line, out_tab, &InputInLog10, InitTime);
+            parse_line(i, k, line, out_tab, &InputInLog10, InitTime, nnu);
             i++;
         }
         while(1);
@@ -305,7 +304,7 @@ init_transfer_table(int ThisTask, double InitTime, const struct power_params * c
     int i, t;
     const int nnu = (CP->MNu[0] > 0) + (CP->MNu[1] > 0) + (CP->MNu[2] > 0);
     if(strlen(ppar->FileWithTransferFunction) > 0) {
-        read_power_table(ThisTask, ppar->FileWithTransferFunction, MAXCOLS, &transfer_table, InitTime, parse_transfer);
+        read_power_table(ThisTask, ppar->FileWithTransferFunction, MAXCOLS, &transfer_table, InitTime, ppar->Nnu_transfer, parse_transfer);
     }
     if(transfer_table.Nentry == 0) {
         endrun(1, "Could not read transfer table at: '%s'\n",ppar->FileWithTransferFunction);
@@ -380,7 +379,7 @@ int init_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in
     CP = CPin;
 
     if(ppar->WhichSpectrum == 2) {
-        read_power_table(ThisTask, ppar->FileWithInputSpectrum, 1, &power_table, InitTime, parse_power);
+        read_power_table(ThisTask, ppar->FileWithInputSpectrum, 1, &power_table, InitTime, ppar->Nnu_transfer, parse_power);
         /*Initialise the interpolation*/
         gsl_interp_init(power_table.mat_intp[0],power_table.logk, power_table.logD[0],power_table.Nentry);
         transfer_table.Nentry = 0;
