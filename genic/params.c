@@ -62,6 +62,7 @@ create_parameters(void)
     param_declare_double(ps, "InputPowerRedshift", OPTIONAL, -1, "Redshift at which the input power is. Power spectrum will be rescaled to the initial redshift. Negative disables rescaling.");
     param_declare_double(ps, "PrimordialIndex", OPTIONAL, 0.971, "Tilting power, ignored for tabulated input.");
     param_declare_double(ps, "PrimordialRunning", OPTIONAL, 0, "Running of the spectral index, ignored for tabulated input, only used to pass parameter to tools/make_class_power.py");
+    param_declare_int(ps, "Nnu_transfer", OPTIONAL, 0, "Number of neutrino species in the transfer function, only used when we read in FileWithTransferFunction.");
 
     param_declare_double(ps, "UnitVelocity_in_cm_per_s", OPTIONAL, 1e5, "Velocity unit in cm/sec. Default is 1 km/s");
     param_declare_double(ps, "UnitLength_in_cm", OPTIONAL, CM_PER_MPC/1000, "Length unit in cm. Default is 1 kpc");
@@ -148,6 +149,7 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
     GenicConfig->PowerP.WhichSpectrum = param_get_int(ps, "WhichSpectrum");
     GenicConfig->PowerP.PrimordialIndex = param_get_double(ps, "PrimordialIndex");
     GenicConfig->PowerP.PrimordialRunning = param_get_double(ps, "PrimordialRunning");
+    GenicConfig->PowerP.Nnu_transfer = param_get_int(ps, "Nnu_transfer");
 
     /*Simulation parameters*/
     GenicConfig->UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
