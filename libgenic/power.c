@@ -41,7 +41,7 @@ struct table
 };
 
 /*Typedef for a function that parses the table from text*/
-typedef void (*_parse_fn)(int i, double k, char * line, struct table *, int *InputInLog10, const double InitTime);
+typedef void (*_parse_fn)(int i, double k, char * line, struct table *, int *InputInLog10, const double InitTime, int NumCol);
 
 
 static struct table power_table;
@@ -156,7 +156,7 @@ void save_all_transfer_tables(BigFile * bf, int ThisTask)
 }
 
 
-void parse_power(int i, double k, char * line, struct table *out_tab, int * InputInLog10, const double InitTime)
+void parse_power(int i, double k, char * line, struct table *out_tab, int * InputInLog10, const double InitTime, int NumCol)
 {
     char * retval;
     if((*InputInLog10) == 0) {
@@ -178,11 +178,11 @@ void parse_power(int i, double k, char * line, struct table *out_tab, int * Inpu
     out_tab->logD[0][i] = p/2;
 }
 
-void parse_transfer(int i, double k, char * line, struct table *out_tab, int * InputInLog10, const double InitTime)
+void parse_transfer(int i, double k, char * line, struct table *out_tab, int * InputInLog10, const double InitTime, int NumCol)
 {
     int j;
-    const int nnu = (CP->MNu[0] > 0) + (CP->MNu[1] > 0) + (CP->MNu[2] > 0);
-    const int ncols = 15 + nnu * 2;
+    int ncols = NumCol - 1; /* The first column k is already read in read_power_table. */
+    int nnu = round((ncols - 15)/2);
     double * transfers = mymalloc("transfers", sizeof(double) * ncols);
     k = log10(k);
     out_tab->logk[i] = k;
@@ -241,7 +241,7 @@ void read_power_table(int ThisTask, const char * inputfile, const int ncols, str
     FILE *fd = NULL;
     int j;
     int InputInLog10 = 0;
-
+    
     if(ThisTask == 0) {
         if(!(fd = fopen(inputfile, "r")))
             endrun(1, "can't read input spectrum in file '%s' on task %d\n", inputfile, ThisTask);
@@ -272,6 +272,27 @@ void read_power_table(int ThisTask, const char * inputfile, const int ncols, str
 
     if(ThisTask == 0)
     {
+        /* detect the columns of the input file */ 
+        char line1[1024];
+        
+        while(fgets(line1,1024,fd))
+        {
+            char * content = strtok(line1, " \t");
+            if(content[0] != '#') /*Find the first line*/         
+                break;
+        }  
+        int Ncolumns = 0;
+        char *c;
+        do
+        {
+            Ncolumns++;
+            c = strtok(NULL," \t");
+        }  
+        while(c != NULL);  
+        
+        rewind(fd);
+        message(0, "Detected %d columns in file '%s'. \n", Ncolumns, inputfile);
+        
         int i = 0;
         do
         {
@@ -284,7 +305,7 @@ void read_power_table(int ThisTask, const char * inputfile, const int ncols, str
             if(!retval || retval[0] == '#')
                 continue;
             double k = atof(retval);
-            parse_line(i, k, line, out_tab, &InputInLog10, InitTime);
+            parse_line(i, k, line, out_tab, &InputInLog10, InitTime, Ncolumns);
             i++;
         }
         while(1);
