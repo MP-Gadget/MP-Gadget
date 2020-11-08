@@ -539,7 +539,7 @@ cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_eeqos_data s
         if(egycurrent > egyeff)
         {
             double redshift = 1./All.Time - 1;
-            struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos, PartManager->CurrentParticleOffset);
+            struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos, PartManager->CurrentParticleOffset, P[i].HeIIIionized);
             double ne = SPHP(i).Ne;
             /* In practice tcool << trelax*/
             double tcool = GetCoolingTime(redshift, egycurrent, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, SPHP(i).Metallicity);
