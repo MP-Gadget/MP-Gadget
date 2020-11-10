@@ -2,7 +2,7 @@
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
 
 # Compile library 
-add_library(bigfile bigfile.c)
+add_library(bigfile bigfile.c bigfile-record.c)
 set_target_properties(bigfile PROPERTIES PUBLIC_HEADER bigfile.h)
 
 install(TARGETS bigfile

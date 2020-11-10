@@ -32,9 +32,19 @@ int _big_block_create(BigBlock * bb, const char * basename, const char * dtype, 
 static inline char *
 _strdup(const char * s)
 {
-    size_t l = strnlen(s,8192);
+    size_t l = 0;
+    while(l < 8192 && s[l]) {
+        l++;
+    }
     char * r = malloc(l + 1);
     strncpy(r, s, l);
     r[l] = '\0';
     return r;
 }
+
+void
+_big_file_raise(const char * msg, const char * file, const int line, ...);
+
+#define RAISE(ex, errormsg, ...) { _big_file_raise(errormsg, __FILE__, __LINE__, ##__VA_ARGS__); goto ex; }
+#define RAISEIF(condition, ex, errormsg, ...) { if(condition) RAISE(ex, errormsg, ##__VA_ARGS__); }
+

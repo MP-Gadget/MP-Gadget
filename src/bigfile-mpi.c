@@ -73,7 +73,14 @@ int big_file_mpi_create(BigFile * bf, const char * basename, MPI_Comm comm) {
 }
 
 /**Helper function for big_file_mpi_create_block, above*/
-static int _big_block_mpi_create(BigBlock * bb, const char * basename, const char * dtype, int nmemb, int Nfile, size_t fsize[], MPI_Comm comm);
+static int
+_big_block_mpi_create(BigBlock * bb,
+        const char * basename,
+        const char * dtype,
+        int nmemb,
+        int Nfile,
+        const size_t fsize[],
+        MPI_Comm comm);
 
 /** Helper function for big_file_mpi_open_block, above*/
 static int _big_block_mpi_open(BigBlock * bb, const char * basename, MPI_Comm comm);
@@ -86,15 +93,37 @@ int big_file_mpi_open_block(BigFile * bf, BigBlock * block, const char * blockna
     return _big_block_mpi_open(block, basename, comm);
 }
 
-int big_file_mpi_create_block(BigFile * bf, BigBlock * block, const char * blockname, const char * dtype, int nmemb, int Nfile, size_t size, MPI_Comm comm) {
-    if(comm == MPI_COMM_NULL) return 0;
-
+int
+big_file_mpi_create_block(BigFile * bf,
+        BigBlock * block,
+        const char * blockname,
+        const char * dtype,
+        int nmemb,
+        int Nfile,
+        size_t size,
+        MPI_Comm comm)
+{
     size_t fsize[Nfile];
     int i;
     for(i = 0; i < Nfile; i ++) {
         fsize[i] = size * (i + 1) / Nfile 
                  - size * (i) / Nfile;
     }
+    return _big_file_mpi_create_block(bf, block, blockname, dtype,
+        nmemb, Nfile, fsize, comm);
+}
+
+int
+_big_file_mpi_create_block(BigFile * bf,
+        BigBlock * block,
+        const char * blockname,
+        const char * dtype,
+        int nmemb,
+        int Nfile,
+        const size_t fsize[],
+        MPI_Comm comm)
+{
+    if(comm == MPI_COMM_NULL) return 0;
     int rank;
     MPI_Comm_rank(comm, &rank);
 
@@ -139,7 +168,13 @@ _big_block_mpi_open(BigBlock * bb, const char * basename, MPI_Comm comm)
 }
 
 static int
-_big_block_mpi_create(BigBlock * bb, const char * basename, const char * dtype, int nmemb, int Nfile, size_t fsize[], MPI_Comm comm)
+_big_block_mpi_create(BigBlock * bb,
+        const char * basename,
+        const char * dtype,
+        int nmemb,
+        int Nfile,
+        const size_t fsize[],
+        MPI_Comm comm)
 {
     int rank;
     int NTask;
@@ -175,7 +210,12 @@ _big_block_mpi_create(BigBlock * bb, const char * basename, const char * dtype, 
     return rt;
 }
 
-int big_block_mpi_grow(BigBlock * bb, int Nfile_grow, size_t fsize_grow[], MPI_Comm comm) {
+int
+big_block_mpi_grow(BigBlock * bb,
+    int Nfile_grow,
+    const size_t fsize_grow[],
+    MPI_Comm comm) {
+
     int rank;
     int NTask;
     int rt;
@@ -361,7 +401,6 @@ _throttle_action(MPI_Comm comm, int concurrency, BigBlock * block,
     int (*action)(BigBlock * bb, BigBlockPtr * ptr, BigArray * array)
 )
 {
-    int i;
     int ThisTask, NTask;
 
     MPI_Comm_size(comm, &NTask);
@@ -521,4 +560,145 @@ big_block_mpi_read(BigBlock * block, BigBlockPtr * ptr, BigArray * array, int co
 {
     int rt = _throttle_action(comm, concurrency, block, ptr, array, big_block_read);
     return rt;
+}
+
+
+int
+big_file_mpi_create_records(BigFile * bf,
+    const BigRecordType * rtype,
+    const char * mode,
+    int Nfile,
+    const size_t fsize[],
+    MPI_Comm comm)
+{
+    int i;
+    for(i = 0; i < rtype->nfield; i ++) {
+        BigBlock block[1];
+        if (0 == strcmp(mode, "w+")) {
+            RAISEIF(0 != _big_file_mpi_create_block(bf, block,
+                             rtype->fields[i].name,
+                             rtype->fields[i].dtype,
+                             rtype->fields[i].nmemb,
+                             Nfile,
+                             fsize,
+                             comm),
+                ex_open,
+                NULL);
+        } else if (0 == strcmp(mode, "a+")) {
+            RAISEIF(0 != big_file_mpi_open_block(bf, block, rtype->fields[i].name, comm),
+                ex_open,
+                NULL);
+            RAISEIF(0 != big_block_mpi_grow(block, Nfile, fsize, comm),
+                ex_grow,
+                NULL);
+        } else {
+            RAISE(ex_open,
+                "Mode string must be `a+` or `w+`, `%s` provided",
+                mode);
+        }
+        RAISEIF(0 != big_block_mpi_close(block, comm),
+            ex_close,
+            NULL);
+        continue;
+        ex_grow:
+            RAISEIF(0 != big_block_mpi_close(block, comm),
+            ex_close,
+            NULL);
+            return -1;
+        ex_open:
+        ex_close:
+            return -1;
+    }
+    return 0;
+}
+int
+big_file_mpi_write_records(BigFile * bf,
+    const BigRecordType * rtype,
+    ptrdiff_t offset,
+    size_t size,
+    const void * buf,
+    int concurrency,
+    MPI_Comm comm)
+{
+    int i;
+    for(i = 0; i < rtype->nfield; i ++) {
+        BigArray array[1];
+        BigBlock block[1];
+        BigBlockPtr ptr = {0};
+
+        /* rainwoodman: cast away the const. We don't really modify it.*/
+        RAISEIF(0 != big_record_view_field(rtype, i, array, size, (void*) buf),
+            ex_array,
+            NULL);
+        RAISEIF(0 != big_file_mpi_open_block(bf, block, rtype->fields[i].name, comm),
+            ex_open,
+            NULL);
+        RAISEIF(0 != big_block_seek(block, &ptr, offset),
+            ex_seek,
+            NULL);
+        RAISEIF(0 != big_block_mpi_write(block, &ptr, array, concurrency, comm),
+            ex_write,
+            NULL);
+        RAISEIF(0 != big_block_mpi_close(block, comm),
+            ex_close,
+            NULL);
+        continue;
+        ex_write:
+        ex_seek:
+            RAISEIF(0 != big_block_mpi_close(block, comm),
+            ex_close,
+            NULL);
+            return -1;
+        ex_open:
+        ex_close:
+        ex_array:
+            return -1;
+    }
+    return 0;
+}
+
+
+int
+big_file_mpi_read_records(BigFile * bf,
+    const BigRecordType * rtype,
+    ptrdiff_t offset,
+    size_t size,
+    void * buf,
+    int concurrency,
+    MPI_Comm comm)
+{
+    int i;
+    for(i = 0; i < rtype->nfield; i ++) {
+        BigArray array[1];
+        BigBlock block[1];
+        BigBlockPtr ptr = {0};
+
+        RAISEIF(0 != big_record_view_field(rtype, i, array, size, buf),
+            ex_array,
+            NULL);
+        RAISEIF(0 != big_file_mpi_open_block(bf, block, rtype->fields[i].name, comm),
+            ex_open,
+            NULL);
+        RAISEIF(0 != big_block_seek(block, &ptr, offset),
+            ex_seek,
+            NULL);
+        RAISEIF(0 != big_block_mpi_read(block, &ptr, array, concurrency, comm),
+            ex_read,
+            NULL);
+        RAISEIF(0 != big_block_mpi_close(block, comm),
+            ex_close,
+            NULL);
+        continue;
+        ex_read:
+        ex_seek:
+            RAISEIF(0 != big_block_mpi_close(block, comm),
+            ex_close,
+            NULL);
+            return -1;
+        ex_open:
+        ex_close:
+        ex_array:
+            return -1;
+    }
+    return 0;
 }

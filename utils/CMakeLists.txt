@@ -47,11 +47,11 @@ if(${MPI_C_FOUND})
     
     # bigfile-copy-mpi
     add_executable(bigfile-copy-mpi bigfile-copy-mpi.c)
-    target_link_libraries(bigfile-copy-mpi bigfile bigfile-mpi ${MPI_C_LIBRARIES})
+    target_link_libraries(bigfile-copy-mpi bigfile-mpi bigfile ${MPI_C_LIBRARIES})
 
     # bigfile-iosim
     add_executable(bigfile-iosim bigfile-iosim.c)
-    target_link_libraries(bigfile-iosim bigfile bigfile-mpi ${MPI_C_LIBRARIES})
+    target_link_libraries(bigfile-iosim bigfile-mpi bigfile ${MPI_C_LIBRARIES})
     
     install(TARGETS bigfile-copy-mpi bigfile-iosim
             RUNTIME DESTINATION bin)
@@ -61,7 +61,7 @@ if(${MPI_C_FOUND})
 
         # bigfile-sample-mpi
         add_executable(bigfile-sample-mpi bigfile-sample-mpi.c)
-        target_link_libraries(bigfile-sample-mpi bigfile bigfile-mpi ${GSL_LIBRARIES} ${MPI_C_LIBRARIES})
+        target_link_libraries(bigfile-sample-mpi bigfile-mpi bigfile ${GSL_LIBRARIES} ${MPI_C_LIBRARIES})
         
         install(TARGETS bigfile-sample-mpi
                 RUNTIME DESTINATION bin)

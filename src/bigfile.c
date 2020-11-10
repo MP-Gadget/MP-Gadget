@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L  // FIXME: scandir needs this
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,9 +24,6 @@
 #define FILEID_ATTR -2
 #define FILEID_ATTR_V2 -3
 #define FILEID_HEADER -1
-
-#define RAISE(ex, errormsg, ...) { __raise__(errormsg, __FILE__, __LINE__, ##__VA_ARGS__); goto ex; } 
-#define RAISEIF(condition, ex, errormsg, ...) { if(condition) RAISE(ex, errormsg, ##__VA_ARGS__); }
 
 #if __STDC_VERSION__ >= 201112L && !defined(__STDC_NO_ATOMICS__)
     #include <stdatomic.h>
@@ -155,31 +153,29 @@ _big_file_path_is_block(const char * basename)
 }
 
 
-static void 
-__raise__(const char * msg, const char * file, const int line, ...)
+void
+_big_file_raise(const char * msg, const char * file, const int line, ...)
 {
-    char * mymsg;
     if(!msg) {
         if(ERRORSTR) {
-            mymsg = _strdup(ERRORSTR);
+            msg = ERRORSTR;
         } else {
-            mymsg = _strdup("UNKNOWN ERROR");
+            msg = "UNKNOWN ERROR";
         }
-    } else {
-        mymsg = _strdup(msg);
     }
 
-    char * errorstr = malloc(strlen(mymsg) + 512);
+    size_t len = strlen(msg) + strlen(file) + 512;
+    char * errorstr = malloc(len);
 
-    char * fmtstr = alloca(strlen(mymsg) + 512);
-    sprintf(fmtstr, "%s @(%s:%d)", mymsg, file, line);
-    free(mymsg);
+    char * fmtstr = alloca(len);
+    sprintf(fmtstr, "%s @(%s:%d)", msg, file, line);
     va_list va;
     va_start(va, line);
-    vsprintf(errorstr, fmtstr, va); 
+    vsprintf(errorstr, fmtstr, va);
     va_end(va);
 
     big_file_set_error_message(errorstr);
+    free(errorstr);
 }
 
 /* BigFile */
@@ -417,9 +413,9 @@ _big_block_grow_internal(BigBlock * bb, int Nfile_grow, const size_t fsize_grow[
 {
     int Nfile = Nfile_grow + bb->Nfile;
 
-    size_t * fsize = calloc(Nfile, sizeof(size_t));
+    size_t * fsize = calloc(Nfile + 1, sizeof(size_t));
     size_t * foffset = calloc(Nfile + 1, sizeof(size_t));
-    unsigned int * fchecksum = calloc(Nfile, sizeof(unsigned int));
+    unsigned int * fchecksum = calloc(Nfile + 1, sizeof(unsigned int));
 
     int i;
     for(i = 0; i < bb->Nfile; i ++) {
@@ -446,7 +442,7 @@ _big_block_grow_internal(BigBlock * bb, int Nfile_grow, const size_t fsize_grow[
     bb->fchecksum = fchecksum;
     bb->Nfile = Nfile;
     bb->size = bb->foffset[Nfile];
-
+    bb->dirty = 1;
     return 0;
 }
 
@@ -712,7 +708,8 @@ big_block_seek(BigBlock * bb, BigBlockPtr * ptr, ptrdiff_t offset)
             ex_eof,
         /* over the end of file */
         /* note that we allow seeking at the end of file */
-            "Over the end of file");
+            "Over the end of file %td of %td",
+            offset, bb->size);
     {
         int left = 0;
         int right = bb->Nfile;
