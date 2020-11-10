@@ -6,28 +6,38 @@ from bigfile import BigFileClosedError
 from bigfile import BigBlockClosedError
 from bigfile import BigFileError
 
+from bigfile import Dataset
+
 import tempfile
 import numpy
 import shutil
-from numpy.testing import assert_equal, assert_raises
+
+from numpy.testing import assert_equal
+from numpy.testing import assert_raises
+from numpy.testing import assert_array_equal
+
 import pytest
 
 dtypes = [
-    '?', 
-    'i4', 
-    'u4', 
-    'u8', 
-    'f4', 
-    'f8', 
-#    ('f4', (1,)),  # This case is not well defined. Bigfile will treat it as 'f4', thus automated tests will not work.
-    ('f4', 1),  # This case will start to fail when numpy starts to ('f4', 1) as ('f4').
-    ('f4', (2,)), 
-    ('complex64'), 
-    ('complex128'), 
-    ('complex128', (2, )), 
+    ('boolean', '?'),
+    ('i4', 'i4'),
+    ('u4', 'u4'),
+    ('u8', 'u8'),
+    ('f4', 'f4'),
+    ('f8', 'f8'),
+#   ('f4v', ('f4', (1,))),  # This case is not well defined. Bigfile will treat it as 'f4', thus automated tests will not work.
+    ('f4s', ('f4', 1)),  # This case will start to fail when numpy starts to ('f4', 1) as ('f4').
+    ('f4_2', ('f4', (2,))),
+    ('c8', ('complex64')),
+    ('c16', ('complex128')),
+    ('c16_2', ('complex128', (2, ))),
 ]
 
 from runtests.mpi import MPITest
+import re
+
+def sanitized_name(s):
+    return re.sub("[^a-z0-9]", '_', s)
 
 @MPITest([1])
 def test_create(comm):
@@ -35,41 +45,41 @@ def test_create(comm):
     x = BigFile(fname, create=True)
     x.create('.')
 
-    for d in dtypes:
+    for name, d in dtypes:
         d = numpy.dtype(d)
         numpy.random.seed(1234)
 
         # test creating
-        with x.create(d.str, Nfile=1, dtype=d, size=128) as b:
+        with x.create(name, Nfile=1, dtype=d, size=128) as b:
             data = numpy.random.uniform(100000, size=128*128).view(dtype=b.dtype.base).reshape([-1] + list(d.shape))[:b.size]
             b.write(0, data)
 
-        with x[d.str] as b:
+        with x[name] as b:
             assert_equal(b[:], data.astype(d.base))
             assert_equal(b[:],  b[...])
 
         # test creating
         data = numpy.random.uniform(100000, size=128*128).view(dtype=d.base).reshape([-1] + list(d.shape))[:128]
-        with x.create_from_array(d.str, data) as b:
+        with x.create_from_array(name, data) as b:
             pass
 
-        with x[d.str] as b:
+        with x[name] as b:
             assert_equal(b[:], data)
 
         # test writing with an offset
-        with x[d.str] as b:
+        with x[name] as b:
             b.write(1, data[0:1])
             assert_equal(b[1:2], data[0:1].astype(d.base))
 
         # test writing beyond file length
-        with x[d.str] as b:
+        with x[name] as b:
             caught = False
             try:
                 b.write(1, data)
             except:
                 caught = True
             assert caught
-    assert_equal(set(x.blocks), set([numpy.dtype(d).str for d in dtypes]))
+    assert_equal(set(x.blocks), set([name for name, d in dtypes]))
     import os
     os.system("ls -r %s" % fname)
     for b in x.blocks:
@@ -90,12 +100,13 @@ def test_create_odd(comm):
     x = BigFile(fname, create=True)
     x.create('.')
 
-    
+
+    name = 'f4'
     d = numpy.dtype('f4')
     numpy.random.seed(1234)
 
     # test creating
-    with x.create(d.str, Nfile=3, dtype=d, size=455**3) as b:
+    with x.create(name, Nfile=3, dtype=d, size=455**3) as b:
         data = numpy.random.uniform(100000, size=455**3).astype(d)
         b.write(0, data)
 
@@ -110,25 +121,25 @@ def test_create_odd(comm):
     shutil.rmtree(fname)
 
 @MPITest([1])
-def test_grow(comm):
+def test_append(comm):
     fname = tempfile.mkdtemp()
     x = BigFile(fname, create=True)
 
+    name = 'f4'
     d = numpy.dtype(('f4', 3))
     numpy.random.seed(1234)
 
     data = numpy.random.uniform(100000, size=(100, 3)).astype('f4')
     # test creating
-    with x.create(d.str, Nfile=3, dtype=d, size=100) as b:
+    with x.create(name, Nfile=3, dtype=d, size=100) as b:
         b.write(0, data)
 
-        b.grow(size=100, Nfile=2)
-        with x.open(d.str) as bb:
+        b.append(data, Nfile=2)
+        with x.open(name) as bb:
             assert bb.size == 200
-        b.write(100, data)
         assert b.size == 200
 
-    with x.open(d.str) as b:
+    with x.open(name) as b:
         assert b.Nfile == 5
         assert_equal(b[:100], data)
         assert_equal(b[100:], data)
@@ -188,20 +199,21 @@ def test_passby(comm):
         assert_raises(BigFileError, b.write, 0, numpy.array((30, 20.)))
 
 @MPITest([1])
-def test_bigdata(comm):
+def test_dataset(comm):
     fname = tempfile.mkdtemp()
     x = BigFile(fname, create=True)
     x.create('.')
 
-    for d in dtypes:
+    for name, d in dtypes:
         dt = numpy.dtype(d)
         numpy.random.seed(1234)
         # test creating
-        with x.create(str(d).replace(' ', '_'), Nfile=1, dtype=dt, size=128) as b:
-            data = numpy.random.uniform(100000, size=128*128).view(dtype=b.dtype.base).reshape([-1] + list(dt.shape))[:b.size]
+        with x.create(name, Nfile=1, dtype=dt, size=128) as b:
+            data = numpy.random.uniform(100000, size=128*128).view(dtype=b.dtype.base).reshape([-1] 
+                    + list(dt.shape))[:b.size]
             b.write(0, data)
 
-    bd = BigData(x)
+    bd = Dataset(x)
     assert set(bd.dtype.names) == set(x.blocks)
     assert isinstance(bd[:], numpy.ndarray)
     assert isinstance(bd['f8'], BigBlock)
@@ -219,9 +231,26 @@ def test_bigdata(comm):
     assert_equal(len(bd[('f8',), :10].dtype), 0)
     assert isinstance(bd[:10, 'f8'], numpy.ndarray)
     assert isinstance(bd['f8'], BigBlock)
-    assert isinstance(bd[['f8', 'f4'],], BigData)
+    assert isinstance(bd[['f8', 'f4'],], Dataset)
     assert_equal(len(bd[['f8', 'f4'],].dtype), 2)
-    assert isinstance(bd[['f8', 'f4'],:10], numpy.ndarray)
+    assert isinstance(bd[['f8', 'f4'], :10], numpy.ndarray)
+
+    for name, d in dtypes:
+        assert_array_equal(x[name][:], bd[:][name])
+
+    data1 = bd[:10]
+    data2 = bd[10:20]
+
+    bd[:10] = data2
+    assert_array_equal(bd[:10], data2)
+
+    bd[10:20] = data1
+    assert_array_equal(bd[:10], data2)
+    assert_array_equal(bd[10:20], data1)
+
+    bd.append(data1)
+    assert bd.size == 128 + 10
+    assert_array_equal(bd[-10:], data1)
 
     shutil.rmtree(fname)
 
@@ -292,32 +321,32 @@ def test_mpi_create(comm):
     else:
         fname = comm.bcast(None)
     x = BigFileMPI(comm, fname, create=True)
-    for d in dtypes:
+    for name, d in dtypes:
         d = numpy.dtype(d)
         numpy.random.seed(1234)
 
         # test creating
-        with x.create(d.str, Nfile=1, dtype=d, size=128) as b:
+        with x.create(name, Nfile=1, dtype=d, size=128) as b:
             data = numpy.random.uniform(100000, size=128*128).view(dtype=b.dtype.base).reshape([-1] + list(d.shape))[:b.size]
             b.write(0, data)
 
-        with x[d.str] as b:
+        with x[name] as b:
             assert_equal(b[:], data.astype(d.base))
 
         # test writing with an offset
-        with x[d.str] as b:
+        with x[name] as b:
             b.write(1, data[0:1])
             assert_equal(b[1:2], data[0:1].astype(d.base))
 
         # test writing beyond file length
-        with x[d.str] as b:
+        with x[name] as b:
             caught = False
             try:
                 b.write(1, data)
             except:
                 caught = True
             assert caught
-    assert_equal(set(x.blocks), set([numpy.dtype(d).str for d in dtypes]))
+    assert_equal(set(x.blocks), set([name for name, d in dtypes]))
 
     for b in x.blocks:
         assert b in x
@@ -378,7 +407,7 @@ def test_mpi_large(comm):
     x = BigFileMPI(comm, fname, create=True)
 
     size= 1024 * 1024
-    for d in dtypes:
+    for name, d in dtypes:
         d = numpy.dtype(d)
         numpy.random.seed(1234)
 
@@ -386,10 +415,10 @@ def test_mpi_large(comm):
         data = numpy.random.uniform(100000, size=4 * size).view(dtype=d.base).reshape([-1] + list(d.shape))[:size]
         data1 = comm.scatter(numpy.array_split(data, comm.size))
 
-        with x.create_from_array(d.str, data1, memorylimit=1024 * 128) as b:
+        with x.create_from_array(name, data1, memorylimit=1024 * 128) as b:
             pass
 
-        with x[d.str] as b:
+        with x[name] as b:
             assert_equal(b[:], data.astype(d.base))
 
     comm.barrier()

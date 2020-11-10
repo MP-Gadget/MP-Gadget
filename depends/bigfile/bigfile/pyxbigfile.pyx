@@ -15,8 +15,7 @@ except NameError:
     def isstr(s):
         return isinstance(s, str)
 
-
-cdef extern from "bigfile.c":
+cdef extern from "bigfile.h":
     struct CBigFile "BigFile":
         char * basename
 
@@ -50,6 +49,18 @@ cdef extern from "bigfile.c":
     struct CBigAttrSet "BigAttrSet":
         pass
 
+    struct CBigRecordField "BigRecordField":
+        char * name
+        char * dtype
+        int nmemb
+        int elsize
+        int offset
+
+    struct CBigRecordType "BigRecordType":
+        CBigRecordField * fields
+        int nfield
+        int itemsize
+
     char * big_file_get_error_message() nogil
     void big_file_set_buffer_size(size_t bytes) nogil
     int big_block_grow(CBigBlock * bb, int Nfilegrow, size_t fsize[]) nogil
@@ -77,6 +88,24 @@ cdef extern from "bigfile.c":
     int big_file_list(CBigFile * bf, char *** list, int * N) nogil
     int big_file_create(CBigFile * bf, char * basename) nogil
     int big_file_close(CBigFile * bf) nogil
+
+    void big_record_type_clear(CBigRecordType * rtype) nogil
+    void big_record_type_set(CBigRecordType * rtype, int i, char * name, char * dtype, int nmemb) nogil
+    void big_record_type_complete(CBigRecordType * rtype) nogil
+    void big_record_set(CBigRecordType * rtype, void * buf, int ifield, void * data) nogil
+    void big_record_get(CBigRecordType * rtype, void * buf, int ifield, void * data) nogil
+    int big_record_view_field(CBigRecordType * rtype, int ifield,
+        CBigArray * array, size_t size, void * buf) nogil
+    int big_file_write_records(CBigFile * bf, CBigRecordType * rtype,
+        ptrdiff_t offset, size_t size, void * buf) nogil
+    int big_file_read_records(CBigFile * bf, CBigRecordType * rtype,
+        ptrdiff_t offset, size_t size, void * buf) nogil
+    int big_file_create_records(CBigFile * bf, CBigRecordType * rtype,
+        char * mode, size_t Nfile, size_t * size_per_file) nogil
+
+cdef extern from "bigfile-internal.h":
+    pass
+
 
 def set_buffer_size(bytes):
     big_file_set_buffer_size(bytes)
@@ -330,42 +359,6 @@ cdef class ColumnLowLevelAPI:
             raise Error()
         self._deallocated = False
 
-    def grow(self, numpy.intp_t size, numpy.intp_t Nfile=1):
-        """
-            Increase the size of the column by size. size here
-            is the number of rows in the column, not the number of
-            scalar items.
-
-            Note: this will flush the column to disk to ensure
-            future opens of the column sees the grown size.
-
-            All other opened refereneces to the column are no longer
-            correct after this operation; they will not see the
-            new size.
-
-        """
-
-        cdef numpy.ndarray fsize
-
-        if Nfile < 0:
-            raise ValueError("Cannot create negative number of files.")
-        if Nfile == 0 and size != 0:
-            raise ValueError("Cannot create zero files for non-zero number of items.")
-
-        fsize = numpy.empty(dtype='intp', shape=Nfile)
-        fsize[:] = (numpy.arange(Nfile) + 1) * size // Nfile \
-                 - (numpy.arange(Nfile)) * size // Nfile
-
-        with nogil:
-            rt = big_block_grow(&self.bb, Nfile, <size_t*>fsize.data)
-        if rt != 0:
-            raise Error()
-
-        # other opened columns are now stale.
-        # flush to ensure bf['block'] gets the grown file.
-        self.flush()
-
-
     def create(self, FileLowLevelAPI f, blockname, dtype=None, size=None, numpy.intp_t Nfile=1):
 
         # need to hold the reference
@@ -431,39 +424,44 @@ cdef class ColumnLowLevelAPI:
         if rt != 0:
             raise Error()
 
-    def __getitem__(self, sl):
-        """ returns a copy of data, sl can be a slice or a scalar
-        """
-        if isinstance(sl, slice):
-            start, end, stop = sl.indices(self.size)
-            if stop != 1:
-                raise ValueError('must request a contiguous chunk')
-            return self.read(start, end-start)
-        elif sl is Ellipsis:
-            return self[:]
-        elif numpy.isscalar(sl):
-            sl = slice(sl, sl + 1)
-            return self[sl][0]
-        else:
-            raise TypeError('Expecting a slice or a scalar, got a `%s`' %
-                    str(type(sl)))
+    def append(self, numpy.ndarray buf, numpy.intp_t Nfile=1):
+        """ Append new data at the end of the column.
 
-    def __setitem__(self, sl, value):
-        """ write to a column sl can be a slice or a scalar
+            Note: this will flush the column to disk to ensure
+            future opens of the column sees the grown size.
+
+            All other opened refereneces to the column are no longer
+            correct after this operation; they will not see the
+            new size.
+
+            This function is not concurrency friendly.
         """
-        if isinstance(sl, slice):
-            start, end, stop = sl.indices(self.size)
-            if stop != 1:
-                raise ValueError('must request a contiguous chunk')
-            self.write(start, value)
-        elif sl is Ellipsis:
-            self.write(0, value)
-        elif numpy.isscalar(sl):
-            sl = slice(sl, sl + 1)
-            self[sl] = value
-        else:
-            raise TypeError('Expecting a slice or a scalar, got a `%s`' %
-                    str(type(sl)))
+
+        cdef numpy.ndarray fsize
+        cdef numpy.intp_t size = len(buf)
+
+        if Nfile < 0:
+            raise ValueError("Cannot create negative number of files.")
+        if Nfile == 0 and size != 0:
+            raise ValueError("Cannot create zero files for non-zero number of items.")
+
+        fsize = numpy.empty(dtype='intp', shape=Nfile)
+        fsize[:] = (numpy.arange(Nfile) + 1) * size // Nfile \
+                 - (numpy.arange(Nfile)) * size // Nfile
+
+        # tail is the old end
+        tail = self.bb.size
+
+        with nogil:
+            rt = big_block_grow(&self.bb, Nfile, <size_t*>fsize.data)
+        if rt != 0:
+            raise Error()
+
+        # other opened columns are now stale.
+        # flush to ensure bf['block'] gets the grown file.
+        self.flush()
+
+        return self.write(tail, buf)
 
     def read(self, numpy.intp_t start, numpy.intp_t length, out=None):
         """ read from offset `start' a chunk of data of length `length', 
@@ -587,3 +585,93 @@ cdef class ColumnLowLevelAPI:
 
         return "<CBigBlock: %s dtype=%s, size=%d>" % (self.bb.basename,
                 self.dtype, self.size)
+
+cdef class Dataset:
+    cdef CBigRecordType rtype
+    cdef readonly FileLowLevelAPI file
+    cdef readonly size_t size
+    cdef readonly tuple shape
+    cdef readonly numpy.dtype dtype
+
+    def __init__(self, file, dtype, size):
+        self.file = file
+        self.rtype.nfield = 0
+        big_record_type_clear(&self.rtype)
+        fields = []
+
+        for i, name in enumerate(dtype.names):
+            basedtype = dtype[name].base.str.encode()
+            nmemb = int(numpy.prod(dtype[name].shape))
+
+            big_record_type_set(&self.rtype, i,
+                name.encode(),
+                basedtype,
+                nmemb,
+            )
+        big_record_type_complete(&self.rtype)
+
+        self.size = size
+        self.ndim = 1
+        self.shape = (size, )
+
+        dtype = []
+        # No need to use offset, because numpy is also
+        # compactly packed
+        for i in range(self.rtype.nfield):
+            if self.rtype.fields[i].nmemb == 1:
+                shape = 1
+            else:
+                shape = (self.rtype.fields[i].nmemb, )
+            dtype.append((
+                self.rtype.fields[i].name.decode(),
+                self.rtype.fields[i].dtype,
+                shape)
+            )
+        self.dtype = numpy.dtype(dtype, align=False)
+        assert self.dtype.itemsize == self.rtype.itemsize
+
+    def read(self, numpy.intp_t start, numpy.intp_t length, numpy.ndarray out=None):
+        if out is None:
+            out = numpy.empty(length, self.dtype)
+        with nogil:
+            rt = big_file_read_records(&self.file.bf, &self.rtype, start, length, out.data)
+        if rt != 0:
+            raise Error()
+        return out
+
+    def _create_records(self, numpy.intp_t size, numpy.intp_t Nfile=1, char * mode=b"w+"):
+        """ mode can be a+ or w+."""
+        cdef numpy.ndarray fsize
+
+        if Nfile < 0:
+            raise ValueError("Cannot create negative number of files.")
+        if Nfile == 0 and size != 0:
+            raise ValueError("Cannot create zero files for non-zero number of items.")
+
+        fsize = numpy.empty(dtype='intp', shape=Nfile)
+        fsize[:] = (numpy.arange(Nfile) + 1) * size // Nfile \
+                 - (numpy.arange(Nfile)) * size // Nfile
+
+        with nogil:
+            rt = big_file_create_records(&self.file.bf, &self.rtype, mode, Nfile, <size_t*>fsize.data)
+        if rt != 0:
+            raise Error()
+        self.size = self.size + size
+
+    def append(self, numpy.ndarray buf, numpy.intp_t Nfile=1):
+        assert buf.dtype == self.dtype
+        assert buf.ndim == 1
+        tail = self.size
+        self._create_records(len(buf), Nfile=Nfile, mode=b"a+")
+        self.write(tail, buf)
+
+    def write(self, numpy.intp_t start, numpy.ndarray buf):
+        assert buf.dtype == self.dtype
+        assert buf.ndim == 1
+        with nogil:
+            rt = big_file_write_records(&self.file.bf, &self.rtype, start, buf.shape[0], buf.data)
+        if rt != 0:
+            raise Error()
+
+    def __dealloc__(self):
+        big_record_type_clear(&self.rtype)

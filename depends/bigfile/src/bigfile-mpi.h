@@ -49,7 +49,24 @@ int big_file_mpi_open_block(BigFile * bf, BigBlock * block, const char * blockna
  * @param - size Number of rows of type dtype that will be stored in this block. Can be zero.
  * @param MPI_Comm comm - MPI communicator to use.
  * @returns 0 if successful. */
-int big_file_mpi_create_block(BigFile * bf, BigBlock * block, const char * blockname, const char * dtype, int nmemb, int Nfile, size_t size, MPI_Comm comm);
+int big_file_mpi_create_block(BigFile * bf,
+        BigBlock * block,
+        const char * blockname,
+        const char * dtype,
+        int nmemb,
+        int Nfile,
+        size_t size,
+        MPI_Comm comm);
+
+int
+_big_file_mpi_create_block(BigFile * bf,
+        BigBlock * block,
+        const char * blockname,
+        const char * dtype,
+        int nmemb,
+        int Nfile,
+        const size_t fsize[],
+        MPI_Comm comm);
 
 /** Close the BigFile, and free memory associated with it. Once closed, it should not be re-used.*/
 int big_file_mpi_close(BigFile * bf, MPI_Comm comm);
@@ -66,7 +83,7 @@ int big_block_mpi_close(BigBlock * block, MPI_Comm comm);
  * @param - size_grow Number of rows of type dtype that will be appended in this block.
  * @param MPI_Comm comm - MPI communicator to use.
  * @returns 0 if successful, -1 if could not open block. */
-int big_block_mpi_grow(BigBlock * bb, int Nfile_grow, size_t fsize_grow[], MPI_Comm comm);
+int big_block_mpi_grow(BigBlock * bb, int Nfile_grow, const size_t fsize_grow[], MPI_Comm comm);
 
 int big_block_mpi_grow_simple(BigBlock * block, int Nfile_grow, size_t fsize_grow, MPI_Comm comm);
 
@@ -117,6 +134,32 @@ int big_block_mpi_read(BigBlock * bb, BigBlockPtr * ptr, BigArray * array, int c
  *
  * */
 int big_block_mpi_flush(BigBlock * block, MPI_Comm comm);
+
+int
+big_file_mpi_create_records(BigFile * bf,
+    const BigRecordType * rtype,
+    const char * mode,
+    int Nfile,
+    const size_t fsize[],
+    MPI_Comm comm);
+
+int
+big_file_mpi_write_records(BigFile * bf,
+    const BigRecordType * rtype,
+    ptrdiff_t offset,
+    size_t size,
+    const void * buf,
+    int concurrency,
+    MPI_Comm comm);
+
+int
+big_file_mpi_read_records(BigFile * bf,
+    const BigRecordType * rtype,
+    ptrdiff_t offset,
+    size_t size,
+    void * buf,
+    int concurrency,
+    MPI_Comm comm);
 
 
 #ifdef __cplusplus

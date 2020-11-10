@@ -1,6 +1,7 @@
 MPICC ?= mpicc
 PREFIX ?=/usr
 CFLAGS ?=
+AR ?= ar
 PIC ?= -fPIC
 
 .PHONY: all
@@ -18,16 +19,18 @@ install: libbigfile.a libbigfile-mpi.a
 
 bigfile.o: bigfile.c bigfile.h bigfile-internal.h
 	$(MPICC) $(CFLAGS) $(PIC) -o $@ -c bigfile.c
+bigfile-record.o: bigfile-record.c bigfile.h bigfile-internal.h
+	$(MPICC) $(CFLAGS) $(PIC) -o $@ -c bigfile-record.c
 bigfile-mpi.o: bigfile-mpi.c bigfile-mpi.h bigfile-internal.h mp-mpiu.h
 	$(MPICC) $(CFLAGS) $(PIC) -o $@ -c bigfile-mpi.c
 mp-mpiu.o: mp-mpiu.c mp-mpiu.h
 	$(MPICC) $(CFLAGS) $(PIC) -o $@ -c mp-mpiu.c
 
-libbigfile.a: bigfile.o
-	ar r $@ $^
-	ranlib $@
+libbigfile.a: bigfile.o bigfile-record.o
+	$(AR) r $@ $^
+	$(AR) s $@
 libbigfile-mpi.a: bigfile-mpi.o mp-mpiu.o
-	ar r $@ $^
-	ranlib $@
+	$(AR) r $@ $^
+	$(AR) s $@
 clean:
 	rm -f *.a *.o

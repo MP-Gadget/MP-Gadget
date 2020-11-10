@@ -4,7 +4,16 @@ from distutils.extension import Extension
 import numpy
 
 extensions = [
-        Extension("bigfile.pyxbigfile", ["bigfile/pyxbigfile.pyx"],
+        Extension("bigfile.pyxbigfile",
+            sources = [
+                "bigfile/pyxbigfile.pyx",
+                "src/bigfile.c",
+                "src/bigfile-record.c",
+            ],
+            depends = [
+                "src/bigfile.h",
+                "src/bigfile-internal.h",
+            ],
             include_dirs = ["src/", numpy.get_include()])]
 
 def find_version(path):
