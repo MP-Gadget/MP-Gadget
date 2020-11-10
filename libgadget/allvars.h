@@ -136,7 +136,8 @@ extern struct global_data_all_processes
     int SnapshotWithFOF; /*Flag that doing FOF for snapshot outputs is on*/
 
     int RandomSeed; /*Initial seed for the random number table*/
-    
+
+    //TODO(jdavies): move these to a uvbg_params struct?
     /*Parameters for the Excursion Set Algorithm*/
     int UVBGdim;
     int ExcursionSetFlag;
@@ -150,6 +151,7 @@ extern struct global_data_all_processes
     double UVBGTimestep;
     int ReionFilterType;
     int UVBGSaveGrids;
+    char J21CoeffFile[100];
     /*End Parameters for the Excursion Set Algorithm*/
 }
 All;
