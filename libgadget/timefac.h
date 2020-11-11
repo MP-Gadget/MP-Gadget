@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "cosmology.h"
+#include "timebinmgr.h"
 
 void init_drift_table(Cosmology * CP, double timeBegin, double timeMax);
 double get_hydrokick_factor(inttime_t ti0, inttime_t ti1);

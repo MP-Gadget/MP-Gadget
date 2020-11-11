@@ -88,14 +88,13 @@ SPH_EntVarPred(int i, double MinEgySpec, double a3inv)
  * which always coincides with the Drift inttime.
  * For hydro forces.*/
 static void
-SPH_VelPred(int i, MyFloat * VelPred, const double FgravkickB, const inttime_t ti)
+SPH_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double * gravkicks, double * hydrokicks)
 {
-    const double Fgravkick2 = get_gravkick_factor(P[i].Ti_kick, ti);
-    const double Fhydrokick2 = get_hydrokick_factor(P[i].Ti_kick, ti);
+    int bin = P[i].TimeBin;
     int j;
     for(j = 0; j < 3; j++) {
-        VelPred[j] = P[i].Vel[j] + Fgravkick2 * P[i].GravAccel[j]
-            + P[i].GravPM[j] * FgravkickB + Fhydrokick2 * SPHP(i).HydroAccel[j];
+        VelPred[j] = P[i].Vel[j] + gravkicks[bin] * P[i].GravAccel[j]
+            + P[i].GravPM[j] * FgravkickB + hydrokicks[bin] * SPHP(i).HydroAccel[j];
     }
 }
 
@@ -204,7 +203,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double HydroCostFactor, double MinEgySpec, const inttime_t Ti_Current, struct sph_pred_data * SPH_predicted, MyFloat * GradRho, const ForceTree * const tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double HydroCostFactor, double MinEgySpec, const DriftKickTimes times,  struct sph_pred_data * SPH_predicted, MyFloat * GradRho, const ForceTree * const tree)
 {
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
@@ -227,7 +226,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
     double timeall = 0;
     double timecomp, timecomm, timewait;
-    const double atime = exp(loga_from_ti(Ti_Current));
+    const double atime = exp(loga_from_ti(times.Ti_Current));
     const double a3inv = pow(atime, -3);
 
     walltime_measure("/Misc");
@@ -256,7 +255,17 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
     const inttime_t PMKick = get_pm_kick();
     /* Factor this out since all particles have the same drift time*/
-    const double FgravkickB = get_gravkick_factor(PMKick, Ti_Current);
+    const double FgravkickB = get_gravkick_factor(PMKick, times.Ti_Current);
+    double gravkicks[TIMEBINS+1] = {0}, hydrokicks[TIMEBINS+1] = {0};
+    /* Compute the factors to move a current kick times velocity to the drift time velocity.
+     * We need to do the computation for all timebins up to the maximum because even inactive
+     * particles may have interactions. */
+    #pragma omp parallel for
+    for(i = times.mintimebin; i <= TIMEBINS; i++)
+    {
+        gravkicks[i] = get_gravkick_factor(times.Ti_kick[i], times.Ti_Current);
+        hydrokicks[i] = get_hydrokick_factor(times.Ti_kick[i], times.Ti_Current);
+    }
 
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)
@@ -267,11 +276,18 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
         DENSITY_GET_PRIV(tw)->Right[i] = tree->BoxSize;
         if(P[i].Type == 0 && !P[i].IsGarbage) {
 #ifdef DEBUG
-            if(P[i].PI < 0 || P[i].PI > SlotsManager->info[0].size)
-                endrun(6, "Invalid PI: i = %d PI = %d\n", i, P[i].PI);
+        if(P[i].PI < 0 || P[i].PI > SlotsManager->info[0].size)
+            endrun(6, "Invalid PI: i = %d PI = %d\n", i, P[i].PI);
+        const double Fgravkick2 = get_gravkick_factor(P[i].Ti_kick, times.Ti_Current);
+        const double Fhydrokick2 = get_hydrokick_factor(P[i].Ti_kick, times.Ti_Current);
+        int bin = P[i].TimeBin;
+        if(fabs(gravkicks[bin]/Fgravkick2 - 1) > 1e-3)
+            endrun(5, "Bad grav kicks %lg %lg bin %d tik %d %d tid %d\n", Fgravkick2, gravkicks[bin], bin, P[i].Ti_kick, times.Ti_kick[bin], times.Ti_Current);
+        if(fabs(hydrokicks[bin]/Fhydrokick2 - 1) > 1e-3)
+            endrun(5, "Bad kicks %lg %lg bin %d tik %d %d tid %d\n", Fhydrokick2, hydrokicks[bin], bin, P[i].Ti_kick, times.Ti_kick[bin], times.Ti_Current);
 #endif
             SPH_predicted->EntVarPred[P[i].PI] = SPH_EntVarPred(i, MinEgySpec, a3inv);
-            SPH_VelPred(i, SPH_predicted->VelPred + 3 * P[i].PI, FgravkickB, Ti_Current);
+            SPH_VelPred(i, SPH_predicted->VelPred + 3 * P[i].PI, FgravkickB, gravkicks, hydrokicks);
         }
     }
 

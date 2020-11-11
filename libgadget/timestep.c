@@ -117,7 +117,7 @@ timestep_eh_slots_fork(EIBase * event, void * userdata)
 
 static inttime_t get_timestep_ti(const int p, const inttime_t dti_max);
 static int get_timestep_bin(inttime_t dti);
-static void do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend);
+static void do_the_short_range_kick(int i, inttime_t dti, double Fgravkick, double Fhydrokick);
 static void do_the_long_range_kick(inttime_t tistart, inttime_t tiend);
 /* Get the current PM (global) timestep.*/
 static inttime_t get_PM_timestep_ti(inttime_t Ti_Current);
@@ -171,9 +171,9 @@ set_global_time(const inttime_t Ti_Current) {
 
 /* This function assigns new short-range timesteps to particles.
  * It will also shrink the PM timestep to the longest short-range timestep.
- * Returns the minimum timestep found.*/
-int
-find_timesteps(const ActiveParticles * act, const inttime_t Ti_Current)
+ * Stores the maximum and minimum timesteps in the DriftKickTimes structure.*/
+void
+find_timesteps(const ActiveParticles * act, DriftKickTimes * times)
 {
     int pa;
     inttime_t dti_min = TIMEBASE;
@@ -181,11 +181,11 @@ find_timesteps(const ActiveParticles * act, const inttime_t Ti_Current)
     walltime_measure("/Misc");
 
     /*Update the PM timestep size */
-    const int isPM = is_PM_timestep(Ti_Current);
+    const int isPM = is_PM_timestep(times->Ti_Current);
     inttime_t dti_max = PM.length;
 
     if(isPM) {
-        dti_max = get_PM_timestep_ti(Ti_Current);
+        dti_max = get_PM_timestep_ti(times->Ti_Current);
         PM.length = dti_max;
         PM.start = PM.Ti_kick;
     }
@@ -243,7 +243,7 @@ find_timesteps(const ActiveParticles * act, const inttime_t Ti_Current)
         {
             /* make sure the new step is currently active,
              * so that particles do not miss a step */
-            while(!is_timebin_active(bin, Ti_Current) && bin > binold && bin > 1)
+            while(!is_timebin_active(bin, times->Ti_Current) && bin > binold && bin > 1)
                 bin--;
         }
         /* This moves particles between time bins:
@@ -267,7 +267,7 @@ find_timesteps(const ActiveParticles * act, const inttime_t Ti_Current)
      * between PM timesteps, thus skipping the PM step entirely.*/
     if(isPM && PM.length > dti_from_timebin(maxTimeBin))
         PM.length = dti_from_timebin(maxTimeBin);
-    message(0, "PM timebin: %x dloga = %g  Max = (%g)\n", PM.length, dloga_from_dti(PM.length, Ti_Current), TimestepParams.MaxSizeTimestep);
+    message(0, "PM timebin: %x dloga = %g  Max = (%g)\n", PM.length, dloga_from_dti(PM.length, times->Ti_Current), TimestepParams.MaxSizeTimestep);
 
     /* BH particles have their timesteps set by a timestep limiter.
      * On the first timestep this is not effective because all the particles have zero timestep.
@@ -286,15 +286,40 @@ find_timesteps(const ActiveParticles * act, const inttime_t Ti_Current)
         endrun(0, "Ending due to bad timestep");
     }
     walltime_measure("/Timeline");
-    return mTimeBin;
+    times->mintimebin = mTimeBin;
+    times->maxtimebin = maxTimeBin;
+    return;
 }
 
 /* Apply half a kick, for the second half of the timestep.*/
 void
-apply_half_kick(const ActiveParticles * act)
+apply_half_kick(const ActiveParticles * act, DriftKickTimes * times)
 {
-    int pa;
+    int pa, bin;
     walltime_measure("/Misc");
+    double gravkick[TIMEBINS+1] = {0}, hydrokick[TIMEBINS+1] = {0};
+    /* Do nothing for the first timestep when the kicks are always zero*/
+    if(times->mintimebin == 0 && times->maxtimebin == 0)
+        return;
+    #pragma omp parallel for
+    for(bin = times->mintimebin; bin <= TIMEBINS; bin++)
+    {
+        /* Kick the active timebins*/
+        if(is_timebin_active(bin, times->Ti_Current)) {
+            /* do the kick for half a step*/
+            inttime_t dti = dti_from_timebin(bin);
+            inttime_t newkick = times->Ti_kick[bin] + dti/2;
+            /* Compute kick factors for occupied bins*/
+            gravkick[bin] = get_gravkick_factor(times->Ti_kick[bin], newkick);
+            hydrokick[bin] = get_hydrokick_factor(times->Ti_kick[bin], newkick);
+      //      message(0, "drift %d bin %d kick: %d->%d\n", times->Ti_Current, bin, times->Ti_kick[bin], newkick);
+            times->Ti_kick[bin] = newkick;
+        }
+    }
+    /* Advance the shorter bins without particles by the minimum occupied timestep.*/
+    for(bin=1; bin < times->mintimebin; bin++)
+        times->Ti_kick[bin] += dti_from_timebin(times->mintimebin)/2;
+    //    message(0, "drift %d bin %d kick: %d\n", times->Ti_Current, bin, times->Ti_kick[bin]);
     /* Now assign new timesteps and kick */
     #pragma omp parallel for
     for(pa = 0; pa < act->NumActiveParticle; pa++)
@@ -303,13 +328,22 @@ apply_half_kick(const ActiveParticles * act)
         if(P[i].Swallowed || P[i].IsGarbage)
             continue;
         int bin = P[i].TimeBin;
+        if(bin > TIMEBINS)
+            endrun(4, "Particle %d (type %d, id %ld) had unexpected timebin %d\n", i, P[i].Type, P[i].ID, P[i].TimeBin);
         inttime_t dti = dti_from_timebin(bin);
-        /* current Kick time */
-        inttime_t tistart = P[i].Ti_kick;
-        /* half of a step */
-        inttime_t tiend = P[i].Ti_kick + dti / 2;
+#ifdef DEBUG
+    const double Fgravkick2 = get_gravkick_factor(P[i].Ti_kick, P[i].Ti_kick + dti/2);
+    if(isnan(gravkick[bin]) || fabs(gravkick[bin]/Fgravkick2 - 1) > 1e-3 || P[i].Ti_kick + dti/2 != times->Ti_kick[bin])
+        endrun(5, "Bad grav kicks %lg %lg bin %d tik %d %d\n", Fgravkick2, gravkick[bin], bin, P[i].Ti_kick + dti/2, times->Ti_kick[bin]);
+    const double Fhydrokick2 = get_hydrokick_factor(P[i].Ti_kick, P[i].Ti_kick + dti/2);
+    if(fabs(hydrokick[bin]/Fhydrokick2 - 1) > 1e-3)
+        endrun(5, "Bad kicks %lg %lg bin %d tik %d %d\n", Fhydrokick2, hydrokick[bin], bin, P[i].Ti_kick, times->Ti_kick[bin]);
+#endif
+        /* do the kick for half a step*/
+        P[i].Ti_kick += dti / 2;
+
         /*This only changes particle i, so is thread-safe.*/
-        do_the_short_range_kick(i, tistart, tiend);
+        do_the_short_range_kick(i, dti/2, gravkick[bin], hydrokick[bin]);
     }
     walltime_measure("/Timeline/HalfKick/Short");
 }
@@ -345,26 +379,11 @@ do_the_long_range_kick(inttime_t tistart, inttime_t tiend)
 }
 
 void
-do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
+do_the_short_range_kick(int i, inttime_t dti, double Fgravkick, double Fhydrokick)
 {
-    const double Fgravkick = get_gravkick_factor(tistart, tiend);
-
     int j;
-#ifdef DEBUG
-    if(P[i].Ti_kick != tistart) {
-        endrun(1, "Ti kick mismatch\n");
-    }
-
-#endif
-    /* update the time stamp */
-    P[i].Ti_kick = tiend;
-
-    /* do the kick */
-
     for(j = 0; j < 3; j++)
-    {
         P[i].Vel[j] += P[i].GravAccel[j] * Fgravkick;
-    }
 
     /* Add kick from dynamic friction and hydro drag for BHs. */
     if(P[i].Type == 5) {
@@ -375,12 +394,10 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
     }
 
     if(P[i].Type == 0) {
-        const double Fhydrokick = get_hydrokick_factor(tistart, tiend);
         /* Add kick from hydro and SPH stuff */
         for(j = 0; j < 3; j++) {
             P[i].Vel[j] += SPHP(i).HydroAccel[j] * Fhydrokick;
         }
-
         /* Code here imposes a hard limit (default to speed of light)
          * on the gas velocity. This should rarely be hit.*/
         double vv=0;
@@ -401,7 +418,7 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
            This limiter is here as well as in sfr_eff.c because the
            timestep may increase. */
 
-        const double dt_entr = dloga_from_dti(tiend-tistart, P[i].Ti_drift);
+        const double dt_entr = dloga_from_dti(dti, P[i].Ti_drift);
         if(SPHP(i).DtEntropy * dt_entr < -0.5 * SPHP(i).Entropy)
             SPHP(i).Entropy *= 0.5;
         else

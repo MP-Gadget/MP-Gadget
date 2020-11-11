@@ -119,7 +119,8 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     double start, end;
     start = MPI_Wtime();
     /*Find the density*/
-    density(&act, 1, 0, 0, 1, 0, 0, &data->sph_pred, NULL, &tree);
+    DriftKickTimes kick = {0};
+    density(&act, 1, 0, 0, 1, 0, kick, &data->sph_pred, NULL, &tree);
     end = MPI_Wtime();
     double ms = (end - start)*1000;
     message(0, "Found densities in %.3g ms\n", ms);
@@ -143,7 +144,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
 
     start = MPI_Wtime();
     /*Find the density*/
-    density(&act, 1, 0, 0, 1, 0, 0, &data->sph_pred, NULL, &tree);
+    density(&act, 1, 0, 0, 1, 0, kick, &data->sph_pred, NULL, &tree);
     end = MPI_Wtime();
     ms = (end - start)*1000;
     message(0, "Found 1 dev densities in %.3g ms\n", ms);

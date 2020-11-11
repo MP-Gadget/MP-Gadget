@@ -339,8 +339,11 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, struc
             SphP[i].Entropy = GAMMA_MINUS1 * u_init / pow(SphP[i].EgyWtDensity / a3 , GAMMA_MINUS1);
             olddensity[i] = SphP[i].EgyWtDensity;
         }
+        /* Empty kick factors as we do not move*/
+        DriftKickTimes times = {0};
+        times.Ti_Current = Ti_Current;
         /* Update the EgyWtDensity*/
-        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, 0,  Ti_Current, sph_pred, NULL, Tree);
+        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, 0,  times, sph_pred, NULL, Tree);
         if(stop)
             break;
 
@@ -462,7 +465,10 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime
     act.ActiveParticle = NULL;
     act.NumActiveParticle = PartManager->NumPart;
 
-    density(&act, 1, 0, All.BlackHoleOn, All.HydroCostFactor, 0,  Ti_Current, &sph_pred, NULL, &Tree);
+    /* Empty kick factors as we do not move*/
+    DriftKickTimes times = {0};
+    times.Ti_Current = Ti_Current;
+    density(&act, 1, 0, All.BlackHoleOn, All.HydroCostFactor, 0,  times, &sph_pred, NULL, &Tree);
 
     /* for clean IC with U input only, we need to iterate to find entrpoy */
     if(RestartSnapNum == -1)
