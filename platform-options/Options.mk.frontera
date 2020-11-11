@@ -7,4 +7,4 @@ OPTIMIZE =  -fopenmp -O3 -g -Wall -xCORE-AVX2 -Zp16 -fp-model fast=1 #-ipo
 #--------------------------------------- Basic operation mode of code
 #OPT += -DVALGRIND     # allow debugging with valgrind, disable the GADGET memory allocator.
 #OPT += -DDEBUG      # print a lot of debugging messages
-OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV
+#OPT +=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV

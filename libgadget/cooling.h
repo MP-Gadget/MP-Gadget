@@ -43,9 +43,6 @@ double GetCoolingTime(double redshift, double u_old, double rho, struct UVBG * u
 /*Get the new internal energy per unit mass. ne_guess is set to the new internal equilibrium electron density*/
 double DoCooling(double redshift, double u_old, double rho, double dt, struct UVBG * uvbg, double *ne_guess, double Z, double MinEgySpec, int isHeIIIionized);
 
-/*Sets the global variable corresponding to the uniform part of the UV background.*/
-void set_global_uvbg(double redshift);
-
 /*Interpolates the ultra-violet background tables to the desired redshift and returns a cooling rate table*/
 struct UVBG get_global_UVBG(double redshift);
 
