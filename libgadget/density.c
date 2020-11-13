@@ -253,9 +253,8 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     DENSITY_GET_PRIV(tw)->SPH_predicted = SPH_predicted;
     DENSITY_GET_PRIV(tw)->GradRho = GradRho;
 
-    const inttime_t PMKick = get_pm_kick();
     /* Factor this out since all particles have the same drift time*/
-    const double FgravkickB = get_gravkick_factor(PMKick, times.Ti_Current);
+    const double FgravkickB = get_gravkick_factor(times.PM_kick, times.Ti_Current);
     double gravkicks[TIMEBINS+1] = {0}, hydrokicks[TIMEBINS+1] = {0};
     /* Compute the factors to move a current kick times velocity to the drift time velocity.
      * We need to do the computation for all timebins up to the maximum because even inactive

@@ -96,7 +96,11 @@ void runtests(int RestartSnapNum)
     int NTask;
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     ActiveParticles Act = {0};
-    rebuild_activelist(&Act, Ti_Current, 0);
+    DriftKickTimes times = {0};
+    times.Ti_Current = Ti_Current;
+    times.PM_start = Ti_Current;
+    times.PM_kick = Ti_Current;
+    rebuild_activelist(&Act, &times, 0);
 
     ForceTree Tree = {0};
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1, 1, All.OutputDir);

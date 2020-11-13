@@ -64,22 +64,6 @@ set_timestep_params(ParameterSet * ps)
     MPI_Bcast(&TimestepParams, sizeof(struct timestep_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
-
-/*PM timesteps*/
-/* variables for organizing PM steps of discrete timeline */
-typedef struct {
-    inttime_t length; /*!< Duration of the current PM integer timestep*/
-    inttime_t start;           /* current start point of the PM step*/
-    inttime_t Ti_kick;  /* current inttime of PM Kick (velocity) */
-} TimeSpan;
-
-static TimeSpan PM;
-
-inttime_t get_pm_kick(void)
-{
-    return PM.Ti_kick;
-}
-
 static inline int get_active_particle(const ActiveParticles * act, int pa)
 {
     if(act->ActiveParticle)
@@ -120,7 +104,7 @@ static int get_timestep_bin(inttime_t dti);
 static void do_the_short_range_kick(int i, inttime_t dti, double Fgravkick, double Fhydrokick);
 static void do_the_long_range_kick(inttime_t tistart, inttime_t tiend);
 /* Get the current PM (global) timestep.*/
-static inttime_t get_PM_timestep_ti(inttime_t Ti_Current);
+static inttime_t get_PM_timestep_ti(const DriftKickTimes * const times);
 
 /*Initialise the integer timeline*/
 inttime_t
@@ -131,10 +115,6 @@ init_timebins(double TimeInit)
     if(Ti_Current % 2 == 1)
         Ti_Current++;
     message(0, "Initial TimeStep at TimeInit %g Ti_Current = %d \n", TimeInit, Ti_Current);
-    /* this makes sure the first step is a PM step. */
-    PM.length = 0;
-    PM.Ti_kick = Ti_Current;
-    PM.start = Ti_Current;
     return Ti_Current;
 }
 
@@ -149,12 +129,11 @@ int is_timebin_active(int i, inttime_t current) {
 
 /*Report whether the current timestep is the end of the PM timestep*/
 int
-is_PM_timestep(inttime_t ti)
+is_PM_timestep(const DriftKickTimes * const times)
 {
-    if(ti > PM.start + PM.length)
-        endrun(12, "Passed end of PM step! ti=%d, PM = %d + %d\n",ti, PM.start, PM.length);
-    return ti == PM.start + PM.length;
-
+    if(times->Ti_Current > times->PM_start + times->PM_length)
+        endrun(12, "Passed end of PM step! ti=%d, PM = %d + %d\n",times->Ti_Current, times->PM_start, times->PM_length);
+    return times->Ti_Current == times->PM_start + times->PM_length;
 }
 
 void
@@ -181,13 +160,13 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times)
     walltime_measure("/Misc");
 
     /*Update the PM timestep size */
-    const int isPM = is_PM_timestep(times->Ti_Current);
-    inttime_t dti_max = PM.length;
+    const int isPM = is_PM_timestep(times);
+    inttime_t dti_max = times->PM_length;
 
     if(isPM) {
-        dti_max = get_PM_timestep_ti(times->Ti_Current);
-        PM.length = dti_max;
-        PM.start = PM.Ti_kick;
+        dti_max = get_PM_timestep_ti(times);
+        times->PM_length = dti_max;
+        times->PM_start = times->PM_kick;
     }
 
     /* Now assign new timesteps and kick */
@@ -265,9 +244,9 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times)
     /* Ensure that the PM timestep is not longer than the longest tree timestep;
      * this prevents particles in the longest timestep being active and moving into a higher bin
      * between PM timesteps, thus skipping the PM step entirely.*/
-    if(isPM && PM.length > dti_from_timebin(maxTimeBin))
-        PM.length = dti_from_timebin(maxTimeBin);
-    message(0, "PM timebin: %x dloga = %g  Max = (%g)\n", PM.length, dloga_from_dti(PM.length, times->Ti_Current), TimestepParams.MaxSizeTimestep);
+    if(isPM && times->PM_length > dti_from_timebin(maxTimeBin))
+        times->PM_length = dti_from_timebin(maxTimeBin);
+    message(0, "PM timebin: %x dloga = %g  Max = (%g)\n", times->PM_length, dloga_from_dti(times->PM_length, times->Ti_Current), TimestepParams.MaxSizeTimestep);
 
     /* BH particles have their timesteps set by a timestep limiter.
      * On the first timestep this is not effective because all the particles have zero timestep.
@@ -349,13 +328,14 @@ apply_half_kick(const ActiveParticles * act, DriftKickTimes * times)
 }
 
 void
-apply_PM_half_kick(void)
+apply_PM_half_kick(DriftKickTimes * times)
 {
     /*Always do a PM half-kick, because this should be called just after a PM step*/
-    const inttime_t tistart = PM.Ti_kick;
-    const inttime_t tiend =  PM.Ti_kick + PM.length / 2;
+    const inttime_t tistart = times->PM_kick;
+    const inttime_t tiend =  times->PM_kick + times->PM_length / 2;
     /* Do long-range kick */
     do_the_long_range_kick(tistart, tiend);
+    times->PM_kick = tiend;
     walltime_measure("/Timeline/HalfKick/Long");
 }
 
@@ -375,7 +355,6 @@ do_the_long_range_kick(inttime_t tistart, inttime_t tiend)
         for(j = 0; j < 3; j++)	/* do the kick */
             P[i].Vel[j] += P[i].GravPM[j] * Fgravkick;
     }
-    PM.Ti_kick = tiend;
 }
 
 void
@@ -654,19 +633,19 @@ get_long_range_timestep_dloga(void)
 
 /* backward compatibility with the old loop. */
 inttime_t
-get_PM_timestep_ti(inttime_t Ti_Current)
+get_PM_timestep_ti(const DriftKickTimes * const times)
 {
     double dloga = get_long_range_timestep_dloga();
 
-    inttime_t dti = dti_from_dloga(dloga, Ti_Current);
+    inttime_t dti = dti_from_dloga(dloga, times->Ti_Current);
     dti = round_down_power_of_two(dti);
 
-    SyncPoint * next = find_next_sync_point(Ti_Current);
+    SyncPoint * next = find_next_sync_point(times->Ti_Current);
     if(next == NULL)
         endrun(0, "Trying to go beyond the last sync point. This happens only at TimeMax \n");
 
     /* go no more than the next sync point */
-    inttime_t dti_max = next->ti - PM.Ti_kick;
+    inttime_t dti_max = next->ti - times->PM_kick;
 
     if(dti > dti_max)
         dti = dti_max;
@@ -705,10 +684,10 @@ inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin)
     return Ti_Current + dti_from_timebin(minTimeBin);
 }
 
-static void print_timebin_statistics(const inttime_t Ti_Current, const int NumCurrentTiStep, int * TimeBinCountType);
+static void print_timebin_statistics(const DriftKickTimes * const times, const int NumCurrentTiStep, int * TimeBinCountType);
 
 /* mark the bins that will be active before the next kick*/
-int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurrentTiStep)
+int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times, int NumCurrentTiStep)
 {
     int i;
 
@@ -717,7 +696,7 @@ int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurre
     size_t narr = PartManager->NumPart / NumThreads + NumThreads;
 
     /*We know all particles are active on a PM timestep*/
-    if(is_PM_timestep(Ti_Current)) {
+    if(is_PM_timestep(times)) {
         act->ActiveParticle = NULL;
         act->NumActiveParticle = PartManager->NumPart;
     }
@@ -746,11 +725,11 @@ int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurre
         if(P[i].IsGarbage || P[i].Swallowed)
             continue;
         /* when we are in PM, all particles must have been synced. */
-        if (P[i].Ti_drift != Ti_Current) {
-            endrun(5, "Particle %d type %d has drift time %x not ti_current %x!",i, P[i].Type, P[i].Ti_drift, Ti_Current);
+        if (P[i].Ti_drift != times->Ti_Current) {
+            endrun(5, "Particle %d type %d has drift time %x not ti_current %x!",i, P[i].Type, P[i].Ti_drift, times->Ti_Current);
         }
 
-        if(act->ActiveParticle && is_timebin_active(bin, Ti_Current))
+        if(act->ActiveParticle && is_timebin_active(bin, times->Ti_Current))
         {
             /* Store this particle in the ActiveSet for this thread*/
             ActivePartSets[tid][NActiveThread[tid]] = i;
@@ -766,7 +745,7 @@ int rebuild_activelist(ActiveParticles * act, inttime_t Ti_Current, int NumCurre
     ta_free(NActiveThread);
 
     /*Print statistics for this time bin*/
-    print_timebin_statistics(Ti_Current, NumCurrentTiStep, TimeBinCountType);
+    print_timebin_statistics(times, NumCurrentTiStep, TimeBinCountType);
     myfree(TimeBinCountType);
 
     /* Shrink the ActiveParticle array. We still need extra space for star formation,
@@ -794,7 +773,7 @@ void free_activelist(ActiveParticles * act)
  * FdCPU the cumulative cpu-time consumption in various parts of the
  * code is stored.
  */
-static void print_timebin_statistics(const inttime_t Ti_Current, const int NumCurrentTiStep, int * TimeBinCountType)
+static void print_timebin_statistics(const DriftKickTimes * const times, const int NumCurrentTiStep, int * TimeBinCountType)
 {
     double z;
     int i;
@@ -824,18 +803,18 @@ static void print_timebin_statistics(const inttime_t Ti_Current, const int NumCu
             TotNumType[j] += tot_count_type[j][i];
             TotNumPart += tot_count_type[j][i];
         }
-        if(is_timebin_active(i, Ti_Current))
+        if(is_timebin_active(i, times->Ti_Current))
             tot_num_force += tot_count[i];
     }
 
     char extra[20] = {0};
 
-    if(is_PM_timestep(Ti_Current))
+    if(is_PM_timestep(times))
         strcat(extra, "PM-Step");
 
     z = 1.0 / (All.Time) - 1;
     message(0, "Begin Step %d, Time: %g (%x), Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
-                NumCurrentTiStep, All.Time, Ti_Current, z, tot_num_force,
+                NumCurrentTiStep, All.Time, times->Ti_Current, z, tot_num_force,
                 All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep),
                 extra);
 
@@ -846,7 +825,7 @@ static void print_timebin_statistics(const inttime_t Ti_Current, const int NumCu
     for(i = TIMEBINS;  i >= 0; i--) {
         if(tot_count[i] == 0) continue;
         message(0, " %c bin=%2d % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld %6g\n",
-                is_timebin_active(i, Ti_Current) ? 'X' : ' ',
+                is_timebin_active(i, times->Ti_Current) ? 'X' : ' ',
                 i,
                 tot_count_type[0][i],
                 tot_count_type[1][i],
@@ -854,9 +833,9 @@ static void print_timebin_statistics(const inttime_t Ti_Current, const int NumCu
                 tot_count_type[3][i],
                 tot_count_type[4][i],
                 tot_count_type[5][i],
-                get_dloga_for_bin(i, Ti_Current));
+                get_dloga_for_bin(i, times->Ti_Current));
 
-        if(is_timebin_active(i, Ti_Current))
+        if(is_timebin_active(i, times->Ti_Current))
         {
             tot += tot_count[i];
             int ptype;

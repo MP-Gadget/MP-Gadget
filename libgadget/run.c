@@ -163,6 +163,11 @@ run(int RestartSnapNum)
     int i;
     for(i = 0; i <= TIMEBINS; i++)
         times.Ti_kick[i] = times.Ti_Current;
+    /* this makes sure the first step is a PM step. */
+    times.PM_length = 0;
+    times.PM_kick = times.Ti_Current;
+    times.PM_start = times.Ti_Current;
+
     /* Stored scale factor of the next black hole seeding check*/
     double TimeNextSeedingCheck = All.Time;
 
@@ -193,7 +198,7 @@ run(int RestartSnapNum)
         if(All.TimeStep < 0)
             endrun(1, "Negative timestep: %g New Time: %g!\n", All.TimeStep, All.Time);
 
-        int is_PM = is_PM_timestep(times.Ti_Current);
+        int is_PM = is_PM_timestep(&times);
 
         SyncPoint * next_sync; /* if we are out of planned sync points, terminate */
         SyncPoint * planned_sync; /* NULL; if the step is not a planned sync point. */
@@ -238,7 +243,7 @@ run(int RestartSnapNum)
         }
 
         ActiveParticles Act = {0};
-        rebuild_activelist(&Act, times.Ti_Current, NumCurrentTiStep);
+        rebuild_activelist(&Act, &times, NumCurrentTiStep);
 
         set_random_numbers(All.RandomSeed + times.Ti_Current);
 
@@ -263,7 +268,7 @@ run(int RestartSnapNum)
         /* Update velocity to Ti_Current; this synchronizes TiKick and TiDrift for the active particles
          * and sets Ti_Kick in the times structure.*/
         if(is_PM) {
-            apply_PM_half_kick();
+            apply_PM_half_kick(&times);
         }
 
         apply_half_kick(&Act, &times);
@@ -411,7 +416,7 @@ run(int RestartSnapNum)
         apply_half_kick(&Act, &times);
 
         if(is_PM) {
-            apply_PM_half_kick();
+            apply_PM_half_kick(&times);
         }
 
         /* We can now free the active list: the new step have new active particles*/
