@@ -378,6 +378,17 @@ create_new_node_layer(int firstparent, int p_toplace,
                     oldsuns[1], P[oldsuns[1]].Pos[0], P[oldsuns[1]].Pos[1], P[oldsuns[1]].Pos[2], P[oldsuns[1]].Type, P[oldsuns[1]].ID
                 );
                 nc->nnext_thread = tb.lastnode + 10 * NODECACHE_SIZE;
+                /* If this is not the first layer created,
+                 * we need to mark the overall parent as a node node
+                 * while marking this one as a particle node */
+                if(firstparent != parent)
+                {
+                    nprnt->f.ChildType = PARTICLE_NODE_TYPE;
+                    nprnt->s.noccupied = NMAXCHILD;
+                    tb.Nodes[firstparent].f.ChildType = NODE_NODE_TYPE;
+                    #pragma omp atomic write
+                    tb.Nodes[firstparent].s.noccupied = (1<<16);
+                }
                 return 1;
             }
             struct NODE *nfreep = &tb.Nodes[newsuns[i]];
