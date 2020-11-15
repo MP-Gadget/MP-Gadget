@@ -348,7 +348,10 @@ check_grav_bound(double dx[3], double dv[3], double da[3])
     KE /= (All.cf.a*All.cf.a); /* convert to proper velocity */
     PE /= All.cf.a; /* convert to proper unit */
 
-    return (PE + KE < 0);
+    /* The gravitationally bound condition is PE + KE < 0.
+     * Still merge if it is marginally bound so that we merge
+     * particles at zero distance and velocity from each other.*/
+    return (PE + KE <= 0);
 }
 
 
@@ -1001,6 +1004,8 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
                 da[d] = (I->Accel[d] - P[other].GravAccel[d] - P[other].GravPM[d] - BHP(other).DFAccel[d]);
             }
             flag = check_grav_bound(dx,dv,da);
+            /*if(flag == 0)
+                message(0, "dx %g %g %g dv %g %g %g da %g %g %g\n",dx[0], dx[1], dx[2], dv[0], dv[1], dv[2], da[0], da[1], da[2]);*/
         }
 
         /* do the merge */
