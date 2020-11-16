@@ -49,6 +49,8 @@ inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin);
 
 inttime_t init_timebins(double TimeInit);
 
+DriftKickTimes init_driftkicktime(inttime_t Ti_Current);
+
 int is_PM_timestep(const DriftKickTimes * const times);
 
 void set_timestep_params(ParameterSet * ps);

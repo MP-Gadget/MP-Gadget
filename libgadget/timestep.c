@@ -118,6 +118,20 @@ init_timebins(double TimeInit)
     return Ti_Current;
 }
 
+DriftKickTimes init_driftkicktime(inttime_t Ti_Current)
+{
+    DriftKickTimes times = {0};
+    times.Ti_Current = Ti_Current;
+    int i;
+    for(i = 0; i <= TIMEBINS; i++)
+        times.Ti_kick[i] = times.Ti_Current;
+    /* this makes sure the first step is a PM step. */
+    times.PM_length = 0;
+    times.PM_kick = times.Ti_Current;
+    times.PM_start = times.Ti_Current;
+    return times;
+}
+
 int is_timebin_active(int i, inttime_t current) {
     /*Bin 0 is always active and at time 0 all bins are active*/
     if(i == 0 || current == 0)

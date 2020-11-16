@@ -157,16 +157,9 @@ run(int RestartSnapNum)
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.G);
 
     DomainDecomp ddecomp[1] = {0};
-    DriftKickTimes times = {0};
 
-    times.Ti_Current = init(RestartSnapNum, ddecomp);          /* ... read in initial model */
-    int i;
-    for(i = 0; i <= TIMEBINS; i++)
-        times.Ti_kick[i] = times.Ti_Current;
-    /* this makes sure the first step is a PM step. */
-    times.PM_length = 0;
-    times.PM_kick = times.Ti_Current;
-    times.PM_start = times.Ti_Current;
+    /* ... read initial model and initialise the times*/
+    DriftKickTimes times = init_driftkicktime(init(RestartSnapNum, ddecomp));
 
     /* Stored scale factor of the next black hole seeding check*/
     double TimeNextSeedingCheck = All.Time;
