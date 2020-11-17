@@ -166,8 +166,6 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
     /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
     set_global_time(Ti_Current);
 
-    init_drift_table(&All.CP, All.TimeInit, All.TimeMax);
-
     /*Read the snapshot*/
     petaio_read_snapshot(RestartSnapNum, MPI_COMM_WORLD);
 
