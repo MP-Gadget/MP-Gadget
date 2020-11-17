@@ -161,8 +161,6 @@ struct DensityPriv {
     double MinGasHsml;
     /* Are there potentially black holes?*/
     int BlackHoleOn;
-    /* The current hydro cost factor*/
-    double HydroCostFactor;
 };
 
 #define DENSITY_GET_PRIV(tw) ((struct DensityPriv*) ((tw)->priv))
@@ -203,7 +201,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double HydroCostFactor, double MinEgySpec, const DriftKickTimes times,  struct sph_pred_data * SPH_predicted, MyFloat * GradRho, const ForceTree * const tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double MinEgySpec, const DriftKickTimes times,  struct sph_pred_data * SPH_predicted, MyFloat * GradRho, const ForceTree * const tree)
 {
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
@@ -249,7 +247,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     DENSITY_GET_PRIV(tw)->MinGasHsml = DensityParams.MinGasHsmlFractional * (FORCE_SOFTENING(1, 1)/2.8);
 
     DENSITY_GET_PRIV(tw)->BlackHoleOn = BlackHoleOn;
-    DENSITY_GET_PRIV(tw)->HydroCostFactor = HydroCostFactor * atime;
     DENSITY_GET_PRIV(tw)->SPH_predicted = SPH_predicted;
     DENSITY_GET_PRIV(tw)->GradRho = GradRho;
 

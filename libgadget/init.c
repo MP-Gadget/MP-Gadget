@@ -73,8 +73,6 @@ set_init_params(ParameterSet * ps)
         All.ShortRangeForceWindowType = param_get_enum(ps, "ShortRangeForceWindowType");
         All.Nmesh = param_get_int(ps, "Nmesh");
 
-        All.HydroCostFactor = param_get_double(ps, "HydroCostFactor");
-
         All.CoolingOn = param_get_int(ps, "CoolingOn");
         All.HydroOn = param_get_int(ps, "HydroOn");
         All.DensityOn = param_get_int(ps, "DensityOn");
@@ -342,7 +340,7 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, struc
         /* Empty kick factors as we do not move*/
         DriftKickTimes times = init_driftkicktime(Ti_Current);
         /* Update the EgyWtDensity*/
-        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, 0,  times, sph_pred, NULL, Tree);
+        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, 0,  times, sph_pred, NULL, Tree);
         if(stop)
             break;
 
@@ -466,7 +464,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime
 
     /* Empty kick factors as we do not move*/
     DriftKickTimes times = init_driftkicktime(Ti_Current);
-    density(&act, 1, 0, All.BlackHoleOn, All.HydroCostFactor, 0,  times, &sph_pred, NULL, &Tree);
+    density(&act, 1, 0, All.BlackHoleOn, 0,  times, &sph_pred, NULL, &Tree);
 
     /* for clean IC with U input only, we need to iterate to find entrpoy */
     if(RestartSnapNum == -1)
