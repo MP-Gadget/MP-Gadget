@@ -87,6 +87,18 @@ double get_exact_drift_factor(Cosmology * CP, inttime_t ti0, inttime_t ti1)
     return get_exact_factor(CP, ti0, ti1, &drift_integ);
 }
 
+/*Get the exact drift factor*/
+double get_exact_gravkick_factor(Cosmology * CP, inttime_t ti0, inttime_t ti1)
+{
+    return get_exact_factor(CP, ti0, ti1, &gravkick_integ);
+}
+
+double get_exact_hydrokick_factor(Cosmology * CP, inttime_t ti0, inttime_t ti1)
+{
+    return get_exact_factor(CP, ti0, ti1, &hydrokick_integ);
+}
+
+
 void init_drift_table(Cosmology * CP, double timeBegin, double timeMax)
 {
   int i;
