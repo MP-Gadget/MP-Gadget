@@ -12,7 +12,7 @@
 #include "partmanager.h"
 #include "utils.h"
 
-static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const double BoxSize, const double random_shift[3]);
+static void real_drift_particle(int i, inttime_t dti, const double ddrift, const double BoxSize, const double random_shift[3]);
 
 /* Drifts an individual particle to time ti1, by a drift factor ddrift.
  * The final argument is a random shift vector applied uniformly to all particles before periodic wrapping.
@@ -22,11 +22,10 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const
  * receives a shift vector removing the previous random shift and adding a new one.
  * This function also updates the velocity and updates the density according to an adiabatic factor.
  */
-static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const double BoxSize, const double random_shift[3])
+static void real_drift_particle(int i, inttime_t dti, const double ddrift, const double BoxSize, const double random_shift[3])
 {
     int j;
     if(P[i].IsGarbage || P[i].Swallowed) {
-        P[i].Ti_drift = ti1;
         /* Keep the random shift updated so the
          * physical position of swallowed particles remains unchanged.*/
         for(j = 0; j < 3; j++) {
@@ -38,10 +37,6 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const
         if(P[i].Swallowed)
             P[i].Key = PEANO(P[i].Pos, BoxSize);
         return;
-    }
-    inttime_t ti0 = P[i].Ti_drift;
-    if(ti1 < ti0) {
-        endrun(12, "i=%d ti0=%d ti1=%d\n", i, ti0, ti1);
     }
 
     /* Jumping of BH */
@@ -89,7 +84,7 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const
         //      P[i].Hsml *= exp(0.333333333333 * SPHP(i).DivVel * ddrift);
         //---This was added
         double fac = exp(0.333333333333 * SPHP(i).DivVel * ddrift);
-        inttime_t ti_step = (1u << (unsigned) P[i].TimeBin);
+        inttime_t ti_step = dti_from_timebin(P[i].TimeBin);
 
         if(fac > 1.25)
             fac = 1.25;
@@ -97,7 +92,7 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const
         /* During deep timestep hierarchies the
          * expansion factor may get out of control,
          * so don't let it do that.*/
-        if(ti_step <= 8*(ti1-ti0))
+        if(ti_step <= 8*(dti))
             P[i].Hsml *= fac;
         /* Cap the Hsml: if DivVel is large for a particle with a long timestep
          * (most likely a wind particle) Hsml can very rarely run away*/
@@ -105,17 +100,16 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift, const
         if(P[i].Hsml > Maxhsml)
             P[i].Hsml = Maxhsml;
     }
-
-    P[i].Ti_drift = ti1;
 }
 
 /* Update all particles to the current time, shifting them by a random vector.*/
-void drift_all_particles(inttime_t ti1, const double BoxSize, Cosmology * CP, const double random_shift[3])
+void drift_all_particles(inttime_t ti0, inttime_t ti1, const double BoxSize, Cosmology * CP, const double random_shift[3])
 {
     int i;
     walltime_measure("/Misc");
-
-    const inttime_t ti0 = P[0].Ti_drift;
+    if(ti1 < ti0) {
+        endrun(12, "Trying to reverse time: ti0=%d ti1=%d\n", ti0, ti1);
+    }
     const double ddrift = get_exact_drift_factor(CP, ti0, ti1);
 
 #pragma omp parallel for
@@ -124,7 +118,8 @@ void drift_all_particles(inttime_t ti1, const double BoxSize, Cosmology * CP, co
         if(P[i].Ti_drift != ti0)
             endrun(10, "Drift time mismatch: (ids = %ld %ld) %d != %d\n",P[0].ID, P[i].ID, ti0,  P[i].Ti_drift);
 #endif
-        real_drift_particle(i, ti1, ddrift, BoxSize, random_shift);
+        real_drift_particle(i, ti1-ti0, ddrift, BoxSize, random_shift);
+        P[i].Ti_drift = ti1;
     }
 
     walltime_measure("/Drift/All");

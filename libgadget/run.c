@@ -179,10 +179,11 @@ run(int RestartSnapNum)
          * This ensures we run the force calculation for the first timestep.
          */
         inttime_t Ti_Next = find_next_kick(times.Ti_Current, times.mintimebin);
+        inttime_t Ti_Last = times.Ti_Current;
 
         /* Compute the list of particles that cross a lightcone and write it to disc.*/
         if(All.LightconeOn)
-            lightcone_compute(All.Time, &All.CP, times.Ti_Current, Ti_Next);
+            lightcone_compute(All.Time, &All.CP, Ti_Last, Ti_Next);
 
         times.Ti_Current = Ti_Next;
 
@@ -219,7 +220,7 @@ run(int RestartSnapNum)
             update_random_offset(rel_random_shift);
         }
         /* Sync positions of all particles */
-        drift_all_particles(times.Ti_Current, All.BoxSize, &All.CP, rel_random_shift);
+        drift_all_particles(Ti_Last, times.Ti_Current, All.BoxSize, &All.CP, rel_random_shift);
 
         /* drift and ddecomp decomposition */
 
