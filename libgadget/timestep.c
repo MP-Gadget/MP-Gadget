@@ -209,10 +209,6 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times)
         if(P[i].IsGarbage || P[i].Swallowed)
             continue;
 
-        if(P[i].Ti_kick != P[i].Ti_drift) {
-            endrun(1, "Inttimes out of sync: Particle %d (bin = %d, ID=%ld) Kick=%x != Drift=%x\n", i, P[i].TimeBin, P[i].ID, P[i].Ti_kick, P[i].Ti_drift);
-        }
-
         inttime_t dti;
         if(TimestepParams.ForceEqualTimesteps) {
             dti = dti_min;
@@ -324,12 +320,9 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
             endrun(4, "Particle %d (type %d, id %ld) had unexpected timebin %d\n", i, P[i].Type, P[i].ID, P[i].TimeBin);
         inttime_t dti = dti_from_timebin(bin);
 #ifdef DEBUG
-    if(isnan(gravkick[bin]) || P[i].Ti_kick + dti/2 != times->Ti_kick[bin])
-        endrun(5, "Bad kicks %lg bin %d tik %d %d\n", gravkick[bin], bin, P[i].Ti_kick + dti/2, times->Ti_kick[bin]);
+        if(isnan(gravkick[bin]) || gravkick[bin] == 0.)
+            endrun(5, "Bad kicks %lg bin %d tik %d\n", gravkick[bin], bin, times->Ti_kick[bin]);
 #endif
-        /* do the kick for half a step*/
-        P[i].Ti_kick += dti / 2;
-
         /*This only changes particle i, so is thread-safe.*/
         do_the_short_range_kick(i, dti/2, gravkick[bin], hydrokick[bin]);
     }

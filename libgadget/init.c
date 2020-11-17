@@ -184,7 +184,7 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)	/* initialize sph_properties */
     {
-        P[i].Ti_drift = P[i].Ti_kick = Ti_Current;
+        P[i].Ti_drift = Ti_Current;
 
         if(All.BlackHoleOn && RestartSnapNum == -1 && P[i].Type == 5 )
         {
