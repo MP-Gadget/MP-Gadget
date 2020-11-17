@@ -201,7 +201,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double MinEgySpec, const DriftKickTimes times,  struct sph_pred_data * SPH_predicted, MyFloat * GradRho, const ForceTree * const tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double MinEgySpec, const DriftKickTimes times, Cosmology * CP, struct sph_pred_data * SPH_predicted, MyFloat * GradRho, const ForceTree * const tree)
 {
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
@@ -251,7 +251,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     DENSITY_GET_PRIV(tw)->GradRho = GradRho;
 
     /* Factor this out since all particles have the same drift time*/
-    const double FgravkickB = get_gravkick_factor(times.PM_kick, times.Ti_Current);
+    const double FgravkickB = get_exact_gravkick_factor(CP, times.PM_kick, times.Ti_Current);
     double gravkicks[TIMEBINS+1] = {0}, hydrokicks[TIMEBINS+1] = {0};
     /* Compute the factors to move a current kick times velocity to the drift time velocity.
      * We need to do the computation for all timebins up to the maximum because even inactive
@@ -259,8 +259,8 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     #pragma omp parallel for
     for(i = times.mintimebin; i <= TIMEBINS; i++)
     {
-        gravkicks[i] = get_gravkick_factor(times.Ti_kick[i], times.Ti_Current);
-        hydrokicks[i] = get_hydrokick_factor(times.Ti_kick[i], times.Ti_Current);
+        gravkicks[i] = get_exact_gravkick_factor(CP, times.Ti_kick[i], times.Ti_Current);
+        hydrokicks[i] = get_exact_hydrokick_factor(CP, times.Ti_kick[i], times.Ti_Current);
     }
 
     #pragma omp parallel for
@@ -274,13 +274,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 #ifdef DEBUG
         if(P[i].PI < 0 || P[i].PI > SlotsManager->info[0].size)
             endrun(6, "Invalid PI: i = %d PI = %d\n", i, P[i].PI);
-        const double Fgravkick2 = get_gravkick_factor(P[i].Ti_kick, times.Ti_Current);
-        const double Fhydrokick2 = get_hydrokick_factor(P[i].Ti_kick, times.Ti_Current);
-        int bin = P[i].TimeBin;
-        if(fabs(gravkicks[bin]/Fgravkick2 - 1) > 1e-3)
-            endrun(5, "Bad grav kicks %lg %lg bin %d tik %d %d tid %d\n", Fgravkick2, gravkicks[bin], bin, P[i].Ti_kick, times.Ti_kick[bin], times.Ti_Current);
-        if(fabs(hydrokicks[bin]/Fhydrokick2 - 1) > 1e-3)
-            endrun(5, "Bad kicks %lg %lg bin %d tik %d %d tid %d\n", Fhydrokick2, hydrokicks[bin], bin, P[i].Ti_kick, times.Ti_kick[bin], times.Ti_Current);
 #endif
             SPH_predicted->EntVarPred[P[i].PI] = SPH_EntVarPred(i, MinEgySpec, a3inv);
             SPH_VelPred(i, SPH_predicted->VelPred + 3 * P[i].PI, FgravkickB, gravkicks, hydrokicks);

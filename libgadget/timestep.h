@@ -40,8 +40,8 @@ void find_timesteps(const ActiveParticles * act, DriftKickTimes * times);
 
 /* Apply half a kick to the particles: short-range and long-range.
  * These functions sync drift and kick times.*/
-void apply_half_kick(const ActiveParticles * act, DriftKickTimes * times);
-void apply_PM_half_kick(DriftKickTimes * times);
+void apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * times);
+void apply_PM_half_kick(Cosmology * CP, DriftKickTimes * times);
 
 int is_timebin_active(int i, inttime_t current);
 

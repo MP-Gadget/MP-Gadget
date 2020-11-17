@@ -102,7 +102,6 @@ timestep_eh_slots_fork(EIBase * event, void * userdata)
 static inttime_t get_timestep_ti(const int p, const inttime_t dti_max);
 static int get_timestep_bin(inttime_t dti);
 static void do_the_short_range_kick(int i, inttime_t dti, double Fgravkick, double Fhydrokick);
-static void do_the_long_range_kick(inttime_t tistart, inttime_t tiend);
 /* Get the current PM (global) timestep.*/
 static inttime_t get_PM_timestep_ti(const DriftKickTimes * const times);
 
@@ -286,7 +285,7 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times)
 
 /* Apply half a kick, for the second half of the timestep.*/
 void
-apply_half_kick(const ActiveParticles * act, DriftKickTimes * times)
+apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * times)
 {
     int pa, bin;
     walltime_measure("/Misc");
@@ -303,8 +302,8 @@ apply_half_kick(const ActiveParticles * act, DriftKickTimes * times)
             inttime_t dti = dti_from_timebin(bin);
             inttime_t newkick = times->Ti_kick[bin] + dti/2;
             /* Compute kick factors for occupied bins*/
-            gravkick[bin] = get_gravkick_factor(times->Ti_kick[bin], newkick);
-            hydrokick[bin] = get_hydrokick_factor(times->Ti_kick[bin], newkick);
+            gravkick[bin] = get_exact_gravkick_factor(CP, times->Ti_kick[bin], newkick);
+            hydrokick[bin] = get_exact_hydrokick_factor(CP, times->Ti_kick[bin], newkick);
       //      message(0, "drift %d bin %d kick: %d->%d\n", times->Ti_Current, bin, times->Ti_kick[bin], newkick);
             times->Ti_kick[bin] = newkick;
         }
@@ -325,12 +324,8 @@ apply_half_kick(const ActiveParticles * act, DriftKickTimes * times)
             endrun(4, "Particle %d (type %d, id %ld) had unexpected timebin %d\n", i, P[i].Type, P[i].ID, P[i].TimeBin);
         inttime_t dti = dti_from_timebin(bin);
 #ifdef DEBUG
-    const double Fgravkick2 = get_gravkick_factor(P[i].Ti_kick, P[i].Ti_kick + dti/2);
-    if(isnan(gravkick[bin]) || fabs(gravkick[bin]/Fgravkick2 - 1) > 1e-3 || P[i].Ti_kick + dti/2 != times->Ti_kick[bin])
-        endrun(5, "Bad grav kicks %lg %lg bin %d tik %d %d\n", Fgravkick2, gravkick[bin], bin, P[i].Ti_kick + dti/2, times->Ti_kick[bin]);
-    const double Fhydrokick2 = get_hydrokick_factor(P[i].Ti_kick, P[i].Ti_kick + dti/2);
-    if(fabs(hydrokick[bin]/Fhydrokick2 - 1) > 1e-3)
-        endrun(5, "Bad kicks %lg %lg bin %d tik %d %d\n", Fhydrokick2, hydrokick[bin], bin, P[i].Ti_kick, times->Ti_kick[bin]);
+    if(isnan(gravkick[bin]) || P[i].Ti_kick + dti/2 != times->Ti_kick[bin])
+        endrun(5, "Bad kicks %lg bin %d tik %d %d\n", gravkick[bin], bin, P[i].Ti_kick + dti/2, times->Ti_kick[bin]);
 #endif
         /* do the kick for half a step*/
         P[i].Ti_kick += dti / 2;
@@ -342,23 +337,14 @@ apply_half_kick(const ActiveParticles * act, DriftKickTimes * times)
 }
 
 void
-apply_PM_half_kick(DriftKickTimes * times)
+apply_PM_half_kick(Cosmology * CP, DriftKickTimes * times)
 {
     /*Always do a PM half-kick, because this should be called just after a PM step*/
     const inttime_t tistart = times->PM_kick;
-    const inttime_t tiend =  times->PM_kick + times->PM_length / 2;
+    const inttime_t tiend =  tistart + times->PM_length / 2;
     /* Do long-range kick */
-    do_the_long_range_kick(tistart, tiend);
-    times->PM_kick = tiend;
-    walltime_measure("/Timeline/HalfKick/Long");
-}
-
-/*Advance a long-range timestep and do the desired kick.*/
-void
-do_the_long_range_kick(inttime_t tistart, inttime_t tiend)
-{
     int i;
-    const double Fgravkick = get_gravkick_factor(tistart, tiend);
+    const double Fgravkick = get_exact_gravkick_factor(CP, tistart, tiend);
 
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)
@@ -369,6 +355,8 @@ do_the_long_range_kick(inttime_t tistart, inttime_t tiend)
         for(j = 0; j < 3; j++)	/* do the kick */
             P[i].Vel[j] += P[i].GravPM[j] * Fgravkick;
     }
+    times->PM_kick = tiend;
+    walltime_measure("/Timeline/HalfKick/Long");
 }
 
 void

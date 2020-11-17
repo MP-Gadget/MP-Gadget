@@ -120,7 +120,19 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     start = MPI_Wtime();
     /*Find the density*/
     DriftKickTimes kick = {0};
-    density(&act, 1, 0, 0, 0, kick, &data->sph_pred, NULL, &tree);
+    Cosmology CP = {0};
+    CP.CMBTemperature = 2.7255;
+    CP.Omega0 = 0.3;
+    CP.OmegaLambda = 1- CP.Omega0;
+    CP.OmegaBaryon = 0.045;
+    CP.HubbleParam = 0.7;
+    CP.RadiationOn = 0;
+    CP.w0_fld = -1; /*Dark energy equation of state parameter*/
+    /*Should be 0.1*/
+    CP.Hubble = 0.1;
+    init_cosmology(&CP,0.01);
+
+    density(&act, 1, 0, 0, 0, kick, &CP, &data->sph_pred, NULL, &tree);
     end = MPI_Wtime();
     double ms = (end - start)*1000;
     message(0, "Found densities in %.3g ms\n", ms);
@@ -144,7 +156,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
 
     start = MPI_Wtime();
     /*Find the density*/
-    density(&act, 1, 0, 0, 0, kick, &data->sph_pred, NULL, &tree);
+    density(&act, 1, 0, 0, 0, kick, &CP, &data->sph_pred, NULL, &tree);
     end = MPI_Wtime();
     ms = (end - start)*1000;
     message(0, "Found 1 dev densities in %.3g ms\n", ms);

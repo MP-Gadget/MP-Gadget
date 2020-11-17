@@ -261,10 +261,10 @@ run(int RestartSnapNum)
         /* Update velocity to Ti_Current; this synchronizes TiKick and TiDrift for the active particles
          * and sets Ti_Kick in the times structure.*/
         if(is_PM) {
-            apply_PM_half_kick(&times);
+            apply_PM_half_kick(&All.CP, &times);
         }
 
-        apply_half_kick(&Act, &times);
+        apply_half_kick(&Act, &All.CP, &times);
 
         int didfof = 0;
         /* Cooling and extra physics show up as a source term in the evolution equations.
@@ -406,10 +406,10 @@ run(int RestartSnapNum)
         find_timesteps(&Act, &times);
 
         /* Update velocity and ti_kick to the new step, with the newly computed step size */
-        apply_half_kick(&Act, &times);
+        apply_half_kick(&Act, &All.CP, &times);
 
         if(is_PM) {
-            apply_PM_half_kick(&times);
+            apply_PM_half_kick(&All.CP, &times);
         }
 
         /* We can now free the active list: the new step have new active particles*/
@@ -443,7 +443,7 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
         struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
 
         if(All.DensityOn)
-            density(act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.MinEgySpec, times, &sph_predicted, GradRho, tree);  /* computes density, and pressure */
+            density(act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, tree);  /* computes density, and pressure */
 
         /***** update smoothing lengths in tree *****/
         force_update_hmax(act->ActiveParticle, act->NumActiveParticle, tree, ddecomp);
