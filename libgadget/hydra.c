@@ -175,7 +175,7 @@ hydro_force(const ActiveParticles * act, int WindOn, const double hubble, const 
     double timeall = 0, timenetwork = 0;
     double timecomp, timecomm, timewait;
 
-    walltime_measure("/Misc");
+    walltime_measure("/SPH/Hydro/Init");
 
     /* Initialize some time factors*/
     HYDRA_GET_PRIV(tw)->fac_mu = pow(atime, 3 * (GAMMA - 1) / 2) / atime;
