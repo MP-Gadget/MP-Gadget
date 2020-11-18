@@ -99,7 +99,7 @@ timestep_eh_slots_fork(EIBase * event, void * userdata)
     return 0;
 }
 
-static inttime_t get_timestep_ti(const int p, const inttime_t dti_max);
+static inttime_t get_timestep_ti(const int p, const inttime_t dti_max, const inttime_t Ti_Current);
 static int get_timestep_bin(inttime_t dti);
 static void do_the_short_range_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick);
 /* Get the current PM (global) timestep.*/
@@ -192,7 +192,7 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times)
              * Avoid making it active. */
             if(P[i].IsGarbage || P[i].Swallowed)
                 continue;
-            inttime_t dti = get_timestep_ti(i, dti_max);
+            inttime_t dti = get_timestep_ti(i, dti_max, times->Ti_Current);
             if(dti < dti_min)
                 dti_min = dti;
         }
@@ -213,7 +213,7 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times)
         if(TimestepParams.ForceEqualTimesteps) {
             dti = dti_min;
         } else {
-            dti = get_timestep_ti(i, dti_max);
+            dti = get_timestep_ti(i, dti_max, times->Ti_Current);
         }
 
         /* make it a power 2 subdivision */
@@ -412,8 +412,8 @@ do_the_short_range_kick(int i, double dt_entr, double Fgravkick, double Fhydroki
 #endif
 }
 
-double
-get_timestep_dloga(const int p)
+static double
+get_timestep_dloga(const int p, const inttime_t Ti_Current)
 {
     double ac = 0;
     double dt = 0, dt_courant = 0;
@@ -462,7 +462,7 @@ get_timestep_dloga(const int p)
                 dt = dt_accr;
         }
         if(BHP(p).minTimeBin > 0 && BHP(p).minTimeBin+1 < TIMEBINS) {
-            double dt_limiter = get_dloga_for_bin(BHP(p).minTimeBin+1, P[p].Ti_drift) / All.cf.hubble;
+            double dt_limiter = get_dloga_for_bin(BHP(p).minTimeBin+1, Ti_Current) / All.cf.hubble;
             /* Set the black hole timestep to the minimum timesteps of neighbouring gas particles.
              * It should be at least this for accretion accuracy, and it does not make sense to
              * make it less than this. We go one timestep up because often the smallest
@@ -485,7 +485,7 @@ get_timestep_dloga(const int p)
  *  p -> particle index
  *  dti_max -> maximal timestep.  */
 static inttime_t
-get_timestep_ti(const int p, const inttime_t dti_max)
+get_timestep_ti(const int p, const inttime_t dti_max, const inttime_t Ti_Current)
 {
     inttime_t dti;
     /*Give a useful message if we are broken*/
@@ -496,12 +496,12 @@ get_timestep_ti(const int p, const inttime_t dti_max)
     if(!All.TreeGravOn)
         return dti_max;
 
-    double dloga = get_timestep_dloga(p);
+    double dloga = get_timestep_dloga(p, Ti_Current);
 
     if(dloga < TimestepParams.MinSizeTimestep)
         dloga = TimestepParams.MinSizeTimestep;
 
-    dti = dti_from_dloga(dloga, P[p].Ti_drift);
+    dti = dti_from_dloga(dloga, Ti_Current);
 
     /* Check for overflow*/
     if(dti > dti_max || dti < 0)
