@@ -101,7 +101,7 @@ timestep_eh_slots_fork(EIBase * event, void * userdata)
 
 static inttime_t get_timestep_ti(const int p, const inttime_t dti_max);
 static int get_timestep_bin(inttime_t dti);
-static void do_the_short_range_kick(int i, inttime_t dti, double Fgravkick, double Fhydrokick);
+static void do_the_short_range_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick);
 /* Get the current PM (global) timestep.*/
 static inttime_t get_PM_timestep_ti(const DriftKickTimes * const times);
 
@@ -318,13 +318,14 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
         int bin = P[i].TimeBin;
         if(bin > TIMEBINS)
             endrun(4, "Particle %d (type %d, id %ld) had unexpected timebin %d\n", i, P[i].Type, P[i].ID, P[i].TimeBin);
-        inttime_t dti = dti_from_timebin(bin);
 #ifdef DEBUG
         if(isnan(gravkick[bin]) || gravkick[bin] == 0.)
             endrun(5, "Bad kicks %lg bin %d tik %d\n", gravkick[bin], bin, times->Ti_kick[bin]);
 #endif
+        inttime_t dti = dti_from_timebin(bin);
+        const double dt_entr = dloga_from_dti(dti/2, times->Ti_Current);
         /*This only changes particle i, so is thread-safe.*/
-        do_the_short_range_kick(i, dti/2, gravkick[bin], hydrokick[bin]);
+        do_the_short_range_kick(i, dt_entr, gravkick[bin], hydrokick[bin]);
     }
     walltime_measure("/Timeline/HalfKick/Short");
 }
@@ -353,7 +354,7 @@ apply_PM_half_kick(Cosmology * CP, DriftKickTimes * times)
 }
 
 void
-do_the_short_range_kick(int i, inttime_t dti, double Fgravkick, double Fhydrokick)
+do_the_short_range_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick)
 {
     int j;
     for(j = 0; j < 3; j++)
@@ -391,8 +392,6 @@ do_the_short_range_kick(int i, inttime_t dti, double Fgravkick, double Fhydrokic
            hence temperature) decreases by more than a factor 0.5.
            This limiter is here as well as in sfr_eff.c because the
            timestep may increase. */
-
-        const double dt_entr = dloga_from_dti(dti, P[i].Ti_drift);
         if(SPHP(i).DtEntropy * dt_entr < -0.5 * SPHP(i).Entropy)
             SPHP(i).Entropy *= 0.5;
         else
