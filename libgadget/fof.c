@@ -43,6 +43,7 @@ struct FOFParams
 {
     int FOFSaveParticles ; /* saving particles in the fof group */
     double MinFoFMassForNewSeed;	/* Halo mass required before new seed is put in */
+    double MinMStarForNewSeed; /* Minimum stellar mass required before new seed */
     double FOFHaloLinkingLength;
     double FOFHaloComovingLinkingLength; /* in code units */
     int FOFHaloMinLength;
@@ -58,6 +59,7 @@ void set_fof_params(ParameterSet * ps)
         fof_params.FOFHaloLinkingLength = param_get_double(ps, "FOFHaloLinkingLength");
         fof_params.FOFHaloMinLength = param_get_int(ps, "FOFHaloMinLength");
         fof_params.MinFoFMassForNewSeed = param_get_double(ps, "MinFoFMassForNewSeed");
+        fof_params.MinMStarForNewSeed = param_get_double(ps, "MinMStarForNewSeed");
     }
     MPI_Bcast(&fof_params, sizeof(struct FOFParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -1248,6 +1250,7 @@ void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm
     {
         Marked[i] =
             (fof->Group[i].Mass >= fof_params.MinFoFMassForNewSeed)
+        &&  (fof->Group[i].MassType[4] >= fof_params.MinMStarForNewSeed)
         &&  (fof->Group[i].LenType[5] == 0)
         &&  (fof->Group[i].seed_index >= 0);
 
