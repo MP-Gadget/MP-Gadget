@@ -30,6 +30,7 @@
 #include "fof.h"
 #include "cooling_qso_lightup.h"
 #include "lightcone.h"
+#include "timefac.h"
 
 /* stats.c only used here */
 void energy_statistics(FILE * FdEnergy, const double Time,  struct part_manager_type * PartManager);
@@ -51,7 +52,7 @@ static struct ClockTable Clocks;
  * reached, when a `stop' file is found in the output directory, or
  * when the simulation ends because we arrived at TimeMax.
  */
-static void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, MyFloat * GradRho, int PairwiseStep, int GasEnabled, const inttime_t Ti_Current, ForceTree * tree, DomainDecomp * ddecomp);
+static void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, MyFloat * GradRho, int PairwiseStep, int GasEnabled, const DriftKickTimes times, ForceTree * tree, DomainDecomp * ddecomp);
 static void write_cpu_log(int NumCurrentTiStep, FILE * FdCPU);
 
 /* Updates the global storing the current random offset of the particles,
@@ -148,8 +149,6 @@ run(int RestartSnapNum)
 {
     /*Number of timesteps performed this run*/
     int NumCurrentTiStep = 0;
-    /*Minimum occupied timebin. Initially (but never again) zero*/
-    int minTimeBin = 0;
     /*Is gas physics enabled?*/
     int GasEnabled = All.NTotalInit[0] > 0;
 
@@ -158,7 +157,9 @@ run(int RestartSnapNum)
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.G);
 
     DomainDecomp ddecomp[1] = {0};
-    inttime_t Ti_Current = init(RestartSnapNum, ddecomp);          /* ... read in initial model */
+
+    /* ... read initial model and initialise the times*/
+    DriftKickTimes times = init_driftkicktime(init(RestartSnapNum, ddecomp));
 
     /* Stored scale factor of the next black hole seeding check*/
     double TimeNextSeedingCheck = All.Time;
@@ -177,26 +178,27 @@ run(int RestartSnapNum)
          * all bins except the zeroth are inactive and so we return 0 from this function.
          * This ensures we run the force calculation for the first timestep.
          */
-        inttime_t Ti_Next = find_next_kick(Ti_Current, minTimeBin);
+        inttime_t Ti_Next = find_next_kick(times.Ti_Current, times.mintimebin);
+        inttime_t Ti_Last = times.Ti_Current;
 
         /* Compute the list of particles that cross a lightcone and write it to disc.*/
         if(All.LightconeOn)
-            lightcone_compute(All.Time, &All.CP, Ti_Current, Ti_Next);
+            lightcone_compute(All.Time, &All.CP, Ti_Last, Ti_Next);
 
-        Ti_Current = Ti_Next;
+        times.Ti_Current = Ti_Next;
 
         /*Convert back to floating point time*/
-        set_global_time(Ti_Current);
+        set_global_time(times.Ti_Current);
         if(All.TimeStep < 0)
             endrun(1, "Negative timestep: %g New Time: %g!\n", All.TimeStep, All.Time);
 
-        int is_PM = is_PM_timestep(Ti_Current);
+        int is_PM = is_PM_timestep(&times);
 
         SyncPoint * next_sync; /* if we are out of planned sync points, terminate */
         SyncPoint * planned_sync; /* NULL; if the step is not a planned sync point. */
 
-        next_sync = find_next_sync_point(Ti_Current);
-        planned_sync = find_current_sync_point(Ti_Current);
+        next_sync = find_next_sync_point(times.Ti_Current);
+        planned_sync = find_current_sync_point(times.Ti_Current);
 
         HCIAction action[1];
 
@@ -218,7 +220,7 @@ run(int RestartSnapNum)
             update_random_offset(rel_random_shift);
         }
         /* Sync positions of all particles */
-        drift_all_particles(Ti_Current, All.BoxSize, &All.CP, rel_random_shift);
+        drift_all_particles(Ti_Last, times.Ti_Current, All.BoxSize, &All.CP, rel_random_shift);
 
         /* drift and ddecomp decomposition */
 
@@ -235,9 +237,9 @@ run(int RestartSnapNum)
         }
 
         ActiveParticles Act = {0};
-        rebuild_activelist(&Act, Ti_Current, NumCurrentTiStep);
+        rebuild_activelist(&Act, &times, NumCurrentTiStep);
 
-        set_random_numbers(All.RandomSeed + Ti_Current);
+        set_random_numbers(All.RandomSeed + times.Ti_Current);
 
         /* Are the particle neutrinos gravitating this timestep?
          * If so we need to add them to the tree.*/
@@ -255,15 +257,15 @@ run(int RestartSnapNum)
             GradRho = mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
 
         /* update force to Ti_Current */
-        compute_accelerations(&Act, is_PM, &pm, GradRho, pairwisestep, GasEnabled, Ti_Current, &Tree, ddecomp);
+        compute_accelerations(&Act, is_PM, &pm, GradRho, pairwisestep, GasEnabled, times, &Tree, ddecomp);
 
-        /* Update velocity to Ti_Current; this synchonizes TiKick and TiDrift for the active particles */
-
+        /* Update velocity to Ti_Current; this synchronizes TiKick and TiDrift for the active particles
+         * and sets Ti_Kick in the times structure.*/
         if(is_PM) {
-            apply_PM_half_kick();
+            apply_PM_half_kick(&All.CP, &times);
         }
 
-        apply_half_kick(&Act);
+        apply_half_kick(&Act, &All.CP, &times);
 
         int didfof = 0;
         /* Cooling and extra physics show up as a source term in the evolution equations.
@@ -402,13 +404,13 @@ run(int RestartSnapNum)
         /* assign new timesteps to the active particles,
          * now that we know they have synched TiKick and TiDrift,
          * and advance the PM timestep.*/
-        minTimeBin = find_timesteps(&Act, Ti_Current);
+        find_timesteps(&Act, &times);
 
-        /* Update velocity to the new step, with the newly computed step size */
-        apply_half_kick(&Act);
+        /* Update velocity and ti_kick to the new step, with the newly computed step size */
+        apply_half_kick(&Act, &All.CP, &times);
 
         if(is_PM) {
-            apply_PM_half_kick();
+            apply_PM_half_kick(&All.CP, &times);
         }
 
         /* We can now free the active list: the new step have new active particles*/
@@ -420,7 +422,7 @@ run(int RestartSnapNum)
 
 /*! This routine computes the accelerations for all active particles. Density, hydro and gravity are computed, in that order.
  */
-void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, MyFloat * GradRho, int PairwiseStep, int GasEnabled, const inttime_t Ti_Current, ForceTree * tree, DomainDecomp * ddecomp)
+void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, MyFloat * GradRho, int PairwiseStep, int GasEnabled, const DriftKickTimes times, ForceTree * tree, DomainDecomp * ddecomp)
 {
     message(0, "Begin force computation.\n");
 
@@ -442,7 +444,7 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
         struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
 
         if(All.DensityOn)
-            density(act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, All.MinEgySpec, Ti_Current, &sph_predicted, GradRho, tree);  /* computes density, and pressure */
+            density(act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, tree);  /* computes density, and pressure */
 
         /***** update smoothing lengths in tree *****/
         force_update_hmax(act->ActiveParticle, act->NumActiveParticle, tree, ddecomp);
@@ -452,7 +454,7 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
 
         /* adds hydrodynamical accelerations  and computes du/dt  */
         if(All.HydroOn)
-            hydro_force(act, All.WindOn, All.HydroCostFactor, All.cf.hubble, All.cf.a, &sph_predicted, tree);
+            hydro_force(act, All.WindOn, All.cf.hubble, All.cf.a, &sph_predicted, tree);
 
         /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
         slots_free_sph_pred_data(&sph_predicted);

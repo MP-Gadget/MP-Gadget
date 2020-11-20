@@ -77,7 +77,6 @@ struct HydraPriv {
      * they need an expensive pow().*/
     double fac_mu;
     double fac_vsic_fix;
-    double HydroCostFactor;
     double hubble_a2;
     double atime;
     int WindOn;
@@ -143,7 +142,7 @@ hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mo
  *  particles .
  */
 void
-hydro_force(const ActiveParticles * act, int WindOn, const double HydroCostFactor, const double hubble, const double atime, struct sph_pred_data * SPH_predicted, const ForceTree * const tree)
+hydro_force(const ActiveParticles * act, int WindOn, const double hubble, const double atime, struct sph_pred_data * SPH_predicted, const ForceTree * const tree)
 {
     int i;
     TreeWalk tw[1] = {{0}};
@@ -176,12 +175,11 @@ hydro_force(const ActiveParticles * act, int WindOn, const double HydroCostFacto
     double timeall = 0, timenetwork = 0;
     double timecomp, timecomm, timewait;
 
-    walltime_measure("/Misc");
+    walltime_measure("/SPH/Hydro/Init");
 
     /* Initialize some time factors*/
     HYDRA_GET_PRIV(tw)->fac_mu = pow(atime, 3 * (GAMMA - 1) / 2) / atime;
     HYDRA_GET_PRIV(tw)->fac_vsic_fix = hubble * pow(atime, 3 * GAMMA_MINUS1);
-    HYDRA_GET_PRIV(tw)->HydroCostFactor = HydroCostFactor * atime;
     HYDRA_GET_PRIV(tw)->WindOn = WindOn;
     HYDRA_GET_PRIV(tw)->atime = atime;
     HYDRA_GET_PRIV(tw)->hubble_a2 = hubble * atime * atime;

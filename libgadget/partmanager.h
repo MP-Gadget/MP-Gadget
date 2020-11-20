@@ -9,8 +9,7 @@
  */
 struct particle_data
 {
-    inttime_t Ti_drift;       /*!< current time of the particle position */
-    inttime_t Ti_kick;        /*!< current time of the particle momentum */
+    inttime_t Ti_drift;       /*!< current time of the particle position. The same for all particles. */
 
     double Pos[3];   /*!< particle position at its current time */
     float Mass;     /*!< particle mass */

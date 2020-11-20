@@ -73,8 +73,6 @@ set_init_params(ParameterSet * ps)
         All.ShortRangeForceWindowType = param_get_enum(ps, "ShortRangeForceWindowType");
         All.Nmesh = param_get_int(ps, "Nmesh");
 
-        All.HydroCostFactor = param_get_double(ps, "HydroCostFactor");
-
         All.CoolingOn = param_get_int(ps, "CoolingOn");
         All.HydroOn = param_get_int(ps, "HydroOn");
         All.DensityOn = param_get_int(ps, "DensityOn");
@@ -168,8 +166,6 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
     /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
     set_global_time(Ti_Current);
 
-    init_drift_table(&All.CP, All.TimeInit, All.TimeMax);
-
     /*Read the snapshot*/
     petaio_read_snapshot(RestartSnapNum, MPI_COMM_WORLD);
 
@@ -188,7 +184,7 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)	/* initialize sph_properties */
     {
-        P[i].Ti_drift = P[i].Ti_kick = Ti_Current;
+        P[i].Ti_drift = Ti_Current;
 
         if(All.BlackHoleOn && RestartSnapNum == -1 && P[i].Type == 5 )
         {
@@ -339,8 +335,10 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, struc
             SphP[i].Entropy = GAMMA_MINUS1 * u_init / pow(SphP[i].EgyWtDensity / a3 , GAMMA_MINUS1);
             olddensity[i] = SphP[i].EgyWtDensity;
         }
+        /* Empty kick factors as we do not move*/
+        DriftKickTimes times = init_driftkicktime(Ti_Current);
         /* Update the EgyWtDensity*/
-        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, 0,  Ti_Current, sph_pred, NULL, Tree);
+        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, 0,  times, &All.CP, sph_pred, NULL, Tree);
         if(stop)
             break;
 
@@ -462,7 +460,9 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime
     act.ActiveParticle = NULL;
     act.NumActiveParticle = PartManager->NumPart;
 
-    density(&act, 1, 0, All.BlackHoleOn, All.HydroCostFactor, 0,  Ti_Current, &sph_pred, NULL, &Tree);
+    /* Empty kick factors as we do not move*/
+    DriftKickTimes times = init_driftkicktime(Ti_Current);
+    density(&act, 1, 0, All.BlackHoleOn, 0,  times, &All.CP, &sph_pred, NULL, &Tree);
 
     /* for clean IC with U input only, we need to iterate to find entrpoy */
     if(RestartSnapNum == -1)
