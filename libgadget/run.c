@@ -25,6 +25,7 @@
 #include "blackhole.h"
 #include "hydra.h"
 #include "sfr_eff.h"
+#include "metal_return.h"
 #include "slotsmanager.h"
 #include "hci.h"
 #include "fof.h"
@@ -323,6 +324,9 @@ run(int RestartSnapNum)
             /**** radiative cooling and star formation *****/
             if(All.CoolingOn)
                 cooling_and_starformation(&Act, &Tree, GradRho, FdSfr);
+
+            if(All.MetalReturnOn)
+                metal_return(&Act, All.Time, &Tree);
 
             if(GradRho) {
                 myfree(GradRho);
