@@ -55,13 +55,21 @@ struct bh_particle_data {
     double Mtrack; /*Swallow gas particle when BHP.Mass accretes from SeedBHMass to SeedDynMass for mass conservation */
 };
 
+enum MetalType {
+    Total = 0,
+    SnII = 1,
+    AGB = 2,
+    SN1a = 3,
+};
+#define NMETALS 4
+
 /*Data for each star particle*/
 struct star_particle_data
 {
     struct particle_data_ext base;
     MyFloat FormationTime;		/*!< formation time of star particle */
     MyFloat BirthDensity;		/*!< Density of gas particle at star formation. */
-    MyFloat Metallicity;		/*!< metallicity of star particle */
+    MyFloat Metallicity[NMETALS];		/*!< metallicity of star particle, by source */
 };
 
 /* the following structure holds data that is stored for each SPH particle in addition to the collisionless
@@ -75,7 +83,6 @@ struct sph_particle_data
      * If DensityIndependentSph is off then Density is used instead.*/
     MyFloat EgyWtDensity;           /*!< 'effective' rho to use in hydro equations */
 
-    MyFloat Metallicity;		/*!< metallicity of gas particle */
     MyFloat Entropy;		/*!< Entropy (actually entropic function) at kick time of particle.
                                  * Defined as: P_i = A(s) rho_i^gamma. See Springel & Hernquist 2002.*/
     MyFloat MaxSignalVel;           /*!< maximum signal velocity */
@@ -96,6 +103,7 @@ struct sph_particle_data
                             /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
     MyFloat Sfr; /* Star formation rate in Msun/year. Stored here because, if the H2 dependent star formation is used,
                     it depends on the scratch variable GradRho and thus cannot be recomputed after a fof-exchange. */
+    MyFloat Metallicity[NMETALS];       /*!< metallicity of gas particle, by source */
 };
 
 extern struct slots_manager_type {

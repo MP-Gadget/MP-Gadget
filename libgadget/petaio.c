@@ -843,8 +843,8 @@ SIMPLE_PROPERTY_PI(ElectronAbundance, Ne, float, 1, struct sph_particle_data)
 SIMPLE_PROPERTY_PI(DelayTime, DelayTime, float, 1, struct sph_particle_data)
 SIMPLE_PROPERTY_TYPE_PI(StarFormationTime, 4, FormationTime, float, 1, struct star_particle_data)
 SIMPLE_PROPERTY_PI(BirthDensity, BirthDensity, float, 1, struct star_particle_data)
-SIMPLE_PROPERTY_TYPE_PI(Metallicity, 4, Metallicity, float, 1, struct star_particle_data)
-SIMPLE_PROPERTY_TYPE_PI(Metallicity, 0, Metallicity, float, 1, struct sph_particle_data)
+SIMPLE_PROPERTY_TYPE_PI(Metallicity, 4, Metallicity[0], float, NMETALS, struct star_particle_data)
+SIMPLE_PROPERTY_TYPE_PI(Metallicity, 0, Metallicity[0], float, NMETALS, struct sph_particle_data)
 
 SIMPLE_GETTER_PI(GTStarFormationRate, Sfr, float, 1, struct sph_particle_data)
 SIMPLE_PROPERTY_TYPE_PI(StarFormationTime, 5, FormationTime, float, 1, struct bh_particle_data)
@@ -1008,8 +1008,8 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
     IO_REG_WRONLY(StarFormationRate, "f4", 1, 0, IOTable);
     IO_REG_NONFATAL(BirthDensity, "f4", 1, 4, IOTable);
     IO_REG_TYPE(StarFormationTime, "f4", 1, 4, IOTable);
-    IO_REG_TYPE(Metallicity,       "f4", 1, 0, IOTable);
-    IO_REG_TYPE(Metallicity,       "f4", 1, 4, IOTable);
+    IO_REG_TYPE(Metallicity,       "f4", NMETALS, 0, IOTable);
+    IO_REG_TYPE(Metallicity,       "f4", NMETALS, 4, IOTable);
     /* Another new addition: save the DelayTime for wind particles*/
     IO_REG_NONFATAL(DelayTime,  "f4", 1, 0, IOTable);
     /* end SF */
