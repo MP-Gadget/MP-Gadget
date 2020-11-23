@@ -159,6 +159,8 @@ struct DensityPriv {
     double MinGasHsml;
     /* Are there potentially black holes?*/
     int BlackHoleOn;
+    /* Will metals be returned and thus do we need to have star particle Hsml*/
+    int MetalReturnOn;
 };
 
 #define DENSITY_GET_PRIV(tw) ((struct DensityPriv*) ((tw)->priv))
@@ -199,7 +201,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double MinEgySpec, const DriftKickTimes times, Cosmology * CP, struct sph_pred_data * SPH_predicted, MyFloat * GradRho, const ForceTree * const tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int MetalReturnOn, int BlackHoleOn, double MinEgySpec, const DriftKickTimes times, Cosmology * CP, struct sph_pred_data * SPH_predicted, MyFloat * GradRho, const ForceTree * const tree)
 {
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
@@ -564,6 +566,9 @@ density_haswork(int n, TreeWalk * tw)
     /* Don't want a density for swallowed black hole particles*/
     if(P[n].Swallowed)
         return 0;
+    /* Need Hsml for stars if we have metals coming from them.*/
+    if(DENSITY_GET_PRIV(tw)->MetalReturnOn && P[n].Type == 4)
+        return 1;
     if(P[n].Type == 0 || P[n].Type == 5)
         return 1;
 

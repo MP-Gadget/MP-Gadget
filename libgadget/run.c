@@ -448,7 +448,7 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
         struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
 
         if(All.DensityOn)
-            density(act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, tree);  /* computes density, and pressure */
+            density(act, 1, DensityIndependentSphOn(), All.MetalReturnOn, All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, tree);  /* computes density, and pressure */
 
         /***** update smoothing lengths in tree *****/
         force_update_hmax(act->ActiveParticle, act->NumActiveParticle, tree, ddecomp);
