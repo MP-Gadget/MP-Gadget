@@ -12,6 +12,7 @@
 #include "metal_return.h"
 #include "densitykernel.h"
 #include "density.h"
+#include "cosmology.h"
 #include "winds.h"
 #include "utils/spinlocks.h"
 
@@ -44,6 +45,8 @@ set_metal_return_params(ParameterSet * ps)
 
 struct MetalReturnPriv {
     double atime;
+    inttime_t Ti_Current;
+    Cosmology *CP;
     struct SpinLocks * spin;
 //    struct Yields
 };
@@ -54,11 +57,20 @@ typedef struct {
     TreeWalkQueryBase base;
     MyFloat Metallicity[NMETALS];
     MyFloat Mass;
+    MyFloat Hsml;
+    /* This is the metal generated this timestep.
+     * Unused metals are added to the star.*/
+    MyFloat TotalMetalGenerated[NMETALS];
 } TreeWalkQueryMetals;
 
 typedef struct {
     TreeWalkResultBase base;
+    /* This is the total mass returned to
+     * the surrounding gas particles, for mass conservation.*/
     MyFloat MassReturn[NMETALS];
+    /* This is the metal generated this timestep.
+     * Unused metals are added to the star.*/
+    MyFloat TotalMetalGenerated[NMETALS];
     int Ninteractions;
 } TreeWalkResultMetals;
 
@@ -82,6 +94,16 @@ metal_return_copy(int place, TreeWalkQueryMetals * input, TreeWalk * tw);
 
 static void
 metal_return_reduce(int place, TreeWalkResultMetals * result, enum TreeWalkReduceMode mode, TreeWalk * tw);
+
+/* Compute the difference in internal time units between two scale factors.
+ * These two scale factors should be close together so the Hubble function is constant.*/
+static double atime_to_gyr(Cosmology *CP, double atime1, double atime2)
+{
+    /* t = dt/da da = 1/(Ha) da*/
+    /* Approximate hubble function as constant here: we only care
+     * about metal return over a single timestep*/
+    return (atime1 - atime2) / (hubble_function(CP, atime1) * atime1);
+}
 
 /*! This function is the driver routine for the calculation of metal return. */
 void
@@ -124,6 +146,10 @@ metal_return_copy(int place, TreeWalkQueryMetals * input, TreeWalk * tw)
     for(j = 0; j< NMETALS; j++)
         input->Metallicity[j] = STARP(place).Metallicity[j];
     input->Mass = P[place].Mass;
+    input->Hsml = P[place].Hsml;
+    double endtime = METALS_GET_PRIV(tw)->atime + get_dloga_for_bin(P[place].TimeBin, METALS_GET_PRIV(tw)->Ti_Current);
+    double timepassed = atime_to_gyr(METALS_GET_PRIV(lv->tw)->CP, METALS_GET_PRIV(lv->tw)->atime, endtime);
+
 }
 
 static void
@@ -155,12 +181,12 @@ metal_return_ngbiter(
         /* Use symmetric treewalk because in practice we ignore the Hsml of the star.
          * So I-> Hsml = 0*/
         iter->base.Hsml = 0;
-        iter->base.symmetric = NGB_TREEFIND_SYMMETRIC;
-
-        /* initialize variables before SPH loop is started */
+        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
+        /* Initialise the mass lost by this star in this timestep*/
         int j;
-        for(j = 0; j < NMETALS; j++)
+        for(j = 0; j < NMETALS; j++) {
             O->MassReturn[j] = 0;
+        }
         return;
     }
 
