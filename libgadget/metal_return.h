@@ -6,7 +6,7 @@
 #include "utils/paramset.h"
 
 /*Function to compute metal return from star particles, adding metals to the gas.*/
-void metal_return(const ActiveParticles * act, const double atime, const ForceTree * const tree);
+void metal_return(const ActiveParticles * act, const ForceTree * const tree, const double atime, double * StarVolumeSPH);
 
 void set_metal_return_params(ParameterSet * ps);
 

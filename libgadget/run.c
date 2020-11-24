@@ -53,7 +53,7 @@ static struct ClockTable Clocks;
  * reached, when a `stop' file is found in the output directory, or
  * when the simulation ends because we arrived at TimeMax.
  */
-static void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, MyFloat * GradRho, int PairwiseStep, int GasEnabled, const DriftKickTimes times, ForceTree * tree, DomainDecomp * ddecomp);
+static void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, MyFloat * GradRho, MyFloat * StarVolumeSPH, int PairwiseStep, int GasEnabled, const DriftKickTimes times, ForceTree * tree, DomainDecomp * ddecomp);
 static void write_cpu_log(int NumCurrentTiStep, FILE * FdCPU);
 
 /* Updates the global storing the current random offset of the particles,
@@ -257,8 +257,12 @@ run(int RestartSnapNum)
         if(sfr_need_to_compute_sph_grad_rho())
             GradRho = mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
 
+        MyFloat * StarVolumeSPH = NULL;
+        if(All.MetalReturnOn)
+            GradRho = mymalloc2("StarVolumeSPH", sizeof(MyFloat) * SlotsManager->info[4].size);
+
         /* update force to Ti_Current */
-        compute_accelerations(&Act, is_PM, &pm, GradRho, pairwisestep, GasEnabled, times, &Tree, ddecomp);
+        compute_accelerations(&Act, is_PM, &pm, GradRho, StarVolumeSPH, pairwisestep, GasEnabled, times, &Tree, ddecomp);
 
         /* Update velocity to Ti_Current; this synchronizes TiKick and TiDrift for the active particles
          * and sets Ti_Kick in the times structure.*/
@@ -325,8 +329,11 @@ run(int RestartSnapNum)
             if(All.CoolingOn)
                 cooling_and_starformation(&Act, &Tree, GradRho, FdSfr);
 
-            if(All.MetalReturnOn)
-                metal_return(&Act, All.Time, &Tree);
+            if(All.MetalReturnOn) {
+                metal_return(&Act, &Tree, All.Time, StarVolumeSPH);
+                myfree(StarVolumeSPH);
+                StarVolumeSPH = NULL;
+            }
 
             if(GradRho) {
                 myfree(GradRho);
@@ -426,7 +433,7 @@ run(int RestartSnapNum)
 
 /*! This routine computes the accelerations for all active particles. Density, hydro and gravity are computed, in that order.
  */
-void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, MyFloat * GradRho, int PairwiseStep, int GasEnabled, const DriftKickTimes times, ForceTree * tree, DomainDecomp * ddecomp)
+void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, MyFloat * GradRho, MyFloat * StarVolumeSPH, int PairwiseStep, int GasEnabled, const DriftKickTimes times, ForceTree * tree, DomainDecomp * ddecomp)
 {
     message(0, "Begin force computation.\n");
 
@@ -448,7 +455,7 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
         struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
 
         if(All.DensityOn)
-            density(act, 1, DensityIndependentSphOn(), All.MetalReturnOn, All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, tree);  /* computes density, and pressure */
+            density(act, 1, DensityIndependentSphOn(), StarVolumeSPH, All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, tree);  /* computes density, and pressure */
 
         /***** update smoothing lengths in tree *****/
         force_update_hmax(act->ActiveParticle, act->NumActiveParticle, tree, ddecomp);

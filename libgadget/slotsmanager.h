@@ -67,9 +67,9 @@ enum MetalType {
 struct star_particle_data
 {
     struct particle_data_ext base;
-    MyFloat FormationTime;		/*!< formation time of star particle */
-    MyFloat BirthDensity;		/*!< Density of gas particle at star formation. */
-    MyFloat Metallicity[NMETALS];		/*!< metallicity of star particle, by source */
+    MyFloat FormationTime;      /*!< formation time of star particle */
+    MyFloat BirthDensity;       /*!< Density of gas particle at star formation. */
+    MyFloat Metallicity[NMETALS];       /*!< metallicity of star particle, by source. */
 };
 
 /* the following structure holds data that is stored for each SPH particle in addition to the collisionless
