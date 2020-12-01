@@ -53,7 +53,7 @@ def parse_step_header(line, karakas=True):
 
 def parse_full_bin(textdata, karakas=True):
     """Split a line of a yield table into a yield number and an elemental species"""
-    metalnames = ('H', 'He', 'C', 'N', 'O', 'Ne', 'Mg', 'Si', 'S', 'Ca', 'Fe', 'Z', 'ej')
+    metalnames = ('H', 'He', 'C', 'N', 'O', 'Ne', 'Mg', 'Si', 'Fe', 'Z', 'ej')
     #Zero yield for this bin
     yielddata = {mm : 0 for mm in metalnames}
     for line in textdata:
