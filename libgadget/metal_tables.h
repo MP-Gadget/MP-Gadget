@@ -4,7 +4,7 @@
 /* Metals followed:
  * H, He, C, N, O, Ne, Mg, Si, Fe (11, following 1703.02970)
  */
-#define NSPECIES 11
+#define NSPECIES 9
 /* Metallicity values (in terms of metal yield, not solar metallicity)
  * for the stellar lifetime table. Columns of lifetime.*/
 #define LIFE_NMET 5
@@ -50,7 +50,8 @@ static const double lifetime[LIFE_NMASS*LIFE_NMET] = {
 /* Sn1a yields from the W7 model of Nomoto et al 1997 https://arxiv.org/abs/astro-ph/9706025
  * I extracted this from the latex source of their table 1 by hand.
  */
-double sn1a_yields[NSPECIES] = {0, 0, 4.83E-02, 1.16E-06 , 1.43E-01 , 4.51E-03, 8.57E-03, 1.53E-01, 7.43e-01};
+const double sn1a_total_metals = 1.3743416565891;
+const double sn1a_yields[NSPECIES] = {0, 0, 4.83E-02, 1.16E-06 , 1.43E-01 , 4.51E-03, 8.57E-03, 1.53E-01, 7.43e-01};
 
 /* AGB yields from Karakas 2010, 0912.2142 Tables A2 - A5. These have been parsed by the script in tools/extract_yields.py
  * Massive stars are from Doherty 2014, https://doi.org/10.1093/mnras/stt1877 and https://doi.org/10.1093/mnras/stu571
