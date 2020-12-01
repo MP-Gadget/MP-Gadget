@@ -4,24 +4,24 @@ There is what I assume to be a typo in Karaks 2010 table A3: M = 2 is listed as 
 import re
 import os.path
 
-def parse_2010_file(fname):
+def parse_file(fname, karakas=True):
     """Parse a yield file. Looks for the end of each mass/metallicity bin
     Returns a dictionary of total metal yields."""
     yields = {}
     with open(fname) as fn:
         #Get first header
         line = fn.readline()
-        head = parse_step_header(line)
+        head = parse_step_header(line, karakas=karakas)
         line = fn.readline()
         #Read lines, stopping when done.
         laststep = []
         while line != "":
-            lhead = parse_step_header(line)
+            lhead = parse_step_header(line, karakas=karakas)
             if lhead is not None:
-                yielddata = parse_full_bin(laststep)
-                (mass, metal, ejected) = head
-                yielddata['ej'] = ejected
-                yields[(mass, metal)] = yielddata
+                yielddata = parse_full_bin(laststep, karakas=karakas)
+                if head is None:
+                    raise Exception
+                yields[head] = yielddata
                 #New step
                 laststep = []
                 head = lhead
@@ -30,31 +30,39 @@ def parse_2010_file(fname):
                 laststep += [line,]
             line = fn.readline()
         #Process final bin
-        yielddata = parse_full_bin(laststep)
-        (mass, metal, ejected) = head
-        yielddata['ej'] = ejected
-        yields[(mass, metal)] = yielddata
+        yielddata = parse_full_bin(laststep, karakas=karakas)
+        yields[head] = yielddata
     return yields
 
-def parse_step_header(line):
+def parse_step_header(line, karakas=True):
     """Parse a string describing a mass, metallicity bin.
     Returns None if the line is not a bin header, otherwise a tuple of mass, metallicity and ejected mass."""
-    regex = r"# Minitial =  ([\.0-9]+) msun, Z = ([\.0-9]+), Mfinal = ([\.0-9]+) msun"
+    #This flags whether we are looking in Karakas 2010 or Doherty 2014.
+    if karakas:
+        regex = r"# Minitial =  ([\.0-9]+) msun, Z = ([\.0-9]+), Mfinal = ([\.0-9]+) msun"
+    else:
+        regex = r"\s+([\.0-9]+)M Z=([\.0-9]+) VW93"
     reg = re.match(regex, line)
     if reg is None:
         return None
     grps = reg.groups()
     initmass = float(grps[0])
-    return initmass, float(grps[1]), initmass - float(grps[2])
+    #Read massloss from the table so we can reuse code for 2014 table
+    #initmass - float(grps[2])
+    return initmass, float(grps[1])
 
-def parse_full_bin(textdata):
+def parse_full_bin(textdata, karakas=True):
     """Split a line of a yield table into a yield number and an elemental species"""
-    metalnames = ('H', 'He', 'C', 'N', 'O', 'Ne', 'Mg', 'Si', 'S', 'Ca', 'Fe', 'Z')
+    metalnames = ('H', 'He', 'C', 'N', 'O', 'Ne', 'Mg', 'Si', 'S', 'Ca', 'Fe', 'Z', 'ej')
     #Zero yield for this bin
     yielddata = {mm : 0 for mm in metalnames}
     for line in textdata:
         #Regex for a yield line. If this doesn't match, return nothing.
-        regex = r"\s+([a-z0-9]+)\s+[0-9]+\s+([\.0-9E\-\+]+)"
+        if karakas:
+            #Extra column with atomic number in Karakas.
+            regex = r"\s+([a-z0-9]+)\s+[0-9]+\s+([\.0-9E\-\+]+)\s+([\.0-9E\-\+]+)"
+        else:
+            regex = r"\s+([a-z0-9]+)\s+([\.0-9E\-\+]+)\s+([\.0-9E\-\+]+)"
         reg = re.match(regex, line)
         if reg is None:
             continue
@@ -69,6 +77,7 @@ def parse_full_bin(textdata):
         #Add non-H, non-He to total metals
         if species not in ('H', 'He'):
             yielddata['Z'] += yy
+        yielddata['ej'] += float(grps[2])
     return yielddata
 
 def parse_species(string, metalnames):
@@ -113,11 +122,13 @@ double %(name)s_yield[NSPECIES][%(uname)s_NMET*%(uname)s_NMASS] = {
     """
     (mass, metals) = zip(*yields.keys())
     mass = sorted(list(set(mass)))
-    #Remove the M = 6.5 bin for now
-    mass = [mm for mm in mass if mm < 6.5]
+    #Stars with M >= 8 are in the SnII table
+    mass = [mm for mm in mass if mm < 8.0]
     metals = sorted(list(set(metals)))
-    cmass = ','.join('%.3f' % m for m in mass)
-    cmet = ','.join('%.3f' % m for m in metals)
+    #Remove the Z=0.001 bin which is only available for large masses
+    metals = [zz for zz in metals if (zz > 0.002)+(zz < 0.0009)]
+    cmass = ','.join('%.2f' % m for m in mass)
+    cmet = ','.join('%.4f' % m for m in metals)
     cejected = format_c_array(yields, mass, metals, 'ej')
     ctotmet = format_c_array(yields, mass, metals, 'Z', '%.3e')
     metalnames = ('H', 'He', 'C', 'N', 'O', 'Ne', 'Mg', 'Si', 'S', 'Ca', 'Fe')
@@ -133,7 +144,9 @@ def get_all_agb():
     # First Karakas 2010. These tables are supplementary data on the journal archive.
     # Not committed because possible copyright.
     files = ("table_a2.txt", "table_a3.txt", "table_a4.txt", "table_a5.txt")
-    yllist = [parse_2010_file(os.path.join("1048800_Supplementary_Data",ff)) for ff in files]
-    yields = dict(yllist[0])
-    [yields.update(yl) for yl in yllist[1:]]
+    yllist = [parse_file(os.path.join("1048800_Supplementary_Data",ff)) for ff in files]
+    #Get the Doherty 2014 first table
+    yields = parse_file("998013_Supplementary_Data/TABLE1-VW93ML.txt", karakas=False)
+    yields.update(parse_file("stu571_Supplementary_Data/P3Doh14b-table1.txt", karakas=False))
+    [yields.update(yl) for yl in yllist]
     return format_for_c("agb", yields)
