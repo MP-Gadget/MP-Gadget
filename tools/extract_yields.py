@@ -105,17 +105,17 @@ def format_for_c(arrayname, yields):
     #Masses and metallicities
     out = """#define %(uname)s_NMET %(zsize)d
 #define %(uname)s_NMASS %(msize)d
-double %(name)s_masses[%(uname)s_NMASS] = { %(masses)s };
-double %(name)s_metallicities[%(uname)s_NMET] = { %(metals)s };
-double %(name)s_total_mass[%(uname)s_NMET*%(uname)s_NMASS] = {
+static const double %(name)s_masses[%(uname)s_NMASS] = { %(masses)s };
+static const double %(name)s_metallicities[%(uname)s_NMET] = { %(metals)s };
+static const double %(name)s_total_mass[%(uname)s_NMET*%(uname)s_NMASS] = {
 %(eject)s
 };
 
-double %(name)s_total_metals[%(uname)s_NMET*%(uname)s_NMASS] = {
+static const double %(name)s_total_metals[%(uname)s_NMET*%(uname)s_NMASS] = {
 %(totmet)s
 };
 
-double %(name)s_yield[NSPECIES][%(uname)s_NMET*%(uname)s_NMASS] = {
+static const double %(name)s_yield[NSPECIES][%(uname)s_NMET*%(uname)s_NMASS] = {
 %(yields)s
 };
 

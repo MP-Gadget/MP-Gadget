@@ -49,18 +49,19 @@ static const double lifetime[LIFE_NMASS*LIFE_NMET] = {
 
 /* Sn1a yields from the W7 model of Nomoto et al 1997 https://arxiv.org/abs/astro-ph/9706025
  * I extracted this from the latex source of their table 1 by hand.
+ * total_metals is just the sum of all metal masses in the table.
  */
-const double sn1a_total_metals = 1.3743416565891;
-const double sn1a_yields[NSPECIES] = {0, 0, 4.83E-02, 1.16E-06 , 1.43E-01 , 4.51E-03, 8.57E-03, 1.53E-01, 7.43e-01};
+static const double sn1a_total_metals = 1.3743416565891;
+static const double sn1a_yields[NSPECIES] = {0, 0, 4.83E-02, 1.16E-06 , 1.43E-01 , 4.51E-03, 8.57E-03, 1.53E-01, 7.43e-01};
 
 /* AGB yields from Karakas 2010, 0912.2142 Tables A2 - A5. These have been parsed by the script in tools/extract_yields.py
  * Massive stars are from Doherty 2014, https://doi.org/10.1093/mnras/stt1877 and https://doi.org/10.1093/mnras/stu571
  */
 #define AGB_NMET 4
 #define AGB_NMASS 18
-double agb_masses[AGB_NMASS] = { 1.00,1.25,1.50,1.75,1.90,2.00,2.25,2.50,3.00,3.50,4.00,4.50,5.00,5.50,6.00,6.50,7.00,7.50 };
-double agb_metallicities[AGB_NMET] = { 0.0001,0.0040,0.0080,0.0200 };
-double agb_total_mass[AGB_NMET*AGB_NMASS] = {
+static const double agb_masses[AGB_NMASS] = { 1.00,1.25,1.50,1.75,1.90,2.00,2.25,2.50,3.00,3.50,4.00,4.50,5.00,5.50,6.00,6.50,7.00,7.50 };
+static const double agb_metallicities[AGB_NMET] = { 0.0001,0.0040,0.0080,0.0200 };
+static const double agb_total_mass[AGB_NMET*AGB_NMASS] = {
 0.280,0.390,0.423,0.436,
 0.582,0.608,0.650,0.676,
 0.839,0.872,0.867,0.900,
@@ -82,7 +83,7 @@ double agb_total_mass[AGB_NMET*AGB_NMASS] = {
 
 };
 
-double agb_total_metals[AGB_NMET*AGB_NMASS] = {
+static const double agb_total_metals[AGB_NMET*AGB_NMASS] = {
 2.674e-04,6.293e-06,1.198e-05,2.701e-05,
 3.907e-03,1.942e-04,3.162e-05,7.465e-05,
 1.247e-02,1.939e-03,3.072e-04,1.282e-04,
@@ -104,7 +105,7 @@ double agb_total_metals[AGB_NMET*AGB_NMASS] = {
 
 };
 
-double agb_yield[NSPECIES][AGB_NMET*AGB_NMASS] = {
+static const double agb_yield[NSPECIES][AGB_NMET*AGB_NMASS] = {
 {-5.642623e-03,-8.130491e-03,-8.729696e-03,-8.104831e-03,
 -2.988347e-02,-1.487437e-02,-1.440054e-02,-1.229414e-02,
 -5.875391e-02,-2.164262e-02,-1.743931e-02,-1.283199e-02,
