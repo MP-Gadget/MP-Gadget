@@ -227,7 +227,8 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
             SPHP(i).DivVel = 0;
             SPHP(i).CurlVel = 0;
             SPHP(i).DelayTime = 0;
-            memset(SPHP(i).Metallicity, 0, NMETALS*sizeof(MyFloat));
+            SPHP(i).Metallicity = 0;
+            memset(SPHP(i).Metals, 0, NMETALS*sizeof(float));
             SPHP(i).Sfr = 0;
             SPHP(i).MaxSignalVel = 0;
         }

@@ -55,21 +55,17 @@ struct bh_particle_data {
     double Mtrack; /*Swallow gas particle when BHP.Mass accretes from SeedBHMass to SeedDynMass for mass conservation */
 };
 
-enum MetalType {
-    Total = 0,
-    SnII = 1,
-    AGB = 2,
-    SN1a = 3,
-};
-#define NMETALS 4
+#define NMETALS 9
 
 /*Data for each star particle*/
 struct star_particle_data
 {
     struct particle_data_ext base;
     MyFloat FormationTime;      /*!< formation time of star particle */
+    MyFloat LastEnrichmentMyr;  /* Last time the star particle had an enrichment event, in Myr since FormationTime.*/
     MyFloat BirthDensity;       /*!< Density of gas particle at star formation. */
-    MyFloat Metallicity[NMETALS];       /*!< metallicity of star particle, by source. */
+    MyFloat Metallicity;        /*!< Total metallicity of star particle */
+    float Metals[NMETALS];      /* Metal mass of each species in star particle*/
 };
 
 /* the following structure holds data that is stored for each SPH particle in addition to the collisionless
@@ -103,7 +99,8 @@ struct sph_particle_data
                             /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
     MyFloat Sfr; /* Star formation rate in Msun/year. Stored here because, if the H2 dependent star formation is used,
                     it depends on the scratch variable GradRho and thus cannot be recomputed after a fof-exchange. */
-    MyFloat Metallicity[NMETALS];       /*!< metallicity of gas particle, by source */
+    MyFloat Metallicity;        /*!< metallicity of gas particle */
+    float Metals[NMETALS];
 };
 
 extern struct slots_manager_type {

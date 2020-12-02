@@ -382,7 +382,7 @@ cooling_direct(int i, const double a3inv, const double hubble)
 
     double redshift = 1./All.Time - 1;
     struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos, PartManager->CurrentParticleOffset);
-    double unew = DoCooling(redshift, uold, SPHP(i).Density * a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity[Total], All.MinEgySpec, P[i].HeIIIionized);
+    double unew = DoCooling(redshift, uold, SPHP(i).Density * a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity, All.MinEgySpec, P[i].HeIIIionized);
 
     SPHP(i).Ne = ne;
     /* Update the entropy. This is done after synchronizing kicks and drifts, as per run.c.*/
@@ -504,9 +504,10 @@ static int make_particle_star(int child, int parent, int placement)
     STARP(child).FormationTime = All.Time;
     STARP(child).BirthDensity = oldslot.Density;
     /*Copy metallicity*/
+    STARP(child).Metallicity = oldslot.Metallicity;
     int j;
     for(j = 0; j < NMETALS; j++)
-        STARP(child).Metallicity[j] = oldslot.Metallicity[j];
+        STARP(child).Metals[j] = oldslot.Metals[j];
     return retflag;
 }
 
@@ -527,7 +528,7 @@ cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_eeqos_data s
             struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos, PartManager->CurrentParticleOffset);
             double ne = SPHP(i).Ne;
             /* In practice tcool << trelax*/
-            double tcool = GetCoolingTime(redshift, egycurrent, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, SPHP(i).Metallicity[Total]);
+            double tcool = GetCoolingTime(redshift, egycurrent, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, SPHP(i).Metallicity);
 
             /* The point of the star-forming equation of state is to pressurize the gas. However,
              * when the gas has been heated above the equation of state it is pressurized and does not cool successfully.
@@ -598,10 +599,7 @@ starformation(int i, double *localsfr, double * sum_sm, MyFloat * GradRho, const
 
     const double w = get_random_number(P[i].ID);
     const double frac = (1 - exp(-p));
-    SPHP(i).Metallicity[Total] += w * METAL_YIELD * frac;
-    SPHP(i).Metallicity[SnII] += w * METAL_YIELD * frac;
-    SPHP(i).Metallicity[SN1a] += w * METAL_YIELD * frac;
-    SPHP(i).Metallicity[AGB] += w * METAL_YIELD * frac;
+    SPHP(i).Metallicity += w * METAL_YIELD * frac;
 
     /* upon start-up, we need to protect against dloga ==0 */
     if(dloga > 0 && P[i].TimeBin)
@@ -624,11 +622,7 @@ starformation(int i, double *localsfr, double * sum_sm, MyFloat * GradRho, const
      * If we did form a star, add winds to the star-forming particle
      * that formed it if it is still around*/
     if(!form_star || newstar != i) {
-        SPHP(i).Metallicity[Total] += (1-w) * METAL_YIELD * frac;
-        SPHP(i).Metallicity[SnII] += (1-w) * METAL_YIELD * frac;
-        SPHP(i).Metallicity[SN1a] += (1-w) * METAL_YIELD * frac;
-        SPHP(i).Metallicity[AGB] += (1-w) * METAL_YIELD * frac;
-
+        SPHP(i).Metallicity += (1-w) * METAL_YIELD * frac;
         if(All.WindOn) {
             winds_make_after_sf(i, sm, All.Time);
         }
@@ -669,7 +663,7 @@ struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_part
     data.egyhot = sfr_params.EgySpecSN / (1 + factorEVP) + sfr_params.EgySpecCold;
     data.egycold = sfr_params.EgySpecCold;
 
-    double tcool = GetCoolingTime(redshift, data.egyhot, sph->Density * a3inv, &uvbg, &data.ne, sph->Metallicity[Total]);
+    double tcool = GetCoolingTime(redshift, data.egyhot, sph->Density * a3inv, &uvbg, &data.ne, sph->Metallicity);
     double y = data.tsfr / tcool * data.egyhot / (sfr_params.FactorSN * sfr_params.EgySpecSN - (1 - sfr_params.FactorSN) * sfr_params.EgySpecCold);
 
     data.cloudfrac = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
@@ -883,7 +877,7 @@ static double get_sfr_factor_due_to_h2(int i, MyFloat * GradRho) {
      *  properties, from gadget-p; we return the enhancement on SFR in this
      *  function */
     double tau_fmol;
-    double zoverzsun = SPHP(i).Metallicity[Total]/METAL_YIELD;
+    double zoverzsun = SPHP(i).Metallicity/METAL_YIELD;
     tau_fmol = ev_NH_from_GradRho(&(GradRho[3*P[i].PI]),P[i].Hsml,SPHP(i).Density,1) * All.cf.a2inv;
     tau_fmol *= (0.1 + zoverzsun);
     if(tau_fmol>0) {
