@@ -56,6 +56,8 @@ static const double sn1a_yields[NSPECIES] = {0, 0, 4.83E-02, 1.16E-06 , 1.43E-01
 
 /* AGB yields from Karakas 2010, 0912.2142 Tables A2 - A5. These have been parsed by the script in tools/extract_yields.py
  * Massive stars are from Doherty 2014, https://doi.org/10.1093/mnras/stt1877 and https://doi.org/10.1093/mnras/stu571
+ * Some of the metallicities in Karakas are listed at M = 2 and some at M = 2.1. I have altered them all to be at M = 2,
+ * a change which is within the uncertainty of the calculation.
  */
 #define AGB_NMET 4
 #define AGB_NMASS 18
