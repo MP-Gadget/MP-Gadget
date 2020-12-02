@@ -101,8 +101,8 @@ def format_c_array(data, rowkeys, colkeys, key, fstr='%.3f'):
         string += "\n"
     return string
 
-def format_for_c(arrayname, yields):
-    """Format the parsed yield data into a C style array."""
+def format_for_c(arrayname, yields, agb=True):
+    """Format the parsed yield data into a C style array. If agb is True, do some filtering."""
     #Masses and metallicities
     out = """#define %(uname)s_NMET %(zsize)d
 #define %(uname)s_NMASS %(msize)d
@@ -123,16 +123,17 @@ static const double %(name)s_yield[NSPECIES][%(uname)s_NMET*%(uname)s_NMASS] = {
     """
     (mass, metals) = zip(*yields.keys())
     mass = sorted(list(set(mass)))
-    #Stars with M >= 8 are in the SnII table
-    mass = [mm for mm in mass if mm < 8.0]
     metals = sorted(list(set(metals)))
-    #Remove the Z=0.001 bin which is only available for large masses
-    metals = [zz for zz in metals if (zz > 0.002)+(zz < 0.0009)]
+    if agb:
+        #Stars with M >= 8 are in the SnII table
+        mass = [mm for mm in mass if mm < 8.0]
+        #Remove the Z=0.001 bin which is only available for large masses
+        metals = [zz for zz in metals if (zz > 0.002)+(zz < 0.0009)]
     cmass = ','.join('%.2f' % m for m in mass)
     cmet = ','.join('%.4f' % m for m in metals)
     cejected = format_c_array(yields, mass, metals, 'ej')
     ctotmet = format_c_array(yields, mass, metals, 'Z', '%.3e')
-    metalnames = ('H', 'He', 'C', 'N', 'O', 'Ne', 'Mg', 'Si', 'S', 'Ca', 'Fe')
+    metalnames = ('H', 'He', 'C', 'N', 'O', 'Ne', 'Mg', 'Si', 'Fe')
     cyield = '{'+'\n},\n{\n'.join([format_c_array(yields, mass, metals, mm, '%.6e') for mm in metalnames])+'}'
     cstring = out % dict(name = arrayname, uname = arrayname.upper(),
                          msize = len(mass), zsize = len(metals),
@@ -197,4 +198,4 @@ def get_all_snii():
     """Get the tables for all SNII."""
     # First Kobayashi 2006, M = 13 - 40.
     yields = parse_snii_file("../yield_data/snii_kabayashi_2006.txt")
-    return format_for_c("snii", yields)
+    return format_for_c("snii", yields, agb=False)
