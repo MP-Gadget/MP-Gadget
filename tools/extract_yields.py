@@ -3,6 +3,7 @@
 There is what I assume to be a typo in Karaks 2010 table A3: M = 2 is listed as M= 2.1"""
 import re
 import os.path
+import numpy as np
 
 def parse_file(fname, karakas=True):
     """Parse a yield file. Looks for the end of each mass/metallicity bin
@@ -141,12 +142,59 @@ static const double %(name)s_yield[NSPECIES][%(uname)s_NMET*%(uname)s_NMASS] = {
 
 def get_all_agb():
     """Get the tables for all AGB stars."""
-    # First Karakas 2010. These tables are supplementary data on the journal archive.
-    # Not committed because possible copyright.
+    # First Karakas 2010. These tables are supplementary data from the journal archive.
     files = ("table_a2.txt", "table_a3.txt", "table_a4.txt", "table_a5.txt")
-    yllist = [parse_file(os.path.join("1048800_Supplementary_Data",ff)) for ff in files]
+    yllist = [parse_file(os.path.join("../yield_data/agb",ff)) for ff in files]
     #Get the Doherty 2014 first table
-    yields = parse_file("998013_Supplementary_Data/TABLE1-VW93ML.txt", karakas=False)
-    yields.update(parse_file("stu571_Supplementary_Data/P3Doh14b-table1.txt", karakas=False))
+    yields = parse_file("../yield_data/agb/TABLE1-VW93ML.txt", karakas=False)
+    yields.update(parse_file("../yield_data/agb/P3Doh14b-table1.txt", karakas=False))
     [yields.update(yl) for yl in yllist]
     return format_for_c("agb", yields)
+
+def parse_snii_species(string, metalnames):
+    """Extract a species from the SnII string, which has the atomic number in front"""
+    #string = str(string, 'utf-8')
+    for mm in metalnames:
+        if mm == 'H':
+            if string in ('p', 'd'):
+                return 'H'
+        elif re.match('.+'+mm+'$', string) is not None:
+            return mm
+    #Default to returning nothing
+    return None
+
+def parse_snii_file(filename):
+    """Parse out the yields from the SnII file."""
+    #Automagically does the parsing
+    snii = np.genfromtxt(filename, dtype=None, encoding='utf-8')
+    # Comes as a tuple.
+    # Note that different metallicities have different mfinal,
+    # accounting for mass loss by stellar winds. We assume that
+    # all this lost mass is of the same yield as the input.
+    masses = list(snii[0])[2:]
+    metallicities = sorted(list({ii[0] for ii in snii}))
+    metalnames = ('H', 'He', 'C', 'N', 'O', 'Ne', 'Mg', 'Si', 'Fe', 'Z', 'ej')
+    # Init the yield structure
+    yields = {}
+    for ma in masses:
+        for zz in metallicities:
+            yields[(ma, zz)] = {mm : 0 for mm in metalnames}
+    for row in snii:
+        spec = parse_snii_species(row[1], metalnames)
+        for i in range(len(masses)):
+            #Ejected mass
+            if row[1] == 'M_cut_':
+                yields[(masses[i], row[0])]['ej'] = masses[i] - row[i+2]
+            # Yield
+            if spec is not None:
+                yields[(masses[i], row[0])][spec] += row[i+2]
+            # Total metallicity
+            if spec not in ('H', 'He'):
+                yields[(masses[i], row[0])]['Z'] += row[i+2]
+    return yields
+
+def get_all_snii():
+    """Get the tables for all SNII."""
+    # First Kobayashi 2006, M = 13 - 40.
+    yields = parse_snii_file("../yield_data/snii_kabayashi_2006.txt")
+    return format_for_c("snii", yields)
