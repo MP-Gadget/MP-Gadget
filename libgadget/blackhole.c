@@ -865,8 +865,8 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
         double fac = 0;
         if (blackhole_params.BH_DRAG == 1) fac = BHP(i).Mdot/P[i].Mass;
         if (blackhole_params.BH_DRAG == 2) fac = blackhole_params.BlackHoleEddingtonFactor * meddington/BHP(i).Mass;
+        fac *= All.cf.a; /* dv = acc * kick_fac = acc * a^{-1}dt, therefore acc = a*dv/dt  */
         for(k = 0; k < 3; k++) {
-            fac *= All.cf.a; /* dv = acc * kick_fac = acc * a^{-1}dt, therefore acc = a*dv/dt  */
             BHP(i).DragAccel[k] = -(P[i].Vel[k] - BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][k])*fac;
         }
     }
