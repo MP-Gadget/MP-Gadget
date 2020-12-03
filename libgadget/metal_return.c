@@ -206,9 +206,10 @@ static double sn1a_number(double dtmyrstart, double dtmyrend)
     /* Number of Sn1a events follows a delay time distribution (1305.2913, eq. 10) */
     const double sn1aindex = 1.12;
     const double tau8msun = 40;
-    /* Number of Sn1a events from this star*/
-    double Sn1aDTD = MetalParams.Sn1aN0 * pow(dtmyrend / tau8msun, -sn1aindex) * (sn1aindex-1)/tau8msun;
-    double Nsn1a = Sn1aDTD * (dtmyrend - dtmyrstart);
+    /* Total number of Sn1a events from this star: integral evaluated from t=0 to t=hubble time. TODO: Fix factor of h*/
+    const double totalSN1a = 1- pow(1/(0.7*HUBBLE*SEC_PER_MEGAYEAR)/tau8msun, 1-sn1aindex);
+    /* This is the integral of the DTD, normalised to the N0 rate.*/
+    double Nsn1a = MetalParams.Sn1aN0 /totalSN1a * (pow(dtmyrstart / tau8msun, 1-sn1aindex) - pow(dtmyrend / tau8msun, 1-sn1aindex);
     return Nsn1a;
 }
 
