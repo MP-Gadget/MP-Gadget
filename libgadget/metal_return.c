@@ -60,6 +60,9 @@ set_metal_return_params(ParameterSet * ps)
 struct MetalReturnPriv {
     double atime;
     inttime_t Ti_Current;
+    MyFloat * StellarAges;
+    MyFloat * MassReturn;
+    double imf_norm;
     Cosmology *CP;
     MyFloat * StarVolumeSPH;
     gsl_interp2d * lifetime_interp;
@@ -75,8 +78,7 @@ typedef struct {
     MyFloat Mass;
     MyFloat Hsml;
     MyFloat StarVolumeSPH;
-    /* This is the metal/mass generated this timestep.
-     * Unused metals are kept in the star.*/
+    /* This is the metal/mass generated this timestep.*/
     MyFloat TotalMetalGenerated[NMETALS];
     MyFloat MassGenerated;
     MyFloat MetalGenerated;
@@ -87,9 +89,6 @@ typedef struct {
     /* This is the total mass returned to
      * the surrounding gas particles, for mass conservation.*/
     MyFloat MassReturn;
-    /* This is the metal mass returned to the gas particles*/
-    MyFloat MetalReturned[NMETALS];
-    MyFloat MetalMassReturned;
     int Ninteractions;
 } TreeWalkResultMetals;
 
@@ -112,7 +111,7 @@ static void
 metal_return_copy(int place, TreeWalkQueryMetals * input, TreeWalk * tw);
 
 static void
-metal_return_reduce(int place, TreeWalkResultMetals * result, enum TreeWalkReduceMode mode, TreeWalk * tw);
+metal_return_postprocess(int place, TreeWalk * tw);
 
 void setup_metal_table_interp(gsl_interp2d * lifetime_interp)
 {
@@ -209,7 +208,7 @@ static double sn1a_number(double dtmyrstart, double dtmyrend)
     /* Total number of Sn1a events from this star: integral evaluated from t=0 to t=hubble time. TODO: Fix factor of h*/
     const double totalSN1a = 1- pow(1/(0.7*HUBBLE*SEC_PER_MEGAYEAR)/tau8msun, 1-sn1aindex);
     /* This is the integral of the DTD, normalised to the N0 rate.*/
-    double Nsn1a = MetalParams.Sn1aN0 /totalSN1a * (pow(dtmyrstart / tau8msun, 1-sn1aindex) - pow(dtmyrend / tau8msun, 1-sn1aindex);
+    double Nsn1a = MetalParams.Sn1aN0 /totalSN1a * (pow(dtmyrstart / tau8msun, 1-sn1aindex) - pow(dtmyrend / tau8msun, 1-sn1aindex));
     return Nsn1a;
 }
 
@@ -224,7 +223,7 @@ static double mass_yield(double dtmyrstart, double dtmyrend, double stellarmetal
     gsl_function ff = {chabrier_mass, NULL};
     double massyield;
     size_t neval;
-    gsl_integration_romberg(&ff, masslow, masshigh, 1e-4, 1e-3, &massyield, &neval, gsl_work);
+    gsl_integration_romberg(&ff, masslow, masshigh, 1e-2, 1e-2, &massyield, &neval, gsl_work);
     /* Fraction of the IMF which goes off this timestep*/
     massyield /= imf_norm;
     /* Mass yield from Sn1a*/
@@ -261,7 +260,7 @@ static double metal_yield(double dtmyrstart, double dtmyrend, double stellarmeta
 
 /*! This function is the driver routine for the calculation of metal return. */
 void
-metal_return(const ActiveParticles * act, const ForceTree * const tree, const double atime, double * StarVolumeSPH)
+metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmology * CP, const double atime, double * StarVolumeSPH)
 {
     TreeWalk tw[1] = {{0}};
 
@@ -273,8 +272,8 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, const do
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterMetals);
     tw->haswork = metal_return_haswork;
     tw->fill = (TreeWalkFillQueryFunction) metal_return_copy;
-    tw->reduce = (TreeWalkReduceResultFunction) metal_return_reduce;
-    tw->postprocess = NULL;
+    tw->reduce = NULL;
+    tw->postprocess = (TreeWalkProcessFunction) metal_return_postprocess;
     tw->query_type_elsize = sizeof(TreeWalkQueryMetals);
     tw->result_type_elsize = sizeof(TreeWalkResultMetals);
     tw->tree = tree;
@@ -286,11 +285,26 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, const do
     METALS_GET_PRIV(tw)->atime = atime;
     METALS_GET_PRIV(tw)->StarVolumeSPH = StarVolumeSPH;
     setup_metal_table_interp(METALS_GET_PRIV(tw)->lifetime_interp);
+    priv->StellarAges = mymalloc("StellarAges", SlotsManager->info[4].size);
+    priv->MassReturn = mymalloc("MassReturn", SlotsManager->info[4].size);
+    priv->imf_norm = compute_imf_norm();
+    int i;
+    #pragma omp parallel for
+    for(i=0; i < act->NumActiveParticle;i++)
+    {
+        int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
+        if(P[p_i].Type != 4)
+            continue;
+        priv->StellarAges[P[p_i].PI] = atime_to_myr(CP, STARP(p_i).FormationTime, atime);
+        priv->MassReturn[P[p_i].PI] = mass_yield(STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, priv->lifetime_interp, priv->imf_norm);
+    }
 
     priv->spin = init_spinlocks(SlotsManager->info[0].size);
     treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
     free_spinlocks(priv->spin);
 
+    myfree(priv->MassReturn);
+    myfree(priv->StellarAges);
     /* collect some timing information */
     walltime_measure("/SPH/Metals");
 }
@@ -302,23 +316,21 @@ metal_return_copy(int place, TreeWalkQueryMetals * input, TreeWalk * tw)
     input->Mass = P[place].Mass;
     input->Hsml = P[place].Hsml;
     input->StarVolumeSPH = METALS_GET_PRIV(tw)->StarVolumeSPH[place];
-    double endtime = METALS_GET_PRIV(tw)->atime + get_dloga_for_bin(P[place].TimeBin, METALS_GET_PRIV(tw)->Ti_Current);
-    double dtmyrend = atime_to_myr(METALS_GET_PRIV(tw)->CP, STARP(place).FormationTime, endtime);
-    double dtmyrstart = atime_to_myr(METALS_GET_PRIV(tw)->CP, STARP(place).FormationTime, METALS_GET_PRIV(tw)->atime);
+    int pi = P[place].PI;
+    double dtmyrend = METALS_GET_PRIV(tw)->StellarAges[pi];
+    double dtmyrstart = STARP(place).LastEnrichmentMyr;
     /* Do TotalMetalGenerated by computing the yield at this time.*/
-    input->MassGenerated = metal_yield(dtmyrstart, dtmyrend, input->Metallicity, METALS_GET_PRIV(tw)->lifetime_interp, input->TotalMetalGenerated, &input->MetalGenerated);
+    input->MassGenerated = METALS_GET_PRIV(tw)->MassReturn[pi];
+    metal_yield(dtmyrstart, dtmyrend, input->Metallicity, METALS_GET_PRIV(tw)->lifetime_interp, input->TotalMetalGenerated, &input->MetalGenerated);
 }
 
 static void
-metal_return_reduce(int place, TreeWalkResultMetals * result, enum TreeWalkReduceMode mode, TreeWalk * tw)
+metal_return_postprocess(int place, TreeWalk * tw)
 {
-//    int j;
     /* Conserve mass returned*/
-    P[place].Mass -= result->MassReturn;
-    /* TODO: What to do about the enrichment of the star particle?*/
-    //STARP(place).Metals[j] += result->Metal[j] / P[place].Mass
-    //for(j = 0; j < NMETALS; j++)
-    //    STARP(place).Metals[j] += result->Metals[j];
+    P[place].Mass -= METALS_GET_PRIV(tw)->MassReturn[P[place].PI];
+    /* Update the last enrichment time*/
+    STARP(place).LastEnrichmentMyr = METALS_GET_PRIV(tw)->StellarAges[P[place].PI];
 }
 
 /*! This function is the 'core' of the SPH force computation. A target
@@ -340,10 +352,6 @@ metal_return_ngbiter(
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         /* Initialise the mass lost by this star in this timestep*/
         O->MassReturn = 0;
-        int j;
-        for(j = 0; j < NMETALS; j++) {
-            O->MetalReturned[j] = 0;
-        }
         return;
     }
 
@@ -373,18 +381,17 @@ metal_return_ngbiter(
         for(i = 0; i < NMETALS; i++)
             ThisMetals[i] = wk * volume * I->TotalMetalGenerated[i] / I->StarVolumeSPH;
         /* Keep track of how much was returned for conservation purposes*/
-        O->MassReturn += wk * I->MassGenerated;
-        O->MetalMassReturned += wk * I->MetalGenerated;
-        for(i = 0; i < NMETALS; i++)
-            O->MetalReturned[i] += ThisMetals[i];
+        double thismass = wk * I->MassGenerated / I->StarVolumeSPH;
+        O->MassReturn += thismass;
+        double thismetal = wk * I->MetalGenerated / I->StarVolumeSPH;
         lock_spinlock(other, METALS_GET_PRIV(lv->tw)->spin);
         /* Add the metals to the particle.*/
         for(i = 0; i < NMETALS; i++)
             SPHP(other).Metals[i] += ThisMetals[i];
         /* Update total metallicity*/
-        SPHP(other).Metallicity = (SPHP(other).Metallicity * P[other].Mass + wk * I->MetalGenerated)/(P[other].Mass + wk * I->MassGenerated);
+        SPHP(other).Metallicity = (SPHP(other).Metallicity * P[other].Mass + thismetal)/(P[other].Mass + thismass);
         /* Update mass*/
-        P[other].Mass += wk * I->MassGenerated;
+        P[other].Mass += thismass;
         /* Add metals weighted by SPH kernel*/
         unlock_spinlock(other, METALS_GET_PRIV(lv->tw)->spin);
     }
@@ -395,5 +402,9 @@ metal_return_ngbiter(
 static int
 metal_return_haswork(int i, TreeWalk * tw)
 {
-    return P[i].Type == 4;
+    int pi = P[i].PI;
+    /* Don't do enrichment from all stars, just young stars or those with significant enrichment*/
+    int young = METALS_GET_PRIV(tw)->StellarAges[pi] < 100;
+    int massreturned = METALS_GET_PRIV(tw)->MassReturn[pi] > 1e-4 * P[i].Mass;
+    return P[i].Type == 4 && (young || massreturned);
 }
