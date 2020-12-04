@@ -387,6 +387,12 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
 
     struct MetalReturnPriv priv[1];
 
+    /* Do nothing if no stars yet*/
+    int64_t totstar;
+    sumup_large_ints(1, &SlotsManager->info[4].size, &totstar);
+    if(totstar == 0)
+        return;
+
     tw->ev_label = "METALS";
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw->ngbiter = (TreeWalkNgbIterFunction) metal_return_ngbiter;
