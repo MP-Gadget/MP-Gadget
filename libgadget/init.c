@@ -199,6 +199,13 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
                 P[i].Hsml = 0.01 * All.MeanSeparation[0];
         }
 
+        if(All.MetalReturnOn && P[i].Type == 4 )
+        {
+            /* Touch up zero star smoothing lengths, not saved in the snapshots.*/
+            if(P[i].Hsml == 0)
+                P[i].Hsml = 0.1 * All.MeanSeparation[0];
+        }
+
         if(All.BlackHoleOn && P[i].Type == 5)
         {
             for(j = 0; j < 3; j++) {
