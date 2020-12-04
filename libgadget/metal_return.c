@@ -402,8 +402,6 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     priv->hub = CP->HubbleParam;
     priv->Unit_Mass_in_g = UnitMass_in_g;
 
-    if(!tree->hmax_computed_flag)
-        endrun(5, "Metal called before hmax computed\n");
     /* Initialize some time factors*/
     METALS_GET_PRIV(tw)->atime = atime;
     METALS_GET_PRIV(tw)->StarVolumeSPH = StarVolumeSPH;
