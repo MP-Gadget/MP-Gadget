@@ -300,6 +300,9 @@ static double compute_agb_yield(gsl_interp2d * agb_interp, const double * agb_we
         stellarmetal = agb_metallicities[SNII_NMET-1];
     if (stellarmetal < agb_metallicities[0])
         stellarmetal = agb_metallicities[0];
+    /* This happens if no bins in range had dying stars this timestep*/
+    if(masslow >= masshigh)
+        return 0;
     gsl_integration_romberg(&ff, masslow, masshigh, 1e-2, 1e-2, &agbyield, &neval, gsl_work);
     return agbyield;
 }
@@ -324,7 +327,9 @@ static double compute_snii_yield(gsl_interp2d * snii_interp, const double * snii
         stellarmetal = snii_metallicities[SNII_NMET-1];
     if (stellarmetal < snii_metallicities[0])
         stellarmetal = snii_metallicities[0];
-
+    /* This happens if no bins in range had dying stars this timestep*/
+    if(masslow >= masshigh)
+        return 0;
     gsl_integration_romberg(&ff, masslow, masshigh, 1e-2, 1e-2, &yield, &neval, gsl_work);
     return yield;
 }
