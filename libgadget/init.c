@@ -97,6 +97,7 @@ set_init_params(ParameterSet * ps)
 
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.WindOn = param_get_int(ps, "WindOn");
+        All.MetalReturnOn = param_get_int(ps, "MetalReturnOn");
 
         All.InitGasTemp = param_get_double(ps, "InitGasTemp");
 
