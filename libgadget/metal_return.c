@@ -539,5 +539,5 @@ metal_return_haswork(int i, TreeWalk * tw)
     /* Don't do enrichment from all stars, just young stars or those with significant enrichment*/
     int young = METALS_GET_PRIV(tw)->StellarAges[pi] < 100;
     int massreturned = METALS_GET_PRIV(tw)->MassReturn[pi] > 1e-4 * P[i].Mass;
-    return P[i].Type == 4 && (young || massreturned);
+    return P[i].Type == 4 && METALS_GET_PRIV(tw)->StellarAges[pi] > 0 && (young || massreturned);
 }
