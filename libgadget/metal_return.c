@@ -307,12 +307,41 @@ static double metal_yield(double dtmyrstart, double dtmyrend, double stellarmeta
     find_mass_bin_limits(&masslow, &masshigh, dtmyrstart, dtmyrend, stellarmetal, interp->lifetime_interp);
     /* Number of AGB stars/SnII by integrating the IMF*/
     gsl_integration_romberg_workspace * gsl_work = gsl_integration_romberg_alloc(GSL_WORKSPACE);
-
-    gsl_function ff = {chabrier_mass, NULL};
-
-    double metalyield;
+    /* Set up for SNII*/
+    double sniiyield, agbyield;
     size_t neval;
-    gsl_integration_romberg(&ff, masslow, masshigh, 1e-4, 1e-3, &metalyield, &neval, gsl_work);
+    struct imf_integ_params para;
+    gsl_function ff = {chabrier_imf_integ, &para};
+    para.interp = interp->snii_metallicity_interp;
+    para.masses = snii_masses;
+    para.metallicities = snii_metallicities;
+    para.metallicity = stellarmetal;
+    para.weights = snii_total_metals;
+    gsl_integration_romberg(&ff, masslow, masshigh, 1e-2, 1e-2, &sniiyield, &neval, gsl_work);
+    para.interp = interp->agb_metallicity_interp;
+    para.masses = agb_masses;
+    para.metallicities = agb_metallicities;
+    para.metallicity = stellarmetal;
+    para.weights = agb_total_metals;
+    gsl_integration_romberg(&ff, masslow, masshigh, 1e-2, 1e-2, &agbyield, &neval, gsl_work);
+    MetalGenerated += (sniiyield + agbyield)/imf_norm;
+
+    for(i = 0; i < NMETALS; i++)
+    {
+        para.interp = interp->snii_metals_interp[i];
+        para.masses = snii_masses;
+        para.metallicities = snii_metallicities;
+        para.metallicity = stellarmetal;
+        para.weights = snii_yield[i];
+        gsl_integration_romberg(&ff, masslow, masshigh, 1e-2, 1e-2, &sniiyield, &neval, gsl_work);
+        para.interp = interp->agb_metals_interp[i];
+        para.masses = agb_masses;
+        para.metallicities = agb_metallicities;
+        para.metallicity = stellarmetal;
+        para.weights = agb_yield[i];
+        gsl_integration_romberg(&ff, masslow, masshigh, 1e-2, 1e-2, &agbyield, &neval, gsl_work);
+        MetalYields[i] += (agbyield + sniiyield)/imf_norm;
+    }
     return MetalGenerated;
 }
 
