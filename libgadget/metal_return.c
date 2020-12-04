@@ -405,6 +405,8 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     /* Initialize some time factors*/
     METALS_GET_PRIV(tw)->atime = atime;
     METALS_GET_PRIV(tw)->StarVolumeSPH = StarVolumeSPH;
+    if(!StarVolumeSPH)
+        endrun(5, "Error: star hsml not computed\n");
     setup_metal_table_interp(&METALS_GET_PRIV(tw)->interp);
     priv->StellarAges = mymalloc("StellarAges", SlotsManager->info[4].size);
     priv->MassReturn = mymalloc("MassReturn", SlotsManager->info[4].size);
