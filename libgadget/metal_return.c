@@ -19,6 +19,8 @@
 #include "utils/spinlocks.h"
 #include "metal_tables.h"
 
+#define GSL_WORKSPACE 1000
+
 /*! \file metal_return.c
  *  \brief Compute the mass return rate of metals from stellar evolution.
  *
@@ -160,14 +162,25 @@ static double chabrier_imf(double mass)
     }
 }
 
-/* Compute the difference in internal time units between two scale factors.
- * These two scale factors should be close together so the Hubble function is constant.*/
+double atime_integ(double atime, void * params)
+{
+    Cosmology * CP = (Cosmology *) params;
+    return 1/(hubble_function(CP, atime) * atime);
+}
+
+/* Compute the difference in internal time units between two scale factors.*/
 static double atime_to_myr(Cosmology *CP, double atime1, double atime2)
 {
     /* t = dt/da da = 1/(Ha) da*/
     /* Approximate hubble function as constant here: we only care
      * about metal return over a single timestep*/
-    return (atime1 - atime2) / (hubble_function(CP, atime1) * atime1) / SEC_PER_MEGAYEAR;
+    gsl_integration_romberg_workspace * gsl_work = gsl_integration_romberg_alloc(GSL_WORKSPACE);
+    gsl_function ff = {atime_integ, CP};
+    size_t neval;
+    double tmyr;
+    gsl_integration_romberg(&ff, atime1, atime2, 1e-4, 1e-3, &tmyr, &neval, gsl_work);
+
+    return tmyr / SEC_PER_MEGAYEAR;
 }
 
 /* Find the mass bins which die in this timestep using the lifetime table.
@@ -208,8 +221,6 @@ static void find_mass_bin_limits(double * masslow, double * masshigh, const doub
     /* Smallest mass which dies in this timestep*/
     *masslow = mass;
 }
-
-#define GSL_WORKSPACE 1000
 
 /* Parameters of the interpolator
  * to hand to the imf integral.
