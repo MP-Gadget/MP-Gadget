@@ -401,6 +401,7 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     tw->priv = priv;
     priv->hub = CP->HubbleParam;
     priv->Unit_Mass_in_g = UnitMass_in_g;
+    message(0, "Starting metal return\n");
 
     /* Initialize some time factors*/
     METALS_GET_PRIV(tw)->atime = atime;
@@ -425,6 +426,7 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     priv->spin = init_spinlocks(SlotsManager->info[0].size);
     treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
     free_spinlocks(priv->spin);
+    message(0, "Done metal return\n");
 
     myfree(priv->MassReturn);
     myfree(priv->StellarAges);
