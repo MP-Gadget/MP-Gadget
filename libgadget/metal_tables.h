@@ -5,6 +5,8 @@
  * H, He, C, N, O, Ne, Mg, Si, Fe (11, following 1703.02970)
  */
 #define NSPECIES 9
+/* Mass in solar at which the yield tables switch from AGB stars to SNII*/
+#define SNAGBSWITCH 8
 /* Metallicity values (in terms of metal yield, not solar metallicity)
  * for the stellar lifetime table. Columns of lifetime.*/
 #define LIFE_NMET 5
