@@ -330,7 +330,7 @@ run(int RestartSnapNum)
                 cooling_and_starformation(&Act, &Tree, GradRho, FdSfr);
 
             if(All.MetalReturnOn) {
-                metal_return(&Act, &Tree, &All.CP, All.Time, StarVolumeSPH);
+                metal_return(&Act, &Tree, &All.CP, All.Time, StarVolumeSPH, All.UnitMass_in_g);
                 myfree(StarVolumeSPH);
                 StarVolumeSPH = NULL;
             }

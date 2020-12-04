@@ -100,6 +100,7 @@ struct MetalReturnPriv {
     MyFloat * MassReturn;
     double imf_norm;
     double hub;
+    double Unit_Mass_in_g;
     Cosmology *CP;
     MyFloat * StarVolumeSPH;
     struct interps interp;
@@ -380,7 +381,7 @@ static double metal_yield(double dtmyrstart, double dtmyrend, double hub, double
 
 /*! This function is the driver routine for the calculation of metal return. */
 void
-metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmology * CP, const double atime, double * StarVolumeSPH)
+metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmology * CP, const double atime, double * StarVolumeSPH, const double UnitMass_in_g)
 {
     TreeWalk tw[1] = {{0}};
 
@@ -399,6 +400,7 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     tw->tree = tree;
     tw->priv = priv;
     priv->hub = CP->HubbleParam;
+    priv->Unit_Mass_in_g = UnitMass_in_g;
 
     if(!tree->hmax_computed_flag)
         endrun(5, "Metal called before hmax computed\n");
@@ -499,12 +501,14 @@ metal_return_ngbiter(
         /* Volume of particle weighted by the SPH kernel*/
         double volume = P[other].Mass / SPHP(other).Density;
         double ThisMetals[NMETALS];
+        /* Unit conversion factor to internal units: */
+        double unitfactor = SOLAR_MASS / (METALS_GET_PRIV(lv->tw)->Unit_Mass_in_g / METALS_GET_PRIV(lv->tw)->hub);
         for(i = 0; i < NMETALS; i++)
-            ThisMetals[i] = wk * volume * I->TotalMetalGenerated[i] / I->StarVolumeSPH;
+            ThisMetals[i] = wk * volume * I->TotalMetalGenerated[i] / I->StarVolumeSPH * unitfactor;
         /* Keep track of how much was returned for conservation purposes*/
-        double thismass = wk * I->MassGenerated / I->StarVolumeSPH;
+        double thismass = wk * I->MassGenerated / I->StarVolumeSPH * unitfactor;
         O->MassReturn += thismass;
-        double thismetal = wk * I->MetalGenerated / I->StarVolumeSPH;
+        double thismetal = wk * I->MetalGenerated / I->StarVolumeSPH * unitfactor;
         lock_spinlock(other, METALS_GET_PRIV(lv->tw)->spin);
         /* Add the metals to the particle.*/
         for(i = 0; i < NMETALS; i++)
