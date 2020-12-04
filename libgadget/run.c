@@ -259,7 +259,7 @@ run(int RestartSnapNum)
 
         MyFloat * StarVolumeSPH = NULL;
         if(All.MetalReturnOn)
-            GradRho = mymalloc2("StarVolumeSPH", sizeof(MyFloat) * SlotsManager->info[4].size);
+            StarVolumeSPH = mymalloc2("StarVolumeSPH", sizeof(MyFloat) * SlotsManager->info[4].size);
 
         /* update force to Ti_Current */
         compute_accelerations(&Act, is_PM, &pm, GradRho, StarVolumeSPH, pairwisestep, GasEnabled, times, &Tree, ddecomp);
