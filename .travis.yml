@@ -32,6 +32,6 @@ script:
     - python check-results.py
     - mpirun -np 2 ../../gadget/MP-Gadget paramfile.gadget 99 #Checks the gravity force error
     - mpirun -np 2 ../../gadget/MP-Gadget paramfile.gadget 99 2
-    - python ../../tools/convert_bigfile_gadget_format3.py --input output/PART_000 --output output
+    - python ../../tools/convert_bigfile_gadget_hdf5.py --input output/PART_000 --output output
     - popd
     - set +e
