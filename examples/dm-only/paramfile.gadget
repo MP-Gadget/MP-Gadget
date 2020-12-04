@@ -19,6 +19,7 @@ CoolingOn = 0
 StarformationOn = 0
 RadiationOn = 1
 BlackHoleOn = 0
+MetalReturnOn = 0
 DensityIndependentSphOn = 1
 HydroOn = 0
 WindOn = 0
