@@ -432,6 +432,9 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
             continue;
         priv->StellarAges[P[p_i].PI] = atime_to_myr(CP, STARP(p_i).FormationTime, atime);
         priv->MassReturn[P[p_i].PI] = mass_yield(STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, CP->HubbleParam, &priv->interp, priv->imf_norm);
+        /* Guard against making a zero mass particle*/
+        if(priv->MassReturn[P[p_i].PI] > 0.9 * P[p_i].Mass)
+            priv->MassReturn[P[p_i].PI] = 0.9 * P[p_i].Mass;
     }
 
     priv->spin = init_spinlocks(SlotsManager->info[0].size);
