@@ -321,13 +321,14 @@ run(int RestartSnapNum)
             /* Black hole accretion and feedback */
             blackhole(&Act, &Tree, FdBlackHoles, FdBlackholeDetails);
 
-            /**** radiative cooling and star formation *****/
-            if(All.CoolingOn)
-                cooling_and_starformation(&Act, &Tree, GradRho, FdSfr);
-
+            /* Do this before sfr so the tree is intact*/
             if(All.MetalReturnOn) {
                 metal_return(&Act, &Tree, &All.CP, All.Time, All.UnitMass_in_g);
             }
+
+            /**** radiative cooling and star formation *****/
+            if(All.CoolingOn)
+                cooling_and_starformation(&Act, &Tree, GradRho, FdSfr);
 
             if(GradRho) {
                 myfree(GradRho);
