@@ -438,10 +438,10 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
         if(P[p_i].Type != 4)
             continue;
         priv->StellarAges[P[p_i].PI] = atime_to_myr(CP, STARP(p_i).FormationTime, atime);
-        priv->MassReturn[P[p_i].PI] = mass_yield(STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, CP->HubbleParam, &priv->interp, priv->imf_norm);
+        priv->MassReturn[P[p_i].PI] = unitfactor * mass_yield(STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, CP->HubbleParam, &priv->interp, priv->imf_norm);
         /* Guard against making a zero mass particle*/
-        if(priv->MassReturn[P[p_i].PI] * unitfactor > 0.9 * P[p_i].Mass)
-            priv->MassReturn[P[p_i].PI] = 0.9 * P[p_i].Mass / unitfactor;
+        if(priv->MassReturn[P[p_i].PI] > 0.9 * P[p_i].Mass)
+            priv->MassReturn[P[p_i].PI] = 0.9 * P[p_i].Mass;
     }
 
     /* Compute total number of weights around each star for actively returning stars*/
@@ -533,7 +533,7 @@ metal_return_ngbiter(
         for(i = 0; i < NMETALS; i++)
             ThisMetals[i] = wk * volume * I->TotalMetalGenerated[i] / I->StarVolumeSPH * unitfactor;
         /* Keep track of how much was returned for conservation purposes*/
-        double thismass = wk * I->MassGenerated / I->StarVolumeSPH * unitfactor;
+        double thismass = wk * I->MassGenerated / I->StarVolumeSPH;
         O->MassReturn += thismass;
         double thismetal = wk * I->MetalGenerated / I->StarVolumeSPH * unitfactor;
         double newmass;
