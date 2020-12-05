@@ -189,7 +189,7 @@ static double atime_to_myr(Cosmology *CP, double atime1, double atime2)
     double tmyr;
     gsl_integration_romberg(&ff, atime1, atime2, 1e-4, 1e-3, &tmyr, &neval, gsl_work);
 
-    return tmyr / SEC_PER_MEGAYEAR;
+    return tmyr * CP->UnitTime_in_s / SEC_PER_MEGAYEAR;
 }
 
 /* Find the mass bins which die in this timestep using the lifetime table.

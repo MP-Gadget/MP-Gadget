@@ -661,6 +661,7 @@ set_units(void)
     /* convert some physical input parameters to internal units */
 
     All.CP.Hubble = HUBBLE * All.UnitTime_in_s;
+    All.CP.UnitTime_in_s = All.UnitTime_in_s;
 
     init_cosmology(&All.CP, All.TimeIC);
     /* Detect cosmologies that are likely to be typos in the parameter files*/
