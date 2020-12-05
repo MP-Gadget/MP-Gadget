@@ -269,7 +269,7 @@ double compute_imf_norm(void)
     double norm, abserr;
     size_t neval;
     gsl_function ff = {chabrier_mass, NULL};
-    gsl_integration_qng(&ff, MINMASS, MAXMASS, 1e-4, 1e-3, &norm, &neval, &abserr);
+    gsl_integration_qng(&ff, MINMASS, MAXMASS, 1e-4, 1e-3, &norm, &abserr, &neval);
     return norm;
 }
 
@@ -315,7 +315,7 @@ static double compute_agb_yield(gsl_interp2d * agb_interp, const double * agb_we
     para.metallicities = agb_metallicities;
     para.metallicity = stellarmetal;
     para.weights = agb_weights;
-    gsl_integration_qng(&ff, masslow, masshigh, 1e-2, 1e-2, &agbyield, &neval, &abserr);
+    gsl_integration_qng(&ff, masslow, masshigh, 1e-2, 1e-2, &agbyield, &abserr, &neval);
     return agbyield;
 }
 
@@ -342,7 +342,7 @@ static double compute_snii_yield(gsl_interp2d * snii_interp, const double * snii
     /* This happens if no bins in range had dying stars this timestep*/
     if(masslow >= masshigh)
         return 0;
-    gsl_integration_qng(&ff, masslow, masshigh, 1e-2, 1e-2, &yield, &neval, &abserr);
+    gsl_integration_qng(&ff, masslow, masshigh, 1e-2, 1e-2, &yield, &abserr, &neval);
     return yield;
 }
 
@@ -785,6 +785,7 @@ stellar_density(const ActiveParticles * act, const ForceTree * const tree)
         treewalk_run(tw, CurQueue, size);
 
         message(0, "Found density for %d stars\n", tw->WorkSetSize);
+
         tw->haswork = NULL;
         /* Now done with the current queue*/
         if(priv->NIteration > 0)
