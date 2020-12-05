@@ -526,6 +526,8 @@ metal_return_ngbiter(
         double ThisMetals[NMETALS];
         /* Unit conversion factor to internal units: */
         double unitfactor = SOLAR_MASS / (METALS_GET_PRIV(lv->tw)->Unit_Mass_in_g / METALS_GET_PRIV(lv->tw)->hub);
+        if(I->StarVolumeSPH ==0)
+            endrun(3, "StarVolumeSPH %g hsml %g\n", I->StarVolumeSPH, I->Hsml);
         for(i = 0; i < NMETALS; i++)
             ThisMetals[i] = wk * volume * I->TotalMetalGenerated[i] / I->StarVolumeSPH * unitfactor;
         /* Keep track of how much was returned for conservation purposes*/
