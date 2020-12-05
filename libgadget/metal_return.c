@@ -567,10 +567,13 @@ metal_return_haswork(int i, TreeWalk * tw)
     if(P[i].Type != 4)
         return 0;
     int pi = P[i].PI;
+    /* New stars or stars with zero mass return will not do anything: nothing has yet died*/
+    if(METALS_GET_PRIV(tw)->StellarAges[pi] > 0 || METALS_GET_PRIV(tw)->MassReturn[pi] > 0)
+        return 0;
     /* Don't do enrichment from all stars, just young stars or those with significant enrichment*/
     int young = METALS_GET_PRIV(tw)->StellarAges[pi] < 100;
     int massreturned = METALS_GET_PRIV(tw)->MassReturn[pi] > 1e-4 * P[i].Mass;
-    return METALS_GET_PRIV(tw)->StellarAges[pi] > 0 && (young || massreturned);
+    return young || massreturned;
 }
 
 /* Here comes code to compute the star particle density*/
