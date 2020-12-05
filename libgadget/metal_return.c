@@ -819,6 +819,14 @@ stellar_density(const ActiveParticles * act, const ForceTree * const tree)
         }
     } while(1);
 
+#ifdef DEBUG
+    for(i = 0; i < act->NumActiveParticle; i++) {
+        int a = act->ActiveParticles ? act->ActiveParticles[i] : i;
+        if(metal_return_haswork(a, tw) && StarVolumeSPH[P[a].PI] == 0)
+            endrun(3, "i = %d pi = %d StarVolumeSPH %g hsml %g\n", a, P[a].PI, StarVolumeSPH[P[a].PI], P[a].Hsml);
+    }
+#endif
+
     ta_free(priv->NPRedo);
     ta_free(priv->NPLeft);
     myfree(priv->NumNgb);
