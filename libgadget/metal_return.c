@@ -425,8 +425,8 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     /* Initialize some time factors*/
     METALS_GET_PRIV(tw)->atime = atime;
     setup_metal_table_interp(&METALS_GET_PRIV(tw)->interp);
-    priv->StellarAges = mymalloc("StellarAges", SlotsManager->info[4].size);
-    priv->MassReturn = mymalloc("MassReturn", SlotsManager->info[4].size);
+    priv->StellarAges = mymalloc("StellarAges", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->MassReturn = mymalloc("MassReturn", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->imf_norm = compute_imf_norm();
     int i;
     #pragma omp parallel for
