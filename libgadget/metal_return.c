@@ -299,11 +299,6 @@ static double compute_agb_yield(gsl_interp2d * agb_interp, const double * agb_we
     struct imf_integ_params para;
     gsl_function ff = {chabrier_imf_integ, &para};
     double agbyield = 0;
-    para.interp = agb_interp;
-    para.masses = agb_masses;
-    para.metallicities = agb_metallicities;
-    para.metallicity = stellarmetal;
-    para.weights = agb_weights;
     /* Only return AGB metals for the range of AGB stars*/
     if (masshigh > SNAGBSWITCH)
         masshigh = SNAGBSWITCH;
@@ -316,6 +311,11 @@ static double compute_agb_yield(gsl_interp2d * agb_interp, const double * agb_we
     /* This happens if no bins in range had dying stars this timestep*/
     if(masslow >= masshigh)
         return 0;
+    para.interp = agb_interp;
+    para.masses = agb_masses;
+    para.metallicities = agb_metallicities;
+    para.metallicity = stellarmetal;
+    para.weights = agb_weights;
     gsl_integration_romberg(&ff, masslow, masshigh, 1e-2, 1e-2, &agbyield, &neval, gsl_work);
     return agbyield;
 }
@@ -326,11 +326,6 @@ static double compute_snii_yield(gsl_interp2d * snii_interp, const double * snii
     struct imf_integ_params para;
     gsl_function ff = {chabrier_imf_integ, &para};
     double yield = 0;
-    para.interp = snii_interp;
-    para.masses = snii_masses;
-    para.metallicities = snii_metallicities;
-    para.metallicity = stellarmetal;
-    para.weights = snii_weights;
     /* Only return metals for the range of SNII stars.*/
     if (masshigh > snii_masses[SNII_NMASS-1])
         masshigh = snii_masses[SNII_NMASS-1];
@@ -340,6 +335,11 @@ static double compute_snii_yield(gsl_interp2d * snii_interp, const double * snii
         stellarmetal = snii_metallicities[SNII_NMET-1];
     if (stellarmetal < snii_metallicities[0])
         stellarmetal = snii_metallicities[0];
+    para.interp = snii_interp;
+    para.masses = snii_masses;
+    para.metallicities = snii_metallicities;
+    para.metallicity = stellarmetal;
+    para.weights = snii_weights;
     /* This happens if no bins in range had dying stars this timestep*/
     if(masslow >= masshigh)
         return 0;
