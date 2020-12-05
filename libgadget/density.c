@@ -159,8 +159,6 @@ struct DensityPriv {
     double MinGasHsml;
     /* Are there potentially black holes?*/
     int BlackHoleOn;
-    /* May be NULL. If not NULL (for metal return), we need to compute star particle Hsml*/
-    MyFloat * StarVolumeSPH;
 };
 
 #define DENSITY_GET_PRIV(tw) ((struct DensityPriv*) ((tw)->priv))
@@ -201,7 +199,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, MyFloat * StarVolumeSPH, int BlackHoleOn, double MinEgySpec, const DriftKickTimes times, Cosmology * CP, struct sph_pred_data * SPH_predicted, MyFloat * GradRho, const ForceTree * const tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double MinEgySpec, const DriftKickTimes times, Cosmology * CP, struct sph_pred_data * SPH_predicted, MyFloat * GradRho, const ForceTree * const tree)
 {
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
@@ -249,7 +247,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, MyFloat 
     DENSITY_GET_PRIV(tw)->BlackHoleOn = BlackHoleOn;
     DENSITY_GET_PRIV(tw)->SPH_predicted = SPH_predicted;
     DENSITY_GET_PRIV(tw)->GradRho = GradRho;
-    DENSITY_GET_PRIV(tw)->StarVolumeSPH = StarVolumeSPH;
 
     /* Init Left and Right: this has to be done before treewalk */
     memset(DENSITY_GET_PRIV(tw)->NumNgb, 0, PartManager->NumPart * sizeof(MyFloat));
@@ -455,11 +452,6 @@ density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMod
     {
         TREEWALK_REDUCE(BHP(place).Density, remote->Rho);
     }
-    else if(P[place].Type == 4)
-    {
-        int pi = P[place].PI;
-        TREEWALK_REDUCE(DENSITY_GET_PRIV(tw)->StarVolumeSPH[pi], remote->DhsmlDensity);
-    }
 }
 
 /******
@@ -517,11 +509,6 @@ density_ngbiter(
 
         O->Rho += (mass_j * wk);
 
-        /* For stars we need the total weighting, sum(w_k m_k / rho_k).
-         * Reuse DhsmlDensity.*/
-        if(I->Type == 4)
-            O->DhsmlDensity += mass_j * wk / SPHP(other).Density;
-
         /* For the BH and stars only density is used.*/
         if(I->Type != 0)
             return;
@@ -575,12 +562,8 @@ density_haswork(int n, TreeWalk * tw)
     /* Don't want a density for swallowed black hole particles*/
     if(P[n].Swallowed)
         return 0;
-    /* Need Hsml for stars if we have metals coming from them.*/
-    if(DENSITY_GET_PRIV(tw)->StarVolumeSPH && P[n].Type == 4)
-        return 1;
     if(P[n].Type == 0 || P[n].Type == 5)
         return 1;
-
     return 0;
 }
 
