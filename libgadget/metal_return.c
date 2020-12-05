@@ -568,7 +568,7 @@ metal_return_haswork(int i, TreeWalk * tw)
         return 0;
     int pi = P[i].PI;
     /* New stars or stars with zero mass return will not do anything: nothing has yet died*/
-    if(METALS_GET_PRIV(tw)->StellarAges[pi] > 0 || METALS_GET_PRIV(tw)->MassReturn[pi] > 0)
+    if(METALS_GET_PRIV(tw)->StellarAges[pi] == 0 || METALS_GET_PRIV(tw)->MassReturn[pi] == 0)
         return 0;
     /* Don't do enrichment from all stars, just young stars or those with significant enrichment*/
     int young = METALS_GET_PRIV(tw)->StellarAges[pi] < 100;
