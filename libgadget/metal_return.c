@@ -428,6 +428,8 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     priv->StellarAges = mymalloc("StellarAges", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->MassReturn = mymalloc("MassReturn", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->imf_norm = compute_imf_norm();
+    double unitfactor = SOLAR_MASS / (METALS_GET_PRIV(tw)->Unit_Mass_in_g / METALS_GET_PRIV(tw)->hub);
+
     int i;
     #pragma omp parallel for
     for(i=0; i < act->NumActiveParticle;i++)
@@ -438,8 +440,8 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
         priv->StellarAges[P[p_i].PI] = atime_to_myr(CP, STARP(p_i).FormationTime, atime);
         priv->MassReturn[P[p_i].PI] = mass_yield(STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, CP->HubbleParam, &priv->interp, priv->imf_norm);
         /* Guard against making a zero mass particle*/
-        if(priv->MassReturn[P[p_i].PI] > 0.9 * P[p_i].Mass)
-            priv->MassReturn[P[p_i].PI] = 0.9 * P[p_i].Mass;
+        if(priv->MassReturn[P[p_i].PI] * unitfactor > 0.9 * P[p_i].Mass)
+            priv->MassReturn[P[p_i].PI] = 0.9 * P[p_i].Mass / unitfactor;
     }
 
     /* Compute total number of weights around each star for actively returning stars*/
@@ -583,7 +585,6 @@ typedef struct
 
 typedef struct {
     TreeWalkResultBase base;
-    MyFloat Rho;
     MyFloat VolumeSPH;
     MyFloat Ngb;
 } TreeWalkResultStellarDensity;
@@ -706,10 +707,8 @@ stellar_density_ngbiter(
         const double u = r * iter->kernel.Hinv;
         const double wk = density_kernel_wk(&iter->kernel, u);
         O->Ngb += wk * iter->kernel_volume;
-        const double mass_j = P[other].Mass;
-        O->Rho += mass_j * wk;
         /* For stars we need the total weighting, sum(w_k m_k / rho_k).*/
-        O->VolumeSPH += mass_j * wk / SPHP(other).Density;
+        O->VolumeSPH += P[other].Mass * wk / SPHP(other).Density;
     }
 }
 
