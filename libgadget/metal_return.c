@@ -183,12 +183,11 @@ static double atime_to_myr(Cosmology *CP, double atime1, double atime2)
     /* t = dt/da da = 1/(Ha) da*/
     /* Approximate hubble function as constant here: we only care
      * about metal return over a single timestep*/
-    gsl_integration_romberg_workspace * gsl_work = gsl_integration_romberg_alloc(GSL_WORKSPACE);
     gsl_function ff = {atime_integ, CP};
     size_t neval;
     double tmyr;
-    gsl_integration_romberg(&ff, atime1, atime2, 1e-4, 1e-3, &tmyr, &neval, gsl_work);
-
+    double abserr;
+    gsl_integration_qng(&ff, atime1, atime2, 1e-4, 1e-3, &tmyr, &abserr, &neval);
     return tmyr * CP->UnitTime_in_s / SEC_PER_MEGAYEAR;
 }
 
@@ -267,11 +266,10 @@ double chabrier_mass(double mass, void * params)
 /* Compute factor to normalise the total mass in the IMF to unity.*/
 double compute_imf_norm(void)
 {
-    double norm;
+    double norm, abserr;
     size_t neval;
-    gsl_integration_romberg_workspace * gsl_work = gsl_integration_romberg_alloc(GSL_WORKSPACE);
     gsl_function ff = {chabrier_mass, NULL};
-    gsl_integration_romberg(&ff, MINMASS, MAXMASS, 1e-4, 1e-3, &norm, &neval, gsl_work);
+    gsl_integration_qng(&ff, MINMASS, MAXMASS, 1e-4, 1e-3, &norm, &neval, &abserr);
     return norm;
 }
 
@@ -293,9 +291,10 @@ static double sn1a_number(double dtmyrstart, double dtmyrend, double hub)
     return Nsn1a;
 }
 
-static double compute_agb_yield(gsl_interp2d * agb_interp, const double * agb_weights, double stellarmetal, double masslow, double masshigh, gsl_integration_romberg_workspace * gsl_work )
+static double compute_agb_yield(gsl_interp2d * agb_interp, const double * agb_weights, double stellarmetal, double masslow, double masshigh)
 {
     size_t neval;
+    double abserr;
     struct imf_integ_params para;
     gsl_function ff = {chabrier_imf_integ, &para};
     double agbyield = 0;
@@ -316,16 +315,16 @@ static double compute_agb_yield(gsl_interp2d * agb_interp, const double * agb_we
     para.metallicities = agb_metallicities;
     para.metallicity = stellarmetal;
     para.weights = agb_weights;
-    gsl_integration_romberg(&ff, masslow, masshigh, 1e-2, 1e-2, &agbyield, &neval, gsl_work);
+    gsl_integration_qng(&ff, masslow, masshigh, 1e-2, 1e-2, &agbyield, &neval, &abserr);
     return agbyield;
 }
 
-static double compute_snii_yield(gsl_interp2d * snii_interp, const double * snii_weights, double stellarmetal, double masslow, double masshigh, gsl_integration_romberg_workspace * gsl_work )
+static double compute_snii_yield(gsl_interp2d * snii_interp, const double * snii_weights, double stellarmetal, double masslow, double masshigh)
 {
     size_t neval;
     struct imf_integ_params para;
     gsl_function ff = {chabrier_imf_integ, &para};
-    double yield = 0;
+    double yield = 0, abserr;
     /* Only return metals for the range of SNII stars.*/
     if (masshigh > snii_masses[SNII_NMASS-1])
         masshigh = snii_masses[SNII_NMASS-1];
@@ -343,7 +342,7 @@ static double compute_snii_yield(gsl_interp2d * snii_interp, const double * snii
     /* This happens if no bins in range had dying stars this timestep*/
     if(masslow >= masshigh)
         return 0;
-    gsl_integration_romberg(&ff, masslow, masshigh, 1e-2, 1e-2, &yield, &neval, gsl_work);
+    gsl_integration_qng(&ff, masslow, masshigh, 1e-2, 1e-2, &yield, &neval, &abserr);
     return yield;
 }
 
@@ -353,12 +352,10 @@ static double mass_yield(double dtmyrstart, double dtmyrend, double hub, double 
     double masshigh, masslow;
     find_mass_bin_limits(&masslow, &masshigh, dtmyrstart, dtmyrend, stellarmetal, interp->lifetime_interp);
     /* Number of AGB stars/SnII by integrating the IMF*/
-    //gsl_integration chabrier_imf()
-    gsl_integration_romberg_workspace * gsl_work = gsl_integration_romberg_alloc(GSL_WORKSPACE);
     /* Set up for SNII*/
     double massyield = 0;
-    massyield += compute_agb_yield(interp->agb_mass_interp, agb_total_mass, stellarmetal, masslow, masshigh, gsl_work);
-    massyield += compute_snii_yield(interp->snii_mass_interp, snii_total_mass, stellarmetal, masslow, masshigh, gsl_work);
+    massyield += compute_agb_yield(interp->agb_mass_interp, agb_total_mass, stellarmetal, masslow, masshigh);
+    massyield += compute_snii_yield(interp->snii_mass_interp, snii_total_mass, stellarmetal, masslow, masshigh);
     /* Fraction of the IMF which goes off this timestep*/
     massyield /= imf_norm;
     /* Mass yield from Sn1a*/
@@ -375,18 +372,17 @@ static double metal_yield(double dtmyrstart, double dtmyrend, double hub, double
     double masshigh, masslow;
     find_mass_bin_limits(&masslow, &masshigh, dtmyrstart, dtmyrend, stellarmetal, interp->lifetime_interp);
     /* Number of AGB stars/SnII by integrating the IMF*/
-    gsl_integration_romberg_workspace * gsl_work = gsl_integration_romberg_alloc(GSL_WORKSPACE);
     /* Set up for SNII*/
-    MetalGenerated += compute_agb_yield(interp->agb_metallicity_interp, agb_total_metals, stellarmetal, masslow, masshigh, gsl_work);
-    MetalGenerated += compute_snii_yield(interp->snii_metallicity_interp, snii_total_metals, stellarmetal, masslow, masshigh, gsl_work);
+    MetalGenerated += compute_agb_yield(interp->agb_metallicity_interp, agb_total_metals, stellarmetal, masslow, masshigh);
+    MetalGenerated += compute_snii_yield(interp->snii_metallicity_interp, snii_total_metals, stellarmetal, masslow, masshigh);
     MetalGenerated /= imf_norm;
 
     int i;
     for(i = 0; i < NMETALS; i++)
     {
         MetalYields[i] = 0;
-        MetalYields[i] += compute_agb_yield(interp->agb_metals_interp[i], agb_yield[i], stellarmetal, masslow, masshigh, gsl_work);
-        MetalYields[i] += compute_snii_yield(interp->snii_metals_interp[i], snii_yield[i], stellarmetal, masslow, masshigh, gsl_work);
+        MetalYields[i] += compute_agb_yield(interp->agb_metals_interp[i], agb_yield[i], stellarmetal, masslow, masshigh);
+        MetalYields[i] += compute_snii_yield(interp->snii_metals_interp[i], snii_yield[i], stellarmetal, masslow, masshigh);
         MetalYields[i] /= imf_norm;
     }
     double Nsn1a = sn1a_number(dtmyrstart, dtmyrend, hub);
