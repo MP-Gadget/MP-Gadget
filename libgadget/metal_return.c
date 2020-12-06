@@ -669,8 +669,8 @@ void stellar_density_check_neighbours (int pi, TreeWalk * tw)
         if((Right[i] - Left[i]) < 1.0e-3 * Left[i])
         {
             /* If this happens probably the exchange is screwed up and all your particles have moved to (0,0,0)*/
-            message(1, "Very tight Hsml bounds for i=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g pos=(%g|%g|%g)\n",
-             i, P[i].ID, P[i].Hsml, Left[i], Right[i], NumNgb[i], Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+            message(1, "Very tight Hsml bounds for i=%d ID=%lu type %d Hsml=%g Left=%g Right=%g Ngbs=%g des = %g Right-Left=%g pos=(%g|%g|%g)\n",
+             i, P[i].ID, P[i].Type, P[i].Hsml, Left[i], Right[i], NumNgb[i], desnumngb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
             P[i].Hsml = Right[i];
             return;
         }
@@ -807,7 +807,6 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
         gadget_setup_thread_arrays(ReDoQueue, priv->NPRedo, priv->NPLeft, size, NumThreads);
         treewalk_run(tw, CurQueue, size);
 
-        message(0, "Found density for %d stars\n", tw->WorkSetSize);
         tw->haswork = NULL;
         /* Now done with the current queue*/
         if(priv->NIteration > 0)
