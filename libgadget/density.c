@@ -292,9 +292,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     DENSITY_GET_PRIV(tw)->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
     int alloc_high = 0;
     int * ReDoQueue = act->ActiveParticle;
-    int size = SlotsManager->info[0].size + SlotsManager->info[5].size;
-    if(size > act->NumActiveParticle)
-        size = act->NumActiveParticle;
+    int size = act->NumActiveParticle;
 
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
     do {
