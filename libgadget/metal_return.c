@@ -732,6 +732,10 @@ stellar_density_ngbiter(
     const double r = iter->base.r;
     const double r2 = iter->base.r2;
 
+    /* Wind particles do not interact hydrodynamically: don't receive metal mass.*/
+    if(winds_is_particle_decoupled(other))
+        return;
+
     if(r2 < iter->kernel.HH)
     {
         const double u = r * iter->kernel.Hinv;
