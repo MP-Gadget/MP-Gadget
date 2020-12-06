@@ -98,6 +98,7 @@ void setup_metal_table_interp(struct interps * interp)
 
 struct MetalReturnPriv {
     double atime;
+    gsl_integration_workspace ** gsl_work;
     inttime_t Ti_Current;
     MyFloat * StellarAges;
     MyFloat * MassReturn;
@@ -178,14 +179,13 @@ double atime_integ(double atime, void * params)
 }
 
 /* Compute the difference in internal time units between two scale factors.*/
-static double atime_to_myr(Cosmology *CP, double atime1, double atime2)
+static double atime_to_myr(Cosmology *CP, double atime1, double atime2, gsl_integration_workspace * gsl_work)
 {
     /* t = dt/da da = 1/(Ha) da*/
     /* Approximate hubble function as constant here: we only care
      * about metal return over a single timestep*/
     gsl_function ff = {atime_integ, CP};
     double tmyr, abserr;
-    gsl_integration_workspace * gsl_work = gsl_integration_workspace_alloc(GSL_WORKSPACE);
     gsl_integration_qag(&ff, atime1, atime2, 1e-4, 1e-3, GSL_WORKSPACE, GSL_INTEG_GAUSS61, gsl_work, &tmyr, &abserr);
     return tmyr * CP->UnitTime_in_s / SEC_PER_MEGAYEAR;
 }
@@ -263,11 +263,10 @@ double chabrier_mass(double mass, void * params)
 }
 
 /* Compute factor to normalise the total mass in the IMF to unity.*/
-double compute_imf_norm(void)
+double compute_imf_norm(gsl_integration_workspace * gsl_work)
 {
     double norm, abserr;
     gsl_function ff = {chabrier_mass, NULL};
-    gsl_integration_workspace * gsl_work = gsl_integration_workspace_alloc(GSL_WORKSPACE);
     gsl_integration_qag(&ff, MINMASS, MAXMASS, 1e-4, 1e-3, GSL_WORKSPACE, GSL_INTEG_GAUSS61, gsl_work, &norm, &abserr);
     return norm;
 }
@@ -343,12 +342,11 @@ static double compute_snii_yield(gsl_interp2d * snii_interp, const double * snii
 }
 
 /* Compute the total mass yield for this star in this timestep*/
-static double mass_yield(double dtmyrstart, double dtmyrend, double hub, double stellarmetal, struct interps * interp, double imf_norm)
+static double mass_yield(double dtmyrstart, double dtmyrend, double hub, double stellarmetal, struct interps * interp, double imf_norm, gsl_integration_workspace * gsl_work)
 {
     double masshigh, masslow;
     find_mass_bin_limits(&masslow, &masshigh, dtmyrstart, dtmyrend, stellarmetal, interp->lifetime_interp);
     /* Number of AGB stars/SnII by integrating the IMF*/
-    gsl_integration_workspace * gsl_work = gsl_integration_workspace_alloc(GSL_WORKSPACE);
     /* Set up for SNII*/
     double massyield = 0;
     massyield += compute_agb_yield(interp->agb_mass_interp, agb_total_mass, stellarmetal, masslow, masshigh, gsl_work);
@@ -362,15 +360,13 @@ static double mass_yield(double dtmyrstart, double dtmyrend, double hub, double 
 }
 
 /* Compute the total metal yield for this star in this timestep*/
-static double metal_yield(double dtmyrstart, double dtmyrend, double hub, double stellarmetal, struct interps * interp, MyFloat * MetalYields, double imf_norm)
+static double metal_yield(double dtmyrstart, double dtmyrend, double hub, double stellarmetal, struct interps * interp, MyFloat * MetalYields, double imf_norm, gsl_integration_workspace * gsl_work)
 {
     double MetalGenerated = 0;
 
     double masshigh, masslow;
     find_mass_bin_limits(&masslow, &masshigh, dtmyrstart, dtmyrend, stellarmetal, interp->lifetime_interp);
     /* Number of AGB stars/SnII by integrating the IMF*/
-    gsl_integration_workspace * gsl_work = gsl_integration_workspace_alloc(GSL_WORKSPACE);
-    /* Set up for SNII*/
     MetalGenerated += compute_agb_yield(interp->agb_metallicity_interp, agb_total_metals, stellarmetal, masslow, masshigh, gsl_work);
     MetalGenerated += compute_snii_yield(interp->snii_metallicity_interp, snii_total_metals, stellarmetal, masslow, masshigh, gsl_work);
     MetalGenerated /= imf_norm;
@@ -421,23 +417,30 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     priv->Unit_Mass_in_g = UnitMass_in_g;
     message(0, "Starting metal return\n");
 
+    int nthread = omp_get_max_threads();
+    gsl_integration_workspace ** gsl_work = ta_malloc("gsl_work", gsl_integration_workspace *, nthread);
+    int i;
+    /* Allocate a workspace for each thread*/
+    for(i=0; i < nthread; i++)
+        gsl_work[i] = gsl_integration_workspace_alloc(GSL_WORKSPACE);
+
     /* Initialize some time factors*/
     METALS_GET_PRIV(tw)->atime = atime;
     setup_metal_table_interp(&METALS_GET_PRIV(tw)->interp);
     priv->StellarAges = mymalloc("StellarAges", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->MassReturn = mymalloc("MassReturn", SlotsManager->info[4].size * sizeof(MyFloat));
-    priv->imf_norm = compute_imf_norm();
+    priv->imf_norm = compute_imf_norm(gsl_work[0]);
     double unitfactor = SOLAR_MASS / (METALS_GET_PRIV(tw)->Unit_Mass_in_g / METALS_GET_PRIV(tw)->hub);
 
-    int i;
     #pragma omp parallel for
     for(i=0; i < act->NumActiveParticle;i++)
     {
         int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
         if(P[p_i].Type != 4)
             continue;
-        priv->StellarAges[P[p_i].PI] = atime_to_myr(CP, STARP(p_i).FormationTime, atime);
-        priv->MassReturn[P[p_i].PI] = unitfactor * mass_yield(STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, CP->HubbleParam, &priv->interp, priv->imf_norm);
+        int tid = omp_get_thread_num();
+        priv->StellarAges[P[p_i].PI] = atime_to_myr(CP, STARP(p_i).FormationTime, atime, gsl_work[tid]);
+        priv->MassReturn[P[p_i].PI] = unitfactor * mass_yield(STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, CP->HubbleParam, &priv->interp, priv->imf_norm, gsl_work[tid]);
         /* Guard against making a zero mass particle*/
         if(priv->MassReturn[P[p_i].PI] > 0.9 * P[p_i].Mass)
             priv->MassReturn[P[p_i].PI] = 0.9 * P[p_i].Mass;
@@ -445,6 +448,7 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
 
     /* Compute total number of weights around each star for actively returning stars*/
     METALS_GET_PRIV(tw)->StarVolumeSPH = stellar_density(act, priv->StellarAges, priv->MassReturn, tree);
+    priv->gsl_work = gsl_work;
 
     /* Do the metal return*/
     priv->spin = init_spinlocks(SlotsManager->info[0].size);
@@ -455,6 +459,12 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     myfree(priv->StarVolumeSPH);
     myfree(priv->MassReturn);
     myfree(priv->StellarAges);
+
+    for(i=0; i < nthread; i++)
+        gsl_integration_workspace_free(gsl_work[i]);
+
+    ta_free(gsl_work);
+
     /* collect some timing information */
     walltime_measure("/SPH/Metals");
 }
@@ -471,9 +481,10 @@ metal_return_copy(int place, TreeWalkQueryMetals * input, TreeWalk * tw)
         endrun(3, "StarVolumeSPH %g hsml %g\n", input->StarVolumeSPH, input->Hsml);
     double dtmyrend = METALS_GET_PRIV(tw)->StellarAges[pi];
     double dtmyrstart = STARP(place).LastEnrichmentMyr;
+    int tid = omp_get_thread_num();
     /* Do TotalMetalGenerated by computing the yield at this time.*/
     input->MassGenerated = METALS_GET_PRIV(tw)->MassReturn[pi];
-    input->MetalGenerated = metal_yield(dtmyrstart, dtmyrend, input->Metallicity, METALS_GET_PRIV(tw)->hub, &METALS_GET_PRIV(tw)->interp, input->TotalMetalGenerated, METALS_GET_PRIV(tw)->imf_norm);
+    input->MetalGenerated = metal_yield(dtmyrstart, dtmyrend, input->Metallicity, METALS_GET_PRIV(tw)->hub, &METALS_GET_PRIV(tw)->interp, input->TotalMetalGenerated, METALS_GET_PRIV(tw)->imf_norm, METALS_GET_PRIV(tw)->gsl_work[tid]);
 }
 
 static void
