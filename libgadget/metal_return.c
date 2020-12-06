@@ -477,8 +477,6 @@ metal_return_copy(int place, TreeWalkQueryMetals * input, TreeWalk * tw)
     input->Hsml = P[place].Hsml;
     int pi = P[place].PI;
     input->StarVolumeSPH = METALS_GET_PRIV(tw)->StarVolumeSPH[pi];
-    if(input->StarVolumeSPH ==0)
-        endrun(3, "StarVolumeSPH %g hsml %g\n", input->StarVolumeSPH, input->Hsml);
     double dtmyrend = METALS_GET_PRIV(tw)->StellarAges[pi];
     double dtmyrstart = STARP(place).LastEnrichmentMyr;
     int tid = omp_get_thread_num();
