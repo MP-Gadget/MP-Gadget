@@ -666,11 +666,11 @@ void stellar_density_check_neighbours (int pi, TreeWalk * tw)
         /* This condition is here to prevent the density code looping forever if it encounters
          * multiple particles at the same position. If this happens you likely have worse
          * problems anyway, so warn also. */
-        if((Right[i] - Left[i]) < 1.0e-3 * Left[i])
+        if((Right[i] - Left[i]) < 1.0e-5 * Left[i])
         {
             /* If this happens probably the exchange is screwed up and all your particles have moved to (0,0,0)*/
             message(1, "Very tight Hsml bounds for i=%d ID=%lu type %d Hsml=%g Left=%g Right=%g Ngbs=%g des = %g Right-Left=%g pos=(%g|%g|%g)\n",
-             i, P[i].ID, P[i].Type, P[i].Hsml, Left[i], Right[i], NumNgb[i], desnumngb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+             pi, P[pi].ID, P[pi].Type, P[pi].Hsml, Left[i], Right[i], NumNgb[i], desnumngb, Right[i] - Left[i], P[pi].Pos[0], P[pi].Pos[1], P[pi].Pos[2]);
             P[i].Hsml = Right[i];
             return;
         }
@@ -692,10 +692,10 @@ void stellar_density_check_neighbours (int pi, TreeWalk * tw)
 
             /* If this is the first step we can be faster by increasing or decreasing current Hsml by a constant factor*/
             if(Right[i] > 0.99 * tw->tree->BoxSize && Left[i] > 0)
-                P[i].Hsml *= 1.26;
+                P[i].Hsml *= 1.5;
 
             if(Right[i] < 0.99*tw->tree->BoxSize && Left[i] == 0)
-                P[i].Hsml /= 1.26;
+                P[i].Hsml /= 1.5;
         }
         /* More work needed: add this particle to the redo queue*/
         int tid = omp_get_thread_num();
