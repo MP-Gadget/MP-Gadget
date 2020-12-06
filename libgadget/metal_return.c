@@ -22,7 +22,7 @@
 
 #define GSL_WORKSPACE 1000
 
-MyFloat * stellar_density(const ActiveParticles * act, const ForceTree * const tree);
+MyFloat * stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * MassReturn, const ForceTree * const tree);
 
 /*! \file metal_return.c
  *  \brief Compute the mass return rate of metals from stellar evolution.
@@ -444,7 +444,7 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     }
 
     /* Compute total number of weights around each star for actively returning stars*/
-    METALS_GET_PRIV(tw)->StarVolumeSPH = stellar_density(act, tree);
+    METALS_GET_PRIV(tw)->StarVolumeSPH = stellar_density(act, priv->StellarAges, priv->MassReturn, tree);
 
     /* Do the metal return*/
     priv->spin = init_spinlocks(SlotsManager->info[0].size);
@@ -556,20 +556,28 @@ metal_return_ngbiter(
     O->Ninteractions++;
 }
 
-/* Only stars return metals to the gas*/
+/* Find stars returning enough metals to the gas.
+ * This is a wrapper function to allow for
+ * different private structs in different treewalks*/
 static int
-metal_return_haswork(int i, TreeWalk * tw)
+metals_haswork(int i, MyFloat * StellarAges, MyFloat * MassReturn)
 {
     if(P[i].Type != 4)
         return 0;
     int pi = P[i].PI;
     /* New stars or stars with zero mass return will not do anything: nothing has yet died*/
-    if(METALS_GET_PRIV(tw)->StellarAges[pi] == 0 || METALS_GET_PRIV(tw)->MassReturn[pi] == 0)
+    if(StellarAges[pi] == 0 || MassReturn[pi] == 0)
         return 0;
     /* Don't do enrichment from all stars, just young stars or those with significant enrichment*/
-    int young = METALS_GET_PRIV(tw)->StellarAges[pi] < 100;
-    int massreturned = METALS_GET_PRIV(tw)->MassReturn[pi] > 1e-4 * P[i].Mass;
+    int young = StellarAges[pi] < 100;
+    int massreturned = MassReturn[pi] > 1e-4 * P[i].Mass;
     return young || massreturned;
+}
+
+static int
+metal_return_haswork(int i, TreeWalk * tw)
+{
+    return metals_haswork(i, METALS_GET_PRIV(tw)->StellarAges, METALS_GET_PRIV(tw)->MassReturn);
 }
 
 /* Here comes code to compute the star particle density*/
@@ -602,11 +610,20 @@ struct StellarDensityPriv {
     int NIteration;
     size_t *NPLeft;
     int **NPRedo;
+    /* For haswork*/
+    MyFloat * StellarAges;
+    MyFloat * MassReturn;
     /*!< Desired number of SPH neighbours */
     double DesNumNgb;
 };
 
 #define STELLAR_DENSITY_GET_PRIV(tw) ((struct StellarDensityPriv*) ((tw)->priv))
+
+static int
+stellar_density_haswork(int i, TreeWalk * tw)
+{
+    return metals_haswork(i, STELLAR_DENSITY_GET_PRIV(tw)->StellarAges, STELLAR_DENSITY_GET_PRIV(tw)->MassReturn);
+}
 
 static void
 stellar_density_copy(int place, TreeWalkQueryStellarDensity * I, TreeWalk * tw)
@@ -717,7 +734,7 @@ stellar_density_ngbiter(
 }
 
 MyFloat *
-stellar_density(const ActiveParticles * act, const ForceTree * const tree)
+stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * MassReturn, const ForceTree * const tree)
 {
     TreeWalk tw[1] = {{0}};
     struct StellarDensityPriv priv[1];
@@ -726,7 +743,7 @@ stellar_density(const ActiveParticles * act, const ForceTree * const tree)
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterStellarDensity);
     tw->ngbiter = (TreeWalkNgbIterFunction) stellar_density_ngbiter;
-    tw->haswork = metal_return_haswork;
+    tw->haswork = stellar_density_haswork;
     tw->fill = (TreeWalkFillQueryFunction) stellar_density_copy;
     tw->reduce = (TreeWalkReduceResultFunction) stellar_density_reduce;
     tw->postprocess = (TreeWalkProcessFunction) stellar_density_check_neighbours;
@@ -738,7 +755,8 @@ stellar_density(const ActiveParticles * act, const ForceTree * const tree)
     int i;
     int64_t ntot = 0;
 
-    walltime_measure("/Misc");
+    priv->StellarAges = StellarAges;
+    priv->MassReturn = MassReturn;
     priv->VolumeSPH = mymalloc("StarVolumeSPH", SlotsManager->info[4].size * sizeof(MyFloat));
 
     priv->Left = (MyFloat *) mymalloc("DENS_PRIV->Left", SlotsManager->info[4].size * sizeof(MyFloat));
