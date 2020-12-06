@@ -547,7 +547,8 @@ metal_return_ngbiter(
         O->MassReturn += thismass;
         double thismetal = wk * I->MetalGenerated / I->StarVolumeSPH * unitfactor;
         double newmass;
-        lock_spinlock(other, METALS_GET_PRIV(lv->tw)->spin);
+        int pi = P[other].PI;
+        lock_spinlock(pi, METALS_GET_PRIV(lv->tw)->spin);
         /* Add the metals to the particle.*/
         for(i = 0; i < NMETALS; i++)
             SPHP(other).Metals[i] += ThisMetals[i];
@@ -557,7 +558,7 @@ metal_return_ngbiter(
         P[other].Mass += thismass;
         newmass = P[other].Mass;
         /* Add metals weighted by SPH kernel*/
-        unlock_spinlock(other, METALS_GET_PRIV(lv->tw)->spin);
+        unlock_spinlock(pi, METALS_GET_PRIV(lv->tw)->spin);
         if(newmass <= 0)
             endrun(3, "New mass %g new metal %g in particle %d id %ld from star mass %g metallicity %g\n",
                    newmass, SPHP(other).Metallicity, other, P[other].ID, I->Mass, I->Metallicity);
