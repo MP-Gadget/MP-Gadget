@@ -648,7 +648,7 @@ stellar_density_reduce(int place, TreeWalkResultStellarDensity * remote, enum Tr
     TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->VolumeSPH[pi], remote->VolumeSPH);
 }
 
-void stellar_density_check_neighbours (int pi, TreeWalk * tw)
+void stellar_density_check_neighbours (int i, TreeWalk * tw)
 {
     /* now check whether we had enough neighbours */
 
@@ -658,44 +658,45 @@ void stellar_density_check_neighbours (int pi, TreeWalk * tw)
     MyFloat * Right = STELLAR_DENSITY_GET_PRIV(tw)->Right;
     MyFloat * NumNgb = STELLAR_DENSITY_GET_PRIV(tw)->NumNgb;
 
-    int i = P[pi].PI;
+    int pi = P[i].PI;
 
-    if(NumNgb[i] < (desnumngb - 2) ||
-            (NumNgb[i] > (desnumngb + 2)))
+    if(NumNgb[pi] < (desnumngb - 2) ||
+            (NumNgb[pi] > (desnumngb + 2)))
     {
         /* This condition is here to prevent the density code looping forever if it encounters
          * multiple particles at the same position. If this happens you likely have worse
          * problems anyway, so warn also. */
-        if((Right[i] - Left[i]) < 1.0e-5 * Left[i])
+        if((Right[pi] - Left[pi]) < 1.0e-4 * Left[pi])
         {
             /* If this happens probably the exchange is screwed up and all your particles have moved to (0,0,0)*/
             message(1, "Very tight Hsml bounds for i=%d ID=%lu type %d Hsml=%g Left=%g Right=%g Ngbs=%g des = %g Right-Left=%g pos=(%g|%g|%g)\n",
-             pi, P[pi].ID, P[pi].Type, P[pi].Hsml, Left[i], Right[i], NumNgb[i], desnumngb, Right[i] - Left[i], P[pi].Pos[0], P[pi].Pos[1], P[pi].Pos[2]);
-            P[i].Hsml = Right[i];
+             i, P[i].ID, P[i].Type, P[i].Hsml, Left[pi], Right[pi], NumNgb[pi], desnumngb, Right[pi] - Left[pi], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+            P[i].Hsml = Right[pi];
             return;
         }
 
         /* If we need more neighbours, move the lower bound up. If we need fewer, move the upper bound down.*/
-        if(NumNgb[i] < desnumngb) {
-                Left[i] = P[i].Hsml;
+        if(NumNgb[pi] < desnumngb) {
+                Left[pi] = P[i].Hsml;
         } else {
-                Right[i] = P[i].Hsml;
+                Right[pi] = P[i].Hsml;
         }
 
         /* Next step is geometric mean of previous. */
-        if(Right[i] < tw->tree->BoxSize && Left[i] > 0)
-            P[i].Hsml = pow(0.5 * (pow(Left[i], 3) + pow(Right[i], 3)), 1.0 / 3);
+        if(Right[pi] < tw->tree->BoxSize && Left[pi] > 0)
+            P[i].Hsml = pow(0.5 * (pow(Left[pi], 3) + pow(Right[pi], 3)), 1.0 / 3);
         else
         {
-            if(!(Right[i] < tw->tree->BoxSize) && Left[i] == 0)
-                endrun(8188, "Cannot occur. Check for memory corruption: i=%d L = %g R = %g N=%g. Type %d, Pos %g %g %g", i, Left[i], Right[i], NumNgb[i], P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+            if(!(Right[pi] < tw->tree->BoxSize) && Left[pi] == 0)
+                endrun(8188, "Cannot occur. Check for memory corruption: i=%d pi %d L = %g R = %g N=%g. Type %d, Pos %g %g %g",
+                       i, pi, Left[pi], Right[pi], NumNgb[pi], P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
 
             /* If this is the first step we can be faster by increasing or decreasing current Hsml by a constant factor*/
-            if(Right[i] > 0.99 * tw->tree->BoxSize && Left[i] > 0)
-                P[i].Hsml *= 1.5;
+            if(Right[pi] > 0.99 * tw->tree->BoxSize && Left[pi] > 0)
+                P[i].Hsml *= 1.26;
 
-            if(Right[i] < 0.99*tw->tree->BoxSize && Left[i] == 0)
-                P[i].Hsml /= 1.5;
+            if(Right[pi] < 0.99*tw->tree->BoxSize && Left[pi] == 0)
+                P[i].Hsml /= 1.26;
         }
         /* More work needed: add this particle to the redo queue*/
         int tid = omp_get_thread_num();
@@ -706,8 +707,8 @@ void stellar_density_check_neighbours (int pi, TreeWalk * tw)
     if(STELLAR_DENSITY_GET_PRIV(tw)->NIteration >= MAXITER - 10)
     {
          message(1, "i=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
-             i, P[i].ID, P[i].Hsml, Left[i], Right[i],
-             NumNgb[i], Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+             i, P[i].ID, P[i].Hsml, Left[pi], Right[pi],
+             NumNgb[pi], Right[pi] - Left[pi], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
     }
 }
 
