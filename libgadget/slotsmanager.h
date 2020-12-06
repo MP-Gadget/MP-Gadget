@@ -36,18 +36,18 @@ struct bh_particle_data {
     MyFloat FormationTime;  /*!< formation time of black hole. */
     /* Merger time of the black hole.
      * After this, all values are fixed. */
-    MyFloat SwallowTime;    
+    MyFloat SwallowTime;
     int JumpToMinPot;
     double MinPotPos[3];
     MyFloat MinPotVel[3];
     /* After a merger, this gives the ID of the particle which swallowed the BH. Used to keep track of merger trees.*/
     MyIDType SwallowID;
-    
+
     /*******************************************************/
     double DragAccel[3];
     double DFAccel[3];
     /*******************************************************/
-    
+
     /* Stores the minimum timebins of all black hole neighbours.
      * The black hole timebin is then set to this.*/
     int minTimeBin;
@@ -63,6 +63,9 @@ struct star_particle_data
     struct particle_data_ext base;
     MyFloat FormationTime;      /*!< formation time of star particle */
     MyFloat LastEnrichmentMyr;  /* Last time the star particle had an enrichment event, in Myr since FormationTime.*/
+    MyFloat TotalMassReturned; /* The total mass returned from this star since formation.
+                                  The initial mass of the SSP in this star is STARP.TotalMassReturned + P.Mass.
+                                  It is stored like this to retain compatibility with older snapshots. */
     MyFloat BirthDensity;       /*!< Density of gas particle at star formation. */
     MyFloat Metallicity;        /*!< Total metallicity of star particle */
     float Metals[NMETALS];      /* Metal mass of each species in star particle*/
