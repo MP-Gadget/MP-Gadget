@@ -25,6 +25,7 @@ StarformationOn = 1
 StarformationCriterion = density
 RadiationOn = 1
 DensityIndependentSphOn = 1
+MetalReturnOn = 1
 MassiveNuLinRespOn = 0
 
 MetalCoolFile = ../cooling_metal_UVB
