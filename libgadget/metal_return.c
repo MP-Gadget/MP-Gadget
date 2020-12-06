@@ -634,8 +634,8 @@ stellar_density_copy(int place, TreeWalkQueryStellarDensity * I, TreeWalk * tw)
 static void
 stellar_density_reduce(int place, TreeWalkResultStellarDensity * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
 {
-    TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[place], remote->Ngb);
     int pi = P[place].PI;
+    TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi], remote->Ngb);
     TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->VolumeSPH[pi], remote->VolumeSPH);
 }
 
