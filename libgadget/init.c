@@ -237,6 +237,9 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
             SPHP(i).DelayTime = 0;
             SPHP(i).Metallicity = 0;
             memset(SPHP(i).Metals, 0, NMETALS*sizeof(float));
+            /* Initialise to primordial abundances for H and He*/
+            SPHP(i).Metals[0] = HYDROGEN_MASSFRAC;
+            SPHP(i).Metals[1] = 1- HYDROGEN_MASSFRAC;
             SPHP(i).Sfr = 0;
             SPHP(i).MaxSignalVel = 0;
         }
