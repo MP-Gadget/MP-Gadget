@@ -780,8 +780,6 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
     int alloc_high = 0;
     int * ReDoQueue = act->ActiveParticle;
     int size = act->NumActiveParticle;
-    if(size > SlotsManager->info[4].size)
-        size = SlotsManager->info[4].size;
 
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
     do {
@@ -837,6 +835,9 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
 #ifdef DEBUG
     for(i = 0; i < act->NumActiveParticle; i++) {
         int a = act->ActiveParticle ? act->ActiveParticle[i] : i;
+        /* Skip the garbage particles */
+        if(P[a].IsGarbage)
+            continue;
         if(stellar_density_haswork(a, tw) && priv->VolumeSPH[P[a].PI] == 0)
             endrun(3, "i = %d pi = %d StarVolumeSPH %g hsml %g\n", a, P[a].PI, priv->VolumeSPH[P[a].PI], P[a].Hsml);
     }
