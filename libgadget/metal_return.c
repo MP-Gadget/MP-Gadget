@@ -837,7 +837,7 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
 #ifdef DEBUG
     for(i = 0; i < act->NumActiveParticle; i++) {
         int a = act->ActiveParticle ? act->ActiveParticle[i] : i;
-        if(metal_return_haswork(a, tw) && priv->VolumeSPH[P[a].PI] == 0)
+        if(stellar_density_haswork(a, tw) && priv->VolumeSPH[P[a].PI] == 0)
             endrun(3, "i = %d pi = %d StarVolumeSPH %g hsml %g\n", a, P[a].PI, priv->VolumeSPH[P[a].PI], P[a].Hsml);
     }
 #endif
