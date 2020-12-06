@@ -466,7 +466,7 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     ta_free(gsl_work);
 
     /* collect some timing information */
-    walltime_measure("/SPH/Metals");
+    walltime_measure("/SPH/Metals/Yield");
 }
 
 static void
@@ -788,6 +788,7 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
     for(i = 0; i < SlotsManager->info[4].size; i++)
         priv->Right[i] = tree->BoxSize;
 
+    walltime_measure("/SPH/Metals/Init");
     /* allocate buffers to arrange communication */
     int NumThreads = omp_get_max_threads();
     priv->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
