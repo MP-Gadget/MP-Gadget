@@ -503,6 +503,7 @@ static int make_particle_star(int child, int parent, int placement)
     /*Set properties*/
     STARP(child).FormationTime = All.Time;
     STARP(child).LastEnrichmentMyr = 0;
+    STARP(child).TotalMassReturned = 0;
     STARP(child).BirthDensity = oldslot.Density;
     /*Copy metallicity*/
     STARP(child).Metallicity = oldslot.Metallicity;

@@ -345,20 +345,20 @@ static double compute_snii_yield(gsl_interp2d * snii_interp, const double * snii
 }
 
 /* Compute the total mass yield for this star in this timestep*/
-static double mass_yield(double dtmyrstart, double dtmyrend, double hub, double stellarmetal, struct interps * interp, double imf_norm, gsl_integration_workspace * gsl_work)
+static double mass_yield(double dtmyrstart, double dtmyrend, double stellarmetal, double hub, struct interps * interp, double imf_norm, gsl_integration_workspace * gsl_work)
 {
     double masshigh, masslow;
     find_mass_bin_limits(&masslow, &masshigh, dtmyrstart, dtmyrend, stellarmetal, interp->lifetime_interp);
     /* Number of AGB stars/SnII by integrating the IMF*/
-    /* Set up for SNII*/
-    double massyield = 0;
-    massyield += compute_agb_yield(interp->agb_mass_interp, agb_total_mass, stellarmetal, masslow, masshigh, gsl_work);
-    massyield += compute_snii_yield(interp->snii_mass_interp, snii_total_mass, stellarmetal, masslow, masshigh, gsl_work);
+    double agbyield = compute_agb_yield(interp->agb_mass_interp, agb_total_mass, stellarmetal, masslow, masshigh, gsl_work);
+    double sniiyield = compute_snii_yield(interp->snii_mass_interp, snii_total_mass, stellarmetal, masslow, masshigh, gsl_work);
     /* Fraction of the IMF which goes off this timestep*/
-    massyield /= imf_norm;
+    double massyield = (agbyield + sniiyield)/imf_norm;
     /* Mass yield from Sn1a*/
     double Nsn1a = sn1a_number(dtmyrstart, dtmyrend, hub);
     massyield += Nsn1a * sn1a_total_metals;
+    //message(3, "masslow %g masshigh %g stellarmetal %g dystart %g dtend %g agb %g snii %g sn1a %g imf_norm %g\n",
+    //        masslow, masshigh, stellarmetal, dtmyrstart, dtmyrend, agbyield, sniiyield, Nsn1a * sn1a_total_metals, imf_norm);
     return massyield;
 }
 
@@ -443,8 +443,9 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
         int tid = omp_get_thread_num();
         priv->StellarAges[P[p_i].PI] = atime_to_myr(CP, STARP(p_i).FormationTime, atime, gsl_work[tid]);
         /* Note this takes care of units*/
-        double initialmass = P[p_i].Mass + STARP(i).TotalMassReturned;
+        double initialmass = P[p_i].Mass + STARP(p_i).TotalMassReturned;
         priv->MassReturn[P[p_i].PI] = initialmass * mass_yield(STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, CP->HubbleParam, &priv->interp, priv->imf_norm, gsl_work[tid]);
+        //message(3, "Particle %d PI %d massgen %g mass %g initmass %g\n", p_i, P[p_i].PI, priv->MassReturn[P[p_i].PI], P[p_i].Mass, initialmass);
         /* Guard against making a zero mass particle*/
         if(priv->MassReturn[P[p_i].PI] > 0.9 * P[p_i].Mass)
             priv->MassReturn[P[p_i].PI] = 0.9 * P[p_i].Mass;
