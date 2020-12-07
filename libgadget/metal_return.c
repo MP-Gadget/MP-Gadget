@@ -230,7 +230,7 @@ double do_rootfinding(struct massbin_find_params *p, double mass_low, double mas
       mass_low = gsl_root_fsolver_x_lower (s);
       mass_high = gsl_root_fsolver_x_upper (s);
       int status = gsl_root_test_interval (mass_low, mass_high,
-                                       0, 0.01);
+                                       0, 0.001);
       message(4, "lo %g hi %g root %g val %g\n", mass_low, mass_high, gsl_root_fsolver_root(s), massendlife(gsl_root_fsolver_root(s), p));
       if (status == GSL_SUCCESS)
         break;
@@ -269,16 +269,21 @@ static void find_mass_bin_limits(double * masslow, double * masshigh, const doub
         return;
     }
     /* All stars die before the end of this timestep*/
-    if(massendlife (agb_masses[0], &p) < 0)
+    if(massendlife (agb_masses[0], &p) <= 0)
         *masslow = lifetime_masses[0];
     else
         *masslow = do_rootfinding(&p, agb_masses[0], MAXMASS);
+
     /* Now find stars that died before the end of this timebin*/
     p.dtfind = dtstart;
     /* Now we know that life(masslow) = dtend, so life(masslow) > dtstart, so life(masslow) - dtstart > 0
      * This is when no stars have died at the beginning of this timestep.*/
-    if(massendlife (MAXMASS, &p) > 0)
+    if(massendlife (MAXMASS, &p) >= 0)
         *masshigh = MAXMASS;
+    /* This can sometimes happen due to root finding inaccuracy.
+     * Just do this star next timestep.*/
+    else if(massendlife (*masslow, &p) <= 0)
+        *masshigh = *masslow;
     else
         *masshigh = do_rootfinding(&p, *masslow, MAXMASS);
     gsl_interp_accel_free(p.metalacc);
