@@ -231,7 +231,7 @@ double do_rootfinding(struct massbin_find_params *p, double mass_low, double mas
       mass_high = gsl_root_fsolver_x_upper (s);
       int status = gsl_root_test_interval (mass_low, mass_high,
                                        0, 0.001);
-      message(4, "lo %g hi %g root %g val %g\n", mass_low, mass_high, gsl_root_fsolver_root(s), massendlife(gsl_root_fsolver_root(s), p));
+      //message(4, "lo %g hi %g root %g val %g\n", mass_low, mass_high, gsl_root_fsolver_root(s), massendlife(gsl_root_fsolver_root(s), p));
       if (status == GSL_SUCCESS)
         break;
   }
@@ -418,8 +418,8 @@ static double mass_yield(double dtmyrstart, double dtmyrend, double stellarmetal
     /* Mass yield from Sn1a*/
     double Nsn1a = sn1a_number(dtmyrstart, dtmyrend, hub);
     massyield += Nsn1a * sn1a_total_metals;
-    message(3, "masslow %g masshigh %g stellarmetal %g dystart %g dtend %g agb %g snii %g sn1a %g imf_norm %g\n",
-            masslow, masshigh, stellarmetal, dtmyrstart, dtmyrend, agbyield, sniiyield, Nsn1a * sn1a_total_metals, imf_norm);
+    //message(3, "masslow %g masshigh %g stellarmetal %g dystart %g dtend %g agb %g snii %g sn1a %g imf_norm %g\n",
+    //        masslow, masshigh, stellarmetal, dtmyrstart, dtmyrend, agbyield, sniiyield, Nsn1a * sn1a_total_metals, imf_norm);
     return massyield;
 }
 
@@ -479,7 +479,6 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     tw->priv = priv;
     priv->hub = CP->HubbleParam;
     priv->Unit_Mass_in_g = UnitMass_in_g;
-    message(0, "Starting metal return\n");
 
     int nthread = omp_get_max_threads();
     gsl_integration_workspace ** gsl_work = ta_malloc("gsl_work", gsl_integration_workspace *, nthread);
@@ -507,20 +506,21 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
         double initialmass = P[p_i].Mass + STARP(p_i).TotalMassReturned;
         priv->MassReturn[P[p_i].PI] = initialmass * mass_yield(STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, CP->HubbleParam, &priv->interp, priv->imf_norm, gsl_work[tid]);
         //message(3, "Particle %d PI %d massgen %g mass %g initmass %g\n", p_i, P[p_i].PI, priv->MassReturn[P[p_i].PI], P[p_i].Mass, initialmass);
-        /* Guard against making a zero mass particle*/
-        if(priv->MassReturn[P[p_i].PI] > 0.9 * P[p_i].Mass)
+        /* Guard against making a zero mass particle and warn since this should not happen.*/
+        if(priv->MassReturn[P[p_i].PI] > 0.9 * P[p_i].Mass) {
+            message(1, "Large mass return %g from %d mass %g initial %g\n", priv->MassReturn[P[p_i].PI], p_i, P[p_i].Mass, initialmass);
             priv->MassReturn[P[p_i].PI] = 0.9 * P[p_i].Mass;
+        }
     }
 
     /* Compute total number of weights around each star for actively returning stars*/
     METALS_GET_PRIV(tw)->StarVolumeSPH = stellar_density(act, priv->StellarAges, priv->MassReturn, tree);
     priv->gsl_work = gsl_work;
-
+    message(0, "Starting metal return treewalk\n");
     /* Do the metal return*/
     priv->spin = init_spinlocks(SlotsManager->info[0].size);
     treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
     free_spinlocks(priv->spin);
-    message(0, "Done metal return\n");
 
     myfree(priv->StarVolumeSPH);
     myfree(priv->MassReturn);
