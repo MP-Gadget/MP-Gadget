@@ -6,6 +6,8 @@
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_interp2d.h>
+#include <gsl/gsl_roots.h>
+#include <gsl/gsl_errno.h>
 #include <omp.h>
 
 #include "physconst.h"
@@ -20,6 +22,7 @@
 #include "utils/spinlocks.h"
 #include "metal_tables.h"
 
+#define MAXITER 200
 #define GSL_WORKSPACE 1000
 
 MyFloat * stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * MassReturn, const ForceTree * const tree);
@@ -190,6 +193,53 @@ static double atime_to_myr(Cosmology *CP, double atime1, double atime2, gsl_inte
     return tmyr * CP->UnitTime_in_s / SEC_PER_MEGAYEAR;
 }
 
+/* Functions for the root finder*/
+struct massbin_find_params
+{
+    double dtfind;
+    double stellarmetal;
+    gsl_interp2d * lifetime_tables;
+    gsl_interp_accel * metalacc;
+    gsl_interp_accel * massacc;
+};
+
+double
+massendlife (double mass, void *params)
+{
+  struct massbin_find_params *p = (struct massbin_find_params *) params;
+  double tlife = gsl_interp2d_eval(p->lifetime_tables, lifetime_metallicity, lifetime_masses, lifetime, p->stellarmetal, mass, p->metalacc, p->massacc);
+  double tlifemyr = tlife/1e6;
+  return tlifemyr - p->dtfind;
+}
+
+double do_rootfinding(struct massbin_find_params *p, double mass_low, double mass_high)
+{
+    int iter = 0;
+    gsl_function F;
+
+    F.function = &massendlife;
+    F.params = p;
+
+    const gsl_root_fsolver_type *T = gsl_root_fsolver_falsepos;
+    gsl_root_fsolver * s = gsl_root_fsolver_alloc (T);
+    gsl_root_fsolver_set (s, &F, mass_low, mass_high);
+
+    for(iter = 0; iter < MAXITER; iter++)
+    {
+      gsl_root_fsolver_iterate (s);
+      mass_low = gsl_root_fsolver_x_lower (s);
+      mass_high = gsl_root_fsolver_x_upper (s);
+      int status = gsl_root_test_interval (mass_low, mass_high,
+                                       0, 0.01);
+      message(4, "lo %g hi %g root %g val %g\n", mass_low, mass_high, gsl_root_fsolver_root(s), massendlife(gsl_root_fsolver_root(s), p));
+      if (status == GSL_SUCCESS)
+        break;
+  }
+  double root = gsl_root_fsolver_root(s);
+  gsl_root_fsolver_free (s);
+  return root;
+}
+
 /* Find the mass bins which die in this timestep using the lifetime table.
  * dtstart, dtend - time at start and end of timestep in Myr.
  * stellarmetal - metallicity of the star.
@@ -198,35 +248,41 @@ static double atime_to_myr(Cosmology *CP, double atime1, double atime2, gsl_inte
  */
 static void find_mass_bin_limits(double * masslow, double * masshigh, const double dtstart, const double dtend, double stellarmetal, gsl_interp2d * lifetime_tables)
 {
-    gsl_interp_accel *metalacc = gsl_interp_accel_alloc();
-    gsl_interp_accel *massacc = gsl_interp_accel_alloc();
     if(stellarmetal < lifetime_metallicity[0])
         stellarmetal = lifetime_metallicity[0];
     if(stellarmetal > lifetime_metallicity[LIFE_NMET-1])
         stellarmetal = lifetime_metallicity[LIFE_NMET-1];
 
-    double mass = lifetime_masses[LIFE_NMASS-1];
-
-    /* Simple linear search to find the root. We can do better than this. See:
-         gsl_root_fsolver_falsepos. */
-    while(mass >= lifetime_masses[0]) {
-        double tlife = gsl_interp2d_eval(lifetime_tables, lifetime_metallicity, lifetime_masses, lifetime, stellarmetal, mass, metalacc, massacc);
-        if(tlife/1e6 > dtstart) {
-            break;
-        }
-        mass /= 1.1;
+    /* Find the root with GSL routines. */
+    struct massbin_find_params p = {0};
+    p.metalacc = gsl_interp_accel_alloc();
+    p.massacc = gsl_interp_accel_alloc();
+    p.lifetime_tables = lifetime_tables;
+    p.stellarmetal = stellarmetal;
+    /* First find stars that died before the end of this timebin*/
+    p.dtfind = dtend;
+    /* If no stars have died yet*/
+    if(massendlife (MAXMASS, &p) >= 0)
+    {
+        *masslow = MAXMASS;
+        *masshigh = MAXMASS;
+        return;
     }
-    /* Largest mass which dies in this timestep*/
-    *masshigh = mass;
-    while(mass >= lifetime_masses[0]) {
-        double tlife = gsl_interp2d_eval(lifetime_tables, lifetime_metallicity, lifetime_masses, lifetime, stellarmetal, mass, metalacc, massacc);
-        if(tlife/1e6 > dtend) {
-            break;
-        }
-        mass /= 1.1;
-    }
-    /* Smallest mass which dies in this timestep*/
-    *masslow = mass;
+    /* All stars die before the end of this timestep*/
+    if(massendlife (agb_masses[0], &p) < 0)
+        *masslow = lifetime_masses[0];
+    else
+        *masslow = do_rootfinding(&p, agb_masses[0], MAXMASS);
+    /* Now find stars that died before the end of this timebin*/
+    p.dtfind = dtstart;
+    /* Now we know that life(masslow) = dtend, so life(masslow) > dtstart, so life(masslow) - dtstart > 0
+     * This is when no stars have died at the beginning of this timestep.*/
+    if(massendlife (MAXMASS, &p) > 0)
+        *masshigh = MAXMASS;
+    else
+        *masshigh = do_rootfinding(&p, *masslow, MAXMASS);
+    gsl_interp_accel_free(p.metalacc);
+    gsl_interp_accel_free(p.massacc);
 }
 
 /* Parameters of the interpolator
@@ -357,8 +413,8 @@ static double mass_yield(double dtmyrstart, double dtmyrend, double stellarmetal
     /* Mass yield from Sn1a*/
     double Nsn1a = sn1a_number(dtmyrstart, dtmyrend, hub);
     massyield += Nsn1a * sn1a_total_metals;
-    //message(3, "masslow %g masshigh %g stellarmetal %g dystart %g dtend %g agb %g snii %g sn1a %g imf_norm %g\n",
-    //        masslow, masshigh, stellarmetal, dtmyrstart, dtmyrend, agbyield, sniiyield, Nsn1a * sn1a_total_metals, imf_norm);
+    message(3, "masslow %g masshigh %g stellarmetal %g dystart %g dtend %g agb %g snii %g sn1a %g imf_norm %g\n",
+            masslow, masshigh, stellarmetal, dtmyrstart, dtmyrend, agbyield, sniiyield, Nsn1a * sn1a_total_metals, imf_norm);
     return massyield;
 }
 
@@ -614,9 +670,6 @@ metal_return_haswork(int i, TreeWalk * tw)
 {
     return metals_haswork(i, METALS_GET_PRIV(tw)->StellarAges, METALS_GET_PRIV(tw)->MassReturn);
 }
-
-/* Here comes code to compute the star particle density*/
-#define MAXITER 200
 
 typedef struct {
     TreeWalkNgbIterBase base;
