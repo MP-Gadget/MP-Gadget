@@ -29,7 +29,6 @@ struct BlackholeParams
     enum BlackHoleFeedbackMethod BlackHoleFeedbackMethod;	/*!< method of the feedback*/
     double BlackHoleFeedbackRadius;	/*!< Radius the thermal feedback is fed comoving*/
     double BlackHoleFeedbackRadiusMaxPhys;	/*!< Radius the thermal cap */
-    double SeedBlackHoleMass;	/*!< Seed black hole mass */
     double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
     int BlackHoleRepositionEnabled; /* If true, enable repositioning the BH to the potential minimum*/
 
@@ -42,6 +41,10 @@ struct BlackholeParams
     int BH_DRAG; /*Hydro drag force*/
 
     double SeedBHDynMass; /* The initial dynamic mass of BH particle */
+
+    double SeedBlackHoleMass;	/*!< (minimum) Seed black hole mass */
+    double MaxSeedBlackHoleMass; /* Maximum black hole seed mass*/
+    double SeedBlackHoleMassIndex; /* Power law index for BH seed mass*/
     /************************************************************************/
 } blackhole_params;
 
@@ -211,7 +214,6 @@ void set_blackhole_params(ParameterSet * ps)
     if(ThisTask == 0) {
         blackhole_params.BlackHoleAccretionFactor = param_get_double(ps, "BlackHoleAccretionFactor");
         blackhole_params.BlackHoleEddingtonFactor = param_get_double(ps, "BlackHoleEddingtonFactor");
-        blackhole_params.SeedBlackHoleMass = param_get_double(ps, "SeedBlackHoleMass");
 
         blackhole_params.BlackHoleFeedbackFactor = param_get_double(ps, "BlackHoleFeedbackFactor");
         blackhole_params.BlackHoleFeedbackRadius = param_get_double(ps, "BlackHoleFeedbackRadius");
@@ -227,6 +229,10 @@ void set_blackhole_params(ParameterSet * ps)
         blackhole_params.BH_DRAG = param_get_int(ps, "BH_DRAG");
         blackhole_params.MergeGravBound = param_get_int(ps, "MergeGravBound");
         blackhole_params.SeedBHDynMass = param_get_double(ps,"SeedBHDynMass");
+
+        blackhole_params.SeedBlackHoleMass = param_get_double(ps, "SeedBlackHoleMass");
+        blackhole_params.MaxSeedBlackHoleMass = param_get_double(ps,"MaxSeedBlackHoleMass");
+        blackhole_params.SeedBlackHoleMassIndex = param_get_double(ps,"SeedBlackHoleMassIndex");
         /***********************************************************************************/
     }
     MPI_Bcast(&blackhole_params, sizeof(struct BlackholeParams), MPI_BYTE, 0, MPI_COMM_WORLD);
@@ -1396,6 +1402,23 @@ blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum Tre
     TREEWALK_REDUCE(BHP(place).CountProgs, remote->BH_CountProgs);
 }
 
+/* Sample from a power law to get the initial BH mass*/
+double get_bh_pwlaw_seed_mass(MyIDType ID)
+{
+    /* compute random number, uniform in [0,1] */
+    const double w = get_random_number(ID);
+    /* Normalisation for this power law index*/
+    double norm = pow(blackhole_params.MaxSeedBlackHoleMass, 1+blackhole_params.SeedBlackHoleMassIndex)
+                - pow(blackhole_params.SeedBlackHoleMass, 1+blackhole_params.SeedBlackHoleMassIndex);
+    /* Sample from the CDF:
+     * w  = [M^(1+x) - M_0^(1+x)]/[M_1^(1+x) - M_0^(1+x)]
+     * w [M_1^(1+x) - M_0^(1+x)] + M_0^(1+x) = M^(1+x)
+     * M = pow((w [M_1^(1+x) - M_0^(1+x)] + M_0^(1+x)), (-1-x))*/
+    double mass = pow(w * norm + pow(blackhole_params.SeedBlackHoleMass, 1+blackhole_params.SeedBlackHoleMassIndex),
+                      (-1-blackhole_params.SeedBlackHoleMassIndex));
+    return mass;
+}
+
 void blackhole_make_one(int index) {
     if(!All.BlackHoleOn)
         return;
@@ -1413,7 +1436,10 @@ void blackhole_make_one(int index) {
     BHP(child).base.ID = P[child].ID;
     /* The accretion mass should always be the seed black hole mass,
      * irrespective of the gravitational mass of the particle.*/
-    BHP(child).Mass = blackhole_params.SeedBlackHoleMass;
+    if(blackhole_params.MaxSeedBlackHoleMass > 0)
+        BHP(child).Mass = get_bh_pwlaw_seed_mass(P[child].ID);
+    else
+        BHP(child).Mass = blackhole_params.SeedBlackHoleMass;
     BHP(child).Mdot = 0;
     BHP(child).FormationTime = All.Time;
     BHP(child).SwallowID = (MyIDType) -1;
