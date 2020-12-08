@@ -669,7 +669,7 @@ metals_haswork(int i, MyFloat * StellarAges, MyFloat * MassReturn)
         return 0;
     /* Don't do enrichment from all stars, just young stars or those with significant enrichment*/
     int young = StellarAges[pi] < 100;
-    int massreturned = MassReturn[pi] > 1e-4 * P[i].Mass;
+    int massreturned = MassReturn[pi] > 1e-3 * P[i].Mass;
     return young || massreturned;
 }
 
