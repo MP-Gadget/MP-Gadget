@@ -425,7 +425,7 @@ static double mass_yield(double dtmyrstart, double dtmyrend, double stellarmetal
 }
 
 /* Compute the total metal yield for this star in this timestep*/
-static double metal_yield(double dtmyrstart, double dtmyrend, double hub, double stellarmetal, struct interps * interp, MyFloat * MetalYields, double imf_norm, gsl_integration_workspace * gsl_work, double masslow, double masshigh)
+static double metal_yield(double dtmyrstart, double dtmyrend, double stellarmetal, double hub, struct interps * interp, MyFloat * MetalYields, double imf_norm, gsl_integration_workspace * gsl_work, double masslow, double masshigh)
 {
     double MetalGenerated = 0;
     /* Number of AGB stars/SnII by integrating the IMF*/
@@ -559,6 +559,7 @@ metal_return_copy(int place, TreeWalkQueryMetals * input, TreeWalk * tw)
     double total_z_yield = metal_yield(dtmyrstart, dtmyrend, input->Metallicity, METALS_GET_PRIV(tw)->hub, &METALS_GET_PRIV(tw)->interp, input->MetalSpeciesGenerated, METALS_GET_PRIV(tw)->imf_norm, METALS_GET_PRIV(tw)->gsl_work[tid], METALS_GET_PRIV(tw)->LowDyingMass[pi], METALS_GET_PRIV(tw)->HighDyingMass[pi]);
     /* The total metal returned is the metal created this timestep, plus the metal which was already in the mass returned by the dying stars.*/
     input->MetalGenerated = InitialMass * total_z_yield + STARP(place).Metallicity * input->MassGenerated;
+    //message(3, "Particle %d PI %d z %g massgen %g metallicity %g\n", pi, P[pi].PI, total_z_yield, METALS_GET_PRIV(tw)->MassReturn[pi], STARP(place).Metallicity);
     /* It should be positive! If it is not, this is some integration error
      * in the yield table as we cannot destroy metal which is not present.*/
     if(input->MetalGenerated < 0)
