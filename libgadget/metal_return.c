@@ -771,7 +771,7 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
         }
 
         /* Next step is geometric mean of previous. */
-        if(Right[pi] < tw->tree->BoxSize && Left[pi] > 0)
+        if((Right[pi] < tw->tree->BoxSize && Left[pi] > 0) || (P[i].Hsml * 1.26 > 0.99 * tw->tree->BoxSize))
             P[i].Hsml = pow(0.5 * (pow(Left[pi], 3) + pow(Right[pi], 3)), 1.0 / 3);
         else
         {
@@ -780,7 +780,7 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
                        i, pi, Left[pi], Right[pi], NumNgb[pi], P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
 
             /* If this is the first step we can be faster by increasing or decreasing current Hsml by a constant factor*/
-            if(Right[pi] > 0.99 * tw->tree->BoxSize && Left[pi] > 0 && P[i].Hsml * 1.26 < 0.99 * tw->tree->BoxSize)
+            if(Right[pi] > 0.99 * tw->tree->BoxSize && Left[pi] > 0)
                 P[i].Hsml *= 1.26;
 
             if(Right[pi] < 0.99*tw->tree->BoxSize && Left[pi] == 0)
