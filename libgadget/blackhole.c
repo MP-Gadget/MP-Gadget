@@ -1407,7 +1407,7 @@ static double
 bh_powerlaw_seed_mass(MyIDType ID)
 {
     /* compute random number, uniform in [0,1] */
-    const double w = get_random_number(ID);
+    const double w = get_random_number(ID+23);
     /* Normalisation for this power law index*/
     double norm = pow(blackhole_params.MaxSeedBlackHoleMass, 1+blackhole_params.SeedBlackHoleMassIndex)
                 - pow(blackhole_params.SeedBlackHoleMass, 1+blackhole_params.SeedBlackHoleMassIndex);
