@@ -1414,9 +1414,9 @@ bh_powerlaw_seed_mass(MyIDType ID)
     /* Sample from the CDF:
      * w  = [M^(1+x) - M_0^(1+x)]/[M_1^(1+x) - M_0^(1+x)]
      * w [M_1^(1+x) - M_0^(1+x)] + M_0^(1+x) = M^(1+x)
-     * M = pow((w [M_1^(1+x) - M_0^(1+x)] + M_0^(1+x)), (-1-x))*/
+     * M = pow((w [M_1^(1+x) - M_0^(1+x)] + M_0^(1+x)), 1/(1+x))*/
     double mass = pow(w * norm + pow(blackhole_params.SeedBlackHoleMass, 1+blackhole_params.SeedBlackHoleMassIndex),
-                      (-1-blackhole_params.SeedBlackHoleMassIndex));
+                      1./(1+blackhole_params.SeedBlackHoleMassIndex));
     return mass;
 }
 
