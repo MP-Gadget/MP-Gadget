@@ -1403,7 +1403,8 @@ blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum Tre
 }
 
 /* Sample from a power law to get the initial BH mass*/
-double get_bh_pwlaw_seed_mass(MyIDType ID)
+static double
+bh_powerlaw_seed_mass(MyIDType ID)
 {
     /* compute random number, uniform in [0,1] */
     const double w = get_random_number(ID);
@@ -1437,7 +1438,7 @@ void blackhole_make_one(int index) {
     /* The accretion mass should always be the seed black hole mass,
      * irrespective of the gravitational mass of the particle.*/
     if(blackhole_params.MaxSeedBlackHoleMass > 0)
-        BHP(child).Mass = get_bh_pwlaw_seed_mass(P[child].ID);
+        BHP(child).Mass = bh_powerlaw_seed_mass(P[child].ID);
     else
         BHP(child).Mass = blackhole_params.SeedBlackHoleMass;
     BHP(child).Mdot = 0;
