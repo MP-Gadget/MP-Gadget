@@ -652,7 +652,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
                 endrun(8188, "Cannot occur. Check for memory corruption: i=%d L = %g R = %g N=%g. Type %d, Pos %g %g %g", i, Left[i], Right[i], NumNgb[i], P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
 
             /* If this is the first step we can be faster by increasing or decreasing current Hsml by a constant factor*/
-            if(Right[i] > 0.99 * tw->tree->BoxSize && Left[i] > 0)
+            if(Right[i] > 0.99 * tw->tree->BoxSize && Left[i] > 0 && P[i].Hsml * 1.26 < 0.99 * tw->tree->BoxSize)
             {
                 if(P[i].Type == 0 && fabs(NumNgb[i] - desnumngb) < 0.5 * desnumngb)
                 {
