@@ -105,6 +105,8 @@ struct MetalReturnPriv {
     inttime_t Ti_Current;
     MyFloat * StellarAges;
     MyFloat * MassReturn;
+    MyFloat * LowDyingMass;
+    MyFloat * HighDyingMass;
     double imf_norm;
     double hub;
     double Unit_Mass_in_g;
@@ -406,13 +408,12 @@ static double compute_snii_yield(gsl_interp2d * snii_interp, const double * snii
 }
 
 /* Compute the total mass yield for this star in this timestep*/
-static double mass_yield(double dtmyrstart, double dtmyrend, double stellarmetal, double hub, struct interps * interp, double imf_norm, gsl_integration_workspace * gsl_work)
+static double mass_yield(double dtmyrstart, double dtmyrend, double stellarmetal, double hub, struct interps * interp, double imf_norm, gsl_integration_workspace * gsl_work, double *masslow, double * masshigh)
 {
-    double masshigh, masslow;
-    find_mass_bin_limits(&masslow, &masshigh, dtmyrstart, dtmyrend, stellarmetal, interp->lifetime_interp);
+    find_mass_bin_limits(masslow, masshigh, dtmyrstart, dtmyrend, stellarmetal, interp->lifetime_interp);
     /* Number of AGB stars/SnII by integrating the IMF*/
-    double agbyield = compute_agb_yield(interp->agb_mass_interp, agb_total_mass, stellarmetal, masslow, masshigh, gsl_work);
-    double sniiyield = compute_snii_yield(interp->snii_mass_interp, snii_total_mass, stellarmetal, masslow, masshigh, gsl_work);
+    double agbyield = compute_agb_yield(interp->agb_mass_interp, agb_total_mass, stellarmetal, *masslow, *masshigh, gsl_work);
+    double sniiyield = compute_snii_yield(interp->snii_mass_interp, snii_total_mass, stellarmetal, *masslow, *masshigh, gsl_work);
     /* Fraction of the IMF which goes off this timestep*/
     double massyield = (agbyield + sniiyield)/imf_norm;
     /* Mass yield from Sn1a*/
@@ -424,12 +425,9 @@ static double mass_yield(double dtmyrstart, double dtmyrend, double stellarmetal
 }
 
 /* Compute the total metal yield for this star in this timestep*/
-static double metal_yield(double dtmyrstart, double dtmyrend, double hub, double stellarmetal, struct interps * interp, MyFloat * MetalYields, double imf_norm, gsl_integration_workspace * gsl_work)
+static double metal_yield(double dtmyrstart, double dtmyrend, double hub, double stellarmetal, struct interps * interp, MyFloat * MetalYields, double imf_norm, gsl_integration_workspace * gsl_work, double masslow, double masshigh)
 {
     double MetalGenerated = 0;
-
-    double masshigh, masslow;
-    find_mass_bin_limits(&masslow, &masshigh, dtmyrstart, dtmyrend, stellarmetal, interp->lifetime_interp);
     /* Number of AGB stars/SnII by integrating the IMF*/
     MetalGenerated += compute_agb_yield(interp->agb_metallicity_interp, agb_total_metals, stellarmetal, masslow, masshigh, gsl_work);
     MetalGenerated += compute_snii_yield(interp->snii_metallicity_interp, snii_total_metals, stellarmetal, masslow, masshigh, gsl_work);
@@ -492,6 +490,8 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     setup_metal_table_interp(&METALS_GET_PRIV(tw)->interp);
     priv->StellarAges = mymalloc("StellarAges", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->MassReturn = mymalloc("MassReturn", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->LowDyingMass = mymalloc("LowDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->HighDyingMass = mymalloc("HighDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->imf_norm = compute_imf_norm(gsl_work[0]);
 
     #pragma omp parallel for
@@ -501,15 +501,16 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
         if(P[p_i].Type != 4)
             continue;
         int tid = omp_get_thread_num();
-        priv->StellarAges[P[p_i].PI] = atime_to_myr(CP, STARP(p_i).FormationTime, atime, gsl_work[tid]);
+        const int slot = P[p_i].PI;
+        priv->StellarAges[slot] = atime_to_myr(CP, STARP(p_i).FormationTime, atime, gsl_work[tid]);
         /* Note this takes care of units*/
         double initialmass = P[p_i].Mass + STARP(p_i).TotalMassReturned;
-        priv->MassReturn[P[p_i].PI] = initialmass * mass_yield(STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, CP->HubbleParam, &priv->interp, priv->imf_norm, gsl_work[tid]);
+        priv->MassReturn[slot] = initialmass * mass_yield(STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, CP->HubbleParam, &priv->interp, priv->imf_norm, gsl_work[tid],&priv->LowDyingMass[slot], &priv->HighDyingMass[slot]);
         //message(3, "Particle %d PI %d massgen %g mass %g initmass %g\n", p_i, P[p_i].PI, priv->MassReturn[P[p_i].PI], P[p_i].Mass, initialmass);
         /* Guard against making a zero mass particle and warn since this should not happen.*/
-        if(priv->MassReturn[P[p_i].PI] > 0.9 * P[p_i].Mass) {
-            message(1, "Large mass return %g from %d mass %g initial %g\n", priv->MassReturn[P[p_i].PI], p_i, P[p_i].Mass, initialmass);
-            priv->MassReturn[P[p_i].PI] = 0.9 * P[p_i].Mass;
+        if(priv->MassReturn[slot] > 0.9 * P[p_i].Mass) {
+            message(1, "Large mass return %g from %d mass %g initial %g\n", priv->MassReturn[slot], p_i, P[p_i].Mass, initialmass);
+            priv->MassReturn[slot] = 0.9 * P[p_i].Mass;
         }
     }
 
@@ -523,6 +524,8 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     free_spinlocks(priv->spin);
 
     myfree(priv->StarVolumeSPH);
+    myfree(priv->HighDyingMass);
+    myfree(priv->LowDyingMass);
     myfree(priv->MassReturn);
     myfree(priv->StellarAges);
 
@@ -553,7 +556,7 @@ metal_return_copy(int place, TreeWalkQueryMetals * input, TreeWalk * tw)
     input->MassGenerated = METALS_GET_PRIV(tw)->MassReturn[pi];
     /* This returns the total amount of metal produced this timestep, and also fills out MetalSpeciesGenerated, which is an
      * element by element table of the metal produced by dying stars this timestep.*/
-    double total_z_yield = metal_yield(dtmyrstart, dtmyrend, input->Metallicity, METALS_GET_PRIV(tw)->hub, &METALS_GET_PRIV(tw)->interp, input->MetalSpeciesGenerated, METALS_GET_PRIV(tw)->imf_norm, METALS_GET_PRIV(tw)->gsl_work[tid]);
+    double total_z_yield = metal_yield(dtmyrstart, dtmyrend, input->Metallicity, METALS_GET_PRIV(tw)->hub, &METALS_GET_PRIV(tw)->interp, input->MetalSpeciesGenerated, METALS_GET_PRIV(tw)->imf_norm, METALS_GET_PRIV(tw)->gsl_work[tid], METALS_GET_PRIV(tw)->LowDyingMass[pi], METALS_GET_PRIV(tw)->HighDyingMass[pi]);
     /* The total metal returned is the metal created this timestep, plus the metal which was already in the mass returned by the dying stars.*/
     input->MetalGenerated = InitialMass * total_z_yield + STARP(place).Metallicity * input->MassGenerated;
     /* It should be positive! If it is not, this is some integration error
