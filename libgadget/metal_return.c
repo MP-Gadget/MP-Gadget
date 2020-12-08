@@ -232,7 +232,7 @@ double do_rootfinding(struct massbin_find_params *p, double mass_low, double mas
       mass_low = gsl_root_fsolver_x_lower (s);
       mass_high = gsl_root_fsolver_x_upper (s);
       int status = gsl_root_test_interval (mass_low, mass_high,
-                                       0, 0.001);
+                                       0, 0.005);
       //message(4, "lo %g hi %g root %g val %g\n", mass_low, mass_high, gsl_root_fsolver_root(s), massendlife(gsl_root_fsolver_root(s), p));
       if (status == GSL_SUCCESS)
         break;
