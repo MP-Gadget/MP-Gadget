@@ -155,13 +155,16 @@ def get_all_agb():
 def parse_snii_species(string, metalnames):
     """Extract a species from the SnII string, which has the atomic number in front"""
     #string = str(string, 'utf-8')
+    # Preserve a mass row
+    if string == "M_cut_" or string == "M_final_":
+        return string
     for mm in metalnames:
         if mm == 'H':
             if string in ('p', 'd'):
                 return 'H'
         elif re.match('.+'+mm+'$', string) is not None:
             return mm
-    #Default to returning nothing
+    #Default to returning nothing: means 'unknown element'
     return None
 
 def parse_snii_file(filename):
@@ -186,10 +189,14 @@ def parse_snii_file(filename):
             #Ejected mass
             if row[1] == 'M_cut_':
                 yields[(masses[i], row[0])]['ej'] = masses[i] - row[i+2]
-            # Yield
+                continue
+            # Final mass should not show up in the yield tables
+            if row[1] == 'M_final_':
+                continue
+            # Yield for this species
             if spec is not None:
                 yields[(masses[i], row[0])][spec] += row[i+2]
-            # Total metallicity
+            # Total metal yield, including unknown elements
             if spec not in ('H', 'He'):
                 yields[(masses[i], row[0])]['Z'] += row[i+2]
     return yields
