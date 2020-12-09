@@ -538,6 +538,12 @@ static void fof_reduce_group(void * pdst, void * psrc) {
     }
 
     gdst->Sfr += gsrc->Sfr;
+    gdst->GasMetalMass += gsrc->GasMetalMass;
+    gdst->StellarMetalMass += gsrc->StellarMetalMass;
+    for(j = 0; j < NMETALS; j++) {
+        gdst->GasMetalElemMass[j] += gsrc->GasMetalElemMass[j];
+        gdst->StellarMetalElemMass[j] += gsrc->StellarMetalElemMass[j];
+    }
     gdst->BH_Mdot += gsrc->BH_Mdot;
     gdst->BH_Mass += gsrc->BH_Mass;
     if(gsrc->MaxDens > gdst->MaxDens)
@@ -576,10 +582,20 @@ static void add_particle_to_group(struct Group * gdst, int i, double BoxSize, in
     gdst->LenType[P[index].Type]++;
     gdst->MassType[P[index].Type] += P[index].Mass;
 
-
     if(P[index].Type == 0) {
         gdst->Sfr += SPHP(index).Sfr;
+        gdst->GasMetalMass += SPHP(index).Metallicity * P[index].Mass;
+        int j;
+        for(j = 0; j < NMETALS; j++)
+            gdst->GasMetalElemMass[j] += SPHP(index).Metals[j] * P[index].Mass;
     }
+    if(P[index].Type == 4) {
+        int j;
+        gdst->StellarMetalMass += STARP(index).Metallicity * P[index].Mass;
+        for(j = 0; j < NMETALS; j++)
+            gdst->StellarMetalElemMass[j] += STARP(index).Metals[j] * P[index].Mass;
+    }
+
     if(P[index].Type == 5)
     {
         gdst->BH_Mdot += BHP(index).Mdot;
