@@ -318,6 +318,9 @@ double chabrier_imf_integ (double mass, void * params)
     if(mass > para->masses[para->interp->ysize-1])
         intpmass = para->masses[para->interp->ysize-1];
     double weight = gsl_interp2d_eval(para->interp, para->metallicities, para->masses, para->weights, para->metallicity, intpmass, NULL, NULL);
+    /* This rescales the return by the original mass of the star, if it was outside the table.
+     * It means that, for example, an 8 Msun star does not return more than 8 Msun. */
+    weight *= (mass/intpmass);
     return weight * chabrier_imf(mass);
 }
 
