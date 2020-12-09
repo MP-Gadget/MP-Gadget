@@ -323,7 +323,7 @@ run(int RestartSnapNum)
 
             /* Do this before sfr so the tree is intact*/
             if(All.MetalReturnOn) {
-                metal_return(&Act, &Tree, &All.CP, All.Time, All.UnitMass_in_g);
+                metal_return(&Act, &Tree, &All.CP, All.Time);
             }
 
             /**** radiative cooling and star formation *****/

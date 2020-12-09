@@ -32,11 +32,17 @@ MyFloat * stellar_density(const ActiveParticles * act, MyFloat * StellarAges, My
  *
  *  This file returns metals from stars with some delay.
  *  Delayed sources followed are AGB stars, SNII and Sn1a.
- *  Mass from each type of star is stored as a separate value.
- *  Since the species-specific yields do not affect anything
- *  (the cooling function depends only on total metallicity),
- *  actual species-specific yields are *not* specified and can
- *  be given in post-processing.
+ *  9 Species specific yields are stored in the stars and the gas particles.
+ *  Gas enrichment is not run every timestep, but only for stars that have
+ *  significant enrichment, or are young.
+ *  The model closely follows Illustris-TNG, https://arxiv.org/abs/1703.02970
+ *  However the tables used are slightly different: we consider SNII between 8 and 40 Msun
+ *  following Kobayashi 2006, where they use a hybrid of Kobayashi and Portinari.
+ *  AGB yields are from Karakas 2010, like TNG, but stars with mass > 6.5 are
+ *  from Doherty 2014, not Fishlock 2014. More details of the model can be found in
+ *  the Illustris model Vogelsberger 2013: https://arxiv.org/abs/1305.2913
+ *  As the Kobayashi table only goes to 13 Msun, stars with masses 8-13 Msun
+ *  are assumed to yield like a 13 Msun star, but scaled by a factor of (M/13).
  */
 
 #if NMETALS != NSPECIES
@@ -76,6 +82,8 @@ struct interps
     gsl_interp2d * snii_metals_interp[NMETALS];
 };
 
+/* Build the interpolators for each yield table. We use bilinear interpolation
+ * so there is no extra memory allocation and we never free the tables*/
 void setup_metal_table_interp(struct interps * interp)
 {
     interp->lifetime_interp = gsl_interp2d_alloc(gsl_interp2d_bilinear, LIFE_NMET, LIFE_NMASS);
@@ -100,16 +108,13 @@ void setup_metal_table_interp(struct interps * interp)
 }
 
 struct MetalReturnPriv {
-    double atime;
     gsl_integration_workspace ** gsl_work;
-    inttime_t Ti_Current;
     MyFloat * StellarAges;
     MyFloat * MassReturn;
     MyFloat * LowDyingMass;
     MyFloat * HighDyingMass;
     double imf_norm;
     double hub;
-    double Unit_Mass_in_g;
     Cosmology *CP;
     MyFloat * StarVolumeSPH;
     struct interps interp;
@@ -129,11 +134,6 @@ typedef struct {
     MyFloat MassGenerated;
     MyFloat MetalGenerated;
 } TreeWalkQueryMetals;
-
-typedef struct {
-    TreeWalkResultBase base;
-    MyFloat StarVolumeSPH;
-} TreeWalkResultMetalDensity;
 
 typedef struct {
     TreeWalkResultBase base;
@@ -205,6 +205,8 @@ struct massbin_find_params
     gsl_interp_accel * massacc;
 };
 
+/* This is the inverse of the lifetime function from the tables.
+ * Need to find the stars with a given lifetime*/
 double
 massendlife (double mass, void *params)
 {
@@ -214,6 +216,7 @@ massendlife (double mass, void *params)
   return tlifemyr - p->dtfind;
 }
 
+/* Solve the lifetime function to find the lowest and highest mass bin that dies this timestep*/
 double do_rootfinding(struct massbin_find_params *p, double mass_low, double mass_high)
 {
     int iter = 0;
@@ -226,11 +229,14 @@ double do_rootfinding(struct massbin_find_params *p, double mass_low, double mas
     gsl_root_fsolver * s = gsl_root_fsolver_alloc (T);
     gsl_root_fsolver_set (s, &F, mass_low, mass_high);
 
+    /* Iterate until we have an idea of the mass bins dying this timestep.
+     * No check is done for success, but it should always be close enough.*/
     for(iter = 0; iter < MAXITER; iter++)
     {
       gsl_root_fsolver_iterate (s);
       mass_low = gsl_root_fsolver_x_lower (s);
       mass_high = gsl_root_fsolver_x_upper (s);
+      /* We don't need to be that accurate because the tables aren't! */
       int status = gsl_root_test_interval (mass_low, mass_high,
                                        0, 0.005);
       //message(4, "lo %g hi %g root %g val %g\n", mass_low, mass_high, gsl_root_fsolver_root(s), massendlife(gsl_root_fsolver_root(s), p));
@@ -250,6 +256,7 @@ double do_rootfinding(struct massbin_find_params *p, double mass_low, double mas
  */
 static void find_mass_bin_limits(double * masslow, double * masshigh, const double dtstart, const double dtend, double stellarmetal, gsl_interp2d * lifetime_tables)
 {
+    /* Clamp metallicities to the table values.*/
     if(stellarmetal < lifetime_metallicity[0])
         stellarmetal = lifetime_metallicity[0];
     if(stellarmetal > lifetime_metallicity[LIFE_NMET-1])
@@ -276,7 +283,7 @@ static void find_mass_bin_limits(double * masslow, double * masshigh, const doub
     else
         *masslow = do_rootfinding(&p, agb_masses[0], MAXMASS);
 
-    /* Now find stars that died before the end of this timebin*/
+    /* Now find stars that died before the start of this timebin*/
     p.dtfind = dtstart;
     /* Now we know that life(masslow) = dtend, so life(masslow) > dtstart, so life(masslow) - dtstart > 0
      * This is when no stars have died at the beginning of this timestep.*/
@@ -339,7 +346,8 @@ double compute_imf_norm(gsl_integration_workspace * gsl_work)
     return norm;
 }
 
-/* Compute number of Sn1a: has units of N0 = 1.3e-3, which is SN1A/(unit initial mass in M_sun).*/
+/* Compute number of Sn1a: has units of N0 = 1.3e-3, which is SN1A/(unit initial mass in M_sun).
+ * Zero for age < 40 Myr. */
 static double sn1a_number(double dtmyrstart, double dtmyrend, double hub)
 {
     /* Number of Sn1a events follows a delay time distribution (1305.2913, eq. 10) */
@@ -417,7 +425,7 @@ static double mass_yield(double dtmyrstart, double dtmyrend, double stellarmetal
     /* Number of AGB stars/SnII by integrating the IMF*/
     double agbyield = compute_agb_yield(interp->agb_mass_interp, agb_total_mass, stellarmetal, *masslow, *masshigh, gsl_work);
     double sniiyield = compute_snii_yield(interp->snii_mass_interp, snii_total_mass, stellarmetal, *masslow, *masshigh, gsl_work);
-    /* Fraction of the IMF which goes off this timestep*/
+    /* Fraction of the IMF which goes off this timestep. Normalised by the total IMF so we get a fraction of the SSP.*/
     double massyield = (agbyield + sniiyield)/imf_norm;
     /* Mass yield from Sn1a*/
     double Nsn1a = sn1a_number(dtmyrstart, dtmyrend, hub);
@@ -454,7 +462,7 @@ static double metal_yield(double dtmyrstart, double dtmyrend, double stellarmeta
 
 /*! This function is the driver routine for the calculation of metal return. */
 void
-metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmology * CP, const double atime, const double UnitMass_in_g)
+metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmology * CP, const double atime)
 {
     TreeWalk tw[1] = {{0}};
 
@@ -479,7 +487,6 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     tw->tree = tree;
     tw->priv = priv;
     priv->hub = CP->HubbleParam;
-    priv->Unit_Mass_in_g = UnitMass_in_g;
 
     int nthread = omp_get_max_threads();
     gsl_integration_workspace ** gsl_work = ta_malloc("gsl_work", gsl_integration_workspace *, nthread);
@@ -488,8 +495,7 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     for(i=0; i < nthread; i++)
         gsl_work[i] = gsl_integration_workspace_alloc(GSL_WORKSPACE);
 
-    /* Initialize some time factors*/
-    METALS_GET_PRIV(tw)->atime = atime;
+    /* Initialize*/
     setup_metal_table_interp(&METALS_GET_PRIV(tw)->interp);
     priv->StellarAges = mymalloc("StellarAges", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->MassReturn = mymalloc("MassReturn", SlotsManager->info[4].size * sizeof(MyFloat));
@@ -497,6 +503,8 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     priv->HighDyingMass = mymalloc("HighDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->imf_norm = compute_imf_norm(gsl_work[0]);
 
+    /* First find the mass return as a fraction of the total mass and the age of the star.
+     * This is done first so we can skip density computation for not active stars*/
     #pragma omp parallel for
     for(i=0; i < act->NumActiveParticle;i++)
     {
@@ -578,7 +586,7 @@ metal_return_copy(int place, TreeWalkQueryMetals * input, TreeWalk * tw)
 
 /* Update the mass and enrichment variables for the star.
  * Note that the stellar metallicity is not updated, as the
- * metal-forming stars are now dead.*/
+ * metal-forming stars are now dead and their metals in the gas.*/
 static void
 metal_return_postprocess(int place, TreeWalk * tw)
 {
