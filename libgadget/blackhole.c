@@ -732,12 +732,14 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
             BHP(n).DFAccel[j] *= All.cf.a;  // convert to code unit of acceleration
             BHP(n).DFAccel[j] *= blackhole_params.BH_DFBoostFactor; // Add a boost factor
         }
-        message(0,"x=%e, log(lambda)=%e, fof_x=%e, Mbh=%e, ratio=%e \n",
+#ifdef DEBUG
+        message(2,"x=%e, log(lambda)=%e, fof_x=%e, Mbh=%e, ratio=%e \n",
            x,log(lambda),f_of_x,P[n].Mass,BHP(n).DFAccel[0]/P[n].GravAccel[0]);
+#endif
     }
     else
     {
-        message(0, "Density is zero in DF kernel, kernel may be too small.\n");
+        message(2, "Density is zero in DF kernel, kernel may be too small.\n");
         for(j = 0; j < 3; j++)
         {
             BHP(n).DFAccel[j] = 0;
