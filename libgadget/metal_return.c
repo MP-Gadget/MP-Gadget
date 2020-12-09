@@ -365,8 +365,8 @@ static double compute_agb_yield(gsl_interp2d * agb_interp, const double * agb_we
         masshigh = SNAGBSWITCH;
     if (masslow < agb_masses[0])
         masslow = agb_masses[0];
-    if (stellarmetal > agb_metallicities[SNII_NMET-1])
-        stellarmetal = agb_metallicities[SNII_NMET-1];
+    if (stellarmetal > agb_metallicities[AGB_NMET-1])
+        stellarmetal = agb_metallicities[AGB_NMET-1];
     if (stellarmetal < agb_metallicities[0])
         stellarmetal = agb_metallicities[0];
     /* This happens if no bins in range had dying stars this timestep*/
