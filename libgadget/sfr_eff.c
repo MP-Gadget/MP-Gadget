@@ -601,7 +601,7 @@ starformation(int i, double *localsfr, double * sum_sm, MyFloat * GradRho, const
 
     const double w = get_random_number(P[i].ID);
     const double frac = (1 - exp(-p));
-    SPHP(i).Metallicity += w * METAL_YIELD * frac;
+    SPHP(i).Metallicity += w * METAL_YIELD * frac / sfr_params.Generations;
 
     /* upon start-up, we need to protect against dloga ==0 */
     if(dloga > 0 && P[i].TimeBin)
@@ -624,7 +624,7 @@ starformation(int i, double *localsfr, double * sum_sm, MyFloat * GradRho, const
      * If we did form a star, add winds to the star-forming particle
      * that formed it if it is still around*/
     if(!form_star || newstar != i) {
-        SPHP(i).Metallicity += (1-w) * METAL_YIELD * frac;
+        SPHP(i).Metallicity += (1-w) * METAL_YIELD * frac / sfr_params.Generations;
         if(All.WindOn) {
             winds_make_after_sf(i, sm, All.Time);
         }
