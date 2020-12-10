@@ -642,22 +642,23 @@ metal_return_ngbiter(
 
         if(MetalParams.SPHWeighting)
             wk = density_kernel_wk(&iter->kernel, u);
-        int i;
-        /* Volume of particle weighted by the SPH kernel*/
-        double volume = P[other].Mass / SPHP(other).Density;
         double ThisMetals[NMETALS];
         if(I->StarVolumeSPH ==0)
             endrun(3, "StarVolumeSPH %g hsml %g\n", I->StarVolumeSPH, I->Hsml);
-        for(i = 0; i < NMETALS; i++)
-            ThisMetals[i] = wk * volume * I->MetalSpeciesGenerated[i] / I->StarVolumeSPH;
-        /* Keep track of how much was returned for conservation purposes*/
-        double thismass = wk * I->MassGenerated / I->StarVolumeSPH;
-        O->MassReturn += thismass;
-        /* Add metals weighted by SPH kernel*/
-        double thismetal = wk * I->MetalGenerated / I->StarVolumeSPH;
         double newmass;
         int pi = P[other].PI;
         lock_spinlock(pi, METALS_GET_PRIV(lv->tw)->spin);
+        /* Volume of particle weighted by the SPH kernel*/
+        double volume = P[other].Mass / SPHP(other).Density;
+        double returnfraction = wk * volume / I->StarVolumeSPH;
+        int i;
+        for(i = 0; i < NMETALS; i++)
+            ThisMetals[i] = returnfraction * I->MetalSpeciesGenerated[i];
+        /* Keep track of how much was returned for conservation purposes*/
+        double thismass = returnfraction * I->MassGenerated;
+        O->MassReturn += thismass;
+        /* Add metals weighted by SPH kernel*/
+        double thismetal = returnfraction * I->MetalGenerated;
         /* Add the metals to the particle.*/
         for(i = 0; i < NMETALS; i++)
             SPHP(other).Metals[i] = (SPHP(other).Metals[i] * P[other].Mass + ThisMetals[i])/(P[other].Mass + thismass);
