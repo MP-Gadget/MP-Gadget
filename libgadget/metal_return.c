@@ -622,8 +622,9 @@ metal_return_ngbiter(
         return;
     }
 
-    int other = iter->base.other;
-    double r2 = iter->base.r2;
+    const int other = iter->base.other;
+    const double r2 = iter->base.r2;
+    const double r = iter->base.r;
 
     if(P[other].Mass == 0) {
         endrun(12, "Encountered zero mass particle during hydro;"
@@ -637,8 +638,10 @@ metal_return_ngbiter(
     if(r2 > 0 && r2 < iter->kernel.HH)
     {
         double wk = 1;
+        const double u = r * iter->kernel.Hinv;
+
         if(MetalParams.SPHWeighting)
-            wk = density_kernel_wk(&iter->kernel, iter->base.r);
+            wk = density_kernel_wk(&iter->kernel, u);
         int i;
         /* Volume of particle weighted by the SPH kernel*/
         double volume = P[other].Mass / SPHP(other).Density;
