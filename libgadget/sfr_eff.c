@@ -837,7 +837,7 @@ find_star_mass(int i)
         mass_of_star = P[i].Mass;
     }
     /* if we are the last particle: note the generation check which can happen because of mass return. */
-    if(fabs(mass_of_star - P[i].Mass) / mass_of_star < 0.5 || P[i].Generation >= sfr_params.Generations) {
+    if(P[i].Mass < 1.5 * mass_of_star  || P[i].Generation >= sfr_params.Generations) {
         mass_of_star = P[i].Mass;
     }
     return mass_of_star;
