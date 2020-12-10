@@ -57,6 +57,7 @@ MyFloat * stellar_density(const ActiveParticles * act, MyFloat * StellarAges, My
 static struct metal_return_params
 {
     double Sn1aN0;
+    int SPHWeighting;
 } MetalParams;
 
 /*Set the parameters of the hydro module*/
@@ -67,6 +68,7 @@ set_metal_return_params(ParameterSet * ps)
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0) {
         MetalParams.Sn1aN0 = param_get_double(ps, "MetalsSn1aN0");
+        MetalParams.SPHWeighting = param_get_int(ps, "MetalsSPHWeighting");
     }
     MPI_Bcast(&MetalParams, sizeof(struct metal_return_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -634,7 +636,9 @@ metal_return_ngbiter(
 
     if(r2 > 0 && r2 < iter->kernel.HH)
     {
-        double wk = density_kernel_wk(&iter->kernel, iter->base.r);
+        double wk = 1;
+        if(MetalParams.SPHWeighting)
+            wk = density_kernel_wk(&iter->kernel, iter->base.r);
         int i;
         /* Volume of particle weighted by the SPH kernel*/
         double volume = P[other].Mass / SPHP(other).Density;
@@ -839,7 +843,9 @@ stellar_density_ngbiter(
     if(r2 < iter->kernel.HH)
     {
         const double u = r * iter->kernel.Hinv;
-        const double wk = density_kernel_wk(&iter->kernel, u);
+        double wk = 1;
+        if(MetalParams.SPHWeighting)
+            wk = density_kernel_wk(&iter->kernel, u);
         O->Ngb += wk * iter->kernel_volume;
         /* For stars we need the total weighting, sum(w_k m_k / rho_k).*/
         O->VolumeSPH += P[other].Mass * wk / SPHP(other).Density;

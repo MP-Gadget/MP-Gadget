@@ -307,6 +307,7 @@ create_gadget_parameter_set()
 
     /* Parameters for the metal return model*/
     param_declare_double(ps, "MetalsSn1aN0", OPTIONAL, 1.3e-3, "Overall rate of SN1a per Msun");
+    param_declare_int(ps, "MetalsSPHWeighting", OPTIONAL, 0, "If true, return metals to gas with a volume-weighted SPH kernel. If false use a volume-weighted uniform kernel.");
 
     /*Parameters for the massive neutrino model*/
     param_declare_int(ps, "MassiveNuLinRespOn", REQUIRED, 0, "Enables linear response massive neutrinos of 1209.0461. Make sure you enable radiation too.");
