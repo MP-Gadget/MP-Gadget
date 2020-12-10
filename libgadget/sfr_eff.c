@@ -836,8 +836,12 @@ find_star_mass(int i)
         /* if some mass has been stolen by BH, e.g */
         mass_of_star = P[i].Mass;
     }
-    /* if we are the last particle: note the generation check which can happen because of mass return. */
-    if(P[i].Mass < 1.5 * mass_of_star  || P[i].Generation >= sfr_params.Generations) {
+    /* Conditions to turn the gas into a star. .
+     * The mass check makes sure we never get a gas particle which is lighter
+     * than the smallest star particle.
+     * The Generations check (which can happen because of mass return)
+     * ensures we never instantaneously enrich stars above solar. */
+    if(P[i].Mass < 2 * mass_of_star  || P[i].Generation > sfr_params.Generations) {
         mass_of_star = P[i].Mass;
     }
     return mass_of_star;
