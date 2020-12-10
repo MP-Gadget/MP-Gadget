@@ -846,12 +846,13 @@ stellar_density_ngbiter(
     if(r2 < iter->kernel.HH)
     {
         const double u = r * iter->kernel.Hinv;
-        double wk = 1;
-        if(MetalParams.SPHWeighting)
-            wk = density_kernel_wk(&iter->kernel, u);
+        double wk = density_kernel_wk(&iter->kernel, u);
         O->Ngb += wk * iter->kernel_volume;
         /* For stars we need the total weighting, sum(w_k m_k / rho_k).*/
-        O->VolumeSPH += P[other].Mass * wk / SPHP(other).Density;
+        double thisvol = P[other].Mass / SPHP(other).Density;
+        if(MetalParams.SPHWeighting)
+            thisvol *= wk;
+        O->VolumeSPH += thisvol;
     }
 }
 
