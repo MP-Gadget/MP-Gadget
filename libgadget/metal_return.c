@@ -182,7 +182,7 @@ static double atime_to_myr(Cosmology *CP, double atime1, double atime2, gsl_inte
      * about metal return over a single timestep*/
     gsl_function ff = {atime_integ, CP};
     double tmyr, abserr;
-    gsl_integration_qag(&ff, atime1, atime2, 1e-4, 1e-3, GSL_WORKSPACE, GSL_INTEG_GAUSS61, gsl_work, &tmyr, &abserr);
+    gsl_integration_qag(&ff, atime1, atime2, 1e-4, 0, GSL_WORKSPACE, GSL_INTEG_GAUSS61, gsl_work, &tmyr, &abserr);
     return tmyr * CP->UnitTime_in_s / SEC_PER_MEGAYEAR;
 }
 
@@ -378,7 +378,7 @@ double compute_agb_yield(gsl_interp2d * agb_interp, const double * agb_weights, 
     para.metallicities = agb_metallicities;
     para.metallicity = stellarmetal;
     para.weights = agb_weights;
-    gsl_integration_qag(&ff, masslow, masshigh, 1e-2, 1e-2, GSL_WORKSPACE, GSL_INTEG_GAUSS61, gsl_work, &agbyield, &abserr);
+    gsl_integration_qag(&ff, masslow, masshigh, 0, 1e-3, GSL_WORKSPACE, GSL_INTEG_GAUSS61, gsl_work, &agbyield, &abserr);
     return agbyield;
 }
 
@@ -404,7 +404,7 @@ double compute_snii_yield(gsl_interp2d * snii_interp, const double * snii_weight
     /* This happens if no bins in range had dying stars this timestep*/
     if(masslow >= masshigh)
         return 0;
-    gsl_integration_qag(&ff, masslow, masshigh, 1e-2, 1e-2, GSL_WORKSPACE, GSL_INTEG_GAUSS61, gsl_work, &yield, &abserr);
+    gsl_integration_qag(&ff, masslow, masshigh, 0, 1e-3, GSL_WORKSPACE, GSL_INTEG_GAUSS61, gsl_work, &yield, &abserr);
     return yield;
 }
 
