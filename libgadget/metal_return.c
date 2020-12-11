@@ -156,6 +156,9 @@ metal_return_copy(int place, TreeWalkQueryMetals * input, TreeWalk * tw);
 static void
 metal_return_postprocess(int place, TreeWalk * tw);
 
+static int
+metals_haswork(int i, MyFloat * StellarAges, MyFloat * MassReturn);
+
 /* The Chabrier IMF used for computing SnII and AGB yields.
  * See 1305.2913 eq 3*/
 static double chabrier_imf(double mass)
@@ -513,13 +516,16 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
         //message(3, "Particle %d PI %d massgen %g mass %g initmass %g\n", p_i, P[p_i].PI, priv->MassReturn[P[p_i].PI], P[p_i].Mass, initialmass);
         /* Guard against making a zero mass particle and warn since this should not happen.*/
         if(STARP(p_i).TotalMassReturned + priv->MassReturn[slot] > initialmass * maxmassfrac) {
-            message(1, "Large mass return %g from %d mass %g initial %g (maxfrac %g) age %g lastenrich %g metal %g dymass %g %g\n",
-                    priv->MassReturn[slot], p_i, STARP(p_i).TotalMassReturned, initialmass, maxmassfrac, priv->StellarAges[P[p_i].PI], STARP(p_i).LastEnrichmentMyr, STARP(p_i).Metallicity, priv->LowDyingMass[slot], priv->HighDyingMass[slot]);
+            message(1, "Large mass return id %ld %g from %d mass %g initial %g (maxfrac %g) age %g lastenrich %g metal %g dymass %g %g\n",
+                P[p_i].ID, priv->MassReturn[slot], p_i, STARP(p_i).TotalMassReturned, initialmass, maxmassfrac, priv->StellarAges[P[p_i].PI], STARP(p_i).LastEnrichmentMyr, STARP(p_i).Metallicity, priv->LowDyingMass[slot], priv->HighDyingMass[slot]);
             priv->MassReturn[slot] = initialmass * maxmassfrac - STARP(p_i).TotalMassReturned;
             if(priv->MassReturn[slot] < 0) {
                 priv->MassReturn[slot] = 0;
-                STARP(p_i).LastEnrichmentMyr = priv->StellarAges[P[p_i].PI];
             }
+            /* Ensure that we skip this step*/
+            if(!metals_haswork(p_i, priv->StellarAges, priv->MassReturn))
+                STARP(p_i).LastEnrichmentMyr = priv->StellarAges[P[p_i].PI];
+
         }
     }
 
