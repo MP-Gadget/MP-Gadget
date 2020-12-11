@@ -23,7 +23,6 @@
 #include "metal_tables.h"
 
 #define MAXITER 200
-#define GSL_WORKSPACE 1000
 
 MyFloat * stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * MassReturn, const ForceTree * const tree);
 
@@ -49,16 +48,17 @@ MyFloat * stellar_density(const ActiveParticles * act, MyFloat * StellarAges, My
     #pragma error " Inconsistency in metal number between slots and metals"
 #endif
 
-/* Largest mass in the SnII tables*/
-#define MAXMASS 40
-/* Only used for IMF normalisation*/
-#define MINMASS 0.1
-
 static struct metal_return_params
 {
     double Sn1aN0;
     int SPHWeighting;
 } MetalParams;
+
+/* For tests*/
+void set_metal_params(double Sn1aN0)
+{
+    MetalParams.Sn1aN0 = Sn1aN0;
+}
 
 /*Set the parameters of the hydro module*/
 void
@@ -72,17 +72,6 @@ set_metal_return_params(ParameterSet * ps)
     }
     MPI_Bcast(&MetalParams, sizeof(struct metal_return_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
-
-struct interps
-{
-    gsl_interp2d * lifetime_interp;
-    gsl_interp2d * agb_mass_interp;
-    gsl_interp2d * agb_metallicity_interp;
-    gsl_interp2d * agb_metals_interp[NMETALS];
-    gsl_interp2d * snii_mass_interp;
-    gsl_interp2d * snii_metallicity_interp;
-    gsl_interp2d * snii_metals_interp[NMETALS];
-};
 
 /* Build the interpolators for each yield table. We use bilinear interpolation
  * so there is no extra memory allocation and we never free the tables*/
@@ -238,7 +227,6 @@ double do_rootfinding(struct massbin_find_params *p, double mass_low, double mas
       gsl_root_fsolver_iterate (s);
       mass_low = gsl_root_fsolver_x_lower (s);
       mass_high = gsl_root_fsolver_x_upper (s);
-      /* We don't need to be that accurate because the tables aren't! */
       int status = gsl_root_test_interval (mass_low, mass_high,
                                        0, 0.005);
       //message(4, "lo %g hi %g root %g val %g\n", mass_low, mass_high, gsl_root_fsolver_root(s), massendlife(gsl_root_fsolver_root(s), p));
@@ -350,7 +338,7 @@ double compute_imf_norm(gsl_integration_workspace * gsl_work)
 
 /* Compute number of Sn1a: has units of N0 = 1.3e-3, which is SN1A/(unit initial mass in M_sun).
  * Zero for age < 40 Myr. */
-static double sn1a_number(double dtmyrstart, double dtmyrend, double hub)
+double sn1a_number(double dtmyrstart, double dtmyrend, double hub)
 {
     /* Number of Sn1a events follows a delay time distribution (1305.2913, eq. 10) */
     const double sn1aindex = 1.12;
@@ -368,7 +356,7 @@ static double sn1a_number(double dtmyrstart, double dtmyrend, double hub)
 }
 
 /* Compute yield of AGB stars: this is normalised to the yield which has units of Msun / (unit Msun in the initial SSP and so is really dimensionless.)*/
-static double compute_agb_yield(gsl_interp2d * agb_interp, const double * agb_weights, double stellarmetal, double masslow, double masshigh, gsl_integration_workspace * gsl_work )
+double compute_agb_yield(gsl_interp2d * agb_interp, const double * agb_weights, double stellarmetal, double masslow, double masshigh, gsl_integration_workspace * gsl_work )
 {
     struct imf_integ_params para;
     gsl_function ff = {chabrier_imf_integ, &para};
@@ -394,7 +382,7 @@ static double compute_agb_yield(gsl_interp2d * agb_interp, const double * agb_we
     return agbyield;
 }
 
-static double compute_snii_yield(gsl_interp2d * snii_interp, const double * snii_weights, double stellarmetal, double masslow, double masshigh, gsl_integration_workspace * gsl_work )
+double compute_snii_yield(gsl_interp2d * snii_interp, const double * snii_weights, double stellarmetal, double masslow, double masshigh, gsl_integration_workspace * gsl_work )
 {
     struct imf_integ_params para;
     gsl_function ff = {chabrier_imf_integ, &para};

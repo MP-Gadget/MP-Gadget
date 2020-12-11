@@ -63,6 +63,7 @@ TESTED = hci \
 	timebinmgr \
 	neutrinos_lra \
 	omega_nu_single \
+	metal_return \
 	cooling_rates \
 	density \
 	gravity \
@@ -139,6 +140,9 @@ all: libgadget.a libgadget-utils.a
 	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 .objs/test_density: tests/test_density.c .objs/density.o libgadget.a ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
+	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
+
+.objs/test_metal_return: tests/test_metal_return.c .objs/metal_return.o libgadget.a ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
 	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 .objs/test_cooling: tests/test_cooling.c .objs/cooling.o .objs/cooling_rates.o .objs/cooling_uvfluc.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
