@@ -256,7 +256,7 @@ double do_rootfinding(struct massbin_find_params *p, double mass_low, double mas
  * lifetime_tables - 2D interpolation table of the lifetime.
  * masshigh, masslow - pointers in which to store the high and low lifetime limits
  */
-static void find_mass_bin_limits(double * masslow, double * masshigh, const double dtstart, const double dtend, double stellarmetal, gsl_interp2d * lifetime_tables)
+void find_mass_bin_limits(double * masslow, double * masshigh, const double dtstart, const double dtend, double stellarmetal, gsl_interp2d * lifetime_tables)
 {
     /* Clamp metallicities to the table values.*/
     if(stellarmetal < lifetime_metallicity[0])
@@ -421,12 +421,11 @@ static double compute_snii_yield(gsl_interp2d * snii_interp, const double * snii
 }
 
 /* Compute the total mass yield for this star in this timestep*/
-static double mass_yield(double dtmyrstart, double dtmyrend, double stellarmetal, double hub, struct interps * interp, double imf_norm, gsl_integration_workspace * gsl_work, double *masslow, double * masshigh)
+static double mass_yield(double dtmyrstart, double dtmyrend, double stellarmetal, double hub, struct interps * interp, double imf_norm, gsl_integration_workspace * gsl_work, double masslow, double masshigh)
 {
-    find_mass_bin_limits(masslow, masshigh, dtmyrstart, dtmyrend, stellarmetal, interp->lifetime_interp);
     /* Number of AGB stars/SnII by integrating the IMF*/
-    double agbyield = compute_agb_yield(interp->agb_mass_interp, agb_total_mass, stellarmetal, *masslow, *masshigh, gsl_work);
-    double sniiyield = compute_snii_yield(interp->snii_mass_interp, snii_total_mass, stellarmetal, *masslow, *masshigh, gsl_work);
+    double agbyield = compute_agb_yield(interp->agb_mass_interp, agb_total_mass, stellarmetal, masslow, masshigh, gsl_work);
+    double sniiyield = compute_snii_yield(interp->snii_mass_interp, snii_total_mass, stellarmetal, masslow, masshigh, gsl_work);
     /* Fraction of the IMF which goes off this timestep. Normalised by the total IMF so we get a fraction of the SSP.*/
     double massyield = (agbyield + sniiyield)/imf_norm;
     /* Mass yield from Sn1a*/
@@ -504,6 +503,8 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     priv->LowDyingMass = mymalloc("LowDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->HighDyingMass = mymalloc("HighDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->imf_norm = compute_imf_norm(gsl_work[0]);
+    /* Maximum possible mass return for below*/
+    double maxmassfrac = mass_yield(0, 1/(CP->HubbleParam*HUBBLE * SEC_PER_MEGAYEAR), snii_metallicities[SNII_NMET-1], CP->HubbleParam, &priv->interp, priv->imf_norm, gsl_work[0],agb_masses[0], MAXMASS);
 
     /* First find the mass return as a fraction of the total mass and the age of the star.
      * This is done first so we can skip density computation for not active stars*/
@@ -518,12 +519,16 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
         priv->StellarAges[slot] = atime_to_myr(CP, STARP(p_i).FormationTime, atime, gsl_work[tid]);
         /* Note this takes care of units*/
         double initialmass = P[p_i].Mass + STARP(p_i).TotalMassReturned;
-        priv->MassReturn[slot] = initialmass * mass_yield(STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, CP->HubbleParam, &priv->interp, priv->imf_norm, gsl_work[tid],&priv->LowDyingMass[slot], &priv->HighDyingMass[slot]);
+        find_mass_bin_limits(&priv->LowDyingMass[slot], &priv->HighDyingMass[slot], STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, priv->interp.lifetime_interp);
+
+        priv->MassReturn[slot] = initialmass * mass_yield(STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, CP->HubbleParam, &priv->interp, priv->imf_norm, gsl_work[tid],priv->LowDyingMass[slot], priv->HighDyingMass[slot]);
         //message(3, "Particle %d PI %d massgen %g mass %g initmass %g\n", p_i, P[p_i].PI, priv->MassReturn[P[p_i].PI], P[p_i].Mass, initialmass);
         /* Guard against making a zero mass particle and warn since this should not happen.*/
-        if(priv->MassReturn[slot] > 0.9 * P[p_i].Mass) {
-            message(1, "Large mass return %g from %d mass %g initial %g\n", priv->MassReturn[slot], p_i, P[p_i].Mass, initialmass);
-            priv->MassReturn[slot] = 0.9 * P[p_i].Mass;
+        if(STARP(p_i).TotalMassReturned + priv->MassReturn[slot] > initialmass * maxmassfrac) {
+            message(1, "Large mass return %g from %d mass %g initial %g maxfrac\n", priv->MassReturn[slot], p_i, STARP(p_i).TotalMassReturned, initialmass, maxmassfrac);
+            priv->MassReturn[slot] = initialmass * maxmassfrac - STARP(p_i).TotalMassReturned;
+            if(priv->MassReturn[slot] < 0)
+                priv->MassReturn[slot] = 0;
         }
     }
 
