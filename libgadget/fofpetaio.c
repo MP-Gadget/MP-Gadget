@@ -459,8 +459,8 @@ static void fof_register_io_blocks(struct IOTable * IOTable) {
         IO_REG(GasMetalMass, "f4", 1, PTYPE_FOF_GROUP, IOTable);
         IO_REG(StellarMetalMass, "f4", 1, PTYPE_FOF_GROUP, IOTable);
         if(All.MetalReturnOn) {
-            IO_REG(GasMetalElemMass, "f4", 1, PTYPE_FOF_GROUP, IOTable);
-            IO_REG(StellarMetalElemMass, "f4", 1, PTYPE_FOF_GROUP, IOTable);
+            IO_REG(GasMetalElemMass, "f4", NMETALS, PTYPE_FOF_GROUP, IOTable);
+            IO_REG(StellarMetalElemMass, "f4", NMETALS, PTYPE_FOF_GROUP, IOTable);
         }
     }
     if(All.BlackHoleOn) {
