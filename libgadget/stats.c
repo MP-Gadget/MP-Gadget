@@ -75,10 +75,10 @@ struct state_of_system compute_global_quantities_of_system(const double Time,  s
         {
             struct UVBG uvbg = get_local_UVBG(redshift, P[i].Pos, PartManager->CurrentParticleOffset);
             entr = SPHP(i).Entropy;
-            egyspec = entr / (GAMMA_MINUS1) * pow(SPH_EOMDensity(i) / a3, GAMMA_MINUS1);
+            egyspec = entr / (GAMMA_MINUS1) * pow(SPH_EOMDensity(&SPHP(i)) / a3, GAMMA_MINUS1);
             sys.EnergyIntComp[0] += P[i].Mass * egyspec;
             double ne = SPHP(i).Ne;
-            sys.TemperatureComp[0] += P[i].Mass * get_temp(SPH_EOMDensity(i), egyspec, (1 - HYDROGEN_MASSFRAC), &uvbg, &ne);
+            sys.TemperatureComp[0] += P[i].Mass * get_temp(SPH_EOMDensity(&SPHP(i)), egyspec, (1 - HYDROGEN_MASSFRAC), &uvbg, &ne);
         }
 
         for(j = 0; j < 3; j++)

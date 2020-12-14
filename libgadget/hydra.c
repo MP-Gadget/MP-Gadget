@@ -51,12 +51,12 @@ int DensityIndependentSphOn(void)
     return HydroParams.DensityIndependentSphOn;
 }
 
-MyFloat SPH_EOMDensity(int i)
+MyFloat SPH_EOMDensity(const struct sph_particle_data * const pi)
 {
     if(HydroParams.DensityIndependentSphOn)
-        return SPHP(i).EgyWtDensity;
+        return pi->EgyWtDensity;
     else
-        return SPHP(i).Density;
+        return pi->Density;
 }
 
 static double
@@ -226,7 +226,7 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
     input->Pressure = HYDRA_GET_PRIV(tw)->PressurePred[P[place].PI];
     input->TimeBin = P[place].TimeBin;
     /* calculation of F1 */
-    soundspeed_i = sqrt(GAMMA * input->Pressure / SPH_EOMDensity(place));
+    soundspeed_i = sqrt(GAMMA * input->Pressure / SPH_EOMDensity(&SPHP(place)));
     input->F1 = fabs(SPHP(place).DivVel) /
         (fabs(SPHP(place).DivVel) + SPHP(place).CurlVel +
          0.0001 * soundspeed_i / P[place].Hsml / HYDRA_GET_PRIV(tw)->fac_mu);
@@ -306,10 +306,10 @@ hydro_ngbiter(
 
     if(r2 > 0 && (r2 < iter->kernel_i.HH || r2 < kernel_j.HH))
     {
-
+        const double eomdensity = SPH_EOMDensity(&SPHP(other));
         double Pressure_j = HYDRA_GET_PRIV(lv->tw)->PressurePred[P[other].PI];
-        double p_over_rho2_j = Pressure_j / (SPH_EOMDensity(other) * SPH_EOMDensity(other));
-        double soundspeed_j = sqrt(GAMMA * Pressure_j / SPH_EOMDensity(other));
+        double p_over_rho2_j = Pressure_j / (eomdensity * eomdensity);
+        double soundspeed_j = sqrt(GAMMA * Pressure_j / eomdensity);
 
         MyFloat * velpred = HYDRA_GET_PRIV(lv->tw)->SPH_predicted->VelPred;
 
@@ -412,7 +412,7 @@ hydro_postprocess(int i, TreeWalk * tw)
     if(P[i].Type == 0)
     {
         /* Translate energy change rate into entropy change rate */
-        SPHP(i).DtEntropy *= GAMMA_MINUS1 / (HYDRA_GET_PRIV(tw)->hubble_a2 * pow(SPH_EOMDensity(i), GAMMA_MINUS1));
+        SPHP(i).DtEntropy *= GAMMA_MINUS1 / (HYDRA_GET_PRIV(tw)->hubble_a2 * pow(SPH_EOMDensity(&SPHP(i)), GAMMA_MINUS1));
 
         /* if we have winds, we decouple particles briefly if delaytime>0 */
         if(HYDRA_GET_PRIV(tw)->WindOn && winds_is_particle_decoupled(i))

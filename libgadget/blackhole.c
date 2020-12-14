@@ -590,7 +590,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
              * tcool rather than trelax.*/
             if(sfreff_on_eeqos(&SPHP(i), a3inv))
                 P[i].BHHeated = 1;
-            const double enttou = pow(SPH_EOMDensity(i) * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+            const double enttou = pow(SPH_EOMDensity(&SPHP(i)) * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
             double uold = SPHP(i).Entropy * enttou;
             uold = add_injected_BH_energy(uold, priv->Injected_BH_Energy[P[i].PI], P[i].Mass);
             SPHP(i).Entropy = uold / enttou;
