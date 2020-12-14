@@ -21,6 +21,7 @@ StarformationOn = 0
 DensityIndependentSphOn = 0
 RadiationOn = 0
 BlackHoleOn = 0
+MetalReturnOn = 0
 HydroOn = 0
 WindOn = 0
 MassiveNuLinRespOn = 0

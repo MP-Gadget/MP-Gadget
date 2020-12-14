@@ -4,6 +4,7 @@
 #include "forcetree.h"
 #include "utils/paramset.h"
 #include "timestep.h"
+#include "slotsmanager.h"
 
 void set_fof_params(ParameterSet * ps);
 
@@ -37,6 +38,14 @@ struct Group
     double Jmom[3]; /* sum M R_i x V_i  */
 
     double Sfr;
+    /* Metal masses. These are the total mass in metals in the gas and stars respectively,
+     * and then the species specific breakdowns for stars and gas.
+     * You can obtain metallicities by dividing them by the type-specific masses.*/
+    double GasMetalMass;
+    double StellarMetalMass;
+    float StellarMetalElemMass[NMETALS];
+    float GasMetalElemMass[NMETALS];
+
     /*These are used for storing black hole properties*/
     double BH_Mass;
     double BH_Mdot;

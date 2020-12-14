@@ -97,6 +97,7 @@ set_init_params(ParameterSet * ps)
 
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.WindOn = param_get_int(ps, "WindOn");
+        All.MetalReturnOn = param_get_int(ps, "MetalReturnOn");
 
         All.InitGasTemp = param_get_double(ps, "InitGasTemp");
 
@@ -198,6 +199,13 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
                 P[i].Hsml = 0.01 * All.MeanSeparation[0];
         }
 
+        if(All.MetalReturnOn && P[i].Type == 4 )
+        {
+            /* Touch up zero star smoothing lengths, not saved in the snapshots.*/
+            if(P[i].Hsml == 0)
+                P[i].Hsml = 0.1 * All.MeanSeparation[0];
+        }
+
         if(All.BlackHoleOn && P[i].Type == 5)
         {
             for(j = 0; j < 3; j++) {
@@ -228,6 +236,10 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
             SPHP(i).CurlVel = 0;
             SPHP(i).DelayTime = 0;
             SPHP(i).Metallicity = 0;
+            memset(SPHP(i).Metals, 0, NMETALS*sizeof(float));
+            /* Initialise to primordial abundances for H and He*/
+            SPHP(i).Metals[0] = HYDROGEN_MASSFRAC;
+            SPHP(i).Metals[1] = 1- HYDROGEN_MASSFRAC;
             SPHP(i).Sfr = 0;
             SPHP(i).MaxSignalVel = 0;
         }

@@ -36,18 +36,18 @@ struct bh_particle_data {
     MyFloat FormationTime;  /*!< formation time of black hole. */
     /* Merger time of the black hole.
      * After this, all values are fixed. */
-    MyFloat SwallowTime;    
+    MyFloat SwallowTime;
     int JumpToMinPot;
     double MinPotPos[3];
     MyFloat MinPotVel[3];
     /* After a merger, this gives the ID of the particle which swallowed the BH. Used to keep track of merger trees.*/
     MyIDType SwallowID;
-    
+
     /*******************************************************/
     double DragAccel[3];
     double DFAccel[3];
     /*******************************************************/
-    
+
     /* Stores the minimum timebins of all black hole neighbours.
      * The black hole timebin is then set to this.*/
     int minTimeBin;
@@ -55,13 +55,20 @@ struct bh_particle_data {
     double Mtrack; /*Swallow gas particle when BHP.Mass accretes from SeedBHMass to SeedDynMass for mass conservation */
 };
 
+#define NMETALS 9
+
 /*Data for each star particle*/
 struct star_particle_data
 {
     struct particle_data_ext base;
-    MyFloat FormationTime;		/*!< formation time of star particle */
-    MyFloat BirthDensity;		/*!< Density of gas particle at star formation. */
-    MyFloat Metallicity;		/*!< metallicity of star particle */
+    MyFloat FormationTime;      /*!< formation time of star particle */
+    MyFloat LastEnrichmentMyr;  /* Last time the star particle had an enrichment event, in Myr since FormationTime.*/
+    MyFloat TotalMassReturned; /* The total mass returned from this star since formation.
+                                  The initial mass of the SSP in this star is STARP.TotalMassReturned + P.Mass.
+                                  It is stored like this to retain compatibility with older snapshots. */
+    MyFloat BirthDensity;       /*!< Density of gas particle at star formation. */
+    MyFloat Metallicity;        /*!< Total metallicity of star particle */
+    float Metals[NMETALS];      /* Metal mass of each species in star particle*/
 };
 
 /* the following structure holds data that is stored for each SPH particle in addition to the collisionless
@@ -75,7 +82,6 @@ struct sph_particle_data
      * If DensityIndependentSph is off then Density is used instead.*/
     MyFloat EgyWtDensity;           /*!< 'effective' rho to use in hydro equations */
 
-    MyFloat Metallicity;		/*!< metallicity of gas particle */
     MyFloat Entropy;		/*!< Entropy (actually entropic function) at kick time of particle.
                                  * Defined as: P_i = A(s) rho_i^gamma. See Springel & Hernquist 2002.*/
     MyFloat MaxSignalVel;           /*!< maximum signal velocity */
@@ -96,6 +102,8 @@ struct sph_particle_data
                             /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
     MyFloat Sfr; /* Star formation rate in Msun/year. Stored here because, if the H2 dependent star formation is used,
                     it depends on the scratch variable GradRho and thus cannot be recomputed after a fof-exchange. */
+    MyFloat Metallicity;        /*!< metallicity of gas particle */
+    float Metals[NMETALS];
 };
 
 extern struct slots_manager_type {

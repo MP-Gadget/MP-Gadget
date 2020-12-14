@@ -18,6 +18,7 @@ typedef struct {
     double OmegaBaryon;  /* baryon density in units of the critical density (at z=0) */
     double HubbleParam;  /* little `h', i.e. Hubble constant in units of 100 km/s/Mpc. */
     double Hubble; /* 100 km/s/Mpc in internal units*/
+    double UnitTime_in_s; /* Internal unit time in seconds*/
     int RadiationOn; /* flags whether to include the radiation density in the background */
     _omega_nu ONu;   /*Structure for storing massive neutrino densities*/
     double MNu[3]; /*Neutrino masses in eV*/

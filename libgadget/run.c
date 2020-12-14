@@ -25,6 +25,7 @@
 #include "blackhole.h"
 #include "hydra.h"
 #include "sfr_eff.h"
+#include "metal_return.h"
 #include "slotsmanager.h"
 #include "hci.h"
 #include "fof.h"
@@ -319,6 +320,11 @@ run(int RestartSnapNum)
 
             /* Black hole accretion and feedback */
             blackhole(&Act, &Tree, FdBlackHoles, FdBlackholeDetails);
+
+            /* Do this before sfr so the tree is intact*/
+            if(All.MetalReturnOn) {
+                metal_return(&Act, &Tree, &All.CP, All.Time);
+            }
 
             /**** radiative cooling and star formation *****/
             if(All.CoolingOn)
@@ -655,6 +661,7 @@ set_units(void)
     /* convert some physical input parameters to internal units */
 
     All.CP.Hubble = HUBBLE * All.UnitTime_in_s;
+    All.CP.UnitTime_in_s = All.UnitTime_in_s;
 
     init_cosmology(&All.CP, All.TimeIC);
     /* Detect cosmologies that are likely to be typos in the parameter files*/

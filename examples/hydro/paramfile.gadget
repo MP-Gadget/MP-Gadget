@@ -25,6 +25,7 @@ CoolingOn = 1
 StarformationOn = 1
 BlackHoleOn = 1
 HydroOn = 1
+MetalReturnOn = 1
 DensityIndependentSphOn = 1
 StarformationCriterion = density
 RadiationOn = 1

@@ -449,9 +449,7 @@ density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMod
     else if(P[place].Type == 5)
     {
         TREEWALK_REDUCE(BHP(place).Density, remote->Rho);
-
     }
-
 }
 
 /******
@@ -509,8 +507,8 @@ density_ngbiter(
 
         O->Rho += (mass_j * wk);
 
-        /* For the BH only density is used.*/
-        if(I->Type == 5)
+        /* For the BH and stars only density is used.*/
+        if(I->Type != 0)
             return;
 
         /* Hinv is here because O->DhsmlDensity is drho / dH.
@@ -564,7 +562,6 @@ density_haswork(int n, TreeWalk * tw)
         return 0;
     if(P[n].Type == 0 || P[n].Type == 5)
         return 1;
-
     return 0;
 }
 
@@ -647,7 +644,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
         }
 
         /* Next step is geometric mean of previous. */
-        if(Right[i] < tw->tree->BoxSize && Left[i] > 0)
+        if((Right[i] < tw->tree->BoxSize && Left[i] > 0) || (P[i].Hsml * 1.26 > 0.99 * tw->tree->BoxSize))
             P[i].Hsml = pow(0.5 * (pow(Left[i], 3) + pow(Right[i], 3)), 1.0 / 3);
         else
         {
