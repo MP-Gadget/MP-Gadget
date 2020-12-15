@@ -20,6 +20,7 @@
 #include <libgadget/timebinmgr.h>
 #include <libgadget/petaio.h>
 #include <libgadget/cooling_qso_lightup.h>
+#include <libgadget/metal_return.h>
 
 static int
 BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
@@ -375,6 +376,7 @@ void read_parameter_file(char *fname, int * ShowBacktrace, double * MaxMemSizePe
     set_winds_params(ps);
     set_fof_params(ps);
     set_blackhole_params(ps);
+    set_metal_return_params(ps);
 
     parameter_set_free(ps);
 }
