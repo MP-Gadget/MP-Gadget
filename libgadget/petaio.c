@@ -860,6 +860,7 @@ SIMPLE_PROPERTY_PI(BlackholeSwallowID, SwallowID, uint64_t, 1, struct bh_particl
 SIMPLE_PROPERTY_PI(BlackholeSwallowTime, SwallowTime, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeJumpToMinPot, JumpToMinPot, int, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeMtrack, Mtrack, float, 1, struct bh_particle_data)
+SIMPLE_PROPERTY_PI(BlackholeMseed, Mseed, float, 1, struct bh_particle_data)
 
 SIMPLE_SETTER_PI(STBlackholeMinPotPos , MinPotPos[0], double, 3, struct bh_particle_data)
 static void GTBlackholeMinPotPos(int i, double * out, void * baseptr, void * smanptr) {
@@ -1033,6 +1034,7 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
     IO_REG(BlackholeMinPotPos, "f8", 3, 5, IOTable);
     IO_REG(BlackholeJumpToMinPot,   "i4", 1, 5, IOTable);
     IO_REG(BlackholeMtrack,         "f4", 1, 5, IOTable);
+    IO_REG_NONFATAL(BlackholeMseed,         "f4", 1, 5, IOTable);
 
     /* Smoothing lengths for black hole: this is a new addition*/
     IO_REG_NONFATAL(SmoothingLength,  "f4", 1, 5, IOTable);

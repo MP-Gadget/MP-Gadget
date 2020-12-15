@@ -574,10 +574,16 @@ open_outputfiles(int RestartSnapNum)
     FdBlackHoles = NULL;
     FdSfr = NULL;
     FdBlackholeDetails = NULL;
+    
+    if(RestartSnapNum != -1) {
+        postfix = fastpm_strdup_printf("-R%03d", RestartSnapNum);
+    } else {
+        postfix = fastpm_strdup_printf("%s", "");
+    }
 
     /* all the processors write to separate files*/
     if(All.BlackHoleOn && All.WriteBlackHoleDetails){
-        buf = fastpm_strdup_printf("%s/%s/%06X", All.OutputDir,"BlackholeDetails",ThisTask);
+        buf = fastpm_strdup_printf("%s/%s%s/%06X", All.OutputDir,"BlackholeDetails",postfix,ThisTask);
         fastpm_path_ensure_dirname(buf);
         if(!(FdBlackholeDetails = fopen(buf,"a")))
             endrun(1, "Failed to open blackhole detail %s\n", buf);
@@ -587,12 +593,6 @@ open_outputfiles(int RestartSnapNum)
     /* only the root processors writes to the log files */
     if(ThisTask != 0) {
         return;
-    }
-
-    if(RestartSnapNum != -1) {
-        postfix = fastpm_strdup_printf("-R%03d", RestartSnapNum);
-    } else {
-        postfix = fastpm_strdup_printf("%s", "");
     }
 
     buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, All.CpuFile, postfix);

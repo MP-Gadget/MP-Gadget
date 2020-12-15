@@ -1443,6 +1443,8 @@ void blackhole_make_one(int index) {
         BHP(child).Mass = bh_powerlaw_seed_mass(P[child].ID);
     else
         BHP(child).Mass = blackhole_params.SeedBlackHoleMass;
+    
+    BHP(child).Mseed = BHP(child).Mass;
     BHP(child).Mdot = 0;
     BHP(child).FormationTime = All.Time;
     BHP(child).SwallowID = (MyIDType) -1;
