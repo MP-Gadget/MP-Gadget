@@ -52,6 +52,7 @@ static struct metal_return_params
 {
     double Sn1aN0;
     int SPHWeighting;
+    double MaxNgbDeviation;
 } MetalParams;
 
 /* For tests*/
@@ -69,6 +70,7 @@ set_metal_return_params(ParameterSet * ps)
     if(ThisTask == 0) {
         MetalParams.Sn1aN0 = param_get_double(ps, "MetalsSn1aN0");
         MetalParams.SPHWeighting = param_get_int(ps, "MetalsSPHWeighting");
+        MetalParams.MaxNgbDeviation = param_get_double(ps, "MetalsMaxNgbDeviation");
     }
     MPI_Bcast(&MetalParams, sizeof(struct metal_return_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -769,8 +771,8 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
 
     int pi = P[i].PI;
 
-    if(NumNgb[pi] < (desnumngb - 2) ||
-            (NumNgb[pi] > (desnumngb + 2)))
+    if(NumNgb[pi] < (desnumngb - MetalParams.MaxNgbDeviation) ||
+            (NumNgb[pi] > (desnumngb + MetalParams.MaxNgbDeviation)))
     {
         /* This condition is here to prevent the density code looping forever if it encounters
          * multiple particles at the same position. If this happens you likely have worse

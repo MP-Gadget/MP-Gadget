@@ -310,6 +310,7 @@ create_gadget_parameter_set()
 
     /* Parameters for the metal return model*/
     param_declare_double(ps, "MetalsSn1aN0", OPTIONAL, 1.3e-3, "Overall rate of SN1a per Msun");
+    param_declare_double(ps, "MetalsMaxNgbDeviation", OPTIONAL, 5., "Maximum variance in the number of neighbours metals are returned to.");
     param_declare_int(ps, "MetalsSPHWeighting", OPTIONAL, 1, "If true, return metals to gas with a volume-weighted SPH kernel. If false use a volume-weighted uniform kernel.");
 
     /*Parameters for the massive neutrino model*/
