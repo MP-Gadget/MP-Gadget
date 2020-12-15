@@ -53,6 +53,7 @@ struct bh_particle_data {
     int minTimeBin;
     int encounter; /* mark the event when BH encounters another BH */
     double Mtrack; /*Swallow gas particle when BHP.Mass accretes from SeedBHMass to SeedDynMass for mass conservation */
+    double Mseed; /*Log the seed mass of BH, would be useful in case of the powerlaw seeding*/
 };
 
 #define NMETALS 9
