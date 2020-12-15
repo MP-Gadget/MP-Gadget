@@ -397,7 +397,7 @@ ionize_single_particle(int other, double a3inv, double uu_in_cgs)
     double deltau = qso_inst_heating * nheperg;
 
     /* Conversion factor between internal energy and entropy.*/
-    double entropytou = pow(SPH_EOMDensity(other) * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+    double entropytou = pow(SPH_EOMDensity(&SPHP(other)) * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
     /* Convert to entropy in internal units*/
     /* Only one thread may get here*/
     SPHP(other).Entropy += deltau / uu_in_cgs / entropytou;

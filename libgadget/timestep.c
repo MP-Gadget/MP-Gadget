@@ -398,7 +398,7 @@ do_the_short_range_kick(int i, double dt_entr, double Fgravkick, double Fhydroki
             SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
 
         /* Limit entropy in simulations with cooling disabled*/
-        const double enttou = pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+        const double enttou = pow(SPH_EOMDensity(&SPHP(i)) * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
         if(SPHP(i).Entropy < All.MinEgySpec/enttou)
             SPHP(i).Entropy = All.MinEgySpec / enttou;
     }
@@ -519,7 +519,7 @@ get_timestep_ti(const int p, const inttime_t dti_max, const inttime_t Ti_Current
                 P[p].GravAccel[0], P[p].GravAccel[1], P[p].GravAccel[2],
                 P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2],
                 SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1], SPHP(p).HydroAccel[2],
-                SPHP(p).Density, P[p].Hsml, SPH_EOMDensity(p),
+                SPHP(p).Density, P[p].Hsml, SPH_EOMDensity(&SPHP(p)),
                 SPHP(p).Entropy, SPHP(p).DtEntropy, SPHP(p).MaxSignalVel);
         else
             message(1, "Bad timestep (%x) assigned! ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g)\n",
