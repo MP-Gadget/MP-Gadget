@@ -518,8 +518,9 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
         //message(3, "Particle %d PI %d massgen %g mass %g initmass %g\n", p_i, P[p_i].PI, priv->MassReturn[P[p_i].PI], P[p_i].Mass, initialmass);
         /* Guard against making a zero mass particle and warn since this should not happen.*/
         if(STARP(p_i).TotalMassReturned + priv->MassReturn[slot] > initialmass * maxmassfrac) {
-            message(1, "Large mass return id %ld %g from %d mass %g initial %g (maxfrac %g) age %g lastenrich %g metal %g dymass %g %g\n",
-                P[p_i].ID, priv->MassReturn[slot], p_i, STARP(p_i).TotalMassReturned, initialmass, maxmassfrac, priv->StellarAges[P[p_i].PI], STARP(p_i).LastEnrichmentMyr, STARP(p_i).Metallicity, priv->LowDyingMass[slot], priv->HighDyingMass[slot]);
+            if(priv->MassReturn[slot] / STARP(p_i).TotalMassReturned > 0.01)
+                message(1, "Large mass return id %ld %g from %d mass %g initial %g (maxfrac %g) age %g lastenrich %g metal %g dymass %g %g\n",
+                    P[p_i].ID, priv->MassReturn[slot], p_i, STARP(p_i).TotalMassReturned, initialmass, maxmassfrac, priv->StellarAges[P[p_i].PI], STARP(p_i).LastEnrichmentMyr, STARP(p_i).Metallicity, priv->LowDyingMass[slot], priv->HighDyingMass[slot]);
             priv->MassReturn[slot] = initialmass * maxmassfrac - STARP(p_i).TotalMassReturned;
             if(priv->MassReturn[slot] < 0) {
                 priv->MassReturn[slot] = 0;
