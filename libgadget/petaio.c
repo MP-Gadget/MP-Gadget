@@ -1020,6 +1020,7 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
         IO_REG_TYPE(Metals,       "f4", NMETALS, 4, IOTable);
         IO_REG_TYPE(LastEnrichmentMyr, "f4", 1, 4, IOTable);
         IO_REG_TYPE(TotalMassReturned, "f4", 1, 4, IOTable);
+        IO_REG_NONFATAL(SmoothingLength,  "f4", 1, 4, IOTable);
     }
     /* Another new addition: save the DelayTime for wind particles*/
     IO_REG_NONFATAL(DelayTime,  "f4", 1, 0, IOTable);
