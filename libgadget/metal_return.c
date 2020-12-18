@@ -690,11 +690,11 @@ metals_haswork(int i, MyFloat * StellarAges, MyFloat * MassReturn)
         return 0;
     int pi = P[i].PI;
     /* New stars or stars with zero mass return will not do anything: nothing has yet died*/
-    if(StellarAges[pi] == 0 || MassReturn[pi] == 0)
+    if(StellarAges[pi] < lifetime[LIFE_NMASS*LIFE_NMET-1]/1e6 || MassReturn[pi] == 0)
         return 0;
     /* Don't do enrichment from all stars, just young stars or those with significant enrichment*/
     int young = StellarAges[pi] < 100;
-    int massreturned = MassReturn[pi] > 1e-3 * P[i].Mass;
+    int massreturned = MassReturn[pi] > 1e-3 * (P[i].Mass + STARP(i).TotalMassReturned);
     return young || massreturned;
 }
 
@@ -720,13 +720,15 @@ typedef struct {
     TreeWalkResultBase base;
     MyFloat VolumeSPH;
     MyFloat Ngb;
+    MyFloat Rho;
+    MyFloat DhsmlDensity;
 } TreeWalkResultStellarDensity;
 
 struct StellarDensityPriv {
     /* Current number of neighbours*/
     MyFloat *NumNgb;
     /* Lower and upper bounds on smoothing length*/
-    MyFloat *Left, *Right;
+    MyFloat *Left, *Right, *DhsmlDensity, *Density;
     MyFloat * VolumeSPH;
     int NIteration;
     size_t *NPLeft;
@@ -758,6 +760,8 @@ stellar_density_reduce(int place, TreeWalkResultStellarDensity * remote, enum Tr
     int pi = P[place].PI;
     TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi], remote->Ngb);
     TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->VolumeSPH[pi], remote->VolumeSPH);
+    TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->DhsmlDensity[pi], remote->DhsmlDensity);
+    TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->Density[pi], remote->Rho);
 }
 
 void stellar_density_check_neighbours (int i, TreeWalk * tw)
@@ -769,12 +773,16 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
     MyFloat * Left = STELLAR_DENSITY_GET_PRIV(tw)->Left;
     MyFloat * Right = STELLAR_DENSITY_GET_PRIV(tw)->Right;
     MyFloat * NumNgb = STELLAR_DENSITY_GET_PRIV(tw)->NumNgb;
+    MyFloat * DhsmlDensity = STELLAR_DENSITY_GET_PRIV(tw)->DhsmlDensity;
 
     int pi = P[i].PI;
 
     if(NumNgb[pi] < (desnumngb - MetalParams.MaxNgbDeviation) ||
             (NumNgb[pi] > (desnumngb + MetalParams.MaxNgbDeviation)))
     {
+        DhsmlDensity[pi] *= P[i].Hsml / (NUMDIMS * STELLAR_DENSITY_GET_PRIV(tw)->Density[pi]);
+        DhsmlDensity[pi] = 1 / (1 + DhsmlDensity[pi]);
+
         /* This condition is here to prevent the density code looping forever if it encounters
          * multiple particles at the same position. If this happens you likely have worse
          * problems anyway, so warn also. */
@@ -799,16 +807,24 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
             P[i].Hsml = pow(0.5 * (pow(Left[pi], 3) + pow(Right[pi], 3)), 1.0 / 3);
         else
         {
+            double fac = 1 - (NumNgb[pi] - desnumngb) / (NUMDIMS * NumNgb[pi]) * DhsmlDensity[pi];
             if(!(Right[pi] < tw->tree->BoxSize) && Left[pi] == 0)
                 endrun(8188, "Cannot occur. Check for memory corruption: i=%d pi %d L = %g R = %g N=%g. Type %d, Pos %g %g %g",
                        i, pi, Left[pi], Right[pi], NumNgb[pi], P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
 
             /* If this is the first step we can be faster by increasing or decreasing current Hsml by a constant factor*/
-            if(Right[pi] > 0.99 * tw->tree->BoxSize && Left[pi] > 0)
-                P[i].Hsml *= 1.26;
-
-            if(Right[pi] < 0.99*tw->tree->BoxSize && Left[pi] == 0)
-                P[i].Hsml /= 1.26;
+            if(Right[pi] > 0.99 * tw->tree->BoxSize && Left[pi] > 0) {
+                if(fac < 1.26)
+                    P[i].Hsml *= fac;
+                else
+                    P[i].Hsml *= 1.26;
+            }
+            if(Right[pi] < 0.99*tw->tree->BoxSize && Left[pi] == 0) {
+                    if(fac > 1 / 1.26)
+                        P[i].Hsml *= fac;
+                    else
+                        P[i].Hsml /= 1.26;
+            }
         }
         /* More work needed: add this particle to the redo queue*/
         int tid = omp_get_thread_num();
@@ -854,6 +870,13 @@ stellar_density_ngbiter(
         const double u = r * iter->kernel.Hinv;
         double wk = density_kernel_wk(&iter->kernel, u);
         O->Ngb += wk * iter->kernel_volume;
+        /* Hinv is here because O->DhsmlDensity is drho / dH.
+         * nothing to worry here */
+        O->Rho += P[other].Mass * wk;
+        const double dwk = density_kernel_dwk(&iter->kernel, u);
+        double density_dW = density_kernel_dW(&iter->kernel, u, wk, dwk);
+        O->DhsmlDensity += P[other].Mass * density_dW;
+
         /* For stars we need the total weighting, sum(w_k m_k / rho_k).*/
         double thisvol = P[other].Mass / SPHP(other).Density;
         if(MetalParams.SPHWeighting)
@@ -891,6 +914,8 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
     priv->Left = (MyFloat *) mymalloc("DENS_PRIV->Left", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->Right = (MyFloat *) mymalloc("DENS_PRIV->Right", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->NumNgb = (MyFloat *) mymalloc("DENS_PRIV->NumNgb", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->DhsmlDensity = (MyFloat *) mymalloc("DENS_PRIV->DhsmlDensity", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->Density = (MyFloat *) mymalloc("DENS_PRIV->Density", SlotsManager->info[4].size * sizeof(MyFloat));
 
     priv->NIteration = 0;
     priv->DesNumNgb = GetNumNgb(GetDensityKernelType());
@@ -973,6 +998,8 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
 #endif
     ta_free(priv->NPRedo);
     ta_free(priv->NPLeft);
+    myfree(priv->Density);
+    myfree(priv->DhsmlDensity);
     myfree(priv->NumNgb);
     myfree(priv->Right);
     myfree(priv->Left);
