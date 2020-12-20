@@ -231,10 +231,8 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     DENSITY_GET_PRIV(tw)->Right = (MyFloat *) mymalloc("DENS_PRIV->Right", PartManager->NumPart * sizeof(MyFloat));
     DENSITY_GET_PRIV(tw)->NumNgb = (MyFloat *) mymalloc("DENS_PRIV->NumNgb", PartManager->NumPart * sizeof(MyFloat));
     DENSITY_GET_PRIV(tw)->Rot = (MyFloat (*) [3]) mymalloc("DENS_PRIV->Rot", SlotsManager->info[0].size * sizeof(priv->Rot[0]));
-    if(DoEgyDensity)
-        DENSITY_GET_PRIV(tw)->DhsmlDensityFactor = (MyFloat *) mymalloc("DENSITY_GET_PRIV(tw)->DhsmlDensity", SlotsManager->info[0].size * sizeof(MyFloat));
-    else
-        DENSITY_GET_PRIV(tw)->DhsmlDensityFactor = NULL;
+    DENSITY_GET_PRIV(tw)->DhsmlDensityFactor = (MyFloat *) mymalloc("DENSITY_GET_PRIV(tw)->DhsmlDensity",
+                                (SlotsManager->info[0].size*DoEgyDensity + SlotsManager->info[5].size) * sizeof(MyFloat));
 
     DENSITY_GET_PRIV(tw)->update_hsml = update_hsml;
     DENSITY_GET_PRIV(tw)->DoEgyDensity = DoEgyDensity;
@@ -369,8 +367,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
     ta_free(DENSITY_GET_PRIV(tw)->NPRedo);
     ta_free(DENSITY_GET_PRIV(tw)->NPLeft);
-    if(DoEgyDensity)
-        myfree(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor);
+    myfree(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor);
     myfree(DENSITY_GET_PRIV(tw)->Rot);
     myfree(DENSITY_GET_PRIV(tw)->NumNgb);
     myfree(DENSITY_GET_PRIV(tw)->Right);
@@ -449,6 +446,8 @@ density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMod
     else if(P[place].Type == 5)
     {
         TREEWALK_REDUCE(BHP(place).Density, remote->Rho);
+        int bhpi = P[place].PI + SlotsManager->info[0].size * DENSITY_GET_PRIV(tw)->DoEgyDensity;
+        TREEWALK_REDUCE(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[bhpi], remote->DhsmlDensity);
     }
 }
 
@@ -507,14 +506,14 @@ density_ngbiter(
 
         O->Rho += (mass_j * wk);
 
-        /* For the BH and stars only density is used.*/
-        if(I->Type != 0)
-            return;
-
         /* Hinv is here because O->DhsmlDensity is drho / dH.
          * nothing to worry here */
         double density_dW = density_kernel_dW(&iter->kernel, u, wk, dwk);
         O->DhsmlDensity += mass_j * density_dW;
+
+        /* For the BH and stars only density and dhsmldensity is used.*/
+        if(I->Type != 0)
+            return;
 
         struct sph_pred_data * SphP_scratch = DENSITY_GET_PRIV(lv->tw)->SPH_predicted;
 
@@ -603,6 +602,14 @@ density_postprocess(int i, TreeWalk * tw)
         }
     }
 
+    if(P[i].Type == 5 && BHP(i).Density > 0)
+    {
+            int bhpi = P[i].PI + SlotsManager->info[0].size * DENSITY_GET_PRIV(tw)->DoEgyDensity;
+            MyFloat * DhsmlDens = &(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[bhpi]);
+            *DhsmlDens *= P[i].Hsml / (NUMDIMS * BHP(i).Density);
+            *DhsmlDens = 1 / (1 + *DhsmlDens);
+    }
+
     /* This is slightly more complicated so we put it in a different function */
     if(DENSITY_GET_PRIV(tw)->update_hsml)
         density_check_neighbours(i, tw);
@@ -651,44 +658,32 @@ void density_check_neighbours (int i, TreeWalk * tw)
             if(!(Right[i] < tw->tree->BoxSize) && Left[i] == 0)
                 endrun(8188, "Cannot occur. Check for memory corruption: i=%d L = %g R = %g N=%g. Type %d, Pos %g %g %g", i, Left[i], Right[i], NumNgb[i], P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
 
+            MyFloat DensFac = -1;
+            if(P[i].Type == 0) {
+                if(DENSITY_GET_PRIV(tw)->DoEgyDensity)
+                    DensFac = DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[P[i].PI];
+                else
+                    DensFac = SPHP(i).DhsmlEgyDensityFactor;
+            }
+            else if(P[i].Type == 5) {
+                int bhpi = P[i].PI + SlotsManager->info[0].size * DENSITY_GET_PRIV(tw)->DoEgyDensity;
+                DensFac = DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[bhpi];
+            }
+            double fac = 1 - (NumNgb[i] - desnumngb) / (NUMDIMS * NumNgb[i]) * DensFac;
+
             /* If this is the first step we can be faster by increasing or decreasing current Hsml by a constant factor*/
             if(Right[i] > 0.99 * tw->tree->BoxSize && Left[i] > 0)
             {
-                if(P[i].Type == 0 && fabs(NumNgb[i] - desnumngb) < 0.5 * desnumngb)
-                {
-                    MyFloat DensFac;
-                    if(DENSITY_GET_PRIV(tw)->DoEgyDensity)
-                        DensFac = DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[P[i].PI];
-                    else
-                        DensFac = SPHP(i).DhsmlEgyDensityFactor;
-                    double fac = 1 - (NumNgb[i] - desnumngb) / (NUMDIMS * NumNgb[i]) * DensFac;
-
-                    if(fac < 1.26)
-                        P[i].Hsml *= fac;
-                    else
-                        P[i].Hsml *= 1.26;
-                }
+                if(DensFac >= 0 && fabs(NumNgb[i] - desnumngb) < 0.5 * desnumngb && fac < 1.26)
+                    P[i].Hsml *= fac;
                 else
                     P[i].Hsml *= 1.26;
             }
 
             if(Right[i] < 0.99*tw->tree->BoxSize && Left[i] == 0)
             {
-                if(P[i].Type == 0 && fabs(NumNgb[i] - desnumngb) < 0.5 * desnumngb)
-                {
-                    MyFloat DensFac;
-                    if(DENSITY_GET_PRIV(tw)->DoEgyDensity)
-                        DensFac = DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[P[i].PI];
-                    else
-                        DensFac = SPHP(i).DhsmlEgyDensityFactor;
-
-                    double fac = 1 - (NumNgb[i] - desnumngb) / (NUMDIMS * NumNgb[i]) * DensFac;
-
-                    if(fac > 1 / 1.26)
-                        P[i].Hsml *= fac;
-                    else
-                        P[i].Hsml /= 1.26;
-                }
+                if(DensFac >=0 && fabs(NumNgb[i] - desnumngb) < 0.5 * desnumngb && fac > 1/1.26)
+                    P[i].Hsml *= fac;
                 else
                     P[i].Hsml /= 1.26;
             }
