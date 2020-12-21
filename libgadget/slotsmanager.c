@@ -487,7 +487,7 @@ slots_reserve(int where, int atleast[6], struct slots_manager_type * sman)
     }
 
     int add = sman->increase;
-    if (add < 128) add = 128;
+    if (add < 8192) add = 8192;
 
     /* FIXME: allow shrinking; need to tweak the memmove later. */
     for(ptype = 0; ptype < 6; ptype ++) {

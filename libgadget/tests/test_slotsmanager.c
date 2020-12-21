@@ -133,7 +133,7 @@ test_slots_reserve(void **state)
     }
 
     for(ptype = 0; ptype < 6; ptype++) {
-        newSlots[ptype] += 128;
+        newSlots[ptype] += 8192;
     }
 
     /* shall increase max size; because it large difference */
