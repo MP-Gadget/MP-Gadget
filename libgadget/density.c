@@ -247,11 +247,15 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     DENSITY_GET_PRIV(tw)->GradRho = GradRho;
 
     /* Init Left and Right: this has to be done before treewalk */
-    memset(DENSITY_GET_PRIV(tw)->NumNgb, 0, PartManager->NumPart * sizeof(MyFloat));
-    memset(DENSITY_GET_PRIV(tw)->Left, 0, PartManager->NumPart * sizeof(MyFloat));
     #pragma omp parallel for
-    for(i = 0; i < PartManager->NumPart; i++)
-        DENSITY_GET_PRIV(tw)->Right[i] = tree->BoxSize;
+    for(i = 0; i < act->NumActiveParticle; i++)  {
+        int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
+        /* We only really need active particles with work
+         * but I don't want to read the particle table here*/
+        DENSITY_GET_PRIV(tw)->Right[p_i] = tree->BoxSize;
+        DENSITY_GET_PRIV(tw)->NumNgb[p_i] = 0;
+        DENSITY_GET_PRIV(tw)->Left[p_i] = 0;
+    }
 
     /* Factor this out since all particles have the same drift time*/
     const double FgravkickB = get_exact_gravkick_factor(CP, times.PM_kick, times.Ti_Current);
