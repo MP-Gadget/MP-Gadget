@@ -40,24 +40,18 @@ static int ImportBufferBoost;
 static struct data_nodelist
 {
     int NodeList[NODELISTLENGTH];
-}
-*DataNodeList;
+} *DataNodeList;
 
 /*!< the particles to be exported are grouped
 by task-number. This table allows the
 results to be disentangled again and to be
 assigned to the correct particle */
-struct data_index
+static struct data_index
 {
     int Task;
     int Index;
     int IndexGet;
-};
-
-static struct data_index *DataIndexTable;	/*!< the particles to be exported are grouped
-					   by task-number. This table allows the
-					   results to be disentangled again and to be
-					   assigned to the correct particle */
+} *DataIndexTable;
 
 /*Initialise global treewalk parameters*/
 void set_treewalk_params(ParameterSet * ps)
@@ -138,6 +132,13 @@ ev_init_thread(const struct TreeWalkThreadLocals export, TreeWalk * const tw, Lo
     lv->Ninteractions = 0;
     lv->Nnodesinlist = 0;
     lv->Nlist = 0;
+    lv->Nexport = 0;
+    size_t localbunch = tw->BunchSize/omp_get_max_threads();
+    lv->DataIndexOffset = thread_id * localbunch;
+    lv->BunchSize = localbunch;
+    if(localbunch > tw->BunchSize - thread_id * localbunch)
+        lv->BunchSize = tw->BunchSize - thread_id * localbunch;
+
     lv->ngblist = Ngblist + thread_id * PartManager->NumPart;
     for(j = 0; j < NTask; j++)
         lv->exportflag[j] = -1;
@@ -247,7 +248,7 @@ treewalk_init_query(TreeWalk * tw, TreeWalkQueryBase * query, int i, int * NodeL
     }
 
     tw->fill(i, query, tw);
-};
+}
 
 static void
 treewalk_init_result(TreeWalk * tw, TreeWalkResultBase * result, TreeWalkQueryBase * query)
@@ -269,8 +270,7 @@ treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum T
 #endif
 }
 
-static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, int * currentIndex) {
-    LocalTreeWalk lv[1];
+static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, LocalTreeWalk * lv, int * currentIndex) {
     /* Note: exportflag is local to each thread */
     ev_init_thread(export, tw, lv);
     lv->mode = 0;
@@ -308,7 +308,7 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, int * curr
             const int rt = tw->visit(input, output, lv);
             if(rt < 0) {
                 /* export buffer has filled up, can't do more work.*/
-                return lastSucceeded;
+                break;
             } else {
                 treewalk_reduce_result(tw, output, i, TREEWALK_PRIMARY);
                 /* We need lastSucceeded as well as currentIndex so that
@@ -316,6 +316,22 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, int * curr
                  * chunk we still get the right answer. Notice it is thread-local*/
                 lastSucceeded = k;
             }
+        }
+        /* If we filled up, we need to remove the partially evaluated last particle from the export list and leave this loop.*/
+        if(lv->Nexport >= lv->BunchSize) {
+            message(1, "Tree export buffer full with %d particles. start %d lastsucceeded: %d.\n", lv->Nexport, tw->WorkSetStart, lastSucceeded);
+            tw->BufferFullFlag = 1;
+            /* Touch up the DataIndexTable, so that partial particle exports are discarded.
+             * Since this queue is per-thread, it is ordered.*/
+            const int lastreal = tw->WorkSet ? tw->WorkSet[k] : k;
+            while(lv->Nexport > 0) {
+                /* Index stores tw->target, which is the current particle.*/
+                if(DataIndexTable[lv->DataIndexOffset + lv->Nexport-1].Index != lastreal)
+                    break;
+                lv->Nexport--;
+            }
+            /* Leave this chunking loop.*/
+            break;
         }
     } while(chnk < tw->WorkSetSize);
 
@@ -418,36 +434,25 @@ ev_primary(TreeWalk * tw)
     int currentIndex = tw->WorkSetStart;
     int lastSucceeded = tw->WorkSetSize;
 
+    LocalTreeWalk * lv = ta_malloc("localtreewalk", LocalTreeWalk, tw->NThread);
+
 #pragma omp parallel reduction(min: lastSucceeded)
     {
-        lastSucceeded = real_ev(export, tw, &currentIndex);
+        lastSucceeded = real_ev(export, tw, &lv[omp_get_thread_num()], &currentIndex);
     }
 
+    size_t i;
+    tw->Nexport = 0;
+
+    /* Compactify the export queue*/
+    for(i = 0; i < tw->NThread; i++)
+    {
+        memmove(DataIndexTable + tw->Nexport, DataIndexTable + lv[i].DataIndexOffset, sizeof(DataIndexTable[0]) * lv[i].Nexport);
+        tw->Nexport += lv[i].Nexport;
+    }
+
+    myfree(lv);
     ev_free_threadlocals(export);
-
-    if(tw->Nexport >= tw->BunchSize) {
-        message(1, "Tree export buffer full with %d particles. start %d lastsucceeded: %d.\n", tw->Nexport, tw->WorkSetStart, lastSucceeded);
-        tw->BufferFullFlag = 1;
-        /* Touch up the DataIndexTable, so that partial particle exports are discarded.*/
-        size_t i;
-        /* This assumes that the WorkSet is monotonic, which is guaranteed by the static schedule in
-         * treewalk_begin_queue*/
-        const int lastreal = tw->WorkSet ? tw->WorkSet[lastSucceeded] : lastSucceeded;
-        #pragma omp parallel for
-        for(i=0; i < tw->BunchSize; i++) {
-            /* target is the current particle, so this reads the buffer looking for
-                * exports associated with the current particle. We cannot just discard
-                * from the end because of threading.*/
-            if(DataIndexTable[i].Index > lastreal)
-            {
-                /* NTask will be placed to the end by sorting */
-                DataIndexTable[i].Task = tw->NTask;
-                /* put in some junk so that we can detect them */
-                DataNodeList[DataIndexTable[i].IndexGet].NodeList[0] = -2;
-            }
-        }
-
-    }
 
     /* Set the place to start the next iteration. Note that because lastSucceeded
      * is the minimum entry across all threads, some particles may have their trees walked twice locally.
@@ -455,16 +460,10 @@ ev_primary(TreeWalk * tw)
      * ie, which is pairwise and changes the other particle in the treewalk.
      * In practice almost all of these algorithms either set a flag
      * in the particle to indicate that it has been finished (HeIII reion),
-     * or find a maximum (BH). The only exception is the wind velocity code,
+     * or find a maximum (BH). Exceptions are the wind velocity and metal return codes,
      * but there are few enough stars in a treewalk that this
      * should not fill up often.*/
     tw->WorkSetStart = lastSucceeded + 1;
-
-    /* Nexport may go off too much after BunchSize
-     * as we don't protect it from over adding in _export_particle
-     * */
-    if(tw->Nexport > tw->BunchSize)
-        tw->Nexport = tw->BunchSize;
 
     tend = second();
     tw->timecomp1 += timediff(tstart, tend);
@@ -524,7 +523,8 @@ static void ev_secondary(TreeWalk * tw)
  * This can also be called from a nonthreaded code
  *
  * */
-int treewalk_export_particle(LocalTreeWalk * lv, int no) {
+int treewalk_export_particle(LocalTreeWalk * lv, int no)
+{
     if(lv->mode != 0) {
         endrun(1, "Trying to export a ghost particle.\n");
     }
@@ -544,23 +544,18 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
 
     if(exportnodecount[task] == NODELISTLENGTH)
     {
-        size_t nexp;
-        #pragma omp atomic capture
-        {
-            nexp = tw->Nexport;
-            tw->Nexport++;
-        }
         /* out of buffer space. Need to interrupt. */
-        if(nexp >= tw->BunchSize) {
+        if(lv->Nexport >= lv->BunchSize) {
             return -1;
         }
-        else {
-            exportnodecount[task] = 0;
-            exportindex[task] = nexp;
-            DataIndexTable[nexp].Task = task;
-            DataIndexTable[nexp].Index = target;
-            DataIndexTable[nexp].IndexGet = nexp;
-        }
+        /* This index is a unique entry in the global DataNodeList and DataIndexTable.*/
+        size_t nexp = lv->Nexport + lv->DataIndexOffset;
+        exportnodecount[task] = 0;
+        exportindex[task] = nexp;
+        DataIndexTable[nexp].Task = task;
+        DataIndexTable[nexp].Index = target;
+        DataIndexTable[nexp].IndexGet = nexp;
+        lv->Nexport++;
     }
 
     /* Set the NodeList entry*/
@@ -568,7 +563,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
             tw->tree->TopLeaves[no - tw->tree->lastnode].treenode;
 
     if(exportnodecount[task] < NODELISTLENGTH)
-            DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
+        DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
     return 0;
 }
 
