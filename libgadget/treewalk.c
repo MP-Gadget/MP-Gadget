@@ -462,14 +462,9 @@ ev_primary(TreeWalk * tw)
     ev_free_threadlocals(export);
 
     /* Set the place to start the next iteration. Note that because lastSucceeded
-     * is the minimum entry across all threads, some particles may have their trees walked twice locally.
-     * This could be a problem if the export buffer filled up in a physics module with locks,
-     * ie, which is pairwise and changes the other particle in the treewalk.
-     * In practice almost all of these algorithms either set a flag
-     * in the particle to indicate that it has been finished (HeIII reion),
-     * or find a maximum (BH). Exceptions are the wind velocity and metal return codes,
-     * but there are few enough stars in a treewalk that this
-     * should not fill up often.*/
+     * is the minimum entry across all threads, some particles may have their trees partially walked twice locally.
+     * This is fine because we walk the tree to fill up the Ngbiter list.
+     * Only a full Ngbiter list is executed; partial lists are discarded.*/
     tw->WorkSetStart = lastSucceeded + 1;
 
     tend = second();
