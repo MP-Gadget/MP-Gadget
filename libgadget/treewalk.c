@@ -302,6 +302,9 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, LocalTreeW
         /* Make sure we do not overflow the loop*/
         if(end > tw->WorkSetSize)
             end = tw->WorkSetSize;
+        /* Reduce the chunk size towards the end of the walk*/
+        if(((size_t) tw->WorkSetSize  < end + chnksz * tw->NThread) && chnksz >= 2)
+            chnksz /= 2;
         int k;
         for(k = chnk; k < end; k++) {
             /* Skip already evaluated particles. This is only used if the buffer fills up.*/
