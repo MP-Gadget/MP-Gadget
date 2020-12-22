@@ -50,7 +50,7 @@ static struct data_index
 {
     int Task;
     int Index;
-    int IndexGet;
+    size_t IndexGet;
 } *DataIndexTable;
 
 /*Initialise global treewalk parameters*/
