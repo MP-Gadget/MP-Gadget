@@ -1070,7 +1070,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         else if(current->f.ChildType == PSEUDO_NODE_TYPE) {
             /* pseudo particle */
             if(lv->mode == 1) {
-                endrun(12312, "Touching outside of my domain from a node list of a ghost. This shall not happen.");
+                endrun(12312, "Secondary for particle %d from node %d found pseudo at %d.\n", lv->target, startnode, current);
             } else {
                 /* Export the pseudo particle*/
                 if(-1 == treewalk_export_particle(lv, current->s.suns[0]))
