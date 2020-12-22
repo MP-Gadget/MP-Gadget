@@ -289,7 +289,11 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, LocalTreeW
     int chnk = 0;
     /* chunk size: 1 and 1000 were slightly (3 percent) slower than 8.
      * FoF treewalk needs a larger chnksz to avoid contention.*/
-    const int chnksz = 200;
+    int chnksz = tw->WorkSetSize / (4*tw->NThread);
+    if(chnksz < 1)
+        chnksz = 1;
+    if(chnksz > 200)
+        chnksz = 200;
     do {
         /* Get another chunk from the global queue*/
         chnk = atomic_fetch_and_add(currentIndex, chnksz);
