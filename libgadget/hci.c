@@ -26,7 +26,7 @@ hci_now(HCIManager * manager)
 }
 
 void
-hci_init(HCIManager * manager, char * prefix, double WallClockTimeLimit, double AutoCheckPointTime)
+hci_init(HCIManager * manager, char * prefix, double WallClockTimeLimit, double AutoCheckPointTime, int FOFEnabled)
 {
     manager->prefix = fastpm_strdup(prefix);
     manager->timer_begin = hci_now(manager);
@@ -34,6 +34,7 @@ hci_init(HCIManager * manager, char * prefix, double WallClockTimeLimit, double 
 
     manager->WallClockTimeLimit = WallClockTimeLimit;
     manager->AutoCheckPointTime = AutoCheckPointTime;
+    manager->FOFEnabled = FOFEnabled;
     manager->LongestTimeBetweenQueries = 0;
 }
 
@@ -42,6 +43,7 @@ hci_action_init(HCIAction * action)
 {
     action->type = HCI_NO_ACTION;
     action->write_snapshot = 0;
+    action->write_fof = 0;
 }
 
 /* override the result of hci_now; for unit testing -- we can't rely on MPI_Wtime there!
@@ -189,6 +191,9 @@ hci_query(HCIManager * manager, HCIAction * action)
         action->type = HCI_CHECKPOINT;
         /* will write checkpoint in this PM timestep */
         action->write_snapshot = 1;
+        /* Write fof as well*/
+        if(manager->FOFEnabled)
+            action->write_fof = 1;
         myfree(request);
         manager->TimeLastCheckPoint = hci_get_elapsed_time(manager);
         return 0;
@@ -223,6 +228,8 @@ hci_query(HCIManager * manager, HCIAction * action)
         action->type = HCI_AUTO_CHECKPOINT;
         /* Write when the PM timestep completes*/
         action->write_snapshot = 1;
+        if(manager->FOFEnabled)
+            action->write_fof = 1;
         manager->TimeLastCheckPoint = hci_get_elapsed_time(manager);
         return 0;
     }
