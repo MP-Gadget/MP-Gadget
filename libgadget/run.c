@@ -89,7 +89,7 @@ int begrun(int RestartFlag, int RestartSnapNum)
         message(0, "Last Snapshot number is %d.\n", RestartSnapNum);
     }
 
-    hci_init(HCI_DEFAULT_MANAGER, All.OutputDir, All.TimeLimitCPU, All.AutoSnapshotTime);
+    hci_init(HCI_DEFAULT_MANAGER, All.OutputDir, All.TimeLimitCPU, All.AutoSnapshotTime, All.SnapshotWithFOF);
 
     petapm_module_init(omp_get_max_threads());
     petaio_init();
@@ -353,6 +353,7 @@ run(int RestartSnapNum)
 
         if(is_PM) { /* the if here is unnecessary but to signify checkpointing occurs only at PM steps. */
             WriteSnapshot |= action->write_snapshot;
+            WriteFOF |= action->write_fof;
         }
         if(WriteSnapshot || WriteFOF) {
             /* Get a new snapshot*/
