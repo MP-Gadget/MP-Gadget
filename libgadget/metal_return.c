@@ -478,6 +478,7 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     tw->postprocess = (TreeWalkProcessFunction) metal_return_postprocess;
     tw->query_type_elsize = sizeof(TreeWalkQueryMetals);
     tw->result_type_elsize = sizeof(TreeWalkResultMetals);
+    tw->repeatdisallowed = 1;
     tw->tree = tree;
     tw->priv = priv;
     priv->hub = CP->HubbleParam;

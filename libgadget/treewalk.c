@@ -270,7 +270,8 @@ treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum T
 #endif
 }
 
-static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, LocalTreeWalk * lv, int * currentIndex) {
+static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, LocalTreeWalk * lv, int * currentIndex)
+{
     /* Note: exportflag is local to each thread */
     ev_init_thread(export, tw, lv);
     lv->mode = 0;
@@ -299,6 +300,10 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, LocalTreeW
             end = tw->WorkSetSize;
         int k;
         for(k = chnk; k < end; k++) {
+            /* Skip already evaluated particles. This is only used if the buffer fills up.*/
+            if(tw->evaluated && tw->evaluated[k])
+                continue;
+
             const int i = tw->WorkSet ? tw->WorkSet[k] : k;
             /* Primary never uses node list */
             treewalk_init_query(tw, input, i, NULL);
@@ -315,6 +320,8 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, LocalTreeW
                  * if the export buffer fills up in the middle of a
                  * chunk we still get the right answer. Notice it is thread-local*/
                 lastSucceeded = k;
+                if(tw->evaluated)
+                    tw->evaluated[k] = 1;
             }
         }
         /* If we filled up, we need to remove the partially evaluated last particle from the export list and leave this loop.*/
@@ -594,6 +601,11 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
     }
 
     if(tw->visit) {
+        /* Keep track of which particles have been evaluated across buffer fill ups.*/
+        if(tw->repeatdisallowed) {
+            tw->evaluated = mymalloc("evaluated", sizeof(char)*tw->WorkSetSize);
+            memset(tw->evaluated, 0, sizeof(char)*tw->WorkSetSize);
+        }
         do
         {
             ev_primary(tw); /* do local particles and prepare export list */
@@ -609,6 +621,8 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
             tw->Nexport_sum += tw->Nexport;
             ta_free(sndrcv.Send_count);
         } while(ev_ndone(tw) < tw->NTask);
+        if(tw->repeatdisallowed)
+            myfree(tw->evaluated);
     }
 
 #ifdef DEBUG

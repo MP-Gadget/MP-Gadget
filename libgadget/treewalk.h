@@ -105,9 +105,15 @@ struct TreeWalk {
     size_t NThread; /*Number of OpenMP threads*/
 
     /* Unlike in Gadget-3, when exporting we now always send tree branches.*/
-
     char * dataget;
     char * dataresult;
+
+    /* The metal return alters neighbours,
+     * which cannot be evaluated twice.
+     * If repeatdisallowd is true, we allocate memory
+     * to keep track of the evaluated particles.*/
+    int repeatdisallowed;
+    char * evaluated;
 
     /* performance metrics */
     double timewait1;
