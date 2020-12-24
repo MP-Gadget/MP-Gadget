@@ -270,8 +270,9 @@ treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum T
 #endif
 }
 
-static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, LocalTreeWalk * lv, int * currentIndex)
+static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * dataindexoffset, size_t * nexports, int * currentIndex)
 {
+    LocalTreeWalk lv[1];
     /* Note: exportflag is local to each thread */
     ev_init_thread(export, tw, lv);
     lv->mode = 0;
@@ -349,6 +350,8 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, LocalTreeW
         }
     } while(chnk < tw->WorkSetSize);
 
+    *dataindexoffset = lv->DataIndexOffset;
+    *nexports = lv->Nexport;
     return lastSucceeded;
 }
 
@@ -448,11 +451,13 @@ ev_primary(TreeWalk * tw)
     int currentIndex = tw->WorkSetStart;
     int lastSucceeded = tw->WorkSetSize;
 
-    LocalTreeWalk * lv = ta_malloc("localtreewalk", LocalTreeWalk, tw->NThread);
+    size_t * nexports = ta_malloc("localexports", size_t, tw->NThread);
+    size_t * dataindexoffset = ta_malloc("dataindex", size_t, tw->NThread);
 
 #pragma omp parallel reduction(min: lastSucceeded)
     {
-        lastSucceeded = real_ev(export, tw, &lv[omp_get_thread_num()], &currentIndex);
+        int tid = omp_get_thread_num();
+        lastSucceeded = real_ev(export, tw, &dataindexoffset[tid], &nexports[tid], &currentIndex);
     }
 
     size_t i;
@@ -461,11 +466,12 @@ ev_primary(TreeWalk * tw)
     /* Compactify the export queue*/
     for(i = 0; i < tw->NThread; i++)
     {
-        memmove(DataIndexTable + tw->Nexport, DataIndexTable + lv[i].DataIndexOffset, sizeof(DataIndexTable[0]) * lv[i].Nexport);
-        tw->Nexport += lv[i].Nexport;
+        memmove(DataIndexTable + tw->Nexport, DataIndexTable + dataindexoffset[i], sizeof(DataIndexTable[0]) * nexports[i]);
+        tw->Nexport += nexports[i];
     }
 
-    myfree(lv);
+    myfree(dataindexoffset);
+    myfree(nexports);
     ev_free_threadlocals(export);
 
     /* Set the place to start the next iteration. Note that because lastSucceeded
