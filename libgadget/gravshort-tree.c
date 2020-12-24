@@ -210,7 +210,6 @@ apply_accn_to_output(TreeWalkResultGravShort * output, const double dx[3], const
         int i;
         for(i = 0; i < 3; i++)
             output->Acc[i] += dx[i] * fac;
-        output->Ninteractions++;
         output->Potential += facpot;
     }
 }
@@ -408,14 +407,14 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             /* Compute the acceleration and apply it to the output structure*/
             apply_accn_to_output(output, dx, r2, h, P[pp].Mass, cellsize);
         }
+        lv->Ninteractions += numcand;
     }
 
-    lv->Ninteractions += output->Ninteractions;
     if(lv->mode == 1) {
         lv->Nnodesinlist += listindex;
         lv->Nlist += 1;
     }
-    return output->Ninteractions;
+    return 1;
 }
 
 
