@@ -127,7 +127,7 @@ static void
 sfr_wind_copy(int place, TreeWalkQueryWind * input, TreeWalk * tw);
 
 static void
-sfr_wind_weight_postprocess(const int i, TreeWalk * tw);
+sfr_wind_weight_postprocess(const int i, size_t * count, TreeWalk * tw);
 
 static void
 sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
@@ -161,8 +161,6 @@ struct WindPriv {
     double * StarKickVelocity;
     double * StarDistance;
     MyIDType * StarID;
-    size_t * NPLeft;
-    int** NPRedo;
     struct SpinLocks * spin;
 };
 
@@ -196,7 +194,7 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
 
     tw->haswork = NULL;
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
-    tw->postprocess = (TreeWalkProcessFunction) sfr_wind_weight_postprocess;
+    tw->postprocess = sfr_wind_weight_postprocess;
     struct WindPriv priv[1];
     priv[0].Time = Time;
     priv[0].hubble = hubble;
@@ -204,8 +202,8 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
 
     int64_t totalleft = 0;
     sumup_large_ints(1, &NumNewStars, &totalleft);
-    priv->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
-    priv->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
+    tw->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
+    tw->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
     priv->Winddata = (struct winddata * ) mymalloc("WindExtraData", SlotsManager->info[4].size * sizeof(struct winddata));
 
     int i;
@@ -235,7 +233,7 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
             ReDoQueue = (int *) mymalloc("redoqueue", size * sizeof(int) * NumThreads);
             alloc_high = 0;
         }
-        gadget_setup_thread_arrays(ReDoQueue, WIND_GET_PRIV(tw)->NPRedo, WIND_GET_PRIV(tw)->NPLeft, size, NumThreads);
+        gadget_setup_thread_arrays(ReDoQueue, tw->NPRedo, tw->NPLeft, size, NumThreads);
 
         treewalk_run(tw, CurQueue, size);
 
@@ -244,7 +242,7 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
             myfree(CurQueue);
 
         /* Set up the next queue*/
-        size = gadget_compact_thread_arrays(ReDoQueue, WIND_GET_PRIV(tw)->NPRedo, WIND_GET_PRIV(tw)->NPLeft, NumThreads);
+        size = gadget_compact_thread_arrays(ReDoQueue, tw->NPRedo, tw->NPLeft, NumThreads);
 
         sumup_large_ints(1, &size, &totalleft);
         if(totalleft == 0){
@@ -259,8 +257,8 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
         message(0, "iter=%d star-DM iteration. Total left = %ld\n", iter, totalleft);
     } while(1);
 
-    ta_free(priv->NPRedo);
-    ta_free(priv->NPLeft);
+    ta_free(tw->NPRedo);
+    ta_free(tw->NPLeft);
 
     /* Some particles may be kicked by multiple stars on the same timestep.
      * To ensure this happens only once and does not depend on the order in
@@ -330,7 +328,7 @@ winds_evolve(int i, double a3inv, double hubble)
 }
 
 static void
-sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
+sfr_wind_weight_postprocess(const int i, size_t * count, TreeWalk * tw)
 {
     int done = 0;
     if(P[i].Type != 4)
@@ -367,8 +365,8 @@ sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
     } else {
         /* More work needed: add this particle to the redo queue*/
         int tid = omp_get_thread_num();
-        WIND_GET_PRIV(tw)->NPRedo[tid][WIND_GET_PRIV(tw)->NPLeft[tid]] = i;
-        WIND_GET_PRIV(tw)->NPLeft[tid] ++;
+        tw->NPRedo[tid][*count] = i;
+        (*count)++;
     }
 }
 

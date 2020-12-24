@@ -1073,8 +1073,7 @@ fof_save_groups(FOFGroups * fof, int num, MPI_Comm Comm)
 struct FOFSecondaryPriv {
     float *distance;
     float *hsml;
-    int *count;
-    int *npleft;
+    size_t *count;
 };
 
 #define FOF_SECONDARY_GET_PRIV(tw) ((struct FOFSecondaryPriv *) (tw->priv))
@@ -1106,7 +1105,7 @@ fof_secondary_ngbiter(TreeWalkQueryFOF * I,
         LocalTreeWalk * lv);
 
 static void
-fof_secondary_postprocess(int p, TreeWalk * tw)
+fof_secondary_postprocess(int p, size_t * count, TreeWalk * tw)
 {
     /* More work needed: add this particle to the redo queue*/
     int tid = omp_get_thread_num();
@@ -1117,7 +1116,7 @@ fof_secondary_postprocess(int p, TreeWalk * tw)
         if(FOF_SECONDARY_GET_PRIV(tw)->hsml[p] < 4 * fof_params.FOFHaloComovingLinkingLength)  /* we only search out to a maximum distance */
         {
             /* need to redo this particle */
-            FOF_SECONDARY_GET_PRIV(tw)->npleft[tid]++;
+            (*count)++;
             FOF_SECONDARY_GET_PRIV(tw)->hsml[p] *= 2.0;
 /*
             if(iter >= MAXITER - 10)
@@ -1144,7 +1143,7 @@ static void fof_label_secondary(ForceTree * tree)
     tw->haswork = fof_secondary_haswork;
     tw->fill = (TreeWalkFillQueryFunction) fof_secondary_copy;
     tw->reduce = (TreeWalkReduceResultFunction) fof_secondary_reduce;
-    tw->postprocess = (TreeWalkProcessFunction) fof_secondary_postprocess;
+    tw->postprocess = fof_secondary_postprocess;
     tw->type = TREEWALK_ALL;
     tw->query_type_elsize = sizeof(TreeWalkQueryFOF);
     tw->result_type_elsize = sizeof(TreeWalkResultFOF);
@@ -1178,22 +1177,22 @@ static void fof_label_secondary(ForceTree * tree)
 
     message(0, "fof-nearest iteration started\n");
     int NumThreads = omp_get_max_threads();
-    FOF_SECONDARY_GET_PRIV(tw)->npleft = ta_malloc("NPLeft", int, NumThreads);
-    FOF_SECONDARY_GET_PRIV(tw)->count = ta_malloc("Count", int, NumThreads);
+    tw->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
+    FOF_SECONDARY_GET_PRIV(tw)->count = ta_malloc("Count", size_t, NumThreads);
 
     do
     {
-        memset(FOF_SECONDARY_GET_PRIV(tw)->npleft, 0, sizeof(int) * NumThreads);
-        memset(FOF_SECONDARY_GET_PRIV(tw)->count, 0, sizeof(int) * NumThreads);
+        memset(tw->NPLeft, 0, sizeof(size_t) * NumThreads);
+        memset(FOF_SECONDARY_GET_PRIV(tw)->count, 0, sizeof(size_t) * NumThreads);
 
         treewalk_run(tw, NULL, PartManager->NumPart);
 
         for(n = 1; n < NumThreads; n++) {
-            FOF_SECONDARY_GET_PRIV(tw)->npleft[0] += FOF_SECONDARY_GET_PRIV(tw)->npleft[n];
+            tw->NPLeft[0] += tw->NPLeft[n];
             FOF_SECONDARY_GET_PRIV(tw)->count[0] += FOF_SECONDARY_GET_PRIV(tw)->count[n];
         }
-        sumup_large_ints(1, &FOF_SECONDARY_GET_PRIV(tw)->npleft[0], &ntot);
-        sumup_large_ints(1, &FOF_SECONDARY_GET_PRIV(tw)->count[0], &counttot);
+        MPI_Allreduce(&tw->NPLeft[0], &ntot, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&FOF_SECONDARY_GET_PRIV(tw)->count[0], &counttot, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
         message(0, "fof-nearest iteration %d: need to repeat for %010ld /%010ld particles.\n", iter, ntot, counttot);
 
@@ -1210,7 +1209,7 @@ static void fof_label_secondary(ForceTree * tree)
     while(ntot > 0);
 
     ta_free(FOF_SECONDARY_GET_PRIV(tw)->count);
-    ta_free(FOF_SECONDARY_GET_PRIV(tw)->npleft);
+    ta_free(tw->NPLeft);
     myfree(FOF_SECONDARY_GET_PRIV(tw)->hsml);
     myfree(FOF_SECONDARY_GET_PRIV(tw)->distance);
 }

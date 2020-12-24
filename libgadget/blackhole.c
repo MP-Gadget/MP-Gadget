@@ -241,7 +241,7 @@ void set_blackhole_params(ParameterSet * ps)
 
 /* accretion routines */
 static void
-blackhole_accretion_postprocess(int n, TreeWalk * tw);
+blackhole_accretion_postprocess(int n, size_t * count, TreeWalk * tw);
 /* feedback routines. currently also performs the drifting(move it to gravtree / force tree?) */
 static int
 blackhole_accretion_haswork(int n, TreeWalk * tw);
@@ -254,7 +254,7 @@ blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I, TreeWalk * tw)
 
 /* Initializes the minimum potentials*/
 static void
-blackhole_accretion_preprocess(int n, TreeWalk * tw);
+blackhole_accretion_preprocess(int n, size_t * count, TreeWalk * tw);
 
 static void
 blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
@@ -267,7 +267,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 /*************************************************************************************/
 /* DF routines */
 static void
-blackhole_dynfric_postprocess(int n, TreeWalk * tw);
+blackhole_dynfric_postprocess(int n, size_t * count, TreeWalk * tw);
 
 static int
 blackhole_dynfric_haswork(int n, TreeWalk * tw);
@@ -291,7 +291,7 @@ blackhole_dynfric_ngbiter(TreeWalkQueryBHDynfric * I,
 /* feedback routines */
 
 static void
-blackhole_feedback_postprocess(int n, TreeWalk * tw);
+blackhole_feedback_postprocess(int n, size_t * count, TreeWalk * tw);
 
 static int
 blackhole_feedback_haswork(int n, TreeWalk * tw);
@@ -471,7 +471,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     tw_dynfric->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHDynfric);
     tw_dynfric->ngbiter = (TreeWalkNgbIterFunction) blackhole_dynfric_ngbiter;
     tw_dynfric->haswork = blackhole_dynfric_haswork;
-    tw_dynfric->postprocess = (TreeWalkProcessFunction) blackhole_dynfric_postprocess;
+    tw_dynfric->postprocess = blackhole_dynfric_postprocess;
     tw_dynfric->fill = (TreeWalkFillQueryFunction) blackhole_dynfric_copy;
     tw_dynfric->reduce = (TreeWalkReduceResultFunction) blackhole_dynfric_reduce;
     tw_dynfric->query_type_elsize = sizeof(TreeWalkQueryBHDynfric);
@@ -487,8 +487,8 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     tw_accretion->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHAccretion);
     tw_accretion->ngbiter = (TreeWalkNgbIterFunction) blackhole_accretion_ngbiter;
     tw_accretion->haswork = blackhole_accretion_haswork;
-    tw_accretion->postprocess = (TreeWalkProcessFunction) blackhole_accretion_postprocess;
-    tw_accretion->preprocess = (TreeWalkProcessFunction) blackhole_accretion_preprocess;
+    tw_accretion->postprocess = blackhole_accretion_postprocess;
+    tw_accretion->preprocess = blackhole_accretion_preprocess;
     tw_accretion->fill = (TreeWalkFillQueryFunction) blackhole_accretion_copy;
     tw_accretion->reduce = (TreeWalkReduceResultFunction) blackhole_accretion_reduce;
     tw_accretion->query_type_elsize = sizeof(TreeWalkQueryBHAccretion);
@@ -505,7 +505,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     tw_feedback->ngbiter = (TreeWalkNgbIterFunction) blackhole_feedback_ngbiter;
     tw_feedback->haswork = blackhole_feedback_haswork;
     tw_feedback->fill = (TreeWalkFillQueryFunction) blackhole_feedback_copy;
-    tw_feedback->postprocess = (TreeWalkProcessFunction) blackhole_feedback_postprocess;
+    tw_feedback->postprocess = blackhole_feedback_postprocess;
     tw_feedback->reduce = (TreeWalkReduceResultFunction) blackhole_feedback_reduce;
     tw_feedback->query_type_elsize = sizeof(TreeWalkQueryBHFeedback);
     tw_feedback->result_type_elsize = sizeof(TreeWalkResultBHFeedback);
@@ -680,7 +680,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
 /*************************************************************************************/
 /* DF routines */
 static void
-blackhole_dynfric_postprocess(int n, TreeWalk * tw){
+blackhole_dynfric_postprocess(int n, size_t * count, TreeWalk * tw){
 
     int PI = P[n].PI;
     int j;
@@ -809,7 +809,8 @@ blackhole_dynfric_ngbiter(TreeWalkQueryBHDynfric * I,
 
             O->SurroundingParticles += 1;
             O->SurroundingDensity += (mass_j * wk);
-            for (int k = 0; k < 3; k++){
+            int k;
+            for (k = 0; k < 3; k++){
                 O->SurroundingVel[k] += (mass_j * wk * P[other].Vel[k]);
                 O->SurroundingRmsVel += (mass_j * wk * pow(P[other].Vel[k], 2));
             }
@@ -821,7 +822,7 @@ blackhole_dynfric_ngbiter(TreeWalkQueryBHDynfric * I,
 
 
 static void
-blackhole_accretion_postprocess(int i, TreeWalk * tw)
+blackhole_accretion_postprocess(int i, size_t * count, TreeWalk * tw)
 {
     int k;
     int PI = P[i].PI;
@@ -888,7 +889,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
 }
 
 static void
-blackhole_accretion_preprocess(int n, TreeWalk * tw)
+blackhole_accretion_preprocess(int n, size_t * count, TreeWalk * tw)
 {
     int j;
     BH_GET_PRIV(tw)->MinPot[P[n].PI] = P[n].Potential;
@@ -900,7 +901,7 @@ blackhole_accretion_preprocess(int n, TreeWalk * tw)
 }
 
 static void
-blackhole_feedback_postprocess(int n, TreeWalk * tw)
+blackhole_feedback_postprocess(int n, size_t * count, TreeWalk * tw)
 {
     const int PI = P[n].PI;
     if(BH_GET_PRIV(tw)->BH_accreted_BHMass[PI] > 0){

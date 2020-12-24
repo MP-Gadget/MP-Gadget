@@ -55,7 +55,7 @@ struct GravShortPriv {
 #define GRAV_GET_PRIV(tw) ((struct GravShortPriv *) ((tw)->priv))
 
 static void
-grav_short_postprocess(int i, TreeWalk * tw)
+grav_short_postprocess(int i, size_t * count, TreeWalk * tw)
 {
     double G = GRAV_GET_PRIV(tw)->G;
     P[i].GravAccel[0] *= G;

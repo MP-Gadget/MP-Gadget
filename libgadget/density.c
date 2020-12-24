@@ -147,8 +147,6 @@ struct DensityPriv {
      * If DensityIndependentSphOn = 1 then this is used to set DhsmlEgyDensityFactor.*/
     MyFloat * DhsmlDensityFactor;
     int NIteration;
-    size_t *NPLeft;
-    int **NPRedo;
     int update_hsml;
     int DoEgyDensity;
     /*!< Desired number of SPH neighbours */
@@ -169,8 +167,8 @@ density_ngbiter(
         LocalTreeWalk * lv);
 
 static int density_haswork(int n, TreeWalk * tw);
-static void density_postprocess(int i, TreeWalk * tw);
-static void density_check_neighbours(int i, TreeWalk * tw);
+static void density_postprocess(int i, size_t * count, TreeWalk * tw);
+static void density_check_neighbours(int i, size_t * count, TreeWalk * tw);
 
 static void density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
 static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
@@ -209,7 +207,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     tw->haswork = density_haswork;
     tw->fill = (TreeWalkFillQueryFunction) density_copy;
     tw->reduce = (TreeWalkReduceResultFunction) density_reduce;
-    tw->postprocess = (TreeWalkProcessFunction) density_postprocess;
+    tw->postprocess = density_postprocess;
     tw->query_type_elsize = sizeof(TreeWalkQueryDensity);
     tw->result_type_elsize = sizeof(TreeWalkResultDensity);
     tw->priv = priv;
@@ -288,8 +286,8 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     walltime_measure("/SPH/Density/Init");
 
     int NumThreads = omp_get_max_threads();
-    DENSITY_GET_PRIV(tw)->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
-    DENSITY_GET_PRIV(tw)->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
+    tw->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
+    tw->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
     int alloc_high = 0;
     int * ReDoQueue = act->ActiveParticle;
     int size = act->NumActiveParticle;
@@ -310,7 +308,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
                 ReDoQueue = (int *) mymalloc("ReDoQueue", size * sizeof(int) * NumThreads);
                 alloc_high = 0;
             }
-            gadget_setup_thread_arrays(ReDoQueue, DENSITY_GET_PRIV(tw)->NPRedo, DENSITY_GET_PRIV(tw)->NPLeft, size, NumThreads);
+            gadget_setup_thread_arrays(ReDoQueue, tw->NPRedo, tw->NPLeft, size, NumThreads);
         }
         treewalk_run(tw, CurQueue, size);
 
@@ -324,7 +322,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
             myfree(CurQueue);
 
         /* Set up the next queue*/
-        size = gadget_compact_thread_arrays(ReDoQueue, DENSITY_GET_PRIV(tw)->NPRedo, DENSITY_GET_PRIV(tw)->NPLeft, NumThreads);
+        size = gadget_compact_thread_arrays(ReDoQueue, tw->NPRedo, tw->NPLeft, NumThreads);
 
         sumup_large_ints(1, &size, &ntot);
         if(ntot == 0){
@@ -367,8 +365,8 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
         }
     } while(1);
 
-    ta_free(DENSITY_GET_PRIV(tw)->NPRedo);
-    ta_free(DENSITY_GET_PRIV(tw)->NPLeft);
+    ta_free(tw->NPRedo);
+    ta_free(tw->NPLeft);
     myfree(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor);
     myfree(DENSITY_GET_PRIV(tw)->Rot);
     myfree(DENSITY_GET_PRIV(tw)->NumNgb);
@@ -564,7 +562,7 @@ density_haswork(int n, TreeWalk * tw)
 }
 
 static void
-density_postprocess(int i, TreeWalk * tw)
+density_postprocess(int i, size_t * count, TreeWalk * tw)
 {
     if(P[i].Type == 0)
     {
@@ -611,10 +609,10 @@ density_postprocess(int i, TreeWalk * tw)
 
     /* This is slightly more complicated so we put it in a different function */
     if(DENSITY_GET_PRIV(tw)->update_hsml)
-        density_check_neighbours(i, tw);
+        density_check_neighbours(i, count, tw);
 }
 
-void density_check_neighbours (int i, TreeWalk * tw)
+void density_check_neighbours (int i, size_t * count, TreeWalk * tw)
 {
     /* now check whether we had enough neighbours */
 
@@ -701,8 +699,8 @@ void density_check_neighbours (int i, TreeWalk * tw)
         }
         /* More work needed: add this particle to the redo queue*/
         int tid = omp_get_thread_num();
-        DENSITY_GET_PRIV(tw)->NPRedo[tid][DENSITY_GET_PRIV(tw)->NPLeft[tid]] = i;
-        DENSITY_GET_PRIV(tw)->NPLeft[tid] ++;
+        tw->NPRedo[tid][*count] = i;
+        (*count)++;
     }
     else {
         /* We might have got here by serendipity, without bounding.*/

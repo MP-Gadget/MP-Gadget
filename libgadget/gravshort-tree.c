@@ -127,7 +127,7 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
     /* gravity applies to all particles. Including Tracer particles to enhance numerical stability. */
     tw->haswork = NULL;
     tw->reduce = (TreeWalkReduceResultFunction) grav_short_reduce;
-    tw->postprocess = (TreeWalkProcessFunction) grav_short_postprocess;
+    tw->postprocess = grav_short_postprocess;
 
     tw->query_type_elsize = sizeof(TreeWalkQueryGravShort);
     tw->result_type_elsize = sizeof(TreeWalkResultGravShort);

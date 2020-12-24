@@ -68,7 +68,9 @@ typedef int (*TreeWalkVisitFunction) (TreeWalkQueryBase * input, TreeWalkResultB
 typedef void (*TreeWalkNgbIterFunction) (TreeWalkQueryBase * input, TreeWalkResultBase * output, TreeWalkNgbIterBase * iter, LocalTreeWalk * lv);
 
 typedef int (*TreeWalkHasWorkFunction) (const int i, TreeWalk * tw);
-typedef void (*TreeWalkProcessFunction) (const int i, TreeWalk * tw);
+/* Function for pre or post-processing particles. The count argument is summed into the NPLeft array
+ * in the treewalk structure and is here so the memory is thread local and not sharing a cacheline. */
+typedef void (*TreeWalkProcessFunction) (const int i, size_t * count, TreeWalk * tw);
 
 typedef void (*TreeWalkFillQueryFunction)(const int j, TreeWalkQueryBase * query, TreeWalk * tw);
 typedef void (*TreeWalkReduceResultFunction)(const int j, TreeWalkResultBase * result, const enum TreeWalkReduceMode mode, TreeWalk * tw);
@@ -146,6 +148,9 @@ struct TreeWalk {
     /* Number of particles we can fit into the export buffer*/
     size_t BunchSize;
 
+    /* Array of per-thread counters for redoing some particles for density iterations.*/
+    size_t * NPLeft;
+    int **NPRedo;
     /* Index into WorkSet to start iteration.
      * Will be !=0 if the export buffer fills up*/
     int WorkSetStart;

@@ -119,7 +119,7 @@ static int
 hydro_haswork(int n, TreeWalk * tw);
 
 static void
-hydro_postprocess(int i, TreeWalk * tw);
+hydro_postprocess(int i, size_t * count, TreeWalk * tw);
 
 static void
 hydro_ngbiter(
@@ -154,7 +154,7 @@ hydro_force(const ActiveParticles * act, int WindOn, const double hubble, const 
     tw->haswork = hydro_haswork;
     tw->fill = (TreeWalkFillQueryFunction) hydro_copy;
     tw->reduce = (TreeWalkReduceResultFunction) hydro_reduce;
-    tw->postprocess = (TreeWalkProcessFunction) hydro_postprocess;
+    tw->postprocess = hydro_postprocess;
     tw->query_type_elsize = sizeof(TreeWalkQueryHydro);
     tw->result_type_elsize = sizeof(TreeWalkResultHydro);
     tw->tree = tree;
@@ -404,7 +404,7 @@ hydro_haswork(int i, TreeWalk * tw)
 }
 
 static void
-hydro_postprocess(int i, TreeWalk * tw)
+hydro_postprocess(int i, size_t * count, TreeWalk * tw)
 {
     if(P[i].Type == 0)
     {

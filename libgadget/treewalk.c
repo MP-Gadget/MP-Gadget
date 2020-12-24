@@ -613,10 +613,11 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
 
     if(tw->preprocess) {
         int i;
-        #pragma omp parallel for
+        size_t count = 0;
+        #pragma omp parallel for reduction(+: count)
         for(i = 0; i < tw->WorkSetSize; i ++) {
             const int p_i = tw->WorkSet ? tw->WorkSet[i] : i;
-            tw->preprocess(p_i, tw);
+            tw->preprocess(p_i, &count, tw);
         }
     }
 
@@ -656,11 +657,19 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
     tstart = second();
 
     if(tw->postprocess) {
-        int i;
-        #pragma omp parallel for
-        for(i = 0; i < tw->WorkSetSize; i ++) {
-            const int p_i = tw->WorkSet ? tw->WorkSet[i] : i;
-            tw->postprocess(p_i, tw);
+        #pragma omp parallel
+        {
+            int i;
+            size_t count=0;
+            #pragma omp for
+            for(i = 0; i < tw->WorkSetSize; i ++) {
+                const int p_i = tw->WorkSet ? tw->WorkSet[i] : i;
+                tw->postprocess(p_i, &count, tw);
+            }
+            if(tw->NPLeft) {
+                int tid = omp_get_thread_num();
+                tw->NPLeft[tid] = count;
+            }
         }
     }
     tend = second();

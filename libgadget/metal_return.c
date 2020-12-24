@@ -155,7 +155,7 @@ static void
 metal_return_copy(int place, TreeWalkQueryMetals * input, TreeWalk * tw);
 
 static void
-metal_return_postprocess(int place, TreeWalk * tw);
+metal_return_postprocess(int place, size_t * count, TreeWalk * tw);
 
 static int
 metals_haswork(int i, MyFloat * StellarAges, MyFloat * MassReturn);
@@ -474,7 +474,7 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     tw->haswork = metal_return_haswork;
     tw->fill = (TreeWalkFillQueryFunction) metal_return_copy;
     tw->reduce = NULL;
-    tw->postprocess = (TreeWalkProcessFunction) metal_return_postprocess;
+    tw->postprocess = metal_return_postprocess;
     tw->query_type_elsize = sizeof(TreeWalkQueryMetals);
     tw->result_type_elsize = sizeof(TreeWalkResultMetals);
     tw->repeatdisallowed = 1;
@@ -595,7 +595,7 @@ metal_return_copy(int place, TreeWalkQueryMetals * input, TreeWalk * tw)
  * Note that the stellar metallicity is not updated, as the
  * metal-forming stars are now dead and their metals in the gas.*/
 static void
-metal_return_postprocess(int place, TreeWalk * tw)
+metal_return_postprocess(int place, size_t * count, TreeWalk * tw)
 {
     /* Conserve mass returned*/
     P[place].Mass -= METALS_GET_PRIV(tw)->MassReturn[P[place].PI];
@@ -730,8 +730,6 @@ struct StellarDensityPriv {
     MyFloat *Left, *Right, *DhsmlDensity, *Density;
     MyFloat * VolumeSPH;
     int NIteration;
-    size_t *NPLeft;
-    int **NPRedo;
     /* For haswork*/
     MyFloat * StellarAges;
     MyFloat * MassReturn;
@@ -763,7 +761,7 @@ stellar_density_reduce(int place, TreeWalkResultStellarDensity * remote, enum Tr
     TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->Density[pi], remote->Rho);
 }
 
-void stellar_density_check_neighbours (int i, TreeWalk * tw)
+void stellar_density_check_neighbours (int i, size_t * count, TreeWalk * tw)
 {
     /* now check whether we had enough neighbours */
 
@@ -827,8 +825,8 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
         }
         /* More work needed: add this particle to the redo queue*/
         int tid = omp_get_thread_num();
-        STELLAR_DENSITY_GET_PRIV(tw)->NPRedo[tid][STELLAR_DENSITY_GET_PRIV(tw)->NPLeft[tid]] = i;
-        STELLAR_DENSITY_GET_PRIV(tw)->NPLeft[tid] ++;
+        tw->NPRedo[tid][*count] = i;
+        (*count)++;
     }
 
     if(STELLAR_DENSITY_GET_PRIV(tw)->NIteration >= MAXITER - 10)
@@ -897,7 +895,7 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
     tw->haswork = stellar_density_haswork;
     tw->fill = (TreeWalkFillQueryFunction) stellar_density_copy;
     tw->reduce = (TreeWalkReduceResultFunction) stellar_density_reduce;
-    tw->postprocess = (TreeWalkProcessFunction) stellar_density_check_neighbours;
+    tw->postprocess = stellar_density_check_neighbours;
     tw->query_type_elsize = sizeof(TreeWalkQueryStellarDensity);
     tw->result_type_elsize = sizeof(TreeWalkResultStellarDensity);
     tw->priv = priv;
@@ -929,8 +927,8 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
     walltime_measure("/SPH/Metals/Init");
     /* allocate buffers to arrange communication */
     int NumThreads = omp_get_max_threads();
-    priv->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
-    priv->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
+    tw->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
+    tw->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
     int alloc_high = 0;
     int * ReDoQueue = act->ActiveParticle;
     int size = act->NumActiveParticle;
@@ -949,7 +947,7 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
             ReDoQueue = (int *) mymalloc("ReDoQueue", size * sizeof(int) * NumThreads);
             alloc_high = 0;
         }
-        gadget_setup_thread_arrays(ReDoQueue, priv->NPRedo, priv->NPLeft, size, NumThreads);
+        gadget_setup_thread_arrays(ReDoQueue, tw->NPRedo, tw->NPLeft, size, NumThreads);
         treewalk_run(tw, CurQueue, size);
 
         tw->haswork = NULL;
@@ -958,7 +956,7 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
             myfree(CurQueue);
 
         /* Set up the next queue*/
-        size = gadget_compact_thread_arrays(ReDoQueue, priv->NPRedo, priv->NPLeft, NumThreads);
+        size = gadget_compact_thread_arrays(ReDoQueue, tw->NPRedo, tw->NPLeft, NumThreads);
 
         sumup_large_ints(1, &size, &ntot);
         if(ntot == 0){
@@ -995,8 +993,8 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
             endrun(3, "i = %d pi = %d StarVolumeSPH %g hsml %g\n", a, P[a].PI, priv->VolumeSPH[P[a].PI], P[a].Hsml);
     }
 #endif
-    ta_free(priv->NPRedo);
-    ta_free(priv->NPLeft);
+    ta_free(tw->NPRedo);
+    ta_free(tw->NPLeft);
     myfree(priv->Density);
     myfree(priv->DhsmlDensity);
     myfree(priv->NumNgb);
