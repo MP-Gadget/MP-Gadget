@@ -45,6 +45,7 @@ typedef struct {
     double V1sum[3];
     double V2sum;
     int Ngb;
+    int alignment; /* Ensure alignment*/
 } TreeWalkResultWind;
 
 typedef struct {

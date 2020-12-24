@@ -121,6 +121,7 @@ typedef struct {
     MyFloat BH_Mass;
     int BH_CountProgs;
     MyFloat acMtrack; /* the accreted Mtrack */
+    int alignment; /* Ensure alignment*/
 } TreeWalkResultBHFeedback;
 
 typedef struct {

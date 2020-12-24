@@ -180,6 +180,13 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
 
     report_memory_usage(tw->ev_label);
 
+    /* Assert that the query and result structures are aligned to  64-bit boundary,
+     * so that our MPI Send/Recv's happen from aligned memory.*/
+    if(tw->query_type_elsize % 8 != 0)
+        endrun(0, "Query structure has size %d, not aligned to 64-bit boundary.\n", tw->query_type_elsize);
+    if(tw->result_type_elsize % 8 != 0)
+        endrun(0, "Result structure has size %d, not aligned to 64-bit boundary.\n", tw->result_type_elsize);
+
     /*The amount of memory eventually allocated per tree buffer*/
     size_t bytesperbuffer = sizeof(struct data_index) + sizeof(struct data_nodelist) + tw->query_type_elsize;
     /*This memory scales like the number of imports. In principle this could be much larger than Nexport
