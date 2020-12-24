@@ -49,9 +49,14 @@ typedef struct {
     int mode; /* 0 for Primary, 1 for Secondary */
     int target; /* defined only for primary (mode == 0) */
 
+    /* Thread local export variables*/
+    size_t Nexport;
+    size_t BunchSize;
     int *exportflag;
     int *exportnodecount;
     size_t *exportindex;
+    size_t DataIndexOffset;
+
     int * ngblist;
     int64_t Ninteractions;
     int64_t Nnodesinlist;
@@ -100,9 +105,15 @@ struct TreeWalk {
     size_t NThread; /*Number of OpenMP threads*/
 
     /* Unlike in Gadget-3, when exporting we now always send tree branches.*/
-
     char * dataget;
     char * dataresult;
+
+    /* The metal return alters neighbours,
+     * which cannot be evaluated twice.
+     * If repeatdisallowd is true, we allocate memory
+     * to keep track of the evaluated particles.*/
+    int repeatdisallowed;
+    char * evaluated;
 
     /* performance metrics */
     double timewait1;
