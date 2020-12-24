@@ -57,7 +57,7 @@ ForceTree
 force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp);
 
 void
-force_update_node_parallel(const ForceTree * tree);
+force_update_node_parallel(const ForceTree * tree, const DomainDecomp * ddecomp);
 
 static void
 force_treeupdate_pseudos(int no, const ForceTree * tree);
@@ -223,7 +223,7 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
 
     if(DoMoments) {
         /* now compute the multipole moments recursively */
-        force_update_node_parallel(&tree);
+        force_update_node_parallel(&tree, ddecomp);
 #ifdef DEBUG
         force_validate_nextlist(&tree);
 #endif
@@ -875,16 +875,27 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree)
  * - A final recursive moment calculation is run in serial for the top 3 levels of the tree. When it encounters one of the pre-computed nodes, it
  * searches the list of pre-computed tail values to set the next node as if it had recursed and continues.
  */
-void force_update_node_parallel(const ForceTree * tree)
+void force_update_node_parallel(const ForceTree * tree, const DomainDecomp * ddecomp)
 {
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+
 #pragma omp parallel
 #pragma omp single nowait
     {
-        /* Nodes containing other nodes: the overwhelmingly likely case.*/
-        if(tree->Nodes[tree->firstnode].f.ChildType == NODE_NODE_TYPE)
-            force_update_node_recursive(tree->firstnode, -1, 1, tree);
-        else if(tree->Nodes[tree->firstnode].f.ChildType == PARTICLE_NODE_TYPE)
-            force_update_particle_node(tree->firstnode, tree);
+        int i;
+        for(i = ddecomp->Tasks[ThisTask].StartLeaf; i < ddecomp->Tasks[ThisTask].EndLeaf; i ++) {
+            const int no = ddecomp->TopLeaves[i].treenode;
+            /* Nodes containing other nodes: the overwhelmingly likely case.*/
+            if(tree->Nodes[no].f.ChildType == NODE_NODE_TYPE) {
+                #pragma omp task default(none) shared(tree) firstprivate(no)
+                force_update_node_recursive(no, tree->Nodes[no].sibling, 1, tree);
+            }
+            else if(tree->Nodes[no].f.ChildType == PARTICLE_NODE_TYPE)
+                force_update_particle_node(no, tree);
+            else if(tree->Nodes[no].f.ChildType == PSEUDO_NODE_TYPE)
+                endrun(5, "Error, found pseudo node %d but domain entry %d says on task %d\n", no, i, ThisTask);
+        }
     }
 }
 

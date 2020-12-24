@@ -27,7 +27,7 @@ ForceTree
 force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp);
 
 int
-force_update_node_parallel(const ForceTree * tree);
+force_update_node_parallel(const ForceTree * tree, const DomainDecomp * ddecomp);
 
 /*Particle data.*/
 struct part_manager_type PartManager[1] = {{0}};
@@ -244,7 +244,7 @@ static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp
     int nrealnode = check_tree(&tb, nodes, numpart);
     /* now compute the multipole moments recursively */
     start = MPI_Wtime();
-    force_update_node_parallel(&tb);
+    force_update_node_parallel(&tb, ddecomp);
     end = MPI_Wtime();
     ms = (end - start)*1000;
     printf("Updated moments in %.3g ms. Total mass: %g\n", ms, tb.Nodes[numpart].mom.mass);
