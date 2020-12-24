@@ -711,25 +711,30 @@ int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times
     /* We enforce schedule static to imply monotonic, ensure that each thread executes on contiguous particles
      * and ensure no thread gets more than narr particles.*/
     size_t schedsz = PartManager->NumPart / NumThreads + 1;
-    #pragma omp parallel for schedule(static, schedsz)
-    for(i = 0; i < PartManager->NumPart; i++)
+    #pragma omp parallel
     {
-        const int bin = P[i].TimeBin;
         const int tid = omp_get_thread_num();
-        if(P[i].IsGarbage || P[i].Swallowed)
-            continue;
-        /* when we are in PM, all particles must have been synced. */
-        if (P[i].Ti_drift != times->Ti_Current) {
-            endrun(5, "Particle %d type %d has drift time %x not ti_current %x!",i, P[i].Type, P[i].Ti_drift, times->Ti_Current);
-        }
-
-        if(act->ActiveParticle && is_timebin_active(bin, times->Ti_Current))
+        size_t count = 0;
+        #pragma omp for schedule(static, schedsz)
+        for(i = 0; i < PartManager->NumPart; i++)
         {
-            /* Store this particle in the ActiveSet for this thread*/
-            ActivePartSets[tid][NActiveThread[tid]] = i;
-            NActiveThread[tid]++;
+            const int bin = P[i].TimeBin;
+            if(P[i].IsGarbage || P[i].Swallowed)
+                continue;
+            /* when we are in PM, all particles must have been synced. */
+            if (P[i].Ti_drift != times->Ti_Current) {
+                endrun(5, "Particle %d type %d has drift time %x not ti_current %x!",i, P[i].Type, P[i].Ti_drift, times->Ti_Current);
+            }
+
+            if(act->ActiveParticle && is_timebin_active(bin, times->Ti_Current))
+            {
+                /* Store this particle in the ActiveSet for this thread*/
+                ActivePartSets[tid][count] = i;
+                count++;
+            }
+            TimeBinCountType[(TIMEBINS + 1) * (6* tid + P[i].Type) + bin] ++;
         }
-        TimeBinCountType[(TIMEBINS + 1) * (6* tid + P[i].Type) + bin] ++;
+        NActiveThread[tid] = count;
     }
     if(act->ActiveParticle) {
         /*Now we want a merge step for the ActiveParticle list.*/

@@ -159,6 +159,7 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
     {
         int i;
         const int tid = omp_get_thread_num();
+        size_t count = 0;
         #pragma omp for schedule(static)
         for(i=0; i < nactive; i++)
         {
@@ -190,14 +191,15 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
                 }
                 /*Add this particle to the stellar conversion queue if necessary.*/
                 if(newstar >= 0) {
-                    thrqueuesfr[tid][nqthrsfr[tid]] = newstar;
-                    thrqueueparent[tid][nqthrsfr[tid]] = p_i;
-                    nqthrsfr[tid]++;
+                    thrqueuesfr[tid][count] = newstar;
+                    thrqueueparent[tid][count] = p_i;
+                    count++;
                 }
             }
             else
                 cooling_direct(p_i, a3inv, hubble);
         }
+        nqthrsfr[tid]= count;
     }
 
     report_memory_usage("SFR");

@@ -389,19 +389,25 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
 
     /* flag the particles that need to be exported */
     size_t schedsz = plan->nexchange/numthreads+1;
-    #pragma omp parallel for schedule(static, schedsz) reduction(+: ngarbage)
-    for(i=0; i < pman->NumPart; i++)
+    #pragma omp parallel reduction(+: ngarbage)
     {
-        if(pman->Base[i].IsGarbage) {
-            ngarbage++;
-            continue;
+        const int tid = omp_get_thread_num();
+        size_t count = 0;
+
+        #pragma omp for schedule(static, schedsz)
+        for(i=0; i < pman->NumPart; i++)
+        {
+            if(pman->Base[i].IsGarbage) {
+                ngarbage++;
+                continue;
+            }
+            int target = layoutfunc(i, layout_userdata);
+            if(target != ThisTask) {
+                threx[tid][count] = i;
+                count++;
+            }
         }
-        int target = layoutfunc(i, layout_userdata);
-        if(target != ThisTask) {
-            const int tid = omp_get_thread_num();
-            threx[tid][nexthr[tid]] = i;
-            nexthr[tid]++;
-        }
+        nexthr[tid] = count;
     }
     plan->ngarbage = ngarbage;
     /*Merge step for the queue.*/
