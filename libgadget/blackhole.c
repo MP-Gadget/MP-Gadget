@@ -1063,11 +1063,19 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             /* compute accretion probability */
             double p = 0;
 
+            MyFloat BHPartMass = I->Mass;
+            /* If SeedBHDynMass is larger than gas paricle mass, we use Mtrack to do the gas accretion
+             * when BHP.Mass < SeedBHDynMass. Mtrack is initialized as gas particle mass and is capped
+             * at SeedBHDynMass. Mtrack traces the BHP.Mass by stochastically swallowing gas and
+             * therefore ensures mass conservation.*/
+            if(blackhole_params.SeedBHDynMass > 0 && I->Mtrack < blackhole_params.SeedBHDynMass)
+                BHPartMass = I->Mtrack;
+
             /* This is an averaged Mdot, because Mdot increases BH_Mass but not Mass.
              * So if the total accretion is significantly above the dynamical mass,
              * a particle is swallowed. */
-            if((I->BH_Mass - I->Mass) > 0 && I->Density > 0)
-                p = (I->BH_Mass - I->Mass) * wk / I->Density;
+            if((I->BH_Mass - BHPartMass) > 0 && I->Density > 0)
+                p = (I->BH_Mass - BHPartMass) * wk / I->Density;
 
             /* compute random number, uniform in [0,1] */
             const double w = get_random_number(P[other].ID);
@@ -1087,37 +1095,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
                         break;
                     /* Swap in the new id only if the old one hasn't changed*/
                 } while(!__atomic_compare_exchange_n(&SPH_SwallowID[P[other].PI], &readid, newswallowid, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
-            }
-
-            /* If SeedBHDynMass is larger than gas paricle mass, we use Mtrack to do the gas accretion
-             * when BHP.Mass < SeedBHDynMass. Mtrack is initialized as gas particle mass and is capped
-             * at SeedBHDynMass. Mtrack traces the BHP.Mass by stochastically swallowing gas and
-             * therefore ensures mass conservation.
-             * We mark swallowed gas that to be added to Mtrack (instead of P[i].Mass) as ID+2. */
-            if(blackhole_params.SeedBHDynMass>0){
-                p = 0;
-                /* （Mtrack<SeedBHDynMass）and (I->BH_Mass>I->Mass) are mutually exclusive, therefore
-                    a gas particle can either be added to Mass or to Mtrack. */
-                if((I->Mtrack < blackhole_params.SeedBHDynMass) && (I->BH_Mass - I->Mtrack) > 0 && I->Density > 0)
-                    p = (I->BH_Mass - I->Mtrack) * wk / I->Density;
-
-                /* compute random number, uniform in [0,1] */
-                const double w = get_random_number(P[other].ID);
-                if(w < p)
-                {
-                    MyIDType * SPH_SwallowID = BH_GET_PRIV(lv->tw)->SPH_SwallowID;
-                    MyIDType readid, newswallowid;
-                    #pragma omp atomic read
-                    readid = SPH_SwallowID[P[other].PI];
-                    do {
-                        if(readid < I->ID + 2) {
-                            newswallowid = I->ID + 2;
-                        }
-                        else
-                            break;
-                        /* Swap in the new id only if the old one hasn't changed*/
-                    } while(!__atomic_compare_exchange_n(&SPH_SwallowID[P[other].PI], &readid, newswallowid, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
-                }
             }
         }
 
@@ -1282,26 +1259,17 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     if(P[other].Type == 0 && SPH_SwallowID[P[other].PI] == I->ID+1)
     {
         /* We do not know how to notify the tree of mass changes. so
-         * blindly enforce a mass conservation for now. */
-        O->Mass += (P[other].Mass);
+         * enforce a mass conservation. */
+        if(blackhole_params.SeedBHDynMass > 0 && I->Mtrack < blackhole_params.SeedBHDynMass) {
+            /* we just add gas mass to Mtrack instead of dynMass */
+            O->acMtrack += P[other].Mass;
+        } else
+            O->Mass += P[other].Mass;
         P[other].Mass = 0;
         /* Conserve momentum during accretion*/
         int d;
         for(d = 0; d < 3; d++)
             O->AccretedMomentum[d] += (P[other].Mass * P[other].Vel[d]);
-
-        slots_mark_garbage(other, PartManager, SlotsManager);
-
-        int tid = omp_get_thread_num();
-        BH_GET_PRIV(lv->tw)->N_sph_swallowed[tid]++;
-    }
-
-    /* Swallowing a gas before BH_Mass reach SeedBHDynMass */
-    if(P[other].Type == 0 && SPH_SwallowID[P[other].PI] == I->ID+2)
-    {
-        /* we just add gas mass to Mtrack instead of dynMass */
-        O->acMtrack += (P[other].Mass);
-        P[other].Mass = 0;
 
         slots_mark_garbage(other, PartManager, SlotsManager);
 
