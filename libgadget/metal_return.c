@@ -982,6 +982,7 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
     } while(1);
 
 #ifdef DEBUG
+    int i;
     for(i = 0; i < act->NumActiveParticle; i++) {
         int a = act->ActiveParticle ? act->ActiveParticle[i] : i;
         /* Skip the garbage particles */
