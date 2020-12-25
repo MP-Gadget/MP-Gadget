@@ -175,6 +175,14 @@ static void density_check_neighbours(int i, TreeWalk * tw);
 static void density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
 static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
 
+void density_init(int i, TreeWalk * tw)
+{
+    DENSITY_GET_PRIV(tw)->NumNgb[i] = 0;
+    DENSITY_GET_PRIV(tw)->Left[i] = 0;
+    DENSITY_GET_PRIV(tw)->Right[i] = tw->tree->BoxSize;
+}
+
+
 /*! \file density.c
  *  \brief SPH density computation and smoothing length determination
  *
@@ -209,6 +217,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     tw->haswork = density_haswork;
     tw->fill = (TreeWalkFillQueryFunction) density_copy;
     tw->reduce = (TreeWalkReduceResultFunction) density_reduce;
+    tw->preprocess = density_init;
     tw->postprocess = (TreeWalkProcessFunction) density_postprocess;
     tw->query_type_elsize = sizeof(TreeWalkQueryDensity);
     tw->result_type_elsize = sizeof(TreeWalkResultDensity);
@@ -243,17 +252,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     DENSITY_GET_PRIV(tw)->BlackHoleOn = BlackHoleOn;
     DENSITY_GET_PRIV(tw)->SPH_predicted = SPH_predicted;
     DENSITY_GET_PRIV(tw)->GradRho = GradRho;
-
-    /* Init Left and Right: this has to be done before treewalk */
-    #pragma omp parallel for
-    for(i = 0; i < act->NumActiveParticle; i++)  {
-        int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
-        /* We only really need active particles with work
-         * but I don't want to read the particle table here*/
-        DENSITY_GET_PRIV(tw)->Right[p_i] = tree->BoxSize;
-        DENSITY_GET_PRIV(tw)->NumNgb[p_i] = 0;
-        DENSITY_GET_PRIV(tw)->Left[p_i] = 0;
-    }
 
     /* Factor this out since all particles have the same drift time*/
     const double FgravkickB = get_exact_gravkick_factor(CP, times.PM_kick, times.Ti_Current);
@@ -318,6 +316,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
         if(!update_hsml)
             break;
 
+        tw->preprocess = NULL;
         tw->haswork = NULL;
         /* Now done with the current queue*/
         if(DENSITY_GET_PRIV(tw)->NIteration > 0)
