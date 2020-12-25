@@ -133,7 +133,6 @@ typedef struct {
     /* This is the total mass returned to
      * the surrounding gas particles, for mass conservation.*/
     MyFloat MassReturn;
-    int Ninteractions;
 } TreeWalkResultMetals;
 
 typedef struct {
@@ -678,7 +677,6 @@ metal_return_ngbiter(
             endrun(3, "New mass %g new metal %g in particle %d id %ld from star mass %g metallicity %g\n",
                    newmass, SPHP(other).Metallicity, other, P[other].ID, I->Mass, I->Metallicity);
     }
-    O->Ninteractions++;
 }
 
 /* Find stars returning enough metals to the gas.

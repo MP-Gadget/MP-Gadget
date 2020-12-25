@@ -144,13 +144,10 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
     const double hubble = hubble_function(&All.CP, All.Time);
 
     if(All.StarformationOn) {
-        /* Need 1 extra for non-integer part and 1 extra
-         * for the case where one thread loops an extra time*/
-        int narr = nactive/nthreads+nthreads;
-        NewStars = mymalloc("NewStars", narr * sizeof(int) * nthreads);
-        gadget_setup_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, narr, nthreads);
-        NewParents = mymalloc2("NewParents", narr * sizeof(int) * nthreads);
-        gadget_setup_thread_arrays(NewParents, thrqueueparent, nqthrsfr, narr, nthreads);
+        NewStars = mymalloc("NewStars", nactive * sizeof(int) * nthreads);
+        gadget_setup_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, nactive, nthreads);
+        NewParents = mymalloc2("NewParents", nactive * sizeof(int) * nthreads);
+        gadget_setup_thread_arrays(NewParents, thrqueueparent, nqthrsfr, nactive, nthreads);
     }
 
     double sum_sm = 0, sum_mass_stars = 0, localsfr = 0;
@@ -162,8 +159,8 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
     {
         int i;
         const int tid = omp_get_thread_num();
-
-        for(i=tid; i < nactive; i+=nthreads)
+        #pragma omp for schedule(static)
+        for(i=0; i < nactive; i++)
         {
             /*Use raw particle number if active_set is null, otherwise use active_set*/
             const int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
@@ -193,7 +190,6 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
                 }
                 /*Add this particle to the stellar conversion queue if necessary.*/
                 if(newstar >= 0) {
-                    int tid = omp_get_thread_num();
                     thrqueuesfr[tid][nqthrsfr[tid]] = newstar;
                     thrqueueparent[tid][nqthrsfr[tid]] = p_i;
                     nqthrsfr[tid]++;
@@ -237,7 +233,7 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
     int i;
 
     /*Now we turn the particles into stars*/
-    #pragma omp parallel for reduction(+:stars_converted) reduction(+:stars_spawned) reduction(+:sum_mass_stars)
+    #pragma omp parallel for schedule(static) reduction(+:stars_converted) reduction(+:stars_spawned) reduction(+:sum_mass_stars)
     for(i=0; i < NumNewStar; i++)
     {
         int child = NewStars[i];

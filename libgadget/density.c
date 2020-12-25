@@ -110,6 +110,7 @@ typedef struct
     double Vel[3];
     MyFloat Hsml;
     int Type;
+    int alignment;
 } TreeWalkQueryDensity;
 
 typedef struct {
@@ -124,9 +125,6 @@ typedef struct {
     MyFloat Ngb;
     MyFloat Div;
     MyFloat Rot[3];
-
-    int Ninteractions;
-
     /*Only used if sfr_need_to_compute_sph_grad_rho is true*/
     MyFloat GradRho[3];
 } TreeWalkResultDensity;
@@ -494,9 +492,6 @@ density_ngbiter(
         endrun(12, "Encountered zero mass particle during density;"
                   " We haven't implemented tracer particles and this shall not happen\n");
     }
-
-    /* some performance measures*/
-    O->Ninteractions ++;
 
     if(r2 < iter->kernel.HH)
     {

@@ -180,6 +180,13 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
 
     report_memory_usage(tw->ev_label);
 
+    /* Assert that the query and result structures are aligned to  64-bit boundary,
+     * so that our MPI Send/Recv's happen from aligned memory.*/
+    if(tw->query_type_elsize % 8 != 0)
+        endrun(0, "Query structure has size %d, not aligned to 64-bit boundary.\n", tw->query_type_elsize);
+    if(tw->result_type_elsize % 8 != 0)
+        endrun(0, "Result structure has size %d, not aligned to 64-bit boundary.\n", tw->result_type_elsize);
+
     /*The amount of memory eventually allocated per tree buffer*/
     size_t bytesperbuffer = sizeof(struct data_index) + sizeof(struct data_nodelist) + tw->query_type_elsize;
     /*This memory scales like the number of imports. In principle this could be much larger than Nexport
@@ -270,8 +277,9 @@ treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum T
 #endif
 }
 
-static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, LocalTreeWalk * lv, int * currentIndex)
+static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * dataindexoffset, size_t * nexports, int * currentIndex)
 {
+    LocalTreeWalk lv[1];
     /* Note: exportflag is local to each thread */
     ev_init_thread(export, tw, lv);
     lv->mode = 0;
@@ -349,6 +357,8 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, LocalTreeW
         }
     } while(chnk < tw->WorkSetSize);
 
+    *dataindexoffset = lv->DataIndexOffset;
+    *nexports = lv->Nexport;
     return lastSucceeded;
 }
 
@@ -448,11 +458,13 @@ ev_primary(TreeWalk * tw)
     int currentIndex = tw->WorkSetStart;
     int lastSucceeded = tw->WorkSetSize;
 
-    LocalTreeWalk * lv = ta_malloc("localtreewalk", LocalTreeWalk, tw->NThread);
+    size_t * nexports = ta_malloc("localexports", size_t, tw->NThread);
+    size_t * dataindexoffset = ta_malloc("dataindex", size_t, tw->NThread);
 
 #pragma omp parallel reduction(min: lastSucceeded)
     {
-        lastSucceeded = real_ev(export, tw, &lv[omp_get_thread_num()], &currentIndex);
+        int tid = omp_get_thread_num();
+        lastSucceeded = real_ev(export, tw, &dataindexoffset[tid], &nexports[tid], &currentIndex);
     }
 
     size_t i;
@@ -461,11 +473,12 @@ ev_primary(TreeWalk * tw)
     /* Compactify the export queue*/
     for(i = 0; i < tw->NThread; i++)
     {
-        memmove(DataIndexTable + tw->Nexport, DataIndexTable + lv[i].DataIndexOffset, sizeof(DataIndexTable[0]) * lv[i].Nexport);
-        tw->Nexport += lv[i].Nexport;
+        memmove(DataIndexTable + tw->Nexport, DataIndexTable + dataindexoffset[i], sizeof(DataIndexTable[0]) * nexports[i]);
+        tw->Nexport += nexports[i];
     }
 
-    myfree(lv);
+    myfree(dataindexoffset);
+    myfree(nexports);
     ev_free_threadlocals(export);
 
     /* Set the place to start the next iteration. Note that because lastSucceeded

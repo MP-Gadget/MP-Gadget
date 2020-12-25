@@ -97,8 +97,7 @@ typedef struct {
     MyFloat Pressure;
     MyFloat F1;
     MyFloat SPH_DhsmlDensityFactor;
-    signed char TimeBin;
-
+    MyFloat dloga;
 } TreeWalkQueryHydro;
 
 typedef struct {
@@ -106,7 +105,6 @@ typedef struct {
     MyFloat Acc[3];
     MyFloat DtEntropy;
     MyFloat MaxSignalVel;
-    int Ninteractions;
 } TreeWalkResultHydro;
 
 typedef struct {
@@ -224,7 +222,7 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
     input->SPH_DhsmlDensityFactor = SPHP(place).DhsmlEgyDensityFactor;
 
     input->Pressure = HYDRA_GET_PRIV(tw)->PressurePred[P[place].PI];
-    input->TimeBin = P[place].TimeBin;
+    input->dloga = get_dloga_for_bin(P[place].TimeBin, P[place].Ti_drift);
     /* calculation of F1 */
     soundspeed_i = sqrt(GAMMA * input->Pressure / SPH_EOMDensity(&SPHP(place)));
     input->F1 = fabs(SPHP(place).DivVel) /
@@ -350,7 +348,7 @@ hydro_ngbiter(
             /* now make sure that viscous acceleration is not too large */
 
             /*XXX: why is this dloga ?*/
-            double dloga = 2 * get_dloga_for_bin(IMAX(I->TimeBin, P[other].TimeBin), P[other].Ti_drift);
+            double dloga = 2 * DMAX(I->dloga, get_dloga_for_bin(P[other].TimeBin, P[other].Ti_drift));
             if(dloga > 0 && (dwk_i + dwk_j) < 0)
             {
                 if((I->Mass + P[other].Mass) > 0) {
@@ -397,7 +395,6 @@ hydro_ngbiter(
         O->DtEntropy += (0.5 * hfc_visc * vdotr2);
 
     }
-    O->Ninteractions++;
 }
 
 static int
