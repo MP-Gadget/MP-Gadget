@@ -912,9 +912,10 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
          * This does nothing with repositioning on.*/
         const MyFloat accmass = BH_GET_PRIV(tw)->BH_accreted_Mass[PI];
         int k;
+        /* Need to add the momentum from Mtrack as well*/
         for(k = 0; k < 3; k++)
             P[n].Vel[k] = (P[n].Vel[k] * P[n].Mass + BH_GET_PRIV(tw)->BH_accreted_momentum[PI][k]) /
-                    (P[n].Mass + accmass);
+                    (P[n].Mass + accmass + BH_GET_PRIV(tw)->BH_accreted_Mtrack[PI]);
         P[n].Mass += accmass;
     }
 
