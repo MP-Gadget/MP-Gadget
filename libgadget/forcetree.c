@@ -251,24 +251,24 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
  * are currently inserting
  * Returns a value between 0 and 7.
  * */
-int get_subnode(const struct NODE * node, const int p_i)
+int get_subnode(const struct NODE * node, const double * const Pos)
 {
     /*Loop is unrolled to help out the compiler,which normally only manages it at -O3*/
-     return (P[p_i].Pos[0] > node->center[0]) +
-            ((P[p_i].Pos[1] > node->center[1]) << 1) +
-            ((P[p_i].Pos[2] > node->center[2]) << 2);
+     return (Pos[0] > node->center[0]) +
+            ((Pos[1] > node->center[1]) << 1) +
+            ((Pos[2] > node->center[2]) << 2);
 }
 
 /*Check whether a particle is inside the volume covered by a node,
  * by checking whether each dimension is close enough to center (L1 metric).*/
-static inline int inside_node(const struct NODE * node, const int p_i)
+static inline int inside_node(const struct NODE * node, const double * const Pos)
 {
     /*One can also use a loop, but the compiler unrolls it only at -O3,
      *so this is a little faster*/
     int inside =
-        (fabs(2*(P[p_i].Pos[0] - node->center[0])) <= node->len) *
-        (fabs(2*(P[p_i].Pos[1] - node->center[1])) <= node->len) *
-        (fabs(2*(P[p_i].Pos[2] - node->center[2])) <= node->len);
+        (fabs(2*(Pos[0] - node->center[0])) <= node->len) *
+        (fabs(2*(Pos[1] - node->center[1])) <= node->len) *
+        (fabs(2*(Pos[2] - node->center[2])) <= node->len);
     return inside;
 }
 
@@ -405,7 +405,7 @@ create_new_node_layer(int firstparent, int p_toplace,
             /* Re-attach each particle to the appropriate new leaf.
             * Notice that since we have NMAXCHILD slots on each child and NMAXCHILD particles,
             * we will always have a free slot. */
-            int subnode = get_subnode(nprnt, oldsuns[i]);
+            int subnode = get_subnode(nprnt, P[oldsuns[i]].Pos);
             int child = newsuns[subnode];
             struct NODE * nchild = &tb.Nodes[child];
             modify_internal_node(child, nchild->s.noccupied, oldsuns[i], tb, HybridNuGrav);
@@ -427,7 +427,7 @@ create_new_node_layer(int firstparent, int p_toplace,
         memset(&nprnt->mom, 0, sizeof(nprnt->mom));
 
         /* Now try again to add the new particle*/
-        int subnode = get_subnode(nprnt, p_toplace);
+        int subnode = get_subnode(nprnt, P[p_toplace].Pos);
         int child = nprnt->s.suns[subnode];
         struct NODE * nchild = &tb.Nodes[child];
         if(nchild->s.noccupied < NMAXCHILD) {
@@ -520,7 +520,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
 
         /*First find the Node for the TopLeaf */
         int this;
-        if(inside_node(&tb.Nodes[this_acc], i)) {
+        if(inside_node(&tb.Nodes[this_acc], P[i].Pos)) {
             this = this_acc;
         } else {
             const int topleaf = domain_get_topleaf(P[i].Key, ddecomp);
@@ -541,7 +541,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
                 break;
 
             /* This node has child subnodes: find them.*/
-            int subnode = get_subnode(&tb.Nodes[this], i);
+            int subnode = get_subnode(&tb.Nodes[this], P[i].Pos);
             /*No lock needed: if we have an internal node here it will be stable*/
             child = tb.Nodes[this].s.suns[subnode];
 
@@ -559,7 +559,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         /* Check whether there is now a new layer of nodes and if so walk down until there isn't.*/
         if(nocc >= (1<<16)) {
             /* This node has child subnodes: find them.*/
-            int subnode = get_subnode(&tb.Nodes[this], i);
+            int subnode = get_subnode(&tb.Nodes[this], P[i].Pos);
             child = tb.Nodes[this].s.suns[subnode];
             while(child >= tb.firstnode)
             {
@@ -576,7 +576,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
                     break;
 
                 /* This node has child subnodes: find them.*/
-                subnode = get_subnode(&tb.Nodes[this], i);
+                subnode = get_subnode(&tb.Nodes[this], P[i].Pos);
                 /*No lock needed: if we have an internal node here it will be stable*/
                 child = tb.Nodes[this].s.suns[subnode];
             }
