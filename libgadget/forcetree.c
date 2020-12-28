@@ -553,8 +553,10 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
 
         /*Now lock this node.*/
         lock_spinlock(this-tb.firstnode, spin);
-        /* We have a guaranteed spot.*/
-        nocc = atomic_fetch_and_add(&tb.Nodes[this].s.noccupied, 1);
+        /* No-one will change nocc except with the lock held.
+         * If we are here nocc is not changing.*/
+        #pragma omp atomic read
+        nocc = tb.Nodes[this].s.noccupied;
 
         /* Check whether there is now a new layer of nodes and if so walk down until there isn't.*/
         if(nocc >= (1<<16)) {
@@ -581,7 +583,8 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
                 child = tb.Nodes[this].s.suns[subnode];
             }
             /* Get the free spot under the lock.*/
-            nocc = atomic_fetch_and_add(&tb.Nodes[this].s.noccupied, 1);
+            #pragma omp atomic read
+            nocc = tb.Nodes[this].s.noccupied;
         }
 
         /*Update last-used cache*/
@@ -589,8 +592,13 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
 
         /* Now we have something that isn't an internal node, and we have a lock on it,
          * so we know it won't change. We can place the particle! */
-        if(nocc < NMAXCHILD)
+        if(nocc < NMAXCHILD) {
             modify_internal_node(this, nocc, i, tb, HybridNuGrav);
+            /* This can be a write instead of an update because
+             * no-one is allowed to change nocc except with the lock*/
+            #pragma omp atomic write
+            tb.Nodes[this].s.noccupied = nocc + 1;
+        }
         /* In this case we need to create a new layer of nodes beneath this one*/
         else if(nocc < 1<<16)
             create_new_node_layer(this, i, HybridNuGrav, tb, &nnext, &nc);
