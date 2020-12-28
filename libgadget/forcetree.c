@@ -558,9 +558,11 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
     /*Initialise some spinlocks off*/
     struct SpinLocks * spin = init_spinlocks(tb.lastnode - tb.firstnode);
 
+    double maxlocki = 0, maxlockc = 0, maxspin = 0;
+    int retries = 0;
     struct particle_data * part;
     /* now we insert all particles */
-    #pragma omp parallel for firstprivate(nc, this_acc)
+    #pragma omp parallel for firstprivate(nc, this_acc) reduction(max:maxlocki) reduction(+: retries) reduction(max:maxlockc) reduction(max:maxspin)
     for(part = PartManager->Base; part < PartManager->Base + npart; part++)
     {
         /*Can't break from openmp for*/
@@ -580,6 +582,8 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
             this = ddecomp->TopLeaves[topleaf].treenode;
         }
         int nocc;
+        double start, end;
+
         /*Walk the main tree until we get something that isn't an internal node.*/
         while(1) {
             /*No lock needed: if we have an internal node here it will be stable*/
@@ -588,7 +592,6 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
 
             /* This node has children, keep walking.*/
             if(nocc >= (1 << 16)) {
-
                 /* This node has child subnodes: find them.*/
                 int subnode = get_subnode(&tb.Nodes[this], part->Pos);
                 /*No lock needed: if we have an internal node here it will be stable*/
@@ -600,16 +603,20 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
             }
             /* No children, try to take the lock*/
             else {
-                /* If we took the lock, exit with it held.
-                 * If we did not, loop again and retry.
-                 * There might be another node layer here now.*/
+                /* There might be another node layer here now.*/
+                start = MPI_Wtime();
                 lock_spinlock(this - tb.firstnode, spin);
+                end = MPI_Wtime();
                 /* No-one will change nocc except with the lock held.
                  * If we are here nocc is not changing.*/
                 #pragma omp atomic read
                 nocc = tb.Nodes[this].s.noccupied;
+                if(end - start > maxspin) {
+                    //message(1, "New max wait: particle %d, node %d treenodes %d, spintime %g nocc %d\n", part - PartManager->Base, this, nnext-tb.firstnode, maxspin*1000, nocc);
+                    maxspin = end - start;
+                }
                 /* This is in case nocc changed between us reading it
-                    * and taking the lock. Unlikely, but just keep walking.*/
+                 * and taking the lock. Unlikely, but just keep walking.*/
                 if(nocc >= (1 << 16)) {
                     unlock_spinlock(this - tb.firstnode, spin);
                     continue;
@@ -637,11 +644,22 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         else
             endrun(2, "Tried to convert already converted node %d with nocc = %d\n", this, nocc);
 
+        double unlock = MPI_Wtime();
         /*Unlock the parent*/
+        if(unlock - end > maxlocki && nocc < NMAXCHILD){
+            maxlocki = unlock - start;
+            //message(1, "New longest lock time: particle %d, node %d treenodes %d, spintime %g nocc %d\n", part - PartManager->Base, this, nnext-tb.firstnode, maxlock*1000, nocc);
+        }
+        if(unlock - end > maxlockc && nocc >= NMAXCHILD){
+            maxlockc = unlock - start;
+            //message(1, "New longest lock time: particle %d, node %d treenodes %d, spintime %g nocc %d\n", part - PartManager->Base, this, nnext-tb.firstnode, maxlock*1000, nocc);
+        }
+
         unlock_spinlock(this - tb.firstnode, spin);
     }
     free_spinlocks(spin);
 
+    message(0, "max locked (create) %g ms (add) %g ms, max spin %g ms retries %d\n", maxlockc * 1000, maxlocki * 1000, maxspin * 1000, retries);
     return nnext - tb.firstnode;
 }
 

@@ -50,6 +50,10 @@ double walltime_measure_full(char * name, char * file, int line) {
     return MPI_Wtime();
 }
 
+double walltime_add_full(char * name, double dt, char * file, int line) {
+    return MPI_Wtime();
+}
+
 /*End dummies*/
 
 static int
