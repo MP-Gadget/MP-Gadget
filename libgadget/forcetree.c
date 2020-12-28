@@ -72,7 +72,7 @@ static void
 force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddecomp);
 
 static void
-add_particle_moment_to_node(struct NODE * pnode, int i);
+add_particle_moment_to_node(struct NODE * pnode, const struct particle_data * const part);
 
 #ifdef DEBUG
 /* Walk the constructed tree, validating sibling and nextnode as we go*/
@@ -330,22 +330,23 @@ int get_freenode(int * nnext, struct NodeCache *nc)
 /* Add a particle to a node in a known empty location.
  * Parent is assumed to be locked.*/
 static int
-modify_internal_node(int parent, int subnode, int p_toplace, const ForceTree tb, const int HybridNuGrav)
+modify_internal_node(int parent, int subnode, const struct particle_data * const part, const ForceTree tb, const int HybridNuGrav)
 {
+    int p_toplace = part - PartManager->Base;
     tb.Father[p_toplace] = parent;
     tb.Nodes[parent].s.suns[subnode] = p_toplace;
     /* Encode the type in the Types array*/
-    tb.Nodes[parent].s.Types += P[p_toplace].Type << (3*subnode);
-    if(!HybridNuGrav || P[p_toplace].Type != ForceTreeParams.FastParticleType)
-        add_particle_moment_to_node(&tb.Nodes[parent], p_toplace);
+    tb.Nodes[parent].s.Types += part->Type << (3*subnode);
+    /* Compute moments*/
+    if(!HybridNuGrav || part->Type != ForceTreeParams.FastParticleType)
+        add_particle_moment_to_node(&tb.Nodes[parent], part);
     return 0;
 }
-
 
 /* Create a new layer of nodes beneath the current node, and place the particle.
  * Must have node lock.*/
 static int
-create_new_node_layer(int firstparent, int p_toplace,
+create_new_node_layer(int firstparent, const struct particle_data * const part,
         const int HybridNuGrav, const ForceTree tb, int *nnext, struct NodeCache *nc)
 {
     /* This is so we can defer changing
@@ -373,7 +374,7 @@ create_new_node_layer(int firstparent, int p_toplace,
                 /* This means that we have > NMAXCHILD particles in the same place,
                 * which usually indicates a bug in the particle evolution. Print some helpful debug information.*/
                 message(1, "Failed placing %d at %g %g %g, type %d, ID %ld. Others were %d (%g %g %g, t %d ID %ld) and %d (%g %g %g, t %d ID %ld).\n",
-                    p_toplace, P[p_toplace].Pos[0], P[p_toplace].Pos[1], P[p_toplace].Pos[2], P[p_toplace].Type, P[p_toplace].ID,
+                    part-PartManager->Base, part->Pos[0], part->Pos[1], part->Pos[2], part->Type, part->ID,
                     oldsuns[0], P[oldsuns[0]].Pos[0], P[oldsuns[0]].Pos[1], P[oldsuns[0]].Pos[2], P[oldsuns[0]].Type, P[oldsuns[0]].ID,
                     oldsuns[1], P[oldsuns[1]].Pos[0], P[oldsuns[1]].Pos[1], P[oldsuns[1]].Pos[2], P[oldsuns[1]].Type, P[oldsuns[1]].ID
                 );
@@ -408,7 +409,7 @@ create_new_node_layer(int firstparent, int p_toplace,
             int subnode = get_subnode(nprnt, P[oldsuns[i]].Pos);
             int child = newsuns[subnode];
             struct NODE * nchild = &tb.Nodes[child];
-            modify_internal_node(child, nchild->s.noccupied, oldsuns[i], tb, HybridNuGrav);
+            modify_internal_node(child, nchild->s.noccupied, &P[oldsuns[i]], tb, HybridNuGrav);
             nchild->s.noccupied++;
         }
         /* Copy the new node array into the node*/
@@ -427,11 +428,11 @@ create_new_node_layer(int firstparent, int p_toplace,
         memset(&nprnt->mom, 0, sizeof(nprnt->mom));
 
         /* Now try again to add the new particle*/
-        int subnode = get_subnode(nprnt, P[p_toplace].Pos);
+        int subnode = get_subnode(nprnt, part->Pos);
         int child = nprnt->s.suns[subnode];
         struct NODE * nchild = &tb.Nodes[child];
         if(nchild->s.noccupied < NMAXCHILD) {
-            modify_internal_node(child, nchild->s.noccupied, p_toplace, tb, HybridNuGrav);
+            modify_internal_node(child, nchild->s.noccupied, part, tb, HybridNuGrav);
             nchild->s.noccupied++;
             break;
         }
@@ -459,11 +460,12 @@ create_new_node_layer(int firstparent, int p_toplace,
  **/
 int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav)
 {
-    int i;
     int nnext = tb.firstnode;		/* index of first free node */
 
     /* create an empty root node  */
     {
+        int i;
+
         struct NODE *nfreep = &tb.Nodes[nnext];	/* select first node */
 
         nfreep->len = BoxSize*1.001;
@@ -506,24 +508,25 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
     /*Initialise some spinlocks off*/
     struct SpinLocks * spin = init_spinlocks(tb.lastnode - tb.firstnode);
 
+    struct particle_data * part;
     /* now we insert all particles */
     #pragma omp parallel for firstprivate(nc, this_acc)
-    for(i = 0; i < npart; i++)
+    for(part = PartManager->Base; part < PartManager->Base + npart; part++)
     {
         /*Can't break from openmp for*/
         if(nc.nnext_thread >= tb.lastnode)
             continue;
 
         /* Do not add garbage/swallowed particles to the tree*/
-        if(P[i].IsGarbage || (P[i].Swallowed && P[i].Type==5))
+        if(part->IsGarbage || (part->Swallowed && part->Type==5))
             continue;
 
         /*First find the Node for the TopLeaf */
         int this;
-        if(inside_node(&tb.Nodes[this_acc], P[i].Pos)) {
+        if(inside_node(&tb.Nodes[this_acc], part->Pos)) {
             this = this_acc;
         } else {
-            const int topleaf = domain_get_topleaf(P[i].Key, ddecomp);
+            const int topleaf = domain_get_topleaf(part->Key, ddecomp);
             this = ddecomp->TopLeaves[topleaf].treenode;
         }
         int child;
@@ -541,7 +544,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
                 break;
 
             /* This node has child subnodes: find them.*/
-            int subnode = get_subnode(&tb.Nodes[this], P[i].Pos);
+            int subnode = get_subnode(&tb.Nodes[this], part->Pos);
             /*No lock needed: if we have an internal node here it will be stable*/
             child = tb.Nodes[this].s.suns[subnode];
 
@@ -561,7 +564,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         /* Check whether there is now a new layer of nodes and if so walk down until there isn't.*/
         if(nocc >= (1<<16)) {
             /* This node has child subnodes: find them.*/
-            int subnode = get_subnode(&tb.Nodes[this], P[i].Pos);
+            int subnode = get_subnode(&tb.Nodes[this], part->Pos);
             child = tb.Nodes[this].s.suns[subnode];
             while(child >= tb.firstnode)
             {
@@ -578,7 +581,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
                     break;
 
                 /* This node has child subnodes: find them.*/
-                subnode = get_subnode(&tb.Nodes[this], P[i].Pos);
+                subnode = get_subnode(&tb.Nodes[this], part->Pos);
                 /*No lock needed: if we have an internal node here it will be stable*/
                 child = tb.Nodes[this].s.suns[subnode];
             }
@@ -593,7 +596,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         /* Now we have something that isn't an internal node, and we have a lock on it,
          * so we know it won't change. We can place the particle! */
         if(nocc < NMAXCHILD) {
-            modify_internal_node(this, nocc, i, tb, HybridNuGrav);
+            modify_internal_node(this, nocc, part, tb, HybridNuGrav);
             /* This can be a write instead of an update because
              * no-one is allowed to change nocc except with the lock*/
             #pragma omp atomic write
@@ -601,7 +604,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         }
         /* In this case we need to create a new layer of nodes beneath this one*/
         else if(nocc < 1<<16)
-            create_new_node_layer(this, i, HybridNuGrav, tb, &nnext, &nc);
+            create_new_node_layer(this, part, HybridNuGrav, tb, &nnext, &nc);
         else
             endrun(2, "Tried to convert already converted node %d with nocc = %d\n", this, nocc);
 
@@ -716,20 +719,20 @@ force_get_father(int no, const ForceTree * tree)
 }
 
 static void
-add_particle_moment_to_node(struct NODE * pnode, int i)
+add_particle_moment_to_node(struct NODE * pnode, const struct particle_data * const part)
 {
     int k;
-    pnode->mom.mass += (P[i].Mass);
+    pnode->mom.mass += part->Mass;
     for(k=0; k<3; k++)
-        pnode->mom.cofm[k] += (P[i].Mass * P[i].Pos[k]);
+        pnode->mom.cofm[k] += part->Mass * part->Pos[k];
 
-    if(P[i].Type == 0)
+    if(part->Type == 0)
     {
         int j;
         /* Maximal distance any of the member particles peek out from the side of the node.
          * May be at most hmax, as |Pos - Center| < len.*/
         for(j = 0; j < 3; j++) {
-            pnode->mom.hmax = DMAX(pnode->mom.hmax, fabs(P[i].Pos[j] - pnode->center[j]) + P[i].Hsml - pnode->len);
+            pnode->mom.hmax = DMAX(pnode->mom.hmax, fabs(part->Pos[j] - pnode->center[j]) + part->Hsml - pnode->len);
         }
     }
 }
