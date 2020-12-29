@@ -579,65 +579,44 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
             const int topleaf = domain_get_topleaf(part->Key, ddecomp);
             this = ddecomp->TopLeaves[topleaf].treenode;
         }
-        int child;
         int nocc;
-
         /*Walk the main tree until we get something that isn't an internal node.*/
-        do
-        {
+        while(1) {
             /*No lock needed: if we have an internal node here it will be stable*/
             #pragma omp atomic read
             nocc = tb.Nodes[this].s.noccupied;
 
-            /* This node still has space for a particle (or needs conversion)*/
-            if(nocc < (1 << 16))
-                break;
-
-            /* This node has child subnodes: find them.*/
-            int subnode = get_subnode(&tb.Nodes[this], part->Pos);
-            /*No lock needed: if we have an internal node here it will be stable*/
-            child = tb.Nodes[this].s.suns[subnode];
-
-            if(child > tb.lastnode || child < tb.firstnode)
-                endrun(1,"Corruption in tree build: N[%d].[%d] = %d > lastnode (%d)\n",this, subnode, child, tb.lastnode);
-            this = child;
-        }
-        while(child >= tb.firstnode);
-
-        /*Now lock this node.*/
-        lock_spinlock(this-tb.firstnode, spin);
-        /* No-one will change nocc except with the lock held.
-         * If we are here nocc is not changing.*/
-        #pragma omp atomic read
-        nocc = tb.Nodes[this].s.noccupied;
-
-        /* Check whether there is now a new layer of nodes and if so walk down until there isn't.*/
-        if(nocc >= (1<<16)) {
-            /* This node has child subnodes: find them.*/
-            int subnode = get_subnode(&tb.Nodes[this], part->Pos);
-            child = tb.Nodes[this].s.suns[subnode];
-            while(child >= tb.firstnode)
-            {
-                /*Move the lock to the child*/
-                lock_spinlock(child-tb.firstnode, spin);
-                unlock_spinlock(this-tb.firstnode, spin);
-                this = child;
-
-                /*No lock needed: if we have an internal node here it will be stable*/
-                #pragma omp atomic read
-                nocc = tb.Nodes[this].s.noccupied;
-                /* This node still has space for a particle (or needs conversion)*/
-                if(nocc < (1 << 16))
-                    break;
+            /* This node has children, keep walking.*/
+            if(nocc >= (1 << 16)) {
 
                 /* This node has child subnodes: find them.*/
-                subnode = get_subnode(&tb.Nodes[this], part->Pos);
+                int subnode = get_subnode(&tb.Nodes[this], part->Pos);
                 /*No lock needed: if we have an internal node here it will be stable*/
-                child = tb.Nodes[this].s.suns[subnode];
+                int child = tb.Nodes[this].s.suns[subnode];
+
+                if(child > tb.lastnode || child < tb.firstnode)
+                    endrun(1,"Corruption in tree build: N[%d].[%d] = %d > lastnode (%d)\n",this, subnode, child, tb.lastnode);
+                this = child;
             }
-            /* Get the free spot under the lock.*/
-            #pragma omp atomic read
-            nocc = tb.Nodes[this].s.noccupied;
+            /* No children, try to take the lock*/
+            else {
+                /* If we took the lock, exit with it held.
+                 * If we did not, loop again and retry.
+                 * There might be another node layer here now.*/
+                lock_spinlock(this - tb.firstnode, spin);
+                /* No-one will change nocc except with the lock held.
+                 * If we are here nocc is not changing.*/
+                #pragma omp atomic read
+                nocc = tb.Nodes[this].s.noccupied;
+                /* This is in case nocc changed between us reading it
+                    * and taking the lock. Unlikely, but just keep walking.*/
+                if(nocc >= (1 << 16)) {
+                    unlock_spinlock(this - tb.firstnode, spin);
+                    continue;
+                }
+                /* Now we have a leaf node and a lock on it*/
+                break;
+            }
         }
 
         /*Update last-used cache*/
