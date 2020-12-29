@@ -343,6 +343,47 @@ modify_internal_node(int parent, int subnode, const struct particle_data * const
     return 0;
 }
 
+static int
+create_empty_node_layer(int parent, int *nnext, const ForceTree * const tb)
+{
+    struct NODE *nprnt = &tb->Nodes[parent];
+    int i;
+    for(i=0; i<8; i++) {
+        /* Get memory for an extra node from our cache.*/
+        nprnt->s.suns[i] = (*nnext)++;
+        /*If we already have too many nodes, exit loop.*/
+        if(*nnext >= tb->lastnode) {
+            /* This means that we have > NMAXCHILD particles in the same place,
+            * which usually indicates a bug in the particle evolution. Print some helpful debug information.*/
+            message(1, "Pre-creating child nodes for domain topleafs.\n");
+            return 1;
+        }
+        struct NODE *nfreep = &tb->Nodes[nprnt->s.suns[i]];
+        /* We create a new leaf node.*/
+        init_internal_node(nfreep, nprnt, i);
+        /*Set father of new node*/
+        nfreep->father = parent;
+    }
+    /*Initialize the remaining entries to empty*/
+    for(i=8; i<NMAXCHILD;i++)
+        nprnt->s.suns[i] = -1;
+
+    /* Set sibling for the new rank. Since empty at this point, point onwards.*/
+    for(i=0; i<7; i++) {
+        int child = nprnt->s.suns[i];
+        tb->Nodes[child].sibling = nprnt->s.suns[i+1];
+    }
+    /* Final child needs special handling: set to the parent's sibling.*/
+    tb->Nodes[nprnt->s.suns[7]].sibling = nprnt->sibling;
+    /* Zero the momenta for the parent*/
+    memset(&nprnt->mom, 0, sizeof(nprnt->mom));
+    /* A new node is created. Mark the (original) parent as an internal node with node children.
+    * This goes last so that we don't access the child before it is constructed.*/
+    tb->Nodes[parent].f.ChildType = NODE_NODE_TYPE;
+    tb->Nodes[parent].s.noccupied = (1<<16);
+    return 0;
+}
+
 /* Create a new layer of nodes beneath the current node, and place the particle.
  * Must have node lock.*/
 static int
@@ -491,6 +532,15 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
          * complete top-level tree which allows the easy insertion of the
          * pseudo-particles in the right place */
         force_create_node_for_topnode(tb.firstnode, 0, tb.Nodes, ddecomp, 1, 0, 0, 0, &nnext, tb.lastnode);
+        int ThisTask;
+        MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+        /* Create empty children for all the local top-level local treenodes,
+         * to speed up the early tree build.*/
+        for(i = ddecomp->Tasks[ThisTask].StartLeaf; i < ddecomp->Tasks[ThisTask].EndLeaf; i ++) {
+            int topnode = ddecomp->TopLeaves[i].treenode;
+            if(create_empty_node_layer(topnode, &nnext, &tb))
+                return nnext - tb.firstnode;
+        }
     }
 
     /* This implements a small thread-local free Node cache.
