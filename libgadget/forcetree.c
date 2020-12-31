@@ -427,9 +427,9 @@ create_new_node_layer(int firstparent, const struct particle_data * const part,
                 {
                     nprnt->f.ChildType = PARTICLE_NODE_TYPE;
                     nprnt->s.noccupied = NMAXCHILD;
-                    tb.Nodes[firstparent].f.ChildType = NODE_NODE_TYPE;
-                    #pragma omp atomic write
                     tb.Nodes[firstparent].s.noccupied = (1<<16);
+                    #pragma omp atomic write
+                    tb.Nodes[firstparent].f.ChildType = NODE_NODE_TYPE;
                 }
                 return 1;
             }
@@ -491,9 +491,9 @@ create_new_node_layer(int firstparent, const struct particle_data * const part,
 
     /* A new node is created. Mark the (original) parent as an internal node with node children.
      * This goes last so that we don't access the child before it is constructed.*/
-    tb.Nodes[firstparent].f.ChildType = NODE_NODE_TYPE;
-    #pragma omp atomic write
     tb.Nodes[firstparent].s.noccupied = (1<<16);
+    #pragma omp atomic write
+    tb.Nodes[firstparent].f.ChildType = NODE_NODE_TYPE;
     return 0;
 }
 
@@ -581,17 +581,17 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
             const int topleaf = domain_get_topleaf(part->Key, ddecomp);
             this = ddecomp->TopLeaves[topleaf].treenode;
         }
-        int nocc;
         double start, end;
 
         /*Walk the main tree until we get something that isn't an internal node.*/
         while(1) {
+            int childtype;
             /*No lock needed: if we have an internal node here it will be stable*/
             #pragma omp atomic read
-            nocc = tb.Nodes[this].s.noccupied;
+            childtype = tb.Nodes[this].f.ChildType;
 
             /* This node has children, keep walking.*/
-            if(nocc >= (1 << 16)) {
+            if(childtype == NODE_NODE_TYPE) {
                 /* This node has child subnodes: find them.*/
                 int subnode = get_subnode(&tb.Nodes[this], part->Pos);
                 /*No lock needed: if we have an internal node here it will be stable*/
@@ -610,14 +610,14 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
                 /* No-one will change nocc except with the lock held.
                  * If we are here nocc is not changing.*/
                 #pragma omp atomic read
-                nocc = tb.Nodes[this].s.noccupied;
+                childtype = tb.Nodes[this].f.ChildType;
                 if(end - start > maxspin) {
                     //message(1, "New max wait: particle %d, node %d treenodes %d, spintime %g nocc %d\n", part - PartManager->Base, this, nnext-tb.firstnode, maxspin*1000, nocc);
                     maxspin = end - start;
                 }
                 /* This is in case nocc changed between us reading it
                  * and taking the lock. Unlikely, but just keep walking.*/
-                if(nocc >= (1 << 16)) {
+                if(childtype == NODE_NODE_TYPE) {
                     unlock_spinlock(this - tb.firstnode, spin);
                     continue;
                 }
@@ -629,14 +629,13 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         /*Update last-used cache*/
         this_acc = this;
 
+        int nocc = tb.Nodes[this].s.noccupied++;
         /* Now we have something that isn't an internal node, and we have a lock on it,
          * so we know it won't change. We can place the particle! */
         if(nocc < NMAXCHILD) {
             modify_internal_node(this, nocc, part, tb, HybridNuGrav);
             /* This can be a write instead of an update because
              * no-one is allowed to change nocc except with the lock*/
-            #pragma omp atomic write
-            tb.Nodes[this].s.noccupied = nocc + 1;
         }
         /* In this case we need to create a new layer of nodes beneath this one*/
         else if(nocc < 1<<16)
