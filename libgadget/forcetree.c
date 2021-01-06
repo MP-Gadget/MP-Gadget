@@ -129,7 +129,7 @@ force_tree_eh_slots_fork(EIBase * event, void * userdata)
      * At the moment this does not matter, because
      * the only new particles are stars, which do not
      * participate in the SPH tree walk.*/
-    if(nop->s.noccupied < NMAXCHILD) {
+    if(nop->s.noccupied < NMAXCHILD && ev->child < tree->firstnode) {
        nop->s.suns[nop->s.noccupied] = child;
        nop->s.Types += P[child].Type << (3*nop->s.noccupied);
        nop->s.noccupied++;
@@ -186,7 +186,7 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
     {
         int maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->NumPart + ddecomp->NTopNodes;
         /* Allocate memory. */
-        tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp);
+        tree = force_treeallocate(maxnodes, PartManager->NumPart*1.05, ddecomp);
 
         tree.BoxSize = BoxSize;
         tree.numnodes = force_tree_create_nodes(tree, npart, ddecomp, BoxSize, HybridNuGrav);
