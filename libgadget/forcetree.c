@@ -200,6 +200,15 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
                 TooManyNodes = 1;
                 break;
             }
+            // Warn when tree more than 2^31
+            if((int64_t) tree.firstnode + tree.numnodes > 1<<31L)
+            {
+                message(1, "Node index was %ld which exceeded 32-bit integer address space from firstnode %d nnodes %d\n",
+                    (int64_t) tree.firstnode + tree.numnodes, tree.firstnode, tree.numnodes);
+                TooManyNodes = 1;
+                break;
+            }
+
         }
     }
     while(tree.numnodes >= tree.lastnode - tree.firstnode);
