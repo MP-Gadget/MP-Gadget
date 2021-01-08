@@ -461,7 +461,7 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
 
         /* adds hydrodynamical accelerations  and computes du/dt  */
         if(All.HydroOn)
-            hydro_force(act, All.WindOn, All.cf.hubble, All.cf.a, &sph_predicted, tree);
+            hydro_force(act, All.WindOn, All.cf.hubble, All.cf.a, &sph_predicted, All.MinEgySpec, times, &All.CP, tree);
 
         /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
         slots_free_sph_pred_data(&sph_predicted);
@@ -575,7 +575,7 @@ open_outputfiles(int RestartSnapNum)
     FdBlackHoles = NULL;
     FdSfr = NULL;
     FdBlackholeDetails = NULL;
-    
+
     if(RestartSnapNum != -1) {
         postfix = fastpm_strdup_printf("-R%03d", RestartSnapNum);
     } else {

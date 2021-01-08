@@ -157,6 +157,14 @@ struct DensityPriv {
     double MinGasHsml;
     /* Are there potentially black holes?*/
     int BlackHoleOn;
+
+    /* For computing the predicted quantities dynamically during the treewalk.*/
+    double a3inv;
+    double MinEgySpec;
+    DriftKickTimes const * times;
+    double FgravkickB;
+    double gravkicks[TIMEBINS+1];
+    double hydrokicks[TIMEBINS+1];
 };
 
 #define DENSITY_GET_PRIV(tw) ((struct DensityPriv*) ((tw)->priv))
@@ -221,7 +229,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     double timeall = 0;
     double timecomp, timecomm, timewait;
     const double atime = exp(loga_from_ti(times.Ti_Current));
-    const double a3inv = pow(atime, -3);
 
     walltime_measure("/Misc");
 
@@ -255,31 +262,32 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
         DENSITY_GET_PRIV(tw)->Left[p_i] = 0;
     }
 
+    priv->a3inv = pow(atime, -3);
+    priv->MinEgySpec = MinEgySpec;
     /* Factor this out since all particles have the same drift time*/
-    const double FgravkickB = get_exact_gravkick_factor(CP, times.PM_kick, times.Ti_Current);
-    double gravkicks[TIMEBINS+1] = {0}, hydrokicks[TIMEBINS+1] = {0};
+    priv->FgravkickB = get_exact_gravkick_factor(CP, times.PM_kick, times.Ti_Current);
+    memset(priv->gravkicks, 0, sizeof(priv->gravkicks[0])*(TIMEBINS+1));
+    memset(priv->hydrokicks, 0, sizeof(priv->hydrokicks[0])*(TIMEBINS+1));
     /* Compute the factors to move a current kick times velocity to the drift time velocity.
      * We need to do the computation for all timebins up to the maximum because even inactive
      * particles may have interactions. */
     #pragma omp parallel for
     for(i = times.mintimebin; i <= TIMEBINS; i++)
     {
-        gravkicks[i] = get_exact_gravkick_factor(CP, times.Ti_kick[i], times.Ti_Current);
-        hydrokicks[i] = get_exact_hydrokick_factor(CP, times.Ti_kick[i], times.Ti_Current);
+        priv->gravkicks[i] = get_exact_gravkick_factor(CP, times.Ti_kick[i], times.Ti_Current);
+        priv->hydrokicks[i] = get_exact_hydrokick_factor(CP, times.Ti_kick[i], times.Ti_Current);
     }
+    priv->times = &times;
 
     #pragma omp parallel for
-    for(i = 0; i < PartManager->NumPart; i++)
+    for(i = 0; i < act->NumActiveParticle; i++)
     {
-        if(P[i].Type == 0 && !P[i].IsGarbage) {
-#ifdef DEBUG
-            if(P[i].PI < 0 || P[i].PI > SlotsManager->info[0].size)
-                endrun(6, "Invalid PI: i = %d PI = %d\n", i, P[i].PI);
-#endif
-            int bin = P[i].TimeBin;
-            double dloga = dloga_from_dti(times.Ti_Current - times.Ti_kick[bin], times.Ti_Current);
-            SPH_predicted->EntVarPred[P[i].PI] = SPH_EntVarPred(P[i].PI, MinEgySpec, a3inv, dloga);
-            SPH_VelPred(i, SPH_predicted->VelPred + 3 * P[i].PI, FgravkickB, gravkicks[bin], hydrokicks[bin]);
+        int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
+        if(P[p_i].Type == 0 && !P[p_i].IsGarbage) {
+            int bin = P[p_i].TimeBin;
+            double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
+            priv->SPH_predicted->EntVarPred[P[p_i].PI] = SPH_EntVarPred(P[p_i].PI, priv->MinEgySpec, priv->a3inv, dloga);
+            SPH_VelPred(p_i, priv->SPH_predicted->VelPred + 3 * P[p_i].PI, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
         }
     }
 
@@ -516,6 +524,29 @@ density_ngbiter(
 
         struct sph_pred_data * SphP_scratch = DENSITY_GET_PRIV(lv->tw)->SPH_predicted;
 
+        double EntVarPred;
+        #pragma omp atomic read
+        EntVarPred = SphP_scratch->EntVarPred[P[other].PI];
+        /* Lazily compute the predicted quantities. We can do this
+         * with minimal locking since nothing happens should we compute them twice.
+         * Zero can be the special value since there should never be zero entropy.*/
+        if(EntVarPred == 0) {
+            MyFloat VelPred[3];
+            struct DensityPriv * priv = DENSITY_GET_PRIV(lv->tw);
+            int bin = P[other].TimeBin;
+            double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
+            EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, priv->a3inv, dloga);
+            SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
+            /* Note this goes first to avoid threading issues: EntVarPred will only be set after this is done.
+             * The worst that can happen is that some data points get copied twice.*/
+            int i;
+            for(i = 0; i < 3; i++) {
+                #pragma omp atomic write
+                priv->SPH_predicted->VelPred[3 * P[other].PI + i] = VelPred[i];
+            }
+            #pragma omp atomic write
+            priv->SPH_predicted->EntVarPred[P[other].PI] = EntVarPred;
+        }
         if(DENSITY_GET_PRIV(lv->tw)->DoEgyDensity) {
             const double EntPred = SphP_scratch->EntVarPred[P[other].PI];
             O->EgyRho += mass_j * EntPred * wk;
@@ -728,6 +759,7 @@ slots_allocate_sph_pred_data(int nsph)
     struct sph_pred_data sph_scratch;
     /*Data is allocated high so that we can free the tree around it*/
     sph_scratch.EntVarPred = mymalloc2("EntVarPred", sizeof(MyFloat) * nsph);
+    memset(sph_scratch.EntVarPred, 0, sizeof(sph_scratch.EntVarPred[0]) * nsph);
     sph_scratch.VelPred = mymalloc2("VelPred", sizeof(MyFloat) * 3 * nsph);
     return sph_scratch;
 }
