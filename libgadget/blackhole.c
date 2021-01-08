@@ -153,12 +153,12 @@ struct BHPriv {
     MyFloat * BH_accreted_Mass;
     MyFloat * BH_accreted_BHMass;
     MyFloat * BH_accreted_Mtrack;
-    MyFloat * Injected_BH_Energy;
 
     /* This is a temporary computed in the accretion treewalk and used
      * in the feedback treewalk*/
     MyFloat * BH_FeedbackWeightSum;
 
+    double a3inv;
     /* Counters*/
     int64_t * N_sph_swallowed;
     int64_t * N_BH_swallowed;
@@ -330,9 +330,8 @@ add_injected_BH_energy(double unew, double injected_BH_energy, double mass)
     const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
     * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
 
-    double temp = u_to_temp_fac * unew;
-
-    if(temp > 5.0e8)
+    /* Cap temperature*/
+    if(unew > 5.0e8 / u_to_temp_fac)
         unew = 5.0e8 / u_to_temp_fac;
 
     return unew;
@@ -513,6 +512,8 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     tw_feedback->priv = priv;
 
 
+    priv->a3inv = 1./(All.Time * All.Time * All.Time);
+
     /*************************************************************************/
     /*  Dynamical Friction Treewalk */
 
@@ -569,10 +570,6 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     priv->BH_accreted_Mtrack = mymalloc("BH_accreted_Mtrack", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_accreted_momentum = (MyFloat (*) [3]) mymalloc("BH_accretemom", 3* SlotsManager->info[5].size * sizeof(priv->BH_accreted_momentum[0]));
 
-    /* Allocate array for storing the feedback energy.*/
-    priv->Injected_BH_Energy = mymalloc2("Injected_BH_Energy", SlotsManager->info[0].size * sizeof(MyFloat));
-    memset(priv->Injected_BH_Energy, 0, SlotsManager->info[0].size * sizeof(MyFloat));
-
     treewalk_run(tw_feedback, act->ActiveParticle, act->NumActiveParticle);
 
     /*************************************************************************/
@@ -582,26 +579,6 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
         collect_BH_info(act->ActiveParticle, act->NumActiveParticle, priv, FdBlackholeDetails);
     }
 
-    const double a3inv = 1./(All.Time * All.Time * All.Time);
-    /* This function changes the entropy of the particle due to the BH heating. */
-    #pragma omp parallel for
-    for(i = 0; i < PartManager->NumPart; i++)
-    {
-        if(P[i].Type == 0 && priv->Injected_BH_Energy[P[i].PI] > 0)
-        {
-            /* Set a flag for star-forming particles:
-             * we want these to cool to the EEQOS via
-             * tcool rather than trelax.*/
-            if(sfreff_on_eeqos(&SPHP(i), a3inv))
-                P[i].BHHeated = 1;
-            const double enttou = pow(SPH_EOMDensity(&SPHP(i)) * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
-            double uold = SPHP(i).Entropy * enttou;
-            uold = add_injected_BH_energy(uold, priv->Injected_BH_Energy[P[i].PI], P[i].Mass);
-            SPHP(i).Entropy = uold / enttou;
-        }
-    }
-
-    myfree(priv->Injected_BH_Energy);
     myfree(priv->BH_accreted_momentum);
     myfree(priv->BH_accreted_Mtrack);
     myfree(priv->BH_accreted_BHMass);
@@ -845,7 +822,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
 
     bhvel = sqrt(bhvel);
     bhvel /= All.cf.a;
-    double rho_proper = rho * All.cf.a3inv;
+    double rho_proper = rho * BH_GET_PRIV(tw)->a3inv;
 
     double soundspeed = blackhole_soundspeed(BH_GET_PRIV(tw)->BH_Entropy[PI], rho);
 
@@ -1231,28 +1208,41 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     }
 
     /* Dump feedback energy */
-    if(P[other].Type == 0) {
-        if(r2 < iter->feedback_kernel.HH && P[other].Mass > 0) {
-            if(I->FeedbackWeightSum > 0 && I->FeedbackEnergy > 0)
-            {
-                double u = r * iter->feedback_kernel.Hinv;
-                double wk = 1.0;
-                double mass_j;
+    if(P[other].Type == 0 &&
+        (r2 < iter->feedback_kernel.HH && P[other].Mass > 0) &&
+            (I->FeedbackWeightSum > 0 && I->FeedbackEnergy > 0))
+    {
+        double u = r * iter->feedback_kernel.Hinv;
+        double wk = 1.0;
+        double mass_j;
 
-                if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
-                    mass_j = P[other].Mass;
-                } else {
-                    mass_j = P[other].Hsml * P[other].Hsml * P[other].Hsml;
-                }
-                if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
-                    wk = density_kernel_wk(&iter->feedback_kernel, u);
-
-                double * iBHPI = &BH_GET_PRIV(lv->tw)->Injected_BH_Energy[P[other].PI];
-                const double injected_BH = I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum;
-                #pragma omp atomic update
-                (*iBHPI) += injected_BH;
-            }
+        if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
+            mass_j = P[other].Mass;
+        } else {
+            mass_j = P[other].Hsml * P[other].Hsml * P[other].Hsml;
         }
+        if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
+            wk = density_kernel_wk(&iter->feedback_kernel, u);
+
+        const double injected_BH = I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum;
+        /* Set a flag for star-forming particles:
+            * we want these to cool to the EEQOS via
+            * tcool rather than trelax.*/
+        if(sfreff_on_eeqos(&SPHP(other), BH_GET_PRIV(lv->tw)->a3inv)) {
+            /* We cannot atomically set a bitfield.
+             * This flag is never read in this thread loop, nor
+             * are other flags set here. So lack of atomicity is (I think) not a problem*/
+            //#pragma omp atomic write
+            P[other].BHHeated = 1;
+        }
+        const double enttou = pow(SPH_EOMDensity(&SPHP(other)) * BH_GET_PRIV(lv->tw)->a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+        double entold, entnew;
+        #pragma omp atomic read
+        entold = SPHP(other).Entropy;
+        do {
+            entnew = add_injected_BH_energy(entold * enttou, injected_BH, P[other].Mass) / enttou;
+            /* Swap in the new gas entropy only if the old one hasn't changed.*/
+        } while(!__atomic_compare_exchange(&(SPHP(other).Entropy), &entold, &entnew, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
     }
 
     MyIDType * SPH_SwallowID = BH_GET_PRIV(lv->tw)->SPH_SwallowID;
@@ -1417,7 +1407,7 @@ void blackhole_make_one(int index) {
         BHP(child).Mass = bh_powerlaw_seed_mass(P[child].ID);
     else
         BHP(child).Mass = blackhole_params.SeedBlackHoleMass;
-    
+
     BHP(child).Mseed = BHP(child).Mass;
     BHP(child).Mdot = 0;
     BHP(child).FormationTime = All.Time;
