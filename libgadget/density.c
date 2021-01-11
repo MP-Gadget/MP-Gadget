@@ -68,7 +68,7 @@ GetDensityKernelType(void)
 
 /* The evolved entropy at drift time: evolved dlog a.
  * Used to predict pressure and entropy for SPH */
-static MyFloat
+MyFloat
 SPH_EntVarPred(int PI, double MinEgySpec, double a3inv, double dloga)
 {
         double EntVarPred = SphP[PI].Entropy + SphP[PI].DtEntropy * dloga;
@@ -86,7 +86,7 @@ SPH_EntVarPred(int PI, double MinEgySpec, double a3inv, double dloga)
  * at the current Force computation time ti,
  * which always coincides with the Drift inttime.
  * For hydro forces.*/
-static void
+void
 SPH_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double gravkick, double hydrokick)
 {
     int j;
