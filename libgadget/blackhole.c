@@ -529,6 +529,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
 
     /*************************************************************************/
 
+    walltime_measure("/BH/DynFric");
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Beginning black-hole accretion\n");
 
@@ -551,6 +552,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
 
     /*************************************************************************/
 
+    walltime_measure("/BH/Accretion");
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Start swallowing of gas particles and black holes\n");
 
@@ -574,6 +576,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     treewalk_run(tw_feedback, act->ActiveParticle, act->NumActiveParticle);
 
     /*************************************************************************/
+    walltime_measure("/BH/Feedback");
 
     if(FdBlackholeDetails){
         collect_BH_info(act->ActiveParticle, act->NumActiveParticle, priv, FdBlackholeDetails);
@@ -645,6 +648,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     int Local_BH_num = 0;
     /* Compute total mass of black holes
      * present by summing contents of black hole array*/
+    #pragma omp parallel for reduction(+ : Local_BH_num) reduction(+: Local_BH_mass) reduction(+: Local_BH_Mdot) reduction(+: Local_BH_Medd)
     for(i = 0; i < SlotsManager->info[5].size; i ++)
     {
         if(BhP[i].SwallowID != (MyIDType) -1)
@@ -673,7 +677,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
                 All.Time, total_bh, total_mass_holes, total_mdot, mdot_in_msun_per_year, total_mdoteddington);
         fflush(FdBlackHoles);
     }
-    walltime_measure("/BH");
+    walltime_measure("/BH/Info");
 }
 
 
