@@ -255,7 +255,7 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
     input->SPH_DhsmlDensityFactor = SPHP(place).DhsmlEgyDensityFactor;
 
     input->Pressure = HYDRA_GET_PRIV(tw)->PressurePred[P[place].PI];
-    input->dloga = get_dloga_for_bin(P[place].TimeBin, P[place].Ti_drift);
+    input->dloga = get_dloga_for_bin(P[place].TimeBin, HYDRA_GET_PRIV(tw)->times->Ti_Current);
     /* calculation of F1 */
     soundspeed_i = sqrt(GAMMA * input->Pressure / SPH_EOMDensity(&SPHP(place)));
     input->F1 = fabs(SPHP(place).DivVel) /
@@ -418,7 +418,7 @@ hydro_ngbiter(
         /* now make sure that viscous acceleration is not too large */
 
         /*XXX: why is this dloga ?*/
-        double dloga = 2 * DMAX(I->dloga, get_dloga_for_bin(P[other].TimeBin, P[other].Ti_drift));
+        double dloga = 2 * DMAX(I->dloga, get_dloga_for_bin(P[other].TimeBin, HYDRA_GET_PRIV(lv->tw)->times->Ti_Current));
         if(dloga > 0 && (dwk_i + dwk_j) < 0)
         {
             if((I->Mass + P[other].Mass) > 0) {
