@@ -59,18 +59,10 @@ jobs:
         cp platform-options/Options.mk.travis Options.mk
         make
 
-  unit_tests:
-    needs:
-    - build
-    steps:
     - name: Unit tests
       run: |
         make test
 
-  example_travis:
-    needs:
-    - build
-    steps:
     - name: examples/travis
       run: |
         cd examples/travis
