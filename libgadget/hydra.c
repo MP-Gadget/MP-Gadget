@@ -165,10 +165,23 @@ hydro_force(const ActiveParticles * act, int WindOn, const double hubble, const 
     /* Cache the pressure for speed*/
     HYDRA_GET_PRIV(tw)->SPH_predicted = SPH_predicted;
     HYDRA_GET_PRIV(tw)->PressurePred = (double *) mymalloc("PressurePred", SlotsManager->info[0].size * sizeof(double));
+    memset(HYDRA_GET_PRIV(tw)->PressurePred, 0, SlotsManager->info[0].size * sizeof(double));
+    /* Compute pressure for active particles*/
+    if(act->ActiveParticle) {
+        #pragma omp parallel for
+        for(i = 0; i < act->NumActiveParticle; i++) {
+            int p_i = act->ActiveParticle[i];
+            int pi = P[p_i].PI;
+            HYDRA_GET_PRIV(tw)->PressurePred[pi] = PressurePred(pi, SPH_predicted->EntVarPred[pi]);
+        }
+    }
+    else{
+        /* Do it in slot order for memory locality*/
+        #pragma omp parallel for
+        for(i = 0; i < SlotsManager->info[0].size; i++)
+            HYDRA_GET_PRIV(tw)->PressurePred[i] = PressurePred(i, SPH_predicted->EntVarPred[i]);
+    }
 
-    #pragma omp parallel for
-    for(i = 0; i < SlotsManager->info[0].size; i++)
-        HYDRA_GET_PRIV(tw)->PressurePred[i] = PressurePred(i, SPH_predicted->EntVarPred[i]);
 
     double timeall = 0, timenetwork = 0;
     double timecomp, timecomm, timewait;
@@ -306,8 +319,19 @@ hydro_ngbiter(
     if(rsq <= 0 || !(rsq < iter->kernel_i.HH || rsq < kernel_j.HH))
         return;
 
+    double EntVarPred;
+    EntVarPred = HYDRA_GET_PRIV(lv->tw)->SPH_predicted->EntVarPred[P[other].PI];
+    /* Compute pressure lazily*/
+    double Pressure_j;
+    #pragma omp atomic read
+    Pressure_j = HYDRA_GET_PRIV(lv->tw)->PressurePred[P[other].PI];
+    if(Pressure_j == 0) {
+        Pressure_j = PressurePred(P[other].PI, EntVarPred);
+        #pragma omp atomic write
+        HYDRA_GET_PRIV(lv->tw)->PressurePred[P[other].PI] = Pressure_j;
+    }
+
     const double eomdensity = SPH_EOMDensity(&SPHP(other));
-    double Pressure_j = HYDRA_GET_PRIV(lv->tw)->PressurePred[P[other].PI];
     double p_over_rho2_j = Pressure_j / (eomdensity * eomdensity);
     double soundspeed_j = sqrt(GAMMA * Pressure_j / eomdensity);
 
