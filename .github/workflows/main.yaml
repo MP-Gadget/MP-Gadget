@@ -46,7 +46,7 @@ jobs:
       uses: conda-incubator/setup-miniconda@v2.0.1
       with:
         activate-environment: test
-        environment-file: maintainer/conda-env.yml
+        environment-file: maintainer/conda-env.yaml
         channels: bccp
         show-channel-urls: true
         use-only-tar-bz2: true
