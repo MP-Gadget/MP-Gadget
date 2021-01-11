@@ -13,17 +13,46 @@ jobs:
     runs-on: ubuntu-latest
     env:
       - OMP_NUM_THREADS: 1
-
+    defaults:
+      run:
+        shell: bash -l {0}
     steps:
+
     - name: Checkout source code
       uses: actions/checkout@v2
 
-    - name: Install Nbodykit
-      run: |
-        bash install-nbodykit.sh
-        export PATH=$HOME/miniconda/bin:$PATH
-        source activate test
-        conda install --yes gsl configobj gcc_linux-64
+    - name: Cache conda
+      uses: actions/cache@v1
+      env:
+        # Increase this value to reset cache.
+        CACHE_NUMBER: 0
+      with:
+        path: ~/conda_pkgs_dir
+        key:
+          ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}
+
+    - name: Cache depends/
+      uses: actions/cache@v2
+      key: ${{ runner.os }}-build-${{ hashFiles('depends/Makefile', 'depends/install_pfft.sh') }}
+      with:
+        path: |
+          ~/depends/install
+          ~/depends/include
+          ~/depends/download
+          ~/depends/src
+          ~/depends/lib
+
+    - name: Setup Conda Environment
+      uses: conda-incubator/setup-miniconda@v2.0.1
+      with:
+        activate-environment: test
+        environment-file: maintainer/conda-env.yml
+        channels: bccp
+        show-channel-urls: true
+        use-only-tar-bz2: true
+
+    - run:
+        conda info
 
     - name: Build
       run: |

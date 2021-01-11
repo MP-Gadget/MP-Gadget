@@ -6,11 +6,11 @@ env:
 
 cache:
     - directories:
-        - ${TRAVIS_BUILD_DIR}/depends/install
-        - ${TRAVIS_BUILD_DIR}/depends/include
-        - ${TRAVIS_BUILD_DIR}/depends/download
-        - ${TRAVIS_BUILD_DIR}/depends/src
-        - ${TRAVIS_BUILD_DIR}/depends/lib
+        ~/depends/install
+        ~/depends/include
+        ~/depends/download
+        ~/depends/src
+        ~/depends/lib
 
 before_install:
     - bash install-nbodykit.sh
