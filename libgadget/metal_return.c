@@ -932,6 +932,41 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
     for(i = 0; i < SlotsManager->info[4].size; i++)
         priv->Right[i] = tree->BoxSize;
 
+    /* Try to find a reasonable starting place for Hsml using the Hsml of the nearest gas particle*/
+#if 0
+    #pragma omp parallel for
+    for(i = 0; i < act->NumActiveParticle; i++) {
+        int a = act->ActiveParticle ? act->ActiveParticle[i] : i;
+        /* Skip the garbage particles */
+        if(P[a].IsGarbage || !stellar_density_haswork(a, tw))
+            continue;
+        int no = force_get_father(a, tree);
+        if(!node_is_node(no, tree) || P[a].Type != 4)
+            endrun(3, "node %d a %d Father[a] %d\n", no, a, tree->Father[a]);
+        int j;
+        double mindist = tree->BoxSize;
+        int minpart = 0;
+        /* Loop through neighbours, find closest gas particle. May be empty!*/
+        for(j = 0; j < tree->Nodes[no].s.noccupied; j++)
+        {
+            int part = tree->Nodes[no].s.suns[j];
+            if(part >= 0 && P[part].Type != 0)
+                continue;
+            int k;
+            double dist2 = 0;
+            for(k=0; k < 3; k++)
+                dist2 += pow(P[part].Pos[k] - P[a].Pos[k],2);
+            if(dist2 < mindist)
+            {
+                mindist = dist2;
+                minpart = part;
+            }
+        }
+        if(mindist < tree->BoxSize)
+            P[a].Hsml = P[minpart].Hsml;
+    }
+#endif
+
     walltime_measure("/SPH/Metals/Init");
     /* allocate buffers to arrange communication */
     int NumThreads = omp_get_max_threads();
