@@ -1006,6 +1006,28 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
             myfree(ReDoQueue);
             break;
         }
+        double maxnumngb = 0, minnumngb = 100000;
+        #pragma omp parallel for reduction(max:maxnumngb) reduction(min:minnumngb)
+        for(i = 0; i < act->NumActiveParticle; i++) {
+            int a = act->ActiveParticle ? act->ActiveParticle[i] : i;
+            /* Skip the garbage particles */
+            if(P[a].IsGarbage || !stellar_density_haswork(a, tw))
+                continue;
+            int pi = P[a].PI;
+            if(maxnumngb < priv->NumNgb[pi]) {
+                maxnumngb = priv->NumNgb[pi];
+//                 maxhsml = P[a].Hsml;
+            }
+            if(minnumngb > priv->NumNgb[pi]) {
+                minnumngb = priv->NumNgb[pi];
+//                 minhsml = P[a].Hsml;
+            }
+        }
+        double maxnumngbtot, minnumngbtot;
+        MPI_Reduce(&maxnumngb, &maxnumngbtot, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&minnumngb, &minnumngbtot, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+
+        message(0, "Max numngb %g min numngb %g\n", maxnumngbtot, minnumngbtot);
 
         /*Shrink memory*/
         ReDoQueue = myrealloc(ReDoQueue, sizeof(int) * size);
