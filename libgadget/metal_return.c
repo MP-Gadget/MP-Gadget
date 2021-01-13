@@ -825,10 +825,10 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
                     P[i].Hsml *= 1.26;
             }
             if(Right[pi] < 0.99*tw->tree->BoxSize && Left[pi] == 0) {
-                    if(fac > 1 / 1.26)
+                    if(fac > 0.5)
                         P[i].Hsml *= fac;
                     else
-                        P[i].Hsml /= 1.26;
+                        P[i].Hsml /= 2;
             }
         }
         /* More work needed: add this particle to the redo queue*/
