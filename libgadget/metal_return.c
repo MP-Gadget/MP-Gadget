@@ -744,7 +744,13 @@ struct StellarDensityPriv {
 static int
 stellar_density_haswork(int i, TreeWalk * tw)
 {
-    return metals_haswork(i, STELLAR_DENSITY_GET_PRIV(tw)->StellarAges, STELLAR_DENSITY_GET_PRIV(tw)->MassReturn);
+    if(P[i].Type != 4)
+        return 0;
+    int pi = P[i].PI;
+    /* New stars will not do anything: hsml will be close to the value from the parent gas particle.*/
+    if(STELLAR_DENSITY_GET_PRIV(tw)->StellarAges[pi] < lifetime[LIFE_NMASS*LIFE_NMET-1]/1e6)
+        return 0;
+    return 1;
 }
 
 static void
