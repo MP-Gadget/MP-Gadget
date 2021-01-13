@@ -510,6 +510,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     tw_feedback->result_type_elsize = sizeof(TreeWalkResultBHFeedback);
     tw_feedback->tree = tree;
     tw_feedback->priv = priv;
+    tw_feedback->repeatdisallowed = 1;
 
 
     priv->a3inv = 1./(All.Time * All.Time * All.Time);
