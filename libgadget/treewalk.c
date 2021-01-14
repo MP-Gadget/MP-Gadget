@@ -621,13 +621,16 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
     }
 
     if(tw->visit) {
-        /* Keep track of which particles have been evaluated across buffer fill ups.*/
-        if(tw->repeatdisallowed) {
-            tw->evaluated = mymalloc("evaluated", sizeof(char)*tw->WorkSetSize);
-            memset(tw->evaluated, 0, sizeof(char)*tw->WorkSetSize);
-        }
+        tw->evaluated = NULL;
         do
         {
+            /* Keep track of which particles have been evaluated across buffer fill ups.
+             * Do this if we are not allowed to evaluate anything twice,
+             * or if the buffer filled up already.*/
+            if((!tw->evaluated) && (tw->Niterations == 1 || tw->repeatdisallowed)) {
+                tw->evaluated = mymalloc("evaluated", sizeof(char)*tw->WorkSetSize);
+                memset(tw->evaluated, 0, sizeof(char)*tw->WorkSetSize);
+            }
             ev_primary(tw); /* do local particles and prepare export list */
             /* exchange particle data */
             const struct SendRecvBuffer sndrcv = ev_get_remote(tw);
@@ -641,7 +644,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
             tw->Nexport_sum += tw->Nexport;
             ta_free(sndrcv.Send_count);
         } while(ev_ndone(tw) < tw->NTask);
-        if(tw->repeatdisallowed)
+        if(tw->evaluated)
             myfree(tw->evaluated);
     }
 
