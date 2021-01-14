@@ -475,7 +475,9 @@ ev_primary(TreeWalk * tw)
     /* Compactify the export queue*/
     for(i = 0; i < tw->NThread; i++)
     {
-        memmove(DataIndexTable + tw->Nexport, DataIndexTable + dataindexoffset[i], sizeof(DataIndexTable[0]) * nexports[i]);
+        /* Only need to move if this thread is not full*/
+        if(tw->Nexport != dataindexoffset[i])
+            memmove(DataIndexTable + tw->Nexport, DataIndexTable + dataindexoffset[i], sizeof(DataIndexTable[0]) * nexports[i]);
         tw->Nexport += nexports[i];
     }
 
