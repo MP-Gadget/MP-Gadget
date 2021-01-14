@@ -12,7 +12,7 @@
 MyFloat SPH_EOMDensity(const struct sph_particle_data * const pi);
 
 /*Function to compute hydro accelerations and adiabatic entropy change*/
-void hydro_force(const ActiveParticles * act, int WindOn, const double hubble, const double atime, struct sph_pred_data * SPH_predicted, const ForceTree * const tree);
+void hydro_force(const ActiveParticles * act, int WindOn, const double hubble, const double atime, struct sph_pred_data * SPH_predicted, double MinEgySpec, const DriftKickTimes times,  Cosmology * CP, const ForceTree * const tree);
 
 void set_hydro_params(ParameterSet * ps);
 

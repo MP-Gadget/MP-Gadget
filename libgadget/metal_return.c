@@ -744,7 +744,13 @@ struct StellarDensityPriv {
 static int
 stellar_density_haswork(int i, TreeWalk * tw)
 {
-    return metals_haswork(i, STELLAR_DENSITY_GET_PRIV(tw)->StellarAges, STELLAR_DENSITY_GET_PRIV(tw)->MassReturn);
+    if(P[i].Type != 4)
+        return 0;
+    int pi = P[i].PI;
+    /* New stars will not do anything: hsml will be close to the value from the parent gas particle.*/
+    if(STELLAR_DENSITY_GET_PRIV(tw)->StellarAges[pi] < lifetime[LIFE_NMASS*LIFE_NMET-1]/1e6)
+        return 0;
+    return 1;
 }
 
 static void
@@ -1002,7 +1008,16 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
     myfree(priv->NumNgb);
     myfree(priv->Right);
     myfree(priv->Left);
-    /* collect some timing information */
-    walltime_measure("/SPH/Metals/Density");
+
+    double timeall = walltime_measure(WALLTIME_IGNORE);
+
+    double timecomp = tw->timecomp3 + tw->timecomp1 + tw->timecomp2;
+    double timewait = tw->timewait1 + tw->timewait2;
+    double timecomm = tw->timecommsumm1 + tw->timecommsumm2;
+    walltime_add("/SPH/Metals/Density/Compute", timecomp);
+    walltime_add("/SPH/Metals/Density/Wait", timewait);
+    walltime_add("/SPH/Metals/Density/Comm", timecomm);
+    walltime_add("/SPH/Metals/Density/Misc", timeall - (timecomp + timewait + timecomm));
+
     return priv->VolumeSPH;
 }

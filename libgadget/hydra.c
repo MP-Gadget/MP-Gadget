@@ -80,6 +80,11 @@ struct HydraPriv {
     double hubble_a2;
     double atime;
     int WindOn;
+    DriftKickTimes const * times;
+    double MinEgySpec;
+    double FgravkickB;
+    double gravkicks[TIMEBINS+1];
+    double hydrokicks[TIMEBINS+1];
 };
 
 #define HYDRA_GET_PRIV(tw) ((struct HydraPriv*) ((tw)->priv))
@@ -140,7 +145,7 @@ hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mo
  *  particles .
  */
 void
-hydro_force(const ActiveParticles * act, int WindOn, const double hubble, const double atime, struct sph_pred_data * SPH_predicted, const ForceTree * const tree)
+hydro_force(const ActiveParticles * act, int WindOn, const double hubble, const double atime, struct sph_pred_data * SPH_predicted, double MinEgySpec, const DriftKickTimes times,  Cosmology * CP, const ForceTree * const tree)
 {
     int i;
     TreeWalk tw[1] = {{0}};
@@ -165,10 +170,23 @@ hydro_force(const ActiveParticles * act, int WindOn, const double hubble, const 
     /* Cache the pressure for speed*/
     HYDRA_GET_PRIV(tw)->SPH_predicted = SPH_predicted;
     HYDRA_GET_PRIV(tw)->PressurePred = (double *) mymalloc("PressurePred", SlotsManager->info[0].size * sizeof(double));
+    memset(HYDRA_GET_PRIV(tw)->PressurePred, 0, SlotsManager->info[0].size * sizeof(double));
+    /* Compute pressure for active particles*/
+    if(act->ActiveParticle) {
+        #pragma omp parallel for
+        for(i = 0; i < act->NumActiveParticle; i++) {
+            int p_i = act->ActiveParticle[i];
+            int pi = P[p_i].PI;
+            HYDRA_GET_PRIV(tw)->PressurePred[pi] = PressurePred(pi, SPH_predicted->EntVarPred[pi]);
+        }
+    }
+    else{
+        /* Do it in slot order for memory locality*/
+        #pragma omp parallel for
+        for(i = 0; i < SlotsManager->info[0].size; i++)
+            HYDRA_GET_PRIV(tw)->PressurePred[i] = PressurePred(i, SPH_predicted->EntVarPred[i]);
+    }
 
-    #pragma omp parallel for
-    for(i = 0; i < SlotsManager->info[0].size; i++)
-        HYDRA_GET_PRIV(tw)->PressurePred[i] = PressurePred(i, SPH_predicted->EntVarPred[i]);
 
     double timeall = 0, timenetwork = 0;
     double timecomp, timecomm, timewait;
@@ -181,6 +199,21 @@ hydro_force(const ActiveParticles * act, int WindOn, const double hubble, const 
     HYDRA_GET_PRIV(tw)->WindOn = WindOn;
     HYDRA_GET_PRIV(tw)->atime = atime;
     HYDRA_GET_PRIV(tw)->hubble_a2 = hubble * atime * atime;
+    priv->MinEgySpec = MinEgySpec;
+    priv->times = &times;
+    priv->FgravkickB = get_exact_gravkick_factor(CP, times.PM_kick, times.Ti_Current);
+    memset(priv->gravkicks, 0, sizeof(priv->gravkicks[0])*(TIMEBINS+1));
+    memset(priv->hydrokicks, 0, sizeof(priv->hydrokicks[0])*(TIMEBINS+1));
+    /* Compute the factors to move a current kick times velocity to the drift time velocity.
+     * We need to do the computation for all timebins up to the maximum because even inactive
+     * particles may have interactions. */
+    #pragma omp parallel for
+    for(i = times.mintimebin; i <= TIMEBINS; i++)
+    {
+        priv->gravkicks[i] = get_exact_gravkick_factor(CP, times.Ti_kick[i], times.Ti_Current);
+        priv->hydrokicks[i] = get_exact_hydrokick_factor(CP, times.Ti_kick[i], times.Ti_Current);
+    }
+
 
     treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
 
@@ -222,7 +255,7 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
     input->SPH_DhsmlDensityFactor = SPHP(place).DhsmlEgyDensityFactor;
 
     input->Pressure = HYDRA_GET_PRIV(tw)->PressurePred[P[place].PI];
-    input->dloga = get_dloga_for_bin(P[place].TimeBin, P[place].Ti_drift);
+    input->dloga = get_dloga_for_bin(P[place].TimeBin, HYDRA_GET_PRIV(tw)->times->Ti_Current);
     /* calculation of F1 */
     soundspeed_i = sqrt(GAMMA * input->Pressure / SPH_EOMDensity(&SPHP(place)));
     input->F1 = fabs(SPHP(place).DivVel) /
@@ -284,7 +317,7 @@ hydro_ngbiter(
     }
 
     int other = iter->base.other;
-    double r2 = iter->base.r2;
+    double rsq = iter->base.r2;
     double * dist = iter->base.dist;
     double r = iter->base.r;
 
@@ -302,99 +335,135 @@ hydro_ngbiter(
 
     density_kernel_init(&kernel_j, P[other].Hsml, GetDensityKernelType());
 
-    if(r2 > 0 && (r2 < iter->kernel_i.HH || r2 < kernel_j.HH))
-    {
-        const double eomdensity = SPH_EOMDensity(&SPHP(other));
-        double Pressure_j = HYDRA_GET_PRIV(lv->tw)->PressurePred[P[other].PI];
-        double p_over_rho2_j = Pressure_j / (eomdensity * eomdensity);
-        double soundspeed_j = sqrt(GAMMA * Pressure_j / eomdensity);
+    /* Check we are within the density kernel*/
+    if(rsq <= 0 || !(rsq < iter->kernel_i.HH || rsq < kernel_j.HH))
+        return;
 
-        MyFloat * velpred = HYDRA_GET_PRIV(lv->tw)->SPH_predicted->VelPred;
-
-        double dv[3];
-        int d;
-        for(d = 0; d < 3; d++) {
-            dv[d] = I->Vel[d] - velpred[3 * P[other].PI + d];
+    double EntVarPred;
+    #pragma omp atomic read
+    EntVarPred = HYDRA_GET_PRIV(lv->tw)->SPH_predicted->EntVarPred[P[other].PI];
+    /* Lazily compute the predicted quantities. We need to do this again here, even though we do it in density,
+     * because this treewalk is symmetric and that one is asymmetric. In density() hmax has not been computed
+     * yet so we cannot merge them. We can do this
+     * with minimal locking since nothing happens should we compute them twice.
+     * Zero can be the special value since there should never be zero entropy.*/
+    if(EntVarPred == 0) {
+        MyFloat VelPred[3];
+        struct HydraPriv * priv = HYDRA_GET_PRIV(lv->tw);
+        int bin = P[other].TimeBin;
+        double a3inv = pow(priv->atime, -3);
+        double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
+        EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, a3inv, dloga);
+        SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
+        /* Note this goes first to avoid threading issues: EntVarPred will only be set after this is done.
+            * The worst that can happen is that some data points get copied twice.*/
+        int i;
+        for(i = 0; i < 3; i++) {
+            #pragma omp atomic write
+            priv->SPH_predicted->VelPred[3 * P[other].PI + i] = VelPred[i];
         }
-
-        double vdotr = dotproduct(dist, dv);
-        double vdotr2 = vdotr + HYDRA_GET_PRIV(lv->tw)->hubble_a2 * r2;
-
-        double dwk_i = density_kernel_dwk(&iter->kernel_i, r * iter->kernel_i.Hinv);
-        double dwk_j = density_kernel_dwk(&kernel_j, r * kernel_j.Hinv);
-
-        double visc = 0;
-
-        if(vdotr2 < 0)	/* ... artificial viscosity visc is 0 by default*/
-        {
-            /*See Gadget-2 paper: eq. 13*/
-            const double mu_ij = HYDRA_GET_PRIV(lv->tw)->fac_mu * vdotr2 / r;	/* note: this is negative! */
-            const double rho_ij = 0.5 * (I->Density + SPHP(other).Density);
-            double vsig = iter->soundspeed_i + soundspeed_j;
-
-            vsig -= 3 * mu_ij;
-
-            if(vsig > O->MaxSignalVel)
-                O->MaxSignalVel = vsig;
-
-            /* Note this uses the CurlVel of an inactive particle, which may not be
-             * at the present drift time*/
-            const double f2 = fabs(SPHP(other).DivVel) / (fabs(SPHP(other).DivVel) +
-                    SPHP(other).CurlVel + 0.0001 * soundspeed_j / HYDRA_GET_PRIV(lv->tw)->fac_mu / P[other].Hsml);
-
-            /*Gadget-2 paper, eq. 14*/
-            visc = 0.25 * HydroParams.ArtBulkViscConst * vsig * (-mu_ij) / rho_ij * (I->F1 + f2);
-            /* .... end artificial viscosity evaluation */
-            /* now make sure that viscous acceleration is not too large */
-
-            /*XXX: why is this dloga ?*/
-            double dloga = 2 * DMAX(I->dloga, get_dloga_for_bin(P[other].TimeBin, P[other].Ti_drift));
-            if(dloga > 0 && (dwk_i + dwk_j) < 0)
-            {
-                if((I->Mass + P[other].Mass) > 0) {
-                    visc = DMIN(visc, 0.5 * HYDRA_GET_PRIV(lv->tw)->fac_vsic_fix * vdotr2 /
-                            (0.5 * (I->Mass + P[other].Mass) * (dwk_i + dwk_j) * r * dloga));
-                }
-            }
-        }
-        const double hfc_visc = 0.5 * P[other].Mass * visc * (dwk_i + dwk_j) / r;
-        double hfc = hfc_visc;
-        double r1 = 1, r2 = 1;
-
-        if(HydroParams.DensityIndependentSphOn) {
-            /*This enables the grad-h corrections*/
-            r1 = 0, r2 = 0;
-            MyFloat * entvarpred = HYDRA_GET_PRIV(lv->tw)->SPH_predicted->EntVarPred;
-            /* leading-order term */
-            double EntOther = entvarpred[P[other].PI];
-
-            hfc += P[other].Mass *
-                (dwk_i*iter->p_over_rho2_i*EntOther/I->EntVarPred +
-                dwk_j*p_over_rho2_j*I->EntVarPred/EntOther) / r;
-
-            /* enable grad-h corrections only if contrastlimit is non negative */
-            if(HydroParams.DensityContrastLimit >= 0) {
-                r1 = I->EgyRho / I->Density;
-                r2 = SPHP(other).EgyWtDensity / SPHP(other).Density;
-                if(HydroParams.DensityContrastLimit > 0) {
-                    /* apply the limit if it is enabled > 0*/
-                    r1 = DMIN(r1, HydroParams.DensityContrastLimit);
-                    r2 = DMIN(r2, HydroParams.DensityContrastLimit);
-                }
-            }
-        }
-
-        /* grad-h corrections: enabled if DensityIndependentSphOn = 0, or DensityConstrastLimit >= 0 */
-        /* Formulation derived from the Lagrangian */
-        hfc += P[other].Mass * (iter->p_over_rho2_i*I->SPH_DhsmlDensityFactor * dwk_i * r1
-                 + p_over_rho2_j*SPHP(other).DhsmlEgyDensityFactor * dwk_j * r2) / r;
-
-        for(d = 0; d < 3; d ++)
-            O->Acc[d] += (-hfc * dist[d]);
-
-        O->DtEntropy += (0.5 * hfc_visc * vdotr2);
-
+        #pragma omp atomic write
+        priv->SPH_predicted->EntVarPred[P[other].PI] = EntVarPred;
     }
+    /* Compute pressure lazily*/
+    double Pressure_j;
+    #pragma omp atomic read
+    Pressure_j = HYDRA_GET_PRIV(lv->tw)->PressurePred[P[other].PI];
+    if(Pressure_j == 0) {
+        Pressure_j = PressurePred(P[other].PI, EntVarPred);
+        #pragma omp atomic write
+        HYDRA_GET_PRIV(lv->tw)->PressurePred[P[other].PI] = Pressure_j;
+    }
+
+    const double eomdensity = SPH_EOMDensity(&SPHP(other));
+    double p_over_rho2_j = Pressure_j / (eomdensity * eomdensity);
+    double soundspeed_j = sqrt(GAMMA * Pressure_j / eomdensity);
+
+    MyFloat * velpred = HYDRA_GET_PRIV(lv->tw)->SPH_predicted->VelPred;
+
+    double dv[3];
+    int d;
+    for(d = 0; d < 3; d++) {
+        dv[d] = I->Vel[d] - velpred[3 * P[other].PI + d];
+    }
+
+    double vdotr = dotproduct(dist, dv);
+    double vdotr2 = vdotr + HYDRA_GET_PRIV(lv->tw)->hubble_a2 * rsq;
+
+    double dwk_i = density_kernel_dwk(&iter->kernel_i, r * iter->kernel_i.Hinv);
+    double dwk_j = density_kernel_dwk(&kernel_j, r * kernel_j.Hinv);
+
+    double visc = 0;
+
+    if(vdotr2 < 0)	/* ... artificial viscosity visc is 0 by default*/
+    {
+        /*See Gadget-2 paper: eq. 13*/
+        const double mu_ij = HYDRA_GET_PRIV(lv->tw)->fac_mu * vdotr2 / r;	/* note: this is negative! */
+        const double rho_ij = 0.5 * (I->Density + SPHP(other).Density);
+        double vsig = iter->soundspeed_i + soundspeed_j;
+
+        vsig -= 3 * mu_ij;
+
+        if(vsig > O->MaxSignalVel)
+            O->MaxSignalVel = vsig;
+
+        /* Note this uses the CurlVel of an inactive particle, which may not be
+            * at the present drift time*/
+        const double f2 = fabs(SPHP(other).DivVel) / (fabs(SPHP(other).DivVel) +
+                SPHP(other).CurlVel + 0.0001 * soundspeed_j / HYDRA_GET_PRIV(lv->tw)->fac_mu / P[other].Hsml);
+
+        /*Gadget-2 paper, eq. 14*/
+        visc = 0.25 * HydroParams.ArtBulkViscConst * vsig * (-mu_ij) / rho_ij * (I->F1 + f2);
+        /* .... end artificial viscosity evaluation */
+        /* now make sure that viscous acceleration is not too large */
+
+        /*XXX: why is this dloga ?*/
+        double dloga = 2 * DMAX(I->dloga, get_dloga_for_bin(P[other].TimeBin, HYDRA_GET_PRIV(lv->tw)->times->Ti_Current));
+        if(dloga > 0 && (dwk_i + dwk_j) < 0)
+        {
+            if((I->Mass + P[other].Mass) > 0) {
+                visc = DMIN(visc, 0.5 * HYDRA_GET_PRIV(lv->tw)->fac_vsic_fix * vdotr2 /
+                        (0.5 * (I->Mass + P[other].Mass) * (dwk_i + dwk_j) * r * dloga));
+            }
+        }
+    }
+    const double hfc_visc = 0.5 * P[other].Mass * visc * (dwk_i + dwk_j) / r;
+    double hfc = hfc_visc;
+    double rr1 = 1, rr2 = 1;
+
+    if(HydroParams.DensityIndependentSphOn) {
+        /*This enables the grad-h corrections*/
+        rr1 = 0, rr2 = 0;
+        MyFloat * entvarpred = HYDRA_GET_PRIV(lv->tw)->SPH_predicted->EntVarPred;
+        /* leading-order term */
+        double EntOther = entvarpred[P[other].PI];
+
+        hfc += P[other].Mass *
+            (dwk_i*iter->p_over_rho2_i*EntOther/I->EntVarPred +
+            dwk_j*p_over_rho2_j*I->EntVarPred/EntOther) / r;
+
+        /* enable grad-h corrections only if contrastlimit is non negative */
+        if(HydroParams.DensityContrastLimit >= 0) {
+            rr1 = I->EgyRho / I->Density;
+            rr2 = SPHP(other).EgyWtDensity / SPHP(other).Density;
+            if(HydroParams.DensityContrastLimit > 0) {
+                /* apply the limit if it is enabled > 0*/
+                rr1 = DMIN(rr1, HydroParams.DensityContrastLimit);
+                rr2 = DMIN(rr2, HydroParams.DensityContrastLimit);
+            }
+        }
+    }
+
+    /* grad-h corrections: enabled if DensityIndependentSphOn = 0, or DensityConstrastLimit >= 0 */
+    /* Formulation derived from the Lagrangian */
+    hfc += P[other].Mass * (iter->p_over_rho2_i*I->SPH_DhsmlDensityFactor * dwk_i * rr1
+                + p_over_rho2_j*SPHP(other).DhsmlEgyDensityFactor * dwk_j * rr2) / r;
+
+    for(d = 0; d < 3; d ++)
+        O->Acc[d] += (-hfc * dist[d]);
+
+    O->DtEntropy += (0.5 * hfc_visc * vdotr2);
+
 }
 
 static int

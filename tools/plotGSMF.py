@@ -80,8 +80,12 @@ def plot_gsmf(pig, label=None):
 
         if datatype == 'data':
             data[:,1:] = np.log10(data[:,1:])
-            color      = color2[label]
-            marker     = marker2[label]
+            try:
+                color      = color2[label]
+                marker     = marker2[label]
+            except KeyError:
+                color = None
+                marker = 'o'
             plt.errorbar(data[:,0],  data[:,1], yerr = [data[:,1]-data[:,3],data[:,2]- data[:,1]],\
                         label=label,color=color,fmt=marker)
         else:
