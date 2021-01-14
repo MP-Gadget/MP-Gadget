@@ -201,8 +201,8 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     freebytes -= 4096 * 10 * bytesperbuffer;
 
     tw->BunchSize = (size_t) floor(((double)freebytes)/ bytesperbuffer);
-    /* if the send/recv buffer is greater than 2GB some MPIs have issues. */
-    const size_t twogb = 1024*1024*2030L;
+    /* if the send/recv buffer is close to 4GB some MPIs have issues. */
+    const size_t twogb = 1024*1024*3092L;
     if(tw->BunchSize * tw->query_type_elsize > twogb)
         tw->BunchSize = twogb / tw->query_type_elsize;
 
