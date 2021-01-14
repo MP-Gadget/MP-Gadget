@@ -50,11 +50,11 @@ static ForceTree
 force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir);
 
 /*Next three are not static as tested.*/
-int
+int64_t
 force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav);
 
 ForceTree
-force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp);
+force_treeallocate(int64_t maxnodes, int64_t maxpart, DomainDecomp * ddecomp);
 
 void
 force_update_node_parallel(const ForceTree * tree, const DomainDecomp * ddecomp);
@@ -83,17 +83,17 @@ static void force_validate_nextlist(const ForceTree * tree)
     {
         struct NODE * current = &tree->Nodes[no];
         if(current->sibling != -1 && !node_is_node(current->sibling, tree))
-            endrun(5, "Node %d (type %d) has sibling %d next %d father %d first %d final %d last %d ntop %d\n", no, current->f.ChildType, current->sibling, current->s.suns[0], current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
+            endrun(5, "Node %d (type %d) has sibling %d next %d father %d first %ld final %ld last %ld ntop %ld\n", no, current->f.ChildType, current->sibling, current->s.suns[0], current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
 
         if(current->f.ChildType == PSEUDO_NODE_TYPE) {
             /* pseudo particle: nextnode should be a pseudo particle, sibling should be a node. */
             if(!node_is_pseudo_particle(current->s.suns[0], tree))
-                endrun(5, "Pseudo Node %d has next node %d sibling %d father %d first %d final %d last %d ntop %d\n", no, current->s.suns[0], current->sibling, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
+                endrun(5, "Pseudo Node %d has next node %d sibling %d father %d first %ld final %ld last %ld ntop %ld\n", no, current->s.suns[0], current->sibling, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
         }
         else if(current->f.ChildType == NODE_NODE_TYPE) {
             /* Next node should be another node */
             if(!node_is_node(current->s.suns[0], tree))
-                endrun(5, "Node Node %d has next node which is particle %d sibling %d father %d first %d final %d last %d ntop %d\n", no, current->s.suns[0], current->sibling, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
+                endrun(5, "Node Node %d has next node which is particle %d sibling %d father %d first %ld final %ld last %ld ntop %ld\n", no, current->s.suns[0], current->sibling, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
             no = current->s.suns[0];
             continue;
         }
@@ -160,7 +160,7 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSiz
     event_listen(&EventSlotsFork, force_tree_eh_slots_fork, tree);
     walltime_measure("/Tree/Build/Moments");
 
-    message(0, "Tree constructed (moments: %d). First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
+    message(0, "Tree constructed (moments: %d). First node %ld, number of nodes %ld, first pseudo %ld. NTopLeaves %ld\n",
             tree->moments_computed_flag, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
     MPIU_Barrier(MPI_COMM_WORLD);
 }
@@ -184,7 +184,7 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
 
     do
     {
-        int maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->NumPart + ddecomp->NTopNodes;
+        int64_t maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->NumPart + ddecomp->NTopNodes;
         /* Allocate memory. */
         tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp);
 
@@ -192,7 +192,7 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
         tree.numnodes = force_tree_create_nodes(tree, npart, ddecomp, BoxSize, HybridNuGrav);
         if(tree.numnodes >= tree.lastnode - tree.firstnode)
         {
-            message(1, "Not enough tree nodes (%d) for %d particles. Created %d\n", maxnodes, npart, tree.numnodes);
+            message(1, "Not enough tree nodes (%ld) for %d particles. Created %ld\n", maxnodes, npart, tree.numnodes);
             force_tree_free(&tree);
             message(1, "TreeAllocFactor from %g to %g\n", ForceTreeParams.TreeAllocFactor, ForceTreeParams.TreeAllocFactor*1.15);
             ForceTreeParams.TreeAllocFactor *= 1.15;
@@ -457,7 +457,7 @@ create_new_node_layer(int firstparent, int p_toplace,
 
 /*! Does initial creation of the nodes for the gravitational oct-tree.
  **/
-int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav)
+int64_t force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav)
 {
     int i;
     int nnext = tb.firstnode;		/* index of first free node */
@@ -680,7 +680,7 @@ static void
 force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddecomp)
 {
     int i, index;
-    const int firstpseudo = tree->lastnode;
+    const int64_t firstpseudo = tree->lastnode;
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
@@ -1012,7 +1012,7 @@ void force_treeupdate_pseudos(int no, const ForceTree * tree)
     {
         /*This may not happen as we are an internal top level node*/
         if(p < tree->firstnode || p >= tree->lastnode)
-            endrun(6767, "Updating pseudos: %d -> %d which is not an internal node between %d and %d.",no, p, tree->firstnode, tree->lastnode);
+            endrun(6767, "Updating pseudos: %d -> %d which is not an internal node between %ld and %ld.",no, p, tree->firstnode, tree->lastnode);
 #ifdef DEBUG
         /* Check we don't move to another part of the tree*/
         if(tree->Nodes[p].father != no)
@@ -1175,7 +1175,7 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
  *  maxnodes approximately equal to 0.7*maxpart is sufficient to store the
  *  tree for up to maxpart particles.
  */
-ForceTree force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp)
+ForceTree force_treeallocate(int64_t maxnodes, int64_t maxpart, DomainDecomp * ddecomp)
 {
     size_t bytes;
     size_t allbytes = 0;
@@ -1193,13 +1193,15 @@ ForceTree force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp)
     allbytes += bytes;
     tb.firstnode = maxpart;
     tb.lastnode = maxpart + maxnodes;
-    if(tb.lastnode < 0)
-        endrun(5, "Size of tree overflowed for maxpart = %d, maxnodes = %d!\n", maxpart, maxnodes);
     tb.numnodes = 0;
     tb.Nodes = tb.Nodes_base - maxpart;
     tb.tree_allocated_flag = 1;
     tb.NTopLeaves = ddecomp->NTopLeaves;
     tb.TopLeaves = ddecomp->TopLeaves;
+    /* Makes sure the index for our tree fits into an integer*/
+    if(tb.lastnode + tb.NTopLeaves >= (2L<<31)-1)
+        endrun(5, "Size of tree overflowed for maxpart = %d, maxnodes = %d topleaves %d!\n", maxpart, maxnodes, tb.NTopLeaves);
+
     message(0, "Allocated %g MByte for %d tree nodes. firstnode %d. (presently allocated %g MB)\n",
          allbytes / (1024.0 * 1024.0), maxnodes, maxpart,
          mymalloc_usedbytes() / (1024.0 * 1024.0));

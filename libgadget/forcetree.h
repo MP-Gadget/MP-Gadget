@@ -74,15 +74,15 @@ typedef struct ForceTree {
     /* Flags that the tree has fully computed and exchanged mass moments*/
     int moments_computed_flag;
     /*Index of first internal node. Difference between Nodes and Nodes_base. == MaxPart*/
-    int firstnode;
+    int64_t firstnode;
     /*Index of first pseudo-particle node*/
-    int lastnode;
+    int64_t lastnode;
     /* Number of actually allocated nodes*/
-    int numnodes;
+    int64_t numnodes;
     /*Pointer to the TopLeaves struct imported from Domain. Sets up the pseudo particles.*/
     struct topleaf_data * TopLeaves;
     /*Number of TopLeaves*/
-    int NTopLeaves;
+    int64_t NTopLeaves;
     /*!< this is a pointer used to access the nodes which is shifted such that Nodes[firstnode]
      *   gives the first allocated node */
     struct NODE *Nodes;
