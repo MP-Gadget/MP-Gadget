@@ -52,6 +52,8 @@ typedef struct {
     /* Thread local export variables*/
     size_t Nexport;
     size_t BunchSize;
+    /* Number of entries in the export table for this particle*/
+    size_t NThisParticleExport;
     int *exportflag;
     int *exportnodecount;
     size_t *exportindex;

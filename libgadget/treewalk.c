@@ -323,9 +323,12 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * d
             /* Primary never uses node list */
             treewalk_init_query(tw, input, i, NULL);
             treewalk_init_result(tw, output, input);
-
             lv->target = i;
+            /* Reset the number of exported particles.*/
+            lv->NThisParticleExport = 0;
             const int rt = tw->visit(input, output, lv);
+            if(lv->NThisParticleExport > 1000)
+                message(5, "%d exports for particle %d! Odd.\n", lv->NThisParticleExport, k);
             if(rt < 0) {
                 /* export buffer has filled up, can't do more work.*/
                 break;
@@ -345,13 +348,12 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * d
             tw->BufferFullFlag = 1;
             /* Touch up the DataIndexTable, so that partial particle exports are discarded.
              * Since this queue is per-thread, it is ordered.*/
+            lv->Nexport-= lv->NThisParticleExport;
             const int lastreal = tw->WorkSet ? tw->WorkSet[k] : k;
-            while(lv->Nexport > 0) {
-                /* Index stores tw->target, which is the current particle.*/
-                if(DataIndexTable[lv->DataIndexOffset + lv->Nexport-1].Index != lastreal)
-                    break;
-                lv->Nexport--;
-            }
+            /* Index stores tw->target, which is the current particle.*/
+            if(lv->NThisParticleExport > 0 && DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index != lastreal)
+                endrun(5, "Something screwed up in export queue: nexp %d (local %d) last %d != index %d\n", lv->Nexport,
+                       lv->NThisParticleExport, lastreal, DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index);
             /* Leave this chunking loop.*/
             break;
         }
@@ -578,6 +580,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no)
         DataIndexTable[nexp].Index = target;
         DataIndexTable[nexp].IndexGet = nexp;
         lv->Nexport++;
+        lv->NThisParticleExport++;
     }
 
     /* Set the NodeList entry*/
