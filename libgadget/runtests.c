@@ -188,6 +188,8 @@ void runtests(int RestartSnapNum)
 void
 runfof(int RestartSnapNum)
 {
+    PetaPM pm = {0};
+    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.G);
     DomainDecomp ddecomp[1] = {0};
     init(RestartSnapNum, ddecomp);          /* ... read in initial model */
 
