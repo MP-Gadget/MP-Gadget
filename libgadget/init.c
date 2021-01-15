@@ -132,6 +132,7 @@ set_init_params(ParameterSet * ps)
 
 static void check_omega(int generations);
 static void check_positions(void);
+void check_smoothing_length(double * MeanSpacing, const double BoxSize);
 
 static void
 setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime_t Ti_Current);
@@ -175,6 +176,9 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
     check_omega(get_generations());
 
     check_positions();
+
+    if(RestartSnapNum == -1)
+        check_smoothing_length(All.MeanSeparation, All.BoxSize);
 
     /* As the above will mostly take place
      * on Task 0, there will be a lot of imbalance*/
@@ -319,6 +323,30 @@ void check_positions(void)
     if(numzero > 1)
         endrun(5, "Particle positions contain %d zeros at particle %d. Pos %g %g %g. Likely write corruption!\n",
                 numzero, lastzero, P[lastzero].Pos[0], P[lastzero].Pos[1], P[lastzero].Pos[2]);
+}
+
+/*! This routine checks that the initial smoothing lengths of the particles
+ *  are sensible and resets them to mean interparticle spacing if not.
+ *  Guards against a problem writing the snapshot. Matters because
+ *  a very large initial smoothing length will cause density() to go crazy.
+ */
+void check_smoothing_length(double * MeanSpacing, const double BoxSize)
+{
+    int i;
+    int numprob = 0;
+    int lastprob = -1;
+    #pragma omp parallel for reduction(+: numprob) reduction(max:lastprob)
+    for(i=0; i< PartManager->NumPart; i++){
+        if(P[i].Type != 5 && P[i].Type != 0)
+            continue;
+        if(P[i].Hsml > BoxSize || P[i].Hsml <= 0) {
+            P[i].Hsml = MeanSpacing[P[i].Type];
+            numprob++;
+            lastprob = i;
+        }
+    }
+    if(numprob > 0)
+        message(5, "Bad smoothing lengths %d last bad %d hsml %g id %ld\n", numprob, lastprob, P[lastprob].Hsml, P[lastprob].ID);
 }
 
 /* Initialize the entropy variable in Pressure-Entropy Sph.

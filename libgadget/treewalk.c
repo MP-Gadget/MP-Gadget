@@ -201,8 +201,8 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     freebytes -= 4096 * 10 * bytesperbuffer;
 
     tw->BunchSize = (size_t) floor(((double)freebytes)/ bytesperbuffer);
-    /* if the send/recv buffer is greater than 2GB some MPIs have issues. */
-    const size_t twogb = 1024*1024*2030L;
+    /* if the send/recv buffer is close to 4GB some MPIs have issues. */
+    const size_t twogb = 1024*1024*3092L;
     if(tw->BunchSize * tw->query_type_elsize > twogb)
         tw->BunchSize = twogb / tw->query_type_elsize;
 
@@ -323,9 +323,12 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * d
             /* Primary never uses node list */
             treewalk_init_query(tw, input, i, NULL);
             treewalk_init_result(tw, output, input);
-
             lv->target = i;
+            /* Reset the number of exported particles.*/
+            lv->NThisParticleExport = 0;
             const int rt = tw->visit(input, output, lv);
+            if(lv->NThisParticleExport > 1000)
+                message(5, "%d exports for particle %d! Odd.\n", lv->NThisParticleExport, k);
             if(rt < 0) {
                 /* export buffer has filled up, can't do more work.*/
                 break;
@@ -345,13 +348,12 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * d
             tw->BufferFullFlag = 1;
             /* Touch up the DataIndexTable, so that partial particle exports are discarded.
              * Since this queue is per-thread, it is ordered.*/
+            lv->Nexport-= lv->NThisParticleExport;
             const int lastreal = tw->WorkSet ? tw->WorkSet[k] : k;
-            while(lv->Nexport > 0) {
-                /* Index stores tw->target, which is the current particle.*/
-                if(DataIndexTable[lv->DataIndexOffset + lv->Nexport-1].Index != lastreal)
-                    break;
-                lv->Nexport--;
-            }
+            /* Index stores tw->target, which is the current particle.*/
+            if(lv->NThisParticleExport > 0 && DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index != lastreal)
+                endrun(5, "Something screwed up in export queue: nexp %d (local %d) last %d != index %d\n", lv->Nexport,
+                       lv->NThisParticleExport, lastreal, DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index);
             /* Leave this chunking loop.*/
             break;
         }
@@ -473,7 +475,9 @@ ev_primary(TreeWalk * tw)
     /* Compactify the export queue*/
     for(i = 0; i < tw->NThread; i++)
     {
-        memmove(DataIndexTable + tw->Nexport, DataIndexTable + dataindexoffset[i], sizeof(DataIndexTable[0]) * nexports[i]);
+        /* Only need to move if this thread is not full*/
+        if(tw->Nexport != dataindexoffset[i])
+            memmove(DataIndexTable + tw->Nexport, DataIndexTable + dataindexoffset[i], sizeof(DataIndexTable[0]) * nexports[i]);
         tw->Nexport += nexports[i];
     }
 
@@ -578,6 +582,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no)
         DataIndexTable[nexp].Index = target;
         DataIndexTable[nexp].IndexGet = nexp;
         lv->Nexport++;
+        lv->NThisParticleExport++;
     }
 
     /* Set the NodeList entry*/
@@ -616,13 +621,17 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
     }
 
     if(tw->visit) {
-        /* Keep track of which particles have been evaluated across buffer fill ups.*/
-        if(tw->repeatdisallowed) {
-            tw->evaluated = mymalloc("evaluated", sizeof(char)*tw->WorkSetSize);
-            memset(tw->evaluated, 0, sizeof(char)*tw->WorkSetSize);
-        }
+        tw->Niterations = 0;
+        tw->evaluated = NULL;
         do
         {
+            /* Keep track of which particles have been evaluated across buffer fill ups.
+             * Do this if we are not allowed to evaluate anything twice,
+             * or if the buffer filled up already.*/
+            if((!tw->evaluated) && (tw->Niterations == 1 || tw->repeatdisallowed)) {
+                tw->evaluated = mymalloc("evaluated", sizeof(char)*tw->WorkSetSize);
+                memset(tw->evaluated, 0, sizeof(char)*tw->WorkSetSize);
+            }
             ev_primary(tw); /* do local particles and prepare export list */
             /* exchange particle data */
             const struct SendRecvBuffer sndrcv = ev_get_remote(tw);
@@ -636,7 +645,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
             tw->Nexport_sum += tw->Nexport;
             ta_free(sndrcv.Send_count);
         } while(ev_ndone(tw) < tw->NTask);
-        if(tw->repeatdisallowed)
+        if(tw->evaluated)
             myfree(tw->evaluated);
     }
 
