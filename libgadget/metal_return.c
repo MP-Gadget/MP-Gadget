@@ -763,6 +763,12 @@ stellar_density_reduce(int place, TreeWalkResultStellarDensity * remote, enum Tr
     TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->Density[pi], remote->Rho);
 }
 
+void
+stellar_density_shrink_hsml(int i, TreeWalk * tw)
+{
+    P[i].Hsml/=2;
+}
+
 void stellar_density_check_neighbours (int i, TreeWalk * tw)
 {
     /* now check whether we had enough neighbours */
@@ -895,6 +901,9 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterStellarDensity);
     tw->ngbiter = (TreeWalkNgbIterFunction) stellar_density_ngbiter;
     tw->haswork = stellar_density_haswork;
+    /* This is a massive hack: when hsml is too large the tree is very slow.
+     * Fix this a bit by shrinking it.*/
+    tw->preprocess = stellar_density_shrink_hsml;
     tw->fill = (TreeWalkFillQueryFunction) stellar_density_copy;
     tw->reduce = (TreeWalkReduceResultFunction) stellar_density_reduce;
     tw->postprocess = (TreeWalkProcessFunction) stellar_density_check_neighbours;
@@ -953,6 +962,7 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
         treewalk_run(tw, CurQueue, size);
 
         tw->haswork = NULL;
+        tw->preprocess = NULL;
         /* Now done with the current queue*/
         if(priv->NIteration > 0)
             myfree(CurQueue);
