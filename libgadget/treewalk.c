@@ -621,6 +621,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
     }
 
     if(tw->visit) {
+        tw->Niterations = 0;
         tw->evaluated = NULL;
         do
         {
