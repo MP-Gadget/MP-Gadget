@@ -11,6 +11,7 @@
 #include <omp.h>
 
 #include "physconst.h"
+#include "domain.h"
 #include "walltime.h"
 #include "slotsmanager.h"
 #include "treewalk.h"
@@ -25,6 +26,7 @@
 #define MAXITER 200
 
 MyFloat * stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * MassReturn, const ForceTree * const tree);
+void stellar_knn(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * MassReturn, const ForceTree * const tree, DomainDecomp * ddecomp);
 
 /*! \file metal_return.c
  *  \brief Compute the mass return rate of metals from stellar evolution.
@@ -455,7 +457,7 @@ static double metal_yield(double dtmyrstart, double dtmyrend, double stellarmeta
 
 /*! This function is the driver routine for the calculation of metal return. */
 void
-metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmology * CP, const double atime)
+metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmology * CP, const double atime, DomainDecomp * ddecomp)
 {
     TreeWalk tw[1] = {{0}};
 
@@ -531,6 +533,9 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
 
         }
     }
+
+    /* Get a seed value for the Hsml based on the k nearest neighbour*/
+    stellar_knn(act, priv->StellarAges, priv->MassReturn, tree, ddecomp);
 
     /* Compute total number of weights around each star for actively returning stars*/
     METALS_GET_PRIV(tw)->StarVolumeSPH = stellar_density(act, priv->StellarAges, priv->MassReturn, tree);
@@ -763,7 +768,8 @@ stellar_density_reduce(int place, TreeWalkResultStellarDensity * remote, enum Tr
     TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->Density[pi], remote->Rho);
 }
 
-void stellar_density_check_neighbours (int i, TreeWalk * tw)
+static void
+stellar_density_check_neighbours (int i, TreeWalk * tw)
 {
     /* now check whether we had enough neighbours */
 
@@ -808,7 +814,7 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
         {
             double fac = 1 - (NumNgb[pi] - desnumngb) / (NUMDIMS * NumNgb[pi]) * DhsmlDensity[pi];
             if(!(Right[pi] < tw->tree->BoxSize) && Left[pi] == 0)
-                endrun(8188, "Cannot occur. Check for memory corruption: i=%d pi %d L = %g R = %g N=%g. Type %d, Pos %g %g %g",
+                endrun(8188, "Cannot occur. Check for memory corruption: i=%d pi %d L = %g R = %g N=%g. Type %d, Pos %g %g %g\n",
                        i, pi, Left[pi], Right[pi], NumNgb[pi], P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
 
             /* If this is the first step we can be faster by increasing or decreasing current Hsml by a constant factor*/
@@ -1014,4 +1020,436 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
     walltime_add("/SPH/Metals/Density/Misc", timeall - (timecomp + timewait + timecomm));
 
     return priv->VolumeSPH;
+}
+
+
+/* Here comes the neighbour finding. We want to return metals to the nearest N neighbours to the star.
+ * As a seed for the Hsml we find the kth nearest neighbour algorithm using a heap.
+ * This is always an underestimate of hsml, but should be enough for a gradient lookup to be efficient.*/
+#define NUMNB 50
+
+struct Neighbour
+{
+    int part;
+    float dist2;
+};
+
+typedef struct
+{
+    TreeWalkQueryBase base;
+    struct Neighbour neighbours[NUMNB];
+    int nnb;
+    int topnode;
+} TreeWalkQueryStellarKNN;
+
+typedef struct {
+    TreeWalkResultBase base;
+    struct Neighbour neighbours[NUMNB];
+    int nnb;
+    int padding;
+} TreeWalkResultStellarKNN;
+
+struct StellarKNNPriv {
+    /* Neighbour list for each star*/
+    struct Neighbour * Neighbours;
+    /* Size of the neighbour list for each star*/
+    int * nnb;
+    int * topnode;
+    /* For haswork*/
+    MyFloat * StellarAges;
+    MyFloat * MassReturn;
+    DomainDecomp * ddecomp;
+};
+
+#define STELLAR_KNN_GET_PRIV(tw) ((struct StellarKNNPriv*) ((tw)->priv))
+
+typedef struct {
+    TreeWalkNgbIterBase base;
+} TreeWalkNgbIterStellarKNN;
+
+static int
+stellar_knn_haswork(int i, TreeWalk * tw)
+{
+    return metals_haswork(i, STELLAR_KNN_GET_PRIV(tw)->StellarAges, STELLAR_KNN_GET_PRIV(tw)->MassReturn);
+}
+
+/* Insert a new element into a neighbour list in a sorted position. Uses insertion sort.
+ * Returns the new size of the i*/
+static int
+insert_element(int part, float dist2, struct Neighbour * list, int listsize)
+{
+    /* New list size*/
+    int newsize = listsize+1;
+    if(listsize >= NUMNB)
+        newsize = NUMNB;
+
+    if(listsize == 0) {
+        list[0].part = part;
+        list[0].dist2 = dist2;
+        return 1;
+    }
+    else if(list[listsize-1].dist2 <= dist2) {
+        /* Discard if no room, otherwise keep*/
+        if(listsize < NUMNB) {
+            list[listsize].part = part;
+            list[listsize].dist2 = dist2;
+        }
+    }
+    /* Bracket the interval*/
+    else if(list[0].dist2 >= dist2) {
+        memmove(list+1, list, (newsize-1) * sizeof(list[0]));
+        list[0].part = part;
+        list[0].dist2 = dist2;
+    }
+    /* Do a bisection: now the new particle belongs somewhere in the list.*/
+    else {
+        int max = listsize-1, min=0;
+        while(max - min > 1)
+        {
+            int mid = (max + min) / 2;
+            if(list[mid].dist2 > dist2)
+                max = mid;
+            else
+                min = mid;
+        }
+        memmove(list+max+1, list+max, (newsize-max-1) * sizeof(list[0]));
+        list[max].part = part;
+        list[max].dist2 = dist2;
+    }
+    return newsize;
+}
+/* Find an initial k neighbours set. This searches for gas particles
+ * from the current index of the star particle, which should be ok as particles are in Peano-Hilbert order.
+ * Note: if there are < NUMNB gas particles on the current processor this will not fill the queue.*/
+static void
+stellar_knn_find_topnode(int place, TreeWalk * tw)
+{
+    int pi = P[place].PI;
+    int topleaf = domain_get_topleaf(P[place].Key, STELLAR_KNN_GET_PRIV(tw)->ddecomp);
+    STELLAR_KNN_GET_PRIV(tw)->topnode[pi] = tw->tree->TopLeaves[topleaf].treenode;
+    STELLAR_KNN_GET_PRIV(tw)->nnb[pi] = 0;
+    return;
+}
+
+static void
+stellar_knn_copy(int place, TreeWalkQueryStellarKNN * I, TreeWalk * tw)
+{
+    int pi = P[place].PI;
+    memmove(I->neighbours, &STELLAR_KNN_GET_PRIV(tw)->Neighbours[NUMNB * pi], sizeof(STELLAR_KNN_GET_PRIV(tw)->Neighbours[0])* NUMNB);
+    I->nnb = STELLAR_KNN_GET_PRIV(tw)->nnb[pi];
+    I->topnode = STELLAR_KNN_GET_PRIV(tw)->topnode[pi];
+}
+
+static void
+stellar_knn_reduce(int place, TreeWalkResultStellarKNN * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
+{
+    /* We need to merge the lists if mode == 1, otherwise we just copy it.*/
+    int pi = P[place].PI;
+    struct Neighbour * neigh = &STELLAR_KNN_GET_PRIV(tw)->Neighbours[NUMNB * pi];
+    if(mode == 0) {
+        memmove(neigh, remote->neighbours, sizeof(STELLAR_KNN_GET_PRIV(tw)->Neighbours[0])* NUMNB);
+        STELLAR_KNN_GET_PRIV(tw)->nnb[pi] = remote->nnb;
+    }
+    else {
+        /* Walk through the new list until we find someone not in the original list.
+         * Add them, then continue.*/
+        int i;
+        for(i = 0; i < remote->nnb; i++) {
+            /* Check whether the list changed: if the furthest particle is still the same we have no merging to do.*/
+            if(remote->nnb == STELLAR_KNN_GET_PRIV(tw)->nnb[pi]
+                    && remote->neighbours[remote->nnb-1].part == neigh[remote->nnb-1].part)
+                break;
+            const struct Neighbour nn = remote->neighbours[i];
+            if(nn.part == neigh[i].part)
+                continue;
+            STELLAR_KNN_GET_PRIV(tw)->nnb[pi] = insert_element(nn.part, nn.dist2, neigh, STELLAR_KNN_GET_PRIV(tw)->nnb[pi]);
+        }
+    }
+}
+
+static void
+stellar_knn_ngbiter(
+        TreeWalkQueryStellarKNN * I,
+        TreeWalkResultStellarKNN * O,
+        TreeWalkNgbIterStellarKNN * iter,
+        LocalTreeWalk * lv)
+{
+    if(iter->base.other == -1) {
+        iter->base.Hsml = lv->tw->tree->BoxSize;
+        O->nnb = I->nnb;
+        if(I->nnb > 0) {
+            memmove(O->neighbours, I->neighbours, sizeof(I->neighbours[0])* I->nnb);
+        }
+        /* If the list is full, we can cull aggressively.
+         * Usually this is secondary treewalks.*/
+        if(I->nnb == NUMNB)
+            iter->base.Hsml = sqrt(I->neighbours[I->nnb-1].dist2);
+        iter->base.mask = 1; /* gas only */
+        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
+        return;
+    }
+    const int other = iter->base.other;
+    const double r2 = iter->base.r2;
+
+    /* Wind particles do not interact hydrodynamically: don't receive metal mass.*/
+    if(winds_is_particle_decoupled(other))
+        return;
+    if(O->nnb == NUMNB && r2 >= O->neighbours[O->nnb-1].dist2)
+        return;
+    O->nnb = insert_element(other, r2, O->neighbours, O->nnb);
+    /* Adjust the treewalk Hsml so we can cull more nodes*/
+    if(O->nnb == NUMNB)
+        iter->base.Hsml = sqrt(O->neighbours[O->nnb-1].dist2);
+}
+
+#define FACT1 0.366025403785	/* FACT1 = 0.5 * (sqrt(3)-1) */
+
+/**
+ * Cull a node.
+ *
+ * Returns 1 if the node shall be opened;
+ * Returns 0 if the node has no business with this query.
+ */
+static int
+cull_node(const TreeWalkQueryBase * const I, const TreeWalkNgbIterBase * const iter, const struct NODE * const current, const double BoxSize)
+{
+    double dist = iter->Hsml + 0.5 * current->len;
+
+    double r2 = 0;
+    double dx = 0;
+    /* do each direction */
+    int d;
+    for(d = 0; d < 3; d ++) {
+        dx = NEAREST(current->center[d] - I->Pos[d], BoxSize);
+        if(dx > dist) return 0;
+        if(dx < -dist) return 0;
+        r2 += dx * dx;
+    }
+    /* now test against the minimal sphere enclosing everything */
+    dist += FACT1 * current->len;
+
+    if(r2 > dist * dist) {
+        return 0;
+    }
+    return 1;
+}
+/*****
+ * This is the internal code that looks for particles in the ngb tree from
+ * searchcenter upto hsml. if iter->symmetric is NGB_TREE_FIND_SYMMETRIC, then upto
+ * max(P[other].Hsml, iter->Hsml).
+ *
+ * Particle that intersects with other domains are marked for export.
+ * The hosting nodes (leaves of the global tree) are exported as well.
+ *
+ * For all 'other' particle within the neighbourhood and are local on this processor,
+ * this function calls the ngbiter member of the TreeWalk object.
+ * iter->base.other, iter->base.dist iter->base.r2, iter->base.r, are properly initialized.
+ *
+ * */
+static int
+ngb_knn(TreeWalkQueryStellarKNN * I,
+        TreeWalkResultBase * O,
+        TreeWalkNgbIterBase * iter,
+        int startnode,
+        LocalTreeWalk * lv)
+{
+    int no;
+    int numcand = 0;
+
+    const ForceTree * tree = lv->tw->tree;
+    const double BoxSize = tree->BoxSize;
+
+    no = startnode;
+    /* We want to walk the
+     * local toptree first so we can cull as
+     * many other topnodes as possible.*/
+    int donelocal = 0;
+    if(lv->mode == 0)
+        no = I->topnode;
+
+    while(no >= 0 || (lv->mode == 0 && !donelocal))
+    {
+        if(lv->mode == 0 && !donelocal)
+        {
+            if (no < 0 || (no != I->topnode && tree->Nodes[no].f.TopLevel)) {
+                /* we reached a top-level node again. Restart from the top of the tree and keep walking. Next time skip */
+                no = startnode;
+                donelocal = 1;
+                continue;
+            }
+        }
+
+        struct NODE *current = &tree->Nodes[no];
+
+        /* When walking exported particles we start from the encompassing top-level node,
+         * so if we get back to a top-level node again we are done.*/
+        if(lv->mode == 1) {
+            /* The first node is always top-level*/
+            if(current->f.TopLevel && no != startnode) {
+                /* we reached a top-level node again, which means that we are done with the branch */
+                break;
+            }
+        }
+        else { /* mode == 0*/
+            /* We already did our parent topnode, so skip it.*/
+            if(no == I->topnode && donelocal) {
+                no = current->sibling;
+                continue;
+            }
+        }
+
+        /* Cull the node */
+        if(0 == cull_node(&I->base, iter, current, BoxSize)) {
+            /* in case the node can be discarded */
+            no = current->sibling;
+            continue;
+        }
+
+        /* Node contains relevant particles, add them.*/
+        if(current->f.ChildType == PARTICLE_NODE_TYPE) {
+            int i;
+            int * suns = current->s.suns;
+            for (i = 0; i < current->s.noccupied; i++) {
+                /* must be the correct type: compare the
+                 * current type for this subnode extracted
+                 * from the bitfield to the mask.*/
+                int type = (current->s.Types >> (3*i)) % 8;
+
+                if(!((1<<type) & iter->mask))
+                    continue;
+
+                /* Now evaluate a particle for the list*/
+                int other = suns[i];
+                /* Skip garbage*/
+                if(P[other].IsGarbage)
+                    continue;
+                /* In case the type of the particle has changed since the tree was built.
+                * Happens for wind treewalk for gas turned into stars on this timestep.*/
+                if(!((1<<P[other].Type) & iter->mask))
+                    continue;
+
+                double dist = iter->Hsml;
+                double r2 = 0;
+                int d;
+                double h2 = dist * dist;
+                for(d = 0; d < 3; d ++) {
+                    /* the distance vector points to 'other' */
+                    iter->dist[d] = NEAREST(I->base.Pos[d] - P[other].Pos[d], BoxSize);
+                    r2 += iter->dist[d] * iter->dist[d];
+                    if(r2 > h2) break;
+                }
+                if(r2 > h2) continue;
+
+                /* update the iter and call the iteration function*/
+                iter->r2 = r2;
+                iter->other = other;
+                lv->tw->ngbiter(&I->base, O, iter, lv);
+            }
+            /* Move sideways*/
+            no = current->sibling;
+            continue;
+        }
+        else if(current->f.ChildType == PSEUDO_NODE_TYPE) {
+            /* pseudo particle */
+            if(lv->mode == 1) {
+                endrun(12312, "Secondary for particle %d from node %d found pseudo at %d.\n", lv->target, startnode, current);
+            } else {
+                /* Export the pseudo particle*/
+                if(-1 == treewalk_export_particle(lv, current->s.suns[0]))
+                    return -1;
+                /* Move sideways*/
+                no = current->sibling;
+                continue;
+            }
+        }
+        /* ok, we need to open the node */
+        no = current->s.suns[0];
+    }
+
+    return numcand;
+}
+
+int stellar_knn_visit(TreeWalkQueryStellarKNN * I,
+            TreeWalkResultBase * O,
+            LocalTreeWalk * lv)
+{
+
+    TreeWalkNgbIterBase * iter = alloca(lv->tw->ngbiter_type_elsize);
+
+    /* Kick-start the iteration with other == -1 */
+    iter->other = -1;
+    lv->tw->ngbiter(&I->base, O, iter, lv);
+
+    int inode;
+    for(inode = 0; (lv->mode == 0 && inode < 1)|| (lv->mode == 1 && inode < NODELISTLENGTH && I->base.NodeList[inode] >= 0); inode++)
+    {
+        int numcand = ngb_knn(I, O, iter, I->base.NodeList[inode], lv);
+        /* Export buffer is full end prematurely */
+        if(numcand < 0) return numcand;
+    }
+
+    if(lv->mode == 1) {
+        lv->Nnodesinlist += inode;
+        lv->Nlist += 1;
+    }
+    return 0;
+}
+
+/* Set Hsml based on this KNN estimate*/
+static void
+stellar_knn_postproc(int place, TreeWalk * tw)
+{
+    int pi = P[place].PI;
+    struct Neighbour * neigh = &STELLAR_KNN_GET_PRIV(tw)->Neighbours[NUMNB * pi];
+    int nnb = STELLAR_KNN_GET_PRIV(tw)->nnb[pi];
+    if(nnb != NUMNB)
+        endrun(5, "This is weird %d != %d place %d pi %d ID %ld pos %g %g %g\n", nnb, NUMNB, place, pi, P[place].ID, P[place].Pos[0], P[place].Pos[1], P[place].Pos[2]);
+    if(nnb > 0)
+        P[place].Hsml = sqrt(neigh[nnb-1].dist2);
+}
+
+void
+stellar_knn(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * MassReturn, const ForceTree * const tree, DomainDecomp * ddecomp)
+{
+    TreeWalk tw[1] = {{0}};
+    struct StellarKNNPriv priv[1] = {{0}};
+
+    tw->ev_label = "STELLAR_KNN";
+    tw->visit = (TreeWalkVisitFunction) stellar_knn_visit;
+    tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterStellarDensity);
+    tw->ngbiter = (TreeWalkNgbIterFunction) stellar_knn_ngbiter;
+    tw->haswork = stellar_knn_haswork;
+    tw->preprocess = stellar_knn_find_topnode;
+    tw->fill = (TreeWalkFillQueryFunction) stellar_knn_copy;
+    tw->reduce = (TreeWalkReduceResultFunction) stellar_knn_reduce;
+    tw->postprocess = (TreeWalkProcessFunction) stellar_knn_postproc;
+    tw->query_type_elsize = sizeof(TreeWalkQueryStellarKNN);
+    tw->result_type_elsize = sizeof(TreeWalkResultStellarKNN);
+    tw->priv = priv;
+    tw->tree = tree;
+
+    priv->StellarAges = StellarAges;
+    priv->MassReturn = MassReturn;
+    priv->Neighbours = mymalloc("Neighbours", SlotsManager->info[4].size * sizeof(struct Neighbour) * NUMNB);
+    priv->nnb = mymalloc("neighboursizes", SlotsManager->info[4].size * sizeof(int));
+    priv->topnode = mymalloc("topnodes", SlotsManager->info[4].size * sizeof(int));
+
+    priv->ddecomp = ddecomp;
+
+    treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
+
+    myfree(priv->topnode);
+    myfree(priv->nnb);
+    myfree(priv->Neighbours);
+
+    double timeall = walltime_measure(WALLTIME_IGNORE);
+    double timecomp = tw->timecomp3 + tw->timecomp1 + tw->timecomp2;
+    double timewait = tw->timewait1 + tw->timewait2;
+    double timecomm = tw->timecommsumm1 + tw->timecommsumm2;
+    walltime_add("/SPH/Metals/KNN/Compute", timecomp);
+    walltime_add("/SPH/Metals/KNN/Wait", timewait);
+    walltime_add("/SPH/Metals/KNN/Comm", timecomm);
+    walltime_add("/SPH/Metals/KNN/Misc", timeall - (timecomp + timewait + timecomm));
+
+    return;
 }

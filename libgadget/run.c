@@ -295,6 +295,11 @@ run(int RestartSnapNum)
                 force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, 0, All.OutputDir);
             }
 
+            /* Do this before sfr so the tree is intact and before FOF so we have particle keys.*/
+            if(All.MetalReturnOn) {
+                metal_return(&Act, &Tree, &All.CP, All.Time, ddecomp);
+            }
+
             /* this will find new black hole seed halos.
              * Note: the FOF code does not know about garbage particles,
              * so ensure we do not have garbage present when we call this.
@@ -320,11 +325,6 @@ run(int RestartSnapNum)
 
             /* Black hole accretion and feedback */
             blackhole(&Act, &Tree, FdBlackHoles, FdBlackholeDetails);
-
-            /* Do this before sfr so the tree is intact*/
-            if(All.MetalReturnOn) {
-                metal_return(&Act, &Tree, &All.CP, All.Time);
-            }
 
             /**** radiative cooling and star formation *****/
             if(All.CoolingOn)
