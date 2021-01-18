@@ -332,7 +332,6 @@ void domain_free(DomainDecomp * ddecomp)
 static int
 domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy, const int MaxTopNodes)
 {
-
     int i;
 
     size_t bytes, all_bytes = 0;

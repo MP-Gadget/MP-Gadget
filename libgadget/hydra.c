@@ -176,6 +176,8 @@ hydro_force(const ActiveParticles * act, int WindOn, const double hubble, const 
         #pragma omp parallel for
         for(i = 0; i < act->NumActiveParticle; i++) {
             int p_i = act->ActiveParticle[i];
+            if(P[p_i].Type != 0)
+                continue;
             int pi = P[p_i].PI;
             HYDRA_GET_PRIV(tw)->PressurePred[pi] = PressurePred(pi, SPH_predicted->EntVarPred[pi]);
         }
