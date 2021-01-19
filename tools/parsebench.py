@@ -92,7 +92,8 @@ def parse_full_step(textdata):
         ppath += [node,]
         ptime = time
     #Add last path
-    add(stepd, ppath, ptime)
+    if len(ppath) > 0:
+        add(stepd, ppath, ptime)
     return dicts(stepd)
 
 def parse_file(fname, step = None, sf=None):
