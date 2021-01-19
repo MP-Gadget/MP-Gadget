@@ -129,7 +129,11 @@ def get_cpu_time(directory, endsf=None):
     time = 0
     steps = 0
     for cpu in cpus[::-1]:
-        head, stepd = parse_file(cpu, sf=sf)
+        try:
+            head, stepd = parse_file(cpu, sf=sf)
+        #An empty file or one with no steps before sf
+        except UnboundLocalError:
+            continue
         #Add to totals
         time += head["Time"] * head["MPI"] * head["Thread"]
         steps += head["Step"]
