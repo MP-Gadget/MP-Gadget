@@ -1202,48 +1202,16 @@ stellar_knn_ngbiter(
         iter->base.Hsml = sqrt(O->neighbours[O->nnb-1].dist2);
 }
 
-#define FACT1 0.366025403785	/* FACT1 = 0.5 * (sqrt(3)-1) */
-
-/**
- * Cull a node.
- *
- * Returns 1 if the node shall be opened;
- * Returns 0 if the node has no business with this query.
- */
-static int
-cull_node(const TreeWalkQueryBase * const I, const TreeWalkNgbIterBase * const iter, const struct NODE * const current, const double BoxSize)
-{
-    double dist = iter->Hsml + 0.5 * current->len;
-
-    double r2 = 0;
-    double dx = 0;
-    /* do each direction */
-    int d;
-    for(d = 0; d < 3; d ++) {
-        dx = NEAREST(current->center[d] - I->Pos[d], BoxSize);
-        if(dx > dist) return 0;
-        if(dx < -dist) return 0;
-        r2 += dx * dx;
-    }
-    /* now test against the minimal sphere enclosing everything */
-    dist += FACT1 * current->len;
-
-    if(r2 > dist * dist) {
-        return 0;
-    }
-    return 1;
-}
 /*****
- * This is the internal code that looks for particles in the ngb tree from
- * searchcenter upto hsml. if iter->symmetric is NGB_TREE_FIND_SYMMETRIC, then upto
- * max(P[other].Hsml, iter->Hsml).
+ * This is the internal code that finds the k nearest neighbour particles in the tree from
+ * searchcenter upto hsml. It maintains a small sorted list of the distances to the
+ * k nearest neighbours found
+ * so far and culls the tree when a node can contain no particle closer than the kth neighbour.
+ * As the performance is thus sensitive to the order in which the tree is walked, it is important
+ * to walk the closest parts of the tree first. We walk the topnode containing the the particle first,
+ * and then restart the treewalk from the beginning, walking remote nodes.
  *
- * Particle that intersects with other domains are marked for export.
- * The hosting nodes (leaves of the global tree) are exported as well.
- *
- * For all 'other' particle within the neighbourhood and are local on this processor,
- * this function calls the ngbiter member of the TreeWalk object.
- * iter->base.other, iter->base.dist iter->base.r2, iter->base.r, are properly initialized.
+ * iter->symmetric == NGB_TREE_FIND_SYMMETRIC is not supported.
  *
  * */
 static int

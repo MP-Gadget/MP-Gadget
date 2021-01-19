@@ -986,7 +986,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
  * Returns 1 if the node shall be opened;
  * Returns 0 if the node has no business with this query.
  */
-static int
+int
 cull_node(const TreeWalkQueryBase * const I, const TreeWalkNgbIterBase * const iter, const struct NODE * const current, const double BoxSize)
 {
     double dist;
