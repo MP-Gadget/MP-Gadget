@@ -1154,15 +1154,14 @@ stellar_knn_reduce(int place, TreeWalkResultStellarKNN * remote, enum TreeWalkRe
         /* Walk through the new list until we find someone not in the original list.
          * Add them, then continue.*/
         int i;
+        int * nnb = &STELLAR_KNN_GET_PRIV(tw)->nnb[pi];
         for(i = 0; i < remote->nnb; i++) {
-            /* Check whether the list changed: if the furthest particle is still the same we have no merging to do.*/
-            if(remote->nnb == STELLAR_KNN_GET_PRIV(tw)->nnb[pi]
-                    && remote->neighbours[remote->nnb-1].part == neigh[remote->nnb-1].part)
+            /* If all future particles are further away, we have nothing to do.
+             * This is unusual: we start with a local list*/
+            if(*nnb == NUMNB && remote->neighbours[i].dist2 >= neigh[remote->nnb-1].dist2)
                 break;
             const struct Neighbour nn = remote->neighbours[i];
-            if(nn.part == neigh[i].part)
-                continue;
-            STELLAR_KNN_GET_PRIV(tw)->nnb[pi] = insert_element(nn.part, nn.dist2, neigh, STELLAR_KNN_GET_PRIV(tw)->nnb[pi]);
+            *nnb = insert_element(nn.part, nn.dist2, neigh, *nnb);
         }
     }
 }
