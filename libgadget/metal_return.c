@@ -818,17 +818,14 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
 
             /* If this is the first step we can be faster by increasing or decreasing current Hsml by a constant factor*/
             if(Right[pi] > 0.99 * tw->tree->BoxSize && Left[pi] > 0) {
-                if(fac < 1.26)
-                    P[i].Hsml *= fac;
-                else
-                    P[i].Hsml *= 1.26;
+                if(fac > 1.5)
+                    fac = 1.5;
             }
             if(Right[pi] < 0.99*tw->tree->BoxSize && Left[pi] == 0) {
-                    if(fac > 1 / 1.26)
-                        P[i].Hsml *= fac;
-                    else
-                        P[i].Hsml /= 1.26;
+                if(fac < 0.33)
+                    fac = 0.33;
             }
+            P[i].Hsml *= fac;
         }
         /* More work needed: add this particle to the redo queue*/
         int tid = omp_get_thread_num();
