@@ -1030,7 +1030,10 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
 
 struct Neighbour
 {
-    int part;
+    /* This particle index is left here
+     * in case some future implementation wants to use the actual
+     * list of nearest particles, instead of just the knn distance.*/
+   // int part;
     float dist2;
 };
 
@@ -1076,7 +1079,7 @@ stellar_knn_haswork(int i, TreeWalk * tw)
 /* Insert a new element into a neighbour list in a sorted position. Uses insertion sort.
  * Returns the new size of the i*/
 static int
-insert_element(int part, float dist2, struct Neighbour * list, int listsize)
+insert_element(float dist2, struct Neighbour * list, int listsize)
 {
     /* New list size*/
     int newsize = listsize+1;
@@ -1084,21 +1087,21 @@ insert_element(int part, float dist2, struct Neighbour * list, int listsize)
         newsize = NUMNB;
 
     if(listsize == 0) {
-        list[0].part = part;
+     //   list[0].part = part;
         list[0].dist2 = dist2;
         return 1;
     }
     else if(list[listsize-1].dist2 <= dist2) {
         /* Discard if no room, otherwise keep*/
         if(listsize < NUMNB) {
-            list[listsize].part = part;
+       //     list[listsize].part = part;
             list[listsize].dist2 = dist2;
         }
     }
     /* Bracket the interval*/
     else if(list[0].dist2 >= dist2) {
         memmove(list+1, list, (newsize-1) * sizeof(list[0]));
-        list[0].part = part;
+      //  list[0].part = part;
         list[0].dist2 = dist2;
     }
     /* Do a bisection: now the new particle belongs somewhere in the list.*/
@@ -1113,7 +1116,7 @@ insert_element(int part, float dist2, struct Neighbour * list, int listsize)
                 min = mid;
         }
         memmove(list+max+1, list+max, (newsize-max-1) * sizeof(list[0]));
-        list[max].part = part;
+       // list[max].part = part;
         list[max].dist2 = dist2;
     }
     return newsize;
@@ -1161,7 +1164,7 @@ stellar_knn_reduce(int place, TreeWalkResultStellarKNN * remote, enum TreeWalkRe
             if(*nnb == NUMNB && remote->neighbours[i].dist2 >= neigh[remote->nnb-1].dist2)
                 break;
             const struct Neighbour nn = remote->neighbours[i];
-            *nnb = insert_element(nn.part, nn.dist2, neigh, *nnb);
+            *nnb = insert_element(nn.dist2, neigh, *nnb);
         }
     }
 }
@@ -1195,7 +1198,7 @@ stellar_knn_ngbiter(
         return;
     if(O->nnb == NUMNB && r2 >= O->neighbours[O->nnb-1].dist2)
         return;
-    O->nnb = insert_element(other, r2, O->neighbours, O->nnb);
+    O->nnb = insert_element(r2, O->neighbours, O->nnb);
     /* Adjust the treewalk Hsml so we can cull more nodes*/
     if(O->nnb == NUMNB)
         iter->base.Hsml = sqrt(O->neighbours[O->nnb-1].dist2);
