@@ -670,7 +670,12 @@ metal_return_ngbiter(
         /* Update total metallicity*/
         SPHP(other).Metallicity = (SPHP(other).Metallicity * P[other].Mass + thismetal)/(P[other].Mass + thismass);
         /* Update mass*/
-        P[other].Mass += thismass;
+        double massfrac = (P[other].Mass + thismass) / P[other].Mass;
+        P[other].Mass *= massfrac;
+        /* Density also needs a correction so the volume fraction is unchanged.
+         * This ensures that volume = Mass/Density is unchanged for the next particle
+         * and thus the weighting still sums to unity.*/
+        SPHP(other).Density *= massfrac;
         newmass = P[other].Mass;
         unlock_spinlock(pi, METALS_GET_PRIV(lv->tw)->spin);
         if(newmass <= 0)
