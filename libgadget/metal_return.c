@@ -811,7 +811,9 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
             P[i].Hsml = pow(0.5 * (pow(Left[pi], 3) + pow(Right[pi], 3)), 1.0 / 3);
         else
         {
-            double fac = 1 - (NumNgb[pi] - desnumngb) / (NUMDIMS * NumNgb[pi]) * DhsmlDensity[pi];
+            double fac = 2.0;
+            if(NumNgb[pi] > 0)
+                fac = 1 - (NumNgb[pi] - desnumngb) / (NUMDIMS * NumNgb[pi]) * DhsmlDensity[pi];
             if(!(Right[pi] < tw->tree->BoxSize) && Left[pi] == 0)
                 endrun(8188, "Cannot occur. Check for memory corruption: i=%d pi %d L = %g R = %g N=%g. Type %d, Pos %g %g %g",
                        i, pi, Left[pi], Right[pi], NumNgb[pi], P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
