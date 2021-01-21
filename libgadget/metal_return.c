@@ -670,7 +670,12 @@ metal_return_ngbiter(
         /* Update total metallicity*/
         SPHP(other).Metallicity = (SPHP(other).Metallicity * P[other].Mass + thismetal)/(P[other].Mass + thismass);
         /* Update mass*/
-        P[other].Mass += thismass;
+        double massfrac = (P[other].Mass + thismass) / P[other].Mass;
+        P[other].Mass *= massfrac;
+        /* Density also needs a correction so the volume fraction is unchanged.
+         * This ensures that volume = Mass/Density is unchanged for the next particle
+         * and thus the weighting still sums to unity.*/
+        SPHP(other).Density *= massfrac;
         newmass = P[other].Mass;
         unlock_spinlock(pi, METALS_GET_PRIV(lv->tw)->spin);
         if(newmass <= 0)
@@ -806,24 +811,23 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
             P[i].Hsml = pow(0.5 * (pow(Left[pi], 3) + pow(Right[pi], 3)), 1.0 / 3);
         else
         {
-            double fac = 1 - (NumNgb[pi] - desnumngb) / (NUMDIMS * NumNgb[pi]) * DhsmlDensity[pi];
+            double fac = 2.0;
+            if(NumNgb[pi] > 0)
+                fac = 1 - (NumNgb[pi] - desnumngb) / (NUMDIMS * NumNgb[pi]) * DhsmlDensity[pi];
             if(!(Right[pi] < tw->tree->BoxSize) && Left[pi] == 0)
                 endrun(8188, "Cannot occur. Check for memory corruption: i=%d pi %d L = %g R = %g N=%g. Type %d, Pos %g %g %g",
                        i, pi, Left[pi], Right[pi], NumNgb[pi], P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
 
             /* If this is the first step we can be faster by increasing or decreasing current Hsml by a constant factor*/
             if(Right[pi] > 0.99 * tw->tree->BoxSize && Left[pi] > 0) {
-                if(fac < 1.26)
-                    P[i].Hsml *= fac;
-                else
-                    P[i].Hsml *= 1.26;
+                if(fac > 1.5)
+                    fac = 1.5;
             }
             if(Right[pi] < 0.99*tw->tree->BoxSize && Left[pi] == 0) {
-                    if(fac > 1 / 1.26)
-                        P[i].Hsml *= fac;
-                    else
-                        P[i].Hsml /= 1.26;
+                if(fac < 0.33)
+                    fac = 0.33;
             }
+            P[i].Hsml *= fac;
         }
         /* More work needed: add this particle to the redo queue*/
         int tid = omp_get_thread_num();
