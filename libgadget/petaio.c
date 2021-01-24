@@ -243,7 +243,7 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
      * This will be dynamically increased as needed.*/
 
     if(PartManager->NumPart >= PartManager->MaxPart) {
-        endrun(1, "Overwhelmed by part: %d > %d\n", PartManager->NumPart, PartManager->MaxPart);
+        endrun(1, "Overwhelmed by part: %ld > %ld\n", PartManager->NumPart, PartManager->MaxPart);
     }
 
     /* Now allocate memory for the secondary particle data arrays.

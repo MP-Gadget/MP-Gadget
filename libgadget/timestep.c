@@ -92,7 +92,7 @@ timestep_eh_slots_fork(EIBase * event, void * userdata)
             /* This should never happen because we allocate as much space for active particles as we have space
              * for particles, but just in case*/
             if(childactive >= act->MaxActiveParticle)
-                endrun(5, "Tried to add %d active particles, more than %d allowed\n", childactive, act->MaxActiveParticle);
+                endrun(5, "Tried to add %ld active particles, more than %ld allowed\n", childactive, act->MaxActiveParticle);
             act->ActiveParticle[childactive] = child;
         }
     }

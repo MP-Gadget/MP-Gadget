@@ -175,9 +175,9 @@ order_by_type_and_grnr(const void *a, const void *b)
 
 static int
 fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, MPI_Comm Comm) {
-    int i, ThisTask;
+    int ThisTask;
     MPI_Comm_rank(Comm, &ThisTask);
-    int NpigLocal = 0;
+    int64_t i, NpigLocal = 0;
     /* SlotsManager Needs initializing!*/
     memcpy(halo_sman, SlotsManager, sizeof(struct slots_manager_type));
 
@@ -236,7 +236,7 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
         NpigLocal ++;
     }
     if(NpigLocal != halo_pman->NumPart)
-        endrun(3, "Error in NpigLocal %d != %d!\n", NpigLocal, halo_pman->NumPart);
+        endrun(3, "Error in NpigLocal %ld != %ld!\n", NpigLocal, halo_pman->NumPart);
     MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, Comm);
     message(0, "GrNrMax before exchange is %d\n", GrNrMaxGlobal);
     /* sort pi to decide targetTask */

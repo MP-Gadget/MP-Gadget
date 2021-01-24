@@ -105,7 +105,7 @@ slots_split_particle(int parent, double childmass, struct part_manager_type * pm
     int64_t child = atomic_fetch_and_add_64(&pman->NumPart, 1);
 
     if(child >= pman->MaxPart)
-        endrun(8888, "Tried to spawn: NumPart=%d MaxPart = %d. Sorry, no space left.\n", child, pman->MaxPart);
+        endrun(8888, "Tried to spawn: NumPart=%ld MaxPart = %ld. Sorry, no space left.\n", child, pman->MaxPart);
 
     pman->Base[parent].Generation ++;
     uint64_t g = pman->Base[parent].Generation;
@@ -114,7 +114,7 @@ slots_split_particle(int parent, double childmass, struct part_manager_type * pm
     /* change the child ID according to the generation. */
     pman->Base[child].ID = (pman->Base[parent].ID & 0x00ffffffffffffffL) + (g << 56L);
     if(g >= (1 << (64-56L)))
-        endrun(1, "Particle %d (ID: %ld) generated too many particles: generation %d wrapped.\n", parent, pman->Base[parent].ID, g);
+        endrun(1, "Particle %d (ID: %ld) generated too many particles: generation %ld wrapped.\n", parent, pman->Base[parent].ID, g);
 
     pman->Base[child].Mass = childmass;
     pman->Base[parent].Mass -= childmass;

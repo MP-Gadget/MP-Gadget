@@ -289,7 +289,7 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * d
     TreeWalkQueryBase * input = alloca(tw->query_type_elsize);
     TreeWalkResultBase * output = alloca(tw->result_type_elsize);
 
-    int lastSucceeded = tw->WorkSetStart - 1;
+    int64_t lastSucceeded = tw->WorkSetStart - 1;
     /* We must schedule monotonically so that if the export buffer fills up
      * it is guaranteed that earlier particles are already done.
      * However, we schedule dynamically so that we have reduced imbalance.
@@ -345,7 +345,7 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * d
         }
         /* If we filled up, we need to remove the partially evaluated last particle from the export list and leave this loop.*/
         if(lv->Nexport >= lv->BunchSize) {
-            message(1, "Tree export buffer full with %d particles. start %d lastsucceeded: %d.\n", lv->Nexport, tw->WorkSetStart, lastSucceeded);
+            message(1, "Tree export buffer full with %ld particles. start %ld lastsucceeded: %ld.\n", lv->Nexport, tw->WorkSetStart, lastSucceeded);
             tw->BufferFullFlag = 1;
             /* Touch up the DataIndexTable, so that partial particle exports are discarded.
              * Since this queue is per-thread, it is ordered.*/
@@ -353,7 +353,7 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * d
             const int lastreal = tw->WorkSet ? tw->WorkSet[k] : k;
             /* Index stores tw->target, which is the current particle.*/
             if(lv->NThisParticleExport > 0 && DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index != lastreal)
-                endrun(5, "Something screwed up in export queue: nexp %d (local %d) last %d != index %d\n", lv->Nexport,
+                endrun(5, "Something screwed up in export queue: nexp %ld (local %d) last %d != index %d\n", lv->Nexport,
                        lv->NThisParticleExport, lastreal, DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index);
             /* Leave this chunking loop.*/
             break;
