@@ -369,7 +369,7 @@ gas_ionization_fraction(void)
     /* Get total ionization fraction: note this is only the current gas particles.
      * Particles that become stars are not counted.*/
     sumup_large_ints(1, &n_ionized, &n_ionized_tot);
-    sumup_large_ints(1, &SlotsManager->info[0].size, &n_gas_tot);
+    MPI_Allreduce(&SlotsManager->info[0].size, &n_gas_tot, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     return (double) n_ionized_tot / (double) n_gas_tot;
 }
 
@@ -529,7 +529,7 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree)
     int ncand = 0;
     int * qso_cand = NULL;
     int64_t n_gas_tot=0, tot_n_ionized=0, ncand_tot=0;
-    sumup_large_ints(1, &SlotsManager->info[0].size, &n_gas_tot);
+    MPI_Allreduce(&SlotsManager->info[0].size, &n_gas_tot, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     double atime = 1./(1 + redshift);
     double desired_ion_frac = gsl_interp_eval(HeIII_intp, He_zz, XHeIII, atime, NULL);
     /* If the desired ionization fraction is above a threshold (by default 0.95)

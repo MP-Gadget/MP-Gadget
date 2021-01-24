@@ -8,8 +8,8 @@
 
 struct slot_info {
     char * ptr; /* aliasing ptr for this slot */
-    int maxsize; /* max number of supported slots */
-    int size; /* currently used slots*/
+    int64_t maxsize; /* max number of supported slots */
+    int64_t size; /* currently used slots*/
     size_t elsize; /* itemsize */
     int enabled;
 };

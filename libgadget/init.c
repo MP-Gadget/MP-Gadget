@@ -413,8 +413,8 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime
     const double a3 = All.Time * All.Time * All.Time;
 
     int64_t tot_sph, tot_bh;
-    sumup_large_ints(1, &SlotsManager->info[0].size, &tot_sph);
-    sumup_large_ints(1, &SlotsManager->info[5].size, &tot_bh);
+    MPI_Allreduce(&SlotsManager->info[0].size, &tot_sph, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&SlotsManager->info[5].size, &tot_bh, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
     /* Do nothing if we are a pure DM run*/
     if(tot_sph + tot_bh == 0)

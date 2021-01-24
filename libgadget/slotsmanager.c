@@ -70,7 +70,7 @@ slots_convert(int parent, int ptype, int placement, struct part_manager_type * p
         int newPI = placement;
         /* if enabled, alloc a new Slot for secondary data */
         if(placement < 0)
-            newPI = atomic_fetch_and_add(&sman->info[ptype].size, 1);
+            newPI = atomic_fetch_and_add_64(&sman->info[ptype].size, 1);
 
         /* There is no way clearly to safely grow the slots during this, because the memory may be deep in the heap.*/
         if(newPI >= sman->info[ptype].maxsize) {
@@ -351,7 +351,7 @@ slots_gc_slots(int * compact_slots, struct part_manager_type * pman, struct slot
 
     int disabled = 1;
     for(ptype = 0; ptype < 6; ptype ++) {
-        sumup_large_ints(1, &sman->info[ptype].size, &total0[ptype]);
+        MPI_Allreduce(&sman->info[ptype].size, &total0[ptype], 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
         if(compact_slots[ptype])
             disabled = 0;
     }
@@ -374,7 +374,7 @@ slots_gc_slots(int * compact_slots, struct part_manager_type * pman, struct slot
     slots_check_id_consistency(pman, sman);
 #endif
     for(ptype = 0; ptype < 6; ptype ++) {
-        sumup_large_ints(1, &sman->info[ptype].size, &total1[ptype]);
+        MPI_Allreduce(&sman->info[ptype].size, &total1[ptype], 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
         if(total1[ptype] != total0[ptype])
             message(0, "GC: Reducing number of slots for %d from %ld to %ld\n", ptype, total0[ptype], total1[ptype]);
