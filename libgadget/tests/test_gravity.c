@@ -72,7 +72,7 @@ grav_force(const int this, const int other, const double * offset, double * accn
 void check_accns(double * meanerr_tot, double * maxerr_tot, double *PairAccn, double meanacc)
 {
     double meanerr=0, maxerr=-1;
-    int i;
+    int64_t i;
     /* This checks that the short-range force accuracy is being correctly estimated.*/
     #pragma omp parallel for reduction(+: meanerr) reduction(max: maxerr)
     for(i = 0; i < PartManager->NumPart; i++)
@@ -88,7 +88,7 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double *PairAccn, do
     MPI_Allreduce(&meanerr, meanerr_tot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&maxerr, maxerr_tot, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     int64_t tot_npart;
-    sumup_large_ints(1, &PartManager->NumPart, &tot_npart);
+    MPI_Allreduce(&PartManager->NumPart, &tot_npart, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
     *meanerr_tot/= (tot_npart*3.);
 }
@@ -108,7 +108,7 @@ static void find_means(double * meangrav, double * suppmean, double * suppaccns)
         }
     }
     int64_t tot_npart;
-    sumup_large_ints(1, &PartManager->NumPart, &tot_npart);
+    MPI_Allreduce(&PartManager->NumPart, &tot_npart, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     if(suppaccns) {
         MPI_Allreduce(&meanacc, suppmean, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         *suppmean/= (tot_npart*3.);
@@ -244,7 +244,7 @@ static void test_force_flat(void ** state) {
     MPI_Allreduce(MPI_IN_PLACE, &meanerr, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &maxerr, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     int64_t tot_npart;
-    sumup_large_ints(1, &PartManager->NumPart, &tot_npart);
+    MPI_Allreduce(&PartManager->NumPart, &tot_npart, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     meanerr/= (tot_npart*3.);
 
     message(0, "Max force %g, mean grav force %g\n", maxerr, meanerr);

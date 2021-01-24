@@ -87,7 +87,7 @@ timestep_eh_slots_fork(EIBase * event, void * userdata)
     ActiveParticles * act = (ActiveParticles *) userdata;
 
     if(is_timebin_active(P[parent].TimeBin, P[parent].Ti_drift)) {
-        int childactive = atomic_fetch_and_add(&act->NumActiveParticle, 1);
+        int64_t childactive = atomic_fetch_and_add_64(&act->NumActiveParticle, 1);
         if(act->ActiveParticle) {
             /* This should never happen because we allocate as much space for active particles as we have space
              * for particles, but just in case*/

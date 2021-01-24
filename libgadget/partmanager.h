@@ -61,9 +61,9 @@ struct particle_data
 extern struct part_manager_type {
     struct particle_data *Base; /* Pointer to particle data on local processor. */
     /*!< number of particles on the LOCAL processor: number of valid entries in P array. */
-    int NumPart;
+    int64_t NumPart;
     /*!< Amount of memory we have available for particles locally: maximum size of P array. */
-    int MaxPart;
+    int64_t MaxPart;
     /* Random shift applied to the box. This is changed
      * every domain decomposition to prevent correlated
      * errors building up in the tree force. */

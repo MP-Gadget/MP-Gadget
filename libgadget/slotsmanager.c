@@ -102,7 +102,7 @@ slots_convert(int parent, int ptype, int placement, struct part_manager_type * p
 int
 slots_split_particle(int parent, double childmass, struct part_manager_type * pman)
 {
-    int child = atomic_fetch_and_add(&pman->NumPart, 1);
+    int64_t child = atomic_fetch_and_add_64(&pman->NumPart, 1);
 
     if(child >= pman->MaxPart)
         endrun(8888, "Tried to spawn: NumPart=%d MaxPart = %d. Sorry, no space left.\n", child, pman->MaxPart);
@@ -235,7 +235,7 @@ slots_gc_base(struct part_manager_type * pman)
 {
     int64_t total0, total;
 
-    sumup_large_ints(1, &pman->NumPart, &total0);
+    MPI_Allreduce(&pman->NumPart, &total0, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
     /*Compactify the P array: this invalidates the ReverseLink, so
         * that ReverseLink is valid only within gc.*/
@@ -243,7 +243,7 @@ slots_gc_base(struct part_manager_type * pman)
 
     pman->NumPart -= ngc;
 
-    sumup_large_ints(1, &pman->NumPart, &total);
+    MPI_Allreduce(&pman->NumPart, &total, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
     if(total != total0) {
         message(0, "GC : Reducing Particle slots from %ld to %ld\n", total0, total);
