@@ -231,7 +231,7 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
     /*Allocate the particle memory*/
     particle_alloc_memory(MaxPart);
 
-    int NLocal[6];
+    int64_t NLocal[6];
     for(ptype = 0; ptype < 6; ptype ++) {
         int64_t start = ThisTask * NTotal[ptype] / NTask;
         int64_t end = (ThisTask + 1) * NTotal[ptype] / NTask;
@@ -250,10 +250,10 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
      * This may be dynamically resized later!*/
 
     /*Ensure all processors have initially the same number of particle slots*/
-    int newSlots[6] = {0};
+    int64_t newSlots[6] = {0};
 
     /* Can't use MPI_IN_PLACE, which is broken for arrays and MPI_MAX at least on intel mpi 19.0.5*/
-    MPI_Allreduce(NLocal, newSlots, 6, MPI_INT, MPI_MAX, Comm);
+    MPI_Allreduce(NLocal, newSlots, 6, MPI_INT64, MPI_MAX, Comm);
 
     for(ptype = 0; ptype < 6; ptype ++) {
             newSlots[ptype] *= All.PartAllocFactor;

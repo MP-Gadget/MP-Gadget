@@ -187,7 +187,7 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
         halo_sman->info[i].maxsize = 0;
     }
 
-    int atleast[6]={0};
+    int64_t atleast[6]={0};
     /* Count how many particles we have*/
     //#pragma omp parallel for reduction(+: NpigLocal)
     for(i = 0; i < PartManager->NumPart; i ++) {

@@ -239,7 +239,7 @@ slots_gc_base(struct part_manager_type * pman)
 
     /*Compactify the P array: this invalidates the ReverseLink, so
         * that ReverseLink is valid only within gc.*/
-    int ngc = slots_gc_compact(pman->NumPart, -1, pman, NULL);
+    int64_t ngc = slots_gc_compact(pman->NumPart, -1, pman, NULL);
 
     pman->NumPart -= ngc;
 
@@ -261,7 +261,7 @@ static int slot_cmp_reverse_link(const void * b1in, const void * b2in) {
 static int
 slots_gc_mark(const struct part_manager_type * pman, const struct slots_manager_type * sman)
 {
-    int i;
+    int64_t i;
     if(!(sman->info[0].enabled ||
        sman->info[1].enabled ||
        sman->info[2].enabled ||
@@ -308,9 +308,9 @@ static int
 slots_gc_sweep(int ptype, struct part_manager_type * pman, struct slots_manager_type * sman)
 {
     if(!SLOTS_ENABLED(ptype, sman)) return 0;
-    int used = sman->info[ptype].size;
+    int64_t used = sman->info[ptype].size;
 
-    int ngc = slots_gc_compact(used, ptype, pman, sman);
+    int64_t ngc = slots_gc_compact(used, ptype, pman, sman);
 
     sman->info[ptype].size -= ngc;
 
@@ -321,7 +321,7 @@ slots_gc_sweep(int ptype, struct part_manager_type * pman, struct slots_manager_
 static void
 slots_gc_collect(int ptype, struct part_manager_type * pman, struct slots_manager_type * sman)
 {
-    int i;
+    int64_t i;
     if(!SLOTS_ENABLED(ptype, sman)) return;
 
     /* Now update the link in BhP */
@@ -472,9 +472,9 @@ slots_gc_sorted(struct part_manager_type * pman, struct slots_manager_type * sma
 }
 
 size_t
-slots_reserve(int where, int atleast[6], struct slots_manager_type * sman)
+slots_reserve(int where, int64_t atleast[6], struct slots_manager_type * sman)
 {
-    int newMaxSlots[6];
+    int64_t newMaxSlots[6];
     int ptype;
     int good = 1;
 
@@ -486,7 +486,7 @@ slots_reserve(int where, int atleast[6], struct slots_manager_type * sman)
         }
     }
 
-    int add = sman->increase;
+    int64_t add = sman->increase;
     if (add < 8192) add = 8192;
 
     /* FIXME: allow shrinking; need to tweak the memmove later. */
@@ -522,7 +522,7 @@ slots_reserve(int where, int atleast[6], struct slots_manager_type * sman)
         sman->info[ptype].ptr = sman->info[ptype].ptr - sman->Base + newSlotsBase;
     }
 
-    message(where, "SLOTS: Reserved %g MB for %d sph, %d stars and %d BHs (disabled: %d %d %d)\n", total_bytes / (1024.0 * 1024.0),
+    message(where, "SLOTS: Reserved %g MB for %ld sph, %ld stars and %ld BHs (disabled: %ld %ld %ld)\n", total_bytes / (1024.0 * 1024.0),
             newMaxSlots[0], newMaxSlots[4], newMaxSlots[5], newMaxSlots[1], newMaxSlots[2], newMaxSlots[3]);
 
     /* move the last block first since we are only increasing sizes, moving items forward.
@@ -586,8 +586,8 @@ slots_mark_garbage(int i, struct part_manager_type * pman, struct slots_manager_
 void
 slots_check_id_consistency(struct part_manager_type * pman, struct slots_manager_type * sman)
 {
-    int used[6] = {0};
-    int i;
+    int64_t used[6] = {0};
+    int64_t i;
 
     for(i = 0; i < pman->NumPart; i++) {
         int type = pman->Base[i].Type;
@@ -608,7 +608,8 @@ slots_check_id_consistency(struct part_manager_type * pman, struct slots_manager
     }
     int64_t NTotal[6];
 
-    sumup_large_ints(6, used, NTotal);
+    MPI_Allreduce(used, NTotal, 6, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+
     int ptype;
     for(ptype = 0; ptype < 6; ptype ++) {
         if(NTotal[ptype] > 0) {
@@ -620,12 +621,13 @@ slots_check_id_consistency(struct part_manager_type * pman, struct slots_manager
 
 /* this function needs the Type of P[i] to be setup */
 void
-slots_setup_topology(struct part_manager_type * pman, int * NLocal, struct slots_manager_type * sman)
+slots_setup_topology(struct part_manager_type * pman, int64_t * NLocal, struct slots_manager_type * sman)
 {
     /* initialize particle types */
-    int ptype, offset = 0;
+    int ptype;
+    int64_t offset = 0;
     for(ptype = 0; ptype < 6; ptype ++) {
-        int i;
+        int64_t i;
         struct slot_info info = sman->info[ptype];
         #pragma omp parallel for
         for(i = 0; i < NLocal[ptype]; i++)
@@ -650,7 +652,7 @@ slots_setup_topology(struct part_manager_type * pman, int * NLocal, struct slots
 void
 slots_setup_id(const struct part_manager_type * pman, struct slots_manager_type * sman)
 {
-    int i;
+    int64_t i;
     /* set up the cross check for child IDs */
     #pragma omp parallel for
     for(i = 0; i < pman->NumPart; i++)

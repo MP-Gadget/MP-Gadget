@@ -253,7 +253,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
     }
 
     int64_t newNumPart;
-    int newSlots[6] = {0};
+    int64_t newSlots[6] = {0};
     newNumPart = pman->NumPart + plan->toGetSum.base;
 
     for(ptype = 0; ptype < 6; ptype ++) {
