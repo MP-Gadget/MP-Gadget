@@ -525,13 +525,13 @@ density_ngbiter(
         struct sph_pred_data * SphP_scratch = DENSITY_GET_PRIV(lv->tw)->SPH_predicted;
 
         double EntVarPred;
+        MyFloat VelPred[3];
         #pragma omp atomic read
         EntVarPred = SphP_scratch->EntVarPred[P[other].PI];
         /* Lazily compute the predicted quantities. We can do this
          * with minimal locking since nothing happens should we compute them twice.
          * Zero can be the special value since there should never be zero entropy.*/
         if(EntVarPred == 0) {
-            MyFloat VelPred[3];
             struct DensityPriv * priv = DENSITY_GET_PRIV(lv->tw);
             int bin = P[other].TimeBin;
             double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
@@ -542,26 +542,19 @@ density_ngbiter(
             int i;
             for(i = 0; i < 3; i++) {
                 #pragma omp atomic write
-                priv->SPH_predicted->VelPred[3 * P[other].PI + i] = VelPred[i];
+                SphP_scratch->VelPred[3 * P[other].PI + i] = VelPred[i];
             }
             #pragma omp atomic write
-            priv->SPH_predicted->EntVarPred[P[other].PI] = EntVarPred;
+            SphP_scratch->EntVarPred[P[other].PI] = EntVarPred;
+        }
+        else {
+            int i;
+            for(i = 0; i < 3; i++)
+                VelPred[i] = SphP_scratch->VelPred[3 * P[other].PI + i];
         }
         if(DENSITY_GET_PRIV(lv->tw)->DoEgyDensity) {
-            const double EntPred = SphP_scratch->EntVarPred[P[other].PI];
-            O->EgyRho += mass_j * EntPred * wk;
-            O->DhsmlEgyDensity += mass_j * EntPred * density_dW;
-        }
-
-
-        if(DENSITY_GET_PRIV(lv->tw)->GradRho) {
-            if(r > 0)
-            {
-                int d;
-                for (d = 0; d < 3; d ++) {
-                    O->GradRho[d] += mass_j * dwk * dist[d] / r;
-                }
-            }
+            O->EgyRho += mass_j * EntVarPred * wk;
+            O->DhsmlEgyDensity += mass_j * EntVarPred * density_dW;
         }
 
         if(r > 0)
@@ -571,13 +564,17 @@ density_ngbiter(
             double rot[3];
             int d;
             for(d = 0; d < 3; d ++) {
-                dv[d] = I->Vel[d] - SphP_scratch->VelPred[3 * P[other].PI + d];
+                dv[d] = I->Vel[d] - VelPred[d];
             }
             O->Div += -fac * dotproduct(dist, dv);
 
             crossproduct(dv, dist, rot);
             for(d = 0; d < 3; d ++) {
                 O->Rot[d] += fac * rot[d];
+            }
+            if(DENSITY_GET_PRIV(lv->tw)->GradRho) {
+                for (d = 0; d < 3; d ++)
+                    O->GradRho[d] += fac * dist[d];
             }
         }
     }
