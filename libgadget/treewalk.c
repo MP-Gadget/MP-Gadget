@@ -312,7 +312,7 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * d
         if(end > tw->WorkSetSize)
             end = tw->WorkSetSize;
         /* Reduce the chunk size towards the end of the walk*/
-        if(((size_t) tw->WorkSetSize  < end + chnksz * tw->NThread) && chnksz >= 2)
+        if((tw->WorkSetSize  < end + chnksz * tw->NThread) && chnksz >= 2)
             chnksz /= 2;
         int k;
         for(k = chnk; k < end; k++) {
@@ -470,7 +470,7 @@ ev_primary(TreeWalk * tw)
         lastSucceeded = real_ev(export, tw, &dataindexoffset[tid], &nexports[tid], &currentIndex);
     }
 
-    size_t i;
+    int64_t i;
     tw->Nexport = 0;
 
     /* Compactify the export queue*/
@@ -613,7 +613,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
     ev_begin(tw, active_set, size);
 
     if(tw->preprocess) {
-        int i;
+        int64_t i;
         #pragma omp parallel for
         for(i = 0; i < tw->WorkSetSize; i ++) {
             const int p_i = tw->WorkSet ? tw->WorkSet[i] : i;
@@ -661,7 +661,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
     tstart = second();
 
     if(tw->postprocess) {
-        int i;
+        int64_t i;
         #pragma omp parallel for
         for(i = 0; i < tw->WorkSetSize; i ++) {
             const int p_i = tw->WorkSet ? tw->WorkSet[i] : i;
