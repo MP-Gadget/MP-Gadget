@@ -122,7 +122,7 @@ static TreeWalk * GDB_current_ev = NULL;
 static void
 ev_init_thread(const struct TreeWalkThreadLocals export, TreeWalk * const tw, LocalTreeWalk * lv)
 {
-    const int thread_id = omp_get_thread_num();
+    const size_t thread_id = omp_get_thread_num();
     const int NTask = tw->NTask;
     int j;
     lv->tw = tw;
@@ -164,7 +164,8 @@ ev_free_threadlocals(struct TreeWalkThreadLocals export)
 static void
 ev_begin(TreeWalk * tw, int * active_set, const size_t size)
 {
-    const int NumThreads = omp_get_max_threads();
+    /* Needs to be 64-bit so that the multiplication in Ngblist malloc doesn't overflow*/
+    const size_t NumThreads = omp_get_max_threads();
     MPI_Comm_size(MPI_COMM_WORLD, &tw->NTask);
     tw->NThread = NumThreads;
     /* The last argument is may_have_garbage: in practice the only
