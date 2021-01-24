@@ -74,7 +74,7 @@ extern struct part_manager_type {
 #define P PartManager->Base
 
 /*Allocate memory for the particles*/
-void particle_alloc_memory(int MaxPart);
+void particle_alloc_memory(int64_t MaxPart);
 
 /* Finds the correct relative position accounting for periodicity*/
 #define NEAREST(x, BoxSize) (((x)>0.5*BoxSize)?((x)-BoxSize):(((x)<-0.5*BoxSize)?((x)+BoxSize):(x)))
