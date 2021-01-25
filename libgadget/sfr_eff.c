@@ -52,7 +52,7 @@ static struct SFRParams
     int BHFeedbackUseTcool;
     /*!< may be used to set a floor for the gas temperature */
     double MinGasTemp;
-    double Qeos; /*softening eeqos*/
+    double Qeos; /*allow softening the eeqos*/
     double EgyIso;
 
     /*Lyman alpha forest specific star formation.*/
@@ -334,8 +334,8 @@ sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTr
             myfree(act->ActiveParticle);
         }
         /*Now we can extend the slots! */
-        int atleast[6];
-        int i;
+        int64_t atleast[6];
+        int64_t i;
         for(i = 0; i < 6; i++)
             atleast[i] = SlotsManager->info[i].maxsize;
         atleast[4] += NumNewStar;
@@ -535,11 +535,22 @@ static int make_particle_star(int child, int parent, int placement)
 static void
 cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_eeqos_data sfr_data)
 {
-    const double egyeff = sfr_params.EgySpecCold * sfr_data.cloudfrac + (1 - sfr_data.cloudfrac) * sfr_data.egyhot;
+    double egyeff = sfr_params.EgySpecCold * sfr_data.cloudfrac + (1 - sfr_data.cloudfrac) * sfr_data.egyhot;
     const double Density = SPH_EOMDensity(&SPHP(i));
     const double densityfac = pow(Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
     double egycurrent = SPHP(i).Entropy * densityfac;
     double trelax = sfr_data.trelax;
+    
+     /*Allow a softer equation of state for ISM*/
+    if(sfr_params.Qeos < 1) 
+    {
+        double pressure_eff = log10(GAMMA_MINUS1 * (Density * a3inv) * egyeff);
+        double pressure_iso = log10(GAMMA_MINUS1 * (Density * a3inv) * sfr_params.EgyIso);
+        double pressure_soft = sfr_params.Qeos * pressure_eff + (1 - sfr_params.Qeos) * pressure_iso;
+        pressure_soft = pow(10,pressure_soft);
+        egyeff = pressure_soft/(GAMMA_MINUS1 * (Density * a3inv));  
+    }  
+    
     if(sfr_params.BHFeedbackUseTcool == 1 && P[i].BHHeated)
     {
         if(egycurrent > egyeff)
@@ -561,15 +572,9 @@ cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_eeqos_data s
                 trelax = tcool;
         }
         P[i].BHHeated = 0;
-    }
-    
-    double pressure_eff = log10(GAMMA_MINUS1 * (Density * a3inv) * egyeff);
-    double pressure_iso = log10(GAMMA_MINUS1 * (Density * a3inv) * sfr_params.EgyIso);
-    double pressure_soft = sfr_params.Qeos * pressure_eff + (1 - sfr_params.Qeos) * pressure_iso;
-    pressure_soft = pow(10,pressure_soft);
-    double egy_soft = pressure_soft/(GAMMA_MINUS1 * (Density * a3inv));  
+    }  
 
-    SPHP(i).Entropy =  (egy_soft + (egycurrent - egy_soft) * exp(-dtime / trelax)) /densityfac;
+    SPHP(i).Entropy =  (egyeff + (egycurrent - egyeff) * exp(-dtime / trelax)) /densityfac;
 }
 
 /*Forms stars according to the quick lyman alpha star formation criterion,
@@ -731,8 +736,18 @@ get_egyeff(double redshift, double dens, struct UVBG * uvbg)
     double tcool = GetCoolingTime(redshift, egyhot, dens, uvbg, &ne, 0.0);
 
     double y = tsfr / tcool * egyhot / (sfr_params.FactorSN * sfr_params.EgySpecSN - (1 - sfr_params.FactorSN) * sfr_params.EgySpecCold);
-    double x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
-    return egyhot * (1 - x) + sfr_params.EgySpecCold * x;
+    double x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));    
+    double egyeff = egyhot * (1 - x) + sfr_params.EgySpecCold * x;
+    
+    if(sfr_params.Qeos < 1){
+        double a3inv = pow((1+redshift),3);
+        double pressure_eff = log10(GAMMA_MINUS1 * (dens * a3inv) * egyeff);
+        double pressure_iso = log10(GAMMA_MINUS1 * (dens * a3inv) * sfr_params.EgyIso);
+        double pressure_soft = sfr_params.Qeos * pressure_eff + (1 - sfr_params.Qeos) * pressure_iso;
+        pressure_soft = pow(10,pressure_soft);
+        egyeff = pressure_soft/(GAMMA_MINUS1 * (dens * a3inv));
+    }    
+    return egyeff;
 }
 
 void init_cooling_and_star_formation(int CoolingOn)
@@ -768,7 +783,7 @@ void init_cooling_and_star_formation(int CoolingOn)
     sfr_params.EgySpecCold = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * sfr_params.TempClouds;
     sfr_params.EgySpecCold *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
     
-    /* Assume the isothermal temperature at about the lower limit of primordial cooling */
+    /* Assume isothermal temperature at about the lower limit of primordial cooling */
     double T_iso = 1e4; 
     sfr_params.EgyIso = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * T_iso / coolunits.uu_in_cgs;
 
