@@ -52,6 +52,8 @@ static struct SFRParams
     int BHFeedbackUseTcool;
     /*!< may be used to set a floor for the gas temperature */
     double MinGasTemp;
+    double Qeos; /*softening eeqos*/
+    double EgyIso;
 
     /*Lyman alpha forest specific star formation.*/
     double QuickLymanAlphaProbability;
@@ -107,6 +109,7 @@ void set_sfr_params(ParameterSet * ps)
         sfr_params.MaxSfrTimescale = param_get_double(ps, "MaxSfrTimescale");
         sfr_params.Generations = param_get_int(ps, "Generations");
         sfr_params.MinGasTemp = param_get_double(ps, "MinGasTemp");
+        sfr_params.Qeos = param_get_double(ps, "Qeos");
         sfr_params.BHFeedbackUseTcool = param_get_int(ps, "BHFeedbackUseTcool");
         if(sfr_params.BHFeedbackUseTcool > 2 || sfr_params.BHFeedbackUseTcool < 0)
             endrun(0, "BHFeedbackUseTcool mode %d not supported\n", sfr_params.BHFeedbackUseTcool);
@@ -331,8 +334,8 @@ sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTr
             myfree(act->ActiveParticle);
         }
         /*Now we can extend the slots! */
-        int64_t atleast[6];
-        int64_t i;
+        int atleast[6];
+        int i;
         for(i = 0; i < 6; i++)
             atleast[i] = SlotsManager->info[i].maxsize;
         atleast[4] += NumNewStar;
@@ -453,6 +456,25 @@ double get_neutral_fraction_sfreff(double redshift, struct particle_data * partd
     return nh0;
 }
 
+
+/*Get cloud fraction */
+double get_cloudfrac_sfreff(double redshift, struct particle_data * partdata, struct sph_particle_data * sphdata)
+{
+    double cloudfrac;
+    
+    if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, All.cf.a3inv)) {
+        cloudfrac = 0;
+    }
+    else {
+        double dloga = get_dloga_for_bin(partdata->TimeBin, partdata->Ti_drift);
+        double dtime = dloga / All.cf.hubble;
+        struct sfr_eeqos_data sfr_data = get_sfr_eeqos(partdata, sphdata, dtime, All.cf.a3inv);
+        cloudfrac =  sfr_data.cloudfrac;
+    }
+    return cloudfrac;
+}
+
+
 double get_helium_neutral_fraction_sfreff(int ion, double redshift, struct particle_data * partdata, struct sph_particle_data * sphdata)
 {
     double helium;
@@ -540,8 +562,14 @@ cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_eeqos_data s
         }
         P[i].BHHeated = 0;
     }
+    
+    double pressure_eff = log10(GAMMA_MINUS1 * (Density * a3inv) * egyeff);
+    double pressure_iso = log10(GAMMA_MINUS1 * (Density * a3inv) * sfr_params.EgyIso);
+    double pressure_soft = sfr_params.Qeos * pressure_eff + (1 - sfr_params.Qeos) * pressure_iso;
+    pressure_soft = pow(10,pressure_soft);
+    double egy_soft = pressure_soft/(GAMMA_MINUS1 * (Density * a3inv));  
 
-    SPHP(i).Entropy =  (egyeff + (egycurrent - egyeff) * exp(-dtime / trelax)) /densityfac;
+    SPHP(i).Entropy =  (egy_soft + (egycurrent - egy_soft) * exp(-dtime / trelax)) /densityfac;
 }
 
 /*Forms stars according to the quick lyman alpha star formation criterion,
@@ -739,6 +767,10 @@ void init_cooling_and_star_formation(int CoolingOn)
 
     sfr_params.EgySpecCold = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * sfr_params.TempClouds;
     sfr_params.EgySpecCold *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
+    
+    /* Assume the isothermal temperature at about the lower limit of primordial cooling */
+    double T_iso = 1e4; 
+    sfr_params.EgyIso = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * T_iso / coolunits.uu_in_cgs;
 
     /* mean molecular weight assuming FULL ionization */
     meanweight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));
