@@ -8,8 +8,8 @@
 
 struct slot_info {
     char * ptr; /* aliasing ptr for this slot */
-    int maxsize; /* max number of supported slots */
-    int size; /* currently used slots*/
+    int64_t maxsize; /* max number of supported slots */
+    int64_t size; /* currently used slots*/
     size_t elsize; /* itemsize */
     int enabled;
 };
@@ -135,13 +135,13 @@ void slots_init(double increase, struct slots_manager_type * sman);
 void slots_set_enabled(int ptype, size_t elsize, struct slots_manager_type * sman);
 void slots_free(struct slots_manager_type * sman);
 void slots_mark_garbage(int i, struct part_manager_type * pman, struct slots_manager_type * sman);
-void slots_setup_topology(struct part_manager_type * pman, int * NLocal, struct slots_manager_type * sman);
+void slots_setup_topology(struct part_manager_type * pman, int64_t * NLocal, struct slots_manager_type * sman);
 void slots_setup_id(const struct part_manager_type * pman, struct slots_manager_type * sman);
 int slots_split_particle(int parent, double childmass, struct part_manager_type * pman);
 int slots_convert(int parent, int ptype, int placement, struct part_manager_type * pman, struct slots_manager_type * sman);
 int slots_gc(int * compact_slots, struct part_manager_type * pman, struct slots_manager_type * sman);
 void slots_gc_sorted(struct part_manager_type * pman, struct slots_manager_type * sman);
-size_t slots_reserve(int where, int atleast[6], struct slots_manager_type * sman);
+size_t slots_reserve(int where, int64_t atleast[6], struct slots_manager_type * sman);
 void slots_check_id_consistency(struct part_manager_type * pman, struct slots_manager_type * sman);
 
 typedef struct {

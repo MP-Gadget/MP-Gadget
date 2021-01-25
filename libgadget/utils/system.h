@@ -58,6 +58,16 @@ double timediff(double t0, double t1);
 double second(void);
 size_t sizemax(size_t a, size_t b);
 
+static inline int64_t atomic_fetch_and_add_64(int64_t * ptr, int64_t value) {
+    int64_t k;
+#pragma omp atomic capture
+    {
+      k = (*ptr);
+      (*ptr)+=value;
+    }
+    return k;
+}
+
 static inline int atomic_fetch_and_add(int * ptr, int value) {
     int k;
 #pragma omp atomic capture

@@ -464,7 +464,7 @@ domain_check_memory_bound(const DomainDecomp * ddecomp, int64_t *TopLeafWork, in
     /*Leave a small number of particles for star formation */
     if(max_load > PartManager->MaxPart * domain_params.SetAsideFactor)
     {
-        message(0, "desired memory imbalance=%g  (limit=%g, needed=%d)\n",
+        message(0, "desired memory imbalance=%g  (limit=%g, needed=%ld)\n",
                     (max_load * ((double) sumload ) / NTask ) / PartManager->MaxPart, domain_params.SetAsideFactor * PartManager->MaxPart, max_load);
         message(0, "Balance breakdown:\n");
         int i;

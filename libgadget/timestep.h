@@ -8,8 +8,8 @@
 set in rebuild_activelist.*/
 typedef struct ActiveParticles
 {
-    int MaxActiveParticle;
-    int NumActiveParticle;
+    int64_t MaxActiveParticle;
+    int64_t NumActiveParticle;
     int *ActiveParticle;
 } ActiveParticles;
 

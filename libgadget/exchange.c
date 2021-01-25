@@ -197,9 +197,9 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
 
     /* Check whether the domain exchange will succeed.
      * Garbage particles will be collected after the particles are exported, so do not need to count.*/
-    int needed = pman->NumPart + plan->toGetSum.base - plan->toGoSum.base  - plan->ngarbage;
+    int64_t needed = pman->NumPart + plan->toGetSum.base - plan->toGoSum.base  - plan->ngarbage;
     if(needed > pman->MaxPart)
-        message(1,"Too many particles for exchange: NumPart=%d count_get = %d count_togo=%d garbage = %d MaxPart=%d\n",
+        message(1,"Too many particles for exchange: NumPart=%ld count_get = %d count_togo=%d garbage = %d MaxPart=%ld\n",
                 pman->NumPart, plan->toGetSum.base, plan->toGoSum.base, plan->ngarbage, pman->MaxPart);
     if(MPIU_Any(needed > pman->MaxPart, Comm))
         return 1;
@@ -252,8 +252,8 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
         walltime_measure("/Domain/exchange/garbage");
     }
 
-    int newNumPart;
-    int newSlots[6] = {0};
+    int64_t newNumPart;
+    int64_t newSlots[6] = {0};
     newNumPart = pman->NumPart + plan->toGetSum.base;
 
     for(ptype = 0; ptype < 6; ptype ++) {
@@ -262,7 +262,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
     }
 
     if(newNumPart > pman->MaxPart) {
-        endrun(787878, "NumPart=%d MaxPart=%d\n", newNumPart, pman->MaxPart);
+        endrun(787878, "NumPart=%ld MaxPart=%ld\n", newNumPart, pman->MaxPart);
     }
 
     slots_reserve(1, newSlots, sman);
@@ -305,7 +305,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
     for(src = 0; src < plan->NTask; src++) {
         /* unpack each source rank */
         int newPI[6];
-        int i;
+        int64_t i;
         for(ptype = 0; ptype < 6; ptype ++) {
             newPI[ptype] = sman->info[ptype].size + plan->toGetOffset[src].slots[ptype];
         }
@@ -529,7 +529,7 @@ mp_order_by_id(const void * data, void * radix, void * arg) {
 void
 domain_test_id_uniqueness(struct part_manager_type * pman)
 {
-    int i;
+    int64_t i;
     MyIDType *ids;
     int NTask, ThisTask;
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
@@ -549,7 +549,7 @@ domain_test_id_uniqueness(struct part_manager_type * pman)
     mpsort_mpi(ids, pman->NumPart, sizeof(MyIDType), mp_order_by_id, 8, NULL, MPI_COMM_WORLD);
 
     /*Remove garbage from the end*/
-    int nids = pman->NumPart;
+    int64_t nids = pman->NumPart;
     while(nids > 0 && (ids[nids-1] == (MyIDType)-1)) {
         nids--;
     }
@@ -558,7 +558,7 @@ domain_test_id_uniqueness(struct part_manager_type * pman)
     for(i = 1; i < nids; i++) {
         if(ids[i] <= ids[i - 1])
         {
-            endrun(12, "non-unique (or non-ordered) ID=%013ld found on task=%d (i=%d NumPart=%d)\n",
+            endrun(12, "non-unique (or non-ordered) ID=%013ld found on task=%d (i=%d NumPart=%ld)\n",
                     ids[i], ThisTask, i, nids);
         }
     }

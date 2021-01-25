@@ -287,24 +287,24 @@ allocator_print(Allocator * alloc)
                 alloc->name,
                 alloc->use_malloc?"(libc managed)":"(self managed)"
                 );
-    message(1, " Total: %010td bytes\n", alloc->size);
+    message(1, " Total: %010td kbytes\n", alloc->size/1024);
     message(1, " Free: %010td Used: %010td Top: %010td Bottom: %010td \n",
-            allocator_get_free_size(alloc),
-            allocator_get_used_size(alloc, ALLOC_DIR_BOTH),
-            allocator_get_used_size(alloc, ALLOC_DIR_TOP),
-            allocator_get_used_size(alloc, ALLOC_DIR_BOT)
+            allocator_get_free_size(alloc)/1024,
+            allocator_get_used_size(alloc, ALLOC_DIR_BOTH)/1024,
+            allocator_get_used_size(alloc, ALLOC_DIR_TOP)/1024,
+            allocator_get_used_size(alloc, ALLOC_DIR_BOT)/1024
             );
     AllocatorIter iter[1];
-    message(1, " %-20s | %c | %-10s %-10s | %s\n", "Name", 'd', "Requested", "Allocated", "Annotation");
+    message(1, " %-20s | %c | %-12s %-12s | %s\n", "Name", 'd', "Requested", "Allocated", "Annotation");
     message(1, "-------------------------------------------------------\n");
     for(allocator_iter_start(iter, alloc);
         !allocator_iter_ended(iter);
         allocator_iter_next(iter))
     {
-        message(1, " %-20s | %c | %010td %010td | %s\n",
+        message(1, " %-20s | %c | %012td %012td | %s\n",
                  iter->name,
                  "T?B"[iter->dir + 1],
-                 iter->request_size, iter->size, iter->annotation);
+                 iter->request_size/1024, iter->size/1024, iter->annotation);
     }
 }
 

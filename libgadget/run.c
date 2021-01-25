@@ -138,8 +138,8 @@ use_pairwise_gravity(ActiveParticles * Act, struct part_manager_type * PartManag
 {
     /* Find total number of active particles*/
     int64_t total_active, total_particle;
-    sumup_large_ints(1, &Act->NumActiveParticle, &total_active);
-    sumup_large_ints(1, &PartManager->NumPart, &total_particle);
+    MPI_Allreduce(&Act->NumActiveParticle, &total_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&PartManager->NumPart, &total_particle, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
     /* Since the pairwise step is O(N^2) and tree is O(NlogN) we should scale the condition like O(N)*/
     return total_active < All.PairwiseActiveFraction * total_particle;

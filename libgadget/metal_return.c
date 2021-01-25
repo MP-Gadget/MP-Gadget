@@ -463,7 +463,7 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
 
     /* Do nothing if no stars yet*/
     int64_t totstar;
-    sumup_large_ints(1, &SlotsManager->info[4].size, &totstar);
+    MPI_Allreduce(&SlotsManager->info[4].size, &totstar, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     if(totstar == 0)
         return;
 

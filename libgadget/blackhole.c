@@ -455,7 +455,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
         return;
     /* Do nothing if no black holes*/
     int64_t totbh;
-    sumup_large_ints(1, &SlotsManager->info[5].size, &totbh);
+    MPI_Allreduce(&SlotsManager->info[5].size, &totbh, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     if(totbh == 0)
         return;
     int i;

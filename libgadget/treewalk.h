@@ -104,7 +104,7 @@ struct TreeWalk {
     TreeWalkProcessFunction postprocess; /* postprocess finalizes quantities for each particle, e.g. divide the normalization */
     TreeWalkProcessFunction preprocess; /* Preprocess initializes quantities for each particle */
     int NTask; /*Number of MPI tasks*/
-    size_t NThread; /*Number of OpenMP threads*/
+    int64_t NThread; /*Number of OpenMP threads*/
 
     /* Unlike in Gadget-3, when exporting we now always send tree branches.*/
     char * dataget;
@@ -150,11 +150,11 @@ struct TreeWalk {
 
     /* Index into WorkSet to start iteration.
      * Will be !=0 if the export buffer fills up*/
-    int WorkSetStart;
+    int64_t WorkSetStart;
     /* The list of particles to work on. May be NULL, in which case all particles are used.*/
     int * WorkSet;
     /* Size of the workset list*/
-    int WorkSetSize;
+    int64_t WorkSetSize;
     /*Did we use the active_set array as the WorkSet?*/
     int work_set_stolen_from_active;
 

@@ -122,7 +122,7 @@ static TreeWalk * GDB_current_ev = NULL;
 static void
 ev_init_thread(const struct TreeWalkThreadLocals export, TreeWalk * const tw, LocalTreeWalk * lv)
 {
-    const int thread_id = omp_get_thread_num();
+    const size_t thread_id = omp_get_thread_num();
     const int NTask = tw->NTask;
     int j;
     lv->tw = tw;
@@ -164,7 +164,8 @@ ev_free_threadlocals(struct TreeWalkThreadLocals export)
 static void
 ev_begin(TreeWalk * tw, int * active_set, const size_t size)
 {
-    const int NumThreads = omp_get_max_threads();
+    /* Needs to be 64-bit so that the multiplication in Ngblist malloc doesn't overflow*/
+    const size_t NumThreads = omp_get_max_threads();
     MPI_Comm_size(MPI_COMM_WORLD, &tw->NTask);
     tw->NThread = NumThreads;
     /* The last argument is may_have_garbage: in practice the only
@@ -288,7 +289,7 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * d
     TreeWalkQueryBase * input = alloca(tw->query_type_elsize);
     TreeWalkResultBase * output = alloca(tw->result_type_elsize);
 
-    int lastSucceeded = tw->WorkSetStart - 1;
+    int64_t lastSucceeded = tw->WorkSetStart - 1;
     /* We must schedule monotonically so that if the export buffer fills up
      * it is guaranteed that earlier particles are already done.
      * However, we schedule dynamically so that we have reduced imbalance.
@@ -311,7 +312,7 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * d
         if(end > tw->WorkSetSize)
             end = tw->WorkSetSize;
         /* Reduce the chunk size towards the end of the walk*/
-        if(((size_t) tw->WorkSetSize  < end + chnksz * tw->NThread) && chnksz >= 2)
+        if((tw->WorkSetSize  < end + chnksz * tw->NThread) && chnksz >= 2)
             chnksz /= 2;
         int k;
         for(k = chnk; k < end; k++) {
@@ -344,7 +345,7 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * d
         }
         /* If we filled up, we need to remove the partially evaluated last particle from the export list and leave this loop.*/
         if(lv->Nexport >= lv->BunchSize) {
-            message(1, "Tree export buffer full with %d particles. start %d lastsucceeded: %d.\n", lv->Nexport, tw->WorkSetStart, lastSucceeded);
+            message(1, "Tree export buffer full with %ld particles. start %ld lastsucceeded: %ld.\n", lv->Nexport, tw->WorkSetStart, lastSucceeded);
             tw->BufferFullFlag = 1;
             /* Touch up the DataIndexTable, so that partial particle exports are discarded.
              * Since this queue is per-thread, it is ordered.*/
@@ -352,7 +353,7 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * d
             const int lastreal = tw->WorkSet ? tw->WorkSet[k] : k;
             /* Index stores tw->target, which is the current particle.*/
             if(lv->NThisParticleExport > 0 && DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index != lastreal)
-                endrun(5, "Something screwed up in export queue: nexp %d (local %d) last %d != index %d\n", lv->Nexport,
+                endrun(5, "Something screwed up in export queue: nexp %ld (local %d) last %d != index %d\n", lv->Nexport,
                        lv->NThisParticleExport, lastreal, DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index);
             /* Leave this chunking loop.*/
             break;
@@ -469,7 +470,7 @@ ev_primary(TreeWalk * tw)
         lastSucceeded = real_ev(export, tw, &dataindexoffset[tid], &nexports[tid], &currentIndex);
     }
 
-    size_t i;
+    int64_t i;
     tw->Nexport = 0;
 
     /* Compactify the export queue*/
@@ -612,7 +613,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
     ev_begin(tw, active_set, size);
 
     if(tw->preprocess) {
-        int i;
+        int64_t i;
         #pragma omp parallel for
         for(i = 0; i < tw->WorkSetSize; i ++) {
             const int p_i = tw->WorkSet ? tw->WorkSet[i] : i;
@@ -660,7 +661,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
     tstart = second();
 
     if(tw->postprocess) {
-        int i;
+        int64_t i;
         #pragma omp parallel for
         for(i = 0; i < tw->WorkSetSize; i ++) {
             const int p_i = tw->WorkSet ? tw->WorkSet[i] : i;

@@ -47,7 +47,7 @@ double copy_and_mean_accn(double (* PairAccn)[3])
         }
     }
     int64_t tot_npart;
-    sumup_large_ints(1, &PartManager->NumPart, &tot_npart);
+    MPI_Allreduce(&PartManager->NumPart, &tot_npart, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &meanacc, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     meanacc/= (tot_npart*3.);
     return meanacc;
@@ -74,8 +74,7 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3
     MPI_Allreduce(&meanerr, meanerr_tot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&maxerr, maxerr_tot, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     int64_t tot_npart;
-    sumup_large_ints(1, &PartManager->NumPart, &tot_npart);
-
+    MPI_Allreduce(&PartManager->NumPart, &tot_npart, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     *meanerr_tot/= (tot_npart*3.);
 }
 
