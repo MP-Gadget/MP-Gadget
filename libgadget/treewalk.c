@@ -1087,6 +1087,24 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
                 int i;
                 for(i = 0; i < walks; i++)
                     message(1, "walking: %d\n", walkhist[i]);
+                struct NODE * last = &tree->Nodes[walkhist[walks-2]];
+                message(12312, "Culling from! no = %d, sib %d, father = %d (ptype = %d) len %g center (%g %g %g) mass %g cofm %g %g %g TL %d DLM %d ITL %d nocc %d suns %d %d %d %d start = %d\n",
+                walkhist[walks-2], last->sibling, last->father, last->f.ChildType,
+                last->len, last->center[0], last->center[1], last->center[2],
+                last->mom.mass, last->mom.cofm[0], last->mom.cofm[1], last->mom.cofm[2],
+                last->f.TopLevel, last->f.DependsOnLocalMass, last->f.InternalTopLevel, last->s.noccupied,
+                last->s.suns[0], last->s.suns[1], last->s.suns[2], last->s.suns[3],
+                startnode);
+                for(i = 0; i < 8; i++) {
+                struct NODE * n2 = &tree->Nodes[last->s.suns[i]];
+                message(12312, "child i %d no = %d, sib %d, father = %d (ptype = %d) len %g center (%g %g %g) mass %g cofm %g %g %g TL %d DLM %d ITL %d nocc %d suns %d %d %d %d start = %d\n",
+                i, last->s.suns[i], n2->sibling, n2->father, n2->f.ChildType,
+                n2->len, n2->center[0], n2->center[1], n2->center[2],
+                n2->mom.mass, n2->mom.cofm[0], n2->mom.cofm[1], n2->mom.cofm[2],
+                n2->f.TopLevel, n2->f.DependsOnLocalMass, n2->f.InternalTopLevel, n2->s.noccupied,
+                n2->s.suns[0], n2->s.suns[1], n2->s.suns[2], n2->s.suns[3],
+                startnode);
+                }
                 endrun(12312, "Culling to invalid node! no = %d, sib %d, father = %d (ptype = %d) len %g center (%g %g %g) mass %g cofm %g %g %g TL %d DLM %d ITL %d nocc %d suns %d %d %d %d start = %d mode %d Ipos %g %g %g\n",
                 no, current->sibling, fat, current->f.ChildType,
                 current->len, current->center[0], current->center[1], current->center[2],
