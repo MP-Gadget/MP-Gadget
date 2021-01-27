@@ -41,6 +41,7 @@ typedef struct {
     double r2;
     double r;
     int other;
+    char ngblistfull;
 } TreeWalkNgbIterBase;
 
 typedef struct {
@@ -147,7 +148,8 @@ struct TreeWalk {
     int BufferFullFlag;
     /* Number of particles we can fit into the export buffer*/
     size_t BunchSize;
-
+    /* Maximum number of neighbours to search for around each particle*/
+    int64_t maxngb;
     /* Index into WorkSet to start iteration.
      * Will be !=0 if the export buffer fills up*/
     int64_t WorkSetStart;
@@ -157,7 +159,6 @@ struct TreeWalk {
     int64_t WorkSetSize;
     /*Did we use the active_set array as the WorkSet?*/
     int work_set_stolen_from_active;
-
 };
 
 /*Initialise treewalk parameters on first run*/

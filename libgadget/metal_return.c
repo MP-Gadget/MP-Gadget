@@ -724,6 +724,7 @@ typedef struct {
     MyFloat Rho;
     MyFloat DhsmlDensity;
     int numcand;
+    int ngblistfull;
 } TreeWalkResultStellarDensity;
 
 struct StellarDensityPriv {
@@ -742,6 +743,7 @@ struct StellarDensityPriv {
     double DesNumNgb;
     double * maxnumngb;
     int * maxcand;
+    char * filledup;
 };
 
 #define STELLAR_DENSITY_GET_PRIV(tw) ((struct StellarDensityPriv*) ((tw)->priv))
@@ -766,9 +768,11 @@ stellar_density_reduce(int place, TreeWalkResultStellarDensity * remote, enum Tr
     TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->VolumeSPH[pi], remote->VolumeSPH);
     TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->DhsmlDensity[pi], remote->DhsmlDensity);
     TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->Density[pi], remote->Rho);
+    TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->filledup[pi], remote->ngblistfull);
     int tid = omp_get_thread_num();
     if(STELLAR_DENSITY_GET_PRIV(tw)->maxcand[tid] < remote->numcand)
         STELLAR_DENSITY_GET_PRIV(tw)->maxcand[tid] = remote->numcand;
+
 }
 
 void stellar_density_check_neighbours (int i, TreeWalk * tw)
@@ -785,12 +789,20 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
     int pi = P[i].PI;
     int tid = omp_get_thread_num();
 
+    /* Density == -1 means that our ngblist filled up: this means that wasn't enough neighbours! A little strange.*/
+    if(STELLAR_DENSITY_GET_PRIV(tw)->filledup[pi] && NumNgb[pi] < desnumngb - MetalParams.MaxNgbDeviation) {
+            /* Better reset it. Put the particle in the redo queue and do not change the bounds.*/
+            /* More work needed: add this particle to the redo queue*/
+            STELLAR_DENSITY_GET_PRIV(tw)->NPRedo[tid][STELLAR_DENSITY_GET_PRIV(tw)->NPLeft[tid]] = i;
+            STELLAR_DENSITY_GET_PRIV(tw)->NPLeft[tid] ++;
+            message(1, "Filled ngblist (%ld) but NumNgb is only %g for i=%d ID=%lu type %d Hsml=%g Left=%g Right=%g des = %g pos=(%g|%g|%g)\n",
+            tw->maxngb, NumNgb[pi], i, P[i].ID, P[i].Type, P[i].Hsml, Left[pi], Right[pi], desnumngb, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+            return;
+    }
+
     if(NumNgb[pi] < (desnumngb - MetalParams.MaxNgbDeviation) ||
             (NumNgb[pi] > (desnumngb + MetalParams.MaxNgbDeviation)))
     {
-        DhsmlDensity[pi] *= P[i].Hsml / (NUMDIMS * STELLAR_DENSITY_GET_PRIV(tw)->Density[pi]);
-        DhsmlDensity[pi] = 1 / (1 + DhsmlDensity[pi]);
-
         /* This condition is here to prevent the density code looping forever if it encounters
          * multiple particles at the same position. If this happens you likely have worse
          * problems anyway, so warn also. */
@@ -809,9 +821,15 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
         } else {
                 Right[pi] = P[i].Hsml;
         }
+        /* Density == -1 means that our ngblist filled up*/
+        if(STELLAR_DENSITY_GET_PRIV(tw)->Density[pi] > 0) {
+            DhsmlDensity[pi] *= P[i].Hsml / (NUMDIMS * STELLAR_DENSITY_GET_PRIV(tw)->Density[pi]);
+            DhsmlDensity[pi] = 1 / (1 + DhsmlDensity[pi]);
+        }
 
-        /* Next step is geometric mean of previous. */
-        if((Right[pi] < tw->tree->BoxSize && Left[pi] > 0) || (P[i].Hsml * 1.26 > 0.99 * tw->tree->BoxSize))
+        /* Next step is geometric mean of previous: use this if we filled up the list because then DhsmlDensity is not reliable.*/
+        if(STELLAR_DENSITY_GET_PRIV(tw)->filledup[pi] ||
+            (Right[pi] < tw->tree->BoxSize && Left[pi] > 0) || (P[i].Hsml * 1.26 > 0.99 * tw->tree->BoxSize))
             P[i].Hsml = pow(0.5 * (pow(Left[pi], 3) + pow(Right[pi], 3)), 1.0 / 3);
         else
         {
@@ -863,6 +881,7 @@ stellar_density_ngbiter(
         iter->base.Hsml = h;
         iter->base.mask = 1; /* gas only */
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
+        iter->base.ngblistfull = 0;
         return;
     }
     const int other = iter->base.other;
@@ -892,6 +911,9 @@ stellar_density_ngbiter(
             thisvol *= wk;
         O->VolumeSPH += thisvol;
     }
+    /* Flag that our list filled up by setting negative density*/
+    if(iter->base.ngblistfull)
+        O->ngblistfull = 1;
 }
 
 MyFloat *
@@ -925,9 +947,11 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
     priv->NumNgb = (MyFloat *) mymalloc("DENS_PRIV->NumNgb", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->DhsmlDensity = (MyFloat *) mymalloc("DENS_PRIV->DhsmlDensity", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->Density = (MyFloat *) mymalloc("DENS_PRIV->Density", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->filledup = (char *) mymalloc("Filled", SlotsManager->info[4].size * sizeof(char));
 
     priv->NIteration = 0;
     priv->DesNumNgb = GetNumNgb(GetDensityKernelType());
+    tw->maxngb = priv->DesNumNgb * 4;
 
     /* Init Left and Right: this has to be done before treewalk */
     memset(priv->NumNgb, 0, SlotsManager->info[4].size * sizeof(MyFloat));
@@ -984,6 +1008,15 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
         /*Shrink memory*/
         ReDoQueue = myrealloc(ReDoQueue, sizeof(int) * size);
 
+        for(i = 0; i < size; i++) {
+            int ii = ReDoQueue[i];
+            int pi = P[ii].PI;
+            if(priv->filledup[pi] && priv->NumNgb[pi] < priv->DesNumNgb - MetalParams.MaxNgbDeviation) {
+                tw->maxngb *= 2;
+                break;
+            }
+        }
+
         priv->NIteration ++;
         MPI_Reduce(&size, &nmin, 1, MPI_INT, MPI_MIN, 0, MPI_COMM_WORLD);
         MPI_Reduce(&size, &nmax, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
@@ -1026,6 +1059,7 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
     ta_free(priv->maxnumngb);
     ta_free(priv->NPRedo);
     ta_free(priv->NPLeft);
+    myfree(priv->filledup);
     myfree(priv->Density);
     myfree(priv->DhsmlDensity);
     myfree(priv->NumNgb);

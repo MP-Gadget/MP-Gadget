@@ -139,7 +139,7 @@ ev_init_thread(const struct TreeWalkThreadLocals export, TreeWalk * const tw, Lo
     if(localbunch > tw->BunchSize - thread_id * localbunch)
         lv->BunchSize = tw->BunchSize - thread_id * localbunch;
 
-    lv->ngblist = Ngblist + thread_id * PartManager->NumPart;
+    lv->ngblist = Ngblist + thread_id * tw->maxngb;
     for(j = 0; j < NTask; j++)
         lv->exportflag[j] = -1;
 }
@@ -176,8 +176,10 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
 
     /* Start first iteration at the beginning*/
     tw->WorkSetStart = 0;
+    if(tw->maxngb <= 0)
+        tw->maxngb = PartManager->NumPart;
 
-    Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * NumThreads * sizeof(int));
+    Ngblist = (int*) mymalloc("Ngblist", tw->maxngb * NumThreads * sizeof(int));
 
     report_memory_usage(tw->ev_label);
 
@@ -923,9 +925,18 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
 
     for(inode = 0; (lv->mode == 0 && inode < 1)|| (lv->mode == 1 && inode < NODELISTLENGTH && I->NodeList[inode] >= 0); inode++)
     {
+        iter->ngblistfull = 0;
         int numcand = ngb_treefind_threads(I, O, iter, I->NodeList[inode], lv);
         /* Export buffer is full end prematurally */
         if(numcand < 0) return numcand;
+
+        /* If we have found enough neighbours,
+         * stop the walk and remove
+         * the exported particles. */
+        if(numcand == lv->tw->maxngb) {
+            lv->Nexport -= lv->NThisParticleExport;
+            iter->ngblistfull = 1;
+        }
 
         /* If we are here, export is succesful. Work on the this particle -- first
          * filter out all of the candidates that are actually outside. */
@@ -969,7 +980,6 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
 
             lv->tw->ngbiter(I, O, iter, lv);
         }
-
         ninteractions += numngb;
     }
 
@@ -1086,6 +1096,9 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
                 if(!((1<<type) & iter->mask))
                     continue;
 
+                /* If ngblist is full, stop the walk. */
+                if(numcand == lv->tw->maxngb)
+                    return numcand;
                 lv->ngblist[numcand++] = suns[i];
             }
             /* Move sideways*/
