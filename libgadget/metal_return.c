@@ -636,10 +636,6 @@ metal_return_ngbiter(
                   " We haven't implemented tracer particles and this shall not happen\n");
     }
 
-    /* Wind particles do not interact hydrodynamically: don't receive metal mass.*/
-    if(winds_is_particle_decoupled(other))
-        return;
-
     if(r2 > 0 && r2 < iter->kernel.HH)
     {
         double wk = 1;
@@ -889,9 +885,6 @@ stellar_density_ngbiter(
     const double r2 = iter->base.r2;
 
     O->numcand++;
-    /* Wind particles do not interact hydrodynamically: don't receive metal mass.*/
-    if(winds_is_particle_decoupled(other))
-        return;
 
     if(r2 < iter->kernel.HH)
     {
