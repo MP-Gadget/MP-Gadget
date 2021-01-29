@@ -483,11 +483,11 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     priv->hub = CP->HubbleParam;
 
     int nthread = omp_get_max_threads();
-    gsl_integration_workspace ** gsl_work = ta_malloc("gsl_work", gsl_integration_workspace *, nthread);
+    priv->gsl_work = ta_malloc("gsl_work", gsl_integration_workspace *, nthread);
     int i;
     /* Allocate a workspace for each thread*/
     for(i=0; i < nthread; i++)
-        gsl_work[i] = gsl_integration_workspace_alloc(GSL_WORKSPACE);
+        priv->gsl_work[i] = gsl_integration_workspace_alloc(GSL_WORKSPACE);
 
     /* Initialize*/
     setup_metal_table_interp(&METALS_GET_PRIV(tw)->interp);
@@ -495,9 +495,9 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     priv->MassReturn = mymalloc("MassReturn", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->LowDyingMass = mymalloc("LowDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->HighDyingMass = mymalloc("HighDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
-    priv->imf_norm = compute_imf_norm(gsl_work[0]);
+    priv->imf_norm = compute_imf_norm(priv->gsl_work[0]);
     /* Maximum possible mass return for below*/
-    double maxmassfrac = mass_yield(0, 1/(CP->HubbleParam*HUBBLE * SEC_PER_MEGAYEAR), snii_metallicities[SNII_NMET-1], CP->HubbleParam, &priv->interp, priv->imf_norm, gsl_work[0],agb_masses[0], MAXMASS);
+    double maxmassfrac = mass_yield(0, 1/(CP->HubbleParam*HUBBLE * SEC_PER_MEGAYEAR), snii_metallicities[SNII_NMET-1], CP->HubbleParam, &priv->interp, priv->imf_norm, priv->gsl_work[0],agb_masses[0], MAXMASS);
 
     /* First find the mass return as a fraction of the total mass and the age of the star.
      * This is done first so we can skip density computation for not active stars*/
@@ -509,12 +509,12 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
             continue;
         int tid = omp_get_thread_num();
         const int slot = P[p_i].PI;
-        priv->StellarAges[slot] = atime_to_myr(CP, STARP(p_i).FormationTime, atime, gsl_work[tid]);
+        priv->StellarAges[slot] = atime_to_myr(CP, STARP(p_i).FormationTime, atime, priv->gsl_work[tid]);
         /* Note this takes care of units*/
         double initialmass = P[p_i].Mass + STARP(p_i).TotalMassReturned;
         find_mass_bin_limits(&priv->LowDyingMass[slot], &priv->HighDyingMass[slot], STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, priv->interp.lifetime_interp);
 
-        priv->MassReturn[slot] = initialmass * mass_yield(STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, CP->HubbleParam, &priv->interp, priv->imf_norm, gsl_work[tid],priv->LowDyingMass[slot], priv->HighDyingMass[slot]);
+        priv->MassReturn[slot] = initialmass * mass_yield(STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, CP->HubbleParam, &priv->interp, priv->imf_norm, priv->gsl_work[tid],priv->LowDyingMass[slot], priv->HighDyingMass[slot]);
         //message(3, "Particle %d PI %d massgen %g mass %g initmass %g\n", p_i, P[p_i].PI, priv->MassReturn[P[p_i].PI], P[p_i].Mass, initialmass);
         /* Guard against making a zero mass particle and warn since this should not happen.*/
         if(STARP(p_i).TotalMassReturned + priv->MassReturn[slot] > initialmass * maxmassfrac) {
@@ -534,7 +534,6 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
 
     /* Compute total number of weights around each star for actively returning stars*/
     METALS_GET_PRIV(tw)->StarVolumeSPH = stellar_density(act, priv->StellarAges, priv->MassReturn, tree);
-    priv->gsl_work = gsl_work;
     /* Do the metal return*/
     priv->spin = init_spinlocks(SlotsManager->info[0].size);
     treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
@@ -547,9 +546,9 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     myfree(priv->StellarAges);
 
     for(i=0; i < nthread; i++)
-        gsl_integration_workspace_free(gsl_work[i]);
+        gsl_integration_workspace_free(priv->gsl_work[i]);
 
-    ta_free(gsl_work);
+    ta_free(priv->gsl_work);
 
     /* collect some timing information */
     walltime_measure("/SPH/Metals/Yield");
