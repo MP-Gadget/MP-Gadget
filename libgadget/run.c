@@ -47,29 +47,11 @@ static struct ClockTable Clocks;
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
  */
-
-/*! This routine contains the main simulation loop that iterates over
- * single timesteps. The loop terminates when the cpu-time limit is
- * reached, when a `stop' file is found in the output directory, or
- * when the simulation ends because we arrived at TimeMax.
- */
-static void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, MyFloat * GradRho, int PairwiseStep, int GasEnabled, const DriftKickTimes times, ForceTree * tree, DomainDecomp * ddecomp);
 static void write_cpu_log(int NumCurrentTiStep, FILE * FdCPU);
 
 /* Updates the global storing the current random offset of the particles,
  * and stores the relative offset from the last random offset in rel_random_shift*/
 static void update_random_offset(double * rel_random_shift);
-
-/*! \file begrun.c
- *  \brief initial set-up of a simulation run
- *
- *  This file contains various functions to initialize a simulation run. In
- *  particular, the parameterfile is read in and parsed, the initial
- *  conditions or restart files are read, and global variables are initialized
- *  to their proper values.
- */
-
-
 static void set_units();
 
 static void
@@ -145,6 +127,11 @@ use_pairwise_gravity(ActiveParticles * Act, struct part_manager_type * PartManag
     return total_active < All.PairwiseActiveFraction * total_particle;
 }
 
+/*! This routine contains the main simulation loop that iterates over
+ * single timesteps. The loop terminates when the cpu-time limit is
+ * reached, when a `stop' file is found in the output directory, or
+ * when the simulation ends because we arrived at TimeMax.
+ */
 void
 run(int RestartSnapNum)
 {
@@ -257,8 +244,75 @@ run(int RestartSnapNum)
         if(sfr_need_to_compute_sph_grad_rho())
             GradRho = mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
 
-        /* update force to Ti_Current */
-        compute_accelerations(&Act, is_PM, &pm, GradRho, pairwisestep, GasEnabled, times, &Tree, ddecomp);
+        /* density() happens before gravity because it also initializes the predicted variables.
+        * This ensures that prediction consistently uses the grav and hydro accel from the
+        * timestep before this one, which matches Gadget-2/3. It was tested to make a small difference,
+        * since prediction is only really used for artificial viscosity.
+        *
+        * Doing it first also means the density is up to date for
+        * adaptive gravitational softenings. */
+        if(GasEnabled)
+        {
+            /*Allocate the memory for predicted SPH data.*/
+            struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
+
+            if(All.DensityOn)
+                density(&Act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, &Tree);  /* computes density, and pressure */
+
+            /***** update smoothing lengths in tree *****/
+            force_update_hmax(Act.ActiveParticle, Act.NumActiveParticle, &Tree, ddecomp);
+            /***** hydro forces *****/
+            MPIU_Barrier(MPI_COMM_WORLD);
+
+            /* adds hydrodynamical accelerations  and computes du/dt  */
+            if(All.HydroOn)
+                hydro_force(&Act, All.WindOn, All.cf.hubble, All.cf.a, &sph_predicted, All.MinEgySpec, times, &All.CP, &Tree);
+
+            /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
+            slots_free_sph_pred_data(&sph_predicted);
+        }
+
+        /* The opening criterion for the gravtree
+        * uses the *total* gravitational acceleration
+        * from the last timestep, GravPM+GravAccel.
+        * So we must compute GravAccel for this timestep
+        * before gravpm_force() writes the PM acc. for
+        * this timestep to GravPM. Note initially both
+        * are zero and so the tree is opened maximally
+        * on the first timestep.*/
+        const int NeutrinoTracer =  All.HybridNeutrinosOn && (All.Time <= All.HybridNuPartTime);
+        const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
+
+        if(All.TreeGravOn) {
+            /* Do a short range pairwise only step if desired*/
+            if(pairwisestep) {
+                struct gravshort_tree_params gtp = get_gravshort_treepar();
+                grav_short_pair(&Act, &pm, &Tree, gtp.Rcut, rho0, NeutrinoTracer, All.FastParticleType);
+            }
+            else
+                grav_short_tree(&Act, &pm, &Tree, rho0, NeutrinoTracer, All.FastParticleType);
+        }
+
+        /* We use the total gravitational acc.
+        * to open the tree and total acc for the timestep.
+        * Note that any of (GravAccel, GravPM,
+        * HydroAccel) may change much faster than
+        * the total acc.
+        * We do the same as Gadget-2, but one could
+        * instead use short-range tree acc. only
+        * for opening angle or short-range timesteps,
+        * or include hydro in the opening angle.*/
+        if(is_PM)
+        {
+            gravpm_force(&pm, &Tree);
+
+            /* compute and output energy statistics if desired. */
+            if(All.OutputEnergyDebug)
+                energy_statistics(FdEnergy, All.Time, PartManager);
+        }
+
+        MPIU_Barrier(MPI_COMM_WORLD);
+        message(0, "Forces computed.\n");
 
         /* Update velocity to Ti_Current; this synchronizes TiKick and TiDrift for the active particles
          * and sets Ti_Kick in the times structure.*/
@@ -425,86 +479,6 @@ run(int RestartSnapNum)
     }
 
     close_outputfiles();
-}
-
-/*! This routine computes the accelerations for all active particles. Density, hydro and gravity are computed, in that order.
- */
-void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, MyFloat * GradRho, int PairwiseStep, int GasEnabled, const DriftKickTimes times, ForceTree * tree, DomainDecomp * ddecomp)
-{
-    message(0, "Begin force computation.\n");
-
-    walltime_measure("/Misc");
-
-    /* density() happens before gravity because it also initializes the predicted variables.
-     * This ensures that prediction consistently uses the grav and hydro accel from the
-     * timestep before this one, which matches Gadget-2/3. It was tested to make a small difference,
-     * since prediction is only really used for artificial viscosity.
-     *
-     * Doing it first also means the density is up to date for
-     * adaptive gravitational softenings. */
-    if(GasEnabled)
-    {
-        /*Allocate the memory for predicted SPH data.*/
-        struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
-
-        if(All.DensityOn)
-            density(act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, tree);  /* computes density, and pressure */
-
-        /***** update smoothing lengths in tree *****/
-        force_update_hmax(act->ActiveParticle, act->NumActiveParticle, tree, ddecomp);
-        /***** hydro forces *****/
-        MPIU_Barrier(MPI_COMM_WORLD);
-
-        /* adds hydrodynamical accelerations  and computes du/dt  */
-        if(All.HydroOn)
-            hydro_force(act, All.WindOn, All.cf.hubble, All.cf.a, &sph_predicted, All.MinEgySpec, times, &All.CP, tree);
-
-        /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
-        slots_free_sph_pred_data(&sph_predicted);
-    }
-
-    /* The opening criterion for the gravtree
-     * uses the *total* gravitational acceleration
-     * from the last timestep, GravPM+GravAccel.
-     * So we must compute GravAccel for this timestep
-     * before gravpm_force() writes the PM acc. for
-     * this timestep to GravPM. Note initially both
-     * are zero and so the tree is opened maximally
-     * on the first timestep.*/
-    const int NeutrinoTracer =  All.HybridNeutrinosOn && (All.Time <= All.HybridNuPartTime);
-    const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
-
-    if(All.TreeGravOn) {
-        /* Do a short range pairwise only step if desired*/
-        if(PairwiseStep) {
-            struct gravshort_tree_params gtp = get_gravshort_treepar();
-            grav_short_pair(act, pm, tree, gtp.Rcut, rho0, NeutrinoTracer, All.FastParticleType);
-        }
-        else
-            grav_short_tree(act, pm, tree, rho0, NeutrinoTracer, All.FastParticleType);
-    }
-
-    /* We use the total gravitational acc.
-     * to open the tree and total acc for the timestep.
-     * Note that any of (GravAccel, GravPM,
-     * HydroAccel) may change much faster than
-     * the total acc.
-     * We do the same as Gadget-2, but one could
-     * instead use short-range tree acc. only
-     * for opening angle or short-range timesteps,
-     * or include hydro in the opening angle.*/
-
-    if(is_PM)
-    {
-        gravpm_force(pm, tree);
-
-        /* compute and output energy statistics if desired. */
-        if(All.OutputEnergyDebug)
-            energy_statistics(FdEnergy, All.Time, PartManager);
-    }
-
-    MPIU_Barrier(MPI_COMM_WORLD);
-    message(0, "Forces computed.\n");
 }
 
 void write_cpu_log(int NumCurrentTiStep, FILE * FdCPU)
