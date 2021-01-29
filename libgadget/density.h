@@ -5,6 +5,7 @@
 #include "timestep.h"
 #include "densitykernel.h"
 #include "utils/paramset.h"
+#include "metal_return.h"
 
 struct density_params
 {
@@ -45,7 +46,7 @@ void set_densitypar(struct density_params dp);
  * it just computes densities.
  * If DoEgyDensity is true it also computes the entropy-weighted density for
  * pressure-entropy SPH. */
-void density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double MinEgySpec, const DriftKickTimes times, Cosmology * CP, struct sph_pred_data * SPH_predicted, MyFloat * GradRho, const ForceTree * const tree);
+void density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double MinEgySpec, const DriftKickTimes times, Cosmology * CP, struct sph_pred_data * SPH_predicted, MyFloat * GradRho, struct MetalReturnPriv * metalpriv, const ForceTree * const tree);
 
 /* Get the desired nuber of neighbours for the supplied kernel*/
 double GetNumNgb(enum DensityKernelType KernelType);

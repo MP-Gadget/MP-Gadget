@@ -131,7 +131,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     CP.Hubble = 0.1;
     init_cosmology(&CP,0.01);
 
-    density(&act, 1, 0, 0, 0, kick, &CP, &data->sph_pred, NULL, &tree);
+    density(&act, 1, 0, 0, 0, kick, &CP, &data->sph_pred, NULL, NULL, &tree);
     end = MPI_Wtime();
     double ms = (end - start)*1000;
     message(0, "Found densities in %.3g ms\n", ms);
@@ -155,7 +155,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
 
     start = MPI_Wtime();
     /*Find the density*/
-    density(&act, 1, 0, 0, 0, kick, &CP, &data->sph_pred, NULL, &tree);
+    density(&act, 1, 0, 0, 0, kick, &CP, &data->sph_pred, NULL, NULL, &tree);
     end = MPI_Wtime();
     ms = (end - start)*1000;
     message(0, "Found 1 dev densities in %.3g ms\n", ms);

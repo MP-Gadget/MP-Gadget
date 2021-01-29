@@ -244,6 +244,8 @@ run(int RestartSnapNum)
         if(sfr_need_to_compute_sph_grad_rho())
             GradRho = mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
 
+        struct MetalReturnPriv metalpriv[1] = {0};
+
         /* density() happens before gravity because it also initializes the predicted variables.
         * This ensures that prediction consistently uses the grav and hydro accel from the
         * timestep before this one, which matches Gadget-2/3. It was tested to make a small difference,
@@ -253,11 +255,14 @@ run(int RestartSnapNum)
         * adaptive gravitational softenings. */
         if(GasEnabled)
         {
+            if(All.MetalReturnOn)
+                metal_return_init(&Act, &All.CP, metalpriv, All.Time);
             /*Allocate the memory for predicted SPH data.*/
             struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
 
-            if(All.DensityOn)
-                density(&Act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, &Tree);  /* computes density, and pressure */
+            if(All.DensityOn) {
+                density(&Act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, metalpriv, &Tree);
+            }
 
             /***** update smoothing lengths in tree *****/
             force_update_hmax(Act.ActiveParticle, Act.NumActiveParticle, &Tree, ddecomp);
@@ -265,7 +270,7 @@ run(int RestartSnapNum)
             MPIU_Barrier(MPI_COMM_WORLD);
 
             /* adds hydrodynamical accelerations  and computes du/dt  */
-            if(All.HydroOn)
+            if(All.DensityOn && All.HydroOn)
                 hydro_force(&Act, All.WindOn, All.cf.hubble, All.cf.a, &sph_predicted, All.MinEgySpec, times, &All.CP, &Tree);
 
             /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
@@ -349,9 +354,10 @@ run(int RestartSnapNum)
                 force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, 0, All.OutputDir);
             }
 
-            /* Do this before sfr and bh so the gas hsml always contains DesNumNgb neighbours.*/
+            /* Do this after gravity and the kick because it changes mass.
+             * Before sfr and bh so the gas hsml always contains DesNumNgb neighbours.*/
             if(All.MetalReturnOn) {
-                metal_return(&Act, &Tree, &All.CP, All.Time);
+                metal_return(&Act, metalpriv, &Tree);
             }
 
             /* this will find new black hole seed halos.

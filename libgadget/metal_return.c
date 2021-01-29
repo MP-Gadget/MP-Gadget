@@ -448,11 +448,11 @@ metal_return_init(const ActiveParticles * act, Cosmology * CP, struct MetalRetur
 
     /* Initialize*/
     setup_metal_table_interp(&priv->interp);
-    priv->StellarAges = mymalloc("StellarAges", SlotsManager->info[4].size * sizeof(MyFloat));
-    priv->MassReturn = mymalloc("MassReturn", SlotsManager->info[4].size * sizeof(MyFloat));
-    priv->LowDyingMass = mymalloc("LowDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
-    priv->HighDyingMass = mymalloc("HighDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
-    priv->StarVolumeSPH = mymalloc("StarVolumeSPH", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->StellarAges = mymalloc2("StellarAges", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->MassReturn = mymalloc2("MassReturn", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->LowDyingMass = mymalloc2("LowDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->HighDyingMass = mymalloc2("HighDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->StarVolumeSPH = mymalloc2("StarVolumeSPH", SlotsManager->info[4].size * sizeof(MyFloat));
 
     priv->imf_norm = compute_imf_norm(priv->gsl_work[0]);
     /* Maximum possible mass return for below*/
@@ -494,6 +494,12 @@ metal_return_init(const ActiveParticles * act, Cosmology * CP, struct MetalRetur
         if(metals_haswork(p_i, priv->MassReturn))
             haswork++;
     }
+    int64_t totwork;
+    MPI_Allreduce(&haswork, &totwork, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    if(totwork == 0)
+        metal_return_priv_free(priv);
+
+    priv->totNhaswork = totwork;
     return haswork;
 }
 
@@ -516,24 +522,12 @@ metal_return_priv_free(struct MetalReturnPriv * priv)
 
 /*! This function is the driver routine for the calculation of metal return. */
 void
-metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmology * CP, const double atime)
+metal_return(const ActiveParticles * act, struct MetalReturnPriv * priv, const ForceTree * const tree)
 {
-    /* Do nothing if no stars yet*/
-    int64_t totstar;
-    MPI_Allreduce(&SlotsManager->info[4].size, &totstar, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-    if(totstar == 0)
+    /* Total work is computed in init.*/
+    if(priv->totNhaswork == 0)
         return;
 
-    struct MetalReturnPriv priv[1];
-
-    int64_t nwork = metal_return_init(act, CP, priv, atime);
-    int64_t totwork;
-    MPI_Allreduce(&nwork, &totwork, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-
-    if(totwork == 0) {
-        metal_return_priv_free(priv);
-        return;
-    }
     /* Compute total number of weights around each star for actively returning stars*/
     stellar_density(act, priv->StarVolumeSPH, priv->MassReturn, tree);
 

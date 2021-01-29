@@ -35,10 +35,11 @@ struct MetalReturnPriv {
     MyFloat * StarVolumeSPH;
     struct interps interp;
     struct SpinLocks * spin;
+    int64_t totNhaswork;
 };
 
-/*Function to compute metal return from star particles, adding metals to the gas.*/
-void metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmology * CP, const double atime);
+/*Function to compute metal return from star particles, adding mass and metals to the gas.*/
+void metal_return(const ActiveParticles * act, struct MetalReturnPriv * priv, const ForceTree * const tree);
 
 void set_metal_return_params(ParameterSet * ps);
 
