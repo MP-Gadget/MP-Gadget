@@ -22,7 +22,6 @@
 #include "neutrinos_lra.h"
 
 #include "utils.h"
-#include "uvbg.h"
 
 /************
  *
@@ -233,10 +232,6 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
     /*Allocate the particle memory*/
     particle_alloc_memory(MaxPart);
 
-    /*Allocate Permanent UV grids*/
-    //if(All.ExcursionSetFlag)
-    //    malloc_permanent_uvbg_grids();
-
     int NLocal[6];
     for(ptype = 0; ptype < 6; ptype ++) {
         int64_t start = ThisTask * NTotal[ptype] / NTask;
@@ -391,13 +386,6 @@ petaio_read_snapshot(int num, MPI_Comm Comm)
          * we always save the Entropy, init.c will not mess with the entropy
          * */
         petaio_read_internal(fname, 0, &IOTable, Comm);
-
-        /*if we are doing the excursion set, load in the star grid
-         * requires the last UV grid to be output
-         * */
-        //TODO (jdavies) make this not crash if the file doesn't exist:
-        //if(All.ExcursionSetFlag)
-            //read_star_grids(num);
 
     }
     myfree(fname);
