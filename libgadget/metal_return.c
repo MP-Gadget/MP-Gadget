@@ -24,8 +24,6 @@
 
 #define MAXITER 200
 
-MyFloat * stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * MassReturn, const ForceTree * const tree);
-
 /*! \file metal_return.c
  *  \brief Compute the mass return rate of metals from stellar evolution.
  *
@@ -99,20 +97,6 @@ void setup_metal_table_interp(struct interps * interp)
         gsl_interp2d_init(interp->snii_metals_interp[i], snii_metallicities, snii_masses, snii_yield[i], SNII_NMET, SNII_NMASS);
     }
 }
-
-struct MetalReturnPriv {
-    gsl_integration_workspace ** gsl_work;
-    MyFloat * StellarAges;
-    MyFloat * MassReturn;
-    MyFloat * LowDyingMass;
-    MyFloat * HighDyingMass;
-    double imf_norm;
-    double hub;
-    Cosmology *CP;
-    MyFloat * StarVolumeSPH;
-    struct interps interp;
-    struct SpinLocks * spin;
-};
 
 #define METALS_GET_PRIV(tw) ((struct MetalReturnPriv*) ((tw)->priv))
 
