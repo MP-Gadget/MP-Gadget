@@ -453,44 +453,20 @@ static double metal_yield(double dtmyrstart, double dtmyrend, double stellarmeta
     return MetalGenerated;
 }
 
-/*! This function is the driver routine for the calculation of metal return. */
-void
-metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmology * CP, const double atime)
+/* Initialise the private structure, finding stellar mass return and ages*/
+int64_t
+metal_return_init(const ActiveParticles * act, Cosmology * CP, struct MetalReturnPriv * priv, const double atime)
 {
-    TreeWalk tw[1] = {{0}};
-
-    struct MetalReturnPriv priv[1];
-
-    /* Do nothing if no stars yet*/
-    int64_t totstar;
-    MPI_Allreduce(&SlotsManager->info[4].size, &totstar, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-    if(totstar == 0)
-        return;
-
-    tw->ev_label = "METALS";
-    tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
-    tw->ngbiter = (TreeWalkNgbIterFunction) metal_return_ngbiter;
-    tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterMetals);
-    tw->haswork = metal_return_haswork;
-    tw->fill = (TreeWalkFillQueryFunction) metal_return_copy;
-    tw->reduce = NULL;
-    tw->postprocess = (TreeWalkProcessFunction) metal_return_postprocess;
-    tw->query_type_elsize = sizeof(TreeWalkQueryMetals);
-    tw->result_type_elsize = sizeof(TreeWalkResultMetals);
-    tw->repeatdisallowed = 1;
-    tw->tree = tree;
-    tw->priv = priv;
-    priv->hub = CP->HubbleParam;
-
     int nthread = omp_get_max_threads();
     priv->gsl_work = ta_malloc("gsl_work", gsl_integration_workspace *, nthread);
     int i;
     /* Allocate a workspace for each thread*/
     for(i=0; i < nthread; i++)
         priv->gsl_work[i] = gsl_integration_workspace_alloc(GSL_WORKSPACE);
+    priv->hub = CP->HubbleParam;
 
     /* Initialize*/
-    setup_metal_table_interp(&METALS_GET_PRIV(tw)->interp);
+    setup_metal_table_interp(&priv->interp);
     priv->StellarAges = mymalloc("StellarAges", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->MassReturn = mymalloc("MassReturn", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->LowDyingMass = mymalloc("LowDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
@@ -499,9 +475,10 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     /* Maximum possible mass return for below*/
     double maxmassfrac = mass_yield(0, 1/(CP->HubbleParam*HUBBLE * SEC_PER_MEGAYEAR), snii_metallicities[SNII_NMET-1], CP->HubbleParam, &priv->interp, priv->imf_norm, priv->gsl_work[0],agb_masses[0], MAXMASS);
 
+    int64_t haswork = 0;
     /* First find the mass return as a fraction of the total mass and the age of the star.
      * This is done first so we can skip density computation for not active stars*/
-    #pragma omp parallel for
+    #pragma omp parallel for reduction(+: haswork)
     for(i=0; i < act->NumActiveParticle;i++)
     {
         int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
@@ -530,25 +507,75 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
                 STARP(p_i).LastEnrichmentMyr = priv->StellarAges[P[p_i].PI];
 
         }
+        /* Keep count of how much work we need to do*/
+        if(metals_haswork(p_i, priv->MassReturn))
+            haswork++;
     }
+    return haswork;
+}
 
-    /* Compute total number of weights around each star for actively returning stars*/
-    METALS_GET_PRIV(tw)->StarVolumeSPH = stellar_density(act, priv->StellarAges, priv->MassReturn, tree);
-    /* Do the metal return*/
-    priv->spin = init_spinlocks(SlotsManager->info[0].size);
-    treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
-    free_spinlocks(priv->spin);
-
-    myfree(priv->StarVolumeSPH);
+/* Free memory allocated by metal_return_init */
+void
+metal_return_priv_free(struct MetalReturnPriv * priv)
+{
     myfree(priv->HighDyingMass);
     myfree(priv->LowDyingMass);
     myfree(priv->MassReturn);
     myfree(priv->StellarAges);
 
-    for(i=0; i < nthread; i++)
+    int i;
+    for(i=0; i < omp_get_max_threads(); i++)
         gsl_integration_workspace_free(priv->gsl_work[i]);
 
     ta_free(priv->gsl_work);
+}
+
+/*! This function is the driver routine for the calculation of metal return. */
+void
+metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmology * CP, const double atime)
+{
+    /* Do nothing if no stars yet*/
+    int64_t totstar;
+    MPI_Allreduce(&SlotsManager->info[4].size, &totstar, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    if(totstar == 0)
+        return;
+
+    struct MetalReturnPriv priv[1];
+
+    int64_t nwork = metal_return_init(act, CP, priv, atime);
+    int64_t totwork;
+    MPI_Allreduce(&nwork, &totwork, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+
+    if(totwork == 0) {
+        metal_return_priv_free(priv);
+        return;
+    }
+    /* Compute total number of weights around each star for actively returning stars*/
+    priv->StarVolumeSPH = stellar_density(act, priv->StellarAges, priv->MassReturn, tree);
+
+    /* Do the metal return*/
+    TreeWalk tw[1] = {{0}};
+
+    tw->ev_label = "METALS";
+    tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
+    tw->ngbiter = (TreeWalkNgbIterFunction) metal_return_ngbiter;
+    tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterMetals);
+    tw->haswork = metal_return_haswork;
+    tw->fill = (TreeWalkFillQueryFunction) metal_return_copy;
+    tw->reduce = NULL;
+    tw->postprocess = (TreeWalkProcessFunction) metal_return_postprocess;
+    tw->query_type_elsize = sizeof(TreeWalkQueryMetals);
+    tw->result_type_elsize = sizeof(TreeWalkResultMetals);
+    tw->repeatdisallowed = 1;
+    tw->tree = tree;
+    tw->priv = priv;
+
+    priv->spin = init_spinlocks(SlotsManager->info[0].size);
+    treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
+    free_spinlocks(priv->spin);
+
+    myfree(priv->StarVolumeSPH);
+    metal_return_priv_free(priv);
 
     /* collect some timing information */
     walltime_measure("/SPH/Metals/Yield");
