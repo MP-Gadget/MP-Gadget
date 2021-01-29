@@ -10,8 +10,8 @@
 struct density_params
 {
     double DensityResolutionEta;		/*!< SPH resolution eta. See Price 2011. eq 12*/
-    double MaxNumNgbDeviation;	/*!< Maximum allowed deviation neighbour number */
-
+    double MaxNumNgbDeviation;  /*!< Maximum neighbour number variation. */
+    double MaxStarNgbDeviation; /*!< Maximum neighbour number variation for stars. Only used for metal return so can be more flexible.*/
     /* These are for black hole neighbour finding and so belong in the density module, not the black hole module.*/
     double BlackHoleNgbFactor;	/*!< Factor by which the normal SPH neighbour should be increased/decreased */
     double BlackHoleMaxAccretionRadius;

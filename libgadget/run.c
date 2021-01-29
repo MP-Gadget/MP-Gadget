@@ -356,9 +356,8 @@ run(int RestartSnapNum)
 
             /* Do this after gravity and the kick because it changes mass.
              * Before sfr and bh so the gas hsml always contains DesNumNgb neighbours.*/
-            if(All.MetalReturnOn) {
+            if(All.MetalReturnOn)
                 metal_return(&Act, metalpriv, &Tree);
-            }
 
             /* this will find new black hole seed halos.
              * Note: the FOF code does not know about garbage particles,
