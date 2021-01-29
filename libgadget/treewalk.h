@@ -136,7 +136,10 @@ struct TreeWalk {
      * (Nexport is only the exported particles in the current export buffer). */
     int64_t Nexport_sum;
     /* Number of times we filled up our export buffer*/
-    int64_t Niterations;
+    int64_t Nexportfull;
+    /* Number of times we needed to re-run the treewalk.
+     * Convenience variable for density. */
+    int64_t Niteration;
 
     /* internal flags*/
     /* Number of particles marked for export to another processor*/

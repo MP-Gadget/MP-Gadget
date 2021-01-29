@@ -174,6 +174,14 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
      * sfr/bh we should change this*/
     treewalk_build_queue(tw, active_set, size, 0);
 
+    /* Print some balance numbers*/
+    int64_t nmin, nmax, total;
+    MPI_Reduce(&tw->WorkSetSize, &nmin, 1, MPI_INT64, MPI_MIN, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tw->WorkSetSize, &nmax, 1, MPI_INT64, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tw->WorkSetSize, &total, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    message(0, "Treewalk %s iter %d: total part %ld max/MPI: %ld min/MPI: %ld balance: %g.\n",
+            tw->ev_label, tw->Niteration, total, nmax, nmin, (double)nmax/((total+0.001)/tw->NTask));
+
     /* Start first iteration at the beginning*/
     tw->WorkSetStart = 0;
 
@@ -622,14 +630,14 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
     }
 
     if(tw->visit) {
-        tw->Niterations = 0;
+        tw->Nexportfull = 0;
         tw->evaluated = NULL;
         do
         {
             /* Keep track of which particles have been evaluated across buffer fill ups.
              * Do this if we are not allowed to evaluate anything twice,
              * or if the buffer filled up already.*/
-            if((!tw->evaluated) && (tw->Niterations == 1 || tw->repeatdisallowed)) {
+            if((!tw->evaluated) && (tw->Nexportfull == 1 || tw->repeatdisallowed)) {
                 tw->evaluated = mymalloc("evaluated", sizeof(char)*tw->WorkSetSize);
                 memset(tw->evaluated, 0, sizeof(char)*tw->WorkSetSize);
             }
@@ -642,7 +650,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
             /* import the result to local particles */
             ev_reduce_result(sndrcv, tw);
 
-            tw->Niterations ++;
+            tw->Nexportfull ++;
             tw->Nexport_sum += tw->Nexport;
             ta_free(sndrcv.Send_count);
         } while(ev_ndone(tw) < tw->NTask);
@@ -671,6 +679,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
     tend = second();
     tw->timecomp3 = timediff(tstart, tend);
     ev_finish(tw);
+    tw->Niteration++;
 }
 
 static void

@@ -122,7 +122,7 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
     if(!tree->moments_computed_flag)
         endrun(2, "Gravtree called before tree moments computed!\n");
 
-    tw->ev_label = "FORCETREE_SHORTRANGE";
+    tw->ev_label = "GRAVTREE";
     tw->visit = (TreeWalkVisitFunction) force_treeev_shortrange;
     /* gravity applies to all particles. Including Tracer particles to enhance numerical stability. */
     tw->haswork = NULL;

@@ -535,7 +535,6 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     /* Compute total number of weights around each star for actively returning stars*/
     METALS_GET_PRIV(tw)->StarVolumeSPH = stellar_density(act, priv->StellarAges, priv->MassReturn, tree);
     priv->gsl_work = gsl_work;
-    message(0, "Starting metal return treewalk\n");
     /* Do the metal return*/
     priv->spin = init_spinlocks(SlotsManager->info[0].size);
     treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
@@ -727,7 +726,6 @@ struct StellarDensityPriv {
     /* Lower and upper bounds on smoothing length*/
     MyFloat *Left, *Right, *DhsmlDensity, *Density;
     MyFloat * VolumeSPH;
-    int NIteration;
     size_t *NPLeft;
     int **NPRedo;
     /* For haswork*/
@@ -831,7 +829,7 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
     if(STELLAR_DENSITY_GET_PRIV(tw)->maxnumngb[tid] < NumNgb[pi])
         STELLAR_DENSITY_GET_PRIV(tw)->maxnumngb[tid] = NumNgb[pi];
 
-    if(STELLAR_DENSITY_GET_PRIV(tw)->NIteration >= MAXITER - 10)
+    if(tw->Niteration >= MAXITER - 10)
     {
          message(1, "i=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
              i, P[i].ID, P[i].Hsml, Left[pi], Right[pi],
@@ -911,8 +909,6 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
     priv->NumNgb = (MyFloat *) mymalloc("DENS_PRIV->NumNgb", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->DhsmlDensity = (MyFloat *) mymalloc("DENS_PRIV->DhsmlDensity", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->Density = (MyFloat *) mymalloc("DENS_PRIV->Density", SlotsManager->info[4].size * sizeof(MyFloat));
-
-    priv->NIteration = 0;
     priv->DesNumNgb = GetNumNgb(GetDensityKernelType());
 
     /* Init Left and Right: this has to be done before treewalk */
@@ -952,14 +948,13 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
 
         tw->haswork = NULL;
         /* Now done with the current queue*/
-        if(priv->NIteration > 0)
+        if(tw->Niteration > 1)
             myfree(CurQueue);
 
         /* Set up the next queue*/
         size = gadget_compact_thread_arrays(ReDoQueue, priv->NPRedo, priv->NPLeft, NumThreads);
 
         sumup_large_ints(1, &size, &ntot);
-        int nmin, nmax;
         if(ntot == 0){
             myfree(ReDoQueue);
             break;
@@ -968,25 +963,20 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
         /*Shrink memory*/
         ReDoQueue = myrealloc(ReDoQueue, sizeof(int) * size);
 
-        priv->NIteration ++;
-        MPI_Reduce(&size, &nmin, 1, MPI_INT, MPI_MIN, 0, MPI_COMM_WORLD);
-        MPI_Reduce(&size, &nmax, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
-
         for(i = 1; i < NumThreads; i++) {
             if(priv->maxnumngb[0] < priv->maxnumngb[i])
                 priv->maxnumngb[0] = priv->maxnumngb[i];
         }
         double maxngb;
         MPI_Reduce(&priv->maxnumngb[0], &maxngb, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-        message(0, "star density iter %d: repeat for %ld (max: %d min %d) particles. Max ngb %g, desired %g\n",
-                priv->NIteration, ntot, nmax, nmin, maxngb, priv->DesNumNgb);
+        message(0, "Max ngb %g, desired %g\n", maxngb, priv->DesNumNgb);
 #ifdef DEBUG
-        if(ntot == 1 && size > 0 && priv->NIteration > 20 ) {
+        if(ntot == 1 && size > 0 && tw->Niteration > 20 ) {
             int pp = ReDoQueue[0];
             message(1, "Remaining i=%d, t %d, pos %g %g %g, hsml: %g ngb: %g\n", pp, P[pp].Type, P[pp].Pos[0], P[pp].Pos[1], P[pp].Pos[2], P[pp].Hsml, priv->NumNgb[pp]);
         }
 #endif
-        if(priv->NIteration > MAXITER) {
+        if(tw->Niteration > MAXITER) {
             endrun(1155, "failed to converge in neighbour iteration in density()\n");
         }
     } while(1);

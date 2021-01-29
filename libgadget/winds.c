@@ -221,7 +221,6 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
     int alloc_high = 0;
     int * ReDoQueue = NewStars;
     int size = NumNewStars;
-    int iter=0;
 
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
     do {
@@ -240,7 +239,7 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
         treewalk_run(tw, CurQueue, size);
 
         /* Now done with the current queue*/
-        if(iter > 0)
+        if(tw->Niteration > 1)
             myfree(CurQueue);
 
         /* Set up the next queue*/
@@ -254,9 +253,6 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
 
         /*Shrink memory*/
         ReDoQueue = myrealloc(ReDoQueue, sizeof(int) * size);
-
-        iter++;
-        message(0, "iter=%d star-DM iteration. Total left = %ld\n", iter, totalleft);
     } while(1);
 
     ta_free(priv->NPRedo);

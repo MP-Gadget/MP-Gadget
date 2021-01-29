@@ -1073,7 +1073,6 @@ fof_save_groups(FOFGroups * fof, int num, MPI_Comm Comm)
 struct FOFSecondaryPriv {
     float *distance;
     float *hsml;
-    int *count;
     int *npleft;
 };
 
@@ -1110,7 +1109,6 @@ fof_secondary_postprocess(int p, TreeWalk * tw)
 {
     /* More work needed: add this particle to the redo queue*/
     int tid = omp_get_thread_num();
-    FOF_SECONDARY_GET_PRIV(tw)->count[tid]++;
 
     if(FOF_SECONDARY_GET_PRIV(tw)->distance[p] > 0.5 * LARGE)
     {
@@ -1134,7 +1132,7 @@ fof_secondary_postprocess(int p, TreeWalk * tw)
 }
 static void fof_label_secondary(ForceTree * tree)
 {
-    int n, iter;
+    int n;
 
     TreeWalk tw[1] = {{0}};
     tw->ev_label = "FOF_FIND_NEAREST";
@@ -1171,45 +1169,30 @@ static void fof_label_secondary(ForceTree * tree)
         }
     }
 
-    iter = 0;
-    int64_t counttot, ntot;
+    int64_t ntot;
 
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
 
     message(0, "fof-nearest iteration started\n");
     int NumThreads = omp_get_max_threads();
     FOF_SECONDARY_GET_PRIV(tw)->npleft = ta_malloc("NPLeft", int, NumThreads);
-    FOF_SECONDARY_GET_PRIV(tw)->count = ta_malloc("Count", int, NumThreads);
 
     do
     {
         memset(FOF_SECONDARY_GET_PRIV(tw)->npleft, 0, sizeof(int) * NumThreads);
-        memset(FOF_SECONDARY_GET_PRIV(tw)->count, 0, sizeof(int) * NumThreads);
 
         treewalk_run(tw, NULL, PartManager->NumPart);
 
         for(n = 1; n < NumThreads; n++) {
             FOF_SECONDARY_GET_PRIV(tw)->npleft[0] += FOF_SECONDARY_GET_PRIV(tw)->npleft[n];
-            FOF_SECONDARY_GET_PRIV(tw)->count[0] += FOF_SECONDARY_GET_PRIV(tw)->count[n];
         }
         sumup_large_ints(1, &FOF_SECONDARY_GET_PRIV(tw)->npleft[0], &ntot);
-        sumup_large_ints(1, &FOF_SECONDARY_GET_PRIV(tw)->count[0], &counttot);
 
-        message(0, "fof-nearest iteration %d: need to repeat for %010ld /%010ld particles.\n", iter, ntot, counttot);
-
-        if(ntot < 0) abort();
-        if(ntot > 0)
-        {
-            iter++;
-            if(iter > MAXITER)
-            {
-                endrun(1159, "Failed to converge in fof-nearest");
-            }
-        }
+        if(ntot < 0 || (ntot > 0 && tw->Niteration > MAXITER))
+            endrun(1159, "Failed to converge in fof-nearest: ntot %ld", ntot);
     }
     while(ntot > 0);
 
-    ta_free(FOF_SECONDARY_GET_PRIV(tw)->count);
     ta_free(FOF_SECONDARY_GET_PRIV(tw)->npleft);
     myfree(FOF_SECONDARY_GET_PRIV(tw)->hsml);
     myfree(FOF_SECONDARY_GET_PRIV(tw)->distance);
