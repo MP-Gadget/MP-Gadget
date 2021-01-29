@@ -235,8 +235,8 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     DENSITY_GET_PRIV(tw)->Right = (MyFloat *) mymalloc("DENS_PRIV->Right", PartManager->NumPart * sizeof(MyFloat));
     DENSITY_GET_PRIV(tw)->NumNgb = (MyFloat *) mymalloc("DENS_PRIV->NumNgb", PartManager->NumPart * sizeof(MyFloat));
     DENSITY_GET_PRIV(tw)->Rot = (MyFloat (*) [3]) mymalloc("DENS_PRIV->Rot", SlotsManager->info[0].size * sizeof(priv->Rot[0]));
-    DENSITY_GET_PRIV(tw)->DhsmlDensityFactor = (MyFloat *) mymalloc("DENSITY_GET_PRIV(tw)->DhsmlDensity",
-                                (SlotsManager->info[0].size*DoEgyDensity + SlotsManager->info[5].size) * sizeof(MyFloat));
+    /* This one stores the gradient for h finding. The factor stored in SPHP->DhsmlEgyDensityFactor depends on whether PE SPH is enabled.*/
+    DENSITY_GET_PRIV(tw)->DhsmlDensityFactor = (MyFloat *) mymalloc("DENSITY_GET_PRIV(tw)->DhsmlDensity", PartManager->NumPart * sizeof(MyFloat));
 
     DENSITY_GET_PRIV(tw)->update_hsml = update_hsml;
     DENSITY_GET_PRIV(tw)->DoEgyDensity = DoEgyDensity;
@@ -417,6 +417,7 @@ static void
 density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
 {
     TREEWALK_REDUCE(DENSITY_GET_PRIV(tw)->NumNgb[place], remote->Ngb);
+    TREEWALK_REDUCE(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[place], remote->DhsmlDensity);
 
     if(P[place].Type == 0)
     {
@@ -440,16 +441,11 @@ density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMod
         if(DENSITY_GET_PRIV(tw)->DoEgyDensity) {
             TREEWALK_REDUCE(SPHP(place).EgyWtDensity, remote->EgyRho);
             TREEWALK_REDUCE(SPHP(place).DhsmlEgyDensityFactor, remote->DhsmlEgyDensity);
-            TREEWALK_REDUCE(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[pi], remote->DhsmlDensity);
         }
-        else
-            TREEWALK_REDUCE(SPHP(place).DhsmlEgyDensityFactor, remote->DhsmlDensity);
     }
     else if(P[place].Type == 5)
     {
         TREEWALK_REDUCE(BHP(place).Density, remote->Rho);
-        int bhpi = P[place].PI + SlotsManager->info[0].size * DENSITY_GET_PRIV(tw)->DoEgyDensity;
-        TREEWALK_REDUCE(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[bhpi], remote->DhsmlDensity);
     }
 }
 
@@ -586,47 +582,38 @@ density_haswork(int n, TreeWalk * tw)
 static void
 density_postprocess(int i, TreeWalk * tw)
 {
+    MyFloat * DhsmlDens = &(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[i]);
+    double density;
+    if(P[i].Type == 0)
+        density = SPHP(i).Density;
+    else if(P[i].Type == 5)
+        density = BHP(i).Density;
+    if(density <= 0 && DENSITY_GET_PRIV(tw)->NumNgb[i] > 0) {
+        endrun(12, "Particle %d type %d has bad density: %g\n", i, P[i].Type, density);
+    }
+    *DhsmlDens *= P[i].Hsml / (NUMDIMS * density);
+    *DhsmlDens = 1 / (1 + *DhsmlDens);
+
     if(P[i].Type == 0)
     {
-        if(SPHP(i).Density > 0)
-        {
-            int PI = P[i].PI;
-            MyFloat * DhsmlDens;
-            if(DENSITY_GET_PRIV(tw)->DoEgyDensity)
-                DhsmlDens = &(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[PI]);
-            else
-                DhsmlDens = &(SPHP(i).DhsmlEgyDensityFactor);
-
-            *DhsmlDens *= P[i].Hsml / (NUMDIMS * SPHP(i).Density);
-            *DhsmlDens = 1 / (1 + *DhsmlDens);
-
-            /*Compute the EgyWeight factors, which are only useful for density independent SPH */
-            if(DENSITY_GET_PRIV(tw)->DoEgyDensity) {
-                struct sph_pred_data * SphP_scratch = DENSITY_GET_PRIV(tw)->SPH_predicted;
-                const double EntPred = SphP_scratch->EntVarPred[P[i].PI];
-                if(EntPred <= 0 || SPHP(i).EgyWtDensity <=0)
-                    endrun(12, "Particle %d has bad predicted entropy: %g or EgyWtDensity: %g\n", i, EntPred, SPHP(i).EgyWtDensity);
-                SPHP(i).DhsmlEgyDensityFactor *= P[i].Hsml/ (NUMDIMS * SPHP(i).EgyWtDensity);
-                SPHP(i).DhsmlEgyDensityFactor *= - (*DhsmlDens);
-                SPHP(i).EgyWtDensity /= EntPred;
-            }
-
-            MyFloat * Rot = DENSITY_GET_PRIV(tw)->Rot[PI];
-            SPHP(i).CurlVel = sqrt(Rot[0] * Rot[0] + Rot[1] * Rot[1] + Rot[2] * Rot[2]) / SPHP(i).Density;
-
-            SPHP(i).DivVel /= SPHP(i).Density;
+        int PI = P[i].PI;
+        /*Compute the EgyWeight factors, which are only useful for density independent SPH */
+        if(DENSITY_GET_PRIV(tw)->DoEgyDensity) {
+            struct sph_pred_data * SphP_scratch = DENSITY_GET_PRIV(tw)->SPH_predicted;
+            const double EntPred = SphP_scratch->EntVarPred[P[i].PI];
+            if(EntPred <= 0 || SPHP(i).EgyWtDensity <=0)
+                endrun(12, "Particle %d has bad predicted entropy: %g or EgyWtDensity: %g\n", i, EntPred, SPHP(i).EgyWtDensity);
+            SPHP(i).DhsmlEgyDensityFactor *= P[i].Hsml/ (NUMDIMS * SPHP(i).EgyWtDensity);
+            SPHP(i).DhsmlEgyDensityFactor *= - (*DhsmlDens);
+            SPHP(i).EgyWtDensity /= EntPred;
         }
-        else if(DENSITY_GET_PRIV(tw)->NumNgb[i] > 0) {
-            endrun(12, "Particle %d has bad density: %g\n", i, SPHP(i).Density);
-        }
-    }
+        else
+            SPHP(i).DhsmlEgyDensityFactor = *DhsmlDens;
 
-    if(P[i].Type == 5 && BHP(i).Density > 0)
-    {
-            int bhpi = P[i].PI + SlotsManager->info[0].size * DENSITY_GET_PRIV(tw)->DoEgyDensity;
-            MyFloat * DhsmlDens = &(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[bhpi]);
-            *DhsmlDens *= P[i].Hsml / (NUMDIMS * BHP(i).Density);
-            *DhsmlDens = 1 / (1 + *DhsmlDens);
+        MyFloat * Rot = DENSITY_GET_PRIV(tw)->Rot[PI];
+        SPHP(i).CurlVel = sqrt(Rot[0] * Rot[0] + Rot[1] * Rot[1] + Rot[2] * Rot[2]) / SPHP(i).Density;
+
+        SPHP(i).DivVel /= SPHP(i).Density;
     }
 
     /* This is slightly more complicated so we put it in a different function */
@@ -677,17 +664,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
             if(!(Right[i] < tw->tree->BoxSize) && Left[i] == 0)
                 endrun(8188, "Cannot occur. Check for memory corruption: i=%d L = %g R = %g N=%g. Type %d, Pos %g %g %g", i, Left[i], Right[i], NumNgb[i], P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
 
-            MyFloat DensFac = -1;
-            if(P[i].Type == 0) {
-                if(DENSITY_GET_PRIV(tw)->DoEgyDensity)
-                    DensFac = DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[P[i].PI];
-                else
-                    DensFac = SPHP(i).DhsmlEgyDensityFactor;
-            }
-            else if(P[i].Type == 5) {
-                int bhpi = P[i].PI + SlotsManager->info[0].size * DENSITY_GET_PRIV(tw)->DoEgyDensity;
-                DensFac = DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[bhpi];
-            }
+            MyFloat DensFac = DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[i];
             double fac = 1 - (NumNgb[i] - desnumngb) / (NUMDIMS * NumNgb[i]) * DensFac;
 
             /* If this is the first step we can be faster by increasing or decreasing current Hsml by a constant factor*/
