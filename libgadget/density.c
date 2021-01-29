@@ -146,7 +146,6 @@ struct DensityPriv {
      * are the same and this is not used.
      * If DensityIndependentSphOn = 1 then this is used to set DhsmlEgyDensityFactor.*/
     MyFloat * DhsmlDensityFactor;
-    int NIteration;
     size_t *NPLeft;
     int **NPRedo;
     int update_hsml;
@@ -242,8 +241,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     DENSITY_GET_PRIV(tw)->update_hsml = update_hsml;
     DENSITY_GET_PRIV(tw)->DoEgyDensity = DoEgyDensity;
 
-    DENSITY_GET_PRIV(tw)->NIteration = 0;
-
     DENSITY_GET_PRIV(tw)->DesNumNgb = GetNumNgb(DensityParams.DensityKernelType);
     DENSITY_GET_PRIV(tw)->MinGasHsml = DensityParams.MinGasHsmlFractional * (FORCE_SOFTENING(1, 1)/2.8);
 
@@ -328,7 +325,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
         tw->haswork = NULL;
         /* Now done with the current queue*/
-        if(DENSITY_GET_PRIV(tw)->NIteration > 0)
+        if(tw-> Niteration > 1)
             myfree(CurQueue);
 
         /* Set up the next queue*/
@@ -343,7 +340,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
         /*Shrink memory*/
         ReDoQueue = myrealloc(ReDoQueue, sizeof(int) * size);
 
-        DENSITY_GET_PRIV(tw)->NIteration ++;
         /*
         if(ntot < 1 ) {
             foreach(ActiveParticle)
@@ -359,18 +355,14 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
         }
         */
-
-        if(DENSITY_GET_PRIV(tw)->NIteration > 0) {
-            message(0, "ngb iteration %d: need to repeat for %ld particles.\n", DENSITY_GET_PRIV(tw)->NIteration, ntot);
 #ifdef DEBUG
-            if(ntot == 1 && size > 0 && DENSITY_GET_PRIV(tw)->NIteration > 20 ) {
-                int pp = ReDoQueue[0];
-                message(1, "Remaining i=%d, t %d, pos %g %g %g, hsml: %g ngb: %g\n", pp, P[pp].Type, P[pp].Pos[0], P[pp].Pos[1], P[pp].Pos[2], P[pp].Hsml, DENSITY_GET_PRIV(tw)->NumNgb[pp]);
-            }
-#endif
+        if(ntot == 1 && size > 0 && tw->Niteration > 20 ) {
+            int pp = ReDoQueue[0];
+            message(1, "Remaining i=%d, t %d, pos %g %g %g, hsml: %g ngb: %g\n", pp, P[pp].Type, P[pp].Pos[0], P[pp].Pos[1], P[pp].Pos[2], P[pp].Hsml, DENSITY_GET_PRIV(tw)->NumNgb[pp]);
         }
+#endif
 
-        if(DENSITY_GET_PRIV(tw)->NIteration > MAXITER) {
+        if(tw->Niteration > MAXITER) {
             endrun(1155, "failed to converge in neighbour iteration in density()\n");
         }
     } while(1);
@@ -741,7 +733,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
             P[i].Hsml = DENSITY_GET_PRIV(tw)->MinGasHsml;
     }
 
-    if(DENSITY_GET_PRIV(tw)->NIteration >= MAXITER - 10)
+    if(tw->Niteration >= MAXITER - 10)
     {
          message(1, "i=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
              i, P[i].ID, P[i].Hsml, Left[i], Right[i],

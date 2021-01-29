@@ -444,9 +444,6 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
      * adaptive gravitational softenings. */
     if(GasEnabled)
     {
-        /***** density *****/
-        message(0, "Start density computation...\n");
-
         /*Allocate the memory for predicted SPH data.*/
         struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
 
@@ -457,7 +454,6 @@ void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, 
         force_update_hmax(act->ActiveParticle, act->NumActiveParticle, tree, ddecomp);
         /***** hydro forces *****/
         MPIU_Barrier(MPI_COMM_WORLD);
-        message(0, "Start hydro-force computation...\n");
 
         /* adds hydrodynamical accelerations  and computes du/dt  */
         if(All.HydroOn)
