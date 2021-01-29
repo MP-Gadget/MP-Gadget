@@ -141,9 +141,6 @@ metal_return_copy(int place, TreeWalkQueryMetals * input, TreeWalk * tw);
 static void
 metal_return_postprocess(int place, TreeWalk * tw);
 
-static int
-metals_haswork(int i, MyFloat * MassReturn);
-
 /* The Chabrier IMF used for computing SnII and AGB yields.
  * See 1305.2913 eq 3*/
 static double chabrier_imf(double mass)
@@ -455,6 +452,8 @@ metal_return_init(const ActiveParticles * act, Cosmology * CP, struct MetalRetur
     priv->MassReturn = mymalloc("MassReturn", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->LowDyingMass = mymalloc("LowDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->HighDyingMass = mymalloc("HighDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->StarVolumeSPH = mymalloc("StarVolumeSPH", SlotsManager->info[4].size * sizeof(MyFloat));
+
     priv->imf_norm = compute_imf_norm(priv->gsl_work[0]);
     /* Maximum possible mass return for below*/
     double maxmassfrac = mass_yield(0, 1/(CP->HubbleParam*HUBBLE * SEC_PER_MEGAYEAR), snii_metallicities[SNII_NMET-1], CP->HubbleParam, &priv->interp, priv->imf_norm, priv->gsl_work[0],agb_masses[0], MAXMASS);
@@ -502,6 +501,7 @@ metal_return_init(const ActiveParticles * act, Cosmology * CP, struct MetalRetur
 void
 metal_return_priv_free(struct MetalReturnPriv * priv)
 {
+    myfree(priv->StarVolumeSPH);
     myfree(priv->HighDyingMass);
     myfree(priv->LowDyingMass);
     myfree(priv->MassReturn);
@@ -535,7 +535,7 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
         return;
     }
     /* Compute total number of weights around each star for actively returning stars*/
-    priv->StarVolumeSPH = stellar_density(act, priv->StellarAges, priv->MassReturn, tree);
+    stellar_density(act, priv->StarVolumeSPH, priv->MassReturn, tree);
 
     /* Do the metal return*/
     TreeWalk tw[1] = {{0}};
@@ -558,7 +558,6 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
     free_spinlocks(priv->spin);
 
-    myfree(priv->StarVolumeSPH);
     metal_return_priv_free(priv);
 
     /* collect some timing information */
@@ -734,12 +733,11 @@ struct StellarDensityPriv {
     /* Current number of neighbours*/
     MyFloat *NumNgb;
     /* Lower and upper bounds on smoothing length*/
-    MyFloat *Left, *Right, *DhsmlDensity, *Density;
-    MyFloat * VolumeSPH;
+    MyFloat *Left, *Right, *DhsmlDensity;
+    MyFloat * VolumeSPH, *Density;
     size_t *NPLeft;
     int **NPRedo;
     /* For haswork*/
-    MyFloat * StellarAges;
     MyFloat * MassReturn;
     /*!< Desired number of SPH neighbours */
     double DesNumNgb;
@@ -888,8 +886,8 @@ stellar_density_ngbiter(
     }
 }
 
-MyFloat *
-stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * MassReturn, const ForceTree * const tree)
+void
+stellar_density(const ActiveParticles * act, MyFloat * StarVolumeSPH, MyFloat * MassReturn, const ForceTree * const tree)
 {
     TreeWalk tw[1] = {{0}};
     struct StellarDensityPriv priv[1];
@@ -910,9 +908,8 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
     int i;
     int64_t ntot = 0;
 
-    priv->StellarAges = StellarAges;
     priv->MassReturn = MassReturn;
-    priv->VolumeSPH = mymalloc("StarVolumeSPH", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->VolumeSPH = StarVolumeSPH;
 
     priv->Left = (MyFloat *) mymalloc("DENS_PRIV->Left", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->Right = (MyFloat *) mymalloc("DENS_PRIV->Right", SlotsManager->info[4].size * sizeof(MyFloat));
@@ -1020,5 +1017,5 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
     walltime_add("/SPH/Metals/Density/Comm", timecomm);
     walltime_add("/SPH/Metals/Density/Misc", timeall - (timecomp + timewait + timecomm));
 
-    return priv->VolumeSPH;
+    return;
 }
