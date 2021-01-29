@@ -158,7 +158,7 @@ static void
 metal_return_postprocess(int place, TreeWalk * tw);
 
 static int
-metals_haswork(int i, MyFloat * StellarAges, MyFloat * MassReturn);
+metals_haswork(int i, MyFloat * MassReturn);
 
 /* The Chabrier IMF used for computing SnII and AGB yields.
  * See 1305.2913 eq 3*/
@@ -526,7 +526,7 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
                 priv->MassReturn[slot] = 0;
             }
             /* Ensure that we skip this step*/
-            if(!metals_haswork(p_i, priv->StellarAges, priv->MassReturn))
+            if(!metals_haswork(p_i, priv->MassReturn))
                 STARP(p_i).LastEnrichmentMyr = priv->StellarAges[P[p_i].PI];
 
         }
@@ -682,8 +682,8 @@ metal_return_ngbiter(
 /* Find stars returning enough metals to the gas.
  * This is a wrapper function to allow for
  * different private structs in different treewalks*/
-static int
-metals_haswork(int i, MyFloat * StellarAges, MyFloat * MassReturn)
+int
+metals_haswork(int i, MyFloat * MassReturn)
 {
     if(P[i].Type != 4)
         return 0;
@@ -697,7 +697,7 @@ metals_haswork(int i, MyFloat * StellarAges, MyFloat * MassReturn)
 static int
 metal_return_haswork(int i, TreeWalk * tw)
 {
-    return metals_haswork(i, METALS_GET_PRIV(tw)->StellarAges, METALS_GET_PRIV(tw)->MassReturn);
+    return metals_haswork(i, METALS_GET_PRIV(tw)->MassReturn);
 }
 
 typedef struct {
@@ -741,7 +741,7 @@ struct StellarDensityPriv {
 static int
 stellar_density_haswork(int i, TreeWalk * tw)
 {
-    return metals_haswork(i, STELLAR_DENSITY_GET_PRIV(tw)->StellarAges, STELLAR_DENSITY_GET_PRIV(tw)->MassReturn);
+    return metals_haswork(i, STELLAR_DENSITY_GET_PRIV(tw)->MassReturn);
 }
 
 static void
