@@ -46,11 +46,13 @@
     #pragma error " Inconsistency in metal number between slots and metals"
 #endif
 
+/* Find stellar density, returning the total SPH Volume weights for each particle.*/
+void stellar_total_weight(const ActiveParticles * act, struct MetalReturnPriv * priv, const ForceTree * const tree);
+
 static struct metal_return_params
 {
     double Sn1aN0;
     int SPHWeighting;
-    double MaxNgbDeviation;
 } MetalParams;
 
 /* For tests*/
@@ -68,7 +70,6 @@ set_metal_return_params(ParameterSet * ps)
     if(ThisTask == 0) {
         MetalParams.Sn1aN0 = param_get_double(ps, "MetalsSn1aN0");
         MetalParams.SPHWeighting = param_get_int(ps, "MetalsSPHWeighting");
-        MetalParams.MaxNgbDeviation = param_get_double(ps, "MetalsMaxNgbDeviation");
     }
     MPI_Bcast(&MetalParams, sizeof(struct metal_return_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -500,6 +501,7 @@ metal_return_init(const ActiveParticles * act, Cosmology * CP, struct MetalRetur
         metal_return_priv_free(priv);
 
     priv->totNhaswork = totwork;
+    walltime_measure("/SPH/Metals/Init");
     return haswork;
 }
 
@@ -528,8 +530,9 @@ metal_return(const ActiveParticles * act, struct MetalReturnPriv * priv, const F
     if(priv->totNhaswork == 0)
         return;
 
-    /* Compute total number of weights around each star for actively returning stars*/
-    stellar_density(act, priv->StarVolumeSPH, priv->MassReturn, tree);
+    /* Compute total number of weights around each star for actively returning stars.
+     * This cannot be done in density() because it uses SPHP.Density, which may change.*/
+    stellar_total_weight(act, priv, tree);
 
     /* Do the metal return*/
     TreeWalk tw[1] = {{0}};
@@ -706,7 +709,6 @@ metal_return_haswork(int i, TreeWalk * tw)
 typedef struct {
     TreeWalkNgbIterBase base;
     DensityKernel kernel;
-    double kernel_volume;
 } TreeWalkNgbIterStellarDensity;
 
 typedef struct
@@ -718,33 +720,7 @@ typedef struct
 typedef struct {
     TreeWalkResultBase base;
     MyFloat VolumeSPH;
-    MyFloat Ngb;
-    MyFloat Rho;
-    MyFloat DhsmlDensity;
 } TreeWalkResultStellarDensity;
-
-struct StellarDensityPriv {
-    /* Current number of neighbours*/
-    MyFloat *NumNgb;
-    /* Lower and upper bounds on smoothing length*/
-    MyFloat *Left, *Right, *DhsmlDensity;
-    MyFloat * VolumeSPH, *Density;
-    size_t *NPLeft;
-    int **NPRedo;
-    /* For haswork*/
-    MyFloat * MassReturn;
-    /*!< Desired number of SPH neighbours */
-    double DesNumNgb;
-    double * maxnumngb;
-};
-
-#define STELLAR_DENSITY_GET_PRIV(tw) ((struct StellarDensityPriv*) ((tw)->priv))
-
-static int
-stellar_density_haswork(int i, TreeWalk * tw)
-{
-    return metals_haswork(i, STELLAR_DENSITY_GET_PRIV(tw)->MassReturn);
-}
 
 static void
 stellar_density_copy(int place, TreeWalkQueryStellarDensity * I, TreeWalk * tw)
@@ -756,87 +732,7 @@ static void
 stellar_density_reduce(int place, TreeWalkResultStellarDensity * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
 {
     int pi = P[place].PI;
-    TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi], remote->Ngb);
-    TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->VolumeSPH[pi], remote->VolumeSPH);
-    TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->DhsmlDensity[pi], remote->DhsmlDensity);
-    TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->Density[pi], remote->Rho);
-}
-
-void stellar_density_check_neighbours (int i, TreeWalk * tw)
-{
-    /* now check whether we had enough neighbours */
-
-    double desnumngb = STELLAR_DENSITY_GET_PRIV(tw)->DesNumNgb;
-
-    MyFloat * Left = STELLAR_DENSITY_GET_PRIV(tw)->Left;
-    MyFloat * Right = STELLAR_DENSITY_GET_PRIV(tw)->Right;
-    MyFloat * NumNgb = STELLAR_DENSITY_GET_PRIV(tw)->NumNgb;
-    MyFloat * DhsmlDensity = STELLAR_DENSITY_GET_PRIV(tw)->DhsmlDensity;
-
-    int pi = P[i].PI;
-    int tid = omp_get_thread_num();
-
-    if(NumNgb[pi] < (desnumngb - MetalParams.MaxNgbDeviation) ||
-            (NumNgb[pi] > (desnumngb + MetalParams.MaxNgbDeviation)))
-    {
-        DhsmlDensity[pi] *= P[i].Hsml / (NUMDIMS * STELLAR_DENSITY_GET_PRIV(tw)->Density[pi]);
-        DhsmlDensity[pi] = 1 / (1 + DhsmlDensity[pi]);
-
-        /* This condition is here to prevent the density code looping forever if it encounters
-         * multiple particles at the same position. If this happens you likely have worse
-         * problems anyway, so warn also. */
-        if((Right[pi] - Left[pi]) < 1.0e-4 * Left[pi])
-        {
-            /* If this happens probably the exchange is screwed up and all your particles have moved to (0,0,0)*/
-            message(1, "Very tight Hsml bounds for i=%d ID=%lu type %d Hsml=%g Left=%g Right=%g Ngbs=%g des = %g Right-Left=%g pos=(%g|%g|%g)\n",
-             i, P[i].ID, P[i].Type, P[i].Hsml, Left[pi], Right[pi], NumNgb[pi], desnumngb, Right[pi] - Left[pi], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
-            P[i].Hsml = Right[pi];
-            return;
-        }
-
-        /* If we need more neighbours, move the lower bound up. If we need fewer, move the upper bound down.*/
-        if(NumNgb[pi] < desnumngb) {
-                Left[pi] = P[i].Hsml;
-        } else {
-                Right[pi] = P[i].Hsml;
-        }
-
-        /* Next step is geometric mean of previous. */
-        if((Right[pi] < tw->tree->BoxSize && Left[pi] > 0) || (P[i].Hsml * 1.26 > 0.99 * tw->tree->BoxSize))
-            P[i].Hsml = pow(0.5 * (pow(Left[pi], 3) + pow(Right[pi], 3)), 1.0 / 3);
-        else
-        {
-            double fac = 2.0;
-            if(NumNgb[pi] > 0)
-                fac = 1 - (NumNgb[pi] - desnumngb) / (NUMDIMS * NumNgb[pi]) * DhsmlDensity[pi];
-            if(!(Right[pi] < tw->tree->BoxSize) && Left[pi] == 0)
-                endrun(8188, "Cannot occur. Check for memory corruption: i=%d pi %d L = %g R = %g N=%g. Type %d, Pos %g %g %g",
-                       i, pi, Left[pi], Right[pi], NumNgb[pi], P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
-
-            /* If this is the first step we can be faster by increasing or decreasing current Hsml by a constant factor*/
-            if(Right[pi] > 0.99 * tw->tree->BoxSize && Left[pi] > 0) {
-                if(fac > 1.5)
-                    fac = 1.5;
-            }
-            if(Right[pi] < 0.99*tw->tree->BoxSize && Left[pi] == 0) {
-                if(fac < 0.33)
-                    fac = 0.33;
-            }
-            P[i].Hsml *= fac;
-        }
-        /* More work needed: add this particle to the redo queue*/
-        STELLAR_DENSITY_GET_PRIV(tw)->NPRedo[tid][STELLAR_DENSITY_GET_PRIV(tw)->NPLeft[tid]] = i;
-        STELLAR_DENSITY_GET_PRIV(tw)->NPLeft[tid] ++;
-    }
-    if(STELLAR_DENSITY_GET_PRIV(tw)->maxnumngb[tid] < NumNgb[pi])
-        STELLAR_DENSITY_GET_PRIV(tw)->maxnumngb[tid] = NumNgb[pi];
-
-    if(tw->Niteration >= MAXITER - 10)
-    {
-         message(1, "i=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
-             i, P[i].ID, P[i].Hsml, Left[pi], Right[pi],
-             NumNgb[pi], Right[pi] - Left[pi], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
-    }
+    TREEWALK_REDUCE(METALS_GET_PRIV(tw)->StarVolumeSPH[pi], remote->VolumeSPH);
 }
 
 static void
@@ -849,8 +745,6 @@ stellar_density_ngbiter(
     if(iter->base.other == -1) {
         const double h = I->Hsml;
         density_kernel_init(&iter->kernel, h, GetDensityKernelType());
-        iter->kernel_volume = density_kernel_volume(&iter->kernel);
-
         iter->base.Hsml = h;
         iter->base.mask = 1; /* gas only */
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
@@ -864,13 +758,6 @@ stellar_density_ngbiter(
     {
         const double u = r * iter->kernel.Hinv;
         double wk = density_kernel_wk(&iter->kernel, u);
-        O->Ngb += wk * iter->kernel_volume;
-        /* Hinv is here because O->DhsmlDensity is drho / dH.
-         * nothing to worry here */
-        O->Rho += P[other].Mass * wk;
-        const double dwk = density_kernel_dwk(&iter->kernel, u);
-        double density_dW = density_kernel_dW(&iter->kernel, u, wk, dwk);
-        O->DhsmlDensity += P[other].Mass * density_dW;
 
         /* For stars we need the total weighting, sum(w_k m_k / rho_k).*/
         double thisvol = P[other].Mass / SPHP(other).Density;
@@ -881,135 +768,24 @@ stellar_density_ngbiter(
 }
 
 void
-stellar_density(const ActiveParticles * act, MyFloat * StarVolumeSPH, MyFloat * MassReturn, const ForceTree * const tree)
+stellar_total_weight(const ActiveParticles * act, struct MetalReturnPriv * priv, const ForceTree * const tree)
 {
     TreeWalk tw[1] = {{0}};
-    struct StellarDensityPriv priv[1];
 
-    tw->ev_label = "STELLAR_DENSITY";
+    tw->ev_label = "STARVOLSPH";
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterStellarDensity);
     tw->ngbiter = (TreeWalkNgbIterFunction) stellar_density_ngbiter;
-    tw->haswork = stellar_density_haswork;
+    tw->haswork = metal_return_haswork;
     tw->fill = (TreeWalkFillQueryFunction) stellar_density_copy;
     tw->reduce = (TreeWalkReduceResultFunction) stellar_density_reduce;
-    tw->postprocess = (TreeWalkProcessFunction) stellar_density_check_neighbours;
     tw->query_type_elsize = sizeof(TreeWalkQueryStellarDensity);
     tw->result_type_elsize = sizeof(TreeWalkResultStellarDensity);
     tw->priv = priv;
     tw->tree = tree;
-
-    int i;
-    int64_t ntot = 0;
-
-    priv->MassReturn = MassReturn;
-    priv->VolumeSPH = StarVolumeSPH;
-
-    priv->Left = (MyFloat *) mymalloc("DENS_PRIV->Left", SlotsManager->info[4].size * sizeof(MyFloat));
-    priv->Right = (MyFloat *) mymalloc("DENS_PRIV->Right", SlotsManager->info[4].size * sizeof(MyFloat));
-    priv->NumNgb = (MyFloat *) mymalloc("DENS_PRIV->NumNgb", SlotsManager->info[4].size * sizeof(MyFloat));
-    priv->DhsmlDensity = (MyFloat *) mymalloc("DENS_PRIV->DhsmlDensity", SlotsManager->info[4].size * sizeof(MyFloat));
-    priv->Density = (MyFloat *) mymalloc("DENS_PRIV->Density", SlotsManager->info[4].size * sizeof(MyFloat));
-    priv->DesNumNgb = GetNumNgb(GetDensityKernelType());
-
-    /* Init Left and Right: this has to be done before treewalk */
-    memset(priv->NumNgb, 0, SlotsManager->info[4].size * sizeof(MyFloat));
-    memset(priv->Left, 0, SlotsManager->info[4].size * sizeof(MyFloat));
-    #pragma omp parallel for
-    for(i = 0; i < SlotsManager->info[4].size; i++)
-        priv->Right[i] = tree->BoxSize;
-
-    walltime_measure("/SPH/Metals/Init");
     /* allocate buffers to arrange communication */
-    int NumThreads = omp_get_max_threads();
-    priv->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
-    priv->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
-    priv->maxnumngb = ta_malloc("numngb", double, NumThreads);
-    int alloc_high = 0;
-    int * ReDoQueue = act->ActiveParticle;
-    int size = act->NumActiveParticle;
-
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
-    do {
-        /* The RedoQueue needs enough memory to store every particle on every thread, because
-         * we cannot guarantee that the sph particles are evenly spread across threads!*/
-        int * CurQueue = ReDoQueue;
-        /* The ReDoQueue swaps between high and low allocations so we can have two allocated alternately*/
-        if(!alloc_high) {
-            ReDoQueue = (int *) mymalloc2("ReDoQueue", size * sizeof(int) * NumThreads);
-            alloc_high = 1;
-        }
-        else {
-            ReDoQueue = (int *) mymalloc("ReDoQueue", size * sizeof(int) * NumThreads);
-            alloc_high = 0;
-        }
-        memset(priv->maxnumngb, 0, sizeof(double) * NumThreads);
-        gadget_setup_thread_arrays(ReDoQueue, priv->NPRedo, priv->NPLeft, size, NumThreads);
-        treewalk_run(tw, CurQueue, size);
-
-        tw->haswork = NULL;
-        /* Now done with the current queue*/
-        if(tw->Niteration > 1)
-            myfree(CurQueue);
-
-        /* Set up the next queue*/
-        size = gadget_compact_thread_arrays(ReDoQueue, priv->NPRedo, priv->NPLeft, NumThreads);
-
-        sumup_large_ints(1, &size, &ntot);
-        if(ntot == 0){
-            myfree(ReDoQueue);
-            break;
-        }
-
-        /*Shrink memory*/
-        ReDoQueue = myrealloc(ReDoQueue, sizeof(int) * size);
-
-        for(i = 1; i < NumThreads; i++) {
-            if(priv->maxnumngb[0] < priv->maxnumngb[i])
-                priv->maxnumngb[0] = priv->maxnumngb[i];
-        }
-        double maxngb;
-        MPI_Reduce(&priv->maxnumngb[0], &maxngb, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-        message(0, "Max ngb %g, desired %g\n", maxngb, priv->DesNumNgb);
-#ifdef DEBUG
-        if(ntot == 1 && size > 0 && tw->Niteration > 20 ) {
-            int pp = ReDoQueue[0];
-            message(1, "Remaining i=%d, t %d, pos %g %g %g, hsml: %g ngb: %g\n", pp, P[pp].Type, P[pp].Pos[0], P[pp].Pos[1], P[pp].Pos[2], P[pp].Hsml, priv->NumNgb[pp]);
-        }
-#endif
-        if(tw->Niteration > MAXITER) {
-            endrun(1155, "failed to converge in neighbour iteration in density()\n");
-        }
-    } while(1);
-
-#ifdef DEBUG
-    for(i = 0; i < act->NumActiveParticle; i++) {
-        int a = act->ActiveParticle ? act->ActiveParticle[i] : i;
-        /* Skip the garbage particles */
-        if(P[a].IsGarbage)
-            continue;
-        if(stellar_density_haswork(a, tw) && priv->VolumeSPH[P[a].PI] == 0)
-            endrun(3, "i = %d pi = %d StarVolumeSPH %g hsml %g\n", a, P[a].PI, priv->VolumeSPH[P[a].PI], P[a].Hsml);
-    }
-#endif
-    ta_free(priv->maxnumngb);
-    ta_free(priv->NPRedo);
-    ta_free(priv->NPLeft);
-    myfree(priv->Density);
-    myfree(priv->DhsmlDensity);
-    myfree(priv->NumNgb);
-    myfree(priv->Right);
-    myfree(priv->Left);
-
-    double timeall = walltime_measure(WALLTIME_IGNORE);
-
-    double timecomp = tw->timecomp3 + tw->timecomp1 + tw->timecomp2;
-    double timewait = tw->timewait1 + tw->timewait2;
-    double timecomm = tw->timecommsumm1 + tw->timecommsumm2;
-    walltime_add("/SPH/Metals/Density/Compute", timecomp);
-    walltime_add("/SPH/Metals/Density/Wait", timewait);
-    walltime_add("/SPH/Metals/Density/Comm", timecomm);
-    walltime_add("/SPH/Metals/Density/Misc", timeall - (timecomp + timewait + timecomm));
-
+    treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
+    walltime_measure("/SPH/Metals/VolumeSPH");
     return;
 }

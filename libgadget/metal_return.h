@@ -48,9 +48,6 @@ int64_t metal_return_init(const ActiveParticles * act, Cosmology * CP, struct Me
 /* Free memory allocated in metal_return_init*/
 void metal_return_priv_free(struct MetalReturnPriv * priv);
 
-/* Find stellar density, returning the total SPH Volume weights for each particle.*/
-void stellar_density(const ActiveParticles * act, MyFloat * StarVolumeSPH, MyFloat * MassReturn, const ForceTree * const tree);
-
 /* Determines whether metal return runs for this star this timestep*/
 int metals_haswork(int i, MyFloat * MassReturn);
 #endif
