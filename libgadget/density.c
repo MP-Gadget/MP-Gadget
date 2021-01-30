@@ -665,24 +665,20 @@ void density_check_neighbours (int i, TreeWalk * tw)
                 endrun(8188, "Cannot occur. Check for memory corruption: i=%d L = %g R = %g N=%g. Type %d, Pos %g %g %g", i, Left[i], Right[i], NumNgb[i], P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
 
             MyFloat DensFac = DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[i];
-            double fac = 1 - (NumNgb[i] - desnumngb) / (NUMDIMS * NumNgb[i]) * DensFac;
+            double fac = 1.26;
+            if(NumNgb[i] > 0)
+                fac = 1 - (NumNgb[i] - desnumngb) / (NUMDIMS * NumNgb[i]) * DensFac;
 
-            /* If this is the first step we can be faster by increasing or decreasing current Hsml by a constant factor*/
+            /* Find the initial bracket using the kernel gradients*/
             if(Right[i] > 0.99 * tw->tree->BoxSize && Left[i] > 0)
-            {
-                if(DensFac >= 0 && fabs(NumNgb[i] - desnumngb) < 0.5 * desnumngb && fac < 1.26)
-                    P[i].Hsml *= fac;
-                else
-                    P[i].Hsml *= 1.26;
-            }
+                if(DensFac <= 0 || fabs(NumNgb[i] - desnumngb) >= 0.5 * desnumngb || fac > 1.26)
+                    fac = 1.26;
 
             if(Right[i] < 0.99*tw->tree->BoxSize && Left[i] == 0)
-            {
-                if(DensFac >=0 && fabs(NumNgb[i] - desnumngb) < 0.5 * desnumngb && fac > 1/1.26)
-                    P[i].Hsml *= fac;
-                else
-                    P[i].Hsml /= 1.26;
-            }
+                if(DensFac <=0 || fac < 1./3)
+                    fac = 1./3;
+
+            P[i].Hsml *= fac;
         }
 
         if(DENSITY_GET_PRIV(tw)->BlackHoleOn && P[i].Type == 5)
