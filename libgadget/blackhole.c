@@ -518,8 +518,6 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     /*************************************************************************/
     /*  Dynamical Friction Treewalk */
 
-    MPIU_Barrier(MPI_COMM_WORLD);
-    message(0, "Beginning dynamical friction calculation. \n");
     /* Environment variables for DF */
     priv->BH_SurroundingRmsVel = mymalloc("BH_SurroundingRmsVel", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingRmsVel));
     priv->BH_SurroundingVel = (MyFloat (*) [3]) mymalloc("BH_SurroundingVel", 3* SlotsManager->info[5].size * sizeof(priv->BH_SurroundingVel[0]));
@@ -532,8 +530,6 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     /*************************************************************************/
 
     walltime_measure("/BH/DynFric");
-    MPIU_Barrier(MPI_COMM_WORLD);
-    message(0, "Beginning black-hole accretion\n");
 
     /* Let's determine which particles may be swallowed and calculate total feedback weights */
     priv->SPH_SwallowID = mymalloc("SPH_SwallowID", SlotsManager->info[0].size * sizeof(MyIDType));
@@ -556,7 +552,6 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
 
     walltime_measure("/BH/Accretion");
     MPIU_Barrier(MPI_COMM_WORLD);
-    message(0, "Start swallowing of gas particles and black holes\n");
 
     /* Now do the swallowing of particles and dump feedback energy */
 

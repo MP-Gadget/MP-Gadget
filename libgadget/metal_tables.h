@@ -429,21 +429,6 @@ double compute_imf_norm(gsl_integration_workspace * gsl_work);
 double compute_agb_yield(gsl_interp2d * agb_interp, const double * agb_weights, double stellarmetal, double masslow, double masshigh, gsl_integration_workspace * gsl_work );
 double compute_snii_yield(gsl_interp2d * snii_interp, const double * snii_weights, double stellarmetal, double masslow, double masshigh, gsl_integration_workspace * gsl_work );
 
-struct interps
-{
-    gsl_interp2d * lifetime_interp;
-    gsl_interp2d * agb_mass_interp;
-    gsl_interp2d * agb_metallicity_interp;
-    gsl_interp2d * agb_metals_interp[NSPECIES];
-    gsl_interp2d * snii_mass_interp;
-    gsl_interp2d * snii_metallicity_interp;
-    gsl_interp2d * snii_metals_interp[NSPECIES];
-};
-
-/* Build the interpolators for each yield table. We use bilinear interpolation
- * so there is no extra memory allocation and we never free the tables*/
-void setup_metal_table_interp(struct interps * interp);
-
 double chabrier_mass(double mass, void * params);
 
 double sn1a_number(double dtmyrstart, double dtmyrend, double hub);

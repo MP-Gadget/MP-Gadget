@@ -24,8 +24,6 @@
 
 #define MAXITER 200
 
-MyFloat * stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * MassReturn, const ForceTree * const tree);
-
 /*! \file metal_return.c
  *  \brief Compute the mass return rate of metals from stellar evolution.
  *
@@ -100,20 +98,6 @@ void setup_metal_table_interp(struct interps * interp)
     }
 }
 
-struct MetalReturnPriv {
-    gsl_integration_workspace ** gsl_work;
-    MyFloat * StellarAges;
-    MyFloat * MassReturn;
-    MyFloat * LowDyingMass;
-    MyFloat * HighDyingMass;
-    double imf_norm;
-    double hub;
-    Cosmology *CP;
-    MyFloat * StarVolumeSPH;
-    struct interps interp;
-    struct SpinLocks * spin;
-};
-
 #define METALS_GET_PRIV(tw) ((struct MetalReturnPriv*) ((tw)->priv))
 
 typedef struct {
@@ -156,9 +140,6 @@ metal_return_copy(int place, TreeWalkQueryMetals * input, TreeWalk * tw);
 
 static void
 metal_return_postprocess(int place, TreeWalk * tw);
-
-static int
-metals_haswork(int i, MyFloat * StellarAges, MyFloat * MassReturn);
 
 /* The Chabrier IMF used for computing SnII and AGB yields.
  * See 1305.2913 eq 3*/
@@ -453,19 +434,111 @@ static double metal_yield(double dtmyrstart, double dtmyrend, double stellarmeta
     return MetalGenerated;
 }
 
+/* Initialise the private structure, finding stellar mass return and ages*/
+int64_t
+metal_return_init(const ActiveParticles * act, Cosmology * CP, struct MetalReturnPriv * priv, const double atime)
+{
+    int nthread = omp_get_max_threads();
+    priv->gsl_work = ta_malloc("gsl_work", gsl_integration_workspace *, nthread);
+    int i;
+    /* Allocate a workspace for each thread*/
+    for(i=0; i < nthread; i++)
+        priv->gsl_work[i] = gsl_integration_workspace_alloc(GSL_WORKSPACE);
+    priv->hub = CP->HubbleParam;
+
+    /* Initialize*/
+    setup_metal_table_interp(&priv->interp);
+    priv->StellarAges = mymalloc("StellarAges", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->MassReturn = mymalloc("MassReturn", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->LowDyingMass = mymalloc("LowDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->HighDyingMass = mymalloc("HighDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->StarVolumeSPH = mymalloc("StarVolumeSPH", SlotsManager->info[4].size * sizeof(MyFloat));
+
+    priv->imf_norm = compute_imf_norm(priv->gsl_work[0]);
+    /* Maximum possible mass return for below*/
+    double maxmassfrac = mass_yield(0, 1/(CP->HubbleParam*HUBBLE * SEC_PER_MEGAYEAR), snii_metallicities[SNII_NMET-1], CP->HubbleParam, &priv->interp, priv->imf_norm, priv->gsl_work[0],agb_masses[0], MAXMASS);
+
+    int64_t haswork = 0;
+    /* First find the mass return as a fraction of the total mass and the age of the star.
+     * This is done first so we can skip density computation for not active stars*/
+    #pragma omp parallel for reduction(+: haswork)
+    for(i=0; i < act->NumActiveParticle;i++)
+    {
+        int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
+        if(P[p_i].Type != 4)
+            continue;
+        int tid = omp_get_thread_num();
+        const int slot = P[p_i].PI;
+        priv->StellarAges[slot] = atime_to_myr(CP, STARP(p_i).FormationTime, atime, priv->gsl_work[tid]);
+        /* Note this takes care of units*/
+        double initialmass = P[p_i].Mass + STARP(p_i).TotalMassReturned;
+        find_mass_bin_limits(&priv->LowDyingMass[slot], &priv->HighDyingMass[slot], STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, priv->interp.lifetime_interp);
+
+        priv->MassReturn[slot] = initialmass * mass_yield(STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, CP->HubbleParam, &priv->interp, priv->imf_norm, priv->gsl_work[tid],priv->LowDyingMass[slot], priv->HighDyingMass[slot]);
+        //message(3, "Particle %d PI %d massgen %g mass %g initmass %g\n", p_i, P[p_i].PI, priv->MassReturn[P[p_i].PI], P[p_i].Mass, initialmass);
+        /* Guard against making a zero mass particle and warn since this should not happen.*/
+        if(STARP(p_i).TotalMassReturned + priv->MassReturn[slot] > initialmass * maxmassfrac) {
+            if(priv->MassReturn[slot] / STARP(p_i).TotalMassReturned > 0.01)
+                message(1, "Large mass return id %ld %g from %d mass %g initial %g (maxfrac %g) age %g lastenrich %g metal %g dymass %g %g\n",
+                    P[p_i].ID, priv->MassReturn[slot], p_i, STARP(p_i).TotalMassReturned, initialmass, maxmassfrac, priv->StellarAges[P[p_i].PI], STARP(p_i).LastEnrichmentMyr, STARP(p_i).Metallicity, priv->LowDyingMass[slot], priv->HighDyingMass[slot]);
+            priv->MassReturn[slot] = initialmass * maxmassfrac - STARP(p_i).TotalMassReturned;
+            if(priv->MassReturn[slot] < 0) {
+                priv->MassReturn[slot] = 0;
+            }
+            /* Ensure that we skip this step*/
+            if(!metals_haswork(p_i, priv->MassReturn))
+                STARP(p_i).LastEnrichmentMyr = priv->StellarAges[P[p_i].PI];
+
+        }
+        /* Keep count of how much work we need to do*/
+        if(metals_haswork(p_i, priv->MassReturn))
+            haswork++;
+    }
+    return haswork;
+}
+
+/* Free memory allocated by metal_return_init */
+void
+metal_return_priv_free(struct MetalReturnPriv * priv)
+{
+    myfree(priv->StarVolumeSPH);
+    myfree(priv->HighDyingMass);
+    myfree(priv->LowDyingMass);
+    myfree(priv->MassReturn);
+    myfree(priv->StellarAges);
+
+    int i;
+    for(i=0; i < omp_get_max_threads(); i++)
+        gsl_integration_workspace_free(priv->gsl_work[i]);
+
+    ta_free(priv->gsl_work);
+}
+
 /*! This function is the driver routine for the calculation of metal return. */
 void
 metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmology * CP, const double atime)
 {
-    TreeWalk tw[1] = {{0}};
-
-    struct MetalReturnPriv priv[1];
-
     /* Do nothing if no stars yet*/
     int64_t totstar;
     MPI_Allreduce(&SlotsManager->info[4].size, &totstar, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     if(totstar == 0)
         return;
+
+    struct MetalReturnPriv priv[1];
+
+    int64_t nwork = metal_return_init(act, CP, priv, atime);
+    int64_t totwork;
+    MPI_Allreduce(&nwork, &totwork, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+
+    if(totwork == 0) {
+        metal_return_priv_free(priv);
+        return;
+    }
+    /* Compute total number of weights around each star for actively returning stars*/
+    stellar_density(act, priv->StarVolumeSPH, priv->MassReturn, tree);
+
+    /* Do the metal return*/
+    TreeWalk tw[1] = {{0}};
 
     tw->ev_label = "METALS";
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
@@ -480,76 +553,12 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     tw->repeatdisallowed = 1;
     tw->tree = tree;
     tw->priv = priv;
-    priv->hub = CP->HubbleParam;
 
-    int nthread = omp_get_max_threads();
-    gsl_integration_workspace ** gsl_work = ta_malloc("gsl_work", gsl_integration_workspace *, nthread);
-    int i;
-    /* Allocate a workspace for each thread*/
-    for(i=0; i < nthread; i++)
-        gsl_work[i] = gsl_integration_workspace_alloc(GSL_WORKSPACE);
-
-    /* Initialize*/
-    setup_metal_table_interp(&METALS_GET_PRIV(tw)->interp);
-    priv->StellarAges = mymalloc("StellarAges", SlotsManager->info[4].size * sizeof(MyFloat));
-    priv->MassReturn = mymalloc("MassReturn", SlotsManager->info[4].size * sizeof(MyFloat));
-    priv->LowDyingMass = mymalloc("LowDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
-    priv->HighDyingMass = mymalloc("HighDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
-    priv->imf_norm = compute_imf_norm(gsl_work[0]);
-    /* Maximum possible mass return for below*/
-    double maxmassfrac = mass_yield(0, 1/(CP->HubbleParam*HUBBLE * SEC_PER_MEGAYEAR), snii_metallicities[SNII_NMET-1], CP->HubbleParam, &priv->interp, priv->imf_norm, gsl_work[0],agb_masses[0], MAXMASS);
-
-    /* First find the mass return as a fraction of the total mass and the age of the star.
-     * This is done first so we can skip density computation for not active stars*/
-    #pragma omp parallel for
-    for(i=0; i < act->NumActiveParticle;i++)
-    {
-        int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
-        if(P[p_i].Type != 4)
-            continue;
-        int tid = omp_get_thread_num();
-        const int slot = P[p_i].PI;
-        priv->StellarAges[slot] = atime_to_myr(CP, STARP(p_i).FormationTime, atime, gsl_work[tid]);
-        /* Note this takes care of units*/
-        double initialmass = P[p_i].Mass + STARP(p_i).TotalMassReturned;
-        find_mass_bin_limits(&priv->LowDyingMass[slot], &priv->HighDyingMass[slot], STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, priv->interp.lifetime_interp);
-
-        priv->MassReturn[slot] = initialmass * mass_yield(STARP(p_i).LastEnrichmentMyr, priv->StellarAges[P[p_i].PI], STARP(p_i).Metallicity, CP->HubbleParam, &priv->interp, priv->imf_norm, gsl_work[tid],priv->LowDyingMass[slot], priv->HighDyingMass[slot]);
-        //message(3, "Particle %d PI %d massgen %g mass %g initmass %g\n", p_i, P[p_i].PI, priv->MassReturn[P[p_i].PI], P[p_i].Mass, initialmass);
-        /* Guard against making a zero mass particle and warn since this should not happen.*/
-        if(STARP(p_i).TotalMassReturned + priv->MassReturn[slot] > initialmass * maxmassfrac) {
-            if(priv->MassReturn[slot] / STARP(p_i).TotalMassReturned > 0.01)
-                message(1, "Large mass return id %ld %g from %d mass %g initial %g (maxfrac %g) age %g lastenrich %g metal %g dymass %g %g\n",
-                    P[p_i].ID, priv->MassReturn[slot], p_i, STARP(p_i).TotalMassReturned, initialmass, maxmassfrac, priv->StellarAges[P[p_i].PI], STARP(p_i).LastEnrichmentMyr, STARP(p_i).Metallicity, priv->LowDyingMass[slot], priv->HighDyingMass[slot]);
-            priv->MassReturn[slot] = initialmass * maxmassfrac - STARP(p_i).TotalMassReturned;
-            if(priv->MassReturn[slot] < 0) {
-                priv->MassReturn[slot] = 0;
-            }
-            /* Ensure that we skip this step*/
-            if(!metals_haswork(p_i, priv->StellarAges, priv->MassReturn))
-                STARP(p_i).LastEnrichmentMyr = priv->StellarAges[P[p_i].PI];
-
-        }
-    }
-
-    /* Compute total number of weights around each star for actively returning stars*/
-    METALS_GET_PRIV(tw)->StarVolumeSPH = stellar_density(act, priv->StellarAges, priv->MassReturn, tree);
-    priv->gsl_work = gsl_work;
-    /* Do the metal return*/
     priv->spin = init_spinlocks(SlotsManager->info[0].size);
     treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
     free_spinlocks(priv->spin);
 
-    myfree(priv->StarVolumeSPH);
-    myfree(priv->HighDyingMass);
-    myfree(priv->LowDyingMass);
-    myfree(priv->MassReturn);
-    myfree(priv->StellarAges);
-
-    for(i=0; i < nthread; i++)
-        gsl_integration_workspace_free(gsl_work[i]);
-
-    ta_free(gsl_work);
+    metal_return_priv_free(priv);
 
     /* collect some timing information */
     walltime_measure("/SPH/Metals/Yield");
@@ -682,8 +691,8 @@ metal_return_ngbiter(
 /* Find stars returning enough metals to the gas.
  * This is a wrapper function to allow for
  * different private structs in different treewalks*/
-static int
-metals_haswork(int i, MyFloat * StellarAges, MyFloat * MassReturn)
+int
+metals_haswork(int i, MyFloat * MassReturn)
 {
     if(P[i].Type != 4)
         return 0;
@@ -697,7 +706,7 @@ metals_haswork(int i, MyFloat * StellarAges, MyFloat * MassReturn)
 static int
 metal_return_haswork(int i, TreeWalk * tw)
 {
-    return metals_haswork(i, METALS_GET_PRIV(tw)->StellarAges, METALS_GET_PRIV(tw)->MassReturn);
+    return metals_haswork(i, METALS_GET_PRIV(tw)->MassReturn);
 }
 
 typedef struct {
@@ -724,12 +733,11 @@ struct StellarDensityPriv {
     /* Current number of neighbours*/
     MyFloat *NumNgb;
     /* Lower and upper bounds on smoothing length*/
-    MyFloat *Left, *Right, *DhsmlDensity, *Density;
-    MyFloat * VolumeSPH;
+    MyFloat *Left, *Right, *DhsmlDensity;
+    MyFloat * VolumeSPH, *Density;
     size_t *NPLeft;
     int **NPRedo;
     /* For haswork*/
-    MyFloat * StellarAges;
     MyFloat * MassReturn;
     /*!< Desired number of SPH neighbours */
     double DesNumNgb;
@@ -741,7 +749,7 @@ struct StellarDensityPriv {
 static int
 stellar_density_haswork(int i, TreeWalk * tw)
 {
-    return metals_haswork(i, STELLAR_DENSITY_GET_PRIV(tw)->StellarAges, STELLAR_DENSITY_GET_PRIV(tw)->MassReturn);
+    return metals_haswork(i, STELLAR_DENSITY_GET_PRIV(tw)->MassReturn);
 }
 
 static void
@@ -878,8 +886,8 @@ stellar_density_ngbiter(
     }
 }
 
-MyFloat *
-stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * MassReturn, const ForceTree * const tree)
+void
+stellar_density(const ActiveParticles * act, MyFloat * StarVolumeSPH, MyFloat * MassReturn, const ForceTree * const tree)
 {
     TreeWalk tw[1] = {{0}};
     struct StellarDensityPriv priv[1];
@@ -900,9 +908,8 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
     int i;
     int64_t ntot = 0;
 
-    priv->StellarAges = StellarAges;
     priv->MassReturn = MassReturn;
-    priv->VolumeSPH = mymalloc("StarVolumeSPH", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->VolumeSPH = StarVolumeSPH;
 
     priv->Left = (MyFloat *) mymalloc("DENS_PRIV->Left", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->Right = (MyFloat *) mymalloc("DENS_PRIV->Right", SlotsManager->info[4].size * sizeof(MyFloat));
@@ -1010,5 +1017,5 @@ stellar_density(const ActiveParticles * act, MyFloat * StellarAges, MyFloat * Ma
     walltime_add("/SPH/Metals/Density/Comm", timecomm);
     walltime_add("/SPH/Metals/Density/Misc", timeall - (timecomp + timewait + timecomm));
 
-    return priv->VolumeSPH;
+    return;
 }

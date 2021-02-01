@@ -145,13 +145,7 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
 
     treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
 
-    /* now add things for comoving integration */
-
-    MPIU_Barrier(MPI_COMM_WORLD);
-    message(0, "Short-range gravitational tree force is done.\n");
-
     /* Now the force computation is finished */
-
     /*  gather some diagnostic information */
 
     timetree = tw->timecomp1 + tw->timecomp2 + tw->timecomp3;
