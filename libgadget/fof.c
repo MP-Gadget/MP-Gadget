@@ -1218,6 +1218,8 @@ fof_secondary_ngbiter( TreeWalkQueryFOF * I,
         O->Distance = r;
         O->MinID = HaloLabel[other].MinID;
         O->MinIDTask = HaloLabel[other].MinIDTask;
+        /* No need to search further now we have a neighbour.*/
+        iter->base.Hsml = r;
     }
 }
 
