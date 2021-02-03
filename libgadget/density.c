@@ -583,7 +583,7 @@ static void
 density_postprocess(int i, TreeWalk * tw)
 {
     MyFloat * DhsmlDens = &(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[i]);
-    double density;
+    double density = -1;
     if(P[i].Type == 0)
         density = SPHP(i).Density;
     else if(P[i].Type == 5)
