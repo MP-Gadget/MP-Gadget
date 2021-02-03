@@ -445,6 +445,13 @@ create_new_node_layer(int firstparent, int p_toplace,
     return 0;
 }
 
+/* Get the topnode to which a particle belongs */
+int get_topnode(int i, DomainDecomp * ddecomp)
+{
+    const int topleaf = domain_get_topleaf(P[i].Key, ddecomp);
+    return ddecomp->TopLeaves[topleaf].treenode;
+}
+
 /*! Does initial creation of the nodes for the gravitational oct-tree.
  **/
 int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav)
@@ -513,8 +520,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         if(inside_node(&tb.Nodes[this_acc], i)) {
             this = this_acc;
         } else {
-            const int topleaf = domain_get_topleaf(P[i].Key, ddecomp);
-            this = ddecomp->TopLeaves[topleaf].treenode;
+            this = get_topnode(i, ddecomp);
         }
         int child;
         int nocc;
