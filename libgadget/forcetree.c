@@ -452,6 +452,97 @@ int get_topnode(int i, DomainDecomp * ddecomp)
     return ddecomp->TopLeaves[topleaf].treenode;
 }
 
+/* Add a particle to the tree, extending the tree as necessary. Locking is done,
+ * so may be called from a threaded context*/
+void add_particle_to_tree(int i, int * this_acc, const ForceTree tb, struct SpinLocks * spin, DomainDecomp * ddecomp,
+                          int HybridNuGrav, struct NodeCache * nc, int* nnext)
+{
+    /* Do not add garbage/swallowed particles to the tree*/
+    if(P[i].IsGarbage || (P[i].Swallowed && P[i].Type==5))
+        return;
+
+    /*First find the Node for the TopLeaf */
+    int this;
+    if(inside_node(&tb.Nodes[*this_acc], i)) {
+        this = *this_acc;
+    } else {
+        this = get_topnode(i, ddecomp);
+    }
+    int child;
+    int nocc;
+
+    /*Walk the main tree until we get something that isn't an internal node.*/
+    do
+    {
+        /*No lock needed: if we have an internal node here it will be stable*/
+        #pragma omp atomic read
+        nocc = tb.Nodes[this].s.noccupied;
+
+        /* This node still has space for a particle (or needs conversion)*/
+        if(nocc < (1 << 16))
+            break;
+
+        /* This node has child subnodes: find them.*/
+        int subnode = get_subnode(&tb.Nodes[this], i);
+        /*No lock needed: if we have an internal node here it will be stable*/
+        child = tb.Nodes[this].s.suns[subnode];
+
+        if(child > tb.lastnode || child < tb.firstnode)
+            endrun(1,"Corruption in tree build: N[%d].[%d] = %d > lastnode (%d)\n",this, subnode, child, tb.lastnode);
+        this = child;
+    }
+    while(child >= tb.firstnode);
+
+    /*Now lock this node.*/
+    lock_spinlock(this-tb.firstnode, spin);
+    /* We have a guaranteed spot.*/
+    nocc = atomic_fetch_and_add(&tb.Nodes[this].s.noccupied, 1);
+
+    /* Check whether there is now a new layer of nodes and if so walk down until there isn't.*/
+    if(nocc >= (1<<16)) {
+        /* This node has child subnodes: find them.*/
+        int subnode = get_subnode(&tb.Nodes[this], i);
+        child = tb.Nodes[this].s.suns[subnode];
+        while(child >= tb.firstnode)
+        {
+            /*Move the lock to the child*/
+            lock_spinlock(child-tb.firstnode, spin);
+            unlock_spinlock(this-tb.firstnode, spin);
+            this = child;
+
+            /*No lock needed: if we have an internal node here it will be stable*/
+            #pragma omp atomic read
+            nocc = tb.Nodes[this].s.noccupied;
+            /* This node still has space for a particle (or needs conversion)*/
+            if(nocc < (1 << 16))
+                break;
+
+            /* This node has child subnodes: find them.*/
+            subnode = get_subnode(&tb.Nodes[this], i);
+            /*No lock needed: if we have an internal node here it will be stable*/
+            child = tb.Nodes[this].s.suns[subnode];
+        }
+        /* Get the free spot under the lock.*/
+        nocc = atomic_fetch_and_add(&tb.Nodes[this].s.noccupied, 1);
+    }
+
+    /*Update last-used cache*/
+    *this_acc = this;
+
+    /* Now we have something that isn't an internal node, and we have a lock on it,
+        * so we know it won't change. We can place the particle! */
+    if(nocc < NMAXCHILD)
+        modify_internal_node(this, nocc, i, tb, HybridNuGrav);
+    /* In this case we need to create a new layer of nodes beneath this one*/
+    else if(nocc < 1<<16)
+        create_new_node_layer(this, i, HybridNuGrav, tb, nnext, nc);
+    else
+        endrun(2, "Tried to convert already converted node %d with nocc = %d\n", this, nocc);
+
+    /*Unlock the parent*/
+    unlock_spinlock(this - tb.firstnode, spin);
+}
+
 /*! Does initial creation of the nodes for the gravitational oct-tree.
  **/
 int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav)
@@ -511,90 +602,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         if(nc.nnext_thread >= tb.lastnode)
             continue;
 
-        /* Do not add garbage/swallowed particles to the tree*/
-        if(P[i].IsGarbage || (P[i].Swallowed && P[i].Type==5))
-            continue;
-
-        /*First find the Node for the TopLeaf */
-        int this;
-        if(inside_node(&tb.Nodes[this_acc], i)) {
-            this = this_acc;
-        } else {
-            this = get_topnode(i, ddecomp);
-        }
-        int child;
-        int nocc;
-
-        /*Walk the main tree until we get something that isn't an internal node.*/
-        do
-        {
-            /*No lock needed: if we have an internal node here it will be stable*/
-            #pragma omp atomic read
-            nocc = tb.Nodes[this].s.noccupied;
-
-            /* This node still has space for a particle (or needs conversion)*/
-            if(nocc < (1 << 16))
-                break;
-
-            /* This node has child subnodes: find them.*/
-            int subnode = get_subnode(&tb.Nodes[this], i);
-            /*No lock needed: if we have an internal node here it will be stable*/
-            child = tb.Nodes[this].s.suns[subnode];
-
-            if(child > tb.lastnode || child < tb.firstnode)
-                endrun(1,"Corruption in tree build: N[%d].[%d] = %d > lastnode (%d)\n",this, subnode, child, tb.lastnode);
-            this = child;
-        }
-        while(child >= tb.firstnode);
-
-        /*Now lock this node.*/
-        lock_spinlock(this-tb.firstnode, spin);
-        /* We have a guaranteed spot.*/
-        nocc = atomic_fetch_and_add(&tb.Nodes[this].s.noccupied, 1);
-
-        /* Check whether there is now a new layer of nodes and if so walk down until there isn't.*/
-        if(nocc >= (1<<16)) {
-            /* This node has child subnodes: find them.*/
-            int subnode = get_subnode(&tb.Nodes[this], i);
-            child = tb.Nodes[this].s.suns[subnode];
-            while(child >= tb.firstnode)
-            {
-                /*Move the lock to the child*/
-                lock_spinlock(child-tb.firstnode, spin);
-                unlock_spinlock(this-tb.firstnode, spin);
-                this = child;
-
-                /*No lock needed: if we have an internal node here it will be stable*/
-                #pragma omp atomic read
-                nocc = tb.Nodes[this].s.noccupied;
-                /* This node still has space for a particle (or needs conversion)*/
-                if(nocc < (1 << 16))
-                    break;
-
-                /* This node has child subnodes: find them.*/
-                subnode = get_subnode(&tb.Nodes[this], i);
-                /*No lock needed: if we have an internal node here it will be stable*/
-                child = tb.Nodes[this].s.suns[subnode];
-            }
-            /* Get the free spot under the lock.*/
-            nocc = atomic_fetch_and_add(&tb.Nodes[this].s.noccupied, 1);
-        }
-
-        /*Update last-used cache*/
-        this_acc = this;
-
-        /* Now we have something that isn't an internal node, and we have a lock on it,
-         * so we know it won't change. We can place the particle! */
-        if(nocc < NMAXCHILD)
-            modify_internal_node(this, nocc, i, tb, HybridNuGrav);
-        /* In this case we need to create a new layer of nodes beneath this one*/
-        else if(nocc < 1<<16)
-            create_new_node_layer(this, i, HybridNuGrav, tb, &nnext, &nc);
-        else
-            endrun(2, "Tried to convert already converted node %d with nocc = %d\n", this, nocc);
-
-        /*Unlock the parent*/
-        unlock_spinlock(this - tb.firstnode, spin);
+        add_particle_to_tree(i, &this_acc, tb, spin, ddecomp, HybridNuGrav, &nc, &nnext);
     }
     free_spinlocks(spin);
 
