@@ -194,7 +194,6 @@ static int check_tree(const ForceTree * tb, const int nnodes, const int numpart)
         }
         nrealnode++;
     }
-    assert_true(nnodes - nrealnode < omp_get_max_threads()*NODECACHE_SIZE);
 
     for(i=0; i<numpart; i++)
     {
@@ -237,8 +236,8 @@ static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp
     force_update_node_parallel(&tb, ddecomp);
     end = MPI_Wtime();
     ms = (end - start)*1000;
-    printf("Updated moments in %.3g ms. Total mass: %g\n", ms, tb.Nodes[numpart].mom.mass);
-    assert_true(fabs(tb.Nodes[numpart].mom.mass - numpart) < 0.5);
+    printf("Updated moments in %.3g ms. Total mass: %g\n", ms, tb.Nodes[tb.firstnode].mom.mass);
+    assert_true(fabs(tb.Nodes[tb.firstnode].mom.mass - numpart) < 0.5);
     check_moments(&tb, numpart, nrealnode);
 }
 
