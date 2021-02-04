@@ -475,7 +475,6 @@ void add_particle_to_tree(int i, int * this_acc, const ForceTree tb, struct Spin
     do
     {
         /*No lock needed: if we have an internal node here it will be stable*/
-        #pragma omp atomic read
         nocc = tb.Nodes[this].s.noccupied;
 
         /* This node still has space for a particle (or needs conversion)*/
@@ -493,44 +492,15 @@ void add_particle_to_tree(int i, int * this_acc, const ForceTree tb, struct Spin
     }
     while(child >= tb.firstnode);
 
-    /*Now lock this node.*/
-    lock_spinlock(this-tb.firstnode, spin);
     /* We have a guaranteed spot.*/
-    nocc = atomic_fetch_and_add(&tb.Nodes[this].s.noccupied, 1);
-
-    /* Check whether there is now a new layer of nodes and if so walk down until there isn't.*/
-    if(nocc >= (1<<16)) {
-        /* This node has child subnodes: find them.*/
-        int subnode = get_subnode(&tb.Nodes[this], i);
-        child = tb.Nodes[this].s.suns[subnode];
-        while(child >= tb.firstnode)
-        {
-            /*Move the lock to the child*/
-            lock_spinlock(child-tb.firstnode, spin);
-            unlock_spinlock(this-tb.firstnode, spin);
-            this = child;
-
-            /*No lock needed: if we have an internal node here it will be stable*/
-            #pragma omp atomic read
-            nocc = tb.Nodes[this].s.noccupied;
-            /* This node still has space for a particle (or needs conversion)*/
-            if(nocc < (1 << 16))
-                break;
-
-            /* This node has child subnodes: find them.*/
-            subnode = get_subnode(&tb.Nodes[this], i);
-            /*No lock needed: if we have an internal node here it will be stable*/
-            child = tb.Nodes[this].s.suns[subnode];
-        }
-        /* Get the free spot under the lock.*/
-        nocc = atomic_fetch_and_add(&tb.Nodes[this].s.noccupied, 1);
-    }
+    nocc = tb.Nodes[this].s.noccupied;
+    tb.Nodes[this].s.noccupied++;
 
     /*Update last-used cache*/
     *this_acc = this;
 
     /* Now we have something that isn't an internal node, and we have a lock on it,
-        * so we know it won't change. We can place the particle! */
+    * so we know it won't change. We can place the particle! */
     if(nocc < NMAXCHILD)
         modify_internal_node(this, nocc, i, tb, HybridNuGrav);
     /* In this case we need to create a new layer of nodes beneath this one*/
@@ -538,9 +508,6 @@ void add_particle_to_tree(int i, int * this_acc, const ForceTree tb, struct Spin
         create_new_node_layer(this, i, HybridNuGrav, tb, nnext, nc);
     else
         endrun(2, "Tried to convert already converted node %d with nocc = %d\n", this, nocc);
-
-    /*Unlock the parent*/
-    unlock_spinlock(this - tb.firstnode, spin);
 }
 
 /*! Does initial creation of the nodes for the gravitational oct-tree.
