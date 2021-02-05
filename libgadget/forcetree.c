@@ -528,10 +528,6 @@ merge_partial_force_trees(int left, int right, int * nnext, const struct ForceTr
         /* If the left node has particles, add them to the right node,
          * then copy the right node over the left node and go to (old) sibling on right and left.*/
         else if(nleft->f.ChildType == PARTICLE_NODE_TYPE && nright->f.ChildType == NODE_NODE_TYPE) {
-            int old_left = this_left;
-            /* Next iteration is going to sibling*/
-            this_left = nleft->sibling;
-            this_right = nright->sibling;
             /* Add the left particles to the right*/
             int i;
             for(i = 0; i < nleft->s.noccupied; i++) {
@@ -545,18 +541,17 @@ merge_partial_force_trees(int left, int right, int * nnext, const struct ForceTr
             nleft->f.ChildType = NODE_NODE_TYPE;
             /* Zero the momenta for the parent*/
             memset(&nleft->mom, 0, sizeof(nleft->mom));
-
             /* Reset children to the new parent:
              * this assumes nright is a NODE NODE*/
             for(i = 0; i < 8; i++) {
                 int child = nleft->s.suns[i];
-                tb.Nodes[child].father = old_left;
+                tb.Nodes[child].father = this_left;
             }
             /* Make sure final child points to the parent's sibling.*/
             int oldsib = tb.Nodes[nleft->s.suns[7]].sibling;
             /* Walk downwards making sure all the children point to the new sibling.
              * Note also changes last particle node child. */
-            int nn = old_left;
+            int nn = this_left;
             while(tb.Nodes[nn].f.ChildType == NODE_NODE_TYPE) {
                 nn = tb.Nodes[nn].s.suns[7];
                 if(tb.Nodes[nn].sibling != oldsib)
@@ -565,6 +560,9 @@ merge_partial_force_trees(int left, int right, int * nnext, const struct ForceTr
             }
             /* Mark the right node as now invalid*/
             nright->father = -5;
+            /* Next iteration is going to sibling*/
+            this_left = nleft->sibling;
+            this_right = nright->sibling;
             continue;
         }
         else
