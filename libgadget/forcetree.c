@@ -418,16 +418,6 @@ create_new_node_layer(int firstparent, int p_toplace,
     return 0;
 }
 
-/* Get the topnode to which a particle belongs. Each local tree
- * has the local treenodes as the first few nodes.*/
-int get_topnode(int i, DomainDecomp * ddecomp, const int local_firstnode, const int StartLeaf)
-{
-    const int topleaf = domain_get_topleaf(P[i].Key, ddecomp);
-    //int treenode = ddecomp->TopLeaves[topleaf].treenode;
-    int local_topnode = topleaf - StartLeaf + local_firstnode;
-    return local_topnode;
-}
-
 /* Add a particle to the tree, extending the tree as necessary. Locking is done,
  * so may be called from a threaded context*/
 int add_particle_to_tree(int i, int this_start, const ForceTree tb, const int HybridNuGrav, int* nnext, const int local_lastnode)
@@ -591,18 +581,24 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         /* Free space for each thread*/
         int nnext_local = first_nottopnode + tid * (tb.lastnode - first_nottopnode) / nthr;
         int local_lastnode = first_nottopnode + (tid+1) * (tb.lastnode - first_nottopnode) / nthr -1;
-        int local_firstnode = nnext_local;
-        /* Need to set up the local topnodes now*/
-        for(i = 0; i < EndLeaf - StartLeaf; i++) {
-            /* Find real topnode*/
-            int treenode = ddecomp->TopLeaves[i + StartLeaf].treenode;
-            /* Make a local copy*/
-            memmove(&tb.Nodes[local_firstnode + i], &tb.Nodes[treenode], sizeof(struct NODE));
-            nnext_local++;
+        int local_firsttopnode = nnext_local;
+        /* For tid 0, just use the real tree. Saves copying the tree back.*/
+        if(tid == 0) {
+            local_firsttopnode = ddecomp->TopLeaves[StartLeaf].treenode;
+        }
+        else {
+            /* Need to set up the local topnodes now*/
+            for(i = 0; i < EndLeaf - StartLeaf; i++) {
+                /* Find real topnode*/
+                int treenode = ddecomp->TopLeaves[i + StartLeaf].treenode;
+                /* Make a local copy*/
+                memmove(&tb.Nodes[local_firsttopnode + i], &tb.Nodes[treenode], sizeof(struct NODE));
+                nnext_local++;
+            }
         }
         /* Stores the last-seen node on this thread.
          * Since most particles are close to each other, this should save a number of tree walks.*/
-        int this_acc = local_firstnode;
+        int this_acc = local_firsttopnode;
 
         message(1, "Topnodes %d tid %d real %d leafnode %d\n", local_firsttopnode, tid, ddecomp->TopLeaves[StartLeaf].treenode, ddecomp->TopLeaves[StartLeaf].treenode);
         /* Need to make sure all setup is done
@@ -626,7 +622,15 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
             if(inside_node(&tb.Nodes[this_acc], i)) {
                 this = this_acc;
             } else {
-                this = get_topnode(i, ddecomp, local_firstnode, StartLeaf);
+                /* Get the topnode to which a particle belongs. Each local tree
+                 * has the local treenodes as the first few nodes, except tid 0
+                 * which has the real topnodes.*/
+                const int topleaf = domain_get_topleaf(P[i].Key, ddecomp);
+                    //int treenode = ddecomp->TopLeaves[topleaf].treenode;
+                if(tid == 0)
+                    this = ddecomp->TopLeaves[topleaf].treenode;
+                else
+                    this = topleaf - StartLeaf + local_firsttopnode;
             }
 
             this_acc = add_particle_to_tree(i, this, tb, HybridNuGrav, &nnext_local, local_lastnode);
@@ -646,39 +650,16 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         #pragma omp for
         for(i = 0; i < EndLeaf - StartLeaf; i++) {
             int t;
-            for(t = 0; t < nthr-1; t++) {
-                int lefttop = first_nottopnode + (t / nthr) * (tb.lastnode - first_nottopnode);
-                int righttop = first_nottopnode + ((t+1) / nthr) * (tb.lastnode - first_nottopnode);
-                merge_partial_force_trees(lefttop, righttop, &nnext_local, tb, HybridNuGrav, local_lastnode);
+            int target = ddecomp->TopLeaves[StartLeaf+i].treenode;
+            for(t = 1; t < nthr; t++) {
+                int righttop = first_nottopnode + t * (tb.lastnode - first_nottopnode) / nthr + i;
+                message(1, "Merging %d to %d\n", righttop, target);
+                merge_partial_force_trees(target, righttop, &nnext_local, tb, HybridNuGrav, local_lastnode);
             }
         }
         /* Store the largest freespace indicator*/
         nnext = nnext_local;
     }
-    /* Copy the merged topnodes back into the true tree*/
-    int i;
-    for(i = 0; i < EndLeaf - StartLeaf; i++) {
-        int j;
-        /* Find real topnode*/
-        int treenode = ddecomp->TopLeaves[i + StartLeaf].treenode;
-        /* Copy it back to the real tree*/
-        memmove(&tb.Nodes[treenode], &tb.Nodes[first_nottopnode + i], sizeof(struct NODE));
-        /* Reset children to the new parent*/
-        if(tb.Nodes[treenode].f.ChildType == NODE_NODE_TYPE) {
-            for(j = 0; j < 8; j++) {
-                int child = tb.Nodes[treenode].s.suns[j];
-                tb.Nodes[child].father = treenode;
-            }
-        }
-        /* Unlikely but possible*/
-        else if(tb.Nodes[treenode].f.ChildType == PARTICLE_NODE_TYPE) {
-            for(j = 0; j < tb.Nodes[treenode].s.noccupied; j++) {
-                int child = tb.Nodes[treenode].s.suns[j];
-                tb.Father[child] = treenode;
-            }
-        }
-    }
-
 
     return nnext - tb.firstnode;
 }
