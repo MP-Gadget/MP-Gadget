@@ -134,6 +134,17 @@ node_is_node(int no, const ForceTree * tree)
 int
 force_get_father(int no, const ForceTree * tt);
 
+/*Internal API, exposed for tests*/
+int
+force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav);
+
+ForceTree
+force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp);
+
+void
+force_update_node_parallel(const ForceTree * tree, const DomainDecomp * ddecomp);
+
+
 #endif
 
 

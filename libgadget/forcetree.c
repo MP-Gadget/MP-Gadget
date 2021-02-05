@@ -49,16 +49,6 @@ init_forcetree_params(const int FastParticleType)
 static ForceTree
 force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir);
 
-/*Next three are not static as tested.*/
-int
-force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav);
-
-ForceTree
-force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp);
-
-void
-force_update_node_parallel(const ForceTree * tree, const DomainDecomp * ddecomp);
-
 static void
 force_treeupdate_pseudos(int no, const ForceTree * tree);
 

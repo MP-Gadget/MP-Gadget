@@ -18,17 +18,6 @@
 
 #include "stub.h"
 
-/*Defined in forcetree.c*/
-/*Next three are not static as tested.*/
-int
-force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav);
-
-ForceTree
-force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp);
-
-int
-force_update_node_parallel(const ForceTree * tree, const DomainDecomp * ddecomp);
-
 /*Particle data.*/
 struct part_manager_type PartManager[1] = {{0}};
 double BoxSize;
