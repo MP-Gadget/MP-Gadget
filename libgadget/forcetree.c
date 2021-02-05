@@ -604,6 +604,12 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
          * Since most particles are close to each other, this should save a number of tree walks.*/
         int this_acc = local_firstnode;
 
+        message(1, "Topnodes %d tid %d real %d leafnode %d\n", local_firsttopnode, tid, ddecomp->TopLeaves[StartLeaf].treenode, ddecomp->TopLeaves[StartLeaf].treenode);
+        /* Need to make sure all setup is done
+         * on all threads before we go into the for loop:
+         * don't want to pick up a half populated node in the memmove!*/
+        #pragma omp barrier
+
         #pragma omp for
         for(i = 0; i < npart; i++)
         {
