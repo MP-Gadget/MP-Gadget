@@ -508,6 +508,8 @@ merge_partial_force_trees(int left, int right, int * nnext, const struct ForceTr
                     endrun(8, "Bad child %d of %d\n", i, nright->s.suns[i], this_right);
                 add_particle_to_tree(nright->s.suns[i], this_left, tb, HybridNuGrav, nnext, local_lastnode);
             }
+            /* Mark the right node as now invalid*/
+            nright->father = -5;
             /* Now go to sibling*/
             this_left = nleft->sibling;
             this_right = nright->sibling;
@@ -538,7 +540,8 @@ merge_partial_force_trees(int left, int right, int * nnext, const struct ForceTr
                 int child = nleft->s.suns[j];
                 tb.Nodes[child].father = old_left;
             }
-
+            /* Mark the right node as now invalid*/
+            nright->father = -5;
             continue;
         }
         else
