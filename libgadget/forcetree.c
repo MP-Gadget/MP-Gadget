@@ -510,6 +510,13 @@ merge_partial_force_trees(int left, int right, int * nnext, const struct ForceTr
             }
             /* Mark the right node as now invalid*/
             nright->father = -5;
+            /* Make sure that nodes which have
+             * this_right as a sibling (there will
+             * be a max of one, as it is a particle node
+             * with no children) point to the replacement
+             * on the left*/
+            if(this_right > right && tb.Nodes[this_right - 1].sibling == this_right)
+                tb.Nodes[this_right - 1].sibling = this_left;
             /* Now go to sibling*/
             this_left = nleft->sibling;
             this_right = nright->sibling;
@@ -522,23 +529,35 @@ merge_partial_force_trees(int left, int right, int * nnext, const struct ForceTr
             /* Next iteration is going to sibling*/
             this_left = nleft->sibling;
             this_right = nright->sibling;
-            int father = nleft->father;
             /* Add the left particles to the right*/
-            int i, j;
+            int i;
             for(i = 0; i < nleft->s.noccupied; i++) {
                 if(nleft->s.suns[i] >= tb.firstnode)
                     endrun(8, "Bad child %d of %d\n", i, nleft->s.suns[i], this_left);
                 add_particle_to_tree(nleft->s.suns[i], this_right, tb, HybridNuGrav, nnext, local_lastnode);
             }
             /* Copy the right node over the left*/
-            memmove(nleft, nright, sizeof(struct NODE));
-            /* Reset father node*/
-            nleft->father = father;
+            memmove(&nleft->s, &nright->s, sizeof(nleft->s));
+            nleft->f.ChildType = NODE_NODE_TYPE;
+            /* Zero the momenta for the parent*/
+            memset(&nleft->mom, 0, sizeof(nleft->mom));
+
             /* Reset children to the new parent:
              * this assumes nright is a NODE NODE*/
-            for(j = 0; j < 8; j++) {
-                int child = nleft->s.suns[j];
+            for(i = 0; i < 8; i++) {
+                int child = nleft->s.suns[i];
                 tb.Nodes[child].father = old_left;
+            }
+            /* Make sure final child points to the parent's sibling.*/
+            int oldsib = tb.Nodes[nleft->s.suns[7]].sibling;
+            /* Walk downwards making sure all the children point to the new sibling.
+             * Note also changes last particle node child. */
+            int nn = old_left;
+            while(tb.Nodes[nn].f.ChildType == NODE_NODE_TYPE) {
+                nn = tb.Nodes[nn].s.suns[7];
+                if(tb.Nodes[nn].sibling != oldsib)
+                    endrun(20, "Not the expected sibling %d != %d\n",tb.Nodes[nn].sibling, oldsib);
+                tb.Nodes[nn].sibling = nleft->sibling;
             }
             /* Mark the right node as now invalid*/
             nright->father = -5;
