@@ -464,7 +464,7 @@ int add_particle_to_tree(int i, int this_start, const ForceTree tb, const int Hy
  * A merge is done when a particle node is encountered in one of the side trees.
  * The merge rule is that the node node is attached to the
  * left-most old parent and the particles are re-attached to the node node*/
-void
+int
 merge_partial_force_trees(int left, int right, int * nnext, const struct ForceTree tb, int HybridNuGrav, const int local_lastnode)
 {
     int this_left = left;
@@ -480,7 +480,7 @@ merge_partial_force_trees(int left, int right, int * nnext, const struct ForceTr
         struct NODE * nright = &tb.Nodes[this_right];
         if(*nnext > local_lastnode) {
             message(5, "Stopping merge as ran out of nodes on thread %d, lastnode %d\n", omp_get_thread_num(), local_lastnode);
-            break;
+            return 1;
         }
         /* Stop when we reach another topnode*/
         if((nleft->f.TopLevel && this_left != left) || (nright->f.TopLevel && this_right != right))
@@ -566,6 +566,7 @@ merge_partial_force_trees(int left, int right, int * nnext, const struct ForceTr
         else
             endrun(6, "Nodes %d %d have unexpected type %d %d\n", this_left, this_right, nleft->f.ChildType, nright->f.ChildType);
     }
+    return 0;
 }
 
 /*! Does initial creation of the nodes for the gravitational oct-tree.
@@ -691,12 +692,18 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         for(i = 0; i < EndLeaf - StartLeaf; i++) {
             int t;
             int target = ddecomp->TopLeaves[StartLeaf+i].treenode;
+            if(nnext_local > local_lastnode)
+                continue;
             for(t = 1; t < nthr; t++) {
                 int righttop = first_nottopnode + t * (tb.lastnode - first_nottopnode) / nthr + i;
 //                 message(1, "Merging %d to %d\n", righttop, target);
-                merge_partial_force_trees(target, righttop, &nnext_local, tb, HybridNuGrav, local_lastnode);
+                if(merge_partial_force_trees(target, righttop, &nnext_local, tb, HybridNuGrav, local_lastnode))
+                    break;
             }
         }
+        /* Make sure that we preserve that one thread ran out of room*/
+        if (nnext_local > local_lastnode)
+            nnext_local = tb.lastnode + 1000;
         /* Store the largest freespace indicator*/
         nnext = nnext_local;
     }
