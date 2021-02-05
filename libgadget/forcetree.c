@@ -681,8 +681,8 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         /* The implicit omp-barrier is important here!*/
 #ifdef DEBUG
         double tend = second();
-        #pragma omp master
-        message(0, "Took %.3g ms on initial insertion\n", (tend - tstart)*1000);
+//         #pragma omp master
+        message(0, "Initial insertion: %.3g ms. Nodes %d of %d-%d\n", (tend - tstart)*1000, nnext_local, local_firsttopnode, local_lastnode);
 #endif
 
         /* Merge each topnode separately, using a for loop.
