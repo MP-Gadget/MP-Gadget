@@ -471,19 +471,31 @@ merge_partial_force_trees(int left, int right, int * nnext, const struct ForceTr
     int this_right = right;
     const int left_end = tb.Nodes[left].sibling;
     const int right_end = tb.Nodes[right].sibling;
-    while(this_left != left_end && this_right != right_end && this_left >= tb.firstnode && this_right >= tb.firstnode)
+//     message(5, "Ends: %d %d\n", left_end, right_end);
+    while(this_left != left_end && this_right != right_end)
     {
+        if(this_left < tb.firstnode || this_right < tb.firstnode)
+            endrun(10, "Encountered invalid node: %d %d < first %d\n", this_left, this_right, tb.firstnode);
         struct NODE * nleft = &tb.Nodes[this_left];
         struct NODE * nright = &tb.Nodes[this_right];
-        /* Stop when we reach another topnode*/
-        if(nright->f.ChildType == PSEUDO_NODE_TYPE || nleft->f.ChildType == PSEUDO_NODE_TYPE )
+        if(*nnext > local_lastnode) {
+            message(5, "Stopping merge as ran out of nodes on thread %d, lastnode %d\n", omp_get_thread_num(), local_lastnode);
             break;
+        }
+        /* Stop when we reach another topnode*/
+        if((nleft->f.TopLevel && this_left != left) || (nright->f.TopLevel && this_right != right))
+            endrun(6, "Encountered another topnode: left %d == right %d! type %d\n", this_left, this_right, nleft->f.ChildType);
+        if(this_left == this_right)
+            endrun(6, "Odd: left %d == right %d! type %d\n", this_left, this_right, nleft->f.ChildType);
 //         message(1, "left %d right %d\n", this_left, this_right);
         /* Trees should be synced*/
         if(fabs(nleft->len / nright->len-1) > 1e-6)
             endrun(6, "Merge unsynced trees: %d %d len %g %g\n", this_left, this_right, nleft->len, nright->len);
         /* Two node nodes: keep walking down*/
         if(nleft->f.ChildType == NODE_NODE_TYPE && nright->f.ChildType == NODE_NODE_TYPE) {
+            if(tb.Nodes[nleft->s.suns[0]].father < 0 || tb.Nodes[nright->s.suns[0]].father < 0)
+                endrun(7, "Walking to nodes (%d %d) from (%d %d) fathers (%d %d)\n",
+                       nleft->s.suns[0], nright->s.suns[0], this_left, this_right, tb.Nodes[nleft->s.suns[0]].father, tb.Nodes[nright->s.suns[0]].father);
             this_left = nleft->s.suns[0];
             this_right = nright->s.suns[0];
             continue;
@@ -491,8 +503,11 @@ merge_partial_force_trees(int left, int right, int * nnext, const struct ForceTr
         /* If the right node has particles, add them to the left node, go to sibling on right and left.*/
         else if(nright->f.ChildType == PARTICLE_NODE_TYPE) {
             int i;
-            for(i = 0; i < nright->s.noccupied; i++)
+            for(i = 0; i < nright->s.noccupied; i++) {
+                if(nright->s.suns[i] >= tb.firstnode)
+                    endrun(8, "Bad child %d of %d\n", i, nright->s.suns[i], this_right);
                 add_particle_to_tree(nright->s.suns[i], this_left, tb, HybridNuGrav, nnext, local_lastnode);
+            }
             /* Now go to sibling*/
             this_left = nleft->sibling;
             this_right = nright->sibling;
@@ -508,8 +523,11 @@ merge_partial_force_trees(int left, int right, int * nnext, const struct ForceTr
             int father = nleft->father;
             /* Add the left particles to the right*/
             int i, j;
-            for(i = 0; i < nleft->s.noccupied; i++)
+            for(i = 0; i < nleft->s.noccupied; i++) {
+                if(nleft->s.suns[i] >= tb.firstnode)
+                    endrun(8, "Bad child %d of %d\n", i, nleft->s.suns[i], this_left);
                 add_particle_to_tree(nleft->s.suns[i], this_right, tb, HybridNuGrav, nnext, local_lastnode);
+            }
             /* Copy the right node over the left*/
             memmove(nleft, nright, sizeof(struct NODE));
             /* Reset father node*/
@@ -600,7 +618,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
          * Since most particles are close to each other, this should save a number of tree walks.*/
         int this_acc = local_firsttopnode;
 
-        message(1, "Topnodes %d tid %d real %d leafnode %d\n", local_firsttopnode, tid, ddecomp->TopLeaves[StartLeaf].treenode, ddecomp->TopLeaves[StartLeaf].treenode);
+//         message(1, "Topnodes %d tid %d real %d leafnode %d\n", local_firsttopnode, tid, ddecomp->TopLeaves[StartLeaf].treenode, ddecomp->TopLeaves[StartLeaf].treenode);
         /* Need to make sure all setup is done
          * on all threads before we go into the for loop:
          * don't want to pick up a half populated node in the memmove!*/
@@ -653,7 +671,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
             int target = ddecomp->TopLeaves[StartLeaf+i].treenode;
             for(t = 1; t < nthr; t++) {
                 int righttop = first_nottopnode + t * (tb.lastnode - first_nottopnode) / nthr + i;
-                message(1, "Merging %d to %d\n", righttop, target);
+//                 message(1, "Merging %d to %d\n", righttop, target);
                 merge_partial_force_trees(target, righttop, &nnext_local, tb, HybridNuGrav, local_lastnode);
             }
         }
