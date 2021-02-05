@@ -138,7 +138,8 @@ static int check_moments(const ForceTree * tb, const int numpart, const int nrea
         else
             node = nop->s.suns[0];
     }
-    assert_int_equal(counter, nrealnode);
+//     message(5, "count %d real %d\n", counter, nrealnode);
+    assert_true(counter <= nrealnode);
     assert_true(sibcntr < counter/100);
 
     free(oldmass);
@@ -262,6 +263,10 @@ static void test_rebuild_flat(void ** state) {
     DomainDecomp ddecomp = data->ddecomp;
     ddecomp.TopLeaves[0].topnode = numpart;
     ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp);
+    /* So unused memory has Father < 0*/
+    for(i = tb.firstnode; i < tb.lastnode; i++)
+        tb.Nodes[i].father = -10;
+
     do_tree_test(numpart, tb, &ddecomp);
     force_tree_free(&tb);
     free(P);
