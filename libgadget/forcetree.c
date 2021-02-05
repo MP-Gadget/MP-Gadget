@@ -828,7 +828,7 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree)
             force_update_particle_node(p, tree);
         if(tree->Nodes[p].f.ChildType == NODE_NODE_TYPE) {
             /* Don't spawn a new task if we are deep enough that we already spawned a lot.*/
-            if(childcnt > 1 && level < 64) {
+            if(childcnt > 1 && level < 512) {
                 #pragma omp task default(none) shared(level, childcnt, tree) firstprivate(nextsib, p)
                 force_update_node_recursive(p, nextsib, level*childcnt, tree);
             }
