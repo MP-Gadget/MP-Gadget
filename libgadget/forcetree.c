@@ -294,7 +294,8 @@ static void init_internal_node(struct NODE *nfreep, struct NODE *parent, int sub
 
 /* Size of the free Node thread cache.
  * 12 8-node rows (works out at 8kB) was found
- * to be optimal for an Intel skylake with 4 threads.*/
+ * to be optimal for an Intel skylake and
+ * an AMD Zen2 with 12 threads.*/
 #define NODECACHE_SIZE (8*12)
 
 /*Structure containing thread-local parameters of the tree build*/
@@ -648,9 +649,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         }
     }
 
-#ifdef DEBUG
-    double tstart = second();
-#endif
+/*     double tstart = second(); */
     const int first_free = nnext;
     /* Increment nnext for the threads we are about to initialise.*/
     nnext += NODECACHE_SIZE * nthr;
@@ -703,11 +702,8 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
             this_acc = add_particle_to_tree(i, this, tb, HybridNuGrav, &nc, &nnext);
         }
         /* The implicit omp-barrier is important here!*/
-#ifdef DEBUG
-        double tend = second();
-//         #pragma omp master
-        message(0, "Initial insertion: %.3g ms. First node %d\n", (tend - tstart)*1000, local_topnodes[0]);
-#endif
+/*         double tend = second(); */
+/*         message(0, "Initial insertion: %.3g ms. First node %d\n", (tend - tstart)*1000, local_topnodes[0]); */
 
         /* Merge each topnode separately, using a for loop.
          * This wastes threads if NTHREAD > NTOPNODES, but it
