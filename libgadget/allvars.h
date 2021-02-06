@@ -81,13 +81,15 @@ extern struct global_data_all_processes
 
     int WriteBlackHoleDetails; /* write BH details every time step*/
 
-    int MassiveNuLinRespOn; /*!< flags that massive neutrinos using the linear
-                                 response code of Ali-Haimoud & Bird 2013.*/
-    int HybridNeutrinosOn; /*!< Flags that hybrid neutrinos are enabled */
-    double HybridVcrit; /*!< Critical velocity switching between particle
-                          and analytic solvers when hybrid neutrinos are on*/
+    int MassiveNuLinRespOn; /* Flags that massive neutrinos using the linear
+                               response code of Ali-Haimoud & Bird 2013.*/
+    int HybridNeutrinosOn; /* Flags that hybrid neutrinos are enabled */
+    double HybridVcrit; /* Critical velocity switching between particle
+                           and analytic solvers when hybrid neutrinos are on*/
     double HybridNuPartTime; /*!< Redshift at which hybrid neutrinos switch on*/
 
+    int MaxDomainTimeBinDepth; /* We should redo domain decompositions every timestep, after the timestep hierarchy gets deeper than this.
+                                  Essentially forces a domain decompositon every 2^MaxDomainTimeBinDepth timesteps.*/
     int FastParticleType; /*!< flags a particle species to exclude timestep calculations.*/
     /* parameters determining output frequency */
     double PairwiseActiveFraction; /* Fraction of particles active for which we do a pairwise computation instead of a tree*/

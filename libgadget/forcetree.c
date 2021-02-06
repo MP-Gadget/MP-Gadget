@@ -599,7 +599,7 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
  **/
 int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav)
 {
-    int nnext = tb.firstnode;		/* index of first free node */
+    int nnext = tb.firstnode;       /* index of first free node */
 
     /* create an empty root node  */
     {
