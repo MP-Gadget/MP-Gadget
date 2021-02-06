@@ -660,6 +660,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         const int this_topnode = ddecomp->TopLeaves[tid + StartLeaf].treenode;
         int this_acc = this_topnode;
         // message(1, "Topnodes %d real %d\n", local_topnodes[0], topnodes[0]);
+        const struct NODE * const ntnode = &tb.Nodes[this_topnode];
 
         for(i = 0; i < npart; i++)
         {
@@ -668,7 +669,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
                 break;
 
             /*This thread only works on this topnode */
-            if(!inside_node(&tb.Nodes[this_topnode], i))
+            if(!inside_node(ntnode, i))
                 continue;
 
             /* Do not add garbage/swallowed particles to the tree*/
