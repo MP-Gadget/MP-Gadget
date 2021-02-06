@@ -42,7 +42,8 @@ static struct forcetree_params
 void
 init_forcetree_params(const int FastParticleType)
 {
-    ForceTreeParams.TreeAllocFactor = 0.7;
+    /* This was increased due to the extra nodes created by subtrees*/
+    ForceTreeParams.TreeAllocFactor = 0.9;
     ForceTreeParams.FastParticleType = FastParticleType;
 }
 
@@ -708,8 +709,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         /* Merge each topnode separately, using a for loop.
          * This wastes threads if NTHREAD > NTOPNODES, but it
          * means only one merge is done per subtree and
-         * it requires no locking. New nodes are put into
-         * this thread's spare space.*/
+         * it requires no locking.*/
         #pragma omp for
         for(i = 0; i < EndLeaf - StartLeaf; i++) {
             int t;
