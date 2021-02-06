@@ -259,8 +259,7 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
             newSlots[ptype] *= All.PartAllocFactor;
     }
 
-    size_t total_bytes = slots_reserve(0, newSlots, SlotsManager);
-    memset(SlotsManager->Base, 0, total_bytes);
+    slots_reserve(0, newSlots, SlotsManager);
 
     /* so we can set up the memory topology of secondary slots */
     slots_setup_topology(PartManager, NLocal, SlotsManager);
