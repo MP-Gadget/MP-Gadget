@@ -631,26 +631,11 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         force_create_node_for_topnode(tb.firstnode, 0, tb.Nodes, ddecomp, 1, 0, 0, 0, &nnext, tb.lastnode);
     }
     /* Set up thread-local copies of the topnodes to anchor the subtrees. */
-    int ThisTask, j, t;
+    int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     const int StartLeaf = ddecomp->Tasks[ThisTask].StartLeaf;
-    const int EndLeaf = ddecomp->Tasks[ThisTask].EndLeaf;
     const int nthr = omp_get_max_threads();
-    int * topnodes = ta_malloc("topnodes", int, (EndLeaf - StartLeaf) * nthr);
-    /* Topnodes for each thread. For tid 0, just use the real tree. Saves copying the tree back.*/
-    for(j = 0; j < EndLeaf - StartLeaf; j++)
-        topnodes[j] = ddecomp->TopLeaves[j + StartLeaf].treenode;
-    /* Other threads need a copy*/
-    for(t = 1; t < nthr; t++) {
-        for(j = 0; j < EndLeaf - StartLeaf; j++) {
-            /* Make a local copy*/
-            topnodes[j + t * (EndLeaf - StartLeaf)] = nnext;
-            memmove(&tb.Nodes[nnext], &tb.Nodes[topnodes[j]], sizeof(struct NODE));
-            nnext++;
-        }
-    }
 
-/*     double tstart = second(); */
     const int first_free = nnext;
     /* Increment nnext for the threads we are about to initialise.*/
     nnext += NODECACHE_SIZE * nthr;
@@ -660,7 +645,6 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         int i;
         /* Local topnodes*/
         int tid = omp_get_thread_num();
-        const int * const local_topnodes = topnodes + tid * (EndLeaf - StartLeaf);
 
         /* This implements a small thread-local free Node cache.
          * The cache ensures that Nodes from the same (or close) particles
@@ -673,60 +657,33 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
 
         /* Stores the last-seen node on this thread.
          * Since most particles are close to each other, this should save a number of tree walks.*/
-        int this_acc = local_topnodes[0];
+        const int this_topnode = ddecomp->TopLeaves[tid + StartLeaf].treenode;
+        int this_acc = this_topnode;
         // message(1, "Topnodes %d real %d\n", local_topnodes[0], topnodes[0]);
 
-        #pragma omp for
         for(i = 0; i < npart; i++)
         {
             /*Can't break from openmp for*/
             if(nc.nnext_thread >= tb.lastnode)
+                break;
+
+            /*This thread only works on this topnode */
+            if(!inside_node(&tb.Nodes[this_topnode], i))
                 continue;
 
             /* Do not add garbage/swallowed particles to the tree*/
             if(P[i].IsGarbage || (P[i].Swallowed && P[i].Type==5))
                 continue;
 
-            /*First find the Node for the TopLeaf */
-            int this;
+            int this = this_topnode;
             if(inside_node(&tb.Nodes[this_acc], i)) {
                 this = this_acc;
-            } else {
-                /* Get the topnode to which a particle belongs. Each local tree
-                 * has a local set of treenodes copying the global topnodes, except tid 0
-                 * which has the real topnodes.*/
-                const int topleaf = domain_get_topleaf(P[i].Key, ddecomp);
-                //int treenode = ddecomp->TopLeaves[topleaf].treenode;
-                this = local_topnodes[topleaf - StartLeaf];
             }
 
             this_acc = add_particle_to_tree(i, this, tb, HybridNuGrav, &nc, &nnext);
         }
-        /* The implicit omp-barrier is important here!*/
-/*         double tend = second(); */
-/*         message(0, "Initial insertion: %.3g ms. First node %d\n", (tend - tstart)*1000, local_topnodes[0]); */
-
-        /* Merge each topnode separately, using a for loop.
-         * This wastes threads if NTHREAD > NTOPNODES, but it
-         * means only one merge is done per subtree and
-         * it requires no locking.*/
-        #pragma omp for
-        for(i = 0; i < EndLeaf - StartLeaf; i++) {
-            int t;
-            /* These are the addresses of the real topnodes*/
-            const int target = topnodes[i];
-            if(nc.nnext_thread >= tb.lastnode)
-                continue;
-            for(t = 1; t < nthr; t++) {
-                const int righttop = topnodes[i + t * (EndLeaf - StartLeaf)];
-//                 message(1, "Merging %d to %d\n", righttop, target);
-                if(merge_partial_force_trees(target, righttop, &nc, &nnext, tb, HybridNuGrav))
-                    break;
-            }
-        }
     }
 
-    ta_free(topnodes);
     return nnext - tb.firstnode;
 }
 
