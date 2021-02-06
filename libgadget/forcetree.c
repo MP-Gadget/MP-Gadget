@@ -726,6 +726,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         }
     }
 
+    ta_free(topnodes);
     return nnext - tb.firstnode;
 }
 
