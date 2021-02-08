@@ -202,6 +202,7 @@ static struct UVBG get_local_UVBG_from_J21(double redshift, int heiiionized, dou
     uvbg.self_shield_dens = get_self_shield_dens(redshift, &uvbg);
 
     //(jdavies) debugging messages, print's first particle's UVBG
+#ifdef DEBUG
     if(!UVBGgrids.debug_printed && uvbg.J_UV > 0)
     {
         message(0,"-----main UVBG for one particle-----\n");
@@ -224,6 +225,7 @@ static struct UVBG get_local_UVBG_from_J21(double redshift, int heiiionized, dou
 
         UVBGgrids.debug_printed = 1;
     }
+#endif
 
     return uvbg;
 }
