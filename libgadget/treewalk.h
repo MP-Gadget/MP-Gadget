@@ -125,6 +125,8 @@ struct TreeWalk {
     double timecomp3;
     double timecommsumm1;
     double timecommsumm2;
+    /* max/avg time per thread spent in real_v*/
+    double thr_imbalance;
     /* For secondary tree walks this stores the
      * total number of pseudo-particles in all
      * node lists of exported particles.*/

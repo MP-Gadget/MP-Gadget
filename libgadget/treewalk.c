@@ -284,7 +284,7 @@ treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum T
 #endif
 }
 
-static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * dataindexoffset, size_t * nexports, int * currentIndex)
+static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * dataindexoffset, size_t * nexports, double * totaltime, int * currentIndex)
 {
     LocalTreeWalk lv[1];
     /* Note: exportflag is local to each thread */
@@ -309,6 +309,7 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * d
         chnksz = 1;
     if(chnksz > 100)
         chnksz = 100;
+    double tstart = second();
     do {
         /* Get another chunk from the global queue*/
         chnk = atomic_fetch_and_add(currentIndex, chnksz);
@@ -365,6 +366,8 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * d
             break;
         }
     } while(chnk < tw->WorkSetSize);
+    double tend = second();
+    *totaltime = tend - tstart;
 
     *dataindexoffset = lv->DataIndexOffset;
     *nexports = lv->Nexport;
@@ -469,16 +472,18 @@ ev_primary(TreeWalk * tw)
 
     size_t * nexports = ta_malloc("localexports", size_t, tw->NThread);
     size_t * dataindexoffset = ta_malloc("dataindex", size_t, tw->NThread);
+    double * totaltime = ta_malloc("threadtime", double, tw->NThread);
 
 #pragma omp parallel reduction(min: lastSucceeded)
     {
         int tid = omp_get_thread_num();
-        lastSucceeded = real_ev(export, tw, &dataindexoffset[tid], &nexports[tid], &currentIndex);
+        lastSucceeded = real_ev(export, tw, &dataindexoffset[tid], &nexports[tid], &totaltime[tid], &currentIndex);
     }
 
     int64_t i;
     tw->Nexport = 0;
 
+    double avgtime = 0, maxtime=0;
     /* Compactify the export queue*/
     for(i = 0; i < tw->NThread; i++)
     {
@@ -486,8 +491,14 @@ ev_primary(TreeWalk * tw)
         if(tw->Nexport != dataindexoffset[i])
             memmove(DataIndexTable + tw->Nexport, DataIndexTable + dataindexoffset[i], sizeof(DataIndexTable[0]) * nexports[i]);
         tw->Nexport += nexports[i];
+        avgtime += totaltime[i];
+        if(totaltime[i] > maxtime)
+            maxtime = totaltime[i];
     }
+    avgtime /= tw->NThread;
+    tw->thr_imbalance = maxtime / avgtime;
 
+    myfree(totaltime);
     myfree(dataindexoffset);
     myfree(nexports);
     ev_free_threadlocals(export);
@@ -662,6 +673,11 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
     MPI_Reduce(&tw->Nlist,  &totlist, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
     message(0, "Nodes in nodelist: %g (avg). %ld nodes, %ld lists\n", ((double) totNodesinlist)/totlist, totlist, totNodesinlist);*/
 #endif
+    double maximbalance, meanimbalance;
+    MPI_Reduce(&tw->thr_imbalance,  &meanimbalance, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tw->thr_imbalance,  &maximbalance, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    meanimbalance /= tw->NTask;
+    message(0, "Treewalk thread time imbalance: avg %g, max %g\n", meanimbalance, maximbalance);
     double tstart, tend;
 
     tstart = second();
