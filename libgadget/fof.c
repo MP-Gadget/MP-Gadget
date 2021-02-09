@@ -1098,11 +1098,29 @@ static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, enum TreeWalk
         HaloLabel[place].MinIDTask = O->MinIDTask;
     }
 }
+
 static void
 fof_secondary_ngbiter(TreeWalkQueryFOF * I,
         TreeWalkResultFOF * O,
         TreeWalkNgbIterFOF * iter,
-        LocalTreeWalk * lv);
+        LocalTreeWalk * lv)
+{
+    if(iter->base.other == -1) {
+        O->Distance = LARGE;
+        iter->base.Hsml = I->Hsml;
+        iter->base.mask = FOF_PRIMARY_LINK_TYPES;
+        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
+        return;
+    }
+    int other = iter->base.other;
+    double r = iter->base.r;
+    if(r < O->Distance)
+    {
+        O->Distance = r;
+        O->MinID = HaloLabel[other].MinID;
+        O->MinIDTask = HaloLabel[other].MinIDTask;
+    }
+}
 
 static void
 fof_secondary_postprocess(int p, TreeWalk * tw)
@@ -1130,13 +1148,14 @@ fof_secondary_postprocess(int p, TreeWalk * tw)
         }
     }
 }
+
 static void fof_label_secondary(ForceTree * tree)
 {
     int n;
 
     TreeWalk tw[1] = {{0}};
     tw->ev_label = "FOF_FIND_NEAREST";
-    tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
+    tw->visit = (TreeWalkVisitFunction) knn_visit;
     tw->ngbiter = (TreeWalkNgbIterFunction) fof_secondary_ngbiter;
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterFOF);
     tw->haswork = fof_secondary_haswork;
@@ -1196,31 +1215,6 @@ static void fof_label_secondary(ForceTree * tree)
     ta_free(FOF_SECONDARY_GET_PRIV(tw)->npleft);
     myfree(FOF_SECONDARY_GET_PRIV(tw)->hsml);
     myfree(FOF_SECONDARY_GET_PRIV(tw)->distance);
-}
-
-static void
-fof_secondary_ngbiter( TreeWalkQueryFOF * I,
-        TreeWalkResultFOF * O,
-        TreeWalkNgbIterFOF * iter,
-        LocalTreeWalk * lv)
-{
-    if(iter->base.other == -1) {
-        O->Distance = LARGE;
-        iter->base.Hsml = I->Hsml;
-        iter->base.mask = FOF_PRIMARY_LINK_TYPES;
-        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
-        return;
-    }
-    int other = iter->base.other;
-    double r = iter->base.r;
-    if(r < O->Distance && r < I->Hsml)
-    {
-        O->Distance = r;
-        O->MinID = HaloLabel[other].MinID;
-        O->MinIDTask = HaloLabel[other].MinIDTask;
-        /* No need to search further now we have a neighbour.*/
-        iter->base.Hsml = r;
-    }
 }
 
 /*

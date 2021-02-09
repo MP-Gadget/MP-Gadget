@@ -178,4 +178,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
 /*returns -1 if the buffer is full */
 int treewalk_export_particle(LocalTreeWalk * lv, int no);
 #define TREEWALK_REDUCE(A, B) (A) = (mode==TREEWALK_PRIMARY)?(B):((A) + (B))
+
+int knn_visit(TreeWalkQueryBase * I, TreeWalkResultBase * O, LocalTreeWalk * lv);
+
 #endif
