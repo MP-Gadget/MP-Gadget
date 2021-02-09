@@ -52,9 +52,9 @@ static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout
 static size_t domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pman, const struct slots_manager_type * sman);
 static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm);
 
-/* This function builts the count/displ arrays from
+/* This function builds the count/displ arrays from
  * the rows stored in the entry struct of the plan.
- * MPI expects a these numbers to be tightly packed in memory,
+ * MPI expects these numbers to be tightly packed in memory,
  * but our struct stores them as different columns.
  *
  * Technically speaking, the operation is therefore a transpose.

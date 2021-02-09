@@ -18,17 +18,6 @@
 
 #include "stub.h"
 
-/*Defined in forcetree.c*/
-/*Next three are not static as tested.*/
-int
-force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav);
-
-ForceTree
-force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp);
-
-int
-force_update_node_parallel(const ForceTree * tree, const DomainDecomp * ddecomp);
-
 /*Particle data.*/
 struct part_manager_type PartManager[1] = {{0}};
 double BoxSize;
@@ -149,7 +138,8 @@ static int check_moments(const ForceTree * tb, const int numpart, const int nrea
         else
             node = nop->s.suns[0];
     }
-    assert_int_equal(counter, nrealnode);
+//     message(5, "count %d real %d\n", counter, nrealnode);
+    assert_true(counter <= nrealnode);
     assert_true(sibcntr < counter/100);
 
     free(oldmass);
@@ -204,7 +194,6 @@ static int check_tree(const ForceTree * tb, const int nnodes, const int numpart)
         }
         nrealnode++;
     }
-    assert_true(nnodes - nrealnode < omp_get_max_threads()*NODECACHE_SIZE);
 
     for(i=0; i<numpart; i++)
     {
@@ -247,8 +236,8 @@ static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp
     force_update_node_parallel(&tb, ddecomp);
     end = MPI_Wtime();
     ms = (end - start)*1000;
-    printf("Updated moments in %.3g ms. Total mass: %g\n", ms, tb.Nodes[numpart].mom.mass);
-    assert_true(fabs(tb.Nodes[numpart].mom.mass - numpart) < 0.5);
+    printf("Updated moments in %.3g ms. Total mass: %g\n", ms, tb.Nodes[tb.firstnode].mom.mass);
+    assert_true(fabs(tb.Nodes[tb.firstnode].mom.mass - numpart) < 0.5);
     check_moments(&tb, numpart, nrealnode);
 }
 
@@ -273,6 +262,10 @@ static void test_rebuild_flat(void ** state) {
     DomainDecomp ddecomp = data->ddecomp;
     ddecomp.TopLeaves[0].topnode = numpart;
     ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp);
+    /* So unused memory has Father < 0*/
+    for(i = tb.firstnode; i < tb.lastnode; i++)
+        tb.Nodes[i].father = -10;
+
     do_tree_test(numpart, tb, &ddecomp);
     force_tree_free(&tb);
     free(P);

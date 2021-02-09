@@ -31,7 +31,7 @@ event_unlisten(EventSpec * eh, eventfunc func, void * userdata)
             break;
         }
     }
-    if(i == eh->used) {
+    if(i == eh->used || eh->used == 0) {
         return 1;
     }
     memmove(&eh->h[i], &eh->h[i+1], sizeof(eh->h[0]) * (eh->used - i - 1));

@@ -210,10 +210,10 @@ run(int RestartSnapNum)
         /* Sync positions of all particles */
         drift_all_particles(Ti_Last, times.Ti_Current, All.BoxSize, &All.CP, rel_random_shift);
 
+        int extradomain = is_timebin_active(times.mintimebin + All.MaxDomainTimeBinDepth, times.Ti_Current);
         /* drift and ddecomp decomposition */
-
         /* at first step this is a noop */
-        if(is_PM) {
+        if(extradomain || is_PM) {
             /* full decomposition rebuilds the tree */
             domain_decompose_full(ddecomp);
         } else {

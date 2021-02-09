@@ -93,7 +93,8 @@ create_gadget_parameter_set()
     param_declare_double(ps, "TimeMax", OPTIONAL, 1.0, "Scale factor to end run.");
     param_declare_double(ps, "TimeLimitCPU", REQUIRED, 0, "CPU time to run for in seconds. Code will stop if it notices that the time to end of the next PM step is longer than the remaining time.");
 
-    param_declare_int   (ps, "DomainOverDecompositionFactor", OPTIONAL, 4, "Create on average this number of sub domains on a MPI rank. Load balancer will then move these subdomains around to equalize the work per rank. Higher numbers improve the load balancing but make domain more expensive.");
+    param_declare_int   (ps, "MaxDomainTimeBinDepth", OPTIONAL, 8, "Forces a domain decompositon every 2^MaxDomainTimeBinDepth timesteps.");
+    param_declare_int   (ps, "DomainOverDecompositionFactor", OPTIONAL, -1, "Create on average this number of sub domains on a MPI rank. Higher numbers improve the load balancing. For optimal tree building efficiency, use one domain per thread (the default).");
     param_declare_double(ps, "RandomParticleOffset", OPTIONAL, 8., "Internally shift the particles within a periodic box by a random fraction of a PM grid cell each domain decomposition, ensuring that tree openings are decorrelated between timesteps. This shift is subtracted before particles are saved.");
 
     param_declare_int   (ps, "DomainUseGlobalSorting", OPTIONAL, 1, "Determining the initial refinement of chunks globally. Enabling this produces better domains at costs of slowing down the domain decomposition.");
