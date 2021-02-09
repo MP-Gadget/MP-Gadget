@@ -241,7 +241,7 @@ static struct UVBG get_local_UVBG_from_J21(double redshift, int heiiionized, dou
 //placeholder function so i don't have to delete old get_local_UVBG yet
 struct UVBG get_local_UVBG(double redshift, double * Pos, const double * PosOffset, int heiiionized, double J21)
 {
-    if(All.ExcursionSetFlag && (redshift > All.ExcursionSetZStop))
+    if(All.ExcursionSetReionOn && (redshift > All.ExcursionSetZStop))
     {
         return get_local_UVBG_from_J21(redshift,heiiionized,J21);
     }
