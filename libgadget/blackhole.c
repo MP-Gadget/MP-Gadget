@@ -723,7 +723,8 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
     }
     else
     {
-        message(2, "Density is zero in DF kernel, kernel may be too small.\n");
+        message(2, "Dynamic Friction density is zero for BH %ld. Surroundingpart %d, mass %g, hsml %g, dens %g, pos %g %g %g.\n",
+            P[n].ID, BH_GET_PRIV(tw)->BH_SurroundingParticles[PI], BHP(n).Mass, P[n].Hsml, BHP(n).Density, P[n].Pos[0], P[n].Pos[1], P[n].Pos[2]);
         for(j = 0; j < 3; j++)
         {
             BHP(n).DFAccel[j] = 0;
@@ -783,10 +784,10 @@ blackhole_dynfric_ngbiter(TreeWalkQueryBHDynfric * I,
             double u = r * iter->dynfric_kernel.Hinv;
             double wk = density_kernel_wk(&iter->dynfric_kernel, u);
             float mass_j = P[other].Mass;
-
+            int k;
             O->SurroundingParticles += 1;
             O->SurroundingDensity += (mass_j * wk);
-            for (int k = 0; k < 3; k++){
+            for (k = 0; k < 3; k++){
                 O->SurroundingVel[k] += (mass_j * wk * P[other].Vel[k]);
                 O->SurroundingRmsVel += (mass_j * wk * pow(P[other].Vel[k], 2));
             }
