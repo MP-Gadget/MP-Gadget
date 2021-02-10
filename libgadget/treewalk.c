@@ -1121,3 +1121,119 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
     return numcand;
 }
 
+
+/*****
+ * This is visit code that finds the nearest neighbour particle in the tree from
+ * searchcenter up to hsml. It calls ngbiter every time a candidate is found, and thus culls the tree
+ * when a node can contain no particle closer than the current nearest neighbour.
+ * */
+int knn_visit(TreeWalkQueryBase * I,
+            TreeWalkResultBase * O,
+            LocalTreeWalk * lv)
+{
+    TreeWalkNgbIterBase * iter = alloca(lv->tw->ngbiter_type_elsize);
+
+    /* Kick-start the iteration with other == -1 */
+    iter->other = -1;
+    lv->tw->ngbiter(I, O, iter, lv);
+
+    int inode;
+    for(inode = 0; (lv->mode == 0 && inode < 1)|| (lv->mode == 1 && inode < NODELISTLENGTH && I->NodeList[inode] >= 0); inode++)
+    {
+        int no = I->NodeList[inode];
+        const ForceTree * tree = lv->tw->tree;
+        const double BoxSize = tree->BoxSize;
+
+        while(no >= 0)
+        {
+            struct NODE *current = &tree->Nodes[no];
+
+            /* When walking exported particles we start from the encompassing top-level node,
+            * so if we get back to a top-level node again we are done.*/
+            if(lv->mode == 1) {
+                /* The first node is always top-level*/
+                if(current->f.TopLevel && no != I->NodeList[inode]) {
+                    /* we reached a top-level node again, which means that we are done with the branch */
+                    break;
+                }
+            }
+
+            /* Cull the node */
+            if(0 == cull_node(I, iter, current, BoxSize)) {
+                /* in case the node can be discarded */
+                no = current->sibling;
+                continue;
+            }
+
+            /* Node contains relevant particles, add them.*/
+            if(current->f.ChildType == PARTICLE_NODE_TYPE) {
+                int i;
+                int * suns = current->s.suns;
+                for (i = 0; i < current->s.noccupied; i++) {
+                    /* must be the correct type: compare the
+                    * current type for this subnode extracted
+                    * from the bitfield to the mask.*/
+                    int type = (current->s.Types >> (3*i)) % 8;
+
+                    if(!((1<<type) & iter->mask))
+                        continue;
+
+                    /* Now evaluate a particle for the list*/
+                    int other = suns[i];
+                    /* Skip garbage*/
+                    if(P[other].IsGarbage)
+                        continue;
+                    /* In case the type of the particle has changed since the tree was built.
+                    * Happens for wind treewalk for gas turned into stars on this timestep.*/
+                    if(!((1<<P[other].Type) & iter->mask))
+                        continue;
+
+                    double dist = iter->Hsml;
+                    double r2 = 0;
+                    int d;
+                    double h2 = dist * dist;
+                    for(d = 0; d < 3; d ++) {
+                        /* the distance vector points to 'other' */
+                        iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d], BoxSize);
+                        r2 += iter->dist[d] * iter->dist[d];
+                        if(r2 > h2) break;
+                    }
+                    if(r2 > h2) continue;
+
+                    /* update the iter and call the iteration function*/
+                    iter->r2 = r2;
+                    iter->other = other;
+                    iter->r = sqrt(r2);
+                    /* No need to search nodes at a greater distance
+                     * now that we have a neighbour.*/
+                    iter->Hsml = iter->r;
+                    lv->tw->ngbiter(I, O, iter, lv);
+                }
+                /* Move sideways*/
+                no = current->sibling;
+                continue;
+            }
+            else if(current->f.ChildType == PSEUDO_NODE_TYPE) {
+                /* pseudo particle */
+                if(lv->mode == 1) {
+                    endrun(12312, "Secondary for particle %d from node %d found pseudo at %d.\n", lv->target, I->NodeList[inode], current);
+                } else {
+                    /* Export the pseudo particle*/
+                    if(-1 == treewalk_export_particle(lv, current->s.suns[0]))
+                        return -1;
+                    /* Move sideways*/
+                    no = current->sibling;
+                    continue;
+                }
+            }
+            /* ok, we need to open the node */
+            no = current->s.suns[0];
+        }
+    }
+
+    if(lv->mode == 1) {
+        lv->Nnodesinlist += inode;
+        lv->Nlist += 1;
+    }
+    return 0;
+}
