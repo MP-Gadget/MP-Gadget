@@ -41,6 +41,7 @@ extern struct global_data_all_processes
     double SlotsIncreaseFactor; /* !< What percentage to increase the slot allocation by when requested*/
     int OutputPotential;        /*!< Flag whether to include the potential in snapshots*/
     int OutputHeliumFractions;  /*!< Flag whether to output the helium ionic fractions in snapshots*/
+    int OutputTimebins;         /* Flag whether to save the timebins*/
     int OutputDebugFields;      /* Flag whether to include a lot of debug output in snapshots*/
 
     double RandomParticleOffset; /* If > 0, a random shift of max RandomParticleOffset * BoxSize is applied to every particle

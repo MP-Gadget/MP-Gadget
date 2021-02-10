@@ -84,6 +84,7 @@ create_gadget_parameter_set()
     /*End cosmology parameters*/
 
     param_declare_int(ps,    "OutputPotential", OPTIONAL, 1, "Save the potential in snapshots.");
+    param_declare_int(ps,    "OutputTimebins", OPTIONAL, 0, "Save the particle timebins in snapshots, for debugging.");
     param_declare_int(ps,    "OutputHeliumFractions", OPTIONAL, 0, "Save the helium ionic fractions in snapshots.");
     param_declare_int(ps,    "OutputDebugFields", OPTIONAL, 0, "Save a large number of debug fields in snapshots.");
     param_declare_int(ps,    "ShowBacktrace", OPTIONAL, 1, "Print a backtrace on crash. Hangs on stampede.");

@@ -835,6 +835,7 @@ SIMPLE_PROPERTY(Mass, Mass, float, 1)
 SIMPLE_PROPERTY(ID, ID, uint64_t, 1)
 SIMPLE_PROPERTY(Generation, Generation, unsigned char, 1)
 SIMPLE_GETTER(GTPotential, Potential, float, 1, struct particle_data)
+SIMPLE_GETTER(GTTimeBin, TimeBin, int, 1, struct particle_data)
 SIMPLE_PROPERTY(SmoothingLength, Hsml, float, 1)
 SIMPLE_PROPERTY_PI(Density, Density, float, 1, struct sph_particle_data)
 SIMPLE_PROPERTY_PI(EgyWtDensity, EgyWtDensity, float, 1, struct sph_particle_data)
@@ -980,6 +981,8 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
             IO_REG_WRONLY(Potential, "f4", 1, i, IOTable);
         if(WriteGroupID)
             IO_REG_WRONLY(GroupID, "u4", 1, i, IOTable);
+        if(All.OutputTimebins)
+            IO_REG_WRONLY(TimeBin,       "u4", 1, i, IOTable);
     }
 
     IO_REG(Generation,       "u1", 1, 0, IOTable);
@@ -1054,7 +1057,6 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
  * Warning: future code versions may change the units!*/
 SIMPLE_GETTER(GTGravAccel, GravAccel[0], float, 3, struct particle_data)
 SIMPLE_GETTER(GTGravPM, GravPM[0], float, 3, struct particle_data)
-SIMPLE_GETTER(GTTimeBin, TimeBin, int, 1, struct particle_data)
 SIMPLE_GETTER_PI(GTHydroAccel, HydroAccel[0], float, 3, struct sph_particle_data)
 SIMPLE_GETTER_PI(GTMaxSignalVel, MaxSignalVel, float, 1, struct sph_particle_data)
 SIMPLE_GETTER_PI(GTEntropy, Entropy, float, 1, struct sph_particle_data)
@@ -1069,7 +1071,8 @@ void register_debug_io_blocks(struct IOTable * IOTable)
     for(ptype = 0; ptype < 6; ptype++) {
         IO_REG_WRONLY(GravAccel,       "f4", 3, ptype, IOTable);
         IO_REG_WRONLY(GravPM,       "f4", 3, ptype, IOTable);
-        IO_REG_WRONLY(TimeBin,       "u4", 1, ptype, IOTable);
+        if(!All.OutputTimebins) /* Otherwise it is output in the regular blocks*/
+            IO_REG_WRONLY(TimeBin,       "u4", 1, ptype, IOTable);
     }
     IO_REG_WRONLY(HydroAccel,       "f4", 3, 0, IOTable);
     IO_REG_WRONLY(MaxSignalVel,       "f4", 1, 0, IOTable);

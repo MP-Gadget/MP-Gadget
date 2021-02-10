@@ -65,6 +65,7 @@ set_init_params(ParameterSet * ps)
         All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
 
         All.OutputPotential = param_get_int(ps, "OutputPotential");
+        All.OutputTimebins = param_get_int(ps, "OutputTimebins");
         All.OutputHeliumFractions = param_get_int(ps, "OutputHeliumFractions");
         All.OutputDebugFields = param_get_int(ps, "OutputDebugFields");
 
