@@ -109,7 +109,7 @@ test_exchange(void **state)
     domain_test_id_uniqueness(PartManager);
 
     for(i = 0; i < PartManager->NumPart; i ++) {
-        assert_true(P[i].ID % NTask == ThisTask);
+        assert_true(P[i].ID % NTask == 1Lu * ThisTask);
     }
 
     teardown_particles(state);
@@ -133,7 +133,7 @@ test_exchange_zero_slots(void **state)
     domain_test_id_uniqueness(PartManager);
 
     for(i = 0; i < PartManager->NumPart; i ++) {
-        assert_true (P[i].ID % NTask == ThisTask);
+        assert_true (P[i].ID % NTask == 1Lu*ThisTask);
     }
 
     teardown_particles(state);
@@ -159,7 +159,7 @@ test_exchange_with_garbage(void **state)
     slots_check_id_consistency(PartManager, SlotsManager);
 
     for(i = 0; i < PartManager->NumPart; i ++) {
-        assert_true (P[i].ID % NTask == ThisTask);
+        assert_true (P[i].ID % NTask == 1Lu * ThisTask);
     }
 
     for(i = 0; i < PartManager->NumPart; i ++) {
@@ -203,7 +203,7 @@ test_exchange_uneven(void **state)
         if(P[i].Type == 0) {
             assert_true (ThisTask == 0);
         } else {
-            assert_true(P[i].ID % NTask == ThisTask);
+            assert_true(P[i].ID % NTask == 1Lu * ThisTask);
         }
     }
 
