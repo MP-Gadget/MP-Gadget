@@ -407,7 +407,8 @@ void petaio_read_neutrinos(BigFile * bf, int ThisTask)
     }
     big_array_init(&deltas, delta_tot, "=f8", 2, dims, strides);
     petaio_read_block(bf, "Neutrino/Deltas", &deltas, 1);
-
+    if(nk > 1Lu*delta_tot_table.nk_allocated || ia > 1Lu*delta_tot_table.namax)
+        endrun(5, "Allocated nk %d na %d for neutrino power but need nk %d na %d\n", delta_tot_table.nk_allocated, delta_tot_table.namax, nk, ia);
     /*Save a flat memory block*/
     for(ik=0;ik<nk;ik++)
         for(i=0;i<ia;i++)
