@@ -49,7 +49,6 @@ gravpm_init_periodic(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, doubl
     /*Initialise the kspace neutrino code if it is enabled.
      * Mpc units are used to match power spectrum code.*/
     if(All.MassiveNuLinRespOn) {
-        init_neutrinos_lra(Nmesh, All.TimeIC, All.TimeMax, All.CP.Omega0, &All.CP.ONu, All.UnitTime_in_s, CM_PER_MPC);
         global_functions.global_readout = measure_power_spectrum;
         global_functions.global_analysis = compute_neutrino_power;
     }

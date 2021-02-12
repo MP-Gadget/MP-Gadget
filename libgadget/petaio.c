@@ -205,6 +205,10 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
     BigBlock bh;
     message(0, "Reading snapshot %s\n", fname);
 
+    int NTask, ThisTask;
+    MPI_Comm_size(Comm, &NTask);
+    MPI_Comm_rank(Comm, &ThisTask);
+
     if(0 != big_file_mpi_open(&bf, fname, Comm)) {
         endrun(0, "Failed to open snapshot at %s:%s\n", fname,
                     big_file_get_error_message());
@@ -220,10 +224,32 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
         endrun(0, "Failed to close block: %s\n",
                     big_file_get_error_message());
     }
-
-    int NTask, ThisTask;
-    MPI_Comm_size(Comm, &NTask);
-    MPI_Comm_rank(Comm, &ThisTask);
+    /*Read neutrinos from the snapshot if necessary*/
+    if(All.MassiveNuLinRespOn) {
+        size_t nk = All.Nmesh;
+        /* Get the nk and do allocation. */
+        if(!ic) {
+            BigBlock bn;
+            if(0 != big_file_mpi_open_block(&bf, &bn, "Neutrino", MPI_COMM_WORLD)) {
+                endrun(0, "Failed to open block at %s:%s\n", "Neutrino",
+                            big_file_get_error_message());
+            }
+            if(0 != big_block_get_attr(&bn, "Nkval", &nk, "u8", 1)) {
+                endrun(0, "Failed to read attr: %s\n",
+                            big_file_get_error_message());
+            }
+            if(0 != big_block_mpi_close(&bn, MPI_COMM_WORLD)) {
+                endrun(0, "Failed to close block %s\n",
+                            big_file_get_error_message());
+            }
+        }
+        init_neutrinos_lra(nk, All.TimeIC, All.TimeMax, All.CP.Omega0, &All.CP.ONu, All.UnitTime_in_s, CM_PER_MPC);
+        /*Read the neutrino transfer function from the ICs*/
+        if(ic)
+            petaio_read_icnutransfer(&bf, ThisTask);
+        else
+            petaio_read_neutrinos(&bf, ThisTask);
+    }
 
     /* sets the maximum number of particles that may reside on a processor */
     int MaxPart = (int) (All.PartAllocFactor * All.TotNumPartInit / NTask);
@@ -296,15 +322,6 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
         if(0 == petaio_read_block(&bf, blockname, &array, IOTable->ent[i].required))
             petaio_readout_buffer(&array, &IOTable->ent[i]);
         petaio_destroy_buffer(&array);
-    }
-
-    /*Read neutrinos from the snapshot if necessary*/
-    if(All.MassiveNuLinRespOn) {
-        /*Read the neutrino transfer function from the ICs*/
-        if(ic)
-            petaio_read_icnutransfer(&bf, ThisTask);
-        else
-            petaio_read_neutrinos(&bf, ThisTask);
     }
 
     if(0 != big_file_mpi_close(&bf, Comm)) {
