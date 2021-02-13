@@ -80,7 +80,6 @@ void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_Comm Co
             destroy_io_blocks(&IOTable);
             return;
         }
-        walltime_measure("/FOF/IO/Distribute");
 
         int * selection = mymalloc("Selection", sizeof(int) * halo_pman.NumPart);
 
@@ -287,6 +286,7 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
     }
 #endif
 
+    walltime_measure("/FOF/IO/Distribute");
     /* sort SPH and Others independently */
     if(domain_exchange(fof_sorted_layout, targettask, 1, halo_pman, halo_sman, 1, Comm)) {
         message(1930, "Failed to exchange and write particles for the FOF. This is non-fatal, continuing\n");
@@ -304,6 +304,7 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
         if(halopart[i].GrNr > GrNrMax)
             GrNrMax = halopart[i].GrNr;
     }
+
     MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, Comm);
     message(0, "GrNrMax after exchange is %d\n", GrNrMaxGlobal);
     return 0;
