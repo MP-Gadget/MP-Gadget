@@ -723,7 +723,7 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
     }
     else
     {
-        message(2, "Dynamic Friction density is zero for BH %ld. Surroundingpart %d, mass %g, hsml %g, dens %g, pos %g %g %g.\n",
+        message(2, "Dynamic Friction density is zero for BH %ld. Surroundingpart %g, mass %g, hsml %g, dens %g, pos %g %g %g.\n",
             P[n].ID, BH_GET_PRIV(tw)->BH_SurroundingParticles[PI], BHP(n).Mass, P[n].Hsml, BHP(n).Density, P[n].Pos[0], P[n].Pos[1], P[n].Pos[2]);
         for(j = 0; j < 3; j++)
         {
