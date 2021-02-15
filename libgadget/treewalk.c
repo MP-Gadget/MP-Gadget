@@ -16,8 +16,6 @@
 
 #define FACT1 0.366025403785	/* FACT1 = 0.5 * (sqrt(3)-1) */
 
-static int *Ngblist;
-
 /* Structure to store the (task-level) counts for particles
  * to be sent to each process*/
 struct SendRecvBuffer
@@ -139,7 +137,7 @@ ev_init_thread(const struct TreeWalkThreadLocals export, TreeWalk * const tw, Lo
     if(localbunch > tw->BunchSize - thread_id * localbunch)
         lv->BunchSize = tw->BunchSize - thread_id * localbunch;
 
-    lv->ngblist = Ngblist + thread_id * PartManager->NumPart;
+    lv->ngblist = tw->Ngblist + thread_id * PartManager->NumPart;
     for(j = 0; j < NTask; j++)
         lv->exportflag[j] = -1;
 }
@@ -185,7 +183,7 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     /* Start first iteration at the beginning*/
     tw->WorkSetStart = 0;
 
-    Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * NumThreads * sizeof(int));
+    tw->Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * NumThreads * sizeof(int));
 
     report_memory_usage(tw->ev_label);
 
@@ -232,7 +230,7 @@ static void ev_finish(TreeWalk * tw)
 {
     myfree(DataNodeList);
     myfree(DataIndexTable);
-    myfree(Ngblist);
+    myfree(tw->Ngblist);
     if(!tw->work_set_stolen_from_active)
         myfree(tw->WorkSet);
 

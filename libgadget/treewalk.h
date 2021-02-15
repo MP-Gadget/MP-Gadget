@@ -150,6 +150,8 @@ struct TreeWalk {
     int BufferFullFlag;
     /* Number of particles we can fit into the export buffer*/
     size_t BunchSize;
+    /* List of neighbour candidates.*/
+    int *Ngblist;
 
     /* Index into WorkSet to start iteration.
      * Will be !=0 if the export buffer fills up*/
