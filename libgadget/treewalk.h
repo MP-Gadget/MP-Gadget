@@ -160,7 +160,9 @@ struct TreeWalk {
     int64_t WorkSetSize;
     /*Did we use the active_set array as the WorkSet?*/
     int work_set_stolen_from_active;
-
+    /* Redo counters and queues*/
+    size_t *NPLeft;
+    int **NPRedo;
 };
 
 /*Initialise treewalk parameters on first run*/
@@ -180,5 +182,11 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no);
 #define TREEWALK_REDUCE(A, B) (A) = (mode==TREEWALK_PRIMARY)?(B):((A) + (B))
 
 int knn_visit(TreeWalkQueryBase * I, TreeWalkResultBase * O, LocalTreeWalk * lv);
+
+#define MAXITER 400
+
+/* This function does treewalk_run in a loop, allocating a queue to allow some particles to be redone.
+ * This loop is used primarily in density estimation.*/
+void treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_hsml);
 
 #endif

@@ -17,8 +17,6 @@
 #include "utils.h"
 #include "gravity.h"
 
-#define MAXITER 400
-
 static struct density_params DensityParams;
 
 /*Set cooling module parameters from a cooling_params struct for the tests*/
@@ -146,8 +144,6 @@ struct DensityPriv {
      * are the same and this is not used.
      * If DensityIndependentSphOn = 1 then this is used to set DhsmlEgyDensityFactor.*/
     MyFloat * DhsmlDensityFactor;
-    size_t *NPLeft;
-    int **NPRedo;
     int update_hsml;
     int DoEgyDensity;
     /*!< Desired number of SPH neighbours */
@@ -190,7 +186,6 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  *  corrects the smoothing length if needed.
  */
 
-
 /*! This function computes the local density for each active SPH particle, the
  * number of neighbours in the current smoothing radius, and the divergence
  * and rotation of the velocity field.  The pressure is updated as well.  If a
@@ -223,7 +218,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     tw->tree = tree;
 
     int i;
-    int64_t ntot = 0;
 
     double timeall = 0;
     double timecomp, timecomm, timewait;
@@ -292,83 +286,9 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
     walltime_measure("/SPH/Density/Init");
 
-    int NumThreads = omp_get_max_threads();
-    DENSITY_GET_PRIV(tw)->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
-    DENSITY_GET_PRIV(tw)->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
-    int alloc_high = 0;
-    int * ReDoQueue = act->ActiveParticle;
-    int size = act->NumActiveParticle;
+    /* Do the treewalk with looping for hsml*/
+    treewalk_do_hsml_loop(tw, act->ActiveParticle, act->NumActiveParticle, update_hsml);
 
-    /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
-    do {
-        /* The RedoQueue needs enough memory to store every particle on every thread, because
-         * we cannot guarantee that the sph particles are evenly spread across threads!*/
-        int * CurQueue = ReDoQueue;
-
-        /* The ReDoQueue swaps between high and low allocations so we can have two allocated alternately*/
-        if(update_hsml) {
-            if(!alloc_high) {
-                ReDoQueue = (int *) mymalloc2("ReDoQueue", size * sizeof(int) * NumThreads);
-                alloc_high = 1;
-            }
-            else {
-                ReDoQueue = (int *) mymalloc("ReDoQueue", size * sizeof(int) * NumThreads);
-                alloc_high = 0;
-            }
-            gadget_setup_thread_arrays(ReDoQueue, DENSITY_GET_PRIV(tw)->NPRedo, DENSITY_GET_PRIV(tw)->NPLeft, size, NumThreads);
-        }
-        treewalk_run(tw, CurQueue, size);
-
-        /* We can stop if we are not updating hsml*/
-        if(!update_hsml)
-            break;
-
-        tw->haswork = NULL;
-        /* Now done with the current queue*/
-        if(tw-> Niteration > 1)
-            myfree(CurQueue);
-
-        /* Set up the next queue*/
-        size = gadget_compact_thread_arrays(ReDoQueue, DENSITY_GET_PRIV(tw)->NPRedo, DENSITY_GET_PRIV(tw)->NPLeft, NumThreads);
-
-        sumup_large_ints(1, &size, &ntot);
-        if(ntot == 0){
-            myfree(ReDoQueue);
-            break;
-        }
-
-        /*Shrink memory*/
-        ReDoQueue = myrealloc(ReDoQueue, sizeof(int) * size);
-
-        /*
-        if(ntot < 1 ) {
-            foreach(ActiveParticle)
-            {
-                if(density_haswork(i)) {
-                    MyFloat Left = DENSITY_GET_PRIV(tw)->Left[i];
-                    MyFloat Right = DENSITY_GET_PRIV(tw)->Right[i];
-                    message (1, "i=%d task=%d ID=%llu type=%d, Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
-                         i, ThisTask, P[i].ID, P[i].Type, P[i].Hsml, Left, Right,
-                         (float) P[i].NumNgb, Right - Left, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
-                }
-            }
-
-        }
-        */
-#ifdef DEBUG
-        if(ntot == 1 && size > 0 && tw->Niteration > 20 ) {
-            int pp = ReDoQueue[0];
-            message(1, "Remaining i=%d, t %d, pos %g %g %g, hsml: %g ngb: %g\n", pp, P[pp].Type, P[pp].Pos[0], P[pp].Pos[1], P[pp].Pos[2], P[pp].Hsml, DENSITY_GET_PRIV(tw)->NumNgb[pp]);
-        }
-#endif
-
-        if(tw->Niteration > MAXITER) {
-            endrun(1155, "failed to converge in neighbour iteration in density()\n");
-        }
-    } while(1);
-
-    ta_free(DENSITY_GET_PRIV(tw)->NPRedo);
-    ta_free(DENSITY_GET_PRIV(tw)->NPLeft);
     myfree(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor);
     myfree(DENSITY_GET_PRIV(tw)->Rot);
     myfree(DENSITY_GET_PRIV(tw)->NumNgb);
@@ -694,8 +614,8 @@ void density_check_neighbours (int i, TreeWalk * tw)
         }
         /* More work needed: add this particle to the redo queue*/
         int tid = omp_get_thread_num();
-        DENSITY_GET_PRIV(tw)->NPRedo[tid][DENSITY_GET_PRIV(tw)->NPLeft[tid]] = i;
-        DENSITY_GET_PRIV(tw)->NPLeft[tid] ++;
+        tw->NPRedo[tid][tw->NPLeft[tid]] = i;
+        tw->NPLeft[tid] ++;
     }
     else {
         /* We might have got here by serendipity, without bounding.*/
