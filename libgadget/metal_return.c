@@ -22,8 +22,6 @@
 #include "utils/spinlocks.h"
 #include "metal_tables.h"
 
-#define MAXITER 200
-
 /*! \file metal_return.c
  *  \brief Compute the mass return rate of metals from stellar evolution.
  *
@@ -735,13 +733,11 @@ struct StellarDensityPriv {
     /* Lower and upper bounds on smoothing length*/
     MyFloat *Left, *Right, *DhsmlDensity;
     MyFloat * VolumeSPH, *Density;
-    size_t *NPLeft;
-    int **NPRedo;
     /* For haswork*/
     MyFloat * MassReturn;
     /*!< Desired number of SPH neighbours */
     double DesNumNgb;
-    double * maxnumngb;
+    //double * maxnumngb;
 };
 
 #define STELLAR_DENSITY_GET_PRIV(tw) ((struct StellarDensityPriv*) ((tw)->priv))
@@ -831,11 +827,11 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
             P[i].Hsml *= fac;
         }
         /* More work needed: add this particle to the redo queue*/
-        STELLAR_DENSITY_GET_PRIV(tw)->NPRedo[tid][STELLAR_DENSITY_GET_PRIV(tw)->NPLeft[tid]] = i;
-        STELLAR_DENSITY_GET_PRIV(tw)->NPLeft[tid] ++;
+        tw->NPRedo[tid][tw->NPLeft[tid]] = i;
+        tw->NPLeft[tid] ++;
     }
-    if(STELLAR_DENSITY_GET_PRIV(tw)->maxnumngb[tid] < NumNgb[pi])
-        STELLAR_DENSITY_GET_PRIV(tw)->maxnumngb[tid] = NumNgb[pi];
+/*    if(STELLAR_DENSITY_GET_PRIV(tw)->maxnumngb[tid] < NumNgb[pi])
+        STELLAR_DENSITY_GET_PRIV(tw)->maxnumngb[tid] = NumNgb[pi];*/
 
     if(tw->Niteration >= MAXITER - 10)
     {
@@ -906,7 +902,6 @@ stellar_density(const ActiveParticles * act, MyFloat * StarVolumeSPH, MyFloat * 
     tw->tree = tree;
 
     int i;
-    int64_t ntot = 0;
 
     priv->MassReturn = MassReturn;
     priv->VolumeSPH = StarVolumeSPH;
@@ -926,50 +921,12 @@ stellar_density(const ActiveParticles * act, MyFloat * StarVolumeSPH, MyFloat * 
         priv->Right[i] = tree->BoxSize;
 
     walltime_measure("/SPH/Metals/Init");
+
     /* allocate buffers to arrange communication */
-    int NumThreads = omp_get_max_threads();
-    priv->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
-    priv->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
+
+    treewalk_do_hsml_loop(tw, act->ActiveParticle, act->NumActiveParticle, 1);
+#if 0
     priv->maxnumngb = ta_malloc("numngb", double, NumThreads);
-    int alloc_high = 0;
-    int * ReDoQueue = act->ActiveParticle;
-    int size = act->NumActiveParticle;
-
-    /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
-    do {
-        /* The RedoQueue needs enough memory to store every particle on every thread, because
-         * we cannot guarantee that the sph particles are evenly spread across threads!*/
-        int * CurQueue = ReDoQueue;
-        /* The ReDoQueue swaps between high and low allocations so we can have two allocated alternately*/
-        if(!alloc_high) {
-            ReDoQueue = (int *) mymalloc2("ReDoQueue", size * sizeof(int) * NumThreads);
-            alloc_high = 1;
-        }
-        else {
-            ReDoQueue = (int *) mymalloc("ReDoQueue", size * sizeof(int) * NumThreads);
-            alloc_high = 0;
-        }
-        memset(priv->maxnumngb, 0, sizeof(double) * NumThreads);
-        gadget_setup_thread_arrays(ReDoQueue, priv->NPRedo, priv->NPLeft, size, NumThreads);
-        treewalk_run(tw, CurQueue, size);
-
-        tw->haswork = NULL;
-        /* Now done with the current queue*/
-        if(tw->Niteration > 1)
-            myfree(CurQueue);
-
-        /* Set up the next queue*/
-        size = gadget_compact_thread_arrays(ReDoQueue, priv->NPRedo, priv->NPLeft, NumThreads);
-
-        sumup_large_ints(1, &size, &ntot);
-        if(ntot == 0){
-            myfree(ReDoQueue);
-            break;
-        }
-
-        /*Shrink memory*/
-        ReDoQueue = myrealloc(ReDoQueue, sizeof(int) * size);
-
         for(i = 1; i < NumThreads; i++) {
             if(priv->maxnumngb[0] < priv->maxnumngb[i])
                 priv->maxnumngb[0] = priv->maxnumngb[i];
@@ -977,17 +934,8 @@ stellar_density(const ActiveParticles * act, MyFloat * StarVolumeSPH, MyFloat * 
         double maxngb;
         MPI_Reduce(&priv->maxnumngb[0], &maxngb, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
         message(0, "Max ngb %g, desired %g\n", maxngb, priv->DesNumNgb);
-#ifdef DEBUG
-        if(ntot == 1 && size > 0 && tw->Niteration > 20 ) {
-            int pp = ReDoQueue[0];
-            message(1, "Remaining i=%d, t %d, pos %g %g %g, hsml: %g ngb: %g\n", pp, P[pp].Type, P[pp].Pos[0], P[pp].Pos[1], P[pp].Pos[2], P[pp].Hsml, priv->NumNgb[pp]);
-        }
+        ta_free(priv->maxnumngb);
 #endif
-        if(tw->Niteration > MAXITER) {
-            endrun(1155, "failed to converge in neighbour iteration in density()\n");
-        }
-    } while(1);
-
 #ifdef DEBUG
     for(i = 0; i < act->NumActiveParticle; i++) {
         int a = act->ActiveParticle ? act->ActiveParticle[i] : i;
@@ -998,9 +946,6 @@ stellar_density(const ActiveParticles * act, MyFloat * StarVolumeSPH, MyFloat * 
             endrun(3, "i = %d pi = %d StarVolumeSPH %g hsml %g\n", a, P[a].PI, priv->VolumeSPH[P[a].PI], P[a].Hsml);
     }
 #endif
-    ta_free(priv->maxnumngb);
-    ta_free(priv->NPRedo);
-    ta_free(priv->NPLeft);
     myfree(priv->Density);
     myfree(priv->DhsmlDensity);
     myfree(priv->NumNgb);

@@ -161,8 +161,6 @@ struct WindPriv {
     double * StarKickVelocity;
     double * StarDistance;
     MyIDType * StarID;
-    size_t * NPLeft;
-    int** NPRedo;
     struct SpinLocks * spin;
 };
 
@@ -182,7 +180,6 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
 
     TreeWalk tw[1] = {{0}};
 
-    int NumThreads = omp_get_max_threads();
     tw->ev_label = "SFR_WIND";
     tw->fill = (TreeWalkFillQueryFunction) sfr_wind_copy;
     tw->reduce = (TreeWalkReduceResultFunction) sfr_wind_reduce_weight;
@@ -204,8 +201,6 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
 
     int64_t totalleft = 0;
     sumup_large_ints(1, &NumNewStars, &totalleft);
-    priv->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
-    priv->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
     priv->Winddata = (struct winddata * ) mymalloc("WindExtraData", SlotsManager->info[4].size * sizeof(struct winddata));
 
     int i;
@@ -218,45 +213,8 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
         WINDP(n, priv->Winddata).Right = -1;
     }
 
-    int alloc_high = 0;
-    int * ReDoQueue = NewStars;
-    int size = NumNewStars;
-
-    /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
-    do {
-        int * CurQueue = ReDoQueue;
-        /* The ReDoQueue swaps between high and low allocations so we can have two allocated alternately*/
-        if(!alloc_high) {
-            ReDoQueue = (int *) mymalloc2("redoqueue", size * sizeof(int) * NumThreads);
-            alloc_high = 1;
-        }
-        else {
-            ReDoQueue = (int *) mymalloc("redoqueue", size * sizeof(int) * NumThreads);
-            alloc_high = 0;
-        }
-        gadget_setup_thread_arrays(ReDoQueue, WIND_GET_PRIV(tw)->NPRedo, WIND_GET_PRIV(tw)->NPLeft, size, NumThreads);
-
-        treewalk_run(tw, CurQueue, size);
-
-        /* Now done with the current queue*/
-        if(tw->Niteration > 1)
-            myfree(CurQueue);
-
-        /* Set up the next queue*/
-        size = gadget_compact_thread_arrays(ReDoQueue, WIND_GET_PRIV(tw)->NPRedo, WIND_GET_PRIV(tw)->NPLeft, NumThreads);
-
-        sumup_large_ints(1, &size, &totalleft);
-        if(totalleft == 0){
-            myfree(ReDoQueue);
-            break;
-        }
-
-        /*Shrink memory*/
-        ReDoQueue = myrealloc(ReDoQueue, sizeof(int) * size);
-    } while(1);
-
-    ta_free(priv->NPRedo);
-    ta_free(priv->NPLeft);
+    /* Find densities*/
+    treewalk_do_hsml_loop(tw, NewStars, NumNewStars, 1);
 
     /* Some particles may be kicked by multiple stars on the same timestep.
      * To ensure this happens only once and does not depend on the order in
@@ -363,8 +321,8 @@ sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
     } else {
         /* More work needed: add this particle to the redo queue*/
         int tid = omp_get_thread_num();
-        WIND_GET_PRIV(tw)->NPRedo[tid][WIND_GET_PRIV(tw)->NPLeft[tid]] = i;
-        WIND_GET_PRIV(tw)->NPLeft[tid] ++;
+        tw->NPRedo[tid][tw->NPLeft[tid]] = i;
+        tw->NPLeft[tid] ++;
     }
 }
 
