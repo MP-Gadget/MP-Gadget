@@ -544,7 +544,7 @@ density_postprocess(int i, TreeWalk * tw)
 void density_check_neighbours (int i, TreeWalk * tw)
 {
     /* now check whether we had enough neighbours */
-
+    int tid = omp_get_thread_num();
     double desnumngb = DENSITY_GET_PRIV(tw)->DesNumNgb;
 
     if(DENSITY_GET_PRIV(tw)->BlackHoleOn && P[i].Type == 5)
@@ -613,7 +613,6 @@ void density_check_neighbours (int i, TreeWalk * tw)
             return;
         }
         /* More work needed: add this particle to the redo queue*/
-        int tid = omp_get_thread_num();
         tw->NPRedo[tid][tw->NPLeft[tid]] = i;
         tw->NPLeft[tid] ++;
     }
@@ -625,6 +624,10 @@ void density_check_neighbours (int i, TreeWalk * tw)
         if(P[i].Hsml < DENSITY_GET_PRIV(tw)->MinGasHsml)
             P[i].Hsml = DENSITY_GET_PRIV(tw)->MinGasHsml;
     }
+    if(tw->maxnumngb[tid] < NumNgb[i])
+        tw->maxnumngb[tid] = NumNgb[i];
+    if(tw->minnumngb[tid] > NumNgb[i])
+        tw->minnumngb[tid] = NumNgb[i];
 
     if(tw->Niteration >= MAXITER - 10)
     {

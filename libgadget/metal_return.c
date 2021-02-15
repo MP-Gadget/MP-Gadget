@@ -737,7 +737,6 @@ struct StellarDensityPriv {
     MyFloat * MassReturn;
     /*!< Desired number of SPH neighbours */
     double DesNumNgb;
-    //double * maxnumngb;
 };
 
 #define STELLAR_DENSITY_GET_PRIV(tw) ((struct StellarDensityPriv*) ((tw)->priv))
@@ -830,8 +829,10 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
         tw->NPRedo[tid][tw->NPLeft[tid]] = i;
         tw->NPLeft[tid] ++;
     }
-/*    if(STELLAR_DENSITY_GET_PRIV(tw)->maxnumngb[tid] < NumNgb[pi])
-        STELLAR_DENSITY_GET_PRIV(tw)->maxnumngb[tid] = NumNgb[pi];*/
+    if(tw->maxnumngb[tid] < NumNgb[pi])
+        tw->maxnumngb[tid] = NumNgb[pi];
+    if(tw->minnumngb[tid] > NumNgb[pi])
+        tw->minnumngb[tid] = NumNgb[pi];
 
     if(tw->Niteration >= MAXITER - 10)
     {
@@ -925,17 +926,6 @@ stellar_density(const ActiveParticles * act, MyFloat * StarVolumeSPH, MyFloat * 
     /* allocate buffers to arrange communication */
 
     treewalk_do_hsml_loop(tw, act->ActiveParticle, act->NumActiveParticle, 1);
-#if 0
-    priv->maxnumngb = ta_malloc("numngb", double, NumThreads);
-        for(i = 1; i < NumThreads; i++) {
-            if(priv->maxnumngb[0] < priv->maxnumngb[i])
-                priv->maxnumngb[0] = priv->maxnumngb[i];
-        }
-        double maxngb;
-        MPI_Reduce(&priv->maxnumngb[0], &maxngb, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-        message(0, "Max ngb %g, desired %g\n", maxngb, priv->DesNumNgb);
-        ta_free(priv->maxnumngb);
-#endif
 #ifdef DEBUG
     for(i = 0; i < act->NumActiveParticle; i++) {
         int a = act->ActiveParticle ? act->ActiveParticle[i] : i;

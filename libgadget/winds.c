@@ -311,6 +311,7 @@ sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
         WINDP(i, Windd).DMRadius *= 1.3;
     }
 
+    int tid = omp_get_thread_num();
     if(done) {
         double vdisp = WINDP(i, Windd).V2sum / WINDP(i, Windd).Ngb;
         int d;
@@ -320,10 +321,13 @@ sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
         WINDP(i, Windd).Vdisp = sqrt(vdisp / 3);
     } else {
         /* More work needed: add this particle to the redo queue*/
-        int tid = omp_get_thread_num();
         tw->NPRedo[tid][tw->NPLeft[tid]] = i;
         tw->NPLeft[tid] ++;
     }
+    if(tw->maxnumngb[tid] < WINDP(i, Windd).Ngb)
+        tw->maxnumngb[tid] = WINDP(i, Windd).Ngb;
+    if(tw->minnumngb[tid] > WINDP(i, Windd).Ngb)
+        tw->minnumngb[tid] = WINDP(i, Windd).Ngb;
 }
 
 static void

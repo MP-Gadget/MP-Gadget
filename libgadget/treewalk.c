@@ -1248,12 +1248,19 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
     int alloc_high = 0;
     int * ReDoQueue = queue;
     int64_t size = queuesize;
+    tw->maxnumngb = ta_malloc("numngb", double, NumThreads);
+    tw->minnumngb = ta_malloc("numngb2", double, NumThreads);
 
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
     do {
         /* The RedoQueue needs enough memory to store every particle on every thread, because
          * we cannot guarantee that the sph particles are evenly spread across threads!*/
         int * CurQueue = ReDoQueue;
+        int i;
+        for(i = 0; i < NumThreads; i++) {
+            tw->maxnumngb[i] = 0;
+            tw->minnumngb[i] = 1e50;
+        }
 
         /* The ReDoQueue swaps between high and low allocations so we can have two allocated alternately*/
         if(update_hsml) {
@@ -1286,6 +1293,16 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
             myfree(ReDoQueue);
             break;
         }
+        for(i = 1; i < NumThreads; i++) {
+            if(tw->maxnumngb[0] < tw->maxnumngb[i])
+                tw->maxnumngb[0] = tw->maxnumngb[i];
+            if(tw->minnumngb[0] > tw->minnumngb[i])
+                tw->minnumngb[0] = tw->minnumngb[i];
+        }
+        double minngb, maxngb;
+        MPI_Reduce(&tw->maxnumngb[0], &maxngb, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&tw->minnumngb[0], &minngb, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+        message(0, "Max ngb=%g, min ngb=%g\n", maxngb, minngb);
 
         /*Shrink memory*/
         ReDoQueue = myrealloc(ReDoQueue, sizeof(int) * size);
@@ -1316,7 +1333,8 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
             endrun(1155, "failed to converge in neighbour iteration in density()\n");
         }
     } while(1);
-
+    ta_free(tw->minnumngb);
+    ta_free(tw->maxnumngb);
     ta_free(tw->NPRedo);
     ta_free(tw->NPLeft);
 }
