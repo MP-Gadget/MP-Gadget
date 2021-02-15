@@ -152,7 +152,6 @@ struct TreeWalk {
     size_t BunchSize;
     /* List of neighbour candidates.*/
     int *Ngblist;
-
     /* Index into WorkSet to start iteration.
      * Will be !=0 if the export buffer fills up*/
     int64_t WorkSetStart;
@@ -186,7 +185,15 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
 int treewalk_export_particle(LocalTreeWalk * lv, int no);
 #define TREEWALK_REDUCE(A, B) (A) = (mode==TREEWALK_PRIMARY)?(B):((A) + (B))
 
-int knn_visit(TreeWalkQueryBase * I, TreeWalkResultBase * O, LocalTreeWalk * lv);
+/*****
+ * Variant of ngbiter that doesn't use the Ngblist.
+ * The ngblist is generally preferred for memory locality reasons and
+ * to avoid particles being partially evaluated
+ * twice if the buffer fills up. Use this variant if the evaluation
+ * wants to change the search radius, such as for knn algorithms
+ * or some density code. Don't use it if the treewalk modifies other particles.
+ * */
+int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I, TreeWalkResultBase * O, LocalTreeWalk * lv);
 
 #define MAXITER 400
 

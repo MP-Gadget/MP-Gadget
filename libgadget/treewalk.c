@@ -1119,13 +1119,15 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
     return numcand;
 }
 
-
 /*****
- * This is visit code that finds the nearest neighbour particle in the tree from
- * searchcenter up to hsml. It calls ngbiter every time a candidate is found, and thus culls the tree
- * when a node can contain no particle closer than the current nearest neighbour.
+ * Variant of ngbiter that doesn't use the Ngblist.
+ * The ngblist is generally preferred for memory locality reasons and
+ * to avoid particles being partially evaluated
+ * twice if the buffer fills up. Use this variant if the evaluation
+ * wants to change the search radius, such as for knn algorithms
+ * or some density code. Don't use it if the treewalk modifies other particles.
  * */
-int knn_visit(TreeWalkQueryBase * I,
+int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
             TreeWalkResultBase * O,
             LocalTreeWalk * lv)
 {
@@ -1202,9 +1204,6 @@ int knn_visit(TreeWalkQueryBase * I,
                     iter->r2 = r2;
                     iter->other = other;
                     iter->r = sqrt(r2);
-                    /* No need to search nodes at a greater distance
-                     * now that we have a neighbour.*/
-                    iter->Hsml = iter->r;
                     lv->tw->ngbiter(I, O, iter, lv);
                 }
                 /* Move sideways*/
