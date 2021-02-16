@@ -833,10 +833,6 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
     if(numngb < (desnumngb - MetalParams.MaxNgbDeviation) ||
             (numngb > (desnumngb + MetalParams.MaxNgbDeviation)))
     {
-        double dhsmldensity = STELLAR_DENSITY_GET_PRIV(tw)->DhsmlDensity[pi][close];
-        dhsmldensity *= hsml / (NUMDIMS * STELLAR_DENSITY_GET_PRIV(tw)->Density[pi][close]);
-        dhsmldensity = 1 / (1 + dhsmldensity);
-
         /* This condition is here to prevent the density code looping forever if it encounters
          * multiple particles at the same position. If this happens you likely have worse
          * problems anyway, so warn also. */
@@ -848,28 +844,20 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
             return;
         }
 
-        double fac = 1.0;
-        if(numngb > 0)
-            fac = 1 - (numngb - desnumngb) / (NUMDIMS * numngb) * dhsmldensity;
-        else
-            fac = 2.0;
-
-        /* If this is the first step we can be faster by increasing or decreasing current Hsml by a constant factor*/
+        /* Increase Hsml to a larger value. We can be fairly aggressive
+         * here because overly large treewalks stop once they have too many neighbours.*/
         if(Right[pi] > 0.99 * tw->tree->BoxSize && Left[pi] > 0) {
-            if(fac > 1.5)
-                fac = 1.5;
+            P[i].Hsml *= 2.0;
+            if(P[i].Hsml > 0.99 * tw->tree->BoxSize)
+                P[i].Hsml = 0.99 * tw->tree->BoxSize;
         }
-        if(Right[pi] < 0.99*tw->tree->BoxSize && Left[pi] == 0) {
-            if(fac < 0.33)
-                fac = 0.33;
-        }
-        P[i].Hsml *= fac;
+
         /* More work needed: add this particle to the redo queue*/
         tw->NPRedo[tid][tw->NPLeft[tid]] = i;
         tw->NPLeft[tid] ++;
         if(tw->Niteration >= MAXITER-40)
             message(1, "i=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g pos=(%g|%g|%g) fac = %g\n",
-             i, P[i].ID, P[i].Hsml, Left[pi], Right[pi], numngb, Right[pi] - Left[pi], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], fac);
+             i, P[i].ID, P[i].Hsml, Left[pi], Right[pi], numngb, Right[pi] - Left[pi], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
 
     }
     if(tw->maxnumngb[tid] < numngb)
