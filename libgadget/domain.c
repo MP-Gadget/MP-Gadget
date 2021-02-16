@@ -90,6 +90,8 @@ void set_domain_params(ParameterSet * ps)
         /* Create one domain per thread. This helps the balance and makes the treebuild merge faster*/
         if(domain_params.DomainOverDecompositionFactor < 0)
             domain_params.DomainOverDecompositionFactor = omp_get_max_threads();
+        if(domain_params.DomainOverDecompositionFactor < 4)
+            domain_params.DomainOverDecompositionFactor = 4;
         domain_params.TopNodeAllocFactor = param_get_double(ps, "TopNodeAllocFactor");
         domain_params.DomainUseGlobalSorting = param_get_int(ps, "DomainUseGlobalSorting");
         domain_params.SetAsideFactor = 1.;
