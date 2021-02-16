@@ -16,8 +16,6 @@
 
 #define FACT1 0.366025403785	/* FACT1 = 0.5 * (sqrt(3)-1) */
 
-static int *Ngblist;
-
 /* Structure to store the (task-level) counts for particles
  * to be sent to each process*/
 struct SendRecvBuffer
@@ -139,7 +137,7 @@ ev_init_thread(const struct TreeWalkThreadLocals export, TreeWalk * const tw, Lo
     if(localbunch > tw->BunchSize - thread_id * localbunch)
         lv->BunchSize = tw->BunchSize - thread_id * localbunch;
 
-    lv->ngblist = Ngblist + thread_id * PartManager->NumPart;
+    lv->ngblist = tw->Ngblist + thread_id * PartManager->NumPart;
     for(j = 0; j < NTask; j++)
         lv->exportflag[j] = -1;
 }
@@ -185,7 +183,7 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     /* Start first iteration at the beginning*/
     tw->WorkSetStart = 0;
 
-    Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * NumThreads * sizeof(int));
+    tw->Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * NumThreads * sizeof(int));
 
     report_memory_usage(tw->ev_label);
 
@@ -232,7 +230,7 @@ static void ev_finish(TreeWalk * tw)
 {
     myfree(DataNodeList);
     myfree(DataIndexTable);
-    myfree(Ngblist);
+    myfree(tw->Ngblist);
     if(!tw->work_set_stolen_from_active)
         myfree(tw->WorkSet);
 
@@ -1236,4 +1234,107 @@ int knn_visit(TreeWalkQueryBase * I,
         lv->Nlist += 1;
     }
     return 0;
+}
+
+/* This function does treewalk_run in a loop, allocating a queue to allow some particles to be redone.
+ * This loop is used primarily in density estimation.*/
+void
+treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_hsml)
+{
+    int64_t ntot = 0;
+    int NumThreads = omp_get_max_threads();
+    tw->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
+    tw->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
+    int alloc_high = 0;
+    int * ReDoQueue = queue;
+    int64_t size = queuesize;
+    tw->maxnumngb = ta_malloc("numngb", double, NumThreads);
+    tw->minnumngb = ta_malloc("numngb2", double, NumThreads);
+
+    /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
+    do {
+        /* The RedoQueue needs enough memory to store every particle on every thread, because
+         * we cannot guarantee that the sph particles are evenly spread across threads!*/
+        int * CurQueue = ReDoQueue;
+        int i;
+        for(i = 0; i < NumThreads; i++) {
+            tw->maxnumngb[i] = 0;
+            tw->minnumngb[i] = 1e50;
+        }
+
+        /* The ReDoQueue swaps between high and low allocations so we can have two allocated alternately*/
+        if(update_hsml) {
+            if(!alloc_high) {
+                ReDoQueue = (int *) mymalloc2("ReDoQueue", size * sizeof(int) * NumThreads);
+                alloc_high = 1;
+            }
+            else {
+                ReDoQueue = (int *) mymalloc("ReDoQueue", size * sizeof(int) * NumThreads);
+                alloc_high = 0;
+            }
+            gadget_setup_thread_arrays(ReDoQueue, tw->NPRedo, tw->NPLeft, size, NumThreads);
+        }
+        treewalk_run(tw, CurQueue, size);
+
+        /* We can stop if we are not updating hsml*/
+        if(!update_hsml)
+            break;
+
+        tw->haswork = NULL;
+        /* Now done with the current queue*/
+        if(tw-> Niteration > 1)
+            myfree(CurQueue);
+
+        /* Set up the next queue*/
+        size = gadget_compact_thread_arrays(ReDoQueue, tw->NPRedo, tw->NPLeft, NumThreads);
+
+        MPI_Allreduce(&size, &ntot, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+        if(ntot == 0){
+            myfree(ReDoQueue);
+            break;
+        }
+        for(i = 1; i < NumThreads; i++) {
+            if(tw->maxnumngb[0] < tw->maxnumngb[i])
+                tw->maxnumngb[0] = tw->maxnumngb[i];
+            if(tw->minnumngb[0] > tw->minnumngb[i])
+                tw->minnumngb[0] = tw->minnumngb[i];
+        }
+        double minngb, maxngb;
+        MPI_Reduce(&tw->maxnumngb[0], &maxngb, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&tw->minnumngb[0], &minngb, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+        message(0, "Max ngb=%g, min ngb=%g\n", maxngb, minngb);
+
+        /*Shrink memory*/
+        ReDoQueue = myrealloc(ReDoQueue, sizeof(int) * size);
+
+        /*
+        if(ntot < 1 ) {
+            foreach(ActiveParticle)
+            {
+                if(density_haswork(i)) {
+                    MyFloat Left = DENSITY_GET_PRIV(tw)->Left[i];
+                    MyFloat Right = DENSITY_GET_PRIV(tw)->Right[i];
+                    message (1, "i=%d task=%d ID=%llu type=%d, Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
+                         i, ThisTask, P[i].ID, P[i].Type, P[i].Hsml, Left, Right,
+                         (float) P[i].NumNgb, Right - Left, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+                }
+            }
+
+        }
+        */
+#ifdef DEBUG
+        if(ntot == 1 && size > 0 && tw->Niteration > 20 ) {
+            int pp = ReDoQueue[0];
+            message(1, "Remaining i=%d, t %d, pos %g %g %g, hsml: %g\n", pp, P[pp].Type, P[pp].Pos[0], P[pp].Pos[1], P[pp].Pos[2], P[pp].Hsml);
+        }
+#endif
+
+        if(tw->Niteration > MAXITER) {
+            endrun(1155, "failed to converge in neighbour iteration in density()\n");
+        }
+    } while(1);
+    ta_free(tw->minnumngb);
+    ta_free(tw->maxnumngb);
+    ta_free(tw->NPRedo);
+    ta_free(tw->NPLeft);
 }
