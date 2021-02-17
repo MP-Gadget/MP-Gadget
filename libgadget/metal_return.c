@@ -708,7 +708,7 @@ metal_return_haswork(int i, TreeWalk * tw)
 }
 
 /* Number of densities to evaluate simultaneously*/
-#define NHSML 5
+#define NHSML 10
 
 typedef struct {
     TreeWalkNgbIterBase base;
