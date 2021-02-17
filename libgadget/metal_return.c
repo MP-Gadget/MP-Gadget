@@ -726,8 +726,6 @@ typedef struct {
     TreeWalkResultBase base;
     MyFloat VolumeSPH[NHSML];
     MyFloat Ngb[NHSML];
-    MyFloat Rho[NHSML];
-    MyFloat DhsmlDensity[NHSML];
     int maxcmpte;
     int _alignment;
 } TreeWalkResultStellarDensity;
@@ -737,7 +735,7 @@ struct StellarDensityPriv {
     MyFloat (*NumNgb)[NHSML];
     /* Lower and upper bounds on smoothing length*/
     MyFloat *Left, *Right;
-    MyFloat (*VolumeSPH)[NHSML], (*Density)[NHSML], (*DhsmlDensity)[NHSML];
+    MyFloat (*VolumeSPH)[NHSML];
     /* For haswork*/
     MyFloat *MassReturn;
     /*!< Desired number of SPH neighbours */
@@ -764,7 +762,8 @@ effhsml(int place, int i, TreeWalk * tw)
     /* From left + 1/N  to right - 1/N*/
     if(right < 0.99*tw->tree->BoxSize && left > 0)
         return (1.*i+1)/(1.*NHSML+1) * (right - left) + left;
-    /* The asymmetry is because it is free to compute extra densities for h < Hsml, but not for h > Hsml*/
+    /* The asymmetry is because it is free to compute extra densities for h < Hsml, but not for h > Hsml.
+     *So we increase Right in check_neighbours.*/
     return (i+1.)/(1.*NHSML) * (P[place].Hsml - left) + left;
 }
 
@@ -786,8 +785,6 @@ stellar_density_reduce(int place, TreeWalkResultStellarDensity * remote, enum Tr
     for(i = 0; i < remote->maxcmpte; i++) {
         TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][i], remote->Ngb[i]);
         TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->VolumeSPH[pi][i], remote->VolumeSPH[i]);
-        TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->DhsmlDensity[pi][i], remote->DhsmlDensity[i]);
-        TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->Density[pi][i], remote->Rho[i]);
     }
 }
 
@@ -897,13 +894,6 @@ stellar_density_ngbiter(
             const double u = r * iter->kernel[i].Hinv;
             double wk = density_kernel_wk(&iter->kernel[i], u);
             O->Ngb[i] += wk * iter->kernel_volume[i];
-            /* Hinv is here because O->DhsmlDensity is drho / dH.
-            * nothing to worry here */
-            O->Rho[i] += P[other].Mass * wk;
-            const double dwk = density_kernel_dwk(&iter->kernel[i], u);
-            double density_dW = density_kernel_dW(&iter->kernel[i], u, wk, dwk);
-            O->DhsmlDensity[i] += P[other].Mass * density_dW;
-
             /* For stars we need the total weighting, sum(w_k m_k / rho_k).*/
             double thisvol = P[other].Mass / SPHP(other).Density;
             if(MetalParams.SPHWeighting)
@@ -951,8 +941,6 @@ stellar_density(const ActiveParticles * act, MyFloat * StarVolumeSPH, MyFloat * 
     priv->Left = (MyFloat *) mymalloc("DENS_PRIV->Left", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->Right = (MyFloat *) mymalloc("DENS_PRIV->Right", SlotsManager->info[4].size * sizeof(MyFloat));
     priv->NumNgb = (MyFloat (*) [NHSML]) mymalloc("DENS_PRIV->NumNgb", SlotsManager->info[4].size * sizeof(priv->NumNgb[0]));
-    priv->DhsmlDensity = (MyFloat (*) [NHSML]) mymalloc("DENS_PRIV->DhsmlDensity", SlotsManager->info[4].size * sizeof(priv->DhsmlDensity[0]));
-    priv->Density = (MyFloat (*) [NHSML]) mymalloc("DENS_PRIV->Density", SlotsManager->info[4].size * sizeof(priv->Density[0]));
     priv->VolumeSPH = (MyFloat (*) [NHSML]) mymalloc("DENS_PRIV->VolumeSPH", SlotsManager->info[4].size * sizeof(priv->VolumeSPH[0]));
     priv->maxcmpte = (int *) mymalloc("maxcmpte", SlotsManager->info[4].size * sizeof(int));
 
@@ -992,8 +980,6 @@ stellar_density(const ActiveParticles * act, MyFloat * StarVolumeSPH, MyFloat * 
 
     myfree(priv->maxcmpte);
     myfree(priv->VolumeSPH);
-    myfree(priv->Density);
-    myfree(priv->DhsmlDensity);
     myfree(priv->NumNgb);
     myfree(priv->Right);
     myfree(priv->Left);
