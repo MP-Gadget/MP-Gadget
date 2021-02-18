@@ -307,8 +307,8 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * d
     int chnksz = tw->WorkSetSize / (4*tw->NThread);
     if(chnksz < 1)
         chnksz = 1;
-    if(chnksz > 200)
-        chnksz = 200;
+    if(chnksz > 100)
+        chnksz = 100;
     do {
         /* Get another chunk from the global queue*/
         chnk = atomic_fetch_and_add(currentIndex, chnksz);
