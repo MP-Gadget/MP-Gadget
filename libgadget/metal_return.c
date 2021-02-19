@@ -765,7 +765,7 @@ effhsml(int place, int i, TreeWalk * tw)
     /* Use 1/2 of current Hsml for left. The asymmetry is because it is free
      * to compute extra densities for h < Hsml, but not for h > Hsml.*/
     if(left == 0)
-        left = 0.5 * P[place].Hsml;
+        left = 0.1 * P[place].Hsml;
     /* From left + 1/N  to right - 1/N, evenly spaced in volume,
      * since NumNgb ~ h^3.*/
     double rvol = pow(right, 3);
