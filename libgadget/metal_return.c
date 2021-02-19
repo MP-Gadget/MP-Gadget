@@ -815,10 +815,13 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
         }
     }
     for(j = 0; j < maxcmpt; j++) {
-        if(STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][j] < desnumngb - MetalParams.MaxNgbDeviation)
+        /* Need rightmost left and leftmost right*/
+        if(STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][j] < desnumngb)
             Left[pi] = evalhsml[j];
-        if(STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][j] > desnumngb + MetalParams.MaxNgbDeviation)
+        if(STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][j] > desnumngb) {
             Right[pi] = evalhsml[j];
+            break;
+        }
     }
 
     double hsml = evalhsml[close];
