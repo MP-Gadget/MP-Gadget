@@ -152,6 +152,8 @@ struct TreeWalk {
     size_t BunchSize;
     /* List of neighbour candidates.*/
     int *Ngblist;
+    /* Flag not allocating nighbour list*/
+    int NoNgblist;
     /* Index into WorkSet to start iteration.
      * Will be !=0 if the export buffer fills up*/
     int64_t WorkSetStart;

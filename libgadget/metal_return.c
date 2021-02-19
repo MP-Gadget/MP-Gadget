@@ -935,6 +935,7 @@ stellar_density(const ActiveParticles * act, MyFloat * StarVolumeSPH, MyFloat * 
 
     tw->ev_label = "STELLAR_DENSITY";
     tw->visit = treewalk_visit_nolist_ngbiter;
+    tw->NoNgblist = 1;
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterStellarDensity);
     tw->ngbiter = (TreeWalkNgbIterFunction) stellar_density_ngbiter;
     tw->haswork = stellar_density_haswork;

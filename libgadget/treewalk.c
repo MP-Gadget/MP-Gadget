@@ -137,7 +137,8 @@ ev_init_thread(const struct TreeWalkThreadLocals export, TreeWalk * const tw, Lo
     if(localbunch > tw->BunchSize - thread_id * localbunch)
         lv->BunchSize = tw->BunchSize - thread_id * localbunch;
 
-    lv->ngblist = tw->Ngblist + thread_id * PartManager->NumPart;
+    if(tw->Ngblist)
+        lv->ngblist = tw->Ngblist + thread_id * PartManager->NumPart;
     for(j = 0; j < NTask; j++)
         lv->exportflag[j] = -1;
 }
@@ -183,7 +184,10 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     /* Start first iteration at the beginning*/
     tw->WorkSetStart = 0;
 
-    tw->Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * NumThreads * sizeof(int));
+    if(!tw->NoNgblist)
+        tw->Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * NumThreads * sizeof(int));
+    else
+        tw->Ngblist = NULL;
 
     report_memory_usage(tw->ev_label);
 
@@ -230,7 +234,8 @@ static void ev_finish(TreeWalk * tw)
 {
     myfree(DataNodeList);
     myfree(DataIndexTable);
-    myfree(tw->Ngblist);
+    if(tw->Ngblist)
+        myfree(tw->Ngblist);
     if(!tw->work_set_stolen_from_active)
         myfree(tw->WorkSet);
 
