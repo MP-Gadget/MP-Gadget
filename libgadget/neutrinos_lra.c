@@ -434,6 +434,7 @@ void petaio_read_neutrinos(BigFile * bf, int ThisTask)
     MPI_Bcast(&(delta_tot_table.ia), 1,MPI_INT,0,MPI_COMM_WORLD);
     MPI_Bcast(&(delta_tot_table.nk), 1,MPI_INT,0,MPI_COMM_WORLD);
     MPI_Bcast(delta_tot_table.delta_nu_init,delta_tot_table.nk,MPI_DOUBLE,0,MPI_COMM_WORLD);
+    MPI_Bcast(delta_tot_table.wavenum,delta_tot_table.nk,MPI_DOUBLE,0,MPI_COMM_WORLD);
 
     if(delta_tot_table.ia > 0) {
         /*Broadcast data for scalefact and delta_tot, Delta_tot is allocated as the same block of memory as scalefact.
