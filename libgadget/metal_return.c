@@ -766,8 +766,11 @@ effhsml(int place, int i, TreeWalk * tw)
      * to compute extra densities for h < Hsml, but not for h > Hsml.*/
     if(left == 0)
         left = 0.5 * P[place].Hsml;
-    /* From left + 1/N  to right - 1/N*/
-    return (1.*i+1)/(1.*NHSML+1) * (right - left) + left;
+    /* From left + 1/N  to right - 1/N, evenly spaced in volume,
+     * since NumNgb ~ h^3.*/
+    double rvol = pow(right, 3);
+    double lvol = pow(left, 3);
+    return pow((1.*i+1)/(1.*NHSML+1) * (rvol - lvol) + lvol, 1./3);
 }
 
 static void
