@@ -829,7 +829,8 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
     if(STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][maxcmpt-1] < desnumngb - MetalParams.MaxNgbDeviation) {
         /* Extrapolate using volume, ie locally constant density*/
         double dngbdv = (STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][maxcmpt-1] - STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][maxcmpt-2]) / (pow(evalhsml[maxcmpt-1],3) - pow(evalhsml[maxcmpt-2],3));
-        double newhsml = 3* hsml;
+        /* Increase hsml by a maximum factor to avoid madness. We can be fairly aggressive about this factor.*/
+        double newhsml = 4 * hsml;
         if(dngbdv > 0) {
             double dngb = (desnumngb - STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][maxcmpt-1]);
             double newvolume = pow(hsml,3) + dngb / dngbdv;
