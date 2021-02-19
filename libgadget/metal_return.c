@@ -855,6 +855,9 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
     if(Left[pi] == 0) {
         /* Extrapolate using volume, ie locally constant density*/
         double dngbdv = (STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][1] - STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][0]) / (pow(evalhsml[1],3) - pow(evalhsml[0],3));
+        /* Derivative is not defined for minimum, so use 0.*/
+        if(maxcmpt == 1)
+            dngbdv = STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][0] / pow(evalhsml[1],3);
         /* Increase hsml by a maximum factor to avoid madness. We can be fairly aggressive about this factor.*/
         if(dngbdv > 0) {
             double dngb = desnumngb - STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][0];
