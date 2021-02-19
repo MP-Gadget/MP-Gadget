@@ -137,7 +137,8 @@ ev_init_thread(const struct TreeWalkThreadLocals export, TreeWalk * const tw, Lo
     if(localbunch > tw->BunchSize - thread_id * localbunch)
         lv->BunchSize = tw->BunchSize - thread_id * localbunch;
 
-    lv->ngblist = tw->Ngblist + thread_id * PartManager->NumPart;
+    if(tw->Ngblist)
+        lv->ngblist = tw->Ngblist + thread_id * PartManager->NumPart;
     for(j = 0; j < NTask; j++)
         lv->exportflag[j] = -1;
 }
@@ -183,7 +184,10 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     /* Start first iteration at the beginning*/
     tw->WorkSetStart = 0;
 
-    tw->Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * NumThreads * sizeof(int));
+    if(!tw->NoNgblist)
+        tw->Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * NumThreads * sizeof(int));
+    else
+        tw->Ngblist = NULL;
 
     report_memory_usage(tw->ev_label);
 
@@ -230,7 +234,8 @@ static void ev_finish(TreeWalk * tw)
 {
     myfree(DataNodeList);
     myfree(DataIndexTable);
-    myfree(tw->Ngblist);
+    if(tw->Ngblist)
+        myfree(tw->Ngblist);
     if(!tw->work_set_stolen_from_active)
         myfree(tw->WorkSet);
 
@@ -1119,13 +1124,15 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
     return numcand;
 }
 
-
 /*****
- * This is visit code that finds the nearest neighbour particle in the tree from
- * searchcenter up to hsml. It calls ngbiter every time a candidate is found, and thus culls the tree
- * when a node can contain no particle closer than the current nearest neighbour.
+ * Variant of ngbiter that doesn't use the Ngblist.
+ * The ngblist is generally preferred for memory locality reasons and
+ * to avoid particles being partially evaluated
+ * twice if the buffer fills up. Use this variant if the evaluation
+ * wants to change the search radius, such as for knn algorithms
+ * or some density code. Don't use it if the treewalk modifies other particles.
  * */
-int knn_visit(TreeWalkQueryBase * I,
+int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
             TreeWalkResultBase * O,
             LocalTreeWalk * lv)
 {
@@ -1202,9 +1209,6 @@ int knn_visit(TreeWalkQueryBase * I,
                     iter->r2 = r2;
                     iter->other = other;
                     iter->r = sqrt(r2);
-                    /* No need to search nodes at a greater distance
-                     * now that we have a neighbour.*/
-                    iter->Hsml = iter->r;
                     lv->tw->ngbiter(I, O, iter, lv);
                 }
                 /* Move sideways*/

@@ -1120,6 +1120,9 @@ fof_secondary_ngbiter(TreeWalkQueryFOF * I,
         O->MinID = HaloLabel[other].MinID;
         O->MinIDTask = HaloLabel[other].MinIDTask;
     }
+    /* No need to search nodes at a greater distance
+     * now that we have a neighbour.*/
+    iter->base.Hsml = iter->base.r;
 }
 
 static void
@@ -1155,7 +1158,7 @@ static void fof_label_secondary(ForceTree * tree)
 
     TreeWalk tw[1] = {{0}};
     tw->ev_label = "FOF_FIND_NEAREST";
-    tw->visit = (TreeWalkVisitFunction) knn_visit;
+    tw->visit = treewalk_visit_nolist_ngbiter;
     tw->ngbiter = (TreeWalkNgbIterFunction) fof_secondary_ngbiter;
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterFOF);
     tw->haswork = fof_secondary_haswork;
