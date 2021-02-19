@@ -757,14 +757,17 @@ static inline double
 effhsml(int place, int i, TreeWalk * tw)
 {
     int pi = P[place].PI;
-    const double left = STELLAR_DENSITY_GET_PRIV(tw)->Left[pi];
-    const double right = STELLAR_DENSITY_GET_PRIV(tw)->Right[pi];
+    double left = STELLAR_DENSITY_GET_PRIV(tw)->Left[pi];
+    double right = STELLAR_DENSITY_GET_PRIV(tw)->Right[pi];
+    /* Use slightly past the current Hsml as the right most boundary*/
+    if(right > 0.99*tw->tree->BoxSize)
+        right = P[place].Hsml * ((1.+NHSML)/NHSML);
+    /* Use 1/2 of current Hsml for left. The asymmetry is because it is free
+     * to compute extra densities for h < Hsml, but not for h > Hsml.*/
+    if(left == 0)
+        left = 0.5 * P[place].Hsml;
     /* From left + 1/N  to right - 1/N*/
-    if(right < 0.99*tw->tree->BoxSize && left > 0)
-        return (1.*i+1)/(1.*NHSML+1) * (right - left) + left;
-    /* The asymmetry is because it is free to compute extra densities for h < Hsml, but not for h > Hsml.
-     *So we increase Right in check_neighbours.*/
-    return (i+1.)/(1.*NHSML) * (P[place].Hsml - left) + left;
+    return (1.*i+1)/(1.*NHSML+1) * (right - left) + left;
 }
 
 static void
