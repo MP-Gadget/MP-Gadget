@@ -829,7 +829,7 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
 
     /* Increase Hsml to a larger value, using numerical extrapolation from the current value. We can be fairly aggressive
      * here because overly large treewalks stop once they have too many neighbours.*/
-    if(STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][maxcmpt-1] < desnumngb - MetalParams.MaxNgbDeviation) {
+    if(Right[pi] > 0.99 * tw->tree->BoxSize) {
         /* Extrapolate using volume, ie locally constant density*/
         double dngbdv = (STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][maxcmpt-1] - STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][maxcmpt-2]) / (pow(evalhsml[maxcmpt-1],3) - pow(evalhsml[maxcmpt-2],3));
         /* Increase hsml by a maximum factor to avoid madness. We can be fairly aggressive about this factor.*/
@@ -844,6 +844,18 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
     }
     if(hsml > Right[pi])
         hsml = Right[pi];
+
+    /* Decrease Hsml to a smaller value, using numerical extrapolation from the current value.*/
+    if(Left[pi] == 0) {
+        /* Extrapolate using volume, ie locally constant density*/
+        double dngbdv = (STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][1] - STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][0]) / (pow(evalhsml[1],3) - pow(evalhsml[0],3));
+        /* Increase hsml by a maximum factor to avoid madness. We can be fairly aggressive about this factor.*/
+        if(dngbdv > 0) {
+            double dngb = desnumngb - STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][0];
+            double newvolume = pow(hsml,3) + dngb / dngbdv;
+            hsml = pow(newvolume, 1./3);
+        }
+    }
 
     P[i].Hsml = hsml;
 
