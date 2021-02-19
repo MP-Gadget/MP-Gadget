@@ -859,6 +859,8 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
             hsml = pow(newvolume, 1./3);
         }
     }
+    if(hsml < Left[pi])
+        hsml = Left[pi];
 
     P[i].Hsml = hsml;
 
