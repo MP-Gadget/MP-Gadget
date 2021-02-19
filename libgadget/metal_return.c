@@ -797,15 +797,16 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
     int tid = omp_get_thread_num();
     double desnumngb = STELLAR_DENSITY_GET_PRIV(tw)->DesNumNgb;
 
+    const int maxcmpt = STELLAR_DENSITY_GET_PRIV(tw)->maxcmpte[pi];
     int j;
     double evalhsml[NHSML];
-    for(j = 0; j < STELLAR_DENSITY_GET_PRIV(tw)->maxcmpte[pi]; j++)
+    for(j = 0; j < maxcmpt; j++)
         evalhsml[j] = effhsml(i, j, tw);
 
     /* Find the closest hsml in the array to the desired numngb value.*/
     int close = 0;
     double ngbdist = fabs(STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][0] - desnumngb);
-    for(j = 1; j < STELLAR_DENSITY_GET_PRIV(tw)->maxcmpte[pi]; j++) {
+    for(j = 1; j < maxcmpt; j++) {
         double newdist = fabs(STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][j] - desnumngb);
         if(newdist < ngbdist)
         {
@@ -813,7 +814,7 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
             close = j;
         }
     }
-    for(j = 0; j < STELLAR_DENSITY_GET_PRIV(tw)->maxcmpte[pi]; j++) {
+    for(j = 0; j < maxcmpt; j++) {
         if(STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][j] < desnumngb - MetalParams.MaxNgbDeviation)
             Left[pi] = evalhsml[j];
         if(STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][j] > desnumngb + MetalParams.MaxNgbDeviation)
@@ -822,7 +823,26 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
 
     double hsml = evalhsml[close];
     double numngb = STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][close];
+
+    /* Increase Hsml to a larger value, using numerical extrapolation from the current value. We can be fairly aggressive
+     * here because overly large treewalks stop once they have too many neighbours.*/
+    if(STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][maxcmpt-1] < desnumngb - MetalParams.MaxNgbDeviation) {
+        /* Extrapolate using volume, ie locally constant density*/
+        double dngbdv = (STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][maxcmpt-1] - STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][maxcmpt-2]) / (pow(evalhsml[maxcmpt-1],3) - pow(evalhsml[maxcmpt-2],3));
+        double newhsml = 3* hsml;
+        if(dngbdv > 0) {
+            double dngb = (desnumngb - STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][maxcmpt-1]);
+            double newvolume = pow(hsml,3) + dngb / dngbdv;
+            if(pow(newvolume, 1./3) < newhsml)
+                newhsml = pow(newvolume, 1./3);
+        }
+        hsml = newhsml;
+    }
+    if(hsml > Right[pi])
+        hsml = Right[pi];
+
     P[i].Hsml = hsml;
+
     /* Save VolumeSPH*/
     STELLAR_DENSITY_GET_PRIV(tw)->VolumeSPH[pi][0] = STELLAR_DENSITY_GET_PRIV(tw)->VolumeSPH[pi][close];
 
@@ -840,21 +860,12 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
              i, P[i].ID, P[i].Type, effhsml, Left[pi], Right[pi], numngb, desnumngb, Right[pi] - Left[pi], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
             return;
         }
-
-        /* Increase Hsml to a larger value. We can be fairly aggressive
-         * here because overly large treewalks stop once they have too many neighbours.*/
-        if(Right[pi] > 0.99 * tw->tree->BoxSize && Left[pi] > 0) {
-            P[i].Hsml *= 2.0;
-            if(P[i].Hsml > 0.99 * tw->tree->BoxSize)
-                P[i].Hsml = 0.99 * tw->tree->BoxSize;
-        }
-
         /* More work needed: add this particle to the redo queue*/
         tw->NPRedo[tid][tw->NPLeft[tid]] = i;
         tw->NPLeft[tid] ++;
-        if(tw->Niteration >= MAXITER-40)
-            message(1, "i=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g pos=(%g|%g|%g) fac = %g\n",
-             i, P[i].ID, P[i].Hsml, Left[pi], Right[pi], numngb, Right[pi] - Left[pi], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+        if(tw->Niteration >= 10)
+            message(1, "i=%d ID=%lu Hsml=%g lastdhsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g pos=(%g|%g|%g) fac = %g\n",
+             i, P[i].ID, P[i].Hsml, evalhsml[close], Left[pi], Right[pi], numngb, Right[pi] - Left[pi], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
 
     }
     if(tw->maxnumngb[tid] < numngb)
