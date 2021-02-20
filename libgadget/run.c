@@ -26,6 +26,7 @@
 #include "hydra.h"
 #include "sfr_eff.h"
 #include "metal_return.h"
+#include "fdm.h"
 #include "slotsmanager.h"
 #include "hci.h"
 #include "fof.h"
@@ -88,6 +89,8 @@ int begrun(int RestartFlag, int RestartSnapNum)
         slots_set_enabled(4, sizeof(struct star_particle_data), SlotsManager);
     if(All.BlackHoleOn || All.NTotalInit[5] > 0)
         slots_set_enabled(5, sizeof(struct bh_particle_data), SlotsManager);
+    if(All.FdmOn || All.NTotalInit[1] > 0)
+        slots_set_enabled(1, sizeof(struct fdm_particle_data), SlotsManager);
 
     set_units();
 
@@ -270,6 +273,11 @@ run(int RestartSnapNum)
 
             /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
             slots_free_sph_pred_data(&sph_predicted);
+        }
+        
+        if(All.FdmOn)
+        {
+            dm_density(&Act,&Tree);
         }
 
         /* The opening criterion for the gravtree

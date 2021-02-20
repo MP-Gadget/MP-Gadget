@@ -867,6 +867,8 @@ SIMPLE_PROPERTY_TYPE_PI(Metallicity, 0, Metallicity, float, 1, struct sph_partic
 SIMPLE_PROPERTY_TYPE_PI(Metals, 4, Metals[0], float, NMETALS, struct star_particle_data)
 SIMPLE_PROPERTY_TYPE_PI(Metals, 0, Metals[0], float, NMETALS, struct sph_particle_data)
 
+SIMPLE_PROPERTY_TYPE_PI(Density, 1, Density, float, 1, struct fdm_particle_data)
+
 SIMPLE_GETTER_PI(GTStarFormationRate, Sfr, float, 1, struct sph_particle_data)
 SIMPLE_PROPERTY_TYPE_PI(StarFormationTime, 5, FormationTime, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeMass, Mass, float, 1, struct bh_particle_data)
@@ -1040,6 +1042,10 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
         IO_REG_TYPE(LastEnrichmentMyr, "f4", 1, 4, IOTable);
         IO_REG_TYPE(TotalMassReturned, "f4", 1, 4, IOTable);
         IO_REG_NONFATAL(SmoothingLength,  "f4", 1, 4, IOTable);
+    }
+    if(All.FdmOn){
+        IO_REG(SmoothingLength, "f4",1, 1, IOTable);
+        IO_REG_TYPE(Density, "f4", 1, 1, IOTable);
     }
     /* Another new addition: save the DelayTime for wind particles*/
     IO_REG_NONFATAL(DelayTime,  "f4", 1, 0, IOTable);

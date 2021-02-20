@@ -10,6 +10,7 @@
 #include "cooling.h"
 #include "forcetree.h"
 #include "density.h"
+#include "fdm.h"
 
 #include "timefac.h"
 #include "petaio.h"
@@ -101,6 +102,8 @@ set_init_params(ParameterSet * ps)
         All.MetalReturnOn = param_get_int(ps, "MetalReturnOn");
         All.MaxDomainTimeBinDepth = param_get_int(ps, "MaxDomainTimeBinDepth");
         All.InitGasTemp = param_get_double(ps, "InitGasTemp");
+        
+        All.FdmOn = param_get_int(ps, "FdmOn");
 
         /*Massive neutrino parameters*/
         All.MassiveNuLinRespOn = param_get_int(ps, "MassiveNuLinRespOn");
@@ -137,6 +140,9 @@ void check_smoothing_length(double * MeanSpacing, const double BoxSize);
 
 static void
 setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime_t Ti_Current);
+
+static void
+setup_FDM_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime_t Ti_Current);
 
 /*! This function reads the initial conditions, and allocates storage for the
  *  tree(s). Various variables of the particle data are initialised and An
@@ -210,6 +216,12 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
             if(P[i].Hsml == 0)
                 P[i].Hsml = 0.1 * All.MeanSeparation[0];
         }
+        
+        if(All.FdmOn && RestartSnapNum == -1 && P[i].Type==1)
+        {
+            if(P[i].Hsml == 0)
+                P[i].Hsml = 0.01 * All.MeanSeparation[0];
+        }
 
         if(All.BlackHoleOn && P[i].Type == 5)
         {
@@ -256,6 +268,9 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
 
     if(All.DensityOn)
         setup_smoothinglengths(RestartSnapNum, ddecomp, Ti_Current);
+    
+    if(All.FdmOn)
+        setup_FDM_smoothinglengths(RestartSnapNum, ddecomp, Ti_Current);
 
     return Ti_Current;
 }
@@ -535,3 +550,83 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime
     slots_free_sph_pred_data(&sph_pred);
     force_tree_free(&Tree);
 }
+
+
+static void
+setup_FDM_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime_t Ti_Current)
+{
+    int i;
+    const double a3 = All.Time * All.Time * All.Time;
+
+    int64_t tot_fdm;
+    MPI_Allreduce(&SlotsManager->info[1].size, &tot_fdm, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+
+    if(tot_fdm == 0)
+        return;
+//
+    ForceTree Tree = {0};
+    /* Need moments because we use them to set Hsml*/
+    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 0, 1, All.OutputDir);
+
+    if(RestartSnapNum == -1)
+    {
+        const double massfactor = All.CP.OmegaCDM / All.CP.Omega0;
+        const double DesNumNgb = GetNumNgb(GetDensityKernelType());
+
+        #pragma omp parallel for
+        for(i = 0; i < PartManager->NumPart; i++)
+        {
+            /* These initial smoothing lengths are only used for DM. */
+            if(P[i].Type != 1)
+                continue;
+
+            int no = force_get_father(i, &Tree);
+
+            while(10 * DesNumNgb * P[i].Mass > massfactor * Tree.Nodes[no].mom.mass)
+            {
+                int p = force_get_father(no, &Tree);
+
+                if(p < 0)
+                    break;
+
+                no = p;
+            }
+
+            P[i].Hsml =
+                pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / (massfactor * Tree.Nodes[no].mom.mass),
+                        1.0 / 3) * Tree.Nodes[no].len;
+
+            /* recover from a poor initial guess */
+            if(P[i].Hsml > 500.0 * All.MeanSeparation[0])
+                P[i].Hsml = All.MeanSeparation[0];
+        }
+    }
+    /* When we restart, validate the SPH properties of the particles.*/
+    else
+    {
+        int bad = 0;
+        double meanbar = All.CP.OmegaCDM * 3 * HUBBLE * All.CP.HubbleParam * HUBBLE * All.CP.HubbleParam/ (8 * M_PI * GRAVITY);
+        #pragma omp parallel for reduction(+: bad)
+        for(i = 0; i < SlotsManager->info[0].size; i++) {
+            /* This allows us to continue gracefully if
+             * there was some kind of bug in the run that output the snapshot.
+             * density() below will fix this up.*/
+            if(FdmP[i].Density <= 0 || !isfinite(FdmP[i].Density)) {
+                FdmP[i].Density = meanbar;
+                bad++;
+            }
+        }
+        MPI_Allreduce(MPI_IN_PLACE, &bad, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+        if(bad > 0)
+            message(0, "Detected bad densities in %d particles on disc\n",bad);
+    }
+
+    /*At the first time step all particles should be active*/
+    ActiveParticles act = {0};
+    act.ActiveParticle = NULL;
+    act.NumActiveParticle = PartManager->NumPart;
+
+    dm_density(&act, &Tree);
+    force_tree_free(&Tree);
+}
+
