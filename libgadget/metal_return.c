@@ -828,6 +828,8 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
             close = j;
         }
     }
+    if(maxcmpt < NHSML && Right[pi] > evalhsml[maxcmpt])
+        Right[pi] = evalhsml[maxcmpt];
     for(j = 0; j < maxcmpt; j++) {
         /* Need rightmost left and leftmost right*/
         if(STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][j] < desnumngb)
@@ -845,7 +847,9 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
      * here because overly large treewalks stop once they have too many neighbours.*/
     if(Right[pi] > 0.99 * tw->tree->BoxSize) {
         /* Extrapolate using volume, ie locally constant density*/
-        double dngbdv = (STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][maxcmpt-1] - STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][maxcmpt-2]) / (pow(evalhsml[maxcmpt-1],3) - pow(evalhsml[maxcmpt-2],3));
+        double dngbdv = 0;
+        if(maxcmpt > 1 && (evalhsml[maxcmpt-1] > evalhsml[maxcmpt-2]))
+            dngbdv = (STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][maxcmpt-1] - STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][maxcmpt-2]) / (pow(evalhsml[maxcmpt-1],3) - pow(evalhsml[maxcmpt-2],3));
         /* Increase hsml by a maximum factor to avoid madness. We can be fairly aggressive about this factor.*/
         double newhsml = 4 * hsml;
         if(dngbdv > 0) {
@@ -862,10 +866,12 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
     /* Decrease Hsml to a smaller value, using numerical extrapolation from the current value.*/
     if(Left[pi] == 0) {
         /* Extrapolate using volume, ie locally constant density*/
-        double dngbdv = (STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][1] - STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][0]) / (pow(evalhsml[1],3) - pow(evalhsml[0],3));
+        double dngbdv = 0;
+        if(evalhsml[1] > evalhsml[0])
+            dngbdv = (STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][1] - STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][0]) / (pow(evalhsml[1],3) - pow(evalhsml[0],3));
         /* Derivative is not defined for minimum, so use 0.*/
-        if(maxcmpt == 1)
-            dngbdv = STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][0] / pow(evalhsml[1],3);
+        if(maxcmpt == 1 && evalhsml[0] > 0)
+            dngbdv = STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][0] / pow(evalhsml[0],3);
         /* Increase hsml by a maximum factor to avoid madness. We can be fairly aggressive about this factor.*/
         if(dngbdv > 0) {
             double dngb = desnumngb - STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][0];
