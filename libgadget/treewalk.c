@@ -1333,8 +1333,8 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
         }
 #endif
 
-        if(tw->Niteration > MAXITER) {
-            endrun(1155, "failed to converge in neighbour iteration in density()\n");
+        if(size > 0 && tw->Niteration > MAXITER) {
+            endrun(1155, "failed to converge density for %ld particles\n", ntot);
         }
     } while(1);
     ta_free(tw->minnumngb);
