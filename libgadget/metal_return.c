@@ -759,6 +759,14 @@ effhsml(int place, int i, TreeWalk * tw)
     int pi = P[place].PI;
     double left = STELLAR_DENSITY_GET_PRIV(tw)->Left[pi];
     double right = STELLAR_DENSITY_GET_PRIV(tw)->Right[pi];
+    /* If somehow Hsml has become zero through underflow, use something non-zero
+     * to make sure we converge. */
+    if(left == 0 && right > 0.99*tw->tree->BoxSize && P[place].Hsml == 0) {
+        int fat = force_get_father(place, tw->tree);
+        P[place].Hsml = tw->tree->Nodes[fat].len;
+        if(P[place].Hsml == 0)
+            P[place].Hsml = tw->tree->BoxSize / pow(PartManager->NumPart, 1./3)/4.;
+    }
     /* Use slightly past the current Hsml as the right most boundary*/
     if(right > 0.99*tw->tree->BoxSize)
         right = P[place].Hsml * ((1.+NHSML)/NHSML);
