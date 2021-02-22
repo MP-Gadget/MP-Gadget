@@ -1,0 +1,16 @@
+name: test
+
+channels:
+  - bccp
+
+dependencies:
+  - python
+  - mpi4py
+  - nbodykit
+  - matplotlib
+  - numpy
+  - configobj
+  # Below are for building MP-Gadget
+  - mpich
+  - gcc_linux-64
+  - gsl

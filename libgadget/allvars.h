@@ -41,6 +41,7 @@ extern struct global_data_all_processes
     double SlotsIncreaseFactor; /* !< What percentage to increase the slot allocation by when requested*/
     int OutputPotential;        /*!< Flag whether to include the potential in snapshots*/
     int OutputHeliumFractions;  /*!< Flag whether to output the helium ionic fractions in snapshots*/
+    int OutputTimebins;         /* Flag whether to save the timebins*/
     int OutputDebugFields;      /* Flag whether to include a lot of debug output in snapshots*/
 
     double RandomParticleOffset; /* If > 0, a random shift of max RandomParticleOffset * BoxSize is applied to every particle
@@ -74,19 +75,22 @@ extern struct global_data_all_processes
 
     int BlackHoleOn;  /* if black holes are enabled */
     int StarformationOn;  /* if star formation is enabled */
+    int MetalReturnOn; /* If late return of metals from AGB stars is enabled*/
     int WindOn; /* if Wind is enabled */
     int LightconeOn;    /* Enable the light cone module,
                            which writes a list of particles to a file as they cross a light cone*/
 
     int WriteBlackHoleDetails; /* write BH details every time step*/
 
-    int MassiveNuLinRespOn; /*!< flags that massive neutrinos using the linear
-                                 response code of Ali-Haimoud & Bird 2013.*/
-    int HybridNeutrinosOn; /*!< Flags that hybrid neutrinos are enabled */
-    double HybridVcrit; /*!< Critical velocity switching between particle
-                          and analytic solvers when hybrid neutrinos are on*/
+    int MassiveNuLinRespOn; /* Flags that massive neutrinos using the linear
+                               response code of Ali-Haimoud & Bird 2013.*/
+    int HybridNeutrinosOn; /* Flags that hybrid neutrinos are enabled */
+    double HybridVcrit; /* Critical velocity switching between particle
+                           and analytic solvers when hybrid neutrinos are on*/
     double HybridNuPartTime; /*!< Redshift at which hybrid neutrinos switch on*/
 
+    int MaxDomainTimeBinDepth; /* We should redo domain decompositions every timestep, after the timestep hierarchy gets deeper than this.
+                                  Essentially forces a domain decompositon every 2^MaxDomainTimeBinDepth timesteps.*/
     int FastParticleType; /*!< flags a particle species to exclude timestep calculations.*/
     /* parameters determining output frequency */
     double PairwiseActiveFraction; /* Fraction of particles active for which we do a pairwise computation instead of a tree*/
@@ -117,8 +121,6 @@ extern struct global_data_all_processes
     /*! The scale of the short-range/long-range force split in units of FFT-mesh cells */
     double Asmth;
     enum ShortRangeForceWindowType ShortRangeForceWindowType;	/*!< method of the feedback*/
-
-    double HydroCostFactor; /* cost factor for hydro in load balancing. */
 
     double MeanSeparation[6]; /* mean separation between particles. 0 if the species doesn't exist. */
 

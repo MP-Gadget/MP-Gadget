@@ -21,6 +21,7 @@ CoolingOn = 1
 StarformationOn = 1
 BlackHoleOn = 0
 HydroOn = 1
+MetalReturnOn = 1
 DensityIndependentSphOn = 1
 RadiationOn = 1
 MassiveNuLinRespOn = 0

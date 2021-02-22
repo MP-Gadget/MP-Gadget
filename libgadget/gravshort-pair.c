@@ -125,6 +125,5 @@ grav_short_pair_ngbiter(
             O->Acc[d] += - dist[d] * fac;
 
         O->Potential += pot;
-        O->Ninteractions ++;
     }
 }

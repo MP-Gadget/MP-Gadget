@@ -192,5 +192,5 @@ Status
 
 master branch status:
 
-.. image:: https://travis-ci.org/MP-Gadget/MP-Gadget.svg?branch=master
-       :target: https://travis-ci.org/MP-Gadget/MP-Gadget
+.. image:: https://github.com/MP-Gadget/MP-Gadget/workflows/main/badge.svg
+       :target: https://github.com/MP-Gadget/MP-Gadget/actions?query=workflow%3Amain

@@ -58,6 +58,16 @@ double timediff(double t0, double t1);
 double second(void);
 size_t sizemax(size_t a, size_t b);
 
+static inline int64_t atomic_fetch_and_add_64(int64_t * ptr, int64_t value) {
+    int64_t k;
+#pragma omp atomic capture
+    {
+      k = (*ptr);
+      (*ptr)+=value;
+    }
+    return k;
+}
+
 static inline int atomic_fetch_and_add(int * ptr, int value) {
     int k;
 #pragma omp atomic capture
@@ -85,7 +95,7 @@ int _MPIU_Barrier(const char * fn, const int ln, MPI_Comm comm);
 /* Fancy barrier which warns if there is a lot of imbalance. */
 #define MPIU_Barrier(comm) _MPIU_Barrier(__FILE__, __LINE__, comm)
 
-#ifdef DEBUG
+#ifdef MOREDEBUG
 /* Checked versions of some MPI routines which make sure that the number we get out is sensible*/
 int MPI_Allreduce_Checked(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm, const int line, const char * file);
 int MPI_Reduce_Checked(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm, const int line, const char * file);

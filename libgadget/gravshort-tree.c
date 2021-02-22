@@ -122,7 +122,7 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
     if(!tree->moments_computed_flag)
         endrun(2, "Gravtree called before tree moments computed!\n");
 
-    tw->ev_label = "FORCETREE_SHORTRANGE";
+    tw->ev_label = "GRAVTREE";
     tw->visit = (TreeWalkVisitFunction) force_treeev_shortrange;
     /* gravity applies to all particles. Including Tracer particles to enhance numerical stability. */
     tw->haswork = NULL;
@@ -145,13 +145,7 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
 
     treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
 
-    /* now add things for comoving integration */
-
-    MPIU_Barrier(MPI_COMM_WORLD);
-    message(0, "Short-range gravitational tree force is done.\n");
-
     /* Now the force computation is finished */
-
     /*  gather some diagnostic information */
 
     timetree = tw->timecomp1 + tw->timecomp2 + tw->timecomp3;
@@ -210,7 +204,6 @@ apply_accn_to_output(TreeWalkResultGravShort * output, const double dx[3], const
         int i;
         for(i = 0; i < 3; i++)
             output->Acc[i] += dx[i] * fac;
-        output->Ninteractions++;
         output->Potential += facpot;
     }
 }
@@ -408,14 +401,14 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             /* Compute the acceleration and apply it to the output structure*/
             apply_accn_to_output(output, dx, r2, h, P[pp].Mass, cellsize);
         }
+        lv->Ninteractions += numcand;
     }
 
-    lv->Ninteractions += output->Ninteractions;
     if(lv->mode == 1) {
         lv->Nnodesinlist += listindex;
         lv->Nlist += 1;
     }
-    return output->Ninteractions;
+    return 1;
 }
 
 

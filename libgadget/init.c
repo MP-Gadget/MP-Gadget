@@ -65,6 +65,7 @@ set_init_params(ParameterSet * ps)
         All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
 
         All.OutputPotential = param_get_int(ps, "OutputPotential");
+        All.OutputTimebins = param_get_int(ps, "OutputTimebins");
         All.OutputHeliumFractions = param_get_int(ps, "OutputHeliumFractions");
         All.OutputDebugFields = param_get_int(ps, "OutputDebugFields");
 
@@ -72,8 +73,6 @@ set_init_params(ParameterSet * ps)
         All.Asmth = param_get_double(ps, "Asmth");
         All.ShortRangeForceWindowType = param_get_enum(ps, "ShortRangeForceWindowType");
         All.Nmesh = param_get_int(ps, "Nmesh");
-
-        All.HydroCostFactor = param_get_double(ps, "HydroCostFactor");
 
         All.CoolingOn = param_get_int(ps, "CoolingOn");
         All.HydroOn = param_get_int(ps, "HydroOn");
@@ -99,7 +98,8 @@ set_init_params(ParameterSet * ps)
 
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.WindOn = param_get_int(ps, "WindOn");
-
+        All.MetalReturnOn = param_get_int(ps, "MetalReturnOn");
+        All.MaxDomainTimeBinDepth = param_get_int(ps, "MaxDomainTimeBinDepth");
         All.InitGasTemp = param_get_double(ps, "InitGasTemp");
 
         /*Massive neutrino parameters*/
@@ -142,6 +142,7 @@ set_init_params(ParameterSet * ps)
 
 static void check_omega(int generations);
 static void check_positions(void);
+void check_smoothing_length(double * MeanSpacing, const double BoxSize);
 
 static void
 setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime_t Ti_Current);
@@ -177,8 +178,6 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
     /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
     set_global_time(Ti_Current);
 
-    init_drift_table(&All.CP, All.TimeInit, All.TimeMax);
-
     /*Read the snapshot*/
     petaio_read_snapshot(RestartSnapNum, MPI_COMM_WORLD);
 
@@ -187,6 +186,9 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
     check_omega(get_generations());
 
     check_positions();
+
+    if(RestartSnapNum == -1)
+        check_smoothing_length(All.MeanSeparation, All.BoxSize);
 
     /* As the above will mostly take place
      * on Task 0, there will be a lot of imbalance*/
@@ -197,7 +199,7 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)	/* initialize sph_properties */
     {
-        P[i].Ti_drift = P[i].Ti_kick = Ti_Current;
+        P[i].Ti_drift = Ti_Current;
 
         if(All.BlackHoleOn && RestartSnapNum == -1 && P[i].Type == 5 )
         {
@@ -209,6 +211,13 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
              *  use a small number */
             if(P[i].Hsml == 0)
                 P[i].Hsml = 0.01 * All.MeanSeparation[0];
+        }
+
+        if(All.MetalReturnOn && P[i].Type == 4 )
+        {
+            /* Touch up zero star smoothing lengths, not saved in the snapshots.*/
+            if(P[i].Hsml == 0)
+                P[i].Hsml = 0.1 * All.MeanSeparation[0];
         }
 
         if(All.BlackHoleOn && P[i].Type == 5)
@@ -241,6 +250,10 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
             SPHP(i).CurlVel = 0;
             SPHP(i).DelayTime = 0;
             SPHP(i).Metallicity = 0;
+            memset(SPHP(i).Metals, 0, NMETALS*sizeof(float));
+            /* Initialise to primordial abundances for H and He*/
+            SPHP(i).Metals[0] = HYDROGEN_MASSFRAC;
+            SPHP(i).Metals[1] = 1- HYDROGEN_MASSFRAC;
             SPHP(i).Sfr = 0;
             SPHP(i).MaxSignalVel = 0;
         }
@@ -322,6 +335,30 @@ void check_positions(void)
                 numzero, lastzero, P[lastzero].Pos[0], P[lastzero].Pos[1], P[lastzero].Pos[2]);
 }
 
+/*! This routine checks that the initial smoothing lengths of the particles
+ *  are sensible and resets them to mean interparticle spacing if not.
+ *  Guards against a problem writing the snapshot. Matters because
+ *  a very large initial smoothing length will cause density() to go crazy.
+ */
+void check_smoothing_length(double * MeanSpacing, const double BoxSize)
+{
+    int i;
+    int numprob = 0;
+    int lastprob = -1;
+    #pragma omp parallel for reduction(+: numprob) reduction(max:lastprob)
+    for(i=0; i< PartManager->NumPart; i++){
+        if(P[i].Type != 5 && P[i].Type != 0)
+            continue;
+        if(P[i].Hsml > BoxSize || P[i].Hsml <= 0) {
+            P[i].Hsml = MeanSpacing[P[i].Type];
+            numprob++;
+            lastprob = i;
+        }
+    }
+    if(numprob > 0)
+        message(5, "Bad smoothing lengths %d last bad %d hsml %g id %ld\n", numprob, lastprob, P[lastprob].Hsml, P[lastprob].ID);
+}
+
 /* Initialize the entropy variable in Pressure-Entropy Sph.
  * Initialization of the entropy variable is a little trickier in this version of SPH,
  * since we need to make sure it 'talks to' the density appropriately */
@@ -348,8 +385,10 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, struc
             SphP[i].Entropy = GAMMA_MINUS1 * u_init / pow(SphP[i].EgyWtDensity / a3 , GAMMA_MINUS1);
             olddensity[i] = SphP[i].EgyWtDensity;
         }
+        /* Empty kick factors as we do not move*/
+        DriftKickTimes times = init_driftkicktime(Ti_Current);
         /* Update the EgyWtDensity*/
-        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, 0,  Ti_Current, sph_pred, NULL, Tree);
+        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, 0,  times, &All.CP, sph_pred, NULL, Tree);
         if(stop)
             break;
 
@@ -384,8 +423,8 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime
     const double a3 = All.Time * All.Time * All.Time;
 
     int64_t tot_sph, tot_bh;
-    sumup_large_ints(1, &SlotsManager->info[0].size, &tot_sph);
-    sumup_large_ints(1, &SlotsManager->info[5].size, &tot_bh);
+    MPI_Allreduce(&SlotsManager->info[0].size, &tot_sph, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&SlotsManager->info[5].size, &tot_bh, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
     /* Do nothing if we are a pure DM run*/
     if(tot_sph + tot_bh == 0)
@@ -471,7 +510,9 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime
     act.ActiveParticle = NULL;
     act.NumActiveParticle = PartManager->NumPart;
 
-    density(&act, 1, 0, All.BlackHoleOn, All.HydroCostFactor, 0,  Ti_Current, &sph_pred, NULL, &Tree);
+    /* Empty kick factors as we do not move*/
+    DriftKickTimes times = init_driftkicktime(Ti_Current);
+    density(&act, 1, 0, All.BlackHoleOn, 0,  times, &All.CP, &sph_pred, NULL, &Tree);
 
     /* for clean IC with U input only, we need to iterate to find entrpoy */
     if(RestartSnapNum == -1)

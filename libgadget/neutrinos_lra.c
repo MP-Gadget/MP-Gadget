@@ -136,29 +136,40 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
     int i;
     /*This is done on the first timestep: we need nk_nonzero for it to work.*/
     if(!delta_tot_table.delta_tot_init_done) {
-        if(PowerSpectrum->nonzero > delta_tot_table.nk_allocated){
-           endrun(2011,"Input power length %d > %d (allocated memory)\n", PowerSpectrum->nonzero, delta_tot_table.nk_allocated);
-        }
-        /*Check that the k bins are the same if we are resuming.
-         * TODO: add rebinning if they are not.*/
-        if(delta_tot_table.ia > 0) {
-            int ik;
-            if(delta_tot_table.nk != PowerSpectrum->nonzero)
-                endrun(201, "Number of neutrino bins %d != stored value %d\n",PowerSpectrum->kk, delta_tot_table.nk);
-            /*Set the wave number*/
-            for(ik=0;ik<PowerSpectrum->nonzero;ik++){
-                if(delta_tot_table.wavenum[ik] > 0 && fabs(delta_tot_table.wavenum[ik] / PowerSpectrum->kk[ik] -1 ) > 1e-3)
-                    endrun(202, "Stored k-bin %d in nu-code changed: %g != %g\n", ik, delta_tot_table.wavenum[ik], PowerSpectrum->kk[ik]);
-            }
-        }
-        else
-            /* Otherwise compute delta_nu from the transfer functions*/
+        if(delta_tot_table.ia == 0) {
+            /* Compute delta_nu from the transfer functions if first entry.*/
             delta_tot_first_init(&delta_tot_table, PowerSpectrum->nonzero, PowerSpectrum->kk, PowerSpectrum->Power, TimeIC);
+        }
 
         /*Initialise the first delta_nu*/
         get_delta_nu_combined(CP, &delta_tot_table, exp(delta_tot_table.scalefact[delta_tot_table.ia-1]), delta_tot_table.delta_nu_last);
         delta_tot_table.delta_tot_init_done = 1;
     }
+    for(i = 0; i < PowerSpectrum->nonzero; i++)
+        PowerSpectrum->logknu[i] = log(PowerSpectrum->kk[i]);
+
+    double * Power_in = PowerSpectrum->Power;
+    /* Rebin the input power if necessary*/
+    if(delta_tot_table.nk != PowerSpectrum->nonzero) {
+        Power_in = mymalloc("pkint", delta_tot_table.nk * sizeof(double));
+        double * logPower = mymalloc("logpk", PowerSpectrum->nonzero * sizeof(double));
+        for(i = 0; i < PowerSpectrum->nonzero; i++)
+            logPower[i] = log(PowerSpectrum->Power[i]);
+        gsl_interp * pkint = gsl_interp_alloc(gsl_interp_linear, PowerSpectrum->nonzero);
+        gsl_interp_init(pkint, PowerSpectrum->logknu, logPower, PowerSpectrum->nonzero);
+        gsl_interp_accel * pkacc = gsl_interp_accel_alloc();
+        for(i = 0; i < delta_tot_table.nk; i++) {
+            double logk = log(delta_tot_table.wavenum[i]);
+            if(pkint->xmax < logk || pkint->xmin > logk)
+                Power_in[i] = delta_tot_table.delta_tot[i][delta_tot_table.ia-1];
+            else
+                Power_in[i] = exp(gsl_interp_eval(pkint, PowerSpectrum->logknu, logPower, logk, pkacc));
+        }
+        myfree(logPower);
+        gsl_interp_accel_free(pkacc);
+        gsl_interp_free(pkint);
+    }
+
     const double partnu = particle_nu_fraction(&CP->ONu.hybnu, Time, 0);
     /* If we get called twice with the same scale factor, do nothing: delta_nu
      * already stores the neutrino power from the current timestep.*/
@@ -170,35 +181,59 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
           error on delta_nu (and moreover for large k). Using the last timestep's delta_nu decreases error even more.
           So we only need one step. */
         /*This increments the number of stored spectra, although the last one is not yet final.*/
-        update_delta_tot(&delta_tot_table, Time, PowerSpectrum->Power, delta_tot_table.delta_nu_last, 0);
+        update_delta_tot(&delta_tot_table, Time, Power_in, delta_tot_table.delta_nu_last, 0);
         /*Get the new delta_nu_curr*/
         get_delta_nu_combined(CP, &delta_tot_table, Time, delta_tot_table.delta_nu_last);
         /* Decide whether we save the current time or not */
         if (Time > exp(delta_tot_table.scalefact[delta_tot_table.ia-2]) + 0.009) {
             /* If so update delta_tot(a) correctly, overwriting current power spectrum */
-            update_delta_tot(&delta_tot_table, Time, PowerSpectrum->Power, delta_tot_table.delta_nu_last, 1);
+            update_delta_tot(&delta_tot_table, Time, Power_in, delta_tot_table.delta_nu_last, 1);
         }
         /*Otherwise discard the last powerspectrum*/
         else
             delta_tot_table.ia--;
 
-        message(0,"Done getting neutrino power: nk = %d, k = %g, delta_nu = %g, delta_cdm = %g,\n", PowerSpectrum->nonzero, PowerSpectrum->kk[1], delta_tot_table.delta_nu_last[1], PowerSpectrum->Power[1]);
+        message(0,"Done getting neutrino power: nk = %d, k = %g, delta_nu = %g, delta_cdm = %g,\n", delta_tot_table.nk, delta_tot_table.wavenum[1], delta_tot_table.delta_nu_last[1], Power_in[1]);
         /*kspace_prefac = M_nu (analytic) / M_particles */
         const double OmegaNu_nop = get_omega_nu_nopart(&CP->ONu, Time);
         const double omega_hybrid = get_omega_nu(&CP->ONu, 1) * partnu / pow(Time, 3);
         /* Omega0 - Omega in neutrinos + Omega in particle neutrinos = Omega in particles*/
         PowerSpectrum->nu_prefac = OmegaNu_nop/(delta_tot_table.Omeganonu/pow(Time,3) + omega_hybrid);
     }
+    double * delta_nu_ratio = mymalloc2("dnu_rat", delta_tot_table.nk * sizeof(double));
+    double * logwavenum = mymalloc2("logwavenum", delta_tot_table.nk * sizeof(double));
+    gsl_interp * pkint = gsl_interp_alloc(gsl_interp_linear, delta_tot_table.nk);
+    gsl_interp_accel * pkacc = gsl_interp_accel_alloc();
     /*We want to interpolate in log space*/
-    for(i=0; i < PowerSpectrum->nonzero; i++) {
+    for(i=0; i < delta_tot_table.nk; i++) {
         if(isnan(delta_tot_table.delta_nu_last[i]))
-            endrun(2004,"delta_nu_curr=%g i=%d delta_cdm_curr=%g kk=%g\n",delta_tot_table.delta_nu_last[i],i,PowerSpectrum->Power[i],PowerSpectrum->kk[i]);
+            endrun(2004,"delta_nu_curr=%g i=%d delta_cdm_curr=%g kk=%g\n",delta_tot_table.delta_nu_last[i],i,Power_in[i],delta_tot_table.wavenum[i]);
         /*Enforce positivity for sanity reasons*/
         if(delta_tot_table.delta_nu_last[i] < 0)
             delta_tot_table.delta_nu_last[i] = 0;
-        PowerSpectrum->logknu[i] = log(PowerSpectrum->kk[i]);
-        PowerSpectrum->delta_nu_ratio[i] = delta_tot_table.delta_nu_last[i]/ PowerSpectrum->Power[i];
+        delta_nu_ratio[i] = delta_tot_table.delta_nu_last[i]/ Power_in[i];
+        logwavenum[i] = log(delta_tot_table.wavenum[i]);
     }
+    if(delta_tot_table.nk != PowerSpectrum->nonzero)
+        myfree(Power_in);
+    gsl_interp_init(pkint, logwavenum, delta_nu_ratio, delta_tot_table.nk);
+
+    /*We want to interpolate in log space*/
+    for(i=0; i < PowerSpectrum->nonzero; i++) {
+        if(PowerSpectrum->nonzero == delta_tot_table.nk)
+            PowerSpectrum->delta_nu_ratio[i] = delta_nu_ratio[i];
+        else {
+            double logk = PowerSpectrum->logknu[i];
+            if(logk > pkint->xmax)
+                logk = pkint->xmax;
+            PowerSpectrum->delta_nu_ratio[i] = gsl_interp_eval(pkint, logwavenum, delta_nu_ratio, logk, pkacc);
+        }
+    }
+
+    gsl_interp_accel_free(pkacc);
+    gsl_interp_free(pkint);
+    myfree(logwavenum);
+    myfree(delta_nu_ratio);
 }
 
 /*Save the neutrino power spectrum to a file*/
@@ -372,7 +407,8 @@ void petaio_read_neutrinos(BigFile * bf, int ThisTask)
     }
     big_array_init(&deltas, delta_tot, "=f8", 2, dims, strides);
     petaio_read_block(bf, "Neutrino/Deltas", &deltas, 1);
-
+    if(nk > 1Lu*delta_tot_table.nk_allocated || ia > 1Lu*delta_tot_table.namax)
+        endrun(5, "Allocated nk %d na %d for neutrino power but need nk %d na %d\n", delta_tot_table.nk_allocated, delta_tot_table.namax, nk, ia);
     /*Save a flat memory block*/
     for(ik=0;ik<nk;ik++)
         for(i=0;i<ia;i++)
@@ -398,6 +434,7 @@ void petaio_read_neutrinos(BigFile * bf, int ThisTask)
     MPI_Bcast(&(delta_tot_table.ia), 1,MPI_INT,0,MPI_COMM_WORLD);
     MPI_Bcast(&(delta_tot_table.nk), 1,MPI_INT,0,MPI_COMM_WORLD);
     MPI_Bcast(delta_tot_table.delta_nu_init,delta_tot_table.nk,MPI_DOUBLE,0,MPI_COMM_WORLD);
+    MPI_Bcast(delta_tot_table.wavenum,delta_tot_table.nk,MPI_DOUBLE,0,MPI_COMM_WORLD);
 
     if(delta_tot_table.ia > 0) {
         /*Broadcast data for scalefact and delta_tot, Delta_tot is allocated as the same block of memory as scalefact.

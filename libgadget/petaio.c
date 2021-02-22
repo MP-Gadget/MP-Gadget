@@ -206,6 +206,10 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
     BigBlock bh;
     message(0, "Reading snapshot %s\n", fname);
 
+    int NTask, ThisTask;
+    MPI_Comm_size(Comm, &NTask);
+    MPI_Comm_rank(Comm, &ThisTask);
+
     if(0 != big_file_mpi_open(&bf, fname, Comm)) {
         endrun(0, "Failed to open snapshot at %s:%s\n", fname,
                     big_file_get_error_message());
@@ -221,10 +225,32 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
         endrun(0, "Failed to close block: %s\n",
                     big_file_get_error_message());
     }
-
-    int NTask, ThisTask;
-    MPI_Comm_size(Comm, &NTask);
-    MPI_Comm_rank(Comm, &ThisTask);
+    /*Read neutrinos from the snapshot if necessary*/
+    if(All.MassiveNuLinRespOn) {
+        size_t nk = All.Nmesh;
+        /* Get the nk and do allocation. */
+        if(!ic) {
+            BigBlock bn;
+            if(0 != big_file_mpi_open_block(&bf, &bn, "Neutrino", MPI_COMM_WORLD)) {
+                endrun(0, "Failed to open block at %s:%s\n", "Neutrino",
+                            big_file_get_error_message());
+            }
+            if(0 != big_block_get_attr(&bn, "Nkval", &nk, "u8", 1)) {
+                endrun(0, "Failed to read attr: %s\n",
+                            big_file_get_error_message());
+            }
+            if(0 != big_block_mpi_close(&bn, MPI_COMM_WORLD)) {
+                endrun(0, "Failed to close block %s\n",
+                            big_file_get_error_message());
+            }
+        }
+        init_neutrinos_lra(nk, All.TimeIC, All.TimeMax, All.CP.Omega0, &All.CP.ONu, All.UnitTime_in_s, CM_PER_MPC);
+        /*Read the neutrino transfer function from the ICs*/
+        if(ic)
+            petaio_read_icnutransfer(&bf, ThisTask);
+        else
+            petaio_read_neutrinos(&bf, ThisTask);
+    }
 
     /* sets the maximum number of particles that may reside on a processor */
     int MaxPart = (int) (All.PartAllocFactor * All.TotNumPartInit / NTask);
@@ -232,7 +258,7 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
     /*Allocate the particle memory*/
     particle_alloc_memory(MaxPart);
 
-    int NLocal[6];
+    int64_t NLocal[6];
     for(ptype = 0; ptype < 6; ptype ++) {
         int64_t start = ThisTask * NTotal[ptype] / NTask;
         int64_t end = (ThisTask + 1) * NTotal[ptype] / NTask;
@@ -244,24 +270,23 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
      * This will be dynamically increased as needed.*/
 
     if(PartManager->NumPart >= PartManager->MaxPart) {
-        endrun(1, "Overwhelmed by part: %d > %d\n", PartManager->NumPart, PartManager->MaxPart);
+        endrun(1, "Overwhelmed by part: %ld > %ld\n", PartManager->NumPart, PartManager->MaxPart);
     }
 
     /* Now allocate memory for the secondary particle data arrays.
      * This may be dynamically resized later!*/
 
     /*Ensure all processors have initially the same number of particle slots*/
-    int newSlots[6] = {0};
+    int64_t newSlots[6] = {0};
 
     /* Can't use MPI_IN_PLACE, which is broken for arrays and MPI_MAX at least on intel mpi 19.0.5*/
-    MPI_Allreduce(NLocal, newSlots, 6, MPI_INT, MPI_MAX, Comm);
+    MPI_Allreduce(NLocal, newSlots, 6, MPI_INT64, MPI_MAX, Comm);
 
     for(ptype = 0; ptype < 6; ptype ++) {
             newSlots[ptype] *= All.PartAllocFactor;
     }
 
-    size_t total_bytes = slots_reserve(0, newSlots, SlotsManager);
-    memset(SlotsManager->Base, 0, total_bytes);
+    slots_reserve(0, newSlots, SlotsManager);
 
     /* so we can set up the memory topology of secondary slots */
     slots_setup_topology(PartManager, NLocal, SlotsManager);
@@ -298,15 +323,6 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
         if(0 == petaio_read_block(&bf, blockname, &array, IOTable->ent[i].required))
             petaio_readout_buffer(&array, &IOTable->ent[i]);
         petaio_destroy_buffer(&array);
-    }
-
-    /*Read neutrinos from the snapshot if necessary*/
-    if(All.MassiveNuLinRespOn) {
-        /*Read the neutrino transfer function from the ICs*/
-        if(ic)
-            petaio_read_icnutransfer(&bf, ThisTask);
-        else
-            petaio_read_neutrinos(&bf, ThisTask);
     }
 
     if(0 != big_file_mpi_close(&bf, Comm)) {
@@ -838,6 +854,7 @@ SIMPLE_PROPERTY(Mass, Mass, float, 1)
 SIMPLE_PROPERTY(ID, ID, uint64_t, 1)
 SIMPLE_PROPERTY(Generation, Generation, unsigned char, 1)
 SIMPLE_GETTER(GTPotential, Potential, float, 1, struct particle_data)
+SIMPLE_GETTER(GTTimeBin, TimeBin, int, 1, struct particle_data)
 SIMPLE_PROPERTY(SmoothingLength, Hsml, float, 1)
 SIMPLE_PROPERTY_PI(Density, Density, float, 1, struct sph_particle_data)
 SIMPLE_PROPERTY_PI(EgyWtDensity, EgyWtDensity, float, 1, struct sph_particle_data)
@@ -846,7 +863,11 @@ SIMPLE_PROPERTY_PI(DelayTime, DelayTime, float, 1, struct sph_particle_data)
 SIMPLE_PROPERTY_TYPE_PI(StarFormationTime, 4, FormationTime, float, 1, struct star_particle_data)
 SIMPLE_PROPERTY_PI(BirthDensity, BirthDensity, float, 1, struct star_particle_data)
 SIMPLE_PROPERTY_TYPE_PI(Metallicity, 4, Metallicity, float, 1, struct star_particle_data)
+SIMPLE_PROPERTY_TYPE_PI(LastEnrichmentMyr, 4, LastEnrichmentMyr, float, 1, struct star_particle_data)
+SIMPLE_PROPERTY_TYPE_PI(TotalMassReturned, 4, TotalMassReturned, float, 1, struct star_particle_data)
 SIMPLE_PROPERTY_TYPE_PI(Metallicity, 0, Metallicity, float, 1, struct sph_particle_data)
+SIMPLE_PROPERTY_TYPE_PI(Metals, 4, Metals[0], float, NMETALS, struct star_particle_data)
+SIMPLE_PROPERTY_TYPE_PI(Metals, 0, Metals[0], float, NMETALS, struct sph_particle_data)
 
 SIMPLE_GETTER_PI(GTStarFormationRate, Sfr, float, 1, struct sph_particle_data)
 SIMPLE_PROPERTY_TYPE_PI(StarFormationTime, 5, FormationTime, float, 1, struct bh_particle_data)
@@ -857,8 +878,9 @@ SIMPLE_PROPERTY_PI(BlackholeProgenitors, CountProgs, float, 1, struct bh_particl
 SIMPLE_PROPERTY_PI(BlackholeSwallowID, SwallowID, uint64_t, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeSwallowTime, SwallowTime, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeJumpToMinPot, JumpToMinPot, int, 1, struct bh_particle_data)
-SIMPLE_PROPERTY_PI(BlackholeMtrack, Mtrack, float, 1, struct bh_particle_data)    
-    
+SIMPLE_PROPERTY_PI(BlackholeMtrack, Mtrack, float, 1, struct bh_particle_data)
+SIMPLE_PROPERTY_PI(BlackholeMseed, Mseed, float, 1, struct bh_particle_data)
+
 SIMPLE_SETTER_PI(STBlackholeMinPotPos , MinPotPos[0], double, 3, struct bh_particle_data)
 
 /* extra properties from excursion set addition */
@@ -917,7 +939,7 @@ static void GTInternalEnergy(int i, float * out, void * baseptr, void * smanptr)
     int PI = ((struct particle_data *) baseptr)[i].PI;
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
-    *out = sl[PI].Entropy / GAMMA_MINUS1 * pow(SPH_EOMDensity(i) * All.cf.a3inv, GAMMA_MINUS1);
+    *out = sl[PI].Entropy / GAMMA_MINUS1 * pow(SPH_EOMDensity(&sl[PI]) * All.cf.a3inv, GAMMA_MINUS1);
 }
 
 static void STInternalEnergy(int i, float * out, void * baseptr, void * smanptr) {
@@ -925,7 +947,7 @@ static void STInternalEnergy(int i, float * out, void * baseptr, void * smanptr)
     int PI = ((struct particle_data *) baseptr)[i].PI;
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
-    sl[PI].Entropy  = GAMMA_MINUS1 * u / pow(SPH_EOMDensity(i) * All.cf.a3inv , GAMMA_MINUS1);
+    sl[PI].Entropy  = GAMMA_MINUS1 * u / pow(SPH_EOMDensity(&sl[PI]) * All.cf.a3inv , GAMMA_MINUS1);
 }
 
 /* Can't use the macros because cannot take address of a bitfield*/
@@ -982,6 +1004,8 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
             IO_REG_WRONLY(Potential, "f4", 1, i, IOTable);
         if(WriteGroupID)
             IO_REG_WRONLY(GroupID, "u4", 1, i, IOTable);
+        if(All.OutputTimebins)
+            IO_REG_WRONLY(TimeBin,       "u4", 1, i, IOTable);
     }
 
     IO_REG(Generation,       "u1", 1, 0, IOTable);
@@ -1016,6 +1040,13 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
     IO_REG_TYPE(StarFormationTime, "f4", 1, 4, IOTable);
     IO_REG_TYPE(Metallicity,       "f4", 1, 0, IOTable);
     IO_REG_TYPE(Metallicity,       "f4", 1, 4, IOTable);
+    if(All.MetalReturnOn) {
+        IO_REG_TYPE(Metals,       "f4", NMETALS, 0, IOTable);
+        IO_REG_TYPE(Metals,       "f4", NMETALS, 4, IOTable);
+        IO_REG_TYPE(LastEnrichmentMyr, "f4", 1, 4, IOTable);
+        IO_REG_TYPE(TotalMassReturned, "f4", 1, 4, IOTable);
+        IO_REG_NONFATAL(SmoothingLength,  "f4", 1, 4, IOTable);
+    }
     /* Another new addition: save the DelayTime for wind particles*/
     IO_REG_NONFATAL(DelayTime,  "f4", 1, 0, IOTable);
     /* end SF */
@@ -1029,6 +1060,7 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
     IO_REG(BlackholeMinPotPos, "f8", 3, 5, IOTable);
     IO_REG(BlackholeJumpToMinPot,   "i4", 1, 5, IOTable);
     IO_REG(BlackholeMtrack,         "f4", 1, 5, IOTable);
+    IO_REG_NONFATAL(BlackholeMseed,         "f4", 1, 5, IOTable);
 
     /* Smoothing lengths for black hole: this is a new addition*/
     IO_REG_NONFATAL(SmoothingLength,  "f4", 1, 5, IOTable);
@@ -1052,7 +1084,6 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
  * Warning: future code versions may change the units!*/
 SIMPLE_GETTER(GTGravAccel, GravAccel[0], float, 3, struct particle_data)
 SIMPLE_GETTER(GTGravPM, GravPM[0], float, 3, struct particle_data)
-SIMPLE_GETTER(GTTimeBin, TimeBin, int, 1, struct particle_data)
 SIMPLE_GETTER_PI(GTHydroAccel, HydroAccel[0], float, 3, struct sph_particle_data)
 SIMPLE_GETTER_PI(GTMaxSignalVel, MaxSignalVel, float, 1, struct sph_particle_data)
 SIMPLE_GETTER_PI(GTEntropy, Entropy, float, 1, struct sph_particle_data)
@@ -1067,7 +1098,8 @@ void register_debug_io_blocks(struct IOTable * IOTable)
     for(ptype = 0; ptype < 6; ptype++) {
         IO_REG_WRONLY(GravAccel,       "f4", 3, ptype, IOTable);
         IO_REG_WRONLY(GravPM,       "f4", 3, ptype, IOTable);
-        IO_REG_WRONLY(TimeBin,       "u4", 1, ptype, IOTable);
+        if(!All.OutputTimebins) /* Otherwise it is output in the regular blocks*/
+            IO_REG_WRONLY(TimeBin,       "u4", 1, ptype, IOTable);
     }
     IO_REG_WRONLY(HydroAccel,       "f4", 3, 0, IOTable);
     IO_REG_WRONLY(MaxSignalVel,       "f4", 1, 0, IOTable);

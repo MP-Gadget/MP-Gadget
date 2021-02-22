@@ -21,6 +21,7 @@
 #include <libgadget/petaio.h>
 #include <libgadget/cooling_qso_lightup.h>
 #include <libgadget/uvbg.h>
+#include <libgadget/metal_return.h>
 
 static int
 BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
@@ -84,6 +85,7 @@ create_gadget_parameter_set()
     /*End cosmology parameters*/
 
     param_declare_int(ps,    "OutputPotential", OPTIONAL, 1, "Save the potential in snapshots.");
+    param_declare_int(ps,    "OutputTimebins", OPTIONAL, 0, "Save the particle timebins in snapshots, for debugging.");
     param_declare_int(ps,    "OutputHeliumFractions", OPTIONAL, 0, "Save the helium ionic fractions in snapshots.");
     param_declare_int(ps,    "OutputDebugFields", OPTIONAL, 0, "Save a large number of debug fields in snapshots.");
     param_declare_int(ps,    "ShowBacktrace", OPTIONAL, 1, "Print a backtrace on crash. Hangs on stampede.");
@@ -93,7 +95,8 @@ create_gadget_parameter_set()
     param_declare_double(ps, "TimeMax", OPTIONAL, 1.0, "Scale factor to end run.");
     param_declare_double(ps, "TimeLimitCPU", REQUIRED, 0, "CPU time to run for in seconds. Code will stop if it notices that the time to end of the next PM step is longer than the remaining time.");
 
-    param_declare_int   (ps, "DomainOverDecompositionFactor", OPTIONAL, 4, "Create on average this number of sub domains on a MPI rank. Load balancer will then move these subdomains around to equalize the work per rank. Higher numbers improve the load balancing but make domain more expensive.");
+    param_declare_int   (ps, "MaxDomainTimeBinDepth", OPTIONAL, 8, "Forces a domain decompositon every 2^MaxDomainTimeBinDepth timesteps.");
+    param_declare_int   (ps, "DomainOverDecompositionFactor", OPTIONAL, -1, "Create on average this number of sub domains on a MPI rank. Higher numbers improve the load balancing. For optimal tree building efficiency, use one domain per thread (the default).");
     param_declare_double(ps, "RandomParticleOffset", OPTIONAL, 8., "Internally shift the particles within a periodic box by a random fraction of a PM grid cell each domain decomposition, ensuring that tree openings are decorrelated between timesteps. This shift is subtracted before particles are saved.");
 
     param_declare_int   (ps, "DomainUseGlobalSorting", OPTIONAL, 1, "Determining the initial refinement of chunks globally. Enabling this produces better domains at costs of slowing down the domain decomposition.");
@@ -129,7 +132,7 @@ create_gadget_parameter_set()
 
     param_declare_double(ps, "DensityContrastLimit", OPTIONAL, 100, "Has an effect only if DensityIndepndentSphOn=1. If = 0 enables the grad-h term in the SPH calculation. If > 0 also sets a maximum density contrast for hydro force calculation.");
     param_declare_double(ps, "MaxNumNgbDeviation", OPTIONAL, 2, "Maximal deviation from the desired number of neighbours for each SPH particle.");
-    param_declare_double(ps, "HydroCostFactor", OPTIONAL, 1, "Cost factor of hydro calculation: this allows gas particles to be considered more expensive than gravity computations.");
+    param_declare_double(ps, "HydroCostFactor", OPTIONAL, 1, "Unused.");
 
     param_declare_int(ps, "BytesPerFile", OPTIONAL, 1024 * 1024 * 1024, "number of bytes per file");
     param_declare_int(ps, "NumWriters", OPTIONAL, 0, "Max number of concurrent writer processes. 0 implies Number of Tasks; ");
@@ -191,13 +194,18 @@ create_gadget_parameter_set()
     param_declare_double(ps, "FOFHaloLinkingLength", OPTIONAL, 0.2, "Linking length for Friends of Friends halos.");
     param_declare_int(ps, "FOFHaloMinLength", OPTIONAL, 32, "Minimum number of particles per FOF Halo.");
     param_declare_double(ps, "MinFoFMassForNewSeed", OPTIONAL, 2, "Minimal halo mass for seeding tracer particles in internal mass units.");
+    param_declare_double(ps, "MinMStarForNewSeed", OPTIONAL, 5e-4, "Minimal stellar mass in halo for seeding black holes in internal mass units.");
     param_declare_double(ps, "TimeBetweenSeedingSearch", OPTIONAL, 1.04, "Scale factor fraction increase between Seeding Attempts.");
 
     /*Black holes*/
     param_declare_int(ps, "BlackHoleOn", REQUIRED, 1, "Master switch to enable black hole formation and feedback. If this is on, type 5 particles are treated as black holes.");
+    param_declare_int(ps, "MetalReturnOn", REQUIRED, 1, "Enable the return of metals from star particles to the gas.");
+
     param_declare_double(ps, "BlackHoleAccretionFactor", OPTIONAL, 100, "BH accretion boosting factor relative to the rate from the Bondi accretion model.");
     param_declare_double(ps, "BlackHoleEddingtonFactor", OPTIONAL, 2.1, "Maximum Black hole accretion as a function of Eddington.");
     param_declare_double(ps, "SeedBlackHoleMass", OPTIONAL, 2e-5, "Mass of initial black hole seed in internal mass units. If this is too much smaller than the gas particle mass, BH will not accrete.");
+    param_declare_double(ps, "MaxSeedBlackHoleMass", OPTIONAL, 0, "Black hole seed masses are drawn from a power law. This is the upper limit on the BH seed mass. If <= 0 then all BHs have the SeedBlackHoleMass and the power law is disabled.");
+    param_declare_double(ps, "SeedBlackHoleMassIndex", OPTIONAL, -2, "Power law index of the seed mass distribution");
 
     param_declare_double(ps, "BlackHoleNgbFactor", OPTIONAL, 2, "Factor by which to increase the number of neighbours for a black hole.");
 
@@ -208,14 +216,14 @@ create_gadget_parameter_set()
 
     param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", OPTIONAL, 0, "If set, the physical radius at which the black hole feedback energy is deposited. When both this flag and BlackHoleFeedbackRadius are both set, the smaller radius is used.");
     param_declare_int(ps,"WriteBlackHoleDetails",OPTIONAL, 0, "If set, output BH details at every time step.");
- 
+
     param_declare_int(ps,"BH_DynFrictionMethod",OPTIONAL, 0, "If set to non-zero, dynamical friction is applied through this method. Setting BH_DynFrictionMethod = 1, = 2, = 3 uses stars only (=1), dark matter + stars (=2), all mass (=3) to compute the DF force.");
     param_declare_int(ps,"BH_DFBoostFactor",OPTIONAL, 1, "If set, dynamical friction is boosted by this factor.");
     param_declare_double(ps,"BH_DFbmax",OPTIONAL, 20, "Maximum impact range for dynamical friction. We use 20 pkpc as default value.");
     param_declare_int(ps,"BH_DRAG",OPTIONAL, 0, "Add drag force to the BH dynamic");
-    param_declare_int(ps,"MergeGravBound",OPTIONAL, 1, "If set to 1, apply gravitational bound criteria for merging event. This criteria would be automatically turned off if reposition is enabled."); 
+    param_declare_int(ps,"MergeGravBound",OPTIONAL, 1, "If set to 1, apply gravitational bound criteria for merging event. This criteria would be automatically turned off if reposition is enabled.");
     param_declare_double(ps, "SeedBHDynMass", OPTIONAL, -1, "The initial dynamic mass of BH, default -1 will use the mass of gas particle. Larger Mdyn would help to stablize the BH in the early phase if turning off reposition.");
-    
+
     static ParameterEnum BlackHoleFeedbackMethodEnum [] = {
         {"mass", BH_FEEDBACK_MASS},
         {"volume", BH_FEEDBACK_VOLUME},
@@ -303,6 +311,11 @@ create_gadget_parameter_set()
     param_declare_double(ps, "QSOVarBubble", OPTIONAL, 0, "Variance of the ionizing bubble around a quasar. By default zero so all bubbles are the same size");
     param_declare_double(ps, "QSOHeIIIReionFinishFrac", OPTIONAL, 0.95, "Reionization fraction at which all particles are flash-reionized instead of having quasar bubbles placed.");
 
+    /* Parameters for the metal return model*/
+    param_declare_double(ps, "MetalsSn1aN0", OPTIONAL, 1.3e-3, "Overall rate of SN1a per Msun");
+    param_declare_double(ps, "MetalsMaxNgbDeviation", OPTIONAL, 5., "Maximum variance in the number of neighbours metals are returned to.");
+    param_declare_int(ps, "MetalsSPHWeighting", OPTIONAL, 1, "If true, return metals to gas with a volume-weighted SPH kernel. If false use a volume-weighted uniform kernel.");
+
     /*Parameters for the massive neutrino model*/
     param_declare_int(ps, "MassiveNuLinRespOn", REQUIRED, 0, "Enables linear response massive neutrinos of 1209.0461. Make sure you enable radiation too.");
     param_declare_int(ps, "HybridNeutrinosOn", OPTIONAL, 0, "Enables hybrid massive neutrinos, where some density is followed analytically, and some with particles. Requires MassivenuLinRespOn");
@@ -386,6 +399,7 @@ void read_parameter_file(char *fname, int * ShowBacktrace, double * MaxMemSizePe
     set_winds_params(ps);
     set_fof_params(ps);
     set_blackhole_params(ps);
+    set_metal_return_params(ps);
 
     parameter_set_free(ps);
 }

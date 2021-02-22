@@ -16,8 +16,6 @@
 
 #define FACT1 0.366025403785	/* FACT1 = 0.5 * (sqrt(3)-1) */
 
-static int *Ngblist;
-
 /* Structure to store the (task-level) counts for particles
  * to be sent to each process*/
 struct SendRecvBuffer
@@ -40,24 +38,18 @@ static int ImportBufferBoost;
 static struct data_nodelist
 {
     int NodeList[NODELISTLENGTH];
-}
-*DataNodeList;
+} *DataNodeList;
 
 /*!< the particles to be exported are grouped
 by task-number. This table allows the
 results to be disentangled again and to be
 assigned to the correct particle */
-struct data_index
+static struct data_index
 {
     int Task;
     int Index;
-    int IndexGet;
-};
-
-static struct data_index *DataIndexTable;	/*!< the particles to be exported are grouped
-					   by task-number. This table allows the
-					   results to be disentangled again and to be
-					   assigned to the correct particle */
+    size_t IndexGet;
+} *DataIndexTable;
 
 /*Initialise global treewalk parameters*/
 void set_treewalk_params(ParameterSet * ps)
@@ -128,7 +120,7 @@ static TreeWalk * GDB_current_ev = NULL;
 static void
 ev_init_thread(const struct TreeWalkThreadLocals export, TreeWalk * const tw, LocalTreeWalk * lv)
 {
-    const int thread_id = omp_get_thread_num();
+    const size_t thread_id = omp_get_thread_num();
     const int NTask = tw->NTask;
     int j;
     lv->tw = tw;
@@ -138,7 +130,15 @@ ev_init_thread(const struct TreeWalkThreadLocals export, TreeWalk * const tw, Lo
     lv->Ninteractions = 0;
     lv->Nnodesinlist = 0;
     lv->Nlist = 0;
-    lv->ngblist = Ngblist + thread_id * PartManager->NumPart;
+    lv->Nexport = 0;
+    size_t localbunch = tw->BunchSize/omp_get_max_threads();
+    lv->DataIndexOffset = thread_id * localbunch;
+    lv->BunchSize = localbunch;
+    if(localbunch > tw->BunchSize - thread_id * localbunch)
+        lv->BunchSize = tw->BunchSize - thread_id * localbunch;
+
+    if(tw->Ngblist)
+        lv->ngblist = tw->Ngblist + thread_id * PartManager->NumPart;
     for(j = 0; j < NTask; j++)
         lv->exportflag[j] = -1;
 }
@@ -163,7 +163,8 @@ ev_free_threadlocals(struct TreeWalkThreadLocals export)
 static void
 ev_begin(TreeWalk * tw, int * active_set, const size_t size)
 {
-    const int NumThreads = omp_get_max_threads();
+    /* Needs to be 64-bit so that the multiplication in Ngblist malloc doesn't overflow*/
+    const size_t NumThreads = omp_get_max_threads();
     MPI_Comm_size(MPI_COMM_WORLD, &tw->NTask);
     tw->NThread = NumThreads;
     /* The last argument is may_have_garbage: in practice the only
@@ -172,12 +173,30 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
      * sfr/bh we should change this*/
     treewalk_build_queue(tw, active_set, size, 0);
 
+    /* Print some balance numbers*/
+    int64_t nmin, nmax, total;
+    MPI_Reduce(&tw->WorkSetSize, &nmin, 1, MPI_INT64, MPI_MIN, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tw->WorkSetSize, &nmax, 1, MPI_INT64, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tw->WorkSetSize, &total, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    message(0, "Treewalk %s iter %d: total part %ld max/MPI: %ld min/MPI: %ld balance: %g.\n",
+            tw->ev_label, tw->Niteration, total, nmax, nmin, (double)nmax/((total+0.001)/tw->NTask));
+
     /* Start first iteration at the beginning*/
     tw->WorkSetStart = 0;
 
-    Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * NumThreads * sizeof(int));
+    if(!tw->NoNgblist)
+        tw->Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * NumThreads * sizeof(int));
+    else
+        tw->Ngblist = NULL;
 
     report_memory_usage(tw->ev_label);
+
+    /* Assert that the query and result structures are aligned to  64-bit boundary,
+     * so that our MPI Send/Recv's happen from aligned memory.*/
+    if(tw->query_type_elsize % 8 != 0)
+        endrun(0, "Query structure has size %d, not aligned to 64-bit boundary.\n", tw->query_type_elsize);
+    if(tw->result_type_elsize % 8 != 0)
+        endrun(0, "Result structure has size %d, not aligned to 64-bit boundary.\n", tw->result_type_elsize);
 
     /*The amount of memory eventually allocated per tree buffer*/
     size_t bytesperbuffer = sizeof(struct data_index) + sizeof(struct data_nodelist) + tw->query_type_elsize;
@@ -193,8 +212,8 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     freebytes -= 4096 * 10 * bytesperbuffer;
 
     tw->BunchSize = (size_t) floor(((double)freebytes)/ bytesperbuffer);
-    /* if the send/recv buffer is greater than 2GB some MPIs have issues. */
-    const size_t twogb = 1024*1024*2030L;
+    /* if the send/recv buffer is close to 4GB some MPIs have issues. */
+    const size_t twogb = 1024*1024*3092L;
     if(tw->BunchSize * tw->query_type_elsize > twogb)
         tw->BunchSize = twogb / tw->query_type_elsize;
 
@@ -215,7 +234,8 @@ static void ev_finish(TreeWalk * tw)
 {
     myfree(DataNodeList);
     myfree(DataIndexTable);
-    myfree(Ngblist);
+    if(tw->Ngblist)
+        myfree(tw->Ngblist);
     if(!tw->work_set_stolen_from_active)
         myfree(tw->WorkSet);
 
@@ -247,7 +267,7 @@ treewalk_init_query(TreeWalk * tw, TreeWalkQueryBase * query, int i, int * NodeL
     }
 
     tw->fill(i, query, tw);
-};
+}
 
 static void
 treewalk_init_result(TreeWalk * tw, TreeWalkResultBase * result, TreeWalkQueryBase * query)
@@ -269,7 +289,8 @@ treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum T
 #endif
 }
 
-static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, int * currentIndex) {
+static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * dataindexoffset, size_t * nexports, int * currentIndex)
+{
     LocalTreeWalk lv[1];
     /* Note: exportflag is local to each thread */
     ev_init_thread(export, tw, lv);
@@ -279,7 +300,7 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, int * curr
     TreeWalkQueryBase * input = alloca(tw->query_type_elsize);
     TreeWalkResultBase * output = alloca(tw->result_type_elsize);
 
-    int lastSucceeded = tw->WorkSetStart - 1;
+    int64_t lastSucceeded = tw->WorkSetStart - 1;
     /* We must schedule monotonically so that if the export buffer fills up
      * it is guaranteed that earlier particles are already done.
      * However, we schedule dynamically so that we have reduced imbalance.
@@ -288,7 +309,11 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, int * curr
     int chnk = 0;
     /* chunk size: 1 and 1000 were slightly (3 percent) slower than 8.
      * FoF treewalk needs a larger chnksz to avoid contention.*/
-    const int chnksz = 200;
+    int chnksz = tw->WorkSetSize / (4*tw->NThread);
+    if(chnksz < 1)
+        chnksz = 1;
+    if(chnksz > 100)
+        chnksz = 100;
     do {
         /* Get another chunk from the global queue*/
         chnk = atomic_fetch_and_add(currentIndex, chnksz);
@@ -297,28 +322,57 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, int * curr
         /* Make sure we do not overflow the loop*/
         if(end > tw->WorkSetSize)
             end = tw->WorkSetSize;
+        /* Reduce the chunk size towards the end of the walk*/
+        if((tw->WorkSetSize  < end + chnksz * tw->NThread) && chnksz >= 2)
+            chnksz /= 2;
         int k;
         for(k = chnk; k < end; k++) {
+            /* Skip already evaluated particles. This is only used if the buffer fills up.*/
+            if(tw->evaluated && tw->evaluated[k])
+                continue;
+
             const int i = tw->WorkSet ? tw->WorkSet[k] : k;
             /* Primary never uses node list */
             treewalk_init_query(tw, input, i, NULL);
             treewalk_init_result(tw, output, input);
-
             lv->target = i;
+            /* Reset the number of exported particles.*/
+            lv->NThisParticleExport = 0;
             const int rt = tw->visit(input, output, lv);
+            if(lv->NThisParticleExport > 1000)
+                message(5, "%d exports for particle %d! Odd.\n", lv->NThisParticleExport, k);
             if(rt < 0) {
                 /* export buffer has filled up, can't do more work.*/
-                return lastSucceeded;
+                break;
             } else {
                 treewalk_reduce_result(tw, output, i, TREEWALK_PRIMARY);
                 /* We need lastSucceeded as well as currentIndex so that
                  * if the export buffer fills up in the middle of a
                  * chunk we still get the right answer. Notice it is thread-local*/
                 lastSucceeded = k;
+                if(tw->evaluated)
+                    tw->evaluated[k] = 1;
             }
+        }
+        /* If we filled up, we need to remove the partially evaluated last particle from the export list and leave this loop.*/
+        if(lv->Nexport >= lv->BunchSize) {
+            message(1, "Tree export buffer full with %ld particles. start %ld lastsucceeded: %ld.\n", lv->Nexport, tw->WorkSetStart, lastSucceeded);
+            tw->BufferFullFlag = 1;
+            /* Touch up the DataIndexTable, so that partial particle exports are discarded.
+             * Since this queue is per-thread, it is ordered.*/
+            lv->Nexport-= lv->NThisParticleExport;
+            const int lastreal = tw->WorkSet ? tw->WorkSet[k] : k;
+            /* Index stores tw->target, which is the current particle.*/
+            if(lv->NThisParticleExport > 0 && DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index != lastreal)
+                endrun(5, "Something screwed up in export queue: nexp %ld (local %d) last %d != index %d\n", lv->Nexport,
+                       lv->NThisParticleExport, lastreal, DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index);
+            /* Leave this chunking loop.*/
+            break;
         }
     } while(chnk < tw->WorkSetSize);
 
+    *dataindexoffset = lv->DataIndexOffset;
+    *nexports = lv->Nexport;
     return lastSucceeded;
 }
 
@@ -418,53 +472,36 @@ ev_primary(TreeWalk * tw)
     int currentIndex = tw->WorkSetStart;
     int lastSucceeded = tw->WorkSetSize;
 
+    size_t * nexports = ta_malloc("localexports", size_t, tw->NThread);
+    size_t * dataindexoffset = ta_malloc("dataindex", size_t, tw->NThread);
+
 #pragma omp parallel reduction(min: lastSucceeded)
     {
-        lastSucceeded = real_ev(export, tw, &currentIndex);
+        int tid = omp_get_thread_num();
+        lastSucceeded = real_ev(export, tw, &dataindexoffset[tid], &nexports[tid], &currentIndex);
     }
 
+    int64_t i;
+    tw->Nexport = 0;
+
+    /* Compactify the export queue*/
+    for(i = 0; i < tw->NThread; i++)
+    {
+        /* Only need to move if this thread is not full*/
+        if(tw->Nexport != dataindexoffset[i])
+            memmove(DataIndexTable + tw->Nexport, DataIndexTable + dataindexoffset[i], sizeof(DataIndexTable[0]) * nexports[i]);
+        tw->Nexport += nexports[i];
+    }
+
+    myfree(dataindexoffset);
+    myfree(nexports);
     ev_free_threadlocals(export);
 
-    if(tw->Nexport >= tw->BunchSize) {
-        message(1, "Tree export buffer full with %d particles. start %d lastsucceeded: %d.\n", tw->Nexport, tw->WorkSetStart, lastSucceeded);
-        tw->BufferFullFlag = 1;
-        /* Touch up the DataIndexTable, so that partial particle exports are discarded.*/
-        size_t i;
-        /* This assumes that the WorkSet is monotonic, which is guaranteed by the static schedule in
-         * treewalk_begin_queue*/
-        const int lastreal = tw->WorkSet ? tw->WorkSet[lastSucceeded] : lastSucceeded;
-        #pragma omp parallel for
-        for(i=0; i < tw->BunchSize; i++) {
-            /* target is the current particle, so this reads the buffer looking for
-                * exports associated with the current particle. We cannot just discard
-                * from the end because of threading.*/
-            if(DataIndexTable[i].Index > lastreal)
-            {
-                /* NTask will be placed to the end by sorting */
-                DataIndexTable[i].Task = tw->NTask;
-                /* put in some junk so that we can detect them */
-                DataNodeList[DataIndexTable[i].IndexGet].NodeList[0] = -2;
-            }
-        }
-
-    }
-
     /* Set the place to start the next iteration. Note that because lastSucceeded
-     * is the minimum entry across all threads, some particles may have their trees walked twice locally.
-     * This could be a problem if the export buffer filled up in a physics module with locks,
-     * ie, which is pairwise and changes the other particle in the treewalk.
-     * In practice almost all of these algorithms either set a flag
-     * in the particle to indicate that it has been finished (HeIII reion),
-     * or find a maximum (BH). The only exception is the wind velocity code,
-     * but there are few enough stars in a treewalk that this
-     * should not fill up often.*/
+     * is the minimum entry across all threads, some particles may have their trees partially walked twice locally.
+     * This is fine because we walk the tree to fill up the Ngbiter list.
+     * Only a full Ngbiter list is executed; partial lists are discarded.*/
     tw->WorkSetStart = lastSucceeded + 1;
-
-    /* Nexport may go off too much after BunchSize
-     * as we don't protect it from over adding in _export_particle
-     * */
-    if(tw->Nexport > tw->BunchSize)
-        tw->Nexport = tw->BunchSize;
 
     tend = second();
     tw->timecomp1 += timediff(tstart, tend);
@@ -524,7 +561,8 @@ static void ev_secondary(TreeWalk * tw)
  * This can also be called from a nonthreaded code
  *
  * */
-int treewalk_export_particle(LocalTreeWalk * lv, int no) {
+int treewalk_export_particle(LocalTreeWalk * lv, int no)
+{
     if(lv->mode != 0) {
         endrun(1, "Trying to export a ghost particle.\n");
     }
@@ -544,23 +582,19 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
 
     if(exportnodecount[task] == NODELISTLENGTH)
     {
-        size_t nexp;
-        #pragma omp atomic capture
-        {
-            nexp = tw->Nexport;
-            tw->Nexport++;
-        }
         /* out of buffer space. Need to interrupt. */
-        if(nexp >= tw->BunchSize) {
+        if(lv->Nexport >= lv->BunchSize) {
             return -1;
         }
-        else {
-            exportnodecount[task] = 0;
-            exportindex[task] = nexp;
-            DataIndexTable[nexp].Task = task;
-            DataIndexTable[nexp].Index = target;
-            DataIndexTable[nexp].IndexGet = nexp;
-        }
+        /* This index is a unique entry in the global DataNodeList and DataIndexTable.*/
+        size_t nexp = lv->Nexport + lv->DataIndexOffset;
+        exportnodecount[task] = 0;
+        exportindex[task] = nexp;
+        DataIndexTable[nexp].Task = task;
+        DataIndexTable[nexp].Index = target;
+        DataIndexTable[nexp].IndexGet = nexp;
+        lv->Nexport++;
+        lv->NThisParticleExport++;
     }
 
     /* Set the NodeList entry*/
@@ -568,7 +602,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
             tw->tree->TopLeaves[no - tw->tree->lastnode].treenode;
 
     if(exportnodecount[task] < NODELISTLENGTH)
-            DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
+        DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
     return 0;
 }
 
@@ -590,7 +624,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
     ev_begin(tw, active_set, size);
 
     if(tw->preprocess) {
-        int i;
+        int64_t i;
         #pragma omp parallel for
         for(i = 0; i < tw->WorkSetSize; i ++) {
             const int p_i = tw->WorkSet ? tw->WorkSet[i] : i;
@@ -599,8 +633,17 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
     }
 
     if(tw->visit) {
+        tw->Nexportfull = 0;
+        tw->evaluated = NULL;
         do
         {
+            /* Keep track of which particles have been evaluated across buffer fill ups.
+             * Do this if we are not allowed to evaluate anything twice,
+             * or if the buffer filled up already.*/
+            if((!tw->evaluated) && (tw->Nexportfull == 1 || tw->repeatdisallowed)) {
+                tw->evaluated = mymalloc("evaluated", sizeof(char)*tw->WorkSetSize);
+                memset(tw->evaluated, 0, sizeof(char)*tw->WorkSetSize);
+            }
             ev_primary(tw); /* do local particles and prepare export list */
             /* exchange particle data */
             const struct SendRecvBuffer sndrcv = ev_get_remote(tw);
@@ -610,10 +653,12 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
             /* import the result to local particles */
             ev_reduce_result(sndrcv, tw);
 
-            tw->Niterations ++;
+            tw->Nexportfull ++;
             tw->Nexport_sum += tw->Nexport;
             ta_free(sndrcv.Send_count);
         } while(ev_ndone(tw) < tw->NTask);
+        if(tw->evaluated)
+            myfree(tw->evaluated);
     }
 
 #ifdef DEBUG
@@ -627,7 +672,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
     tstart = second();
 
     if(tw->postprocess) {
-        int i;
+        int64_t i;
         #pragma omp parallel for
         for(i = 0; i < tw->WorkSetSize; i ++) {
             const int p_i = tw->WorkSet ? tw->WorkSet[i] : i;
@@ -637,6 +682,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
     tend = second();
     tw->timecomp3 = timediff(tstart, tend);
     ev_finish(tw);
+    tw->Niteration++;
 }
 
 static void
@@ -1061,7 +1107,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         else if(current->f.ChildType == PSEUDO_NODE_TYPE) {
             /* pseudo particle */
             if(lv->mode == 1) {
-                endrun(12312, "Touching outside of my domain from a node list of a ghost. This shall not happen.");
+                endrun(12312, "Secondary for particle %d from node %d found pseudo at %d.\n", lv->target, startnode, current);
             } else {
                 /* Export the pseudo particle*/
                 if(-1 == treewalk_export_particle(lv, current->s.suns[0]))
@@ -1078,3 +1124,221 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
     return numcand;
 }
 
+/*****
+ * Variant of ngbiter that doesn't use the Ngblist.
+ * The ngblist is generally preferred for memory locality reasons and
+ * to avoid particles being partially evaluated
+ * twice if the buffer fills up. Use this variant if the evaluation
+ * wants to change the search radius, such as for knn algorithms
+ * or some density code. Don't use it if the treewalk modifies other particles.
+ * */
+int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
+            TreeWalkResultBase * O,
+            LocalTreeWalk * lv)
+{
+    TreeWalkNgbIterBase * iter = alloca(lv->tw->ngbiter_type_elsize);
+
+    /* Kick-start the iteration with other == -1 */
+    iter->other = -1;
+    lv->tw->ngbiter(I, O, iter, lv);
+
+    int inode;
+    for(inode = 0; (lv->mode == 0 && inode < 1)|| (lv->mode == 1 && inode < NODELISTLENGTH && I->NodeList[inode] >= 0); inode++)
+    {
+        int no = I->NodeList[inode];
+        const ForceTree * tree = lv->tw->tree;
+        const double BoxSize = tree->BoxSize;
+
+        while(no >= 0)
+        {
+            struct NODE *current = &tree->Nodes[no];
+
+            /* When walking exported particles we start from the encompassing top-level node,
+            * so if we get back to a top-level node again we are done.*/
+            if(lv->mode == 1) {
+                /* The first node is always top-level*/
+                if(current->f.TopLevel && no != I->NodeList[inode]) {
+                    /* we reached a top-level node again, which means that we are done with the branch */
+                    break;
+                }
+            }
+
+            /* Cull the node */
+            if(0 == cull_node(I, iter, current, BoxSize)) {
+                /* in case the node can be discarded */
+                no = current->sibling;
+                continue;
+            }
+
+            /* Node contains relevant particles, add them.*/
+            if(current->f.ChildType == PARTICLE_NODE_TYPE) {
+                int i;
+                int * suns = current->s.suns;
+                for (i = 0; i < current->s.noccupied; i++) {
+                    /* must be the correct type: compare the
+                    * current type for this subnode extracted
+                    * from the bitfield to the mask.*/
+                    int type = (current->s.Types >> (3*i)) % 8;
+
+                    if(!((1<<type) & iter->mask))
+                        continue;
+
+                    /* Now evaluate a particle for the list*/
+                    int other = suns[i];
+                    /* Skip garbage*/
+                    if(P[other].IsGarbage)
+                        continue;
+                    /* In case the type of the particle has changed since the tree was built.
+                    * Happens for wind treewalk for gas turned into stars on this timestep.*/
+                    if(!((1<<P[other].Type) & iter->mask))
+                        continue;
+
+                    double dist = iter->Hsml;
+                    double r2 = 0;
+                    int d;
+                    double h2 = dist * dist;
+                    for(d = 0; d < 3; d ++) {
+                        /* the distance vector points to 'other' */
+                        iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d], BoxSize);
+                        r2 += iter->dist[d] * iter->dist[d];
+                        if(r2 > h2) break;
+                    }
+                    if(r2 > h2) continue;
+
+                    /* update the iter and call the iteration function*/
+                    iter->r2 = r2;
+                    iter->other = other;
+                    iter->r = sqrt(r2);
+                    lv->tw->ngbiter(I, O, iter, lv);
+                }
+                /* Move sideways*/
+                no = current->sibling;
+                continue;
+            }
+            else if(current->f.ChildType == PSEUDO_NODE_TYPE) {
+                /* pseudo particle */
+                if(lv->mode == 1) {
+                    endrun(12312, "Secondary for particle %d from node %d found pseudo at %d.\n", lv->target, I->NodeList[inode], current);
+                } else {
+                    /* Export the pseudo particle*/
+                    if(-1 == treewalk_export_particle(lv, current->s.suns[0]))
+                        return -1;
+                    /* Move sideways*/
+                    no = current->sibling;
+                    continue;
+                }
+            }
+            /* ok, we need to open the node */
+            no = current->s.suns[0];
+        }
+    }
+
+    if(lv->mode == 1) {
+        lv->Nnodesinlist += inode;
+        lv->Nlist += 1;
+    }
+    return 0;
+}
+
+/* This function does treewalk_run in a loop, allocating a queue to allow some particles to be redone.
+ * This loop is used primarily in density estimation.*/
+void
+treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_hsml)
+{
+    int64_t ntot = 0;
+    int NumThreads = omp_get_max_threads();
+    tw->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
+    tw->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
+    int alloc_high = 0;
+    int * ReDoQueue = queue;
+    int64_t size = queuesize;
+    tw->maxnumngb = ta_malloc("numngb", double, NumThreads);
+    tw->minnumngb = ta_malloc("numngb2", double, NumThreads);
+
+    /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
+    do {
+        /* The RedoQueue needs enough memory to store every particle on every thread, because
+         * we cannot guarantee that the sph particles are evenly spread across threads!*/
+        int * CurQueue = ReDoQueue;
+        int i;
+        for(i = 0; i < NumThreads; i++) {
+            tw->maxnumngb[i] = 0;
+            tw->minnumngb[i] = 1e50;
+        }
+
+        /* The ReDoQueue swaps between high and low allocations so we can have two allocated alternately*/
+        if(update_hsml) {
+            if(!alloc_high) {
+                ReDoQueue = (int *) mymalloc2("ReDoQueue", size * sizeof(int) * NumThreads);
+                alloc_high = 1;
+            }
+            else {
+                ReDoQueue = (int *) mymalloc("ReDoQueue", size * sizeof(int) * NumThreads);
+                alloc_high = 0;
+            }
+            gadget_setup_thread_arrays(ReDoQueue, tw->NPRedo, tw->NPLeft, size, NumThreads);
+        }
+        treewalk_run(tw, CurQueue, size);
+
+        /* We can stop if we are not updating hsml*/
+        if(!update_hsml)
+            break;
+
+        tw->haswork = NULL;
+        /* Now done with the current queue*/
+        if(tw-> Niteration > 1)
+            myfree(CurQueue);
+
+        /* Set up the next queue*/
+        size = gadget_compact_thread_arrays(ReDoQueue, tw->NPRedo, tw->NPLeft, NumThreads);
+
+        MPI_Allreduce(&size, &ntot, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+        if(ntot == 0){
+            myfree(ReDoQueue);
+            break;
+        }
+        for(i = 1; i < NumThreads; i++) {
+            if(tw->maxnumngb[0] < tw->maxnumngb[i])
+                tw->maxnumngb[0] = tw->maxnumngb[i];
+            if(tw->minnumngb[0] > tw->minnumngb[i])
+                tw->minnumngb[0] = tw->minnumngb[i];
+        }
+        double minngb, maxngb;
+        MPI_Reduce(&tw->maxnumngb[0], &maxngb, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&tw->minnumngb[0], &minngb, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+        message(0, "Max ngb=%g, min ngb=%g\n", maxngb, minngb);
+
+        /*Shrink memory*/
+        ReDoQueue = myrealloc(ReDoQueue, sizeof(int) * size);
+
+        /*
+        if(ntot < 1 ) {
+            foreach(ActiveParticle)
+            {
+                if(density_haswork(i)) {
+                    MyFloat Left = DENSITY_GET_PRIV(tw)->Left[i];
+                    MyFloat Right = DENSITY_GET_PRIV(tw)->Right[i];
+                    message (1, "i=%d task=%d ID=%llu type=%d, Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
+                         i, ThisTask, P[i].ID, P[i].Type, P[i].Hsml, Left, Right,
+                         (float) P[i].NumNgb, Right - Left, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+                }
+            }
+
+        }
+        */
+#ifdef DEBUG
+        if(ntot == 1 && size > 0 && tw->Niteration > 20 ) {
+            int pp = ReDoQueue[0];
+            message(1, "Remaining i=%d, t %d, pos %g %g %g, hsml: %g\n", pp, P[pp].Type, P[pp].Pos[0], P[pp].Pos[1], P[pp].Pos[2], P[pp].Hsml);
+        }
+#endif
+
+        if(size > 0 && tw->Niteration > MAXITER) {
+            endrun(1155, "failed to converge density for %ld particles\n", ntot);
+        }
+    } while(1);
+    ta_free(tw->minnumngb);
+    ta_free(tw->maxnumngb);
+    ta_free(tw->NPRedo);
+    ta_free(tw->NPLeft);
+}

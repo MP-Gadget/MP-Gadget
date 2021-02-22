@@ -22,6 +22,7 @@ StarformationOn = 1
 RadiationOn = 1
 HydroOn = 1
 DensityIndependentSphOn = 0
+MetalReturnOn = 0
 BlackHoleOn = 0
 WindOn = 0
 StarformationCriterion = density

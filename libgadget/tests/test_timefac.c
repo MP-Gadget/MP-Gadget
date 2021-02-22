@@ -80,18 +80,16 @@ void test_drift_factor(void ** state)
     /*Initialise the table: default values from z=200 to z=0*/
     Cosmology CP;
     CP.Omega0 = 1.;
-    init_drift_table(&CP, AMIN, AMAX);
     /* Check default scaling: for total matter domination
      * we should have a drift factor like 1/sqrt(a)*/
     assert_true(fabs(get_exact_drift_factor(&CP, get_ti(0.8), get_ti(0.85)) + 2/0.1*(1/sqrt(0.85) - 1/sqrt(0.8))) < 5e-5);
     /*Test the kick table*/
-    assert_true(fabs(get_gravkick_factor(get_ti(0.8), get_ti(0.85)) - 2/0.1*(sqrt(0.85) - sqrt(0.8))) < 5e-5);
+    assert_true(fabs(get_exact_gravkick_factor(&CP, get_ti(0.8), get_ti(0.85)) - 2/0.1*(sqrt(0.85) - sqrt(0.8))) < 5e-5);
 
     //Chosen so we get the same bin
     assert_true(fabs(get_exact_drift_factor(&CP, get_ti(0.8), get_ti(0.8003)) + 2/0.1*(1/sqrt(0.8003) - 1/sqrt(0.8))) < 5e-6);
     //Now choose a more realistic cosmology
     CP.Omega0 = 0.25;
-    init_drift_table(&CP, AMIN, AMAX);
     /*Check late and early times*/
     assert_true(fabs(get_exact_drift_factor(&CP, get_ti(0.95), get_ti(0.98)) - exact_drift_factor(&CP, 0.95, 0.98,3)) < 5e-5);
     assert_true(fabs(get_exact_drift_factor(&CP, get_ti(0.05), get_ti(0.06)) - exact_drift_factor(&CP, 0.05, 0.06,3)) < 5e-5);
@@ -100,11 +98,11 @@ void test_drift_factor(void ** state)
     assert_true(fabs(get_exact_drift_factor(&CP, ((1<<LTIMEBINS)-1), 1<<LTIMEBINS) - exact_drift_factor(&CP, AMAX-logDtime, AMAX,3)) < 5e-5);
     assert_true(fabs(get_exact_drift_factor(&CP, 0, 1) - exact_drift_factor(&CP, 1.0 - exp(log(AMAX)-log(AMIN))/(1<<LTIMEBINS), 1.0,3)) < 5e-5);
     /*Gravkick*/
-    assert_true(fabs(get_gravkick_factor(get_ti(0.8), get_ti(0.85)) - exact_drift_factor(&CP, 0.8, 0.85, 2)) < 5e-5);
-    assert_true(fabs(get_gravkick_factor(get_ti(0.05), get_ti(0.06)) - exact_drift_factor(&CP, 0.05, 0.06, 2)) < 5e-5);
+    assert_true(fabs(get_exact_gravkick_factor(&CP, get_ti(0.8), get_ti(0.85)) - exact_drift_factor(&CP, 0.8, 0.85, 2)) < 5e-5);
+    assert_true(fabs(get_exact_gravkick_factor(&CP, get_ti(0.05), get_ti(0.06)) - exact_drift_factor(&CP, 0.05, 0.06, 2)) < 5e-5);
 
     /*Test the hydrokick table: always the same as drift*/
-    assert_true(fabs(get_hydrokick_factor(get_ti(0.8), get_ti(0.85)) - get_exact_drift_factor(&CP, get_ti(0.8), get_ti(0.85))) < 5e-5);
+    assert_true(fabs(get_exact_hydrokick_factor(&CP, get_ti(0.8), get_ti(0.85)) - get_exact_drift_factor(&CP, get_ti(0.8), get_ti(0.85))) < 5e-5);
 
 }
 

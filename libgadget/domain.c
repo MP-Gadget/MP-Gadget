@@ -87,6 +87,11 @@ void set_domain_params(ParameterSet * ps)
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0) {
         domain_params.DomainOverDecompositionFactor = param_get_int(ps, "DomainOverDecompositionFactor");
+        /* Create one domain per thread. This helps the balance and makes the treebuild merge faster*/
+        if(domain_params.DomainOverDecompositionFactor < 0)
+            domain_params.DomainOverDecompositionFactor = omp_get_max_threads();
+        if(domain_params.DomainOverDecompositionFactor < 4)
+            domain_params.DomainOverDecompositionFactor = 4;
         domain_params.TopNodeAllocFactor = param_get_double(ps, "TopNodeAllocFactor");
         domain_params.DomainUseGlobalSorting = param_get_int(ps, "DomainUseGlobalSorting");
         domain_params.SetAsideFactor = 1.;
@@ -332,7 +337,6 @@ void domain_free(DomainDecomp * ddecomp)
 static int
 domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy, const int MaxTopNodes)
 {
-
     int i;
 
     size_t bytes, all_bytes = 0;
@@ -465,7 +469,7 @@ domain_check_memory_bound(const DomainDecomp * ddecomp, int64_t *TopLeafWork, in
     /*Leave a small number of particles for star formation */
     if(max_load > PartManager->MaxPart * domain_params.SetAsideFactor)
     {
-        message(0, "desired memory imbalance=%g  (limit=%g, needed=%d)\n",
+        message(0, "desired memory imbalance=%g  (limit=%g, needed=%ld)\n",
                     (max_load * ((double) sumload ) / NTask ) / PartManager->MaxPart, domain_params.SetAsideFactor * PartManager->MaxPart, max_load);
         message(0, "Balance breakdown:\n");
         int i;

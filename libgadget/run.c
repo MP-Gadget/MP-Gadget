@@ -25,12 +25,14 @@
 #include "blackhole.h"
 #include "hydra.h"
 #include "sfr_eff.h"
+#include "metal_return.h"
 #include "slotsmanager.h"
 #include "hci.h"
 #include "fof.h"
 #include "cooling_qso_lightup.h"
 #include "lightcone.h"
 #include "uvbg.h"
+#include "timefac.h"
 
 /* stats.c only used here */
 void energy_statistics(FILE * FdEnergy, const double Time,  struct part_manager_type * PartManager);
@@ -46,29 +48,11 @@ static struct ClockTable Clocks;
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
  */
-
-/*! This routine contains the main simulation loop that iterates over
- * single timesteps. The loop terminates when the cpu-time limit is
- * reached, when a `stop' file is found in the output directory, or
- * when the simulation ends because we arrived at TimeMax.
- */
-static void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, MyFloat * GradRho, int PairwiseStep, int GasEnabled, const inttime_t Ti_Current, ForceTree * tree, DomainDecomp * ddecomp);
 static void write_cpu_log(int NumCurrentTiStep, FILE * FdCPU);
 
 /* Updates the global storing the current random offset of the particles,
  * and stores the relative offset from the last random offset in rel_random_shift*/
 static void update_random_offset(double * rel_random_shift);
-
-/*! \file begrun.c
- *  \brief initial set-up of a simulation run
- *
- *  This file contains various functions to initialize a simulation run. In
- *  particular, the parameterfile is read in and parsed, the initial
- *  conditions or restart files are read, and global variables are initialized
- *  to their proper values.
- */
-
-
 static void set_units();
 
 static void
@@ -88,7 +72,7 @@ int begrun(int RestartFlag, int RestartSnapNum)
         message(0, "Last Snapshot number is %d.\n", RestartSnapNum);
     }
 
-    hci_init(HCI_DEFAULT_MANAGER, All.OutputDir, All.TimeLimitCPU, All.AutoSnapshotTime);
+    hci_init(HCI_DEFAULT_MANAGER, All.OutputDir, All.TimeLimitCPU, All.AutoSnapshotTime, All.SnapshotWithFOF);
 
     petapm_module_init(omp_get_max_threads());
     petaio_init();
@@ -137,20 +121,23 @@ use_pairwise_gravity(ActiveParticles * Act, struct part_manager_type * PartManag
 {
     /* Find total number of active particles*/
     int64_t total_active, total_particle;
-    sumup_large_ints(1, &Act->NumActiveParticle, &total_active);
-    sumup_large_ints(1, &PartManager->NumPart, &total_particle);
+    MPI_Allreduce(&Act->NumActiveParticle, &total_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&PartManager->NumPart, &total_particle, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
     /* Since the pairwise step is O(N^2) and tree is O(NlogN) we should scale the condition like O(N)*/
     return total_active < All.PairwiseActiveFraction * total_particle;
 }
 
+/*! This routine contains the main simulation loop that iterates over
+ * single timesteps. The loop terminates when the cpu-time limit is
+ * reached, when a `stop' file is found in the output directory, or
+ * when the simulation ends because we arrived at TimeMax.
+ */
 void
 run(int RestartSnapNum)
 {
     /*Number of timesteps performed this run*/
     int NumCurrentTiStep = 0;
-    /*Minimum occupied timebin. Initially (but never again) zero*/
-    int minTimeBin = 0;
     /*Is gas physics enabled?*/
     int GasEnabled = All.NTotalInit[0] > 0;
 
@@ -172,7 +159,9 @@ run(int RestartSnapNum)
     }
 
     DomainDecomp ddecomp[1] = {0};
-    inttime_t Ti_Current = init(RestartSnapNum, ddecomp);          /* ... read in initial model */
+
+    /* ... read initial model and initialise the times*/
+    DriftKickTimes times = init_driftkicktime(init(RestartSnapNum, ddecomp));
 
     /* Stored scale factor of the next black hole seeding check*/
     double TimeNextSeedingCheck = All.Time;
@@ -191,26 +180,27 @@ run(int RestartSnapNum)
          * all bins except the zeroth are inactive and so we return 0 from this function.
          * This ensures we run the force calculation for the first timestep.
          */
-        inttime_t Ti_Next = find_next_kick(Ti_Current, minTimeBin);
+        inttime_t Ti_Next = find_next_kick(times.Ti_Current, times.mintimebin);
+        inttime_t Ti_Last = times.Ti_Current;
 
         /* Compute the list of particles that cross a lightcone and write it to disc.*/
         if(All.LightconeOn)
-            lightcone_compute(All.Time, &All.CP, Ti_Current, Ti_Next);
+            lightcone_compute(All.Time, &All.CP, Ti_Last, Ti_Next);
 
-        Ti_Current = Ti_Next;
+        times.Ti_Current = Ti_Next;
 
         /*Convert back to floating point time*/
-        set_global_time(Ti_Current);
+        set_global_time(times.Ti_Current);
         if(All.TimeStep < 0)
             endrun(1, "Negative timestep: %g New Time: %g!\n", All.TimeStep, All.Time);
 
-        int is_PM = is_PM_timestep(Ti_Current);
+        int is_PM = is_PM_timestep(&times);
 
         SyncPoint * next_sync; /* if we are out of planned sync points, terminate */
         SyncPoint * planned_sync; /* NULL; if the step is not a planned sync point. */
 
-        next_sync = find_next_sync_point(Ti_Current);
-        planned_sync = find_current_sync_point(Ti_Current);
+        next_sync = find_next_sync_point(times.Ti_Current);
+        planned_sync = find_current_sync_point(times.Ti_Current);
 
         HCIAction action[1];
 
@@ -232,12 +222,12 @@ run(int RestartSnapNum)
             update_random_offset(rel_random_shift);
         }
         /* Sync positions of all particles */
-        drift_all_particles(Ti_Current, All.BoxSize, &All.CP, rel_random_shift);
+        drift_all_particles(Ti_Last, times.Ti_Current, All.BoxSize, &All.CP, rel_random_shift);
 
+        int extradomain = is_timebin_active(times.mintimebin + All.MaxDomainTimeBinDepth, times.Ti_Current);
         /* drift and ddecomp decomposition */
-
         /* at first step this is a noop */
-        if(is_PM) {
+        if(extradomain || is_PM) {
             /* full decomposition rebuilds the tree */
             domain_decompose_full(ddecomp);
         } else {
@@ -249,9 +239,9 @@ run(int RestartSnapNum)
         }
 
         ActiveParticles Act = {0};
-        rebuild_activelist(&Act, Ti_Current, NumCurrentTiStep);
+        rebuild_activelist(&Act, &times, NumCurrentTiStep);
 
-        set_random_numbers(All.RandomSeed + Ti_Current);
+        set_random_numbers(All.RandomSeed + times.Ti_Current);
 
         /* Are the particle neutrinos gravitating this timestep?
          * If so we need to add them to the tree.*/
@@ -268,16 +258,83 @@ run(int RestartSnapNum)
         if(sfr_need_to_compute_sph_grad_rho())
             GradRho = mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
 
-        /* update force to Ti_Current */
-        compute_accelerations(&Act, is_PM, &pm, GradRho, pairwisestep, GasEnabled, Ti_Current, &Tree, ddecomp);
+        /* density() happens before gravity because it also initializes the predicted variables.
+        * This ensures that prediction consistently uses the grav and hydro accel from the
+        * timestep before this one, which matches Gadget-2/3. It was tested to make a small difference,
+        * since prediction is only really used for artificial viscosity.
+        *
+        * Doing it first also means the density is up to date for
+        * adaptive gravitational softenings. */
+        if(GasEnabled)
+        {
+            /*Allocate the memory for predicted SPH data.*/
+            struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
 
-        /* Update velocity to Ti_Current; this synchonizes TiKick and TiDrift for the active particles */
+            if(All.DensityOn)
+                density(&Act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, &Tree);  /* computes density, and pressure */
 
-        if(is_PM) {
-            apply_PM_half_kick();
+            /***** update smoothing lengths in tree *****/
+            force_update_hmax(Act.ActiveParticle, Act.NumActiveParticle, &Tree, ddecomp);
+            /***** hydro forces *****/
+            MPIU_Barrier(MPI_COMM_WORLD);
+
+            /* adds hydrodynamical accelerations  and computes du/dt  */
+            if(All.HydroOn)
+                hydro_force(&Act, All.WindOn, All.cf.hubble, All.cf.a, &sph_predicted, All.MinEgySpec, times, &All.CP, &Tree);
+
+            /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
+            slots_free_sph_pred_data(&sph_predicted);
         }
 
-        apply_half_kick(&Act);
+        /* The opening criterion for the gravtree
+        * uses the *total* gravitational acceleration
+        * from the last timestep, GravPM+GravAccel.
+        * So we must compute GravAccel for this timestep
+        * before gravpm_force() writes the PM acc. for
+        * this timestep to GravPM. Note initially both
+        * are zero and so the tree is opened maximally
+        * on the first timestep.*/
+        const int NeutrinoTracer =  All.HybridNeutrinosOn && (All.Time <= All.HybridNuPartTime);
+        const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
+
+        if(All.TreeGravOn) {
+            /* Do a short range pairwise only step if desired*/
+            if(pairwisestep) {
+                struct gravshort_tree_params gtp = get_gravshort_treepar();
+                grav_short_pair(&Act, &pm, &Tree, gtp.Rcut, rho0, NeutrinoTracer, All.FastParticleType);
+            }
+            else
+                grav_short_tree(&Act, &pm, &Tree, rho0, NeutrinoTracer, All.FastParticleType);
+        }
+
+        /* We use the total gravitational acc.
+        * to open the tree and total acc for the timestep.
+        * Note that any of (GravAccel, GravPM,
+        * HydroAccel) may change much faster than
+        * the total acc.
+        * We do the same as Gadget-2, but one could
+        * instead use short-range tree acc. only
+        * for opening angle or short-range timesteps,
+        * or include hydro in the opening angle.*/
+        if(is_PM)
+        {
+            gravpm_force(&pm, &Tree);
+
+            /* compute and output energy statistics if desired. */
+            if(All.OutputEnergyDebug)
+                energy_statistics(FdEnergy, All.Time, PartManager);
+        }
+
+        MPIU_Barrier(MPI_COMM_WORLD);
+        message(0, "Forces computed.\n");
+
+        /* Update velocity to Ti_Current; this synchronizes TiKick and TiDrift for the active particles
+         * and sets Ti_Kick in the times structure.*/
+        if(is_PM) {
+            apply_PM_half_kick(&All.CP, &times);
+        }
+
+        apply_half_kick(&Act, &All.CP, &times);
 
         int didfof = 0;
         /* Cooling and extra physics show up as a source term in the evolution equations.
@@ -304,6 +361,11 @@ run(int RestartSnapNum)
             if(is_PM) {
                 /*Rebuild the force tree we freed in gravpm to save memory*/
                 force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, 0, All.OutputDir);
+            }
+
+            /* Do this before sfr and bh so the gas hsml always contains DesNumNgb neighbours.*/
+            if(All.MetalReturnOn) {
+                metal_return(&Act, &Tree, &All.CP, All.Time);
             }
 
             /* this will find new black hole seed halos.
@@ -362,6 +424,7 @@ run(int RestartSnapNum)
 
         if(is_PM) { /* the if here is unnecessary but to signify checkpointing occurs only at PM steps. */
             WriteSnapshot |= action->write_snapshot;
+            WriteFOF |= action->write_fof;
         }
         if(WriteSnapshot || WriteFOF) {
             /* Get a new snapshot*/
@@ -438,13 +501,13 @@ run(int RestartSnapNum)
         /* assign new timesteps to the active particles,
          * now that we know they have synched TiKick and TiDrift,
          * and advance the PM timestep.*/
-        minTimeBin = find_timesteps(&Act, Ti_Current);
+        find_timesteps(&Act, &times);
 
-        /* Update velocity to the new step, with the newly computed step size */
-        apply_half_kick(&Act);
+        /* Update velocity and ti_kick to the new step, with the newly computed step size */
+        apply_half_kick(&Act, &All.CP, &times);
 
         if(is_PM) {
-            apply_PM_half_kick();
+            apply_PM_half_kick(&All.CP, &times);
         }
 
         /* We can now free the active list: the new step have new active particles*/
@@ -454,90 +517,6 @@ run(int RestartSnapNum)
     //free_permanent_uvbg_grids();
 
     close_outputfiles();
-}
-
-/*! This routine computes the accelerations for all active particles. Density, hydro and gravity are computed, in that order.
- */
-void compute_accelerations(const ActiveParticles * act, int is_PM, PetaPM * pm, MyFloat * GradRho, int PairwiseStep, int GasEnabled, const inttime_t Ti_Current, ForceTree * tree, DomainDecomp * ddecomp)
-{
-    message(0, "Begin force computation.\n");
-
-    walltime_measure("/Misc");
-
-    /* density() happens before gravity because it also initializes the predicted variables.
-     * This ensures that prediction consistently uses the grav and hydro accel from the
-     * timestep before this one, which matches Gadget-2/3. It was tested to make a small difference,
-     * since prediction is only really used for artificial viscosity.
-     *
-     * Doing it first also means the density is up to date for
-     * adaptive gravitational softenings. */
-    if(GasEnabled)
-    {
-        /***** density *****/
-        message(0, "Start density computation...\n");
-
-        /*Allocate the memory for predicted SPH data.*/
-        struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
-
-        if(All.DensityOn)
-            density(act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.HydroCostFactor, All.MinEgySpec, Ti_Current, &sph_predicted, GradRho, tree);  /* computes density, and pressure */
-
-        /***** update smoothing lengths in tree *****/
-        force_update_hmax(act->ActiveParticle, act->NumActiveParticle, tree, ddecomp);
-        /***** hydro forces *****/
-        MPIU_Barrier(MPI_COMM_WORLD);
-        message(0, "Start hydro-force computation...\n");
-
-        /* adds hydrodynamical accelerations  and computes du/dt  */
-        if(All.HydroOn)
-            hydro_force(act, All.WindOn, All.HydroCostFactor, All.cf.hubble, All.cf.a, &sph_predicted, tree);
-
-        /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
-        slots_free_sph_pred_data(&sph_predicted);
-    }
-
-    /* The opening criterion for the gravtree
-     * uses the *total* gravitational acceleration
-     * from the last timestep, GravPM+GravAccel.
-     * So we must compute GravAccel for this timestep
-     * before gravpm_force() writes the PM acc. for
-     * this timestep to GravPM. Note initially both
-     * are zero and so the tree is opened maximally
-     * on the first timestep.*/
-    const int NeutrinoTracer =  All.HybridNeutrinosOn && (All.Time <= All.HybridNuPartTime);
-    const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
-
-    if(All.TreeGravOn) {
-        /* Do a short range pairwise only step if desired*/
-        if(PairwiseStep) {
-            struct gravshort_tree_params gtp = get_gravshort_treepar();
-            grav_short_pair(act, pm, tree, gtp.Rcut, rho0, NeutrinoTracer, All.FastParticleType);
-        }
-        else
-            grav_short_tree(act, pm, tree, rho0, NeutrinoTracer, All.FastParticleType);
-    }
-
-    /* We use the total gravitational acc.
-     * to open the tree and total acc for the timestep.
-     * Note that any of (GravAccel, GravPM,
-     * HydroAccel) may change much faster than
-     * the total acc.
-     * We do the same as Gadget-2, but one could
-     * instead use short-range tree acc. only
-     * for opening angle or short-range timesteps,
-     * or include hydro in the opening angle.*/
-
-    if(is_PM)
-    {
-        gravpm_force(pm, tree);
-
-        /* compute and output energy statistics if desired. */
-        if(All.OutputEnergyDebug)
-            energy_statistics(FdEnergy, All.Time, PartManager);
-    }
-
-    MPIU_Barrier(MPI_COMM_WORLD);
-    message(0, "Forces computed.\n");
 }
 
 void write_cpu_log(int NumCurrentTiStep, FILE * FdCPU)
@@ -605,9 +584,15 @@ open_outputfiles(int RestartSnapNum)
     FdSfr = NULL;
     FdBlackholeDetails = NULL;
 
+    if(RestartSnapNum != -1) {
+        postfix = fastpm_strdup_printf("-R%03d", RestartSnapNum);
+    } else {
+        postfix = fastpm_strdup_printf("%s", "");
+    }
+
     /* all the processors write to separate files*/
     if(All.BlackHoleOn && All.WriteBlackHoleDetails){
-        buf = fastpm_strdup_printf("%s/%s/%06X", All.OutputDir,"BlackholeDetails",ThisTask);
+        buf = fastpm_strdup_printf("%s/%s%s/%06X", All.OutputDir,"BlackholeDetails",postfix,ThisTask);
         fastpm_path_ensure_dirname(buf);
         if(!(FdBlackholeDetails = fopen(buf,"a")))
             endrun(1, "Failed to open blackhole detail %s\n", buf);
@@ -617,12 +602,6 @@ open_outputfiles(int RestartSnapNum)
     /* only the root processors writes to the log files */
     if(ThisTask != 0) {
         return;
-    }
-
-    if(RestartSnapNum != -1) {
-        postfix = fastpm_strdup_printf("-R%03d", RestartSnapNum);
-    } else {
-        postfix = fastpm_strdup_printf("%s", "");
     }
 
     buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, All.CpuFile, postfix);
@@ -691,6 +670,7 @@ set_units(void)
     /* convert some physical input parameters to internal units */
 
     All.CP.Hubble = HUBBLE * All.UnitTime_in_s;
+    All.CP.UnitTime_in_s = All.UnitTime_in_s;
 
     init_cosmology(&All.CP, All.TimeIC, All.UnitLength_in_cm, All.UnitMass_in_g, All.UnitTime_in_s);
     /* Detect cosmologies that are likely to be typos in the parameter files*/

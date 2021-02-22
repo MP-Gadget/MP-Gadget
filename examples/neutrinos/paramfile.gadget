@@ -17,6 +17,7 @@ HubbleParam = 0.7      # Hubble paramater (may be used for power spec parameteri
 CoolingOn = 0
 StarformationOn = 0
 RadiationOn = 1
+MetalReturnOn = 0
 DensityIndependentSphOn = 1
 HydroOn = 0
 BlackHoleOn = 0

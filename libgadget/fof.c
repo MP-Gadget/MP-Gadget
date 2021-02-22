@@ -43,6 +43,7 @@ struct FOFParams
 {
     int FOFSaveParticles ; /* saving particles in the fof group */
     double MinFoFMassForNewSeed;	/* Halo mass required before new seed is put in */
+    double MinMStarForNewSeed; /* Minimum stellar mass required before new seed */
     double FOFHaloLinkingLength;
     double FOFHaloComovingLinkingLength; /* in code units */
     int FOFHaloMinLength;
@@ -58,6 +59,7 @@ void set_fof_params(ParameterSet * ps)
         fof_params.FOFHaloLinkingLength = param_get_double(ps, "FOFHaloLinkingLength");
         fof_params.FOFHaloMinLength = param_get_int(ps, "FOFHaloMinLength");
         fof_params.MinFoFMassForNewSeed = param_get_double(ps, "MinFoFMassForNewSeed");
+        fof_params.MinMStarForNewSeed = param_get_double(ps, "MinMStarForNewSeed");
     }
     MPI_Bcast(&fof_params, sizeof(struct FOFParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -536,6 +538,12 @@ static void fof_reduce_group(void * pdst, void * psrc) {
     }
 
     gdst->Sfr += gsrc->Sfr;
+    gdst->GasMetalMass += gsrc->GasMetalMass;
+    gdst->StellarMetalMass += gsrc->StellarMetalMass;
+    for(j = 0; j < NMETALS; j++) {
+        gdst->GasMetalElemMass[j] += gsrc->GasMetalElemMass[j];
+        gdst->StellarMetalElemMass[j] += gsrc->StellarMetalElemMass[j];
+    }
     gdst->BH_Mdot += gsrc->BH_Mdot;
     gdst->BH_Mass += gsrc->BH_Mass;
     if(gsrc->MaxDens > gdst->MaxDens)
@@ -574,10 +582,20 @@ static void add_particle_to_group(struct Group * gdst, int i, double BoxSize, in
     gdst->LenType[P[index].Type]++;
     gdst->MassType[P[index].Type] += P[index].Mass;
 
-
     if(P[index].Type == 0) {
         gdst->Sfr += SPHP(index).Sfr;
+        gdst->GasMetalMass += SPHP(index).Metallicity * P[index].Mass;
+        int j;
+        for(j = 0; j < NMETALS; j++)
+            gdst->GasMetalElemMass[j] += SPHP(index).Metals[j] * P[index].Mass;
     }
+    if(P[index].Type == 4) {
+        int j;
+        gdst->StellarMetalMass += STARP(index).Metallicity * P[index].Mass;
+        for(j = 0; j < NMETALS; j++)
+            gdst->StellarMetalElemMass[j] += STARP(index).Metals[j] * P[index].Mass;
+    }
+
     if(P[index].Type == 5)
     {
         gdst->BH_Mdot += BHP(index).Mdot;
@@ -1055,7 +1073,6 @@ fof_save_groups(FOFGroups * fof, int num, MPI_Comm Comm)
 struct FOFSecondaryPriv {
     float *distance;
     float *hsml;
-    int *count;
     int *npleft;
 };
 
@@ -1081,18 +1098,38 @@ static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, enum TreeWalk
         HaloLabel[place].MinIDTask = O->MinIDTask;
     }
 }
+
 static void
 fof_secondary_ngbiter(TreeWalkQueryFOF * I,
         TreeWalkResultFOF * O,
         TreeWalkNgbIterFOF * iter,
-        LocalTreeWalk * lv);
+        LocalTreeWalk * lv)
+{
+    if(iter->base.other == -1) {
+        O->Distance = LARGE;
+        iter->base.Hsml = I->Hsml;
+        iter->base.mask = FOF_PRIMARY_LINK_TYPES;
+        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
+        return;
+    }
+    int other = iter->base.other;
+    double r = iter->base.r;
+    if(r < O->Distance)
+    {
+        O->Distance = r;
+        O->MinID = HaloLabel[other].MinID;
+        O->MinIDTask = HaloLabel[other].MinIDTask;
+    }
+    /* No need to search nodes at a greater distance
+     * now that we have a neighbour.*/
+    iter->base.Hsml = iter->base.r;
+}
 
 static void
 fof_secondary_postprocess(int p, TreeWalk * tw)
 {
     /* More work needed: add this particle to the redo queue*/
     int tid = omp_get_thread_num();
-    FOF_SECONDARY_GET_PRIV(tw)->count[tid]++;
 
     if(FOF_SECONDARY_GET_PRIV(tw)->distance[p] > 0.5 * LARGE)
     {
@@ -1114,13 +1151,14 @@ fof_secondary_postprocess(int p, TreeWalk * tw)
         }
     }
 }
+
 static void fof_label_secondary(ForceTree * tree)
 {
-    int n, iter;
+    int n;
 
     TreeWalk tw[1] = {{0}};
     tw->ev_label = "FOF_FIND_NEAREST";
-    tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
+    tw->visit = treewalk_visit_nolist_ngbiter;
     tw->ngbiter = (TreeWalkNgbIterFunction) fof_secondary_ngbiter;
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterFOF);
     tw->haswork = fof_secondary_haswork;
@@ -1145,79 +1183,41 @@ static void fof_label_secondary(ForceTree * tree)
     for(n = 0; n < PartManager->NumPart; n++)
     {
         FOF_SECONDARY_GET_PRIV(tw)->distance[n] = LARGE;
-        if(P[n].Type == 0) {
+        FOF_SECONDARY_GET_PRIV(tw)->hsml[n] = 0.4 * fof_params.FOFHaloComovingLinkingLength;
+
+        if((P[n].Type == 0 || P[n].Type == 4 || P[n].Type == 5) && FOF_SECONDARY_GET_PRIV(tw)->hsml[n] < 0.5 * P[n].Hsml) {
             /* use gas sml as a hint (faster convergence than 0.1 fof_params.FOFHaloComovingLinkingLength at high-z */
             FOF_SECONDARY_GET_PRIV(tw)->hsml[n] = 0.5 * P[n].Hsml;
-        } else {
-            FOF_SECONDARY_GET_PRIV(tw)->hsml[n] = 0.4 * fof_params.FOFHaloComovingLinkingLength;
         }
     }
 
-    iter = 0;
-    int64_t counttot, ntot;
+    int64_t ntot;
 
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
 
     message(0, "fof-nearest iteration started\n");
     int NumThreads = omp_get_max_threads();
     FOF_SECONDARY_GET_PRIV(tw)->npleft = ta_malloc("NPLeft", int, NumThreads);
-    FOF_SECONDARY_GET_PRIV(tw)->count = ta_malloc("Count", int, NumThreads);
 
     do
     {
         memset(FOF_SECONDARY_GET_PRIV(tw)->npleft, 0, sizeof(int) * NumThreads);
-        memset(FOF_SECONDARY_GET_PRIV(tw)->count, 0, sizeof(int) * NumThreads);
 
         treewalk_run(tw, NULL, PartManager->NumPart);
 
         for(n = 1; n < NumThreads; n++) {
             FOF_SECONDARY_GET_PRIV(tw)->npleft[0] += FOF_SECONDARY_GET_PRIV(tw)->npleft[n];
-            FOF_SECONDARY_GET_PRIV(tw)->count[0] += FOF_SECONDARY_GET_PRIV(tw)->count[n];
         }
         sumup_large_ints(1, &FOF_SECONDARY_GET_PRIV(tw)->npleft[0], &ntot);
-        sumup_large_ints(1, &FOF_SECONDARY_GET_PRIV(tw)->count[0], &counttot);
 
-        message(0, "fof-nearest iteration %d: need to repeat for %010ld /%010ld particles.\n", iter, ntot, counttot);
-
-        if(ntot < 0) abort();
-        if(ntot > 0)
-        {
-            iter++;
-            if(iter > MAXITER)
-            {
-                endrun(1159, "Failed to converge in fof-nearest");
-            }
-        }
+        if(ntot < 0 || (ntot > 0 && tw->Niteration > MAXITER))
+            endrun(1159, "Failed to converge in fof-nearest: ntot %ld", ntot);
     }
     while(ntot > 0);
 
-    ta_free(FOF_SECONDARY_GET_PRIV(tw)->count);
     ta_free(FOF_SECONDARY_GET_PRIV(tw)->npleft);
     myfree(FOF_SECONDARY_GET_PRIV(tw)->hsml);
     myfree(FOF_SECONDARY_GET_PRIV(tw)->distance);
-}
-
-static void
-fof_secondary_ngbiter( TreeWalkQueryFOF * I,
-        TreeWalkResultFOF * O,
-        TreeWalkNgbIterFOF * iter,
-        LocalTreeWalk * lv)
-{
-    if(iter->base.other == -1) {
-        O->Distance = LARGE;
-        iter->base.Hsml = I->Hsml;
-        iter->base.mask = FOF_PRIMARY_LINK_TYPES;
-        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
-        return;
-    }
-    int other = iter->base.other;
-    double r = iter->base.r;
-    if(r < O->Distance && r < I->Hsml)
-    {
-        O->Distance = r;
-        O->MinID = HaloLabel[other].MinID;
-        O->MinIDTask = HaloLabel[other].MinIDTask;
-    }
 }
 
 /*
@@ -1248,6 +1248,7 @@ void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm
     {
         Marked[i] =
             (fof->Group[i].Mass >= fof_params.MinFoFMassForNewSeed)
+        &&  (fof->Group[i].MassType[4] >= fof_params.MinMStarForNewSeed)
         &&  (fof->Group[i].LenType[5] == 0)
         &&  (fof->Group[i].seed_index >= 0);
 
@@ -1320,8 +1321,8 @@ void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm
         }
 
         /*Now we can extend the slots! */
-        int atleast[6];
-        int i;
+        int64_t atleast[6];
+        int64_t i;
         for(i = 0; i < 6; i++)
             atleast[i] = SlotsManager->info[i].maxsize;
         atleast[5] += ntot*1.1;

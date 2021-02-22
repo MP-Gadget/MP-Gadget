@@ -146,13 +146,10 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
     const double hubble = hubble_function(&All.CP, All.Time);
 
     if(All.StarformationOn) {
-        /* Need 1 extra for non-integer part and 1 extra
-         * for the case where one thread loops an extra time*/
-        int narr = nactive/nthreads+nthreads;
-        NewStars = mymalloc("NewStars", narr * sizeof(int) * nthreads);
-        gadget_setup_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, narr, nthreads);
-        NewParents = mymalloc2("NewParents", narr * sizeof(int) * nthreads);
-        gadget_setup_thread_arrays(NewParents, thrqueueparent, nqthrsfr, narr, nthreads);
+        NewStars = mymalloc("NewStars", nactive * sizeof(int) * nthreads);
+        gadget_setup_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, nactive, nthreads);
+        NewParents = mymalloc2("NewParents", nactive * sizeof(int) * nthreads);
+        gadget_setup_thread_arrays(NewParents, thrqueueparent, nqthrsfr, nactive, nthreads);
     }
 
     double sum_sm = 0, sum_mass_stars = 0, localsfr = 0;
@@ -164,8 +161,8 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
     {
         int i;
         const int tid = omp_get_thread_num();
-
-        for(i=tid; i < nactive; i+=nthreads)
+        #pragma omp for schedule(static)
+        for(i=0; i < nactive; i++)
         {
             /*Use raw particle number if active_set is null, otherwise use active_set*/
             const int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
@@ -195,7 +192,6 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
                 }
                 /*Add this particle to the stellar conversion queue if necessary.*/
                 if(newstar >= 0) {
-                    int tid = omp_get_thread_num();
                     thrqueuesfr[tid][nqthrsfr[tid]] = newstar;
                     thrqueueparent[tid][nqthrsfr[tid]] = p_i;
                     nqthrsfr[tid]++;
@@ -239,7 +235,7 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
     int i;
 
     /*Now we turn the particles into stars*/
-    #pragma omp parallel for reduction(+:stars_converted) reduction(+:stars_spawned) reduction(+:sum_mass_stars)
+    #pragma omp parallel for schedule(static) reduction(+:stars_converted) reduction(+:stars_spawned) reduction(+:sum_mass_stars)
     for(i=0; i < NumNewStar; i++)
     {
         int child = NewStars[i];
@@ -337,8 +333,8 @@ sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTr
             myfree(act->ActiveParticle);
         }
         /*Now we can extend the slots! */
-        int atleast[6];
-        int i;
+        int64_t atleast[6];
+        int64_t i;
         for(i = 0; i < 6; i++)
             atleast[i] = SlotsManager->info[i].maxsize;
         atleast[4] += NumNewStar;
@@ -377,7 +373,7 @@ cooling_direct(int i, const double a3inv, const double hubble)
 
     double ne = SPHP(i).Ne;	/* electron abundance (gives ionization state and mean molecular weight) */
 
-    const double enttou = pow(SPH_EOMDensity(i) * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+    const double enttou = pow(SPH_EOMDensity(&SPHP(i)) * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
 
     /* Current internal energy including adiabatic change*/
     double uold = SPHP(i).Entropy * enttou;
@@ -506,10 +502,14 @@ static int make_particle_star(int child, int parent, int placement)
 
     /*Set properties*/
     STARP(child).FormationTime = All.Time;
+    STARP(child).LastEnrichmentMyr = 0;
+    STARP(child).TotalMassReturned = 0;
     STARP(child).BirthDensity = oldslot.Density;
     /*Copy metallicity*/
     STARP(child).Metallicity = oldslot.Metallicity;
-
+    int j;
+    for(j = 0; j < NMETALS; j++)
+        STARP(child).Metals[j] = oldslot.Metals[j];
     return retflag;
 }
 
@@ -518,7 +518,7 @@ static void
 cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_eeqos_data sfr_data)
 {
     const double egyeff = sfr_params.EgySpecCold * sfr_data.cloudfrac + (1 - sfr_data.cloudfrac) * sfr_data.egyhot;
-    const double Density = SPH_EOMDensity(i);
+    const double Density = SPH_EOMDensity(&SPHP(i));
     const double densityfac = pow(Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
     double egycurrent = SPHP(i).Entropy * densityfac;
     double trelax = sfr_data.trelax;
@@ -557,7 +557,7 @@ quicklyastarformation(int i, const double a3inv)
     if(SPHP(i).Density <= sfr_params.OverDensThresh)
         return 0;
 
-    const double enttou = pow(SPH_EOMDensity(i) * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+    const double enttou = pow(SPH_EOMDensity(&SPHP(i)) * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
     double unew = SPHP(i).Entropy * enttou;
 
     const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1 * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
@@ -599,8 +599,9 @@ starformation(int i, double *localsfr, double * sum_sm, MyFloat * GradRho, const
     *sum_sm += P[i].Mass * (1 - exp(-p));
     *localsfr += SPHP(i).Sfr;
 
-    double w = get_random_number(P[i].ID);
-    SPHP(i).Metallicity += w * METAL_YIELD * (1 - exp(-p));
+    const double w = get_random_number(P[i].ID);
+    const double frac = (1 - exp(-p));
+    SPHP(i).Metallicity += w * METAL_YIELD * frac / sfr_params.Generations;
 
     /* upon start-up, we need to protect against dloga ==0 */
     if(dloga > 0 && P[i].TimeBin)
@@ -622,9 +623,8 @@ starformation(int i, double *localsfr, double * sum_sm, MyFloat * GradRho, const
     /* Add the rest of the metals if we didn't form a star.
      * If we did form a star, add winds to the star-forming particle
      * that formed it if it is still around*/
-    if(!form_star || newstar != i)	{
-        SPHP(i).Metallicity += (1 - w) * METAL_YIELD * (1 - exp(-p));
-
+    if(!form_star || newstar != i) {
+        SPHP(i).Metallicity += (1-w) * METAL_YIELD * frac / sfr_params.Generations;
         if(All.WindOn) {
             winds_make_after_sf(i, sm, All.Time);
         }
@@ -836,8 +836,12 @@ find_star_mass(int i)
         /* if some mass has been stolen by BH, e.g */
         mass_of_star = P[i].Mass;
     }
-    /* if we are the last particle */
-    if(fabs(mass_of_star - P[i].Mass) / mass_of_star < 0.5) {
+    /* Conditions to turn the gas into a star. .
+     * The mass check makes sure we never get a gas particle which is lighter
+     * than the smallest star particle.
+     * The Generations check (which can happen because of mass return)
+     * ensures we never instantaneously enrich stars above solar. */
+    if(P[i].Mass < 2 * mass_of_star  || P[i].Generation > sfr_params.Generations) {
         mass_of_star = P[i].Mass;
     }
     return mass_of_star;

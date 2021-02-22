@@ -44,7 +44,7 @@ test_hci_no_action(void ** state)
     HCIAction action[1];
 
     hci_override_now(manager, 0.0);
-    hci_init(manager, prefix, 10.0, 1.0);
+    hci_init(manager, prefix, 10.0, 1.0, 0);
 
     hci_query(manager, action);
     assert_int_equal(action->type, HCI_NO_ACTION);
@@ -58,7 +58,7 @@ test_hci_auto_checkpoint(void ** state)
     HCIAction action[1];
 
     hci_override_now(manager, 0.0);
-    hci_init(manager, prefix, 10.0, 1.0);
+    hci_init(manager, prefix, 10.0, 1.0, 1);
 
     hci_override_now(manager, 0.0);
     hci_query(manager, action);
@@ -68,6 +68,7 @@ test_hci_auto_checkpoint(void ** state)
 
     assert_int_equal(action->type, HCI_AUTO_CHECKPOINT);
     assert_int_equal(action->write_snapshot, 1);
+    assert_int_equal(action->write_fof, 1);
     assert_true(manager->LongestTimeBetweenQueries == 1.0);
 }
 
@@ -77,7 +78,7 @@ test_hci_auto_checkpoint2(void ** state)
 
     HCIAction action[1];
     hci_override_now(manager, 1.0);
-    hci_init(manager, prefix, 10.0, 1.0);
+    hci_init(manager, prefix, 10.0, 1.0, 0);
 
     hci_override_now(manager, 2.0);
     hci_query(manager, action);
@@ -88,6 +89,7 @@ test_hci_auto_checkpoint2(void ** state)
     assert_true(manager->LongestTimeBetweenQueries == 2.0);
     assert_int_equal(action->type, HCI_AUTO_CHECKPOINT);
     assert_int_equal(action->write_snapshot, 1);
+    assert_int_equal(action->write_fof, 0);
 }
 
 static void
@@ -95,7 +97,7 @@ test_hci_timeout(void ** state)
 {
     HCIAction action[1];
     hci_override_now(manager, 1.0);
-    hci_init(manager, prefix, 10.0, 1.0);
+    hci_init(manager, prefix, 10.0, 1.0, 1);
 
     hci_override_now(manager, 5.0);
     hci_query(manager, action);
@@ -113,7 +115,7 @@ test_hci_stop(void ** state)
 {
     HCIAction action[1];
     hci_override_now(manager, 0.0);
-    hci_init(manager, prefix, 10.0, 1.0);
+    hci_init(manager, prefix, 10.0, 1.0, 1);
 
     touch(prefix, "stop");
     hci_override_now(manager, 4.0);
@@ -129,7 +131,7 @@ test_hci_checkpoint(void ** state)
 {
     HCIAction action[1];
     hci_override_now(manager, 0.0);
-    hci_init(manager, prefix, 10.0, 1.0);
+    hci_init(manager, prefix, 10.0, 1.0, 1);
 
     touch(prefix, "checkpoint");
     hci_override_now(manager, 4.0);
@@ -145,7 +147,7 @@ test_hci_terminate(void ** state)
 {
     HCIAction action[1];
     hci_override_now(manager, 0.0);
-    hci_init(manager, prefix, 10.0, 1.0);
+    hci_init(manager, prefix, 10.0, 1.0, 1);
 
     touch(prefix, "terminate");
     hci_override_now(manager, 4.0);

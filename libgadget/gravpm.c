@@ -49,7 +49,6 @@ gravpm_init_periodic(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, doubl
     /*Initialise the kspace neutrino code if it is enabled.
      * Mpc units are used to match power spectrum code.*/
     if(All.MassiveNuLinRespOn) {
-        init_neutrinos_lra(Nmesh, All.TimeIC, All.TimeMax, All.CP.Omega0, &All.CP.ONu, All.UnitTime_in_s, CM_PER_MPC);
         global_functions.global_readout = measure_power_spectrum;
         global_functions.global_analysis = compute_neutrino_power;
     }
@@ -151,7 +150,7 @@ static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void
     MPI_Reduce(&r, &maxNregions, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
     message(0, "max number of regions is %d\n", maxNregions);
 
-    int i;
+    int64_t i;
     int numswallowed = 0;
     #pragma omp parallel for reduction(+: numswallowed)
     for(i =0; i < PartManager->NumPart; i ++) {
@@ -166,7 +165,7 @@ static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void
     }
 
     /* now lets mark particles to their hosting region */
-    int numpart = 0;
+    int64_t numpart = 0;
 #pragma omp parallel for reduction(+: numpart)
     for(r = 0; r < *Nregions; r++) {
         regions[r].numpart = pm_mark_region_for_node(regions[r].no, r, pstruct->RegionInd, tree);
@@ -179,7 +178,7 @@ static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void
     }
     /* All particles shall have been processed just once. Otherwise we die */
     if((numpart+numswallowed) != PartManager->NumPart) {
-        endrun(1, "Processed only %d particles out of %d\n", numpart, PartManager->NumPart);
+        endrun(1, "Processed only %ld particles out of %ld\n", numpart, PartManager->NumPart);
     }
     for(r =0; r < *Nregions; r++) {
         convert_node_to_region(pm, &regions[r], tree->Nodes);

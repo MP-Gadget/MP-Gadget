@@ -88,7 +88,6 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
         P[i].Mass = 1;
         P[i].TimeBin = 0;
         P[i].Ti_drift = 0;
-        P[i].Ti_kick = 0;
         for(j=0; j<3; j++)
             P[i].Vel[j] = 1.5;
         if(P[i].Type == 0) {
@@ -119,7 +118,20 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     double start, end;
     start = MPI_Wtime();
     /*Find the density*/
-    density(&act, 1, 0, 0, 1, 0, 0, &data->sph_pred, NULL, &tree);
+    DriftKickTimes kick = {0};
+    Cosmology CP = {0};
+    CP.CMBTemperature = 2.7255;
+    CP.Omega0 = 0.3;
+    CP.OmegaLambda = 1- CP.Omega0;
+    CP.OmegaBaryon = 0.045;
+    CP.HubbleParam = 0.7;
+    CP.RadiationOn = 0;
+    CP.w0_fld = -1; /*Dark energy equation of state parameter*/
+    /*Should be 0.1*/
+    CP.Hubble = 0.1;
+    init_cosmology(&CP,0.01);
+
+    density(&act, 1, 0, 0, 0, kick, &CP, &data->sph_pred, NULL, &tree);
     end = MPI_Wtime();
     double ms = (end - start)*1000;
     message(0, "Found densities in %.3g ms\n", ms);
@@ -143,7 +155,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
 
     start = MPI_Wtime();
     /*Find the density*/
-    density(&act, 1, 0, 0, 1, 0, 0, &data->sph_pred, NULL, &tree);
+    density(&act, 1, 0, 0, 0, kick, &CP, &data->sph_pred, NULL, &tree);
     end = MPI_Wtime();
     ms = (end - start)*1000;
     message(0, "Found 1 dev densities in %.3g ms\n", ms);
@@ -307,10 +319,10 @@ static int setup_density(void **state) {
     /*Reserve space for the slots*/
     slots_init(0.01 * PartManager->MaxPart, SlotsManager);
     slots_set_enabled(0, sizeof(struct sph_particle_data), SlotsManager);
-    int atleast[6] = {0};
+    int64_t atleast[6] = {0};
     atleast[0] = pow(32,3);
     atleast[5] = 2;
-    int maxpart = 0;
+    int64_t maxpart = 0;
     int i;
     for(i = 0; i < 6; i++)
         maxpart+=atleast[i];

@@ -21,7 +21,6 @@ typedef struct {
     TreeWalkResultBase base;
     MyFloat Acc[3];
     MyFloat Potential;
-    int Ninteractions;
 } TreeWalkResultGravShort;
 
 struct GravShortPriv {

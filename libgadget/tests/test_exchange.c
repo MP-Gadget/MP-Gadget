@@ -32,7 +32,7 @@ int TotNumPart;
 
 #define NUMPART1 8
 static int
-setup_particles(int NType[6])
+setup_particles(int64_t NType[6])
 {
     MPI_Barrier(MPI_COMM_WORLD);
     PartManager->MaxPart = 1024;
@@ -95,7 +95,7 @@ test_exchange_layout_func(int i, const void * userdata)
 static void
 test_exchange(void **state)
 {
-    int newSlots[6] = {NUMPART1, NUMPART1, NUMPART1, NUMPART1, NUMPART1, NUMPART1};
+    int64_t newSlots[6] = {NUMPART1, NUMPART1, NUMPART1, NUMPART1, NUMPART1, NUMPART1};
 
     setup_particles(newSlots);
 
@@ -109,7 +109,7 @@ test_exchange(void **state)
     domain_test_id_uniqueness(PartManager);
 
     for(i = 0; i < PartManager->NumPart; i ++) {
-        assert_true(P[i].ID % NTask == ThisTask);
+        assert_true(P[i].ID % NTask == 1Lu * ThisTask);
     }
 
     teardown_particles(state);
@@ -119,7 +119,7 @@ test_exchange(void **state)
 static void
 test_exchange_zero_slots(void **state)
 {
-    int newSlots[6] = {NUMPART1, 0, NUMPART1, 0, NUMPART1, 0};
+    int64_t newSlots[6] = {NUMPART1, 0, NUMPART1, 0, NUMPART1, 0};
 
     setup_particles(newSlots);
 
@@ -133,7 +133,7 @@ test_exchange_zero_slots(void **state)
     domain_test_id_uniqueness(PartManager);
 
     for(i = 0; i < PartManager->NumPart; i ++) {
-        assert_true (P[i].ID % NTask == ThisTask);
+        assert_true (P[i].ID % NTask == 1Lu*ThisTask);
     }
 
     teardown_particles(state);
@@ -143,7 +143,7 @@ test_exchange_zero_slots(void **state)
 static void
 test_exchange_with_garbage(void **state)
 {
-    int newSlots[6] = {NUMPART1, NUMPART1, NUMPART1, NUMPART1, NUMPART1, NUMPART1};
+    int64_t newSlots[6] = {NUMPART1, NUMPART1, NUMPART1, NUMPART1, NUMPART1, NUMPART1};
 
     setup_particles(newSlots);
     int i;
@@ -159,7 +159,7 @@ test_exchange_with_garbage(void **state)
     slots_check_id_consistency(PartManager, SlotsManager);
 
     for(i = 0; i < PartManager->NumPart; i ++) {
-        assert_true (P[i].ID % NTask == ThisTask);
+        assert_true (P[i].ID % NTask == 1Lu * ThisTask);
     }
 
     for(i = 0; i < PartManager->NumPart; i ++) {
@@ -181,7 +181,7 @@ test_exchange_layout_func_uneven(int i, const void * userdata)
 static void
 test_exchange_uneven(void **state)
 {
-    int newSlots[6] = {NUMPART1, NUMPART1, NUMPART1, NUMPART1, NUMPART1, NUMPART1};
+    int64_t newSlots[6] = {NUMPART1, NUMPART1, NUMPART1, NUMPART1, NUMPART1, NUMPART1};
 
     setup_particles(newSlots);
     int i;
@@ -203,7 +203,7 @@ test_exchange_uneven(void **state)
         if(P[i].Type == 0) {
             assert_true (ThisTask == 0);
         } else {
-            assert_true(P[i].ID % NTask == ThisTask);
+            assert_true(P[i].ID % NTask == 1Lu * ThisTask);
         }
     }
 

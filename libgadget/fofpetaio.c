@@ -80,7 +80,6 @@ void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_Comm Co
             destroy_io_blocks(&IOTable);
             return;
         }
-        walltime_measure("/FOF/IO/Distribute");
 
         int * selection = mymalloc("Selection", sizeof(int) * halo_pman.NumPart);
 
@@ -175,9 +174,9 @@ order_by_type_and_grnr(const void *a, const void *b)
 
 static int
 fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, MPI_Comm Comm) {
-    int i, ThisTask;
+    int ThisTask;
     MPI_Comm_rank(Comm, &ThisTask);
-    int NpigLocal = 0;
+    int64_t i, NpigLocal = 0;
     /* SlotsManager Needs initializing!*/
     memcpy(halo_sman, SlotsManager, sizeof(struct slots_manager_type));
 
@@ -187,7 +186,7 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
         halo_sman->info[i].maxsize = 0;
     }
 
-    int atleast[6]={0};
+    int64_t atleast[6]={0};
     /* Count how many particles we have*/
     //#pragma omp parallel for reduction(+: NpigLocal)
     for(i = 0; i < PartManager->NumPart; i ++) {
@@ -236,7 +235,7 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
         NpigLocal ++;
     }
     if(NpigLocal != halo_pman->NumPart)
-        endrun(3, "Error in NpigLocal %d != %d!\n", NpigLocal, halo_pman->NumPart);
+        endrun(3, "Error in NpigLocal %ld != %ld!\n", NpigLocal, halo_pman->NumPart);
     MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, Comm);
     message(0, "GrNrMax before exchange is %d\n", GrNrMaxGlobal);
     /* sort pi to decide targetTask */
@@ -287,6 +286,7 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
     }
 #endif
 
+    walltime_measure("/FOF/IO/Distribute");
     /* sort SPH and Others independently */
     if(domain_exchange(fof_sorted_layout, targettask, 1, halo_pman, halo_sman, 1, Comm)) {
         message(1930, "Failed to exchange and write particles for the FOF. This is non-fatal, continuing\n");
@@ -304,6 +304,7 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
         if(halopart[i].GrNr > GrNrMax)
             GrNrMax = halopart[i].GrNr;
     }
+
     MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, Comm);
     message(0, "GrNrMax after exchange is %d\n", GrNrMaxGlobal);
     return 0;
@@ -430,6 +431,10 @@ SIMPLE_PROPERTY_FOF(Mass, Mass, float, 1)
 SIMPLE_PROPERTY_FOF(MassByType, MassType[0], float, 6)
 SIMPLE_PROPERTY_FOF(LengthByType, LenType[0], uint32_t , 6)
 SIMPLE_PROPERTY_FOF(StarFormationRate, Sfr, float, 1)
+SIMPLE_PROPERTY_FOF(GasMetalMass, GasMetalMass, float, 1)
+SIMPLE_PROPERTY_FOF(StellarMetalMass, StellarMetalMass, float, 1)
+SIMPLE_PROPERTY_FOF(GasMetalElemMass, GasMetalElemMass[0], float, NMETALS)
+SIMPLE_PROPERTY_FOF(StellarMetalElemMass, StellarMetalElemMass[0], float, NMETALS)
 SIMPLE_PROPERTY_FOF(BlackholeMass, BH_Mass, float, 1)
 SIMPLE_PROPERTY_FOF(BlackholeAccretionRate, BH_Mdot, float, 1)
 
@@ -450,8 +455,15 @@ static void fof_register_io_blocks(struct IOTable * IOTable) {
     IO_REG_WRONLY(MassCenterVelocity, "f4", 3, PTYPE_FOF_GROUP, IOTable);
     IO_REG(LengthByType, "u4", 6, PTYPE_FOF_GROUP, IOTable);
     IO_REG(MassByType, "f4", 6, PTYPE_FOF_GROUP, IOTable);
-    if(All.StarformationOn)
+    if(All.StarformationOn) {
         IO_REG(StarFormationRate, "f4", 1, PTYPE_FOF_GROUP, IOTable);
+        IO_REG(GasMetalMass, "f4", 1, PTYPE_FOF_GROUP, IOTable);
+        IO_REG(StellarMetalMass, "f4", 1, PTYPE_FOF_GROUP, IOTable);
+        if(All.MetalReturnOn) {
+            IO_REG(GasMetalElemMass, "f4", NMETALS, PTYPE_FOF_GROUP, IOTable);
+            IO_REG(StellarMetalElemMass, "f4", NMETALS, PTYPE_FOF_GROUP, IOTable);
+        }
+    }
     if(All.BlackHoleOn) {
         IO_REG(BlackholeMass, "f4", 1, PTYPE_FOF_GROUP, IOTable);
         IO_REG(BlackholeAccretionRate, "f4", 1, PTYPE_FOF_GROUP, IOTable);

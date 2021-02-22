@@ -47,7 +47,7 @@ double copy_and_mean_accn(double (* PairAccn)[3])
         }
     }
     int64_t tot_npart;
-    sumup_large_ints(1, &PartManager->NumPart, &tot_npart);
+    MPI_Allreduce(&PartManager->NumPart, &tot_npart, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &meanacc, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     meanacc/= (tot_npart*3.);
     return meanacc;
@@ -74,8 +74,7 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3
     MPI_Allreduce(&meanerr, meanerr_tot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&maxerr, maxerr_tot, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     int64_t tot_npart;
-    sumup_large_ints(1, &PartManager->NumPart, &tot_npart);
-
+    MPI_Allreduce(&PartManager->NumPart, &tot_npart, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     *meanerr_tot/= (tot_npart*3.);
 }
 
@@ -96,7 +95,8 @@ void runtests(int RestartSnapNum)
     int NTask;
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     ActiveParticles Act = {0};
-    rebuild_activelist(&Act, Ti_Current, 0);
+    DriftKickTimes times = init_driftkicktime(Ti_Current);
+    rebuild_activelist(&Act, &times, 0);
 
     ForceTree Tree = {0};
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1, 1, All.OutputDir);
@@ -187,6 +187,8 @@ void runtests(int RestartSnapNum)
 void
 runfof(int RestartSnapNum)
 {
+    PetaPM pm = {0};
+    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.G);
     DomainDecomp ddecomp[1] = {0};
     init(RestartSnapNum, ddecomp);          /* ... read in initial model */
 
