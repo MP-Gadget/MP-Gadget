@@ -189,7 +189,6 @@ int param_validate(ParameterSet * ps, char **error)
             strncpy(tmp2, error1, len);
             myfree(error1);
             char * tmp = fastpm_strappend(*error, "\n", tmp2);
-            if(*error) myfree(*error);
             *error = tmp;
             myfree(tmp2);
             flag = 1;
@@ -238,7 +237,6 @@ int param_parse (ParameterSet * ps, char * content, char **error)
                 myfree(error1);
                 char * tmp = fastpm_strappend(*error, "\n", tmp2);
                 myfree(tmp2);
-                if(*error) myfree(*error);
                 *error = tmp;
             }
             flag |= flag1;
