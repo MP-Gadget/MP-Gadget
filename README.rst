@@ -165,7 +165,15 @@ MP-Gadget is maintained by Yu Feng and Simeon Bird.
 
 Contributors to MP-Gadget include:
 
-Nicholas Battaglia, Nishikanta Khandai, Karime Maamari, Chris Pederson and Lauren Anderson.
+Nicholas Battaglia, James Davies, Nishikanta Khandai, Yueying Ni, Karime Maamari, Chris Pederson and Lauren Anderson.
+
+Code review
+-----------
+
+Pull requests should ideally be reviewed. Here are some links on how to conduct review:
+
+https://smartbear.com/learn/code-review/best-practices-for-peer-code-review/
+http://web.mit.edu/6.005/www/fa15/classes/04-code-review/
 
 Citation
 --------
