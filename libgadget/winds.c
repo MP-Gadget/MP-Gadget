@@ -27,6 +27,9 @@ static struct WindParams
     double WindSpeedFactor;
 } wind_params;
 
+#define NWINDHSML 10 /* Number of densities to evaluate for wind weight ngbiter*/
+#define NUMDMNGB 40 /*Number of DM ngb to evaluate vel dispersion */
+#define MAXDMDEVIATION 2
 
 typedef struct {
     TreeWalkQueryBase base;
@@ -35,17 +38,18 @@ typedef struct {
     double Mass;
     double Hsml;
     double TotalWeight;
-    double DMRadius;
+    double DMRadius[NWINDHSML];
     double Vdisp;
 } TreeWalkQueryWind;
 
 typedef struct {
     TreeWalkResultBase base;
     double TotalWeight;
-    double V1sum[3];
-    double V2sum;
-    int Ngb;
+    double V1sum[NWINDHSML][3];
+    double V2sum[NWINDHSML];
+    int Ngb[NWINDHSML];
     int alignment; /* Ensure alignment*/
+    int maxcmpte;
 } TreeWalkResultWind;
 
 typedef struct {
@@ -146,12 +150,12 @@ struct winddata {
     double Left;
     double Right;
     double TotalWeight;
-    union {
-        double Vdisp;
-        double V2sum;
-    };
-    double V1sum[3];
-    int Ngb;
+    
+    double Vdisp;
+    double V2sum[NWINDHSML];
+    double V1sum[NWINDHSML][3];
+    int Ngb[NWINDHSML];
+    int maxcmpte;
 };
 
 struct WindPriv {
@@ -283,6 +287,23 @@ winds_evolve(int i, double a3inv, double hubble)
     }
 }
 
+static inline double
+effdmradius(int place, int i, TreeWalk * tw)
+{
+    struct winddata * Windd = WIND_GET_PRIV(tw)->Winddata;
+    double left = WINDP(place, Windd).Left;
+    double right = WINDP(place, Windd).Right;
+    if (right < 0){
+        right = WINDP(place, Windd).DMRadius * 1.3;
+    }
+    if(left == 0)
+        left = 0.05 * WINDP(place, Windd).DMRadius;
+    /*Evenly split in volume*/
+    double rvol = pow(right, 3);
+    double lvol = pow(left, 3);
+    return pow((1.0*i+1)/(1.0*NWINDHSML+1) * (rvol - lvol) + lvol, 1./3);
+}
+
 static void
 sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
 {
@@ -290,44 +311,94 @@ sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
     if(P[i].Type != 4)
         endrun(23, "Wind called on something not a star particle: (i=%d, t=%d, id = %ld)\n", i, P[i].Type, P[i].ID);
     struct winddata * Windd = WIND_GET_PRIV(tw)->Winddata;
-    int diff = WINDP(i, Windd).Ngb - 40;
-    if(diff < -2) {
-        /* too few */
-        WINDP(i, Windd).Left = WINDP(i, Windd).DMRadius;
-    } else if(diff > 2) {
-        /* too many */
-        WINDP(i, Windd).Right = WINDP(i, Windd).DMRadius;
-    } else {
-        done = 1;
+    
+    const int maxcmpt = WINDP(i, Windd).maxcmpte;
+    int j;
+    double evaldmradius[NWINDHSML];
+    for(j = 0; j < maxcmpt; j++){
+        evaldmradius[j] = effdmradius(i,j,tw);
     }
-    if(WINDP(i, Windd).Right >= 0) {
-        /* if Ngb hasn't converged to 40, see if DMRadius converged*/
-        if(WINDP(i, Windd).Right - WINDP(i, Windd).Left < 1e-2) {
-            done = 1;
-        } else {
-            WINDP(i, Windd).DMRadius = 0.5 * (WINDP(i, Windd).Left + WINDP(i, Windd).Right);
+    if(maxcmpt < NWINDHSML && WINDP(i, Windd).Right > evaldmradius[maxcmpt])
+        WINDP(i, Windd).Right = evaldmradius[maxcmpt];
+    
+    int close = 0;
+    double ngbdist = fabs(WINDP(i, Windd).Ngb[0] - NUMDMNGB);
+    for(j = 1; j<maxcmpt; j++){
+        double newdist = fabs(WINDP(i, Windd).Ngb[j] - NUMDMNGB);
+        if(newdist < ngbdist){
+            ngbdist = newdist;
+            close = j;
         }
-    } else {
-        WINDP(i, Windd).DMRadius *= 1.3;
     }
-
+    
+    for(j = 0; j < maxcmpt; j++){
+        if(WINDP(i, Windd).Ngb[j] < NUMDMNGB)
+            WINDP(i, Windd).Left = evaldmradius[j];
+        if(WINDP(i, Windd).Ngb[j] > NUMDMNGB){
+            WINDP(i, Windd).Right = evaldmradius[j];
+            break;
+        }
+    }
+            
+    double dmradius = evaldmradius[close];
+    double numngb = WINDP(i, Windd).Ngb[close];
+    
+    /*Initialize left and right by uniform extrapolation*/
+    if(WINDP(i, Windd).Right < 0){
+        double dngbdv = 0;
+        if(maxcmpt > 1 && (evaldmradius[maxcmpt-1]>evaldmradius[maxcmpt-2]))
+            dngbdv = (WINDP(i, Windd).Ngb[maxcmpt-1]-WINDP(i, Windd).Ngb[maxcmpt-2])/(pow(evaldmradius[i-1],3) - pow(evaldmradius[i-2],3));
+        double newdmradius = 4*dmradius;
+        if(dngbdv>0){
+            double dngb = (NUMDMNGB - WINDP(i, Windd).Ngb[maxcmpt-1]);
+            double newvolume = pow(dmradius,3) + dngb/dngbdv;
+            if(pow(newvolume,1./3)<newdmradius)
+                newdmradius = pow(newvolume,1./3);
+        }
+        dmradius = newdmradius;
+    }
+    if(dmradius > WINDP(i, Windd).Right)
+        dmradius = WINDP(i, Windd).Right;
+    
+    if(WINDP(i, Windd).Left == 0){
+        double dngbdv = 0;
+        if(maxcmpt > 1 && (evaldmradius[1]>evaldmradius[0]))
+            dngbdv = (WINDP(i, Windd).Ngb[1]-WINDP(i, Windd).Ngb[0])/(pow(evaldmradius[1],3) - pow(evaldmradius[0],3));
+        if(maxcmpt == 1 && evaldmradius[0]>0)
+            dngbdv = WINDP(i, Windd).Ngb[0]/(pow(evaldmradius[0],3));
+        if(dngbdv > 0){
+            double dngb = (NUMDMNGB - WINDP(i, Windd).Ngb[0]);
+            double newvolume = pow(dmradius,3) + dngb/dngbdv;
+            dmradius = pow(newvolume,1./3);
+        }
+    }
+    if(dmradius<WINDP(i, Windd).Left)
+        dmradius = WINDP(i, Windd).Left;
+    
+    WINDP(i, Windd).DMRadius = dmradius;
+    
     int tid = omp_get_thread_num();
-    if(done) {
-        double vdisp = WINDP(i, Windd).V2sum / WINDP(i, Windd).Ngb;
-        int d;
-        for(d = 0; d < 3; d ++) {
-            vdisp -= pow(WINDP(i, Windd).V1sum[d] / WINDP(i, Windd).Ngb,2);
-        }
-        WINDP(i, Windd).Vdisp = sqrt(vdisp / 3);
-    } else {
+    if(numngb < (NUMDMNGB - MAXDMDEVIATION) || numngb > (NUMDMNGB + MAXDMDEVIATION)){
+        /*If DMRadius converged, let it go*/
+        if(WINDP(i, Windd).Right - WINDP(i, Windd).Left < 1e-2)
+            return;
         /* More work needed: add this particle to the redo queue*/
         tw->NPRedo[tid][tw->NPLeft[tid]] = i;
         tw->NPLeft[tid] ++;
     }
-    if(tw->maxnumngb[tid] < WINDP(i, Windd).Ngb)
-        tw->maxnumngb[tid] = WINDP(i, Windd).Ngb;
-    if(tw->minnumngb[tid] > WINDP(i, Windd).Ngb)
-        tw->minnumngb[tid] = WINDP(i, Windd).Ngb;
+    else{
+        double vdisp = WINDP(i, Windd).V2sum[close] / numngb;
+        int d;
+        for(d = 0; d<3; d++){
+            vdisp -= pow(WINDP(i, Windd).V1sum[close][d] / numngb,2);
+        }
+        WINDP(i, Windd).Vdisp = sqrt(vdisp / 3);
+    }
+
+    if(tw->maxnumngb[tid] < numngb)
+        tw->maxnumngb[tid] = numngb;
+    if(tw->minnumngb[tid] > numngb)
+        tw->minnumngb[tid] = numngb;
 }
 
 static void
@@ -335,12 +406,18 @@ sfr_wind_reduce_weight(int place, TreeWalkResultWind * O, enum TreeWalkReduceMod
 {
     struct winddata * Windd = WIND_GET_PRIV(tw)->Winddata;
     TREEWALK_REDUCE(WINDP(place, Windd).TotalWeight, O->TotalWeight);
+    
+    int i;
+    if(mode == 0 || WINDP(place, Windd).maxcmpte > O->maxcmpte)
+        WINDP(place, Windd).maxcmpte = O->maxcmpte;
     int k;
-    for(k = 0; k < 3; k ++) {
-        TREEWALK_REDUCE(WINDP(place, Windd).V1sum[k], O->V1sum[k]);
+    for (i = 0; i < O->maxcmpte; i++){
+        TREEWALK_REDUCE(WINDP(place, Windd).Ngb[i], O->Ngb[i]);
+        TREEWALK_REDUCE(WINDP(place, Windd).V2sum[i], O->V2sum[i]);
+        for(k = 0; k < 3; k ++) {
+            TREEWALK_REDUCE(WINDP(place, Windd).V1sum[i][k], O->V1sum[i][k]);
+        }
     }
-    TREEWALK_REDUCE(WINDP(place, Windd).V2sum, O->V2sum);
-    TREEWALK_REDUCE(WINDP(place, Windd).Ngb, O->Ngb);
     /*
     message(1, "Reduce ID=%ld, NGB=%d TotalWeight=%g V2sum=%g V1sum=%g %g %g\n",
             P[place].ID, O->Ngb, O->TotalWeight, O->V2sum,
@@ -360,8 +437,11 @@ sfr_wind_copy(int place, TreeWalkQueryWind * input, TreeWalk * tw)
     input->Hsml = P[place].Hsml;
     input->TotalWeight = WINDP(place, Windd).TotalWeight;
 
-    input->DMRadius = WINDP(place, Windd).DMRadius;
     input->Vdisp = WINDP(place, Windd).Vdisp;
+    int i;
+    for(i = 0; i<NWINDHSML; i++){
+        input->DMRadius[i]=effdmradius(place,i,tw);
+    }
 }
 
 static void
@@ -374,10 +454,11 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
      * particles as described in VS08. */
     /* it also calculates the DM dispersion of the nearest 40 DM particles */
     if(iter->base.other == -1) {
-        double hsearch = DMAX(I->Hsml, I->DMRadius);
+        double hsearch = DMAX(I->Hsml, I->DMRadius[NWINDHSML-1]);
         iter->base.Hsml = hsearch;
         iter->base.mask = 1 + 2; /* gas and dm */
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
+        O->maxcmpte = NWINDHSML;
         return;
     }
 
@@ -396,17 +477,28 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
         double wk = 1.0;
         O->TotalWeight += wk * P[other].Mass;
     }
-
+    
+    int i;
     if(P[other].Type == 1) {
         const double atime = WIND_GET_PRIV(lv->tw)->Time;
-        if(r > I->DMRadius) return;
-        O->Ngb ++;
-        int d;
-        for(d = 0; d < 3; d ++) {
-            /* Add hubble flow; FIXME: this shall be a function, and the direction looks wrong too. */
-            double vel = P[other].Vel[d] + WIND_GET_PRIV(lv->tw)->hubble * atime * atime * dist[d];
-            O->V1sum[d] += vel;
-            O->V2sum += vel * vel;
+        for(i = 0; i < O->maxcmpte; i++){
+            if(r < I->DMRadius[i]){
+                O->Ngb[i] += 1;
+                int d;
+                for(d = 0; d < 3; d ++) {
+                    /* Add hubble flow; FIXME: this shall be a function, and the direction looks wrong too. */
+                    double vel = P[other].Vel[d] + WIND_GET_PRIV(lv->tw)->hubble * atime * atime * dist[d];
+                    O->V1sum[i][d] += vel;
+                    O->V2sum[i] += vel * vel;
+                }
+            }
+        }
+    }
+    
+    for(i = 0; i<NWINDHSML; i++){
+        if(O->Ngb[i] > NUMDMNGB){
+            O->maxcmpte = i+1;
+            break;
         }
     }
 
