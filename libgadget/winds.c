@@ -27,7 +27,7 @@ static struct WindParams
     double WindSpeedFactor;
 } wind_params;
 
-#define NWINDHSML 10 /* Number of densities to evaluate for wind weight ngbiter*/
+#define NWINDHSML 5 /* Number of densities to evaluate for wind weight ngbiter*/
 #define NUMDMNGB 40 /*Number of DM ngb to evaluate vel dispersion */
 #define MAXDMDEVIATION 2
 
@@ -214,7 +214,8 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
         int n = NewStars[i];
         WINDP(n, priv->Winddata).DMRadius = 2 * P[n].Hsml;
         WINDP(n, priv->Winddata).Left = 0;
-        WINDP(n, priv->Winddata).Right = -1;
+        WINDP(n, priv->Winddata).Right = tree->BoxSize;
+        WINDP(n, priv->Winddata).maxcmpte = NUMDMNGB;
     }
 
     /* Find densities*/
@@ -293,8 +294,9 @@ effdmradius(int place, int i, TreeWalk * tw)
     struct winddata * Windd = WIND_GET_PRIV(tw)->Winddata;
     double left = WINDP(place, Windd).Left;
     double right = WINDP(place, Windd).Right;
-    if (right < 0){
-        right = WINDP(place, Windd).DMRadius * 1.3;
+    /*The asymmetry is because it is free to compute extra densities for h < Hsml, but not for h > Hsml*/
+    if (right > 0.99*tw->tree->BoxSize){
+        right = WINDP(place, Windd).DMRadius * ((1.+NWINDHSML)/NWINDHSML);
     }
     if(left == 0)
         left = 0.05 * WINDP(place, Windd).DMRadius;
@@ -339,15 +341,15 @@ sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
             break;
         }
     }
-            
+    
     double dmradius = evaldmradius[close];
     double numngb = WINDP(i, Windd).Ngb[close];
     
     /*Initialize left and right by uniform extrapolation*/
-    if(WINDP(i, Windd).Right < 0){
+    if(WINDP(i, Windd).Right > 0.99*tw->tree->BoxSize){
         double dngbdv = 0;
         if(maxcmpt > 1 && (evaldmradius[maxcmpt-1]>evaldmradius[maxcmpt-2]))
-            dngbdv = (WINDP(i, Windd).Ngb[maxcmpt-1]-WINDP(i, Windd).Ngb[maxcmpt-2])/(pow(evaldmradius[i-1],3) - pow(evaldmradius[i-2],3));
+            dngbdv = (WINDP(i, Windd).Ngb[maxcmpt-1]-WINDP(i, Windd).Ngb[maxcmpt-2])/(pow(evaldmradius[maxcmpt-1],3) - pow(evaldmradius[maxcmpt-2],3));
         double newdmradius = 4*dmradius;
         if(dngbdv>0){
             double dngb = (NUMDMNGB - WINDP(i, Windd).Ngb[maxcmpt-1]);
@@ -417,12 +419,9 @@ sfr_wind_reduce_weight(int place, TreeWalkResultWind * O, enum TreeWalkReduceMod
         for(k = 0; k < 3; k ++) {
             TREEWALK_REDUCE(WINDP(place, Windd).V1sum[i][k], O->V1sum[i][k]);
         }
-    }
-    /*
-    message(1, "Reduce ID=%ld, NGB=%d TotalWeight=%g V2sum=%g V1sum=%g %g %g\n",
-            P[place].ID, O->Ngb, O->TotalWeight, O->V2sum,
-            O->V1sum[0], O->V1sum[1], O->V1sum[2]);
-            */
+    }    
+//     message(1, "Reduce ID=%ld, NGB_first=%d NGB_last=%d maxcmpte = %d, left = %g, right = %g\n",
+//             P[place].ID, O->Ngb[0],O->Ngb[O->maxcmpte-1],WINDP(place, Windd).maxcmpte,WINDP(place, Windd).Left,WINDP(place, Windd).Right);           
 }
 
 static void
