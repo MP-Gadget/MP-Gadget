@@ -278,6 +278,8 @@ run(int RestartSnapNum)
         if(All.FdmOn)
         {
             dm_density(&Act,&Tree);
+            force_update_dm_hmax(Act.ActiveParticle, Act.NumActiveParticle, &Tree, ddecomp);
+            quantum_pressure(&Act,&Tree);
         }
 
         /* The opening criterion for the gravtree

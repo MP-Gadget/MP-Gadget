@@ -111,6 +111,10 @@ struct fdm_particle_data
 {
     struct particle_data_ext base;
     MyFloat Density;        /*!< dark matter density of particle */
+    MyFloat DhsmlDensityFactor;  /* 1/f */
+    MyFloat GradDensity[3];
+    MyFloat LapDensity;
+    MyFloat QPAccel[3];
 };
 
 extern struct slots_manager_type {

@@ -367,6 +367,13 @@ do_the_short_range_kick(int i, double dt_entr, double Fgravkick, double Fhydroki
             P[i].Vel[j] += BHP(i).DragAccel[j] * Fgravkick;
         }
     }
+    
+    /* Add kick from quantum pressure term for FDM module */
+    if(All.FdmOn && P[i].Type == 1){
+        for(j = 0; j < 3; j++){
+            P[i].Vel[j] += FDMP(i).QPAccel[j] * Fgravkick;
+        }
+    }
 
     if(P[i].Type == 0) {
         /* Add kick from hydro and SPH stuff */

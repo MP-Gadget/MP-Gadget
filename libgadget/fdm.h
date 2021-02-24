@@ -9,5 +9,6 @@
 void set_fdm_params(ParameterSet * ps);
 
 void dm_density(const ActiveParticles * act, const ForceTree * const tree);
+void quantum_pressure(const ActiveParticles * act, const ForceTree * const tree);
 
 #endif

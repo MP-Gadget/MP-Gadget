@@ -30,6 +30,7 @@ typedef struct {
     /* private: */
     double Wknorm;
     double dWknorm;
+    double ddWknorm;
 } DensityKernel;
 
 double
@@ -40,6 +41,8 @@ double
 density_kernel_wk(DensityKernel * kernel, double u);
 double
 density_kernel_dwk(DensityKernel * kernel, double u);
+double
+density_kernel_ddwk(DensityKernel * kernel, double u);
 double
 density_kernel_volume(DensityKernel * kernel);
 

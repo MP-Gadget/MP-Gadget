@@ -1088,6 +1088,11 @@ SIMPLE_GETTER_PI(GTDhsmlEgyDensityFactor, DhsmlEgyDensityFactor, float, 1, struc
 SIMPLE_GETTER_PI(GTDivVel, DivVel, float, 1, struct sph_particle_data)
 SIMPLE_GETTER_PI(GTCurlVel, CurlVel, float, 1, struct sph_particle_data)
 
+SIMPLE_GETTER_PI(GTDhsmlDensityFactor, DhsmlDensityFactor, float, 1, struct fdm_particle_data)
+SIMPLE_GETTER_PI(GTLapDensity, LapDensity, float, 1, struct fdm_particle_data)
+SIMPLE_GETTER_PI(GTGradDensity, GradDensity[0], float, 3, struct fdm_particle_data)
+SIMPLE_GETTER_PI(GTQPAccel, QPAccel[0], float, 3, struct fdm_particle_data)
+
 void register_debug_io_blocks(struct IOTable * IOTable)
 {
     int ptype;
@@ -1104,6 +1109,12 @@ void register_debug_io_blocks(struct IOTable * IOTable)
     IO_REG_WRONLY(DhsmlEgyDensityFactor,       "f4", 1, 0, IOTable);
     IO_REG_WRONLY(DivVel,       "f4", 1, 0, IOTable);
     IO_REG_WRONLY(CurlVel,       "f4", 1, 0, IOTable);
+    if(All.FdmOn){
+        IO_REG_WRONLY(DhsmlDensityFactor, "f4",1, 1, IOTable);
+        IO_REG_WRONLY(LapDensity, "f4", 1, 1, IOTable);
+        IO_REG_WRONLY(GradDensity, "f4", 3, 1, IOTable);
+        IO_REG_WRONLY(QPAccel, "f4", 3, 1, IOTable);
+    }
     /*Sort IO blocks so similar types are together; then ordered by the sequence they are declared. */
     qsort_openmp(IOTable->ent, IOTable->used, sizeof(struct IOTableEntry), order_by_type);
 }

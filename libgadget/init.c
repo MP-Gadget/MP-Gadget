@@ -241,6 +241,12 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
         }
 
         SPHP(i).DtEntropy = 0;
+        
+        if(All.FdmOn){
+            for(j = 0; j < 3; j++){
+                FDMP(i).QPAccel[j] = 0;
+            }
+        }
 
         if(RestartSnapNum == -1)
         {
