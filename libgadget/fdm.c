@@ -393,7 +393,7 @@ densderiv_ngbiter(
     const double mass_j = P[other].Mass;
     
     double fac = (FDMP(other).Density - I->Density)/sqrt(I->Density*FDMP(other).Density);
-    O->LapDensity += mass_j * ddwk * fac;
+    O->LapDensity += mass_j * fac * (ddwk + 3*dwk/r);
     int d;
     for(d = 0; d < 3; d++){
         O->GradDensity[d] += mass_j * dwk * fac * dist[d]/r;
@@ -489,10 +489,11 @@ qp_ngbiter(
     for(d = 0; d < 3; d++){
         gradsq += pow(FDMP(other).GradDensity[d],2);
     }
-    double fac0 = FDMP(other).LapDensity/(2*rho_j) - gradsq/(4*rho_j*rho_j);
-    double fac1 = fac0*prefac*(mass_j/rho_j)*FDMP(other).DhsmlDensityFactor;
+    double fac = FDMP(other).LapDensity/(2*rho_j) - gradsq/(4*rho_j*rho_j);
+    fac *= prefac*(mass_j/rho_j)*FDMP(other).DhsmlDensityFactor;
+    fac /= (All.cf.a*All.cf.a);
     for(d = 0; d < 3; d++){
-        O->Acc[d] += fac1 * dwk * dist[d]/r;
+        O->Acc[d] += fac * dwk * dist[d]/r;
     }
 //     if(fac1*dwk>1e20 || fac1*dwk<1e-20)
 //         endrun(5,"caught error, prefac = %g, fac0 = %g, fac1 = %g, dwk = %g, gradsq = %g, dhdrho = %g",prefac,fac0,fac1,
