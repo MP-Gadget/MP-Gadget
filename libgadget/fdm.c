@@ -23,10 +23,21 @@
 
 #define FDMMAXITER 400
 
+// \file fdm.c
+// \brief Calculate the quantum pressure acceleration for fuzzy dark matter dynamics
+
+// This file follows the work of Nori2018 https://arxiv.org/abs/1801.08144 Eq.23 - Eq.26
+// that use an improved SPH scheme to calculate the quantum pressure.
+// We use three treewalks to do the calculation:
+// tw1: DM_Density, 
+// tw2: DM_DensDeriv, a seperate tw for (better) density gradient and Laplacian calculation. 
+// tw3: DM_QP 
+
+
 static struct fdm_params
 {
-    double FDM22;
-    double FDMMaxNgbDeviation;
+    double FDM22; /* bosonic mass, in unit of 1e-22 eV/c^2 */
+    double FDMMaxNgbDeviation; /* Max deviation for number of SPH Ngbs*/
 } FdmParams;
 
 
@@ -129,7 +140,7 @@ void dm_density_check_neighbours (int i, TreeWalk * tw)
         
         DhsmlDensity[pi] *= P[i].Hsml / (NUMDIMS * (FDMP(i).Density));
         DhsmlDensity[pi] = 1 / (1 + DhsmlDensity[pi]);
-        /* We will also use this in quantum pressure calculation*/
+        /* We will use this in quantum pressure calculation */
         FDMP(i).DhsmlDensityFactor = DhsmlDensity[pi];
 
         /* If we need more neighbours, move the lower bound up. If we need fewer, move the upper bound down.*/
@@ -190,7 +201,7 @@ dm_density_ngbiter(
         iter->kernel_volume = density_kernel_volume(&iter->kernel);
 
         iter->base.Hsml = h;
-        iter->base.mask = 1+2; /* dm-only ? */
+        iter->base.mask = 2; /* dm-only */
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         return;
     }
@@ -372,7 +383,7 @@ densderiv_ngbiter(
 {
     if(iter->base.other == -1) {
         iter->base.Hsml = I->Hsml;
-        iter->base.mask = 2; /* dm-only ? */
+        iter->base.mask = 2; /* dm-only */
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         
         density_kernel_init(&iter->kernel_i, I->Hsml, GetDensityKernelType());
@@ -393,7 +404,8 @@ densderiv_ngbiter(
     const double mass_j = P[other].Mass;
     
     double fac = (FDMP(other).Density - I->Density)/sqrt(I->Density*FDMP(other).Density);
-    O->LapDensity += mass_j * fac * (ddwk + 3*dwk/r);
+    /* \Laplacian(W(r,h)) = 2*dwk/r + ddwk */
+    O->LapDensity += mass_j * fac * (ddwk + 2*dwk/r);
     int d;
     for(d = 0; d < 3; d++){
         O->GradDensity[d] += mass_j * dwk * fac * dist[d]/r;
@@ -457,7 +469,7 @@ qp_ngbiter(
 {
     if(iter->base.other == -1) {
         iter->base.Hsml = I->Hsml;
-        iter->base.mask = 1+2; /* dm-only ? */
+        iter->base.mask = 2; /* dm-only */
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         
         O->Acc[0] = O->Acc[1] = O->Acc[2] = 0;
@@ -491,7 +503,10 @@ qp_ngbiter(
     }
     double fac = FDMP(other).LapDensity/(2*rho_j) - gradsq/(4*rho_j*rho_j);
     fac *= prefac*(mass_j/rho_j)*FDMP(other).DhsmlDensityFactor;
-    fac /= (All.cf.a*All.cf.a);
+    /* Convention of QP_acc unit: same as Grav_Accel, that [Acc_code] = [Acc_physical]*a*a 
+     * As QP is the third order derivative of distance, so [Acc_code] = (a3inv*QP)*a*a = QP/a
+     */
+    fac /= (All.cf.a);
     for(d = 0; d < 3; d++){
         O->Acc[d] += fac * dwk * dist[d]/r;
     }
