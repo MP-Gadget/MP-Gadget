@@ -207,21 +207,26 @@ run(int RestartSnapNum)
         if(NumCurrentTiStep > 0 && is_PM  && All.RandomParticleOffset > 0) {
             update_random_offset(rel_random_shift);
         }
-        /* Sync positions of all particles */
-        drift_all_particles(Ti_Last, times.Ti_Current, All.BoxSize, &All.CP, rel_random_shift);
 
         int extradomain = is_timebin_active(times.mintimebin + All.MaxDomainTimeBinDepth, times.Ti_Current);
         /* drift and ddecomp decomposition */
         /* at first step this is a noop */
         if(extradomain || is_PM) {
-            /* full decomposition rebuilds the tree */
+            /* Sync positions of all particles */
+            drift_all_particles(Ti_Last, times.Ti_Current, All.BoxSize, &All.CP, rel_random_shift);
+            /* full decomposition rebuilds the domain, needs keys.*/
             domain_decompose_full(ddecomp);
         } else {
             /* FIXME: add a parameter for ddecomp_decompose_incremental */
             /* currently we drift all particles every step */
             /* If it is not a PM step, do a shorter version
              * of the ddecomp decomp which just exchanges particles.*/
-            domain_maintain(ddecomp, NULL);
+            struct DriftData drift;
+            drift.BoxSize = All.BoxSize;
+            drift.CP = &All.CP;
+            drift.ti0 = Ti_Last;
+            drift.ti1 = times.Ti_Current;
+            domain_maintain(ddecomp, &drift);
         }
 
         ActiveParticles Act = {0};

@@ -10,10 +10,9 @@ void real_drift_particle(int i, inttime_t dti, const double ddrift, const double
 
 struct DriftData
 {
-    int do_drift;
     inttime_t ti0;
     inttime_t ti1;
-    const double BoxSize;
+    double BoxSize;
     Cosmology * CP;
 };
 
