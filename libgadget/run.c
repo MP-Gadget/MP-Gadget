@@ -221,7 +221,7 @@ run(int RestartSnapNum)
             /* currently we drift all particles every step */
             /* If it is not a PM step, do a shorter version
              * of the ddecomp decomp which just exchanges particles.*/
-            domain_maintain(ddecomp);
+            domain_maintain(ddecomp, NULL);
         }
 
         ActiveParticles Act = {0};

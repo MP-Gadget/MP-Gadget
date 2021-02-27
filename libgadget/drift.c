@@ -12,8 +12,6 @@
 #include "partmanager.h"
 #include "utils.h"
 
-static void real_drift_particle(int i, inttime_t dti, const double ddrift, const double BoxSize, const double random_shift[3]);
-
 /* Drifts an individual particle to time ti1, by a drift factor ddrift.
  * The final argument is a random shift vector applied uniformly to all particles before periodic wrapping.
  * The box is periodic, so this does not affect real physics, but it avoids correlated errors
@@ -22,7 +20,7 @@ static void real_drift_particle(int i, inttime_t dti, const double ddrift, const
  * receives a shift vector removing the previous random shift and adding a new one.
  * This function also updates the velocity and updates the density according to an adiabatic factor.
  */
-static void real_drift_particle(int i, inttime_t dti, const double ddrift, const double BoxSize, const double random_shift[3])
+void real_drift_particle(int i, inttime_t dti, const double ddrift, const double BoxSize, const double random_shift[3])
 {
     int j;
     if(P[i].IsGarbage || P[i].Swallowed) {

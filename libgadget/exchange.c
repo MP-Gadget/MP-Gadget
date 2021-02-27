@@ -5,6 +5,8 @@
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "walltime.h"
+#include "drift.h"
+#include "timefac.h"
 
 #include "utils.h"
 #include "utils/mpsort.h"
@@ -50,7 +52,7 @@ typedef struct {
 static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman);
 static size_t domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pman, const struct slots_manager_type * sman);
-static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm);
+static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct DriftData * drift, struct part_manager_type * pman, MPI_Comm Comm);
 
 /* This function builds the count/displ arrays from
  * the rows stored in the entry struct of the plan.
@@ -98,7 +100,7 @@ domain_free_exchangeplan(ExchangePlan * plan)
 }
 
 /*Plan and execute a domain exchange, also performing a garbage collection if requested*/
-int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, int do_gc, struct part_manager_type * pman, struct slots_manager_type * sman, int maxiter, MPI_Comm Comm) {
+int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, int do_gc, struct DriftData * drift, struct part_manager_type * pman, struct slots_manager_type * sman, int maxiter, MPI_Comm Comm) {
     int64_t sumtogo;
     int failure = 0;
 
@@ -120,7 +122,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
             failure = 1;
             break;
         }
-        domain_build_exchange_list(layoutfunc, layout_userdata, &plan, pman, Comm);
+        domain_build_exchange_list(layoutfunc, layout_userdata, &plan, (iter > 0 ? NULL : drift), pman, Comm);
 
         /*Exit early if nothing to do*/
         if(!MPIU_Any(plan.nexchange > 0, Comm))
@@ -157,7 +159,8 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
      * and we only get one iteration. */
     if(!failure && maxiter > 1) {
         ExchangePlan plan9 = domain_init_exchangeplan(Comm);
-        domain_build_exchange_list(layoutfunc, layout_userdata, &plan9, pman, Comm);
+        /* Do not drift again*/
+        domain_build_exchange_list(layoutfunc, layout_userdata, &plan9, NULL, pman, Comm);
         if(plan9.nexchange > 0)
             endrun(5, "Still have %ld particles in exchange list\n", plan9.nexchange);
         myfree(plan9.ExchangeList);
@@ -369,7 +372,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
  * All particles are processed every time, space is not considered.
  * The exchange list needs to be rebuilt every time gc is run. */
 static void
-domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm)
+domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct DriftData * drift, struct part_manager_type * pman, MPI_Comm Comm)
 {
     int i;
     size_t numthreads = omp_get_max_threads();
@@ -387,11 +390,22 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
     int ThisTask;
     MPI_Comm_rank(Comm, &ThisTask);
 
+    /* Can't update the random shift without re-decomposing domain*/
+    const double rel_random_shift[3] = {0};
+    /* Find drift factor*/
+    double ddrift = 0;
+    if(drift)
+        ddrift = get_exact_drift_factor(drift->CP, drift->ti0, drift->ti1);
+
     /* flag the particles that need to be exported */
     size_t schedsz = plan->nexchange/numthreads+1;
     #pragma omp parallel for schedule(static, schedsz) reduction(+: ngarbage)
     for(i=0; i < pman->NumPart; i++)
     {
+        if(drift) {
+            real_drift_particle(i, drift->ti1-drift->ti0, ddrift, drift->BoxSize, rel_random_shift);
+            P[i].Ti_drift = drift->ti1;
+        }
         if(pman->Base[i].IsGarbage) {
             ngarbage++;
             continue;
