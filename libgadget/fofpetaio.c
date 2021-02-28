@@ -288,7 +288,7 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
 
     walltime_measure("/FOF/IO/Distribute");
     /* sort SPH and Others independently */
-    if(domain_exchange(fof_sorted_layout, targettask, 1, halo_pman, halo_sman, 1, Comm)) {
+    if(domain_exchange(fof_sorted_layout, targettask, 1, NULL, halo_pman, halo_sman, 1, Comm)) {
         message(1930, "Failed to exchange and write particles for the FOF. This is non-fatal, continuing\n");
         myfree(targettask);
         return 1;

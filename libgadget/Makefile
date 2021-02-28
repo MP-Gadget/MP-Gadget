@@ -139,6 +139,9 @@ all: libgadget.a libgadget-utils.a
 .objs/test_cooling_rates: tests/test_cooling_rates.c .objs/cooling_rates.o .objs/cooling_uvfluc.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
 	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
+.objs/test_exchange: tests/test_exchange.c .objs/exchange.o ../tests/stub.c ../tests/cmocka.c libgadget.a libgadget-utils.a
+	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
+
 .objs/test_density: tests/test_density.c .objs/density.o libgadget.a ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
 	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
 

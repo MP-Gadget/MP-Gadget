@@ -213,7 +213,7 @@ void domain_decompose_full(DomainDecomp * ddecomp)
     myfree(OldTopLeaves);
     myfree(OldTopNodes);
 
-    if(domain_exchange(domain_layoutfunc, ddecomp, 0, PartManager, SlotsManager, 10000, ddecomp->DomainComm))
+    if(domain_exchange(domain_layoutfunc, ddecomp, 0, NULL, PartManager, SlotsManager, 10000, ddecomp->DomainComm))
         endrun(1929,"Could not exchange particles\n");
 
     /*Do a garbage collection so that the slots are ordered
@@ -231,7 +231,7 @@ void domain_decompose_full(DomainDecomp * ddecomp)
 
 /* This is a cut-down version of the domain decomposition that leaves the
  * domain grid intact, but exchanges the particles and rebuilds the tree */
-void domain_maintain(DomainDecomp * ddecomp)
+void domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
 {
     message(0, "Attempting a domain exchange\n");
 
@@ -240,7 +240,7 @@ void domain_maintain(DomainDecomp * ddecomp)
     /* Try a domain exchange.
      * If we have no memory for the particles,
      * bail and do a full domain*/
-    if(0 != domain_exchange(domain_layoutfunc, ddecomp, 0, PartManager, SlotsManager, 10000, ddecomp->DomainComm)) {
+    if(0 != domain_exchange(domain_layoutfunc, ddecomp, 0, drift, PartManager, SlotsManager, 10000, ddecomp->DomainComm)) {
         domain_decompose_full(ddecomp);
         return;
     }
