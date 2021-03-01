@@ -39,6 +39,16 @@ double dwk_cs(DensityKernel * kernel, double q) {
     }
     return 0.0;
 }
+double ddwk_cs(DensityKernel * kernel, double q) {
+    if(q < 1.0) {
+        return  0.25 * 3 * 2 * (2 - q) - 3 * 2 * (1 - q);
+    }
+    if(q < 2.0) {
+        return 0.25 * 3 * 2 * (2 - q);
+    }
+    return 0.0;
+}
+
 static double wk_qus(DensityKernel * kernel, double q) {
     if(q < 0.5) {
         return pow(2.5 - q, 4) - 5 * pow(1.5 - q, 4) + 10 * pow(0.5 - q, 4);
@@ -63,6 +73,19 @@ static double dwk_qus(DensityKernel * kernel, double q) {
     }
     return 0.0;
 }
+static double ddwk_qus(DensityKernel * kernel, double q) {
+    if(q < 0.5) {
+        return 4 * 3 * pow(2.5 - q, 2) - 20 * 3 * pow(1.5 - q, 2) + 40 * 3 * pow(0.5 - q, 2);
+    }
+    if(q < 1.5) {
+        return 4 * 3 * pow(2.5 - q, 2) - 20 * 3 * pow(1.5 - q, 2);
+    }
+    if(q < 2.5) {
+        return 4 * 3 * pow(2.5 - q, 2);
+    }
+    return 0.0;
+}
+
 static double wk_qs(DensityKernel * kernel, double q) {
     if(q < 1.0) {
         return pow(3 - q, 5) - 6 * pow(2 - q, 5) + 15 * pow(1 - q, 5);
@@ -88,19 +111,33 @@ static double dwk_qs(DensityKernel * kernel, double q) {
     }
     return 0.0;
 }
+static double ddwk_qs(DensityKernel * kernel, double q) {
+    if(q < 1.0) {
+        return 20 * pow(3 - q, 3) - 120 * pow(2 - q, 3)
+             + 300 * pow (1 - q, 3);
+    }
+    if(q < 2.0) {
+        return 20 * pow(3 - q, 3) - 120 * pow(2 - q, 3);
+    }
+    if(q < 3.0) {
+        return 20 * pow(3 - q, 3);
+    }
+    return 0.0;
+}
 
 static struct {
     char * name;
     double (*wk)(DensityKernel * kernel, double q);
     double (*dwk)(DensityKernel * kernel, double q);
+    double (*ddwk)(DensityKernel * kernel, double q);
     double support; /* H / h, see Price 2011: arxiv 1012.1885*/
     double sigma[3];
 } KERNELS[] = {
-    { "CubicSpline", wk_cs, dwk_cs, 2.,
+    { "CubicSpline", wk_cs, dwk_cs,ddwk_cs, 2.,
         {2 / 3., 10 / (7 * M_PI), 1 / M_PI} },
-    { "QuinticSpline", wk_qs, dwk_qs, 3.,
+    { "QuinticSpline", wk_qs, dwk_qs, ddwk_qs, 3.,
         {1 / 120., 7 / (478 * M_PI), 1 / (120 * M_PI)} },
-    { "QuarticSpline", wk_qus, dwk_qus, 2.5,
+    { "QuarticSpline", wk_qus, dwk_qus, ddwk_qus, 2.5,
         {1 / 24., 96 / (1199 * M_PI), 1 / (20 * M_PI)} },
 };
 
@@ -118,6 +155,14 @@ density_kernel_wk(DensityKernel * kernel, double u)
     double support = KERNELS[kernel->type].support;
     return kernel->Wknorm *
         KERNELS[kernel->type].wk(kernel, u * support);
+}
+
+double
+density_kernel_ddwk(DensityKernel * kernel, double u)
+{
+    double support = KERNELS[kernel->type].support;
+    return kernel->ddWknorm *
+        KERNELS[kernel->type].ddwk(kernel, u * support);
 }
 
 double
@@ -151,6 +196,7 @@ density_kernel_init_with_type(DensityKernel * kernel, int type, double H)
 
     kernel->Wknorm = sigma * pow(hinv, NUMDIMS);
     kernel->dWknorm = kernel->Wknorm * hinv;
+    kernel->ddWknorm = kernel->Wknorm * hinv * hinv;
 }
 
 void

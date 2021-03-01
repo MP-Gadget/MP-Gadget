@@ -79,7 +79,9 @@ extern struct global_data_all_processes
     int WindOn; /* if Wind is enabled */
     int LightconeOn;    /* Enable the light cone module,
                            which writes a list of particles to a file as they cross a light cone*/
-
+    
+    int FdmOn; /* Apply FDM dynamics to DM particles, with an extra quantum pressure term */
+    
     int WriteBlackHoleDetails; /* write BH details every time step*/
 
     int MassiveNuLinRespOn; /* Flags that massive neutrinos using the linear

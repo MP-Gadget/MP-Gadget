@@ -867,6 +867,8 @@ SIMPLE_PROPERTY_TYPE_PI(Metallicity, 0, Metallicity, float, 1, struct sph_partic
 SIMPLE_PROPERTY_TYPE_PI(Metals, 4, Metals[0], float, NMETALS, struct star_particle_data)
 SIMPLE_PROPERTY_TYPE_PI(Metals, 0, Metals[0], float, NMETALS, struct sph_particle_data)
 
+SIMPLE_PROPERTY_TYPE_PI(Density, 1, Density, float, 1, struct fdm_particle_data)
+
 SIMPLE_GETTER_PI(GTStarFormationRate, Sfr, float, 1, struct sph_particle_data)
 SIMPLE_PROPERTY_TYPE_PI(StarFormationTime, 5, FormationTime, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeMass, Mass, float, 1, struct bh_particle_data)
@@ -1041,6 +1043,10 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
         IO_REG_TYPE(TotalMassReturned, "f4", 1, 4, IOTable);
         IO_REG_NONFATAL(SmoothingLength,  "f4", 1, 4, IOTable);
     }
+    if(All.FdmOn){
+        IO_REG(SmoothingLength, "f4",1, 1, IOTable);
+        IO_REG_TYPE(Density, "f4", 1, 1, IOTable);
+    }
     /* Another new addition: save the DelayTime for wind particles*/
     IO_REG_NONFATAL(DelayTime,  "f4", 1, 0, IOTable);
     /* end SF */
@@ -1082,6 +1088,11 @@ SIMPLE_GETTER_PI(GTDhsmlEgyDensityFactor, DhsmlEgyDensityFactor, float, 1, struc
 SIMPLE_GETTER_PI(GTDivVel, DivVel, float, 1, struct sph_particle_data)
 SIMPLE_GETTER_PI(GTCurlVel, CurlVel, float, 1, struct sph_particle_data)
 
+SIMPLE_GETTER_PI(GTDhsmlDensityFactor, DhsmlDensityFactor, float, 1, struct fdm_particle_data)
+SIMPLE_GETTER_PI(GTLapDensity, LapDensity, float, 1, struct fdm_particle_data)
+SIMPLE_GETTER_PI(GTGradDensity, GradDensity[0], float, 3, struct fdm_particle_data)
+SIMPLE_GETTER_PI(GTQPAccel, QPAccel[0], float, 3, struct fdm_particle_data)
+
 void register_debug_io_blocks(struct IOTable * IOTable)
 {
     int ptype;
@@ -1098,6 +1109,12 @@ void register_debug_io_blocks(struct IOTable * IOTable)
     IO_REG_WRONLY(DhsmlEgyDensityFactor,       "f4", 1, 0, IOTable);
     IO_REG_WRONLY(DivVel,       "f4", 1, 0, IOTable);
     IO_REG_WRONLY(CurlVel,       "f4", 1, 0, IOTable);
+    if(All.FdmOn){
+        IO_REG_WRONLY(DhsmlDensityFactor, "f4",1, 1, IOTable);
+        IO_REG_WRONLY(LapDensity, "f4", 1, 1, IOTable);
+        IO_REG_WRONLY(GradDensity, "f4", 3, 1, IOTable);
+        IO_REG_WRONLY(QPAccel, "f4", 3, 1, IOTable);
+    }
     /*Sort IO blocks so similar types are together; then ordered by the sequence they are declared. */
     qsort_openmp(IOTable->ent, IOTable->used, sizeof(struct IOTableEntry), order_by_type);
 }

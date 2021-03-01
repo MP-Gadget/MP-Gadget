@@ -24,6 +24,7 @@ INCL = densitykernel.h \
 	physconst.h   \
 	sfr_eff.h \
 	metal_return.h \
+	fdm.h \
 	winds.h \
 	timefac.h \
 	blackhole.h \
@@ -95,7 +96,7 @@ GADGET_OBJS =  \
 	 run.o drift.o stats.o \
 	 timestep.o init.o checkpoint.o \
 	 sfr_eff.o cooling.o cooling_rates.o cooling_uvfluc.o cooling_qso_lightup.o \
-	 winds.o density.o metal_return.o \
+	 winds.o density.o metal_return.o fdm.o \
 	 treewalk.o cosmology.o \
 	 gravshort-tree.o gravshort-pair.o hydra.o  timefac.o \
 	 gravpm.o powerspectrum.o \

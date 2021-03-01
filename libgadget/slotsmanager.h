@@ -107,6 +107,16 @@ struct sph_particle_data
     float Metals[NMETALS];
 };
 
+struct fdm_particle_data
+{
+    struct particle_data_ext base;
+    MyFloat Density;        /*!< dark matter density of particle */
+    MyFloat DhsmlDensityFactor;  /* 1/f */
+    MyFloat GradDensity[3];
+    MyFloat LapDensity;
+    MyFloat QPAccel[3];
+};
+
 extern struct slots_manager_type {
     struct slot_info info[6];
     char * Base; /* memory ptr that holds of all slots */
@@ -118,11 +128,13 @@ extern struct slots_manager_type {
 #define SphP ((struct sph_particle_data*) SlotsManager->info[0].ptr)
 #define StarP ((struct star_particle_data*) SlotsManager->info[4].ptr)
 #define BhP ((struct bh_particle_data*) SlotsManager->info[5].ptr)
+#define FdmP ((struct fdm_particle_data*) SlotsManager->info[1].ptr)
 
 /* shortcuts for accessing slots from base particle index */
 #define SPHP(i) SphP[P[i].PI]
 #define BHP(i) BhP[P[i].PI]
 #define STARP(i) StarP[P[i].PI]
+#define FDMP(i) FdmP[P[i].PI]
 
 extern MPI_Datatype MPI_TYPE_PARTICLE;
 extern MPI_Datatype MPI_TYPE_SLOT[6];

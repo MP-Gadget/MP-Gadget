@@ -21,6 +21,7 @@
 #include <libgadget/petaio.h>
 #include <libgadget/cooling_qso_lightup.h>
 #include <libgadget/metal_return.h>
+#include <libgadget/fdm.h>
 
 static int
 BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
@@ -195,6 +196,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "MinFoFMassForNewSeed", OPTIONAL, 2, "Minimal halo mass for seeding tracer particles in internal mass units.");
     param_declare_double(ps, "MinMStarForNewSeed", OPTIONAL, 5e-4, "Minimal stellar mass in halo for seeding black holes in internal mass units.");
     param_declare_double(ps, "TimeBetweenSeedingSearch", OPTIONAL, 1.04, "Scale factor fraction increase between Seeding Attempts.");
+    param_declare_int(ps, "FdmOn", OPTIONAL, 0, "Apply FDM dynamics to dark matter");
 
     /*Black holes*/
     param_declare_int(ps, "BlackHoleOn", REQUIRED, 1, "Master switch to enable black hole formation and feedback. If this is on, type 5 particles are treated as black holes.");
@@ -324,6 +326,10 @@ create_gadget_parameter_set()
     param_declare_double(ps, "Vcrit", OPTIONAL, 500., "For hybrid neutrinos: Critical velocity (in km/s) in the Fermi-Dirac distribution below which the neutrinos are particles in the ICs.");
     param_declare_double(ps, "NuPartTime", OPTIONAL, 0.3333333, "Scale factor at which to turn on hybrid neutrino particles.");
     /*End parameters for the massive neutrino model*/
+    
+    /*Parameters for the FDM model*/
+    param_declare_double(ps, "FDM22", OPTIONAL, 2.5, "mass of FDM in unit of 1e-22eV.");
+    param_declare_double(ps, "FDMMaxNgbDeviation", OPTIONAL, 5., "Maximum variance in the number of neighbours of FDM");
 
     param_set_action(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodAction, NULL);
     param_set_action(ps, "StarformationCriterion", StarformationCriterionAction, NULL);
@@ -380,6 +386,7 @@ void read_parameter_file(char *fname, int * ShowBacktrace, double * MaxMemSizePe
     set_fof_params(ps);
     set_blackhole_params(ps);
     set_metal_return_params(ps);
+    set_fdm_params(ps);
 
     parameter_set_free(ps);
 }
