@@ -78,8 +78,6 @@ struct DMDensityPriv {
     MyFloat *NumNgb;
     /* Lower and upper bounds on smoothing length*/
     MyFloat *Left, *Right, *DhsmlDensity;
-    size_t *NPLeft;
-    int **NPRedo;
     /*!< Desired number of SPH neighbours */
     double DesNumNgb;
 };
@@ -176,8 +174,8 @@ void dm_density_check_neighbours (int i, TreeWalk * tw)
             P[i].Hsml *= fac;
         }
         /* More work needed: add this particle to the redo queue*/
-        DM_DENSITY_GET_PRIV(tw)->NPRedo[tid][DM_DENSITY_GET_PRIV(tw)->NPLeft[tid]] = i;
-        DM_DENSITY_GET_PRIV(tw)->NPLeft[tid] ++;
+        tw->NPRedo[tid][tw->NPLeft[tid]] = i;
+        tw->NPLeft[tid] ++;
     }
 
     if(tw->Niteration >= FDMMAXITER-5)
@@ -262,61 +260,7 @@ dm_density(const ActiveParticles * act, const ForceTree * const tree)
     
     walltime_measure("/FDM/Density/Init");
     
-    int NumThreads = omp_get_max_threads();
-    priv->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
-    priv->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
-    int alloc_high = 0;
-    int * ReDoQueue = act->ActiveParticle;
-    int size = act->NumActiveParticle;
-
-    /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
-    do {
-        /* The RedoQueue needs enough memory to store every particle on every thread, because
-         * we cannot guarantee that the sph particles are evenly spread across threads!*/
-        int * CurQueue = ReDoQueue;
-        /* The ReDoQueue swaps between high and low allocations so we can have two allocated alternately*/
-        if(!alloc_high) {
-            ReDoQueue = (int *) mymalloc2("ReDoQueue", size * sizeof(int) * NumThreads);
-            alloc_high = 1;
-        }
-        else {
-            ReDoQueue = (int *) mymalloc("ReDoQueue", size * sizeof(int) * NumThreads);
-            alloc_high = 0;
-        }
-        
-        gadget_setup_thread_arrays(ReDoQueue, priv->NPRedo, priv->NPLeft, size, NumThreads);
-        treewalk_run(tw, CurQueue, size);
-
-        tw->haswork = NULL;
-        /* Now done with the current queue*/
-        if(tw->Niteration > 1)
-            myfree(CurQueue);
-
-        /* Set up the next queue*/
-        size = gadget_compact_thread_arrays(ReDoQueue, priv->NPRedo, priv->NPLeft, NumThreads);
-
-        sumup_large_ints(1, &size, &ntot);
-        if(ntot == 0){
-            myfree(ReDoQueue);
-            break;
-        }
-
-        /*Shrink memory*/
-        ReDoQueue = myrealloc(ReDoQueue, sizeof(int) * size);
-
-#ifdef DEBUG
-        if(ntot == 1 && size > 0 && tw->Niteration > 20 ) {
-            int pp = ReDoQueue[0];
-            message(1, "Remaining i=%d, t %d, pos %g %g %g, hsml: %g ngb: %g\n", pp, P[pp].Type, P[pp].Pos[0], P[pp].Pos[1], P[pp].Pos[2], P[pp].Hsml, priv->NumNgb[pp]);
-        }
-#endif
-        if(tw->Niteration > FDMMAXITER) {
-            endrun(1155, "failed to converge in neighbour iteration in density()\n");
-        }
-    } while(1);
-
-    ta_free(priv->NPRedo);
-    ta_free(priv->NPLeft);
+    treewalk_do_hsml_loop(tw, act->ActiveParticle, act->NumActiveParticle, 1);
     
     myfree(priv->DhsmlDensity);
     myfree(priv->NumNgb);
@@ -519,6 +463,9 @@ qp_ngbiter(
 void
 quantum_pressure(const ActiveParticles * act, const ForceTree * const tree)
 {
+    /*Compute FDM density first*/
+    dm_density(act,tree);
+    
     /*************************************************************************/
     TreeWalk tw_deriv[1] = {{0}};
 

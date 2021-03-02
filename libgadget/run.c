@@ -275,10 +275,7 @@ run(int RestartSnapNum)
             slots_free_sph_pred_data(&sph_predicted);
         }
         
-        if(All.FdmOn)
-        {
-            dm_density(&Act,&Tree);
-            force_update_dm_hmax(Act.ActiveParticle, Act.NumActiveParticle, &Tree, ddecomp);
+        if(All.FdmOn){
             quantum_pressure(&Act,&Tree);
         }
 
