@@ -242,9 +242,6 @@ void set_blackhole_params(ParameterSet * ps)
 /* accretion routines */
 static void
 blackhole_accretion_postprocess(int n, TreeWalk * tw);
-/* feedback routines. currently also performs the drifting(move it to gravtree / force tree?) */
-static int
-blackhole_accretion_haswork(int n, TreeWalk * tw);
 
 static void
 blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
@@ -485,7 +482,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     tw_accretion->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw_accretion->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHAccretion);
     tw_accretion->ngbiter = (TreeWalkNgbIterFunction) blackhole_accretion_ngbiter;
-    tw_accretion->haswork = blackhole_accretion_haswork;
+    tw_accretion->haswork = blackhole_dynfric_haswork;
     tw_accretion->postprocess = (TreeWalkProcessFunction) blackhole_accretion_postprocess;
     tw_accretion->preprocess = (TreeWalkProcessFunction) blackhole_accretion_preprocess;
     tw_accretion->fill = (TreeWalkFillQueryFunction) blackhole_accretion_copy;
@@ -1268,13 +1265,6 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         int tid = omp_get_thread_num();
         BH_GET_PRIV(lv->tw)->N_sph_swallowed[tid]++;
     }
-}
-
-static int
-blackhole_accretion_haswork(int n, TreeWalk * tw)
-{
-    /* We need black holes not already swallowed (on a previous timestep).*/
-    return (P[n].Type == 5) && (P[n].Mass > 0) && (!P[n].Swallowed);
 }
 
 static void
