@@ -9,7 +9,7 @@ import bigfile as bf
 import numpy as np
 from matplotlib import pyplot as plt
 
-ap = argparse.ArgumentParser("get_xgrids.py")
+ap = argparse.ArgumentParser("count_photons.py")
 ap.add_argument("bigfile", help='path to the MP-Gadget output directory')
 ap.add_argument("--output", help='path to save the plots')
 ap.add_argument("--blocksize", type=int, default=16777216,

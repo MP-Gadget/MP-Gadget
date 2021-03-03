@@ -1,6 +1,5 @@
 """
-	James' hacked up grid maker
-	created from parts of the reionisation model
+Quickly visualizes reionisation grids from a snapshot.
 """
 
 import argparse
@@ -11,7 +10,7 @@ from mpi4py import MPI
 import numpy
 
 ap = argparse.ArgumentParser("get_xgrids.py")
-ap.add_argument("fastpm", help='Non-linear particle data from FastPM')
+ap.add_argument("snapshot", help='bigfile containing snapshot output from FastPM or MP-Gadget')
 ap.add_argument("output", help='name of bigfile to store the mesh')
 ap.add_argument("--pos", help='name of the position dataset in the bigfile')
 ap.add_argument("--weight", help='name of the weighting dataset in the bigfile')
@@ -27,7 +26,7 @@ def main():
     ns = ap.parse_args()
     comm = MPI.COMM_WORLD
 
-    ff = bigfile.BigFileMPI(comm, ns.fastpm)
+    ff = bigfile.BigFileMPI(comm, ns.snapshot)
     BoxSize = ns.boxsize
     Redshift = ns.redshift
 
@@ -36,7 +35,7 @@ def main():
     Nmesh -= Nmesh % 8
 
     if comm.rank == 0:
-        logger.info("source = %s", ns.fastpm)
+        logger.info("source = %s", ns.snapshot)
         logger.info("output = %s", ns.output)
         logger.info("BoxSize = %g", BoxSize)
         logger.info("Redshift = %g", Redshift)
