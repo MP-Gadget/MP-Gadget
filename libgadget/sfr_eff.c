@@ -427,6 +427,8 @@ sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
 /*Get the neutral fraction of a particle correctly, accounting for being on the star-forming equation of state*/
 double get_neutral_fraction_sfreff(double redshift, struct particle_data * partdata, struct sph_particle_data * sphdata)
 {
+    if(!All.CoolingOn)
+        return 1;
     double nh0;
     struct UVBG uvbg = get_local_UVBG(redshift, partdata->Pos, PartManager->CurrentParticleOffset);
     double physdens = sphdata->Density * All.cf.a3inv;
@@ -455,6 +457,8 @@ double get_neutral_fraction_sfreff(double redshift, struct particle_data * partd
 
 double get_helium_neutral_fraction_sfreff(int ion, double redshift, struct particle_data * partdata, struct sph_particle_data * sphdata)
 {
+    if(!All.CoolingOn)
+        return 1;
     double helium;
     struct UVBG uvbg = get_local_UVBG(redshift, partdata->Pos, PartManager->CurrentParticleOffset);
     double physdens = sphdata->Density * All.cf.a3inv;
