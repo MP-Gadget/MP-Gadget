@@ -150,7 +150,7 @@ struct winddata {
     double Left;
     double Right;
     double TotalWeight;
-    
+
     double Vdisp;
     double V2sum[NWINDHSML];
     double V1sum[NWINDHSML][3];
@@ -310,11 +310,10 @@ effdmradius(int place, int i, TreeWalk * tw)
 static void
 sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
 {
-    int done = 0;
     if(P[i].Type != 4)
         endrun(23, "Wind called on something not a star particle: (i=%d, t=%d, id = %ld)\n", i, P[i].Type, P[i].ID);
     struct winddata * Windd = WIND_GET_PRIV(tw)->Winddata;
-    
+
     const int maxcmpt = WINDP(i, Windd).maxcmpte;
     int j;
     double evaldmradius[NWINDHSML];
@@ -324,7 +323,7 @@ sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
     int close = 0;
     WINDP(i, Windd).DMRadius = ngb_narrow_down(&WINDP(i, Windd).Right, &WINDP(i, Windd).Left, evaldmradius, WINDP(i, Windd).Ngb, maxcmpt, NUMDMNGB, &close, tw->tree->BoxSize);
     double numngb = WINDP(i, Windd).Ngb[close];
-    
+
     int tid = omp_get_thread_num();
     if(numngb < (NUMDMNGB - MAXDMDEVIATION) || numngb > (NUMDMNGB + MAXDMDEVIATION)){
         /*If DMRadius converged, let it go*/
@@ -354,7 +353,7 @@ sfr_wind_reduce_weight(int place, TreeWalkResultWind * O, enum TreeWalkReduceMod
 {
     struct winddata * Windd = WIND_GET_PRIV(tw)->Winddata;
     TREEWALK_REDUCE(WINDP(place, Windd).TotalWeight, O->TotalWeight);
-    
+
     int i;
     if(mode == 0 || WINDP(place, Windd).maxcmpte > O->maxcmpte)
         WINDP(place, Windd).maxcmpte = O->maxcmpte;
@@ -365,9 +364,9 @@ sfr_wind_reduce_weight(int place, TreeWalkResultWind * O, enum TreeWalkReduceMod
         for(k = 0; k < 3; k ++) {
             TREEWALK_REDUCE(WINDP(place, Windd).V1sum[i][k], O->V1sum[i][k]);
         }
-    }    
+    }
 //     message(1, "Reduce ID=%ld, NGB_first=%d NGB_last=%d maxcmpte = %d, left = %g, right = %g\n",
-//             P[place].ID, O->Ngb[0],O->Ngb[O->maxcmpte-1],WINDP(place, Windd).maxcmpte,WINDP(place, Windd).Left,WINDP(place, Windd).Right);           
+//             P[place].ID, O->Ngb[0],O->Ngb[O->maxcmpte-1],WINDP(place, Windd).maxcmpte,WINDP(place, Windd).Left,WINDP(place, Windd).Right);
 }
 
 static void
@@ -422,7 +421,7 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
         double wk = 1.0;
         O->TotalWeight += wk * P[other].Mass;
     }
-    
+
     int i;
     if(P[other].Type == 1) {
         const double atime = WIND_GET_PRIV(lv->tw)->Time;
@@ -439,7 +438,7 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
             }
         }
     }
-    
+
     for(i = 0; i<NWINDHSML; i++){
         if(O->Ngb[i] > NUMDMNGB){
             O->maxcmpte = i+1;
