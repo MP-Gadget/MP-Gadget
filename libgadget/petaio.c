@@ -1019,7 +1019,9 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
 
     /* Cooling */
     IO_REG(ElectronAbundance,       "f4", 1, 0, IOTable);
-    IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0, IOTable);
+    if(All.CoolingOn) {
+        IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0, IOTable);
+    }
     if(All.OutputHeliumFractions) {
         IO_REG_WRONLY(HeliumIFraction, "f4", 1, 0, IOTable);
         IO_REG_WRONLY(HeliumIIFraction, "f4", 1, 0, IOTable);
@@ -1029,7 +1031,11 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
     IO_REG_NONFATAL(HeIIIIonized, "u1", 1, 0, IOTable);
 
     /* SF */
-    IO_REG_WRONLY(StarFormationRate, "f4", 1, 0, IOTable);
+    if(All.StarformationOn) {
+        IO_REG_WRONLY(StarFormationRate, "f4", 1, 0, IOTable);
+        /* Another new addition: save the DelayTime for wind particles*/
+        IO_REG_NONFATAL(DelayTime,  "f4", 1, 0, IOTable);
+    }
     IO_REG_NONFATAL(BirthDensity, "f4", 1, 4, IOTable);
     IO_REG_TYPE(StarFormationTime, "f4", 1, 4, IOTable);
     IO_REG_TYPE(Metallicity,       "f4", 1, 0, IOTable);
@@ -1041,8 +1047,6 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
         IO_REG_TYPE(TotalMassReturned, "f4", 1, 4, IOTable);
         IO_REG_NONFATAL(SmoothingLength,  "f4", 1, 4, IOTable);
     }
-    /* Another new addition: save the DelayTime for wind particles*/
-    IO_REG_NONFATAL(DelayTime,  "f4", 1, 0, IOTable);
     /* end SF */
 
     /* Black hole */
