@@ -1360,7 +1360,7 @@ ngb_narrow_down(double *right, double *left, const double *radius, const double 
     }
     if(closeidx)
         *closeidx = close;
-    
+
     for(j = 0; j < maxcmpt; j++){
         if(numNgb[j] < desnumngb)
             *left = radius[j];
@@ -1369,10 +1369,9 @@ ngb_narrow_down(double *right, double *left, const double *radius, const double 
             break;
         }
     }
-    
+
     double hsml = radius[close];
-    double Nngb = numNgb[close];
-    
+
     if(*right > 0.99 * BoxSize){
         double dngbdv = 0;
         if(maxcmpt > 1 && (radius[maxcmpt-1]>radius[maxcmpt-2]))
@@ -1389,7 +1388,7 @@ ngb_narrow_down(double *right, double *left, const double *radius, const double 
     }
     if(hsml > *right)
         hsml = *right;
-    
+
     if(*left == 0) {
         /* Extrapolate using volume, ie locally constant density*/
         double dngbdv = 0;
@@ -1398,7 +1397,7 @@ ngb_narrow_down(double *right, double *left, const double *radius, const double 
         /* Derivative is not defined for minimum, so use 0.*/
         if(maxcmpt == 1 && radius[0] > 0)
             dngbdv = numNgb[0] / pow(radius[0],3);
-        
+
         if(dngbdv > 0) {
             double dngb = desnumngb - numNgb[0];
             double newvolume = pow(hsml,3) + dngb / dngbdv;
@@ -1407,7 +1406,7 @@ ngb_narrow_down(double *right, double *left, const double *radius, const double 
     }
     if(hsml < *left)
         hsml = *left;
-    
+
     return hsml;
 }
 
