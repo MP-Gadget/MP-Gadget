@@ -405,8 +405,8 @@ density_ngbiter(
     const double * dist = iter->base.dist;
 
     if(P[other].Mass == 0) {
-        endrun(12, "Encountered zero mass particle during density;"
-                  " We haven't implemented tracer particles and this shall not happen\n");
+        endrun(12, "Density found zero mass particle %d type %d id %ld pos %g %g %g\n",
+               other, P[other].Type, P[other].ID, P[other].Pos[0], P[other].Pos[1], P[other].Pos[2]);
     }
 
     if(r2 < iter->kernel.HH)
