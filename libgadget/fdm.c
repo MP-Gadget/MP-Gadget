@@ -154,8 +154,8 @@ void dm_density_check_neighbours (int i, TreeWalk * tw)
         else
         {
             if(!(Right[pi] < tw->tree->BoxSize) && Left[pi] == 0)
-                endrun(8188, "Cannot occur. Check for memory corruption: i=%d pi %d L = %g R = %g N=%g. Type %d, Pos %g %g %g",
-                       i, pi, Left[pi], Right[pi], NumNgb[pi], P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+                endrun(8188, "Cannot occur. Check for memory corruption: i=%d pi %d L = %g R = %g N=%g, Hsml=%g, Type %d, Pos %g %g %g",
+                       i, pi, Left[pi], Right[pi], NumNgb[pi], P[i].Hsml, P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
             
             double fac = 1.26;
             if(NumNgb[pi] > 0)

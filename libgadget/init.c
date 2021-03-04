@@ -220,7 +220,7 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
         if(All.FdmOn && RestartSnapNum == -1 && P[i].Type==1)
         {
             if(P[i].Hsml == 0)
-                P[i].Hsml = 0.01 * All.MeanSeparation[0];
+                P[i].Hsml = 0.01 * All.MeanSeparation[1];
         }
 
         if(All.BlackHoleOn && P[i].Type == 5)
@@ -228,6 +228,12 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
             for(j = 0; j < 3; j++) {
                 BHP(i).DFAccel[j] = 0;
                 BHP(i).DragAccel[j] = 0;
+            }
+        }
+        
+        if(All.FdmOn && P[i].Type == 1){
+            for(j = 0; j < 3; j++){
+                FDMP(i).QPAccel[j] = 0;
             }
         }
 
@@ -241,12 +247,6 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
         }
 
         SPHP(i).DtEntropy = 0;
-        
-        if(All.FdmOn){
-            for(j = 0; j < 3; j++){
-                FDMP(i).QPAccel[j] = 0;
-            }
-        }
 
         if(RestartSnapNum == -1)
         {
@@ -359,7 +359,7 @@ void check_smoothing_length(double * MeanSpacing, const double BoxSize)
     int lastprob = -1;
     #pragma omp parallel for reduction(+: numprob) reduction(max:lastprob)
     for(i=0; i< PartManager->NumPart; i++){
-        if(P[i].Type != 5 && P[i].Type != 0)
+        if(P[i].Type != 5 && P[i].Type != 0 && !(All.FdmOn && P[i].Type == 1))
             continue;
         if(P[i].Hsml > BoxSize || P[i].Hsml <= 0) {
             P[i].Hsml = MeanSpacing[P[i].Type];
@@ -603,8 +603,8 @@ setup_FDM_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const int
                         1.0 / 3) * Tree.Nodes[no].len;
 
             /* recover from a poor initial guess */
-            if(P[i].Hsml > 500.0 * All.MeanSeparation[0])
-                P[i].Hsml = All.MeanSeparation[0];
+            if(P[i].Hsml > 500.0 * All.MeanSeparation[1])
+                P[i].Hsml = All.MeanSeparation[1];
         }
     }
     /* When we restart, validate the SPH properties of the particles.*/
