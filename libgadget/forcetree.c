@@ -687,6 +687,8 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
             if(P[i].IsGarbage || (P[i].Swallowed && P[i].Type==5))
                 continue;
 
+            if(P[i].Mass == 0)
+                endrun(12, "Zero mass particle %d type %d id %ld pos %g %g %g\n", i, P[i].Type, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
             /*First find the Node for the TopLeaf */
             int this;
             if(inside_node(&tb.Nodes[this_acc], i)) {

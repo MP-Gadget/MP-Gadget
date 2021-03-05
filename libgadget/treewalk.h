@@ -204,7 +204,8 @@ int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I, TreeWalkResultBase * O,
 void treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_hsml);
 
 /* This function find the closest index in the multi-evaluation list of hsml and numNgb, update left and right bound, and return the new hsml */
-double
-ngb_narrow_down(double *right, double *left, const double *radius, const double *numNgb, int maxcmpt, int desnumngb, int *closeidx, double BoxSize);
+double ngb_narrow_down(double *right, double *left, const double *radius, const double *numNgb, int maxcmpt, int desnumngb, int *closeidx, double BoxSize);
+
+void treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may_have_garbage);
 
 #endif

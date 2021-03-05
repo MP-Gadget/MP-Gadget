@@ -70,9 +70,6 @@ static void ev_secondary(TreeWalk * tw);
 static void ev_reduce_result(const struct SendRecvBuffer sndrcv, TreeWalk * tw);
 static int ev_ndone(TreeWalk * tw);
 
-static void
-treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may_have_garbage);
-
 static int
 ngb_treefind_threads(TreeWalkQueryBase * I,
         TreeWalkResultBase * O,
@@ -166,7 +163,6 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     /* Needs to be 64-bit so that the multiplication in Ngblist malloc doesn't overflow*/
     const size_t NumThreads = omp_get_max_threads();
     MPI_Comm_size(MPI_COMM_WORLD, &tw->NTask);
-    tw->NThread = NumThreads;
     /* The last argument is may_have_garbage: in practice the only
      * trivial haswork is the gravtree, which has no (active) garbage because
      * the active list was just rebuilt. If we ever add a trivial haswork after
@@ -389,9 +385,11 @@ cmpint(const void *a, const void *b)
 }
 #endif
 
-static void
+void
 treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may_have_garbage)
 {
+    tw->NThread = omp_get_max_threads();
+
     if(!tw->haswork && !may_have_garbage)
     {
         tw->WorkSetSize = size;

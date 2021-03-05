@@ -9,6 +9,7 @@
 #include "slotsmanager.h"
 #include "timebinmgr.h"
 #include "walltime.h"
+#include "density.h"
 
 /*Parameters of the wind model*/
 static struct WindParams
@@ -158,15 +159,52 @@ struct winddata {
     int maxcmpte;
 };
 
+/* Structure to store a potential kick
+ * to a gas particle from a newly formed star.
+ * We add a queue of these and resolve them
+ * after the treewalk. Note this star may
+ * be on another processor.*/
+struct StarKick
+{
+    /* Index of the kicked particle*/
+    int part_index;
+    /* Distance to the star. The closest star does the kick.*/
+    double StarDistance;
+    /* Star ID, for resolving ties.*/
+    MyIDType StarID;
+    /* Kick velocity if this kick is the one used*/
+    double StarKickVelocity;
+};
+
 struct WindPriv {
     double Time;
     double hubble;
     struct winddata * Winddata;
-    double * StarKickVelocity;
-    double * StarDistance;
-    MyIDType * StarID;
-    struct SpinLocks * spin;
+    struct StarKick * kicks;
+    int64_t nkicks;
+    int64_t maxkicks;
 };
+
+/* Comparison function to sort the StarKicks by particle id, distance and star ID.
+ * The closest star is used. */
+int cmp_by_part_id(const void * a, const void * b)
+{
+    const struct StarKick * stara = a;
+    const struct StarKick * starb = b;
+    if(stara->part_index > starb->part_index)
+        return 1;
+    if(stara->part_index < starb->part_index)
+        return -1;
+    if(stara->StarDistance > starb->StarDistance)
+        return 1;
+    if(stara->StarDistance < starb->StarDistance)
+        return -1;
+    if(stara->StarID > starb->StarID)
+        return 1;
+    if(stara->StarID < starb->StarID)
+        return -1;
+    return 0;
+}
 
 #define WIND_GET_PRIV(tw) ((struct WindPriv *) (tw->priv))
 #define WINDP(i, wind) wind[P[i].PI]
@@ -221,17 +259,17 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
     /* Find densities*/
     treewalk_do_hsml_loop(tw, NewStars, NumNewStars, 1);
 
+    int64_t DesNumNgb = ceil(GetNumNgb(GetDensityKernelType()));
+    /* Get total number of new stars to allocate memory. Definitely overkill but should not hurt.*/
+    int64_t tot_newstars;
+    sumup_large_ints(1, &NumNewStars, &tot_newstars);
+    priv->maxkicks = tot_newstars * DesNumNgb;
     /* Some particles may be kicked by multiple stars on the same timestep.
      * To ensure this happens only once and does not depend on the order in
-     * which the loops are executed, particles are kicked by the nearest new star.*/
-    priv->StarKickVelocity = (double * ) mymalloc("NearestStar", SlotsManager->info[0].size * sizeof(double));
-    priv->StarDistance = (double * ) mymalloc("StarDistance", SlotsManager->info[0].size * sizeof(double));
-    priv->StarID = (MyIDType * ) mymalloc("StarID", SlotsManager->info[0].size * sizeof(MyIDType));
-
-    #pragma omp parallel for
-    for(i = 0; i < SlotsManager->info[0].size; i++) {
-        priv->StarDistance[i] = tree->BoxSize;
-    }
+     * which the loops are executed, particles are kicked by the nearest new star.
+     * This struct stores all such possible kicks, and we sort it out after the treewalk.*/
+    priv->kicks = (struct StarKick * ) mymalloc("StarKicks", priv->maxkicks * sizeof(struct StarKick));
+    priv->nkicks = 0;
 
     /* Then run feedback */
     tw->haswork = NULL;
@@ -239,34 +277,37 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
     tw->postprocess = NULL;
     tw->reduce = NULL;
 
-    message(0, "Starting feedback treewalk\n");
-
-    priv->spin = init_spinlocks(SlotsManager->info[0].size);
     treewalk_run(tw, NewStars, NumNewStars);
-    free_spinlocks(priv->spin);
-    myfree(priv->StarID);
 
-    #pragma omp parallel for
-    for(i = 0; i < PartManager->NumPart; i++) {
-        /* Only want gas*/
-        if(P[i].Type != 0 || P[i].IsGarbage || P[i].Swallowed)
+    /* Sort the possible kicks*/
+    qsort_openmp(priv->kicks, priv->nkicks, sizeof(struct StarKick), cmp_by_part_id);
+    /* Not parallel as the number of kicked particles should be pretty small*/
+    int64_t last_part = -1;
+    int64_t nkicked = 0;
+    for(i = 0; i < priv->nkicks; i++) {
+        /* Only do the kick for the first particle, which is the closest*/
+        if(priv->kicks[i].part_index == last_part)
             continue;
+        int other = priv->kicks[i].part_index;
+        last_part = other;
+        nkicked++;
         /* Kick the gas particle*/
-        if(priv->StarDistance[P[i].PI] < tree->BoxSize) {
-            double dir[3];
-            get_wind_dir(i, dir);
-            double v = priv->StarKickVelocity[P[i].PI];
-            int j;
-            for(j = 0; j < 3; j++)
-            {
-                P[i].Vel[j] += v * dir[j];
-            }
-            SPHP(i).DelayTime = wind_params.WindFreeTravelLength / (v / Time);
+        double dir[3];
+        get_wind_dir(other, dir);
+        double v = priv->kicks[i].StarKickVelocity;
+        int j;
+        for(j = 0; j < 3; j++)
+        {
+            P[other].Vel[j] += v * dir[j];
         }
+        SPHP(other).DelayTime = wind_params.WindFreeTravelLength / (v / Time);
     }
+    int64_t tot_kicks, tot_applied;
+    MPI_Allreduce(&priv->nkicks, &tot_kicks, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&nkicked, &tot_applied, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    message(0, "Made %ld gas wind, discarded %ld kicks from %d stars\n", tot_applied, tot_kicks - tot_applied, tot_newstars);
 
-    myfree(priv->StarDistance);
-    myfree(priv->StarKickVelocity);
+    myfree(priv->kicks);
     myfree(priv->Winddata);
     walltime_measure("/Cooling/Wind");
 }
@@ -498,6 +539,10 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     /* No eligible gas particles not in wind*/
     if(I->TotalWeight == 0) return;
 
+    /* Paranoia*/
+    if(P[other].Type != 0 || P[other].IsGarbage || P[other].Swallowed)
+        return;
+
     double windeff=0;
     double v=0;
     if(HAS(wind_params.WindModel, WIND_FIXED_EFFICIENCY)) {
@@ -515,19 +560,20 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     double random = get_random_number(I->ID + P[other].ID);
 
     if (random < p) {
-        int PI = P[other].PI;
-        /* If this is the closest star, do the kick*/
-        lock_spinlock(PI, WIND_GET_PRIV(lv->tw)->spin);
-        if(WIND_GET_PRIV(lv->tw)->StarDistance[PI] > r ||
-            /* Break ties with ID*/
-            ((WIND_GET_PRIV(lv->tw)->StarDistance[PI] == r) &&
-            (WIND_GET_PRIV(lv->tw)->StarID[PI] < I->ID))
-        ) {
-            WIND_GET_PRIV(lv->tw)->StarDistance[PI] = r;
-            WIND_GET_PRIV(lv->tw)->StarID[PI] = I->ID;
-            WIND_GET_PRIV(lv->tw)->StarKickVelocity[PI] = v;
-        }
-        unlock_spinlock(PI, WIND_GET_PRIV(lv->tw)->spin);
+        /* Store a potential kick. This might not be the kick actually used,
+         * because another star particle may be closer, but we can resolve
+         * that after the treewalk*/
+        int64_t * nkicks = &WIND_GET_PRIV(lv->tw)->nkicks;
+        /* Use a single global kick list.*/
+        int64_t ikick = atomic_fetch_and_add_64(nkicks, 1);
+        if(ikick >= WIND_GET_PRIV(lv->tw)->maxkicks)
+            endrun(5, "Not enough room in kick queue: %ld > %ld for particle %d starid %ld distance %g\n",
+                   ikick, WIND_GET_PRIV(lv->tw)->maxkicks, other, I->ID, r);
+        struct StarKick * kick = &WIND_GET_PRIV(lv->tw)->kicks[ikick];
+        kick->StarDistance = r;
+        kick->StarID = I->ID;
+        kick->StarKickVelocity = v;
+        kick->part_index = other;
     }
 }
 
