@@ -222,7 +222,7 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
 
     TreeWalk tw[1] = {{0}};
 
-    tw->ev_label = "SFR_WIND";
+    tw->ev_label = "WIND_WEIGHT";
     tw->fill = (TreeWalkFillQueryFunction) sfr_wind_copy;
     tw->reduce = (TreeWalkReduceResultFunction) sfr_wind_reduce_weight;
     tw->query_type_elsize = sizeof(TreeWalkQueryWind);
@@ -276,6 +276,8 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
     tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_feedback_ngbiter;
     tw->postprocess = NULL;
     tw->reduce = NULL;
+    tw->ev_label = "WIND_KICK";
+    tw->Niteration = 0;
 
     treewalk_run(tw, NewStars, NumNewStars);
 
