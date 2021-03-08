@@ -8,8 +8,6 @@
 #include "walltime.h"
 #include "timefac.h"
 #include "timestep.h"
-#include "slotsmanager.h"
-#include "partmanager.h"
 #include "utils.h"
 
 /* Drifts an individual particle to time ti1, by a drift factor ddrift.
@@ -20,69 +18,73 @@
  * receives a shift vector removing the previous random shift and adding a new one.
  * This function also updates the velocity and updates the density according to an adiabatic factor.
  */
-void real_drift_particle(int i, inttime_t dti, const double ddrift, const double BoxSize, const double random_shift[3])
+void real_drift_particle(struct particle_data * pp, struct slots_manager_type * sman, inttime_t dti, const double ddrift, const double BoxSize, const double random_shift[3])
 {
     int j;
-    if(P[i].IsGarbage || P[i].Swallowed) {
+    if(pp->IsGarbage || pp->Swallowed) {
         /* Keep the random shift updated so the
          * physical position of swallowed particles remains unchanged.*/
         for(j = 0; j < 3; j++) {
-            P[i].Pos[j] += random_shift[j];
-            while(P[i].Pos[j] > BoxSize) P[i].Pos[j] -= BoxSize;
-            while(P[i].Pos[j] <= 0) P[i].Pos[j] += BoxSize;
+            pp->Pos[j] += random_shift[j];
+            while(pp->Pos[j] > BoxSize) pp->Pos[j] -= BoxSize;
+            while(pp->Pos[j] <= 0) pp->Pos[j] += BoxSize;
         }
         /* Swallowed particles still need a peano key.*/
-        if(P[i].Swallowed)
-            P[i].Key = PEANO(P[i].Pos, BoxSize);
+        if(pp->Swallowed)
+            pp->Key = PEANO(pp->Pos, BoxSize);
         return;
     }
 
     /* Jumping of BH */
-    if(P[i].Type == 5) {
+    if(pp->Type == 5) {
         int k;
-        if (BHP(i).JumpToMinPot) {
+        int pi = pp->PI;
+        struct bh_particle_data * BH = (struct bh_particle_data *) sman->info[5].ptr;
+        if (BH[pi].JumpToMinPot) {
             for(k = 0; k < 3; k++) {
-                double dx = NEAREST(P[i].Pos[k] - BHP(i).MinPotPos[k], BoxSize);
+                double dx = NEAREST(pp->Pos[k] - BH[pi].MinPotPos[k], BoxSize);
                 if(dx > 0.1 * BoxSize) {
                     endrun(1, "Drifting blackhole very far, from %g %g %g to %g %g %g id = %ld. Likely due to the time step is too sparse.\n",
-                        P[i].Pos[0],
-                        P[i].Pos[1],
-                        P[i].Pos[2],
-                        BHP(i).MinPotPos[0],
-                        BHP(i).MinPotPos[1],
-                        BHP(i).MinPotPos[2], P[i].ID);
+                        pp->Pos[0],
+                        pp->Pos[1],
+                        pp->Pos[2],
+                        BH[pi].MinPotPos[0],
+                        BH[pi].MinPotPos[1],
+                        BH[pi].MinPotPos[2], pp->ID);
                 }
-                P[i].Pos[k] = BHP(i).MinPotPos[k];
-                P[i].Vel[k] = BHP(i).MinPotVel[k];
+                pp->Pos[k] = BH[pi].MinPotPos[k];
+                pp->Vel[k] = BH[pi].MinPotVel[k];
             }
         }
-        BHP(i).JumpToMinPot = 0;
+        BH[pi].JumpToMinPot = 0;
     }
 
     for(j = 0; j < 3; j++) {
-        P[i].Pos[j] += P[i].Vel[j] * ddrift + random_shift[j];
+        pp->Pos[j] += pp->Vel[j] * ddrift + random_shift[j];
     }
 
     for(j = 0; j < 3; j ++) {
-        while(P[i].Pos[j] > BoxSize) P[i].Pos[j] -= BoxSize;
-        while(P[i].Pos[j] <= 0) P[i].Pos[j] += BoxSize;
+        while(pp->Pos[j] > BoxSize) pp->Pos[j] -= BoxSize;
+        while(pp->Pos[j] <= 0) pp->Pos[j] += BoxSize;
     }
     /* avoid recomputing them during layout and force tree build.*/
-    P[i].Key = PEANO(P[i].Pos, BoxSize);
+    pp->Key = PEANO(pp->Pos, BoxSize);
 
-    if(P[i].Type == 0)
+    if(pp->Type == 0)
     {
+        struct sph_particle_data * SPH = (struct sph_particle_data *) sman->info[0].ptr;
+        int pi = pp->PI;
         /* This accounts for adiabatic density changes,
          * and is a good predictor for most of the gas.*/
-        double densdriftfac = exp(-SPHP(i).DivVel * ddrift);
-        SPHP(i).Density *= densdriftfac;
+        double densdriftfac = exp(-SPH[pi].DivVel * ddrift);
+        SPH[pi].Density *= densdriftfac;
         /* Only does something when Pressure-entropy is enabled*/
-        SPHP(i).EgyWtDensity *= densdriftfac;
+        SPH[pi].EgyWtDensity *= densdriftfac;
 
-        //      P[i].Hsml *= exp(0.333333333333 * SPHP(i).DivVel * ddrift);
+        //      pp->Hsml *= exp(0.333333333333 * SPHP(i).DivVel * ddrift);
         //---This was added
-        double fac = exp(0.333333333333 * SPHP(i).DivVel * ddrift);
-        inttime_t ti_step = dti_from_timebin(P[i].TimeBin);
+        double fac = exp(0.333333333333 * SPH[pi].DivVel * ddrift);
+        inttime_t ti_step = dti_from_timebin(pp->TimeBin);
 
         if(fac > 1.25)
             fac = 1.25;
@@ -91,12 +93,12 @@ void real_drift_particle(int i, inttime_t dti, const double ddrift, const double
          * expansion factor may get out of control,
          * so don't let it do that.*/
         if(ti_step <= 8*(dti))
-            P[i].Hsml *= fac;
+            pp->Hsml *= fac;
         /* Cap the Hsml: if DivVel is large for a particle with a long timestep
          * (most likely a wind particle) Hsml can very rarely run away*/
         const double Maxhsml = BoxSize /2.;
-        if(P[i].Hsml > Maxhsml)
-            P[i].Hsml = Maxhsml;
+        if(pp->Hsml > Maxhsml)
+            pp->Hsml = Maxhsml;
     }
 }
 
@@ -113,11 +115,11 @@ void drift_all_particles(inttime_t ti0, inttime_t ti1, const double BoxSize, Cos
 #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++) {
 #ifdef DEBUG
-        if(P[i].Ti_drift != ti0)
-            endrun(10, "Drift time mismatch: (ids = %ld %ld) %d != %d\n",P[0].ID, P[i].ID, ti0,  P[i].Ti_drift);
+        if(PartManager->Base[i].Ti_drift != ti0)
+            endrun(10, "Drift time mismatch: (ids = %ld %ld) %d != %d\n",PartManager->Base[0].ID, PartManager->Base[i].ID, ti0,  PartManager->Base[i].Ti_drift);
 #endif
-        real_drift_particle(i, ti1-ti0, ddrift, BoxSize, random_shift);
-        P[i].Ti_drift = ti1;
+        real_drift_particle(&PartManager->Base[i], SlotsManager, ti1-ti0, ddrift, BoxSize, random_shift);
+        PartManager->Base[i].Ti_drift = ti1;
     }
 
     walltime_measure("/Drift/All");
