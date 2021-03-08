@@ -263,7 +263,9 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
     /* Get total number of new stars to allocate memory. Definitely overkill but should not hurt.*/
     int64_t tot_newstars;
     sumup_large_ints(1, &NumNewStars, &tot_newstars);
-    priv->maxkicks = tot_newstars * DesNumNgb;
+    /* The total weight is DesNumNgb, but since each particle contributes fractionally,
+     * the total number of particles may be larger.*/
+    priv->maxkicks = tot_newstars * DesNumNgb * 20;
     /* Some particles may be kicked by multiple stars on the same timestep.
      * To ensure this happens only once and does not depend on the order in
      * which the loops are executed, particles are kicked by the nearest new star.
