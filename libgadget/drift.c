@@ -5,6 +5,7 @@
 #include <math.h>
 #include <gsl/gsl_math.h>
 #include "drift.h"
+#include "blackhole.h"
 #include "walltime.h"
 #include "timefac.h"
 #include "timestep.h"
@@ -36,7 +37,7 @@ void real_drift_particle(struct particle_data * pp, struct slots_manager_type * 
     }
 
     /* Jumping of BH */
-    if(pp->Type == 5) {
+    if(BHGetRepositionEnabled() && pp->Type == 5) {
         int k;
         int pi = pp->PI;
         struct bh_particle_data * BH = (struct bh_particle_data *) sman->info[5].ptr;
@@ -58,19 +59,7 @@ void real_drift_particle(struct particle_data * pp, struct slots_manager_type * 
         }
         BH[pi].JumpToMinPot = 0;
     }
-
-    for(j = 0; j < 3; j++) {
-        pp->Pos[j] += pp->Vel[j] * ddrift + random_shift[j];
-    }
-
-    for(j = 0; j < 3; j ++) {
-        while(pp->Pos[j] > BoxSize) pp->Pos[j] -= BoxSize;
-        while(pp->Pos[j] <= 0) pp->Pos[j] += BoxSize;
-    }
-    /* avoid recomputing them during layout and force tree build.*/
-    pp->Key = PEANO(pp->Pos, BoxSize);
-
-    if(pp->Type == 0)
+    else if(pp->Type == 0)
     {
         struct sph_particle_data * SPH = (struct sph_particle_data *) sman->info[0].ptr;
         int pi = pp->PI;
@@ -100,6 +89,17 @@ void real_drift_particle(struct particle_data * pp, struct slots_manager_type * 
         if(pp->Hsml > Maxhsml)
             pp->Hsml = Maxhsml;
     }
+
+    for(j = 0; j < 3; j++) {
+        pp->Pos[j] += pp->Vel[j] * ddrift + random_shift[j];
+    }
+
+    for(j = 0; j < 3; j ++) {
+        while(pp->Pos[j] > BoxSize) pp->Pos[j] -= BoxSize;
+        while(pp->Pos[j] <= 0) pp->Pos[j] += BoxSize;
+    }
+    /* avoid recomputing them during layout and force tree build.*/
+    pp->Key = PEANO(pp->Pos, BoxSize);
 }
 
 /* Update all particles to the current time, shifting them by a random vector.*/
