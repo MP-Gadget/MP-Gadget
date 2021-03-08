@@ -72,17 +72,17 @@ void real_drift_particle(struct particle_data * pp, struct slots_manager_type * 
 
         //      pp->Hsml *= exp(0.333333333333 * SPHP(i).DivVel * ddrift);
         //---This was added
-        double fac = exp(0.333333333333 * SPH[pi].DivVel * ddrift);
-        inttime_t ti_step = dti_from_timebin(pp->TimeBin);
+        double fac = cbrt(densdriftfac);
+        if(fac < 1./1.25)
+            fac = 1./1.25;
 
-        if(fac > 1.25)
-            fac = 1.25;
+        inttime_t ti_step = dti_from_timebin(pp->TimeBin);
 
         /* During deep timestep hierarchies the
          * expansion factor may get out of control,
          * so don't let it do that.*/
         if(ti_step <= 8*(dti))
-            pp->Hsml *= fac;
+            pp->Hsml /= fac;
         /* Cap the Hsml: if DivVel is large for a particle with a long timestep
          * (most likely a wind particle) Hsml can very rarely run away*/
         const double Maxhsml = BoxSize /2.;
