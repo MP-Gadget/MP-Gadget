@@ -183,6 +183,7 @@ struct WindPriv {
     struct StarKick * kicks;
     int64_t nkicks;
     int64_t maxkicks;
+    int * nvisited;
 };
 
 /* Comparison function to sort the StarKicks by particle id, distance and star ID.
@@ -244,6 +245,9 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
     int64_t totalleft = 0;
     sumup_large_ints(1, &NumNewStars, &totalleft);
     priv->Winddata = (struct winddata * ) mymalloc("WindExtraData", SlotsManager->info[4].size * sizeof(struct winddata));
+    /* Note that this will be an over-count because each loop will add more.*/
+    priv->nvisited = ta_malloc("nvisited", int, omp_get_max_threads());
+    memset(WIND_GET_PRIV(tw)->nvisited, 0, omp_get_max_threads()* sizeof(int));
 
     int i;
     /*Initialise the WINDP array*/
@@ -259,19 +263,17 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
     /* Find densities*/
     treewalk_do_hsml_loop(tw, NewStars, NumNewStars, 1);
 
-    int64_t DesNumNgb = ceil(GetNumNgb(GetDensityKernelType()));
-    /* Get total number of new stars to allocate memory. Definitely overkill but should not hurt.*/
-    int64_t tot_newstars;
-    sumup_large_ints(1, &NumNewStars, &tot_newstars);
-    /* The total weight is DesNumNgb, but since each particle contributes fractionally,
-     * the total number of particles may be larger.*/
-    priv->maxkicks = tot_newstars * DesNumNgb * 20;
+    for (i = 1; i < omp_get_max_threads(); i++)
+        priv->nvisited[0] += priv->nvisited[i];
+    priv->maxkicks = priv->nvisited[0]+2;
+
     /* Some particles may be kicked by multiple stars on the same timestep.
      * To ensure this happens only once and does not depend on the order in
      * which the loops are executed, particles are kicked by the nearest new star.
      * This struct stores all such possible kicks, and we sort it out after the treewalk.*/
     priv->kicks = (struct StarKick * ) mymalloc("StarKicks", priv->maxkicks * sizeof(struct StarKick));
     priv->nkicks = 0;
+    ta_free(priv->nvisited);
 
     /* Then run feedback */
     tw->haswork = NULL;
@@ -306,7 +308,9 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
         }
         SPHP(other).DelayTime = wind_params.WindFreeTravelLength / (v / Time);
     }
-    int64_t tot_kicks, tot_applied;
+    /* Get total number of potential new stars to allocate memory.*/
+    int64_t tot_newstars, tot_kicks, tot_applied;
+    sumup_large_ints(1, &NumNewStars, &tot_newstars);
     MPI_Allreduce(&priv->nkicks, &tot_kicks, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&nkicked, &tot_applied, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     message(0, "Made %ld gas wind, discarded %ld kicks from %d stars\n", tot_applied, tot_kicks - tot_applied, tot_newstars);
@@ -465,6 +469,8 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
         //double wk = density_kernel_wk(&kernel, r);
         double wk = 1.0;
         O->TotalWeight += wk * P[other].Mass;
+        /* Sum up all particles visited on this processor*/
+        WIND_GET_PRIV(lv->tw)->nvisited[omp_get_thread_num()]++;
     }
 
     int i;
