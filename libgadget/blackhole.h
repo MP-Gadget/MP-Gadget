@@ -2,6 +2,7 @@
 #define __BLACKHOLE_H
 #include "utils/paramset.h"
 #include "timestep.h"
+#include "forcetree.h"
 
 enum BlackHoleFeedbackMethod {
      BH_FEEDBACK_TOPHAT   = 0x2,
@@ -21,7 +22,9 @@ void set_blackhole_params(ParameterSet * ps);
  */
 void blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FILE * FdBlackholeDetails);
 
-/* Make a black hole from the particle at index*/
+/* Make a black hole from the particle at index. */
 void blackhole_make_one(int index);
 
+/* Decide whether black hole repositioning is enabled. */
+int BHGetRepositionEnabled(void);
 #endif

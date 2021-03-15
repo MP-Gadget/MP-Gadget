@@ -52,7 +52,7 @@ typedef struct {
 static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman);
 static size_t domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pman, const struct slots_manager_type * sman);
-static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct DriftData * drift, struct part_manager_type * pman, MPI_Comm Comm);
+static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct DriftData * drift, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 
 /* This function builds the count/displ arrays from
  * the rows stored in the entry struct of the plan.
@@ -122,7 +122,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
             failure = 1;
             break;
         }
-        domain_build_exchange_list(layoutfunc, layout_userdata, &plan, (iter > 0 ? NULL : drift), pman, Comm);
+        domain_build_exchange_list(layoutfunc, layout_userdata, &plan, (iter > 0 ? NULL : drift), pman, sman, Comm);
 
         /*Exit early if nothing to do*/
         if(!MPIU_Any(plan.nexchange > 0, Comm))
@@ -160,7 +160,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     if(!failure && maxiter > 1) {
         ExchangePlan plan9 = domain_init_exchangeplan(Comm);
         /* Do not drift again*/
-        domain_build_exchange_list(layoutfunc, layout_userdata, &plan9, NULL, pman, Comm);
+        domain_build_exchange_list(layoutfunc, layout_userdata, &plan9, NULL, pman, sman, Comm);
         if(plan9.nexchange > 0)
             endrun(5, "Still have %ld particles in exchange list\n", plan9.nexchange);
         myfree(plan9.ExchangeList);
@@ -372,7 +372,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
  * All particles are processed every time, space is not considered.
  * The exchange list needs to be rebuilt every time gc is run. */
 static void
-domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct DriftData * drift, struct part_manager_type * pman, MPI_Comm Comm)
+domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct DriftData * drift, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm)
 {
     int i;
     size_t numthreads = omp_get_max_threads();
@@ -403,8 +403,8 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
     for(i=0; i < pman->NumPart; i++)
     {
         if(drift) {
-            real_drift_particle(i, drift->ti1-drift->ti0, ddrift, drift->BoxSize, rel_random_shift);
-            P[i].Ti_drift = drift->ti1;
+            real_drift_particle(&pman->Base[i], sman, drift->ti1-drift->ti0, ddrift, drift->BoxSize, rel_random_shift);
+            pman->Base[i].Ti_drift = drift->ti1;
         }
         if(pman->Base[i].IsGarbage) {
             ngarbage++;

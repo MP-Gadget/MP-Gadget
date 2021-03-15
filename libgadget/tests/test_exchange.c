@@ -17,23 +17,19 @@
 #include <libgadget/domain.h>
 #include <libgadget/slotsmanager.h>
 #include <libgadget/partmanager.h>
-/*Note this includes the garbage collection!
- * Should be tested separately.*/
-#include <libgadget/slotsmanager.c>
 #include "stub.h"
+#include <libgadget/walltime.h>
 
-double walltime_measure_full(char * name, char * file, int line) {
-    return MPI_Wtime();
-}
-
-struct part_manager_type PartManager[1] = {{0}};
 int NTask, ThisTask;
 int TotNumPart;
+
+static struct ClockTable Clocks;
 
 #define NUMPART1 8
 static int
 setup_particles(int64_t NType[6])
 {
+    walltime_init(&Clocks);
     MPI_Barrier(MPI_COMM_WORLD);
     PartManager->MaxPart = 1024;
     int ptype;

@@ -48,6 +48,12 @@ struct BlackholeParams
     /************************************************************************/
 } blackhole_params;
 
+int
+BHGetRepositionEnabled(void)
+{
+    return blackhole_params.BlackHoleRepositionEnabled;
+}
+
 typedef struct {
     TreeWalkQueryBase base;
     MyFloat Density;

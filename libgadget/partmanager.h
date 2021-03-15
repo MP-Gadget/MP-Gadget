@@ -25,7 +25,7 @@ struct particle_data
         unsigned char Generation; /* How many particles it has spawned; used to generate unique particle ID.
                                      may wrap around with too many SFR/BH if a feedback model goes rogue */
 
-        signed char TimeBin; /* Time step bin; -1 for unassigned.*/
+        unsigned char TimeBin; /* Time step bin; 0 for unassigned.*/
         /* To ensure alignment to a 32-bit boundary.*/
         unsigned char HeIIIionized; /* True if the particle has undergone helium reionization.
                                      * This could be a bitfield: it isn't because we need to change it in an atomic.
