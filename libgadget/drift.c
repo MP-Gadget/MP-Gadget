@@ -61,15 +61,6 @@ void real_drift_particle(struct particle_data * pp, struct slots_manager_type * 
     }
     else if(pp->Type == 0)
     {
-        struct sph_particle_data * SPH = (struct sph_particle_data *) sman->info[0].ptr;
-        int pi = pp->PI;
-        /* This accounts for adiabatic density changes,
-         * and is a good predictor for most of the gas.*/
-        double densdriftfac = exp(-SPH[pi].DivVel * ddrift);
-        SPH[pi].Density *= densdriftfac;
-        /* Only does something when Pressure-entropy is enabled*/
-        SPH[pi].EgyWtDensity *= densdriftfac;
-
         /* DtHsml is 1/3 DivVel * Hsml evaluated at the last active timestep for this particle.
          * This predicts Hsml during the current timestep in the way used in Gadget-4, more accurate
          * than the Gadget-2 prediction which could run away in deep timesteps. */
