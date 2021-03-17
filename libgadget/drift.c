@@ -70,21 +70,12 @@ void real_drift_particle(struct particle_data * pp, struct slots_manager_type * 
         /* Only does something when Pressure-entropy is enabled*/
         SPH[pi].EgyWtDensity *= densdriftfac;
 
-        //      pp->Hsml *= exp(0.333333333333 * SPHP(i).DivVel * ddrift);
-        //---This was added
-        double fac = cbrt(densdriftfac);
-        if(fac < 1./1.25)
-            fac = 1./1.25;
-
-        inttime_t ti_step = dti_from_timebin(pp->TimeBin);
-
-        /* During deep timestep hierarchies the
-         * expansion factor may get out of control,
-         * so don't let it do that.*/
-        if(ti_step <= 8*(dti))
-            pp->Hsml /= fac;
-        /* Cap the Hsml: if DivVel is large for a particle with a long timestep
-         * (most likely a wind particle) Hsml can very rarely run away*/
+        /* DtHsml is 1/3 DivVel * Hsml evaluated at the last active timestep for this particle.
+         * This predicts Hsml during the current timestep in the way used in Gadget-4, more accurate
+         * than the Gadget-2 prediction which could run away in deep timesteps. */
+        pp->Hsml += pp->DtHsml * ddrift;
+        /* Cap the Hsml just in case: if DivVel is large for a particle with a long timestep
+         * at one point Hsml could rarely run away.*/
         const double Maxhsml = BoxSize /2.;
         if(pp->Hsml > Maxhsml)
             pp->Hsml = Maxhsml;

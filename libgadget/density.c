@@ -538,6 +538,7 @@ density_postprocess(int i, TreeWalk * tw)
         SPHP(i).CurlVel = sqrt(Rot[0] * Rot[0] + Rot[1] * Rot[1] + Rot[2] * Rot[2]) / SPHP(i).Density;
 
         SPHP(i).DivVel /= SPHP(i).Density;
+        P[i].DtHsml = (1.0 / NUMDIMS) * SPHP(i).DivVel * P[i].Hsml;
     }
 }
 

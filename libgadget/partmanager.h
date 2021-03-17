@@ -44,6 +44,7 @@ struct particle_data
 
     MyFloat Potential;		/* gravitational potential. This is the total potential after gravtree+gravpm is called. */
 
+    MyFloat DtHsml; /* Change in Hsml over a timestep, for interpolating active particles*/
     MyFloat Hsml;
 
     /* Union these two because they are transients: they are hard to move
