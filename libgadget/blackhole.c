@@ -1255,12 +1255,13 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         }
         const double enttou = pow(SPH_EOMDensity(&SPHP(other)) * BH_GET_PRIV(lv->tw)->a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
         double entold, entnew;
+        double * entptr = &(SPHP(other).Entropy);
         #pragma omp atomic read
-        entold = SPHP(other).Entropy;
+        entold = *entptr;
         do {
             entnew = add_injected_BH_energy(entold * enttou, injected_BH, P[other].Mass) / enttou;
             /* Swap in the new gas entropy only if the old one hasn't changed.*/
-        } while(!__atomic_compare_exchange(&(SPHP(other).Entropy), &entold, &entnew, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+        } while(!__atomic_compare_exchange(entptr, &entold, &entnew, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
     }
 
     MyIDType * SPH_SwallowID = BH_GET_PRIV(lv->tw)->SPH_SwallowID;
