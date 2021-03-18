@@ -65,6 +65,9 @@ void real_drift_particle(struct particle_data * pp, struct slots_manager_type * 
          * This predicts Hsml during the current timestep in the way used in Gadget-4, more accurate
          * than the Gadget-2 prediction which could run away in deep timesteps. */
         pp->Hsml += pp->DtHsml * ddrift;
+        if(pp->Hsml <= 0)
+            endrun(5, "Part id %ld has bad Hsml %g with DtHsml %g vel %g %g %g\n",
+                   pp->ID, pp->Hsml, pp->DtHsml, pp->Vel[0], pp->Vel[1], pp->Vel[2]);
         /* Cap the Hsml just in case: if DivVel is large for a particle with a long timestep
          * at one point Hsml could rarely run away.*/
         const double Maxhsml = BoxSize /2.;
