@@ -416,7 +416,7 @@ static double
 get_timestep_dloga(const int p, const inttime_t Ti_Current)
 {
     double ac = 0;
-    double dt = 0, dt_courant = 0;
+    double dt = 0, dt_courant = 0, dt_hsml = 0;
 
     /*Compute physical acceleration*/
     {
@@ -451,6 +451,11 @@ get_timestep_dloga(const int p, const inttime_t Ti_Current)
         dt_courant = 2 * TimestepParams.CourantFac * All.Time * P[p].Hsml / (fac3 * SPHP(p).MaxSignalVel);
         if(dt_courant < dt)
             dt = dt_courant;
+        /* This timestep criterion is from Gadget-4, eq. 0 of 2010.03567 and stops
+         * particles having too large a density change.*/
+        dt_hsml = TimestepParams.CourantFac * All.Time * All.Time * fabs(P[p].Hsml / (P[p].DtHsml + 1e-20));
+        if(dt_hsml < dt)
+            dt = dt_hsml;
     }
 
     if(P[p].Type == 5)
@@ -513,13 +518,13 @@ get_timestep_ti(const int p, const inttime_t dti_max, const inttime_t Ti_Current
     if(dti <= 1 || dti > (inttime_t) TIMEBASE)
     {
         if(P[p].Type == 0)
-            message(1, "Bad timestep (%x) assigned! ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g) hydro-frc=(%g|%g|%g) dens=%g hsml=%g egyrho=%g Entropy=%g, dtEntropy=%g maxsignal=%g\n",
+            message(1, "Bad timestep (%x) assigned! ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g) hydro-frc=(%g|%g|%g) dens=%g hsml=%g dh = %g egyrho=%g Entropy=%g, dtEntropy=%g maxsignal=%g\n",
                 dti, P[p].ID, P[p].Type, dloga, dti_max,
                 P[p].Pos[0], P[p].Pos[1], P[p].Pos[2],
                 P[p].GravAccel[0], P[p].GravAccel[1], P[p].GravAccel[2],
                 P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2],
                 SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1], SPHP(p).HydroAccel[2],
-                SPHP(p).Density, P[p].Hsml, SPH_EOMDensity(&SPHP(p)),
+                SPHP(p).Density, P[p].Hsml, P[p].DtHsml, SPH_EOMDensity(&SPHP(p)),
                 SPHP(p).Entropy, SPHP(p).DtEntropy, SPHP(p).MaxSignalVel);
         else
             message(1, "Bad timestep (%x) assigned! ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g)\n",
