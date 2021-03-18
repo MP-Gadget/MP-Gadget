@@ -275,6 +275,12 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times)
     MPI_Allreduce(MPI_IN_PLACE, &mTimeBin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &maxTimeBin, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 
+    MPI_Allreduce(MPI_IN_PLACE, &ntiaccel, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &nticourant, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &ntihsml, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &ntiaccrete, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &ntineighbour, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+
     /* Ensure that the PM timestep is not longer than the longest tree timestep;
      * this prevents particles in the longest timestep being active and moving into a higher bin
      * between PM timesteps, thus skipping the PM step entirely.*/
