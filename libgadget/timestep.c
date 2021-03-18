@@ -99,7 +99,19 @@ timestep_eh_slots_fork(EIBase * event, void * userdata)
     return 0;
 }
 
-static inttime_t get_timestep_ti(const int p, const inttime_t dti_max, const inttime_t Ti_Current);
+/* Enum for keeping track of which
+ * timestep criterion is limiting each particles'
+ * timestep evolution*/
+enum TimeStepType
+{
+    TI_ACCEL = 0,
+    TI_COURANT = 1,
+    TI_ACCRETE = 2,
+    TI_NEIGH = 3,
+    TI_HSML = 4,
+};
+
+static inttime_t get_timestep_ti(const int p, const inttime_t dti_max, const inttime_t Ti_Current, enum TimeStepType * titype);
 static int get_timestep_bin(inttime_t dti);
 static void do_the_short_range_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick);
 /* Get the current PM (global) timestep.*/
@@ -188,20 +200,22 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times)
         #pragma omp parallel for reduction(min:dti_min)
         for(i = 0; i < PartManager->NumPart; i++)
         {
+            enum TimeStepType titype;
             /* Because we don't GC on short timesteps, there can be garbage here.
              * Avoid making it active. */
             if(P[i].IsGarbage || P[i].Swallowed)
                 continue;
-            inttime_t dti = get_timestep_ti(i, dti_max, times->Ti_Current);
+            inttime_t dti = get_timestep_ti(i, dti_max, times->Ti_Current, &titype);
             if(dti < dti_min)
                 dti_min = dti;
         }
         MPI_Allreduce(MPI_IN_PLACE, &dti_min, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
     }
 
+    int64_t ntiaccel=0, nticourant=0, ntiaccrete=0, ntineighbour=0, ntihsml=0;
     int badstepsizecount = 0;
     int mTimeBin = TIMEBINS, maxTimeBin = 0;
-    #pragma omp parallel for reduction(min: mTimeBin) reduction(+: badstepsizecount) reduction(max:maxTimeBin)
+    #pragma omp parallel for reduction(min: mTimeBin) reduction(+: badstepsizecount, ntiaccel, nticourant, ntiaccrete, ntineighbour, ntihsml) reduction(max:maxTimeBin)
     for(pa = 0; pa < act->NumActiveParticle; pa++)
     {
         const int i = get_active_particle(act, pa);
@@ -209,11 +223,22 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times)
         if(P[i].IsGarbage || P[i].Swallowed)
             continue;
 
+        enum TimeStepType titype;
         inttime_t dti;
         if(TimestepParams.ForceEqualTimesteps) {
             dti = dti_min;
         } else {
-            dti = get_timestep_ti(i, dti_max, times->Ti_Current);
+            dti = get_timestep_ti(i, dti_max, times->Ti_Current, &titype);
+            if(titype == TI_ACCEL)
+                ntiaccel++;
+            else if (titype == TI_COURANT)
+                nticourant++;
+            else if (titype == TI_ACCRETE)
+                ntiaccrete++;
+            else if (titype == TI_NEIGH)
+                ntineighbour++;
+            else if (titype == TI_HSML)
+                ntihsml++;
         }
 
         /* make it a power 2 subdivision */
@@ -255,7 +280,9 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times)
      * between PM timesteps, thus skipping the PM step entirely.*/
     if(isPM && times->PM_length > dti_from_timebin(maxTimeBin))
         times->PM_length = dti_from_timebin(maxTimeBin);
-    message(0, "PM timebin: %x dloga = %g  Max = (%g)\n", times->PM_length, dloga_from_dti(times->PM_length, times->Ti_Current), TimestepParams.MaxSizeTimestep);
+    message(0, "PM timebin: %x dloga = %g  Max = (%g) Number of Timesteps: Accel: %ld Soundspeed: %ld DivVel: %ld Accretion %ld Neighbour: %ld\n",
+            times->PM_length, dloga_from_dti(times->PM_length, times->Ti_Current), TimestepParams.MaxSizeTimestep,
+            ntiaccel, nticourant, ntihsml, ntiaccrete, ntineighbour);
 
     /* BH particles have their timesteps set by a timestep limiter.
      * On the first timestep this is not effective because all the particles have zero timestep.
@@ -413,7 +440,7 @@ do_the_short_range_kick(int i, double dt_entr, double Fgravkick, double Fhydroki
 }
 
 static double
-get_timestep_dloga(const int p, const inttime_t Ti_Current)
+get_timestep_dloga(const int p, const inttime_t Ti_Current, enum TimeStepType * titype)
 {
     double ac = 0;
     double dt = 0, dt_courant = 0, dt_hsml = 0;
@@ -444,18 +471,23 @@ get_timestep_dloga(const int p, const inttime_t Ti_Current)
 
     /* mind the factor 2.8 difference between gravity and softening used here. */
     dt = sqrt(2 * TimestepParams.ErrTolIntAccuracy * All.cf.a * (FORCE_SOFTENING(p, P[p].Type) / 2.8) / ac);
+    *titype = TI_ACCEL;
 
     if(P[p].Type == 0)
     {
         const double fac3 = pow(All.Time, 3 * (1 - GAMMA) / 2.0);
         dt_courant = 2 * TimestepParams.CourantFac * All.Time * P[p].Hsml / (fac3 * SPHP(p).MaxSignalVel);
-        if(dt_courant < dt)
+        if(dt_courant < dt) {
             dt = dt_courant;
+            *titype = TI_COURANT;
+        }
         /* This timestep criterion is from Gadget-4, eq. 0 of 2010.03567 and stops
          * particles having too large a density change.*/
         dt_hsml = TimestepParams.CourantFac * All.Time * All.Time * fabs(P[p].Hsml / (P[p].DtHsml + 1e-20));
-        if(dt_hsml < dt)
+        if(dt_hsml < dt) {
             dt = dt_hsml;
+            *titype = TI_HSML;
+        }
     }
 
     if(P[p].Type == 5)
@@ -463,8 +495,10 @@ get_timestep_dloga(const int p, const inttime_t Ti_Current)
         if(BHP(p).Mdot > 0 && BHP(p).Mass > 0)
         {
             double dt_accr = 0.25 * BHP(p).Mass / BHP(p).Mdot;
-            if(dt_accr < dt)
+            if(dt_accr < dt) {
                 dt = dt_accr;
+                *titype = TI_ACCRETE;
+            }
         }
         if(BHP(p).minTimeBin > 0 && BHP(p).minTimeBin+1 < TIMEBINS) {
             double dt_limiter = get_dloga_for_bin(BHP(p).minTimeBin+1, Ti_Current) / All.cf.hubble;
@@ -475,6 +509,7 @@ get_timestep_dloga(const int p, const inttime_t Ti_Current)
              * contains only the BH which doesn't make much numerical sense. Accretion accuracy is not much changed
              * by one timestep difference.*/
             dt = dt_limiter;
+            *titype = TI_NEIGH;
         }
     }
 
@@ -490,7 +525,7 @@ get_timestep_dloga(const int p, const inttime_t Ti_Current)
  *  p -> particle index
  *  dti_max -> maximal timestep.  */
 static inttime_t
-get_timestep_ti(const int p, const inttime_t dti_max, const inttime_t Ti_Current)
+get_timestep_ti(const int p, const inttime_t dti_max, const inttime_t Ti_Current, enum TimeStepType * titype)
 {
     inttime_t dti;
     /*Give a useful message if we are broken*/
@@ -501,7 +536,7 @@ get_timestep_ti(const int p, const inttime_t dti_max, const inttime_t Ti_Current
     if(!All.TreeGravOn)
         return dti_max;
 
-    double dloga = get_timestep_dloga(p, Ti_Current);
+    double dloga = get_timestep_dloga(p, Ti_Current, titype);
 
     if(dloga < TimestepParams.MinSizeTimestep)
         dloga = TimestepParams.MinSizeTimestep;
@@ -518,8 +553,8 @@ get_timestep_ti(const int p, const inttime_t dti_max, const inttime_t Ti_Current
     if(dti <= 1 || dti > (inttime_t) TIMEBASE)
     {
         if(P[p].Type == 0)
-            message(1, "Bad timestep (%x) assigned! ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g) hydro-frc=(%g|%g|%g) dens=%g hsml=%g dh = %g egyrho=%g Entropy=%g, dtEntropy=%g maxsignal=%g\n",
-                dti, P[p].ID, P[p].Type, dloga, dti_max,
+            message(1, "Bad timestep (%x)! titype %d. ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g) hydro-frc=(%g|%g|%g) dens=%g hsml=%g dh = %g egyrho=%g Entropy=%g, dtEntropy=%g maxsignal=%g\n",
+                dti, *titype, P[p].ID, P[p].Type, dloga, dti_max,
                 P[p].Pos[0], P[p].Pos[1], P[p].Pos[2],
                 P[p].GravAccel[0], P[p].GravAccel[1], P[p].GravAccel[2],
                 P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2],
@@ -527,8 +562,8 @@ get_timestep_ti(const int p, const inttime_t dti_max, const inttime_t Ti_Current
                 SPHP(p).Density, P[p].Hsml, P[p].DtHsml, SPH_EOMDensity(&SPHP(p)),
                 SPHP(p).Entropy, SPHP(p).DtEntropy, SPHP(p).MaxSignalVel);
         else
-            message(1, "Bad timestep (%x) assigned! ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g)\n",
-                dti, P[p].ID, P[p].Type, dloga, dti_max,
+            message(1, "Bad timestep (%x)! titype %d. ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g)\n",
+                dti, *titype, P[p].ID, P[p].Type, dloga, dti_max,
                 P[p].Pos[0], P[p].Pos[1], P[p].Pos[2],
                 P[p].GravAccel[0], P[p].GravAccel[1], P[p].GravAccel[2],
                 P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2]
