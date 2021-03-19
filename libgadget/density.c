@@ -432,17 +432,23 @@ density_ngbiter(
 
         struct sph_pred_data * SphP_scratch = DENSITY_GET_PRIV(lv->tw)->SPH_predicted;
 
+        struct DensityPriv * priv = DENSITY_GET_PRIV(lv->tw);
+        const int bin = P[other].TimeBin;
         double EntVarPred;
         MyFloat VelPred[3];
-        if(SphP_scratch->store_inactive_predict) {
+        if(is_timebin_active(bin, priv->times->Ti_Current)) {
+            EntVarPred = priv->SPH_predicted->EntVarPred[P[other].PI];
+            int i;
+            for(i = 0; i < 3; i++)
+                VelPred[i] = priv->SPH_predicted->VelPred[3 * P[other].PI + i];
+        }
+        else if(SphP_scratch->store_inactive_predict) {
             #pragma omp atomic read
             EntVarPred = SphP_scratch->EntVarPred[P[other].PI];
             /* Lazily compute the predicted quantities. We can do this
             * with minimal locking since nothing happens should we compute them twice.
             * Zero can be the special value since there should never be zero entropy.*/
             if(EntVarPred == 0) {
-                struct DensityPriv * priv = DENSITY_GET_PRIV(lv->tw);
-                int bin = P[other].TimeBin;
                 double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
                 EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, priv->a3inv, dloga);
                 SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
@@ -463,8 +469,6 @@ density_ngbiter(
             }
         }
         else {
-            struct DensityPriv * priv = DENSITY_GET_PRIV(lv->tw);
-            const int bin = P[other].TimeBin;
             double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
             EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, priv->a3inv, dloga);
             SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);

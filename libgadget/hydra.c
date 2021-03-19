@@ -367,7 +367,14 @@ hydro_ngbiter(
     double EntVarPred, Pressure_j;
     MyFloat VelPred[3];
 
-    if(priv->SPH_predicted->store_inactive_predict) {
+    if(is_timebin_active(bin, priv->times->Ti_Current)) {
+        EntVarPred = priv->SPH_predicted->EntVarPred[P[other].PI];
+        Pressure_j = priv->PressurePred[P[other].PI];
+        int i;
+        for(i = 0; i < 3; i++)
+            VelPred[i] = priv->SPH_predicted->VelPred[3 * P[other].PI + i];
+    }
+    else if(priv->SPH_predicted->store_inactive_predict) {
         #pragma omp atomic read
         EntVarPred = priv->SPH_predicted->EntVarPred[P[other].PI];
         /* Lazily compute the predicted quantities. We need to do this again here, even though we do it in density,
