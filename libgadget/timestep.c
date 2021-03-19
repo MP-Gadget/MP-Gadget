@@ -134,8 +134,10 @@ DriftKickTimes init_driftkicktime(inttime_t Ti_Current)
     DriftKickTimes times = {0};
     times.Ti_Current = Ti_Current;
     int i;
-    for(i = 0; i <= TIMEBINS; i++)
+    for(i = 0; i <= TIMEBINS; i++) {
         times.Ti_kick[i] = times.Ti_Current;
+        times.Ti_lastactivedrift[i] = times.Ti_Current;
+    }
     /* this makes sure the first step is a PM step. */
     times.PM_length = 0;
     times.PM_kick = times.Ti_Current;
@@ -310,6 +312,20 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times)
     times->mintimebin = mTimeBin;
     times->maxtimebin = maxTimeBin;
     return;
+}
+
+/* Update the last active drift times for all bins*/
+void
+update_lastactive_drift(DriftKickTimes * times)
+{
+    int bin;
+    #pragma omp parallel for
+    for(bin = 0; bin <= TIMEBINS; bin++)
+    {
+        /* Update active timestep even if no particles in it*/
+        if(is_timebin_active(bin, times->Ti_Current))
+            times->Ti_lastactivedrift[bin] = times->Ti_Current;
+    }
 }
 
 /* Apply half a kick, for the second half of the timestep.*/
