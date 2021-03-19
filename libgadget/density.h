@@ -32,6 +32,10 @@ struct sph_pred_data
      * which defeats the lookup cache in timefac.c. Because VelPred is used multiple times,
      * it is much quicker to compute it once and re-use this*/
     MyFloat * VelPred;            /*!< Predicted velocity at current particle drift time for SPH. 3x vector.*/
+    /* If true, we store the predicted variables for inactive particles.
+     * If false, just recompute them. The overhead of checking whether the prediction
+     * was already computed is too large for very short timesteps.*/
+    int store_inactive_predict;
 };
 
 /*Set the parameters of the density module*/
@@ -53,7 +57,7 @@ double GetNumNgb(enum DensityKernelType KernelType);
 /* Get the current density kernel type*/
 enum DensityKernelType GetDensityKernelType(void);
 
-struct sph_pred_data slots_allocate_sph_pred_data(int nsph);
+struct sph_pred_data slots_allocate_sph_pred_data(int nsph, int NumActiveParticle);
 void slots_free_sph_pred_data(struct sph_pred_data * sph_pred);
 
 /* Predicted quantity computation used in hydro*/

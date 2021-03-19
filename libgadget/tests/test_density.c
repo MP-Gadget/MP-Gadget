@@ -331,7 +331,7 @@ static int setup_density(void **state) {
     walltime_init(&CT);
     init_forcetree_params(2);
     struct density_testdata *data = mymalloc("data", sizeof(struct density_testdata));
-    data->sph_pred = slots_allocate_sph_pred_data(maxpart);
+    data->sph_pred = slots_allocate_sph_pred_data(maxpart, maxpart);
     /*Set up the top-level domain grid*/
     trivial_domain(&data->ddecomp);
     data->dp.DensityResolutionEta = 1.;

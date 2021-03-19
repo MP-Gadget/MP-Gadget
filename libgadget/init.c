@@ -494,7 +494,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime
     }
 
     /*Allocate the extra SPH data for transient SPH particle properties.*/
-    struct sph_pred_data sph_pred = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
+    struct sph_pred_data sph_pred = slots_allocate_sph_pred_data(SlotsManager->info[0].size, PartManager->NumPart);
 
     /*At the first time step all particles should be active*/
     ActiveParticles act = {0};

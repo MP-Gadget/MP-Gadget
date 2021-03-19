@@ -261,7 +261,7 @@ run(int RestartSnapNum)
         if(GasEnabled)
         {
             /*Allocate the memory for predicted SPH data.*/
-            struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
+            struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size, Act.NumActiveParticle);
 
             if(All.DensityOn)
                 density(&Act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, &Tree);  /* computes density, and pressure */
