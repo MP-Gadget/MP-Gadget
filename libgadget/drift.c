@@ -19,7 +19,7 @@
  * receives a shift vector removing the previous random shift and adding a new one.
  * This function also updates the velocity and updates the density according to an adiabatic factor.
  */
-void real_drift_particle(struct particle_data * pp, struct slots_manager_type * sman, inttime_t dti, const double ddrift, const double BoxSize, const double random_shift[3])
+void real_drift_particle(struct particle_data * pp, struct slots_manager_type * sman, const double ddrift, const double BoxSize, const double random_shift[3])
 {
     int j;
     if(pp->IsGarbage || pp->Swallowed) {
@@ -103,7 +103,7 @@ void drift_all_particles(inttime_t ti0, inttime_t ti1, const double BoxSize, Cos
         if(PartManager->Base[i].Ti_drift != ti0)
             endrun(10, "Drift time mismatch: (ids = %ld %ld) %d != %d\n",PartManager->Base[0].ID, PartManager->Base[i].ID, ti0,  PartManager->Base[i].Ti_drift);
 #endif
-        real_drift_particle(&PartManager->Base[i], SlotsManager, ti1-ti0, ddrift, BoxSize, random_shift);
+        real_drift_particle(&PartManager->Base[i], SlotsManager, ddrift, BoxSize, random_shift);
         PartManager->Base[i].Ti_drift = ti1;
     }
 
