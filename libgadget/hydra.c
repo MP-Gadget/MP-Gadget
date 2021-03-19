@@ -59,15 +59,12 @@ MyFloat SPH_EOMDensity(const struct sph_particle_data * const pi)
         return pi->Density;
 }
 
+/* Compute pressure using the predicted density (EgyWtDensity if Pressure-Entropy SPH,
+ * Density otherwise) and predicted entropy*/
 static double
-PressurePred(int PI, double EntVarPred)
+PressurePred(MyFloat EOMDensityPred, double EntVarPred)
 {
-    MyFloat EOMDensity;
-    if(HydroParams.DensityIndependentSphOn)
-        EOMDensity = SphP[PI].EgyWtDensity;
-    else
-        EOMDensity = SphP[PI].Density;
-    return pow(EntVarPred * EOMDensity, GAMMA);
+    return pow(EntVarPred * EOMDensityPred, GAMMA);
 }
 
 struct HydraPriv {
@@ -181,14 +178,14 @@ hydro_force(const ActiveParticles * act, int WindOn, const double hubble, const 
             if(P[p_i].Type != 0)
                 continue;
             int pi = P[p_i].PI;
-            HYDRA_GET_PRIV(tw)->PressurePred[pi] = PressurePred(pi, SPH_predicted->EntVarPred[pi]);
+            HYDRA_GET_PRIV(tw)->PressurePred[pi] = PressurePred(SPH_EOMDensity(&SphP[pi]), SPH_predicted->EntVarPred[pi]);
         }
     }
     else{
         /* Do it in slot order for memory locality*/
         #pragma omp parallel for
         for(i = 0; i < SlotsManager->info[0].size; i++)
-            HYDRA_GET_PRIV(tw)->PressurePred[i] = PressurePred(i, SPH_predicted->EntVarPred[i]);
+            HYDRA_GET_PRIV(tw)->PressurePred[i] = PressurePred(SPH_EOMDensity(&SphP[i]), SPH_predicted->EntVarPred[i]);
     }
 
 
@@ -385,21 +382,21 @@ hydro_ngbiter(
         #pragma omp atomic write
         priv->SPH_predicted->EntVarPred[P[other].PI] = EntVarPred;
     }
-    /* Compute pressure lazily*/
-    double Pressure_j;
-    #pragma omp atomic read
-    Pressure_j = HYDRA_GET_PRIV(lv->tw)->PressurePred[P[other].PI];
-    if(Pressure_j == 0) {
-        Pressure_j = PressurePred(P[other].PI, EntVarPred);
-        #pragma omp atomic write
-        priv->PressurePred[P[other].PI] = Pressure_j;
-    }
-
     /* Predict densities. Note that for active timebins the density is up to date so SPH_DensityPred is just returns the current densities.
      * This improves on the technique used in Gadget-2 by being a linear prediction that does not become pathological in deep timebins.*/
     int bin = P[other].TimeBin;
     const double density_j = SPH_DensityPred(SPHP(other).Density, SPHP(other).DivVel, priv->drifts[bin]);
     const double eomdensity = SPH_DensityPred(SPH_EOMDensity(&SPHP(other)), SPHP(other).DivVel, priv->drifts[bin]);;
+
+    /* Compute pressure lazily*/
+    double Pressure_j;
+    #pragma omp atomic read
+    Pressure_j = HYDRA_GET_PRIV(lv->tw)->PressurePred[P[other].PI];
+    if(Pressure_j == 0) {
+        Pressure_j = PressurePred(eomdensity, EntVarPred);
+        #pragma omp atomic write
+        priv->PressurePred[P[other].PI] = Pressure_j;
+    }
 
     double p_over_rho2_j = Pressure_j / (eomdensity * eomdensity);
     double soundspeed_j = sqrt(GAMMA * Pressure_j / eomdensity);
