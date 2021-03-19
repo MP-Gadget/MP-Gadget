@@ -434,32 +434,42 @@ density_ngbiter(
 
         double EntVarPred;
         MyFloat VelPred[3];
-        #pragma omp atomic read
-        EntVarPred = SphP_scratch->EntVarPred[P[other].PI];
-        /* Lazily compute the predicted quantities. We can do this
-         * with minimal locking since nothing happens should we compute them twice.
-         * Zero can be the special value since there should never be zero entropy.*/
-        if(EntVarPred == 0) {
+        if(SphP_scratch->store_inactive_predict) {
+            #pragma omp atomic read
+            EntVarPred = SphP_scratch->EntVarPred[P[other].PI];
+            /* Lazily compute the predicted quantities. We can do this
+            * with minimal locking since nothing happens should we compute them twice.
+            * Zero can be the special value since there should never be zero entropy.*/
+            if(EntVarPred == 0) {
+                struct DensityPriv * priv = DENSITY_GET_PRIV(lv->tw);
+                int bin = P[other].TimeBin;
+                double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
+                EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, priv->a3inv, dloga);
+                SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
+                /* Note this goes first to avoid threading issues: EntVarPred will only be set after this is done.
+                * The worst that can happen is that some data points get copied twice.*/
+                int i;
+                for(i = 0; i < 3; i++) {
+                    #pragma omp atomic write
+                    SphP_scratch->VelPred[3 * P[other].PI + i] = VelPred[i];
+                }
+                #pragma omp atomic write
+                SphP_scratch->EntVarPred[P[other].PI] = EntVarPred;
+            }
+            else {
+                int i;
+                for(i = 0; i < 3; i++)
+                    VelPred[i] = SphP_scratch->VelPred[3 * P[other].PI + i];
+            }
+        }
+        else {
             struct DensityPriv * priv = DENSITY_GET_PRIV(lv->tw);
-            int bin = P[other].TimeBin;
+            const int bin = P[other].TimeBin;
             double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
             EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, priv->a3inv, dloga);
             SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
-            /* Note this goes first to avoid threading issues: EntVarPred will only be set after this is done.
-             * The worst that can happen is that some data points get copied twice.*/
-            int i;
-            for(i = 0; i < 3; i++) {
-                #pragma omp atomic write
-                SphP_scratch->VelPred[3 * P[other].PI + i] = VelPred[i];
-            }
-            #pragma omp atomic write
-            SphP_scratch->EntVarPred[P[other].PI] = EntVarPred;
         }
-        else {
-            int i;
-            for(i = 0; i < 3; i++)
-                VelPred[i] = SphP_scratch->VelPred[3 * P[other].PI + i];
-        }
+
         if(DENSITY_GET_PRIV(lv->tw)->DoEgyDensity) {
             O->EgyRho += mass_j * EntVarPred * wk;
             O->DhsmlEgyDensity += mass_j * EntVarPred * density_dW;
