@@ -168,8 +168,9 @@ hydro_force(const ActiveParticles * act, int WindOn, const double hubble, const 
     /* Cache the pressure for speed*/
     HYDRA_GET_PRIV(tw)->SPH_predicted = SPH_predicted;
     HYDRA_GET_PRIV(tw)->PressurePred = (double *) mymalloc("PressurePred", SlotsManager->info[0].size * sizeof(double));
-    memset(HYDRA_GET_PRIV(tw)->PressurePred, 0, SlotsManager->info[0].size * sizeof(double));
-
+    if(SPH_predicted->store_inactive_predict) {
+        memset(HYDRA_GET_PRIV(tw)->PressurePred, 0, SlotsManager->info[0].size * sizeof(double));
+    }
     /* Compute pressure for active particles*/
     if(act->ActiveParticle) {
         #pragma omp parallel for

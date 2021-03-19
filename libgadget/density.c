@@ -656,11 +656,11 @@ slots_allocate_sph_pred_data(int nsph, int NumActiveParticle)
     /*Data is allocated high so that we can free the tree around it*/
     sph_scratch.EntVarPred = mymalloc2("EntVarPred", sizeof(MyFloat) * nsph);
     sph_scratch.VelPred = mymalloc2("VelPred", sizeof(MyFloat) * 3 * nsph);
-    memset(sph_scratch.EntVarPred, 0, sizeof(sph_scratch.EntVarPred[0]) * nsph);
     sph_scratch.store_inactive_predict = 0;
     /* If we have a very small fraction of particles active the overhead of the memset on all particles is not worth it.*/
     if(1e7*NumActiveParticle > PartManager->NumPart) {
         sph_scratch.store_inactive_predict = 1;
+        memset(sph_scratch.EntVarPred, 0, sizeof(sph_scratch.EntVarPred[0]) * nsph);
     }
     return sph_scratch;
 }
