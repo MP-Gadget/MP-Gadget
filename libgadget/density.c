@@ -514,6 +514,10 @@ density_postprocess(int i, TreeWalk * tw)
     *DhsmlDens *= P[i].Hsml / (NUMDIMS * density);
     *DhsmlDens = 1 / (1 + *DhsmlDens);
 
+    /* Uses DhsmlDensityFactor and changes Hsml, hence the location.*/
+    if(DENSITY_GET_PRIV(tw)->update_hsml)
+        density_check_neighbours(i, tw);
+
     if(P[i].Type == 0)
     {
         int PI = P[i].PI;
@@ -534,11 +538,8 @@ density_postprocess(int i, TreeWalk * tw)
         SPHP(i).CurlVel = sqrt(Rot[0] * Rot[0] + Rot[1] * Rot[1] + Rot[2] * Rot[2]) / SPHP(i).Density;
 
         SPHP(i).DivVel /= SPHP(i).Density;
+        P[i].DtHsml = (1.0 / NUMDIMS) * SPHP(i).DivVel * P[i].Hsml;
     }
-
-    /* This is slightly more complicated so we put it in a different function */
-    if(DENSITY_GET_PRIV(tw)->update_hsml)
-        density_check_neighbours(i, tw);
 }
 
 void density_check_neighbours (int i, TreeWalk * tw)

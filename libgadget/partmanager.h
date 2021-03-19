@@ -44,6 +44,11 @@ struct particle_data
 
     MyFloat Potential;		/* gravitational potential. This is the total potential after gravtree+gravpm is called. */
 
+    /* DtHsml is 1/3 DivVel * Hsml evaluated at the last active timestep for this particle.
+     * This predicts Hsml during the current timestep in the way used in Gadget-4, more accurate
+     * than the Gadget-2 prediction which could run away in deep timesteps. Used also
+     * to limit timesteps by density change. */
+    MyFloat DtHsml;
     MyFloat Hsml;
 
     /* Union these two because they are transients: they are hard to move

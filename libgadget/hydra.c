@@ -59,15 +59,12 @@ MyFloat SPH_EOMDensity(const struct sph_particle_data * const pi)
         return pi->Density;
 }
 
+/* Compute pressure using the predicted density (EgyWtDensity if Pressure-Entropy SPH,
+ * Density otherwise) and predicted entropy*/
 static double
-PressurePred(int PI, double EntVarPred)
+PressurePred(MyFloat EOMDensityPred, double EntVarPred)
 {
-    MyFloat EOMDensity;
-    if(HydroParams.DensityIndependentSphOn)
-        EOMDensity = SphP[PI].EgyWtDensity;
-    else
-        EOMDensity = SphP[PI].Density;
-    return pow(EntVarPred * EOMDensity, GAMMA);
+    return pow(EntVarPred * EOMDensityPred, GAMMA);
 }
 
 struct HydraPriv {
@@ -85,6 +82,7 @@ struct HydraPriv {
     double FgravkickB;
     double gravkicks[TIMEBINS+1];
     double hydrokicks[TIMEBINS+1];
+    double drifts[TIMEBINS+1];
 };
 
 #define HYDRA_GET_PRIV(tw) ((struct HydraPriv*) ((tw)->priv))
@@ -171,6 +169,7 @@ hydro_force(const ActiveParticles * act, int WindOn, const double hubble, const 
     HYDRA_GET_PRIV(tw)->SPH_predicted = SPH_predicted;
     HYDRA_GET_PRIV(tw)->PressurePred = (double *) mymalloc("PressurePred", SlotsManager->info[0].size * sizeof(double));
     memset(HYDRA_GET_PRIV(tw)->PressurePred, 0, SlotsManager->info[0].size * sizeof(double));
+
     /* Compute pressure for active particles*/
     if(act->ActiveParticle) {
         #pragma omp parallel for
@@ -179,14 +178,14 @@ hydro_force(const ActiveParticles * act, int WindOn, const double hubble, const 
             if(P[p_i].Type != 0)
                 continue;
             int pi = P[p_i].PI;
-            HYDRA_GET_PRIV(tw)->PressurePred[pi] = PressurePred(pi, SPH_predicted->EntVarPred[pi]);
+            HYDRA_GET_PRIV(tw)->PressurePred[pi] = PressurePred(SPH_EOMDensity(&SphP[pi]), SPH_predicted->EntVarPred[pi]);
         }
     }
     else{
         /* Do it in slot order for memory locality*/
         #pragma omp parallel for
         for(i = 0; i < SlotsManager->info[0].size; i++)
-            HYDRA_GET_PRIV(tw)->PressurePred[i] = PressurePred(i, SPH_predicted->EntVarPred[i]);
+            HYDRA_GET_PRIV(tw)->PressurePred[i] = PressurePred(SPH_EOMDensity(&SphP[i]), SPH_predicted->EntVarPred[i]);
     }
 
 
@@ -206,6 +205,7 @@ hydro_force(const ActiveParticles * act, int WindOn, const double hubble, const 
     priv->FgravkickB = get_exact_gravkick_factor(CP, times.PM_kick, times.Ti_Current);
     memset(priv->gravkicks, 0, sizeof(priv->gravkicks[0])*(TIMEBINS+1));
     memset(priv->hydrokicks, 0, sizeof(priv->hydrokicks[0])*(TIMEBINS+1));
+    memset(priv->drifts, 0, sizeof(priv->drifts[0])*(TIMEBINS+1));
     /* Compute the factors to move a current kick times velocity to the drift time velocity.
      * We need to do the computation for all timebins up to the maximum because even inactive
      * particles may have interactions. */
@@ -214,8 +214,11 @@ hydro_force(const ActiveParticles * act, int WindOn, const double hubble, const 
     {
         priv->gravkicks[i] = get_exact_gravkick_factor(CP, times.Ti_kick[i], times.Ti_Current);
         priv->hydrokicks[i] = get_exact_hydrokick_factor(CP, times.Ti_kick[i], times.Ti_Current);
+        /* For density: last active drift time is Ti_kick - 1/2 timestep as the kick time is half a timestep ahead.
+         * For active particles no density drift is needed.*/
+        if(!is_timebin_active(i, times.Ti_Current))
+            priv->drifts[i] = get_exact_drift_factor(CP, times.Ti_lastactivedrift[i], times.Ti_Current);
     }
-
 
     treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
 
@@ -282,6 +285,17 @@ hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mo
 
 }
 
+/* Find the density predicted forward to the current drift time.
+ * The Density in the SPHP struct is evaluated at the last time
+ * the particle was active. Good for both EgyWtDensity and Density,
+ * cube of the change in Hsml in drift.c. */
+double
+SPH_DensityPred(MyFloat Density, MyFloat DivVel, double dtdrift)
+{
+    /* Note minus sign!*/
+    return Density - DivVel * Density * dtdrift;
+}
+
 /*! This function is the 'core' of the SPH force computation. A target
  *  particle is specified which may either be local, or reside in the
  *  communication buffer.
@@ -341,6 +355,8 @@ hydro_ngbiter(
     if(rsq <= 0 || !(rsq < iter->kernel_i.HH || rsq < kernel_j.HH))
         return;
 
+    struct HydraPriv * priv = HYDRA_GET_PRIV(lv->tw);
+
     double EntVarPred;
     #pragma omp atomic read
     EntVarPred = HYDRA_GET_PRIV(lv->tw)->SPH_predicted->EntVarPred[P[other].PI];
@@ -351,7 +367,6 @@ hydro_ngbiter(
      * Zero can be the special value since there should never be zero entropy.*/
     if(EntVarPred == 0) {
         MyFloat VelPred[3];
-        struct HydraPriv * priv = HYDRA_GET_PRIV(lv->tw);
         int bin = P[other].TimeBin;
         double a3inv = pow(priv->atime, -3);
         double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
@@ -367,17 +382,22 @@ hydro_ngbiter(
         #pragma omp atomic write
         priv->SPH_predicted->EntVarPred[P[other].PI] = EntVarPred;
     }
+    /* Predict densities. Note that for active timebins the density is up to date so SPH_DensityPred is just returns the current densities.
+     * This improves on the technique used in Gadget-2 by being a linear prediction that does not become pathological in deep timebins.*/
+    int bin = P[other].TimeBin;
+    const double density_j = SPH_DensityPred(SPHP(other).Density, SPHP(other).DivVel, priv->drifts[bin]);
+    const double eomdensity = SPH_DensityPred(SPH_EOMDensity(&SPHP(other)), SPHP(other).DivVel, priv->drifts[bin]);;
+
     /* Compute pressure lazily*/
     double Pressure_j;
     #pragma omp atomic read
     Pressure_j = HYDRA_GET_PRIV(lv->tw)->PressurePred[P[other].PI];
     if(Pressure_j == 0) {
-        Pressure_j = PressurePred(P[other].PI, EntVarPred);
+        Pressure_j = PressurePred(eomdensity, EntVarPred);
         #pragma omp atomic write
-        HYDRA_GET_PRIV(lv->tw)->PressurePred[P[other].PI] = Pressure_j;
+        priv->PressurePred[P[other].PI] = Pressure_j;
     }
 
-    const double eomdensity = SPH_EOMDensity(&SPHP(other));
     double p_over_rho2_j = Pressure_j / (eomdensity * eomdensity);
     double soundspeed_j = sqrt(GAMMA * Pressure_j / eomdensity);
 
@@ -401,7 +421,7 @@ hydro_ngbiter(
     {
         /*See Gadget-2 paper: eq. 13*/
         const double mu_ij = HYDRA_GET_PRIV(lv->tw)->fac_mu * vdotr2 / r;	/* note: this is negative! */
-        const double rho_ij = 0.5 * (I->Density + SPHP(other).Density);
+        const double rho_ij = 0.5 * (I->Density + density_j);
         double vsig = iter->soundspeed_i + soundspeed_j;
 
         vsig -= 3 * mu_ij;
@@ -409,8 +429,7 @@ hydro_ngbiter(
         if(vsig > O->MaxSignalVel)
             O->MaxSignalVel = vsig;
 
-        /* Note this uses the CurlVel of an inactive particle, which may not be
-            * at the present drift time*/
+        /* Note this uses the CurlVel of an inactive particle, which is not at the present drift time*/
         const double f2 = fabs(SPHP(other).DivVel) / (fabs(SPHP(other).DivVel) +
                 SPHP(other).CurlVel + 0.0001 * soundspeed_j / HYDRA_GET_PRIV(lv->tw)->fac_mu / P[other].Hsml);
 
@@ -447,7 +466,7 @@ hydro_ngbiter(
         /* enable grad-h corrections only if contrastlimit is non negative */
         if(HydroParams.DensityContrastLimit >= 0) {
             rr1 = I->EgyRho / I->Density;
-            rr2 = SPHP(other).EgyWtDensity / SPHP(other).Density;
+            rr2 = eomdensity / density_j;
             if(HydroParams.DensityContrastLimit > 0) {
                 /* apply the limit if it is enabled > 0*/
                 rr1 = DMIN(rr1, HydroParams.DensityContrastLimit);

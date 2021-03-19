@@ -21,6 +21,8 @@ typedef struct
     int maxtimebin;
     /* Kick times per bin*/
     inttime_t Ti_kick[TIMEBINS+1];
+    /* Drift time when this timebin was last active*/
+    inttime_t Ti_lastactivedrift[TIMEBINS+1];
     /* Current drift time, which is universal.*/
     inttime_t Ti_Current;
     /* PM Timesteps*/
@@ -48,6 +50,9 @@ int is_timebin_active(int i, inttime_t current);
 inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin);
 
 inttime_t init_timebins(double TimeInit);
+
+/* Update the table of active bin drift times */
+void update_lastactive_drift(DriftKickTimes * times);
 
 DriftKickTimes init_driftkicktime(inttime_t Ti_Current);
 

@@ -228,6 +228,8 @@ run(int RestartSnapNum)
             drift.ti1 = times.Ti_Current;
             domain_maintain(ddecomp, &drift);
         }
+        update_lastactive_drift(&times);
+
 
         ActiveParticles Act = {0};
         rebuild_activelist(&Act, &times, NumCurrentTiStep);
