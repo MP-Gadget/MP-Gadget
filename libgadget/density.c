@@ -278,7 +278,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
             int bin = P[p_i].TimeBin;
             double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
             priv->SPH_predicted->EntVarPred[P[p_i].PI] = SPH_EntVarPred(P[p_i].PI, priv->MinEgySpec, priv->a3inv, dloga);
-            SPH_VelPred(p_i, priv->SPH_predicted->VelPred + 3 * P[p_i].PI, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
         }
     }
 
@@ -317,7 +316,7 @@ density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw)
 
     I->Type = P[place].Type;
 
-    if(P[place].Type != 0)
+    if(I->Type != 0)
     {
         I->Vel[0] = P[place].Vel[0];
         I->Vel[1] = P[place].Vel[1];
@@ -325,10 +324,9 @@ density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw)
     }
     else
     {
-        MyFloat * velpred = DENSITY_GET_PRIV(tw)->SPH_predicted->VelPred;
-        I->Vel[0] = velpred[3 * P[place].PI];
-        I->Vel[1] = velpred[3 * P[place].PI + 1];
-        I->Vel[2] = velpred[3 * P[place].PI + 2];
+        const int bin = P[place].TimeBin;
+        struct DensityPriv * priv = DENSITY_GET_PRIV(tw);
+        SPH_VelPred(place, I->Vel, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
     }
 
 }
@@ -435,12 +433,9 @@ density_ngbiter(
         struct DensityPriv * priv = DENSITY_GET_PRIV(lv->tw);
         const int bin = P[other].TimeBin;
         double EntVarPred;
-        MyFloat VelPred[3];
+
         if(is_timebin_active(bin, priv->times->Ti_Current)) {
             EntVarPred = priv->SPH_predicted->EntVarPred[P[other].PI];
-            int i;
-            for(i = 0; i < 3; i++)
-                VelPred[i] = priv->SPH_predicted->VelPred[3 * P[other].PI + i];
         }
         else if(SphP_scratch->store_inactive_predict) {
             #pragma omp atomic read
@@ -451,27 +446,13 @@ density_ngbiter(
             if(EntVarPred == 0) {
                 double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
                 EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, priv->a3inv, dloga);
-                SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
-                /* Note this goes first to avoid threading issues: EntVarPred will only be set after this is done.
-                * The worst that can happen is that some data points get copied twice.*/
-                int i;
-                for(i = 0; i < 3; i++) {
-                    #pragma omp atomic write
-                    SphP_scratch->VelPred[3 * P[other].PI + i] = VelPred[i];
-                }
                 #pragma omp atomic write
                 SphP_scratch->EntVarPred[P[other].PI] = EntVarPred;
-            }
-            else {
-                int i;
-                for(i = 0; i < 3; i++)
-                    VelPred[i] = SphP_scratch->VelPred[3 * P[other].PI + i];
             }
         }
         else {
             double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
             EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, priv->a3inv, dloga);
-            SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
         }
 
         if(DENSITY_GET_PRIV(lv->tw)->DoEgyDensity) {
@@ -481,6 +462,9 @@ density_ngbiter(
 
         if(r > 0)
         {
+            MyFloat VelPred[3];
+            SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
+
             double fac = mass_j * dwk / r;
             double dv[3];
             double rot[3];
@@ -659,7 +643,6 @@ slots_allocate_sph_pred_data(int nsph, int NumActiveParticle)
     struct sph_pred_data sph_scratch;
     /*Data is allocated high so that we can free the tree around it*/
     sph_scratch.EntVarPred = mymalloc2("EntVarPred", sizeof(MyFloat) * nsph);
-    sph_scratch.VelPred = mymalloc2("VelPred", sizeof(MyFloat) * 3 * nsph);
     sph_scratch.store_inactive_predict = 0;
     /* If we have a very small fraction of particles active the overhead of the memset on all particles is not worth it.*/
     if(1e7*NumActiveParticle > PartManager->NumPart) {
@@ -672,8 +655,6 @@ slots_allocate_sph_pred_data(int nsph, int NumActiveParticle)
 void
 slots_free_sph_pred_data(struct sph_pred_data * sph_scratch)
 {
-    myfree(sph_scratch->VelPred);
-    sph_scratch->VelPred = NULL;
     myfree(sph_scratch->EntVarPred);
     sph_scratch->EntVarPred = NULL;
 }

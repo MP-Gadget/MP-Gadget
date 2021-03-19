@@ -242,11 +242,10 @@ static void
 hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
 {
     double soundspeed_i;
-    MyFloat * velpred = HYDRA_GET_PRIV(tw)->SPH_predicted->VelPred;
+    const int bin = P[place].TimeBin;
+    struct HydraPriv * priv = HYDRA_GET_PRIV(tw);
     /*Compute predicted velocity*/
-    input->Vel[0] = velpred[3 * P[place].PI];
-    input->Vel[1] = velpred[3 * P[place].PI + 1];
-    input->Vel[2] = velpred[3 * P[place].PI + 2];
+    SPH_VelPred(place, input->Vel, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
     input->Hsml = P[place].Hsml;
     input->Mass = P[place].Mass;
     input->Density = SPHP(place).Density;
@@ -365,14 +364,10 @@ hydro_ngbiter(
     const double eomdensity = SPH_DensityPred(SPH_EOMDensity(&SPHP(other)), SPHP(other).DivVel, priv->drifts[bin]);;
 
     double EntVarPred, Pressure_j;
-    MyFloat VelPred[3];
 
     if(is_timebin_active(bin, priv->times->Ti_Current)) {
         EntVarPred = priv->SPH_predicted->EntVarPred[P[other].PI];
         Pressure_j = priv->PressurePred[P[other].PI];
-        int i;
-        for(i = 0; i < 3; i++)
-            VelPred[i] = priv->SPH_predicted->VelPred[3 * P[other].PI + i];
     }
     else if(priv->SPH_predicted->store_inactive_predict) {
         #pragma omp atomic read
@@ -386,21 +381,8 @@ hydro_ngbiter(
             double a3inv = pow(priv->atime, -3);
             double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
             EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, a3inv, dloga);
-            SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
-            /* Note this goes first to avoid threading issues: EntVarPred will only be set after this is done.
-                * The worst that can happen is that some data points get copied twice.*/
-            int i;
-            for(i = 0; i < 3; i++) {
-                #pragma omp atomic write
-                priv->SPH_predicted->VelPred[3 * P[other].PI + i] = VelPred[i];
-            }
             #pragma omp atomic write
             priv->SPH_predicted->EntVarPred[P[other].PI] = EntVarPred;
-        }
-        else {
-            int i;
-            for(i = 0; i < 3; i++)
-                VelPred[i] = priv->SPH_predicted->VelPred[3 * P[other].PI + i];
         }
         /* Compute pressure lazily*/
         #pragma omp atomic read
@@ -414,13 +396,15 @@ hydro_ngbiter(
     else {
         double a3inv = pow(priv->atime, -3);
         double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
-        SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
         EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, a3inv, dloga);
         Pressure_j = PressurePred(eomdensity, EntVarPred);
     }
 
     double p_over_rho2_j = Pressure_j / (eomdensity * eomdensity);
     double soundspeed_j = sqrt(GAMMA * Pressure_j / eomdensity);
+
+    MyFloat VelPred[3];
+    SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
 
     double dv[3];
     int d;
