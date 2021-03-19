@@ -366,40 +366,49 @@ hydro_ngbiter(
     double EntVarPred, Pressure_j;
     MyFloat VelPred[3];
 
-    #pragma omp atomic read
-    EntVarPred = priv->SPH_predicted->EntVarPred[P[other].PI];
-    /* Lazily compute the predicted quantities. We need to do this again here, even though we do it in density,
-    * because this treewalk is symmetric and that one is asymmetric. In density() hmax has not been computed
-    * yet so we cannot merge them. We can do this
-    * with minimal locking since nothing happens should we compute them twice.
-    * Zero can be the special value since there should never be zero entropy.*/
-    if(EntVarPred == 0) {
-        double a3inv = pow(priv->atime, -3);
-        double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
-        EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, a3inv, dloga);
-        SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
-        /* Note this goes first to avoid threading issues: EntVarPred will only be set after this is done.
-            * The worst that can happen is that some data points get copied twice.*/
-        int i;
-        for(i = 0; i < 3; i++) {
+    if(priv->SPH_predicted->store_inactive_predict) {
+        #pragma omp atomic read
+        EntVarPred = priv->SPH_predicted->EntVarPred[P[other].PI];
+        /* Lazily compute the predicted quantities. We need to do this again here, even though we do it in density,
+        * because this treewalk is symmetric and that one is asymmetric. In density() hmax has not been computed
+        * yet so we cannot merge them. We can do this
+        * with minimal locking since nothing happens should we compute them twice.
+        * Zero can be the special value since there should never be zero entropy.*/
+        if(EntVarPred == 0) {
+            double a3inv = pow(priv->atime, -3);
+            double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
+            EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, a3inv, dloga);
+            SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
+            /* Note this goes first to avoid threading issues: EntVarPred will only be set after this is done.
+                * The worst that can happen is that some data points get copied twice.*/
+            int i;
+            for(i = 0; i < 3; i++) {
+                #pragma omp atomic write
+                priv->SPH_predicted->VelPred[3 * P[other].PI + i] = VelPred[i];
+            }
             #pragma omp atomic write
-            priv->SPH_predicted->VelPred[3 * P[other].PI + i] = VelPred[i];
+            priv->SPH_predicted->EntVarPred[P[other].PI] = EntVarPred;
         }
-        #pragma omp atomic write
-        priv->SPH_predicted->EntVarPred[P[other].PI] = EntVarPred;
+        else {
+            int i;
+            for(i = 0; i < 3; i++)
+                VelPred[i] = priv->SPH_predicted->VelPred[3 * P[other].PI + i];
+        }
+        /* Compute pressure lazily*/
+        #pragma omp atomic read
+        Pressure_j = HYDRA_GET_PRIV(lv->tw)->PressurePred[P[other].PI];
+        if(Pressure_j == 0) {
+            Pressure_j = PressurePred(eomdensity, EntVarPred);
+            #pragma omp atomic write
+            priv->PressurePred[P[other].PI] = Pressure_j;
+        }
     }
     else {
-        int i;
-        for(i = 0; i < 3; i++)
-            VelPred[i] = priv->SPH_predicted->VelPred[3 * P[other].PI + i];
-    }
-    /* Compute pressure lazily*/
-    #pragma omp atomic read
-    Pressure_j = HYDRA_GET_PRIV(lv->tw)->PressurePred[P[other].PI];
-    if(Pressure_j == 0) {
+        double a3inv = pow(priv->atime, -3);
+        double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
+        SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
+        EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, a3inv, dloga);
         Pressure_j = PressurePred(eomdensity, EntVarPred);
-        #pragma omp atomic write
-        priv->PressurePred[P[other].PI] = Pressure_j;
     }
 
     double p_over_rho2_j = Pressure_j / (eomdensity * eomdensity);
