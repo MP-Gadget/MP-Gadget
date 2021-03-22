@@ -1247,15 +1247,24 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
     int NumThreads = omp_get_max_threads();
     tw->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
     tw->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
-    int alloc_high = 0;
-    int * ReDoQueue = queue;
-    int64_t size = queuesize;
     tw->maxnumngb = ta_malloc("numngb", double, NumThreads);
     tw->minnumngb = ta_malloc("numngb2", double, NumThreads);
 
+    /* Build the first queue */
+    treewalk_build_queue(tw, queue, queuesize, 0);
+    /* Next call to treewalk_run will over-write these pointers*/
+    int64_t size = tw->WorkSetSize;
+    int * ReDoQueue = tw->WorkSet;
+    /* First queue is allocated low*/
+    int alloc_high = 0;
+    /* We don't need to redo the queue generation
+     * but need to keep track of allocated memory.*/
+    int orig_queue_alloc = (tw->haswork != NULL);
+    tw->haswork = NULL;
+
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
     do {
-        /* The RedoQueue needs enough memory to store every particle on every thread, because
+        /* The RedoQueue needs enough memory to store every workset particle on every thread, because
          * we cannot guarantee that the sph particles are evenly spread across threads!*/
         int * CurQueue = ReDoQueue;
         int i;
@@ -1278,14 +1287,13 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
         }
         treewalk_run(tw, CurQueue, size);
 
+        /* Now done with the current queue*/
+        if(orig_queue_alloc || tw->Niteration > 1)
+            myfree(CurQueue);
+
         /* We can stop if we are not updating hsml*/
         if(!update_hsml)
             break;
-
-        tw->haswork = NULL;
-        /* Now done with the current queue*/
-        if(tw-> Niteration > 1)
-            myfree(CurQueue);
 
         /* Set up the next queue*/
         size = gadget_compact_thread_arrays(ReDoQueue, tw->NPRedo, tw->NPLeft, NumThreads);
