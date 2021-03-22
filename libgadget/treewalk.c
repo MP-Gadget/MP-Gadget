@@ -1283,6 +1283,7 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
                 ReDoQueue = (int *) mymalloc("ReDoQueue", size * sizeof(int) * NumThreads);
                 alloc_high = 0;
             }
+            tw->Redo_thread_alloc = size;
             gadget_setup_thread_arrays(ReDoQueue, tw->NPRedo, tw->NPLeft, size, NumThreads);
         }
         treewalk_run(tw, CurQueue, size);
