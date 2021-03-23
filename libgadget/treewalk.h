@@ -166,6 +166,7 @@ struct TreeWalk {
     /* Redo counters and queues*/
     size_t *NPLeft;
     int **NPRedo;
+    size_t Redo_thread_alloc;
     /* Max and min arrays for each iteration of the count*/
     double * maxnumngb;
     double * minnumngb;
