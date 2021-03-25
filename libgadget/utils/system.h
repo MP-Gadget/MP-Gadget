@@ -9,10 +9,13 @@
 #define MPI_UINT64 MPI_UNSIGNED_LONG
 #define MPI_INT64 MPI_LONG
 
-/* check the version of OPENMP */
-#if _OPENMP < 201107
-#error MP-Gadget requires OpenMP >= 3.1 if openmp is enabled. \
-       Try to compile without openmp or use a newer compiler (gcc >= 4.7) .
+/* Check the version of OPENMP. We only need OpenMP 3.1, but
+ * there is a bug in gcc 4.7 and 4.8 (which are unfortunately
+ * widely deployed as default compilers) which breaks our compile in fof.c.
+ * The easiest way to avoid it is to require OpenMP 4.0 but then we lose
+ * several clang versions, so just detect those gcc versions. */
+#if _OPENMP < 201107 || (__GNUC__ == 4 && __GNUC_MINOR__ < 9 && __GNUC_MINOR__ >= 7)
+#error MP-Gadget requires OpenMP >= 3.1. Use a newer compiler (gcc >= 4.9, intel >= 16 clang >= 5).
 #endif
 
 #ifdef DEBUG
