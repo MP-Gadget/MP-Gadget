@@ -697,7 +697,7 @@ layout_iterate_cells(PetaPM * pm,
             ix -= pm->real_space_region.offset[k];
             if(ix >= pm->real_space_region.size[k]) {
                 /* serious problem assumption about pfft layout was wrong*/
-                endrun(1, "check here: original ix = %d\n", p->offset[k]);
+                endrun(1, "bad pfft: original k: %d ix: %d, cur ix: %d, region: off %d size %d\n", k, p->offset[k], ix, pm->real_space_region.offset[k], pm->real_space_region.size[k]);
             }
             linear0 += ix * pm->real_space_region.strides[k];
         }
@@ -708,7 +708,7 @@ layout_iterate_cells(PetaPM * pm,
             while(iz >= pm->Nmesh) iz -= pm->Nmesh;
             if(iz >= pm->real_space_region.size[2]) {
                 /* serious problem assmpution about pfft layout was wrong*/
-                abort();
+                endrun(1, "bad pfft: original iz: %d, cur iz: %d, region: off %d size %d\n", p->offset[2], iz, pm->real_space_region.offset[2], pm->real_space_region.size[2]);
             }
             ptrdiff_t linear = iz * pm->real_space_region.strides[2] + linear0;
             /*
