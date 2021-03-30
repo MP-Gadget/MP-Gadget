@@ -14,12 +14,10 @@
  * widely deployed as default compilers) which breaks our compile in fof.c.
  * The easiest way to avoid it is to require OpenMP 4.0 but then we lose
  * several clang versions, so just detect those gcc versions. */
-#if _OPENMP < 201107 || (__GNUC__ == 4 && __GNUC_MINOR__ < 9 && __GNUC_MINOR__ >= 7)
 /* icc defines __GNUC__ to be the version from the system compiler. No intel compilers
    report _OPENMP > 3.1 without really supporting it, so we need not error for any intel versions.*/
-#if !defined(__INTEL_COMPILER) && !defined(__clang__)
+#if _OPENMP < 201107 || (__GNUC__ == 4 && __GNUC_MINOR__ < 9 && !defined(__INTEL_COMPILER) && !defined(__clang__))
 #error MP-Gadget requires OpenMP >= 3.1. Use a newer compiler (gcc >= 4.9, intel >= 16 clang >= 5).
-#endif
 #endif
 
 #ifdef DEBUG
