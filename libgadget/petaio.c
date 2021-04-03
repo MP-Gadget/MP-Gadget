@@ -284,6 +284,10 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
     for(ptype = 0; ptype < 6; ptype ++) {
             newSlots[ptype] *= All.PartAllocFactor;
     }
+    /* Boost initial amount of stars allocated, as it is often uneven.
+     * The total number of stars is usually small so this doesn't
+     * waste that much memory*/
+    newSlots[4] *= 2;
 
     slots_reserve(0, newSlots, SlotsManager);
 
