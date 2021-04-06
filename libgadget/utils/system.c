@@ -51,40 +51,6 @@ void enable_core_dumps_and_fpu_exceptions(void)
   /* getrlimit(RLIMIT_CORE, &rlim);
   rlim.rlim_cur = RLIM_INFINITY;
   setrlimit(RLIMIT_CORE, &rlim);*/
-
-  /* MPICH catches the signales SIGSEGV, SIGBUS, and SIGFPE....
-   * The following statements reset things to the default handlers,
-   * which will generate a core file.
-   */
-  /*
-     signal(SIGSEGV, catch_fatal);
-     signal(SIGBUS, catch_fatal);
-     signal(SIGFPE, catch_fatal);
-     signal(SIGINT, catch_fatal);
-   */
-
-  signal(SIGSEGV, SIG_DFL);
-  signal(SIGBUS, SIG_DFL);
-  signal(SIGFPE, SIG_DFL);
-  signal(SIGINT, SIG_DFL);
-
-  /* Establish a handler for SIGABRT signals. */
-  signal(SIGABRT, catch_abort);
-}
-
-
-void catch_abort(int sig)
-{
-  MPI_Finalize();
-  exit(0);
-}
-
-void catch_fatal(int sig)
-{
-  MPI_Finalize();
-
-  signal(sig, SIG_DFL);
-  raise(sig);
 }
 
 #endif
