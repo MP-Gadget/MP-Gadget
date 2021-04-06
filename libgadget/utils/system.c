@@ -45,10 +45,12 @@ void enable_core_dumps_and_fpu_exceptions(void)
    * when the Intel C-Compiler for Linux is used
    */
 
-  /* set core-dump size to infinity */
-  getrlimit(RLIMIT_CORE, &rlim);
+  /* set core-dump size to infinity.
+   * Don't do this because it may be there for a reason:
+   * the cluster does not like us to dump 2PB of core! */
+  /* getrlimit(RLIMIT_CORE, &rlim);
   rlim.rlim_cur = RLIM_INFINITY;
-  setrlimit(RLIMIT_CORE, &rlim);
+  setrlimit(RLIMIT_CORE, &rlim);*/
 
   /* MPICH catches the signales SIGSEGV, SIGBUS, and SIGFPE....
    * The following statements reset things to the default handlers,
