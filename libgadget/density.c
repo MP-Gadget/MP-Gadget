@@ -205,7 +205,8 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     struct DensityPriv priv[1];
 
     tw->ev_label = "DENSITY";
-    tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
+    tw->visit = (TreeWalkVisitFunction) treewalk_visit_nolist_ngbiter;
+    tw->NoNgblist = 1;
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterDensity);
     tw->ngbiter = (TreeWalkNgbIterFunction) density_ngbiter;
     tw->haswork = density_haswork;

@@ -863,19 +863,18 @@ int sfr_need_to_compute_sph_grad_rho(void)
     }
     return 0;
 }
-static double ev_NH_from_GradRho(MyFloat gradrho[3], double hsml, double rho, double include_h)
+static double ev_NH_from_GradRho(MyFloat gradrho_mag, double hsml, double rho, double include_h)
 {
     /* column density from GradRho, copied from gadget-p; what is it
      * calculating? */
-    double gradrho_mag;
-    if(rho<=0) {
-        gradrho_mag = 0;
-    } else {
-        gradrho_mag = sqrt(gradrho[0]*gradrho[0]+gradrho[1]*gradrho[1]+gradrho[2]*gradrho[2]);
-        if(gradrho_mag > 0) {gradrho_mag = rho*rho/gradrho_mag;} else {gradrho_mag=0;}
-        if(include_h > 0) gradrho_mag += include_h*rho*hsml;
-    }
-    return gradrho_mag; // *(Z/Zsolar) add metallicity dependence
+    if(rho<=0)
+        return 0;
+    double ev_NH = 0;
+    if(gradrho_mag > 0)
+        ev_NH = rho*rho/gradrho_mag;
+    if(include_h > 0)
+        ev_NH += rho*hsml;
+    return ev_NH; // *(Z/Zsolar) add metallicity dependence
 }
 
 static double get_sfr_factor_due_to_h2(int i, MyFloat * GradRho) {
@@ -884,7 +883,9 @@ static double get_sfr_factor_due_to_h2(int i, MyFloat * GradRho) {
      *  function */
     double tau_fmol;
     double zoverzsun = SPHP(i).Metallicity/METAL_YIELD;
-    tau_fmol = ev_NH_from_GradRho(&(GradRho[3*P[i].PI]),P[i].Hsml,SPHP(i).Density,1) * All.cf.a2inv;
+    double gradrho_mag = sqrt(GradRho[3*P[i].PI]*GradRho[3*P[i].PI]+GradRho[3*P[i].PI+1]*GradRho[3*P[i].PI+1]+GradRho[3*P[i].PI+2]*GradRho[3*P[i].PI+2]);
+    //message(4, "GradRho %g rho %g hsml %g i %d\n", gradrho_mag, SPHP(i).Density, P[i].Hsml, i);
+    tau_fmol = ev_NH_from_GradRho(gradrho_mag,P[i].Hsml,SPHP(i).Density,1) * All.cf.a2inv;
     tau_fmol *= (0.1 + zoverzsun);
     if(tau_fmol>0) {
         tau_fmol *= 434.78*All.UnitDensity_in_cgs*All.CP.HubbleParam*All.UnitLength_in_cm;
