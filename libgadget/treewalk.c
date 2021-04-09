@@ -352,17 +352,22 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * d
         }
         /* If we filled up, we need to remove the partially evaluated last particle from the export list and leave this loop.*/
         if(lv->Nexport >= lv->BunchSize) {
-            message(1, "Tree export buffer full with %ld particles. start %ld lastsucceeded: %ld.\n", lv->Nexport, tw->WorkSetStart, lastSucceeded);
+            message(1, "Tree export buffer full with %ld particles. start %ld lastsucceeded: %ld end %d size %ld.\n",
+                    lv->Nexport, tw->WorkSetStart, lastSucceeded, end, tw->WorkSetSize);
+            #pragma omp atomic write
             tw->BufferFullFlag = 1;
-            /* Touch up the DataIndexTable, so that partial particle exports are discarded.
-             * Since this queue is per-thread, it is ordered.*/
-            lv->Nexport-= lv->NThisParticleExport;
-            const int lastreal = tw->WorkSet ? tw->WorkSet[k] : k;
-            /* Index stores tw->target, which is the current particle.*/
-            if(lv->NThisParticleExport > 0 && DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index != lastreal)
-                endrun(5, "Something screwed up in export queue: nexp %ld (local %d) last %d != index %d\n", lv->Nexport,
-                       lv->NThisParticleExport, lastreal, DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index);
-            /* Leave this chunking loop.*/
+            /* If the above loop finished, we don't need to remove the fully exported particle*/
+            if(lastSucceeded < end) {
+                /* Touch up the DataIndexTable, so that partial particle exports are discarded.
+                * Since this queue is per-thread, it is ordered.*/
+                lv->Nexport-= lv->NThisParticleExport;
+                const int lastreal = tw->WorkSet ? tw->WorkSet[k] : k;
+                /* Index stores tw->target, which is the current particle.*/
+                if(lv->NThisParticleExport > 0 && DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index != lastreal)
+                    endrun(5, "Something screwed up in export queue: nexp %ld (local %d) last %d != index %d\n", lv->Nexport,
+                        lv->NThisParticleExport, lastreal, DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index);
+                /* Leave this chunking loop.*/
+            }
             break;
         }
     } while(chnk < tw->WorkSetSize);
