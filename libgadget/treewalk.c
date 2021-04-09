@@ -352,7 +352,8 @@ static int real_ev(struct TreeWalkThreadLocals export, TreeWalk * tw, size_t * d
         }
         /* If we filled up, we need to remove the partially evaluated last particle from the export list and leave this loop.*/
         if(lv->Nexport >= lv->BunchSize) {
-            message(1, "Tree export buffer full with %ld particles. start %ld lastsucceeded: %ld end %ld.\n", lv->Nexport, tw->WorkSetStart, lastSucceeded, tw->WorkSetSize);
+            message(1, "Tree export buffer full with %ld particles. start %ld lastsucceeded: %ld end %d size %ld.\n",
+                    lv->Nexport, tw->WorkSetStart, lastSucceeded, end, tw->WorkSetSize);
             #pragma omp atomic write
             tw->BufferFullFlag = 1;
             /* If the above loop finished, we don't need to remove the fully exported particle*/
