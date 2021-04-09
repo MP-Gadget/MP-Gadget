@@ -120,7 +120,7 @@ init_uvf_table(const char * UVFluctuationFile, const double BoxSize, const doubl
     }
     big_file_mpi_close(&bf, MPI_COMM_WORLD);
     double BoxMpc = BoxSize * UnitLength_in_cm / CM_PER_MPC;
-    if(TableBoxSize != BoxMpc)
+    if(fabs(TableBoxSize - BoxMpc) > BoxMpc * 1e-5)
         endrun(0, "Wrong UV fluctuation file! %s is for box size %g Mpc/h, but current box is %g Mpc/h\n", TableBoxSize, BoxMpc);
 
     message(0, "Using NON-UNIFORM UV BG fluctuations from %s. Median reionization redshift is %g\n", UVFluctuationFile, ReionRedshift);
