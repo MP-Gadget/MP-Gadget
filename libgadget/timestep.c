@@ -288,7 +288,7 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times)
      * between PM timesteps, thus skipping the PM step entirely.*/
     if(isPM && times->PM_length > dti_from_timebin(maxTimeBin))
         times->PM_length = dti_from_timebin(maxTimeBin);
-    message(0, "PM timebin: %x dloga = %g  Max = (%g) Number of Timesteps: Accel: %ld Soundspeed: %ld DivVel: %ld Accretion %ld Neighbour: %ld\n",
+    message(0, "PM timebin: %x (dloga: %g Max: %g). Criteria: Accel: %ld Soundspeed: %ld DivVel: %ld Accrete: %ld Neighbour: %ld\n",
             times->PM_length, dloga_from_dti(times->PM_length, times->Ti_Current), TimestepParams.MaxSizeTimestep,
             ntiaccel, nticourant, ntihsml, ntiaccrete, ntineighbour);
 
