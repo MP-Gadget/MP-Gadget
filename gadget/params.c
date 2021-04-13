@@ -253,8 +253,8 @@ create_gadget_parameter_set()
         {"sh03", WIND_SUBGRID | WIND_DECOUPLE_SPH | WIND_FIXED_EFFICIENCY} , /*The canonical model of Spring & Hernquist 2003*/
         {"vs08", WIND_FIXED_EFFICIENCY},
         {"ofjt10", WIND_USE_HALO | WIND_DECOUPLE_SPH},
-        {"isotropic", 0}, /*Wind direction is always random and isotropic.*/
-        {NULL, WIND_SUBGRID | WIND_DECOUPLE_SPH | WIND_FIXED_EFFICIENCY},
+        {"isotropic", WIND_ISOTROPIC}, /*Does nothing: wind direction is always random and isotropic.*/
+        {NULL, WIND_USE_HALO | WIND_DECOUPLE_SPH }, /* Default is ofjt10*/
     };
 
     param_declare_int(ps, "StarformationOn", REQUIRED, 0, "Enables star formation");

@@ -91,10 +91,12 @@ init_winds(double FactorSN, double EgySpecSN, double PhysDensThresh)
     if(HAS(wind_params.WindModel, WIND_FIXED_EFFICIENCY)) {
         wind_params.WindSpeed /= sqrt(wind_params.WindEfficiency);
         message(0, "Windspeed: %g\n", wind_params.WindSpeed);
-    } else {
+    } else if(HAS(wind_params.WindModel, WIND_USE_HALO)) {
         message(0, "Reference Windspeed: %g\n", wind_params.WindSigma0 * wind_params.WindSpeedFactor);
+    } else {
+        /* Check for undefined wind models*/
+        endrun(1, "WindModel = 0x%X is strange. This shall not happen.\n", wind_params.WindModel);
     }
-
 }
 
 int
