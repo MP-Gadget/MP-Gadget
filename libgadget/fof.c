@@ -468,15 +468,27 @@ fofp_merge(int target, int other, TreeWalk * tw)
     struct SpinLocks * spin = FOF_PRIMARY_GET_PRIV(tw)->spin;
 
     /* update MinID of h1: h2 is now just another child of h1
-     * so h2 does not need to be locked.
-     * h1 may not be its own head anymore,
-     * so we need to double check later.
-     * lock h1 so we don't change MinID but not MinIDTask.*/
+     * so we don't need to check that h2 changes its head.
+     * It might happen that h1 is added to another halo at this point
+     * and the addition gets the wrong MinID.
+     * For this reason we recompute the MinIDs after the main treewalk.
+     * We also lock h2 for a copy in case it is the h1 in another thread,
+     * and may have inconsistent MinID and MinIDTask.*/
+
+    /* Get a copy of h2 under the lock, which ensures
+     * that MinID and MinIDTask do not change independently. */
+    struct fof_particle_list h2label;
+    lock_spinlock(h2, spin);
+    h2label.MinID = HaloLabel[h2].MinID;
+    h2label.MinIDTask = HaloLabel[h2].MinIDTask;
+    unlock_spinlock(h2, spin);
+
+    /* Now lock h1 so we don't change MinID but not MinIDTask.*/
     lock_spinlock(h1, spin);
-    if(HaloLabel[h1].MinID > HaloLabel[h2].MinID)
+    if(HaloLabel[h1].MinID > h2label.MinID)
     {
-        HaloLabel[h1].MinID = HaloLabel[h2].MinID;
-        HaloLabel[h1].MinIDTask = HaloLabel[h2].MinIDTask;
+        HaloLabel[h1].MinID = h2label.MinID;
+        HaloLabel[h1].MinIDTask = h2label.MinIDTask;
     }
     unlock_spinlock(h1, spin);
 
