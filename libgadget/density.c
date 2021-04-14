@@ -458,8 +458,10 @@ density_ngbiter(
         }
         else {
             int i;
-            for(i = 0; i < 3; i++)
+            for(i = 0; i < 3; i++) {
+                #pragma omp atomic read
                 VelPred[i] = SphP_scratch->VelPred[3 * P[other].PI + i];
+            }
         }
         if(DENSITY_GET_PRIV(lv->tw)->DoEgyDensity) {
             O->EgyRho += mass_j * EntVarPred * wk;

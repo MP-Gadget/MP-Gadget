@@ -365,8 +365,8 @@ hydro_ngbiter(
      * yet so we cannot merge them. We can do this
      * with minimal locking since nothing happens should we compute them twice.
      * Zero can be the special value since there should never be zero entropy.*/
+    MyFloat VelPred[3];
     if(EntVarPred == 0) {
-        MyFloat VelPred[3];
         int bin = P[other].TimeBin;
         double a3inv = pow(priv->atime, -3);
         double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
@@ -382,6 +382,14 @@ hydro_ngbiter(
         #pragma omp atomic write
         priv->SPH_predicted->EntVarPred[P[other].PI] = EntVarPred;
     }
+    else {
+            int i;
+            for(i = 0; i < 3; i++) {
+                #pragma omp atomic read
+                VelPred[i] = priv->SPH_predicted->VelPred[3 * P[other].PI + i];
+            }
+        }
+
     /* Predict densities. Note that for active timebins the density is up to date so SPH_DensityPred is just returns the current densities.
      * This improves on the technique used in Gadget-2 by being a linear prediction that does not become pathological in deep timebins.*/
     int bin = P[other].TimeBin;
@@ -401,12 +409,10 @@ hydro_ngbiter(
     double p_over_rho2_j = Pressure_j / (eomdensity * eomdensity);
     double soundspeed_j = sqrt(GAMMA * Pressure_j / eomdensity);
 
-    MyFloat * velpred = HYDRA_GET_PRIV(lv->tw)->SPH_predicted->VelPred;
-
     double dv[3];
     int d;
     for(d = 0; d < 3; d++) {
-        dv[d] = I->Vel[d] - velpred[3 * P[other].PI + d];
+        dv[d] = I->Vel[d] - VelPred[d];
     }
 
     double vdotr = dotproduct(dist, dv);
