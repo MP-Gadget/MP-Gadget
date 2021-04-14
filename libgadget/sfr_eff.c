@@ -73,6 +73,26 @@ int get_generations(void)
     return sfr_params.Generations;
 }
 
+/* Structure storing the results of an evaluation of the star formation model*/
+struct sfr_eeqos_data
+{
+    /* Relaxation time*/
+    double trelax;
+    /* Star formation timescale*/
+    double tsfr;
+    /* Internal energy of the gas in the hot phase. */
+    double egyhot;
+    /* Internal energy of the gas in the cold phase.*/
+    double egycold;
+    /* Fraction of the gas in the cold cloud phase. */
+    double cloudfrac;
+    /* Electron fraction after cooling. */
+    double ne;
+};
+
+/* Computes properties of the gas on star forming equation of state*/
+static struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_particle_data * sph, double dtime, const double a3inv, const struct UVBG * const GlobalUVBG);
+
 /*Cooling only: no star formation*/
 static void cooling_direct(int i, const double a3inv, const double hubble, const struct UVBG * const GlobalUVBG);
 
