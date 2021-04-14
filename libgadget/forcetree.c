@@ -536,15 +536,32 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
                 if(add_particle_to_tree(nright->s.suns[i], this_left, tb, HybridNuGrav, nc, nnext) < 0)
                     return 1;
             }
-            /* Mark the right node as now invalid*/
-            nright->father = -5;
             /* Make sure that nodes which have
              * this_right as a sibling (there will
              * be a max of one, as it is a particle node
              * with no children) point to the replacement
              * on the left*/
-            if(this_right > right && tb.Nodes[this_right - 1].sibling == this_right)
-                tb.Nodes[this_right - 1].sibling = this_left;
+            /* This condition is checking for the root node, which has no siblings*/
+            if(this_right > right) {
+                /* Find the father, then the next child*/
+                struct NODE * fat = &tb.Nodes[nright->father];
+                /* Find the position of this child in the father*/
+                int sunloc = 0;
+                for(i = 0; i < 8; i++)
+                {
+                    if(fat->s.suns[i] == this_right) {
+                        sunloc = i;
+                        break;
+                    }
+                }
+                /* Change the sibling of the child next to this one*/
+                if(sunloc > 0) {
+                    if(tb.Nodes[fat->s.suns[i-1]].sibling == this_right)
+                        tb.Nodes[fat->s.suns[i-1]].sibling = this_left;
+                }
+            }
+            /* Mark the right node as now invalid*/
+            nright->father = -5;
             /* Now go to sibling*/
             this_left = nleft->sibling;
             this_right = nright->sibling;
@@ -722,7 +739,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
                 continue;
             for(t = 1; t < nthr; t++) {
                 const int righttop = topnodes[i + t * (EndLeaf - StartLeaf)];
-//                 message(1, "Merging %d to %d\n", righttop, target);
+//                  message(1, "tid = %d i = %d t = %d Merging %d to %d addresses are %lx - %lx end is %lx\n", omp_get_thread_num(), i, t, righttop, target, &tb.Nodes[righttop], &tb.Nodes[target], &tb.Nodes[nnext]);
                 if(merge_partial_force_trees(target, righttop, &nc, &nnext, tb, HybridNuGrav))
                     break;
             }
