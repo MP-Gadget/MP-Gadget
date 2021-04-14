@@ -117,14 +117,16 @@ typedef struct {
     TreeWalkQueryBase base;
     MyFloat Hsml;
     MyIDType MinID;
-    MyIDType MinIDTask;
+    int MinIDTask;
+    int pad;
 } TreeWalkQueryFOF;
 
 typedef struct {
     TreeWalkResultBase base;
     MyFloat Distance;
     MyIDType MinID;
-    MyIDType MinIDTask;
+    int MinIDTask;
+    int pad;
 } TreeWalkResultFOF;
 
 typedef struct {
@@ -134,7 +136,7 @@ typedef struct {
 static struct fof_particle_list
 {
     MyIDType MinID;
-    MyIDType MinIDTask;
+    int MinIDTask;
     int Pindex;
 }
 *HaloLabel;
