@@ -509,6 +509,7 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
         struct NODE * nright = &tb.Nodes[this_right];
         if(nc->nnext_thread >= tb.lastnode)
             return 1;
+#ifdef DEBUG
         /* Stop when we reach another topnode*/
         if((nleft->f.TopLevel && this_left != left) || (nright->f.TopLevel && this_right != right))
             endrun(6, "Encountered another topnode: left %d == right %d! type %d\n", this_left, this_right, nleft->f.ChildType);
@@ -518,6 +519,7 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
         /* Trees should be synced*/
         if(fabs(nleft->len / nright->len-1) > 1e-6)
             endrun(6, "Merge unsynced trees: %d %d len %g %g\n", this_left, this_right, nleft->len, nright->len);
+#endif
         /* Two node nodes: keep walking down*/
         if(nleft->f.ChildType == NODE_NODE_TYPE && nright->f.ChildType == NODE_NODE_TYPE) {
             if(tb.Nodes[nleft->s.suns[0]].father < 0 || tb.Nodes[nright->s.suns[0]].father < 0)
@@ -590,14 +592,18 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
                 tb.Nodes[child].father = this_left;
             }
             /* Make sure final child points to the parent's sibling.*/
+#ifdef DEBUG
             int oldsib = tb.Nodes[nleft->s.suns[7]].sibling;
+#endif
             /* Walk downwards making sure all the children point to the new sibling.
              * Note also changes last particle node child. */
             int nn = this_left;
             while(tb.Nodes[nn].f.ChildType == NODE_NODE_TYPE) {
                 nn = tb.Nodes[nn].s.suns[7];
+#ifdef DEBUG
                 if(tb.Nodes[nn].sibling != oldsib)
                     endrun(20, "Not the expected sibling %d != %d\n",tb.Nodes[nn].sibling, oldsib);
+#endif
                 tb.Nodes[nn].sibling = nleft->sibling;
             }
             /* Mark the right node as now invalid*/
