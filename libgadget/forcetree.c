@@ -305,17 +305,17 @@ struct NodeCache {
     int nrem_thread;
 };
 
-/*Get a pointer to memory for a free node, from our node cache.
- * If there is no memory left, return NULL.*/
+/*Get a pointer to memory for 8 free nodes, from our node cache. */
 int get_freenode(int * nnext, struct NodeCache *nc)
 {
     /*Get memory for an extra node from our cache.*/
-    if(nc->nrem_thread == 0) {
+    if(nc->nrem_thread < 8) {
         nc->nnext_thread = atomic_fetch_and_add(nnext, NODECACHE_SIZE);
         nc->nrem_thread = NODECACHE_SIZE;
     }
-    const int ninsert = (nc->nnext_thread)++;
-    (nc->nrem_thread)--;
+    const int ninsert = nc->nnext_thread;
+    nc->nnext_thread += 8;
+    nc->nrem_thread -= 8;
     return ninsert;
 }
 
@@ -357,31 +357,32 @@ create_new_node_layer(int firstparent, int p_toplace,
         /*We have two particles here, so create a new child node to store them both.*/
         /* if we are here the node must be large enough, thus contain exactly one child. */
         /* The parent is already a leaf, need to split */
-        for(i=0; i<8; i++) {
-            /* Get memory for an extra node from our cache.*/
-            newsuns[i] = get_freenode(nnext, nc);
-            /*If we already have too many nodes, exit loop.*/
-            if(nc->nnext_thread >= tb.lastnode) {
-                /* This means that we have > NMAXCHILD particles in the same place,
-                * which usually indicates a bug in the particle evolution. Print some helpful debug information.*/
-                message(1, "Failed placing %d at %g %g %g, type %d, ID %ld. Others were %d (%g %g %g, t %d ID %ld) and %d (%g %g %g, t %d ID %ld). next %d last %d\n",
-                    p_toplace, P[p_toplace].Pos[0], P[p_toplace].Pos[1], P[p_toplace].Pos[2], P[p_toplace].Type, P[p_toplace].ID,
-                    oldsuns[0], P[oldsuns[0]].Pos[0], P[oldsuns[0]].Pos[1], P[oldsuns[0]].Pos[2], P[oldsuns[0]].Type, P[oldsuns[0]].ID,
-                    oldsuns[1], P[oldsuns[1]].Pos[0], P[oldsuns[1]].Pos[1], P[oldsuns[1]].Pos[2], P[oldsuns[1]].Type, P[oldsuns[1]].ID
-                );
-                nc->nnext_thread = tb.lastnode + 10 * NODECACHE_SIZE;
-                /* If this is not the first layer created,
-                 * we need to mark the overall parent as a node node
-                 * while marking this one as a particle node */
-                if(firstparent != parent)
-                {
-                    nprnt->f.ChildType = PARTICLE_NODE_TYPE;
-                    nprnt->s.noccupied = NMAXCHILD;
-                    tb.Nodes[firstparent].f.ChildType = NODE_NODE_TYPE;
-                    tb.Nodes[firstparent].s.noccupied = (1<<16);
-                }
-                return 1;
+        /* Get memory for 8 extra nodes from our cache.*/
+        newsuns[0] = get_freenode(nnext, nc);
+        /*If we already have too many nodes, exit loop.*/
+        if(nc->nnext_thread >= tb.lastnode) {
+            /* This means that we have > NMAXCHILD particles in the same place,
+            * which usually indicates a bug in the particle evolution. Print some helpful debug information.*/
+            message(1, "Failed placing %d at %g %g %g, type %d, ID %ld. Others were %d (%g %g %g, t %d ID %ld) and %d (%g %g %g, t %d ID %ld). next %d last %d\n",
+                p_toplace, P[p_toplace].Pos[0], P[p_toplace].Pos[1], P[p_toplace].Pos[2], P[p_toplace].Type, P[p_toplace].ID,
+                oldsuns[0], P[oldsuns[0]].Pos[0], P[oldsuns[0]].Pos[1], P[oldsuns[0]].Pos[2], P[oldsuns[0]].Type, P[oldsuns[0]].ID,
+                oldsuns[1], P[oldsuns[1]].Pos[0], P[oldsuns[1]].Pos[1], P[oldsuns[1]].Pos[2], P[oldsuns[1]].Type, P[oldsuns[1]].ID
+            );
+            nc->nnext_thread = tb.lastnode + 10 * NODECACHE_SIZE;
+            /* If this is not the first layer created,
+                * we need to mark the overall parent as a node node
+                * while marking this one as a particle node */
+            if(firstparent != parent)
+            {
+                nprnt->f.ChildType = PARTICLE_NODE_TYPE;
+                nprnt->s.noccupied = NMAXCHILD;
+                tb.Nodes[firstparent].f.ChildType = NODE_NODE_TYPE;
+                tb.Nodes[firstparent].s.noccupied = (1<<16);
             }
+            return 1;
+        }
+        for(i=0; i<8; i++) {
+            newsuns[i] = newsuns[0] + i;
             struct NODE *nfreep = &tb.Nodes[newsuns[i]];
             /* We create a new leaf node.*/
             init_internal_node(nfreep, nprnt, i);
