@@ -6,6 +6,7 @@
 #include "timestep.h"
 #include "partmanager.h"
 #include "slotsmanager.h"
+#include "cooling.h"
 
 #define  METAL_YIELD       0.02	/*!< effective metal yield for star formation */
 
@@ -65,6 +66,6 @@ struct sfr_eeqos_data
 };
 
 /* Computes properties of the gas on star forming equation of state*/
-struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_particle_data * sph, double dtime, const double a3inv);
+struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_particle_data * sph, double dtime, const double a3inv, const struct UVBG * const GlobalUVBG);
 
 #endif
