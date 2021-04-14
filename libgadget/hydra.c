@@ -461,13 +461,10 @@ hydro_ngbiter(
     if(HydroParams.DensityIndependentSphOn) {
         /*This enables the grad-h corrections*/
         rr1 = 0, rr2 = 0;
-        MyFloat * entvarpred = HYDRA_GET_PRIV(lv->tw)->SPH_predicted->EntVarPred;
         /* leading-order term */
-        double EntOther = entvarpred[P[other].PI];
-
         hfc += P[other].Mass *
-            (dwk_i*iter->p_over_rho2_i*EntOther/I->EntVarPred +
-            dwk_j*p_over_rho2_j*I->EntVarPred/EntOther) / r;
+            (dwk_i*iter->p_over_rho2_i*EntVarPred/I->EntVarPred +
+            dwk_j*p_over_rho2_j*I->EntVarPred/EntVarPred) / r;
 
         /* enable grad-h corrections only if contrastlimit is non negative */
         if(HydroParams.DensityContrastLimit >= 0) {
