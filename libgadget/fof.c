@@ -398,12 +398,15 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
          * but the locking allows a race, where the particle with MinID set
          * is no longer the one which is the true Head of the group.
          * So we must check it again here.*/
+        #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++) {
             int head = HEAD(i, FOF_PRIMARY_GET_PRIV(tw)->Head);
+            lock_spinlock(head, priv->spin);
             if(HaloLabel[head].MinID > HaloLabel[i].MinID) {
                 HaloLabel[head].MinID = HaloLabel[i].MinID;
                 HaloLabel[head].MinIDTask = HaloLabel[i].MinIDTask;
             }
+            unlock_spinlock(head, priv->spin);
         }
         /* let's check out which particles have changed their MinID,
          * mark them for next round. */
