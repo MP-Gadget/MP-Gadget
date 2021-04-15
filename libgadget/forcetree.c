@@ -305,17 +305,17 @@ struct NodeCache {
     int nrem_thread;
 };
 
-/*Get a pointer to memory for a free node, from our node cache.
- * If there is no memory left, return NULL.*/
+/*Get a pointer to memory for 8 free nodes, from our node cache. */
 int get_freenode(int * nnext, struct NodeCache *nc)
 {
     /*Get memory for an extra node from our cache.*/
-    if(nc->nrem_thread == 0) {
+    if(nc->nrem_thread < 8) {
         nc->nnext_thread = atomic_fetch_and_add(nnext, NODECACHE_SIZE);
         nc->nrem_thread = NODECACHE_SIZE;
     }
-    const int ninsert = (nc->nnext_thread)++;
-    (nc->nrem_thread)--;
+    const int ninsert = nc->nnext_thread;
+    nc->nnext_thread += 8;
+    nc->nrem_thread -= 8;
     return ninsert;
 }
 
@@ -357,31 +357,32 @@ create_new_node_layer(int firstparent, int p_toplace,
         /*We have two particles here, so create a new child node to store them both.*/
         /* if we are here the node must be large enough, thus contain exactly one child. */
         /* The parent is already a leaf, need to split */
-        for(i=0; i<8; i++) {
-            /* Get memory for an extra node from our cache.*/
-            newsuns[i] = get_freenode(nnext, nc);
-            /*If we already have too many nodes, exit loop.*/
-            if(nc->nnext_thread >= tb.lastnode) {
-                /* This means that we have > NMAXCHILD particles in the same place,
-                * which usually indicates a bug in the particle evolution. Print some helpful debug information.*/
-                message(1, "Failed placing %d at %g %g %g, type %d, ID %ld. Others were %d (%g %g %g, t %d ID %ld) and %d (%g %g %g, t %d ID %ld). next %d last %d\n",
-                    p_toplace, P[p_toplace].Pos[0], P[p_toplace].Pos[1], P[p_toplace].Pos[2], P[p_toplace].Type, P[p_toplace].ID,
-                    oldsuns[0], P[oldsuns[0]].Pos[0], P[oldsuns[0]].Pos[1], P[oldsuns[0]].Pos[2], P[oldsuns[0]].Type, P[oldsuns[0]].ID,
-                    oldsuns[1], P[oldsuns[1]].Pos[0], P[oldsuns[1]].Pos[1], P[oldsuns[1]].Pos[2], P[oldsuns[1]].Type, P[oldsuns[1]].ID
-                );
-                nc->nnext_thread = tb.lastnode + 10 * NODECACHE_SIZE;
-                /* If this is not the first layer created,
-                 * we need to mark the overall parent as a node node
-                 * while marking this one as a particle node */
-                if(firstparent != parent)
-                {
-                    nprnt->f.ChildType = PARTICLE_NODE_TYPE;
-                    nprnt->s.noccupied = NMAXCHILD;
-                    tb.Nodes[firstparent].f.ChildType = NODE_NODE_TYPE;
-                    tb.Nodes[firstparent].s.noccupied = (1<<16);
-                }
-                return 1;
+        /* Get memory for 8 extra nodes from our cache.*/
+        newsuns[0] = get_freenode(nnext, nc);
+        /*If we already have too many nodes, exit loop.*/
+        if(nc->nnext_thread >= tb.lastnode) {
+            /* This means that we have > NMAXCHILD particles in the same place,
+            * which usually indicates a bug in the particle evolution. Print some helpful debug information.*/
+            message(1, "Failed placing %d at %g %g %g, type %d, ID %ld. Others were %d (%g %g %g, t %d ID %ld) and %d (%g %g %g, t %d ID %ld). next %d last %d\n",
+                p_toplace, P[p_toplace].Pos[0], P[p_toplace].Pos[1], P[p_toplace].Pos[2], P[p_toplace].Type, P[p_toplace].ID,
+                oldsuns[0], P[oldsuns[0]].Pos[0], P[oldsuns[0]].Pos[1], P[oldsuns[0]].Pos[2], P[oldsuns[0]].Type, P[oldsuns[0]].ID,
+                oldsuns[1], P[oldsuns[1]].Pos[0], P[oldsuns[1]].Pos[1], P[oldsuns[1]].Pos[2], P[oldsuns[1]].Type, P[oldsuns[1]].ID
+            );
+            nc->nnext_thread = tb.lastnode + 10 * NODECACHE_SIZE;
+            /* If this is not the first layer created,
+                * we need to mark the overall parent as a node node
+                * while marking this one as a particle node */
+            if(firstparent != parent)
+            {
+                nprnt->f.ChildType = PARTICLE_NODE_TYPE;
+                nprnt->s.noccupied = NMAXCHILD;
+                tb.Nodes[firstparent].f.ChildType = NODE_NODE_TYPE;
+                tb.Nodes[firstparent].s.noccupied = (1<<16);
             }
+            return 1;
+        }
+        for(i=0; i<8; i++) {
+            newsuns[i] = newsuns[0] + i;
             struct NODE *nfreep = &tb.Nodes[newsuns[i]];
             /* We create a new leaf node.*/
             init_internal_node(nfreep, nprnt, i);
@@ -508,6 +509,7 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
         struct NODE * nright = &tb.Nodes[this_right];
         if(nc->nnext_thread >= tb.lastnode)
             return 1;
+#ifdef DEBUG
         /* Stop when we reach another topnode*/
         if((nleft->f.TopLevel && this_left != left) || (nright->f.TopLevel && this_right != right))
             endrun(6, "Encountered another topnode: left %d == right %d! type %d\n", this_left, this_right, nleft->f.ChildType);
@@ -517,6 +519,7 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
         /* Trees should be synced*/
         if(fabs(nleft->len / nright->len-1) > 1e-6)
             endrun(6, "Merge unsynced trees: %d %d len %g %g\n", this_left, this_right, nleft->len, nright->len);
+#endif
         /* Two node nodes: keep walking down*/
         if(nleft->f.ChildType == NODE_NODE_TYPE && nright->f.ChildType == NODE_NODE_TYPE) {
             if(tb.Nodes[nleft->s.suns[0]].father < 0 || tb.Nodes[nright->s.suns[0]].father < 0)
@@ -535,15 +538,32 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
                 if(add_particle_to_tree(nright->s.suns[i], this_left, tb, HybridNuGrav, nc, nnext) < 0)
                     return 1;
             }
-            /* Mark the right node as now invalid*/
-            nright->father = -5;
             /* Make sure that nodes which have
              * this_right as a sibling (there will
              * be a max of one, as it is a particle node
              * with no children) point to the replacement
              * on the left*/
-            if(this_right > right && tb.Nodes[this_right - 1].sibling == this_right)
-                tb.Nodes[this_right - 1].sibling = this_left;
+            /* This condition is checking for the root node, which has no siblings*/
+            if(this_right > right) {
+                /* Find the father, then the next child*/
+                struct NODE * fat = &tb.Nodes[nright->father];
+                /* Find the position of this child in the father*/
+                int sunloc = 0;
+                for(i = 0; i < 8; i++)
+                {
+                    if(fat->s.suns[i] == this_right) {
+                        sunloc = i;
+                        break;
+                    }
+                }
+                /* Change the sibling of the child next to this one*/
+                if(sunloc > 0) {
+                    if(tb.Nodes[fat->s.suns[i-1]].sibling == this_right)
+                        tb.Nodes[fat->s.suns[i-1]].sibling = this_left;
+                }
+            }
+            /* Mark the right node as now invalid*/
+            nright->father = -5;
             /* Now go to sibling*/
             this_left = nleft->sibling;
             this_right = nright->sibling;
@@ -572,14 +592,18 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
                 tb.Nodes[child].father = this_left;
             }
             /* Make sure final child points to the parent's sibling.*/
+#ifdef DEBUG
             int oldsib = tb.Nodes[nleft->s.suns[7]].sibling;
+#endif
             /* Walk downwards making sure all the children point to the new sibling.
              * Note also changes last particle node child. */
             int nn = this_left;
             while(tb.Nodes[nn].f.ChildType == NODE_NODE_TYPE) {
                 nn = tb.Nodes[nn].s.suns[7];
+#ifdef DEBUG
                 if(tb.Nodes[nn].sibling != oldsib)
                     endrun(20, "Not the expected sibling %d != %d\n",tb.Nodes[nn].sibling, oldsib);
+#endif
                 tb.Nodes[nn].sibling = nleft->sibling;
             }
             /* Mark the right node as now invalid*/
@@ -721,7 +745,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
                 continue;
             for(t = 1; t < nthr; t++) {
                 const int righttop = topnodes[i + t * (EndLeaf - StartLeaf)];
-//                 message(1, "Merging %d to %d\n", righttop, target);
+//                  message(1, "tid = %d i = %d t = %d Merging %d to %d addresses are %lx - %lx end is %lx\n", omp_get_thread_num(), i, t, righttop, target, &tb.Nodes[righttop], &tb.Nodes[target], &tb.Nodes[nnext]);
                 if(merge_partial_force_trees(target, righttop, &nc, &nnext, tb, HybridNuGrav))
                     break;
             }

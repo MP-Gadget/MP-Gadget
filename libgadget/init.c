@@ -145,7 +145,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime
  */
 inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
 {
-    int i, j;
+    int i;
 
     /*Add TimeInit and TimeMax to the output list*/
     if (RestartSnapNum < 0) {
@@ -190,6 +190,7 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)	/* initialize sph_properties */
     {
+        int j;
         P[i].Ti_drift = Ti_Current;
 
         if(All.BlackHoleOn && RestartSnapNum == -1 && P[i].Type == 5 )

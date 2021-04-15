@@ -637,11 +637,6 @@ metal_return_ngbiter(
     const double r2 = iter->base.r2;
     const double r = iter->base.r;
 
-    if(P[other].Mass == 0) {
-        endrun(12, "Encountered zero mass particle during hydro;"
-                  " We haven't implemented tracer particles and this shall not happen\n");
-    }
-
     if(r2 > 0 && r2 < iter->kernel.HH)
     {
         double wk = 1;
@@ -816,7 +811,7 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
     double evalhsml[NHSML];
     for(j = 0; j < maxcmpt; j++)
         evalhsml[j] = effhsml(i, j, tw);
-    
+
     int close = 0;
     P[i].Hsml = ngb_narrow_down(&Right[pi],&Left[pi],evalhsml,STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi],maxcmpt,desnumngb,&close,tw->tree->BoxSize);
     double numngb = STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][close];

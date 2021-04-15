@@ -21,10 +21,6 @@ static struct {
     ptrdiff_t Nside;
 } UVF;
 
-/*Global UVbackground stored to avoid extra interpolations.*/
-static struct UVBG GlobalUVBG = {0};
-static double GlobalUVRed = -1;
-
 /* Read a big array from filename/dataset into an array, allocating memory in buffer.
  * which is returned. Nread argument is set equal to number of elements read.*/
 static double *
@@ -148,21 +144,16 @@ init_uvf_table(const char * UVFluctuationFile, const double BoxSize, const doubl
  * Otherwise returns the global UVBG passed in.
  *
  * */
-struct UVBG get_local_UVBG(double redshift, double * Pos, const double * PosOffset)
+struct UVBG get_local_UVBG(double redshift, const struct UVBG * const GlobalUVBG, const double * const Pos, const double * const PosOffset)
 {
-    if(fabs(redshift - GlobalUVRed) > 1e-4) {
-        GlobalUVBG = get_global_UVBG(redshift);
-        GlobalUVRed = redshift;
-    }
-
     if(!UVF.enabled) {
         /* directly use the TREECOOL table if UVF is disabled */
-        return GlobalUVBG;
+        return *GlobalUVBG;
     }
 
     struct UVBG uvbg = {0};
 
-    uvbg.self_shield_dens = GlobalUVBG.self_shield_dens;
+    uvbg.self_shield_dens = GlobalUVBG->self_shield_dens;
 
     double corrpos[3];
     int i;
@@ -173,7 +164,7 @@ struct UVBG get_local_UVBG(double redshift, double * Pos, const double * PosOffs
         return uvbg;
     }
 
-    memcpy(&uvbg, &GlobalUVBG, sizeof(struct UVBG));
+    memcpy(&uvbg, GlobalUVBG, sizeof(struct UVBG));
     return uvbg;
 }
 
