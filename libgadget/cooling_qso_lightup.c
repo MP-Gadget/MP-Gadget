@@ -556,7 +556,7 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree)
     double initionfrac = gas_ionization_fraction();
     double curionfrac = initionfrac;
 
-    message(0, "HeII: Started helium reionization model with ionization fraction %d\n", initionfrac);
+    message(0, "HeII: Started helium reionization model with ionization fraction %g\n", initionfrac);
     if(curionfrac < desired_ion_frac) {
         ncand = build_qso_candidate_list(&qso_cand, fof);
         walltime_measure("/HeIII/Find");
@@ -565,6 +565,9 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree)
     int64_t ncand_before = count_QSO_halos(ncand, &ncand_tot, MPI_COMM_WORLD);
     int iteration;
 
+    /* If there are no quasars this will be tough*/
+    if(ncand_tot == 0)
+        return;
     message(0, "HeII: Built quasar candidate list from %d quasars\n", ncand_tot);
     for(iteration = 0; curionfrac < desired_ion_frac; iteration++){
         /* Get a new quasar*/
@@ -572,7 +575,7 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree)
         if(new_qso >= ncand)
             endrun(12, "HeII: QSO %d > no. candidates %d! Cannot happen\n", new_qso, ncand);
         /* Make sure someone has a quasar*/
-        if(ncand_tot == 0) {
+        if(ncand_tot <= 0) {
             if(desired_ion_frac - curionfrac > 0.1)
                 message(0, "HeII: Ionization fraction %g less than desired ionization fraction of %g because not enough quasars\n", curionfrac, desired_ion_frac);
             break;
