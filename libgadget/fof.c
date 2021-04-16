@@ -401,12 +401,22 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
         #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++) {
             int head = HEAD(i, FOF_PRIMARY_GET_PRIV(tw)->Head);
-            lock_spinlock(head, priv->spin);
-            if(HaloLabel[head].MinID > HaloLabel[i].MinID) {
-                HaloLabel[head].MinID = HaloLabel[i].MinID;
-                HaloLabel[head].MinIDTask = HaloLabel[i].MinIDTask;
+            /* Don't check against ourself*/
+            if(head == i)
+                continue;
+            MyIDType headminid;
+            #pragma omp atomic read
+            headminid = HaloLabel[head].MinID;
+            /* No atomic needed for i as this is not a head*/
+            if(headminid > HaloLabel[i].MinID) {
+                lock_spinlock(head, priv->spin);
+                if(HaloLabel[head].MinID > HaloLabel[i].MinID) {
+                    #pragma omp atomic write
+                    HaloLabel[head].MinID = HaloLabel[i].MinID;
+                    HaloLabel[head].MinIDTask = HaloLabel[i].MinIDTask;
+                }
+                unlock_spinlock(head, priv->spin);
             }
-            unlock_spinlock(head, priv->spin);
         }
         /* let's check out which particles have changed their MinID,
          * mark them for next round. */
