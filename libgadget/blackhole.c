@@ -1225,8 +1225,10 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
     }
 
-    /* Dump feedback energy */
-    if(P[other].Type == 0 &&
+    MyIDType * SPH_SwallowID = BH_GET_PRIV(lv->tw)->SPH_SwallowID;
+
+    /* Dump feedback energy into non-swallowed particles. */
+    if(P[other].Type == 0 && SPH_SwallowID[P[other].PI] == 0 &&
         (r2 < iter->feedback_kernel.HH && P[other].Mass > 0) &&
             (I->FeedbackWeightSum > 0 && I->FeedbackEnergy > 0))
     {
@@ -1248,8 +1250,9 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             * tcool rather than trelax.*/
         if(sfreff_on_eeqos(&SPHP(other), BH_GET_PRIV(lv->tw)->a3inv)) {
             /* We cannot atomically set a bitfield.
-             * This flag is never read in this thread loop, nor
-             * are other flags set here. So lack of atomicity is (I think) not a problem*/
+             * This flag is never read in this thread loop, and we are careful not to
+             * do this with a swallowed particle (as this can race with IsGarbage being set).
+             * So lack of atomicity is (I think) not a problem.*/
             //#pragma omp atomic write
             P[other].BHHeated = 1;
         }
@@ -1263,8 +1266,6 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             /* Swap in the new gas entropy only if the old one hasn't changed.*/
         } while(!__atomic_compare_exchange(entptr, &entold, &entnew, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
     }
-
-    MyIDType * SPH_SwallowID = BH_GET_PRIV(lv->tw)->SPH_SwallowID;
 
     /* Swallowing a gas */
     /* This will only be true on one thread so we do not need a lock here*/
