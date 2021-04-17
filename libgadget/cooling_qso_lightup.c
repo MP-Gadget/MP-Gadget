@@ -566,8 +566,11 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree)
     int iteration;
 
     /* If there are no quasars this will be tough*/
-    if(ncand_tot == 0)
+    if(ncand_tot == 0) {
+        if(qso_cand)
+            myfree(qso_cand);
         return;
+    }
     message(0, "HeII: Built quasar candidate list from %d quasars\n", ncand_tot);
     for(iteration = 0; curionfrac < desired_ion_frac; iteration++){
         /* Get a new quasar*/
