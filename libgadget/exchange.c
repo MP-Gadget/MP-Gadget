@@ -128,6 +128,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
         if(!MPIU_Any(plan.nexchange > 0, Comm))
         {
             myfree(plan.ExchangeList);
+            walltime_measure("/Domain/exchange/togo");
             break;
         }
 
