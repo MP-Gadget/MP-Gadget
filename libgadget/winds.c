@@ -303,12 +303,14 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
         double dir[3];
         get_wind_dir(other, dir);
         double v = priv->kicks[i].StarKickVelocity;
-        int j;
-        for(j = 0; j < 3; j++)
-        {
-            P[other].Vel[j] += v * dir[j];
+        if(v > 0 && Time > 0) {
+            int j;
+            for(j = 0; j < 3; j++)
+            {
+                P[other].Vel[j] += v * dir[j];
+            }
+            SPHP(other).DelayTime = wind_params.WindFreeTravelLength / (v / Time);
         }
-        SPHP(other).DelayTime = wind_params.WindFreeTravelLength / (v / Time);
     }
     /* Get total number of potential new stars to allocate memory.*/
     int64_t tot_newstars, tot_kicks, tot_applied;
@@ -390,7 +392,8 @@ sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
         for(d = 0; d<3; d++){
             vdisp -= pow(WINDP(i, Windd).V1sum[close][d] / numngb,2);
         }
-        WINDP(i, Windd).Vdisp = sqrt(vdisp / 3);
+        if(vdisp > 0)
+            WINDP(i, Windd).Vdisp = sqrt(vdisp / 3);
     }
 
     if(tw->maxnumngb[tid] < numngb)
@@ -549,7 +552,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     if(SPHP(other).DelayTime > 0) return;
 
     /* No eligible gas particles not in wind*/
-    if(I->TotalWeight == 0) return;
+    if(I->TotalWeight == 0 || I->Vdisp <= 0) return;
 
     /* Paranoia*/
     if(P[other].Type != 0 || P[other].IsGarbage || P[other].Swallowed)
@@ -561,8 +564,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
         windeff = wind_params.WindEfficiency;
         v = wind_params.WindSpeed * WIND_GET_PRIV(lv->tw)->Time;
     } else if(HAS(wind_params.WindModel, WIND_USE_HALO)) {
-        windeff = 1.0 / (I->Vdisp / WIND_GET_PRIV(lv->tw)->Time / wind_params.WindSigma0);
-        windeff *= windeff;
+        windeff = pow(1.0 / (I->Vdisp / WIND_GET_PRIV(lv->tw)->Time / wind_params.WindSigma0),2);
         v = wind_params.WindSpeedFactor * I->Vdisp;
     } else {
         endrun(1, "WindModel = 0x%X is strange. This shall not happen.\n", wind_params.WindModel);
@@ -571,7 +573,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     double p = windeff * I->Mass / I->TotalWeight;
     double random = get_random_number(I->ID + P[other].ID);
 
-    if (random < p) {
+    if (random < p && v > 0) {
         /* Store a potential kick. This might not be the kick actually used,
          * because another star particle may be closer, but we can resolve
          * that after the treewalk*/
