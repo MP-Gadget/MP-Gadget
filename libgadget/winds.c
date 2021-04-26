@@ -311,6 +311,11 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
             }
             SPHP(other).DelayTime = wind_params.WindFreeTravelLength / (v / Time);
         }
+        if(v <= 0 || !isfinite(v) || !isfinite(SPHP(other).DelayTime))
+        {
+            endrun(5, "Odd v: other = %d, DT = %g v = %g i = %d, nkicks %d maxkicks %d dist %g id %ld\n",
+                   other, SPHP(other).DelayTime, v, i, priv->nkicks, priv->maxkicks, priv->kicks[i].StarDistance, priv->kicks[i].StarID);
+        }
     }
     /* Get total number of potential new stars to allocate memory.*/
     int64_t tot_newstars, tot_kicks, tot_applied;
