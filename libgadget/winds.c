@@ -594,6 +594,8 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
         kick->StarKickVelocity = v;
         kick->part_index = other;
     }
+    if(v<=0 || !isfinite(v) || !isfinite(r))
+        endrun(5, "weird: v=%g r=%g id %ld other %d\n", v, r, I->ID, other);
 }
 
 int
