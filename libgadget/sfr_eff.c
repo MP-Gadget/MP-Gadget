@@ -843,7 +843,7 @@ void init_cooling_and_star_formation(int CoolingOn)
     }
 
     if(All.WindOn) {
-        init_winds(sfr_params.FactorSN, sfr_params.EgySpecSN, sfr_params.PhysDensThresh);
+        init_winds(sfr_params.FactorSN, sfr_params.EgySpecSN, sfr_params.PhysDensThresh, All.UnitTime_in_s);
     }
 
 }

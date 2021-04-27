@@ -19,6 +19,8 @@ static struct WindParams
     double WindFreeTravelDensFac;
     /*Density threshold at which to recouple wind particles.*/
     double WindFreeTravelDensThresh;
+    /* Maximum time in internal time units to allow the wind to be free-streaming.*/
+    double MaxWindFreeTravelTime;
     /* used in VS08 and SH03*/
     double WindEfficiency;
     double WindSpeed;
@@ -80,6 +82,7 @@ void set_winds_params(ParameterSet * ps)
         wind_params.WindSpeedFactor = param_get_double(ps, "WindSpeedFactor");
 
         wind_params.MinWindVelocity = param_get_double(ps, "MinWindVelocity");
+        wind_params.MaxWindFreeTravelTime = param_get_double(ps, "MaxWindFreeTravelTime");
         wind_params.WindFreeTravelLength = param_get_double(ps, "WindFreeTravelLength");
         wind_params.WindFreeTravelDensFac = param_get_double(ps, "WindFreeTravelDensFac");
     }
@@ -87,16 +90,17 @@ void set_winds_params(ParameterSet * ps)
 }
 
 void
-init_winds(double FactorSN, double EgySpecSN, double PhysDensThresh)
+init_winds(double FactorSN, double EgySpecSN, double PhysDensThresh, double UnitTime_in_s)
 {
     wind_params.WindSpeed = sqrt(2 * wind_params.WindEnergyFraction * FactorSN * EgySpecSN / (1 - FactorSN));
-
+    /* Convert wind free travel time from Myr to internal units*/
+    wind_params.MaxWindFreeTravelTime = wind_params.MaxWindFreeTravelTime * SEC_PER_MEGAYEAR / UnitTime_in_s;
     wind_params.WindFreeTravelDensThresh = wind_params.WindFreeTravelDensFac * PhysDensThresh;
     if(HAS(wind_params.WindModel, WIND_FIXED_EFFICIENCY)) {
         wind_params.WindSpeed /= sqrt(wind_params.WindEfficiency);
-        message(0, "Windspeed: %g\n", wind_params.WindSpeed);
+        message(0, "Windspeed: %g MaxDelay %g\n", wind_params.WindSpeed, wind_params.MaxWindFreeTravelTime);
     } else if(HAS(wind_params.WindModel, WIND_USE_HALO)) {
-        message(0, "Reference Windspeed: %g\n", wind_params.WindSigma0 * wind_params.WindSpeedFactor);
+        message(0, "Reference Windspeed: %g, MaxDelay %g\n", wind_params.WindSigma0 * wind_params.WindSpeedFactor, wind_params.MaxWindFreeTravelTime);
     } else {
         /* Check for undefined wind models*/
         endrun(1, "WindModel = 0x%X is strange. This shall not happen.\n", wind_params.WindModel);
@@ -313,7 +317,10 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
             {
                 P[other].Vel[j] += v * dir[j];
             }
-            SPHP(other).DelayTime = wind_params.WindFreeTravelLength / (v / Time);
+            double delay = wind_params.WindFreeTravelLength / (v / Time);
+            if(delay > wind_params.MaxWindFreeTravelTime)
+                delay = wind_params.MaxWindFreeTravelTime;
+            SPHP(other).DelayTime = delay;
         }
         if(v <= 0 || !isfinite(v) || !isfinite(SPHP(other).DelayTime))
         {
