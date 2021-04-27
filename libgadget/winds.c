@@ -41,6 +41,7 @@ typedef struct {
     double TotalWeight;
     double DMRadius[NWINDHSML];
     double Vdisp;
+    double Vel[3];
 } TreeWalkQueryWind;
 
 typedef struct {
@@ -439,9 +440,10 @@ sfr_wind_copy(int place, TreeWalkQueryWind * input, TreeWalk * tw)
     input->Mass = P[place].Mass;
     input->Hsml = P[place].Hsml;
     input->TotalWeight = WINDP(place, Windd).TotalWeight;
-
     input->Vdisp = WINDP(place, Windd).Vdisp;
     int i;
+    for(i=0; i<3; i++)
+        input->Vel[i] = P[place].Vel[i];
     for(i = 0; i<NWINDHSML; i++){
         input->DMRadius[i]=effdmradius(place,i,tw);
     }
@@ -491,8 +493,8 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
                 O->Ngb[i] += 1;
                 int d;
                 for(d = 0; d < 3; d ++) {
-                    /* Add hubble flow; FIXME: this shall be a function, and the direction looks wrong too. */
-                    double vel = P[other].Vel[d] + WIND_GET_PRIV(lv->tw)->hubble * atime * atime * dist[d];
+                    /* Add hubble flow to relative velocity. */
+                    double vel = P[other].Vel[d] - I->Vel[d] + WIND_GET_PRIV(lv->tw)->hubble * atime * atime * dist[d];
                     O->V1sum[i][d] += vel;
                     O->V2sum[i] += vel * vel;
                 }
