@@ -26,6 +26,8 @@ static struct WindParams
     /* used in OFJT10*/
     double WindSigma0;
     double WindSpeedFactor;
+    /* Minimum wind velocity for kicked particles, in internal velocity units*/
+    double MinWindVelocity;
 } wind_params;
 
 #define NWINDHSML 5 /* Number of densities to evaluate for wind weight ngbiter*/
@@ -77,6 +79,7 @@ void set_winds_params(ParameterSet * ps)
         wind_params.WindSigma0 = param_get_double(ps, "WindSigma0");
         wind_params.WindSpeedFactor = param_get_double(ps, "WindSpeedFactor");
 
+        wind_params.MinWindVelocity = param_get_double(ps, "MinWindVelocity");
         wind_params.WindFreeTravelLength = param_get_double(ps, "WindFreeTravelLength");
         wind_params.WindFreeTravelDensFac = param_get_double(ps, "WindFreeTravelDensFac");
     }
@@ -576,6 +579,9 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     } else {
         endrun(1, "WindModel = 0x%X is strange. This shall not happen.\n", wind_params.WindModel);
     }
+    /* Minimum wind velocity. This ensures particles do not remain in the wind forever*/
+    if(v < wind_params.MinWindVelocity)
+        v = wind_params.MinWindVelocity;
 
     double p = windeff * I->Mass / I->TotalWeight;
     double random = get_random_number(I->ID + P[other].ID);
