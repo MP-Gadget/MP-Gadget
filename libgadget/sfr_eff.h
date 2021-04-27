@@ -47,4 +47,7 @@ int get_generations(void);
 /* Returns 1 if particle is on effective EOS, 0 otherwise*/
 int sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv);
 
+/* Returns 1 if particle is on effective EOS, 0 otherwise. Does not check if particle is in wind.*/
+int sfreff_eqos_density_no_delay(const struct sph_particle_data * sph, const double a3inv);
+
 #endif

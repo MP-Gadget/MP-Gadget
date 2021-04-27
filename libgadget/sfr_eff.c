@@ -409,11 +409,9 @@ cooling_direct(int i, const double a3inv, const double hubble, const struct UVBG
     SPHP(i).Sfr = 0;
 }
 
-/* returns 1 if the particle is on the effective equation of state,
- * cooling via the relaxation equation and maybe forming stars.
- * 0 if the particle does not form stars, instead cooling normally.*/
+/* This splits out the non-wind part of the star forming equation of state, to avoid a race condition in BH.*/
 int
-sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
+sfreff_eqos_density_no_delay(const struct sph_particle_data * sph, const double a3inv)
 {
     int flag = 0;
     /* no sfr: normal cooling*/
@@ -426,9 +424,6 @@ sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
 
     if(sph->Density < sfr_params.OverDensThresh)
         flag = 0;
-
-    if(sph->DelayTime > 0)
-        flag = 0;   /* only normal cooling for particles in the wind */
 
     /* The model from 0904.2572 makes gas not star forming if more than 0.5 dex above
      * the effective equation of state (at z=0). This in practice means black hole heated.*/
@@ -443,6 +438,20 @@ sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
         if(unew >= egyeff * 3.2)
             flag = 0;
     }
+    return flag;
+}
+
+/* returns 1 if the particle is on the effective equation of state,
+ * cooling via the relaxation equation and maybe forming stars.
+ * 0 if the particle does not form stars, instead cooling normally.*/
+int
+sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
+{
+    int flag = sfreff_eqos_density_no_delay(sph, a3inv);
+
+    if(sph->DelayTime > 0)
+        flag = 0;   /* only normal cooling for particles in the wind */
+
     return flag;
 }
 

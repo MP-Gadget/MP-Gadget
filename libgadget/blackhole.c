@@ -968,9 +968,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             O->BH_minTimeBin = P[other].TimeBin;
     }
 
-     /* BH does not accrete wind */
-    if(winds_is_particle_decoupled(other)) return;
-
     /* Find the black hole potential minimum. */
     if(r2 < iter->accretion_kernel.HH)
     {
@@ -1157,11 +1154,6 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
     if(P[other].ID == I->ID) return;
 
-     /* BH does not accrete wind */
-    if(winds_is_particle_decoupled(other))
-        return;
-
-
      /* we have a black hole merger! */
     if(P[other].Type == 5 && BHP(other).SwallowID != (MyIDType) -1)
     {
@@ -1244,11 +1236,19 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
             wk = density_kernel_wk(&iter->feedback_kernel, u);
 
+        /* To avoid feedback heated wind being dense, very hot and cooling slowly,
+         * we remove BH heated particles from the wind. This means the BH can
+         * sometimes stimulate star formation, but I think this is the right thing
+         * if the gas is close to the BH. Note that SFR happens after BH so
+         * the star formation may happen earlier.*/
+        #pragma omp atomic write
+        SPHP(other).DelayTime = 0;
+
         const double injected_BH = I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum;
         /* Set a flag for star-forming particles:
-            * we want these to cool to the EEQOS via
-            * tcool rather than trelax.*/
-        if(sfreff_on_eeqos(&SPHP(other), BH_GET_PRIV(lv->tw)->a3inv)) {
+         * we want these to cool to the EEQOS via
+         * tcool rather than trelax.*/
+        if(sfreff_eqos_density_no_delay(&SPHP(other), BH_GET_PRIV(lv->tw)->a3inv)) {
             /* We cannot atomically set a bitfield.
              * This flag is never read in this thread loop, and we are careful not to
              * do this with a swallowed particle (as this can race with IsGarbage being set).
