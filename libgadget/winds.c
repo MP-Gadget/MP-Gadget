@@ -350,6 +350,9 @@ winds_evolve(int i, double a3inv, double hubble)
     }
     /*Reduce the time until the particle can form stars again by the current timestep*/
     if(SPHP(i).DelayTime > 0) {
+        /* Enforce the maximum in case of restarts*/
+        if(SPHP(i).DelayTime > wind_params.MaxWindFreeTravelTime)
+            SPHP(i).DelayTime = wind_params.MaxWindFreeTravelTime;
         const double dloga = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift);
         /*  the proper time duration of the step */
         const double dtime = dloga / hubble;
