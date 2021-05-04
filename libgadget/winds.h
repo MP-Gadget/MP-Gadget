@@ -39,4 +39,6 @@ int winds_is_particle_decoupled(int i);
 /* Set and evolve the hydro parameters for a decoupled wind particle.*/
 void winds_decoupled_hydro(int i, double atime);
 
+/* Returns 1 if the winds ever decouple, 0 otherwise*/
+int winds_ever_decouple(void);
 #endif

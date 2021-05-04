@@ -169,6 +169,15 @@ struct winddata {
     int maxcmpte;
 };
 
+/* Returns 1 if the winds ever decouple, 0 otherwise*/
+int winds_ever_decouple(void)
+{
+    if(wind_params.MaxWindFreeTravelTime > 0)
+        return 1;
+    else
+        return 0;
+}
+
 /* Structure to store a potential kick
  * to a gas particle from a newly formed star.
  * We add a queue of these and resolve them
@@ -317,10 +326,12 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
             {
                 P[other].Vel[j] += v * dir[j];
             }
-            double delay = wind_params.WindFreeTravelLength / (v / Time);
-            if(delay > wind_params.MaxWindFreeTravelTime)
-                delay = wind_params.MaxWindFreeTravelTime;
-            SPHP(other).DelayTime = delay;
+            if(winds_ever_decouple()) {
+                double delay = wind_params.WindFreeTravelLength / (v / Time);
+                if(delay > wind_params.MaxWindFreeTravelTime)
+                    delay = wind_params.MaxWindFreeTravelTime;
+                SPHP(other).DelayTime = delay;
+            }
         }
         if(v <= 0 || !isfinite(v) || !isfinite(SPHP(other).DelayTime))
         {
@@ -617,7 +628,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
 int
 winds_make_after_sf(int i, double sm, double atime)
 {
-    if(!HAS(wind_params.WindModel, WIND_SUBGRID))
+    if(!HAS(wind_params.WindModel, WIND_SUBGRID) || !winds_ever_decouple())
         return 0;
     /* Here comes the Springel Hernquist 03 wind model */
     /* Notice that this is the mass of the gas particle after forking a star, 1/GENERATIONS
