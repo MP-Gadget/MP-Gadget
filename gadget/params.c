@@ -283,10 +283,10 @@ create_gadget_parameter_set()
     param_declare_double(ps, "WindSigma0", OPTIONAL, 353, "Reference halo circular velocity at which to evaluate wind speed. Needs ofjt10 wind model.");
     param_declare_double(ps, "WindSpeedFactor", OPTIONAL, 3.7, "Factor connecting wind speed to halo circular velocity. ofjt10 wind model.");
 
-    param_declare_double(ps, "WindFreeTravelLength", OPTIONAL, 20, "Expected decoupling distance for the wind in internal distance units.");
+    param_declare_double(ps, "WindFreeTravelLength", OPTIONAL, 0, "Expected decoupling distance for the wind in internal distance units. Default no decoupling as this produces a better gsmf.");
     param_declare_double(ps, "WindFreeTravelDensFac", OPTIONAL, 0.1, "If the density of the wind particle drops below this factor of the star formation density threshold, the gas will recouple.");
     param_declare_double(ps, "MinWindVelocity", OPTIONAL, 0, "Minimum velocity of the kicked particle in the wind, in internal units (physical km/s).");
-    param_declare_double(ps, "MaxWindFreeTravelTime", OPTIONAL, 10000, "Maximum time in Myrs for the wind to be decoupled.");
+    param_declare_double(ps, "MaxWindFreeTravelTime", OPTIONAL, 0.1, "Maximum time in Myrs for the wind to be decoupled.");
 
     param_declare_int(ps, "RandomSeed", OPTIONAL, 42, "Random number generator initial seed. Used to form stars.");
 
