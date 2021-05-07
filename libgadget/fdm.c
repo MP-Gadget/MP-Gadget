@@ -137,7 +137,11 @@ void dm_density_check_neighbours (int i, TreeWalk * tw)
         }
         
         DhsmlDensity[pi] *= P[i].Hsml / (NUMDIMS * (FDMP(i).Density));
-        DhsmlDensity[pi] = 1 / (1 + DhsmlDensity[pi]);
+        if(DhsmlDensity[pi] > -0.9){    /* note: this would be -1 if only a single particle at zero lag is found */
+            DhsmlDensity[pi] = 1 / (1 + DhsmlDensity[pi]);
+        } else{
+            DhsmlDensity[pi] = 1;
+        }       
         /* We will use this in quantum pressure calculation */
         FDMP(i).DhsmlDensityFactor = DhsmlDensity[pi];
 
