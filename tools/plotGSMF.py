@@ -37,14 +37,14 @@ def getbmf(pig,Lbox, hh):
     bmf = massfunc(bhmasses[np.where(swallowed < 1)],Lbox)
     return bmf
 
-def plot_bhmf(pig):
+def plot_bhmf(pig, label=None):
     """Plot a black hole mass function from a FOF table."""
     bf = BigFile(pig)
     redshift = 1/bf['Header'].attrs['Time']-1
     hh = bf['Header'].attrs['HubbleParam']
     lbox = bf['Header'].attrs['BoxSize']/1000/hh
     lfm = getbmf(bf,lbox, hh)
-    plt.plot(lfm[0],lfm[1],label='z=%.1f'%redshift)
+    plt.plot(lfm[0],lfm[1],label=(label or '')+' z=%.1f'%redshift)
     plt.fill_between(lfm[0],lfm[2],lfm[3],alpha=0.2)
     plt.xlabel(r'$\mathrm{log}_{10} [M_{\rm BH}/M_{\odot}]$',fontsize=17)
     plt.ylabel(r'$\mathrm{log}_{10} \phi/[\mathrm{dex}^{-1} \mathrm{Mpc}^{-3}]$',fontsize=15)
@@ -53,7 +53,7 @@ def plot_bhmf(pig):
     plt.title('BH Mass function',fontsize=15)
     plt.legend(fontsize=15)
 
-def plot_gsmf(pig, label=None):
+def plot_gsmf(pig, label=None, plot_data=True):
     """Plot a galaxy stellar mass function from a FOF table, compared to some observations."""
     bf = BigFile(pig)
     redshift = 1/bf['Header'].attrs['Time']-1
@@ -63,7 +63,7 @@ def plot_gsmf(pig, label=None):
     print ('z=',redshift)
 
     lfm = get_gsmf(bf,lbox, hh)
-    plt.plot(lfm[0],lfm[1], label=label)
+    plt.plot(lfm[0],lfm[1], label=(label or '')+' z=%.1f' % redshift)
     plt.fill_between(lfm[0],lfm[2],lfm[3],alpha=0.2)
 
     color2 = {'Song2016':'#0099e6','Grazian2015':'#7f8c83','Gonzalez2011':'#ffa64d',\
@@ -72,24 +72,25 @@ def plot_gsmf(pig, label=None):
     marker2 = {'Song2016':'o','Grazian2015':'s','Gonzalez2011':'v',\
           'Duncan2014':'^','Stefanon2017':'<'}
 
-    obs = number_density(feature="GSMF",z_target=redshift,quiet=1,h=hh)
-    for ii in range(obs.n_target_observation):
-        data       = obs.target_observation['Data'][ii]
-        label      = obs.target_observation.index[ii]
-        datatype   = obs.target_observation['DataType'][ii]
+    if plot_data:
+        obs = number_density(feature="GSMF",z_target=redshift,quiet=1,h=hh)
+        for ii in range(obs.n_target_observation):
+            data       = obs.target_observation['Data'][ii]
+            label      = obs.target_observation.index[ii]
+            datatype   = obs.target_observation['DataType'][ii]
 
-        if datatype == 'data':
-            data[:,1:] = np.log10(data[:,1:])
-            try:
-                color      = color2[label]
-                marker     = marker2[label]
-            except KeyError:
-                color = None
-                marker = 'o'
-            plt.errorbar(data[:,0],  data[:,1], yerr = [data[:,1]-data[:,3],data[:,2]- data[:,1]],\
-                        label=label,color=color,fmt=marker)
-        else:
-            continue
+            if datatype == 'data':
+                data[:,1:] = np.log10(data[:,1:])
+                try:
+                    color      = color2[label]
+                    marker     = marker2[label]
+                except KeyError:
+                    color = None
+                    marker = 'o'
+                plt.errorbar(data[:,0],  data[:,1], yerr = [data[:,1]-data[:,3],data[:,2]- data[:,1]],\
+                            label=label,color=color,fmt=marker)
+            else:
+                continue
 
     plt.legend(fontsize=14)
     plt.title('GSMF,bhfdbk,z=%.1f'%redshift,fontsize=15)
