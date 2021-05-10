@@ -1,4 +1,6 @@
 """A short function to plot a GSMF from a simulation, and compare to some publuc data"""
+import glob
+import os
 from bigfile import BigFile
 import numpy as np
 from astrodatapy.number_density import number_density
@@ -95,3 +97,18 @@ def plot_gsmf(pig, label=None, plot_data=True):
     plt.legend(fontsize=14)
     plt.title('GSMF,bhfdbk,z=%.1f'%redshift,fontsize=15)
     plt.ylabel(r'$\mathrm{log}_{10} \phi/[\mathrm{dex}^{-1} \mathrm{Mpc}^{-3}]$',fontsize=15)
+
+def find_redshift(redshift, directory, pig=True):
+    """Find a snapshot at a given redshift from a directory list. Returns snapshot number."""
+    if pig:
+        fname = "PIG_*"
+    else:
+        fname = "PART_*"
+    globs = glob.glob(os.path.join(directory, fname))
+    for gg in globs:
+        bf = BigFile(gg)
+        rr = 1/bf['Header'].attrs['Time']-1
+        if np.abs(rr - redshift) < 0.05:
+            return gg
+        del bf
+    return None
