@@ -601,8 +601,8 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
         endrun(1, "WindModel = 0x%X is strange. This shall not happen.\n", wind_params.WindModel);
     }
     /* Minimum wind velocity. This ensures particles do not remain in the wind forever*/
-    if(v < wind_params.MinWindVelocity)
-        v = wind_params.MinWindVelocity;
+    if(v < wind_params.MinWindVelocity * WIND_GET_PRIV(lv->tw)->Time)
+        v = wind_params.MinWindVelocity * WIND_GET_PRIV(lv->tw)->Time;
 
     double p = windeff * I->Mass / I->TotalWeight;
     double random = get_random_number(I->ID + P[other].ID);
