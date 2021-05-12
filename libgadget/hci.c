@@ -170,6 +170,8 @@ hci_query(HCIManager * manager, HCIAction * action)
         message(0, "HCI: Stopping due to TimeLimitCPU, dumping a CheckPoint.\n");
         action->type = HCI_TIMEOUT;
         action->write_snapshot = 1;
+        if(manager->FOFEnabled)
+            action->write_fof = 1;
         return 1;
     }
 
