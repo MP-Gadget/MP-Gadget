@@ -10,6 +10,7 @@
 #include "timebinmgr.h"
 #include "walltime.h"
 #include "density.h"
+#include "hydra.h"
 
 /*Parameters of the wind model*/
 static struct WindParams
@@ -30,6 +31,8 @@ static struct WindParams
     double WindSpeedFactor;
     /* Minimum wind velocity for kicked particles, in internal velocity units*/
     double MinWindVelocity;
+    /* Fraction of wind energy in thermal energy*/
+    double WindThermalFactor;
 } wind_params;
 
 #define NWINDHSML 5 /* Number of densities to evaluate for wind weight ngbiter*/
@@ -81,6 +84,7 @@ void set_winds_params(ParameterSet * ps)
         wind_params.WindSigma0 = param_get_double(ps, "WindSigma0");
         wind_params.WindSpeedFactor = param_get_double(ps, "WindSpeedFactor");
 
+        wind_params.WindThermalFactor = param_get_double(ps, "WindThermalFactor");
         wind_params.MinWindVelocity = param_get_double(ps, "MinWindVelocity");
         wind_params.MaxWindFreeTravelTime = param_get_double(ps, "MaxWindFreeTravelTime");
         wind_params.WindFreeTravelLength = param_get_double(ps, "WindFreeTravelLength");
@@ -193,6 +197,8 @@ struct StarKick
     MyIDType StarID;
     /* Kick velocity if this kick is the one used*/
     double StarKickVelocity;
+    /* Thermal energy included in the kick*/
+    double StarTherm;
 };
 
 struct WindPriv {
@@ -326,6 +332,9 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
             {
                 P[other].Vel[j] += v * dir[j];
             }
+            /* StarTherm is internal energy per unit mass. Need to convert to entropy*/
+            const double enttou = pow(SPH_EOMDensity(&SPHP(other)) / pow(Time, 3), GAMMA_MINUS1) / GAMMA_MINUS1;
+            SPHP(other).Entropy += priv->kicks[i].StarTherm/enttou;
             if(winds_ever_decouple()) {
                 double delay = wind_params.WindFreeTravelLength / (v / Time);
                 if(delay > wind_params.MaxWindFreeTravelTime)
@@ -589,13 +598,14 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     if(P[other].Type != 0 || P[other].IsGarbage || P[other].Swallowed)
         return;
 
+    double utherm = wind_params.WindThermalFactor * 1.5 * I->Vdisp * I->Vdisp;
     double windeff=0;
     double v=0;
     if(HAS(wind_params.WindModel, WIND_FIXED_EFFICIENCY)) {
         windeff = wind_params.WindEfficiency;
         v = wind_params.WindSpeed * WIND_GET_PRIV(lv->tw)->Time;
     } else if(HAS(wind_params.WindModel, WIND_USE_HALO)) {
-        windeff = pow(1.0 / (I->Vdisp / WIND_GET_PRIV(lv->tw)->Time / wind_params.WindSigma0),2);
+        windeff = 1.0 / (pow(I->Vdisp / WIND_GET_PRIV(lv->tw)->Time / wind_params.WindSigma0,2) + 2 * utherm);
         v = wind_params.WindSpeedFactor * I->Vdisp;
     } else {
         endrun(1, "WindModel = 0x%X is strange. This shall not happen.\n", wind_params.WindModel);
@@ -621,6 +631,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
         kick->StarDistance = r;
         kick->StarID = I->ID;
         kick->StarKickVelocity = v;
+        kick->StarTherm = utherm;
         kick->part_index = other;
     }
 }
