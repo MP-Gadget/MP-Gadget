@@ -31,6 +31,8 @@ struct MetalReturnPriv {
     MyFloat * HighDyingMass;
     double imf_norm;
     double hub;
+    /* Maximum of the new gas mass*/
+    double MaxGasMass;
     Cosmology *CP;
     MyFloat * StarVolumeSPH;
     struct interps interp;
@@ -38,7 +40,7 @@ struct MetalReturnPriv {
 };
 
 /*Function to compute metal return from star particles, adding metals to the gas.*/
-void metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmology * CP, const double atime);
+void metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmology * CP, const double atime, const double AvgGasMass);
 
 void set_metal_return_params(ParameterSet * ps);
 

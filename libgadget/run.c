@@ -358,7 +358,8 @@ run(int RestartSnapNum)
 
             /* Do this before sfr and bh so the gas hsml always contains DesNumNgb neighbours.*/
             if(All.MetalReturnOn) {
-                metal_return(&Act, &Tree, &All.CP, All.Time);
+                double AvgGasMass = All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G) * pow(Tree.BoxSize, 3) / All.NTotalInit[0];
+                metal_return(&Act, &Tree, &All.CP, All.Time, AvgGasMass);
             }
 
             /* this will find new black hole seed halos.
