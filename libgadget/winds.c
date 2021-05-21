@@ -605,7 +605,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
         windeff = wind_params.WindEfficiency;
         v = wind_params.WindSpeed * WIND_GET_PRIV(lv->tw)->Time;
     } else if(HAS(wind_params.WindModel, WIND_USE_HALO)) {
-        windeff = 1.0 / (pow(I->Vdisp / WIND_GET_PRIV(lv->tw)->Time / wind_params.WindSigma0,2) + 2 * utherm);
+        windeff = 1.0 / (pow(I->Vdisp / WIND_GET_PRIV(lv->tw)->Time / wind_params.WindSigma0,2));
         v = wind_params.WindSpeedFactor * I->Vdisp;
     } else {
         endrun(1, "WindModel = 0x%X is strange. This shall not happen.\n", wind_params.WindModel);
