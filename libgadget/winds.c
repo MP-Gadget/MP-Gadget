@@ -10,6 +10,7 @@
 #include "timebinmgr.h"
 #include "walltime.h"
 #include "density.h"
+#include "hydra.h"
 
 /*Parameters of the wind model*/
 static struct WindParams
@@ -19,6 +20,8 @@ static struct WindParams
     double WindFreeTravelDensFac;
     /*Density threshold at which to recouple wind particles.*/
     double WindFreeTravelDensThresh;
+    /* Maximum time in internal time units to allow the wind to be free-streaming.*/
+    double MaxWindFreeTravelTime;
     /* used in VS08 and SH03*/
     double WindEfficiency;
     double WindSpeed;
@@ -26,6 +29,10 @@ static struct WindParams
     /* used in OFJT10*/
     double WindSigma0;
     double WindSpeedFactor;
+    /* Minimum wind velocity for kicked particles, in internal velocity units*/
+    double MinWindVelocity;
+    /* Fraction of wind energy in thermal energy*/
+    double WindThermalFactor;
 } wind_params;
 
 #define NWINDHSML 5 /* Number of densities to evaluate for wind weight ngbiter*/
@@ -41,6 +48,7 @@ typedef struct {
     double TotalWeight;
     double DMRadius[NWINDHSML];
     double Vdisp;
+    double Vel[3];
 } TreeWalkQueryWind;
 
 typedef struct {
@@ -76,6 +84,9 @@ void set_winds_params(ParameterSet * ps)
         wind_params.WindSigma0 = param_get_double(ps, "WindSigma0");
         wind_params.WindSpeedFactor = param_get_double(ps, "WindSpeedFactor");
 
+        wind_params.WindThermalFactor = param_get_double(ps, "WindThermalFactor");
+        wind_params.MinWindVelocity = param_get_double(ps, "MinWindVelocity");
+        wind_params.MaxWindFreeTravelTime = param_get_double(ps, "MaxWindFreeTravelTime");
         wind_params.WindFreeTravelLength = param_get_double(ps, "WindFreeTravelLength");
         wind_params.WindFreeTravelDensFac = param_get_double(ps, "WindFreeTravelDensFac");
     }
@@ -83,16 +94,17 @@ void set_winds_params(ParameterSet * ps)
 }
 
 void
-init_winds(double FactorSN, double EgySpecSN, double PhysDensThresh)
+init_winds(double FactorSN, double EgySpecSN, double PhysDensThresh, double UnitTime_in_s)
 {
     wind_params.WindSpeed = sqrt(2 * wind_params.WindEnergyFraction * FactorSN * EgySpecSN / (1 - FactorSN));
-
+    /* Convert wind free travel time from Myr to internal units*/
+    wind_params.MaxWindFreeTravelTime = wind_params.MaxWindFreeTravelTime * SEC_PER_MEGAYEAR / UnitTime_in_s;
     wind_params.WindFreeTravelDensThresh = wind_params.WindFreeTravelDensFac * PhysDensThresh;
     if(HAS(wind_params.WindModel, WIND_FIXED_EFFICIENCY)) {
         wind_params.WindSpeed /= sqrt(wind_params.WindEfficiency);
-        message(0, "Windspeed: %g\n", wind_params.WindSpeed);
+        message(0, "Windspeed: %g MaxDelay %g\n", wind_params.WindSpeed, wind_params.MaxWindFreeTravelTime);
     } else if(HAS(wind_params.WindModel, WIND_USE_HALO)) {
-        message(0, "Reference Windspeed: %g\n", wind_params.WindSigma0 * wind_params.WindSpeedFactor);
+        message(0, "Reference Windspeed: %g, MaxDelay %g\n", wind_params.WindSigma0 * wind_params.WindSpeedFactor, wind_params.MaxWindFreeTravelTime);
     } else {
         /* Check for undefined wind models*/
         endrun(1, "WindModel = 0x%X is strange. This shall not happen.\n", wind_params.WindModel);
@@ -161,6 +173,15 @@ struct winddata {
     int maxcmpte;
 };
 
+/* Returns 1 if the winds ever decouple, 0 otherwise*/
+int winds_ever_decouple(void)
+{
+    if(wind_params.MaxWindFreeTravelTime > 0)
+        return 1;
+    else
+        return 0;
+}
+
 /* Structure to store a potential kick
  * to a gas particle from a newly formed star.
  * We add a queue of these and resolve them
@@ -176,6 +197,8 @@ struct StarKick
     MyIDType StarID;
     /* Kick velocity if this kick is the one used*/
     double StarKickVelocity;
+    /* Thermal energy included in the kick*/
+    double StarTherm;
 };
 
 struct WindPriv {
@@ -303,12 +326,27 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
         double dir[3];
         get_wind_dir(other, dir);
         double v = priv->kicks[i].StarKickVelocity;
-        int j;
-        for(j = 0; j < 3; j++)
-        {
-            P[other].Vel[j] += v * dir[j];
+        if(v > 0 && Time > 0) {
+            int j;
+            for(j = 0; j < 3; j++)
+            {
+                P[other].Vel[j] += v * dir[j];
+            }
+            /* StarTherm is internal energy per unit mass. Need to convert to entropy*/
+            const double enttou = pow(SPH_EOMDensity(&SPHP(other)) / pow(Time, 3), GAMMA_MINUS1) / GAMMA_MINUS1;
+            SPHP(other).Entropy += priv->kicks[i].StarTherm/enttou;
+            if(winds_ever_decouple()) {
+                double delay = wind_params.WindFreeTravelLength / (v / Time);
+                if(delay > wind_params.MaxWindFreeTravelTime)
+                    delay = wind_params.MaxWindFreeTravelTime;
+                SPHP(other).DelayTime = delay;
+            }
         }
-        SPHP(other).DelayTime = wind_params.WindFreeTravelLength / (v / Time);
+        if(v <= 0 || !isfinite(v) || !isfinite(SPHP(other).DelayTime))
+        {
+            endrun(5, "Odd v: other = %d, DT = %g v = %g i = %d, nkicks %d maxkicks %d dist %g id %ld\n",
+                   other, SPHP(other).DelayTime, v, i, priv->nkicks, priv->maxkicks, priv->kicks[i].StarDistance, priv->kicks[i].StarID);
+        }
     }
     /* Get total number of potential new stars to allocate memory.*/
     int64_t tot_newstars, tot_kicks, tot_applied;
@@ -332,6 +370,9 @@ winds_evolve(int i, double a3inv, double hubble)
     }
     /*Reduce the time until the particle can form stars again by the current timestep*/
     if(SPHP(i).DelayTime > 0) {
+        /* Enforce the maximum in case of restarts*/
+        if(SPHP(i).DelayTime > wind_params.MaxWindFreeTravelTime)
+            SPHP(i).DelayTime = wind_params.MaxWindFreeTravelTime;
         const double dloga = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift);
         /*  the proper time duration of the step */
         const double dtime = dloga / hubble;
@@ -390,7 +431,8 @@ sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
         for(d = 0; d<3; d++){
             vdisp -= pow(WINDP(i, Windd).V1sum[close][d] / numngb,2);
         }
-        WINDP(i, Windd).Vdisp = sqrt(vdisp / 3);
+        if(vdisp > 0)
+            WINDP(i, Windd).Vdisp = sqrt(vdisp / 3);
     }
 
     if(tw->maxnumngb[tid] < numngb)
@@ -431,9 +473,10 @@ sfr_wind_copy(int place, TreeWalkQueryWind * input, TreeWalk * tw)
     input->Mass = P[place].Mass;
     input->Hsml = P[place].Hsml;
     input->TotalWeight = WINDP(place, Windd).TotalWeight;
-
     input->Vdisp = WINDP(place, Windd).Vdisp;
     int i;
+    for(i=0; i<3; i++)
+        input->Vel[i] = P[place].Vel[i];
     for(i = 0; i<NWINDHSML; i++){
         input->DMRadius[i]=effdmradius(place,i,tw);
     }
@@ -483,8 +526,8 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
                 O->Ngb[i] += 1;
                 int d;
                 for(d = 0; d < 3; d ++) {
-                    /* Add hubble flow; FIXME: this shall be a function, and the direction looks wrong too. */
-                    double vel = P[other].Vel[d] + WIND_GET_PRIV(lv->tw)->hubble * atime * atime * dist[d];
+                    /* Add hubble flow to relative velocity. */
+                    double vel = P[other].Vel[d] - I->Vel[d] + WIND_GET_PRIV(lv->tw)->hubble * atime * atime * dist[d];
                     O->V1sum[i][d] += vel;
                     O->V2sum[i] += vel * vel;
                 }
@@ -549,29 +592,32 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     if(SPHP(other).DelayTime > 0) return;
 
     /* No eligible gas particles not in wind*/
-    if(I->TotalWeight == 0) return;
+    if(I->TotalWeight == 0 || I->Vdisp <= 0) return;
 
     /* Paranoia*/
     if(P[other].Type != 0 || P[other].IsGarbage || P[other].Swallowed)
         return;
 
+    double utherm = wind_params.WindThermalFactor * 1.5 * I->Vdisp * I->Vdisp;
     double windeff=0;
     double v=0;
     if(HAS(wind_params.WindModel, WIND_FIXED_EFFICIENCY)) {
         windeff = wind_params.WindEfficiency;
         v = wind_params.WindSpeed * WIND_GET_PRIV(lv->tw)->Time;
     } else if(HAS(wind_params.WindModel, WIND_USE_HALO)) {
-        windeff = 1.0 / (I->Vdisp / WIND_GET_PRIV(lv->tw)->Time / wind_params.WindSigma0);
-        windeff *= windeff;
+        windeff = 1.0 / (pow(I->Vdisp / WIND_GET_PRIV(lv->tw)->Time / wind_params.WindSigma0,2));
         v = wind_params.WindSpeedFactor * I->Vdisp;
     } else {
         endrun(1, "WindModel = 0x%X is strange. This shall not happen.\n", wind_params.WindModel);
     }
+    /* Minimum wind velocity. This ensures particles do not remain in the wind forever*/
+    if(v < wind_params.MinWindVelocity * WIND_GET_PRIV(lv->tw)->Time)
+        v = wind_params.MinWindVelocity * WIND_GET_PRIV(lv->tw)->Time;
 
     double p = windeff * I->Mass / I->TotalWeight;
     double random = get_random_number(I->ID + P[other].ID);
 
-    if (random < p) {
+    if (random < p && v > 0) {
         /* Store a potential kick. This might not be the kick actually used,
          * because another star particle may be closer, but we can resolve
          * that after the treewalk*/
@@ -585,6 +631,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
         kick->StarDistance = r;
         kick->StarID = I->ID;
         kick->StarKickVelocity = v;
+        kick->StarTherm = utherm;
         kick->part_index = other;
     }
 }
@@ -592,7 +639,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
 int
 winds_make_after_sf(int i, double sm, double atime)
 {
-    if(!HAS(wind_params.WindModel, WIND_SUBGRID))
+    if(!HAS(wind_params.WindModel, WIND_SUBGRID) || !winds_ever_decouple())
         return 0;
     /* Here comes the Springel Hernquist 03 wind model */
     /* Notice that this is the mass of the gas particle after forking a star, 1/GENERATIONS

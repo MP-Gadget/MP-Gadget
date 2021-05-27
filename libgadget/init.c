@@ -229,6 +229,8 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
             SPHP(i).HydroAccel[j] = 0;
         }
 
+        if(!isfinite(SPHP(i).DelayTime ))
+            endrun(6, "Bad DelayTime %g for part %d id %ld\n", SPHP(i).DelayTime, i, P[i].ID);
         SPHP(i).DtEntropy = 0;
 
         if(RestartSnapNum == -1)

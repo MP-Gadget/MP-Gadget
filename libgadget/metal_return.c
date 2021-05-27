@@ -514,7 +514,7 @@ metal_return_priv_free(struct MetalReturnPriv * priv)
 
 /*! This function is the driver routine for the calculation of metal return. */
 void
-metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmology * CP, const double atime)
+metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmology * CP, const double atime, const double AvgGasMass)
 {
     /* Do nothing if no stars yet*/
     int64_t totstar;
@@ -525,6 +525,10 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
     struct MetalReturnPriv priv[1];
 
     int64_t nwork = metal_return_init(act, CP, priv, atime);
+
+    /* Maximum mass of a gas particle after enrichment: cap it at a few times the initial mass*/
+    priv->MaxGasMass = 4* AvgGasMass;
+
     int64_t totwork;
     MPI_Allreduce(&nwork, &totwork, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
@@ -668,11 +672,16 @@ metal_return_ngbiter(
         SPHP(other).Metallicity = (SPHP(other).Metallicity * P[other].Mass + thismetal)/(P[other].Mass + thismass);
         /* Update mass*/
         double massfrac = (P[other].Mass + thismass) / P[other].Mass;
-        P[other].Mass *= massfrac;
-        /* Density also needs a correction so the volume fraction is unchanged.
-         * This ensures that volume = Mass/Density is unchanged for the next particle
-         * and thus the weighting still sums to unity.*/
-        SPHP(other).Density *= massfrac;
+        /* Ensure that the gas particles don't become overweight.
+         * If there are few gas particles around, the star clusters
+         * will hold onto their metals.*/
+        if(P[other].Mass + thismass < METALS_GET_PRIV(lv->tw)->MaxGasMass) {
+            P[other].Mass *= massfrac;
+            /* Density also needs a correction so the volume fraction is unchanged.
+             * This ensures that volume = Mass/Density is unchanged for the next particle
+             * and thus the weighting still sums to unity.*/
+            SPHP(other).Density *= massfrac;
+        }
         newmass = P[other].Mass;
         unlock_spinlock(pi, METALS_GET_PRIV(lv->tw)->spin);
         if(newmass <= 0)
