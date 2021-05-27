@@ -827,6 +827,24 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, double BoxSi
     /* collect global properties */
     fof_reduce_groups(fof->Group, NgroupsExt, sizeof(fof->Group[0]), fof_reduce_group, Comm);
 
+    /* count Groups and number of particles hosted by me */
+    fof->Ngroups = 0;
+    int64_t Nids = 0;
+    for(i = 0; i < NgroupsExt; i ++) {
+        if(fof->Group[i].base.MinIDTask != ThisTask) continue;
+
+        fof->Ngroups++;
+        Nids += fof->Group[i].base.Length;
+
+        if(fof->Group[i].base.Length != fof->Group[i].Length) {
+            /* These two shall be consistent */
+            endrun(3333, "i=%d Group base Length %d != Group Length %d\n", i, fof->Group[i].base.Length, fof->Group[i].Length);
+        }
+    }
+
+    fof_finish_group_properties(fof, BoxSize);
+
+    /* feed group property back to each particle. */
     start = 0;
     for(i = 0; i < NgroupsExt; i++)
     {
@@ -847,22 +865,6 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, double BoxSi
     }
 
 
-    /* count Groups and number of particles hosted by me */
-    fof->Ngroups = 0;
-    int64_t Nids = 0;
-    for(i = 0; i < NgroupsExt; i ++) {
-        if(fof->Group[i].base.MinIDTask != ThisTask) continue;
-
-        fof->Ngroups++;
-        Nids += fof->Group[i].base.Length;
-
-        if(fof->Group[i].base.Length != fof->Group[i].Length) {
-            /* These two shall be consistent */
-            endrun(3333, "i=%d Group base Length %d != Group Length %d\n", i, fof->Group[i].base.Length, fof->Group[i].Length);
-        }
-    }
-
-    fof_finish_group_properties(fof, BoxSize);
 
     int64_t TotNids;
     sumup_large_ints(1, &fof->Ngroups, &fof->TotNgroups);
