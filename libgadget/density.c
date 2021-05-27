@@ -16,6 +16,7 @@
 #include "timestep.h"
 #include "utils.h"
 #include "gravity.h"
+#include "winds.h"
 
 static struct density_params DensityParams;
 
@@ -412,6 +413,11 @@ density_ngbiter(
 
     if(r2 < iter->kernel.HH)
     {
+        /* For the BH we wish to exclude wind particles from the density,
+         * because they are excluded from the accretion treewalk.*/
+        if(I->Type == 5 && winds_is_particle_decoupled(other))
+            return;
+
         const double u = r * iter->kernel.Hinv;
         const double wk = density_kernel_wk(&iter->kernel, u);
         O->Ngb += wk * iter->kernel_volume;
