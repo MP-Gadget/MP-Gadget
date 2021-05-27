@@ -827,6 +827,26 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, double BoxSi
     /* collect global properties */
     fof_reduce_groups(fof->Group, NgroupsExt, sizeof(fof->Group[0]), fof_reduce_group, Comm);
 
+    start = 0;
+    for(i = 0; i < NgroupsExt; i++)
+    {
+        /* find the first particle */
+        for(;start < PartManager->NumPart; start++) {
+            if(HaloLabel[start].MinID >= fof->Group[i].base.MinID) break;
+        }
+        /* add particles */
+        for(;start < PartManager->NumPart; start++) {
+            if(HaloLabel[start].MinID != fof->Group[i].base.MinID) {
+                break;
+            }
+            int pi = HaloLabel[start].Pindex;
+            if(P[pi].GrNr != fof->Group[i].base.GrNr) {
+               endrun(3333, "GrNr mismatch\n")
+            };
+        }
+    }
+
+
     /* count Groups and number of particles hosted by me */
     fof->Ngroups = 0;
     int64_t Nids = 0;
