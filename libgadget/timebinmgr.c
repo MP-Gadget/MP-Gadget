@@ -114,7 +114,10 @@ setup_sync_points(double TimeIC, double TimeMax, double no_snapshot_until_time, 
     SyncPoints[1].a = TimeMax;
     SyncPoints[1].loga = log(TimeMax);
     SyncPoints[1].write_snapshot = 1;
-    SyncPoints[1].write_fof = 0;
+    if(SnapshotWithFOF)
+        SyncPoints[1].write_fof = 1;
+    else
+        SyncPoints[1].write_fof = 0;
     NSyncPoints = 2;
 
     /* we do an insertion sort here. A heap is faster but who cares the speed for this? */
