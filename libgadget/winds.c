@@ -417,10 +417,9 @@ sfr_wind_weight_postprocess(const int i, TreeWalk * tw)
     double numngb = WINDP(i, Windd).Ngb[close];
 
     int tid = omp_get_thread_num();
-    if(numngb < (NUMDMNGB - MAXDMDEVIATION) || numngb > (NUMDMNGB + MAXDMDEVIATION)){
-        /*If DMRadius converged, let it go*/
-        if(WINDP(i, Windd).Right - WINDP(i, Windd).Left < 1e-2)
-            return;
+    /*  If we have 40 neighbours, or if DMRadius is narrow, set vdisp. Otherwise add to redo queue */
+    if((numngb < (NUMDMNGB - MAXDMDEVIATION) || numngb > (NUMDMNGB + MAXDMDEVIATION)) &&
+        (WINDP(i, Windd).Right - WINDP(i, Windd).Left > 1e-2)) {
         /* More work needed: add this particle to the redo queue*/
         tw->NPRedo[tid][tw->NPLeft[tid]] = i;
         tw->NPLeft[tid] ++;
