@@ -752,8 +752,8 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
         }
     }
 }
-    /*******************************************************************/
 
+/*******************************************************************/
 static int
 blackhole_dynfric_haswork(int n, TreeWalk * tw){
     /*Black hole not being swallowed*/
