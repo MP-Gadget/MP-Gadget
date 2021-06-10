@@ -526,7 +526,10 @@ metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmolog
 
     int64_t nwork = metal_return_init(act, CP, priv, atime);
 
-    /* Maximum mass of a gas particle after enrichment: cap it at a few times the initial mass*/
+    /* Maximum mass of a gas particle after enrichment: cap it at a few times the initial mass.
+     * FIXME: Ideally we should here fork a new particle with a smaller gas mass. We should
+     * figure out then how set the gas entropy. A possibly better idea is to add
+     * a generic routine to split gas particles into the density code.*/
     priv->MaxGasMass = 4* AvgGasMass;
 
     int64_t totwork;
