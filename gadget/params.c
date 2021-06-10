@@ -288,7 +288,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "MinWindVelocity", OPTIONAL, 0, "Minimum velocity of the kicked particle in the wind, in internal units (physical km/s).");
     param_declare_double(ps, "WindThermalFactor", OPTIONAL, 0, "Fraction of the wind energy which comes thermally rather than kinetic.");
 
-    param_declare_double(ps, "MaxWindFreeTravelTime", OPTIONAL, 30, "Maximum time in Myrs for the wind to be decoupled.");
+    param_declare_double(ps, "MaxWindFreeTravelTime", OPTIONAL, 60, "Maximum time in Myrs for the wind to be decoupled.");
 
     param_declare_int(ps, "RandomSeed", OPTIONAL, 42, "Random number generator initial seed. Used to form stars.");
 
