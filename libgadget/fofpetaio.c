@@ -282,6 +282,8 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
 
     slots_reserve(0, atleast, halo_sman);
 
+    NpigLocal = 0;
+
     for(i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].GrNr < 0)
             continue;
@@ -317,7 +319,7 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
     qsort_openmp(halopart, halo_pman->NumPart, sizeof(struct particle_data), order_by_type_and_grnr);
     GrNrMax = -1;
     #pragma omp parallel for reduction(max: GrNrMax)
-    for(i = 0; i < NpigLocal; i ++) {
+    for(i = 0; i < halo_pman->NumPart; i ++) {
         if(halopart[i].GrNr > GrNrMax)
             GrNrMax = halopart[i].GrNr;
     }
