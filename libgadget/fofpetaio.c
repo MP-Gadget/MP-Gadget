@@ -304,13 +304,14 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
     MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, Comm);
     message(0, "GrNrMax before exchange is %d\n", GrNrMaxGlobal);
 
+    const int nretry = 20;
     /* Loop over the fof exchange*/
-    for(i = 0; i < 20; i++)
+    for(i = 0; i < nretry; i++)
         /* Zero is success*/
         if(!fof_try_particle_exchange(halo_pman, halo_sman, Comm))
             break;
 
-    if(i == 100) {
+    if(i == nretry) {
         message(1930, "Failed to exchange and write particles for the FOF. This is non-fatal, continuing\n");
         return 1;
     }
