@@ -270,7 +270,9 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
                 atleast[type]++;
         }
     }
-    halo_pman->MaxPart = NpigLocal * All.PartAllocFactor;
+    /* FOF particles may be more clustered than others: need higher PartAllocFactor*/
+    const int FOFPartAllocFactor = 3;
+    halo_pman->MaxPart = NpigLocal * FOFPartAllocFactor * All.PartAllocFactor;
     struct particle_data * halopart = mymalloc("HaloParticle", sizeof(struct particle_data) * halo_pman->MaxPart);
     halo_pman->Base = halopart;
     halo_pman->NumPart = NpigLocal;
@@ -278,7 +280,7 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
 
     /* We leave extra space in the hope that we can avoid compacting slots in the fof exchange*/
     for(i = 0; i < 6; i ++)
-        atleast[i]*= All.PartAllocFactor;
+        atleast[i]*= All.PartAllocFactor * FOFPartAllocFactor;
 
     slots_reserve(0, atleast, halo_sman);
 
