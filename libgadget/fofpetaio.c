@@ -259,8 +259,10 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
     }
 
     int64_t atleast[6]={0};
-    /* Count how many particles we have*/
-    //#pragma omp parallel for reduction(+: NpigLocal)
+    /* Count how many particles we have: array reductions are an openmp 4.5 feature.*/
+#if (defined _OPENMP) && (_OPENMP >= 201511)
+    #pragma omp parallel for reduction(+: NpigLocal, atleast)
+#endif
     for(i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].GrNr >= 0) {
             NpigLocal++;
