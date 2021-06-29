@@ -9,8 +9,6 @@
  */
 struct particle_data
 {
-    inttime_t Ti_drift;       /*!< current time of the particle position. The same for all particles. */
-
     double Pos[3];   /*!< particle position at its current time */
     float Mass;     /*!< particle mass */
 
@@ -35,6 +33,8 @@ struct particle_data
 
     int PI; /* particle property index; used by BH, SPH and STAR.
                         points to the corresponding structure in (SPH|BH|STAR)P array.*/
+    inttime_t Ti_drift;       /*!< current time of the particle position. The same for all particles. */
+
     MyIDType ID;
 
     MyFloat Vel[3];   /* particle velocity at its current time */
@@ -48,7 +48,14 @@ struct particle_data
      * This predicts Hsml during the current timestep in the way used in Gadget-4, more accurate
      * than the Gadget-2 prediction which could run away in deep timesteps. Used also
      * to limit timesteps by density change. */
-    MyFloat DtHsml;
+    union {
+        MyFloat DtHsml;
+        /* This is the destination task during the fof particle exchange.
+         * It is never used outside of that code, and the
+         * particles are copied into a new PartManager before setting it,
+         * so it is safe to union with DtHsml.*/
+        int TargetTask;
+    };
     MyFloat Hsml;
 
     /* Union these two because they are transients: they are hard to move
