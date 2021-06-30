@@ -376,7 +376,6 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
     MPI_Request *requests = mymalloc("requests", NTask * 2 * sizeof(MPI_Request));
     n_requests = 0;
 
-
     for(ngrp = 0; ngrp < (1 << PTask); ngrp++)
     {
         int target = ThisTask ^ ngrp;
