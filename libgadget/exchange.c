@@ -13,8 +13,8 @@
 
 /*Number of structure types for particles*/
 typedef struct {
-    int base;
-    int slots[6];
+    int64_t base;
+    int64_t slots[6];
 } ExchangePlanEntry;
 
 static MPI_Datatype MPI_TYPE_PLAN_ENTRY = 0;
@@ -38,7 +38,7 @@ typedef struct {
     /*Total number of exchanged particles*/
     size_t nexchange;
     /*Number of garbage particles*/
-    int ngarbage;
+    int64_t ngarbage;
     /* last particle in current batch of the exchange.
      * Exchange stops when last == nexchange.*/
     size_t last;
@@ -137,7 +137,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
         domain_build_plan(layoutfunc, layout_userdata, &plan, pman);
         walltime_measure("/Domain/exchange/togo");
 
-        sumup_large_ints(1, &plan.toGoSum.base, &sumtogo);
+        MPI_Allreduce(&plan.toGoSum.base, &sumtogo, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
         message(0, "iter=%d exchange of %013ld particles\n", iter, sumtogo);
 
@@ -310,7 +310,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
     int src;
     for(src = 0; src < plan->NTask; src++) {
         /* unpack each source rank */
-        int newPI[6];
+        int64_t newPI[6];
         int64_t i;
         for(ptype = 0; ptype < 6; ptype ++) {
             newPI[ptype] = sman->info[ptype].size + plan->toGetOffset[src].slots[ptype];
@@ -438,18 +438,18 @@ domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pma
     size_t n, nlimit = mymalloc_freebytes();
 #ifdef MPI_LARGE_EXCHANGE_BROKEN
     /* Limit us to 2GB exchanges to help out MPI*/
-    if (nlimit > 1024*1024*2030)
-       nlimit = 1024*1024*2030;
+    if (nlimit > 1024L*1024L*2030L)
+       nlimit = 1024L*1024L*2030L;
 #endif
 
-    if (nlimit <  4096 * 2 + plan->NTask * 2 * sizeof(MPI_Request))
+    if (nlimit <  4096L * 6 + plan->NTask * 2 * sizeof(MPI_Request))
         endrun(1, "Not enough memory free to store requests!\n");
 
-    nlimit -= 4096 * 2 + plan->NTask * 2 * sizeof(MPI_Request);
+    nlimit -= 4096 * 2L + plan->NTask * 2 * sizeof(MPI_Request);
 
     /* Save some memory for memory headers and wasted space at the end of each allocation.
      * Need max. 2*4096 for each heap-allocated array.*/
-    nlimit -= 4096 * 4;
+    nlimit -= 4096 * 4L;
 
     message(0, "Using %td bytes for exchange.\n", nlimit);
 
@@ -459,11 +459,11 @@ domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pma
         if (maxsize < sman->info[ptype].elsize)
             maxsize = sman->info[ptype].elsize;
         /*Reserve space for slotBuf header*/
-        nlimit -= 4096 * 2;
+        nlimit -= 4096 * 2L;
     }
     size_t package = sizeof(pman->Base[0]) + maxsize;
-    if(package >= nlimit)
-        endrun(212, "Package is too large, no free memory.");
+    if(package >= nlimit || nlimit > mymalloc_freebytes())
+        endrun(212, "Package is too large, no free memory: package = %lu nlimit = %lu.", package, nlimit);
 
     /* Fast path: if we have enough space no matter what type the particles
      * are we don't need to check them.*/
