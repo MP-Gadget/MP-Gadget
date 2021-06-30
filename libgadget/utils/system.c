@@ -28,16 +28,14 @@
  *
  * */
 
-#ifdef DEBUG
+#if 0
 #include <fenv.h>
 void enable_core_dumps_and_fpu_exceptions(void)
 {
-  struct rlimit rlim;
-  extern int feenableexcept(int __excepts);
-
   /* enable floating point exceptions */
 
-  /*
+  /* extern int feenableexcept(int __excepts);
+
      feenableexcept(FE_DIVBYZERO | FE_INVALID);
    */
 
@@ -49,6 +47,7 @@ void enable_core_dumps_and_fpu_exceptions(void)
    * Don't do this because it may be there for a reason:
    * the cluster does not like us to dump 2PB of core! */
   /* getrlimit(RLIMIT_CORE, &rlim);
+  struct rlimit rlim;
   rlim.rlim_cur = RLIM_INFINITY;
   setrlimit(RLIMIT_CORE, &rlim);*/
 }

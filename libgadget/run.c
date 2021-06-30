@@ -96,8 +96,6 @@ int begrun(int RestartFlag, int RestartSnapNum)
 
     MPIU_write_pids(pidfile);
     myfree(pidfile);
-
-    enable_core_dumps_and_fpu_exceptions();
 #endif
 
     init_forcetree_params(All.FastParticleType);
