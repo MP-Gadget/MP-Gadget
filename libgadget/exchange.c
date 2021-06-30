@@ -285,7 +285,9 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
 
     /* Ensure the mallocs are finished on all tasks before we start sending the data*/
     MPI_Barrier(Comm);
-
+#ifdef DEBUG
+    message(0, "Starting particle data exchange\n");
+#endif
     /* recv at the end */
     MPI_Alltoallv_sparse(partBuf, sendcounts, senddispls, MPI_TYPE_PARTICLE,
                  pman->Base + pman->NumPart, recvcounts, recvdispls, MPI_TYPE_PARTICLE,
@@ -303,6 +305,10 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
         _transpose_plan_entries(plan->toGet, recvcounts, ptype, plan->NTask);
         _transpose_plan_entries(plan->toGetOffset, recvdispls, ptype, plan->NTask);
 
+#ifdef DEBUG
+        message(0, "Starting exchange for slot %d\n", ptype);
+#endif
+
         /* recv at the end */
         MPI_Alltoallv_sparse(slotBuf[ptype], sendcounts, senddispls, MPI_TYPE_SLOT[ptype],
                      ptr + N_slots * elsize,
@@ -310,6 +316,9 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
                      Comm);
     }
 
+#ifdef DEBUG
+        message(0, "Done with AlltoAllv\n");
+#endif
     int src;
     for(src = 0; src < plan->NTask; src++) {
         /* unpack each source rank */
