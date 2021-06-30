@@ -50,7 +50,7 @@ typedef struct {
  * layoutfunc gives the target task of particle p.
 */
 static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
-static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman);
+static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm);
 static size_t domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pman, const struct slots_manager_type * sman);
 static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct DriftData * drift, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 
@@ -134,10 +134,10 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
 
         /* determine for each rank how many particles have to be shifted to other ranks */
         plan.last = domain_find_iter_space(&plan, pman, sman);
-        domain_build_plan(layoutfunc, layout_userdata, &plan, pman);
+        domain_build_plan(layoutfunc, layout_userdata, &plan, pman, Comm);
         walltime_measure("/Domain/exchange/togo");
 
-        MPI_Allreduce(&plan.toGoSum.base, &sumtogo, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&plan.toGoSum.base, &sumtogo, 1, MPI_INT64, MPI_SUM, Comm);
 
         message(0, "iter=%d exchange of %013ld particles\n", iter, sumtogo);
 
@@ -499,7 +499,7 @@ domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pma
 
 /*This function populates the toGo and toGet arrays*/
 static void
-domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman)
+domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm)
 {
     int ptype;
     size_t n;
@@ -526,7 +526,7 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
         plan->toGo[plan->layouts[n].target].slots[plan->layouts[n].ptype]++;
     }
 
-    MPI_Alltoall(plan->toGo, 1, MPI_TYPE_PLAN_ENTRY, plan->toGet, 1, MPI_TYPE_PLAN_ENTRY, MPI_COMM_WORLD);
+    MPI_Alltoall(plan->toGo, 1, MPI_TYPE_PLAN_ENTRY, plan->toGet, 1, MPI_TYPE_PLAN_ENTRY, Comm);
 
     memset(&plan->toGoOffset[0], 0, sizeof(plan->toGoOffset[0]));
     memset(&plan->toGetOffset[0], 0, sizeof(plan->toGetOffset[0]));
