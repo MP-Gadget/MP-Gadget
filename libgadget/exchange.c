@@ -13,8 +13,8 @@
 
 /*Number of structure types for particles*/
 typedef struct {
-    int base;
-    int slots[6];
+    int64_t base;
+    int64_t slots[6];
 } ExchangePlanEntry;
 
 static MPI_Datatype MPI_TYPE_PLAN_ENTRY = 0;
@@ -38,7 +38,7 @@ typedef struct {
     /*Total number of exchanged particles*/
     size_t nexchange;
     /*Number of garbage particles*/
-    int ngarbage;
+    int64_t ngarbage;
     /* last particle in current batch of the exchange.
      * Exchange stops when last == nexchange.*/
     size_t last;
@@ -50,7 +50,7 @@ typedef struct {
  * layoutfunc gives the target task of particle p.
 */
 static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
-static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman);
+static void domain_build_plan(int iter, ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm);
 static size_t domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pman, const struct slots_manager_type * sman);
 static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct DriftData * drift, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 
@@ -101,7 +101,6 @@ domain_free_exchangeplan(ExchangePlan * plan)
 
 /*Plan and execute a domain exchange, also performing a garbage collection if requested*/
 int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, int do_gc, struct DriftData * drift, struct part_manager_type * pman, struct slots_manager_type * sman, int maxiter, MPI_Comm Comm) {
-    int64_t sumtogo;
     int failure = 0;
 
     /* register the MPI types used in communication if not yet. */
@@ -134,12 +133,9 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
 
         /* determine for each rank how many particles have to be shifted to other ranks */
         plan.last = domain_find_iter_space(&plan, pman, sman);
-        domain_build_plan(layoutfunc, layout_userdata, &plan, pman);
+        domain_build_plan(iter, layoutfunc, layout_userdata, &plan, pman, Comm);
         walltime_measure("/Domain/exchange/togo");
 
-        sumup_large_ints(1, &plan.toGoSum.base, &sumtogo);
-
-        message(0, "iter=%d exchange of %013ld particles\n", iter, sumtogo);
 
         /* Do a GC if we are asked to or if this isn't the last iteration.
          * The gc decision is made collective in domain_exchange_once,
@@ -283,6 +279,11 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
     _transpose_plan_entries(plan->toGet, recvcounts, -1, plan->NTask);
     _transpose_plan_entries(plan->toGetOffset, recvdispls, -1, plan->NTask);
 
+    /* Ensure the mallocs are finished on all tasks before we start sending the data*/
+    MPI_Barrier(Comm);
+#ifdef DEBUG
+    message(0, "Starting particle data exchange\n");
+#endif
     /* recv at the end */
     MPI_Alltoallv_sparse(partBuf, sendcounts, senddispls, MPI_TYPE_PARTICLE,
                  pman->Base + pman->NumPart, recvcounts, recvdispls, MPI_TYPE_PARTICLE,
@@ -300,6 +301,10 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
         _transpose_plan_entries(plan->toGet, recvcounts, ptype, plan->NTask);
         _transpose_plan_entries(plan->toGetOffset, recvdispls, ptype, plan->NTask);
 
+#ifdef DEBUG
+        message(0, "Starting exchange for slot %d\n", ptype);
+#endif
+
         /* recv at the end */
         MPI_Alltoallv_sparse(slotBuf[ptype], sendcounts, senddispls, MPI_TYPE_SLOT[ptype],
                      ptr + N_slots * elsize,
@@ -307,10 +312,13 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
                      Comm);
     }
 
+#ifdef DEBUG
+        message(0, "Done with AlltoAllv\n");
+#endif
     int src;
     for(src = 0; src < plan->NTask; src++) {
         /* unpack each source rank */
-        int newPI[6];
+        int64_t newPI[6];
         int64_t i;
         for(ptype = 0; ptype < 6; ptype ++) {
             newPI[ptype] = sman->info[ptype].size + plan->toGetOffset[src].slots[ptype];
@@ -438,18 +446,18 @@ domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pma
     size_t n, nlimit = mymalloc_freebytes();
 #ifdef MPI_LARGE_EXCHANGE_BROKEN
     /* Limit us to 2GB exchanges to help out MPI*/
-    if (nlimit > 1024*1024*2030)
-       nlimit = 1024*1024*2030;
+    if (nlimit > 1024L*1024L*2030L)
+       nlimit = 1024L*1024L*2030L;
 #endif
 
-    if (nlimit <  4096 * 2 + plan->NTask * 2 * sizeof(MPI_Request))
+    if (nlimit <  4096L * 6 + plan->NTask * 2 * sizeof(MPI_Request))
         endrun(1, "Not enough memory free to store requests!\n");
 
-    nlimit -= 4096 * 2 + plan->NTask * 2 * sizeof(MPI_Request);
+    nlimit -= 4096 * 2L + plan->NTask * 2 * sizeof(MPI_Request);
 
     /* Save some memory for memory headers and wasted space at the end of each allocation.
      * Need max. 2*4096 for each heap-allocated array.*/
-    nlimit -= 4096 * 4;
+    nlimit -= 4096 * 4L;
 
     message(0, "Using %td bytes for exchange.\n", nlimit);
 
@@ -459,11 +467,11 @@ domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pma
         if (maxsize < sman->info[ptype].elsize)
             maxsize = sman->info[ptype].elsize;
         /*Reserve space for slotBuf header*/
-        nlimit -= 4096 * 2;
+        nlimit -= 4096 * 2L;
     }
     size_t package = sizeof(pman->Base[0]) + maxsize;
-    if(package >= nlimit)
-        endrun(212, "Package is too large, no free memory.");
+    if(package >= nlimit || nlimit > mymalloc_freebytes())
+        endrun(212, "Package is too large, no free memory: package = %lu nlimit = %lu.", package, nlimit);
 
     /* Fast path: if we have enough space no matter what type the particles
      * are we don't need to check them.*/
@@ -487,7 +495,7 @@ domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pma
 
 /*This function populates the toGo and toGet arrays*/
 static void
-domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman)
+domain_build_plan(int iter, ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm)
 {
     int ptype;
     size_t n;
@@ -514,7 +522,7 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
         plan->toGo[plan->layouts[n].target].slots[plan->layouts[n].ptype]++;
     }
 
-    MPI_Alltoall(plan->toGo, 1, MPI_TYPE_PLAN_ENTRY, plan->toGet, 1, MPI_TYPE_PLAN_ENTRY, MPI_COMM_WORLD);
+    MPI_Alltoall(plan->toGo, 1, MPI_TYPE_PLAN_ENTRY, plan->toGet, 1, MPI_TYPE_PLAN_ENTRY, Comm);
 
     memset(&plan->toGoOffset[0], 0, sizeof(plan->toGoOffset[0]));
     memset(&plan->toGetOffset[0], 0, sizeof(plan->toGetOffset[0]));
@@ -522,6 +530,7 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
     memcpy(&plan->toGetSum, &plan->toGet[0], sizeof(plan->toGetSum));
 
     int rank;
+    int64_t maxbasetogo=-1, maxbasetoget=-1;
     for(rank = 1; rank < plan->NTask; rank ++) {
         /* Direct assignment breaks compilers like icc */
         memcpy(&plan->toGoOffset[rank], &plan->toGoSum, sizeof(plan->toGoSum));
@@ -529,12 +538,22 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
 
         plan->toGoSum.base += plan->toGo[rank].base;
         plan->toGetSum.base += plan->toGet[rank].base;
+        if(plan->toGo[rank].base > maxbasetogo)
+            maxbasetogo = plan->toGo[rank].base;
+        if(plan->toGet[rank].base > maxbasetoget)
+            maxbasetoget = plan->toGet[rank].base;
 
         for(ptype = 0; ptype < 6; ptype++) {
             plan->toGoSum.slots[ptype] += plan->toGo[rank].slots[ptype];
             plan->toGetSum.slots[ptype] += plan->toGet[rank].slots[ptype];
         }
     }
+
+    int64_t maxbasetogomax, maxbasetogetmax, sumtogo;
+    MPI_Reduce(&maxbasetogo, &maxbasetogomax, 1, MPI_INT64, MPI_MAX, 0, Comm);
+    MPI_Reduce(&maxbasetoget, &maxbasetogetmax, 1, MPI_INT64, MPI_MAX, 0, Comm);
+    MPI_Reduce(&plan->toGoSum.base, &sumtogo, 1, MPI_INT64, MPI_SUM, 0, Comm);
+    message(0, "iter = %d Total particles in flight: %ld Largest togo: %ld, toget %ld\n", iter, sumtogo, maxbasetogomax, maxbasetogetmax);
 }
 
 /* used only by test uniqueness */
