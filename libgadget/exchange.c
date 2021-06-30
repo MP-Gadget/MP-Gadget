@@ -50,7 +50,7 @@ typedef struct {
  * layoutfunc gives the target task of particle p.
 */
 static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
-static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm);
+static void domain_build_plan(int iter, ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm);
 static size_t domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pman, const struct slots_manager_type * sman);
 static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct DriftData * drift, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 
@@ -101,7 +101,6 @@ domain_free_exchangeplan(ExchangePlan * plan)
 
 /*Plan and execute a domain exchange, also performing a garbage collection if requested*/
 int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, int do_gc, struct DriftData * drift, struct part_manager_type * pman, struct slots_manager_type * sman, int maxiter, MPI_Comm Comm) {
-    int64_t sumtogo;
     int failure = 0;
 
     /* register the MPI types used in communication if not yet. */
@@ -134,12 +133,9 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
 
         /* determine for each rank how many particles have to be shifted to other ranks */
         plan.last = domain_find_iter_space(&plan, pman, sman);
-        domain_build_plan(layoutfunc, layout_userdata, &plan, pman, Comm);
+        domain_build_plan(iter, layoutfunc, layout_userdata, &plan, pman, Comm);
         walltime_measure("/Domain/exchange/togo");
 
-        MPI_Allreduce(&plan.toGoSum.base, &sumtogo, 1, MPI_INT64, MPI_SUM, Comm);
-
-        message(0, "iter=%d exchange of %013ld particles\n", iter, sumtogo);
 
         /* Do a GC if we are asked to or if this isn't the last iteration.
          * The gc decision is made collective in domain_exchange_once,
@@ -499,7 +495,7 @@ domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pma
 
 /*This function populates the toGo and toGet arrays*/
 static void
-domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm)
+domain_build_plan(int iter, ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm)
 {
     int ptype;
     size_t n;
@@ -534,6 +530,7 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
     memcpy(&plan->toGetSum, &plan->toGet[0], sizeof(plan->toGetSum));
 
     int rank;
+    int64_t maxbasetogo=-1, maxbasetoget=-1;
     for(rank = 1; rank < plan->NTask; rank ++) {
         /* Direct assignment breaks compilers like icc */
         memcpy(&plan->toGoOffset[rank], &plan->toGoSum, sizeof(plan->toGoSum));
@@ -541,12 +538,22 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
 
         plan->toGoSum.base += plan->toGo[rank].base;
         plan->toGetSum.base += plan->toGet[rank].base;
+        if(plan->toGo[rank].base > maxbasetogo)
+            maxbasetogo = plan->toGo[rank].base;
+        if(plan->toGet[rank].base > maxbasetoget)
+            maxbasetoget = plan->toGet[rank].base;
 
         for(ptype = 0; ptype < 6; ptype++) {
             plan->toGoSum.slots[ptype] += plan->toGo[rank].slots[ptype];
             plan->toGetSum.slots[ptype] += plan->toGet[rank].slots[ptype];
         }
     }
+
+    int64_t maxbasetogomax, maxbasetogetmax, sumtogo;
+    MPI_Reduce(&maxbasetogo, &maxbasetogomax, 1, MPI_INT64, MPI_MAX, 0, Comm);
+    MPI_Reduce(&maxbasetoget, &maxbasetogetmax, 1, MPI_INT64, MPI_MAX, 0, Comm);
+    MPI_Reduce(&plan->toGoSum.base, &sumtogo, 1, MPI_INT64, MPI_SUM, 0, Comm);
+    message(0, "iter = %d Total particles in flight: %ld Largest togo: %ld, toget %ld\n", iter, sumtogo, maxbasetogomax, maxbasetogetmax);
 }
 
 /* used only by test uniqueness */
