@@ -444,11 +444,6 @@ domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pma
 {
     int ptype;
     size_t n, nlimit = mymalloc_freebytes();
-#ifdef MPI_LARGE_EXCHANGE_BROKEN
-    /* Limit us to 2GB exchanges to help out MPI*/
-    if (nlimit > 1024L*1024L*2030L)
-       nlimit = 1024L*1024L*2030L;
-#endif
 
     if (nlimit <  4096L * 6 + plan->NTask * 2 * sizeof(MPI_Request))
         endrun(1, "Not enough memory free to store requests!\n");
@@ -473,19 +468,28 @@ domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pma
     if(package >= nlimit || nlimit > mymalloc_freebytes())
         endrun(212, "Package is too large, no free memory: package = %lu nlimit = %lu.", package, nlimit);
 
+    /* We want to avoid doing an alltoall with
+     * more than 2GB of material as this hangs.*/
+    const size_t maxexch = 1024L*1024L*2030L;
+
     /* Fast path: if we have enough space no matter what type the particles
      * are we don't need to check them.*/
-    if(plan->nexchange * (sizeof(pman->Base[0]) + maxsize + sizeof(ExchangePartCache)) < nlimit) {
+    if((plan->nexchange * (sizeof(pman->Base[0]) + maxsize + sizeof(ExchangePartCache)) < nlimit) &&
+        (plan->nexchange * sizeof(pman->Base[0]) < maxexch) && (plan->nexchange * maxsize < maxexch)) {
         return plan->nexchange;
     }
+
+    size_t partexch = 0;
+    size_t slotexch[6] = {0};
     /*Find how many particles we have space for.*/
     for(n = 0; n < plan->nexchange; n++)
     {
         const int i = plan->ExchangeList[n];
         const int ptype = pman->Base[i].Type;
-
+        partexch += sizeof(pman->Base[0]);
+        slotexch[ptype] += sman->info[ptype].elsize;
         package += sizeof(pman->Base[0]) + sman->info[ptype].elsize + sizeof(ExchangePartCache);
-        if(package >= nlimit) {
+        if(package >= nlimit || slotexch[ptype] >= maxexch || partexch >= maxexch) {
 //             message(1,"Not enough space for particles: nlimit=%d, package=%d\n",nlimit,package);
             break;
         }
