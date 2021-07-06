@@ -255,7 +255,7 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
     int MaxPart = (int) (All.PartAllocFactor * All.TotNumPartInit / NTask);
 
     /*Allocate the particle memory*/
-    particle_alloc_memory(MaxPart);
+    particle_alloc_memory(MaxPart, All.BoxSize);
 
     int64_t NLocal[6];
     for(ptype = 0; ptype < 6; ptype ++) {

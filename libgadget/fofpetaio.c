@@ -276,6 +276,7 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
     struct particle_data * halopart = mymalloc("HaloParticle", sizeof(struct particle_data) * halo_pman->MaxPart);
     halo_pman->Base = halopart;
     halo_pman->NumPart = NpigLocal;
+    halo_pman->BoxSize = All.BoxSize;
     memcpy(halo_pman->CurrentParticleOffset, PartManager->CurrentParticleOffset, 3 * sizeof(PartManager->CurrentParticleOffset[0]));
 
     /* We leave extra space in the hope that we can avoid compacting slots in the fof exchange*/

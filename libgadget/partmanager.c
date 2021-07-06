@@ -10,12 +10,13 @@
 struct part_manager_type PartManager[1] = {{0}};
 
 void
-particle_alloc_memory(int64_t MaxPart)
+particle_alloc_memory(int64_t MaxPart, double BoxSize)
 {
     size_t bytes;
     PartManager->Base = (struct particle_data *) mymalloc("P", bytes = MaxPart * sizeof(struct particle_data));
     PartManager->MaxPart = MaxPart;
     PartManager->NumPart = 0;
+    PartManager->BoxSize = BoxSize;
     if(MaxPart >= 1L<<31 || MaxPart < 0)
         endrun(5, "Trying to store %ld particles on a single node, more than fit in an int32, not supported\n", MaxPart);
     memset(PartManager->CurrentParticleOffset, 0, 3*sizeof(double));
