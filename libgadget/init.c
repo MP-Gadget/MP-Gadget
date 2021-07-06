@@ -220,9 +220,8 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
             }
         }
 
-        P[i].Key = PEANO(P[i].Pos, All.BoxSize);
-
-        if(P[i].Type != 0) continue;
+        if(P[i].Type != 0)
+            continue;
 
         for(j = 0; j < 3; j++)
         {

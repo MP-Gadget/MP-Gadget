@@ -41,24 +41,6 @@ double walltime_measure_full(char * name, char * file, int line) {
 
 /*End dummies*/
 
-static int
-order_by_type_and_key(const void *a, const void *b)
-{
-    const struct particle_data * pa  = (const struct particle_data *) a;
-    const struct particle_data * pb  = (const struct particle_data *) b;
-
-    if(pa->Type < pb->Type)
-        return -1;
-    if(pa->Type > pb->Type)
-        return +1;
-    if(pa->Key < pb->Key)
-        return -1;
-    if(pa->Key > pb->Key)
-        return +1;
-
-    return 0;
-}
-
 #define NODECACHE_SIZE 100
 
 /*This checks that the moments of the force tree in Nodes are valid:
@@ -205,16 +187,14 @@ static int check_tree(const ForceTree * tb, const int nnodes, const int numpart)
 
 static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp)
 {
-    /*Sort by peano key so this is more realistic*/
     int i;
     #pragma omp parallel for
     for(i=0; i<numpart; i++) {
-        P[i].Key = PEANO(P[i].Pos, BoxSize);
+        P[i].TopLeaf = 0;
         P[i].Mass = 1;
         P[i].PI = 0;
         P[i].IsGarbage = 0;
     }
-    qsort(P, numpart, sizeof(struct particle_data), order_by_type_and_key);
     int maxnode = numpart;
     PartManager->MaxPart = numpart;
     assert_true(tb.Nodes != NULL);

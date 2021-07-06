@@ -398,11 +398,10 @@ order_by_type_and_key(const void *a, const void *b)
         return -1;
     if(pa->Type > pb->Type)
         return +1;
-    if(pa->Key < pb->Key)
+    if(pa->TopLeaf < pb->TopLeaf)
         return -1;
-    if(pa->Key > pb->Key)
+    if(pa->TopLeaf > pb->TopLeaf)
         return +1;
-
     return 0;
 }
 

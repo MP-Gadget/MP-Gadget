@@ -165,7 +165,7 @@ static void do_force_test(double BoxSize, int Nmesh, double Asmth, double ErrTol
     #pragma omp parallel for
     for(i=0; i<PartManager->NumPart; i++) {
         P[i].Type = 1;
-        P[i].Key = PEANO(P[i].Pos, BoxSize);
+        P[i].TopLeaf = 0;
         P[i].Mass = 1;
         P[i].ID = i;
         P[i].TimeBin = 0;
@@ -214,8 +214,8 @@ static void test_force_flat(void ** state) {
     /*Set up the particle data*/
     int numpart = PartManager->NumPart;
     int ncbrt = cbrt(numpart);
-    P = mymalloc("part", numpart*sizeof(struct particle_data));
-    memset(P, 0, numpart*sizeof(struct particle_data));
+    particle_alloc_memory(numpart, All.BoxSize);
+
     /* Create a regular grid of particles, 8x8x8, all of type 1,
      * in a box 8 kpc across.*/
     int i;

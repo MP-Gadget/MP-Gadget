@@ -48,26 +48,22 @@ struct particle_data
      * This predicts Hsml during the current timestep in the way used in Gadget-4, more accurate
      * than the Gadget-2 prediction which could run away in deep timesteps. Used also
      * to limit timesteps by density change. */
+    MyFloat DtHsml;
+
     union {
-        MyFloat DtHsml;
         /* This is the destination task during the fof particle exchange.
          * It is never used outside of that code, and the
          * particles are copied into a new PartManager before setting it,
          * so it is safe to union with DtHsml.*/
         int TargetTask;
+        /* This is the current domain, computed from the Peano key
+         * and the output of domain_get_topleaf.
+         * Needs to be updated every time the position changes.*/
+        int TopLeaf;
     };
     MyFloat Hsml;
-
-    /* Union these two because they are transients: they are hard to move
-     * to private arrays because they need to travel with the particle during exchange*/
-    union {
-        /* The peano key is a hash of the position used in the domain decomposition.
-         * It is slow to generate so we store it here.*/
-        peano_t Key; /* only by domain.c and force_tree_rebuild */
-        /* FOF Group number: only has meaning during FOF.*/
-        int64_t GrNr;
-    };
-
+    /* FOF Group number: only has meaning during FOF.*/
+    int64_t GrNr;
 };
 
 extern struct part_manager_type {

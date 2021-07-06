@@ -213,7 +213,7 @@ void domain_decompose_full(DomainDecomp * ddecomp)
     myfree(OldTopLeaves);
     myfree(OldTopNodes);
 
-    if(domain_exchange(domain_layoutfunc, ddecomp, 0, NULL, PartManager, SlotsManager, 10000, ddecomp->DomainComm))
+    if(domain_exchange(domain_layoutfunc, ddecomp, 0, NULL, ddecomp, PartManager, SlotsManager, 10000, ddecomp->DomainComm))
         endrun(1929,"Could not exchange particles\n");
 
     /*Do a garbage collection so that the slots are ordered
@@ -240,7 +240,7 @@ void domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
     /* Try a domain exchange.
      * If we have no memory for the particles,
      * bail and do a full domain*/
-    if(0 != domain_exchange(domain_layoutfunc, ddecomp, 0, drift, PartManager, SlotsManager, 10000, ddecomp->DomainComm)) {
+    if(0 != domain_exchange(domain_layoutfunc, ddecomp, 0, drift, ddecomp, PartManager, SlotsManager, 10000, ddecomp->DomainComm)) {
         domain_decompose_full(ddecomp);
         return;
     }
@@ -706,8 +706,7 @@ domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int Nsegmen
 static int
 domain_layoutfunc(int n, const void * userdata) {
     const DomainDecomp * ddecomp = (const DomainDecomp *) userdata;
-    peano_t key = P[n].Key;
-    int no = domain_get_topleaf(key, ddecomp);
+    int no = P[n].TopLeaf;
     return ddecomp->TopLeaves[no].Task;
 }
 
@@ -921,10 +920,9 @@ domain_check_for_local_refine_subsample(
 
     if(Nsample == 0 && PartManager->NumPart != 0) Nsample = 1;
 
-#pragma omp parallel for
-    for(i = 0; i < PartManager->NumPart; i ++)
-    {
-        LP[i].Key = P[i].Key;
+    #pragma omp parallel for
+    for(i = 0; i < PartManager->NumPart; i ++) {
+        LP[i].Key = PEANO(PartManager->Base[i].Pos, PartManager->BoxSize);
         LP[i].Cost = 1;
     }
 
@@ -1301,7 +1299,10 @@ domain_compute_costs(const DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t
              * and can be removed by exchange if under memory pressure.*/
             if(P[n].IsGarbage)
                 continue;
-            int no = domain_get_topleaf(P[n].Key, ddecomp);
+            /* Note this is a second computation of the same peano key*/
+            peano_t key = PEANO(PartManager->Base[n].Pos, PartManager->BoxSize);
+            const int no = domain_get_topleaf(key, ddecomp);
+            P[n].TopLeaf = no;
 
             if(local_TopLeafWork)
                 local_TopLeafWork[no + tid * ddecomp->NTopLeaves] += 1;

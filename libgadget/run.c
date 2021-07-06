@@ -327,7 +327,6 @@ run(int RestartSnapNum)
 
         apply_half_kick(&Act, &All.CP, &times);
 
-        int didfof = 0;
         /* Cooling and extra physics show up as a source term in the evolution equations.
          * Formally you can write the structure of the partial differential equations:
            dU/dt +  div(F) = S
@@ -380,7 +379,6 @@ run(int RestartSnapNum)
                     do_heiii_reionization(1/All.Time - 1, &fof, &Tree);
                 }
                 fof_finish(&fof);
-                didfof = 1;
             }
 
             /* Black hole accretion and feedback */
@@ -429,20 +427,10 @@ run(int RestartSnapNum)
         FOFGroups fof = {0};
         if(WriteFOF) {
             /* Compute FOF, rebuilding tree if necessary*/
-            if(!force_tree_allocated(&Tree)) {
-                /* To rebuild the force tree we need the Peano keys, but if we did a FOF this timestep they were over-written with GrNr,
-                 * so we need to recompute them. */
-                if(didfof) {
-                    int i;
-                    #pragma omp parallel for
-                    for(i = 0; i < PartManager->NumPart; i++)
-                        P[i].Key = PEANO(P[i].Pos, All.BoxSize);
-                }
+            if(!force_tree_allocated(&Tree))
                 force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, 0, All.OutputDir);
-            }
             fof = fof_fof(&Tree, MPI_COMM_WORLD);
         }
-
         /* We don't need this timestep's tree anymore.*/
         force_tree_free(&Tree);
 

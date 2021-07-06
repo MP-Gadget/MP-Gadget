@@ -240,7 +240,7 @@ fof_try_particle_exchange(struct part_manager_type * halo_pman, struct slots_man
 
     walltime_measure("/FOF/IO/Distribute");
 
-    return domain_exchange(fof_sorted_layout, halo_pman, 1, NULL, halo_pman, halo_sman, 10000, Comm);
+    return domain_exchange(fof_sorted_layout, halo_pman, 1, NULL, NULL, halo_pman, halo_sman, 10000, Comm);
 }
 
 static int

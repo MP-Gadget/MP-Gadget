@@ -721,7 +721,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
                 /* Get the topnode to which a particle belongs. Each local tree
                  * has a local set of treenodes copying the global topnodes, except tid 0
                  * which has the real topnodes.*/
-                const int topleaf = domain_get_topleaf(P[i].Key, ddecomp);
+                const int topleaf = P[i].TopLeaf;
                 //int treenode = ddecomp->TopLeaves[topleaf].treenode;
                 this = local_topnodes[topleaf - StartLeaf];
             }
