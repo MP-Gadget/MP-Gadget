@@ -317,6 +317,7 @@ static int setup_density(void **state) {
     /*Reserve space for the slots*/
     slots_init(0.01 * PartManager->MaxPart, SlotsManager);
     slots_set_enabled(0, sizeof(struct sph_particle_data), SlotsManager);
+    slots_set_enabled(5, sizeof(struct sph_particle_data), SlotsManager);
     int64_t atleast[6] = {0};
     atleast[0] = pow(32,3);
     atleast[5] = 2;
