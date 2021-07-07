@@ -77,8 +77,12 @@ void real_drift_particle(struct particle_data * pp, struct slots_manager_type * 
     }
 
     for(j = 0; j < 3; j ++) {
-        while(pp->Pos[j] > BoxSize) pp->Pos[j] -= BoxSize;
-        while(pp->Pos[j] <= 0) pp->Pos[j] += BoxSize;
+        /* Note that if Pos < 0, this is an addition.*/
+        pp->Pos[j] -= BoxSize * floor(pp->Pos[j] / BoxSize);
+#ifdef DEBUG
+        if(pp->Pos[j] < 0 || pp->Pos[j] > BoxSize)
+            endrun(5, "Bad position %g %g %g for part id %ld type %d\n", pp->Pos[0], pp->Pos[1], pp->Pos[2], pp->ID, pp->Type);
+#endif
     }
 }
 
