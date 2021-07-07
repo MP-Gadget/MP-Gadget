@@ -898,7 +898,7 @@ domain_check_for_local_refine_subsample(
 {
 
     int i;
-
+    int64_t Nsample;
     struct local_particle_data * LP = (struct local_particle_data*) mymalloc("LocalParticleData", PartManager->NumPart * sizeof(LP[0]));
 
     /* Watchout : Peano/Morton ordering is required by the tree
@@ -915,31 +915,43 @@ domain_check_for_local_refine_subsample(
      * A local sorting may be faster but makes the tree less accurate due to
      * more likely running into overlapped local topTrees.
      * */
-    int64_t Nnongarbage = 0;
-    #pragma omp parallel for reduction(+: Nnongarbage)
-    for(i = 0; i < PartManager->NumPart; i ++) {
-        if(PartManager->Base[i].IsGarbage)
-            continue;
-        LP[i].Key = PEANO(PartManager->Base[i].Pos, PartManager->BoxSize);
-        LP[i].Cost = 1;
-        Nnongarbage++;
-    }
+    if(policy->PreSort) {
+        int64_t Nnongarbage = 0;
+        #pragma omp parallel for reduction(+: Nnongarbage)
+        for(i = 0; i < PartManager->NumPart; i ++) {
+            if(PartManager->Base[i].IsGarbage)
+                continue;
+            LP[i].Key = PEANO(PartManager->Base[i].Pos, PartManager->BoxSize);
+            LP[i].Cost = 1;
+            Nnongarbage++;
+        }
 
-    /* First sort to ensure spatially 'even' subsamples; FIXME: This can probably
-     * be omitted in most cases. Usually the particles in memory won't be very far off
-     * from a peano order. */
-    if(policy->PreSort)
+        /* First sort to ensure spatially 'even' subsamples; FIXME: This can probably
+        * be omitted in most cases. Usually the particles in memory won't be very far off
+        * from a peano order. */
         qsort_openmp(LP, Nnongarbage, sizeof(struct local_particle_data), order_by_key);
+        Nsample = Nnongarbage / policy->SubSampleDistance;
 
-    int64_t Nsample = Nnongarbage / policy->SubSampleDistance;
+        if(Nsample == 0 && Nnongarbage != 0) Nsample = 1;
 
-    if(Nsample == 0 && Nnongarbage != 0) Nsample = 1;
-
-    /* now subsample */
-    for(i = 0; i < Nsample; i ++)
-    {
-        LP[i].Key = LP[i * policy->SubSampleDistance].Key;
-        LP[i].Cost = LP[i * policy->SubSampleDistance].Cost;
+        /* now subsample */
+        for(i = 0; i < Nsample; i ++)
+        {
+            LP[i].Key = LP[i * policy->SubSampleDistance].Key;
+            LP[i].Cost = LP[i * policy->SubSampleDistance].Cost;
+        }
+    }
+    else {
+        Nsample = 0;
+        /* Subsample from particles immediately*/
+        #pragma omp parallel for reduction(+: Nsample)
+        for(i = 0; i < PartManager->NumPart; i += policy->SubSampleDistance) {
+            if(PartManager->Base[i].IsGarbage)
+                continue;
+            LP[i].Key = PEANO(PartManager->Base[i].Pos, PartManager->BoxSize);
+            LP[i].Cost = 1;
+            Nsample++;
+        }
     }
 
     if(policy->UseGlobalSort) {
