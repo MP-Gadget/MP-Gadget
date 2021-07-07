@@ -915,22 +915,25 @@ domain_check_for_local_refine_subsample(
      * A local sorting may be faster but makes the tree less accurate due to
      * more likely running into overlapped local topTrees.
      * */
-
-    int Nsample = PartManager->NumPart / policy->SubSampleDistance;
-
-    if(Nsample == 0 && PartManager->NumPart != 0) Nsample = 1;
-
-    #pragma omp parallel for
+    int64_t Nnongarbage = 0;
+    #pragma omp parallel for reduction(+: Nnongarbage)
     for(i = 0; i < PartManager->NumPart; i ++) {
+        if(PartManager->Base[i].IsGarbage)
+            continue;
         LP[i].Key = PEANO(PartManager->Base[i].Pos, PartManager->BoxSize);
         LP[i].Cost = 1;
+        Nnongarbage++;
     }
 
     /* First sort to ensure spatially 'even' subsamples; FIXME: This can probably
      * be omitted in most cases. Usually the particles in memory won't be very far off
      * from a peano order. */
     if(policy->PreSort)
-        qsort_openmp(LP, PartManager->NumPart, sizeof(struct local_particle_data), order_by_key);
+        qsort_openmp(LP, Nnongarbage, sizeof(struct local_particle_data), order_by_key);
+
+    int64_t Nsample = Nnongarbage / policy->SubSampleDistance;
+
+    if(Nsample == 0 && Nnongarbage != 0) Nsample = 1;
 
     /* now subsample */
     for(i = 0; i < Nsample; i ++)
