@@ -384,6 +384,13 @@ slots_gc_slots(int * compact_slots, struct part_manager_type * pman, struct slot
     return 0;
 }
 
+/* Order so that 1) Garbage is at the end to be removed.
+ * Then sort by type, domain and then z-order (for efficient tree build and spatial locality).
+ */
+#define LESS_MSB(x,y) (((x) < (y)) && ((x) < ((x) ^ (y))))
+
+static double BoxSize;
+
 static int
 order_by_type_and_key(const void *a, const void *b)
 {
@@ -402,7 +409,19 @@ order_by_type_and_key(const void *a, const void *b)
         return -1;
     if(pa->TopLeaf > pb->TopLeaf)
         return +1;
-    return 0;
+    /* Z-order curve sort from https://en.wikipedia.org/wiki/Z-order_curve#Efficiently_building_quadtrees_and_octrees .
+     * Note the sort is in the whole box but only really needs to be in the toptree domain.*/
+    int msd = 0;
+    int i;
+    const double DomainFac = 1.0 / BoxSize * (((uint64_t) 1) << (BITS_PER_DIMENSION));
+    uint64_t indexa[3], indexb[3];
+    for(i =0; i < 3; i++) {
+        indexa[i] = pa->Pos[i] * DomainFac;
+        indexb[i] = pb->Pos[i] * DomainFac;
+        if (i > 0 && LESS_MSB(indexa[msd] ^ indexb[msd], indexa[i] ^ indexb[i]))
+            msd = i;
+    }
+    return indexa[msd] < indexb[msd];
 }
 
 /*Returns the number of non-Garbage particles in an array with garbage sorted to the end.
@@ -443,6 +462,7 @@ slots_gc_sorted(struct part_manager_type * pman, struct slots_manager_type * sma
     int ptype;
     /* Resort the particles such that those of the same type and key are close by.
      * The locality is broken by the exchange. */
+    BoxSize = pman->BoxSize;
     qsort_openmp(pman->Base, pman->NumPart, sizeof(struct particle_data), order_by_type_and_key);
 
     /*Remove garbage particles*/
