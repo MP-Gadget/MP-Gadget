@@ -189,6 +189,8 @@ create_gadget_parameter_set()
     param_declare_double(ps, "MinGasTemp", OPTIONAL, 5, "Minimum gas temperature");
 
     param_declare_int(ps, "SnapshotWithFOF", REQUIRED, 0, "Enable Friends-of-Friends halo finder.");
+    param_declare_int(ps, "FOFPrimaryLinkTypes", OPTIONAL, 2, "2^ particle types to use as primary FOF targets.");
+    param_declare_int(ps, "FOFSecondaryLinkTypes", OPTIONAL, 1+16+32, "2^ particle types to link to nearest primaries.");
     param_declare_int(ps, "FOFSaveParticles", OPTIONAL, 1, "Save particles in the FOF catalog.");
     param_declare_double(ps, "FOFHaloLinkingLength", OPTIONAL, 0.2, "Linking length for Friends of Friends halos.");
     param_declare_int(ps, "FOFHaloMinLength", OPTIONAL, 32, "Minimum number of particles per FOF Halo.");

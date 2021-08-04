@@ -31,11 +31,6 @@
 
 #include "fof.h"
 
-/* Never change the primary link it is always DM. */
-#define FOF_PRIMARY_LINK_TYPES 2
-
-/* FIXME: convert this to a parameter */
-#define FOF_SECONDARY_LINK_TYPES (1+16+32)    // 2^type for the types linked to nearest primaries
 #define LARGE 1e29
 #define MAXITER 400
 
@@ -47,6 +42,8 @@ struct FOFParams
     double FOFHaloLinkingLength;
     double FOFHaloComovingLinkingLength; /* in code units */
     int FOFHaloMinLength;
+    int FOFPrimaryLinkTypes;
+    int FOFSecondaryLinkTypes;
 } fof_params;
 
 /*Set the parameters of the BH module*/
@@ -60,6 +57,8 @@ void set_fof_params(ParameterSet * ps)
         fof_params.FOFHaloMinLength = param_get_int(ps, "FOFHaloMinLength");
         fof_params.MinFoFMassForNewSeed = param_get_double(ps, "MinFoFMassForNewSeed");
         fof_params.MinMStarForNewSeed = param_get_double(ps, "MinMStarForNewSeed");
+        fof_params.FOFPrimaryLinkTypes = param_get_int(ps, "FOFPrimaryLinkTypes");
+        fof_params.FOFSecondaryLinkTypes = param_get_int(ps, "FOFSecondaryLinkTypes");
     }
     MPI_Bcast(&fof_params, sizeof(struct FOFParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -329,7 +328,7 @@ static void fof_primary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
 static int fof_primary_haswork(int n, TreeWalk * tw) {
     if(P[n].IsGarbage || P[n].Swallowed)
         return 0;
-    return (((1 << P[n].Type) & (FOF_PRIMARY_LINK_TYPES))) && FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[n];
+    return (((1 << P[n].Type) & (fof_params.FOFPrimaryLinkTypes))) && FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[n];
 }
 
 static void
@@ -525,7 +524,7 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
     if(iter->base.other == -1) {
         iter->base.Hsml = fof_params.FOFHaloComovingLinkingLength;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
-        iter->base.mask = FOF_PRIMARY_LINK_TYPES;
+        iter->base.mask = fof_params.FOFPrimaryLinkTypes;
         return;
     }
     int other = iter->base.other;
@@ -1124,7 +1123,7 @@ static int fof_secondary_haswork(int n, TreeWalk * tw) {
     /* Exclude particles where we already found a neighbour*/
     if(FOF_SECONDARY_GET_PRIV(tw)->distance[n] < 0.5 * LARGE)
         return 0;
-    return (((1 << P[n].Type) & (FOF_SECONDARY_LINK_TYPES)));
+    return ((1 << P[n].Type) & fof_params.FOFSecondaryLinkTypes);
 }
 static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, enum TreeWalkReduceMode mode, TreeWalk * tw) {
     if(O->Distance < FOF_SECONDARY_GET_PRIV(tw)->distance[place])
@@ -1144,7 +1143,7 @@ fof_secondary_ngbiter(TreeWalkQueryFOF * I,
     if(iter->base.other == -1) {
         O->Distance = LARGE;
         iter->base.Hsml = I->Hsml;
-        iter->base.mask = FOF_PRIMARY_LINK_TYPES;
+        iter->base.mask = fof_params.FOFPrimaryLinkTypes;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         return;
     }
