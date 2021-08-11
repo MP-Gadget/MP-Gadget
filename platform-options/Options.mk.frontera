@@ -1,7 +1,10 @@
+#OPTIMIZE for older versions of the intel 19 compiler, more conservative.
 # Frontera also supports -xCORE-AVX512 but it makes us slightly slower
 # -Zp16 is important: it aligns various structures and without it intel's MPI crashes.
 # -ipo is unreliable
-OPTIMIZE =  -fopenmp -O3 -g -Wall -xCORE-AVX2 -Zp16 -fp-model fast=1 #-ipo
+#OPTIMIZE =  -fopenmp -O3 -g -Wall -xCORE-AVX2 -Zp16 -fp-model fast=1 #-ipo
+#Improved options using AVX-512 which is  bit faster
+OPTIMIZE =-fopenmp -O3 -g -Wall -xCORE-AVX512 -fp-model fast=1 -ipo -qopt-mem-layout-trans=4
 #OPTIMIZE =  -fopenmp -O0 -g -Wall -Zp16
 
 #--------------------------------------- Basic operation mode of code
