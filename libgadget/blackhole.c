@@ -172,7 +172,8 @@ struct BHPriv {
 #define BH_GET_PRIV(tw) ((struct BHPriv *) (tw->priv))
 
 struct BHinfo{
-
+    /* Stores sizeof(struct BHinfo) - 2 * sizeof(int) . Allows size of record to be stored in the struct.*/
+    int size1;
     MyIDType ID;
     MyFloat Mass;
     MyFloat Mdot;
@@ -211,6 +212,8 @@ struct BHinfo{
     double Mdyn;
 
     MyDouble a;
+    /* See size1 above*/
+    int size2;
 };
 
 /*Set the parameters of the BH module*/
@@ -366,62 +369,63 @@ check_grav_bound(double dx[3], double dv[3], double da[3])
 
 
 static void
-collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv, FILE * FdBlackholeDetails)
+collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *priv, FILE * FdBlackholeDetails)
 {
     int i;
-    int c=0;
 
-    for(i = 0; i < NumActiveParticle; i++)
+    struct BHinfo * infos = mymalloc("BHDetailCache", NumActiveBlackHoles * sizeof(struct BHinfo));
+    const int size = sizeof(struct BHinfo) - sizeof(int) * 2;
+
+    #pragma omp parallel for
+    for(i = 0; i < NumActiveBlackHoles; i++)
     {
-        int p_i = ActiveParticle ? ActiveParticle[i] : i;
-
-        if(P[p_i].Type != 5 || P[p_i].IsGarbage || P[p_i].Mass <= 0)
-          continue;
-
+        const int p_i = ActiveBlackHoles ? ActiveBlackHoles[i] : i;
         int PI = P[p_i].PI;
 
-        struct BHinfo info = {0};
-        info.ID = P[p_i].ID;
-        info.Mass = BHP(p_i).Mass;
-        info.Mdot = BHP(p_i).Mdot;
-        info.Density = BHP(p_i).Density;
-        info.minTimeBin = BHP(p_i).minTimeBin;
-        info.encounter = BHP(p_i).encounter;
+        struct BHinfo *info = &infos[i];
+        info->size1 = size;
+        info->size2 = size;
+        info->ID = P[p_i].ID;
+        info->Mass = BHP(p_i).Mass;
+        info->Mdot = BHP(p_i).Mdot;
+        info->Density = BHP(p_i).Density;
+        info->minTimeBin = BHP(p_i).minTimeBin;
+        info->encounter = BHP(p_i).encounter;
 
         if(priv->MinPot) {
-            info.MinPot = priv->MinPot[PI];
+            info->MinPot = priv->MinPot[PI];
         }
-        info.BH_Entropy = priv->BH_Entropy[PI];
+        info->BH_Entropy = priv->BH_Entropy[PI];
         int k;
         for(k=0; k < 3; k++) {
-            info.MinPotPos[k] = BHP(p_i).MinPotPos[k] - PartManager->CurrentParticleOffset[k];
-            info.BH_SurroundingGasVel[k] = priv->BH_SurroundingGasVel[PI][k];
-            info.BH_accreted_momentum[k] = priv->BH_accreted_momentum[PI][k];
-            info.BH_DragAccel[k] = BHP(p_i).DragAccel[k];
-            info.BH_GravAccel[k] = P[p_i].GravAccel[k];
-            info.Pos[k] = P[p_i].Pos[k] - PartManager->CurrentParticleOffset[k];
-            info.Velocity[k] = P[p_i].Vel[k];
-            info.BH_DFAccel[k] = BHP(p_i).DFAccel[k];
+            info->MinPotPos[k] = BHP(p_i).MinPotPos[k] - PartManager->CurrentParticleOffset[k];
+            info->BH_SurroundingGasVel[k] = priv->BH_SurroundingGasVel[PI][k];
+            info->BH_accreted_momentum[k] = priv->BH_accreted_momentum[PI][k];
+            info->BH_DragAccel[k] = BHP(p_i).DragAccel[k];
+            info->BH_GravAccel[k] = P[p_i].GravAccel[k];
+            info->Pos[k] = P[p_i].Pos[k] - PartManager->CurrentParticleOffset[k];
+            info->Velocity[k] = P[p_i].Vel[k];
+            info->BH_DFAccel[k] = BHP(p_i).DFAccel[k];
         }
 
         /****************************************************************************/
         /* Output some DF info for debugging */
-        info.BH_SurroundingDensity = priv->BH_SurroundingDensity[PI];
-        info.BH_SurroundingRmsVel = priv->BH_SurroundingRmsVel[PI];
-        info.BH_SurroundingParticles = priv->BH_SurroundingParticles[PI];
-        info.BH_SurroundingVel[0] = priv->BH_SurroundingVel[PI][0];
-        info.BH_SurroundingVel[1] = priv->BH_SurroundingVel[PI][1];
-        info.BH_SurroundingVel[2] = priv->BH_SurroundingVel[PI][2];
+        info->BH_SurroundingDensity = priv->BH_SurroundingDensity[PI];
+        info->BH_SurroundingRmsVel = priv->BH_SurroundingRmsVel[PI];
+        info->BH_SurroundingParticles = priv->BH_SurroundingParticles[PI];
+        info->BH_SurroundingVel[0] = priv->BH_SurroundingVel[PI][0];
+        info->BH_SurroundingVel[1] = priv->BH_SurroundingVel[PI][1];
+        info->BH_SurroundingVel[2] = priv->BH_SurroundingVel[PI][2];
 
         /****************************************************************************/
-        info.BH_accreted_BHMass = priv->BH_accreted_BHMass[PI];
-        info.BH_accreted_Mass = priv->BH_accreted_Mass[PI];
-        info.BH_FeedbackWeightSum = priv->BH_FeedbackWeightSum[PI];
+        info->BH_accreted_BHMass = priv->BH_accreted_BHMass[PI];
+        info->BH_accreted_Mass = priv->BH_accreted_Mass[PI];
+        info->BH_FeedbackWeightSum = priv->BH_FeedbackWeightSum[PI];
 
-        info.SPH_SwallowID = priv->SPH_SwallowID[PI];
-        info.SwallowID =  BHP(p_i).SwallowID;
-        info.CountProgs = BHP(p_i).CountProgs;
-        info.Swallowed =  P[p_i].Swallowed;
+        info->SPH_SwallowID = priv->SPH_SwallowID[PI];
+        info->SwallowID =  BHP(p_i).SwallowID;
+        info->CountProgs = BHP(p_i).CountProgs;
+        info->Swallowed =  P[p_i].Swallowed;
         /************************************************************************************************/
         /* When SeedBHDynMass is larger than gas particle mass, we have three mass tracer of blackhole. */
         /* BHP(p_i).Mass : intrinsic mass of BH, accreted every (active) time step.                     */
@@ -430,24 +434,19 @@ collect_BH_info(int * ActiveParticle,int NumActiveParticle, struct BHPriv *priv,
         /* BHP(p_i).Mtrack: Initialized as gas particle mass, and is capped at SeedBHDynMass,           */
         /*                 it traces BHP(p_i).Mass by swallowing gas when BHP(p_i).Mass < SeedBHDynMass */
         /************************************************************************************************/
-        info.Mtrack = BHP(p_i).Mtrack;
-        info.Mdyn = P[p_i].Mass;
+        info->Mtrack = BHP(p_i).Mtrack;
+        info->Mdyn = P[p_i].Mass;
 
-        info.a = All.Time;
-
-        int size = sizeof(info);
-
-        fwrite(&size, sizeof(size), 1, FdBlackholeDetails);
-        fwrite(&info,sizeof(info),1,FdBlackholeDetails);
-        fwrite(&size, sizeof(size), 1, FdBlackholeDetails);
-        c++;
+        info->a = All.Time;
     }
 
+    fwrite(infos,sizeof(struct BHinfo),NumActiveBlackHoles,FdBlackholeDetails);
     fflush(FdBlackholeDetails);
+    myfree(infos);
     int64_t totalN;
 
-    sumup_large_ints(1, &c, &totalN);
-    message(0, "Written details of %ld blackholes.\n", totalN);
+    sumup_large_ints(1, &NumActiveBlackHoles, &totalN);
+    message(0, "Written details of %ld blackholes in %lu bytes each.\n", totalN, sizeof(struct BHinfo));
 }
 
 
