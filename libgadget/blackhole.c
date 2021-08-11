@@ -171,8 +171,9 @@ struct BHPriv {
 };
 #define BH_GET_PRIV(tw) ((struct BHPriv *) (tw->priv))
 
-struct BHinfo{
-    /* Stores sizeof(struct BHinfo) - 2 * sizeof(int) . Allows size of record to be stored in the struct.*/
+/* Structure needs to be packed to ensure disc write is the same on all architectures and the record size is correct. */
+struct __attribute__((__packed__)) BHinfo{
+    /* Stores sizeof(struct BHinfo) - 2 * sizeof(size1) . Allows size of record to be stored in the struct.*/
     int size1;
     MyIDType ID;
     MyFloat Mass;
@@ -376,7 +377,7 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
     struct BHinfo * infos = mymalloc("BHDetailCache", NumActiveBlackHoles * sizeof(struct BHinfo));
     report_memory_usage("BLACKHOLE");
 
-    const int size = sizeof(struct BHinfo) - sizeof(int) * 2;
+    const int size = sizeof(struct BHinfo) - sizeof(infos[0].size1) - sizeof(infos[0].size2);
 
     #pragma omp parallel for
     for(i = 0; i < NumActiveBlackHoles; i++)
