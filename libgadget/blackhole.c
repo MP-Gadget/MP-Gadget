@@ -374,6 +374,8 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
     int i;
 
     struct BHinfo * infos = mymalloc("BHDetailCache", NumActiveBlackHoles * sizeof(struct BHinfo));
+    report_memory_usage("BLACKHOLE");
+
     const int size = sizeof(struct BHinfo) - sizeof(int) * 2;
 
     #pragma omp parallel for
