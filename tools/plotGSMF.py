@@ -1,4 +1,4 @@
-"""A short function to plot a GSMF from a simulation, and compare to some publuc data"""
+"""A short function to plot a GSMF from a simulation, and compare to some public data"""
 import glob
 import os
 from bigfile import BigFile
