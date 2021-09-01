@@ -361,7 +361,7 @@ double compute_agb_yield(gsl_interp2d * agb_interp, const double * agb_weights, 
     para.metallicities = agb_metallicities;
     para.metallicity = stellarmetal;
     para.weights = agb_weights;
-    gsl_integration_qag(&ff, masslow, masshigh, 0, 1e-3, GSL_WORKSPACE, GSL_INTEG_GAUSS61, gsl_work, &agbyield, &abserr);
+    gsl_integration_qag(&ff, masslow, masshigh, 1e-7, 1e-3, GSL_WORKSPACE, GSL_INTEG_GAUSS61, gsl_work, &agbyield, &abserr);
     return agbyield;
 }
 
@@ -387,7 +387,7 @@ double compute_snii_yield(gsl_interp2d * snii_interp, const double * snii_weight
     /* This happens if no bins in range had dying stars this timestep*/
     if(masslow >= masshigh)
         return 0;
-    gsl_integration_qag(&ff, masslow, masshigh, 0, 1e-3, GSL_WORKSPACE, GSL_INTEG_GAUSS61, gsl_work, &yield, &abserr);
+    gsl_integration_qag(&ff, masslow, masshigh, 1e-7, 1e-3, GSL_WORKSPACE, GSL_INTEG_GAUSS61, gsl_work, &yield, &abserr);
     return yield;
 }
 
