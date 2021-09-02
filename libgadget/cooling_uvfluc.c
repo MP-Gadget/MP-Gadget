@@ -161,10 +161,11 @@ struct UVBG get_local_UVBG(double redshift, const struct UVBG * const GlobalUVBG
         corrpos[i] = Pos[i] - PosOffset[i];
     double zreion = interp_eval_periodic(&UVF.interp, corrpos, UVF.Table);
     if(zreion < redshift) {
+        uvbg.zreion = zreion;
         return uvbg;
     }
-
     memcpy(&uvbg, GlobalUVBG, sizeof(struct UVBG));
+    uvbg.zreion = zreion;
     return uvbg;
 }
 
