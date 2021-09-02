@@ -49,7 +49,6 @@ static struct SFRParams
     double TempSupernova;
     double TempClouds;
     double MaxSfrTimescale;
-    double HIReionTemp;
     int BHFeedbackUseTcool;
     /*!< may be used to set a floor for the gas temperature */
     double MinGasTemp;
@@ -59,7 +58,12 @@ static struct SFRParams
     double QuickLymanAlphaTempThresh;
     /* Number of stars to create from each gas particle*/
     int Generations;
-
+    /* The temperature boost from reionisation. Following 1807.09282,
+     * we use a fixed, density independent value of 20000 K. I also tried
+     * their eq. 3-4 but found that for this low resolution (of the UV grid) the
+     * density gradients were too small and Treion was only 10 K.
+     */
+    double HIReionTemp;
     /* Input files for the various cooling modules*/
     char TreeCoolFile[100];
     char MetalCoolFile[100];
@@ -67,7 +71,6 @@ static struct SFRParams
     /* File with the helium reionization table*/
     char ReionHistFile[100];
 } sfr_params;
-
 
 int get_generations(void)
 {
