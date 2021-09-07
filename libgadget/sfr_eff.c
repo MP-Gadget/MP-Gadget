@@ -58,7 +58,12 @@ static struct SFRParams
     double QuickLymanAlphaTempThresh;
     /* Number of stars to create from each gas particle*/
     int Generations;
-
+    /* The temperature boost from reionisation. Following 1807.09282,
+     * we use a fixed, density independent value of 20000 K. I also tried
+     * their eq. 3-4 but found that for this low resolution (of the UV grid) the
+     * density gradients were too small and Treion was only 10 K.
+     */
+    double HIReionTemp;
     /* Input files for the various cooling modules*/
     char TreeCoolFile[100];
     char MetalCoolFile[100];
@@ -66,7 +71,6 @@ static struct SFRParams
     /* File with the helium reionization table*/
     char ReionHistFile[100];
 } sfr_params;
-
 
 int get_generations(void)
 {
@@ -133,7 +137,7 @@ void set_sfr_params(ParameterSet * ps)
         /*Lyman-alpha forest parameters*/
         sfr_params.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
         sfr_params.QuickLymanAlphaTempThresh = param_get_double(ps, "QuickLymanAlphaTempThresh");
-
+        sfr_params.HIReionTemp = param_get_double(ps, "HIReionTemp");
         /* File names*/
         param_get_string2(ps, "TreeCoolFile", sfr_params.TreeCoolFile, sizeof(sfr_params.TreeCoolFile));
         param_get_string2(ps, "UVFluctuationfile", sfr_params.UVFluctuationFile, sizeof(sfr_params.UVFluctuationFile));
@@ -400,7 +404,18 @@ cooling_direct(int i, const double a3inv, const double hubble, const struct UVBG
 
     double redshift = 1./All.Time - 1;
     struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, P[i].Pos, PartManager->CurrentParticleOffset);
-    double unew = DoCooling(redshift, uold, SPHP(i).Density * a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity, All.MinEgySpec, P[i].HeIIIionized);
+    double lasttime = exp(loga_from_ti(P[i].Ti_drift - dti_from_timebin(P[i].TimeBin)));
+    double lastred = 1/lasttime - 1;
+    double unew;
+    /* The particle reionized this timestep, bump the temperature to the HI reionization temperature.
+     * We only do this for non-star-forming gas.*/
+    if(sfr_params.HIReionTemp > 0 && uvbg.zreion > redshift && uvbg.zreion < lastred) {
+        /* Note we can assume it is neutral before it reionizes*/
+        const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1 * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+        unew = sfr_params.HIReionTemp / u_to_temp_fac;
+    }
+    else
+        unew = DoCooling(redshift, uold, SPHP(i).Density * a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity, All.MinEgySpec, P[i].HeIIIionized);
 
     SPHP(i).Ne = ne;
     /* Update the entropy. This is done after synchronizing kicks and drifts, as per run.c.*/

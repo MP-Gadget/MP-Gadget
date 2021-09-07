@@ -13,6 +13,7 @@ struct UVBG {
     double epsHep;
     double epsHe0;
     double self_shield_dens;
+    double zreion;
 };
 
 /*Global unit system for the cooling module*/

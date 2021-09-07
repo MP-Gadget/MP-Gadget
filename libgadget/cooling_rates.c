@@ -267,9 +267,16 @@ struct UVBG get_global_UVBG(double redshift)
     if(!CoolingParams.PhotoIonizationOn)
         return GlobalUVBG;
 
+    /* Set the homogeneous reionization redshift as the point when the UVB switches on.*/
+    GlobalUVBG.zreion = pow(10,Gamma_log1z[NTreeCool - 1])-1;
+
+    if(CoolingParams.UVRedshiftThreshold >= 0.)
+        GlobalUVBG.zreion = CoolingParams.UVRedshiftThreshold;
+
     /* if a threshold is set, disable UV bg above that redshift */
     if(CoolingParams.UVRedshiftThreshold >= 0. && redshift > CoolingParams.UVRedshiftThreshold)
         return GlobalUVBG;
+
 
     GlobalUVBG.gJH0 = get_photo_rate(redshift, &Gamma_HI);
     GlobalUVBG.gJHe0 = get_photo_rate(redshift, &Gamma_HeI);
