@@ -312,7 +312,7 @@ create_gadget_parameter_set()
      * In small boxes this may be too small.*/
     param_declare_double(ps, "QSOMaxMass", OPTIONAL, 1000, "Maximum mass of a halo potentially hosting a quasar in internal mass units.");
     param_declare_double(ps, "QSOMinMass", OPTIONAL, 100, "Minimum mass of a halo potentially hosting a quasar in internal mass units.");
-    param_declare_double(ps, "QSOMeanBubble", OPTIONAL, 30000, "Mean size of the ionizing bubble around a quasar. By default 30 Mpc.");
+    param_declare_double(ps, "QSOMeanBubble", OPTIONAL, 20000, "Mean size of the ionizing bubble around a quasar. By default 20 Mpc/h = 28 Mpc. 0807.2799");
     param_declare_double(ps, "QSOVarBubble", OPTIONAL, 0, "Variance of the ionizing bubble around a quasar. By default zero so all bubbles are the same size");
     param_declare_double(ps, "QSOHeIIIReionFinishFrac", OPTIONAL, 0.95, "Reionization fraction at which all particles are flash-reionized instead of having quasar bubbles placed.");
 
