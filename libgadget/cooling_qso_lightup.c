@@ -655,11 +655,5 @@ during_helium_reionization(double redshift)
     if(redshift < 1./He_zz[Nreionhist-1] - 1)
         return 0;
 
-    double desired_ion_frac = gsl_interp_eval(HeIII_intp, He_zz, XHeIII, 1/(1+redshift), NULL);
-    /* If the desired ionization fraction is above a threshold (by default 0.95)
-     * ionize all particles*/
-    if(desired_ion_frac > QSOLightupParams.heIIIreion_finish_frac)
-        return 0;
-
     return 1;
 }
