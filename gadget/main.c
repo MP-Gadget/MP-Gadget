@@ -53,6 +53,7 @@ int main(int argc, char **argv)
         message(0, "       1          Restart from last snapshot (LastSnapNum.txt) and continue simulation\n");
         message(0, "       2          Restart from specified snapshot (-1 for Initial Condition) and continue simulation\n");
         message(0, "       3          Run FOF if enabled\n");
+        message(0, "       4          Generate a power spectrum and exit\n");
         message(0, "       99         Run Tests. \n\n");
         MPI_Finalize();
         return 1;
@@ -121,6 +122,9 @@ int main(int argc, char **argv)
     switch(RestartFlag) {
         case 3:
             runfof(RestartSnapNum);
+            break;
+        case 4:
+            runpower(RestartSnapNum);
             break;
         case 99:
             runtests(RestartSnapNum);
