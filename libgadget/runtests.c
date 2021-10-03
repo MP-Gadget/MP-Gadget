@@ -201,3 +201,19 @@ runfof(int RestartSnapNum)
     fof_save_groups(&fof, RestartSnapNum, MPI_COMM_WORLD);
     fof_finish(&fof);
 }
+
+void
+runpower(int RestartSnapNum)
+{
+    PetaPM pm = {0};
+    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.G);
+    DomainDecomp ddecomp[1] = {0};
+    init(RestartSnapNum, ddecomp);          /* ... read in initial model */
+
+    /*PM needs a tree*/
+    ForceTree Tree = {0};
+    int HybridNuGrav = All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime;
+    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, 1, All.OutputDir);
+    gravpm_force(&pm, &Tree);
+    force_tree_free(&Tree);
+}
