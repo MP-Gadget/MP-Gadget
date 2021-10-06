@@ -46,6 +46,8 @@ struct Group
     float StellarMetalElemMass[NMETALS];
     float GasMetalElemMass[NMETALS];
 
+    /* Number of gas particles in the halo which have had helium ionization happen to them*/
+    float MassHeIonized;
     /*These are used for storing black hole properties*/
     double BH_Mass;
     double BH_Mdot;
