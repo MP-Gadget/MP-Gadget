@@ -41,6 +41,7 @@ static FILE  *FdCPU;    /*!< file handle for cpu.txt log-file. */
 static FILE *FdSfr;     /*!< file handle for sfr.txt log-file. */
 static FILE *FdBlackHoles;  /*!< file handle for blackholes.txt log-file. */
 static FILE *FdBlackholeDetails;  /*!< file handle for BlackholeDetails binary file. */
+static FILE *FdHelium; /* < file handle for the Helium reionization log file helium.txt */
 
 static struct ClockTable Clocks;
 
@@ -377,7 +378,7 @@ run(int RestartSnapNum)
                 }
                 if(during_helium_reionization(1/All.Time - 1)) {
                     /* Helium reionization by switching on quasar bubbles*/
-                    do_heiii_reionization(1/All.Time - 1, &fof, &Tree);
+                    do_heiii_reionization(1/All.Time - 1, &fof, &Tree, FdHelium);
                 }
                 fof_finish(&fof);
                 didfof = 1;
@@ -590,6 +591,14 @@ open_outputfiles(int RestartSnapNum)
         buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, "sfr.txt", postfix);
         fastpm_path_ensure_dirname(buf);
         if(!(FdSfr = fopen(buf, mode)))
+            endrun(1, "error in opening file '%s'\n", buf);
+        myfree(buf);
+    }
+
+    if(qso_lightup_on()) {
+        buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, "helium.txt", postfix);
+        fastpm_path_ensure_dirname(buf);
+        if(!(FdHelium = fopen(buf, mode)))
             endrun(1, "error in opening file '%s'\n", buf);
         myfree(buf);
     }
