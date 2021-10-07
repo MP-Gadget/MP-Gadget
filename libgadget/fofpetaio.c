@@ -452,6 +452,7 @@ SIMPLE_PROPERTY_FOF(GasMetalElemMass, GasMetalElemMass[0], float, NMETALS)
 SIMPLE_PROPERTY_FOF(StellarMetalElemMass, StellarMetalElemMass[0], float, NMETALS)
 SIMPLE_PROPERTY_FOF(BlackholeMass, BH_Mass, float, 1)
 SIMPLE_PROPERTY_FOF(BlackholeAccretionRate, BH_Mdot, float, 1)
+SIMPLE_PROPERTY_FOF(MassHeIonized, MassHeIonized, float, 1)
 
 static void fof_register_io_blocks(struct IOTable * IOTable) {
     IOTable->used = 0;
@@ -470,6 +471,7 @@ static void fof_register_io_blocks(struct IOTable * IOTable) {
     IO_REG_WRONLY(MassCenterVelocity, "f4", 3, PTYPE_FOF_GROUP, IOTable);
     IO_REG(LengthByType, "u4", 6, PTYPE_FOF_GROUP, IOTable);
     IO_REG(MassByType, "f4", 6, PTYPE_FOF_GROUP, IOTable);
+    IO_REG(MassHeIonized, "f4", 1, PTYPE_FOF_GROUP, IOTable);
     if(All.StarformationOn) {
         IO_REG(StarFormationRate, "f4", 1, PTYPE_FOF_GROUP, IOTable);
         IO_REG(GasMetalMass, "f4", 1, PTYPE_FOF_GROUP, IOTable);

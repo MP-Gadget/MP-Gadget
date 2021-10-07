@@ -524,7 +524,7 @@ ionize_all_part(int qso_ind, int * qso_cand, FOFGroups * fof, ForceTree * tree)
  * Keeps adding new quasars until need_more_quasars() returns 0.
  */
 static void
-turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree)
+turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree, FILE * FdHelium)
 {
     int ncand = 0;
     int * qso_cand = NULL;
@@ -590,14 +590,36 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree)
         MPI_Allreduce(&n_ionized, &tot_qso_ionized, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
         curionfrac += (double) tot_qso_ionized / (double) n_gas_tot;
         tot_n_ionized += tot_qso_ionized;
-        if(new_qso > 0)
-            message(1, "HeII: Quasar %d changed the HeIII ionization fraction to %g, ionizing %ld\n", qso_cand[new_qso], curionfrac, tot_qso_ionized);
+        /* Get the quasar position on rank 0*/
+        double qso_pos[3] = {0};
+        if(new_qso > 0) {
+            int qplace = qso_cand[new_qso];
+            int k;
+            for(k = 0; k < 3; k++) {
+                qso_pos[k] = fof->Group[qplace].CM[k]- PartManager->CurrentParticleOffset[k];
+                while(qso_pos[k] > All.BoxSize) qso_pos[k] -= All.BoxSize;
+                while(qso_pos[k] <= 0) qso_pos[k] += All.BoxSize;
+            }
+            message(1, "HeII: Quasar %d changed the HeIII ionization fraction to %g, ionizing %ld\n", qplace, curionfrac, tot_qso_ionized);
+        }
+        /* Format: All.Time = current scale factor,
+         * ID of the quasar (the index of the FOF halo)
+         * FOF halo position, x,y,z,
+         * Current ionized fraction
+         * total number of particles ionized by this quasar*/
+        MPI_Allreduce(MPI_IN_PLACE, qso_pos, 3, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+        if(FdHelium) {
+            fprintf(FdHelium, "%g %g %g %g %g %ld\n", All.Time, qso_pos[0], qso_pos[1], qso_pos[2], curionfrac, tot_qso_ionized);
+            fflush(FdHelium);
+        }
+
         /* Break the loop if we do not ionize enough particles this round.
          * Try again next timestep when we will hopefully have new BHs.*/
         if(tot_qso_ionized < 0.01 * non_overlapping_bubble_number && iteration > 10) {
             message(0, "HeII: Stopping ionization at iteration %d because insufficient ionization happened.\n", iteration);
             break;
         }
+
         /* Remove this candidate from the list by moving the list down.*/
         if( new_qso >= 0) {
             memmove(qso_cand+new_qso, qso_cand+new_qso+1, ncand - new_qso+1);
@@ -617,7 +639,7 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree)
 
 /* Starts reionization by selecting the first halo and flagging all particles in the first HeIII bubble*/
 void
-do_heiii_reionization(double redshift, FOFGroups * fof, ForceTree * tree)
+do_heiii_reionization(double redshift, FOFGroups * fof, ForceTree * tree, FILE * FdHelium)
 {
     if(!QSOLightupParams.QSOLightupOn)
         return;
@@ -630,7 +652,7 @@ do_heiii_reionization(double redshift, FOFGroups * fof, ForceTree * tree)
 
     walltime_measure("/Misc");
     //message(0, "HeII: Reionization initiated.\n");
-    turn_on_quasars(redshift, fof, tree);
+    turn_on_quasars(redshift, fof, tree, FdHelium);
 }
 
 int
@@ -656,4 +678,10 @@ during_helium_reionization(double redshift)
         return 0;
 
     return 1;
+}
+
+int
+qso_lightup_on(void)
+{
+    return QSOLightupParams.QSOLightupOn;
 }
