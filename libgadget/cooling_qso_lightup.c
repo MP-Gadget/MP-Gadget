@@ -595,8 +595,11 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree, FILE * FdHel
         if(new_qso > 0) {
             int qplace = qso_cand[new_qso];
             int k;
-            for(k = 0; k < 3; k++)
+            for(k = 0; k < 3; k++) {
                 qso_pos[k] = fof->Group[qplace].CM[k]- PartManager->CurrentParticleOffset[k];
+                while(qso_pos[k] > All.BoxSize) qso_pos[k] -= All.BoxSize;
+                while(qso_pos[k] <= 0) qso_pos[k] += All.BoxSize;
+            }
             message(1, "HeII: Quasar %d changed the HeIII ionization fraction to %g, ionizing %ld\n", qplace, curionfrac, tot_qso_ionized);
         }
         /* Format: All.Time = current scale factor,
