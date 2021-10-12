@@ -464,6 +464,8 @@ run(int RestartSnapNum)
 
         if(!next_sync || stop) {
             /* out of sync points, or a requested stop, the run has finally finished! Yay.*/
+            if(action->type == HCI_TIMEOUT)
+                message(0, "Stopping: not enough time for another PM step before TimeLimitCPU is reached.\n");
             break;
         }
 
