@@ -724,7 +724,7 @@ struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_part
      * gadget-p doesn't have this cap.
      * without the cap sm can be bigger than cloudmass.
     */
-    if(data.tsfr < dtime)
+    if(data.tsfr < dtime && dtime > 0)
         data.tsfr = dtime;
 
     double redshift = 1./All.Time - 1;
