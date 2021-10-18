@@ -18,6 +18,9 @@
 #include "domain.h"
 #include "timestep.h"
 #include "fof.h"
+#include "sfr_eff.h"
+#include "density.h"
+#include "hydra.h"
 
 char * GDB_format_particle(int i);
 
@@ -190,12 +193,29 @@ runfof(int RestartSnapNum)
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.G);
     DomainDecomp ddecomp[1] = {0};
-    init(RestartSnapNum, ddecomp);          /* ... read in initial model */
-
+    /* ... read in initial model */
+    DriftKickTimes times = init_driftkicktime(init(RestartSnapNum, ddecomp));
     ForceTree Tree = {0};
     /*FoF needs a tree*/
     int HybridNuGrav = All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime;
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, 0, All.OutputDir);
+    /* Regenerate the star formation rate for the FOF table.*/
+    if(All.StarformationOn) {
+        ActiveParticles Act = {0};
+        Act.NumActiveParticle = PartManager->NumPart;
+        MyFloat * GradRho = NULL;
+        if(sfr_need_to_compute_sph_grad_rho()) {
+            GradRho = mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
+            /*Allocate the memory for predicted SPH data.*/
+            struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
+            /* computes GradRho with a treewalk. No hsml update as done in init().*/
+            density(&Act, 0, 0, All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, &Tree);
+            slots_free_sph_pred_data(&sph_predicted);
+        }
+        cooling_and_starformation(&Act, &Tree, GradRho, NULL);
+        if(GradRho)
+            myfree(GradRho);
+    }
     FOFGroups fof = fof_fof(&Tree, MPI_COMM_WORLD);
     force_tree_free(&Tree);
     fof_save_groups(&fof, RestartSnapNum, MPI_COMM_WORLD);
