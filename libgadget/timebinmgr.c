@@ -238,7 +238,8 @@ ti_from_loga(double loga)
 {
     int i;
     int ti;
-    for(i = 0; i < NSyncPoints - 1; i++)
+    /* First syncpoint is simulation start*/
+    for(i = 1; i < NSyncPoints - 1; i++)
     {
         if(SyncPoints[i].loga > loga)
             break;
