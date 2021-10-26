@@ -179,7 +179,7 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
         gadget_setup_thread_arrays(NewParents, thrqueueparent, nqthrsfr, nactive, nthreads);
     }
 
-    if(All.WindOn & winds_are_subgrid()) {
+    if(All.WindOn && winds_are_subgrid()) {
         nqthrwind = ta_malloc("nqthrwind", size_t, nthreads);
         thrqueuewind = ta_malloc("thrqueuewind", int *, nthreads);
         StellarMass = mymalloc("StellarMass", SlotsManager->info[0].size * sizeof(MyFloat));
@@ -236,8 +236,9 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
                     thrqueueparent[tid][nqthrsfr[tid]] = p_i;
                     nqthrsfr[tid]++;
                 }
-                /* Add this particle to the queue for consideration to spawn a wind. */
-                if(All.WindOn && winds_are_subgrid() && newstar < 0) {
+                /* Add this particle to the queue for consideration to spawn a wind.
+                 * Only for subgrid winds. */
+                if(nqthrwind && newstar < 0) {
                     thrqueuewind[tid][nqthrwind[tid]] = p_i;
                     StellarMass[P[p_i].PI] = sm;
                     nqthrwind[tid]++;
@@ -788,6 +789,8 @@ void init_cooling_and_star_formation(int CoolingOn)
     coolunits.density_in_phys_cgs = All.UnitDensity_in_cgs * All.CP.HubbleParam * All.CP.HubbleParam;
     coolunits.uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
     coolunits.tt_in_s = All.UnitTime_in_s / All.CP.HubbleParam;
+    /* Get mean cosmic baryon density for photoheating rate from long mean free path photons */
+    coolunits.rho_crit_baryon = 3 * pow(All.CP.HubbleParam * HUBBLE,2) * All.CP.OmegaBaryon / (8 * M_PI * GRAVITY);
 
     /* mean molecular weight assuming ZERO ionization NEUTRAL GAS*/
     double meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);

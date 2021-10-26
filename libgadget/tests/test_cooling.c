@@ -184,19 +184,22 @@ static void test_DoCooling(void ** state)
     double UnitLength_in_cm = 3.08568e+21;
     double UnitEnergy_in_cgs = UnitMass_in_g  * pow(UnitLength_in_cm, 2) / pow(UnitTime_in_s, 2);
 
+    Cosmology CP = {0};
+    CP.OmegaCDM = 0.3;
+    CP.OmegaBaryon = coolpar.fBar * CP.OmegaCDM;
+    CP.HubbleParam = HubbleParam;
+
     struct cooling_units coolunits;
     coolunits.CoolingOn = 1;
     coolunits.density_in_phys_cgs = UnitDensity_in_cgs * HubbleParam * HubbleParam;
     coolunits.uu_in_cgs = UnitEnergy_in_cgs / UnitMass_in_g;
     coolunits.tt_in_s = UnitTime_in_s / HubbleParam;
+    coolunits.rho_crit_baryon = 3 * pow(CP.HubbleParam * HUBBLE,2) * CP.OmegaBaryon / (8 * M_PI * GRAVITY);
+
     double meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);
     double MinEgySpec = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * 1;
     MinEgySpec /= coolunits.uu_in_cgs;
 
-    Cosmology CP = {0};
-    CP.OmegaCDM = 0.3;
-    CP.OmegaBaryon = coolpar.fBar * CP.OmegaCDM;
-    CP.HubbleParam = HubbleParam;
     set_coolpar(coolpar);
     init_cooling(TreeCool, MetalCool, NULL, coolunits, &CP);
     struct UVBG uvbg = get_global_UVBG(0);

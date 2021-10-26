@@ -147,7 +147,7 @@ DriftKickTimes init_driftkicktime(inttime_t Ti_Current)
 
 int is_timebin_active(int i, inttime_t current) {
     /*Bin 0 is always active and at time 0 all bins are active*/
-    if(i == 0 || current == 0)
+    if(i <= 0 || current <= 0)
         return 1;
     if(current % dti_from_timebin(i) == 0)
         return 1;
