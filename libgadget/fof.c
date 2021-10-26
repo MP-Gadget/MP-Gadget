@@ -370,8 +370,6 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
 
     /* allocate buffers to arrange communication */
 
-    t0 = second();
-
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)
     {
