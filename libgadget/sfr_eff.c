@@ -788,6 +788,8 @@ void init_cooling_and_star_formation(int CoolingOn)
     coolunits.density_in_phys_cgs = All.UnitDensity_in_cgs * All.CP.HubbleParam * All.CP.HubbleParam;
     coolunits.uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
     coolunits.tt_in_s = All.UnitTime_in_s / All.CP.HubbleParam;
+    /* Get mean cosmic baryon density for photoheating rate from long mean free path photons */
+    coolunits.rho_crit_baryon = 3 * pow(All.CP.HubbleParam * HUBBLE,2) * All.CP.OmegaBaryon / (8 * M_PI * GRAVITY);
 
     /* mean molecular weight assuming ZERO ionization NEUTRAL GAS*/
     double meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);
