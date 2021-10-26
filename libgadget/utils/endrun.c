@@ -44,7 +44,6 @@ show_backtrace(void)
         /* CHILD */
         char parent[16];
         char buf[512];
-        seteuid(0);
         close(STDIN_FILENO);
         close(STDOUT_FILENO);
         dup2(pipefd[1],STDOUT_FILENO);
