@@ -236,8 +236,9 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
                     thrqueueparent[tid][nqthrsfr[tid]] = p_i;
                     nqthrsfr[tid]++;
                 }
-                /* Add this particle to the queue for consideration to spawn a wind. */
-                if(All.WindOn && winds_are_subgrid() && newstar < 0) {
+                /* Add this particle to the queue for consideration to spawn a wind.
+                 * Only for subgrid winds. */
+                if(nqthrwind && newstar < 0) {
                     thrqueuewind[tid][nqthrwind[tid]] = p_i;
                     StellarMass[P[p_i].PI] = sm;
                     nqthrwind[tid]++;
