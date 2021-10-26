@@ -179,7 +179,7 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
         gadget_setup_thread_arrays(NewParents, thrqueueparent, nqthrsfr, nactive, nthreads);
     }
 
-    if(All.WindOn & winds_are_subgrid()) {
+    if(All.WindOn && winds_are_subgrid()) {
         nqthrwind = ta_malloc("nqthrwind", size_t, nthreads);
         thrqueuewind = ta_malloc("thrqueuewind", int *, nthreads);
         StellarMass = mymalloc("StellarMass", SlotsManager->info[0].size * sizeof(MyFloat));
