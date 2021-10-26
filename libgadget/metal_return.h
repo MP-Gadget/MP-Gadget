@@ -39,8 +39,7 @@ struct MetalReturnPriv {
     struct SpinLocks * spin;
 };
 
-/*Function to compute metal return from star particles, adding metals to the gas.*/
-void metal_return(const ActiveParticles * act, const ForceTree * const tree, Cosmology * CP, const double atime, const double AvgGasMass);
+void metal_return(const ActiveParticles * act, DomainDecomp * const ddecomp, Cosmology * CP, const double atime, const double BoxSize, const double AvgGasMass);
 
 void set_metal_return_params(ParameterSet * ps);
 
