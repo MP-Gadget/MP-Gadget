@@ -242,10 +242,6 @@ run(int RestartSnapNum)
         /* Collective: total number of active particles must be small enough*/
         int pairwisestep = use_pairwise_gravity(&Act, PartManager);
 
-        /* Need to rebuild the force tree because all TopLeaves are out of date.*/
-        ForceTree Tree = {0};
-        force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, !pairwisestep && All.TreeGravOn, All.OutputDir);
-
         MyFloat * GradRho = NULL;
         if(sfr_need_to_compute_sph_grad_rho())
             GradRho = mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
@@ -259,23 +255,28 @@ run(int RestartSnapNum)
         * adaptive gravitational softenings. */
         if(GasEnabled)
         {
+            ForceTree gasTree = {0};
+            /* Just gas, no moments*/
+            force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, All.BoxSize, HybridNuGrav, All.OutputDir);
+
             /*Allocate the memory for predicted SPH data.*/
             struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
 
             if(All.DensityOn)
-                density(&Act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, &Tree);  /* computes density, and pressure */
+                density(&Act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, &gasTree);  /* computes density, and pressure */
 
             /***** update smoothing lengths in tree *****/
-            force_update_hmax(Act.ActiveParticle, Act.NumActiveParticle, &Tree, ddecomp);
+            force_update_hmax(Act.ActiveParticle, Act.NumActiveParticle, &gasTree, ddecomp);
             /***** hydro forces *****/
             MPIU_Barrier(MPI_COMM_WORLD);
 
             /* adds hydrodynamical accelerations  and computes du/dt  */
             if(All.HydroOn)
-                hydro_force(&Act, All.WindOn, All.cf.hubble, All.cf.a, &sph_predicted, All.MinEgySpec, times, &All.CP, &Tree);
+                hydro_force(&Act, All.WindOn, All.cf.hubble, All.cf.a, &sph_predicted, All.MinEgySpec, times, &All.CP, &gasTree);
 
             /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
             slots_free_sph_pred_data(&sph_predicted);
+            force_tree_free(&gasTree);
         }
 
         /* The opening criterion for the gravtree
@@ -288,6 +289,10 @@ run(int RestartSnapNum)
         * on the first timestep.*/
         const int NeutrinoTracer =  All.HybridNeutrinosOn && (All.Time <= All.HybridNuPartTime);
         const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
+
+        /* Build the force tree for tree gravity.*/
+        ForceTree Tree = {0};
+        force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, !pairwisestep && All.TreeGravOn, All.OutputDir);
 
         if(All.TreeGravOn) {
             /* Do a short range pairwise only step if desired*/
