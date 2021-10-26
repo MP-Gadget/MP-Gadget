@@ -423,10 +423,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         if(sfr_need_to_compute_sph_grad_rho())
             GradRho = (MyFloat *) mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
 
-        /* Need to rebuild the force tree because all TopLeaves are out of date.*/
-        ForceTree Tree = {0};
-        force_tree_rebuild(&Tree, ddecomp, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
-
         /* density() happens before gravity because it also initializes the predicted variables.
         * This ensures that prediction consistently uses the grav and hydro accel from the
         * timestep before this one, which matches Gadget-2/3. It was tested to make a small difference,
@@ -436,23 +432,27 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         * adaptive gravitational softenings. */
         if(GasEnabled)
         {
+            ForceTree gasTree = {0};
+            /* Just gas, no moments*/
+            force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, HybridNuTracer, All.OutputDir);
+
             /*Allocate the memory for predicted SPH data.*/
             struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
 
             if(All.DensityOn)
-                density(&Act, 1, DensityIndependentSphOn(), All.BlackHoleOn, MinEgySpec, times, &All.CP, &sph_predicted, GradRho, &Tree);  /* computes density, and pressure */
+                density(&Act, 1, DensityIndependentSphOn(), All.BlackHoleOn, MinEgySpec, times, &All.CP, &sph_predicted, GradRho, &gasTree);  /* computes density, and pressure */
 
             /***** update smoothing lengths in tree *****/
-            force_update_hmax(Act.ActiveParticle, Act.NumActiveParticle, &Tree, ddecomp);
+            force_update_hmax(Act.ActiveParticle, Act.NumActiveParticle, &gasTree, ddecomp);
             /***** hydro forces *****/
             MPIU_Barrier(MPI_COMM_WORLD);
 
             /* adds hydrodynamical accelerations  and computes du/dt  */
             if(All.HydroOn)
-                hydro_force(&Act, atime, &sph_predicted, MinEgySpec, times, &All.CP, &Tree);
-
+                hydro_force(&Act, atime, &sph_predicted, MinEgySpec, times, &All.CP, &gasTree);
             /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
             slots_free_sph_pred_data(&sph_predicted);
+            force_tree_free(&gasTree);
         }
 
         /* The opening criterion for the gravtree
@@ -464,6 +464,10 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         * are zero and so the tree is opened maximally
         * on the first timestep.*/
         const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal);
+
+        /* Build the force tree for tree gravity.*/
+        ForceTree Tree = {0};
+        force_tree_rebuild(&Tree, ddecomp, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
 
         if(All.TreeGravOn) {
             /* Do a short range pairwise only step if desired*/
