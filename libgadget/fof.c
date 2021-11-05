@@ -25,6 +25,10 @@
 #include "partmanager.h"
 #include "densitykernel.h"
 
+/*Jdavies: Perhaps there's a better way to do this but I'm including allvars here
+ *  to know if we need halo properties fed back onto particles (f_esc for the excursion set)*/
+#include "allvars.h"
+
 /*! \file fof.c
  *  \brief parallel FoF group finder
  */
@@ -804,6 +808,7 @@ fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt)
 static void fof_set_escapefraction(struct FOFGroups * fof, const int NgroupsExt)
 {
     int i = 0;
+    #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++){
         if(P[i].Type == 4){
             STARP(i).EscapeFraction = 0.;	/* will mark particles that are not in any group */
@@ -881,8 +886,8 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, double BoxSi
     fof_finish_group_properties(fof, BoxSize);
 
     /* feed group property back to each particle. */
-    /* TODO: put a flag here to only run if we need it */
-    fof_set_escapefraction(fof, NgroupsExt);
+    if(All.ExcursionSetReionOn)
+        fof_set_escapefraction(fof, NgroupsExt);
 
     int64_t TotNids;
     sumup_large_ints(1, &fof->Ngroups, &fof->TotNgroups);
