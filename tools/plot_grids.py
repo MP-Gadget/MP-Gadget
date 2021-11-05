@@ -8,6 +8,7 @@ in a number of grid types x number of redshifts grid
 import argparse
 import numpy as np
 import matplotlib
+matplotlib.use('pdf')
 from matplotlib import pyplot as plt
 from matplotlib import cm
 from matplotlib import gridspec as gs
@@ -16,7 +17,7 @@ import bigfile as bf
 ap = argparse.ArgumentParser("get_xgrids.py")
 ap.add_argument("gridfile", help='path to the grid bigfile')
 ap.add_argument("--output", help='path to save the plots')
-ap.add_argument("--redshifts", default="8,7", help='comma separated list of redshifts to plot')
+ap.add_argument("--snapshots", help='comma separated list of redshifts to plot')
 ap.add_argument("--gridnames", default="d,xhi"
                 , help='comma separated list of prefixes of the desired grids')
 ap.add_argument("--slice-idx", type=int, default=5, help='index of the plotted slice')
@@ -32,14 +33,14 @@ n_types = len(grid_prefix)
 
 #mapping of grids to plot position and prefix/redshift number in the array
 grid_map = np.zeros((n_snap*n_types, 2), dtype=int)
-
+c_lims = np.zeros((n_types,2))
 #build the list of grid names by redshift and variable
 #and save a map of where it exists in redshift/type space
 grid_names = []
 count = 0
 for i, pref in enumerate(grid_prefix):
-    for j, z in enumerate(redshifts):
-        grid_names.append(f'{pref}_grid_z{z}')
+    for j, snap in enumerate(snapshots):
+        grid_names.append(f'{pref}_grid_{snap}')
         grid_map[count,0] = i
         grid_map[count,1] = j
         count += 1
@@ -51,9 +52,6 @@ dset = bf.Dataset(fin, grid_names)
 #build list of grid slices to plot
 slab_idx = lambda x, i, d: x[i-d//2:i+d//2+1,:,:].mean(axis=0)
 slab_list = []
-
-#colour limits for plots
-c_lims = np.zeros((n_types, 2))
 
 for i, grid in enumerate(grid_names):
     #read in the grid
@@ -76,7 +74,7 @@ fin.close()
 ext = [0, length, 0, length]
 gs = gs.GridSpec(n_types, n_snap)
 
-fig = plt.figure(figsize=(8, 6*n_types/n_snap))
+fig = plt.figure(figsize=(12, 9*n_types/n_snap))
 
 #put each slice in the correct place based on redshift / type
 for i, slab in enumerate(slab_list):
@@ -86,9 +84,10 @@ for i, slab in enumerate(slab_list):
     im = ax.imshow(slab, cmap=cm.Purples, norm=matplotlib.colors.LogNorm()
                    , origin='lower', extent=ext)
     plt.colorbar(im)
-    ax.set_title(grid_names[i])
+    ax.set_title(grid_names[i],fontsize=10)
+    ax.tick_params(left=False,labelleft=False,bottom=False,labelbottom=False)
 
-fig.tight_layout()
+#fig.tight_layout()
 
 if ns.output is not None:
     fig.savefig(ns.output)
