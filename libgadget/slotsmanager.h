@@ -109,6 +109,7 @@ struct sph_particle_data
     float Metals[NMETALS];
 
     MyFloat local_J21; /* local J21 ionising background calculated from the excursion set */
+    MyFloat zreion; /* redshift when a particle is first ionised */
 };
 
 extern struct slots_manager_type {

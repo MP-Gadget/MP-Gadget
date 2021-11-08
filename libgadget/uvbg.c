@@ -443,9 +443,12 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
 
 //readout J21 from grid to particle
 static void readout_J21(PetaPM * pm, int i, double * mesh, double weight) {
-    if (P[i].Type == 0)
+    if (P[i].Type == 0){
+        //if particle has not been ionised yet, set its zreion
+        if(SPHP(i).local_J21 > 0 && SPHP(i).zreion == -1)
+            SPHP(i).zreion = 1/All.Time - 1;
         SPHP(i).local_J21 += weight * mesh[0];
-    //TODO: add heating here (see qso code) by adding to entropy
+    }
 }
 /* sets particle properties needed for the Excursion Set */
 static void init_particle_uvbg(){

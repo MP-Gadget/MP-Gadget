@@ -170,11 +170,12 @@ static struct UVBG get_local_UVBG_from_global(double redshift, const struct UVBG
     return uvbg;
 }
 
-static struct UVBG get_local_UVBG_from_J21(double redshift, double J21) {
+static struct UVBG get_local_UVBG_from_J21(double redshift, double J21, double zreion) {
     struct UVBG uvbg = {0};
     
     // N.B. J21 must be in units of 1e-21 erg s-1 Hz-1 (proper cm)-2 sr-1
     uvbg.J_UV = J21;
+    uvbg.zreion = zreion;
 
     //interpolators in cooling_rates.c should now be rate coeffs
     //it seems a bit wasteful to calculate this for every particle
@@ -200,35 +201,6 @@ static struct UVBG get_local_UVBG_from_J21(double redshift, double J21) {
 
     uvbg.self_shield_dens = get_self_shield_dens(redshift, &uvbg);
 
-    //TODO: make debug_printed a variable in this file that gets reset each timestep
-#if 0
-    //(jdavies) debugging messages, print's first particle's UVBG
-    //disabled for now to make the tests run through as it contains UVBGgrids
-    //uvbg.c contains a lot of other modules I'd have to include in the test compile
-    if(!UVBGgrids.debug_printed && uvbg.J_UV > 0)
-    {
-        message(0,"-----main UVBG for one particle-----\n");
-        message(0,"J_UV = %e\n",uvbg.J_UV);
-        message(0,"gJH0 = %e\n",uvbg.gJH0);
-        message(0,"gJHep = %e\n",uvbg.gJHep);
-        message(0,"gJHe0 = %e\n",uvbg.gJHe0);
-        message(0,"epsH0 = %e\n",uvbg.epsH0);
-        message(0,"epsHep = %e\n",uvbg.epsHep);
-        message(0,"epsHe0 = %e\n",uvbg.epsHe0);
-        message(0,"ssdens = %e\n",uvbg.self_shield_dens);
-
-        message(0,"-----coeffs for alpha = %.3f\n",All.AlphaUV);
-        message(0,"gJH0 = %e\n",J21toUV.gJH0);
-        message(0,"gJHep = %e\n",J21toUV.gJHep);
-        message(0,"gJHe0 = %e\n",J21toUV.gJHe0);
-        message(0,"epsH0 = %e\n",J21toUV.epsH0);
-        message(0,"epsHep = %e\n",J21toUV.epsHep);
-        message(0,"epsHe0 = %e\n",J21toUV.epsHe0);
-
-        UVBGgrids.debug_printed = 1;
-    }
-#endif
-
     return uvbg;
 }
 
@@ -236,11 +208,11 @@ static struct UVBG get_local_UVBG_from_J21(double redshift, double J21) {
 /*TODO: there are a few continuity issues to consider fixing.
  * if the z_reion tables provided finish after ExcursionSetZStop, particles could rapidly recombine.
  * I'm not sure how initial heating from reionisation (see D'Aloisio et al. 2019) is handled here */
-struct UVBG get_local_UVBG(double redshift, const struct UVBG * const GlobalUVBG, const double * const Pos, const double * const PosOffset, double J21)
+struct UVBG get_local_UVBG(double redshift, const struct UVBG * const GlobalUVBG, const double * const Pos, const double * const PosOffset, double J21, double zreion)
 {
     if(All.ExcursionSetReionOn && (redshift > All.ExcursionSetZStop))
     {
-        return get_local_UVBG_from_J21(redshift,J21);
+        return get_local_UVBG_from_J21(redshift,J21,zreion);
     }
     else
     {

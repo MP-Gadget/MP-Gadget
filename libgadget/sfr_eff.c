@@ -440,7 +440,7 @@ cooling_direct(int i, const double a3inv, const double hubble, const struct UVBG
     double uold = SPHP(i).Entropy * enttou;
 
     double redshift = 1./All.Time - 1;
-    struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, P[i].Pos, PartManager->CurrentParticleOffset, SPHP(i).local_J21);
+    struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, P[i].Pos, PartManager->CurrentParticleOffset, SPHP(i).local_J21, SPHP(i).zreion);
     double lasttime = exp(loga_from_ti(P[i].Ti_drift - dti_from_timebin(P[i].TimeBin)));
     double lastred = 1/lasttime - 1;
     double unew;
@@ -453,33 +453,6 @@ cooling_direct(int i, const double a3inv, const double hubble, const struct UVBG
     }
     else
         unew = DoCooling(redshift, uold, SPHP(i).Density * a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity, All.MinEgySpec, P[i].HeIIIionized);
-
-    //(jdavies) debugging messages, print's first particle's UVBG from each model
-    struct UVBG uvbg_test;
-    if(!UVBGgrids.debug_printed && uvbg.gJH0 > 0)
-    {
-        uvbg_test = _get_local_UVBG_from_global(redshift,P[i].Pos,PartManager->CurrentParticleOffset);
-        message(0,"-----main UVBG for one particle-----\n");
-        message(0,"J_UV = %e\n",uvbg.J_UV);
-        message(0,"gJH0 = %e\n",uvbg.gJH0);
-        message(0,"gJHep = %e\n",uvbg.gJHep);
-        message(0,"gJHe0 = %e\n",uvbg.gJHe0);
-        message(0,"epsH0 = %e\n",uvbg.epsH0);
-        message(0,"epsHep = %e\n",uvbg.epsHep);
-        message(0,"epsHe0 = %e\n",uvbg.epsHe0);
-        message(0,"ssdens = %e\n",uvbg.self_shield_dens);
-        message(0,"-----global uv for same particle-----\n");
-        message(0,"J_UV = %e\n",uvbg_test.J_UV);
-        message(0,"gJH0 = %e\n",uvbg_test.gJH0);
-        message(0,"gJHep = %e\n",uvbg_test.gJHep);
-        message(0,"gJHe0 = %e\n",uvbg_test.gJHe0);
-        message(0,"epsH0 = %e\n",uvbg_test.epsH0);
-        message(0,"epsHep = %e\n",uvbg_test.epsHep);
-        message(0,"epsHe0 = %e\n",uvbg_test.epsHe0);
-        message(0,"ssdens = %e\n",uvbg_test.self_shield_dens);
-
-        UVBGgrids.debug_printed = 1;
-    }
 
     SPHP(i).Ne = ne;
     /* Update the entropy. This is done after synchronizing kicks and drifts, as per run.c.*/
@@ -532,7 +505,7 @@ double get_neutral_fraction_sfreff(double redshift, struct particle_data * partd
         return 1;
     double nh0;
     struct UVBG GlobalUVBG = get_global_UVBG(redshift);
-    struct UVBG uvbg = get_local_UVBG(redshift, &GlobalUVBG, partdata->Pos, PartManager->CurrentParticleOffset, sphdata->local_J21);
+    struct UVBG uvbg = get_local_UVBG(redshift, &GlobalUVBG, partdata->Pos, PartManager->CurrentParticleOffset, sphdata->local_J21, sphdata->zreion);
     double physdens = sphdata->Density * All.cf.a3inv;
 
     if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, All.cf.a3inv)) {
@@ -563,7 +536,7 @@ double get_helium_neutral_fraction_sfreff(int ion, double redshift, struct parti
         return 1;
     double helium;
     struct UVBG GlobalUVBG = get_global_UVBG(redshift);
-    struct UVBG uvbg = get_local_UVBG(redshift, &GlobalUVBG, partdata->Pos, PartManager->CurrentParticleOffset, sphdata->local_J21);
+    struct UVBG uvbg = get_local_UVBG(redshift, &GlobalUVBG, partdata->Pos, PartManager->CurrentParticleOffset, sphdata->local_J21, sphdata->zreion);
     double physdens = sphdata->Density * All.cf.a3inv;
 
     if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, All.cf.a3inv)) {
@@ -631,7 +604,7 @@ cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_eeqos_data s
         if(egycurrent > egyeff)
         {
             double redshift = 1./All.Time - 1;
-            struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, P[i].Pos, PartManager->CurrentParticleOffset, SPHP(i).local_J21);
+            struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, P[i].Pos, PartManager->CurrentParticleOffset, SPHP(i).local_J21, SPHP(i).zreion);
             double ne = SPHP(i).Ne;
             /* In practice tcool << trelax*/
             double tcool = GetCoolingTime(redshift, egycurrent, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, SPHP(i).Metallicity);
@@ -759,7 +732,7 @@ struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_part
         data.tsfr = dtime;
 
     double redshift = 1./All.Time - 1;
-    struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, part->Pos, PartManager->CurrentParticleOffset, sph->local_J21);
+    struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, part->Pos, PartManager->CurrentParticleOffset, sph->local_J21, sph->zreion);
 
     double factorEVP = pow(sph->Density * a3inv / sfr_params.PhysDensThresh, -0.8) * sfr_params.FactorEVP;
 
