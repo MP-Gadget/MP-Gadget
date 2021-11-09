@@ -260,6 +260,7 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
             SPHP(i).Sfr = 0;
             SPHP(i).MaxSignalVel = 0;
             SPHP(i).local_J21 = 0;
+            SPHP(i).zreion = -1;
         }
     }
 

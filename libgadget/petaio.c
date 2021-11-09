@@ -889,6 +889,7 @@ SIMPLE_SETTER_PI(STBlackholeMinPotPos , MinPotPos[0], double, 3, struct bh_parti
 
 /* extra properties from excursion set addition */
 SIMPLE_PROPERTY_PI(J21, local_J21, float, 1, struct sph_particle_data)
+SIMPLE_PROPERTY_PI(ZReionized, zreion, float, 1, struct sph_particle_data)
     
 static void GTBlackholeMinPotPos(int i, double * out, void * baseptr, void * smanptr) {
     /* Remove the particle offset before saving*/
@@ -1082,6 +1083,7 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
     /* excursion set */
     if(All.ExcursionSetReionOn){
         IO_REG_NONFATAL(J21,"f4",1,0,IOTable);
+        IO_REG_NONFATAL(ZReionized,"f4",1,0,IOTable);
     }
     /* end excursion set*/
 
