@@ -459,8 +459,17 @@ static void init_particle_uvbg(){
     /* Reset local J21 */
 #pragma omp parallel for private(fesc_temp)
     for(int ii = 0; ii < PartManager->NumPart; ii++) {
+        /* Init J21 and set escape fracitons for sph particles */
         if(P[ii].Type == 0) {
             SPHP(ii).local_J21 = 0.;
+            if(SPHP(ii).EscapeFraction == 0) continue;
+
+            fesc_temp = uvbg_params.EscapeFractionNorm * pow(SPHP(ii).EscapeFraction
+                    * fesc_unit_conv, uvbg_params.EscapeFractionScaling);
+
+            if(fesc_temp > 1) fesc_temp = 1;
+            if(fesc_temp < 0) endrun(1,"negative escape fraction?\n");
+            SPHP(ii).EscapeFraction = fesc_temp;
         }
         /* Assign escape fractions to star particles */
         else if(P[ii].Type == 4) {
@@ -500,7 +509,8 @@ void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int Wri
         (char*) &P[0].PI  - (char*) P,
         SphP,
         sizeof(SphP[0]),
-        (char*) &SphP[0].Sfr  - (char*) SphP, //TODO: make sure you are using the right object here
+        (char*) &SphP[0].Sfr  - (char*) SphP,
+        (char*) &SphP[0].EscapeFraction  - (char*) SphP,
         StarP,
         sizeof(StarP[0]),
         (char*) &StarP[0].EscapeFraction - (char*) StarP,

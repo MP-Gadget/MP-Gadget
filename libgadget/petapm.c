@@ -67,6 +67,7 @@ static PetaPMReionPartStruct * CPS_R; /* stored by petapm_force, how to access o
 #define PI(i) ((int*)  (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS_R->offset_pi]))
 /* NOTE: These are 'myfloat' types */
 #define FESC(i) ((double*) (&((char*)CPS_R->Starslot)[CPS_R->star_elsize * *PI(i) + CPS_R->offset_fesc]))
+#define FESCSPH(i) ((double*) (&((char*)CPS_R->Sphslot)[CPS_R->sph_elsize * *PI(i) + CPS_R->offset_fesc_sph]))
 #define SFR(i) ((double*)  (&((char*)CPS_R->Sphslot)[CPS_R->sph_elsize * *PI(i) + CPS_R->offset_sfr]))
 
 PetaPMRegion * petapm_get_fourier_region(PetaPM * pm) {
@@ -1135,8 +1136,7 @@ static void put_sfr_to_mesh(PetaPM * pm, int i, double * mesh, double weight) {
     if(INACTIVE(i) || *TYPE(i) != 0)
         return;
     double Sfr = *SFR(i);
-    double fesc = 1.;
-    //double fesc = *FESC(i);
+    double fesc = *FESCSPH(i);
 #pragma omp atomic update
     mesh[0] += weight * Sfr * fesc;
 }

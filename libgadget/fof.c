@@ -810,6 +810,9 @@ static void fof_set_escapefraction(struct FOFGroups * fof, const int NgroupsExt)
     int i = 0;
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++){
+        if(P[i].Type == 0){
+            SPHP(i).EscapeFraction = 0.;
+        }
         if(P[i].Type == 4){
             STARP(i).EscapeFraction = 0.;	/* will mark particles that are not in any group */
         }
@@ -833,11 +836,13 @@ static void fof_set_escapefraction(struct FOFGroups * fof, const int NgroupsExt)
                 endrun(3333, "GrNr mismatch\n");
             }
 
-            /* only do stars */
-            if(P[pi].Type != 4) continue;
-
             /* putting halo mass in escape fraction for now, converted before uvbg calculation */ 
-            STARP(pi).EscapeFraction = fof->Group[i].Mass;
+            if(P[i].Type == 0){
+                SPHP(pi).EscapeFraction = fof->Group[i].Mass;
+            }
+            if(P[i].Type == 4){
+                STARP(pi).EscapeFraction = fof->Group[i].Mass;
+            }
         }
     }
 }

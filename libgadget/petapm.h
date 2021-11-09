@@ -93,6 +93,7 @@ typedef struct {
     void * Sphslot; //pointer to SPH slot
     size_t sph_elsize; //element size of SPH slot
     size_t offset_sfr; //offset in SPH slot to star formation rate
+    size_t offset_fesc_sph; //offset in SPH slot to escape fraction
     void* Starslot; //pointer to fof groups
     size_t star_elsize; //element size of fof group
     size_t offset_fesc; //offset in fof groups to fof mass

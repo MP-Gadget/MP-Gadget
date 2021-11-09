@@ -110,6 +110,7 @@ struct sph_particle_data
 
     MyFloat local_J21; /* local J21 ionising background calculated from the excursion set */
     MyFloat zreion; /* redshift when a particle is first ionised */
+    MyFloat EscapeFraction; /* Escape fraction for SFR -> J21 calculation */
 };
 
 extern struct slots_manager_type {
