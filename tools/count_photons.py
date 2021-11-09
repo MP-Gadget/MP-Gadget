@@ -14,12 +14,20 @@ from os.path import exists
 from astropy import cosmology, constants as C, units as U
 from scipy import integrate
 from mpi4py import MPI
+from nbodykit.lab import BigFileCatalog
+import dask.array as da
+
+import logging
+logger = logging
+logging.basicConfig(level=logging.INFO)
+
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 ap = argparse.ArgumentParser("get_xgrids.py")
 ap.add_argument("bigfile", help='path to the MP-Gadget output directory')
 ap.add_argument("--output", help='path to save the plots')
-ap.add_argument("--blocksize", type=int, default=16777216,
-                help='number of particles to read at a time')
+ap.add_argument("--dataname", help='path to save the data')
 ap.add_argument("--nion", type=int, default=4000, help='photons per stellar baryon')
 ap.add_argument("--fesc-n", type=float, help='ionising photon escape fraction norm')
 ap.add_argument("--fesc-s", type=float, help='ionising photon escape fraction halo mass scaling')
@@ -66,85 +74,28 @@ for i, snap in enumerate(snapshot_list):
         snap_mask[i] = False
         continue
 
-    print('')
-
-    fin = bf.BigFileMPI(comm, filename)
-    
-    boxsize = fin['Header'].attrs['BoxSize']
-
-    #we need gas mass, stellar mass, and neutral fraction
-    #data = bf.Dataset(fin["0/"], ['Mass', 'NeutralHydrogenFraction'])
-    #stta = bf.Dataset(fin["4/"], ['Mass'])
-
-    gas_mass_psum = 0
-    gas_xhi_psum = 0
-    star_mass_psum = 0
-
-    #read the particles in chunks and add to the total mass
-    #weighting the neutral fraction by mass
-    with fin['0/Mass'] as mas, fin['0/NeutralHydrogenFraction'] as xhi:
-        print(f'mas size: {mas.size}')
-        for pread in range(0,mas.size,ns.blocksize):
-            sl = slice(pread,pread+ns.blocksize)
-            xbuf = xhi[sl]
-            mbuf = mas[sl]
-    
-            gas_mass_psum += mbuf.sum()
-            gas_xhi_psum += (mbuf*xbuf).sum()
-    
-            progress = 100. * pread / mas.size
-            print(f'Snapshot {snap} gas, {progress:6.3f} % complete', end='\r')
-
-
-    #repeat for stellar mass
-    with fin['4/Mass'] as stm:
-        for pread in range(0,stm.size,ns.blocksize):
-            sl = slice(pread,pread+ns.blocksize)
-            mbuf = stm[sl]
-            star_mass_psum += mbuf.sum()
-    
-            pread = pread + mbuf.shape[0]
-    
-            progress = 100. * pread / stm.size
-            print(f'Snapshot {snap:3d} stars, {progress:6.3f} % complete', end='\r')
-
-
-    fin.close()
-
-    comm.Reduce([gas_mass_psum,MPI.DOUBLE],[gas_mass[i],MPI.DOUBLE],op=MPI.SUM,root=0)
-    comm.Reduce([gas_xhi_psum,MPI.DOUBLE],[gas_xhi[i],MPI.DOUBLE],op=MPI.SUM,root=0)
-    comm.Reduce([star_mass_psum,MPI.DOUBLE],[star_mass[i],MPI.DOUBLE],op=MPI.SUM,root=0)
-
-    comm.Barrier()
-
-    #read in the fof file
     if comm.rank == 0:
-        if ns.fesc_n is not None and ns.fesc_s is not None:
-            fin = bf.BigFileMPI(comm,fofname)
-            
-            data = fin['FOFGroups/MassByType']
-            star_buf = np.transpose(data[:])[4]
-            
-            data = fin['FOFGroups/Mass']
-            mass_buf = data[:] / h #already in 1e10 solar so the normalisation is at 1
-        
-            phot_fof[i] += (star_buf * np.minimum(ns.fesc_n * ((mass_buf)**ns.fesc_s),1)).sum()
-    
-            fin.close()
+        logger.info("snapshot %s", filename)
 
-#divide my total mass for mass-weighted neutral fraction
+    #read in gas mass and neutral fraction, star mass, fof mass for escape fractions
+    cat =  BigFileCatalog(filename,dataset='0/',header='Header')
+    gas_mass[i] = cat.compute(cat['Mass'].sum())
+    gas_xhi[i] = cat.compute((cat['Mass']*cat['NeutralHydrogenFraction']).sum())
+
+    if ns.fesc_n is not None:
+        cat = BigFileCatalog(filename,dataset='4/',header='Header')
+        star_mass[i] = cat.compute(cat['Mass'].sum())
+
+    #we only want fof info if we are comparing against a given escape fraction
+    if ns.fesc_s is not None and ns.fesc_n is not None:
+        cat = BigFileCatalog(fofname,dataset='FOFGroups/',header='Header')
+        fof_fesc = ns.fesc_n * (cat['Mass']/h/1.)**ns.fesc_s #already in 1e10 solar
+        fof_fesc = da.minimum(fof_fesc,1.)
+        fof_star = da.transpose(cat['MassByType'])[4]
+        phot_fof[i] = cat.compute((fof_fesc*fof_star).sum()) #escape fraction weighted GSM
 
 if comm.rank == 0:
     gas_xhi /= gas_mass
-    
-    #h adjustments
-    boxsize = boxsize*U.Unit('kpc') / h
-    
-    critdens = cosmo.critical_density0
-    
-    dm_mass = (critdens * cosmo.Odm0 * boxsize**3).to('M_sun')
-    b_mass = (critdens * cosmo.Ob0 * boxsize**3).to('M_sun')
-    b_plot = b_mass.value
     
     #multiply stellar mass by photons per stellar baryon
     #and take ratio with gas mass, giving an estimate of
@@ -154,7 +105,7 @@ if comm.rank == 0:
         star_photons = star_mass * ns.nion * ns.fesc_n / gas_mass / (1 - 0.75*Y_He)
         star_photons = star_photons[snap_mask]
         if ns.fesc_s is not None:
-            fof_photons = phot_fof * ns.nion / gas_mass / (1-0.75*Y_He)
+            fof_photons = phot_fof * ns.nion / gas_mass / (1 - 0.75*Y_He)
             fof_photons = fof_photons[snap_mask]
     
     gas_xhi = gas_xhi[snap_mask]
@@ -214,6 +165,7 @@ if comm.rank == 0:
     ax.legend()
     ax.set_xlabel('snapshot')
     ax.set_ylabel('ratio')
+    ax.grid()
     
     P18_mean = 0.0544
     P18_bounds = P18_mean + np.array([-0.0081,0.0070])
@@ -226,11 +178,14 @@ if comm.rank == 0:
     ax.legend()
     ax.set_xlabel('redshift')
     ax.set_ylabel('thomson scattering depth')
-    
-    
+    ax.grid()
+
     fig.suptitle('Parametric Model',fontsize=14)
     fig.tight_layout()
     fig.subplots_adjust(top=0.92)
+   
+    if ns.dataname is not None:
+        np.savez(ns.dataname,gas_mass=gas_mass,star_mass=star_mass,gas_xhi=gas_xhi,thomson=scattering_depth,redshift=redshift_list)
     
     if ns.output is not None:
         fig.savefig(ns.output)

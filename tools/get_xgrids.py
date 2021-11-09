@@ -1,48 +1,44 @@
-"""
-	James' hacked up grid maker
-	created from parts of the reionisation model
-
-    Example usage: python get_xgrids.py  output/PART_005 grids/example_grid_z10 --pos=0/Position --weight=0/Mass
-
-    For a 1Mpc resolution grid of gas particle overdensity at the sixth snapshot and save it to grids/example_grid_z10
-"""
-
 import argparse
 import bigfile
-from pmesh.pm import ParticleMesh, RealField, ComplexField
 import logging
 from mpi4py import MPI
-import numpy
+import numpy as np
 logger = logging
 logging.basicConfig(level=logging.INFO)
+from nbodykit.lab import BigFileCatalog
+from os.path import exists
 
-def main(pfile,output,pos,weight,dataset,resolution=1.0,normtype='mean',chunksize=1024*1024*32):
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action='ignore', category=DeprecationWarning)
+
+def main(pfile,output,outname,pos='Position',weight='Mass',dataset='0/',resolution=1.0,value='Value',norm='global'):
     """ Takes a MP-Gadget output file (bigfile, formatted /PART_XYZ/ptype/prop/...) and builds grids of the desired property 
 
         Positional Arguments:
             pfile: path to particle file
             output: path to output bigfile
-            pos: name of position dataset (usually 'X/Position')
-            weight: name of weighting dataset
+            outname: dataset name to save
 
         Keyword Arguments:
             resolution: desired output resolution (Mpc h-1)
-            normtype: normalization, one of:
-                'mean' : produces overdensity grid (value / mean + 1)
-                'volume' : regular volume weighted density grid (value Mpc-3)
-                'particle' : per particle average, approximate mass weighting
-                'mass' : WIP mass weighting
+            pos: name of position column (usually 'Position')
+            weight: name of weighting column (usually 'Mass')
+            value: name of the vlaue column (desired property)
+            dataset: name of particle dataset
+
+            norm: 'global' => normalise the output grids by the global mean (weight*value / global mean)
+                  'local' => divide by mass grid (average value in cell)
+                  'none' => do not normalise (grid is weight*value in cell)
+
+        Defaults produce a 1+delta field of gas
     """
     comm = MPI.COMM_WORLD
-
-    ff = bigfile.BigFileMPI(comm, pfile)
-    BoxSize = ff['Header'].attrs['BoxSize'] / 1000
-    Redshift = 1/ff['Header'].attrs['Time'] - 1
+    
+    cat = BigFileCatalog(pfile,dataset=dataset,header='Header')
+    BoxSize = cat.attrs['BoxSize'] / 1000
+    Redshift = 1/cat.attrs['Time'] - 1
 	
-    if normtype not in ['volume','mean','particle']:
-        logger.info("normtype %s not supported",normtype)
-        return
-
     Nmesh = int(BoxSize / resolution)
     # round it to 8.
     Nmesh -= Nmesh % 8
@@ -50,105 +46,96 @@ def main(pfile,output,pos,weight,dataset,resolution=1.0,normtype='mean',chunksiz
     if comm.rank == 0:
         logger.info("source = %s", pfile)
         logger.info("output = %s", output)
+        logger.info("Weight = %s",weight)
+        logger.info("Value = %s",value)
         logger.info("BoxSize = %g", BoxSize)
         logger.info("Redshift = %g", Redshift)
         logger.info("Nmesh = %g", Nmesh)
-        logger.info("normtype = %s", normtype)
-
-    pm = ParticleMesh([Nmesh, Nmesh, Nmesh], BoxSize, comm=comm)
-
-    real = RealField(pm)
-    real[...] = 0
 
     #particle field
-    if normtype in ['mass','particle']:
-    	norm = RealField(pm)
-    	norm[...] = 0
 
-    with ff[pos] as ds, ff[weight] as dx:
-        logger.info(ds.size)
-        for i in range(0, ds.size, chunksize):
-            sl = slice(i, i + chunksize)
-            posx = ds[sl] / 1000. #convert to Mpc
-            nh = dx[sl]
-            layout = pm.decompose(posx)
-            lpos = layout.exchange(posx)
-            real.paint(lpos, mass=nh, hold=True)
-            if normtype == 'mass':
-                 #TODO: finish mass weighting, same as particle for now which may cause issues for
-                 norm.paint(lpos, mass=1.0, hold=True)
-            elif normtype == 'particle':
-                 norm.paint(lpos, mass=1.0, hold=True)
+    mesh = cat.to_mesh(Nmesh=Nmesh,weight=weight,value=value,position=pos,compensated=True)    
+    #mesh = cat.to_mesh(Nmesh=Nmesh,value=value,position=pos,compensated=True)    
 
-    #normalization
-    if normtype == 'mean':
-        normd = real.cmean()
-    elif normtype == 'volume':
-        normd = Boxsize/Nmesh/Nmesh/Nmesh
-    elif normtype in ['particle','mass']:
-        normd = norm[...]
+    #TODO: nbodykit has a save function which does almost everything below, but doesn't have the option for a non-normalised field
+    # we sometimes need: mass-weighted & globally normalized (density)
+    # mass-weighted & locally normalised (neutral fraction, local J21)
+    # particle-weighted & not normalised (SFR)
+    # mass-weighted & not normalised (Stellar Mass)
+    #mesh.save(f'{outname}.bigfile')
+    #'''
 
-    real[...] /= normd
+    field = mesh.to_real_field(normalize=(norm=='global'))
 
+    if norm == 'local':
+        mesh_mass = cat.to_mesh(Nmesh=Nmesh,weight=weight,position=pos,compensated=True)
+        #mesh_mass = cat.to_mesh(Nmesh=Nmesh,weight=weight,position=pos)
+        field_mass = mesh_mass.to_real_field(normalize=False)
+        field[...] /= field_mass[...]
+    
+    meshmean = field.cmean()
+    meshshape = field.cshape
+    meshsize = field.csize
     if comm.rank == 0:
-        logger.info("mean %s per cell = %s", weight, real.cmean())
+        logger.info("mean %s per cell = %s, grid size %s (%s)", value, meshmean,meshshape,meshsize)
 
-    buffer = numpy.empty(real.size, real.dtype)
-    real.sort(out=buffer)
-    if comm.rank == 0:
-        logger.info("sorted for output")
+
+    data = np.empty(shape=field.size, dtype=field.dtype)
+    field.ravel(out=data)
 
     with bigfile.BigFileMPI(comm, output, create=True) as ff:
-        with ff.create_from_array(dataset, buffer) as bb:
+        with ff.create_from_array(outname, data) as bb:
             bb.attrs['BoxSize'] = BoxSize
             bb.attrs['Redshift'] = Redshift
             bb.attrs['Nmesh'] = Nmesh
-
+    #'''
     if comm.rank == 0:
-        logger.info("done. written at %s", output)
+        logger.info("done. written at %s / %s", output, outname)
 
-def run_multiple(datadir, datasets, normtypes, redshifts, outdir, resolution=1.,chunksize=1024*1024*32):
+def run_multiple(datadir, datasets, values, weightings, normtypes, redshifts, outdir, resolution=1.):
     """ Runs 'main' at multiple redshifts and datasets to produce all desired grids
 
         Positional Arguments:
             datadir: path to directory with all the PART files and snapshot list
-            datasets: list of all desired datasets e.g: '4/Mass' for stellar mass
+            datasets: list of all desired datasets e.g: '4/' for star particles
             normtypes: list of desired normalisations for each dataset (see 'main' docstring)
+            weightings: list of desired weight columns for each dataset (see 'main' docstring)
+            values: list of desired value columns for each dataset (see 'main' docstring)
             redshifts: list of desired redshifts
             outdir: directory to save all the grids
 
         Keyword Arguments:
             resolution: desired output resolution (Mpc h-1)
-            chunksize: number of particles to read at a time, helps memory for large files
     """
     #set up the list of snapshots, and redshifts
-    snapshot_list = np.loadtxt(f'{ns.bigfile}/Snapshots.txt', dtype=float, ndmin=2)
+    snapshot_list = np.loadtxt(f'{datadir}/Snapshots.txt', dtype=float, ndmin=2)
     time_list = snapshot_list[:,1]
     redshift_list = 1/time_list - 1
 
     for z in redshifts:
         idx = np.argmin(np.fabs(redshift_list - z))
-        snap = snapshot_list[idx,0]
+        snap = int(snapshot_list[idx,0])
         partfile = f'{datadir}/PART_{snap:03d}'
-        for n,d in zip(normtypes,datasets):
-            data = f'{partfile}/{d}'
-            ptype = d.split('/')[1]
-            pos = f'{ptype}/Position'
+        for n,d,v,w in zip(normtypes,datasets,values,weightings):
+            dname = f'{d.strip("/")}_{v}'
+            outname = f'{dname}_grid_{snap:03d}'
 
-            dname = d.replace('/','-')
-            zname = f'{z:.2f}'.replace('.','-')
-            outname = f'{outdir}/{dname}_grid_z{zname}'
-
-            main(partfile,outname,pos,d,resolution,n,chunksize)
+            if exists(f'{outdir}/{outname}'):
+                logger.info('file %s already exists',outname)
+                continue
+            print(f'starting {outname}')
+            main(partfile,outdir, outname,dataset=d,value=v,weight=w,norm=n,resolution=resolution)
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser("get_xgrids.py")
     ap.add_argument("pfile", help='Particle data')
-    ap.add_argument("output", help='Name of bigfile to store the mesh')
-    ap.add_argument("--pos", help='Name of the position dataset in the bigfile')
-    ap.add_argument("--weight", help='Name of the weighting dataset in the bigfile')
-    ap.add_argument("--dataset", default='grid', help='name of the dataset to write to')
+    ap.add_argument("--output", help='Name of bigfile to store the mesh')
+    ap.add_argument("--outname", default='grid', help='name of the dataset to write to')
+    ap.add_argument("--pos", help='Name of the position column')
+    ap.add_argument("--weight", help='Name of the weight column')
+    ap.add_argument("--value", help='Name of the value column')
+    ap.add_argument("--dataset", help='Name of the particle dataset')
+    ap.add_argument("--norm", help='normalisation type "global" "local" or "none"')
     ap.add_argument("--resolution", type=float, default=1.0, help='resolution in Mpc/h')
-    ap.add_argument("--chunksize", type=int, default=1024*1024*32, help='number of particle to read at once')
     ns = ap.parse_args()
-    main(ns.pfile,ns.output,ns.pos,ns.weight,ns.dataset,ns.resolution,ns.chunksize)
+    main(ns.pfile,ns.output,ns.outname,pos=ns.pos,weight=ns.weight,dataset=ns.dataset,resolution=ns.resolution,value=ns.value,norm=ns.norm)

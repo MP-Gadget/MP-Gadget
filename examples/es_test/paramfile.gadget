@@ -7,10 +7,7 @@ OutputList = 0,09090,0.09259,0.09434,0.09615,0.09804,0.1000,0.1020,0.1042,0.1064
 EnableAggregatedIO = 1
 # CPU time -limit
 
-OutputHeliumFractions = 1
-
 TimeLimitCPU = 100000 #= > 24 hours
-
 
 # Code options
 
@@ -100,6 +97,8 @@ WindSpeedFactor = 3.7
 WindFreeTravelLength = 20
 WindFreeTravelDensFac = 0.1
 
+MetalReturnOn = 0
+
 #----------------------Reionisation stuff----------------
 ExcursionSetReionOn = 1
 ExcursionSetZStop = 5
@@ -111,9 +110,9 @@ ReionDeltaRFactor = 1.1
 ReionGammaHaloBias = 2.0
 ReionNionPhotPerBary = 4000.0
 AlphaUV = 3.0
-EscapeFraction = 1.0
+EscapeFractionNorm = 1.00
+EscapeFractionScaling = 0.0
 UVBGTimestep = 10.0 #time between UVBG calculations in Myr
 ReionFilterType = 0 #Filter to use with 21CMFAST, 0 = real-space top-hat, 1 = k-space top-hat, 2 = gaussian
 RtoMFilterType = 0 #Filter to use with 21CMFAST radius to mass calculation, 0 = top-hat, 1 = gaussian
 J21CoeffFile = ../J21_to_rates_test.txt
-MetalReturnOn = 0

@@ -1,9 +1,9 @@
 OutputDir = output_reion # Directory for output
 FileBase = IC              # Base-filename of output files
 
-Ngrid = 128 # Size of cubic grid on which to create particles.
+Ngrid = 64 # Size of cubic grid on which to create particles.
 
-BoxSize = 40000   # Periodic box size of simulation
+BoxSize = 20000   # Periodic box size of simulation
 
 Omega0 = 0.2814      # Total matter density  (at z=0)
 OmegaLambda = 0.7186      # Cosmological constant (at z=0)
@@ -13,7 +13,7 @@ HubbleParam = 0.697      # Hubble paramater (may be used for power spec paramete
 
 Sigma8 = 0.810      # power spectrum normalization
 
-Redshift = 25        # Starting redshift
+Redshift = 99        # Starting redshift
 
 DifferentTransferFunctions = 1
 #Tabulated output in Mpc/h units.

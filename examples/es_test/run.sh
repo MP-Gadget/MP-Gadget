@@ -1,4 +1,4 @@
-export OMP_NUM_THREADS=2
+export OMP_NUM_THREADS=8
 
 ROOT=../../
 
