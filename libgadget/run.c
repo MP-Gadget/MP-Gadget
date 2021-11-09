@@ -515,8 +515,6 @@ run(int RestartSnapNum)
         free_activelist(&Act);
     }
 
-    //free_permanent_uvbg_grids();
-
     close_outputfiles();
 }
 
@@ -548,6 +546,7 @@ update_random_offset(double * rel_random_shift)
         double rr = get_random_number(i);
         /* Upstream Gadget uses a random fraction of the box, but since all we need
          * is to adjust the tree openings, and the tree force is zero anyway on the
+         * scale of a few PM grid cells, this seems enough.*/
         rr *= All.RandomParticleOffset * All.BoxSize / All.Nmesh;
         /* Subtract the old random shift first.*/
         rel_random_shift[i] = rr - PartManager->CurrentParticleOffset[i];

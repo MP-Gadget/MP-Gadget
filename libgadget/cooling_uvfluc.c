@@ -205,9 +205,8 @@ static struct UVBG get_local_UVBG_from_J21(double redshift, double J21, double z
 }
 
 //switch function that decides whether to use excursion set or global UV background
-/*TODO: there are a few continuity issues to consider fixing.
- * if the z_reion tables provided finish after ExcursionSetZStop, particles could rapidly recombine.
- * I'm not sure how initial heating from reionisation (see D'Aloisio et al. 2019) is handled here */
+/*TODO: Better continuity, if the z_reion tables provided finish after ExcursionSetZStop, particles could rapidly recombine.
+ * also if helium reion starts before the excursion set finishes, flash reionisations occur as we switch to global*/
 struct UVBG get_local_UVBG(double redshift, const struct UVBG * const GlobalUVBG, const double * const Pos, const double * const PosOffset, double J21, double zreion)
 {
     if(All.ExcursionSetReionOn && (redshift > All.ExcursionSetZStop))

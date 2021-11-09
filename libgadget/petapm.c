@@ -65,8 +65,8 @@ static PetaPMReionPartStruct * CPS_R; /* stored by petapm_force, how to access o
 /* (jdavies) reion defs */
 #define TYPE(i) ((int*)  (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS_R->offset_type]))
 #define PI(i) ((int*)  (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS_R->offset_pi]))
+/* NOTE: These are 'myfloat' types */
 #define FESC(i) ((double*) (&((char*)CPS_R->Starslot)[CPS_R->star_elsize * *PI(i) + CPS_R->offset_fesc]))
-/*TODO: this is a MyFloat, also not currently used and possibly broken*/
 #define SFR(i) ((double*)  (&((char*)CPS_R->Sphslot)[CPS_R->sph_elsize * *PI(i) + CPS_R->offset_sfr]))
 
 PetaPMRegion * petapm_get_fourier_region(PetaPM * pm) {
