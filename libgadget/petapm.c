@@ -57,7 +57,7 @@ petapm_alloc_rhok(PetaPM * pm)
 static void pm_init_regions(PetaPM * pm, PetaPMRegion * regions, const int Nregions);
 
 static PetaPMParticleStruct * CPS; /* stored by petapm_force, how to access the P array */
-static PetaPMReionPartStruct * CPS_R; /* stored by petapm_force, how to access other properties in P, SphP, and Fof */
+static PetaPMReionPartStruct * CPS_R; /* stored by calculate_uvbg, how to access other properties in P, SphP, and Fof */
 #define POS(i) ((double*)  (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS->offset_pos]))
 #define MASS(i) ((float*) (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS->offset_mass]))
 #define INACTIVE(i) (CPS->active && !CPS->active(i))

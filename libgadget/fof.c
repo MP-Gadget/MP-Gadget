@@ -837,10 +837,10 @@ static void fof_set_escapefraction(struct FOFGroups * fof, const int NgroupsExt)
             }
 
             /* putting halo mass in escape fraction for now, converted before uvbg calculation */ 
-            if(P[i].Type == 0){
+            if(P[pi].Type == 0){
                 SPHP(pi).EscapeFraction = fof->Group[i].Mass;
             }
-            if(P[i].Type == 4){
+            else if(P[pi].Type == 4){
                 STARP(pi).EscapeFraction = fof->Group[i].Mass;
             }
         }

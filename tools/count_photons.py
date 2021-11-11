@@ -7,9 +7,6 @@ global statistics of reionisation.
 import argparse
 import bigfile as bf
 import numpy as np
-import matplotlib
-matplotlib.use('pdf')
-from matplotlib import pyplot as plt
 from os.path import exists
 from astropy import cosmology, constants as C, units as U
 from scipy import integrate
@@ -36,6 +33,11 @@ ap.add_argument("--snapend", type=int, default=-1, help='ending snapshot')
 ap.add_argument("--show-plot", help="show plot with matplotlib", action="store_true")
 
 ns = ap.parse_args()
+
+import matplotlib
+if not ns.show_plot:
+    matplotlib.use('pdf')
+from matplotlib import pyplot as plt
 
 h = 0.7186
 Om0 = 0.2814
