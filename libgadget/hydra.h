@@ -7,10 +7,6 @@
 #include "density.h"
 #include "utils/paramset.h"
 
-/* Function to get the center of mass density and HSML correction factor for an SPH particle with index i.
- * Encodes the main difference between pressure-entropy SPH and regular SPH.*/
-MyFloat SPH_EOMDensity(const struct sph_particle_data * const pi);
-
 /*Function to compute hydro accelerations and adiabatic entropy change*/
 void hydro_force(const ActiveParticles * act, int WindOn, const double hubble, const double atime, struct sph_pred_data * SPH_predicted, double MinEgySpec, const DriftKickTimes times,  Cosmology * CP, const ForceTree * const tree);
 

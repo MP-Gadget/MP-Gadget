@@ -1256,7 +1256,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             //#pragma omp atomic write
             P[other].BHHeated = 1;
         }
-        const double enttou = pow(SPH_EOMDensity(&SPHP(other)) * BH_GET_PRIV(lv->tw)->a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+        const double enttou = pow(SPHP(other).Density * BH_GET_PRIV(lv->tw)->a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
         double entold, entnew;
         double * entptr = &(SPHP(other).Entropy);
         #pragma omp atomic read

@@ -333,7 +333,7 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
                 P[other].Vel[j] += v * dir[j];
             }
             /* StarTherm is internal energy per unit mass. Need to convert to entropy*/
-            const double enttou = pow(SPH_EOMDensity(&SPHP(other)) / pow(Time, 3), GAMMA_MINUS1) / GAMMA_MINUS1;
+            const double enttou = pow(SPHP(other).Density / pow(Time, 3), GAMMA_MINUS1) / GAMMA_MINUS1;
             SPHP(other).Entropy += priv->kicks[i].StarTherm/enttou;
             if(winds_ever_decouple()) {
                 double delay = wind_params.WindFreeTravelLength / (v / Time);
@@ -548,7 +548,6 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
     O->V1sum[0], O->V1sum[1], O->V1sum[2]);
     */
 }
-
 
 static int
 get_wind_dir(int i, double dir[3]) {
