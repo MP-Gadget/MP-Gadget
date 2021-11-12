@@ -575,14 +575,13 @@ get_timestep_ti(const int p, const inttime_t dti_max, const inttime_t Ti_Current
     if(dti <= 1 || dti > (inttime_t) TIMEBASE)
     {
         if(P[p].Type == 0)
-            message(1, "Bad timestep (%x)! titype %d. ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g) hydro-frc=(%g|%g|%g) dens=%g hsml=%g dh = %g egyrho=%g Entropy=%g, dtEntropy=%g maxsignal=%g\n",
+            message(1, "Bad timestep (%x)! titype %d. ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g) hydro-frc=(%g|%g|%g) dens=%g hsml=%g dh = %g Entropy=%g, dtEntropy=%g maxsignal=%g\n",
                 dti, *titype, P[p].ID, P[p].Type, dloga, dti_max,
                 P[p].Pos[0], P[p].Pos[1], P[p].Pos[2],
                 P[p].GravAccel[0], P[p].GravAccel[1], P[p].GravAccel[2],
                 P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2],
                 SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1], SPHP(p).HydroAccel[2],
-                SPHP(p).Density, P[p].Hsml, P[p].DtHsml, SPH_EOMDensity(&SPHP(p)),
-                SPHP(p).Entropy, SPHP(p).DtEntropy, SPHP(p).MaxSignalVel);
+                SPHP(p).Density, P[p].Hsml, P[p].DtHsml, SPHP(p).Entropy, SPHP(p).DtEntropy, SPHP(p).MaxSignalVel);
         else
             message(1, "Bad timestep (%x)! titype %d. ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g)\n",
                 dti, *titype, P[p].ID, P[p].Type, dloga, dti_max,

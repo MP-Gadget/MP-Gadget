@@ -51,7 +51,9 @@ int DensityIndependentSphOn(void)
     return HydroParams.DensityIndependentSphOn;
 }
 
-MyFloat SPH_EOMDensity(const struct sph_particle_data * const pi)
+/* Function to get the center of mass density and HSML correction factor for an SPH particle with index i.
+ * Encodes the main difference between pressure-entropy SPH and regular SPH.*/
+static MyFloat SPH_EOMDensity(const struct sph_particle_data * const pi)
 {
     if(HydroParams.DensityIndependentSphOn)
         return pi->EgyWtDensity;
