@@ -447,7 +447,7 @@ do_the_short_range_kick(int i, double dt_entr, double Fgravkick, double Fhydroki
             SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
 
         /* Limit entropy in simulations with cooling disabled*/
-        const double enttou = pow(SPH_EOMDensity(&SPHP(i)) * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+        const double enttou = pow(SPHP(i).Density * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
         if(SPHP(i).Entropy < All.MinEgySpec/enttou)
             SPHP(i).Entropy = All.MinEgySpec / enttou;
     }

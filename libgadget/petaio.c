@@ -937,7 +937,7 @@ static void GTInternalEnergy(int i, float * out, void * baseptr, void * smanptr)
     int PI = ((struct particle_data *) baseptr)[i].PI;
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
-    *out = sl[PI].Entropy / GAMMA_MINUS1 * pow(SPH_EOMDensity(&sl[PI]) * All.cf.a3inv, GAMMA_MINUS1);
+    *out = sl[PI].Entropy / GAMMA_MINUS1 * pow(sl[PI].Density * All.cf.a3inv, GAMMA_MINUS1);
 }
 
 static void STInternalEnergy(int i, float * out, void * baseptr, void * smanptr) {
@@ -945,7 +945,7 @@ static void STInternalEnergy(int i, float * out, void * baseptr, void * smanptr)
     int PI = ((struct particle_data *) baseptr)[i].PI;
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
-    sl[PI].Entropy  = GAMMA_MINUS1 * u / pow(SPH_EOMDensity(&sl[PI]) * All.cf.a3inv , GAMMA_MINUS1);
+    sl[PI].Entropy  = GAMMA_MINUS1 * u / pow(sl[PI].Density * All.cf.a3inv , GAMMA_MINUS1);
 }
 
 /* Can't use the macros because cannot take address of a bitfield*/
