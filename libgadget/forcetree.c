@@ -172,10 +172,15 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
     ForceTree tree;
 
     int TooManyNodes = 0;
+    int64_t maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->NumPart + ddecomp->NTopNodes;
+    int64_t maxmaxnodes;
+    MPI_Reduce(&maxnodes, &maxmaxnodes, 1, MPI_INT64, MPI_MAX,0, MPI_COMM_WORLD);
+    message(0, "Treebuild: Largest is %g MByte for %ld tree nodes. firstnode %ld. (presently allocated %g MB)\n",
+         maxmaxnodes * sizeof(struct NODE) / (1024.0 * 1024.0), maxmaxnodes, PartManager->MaxPart,
+         mymalloc_usedbytes() / (1024.0 * 1024.0));
 
     do
     {
-        int64_t maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->NumPart + ddecomp->NTopNodes;
         /* Allocate memory. */
         tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp);
 
@@ -183,9 +188,10 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
         tree.numnodes = force_tree_create_nodes(tree, npart, ddecomp, BoxSize, HybridNuGrav);
         if(tree.numnodes >= tree.lastnode - tree.firstnode)
         {
-            message(1, "Not enough tree nodes (%d) for %d particles. Created %d\n", maxnodes, npart, tree.numnodes);
+            message(1, "Not enough tree nodes (%ld) for %d particles. Created %d\n", maxnodes, npart, tree.numnodes);
             force_tree_free(&tree);
-            message(1, "TreeAllocFactor from %g to %g\n", ForceTreeParams.TreeAllocFactor, ForceTreeParams.TreeAllocFactor*1.15);
+            maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->NumPart + ddecomp->NTopNodes;
+            message(1, "TreeAllocFactor from %g to %g now %ld tree nodes\n", ForceTreeParams.TreeAllocFactor, ForceTreeParams.TreeAllocFactor*1.15, maxnodes);
             ForceTreeParams.TreeAllocFactor *= 1.15;
             if(ForceTreeParams.TreeAllocFactor > 3.0) {
                 TooManyNodes = 1;
@@ -1328,20 +1334,16 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
  */
 ForceTree force_treeallocate(int64_t maxnodes, int64_t maxpart, DomainDecomp * ddecomp)
 {
-    size_t bytes;
-    size_t allbytes = 0;
     ForceTree tb;
 
-    tb.Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
+    tb.Father = (int *) mymalloc("Father", maxpart * sizeof(int));
 #ifdef DEBUG
-    memset(tb.Father, -1, bytes);
+    memset(tb.Father, -1, maxpart * sizeof(int));
 #endif
-    allbytes += bytes;
-    tb.Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (maxnodes + 1) * sizeof(struct NODE));
+    tb.Nodes_base = (struct NODE *) mymalloc("Nodes_base", (maxnodes + 1) * sizeof(struct NODE));
 #ifdef DEBUG
-    memset(tb.Nodes_base, -1, bytes);
+    memset(tb.Nodes_base, -1, (maxnodes + 1) * sizeof(struct NODE));
 #endif
-    allbytes += bytes;
     tb.firstnode = maxpart;
     tb.lastnode = maxpart + maxnodes;
     if(maxpart + maxnodes >= 1L<<30)
@@ -1351,9 +1353,6 @@ ForceTree force_treeallocate(int64_t maxnodes, int64_t maxpart, DomainDecomp * d
     tb.tree_allocated_flag = 1;
     tb.NTopLeaves = ddecomp->NTopLeaves;
     tb.TopLeaves = ddecomp->TopLeaves;
-    message(0, "Allocated %g MByte for %d tree nodes. firstnode %d. (presently allocated %g MB)\n",
-         allbytes / (1024.0 * 1024.0), maxnodes, maxpart,
-         mymalloc_usedbytes() / (1024.0 * 1024.0));
     return tb;
 }
 
