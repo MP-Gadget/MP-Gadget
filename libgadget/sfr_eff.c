@@ -432,7 +432,7 @@ cooling_direct(int i, const double a3inv, const double hubble, const struct UVBG
 
     double ne = SPHP(i).Ne;	/* electron abundance (gives ionization state and mean molecular weight) */
 
-    const double enttou = pow(SPH_EOMDensity(&SPHP(i)) * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+    const double enttou = pow(SPHP(i).Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
 
     /* Current internal energy including adiabatic change*/
     double uold = SPHP(i).Entropy * enttou;
@@ -487,7 +487,7 @@ sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
         double redshift = pow(a3inv, 1./3.)-1;
         struct UVBG uvbg = get_global_UVBG(redshift);
         double egyeff = get_egyeff(redshift, sph->Density, &uvbg);
-        const double enttou = pow(sph->EgyWtDensity * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+        const double enttou = pow(sph->Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
         double unew = sph->Entropy * enttou;
         /* 0.5 dex = 10^0.5 = 3.2 */
         if(unew >= egyeff * 3.2)
@@ -509,8 +509,6 @@ double get_neutral_fraction_sfreff(double redshift, struct particle_data * partd
     if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, All.cf.a3inv)) {
         /*This gets the neutral fraction for standard gas*/
         double eomdensity = sphdata->Density;
-        if(DensityIndependentSphOn())
-            eomdensity  = sphdata->EgyWtDensity;
         double InternalEnergy = sphdata->Entropy / GAMMA_MINUS1 * pow(eomdensity * All.cf.a3inv, GAMMA_MINUS1);
         nh0 = GetNeutralFraction(InternalEnergy, physdens, &uvbg, sphdata->Ne);
     }
@@ -540,8 +538,6 @@ double get_helium_neutral_fraction_sfreff(int ion, double redshift, struct parti
     if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, All.cf.a3inv)) {
         /*This gets the neutral fraction for standard gas*/
         double eomdensity = sphdata->Density;
-        if(DensityIndependentSphOn())
-            eomdensity  = sphdata->EgyWtDensity;
         double InternalEnergy = sphdata->Entropy / GAMMA_MINUS1 * pow(eomdensity * All.cf.a3inv, GAMMA_MINUS1);
         helium = GetHeliumIonFraction(ion, InternalEnergy, physdens, &uvbg, sphdata->Ne);
     }
@@ -592,7 +588,7 @@ static void
 cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_eeqos_data sfr_data, const struct UVBG * const GlobalUVBG)
 {
     const double egyeff = sfr_params.EgySpecCold * sfr_data.cloudfrac + (1 - sfr_data.cloudfrac) * sfr_data.egyhot;
-    const double Density = SPH_EOMDensity(&SPHP(i));
+    const double Density = SPHP(i).Density;
     const double densityfac = pow(Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
     double egycurrent = SPHP(i).Entropy * densityfac;
     double trelax = sfr_data.trelax;
@@ -631,7 +627,7 @@ quicklyastarformation(int i, const double a3inv)
     if(SPHP(i).Density <= sfr_params.OverDensThresh)
         return 0;
 
-    const double enttou = pow(SPH_EOMDensity(&SPHP(i)) * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+    const double enttou = pow(SPHP(i).Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
     double unew = SPHP(i).Entropy * enttou;
 
     const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1 * All.UnitEnergy_in_cgs / All.UnitMass_in_g;

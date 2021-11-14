@@ -51,7 +51,9 @@ int DensityIndependentSphOn(void)
     return HydroParams.DensityIndependentSphOn;
 }
 
-MyFloat SPH_EOMDensity(const struct sph_particle_data * const pi)
+/* Function to get the center of mass density and HSML correction factor for an SPH particle with index i.
+ * Encodes the main difference between pressure-entropy SPH and regular SPH.*/
+static MyFloat SPH_EOMDensity(const struct sph_particle_data * const pi)
 {
     if(HydroParams.DensityIndependentSphOn)
         return pi->EgyWtDensity;
@@ -502,7 +504,7 @@ hydro_postprocess(int i, TreeWalk * tw)
     if(P[i].Type == 0)
     {
         /* Translate energy change rate into entropy change rate */
-        SPHP(i).DtEntropy *= GAMMA_MINUS1 / (HYDRA_GET_PRIV(tw)->hubble_a2 * pow(SPH_EOMDensity(&SPHP(i)), GAMMA_MINUS1));
+        SPHP(i).DtEntropy *= GAMMA_MINUS1 / (HYDRA_GET_PRIV(tw)->hubble_a2 * pow(SPHP(i).Density, GAMMA_MINUS1));
 
         /* if we have winds, we decouple particles briefly if delaytime>0 */
         if(HYDRA_GET_PRIV(tw)->WindOn && winds_is_particle_decoupled(i))

@@ -599,7 +599,7 @@ wind_do_kick(int other, double vel, double therm, double atime)
             P[other].Vel[j] += vel * dir[j];
         }
         /* StarTherm is internal energy per unit mass. Need to convert to entropy*/
-        const double enttou = pow(SPH_EOMDensity(&SPHP(other)) / pow(atime, 3), GAMMA_MINUS1) / GAMMA_MINUS1;
+        const double enttou = pow(SPHP(other).Density / pow(atime, 3), GAMMA_MINUS1) / GAMMA_MINUS1;
         SPHP(other).Entropy += therm/enttou;
         if(winds_ever_decouple()) {
             double delay = wind_params.WindFreeTravelLength / (vel / atime);
