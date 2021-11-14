@@ -215,7 +215,7 @@ static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp
         P[i].IsGarbage = 0;
     }
     qsort(P, numpart, sizeof(struct particle_data), order_by_type_and_key);
-    int maxnode = numpart;
+    int maxnode = tb.lastnode - tb.firstnode;
     PartManager->MaxPart = numpart;
     assert_true(tb.Nodes != NULL);
     /*So we know which nodes we have initialised*/
