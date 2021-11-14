@@ -160,10 +160,10 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSiz
  *
  *  The index convention for accessing tree nodes is the following: the
  *  indices 0...NumPart-1 reference single particles, the indices
- *  PartManager->MaxPart.... PartManager->MaxPart+nodes-1 reference tree nodes. `Nodes_base'
+ *  firstnode....firstnode +nodes-1 reference tree nodes. `Nodes_base'
  *  points to the first tree node, while `nodes' is shifted such that
- *  nodes[PartManager->MaxPart] gives the first tree node. Finally, node indices
- *  with values 'PartManager->MaxPart + tb.lastnode' and larger indicate "pseudo
+ *  nodes[firstnode] gives the first tree node. Finally, node indices
+ *  with values 'tb.lastnode' and larger indicate "pseudo
  *  particles", i.e. multipole moments of top-level nodes that lie on
  *  different CPUs. If such a node needs to be opened, the corresponding
  *  particle must be exported to that CPU. */
@@ -175,7 +175,7 @@ ForceTree force_tree_build(int npart, DomainDecomp * ddecomp, const double BoxSi
 
     do
     {
-        int maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->NumPart + ddecomp->NTopNodes;
+        int64_t maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->NumPart + ddecomp->NTopNodes;
         /* Allocate memory. */
         tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp);
 
@@ -1326,7 +1326,7 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
  *  maxnodes approximately equal to 0.7*maxpart is sufficient to store the
  *  tree for up to maxpart particles.
  */
-ForceTree force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp)
+ForceTree force_treeallocate(int64_t maxnodes, int64_t maxpart, DomainDecomp * ddecomp)
 {
     size_t bytes;
     size_t allbytes = 0;
@@ -1344,8 +1344,8 @@ ForceTree force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp)
     allbytes += bytes;
     tb.firstnode = maxpart;
     tb.lastnode = maxpart + maxnodes;
-    if(tb.lastnode < 0)
-        endrun(5, "Size of tree overflowed for maxpart = %d, maxnodes = %d!\n", maxpart, maxnodes);
+    if(maxpart + maxnodes >= 1L<<30)
+        endrun(5, "Size of tree overflowed for maxpart = %ld, maxnodes = %ld!\n", maxpart, maxnodes);
     tb.numnodes = 0;
     tb.Nodes = tb.Nodes_base - maxpart;
     tb.tree_allocated_flag = 1;

@@ -139,7 +139,7 @@ int
 force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav);
 
 ForceTree
-force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp);
+force_treeallocate(int64_t maxnodes, int64_t maxpart, DomainDecomp * ddecomp);
 
 void
 force_update_node_parallel(const ForceTree * tree, const DomainDecomp * ddecomp);
