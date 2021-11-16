@@ -92,6 +92,7 @@ typedef struct ForceTree {
     struct NODE * Nodes_base;
     /*!< gives parent node in tree for every particle */
     int *Father;
+    int nfather;
     /*!< Store the size of the box used to build the tree, for periodic walking.*/
     double BoxSize;
 } ForceTree;

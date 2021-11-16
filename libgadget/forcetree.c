@@ -125,7 +125,8 @@ force_tree_eh_slots_fork(EIBase * event, void * userdata)
        nop->s.Types += P[child].Type << (3*nop->s.noccupied);
        nop->s.noccupied++;
     }
-    tree->Father[child] = no;
+    if(child < tree->nfather && child >= 0)
+        tree->Father[child] = no;
     return 0;
 }
 
@@ -1337,6 +1338,7 @@ ForceTree force_treeallocate(int64_t maxnodes, int64_t maxpart, DomainDecomp * d
     ForceTree tb;
 
     tb.Father = (int *) mymalloc("Father", maxpart * sizeof(int));
+    tb.nfather = maxpart;
 #ifdef DEBUG
     memset(tb.Father, -1, maxpart * sizeof(int));
 #endif
