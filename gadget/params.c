@@ -315,7 +315,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "QSOMinMass", OPTIONAL, 100, "Minimum mass of a halo potentially hosting a quasar in internal mass units.");
     param_declare_double(ps, "QSOMeanBubble", OPTIONAL, 20000, "Mean size of the ionizing bubble around a quasar. By default 20 Mpc/h = 28 Mpc. 0807.2799");
     param_declare_double(ps, "QSOVarBubble", OPTIONAL, 0, "Variance of the ionizing bubble around a quasar. By default zero so all bubbles are the same size");
-    param_declare_double(ps, "QSOHeIIIReionFinishFrac", OPTIONAL, 0.95, "Reionization fraction at which all particles are flash-reionized instead of having quasar bubbles placed.");
+    param_declare_double(ps, "QSOHeIIIReionFinishFrac", OPTIONAL, 0.995, "Reionization fraction at which all particles are flash-reionized instead of having quasar bubbles placed.");
 
     /* Parameters for the metal return model*/
     param_declare_double(ps, "MetalsSn1aN0", OPTIONAL, 1.3e-3, "Overall rate of SN1a per Msun");
