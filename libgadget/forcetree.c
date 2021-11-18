@@ -736,7 +736,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
          * This wastes threads if NTHREAD > NTOPNODES, but it
          * means only one merge is done per subtree and
          * it requires no locking.*/
-        #pragma omp for
+        #pragma omp for schedule(static, 1)
         for(i = 0; i < EndLeaf - StartLeaf; i++) {
             int t;
             /* These are the addresses of the real topnodes*/
