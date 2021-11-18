@@ -92,6 +92,7 @@ typedef struct ForceTree {
     struct NODE * Nodes_base;
     /*!< gives parent node in tree for every particle */
     int *Father;
+    int nfather;
     /*!< Store the size of the box used to build the tree, for periodic walking.*/
     double BoxSize;
 } ForceTree;
@@ -139,7 +140,7 @@ int
 force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav);
 
 ForceTree
-force_treeallocate(int maxnodes, int maxpart, DomainDecomp * ddecomp);
+force_treeallocate(int64_t maxnodes, int64_t maxpart, DomainDecomp * ddecomp);
 
 void
 force_update_node_parallel(const ForceTree * tree, const DomainDecomp * ddecomp);
