@@ -423,50 +423,25 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime
     /* Do nothing if we are a pure DM run*/
     if(tot_sph + tot_bh == 0)
         return;
-//
-    ForceTree Tree = {0};
-    /* Need moments because we use them to set Hsml*/
-    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 0, 1, All.OutputDir);
 
     if(RestartSnapNum == -1)
     {
-        /* quick hack to adjust for the baryon fraction
-         * only this fraction of mass is of that type.
-         * this won't work for non-dm non baryon;
-         * ideally each node shall have separate count of
-         * ptypes of each type.
-         *
-         * Eventually the iteration will fix this. */
-        const double massfactor = All.CP.OmegaBaryon / All.CP.Omega0;
+        /* Guess: density iteration will fix this. */
+
+        /* Note the h^2 has cancelled*/
+        const double rho_crit_baryon = All.CP.OmegaBaryon * 3.0 * pow(HUBBLE,2.0) /(8.0*M_PI*GRAVITY) / All.UnitDensity_in_cgs;
         const double DesNumNgb = GetNumNgb(GetDensityKernelType());
 
         #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++)
         {
-            /* These initial smoothing lengths are only used for SPH.
-             * BH is set elsewhere. */
-            if(P[i].Type != 0)
+            /* These initial smoothing lengths are only used for SPH and BH.*/
+            if(P[i].Type != 0 && P[i].Type != 5)
                 continue;
 
-            int no = force_get_father(i, &Tree);
-
-            while(10 * DesNumNgb * P[i].Mass > massfactor * Tree.Nodes[no].mom.mass)
-            {
-                int p = force_get_father(no, &Tree);
-
-                if(p < 0)
-                    break;
-
-                no = p;
-            }
-
-            P[i].Hsml =
-                pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / (massfactor * Tree.Nodes[no].mom.mass),
-                        1.0 / 3) * Tree.Nodes[no].len;
-
-            /* recover from a poor initial guess */
-            if(P[i].Hsml > 500.0 * All.MeanSeparation[0])
-                P[i].Hsml = All.MeanSeparation[0];
+            /* Find radius where sphere at homogeneous mean density has correct mass for number of neighbours.*/
+            double volume = DesNumNgb * P[i].Mass / rho_crit_baryon;
+            P[i].Hsml = pow(3.0 / (4 * M_PI) * volume,  1.0 / 3);
         }
     }
     /* When we restart, validate the SPH properties of the particles.
@@ -496,8 +471,6 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime
             message(0, "Detected bad densities in %d particles on disc\n",bad);
     }
 
-    /*Allocate the extra SPH data for transient SPH particle properties.*/
-    struct sph_pred_data sph_pred = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
 
     /*At the first time step all particles should be active*/
     ActiveParticles act = {0};
@@ -506,6 +479,12 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime
 
     /* Empty kick factors as we do not move*/
     DriftKickTimes times = init_driftkicktime(Ti_Current);
+    /* Gas tree for density estimation*/
+    ForceTree Tree = {0};
+    force_tree_rebuild_mask(&Tree, ddecomp, GASMASK, All.BoxSize, 0, All.OutputDir);
+    /*Allocate the extra SPH data for transient SPH particle properties.*/
+    struct sph_pred_data sph_pred = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
+
     density(&act, 1, 0, All.BlackHoleOn, 0,  times, &All.CP, &sph_pred, NULL, &Tree);
 
     /* for clean IC with U input only, we need to iterate to find entrpoy */
