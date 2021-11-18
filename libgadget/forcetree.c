@@ -700,7 +700,18 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * 
         int this_acc = local_topnodes[0];
         // message(1, "Topnodes %d real %d\n", local_topnodes[0], topnodes[0]);
 
-        #pragma omp for
+        /* The default schedule is static with a chunk 1/4 the total.
+         * However, particles are sorted by type and then by peano order.
+         * Since we need to merge trees, it is advantageous to have all particles
+         * spatially close be processed by the same thread. This means that the threads should
+         * process particles at a constant offset from the start of the type.
+         * We do this with a static schedule. */
+        int chnksz = PartManager->NumPart/nthr;
+        if(SlotsManager->info[0].enabled && SlotsManager->info[0].size > 0)
+            chnksz = SlotsManager->info[0].size/nthr;
+        if(chnksz < 1000)
+            chnksz = 1000;
+        #pragma omp for schedule(static, chnksz)
         for(i = 0; i < npart; i++)
         {
             /*Can't break from openmp for*/
