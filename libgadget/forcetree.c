@@ -146,14 +146,15 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSiz
         force_tree_free(tree);
     }
     walltime_measure("/Misc");
+    double tstart = second();
 
     *tree = force_tree_build(PartManager->NumPart, ALLMASK, ddecomp, BoxSize, HybridNuGrav, DoMoments, EmergencyOutputDir);
 
     event_listen(&EventSlotsFork, force_tree_eh_slots_fork, tree);
     walltime_measure("/Tree/Build/Moments");
-
-    message(0, "Tree constructed (moments: %d). First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
-            tree->moments_computed_flag, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
+    double tend = second();
+    message(0, "Tree constructed (moments: %d). Took %.3g ms. First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
+            tree->moments_computed_flag, (tend - tstart)*1000, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
     MPIU_Barrier(MPI_COMM_WORLD);
 }
 
@@ -167,13 +168,13 @@ force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, cons
         force_tree_free(tree);
     }
     walltime_measure("/Misc");
-
+    double tstart = second();
     /* No moments*/
     *tree = force_tree_build(PartManager->NumPart, mask, ddecomp, BoxSize, HybridNuGrav, 0, EmergencyOutputDir);
     walltime_measure("/SPH/Build");
-
-    message(0, "Tree constructed (type mask: %d). First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
-            mask, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
+    double tend = second();
+    message(0, "Tree constructed (type mask: %d). Took %.3g ms. First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
+            mask, (tend - tstart)*1000, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
     MPIU_Barrier(MPI_COMM_WORLD);
 }
 /*! Constructs the gravitational oct-tree.
@@ -202,10 +203,17 @@ ForceTree force_tree_build(int npart, int mask, DomainDecomp * ddecomp, const do
     do
     {
         /* Allocate memory. */
+        double tstart = second();
         tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp);
+        double tend= second();
+        message(0, "Malloc: %.3g ms.\n", (tend - tstart)*1000);
 
         tree.BoxSize = BoxSize;
+
         tree.numnodes = force_tree_create_nodes(tree, npart, mask, ddecomp, BoxSize, HybridNuGrav);
+        double tfinal= second();
+        message(0, "Node creation: %.3g ms.\n", (tfinal - tend)*1000);
+
         if(tree.numnodes >= tree.lastnode - tree.firstnode)
         {
             message(1, "Not enough tree nodes (%ld) for %d particles. Created %d\n", maxnodes, npart, tree.numnodes);
@@ -231,8 +239,12 @@ ForceTree force_tree_build(int npart, int mask, DomainDecomp * ddecomp, const do
 #ifdef DEBUG
     force_validate_nextlist(&tree);
 #endif
+    double tstart = second();
     /* insert the pseudo particles that represent the mass distribution of other ddecomps */
     force_insert_pseudo_particles(&tree, ddecomp);
+    double tend= second();
+    message(0, "Pseudos: %.3g ms.\n", (tend - tstart)*1000);
+
 #ifdef DEBUG
     force_validate_nextlist(&tree);
 #endif
@@ -253,7 +265,10 @@ ForceTree force_tree_build(int npart, int mask, DomainDecomp * ddecomp, const do
         tree.moments_computed_flag = 1;
         tree.hmax_computed_flag = 1;
     }
+    tstart = second();
     tree.Nodes_base = myrealloc(tree.Nodes_base, (tree.numnodes +1) * sizeof(struct NODE));
+    tend= second();
+    message(0, "Realloc: %.3g ms.\n", (tend - tstart)*1000);
 
     /*Update the oct-tree struct so it knows about the memory change*/
     tree.Nodes = tree.Nodes_base - tree.firstnode;
@@ -651,6 +666,8 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
  **/
 int force_tree_create_nodes(const ForceTree tb, const int npart, int mask, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav)
 {
+    double tbefore = second();
+
     int nnext = tb.firstnode;       /* index of first free node */
 
     /* create an empty root node  */
@@ -702,7 +719,10 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, int mask, Domai
         }
     }
 
-/*     double tstart = second(); */
+    double tstart = second();
+    #pragma omp master
+    message(0, "Preinit: %.3g ms.\n", (tstart- tbefore)*1000);
+
     const int first_free = nnext;
     /* Increment nnext for the threads we are about to initialise.*/
     nnext += NODECACHE_SIZE * nthr;
@@ -772,8 +792,9 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, int mask, Domai
             this_acc = add_particle_to_tree(i, this, tb, HybridNuGrav, &nc, &nnext);
         }
         /* The implicit omp-barrier is important here!*/
-/*         double tend = second(); */
-/*         message(0, "Initial insertion: %.3g ms. First node %d\n", (tend - tstart)*1000, local_topnodes[0]); */
+        double tend = second();
+        #pragma omp master
+        message(0, "Initial insertion: %.3g ms. First node %d\n", (tend - tstart)*1000, local_topnodes[0]);
 
         /* Merge each topnode separately, using a for loop.
          * This wastes threads if NTHREAD > NTOPNODES, but it
@@ -793,6 +814,10 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, int mask, Domai
                     break;
             }
         }
+        /* The implicit omp-barrier is important here!*/
+        double tfinal = second();
+        #pragma omp master
+        message(0, "Merge step: %.3g ms. First node %d\n", (tfinal - tend)*1000, local_topnodes[0]);
     }
 
     ta_free(topnodes);
