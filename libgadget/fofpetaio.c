@@ -362,7 +362,8 @@ static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm) {
     /* conversion from peculiar velocity to RSD */
     double RSD = 1.0 / (All.cf.a * All.cf.hubble);
 
-    if(!GetUsePeculiarVelocity()) {
+    int pecvel = GetUsePeculiarVelocity();
+    if(!pecvel) {
         RSD /= All.cf.a; /* Conversion from internal velocity to RSD */
     }
     big_block_set_attr(&bh, "NumPartInGroupTotal", npartTotal, "u8", 6);
@@ -376,6 +377,7 @@ static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm) {
     big_block_set_attr(&bh, "HubbleParam", &All.CP.HubbleParam, "f8", 1);
     big_block_set_attr(&bh, "CMBTemperature", &All.CP.CMBTemperature, "f8", 1);
     big_block_set_attr(&bh, "OmegaBaryon", &All.CP.OmegaBaryon, "f8", 1);
+    big_block_set_attr(&bh, "UsePeculiarVelocity", &pecvel, "i4", 1);
     big_block_mpi_close(&bh, Comm);
 }
 
