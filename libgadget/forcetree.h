@@ -16,6 +16,13 @@
 #define NODE_NODE_TYPE 1
 #define PSEUDO_NODE_TYPE 2
 
+/* Define to build a tree containing all types of particles*/
+#define ALLMASK (1<<30)-1
+#define GASMASK (1)
+#define DMMASK (2)
+#define STARMASK (1<<4)
+#define BHMASK (1<<5)
+
 struct NodeChild
 {
     /* Stores the types of the child particles. Uses a bit field, 3 bits per particle.
@@ -79,6 +86,8 @@ typedef struct ForceTree {
     int lastnode;
     /* Number of actually allocated nodes*/
     int numnodes;
+    /* Types which are included have their bits set to 1*/
+    int mask;
     /*Pointer to the TopLeaves struct imported from Domain. Sets up the pseudo particles.*/
     struct topleaf_data * TopLeaves;
     /*Number of TopLeaves*/
@@ -110,6 +119,12 @@ void force_update_hmax(int * activeset, int size, ForceTree * tt, DomainDecomp *
 */
 void force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir);
 
+/* Main constructor with a mask argument.
+ * Mask is a bitfield, specified as 1 for each type that should be included. Use ALLMASK for all particle types.
+ * This is much than _rebuild: because the particles are sorted by type the merge step is much faster than
+ * with all particle types, and of course the tree is smaller.*/
+void force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, const double BoxSize, const int HybridNuGrav, const char * EmergencyOutputDir);
+
 /*Free the memory associated with the tree*/
 void   force_tree_free(ForceTree * tt);
 void   dump_particles(void);
@@ -137,7 +152,7 @@ force_get_father(int no, const ForceTree * tt);
 
 /*Internal API, exposed for tests*/
 int
-force_tree_create_nodes(const ForceTree tb, const int npart, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav);
+force_tree_create_nodes(const ForceTree tb, const int npart, int mask, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav);
 
 ForceTree
 force_treeallocate(int64_t maxnodes, int64_t maxpart, DomainDecomp * ddecomp);
