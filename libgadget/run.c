@@ -350,15 +350,15 @@ run(int RestartSnapNum)
          */
         if(GasEnabled)
         {
+            /* Do this before sfr and bh so the gas hsml always contains DesNumNgb neighbours.*/
+            if(All.MetalReturnOn) {
+                double AvgGasMass = All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G) * pow(All.BoxSize, 3) / All.NTotalInit[0];
+                metal_return(&Act, ddecomp, &All.CP, All.Time, All.BoxSize, AvgGasMass);
+            }
+
             if(is_PM) {
                 /*Rebuild the force tree we freed in gravpm to save memory*/
                 force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, 0, All.OutputDir);
-            }
-
-            /* Do this before sfr and bh so the gas hsml always contains DesNumNgb neighbours.*/
-            if(All.MetalReturnOn) {
-                double AvgGasMass = All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G) * pow(Tree.BoxSize, 3) / All.NTotalInit[0];
-                metal_return(&Act, &Tree, &All.CP, All.Time, AvgGasMass);
             }
 
             /* this will find new black hole seed halos.
