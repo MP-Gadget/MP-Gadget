@@ -20,6 +20,7 @@
 
 /*Particle data.*/
 struct part_manager_type PartManager[1] = {{0}};
+struct slots_manager_type SlotsManager[1] = {{0}};
 double BoxSize;
 
 /* The true struct for the state variable*/
@@ -217,6 +218,7 @@ static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp
     qsort(P, numpart, sizeof(struct particle_data), order_by_type_and_key);
     int maxnode = tb.lastnode - tb.firstnode;
     PartManager->MaxPart = numpart;
+    PartManager->NumPart = numpart;
     assert_true(tb.Nodes != NULL);
     /*So we know which nodes we have initialised*/
     for(i=0; i< maxnode; i++)
