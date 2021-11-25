@@ -195,29 +195,31 @@ runfof(int RestartSnapNum)
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
     DriftKickTimes times = init_driftkicktime(init(RestartSnapNum, ddecomp));
-    ForceTree Tree = {0};
     /*FoF needs a tree*/
     int HybridNuGrav = All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime;
-    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, 0, All.OutputDir);
     /* Regenerate the star formation rate for the FOF table.*/
     if(All.StarformationOn) {
         ActiveParticles Act = {0};
         Act.NumActiveParticle = PartManager->NumPart;
         MyFloat * GradRho = NULL;
         if(sfr_need_to_compute_sph_grad_rho()) {
+            ForceTree gasTree = {0};
             GradRho = mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
             /*Allocate the memory for predicted SPH data.*/
             struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
+            force_tree_rebuild(&gasTree, ddecomp, All.BoxSize, HybridNuGrav, 0, All.OutputDir);
             /* computes GradRho with a treewalk. No hsml update as done in init().*/
-            density(&Act, 0, 0, All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, &Tree);
+            density(&Act, 0, 0, All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, &gasTree);
+            force_tree_free(&gasTree);
             slots_free_sph_pred_data(&sph_predicted);
+
         }
+        ForceTree Tree = {0};
         cooling_and_starformation(&Act, &Tree, GradRho, NULL);
         if(GradRho)
             myfree(GradRho);
     }
-    FOFGroups fof = fof_fof(&Tree, MPI_COMM_WORLD);
-    force_tree_free(&Tree);
+    FOFGroups fof = fof_fof(ddecomp, All.BoxSize, MPI_COMM_WORLD);
     fof_save_groups(&fof, RestartSnapNum, MPI_COMM_WORLD);
     fof_finish(&fof);
 }

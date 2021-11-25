@@ -524,7 +524,7 @@ ionize_all_part(int qso_ind, int * qso_cand, FOFGroups * fof, ForceTree * tree)
  * Keeps adding new quasars until need_more_quasars() returns 0.
  */
 static void
-turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree, FILE * FdHelium)
+turn_on_quasars(double redshift, FOFGroups * fof, DomainDecomp * ddecomp, FILE * FdHelium)
 {
     int ncand = 0;
     int * qso_cand = NULL;
@@ -572,6 +572,8 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree, FILE * FdHel
         return;
     }
     message(0, "HeII: Built quasar candidate list from %d quasars\n", ncand_tot);
+    ForceTree gasTree = {0};
+    force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, All.BoxSize, 0, NULL);
     for(iteration = 0; curionfrac < desired_ion_frac; iteration++){
         /* Get a new quasar*/
         int new_qso = choose_QSO_halo(ncand, &ncand_before, &ncand_tot, fof->TotNgroups+iteration);
@@ -584,7 +586,7 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree, FILE * FdHel
             break;
         }
         /* Do the ionizations with a tree walk*/
-        int64_t n_ionized = ionize_all_part(new_qso, qso_cand, fof, tree);
+        int64_t n_ionized = ionize_all_part(new_qso, qso_cand, fof, &gasTree);
         int64_t tot_qso_ionized = 0;
         /* Check that the ionization fraction changed*/
         MPI_Allreduce(&n_ionized, &tot_qso_ionized, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
@@ -626,6 +628,7 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree, FILE * FdHel
             ncand--;
         }
     }
+    force_tree_free(&gasTree);
     if(qso_cand) {
         myfree(qso_cand);
     }
@@ -639,7 +642,7 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree, FILE * FdHel
 
 /* Starts reionization by selecting the first halo and flagging all particles in the first HeIII bubble*/
 void
-do_heiii_reionization(double redshift, FOFGroups * fof, ForceTree * tree, FILE * FdHelium)
+do_heiii_reionization(double redshift, FOFGroups * fof, DomainDecomp * ddecomp, FILE * FdHelium)
 {
     if(!QSOLightupParams.QSOLightupOn)
         return;
@@ -652,7 +655,7 @@ do_heiii_reionization(double redshift, FOFGroups * fof, ForceTree * tree, FILE *
 
     walltime_measure("/Misc");
     //message(0, "HeII: Reionization initiated.\n");
-    turn_on_quasars(redshift, fof, tree, FdHelium);
+    turn_on_quasars(redshift, fof, ddecomp, FdHelium);
 }
 
 int
