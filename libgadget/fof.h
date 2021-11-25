@@ -68,14 +68,14 @@ typedef struct FOFGroups
 } FOFGroups;
 
 /*Computes the Group structure, saved as a global array below*/
-FOFGroups fof_fof(ForceTree * tree, MPI_Comm Comm);
+FOFGroups fof_fof(DomainDecomp * ddecomp, const double BoxSize, MPI_Comm Comm);
 
 /*Frees the Group structure*/
 void fof_finish(FOFGroups * fof);
 
 /*Uses the Group structure to seed blackholes.
- * The tree and active particle structs are used only because we may need to reallocate them. */
-void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm Comm);
+ * The active particle struct is used only because we may need to reallocate it. */
+void fof_seed(FOFGroups * fof, ActiveParticles * act, MPI_Comm Comm);
 
 /*Saves the Group structure to disc.*/
 void fof_save_groups(FOFGroups * fof, int num, MPI_Comm Comm);

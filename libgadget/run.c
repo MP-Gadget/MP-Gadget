@@ -242,13 +242,13 @@ run(int RestartSnapNum)
         /* Collective: total number of active particles must be small enough*/
         int pairwisestep = use_pairwise_gravity(&Act, PartManager);
 
-        /* Need to rebuild the force tree because all TopLeaves are out of date.*/
-        ForceTree Tree = {0};
-        force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, !pairwisestep && All.TreeGravOn, All.OutputDir);
-
         MyFloat * GradRho = NULL;
         if(sfr_need_to_compute_sph_grad_rho())
             GradRho = mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
+
+        /* Need to rebuild the force tree because all TopLeaves are out of date.*/
+        ForceTree Tree = {0};
+        force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, !pairwisestep && All.TreeGravOn, All.OutputDir);
 
         /* density() happens before gravity because it also initializes the predicted variables.
         * This ensures that prediction consistently uses the grav and hydro accel from the
@@ -356,11 +356,6 @@ run(int RestartSnapNum)
                 metal_return(&Act, ddecomp, &All.CP, All.Time, All.BoxSize, AvgGasMass);
             }
 
-            if(is_PM) {
-                /*Rebuild the force tree we freed in gravpm to save memory*/
-                force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, 0, All.OutputDir);
-            }
-
             /* this will find new black hole seed halos.
              * Note: the FOF code does not know about garbage particles,
              * so ensure we do not have garbage present when we call this.
@@ -370,18 +365,24 @@ run(int RestartSnapNum)
             if (is_PM && ((All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) ||
                 (during_helium_reionization(1/All.Time - 1) && need_change_helium_ionization_fraction(All.Time)))) {
 
-                /* Seeding */
-                FOFGroups fof = fof_fof(&Tree, MPI_COMM_WORLD);
+                /* Seeding: builds its own tree.*/
+                FOFGroups fof = fof_fof(ddecomp, All.BoxSize, MPI_COMM_WORLD);
                 if(All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) {
-                    fof_seed(&fof, &Tree, &Act, MPI_COMM_WORLD);
+                    fof_seed(&fof, &Act, MPI_COMM_WORLD);
                     TimeNextSeedingCheck = All.Time * All.TimeBetweenSeedingSearch;
                 }
+
                 if(during_helium_reionization(1/All.Time - 1)) {
                     /* Helium reionization by switching on quasar bubbles*/
-                    do_heiii_reionization(1/All.Time - 1, &fof, &Tree, FdHelium);
+                    do_heiii_reionization(1/All.Time - 1, &fof, ddecomp, FdHelium);
                 }
                 fof_finish(&fof);
                 didfof = 1;
+            }
+
+            if(is_PM) {
+                /*Rebuild the force tree we freed in gravpm to save memory. Means might be two trees during FOF.*/
+                force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, 0, All.OutputDir);
             }
 
             /* Black hole accretion and feedback */
@@ -390,6 +391,9 @@ run(int RestartSnapNum)
             /**** radiative cooling and star formation *****/
             if(All.CoolingOn)
                 cooling_and_starformation(&Act, &Tree, GradRho, FdSfr);
+
+            /* We don't need this timestep's tree anymore.*/
+            force_tree_free(&Tree);
 
             if(GradRho) {
                 myfree(GradRho);
@@ -420,32 +424,24 @@ run(int RestartSnapNum)
             /* Get a new snapshot*/
             SnapshotFileCount++;
             /* The accel may have created garbage -- collect them before writing a snapshot.
-             * If we do collect, free tree and reset active list size.*/
+             * If we do collect, reset active list size.*/
             int compact[6] = {0};
-            if(slots_gc(compact, PartManager, SlotsManager)) {
-                force_tree_free(&Tree);
+            if(slots_gc(compact, PartManager, SlotsManager))
                 Act.NumActiveParticle = PartManager->NumPart;
-            }
         }
         FOFGroups fof = {0};
         if(WriteFOF) {
-            /* Compute FOF, rebuilding tree if necessary*/
-            if(!force_tree_allocated(&Tree)) {
-                /* To rebuild the force tree we need the Peano keys, but if we did a FOF this timestep they were over-written with GrNr,
-                 * so we need to recompute them. */
-                if(didfof) {
-                    int i;
-                    #pragma omp parallel for
-                    for(i = 0; i < PartManager->NumPart; i++)
-                        P[i].Key = PEANO(P[i].Pos, All.BoxSize);
-                }
-                force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, 0, All.OutputDir);
+            /* Compute FOF*/
+            /* To rebuild the tree in FOF we need the Peano keys, but if we did a FOF this timestep they were over-written with GrNr,
+                * so we need to recompute them. */
+            if(didfof) {
+                int i;
+                #pragma omp parallel for
+                for(i = 0; i < PartManager->NumPart; i++)
+                    P[i].Key = PEANO(P[i].Pos, All.BoxSize);
             }
-            fof = fof_fof(&Tree, MPI_COMM_WORLD);
+            fof = fof_fof(ddecomp, All.BoxSize, MPI_COMM_WORLD);
         }
-
-        /* We don't need this timestep's tree anymore.*/
-        force_tree_free(&Tree);
 
         /* WriteFOF just reminds the checkpoint code to save GroupID*/
         write_checkpoint(SnapshotFileCount, WriteSnapshot, WriteFOF, All.Time, All.OutputDir, All.SnapshotFileBase, All.OutputDebugFields);

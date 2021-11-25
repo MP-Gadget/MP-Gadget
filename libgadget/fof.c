@@ -149,7 +149,7 @@ static MPI_Datatype MPI_TYPE_GROUP;
  **/
 
 FOFGroups
-fof_fof(ForceTree * tree, MPI_Comm Comm)
+fof_fof(DomainDecomp * ddecomp, const double BoxSize, MPI_Comm Comm)
 {
     int i;
 
@@ -167,15 +167,22 @@ fof_fof(ForceTree * tree, MPI_Comm Comm)
     for(i = 0; i < PartManager->NumPart; i++) {
         HaloLabel[i].Pindex = i;
     }
+
+    /* We only need a tree containing DM particles. No moments*/
+    ForceTree dmtree = {0};
+    force_tree_rebuild_mask(&dmtree, ddecomp, DMMASK, BoxSize, 0, NULL);
+
     /* Fill FOFP_List of primary */
-    fof_label_primary(tree, Comm);
+    fof_label_primary(&dmtree, Comm);
 
     MPIU_Barrier(Comm);
     message(0, "Group finding done.\n");
     walltime_measure("/FOF/Primary");
 
     /* Fill FOFP_List of secondary */
-    fof_label_secondary(tree);
+    fof_label_secondary(&dmtree);
+    force_tree_free(&dmtree);
+
     MPIU_Barrier(Comm);
     message(0, "Attached gas and star particles to nearest dm particles.\n");
 
@@ -212,7 +219,7 @@ fof_fof(ForceTree * tree, MPI_Comm Comm)
 
     myfree(base);
 
-    fof_compile_catalogue(&fof, NgroupsExt, tree->BoxSize, Comm);
+    fof_compile_catalogue(&fof, NgroupsExt, BoxSize, Comm);
 
     MPIU_Barrier(Comm);
     message(0, "Finished FoF. Group properties are now allocated.. (presently allocated=%g MB)\n",
@@ -1273,7 +1280,7 @@ static int cmp_seed_task(const void * c1, const void * c2) {
 }
 static void fof_seed_make_one(struct Group * g, int ThisTask);
 
-void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm Comm)
+void fof_seed(FOFGroups * fof, ActiveParticles * act, MPI_Comm Comm)
 {
     int i, j, n, ntot;
 
@@ -1342,17 +1349,7 @@ void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm
      * If not, allocate more slots. */
     if(Nimport + SlotsManager->info[5].size > SlotsManager->info[5].maxsize)
     {
-        struct NODE * nodes_base_tmp=NULL;
-        int *Father_tmp=NULL;
         int *ActiveParticle_tmp=NULL;
-        if(force_tree_allocated(tree)) {
-            nodes_base_tmp = mymalloc2("nodesbasetmp", tree->numnodes * sizeof(struct NODE));
-            memmove(nodes_base_tmp, tree->Nodes_base, tree->numnodes * sizeof(struct NODE));
-            myfree(tree->Nodes_base);
-            Father_tmp = mymalloc2("Father_tmp", PartManager->MaxPart * sizeof(int));
-            memmove(Father_tmp, tree->Father, PartManager->MaxPart * sizeof(int));
-            myfree(tree->Father);
-        }
         /* This is only called on a PM step, so the condition should never be true*/
         if(act->ActiveParticle) {
             ActiveParticle_tmp = mymalloc2("ActiveParticle_tmp", act->NumActiveParticle * sizeof(int));
@@ -1373,16 +1370,6 @@ void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm
             act->ActiveParticle = mymalloc("ActiveParticle", sizeof(int)*(act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
             memmove(act->ActiveParticle, ActiveParticle_tmp, act->NumActiveParticle * sizeof(int));
             myfree(ActiveParticle_tmp);
-        }
-        if(force_tree_allocated(tree)) {
-            tree->Father = mymalloc("Father", PartManager->MaxPart * sizeof(int));
-            memmove(tree->Father, Father_tmp, PartManager->MaxPart * sizeof(int));
-            myfree(Father_tmp);
-            tree->Nodes_base = mymalloc("Nodes_base", tree->numnodes * sizeof(struct NODE));
-            memmove(tree->Nodes_base, nodes_base_tmp, tree->numnodes * sizeof(struct NODE));
-            myfree(nodes_base_tmp);
-            /*Don't forget to update the Node pointer as well as Node_base!*/
-            tree->Nodes = tree->Nodes_base - tree->firstnode;
         }
     }
 
