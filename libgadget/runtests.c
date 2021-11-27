@@ -212,14 +212,13 @@ runfof(int RestartSnapNum)
             density(&Act, 0, 0, All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, &gasTree);
             force_tree_free(&gasTree);
             slots_free_sph_pred_data(&sph_predicted);
-
         }
         ForceTree Tree = {0};
         cooling_and_starformation(&Act, &Tree, GradRho, NULL);
         if(GradRho)
             myfree(GradRho);
     }
-    FOFGroups fof = fof_fof(ddecomp, All.BoxSize, MPI_COMM_WORLD);
+    FOFGroups fof = fof_fof(ddecomp, All.BoxSize, 1, MPI_COMM_WORLD);
     fof_save_groups(&fof, RestartSnapNum, MPI_COMM_WORLD);
     fof_finish(&fof);
 }
