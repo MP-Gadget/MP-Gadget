@@ -365,7 +365,7 @@ run(int RestartSnapNum)
                 (during_helium_reionization(1/All.Time - 1) && need_change_helium_ionization_fraction(All.Time)))) {
 
                 /* Seeding: builds its own tree.*/
-                FOFGroups fof = fof_fof(ddecomp, All.BoxSize, MPI_COMM_WORLD);
+                FOFGroups fof = fof_fof(ddecomp, All.BoxSize, 0, MPI_COMM_WORLD);
                 if(All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) {
                     fof_seed(&fof, &Act, MPI_COMM_WORLD);
                     TimeNextSeedingCheck = All.Time * All.TimeBetweenSeedingSearch;
@@ -430,7 +430,7 @@ run(int RestartSnapNum)
         FOFGroups fof = {0};
         if(WriteFOF) {
             /* Compute FOF and assign GrNr so it can be written in checkpoint.*/
-            fof = fof_fof(ddecomp, All.BoxSize, MPI_COMM_WORLD);
+            fof = fof_fof(ddecomp, All.BoxSize, 1, MPI_COMM_WORLD);
         }
 
         /* WriteFOF just reminds the checkpoint code to save GroupID*/

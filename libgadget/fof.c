@@ -150,7 +150,7 @@ static MPI_Datatype MPI_TYPE_GROUP;
  **/
 
 FOFGroups
-fof_fof(DomainDecomp * ddecomp, const double BoxSize, MPI_Comm Comm)
+fof_fof(DomainDecomp * ddecomp, const double BoxSize, const int StoreGrNr, MPI_Comm Comm)
 {
     int i;
 
@@ -225,6 +225,28 @@ fof_fof(DomainDecomp * ddecomp, const double BoxSize, MPI_Comm Comm)
     MPIU_Barrier(Comm);
     message(0, "Finished FoF. Group properties are now allocated.. (presently allocated=%g MB)\n",
             mymalloc_usedbytes() / (1024.0 * 1024.0));
+
+    /*Store the group number in the particle struct*/
+    if(StoreGrNr) {
+        #pragma omp parallel for
+        for(i = 0; i < PartManager->NumPart; i++)
+            P[i].GrNr = -1;	/* will mark particles that are not in any group */
+
+        int start = 0;
+        for(i = 0; i < NgroupsExt; i++)
+        {
+            for(;start < PartManager->NumPart; start++) {
+                if (HaloLabel[start].MinID >= fof.Group[i].base.MinID)
+                    break;
+            }
+
+            for(;start < PartManager->NumPart; start++) {
+                if (HaloLabel[start].MinID != fof.Group[i].base.MinID)
+                    break;
+                P[HaloLabel[start].Pindex].GrNr = fof.Group[i].base.GrNr;
+            }
+        }
+    }
 
     walltime_measure("/FOF/Prop");
 
@@ -1086,25 +1108,6 @@ static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_C
     /* bring the group list back into the original task, sorted by MinID */
     mpsort_mpi(base, NgroupsExt, sizeof(base[0]),
             fof_radix_Group_OriginalTaskMinID, 16, NULL, Comm);
-
-    #pragma omp parallel for
-    for(i = 0; i < PartManager->NumPart; i++)
-        P[i].GrNr = -1;	/* will mark particles that are not in any group */
-
-    int start = 0;
-    for(i = 0; i < NgroupsExt; i++)
-    {
-        for(;start < PartManager->NumPart; start++) {
-            if (HaloLabel[start].MinID >= base[i].MinID)
-                break;
-        }
-
-        for(;start < PartManager->NumPart; start++) {
-            if (HaloLabel[start].MinID != base[i].MinID)
-                break;
-            P[HaloLabel[start].Pindex].GrNr = base[i].GrNr;
-        }
-    }
 }
 
 
