@@ -1035,6 +1035,7 @@ static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_C
     MPI_Comm_size(Comm, &NTask);
     MPI_Comm_rank(Comm, &ThisTask);
 
+    #pragma omp parallel for
     for(i = 0; i < NgroupsExt; i++)
     {
         base[i].OriginalTask = ThisTask;	/* original task */
@@ -1063,8 +1064,10 @@ static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_C
 
     /* shift to the global grnr. */
     int64_t groffset = 0;
+    #pragma omp parallel for reduction(+: groffset)
     for(j = 0; j < ThisTask; j++)
         groffset += ngra[j];
+    #pragma omp parallel for
     for(i = 0; i < NgroupsExt; i++)
         base[i].GrNr += groffset;
 
@@ -1074,6 +1077,7 @@ static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_C
     mpsort_mpi(base, NgroupsExt, sizeof(base[0]),
             fof_radix_Group_OriginalTaskMinID, 16, NULL, Comm);
 
+    #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)
         P[i].GrNr = -1;	/* will mark particles that are not in any group */
 
@@ -1279,6 +1283,7 @@ void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm
     char * Marked = mymalloc2("SeedMark", fof->Ngroups);
 
     int Nexport = 0;
+    #pragma omp parallel for reduction(+:Nexport)
     for(i = 0; i < fof->Ngroups; i++)
     {
         Marked[i] =

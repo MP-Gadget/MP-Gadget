@@ -24,7 +24,6 @@ static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * e
 
 static int fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, MPI_Comm Comm);
 
-static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg);
 static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
     uint64_t * u = (uint64_t *) radix;
     struct BaseGroup * f = (struct BaseGroup*) a;
@@ -352,6 +351,9 @@ static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm) {
     for (k = 0; k < 6; k ++) {
         npartLocal[k] = 0;
     }
+#if (defined _OPENMP) && (_OPENMP >= 201511)
+    #pragma omp parallel for reduction(+: npartLocal)
+#endif
     for (i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].GrNr < 0) continue; /* skip those not in groups */
         npartLocal[P[i].Type] ++;
