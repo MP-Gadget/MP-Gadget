@@ -328,7 +328,6 @@ run(int RestartSnapNum)
 
         apply_half_kick(&Act, &All.CP, &times);
 
-        int didfof = 0;
         /* Cooling and extra physics show up as a source term in the evolution equations.
          * Formally you can write the structure of the partial differential equations:
            dU/dt +  div(F) = S
@@ -377,7 +376,6 @@ run(int RestartSnapNum)
                     do_heiii_reionization(1/All.Time - 1, &fof, ddecomp, FdHelium);
                 }
                 fof_finish(&fof);
-                didfof = 1;
             }
 
             if(is_PM) {
@@ -431,15 +429,7 @@ run(int RestartSnapNum)
         }
         FOFGroups fof = {0};
         if(WriteFOF) {
-            /* Compute FOF*/
-            /* To rebuild the tree in FOF we need the Peano keys, but if we did a FOF this timestep they were over-written with GrNr,
-                * so we need to recompute them. */
-            if(didfof) {
-                int i;
-                #pragma omp parallel for
-                for(i = 0; i < PartManager->NumPart; i++)
-                    P[i].Key = PEANO(P[i].Pos, All.BoxSize);
-            }
+            /* Compute FOF and assign GrNr so it can be written in checkpoint.*/
             fof = fof_fof(ddecomp, All.BoxSize, MPI_COMM_WORLD);
         }
 
