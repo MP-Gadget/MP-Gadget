@@ -535,6 +535,8 @@ metal_return(const ActiveParticles * act, DomainDecomp * const ddecomp, Cosmolog
     int64_t totwork;
     MPI_Allreduce(&nwork, &totwork, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
+    walltime_measure("/SPH/Metals/Init");
+
     if(totwork == 0) {
         metal_return_priv_free(priv);
         return;
@@ -961,8 +963,6 @@ stellar_density(const ActiveParticles * act, MyFloat * StarVolumeSPH, MyFloat * 
         priv->Left[pi] = 0;
         priv->Right[pi] = tree->BoxSize;
     }
-
-    walltime_measure("/SPH/Metals/Init");
 
     /* allocate buffers to arrange communication */
 
