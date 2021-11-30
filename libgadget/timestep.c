@@ -744,7 +744,6 @@ static void print_timebin_statistics(const DriftKickTimes * const times, const i
 /* mark the bins that will be active before the next kick*/
 int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times, int NumCurrentTiStep)
 {
-    int i;
 
     int NumThreads = omp_get_max_threads();
     /*Since we use a static schedule, only need NumPart/NumThreads elements per thread.*/
@@ -771,26 +770,31 @@ int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times
 
     /* We enforce schedule static to imply monotonic, ensure that each thread executes on contiguous particles
      * and ensure no thread gets more than narr particles.*/
-    size_t schedsz = PartManager->NumPart / NumThreads + 1;
-    #pragma omp parallel for schedule(static, schedsz)
-    for(i = 0; i < PartManager->NumPart; i++)
+    const size_t schedsz = PartManager->NumPart / NumThreads + 1;
+    #pragma omp parallel
     {
-        const int bin = P[i].TimeBin;
+        size_t NActiveLocal = 0;
+        int i;
         const int tid = omp_get_thread_num();
-        if(P[i].IsGarbage || P[i].Swallowed)
-            continue;
-        /* when we are in PM, all particles must have been synced. */
-        if (P[i].Ti_drift != times->Ti_Current) {
-            endrun(5, "Particle %d type %d has drift time %x not ti_current %x!",i, P[i].Type, P[i].Ti_drift, times->Ti_Current);
-        }
-
-        if(act->ActiveParticle && is_timebin_active(bin, times->Ti_Current))
+        #pragma omp for schedule(static, schedsz)
+        for(i = 0; i < PartManager->NumPart; i++)
         {
-            /* Store this particle in the ActiveSet for this thread*/
-            ActivePartSets[tid][NActiveThread[tid]] = i;
-            NActiveThread[tid]++;
+            if(P[i].IsGarbage || P[i].Swallowed)
+                continue;
+            const int bin = P[i].TimeBin;
+            /* when we are in PM, all particles must have been synced. */
+            if (P[i].Ti_drift != times->Ti_Current) {
+                endrun(5, "Particle %d type %d has drift time %x not ti_current %x!",i, P[i].Type, P[i].Ti_drift, times->Ti_Current);
+            }
+            if(act->ActiveParticle && is_timebin_active(bin, times->Ti_Current))
+            {
+                /* Store this particle in the ActiveSet for this thread*/
+                ActivePartSets[tid][NActiveLocal] = i;
+                NActiveLocal++;
+            }
+            TimeBinCountType[(TIMEBINS + 1) * (6* tid + P[i].Type) + bin] ++;
         }
-        TimeBinCountType[(TIMEBINS + 1) * (6* tid + P[i].Type) + bin] ++;
+        NActiveThread[tid] = NActiveLocal;
     }
     if(act->ActiveParticle) {
         /*Now we want a merge step for the ActiveParticle list.*/
