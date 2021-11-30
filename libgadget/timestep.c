@@ -319,7 +319,6 @@ void
 update_lastactive_drift(DriftKickTimes * times)
 {
     int bin;
-    #pragma omp parallel for
     for(bin = 0; bin <= TIMEBINS; bin++)
     {
         /* Update active timestep even if no particles in it*/
