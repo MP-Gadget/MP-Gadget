@@ -782,9 +782,11 @@ int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times
                 continue;
             const int bin = P[i].TimeBin;
             /* when we are in PM, all particles must have been synced. */
+#ifdef DEBUG
             if (P[i].Ti_drift != times->Ti_Current) {
                 endrun(5, "Particle %d type %d has drift time %x not ti_current %x!",i, P[i].Type, P[i].Ti_drift, times->Ti_Current);
             }
+#endif
             if(act->ActiveParticle && is_timebin_active(bin, times->Ti_Current))
             {
                 /* Store this particle in the ActiveSet for this thread*/
