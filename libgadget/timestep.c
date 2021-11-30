@@ -760,13 +760,12 @@ int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times
         act->NumActiveParticle = 0;
     }
 
-    int * TimeBinCountType = mymalloc("TimeBinCountType", 6*(TIMEBINS+1)*NumThreads * sizeof(int));
-    memset(TimeBinCountType, 0, 6 * (TIMEBINS+1) * NumThreads * sizeof(int));
-
     /*We want a lockless algorithm which preserves the ordering of the particle list.*/
     size_t *NActiveThread = ta_malloc("NActiveThread", size_t, NumThreads);
     int **ActivePartSets = ta_malloc("ActivePartSets", int *, NumThreads);
     gadget_setup_thread_arrays(act->ActiveParticle, ActivePartSets, NActiveThread, narr, NumThreads);
+
+    int TimeBinCountType[6*(TIMEBINS+1)] = {0};
 
     /* We enforce schedule static to imply monotonic, ensure that each thread executes on contiguous particles
      * and ensure no thread gets more than narr particles.*/
@@ -776,7 +775,7 @@ int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times
         size_t NActiveLocal = 0;
         int i;
         const int tid = omp_get_thread_num();
-        #pragma omp for schedule(static, schedsz)
+        #pragma omp for schedule(static, schedsz) reduction(+: TimeBinCountType)
         for(i = 0; i < PartManager->NumPart; i++)
         {
             if(P[i].IsGarbage || P[i].Swallowed)
@@ -792,7 +791,7 @@ int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times
                 ActivePartSets[tid][NActiveLocal] = i;
                 NActiveLocal++;
             }
-            TimeBinCountType[(TIMEBINS + 1) * (6* tid + P[i].Type) + bin] ++;
+            TimeBinCountType[(TIMEBINS + 1) * P[i].Type + bin] ++;
         }
         NActiveThread[tid] = NActiveLocal;
     }
@@ -805,7 +804,6 @@ int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times
 
     /*Print statistics for this time bin*/
     print_timebin_statistics(times, NumCurrentTiStep, TimeBinCountType);
-    myfree(TimeBinCountType);
 
     /* Shrink the ActiveParticle array. We still need extra space for star formation,
      * but we do not need space for the known-inactive particles*/
@@ -841,14 +839,6 @@ static void print_timebin_statistics(const DriftKickTimes * const times, const i
     int64_t tot_count_type[6][TIMEBINS+1] = {{0}};
     int64_t tot_num_force = 0;
     int64_t TotNumPart = 0, TotNumType[6] = {0};
-
-    int NumThreads = omp_get_max_threads();
-    /*Sum the thread-local memory*/
-    for(i = 1; i < NumThreads; i ++) {
-        int j;
-        for(j=0; j < 6 * (TIMEBINS+1); j++)
-            TimeBinCountType[j] += TimeBinCountType[6 * (TIMEBINS+1) * i + j];
-    }
 
     for(i = 0; i < 6; i ++) {
         sumup_large_ints(TIMEBINS+1, &TimeBinCountType[(TIMEBINS+1) * i], tot_count_type[i]);
