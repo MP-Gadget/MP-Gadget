@@ -247,9 +247,9 @@ void read_power_table(int ThisTask, const char * inputfile, const int ncols, str
             endrun(1, "can't read input spectrum in file '%s' on task %d\n", inputfile, ThisTask);
 
         out_tab->Nentry = 0;
+        char buffer[1024] = {0};
         do
         {
-            char buffer[1024];
             char * retval = fgets(buffer, 1024, fd);
             /*Happens on end of file*/
             if(!retval)
@@ -294,9 +294,9 @@ void read_power_table(int ThisTask, const char * inputfile, const int ncols, str
         message(0, "Detected %d columns in file '%s'. \n", Ncolumns, inputfile);
         
         int i = 0;
+        char buffer[1024]={0};
         do
         {
-            char buffer[1024];
             char * line = fgets(buffer, 1024, fd);
             /*Happens on end of file*/
             if(!line)
