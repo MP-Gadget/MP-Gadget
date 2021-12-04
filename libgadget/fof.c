@@ -168,9 +168,9 @@ fof_fof(DomainDecomp * ddecomp, const double BoxSize, const int StoreGrNr, MPI_C
         HaloLabel[i].Pindex = i;
     }
 
-    /* We only need a tree containing DM particles. No moments*/
+    /* We only need a tree containing primary linking particles only. No moments*/
     ForceTree dmtree = {0};
-    force_tree_rebuild_mask(&dmtree, ddecomp, DMMASK, BoxSize, 0, NULL);
+    force_tree_rebuild_mask(&dmtree, ddecomp, fof_params.FOFPrimaryLinkTypes, BoxSize, 0, NULL);
 
     /* Fill FOFP_List of primary */
     fof_label_primary(HaloLabel, &dmtree, Comm);
