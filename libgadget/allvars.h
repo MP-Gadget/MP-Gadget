@@ -119,8 +119,6 @@ extern struct global_data_all_processes
     double Asmth;
     enum ShortRangeForceWindowType ShortRangeForceWindowType;	/*!< method of the feedback*/
 
-    double MeanSeparation[6]; /* mean separation between particles. 0 if the species doesn't exist. */
-
     /* some filenames */
     char InitCondFile[100],
          OutputDir[100],

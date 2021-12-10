@@ -197,15 +197,20 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
 
     check_positions(PartManager, All.BoxSize);
 
+    double MeanSeparation[6] = {0};
+    for(i = 0; i < 6; i++) {
+        if(All.NTotalInit[i] > 0)
+            MeanSeparation[i] = All.BoxSize / pow(All.NTotalInit[i], 1.0 / 3);
+    }
 
     if(RestartSnapNum == -1)
-        check_smoothing_length(PartManager, All.MeanSeparation, All.BoxSize);
+        check_smoothing_length(PartManager, MeanSeparation, All.BoxSize);
 
     /* As the above will mostly take place
      * on Task 0, there will be a lot of imbalance*/
     MPIU_Barrier(MPI_COMM_WORLD);
 
-    fof_init(All.MeanSeparation[1]);
+    fof_init(MeanSeparation[1]);
 
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)	/* initialize sph_properties */
@@ -222,14 +227,14 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
              * Anything non-zero would work, but since BH tends to be in high density region,
              *  use a small number */
             if(P[i].Hsml == 0)
-                P[i].Hsml = 0.01 * All.MeanSeparation[0];
+                P[i].Hsml = 0.01 * MeanSeparation[0];
         }
 
         if(All.MetalReturnOn && P[i].Type == 4 )
         {
             /* Touch up zero star smoothing lengths, not saved in the snapshots.*/
             if(P[i].Hsml == 0)
-                P[i].Hsml = 0.1 * All.MeanSeparation[0];
+                P[i].Hsml = 0.1 * MeanSeparation[0];
         }
 
         if(All.BlackHoleOn && P[i].Type == 5)
@@ -278,7 +283,7 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
     if(All.DensityOn)
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.BoxSize, All.MinEgySpec, Ti_Current, All.Time, All.MeanSeparation[0]);
+        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.BoxSize, All.MinEgySpec, Ti_Current, All.Time, MeanSeparation[0]);
     return Ti_Current;
 }
 

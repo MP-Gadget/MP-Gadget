@@ -103,7 +103,8 @@ int begrun(int RestartFlag, int RestartSnapNum)
 
     init_cooling_and_star_formation(All.CoolingOn);
 
-    gravshort_set_softenings(All.MeanSeparation[1]);
+    double MeanDMSeparation = All.BoxSize / pow(All.NTotalInit[1], 1.0 / 3);
+    gravshort_set_softenings(MeanDMSeparation);
     gravshort_fill_ntab(All.ShortRangeForceWindowType, All.Asmth);
 
     set_random_numbers(All.RandomSeed);

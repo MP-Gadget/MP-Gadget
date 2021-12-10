@@ -256,11 +256,6 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
     for(ptype = 0; ptype < 6; ptype ++) {
         TotNumPart += NTotal[ptype];
         TotNumPartInit += All.NTotalInit[ptype];
-        if(All.NTotalInit[ptype] > 0) {
-            All.MeanSeparation[ptype] = All.BoxSize / pow(All.NTotalInit[ptype], 1.0 / 3);
-        } else {
-            All.MeanSeparation[ptype] = 0;
-        }
     }
 
     message(0, "Total number of particles: %018ld\n", TotNumPart);
@@ -268,8 +263,9 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
     const char * PARTICLE_TYPE_NAMES [] = {"Gas", "DarkMatter", "Neutrino", "Unknown", "Star", "BlackHole"};
 
     for(ptype = 0; ptype < 6; ptype ++) {
+        double MeanSeparation = All.BoxSize / pow(All.NTotalInit[ptype], 1.0 / 3);
         message(0, "% 11s: Total: %018ld Init: %018ld Mean-Sep %g \n",
-                PARTICLE_TYPE_NAMES[ptype], NTotal[ptype], All.NTotalInit[ptype], All.MeanSeparation[ptype]);
+                PARTICLE_TYPE_NAMES[ptype], NTotal[ptype], All.NTotalInit[ptype], MeanSeparation);
     }
 
     /* sets the maximum number of particles that may reside on a processor */
