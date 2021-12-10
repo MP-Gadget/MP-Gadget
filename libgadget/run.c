@@ -109,7 +109,7 @@ int begrun(int RestartFlag, int RestartSnapNum)
     set_random_numbers(All.RandomSeed);
 
     if(All.LightconeOn)
-        lightcone_init(&All.CP, All.Time);
+        lightcone_init(&All.CP, All.Time, All.UnitLength_in_cm, All.OutputDir);
     return RestartSnapNum;
 }
 
@@ -170,7 +170,7 @@ run(int RestartSnapNum)
 
         /* Compute the list of particles that cross a lightcone and write it to disc.*/
         if(All.LightconeOn)
-            lightcone_compute(All.Time, &All.CP, Ti_Last, Ti_Next);
+            lightcone_compute(All.Time, All.BoxSize, &All.CP, Ti_Last, Ti_Next);
 
         times.Ti_Current = Ti_Next;
 

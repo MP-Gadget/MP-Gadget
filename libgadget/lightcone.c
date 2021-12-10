@@ -11,10 +11,10 @@
 
 #include "utils.h"
 
-#include "allvars.h"
 #include "timefac.h"
 #include "partmanager.h"
 #include "cosmology.h"
+#include "physconst.h"
 
 #define NENTRY 4096
 static double tab_loga[NENTRY];
@@ -47,7 +47,7 @@ static FILE * fd_lightcone;
 
 static double lightcone_get_horizon(double a);
 static void lightcone_cross(int p, double ddrift);
-static void lightcone_set_time(double a);
+static void lightcone_set_time(double a, const double BoxSize);
 /*
 M, L = self.M, self.L
   logx = numpy.linspace(log10amin, 0, Np)
@@ -62,7 +62,7 @@ static double kernel(double loga, void * params) {
     return 1 / hubble_function(CP, a) * CP->Hubble / a;
 }
 
-static void lightcone_init_entry(Cosmology * CP, int i) {
+static void lightcone_init_entry(Cosmology * CP, int i, const double UnitLength_in_cm) {
     tab_loga[i] = - dloga * (NENTRY - i - 1);
 
     gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
@@ -79,7 +79,7 @@ static void lightcone_init_entry(Cosmology * CP, int i) {
     /* convert to cm / h */
     result *= LIGHTCGS / HUBBLE;
     /* convert to Kpc/h or internal units */
-    result /= All.UnitLength_in_cm;
+    result /= UnitLength_in_cm;
 
     gsl_integration_workspace_free (w);
     tab_Dc[i] = result;
@@ -88,23 +88,23 @@ static void lightcone_init_entry(Cosmology * CP, int i) {
 //    printf("a = %g z = %g Dc = %g\n", a, z, result);
 }
 
-void lightcone_init(Cosmology * CP, double timeBegin)
+void lightcone_init(Cosmology * CP, double timeBegin, const double UnitLength_in_cm, const char * OutputDir)
 {
     int i;
     dloga = (0.0 - log(timeBegin)) / (NENTRY - 1);
     for(i = 0; i < NENTRY; i ++) {
-        lightcone_init_entry(CP, i);
+        lightcone_init_entry(CP, i, UnitLength_in_cm);
     };
     char buf[1024];
     int chunk = 100;
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
-    sprintf(buf, "%s/lightcone/", All.OutputDir);
+    sprintf(buf, "%s/lightcone/", OutputDir);
     mkdir(buf, 02755);
-    sprintf(buf, "%s/lightcone/%03d/", All.OutputDir, (int)(ThisTask / chunk));
+    sprintf(buf, "%s/lightcone/%03d/", OutputDir, (int)(ThisTask / chunk));
     mkdir(buf, 02755);
-    sprintf(buf, "%s/lightcone/%03d/lightcone-%05d.raw", All.OutputDir, (int)(ThisTask / chunk), ThisTask);
+    sprintf(buf, "%s/lightcone/%03d/lightcone-%05d.raw", OutputDir, (int)(ThisTask / chunk), ThisTask);
 
     fd_lightcone = fopen(buf, "a+");
     if(fd_lightcone == NULL) {
@@ -133,7 +133,7 @@ static double lightcone_get_horizon(double a) {
 }
 
 /* fill in the table of box offsets for current time */
-static void update_replicas(double a) {
+static void update_replicas(double a, double BoxSize) {
     int Nmax = BoxBoost * BoxBoost * BoxBoost;
     int i;
     int rx, ry, rz;
@@ -141,19 +141,19 @@ static void update_replicas(double a) {
     Nreplica = 0;
 
     for(i = 0; i < Nmax; i ++) {
-        double dx = All.BoxSize * rx;
-        double dy = All.BoxSize * ry;
-        double dz = All.BoxSize * rz;
+        double dx = BoxSize * rx;
+        double dy = BoxSize * ry;
+        double dz = BoxSize * rz;
         double d1, d2;
         d1 = dx * dx + dy * dy + dz * dz;
-        dx += All.BoxSize;
-        dy += All.BoxSize;
-        dz += All.BoxSize;
+        dx += BoxSize;
+        dy += BoxSize;
+        dz += BoxSize;
         d2 = dx * dx + dy * dy + dz * dz;
         if(d1 <= HorizonDistance2 && d2 >= HorizonDistance2) {
-            Reps[Nreplica][0] = rx * All.BoxSize;
-            Reps[Nreplica][1] = ry * All.BoxSize;
-            Reps[Nreplica][2] = rz * All.BoxSize;
+            Reps[Nreplica][0] = rx * BoxSize;
+            Reps[Nreplica][1] = ry * BoxSize;
+            Reps[Nreplica][2] = rz * BoxSize;
             Nreplica ++;
             if(Nreplica > 1000) {
                 endrun(951234, "too many replica");
@@ -174,10 +174,10 @@ static void update_replicas(double a) {
 /* Compute a list of particles which crossed
  * the lightcone boundaries on this timestep and
  * write them to the lightcone file*/
-void lightcone_compute(double a, Cosmology * CP, inttime_t ti_curr, inttime_t ti_next)
+void lightcone_compute(double a, double BoxSize, Cosmology * CP, inttime_t ti_curr, inttime_t ti_next)
 {
     int i;
-    lightcone_set_time(a);
+    lightcone_set_time(a, BoxSize);
     const double ddrift = get_exact_drift_factor(CP, ti_curr, ti_next);
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)
@@ -186,14 +186,14 @@ void lightcone_compute(double a, Cosmology * CP, inttime_t ti_curr, inttime_t ti
     }
 }
 
-void lightcone_set_time(double a) {
+void lightcone_set_time(double a, const double BoxSize) {
     double z = 1 / a - 1;
     if(z > zmin && z < zmax) {
         HorizonDistancePrev = HorizonDistance;
         HorizonDistance2Prev = HorizonDistance2;
         HorizonDistance = lightcone_get_horizon(a);
         HorizonDistance2 = HorizonDistance * HorizonDistance;
-        update_replicas(a);
+        update_replicas(a, BoxSize);
         fflush(fd_lightcone);
         if (z < ReferenceRedshift) {
             SampleFraction = 1.0;
