@@ -21,7 +21,6 @@
 extern struct global_data_all_processes
 {
     /* The following variables are set by petaio_read_header */
-    int64_t TotNumPartInit; /* The initial total number of particles; we probably want to get rid of all references to this. */
     int64_t NTotalInit[6]; /* The initial number of total particles in the IC. */
     double TimeInit;		/* time of simulation start: if restarting from a snapshot this holds snapshot time.*/
     double TimeIC;       /* Time when the simulation ICs were generated*/
