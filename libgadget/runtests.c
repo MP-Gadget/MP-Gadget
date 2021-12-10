@@ -103,7 +103,7 @@ void runtests(int RestartSnapNum)
 
     ForceTree Tree = {0};
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1, 1, All.OutputDir);
-    gravpm_force(&pm, &Tree);
+    gravpm_force(&pm, &Tree, &All.CP, All.Time, All.UnitLength_in_cm, All.OutputDir, All.MassiveNuLinRespOn, All.TimeIC, All.HybridNeutrinosOn, All.FastParticleType, All.BlackHoleOn);
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1, 1, All.OutputDir);
 
     struct gravshort_tree_params origtreeacc = get_gravshort_treepar();
@@ -168,7 +168,7 @@ void runtests(int RestartSnapNum)
     force_tree_free(&Tree);
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh/2., All.G);
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1, 1, All.OutputDir);
-    gravpm_force(&pm, &Tree);
+    gravpm_force(&pm, &Tree, &All.CP, All.Time, All.UnitLength_in_cm, All.OutputDir, All.MassiveNuLinRespOn, All.TimeIC, All.HybridNeutrinosOn, All.FastParticleType, All.BlackHoleOn);
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1, 1, All.OutputDir);
     set_gravshort_treepar(treeacc);
     grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
@@ -235,6 +235,6 @@ runpower(int RestartSnapNum)
     ForceTree Tree = {0};
     int HybridNuGrav = All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime;
     force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, 1, All.OutputDir);
-    gravpm_force(&pm, &Tree);
+    gravpm_force(&pm, &Tree, &All.CP, All.Time, All.UnitLength_in_cm, All.OutputDir, All.MassiveNuLinRespOn, All.TimeIC, All.HybridNeutrinosOn, All.FastParticleType, 1);
     force_tree_free(&Tree);
 }

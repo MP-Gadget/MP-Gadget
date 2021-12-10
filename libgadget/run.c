@@ -310,7 +310,7 @@ run(int RestartSnapNum)
         * or include hydro in the opening angle.*/
         if(is_PM)
         {
-            gravpm_force(&pm, &Tree);
+            gravpm_force(&pm, &Tree, &All.CP, All.Time, All.UnitLength_in_cm, All.OutputDir, All.MassiveNuLinRespOn, All.TimeIC, All.HybridNeutrinosOn, All.FastParticleType, All.BlackHoleOn);
 
             /* compute and output energy statistics if desired. */
             if(All.OutputEnergyDebug)
