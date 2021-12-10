@@ -131,12 +131,12 @@ set_init_params(ParameterSet * ps)
     MPI_Bcast(&All, sizeof(All), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
-static void check_omega(int generations);
-static void check_positions(void);
-void check_smoothing_length(double * MeanSpacing, const double BoxSize);
+static void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int MassiveNuLinRespOn, int generations, double BoxSize, double G, double * MassTable);
+static void check_positions(struct part_manager_type * PartManager, const double BoxSize);
+static void check_smoothing_length(struct part_manager_type * PartManager, double * MeanSpacing, const double BoxSize);
 
 static void
-setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime_t Ti_Current);
+setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * CP, int BlackHoleOn, double BoxSize, double MinEgySpec, const inttime_t Ti_Current, const double atime, const double MeanGasSeparation);
 
 /*! This function reads the initial conditions, and allocates storage for the
  *  tree(s). Various variables of the particle data are initialised and An
@@ -174,12 +174,12 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
 
     domain_test_id_uniqueness(PartManager);
 
-    check_omega(get_generations());
+    check_omega(PartManager, &All.CP, All.MassiveNuLinRespOn, get_generations(), All.BoxSize, All.G, All.MassTable);
 
-    check_positions();
+    check_positions(PartManager, All.BoxSize);
 
     if(RestartSnapNum == -1)
-        check_smoothing_length(All.MeanSeparation, All.BoxSize);
+        check_smoothing_length(PartManager, All.MeanSeparation, All.BoxSize);
 
     /* As the above will mostly take place
      * on Task 0, there will be a lot of imbalance*/
@@ -258,8 +258,7 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
     if(All.DensityOn)
-        setup_smoothinglengths(RestartSnapNum, ddecomp, Ti_Current);
-
+        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.BoxSize, All.MinEgySpec, Ti_Current, All.Time, All.MeanSeparation[0]);
     return Ti_Current;
 }
 
@@ -267,7 +266,7 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
 /*! This routine computes the mass content of the box and compares it to the
  * specified value of Omega-matter.  If discrepant, the run is terminated.
  */
-void check_omega(int generations)
+void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int MassiveNuLinRespOn, int generations, double BoxSize, double G, double * MassTable)
 {
     double mass = 0, masstot, omega;
     int i, badmass = 0;
@@ -278,7 +277,7 @@ void check_omega(int generations)
         /* In case zeros have been written to the saved mass array,
          * recover the true masses*/
         if(P[i].Mass == 0) {
-            P[i].Mass = All.MassTable[P[i].Type] * ( 1. - (double)P[i].Generation/generations);
+            P[i].Mass = MassTable[P[i].Type] * ( 1. - (double)P[i].Generation/generations);
             badmass++;
         }
         mass += P[i].Mass;
@@ -291,15 +290,15 @@ void check_omega(int generations)
         message(0, "Warning: recovering from %ld Mass entries corrupted on disc\n",totbad);
 
     omega =
-        masstot / (All.BoxSize * All.BoxSize * All.BoxSize) / (3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G));
+        masstot / (BoxSize * BoxSize * BoxSize) / (3 * CP->Hubble * CP->Hubble / (8 * M_PI * G));
 
     /*Add the density for analytically follows massive neutrinos*/
-    if(All.MassiveNuLinRespOn)
-        omega += get_omega_nu_nopart(&All.CP.ONu, 1);
-    if(fabs(omega - All.CP.Omega0) > 1.0e-3)
+    if(MassiveNuLinRespOn)
+        omega += get_omega_nu_nopart(&CP->ONu, 1);
+    if(fabs(omega - CP->Omega0) > 1.0e-3)
     {
         endrun(0, "The mass content accounts only for Omega=%g,\nbut you specified Omega=%g in the parameterfile.\n",
-                omega, All.CP.Omega0);
+                omega, CP->Omega0);
     }
 }
 
@@ -307,26 +306,28 @@ void check_omega(int generations)
  * If not, there is likely a bug in the IC generator and we abort.
  * It also checks for multiple zeros in the positions, guarding against a common fs bug.
  */
-void check_positions(void)
+void check_positions(struct part_manager_type * PartManager, const double BoxSize)
 {
     int i;
     int numzero = 0;
     int lastzero = -1;
+
     #pragma omp parallel for reduction(+: numzero) reduction(max:lastzero)
     for(i=0; i< PartManager->NumPart; i++){
         int j;
+        double * Pos = PartManager->Base[i].Pos;
         for(j=0; j<3; j++) {
-            if(P[i].Pos[j] < 0 || P[i].Pos[j] > All.BoxSize || !isfinite(P[i].Pos[j]))
-                endrun(0,"Particle %d is outside the box (L=%g) at (%g %g %g)\n",i,All.BoxSize, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+            if(Pos[j] < 0 || Pos[j] > BoxSize || !isfinite(Pos[j]))
+                endrun(0,"Particle %d is outside the box (L=%g) at (%g %g %g)\n",i,BoxSize, Pos[0], Pos[1], Pos[2]);
         }
-        if((P[i].Pos[0] < 1e-35) && (P[i].Pos[1] < 1e-35) && (P[i].Pos[2] < 1e-35)) {
+        if((Pos[0] < 1e-35) && (Pos[1] < 1e-35) && (Pos[2] < 1e-35)) {
             numzero++;
             lastzero = i;
         }
     }
     if(numzero > 1)
         endrun(5, "Particle positions contain %d zeros at particle %d. Pos %g %g %g. Likely write corruption!\n",
-                numzero, lastzero, P[lastzero].Pos[0], P[lastzero].Pos[1], P[lastzero].Pos[2]);
+                numzero, lastzero, PartManager->Base[lastzero].Pos[0], PartManager->Base[lastzero].Pos[1], PartManager->Base[lastzero].Pos[2]);
 }
 
 /*! This routine checks that the initial smoothing lengths of the particles
@@ -334,7 +335,7 @@ void check_positions(void)
  *  Guards against a problem writing the snapshot. Matters because
  *  a very large initial smoothing length will cause density() to go crazy.
  */
-void check_smoothing_length(double * MeanSpacing, const double BoxSize)
+void check_smoothing_length(struct part_manager_type * PartManager, double * MeanSpacing, const double BoxSize)
 {
     int i;
     int numprob = 0;
@@ -357,7 +358,7 @@ void check_smoothing_length(double * MeanSpacing, const double BoxSize)
  * Initialization of the entropy variable is a little trickier in this version of SPH,
  * since we need to make sure it 'talks to' the density appropriately */
 static void
-setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, struct sph_pred_data * sph_pred, double u_init, double a3, const inttime_t Ti_Current)
+setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, Cosmology * CP, struct sph_pred_data * sph_pred, double u_init, double a3, int BlackHoleOn, const inttime_t Ti_Current)
 {
     int j;
     int stop = 0;
@@ -382,7 +383,7 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, struc
         /* Empty kick factors as we do not move*/
         DriftKickTimes times = init_driftkicktime(Ti_Current);
         /* Update the EgyWtDensity*/
-        density(act, 0, DensityIndependentSphOn(), All.BlackHoleOn, 0,  times, &All.CP, sph_pred, NULL, Tree);
+        density(act, 0, DensityIndependentSphOn(), BlackHoleOn, 0,  times, CP, sph_pred, NULL, Tree);
         if(stop)
             break;
 
@@ -411,10 +412,10 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, struc
  *  then iterate if needed to find the right smoothing length.
  */
 static void
-setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime_t Ti_Current)
+setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * CP, int BlackHoleOn, double BoxSize, double MinEgySpec, const inttime_t Ti_Current, const double atime, const double MeanGasSeparation)
 {
     int i;
-    const double a3 = All.Time * All.Time * All.Time;
+    const double a3 = pow(atime, 3);
 
     int64_t tot_sph, tot_bh;
     MPI_Allreduce(&SlotsManager->info[0].size, &tot_sph, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
@@ -426,7 +427,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime
 //
     ForceTree Tree = {0};
     /* Need moments because we use them to set Hsml*/
-    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 0, 1, All.OutputDir);
+    force_tree_rebuild(&Tree, ddecomp, BoxSize, 0, 1, NULL);
 
     if(RestartSnapNum == -1)
     {
@@ -437,7 +438,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime
          * ptypes of each type.
          *
          * Eventually the iteration will fix this. */
-        const double massfactor = All.CP.OmegaBaryon / All.CP.Omega0;
+        const double massfactor = CP->OmegaBaryon / CP->Omega0;
         const double DesNumNgb = GetNumNgb(GetDensityKernelType());
 
         #pragma omp parallel for
@@ -465,8 +466,8 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime
                         1.0 / 3) * Tree.Nodes[no].len;
 
             /* recover from a poor initial guess */
-            if(P[i].Hsml > 500.0 * All.MeanSeparation[0])
-                P[i].Hsml = All.MeanSeparation[0];
+            if(P[i].Hsml > 500.0 * MeanGasSeparation)
+                P[i].Hsml = MeanGasSeparation;
         }
     }
     /* When we restart, validate the SPH properties of the particles.
@@ -474,7 +475,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime
     else
     {
         int bad = 0;
-        double meanbar = All.CP.OmegaBaryon * 3 * HUBBLE * All.CP.HubbleParam * HUBBLE * All.CP.HubbleParam/ (8 * M_PI * GRAVITY);
+        double meanbar = CP->OmegaBaryon * 3 * HUBBLE * CP->HubbleParam * HUBBLE * CP->HubbleParam/ (8 * M_PI * GRAVITY);
         #pragma omp parallel for reduction(+: bad)
         for(i = 0; i < SlotsManager->info[0].size; i++) {
             /* This allows us to continue gracefully if
@@ -487,7 +488,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime
             if(SphP[i].EgyWtDensity <= 0 || !isfinite(SphP[i].EgyWtDensity)) {
                 SphP[i].EgyWtDensity = SphP[i].Density;
             }
-            double minent = GAMMA_MINUS1 * All.MinEgySpec / pow(SphP[i].Density / a3 , GAMMA_MINUS1);
+            double minent = GAMMA_MINUS1 * MinEgySpec / pow(SphP[i].Density / a3 , GAMMA_MINUS1);
             if(SphP[i].Entropy < minent)
                 SphP[i].Entropy = minent;
         }
@@ -506,9 +507,9 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime
 
     /* Empty kick factors as we do not move*/
     DriftKickTimes times = init_driftkicktime(Ti_Current);
-    density(&act, 1, 0, All.BlackHoleOn, 0,  times, &All.CP, &sph_pred, NULL, &Tree);
+    density(&act, 1, 0, BlackHoleOn, 0,  times, CP, &sph_pred, NULL, &Tree);
 
-    /* for clean IC with U input only, we need to iterate to find entrpoy */
+    /* for clean IC with U input only, we need to iterate to find entropy */
     if(RestartSnapNum == -1)
     {
         double u_init = (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.InitGasTemp;
@@ -519,14 +520,14 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, const inttime
             molecular_weight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));
         else				/* assuming NEUTRAL GAS */
             molecular_weight = 4 / (1 + 3 * HYDROGEN_MASSFRAC);
-
         u_init /= molecular_weight;
-        if(u_init < All.MinEgySpec)
-            u_init = All.MinEgySpec;
+
+        if(u_init < MinEgySpec)
+            u_init = MinEgySpec;
         /* snapshot already has EgyWtDensity; hope it is read in correctly.
          * (need a test on this!) */
         if(DensityIndependentSphOn()) {
-            setup_density_indep_entropy(&act, &Tree, &sph_pred, u_init, a3, Ti_Current);
+            setup_density_indep_entropy(&act, &Tree, CP, &sph_pred, u_init, a3, Ti_Current, BlackHoleOn);
         }
         else {
            /*Initialize to initial energy*/
