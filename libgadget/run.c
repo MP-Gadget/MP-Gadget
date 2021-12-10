@@ -373,7 +373,7 @@ run(int RestartSnapNum)
 
                 if(during_helium_reionization(1/All.Time - 1)) {
                     /* Helium reionization by switching on quasar bubbles*/
-                    do_heiii_reionization(1/All.Time - 1, &fof, ddecomp, FdHelium);
+                    do_heiii_reionization(All.Time, &fof, ddecomp, &All.CP, All.BoxSize, All.UnitEnergy_in_cgs / All.UnitMass_in_g, FdHelium);
                 }
                 fof_finish(&fof);
             }
