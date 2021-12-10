@@ -35,9 +35,26 @@
  */
 struct global_data_all_processes All;
 
-/*Set the parameters of the hydro module*/
+static struct init_params
+{
+    double InitGasTemp;
+} InitParams;
+
+/*Set the global parameters*/
 void
 set_init_params(ParameterSet * ps)
+{
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask == 0) {
+        InitParams.InitGasTemp = param_get_double(ps, "InitGasTemp");
+    }
+    MPI_Bcast(&InitParams, sizeof(InitParams), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
+
+/*Set the global parameters*/
+void
+set_all_global_params(ParameterSet * ps)
 {
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
@@ -100,7 +117,6 @@ set_init_params(ParameterSet * ps)
         All.WindOn = param_get_int(ps, "WindOn");
         All.MetalReturnOn = param_get_int(ps, "MetalReturnOn");
         All.MaxDomainTimeBinDepth = param_get_int(ps, "MaxDomainTimeBinDepth");
-        All.InitGasTemp = param_get_double(ps, "InitGasTemp");
 
         /*Massive neutrino parameters*/
         All.MassiveNuLinRespOn = param_get_int(ps, "MassiveNuLinRespOn");
@@ -172,11 +188,15 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
     /*Read the snapshot*/
     petaio_read_snapshot(RestartSnapNum, MPI_COMM_WORLD);
 
+    if(InitParams.InitGasTemp < 0)
+        InitParams.InitGasTemp = All.CP.CMBTemperature / All.TimeInit;
+
     domain_test_id_uniqueness(PartManager);
 
     check_omega(PartManager, &All.CP, All.MassiveNuLinRespOn, get_generations(), All.BoxSize, All.G, All.MassTable);
 
     check_positions(PartManager, All.BoxSize);
+
 
     if(RestartSnapNum == -1)
         check_smoothing_length(PartManager, All.MeanSeparation, All.BoxSize);
@@ -512,11 +532,11 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
     /* for clean IC with U input only, we need to iterate to find entropy */
     if(RestartSnapNum == -1)
     {
-        double u_init = (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.InitGasTemp;
+        double u_init = (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * InitParams.InitGasTemp;
         u_init *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;	/* unit conversion */
 
         double molecular_weight;
-        if(All.InitGasTemp > 1.0e4)	/* assuming FULL ionization */
+        if(InitParams.InitGasTemp > 1.0e4)	/* assuming FULL ionization */
             molecular_weight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));
         else				/* assuming NEUTRAL GAS */
             molecular_weight = 4 / (1 + 3 * HYDROGEN_MASSFRAC);

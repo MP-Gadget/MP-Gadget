@@ -53,8 +53,6 @@ extern struct global_data_all_processes
                                   * and it has the side-effect of guarding against periodicity bugs.
                                   */
     /* some SPH parameters */
-
-    double InitGasTemp;		/*!< may be used to set the temperature in the IC's */
     double MinEgySpec; /* Minimum internal energy for timestepping, converted from MinGasTemp*/
 
     /* system of units  */

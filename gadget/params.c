@@ -372,6 +372,7 @@ void read_parameter_file(char *fname, int * ShowBacktrace, double * MaxMemSizePe
     }
 
     /*Initialize per-module parameters.*/
+    set_all_global_params(ps);
     set_init_params(ps);
     set_petaio_params(ps);
     set_timestep_params(ps);

@@ -644,9 +644,6 @@ set_units(void)
         endrun(5, "Bad cosmology: H0 = %g OL = %g Ob = %g Og = %g Ocdm = %g\n",
                All.CP.HubbleParam, All.CP.OmegaLambda, All.CP.OmegaBaryon, All.CP.OmegaCDM);
 
-
-    if(All.InitGasTemp < 0)
-        All.InitGasTemp = All.CP.CMBTemperature / All.TimeInit;
     /*Initialise the hybrid neutrinos, after Omega_nu*/
     if(All.HybridNeutrinosOn)
         init_hybrid_nu(&All.CP.ONu.hybnu, All.CP.MNu, All.HybridVcrit, LIGHTCGS/1e5, All.HybridNuPartTime, All.CP.ONu.kBtnu);

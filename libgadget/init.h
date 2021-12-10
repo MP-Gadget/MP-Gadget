@@ -10,4 +10,5 @@ inttime_t init(int snapnum, DomainDecomp * ddecomp);
 
 void set_init_params(ParameterSet * ps);
 
+void set_all_global_params(ParameterSet * ps);
 #endif
