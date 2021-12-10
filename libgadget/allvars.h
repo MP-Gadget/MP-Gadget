@@ -26,12 +26,7 @@ extern struct global_data_all_processes
     double TimeIC;       /* Time when the simulation ICs were generated*/
     double BoxSize;   /* Boxsize in case periodic boundary conditions are used */
     double MassTable[6]; /* Initial mass of particles */
-    double UnitMass_in_g;		/*!< factor to convert internal mass unit to grams/h */
-    double UnitVelocity_in_cm_per_s;	/*!< factor to convert intqernal velocity unit to cm/sec */
-    double UnitLength_in_cm;		/*!< factor to convert internal length unit to cm/h */
-
-
-/* end of read_header parameters */
+    /* end of read_header parameters */
 
     double PartAllocFactor;	/*!< in order to maintain work-load balance, the particle load will usually
                               NOT be balanced.  Each processor allocates memory for PartAllocFactor times
@@ -55,12 +50,15 @@ extern struct global_data_all_processes
     double MinEgySpec; /* Minimum internal energy for timestepping, converted from MinGasTemp*/
 
     /* system of units  */
-
+    double UnitMass_in_g;		/*!< factor to convert internal mass unit to grams/h */
+    double UnitVelocity_in_cm_per_s;	/*!< factor to convert intqernal velocity unit to cm/sec */
+    double UnitLength_in_cm;		/*!< factor to convert internal length unit to cm/h */
     double UnitTime_in_s,		/*!< factor to convert internal time unit to seconds/h */
            UnitDensity_in_cgs,		/*!< factor to convert internal length unit to g/cm^3*h^2 */
            UnitEnergy_in_cgs,		/*!< factor to convert internal energy to cgs units */
            UnitTime_in_Megayears,	/*!< factor to convert internal time to megayears/h */
            G;				/*!< Gravity-constant in internal units */
+
     /* Cosmology */
     Cosmology CP;
 

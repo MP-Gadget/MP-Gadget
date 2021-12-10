@@ -6,7 +6,6 @@
 
 #include "utils.h"
 
-#include "allvars.h"
 #include "cooling.h"
 #include "forcetree.h"
 #include "density.h"
@@ -23,17 +22,11 @@
 #include "timestep.h"
 #include "timebinmgr.h"
 #include "cosmology.h"
+#include "physconst.h"
 
 /*! \file init.c
  *  \brief code for initialisation of a simulation from initial conditions
  */
-
-/*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
- * parameter file).  Holding this data in a structure is convenient for writing/reading the restart file, and
- * it allows the introduction of new global variables in a simple way. The only thing to do is to introduce
- * them into this structure.
- */
-struct global_data_all_processes All;
 
 static struct init_params
 {
@@ -52,135 +45,37 @@ set_init_params(ParameterSet * ps)
     MPI_Bcast(&InitParams, sizeof(InitParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
-/*Set the global parameters*/
-void
-set_all_global_params(ParameterSet * ps)
-{
-    int ThisTask;
-    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-    if(ThisTask == 0) {
-        /* Start reading the values */
-        param_get_string2(ps, "InitCondFile", All.InitCondFile, sizeof(All.InitCondFile));
-        param_get_string2(ps, "OutputDir", All.OutputDir, sizeof(All.OutputDir));
-        param_get_string2(ps, "SnapshotFileBase", All.SnapshotFileBase, sizeof(All.SnapshotFileBase));
-        param_get_string2(ps, "FOFFileBase", All.FOFFileBase, sizeof(All.FOFFileBase));
-        param_get_string2(ps, "EnergyFile", All.EnergyFile, sizeof(All.EnergyFile));
-        All.OutputEnergyDebug = param_get_int(ps, "OutputEnergyDebug");
-        param_get_string2(ps, "CpuFile", All.CpuFile, sizeof(All.CpuFile));
-
-        All.CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
-        All.CP.RadiationOn = param_get_int(ps, "RadiationOn");
-        All.CP.Omega0 = param_get_double(ps, "Omega0");
-        All.CP.OmegaBaryon = param_get_double(ps, "OmegaBaryon");
-        All.CP.OmegaLambda = param_get_double(ps, "OmegaLambda");
-        All.CP.Omega_fld = param_get_double(ps, "Omega_fld");
-        if(All.CP.OmegaLambda > 0 && All.CP.Omega_fld > 0)
-            endrun(0, "Cannot have OmegaLambda and Omega_fld (evolving dark energy) at the same time!\n");
-        All.CP.w0_fld = param_get_double(ps,"w0_fld");
-        All.CP.wa_fld = param_get_double(ps,"wa_fld");
-        All.CP.Omega_ur = param_get_double(ps, "Omega_ur");
-        All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
-
-        All.OutputPotential = param_get_int(ps, "OutputPotential");
-        All.OutputTimebins = param_get_int(ps, "OutputTimebins");
-        All.OutputHeliumFractions = param_get_int(ps, "OutputHeliumFractions");
-        All.OutputDebugFields = param_get_int(ps, "OutputDebugFields");
-
-        All.TimeMax = param_get_double(ps, "TimeMax");
-        All.Asmth = param_get_double(ps, "Asmth");
-        All.ShortRangeForceWindowType = param_get_enum(ps, "ShortRangeForceWindowType");
-        All.Nmesh = param_get_int(ps, "Nmesh");
-
-        All.CoolingOn = param_get_int(ps, "CoolingOn");
-        All.HydroOn = param_get_int(ps, "HydroOn");
-        All.DensityOn = param_get_int(ps, "DensityOn");
-        All.TreeGravOn = param_get_int(ps, "TreeGravOn");
-        All.LightconeOn = param_get_int(ps, "LightconeOn");
-        All.FastParticleType = param_get_int(ps, "FastParticleType");
-        All.PairwiseActiveFraction = param_get_double(ps, "PairwiseActiveFraction");
-        All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
-        All.AutoSnapshotTime = param_get_double(ps, "AutoSnapshotTime");
-        All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
-        All.RandomParticleOffset = param_get_double(ps, "RandomParticleOffset");
-
-        All.PartAllocFactor = param_get_double(ps, "PartAllocFactor");
-        All.SlotsIncreaseFactor = param_get_double(ps, "SlotsIncreaseFactor");
-
-        All.SnapshotWithFOF = param_get_int(ps, "SnapshotWithFOF");
-
-        All.RandomSeed = param_get_int(ps, "RandomSeed");
-
-        All.BlackHoleOn = param_get_int(ps, "BlackHoleOn");
-        All.WriteBlackHoleDetails = param_get_int(ps,"WriteBlackHoleDetails");
-
-        All.StarformationOn = param_get_int(ps, "StarformationOn");
-        All.WindOn = param_get_int(ps, "WindOn");
-        All.MetalReturnOn = param_get_int(ps, "MetalReturnOn");
-        All.MaxDomainTimeBinDepth = param_get_int(ps, "MaxDomainTimeBinDepth");
-
-        /*Massive neutrino parameters*/
-        All.MassiveNuLinRespOn = param_get_int(ps, "MassiveNuLinRespOn");
-        All.HybridNeutrinosOn = param_get_int(ps, "HybridNeutrinosOn");
-        All.CP.MNu[0] = param_get_double(ps, "MNue");
-        All.CP.MNu[1] = param_get_double(ps, "MNum");
-        All.CP.MNu[2] = param_get_double(ps, "MNut");
-        All.HybridVcrit = param_get_double(ps, "Vcrit");
-        All.HybridNuPartTime = param_get_double(ps, "NuPartTime");
-        if(All.MassiveNuLinRespOn && !All.CP.RadiationOn)
-            endrun(2, "You have enabled (kspace) massive neutrinos without radiation, but this will give an inconsistent cosmology!\n");
-        /*End massive neutrino parameters*/
-
-        if(All.StarformationOn == 0)
-        {
-            if(All.WindOn == 1) {
-                endrun(1, "You try to use the code with wind enabled,\n"
-                          "but you did not switch on starformation.\nThis mode is not supported.\n");
-            }
-        } else {
-            if(All.CoolingOn == 0)
-            {
-                endrun(1, "You try to use the code with star formation enabled,\n"
-                          "but you did not switch on cooling.\nThis mode is not supported.\n");
-            }
-        }
-    }
-    MPI_Bcast(&All, sizeof(All), MPI_BYTE, 0, MPI_COMM_WORLD);
-}
-
 static void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int MassiveNuLinRespOn, int generations, double BoxSize, double G, double * MassTable);
 static void check_positions(struct part_manager_type * PartManager, const double BoxSize);
 static void check_smoothing_length(struct part_manager_type * PartManager, double * MeanSpacing, const double BoxSize);
-
-static void
-setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * CP, int BlackHoleOn, double BoxSize, double MinEgySpec, double uu_in_cgs, const inttime_t Ti_Current, const double atime, const double MeanGasSeparation);
 
 /*! This function reads the initial conditions, and allocates storage for the
  *  tree(s). Various variables of the particle data are initialised and An
  *  intial domain decomposition is performed. If SPH particles are present,
  *  the initial SPH smoothing lengths are determined.
  */
-inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
+inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMax, Cosmology * CP, int SnapshotWithFOF, int MassiveNuLinRespOn, double BoxSize, double G, double * MassTable, double * MeanSeparation)
 {
     int i;
 
     /*Add TimeInit and TimeMax to the output list*/
     if (RestartSnapNum < 0) {
         /* allow a first snapshot at IC time; */
-        setup_sync_points(All.TimeIC, All.TimeMax, 0.0, All.SnapshotWithFOF);
+        setup_sync_points(TimeIC, TimeMax, 0.0, SnapshotWithFOF);
     } else {
         /* skip dumping the exactly same snapshot */
-        setup_sync_points(All.TimeIC, All.TimeMax, All.TimeInit, All.SnapshotWithFOF);
+        setup_sync_points(TimeIC, TimeMax, TimeInit, SnapshotWithFOF);
         /* If TimeInit is not in a sensible place on the integer timeline
          * (can happen if the outputs changed since it was written)
          * start the integer timeline anew from TimeInit */
-        inttime_t ti_init = ti_from_loga(log(All.TimeInit)) % TIMEBASE;
+        inttime_t ti_init = ti_from_loga(log(TimeInit)) % TIMEBASE;
         if(round_down_power_of_two(ti_init) != ti_init) {
             message(0,"Resetting integer timeline (as %x != %x) to current snapshot\n",ti_init, round_down_power_of_two(ti_init));
-            setup_sync_points(All.TimeInit, All.TimeMax, All.TimeInit, All.SnapshotWithFOF);
+            setup_sync_points(TimeInit, TimeMax, TimeInit, SnapshotWithFOF);
         }
     }
 
-    inttime_t Ti_Current = init_timebins(All.TimeInit);
+    inttime_t Ti_Current = init_timebins(TimeInit);
 
     /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
     set_global_time(Ti_Current);
@@ -189,22 +84,16 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
     petaio_read_snapshot(RestartSnapNum, MPI_COMM_WORLD);
 
     if(InitParams.InitGasTemp < 0)
-        InitParams.InitGasTemp = All.CP.CMBTemperature / All.TimeInit;
+        InitParams.InitGasTemp = CP->CMBTemperature / TimeInit;
 
     domain_test_id_uniqueness(PartManager);
 
-    check_omega(PartManager, &All.CP, All.MassiveNuLinRespOn, get_generations(), All.BoxSize, All.G, All.MassTable);
+    check_omega(PartManager, CP, MassiveNuLinRespOn, get_generations(), BoxSize, G, MassTable);
 
-    check_positions(PartManager, All.BoxSize);
-
-    double MeanSeparation[6] = {0};
-    for(i = 0; i < 6; i++) {
-        if(All.NTotalInit[i] > 0)
-            MeanSeparation[i] = All.BoxSize / pow(All.NTotalInit[i], 1.0 / 3);
-    }
+    check_positions(PartManager, BoxSize);
 
     if(RestartSnapNum == -1)
-        check_smoothing_length(PartManager, MeanSeparation, All.BoxSize);
+        check_smoothing_length(PartManager, MeanSeparation, BoxSize);
 
     /* As the above will mostly take place
      * on Task 0, there will be a lot of imbalance*/
@@ -218,26 +107,20 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
         int j;
         P[i].Ti_drift = Ti_Current;
 
-        if(All.BlackHoleOn && RestartSnapNum == -1 && P[i].Type == 5 )
+        if(RestartSnapNum == -1 && P[i].Type == 5 )
         {
             /* Note: Gadget-3 sets this to the seed black hole mass.*/
             BHP(i).Mass = P[i].Mass;
-
-            /* Touch up potentially zero BH smoothing lengths, since they have historically not been saved in the snapshots.
-             * Anything non-zero would work, but since BH tends to be in high density region,
-             *  use a small number */
-            if(P[i].Hsml == 0)
-                P[i].Hsml = 0.01 * MeanSeparation[0];
         }
 
-        if(All.MetalReturnOn && P[i].Type == 4 )
+        if(P[i].Type == 4 )
         {
             /* Touch up zero star smoothing lengths, not saved in the snapshots.*/
             if(P[i].Hsml == 0)
                 P[i].Hsml = 0.1 * MeanSeparation[0];
         }
 
-        if(All.BlackHoleOn && P[i].Type == 5)
+        if(P[i].Type == 5)
         {
             for(j = 0; j < 3; j++) {
                 BHP(i).DFAccel[j] = 0;
@@ -245,7 +128,7 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
             }
         }
 
-        P[i].Key = PEANO(P[i].Pos, All.BoxSize);
+        P[i].Key = PEANO(P[i].Pos, BoxSize);
 
         if(P[i].Type != 0) continue;
 
@@ -277,15 +160,7 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
             SPHP(i).MaxSignalVel = 0;
         }
     }
-
     walltime_measure("/Init");
-
-    domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
-
-    if(All.DensityOn) {
-        double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.BoxSize, All.MinEgySpec, uu_in_cgs, Ti_Current, All.Time, MeanSeparation[0]);
-    }
     return Ti_Current;
 }
 
@@ -381,6 +256,15 @@ void check_smoothing_length(struct part_manager_type * PartManager, double * Mea
         message(5, "Bad smoothing lengths %d last bad %d hsml %g id %ld\n", numprob, lastprob, P[lastprob].Hsml, P[lastprob].ID);
 }
 
+void get_mean_separation(double * MeanSeparation, double BoxSize, int64_t * NTotalInit)
+{
+    int i;
+    for(i = 0; i < 6; i++) {
+        if(NTotalInit[i] > 0)
+            MeanSeparation[i] = BoxSize / pow(NTotalInit[i], 1.0 / 3);
+    }
+}
+
 /* Initialize the entropy variable in Pressure-Entropy Sph.
  * Initialization of the entropy variable is a little trickier in this version of SPH,
  * since we need to make sure it 'talks to' the density appropriately */
@@ -438,7 +322,7 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, Cosmo
  *  of the smoothing length is provided to the function density(), which will
  *  then iterate if needed to find the right smoothing length.
  */
-static void
+void
 setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * CP, int BlackHoleOn, double BoxSize, double MinEgySpec, double uu_in_cgs, const inttime_t Ti_Current, const double atime, const double MeanGasSeparation)
 {
     int i;
@@ -471,9 +355,8 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
         #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++)
         {
-            /* These initial smoothing lengths are only used for SPH.
-             * BH is set elsewhere. */
-            if(P[i].Type != 0)
+            /* These initial smoothing lengths are only used for SPH-like particles.*/
+            if(P[i].Type != 0 && P[i].Type != 5)
                 continue;
 
             int no = force_get_father(i, &Tree);
