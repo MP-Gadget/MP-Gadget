@@ -16,7 +16,6 @@
 #include <libgadget/utils/mymalloc.h>
 #include <libgadget/utils/system.h>
 #include <libgadget/utils/endrun.h>
-#include <libgadget/allvars.h>
 #include <libgadget/partmanager.h>
 #include <libgadget/walltime.h>
 #include <libgadget/domain.h>
@@ -24,14 +23,16 @@
 #include <libgadget/gravity.h>
 #include <libgadget/petapm.h>
 #include <libgadget/timestep.h>
+#include <libgadget/physconst.h>
 
-struct global_data_all_processes All;
 static struct ClockTable CT;
 /* The true struct for the state variable*/
 struct forcetree_testdata
 {
     gsl_rng * r;
 };
+static const double G = 43.0071;
+static double BoxSize;
 
 static void
 grav_force(const int this, const int other, const double * offset, double * accns)
@@ -64,8 +65,8 @@ grav_force(const int this, const int other, const double * offset, double * accn
     }
 
     for(d = 0; d < 3; d ++) {
-        accns[3*this + d] += - dist[d] * fac * All.G * P[other].Mass;
-        accns[3*other + d] += dist[d] * fac * All.G * P[this].Mass;
+        accns[3*this + d] += - dist[d] * fac * G * P[other].Mass;
+        accns[3*other + d] += dist[d] * fac * G * P[this].Mass;
     }
 }
 
@@ -133,7 +134,7 @@ static void force_direct(double * accn)
             for(zz=-repeat; zz <= repeat; zz++)
             {
                 int i;
-                double offset[3] = {All.BoxSize * xx, All.BoxSize * yy, All.BoxSize * zz};
+                double offset[3] = {BoxSize * xx, BoxSize * yy, BoxSize * zz};
                 for(i = 0; i < PartManager->NumPart; i++) {
                     int j;
                     for(j = i+1; j < PartManager->NumPart; j++)
@@ -179,13 +180,24 @@ static void do_force_test(double BoxSize, int Nmesh, double Asmth, double ErrTol
     domain_decompose_full(&ddecomp);
 
     PetaPM pm = {0};
-    gravpm_init_periodic(&pm, BoxSize, Asmth, Nmesh, All.G);
+    gravpm_init_periodic(&pm, BoxSize, Asmth, Nmesh, G);
     ForceTree Tree = {0};
     force_tree_rebuild(&Tree, &ddecomp, BoxSize, 1, 1, NULL);
     gravshort_fill_ntab(SHORTRANGE_FORCE_WINDOW_TYPE_EXACT, Asmth);
-    gravpm_force(&pm, &Tree);
+    /* Setup cosmology*/
+    Cosmology CP;
+    CP.MNu[0] = CP.MNu[1] = CP.MNu[2] = 0;
+    CP.OmegaCDM = 0.3;
+    CP.CMBTemperature = 2.72;
+    CP.HubbleParam = 0.7;
+    CP.Omega0 = 0.3;
+    CP.OmegaBaryon = 0.045;
+    CP.OmegaLambda = 0.7;
+    init_cosmology(&CP, 0.01);
+
+    gravpm_force(&pm, &Tree, &CP, 0.1, CM_PER_MPC/1000., ".", 0, 0.01, 0, 2, 1);
     force_tree_rebuild(&Tree, &ddecomp, BoxSize, 1, 1, NULL);
-    const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
+    const double rho0 = CP.Omega0 * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G);
 
     /* Barnes-Hut on first iteration*/
     struct gravshort_tree_params treeacc = {0};
@@ -197,7 +209,7 @@ static void do_force_test(double BoxSize, int Nmesh, double Asmth, double ErrTol
     treeacc.FractionalGravitySoftening = 1./30.;
 
     set_gravshort_treepar(treeacc);
-    gravshort_set_softenings(All.BoxSize / cbrt(PartManager->NumPart));
+    gravshort_set_softenings(BoxSize / cbrt(PartManager->NumPart));
 
     /* Twice so the opening angle is consistent*/
     grav_short_tree(&act, &pm, &Tree, rho0, 0, 2);
@@ -221,13 +233,13 @@ static void test_force_flat(void ** state) {
     int i;
     #pragma omp parallel for
     for(i=0; i<numpart; i++) {
-        P[i].Pos[0] = (All.BoxSize/ncbrt) * (i/ncbrt/ncbrt);
-        P[i].Pos[1] = (All.BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
-        P[i].Pos[2] = (All.BoxSize/ncbrt) * (i % ncbrt);
+        P[i].Pos[0] = (BoxSize/ncbrt) * (i/ncbrt/ncbrt);
+        P[i].Pos[1] = (BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
+        P[i].Pos[2] = (BoxSize/ncbrt) * (i % ncbrt);
     }
     PartManager->NumPart = numpart;
     PartManager->MaxPart = numpart;
-    do_force_test(All.BoxSize, 48, 1.5, 0.002, 0);
+    do_force_test(BoxSize, 48, 1.5, 0.002, 0);
     /* For a homogeneous mass distribution, the force should be zero*/
     double meanerr=0, maxerr=-1;
     #pragma omp parallel for reduction(+: meanerr) reduction(max: maxerr)
@@ -271,7 +283,7 @@ static void test_force_close(void ** state) {
     }
     PartManager->NumPart = numpart;
     PartManager->MaxPart = numpart;
-    do_force_test(All.BoxSize, 48, 1.5, 0.002, 1);
+    do_force_test(BoxSize, 48, 1.5, 0.002, 1);
     myfree(P);
 }
 
@@ -283,21 +295,21 @@ void do_random_test(gsl_rng * r, const int numpart)
     for(i=0; i<numpart/4; i++) {
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = All.BoxSize * gsl_rng_uniform(r);
+            P[i].Pos[j] = BoxSize * gsl_rng_uniform(r);
     }
     for(i=numpart/4; i<3*numpart/4; i++) {
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = All.BoxSize/2 + All.BoxSize/8 * exp(pow(gsl_rng_uniform(r)-0.5,2));
+            P[i].Pos[j] = BoxSize/2 + BoxSize/8 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
     for(i=3*numpart/4; i<numpart; i++) {
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = All.BoxSize*0.1 + All.BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
+            P[i].Pos[j] = BoxSize*0.1 + BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
     PartManager->NumPart = numpart;
     PartManager->MaxPart = numpart;
-    do_force_test(All.BoxSize, 48, 1.5, 0.002, 1);
+    do_force_test(BoxSize, 48, 1.5, 0.002, 1);
 }
 
 static void test_force_random(void ** state) {
@@ -318,21 +330,7 @@ static int setup_tree(void **state) {
     walltime_init(&CT);
     /*Set up the important parts of the All structure.*/
     /*Particles should not be outside this*/
-    All.BoxSize = 8;
-    All.MassiveNuLinRespOn = 0;
-    All.FastParticleType = 2;
-    All.CP.MNu[0] = All.CP.MNu[1] = All.CP.MNu[2] = 0;
-    All.CP.OmegaCDM = 0.3;
-    All.CP.CMBTemperature = 2.72;
-    All.CP.HubbleParam = 0.7;
-    All.CP.Omega0 = 0.3;
-    All.CP.OmegaBaryon = 0.045;
-    All.CP.OmegaLambda = 0.7;
-    All.UnitLength_in_cm = 3.085678e21;
-    All.Time = 0.1;
-    All.G = 43.0071;
-    All.UnitLength_in_cm = CM_PER_MPC/1000.;
-    strncpy(All.OutputDir, ".", 5);
+    BoxSize = 8;
     PartManager->NumPart = 16*16*16;
 
     struct DomainParams dp = {0};
@@ -343,7 +341,6 @@ static int setup_tree(void **state) {
     set_domain_par(dp);
     petapm_module_init(omp_get_max_threads());
     init_forcetree_params(2);
-    init_cosmology(&All.CP, 0.01);
     /*Set up the top-level domain grid*/
     struct forcetree_testdata *data = malloc(sizeof(struct forcetree_testdata));
     data->r = gsl_rng_alloc(gsl_rng_mt19937);
