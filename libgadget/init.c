@@ -152,7 +152,7 @@ static void check_positions(struct part_manager_type * PartManager, const double
 static void check_smoothing_length(struct part_manager_type * PartManager, double * MeanSpacing, const double BoxSize);
 
 static void
-setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * CP, int BlackHoleOn, double BoxSize, double MinEgySpec, const inttime_t Ti_Current, const double atime, const double MeanGasSeparation);
+setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * CP, int BlackHoleOn, double BoxSize, double MinEgySpec, double uu_in_cgs, const inttime_t Ti_Current, const double atime, const double MeanGasSeparation);
 
 /*! This function reads the initial conditions, and allocates storage for the
  *  tree(s). Various variables of the particle data are initialised and An
@@ -282,8 +282,10 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
-    if(All.DensityOn)
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.BoxSize, All.MinEgySpec, Ti_Current, All.Time, MeanSeparation[0]);
+    if(All.DensityOn) {
+        double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.BoxSize, All.MinEgySpec, uu_in_cgs, Ti_Current, All.Time, MeanSeparation[0]);
+    }
     return Ti_Current;
 }
 
@@ -437,7 +439,7 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, Cosmo
  *  then iterate if needed to find the right smoothing length.
  */
 static void
-setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * CP, int BlackHoleOn, double BoxSize, double MinEgySpec, const inttime_t Ti_Current, const double atime, const double MeanGasSeparation)
+setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * CP, int BlackHoleOn, double BoxSize, double MinEgySpec, double uu_in_cgs, const inttime_t Ti_Current, const double atime, const double MeanGasSeparation)
 {
     int i;
     const double a3 = pow(atime, 3);
@@ -538,7 +540,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
     if(RestartSnapNum == -1)
     {
         double u_init = (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * InitParams.InitGasTemp;
-        u_init *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;	/* unit conversion */
+        u_init /= uu_in_cgs; /* unit conversion */
 
         double molecular_weight;
         if(InitParams.InitGasTemp > 1.0e4)	/* assuming FULL ionization */
