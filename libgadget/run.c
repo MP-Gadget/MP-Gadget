@@ -203,8 +203,6 @@ int begrun(int RestartFlag, int RestartSnapNum)
 
     init_cooling_and_star_formation(All.CoolingOn);
 
-    double MeanDMSeparation = All.BoxSize / pow(All.NTotalInit[1], 1.0 / 3);
-    gravshort_set_softenings(MeanDMSeparation);
     gravshort_fill_ntab(All.ShortRangeForceWindowType, All.Asmth);
 
     set_random_numbers(All.RandomSeed);
@@ -279,7 +277,7 @@ run(int RestartSnapNum)
 
         /* Compute the list of particles that cross a lightcone and write it to disc.*/
         if(All.LightconeOn)
-            lightcone_compute(All.Time, All.BoxSize, &All.CP, Ti_Last, Ti_Next);
+            lightcone_compute(All.Time, PartManager->BoxSize, &All.CP, Ti_Last, Ti_Next);
 
         times.Ti_Current = Ti_Next;
 
@@ -321,7 +319,7 @@ run(int RestartSnapNum)
         /* at first step this is a noop */
         if(extradomain || is_PM) {
             /* Sync positions of all particles */
-            drift_all_particles(Ti_Last, times.Ti_Current, All.BoxSize, &All.CP, rel_random_shift);
+            drift_all_particles(Ti_Last, times.Ti_Current, &All.CP, rel_random_shift);
             /* full decomposition rebuilds the domain, needs keys.*/
             domain_decompose_full(ddecomp);
         } else {
@@ -330,7 +328,6 @@ run(int RestartSnapNum)
             /* If it is not a PM step, do a shorter version
              * of the ddecomp decomp which just exchanges particles.*/
             struct DriftData drift;
-            drift.BoxSize = All.BoxSize;
             drift.CP = &All.CP;
             drift.ti0 = Ti_Last;
             drift.ti1 = times.Ti_Current;

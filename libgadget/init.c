@@ -23,6 +23,7 @@
 #include "timestep.h"
 #include "timebinmgr.h"
 #include "cosmology.h"
+#include "gravity.h"
 #include "physconst.h"
 
 /*! \file init.c
@@ -105,6 +106,7 @@ inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMa
      * on Task 0, there will be a lot of imbalance*/
     MPIU_Barrier(MPI_COMM_WORLD);
 
+    gravshort_set_softenings(MeanSeparation[1]);
     fof_init(MeanSeparation[1]);
 
     #pragma omp parallel for

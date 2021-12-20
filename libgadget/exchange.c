@@ -414,7 +414,7 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
     for(i=0; i < pman->NumPart; i++)
     {
         if(drift) {
-            real_drift_particle(&pman->Base[i], sman, ddrift, drift->BoxSize, rel_random_shift);
+            real_drift_particle(&pman->Base[i], sman, ddrift, pman->BoxSize, rel_random_shift);
             pman->Base[i].Ti_drift = drift->ti1;
         }
         if(pman->Base[i].IsGarbage) {
