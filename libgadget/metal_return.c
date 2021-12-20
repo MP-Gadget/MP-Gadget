@@ -514,7 +514,7 @@ metal_return_priv_free(struct MetalReturnPriv * priv)
 
 /*! This function is the driver routine for the calculation of metal return. */
 void
-metal_return(const ActiveParticles * act, DomainDecomp * const ddecomp, Cosmology * CP, const double atime, const double BoxSize, const double AvgGasMass)
+metal_return(const ActiveParticles * act, DomainDecomp * const ddecomp, Cosmology * CP, const double atime, const double AvgGasMass)
 {
     /* Do nothing if no stars yet*/
     int64_t totstar;
@@ -542,7 +542,7 @@ metal_return(const ActiveParticles * act, DomainDecomp * const ddecomp, Cosmolog
 
     ForceTree gasTree = {0};
     /* Just gas, no moments*/
-    force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, BoxSize, 0, NULL);
+    force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, 0, NULL);
 
     /* Compute total number of weights around each star for actively returning stars*/
     stellar_density(act, priv->StarVolumeSPH, priv->MassReturn, &gasTree);

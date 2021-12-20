@@ -6,6 +6,7 @@
 #include <cmocka.h>
 #include <math.h>
 #include <mpi.h>
+#include <string.h>
 #include <stdio.h>
 #include <time.h>
 #include <omp.h>
@@ -19,9 +20,8 @@
 #include "stub.h"
 
 /*Particle data.*/
-struct part_manager_type PartManager[1] = {{0}};
-struct slots_manager_type SlotsManager[1] = {{0}};
-double BoxSize;
+struct part_manager_type PartManager[1];
+struct slots_manager_type SlotsManager[1];
 
 /* The true struct for the state variable*/
 struct forcetree_testdata
@@ -131,7 +131,7 @@ static int check_moments(const ForceTree * tb, const int numpart, const int nrea
         assert_true(tb->Nodes[node].mom.mass < 0.5 && tb->Nodes[node].mom.mass > -0.5);
         /*Check center of mass moments*/
         for(i=0; i<3; i++)
-            assert_true(tb->Nodes[node].mom.cofm[i] <= BoxSize && tb->Nodes[node].mom.cofm[i] >= 0);
+            assert_true(tb->Nodes[node].mom.cofm[i] <= PartManager->BoxSize && tb->Nodes[node].mom.cofm[i] >= 0);
         counter++;
 
         if(nop->f.ChildType == PARTICLE_NODE_TYPE)
@@ -210,7 +210,7 @@ static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp
     int i;
     #pragma omp parallel for
     for(i=0; i<numpart; i++) {
-        P[i].Key = PEANO(P[i].Pos, BoxSize);
+        P[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
         P[i].Mass = 1;
         P[i].PI = 0;
         P[i].IsGarbage = 0;
@@ -226,7 +226,7 @@ static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp
     /*Time creating the nodes*/
     double start, end;
     start = MPI_Wtime();
-    int nodes = force_tree_create_nodes(tb, numpart, ALLMASK, ddecomp, BoxSize, 0);
+    int nodes = force_tree_create_nodes(tb, numpart, ALLMASK, ddecomp, 0);
     tb.numnodes = nodes;
     assert_true(nodes < maxnode);
     end = MPI_Wtime();
@@ -254,9 +254,9 @@ static void test_rebuild_flat(void ** state) {
     #pragma omp parallel for
     for(i=0; i<numpart; i++) {
         P[i].Type = 1;
-        P[i].Pos[0] = (BoxSize/ncbrt) * (i/ncbrt/ncbrt);
-        P[i].Pos[1] = (BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
-        P[i].Pos[2] = (BoxSize/ncbrt) * (i % ncbrt);
+        P[i].Pos[0] = (PartManager->BoxSize/ncbrt) * (i/ncbrt/ncbrt);
+        P[i].Pos[1] = (PartManager->BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
+        P[i].Pos[2] = (PartManager->BoxSize/ncbrt) * (i % ncbrt);
     }
     /*Allocate tree*/
     /*Base pointer*/
@@ -306,19 +306,19 @@ void do_random_test(gsl_rng * r, const int numpart, const ForceTree tb, DomainDe
         P[i].Type = 1;
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = BoxSize * gsl_rng_uniform(r);
+            P[i].Pos[j] = PartManager->BoxSize * gsl_rng_uniform(r);
     }
     for(i=numpart/4; i<3*numpart/4; i++) {
         P[i].Type = 1;
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = BoxSize/2 + BoxSize/8 * exp(pow(gsl_rng_uniform(r)-0.5,2));
+            P[i].Pos[j] = PartManager->BoxSize/2 + PartManager->BoxSize/8 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
     for(i=3*numpart/4; i<numpart; i++) {
         P[i].Type = 1;
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = BoxSize*0.1 + BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
+            P[i].Pos[j] = PartManager->BoxSize*0.1 + PartManager->BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
     do_tree_test(numpart, tb, ddecomp);
 }
@@ -371,7 +371,9 @@ void trivial_domain(DomainDecomp * ddecomp)
 static int setup_tree(void **state) {
     /*Set up the important parts of the All structure.*/
     /*Particles should not be outside this*/
-    BoxSize = 8;
+    memset(PartManager, 0, sizeof(PartManager[0]));
+    memset(SlotsManager, 0, sizeof(SlotsManager[0]));
+    PartManager->BoxSize = 8;
     init_forcetree_params(2);
     /*Set up the top-level domain grid*/
     struct forcetree_testdata *data = malloc(sizeof(struct forcetree_testdata));

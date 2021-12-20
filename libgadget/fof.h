@@ -70,7 +70,7 @@ typedef struct FOFGroups
 /* Computes the Group structure, saved as a global array below.
  * If StoreGrNr is true, this writes to GrNr in partmanager.h.
  * Note this over-writes PeanoKey and means the tree cannot be rebuilt.*/
-FOFGroups fof_fof(DomainDecomp * ddecomp, const double BoxSize, const int StoreGrNr, MPI_Comm Comm);
+FOFGroups fof_fof(DomainDecomp * ddecomp, const int StoreGrNr, MPI_Comm Comm);
 
 /*Frees the Group structure*/
 void fof_finish(FOFGroups * fof);

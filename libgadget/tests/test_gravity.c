@@ -32,7 +32,6 @@ struct forcetree_testdata
     gsl_rng * r;
 };
 static const double G = 43.0071;
-static double BoxSize;
 
 static void
 grav_force(const int this, const int other, const double * offset, double * accns)
@@ -134,7 +133,7 @@ static void force_direct(double * accn)
             for(zz=-repeat; zz <= repeat; zz++)
             {
                 int i;
-                double offset[3] = {BoxSize * xx, BoxSize * yy, BoxSize * zz};
+                double offset[3] = {PartManager->BoxSize * xx, PartManager->BoxSize * yy, PartManager->BoxSize * zz};
                 for(i = 0; i < PartManager->NumPart; i++) {
                     int j;
                     for(j = i+1; j < PartManager->NumPart; j++)
@@ -159,14 +158,14 @@ static int check_against_force_direct(double ErrTolForceAcc)
     return 0;
 }
 
-static void do_force_test(double BoxSize, int Nmesh, double Asmth, double ErrTolForceAcc, int direct)
+static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int direct)
 {
     /*Sort by peano key so this is more realistic*/
     int i;
     #pragma omp parallel for
     for(i=0; i<PartManager->NumPart; i++) {
         P[i].Type = 1;
-        P[i].Key = PEANO(P[i].Pos, BoxSize);
+        P[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
         P[i].Mass = 1;
         P[i].ID = i;
         P[i].TimeBin = 0;
@@ -180,9 +179,9 @@ static void do_force_test(double BoxSize, int Nmesh, double Asmth, double ErrTol
     domain_decompose_full(&ddecomp);
 
     PetaPM pm = {0};
-    gravpm_init_periodic(&pm, BoxSize, Asmth, Nmesh, G);
+    gravpm_init_periodic(&pm, PartManager->BoxSize, Asmth, Nmesh, G);
     ForceTree Tree = {0};
-    force_tree_rebuild(&Tree, &ddecomp, BoxSize, 1, 1, NULL);
+    force_tree_rebuild(&Tree, &ddecomp, 1, 1, NULL);
     gravshort_fill_ntab(SHORTRANGE_FORCE_WINDOW_TYPE_EXACT, Asmth);
     /* Setup cosmology*/
     Cosmology CP;
@@ -196,7 +195,7 @@ static void do_force_test(double BoxSize, int Nmesh, double Asmth, double ErrTol
     init_cosmology(&CP, 0.01);
 
     gravpm_force(&pm, &Tree, &CP, 0.1, CM_PER_MPC/1000., ".", 0, 0.01, 0, 2, 1);
-    force_tree_rebuild(&Tree, &ddecomp, BoxSize, 1, 1, NULL);
+    force_tree_rebuild(&Tree, &ddecomp, 1, 1, NULL);
     const double rho0 = CP.Omega0 * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G);
 
     /* Barnes-Hut on first iteration*/
@@ -209,7 +208,7 @@ static void do_force_test(double BoxSize, int Nmesh, double Asmth, double ErrTol
     treeacc.FractionalGravitySoftening = 1./30.;
 
     set_gravshort_treepar(treeacc);
-    gravshort_set_softenings(BoxSize / cbrt(PartManager->NumPart));
+    gravshort_set_softenings(PartManager->BoxSize / cbrt(PartManager->NumPart));
 
     /* Twice so the opening angle is consistent*/
     grav_short_tree(&act, &pm, &Tree, rho0, 0, 2);
@@ -233,13 +232,13 @@ static void test_force_flat(void ** state) {
     int i;
     #pragma omp parallel for
     for(i=0; i<numpart; i++) {
-        P[i].Pos[0] = (BoxSize/ncbrt) * (i/ncbrt/ncbrt);
-        P[i].Pos[1] = (BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
-        P[i].Pos[2] = (BoxSize/ncbrt) * (i % ncbrt);
+        P[i].Pos[0] = (PartManager->BoxSize/ncbrt) * (i/ncbrt/ncbrt);
+        P[i].Pos[1] = (PartManager->BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
+        P[i].Pos[2] = (PartManager->BoxSize/ncbrt) * (i % ncbrt);
     }
     PartManager->NumPart = numpart;
     PartManager->MaxPart = numpart;
-    do_force_test(BoxSize, 48, 1.5, 0.002, 0);
+    do_force_test(48, 1.5, 0.002, 0);
     /* For a homogeneous mass distribution, the force should be zero*/
     double meanerr=0, maxerr=-1;
     #pragma omp parallel for reduction(+: meanerr) reduction(max: maxerr)
@@ -283,7 +282,7 @@ static void test_force_close(void ** state) {
     }
     PartManager->NumPart = numpart;
     PartManager->MaxPart = numpart;
-    do_force_test(BoxSize, 48, 1.5, 0.002, 1);
+    do_force_test(48, 1.5, 0.002, 1);
     myfree(P);
 }
 
@@ -295,21 +294,21 @@ void do_random_test(gsl_rng * r, const int numpart)
     for(i=0; i<numpart/4; i++) {
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = BoxSize * gsl_rng_uniform(r);
+            P[i].Pos[j] = PartManager->BoxSize * gsl_rng_uniform(r);
     }
     for(i=numpart/4; i<3*numpart/4; i++) {
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = BoxSize/2 + BoxSize/8 * exp(pow(gsl_rng_uniform(r)-0.5,2));
+            P[i].Pos[j] = PartManager->BoxSize/2 + PartManager->BoxSize/8 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
     for(i=3*numpart/4; i<numpart; i++) {
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = BoxSize*0.1 + BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
+            P[i].Pos[j] = PartManager->BoxSize*0.1 + PartManager->BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
     PartManager->NumPart = numpart;
     PartManager->MaxPart = numpart;
-    do_force_test(BoxSize, 48, 1.5, 0.002, 1);
+    do_force_test(48, 1.5, 0.002, 1);
 }
 
 static void test_force_random(void ** state) {
@@ -330,7 +329,7 @@ static int setup_tree(void **state) {
     walltime_init(&CT);
     /*Set up the important parts of the All structure.*/
     /*Particles should not be outside this*/
-    BoxSize = 8;
+    PartManager->BoxSize = 8;
     PartManager->NumPart = 16*16*16;
 
     struct DomainParams dp = {0};

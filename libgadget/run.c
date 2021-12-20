@@ -248,7 +248,7 @@ run(int RestartSnapNum)
     get_mean_separation(MeanSeparation, All.BoxSize, All.NTotalInit);
 
     /* ... read initial model and initialise the times*/
-    inttime_t ti_init = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.BoxSize, All.G, All.MassTable, MeanSeparation);
+    inttime_t ti_init = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.G, All.MassTable, MeanSeparation);
 
     DriftKickTimes times = init_driftkicktime(ti_init);
 
@@ -257,7 +257,7 @@ run(int RestartSnapNum)
 
     if(All.DensityOn) {
         double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.BoxSize, All.MinEgySpec, uu_in_cgs, ti_init, All.TimeInit, MeanSeparation[0]);
+        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, uu_in_cgs, ti_init, All.TimeInit, MeanSeparation[0]);
     }
 
     /* Stored scale factor of the next black hole seeding check*/
@@ -360,7 +360,7 @@ run(int RestartSnapNum)
 
         /* Need to rebuild the force tree because all TopLeaves are out of date.*/
         ForceTree Tree = {0};
-        force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, !pairwisestep && All.TreeGravOn, All.OutputDir);
+        force_tree_rebuild(&Tree, ddecomp, HybridNuGrav, !pairwisestep && All.TreeGravOn, All.OutputDir);
 
         /* density() happens before gravity because it also initializes the predicted variables.
         * This ensures that prediction consistently uses the grav and hydro accel from the
@@ -463,8 +463,8 @@ run(int RestartSnapNum)
         {
             /* Do this before sfr and bh so the gas hsml always contains DesNumNgb neighbours.*/
             if(All.MetalReturnOn) {
-                double AvgGasMass = All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G) * pow(All.BoxSize, 3) / All.NTotalInit[0];
-                metal_return(&Act, ddecomp, &All.CP, All.Time, All.BoxSize, AvgGasMass);
+                double AvgGasMass = All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G) * pow(PartManager->BoxSize, 3) / All.NTotalInit[0];
+                metal_return(&Act, ddecomp, &All.CP, All.Time, AvgGasMass);
             }
 
             /* this will find new black hole seed halos.
@@ -477,7 +477,7 @@ run(int RestartSnapNum)
                 (during_helium_reionization(1/All.Time - 1) && need_change_helium_ionization_fraction(All.Time)))) {
 
                 /* Seeding: builds its own tree.*/
-                FOFGroups fof = fof_fof(ddecomp, All.BoxSize, 0, MPI_COMM_WORLD);
+                FOFGroups fof = fof_fof(ddecomp, 0, MPI_COMM_WORLD);
                 if(All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) {
                     fof_seed(&fof, &Act, MPI_COMM_WORLD);
                     TimeNextSeedingCheck = All.Time * All.TimeBetweenSeedingSearch;
@@ -485,14 +485,14 @@ run(int RestartSnapNum)
 
                 if(during_helium_reionization(1/All.Time - 1)) {
                     /* Helium reionization by switching on quasar bubbles*/
-                    do_heiii_reionization(All.Time, &fof, ddecomp, &All.CP, All.BoxSize, All.UnitEnergy_in_cgs / All.UnitMass_in_g, FdHelium);
+                    do_heiii_reionization(All.Time, &fof, ddecomp, &All.CP, All.UnitEnergy_in_cgs / All.UnitMass_in_g, FdHelium);
                 }
                 fof_finish(&fof);
             }
 
             if(is_PM) {
                 /*Rebuild the force tree we freed in gravpm to save memory. Means might be two trees during FOF.*/
-                force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, 0, All.OutputDir);
+                force_tree_rebuild(&Tree, ddecomp, HybridNuGrav, 0, All.OutputDir);
             }
 
             /* Black hole accretion and feedback */
@@ -542,7 +542,7 @@ run(int RestartSnapNum)
         FOFGroups fof = {0};
         if(WriteFOF) {
             /* Compute FOF and assign GrNr so it can be written in checkpoint.*/
-            fof = fof_fof(ddecomp, All.BoxSize, 1, MPI_COMM_WORLD);
+            fof = fof_fof(ddecomp, 1, MPI_COMM_WORLD);
         }
 
         /* WriteFOF just reminds the checkpoint code to save GroupID*/
@@ -617,7 +617,7 @@ update_random_offset(double * rel_random_shift)
         /* Upstream Gadget uses a random fraction of the box, but since all we need
          * is to adjust the tree openings, and the tree force is zero anyway on the
          * scale of a few PM grid cells, this seems enough.*/
-        rr *= All.RandomParticleOffset * All.BoxSize / All.Nmesh;
+        rr *= All.RandomParticleOffset * PartManager->BoxSize / All.Nmesh;
         /* Subtract the old random shift first.*/
         rel_random_shift[i] = rr - PartManager->CurrentParticleOffset[i];
         PartManager->CurrentParticleOffset[i] = rr;

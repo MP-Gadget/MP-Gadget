@@ -517,7 +517,7 @@ ionize_all_part(int qso_ind, int * qso_cand, struct QSOPriv priv, ForceTree * tr
  * Keeps adding new quasars until need_more_quasars() returns 0.
  */
 static void
-turn_on_quasars(double atime, FOFGroups * fof, DomainDecomp * ddecomp, Cosmology * CP, double BoxSize, double uu_in_cgs, FILE * FdHelium)
+turn_on_quasars(double atime, FOFGroups * fof, DomainDecomp * ddecomp, Cosmology * CP, double uu_in_cgs, FILE * FdHelium)
 {
     int ncand = 0;
     int * qso_cand = NULL;
@@ -568,7 +568,7 @@ turn_on_quasars(double atime, FOFGroups * fof, DomainDecomp * ddecomp, Cosmology
     }
     message(0, "HeII: Built quasar candidate list from %d quasars\n", ncand_tot);
     ForceTree gasTree = {0};
-    force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, BoxSize, 0, NULL);
+    force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, 0, NULL);
     for(iteration = 0; curionfrac < desired_ion_frac; iteration++){
         /* Get a new quasar*/
         int new_qso = choose_QSO_halo(ncand, &ncand_before, &ncand_tot, fof->TotNgroups+iteration);
@@ -594,8 +594,8 @@ turn_on_quasars(double atime, FOFGroups * fof, DomainDecomp * ddecomp, Cosmology
             int k;
             for(k = 0; k < 3; k++) {
                 qso_pos[k] = fof->Group[qplace].CM[k]- PartManager->CurrentParticleOffset[k];
-                while(qso_pos[k] > BoxSize) qso_pos[k] -= BoxSize;
-                while(qso_pos[k] <= 0) qso_pos[k] += BoxSize;
+                while(qso_pos[k] > PartManager->BoxSize) qso_pos[k] -= PartManager->BoxSize;
+                while(qso_pos[k] <= 0) qso_pos[k] += PartManager->BoxSize;
             }
             message(1, "HeII: Quasar %d changed the HeIII ionization fraction to %g, ionizing %ld\n", qplace, curionfrac, tot_qso_ionized);
         }
@@ -637,7 +637,7 @@ turn_on_quasars(double atime, FOFGroups * fof, DomainDecomp * ddecomp, Cosmology
 
 /* Starts reionization by selecting the first halo and flagging all particles in the first HeIII bubble*/
 void
-do_heiii_reionization(double atime, FOFGroups * fof, DomainDecomp * ddecomp, Cosmology * CP, double BoxSize, double uu_in_cgs, FILE * FdHelium)
+do_heiii_reionization(double atime, FOFGroups * fof, DomainDecomp * ddecomp, Cosmology * CP, double uu_in_cgs, FILE * FdHelium)
 {
     if(!QSOLightupParams.QSOLightupOn)
         return;
@@ -650,7 +650,7 @@ do_heiii_reionization(double atime, FOFGroups * fof, DomainDecomp * ddecomp, Cos
 
     walltime_measure("/Misc");
     //message(0, "HeII: Reionization initiated.\n");
-    turn_on_quasars(atime, fof, ddecomp, CP, BoxSize, uu_in_cgs, FdHelium);
+    turn_on_quasars(atime, fof, ddecomp, CP, uu_in_cgs, FdHelium);
 }
 
 int

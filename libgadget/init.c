@@ -45,16 +45,16 @@ set_init_params(ParameterSet * ps)
     MPI_Bcast(&InitParams, sizeof(InitParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
-static void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int MassiveNuLinRespOn, int generations, double BoxSize, double G, double * MassTable);
-static void check_positions(struct part_manager_type * PartManager, const double BoxSize);
-static void check_smoothing_length(struct part_manager_type * PartManager, double * MeanSpacing, const double BoxSize);
+static void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int MassiveNuLinRespOn, int generations, double G, double * MassTable);
+static void check_positions(struct part_manager_type * PartManager);
+static void check_smoothing_length(struct part_manager_type * PartManager, double * MeanSpacing);
 
 /*! This function reads the initial conditions, and allocates storage for the
  *  tree(s). Various variables of the particle data are initialised and An
  *  intial domain decomposition is performed. If SPH particles are present,
  *  the initial SPH smoothing lengths are determined.
  */
-inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMax, Cosmology * CP, int SnapshotWithFOF, int MassiveNuLinRespOn, double BoxSize, double G, double * MassTable, double * MeanSeparation)
+inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMax, Cosmology * CP, int SnapshotWithFOF, int MassiveNuLinRespOn, double G, double * MassTable, double * MeanSeparation)
 {
     int i;
 
@@ -88,12 +88,12 @@ inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMa
 
     domain_test_id_uniqueness(PartManager);
 
-    check_omega(PartManager, CP, MassiveNuLinRespOn, get_generations(), BoxSize, G, MassTable);
+    check_omega(PartManager, CP, MassiveNuLinRespOn, get_generations(), G, MassTable);
 
-    check_positions(PartManager, BoxSize);
+    check_positions(PartManager);
 
     if(RestartSnapNum == -1)
-        check_smoothing_length(PartManager, MeanSeparation, BoxSize);
+        check_smoothing_length(PartManager, MeanSeparation);
 
     /* As the above will mostly take place
      * on Task 0, there will be a lot of imbalance*/
@@ -128,7 +128,7 @@ inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMa
             }
         }
 
-        P[i].Key = PEANO(P[i].Pos, BoxSize);
+        P[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
 
         if(P[i].Type != 0) continue;
 
@@ -168,7 +168,7 @@ inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMa
 /*! This routine computes the mass content of the box and compares it to the
  * specified value of Omega-matter.  If discrepant, the run is terminated.
  */
-void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int MassiveNuLinRespOn, int generations, double BoxSize, double G, double * MassTable)
+void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int MassiveNuLinRespOn, int generations, double G, double * MassTable)
 {
     double mass = 0, masstot, omega;
     int i, badmass = 0;
@@ -192,7 +192,7 @@ void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int Mas
         message(0, "Warning: recovering from %ld Mass entries corrupted on disc\n",totbad);
 
     omega =
-        masstot / (BoxSize * BoxSize * BoxSize) / (3 * CP->Hubble * CP->Hubble / (8 * M_PI * G));
+        masstot / (PartManager->BoxSize * PartManager->BoxSize * PartManager->BoxSize) / (3 * CP->Hubble * CP->Hubble / (8 * M_PI * G));
 
     /*Add the density for analytically follows massive neutrinos*/
     if(MassiveNuLinRespOn)
@@ -208,7 +208,7 @@ void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int Mas
  * If not, there is likely a bug in the IC generator and we abort.
  * It also checks for multiple zeros in the positions, guarding against a common fs bug.
  */
-void check_positions(struct part_manager_type * PartManager, const double BoxSize)
+void check_positions(struct part_manager_type * PartManager)
 {
     int i;
     int numzero = 0;
@@ -219,8 +219,8 @@ void check_positions(struct part_manager_type * PartManager, const double BoxSiz
         int j;
         double * Pos = PartManager->Base[i].Pos;
         for(j=0; j<3; j++) {
-            if(Pos[j] < 0 || Pos[j] > BoxSize || !isfinite(Pos[j]))
-                endrun(0,"Particle %d is outside the box (L=%g) at (%g %g %g)\n",i,BoxSize, Pos[0], Pos[1], Pos[2]);
+            if(Pos[j] < 0 || Pos[j] > PartManager->BoxSize || !isfinite(Pos[j]))
+                endrun(0,"Particle %d is outside the box (L=%g) at (%g %g %g)\n",i, PartManager->BoxSize, Pos[0], Pos[1], Pos[2]);
         }
         if((Pos[0] < 1e-35) && (Pos[1] < 1e-35) && (Pos[2] < 1e-35)) {
             numzero++;
@@ -237,7 +237,7 @@ void check_positions(struct part_manager_type * PartManager, const double BoxSiz
  *  Guards against a problem writing the snapshot. Matters because
  *  a very large initial smoothing length will cause density() to go crazy.
  */
-void check_smoothing_length(struct part_manager_type * PartManager, double * MeanSpacing, const double BoxSize)
+void check_smoothing_length(struct part_manager_type * PartManager, double * MeanSpacing)
 {
     int i;
     int numprob = 0;
@@ -246,7 +246,7 @@ void check_smoothing_length(struct part_manager_type * PartManager, double * Mea
     for(i=0; i< PartManager->NumPart; i++){
         if(P[i].Type != 5 && P[i].Type != 0)
             continue;
-        if(P[i].Hsml > BoxSize || P[i].Hsml <= 0) {
+        if(P[i].Hsml > PartManager->BoxSize || P[i].Hsml <= 0) {
             P[i].Hsml = MeanSpacing[P[i].Type];
             numprob++;
             lastprob = i;
@@ -256,12 +256,12 @@ void check_smoothing_length(struct part_manager_type * PartManager, double * Mea
         message(5, "Bad smoothing lengths %d last bad %d hsml %g id %ld\n", numprob, lastprob, P[lastprob].Hsml, P[lastprob].ID);
 }
 
-void get_mean_separation(double * MeanSeparation, double BoxSize, int64_t * NTotalInit)
+void get_mean_separation(double * MeanSeparation, int64_t * NTotalInit)
 {
     int i;
     for(i = 0; i < 6; i++) {
         if(NTotalInit[i] > 0)
-            MeanSeparation[i] = BoxSize / pow(NTotalInit[i], 1.0 / 3);
+            MeanSeparation[i] = PartManager->BoxSize / pow(NTotalInit[i], 1.0 / 3);
     }
 }
 
@@ -323,7 +323,7 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, Cosmo
  *  then iterate if needed to find the right smoothing length.
  */
 void
-setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * CP, int BlackHoleOn, double BoxSize, double MinEgySpec, double uu_in_cgs, const inttime_t Ti_Current, const double atime, const double MeanGasSeparation)
+setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * CP, int BlackHoleOn, double MinEgySpec, double uu_in_cgs, const inttime_t Ti_Current, const double atime, const double MeanGasSeparation)
 {
     int i;
     const double a3 = pow(atime, 3);
@@ -338,7 +338,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
 //
     ForceTree Tree = {0};
     /* Need moments because we use them to set Hsml*/
-    force_tree_rebuild(&Tree, ddecomp, BoxSize, 0, 1, NULL);
+    force_tree_rebuild(&Tree, ddecomp, 0, 1, NULL);
 
     if(RestartSnapNum == -1)
     {

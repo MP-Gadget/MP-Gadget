@@ -365,11 +365,11 @@ static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm) {
     MPI_Allreduce(npartLocal, npartTotal, 6, MPI_INT64, MPI_SUM, Comm);
 
     /* conversion from peculiar velocity to RSD */
-    double RSD = 1.0 / (All.cf.a * All.cf.hubble);
+    double RSD = 1.0 / (All.Time * All.cf.hubble);
 
     int pecvel = GetUsePeculiarVelocity();
     if(!pecvel) {
-        RSD /= All.cf.a; /* Conversion from internal velocity to RSD */
+        RSD /= All.Time; /* Conversion from internal velocity to RSD */
     }
     big_block_set_attr(&bh, "NumPartInGroupTotal", npartTotal, "u8", 6);
     big_block_set_attr(&bh, "NumFOFGroupsTotal", &TotNgroups, "u8", 1);

@@ -92,13 +92,13 @@ void runtests(int RestartSnapNum)
     double MeanSeparation[6] = {0};
     get_mean_separation(MeanSeparation, All.BoxSize, All.NTotalInit);
 
-    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.BoxSize, All.G, All.MassTable, MeanSeparation);
+    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.G, All.MassTable, MeanSeparation);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
     if(All.DensityOn) {
         double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.BoxSize, All.MinEgySpec, uu_in_cgs, Ti_Current, All.TimeInit, MeanSeparation[0]);
+        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, uu_in_cgs, Ti_Current, All.TimeInit, MeanSeparation[0]);
     }
 
     struct IOTable IOTable = {0};
@@ -112,9 +112,9 @@ void runtests(int RestartSnapNum)
     rebuild_activelist(&Act, &times, 0);
 
     ForceTree Tree = {0};
-    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1, 1, All.OutputDir);
+    force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
     gravpm_force(&pm, &Tree, &All.CP, All.Time, All.UnitLength_in_cm, All.OutputDir, All.MassiveNuLinRespOn, All.TimeIC, All.HybridNeutrinosOn, All.FastParticleType, All.BlackHoleOn);
-    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1, 1, All.OutputDir);
+    force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
 
     struct gravshort_tree_params origtreeacc = get_gravshort_treepar();
     struct gravshort_tree_params treeacc = origtreeacc;
@@ -177,9 +177,9 @@ void runtests(int RestartSnapNum)
     treeacc = origtreeacc;
     force_tree_free(&Tree);
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh/2., All.G);
-    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1, 1, All.OutputDir);
+    force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
     gravpm_force(&pm, &Tree, &All.CP, All.Time, All.UnitLength_in_cm, All.OutputDir, All.MassiveNuLinRespOn, All.TimeIC, All.HybridNeutrinosOn, All.FastParticleType, All.BlackHoleOn);
-    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, 1, 1, All.OutputDir);
+    force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
     set_gravshort_treepar(treeacc);
     grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
     grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
@@ -207,13 +207,13 @@ runfof(int RestartSnapNum)
     double MeanSeparation[6] = {0};
     get_mean_separation(MeanSeparation, All.BoxSize, All.NTotalInit);
 
-    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.BoxSize, All.G, All.MassTable, MeanSeparation);
+    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.G, All.MassTable, MeanSeparation);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
     if(All.DensityOn) {
         double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.BoxSize, All.MinEgySpec, uu_in_cgs, Ti_Current, All.TimeInit, MeanSeparation[0]);
+        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, uu_in_cgs, Ti_Current, All.TimeInit, MeanSeparation[0]);
     }
 
     DriftKickTimes times = init_driftkicktime(Ti_Current);
@@ -229,7 +229,7 @@ runfof(int RestartSnapNum)
             GradRho = mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
             /*Allocate the memory for predicted SPH data.*/
             struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
-            force_tree_rebuild(&gasTree, ddecomp, All.BoxSize, HybridNuGrav, 0, All.OutputDir);
+            force_tree_rebuild(&gasTree, ddecomp, HybridNuGrav, 0, All.OutputDir);
             /* computes GradRho with a treewalk. No hsml update as done in init().*/
             density(&Act, 0, 0, All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, &gasTree);
             force_tree_free(&gasTree);
@@ -240,7 +240,7 @@ runfof(int RestartSnapNum)
         if(GradRho)
             myfree(GradRho);
     }
-    FOFGroups fof = fof_fof(ddecomp, All.BoxSize, 1, MPI_COMM_WORLD);
+    FOFGroups fof = fof_fof(ddecomp, 1, MPI_COMM_WORLD);
     fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, RestartSnapNum, All.PartAllocFactor, All.StarformationOn, All.BlackHoleOn, MPI_COMM_WORLD);
     fof_finish(&fof);
 }
@@ -255,19 +255,19 @@ runpower(int RestartSnapNum)
     double MeanSeparation[6] = {0};
     get_mean_separation(MeanSeparation, All.BoxSize, All.NTotalInit);
 
-    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.BoxSize, All.G, All.MassTable, MeanSeparation);
+    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.G, All.MassTable, MeanSeparation);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
     if(All.DensityOn) {
         double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.BoxSize, All.MinEgySpec, uu_in_cgs, Ti_Current, All.TimeInit, MeanSeparation[0]);
+        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, uu_in_cgs, Ti_Current, All.TimeInit, MeanSeparation[0]);
     }
 
     /*PM needs a tree*/
     ForceTree Tree = {0};
     int HybridNuGrav = All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime;
-    force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, 1, All.OutputDir);
+    force_tree_rebuild(&Tree, ddecomp, HybridNuGrav, 1, All.OutputDir);
     gravpm_force(&pm, &Tree, &All.CP, All.Time, All.UnitLength_in_cm, All.OutputDir, All.MassiveNuLinRespOn, All.TimeIC, All.HybridNeutrinosOn, All.FastParticleType, 1);
     force_tree_free(&Tree);
 }
