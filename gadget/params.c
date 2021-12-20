@@ -17,6 +17,7 @@
 #include <libgadget/hydra.h>
 #include <libgadget/fof.h>
 #include <libgadget/init.h>
+#include <libgadget/run.h>
 #include <libgadget/timebinmgr.h>
 #include <libgadget/petaio.h>
 #include <libgadget/cooling_qso_lightup.h>
