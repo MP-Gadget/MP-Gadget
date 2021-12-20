@@ -383,19 +383,16 @@ petaio_read_header(int num)
 void
 petaio_read_snapshot(int num, MPI_Comm Comm)
 {
-    char * fname;
     struct IOTable IOTable = {0};
-
     register_io_blocks(&IOTable, 0);
 
     if(num == -1) {
-        fname = fastpm_strdup_printf("%s", All.InitCondFile);
         /*
          *  IC doesn't have entropy or energy; always use the
          *  InitTemp in paramfile, then use init.c to convert to
          *  entropy.
          * */
-        petaio_read_internal(fname, 1, &IOTable, Comm);
+        petaio_read_internal(All.InitCondFile, 1, &IOTable, Comm);
 
         int i;
         /* touch up the mass -- IC files save mass in header */
@@ -417,13 +414,14 @@ petaio_read_snapshot(int num, MPI_Comm Comm)
 
         }
     } else {
-        fname = fastpm_strdup_printf("%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
+        char * fname = fastpm_strdup_printf("%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
         /*
          * we always save the Entropy, init.c will not mess with the entropy
          * */
         petaio_read_internal(fname, 0, &IOTable, Comm);
+        myfree(fname);
     }
-    myfree(fname);
+    destroy_io_blocks(&IOTable);
 }
 
 
