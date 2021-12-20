@@ -386,6 +386,10 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
             /* recover from a poor initial guess */
             if(P[i].Hsml > 500.0 * MeanGasSeparation)
                 P[i].Hsml = MeanGasSeparation;
+
+            if(P[i].Hsml <= 0)
+                endrun(5, "Bad hsml guess: i=%d, mass = %g type %d hsml %g no %d len %d treemass %g\n",
+                       i, P[i].Mass, P[i].Type, P[i].Hsml, no, Tree.Nodes[no].len, Tree.Nodes[no].mom.mass);
         }
     }
     /* When we restart, validate the SPH properties of the particles.
