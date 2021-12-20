@@ -653,7 +653,7 @@ get_long_range_timestep_dloga(void)
         if(count_sum[type] > 0)
         {
             double omega, dmean, dloga1;
-            const double asmth = All.Asmth * All.BoxSize / All.Nmesh;
+            const double asmth = All.Asmth * PartManager->BoxSize / All.Nmesh;
             if(type == 0 || (type == 4 && All.StarformationOn)
                 || (type == 5 && All.BlackHoleOn)
                 ) {

@@ -272,7 +272,7 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
     int MaxPart = (int) (All.PartAllocFactor * TotNumPartInit / NTask);
 
     /*Allocate the particle memory*/
-    particle_alloc_memory(MaxPart);
+    particle_alloc_memory(All.BoxSize, MaxPart);
 
     int64_t NLocal[6];
     for(ptype = 0; ptype < 6; ptype ++) {
@@ -759,8 +759,8 @@ static void GTPosition(int i, double * out, void * baseptr, void * smanptr) {
     int d;
     for(d = 0; d < 3; d ++) {
         out[d] = part[i].Pos[d] - PartManager->CurrentParticleOffset[d];
-        while(out[d] > All.BoxSize) out[d] -= All.BoxSize;
-        while(out[d] <= 0) out[d] += All.BoxSize;
+        while(out[d] > PartManager->BoxSize) out[d] -= PartManager->BoxSize;
+        while(out[d] <= 0) out[d] += PartManager->BoxSize;
     }
 }
 
@@ -882,8 +882,8 @@ static void GTBlackholeMinPotPos(int i, double * out, void * baseptr, void * sma
     int d;
     for(d = 0; d < 3; d ++) {
         out[d] = sl[PI].MinPotPos[d] - PartManager->CurrentParticleOffset[d];
-        while(out[d] > All.BoxSize) out[d] -= All.BoxSize;
-        while(out[d] <= 0) out[d] += All.BoxSize;
+        while(out[d] > PartManager->BoxSize) out[d] -= PartManager->BoxSize;
+        while(out[d] <= 0) out[d] += PartManager->BoxSize;
     }
 }
 
