@@ -244,11 +244,8 @@ run(int RestartSnapNum)
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.G);
 
-    double MeanSeparation[6] = {0};
-    get_mean_separation(MeanSeparation, All.BoxSize, All.NTotalInit);
-
     /* ... read initial model and initialise the times*/
-    inttime_t ti_init = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.G, All.MassTable, MeanSeparation);
+    inttime_t ti_init = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.G, All.MassTable, All.NTotalInit);
 
     DriftKickTimes times = init_driftkicktime(ti_init);
 
@@ -257,7 +254,7 @@ run(int RestartSnapNum)
 
     if(All.DensityOn) {
         double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, uu_in_cgs, ti_init, All.TimeInit, MeanSeparation[0]);
+        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, uu_in_cgs, ti_init, All.TimeInit, All.NTotalInit[0]);
     }
 
     /* Stored scale factor of the next black hole seeding check*/

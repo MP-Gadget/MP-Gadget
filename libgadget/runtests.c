@@ -89,16 +89,14 @@ void runtests(int RestartSnapNum)
     DomainDecomp ddecomp[1] = {0};
     /* So we can run a test on the final snapshot*/
     All.TimeMax = All.TimeInit * 1.1;
-    double MeanSeparation[6] = {0};
-    get_mean_separation(MeanSeparation, All.BoxSize, All.NTotalInit);
 
-    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.G, All.MassTable, MeanSeparation);
+    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.G, All.MassTable, All.NTotalInit);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
     if(All.DensityOn) {
         double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, uu_in_cgs, Ti_Current, All.TimeInit, MeanSeparation[0]);
+        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, uu_in_cgs, Ti_Current, All.TimeInit, All.NTotalInit[0]);
     }
 
     struct IOTable IOTable = {0};
@@ -204,16 +202,14 @@ runfof(int RestartSnapNum)
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.G);
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
-    double MeanSeparation[6] = {0};
-    get_mean_separation(MeanSeparation, All.BoxSize, All.NTotalInit);
 
-    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.G, All.MassTable, MeanSeparation);
+    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.G, All.MassTable, All.NTotalInit);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
     if(All.DensityOn) {
         double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, uu_in_cgs, Ti_Current, All.TimeInit, MeanSeparation[0]);
+        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, uu_in_cgs, Ti_Current, All.TimeInit, All.NTotalInit[0]);
     }
 
     DriftKickTimes times = init_driftkicktime(Ti_Current);
@@ -252,16 +248,14 @@ runpower(int RestartSnapNum)
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.G);
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
-    double MeanSeparation[6] = {0};
-    get_mean_separation(MeanSeparation, All.BoxSize, All.NTotalInit);
 
-    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.G, All.MassTable, MeanSeparation);
+    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.G, All.MassTable, All.NTotalInit);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
     if(All.DensityOn) {
         double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, uu_in_cgs, Ti_Current, All.TimeInit, MeanSeparation[0]);
+        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, uu_in_cgs, Ti_Current, All.TimeInit, All.NTotalInit[0]);
     }
 
     /*PM needs a tree*/

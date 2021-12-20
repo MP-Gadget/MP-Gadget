@@ -4,6 +4,7 @@
 #include <mpi.h>
 #include <gsl/gsl_sf_gamma.h>
 
+#include "init.h"
 #include "utils.h"
 
 #include "cooling.h"
@@ -45,6 +46,7 @@ set_init_params(ParameterSet * ps)
     MPI_Bcast(&InitParams, sizeof(InitParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
+static void get_mean_separation(double * MeanSeparation, const double BoxSize, const int64_t * NTotalInit);
 static void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int MassiveNuLinRespOn, int generations, double G, double * MassTable);
 static void check_positions(struct part_manager_type * PartManager);
 static void check_smoothing_length(struct part_manager_type * PartManager, double * MeanSpacing);
@@ -54,7 +56,7 @@ static void check_smoothing_length(struct part_manager_type * PartManager, doubl
  *  intial domain decomposition is performed. If SPH particles are present,
  *  the initial SPH smoothing lengths are determined.
  */
-inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMax, Cosmology * CP, int SnapshotWithFOF, int MassiveNuLinRespOn, double G, double * MassTable, double * MeanSeparation)
+inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMax, Cosmology * CP, int SnapshotWithFOF, int MassiveNuLinRespOn, double G, double * MassTable, const int64_t * NTotalInit)
 {
     int i;
 
@@ -91,6 +93,10 @@ inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMa
     check_omega(PartManager, CP, MassiveNuLinRespOn, get_generations(), G, MassTable);
 
     check_positions(PartManager);
+
+    double MeanSeparation[6] = {0};
+
+    get_mean_separation(MeanSeparation, PartManager->BoxSize, NTotalInit);
 
     if(RestartSnapNum == -1)
         check_smoothing_length(PartManager, MeanSeparation);
@@ -256,12 +262,12 @@ void check_smoothing_length(struct part_manager_type * PartManager, double * Mea
         message(5, "Bad smoothing lengths %d last bad %d hsml %g id %ld\n", numprob, lastprob, P[lastprob].Hsml, P[lastprob].ID);
 }
 
-void get_mean_separation(double * MeanSeparation, int64_t * NTotalInit)
+void get_mean_separation(double * MeanSeparation, const double BoxSize, const int64_t * NTotalInit)
 {
     int i;
     for(i = 0; i < 6; i++) {
         if(NTotalInit[i] > 0)
-            MeanSeparation[i] = PartManager->BoxSize / pow(NTotalInit[i], 1.0 / 3);
+            MeanSeparation[i] = BoxSize / pow(NTotalInit[i], 1.0 / 3);
     }
 }
 
@@ -323,10 +329,12 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, Cosmo
  *  then iterate if needed to find the right smoothing length.
  */
 void
-setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * CP, int BlackHoleOn, double MinEgySpec, double uu_in_cgs, const inttime_t Ti_Current, const double atime, const double MeanGasSeparation)
+setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * CP, int BlackHoleOn, double MinEgySpec, double uu_in_cgs, const inttime_t Ti_Current, const double atime, const int64_t NTotGasInit)
 {
     int i;
     const double a3 = pow(atime, 3);
+
+    const double MeanGasSeparation = PartManager->BoxSize / pow(NTotGasInit, 1.0 / 3);
 
     int64_t tot_sph, tot_bh;
     MPI_Allreduce(&SlotsManager->info[0].size, &tot_sph, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
