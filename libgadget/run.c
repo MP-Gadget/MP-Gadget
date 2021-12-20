@@ -550,7 +550,7 @@ run(int RestartSnapNum)
 
         /* Save FOF tables after checkpoint so that if there is a FOF save bug we have particle tables available to debug it*/
         if(WriteFOF) {
-            fof_save_groups(&fof, SnapshotFileCount, MPI_COMM_WORLD);
+            fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, SnapshotFileCount, All.PartAllocFactor, All.StarformationOn, All.BlackHoleOn, MPI_COMM_WORLD);
             fof_finish(&fof);
         }
 
