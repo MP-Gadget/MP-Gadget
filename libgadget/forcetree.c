@@ -48,7 +48,7 @@ init_forcetree_params(const int FastParticleType)
 }
 
 static ForceTree
-force_tree_build(int npart, int mask, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir);
+force_tree_build(int npart, int mask, DomainDecomp * ddecomp, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir);
 
 static void
 force_treeupdate_pseudos(int no, const ForceTree * tree);
@@ -137,7 +137,7 @@ force_tree_allocated(const ForceTree * tree)
 }
 
 void
-force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir)
+force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir)
 {
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Tree construction.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
@@ -147,7 +147,7 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSiz
     }
     walltime_measure("/Misc");
 
-    *tree = force_tree_build(PartManager->NumPart, ALLMASK, ddecomp, BoxSize, HybridNuGrav, DoMoments, EmergencyOutputDir);
+    *tree = force_tree_build(PartManager->NumPart, ALLMASK, ddecomp, HybridNuGrav, DoMoments, EmergencyOutputDir);
 
     event_listen(&EventSlotsFork, force_tree_eh_slots_fork, tree);
     walltime_measure("/Tree/Build/Moments");
@@ -158,7 +158,7 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const double BoxSiz
 }
 
 void
-force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, const double BoxSize, const int HybridNuGrav, const char * EmergencyOutputDir)
+force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, const int HybridNuGrav, const char * EmergencyOutputDir)
 {
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Tree construction for types: %d.\n", mask);
@@ -169,7 +169,7 @@ force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, cons
     walltime_measure("/Misc");
 
     /* No moments*/
-    *tree = force_tree_build(PartManager->NumPart, mask, ddecomp, BoxSize, HybridNuGrav, 0, EmergencyOutputDir);
+    *tree = force_tree_build(PartManager->NumPart, mask, ddecomp, HybridNuGrav, 0, EmergencyOutputDir);
     walltime_measure("/SPH/Build");
 
     message(0, "Tree constructed (type mask: %d). First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
@@ -187,7 +187,7 @@ force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, cons
  *  particles", i.e. multipole moments of top-level nodes that lie on
  *  different CPUs. If such a node needs to be opened, the corresponding
  *  particle must be exported to that CPU. */
-ForceTree force_tree_build(int npart, int mask, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir)
+ForceTree force_tree_build(int npart, int mask, DomainDecomp * ddecomp, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir)
 {
     ForceTree tree;
 
@@ -204,8 +204,8 @@ ForceTree force_tree_build(int npart, int mask, DomainDecomp * ddecomp, const do
         /* Allocate memory. */
         tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp);
 
-        tree.BoxSize = BoxSize;
-        tree.numnodes = force_tree_create_nodes(tree, npart, mask, ddecomp, BoxSize, HybridNuGrav);
+        tree.BoxSize = PartManager->BoxSize;
+        tree.numnodes = force_tree_create_nodes(tree, npart, mask, ddecomp, HybridNuGrav);
         if(tree.numnodes >= tree.lastnode - tree.firstnode)
         {
             message(1, "Not enough tree nodes (%ld) for %d particles. Created %d\n", maxnodes, npart, tree.numnodes);
@@ -649,7 +649,7 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
 /*! Does initial creation of the nodes for the gravitational oct-tree.
  * mask is a bitfield: Only types whose bit is set are added.
  **/
-int force_tree_create_nodes(const ForceTree tb, const int npart, int mask, DomainDecomp * ddecomp, const double BoxSize, const int HybridNuGrav)
+int force_tree_create_nodes(const ForceTree tb, const int npart, int mask, DomainDecomp * ddecomp, const int HybridNuGrav)
 {
     int nnext = tb.firstnode;       /* index of first free node */
 
@@ -658,9 +658,9 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, int mask, Domai
         int i;
         struct NODE *nfreep = &tb.Nodes[nnext];	/* select first node */
 
-        nfreep->len = BoxSize*1.001;
+        nfreep->len = PartManager->BoxSize*1.001;
         for(i = 0; i < 3; i++)
-            nfreep->center[i] = BoxSize/2.;
+            nfreep->center[i] = PartManager->BoxSize/2.;
         for(i = 0; i < NMAXCHILD; i++)
             nfreep->s.suns[i] = -1;
         nfreep->s.Types = 0;

@@ -61,6 +61,106 @@ open_outputfiles(int RestartSnapNum);
 static void
 close_outputfiles(void);
 
+/*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
+ * parameter file). Please avoid adding new variables in favour of things which are local to a module.
+ */
+struct global_data_all_processes All;
+
+/*Set the global parameters*/
+void
+set_all_global_params(ParameterSet * ps)
+{
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask == 0) {
+        /* Start reading the values */
+        param_get_string2(ps, "InitCondFile", All.InitCondFile, sizeof(All.InitCondFile));
+        param_get_string2(ps, "OutputDir", All.OutputDir, sizeof(All.OutputDir));
+        param_get_string2(ps, "SnapshotFileBase", All.SnapshotFileBase, sizeof(All.SnapshotFileBase));
+        param_get_string2(ps, "FOFFileBase", All.FOFFileBase, sizeof(All.FOFFileBase));
+        param_get_string2(ps, "EnergyFile", All.EnergyFile, sizeof(All.EnergyFile));
+        All.OutputEnergyDebug = param_get_int(ps, "OutputEnergyDebug");
+        param_get_string2(ps, "CpuFile", All.CpuFile, sizeof(All.CpuFile));
+
+        All.CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
+        All.CP.RadiationOn = param_get_int(ps, "RadiationOn");
+        All.CP.Omega0 = param_get_double(ps, "Omega0");
+        All.CP.OmegaBaryon = param_get_double(ps, "OmegaBaryon");
+        All.CP.OmegaLambda = param_get_double(ps, "OmegaLambda");
+        All.CP.Omega_fld = param_get_double(ps, "Omega_fld");
+        if(All.CP.OmegaLambda > 0 && All.CP.Omega_fld > 0)
+            endrun(0, "Cannot have OmegaLambda and Omega_fld (evolving dark energy) at the same time!\n");
+        All.CP.w0_fld = param_get_double(ps,"w0_fld");
+        All.CP.wa_fld = param_get_double(ps,"wa_fld");
+        All.CP.Omega_ur = param_get_double(ps, "Omega_ur");
+        All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
+
+        All.OutputPotential = param_get_int(ps, "OutputPotential");
+        All.OutputTimebins = param_get_int(ps, "OutputTimebins");
+        All.OutputHeliumFractions = param_get_int(ps, "OutputHeliumFractions");
+        All.OutputDebugFields = param_get_int(ps, "OutputDebugFields");
+
+        All.TimeMax = param_get_double(ps, "TimeMax");
+        All.Asmth = param_get_double(ps, "Asmth");
+        All.ShortRangeForceWindowType = param_get_enum(ps, "ShortRangeForceWindowType");
+        All.Nmesh = param_get_int(ps, "Nmesh");
+
+        All.CoolingOn = param_get_int(ps, "CoolingOn");
+        All.HydroOn = param_get_int(ps, "HydroOn");
+        All.DensityOn = param_get_int(ps, "DensityOn");
+        All.TreeGravOn = param_get_int(ps, "TreeGravOn");
+        All.LightconeOn = param_get_int(ps, "LightconeOn");
+        All.FastParticleType = param_get_int(ps, "FastParticleType");
+        All.PairwiseActiveFraction = param_get_double(ps, "PairwiseActiveFraction");
+        All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
+        All.AutoSnapshotTime = param_get_double(ps, "AutoSnapshotTime");
+        All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
+        All.RandomParticleOffset = param_get_double(ps, "RandomParticleOffset");
+
+        All.PartAllocFactor = param_get_double(ps, "PartAllocFactor");
+        All.SlotsIncreaseFactor = param_get_double(ps, "SlotsIncreaseFactor");
+
+        All.SnapshotWithFOF = param_get_int(ps, "SnapshotWithFOF");
+
+        All.RandomSeed = param_get_int(ps, "RandomSeed");
+
+        All.BlackHoleOn = param_get_int(ps, "BlackHoleOn");
+        All.WriteBlackHoleDetails = param_get_int(ps,"WriteBlackHoleDetails");
+
+        All.StarformationOn = param_get_int(ps, "StarformationOn");
+        All.WindOn = param_get_int(ps, "WindOn");
+        All.MetalReturnOn = param_get_int(ps, "MetalReturnOn");
+        All.MaxDomainTimeBinDepth = param_get_int(ps, "MaxDomainTimeBinDepth");
+
+        /*Massive neutrino parameters*/
+        All.MassiveNuLinRespOn = param_get_int(ps, "MassiveNuLinRespOn");
+        All.HybridNeutrinosOn = param_get_int(ps, "HybridNeutrinosOn");
+        All.CP.MNu[0] = param_get_double(ps, "MNue");
+        All.CP.MNu[1] = param_get_double(ps, "MNum");
+        All.CP.MNu[2] = param_get_double(ps, "MNut");
+        All.HybridVcrit = param_get_double(ps, "Vcrit");
+        All.HybridNuPartTime = param_get_double(ps, "NuPartTime");
+        if(All.MassiveNuLinRespOn && !All.CP.RadiationOn)
+            endrun(2, "You have enabled (kspace) massive neutrinos without radiation, but this will give an inconsistent cosmology!\n");
+        /*End massive neutrino parameters*/
+
+        if(All.StarformationOn == 0)
+        {
+            if(All.WindOn == 1) {
+                endrun(1, "You try to use the code with wind enabled,\n"
+                          "but you did not switch on starformation.\nThis mode is not supported.\n");
+            }
+        } else {
+            if(All.CoolingOn == 0)
+            {
+                endrun(1, "You try to use the code with star formation enabled,\n"
+                          "but you did not switch on cooling.\nThis mode is not supported.\n");
+            }
+        }
+    }
+    MPI_Bcast(&All, sizeof(All), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
+
 /*! This function performs the initial set-up of the simulation. First, the
  *  parameterfile is set, then routines for setting units, reading
  *  ICs/restart-files are called, auxialiary memory is allocated, etc.
@@ -103,13 +203,12 @@ int begrun(int RestartFlag, int RestartSnapNum)
 
     init_cooling_and_star_formation(All.CoolingOn);
 
-    gravshort_set_softenings(All.MeanSeparation[1]);
     gravshort_fill_ntab(All.ShortRangeForceWindowType, All.Asmth);
 
     set_random_numbers(All.RandomSeed);
 
     if(All.LightconeOn)
-        lightcone_init(&All.CP, All.Time);
+        lightcone_init(&All.CP, All.Time, All.UnitLength_in_cm, All.OutputDir);
     return RestartSnapNum;
 }
 
@@ -143,10 +242,18 @@ run(int RestartSnapNum)
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.G);
 
-    DomainDecomp ddecomp[1] = {0};
-
     /* ... read initial model and initialise the times*/
-    DriftKickTimes times = init_driftkicktime(init(RestartSnapNum, ddecomp));
+    inttime_t ti_init = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.G, All.MassTable, All.NTotalInit);
+
+    DriftKickTimes times = init_driftkicktime(ti_init);
+
+    DomainDecomp ddecomp[1] = {0};
+    domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
+
+    if(All.DensityOn) {
+        double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, uu_in_cgs, ti_init, All.TimeInit, All.NTotalInit[0]);
+    }
 
     /* Stored scale factor of the next black hole seeding check*/
     double TimeNextSeedingCheck = All.Time;
@@ -170,7 +277,7 @@ run(int RestartSnapNum)
 
         /* Compute the list of particles that cross a lightcone and write it to disc.*/
         if(All.LightconeOn)
-            lightcone_compute(All.Time, &All.CP, Ti_Last, Ti_Next);
+            lightcone_compute(All.Time, PartManager->BoxSize, &All.CP, Ti_Last, Ti_Next);
 
         times.Ti_Current = Ti_Next;
 
@@ -212,7 +319,7 @@ run(int RestartSnapNum)
         /* at first step this is a noop */
         if(extradomain || is_PM) {
             /* Sync positions of all particles */
-            drift_all_particles(Ti_Last, times.Ti_Current, All.BoxSize, &All.CP, rel_random_shift);
+            drift_all_particles(Ti_Last, times.Ti_Current, &All.CP, rel_random_shift);
             /* full decomposition rebuilds the domain, needs keys.*/
             domain_decompose_full(ddecomp);
         } else {
@@ -221,7 +328,6 @@ run(int RestartSnapNum)
             /* If it is not a PM step, do a shorter version
              * of the ddecomp decomp which just exchanges particles.*/
             struct DriftData drift;
-            drift.BoxSize = All.BoxSize;
             drift.CP = &All.CP;
             drift.ti0 = Ti_Last;
             drift.ti1 = times.Ti_Current;
@@ -248,7 +354,7 @@ run(int RestartSnapNum)
 
         /* Need to rebuild the force tree because all TopLeaves are out of date.*/
         ForceTree Tree = {0};
-        force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, !pairwisestep && All.TreeGravOn, All.OutputDir);
+        force_tree_rebuild(&Tree, ddecomp, HybridNuGrav, !pairwisestep && All.TreeGravOn, All.OutputDir);
 
         /* density() happens before gravity because it also initializes the predicted variables.
         * This ensures that prediction consistently uses the grav and hydro accel from the
@@ -310,7 +416,7 @@ run(int RestartSnapNum)
         * or include hydro in the opening angle.*/
         if(is_PM)
         {
-            gravpm_force(&pm, &Tree);
+            gravpm_force(&pm, &Tree, &All.CP, All.Time, All.UnitLength_in_cm, All.OutputDir, All.MassiveNuLinRespOn, All.TimeIC, All.HybridNeutrinosOn, All.FastParticleType, All.BlackHoleOn);
 
             /* compute and output energy statistics if desired. */
             if(All.OutputEnergyDebug)
@@ -351,8 +457,8 @@ run(int RestartSnapNum)
         {
             /* Do this before sfr and bh so the gas hsml always contains DesNumNgb neighbours.*/
             if(All.MetalReturnOn) {
-                double AvgGasMass = All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G) * pow(All.BoxSize, 3) / All.NTotalInit[0];
-                metal_return(&Act, ddecomp, &All.CP, All.Time, All.BoxSize, AvgGasMass);
+                double AvgGasMass = All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G) * pow(PartManager->BoxSize, 3) / All.NTotalInit[0];
+                metal_return(&Act, ddecomp, &All.CP, All.Time, AvgGasMass);
             }
 
             /* this will find new black hole seed halos.
@@ -365,7 +471,7 @@ run(int RestartSnapNum)
                 (during_helium_reionization(1/All.Time - 1) && need_change_helium_ionization_fraction(All.Time)))) {
 
                 /* Seeding: builds its own tree.*/
-                FOFGroups fof = fof_fof(ddecomp, All.BoxSize, 0, MPI_COMM_WORLD);
+                FOFGroups fof = fof_fof(ddecomp, 0, MPI_COMM_WORLD);
                 if(All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) {
                     fof_seed(&fof, &Act, MPI_COMM_WORLD);
                     TimeNextSeedingCheck = All.Time * All.TimeBetweenSeedingSearch;
@@ -373,14 +479,14 @@ run(int RestartSnapNum)
 
                 if(during_helium_reionization(1/All.Time - 1)) {
                     /* Helium reionization by switching on quasar bubbles*/
-                    do_heiii_reionization(1/All.Time - 1, &fof, ddecomp, FdHelium);
+                    do_heiii_reionization(All.Time, &fof, ddecomp, &All.CP, All.UnitEnergy_in_cgs / All.UnitMass_in_g, FdHelium);
                 }
                 fof_finish(&fof);
             }
 
             if(is_PM) {
                 /*Rebuild the force tree we freed in gravpm to save memory. Means might be two trees during FOF.*/
-                force_tree_rebuild(&Tree, ddecomp, All.BoxSize, HybridNuGrav, 0, All.OutputDir);
+                force_tree_rebuild(&Tree, ddecomp, HybridNuGrav, 0, All.OutputDir);
             }
 
             /* Black hole accretion and feedback */
@@ -430,7 +536,7 @@ run(int RestartSnapNum)
         FOFGroups fof = {0};
         if(WriteFOF) {
             /* Compute FOF and assign GrNr so it can be written in checkpoint.*/
-            fof = fof_fof(ddecomp, All.BoxSize, 1, MPI_COMM_WORLD);
+            fof = fof_fof(ddecomp, 1, MPI_COMM_WORLD);
         }
 
         /* WriteFOF just reminds the checkpoint code to save GroupID*/
@@ -438,7 +544,7 @@ run(int RestartSnapNum)
 
         /* Save FOF tables after checkpoint so that if there is a FOF save bug we have particle tables available to debug it*/
         if(WriteFOF) {
-            fof_save_groups(&fof, SnapshotFileCount, MPI_COMM_WORLD);
+            fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, SnapshotFileCount, All.PartAllocFactor, All.StarformationOn, All.BlackHoleOn, MPI_COMM_WORLD);
             fof_finish(&fof);
         }
 
@@ -505,7 +611,7 @@ update_random_offset(double * rel_random_shift)
         /* Upstream Gadget uses a random fraction of the box, but since all we need
          * is to adjust the tree openings, and the tree force is zero anyway on the
          * scale of a few PM grid cells, this seems enough.*/
-        rr *= All.RandomParticleOffset * All.BoxSize / All.Nmesh;
+        rr *= All.RandomParticleOffset * PartManager->BoxSize / All.Nmesh;
         /* Subtract the old random shift first.*/
         rel_random_shift[i] = rr - PartManager->CurrentParticleOffset[i];
         PartManager->CurrentParticleOffset[i] = rr;
@@ -644,9 +750,6 @@ set_units(void)
         endrun(5, "Bad cosmology: H0 = %g OL = %g Ob = %g Og = %g Ocdm = %g\n",
                All.CP.HubbleParam, All.CP.OmegaLambda, All.CP.OmegaBaryon, All.CP.OmegaCDM);
 
-
-    if(All.InitGasTemp < 0)
-        All.InitGasTemp = All.CP.CMBTemperature / All.TimeInit;
     /*Initialise the hybrid neutrinos, after Omega_nu*/
     if(All.HybridNeutrinosOn)
         init_hybrid_nu(&All.CP.ONu.hybnu, All.CP.MNu, All.HybridVcrit, LIGHTCGS/1e5, All.HybridNuPartTime, All.CP.ONu.kBtnu);

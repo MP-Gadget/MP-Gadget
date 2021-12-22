@@ -1009,7 +1009,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             int d;
 
             for(d = 0; d < 3; d++){
-                dx[d] = NEAREST(I->base.Pos[d] - P[other].Pos[d], All.BoxSize);
+                dx[d] = NEAREST(I->base.Pos[d] - P[other].Pos[d], PartManager->BoxSize);
                 dv[d] = I->Vel[d] - P[other].Vel[d];
                 /* we include long range PM force, short range force and DF */
                 da[d] = (I->Accel[d] - P[other].GravAccel[d] - P[other].GravPM[d] - BHP(other).DFAccel[d]);

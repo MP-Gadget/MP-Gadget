@@ -18,11 +18,11 @@
 #include "fof.h"
 #include "walltime.h"
 
-static void fof_register_io_blocks(struct IOTable * IOTable);
+static void fof_register_io_blocks(int StarformationOn, int BlackHoleOn, struct IOTable * IOTable);
 static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm);
 static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * ent);
 
-static int fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, MPI_Comm Comm);
+static int fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, double FOFPartAllocFactor, MPI_Comm Comm);
 
 static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
     uint64_t * u = (uint64_t *) radix;
@@ -30,14 +30,13 @@ static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
     u[0] = f->GrNr;
 }
 
-void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_Comm Comm)
-{
+void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, int SaveParticles, double FOFPartAllocFactor, int StarformationOn, int BlackholeOn, MPI_Comm Comm) {
     int i;
     struct IOTable FOFIOTable = {0};
-    char * fname = fastpm_strdup_printf("%s/%s_%03d", All.OutputDir, All.FOFFileBase, num);
-    message(0, "saving particle in group into %s\n", fname);
+    char * fname = fastpm_strdup_printf("%s/%s_%03d", OutputDir, FOFFileBase, num);
+    message(0, "Saving particle groups into %s\n", fname);
 
-    fof_register_io_blocks(&FOFIOTable);
+    fof_register_io_blocks(StarformationOn, BlackholeOn, &FOFIOTable);
     /* sort the groups according to group-number */
     mpsort_mpi(fof->Group, fof->Ngroups, sizeof(struct Group),
             fof_radix_Group_GrNr, 8, NULL, Comm);
@@ -73,7 +72,7 @@ void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_Comm Co
         register_io_blocks(&IOTable, 1);
         struct part_manager_type halo_pman = {0};
         struct slots_manager_type halo_sman = {0};
-        if(fof_distribute_particles(&halo_pman, &halo_sman, Comm)) {
+        if(fof_distribute_particles(&halo_pman, &halo_sman, FOFPartAllocFactor, Comm)) {
             myfree(halo_sman.Base);
             myfree(halo_pman.Base);
             destroy_io_blocks(&IOTable);
@@ -111,6 +110,8 @@ void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_Comm Co
     }
 
     big_file_mpi_close(&bf, Comm);
+
+    message(0, "Group catalogues saved.\n");
 }
 
 struct PartIndex {
@@ -243,7 +244,8 @@ fof_try_particle_exchange(struct part_manager_type * halo_pman, struct slots_man
 }
 
 static int
-fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, MPI_Comm Comm) {
+fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, double FOFPartAllocFactor, MPI_Comm Comm)
+{
     int64_t i, NpigLocal = 0;
     int64_t GrNrMax = -1;   /* will mark particles that are not in any group */
     int64_t GrNrMaxGlobal = 0;
@@ -271,15 +273,16 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
                 atleast[type]++;
         }
     }
-    halo_pman->MaxPart = NpigLocal * All.PartAllocFactor;
+    halo_pman->MaxPart = NpigLocal * FOFPartAllocFactor;
     struct particle_data * halopart = mymalloc("HaloParticle", sizeof(struct particle_data) * halo_pman->MaxPart);
     halo_pman->Base = halopart;
     halo_pman->NumPart = NpigLocal;
+    halo_pman->BoxSize = PartManager->BoxSize;
     memcpy(halo_pman->CurrentParticleOffset, PartManager->CurrentParticleOffset, 3 * sizeof(PartManager->CurrentParticleOffset[0]));
 
     /* We leave extra space in the hope that we can avoid compacting slots in the fof exchange*/
     for(i = 0; i < 6; i ++)
-        atleast[i]*= All.PartAllocFactor;
+        atleast[i]*= FOFPartAllocFactor;
 
     slots_reserve(0, atleast, halo_sman);
 
@@ -362,11 +365,11 @@ static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm) {
     MPI_Allreduce(npartLocal, npartTotal, 6, MPI_INT64, MPI_SUM, Comm);
 
     /* conversion from peculiar velocity to RSD */
-    double RSD = 1.0 / (All.cf.a * All.cf.hubble);
+    double RSD = 1.0 / (All.Time * All.cf.hubble);
 
     int pecvel = GetUsePeculiarVelocity();
     if(!pecvel) {
-        RSD /= All.cf.a; /* Conversion from internal velocity to RSD */
+        RSD /= All.Time; /* Conversion from internal velocity to RSD */
     }
     big_block_set_attr(&bh, "NumPartInGroupTotal", npartTotal, "u8", 6);
     big_block_set_attr(&bh, "NumFOFGroupsTotal", &TotNgroups, "u8", 1);
@@ -400,8 +403,8 @@ static void GTFirstPos(int i, float * out, void * baseptr, void * smanptr) {
     int d;
     for(d = 0; d < 3; d ++) {
         out[d] = grp[i].base.FirstPos[d] - PartManager->CurrentParticleOffset[d];
-        while(out[d] > All.BoxSize) out[d] -= All.BoxSize;
-        while(out[d] <= 0) out[d] += All.BoxSize;
+        while(out[d] > PartManager->BoxSize) out[d] -= PartManager->BoxSize;
+        while(out[d] <= 0) out[d] += PartManager->BoxSize;
     }
 }
 
@@ -419,8 +422,8 @@ static void GTMassCenterPosition(int i, double * out, void * baseptr, void * sma
     int d;
     for(d = 0; d < 3; d ++) {
         out[d] = grp[i].CM[d] - PartManager->CurrentParticleOffset[d];
-        while(out[d] > All.BoxSize) out[d] -= All.BoxSize;
-        while(out[d] <= 0) out[d] += All.BoxSize;
+        while(out[d] > PartManager->BoxSize) out[d] -= PartManager->BoxSize;
+        while(out[d] <= 0) out[d] += PartManager->BoxSize;
     }
 }
 
@@ -458,7 +461,7 @@ SIMPLE_PROPERTY_FOF(BlackholeMass, BH_Mass, float, 1)
 SIMPLE_PROPERTY_FOF(BlackholeAccretionRate, BH_Mdot, float, 1)
 SIMPLE_PROPERTY_FOF(MassHeIonized, MassHeIonized, float, 1)
 
-static void fof_register_io_blocks(struct IOTable * IOTable) {
+static void fof_register_io_blocks(int StarformationOn, int BlackholeOn, struct IOTable * IOTable) {
     IOTable->used = 0;
     IOTable->allocated = 100;
     /* Allocate high so we can do a domain exchange,
@@ -476,16 +479,17 @@ static void fof_register_io_blocks(struct IOTable * IOTable) {
     IO_REG(LengthByType, "u4", 6, PTYPE_FOF_GROUP, IOTable);
     IO_REG(MassByType, "f4", 6, PTYPE_FOF_GROUP, IOTable);
     IO_REG(MassHeIonized, "f4", 1, PTYPE_FOF_GROUP, IOTable);
-    if(All.StarformationOn) {
+    if(StarformationOn) {
+        /* Zero if star formation is not on*/
         IO_REG(StarFormationRate, "f4", 1, PTYPE_FOF_GROUP, IOTable);
         IO_REG(GasMetalMass, "f4", 1, PTYPE_FOF_GROUP, IOTable);
         IO_REG(StellarMetalMass, "f4", 1, PTYPE_FOF_GROUP, IOTable);
-        if(All.MetalReturnOn) {
-            IO_REG(GasMetalElemMass, "f4", NMETALS, PTYPE_FOF_GROUP, IOTable);
-            IO_REG(StellarMetalElemMass, "f4", NMETALS, PTYPE_FOF_GROUP, IOTable);
-        }
+        /* Zero if metal return is not on*/
+        IO_REG(GasMetalElemMass, "f4", NMETALS, PTYPE_FOF_GROUP, IOTable);
+        IO_REG(StellarMetalElemMass, "f4", NMETALS, PTYPE_FOF_GROUP, IOTable);
     }
-    if(All.BlackHoleOn) {
+    /* Zero if black hole is not on*/
+    if(BlackholeOn) {
         IO_REG(BlackholeMass, "f4", 1, PTYPE_FOF_GROUP, IOTable);
         IO_REG(BlackholeAccretionRate, "f4", 1, PTYPE_FOF_GROUP, IOTable);
     }

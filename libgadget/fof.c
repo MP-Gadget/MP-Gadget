@@ -109,7 +109,7 @@ static void fof_reduce_groups(
 static void fof_finish_group_properties(FOFGroups * fof, double BoxSize);
 
 static int fof_compile_base(struct BaseGroup * base, int NgroupsExt, struct fof_particle_list * HaloLabel, MPI_Comm Comm);
-static void fof_compile_catalogue(FOFGroups * fof, const int NgroupsExt, struct fof_particle_list * HaloLabel, double BoxSize, MPI_Comm Comm);
+static void fof_compile_catalogue(FOFGroups * fof, const int NgroupsExt, struct fof_particle_list * HaloLabel, MPI_Comm Comm);
 
 static struct Group *
 fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt);
@@ -117,7 +117,6 @@ fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt);
 static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_Comm Comm);
 
 void fof_label_primary(struct fof_particle_list * HaloLabel, ForceTree * tree, MPI_Comm Comm);
-extern void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_Comm Comm);
 
 typedef struct {
     TreeWalkQueryBase base;
@@ -149,7 +148,7 @@ static MPI_Datatype MPI_TYPE_GROUP;
  **/
 
 FOFGroups
-fof_fof(DomainDecomp * ddecomp, const double BoxSize, const int StoreGrNr, MPI_Comm Comm)
+fof_fof(DomainDecomp * ddecomp, const int StoreGrNr, MPI_Comm Comm)
 {
     int i;
 
@@ -170,7 +169,7 @@ fof_fof(DomainDecomp * ddecomp, const double BoxSize, const int StoreGrNr, MPI_C
 
     /* We only need a tree containing primary linking particles only. No moments*/
     ForceTree dmtree = {0};
-    force_tree_rebuild_mask(&dmtree, ddecomp, fof_params.FOFPrimaryLinkTypes, BoxSize, 0, NULL);
+    force_tree_rebuild_mask(&dmtree, ddecomp, fof_params.FOFPrimaryLinkTypes, 0, NULL);
 
     /* Fill FOFP_List of primary */
     fof_label_primary(HaloLabel, &dmtree, Comm);
@@ -219,7 +218,7 @@ fof_fof(DomainDecomp * ddecomp, const double BoxSize, const int StoreGrNr, MPI_C
 
     myfree(base);
 
-    fof_compile_catalogue(&fof, NgroupsExt, HaloLabel, BoxSize, Comm);
+    fof_compile_catalogue(&fof, NgroupsExt, HaloLabel, Comm);
 
     MPIU_Barrier(Comm);
     message(0, "Finished FoF. Group properties are now allocated.. (presently allocated=%g MB)\n",
@@ -632,7 +631,7 @@ static void fof_reduce_group(void * pdst, void * psrc) {
 
 }
 
-static void add_particle_to_group(struct Group * gdst, int i, double BoxSize, int ThisTask) {
+static void add_particle_to_group(struct Group * gdst, int i, int ThisTask) {
 
     /* My local number of particles contributing to the full catalogue. */
     const int index = i;
@@ -688,7 +687,7 @@ static void add_particle_to_group(struct Group * gdst, int i, double BoxSize, in
     for(d1 = 0; d1 < 3; d1++)
     {
         double first = gdst->base.FirstPos[d1];
-        rel[d1] = fof_periodic(P[index].Pos[d1] - first, BoxSize) ;
+        rel[d1] = fof_periodic(P[index].Pos[d1] - first, PartManager->BoxSize) ;
         xyz[d1] = rel[d1] + first;
         vel[d1] = P[index].Vel[d1];
     }
@@ -833,7 +832,7 @@ fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt)
 }
 
 static void
-fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, struct fof_particle_list * HaloLabel, double BoxSize, MPI_Comm Comm)
+fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, struct fof_particle_list * HaloLabel, MPI_Comm Comm)
 {
     int i, start, ThisTask;
 
@@ -851,7 +850,7 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, struct fof_p
             if(HaloLabel[start].MinID != fof->Group[i].base.MinID) {
                 break;
             }
-            add_particle_to_group(&fof->Group[i], HaloLabel[start].Pindex, BoxSize, ThisTask);
+            add_particle_to_group(&fof->Group[i], HaloLabel[start].Pindex, ThisTask);
         }
     }
 
@@ -873,7 +872,7 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, struct fof_p
         }
     }
 
-    fof_finish_group_properties(fof, BoxSize);
+    fof_finish_group_properties(fof, PartManager->BoxSize);
 
     int64_t TotNids;
     sumup_large_ints(1, &fof->Ngroups, &fof->TotNgroups);
@@ -1110,15 +1109,10 @@ static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_C
             fof_radix_Group_OriginalTaskMinID, 16, NULL, Comm);
 }
 
-
 void
-fof_save_groups(FOFGroups * fof, int num, MPI_Comm Comm)
+fof_save_groups(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, double FOFPartAllocFactor, int StarformationOn, int BlackholeOn, MPI_Comm Comm)
 {
-    message(0, "start global sorting of group catalogues\n");
-
-    fof_save_particles(fof, num, fof_params.FOFSaveParticles, Comm);
-
-    message(0, "Group catalogues saved.\n");
+    fof_save_particles(fof, OutputDir, FOFFileBase, num, fof_params.FOFSaveParticles, FOFPartAllocFactor, StarformationOn, BlackholeOn, Comm);
 }
 
 /* FIXME: these shall goto the private member of secondary tree walk */

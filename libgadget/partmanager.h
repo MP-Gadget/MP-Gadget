@@ -80,13 +80,15 @@ extern struct part_manager_type {
      * every domain decomposition to prevent correlated
      * errors building up in the tree force. */
     double CurrentParticleOffset[3];
+    /* Current box size so we can work out periodic boundaries*/
+    double BoxSize;
 } PartManager[1];
 
 /*Compatibility define*/
 #define P PartManager->Base
 
 /*Allocate memory for the particles*/
-void particle_alloc_memory(int64_t MaxPart);
+void particle_alloc_memory(double BoxSize, int64_t MaxPart);
 
 /* Finds the correct relative position accounting for periodicity*/
 #define NEAREST(x, BoxSize) (((x)>0.5*BoxSize)?((x)-BoxSize):(((x)<-0.5*BoxSize)?((x)+BoxSize):(x)))

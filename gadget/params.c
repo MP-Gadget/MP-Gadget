@@ -17,6 +17,7 @@
 #include <libgadget/hydra.h>
 #include <libgadget/fof.h>
 #include <libgadget/init.h>
+#include <libgadget/run.h>
 #include <libgadget/timebinmgr.h>
 #include <libgadget/petaio.h>
 #include <libgadget/cooling_qso_lightup.h>
@@ -372,6 +373,7 @@ void read_parameter_file(char *fname, int * ShowBacktrace, double * MaxMemSizePe
     }
 
     /*Initialize per-module parameters.*/
+    set_all_global_params(ps);
     set_init_params(ps);
     set_petaio_params(ps);
     set_timestep_params(ps);

@@ -251,11 +251,28 @@ void petaio_read_internal(char * fname, int ic, struct IOTable * IOTable, MPI_Co
             petaio_read_neutrinos(&bf, ThisTask);
     }
 
+    int64_t TotNumPart = 0;
+    int64_t TotNumPartInit= 0;
+    for(ptype = 0; ptype < 6; ptype ++) {
+        TotNumPart += NTotal[ptype];
+        TotNumPartInit += All.NTotalInit[ptype];
+    }
+
+    message(0, "Total number of particles: %018ld\n", TotNumPart);
+
+    const char * PARTICLE_TYPE_NAMES [] = {"Gas", "DarkMatter", "Neutrino", "Unknown", "Star", "BlackHole"};
+
+    for(ptype = 0; ptype < 6; ptype ++) {
+        double MeanSeparation = All.BoxSize / pow(All.NTotalInit[ptype], 1.0 / 3);
+        message(0, "% 11s: Total: %018ld Init: %018ld Mean-Sep %g \n",
+                PARTICLE_TYPE_NAMES[ptype], NTotal[ptype], All.NTotalInit[ptype], MeanSeparation);
+    }
+
     /* sets the maximum number of particles that may reside on a processor */
-    int MaxPart = (int) (All.PartAllocFactor * All.TotNumPartInit / NTask);
+    int MaxPart = (int) (All.PartAllocFactor * TotNumPartInit / NTask);
 
     /*Allocate the particle memory*/
-    particle_alloc_memory(MaxPart);
+    particle_alloc_memory(All.BoxSize, MaxPart);
 
     int64_t NLocal[6];
     for(ptype = 0; ptype < 6; ptype ++) {
@@ -366,19 +383,16 @@ petaio_read_header(int num)
 void
 petaio_read_snapshot(int num, MPI_Comm Comm)
 {
-    char * fname;
     struct IOTable IOTable = {0};
-
     register_io_blocks(&IOTable, 0);
 
     if(num == -1) {
-        fname = fastpm_strdup_printf("%s", All.InitCondFile);
         /*
          *  IC doesn't have entropy or energy; always use the
          *  InitTemp in paramfile, then use init.c to convert to
          *  entropy.
          * */
-        petaio_read_internal(fname, 1, &IOTable, Comm);
+        petaio_read_internal(All.InitCondFile, 1, &IOTable, Comm);
 
         int i;
         /* touch up the mass -- IC files save mass in header */
@@ -400,13 +414,14 @@ petaio_read_snapshot(int num, MPI_Comm Comm)
 
         }
     } else {
-        fname = fastpm_strdup_printf("%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
+        char * fname = fastpm_strdup_printf("%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
         /*
          * we always save the Entropy, init.c will not mess with the entropy
          * */
         petaio_read_internal(fname, 0, &IOTable, Comm);
+        myfree(fname);
     }
-    myfree(fname);
+    destroy_io_blocks(&IOTable);
 }
 
 
@@ -482,7 +497,6 @@ petaio_read_header_internal(BigFile * bf) {
                     big_file_get_error_message());
     }
     double Time = 0.;
-    int ptype;
     int64_t NTotal[6];
     if(
     (0 != big_block_get_attr(&bh, "TotNumPart", NTotal, "u8", 6)) ||
@@ -537,33 +551,6 @@ petaio_read_header_internal(BigFile * bf) {
         }
     }
 
-    int64_t TotNumPart = 0;
-    All.TotNumPartInit = 0;
-    for(ptype = 0; ptype < 6; ptype ++) {
-        TotNumPart += NTotal[ptype];
-        All.TotNumPartInit += All.NTotalInit[ptype];
-        if(All.NTotalInit[ptype] > 0) {
-            All.MeanSeparation[ptype] = All.BoxSize / pow(All.NTotalInit[ptype], 1.0 / 3);
-        } else {
-            All.MeanSeparation[ptype] = 0;
-        }
-    }
-
-    message(0, "Total number of particles: %018ld\n", TotNumPart);
-
-    const char * PARTICLE_TYPE_NAMES [] = {"Gas", "DarkMatter", "Neutrino", "Unknown", "Star", "BlackHole"};
-
-    for(ptype = 0; ptype < 6; ptype ++) {
-        message(0, "% 11s: Total: %018ld Init: %018ld Mean-Sep %g \n",
-                PARTICLE_TYPE_NAMES[ptype], NTotal[ptype], All.NTotalInit[ptype], All.MeanSeparation[ptype]);
-    }
-
-    /*FIXME: check others as well */
-    /*
-    big_block_get_attr(&bh, "OmegaLambda", &All.OmegaLambda, "f8", 1);
-    big_block_get_attr(&bh, "Omega0", &All.Omega0, "f8", 1);
-    big_block_get_attr(&bh, "HubbleParam", &All.HubbleParam, "f8", 1);
-    */
     if(0 != big_block_mpi_close(&bh, MPI_COMM_WORLD)) {
         endrun(0, "Failed to close block: %s\n",
                     big_file_get_error_message());
@@ -770,8 +757,8 @@ static void GTPosition(int i, double * out, void * baseptr, void * smanptr) {
     int d;
     for(d = 0; d < 3; d ++) {
         out[d] = part[i].Pos[d] - PartManager->CurrentParticleOffset[d];
-        while(out[d] > All.BoxSize) out[d] -= All.BoxSize;
-        while(out[d] <= 0) out[d] += All.BoxSize;
+        while(out[d] > PartManager->BoxSize) out[d] -= PartManager->BoxSize;
+        while(out[d] <= 0) out[d] += PartManager->BoxSize;
     }
 }
 
@@ -893,8 +880,8 @@ static void GTBlackholeMinPotPos(int i, double * out, void * baseptr, void * sma
     int d;
     for(d = 0; d < 3; d ++) {
         out[d] = sl[PI].MinPotPos[d] - PartManager->CurrentParticleOffset[d];
-        while(out[d] > All.BoxSize) out[d] -= All.BoxSize;
-        while(out[d] <= 0) out[d] += All.BoxSize;
+        while(out[d] > PartManager->BoxSize) out[d] -= PartManager->BoxSize;
+        while(out[d] <= 0) out[d] += PartManager->BoxSize;
     }
 }
 

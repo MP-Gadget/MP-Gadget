@@ -592,7 +592,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
         else
         {
             if(!(Right[i] < tw->tree->BoxSize) && Left[i] == 0)
-                endrun(8188, "Cannot occur. Check for memory corruption: i=%d L = %g R = %g N=%g. Type %d, Pos %g %g %g", i, Left[i], Right[i], NumNgb[i], P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+                endrun(8188, "Cannot occur. Check for memory corruption: i=%d L = %g R = %g N=%g. Type %d, Pos %g %g %g hsml %g Box %g\n", i, Left[i], Right[i], NumNgb[i], P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], P[i].Hsml, tw->tree->BoxSize);
 
             MyFloat DensFac = DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[i];
             double fac = 1.26;

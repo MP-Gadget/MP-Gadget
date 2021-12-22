@@ -70,7 +70,7 @@ typedef struct FOFGroups
 /* Computes the Group structure, saved as a global array below.
  * If StoreGrNr is true, this writes to GrNr in partmanager.h.
  * Note this over-writes PeanoKey and means the tree cannot be rebuilt.*/
-FOFGroups fof_fof(DomainDecomp * ddecomp, const double BoxSize, const int StoreGrNr, MPI_Comm Comm);
+FOFGroups fof_fof(DomainDecomp * ddecomp, const int StoreGrNr, MPI_Comm Comm);
 
 /*Frees the Group structure*/
 void fof_finish(FOFGroups * fof);
@@ -80,7 +80,8 @@ void fof_finish(FOFGroups * fof);
 void fof_seed(FOFGroups * fof, ActiveParticles * act, MPI_Comm Comm);
 
 /*Saves the Group structure to disc.*/
-void fof_save_groups(FOFGroups * fof, int num, MPI_Comm Comm);
-
+void fof_save_groups(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, double FOFPartAllocFactor, int StarformationOn, int BlackholeOn, MPI_Comm Comm);
+/* Does the actual saving of the particles*/
+void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, int SaveParticles, double FOFPartAllocFactor, int StarformationOn, int BlackholeOn, MPI_Comm Comm);
 
 #endif

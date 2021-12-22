@@ -12,4 +12,6 @@ void runfof(int RestartSnapNum);
 /* Compute a power spectrum and exit*/
 void runpower(int RestartSnapNum);
 
+/* Sets up the global_data_all_processes*/
+void set_all_global_params(ParameterSet * ps);
 #endif
