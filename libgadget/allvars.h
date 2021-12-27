@@ -94,10 +94,7 @@ extern struct global_data_all_processes
     double AutoSnapshotTime;    /*!< cpu-time between regularly generated snapshots. */
     double TimeBetweenSeedingSearch; /*Factor to multiply TimeInit by to find the next seeding check.*/
 
-    /* Current time of the simulation, global step, and end of simulation */
-
     double Time,			/*!< current time of the simulation */
-           TimeStep,			/*!< difference between current times of previous and current timestep */
            TimeMax;			/*!< marks the point of time until the simulation is to be evolved */
 
     struct {

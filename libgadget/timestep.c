@@ -167,7 +167,8 @@ void
 set_global_time(const inttime_t Ti_Current) {
     double oldtime = All.Time;
     double newtime = exp(loga_from_ti(Ti_Current));
-    All.TimeStep = newtime - oldtime;
+    if(newtime < oldtime)
+        endrun(1, "Negative timestep: %g New Time: %g Old time %g!\n", newtime - oldtime, newtime, oldtime);
     All.Time = newtime;
     All.cf.a = All.Time;
     All.cf.a2inv = 1 / (All.Time * All.Time);
