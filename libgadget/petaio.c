@@ -577,9 +577,12 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
     int i;
     /* fill the buffer */
     char * p = array->data;
+    struct conversions conv = {0};
+    conv.atime = All.Time;
+    conv.hubble = hubble_function(&All.CP, All.Time);
     for(i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].Type != ent->ptype) continue;
-        ent->setter(i, p, P, SlotsManager);
+        ent->setter(i, p, P, SlotsManager, &conv);
         p += array->strides[0];
     }
 }
@@ -602,6 +605,10 @@ petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection,
         return;
     }
 
+    struct conversions conv = {0};
+    conv.atime = All.Time;
+    conv.hubble = hubble_function(&All.CP, All.Time);
+
 #pragma omp parallel
     {
         int i;
@@ -617,7 +624,7 @@ petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection,
             if(Parts[j].Type != ent->ptype) {
                 endrun(2, "Selection %d has type = %d != %d\n", j, Parts[j].Type, ent->ptype);
             }
-            ent->getter(j, p, Parts, SlotsManager);
+            ent->getter(j, p, Parts, SlotsManager, &conv);
             p += array->strides[0];
         }
     }
@@ -752,7 +759,7 @@ void io_register_io_block(char * name,
     IOTable->used ++;
 }
 
-static void GTPosition(int i, double * out, void * baseptr, void * smanptr) {
+static void GTPosition(int i, double * out, void * baseptr, void * smanptr, const struct conversions * params) {
     /* Remove the particle offset before saving*/
     struct particle_data * part = (struct particle_data *) baseptr;
     int d;
@@ -763,7 +770,7 @@ static void GTPosition(int i, double * out, void * baseptr, void * smanptr) {
     }
 }
 
-static void STPosition(int i, double * out, void * baseptr, void * smanptr) {
+static void STPosition(int i, double * out, void * baseptr, void * smanptr, const struct conversions * params) {
     int d;
     struct particle_data * part = (struct particle_data *) baseptr;
     for(d = 0; d < 3; d ++) {
@@ -781,7 +788,7 @@ static void STPosition(int i, double * out, void * baseptr, void * smanptr) {
 
 /* A property that uses getters and setters via the PI of a particle data array.*/
 #define SIMPLE_GETTER_PI(name, field, dtype, items, slottype) \
-static void name(int i, dtype * out, void * baseptr, void * smanptr) { \
+static void name(int i, dtype * out, void * baseptr, void * smanptr, const struct conversions * params) { \
     int PI = ((struct particle_data *) baseptr)[i].PI; \
     int ptype = ((struct particle_data *) baseptr)[i].Type; \
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[ptype]); \
@@ -793,7 +800,7 @@ static void name(int i, dtype * out, void * baseptr, void * smanptr) { \
 }
 
 #define SIMPLE_SETTER_PI(name, field, dtype, items, slottype) \
-static void name(int i, dtype * out, void * baseptr, void * smanptr) { \
+static void name(int i, dtype * out, void * baseptr, void * smanptr, const struct conversions * params) { \
     int PI = ((struct particle_data *) baseptr)[i].PI; \
     int ptype = ((struct particle_data *) baseptr)[i].Type; \
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[ptype]); \
@@ -811,7 +818,7 @@ static void name(int i, dtype * out, void * baseptr, void * smanptr) { \
     SIMPLE_GETTER_PI(GT ## ptype ## name , field, type, items, slottype) \
     SIMPLE_SETTER_PI(ST ## ptype ## name , field, type, items, slottype)
 
-static void GTVelocity(int i, float * out, void * baseptr, void * smanptr) {
+static void GTVelocity(int i, float * out, void * baseptr, void * smanptr, const struct conversions * params) {
     /* Convert to Peculiar Velocity if UsePeculiarVelocity is set */
     double fac;
     struct particle_data * part = (struct particle_data *) baseptr;
@@ -826,7 +833,7 @@ static void GTVelocity(int i, float * out, void * baseptr, void * smanptr) {
         out[d] = fac * part[i].Vel[d];
     }
 }
-static void STVelocity(int i, float * out, void * baseptr, void * smanptr) {
+static void STVelocity(int i, float * out, void * baseptr, void * smanptr, const struct conversions * params) {
     double fac;
     struct particle_data * part = (struct particle_data *) baseptr;
     if (IO.UsePeculiarVelocity) {
@@ -872,7 +879,7 @@ SIMPLE_PROPERTY_PI(BlackholeMtrack, Mtrack, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeMseed, Mseed, float, 1, struct bh_particle_data)
 
 SIMPLE_SETTER_PI(STBlackholeMinPotPos , MinPotPos[0], double, 3, struct bh_particle_data)
-static void GTBlackholeMinPotPos(int i, double * out, void * baseptr, void * smanptr) {
+static void GTBlackholeMinPotPos(int i, double * out, void * baseptr, void * smanptr, const struct conversions * params) {
     /* Remove the particle offset before saving*/
     struct particle_data * part = (struct particle_data *) baseptr;
     int PI = part[i].PI;
@@ -888,7 +895,7 @@ static void GTBlackholeMinPotPos(int i, double * out, void * baseptr, void * sma
 
 /*This is only used if FoF is enabled*/
 SIMPLE_GETTER(GTGroupID, GrNr, uint32_t, 1, struct particle_data)
-static void GTNeutralHydrogenFraction(int i, float * out, void * baseptr, void * smanptr) {
+static void GTNeutralHydrogenFraction(int i, float * out, void * baseptr, void * smanptr, const struct conversions * params) {
     double redshift = 1./All.Time - 1;
     struct particle_data * pl = ((struct particle_data *) baseptr)+i;
     int PI = pl->PI;
@@ -897,7 +904,7 @@ static void GTNeutralHydrogenFraction(int i, float * out, void * baseptr, void *
     *out = get_neutral_fraction_sfreff(redshift, All.cf.hubble, pl, sl+PI);
 }
 
-static void GTHeliumIFraction(int i, float * out, void * baseptr, void * smanptr) {
+static void GTHeliumIFraction(int i, float * out, void * baseptr, void * smanptr, const struct conversions * params) {
     double redshift = 1./All.Time - 1;
     struct particle_data * pl = ((struct particle_data *) baseptr)+i;
     int PI = pl->PI;
@@ -905,7 +912,7 @@ static void GTHeliumIFraction(int i, float * out, void * baseptr, void * smanptr
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
     *out = get_helium_neutral_fraction_sfreff(0, redshift, All.cf.hubble, pl, sl+PI);
 }
-static void GTHeliumIIFraction(int i, float * out, void * baseptr, void * smanptr) {
+static void GTHeliumIIFraction(int i, float * out, void * baseptr, void * smanptr, const struct conversions * params) {
     double redshift = 1./All.Time - 1;
     struct particle_data * pl = ((struct particle_data *) baseptr)+i;
     int PI = pl->PI;
@@ -913,7 +920,7 @@ static void GTHeliumIIFraction(int i, float * out, void * baseptr, void * smanpt
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
     *out = get_helium_neutral_fraction_sfreff(1, redshift, All.cf.hubble, pl, sl+PI);
 }
-static void GTHeliumIIIFraction(int i, float * out, void * baseptr, void * smanptr) {
+static void GTHeliumIIIFraction(int i, float * out, void * baseptr, void * smanptr, const struct conversions * params) {
     double redshift = 1./All.Time - 1;
     struct particle_data * pl = ((struct particle_data *) baseptr)+i;
     int PI = pl->PI;
@@ -921,7 +928,7 @@ static void GTHeliumIIIFraction(int i, float * out, void * baseptr, void * smanp
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
     *out = get_helium_neutral_fraction_sfreff(2, redshift, All.cf.hubble, pl, sl+PI);
 }
-static void GTInternalEnergy(int i, float * out, void * baseptr, void * smanptr) {
+static void GTInternalEnergy(int i, float * out, void * baseptr, void * smanptr, const struct conversions * params) {
     int PI = ((struct particle_data *) baseptr)[i].PI;
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
@@ -929,7 +936,7 @@ static void GTInternalEnergy(int i, float * out, void * baseptr, void * smanptr)
     *out = sl[PI].Entropy / GAMMA_MINUS1 * pow(sl[PI].Density * a3inv, GAMMA_MINUS1);
 }
 
-static void STInternalEnergy(int i, float * out, void * baseptr, void * smanptr) {
+static void STInternalEnergy(int i, float * out, void * baseptr, void * smanptr, const struct conversions * params) {
     float u = *out;
     int PI = ((struct particle_data *) baseptr)[i].PI;
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
@@ -939,21 +946,21 @@ static void STInternalEnergy(int i, float * out, void * baseptr, void * smanptr)
 }
 
 /* Can't use the macros because cannot take address of a bitfield*/
-static void GTHeIIIIonized(int i, unsigned char * out, void * baseptr, void * smanptr) {
+static void GTHeIIIIonized(int i, unsigned char * out, void * baseptr, void * smanptr, const struct conversions * params) {
     struct particle_data * part = (struct particle_data *) baseptr;
     *out = part[i].HeIIIionized;
 }
 
-static void STHeIIIIonized(int i, unsigned char * out, void * baseptr, void * smanptr) {
+static void STHeIIIIonized(int i, unsigned char * out, void * baseptr, void * smanptr, const struct conversions * params) {
     struct particle_data * part = (struct particle_data *) baseptr;
     part[i].HeIIIionized = *out;
 }
-static void GTSwallowed(int i, unsigned char * out, void * baseptr, void * smanptr) {
+static void GTSwallowed(int i, unsigned char * out, void * baseptr, void * smanptr, const struct conversions * params) {
     struct particle_data * part = (struct particle_data *) baseptr;
     *out = part[i].Swallowed;
 }
 
-static void STSwallowed(int i, unsigned char * out, void * baseptr, void * smanptr) {
+static void STSwallowed(int i, unsigned char * out, void * baseptr, void * smanptr, const struct conversions * params) {
     struct particle_data * part = (struct particle_data *) baseptr;
     part[i].Swallowed = *out;
 }

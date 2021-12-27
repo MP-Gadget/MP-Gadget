@@ -331,12 +331,15 @@ static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * e
 
     int64_t npartLocal = fof->Ngroups;
 
+    struct conversions conv = {0};
+    conv.atime = All.Time;
+    conv.hubble = hubble_function(&All.CP, All.Time);
     petaio_alloc_buffer(array, ent, npartLocal);
     /* fill the buffer */
     char * p = array->data;
     int i;
     for(i = 0; i < fof->Ngroups; i ++) {
-        ent->getter(i, p, fof->Group, NULL);
+        ent->getter(i, p, fof->Group, NULL, &conv);
         p += array->strides[0];
     }
 }
@@ -398,7 +401,7 @@ SIMPLE_PROPERTY_FOF(Imom, Imom[0][0], float, 9)
 /* FIXME: set Jmom to use peculiar velocity */
 SIMPLE_PROPERTY_FOF(Jmom, Jmom[0], float, 3)
 
-static void GTFirstPos(int i, float * out, void * baseptr, void * smanptr) {
+static void GTFirstPos(int i, float * out, void * baseptr, void * smanptr, const struct conversions * params) {
     /* Remove the particle offset before saving*/
     struct Group * grp = (struct Group *) baseptr;
     int d;
@@ -409,7 +412,7 @@ static void GTFirstPos(int i, float * out, void * baseptr, void * smanptr) {
     }
 }
 
-static void STFirstPos(int i, float * out, void * baseptr, void * smanptr) {
+static void STFirstPos(int i, float * out, void * baseptr, void * smanptr, const struct conversions * params) {
     int d;
     struct Group * grp = (struct Group *) baseptr;
     for(d = 0; d < 3; d ++) {
@@ -417,7 +420,7 @@ static void STFirstPos(int i, float * out, void * baseptr, void * smanptr) {
     }
 }
 
-static void GTMassCenterPosition(int i, double * out, void * baseptr, void * smanptr) {
+static void GTMassCenterPosition(int i, double * out, void * baseptr, void * smanptr, const struct conversions * params) {
     /* Remove the particle offset before saving*/
     struct Group * grp = (struct Group *) baseptr;
     int d;
@@ -428,7 +431,7 @@ static void GTMassCenterPosition(int i, double * out, void * baseptr, void * sma
     }
 }
 
-static void STMassCenterPosition(int i, double * out, void * baseptr, void * smanptr) {
+static void STMassCenterPosition(int i, double * out, void * baseptr, void * smanptr, const struct conversions * params) {
     int d;
     struct Group * grp = (struct Group *) baseptr;
     for(d = 0; d < 3; d ++) {
@@ -436,11 +439,11 @@ static void STMassCenterPosition(int i, double * out, void * baseptr, void * sma
     }
 }
 
-static void GTMassCenterVelocity(int i, float * out, void * baseptr, void * slotptr) {
+static void GTMassCenterVelocity(int i, float * out, void * baseptr, void * slotptr, const struct conversions * params) {
     double fac;
     struct Group * Group = (struct Group *) baseptr;
     if (GetUsePeculiarVelocity()) {
-        fac = 1.0 / All.Time;
+        fac = 1.0 / params->atime;
     } else {
         fac = 1.0;
     }
