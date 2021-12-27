@@ -376,7 +376,7 @@ run(int RestartSnapNum)
 
             /* adds hydrodynamical accelerations  and computes du/dt  */
             if(All.HydroOn)
-                hydro_force(&Act, All.WindOn, All.cf.hubble, All.cf.a, &sph_predicted, All.MinEgySpec, times, &All.CP, &Tree);
+                hydro_force(&Act, All.WindOn, All.cf.a, &sph_predicted, All.MinEgySpec, times, &All.CP, &Tree);
 
             /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
             slots_free_sph_pred_data(&sph_predicted);
@@ -488,7 +488,7 @@ run(int RestartSnapNum)
             }
 
             /* Black hole accretion and feedback */
-            blackhole(&Act, &Tree, FdBlackHoles, FdBlackholeDetails);
+            blackhole(&Act, All.Time, &All.CP, &Tree, FdBlackHoles, FdBlackholeDetails);
 
             /**** radiative cooling and star formation *****/
             if(All.CoolingOn)

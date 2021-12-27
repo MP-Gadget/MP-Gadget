@@ -165,6 +165,7 @@ struct BHPriv {
     MyFloat * BH_FeedbackWeightSum;
 
     double a3inv;
+    double hubble;
     /* Counters*/
     int64_t * N_sph_swallowed;
     int64_t * N_BH_swallowed;
@@ -454,7 +455,7 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
 
 
 void
-blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FILE * FdBlackholeDetails)
+blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree * tree, FILE * FdBlackHoles, FILE * FdBlackholeDetails)
 {
     if(!All.BlackHoleOn)
         return;
@@ -519,6 +520,8 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
 
 
     priv->a3inv = 1./(All.Time * All.Time * All.Time);
+    priv->hubble = hubble_function(CP, atime);
+
 
     /* Build the queue once, since it is really 'all black holes' and similar for all treewalks*/
     treewalk_build_queue(tw_dynfric, act->ActiveParticle, act->NumActiveParticle, 0);
@@ -862,7 +865,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
     }
     BHP(i).Mdot = mdot;
 
-    double dtime = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift) / All.cf.hubble;
+    double dtime = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift) / BH_GET_PRIV(tw)->hubble;
 
     BHP(i).Mass += BHP(i).Mdot * dtime;
 
@@ -1105,7 +1108,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             double mass_j;
             if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_OPTTHIN)) {
                 double redshift = 1./All.Time - 1;
-                double nh0 = get_neutral_fraction_sfreff(redshift, All.cf.hubble, &P[other], &SPHP(other));
+                double nh0 = get_neutral_fraction_sfreff(redshift, BH_GET_PRIV(lv->tw)->hubble, &P[other], &SPHP(other));
                 if(r2 > 0)
                     O->FeedbackWeightSum += (P[other].Mass * nh0) / r2;
             } else {
@@ -1361,7 +1364,7 @@ blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I, TreeWalk * tw)
 
     I->FeedbackWeightSum = BH_GET_PRIV(tw)->BH_FeedbackWeightSum[PI];
 
-    double dtime = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift) / All.cf.hubble;
+    double dtime = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift) / BH_GET_PRIV(tw)->hubble;
 
     I->FeedbackEnergy = blackhole_params.BlackHoleFeedbackFactor * 0.1 * BHP(i).Mdot * dtime *
                 pow(LIGHTCGS / All.UnitVelocity_in_cm_per_s, 2);
