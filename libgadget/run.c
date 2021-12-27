@@ -488,7 +488,8 @@ run(int RestartSnapNum)
             }
 
             /* Black hole accretion and feedback */
-            blackhole(&Act, All.Time, &All.CP, &Tree, FdBlackHoles, FdBlackholeDetails);
+            if(All.BlackHoleOn)
+                blackhole(&Act, All.Time, &All.CP, &Tree, FdBlackHoles, FdBlackholeDetails);
 
             /**** radiative cooling and star formation *****/
             if(All.CoolingOn)

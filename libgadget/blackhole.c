@@ -459,8 +459,6 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
 void
 blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree * tree, FILE * FdBlackHoles, FILE * FdBlackholeDetails)
 {
-    if(!All.BlackHoleOn)
-        return;
     /* Do nothing if no black holes*/
     int64_t totbh;
     MPI_Allreduce(&SlotsManager->info[5].size, &totbh, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
@@ -1407,8 +1405,6 @@ bh_powerlaw_seed_mass(MyIDType ID)
 }
 
 void blackhole_make_one(int index, const double atime) {
-    if(!All.BlackHoleOn)
-        return;
     if(P[index].Type != 0)
         endrun(7772, "Only Gas turns into blackholes, what's wrong?");
 
