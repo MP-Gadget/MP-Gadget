@@ -504,14 +504,15 @@ double get_neutral_fraction_sfreff(double redshift, struct particle_data * partd
     if(!All.CoolingOn)
         return 1;
     double nh0;
+    const double a3inv = pow(1+redshift,3);
     struct UVBG GlobalUVBG = get_global_UVBG(redshift);
     struct UVBG uvbg = get_local_UVBG(redshift, &GlobalUVBG, partdata->Pos, PartManager->CurrentParticleOffset);
-    double physdens = sphdata->Density * All.cf.a3inv;
+    double physdens = sphdata->Density * a3inv;
 
-    if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, All.cf.a3inv)) {
+    if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, a3inv)) {
         /*This gets the neutral fraction for standard gas*/
         double eomdensity = sphdata->Density;
-        double InternalEnergy = sphdata->Entropy / GAMMA_MINUS1 * pow(eomdensity * All.cf.a3inv, GAMMA_MINUS1);
+        double InternalEnergy = sphdata->Entropy / GAMMA_MINUS1 * pow(eomdensity * a3inv, GAMMA_MINUS1);
         nh0 = GetNeutralFraction(InternalEnergy, physdens, &uvbg, sphdata->Ne);
     }
     else {
@@ -532,15 +533,16 @@ double get_helium_neutral_fraction_sfreff(int ion, double redshift, struct parti
 {
     if(!All.CoolingOn)
         return 1;
+    const double a3inv = pow(1+redshift,3);
     double helium;
     struct UVBG GlobalUVBG = get_global_UVBG(redshift);
     struct UVBG uvbg = get_local_UVBG(redshift, &GlobalUVBG, partdata->Pos, PartManager->CurrentParticleOffset);
-    double physdens = sphdata->Density * All.cf.a3inv;
+    double physdens = sphdata->Density * a3inv;
 
-    if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, All.cf.a3inv)) {
+    if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, a3inv)) {
         /*This gets the neutral fraction for standard gas*/
         double eomdensity = sphdata->Density;
-        double InternalEnergy = sphdata->Entropy / GAMMA_MINUS1 * pow(eomdensity * All.cf.a3inv, GAMMA_MINUS1);
+        double InternalEnergy = sphdata->Entropy / GAMMA_MINUS1 * pow(eomdensity * a3inv, GAMMA_MINUS1);
         helium = GetHeliumIonFraction(ion, InternalEnergy, physdens, &uvbg, sphdata->Ne);
     }
     else {
@@ -600,7 +602,7 @@ cooling_relaxed(int i, double dtime, struct UVBG * local_uvbg, const double reds
         {
             double ne = SPHP(i).Ne;
             /* In practice tcool << trelax*/
-            double tcool = GetCoolingTime(redshift, egycurrent, SPHP(i).Density * All.cf.a3inv, local_uvbg, &ne, SPHP(i).Metallicity);
+            double tcool = GetCoolingTime(redshift, egycurrent, SPHP(i).Density * a3inv, local_uvbg, &ne, SPHP(i).Metallicity);
 
             /* The point of the star-forming equation of state is to pressurize the gas. However,
              * when the gas has been heated above the equation of state it is pressurized and does not cool successfully.
