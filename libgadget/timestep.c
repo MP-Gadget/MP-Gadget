@@ -179,7 +179,7 @@ set_global_time(const inttime_t Ti_Current) {
  * It will also shrink the PM timestep to the longest short-range timestep.
  * Stores the maximum and minimum timesteps in the DriftKickTimes structure.*/
 void
-find_timesteps(const ActiveParticles * act, DriftKickTimes * times)
+find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const int isFirstTimeStep)
 {
     int pa;
     inttime_t dti_min = TIMEBASE;
@@ -295,7 +295,7 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times)
     /* BH particles have their timesteps set by a timestep limiter.
      * On the first timestep this is not effective because all the particles have zero timestep.
      * So on the first timestep only set all BH particles to the smallest allowable timestep*/
-    if(All.TimeStep == 0) {
+    if(isFirstTimeStep) {
         #pragma omp parallel for
         for(pa = 0; pa < PartManager->NumPart; pa++)
         {

@@ -38,7 +38,7 @@ void set_global_time(const inttime_t Ti_Current);
 /* This function assigns new short-range timesteps to particles.
  * It will also advance the PM timestep and set the new timestep length.
  * Returns the minimum timestep found.*/
-void find_timesteps(const ActiveParticles * act, DriftKickTimes * times);
+void find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const int isFirstTimeStep);
 
 /* Apply half a kick to the particles: short-range and long-range.
  * These functions sync drift and kick times.*/

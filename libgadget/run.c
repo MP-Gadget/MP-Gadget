@@ -550,8 +550,6 @@ run(int RestartSnapNum)
 
         write_cpu_log(NumCurrentTiStep, FdCPU);    /* produce some CPU usage info */
 
-        NumCurrentTiStep++;
-
         report_memory_usage("RUN");
 
         if(!next_sync || stop) {
@@ -566,7 +564,7 @@ run(int RestartSnapNum)
         /* assign new timesteps to the active particles,
          * now that we know they have synched TiKick and TiDrift,
          * and advance the PM timestep.*/
-        find_timesteps(&Act, &times);
+        find_timesteps(&Act, &times, NumCurrentTiStep == 0);
 
         /* Update velocity and ti_kick to the new step, with the newly computed step size */
         apply_half_kick(&Act, &All.CP, &times);
@@ -577,6 +575,8 @@ run(int RestartSnapNum)
 
         /* We can now free the active list: the new step have new active particles*/
         free_activelist(&Act);
+
+        NumCurrentTiStep++;
     }
 
     close_outputfiles();
