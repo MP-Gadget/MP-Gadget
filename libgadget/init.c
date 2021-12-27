@@ -57,7 +57,7 @@ static void check_smoothing_length(struct part_manager_type * PartManager, doubl
  *  intial domain decomposition is performed. If SPH particles are present,
  *  the initial SPH smoothing lengths are determined.
  */
-inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMax, Cosmology * CP, int SnapshotWithFOF, int MassiveNuLinRespOn, double G, double * MassTable, const int64_t * NTotalInit)
+inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMax, Cosmology * CP, int SnapshotWithFOF, int MassiveNuLinRespOn, double * MassTable, const int64_t * NTotalInit)
 {
     int i;
 
@@ -86,7 +86,7 @@ inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMa
 
     domain_test_id_uniqueness(PartManager);
 
-    check_omega(PartManager, CP, MassiveNuLinRespOn, get_generations(), G, MassTable);
+    check_omega(PartManager, CP, MassiveNuLinRespOn, get_generations(), CP->GravInternal, MassTable);
 
     check_positions(PartManager);
 

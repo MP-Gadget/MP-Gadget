@@ -168,6 +168,7 @@ struct BHPriv {
     double atime;
     double a3inv;
     double hubble;
+    double GravInternal;
     /* Counters*/
     int64_t * N_sph_swallowed;
     int64_t * N_BH_swallowed;
@@ -521,7 +522,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     priv->atime = atime;
     priv->a3inv = 1./(atime * atime * atime);
     priv->hubble = hubble_function(CP, atime);
-
+    priv->GravInternal = CP->GravInternal;
 
     /* Build the queue once, since it is really 'all black holes' and similar for all treewalks*/
     treewalk_build_queue(tw_dynfric, act->ActiveParticle, act->NumActiveParticle, 0);
@@ -733,11 +734,11 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
         if (f_of_x < 0)
             f_of_x = 0;
 
-        lambda = 1. + blackhole_params.BH_DFbmax * pow((bhvel/BH_GET_PRIV(tw)->atime),2) / All.G / P[n].Mass;
+        lambda = 1. + blackhole_params.BH_DFbmax * pow((bhvel/BH_GET_PRIV(tw)->atime),2) / BH_GET_PRIV(tw)->GravInternal / P[n].Mass;
 
         for(j = 0; j < 3; j++)
         {
-            BHP(n).DFAccel[j] = - 4. * M_PI * All.G * All.G * P[n].Mass * BH_GET_PRIV(tw)->BH_SurroundingDensity[PI] *
+            BHP(n).DFAccel[j] = - 4. * M_PI * BH_GET_PRIV(tw)->GravInternal * BH_GET_PRIV(tw)->GravInternal * P[n].Mass * BH_GET_PRIV(tw)->BH_SurroundingDensity[PI] *
             log(lambda) * f_of_x * (P[n].Vel[j] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j]) / pow(bhvel, 3);
             BHP(n).DFAccel[j] *= BH_GET_PRIV(tw)->atime;  // convert to code unit of acceleration
             BHP(n).DFAccel[j] *= blackhole_params.BH_DFBoostFactor; // Add a boost factor
@@ -856,7 +857,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
     double norm = pow((pow(soundspeed, 2) + pow(bhvel, 2)), 1.5);
 
     if(norm > 0)
-        mdot = 4. * M_PI * blackhole_params.BlackHoleAccretionFactor * All.G * All.G *
+        mdot = 4. * M_PI * blackhole_params.BlackHoleAccretionFactor * BH_GET_PRIV(tw)->GravInternal * BH_GET_PRIV(tw)->GravInternal *
             BHP(i).Mass * BHP(i).Mass * rho_proper / norm;
 
     if(blackhole_params.BlackHoleEddingtonFactor > 0.0 &&

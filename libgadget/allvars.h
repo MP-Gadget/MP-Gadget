@@ -56,8 +56,7 @@ extern struct global_data_all_processes
     double UnitTime_in_s,		/*!< factor to convert internal time unit to seconds/h */
            UnitDensity_in_cgs,		/*!< factor to convert internal length unit to g/cm^3*h^2 */
            UnitEnergy_in_cgs,		/*!< factor to convert internal energy to cgs units */
-           UnitTime_in_Megayears,	/*!< factor to convert internal time to megayears/h */
-           G;				/*!< Gravity-constant in internal units */
+           UnitTime_in_Megayears;	/*!< factor to convert internal time to megayears/h */
 
     /* Cosmology */
     Cosmology CP;

@@ -99,7 +99,7 @@ force_treeev_shortrange(TreeWalkQueryGravShort * input,
  *  tree is used.  Particles are only exported to other processors when really
  *  needed, thereby allowing a good use of the communication buffer.
  *  NeutrinoTracer = All.HybridNeutrinosOn && (atime <= All.HybridNuPartTime);
- *  rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G)
+ *  rho0 = CP.Omega0 * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G)
  */
 void
 grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double rho0, int NeutrinoTracer, int FastParticleType)

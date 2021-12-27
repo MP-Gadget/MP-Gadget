@@ -231,10 +231,10 @@ run(int RestartSnapNum)
 
     int SnapshotFileCount = RestartSnapNum;
     PetaPM pm = {0};
-    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.G);
+    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
 
     /* ... read initial model and initialise the times*/
-    inttime_t ti_init = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.G, All.MassTable, All.NTotalInit);
+    inttime_t ti_init = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.MassTable, All.NTotalInit);
 
     DriftKickTimes times = init_driftkicktime(ti_init);
 
@@ -387,7 +387,7 @@ run(int RestartSnapNum)
         * are zero and so the tree is opened maximally
         * on the first timestep.*/
         const int NeutrinoTracer =  All.HybridNeutrinosOn && (atime <= All.HybridNuPartTime);
-        const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
+        const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal);
 
         if(All.TreeGravOn) {
             /* Do a short range pairwise only step if desired*/
@@ -452,7 +452,7 @@ run(int RestartSnapNum)
         {
             /* Do this before sfr and bh so the gas hsml always contains DesNumNgb neighbours.*/
             if(All.MetalReturnOn) {
-                double AvgGasMass = All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G) * pow(PartManager->BoxSize, 3) / All.NTotalInit[0];
+                double AvgGasMass = All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal) * pow(PartManager->BoxSize, 3) / All.NTotalInit[0];
                 metal_return(&Act, ddecomp, &All.CP, atime, AvgGasMass);
             }
 
@@ -729,8 +729,6 @@ set_units(void)
     All.UnitTime_in_s = All.UnitLength_in_cm / All.UnitVelocity_in_cm_per_s;
     All.UnitTime_in_Megayears = All.UnitTime_in_s / SEC_PER_MEGAYEAR;
 
-    All.G = GRAVITY / pow(All.UnitLength_in_cm, 3) * All.UnitMass_in_g * pow(All.UnitTime_in_s, 2);
-
     All.UnitDensity_in_cgs = All.UnitMass_in_g / pow(All.UnitLength_in_cm, 3);
     All.UnitEnergy_in_cgs = All.UnitMass_in_g * pow(All.UnitLength_in_cm, 2) / pow(All.UnitTime_in_s, 2);
 
@@ -738,6 +736,7 @@ set_units(void)
 
     All.CP.Hubble = HUBBLE * All.UnitTime_in_s;
     All.CP.UnitTime_in_s = All.UnitTime_in_s;
+    All.CP.GravInternal = GRAVITY / pow(All.UnitLength_in_cm, 3) * All.UnitMass_in_g * pow(All.UnitTime_in_s, 2);
 
     init_cosmology(&All.CP, All.TimeIC);
     /* Detect cosmologies that are likely to be typos in the parameter files*/
@@ -751,7 +750,7 @@ set_units(void)
         init_hybrid_nu(&All.CP.ONu.hybnu, All.CP.MNu, All.HybridVcrit, LIGHTCGS/1e5, All.HybridNuPartTime, All.CP.ONu.kBtnu);
 
     message(0, "Hubble (internal units) = %g\n", All.CP.Hubble);
-    message(0, "G (internal units) = %g\n", All.G);
+    message(0, "G (internal units) = %g\n", All.CP.GravInternal);
     message(0, "UnitLength_in_cm = %g \n", All.UnitLength_in_cm);
     message(0, "UnitMass_in_g = %g \n", All.UnitMass_in_g);
     message(0, "UnitTime_in_s = %g \n", All.UnitTime_in_s);

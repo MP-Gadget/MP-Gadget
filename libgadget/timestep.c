@@ -662,7 +662,7 @@ get_long_range_timestep_dloga(const double atime, const Cosmology * CP)
                 omega = CP->OmegaCDM;
             }
             /* "Avg. radius" of smallest particle: (min_mass/total_mass)^1/3 */
-            dmean = pow(min_mass[type] / (omega * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * All.G)), 1.0 / 3);
+            dmean = pow(min_mass[type] / (omega * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal)), 1.0 / 3);
 
             dloga1 = TimestepParams.MaxRMSDisplacementFac * hubble * atime * atime * DMIN(asmth, dmean) / sqrt(v_sum[type] / count_sum[type]);
             message(0, "type=%d  dmean=%g asmth=%g minmass=%g a=%g  sqrt(<p^2>)=%g  dloga=%g\n",

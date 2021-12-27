@@ -807,7 +807,7 @@ void init_cooling_and_star_formation(int CoolingOn, int StarformationOn, Cosmolo
         return;
 
     sfr_params.OverDensThresh =
-        sfr_params.CritOverDensity * CP->OmegaBaryon * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * All.G);
+        sfr_params.CritOverDensity * CP->OmegaBaryon * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
 
     sfr_params.PhysDensThresh = sfr_params.CritPhysDensity * PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs;
 
@@ -830,7 +830,7 @@ void init_cooling_and_star_formation(int CoolingOn, int StarformationOn, Cosmolo
         u4 /= coolunits.uu_in_cgs;
 
 
-        double dens = 1.0e6 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * All.G);
+        double dens = 1.0e6 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
 
         double ne = 1.0;
 
@@ -884,8 +884,8 @@ void init_cooling_and_star_formation(int CoolingOn, int StarformationOn, Cosmolo
         const double sigma = 10.0 / CP->Hubble * 1.0e-10 / pow(1.0e-3, 2);
 
         message(0, "Isotherm sheet central density: %g   z0=%g\n",
-                M_PI * All.G * sigma * sigma / (2 * GAMMA_MINUS1) / u4,
-                GAMMA_MINUS1 * u4 / (2 * M_PI * All.G * sigma));
+                M_PI * CP->GravInternal * sigma * sigma / (2 * GAMMA_MINUS1) / u4,
+                GAMMA_MINUS1 * u4 / (2 * M_PI * CP->GravInternal * sigma));
     }
 
     if(sfr_params.WindOn) {
@@ -985,7 +985,7 @@ static double get_sfr_factor_due_to_selfgravity(int i, const double atime, const
             + (SPHP(i).CurlVel/a2)
             * (SPHP(i).CurlVel/a2)
            ); // all in physical units
-    double alpha_vir = 0.2387 * dv2abs/(All.G * SPHP(i).Density * a3inv);
+    double alpha_vir = 0.2387 * dv2abs/(All.CP.GravInternal * SPHP(i).Density * a3inv);
 
     double y = 1.0;
 
