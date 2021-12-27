@@ -237,7 +237,7 @@ runfof(int RestartSnapNum)
             myfree(GradRho);
     }
     FOFGroups fof = fof_fof(ddecomp, 1, MPI_COMM_WORLD);
-    fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, RestartSnapNum, All.PartAllocFactor, All.StarformationOn, All.BlackHoleOn, MPI_COMM_WORLD);
+    fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, RestartSnapNum, All.PartAllocFactor, All.Time, All.StarformationOn, All.BlackHoleOn, MPI_COMM_WORLD);
     fof_finish(&fof);
 }
 

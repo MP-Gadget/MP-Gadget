@@ -19,8 +19,8 @@
 #include "walltime.h"
 
 static void fof_register_io_blocks(int StarformationOn, int BlackHoleOn, struct IOTable * IOTable);
-static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm);
-static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * ent);
+static void fof_write_header(BigFile * bf, int64_t TotNgroups, const double atime, MPI_Comm Comm);
+static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * ent, struct conversions * conv);
 
 static int fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, double FOFPartAllocFactor, MPI_Comm Comm);
 
@@ -30,7 +30,7 @@ static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
     u[0] = f->GrNr;
 }
 
-void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, int SaveParticles, double FOFPartAllocFactor, int StarformationOn, int BlackholeOn, MPI_Comm Comm) {
+void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, int SaveParticles, double FOFPartAllocFactor, double atime, int StarformationOn, int BlackholeOn, MPI_Comm Comm) {
     int i;
     struct IOTable FOFIOTable = {0};
     char * fname = fastpm_strdup_printf("%s/%s_%03d", OutputDir, FOFFileBase, num);
@@ -46,9 +46,12 @@ void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FO
         endrun(0, "Failed to open file at %s\n", fname);
     }
     myfree(fname);
+    struct conversions conv = {0};
+    conv.atime = atime;
+    conv.hubble = hubble_function(&All.CP, atime);
 
     MPIU_Barrier(Comm);
-    fof_write_header(&bf, fof->TotNgroups, Comm);
+    fof_write_header(&bf, fof->TotNgroups, atime, Comm);
 
     for(i = 0; i < FOFIOTable.used; i ++) {
         /* only process the particle blocks */
@@ -57,7 +60,7 @@ void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FO
         BigArray array = {0};
         if(ptype == PTYPE_FOF_GROUP) {
             sprintf(blockname, "FOFGroups/%s", FOFIOTable.ent[i].name);
-            build_buffer_fof(fof, &array, &FOFIOTable.ent[i]);
+            build_buffer_fof(fof, &array, &FOFIOTable.ent[i], &conv);
             message(0, "Writing Block %s\n", blockname);
 
             petaio_save_block(&bf, blockname, &array, 1);
@@ -78,9 +81,6 @@ void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FO
             destroy_io_blocks(&IOTable);
             return;
         }
-        struct conversions conv = {0};
-        conv.atime = All.Time;
-        conv.hubble = hubble_function(&All.CP, All.Time);
 
         int * selection = mymalloc("Selection", sizeof(int) * halo_pman.NumPart);
 
@@ -330,24 +330,21 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
     return 0;
 }
 
-static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * ent) {
+static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * ent, struct conversions * conv) {
 
     int64_t npartLocal = fof->Ngroups;
 
-    struct conversions conv = {0};
-    conv.atime = All.Time;
-    conv.hubble = hubble_function(&All.CP, All.Time);
     petaio_alloc_buffer(array, ent, npartLocal);
     /* fill the buffer */
     char * p = array->data;
     int i;
     for(i = 0; i < fof->Ngroups; i ++) {
-        ent->getter(i, p, fof->Group, NULL, &conv);
+        ent->getter(i, p, fof->Group, NULL, conv);
         p += array->strides[0];
     }
 }
 
-static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm) {
+static void fof_write_header(BigFile * bf, int64_t TotNgroups, const double atime, MPI_Comm Comm) {
     BigBlock bh;
     if(0 != big_file_mpi_create_block(bf, &bh, "Header", NULL, 0, 0, 0, Comm)) {
         endrun(0, "Failed to create header\n");
@@ -371,18 +368,18 @@ static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm) {
     MPI_Allreduce(npartLocal, npartTotal, 6, MPI_INT64, MPI_SUM, Comm);
 
     /* conversion from peculiar velocity to RSD */
-    const double hubble = hubble_function(&All.CP, All.Time);
-    double RSD = 1.0 / (All.Time * hubble);
+    const double hubble = hubble_function(&All.CP, atime);
+    double RSD = 1.0 / (atime * hubble);
 
     int pecvel = GetUsePeculiarVelocity();
     if(!pecvel) {
-        RSD /= All.Time; /* Conversion from internal velocity to RSD */
+        RSD /= atime; /* Conversion from internal velocity to RSD */
     }
     big_block_set_attr(&bh, "NumPartInGroupTotal", npartTotal, "u8", 6);
     big_block_set_attr(&bh, "NumFOFGroupsTotal", &TotNgroups, "u8", 1);
     big_block_set_attr(&bh, "RSDFactor", &RSD, "f8", 1);
     big_block_set_attr(&bh, "MassTable", All.MassTable, "f8", 6);
-    big_block_set_attr(&bh, "Time", &All.Time, "f8", 1);
+    big_block_set_attr(&bh, "Time", &atime, "f8", 1);
     big_block_set_attr(&bh, "BoxSize", &All.BoxSize, "f8", 1);
     big_block_set_attr(&bh, "OmegaLambda", &All.CP.OmegaLambda, "f8", 1);
     big_block_set_attr(&bh, "Omega0", &All.CP.Omega0, "f8", 1);

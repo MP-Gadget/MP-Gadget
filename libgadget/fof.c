@@ -1110,9 +1110,9 @@ static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_C
 }
 
 void
-fof_save_groups(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, double FOFPartAllocFactor, int StarformationOn, int BlackholeOn, MPI_Comm Comm)
+fof_save_groups(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, double FOFPartAllocFactor, double atime, int StarformationOn, int BlackholeOn, MPI_Comm Comm)
 {
-    fof_save_particles(fof, OutputDir, FOFFileBase, num, fof_params.FOFSaveParticles, FOFPartAllocFactor, StarformationOn, BlackholeOn, Comm);
+    fof_save_particles(fof, OutputDir, FOFFileBase, num, fof_params.FOFSaveParticles, FOFPartAllocFactor, atime, StarformationOn, BlackholeOn, Comm);
 }
 
 /* FIXME: these shall goto the private member of secondary tree walk */
