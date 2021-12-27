@@ -504,8 +504,6 @@ sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
 /*Get the neutral fraction of a particle correctly, accounting for being on the star-forming equation of state*/
 double get_neutral_fraction_sfreff(double redshift, double hubble, struct particle_data * partdata, struct sph_particle_data * sphdata)
 {
-    if(!All.CoolingOn)
-        return 1;
     double nh0;
     const double a3inv = pow(1+redshift,3);
     struct UVBG GlobalUVBG = get_global_UVBG(redshift);
@@ -534,8 +532,6 @@ double get_neutral_fraction_sfreff(double redshift, double hubble, struct partic
 
 double get_helium_neutral_fraction_sfreff(int ion, double redshift, double hubble, struct particle_data * partdata, struct sph_particle_data * sphdata)
 {
-    if(!All.CoolingOn)
-        return 1;
     const double a3inv = pow(1+redshift,3);
     double helium;
     struct UVBG GlobalUVBG = get_global_UVBG(redshift);

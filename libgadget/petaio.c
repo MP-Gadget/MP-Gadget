@@ -1013,7 +1013,7 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
     if(All.CoolingOn) {
         IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0, IOTable);
     }
-    if(All.OutputHeliumFractions) {
+    if(All.CoolingOn && All.OutputHeliumFractions) {
         IO_REG_WRONLY(HeliumIFraction, "f4", 1, 0, IOTable);
         IO_REG_WRONLY(HeliumIIFraction, "f4", 1, 0, IOTable);
         IO_REG_WRONLY(HeliumIIIFraction, "f4", 1, 0, IOTable);
