@@ -150,7 +150,7 @@ void set_sfr_params(ParameterSet * ps)
 
 /* cooling and star formation routine.*/
 void
-cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * GradRho, FILE * FdSfr)
+cooling_and_starformation(ActiveParticles * act, double Time, double dloga, ForceTree * tree, MyFloat * GradRho, FILE * FdSfr)
 {
     const int nthreads = omp_get_max_threads();
     /*This is a queue for the new stars and their parents, so we can reallocate the slots after the main cooling loop.*/
@@ -169,8 +169,8 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
     /*Need to capture this so that when NumActiveParticle increases during the loop
      * we don't add extra loop iterations on particles with invalid slots.*/
     const int nactive = act->NumActiveParticle;
-    const double a3inv = 1./(All.Time * All.Time * All.Time);
-    const double hubble = hubble_function(&All.CP, All.Time);
+    const double a3inv = 1./(Time * Time * Time);
+    const double hubble = hubble_function(&All.CP, Time);
 
     if(All.StarformationOn) {
         NewStars = mymalloc("NewStars", nactive * sizeof(int) * nthreads);
@@ -187,8 +187,10 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
         gadget_setup_thread_arrays(MaybeWind, thrqueuewind, nqthrwind, nactive, nthreads);
     }
 
+
     /* Get the global UVBG for this redshift. */
-    struct UVBG GlobalUVBG = get_global_UVBG(1./All.Time - 1);
+    const double redshift = 1./Time - 1;
+    struct UVBG GlobalUVBG = get_global_UVBG(redshift);
     double sum_sm = 0, sum_mass_stars = 0, localsfr = 0;
 
     /* First decide which stars are cooling and which starforming. If star forming we add them to a list.
@@ -256,7 +258,7 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
     /* Do subgrid winds*/
     if(All.WindOn && winds_are_subgrid()) {
         NumMaybeWind = gadget_compact_thread_arrays(MaybeWind, thrqueuewind, nqthrwind, nthreads);
-        winds_subgrid(MaybeWind, NumMaybeWind, All.Time, hubble, tree, StellarMass);
+        winds_subgrid(MaybeWind, NumMaybeWind, Time, hubble, tree, StellarMass);
         myfree(MaybeWind);
         myfree(StellarMass);
         ta_free(thrqueuewind);
@@ -325,20 +327,21 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
     if(FdSfr)
     {
         double rate = 0;
-        if(All.TimeStep > 0)
-            rate = total_sm / (All.TimeStep / (All.Time * hubble));
+
+        if(dloga > 0)
+            rate = total_sm / (dloga / hubble);
 
         /* convert to solar masses per yr */
 
         double rate_in_msunperyear = rate * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
 
         /* Format:
-         * All.Time = current scale factor,
+         * Time = current scale factor,
          * total_sm = expected change in stellar mass this timestep,
          * totsfrrate = current star formation rate in active particles in Msun/year,
          * rate_in_msunperyear = expected stellar mass formation rate in Msun/year from total_sm,
          * total_sum_mass_stars = actual mass of stars formed this timestep (discretized total_sm) */
-        fprintf(FdSfr, "%g %g %g %g %g\n", All.Time, total_sm, totsfrrate, rate_in_msunperyear,
+        fprintf(FdSfr, "%g %g %g %g %g\n", Time, total_sm, totsfrrate, rate_in_msunperyear,
                 total_sum_mass_stars);
         fflush(FdSfr);
     }
@@ -351,7 +354,7 @@ cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * Gra
 
     /* Now apply the wind model using the list of new stars.*/
     if(All.WindOn && !winds_are_subgrid())
-        winds_and_feedback(NewStars, NumNewStar, All.Time, hubble, tree);
+        winds_and_feedback(NewStars, NumNewStar, Time, hubble, tree);
 
     myfree(NewStars);
 }

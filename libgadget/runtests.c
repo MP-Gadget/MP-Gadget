@@ -232,7 +232,7 @@ runfof(int RestartSnapNum)
             slots_free_sph_pred_data(&sph_predicted);
         }
         ForceTree Tree = {0};
-        cooling_and_starformation(&Act, &Tree, GradRho, NULL);
+        cooling_and_starformation(&Act, All.Time, 0, &Tree, GradRho, NULL);
         if(GradRho)
             myfree(GradRho);
     }

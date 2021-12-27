@@ -494,7 +494,7 @@ run(int RestartSnapNum)
 
             /**** radiative cooling and star formation *****/
             if(All.CoolingOn)
-                cooling_and_starformation(&Act, &Tree, GradRho, FdSfr);
+                cooling_and_starformation(&Act, All.Time, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &Tree, GradRho, FdSfr);
 
         }
         /* We don't need this timestep's tree anymore.*/

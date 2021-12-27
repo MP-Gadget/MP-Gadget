@@ -26,7 +26,7 @@ void set_sfr_params(ParameterSet * ps);
 
 void init_cooling_and_star_formation(int CoolingOn);
 /*Do the cooling and the star formation. The tree is required for the winds only.*/
-void cooling_and_starformation(ActiveParticles * act, ForceTree * tree, MyFloat * GradRho, FILE * FdSfr);
+void cooling_and_starformation(ActiveParticles * act, double Time, double dloga, ForceTree * tree, MyFloat * GradRho, FILE * FdSfr);
 
 /*Get the neutral fraction of a particle correctly, even when on the star-forming equation of state.
  * This calls the cooling routines for the current internal energy when off the equation of state, but
