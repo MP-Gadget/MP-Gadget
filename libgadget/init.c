@@ -78,13 +78,8 @@ inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMa
         }
     }
 
-    inttime_t Ti_Current = init_timebins(TimeInit);
-
-    /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
-    double atime = set_global_time(Ti_Current);
-
     /*Read the snapshot*/
-    petaio_read_snapshot(RestartSnapNum, atime, MPI_COMM_WORLD);
+    petaio_read_snapshot(RestartSnapNum, TimeInit, MPI_COMM_WORLD);
 
     if(InitParams.InitGasTemp < 0)
         InitParams.InitGasTemp = CP->CMBTemperature / TimeInit;
@@ -108,6 +103,8 @@ inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMa
 
     gravshort_set_softenings(MeanSeparation[1]);
     fof_init(MeanSeparation[1]);
+
+    inttime_t Ti_Current = init_timebins(TimeInit);
 
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)	/* initialize sph_properties */

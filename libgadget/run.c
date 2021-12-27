@@ -199,7 +199,7 @@ int begrun(int RestartFlag, int RestartSnapNum)
     set_random_numbers(All.RandomSeed);
 
     if(All.LightconeOn)
-        lightcone_init(&All.CP, All.Time, All.UnitLength_in_cm, All.OutputDir);
+        lightcone_init(&All.CP, All.TimeInit, All.UnitLength_in_cm, All.OutputDir);
     return RestartSnapNum;
 }
 
@@ -247,13 +247,13 @@ run(int RestartSnapNum)
     }
 
     /* Stored scale factor of the next black hole seeding check*/
-    double TimeNextSeedingCheck = All.Time;
+    double TimeNextSeedingCheck = All.TimeInit;
 
     walltime_measure("/Misc");
 
     open_outputfiles(RestartSnapNum);
 
-    write_cpu_log(NumCurrentTiStep, All.Time, FdCPU); /* produce some CPU usage info */
+    write_cpu_log(NumCurrentTiStep, All.TimeInit, FdCPU); /* produce some CPU usage info */
 
     while(1) /* main loop */
     {
