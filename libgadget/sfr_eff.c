@@ -779,15 +779,15 @@ get_egyeff(double redshift, double dens, struct UVBG * uvbg)
     return egyhot * (1 - x) + sfr_params.EgySpecCold * x;
 }
 
-void init_cooling_and_star_formation(int CoolingOn)
+void init_cooling_and_star_formation(int CoolingOn, int StarformationOn, Cosmology * CP)
 {
     struct cooling_units coolunits;
     coolunits.CoolingOn = CoolingOn;
-    coolunits.density_in_phys_cgs = All.UnitDensity_in_cgs * All.CP.HubbleParam * All.CP.HubbleParam;
+    coolunits.density_in_phys_cgs = All.UnitDensity_in_cgs * CP->HubbleParam * CP->HubbleParam;
     coolunits.uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-    coolunits.tt_in_s = All.UnitTime_in_s / All.CP.HubbleParam;
+    coolunits.tt_in_s = All.UnitTime_in_s / CP->HubbleParam;
     /* Get mean cosmic baryon density for photoheating rate from long mean free path photons */
-    coolunits.rho_crit_baryon = 3 * pow(All.CP.HubbleParam * HUBBLE,2) * All.CP.OmegaBaryon / (8 * M_PI * GRAVITY);
+    coolunits.rho_crit_baryon = 3 * pow(CP->HubbleParam * HUBBLE,2) * CP->OmegaBaryon / (8 * M_PI * GRAVITY);
 
     /* mean molecular weight assuming ZERO ionization NEUTRAL GAS*/
     double meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);
@@ -795,7 +795,7 @@ void init_cooling_and_star_formation(int CoolingOn)
     /*Enforces a minimum internal energy in cooling. */
     All.MinEgySpec = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * sfr_params.MinGasTemp / coolunits.uu_in_cgs;
 
-    init_cooling(sfr_params.TreeCoolFile, sfr_params.MetalCoolFile, sfr_params.ReionHistFile, coolunits, &All.CP);
+    init_cooling(sfr_params.TreeCoolFile, sfr_params.MetalCoolFile, sfr_params.ReionHistFile, coolunits, CP);
 
     if(!CoolingOn)
         return;
@@ -803,11 +803,11 @@ void init_cooling_and_star_formation(int CoolingOn)
     /*Initialize the uv fluctuation table*/
     init_uvf_table(sfr_params.UVFluctuationFile, All.BoxSize, All.UnitLength_in_cm);
 
-    if(!All.StarformationOn)
+    if(!StarformationOn)
         return;
 
     sfr_params.OverDensThresh =
-        sfr_params.CritOverDensity * All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
+        sfr_params.CritOverDensity * CP->OmegaBaryon * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * All.G);
 
     sfr_params.PhysDensThresh = sfr_params.CritPhysDensity * PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs;
 
@@ -830,7 +830,7 @@ void init_cooling_and_star_formation(int CoolingOn)
         u4 *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
 
 
-        double dens = 1.0e6 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
+        double dens = 1.0e6 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * All.G);
 
         double ne = 1.0;
 
@@ -881,7 +881,7 @@ void init_cooling_and_star_formation(int CoolingOn)
         message(0, "Run-away sets in for dens=%g\n", dens);
         message(0, "Dynamic range for quiescent star formation= %g\n", dens / sfr_params.PhysDensThresh);
 
-        const double sigma = 10.0 / All.CP.Hubble * 1.0e-10 / pow(1.0e-3, 2);
+        const double sigma = 10.0 / CP->Hubble * 1.0e-10 / pow(1.0e-3, 2);
 
         message(0, "Isotherm sheet central density: %g   z0=%g\n",
                 M_PI * All.G * sigma * sigma / (2 * GAMMA_MINUS1) / u4,

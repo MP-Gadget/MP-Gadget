@@ -192,7 +192,7 @@ int begrun(int RestartFlag, int RestartSnapNum)
 
     init_forcetree_params(All.FastParticleType);
 
-    init_cooling_and_star_formation(All.CoolingOn);
+    init_cooling_and_star_formation(All.CoolingOn, All.StarformationOn, &All.CP);
 
     gravshort_fill_ntab(All.ShortRangeForceWindowType, All.Asmth);
 
