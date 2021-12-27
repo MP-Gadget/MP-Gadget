@@ -376,7 +376,7 @@ run(int RestartSnapNum)
 
             /* adds hydrodynamical accelerations  and computes du/dt  */
             if(All.HydroOn)
-                hydro_force(&Act, All.WindOn, All.cf.a, &sph_predicted, All.MinEgySpec, times, &All.CP, &Tree);
+                hydro_force(&Act, All.cf.a, &sph_predicted, All.MinEgySpec, times, &All.CP, &Tree);
 
             /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
             slots_free_sph_pred_data(&sph_predicted);
