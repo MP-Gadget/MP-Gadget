@@ -36,6 +36,7 @@
 static struct SFRParams
 {
     enum StarformationCriterion StarformationCriterion;  /*!< Type of star formation model. */
+    int WindOn; /* if Wind is enabled */
     /*Star formation parameters*/
     double CritOverDensity;
     double CritPhysDensity;
@@ -123,6 +124,7 @@ void set_sfr_params(ParameterSet * ps)
         sfr_params.StarformationCriterion = param_get_enum(ps, "StarformationCriterion");
         sfr_params.CritOverDensity = param_get_double(ps, "CritOverDensity");
         sfr_params.CritPhysDensity = param_get_double(ps, "CritPhysDensity");
+        sfr_params.WindOn = param_get_int(ps, "WindOn");
 
         sfr_params.FactorSN = param_get_double(ps, "FactorSN");
         sfr_params.FactorEVP = param_get_double(ps, "FactorEVP");
@@ -138,6 +140,7 @@ void set_sfr_params(ParameterSet * ps)
         sfr_params.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
         sfr_params.QuickLymanAlphaTempThresh = param_get_double(ps, "QuickLymanAlphaTempThresh");
         sfr_params.HIReionTemp = param_get_double(ps, "HIReionTemp");
+
         /* File names*/
         param_get_string2(ps, "TreeCoolFile", sfr_params.TreeCoolFile, sizeof(sfr_params.TreeCoolFile));
         param_get_string2(ps, "UVFluctuationfile", sfr_params.UVFluctuationFile, sizeof(sfr_params.UVFluctuationFile));
@@ -179,7 +182,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
         gadget_setup_thread_arrays(NewParents, thrqueueparent, nqthrsfr, nactive, nthreads);
     }
 
-    if(All.WindOn && winds_are_subgrid()) {
+    if(sfr_params.WindOn && winds_are_subgrid()) {
         nqthrwind = ta_malloc("nqthrwind", size_t, nthreads);
         thrqueuewind = ta_malloc("thrqueuewind", int *, nthreads);
         StellarMass = mymalloc("StellarMass", SlotsManager->info[0].size * sizeof(MyFloat));
@@ -256,7 +259,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
     walltime_measure("/Cooling/Cooling");
 
     /* Do subgrid winds*/
-    if(All.WindOn && winds_are_subgrid()) {
+    if(sfr_params.WindOn && winds_are_subgrid()) {
         NumMaybeWind = gadget_compact_thread_arrays(MaybeWind, thrqueuewind, nqthrwind, nthreads);
         winds_subgrid(MaybeWind, NumMaybeWind, Time, hubble, tree, StellarMass);
         myfree(MaybeWind);
@@ -353,7 +356,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
     walltime_measure("/Cooling/StarFormation");
 
     /* Now apply the wind model using the list of new stars.*/
-    if(All.WindOn && !winds_are_subgrid())
+    if(sfr_params.WindOn && !winds_are_subgrid())
         winds_and_feedback(NewStars, NumNewStar, Time, hubble, tree);
 
     myfree(NewStars);
@@ -889,7 +892,7 @@ void init_cooling_and_star_formation(int CoolingOn)
                 GAMMA_MINUS1 * u4 / (2 * M_PI * All.G * sigma));
     }
 
-    if(All.WindOn) {
+    if(sfr_params.WindOn) {
         init_winds(sfr_params.FactorSN, sfr_params.EgySpecSN, sfr_params.PhysDensThresh, All.UnitTime_in_s);
     }
 

@@ -128,7 +128,6 @@ set_all_global_params(ParameterSet * ps)
         All.WriteBlackHoleDetails = param_get_int(ps,"WriteBlackHoleDetails");
 
         All.StarformationOn = param_get_int(ps, "StarformationOn");
-        All.WindOn = param_get_int(ps, "WindOn");
         All.MetalReturnOn = param_get_int(ps, "MetalReturnOn");
         All.MaxDomainTimeBinDepth = param_get_int(ps, "MaxDomainTimeBinDepth");
 
@@ -144,18 +143,10 @@ set_all_global_params(ParameterSet * ps)
             endrun(2, "You have enabled (kspace) massive neutrinos without radiation, but this will give an inconsistent cosmology!\n");
         /*End massive neutrino parameters*/
 
-        if(All.StarformationOn == 0)
+        if(All.StarformationOn != 0 && All.CoolingOn == 0)
         {
-            if(All.WindOn == 1) {
-                endrun(1, "You try to use the code with wind enabled,\n"
-                          "but you did not switch on starformation.\nThis mode is not supported.\n");
-            }
-        } else {
-            if(All.CoolingOn == 0)
-            {
                 endrun(1, "You try to use the code with star formation enabled,\n"
                           "but you did not switch on cooling.\nThis mode is not supported.\n");
-            }
         }
     }
     MPI_Bcast(&All, sizeof(All), MPI_BYTE, 0, MPI_COMM_WORLD);
