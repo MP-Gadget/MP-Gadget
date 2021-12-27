@@ -823,7 +823,7 @@ static void GTVelocity(int i, float * out, void * baseptr, void * smanptr, const
     double fac;
     struct particle_data * part = (struct particle_data *) baseptr;
     if (IO.UsePeculiarVelocity) {
-        fac = 1.0 / All.Time;
+        fac = 1.0 / params->atime;
     } else {
         fac = 1.0;
     }
@@ -837,7 +837,7 @@ static void STVelocity(int i, float * out, void * baseptr, void * smanptr, const
     double fac;
     struct particle_data * part = (struct particle_data *) baseptr;
     if (IO.UsePeculiarVelocity) {
-        fac = All.Time;
+        fac = params->atime;
     } else {
         fac = 1.0;
     }
@@ -896,43 +896,43 @@ static void GTBlackholeMinPotPos(int i, double * out, void * baseptr, void * sma
 /*This is only used if FoF is enabled*/
 SIMPLE_GETTER(GTGroupID, GrNr, uint32_t, 1, struct particle_data)
 static void GTNeutralHydrogenFraction(int i, float * out, void * baseptr, void * smanptr, const struct conversions * params) {
-    double redshift = 1./All.Time - 1;
+    double redshift = 1./params->atime - 1;
     struct particle_data * pl = ((struct particle_data *) baseptr)+i;
     int PI = pl->PI;
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
-    *out = get_neutral_fraction_sfreff(redshift, All.cf.hubble, pl, sl+PI);
+    *out = get_neutral_fraction_sfreff(redshift, params->hubble, pl, sl+PI);
 }
 
 static void GTHeliumIFraction(int i, float * out, void * baseptr, void * smanptr, const struct conversions * params) {
-    double redshift = 1./All.Time - 1;
+    double redshift = 1./params->atime - 1;
     struct particle_data * pl = ((struct particle_data *) baseptr)+i;
     int PI = pl->PI;
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
-    *out = get_helium_neutral_fraction_sfreff(0, redshift, All.cf.hubble, pl, sl+PI);
+    *out = get_helium_neutral_fraction_sfreff(0, redshift, params->hubble, pl, sl+PI);
 }
 static void GTHeliumIIFraction(int i, float * out, void * baseptr, void * smanptr, const struct conversions * params) {
-    double redshift = 1./All.Time - 1;
+    double redshift = 1./params->atime - 1;
     struct particle_data * pl = ((struct particle_data *) baseptr)+i;
     int PI = pl->PI;
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
-    *out = get_helium_neutral_fraction_sfreff(1, redshift, All.cf.hubble, pl, sl+PI);
+    *out = get_helium_neutral_fraction_sfreff(1, redshift, params->hubble, pl, sl+PI);
 }
 static void GTHeliumIIIFraction(int i, float * out, void * baseptr, void * smanptr, const struct conversions * params) {
-    double redshift = 1./All.Time - 1;
+    double redshift = 1./params->atime - 1;
     struct particle_data * pl = ((struct particle_data *) baseptr)+i;
     int PI = pl->PI;
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
-    *out = get_helium_neutral_fraction_sfreff(2, redshift, All.cf.hubble, pl, sl+PI);
+    *out = get_helium_neutral_fraction_sfreff(2, redshift, params->hubble, pl, sl+PI);
 }
 static void GTInternalEnergy(int i, float * out, void * baseptr, void * smanptr, const struct conversions * params) {
     int PI = ((struct particle_data *) baseptr)[i].PI;
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
-    double a3inv = 1/(All.Time * All.Time * All.Time);
+    double a3inv = 1/(params->atime * params->atime * params->atime);
     *out = sl[PI].Entropy / GAMMA_MINUS1 * pow(sl[PI].Density * a3inv, GAMMA_MINUS1);
 }
 
@@ -941,7 +941,7 @@ static void STInternalEnergy(int i, float * out, void * baseptr, void * smanptr,
     int PI = ((struct particle_data *) baseptr)[i].PI;
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
-    double a3inv = 1/(All.Time * All.Time * All.Time);
+    double a3inv = 1/(params->atime * params->atime * params->atime);
     sl[PI].Entropy  = GAMMA_MINUS1 * u / pow(sl[PI].Density * a3inv, GAMMA_MINUS1);
 }
 
