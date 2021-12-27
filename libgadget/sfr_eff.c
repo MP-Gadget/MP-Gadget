@@ -95,7 +95,7 @@ struct sfr_eeqos_data
 };
 
 /* Computes properties of the gas on star forming equation of state*/
-static struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_particle_data * sph, double dtime, const double a3inv, const struct UVBG * const GlobalUVBG);
+static struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_particle_data * sph, double dtime, struct UVBG *local_uvbg, const double redshift, const double a3inv, const struct UVBG * const GlobalUVBG);
 
 /*Cooling only: no star formation*/
 static void cooling_direct(int i, const double redshift, const double a3inv, const double hubble, const struct UVBG * const GlobalUVBG);
@@ -520,7 +520,7 @@ double get_neutral_fraction_sfreff(double redshift, struct particle_data * partd
          * fraction than the hot gas*/
         double dloga = get_dloga_for_bin(partdata->TimeBin, partdata->Ti_drift);
         double dtime = dloga / All.cf.hubble;
-        struct sfr_eeqos_data sfr_data = get_sfr_eeqos(partdata, sphdata, dtime, All.cf.a3inv, &GlobalUVBG);
+        struct sfr_eeqos_data sfr_data = get_sfr_eeqos(partdata, sphdata, dtime, &uvbg, redshift, All.cf.a3inv, &GlobalUVBG);
         double nh0cold = GetNeutralFraction(sfr_params.EgySpecCold, physdens, &uvbg, sfr_data.ne);
         double nh0hot = GetNeutralFraction(sfr_data.egyhot, physdens, &uvbg, sfr_data.ne);
         nh0 =  nh0cold * sfr_data.cloudfrac + (1-sfr_data.cloudfrac) * nh0hot;
@@ -549,7 +549,7 @@ double get_helium_neutral_fraction_sfreff(int ion, double redshift, struct parti
          * fraction than the hot gas*/
         double dloga = get_dloga_for_bin(partdata->TimeBin, partdata->Ti_drift);
         double dtime = dloga / All.cf.hubble;
-        struct sfr_eeqos_data sfr_data = get_sfr_eeqos(partdata, sphdata, dtime, All.cf.a3inv, &GlobalUVBG);
+        struct sfr_eeqos_data sfr_data = get_sfr_eeqos(partdata, sphdata, dtime, &uvbg, redshift, All.cf.a3inv, &GlobalUVBG);
         double nh0cold = GetHeliumIonFraction(ion, sfr_params.EgySpecCold, physdens, &uvbg, sfr_data.ne);
         double nh0hot = GetHeliumIonFraction(ion, sfr_data.egyhot, physdens, &uvbg, sfr_data.ne);
         helium =  nh0cold * sfr_data.cloudfrac + (1-sfr_data.cloudfrac) * nh0hot;
@@ -656,7 +656,9 @@ starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, cons
     double dtime = dloga / hubble;
     int newstar = -1;
 
-    struct sfr_eeqos_data sfr_data = get_sfr_eeqos(&P[i], &SPHP(i), dtime, a3inv, GlobalUVBG);
+    struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, P[i].Pos, PartManager->CurrentParticleOffset);
+
+    struct sfr_eeqos_data sfr_data = get_sfr_eeqos(&P[i], &SPHP(i), dtime, &uvbg, redshift, a3inv, GlobalUVBG);
 
     double smr = get_starformation_rate_full(i, GradRho, sfr_data, a3inv);
 
@@ -702,7 +704,7 @@ starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, cons
 
 /* Get the parameters of the basic effective
  * equation of state model for a particle.*/
-struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_particle_data * sph, double dtime, const double a3inv, const struct UVBG * const GlobalUVBG)
+struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_particle_data * sph, double dtime, struct UVBG *local_uvbg, const double redshift, const double a3inv, const struct UVBG * const GlobalUVBG)
 {
     struct sfr_eeqos_data data;
     /* Initialise data to something, just in case.*/
@@ -725,15 +727,12 @@ struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_part
     if(data.tsfr < dtime && dtime > 0)
         data.tsfr = dtime;
 
-    double redshift = 1./All.Time - 1;
-    struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, part->Pos, PartManager->CurrentParticleOffset);
-
     double factorEVP = pow(sph->Density * a3inv / sfr_params.PhysDensThresh, -0.8) * sfr_params.FactorEVP;
 
     data.egyhot = sfr_params.EgySpecSN / (1 + factorEVP) + sfr_params.EgySpecCold;
     data.egycold = sfr_params.EgySpecCold;
 
-    double tcool = GetCoolingTime(redshift, data.egyhot, sph->Density * a3inv, &uvbg, &data.ne, sph->Metallicity);
+    double tcool = GetCoolingTime(redshift, data.egyhot, sph->Density * a3inv, local_uvbg, &data.ne, sph->Metallicity);
     double y = data.tsfr / tcool * data.egyhot / (sfr_params.FactorSN * sfr_params.EgySpecSN - (1 - sfr_params.FactorSN) * sfr_params.EgySpecCold);
 
     data.cloudfrac = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
