@@ -113,9 +113,9 @@ enum TimeStepType
 
 static inttime_t get_timestep_ti(const int p, const inttime_t dti_max, const inttime_t Ti_Current, const double atime, const double hubble, enum TimeStepType * titype);
 static int get_timestep_bin(inttime_t dti);
-static void do_the_short_range_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const double atime);
+static void do_the_short_range_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const double atime, const double MinEgySpec);
 /* Get the current PM (global) timestep.*/
-static inttime_t get_PM_timestep_ti(const DriftKickTimes * const times, const double atime, const Cosmology * CP);
+static inttime_t get_PM_timestep_ti(const DriftKickTimes * const times, const double atime, const Cosmology * CP, const int FastParticleType);
 
 /*Initialise the integer timeline*/
 inttime_t
@@ -172,7 +172,7 @@ set_global_time(const inttime_t Ti_Current) {
  * It will also shrink the PM timestep to the longest short-range timestep.
  * Stores the maximum and minimum timesteps in the DriftKickTimes structure.*/
 void
-find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double atime, const Cosmology * CP, const int isFirstTimeStep)
+find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double atime, int FastParticleType, const Cosmology * CP, const int isFirstTimeStep, const char * EmergencyOutputDir)
 {
     int pa;
     inttime_t dti_min = TIMEBASE;
@@ -184,7 +184,7 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
     inttime_t dti_max = times->PM_length;
 
     if(isPM) {
-        dti_max = get_PM_timestep_ti(times, atime, CP);
+        dti_max = get_PM_timestep_ti(times, atime, CP, FastParticleType);
         times->PM_length = dti_max;
         times->PM_start = times->PM_kick;
     }
@@ -299,7 +299,7 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
     }
     if(badstepsizecount) {
         message(0, "bad timestep spotted: terminating and saving snapshot.\n");
-        dump_snapshot("TIMESTEP-DUMP", atime, All.OutputDir);
+        dump_snapshot("TIMESTEP-DUMP", atime, EmergencyOutputDir);
         endrun(0, "Ending due to bad timestep");
     }
     walltime_measure("/Timeline");
@@ -324,7 +324,7 @@ update_lastactive_drift(DriftKickTimes * times)
 
 /* Apply half a kick, for the second half of the timestep.*/
 void
-apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * times, const double atime)
+apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * times, const double atime, const double MinEgySpec)
 {
     int pa, bin;
     walltime_measure("/Misc");
@@ -368,7 +368,7 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
         inttime_t dti = dti_from_timebin(bin);
         const double dt_entr = dloga_from_dti(dti/2, times->Ti_Current);
         /*This only changes particle i, so is thread-safe.*/
-        do_the_short_range_kick(i, dt_entr, gravkick[bin], hydrokick[bin], atime);
+        do_the_short_range_kick(i, dt_entr, gravkick[bin], hydrokick[bin], atime, MinEgySpec);
     }
     walltime_measure("/Timeline/HalfKick/Short");
 }
@@ -397,7 +397,7 @@ apply_PM_half_kick(Cosmology * CP, DriftKickTimes * times)
 }
 
 void
-do_the_short_range_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const double atime)
+do_the_short_range_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const double atime, const double MinEgySpec)
 {
     int j;
     for(j = 0; j < 3; j++)
@@ -443,8 +443,8 @@ do_the_short_range_kick(int i, double dt_entr, double Fgravkick, double Fhydroki
         /* Limit entropy in simulations with cooling disabled*/
         double a3inv = 1/(atime * atime * atime);
         const double enttou = pow(SPHP(i).Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
-        if(SPHP(i).Entropy < All.MinEgySpec/enttou)
-            SPHP(i).Entropy = All.MinEgySpec / enttou;
+        if(SPHP(i).Entropy < MinEgySpec/enttou)
+            SPHP(i).Entropy = MinEgySpec / enttou;
     }
 #ifdef DEBUG
     /* Check we have reasonable velocities. If we do not, try to explain why*/
@@ -595,7 +595,7 @@ get_timestep_ti(const int p, const inttime_t dti_max, const inttime_t Ti_Current
  *  Note that the latter is estimated using the assigned particle masses, separately for each particle type.
  */
 double
-get_long_range_timestep_dloga(const double atime, const Cosmology * CP)
+get_long_range_timestep_dloga(const double atime, const Cosmology * CP, const int FastParticleType)
 {
     int i, type;
     int count[6];
@@ -669,7 +669,7 @@ get_long_range_timestep_dloga(const double atime, const Cosmology * CP)
                     type, dmean, asmth, min_mass[type], atime, sqrt(v_sum[type] / count_sum[type]), dloga1);
 
             /* don't constrain the step to the neutrinos */
-            if(type != All.FastParticleType && dloga1 < dloga)
+            if(type != FastParticleType && dloga1 < dloga)
                 dloga = dloga1;
         }
     }
@@ -683,9 +683,9 @@ get_long_range_timestep_dloga(const double atime, const Cosmology * CP)
 
 /* backward compatibility with the old loop. */
 inttime_t
-get_PM_timestep_ti(const DriftKickTimes * const times, const double atime, const Cosmology * CP)
+get_PM_timestep_ti(const DriftKickTimes * const times, const double atime, const Cosmology * CP, const int FastParticleType)
 {
-    double dloga = get_long_range_timestep_dloga(atime, CP);
+    double dloga = get_long_range_timestep_dloga(atime, CP, FastParticleType);
 
     inttime_t dti = dti_from_dloga(dloga, times->Ti_Current);
     dti = round_down_power_of_two(dti);
