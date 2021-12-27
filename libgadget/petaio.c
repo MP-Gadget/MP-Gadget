@@ -410,7 +410,7 @@ petaio_read_snapshot(int num, MPI_Comm Comm)
                 int k;
                 /* for GenIC's Gadget-1 snapshot Unit to Gadget-2 Internal velocity unit */
                 for(k = 0; k < 3; k++)
-                    P[i].Vel[k] *= sqrt(All.cf.a) * All.cf.a;
+                    P[i].Vel[k] *= sqrt(All.Time) * All.Time;
             }
 
         }
@@ -434,10 +434,11 @@ static void petaio_write_header(BigFile * bf, const int64_t * NTotal) {
     }
 
     /* conversion from peculiar velocity to RSD */
-    double RSD = 1.0 / (All.cf.a * All.cf.hubble);
+    const double hubble = hubble_function(&All.CP, All.Time);
+    double RSD = 1.0 / (All.Time * hubble);
 
     if(!IO.UsePeculiarVelocity) {
-        RSD /= All.cf.a; /* Conversion from internal velocity to RSD */
+        RSD /= All.Time; /* Conversion from internal velocity to RSD */
     }
 
     int dk = GetDensityKernelType();
@@ -815,7 +816,7 @@ static void GTVelocity(int i, float * out, void * baseptr, void * smanptr) {
     double fac;
     struct particle_data * part = (struct particle_data *) baseptr;
     if (IO.UsePeculiarVelocity) {
-        fac = 1.0 / All.cf.a;
+        fac = 1.0 / All.Time;
     } else {
         fac = 1.0;
     }
@@ -829,7 +830,7 @@ static void STVelocity(int i, float * out, void * baseptr, void * smanptr) {
     double fac;
     struct particle_data * part = (struct particle_data *) baseptr;
     if (IO.UsePeculiarVelocity) {
-        fac = All.cf.a;
+        fac = All.Time;
     } else {
         fac = 1.0;
     }
@@ -924,7 +925,8 @@ static void GTInternalEnergy(int i, float * out, void * baseptr, void * smanptr)
     int PI = ((struct particle_data *) baseptr)[i].PI;
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
-    *out = sl[PI].Entropy / GAMMA_MINUS1 * pow(sl[PI].Density * All.cf.a3inv, GAMMA_MINUS1);
+    double a3inv = 1/(All.Time * All.Time * All.Time);
+    *out = sl[PI].Entropy / GAMMA_MINUS1 * pow(sl[PI].Density * a3inv, GAMMA_MINUS1);
 }
 
 static void STInternalEnergy(int i, float * out, void * baseptr, void * smanptr) {
@@ -932,7 +934,8 @@ static void STInternalEnergy(int i, float * out, void * baseptr, void * smanptr)
     int PI = ((struct particle_data *) baseptr)[i].PI;
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
-    sl[PI].Entropy  = GAMMA_MINUS1 * u / pow(sl[PI].Density * All.cf.a3inv , GAMMA_MINUS1);
+    double a3inv = 1/(All.Time * All.Time * All.Time);
+    sl[PI].Entropy  = GAMMA_MINUS1 * u / pow(sl[PI].Density * a3inv, GAMMA_MINUS1);
 }
 
 /* Can't use the macros because cannot take address of a bitfield*/
