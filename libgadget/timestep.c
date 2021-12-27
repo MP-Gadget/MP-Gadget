@@ -163,13 +163,14 @@ is_PM_timestep(const DriftKickTimes * const times)
     return times->Ti_Current == times->PM_start + times->PM_length;
 }
 
-void
+double
 set_global_time(const inttime_t Ti_Current) {
     double oldtime = All.Time;
     double newtime = exp(loga_from_ti(Ti_Current));
     if(newtime < oldtime)
         endrun(1, "Negative timestep: %g New Time: %g Old time %g!\n", newtime - oldtime, newtime, oldtime);
     All.Time = newtime;
+    return newtime;
 }
 
 /* This function assigns new short-range timesteps to particles.

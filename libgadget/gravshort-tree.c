@@ -98,7 +98,7 @@ force_treeev_shortrange(TreeWalkQueryGravShort * input,
  *  If needed, a new tree is constructed, otherwise the dynamically updated
  *  tree is used.  Particles are only exported to other processors when really
  *  needed, thereby allowing a good use of the communication buffer.
- *  NeutrinoTracer = All.HybridNeutrinosOn && (All.Time <= All.HybridNuPartTime);
+ *  NeutrinoTracer = All.HybridNeutrinosOn && (atime <= All.HybridNuPartTime);
  *  rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G)
  */
 void
