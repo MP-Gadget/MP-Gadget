@@ -255,6 +255,8 @@ run(int RestartSnapNum)
 
     write_cpu_log(NumCurrentTiStep, All.TimeInit, FdCPU); /* produce some CPU usage info */
 
+    double atime = set_global_time(times.Ti_Current);
+
     while(1) /* main loop */
     {
         /* Find next synchronization point and the timebins active during this timestep.
@@ -269,7 +271,10 @@ run(int RestartSnapNum)
         times.Ti_Current = Ti_Next;
 
         /*Convert back to floating point time*/
-        double atime = set_global_time(times.Ti_Current);
+        double newatime = set_global_time(times.Ti_Current);
+        if(newatime < atime)
+            endrun(1, "Negative timestep: %g New Time: %g Old time %g!\n", newatime - atime, newatime, atime);
+        atime = newatime;
 
         /* Compute the list of particles that cross a lightcone and write it to disc.*/
         if(All.LightconeOn)
