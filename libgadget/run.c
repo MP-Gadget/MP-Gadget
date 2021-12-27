@@ -496,13 +496,13 @@ run(int RestartSnapNum)
             if(All.CoolingOn)
                 cooling_and_starformation(&Act, &Tree, GradRho, FdSfr);
 
-            /* We don't need this timestep's tree anymore.*/
-            force_tree_free(&Tree);
+        }
+        /* We don't need this timestep's tree anymore.*/
+        force_tree_free(&Tree);
 
-            if(GradRho) {
-                myfree(GradRho);
-                GradRho = NULL;
-            }
+        if(GradRho) {
+            myfree(GradRho);
+            GradRho = NULL;
         }
 
         /* If a snapshot is requested, write it.
