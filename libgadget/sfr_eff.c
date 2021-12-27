@@ -812,13 +812,13 @@ void init_cooling_and_star_formation(int CoolingOn, int StarformationOn, Cosmolo
     sfr_params.PhysDensThresh = sfr_params.CritPhysDensity * PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs;
 
     sfr_params.EgySpecCold = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * sfr_params.TempClouds;
-    sfr_params.EgySpecCold *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
+    sfr_params.EgySpecCold /= coolunits.uu_in_cgs;
 
     /* mean molecular weight assuming FULL ionization */
     meanweight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));
 
     sfr_params.EgySpecSN = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * sfr_params.TempSupernova;
-    sfr_params.EgySpecSN *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
+    sfr_params.EgySpecSN /= coolunits.uu_in_cgs;
 
     if(sfr_params.PhysDensThresh == 0)
     {
@@ -827,7 +827,7 @@ void init_cooling_and_star_formation(int CoolingOn, int StarformationOn, Cosmolo
         meanweight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));	/* note: assuming FULL ionization */
 
         double u4 = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * 1.0e4;
-        u4 *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
+        u4 /= coolunits.uu_in_cgs;
 
 
         double dens = 1.0e6 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * All.G);
