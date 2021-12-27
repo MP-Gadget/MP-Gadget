@@ -893,7 +893,7 @@ static void GTNeutralHydrogenFraction(int i, float * out, void * baseptr, void *
     int PI = pl->PI;
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
-    *out = get_neutral_fraction_sfreff(redshift, pl, sl+PI);
+    *out = get_neutral_fraction_sfreff(redshift, All.cf.hubble, pl, sl+PI);
 }
 
 static void GTHeliumIFraction(int i, float * out, void * baseptr, void * smanptr) {
@@ -902,7 +902,7 @@ static void GTHeliumIFraction(int i, float * out, void * baseptr, void * smanptr
     int PI = pl->PI;
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
-    *out = get_helium_neutral_fraction_sfreff(0, redshift, pl, sl+PI);
+    *out = get_helium_neutral_fraction_sfreff(0, redshift, All.cf.hubble, pl, sl+PI);
 }
 static void GTHeliumIIFraction(int i, float * out, void * baseptr, void * smanptr) {
     double redshift = 1./All.Time - 1;
@@ -910,7 +910,7 @@ static void GTHeliumIIFraction(int i, float * out, void * baseptr, void * smanpt
     int PI = pl->PI;
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
-    *out = get_helium_neutral_fraction_sfreff(1, redshift, pl, sl+PI);
+    *out = get_helium_neutral_fraction_sfreff(1, redshift, All.cf.hubble, pl, sl+PI);
 }
 static void GTHeliumIIIFraction(int i, float * out, void * baseptr, void * smanptr) {
     double redshift = 1./All.Time - 1;
@@ -918,7 +918,7 @@ static void GTHeliumIIIFraction(int i, float * out, void * baseptr, void * smanp
     int PI = pl->PI;
     struct slot_info * info = &(((struct slots_manager_type *) smanptr)->info[0]);
     struct sph_particle_data * sl = (struct sph_particle_data *) info->ptr;
-    *out = get_helium_neutral_fraction_sfreff(2, redshift, pl, sl+PI);
+    *out = get_helium_neutral_fraction_sfreff(2, redshift, All.cf.hubble, pl, sl+PI);
 }
 static void GTInternalEnergy(int i, float * out, void * baseptr, void * smanptr) {
     int PI = ((struct particle_data *) baseptr)[i].PI;

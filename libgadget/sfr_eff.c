@@ -499,7 +499,7 @@ sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
 }
 
 /*Get the neutral fraction of a particle correctly, accounting for being on the star-forming equation of state*/
-double get_neutral_fraction_sfreff(double redshift, struct particle_data * partdata, struct sph_particle_data * sphdata)
+double get_neutral_fraction_sfreff(double redshift, double hubble, struct particle_data * partdata, struct sph_particle_data * sphdata)
 {
     if(!All.CoolingOn)
         return 1;
@@ -520,7 +520,7 @@ double get_neutral_fraction_sfreff(double redshift, struct particle_data * partd
          * This needs special handling because the cold clouds have a different neutral
          * fraction than the hot gas*/
         double dloga = get_dloga_for_bin(partdata->TimeBin, partdata->Ti_drift);
-        double dtime = dloga / All.cf.hubble;
+        double dtime = dloga / hubble;
         struct sfr_eeqos_data sfr_data = get_sfr_eeqos(partdata, sphdata, dtime, &uvbg, redshift, a3inv);
         double nh0cold = GetNeutralFraction(sfr_params.EgySpecCold, physdens, &uvbg, sfr_data.ne);
         double nh0hot = GetNeutralFraction(sfr_data.egyhot, physdens, &uvbg, sfr_data.ne);
@@ -529,7 +529,7 @@ double get_neutral_fraction_sfreff(double redshift, struct particle_data * partd
     return nh0;
 }
 
-double get_helium_neutral_fraction_sfreff(int ion, double redshift, struct particle_data * partdata, struct sph_particle_data * sphdata)
+double get_helium_neutral_fraction_sfreff(int ion, double redshift, double hubble, struct particle_data * partdata, struct sph_particle_data * sphdata)
 {
     if(!All.CoolingOn)
         return 1;
@@ -550,7 +550,7 @@ double get_helium_neutral_fraction_sfreff(int ion, double redshift, struct parti
          * This needs special handling because the cold clouds have a different neutral
          * fraction than the hot gas*/
         double dloga = get_dloga_for_bin(partdata->TimeBin, partdata->Ti_drift);
-        double dtime = dloga / All.cf.hubble;
+        double dtime = dloga / hubble;
         struct sfr_eeqos_data sfr_data = get_sfr_eeqos(partdata, sphdata, dtime, &uvbg, redshift, a3inv);
         double nh0cold = GetHeliumIonFraction(ion, sfr_params.EgySpecCold, physdens, &uvbg, sfr_data.ne);
         double nh0hot = GetHeliumIonFraction(ion, sfr_data.egyhot, physdens, &uvbg, sfr_data.ne);
