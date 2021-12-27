@@ -170,7 +170,6 @@ set_global_time(const inttime_t Ti_Current) {
     if(newtime < oldtime)
         endrun(1, "Negative timestep: %g New Time: %g Old time %g!\n", newtime - oldtime, newtime, oldtime);
     All.Time = newtime;
-    All.cf.hubble = hubble_function(&All.CP, All.Time);
 }
 
 /* This function assigns new short-range timesteps to particles.

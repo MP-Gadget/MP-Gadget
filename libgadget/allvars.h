@@ -96,10 +96,6 @@ extern struct global_data_all_processes
     double Time,			/*!< current time of the simulation */
            TimeMax;			/*!< marks the point of time until the simulation is to be evolved */
 
-    struct {
-        double hubble;
-    } cf;
-
     int Nmesh;
 
     /* variables that keep track of cumulative CPU consumption */
