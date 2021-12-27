@@ -100,7 +100,7 @@ static struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct s
 /*Cooling only: no star formation*/
 static void cooling_direct(int i, const double redshift, const double a3inv, const double hubble, const struct UVBG * const GlobalUVBG);
 
-static void cooling_relaxed(int i, double dtime, const double redshift, const double a3inv, struct sfr_eeqos_data sfr_data, const struct UVBG * const GlobalUVBG);
+static void cooling_relaxed(int i, double dtime, struct UVBG * local_uvbg, const double redshift, const double a3inv, struct sfr_eeqos_data sfr_data, const struct UVBG * const GlobalUVBG);
 
 static int make_particle_star(int child, int parent, int placement, double Time);
 static int starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, const double redshift, const double a3inv, const double hubble, const struct UVBG * const GlobalUVBG);
@@ -587,7 +587,7 @@ static int make_particle_star(int child, int parent, int placement, double Time)
 
 /* This function cools gas on the effective equation of state*/
 static void
-cooling_relaxed(int i, double dtime, const double redshift, const double a3inv, struct sfr_eeqos_data sfr_data, const struct UVBG * const GlobalUVBG)
+cooling_relaxed(int i, double dtime, struct UVBG * local_uvbg, const double redshift, const double a3inv, struct sfr_eeqos_data sfr_data, const struct UVBG * const GlobalUVBG)
 {
     const double egyeff = sfr_params.EgySpecCold * sfr_data.cloudfrac + (1 - sfr_data.cloudfrac) * sfr_data.egyhot;
     const double Density = SPHP(i).Density;
@@ -598,10 +598,9 @@ cooling_relaxed(int i, double dtime, const double redshift, const double a3inv, 
     {
         if(egycurrent > egyeff)
         {
-            struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, P[i].Pos, PartManager->CurrentParticleOffset);
             double ne = SPHP(i).Ne;
             /* In practice tcool << trelax*/
-            double tcool = GetCoolingTime(redshift, egycurrent, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, SPHP(i).Metallicity);
+            double tcool = GetCoolingTime(redshift, egycurrent, SPHP(i).Density * All.cf.a3inv, local_uvbg, &ne, SPHP(i).Metallicity);
 
             /* The point of the star-forming equation of state is to pressurize the gas. However,
              * when the gas has been heated above the equation of state it is pressurized and does not cool successfully.
@@ -678,7 +677,7 @@ starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, cons
 
     /* upon start-up, we need to protect against dloga ==0 */
     if(dloga > 0 && P[i].TimeBin)
-        cooling_relaxed(i, dtime, redshift, a3inv, sfr_data, GlobalUVBG);
+        cooling_relaxed(i, dtime, &uvbg, redshift, a3inv, sfr_data, GlobalUVBG);
 
     double mass_of_star = find_star_mass(i);
     double prob = P[i].Mass / mass_of_star * (1 - exp(-p));
