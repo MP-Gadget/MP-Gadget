@@ -421,7 +421,8 @@ run(int RestartSnapNum)
             apply_PM_half_kick(&All.CP, &times);
         }
 
-        apply_half_kick(&Act, &All.CP, &times);
+        /* Need a scale factor for entropy and velocity limiters*/
+        apply_half_kick(&Act, &All.CP, &times, All.Time);
 
         /* Cooling and extra physics show up as a source term in the evolution equations.
          * Formally you can write the structure of the partial differential equations:
@@ -554,10 +555,10 @@ run(int RestartSnapNum)
         /* assign new timesteps to the active particles,
          * now that we know they have synched TiKick and TiDrift,
          * and advance the PM timestep.*/
-        find_timesteps(&Act, &times, NumCurrentTiStep == 0);
+        find_timesteps(&Act, &times, All.Time, &All.CP, NumCurrentTiStep == 0);
 
         /* Update velocity and ti_kick to the new step, with the newly computed step size */
-        apply_half_kick(&Act, &All.CP, &times);
+        apply_half_kick(&Act, &All.CP, &times, All.Time);
 
         if(is_PM) {
             apply_PM_half_kick(&All.CP, &times);
