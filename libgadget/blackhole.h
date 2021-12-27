@@ -23,7 +23,7 @@ void set_blackhole_params(ParameterSet * ps);
 void blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree * tree, FILE * FdBlackHoles, FILE * FdBlackholeDetails);
 
 /* Make a black hole from the particle at index. */
-void blackhole_make_one(int index);
+void blackhole_make_one(int index, const double atime);
 
 /* Decide whether black hole repositioning is enabled. */
 int BHGetRepositionEnabled(void);

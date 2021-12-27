@@ -1406,7 +1406,7 @@ bh_powerlaw_seed_mass(MyIDType ID)
     return mass;
 }
 
-void blackhole_make_one(int index) {
+void blackhole_make_one(int index, const double atime) {
     if(!All.BlackHoleOn)
         return;
     if(P[index].Type != 0)
@@ -1430,7 +1430,7 @@ void blackhole_make_one(int index) {
 
     BHP(child).Mseed = BHP(child).Mass;
     BHP(child).Mdot = 0;
-    BHP(child).FormationTime = All.Time;
+    BHP(child).FormationTime = atime;
     BHP(child).SwallowID = (MyIDType) -1;
     BHP(child).Density = 0;
 

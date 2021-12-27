@@ -77,7 +77,7 @@ void fof_finish(FOFGroups * fof);
 
 /*Uses the Group structure to seed blackholes.
  * The active particle struct is used only because we may need to reallocate it. */
-void fof_seed(FOFGroups * fof, ActiveParticles * act, MPI_Comm Comm);
+void fof_seed(FOFGroups * fof, ActiveParticles * act, double atime, MPI_Comm Comm);
 
 /*Saves the Group structure to disc.*/
 void fof_save_groups(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, double FOFPartAllocFactor, int StarformationOn, int BlackholeOn, MPI_Comm Comm);

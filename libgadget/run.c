@@ -471,7 +471,7 @@ run(int RestartSnapNum)
                 /* Seeding: builds its own tree.*/
                 FOFGroups fof = fof_fof(ddecomp, 0, MPI_COMM_WORLD);
                 if(All.BlackHoleOn && All.Time >= TimeNextSeedingCheck) {
-                    fof_seed(&fof, &Act, MPI_COMM_WORLD);
+                    fof_seed(&fof, &Act, All.Time, MPI_COMM_WORLD);
                     TimeNextSeedingCheck = All.Time * All.TimeBetweenSeedingSearch;
                 }
 
