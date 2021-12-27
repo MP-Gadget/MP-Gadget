@@ -78,6 +78,9 @@ void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FO
             destroy_io_blocks(&IOTable);
             return;
         }
+        struct conversions conv = {0};
+        conv.atime = All.Time;
+        conv.hubble = hubble_function(&All.CP, All.Time);
 
         int * selection = mymalloc("Selection", sizeof(int) * halo_pman.NumPart);
 
@@ -94,7 +97,7 @@ void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FO
             BigArray array = {0};
             if(ptype < 6 && ptype >= 0) {
                 sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
-                petaio_build_buffer(&array, &IOTable.ent[i], selection + ptype_offset[ptype], ptype_count[ptype], halo_pman.Base, &halo_sman);
+                petaio_build_buffer(&array, &IOTable.ent[i], selection + ptype_offset[ptype], ptype_count[ptype], halo_pman.Base, &halo_sman, &conv);
 
                 message(0, "Writing Block %s\n", blockname);
 

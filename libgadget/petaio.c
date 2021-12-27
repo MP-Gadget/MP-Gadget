@@ -67,7 +67,7 @@ int GetUsePeculiarVelocity(void)
     return IO.UsePeculiarVelocity;
 }
 
-static void petaio_write_header(BigFile * bf, const int64_t * NTotal);
+static void petaio_write_header(BigFile * bf, const double atime, const int64_t * NTotal);
 static void petaio_read_header_internal(BigFile * bf);
 
 /* these are only used in reading in */
@@ -85,10 +85,10 @@ void petaio_init(void) {
 }
 
 /* save a snapshot file */
-static void petaio_save_internal(char * fname, struct IOTable * IOTable, int verbose);
+static void petaio_save_internal(char * fname, const double atime, struct IOTable * IOTable, int verbose);
 
 void
-petaio_save_snapshot(struct IOTable * IOTable, int verbose, const char *fmt, ...)
+petaio_save_snapshot(struct IOTable * IOTable, int verbose, const double atime, const char *fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
@@ -97,7 +97,7 @@ petaio_save_snapshot(struct IOTable * IOTable, int verbose, const char *fmt, ...
     va_end(va);
     message(0, "saving snapshot into %s\n", fname);
 
-    petaio_save_internal(fname, IOTable, verbose);
+    petaio_save_internal(fname, atime, IOTable, verbose);
     myfree(fname);
 }
 
@@ -150,7 +150,7 @@ petaio_build_selection(int * selection,
     }
 }
 
-static void petaio_save_internal(char * fname, struct IOTable * IOTable, int verbose) {
+static void petaio_save_internal(char * fname, const double atime, struct IOTable * IOTable, int verbose) {
     BigFile bf = {0};
     if(0 != big_file_mpi_create(&bf, fname, MPI_COMM_WORLD)) {
         endrun(0, "Failed to create snapshot at %s:%s\n", fname,
@@ -167,7 +167,11 @@ static void petaio_save_internal(char * fname, struct IOTable * IOTable, int ver
 
     sumup_large_ints(6, ptype_count, NTotal);
 
-    petaio_write_header(&bf, NTotal);
+    struct conversions conv = {0};
+    conv.atime = atime;
+    conv.hubble = hubble_function(&All.CP, atime);
+
+    petaio_write_header(&bf, atime, NTotal);
 
     int i;
     for(i = 0; i < IOTable->used; i ++) {
@@ -180,7 +184,7 @@ static void petaio_save_internal(char * fname, struct IOTable * IOTable, int ver
             continue;
         }
         sprintf(blockname, "%d/%s", ptype, IOTable->ent[i].name);
-        petaio_build_buffer(&array, &IOTable->ent[i], selection + ptype_offset[ptype], ptype_count[ptype], P, SlotsManager);
+        petaio_build_buffer(&array, &IOTable->ent[i], selection + ptype_offset[ptype], ptype_count[ptype], P, SlotsManager, &conv);
         petaio_save_block(&bf, blockname, &array, verbose);
         petaio_destroy_buffer(&array);
     }
@@ -198,7 +202,7 @@ static void petaio_save_internal(char * fname, struct IOTable * IOTable, int ver
     myfree(selection);
 }
 
-void petaio_read_internal(char * fname, int ic, MPI_Comm Comm) {
+void petaio_read_internal(char * fname, int ic, const double atime, MPI_Comm Comm) {
     int ptype;
     int i;
     BigFile bf = {0};
@@ -308,6 +312,10 @@ void petaio_read_internal(char * fname, int ic, MPI_Comm Comm) {
 
     slots_reserve(0, newSlots, SlotsManager);
 
+    struct conversions conv = {0};
+    conv.atime = atime;
+    conv.hubble = hubble_function(&All.CP, atime);
+
     /* so we can set up the memory topology of secondary slots */
     slots_setup_topology(PartManager, NLocal, SlotsManager);
 
@@ -344,7 +352,7 @@ void petaio_read_internal(char * fname, int ic, MPI_Comm Comm) {
         sprintf(blockname, "%d/%s", ptype, IOTable->ent[i].name);
         petaio_alloc_buffer(&array, &IOTable->ent[i], NLocal[ptype]);
         if(0 == petaio_read_block(&bf, blockname, &array, IOTable->ent[i].required))
-            petaio_readout_buffer(&array, &IOTable->ent[i]);
+            petaio_readout_buffer(&array, &IOTable->ent[i], &conv);
         petaio_destroy_buffer(&array);
     }
     destroy_io_blocks(IOTable);
@@ -385,7 +393,7 @@ petaio_read_header(int num)
 }
 
 void
-petaio_read_snapshot(int num, MPI_Comm Comm)
+petaio_read_snapshot(int num, const double atime, MPI_Comm Comm)
 {
     if(num == -1) {
         /*
@@ -393,7 +401,7 @@ petaio_read_snapshot(int num, MPI_Comm Comm)
          *  InitTemp in paramfile, then use init.c to convert to
          *  entropy.
          * */
-        petaio_read_internal(All.InitCondFile, 1, Comm);
+        petaio_read_internal(All.InitCondFile, 1, atime, Comm);
 
         int i;
         /* touch up the mass -- IC files save mass in header */
@@ -410,7 +418,7 @@ petaio_read_snapshot(int num, MPI_Comm Comm)
                 int k;
                 /* for GenIC's Gadget-1 snapshot Unit to Gadget-2 Internal velocity unit */
                 for(k = 0; k < 3; k++)
-                    P[i].Vel[k] *= sqrt(All.Time) * All.Time;
+                    P[i].Vel[k] *= sqrt(atime) * atime;
             }
 
         }
@@ -419,14 +427,14 @@ petaio_read_snapshot(int num, MPI_Comm Comm)
         /*
          * we always save the Entropy, init.c will not mess with the entropy
          * */
-        petaio_read_internal(fname, 0, Comm);
+        petaio_read_internal(fname, 0, atime, Comm);
         myfree(fname);
     }
 }
 
 
 /* write a header block */
-static void petaio_write_header(BigFile * bf, const int64_t * NTotal) {
+static void petaio_write_header(BigFile * bf, const double atime, const int64_t * NTotal) {
     BigBlock bh;
     if(0 != big_file_mpi_create_block(bf, &bh, "Header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
         endrun(0, "Failed to create block at %s:%s\n", "Header",
@@ -434,11 +442,11 @@ static void petaio_write_header(BigFile * bf, const int64_t * NTotal) {
     }
 
     /* conversion from peculiar velocity to RSD */
-    const double hubble = hubble_function(&All.CP, All.Time);
-    double RSD = 1.0 / (All.Time * hubble);
+    const double hubble = hubble_function(&All.CP, atime);
+    double RSD = 1.0 / (atime * hubble);
 
     if(!IO.UsePeculiarVelocity) {
-        RSD /= All.Time; /* Conversion from internal velocity to RSD */
+        RSD /= atime; /* Conversion from internal velocity to RSD */
     }
 
     int dk = GetDensityKernelType();
@@ -446,7 +454,7 @@ static void petaio_write_header(BigFile * bf, const int64_t * NTotal) {
     (0 != big_block_set_attr(&bh, "TotNumPart", NTotal, "u8", 6)) ||
     (0 != big_block_set_attr(&bh, "TotNumPartInit", All.NTotalInit, "u8", 6)) ||
     (0 != big_block_set_attr(&bh, "MassTable", All.MassTable, "f8", 6)) ||
-    (0 != big_block_set_attr(&bh, "Time", &All.Time, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "Time", &atime, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "TimeIC", &All.TimeIC, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "BoxSize", &All.BoxSize, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "OmegaLambda", &All.CP.OmegaLambda, "f8", 1)) ||
@@ -573,16 +581,13 @@ void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t localsize
 }
 
 /* readout array into P struct with setters */
-void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
+void petaio_readout_buffer(BigArray * array, IOTableEntry * ent, struct conversions * conv) {
     int i;
     /* fill the buffer */
     char * p = array->data;
-    struct conversions conv = {0};
-    conv.atime = All.Time;
-    conv.hubble = hubble_function(&All.CP, All.Time);
     for(i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].Type != ent->ptype) continue;
-        ent->setter(i, p, P, SlotsManager, &conv);
+        ent->setter(i, p, P, SlotsManager, conv);
         p += array->strides[0];
     }
 }
@@ -591,7 +596,7 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
  * NOTE: selected range should contain only one particle type!
 */
 void
-petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int NumSelection, struct particle_data * Parts, struct slots_manager_type * SlotsManager)
+petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int NumSelection, struct particle_data * Parts, struct slots_manager_type * SlotsManager, struct conversions * conv)
 {
     if(selection == NULL) {
         endrun(-1, "NULL selection is not supported\n");
@@ -604,10 +609,6 @@ petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection,
     if(NumSelection == 0) {
         return;
     }
-
-    struct conversions conv = {0};
-    conv.atime = All.Time;
-    conv.hubble = hubble_function(&All.CP, All.Time);
 
 #pragma omp parallel
     {
@@ -624,7 +625,7 @@ petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection,
             if(Parts[j].Type != ent->ptype) {
                 endrun(2, "Selection %d has type = %d != %d\n", j, Parts[j].Type, ent->ptype);
             }
-            ent->getter(j, p, Parts, SlotsManager, &conv);
+            ent->getter(j, p, Parts, SlotsManager, conv);
             p += array->strides[0];
         }
     }

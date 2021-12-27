@@ -304,7 +304,7 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
     }
     if(badstepsizecount) {
         message(0, "bad timestep spotted: terminating and saving snapshot.\n");
-        dump_snapshot("TIMESTEP-DUMP", All.OutputDir);
+        dump_snapshot("TIMESTEP-DUMP", atime, All.OutputDir);
         endrun(0, "Ending due to bad timestep");
     }
     walltime_measure("/Timeline");
