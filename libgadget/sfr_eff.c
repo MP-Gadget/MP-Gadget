@@ -98,12 +98,12 @@ struct sfr_eeqos_data
 static struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_particle_data * sph, double dtime, const double a3inv, const struct UVBG * const GlobalUVBG);
 
 /*Cooling only: no star formation*/
-static void cooling_direct(int i, const double a3inv, const double hubble, const struct UVBG * const GlobalUVBG);
+static void cooling_direct(int i, const double redshift, const double a3inv, const double hubble, const struct UVBG * const GlobalUVBG);
 
-static void cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_eeqos_data sfr_data, const struct UVBG * const GlobalUVBG);
+static void cooling_relaxed(int i, double dtime, const double redshift, const double a3inv, struct sfr_eeqos_data sfr_data, const struct UVBG * const GlobalUVBG);
 
-static int make_particle_star(int child, int parent, int placement);
-static int starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, const double a3inv, const double hubble, const struct UVBG * const GlobalUVBG);
+static int make_particle_star(int child, int parent, int placement, double Time);
+static int starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, const double redshift, const double a3inv, const double hubble, const struct UVBG * const GlobalUVBG);
 static int quicklyastarformation(int i, const double a3inv);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i, MyFloat * GradRho);
@@ -229,7 +229,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
                     sum_sm += P[p_i].Mass;
                     sm = P[p_i].Mass;
                 } else {
-                    newstar = starformation(p_i, &localsfr, &sm, GradRho, a3inv, hubble, &GlobalUVBG);
+                    newstar = starformation(p_i, &localsfr, &sm, GradRho, redshift, a3inv, hubble, &GlobalUVBG);
                     sum_sm += P[p_i].Mass * (1 - exp(-sm/P[p_i].Mass));
                 }
                 /*Add this particle to the stellar conversion queue if necessary.*/
@@ -247,7 +247,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
                 }
             }
             else
-                cooling_direct(p_i, a3inv, hubble, &GlobalUVBG);
+                cooling_direct(p_i, redshift, a3inv, hubble, &GlobalUVBG);
         }
     }
 
@@ -304,7 +304,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
     {
         int child = NewStars[i];
         int parent = NewParents[i];
-        make_particle_star(child, parent, firststarslot+i);
+        make_particle_star(child, parent, firststarslot+i, Time);
         sum_mass_stars += P[child].Mass;
         if(child == parent)
             stars_converted++;
@@ -427,7 +427,7 @@ sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTr
 }
 
 static void
-cooling_direct(int i, const double a3inv, const double hubble, const struct UVBG * const GlobalUVBG)
+cooling_direct(int i, const double redshift, const double a3inv, const double hubble, const struct UVBG * const GlobalUVBG)
 {
     /*  the actual time-step */
     double dloga = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift);
@@ -440,7 +440,6 @@ cooling_direct(int i, const double a3inv, const double hubble, const struct UVBG
     /* Current internal energy including adiabatic change*/
     double uold = SPHP(i).Entropy * enttou;
 
-    double redshift = 1./All.Time - 1;
     struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, P[i].Pos, PartManager->CurrentParticleOffset);
     double lasttime = exp(loga_from_ti(P[i].Ti_drift - dti_from_timebin(P[i].TimeBin)));
     double lastred = 1/lasttime - 1;
@@ -560,7 +559,7 @@ double get_helium_neutral_fraction_sfreff(int ion, double redshift, struct parti
 /* This function turns a particle into a star. It returns 1 if a particle was
  * converted and 2 if a new particle was spawned. This is used
  * above to set stars_{spawned|converted}*/
-static int make_particle_star(int child, int parent, int placement)
+static int make_particle_star(int child, int parent, int placement, double Time)
 {
     int retflag = 2;
     if(P[parent].Type != 0)
@@ -574,7 +573,7 @@ static int make_particle_star(int child, int parent, int placement)
     child = slots_convert(child, 4, placement, PartManager, SlotsManager);
 
     /*Set properties*/
-    STARP(child).FormationTime = All.Time;
+    STARP(child).FormationTime = Time;
     STARP(child).LastEnrichmentMyr = 0;
     STARP(child).TotalMassReturned = 0;
     STARP(child).BirthDensity = oldslot.Density;
@@ -588,7 +587,7 @@ static int make_particle_star(int child, int parent, int placement)
 
 /* This function cools gas on the effective equation of state*/
 static void
-cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_eeqos_data sfr_data, const struct UVBG * const GlobalUVBG)
+cooling_relaxed(int i, double dtime, const double redshift, const double a3inv, struct sfr_eeqos_data sfr_data, const struct UVBG * const GlobalUVBG)
 {
     const double egyeff = sfr_params.EgySpecCold * sfr_data.cloudfrac + (1 - sfr_data.cloudfrac) * sfr_data.egyhot;
     const double Density = SPHP(i).Density;
@@ -599,7 +598,6 @@ cooling_relaxed(int i, double dtime, const double a3inv, struct sfr_eeqos_data s
     {
         if(egycurrent > egyeff)
         {
-            double redshift = 1./All.Time - 1;
             struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, P[i].Pos, PartManager->CurrentParticleOffset);
             double ne = SPHP(i).Ne;
             /* In practice tcool << trelax*/
@@ -651,7 +649,7 @@ quicklyastarformation(int i, const double a3inv)
  * The star slot is not actually created here, but a particle for it is.
  */
 static int
-starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, const double a3inv, const double hubble, const struct UVBG * const GlobalUVBG)
+starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, const double redshift, const double a3inv, const double hubble, const struct UVBG * const GlobalUVBG)
 {
     /*  the proper time-step */
     double dloga = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift);
@@ -678,7 +676,7 @@ starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, cons
 
     /* upon start-up, we need to protect against dloga ==0 */
     if(dloga > 0 && P[i].TimeBin)
-        cooling_relaxed(i, dtime, a3inv, sfr_data, GlobalUVBG);
+        cooling_relaxed(i, dtime, redshift, a3inv, sfr_data, GlobalUVBG);
 
     double mass_of_star = find_star_mass(i);
     double prob = P[i].Mass / mass_of_star * (1 - exp(-p));
