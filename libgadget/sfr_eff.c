@@ -105,9 +105,9 @@ static void cooling_relaxed(int i, double dtime, struct UVBG * local_uvbg, const
 static int make_particle_star(int child, int parent, int placement, double Time);
 static int starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, const double redshift, const double a3inv, const double hubble, const struct UVBG * const GlobalUVBG);
 static int quicklyastarformation(int i, const double a3inv);
-static double get_sfr_factor_due_to_selfgravity(int i, const double atime, const double a3inv);
+static double get_sfr_factor_due_to_selfgravity(int i, const double atime, const double a3inv, const double hubble);
 static double get_sfr_factor_due_to_h2(int i, MyFloat * GradRho, const double atime);
-static double get_starformation_rate_full(int i, MyFloat * GradRho, struct sfr_eeqos_data sfr_data, const double atime, const double a3inv);
+static double get_starformation_rate_full(int i, MyFloat * GradRho, struct sfr_eeqos_data sfr_data, const double atime, const double a3inv, const double hubble);
 static double get_egyeff(double redshift, double dens, struct UVBG * uvbg);
 static double find_star_mass(int i);
 /*Get enough memory for new star slots. This may be excessively slow! Don't do it too often.*/
@@ -662,7 +662,7 @@ starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, cons
     struct sfr_eeqos_data sfr_data = get_sfr_eeqos(&P[i], &SPHP(i), dtime, &uvbg, redshift, a3inv);
 
     double atime = 1/(1+redshift);
-    double smr = get_starformation_rate_full(i, GradRho, sfr_data, atime, a3inv);
+    double smr = get_starformation_rate_full(i, GradRho, sfr_data, atime, a3inv, hubble);
 
     double sm = smr * dtime;
 
@@ -743,7 +743,7 @@ struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_part
     return data;
 }
 
-static double get_starformation_rate_full(int i, MyFloat * GradRho, struct sfr_eeqos_data sfr_data, const double atime, const double a3inv)
+static double get_starformation_rate_full(int i, MyFloat * GradRho, struct sfr_eeqos_data sfr_data, const double atime, const double a3inv, const double hubble)
 {
     if(!All.StarformationOn || !sfreff_on_eeqos(&SPHP(i), a3inv)) {
         return 0;
@@ -759,7 +759,7 @@ static double get_starformation_rate_full(int i, MyFloat * GradRho, struct sfr_e
         rateOfSF *= get_sfr_factor_due_to_h2(i, GradRho, atime);
     }
     if (HAS(sfr_params.StarformationCriterion, SFR_CRITERION_SELFGRAVITY)) {
-        rateOfSF *= get_sfr_factor_due_to_selfgravity(i, atime, a3inv);
+        rateOfSF *= get_sfr_factor_due_to_selfgravity(i, atime, a3inv, hubble);
     }
     return rateOfSF;
 }
@@ -972,11 +972,11 @@ static double get_sfr_factor_due_to_h2(int i, MyFloat * GradRho, const double at
     return 1.0;
 }
 
-static double get_sfr_factor_due_to_selfgravity(int i, const double atime, const double a3inv) {
+static double get_sfr_factor_due_to_selfgravity(int i, const double atime, const double a3inv, const double hubble) {
     const double a2 = atime * atime;
     double divv = SPHP(i).DivVel / a2;
 
-    divv += 3.0*All.cf.hubble * a2; // hubble-flow correction
+    divv += 3.0*hubble * a2; // hubble-flow correction
 
     if(HAS(sfr_params.StarformationCriterion, SFR_CRITERION_CONVERGENT_FLOW)) {
         if( divv>=0 ) return 0; // restrict to convergent flows (optional) //
