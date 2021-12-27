@@ -97,9 +97,6 @@ extern struct global_data_all_processes
            TimeMax;			/*!< marks the point of time until the simulation is to be evolved */
 
     struct {
-        double a;
-        double a3inv;
-        double a2inv;
         double hubble;
     } cf;
 

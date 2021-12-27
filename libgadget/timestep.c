@@ -170,9 +170,6 @@ set_global_time(const inttime_t Ti_Current) {
     if(newtime < oldtime)
         endrun(1, "Negative timestep: %g New Time: %g Old time %g!\n", newtime - oldtime, newtime, oldtime);
     All.Time = newtime;
-    All.cf.a = All.Time;
-    All.cf.a2inv = 1 / (All.Time * All.Time);
-    All.cf.a3inv = 1 / (All.Time * All.Time * All.Time);
     All.cf.hubble = hubble_function(&All.CP, All.Time);
 }
 
