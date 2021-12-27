@@ -31,7 +31,7 @@ typedef struct
     inttime_t PM_kick;  /* current inttime of PM Kick (velocity) */
 } DriftKickTimes;
 
-int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times, int NumCurrentTiStep);
+int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times, int NumCurrentTiStep, const double Time);
 void free_activelist(ActiveParticles * act);
 void set_global_time(const inttime_t Ti_Current);
 

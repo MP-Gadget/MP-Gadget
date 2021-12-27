@@ -739,10 +739,10 @@ inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin)
     return Ti_Current + dti_from_timebin(minTimeBin);
 }
 
-static void print_timebin_statistics(const DriftKickTimes * const times, const int NumCurrentTiStep, int * TimeBinCountType);
+static void print_timebin_statistics(const DriftKickTimes * const times, const int NumCurrentTiStep, int * TimeBinCountType, const double Time);
 
 /* mark the bins that will be active before the next kick*/
-int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times, int NumCurrentTiStep)
+int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times, int NumCurrentTiStep, const double Time)
 {
     int i;
 
@@ -800,7 +800,7 @@ int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times
     ta_free(NActiveThread);
 
     /*Print statistics for this time bin*/
-    print_timebin_statistics(times, NumCurrentTiStep, TimeBinCountType);
+    print_timebin_statistics(times, NumCurrentTiStep, TimeBinCountType, Time);
     myfree(TimeBinCountType);
 
     /* Shrink the ActiveParticle array. We still need extra space for star formation,
@@ -828,9 +828,8 @@ void free_activelist(ActiveParticles * act)
  * FdCPU the cumulative cpu-time consumption in various parts of the
  * code is stored.
  */
-static void print_timebin_statistics(const DriftKickTimes * const times, const int NumCurrentTiStep, int * TimeBinCountType)
+static void print_timebin_statistics(const DriftKickTimes * const times, const int NumCurrentTiStep, int * TimeBinCountType, const double Time)
 {
-    double z;
     int i;
     int64_t tot = 0, tot_type[6] = {0};
     int64_t tot_count[TIMEBINS+1] = {0};
@@ -867,10 +866,11 @@ static void print_timebin_statistics(const DriftKickTimes * const times, const i
     if(is_PM_timestep(times))
         strcat(extra, "PM-Step");
 
-    z = 1.0 / (All.Time) - 1;
+    const double dloga = get_dloga_for_bin(times->mintimebin, times->Ti_Current);
+    const double z = 1.0 / (Time) - 1;
     message(0, "Begin Step %d, Time: %g (%x), Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
-                NumCurrentTiStep, All.Time, times->Ti_Current, z, tot_num_force,
-                All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep),
+                NumCurrentTiStep, Time, times->Ti_Current, z, tot_num_force,
+                dloga * Time, dloga,
                 extra);
 
     message(0, "TotNumPart: %013ld SPH %013ld BH %010ld STAR %013ld \n",

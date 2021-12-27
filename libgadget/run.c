@@ -337,7 +337,7 @@ run(int RestartSnapNum)
 
 
         ActiveParticles Act = {0};
-        rebuild_activelist(&Act, &times, NumCurrentTiStep);
+        rebuild_activelist(&Act, &times, NumCurrentTiStep, All.Time);
 
         set_random_numbers(All.RandomSeed + times.Ti_Current);
 
