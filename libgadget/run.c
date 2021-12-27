@@ -560,7 +560,8 @@ run(int RestartSnapNum)
         /* assign new timesteps to the active particles,
          * now that we know they have synched TiKick and TiDrift,
          * and advance the PM timestep.*/
-        find_timesteps(&Act, &times, atime, All.FastParticleType, &All.CP, NumCurrentTiStep == 0, All.OutputDir);
+        const double asmth = All.Asmth * PartManager->BoxSize / All.Nmesh;
+        find_timesteps(&Act, &times, atime, All.FastParticleType, &All.CP, asmth, NumCurrentTiStep == 0, All.OutputDir);
 
         /* Update velocity and ti_kick to the new step, with the newly computed step size */
         apply_half_kick(&Act, &All.CP, &times, atime, All.MinEgySpec);

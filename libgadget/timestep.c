@@ -3,10 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <omp.h>
 
 #include "utils.h"
-
-#include "allvars.h"
+#include "physconst.h"
 #include "timebinmgr.h"
 #include "domain.h"
 #include "timefac.h"
@@ -17,6 +17,7 @@
 #include "hydra.h"
 #include "walltime.h"
 #include "timestep.h"
+#include "gravity.h"
 
 /*! \file timestep.c
  *  \brief routines for 'kicking' particles in
@@ -115,7 +116,7 @@ static inttime_t get_timestep_ti(const int p, const inttime_t dti_max, const int
 static int get_timestep_bin(inttime_t dti);
 static void do_the_short_range_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const double atime, const double MinEgySpec);
 /* Get the current PM (global) timestep.*/
-static inttime_t get_PM_timestep_ti(const DriftKickTimes * const times, const double atime, const Cosmology * CP, const int FastParticleType);
+static inttime_t get_PM_timestep_ti(const DriftKickTimes * const times, const double atime, const Cosmology * CP, const int FastParticleType, const double asmth);
 
 /*Initialise the integer timeline*/
 inttime_t
@@ -172,7 +173,7 @@ set_global_time(const inttime_t Ti_Current) {
  * It will also shrink the PM timestep to the longest short-range timestep.
  * Stores the maximum and minimum timesteps in the DriftKickTimes structure.*/
 void
-find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double atime, int FastParticleType, const Cosmology * CP, const int isFirstTimeStep, const char * EmergencyOutputDir)
+find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double atime, int FastParticleType, const Cosmology * CP, const double asmth, const int isFirstTimeStep, const char * EmergencyOutputDir)
 {
     int pa;
     inttime_t dti_min = TIMEBASE;
@@ -184,7 +185,7 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
     inttime_t dti_max = times->PM_length;
 
     if(isPM) {
-        dti_max = get_PM_timestep_ti(times, atime, CP, FastParticleType);
+        dti_max = get_PM_timestep_ti(times, atime, CP, FastParticleType, asmth);
         times->PM_length = dti_max;
         times->PM_start = times->PM_kick;
     }
@@ -551,10 +552,6 @@ get_timestep_ti(const int p, const inttime_t dti_max, const inttime_t Ti_Current
     if(dti_max == 0)
         return 0;
 
-    /*Set to max timestep allowed if the tree is off*/
-    if(!All.TreeGravOn)
-        return dti_max;
-
     double dloga = get_timestep_dloga(p, Ti_Current, atime, hubble, titype);
 
     if(dloga < TimestepParams.MinSizeTimestep)
@@ -595,7 +592,7 @@ get_timestep_ti(const int p, const inttime_t dti_max, const inttime_t Ti_Current
  *  Note that the latter is estimated using the assigned particle masses, separately for each particle type.
  */
 double
-get_long_range_timestep_dloga(const double atime, const Cosmology * CP, const int FastParticleType)
+get_long_range_timestep_dloga(const double atime, const Cosmology * CP, const int FastParticleType, const double asmth)
 {
     int i, type;
     int count[6];
@@ -628,19 +625,16 @@ get_long_range_timestep_dloga(const double atime, const Cosmology * CP, const in
 
     /* add star, gas and black hole particles together to treat them on equal footing,
      * using the original gas particle spacing. */
-    if(All.StarformationOn) {
-        v_sum[0] += v_sum[4];
-        count_sum[0] += count_sum[4];
-        v_sum[4] = v_sum[0];
-        count_sum[4] = count_sum[0];
-    }
-    if(All.BlackHoleOn) {
-        v_sum[0] += v_sum[5];
-        count_sum[0] += count_sum[5];
-        v_sum[5] = v_sum[0];
-        count_sum[5] = count_sum[0];
-        min_mass[5] = min_mass[0];
-    }
+    v_sum[0] += v_sum[4];
+    count_sum[0] += count_sum[4];
+    v_sum[4] = v_sum[0];
+    count_sum[4] = count_sum[0];
+    v_sum[0] += v_sum[5];
+    count_sum[0] += count_sum[5];
+    v_sum[5] = v_sum[0];
+    count_sum[5] = count_sum[0];
+
+    min_mass[5] = min_mass[0];
 
     const double hubble = hubble_function(CP, atime);
     for(type = 0; type < 6; type++)
@@ -648,10 +642,8 @@ get_long_range_timestep_dloga(const double atime, const Cosmology * CP, const in
         if(count_sum[type] > 0)
         {
             double omega, dmean, dloga1;
-            const double asmth = All.Asmth * PartManager->BoxSize / All.Nmesh;
-            if(type == 0 || (type == 4 && All.StarformationOn)
-                || (type == 5 && All.BlackHoleOn)
-                ) {
+            /* Type 4 is stars, type 5 is BHs, both baryons*/
+            if(type == 0 || type == 4 || type == 5) {
                 omega = CP->OmegaBaryon;
             }
             /* In practice usually FastParticleType == 2
@@ -683,9 +675,9 @@ get_long_range_timestep_dloga(const double atime, const Cosmology * CP, const in
 
 /* backward compatibility with the old loop. */
 inttime_t
-get_PM_timestep_ti(const DriftKickTimes * const times, const double atime, const Cosmology * CP, const int FastParticleType)
+get_PM_timestep_ti(const DriftKickTimes * const times, const double atime, const Cosmology * CP, const int FastParticleType, const double asmth)
 {
-    double dloga = get_long_range_timestep_dloga(atime, CP, FastParticleType);
+    double dloga = get_long_range_timestep_dloga(atime, CP, FastParticleType, asmth);
 
     inttime_t dti = dti_from_dloga(dloga, times->Ti_Current);
     dti = round_down_power_of_two(dti);

@@ -37,8 +37,16 @@ double set_global_time(const inttime_t Ti_Current);
 
 /* This function assigns new short-range timesteps to particles.
  * It will also advance the PM timestep and set the new timestep length.
- * Returns the minimum timestep found.*/
-void find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double atime, int FastParticleType, const Cosmology * CP, const int isFirstTimeStep, const char * EmergencyOutputDir);
+ * Arguments:
+ * ActiveParticles: particles to assign new timesteps for.
+ * times: structure of kick times.
+ * atime: current scale factor.
+ * FastParticleType: particle type (generally neutrinos, 2) which has only long-range timestepping.
+ * Cosmology: to compute hubble scaling factors.
+ * asmth: size of PM smoothing cell in internal units. asmth = All.Asmth * PartManager->BoxSize / Nmesh
+ * isFirstTimeStep: Flags to do special things for BHs on first time step.
+ * EmergencyOutputDir: Place to save a snapshot dump if a timestep becomes zero. */
+void find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double atime, int FastParticleType, const Cosmology * CP, const double asmth, const int isFirstTimeStep, const char * EmergencyOutputDir);
 /* Apply half a kick to the particles: short-range and long-range.
  * These functions sync drift and kick times.*/
 void apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * times, const double atime, const double MinEgySpec);
