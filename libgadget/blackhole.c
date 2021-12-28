@@ -231,8 +231,15 @@ struct __attribute__((__packed__)) BHinfo{
     double BH_DragAccel[3];
     double BH_GravAccel[3];
     double Velocity[3];
-    double KineticFdbkEnergy;
+    double Mtrack;
     double Mdyn;
+    
+    double KineticFdbkEnergy;
+    double NumDM;
+    double V1sumDM[3];
+    double V2sumDM;
+    double MgasEnc;
+    double KEflag;
 
     MyDouble a;
     /* See size1 above*/
@@ -257,9 +264,9 @@ void set_blackhole_params(ParameterSet * ps)
         blackhole_params.BlackHoleRepositionEnabled = param_get_int(ps, "BlackHoleRepositionEnabled");
         
         blackhole_params.BlackHoleKineticOn = param_get_int(ps,"BlackHoleKineticOn");
-        blackhole_params.BHKE_EddingtonThrFactor =param_get_double(ps, "BHKE_EddingtonThrFactor");
-        blackhole_params.BHKE_EffRhoFactor =param_get_double(ps, "BHKE_EffRhoFactor");
-        blackhole_params.BHKE_EffCap =param_get_double(ps, "BHKE_EffCap");
+        blackhole_params.BHKE_EddingtonThrFactor = param_get_double(ps, "BHKE_EddingtonThrFactor");
+        blackhole_params.BHKE_EffRhoFactor = param_get_double(ps, "BHKE_EffRhoFactor");
+        blackhole_params.BHKE_EffCap = param_get_double(ps, "BHKE_EffCap");
         blackhole_params.BHKE_InjEnergyThr = param_get_double(ps, "BHKE_InjEnergyThr");
         blackhole_params.BHKE_SfrCritOverDensity = param_get_double(ps, "CritOverDensity");
         /***********************************************************************************/
@@ -478,9 +485,18 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
         /* BHP(p_i).Mtrack: Initialized as gas particle mass, and is capped at SeedBHDynMass,           */
         /*                 it traces BHP(p_i).Mass by swallowing gas when BHP(p_i).Mass < SeedBHDynMass */
         /************************************************************************************************/
-        info->KineticFdbkEnergy = BHP(p_i).KineticFdbkEnergy;
+        info->Mtrack = BHP(p_i).Mtrack;
         info->Mdyn = P[p_i].Mass;
-
+        
+        info->KineticFdbkEnergy = BHP(p_i).KineticFdbkEnergy;
+        info->NumDM = priv->NumDM[PI];
+        info->V1sumDM[0] = priv->V1sumDM[PI][0];
+        info->V1sumDM[1] = priv->V1sumDM[PI][1];
+        info->V1sumDM[2] = priv->V1sumDM[PI][2];
+        info->V2sumDM = priv->V2sumDM[PI];
+        info->MgasEnc = priv->MgasEnc[PI];
+        info->KEflag = priv->KEflag[PI];
+        
         info->a = All.Time;
     }
 
