@@ -47,6 +47,7 @@ struct bh_particle_data {
     double DragAccel[3];
     double DFAccel[3];
     /*******************************************************/
+    double KineticFdbkEnergy; /* accumulated KineticFdbk Energy */
 
     /* Stores the minimum timebins of all black hole neighbours.
      * The black hole timebin is then set to this.*/
