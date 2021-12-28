@@ -41,6 +41,9 @@ static struct petaio_params {
      * and v / sqrt(a) = sqrt(a) dx/dt in the ICs. Note that snapshots never match Gadget-2, which
      * saves physical peculiar velocity / sqrt(a) in both ICs and snapshots. */
     int UsePeculiarVelocity;
+    int OutputPotential;        /*!< Flag whether to include the potential in snapshots*/
+    int OutputHeliumFractions;  /*!< Flag whether to output the helium ionic fractions in snapshots*/
+    int OutputTimebins;         /* Flag whether to save the timebins*/
 } IO;
 
 /*Set the IO parameters*/
@@ -57,7 +60,9 @@ set_petaio_params(ParameterSet * ps)
         IO.WritersPerFile = param_get_int(ps, "WritersPerFile");
         IO.AggregatedIOThreshold = param_get_int(ps, "AggregatedIOThreshold");
         IO.EnableAggregatedIO = param_get_int(ps, "EnableAggregatedIO");
-
+        IO.OutputPotential = param_get_int(ps, "OutputPotential");
+        IO.OutputTimebins = param_get_int(ps, "OutputTimebins");
+        IO.OutputHeliumFractions = param_get_int(ps, "OutputHeliumFractions");
     }
     MPI_Bcast(&IO, sizeof(struct petaio_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -996,11 +1001,11 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
         IO_REG(Position, "f8", 3, i, IOTable);
         IO_REG(Velocity, "f4", 3, i, IOTable);
         IO_REG(ID,       "u8", 1, i, IOTable);
-        if(All.OutputPotential)
+        if(IO.OutputPotential)
             IO_REG_WRONLY(Potential, "f4", 1, i, IOTable);
         if(WriteGroupID)
             IO_REG_WRONLY(GroupID, "u4", 1, i, IOTable);
-        if(All.OutputTimebins)
+        if(IO.OutputTimebins)
             IO_REG_WRONLY(TimeBin,       "u4", 1, i, IOTable);
     }
 
@@ -1024,7 +1029,7 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
     if(All.CoolingOn) {
         IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0, IOTable);
     }
-    if(All.CoolingOn && All.OutputHeliumFractions) {
+    if(All.CoolingOn && IO.OutputHeliumFractions) {
         IO_REG_WRONLY(HeliumIFraction, "f4", 1, 0, IOTable);
         IO_REG_WRONLY(HeliumIIFraction, "f4", 1, 0, IOTable);
         IO_REG_WRONLY(HeliumIIIFraction, "f4", 1, 0, IOTable);
@@ -1094,7 +1099,7 @@ void register_debug_io_blocks(struct IOTable * IOTable)
     for(ptype = 0; ptype < 6; ptype++) {
         IO_REG_WRONLY(GravAccel,       "f4", 3, ptype, IOTable);
         IO_REG_WRONLY(GravPM,       "f4", 3, ptype, IOTable);
-        if(!All.OutputTimebins) /* Otherwise it is output in the regular blocks*/
+        if(!IO.OutputTimebins) /* Otherwise it is output in the regular blocks*/
             IO_REG_WRONLY(TimeBin,       "u4", 1, ptype, IOTable);
     }
     IO_REG_WRONLY(HydroAccel,       "f4", 3, 0, IOTable);

@@ -95,9 +95,6 @@ set_all_global_params(ParameterSet * ps)
         All.CP.Omega_ur = param_get_double(ps, "Omega_ur");
         All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
 
-        All.OutputPotential = param_get_int(ps, "OutputPotential");
-        All.OutputTimebins = param_get_int(ps, "OutputTimebins");
-        All.OutputHeliumFractions = param_get_int(ps, "OutputHeliumFractions");
         All.OutputDebugFields = param_get_int(ps, "OutputDebugFields");
 
         All.TimeMax = param_get_double(ps, "TimeMax");
