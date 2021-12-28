@@ -22,6 +22,7 @@ typedef struct {
     int RadiationOn; /* flags whether to include the radiation density in the background */
     _omega_nu ONu;   /*Structure for storing massive neutrino densities*/
     double MNu[3]; /*Neutrino masses in eV*/
+    double GravInternal;/*!< Gravity-constant in internal units */
 } Cosmology;
 
 typedef struct {

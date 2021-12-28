@@ -222,8 +222,9 @@ ForceTree force_tree_build(int npart, int mask, DomainDecomp * ddecomp, const in
     while(tree.numnodes >= tree.lastnode - tree.firstnode);
 
     if(MPIU_Any(TooManyNodes, MPI_COMM_WORLD)) {
+        /* Assume scale factor = 1 for dump as position is not affected.*/
         if(EmergencyOutputDir)
-            dump_snapshot("FORCETREE-DUMP", EmergencyOutputDir);
+            dump_snapshot("FORCETREE-DUMP", 1, EmergencyOutputDir);
         endrun(2, "Required too many nodes, snapshot dumped\n");
     }
     if(mask == ALLMASK)

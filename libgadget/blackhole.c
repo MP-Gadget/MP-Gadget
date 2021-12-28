@@ -164,7 +164,11 @@ struct BHPriv {
      * in the feedback treewalk*/
     MyFloat * BH_FeedbackWeightSum;
 
+    /* Time factors*/
+    double atime;
     double a3inv;
+    double hubble;
+    double GravInternal;
     /* Counters*/
     int64_t * N_sph_swallowed;
     int64_t * N_BH_swallowed;
@@ -316,15 +320,15 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         LocalTreeWalk * lv);
 
 static double
-decide_hsearch(double h);
+decide_hsearch(double h, const double atime);
 
 #define BHPOTVALUEINIT 1.0e29
 
-static double blackhole_soundspeed(double entropy, double rho) {
+static double blackhole_soundspeed(double entropy, double rho, const double atime) {
     /* rho is comoving !*/
     double cs = sqrt(GAMMA * entropy * pow(rho, GAMMA_MINUS1));
 
-    cs *= pow(All.Time, -1.5 * GAMMA_MINUS1);
+    cs *= pow(atime, -1.5 * GAMMA_MINUS1);
 
     return cs;
 }
@@ -347,7 +351,7 @@ add_injected_BH_energy(double unew, double injected_BH_energy, double mass)
 /* check if two BHs are gravitationally bounded, input dv, da, dx in code unit */
 /* same as Bellovary2011, Tremmel2017 */
 static int
-check_grav_bound(double dx[3], double dv[3], double da[3])
+check_grav_bound(double dx[3], double dv[3], double da[3], const double atime)
 {
     int j;
     double KE = 0;
@@ -358,8 +362,8 @@ check_grav_bound(double dx[3], double dv[3], double da[3])
         PE += da[j] * dx[j];
     }
 
-    KE /= (All.cf.a*All.cf.a); /* convert to proper velocity */
-    PE /= All.cf.a; /* convert to proper unit */
+    KE /= (atime * atime); /* convert to proper velocity */
+    PE /= atime; /* convert to proper unit */
 
     /* The gravitationally bound condition is PE + KE < 0.
      * Still merge if it is marginally bound so that we merge
@@ -440,7 +444,7 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
         info->Mtrack = BHP(p_i).Mtrack;
         info->Mdyn = P[p_i].Mass;
 
-        info->a = All.Time;
+        info->a = priv->atime;
     }
 
     fwrite(infos,sizeof(struct BHinfo),NumActiveBlackHoles,FdBlackholeDetails);
@@ -454,10 +458,8 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
 
 
 void
-blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FILE * FdBlackholeDetails)
+blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree * tree, FILE * FdBlackHoles, FILE * FdBlackholeDetails)
 {
-    if(!All.BlackHoleOn)
-        return;
     /* Do nothing if no black holes*/
     int64_t totbh;
     MPI_Allreduce(&SlotsManager->info[5].size, &totbh, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
@@ -517,8 +519,10 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
     tw_feedback->priv = priv;
     tw_feedback->repeatdisallowed = 1;
 
-
-    priv->a3inv = 1./(All.Time * All.Time * All.Time);
+    priv->atime = atime;
+    priv->a3inv = 1./(atime * atime * atime);
+    priv->hubble = hubble_function(CP, atime);
+    priv->GravInternal = CP->GravInternal;
 
     /* Build the queue once, since it is really 'all black holes' and similar for all treewalks*/
     treewalk_build_queue(tw_dynfric, act->ActiveParticle, act->NumActiveParticle, 0);
@@ -670,7 +674,7 @@ blackhole(const ActiveParticles * act, ForceTree * tree, FILE * FdBlackHoles, FI
                     (0.1 * LIGHTCGS * LIGHTCGS * THOMPSON)) * All.UnitTime_in_s);
 
         fprintf(FdBlackHoles, "%g %d %g %g %g %g\n",
-                All.Time, total_bh, total_mass_holes, total_mdot, mdot_in_msun_per_year, total_mdoteddington);
+                atime, total_bh, total_mass_holes, total_mdot, mdot_in_msun_per_year, total_mdoteddington);
         fflush(FdBlackHoles);
     }
     walltime_measure("/BH/Info");
@@ -730,13 +734,13 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
         if (f_of_x < 0)
             f_of_x = 0;
 
-        lambda = 1. + blackhole_params.BH_DFbmax * pow((bhvel/All.cf.a),2) / All.G / P[n].Mass;
+        lambda = 1. + blackhole_params.BH_DFbmax * pow((bhvel/BH_GET_PRIV(tw)->atime),2) / BH_GET_PRIV(tw)->GravInternal / P[n].Mass;
 
         for(j = 0; j < 3; j++)
         {
-            BHP(n).DFAccel[j] = - 4. * M_PI * All.G * All.G * P[n].Mass * BH_GET_PRIV(tw)->BH_SurroundingDensity[PI] *
+            BHP(n).DFAccel[j] = - 4. * M_PI * BH_GET_PRIV(tw)->GravInternal * BH_GET_PRIV(tw)->GravInternal * P[n].Mass * BH_GET_PRIV(tw)->BH_SurroundingDensity[PI] *
             log(lambda) * f_of_x * (P[n].Vel[j] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j]) / pow(bhvel, 3);
-            BHP(n).DFAccel[j] *= All.cf.a;  // convert to code unit of acceleration
+            BHP(n).DFAccel[j] *= BH_GET_PRIV(tw)->atime;  // convert to code unit of acceleration
             BHP(n).DFAccel[j] *= blackhole_params.BH_DFBoostFactor; // Add a boost factor
         }
 #ifdef DEBUG
@@ -841,10 +845,10 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
         bhvel += pow(P[i].Vel[k] - BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][k], 2);
 
     bhvel = sqrt(bhvel);
-    bhvel /= All.cf.a;
+    bhvel /= BH_GET_PRIV(tw)->atime;
     double rho_proper = rho * BH_GET_PRIV(tw)->a3inv;
 
-    double soundspeed = blackhole_soundspeed(BH_GET_PRIV(tw)->BH_Entropy[PI], rho);
+    double soundspeed = blackhole_soundspeed(BH_GET_PRIV(tw)->BH_Entropy[PI], rho, BH_GET_PRIV(tw)->atime);
 
     /* Note: we take here a radiative efficiency of 0.1 for Eddington accretion */
     double meddington = (4 * M_PI * GRAVITY * LIGHTCGS * PROTONMASS / (0.1 * LIGHTCGS * LIGHTCGS * THOMPSON)) * BHP(i).Mass
@@ -853,7 +857,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
     double norm = pow((pow(soundspeed, 2) + pow(bhvel, 2)), 1.5);
 
     if(norm > 0)
-        mdot = 4. * M_PI * blackhole_params.BlackHoleAccretionFactor * All.G * All.G *
+        mdot = 4. * M_PI * blackhole_params.BlackHoleAccretionFactor * BH_GET_PRIV(tw)->GravInternal * BH_GET_PRIV(tw)->GravInternal *
             BHP(i).Mass * BHP(i).Mass * rho_proper / norm;
 
     if(blackhole_params.BlackHoleEddingtonFactor > 0.0 &&
@@ -862,7 +866,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
     }
     BHP(i).Mdot = mdot;
 
-    double dtime = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift) / All.cf.hubble;
+    double dtime = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift) / BH_GET_PRIV(tw)->hubble;
 
     BHP(i).Mass += BHP(i).Mdot * dtime;
 
@@ -875,7 +879,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
         double fac = 0;
         if (blackhole_params.BH_DRAG == 1) fac = BHP(i).Mdot/P[i].Mass;
         if (blackhole_params.BH_DRAG == 2) fac = blackhole_params.BlackHoleEddingtonFactor * meddington/BHP(i).Mass;
-        fac *= All.cf.a; /* dv = acc * kick_fac = acc * a^{-1}dt, therefore acc = a*dv/dt  */
+        fac *= BH_GET_PRIV(tw)->atime; /* dv = acc * kick_fac = acc * a^{-1}dt, therefore acc = a*dv/dt  */
         for(k = 0; k < 3; k++) {
             BHP(i).DragAccel[k] = -(P[i].Vel[k] - BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][k])*fac;
         }
@@ -948,7 +952,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             O->BH_MinPotPos[d] = I->base.Pos[d];
         }
         double hsearch;
-        hsearch = decide_hsearch(I->Hsml);
+        hsearch = decide_hsearch(I->Hsml, BH_GET_PRIV(lv->tw)->atime);
 
         iter->base.mask = 1 + 2 + 4 + 8 + 16 + 32;
         iter->base.Hsml = hsearch;
@@ -1014,7 +1018,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
                 /* we include long range PM force, short range force and DF */
                 da[d] = (I->Accel[d] - P[other].GravAccel[d] - P[other].GravPM[d] - BHP(other).DFAccel[d]);
             }
-            flag = check_grav_bound(dx,dv,da);
+            flag = check_grav_bound(dx,dv,da, BH_GET_PRIV(lv->tw)->atime);
             /*if(flag == 0)
                 message(0, "dx %g %g %g dv %g %g %g da %g %g %g\n",dx[0], dx[1], dx[2], dv[0], dv[1], dv[2], da[0], da[1], da[2]);*/
         }
@@ -1104,8 +1108,8 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             /* update the feedback weighting */
             double mass_j;
             if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_OPTTHIN)) {
-                double redshift = 1./All.Time - 1;
-                double nh0 = get_neutral_fraction_sfreff(redshift, &P[other], &SPHP(other));
+                double redshift = 1./BH_GET_PRIV(lv->tw)->atime - 1;
+                double nh0 = get_neutral_fraction_sfreff(redshift, BH_GET_PRIV(lv->tw)->hubble, &P[other], &SPHP(other));
                 if(r2 > 0)
                     O->FeedbackWeightSum += (P[other].Mass * nh0) / r2;
             } else {
@@ -1141,7 +1145,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
     if(iter->base.other == -1) {
         double hsearch;
-        hsearch = decide_hsearch(I->Hsml);
+        hsearch = decide_hsearch(I->Hsml, BH_GET_PRIV(lv->tw)->atime);
 
         iter->base.mask = 1 + 32;
         iter->base.Hsml = hsearch;
@@ -1181,7 +1185,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
          * in practice the new swallower should also take the marked black hole next timestep.
          */
 
-        BHP(other).SwallowTime = All.Time;
+        BHP(other).SwallowTime = BH_GET_PRIV(lv->tw)->atime;
         P[other].Swallowed = 1;
         O->BH_CountProgs += BHP(other).CountProgs;
         O->BH_Mass += (BHP(other).Mass);
@@ -1219,7 +1223,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         for(d = 0; d < 3; d++)
             O->AccretedMomentum[d] += (P[other].Mass * P[other].Vel[d]);
 
-        if(BHP(other).SwallowTime < All.Time)
+        if(BHP(other).SwallowTime < BH_GET_PRIV(lv->tw)->atime)
             endrun(2, "Encountered BH %i swallowed at earlier time %g\n", other, BHP(other).SwallowTime);
 
         int tid = omp_get_thread_num();
@@ -1361,7 +1365,7 @@ blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I, TreeWalk * tw)
 
     I->FeedbackWeightSum = BH_GET_PRIV(tw)->BH_FeedbackWeightSum[PI];
 
-    double dtime = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift) / All.cf.hubble;
+    double dtime = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift) / BH_GET_PRIV(tw)->hubble;
 
     I->FeedbackEnergy = blackhole_params.BlackHoleFeedbackFactor * 0.1 * BHP(i).Mdot * dtime *
                 pow(LIGHTCGS / All.UnitVelocity_in_cm_per_s, 2);
@@ -1401,9 +1405,7 @@ bh_powerlaw_seed_mass(MyIDType ID)
     return mass;
 }
 
-void blackhole_make_one(int index) {
-    if(!All.BlackHoleOn)
-        return;
+void blackhole_make_one(int index, const double atime) {
     if(P[index].Type != 0)
         endrun(7772, "Only Gas turns into blackholes, what's wrong?");
 
@@ -1425,7 +1427,7 @@ void blackhole_make_one(int index) {
 
     BHP(child).Mseed = BHP(child).Mass;
     BHP(child).Mdot = 0;
-    BHP(child).FormationTime = All.Time;
+    BHP(child).FormationTime = atime;
     BHP(child).SwallowID = (MyIDType) -1;
     BHP(child).Density = 0;
 
@@ -1451,7 +1453,7 @@ void blackhole_make_one(int index) {
 }
 
 static double
-decide_hsearch(double h)
+decide_hsearch(double h, const double atime)
 {
     if(blackhole_params.BlackHoleFeedbackRadius > 0) {
         /* BlackHoleFeedbackRadius is in comoving.
@@ -1459,7 +1461,7 @@ decide_hsearch(double h)
          * just like how it was done for grav smoothing.
          * */
         double rds;
-        rds = blackhole_params.BlackHoleFeedbackRadiusMaxPhys / All.cf.a;
+        rds = blackhole_params.BlackHoleFeedbackRadiusMaxPhys / atime;
 
         if(rds > blackhole_params.BlackHoleFeedbackRadius) {
             rds = blackhole_params.BlackHoleFeedbackRadius;
