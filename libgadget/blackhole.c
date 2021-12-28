@@ -270,7 +270,7 @@ void set_blackhole_params(ParameterSet * ps)
         blackhole_params.BHKE_EddingtonThrFactor = param_get_double(ps, "BHKE_EddingtonThrFactor");
         blackhole_params.BHKE_EddingtonMFactor = param_get_double(ps, "BHKE_EddingtonMFactor");
         blackhole_params.BHKE_EddingtonMPivot = param_get_double(ps, "BHKE_EddingtonMPivot");
-        blackhole_params.BHKE_BHKE_EddingtonMIndex = param_get_double(ps, "BHKE_BHKE_EddingtonMIndex");
+        blackhole_params.BHKE_EddingtonMIndex = param_get_double(ps, "BHKE_EddingtonMIndex");
         blackhole_params.BHKE_EffRhoFactor = param_get_double(ps, "BHKE_EffRhoFactor");
         blackhole_params.BHKE_EffCap = param_get_double(ps, "BHKE_EffCap");
         blackhole_params.BHKE_InjEnergyThr = param_get_double(ps, "BHKE_InjEnergyThr");
