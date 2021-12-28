@@ -34,6 +34,9 @@ struct BlackholeParams
     
     int BlackHoleKineticOn; /*If 1, perform AGN kinetic feedback when the Eddington accretion rate is low */
     double BHKE_EddingtonThrFactor; /*Threshold of the Eddington rate for the kinetic feedback*/
+    double BHKE_EddingtonMFactor; /* Factor for mbh-dependent Eddington threshold */
+    double BHKE_EddingtonMPivot; /* Pivot MBH for mbh-dependent Eddington threshold */
+    double BHKE_EddingtonMIndex; /* Powlaw index for mbh-dependent Eddington threshold */
     double BHKE_EffRhoFactor; /* Minimum kinetic feedback efficiency factor scales with BH density*/
     double BHKE_EffCap; /* Cap of the kinetic feedback efficiency factor */
     double BHKE_InjEnergyThr; /*Minimum injection of KineticFeedbackEnergy, controls the burstiness of kinetic feedback*/
@@ -265,6 +268,9 @@ void set_blackhole_params(ParameterSet * ps)
         
         blackhole_params.BlackHoleKineticOn = param_get_int(ps,"BlackHoleKineticOn");
         blackhole_params.BHKE_EddingtonThrFactor = param_get_double(ps, "BHKE_EddingtonThrFactor");
+        blackhole_params.BHKE_EddingtonMFactor = param_get_double(ps, "BHKE_EddingtonMFactor");
+        blackhole_params.BHKE_EddingtonMPivot = param_get_double(ps, "BHKE_EddingtonMPivot");
+        blackhole_params.BHKE_BHKE_EddingtonMIndex = param_get_double(ps, "BHKE_BHKE_EddingtonMIndex");
         blackhole_params.BHKE_EffRhoFactor = param_get_double(ps, "BHKE_EffRhoFactor");
         blackhole_params.BHKE_EffCap = param_get_double(ps, "BHKE_EffCap");
         blackhole_params.BHKE_InjEnergyThr = param_get_double(ps, "BHKE_InjEnergyThr");
@@ -963,7 +969,11 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
         /* epsilon = Min(rho_BH/(BHKE_EffRhoFactor*rho_sfr),BHKE_EffCap)   */
         /* KE is released when exceeding injection energy threshold        */
         double Edd_ratio = BHP(i).Mdot/meddington;
-        if (Edd_ratio < blackhole_params.BHKE_EddingtonThrFactor){
+        double lam_thresh = blackhole_params.BHKE_EddingtonThrFactor;
+        double x = blackhole_params.BHKE_EddingtonMFactor * pow(BHP(i).Mass/blackhole_params.BHKE_EddingtonMPivot, blackhole_params.BHKE_EddingtonMIndex);
+        if (lam_thresh > x)
+            lam_thresh = x;
+        if (Edd_ratio < lam_thresh){
             /* mark this timestep is accumulating KE feedback energy */
             BH_GET_PRIV(tw)->KEflag[PI] = 1;
             double rho_sfr = blackhole_params.BHKE_SfrCritOverDensity * All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
