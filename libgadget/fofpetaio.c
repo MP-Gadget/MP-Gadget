@@ -10,7 +10,6 @@
 #include "utils.h"
 #include "utils/mpsort.h"
 
-#include "allvars.h"
 #include "partmanager.h"
 #include "slotsmanager.h"
 #include "petaio.h"
@@ -19,7 +18,7 @@
 #include "walltime.h"
 
 static void fof_register_io_blocks(int StarformationOn, int BlackHoleOn, struct IOTable * IOTable);
-static void fof_write_header(BigFile * bf, int64_t TotNgroups, const double atime, MPI_Comm Comm);
+static void fof_write_header(BigFile * bf, int64_t TotNgroups, const double atime, const double * MassTable, Cosmology * CP, MPI_Comm Comm);
 static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * ent, struct conversions * conv);
 
 static int fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, double FOFPartAllocFactor, MPI_Comm Comm);
@@ -30,7 +29,7 @@ static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
     u[0] = f->GrNr;
 }
 
-void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, int SaveParticles, double FOFPartAllocFactor, double atime, int StarformationOn, int BlackholeOn, MPI_Comm Comm) {
+void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, int SaveParticles, double FOFPartAllocFactor, Cosmology * CP, double atime, const double * MassTable, int StarformationOn, int BlackholeOn, MPI_Comm Comm) {
     int i;
     struct IOTable FOFIOTable = {0};
     char * fname = fastpm_strdup_printf("%s/%s_%03d", OutputDir, FOFFileBase, num);
@@ -48,10 +47,10 @@ void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FO
     myfree(fname);
     struct conversions conv = {0};
     conv.atime = atime;
-    conv.hubble = hubble_function(&All.CP, atime);
+    conv.hubble = hubble_function(CP, atime);
 
     MPIU_Barrier(Comm);
-    fof_write_header(&bf, fof->TotNgroups, atime, Comm);
+    fof_write_header(&bf, fof->TotNgroups, atime, MassTable, CP, Comm);
 
     for(i = 0; i < FOFIOTable.used; i ++) {
         /* only process the particle blocks */
@@ -344,7 +343,7 @@ static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * e
     }
 }
 
-static void fof_write_header(BigFile * bf, int64_t TotNgroups, const double atime, MPI_Comm Comm) {
+static void fof_write_header(BigFile * bf, int64_t TotNgroups, const double atime, const double * MassTable, Cosmology * CP, MPI_Comm Comm) {
     BigBlock bh;
     if(0 != big_file_mpi_create_block(bf, &bh, "Header", NULL, 0, 0, 0, Comm)) {
         endrun(0, "Failed to create header\n");
@@ -368,7 +367,7 @@ static void fof_write_header(BigFile * bf, int64_t TotNgroups, const double atim
     MPI_Allreduce(npartLocal, npartTotal, 6, MPI_INT64, MPI_SUM, Comm);
 
     /* conversion from peculiar velocity to RSD */
-    const double hubble = hubble_function(&All.CP, atime);
+    const double hubble = hubble_function(CP, atime);
     double RSD = 1.0 / (atime * hubble);
 
     int pecvel = GetUsePeculiarVelocity();
@@ -378,14 +377,14 @@ static void fof_write_header(BigFile * bf, int64_t TotNgroups, const double atim
     big_block_set_attr(&bh, "NumPartInGroupTotal", npartTotal, "u8", 6);
     big_block_set_attr(&bh, "NumFOFGroupsTotal", &TotNgroups, "u8", 1);
     big_block_set_attr(&bh, "RSDFactor", &RSD, "f8", 1);
-    big_block_set_attr(&bh, "MassTable", All.MassTable, "f8", 6);
+    big_block_set_attr(&bh, "MassTable", MassTable, "f8", 6);
     big_block_set_attr(&bh, "Time", &atime, "f8", 1);
-    big_block_set_attr(&bh, "BoxSize", &All.BoxSize, "f8", 1);
-    big_block_set_attr(&bh, "OmegaLambda", &All.CP.OmegaLambda, "f8", 1);
-    big_block_set_attr(&bh, "Omega0", &All.CP.Omega0, "f8", 1);
-    big_block_set_attr(&bh, "HubbleParam", &All.CP.HubbleParam, "f8", 1);
-    big_block_set_attr(&bh, "CMBTemperature", &All.CP.CMBTemperature, "f8", 1);
-    big_block_set_attr(&bh, "OmegaBaryon", &All.CP.OmegaBaryon, "f8", 1);
+    big_block_set_attr(&bh, "BoxSize", &PartManager->BoxSize, "f8", 1);
+    big_block_set_attr(&bh, "OmegaLambda", &CP->OmegaLambda, "f8", 1);
+    big_block_set_attr(&bh, "Omega0", &CP->Omega0, "f8", 1);
+    big_block_set_attr(&bh, "HubbleParam", &CP->HubbleParam, "f8", 1);
+    big_block_set_attr(&bh, "CMBTemperature", &CP->CMBTemperature, "f8", 1);
+    big_block_set_attr(&bh, "OmegaBaryon", &CP->OmegaBaryon, "f8", 1);
     big_block_set_attr(&bh, "UsePeculiarVelocity", &pecvel, "i4", 1);
     big_block_mpi_close(&bh, Comm);
 }
