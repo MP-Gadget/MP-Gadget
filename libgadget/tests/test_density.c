@@ -85,7 +85,8 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
         int j;
         P[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
         P[i].Mass = 1;
-        P[i].TimeBin = 0;
+        P[i].TimeBinHydro = 0;
+        P[i].TimeBinGravity = 0;
         P[i].Ti_drift = 0;
         for(j=0; j<3; j++)
             P[i].Vel[j] = 1.5;

@@ -277,7 +277,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     {
         int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
         if(P[p_i].Type == 0 && !P[p_i].IsGarbage) {
-            int bin = P[p_i].TimeBin;
+            int bin = P[p_i].TimeBinHydro;
             double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
             priv->SPH_predicted->EntVarPred[P[p_i].PI] = SPH_EntVarPred(P[p_i].PI, priv->MinEgySpec, priv->a3inv, dloga);
             SPH_VelPred(p_i, priv->SPH_predicted->VelPred + 3 * P[p_i].PI, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
@@ -448,7 +448,7 @@ density_ngbiter(
          * Zero can be the special value since there should never be zero entropy.*/
         if(EntVarPred == 0) {
             struct DensityPriv * priv = DENSITY_GET_PRIV(lv->tw);
-            int bin = P[other].TimeBin;
+            int bin = P[other].TimeBinHydro;
             double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
             EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, priv->a3inv, dloga);
             SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);

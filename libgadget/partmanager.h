@@ -23,12 +23,15 @@ struct particle_data
         unsigned char Generation; /* How many particles it has spawned; used to generate unique particle ID.
                                      may wrap around with too many SFR/BH if a feedback model goes rogue */
 
-        unsigned char TimeBin; /* Time step bin; 0 for unassigned.*/
-        /* To ensure alignment to a 32-bit boundary.*/
+        unsigned char TimeBinHydro; /* Time step bin for hydro; 0 for unassigned. Must be smaller than the gravity timebin.
+                                     * Star formation, cooling, and BH accretion takes place on the hydro timestep. */
+        unsigned char TimeBinGravity; /* Time step bin for gravity; 0 for unassigned.*/
         unsigned char HeIIIionized; /* True if the particle has undergone helium reionization.
                                      * This could be a bitfield: it isn't because we need to change it in an atomic.
                                      * Changing a bitfield in an atomic seems to work in OpenMP 5.0 on gcc 9 and icc 18 and 19,
                                      * so we should be able to make it a bitfield at some point. */
+        /* To ensure alignment to a 32-bit boundary.*/
+        unsigned char spare[3];
     };
 
     int PI; /* particle property index; used by BH, SPH and STAR.
