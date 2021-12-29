@@ -432,14 +432,8 @@ do_the_short_range_kick(int i, double dt_entr, double Fgravkick, double Fhydroki
             }
         }
 
-        /* In case of cooling, we prevent that the entropy (and
-           hence temperature) decreases by more than a factor 0.5.
-           This limiter is here as well as in sfr_eff.c because the
-           timestep may increase. */
-        if(SPHP(i).DtEntropy * dt_entr < -0.5 * SPHP(i).Entropy)
-            SPHP(i).Entropy *= 0.5;
-        else
-            SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
+        /* Update entropy for adiabatic change*/
+        SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
 
         /* Limit entropy in simulations with cooling disabled*/
         double a3inv = 1/(atime * atime * atime);
