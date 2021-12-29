@@ -261,7 +261,7 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
     input->SPH_DhsmlDensityFactor = SPHP(place).DhsmlEgyDensityFactor;
 
     input->Pressure = HYDRA_GET_PRIV(tw)->PressurePred[P[place].PI];
-    input->dloga = get_dloga_for_bin(P[place].TimeBin, HYDRA_GET_PRIV(tw)->times->Ti_Current);
+    input->dloga = get_dloga_for_bin(P[place].TimeBinHydro, HYDRA_GET_PRIV(tw)->times->Ti_Current);
     /* calculation of F1 */
     soundspeed_i = sqrt(GAMMA * input->Pressure / SPH_EOMDensity(&SPHP(place)));
     input->F1 = fabs(SPHP(place).DivVel) /
@@ -368,7 +368,7 @@ hydro_ngbiter(
      * Zero can be the special value since there should never be zero entropy.*/
     MyFloat VelPred[3];
     if(EntVarPred == 0) {
-        int bin = P[other].TimeBin;
+        int bin = P[other].TimeBinHydro;
         double a3inv = pow(priv->atime, -3);
         double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
         EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, a3inv, dloga);
@@ -393,7 +393,7 @@ hydro_ngbiter(
 
     /* Predict densities. Note that for active timebins the density is up to date so SPH_DensityPred is just returns the current densities.
      * This improves on the technique used in Gadget-2 by being a linear prediction that does not become pathological in deep timebins.*/
-    int bin = P[other].TimeBin;
+    int bin = P[other].TimeBinHydro;
     const double density_j = SPH_DensityPred(SPHP(other).Density, SPHP(other).DivVel, priv->drifts[bin]);
     const double eomdensity = SPH_DensityPred(SPH_EOMDensity(&SPHP(other)), SPHP(other).DivVel, priv->drifts[bin]);;
 
@@ -446,7 +446,7 @@ hydro_ngbiter(
         /* now make sure that viscous acceleration is not too large */
 
         /*XXX: why is this dloga ?*/
-        double dloga = 2 * DMAX(I->dloga, get_dloga_for_bin(P[other].TimeBin, HYDRA_GET_PRIV(lv->tw)->times->Ti_Current));
+        double dloga = 2 * DMAX(I->dloga, get_dloga_for_bin(P[other].TimeBinHydro, HYDRA_GET_PRIV(lv->tw)->times->Ti_Current));
         if(dloga > 0 && (dwk_i + dwk_j) < 0)
         {
             if((I->Mass + P[other].Mass) > 0) {
