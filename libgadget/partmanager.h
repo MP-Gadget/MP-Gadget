@@ -24,7 +24,8 @@ struct particle_data
                                      may wrap around with too many SFR/BH if a feedback model goes rogue */
 
         unsigned char TimeBinHydro; /* Time step bin for hydro; 0 for unassigned. Must be smaller than the gravity timebin.
-                                     * Star formation, cooling, and BH accretion takes place on the hydro timestep. */
+                                     * Star formation, cooling, and BH accretion takes place on the hydro timestep.
+                                     * Dynamic friction is also the hydro timestep because it relies on the gas density. */
         unsigned char TimeBinGravity; /* Time step bin for gravity; 0 for unassigned.*/
         unsigned char HeIIIionized; /* True if the particle has undergone helium reionization.
                                      * This could be a bitfield: it isn't because we need to change it in an atomic.

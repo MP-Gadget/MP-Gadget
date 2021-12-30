@@ -43,6 +43,7 @@ struct GravShortPriv {
     int NeutrinoTracer;
     /* Newton's constant in internal units*/
     double G;
+    inttime_t Ti_Current;
     /* Matter density in internal units.
      * rho_0 = Omega0 * rho_crit
      * rho_crit = 3 H^2 /(8 pi G).

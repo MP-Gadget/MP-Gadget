@@ -116,7 +116,9 @@ static double get_timestep_gravity_dloga(const int p, const double atime, const 
 static double get_timestep_hydro_dloga(const int p, const inttime_t Ti_Current, const double atime, const double hubble, enum TimeStepType * titype);
 static inttime_t convert_timestep_to_ti(double dloga, const int p, const inttime_t dti_max, const inttime_t Ti_Current, enum TimeStepType titype);
 static int get_timestep_bin(inttime_t dti);
-static void do_the_short_range_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const double atime, const double MinEgySpec);
+static void do_grav_short_range_kick(struct particle_data * part, const double Fgravkick);
+static void do_hydro_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const double atime, const double MinEgySpec);
+
 /* Get the current PM (global) timestep.*/
 static inttime_t get_PM_timestep_ti(const DriftKickTimes * const times, const double atime, const Cosmology * CP, const int FastParticleType, const double asmth);
 
@@ -389,17 +391,20 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
         const int i = get_active_particle(act, pa);
         if(P[i].Swallowed || P[i].IsGarbage)
             continue;
-        int bin = P[i].TimeBinHydro;
-        if(bin > TIMEBINS)
-            endrun(4, "Particle %d (type %d, id %ld) had unexpected timebin %d\n", i, P[i].Type, P[i].ID, P[i].TimeBinHydro);
-#ifdef DEBUG
-        if(isnan(gravkick[bin]) || gravkick[bin] == 0.)
-            endrun(5, "Bad kicks %lg bin %d tik %d\n", gravkick[bin], bin, times->Ti_kick[bin]);
-#endif
-        inttime_t dti = dti_from_timebin(bin);
-        const double dt_entr = dloga_from_dti(dti/2, times->Ti_Current);
-        /*This only changes particle i, so is thread-safe.*/
-        do_the_short_range_kick(i, dt_entr, gravkick[bin], hydrokick[bin], atime, MinEgySpec);
+        int bin_gravity = P[i].TimeBinGravity;
+        if(bin_gravity > TIMEBINS)
+            endrun(4, "Particle %d (type %d, id %ld) had unexpected timebin %d\n", i, P[i].Type, P[i].ID, P[i].TimeBinGravity);
+        /* Kick active gravity particles*/
+        if(is_timebin_active(bin_gravity, times->Ti_Current))
+            do_grav_short_range_kick(&P[i], gravkick[bin_gravity]);
+        /* Hydro kick for hydro particles*/
+        if(P[i].Type == 0 || P[i].Type == 5) {
+            int bin_hydro = P[i].TimeBinHydro;
+            inttime_t dti = dti_from_timebin(bin_hydro);
+            const double dt_entr = dloga_from_dti(dti/2, times->Ti_Current);
+            /*This only changes particle i, so is thread-safe.*/
+            do_hydro_kick(i, dt_entr, gravkick[bin_hydro], hydrokick[bin_hydro], atime, MinEgySpec);
+        }
     }
     walltime_measure("/Timeline/HalfKick/Short");
 }
@@ -427,13 +432,19 @@ apply_PM_half_kick(Cosmology * CP, DriftKickTimes * times)
     walltime_measure("/Timeline/HalfKick/Long");
 }
 
+/* Add gravitational kick to current particle*/
 void
-do_the_short_range_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const double atime, const double MinEgySpec)
+do_grav_short_range_kick(struct particle_data * part, const double Fgravkick)
 {
     int j;
     for(j = 0; j < 3; j++)
-        P[i].Vel[j] += P[i].GravAccel[j] * Fgravkick;
+        part->Vel[j] += part->GravAccel[j] * Fgravkick;
+}
 
+void
+do_hydro_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const double atime, const double MinEgySpec)
+{
+    int j;
     /* Add kick from dynamic friction and hydro drag for BHs. */
     if(P[i].Type == 5) {
         for(j = 0; j < 3; j++){
@@ -457,9 +468,7 @@ do_the_short_range_kick(int i, double dt_entr, double Fgravkick, double Fhydroki
         if(vv > 0 && vv/atime > TimestepParams.MaxGasVel) {
             message(1,"Gas Particle ID %ld exceeded the gas velocity limit: %g > %g\n",P[i].ID, vv / atime, TimestepParams.MaxGasVel);
             for(j=0;j < 3; j++)
-            {
                 P[i].Vel[j] *= TimestepParams.MaxGasVel * atime / vv;
-            }
         }
 
         /* Update entropy for adiabatic change*/
