@@ -985,6 +985,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
             BHP(i).KineticFdbkEnergy += epsilon * (BHP(i).Mdot * dtime * pow(LIGHTCGS / All.UnitVelocity_in_cm_per_s, 2));
         }
         
+        BH_GET_PRIV(tw)->KEflag[PI] = 0;
         /* decide whether to release KineticFdbkEnergy*/
         double vdisp = 0;
         double numdm = BH_GET_PRIV(tw)->NumDM[PI];
@@ -1418,7 +1419,13 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             get_random_dir(other, dir);
             int j;
             for(j = 0; j < 3; j++){
-                P[other].Vel[j] += dvel * dir[j];
+                double velold, velnew;
+                double *velptr = &(P[other].Vel[j]);
+                #pragma omp atomic read
+                velold = *velptr;
+                do {
+                    velnew = velold + dvel*dir[j];
+                } while(!__atomic_compare_exchange(velptr, &velold, &velnew, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
             }
         }
     }
