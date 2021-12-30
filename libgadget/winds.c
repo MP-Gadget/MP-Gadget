@@ -252,8 +252,13 @@ int cmp_by_part_id(const void * a, const void * b)
 
 /* Find the 1D DM velocity dispersion of the winds by running a density loop.*/
 static void
-winds_find_weights(TreeWalk * tw, struct WindPriv * priv, int * NewStars, int NumNewStars, const double Time, const double hubble, ForceTree * tree)
+winds_find_weights(TreeWalk * tw, struct WindPriv * priv, int * NewStars, int NumNewStars, const double Time, const double hubble, ForceTree * tree, DomainDecomp * ddecomp)
 {
+    if(!tree->tree_allocated_flag) {
+        message(0, "Building tree in wind\n");
+        force_tree_rebuild_mask(tree, ddecomp, DMMASK + GASMASK, 0, NULL);
+    }
+    /* Types used: gas + DM*/
     tw->ev_label = "WIND_WEIGHT";
     tw->fill = (TreeWalkFillQueryFunction) sfr_wind_copy;
     tw->reduce = (TreeWalkReduceResultFunction) sfr_wind_reduce_weight;
@@ -303,7 +308,7 @@ winds_find_weights(TreeWalk * tw, struct WindPriv * priv, int * NewStars, int Nu
 /* This function spawns winds for the subgrid model, which comes from the star-forming gas.
  * Does a little more calculation than is really necessary, due to shared code, but that shouldn't matter. */
 void
-winds_subgrid(int * MaybeWind, int NumMaybeWind, const double Time, const double hubble, ForceTree * tree, MyFloat * StellarMasses)
+winds_subgrid(int * MaybeWind, int NumMaybeWind, const double Time, const double hubble, ForceTree * tree, DomainDecomp * ddecomp, MyFloat * StellarMasses)
 {
     /*The non-subgrid model does nothing here*/
     if(!HAS(wind_params.WindModel, WIND_SUBGRID))
@@ -315,7 +320,7 @@ winds_subgrid(int * MaybeWind, int NumMaybeWind, const double Time, const double
     TreeWalk tw[1] = {{0}};
     struct WindPriv priv[1];
     int n;
-    winds_find_weights(tw, priv, MaybeWind, NumMaybeWind, Time, hubble, tree);
+    winds_find_weights(tw, priv, MaybeWind, NumMaybeWind, Time, hubble, tree, ddecomp);
     myfree(priv->nvisited);
     for(n = 0; n < NumMaybeWind; n++)
     {
@@ -330,7 +335,7 @@ winds_subgrid(int * MaybeWind, int NumMaybeWind, const double Time, const double
 
 /*Do a treewalk for the wind model. This only changes newly created star particles.*/
 void
-winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const double hubble, ForceTree * tree)
+winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const double hubble, ForceTree * tree, DomainDecomp * ddecomp)
 {
     /*The subgrid model does nothing here*/
     if(HAS(wind_params.WindModel, WIND_SUBGRID))
@@ -342,7 +347,7 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
     TreeWalk tw[1] = {{0}};
     struct WindPriv priv[1];
     int i;
-    winds_find_weights(tw, priv, NewStars, NumNewStars, Time, hubble, tree);
+    winds_find_weights(tw, priv, NewStars, NumNewStars, Time, hubble, tree, ddecomp);
 
     for (i = 1; i < omp_get_max_threads(); i++)
         priv->nvisited[0] += priv->nvisited[i];
@@ -356,7 +361,7 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
     priv->nkicks = 0;
     ta_free(priv->nvisited);
 
-    /* Then run feedback */
+    /* Then run feedback: types used: gas. */
     tw->haswork = NULL;
     tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_feedback_ngbiter;
     tw->postprocess = NULL;

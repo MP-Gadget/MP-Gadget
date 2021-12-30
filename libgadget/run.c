@@ -446,9 +446,12 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
         /* Build the force tree for tree gravity.*/
         ForceTree Tree = {0};
-        force_tree_rebuild(&Tree, ddecomp, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
+        int anygravactive = MPIU_Any(Act.NumActiveGravity, MPI_COMM_WORLD);
 
-        if(All.TreeGravOn) {
+        if(is_PM || (All.TreeGravOn && anygravactive))
+            force_tree_rebuild(&Tree, ddecomp, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
+
+        if(All.TreeGravOn && (is_PM || anygravactive)) {
             /* Do a short range pairwise only step if desired*/
             if(pairwisestep) {
                 struct gravshort_tree_params gtp = get_gravshort_treepar();
@@ -538,20 +541,21 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 fof_finish(&fof);
             }
 
-            if(is_PM) {
-                /*Rebuild the force tree we freed in gravpm to save memory. Means might be two trees during FOF.*/
-                force_tree_rebuild(&Tree, ddecomp, HybridNuTracer, 0, All.OutputDir);
-            }
-
+            /* Note that the tree here may be freed, if we are not a gravity-active timestep,
+             * or if we are a PM step.*/
+            /* If we didn't build a tree for gravity, we need to build one in BH or in winds.
+             * The BH tree needs stars for DF, gas + BH for accretion and swallowing and technically
+             * needs DM for DF and repositioning, although it doesn't do much there. It is needed if any BHs
+             * are active (ie, not for the shortest timestep).
+             * The wind tree is needed if any new stars are formed and needs DM and gas (for the default wind model).
+             */
             /* Black hole accretion and feedback */
-            if(All.BlackHoleOn) {
-                blackhole(&Act, atime, &All.CP, &Tree, units, fds.FdBlackHoles, fds.FdBlackholeDetails);
-            }
+            if(All.BlackHoleOn)
+                blackhole(&Act, atime, &All.CP, &Tree, ddecomp, units, fds.FdBlackHoles, fds.FdBlackholeDetails);
 
             /**** radiative cooling and star formation *****/
             if(All.CoolingOn)
-                cooling_and_starformation(&Act, atime, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &Tree, &All.CP, GradRho, fds.FdSfr);
-
+                cooling_and_starformation(&Act, atime, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &Tree, ddecomp, &All.CP, GradRho, fds.FdSfr);
         }
         /* We don't need this timestep's tree anymore.*/
         force_tree_free(&Tree);
@@ -680,7 +684,7 @@ runfof(const int RestartSnapNum, const inttime_t Ti_Current, const struct header
             slots_free_sph_pred_data(&sph_predicted);
         }
         ForceTree Tree = {0};
-        cooling_and_starformation(&Act, header->TimeSnapshot, 0, &Tree, &All.CP, GradRho, NULL);
+        cooling_and_starformation(&Act, header->TimeSnapshot, 0, &Tree, ddecomp, &All.CP, GradRho, NULL);
         if(GradRho)
             myfree(GradRho);
     }

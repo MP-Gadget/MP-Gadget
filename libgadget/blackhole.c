@@ -521,7 +521,7 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
 
 
 void
-blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree * tree, const struct UnitSystem units, FILE * FdBlackHoles, FILE * FdBlackholeDetails)
+blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree * tree, DomainDecomp * ddecomp, const struct UnitSystem units, FILE * FdBlackHoles, FILE * FdBlackholeDetails)
 {
     /* Do nothing if no black holes*/
     int64_t totbh;
@@ -534,6 +534,19 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     struct BHPriv priv[1] = {0};
     priv->units = units;
 
+    /* Types used in treewalks:
+     * dynamical friction uses: stars, DM if BH_DynFrictionMethod > 1 gas if BH_DynFrictionMethod  == 3.
+     * accretion uses: all types but ONLY for repositioning potential minimum. Otherwise gas + black holes. gas + stars + BH is probably fine.
+     * gas + BH probably not enough if gas is sparse in halo.
+     * feedback uses: gas + black holes.
+     * The DM in dynamic friction and accretion doesn't really do anything, so could perhaps be removed from the treebuild later.
+     * However, we would still need a tree with gas + DM in the wind code.
+     */
+    if(!tree->tree_allocated_flag)
+    {
+        message(0, "Building tree in blackhole\n");
+        force_tree_rebuild_mask(tree, ddecomp, ALLMASK, 0, NULL);
+    }
     /*************************************************************************/
     TreeWalk tw_dynfric[1] = {{0}};
     tw_dynfric->ev_label = "BH_DYNFRIC";
