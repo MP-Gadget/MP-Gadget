@@ -545,7 +545,7 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
     if(iter->base.other == -1) {
         double hsearch = DMAX(I->Hsml, I->DMRadius[NWINDHSML-1]);
         iter->base.Hsml = hsearch;
-        iter->base.mask = 1 + 2; /* gas and dm */
+        iter->base.mask = GASMASK + DMMASK; /* gas and dm */
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         O->maxcmpte = NWINDHSML;
         return;
@@ -672,7 +672,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     /* this evaluator walks the tree and blows wind. */
 
     if(iter->base.other == -1) {
-        iter->base.mask = 1;
+        iter->base.mask = GASMASK;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         iter->base.Hsml = I->Hsml;
         return;

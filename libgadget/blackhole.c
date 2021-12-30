@@ -537,7 +537,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     if(!tree->tree_allocated_flag)
     {
         message(0, "Building tree in blackhole\n");
-        force_tree_rebuild_mask(tree, ddecomp, ALLMASK, 0, NULL);
+        force_tree_rebuild_mask(tree, ddecomp, GASMASK + DMMASK + STARMASK + BHMASK, 0, NULL);
         walltime_measure("/BH/Build");
     }
     /*************************************************************************/
@@ -883,7 +883,7 @@ blackhole_dynfric_ngbiter(TreeWalkQueryBHDynfric * I,
         LocalTreeWalk * lv){
 
    if(iter->base.other == -1) {
-        iter->base.mask = 1 + 2 + 4 + 8 + 16 + 32;
+        iter->base.mask = GASMASK + DMMASK + STARMASK + BHMASK;
         iter->base.Hsml = I->Hsml;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         density_kernel_init(&iter->dynfric_kernel, I->Hsml, GetDensityKernelType());
@@ -1090,7 +1090,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         for(d = 0; d < 3; d++) {
             O->BH_MinPotPos[d] = I->base.Pos[d];
         }
-        iter->base.mask = 1 + 2 + 4 + 8 + 16 + 32;
+        iter->base.mask = GASMASK + DMMASK + STARMASK + BHMASK;
         iter->base.Hsml = I->Hsml;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
 
@@ -1297,7 +1297,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
     if(iter->base.other == -1) {
 
-        iter->base.mask = 1 + 32;
+        iter->base.mask = GASMASK + BHMASK;
         iter->base.Hsml = I->Hsml;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         density_kernel_init(&iter->feedback_kernel, I->Hsml, GetDensityKernelType());
