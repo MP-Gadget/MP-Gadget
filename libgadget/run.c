@@ -416,6 +416,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             ForceTree gasTree = {0};
             /* Just gas, no moments*/
             force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, HybridNuTracer, All.OutputDir);
+            walltime_measure("/SPH/Build");
 
             /*Allocate the memory for predicted SPH data.*/
             struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);

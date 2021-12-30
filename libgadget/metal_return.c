@@ -545,6 +545,8 @@ metal_return(const ActiveParticles * act, DomainDecomp * const ddecomp, Cosmolog
     ForceTree gasTree = {0};
     /* Just gas, no moments*/
     force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, 0, NULL);
+    walltime_measure("/SPH/Metals/Build");
+
 
     /* Compute total number of weights around each star for actively returning stars*/
     stellar_density(act, priv->StarVolumeSPH, priv->MassReturn, &gasTree);
