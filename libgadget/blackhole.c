@@ -538,6 +538,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     {
         message(0, "Building tree in blackhole\n");
         force_tree_rebuild_mask(tree, ddecomp, ALLMASK, 0, NULL);
+        walltime_measure("/BH/Build");
     }
     /*************************************************************************/
     TreeWalk tw_dynfric[1] = {{0}};
