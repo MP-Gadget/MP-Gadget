@@ -1292,9 +1292,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
         iter->base.mask = 1 + 32;
         iter->base.Hsml = hsearch;
-        /* Swallow is symmetric, but feedback dumping is asymetric;
-         * we apply a cut in r to break the symmetry. */
-        iter->base.symmetric = NGB_TREEFIND_SYMMETRIC;
+        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         density_kernel_init(&iter->feedback_kernel, hsearch, GetDensityKernelType());
         return;
     }
