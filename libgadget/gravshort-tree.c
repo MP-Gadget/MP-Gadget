@@ -76,23 +76,22 @@ set_gravshort_tree_params(ParameterSet * ps)
         TreeParams.Rcut = param_get_double(ps, "TreeRcut");
         TreeParams.FractionalGravitySoftening = param_get_double(ps, "GravitySoftening");
         TreeParams.AdaptiveSoftening = !param_get_int(ps, "GravitySofteningGas");
-
-
     }
     MPI_Bcast(&TreeParams, sizeof(struct gravshort_tree_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
-
-/* According to upstream P-GADGET3
- * correct workcount slows it down and yields little benefits in load balancing
- *
- * YF: anything we shall do about this?
- * */
 
 int
 force_treeev_shortrange(TreeWalkQueryGravShort * input,
         TreeWalkResultGravShort * output,
         LocalTreeWalk * lv);
 
+
+/* Only compute gravitational forces for currently gravitationally active particles*/
+static int
+gravshort_haswork(int n, TreeWalk * tw)
+{
+    return is_timebin_active(P[n].TimeBinGravity, GRAV_GET_PRIV(tw)->Ti_Current);
+}
 
 /*! This function computes the gravitational forces for all active particles.
  *  If needed, a new tree is constructed, otherwise the dynamically updated
@@ -102,7 +101,7 @@ force_treeev_shortrange(TreeWalkQueryGravShort * input,
  *  rho0 = CP.Omega0 * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G)
  */
 void
-grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double rho0, int NeutrinoTracer, int FastParticleType)
+grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double rho0, int NeutrinoTracer, int FastParticleType, inttime_t Ti_Current)
 {
     double timeall = 0;
     double timetree, timewait, timecomm;
@@ -118,14 +117,18 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
     priv.NeutrinoTracer = NeutrinoTracer;
     priv.G = pm->G;
     priv.cbrtrho0 = pow(rho0, 1.0 / 3);
+    priv.Ti_Current = Ti_Current;
 
     if(!tree->moments_computed_flag)
         endrun(2, "Gravtree called before tree moments computed!\n");
 
     tw->ev_label = "GRAVTREE";
     tw->visit = (TreeWalkVisitFunction) force_treeev_shortrange;
-    /* gravity applies to all particles. Including Tracer particles to enhance numerical stability. */
-    tw->haswork = NULL;
+    /* gravity applies to all gravitationally active particles.
+     * If we are a PM step then all particles are active. */
+    tw->haswork = gravshort_haswork;
+    if(!act->ActiveParticle)
+        tw->haswork = NULL;
     tw->reduce = (TreeWalkReduceResultFunction) grav_short_reduce;
     tw->postprocess = (TreeWalkProcessFunction) grav_short_postprocess;
 
