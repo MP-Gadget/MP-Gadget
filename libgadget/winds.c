@@ -263,6 +263,7 @@ winds_find_weights(TreeWalk * tw, struct WindPriv * priv, int * NewStars, int Nu
         message(0, "Building tree in wind\n");
         priv->tree_alloc_in_wind = 1;
         force_tree_rebuild_mask(tree, ddecomp, DMMASK + GASMASK, 0, NULL);
+        walltime_measure("/Cooling/Build");
     }
     /* Types used: gas + DM*/
     tw->ev_label = "WIND_WEIGHT";

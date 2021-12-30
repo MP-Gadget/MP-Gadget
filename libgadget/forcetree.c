@@ -166,11 +166,9 @@ force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, cons
     if(force_tree_allocated(tree)) {
         force_tree_free(tree);
     }
-    walltime_measure("/Misc");
 
     /* No moments*/
     *tree = force_tree_build(PartManager->NumPart, mask, ddecomp, HybridNuGrav, 0, EmergencyOutputDir);
-    walltime_measure("/SPH/Build");
 
     message(0, "Tree constructed (type mask: %d). First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
             mask, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
