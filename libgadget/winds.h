@@ -28,13 +28,13 @@ void init_winds(double FactorSN, double EgySpecSN, double PhysDensThresh, double
 void winds_evolve(int i, double a3inv, double hubble);
 
 /*do the treewalk for the wind model*/
-void winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const double hubble, ForceTree * tree);
+void winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const double hubble, ForceTree * tree, DomainDecomp * ddecomp);
 
 /*Make a wind particle at the site of recent star formation.*/
 int winds_make_after_sf(int i, double sm, double vdisp, double atime);
 
 /* Make winds for the subgrid model, after computing the velocity dispersion. */
-void winds_subgrid(int * MaybeWind, int NumMaybeWind, const double Time, const double hubble, ForceTree * tree, MyFloat * StellarMasses);
+void winds_subgrid(int * MaybeWind, int NumMaybeWind, const double Time, const double hubble, ForceTree * tree, DomainDecomp * ddecomp, MyFloat * StellarMasses);
 
 /* Tests whether winds spawn from gas or stars*/
 int winds_are_subgrid(void);
