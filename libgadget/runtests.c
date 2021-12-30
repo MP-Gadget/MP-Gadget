@@ -107,7 +107,7 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
 
     treeacc.ErrTolForceAcc = 0;
     set_gravshort_treepar(treeacc);
-    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType);
+    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType, times.Ti_Current);
 
     /* This checks fully opened tree force against pair force*/
     double meanerr, maxerr;
@@ -127,8 +127,8 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     treeacc = origtreeacc;
     set_gravshort_treepar(treeacc);
     /* Code automatically sets the UseTreeBH parameter.*/
-    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType);
-    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType);
+    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType, times.Ti_Current);
+    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType, times.Ti_Current);
 
     fname = fastpm_strdup_printf("%s/PART-tree-%03d", OutputDir, RestartSnapNum);
     petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, CP);
@@ -143,8 +143,8 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     /* This checks the tree against a larger Rcut.*/
     treeacc.Rcut = 9.5;
     set_gravshort_treepar(treeacc);
-    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType);
-    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType);
+    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType, times.Ti_Current);
+    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType, times.Ti_Current);
     fname = fastpm_strdup_printf("%s/PART-tree-rcut-%03d", OutputDir, RestartSnapNum);
     petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, CP);
 
@@ -165,8 +165,8 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     gravpm_force(pm, &Tree, CP, header->TimeSnapshot, header->UnitLength_in_cm, OutputDir, header->TimeIC, FastParticleType);
     force_tree_rebuild(&Tree, ddecomp, 1, 1, OutputDir);
     set_gravshort_treepar(treeacc);
-    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType);
-    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType);
+    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType, times.Ti_Current);
+    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType, times.Ti_Current);
     fname = fastpm_strdup_printf("%s/PART-tree-nmesh2-%03d", OutputDir, RestartSnapNum);
     petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, CP);
 

@@ -21,7 +21,8 @@ struct particle_data
         unsigned char Generation; /* How many particles it has spawned; used to generate unique particle ID.
                                      may wrap around with too many SFR/BH if a feedback model goes rogue */
         unsigned char TimeBinHydro; /* Time step bin for hydro; 0 for unassigned. Must be smaller than the gravity timebin.
-                                     * Star formation, cooling, and BH accretion takes place on the hydro timestep. */
+                                     * Star formation, cooling, and BH accretion takes place on the hydro timestep.
+                                     * Dynamic friction is also the hydro timestep because it relies on the gas density. */
         unsigned char TimeBinGravity; /* Time step bin for gravity; 0 for unassigned.*/
         /* particle type.  0=gas, 1=halo, 2=disk, 3=bulge, 4=stars, 5=bndry */
         unsigned char Type;

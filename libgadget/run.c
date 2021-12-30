@@ -472,7 +472,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 grav_short_pair(&Act, &pm, &Tree, gtp.Rcut, rho0, HybridNuTracer, All.FastParticleType);
             }
             else
-                grav_short_tree(&Act, &pm, &Tree, rho0, HybridNuTracer, All.FastParticleType);
+                grav_short_tree(&Act, &pm, &Tree, rho0, HybridNuTracer, All.FastParticleType, times.Ti_Current);
         }
 
         /* We use the total gravitational acc.
