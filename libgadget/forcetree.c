@@ -1366,7 +1366,7 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
     myfree(TopLeafhmax);
 
     tree->hmax_computed_flag = 1;
-    walltime_measure("/Tree/HmaxUpdate");
+    walltime_measure("/SPH/HmaxUpdate");
 }
 
 /*! This function allocates the memory used for storage of the tree and of
