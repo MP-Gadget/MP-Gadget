@@ -224,6 +224,9 @@ struct WindPriv {
     int64_t nkicks;
     int64_t maxkicks;
     int * nvisited;
+    /* Flags that the tree was allocated here
+     * and we need to free it to preserve memory order*/
+    int tree_alloc_in_wind;
 };
 
 /* Comparison function to sort the StarKicks by particle id, distance and star ID.
@@ -254,8 +257,11 @@ int cmp_by_part_id(const void * a, const void * b)
 static void
 winds_find_weights(TreeWalk * tw, struct WindPriv * priv, int * NewStars, int NumNewStars, const double Time, const double hubble, ForceTree * tree, DomainDecomp * ddecomp)
 {
+    /* Flags that we need to free the tree to preserve memory order*/
+    priv->tree_alloc_in_wind = 0;
     if(!tree->tree_allocated_flag) {
         message(0, "Building tree in wind\n");
+        priv->tree_alloc_in_wind = 1;
         force_tree_rebuild_mask(tree, ddecomp, DMMASK + GASMASK, 0, NULL);
     }
     /* Types used: gas + DM*/
@@ -331,6 +337,8 @@ winds_subgrid(int * MaybeWind, int NumMaybeWind, const double Time, const double
     }
     myfree(priv->Winddata);
     walltime_measure("/Cooling/Wind");
+    if(priv->tree_alloc_in_wind)
+        force_tree_free(tree);
 }
 
 /*Do a treewalk for the wind model. This only changes newly created star particles.*/
@@ -400,6 +408,8 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
 
     myfree(priv->kicks);
     myfree(priv->Winddata);
+    if(priv->tree_alloc_in_wind)
+        force_tree_free(tree);
     walltime_measure("/Cooling/Wind");
 }
 
