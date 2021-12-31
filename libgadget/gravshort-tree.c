@@ -125,9 +125,11 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
     tw->ev_label = "GRAVTREE";
     tw->visit = (TreeWalkVisitFunction) force_treeev_shortrange;
     /* gravity applies to all gravitationally active particles.
-     * If we are a PM step then all particles are active. */
-    tw->haswork = gravshort_haswork;
-    if(!act->ActiveParticle)
+     * If we are a PM step then all particles are active and
+     * we do gravity for all of them. */
+    if(act->ActiveParticle)
+        tw->haswork = gravshort_haswork;
+    else
         tw->haswork = NULL;
     tw->reduce = (TreeWalkReduceResultFunction) grav_short_reduce;
     tw->postprocess = (TreeWalkProcessFunction) grav_short_postprocess;

@@ -451,6 +451,9 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         ForceTree Tree = {0};
         int anygravactive = MPIU_Any(Act.NumActiveGravity, MPI_COMM_WORLD);
 
+        /* We need a tree if we will do a short-range gravity treewalk.
+         * We also need one for PM so we can do the indexing.
+         * So this condition is true and the next false only if !TreeGravOn.*/
         if(is_PM || (All.TreeGravOn && anygravactive))
             force_tree_rebuild(&Tree, ddecomp, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
 
