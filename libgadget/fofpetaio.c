@@ -10,7 +10,6 @@
 #include "utils.h"
 #include "utils/mpsort.h"
 
-#include "allvars.h"
 #include "partmanager.h"
 #include "slotsmanager.h"
 #include "petaio.h"
@@ -19,8 +18,8 @@
 #include "walltime.h"
 
 static void fof_register_io_blocks(int StarformationOn, int BlackHoleOn, struct IOTable * IOTable);
-static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm);
-static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * ent);
+static void fof_write_header(BigFile * bf, int64_t TotNgroups, const double atime, const double * MassTable, Cosmology * CP, MPI_Comm Comm);
+static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * ent, struct conversions * conv);
 
 static int fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, double FOFPartAllocFactor, MPI_Comm Comm);
 
@@ -30,7 +29,7 @@ static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
     u[0] = f->GrNr;
 }
 
-void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, int SaveParticles, double FOFPartAllocFactor, int StarformationOn, int BlackholeOn, MPI_Comm Comm) {
+void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, int SaveParticles, double FOFPartAllocFactor, Cosmology * CP, double atime, const double * MassTable, int StarformationOn, int BlackholeOn, MPI_Comm Comm) {
     int i;
     struct IOTable FOFIOTable = {0};
     char * fname = fastpm_strdup_printf("%s/%s_%03d", OutputDir, FOFFileBase, num);
@@ -46,9 +45,12 @@ void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FO
         endrun(0, "Failed to open file at %s\n", fname);
     }
     myfree(fname);
+    struct conversions conv = {0};
+    conv.atime = atime;
+    conv.hubble = hubble_function(CP, atime);
 
     MPIU_Barrier(Comm);
-    fof_write_header(&bf, fof->TotNgroups, Comm);
+    fof_write_header(&bf, fof->TotNgroups, atime, MassTable, CP, Comm);
 
     for(i = 0; i < FOFIOTable.used; i ++) {
         /* only process the particle blocks */
@@ -57,7 +59,7 @@ void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FO
         BigArray array = {0};
         if(ptype == PTYPE_FOF_GROUP) {
             sprintf(blockname, "FOFGroups/%s", FOFIOTable.ent[i].name);
-            build_buffer_fof(fof, &array, &FOFIOTable.ent[i]);
+            build_buffer_fof(fof, &array, &FOFIOTable.ent[i], &conv);
             message(0, "Writing Block %s\n", blockname);
 
             petaio_save_block(&bf, blockname, &array, 1);
@@ -94,7 +96,7 @@ void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FO
             BigArray array = {0};
             if(ptype < 6 && ptype >= 0) {
                 sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
-                petaio_build_buffer(&array, &IOTable.ent[i], selection + ptype_offset[ptype], ptype_count[ptype], halo_pman.Base, &halo_sman);
+                petaio_build_buffer(&array, &IOTable.ent[i], selection + ptype_offset[ptype], ptype_count[ptype], halo_pman.Base, &halo_sman, &conv);
 
                 message(0, "Writing Block %s\n", blockname);
 
@@ -327,7 +329,7 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
     return 0;
 }
 
-static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * ent) {
+static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * ent, struct conversions * conv) {
 
     int64_t npartLocal = fof->Ngroups;
 
@@ -336,12 +338,12 @@ static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * e
     char * p = array->data;
     int i;
     for(i = 0; i < fof->Ngroups; i ++) {
-        ent->getter(i, p, fof->Group, NULL);
+        ent->getter(i, p, fof->Group, NULL, conv);
         p += array->strides[0];
     }
 }
 
-static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm) {
+static void fof_write_header(BigFile * bf, int64_t TotNgroups, const double atime, const double * MassTable, Cosmology * CP, MPI_Comm Comm) {
     BigBlock bh;
     if(0 != big_file_mpi_create_block(bf, &bh, "Header", NULL, 0, 0, 0, Comm)) {
         endrun(0, "Failed to create header\n");
@@ -365,23 +367,24 @@ static void fof_write_header(BigFile * bf, int64_t TotNgroups, MPI_Comm Comm) {
     MPI_Allreduce(npartLocal, npartTotal, 6, MPI_INT64, MPI_SUM, Comm);
 
     /* conversion from peculiar velocity to RSD */
-    double RSD = 1.0 / (All.Time * All.cf.hubble);
+    const double hubble = hubble_function(CP, atime);
+    double RSD = 1.0 / (atime * hubble);
 
     int pecvel = GetUsePeculiarVelocity();
     if(!pecvel) {
-        RSD /= All.Time; /* Conversion from internal velocity to RSD */
+        RSD /= atime; /* Conversion from internal velocity to RSD */
     }
     big_block_set_attr(&bh, "NumPartInGroupTotal", npartTotal, "u8", 6);
     big_block_set_attr(&bh, "NumFOFGroupsTotal", &TotNgroups, "u8", 1);
     big_block_set_attr(&bh, "RSDFactor", &RSD, "f8", 1);
-    big_block_set_attr(&bh, "MassTable", All.MassTable, "f8", 6);
-    big_block_set_attr(&bh, "Time", &All.Time, "f8", 1);
-    big_block_set_attr(&bh, "BoxSize", &All.BoxSize, "f8", 1);
-    big_block_set_attr(&bh, "OmegaLambda", &All.CP.OmegaLambda, "f8", 1);
-    big_block_set_attr(&bh, "Omega0", &All.CP.Omega0, "f8", 1);
-    big_block_set_attr(&bh, "HubbleParam", &All.CP.HubbleParam, "f8", 1);
-    big_block_set_attr(&bh, "CMBTemperature", &All.CP.CMBTemperature, "f8", 1);
-    big_block_set_attr(&bh, "OmegaBaryon", &All.CP.OmegaBaryon, "f8", 1);
+    big_block_set_attr(&bh, "MassTable", MassTable, "f8", 6);
+    big_block_set_attr(&bh, "Time", &atime, "f8", 1);
+    big_block_set_attr(&bh, "BoxSize", &PartManager->BoxSize, "f8", 1);
+    big_block_set_attr(&bh, "OmegaLambda", &CP->OmegaLambda, "f8", 1);
+    big_block_set_attr(&bh, "Omega0", &CP->Omega0, "f8", 1);
+    big_block_set_attr(&bh, "HubbleParam", &CP->HubbleParam, "f8", 1);
+    big_block_set_attr(&bh, "CMBTemperature", &CP->CMBTemperature, "f8", 1);
+    big_block_set_attr(&bh, "OmegaBaryon", &CP->OmegaBaryon, "f8", 1);
     big_block_set_attr(&bh, "UsePeculiarVelocity", &pecvel, "i4", 1);
     big_block_mpi_close(&bh, Comm);
 }
@@ -397,7 +400,7 @@ SIMPLE_PROPERTY_FOF(Imom, Imom[0][0], float, 9)
 /* FIXME: set Jmom to use peculiar velocity */
 SIMPLE_PROPERTY_FOF(Jmom, Jmom[0], float, 3)
 
-static void GTFirstPos(int i, float * out, void * baseptr, void * smanptr) {
+static void GTFirstPos(int i, float * out, void * baseptr, void * smanptr, const struct conversions * params) {
     /* Remove the particle offset before saving*/
     struct Group * grp = (struct Group *) baseptr;
     int d;
@@ -408,7 +411,7 @@ static void GTFirstPos(int i, float * out, void * baseptr, void * smanptr) {
     }
 }
 
-static void STFirstPos(int i, float * out, void * baseptr, void * smanptr) {
+static void STFirstPos(int i, float * out, void * baseptr, void * smanptr, const struct conversions * params) {
     int d;
     struct Group * grp = (struct Group *) baseptr;
     for(d = 0; d < 3; d ++) {
@@ -416,7 +419,7 @@ static void STFirstPos(int i, float * out, void * baseptr, void * smanptr) {
     }
 }
 
-static void GTMassCenterPosition(int i, double * out, void * baseptr, void * smanptr) {
+static void GTMassCenterPosition(int i, double * out, void * baseptr, void * smanptr, const struct conversions * params) {
     /* Remove the particle offset before saving*/
     struct Group * grp = (struct Group *) baseptr;
     int d;
@@ -427,7 +430,7 @@ static void GTMassCenterPosition(int i, double * out, void * baseptr, void * sma
     }
 }
 
-static void STMassCenterPosition(int i, double * out, void * baseptr, void * smanptr) {
+static void STMassCenterPosition(int i, double * out, void * baseptr, void * smanptr, const struct conversions * params) {
     int d;
     struct Group * grp = (struct Group *) baseptr;
     for(d = 0; d < 3; d ++) {
@@ -435,11 +438,11 @@ static void STMassCenterPosition(int i, double * out, void * baseptr, void * sma
     }
 }
 
-static void GTMassCenterVelocity(int i, float * out, void * baseptr, void * slotptr) {
+static void GTMassCenterVelocity(int i, float * out, void * baseptr, void * slotptr, const struct conversions * params) {
     double fac;
     struct Group * Group = (struct Group *) baseptr;
     if (GetUsePeculiarVelocity()) {
-        fac = 1.0 / All.Time;
+        fac = 1.0 / params->atime;
     } else {
         fac = 1.0;
     }

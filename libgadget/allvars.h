@@ -33,9 +33,6 @@ extern struct global_data_all_processes
                               the average number of particles to allow for that */
 
     double SlotsIncreaseFactor; /* !< What percentage to increase the slot allocation by when requested*/
-    int OutputPotential;        /*!< Flag whether to include the potential in snapshots*/
-    int OutputHeliumFractions;  /*!< Flag whether to output the helium ionic fractions in snapshots*/
-    int OutputTimebins;         /* Flag whether to save the timebins*/
     int OutputDebugFields;      /* Flag whether to include a lot of debug output in snapshots*/
 
     double RandomParticleOffset; /* If > 0, a random shift of max RandomParticleOffset * BoxSize is applied to every particle
@@ -56,8 +53,7 @@ extern struct global_data_all_processes
     double UnitTime_in_s,		/*!< factor to convert internal time unit to seconds/h */
            UnitDensity_in_cgs,		/*!< factor to convert internal length unit to g/cm^3*h^2 */
            UnitEnergy_in_cgs,		/*!< factor to convert internal energy to cgs units */
-           UnitTime_in_Megayears,	/*!< factor to convert internal time to megayears/h */
-           G;				/*!< Gravity-constant in internal units */
+           UnitTime_in_Megayears;	/*!< factor to convert internal time to megayears/h */
 
     /* Cosmology */
     Cosmology CP;
@@ -71,7 +67,6 @@ extern struct global_data_all_processes
     int BlackHoleOn;  /* if black holes are enabled */
     int StarformationOn;  /* if star formation is enabled */
     int MetalReturnOn; /* If late return of metals from AGB stars is enabled*/
-    int WindOn; /* if Wind is enabled */
     int LightconeOn;    /* Enable the light cone module,
                            which writes a list of particles to a file as they cross a light cone*/
 
@@ -94,18 +89,7 @@ extern struct global_data_all_processes
     double AutoSnapshotTime;    /*!< cpu-time between regularly generated snapshots. */
     double TimeBetweenSeedingSearch; /*Factor to multiply TimeInit by to find the next seeding check.*/
 
-    /* Current time of the simulation, global step, and end of simulation */
-
-    double Time,			/*!< current time of the simulation */
-           TimeStep,			/*!< difference between current times of previous and current timestep */
-           TimeMax;			/*!< marks the point of time until the simulation is to be evolved */
-
-    struct {
-        double a;
-        double a3inv;
-        double a2inv;
-        double hubble;
-    } cf;
+    double TimeMax;			/*!< marks the point of time until the simulation is to be evolved */
 
     int Nmesh;
 

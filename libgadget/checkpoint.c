@@ -31,7 +31,7 @@ write_checkpoint(int snapnum, int WriteSnapshot, int WriteGroupID, double Time, 
         register_io_blocks(&IOTable, WriteGroupID);
         if(OutputDebugFields)
             register_debug_io_blocks(&IOTable);
-        petaio_save_snapshot(&IOTable, 1, "%s/%s_%03d", OutputDir, SnapshotFileBase, snapnum);
+        petaio_save_snapshot(&IOTable, 1, Time, "%s/%s_%03d", OutputDir, SnapshotFileBase, snapnum);
 
         destroy_io_blocks(&IOTable);
         walltime_measure("/Snapshot/Write");
@@ -49,12 +49,12 @@ write_checkpoint(int snapnum, int WriteSnapshot, int WriteGroupID, double Time, 
 }
 
 void
-dump_snapshot(const char * dump, const char * OutputDir)
+dump_snapshot(const char * dump, const double Time, const char * OutputDir)
 {
     struct IOTable IOTable = {0};
     register_io_blocks(&IOTable, 0);
     register_debug_io_blocks(&IOTable);
-    petaio_save_snapshot(&IOTable, 1, "%s/%s", OutputDir, dump);
+    petaio_save_snapshot(&IOTable, 1, Time, "%s/%s", OutputDir, dump);
     destroy_io_blocks(&IOTable);
 }
 

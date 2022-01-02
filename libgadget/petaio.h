@@ -7,8 +7,16 @@
 #include "partmanager.h"
 #include "slotsmanager.h"
 
-typedef void (*property_getter) (int i, void * result, void * baseptr, void * slotptr);
-typedef void (*property_setter) (int i, void * target, void * baseptr, void * slotptr);
+/* Store parameters for unit conversions
+ * on write*/
+struct conversions
+{
+    double atime;
+    double hubble;
+};
+
+typedef void (*property_getter) (int i, void * result, void * baseptr, void * slotptr, const struct conversions * params);
+typedef void (*property_setter) (int i, void * target, void * baseptr, void * slotptr, const struct conversions * params);
 typedef int (*petaio_selection) (int i);
 
 typedef struct IOTableEntry {
@@ -41,15 +49,15 @@ void set_petaio_params(ParameterSet *ps);
 int GetUsePeculiarVelocity(void);
 void petaio_init();
 void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t npartLocal);
-void petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int NumSelection, struct particle_data * Parts, struct slots_manager_type * SlotsManager);
-void petaio_readout_buffer(BigArray * array, IOTableEntry * ent);
+void petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int NumSelection, struct particle_data * Parts, struct slots_manager_type * SlotsManager, struct conversions * conv);
+void petaio_readout_buffer(BigArray * array, IOTableEntry * ent, struct conversions * conv);
 void petaio_destroy_buffer(BigArray * array);
 
 void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, int verbose);
 int petaio_read_block(BigFile * bf, char * blockname, BigArray * array, int required);
 
-void petaio_save_snapshot(struct IOTable * IOTable, int verbose, const char *fmt, ...);
-void petaio_read_snapshot(int num, MPI_Comm Comm);
+void petaio_save_snapshot(struct IOTable * IOTable, int verbose, const double atime, const char *fmt, ...);
+void petaio_read_snapshot(int num, const double atime, MPI_Comm Comm);
 void petaio_read_header(int num);
 
 void
@@ -105,14 +113,14 @@ void io_register_io_block(char * name,
  * stype: type of the base pointer to use
  * */
 #define SIMPLE_GETTER(name, field, type, items, stype) \
-static void name(int i, type * out, void * baseptr, void * slotptr) { \
+static void name(int i, type * out, void * baseptr, void * slotptr, const struct conversions * params) { \
     int k; \
     for(k = 0; k < items; k ++) { \
         out[k] = *(&(((stype *)baseptr)[i].field) + k); \
     } \
 }
 #define SIMPLE_SETTER(name, field, type, items, stype) \
-static void name(int i, type * out, void * baseptr, void * slotptr) { \
+static void name(int i, type * out, void * baseptr, void * slotptr, const struct conversions * params) { \
     int k; \
     for(k = 0; k < items; k ++) { \
         *(&(((stype *)baseptr)[i].field) + k) = out[k]; \

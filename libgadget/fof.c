@@ -1110,9 +1110,9 @@ static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_C
 }
 
 void
-fof_save_groups(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, double FOFPartAllocFactor, int StarformationOn, int BlackholeOn, MPI_Comm Comm)
+fof_save_groups(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, double FOFPartAllocFactor, Cosmology * CP, double atime, const double * MassTable, int StarformationOn, int BlackholeOn, MPI_Comm Comm)
 {
-    fof_save_particles(fof, OutputDir, FOFFileBase, num, fof_params.FOFSaveParticles, FOFPartAllocFactor, StarformationOn, BlackholeOn, Comm);
+    fof_save_particles(fof, OutputDir, FOFFileBase, num, fof_params.FOFSaveParticles, FOFPartAllocFactor, CP, atime, MassTable, StarformationOn, BlackholeOn, Comm);
 }
 
 /* FIXME: these shall goto the private member of secondary tree walk */
@@ -1280,9 +1280,9 @@ static int cmp_seed_task(const void * c1, const void * c2) {
 
     return g1->seed_task - g2->seed_task;
 }
-static void fof_seed_make_one(struct Group * g, int ThisTask);
+static void fof_seed_make_one(struct Group * g, int ThisTask, const double atime);
 
-void fof_seed(FOFGroups * fof, ActiveParticles * act, MPI_Comm Comm)
+void fof_seed(FOFGroups * fof, ActiveParticles * act, double atime, MPI_Comm Comm)
 {
     int i, j, n, ntot;
 
@@ -1380,7 +1380,7 @@ void fof_seed(FOFGroups * fof, ActiveParticles * act, MPI_Comm Comm)
 
     for(n = 0; n < Nimport; n++)
     {
-        fof_seed_make_one(&ImportGroups[n], ThisTask);
+        fof_seed_make_one(&ImportGroups[n], ThisTask, atime);
     }
 
     myfree(ImportGroups);
@@ -1388,12 +1388,12 @@ void fof_seed(FOFGroups * fof, ActiveParticles * act, MPI_Comm Comm)
     walltime_measure("/FOF/Seeding");
 }
 
-static void fof_seed_make_one(struct Group * g, int ThisTask) {
+static void fof_seed_make_one(struct Group * g, int ThisTask, const double atime) {
    if(g->seed_task != ThisTask) {
         endrun(7771, "Seed does not belong to the right task");
     }
     int index = g->seed_index;
-    blackhole_make_one(index);
+    blackhole_make_one(index, atime);
 }
 
 static int fof_compare_HaloLabel_MinID(const void *a, const void *b)

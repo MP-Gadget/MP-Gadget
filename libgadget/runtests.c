@@ -85,12 +85,12 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3
 void runtests(int RestartSnapNum)
 {
     PetaPM pm = {0};
-    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.G);
+    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
     DomainDecomp ddecomp[1] = {0};
     /* So we can run a test on the final snapshot*/
     All.TimeMax = All.TimeInit * 1.1;
 
-    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.G, All.MassTable, All.NTotalInit);
+    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.MassTable, All.NTotalInit);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
@@ -107,23 +107,23 @@ void runtests(int RestartSnapNum)
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     ActiveParticles Act = {0};
     DriftKickTimes times = init_driftkicktime(Ti_Current);
-    rebuild_activelist(&Act, &times, 0);
+    rebuild_activelist(&Act, &times, 0, All.TimeInit);
 
     ForceTree Tree = {0};
     force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
-    gravpm_force(&pm, &Tree, &All.CP, All.Time, All.UnitLength_in_cm, All.OutputDir, All.MassiveNuLinRespOn, All.TimeIC, All.HybridNeutrinosOn, All.FastParticleType, All.BlackHoleOn);
+    gravpm_force(&pm, &Tree, &All.CP, All.TimeInit, All.UnitLength_in_cm, All.OutputDir, All.MassiveNuLinRespOn, All.TimeIC, All.HybridNeutrinosOn, All.FastParticleType, All.BlackHoleOn);
     force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
 
     struct gravshort_tree_params origtreeacc = get_gravshort_treepar();
     struct gravshort_tree_params treeacc = origtreeacc;
-    const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
+    const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal);
     grav_short_pair(&Act, &pm, &Tree, treeacc.Rcut, rho0, 0, All.FastParticleType);
 
     double (* PairAccn)[3] = mymalloc2("PairAccns", 3*sizeof(double) * PartManager->NumPart);
 
     double meanacc = copy_and_mean_accn(PairAccn);
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));
-    petaio_save_snapshot(&IOTable, 0, "%s/PART-pairs-%03d", All.OutputDir, RestartSnapNum);
+    petaio_save_snapshot(&IOTable, 0, All.TimeInit, "%s/PART-pairs-%03d", All.OutputDir, RestartSnapNum);
 
     treeacc.ErrTolForceAcc = 0;
     set_gravshort_treepar(treeacc);
@@ -138,7 +138,7 @@ void runtests(int RestartSnapNum)
         endrun(2, "Fully open tree force does not agree with pairwise calculation! maxerr %g > 0.1!\n", maxerr);
 
     message(0, "GravShort Tree %s\n", GDB_format_particle(0));
-    petaio_save_snapshot(&IOTable, 0, "%s/PART-tree-open-%03d", All.OutputDir, RestartSnapNum);
+    petaio_save_snapshot(&IOTable, 0, All.TimeInit, "%s/PART-tree-open-%03d", All.OutputDir, RestartSnapNum);
 
     /* This checks tree force against tree force with zero error (which always opens).*/
     copy_and_mean_accn(PairAccn);
@@ -149,7 +149,7 @@ void runtests(int RestartSnapNum)
     grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
     grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
 
-    petaio_save_snapshot(&IOTable, 0, "%s/PART-tree-%03d", All.OutputDir, RestartSnapNum);
+    petaio_save_snapshot(&IOTable, 0, All.TimeInit, "%s/PART-tree-%03d", All.OutputDir, RestartSnapNum);
 
     check_accns(&meanerr,&maxerr,PairAccn, meanacc);
     message(0, "Force error, open tree vs tree.: %g mean: %g forcetol: %g\n", maxerr, meanerr, treeacc.ErrTolForceAcc);
@@ -163,7 +163,7 @@ void runtests(int RestartSnapNum)
     set_gravshort_treepar(treeacc);
     grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
     grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
-    petaio_save_snapshot(&IOTable, 0, "%s/PART-tree-rcut-%03d", All.OutputDir, RestartSnapNum);
+    petaio_save_snapshot(&IOTable, 0, All.TimeInit, "%s/PART-tree-rcut-%03d", All.OutputDir, RestartSnapNum);
 
     check_accns(&meanerr,&maxerr,PairAccn, meanacc);
     message(0, "Force error, tree vs rcut.: %g mean: %g Rcut = %g\n", maxerr, meanerr, treeacc.Rcut);
@@ -174,14 +174,14 @@ void runtests(int RestartSnapNum)
     /* This checks the tree against a box with a smaller Nmesh.*/
     treeacc = origtreeacc;
     force_tree_free(&Tree);
-    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh/2., All.G);
+    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh/2., All.CP.GravInternal);
     force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
-    gravpm_force(&pm, &Tree, &All.CP, All.Time, All.UnitLength_in_cm, All.OutputDir, All.MassiveNuLinRespOn, All.TimeIC, All.HybridNeutrinosOn, All.FastParticleType, All.BlackHoleOn);
+    gravpm_force(&pm, &Tree, &All.CP, All.TimeInit, All.UnitLength_in_cm, All.OutputDir, All.MassiveNuLinRespOn, All.TimeIC, All.HybridNeutrinosOn, All.FastParticleType, All.BlackHoleOn);
     force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
     set_gravshort_treepar(treeacc);
     grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
     grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
-    petaio_save_snapshot(&IOTable, 0, "%s/PART-tree-nmesh2-%03d", All.OutputDir, RestartSnapNum);
+    petaio_save_snapshot(&IOTable, 0, All.TimeInit, "%s/PART-tree-nmesh2-%03d", All.OutputDir, RestartSnapNum);
 
     check_accns(&meanerr, &maxerr, PairAccn, meanacc);
     message(0, "Force error, nmesh %d vs %d: %g mean: %g \n", All.Nmesh, All.Nmesh/2, maxerr, meanerr);
@@ -199,11 +199,11 @@ void
 runfof(int RestartSnapNum)
 {
     PetaPM pm = {0};
-    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.G);
+    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
 
-    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.G, All.MassTable, All.NTotalInit);
+    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.MassTable, All.NTotalInit);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
@@ -214,7 +214,7 @@ runfof(int RestartSnapNum)
 
     DriftKickTimes times = init_driftkicktime(Ti_Current);
     /*FoF needs a tree*/
-    int HybridNuGrav = All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime;
+    int HybridNuGrav = All.HybridNeutrinosOn && All.TimeInit <= All.HybridNuPartTime;
     /* Regenerate the star formation rate for the FOF table.*/
     if(All.StarformationOn) {
         ActiveParticles Act = {0};
@@ -232,12 +232,12 @@ runfof(int RestartSnapNum)
             slots_free_sph_pred_data(&sph_predicted);
         }
         ForceTree Tree = {0};
-        cooling_and_starformation(&Act, &Tree, GradRho, NULL);
+        cooling_and_starformation(&Act, All.TimeInit, 0, &Tree, GradRho, NULL);
         if(GradRho)
             myfree(GradRho);
     }
     FOFGroups fof = fof_fof(ddecomp, 1, MPI_COMM_WORLD);
-    fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, RestartSnapNum, All.PartAllocFactor, All.StarformationOn, All.BlackHoleOn, MPI_COMM_WORLD);
+    fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, RestartSnapNum, All.PartAllocFactor, &All.CP, All.TimeInit, All.MassTable, All.StarformationOn, All.BlackHoleOn, MPI_COMM_WORLD);
     fof_finish(&fof);
 }
 
@@ -245,11 +245,11 @@ void
 runpower(int RestartSnapNum)
 {
     PetaPM pm = {0};
-    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.G);
+    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
 
-    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.G, All.MassTable, All.NTotalInit);
+    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.MassTable, All.NTotalInit);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
@@ -260,8 +260,8 @@ runpower(int RestartSnapNum)
 
     /*PM needs a tree*/
     ForceTree Tree = {0};
-    int HybridNuGrav = All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime;
+    int HybridNuGrav = All.HybridNeutrinosOn && All.TimeInit <= All.HybridNuPartTime;
     force_tree_rebuild(&Tree, ddecomp, HybridNuGrav, 1, All.OutputDir);
-    gravpm_force(&pm, &Tree, &All.CP, All.Time, All.UnitLength_in_cm, All.OutputDir, All.MassiveNuLinRespOn, All.TimeIC, All.HybridNeutrinosOn, All.FastParticleType, 1);
+    gravpm_force(&pm, &Tree, &All.CP, All.TimeInit, All.UnitLength_in_cm, All.OutputDir, All.MassiveNuLinRespOn, All.TimeIC, All.HybridNeutrinosOn, All.FastParticleType, 1);
     force_tree_free(&Tree);
 }

@@ -57,7 +57,7 @@ static void check_smoothing_length(struct part_manager_type * PartManager, doubl
  *  intial domain decomposition is performed. If SPH particles are present,
  *  the initial SPH smoothing lengths are determined.
  */
-inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMax, Cosmology * CP, int SnapshotWithFOF, int MassiveNuLinRespOn, double G, double * MassTable, const int64_t * NTotalInit)
+inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMax, Cosmology * CP, int SnapshotWithFOF, int MassiveNuLinRespOn, double * MassTable, const int64_t * NTotalInit)
 {
     int i;
 
@@ -78,20 +78,15 @@ inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMa
         }
     }
 
-    inttime_t Ti_Current = init_timebins(TimeInit);
-
-    /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
-    set_global_time(Ti_Current);
-
     /*Read the snapshot*/
-    petaio_read_snapshot(RestartSnapNum, MPI_COMM_WORLD);
+    petaio_read_snapshot(RestartSnapNum, TimeInit, MPI_COMM_WORLD);
 
     if(InitParams.InitGasTemp < 0)
         InitParams.InitGasTemp = CP->CMBTemperature / TimeInit;
 
     domain_test_id_uniqueness(PartManager);
 
-    check_omega(PartManager, CP, MassiveNuLinRespOn, get_generations(), G, MassTable);
+    check_omega(PartManager, CP, MassiveNuLinRespOn, get_generations(), CP->GravInternal, MassTable);
 
     check_positions(PartManager);
 
@@ -108,6 +103,8 @@ inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMa
 
     gravshort_set_softenings(MeanSeparation[1]);
     fof_init(MeanSeparation[1]);
+
+    inttime_t Ti_Current = init_timebins(TimeInit);
 
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)	/* initialize sph_properties */
