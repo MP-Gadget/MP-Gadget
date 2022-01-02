@@ -968,6 +968,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
         /* accumulate kenetic feedback energy by dE = epsilon x mdot x c^2 */
         /* epsilon = Min(rho_BH/(BHKE_EffRhoFactor*rho_sfr),BHKE_EffCap)   */
         /* KE is released when exceeding injection energy threshold        */
+        BH_GET_PRIV(tw)->KEflag[PI] = 0;
         double Edd_ratio = BHP(i).Mdot/meddington;
         double lam_thresh = blackhole_params.BHKE_EddingtonThrFactor;
         double x = blackhole_params.BHKE_EddingtonMFactor * pow(BHP(i).Mass/blackhole_params.BHKE_EddingtonMPivot, blackhole_params.BHKE_EddingtonMIndex);
@@ -985,7 +986,6 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
             BHP(i).KineticFdbkEnergy += epsilon * (BHP(i).Mdot * dtime * pow(LIGHTCGS / All.UnitVelocity_in_cm_per_s, 2));
         }
         
-        BH_GET_PRIV(tw)->KEflag[PI] = 0;
         /* decide whether to release KineticFdbkEnergy*/
         double vdisp = 0;
         double numdm = BH_GET_PRIV(tw)->NumDM[PI];
@@ -1419,13 +1419,8 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             get_random_dir(other, dir);
             int j;
             for(j = 0; j < 3; j++){
-                double velold, velnew;
-                double *velptr = &(P[other].Vel[j]);
-                #pragma omp atomic read
-                velold = *velptr;
-                do {
-                    velnew = velold + dvel*dir[j];
-                } while(!__atomic_compare_exchange(velptr, &velold, &velnew, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+                #pragma omp atomic update
+                P[other].Vel[j] += (dvel*dir[j]);
             }
         }
     }
