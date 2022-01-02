@@ -981,7 +981,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
         if (Edd_ratio < lam_thresh){
             /* mark this timestep is accumulating KE feedback energy */
             BH_GET_PRIV(tw)->KEflag[PI] = 1;
-            double rho_sfr = blackhole_params.BHKE_SfrCritOverDensity * All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
+            double rho_sfr = blackhole_params.BHKE_SfrCritOverDensity * All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * BH_GET_PRIV(tw)->GravInternal);
             double epsilon = (BHP(i).Density/rho_sfr)/blackhole_params.BHKE_EffRhoFactor;
             if (epsilon > blackhole_params.BHKE_EffCap){
                 epsilon = blackhole_params.BHKE_EffCap;
