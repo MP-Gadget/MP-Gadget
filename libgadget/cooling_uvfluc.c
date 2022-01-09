@@ -86,9 +86,9 @@ read_big_array(const char * filename, char * dataset, int * Nread)
  *
  * */
 void
-init_uvf_table(const char * UVFluctuationFile, const double BoxSize, const double UnitLength_in_cm)
+init_uvf_table(const char * UVFluctuationFile, const int UVFlucLen, const double BoxSize, const double UnitLength_in_cm)
 {
-    if(strlen(UVFluctuationFile) == 0) {
+    if(strnlen(UVFluctuationFile, UVFlucLen) == 0) {
         UVF.enabled = 0;
         return;
     }

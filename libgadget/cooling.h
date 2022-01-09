@@ -35,7 +35,7 @@ struct cooling_units
 void init_cooling(const char * TreeCoolFile, const char * MetalCoolFile, char * reion_hist_file, struct cooling_units cu, Cosmology * CP);
 
 /*Reads and initialises the tables for a spatially varying redshift of reionization*/
-void init_uvf_table(const char * UVFluctuationFile, const double BoxSize, const double UnitLength_in_cm);
+void init_uvf_table(const char * UVFluctuationFile, const int UVFlucLen, const double BoxSize, const double UnitLength_in_cm);
 
 /* Get the cooling time for a particle from the internal energy and density, specifying a UVB appropriately.
  * Sets ne_guess to the equilibrium electron density.*/
