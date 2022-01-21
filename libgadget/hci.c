@@ -126,7 +126,7 @@ hci_query_timeout(HCIManager * manager, char ** request)
      * */
 
     *request = NULL;
-    if (now + manager->LongestTimeBetweenQueries < manager->WallClockTimeLimit * 0.9) {
+    if (now + manager->LongestTimeBetweenQueries < manager->WallClockTimeLimit * 0.95) {
         return 0;
     }
 
