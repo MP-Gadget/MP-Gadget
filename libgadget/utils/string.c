@@ -38,13 +38,6 @@ fastpm_strdup(const char * str)
 }
 
 char *
-fastpm_strappend(const char * base, const char * delim, const char * next)
-{
-    if(base == NULL) return fastpm_strdup(next);
-    return fastpm_strdup_printf("%s%s%s", base, delim, next);
-}
-
-char *
 fastpm_strdup_printf(const char * fmt, ...)
 {
     va_list va;
