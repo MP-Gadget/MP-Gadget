@@ -258,7 +258,7 @@ param_declare(ParameterSet * ps, char * name, int type, enum ParameterFlag requi
     ps->p[free].defvalue.s = NULL;
     ps->p[free].defvalue.lineno = -1;
     if(help)
-        ps->p[free].help = fastpm_strdup(help);
+        ps->p[free].help = help;
     ps->size ++;
     return &ps->p[free];
 }
@@ -291,7 +291,7 @@ param_declare_string(ParameterSet * ps, char * name, enum ParameterFlag required
     ParameterSchema * p = param_declare(ps, name, STRING, required, help);
     if(required == OPTIONAL) {
         if(defvalue != NULL) {
-            p->defvalue.s = fastpm_strdup(defvalue);
+            p->defvalue.s = defvalue;
             p->defvalue.nil = 0;
         } else {
             /* The handling of nil is not consistent yet! Only string can be non-required and have nil value.
