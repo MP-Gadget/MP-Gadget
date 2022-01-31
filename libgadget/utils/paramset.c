@@ -419,7 +419,7 @@ param_format_value(ParameterSet * ps, char * name)
         }
         break;
     }
-    return NULL;
+    return fastpm_strdup("UNDEFINED TYPE");
 }
 
 void
