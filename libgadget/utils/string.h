@@ -15,9 +15,6 @@ fastpm_strdup_printf(const char * fmt, ...);
 char *
 fastpm_strdup_vprintf(const char * fmt, va_list va);
 
-char *
-fastpm_strappend(const char * base, const char * delim, const char * next);
-
 void
 fastpm_path_ensure_dirname(const char * path);
 
