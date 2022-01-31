@@ -77,14 +77,13 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
 
     /* read parameter file on all processes for simplicty */
     ParameterSet * ps = create_parameters();
-    char * error;
     int ThisTask;
 
-    if(0 != param_parse_file(ps, fname, &error)) {
-        endrun(0, "Parsing %s failed: %s\n", fname, error);
+    if(0 != param_parse_file(ps, fname)) {
+        endrun(0, "Parsing %s failed. \n", fname);
     }
-    if(0 != param_validate(ps, &error)) {
-        endrun(0, "Validation of %s failed: %s\n", fname, error);
+    if(0 != param_validate(ps)) {
+        endrun(0, "Validation of %s failed.\n", fname);
     }
 
     message(0, "----------- Running with Parameters ----------\n");
