@@ -290,12 +290,12 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
         /* Enforce that the gravity bin is the hydro bin. This is to ensure the code continues to
          * work while we implement the Hamiltonian timesplitting */
         bin_gravity = bin_hydro;
-        /* Only update if the timebin is currently active. We know that
-         * the shorter hydro timestep is active, but we need to check
+        /* Only update if both the old and new timebins are currently active.
+         * We know that the shorter hydro timestep is active, but we need to check
          * the gravity timestep.*/
-        if(is_timebin_active(bin_hydro, times->Ti_Current))
+        if(is_timebin_active(P[i].TimeBinHydro, times->Ti_Current) && is_timebin_active(bin_hydro, times->Ti_Current))
             P[i].TimeBinHydro = bin_hydro;
-        if(is_timebin_active(bin_gravity, times->Ti_Current))
+        if(is_timebin_active(P[i].TimeBinGravity, times->Ti_Current) && is_timebin_active(bin_gravity, times->Ti_Current))
             P[i].TimeBinGravity= bin_gravity;
         /*Find max and min*/
         if(bin_hydro < mTimeBin)
