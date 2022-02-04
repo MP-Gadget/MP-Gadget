@@ -119,7 +119,10 @@ inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * 
     {
         int j;
         P[i].Ti_drift = Ti_Current;
-
+#ifdef DEBUG
+        P[i].Ti_kick_grav = Ti_Current;
+        P[i].Ti_kick_hydro = Ti_Current;
+#endif
         if(RestartSnapNum == -1 && P[i].Type == 5 )
         {
             /* Note: Gadget-3 sets this to the seed black hole mass.*/

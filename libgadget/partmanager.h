@@ -39,6 +39,11 @@ struct particle_data
                         points to the corresponding structure in (SPH|BH|STAR)P array.*/
     inttime_t Ti_drift;       /*!< current time of the particle position. The same for all particles. */
 
+#ifdef DEBUG
+    /* Kick times for both hydro and grav*/
+    inttime_t Ti_kick_hydro;
+    inttime_t Ti_kick_grav;
+#endif
     MyIDType ID;
 
     MyFloat Vel[3];   /* particle velocity at its current time */

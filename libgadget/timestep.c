@@ -395,8 +395,15 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
         if(bin_gravity > TIMEBINS)
             endrun(4, "Particle %d (type %d, id %ld) had unexpected timebin %d\n", i, P[i].Type, P[i].ID, P[i].TimeBinGravity);
         /* Kick active gravity particles*/
-        if(is_timebin_active(bin_gravity, times->Ti_Current))
+        if(is_timebin_active(bin_gravity, times->Ti_Current)) {
             do_grav_short_range_kick(&P[i], gravkick[bin_gravity]);
+#ifdef DEBUG
+            if(P[i].Ti_kick_grav != times->Ti_kick[bin_gravity] - dti_from_timebin(bin_gravity)/2)
+                endrun(4, "Particle %d (type %d, id %ld bin %d dt %x gen %d) had grav kick time %x not %x\n",
+                       i, P[i].Type, P[i].ID, P[i].TimeBinGravity, dti_from_timebin(bin_gravity)/2, P[i].Generation, P[i].Ti_kick_grav, times->Ti_kick[bin_gravity] - dti_from_timebin(bin_gravity)/2);
+            P[i].Ti_kick_grav = times->Ti_kick[bin_gravity];
+#endif
+        }
         /* Hydro kick for hydro particles*/
         if(P[i].Type == 0 || P[i].Type == 5) {
             int bin_hydro = P[i].TimeBinHydro;
@@ -404,6 +411,12 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
             const double dt_entr = dloga_from_dti(dti/2, times->Ti_Current);
             /*This only changes particle i, so is thread-safe.*/
             do_hydro_kick(i, dt_entr, gravkick[bin_hydro], hydrokick[bin_hydro], atime, MinEgySpec);
+#ifdef DEBUG
+            if(P[i].Ti_kick_hydro != times->Ti_kick[bin_hydro] - dti_from_timebin(bin_hydro)/2)
+                endrun(4, "Particle %d (type %d, id %ld bin %d) had hydro kick time %ld not %ld\n",
+                       i, P[i].Type, P[i].ID, P[i].TimeBinHydro, P[i].Ti_kick_hydro, times->Ti_kick[bin_hydro] - dti_from_timebin(bin_hydro)/2);
+            P[i].Ti_kick_hydro = times->Ti_kick[bin_hydro];
+#endif
         }
     }
     walltime_measure("/Timeline/HalfKick/Short");
