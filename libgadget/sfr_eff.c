@@ -50,9 +50,23 @@ static struct SFRParams
     double TempSupernova;
     double TempClouds;
     double MaxSfrTimescale;
+    /* These two parameters control how gas
+     * cools on the effective equation of state.
+     * Either the gas cools like the (short) cooling time,
+     * or it cools like a longer relaxation time.
+     * If neither of these are set, the relaxation time is used.
+     * If EOSUseCoolingTime is set, the cooling time is used (like Illustris/TNG).
+     * If BHFeedbackUseTcool is 1 then the cooling time is used
+     * only on timesteps after a BH heating event (like BlueTides/ASTRID).
+     * If BHFeedbackUseTcool is 2 then the cooling time is used
+     * for gas more than 0.5 dex above the equation of state (like EAGLE).
+     */
     int BHFeedbackUseTcool;
+    int EOSUseCoolingTime;
+
     /*!< may be used to set a floor for the gas temperature */
     double MinGasTemp;
+
 
     /*Lyman alpha forest specific star formation.*/
     double QuickLymanAlphaProbability;
@@ -134,6 +148,7 @@ void set_sfr_params(ParameterSet * ps)
         sfr_params.Generations = param_get_int(ps, "Generations");
         sfr_params.MinGasTemp = param_get_double(ps, "MinGasTemp");
         sfr_params.BHFeedbackUseTcool = param_get_int(ps, "BHFeedbackUseTcool");
+        sfr_params.EOSUseCoolingTime = param_get_int(ps, "EOSUseCoolingTime");
         if(sfr_params.BHFeedbackUseTcool > 2 || sfr_params.BHFeedbackUseTcool < 0)
             endrun(0, "BHFeedbackUseTcool mode %d not supported\n", sfr_params.BHFeedbackUseTcool);
         /*Lyman-alpha forest parameters*/
@@ -595,7 +610,7 @@ cooling_relaxed(int i, double dtime, struct UVBG * local_uvbg, const double reds
     const double densityfac = pow(Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
     double egycurrent = SPHP(i).Entropy * densityfac;
     double trelax = sfr_data.trelax;
-    if(sfr_params.BHFeedbackUseTcool == 1 && P[i].BHHeated)
+    if(sfr_params.EOSUseCoolingTime || (sfr_params.BHFeedbackUseTcool == 1 && P[i].BHHeated))
     {
         if(egycurrent > egyeff)
         {
