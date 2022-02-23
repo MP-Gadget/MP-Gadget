@@ -165,7 +165,7 @@ void petapm_reion(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
         PetaPMParticleStruct * pstruct,
         PetaPMReionPartStruct * rstruct,
         petapm_reion_func reion_loop,
-        double R_max, double R_min, double R_delta,
+        double R_max, double R_min, double R_delta, int use_sfr,
         void * userdata);
 
 #endif

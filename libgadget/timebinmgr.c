@@ -187,7 +187,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, int ExcursionSe
     SyncPoints[NSyncPoints].a = TimeMax;
     SyncPoints[NSyncPoints].loga = log(TimeMax);
     SyncPoints[NSyncPoints].write_snapshot = 1;
-    SyncPoints[NSyncPoints].calc_uvbg = 1;
+    SyncPoints[NSyncPoints].calc_uvbg = 0;
     SyncPoints[NSyncPoints].write_fof = 0;
     NSyncPoints++;
 
@@ -220,7 +220,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, int ExcursionSe
         }
         if(SyncPoints[j].a > no_snapshot_until_time) {
             SyncPoints[j].write_snapshot = 1;
-            SyncPoints[j].calc_uvbg = 1;
+            SyncPoints[j].calc_uvbg = 0;
             if(SnapshotWithFOF) {
                 SyncPoints[j].write_fof = 1;
             }

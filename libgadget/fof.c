@@ -836,7 +836,8 @@ static void fof_set_escapefraction(struct FOFGroups * fof, const int NgroupsExt)
                 endrun(3333, "GrNr mismatch\n");
             }
 
-            /* putting halo mass in escape fraction for now, converted before uvbg calculation */ 
+            /* putting halo mass in escape fraction for now, converted before uvbg calculation */
+            //TODO: switch this off for gas particles if we are smoothing the star formation rate
             if(P[pi].Type == 0){
                 SPHP(pi).EscapeFraction = fof->Group[i].Mass;
             }

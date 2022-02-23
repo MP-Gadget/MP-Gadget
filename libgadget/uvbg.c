@@ -46,6 +46,8 @@ static struct UVBGParams {
     //double AlphaUV;
     double EscapeFractionNorm;
     double EscapeFractionScaling;
+    int ReionUseParticleSFR;
+    double ReionSFRTimescale;
 
 } uvbg_params;
 
@@ -68,6 +70,8 @@ void set_uvbg_params(ParameterSet * ps) {
         //uvbg_params.AlphaUV = param_get_double(ps, "AlphaUV");
         uvbg_params.EscapeFractionNorm = param_get_double(ps, "EscapeFractionNorm");
         uvbg_params.EscapeFractionScaling = param_get_double(ps, "EscapeFractionScaling");
+        uvbg_params.ReionUseParticleSFR = param_get_int(ps, "ReionUseParticleSFR");
+        uvbg_params.ReionSFRTimescale = param_get_double(ps, "ReionSFRTimescale");
     }
     MPI_Bcast(&uvbg_params, sizeof(struct UVBGParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -269,9 +273,10 @@ static void print_reion_debug_info(PetaPM * pm_mass, float * J21, float * xHI, d
                 max_mass = max_mass > mass_real[pm_idx] ? max_mass : mass_real[pm_idx];
                 min_star = min_star < star_real[pm_idx] ? min_star : star_real[pm_idx];
                 max_star = max_star > star_real[pm_idx] ? max_star : star_real[pm_idx];
-                min_sfr = min_sfr < sfr_real[pm_idx] ? min_sfr : sfr_real[pm_idx];
-                max_sfr = max_sfr > sfr_real[pm_idx] ? max_sfr : sfr_real[pm_idx];
-
+                if(uvbg_params.ReionUseParticleSFR){
+                    min_sfr = min_sfr < sfr_real[pm_idx] ? min_sfr : sfr_real[pm_idx];
+                    max_sfr = max_sfr > sfr_real[pm_idx] ? max_sfr : sfr_real[pm_idx];
+                }
             }
 
     message(1,"rank total mass : %e | rank total star : %e\n",total_mass,total_star);
@@ -317,6 +322,7 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
     //(jdavies): get the parameters
     //double ReionGammaHaloBias = uvbg_params.ReionGammaHaloBias;
     const double ReionNionPhotPerBary = uvbg_params.ReionNionPhotPerBary;
+    int use_sfr = uvbg_params.ReionUseParticleSFR;
     double alpha_uv = All.AlphaUV;
 
     // TODO(smutch): tidy this up!
@@ -342,7 +348,8 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
                 pm_idx = grid_index(ix, iy, iz, pm_mass->real_space_region.strides);
                 mass_real[pm_idx] = fmax(mass_real[pm_idx], 0.0);
                 star_real[pm_idx] = fmax(star_real[pm_idx], 0.0);
-                sfr_real[pm_idx] = fmax(sfr_real[pm_idx], 0.0);
+                if(use_sfr)
+                    sfr_real[pm_idx] = fmax(sfr_real[pm_idx], 0.0);
             }
 
     const double J21_aux_constant = (1.0 + redshift) * (1.0 + redshift) / (4.0 * M_PI)
@@ -367,11 +374,12 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
                 f_coll_stars = star_real[pm_idx] / (RtoM(R) * density_over_mean)
                     * (4.0 / 3.0) * M_PI * R * R * R / pixel_volume;
 
-                //TODO(jdavies): NOT THE ACTUAL SFR DENSITY, the rates functions don't work well with the bursty sfr
-                //this is total cumulative sfr smoothed over hubble time
-                //sfr_density = star_real[pm_idx] / hubble_time / pixel_volume; // In internal units
-                sfr_density = sfr_real[pm_idx] / pixel_volume / (All.UnitMass_in_g / SOLAR_MASS) * (All.UnitTime_in_s / SEC_PER_YEAR); // In internal units
-
+                //TODO(jdavies): Make sure the new sfr density isn't too bursty. If a cell has enough stellar
+                //mass to ionise, but low/no sfr, particles can recombine since they are connected via J21.
+                if(use_sfr)
+                    sfr_density = sfr_real[pm_idx] / pixel_volume / (All.UnitMass_in_g / SOLAR_MASS) * (All.UnitTime_in_s / SEC_PER_YEAR); // In internal units
+                else
+                    sfr_density = star_real[pm_idx] / (uvbg_params.ReionSFRTimescale * hubble_time) / pixel_volume; // In internal units
                 const float J21_aux = (float)(sfr_density * J21_aux_constant);
 
                 // Check if ionised!
@@ -443,11 +451,14 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
 
 //readout J21 from grid to particle
 static void readout_J21(PetaPM * pm, int i, double * mesh, double weight) {
-    if (P[i].Type == 0){
+    // Since we need to decide whether particles on the boundary are ionised or not,
+    // We choose to take the maximum J21 (of 8 cells) here.
+    if (P[i].Type == 0 && mesh[0] > SPHP(i).local_J21){
+        SPHP(i).local_J21 = mesh[0];
         //if particle has not been ionised yet, set its zreion
-        if(SPHP(i).local_J21 > 0 && SPHP(i).zreion == -1)
+        //the above conditional makes sure the particle is (partially) in an ionsied cell
+        if(SPHP(i).zreion == -1)
             SPHP(i).zreion = 1/All.Time - 1;
-        SPHP(i).local_J21 += weight * mesh[0];
     }
 }
 /* sets particle properties needed for the Excursion Set */
@@ -462,7 +473,8 @@ static void init_particle_uvbg(){
         /* Init J21 and set escape fracitons for sph particles */
         if(P[ii].Type == 0) {
             SPHP(ii).local_J21 = 0.;
-            if(SPHP(ii).EscapeFraction == 0) continue;
+            //P[i].EscapeFraction is currently halo mass (from fof.c)
+            if(!uvbg_params.ReionUseParticleSFR || SPHP(ii).EscapeFraction == 0) continue;
 
             fesc_temp = uvbg_params.EscapeFractionNorm * pow(SPHP(ii).EscapeFraction
                     * fesc_unit_conv, uvbg_params.EscapeFractionScaling);
@@ -546,7 +558,7 @@ void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int Wri
     message(0, "Away to call find_HII_bubbles...\n");
     petapm_reion(pm_mass,pm_star,pm_sfr,makeregion,&global_functions
             ,functions,&pstruct,&rstruct,reion_loop_pm,Rmax,Rmin,Rdelta
-            ,NULL);
+            ,uvbg_params.ReionUseParticleSFR,NULL);
 
     //TODO: a particle loop that detects new ionisations, saves J21_at_ion and z_at_ion
     //TODO: multiply J21_at_ion with halo bias??

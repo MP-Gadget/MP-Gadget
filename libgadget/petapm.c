@@ -418,7 +418,7 @@ petapm_reion_c2r(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
         const int Nregions,
         PetaPMFunctions * functions,
         petapm_reion_func reion_loop,
-        double R_max, double R_min, double R_delta)
+        double R_max, double R_min, double R_delta, int use_sfr)
 {
     PetaPMFunctions * f = functions;
     double R = fmin(R_max,pm_mass->BoxSize);
@@ -444,12 +444,15 @@ petapm_reion_c2r(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
         //the transfer functions correctly
         pm_mass->G = R;
         pm_star->G = R;
-        pm_sfr->G = R;
+        if(use_sfr)pm_sfr->G = R;
 
         //TODO: maybe allocate and free these outside the loop
         pfft_complex * mass_filtered = (pfft_complex *) mymalloc("mass_filtered", pm_mass->priv->fftsize * sizeof(double));
         pfft_complex * star_filtered = (pfft_complex *) mymalloc("star_filtered", pm_star->priv->fftsize * sizeof(double));
-        pfft_complex * sfr_filtered = (pfft_complex *) mymalloc("sfr_filtered", pm_sfr->priv->fftsize * sizeof(double));
+        pfft_complex * sfr_filtered;
+        if(use_sfr){
+            sfr_filtered = (pfft_complex *) mymalloc("sfr_filtered", pm_sfr->priv->fftsize * sizeof(double));
+        }
 
         /* apply the filtering at this radius */
         /*We want the last step to be unfiltered,
@@ -459,20 +462,28 @@ petapm_reion_c2r(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
 
         pm_apply_transfer_function(pm_mass, mass_unfiltered, mass_filtered, transfer);
         pm_apply_transfer_function(pm_star, star_unfiltered, star_filtered, transfer);
-        pm_apply_transfer_function(pm_sfr, sfr_unfiltered, sfr_filtered, transfer);
-
+        if(use_sfr){
+            pm_apply_transfer_function(pm_sfr, sfr_unfiltered, sfr_filtered, transfer);
+        }
         walltime_measure("/PMreion/calc");
 
         double * star_real = (double * ) mymalloc2("star_real", pm_star->priv->fftsize * sizeof(double));
-        double * sfr_real = (double * ) mymalloc2("sfr_real", pm_sfr->priv->fftsize * sizeof(double));
-
+        //dummy pointer if SFR is not used
+        double * sfr_real;
+        if(use_sfr){
+            sfr_real = (double * ) mymalloc2("sfr_real", pm_sfr->priv->fftsize * sizeof(double));
+        }
         /* back to real space */
         pfft_execute_dft_c2r(pm_mass->priv->plan_back, mass_filtered, mass_real);
         pfft_execute_dft_c2r(pm_star->priv->plan_back, star_filtered, star_real);
-        pfft_execute_dft_c2r(pm_sfr->priv->plan_back, sfr_filtered, sfr_real);
+        if(use_sfr){
+            pfft_execute_dft_c2r(pm_sfr->priv->plan_back, sfr_filtered, sfr_real);
+        }
         walltime_measure("/PMreion/c2r");
         
-        myfree(sfr_filtered);
+        if(use_sfr){
+            myfree(sfr_filtered);
+        }
         myfree(star_filtered);
         myfree(mass_filtered);
 
@@ -483,7 +494,9 @@ petapm_reion_c2r(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
 
         /* since we don't need to readout star and sfr grids...*/
         /* on the last step, the mass grid is populated with J21 and read out*/
-        myfree(sfr_real);
+        if(use_sfr){
+            myfree(sfr_real);
+        }
         myfree(star_real);
         
         R = R / R_delta;
@@ -509,7 +522,7 @@ void petapm_reion(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
         PetaPMParticleStruct * pstruct,
         PetaPMReionPartStruct * rstruct,
         petapm_reion_func reion_loop,
-        double R_max, double R_min, double R_delta,
+        double R_max, double R_min, double R_delta, int use_sfr,
         void * userdata) {
     
     //assigning CPS here due to three sets of regions
@@ -521,14 +534,20 @@ void petapm_reion(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
     int Nregions_mass, Nregions_star, Nregions_sfr;
     PetaPMRegion * regions_mass = petapm_reion_init(pm_mass, prepare, put_particle_to_mesh, pstruct, &Nregions_mass, userdata);
     PetaPMRegion * regions_star = petapm_reion_init(pm_star, prepare, put_star_to_mesh, pstruct, &Nregions_star, userdata);
-    PetaPMRegion * regions_sfr = petapm_reion_init(pm_sfr, prepare, put_sfr_to_mesh, pstruct, &Nregions_sfr, userdata);
+    PetaPMRegion * regions_sfr;
+    if(use_sfr){
+        regions_sfr = petapm_reion_init(pm_sfr, prepare, put_sfr_to_mesh, pstruct, &Nregions_sfr, userdata);
+    }
 
     walltime_measure("/PMreion/comm2");
 
     //using force r2c since this part can be done independently
     pfft_complex * mass_unfiltered = petapm_force_r2c(pm_mass, global_functions);
     pfft_complex * star_unfiltered = petapm_force_r2c(pm_star, global_functions);
-    pfft_complex * sfr_unfiltered = petapm_force_r2c(pm_sfr, global_functions);
+    pfft_complex * sfr_unfiltered;
+    if(use_sfr){
+        sfr_unfiltered = petapm_force_r2c(pm_sfr, global_functions);
+    }
 
     //need custom reion_c2r to implement the 3 grid c2r and readout
     //the readout is only performed on the mass grid so for now I only pass in regions/Nregions for mass
@@ -536,21 +555,27 @@ void petapm_reion(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
         petapm_reion_c2r(pm_mass, pm_star, pm_sfr,
                mass_unfiltered, star_unfiltered, sfr_unfiltered,
                regions_mass, Nregions_mass, functions, reion_loop,
-               R_max, R_min, R_delta);
+               R_max, R_min, R_delta, use_sfr);
     
     //free everything in the correct order
-    myfree(sfr_unfiltered);
+    if(use_sfr){
+        myfree(sfr_unfiltered);
+    }
     myfree(star_unfiltered);
     myfree(mass_unfiltered);
     
     if(CPS->RegionInd)
         myfree(CPS->RegionInd);
     
-    myfree(regions_sfr);
+    if(use_sfr){
+        myfree(regions_sfr);
+    }
     myfree(regions_star);
     myfree(regions_mass);
 
-    petapm_force_finish(pm_sfr);
+    if(use_sfr){
+        petapm_force_finish(pm_sfr);
+    }
     petapm_force_finish(pm_star);
     petapm_force_finish(pm_mass);
 }

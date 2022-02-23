@@ -446,7 +446,7 @@ cooling_direct(int i, const double a3inv, const double hubble, const struct UVBG
     double unew;
     /* The particle reionized this timestep, bump the temperature to the HI reionization temperature.
      * We only do this for non-star-forming gas.*/
-    if(sfr_params.HIReionTemp > 0 && uvbg.zreion > redshift && uvbg.zreion < lastred) {
+    if(sfr_params.HIReionTemp > 0 && uvbg.zreion >= redshift && uvbg.zreion < lastred) {
         /* Note we can assume it is neutral before it reionizes*/
         const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1 * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
         unew = sfr_params.HIReionTemp / u_to_temp_fac;
