@@ -1289,7 +1289,7 @@ void fof_seed(FOFGroups * fof, ActiveParticles * act, double atime, MPI_Comm Com
     int NTask;
     MPI_Comm_size(Comm, &NTask);
 
-    char * Marked = mymalloc2("SeedMark", fof->Ngroups);
+    char * Marked = (char *) mymalloc2("SeedMark", fof->Ngroups);
 
     int Nexport = 0;
     #pragma omp parallel for reduction(+:Nexport)
@@ -1303,7 +1303,7 @@ void fof_seed(FOFGroups * fof, ActiveParticles * act, double atime, MPI_Comm Com
 
         if(Marked[i]) Nexport ++;
     }
-    struct Group * ExportGroups = mymalloc("Export", sizeof(fof->Group[0]) * Nexport);
+    struct Group * ExportGroups = (struct Group *) mymalloc("Export", sizeof(fof->Group[0]) * Nexport);
     j = 0;
     for(i = 0; i < fof->Ngroups; i ++) {
         if(Marked[i]) {
@@ -1354,7 +1354,7 @@ void fof_seed(FOFGroups * fof, ActiveParticles * act, double atime, MPI_Comm Com
         int *ActiveParticle_tmp=NULL;
         /* This is only called on a PM step, so the condition should never be true*/
         if(act->ActiveParticle) {
-            ActiveParticle_tmp = mymalloc2("ActiveParticle_tmp", act->NumActiveParticle * sizeof(int));
+            ActiveParticle_tmp = (int *) mymalloc2("ActiveParticle_tmp", act->NumActiveParticle * sizeof(int));
             memmove(ActiveParticle_tmp, act->ActiveParticle, act->NumActiveParticle * sizeof(int));
             myfree(act->ActiveParticle);
         }
@@ -1369,7 +1369,7 @@ void fof_seed(FOFGroups * fof, ActiveParticles * act, double atime, MPI_Comm Com
 
         /*And now we need our memory back in the right place*/
         if(ActiveParticle_tmp) {
-            act->ActiveParticle = mymalloc("ActiveParticle", sizeof(int)*(act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
+            act->ActiveParticle = (int *) mymalloc("ActiveParticle", sizeof(int)*(act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
             memmove(act->ActiveParticle, ActiveParticle_tmp, act->NumActiveParticle * sizeof(int));
             myfree(ActiveParticle_tmp);
         }

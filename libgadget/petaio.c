@@ -166,7 +166,7 @@ static void petaio_save_internal(char * fname, const double atime, struct IOTabl
     int ptype_count[6]={0};
     int64_t NTotal[6]={0};
 
-    int * selection = mymalloc("Selection", sizeof(int) * PartManager->NumPart);
+    int * selection = (int *) mymalloc("Selection", sizeof(int) * PartManager->NumPart);
 
     petaio_build_selection(selection, ptype_offset, ptype_count, P, PartManager->NumPart, NULL);
 
@@ -580,7 +580,7 @@ void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t localsize
     dims[1] = ent->items;
     strides[1] = elsize;
     strides[0] = elsize * ent->items;
-    char * buffer = mymalloc("IOBUFFER", dims[0] * dims[1] * elsize);
+    char * buffer = (char *) mymalloc("IOBUFFER", dims[0] * dims[1] * elsize);
 
     big_array_init(array, buffer, ent->dtype, 2, dims, strides);
 }
@@ -623,7 +623,7 @@ petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection,
         const int start = NumSelection * (size_t) tid / NT;
         const int end = NumSelection * ((size_t) tid + 1) / NT;
         /* fill the buffer */
-        char * p = array->data;
+        char * p = (char *) array->data;
         p += array->strides[0] * start;
         for(i = start; i < end; i ++) {
             const int j = selection[i];
@@ -748,7 +748,7 @@ void io_register_io_block(const char * name,
         struct IOTable * IOTable
         ) {
     if (IOTable->used == IOTable->allocated) {
-        IOTable->ent = myrealloc(IOTable->ent, 2*IOTable->allocated*sizeof(IOTableEntry));
+        IOTable->ent = (IOTableEntry *) myrealloc(IOTable->ent, 2*IOTable->allocated*sizeof(IOTableEntry));
         IOTable->allocated *= 2;
     }
     IOTableEntry * ent = &IOTable->ent[IOTable->used];
@@ -993,7 +993,7 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
     int i;
     IOTable->used = 0;
     IOTable->allocated = 100;
-    IOTable->ent = mymalloc2("IOTable", IOTable->allocated * sizeof(IOTableEntry));
+    IOTable->ent = (IOTableEntry *) mymalloc2("IOTable", IOTable->allocated * sizeof(IOTableEntry));
     /* Bare Bone Gravity*/
     for(i = 0; i < 6; i ++) {
         /* We put Mass first because sometimes there is

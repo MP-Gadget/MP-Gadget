@@ -341,7 +341,7 @@ run(int RestartSnapNum)
 
         MyFloat * GradRho = NULL;
         if(sfr_need_to_compute_sph_grad_rho())
-            GradRho = mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
+            GradRho = (MyFloat *) mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
 
         /* Need to rebuild the force tree because all TopLeaves are out of date.*/
         ForceTree Tree = {0};

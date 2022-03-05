@@ -159,7 +159,7 @@ load_treecool(const char * TreeCoolFile)
         endrun(1, "Photon background contains: %d entries, not enough.\n", NTreeCool);
 
     /*Allocate memory for the photon background table.*/
-    Gamma_log1z = mymalloc("TreeCoolTable", 7 * NTreeCool * sizeof(double));
+    Gamma_log1z = (double *) mymalloc("TreeCoolTable", 7 * NTreeCool * sizeof(double));
     Gamma_HI.ydata = Gamma_log1z + NTreeCool;
     Gamma_HeI.ydata = Gamma_log1z + 2 * NTreeCool;
     Gamma_HeII.ydata = Gamma_log1z + 3 * NTreeCool;
@@ -988,7 +988,7 @@ init_cooling_rates(const char * TreeCoolFile, const char * MetalCoolFile, Cosmol
     }
 
     /*Initialize the recombination tables*/
-    temp_tab = mymalloc("Recombination_tables", NRECOMBTAB * sizeof(double) * 14);
+    temp_tab = (double *) mymalloc("Recombination_tables", NRECOMBTAB * sizeof(double) * 14);
 
     rec_GammaH0 = temp_tab + NRECOMBTAB;
     rec_GammaHe0 = temp_tab + 2 * NRECOMBTAB;

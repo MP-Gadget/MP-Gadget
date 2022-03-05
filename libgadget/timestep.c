@@ -742,7 +742,7 @@ int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times
         act->NumActiveParticle = 0;
     }
 
-    int * TimeBinCountType = mymalloc("TimeBinCountType", 6*(TIMEBINS+1)*NumThreads * sizeof(int));
+    int * TimeBinCountType = (int *) mymalloc("TimeBinCountType", 6*(TIMEBINS+1)*NumThreads * sizeof(int));
     memset(TimeBinCountType, 0, 6 * (TIMEBINS+1) * NumThreads * sizeof(int));
 
     /*We want a lockless algorithm which preserves the ordering of the particle list.*/
@@ -787,7 +787,7 @@ int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times
     /* Shrink the ActiveParticle array. We still need extra space for star formation,
      * but we do not need space for the known-inactive particles*/
     if(act->ActiveParticle) {
-        act->ActiveParticle = myrealloc(act->ActiveParticle, sizeof(int)*(act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
+        act->ActiveParticle = (int *) myrealloc(act->ActiveParticle, sizeof(int)*(act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
         act->MaxActiveParticle = act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart;
         /* listen to the slots events such that we can set timebin of new particles */
     }

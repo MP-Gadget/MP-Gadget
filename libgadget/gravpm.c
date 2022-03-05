@@ -134,8 +134,8 @@ static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void
     ForceTree * tree = (ForceTree *) userdata;
     /* In worst case, each topleave becomes a region: thus
      * NTopLeaves is sufficient */
-    PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion) * tree->NTopLeaves);
-    pstruct->RegionInd = mymalloc2("RegionInd", PartManager->NumPart * sizeof(int));
+    PetaPMRegion * regions = (PetaPMRegion *) mymalloc2("Regions", sizeof(PetaPMRegion) * tree->NTopLeaves);
+    pstruct->RegionInd = (int *) mymalloc2("RegionInd", PartManager->NumPart * sizeof(int));
     int r = 0;
 
     int no = tree->firstnode; /* start with the root */

@@ -83,7 +83,7 @@ typedef struct {
     size_t offset_mass;
     int * RegionInd;
     int (*active) (int i);
-    int NumPart;
+    int64_t NumPart;
 } PetaPMParticleStruct;
 
 typedef void (*petapm_transfer_func)(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);

@@ -176,17 +176,17 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
     const double hubble = hubble_function(&All.CP, Time);
 
     if(All.StarformationOn) {
-        NewStars = mymalloc("NewStars", nactive * sizeof(int) * nthreads);
+        NewStars = (int *) mymalloc("NewStars", nactive * sizeof(int) * nthreads);
         gadget_setup_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, nactive, nthreads);
-        NewParents = mymalloc2("NewParents", nactive * sizeof(int) * nthreads);
+        NewParents = (int *) mymalloc2("NewParents", nactive * sizeof(int) * nthreads);
         gadget_setup_thread_arrays(NewParents, thrqueueparent, nqthrsfr, nactive, nthreads);
     }
 
     if(sfr_params.WindOn && winds_are_subgrid()) {
         nqthrwind = ta_malloc("nqthrwind", size_t, nthreads);
         thrqueuewind = ta_malloc("thrqueuewind", int *, nthreads);
-        StellarMass = mymalloc("StellarMass", SlotsManager->info[0].size * sizeof(MyFloat));
-        MaybeWind = mymalloc("MaybeWind", nactive * sizeof(int) * nthreads);
+        StellarMass = (MyFloat *) mymalloc("StellarMass", SlotsManager->info[0].size * sizeof(MyFloat));
+        MaybeWind = (int *) mymalloc("MaybeWind", nactive * sizeof(int) * nthreads);
         gadget_setup_thread_arrays(MaybeWind, thrqueuewind, nqthrwind, nactive, nthreads);
     }
 
@@ -275,7 +275,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
         if(NumNewStar != NumNewParent)
             endrun(3,"%lu new stars, but %lu new parents!\n",NumNewStar, NumNewParent);
         /*Shrink star memory as we keep it for the wind model*/
-        NewStars = myrealloc(NewStars, sizeof(int) * NumNewStar);
+        NewStars = (int *) myrealloc(NewStars, sizeof(int) * NumNewStar);
     }
 
     ta_free(thrqueueparent);
@@ -293,7 +293,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
      * The code in sfr_reserve_slots is not elegant, but I cannot think of a better way.*/
     if(All.StarformationOn && (SlotsManager->info[4].size + NumNewStar >= SlotsManager->info[4].maxsize)) {
         if(NewParents)
-            NewParents = myrealloc(NewParents, sizeof(int) * NumNewStar);
+            NewParents = (int *) myrealloc(NewParents, sizeof(int) * NumNewStar);
         NewStars = sfr_reserve_slots(act, NewStars, NumNewStar, tree);
     }
     SlotsManager->info[4].size += NumNewStar;
@@ -376,7 +376,7 @@ sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTr
         /*Move the NewStar array to upper memory*/
         int * new_star_tmp = NULL;
         if(NewStars) {
-            new_star_tmp = mymalloc2("newstartmp", NumNewStar*sizeof(int));
+            new_star_tmp = (int *) mymalloc2("newstartmp", NumNewStar*sizeof(int));
             memmove(new_star_tmp, NewStars, NumNewStar * sizeof(int));
             myfree(NewStars);
         }
@@ -385,15 +385,15 @@ sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTr
         int *Father_tmp=NULL;
         int *ActiveParticle_tmp=NULL;
         if(force_tree_allocated(tree)) {
-            nodes_base_tmp = mymalloc2("nodesbasetmp", tree->numnodes * sizeof(struct NODE));
+            nodes_base_tmp = (struct NODE *) mymalloc2("nodesbasetmp", tree->numnodes * sizeof(struct NODE));
             memmove(nodes_base_tmp, tree->Nodes_base, tree->numnodes * sizeof(struct NODE));
             myfree(tree->Nodes_base);
-            Father_tmp = mymalloc2("Father_tmp", PartManager->MaxPart * sizeof(int));
+            Father_tmp = (int *) mymalloc2("Father_tmp", PartManager->MaxPart * sizeof(int));
             memmove(Father_tmp, tree->Father, PartManager->MaxPart * sizeof(int));
             myfree(tree->Father);
         }
         if(act->ActiveParticle) {
-            ActiveParticle_tmp = mymalloc2("ActiveParticle_tmp", act->NumActiveParticle * sizeof(int));
+            ActiveParticle_tmp = (int *) mymalloc2("ActiveParticle_tmp", act->NumActiveParticle * sizeof(int));
             memmove(ActiveParticle_tmp, act->ActiveParticle, act->NumActiveParticle * sizeof(int));
             myfree(act->ActiveParticle);
         }
@@ -407,22 +407,22 @@ sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTr
 
         /*And now we need our memory back in the right place*/
         if(ActiveParticle_tmp) {
-            act->ActiveParticle = mymalloc("ActiveParticle", sizeof(int)*(act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
+            act->ActiveParticle = (int *) mymalloc("ActiveParticle", sizeof(int)*(act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
             memmove(act->ActiveParticle, ActiveParticle_tmp, act->NumActiveParticle * sizeof(int));
             myfree(ActiveParticle_tmp);
         }
         if(force_tree_allocated(tree)) {
-            tree->Father = mymalloc("Father", PartManager->MaxPart * sizeof(int));
+            tree->Father = (int *) mymalloc("Father", PartManager->MaxPart * sizeof(int));
             memmove(tree->Father, Father_tmp, PartManager->MaxPart * sizeof(int));
             myfree(Father_tmp);
-            tree->Nodes_base = mymalloc("Nodes_base", tree->numnodes * sizeof(struct NODE));
+            tree->Nodes_base = (struct NODE *) mymalloc("Nodes_base", tree->numnodes * sizeof(struct NODE));
             memmove(tree->Nodes_base, nodes_base_tmp, tree->numnodes * sizeof(struct NODE));
             myfree(nodes_base_tmp);
             /*Don't forget to update the Node pointer as well as Node_base!*/
             tree->Nodes = tree->Nodes_base - tree->firstnode;
         }
         if(new_star_tmp) {
-            NewStars = mymalloc("NewStars", NumNewStar*sizeof(int));
+            NewStars = (int *) mymalloc("NewStars", NumNewStar*sizeof(int));
             memmove(NewStars, new_star_tmp, NumNewStar * sizeof(int));
             myfree(new_star_tmp);
         }

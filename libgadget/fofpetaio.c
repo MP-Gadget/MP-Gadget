@@ -81,7 +81,7 @@ void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FO
             return;
         }
 
-        int * selection = mymalloc("Selection", sizeof(int) * halo_pman.NumPart);
+        int * selection = (int *) mymalloc("Selection", sizeof(int) * halo_pman.NumPart);
 
         int ptype_offset[6]={0};
         int ptype_count[6]={0};
@@ -177,7 +177,7 @@ order_by_type_and_grnr(const void *a, const void *b)
 static int
 fof_try_particle_exchange(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, MPI_Comm Comm)
 {
-    struct PartIndex * pi = mymalloc("PartIndex", sizeof(struct PartIndex) * halo_pman->NumPart);
+    struct PartIndex * pi = (struct PartIndex *) mymalloc("PartIndex", sizeof(struct PartIndex) * halo_pman->NumPart);
     int ThisTask;
     MPI_Comm_rank(Comm, &ThisTask);
 
@@ -276,7 +276,7 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
         }
     }
     halo_pman->MaxPart = NpigLocal * FOFPartAllocFactor;
-    struct particle_data * halopart = mymalloc("HaloParticle", sizeof(struct particle_data) * halo_pman->MaxPart);
+    struct particle_data * halopart = (struct particle_data *) mymalloc("HaloParticle", sizeof(struct particle_data) * halo_pman->MaxPart);
     halo_pman->Base = halopart;
     halo_pman->NumPart = NpigLocal;
     halo_pman->BoxSize = PartManager->BoxSize;
@@ -335,7 +335,7 @@ static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * e
 
     petaio_alloc_buffer(array, ent, npartLocal);
     /* fill the buffer */
-    char * p = array->data;
+    char * p = (char *) array->data;
     int i;
     for(i = 0; i < fof->Ngroups; i ++) {
         ent->getter(i, p, fof->Group, NULL, conv);
@@ -469,7 +469,7 @@ static void fof_register_io_blocks(int StarformationOn, int BlackholeOn, struct 
     IOTable->allocated = 100;
     /* Allocate high so we can do a domain exchange,
      * potentially increasing the slots, around this*/
-    IOTable->ent = mymalloc2("IOTable", IOTable->allocated* sizeof(IOTableEntry));
+    IOTable->ent = (struct IOTableEntry *) mymalloc2("IOTable", IOTable->allocated* sizeof(IOTableEntry));
 
     IO_REG(GroupID, "u4", 1, PTYPE_FOF_GROUP, IOTable);
     IO_REG(Mass, "f4", 1, PTYPE_FOF_GROUP, IOTable);

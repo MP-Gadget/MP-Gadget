@@ -18,16 +18,16 @@ void powerspectrum_alloc(Power * ps, const int nbins, const int nthreads, const 
     ps->size = nbins;
     const int nalloc = nbins*nthreads;
     ps->nalloc = nalloc;
-    ps->kk = mymalloc("Powerspectrum", sizeof(double) * 2*nalloc);
+    ps->kk = (double *) mymalloc("Powerspectrum", sizeof(double) * 2*nalloc);
     ps->Power = ps->kk + nalloc;
     ps->BoxSize_in_MPC = BoxSize_in_cm / CM_PER_MPC;
     ps->logknu = NULL;
     if(MassiveNuLinResp) {
         /*These arrays are stored separately to make interpolation more accurate*/
-        ps->logknu = mymalloc("PowerNu", sizeof(double) * 2*nbins);
+        ps->logknu = (double *) mymalloc("PowerNu", sizeof(double) * 2*nbins);
         ps->delta_nu_ratio = ps-> logknu + nbins;
     }
-    ps->Nmodes = mymalloc("Powermodes", sizeof(int64_t) * nalloc);
+    ps->Nmodes = (int64_t *) mymalloc("Powermodes", sizeof(int64_t) * nalloc);
     powerspectrum_zero(ps);
 }
 

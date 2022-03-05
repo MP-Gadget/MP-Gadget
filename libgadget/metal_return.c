@@ -446,11 +446,11 @@ metal_return_init(const ActiveParticles * act, Cosmology * CP, struct MetalRetur
 
     /* Initialize*/
     setup_metal_table_interp(&priv->interp);
-    priv->StellarAges = mymalloc("StellarAges", SlotsManager->info[4].size * sizeof(MyFloat));
-    priv->MassReturn = mymalloc("MassReturn", SlotsManager->info[4].size * sizeof(MyFloat));
-    priv->LowDyingMass = mymalloc("LowDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
-    priv->HighDyingMass = mymalloc("HighDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
-    priv->StarVolumeSPH = mymalloc("StarVolumeSPH", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->StellarAges = (MyFloat *) mymalloc("StellarAges", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->MassReturn = (MyFloat *) mymalloc("MassReturn", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->LowDyingMass = (MyFloat *) mymalloc("LowDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->HighDyingMass = (MyFloat *) mymalloc("HighDyingMass", SlotsManager->info[4].size * sizeof(MyFloat));
+    priv->StarVolumeSPH = (MyFloat *) mymalloc("StarVolumeSPH", SlotsManager->info[4].size * sizeof(MyFloat));
 
     priv->imf_norm = compute_imf_norm(priv->gsl_work[0]);
     /* Maximum possible mass return for below*/

@@ -296,16 +296,16 @@ domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy)
     MPI_Comm_size(ddecomp->DomainComm, &NTask);
 
     /* Add a tail item to avoid special treatments */
-    ddecomp->Tasks = mymalloc2("Tasks", bytes = ((NTask + 1)* sizeof(ddecomp->Tasks[0])));
+    ddecomp->Tasks = (struct task_data *) mymalloc2("Tasks", bytes = ((NTask + 1)* sizeof(ddecomp->Tasks[0])));
 
     all_bytes += bytes;
 
-    ddecomp->TopNodes = mymalloc("TopNodes",
+    ddecomp->TopNodes = (struct topnode_data *) mymalloc("TopNodes",
         bytes = (MaxTopNodes * (sizeof(ddecomp->TopNodes[0]))));
 
     all_bytes += bytes;
 
-    ddecomp->TopLeaves = mymalloc("TopNodes",
+    ddecomp->TopLeaves = (struct topleaf_data *) mymalloc("TopLeaves",
         bytes = (MaxTopNodes * sizeof(ddecomp->TopLeaves[0])));
 
     all_bytes += bytes;

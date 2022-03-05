@@ -254,7 +254,7 @@ ForceTree force_tree_build(int npart, int mask, DomainDecomp * ddecomp, const in
         tree.moments_computed_flag = 1;
         tree.hmax_computed_flag = 1;
     }
-    tree.Nodes_base = myrealloc(tree.Nodes_base, (tree.numnodes +1) * sizeof(struct NODE));
+    tree.Nodes_base = (struct NODE *) myrealloc(tree.Nodes_base, (tree.numnodes +1) * sizeof(struct NODE));
 
     /*Update the oct-tree struct so it knows about the memory change*/
     tree.Nodes = tree.Nodes_base - tree.firstnode;
