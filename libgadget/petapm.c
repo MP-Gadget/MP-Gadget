@@ -835,8 +835,8 @@ static int pos_get_target(PetaPM * pm, const int pos[2]) {
     return rank;
 }
 static int pencil_cmp_target(const void * v1, const void * v2) {
-    const struct Pencil * p1 = v1;
-    const struct Pencil * p2 = v2;
+    const struct Pencil * p1 = (const struct Pencil *) v1;
+    const struct Pencil * p2 = (const struct Pencil *) v2;
     /* move zero length pixels to the end */
     if(p2->len == 0) return -1;
     if(p1->len == 0) return 1;

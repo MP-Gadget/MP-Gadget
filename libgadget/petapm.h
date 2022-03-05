@@ -72,7 +72,7 @@ typedef struct PetaPM {
     PetaPMPriv priv[1];
     int ThisTask2d[2];
     int NTask2d[2];
-    int * (Mesh2Task[2]); /* conversion from real space mesh to task2d,  */
+    int * Mesh2Task[2]; /* conversion from real space mesh to task2d,  */
     Power ps[1];
 } PetaPM;
 

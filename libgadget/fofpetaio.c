@@ -130,13 +130,13 @@ static int fof_sorted_layout(int i, const void * userdata) {
 }
 
 static void fof_radix_sortkey(const void * c1, void * out, void * arg) {
-    uint64_t * u = out;
-    const struct PartIndex * pi = c1;
+    uint64_t * u = (uint64_t *) out;
+    const struct PartIndex * pi = (const struct PartIndex *) c1;
     *u = pi->sortKey;
 }
 static void fof_radix_origin(const void * c1, void * out, void * arg) {
-    uint64_t * u = out;
-    const struct PartIndex * pi = c1;
+    uint64_t * u = (uint64_t *) out;
+    const struct PartIndex * pi = (const struct PartIndex *) c1;
     *u = pi->origin;
 }
 #if 0

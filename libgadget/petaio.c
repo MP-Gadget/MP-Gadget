@@ -589,7 +589,7 @@ void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t localsize
 void petaio_readout_buffer(BigArray * array, IOTableEntry * ent, struct conversions * conv) {
     int i;
     /* fill the buffer */
-    char * p = array->data;
+    char * p = (char *) array->data;
     for(i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].Type != ent->ptype) continue;
         ent->setter(i, p, P, SlotsManager, conv);

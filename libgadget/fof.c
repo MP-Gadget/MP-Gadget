@@ -582,15 +582,15 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
 }
 
 static void fof_reduce_base_group(void * pdst, void * psrc) {
-    struct BaseGroup * gdst = pdst;
-    struct BaseGroup * gsrc = psrc;
+    struct BaseGroup * gdst = (struct BaseGroup *) pdst;
+    struct BaseGroup * gsrc = (struct BaseGroup *) psrc;
     gdst->Length += gsrc->Length;
     /* preserve the dst FirstPos so all other base group gets the same FirstPos */
 }
 
 static void fof_reduce_group(void * pdst, void * psrc) {
-    struct Group * gdst = pdst;
-    struct Group * gsrc = psrc;
+    struct Group * gdst = (struct Group *) pdst;
+    struct Group * gsrc = (struct Group *) psrc;
     int j;
     gdst->Length += gsrc->Length;
     gdst->Mass += gsrc->Mass;
@@ -1275,8 +1275,8 @@ static void fof_label_secondary(struct fof_particle_list * HaloLabel, ForceTree 
  *
  * */
 static int cmp_seed_task(const void * c1, const void * c2) {
-    const struct Group * g1 = c1;
-    const struct Group * g2 = c2;
+    const struct Group * g1 = (const struct Group *) c1;
+    const struct Group * g2 = (const struct Group *) c2;
 
     return g1->seed_task - g2->seed_task;
 }
@@ -1421,8 +1421,8 @@ static int fof_compare_Group_MinID(const void *a, const void *b)
 
 static int fof_compare_Group_MinIDTask(const void *a, const void *b)
 {
-    const struct BaseGroup * p1 = a;
-    const struct BaseGroup * p2 = b;
+    const struct BaseGroup * p1 = (const struct BaseGroup *) a;
+    const struct BaseGroup * p2 = (const struct BaseGroup *) b;
     int t1 = p1->MinIDTask;
     int t2 = p2->MinIDTask;
     if(t1 == _fof_compare_Group_MinIDTask_ThisTask) t1 = -1;

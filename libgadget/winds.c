@@ -230,8 +230,8 @@ struct WindPriv {
  * The closest star is used. */
 int cmp_by_part_id(const void * a, const void * b)
 {
-    const struct StarKick * stara = a;
-    const struct StarKick * starb = b;
+    const struct StarKick * stara = (const struct StarKick * ) a;
+    const struct StarKick * starb = (const struct StarKick *) b;
     if(stara->part_index > starb->part_index)
         return 1;
     if(stara->part_index < starb->part_index)

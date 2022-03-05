@@ -88,7 +88,7 @@ struct TreeWalk {
     const ForceTree * tree;
 
     /* name of the evaluator (used in printing messages) */
-    char * ev_label;
+    const char * ev_label;
 
     enum TreeWalkType type;
 
