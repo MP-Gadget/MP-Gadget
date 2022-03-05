@@ -485,7 +485,7 @@ static void petaio_write_header(BigFile * bf, const double atime, const int64_t 
     }
 }
 static double
-_get_attr_double(BigBlock * bh, char * name, double def)
+_get_attr_double(BigBlock * bh, const char * name, const double def)
 {
     double foo;
     if(0 != big_block_get_attr(bh, name, &foo, "f8", 1)) {
@@ -494,7 +494,7 @@ _get_attr_double(BigBlock * bh, char * name, double def)
     return foo;
 }
 static int
-_get_attr_int(BigBlock * bh, char * name, int def)
+_get_attr_int(BigBlock * bh, const char * name, const int def)
 {
     int foo;
     if(0 != big_block_get_attr(bh, name, &foo, "i4", 1)) {

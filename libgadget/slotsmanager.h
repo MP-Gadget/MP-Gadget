@@ -148,7 +148,7 @@ void slots_check_id_consistency(struct part_manager_type * pman, struct slots_ma
 typedef struct {
     EIBase base;
     int parent;
-    int child;
+    int64_t child;
 } EISlotsFork;
 
 #endif
