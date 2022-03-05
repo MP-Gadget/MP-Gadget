@@ -11,10 +11,10 @@ static struct ClockTable * CT = NULL;
 static double WallTimeClock;
 static double LastReportTime;
 
-static void walltime_clock_insert(char * name);
+static void walltime_clock_insert(const char * name);
 static void walltime_summary_clocks(struct Clock * C, int N, int root, MPI_Comm comm);
-static void walltime_update_parents();
-static double seconds();
+static void walltime_update_parents(void);
+static double seconds(void);
 
 void walltime_init(struct ClockTable * ct) {
     CT = ct;
@@ -80,7 +80,7 @@ static int clockcmp(const void * c1, const void * c2) {
     return strcmp(p1->name, p2->name);
 }
 
-static void walltime_clock_insert(char * name) {
+static void walltime_clock_insert(const char * name) {
     if(name[0] != '/') abort();
     if(strlen(name) > 1) {
         char tmp[80] = {0};
@@ -109,7 +109,7 @@ static void walltime_clock_insert(char * name) {
     qsort_openmp(CT->AC, CT->N, sizeof(struct Clock), clockcmp);
 }
 
-int walltime_clock(char * name) {
+int walltime_clock(const char * name) {
     struct Clock dummy;
     strncpy(dummy.name, name, sizeof(dummy.name));
     dummy.name[sizeof(dummy.name)-1]='\0';
@@ -122,12 +122,12 @@ int walltime_clock(char * name) {
     return rt - CT->C;
 };
 
-char walltime_get_symbol(char * name) {
+char walltime_get_symbol(const char * name) {
     int id = walltime_clock(name);
     return CT->C[id].symbol;
 }
 
-double walltime_get(char * name, enum clocktype type) {
+double walltime_get(const char * name, enum clocktype type) {
     int id = walltime_clock(name);
     /* only make sense on root */
     switch(type) {
@@ -146,7 +146,7 @@ double walltime_get(char * name, enum clocktype type) {
     }
     return 0;
 }
-double walltime_get_time(char * name) {
+double walltime_get_time(const char * name) {
     int id = walltime_clock(name);
     return CT->C[id].time;
 }
@@ -177,12 +177,12 @@ void walltime_reset() {
     WallTimeClock = seconds();
 }
 
-double walltime_add_internal(char * name, double dt) {
+double walltime_add_internal(const char * name, const double dt) {
     int id = walltime_clock(name);
     CT->C[id].time += dt;
     return dt;
 }
-double walltime_measure_internal(char * name) {
+double walltime_measure_internal(const char * name) {
     double t = seconds();
     double dt = t - WallTimeClock;
     WallTimeClock = seconds();
@@ -192,17 +192,17 @@ double walltime_measure_internal(char * name) {
     }
     return dt;
 }
-double walltime_measure_full(char * name, char * file, int line) {
+double walltime_measure_full(const char * name, const char * file, const int line) {
     char fullname[128] = {0};
-    char * basename = file + strlen(file);
+    const char * basename = file + strlen(file);
     while(basename >= file && *basename != '/') basename --;
     basename ++;
     sprintf(fullname, "%s@%s:%04d", name, basename, line);
     return walltime_measure_internal(fullname);
 }
-double walltime_add_full(char * name, double dt, char * file, int line) {
+double walltime_add_full(const char * name, const double dt, const char * file, const int line) {
     char fullname[128] = {0};
-    char * basename = file + strlen(file);
+    const char * basename = file + strlen(file);
     while(basename >= file && *basename != '/') basename --;
     basename ++;
     sprintf(fullname, "%s@%s:%04d", name, basename, line);
