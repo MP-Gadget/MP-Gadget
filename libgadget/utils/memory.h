@@ -45,24 +45,22 @@ struct AllocatorIter {
 };
 
 int
-allocator_init(Allocator * alloc, const char * name, size_t size, int zero, Allocator * parent);
+allocator_init(Allocator * alloc, const char * name, const size_t size, const int zero, Allocator * parent);
 
 int
-allocator_malloc_init(Allocator * alloc,
-        const char * name, size_t size, int zero, Allocator * parent
-        );
+allocator_malloc_init(Allocator * alloc, const char * name, const size_t size, const int zero, Allocator * parent);
 
 int
-allocator_split(Allocator * alloc, Allocator * parent, const char * name, size_t request_size, int zero);
+allocator_split(Allocator * alloc, Allocator * parent, const char * name, const size_t request_size, const int zero);
 
 int
 allocator_destroy(Allocator * alloc);
 
 void *
-allocator_alloc(Allocator * alloc, const char * name, size_t size, int dir, char * fmt, ...);
+allocator_alloc(Allocator * alloc, const char * name, const size_t size, const int dir, const char * fmt, ...);
 
 void *
-allocator_realloc_int(Allocator * alloc, void * ptr, size_t size, char * fmt, ...);
+allocator_realloc_int(Allocator * alloc, void * ptr, const size_t size, const char * fmt, ...);
 
 #define allocator_alloc_bot(alloc, name, size) \
     allocator_alloc(alloc, name, size, ALLOC_DIR_BOT, "%s:%d", __FILE__, __LINE__)
