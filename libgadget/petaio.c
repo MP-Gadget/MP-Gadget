@@ -738,8 +738,8 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, int ver
  * NOTE: currently there is a hard limit (4096 blocks ).
  *
  * */
-void io_register_io_block(char * name,
-        char * dtype,
+void io_register_io_block(const char * name,
+        const char * dtype,
         int items,
         int ptype,
         property_getter getter,

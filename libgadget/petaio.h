@@ -88,8 +88,8 @@ petaio_build_selection(int * selection,
     io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , NULL, 1, IOTable)
 #define IO_REG_NONFATAL(name, dtype, items, ptype, IOTable) \
     io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , (property_setter) ST ## name, 0, IOTable)
-void io_register_io_block(char * name,
-        char * dtype,
+void io_register_io_block(const char * name,
+        const char * dtype,
         int items,
         int ptype,
         property_getter getter,

@@ -78,7 +78,7 @@ void hci_update_query_timer(HCIManager * manager)
  * returns the content of the file or NULL; collectively
  * */
 int
-hci_query_filesystem(HCIManager * manager, char * filename, char ** request)
+hci_query_filesystem(HCIManager * manager, const char * filename, char ** request)
 {
     int ThisTask;
     int NTask;
