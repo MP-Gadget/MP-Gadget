@@ -34,7 +34,7 @@ set_density_params(ParameterSet * ps)
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0) {
-        DensityParams.DensityKernelType = param_get_enum(ps, "DensityKernelType");
+        DensityParams.DensityKernelType = (enum DensityKernelType) param_get_enum(ps, "DensityKernelType");
         DensityParams.MaxNumNgbDeviation = param_get_double(ps, "MaxNumNgbDeviation");
         DensityParams.DensityResolutionEta = param_get_double(ps, "DensityResolutionEta");
         DensityParams.MinGasHsmlFractional = param_get_double(ps, "MinGasHsmlFractional");

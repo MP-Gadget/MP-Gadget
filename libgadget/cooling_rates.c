@@ -946,8 +946,8 @@ set_cooling_params(ParameterSet * ps)
     if(ThisTask == 0) {
         /*Cooling rate network parameters*/
         CoolingParams.CMBTemperature = param_get_double(ps, "CMBTemperature");
-        CoolingParams.cooling = param_get_enum(ps, "CoolingRates"); // Sherwood;
-        CoolingParams.recomb = param_get_enum(ps, "RecombRates"); // Verner96;
+        CoolingParams.cooling = (enum CoolingType) param_get_enum(ps, "CoolingRates"); // Sherwood;
+        CoolingParams.recomb = (enum RecombType) param_get_enum(ps, "RecombRates"); // Verner96;
         CoolingParams.SelfShieldingOn = param_get_int(ps, "SelfShieldingOn");
         CoolingParams.PhotoIonizeFactor = param_get_double(ps, "PhotoIonizeFactor");
         CoolingParams.PhotoIonizationOn = param_get_int(ps, "PhotoIonizationOn");

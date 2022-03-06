@@ -121,7 +121,7 @@ void set_sfr_params(ParameterSet * ps)
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0) {
         /*Star formation parameters*/
-        sfr_params.StarformationCriterion = param_get_enum(ps, "StarformationCriterion");
+        sfr_params.StarformationCriterion = (enum StarformationCriterion) param_get_enum(ps, "StarformationCriterion");
         sfr_params.CritOverDensity = param_get_double(ps, "CritOverDensity");
         sfr_params.CritPhysDensity = param_get_double(ps, "CritPhysDensity");
         sfr_params.WindOn = param_get_int(ps, "WindOn");

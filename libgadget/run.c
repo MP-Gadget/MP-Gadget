@@ -99,7 +99,7 @@ set_all_global_params(ParameterSet * ps)
 
         All.TimeMax = param_get_double(ps, "TimeMax");
         All.Asmth = param_get_double(ps, "Asmth");
-        All.ShortRangeForceWindowType = param_get_enum(ps, "ShortRangeForceWindowType");
+        All.ShortRangeForceWindowType = (enum ShortRangeForceWindowType) param_get_enum(ps, "ShortRangeForceWindowType");
         All.Nmesh = param_get_int(ps, "Nmesh");
 
         All.CoolingOn = param_get_int(ps, "CoolingOn");
