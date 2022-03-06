@@ -476,45 +476,45 @@ create_new_node_layer(int firstparent, int p_toplace,
 
 /* Add a particle to the tree, extending the tree as necessary. Locking is done,
  * so may be called from a threaded context*/
-int add_particle_to_tree(int i, int this_start, const ForceTree tb, const int HybridNuGrav, struct NodeCache *nc, int* nnext)
+int add_particle_to_tree(int i, int cur_start, const ForceTree tb, const int HybridNuGrav, struct NodeCache *nc, int* nnext)
 {
     int child, nocc;
-    int this = this_start;
+    int cur = cur_start;
     /*Walk the main tree until we get something that isn't an internal node.*/
     do
     {
         /*No lock needed: if we have an internal node here it will be stable*/
-        nocc = tb.Nodes[this].s.noccupied;
+        nocc = tb.Nodes[cur].s.noccupied;
 
         /* This node still has space for a particle (or needs conversion)*/
         if(nocc < (1 << 16))
             break;
 
         /* This node has child subnodes: find them.*/
-        int subnode = get_subnode(&tb.Nodes[this], i);
+        int subnode = get_subnode(&tb.Nodes[cur], i);
         /*No lock needed: if we have an internal node here it will be stable*/
-        child = tb.Nodes[this].s.suns[subnode];
+        child = tb.Nodes[cur].s.suns[subnode];
 
         if(child > tb.lastnode || child < tb.firstnode)
-            endrun(1,"Corruption in tree build: N[%d].[%d] = %d > lastnode (%d)\n",this, subnode, child, tb.lastnode);
-        this = child;
+            endrun(1,"Corruption in tree build: N[%d].[%d] = %d > lastnode (%d)\n",cur, subnode, child, tb.lastnode);
+        cur = child;
     }
     while(child >= tb.firstnode);
 
     /* We have a guaranteed spot.*/
-    nocc = tb.Nodes[this].s.noccupied;
-    tb.Nodes[this].s.noccupied++;
+    nocc = tb.Nodes[cur].s.noccupied;
+    tb.Nodes[cur].s.noccupied++;
 
     /* Now we have something that isn't an internal node. We can place the particle! */
     if(nocc < NMAXCHILD)
-        modify_internal_node(this, nocc, i, tb, HybridNuGrav);
+        modify_internal_node(cur, nocc, i, tb, HybridNuGrav);
     /* In this case we need to create a new layer of nodes beneath this one*/
     else if(nocc < 1<<16) {
-        if(create_new_node_layer(this, i, HybridNuGrav, tb, nnext, nc))
+        if(create_new_node_layer(cur, i, HybridNuGrav, tb, nnext, nc))
             return -1;
     } else
-        endrun(2, "Tried to convert already converted node %d with nocc = %d\n", this, nocc);
-    return this;
+        endrun(2, "Tried to convert already converted node %d with nocc = %d\n", cur, nocc);
+    return cur;
 }
 
 /* Merge two partial trees together. Trees are walked simultaneously.
@@ -758,19 +758,19 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, int mask, Domai
             if(P[i].Mass == 0)
                 endrun(12, "Zero mass particle %d type %d id %ld pos %g %g %g\n", i, P[i].Type, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
             /*First find the Node for the TopLeaf */
-            int this;
+            int cur;
             if(inside_node(&tb.Nodes[this_acc], i)) {
-                this = this_acc;
+                cur = this_acc;
             } else {
                 /* Get the topnode to which a particle belongs. Each local tree
                  * has a local set of treenodes copying the global topnodes, except tid 0
                  * which has the real topnodes.*/
                 const int topleaf = domain_get_topleaf(P[i].Key, ddecomp);
                 //int treenode = ddecomp->TopLeaves[topleaf].treenode;
-                this = local_topnodes[topleaf - StartLeaf];
+                cur = local_topnodes[topleaf - StartLeaf];
             }
 
-            this_acc = add_particle_to_tree(i, this, tb, HybridNuGrav, &nc, &nnext);
+            this_acc = add_particle_to_tree(i, cur, tb, HybridNuGrav, &nc, &nnext);
         }
         /* The implicit omp-barrier is important here!*/
 /*         double tend = second(); */
