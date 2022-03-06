@@ -111,7 +111,7 @@ typedef struct {
 
     MyFloat SurroundingVel[3];
     MyFloat SurroundingDensity;
-    MyFloat SurroundingParticles;
+    int SurroundingParticles;
     MyFloat SurroundingRmsVel;
 
 } TreeWalkResultBHDynfric;
@@ -164,7 +164,7 @@ struct BHPriv {
     /*************************************************************************/
     /* used in the dynamic friction treewalk*/
     MyFloat * BH_SurroundingDensity;
-    MyFloat * BH_SurroundingParticles;
+    int * BH_SurroundingParticles;
     MyFloat (*BH_SurroundingVel)[3];
     MyFloat * BH_SurroundingRmsVel;
 
@@ -609,7 +609,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     /* Environment variables for DF */
     priv->BH_SurroundingRmsVel = (MyFloat *) mymalloc("BH_SurroundingRmsVel", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingRmsVel));
     priv->BH_SurroundingVel = (MyFloat (*) [3]) mymalloc("BH_SurroundingVel", 3* SlotsManager->info[5].size * sizeof(priv->BH_SurroundingVel[0]));
-    priv->BH_SurroundingParticles = (MyFloat *)mymalloc("BH_SurroundingParticles", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingParticles));
+    priv->BH_SurroundingParticles = (int *)mymalloc("BH_SurroundingParticles", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingParticles));
     priv->BH_SurroundingDensity = (MyFloat *) mymalloc("BH_SurroundingDensity", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingDensity));
     /* guard treewalk */
     if (blackhole_params.BH_DynFrictionMethod > 0)
@@ -827,7 +827,7 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
     }
     else
     {
-        message(2, "Dynamic Friction density is zero for BH %ld. Surroundingpart %g, mass %g, hsml %g, dens %g, pos %g %g %g.\n",
+        message(2, "Dynamic Friction density is zero for BH %ld. Surroundingpart %d, mass %g, hsml %g, dens %g, pos %g %g %g.\n",
             P[n].ID, BH_GET_PRIV(tw)->BH_SurroundingParticles[PI], BHP(n).Mass, P[n].Hsml, BHP(n).Density, P[n].Pos[0], P[n].Pos[1], P[n].Pos[2]);
         for(j = 0; j < 3; j++)
         {
