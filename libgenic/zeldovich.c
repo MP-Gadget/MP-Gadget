@@ -111,7 +111,7 @@ struct ic_prep_data
 };
 
 static PetaPMRegion * makeregion(PetaPM * pm, PetaPMParticleStruct * pstruct, void * userdata, int * Nregions) {
-    PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion));
+    PetaPMRegion * regions = (PetaPMRegion *) mymalloc2("Regions", sizeof(PetaPMRegion));
     struct ic_prep_data * icprep = (struct ic_prep_data *) userdata;
     int NumPart = icprep->NumPart;
     struct ic_part_data * ICP = icprep->curICP;

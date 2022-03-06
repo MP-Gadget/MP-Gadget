@@ -229,7 +229,7 @@ _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void * userdata, int * Nre
      * Need to divide by mean mass per cell to get delta */
     pot_factor = -1 * (-1) * pow(2 * M_PI / pm->BoxSize, -2);
 
-    PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion));
+    PetaPMRegion * regions = (PetaPMRegion *) mymalloc2("Regions", sizeof(PetaPMRegion));
     int k;
     int r = 0;
     int i;

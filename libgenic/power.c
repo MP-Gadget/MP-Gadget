@@ -105,7 +105,7 @@ double dlogGrowth(double kmag, enum TransferType Type)
         Type = VEL_TOT;
     else
         /*Type should be an offset from the first velocity*/
-        Type = VEL_BAR - DELTA_BAR + (int) Type;
+        Type = (enum TransferType) ((int) VEL_BAR + ((int) Type - (int) DELTA_BAR));
     return get_Tabulated(kmag, Type, 1);
 }
 
