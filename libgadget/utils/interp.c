@@ -6,7 +6,7 @@
 #include "interp.h"
 #include "mymalloc.h"
 
-void interp_init(Interp * obj, int Ndim, int * dims) {
+void interp_init(Interp * obj, int Ndim, int64_t * dims) {
     ptrdiff_t N = 1;
     int d;
     for(d = 0 ; d < Ndim; d ++) {

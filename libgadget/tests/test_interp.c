@@ -4,7 +4,9 @@
 #include <cmocka.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdint.h>
 #include "stub.h"
+#include "../utils/interp.h"
 
 #define DMAX(x,y) ((x) > (y) ? (x) : (y))
 #define DMIN(x,y) ((x) < (y) ? (x) : (y))
@@ -21,7 +23,7 @@ double modulus(double x, double mod) {
 
 static void test_interp(void ** state) {
     Interp ip;
-    int dims[] = {DSIZE, DSIZE};
+    int64_t dims[] = {DSIZE, DSIZE};
     double ydata[DSIZE][DSIZE], ydata_sum[DSIZE][DSIZE];
     interp_init(&ip, 2, dims);
     interp_init_dim(&ip, 0, 0, DSIZE-1);
