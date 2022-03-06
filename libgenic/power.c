@@ -105,7 +105,7 @@ double dlogGrowth(double kmag, enum TransferType Type)
         Type = VEL_TOT;
     else
         /*Type should be an offset from the first velocity*/
-        Type = VEL_BAR - DELTA_BAR + Type;
+        Type = VEL_BAR - DELTA_BAR + (int) Type;
     return get_Tabulated(kmag, Type, 1);
 }
 
@@ -182,7 +182,7 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
     int j;
     int ncols = NumCol - 1; /* The first column k is already read in read_power_table. */
     int nnu = round((ncols - 15)/2);
-    double * transfers = mymalloc("transfers", sizeof(double) * ncols);
+    double * transfers = (double *) mymalloc("transfers", sizeof(double) * ncols);
     k = log10(k);
     out_tab->logk[i] = k;
     /* Note: the ncdm entries change depending on the number of neutrino species. The first row, k,
@@ -265,7 +265,7 @@ void read_power_table(int ThisTask, const char * inputfile, const int ncols, str
 
     if(out_tab->Nentry < 2)
         endrun(1, "Input spectrum too short\n");
-    out_tab->logk = mymalloc("Powertable", (ncols+1)*out_tab->Nentry * sizeof(double));
+    out_tab->logk = (double *) mymalloc("Powertable", (ncols+1)*out_tab->Nentry * sizeof(double));
     for(j=0; j<ncols; j++)
         out_tab->logD[j] = out_tab->logk + (j+1)*out_tab->Nentry;
 
