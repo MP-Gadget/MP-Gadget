@@ -642,7 +642,7 @@ void petaio_destroy_buffer(BigArray * array) {
 }
 
 /* read a block from disk, spread the values to memory with setters  */
-int petaio_read_block(BigFile * bf, char * blockname, BigArray * array, int required) {
+int petaio_read_block(BigFile * bf, const char * blockname, BigArray * array, int required) {
     BigBlock bb;
     BigBlockPtr ptr;
 
@@ -667,7 +667,7 @@ int petaio_read_block(BigFile * bf, char * blockname, BigArray * array, int requ
 }
 
 /* save a block to disk */
-void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, int verbose)
+void petaio_save_block(BigFile * bf, const char * blockname, BigArray * array, int verbose)
 {
 
     BigBlock bb;

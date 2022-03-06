@@ -53,8 +53,8 @@ void petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selec
 void petaio_readout_buffer(BigArray * array, IOTableEntry * ent, struct conversions * conv);
 void petaio_destroy_buffer(BigArray * array);
 
-void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, int verbose);
-int petaio_read_block(BigFile * bf, char * blockname, BigArray * array, int required);
+void petaio_save_block(BigFile * bf, const char * blockname, BigArray * array, int verbose);
+int petaio_read_block(BigFile * bf, const char * blockname, BigArray * array, int required);
 
 void petaio_save_snapshot(struct IOTable * IOTable, int verbose, const double atime, const char *fmt, ...);
 void petaio_read_snapshot(int num, const double atime, MPI_Comm Comm);
