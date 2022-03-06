@@ -17,7 +17,7 @@
 static int parse_enum(ParameterEnum * table, const char * strchoices) {
     int value = 0;
     ParameterEnum * p = table;
-    char * delim = "\",;&| \t";
+    const char * delim = "\",;&| \t";
     char * token;
 
     char * strchoices2 = fastpm_strdup(strchoices);

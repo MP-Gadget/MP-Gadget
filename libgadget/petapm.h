@@ -91,7 +91,7 @@ typedef void (*petapm_readout_func)(PetaPM * pm, int i, double * mesh, double we
 typedef PetaPMRegion * (*petapm_prepare_func)(PetaPM * pm, PetaPMParticleStruct * pstruct, void * data, int *Nregions);
 
 typedef struct {
-    char * name;
+    const char * name;
     petapm_transfer_func transfer;
     petapm_readout_func readout;
 } PetaPMFunctions;
