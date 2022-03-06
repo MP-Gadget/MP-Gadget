@@ -11,8 +11,8 @@
 struct BlockHeader {
     char magic[8];
     Allocator * alloc;
-    void * ptr;
-    void * self; /* points to the starting of the header in the allocator; useful in use_malloc mode */
+    char * ptr;
+    char * self; /* points to the starting of the header in the allocator; useful in use_malloc mode */
     size_t size;
     size_t request_size;
     char name[127];
@@ -25,19 +25,19 @@ allocator_init(Allocator * alloc, const char * name, const size_t request_size, 
 {
     size_t size = (request_size / ALIGNMENT + 1) * ALIGNMENT;
 
-    void * rawbase;
+    char * rawbase;
     if (parent) {
-        rawbase = allocator_alloc(parent, name, size + ALIGNMENT, ALLOC_DIR_BOT, "Child");
+        rawbase = (char *) allocator_alloc(parent, name, size + ALIGNMENT, ALLOC_DIR_BOT, "Child");
         if(rawbase == NULL)
             return ALLOC_ENOMEMORY;
     }
     else
-        if(posix_memalign(&rawbase, ALIGNMENT, size + ALIGNMENT))
+        if(posix_memalign((void **) &rawbase, ALIGNMENT, size + ALIGNMENT))
             return ALLOC_ENOMEMORY;
 
     alloc->parent = parent;
     alloc->rawbase = rawbase;
-    alloc->base = ((char*) rawbase) + ALIGNMENT - ((size_t) rawbase % ALIGNMENT);
+    alloc->base = rawbase + ALIGNMENT - ((size_t) rawbase % ALIGNMENT);
     alloc->size = size;
     alloc->use_malloc = 0;
     strncpy(alloc->name, name, 11);
@@ -56,13 +56,13 @@ allocator_malloc_init(Allocator * alloc, const char * name, const size_t request
     /* max support 4096 blocks; ignore request_size */
     size_t size = ALIGNMENT * 4096;
 
-    void * rawbase;
+    char * rawbase;
     if (parent) {
-        rawbase = allocator_alloc(parent, name, size + ALIGNMENT, ALLOC_DIR_BOT, "Child");
+        rawbase = (char *) allocator_alloc(parent, name, size + ALIGNMENT, ALLOC_DIR_BOT, "Child");
         if (rawbase == NULL) return ALLOC_ENOMEMORY;
     }
     else
-        if(posix_memalign(&rawbase, ALIGNMENT, size + ALIGNMENT))
+        if(posix_memalign((void **) &rawbase, ALIGNMENT, size + ALIGNMENT))
             return ALLOC_ENOMEMORY;
 
 
@@ -114,7 +114,7 @@ allocator_alloc_va(Allocator * alloc, const char * name, const size_t request_si
     }
     size += ALIGNMENT; /* for the header */
 
-    void * ptr;
+    char * ptr;
     if(dir == ALLOC_DIR_BOT) {
         if(alloc->bottom + size > alloc->top) {
             allocator_print(alloc);
@@ -136,7 +136,7 @@ allocator_alloc_va(Allocator * alloc, const char * name, const size_t request_si
         return NULL;
     }
 
-    struct BlockHeader * header = ptr;
+    struct BlockHeader * header = (struct BlockHeader *) ptr;
     memcpy(header->magic, MAGIC, 8);
     header->self = ptr;
     header->size = size;
@@ -148,16 +148,16 @@ allocator_alloc_va(Allocator * alloc, const char * name, const size_t request_si
 
     vsprintf(header->annotation, fmt, va);
 
-    void * cptr;
+    char * cptr;
     if(alloc->use_malloc) {
         /* prepend a copy of the header to the malloc block; allocator_free will use it*/
-        if(posix_memalign(&cptr, ALIGNMENT, request_size + ALIGNMENT))
+        if(posix_memalign((void **) &cptr, ALIGNMENT, request_size + ALIGNMENT))
             endrun(1, "Failed malloc: %lu bytes for %s\n", request_size, header->name);
-        header->ptr = (char *) cptr + ALIGNMENT;
+        header->ptr = cptr + ALIGNMENT;
         memcpy(cptr, header, ALIGNMENT);
         cptr = header->ptr;
     } else {
-        cptr = (char *) ptr + ALIGNMENT;
+        cptr = ptr + ALIGNMENT;
         header->ptr = cptr;
     }
     return cptr;
@@ -213,11 +213,11 @@ allocator_iter_next(
     struct BlockHeader * header;
     Allocator * alloc = iter->alloc;
     if(alloc->bottom != iter->_bottom) {
-        header = iter->_bottom + alloc->base;
+        header = (struct BlockHeader *) (iter->_bottom + alloc->base);
         iter->_bottom += header->size;
     } else
     if(iter->_top != alloc->size) {
-        header = iter->_top + alloc->base;
+        header = (struct BlockHeader *) (iter->_top + alloc->base);
         iter->_top += header->size;
     } else {
         iter->_ended = 1;
@@ -314,7 +314,7 @@ allocator_realloc_int(Allocator * alloc, void * ptr, const size_t new_size, cons
     va_list va;
     va_start(va, fmt);
 
-    char * cptr = ptr;
+    char * cptr = (char *) ptr;
     struct BlockHeader * header = (struct BlockHeader*) (cptr - ALIGNMENT);
     struct BlockHeader tmp = * header;
 
@@ -324,7 +324,7 @@ allocator_realloc_int(Allocator * alloc, void * ptr, const size_t new_size, cons
     }
 
     if(alloc->use_malloc) {
-        struct BlockHeader * header2 = realloc(header, new_size + ALIGNMENT);
+        struct BlockHeader * header2 = (struct BlockHeader *) realloc(header, new_size + ALIGNMENT);
         header2->ptr = (char*) header2 + ALIGNMENT;
         header2->request_size = new_size;
         /* update record */
@@ -357,7 +357,7 @@ allocator_realloc_int(Allocator * alloc, void * ptr, const size_t new_size, cons
 void
 allocator_free (void * ptr)
 {
-    char * cptr = ptr;
+    char * cptr = (char *) ptr;
     struct BlockHeader * header = (struct BlockHeader*) (cptr - ALIGNMENT);
 
     if (!is_header(header)) {
@@ -375,7 +375,7 @@ allocator_free (void * ptr)
 int
 allocator_dealloc (Allocator * alloc, void * ptr)
 {
-    char * cptr = ptr;
+    char * cptr = (char *) ptr;
     struct BlockHeader * header = (struct BlockHeader*) (cptr - ALIGNMENT);
 
     if (!is_header(header)) {
@@ -403,7 +403,7 @@ allocator_dealloc (Allocator * alloc, void * ptr)
     }
 
     /* remove the link to the memory. */
-    header = ptr; /* modify the true header in the allocator */
+    header = (struct BlockHeader *) ptr; /* modify the true header in the allocator */
     header->ptr = NULL;
     header->self = NULL;
     header->alloc = NULL;

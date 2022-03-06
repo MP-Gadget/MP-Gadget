@@ -17,8 +17,8 @@ struct Allocator {
     char name[12];
     Allocator * parent;
 
-    void * rawbase;
-    void * base;
+    char * rawbase;
+    char * base;
     size_t size;
 
     size_t bottom;
@@ -41,7 +41,7 @@ struct AllocatorIter {
     char * name;
     int dir;
     char * annotation;
-    void * ptr;
+    char * ptr;
 };
 
 int
