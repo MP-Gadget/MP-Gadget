@@ -10,7 +10,7 @@ enum ParameterFlag {
 };
 
 typedef struct ParameterEnum {
-    char * name;
+    const char * name;
     int value;
 } ParameterEnum;
 

@@ -70,7 +70,7 @@ setup_glass(IDGenerator * idgen, PetaPM * pm, double shift, int seed, double mas
     return idgen->NumPart;
 }
 
-void glass_evolve(PetaPM * pm, int nsteps, char * pkoutname, struct ic_part_data * ICP, const int NumPart, const double UnitLength_in_cm, const char * OutputDir)
+void glass_evolve(PetaPM * pm, int nsteps, const char * pkoutname, struct ic_part_data * ICP, const int NumPart, const double UnitLength_in_cm, const char * OutputDir)
 {
     int i;
     int step = 0;
