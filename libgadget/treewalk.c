@@ -293,8 +293,8 @@ static int real_ev(struct TreeWalkThreadLocals local_exports, TreeWalk * tw, siz
     lv->mode = 0;
 
     /* use old index to recover from a buffer overflow*/;
-    TreeWalkQueryBase * input = alloca(tw->query_type_elsize);
-    TreeWalkResultBase * output = alloca(tw->result_type_elsize);
+    TreeWalkQueryBase * input = (TreeWalkQueryBase *) alloca(tw->query_type_elsize);
+    TreeWalkResultBase * output = (TreeWalkResultBase *) alloca(tw->result_type_elsize);
 
     int64_t lastSucceeded = tw->WorkSetStart - 1;
     /* We must schedule monotonically so that if the export buffer fills up
