@@ -75,8 +75,8 @@ void walltime_summary(int root, MPI_Comm comm) {
 }
 
 static int clockcmp(const void * c1, const void * c2) {
-    const struct Clock * p1 = c1;
-    const struct Clock * p2 = c2;
+    const struct Clock * p1 = (const struct Clock *) c1;
+    const struct Clock * p2 = (const struct Clock *) c2;
     return strcmp(p1->name, p2->name);
 }
 
@@ -114,10 +114,10 @@ int walltime_clock(const char * name) {
     strncpy(dummy.name, name, sizeof(dummy.name));
     dummy.name[sizeof(dummy.name)-1]='\0';
 
-    struct Clock * rt = bsearch(&dummy, CT->C, CT->N, sizeof(struct Clock), clockcmp);
+    struct Clock * rt = (struct Clock *) bsearch(&dummy, CT->C, CT->N, sizeof(struct Clock), clockcmp);
     if(rt == NULL) {
         walltime_clock_insert(name);
-        rt = bsearch(&dummy, CT->C, CT->N, sizeof(struct Clock), clockcmp);
+        rt = (struct Clock *) bsearch(&dummy, CT->C, CT->N, sizeof(struct Clock), clockcmp);
     }
     return rt - CT->C;
 };

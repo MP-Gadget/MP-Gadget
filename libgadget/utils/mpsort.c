@@ -48,8 +48,8 @@ DEFTYPE(uint64_t)
 static int _compar_radix(const void * r1, const void * r2, size_t rsize, int dir) {
     size_t i;
     /* from most significant */
-    const unsigned char * u1 = r1;
-    const unsigned char * u2 = r2;
+    const unsigned char * u1 = (const unsigned char *) r1;
+    const unsigned char * u2 = (const unsigned char *) r2;
     if(dir < 0) {
         u1 += rsize - 1;
         u2 += rsize - 1;;
@@ -65,8 +65,8 @@ static int _compar_radix(const void * r1, const void * r2, size_t rsize, int dir
 static int _compar_radix_u8(const void * r1, const void * r2, size_t rsize, int dir) {
     size_t i;
     /* from most significant */
-    const uint64_t * u1 = r1;
-    const uint64_t * u2 = r2;
+    const uint64_t * u1 = (const uint64_t *) r1;
+    const uint64_t * u2 = (const uint64_t *) r2;
     if(dir < 0) {
         u1 = (const uint64_t *) ((const char*) u1 + rsize - 8);
         u2 = (const uint64_t *) ((const char*) u2 + rsize - 8);
@@ -93,9 +93,9 @@ static int _compar_radix_be_u8(const void * r1, const void * r2, size_t rsize) {
 }
 static void _bisect_radix(void * r, const void * r1, const void * r2, size_t rsize, int dir) {
     size_t i;
-    const unsigned char * u1 = r1;
-    const unsigned char * u2 = r2;
-    unsigned char * u = r;
+    const unsigned char * u1 = (const unsigned char *) r1;
+    const unsigned char * u2 = (const unsigned char *) r2;
+    unsigned char * u = (unsigned char *) r;
     unsigned int carry = 0;
     if(dir > 0) {
         u1 += rsize - 1;
@@ -796,7 +796,7 @@ static uint64_t
 checksum(void * base, size_t nbytes, MPI_Comm comm)
 {
     uint64_t sum = 0;
-    char * ptr = base;
+    char * ptr = (char *) base;
     size_t i;
     for(i = 0; i < nbytes; i ++) {
         sum += ptr[i];
@@ -1269,7 +1269,7 @@ mpsort_mpi_histogram_sort(struct crstruct d, struct crmpistruct o)
     if(o.myoutbase == o.mybase)
         buffer = (char *) mymalloc("mpsortbuffer", d.size * o.myoutnmemb);
     else
-        buffer = o.myoutbase;
+        buffer = (char *) o.myoutbase;
 
     MPI_Alltoallv_smart(
             o.mybase, SendCount, SendDispl, o.MPI_TYPE_DATA,

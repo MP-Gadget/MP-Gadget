@@ -20,7 +20,7 @@ void interp_init(Interp * obj, int Ndim, int * dims) {
         +   sizeof(ptrdiff_t) * Ndim
         +   sizeof(int) * Ndim);
 
-    obj->dims = obj->data;
+    obj->dims = (int *) obj->data;
     obj->strides = (ptrdiff_t*) (obj->dims + Ndim);
     obj->Min = (double*) (obj->strides + Ndim);
     obj->Step = obj->Min + Ndim;
@@ -72,10 +72,10 @@ static ptrdiff_t linearindex(ptrdiff_t * strides, int * xi, int Ndim) {
 double interp_eval(Interp * obj, double * x, double * ydata, int * status) {
     int d;
     if(status == NULL) {
-        status = alloca(sizeof(int) * obj->Ndim);
+        status = (int *) alloca(sizeof(int) * obj->Ndim);
     }
-    int * xi = alloca(sizeof(int) * obj->Ndim);
-    double * f = alloca(sizeof(double) * obj->Ndim);
+    int * xi = (int *) alloca(sizeof(int) * obj->Ndim);
+    double * f = (double *) alloca(sizeof(double) * obj->Ndim);
 
     for(d = 0; d < obj->Ndim; d++) {
         double xd = (x[d] - obj->Min[d]) / obj->Step[d];
@@ -132,9 +132,9 @@ double interp_eval(Interp * obj, double * x, double * ydata, int * status) {
 
 /* interpolation assuming periodic boundary */
 double interp_eval_periodic(Interp * obj, double * x, double * ydata) {
-    int * xi = alloca(sizeof(int) * obj->Ndim);
-    int * xi1 = alloca(sizeof(int) * obj->Ndim);
-    double * f = alloca(sizeof(double) * obj->Ndim);
+    int * xi = (int *) alloca(sizeof(int) * obj->Ndim);
+    int * xi1 = (int *) alloca(sizeof(int) * obj->Ndim);
+    double * f = (double *) alloca(sizeof(double) * obj->Ndim);
 
     int d;
     for(d = 0; d < obj->Ndim; d++) {

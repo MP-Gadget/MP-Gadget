@@ -139,7 +139,7 @@ void rho_nu_init(_rho_nu_single * const rho_nu_tab, double a0, const double mnu,
          return;
 
      /*Allocate memory for arrays*/
-     rho_nu_tab->loga = mymalloc("rho_nu_table",2*NRHOTAB*sizeof(double));
+     rho_nu_tab->loga = (double *) mymalloc("rho_nu_table",2*NRHOTAB*sizeof(double));
      rho_nu_tab->rhonu = rho_nu_tab->loga+NRHOTAB;
      rho_nu_tab->acc = gsl_interp_accel_alloc();
      rho_nu_tab->interp=gsl_interp_alloc(gsl_interp_cspline,NRHOTAB);
