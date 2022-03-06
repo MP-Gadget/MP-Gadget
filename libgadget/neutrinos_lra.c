@@ -297,7 +297,7 @@ void petaio_save_neutrinos(BigFile * bf, int ThisTask)
     if(ThisTask == 0) {
         dims[0] = nk;
     }
-    ptrdiff_t strides[2] = {sizeof(double) * ia, sizeof(double)};
+    ptrdiff_t strides[2] = {(ptrdiff_t) (sizeof(double) * ia), (ptrdiff_t) sizeof(double)};
     big_array_init(&deltas, delta_tot, "=f8", 2, dims, strides);
     petaio_save_block(bf, "Neutrino/Deltas", &deltas, 1);
     myfree(delta_tot);
@@ -399,7 +399,7 @@ void petaio_read_neutrinos(BigFile * bf, int ThisTask)
     }
     BigArray deltas = {0};
     size_t dims[2] = {0, ia};
-    ptrdiff_t strides[2] = {sizeof(double)*ia, sizeof(double)};
+    ptrdiff_t strides[2] = {(ptrdiff_t) (sizeof(double)*ia), (ptrdiff_t)sizeof(double)};
     /*The neutrino state is shared between all processors,
      *so only read on master task and broadcast*/
     if(ThisTask == 0) {
