@@ -1533,7 +1533,8 @@ blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I, TreeWalk * tw)
                 pow(LIGHTCGS / All.UnitVelocity_in_cm_per_s, 2);
     I->KEFeedbackEnergy = 0;
     if (blackhole_params.BlackHoleKineticOn == 1 && BH_GET_PRIV(tw)->KEflag[PI] > 0){
-        I->FdbkChannel = 1; /* kinetic feedback mode */
+        I->FdbkChannel = 1; /* kinetic feedback mode, (no thermal feedback for this timestep) */
+        /* KEflag = 1: KEFeedbackEnergy is accumulating; KEflag = 2: KEFeedbackEnergy is released. */
         if (BH_GET_PRIV(tw)->KEflag[PI] == 2){
             I->KEFeedbackEnergy = BHP(i).KineticFdbkEnergy;
         }
