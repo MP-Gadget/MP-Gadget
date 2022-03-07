@@ -187,7 +187,7 @@ struct BHPriv {
     MyFloat * V2sumDM;
     MyFloat * MgasEnc;
     /* mark the state of AGN kinetic feedback, 1 accumulate, 2 release */
-    int64_t * KEflag;
+    int * KEflag;
 
     /* Time factors*/
     double atime;
@@ -246,7 +246,7 @@ struct __attribute__((__packed__)) BHinfo{
     double V1sumDM[3];
     double V2sumDM;
     double MgasEnc;
-    double KEflag;
+    int KEflag;
 
     MyDouble a;
     /* See size1 above*/
@@ -639,7 +639,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     priv->V1sumDM = (MyFloat (*) [3]) mymalloc("V1sumDM", 3* SlotsManager->info[5].size * sizeof(priv->V1sumDM[0]));
     priv->MgasEnc = mymalloc("MgasEnc", SlotsManager->info[5].size * sizeof(MyFloat));
     /* mark the state of AGN kinetic feedback */
-    priv->KEflag = mymalloc("KEflag", SlotsManager->info[5].size * sizeof(int64_t));
+    priv->KEflag = mymalloc("KEflag", SlotsManager->info[5].size * sizeof(int));
 
     /* This allocates memory*/
     treewalk_run(tw_accretion, ActiveBlackHoles, NumActiveBlackHoles);
