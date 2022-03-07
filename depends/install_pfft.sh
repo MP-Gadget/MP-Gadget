@@ -6,7 +6,7 @@ OPTIMIZE="$*"
 OPTIMIZE1="$*"
 echo "Optimization for double" ${OPTIMIZE}
 
-PFFT_VERSION=1.0.8-alpha2-fftw3
+PFFT_VERSION=1.0.8-alpha3-fftw3-2don2d
 TMP="tmp-pfft-$PFFT_VERSION"
 LOGFILE="build.log"
 
