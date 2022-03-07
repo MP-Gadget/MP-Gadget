@@ -447,9 +447,22 @@ cooling_direct(int i, const double a3inv, const double hubble, const struct UVBG
     /* The particle reionized this timestep, bump the temperature to the HI reionization temperature.
      * We only do this for non-star-forming gas.*/
     if(sfr_params.HIReionTemp > 0 && uvbg.zreion >= redshift && uvbg.zreion < lastred) {
-        /* Note we can assume it is neutral before it reionizes*/
-        const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1 * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+        /* Get the equilibrium ionisation state & set temperature to HIReionTemp */
+        //double logt;
+        double hy_mass = HYDROGEN_MASSFRAC;
+        ne = 0.99 * SPHP(i).Density * (hy_mass + (1-hy_mass)/4); //guess 99% singly ionised heium
+        //find equilibrium n_e at the current uvbg
+        //ne = get_equilib_ne(SPHP(i).Density * a3inv,uold, 1-HYDROGEN_MASSFRAC, &logt, uvbg, ne);
+        double nebynh = ne / (SPHP(i).Density * hy_mass);
+        //calculate energy -> temperature conversion at the equilibrium n_e : mu*mp/kb*(y-1)
+        const double u_to_temp_fac = 4 / (HYDROGEN_MASSFRAC * (3 + 4*nebynh) + 1) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1 * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+
+        //TODO: the mu factor in the previous factor (below) assumes helium double ionisation (minor effect in mu)
+        //const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1 * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+        //give the particle the energy required to set it to the reionisation temperature
         unew = sfr_params.HIReionTemp / u_to_temp_fac;
+        //we don't want to cool down gas by ionising it
+        if(uold > unew) unew = uold;
     }
     else
         unew = DoCooling(redshift, uold, SPHP(i).Density * a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity, All.MinEgySpec, P[i].HeIIIionized);
