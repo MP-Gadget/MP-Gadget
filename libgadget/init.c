@@ -259,6 +259,11 @@ inttime_t init(int RestartSnapNum, DomainDecomp * ddecomp)
             SPHP(i).Metals[1] = 1- HYDROGEN_MASSFRAC;
             SPHP(i).Sfr = 0;
             SPHP(i).MaxSignalVel = 0;
+        }
+        /* If we are starting before reionisation, initialise reion properties
+         * this allows us to restart from runs without excursion set 
+         * these properties aren't used without the ES so its fine to init them here*/
+        if(All.ExcursionSetReionOn && All.TimeInit < 1./(1. + All.ExcursionSetZStart)){
             SPHP(i).local_J21 = 0;
             SPHP(i).zreion = -1;
         }
