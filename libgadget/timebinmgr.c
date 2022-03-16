@@ -28,8 +28,7 @@ int cmp_double(const void * a, const void * b)
  *  We sort the input after reading it, so that the initial list need not be sorted.
  *  This function could be repurposed for reading generic arrays in future.
  */
-int
-OutputListAction(ParameterSet * ps, char * name, void * data)
+int OutputListAction(ParameterSet* ps, const char* name, void* data)
 {
     char * outputlist = param_get_string(ps, name);
     char * strtmp = fastpm_strdup(outputlist);
@@ -103,7 +102,7 @@ setup_sync_points(double TimeIC, double TimeMax, double no_snapshot_until_time, 
 
     if(NSyncPoints > 0)
         myfree(SyncPoints);
-    SyncPoints = mymalloc("SyncPoints", sizeof(SyncPoint) * (Sync.OutputListLength+2));
+    SyncPoints = (SyncPoint *) mymalloc("SyncPoints", sizeof(SyncPoint) * (Sync.OutputListLength+2));
 
     /* Set up first and last entry to SyncPoints; TODO we can insert many more! */
 

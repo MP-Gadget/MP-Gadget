@@ -74,7 +74,7 @@ pmic_fill_gaussian_gadget(PMDesc * pm, double * delta_k, int seed, int setUnitar
     unsigned int * seedtable[2][2];
     for(i = 0; i < 2; i ++)
     for(j = 0; j < 2; j ++) {
-            seedtable[i][j] = mymalloc("seedtable", pm->ORegion.size[0] * pm->ORegion.size[1] * sizeof(int));
+            seedtable[i][j] = (unsigned int *) mymalloc("seedtable", pm->ORegion.size[0] * pm->ORegion.size[1] * sizeof(int));
             memset(seedtable[i][j], 0, pm->ORegion.size[0] * pm->ORegion.size[1] * sizeof(int));
     }
 

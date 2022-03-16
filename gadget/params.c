@@ -24,7 +24,7 @@
 #include <libgadget/metal_return.h>
 
 static int
-BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
+BlackHoleFeedbackMethodAction (ParameterSet * ps, const char * name, void * data)
 {
     int v = param_get_enum(ps, name);
     if(HAS(v, BH_FEEDBACK_TOPHAT) == HAS(v, BH_FEEDBACK_SPLINE)) {
@@ -39,7 +39,7 @@ BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
 }
 
 static int
-StarformationCriterionAction(ParameterSet * ps, char * name, void * data)
+StarformationCriterionAction(ParameterSet * ps, const char * name, void * data)
 {
     int v = param_get_enum(ps, name);
     if(!HAS(v, SFR_CRITERION_DENSITY)) {

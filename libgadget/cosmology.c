@@ -148,14 +148,20 @@ static inline double OmegaFLD(const Cosmology * CP, const double a)
     return CP->Omega_fld * pow(a, 3 * (1 + CP->w0_fld + CP->wa_fld))*exp(3*CP->wa_fld*(1-a));
 }
 
+struct sigma2_params
+{
+    FunctionOfK * fk;
+    double R;
+};
+
 static double sigma2_int(double k, void * p)
 {
-    void ** params = p;
-    FunctionOfK * fk = params[0];
-    double * R = params[1];
+    struct sigma2_params * params = (struct sigma2_params *) p;
+    FunctionOfK * fk = params->fk;
+    const double R = params->R;
     double kr, kr3, kr2, w, x;
 
-    kr = *R * k;
+    kr = R * k;
     kr2 = kr * kr;
     kr3 = kr2 * kr;
 
@@ -213,11 +219,11 @@ double function_of_k_eval(FunctionOfK * fk, double k)
 double function_of_k_tophat_sigma(FunctionOfK * fk, double R)
 {
     gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
-    void * params[] = {fk, &R};
+    struct sigma2_params params = {fk, R};
     double result,abserr;
     gsl_function F;
     F.function = &sigma2_int;
-    F.params = params;
+    F.params = &params;
 
     /* note: 500/R is here chosen as integration boundary (infinity) */
     gsl_integration_qags (&F, 0, 500. / R, 0, 1e-4,1000,w,&result, &abserr);

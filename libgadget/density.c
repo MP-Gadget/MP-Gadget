@@ -34,7 +34,7 @@ set_density_params(ParameterSet * ps)
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0) {
-        DensityParams.DensityKernelType = param_get_enum(ps, "DensityKernelType");
+        DensityParams.DensityKernelType = (enum DensityKernelType) param_get_enum(ps, "DensityKernelType");
         DensityParams.MaxNumNgbDeviation = param_get_double(ps, "MaxNumNgbDeviation");
         DensityParams.DensityResolutionEta = param_get_double(ps, "DensityResolutionEta");
         DensityParams.MinGasHsmlFractional = param_get_double(ps, "MinGasHsmlFractional");
@@ -655,9 +655,9 @@ slots_allocate_sph_pred_data(int nsph)
 {
     struct sph_pred_data sph_scratch;
     /*Data is allocated high so that we can free the tree around it*/
-    sph_scratch.EntVarPred = mymalloc2("EntVarPred", sizeof(MyFloat) * nsph);
+    sph_scratch.EntVarPred = (MyFloat *) mymalloc2("EntVarPred", sizeof(MyFloat) * nsph);
     memset(sph_scratch.EntVarPred, 0, sizeof(sph_scratch.EntVarPred[0]) * nsph);
-    sph_scratch.VelPred = mymalloc2("VelPred", sizeof(MyFloat) * 3 * nsph);
+    sph_scratch.VelPred = (MyFloat *) mymalloc2("VelPred", sizeof(MyFloat) * 3 * nsph);
     return sph_scratch;
 }
 

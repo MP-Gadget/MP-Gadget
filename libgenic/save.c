@@ -15,7 +15,7 @@
 #include <libgadget/walltime.h>
 #include <libgadget/utils/mymalloc.h>
 
-void _bigfile_utils_create_block_from_c_array(BigFile * bf, void * baseptr, char * name, char * dtype, size_t dims[], ptrdiff_t elsize, int NumFiles, int NumWriters, MPI_Comm comm)
+void _bigfile_utils_create_block_from_c_array(BigFile * bf, void * baseptr, const char * name, const char * dtype, size_t dims[], ptrdiff_t elsize, int NumFiles, int NumWriters, MPI_Comm comm)
 {
     BigBlock block;
     BigArray array;
@@ -46,7 +46,7 @@ void _bigfile_utils_create_block_from_c_array(BigFile * bf, void * baseptr, char
     }
 }
 
-static void saveblock(BigFile * bf, void * baseptr, int ptype, char * bname, char * dtype, int items_per_particle, const int NumPart, ptrdiff_t elsize, int NumFiles, int NumWriters) {
+static void saveblock(BigFile * bf, void * baseptr, int ptype, const char * bname, const char * dtype, int items_per_particle, const int NumPart, ptrdiff_t elsize, int NumFiles, int NumWriters) {
     size_t dims[2];
     char name[128];
     snprintf(name, 128, "%d/%s", ptype, bname);
@@ -73,7 +73,7 @@ write_particle_data(IDGenerator * idgen,
     saveblock(bf, &curICP[0].Pos, Type, "Position", "f8", 3, idgen->NumPart, sizeof(curICP[0]), NumFiles, NumWriters);
     saveblock(bf, &curICP[0].Vel, Type, "Velocity", "f4", 3, idgen->NumPart, sizeof(curICP[0]), NumFiles, NumWriters);
     /*Generate and write IDs*/
-    uint64_t * ids = mymalloc("IDs", idgen->NumPart * sizeof(uint64_t));
+    uint64_t * ids = (uint64_t *) mymalloc("IDs", idgen->NumPart * sizeof(uint64_t));
     memset(ids, 0, idgen->NumPart * sizeof(uint64_t));
     int i;
     #pragma omp parallel for

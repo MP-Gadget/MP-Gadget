@@ -17,7 +17,7 @@
 static int parse_enum(ParameterEnum * table, const char * strchoices) {
     int value = 0;
     ParameterEnum * p = table;
-    char * delim = "\",;&| \t";
+    const char * delim = "\",;&| \t";
     char * token;
 
     char * strchoices2 = fastpm_strdup(strchoices);
@@ -59,7 +59,7 @@ static char * format_enum(ParameterEnum * table, int value) {
             bleft-= strlen(p->name);
             if (bleft <= 0) {
                 int extra = (- bleft) + btotal;
-                buffer = myrealloc(buffer, btotal + extra);
+                buffer = (char *) myrealloc(buffer, btotal + extra);
                 btotal += extra;
                 bleft += extra;
                 break;
@@ -85,7 +85,7 @@ typedef struct ParameterSchema {
     char name[NAMESIZE];
     int type;
     ParameterValue defvalue;
-    char * help;
+    const char * help;
     enum ParameterFlag required;
     ParameterEnum * enumtable;
     ParameterAction action;
@@ -99,7 +99,7 @@ struct ParameterSet {
     ParameterValue value[1024];
 };
 
-static ParameterSchema * param_get_schema(ParameterSet * ps, char * name)
+static ParameterSchema * param_get_schema(ParameterSet * ps, const char * name)
 {
     int i;
     for(i = 0; i < ps->size; i ++) {
@@ -111,7 +111,7 @@ static ParameterSchema * param_get_schema(ParameterSet * ps, char * name)
 }
 
 static void
-param_set_from_string(ParameterSet * ps, char * name, char * value, int lineno);
+param_set_from_string(ParameterSet * ps, const char * name, char * value, int lineno);
 
 
 static int param_emit(ParameterSet * ps, char * start, int size, int lineno)
@@ -125,7 +125,7 @@ static int param_emit(ParameterSet * ps, char * start, int size, int lineno)
     buf[size] = 0;
 
     /* blank lines are OK */
-    char * name = NULL;
+    const char * name = NULL;
     char * value = NULL;
     char * ptr = buf;
 
@@ -244,7 +244,7 @@ int param_parse_file (ParameterSet * ps, const char * filename)
 }
 
 static ParameterSchema *
-param_declare(ParameterSet * ps, char * name, int type, enum ParameterFlag required, char * help)
+param_declare(ParameterSet * ps, const char * name, const int type, const enum ParameterFlag required, const char * help)
 {
     int free = ps->size;
     strncpy(ps->p[free].name, name, NAMESIZE);
@@ -264,7 +264,7 @@ param_declare(ParameterSet * ps, char * name, int type, enum ParameterFlag requi
 }
 
 void
-param_declare_int(ParameterSet * ps, char * name, enum ParameterFlag required, int defvalue, char * help)
+param_declare_int(ParameterSet * ps, const char * name, const enum ParameterFlag required, const int defvalue, const char * help)
 {
     ParameterSchema * p = param_declare(ps, name, INT, required, help);
     if(required == OPTIONAL) {
@@ -275,7 +275,7 @@ param_declare_int(ParameterSet * ps, char * name, enum ParameterFlag required, i
     }
 }
 void
-param_declare_double(ParameterSet * ps, char * name, enum ParameterFlag required, double defvalue, char * help)
+param_declare_double(ParameterSet * ps, const char * name, const enum ParameterFlag required, const double defvalue, const char * help)
 {
     ParameterSchema * p = param_declare(ps, name, DOUBLE, required, help);
     if(required == OPTIONAL) {
@@ -286,12 +286,12 @@ param_declare_double(ParameterSet * ps, char * name, enum ParameterFlag required
     }
 }
 void
-param_declare_string(ParameterSet * ps, char * name, enum ParameterFlag required, char * defvalue, char * help)
+param_declare_string(ParameterSet * ps, const char * name, const enum ParameterFlag required, const char * defvalue, const char * help)
 {
     ParameterSchema * p = param_declare(ps, name, STRING, required, help);
     if(required == OPTIONAL) {
         if(defvalue != NULL) {
-            p->defvalue.s = defvalue;
+            p->defvalue.s = fastpm_strdup(defvalue);
             p->defvalue.nil = 0;
         } else {
             /* The handling of nil is not consistent yet! Only string can be non-required and have nil value.
@@ -304,7 +304,7 @@ param_declare_string(ParameterSet * ps, char * name, enum ParameterFlag required
     }
 }
 void
-param_declare_enum(ParameterSet * ps, char * name, ParameterEnum * enumtable, enum ParameterFlag required, char * defvalue, char * help)
+param_declare_enum(ParameterSet * ps, const char * name, ParameterEnum * enumtable, const enum ParameterFlag required, const char * defvalue, const char * help)
 {
     ParameterSchema * p = param_declare(ps, name, ENUM, required, help);
     p->enumtable = enumtable;
@@ -318,7 +318,7 @@ param_declare_enum(ParameterSet * ps, char * name, ParameterEnum * enumtable, en
 }
 
 void
-param_set_action(ParameterSet * ps, char * name, ParameterAction action, void * userdata)
+param_set_action(ParameterSet * ps, const char * name, ParameterAction action, void * userdata)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     p->action = action;
@@ -326,14 +326,14 @@ param_set_action(ParameterSet * ps, char * name, ParameterAction action, void * 
 }
 
 int
-param_is_nil(ParameterSet * ps, char * name)
+param_is_nil(ParameterSet * ps, const char * name)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     return ps->value[p->index].nil;
 }
 
 double
-param_get_double(ParameterSet * ps, char * name)
+param_get_double(ParameterSet * ps, const char * name)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     if (param_is_nil(ps, name)) {
@@ -343,7 +343,7 @@ param_get_double(ParameterSet * ps, char * name)
 }
 
 char *
-param_get_string(ParameterSet * ps, char * name)
+param_get_string(ParameterSet * ps, const char * name)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     if (param_is_nil(ps, name)) {
@@ -352,7 +352,7 @@ param_get_string(ParameterSet * ps, char * name)
     return ps->value[p->index].s;
 }
 void
-param_get_string2(ParameterSet * ps, char * name, char * dst, size_t len)
+param_get_string2(ParameterSet * ps, const char * name, char * dst, size_t len)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     if (param_is_nil(ps, name)) {
@@ -365,7 +365,7 @@ param_get_string2(ParameterSet * ps, char * name, char * dst, size_t len)
 }
 
 int
-param_get_int(ParameterSet * ps, char * name)
+param_get_int(ParameterSet * ps, const char * name)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     if (param_is_nil(ps, name)) {
@@ -375,7 +375,7 @@ param_get_int(ParameterSet * ps, char * name)
 }
 
 int
-param_get_enum(ParameterSet * ps, char * name)
+param_get_enum(ParameterSet * ps, const char * name)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     if (param_is_nil(ps, name)) {
@@ -385,7 +385,7 @@ param_get_enum(ParameterSet * ps, char * name)
 }
 
 char *
-param_format_value(ParameterSet * ps, char * name)
+param_format_value(ParameterSet * ps, const char * name)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     if(ps->value[p->index].nil) {
@@ -423,7 +423,7 @@ param_format_value(ParameterSet * ps, char * name)
 }
 
 void
-param_set_from_string(ParameterSet * ps, char * name, char * value, int lineno)
+param_set_from_string(ParameterSet * ps, const char * name, char * value, int lineno)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     ps->value[p->index].lineno = lineno;

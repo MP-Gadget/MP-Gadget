@@ -90,7 +90,7 @@ static double dwk_qs(DensityKernel * kernel, double q) {
 }
 
 static struct {
-    char * name;
+    const char * name;
     double (*wk)(DensityKernel * kernel, double q);
     double (*dwk)(DensityKernel * kernel, double q);
     double support; /* H / h, see Price 2011: arxiv 1012.1885*/

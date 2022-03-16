@@ -111,7 +111,7 @@ typedef struct {
 
     MyFloat SurroundingVel[3];
     MyFloat SurroundingDensity;
-    MyFloat SurroundingParticles;
+    int SurroundingParticles;
     MyFloat SurroundingRmsVel;
 
 } TreeWalkResultBHDynfric;
@@ -164,7 +164,7 @@ struct BHPriv {
     /*************************************************************************/
     /* used in the dynamic friction treewalk*/
     MyFloat * BH_SurroundingDensity;
-    MyFloat * BH_SurroundingParticles;
+    int * BH_SurroundingParticles;
     MyFloat (*BH_SurroundingVel)[3];
     MyFloat * BH_SurroundingRmsVel;
 
@@ -267,7 +267,7 @@ void set_blackhole_params(ParameterSet * ps)
 
         blackhole_params.BlackHoleFeedbackRadiusMaxPhys = param_get_double(ps, "BlackHoleFeedbackRadiusMaxPhys");
 
-        blackhole_params.BlackHoleFeedbackMethod = param_get_enum(ps, "BlackHoleFeedbackMethod");
+        blackhole_params.BlackHoleFeedbackMethod = (enum BlackHoleFeedbackMethod) param_get_enum(ps, "BlackHoleFeedbackMethod");
         blackhole_params.BlackHoleRepositionEnabled = param_get_int(ps, "BlackHoleRepositionEnabled");
         
         blackhole_params.BlackHoleKineticOn = param_get_int(ps,"BlackHoleKineticOn");
@@ -432,7 +432,7 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
 {
     int i;
 
-    struct BHinfo * infos = mymalloc("BHDetailCache", NumActiveBlackHoles * sizeof(struct BHinfo));
+    struct BHinfo * infos = (struct BHinfo *) mymalloc("BHDetailCache", NumActiveBlackHoles * sizeof(struct BHinfo));
     report_memory_usage("BLACKHOLE");
 
     const int size = sizeof(struct BHinfo) - sizeof(infos[0].size1) - sizeof(infos[0].size2);
@@ -607,10 +607,10 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     /*  Dynamical Friction Treewalk */
 
     /* Environment variables for DF */
-    priv->BH_SurroundingRmsVel = mymalloc("BH_SurroundingRmsVel", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingRmsVel));
+    priv->BH_SurroundingRmsVel = (MyFloat *) mymalloc("BH_SurroundingRmsVel", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingRmsVel));
     priv->BH_SurroundingVel = (MyFloat (*) [3]) mymalloc("BH_SurroundingVel", 3* SlotsManager->info[5].size * sizeof(priv->BH_SurroundingVel[0]));
-    priv->BH_SurroundingParticles = mymalloc("BH_SurroundingParticles", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingParticles));
-    priv->BH_SurroundingDensity = mymalloc("BH_SurroundingDensity", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingDensity));
+    priv->BH_SurroundingParticles = (int *)mymalloc("BH_SurroundingParticles", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingParticles));
+    priv->BH_SurroundingDensity = (MyFloat *) mymalloc("BH_SurroundingDensity", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingDensity));
     /* guard treewalk */
     if (blackhole_params.BH_DynFrictionMethod > 0)
         treewalk_run(tw_dynfric, ActiveBlackHoles, NumActiveBlackHoles);
@@ -620,17 +620,17 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     walltime_measure("/BH/DynFric");
 
     /* Let's determine which particles may be swallowed and calculate total feedback weights */
-    priv->SPH_SwallowID = mymalloc("SPH_SwallowID", SlotsManager->info[0].size * sizeof(MyIDType));
+    priv->SPH_SwallowID = (MyIDType *) mymalloc("SPH_SwallowID", SlotsManager->info[0].size * sizeof(MyIDType));
     memset(priv->SPH_SwallowID, 0, SlotsManager->info[0].size * sizeof(MyIDType));
 
     /* Computed in accretion, used in feedback*/
-    priv->BH_FeedbackWeightSum = mymalloc("BH_FeedbackWeightSum", SlotsManager->info[5].size * sizeof(MyFloat));
+    priv->BH_FeedbackWeightSum = (MyFloat *) mymalloc("BH_FeedbackWeightSum", SlotsManager->info[5].size * sizeof(MyFloat));
 
     /* These are initialized in preprocess and used to reposition the BH in postprocess*/
-    priv->MinPot = mymalloc("BH_MinPot", SlotsManager->info[5].size * sizeof(MyFloat));
+    priv->MinPot = (MyFloat *) mymalloc("BH_MinPot", SlotsManager->info[5].size * sizeof(MyFloat));
 
     /* Local to this treewalk*/
-    priv->BH_Entropy = mymalloc("BH_Entropy", SlotsManager->info[5].size * sizeof(MyFloat));
+    priv->BH_Entropy = (MyFloat *) mymalloc("BH_Entropy", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_SurroundingGasVel = (MyFloat (*) [3]) mymalloc("BH_SurroundVel", 3* SlotsManager->info[5].size * sizeof(priv->BH_SurroundingGasVel[0]));
     
     /* For AGN kinetic feedback */
@@ -657,9 +657,9 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     memset(priv[0].N_sph_swallowed, 0, sizeof(int64_t) * omp_get_max_threads());
     memset(priv[0].N_BH_swallowed, 0, sizeof(int64_t) * omp_get_max_threads());
 
-    priv->BH_accreted_Mass = mymalloc("BH_accretedmass", SlotsManager->info[5].size * sizeof(MyFloat));
-    priv->BH_accreted_BHMass = mymalloc("BH_accreted_BHMass", SlotsManager->info[5].size * sizeof(MyFloat));
-    priv->BH_accreted_Mtrack = mymalloc("BH_accreted_Mtrack", SlotsManager->info[5].size * sizeof(MyFloat));
+    priv->BH_accreted_Mass = (MyFloat *) mymalloc("BH_accretedmass", SlotsManager->info[5].size * sizeof(MyFloat));
+    priv->BH_accreted_BHMass = (MyFloat *) mymalloc("BH_accreted_BHMass", SlotsManager->info[5].size * sizeof(MyFloat));
+    priv->BH_accreted_Mtrack = (MyFloat *) mymalloc("BH_accreted_Mtrack", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_accreted_momentum = (MyFloat (*) [3]) mymalloc("BH_accretemom", 3* SlotsManager->info[5].size * sizeof(priv->BH_accreted_momentum[0]));
 
     treewalk_run(tw_feedback, ActiveBlackHoles, NumActiveBlackHoles);
@@ -827,7 +827,7 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
     }
     else
     {
-        message(2, "Dynamic Friction density is zero for BH %ld. Surroundingpart %g, mass %g, hsml %g, dens %g, pos %g %g %g.\n",
+        message(2, "Dynamic Friction density is zero for BH %ld. Surroundingpart %d, mass %g, hsml %g, dens %g, pos %g %g %g.\n",
             P[n].ID, BH_GET_PRIV(tw)->BH_SurroundingParticles[PI], BHP(n).Mass, P[n].Hsml, BHP(n).Density, P[n].Pos[0], P[n].Pos[1], P[n].Pos[2]);
         for(j = 0; j < 3; j++)
         {

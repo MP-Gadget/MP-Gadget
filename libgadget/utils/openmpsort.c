@@ -56,7 +56,7 @@ msort_with_tmp (const struct msort_param *p, void *b, size_t n)
 
   n1 = n / 2;
   n2 = n - n1;
-  b1 = b;
+  b1 = (char *) b;
   b2 = (char *) b + (n1 * p->s);
 
   msort_with_tmp (p, b1, n1);
@@ -173,9 +173,9 @@ msort_with_tmp (const struct msort_param *p, void *b, size_t n)
 
 static void merge(void * base1, size_t nmemb1, void * base2, size_t nmemb2, void * output, size_t size,
          int(*compar)(const void *, const void *), int indirect) {
-    char * p1 = base1;
-    char * p2 = base2;
-    char * po = output;
+    char * p1 = (char *) base1;
+    char * p2 = (char *) base2;
+    char * po = (char *) output;
     char * s1 = p1 + nmemb1 * size, *s2 = p2 + nmemb2 * size;
     while(p1 < s1 && p2 < s2) {
         int cmp;
@@ -241,7 +241,7 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
         Atmp[tid] = ((char*) tmp) + start * size;
 
         struct msort_param p;
-        p.t = Atmp[tid];
+        p.t = ((char **) Atmp)[tid];
         p.s = size;
         p.var = 4;
         p.cmp = compar;
@@ -251,7 +251,7 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
             /* Indirect sorting: copy everything in this thread to the new pointer space,
              * which is after the tmp space. */
             char *ip = (char *) Abase[tid];
-            void **tp = (void **) (tmp + (nmemb + start)* sizeof (void *));
+            void **tp = (void **) ((char *)tmp + (nmemb + start)* sizeof (void *));
             void **t = tp;
             void *end = (void *) (tp + Anmemb[tid]);
 
@@ -264,7 +264,7 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
             p.var = 3;
             Abase[tid] = tp;
             Atmp[tid] = ((char*) tmp) + start * p.s;
-            p.t = Atmp[tid];
+            p.t = ((char **)Atmp)[tid];
         }
         else {
             /*Copied from glibc*/
@@ -335,7 +335,7 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
 #pragma omp barrier
         /* output was written to the tmp rather than desired location, copy it */
         if((!indirect && Abase[0] != base)
-                || (indirect && Abase[0] != tmp + nmemb * sizeof(void *))) {
+                || (indirect && Abase[0] != (char *) tmp + nmemb * sizeof(void *))) {
             memmove(Atmp[tid], Abase[tid], Anmemb_old[tid] * p.s);
         }
     }
@@ -351,10 +351,10 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
     if(indirect) {
         char *kp, *ip;
         size_t i;
-        void **tp = (void **) (tmp + nmemb * sizeof (void *));
+        void **tp = (void **) ((char *) tmp + nmemb * sizeof (void *));
         void *tmp_storage = (void *) (tp + nmemb);
         for (i = 0, ip = (char *) base; i < nmemb; i++, ip += size)
-          if ((kp = tp[i]) != ip)
+          if ((kp = ((char **)tp)[i]) != ip)
             {
               size_t j = i;
               char *jp = ip;
@@ -366,7 +366,7 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
                 memcpy (jp, kp, size);
                 j = k;
                 jp = kp;
-                kp = tp[k];
+                kp = ((char **)tp)[k];
               } while (kp != ip);
 
               tp[j] = jp;

@@ -172,7 +172,7 @@ load_heii_reion_hist(const char * reion_hist_file)
         endrun(1, "HeII: Reionization history contains: %d entries, not enough.\n", Nreionhist);
 
     /*Allocate memory for the reionization history table.*/
-    He_zz = mymalloc("ReionizationTable", 3 * Nreionhist * sizeof(double));
+    He_zz = (double *) mymalloc("ReionizationTable", 3 * Nreionhist * sizeof(double));
     XHeIII = He_zz + Nreionhist;
     LMFP = He_zz + 2 * Nreionhist;
 
@@ -283,7 +283,7 @@ build_qso_candidate_list(int ** qso_cand, FOFGroups * fof)
 {
     /*Loop over all halos, building the candidate list.*/
     int i, ncand=0;
-    *qso_cand = mymalloc("Quasar_candidates", sizeof(int) * (fof->Ngroups+1));
+    *qso_cand = (int *) mymalloc("Quasar_candidates", sizeof(int) * (fof->Ngroups+1));
     for(i = 0; i < fof->Ngroups; i++)
     {
         /* Check that it has the right mass*/
@@ -297,7 +297,7 @@ build_qso_candidate_list(int ** qso_cand, FOFGroups * fof)
     }
     /*Poison value at the end for safety.*/
     (*qso_cand)[ncand] = -1;
-    *qso_cand = myrealloc(*qso_cand, (ncand+1) * sizeof(int));
+    *qso_cand = (int *) myrealloc(*qso_cand, (ncand+1) * sizeof(int));
     return ncand;
 }
 

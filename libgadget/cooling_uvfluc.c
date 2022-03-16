@@ -24,10 +24,10 @@ static struct {
 /* Read a big array from filename/dataset into an array, allocating memory in buffer.
  * which is returned. Nread argument is set equal to number of elements read.*/
 static double *
-read_big_array(const char * filename, char * dataset, int * Nread)
+read_big_array(const char * filename, const char * dataset, int * Nread)
 {
     int N;
-    void * buffer=NULL;
+    double * buffer=NULL;
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
@@ -44,8 +44,10 @@ read_big_array(const char * filename, char * dataset, int * Nread)
 
         N = bb->size;
 
-        buffer = mymalloc("cooling_data", N * dtype_itemsize(bb->dtype) * bb->nmemb);
+        if(dtype_itemsize(bb->dtype) != sizeof(double))
+            endrun(1, "UVflucatuation file %s should contain double-precision data, contains %s\n", filename, bb->dtype);
 
+        buffer = (double *) mymalloc("cooling_data", N * dtype_itemsize(bb->dtype) * bb->nmemb);
         dims[0] = N;
         dims[1] = bb->nmemb;
 
@@ -62,7 +64,7 @@ read_big_array(const char * filename, char * dataset, int * Nread)
 
     MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
     if(ThisTask != 0)
-        buffer = mymalloc("cooling_data",N * sizeof(double));
+        buffer = (double *) mymalloc("cooling_data",N * sizeof(double));
 
     MPI_Bcast(buffer, N, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
@@ -128,7 +130,7 @@ init_uvf_table(const char * UVFluctuationFile, const int UVFlucLen, const double
     if(UVF.Nside * UVF.Nside * UVF.Nside != size)
         endrun(0, "Corrupt UV Fluctuation table: Nside = %ld, but table is %ld != %ld^3\n", UVF.Nside, size, UVF.Nside);
 
-    int dims[] = {UVF.Nside, UVF.Nside, UVF.Nside};
+    int64_t dims[] = {UVF.Nside, UVF.Nside, UVF.Nside};
     interp_init(&UVF.interp, 3, dims);
     interp_init_dim(&UVF.interp, 0, 0, BoxSize);
     interp_init_dim(&UVF.interp, 1, 0, BoxSize);
@@ -219,7 +221,7 @@ InitMetalCooling(const char * MetalCoolFile)
     MetalCool.Temperature_bins = read_big_array(MetalCoolFile, "Temperature_bins", &MetalCool.NTemperature_bins);
     MetalCool.Lmet_table = read_big_array(MetalCoolFile, "NetCoolingRate", &size);
 
-    int dims[] = {MetalCool.NRedshift_bins, MetalCool.NHydrogenNumberDensity_bins, MetalCool.NTemperature_bins};
+    int64_t dims[] = {MetalCool.NRedshift_bins, MetalCool.NHydrogenNumberDensity_bins, MetalCool.NTemperature_bins};
 
     interp_init(&MetalCool.interp, 3, dims);
     interp_init_dim(&MetalCool.interp, 0, MetalCool.Redshift_bins[0], MetalCool.Redshift_bins[MetalCool.NRedshift_bins - 1]);
