@@ -419,7 +419,6 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
         double mass_weight = 0.0;
         int uvbg_dim = All.UVBGdim;
         int grid_n_real = uvbg_dim * uvbg_dim * uvbg_dim;
-        //TODO: this directive is ridiculous and I doubt the parallelisation does much here
 #pragma omp parallel for collapse(3) reduction(+:volume_weighted_global_xHI,mass_weighted_global_xHI,mass_weight) private(pm_idx,density_over_mean)
         for (int ix = 0; ix < pm_mass->real_space_region.size[0]; ix++)
             for (int iy = 0; iy < pm_mass->real_space_region.size[1]; iy++)
@@ -453,6 +452,7 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
 static void readout_J21(PetaPM * pm, int i, double * mesh, double weight) {
     // Since we need to decide whether particles on the boundary are ionised or not,
     // We choose to take the maximum J21 (of 8 cells) here.
+    //TODO: change the iterator in petapm for reionisation to use NGP to avoid the (minor) resolution effects
     if (P[i].Type == 0 && mesh[0] > SPHP(i).local_J21){
         SPHP(i).local_J21 = mesh[0];
         //if particle has not been ionised yet, set its zreion
