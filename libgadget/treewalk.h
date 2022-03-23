@@ -207,6 +207,12 @@ void treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int up
 /* This function find the closest index in the multi-evaluation list of hsml and numNgb, update left and right bound, and return the new hsml */
 double ngb_narrow_down(double *right, double *left, const double *radius, const double *numNgb, int maxcmpt, int desnumngb, int *closeidx, double BoxSize);
 
+/* Build the queue from the haswork function, in case we want to reuse it.
+ * Arguments:
+ * active_set: these items have haswork called on them.
+ * size: size of the active set.
+ * may_have_garbage: flags whether the active set may contain garbage. If the haswork is trivial and this is not set,
+ * we can just reuse the active set as the queue.*/
 void treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may_have_garbage);
 
 #endif
