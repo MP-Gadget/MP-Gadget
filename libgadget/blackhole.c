@@ -526,20 +526,6 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     struct BHPriv priv[1] = {0};
     priv->units = units;
 
-    /* Types used in treewalks:
-     * dynamical friction uses: stars, DM if BH_DynFrictionMethod > 1 gas if BH_DynFrictionMethod  == 3.
-     * accretion uses: all types but ONLY for repositioning potential minimum. Otherwise gas + black holes. gas + stars + BH is probably fine.
-     * gas + BH probably not enough if gas is sparse in halo.
-     * feedback uses: gas + black holes.
-     * The DM in dynamic friction and accretion doesn't really do anything, so could perhaps be removed from the treebuild later.
-     * However, we would still need a tree with gas + DM in the wind code.
-     */
-    if(!tree->tree_allocated_flag)
-    {
-        message(0, "Building tree in blackhole\n");
-        force_tree_rebuild_mask(tree, ddecomp, GASMASK + DMMASK + STARMASK + BHMASK, 0, NULL);
-        walltime_measure("/BH/Build");
-    }
     /*************************************************************************/
     TreeWalk tw_dynfric[1] = {{0}};
     tw_dynfric->ev_label = "BH_DYNFRIC";
@@ -594,7 +580,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     priv->hubble = hubble_function(CP, atime);
     priv->CP = CP;
 
-    /* Build the queue once, since it is really 'all black holes' and similar for all treewalks*/
+    /* Build the queue once, since it is really 'all black holes' and similar for all treewalks.*/
     treewalk_build_queue(tw_dynfric, act->ActiveParticle, act->NumActiveParticle, 0);
     /* Now we have a BH queue and we can re-use it*/
     int * ActiveBlackHoles = tw_dynfric->WorkSet;
@@ -606,9 +592,30 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
         return;
     }
 
+    /* Move the working set high so we can keep the tree we build after making the list and still free this active set.*/
+    ActiveBlackHoles = mymalloc2("activeBH", NumActiveBlackHoles * sizeof(int));
+    memcpy(ActiveBlackHoles, tw_dynfric->WorkSet, NumActiveBlackHoles * sizeof(int));
+    myfree(tw_dynfric->WorkSet);
+    tw_dynfric->WorkSet = ActiveBlackHoles;
+
     /* We can re-use the current queue for these treewalks*/
     tw_accretion->haswork = NULL;
     tw_dynfric->haswork = NULL;
+
+    /* Types used in treewalks:
+     * dynamical friction uses: stars, DM if BH_DynFrictionMethod > 1 gas if BH_DynFrictionMethod  == 3.
+     * accretion uses: all types but ONLY for repositioning potential minimum. Otherwise gas + black holes. gas + stars + BH is probably fine.
+     * gas + BH probably not enough if gas is sparse in halo.
+     * feedback uses: gas + black holes.
+     * The DM in dynamic friction and accretion doesn't really do anything, so could perhaps be removed from the treebuild later.
+     * However, we would still need a tree with gas + DM in the wind code.
+     */
+    if(!tree->tree_allocated_flag)
+    {
+        message(0, "Building tree in blackhole\n");
+        force_tree_rebuild_mask(tree, ddecomp, GASMASK + DMMASK + STARMASK + BHMASK, 0, NULL);
+        walltime_measure("/BH/Build");
+    }
 
     /*************************************************************************/
     /*  Dynamical Friction Treewalk */
