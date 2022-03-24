@@ -54,6 +54,8 @@ static void write_cpu_log(int NumCurrentTiStep, const double atime, FILE * FdCPU
  * and stores the relative offset from the last random offset in rel_random_shift*/
 static void update_random_offset(double * rel_random_shift);
 static void set_units();
+/* Construct a unit system struct*/
+static struct UnitSystem get_unitsystem(void);
 
 static void
 open_outputfiles(int RestartSnapNum);
@@ -189,7 +191,10 @@ int begrun(int RestartFlag, int RestartSnapNum)
 
     init_forcetree_params(All.FastParticleType);
 
-    init_cooling_and_star_formation(All.CoolingOn, All.StarformationOn, &All.CP);
+    const struct UnitSystem units = get_unitsystem();
+    init_cooling_and_star_formation(All.CoolingOn, All.StarformationOn, &All.CP, All.MassTable[0], All.BoxSize, units);
+
+    All.MinEgySpec = get_MinEgySpec();
 
     gravshort_fill_ntab(All.ShortRangeForceWindowType, All.Asmth);
 
@@ -487,7 +492,7 @@ run(int RestartSnapNum)
 
             /**** radiative cooling and star formation *****/
             if(All.CoolingOn)
-                cooling_and_starformation(&Act, atime, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &Tree, GradRho, FdSfr);
+                cooling_and_starformation(&Act, atime, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &Tree, &All.CP, GradRho, FdSfr);
 
         }
         /* We don't need this timestep's tree anymore.*/
@@ -718,6 +723,21 @@ close_outputfiles(void)
         fclose(FdBlackholeDetails);
 }
 
+/* Construct a unit system struct*/
+struct UnitSystem
+get_unitsystem(void)
+{
+    struct UnitSystem units;
+    units.UnitMass_in_g = All.UnitMass_in_g;
+    units.UnitVelocity_in_cm_per_s = All.UnitVelocity_in_cm_per_s;
+    units.UnitLength_in_cm = All.UnitLength_in_cm;
+
+    units.UnitTime_in_s = units.UnitLength_in_cm / units.UnitVelocity_in_cm_per_s;
+    units.UnitDensity_in_cgs = units.UnitMass_in_g / pow(units.UnitLength_in_cm, 3);
+    units.UnitEnergy_in_cgs = units.UnitMass_in_g * pow(units.UnitLength_in_cm, 2) / pow(units.UnitTime_in_s, 2);
+    return units;
+}
+
 /*! Computes conversion factors between internal code units and the
  *  cgs-system.
  */
@@ -725,7 +745,6 @@ static void
 set_units(void)
 {
     All.UnitTime_in_s = All.UnitLength_in_cm / All.UnitVelocity_in_cm_per_s;
-    All.UnitTime_in_Megayears = All.UnitTime_in_s / SEC_PER_MEGAYEAR;
 
     All.UnitDensity_in_cgs = All.UnitMass_in_g / pow(All.UnitLength_in_cm, 3);
     All.UnitEnergy_in_cgs = All.UnitMass_in_g * pow(All.UnitLength_in_cm, 2) / pow(All.UnitTime_in_s, 2);
