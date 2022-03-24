@@ -4,10 +4,11 @@
 #include <string.h>
 #include <math.h>
 #include <gsl/gsl_math.h>
+#include <omp.h>
 
-#include "allvars.h"
-#include "utils.h"
+#include "physconst.h"
 #include "cooling.h"
+#include "gravity.h"
 #include "densitykernel.h"
 #include "treewalk.h"
 #include "slotsmanager.h"
@@ -193,7 +194,8 @@ struct BHPriv {
     double atime;
     double a3inv;
     double hubble;
-    double GravInternal;
+    struct UnitSystem units;
+    Cosmology * CP;
     /* Counters*/
     int64_t * N_sph_swallowed;
     int64_t * N_BH_swallowed;
@@ -377,12 +379,10 @@ static double blackhole_soundspeed(double entropy, double rho, const double atim
 
 /* Adds the injected black hole energy to an internal energy and caps it at a maximum temperature*/
 static double
-add_injected_BH_energy(double unew, double injected_BH_energy, double mass)
+add_injected_BH_energy(double unew, double injected_BH_energy, double mass, double uu_in_cgs)
 {
     unew += injected_BH_energy / mass;
-    const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
-    * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-
+    const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1 * uu_in_cgs;
     /* Cap temperature*/
     if(unew > 5.0e8 / u_to_temp_fac)
         unew = 5.0e8 / u_to_temp_fac;
@@ -521,7 +521,7 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
 
 
 void
-blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree * tree, FILE * FdBlackHoles, FILE * FdBlackholeDetails)
+blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree * tree, const struct UnitSystem units, FILE * FdBlackHoles, FILE * FdBlackholeDetails)
 {
     /* Do nothing if no black holes*/
     int64_t totbh;
@@ -532,6 +532,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
 
     walltime_measure("/Misc");
     struct BHPriv priv[1] = {0};
+    priv->units = units;
 
     /*************************************************************************/
     TreeWalk tw_dynfric[1] = {{0}};
@@ -585,7 +586,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     priv->atime = atime;
     priv->a3inv = 1./(atime * atime * atime);
     priv->hubble = hubble_function(CP, atime);
-    priv->GravInternal = CP->GravInternal;
+    priv->CP = CP;
 
     /* Build the queue once, since it is really 'all black holes' and similar for all treewalks*/
     treewalk_build_queue(tw_dynfric, act->ActiveParticle, act->NumActiveParticle, 0);
@@ -745,10 +746,10 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     {
         /* convert to solar masses per yr */
         double mdot_in_msun_per_year =
-            total_mdot * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
+            total_mdot * (units.UnitMass_in_g / SOLAR_MASS) / (units.UnitTime_in_s / SEC_PER_YEAR);
 
         total_mdoteddington *= 1.0 / ((4 * M_PI * GRAVITY * LIGHTCGS * PROTONMASS /
-                    (0.1 * LIGHTCGS * LIGHTCGS * THOMPSON)) * All.UnitTime_in_s);
+                    (0.1 * LIGHTCGS * LIGHTCGS * THOMPSON)) * units.UnitTime_in_s);
 
         fprintf(FdBlackHoles, "%g %d %g %g %g %g\n",
                 atime, total_bh, total_mass_holes, total_mdot, mdot_in_msun_per_year, total_mdoteddington);
@@ -811,11 +812,11 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
         if (f_of_x < 0)
             f_of_x = 0;
 
-        lambda = 1. + blackhole_params.BH_DFbmax * pow((bhvel/BH_GET_PRIV(tw)->atime),2) / BH_GET_PRIV(tw)->GravInternal / P[n].Mass;
+        lambda = 1. + blackhole_params.BH_DFbmax * pow((bhvel/BH_GET_PRIV(tw)->atime),2) / BH_GET_PRIV(tw)->CP->GravInternal / P[n].Mass;
 
         for(j = 0; j < 3; j++)
         {
-            BHP(n).DFAccel[j] = - 4. * M_PI * BH_GET_PRIV(tw)->GravInternal * BH_GET_PRIV(tw)->GravInternal * P[n].Mass * BH_GET_PRIV(tw)->BH_SurroundingDensity[PI] *
+            BHP(n).DFAccel[j] = - 4. * M_PI * BH_GET_PRIV(tw)->CP->GravInternal * BH_GET_PRIV(tw)->CP->GravInternal * P[n].Mass * BH_GET_PRIV(tw)->BH_SurroundingDensity[PI] *
             log(lambda) * f_of_x * (P[n].Vel[j] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j]) / pow(bhvel, 3);
             BHP(n).DFAccel[j] *= BH_GET_PRIV(tw)->atime;  // convert to code unit of acceleration
             BHP(n).DFAccel[j] *= blackhole_params.BH_DFBoostFactor; // Add a boost factor
@@ -929,12 +930,12 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
 
     /* Note: we take here a radiative efficiency of 0.1 for Eddington accretion */
     double meddington = (4 * M_PI * GRAVITY * LIGHTCGS * PROTONMASS / (0.1 * LIGHTCGS * LIGHTCGS * THOMPSON)) * BHP(i).Mass
-        * All.UnitTime_in_s / All.CP.HubbleParam;
+        * BH_GET_PRIV(tw)->units.UnitTime_in_s / BH_GET_PRIV(tw)->CP->HubbleParam;
 
     double norm = pow((pow(soundspeed, 2) + pow(bhvel, 2)), 1.5);
 
     if(norm > 0)
-        mdot = 4. * M_PI * blackhole_params.BlackHoleAccretionFactor * BH_GET_PRIV(tw)->GravInternal * BH_GET_PRIV(tw)->GravInternal *
+        mdot = 4. * M_PI * blackhole_params.BlackHoleAccretionFactor * BH_GET_PRIV(tw)->CP->GravInternal * BH_GET_PRIV(tw)->CP->GravInternal *
             BHP(i).Mass * BHP(i).Mass * rho_proper / norm;
 
     if(blackhole_params.BlackHoleEddingtonFactor > 0.0 &&
@@ -981,13 +982,14 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
         if (Edd_ratio < lam_thresh){
             /* mark this timestep is accumulating KE feedback energy */
             BH_GET_PRIV(tw)->KEflag[PI] = 1;
-            double rho_sfr = blackhole_params.BHKE_SfrCritOverDensity * All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * BH_GET_PRIV(tw)->GravInternal);
+            const double rho_crit_baryon = BH_GET_PRIV(tw)->CP->OmegaBaryon * 3 * pow(BH_GET_PRIV(tw)->CP->Hubble, 2) / (8 * M_PI * BH_GET_PRIV(tw)->CP->GravInternal);
+            const double rho_sfr = blackhole_params.BHKE_SfrCritOverDensity * rho_crit_baryon;
             double epsilon = (BHP(i).Density/rho_sfr)/blackhole_params.BHKE_EffRhoFactor;
             if (epsilon > blackhole_params.BHKE_EffCap){
                 epsilon = blackhole_params.BHKE_EffCap;
             }
             
-            BHP(i).KineticFdbkEnergy += epsilon * (BHP(i).Mdot * dtime * pow(LIGHTCGS / All.UnitVelocity_in_cm_per_s, 2));
+            BHP(i).KineticFdbkEnergy += epsilon * (BHP(i).Mdot * dtime * pow(LIGHTCGS / BH_GET_PRIV(tw)->units.UnitVelocity_in_cm_per_s, 2));
         }
         
         /* decide whether to release KineticFdbkEnergy*/
@@ -1406,12 +1408,14 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
                 P[other].BHHeated = 1;
             }
             const double enttou = pow(SPHP(other).Density * BH_GET_PRIV(lv->tw)->a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+            const double uu_in_cgs = BH_GET_PRIV(lv->tw)->units.UnitEnergy_in_cgs / BH_GET_PRIV(lv->tw)->units.UnitMass_in_g;
+
             double entold, entnew;
             double * entptr = &(SPHP(other).Entropy);
             #pragma omp atomic read
             entold = *entptr;
             do {
-                entnew = add_injected_BH_energy(entold * enttou, injected_BH, P[other].Mass) / enttou;
+                entnew = add_injected_BH_energy(entold * enttou, injected_BH, P[other].Mass, uu_in_cgs) / enttou;
                 /* Swap in the new gas entropy only if the old one hasn't changed.*/
             } while(!__atomic_compare_exchange(entptr, &entold, &entnew, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
         }
@@ -1531,7 +1535,7 @@ blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I, TreeWalk * tw)
     double dtime = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift) / BH_GET_PRIV(tw)->hubble;
 
     I->FeedbackEnergy = blackhole_params.BlackHoleFeedbackFactor * 0.1 * BHP(i).Mdot * dtime *
-                pow(LIGHTCGS / All.UnitVelocity_in_cm_per_s, 2);
+                pow(LIGHTCGS / BH_GET_PRIV(tw)->units.UnitVelocity_in_cm_per_s, 2);
     I->KEFeedbackEnergy = 0;
     if (blackhole_params.BlackHoleKineticOn == 1 && BH_GET_PRIV(tw)->KEflag[PI] > 0){
         I->FdbkChannel = 1; /* kinetic feedback mode, (no thermal feedback for this timestep) */

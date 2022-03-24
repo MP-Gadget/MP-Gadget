@@ -487,8 +487,10 @@ run(int RestartSnapNum)
             }
 
             /* Black hole accretion and feedback */
-            if(All.BlackHoleOn)
-                blackhole(&Act, atime, &All.CP, &Tree, FdBlackHoles, FdBlackholeDetails);
+            if(All.BlackHoleOn) {
+                struct UnitSystem units = get_unitsystem();
+                blackhole(&Act, atime, &All.CP, &Tree, units, FdBlackHoles, FdBlackholeDetails);
+            }
 
             /**** radiative cooling and star formation *****/
             if(All.CoolingOn)

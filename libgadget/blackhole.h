@@ -3,6 +3,7 @@
 #include "utils/paramset.h"
 #include "timestep.h"
 #include "forcetree.h"
+#include "physconst.h"
 
 enum BlackHoleFeedbackMethod {
      BH_FEEDBACK_TOPHAT   = 0x2,
@@ -20,7 +21,7 @@ void set_blackhole_params(ParameterSet * ps);
  * It will be compared to the current time and updated after seeding takes place.
  * tree is a valid ForceTree.
  */
-void blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree * tree, FILE * FdBlackHoles, FILE * FdBlackholeDetails);
+void blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree * tree, const struct UnitSystem units, FILE * FdBlackHoles, FILE * FdBlackholeDetails);
 
 /* Make a black hole from the particle at index. */
 void blackhole_make_one(int index, const double atime);
