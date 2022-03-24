@@ -101,8 +101,7 @@ extern struct global_data_all_processes
     enum ShortRangeForceWindowType ShortRangeForceWindowType;	/*!< method of the feedback*/
 
     /* some filenames */
-    char InitCondFile[100],
-         OutputDir[100],
+    char OutputDir[100],
          FOFFileBase[100],
          EnergyFile[100],
          CpuFile[100];

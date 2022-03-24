@@ -45,6 +45,8 @@ static struct petaio_params {
     int OutputHeliumFractions;  /*!< Flag whether to output the helium ionic fractions in snapshots*/
     int OutputTimebins;         /* Flag whether to save the timebins*/
     char SnapshotFileBase[100]; /* Snapshots are written to OutputDir/SnapshotFileBase_$n*/
+    char InitCondFile[100]; /* Path to read ICs from is InitCondFile */
+
 } IO;
 
 /*Set the IO parameters*/
@@ -65,6 +67,8 @@ set_petaio_params(ParameterSet * ps)
         IO.OutputTimebins = param_get_int(ps, "OutputTimebins");
         IO.OutputHeliumFractions = param_get_int(ps, "OutputHeliumFractions");
         param_get_string2(ps, "SnapshotFileBase", IO.SnapshotFileBase, sizeof(IO.SnapshotFileBase));
+        param_get_string2(ps, "InitCondFile", IO.InitCondFile, sizeof(IO.InitCondFile));
+
     }
     MPI_Bcast(&IO, sizeof(struct petaio_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -367,7 +371,7 @@ petaio_get_snapshot_fname(int num, const char * OutputDir)
 {
     char * fname;
     if(num == -1) {
-        fname = fastpm_strdup_printf("%s", All.InitCondFile);
+        fname = fastpm_strdup_printf("%s", IO.InitCondFile);
     } else {
         fname = fastpm_strdup_printf("%s/%s_%03d", OutputDir, IO.SnapshotFileBase, num);
     }
@@ -405,7 +409,7 @@ petaio_read_snapshot(int num, const double atime, MPI_Comm Comm)
          *  InitTemp in paramfile, then use init.c to convert to
          *  entropy.
          * */
-        petaio_read_internal(All.InitCondFile, 1, atime, Comm);
+        petaio_read_internal(IO.InitCondFile, 1, atime, Comm);
 
         int i;
         /* touch up the mass -- IC files save mass in header */

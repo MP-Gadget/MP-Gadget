@@ -76,7 +76,6 @@ set_all_global_params(ParameterSet * ps)
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0) {
         /* Start reading the values */
-        param_get_string2(ps, "InitCondFile", All.InitCondFile, sizeof(All.InitCondFile));
         param_get_string2(ps, "OutputDir", All.OutputDir, sizeof(All.OutputDir));
         param_get_string2(ps, "FOFFileBase", All.FOFFileBase, sizeof(All.FOFFileBase));
         param_get_string2(ps, "EnergyFile", All.EnergyFile, sizeof(All.EnergyFile));
