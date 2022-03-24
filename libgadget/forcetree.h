@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "domain.h"
+#include "timestep.h"
 /*
  * Variables for Tree
  * ------------------
@@ -117,7 +118,7 @@ void force_update_hmax(int * activeset, int size, ForceTree * tt, DomainDecomp *
 /* This is the main constructor for the tree structure.
    The tree shall be either zero-filled, so that force_tree_allocated = 0, or a valid ForceTree.
 */
-void force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir);
+void force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticles *act, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir);
 
 /* Main constructor with a mask argument.
  * Mask is a bitfield, specified as 1 for each type that should be included. Use ALLMASK for all particle types.
@@ -152,7 +153,7 @@ force_get_father(int no, const ForceTree * tt);
 
 /*Internal API, exposed for tests*/
 int
-force_tree_create_nodes(const ForceTree tb, const int npart, int mask, DomainDecomp * ddecomp, const int HybridNuGrav);
+force_tree_create_nodes(const ForceTree tb, const ActiveParticles * act, int mask, DomainDecomp * ddecomp, const int HybridNuGrav);
 
 ForceTree
 force_treeallocate(int64_t maxnodes, int64_t maxpart, DomainDecomp * ddecomp);

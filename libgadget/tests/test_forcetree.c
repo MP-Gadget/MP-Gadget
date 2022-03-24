@@ -226,7 +226,9 @@ static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp
     /*Time creating the nodes*/
     double start, end;
     start = MPI_Wtime();
-    int nodes = force_tree_create_nodes(tb, numpart, ALLMASK, ddecomp, 0);
+    ActiveParticles Act = {0};
+    Act.NumActiveParticle = numpart;
+    int nodes = force_tree_create_nodes(tb, &Act, ALLMASK, ddecomp, 0);
     tb.numnodes = nodes;
     assert_true(nodes < maxnode);
     end = MPI_Wtime();
