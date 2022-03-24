@@ -49,6 +49,9 @@ static struct petaio_params {
 
 } IO;
 
+/* Struct to store constant information written to each snapshot header*/
+static struct header_data Header;
+
 /*Set the IO parameters*/
 void
 set_petaio_params(ParameterSet * ps)
@@ -78,8 +81,8 @@ int GetUsePeculiarVelocity(void)
     return IO.UsePeculiarVelocity;
 }
 
-static void petaio_write_header(BigFile * bf, const double atime, const int64_t * NTotal);
-static void petaio_read_header_internal(BigFile * bf);
+static void petaio_write_header(BigFile * bf, const double atime, const int64_t * NTotal, const Cosmology * CP, const struct header_data * data);
+static void petaio_read_header_internal(BigFile * bf, Cosmology * CP, struct header_data * data);
 
 /* these are only used in reading in */
 void petaio_init(void) {
@@ -145,7 +148,7 @@ petaio_build_selection(int * selection,
 }
 
 void
-petaio_save_snapshot(const char * fname, struct IOTable * IOTable, int verbose, const double atime)
+petaio_save_snapshot(const char * fname, struct IOTable * IOTable, int verbose, const double atime, const Cosmology * CP)
 {
     message(0, "saving snapshot into %s\n", fname);
 
@@ -167,9 +170,9 @@ petaio_save_snapshot(const char * fname, struct IOTable * IOTable, int verbose, 
 
     struct conversions conv = {0};
     conv.atime = atime;
-    conv.hubble = hubble_function(&All.CP, atime);
+    conv.hubble = hubble_function(CP, atime);
 
-    petaio_write_header(&bf, atime, NTotal);
+    petaio_write_header(&bf, atime, NTotal, CP, &Header);
 
     int i;
     for(i = 0; i < IOTable->used; i ++) {
@@ -378,8 +381,8 @@ petaio_get_snapshot_fname(int num, const char * OutputDir)
     return fname;
 }
 
-void
-petaio_read_header(int num, const char * OutputDir)
+struct header_data
+petaio_read_header(int num, const char * OutputDir, Cosmology * CP)
 {
     BigFile bf = {0};
 
@@ -391,13 +394,16 @@ petaio_read_header(int num, const char * OutputDir)
                     big_file_get_error_message());
     }
 
-    petaio_read_header_internal(&bf);
+    struct header_data head;
+    petaio_read_header_internal(&bf, CP, &head);
+    Header = head;
 
     if(0 != big_file_mpi_close(&bf, MPI_COMM_WORLD)) {
         endrun(0, "Failed to close snapshot at %s:%s\n", fname,
                     big_file_get_error_message());
     }
     myfree(fname);
+    return head;
 }
 
 void
@@ -435,9 +441,8 @@ petaio_read_snapshot(int num, const char * OutputDir, struct part_manager_type *
     }
 }
 
-
 /* write a header block */
-static void petaio_write_header(BigFile * bf, const double atime, const int64_t * NTotal) {
+static void petaio_write_header(BigFile * bf, const double atime, const int64_t * NTotal, const Cosmology * CP, const struct header_data * data) {
     BigBlock bh;
     if(0 != big_file_mpi_create_block(bf, &bh, "Header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
         endrun(0, "Failed to create block at %s:%s\n", "Header",
@@ -445,7 +450,7 @@ static void petaio_write_header(BigFile * bf, const double atime, const int64_t 
     }
 
     /* conversion from peculiar velocity to RSD */
-    const double hubble = hubble_function(&All.CP, atime);
+    const double hubble = hubble_function(CP, atime);
     double RSD = 1.0 / (atime * hubble);
 
     if(!IO.UsePeculiarVelocity) {
@@ -455,24 +460,24 @@ static void petaio_write_header(BigFile * bf, const double atime, const int64_t 
     int dk = GetDensityKernelType();
     if(
     (0 != big_block_set_attr(&bh, "TotNumPart", NTotal, "u8", 6)) ||
-    (0 != big_block_set_attr(&bh, "TotNumPartInit", All.NTotalInit, "u8", 6)) ||
-    (0 != big_block_set_attr(&bh, "MassTable", All.MassTable, "f8", 6)) ||
+    (0 != big_block_set_attr(&bh, "TotNumPartInit", &data->NTotalInit, "u8", 6)) ||
+    (0 != big_block_set_attr(&bh, "MassTable", &data->MassTable, "f8", 6)) ||
     (0 != big_block_set_attr(&bh, "Time", &atime, "f8", 1)) ||
-    (0 != big_block_set_attr(&bh, "TimeIC", &All.TimeIC, "f8", 1)) ||
-    (0 != big_block_set_attr(&bh, "BoxSize", &All.BoxSize, "f8", 1)) ||
-    (0 != big_block_set_attr(&bh, "OmegaLambda", &All.CP.OmegaLambda, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "TimeIC", &data->TimeIC, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "BoxSize", &data->BoxSize, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "OmegaLambda", &CP->OmegaLambda, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "RSDFactor", &RSD, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "UsePeculiarVelocity", &IO.UsePeculiarVelocity, "i4", 1)) ||
-    (0 != big_block_set_attr(&bh, "Omega0", &All.CP.Omega0, "f8", 1)) ||
-    (0 != big_block_set_attr(&bh, "CMBTemperature", &All.CP.CMBTemperature, "f8", 1)) ||
-    (0 != big_block_set_attr(&bh, "OmegaBaryon", &All.CP.OmegaBaryon, "f8", 1)) ||
-    (0 != big_block_set_attr(&bh, "UnitLength_in_cm", &All.UnitLength_in_cm, "f8", 1)) ||
-    (0 != big_block_set_attr(&bh, "UnitMass_in_g", &All.UnitMass_in_g, "f8", 1)) ||
-    (0 != big_block_set_attr(&bh, "UnitVelocity_in_cm_per_s", &All.UnitVelocity_in_cm_per_s, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "Omega0", &CP->Omega0, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "CMBTemperature", &CP->CMBTemperature, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "OmegaBaryon", &CP->OmegaBaryon, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "UnitLength_in_cm", &data->UnitLength_in_cm, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "UnitMass_in_g", &data->UnitMass_in_g, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "UnitVelocity_in_cm_per_s", &data->UnitVelocity_in_cm_per_s, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "CodeVersion", GADGET_VERSION, "S1", strlen(GADGET_VERSION))) ||
     (0 != big_block_set_attr(&bh, "CompilerSettings", GADGET_COMPILER_SETTINGS, "S1", strlen(GADGET_COMPILER_SETTINGS))) ||
     (0 != big_block_set_attr(&bh, "DensityKernel", &dk, "i4", 1)) ||
-    (0 != big_block_set_attr(&bh, "HubbleParam", &All.CP.HubbleParam, "f8", 1)) ) {
+    (0 != big_block_set_attr(&bh, "HubbleParam", &CP->HubbleParam, "f8", 1)) ) {
         endrun(0, "Failed to write attributes %s\n",
                     big_file_get_error_message());
     }
@@ -502,7 +507,7 @@ _get_attr_int(BigBlock * bh, const char * name, const int def)
 }
 
 static void
-petaio_read_header_internal(BigFile * bf) {
+petaio_read_header_internal(BigFile * bf, Cosmology * CP, struct header_data * Header) {
     BigBlock bh;
     if(0 != big_file_mpi_open_block(bf, &bh, "Header", MPI_COMM_WORLD)) {
         endrun(0, "Failed to create block at %s:%s\n", "Header",
@@ -512,8 +517,8 @@ petaio_read_header_internal(BigFile * bf) {
     int64_t NTotal[6];
     if(
     (0 != big_block_get_attr(&bh, "TotNumPart", NTotal, "u8", 6)) ||
-    (0 != big_block_get_attr(&bh, "MassTable", All.MassTable, "f8", 6)) ||
-    (0 != big_block_get_attr(&bh, "BoxSize", &All.BoxSize, "f8", 1)) ||
+    (0 != big_block_get_attr(&bh, "MassTable", Header->MassTable, "f8", 6)) ||
+    (0 != big_block_get_attr(&bh, "BoxSize", &Header->BoxSize, "f8", 1)) ||
     (0 != big_block_get_attr(&bh, "Time", &Time, "f8", 1))
     ) {
         endrun(0, "Failed to read attr: %s\n",
@@ -524,31 +529,33 @@ petaio_read_header_internal(BigFile * bf) {
     if(All.Nmesh  < 0)
         All.Nmesh = 3*pow(2, (int)(log(NTotal[1])/3./log(2)) );
     All.TimeInit = Time;
-    if(0!= big_block_get_attr(&bh, "TimeIC", &All.TimeIC, "f8", 1))
-        All.TimeIC = Time;
+    if(0!= big_block_get_attr(&bh, "TimeIC", &Header->TimeIC, "f8", 1))
+        Header->TimeIC = Time;
 
     /* Set a reasonable MassTable entry for stars and BHs*/
-    All.MassTable[4] = All.MassTable[0] / get_generations();
-    All.MassTable[5] = All.MassTable[4];
+    if(Header->MassTable[4] == 0)
+        Header->MassTable[4] = Header->MassTable[0] / get_generations();
+    if(Header->MassTable[5] == 0)
+        Header->MassTable[5] = Header->MassTable[4];
 
     /* fall back to traditional MP-Gadget Units if not given in the snapshot file. */
-    All.UnitVelocity_in_cm_per_s = _get_attr_double(&bh, "UnitVelocity_in_cm_per_s", 1e5); /* 1 km/sec */
-    All.UnitLength_in_cm = _get_attr_double(&bh, "UnitLength_in_cm",  3.085678e21); /* 1.0 Kpc /h */
-    All.UnitMass_in_g = _get_attr_double(&bh, "UnitMass_in_g", 1.989e43); /* 1e10 Msun/h */
+    Header->UnitVelocity_in_cm_per_s = _get_attr_double(&bh, "UnitVelocity_in_cm_per_s", 1e5); /* 1 km/sec */
+    Header->UnitLength_in_cm = _get_attr_double(&bh, "UnitLength_in_cm",  3.085678e21); /* 1.0 Kpc /h */
+    Header->UnitMass_in_g = _get_attr_double(&bh, "UnitMass_in_g", 1.989e43); /* 1e10 Msun/h */
 
-    double OmegaBaryon = All.CP.OmegaBaryon;
-    double HubbleParam = All.CP.HubbleParam;
-    double OmegaLambda = All.CP.OmegaLambda;
+    double OmegaBaryon = CP->OmegaBaryon;
+    double HubbleParam = CP->HubbleParam;
+    double OmegaLambda = CP->OmegaLambda;
 
-    if(0 == big_block_get_attr(&bh, "OmegaBaryon", &All.CP.OmegaBaryon, "f8", 1) &&
-            OmegaBaryon > 0 && fabs(All.CP.OmegaBaryon - OmegaBaryon) > 1e-3)
-        message(0,"IC Header has Omega_b = %g but paramfile wants %g\n", All.CP.OmegaBaryon, OmegaBaryon);
-    if(0 == big_block_get_attr(&bh, "HubbleParam", &All.CP.HubbleParam, "f8", 1) &&
-            HubbleParam > 0 && fabs(All.CP.HubbleParam - HubbleParam) > 1e-3)
-        message(0,"IC Header has HubbleParam = %g but paramfile wants %g\n", All.CP.HubbleParam, HubbleParam);
-    if(0 == big_block_get_attr(&bh, "OmegaLambda", &All.CP.OmegaLambda, "f8", 1) &&
-            OmegaLambda > 0 && fabs(All.CP.OmegaLambda - OmegaLambda) > 1e-3)
-        message(0,"IC Header has Omega_L = %g but paramfile wants %g\n", All.CP.OmegaLambda, OmegaLambda);
+    if(0 == big_block_get_attr(&bh, "OmegaBaryon", &CP->OmegaBaryon, "f8", 1) &&
+            OmegaBaryon > 0 && fabs(CP->OmegaBaryon - OmegaBaryon) > 1e-3)
+        message(0,"IC Header has Omega_b = %g but paramfile wants %g\n", CP->OmegaBaryon, OmegaBaryon);
+    if(0 == big_block_get_attr(&bh, "HubbleParam", &CP->HubbleParam, "f8", 1) &&
+            HubbleParam > 0 && fabs(CP->HubbleParam - HubbleParam) > 1e-3)
+        message(0,"IC Header has HubbleParam = %g but paramfile wants %g\n", CP->HubbleParam, HubbleParam);
+    if(0 == big_block_get_attr(&bh, "OmegaLambda", &CP->OmegaLambda, "f8", 1) &&
+            OmegaLambda > 0 && fabs(CP->OmegaLambda - OmegaLambda) > 1e-3)
+        message(0,"IC Header has Omega_L = %g but paramfile wants %g\n", CP->OmegaLambda, OmegaLambda);
 
     /* If UsePeculiarVelocity = 1 then snapshots save to the velocity field the physical peculiar velocity, v = a dx/dt (where x is comoving distance).
      * If UsePeculiarVelocity = 0 then the velocity field is a * v = a^2 dx/dt in snapshots
@@ -556,10 +563,10 @@ petaio_read_header_internal(BigFile * bf) {
      * saves physical peculiar velocity / sqrt(a) in both ICs and snapshots. */
     IO.UsePeculiarVelocity = _get_attr_int(&bh, "UsePeculiarVelocity", 0);
 
-    if(0 != big_block_get_attr(&bh, "TotNumPartInit", All.NTotalInit, "u8", 6)) {
+    if(0 != big_block_get_attr(&bh, "TotNumPartInit", Header->NTotalInit, "u8", 6)) {
         int ptype;
         for(ptype = 0; ptype < 6; ptype ++) {
-            All.NTotalInit[ptype] = NTotal[ptype];
+            Header->NTotalInit[ptype] = NTotal[ptype];
         }
     }
 

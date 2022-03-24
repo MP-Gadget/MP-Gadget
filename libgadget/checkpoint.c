@@ -21,7 +21,7 @@
  */
 
 void
-write_checkpoint(int snapnum, int WriteGroupID, int MetalReturnOn, double Time, const char * OutputDir, const int OutputDebugFields)
+write_checkpoint(int snapnum, int WriteGroupID, int MetalReturnOn, double Time, const Cosmology * CP, const char * OutputDir, const int OutputDebugFields)
 {
     walltime_measure("/Misc");
     /* write snapshot of particles */
@@ -31,7 +31,7 @@ write_checkpoint(int snapnum, int WriteGroupID, int MetalReturnOn, double Time, 
         register_debug_io_blocks(&IOTable);
 
     char * fname = petaio_get_snapshot_fname(snapnum, OutputDir);
-    petaio_save_snapshot(fname, &IOTable, 1, Time);
+    petaio_save_snapshot(fname, &IOTable, 1, Time, CP);
     myfree(fname);
 
     destroy_io_blocks(&IOTable);
@@ -49,13 +49,13 @@ write_checkpoint(int snapnum, int WriteGroupID, int MetalReturnOn, double Time, 
 }
 
 void
-dump_snapshot(const char * dump, const double Time, const char * OutputDir)
+dump_snapshot(const char * dump, const double Time, const Cosmology * CP, const char * OutputDir)
 {
     struct IOTable IOTable = {0};
     register_io_blocks(&IOTable, 0, 1);
     register_debug_io_blocks(&IOTable);
     char * fname = fastpm_strdup_printf("%s/%s", OutputDir, dump);
-    petaio_save_snapshot(fname, &IOTable, 1, Time);
+    petaio_save_snapshot(fname, &IOTable, 1, Time, CP);
     destroy_io_blocks(&IOTable);
 }
 

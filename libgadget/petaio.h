@@ -6,6 +6,20 @@
 #include "utils/paramset.h"
 #include "partmanager.h"
 #include "slotsmanager.h"
+#include "cosmology.h"
+#include "physconst.h"
+
+/* Struct to store information written to each snapshot header. */
+struct header_data
+{
+    int64_t NTotalInit[6];
+    double MassTable[6];
+    double TimeIC;
+    double BoxSize;
+    double UnitLength_in_cm;
+    double UnitMass_in_g;
+    double UnitVelocity_in_cm_per_s;
+};
 
 /* Store parameters for unit conversions
  * on write*/
@@ -58,9 +72,10 @@ void petaio_destroy_buffer(BigArray * array);
 void petaio_save_block(BigFile * bf, const char * blockname, BigArray * array, int verbose);
 int petaio_read_block(BigFile * bf, const char * blockname, BigArray * array, int required);
 
-void petaio_save_snapshot(const char * fname, struct IOTable * IOTable, int verbose, const double atime);
+void petaio_save_snapshot(const char * fname, struct IOTable * IOTable, int verbose, const double atime, const Cosmology * CP);
 void petaio_read_snapshot(int num, const char * OutputDir, struct part_manager_type *PartManager, struct slots_manager_type * SlotsManager,  double atime, MPI_Comm Comm);
-void petaio_read_header(int num, const char * OutputDir);
+/* Returns a header struct. Note that this may also change the cosmology values in CP, if those are different from the ones in the parameter file*/
+struct header_data petaio_read_header(int num, const char * OutputDir, Cosmology * CP);
 
 void
 petaio_build_selection(int * selection,

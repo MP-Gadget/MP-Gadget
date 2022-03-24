@@ -176,6 +176,7 @@ force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, cons
             mask, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
     MPIU_Barrier(MPI_COMM_WORLD);
 }
+
 /*! Constructs the gravitational oct-tree.
  *
  *  The index convention for accessing tree nodes is the following: the
@@ -223,8 +224,13 @@ ForceTree force_tree_build(int npart, int mask, DomainDecomp * ddecomp, const in
 
     if(MPIU_Any(TooManyNodes, MPI_COMM_WORLD)) {
         /* Assume scale factor = 1 for dump as position is not affected.*/
-        if(EmergencyOutputDir)
-            dump_snapshot("FORCETREE-DUMP", 1, EmergencyOutputDir);
+        if(EmergencyOutputDir) {
+            Cosmology CP = {0};
+            CP.Omega0 = 0.3;
+            CP.OmegaLambda = 0.7;
+            CP.HubbleParam = 0.7;
+            dump_snapshot("FORCETREE-DUMP", 1, &CP, EmergencyOutputDir);
+        }
         endrun(2, "Required too many nodes, snapshot dumped\n");
     }
     if(mask == ALLMASK)

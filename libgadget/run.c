@@ -166,7 +166,14 @@ int begrun(int RestartFlag, int RestartSnapNum)
     petaio_init();
     walltime_init(&Clocks);
 
-    petaio_read_header(RestartSnapNum, All.OutputDir);
+    struct header_data head = petaio_read_header(RestartSnapNum, All.OutputDir, &All.CP);
+    All.UnitLength_in_cm = head.UnitLength_in_cm;
+    All.BoxSize = head.BoxSize;
+    All.MassTable = head.MassTable;
+    head.NTotalInit;
+    head.TimeIC;
+    head.UnitMass_in_g;
+    head.UnitVelocity_in_cm_per_s;
 
     slots_init(All.SlotsIncreaseFactor * PartManager->MaxPart, SlotsManager);
     /* Enable the slots: stars and BHs are allocated if there are some,
@@ -429,6 +436,7 @@ run(int RestartSnapNum)
         /* Need a scale factor for entropy and velocity limiters*/
         apply_half_kick(&Act, &All.CP, &times, atime, All.MinEgySpec);
 
+        struct UnitSystem units = get_unitsystem();
         /* Cooling and extra physics show up as a source term in the evolution equations.
          * Formally you can write the structure of the partial differential equations:
            dU/dt +  div(F) = S
@@ -486,7 +494,6 @@ run(int RestartSnapNum)
 
             /* Black hole accretion and feedback */
             if(All.BlackHoleOn) {
-                struct UnitSystem units = get_unitsystem();
                 blackhole(&Act, atime, &All.CP, &Tree, units, FdBlackHoles, FdBlackholeDetails);
             }
 
@@ -503,9 +510,7 @@ run(int RestartSnapNum)
             GradRho = NULL;
         }
 
-        /* If a snapshot is requested, write it.
-         * write_checkpoint is responsible to maintain a valid ddecomp and tree after it is called.
-         *
+        /* If a snapshot is requested, write it.         *
          * We only attempt to output on sync points. This is the only chance where all variables are
          * synchronized in a consistent state in a K(KDDK)^mK scheme.
          */
@@ -539,7 +544,7 @@ run(int RestartSnapNum)
 
         /* WriteFOF just reminds the checkpoint code to save GroupID*/
         if(WriteSnapshot)
-            write_checkpoint(SnapshotFileCount, WriteFOF, All.MetalReturnOn, atime, All.OutputDir, All.OutputDebugFields);
+            write_checkpoint(SnapshotFileCount, WriteFOF, All.MetalReturnOn, atime, &All.CP, All.OutputDir, All.OutputDebugFields);
 
         /* Save FOF tables after checkpoint so that if there is a FOF save bug we have particle tables available to debug it*/
         if(WriteFOF) {
@@ -564,7 +569,12 @@ run(int RestartSnapNum)
          * now that we know they have synched TiKick and TiDrift,
          * and advance the PM timestep.*/
         const double asmth = All.Asmth * PartManager->BoxSize / All.Nmesh;
-        find_timesteps(&Act, &times, atime, All.FastParticleType, &All.CP, asmth, NumCurrentTiStep == 0, All.OutputDir);
+        int badtimestep = find_timesteps(&Act, &times, atime, All.FastParticleType, &All.CP, asmth, NumCurrentTiStep == 0);
+        if(badtimestep) {
+            message(0, "bad timestep spotted: terminating and saving snapshot.\n");
+            dump_snapshot("TIMESTEP-DUMP", atime, &All.CP, All.OutputDir);
+            endrun(0, "Ending due to bad timestep");
+        }
 
         /* Update velocity and ti_kick to the new step, with the newly computed step size */
         apply_half_kick(&Act, &All.CP, &times, atime, All.MinEgySpec);

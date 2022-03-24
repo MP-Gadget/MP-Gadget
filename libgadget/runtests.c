@@ -126,7 +126,7 @@ void runtests(int RestartSnapNum)
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));
     char * fname = fastpm_strdup_printf("%s/PART-pairs-%03d", All.OutputDir, RestartSnapNum);
 
-    petaio_save_snapshot(fname, &IOTable, 0, All.TimeInit);
+    petaio_save_snapshot(fname, &IOTable, 0, All.TimeInit, &All.CP);
 
     treeacc.ErrTolForceAcc = 0;
     set_gravshort_treepar(treeacc);
@@ -142,7 +142,7 @@ void runtests(int RestartSnapNum)
 
     message(0, "GravShort Tree %s\n", GDB_format_particle(0));
     fname = fastpm_strdup_printf("%s/PART-tree-open-%03d", All.OutputDir, RestartSnapNum);
-    petaio_save_snapshot(fname, &IOTable, 0, All.TimeInit);
+    petaio_save_snapshot(fname, &IOTable, 0, All.TimeInit, &All.CP);
 
     /* This checks tree force against tree force with zero error (which always opens).*/
     copy_and_mean_accn(PairAccn);
@@ -154,7 +154,7 @@ void runtests(int RestartSnapNum)
     grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
 
     fname = fastpm_strdup_printf("%s/PART-tree-%03d", All.OutputDir, RestartSnapNum);
-    petaio_save_snapshot(fname, &IOTable, 0, All.TimeInit);
+    petaio_save_snapshot(fname, &IOTable, 0, All.TimeInit, &All.CP);
 
     check_accns(&meanerr,&maxerr,PairAccn, meanacc);
     message(0, "Force error, open tree vs tree.: %g mean: %g forcetol: %g\n", maxerr, meanerr, treeacc.ErrTolForceAcc);
@@ -169,7 +169,7 @@ void runtests(int RestartSnapNum)
     grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
     grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
     fname = fastpm_strdup_printf("%s/PART-tree-rcut-%03d", All.OutputDir, RestartSnapNum);
-    petaio_save_snapshot(fname, &IOTable, 0, All.TimeInit);
+    petaio_save_snapshot(fname, &IOTable, 0, All.TimeInit, &All.CP);
 
     check_accns(&meanerr,&maxerr,PairAccn, meanacc);
     message(0, "Force error, tree vs rcut.: %g mean: %g Rcut = %g\n", maxerr, meanerr, treeacc.Rcut);
@@ -188,7 +188,7 @@ void runtests(int RestartSnapNum)
     grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
     grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
     fname = fastpm_strdup_printf("%s/PART-tree-nmesh2-%03d", All.OutputDir, RestartSnapNum);
-    petaio_save_snapshot(fname, &IOTable, 0, All.TimeInit);
+    petaio_save_snapshot(fname, &IOTable, 0, All.TimeInit, &All.CP);
 
     check_accns(&meanerr, &maxerr, PairAccn, meanacc);
     message(0, "Force error, nmesh %d vs %d: %g mean: %g \n", All.Nmesh, All.Nmesh/2, maxerr, meanerr);
