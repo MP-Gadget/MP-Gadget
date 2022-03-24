@@ -200,7 +200,7 @@ petaio_save_snapshot(const char * fname, struct IOTable * IOTable, int verbose, 
     myfree(selection);
 }
 
-void petaio_read_internal(char * fname, int ic, const double atime, MPI_Comm Comm) {
+void petaio_read_internal(char * fname, struct part_manager_type * PartManager, struct slots_manager_type * SlotsManager, int ic, const double atime, MPI_Comm Comm) {
     int ptype;
     int i;
     BigFile bf = {0};
@@ -353,7 +353,7 @@ void petaio_read_internal(char * fname, int ic, const double atime, MPI_Comm Com
         sprintf(blockname, "%d/%s", ptype, IOTable->ent[i].name);
         petaio_alloc_buffer(&array, &IOTable->ent[i], NLocal[ptype]);
         if(0 == petaio_read_block(&bf, blockname, &array, IOTable->ent[i].required))
-            petaio_readout_buffer(&array, &IOTable->ent[i], &conv);
+            petaio_readout_buffer(&array, &IOTable->ent[i], &conv, PartManager, SlotsManager);
         petaio_destroy_buffer(&array);
     }
     destroy_io_blocks(IOTable);
@@ -379,11 +379,11 @@ petaio_get_snapshot_fname(int num, const char * OutputDir)
 }
 
 void
-petaio_read_header(int num)
+petaio_read_header(int num, const char * OutputDir)
 {
     BigFile bf = {0};
 
-    char * fname = petaio_get_snapshot_fname(num, All.OutputDir);
+    char * fname = petaio_get_snapshot_fname(num, OutputDir);
     message(0, "Probing Header of snapshot file: %s\n", fname);
 
     if(0 != big_file_mpi_open(&bf, fname, MPI_COMM_WORLD)) {
@@ -401,22 +401,25 @@ petaio_read_header(int num)
 }
 
 void
-petaio_read_snapshot(int num, const double atime, MPI_Comm Comm)
+petaio_read_snapshot(int num, const char * OutputDir, struct part_manager_type * PartManager, struct slots_manager_type * SlotsManager, double atime, MPI_Comm Comm)
 {
+    char * fname = petaio_get_snapshot_fname(num, OutputDir);
+    petaio_read_internal(fname, PartManager, SlotsManager, 0, atime, Comm);
+    myfree(fname);
+
     if(num == -1) {
         /*
          *  IC doesn't have entropy or energy; always use the
          *  InitTemp in paramfile, then use init.c to convert to
          *  entropy.
          * */
-        petaio_read_internal(IO.InitCondFile, 1, atime, Comm);
-
+        struct particle_data * parts = PartManager->Base;
         int i;
         /* touch up the mass -- IC files save mass in header */
         #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++)
         {
-            P[i].Mass = All.MassTable[P[i].Type];
+            parts[i].Mass = All.MassTable[parts[i].Type];
         }
 
         if (!IO.UsePeculiarVelocity ) {
@@ -426,17 +429,9 @@ petaio_read_snapshot(int num, const double atime, MPI_Comm Comm)
                 int k;
                 /* for GenIC's Gadget-1 snapshot Unit to Gadget-2 Internal velocity unit */
                 for(k = 0; k < 3; k++)
-                    P[i].Vel[k] *= sqrt(atime) * atime;
+                    parts[i].Vel[k] *= sqrt(atime) * atime;
             }
-
         }
-    } else {
-        char * fname = petaio_get_snapshot_fname(num, All.OutputDir);
-        /*
-         * we always save the Entropy, init.c will not mess with the entropy
-         * */
-        petaio_read_internal(fname, 0, atime, Comm);
-        myfree(fname);
     }
 }
 
@@ -589,13 +584,13 @@ void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t localsize
 }
 
 /* readout array into P struct with setters */
-void petaio_readout_buffer(BigArray * array, IOTableEntry * ent, struct conversions * conv) {
+void petaio_readout_buffer(BigArray * array, IOTableEntry * ent, struct conversions * conv, struct part_manager_type * PartManager, struct slots_manager_type * SlotsManager) {
     int i;
     /* fill the buffer */
     char * p = (char *) array->data;
     for(i = 0; i < PartManager->NumPart; i ++) {
-        if(P[i].Type != ent->ptype) continue;
-        ent->setter(i, p, P, SlotsManager, conv);
+        if(PartManager->Base[i].Type != ent->ptype) continue;
+        ent->setter(i, p, PartManager->Base, SlotsManager, conv);
         p += array->strides[0];
     }
 }

@@ -166,7 +166,7 @@ int begrun(int RestartFlag, int RestartSnapNum)
     petaio_init();
     walltime_init(&Clocks);
 
-    petaio_read_header(RestartSnapNum);
+    petaio_read_header(RestartSnapNum, All.OutputDir);
 
     slots_init(All.SlotsIncreaseFactor * PartManager->MaxPart, SlotsManager);
     /* Enable the slots: stars and BHs are allocated if there are some,
@@ -234,7 +234,7 @@ run(int RestartSnapNum)
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
 
     /* ... read initial model and initialise the times*/
-    inttime_t ti_init = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.MassTable, All.NTotalInit);
+    inttime_t ti_init = init(RestartSnapNum, All.OutputDir, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.MassTable, All.NTotalInit);
 
     DriftKickTimes times = init_driftkicktime(ti_init);
 

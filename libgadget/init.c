@@ -57,7 +57,7 @@ static void check_smoothing_length(struct part_manager_type * PartManager, doubl
  *  intial domain decomposition is performed. If SPH particles are present,
  *  the initial SPH smoothing lengths are determined.
  */
-inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMax, Cosmology * CP, int SnapshotWithFOF, int MassiveNuLinRespOn, double * MassTable, const int64_t * NTotalInit)
+inttime_t init(int RestartSnapNum, const char * OutputDir, double TimeIC, double TimeInit, double TimeMax, Cosmology * CP, int SnapshotWithFOF, int MassiveNuLinRespOn, double * MassTable, const int64_t * NTotalInit)
 {
     int i;
 
@@ -79,7 +79,7 @@ inttime_t init(int RestartSnapNum, double TimeIC, double TimeInit, double TimeMa
     }
 
     /*Read the snapshot*/
-    petaio_read_snapshot(RestartSnapNum, TimeInit, MPI_COMM_WORLD);
+    petaio_read_snapshot(RestartSnapNum, OutputDir, PartManager, SlotsManager, TimeInit, MPI_COMM_WORLD);
 
     if(InitParams.InitGasTemp < 0)
         InitParams.InitGasTemp = CP->CMBTemperature / TimeInit;

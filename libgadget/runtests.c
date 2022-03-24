@@ -90,7 +90,7 @@ void runtests(int RestartSnapNum)
     /* So we can run a test on the final snapshot*/
     All.TimeMax = All.TimeInit * 1.1;
 
-    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.MassTable, All.NTotalInit);
+    inttime_t Ti_Current = init(RestartSnapNum, All.OutputDir, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.MassTable, All.NTotalInit);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
@@ -210,7 +210,7 @@ runfof(int RestartSnapNum)
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
 
-    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.MassTable, All.NTotalInit);
+    inttime_t Ti_Current = init(RestartSnapNum, All.OutputDir, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.MassTable, All.NTotalInit);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
@@ -256,7 +256,7 @@ runpower(int RestartSnapNum)
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
 
-    inttime_t Ti_Current = init(RestartSnapNum, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.MassTable, All.NTotalInit);
+    inttime_t Ti_Current = init(RestartSnapNum, All.OutputDir, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.MassTable, All.NTotalInit);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
