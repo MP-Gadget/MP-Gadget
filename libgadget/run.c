@@ -449,11 +449,13 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         ForceTree Tree = {0};
         int anygravactive = MPIU_Any(Act.NumActiveGravity, MPI_COMM_WORLD);
 
+        ActiveParticles allpart = {0};
+        allpart.NumActiveParticle = PartManager->NumPart;
         /* We need a tree if we will do a short-range gravity treewalk.
          * We also need one for PM so we can do the indexing.
          * So this condition is true and the next false only if !TreeGravOn.*/
         if(is_PM || (All.TreeGravOn && anygravactive))
-            force_tree_rebuild(&Tree, ddecomp, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
+            force_tree_rebuild(&Tree, ddecomp, &allpart, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
 
         if(All.TreeGravOn && (is_PM || anygravactive)) {
             /* Do a short range pairwise only step if desired*/
@@ -681,7 +683,7 @@ runfof(const int RestartSnapNum, const inttime_t Ti_Current, const struct header
             GradRho = (MyFloat *) mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
             /*Allocate the memory for predicted SPH data.*/
             struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
-            force_tree_rebuild(&gasTree, ddecomp, HybridNuGrav, 0, All.OutputDir);
+            force_tree_rebuild(&gasTree, ddecomp, &Act, HybridNuGrav, 0, All.OutputDir);
             /* computes GradRho with a treewalk. No hsml update as we are reading from a snapshot.*/
             density(&Act, 0, 0, All.BlackHoleOn, get_MinEgySpec(), times, &All.CP, &sph_predicted, GradRho, &gasTree);
             force_tree_free(&gasTree);
@@ -705,11 +707,13 @@ runpower(const struct header_data * header)
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
+    ActiveParticles Act = {0};
+    Act.NumActiveParticle = PartManager->NumPart;
 
     /*PM needs a tree*/
     ForceTree Tree = {0};
     int HybridNuGrav = hybrid_nu_tracer(&All.CP, header->TimeSnapshot);
-    force_tree_rebuild(&Tree, ddecomp, HybridNuGrav, 1, All.OutputDir);
+    force_tree_rebuild(&Tree, ddecomp, &Act, HybridNuGrav, 1, All.OutputDir);
     gravpm_force(&pm, &Tree, &All.CP, header->TimeSnapshot, header->UnitLength_in_cm, All.OutputDir, header->TimeSnapshot, All.FastParticleType);
     force_tree_free(&Tree);
 }

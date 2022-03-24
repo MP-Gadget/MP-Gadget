@@ -110,10 +110,10 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     ddecomp.TopLeaves[0].topnode = PartManager->MaxPart;
 
     ForceTree tree = {0};
-    force_tree_rebuild(&tree, &ddecomp, 0, 1, NULL);
+    force_tree_rebuild(&tree, &ddecomp, &act, 0, 1, NULL);
     set_init_hsml(&tree);
     /* Rebuild without moments to check it works*/
-    force_tree_rebuild(&tree, &ddecomp, 0, 0, NULL);
+    force_tree_rebuild(&tree, &ddecomp, &act, 0, 0, NULL);
     /*Time doing the density finding*/
     double start, end;
     start = MPI_Wtime();
