@@ -35,6 +35,7 @@
 /*Parameters of the star formation model*/
 static struct SFRParams
 {
+    int StarformationOn;
     enum StarformationCriterion StarformationCriterion;  /*!< Type of star formation model. */
     int WindOn; /* if Wind is enabled */
     /*Star formation parameters*/
@@ -175,7 +176,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
     const double a3inv = 1./(Time * Time * Time);
     const double hubble = hubble_function(&All.CP, Time);
 
-    if(All.StarformationOn) {
+    if(sfr_params.StarformationOn) {
         NewStars = (int *) mymalloc("NewStars", nactive * sizeof(int) * nthreads);
         gadget_setup_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, nactive, nthreads);
         NewParents = (int *) mymalloc2("NewParents", nactive * sizeof(int) * nthreads);
@@ -213,7 +214,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
                 continue;
 
             int shall_we_star_form = 0;
-            if(All.StarformationOn) {
+            if(sfr_params.StarformationOn) {
                 /*Reduce delaytime for wind particles.*/
                 winds_evolve(p_i, a3inv, hubble);
                 /* check whether we are star forming gas.*/
@@ -283,7 +284,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
     ta_free(nqthrsfr);
 
 
-    if(!All.StarformationOn)
+    if(!sfr_params.StarformationOn)
         return;
 
     /*Get some empty slots for the stars*/
@@ -291,7 +292,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
     /* We ran out of slots! We must be forming a lot of stars.
      * There are things in the way of extending the slot list, so we have to move them.
      * The code in sfr_reserve_slots is not elegant, but I cannot think of a better way.*/
-    if(All.StarformationOn && (SlotsManager->info[4].size + NumNewStar >= SlotsManager->info[4].maxsize)) {
+    if(sfr_params.StarformationOn && (SlotsManager->info[4].size + NumNewStar >= SlotsManager->info[4].maxsize)) {
         if(NewParents)
             NewParents = (int *) myrealloc(NewParents, sizeof(int) * NumNewStar);
         NewStars = sfr_reserve_slots(act, NewStars, NumNewStar, tree);
@@ -472,7 +473,7 @@ sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
 {
     int flag = 0;
     /* no sfr: normal cooling*/
-    if(!All.StarformationOn) {
+    if(!sfr_params.StarformationOn) {
         return 0;
     }
 
@@ -510,7 +511,7 @@ double get_neutral_fraction_sfreff(double redshift, double hubble, struct partic
     struct UVBG uvbg = get_local_UVBG(redshift, &GlobalUVBG, partdata->Pos, PartManager->CurrentParticleOffset);
     double physdens = sphdata->Density * a3inv;
 
-    if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, a3inv)) {
+    if(sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, a3inv)) {
         /*This gets the neutral fraction for standard gas*/
         double eomdensity = sphdata->Density;
         double InternalEnergy = sphdata->Entropy / GAMMA_MINUS1 * pow(eomdensity * a3inv, GAMMA_MINUS1);
@@ -538,7 +539,7 @@ double get_helium_neutral_fraction_sfreff(int ion, double redshift, double hubbl
     struct UVBG uvbg = get_local_UVBG(redshift, &GlobalUVBG, partdata->Pos, PartManager->CurrentParticleOffset);
     double physdens = sphdata->Density * a3inv;
 
-    if(!All.StarformationOn || sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, a3inv)) {
+    if(sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, a3inv)) {
         /*This gets the neutral fraction for standard gas*/
         double eomdensity = sphdata->Density;
         double InternalEnergy = sphdata->Entropy / GAMMA_MINUS1 * pow(eomdensity * a3inv, GAMMA_MINUS1);
@@ -716,7 +717,7 @@ struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_part
     data.ne = 0;
 
     /* This shall never happen, but just in case*/
-    if(!All.StarformationOn || !sfreff_on_eeqos(sph, a3inv))
+    if(!sfreff_on_eeqos(sph, a3inv))
         return data;
 
     data.ne = sph->Ne;
@@ -744,7 +745,7 @@ struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_part
 
 static double get_starformation_rate_full(int i, MyFloat * GradRho, struct sfr_eeqos_data sfr_data, const double atime, const double a3inv, const double hubble)
 {
-    if(!All.StarformationOn || !sfreff_on_eeqos(&SPHP(i), a3inv)) {
+    if(!sfreff_on_eeqos(&SPHP(i), a3inv)) {
         return 0;
     }
 
@@ -802,6 +803,8 @@ void init_cooling_and_star_formation(int CoolingOn, int StarformationOn, Cosmolo
 
     /*Initialize the uv fluctuation table*/
     init_uvf_table(sfr_params.UVFluctuationFile, sizeof(sfr_params.UVFluctuationFile), All.BoxSize, All.UnitLength_in_cm);
+
+    sfr_params.StarformationOn = StarformationOn;
 
     if(!StarformationOn)
         return;
