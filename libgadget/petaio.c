@@ -325,7 +325,10 @@ void petaio_read_internal(char * fname, int ic, const double atime, MPI_Comm Com
     slots_setup_topology(PartManager, NLocal, SlotsManager);
 
     struct IOTable IOTable[1] = {0};
-    register_io_blocks(IOTable, 0);
+    /* Always try to read the metal tables.
+     * This lets us turn it off for a short period and then re-enable it.
+     * Note the metal fields are non-fatal so this does not break resuming without metals.*/
+    register_io_blocks(IOTable, 0, 1);
 
     for(i = 0; i < IOTable->used; i ++) {
         /* only process the particle blocks */
@@ -989,7 +992,8 @@ static int order_by_type(const void *a, const void *b)
     return 0;
 }
 
-void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
+void register_io_blocks(struct IOTable * IOTable, int WriteGroupID, int MetalReturnOn)
+{
     int i;
     IOTable->used = 0;
     IOTable->allocated = 100;
@@ -1027,10 +1031,9 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
 
     /* Cooling */
     IO_REG(ElectronAbundance,       "f4", 1, 0, IOTable);
-    if(All.CoolingOn) {
-        IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0, IOTable);
-    }
-    if(All.CoolingOn && IO.OutputHeliumFractions) {
+    IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0, IOTable);
+
+    if(IO.OutputHeliumFractions) {
         IO_REG_WRONLY(HeliumIFraction, "f4", 1, 0, IOTable);
         IO_REG_WRONLY(HeliumIIFraction, "f4", 1, 0, IOTable);
         IO_REG_WRONLY(HeliumIIIFraction, "f4", 1, 0, IOTable);
@@ -1039,16 +1042,15 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
     IO_REG_NONFATAL(HeIIIIonized, "u1", 1, 0, IOTable);
 
     /* SF */
-    if(All.StarformationOn) {
-        IO_REG_WRONLY(StarFormationRate, "f4", 1, 0, IOTable);
-        /* Another new addition: save the DelayTime for wind particles*/
-        IO_REG_NONFATAL(DelayTime,  "f4", 1, 0, IOTable);
-    }
+    IO_REG_WRONLY(StarFormationRate, "f4", 1, 0, IOTable);
+    /* Another new addition: save the DelayTime for wind particles*/
+    IO_REG_NONFATAL(DelayTime,  "f4", 1, 0, IOTable);
+
     IO_REG_NONFATAL(BirthDensity, "f4", 1, 4, IOTable);
     IO_REG_TYPE(StarFormationTime, "f4", 1, 4, IOTable);
     IO_REG_TYPE(Metallicity,       "f4", 1, 0, IOTable);
     IO_REG_TYPE(Metallicity,       "f4", 1, 4, IOTable);
-    if(All.MetalReturnOn) {
+    if(MetalReturnOn) {
         IO_REG_TYPE(Metals,       "f4", NMETALS, 0, IOTable);
         IO_REG_TYPE(Metals,       "f4", NMETALS, 4, IOTable);
         IO_REG_TYPE(LastEnrichmentMyr, "f4", 1, 4, IOTable);

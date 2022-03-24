@@ -21,14 +21,14 @@
  */
 
 void
-write_checkpoint(int snapnum, int WriteSnapshot, int WriteGroupID, double Time, const char * OutputDir, const char * SnapshotFileBase, const int OutputDebugFields)
+write_checkpoint(int snapnum, int WriteSnapshot, int WriteGroupID, int MetalReturnOn, double Time, const char * OutputDir, const char * SnapshotFileBase, const int OutputDebugFields)
 {
     walltime_measure("/Misc");
     if(WriteSnapshot)
     {
         /* write snapshot of particles */
         struct IOTable IOTable = {0};
-        register_io_blocks(&IOTable, WriteGroupID);
+        register_io_blocks(&IOTable, WriteGroupID, MetalReturnOn);
         if(OutputDebugFields)
             register_debug_io_blocks(&IOTable);
         petaio_save_snapshot(&IOTable, 1, Time, "%s/%s_%03d", OutputDir, SnapshotFileBase, snapnum);
@@ -52,7 +52,7 @@ void
 dump_snapshot(const char * dump, const double Time, const char * OutputDir)
 {
     struct IOTable IOTable = {0};
-    register_io_blocks(&IOTable, 0);
+    register_io_blocks(&IOTable, 0, 1);
     register_debug_io_blocks(&IOTable);
     petaio_save_snapshot(&IOTable, 1, Time, "%s/%s", OutputDir, dump);
     destroy_io_blocks(&IOTable);

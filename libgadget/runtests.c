@@ -100,7 +100,8 @@ void runtests(int RestartSnapNum)
     }
 
     struct IOTable IOTable = {0};
-    register_io_blocks(&IOTable, 0);
+    /* NO metals written*/
+    register_io_blocks(&IOTable, 0, 0);
     register_extra_blocks(&IOTable);
 
     int NTask;
@@ -237,7 +238,7 @@ runfof(int RestartSnapNum)
             myfree(GradRho);
     }
     FOFGroups fof = fof_fof(ddecomp, 1, MPI_COMM_WORLD);
-    fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, RestartSnapNum, All.PartAllocFactor, &All.CP, All.TimeInit, All.MassTable, All.StarformationOn, All.BlackHoleOn, MPI_COMM_WORLD);
+    fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, RestartSnapNum, All.PartAllocFactor, &All.CP, All.TimeInit, All.MassTable, All.MetalReturnOn, All.BlackHoleOn, MPI_COMM_WORLD);
     fof_finish(&fof);
 }
 

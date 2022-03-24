@@ -39,7 +39,7 @@ struct IOTable {
 #define PTYPE_FOF_GROUP  1024
 
 /* Populate an IOTable with the default set of blocks to read or write.*/
-void register_io_blocks(struct IOTable * IOTable, int WriteGroupID);
+void register_io_blocks(struct IOTable * IOTable, int WriteGroupID, int MetalReturnOn);
 /* Write (but don't read) some extra output blocks useful for debugging the particle structure*/
 void register_debug_io_blocks(struct IOTable * IOTable);
 /* Free the entries in the IOTable.*/

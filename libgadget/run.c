@@ -540,11 +540,11 @@ run(int RestartSnapNum)
         }
 
         /* WriteFOF just reminds the checkpoint code to save GroupID*/
-        write_checkpoint(SnapshotFileCount, WriteSnapshot, WriteFOF, atime, All.OutputDir, All.SnapshotFileBase, All.OutputDebugFields);
+        write_checkpoint(SnapshotFileCount, WriteSnapshot, WriteFOF, All.MetalReturnOn, atime, All.OutputDir, All.SnapshotFileBase, All.OutputDebugFields);
 
         /* Save FOF tables after checkpoint so that if there is a FOF save bug we have particle tables available to debug it*/
         if(WriteFOF) {
-            fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, SnapshotFileCount, All.PartAllocFactor, &All.CP, atime, All.MassTable, All.StarformationOn, All.BlackHoleOn, MPI_COMM_WORLD);
+            fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, SnapshotFileCount, All.PartAllocFactor, &All.CP, atime, All.MassTable, All.MetalReturnOn, All.BlackHoleOn, MPI_COMM_WORLD);
             fof_finish(&fof);
         }
 
