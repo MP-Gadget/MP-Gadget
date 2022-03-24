@@ -462,8 +462,12 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
 //
 
     ForceTree Tree = {0};
+    /*At the first time step all particles should be active*/
+    ActiveParticles act = {0};
+    act.ActiveParticle = NULL;
+    act.NumActiveParticle = PartManager->NumPart;
     /* Need moments because we use them to set Hsml*/
-    force_tree_rebuild(&Tree, ddecomp, 0, 1, NULL);
+    force_tree_rebuild(&Tree, ddecomp, &act, 0, 1, NULL);
 
     /* quick hack to adjust for the baryon fraction
         * only this fraction of mass is of that type.
@@ -524,11 +528,6 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
         * (need a test on this!) */
     /*Allocate the extra SPH data for transient SPH particle properties.*/
     struct sph_pred_data sph_pred = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
-
-    /*At the first time step all particles should be active*/
-    ActiveParticles act = {0};
-    act.ActiveParticle = NULL;
-    act.NumActiveParticle = PartManager->NumPart;
 
     /* Empty kick factors as we do not move*/
     DriftKickTimes times = init_driftkicktime(Ti_Current);

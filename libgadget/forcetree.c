@@ -48,7 +48,7 @@ init_forcetree_params(const int FastParticleType)
 }
 
 static ForceTree
-force_tree_build(int npart, int mask, DomainDecomp * ddecomp, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir);
+force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles * act, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir);
 
 static void
 force_treeupdate_pseudos(int no, const ForceTree * tree);
@@ -137,7 +137,7 @@ force_tree_allocated(const ForceTree * tree)
 }
 
 void
-force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir)
+force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticles *act, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir)
 {
     MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Tree construction.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
@@ -147,7 +147,7 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const int HybridNuG
     }
     walltime_measure("/Misc");
 
-    *tree = force_tree_build(PartManager->NumPart, ALLMASK, ddecomp, HybridNuGrav, DoMoments, EmergencyOutputDir);
+    *tree = force_tree_build(ALLMASK, ddecomp, act, HybridNuGrav, DoMoments, EmergencyOutputDir);
 
     event_listen(&EventSlotsFork, force_tree_eh_slots_fork, tree);
     walltime_measure("/Tree/Build/Moments");
@@ -167,8 +167,12 @@ force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, cons
         force_tree_free(tree);
     }
 
+    /* Build for all particles*/
+    ActiveParticles act;
+    act.NumActiveParticle = PartManager->NumPart;
+    act.ActiveParticle = NULL;
     /* No moments*/
-    *tree = force_tree_build(PartManager->NumPart, mask, ddecomp, HybridNuGrav, 0, EmergencyOutputDir);
+    *tree = force_tree_build(mask, ddecomp, &act, HybridNuGrav, 0, EmergencyOutputDir);
 
     message(0, "Tree constructed (type mask: %d). First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
             mask, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
@@ -186,12 +190,13 @@ force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, cons
  *  particles", i.e. multipole moments of top-level nodes that lie on
  *  different CPUs. If such a node needs to be opened, the corresponding
  *  particle must be exported to that CPU. */
-ForceTree force_tree_build(int npart, int mask, DomainDecomp * ddecomp, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir)
+ForceTree
+force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir)
 {
     ForceTree tree;
 
     int TooManyNodes = 0;
-    int64_t maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->NumPart + ddecomp->NTopNodes;
+    int64_t maxnodes = ForceTreeParams.TreeAllocFactor * act->NumActiveParticle + ddecomp->NTopNodes;
     int64_t maxmaxnodes;
     MPI_Reduce(&maxnodes, &maxmaxnodes, 1, MPI_INT64, MPI_MAX,0, MPI_COMM_WORLD);
     message(0, "Treebuild: Largest is %g MByte for %ld tree nodes. firstnode %ld. (presently allocated %g MB)\n",
@@ -204,10 +209,10 @@ ForceTree force_tree_build(int npart, int mask, DomainDecomp * ddecomp, const in
         tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp);
 
         tree.BoxSize = PartManager->BoxSize;
-        tree.numnodes = force_tree_create_nodes(tree, npart, mask, ddecomp, HybridNuGrav);
+        tree.numnodes = force_tree_create_nodes(tree, act, mask, ddecomp, HybridNuGrav);
         if(tree.numnodes >= tree.lastnode - tree.firstnode)
         {
-            message(1, "Not enough tree nodes (%ld) for %d particles. Created %d\n", maxnodes, npart, tree.numnodes);
+            message(1, "Not enough tree nodes (%ld) for %d particles. Created %d\n", maxnodes, act->MaxActiveParticle, tree.numnodes);
             force_tree_free(&tree);
             maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->NumPart + ddecomp->NTopNodes;
             message(1, "TreeAllocFactor from %g to %g now %ld tree nodes\n", ForceTreeParams.TreeAllocFactor, ForceTreeParams.TreeAllocFactor*1.15, maxnodes);
@@ -646,7 +651,8 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
 /*! Does initial creation of the nodes for the gravitational oct-tree.
  * mask is a bitfield: Only types whose bit is set are added.
  **/
-int force_tree_create_nodes(const ForceTree tb, const int npart, int mask, DomainDecomp * ddecomp, const int HybridNuGrav)
+int
+force_tree_create_nodes(const ForceTree tb, const ActiveParticles * act, int mask, DomainDecomp * ddecomp, const int HybridNuGrav)
 {
     int nnext = tb.firstnode;       /* index of first free node */
 
@@ -706,7 +712,7 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, int mask, Domai
     /* now we insert all particles */
     #pragma omp parallel
     {
-        int i;
+        int j;
         /* Local topnodes*/
         int tid = omp_get_thread_num();
         const int * const local_topnodes = topnodes + tid * (EndLeaf - StartLeaf);
@@ -737,11 +743,14 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, int mask, Domai
         if(chnksz < 1000)
             chnksz = 1000;
         #pragma omp for schedule(static, chnksz)
-        for(i = 0; i < npart; i++)
+        for(j = 0; j < act->NumActiveParticle; j++)
         {
             /*Can't break from openmp for*/
             if(nc.nnext_thread >= tb.lastnode)
                 continue;
+
+            /* Pick the next particle from the active list if there is one*/
+            const int i = act->ActiveParticle ? act->ActiveParticle[j] : j;
 
             /* Do not add types that do not have their mask bit set.*/
             if(!((1<<P[i].Type) & mask)) {
@@ -777,14 +786,14 @@ int force_tree_create_nodes(const ForceTree tb, const int npart, int mask, Domai
          * means only one merge is done per subtree and
          * it requires no locking.*/
         #pragma omp for schedule(static, 1)
-        for(i = 0; i < EndLeaf - StartLeaf; i++) {
+        for(j = 0; j < EndLeaf - StartLeaf; j++) {
             int t;
             /* These are the addresses of the real topnodes*/
-            const int target = topnodes[i];
+            const int target = topnodes[j];
             if(nc.nnext_thread >= tb.lastnode)
                 continue;
             for(t = 1; t < nthr; t++) {
-                const int righttop = topnodes[i + t * (EndLeaf - StartLeaf)];
+                const int righttop = topnodes[j + t * (EndLeaf - StartLeaf)];
 //                  message(1, "tid = %d i = %d t = %d Merging %d to %d addresses are %lx - %lx end is %lx\n", omp_get_thread_num(), i, t, righttop, target, &tb.Nodes[righttop], &tb.Nodes[target], &tb.Nodes[nnext]);
                 if(merge_partial_force_trees(target, righttop, &nc, &nnext, tb, HybridNuGrav))
                     break;
