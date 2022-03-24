@@ -38,6 +38,8 @@ struct IOTable {
 
 #define PTYPE_FOF_GROUP  1024
 
+/* Get the full path for a snapshot number. String returned must be freed.*/
+char * petaio_get_snapshot_fname(int num, const char * OutputDir);
 /* Populate an IOTable with the default set of blocks to read or write.*/
 void register_io_blocks(struct IOTable * IOTable, int WriteGroupID, int MetalReturnOn);
 /* Write (but don't read) some extra output blocks useful for debugging the particle structure*/
@@ -56,7 +58,7 @@ void petaio_destroy_buffer(BigArray * array);
 void petaio_save_block(BigFile * bf, const char * blockname, BigArray * array, int verbose);
 int petaio_read_block(BigFile * bf, const char * blockname, BigArray * array, int required);
 
-void petaio_save_snapshot(struct IOTable * IOTable, int verbose, const double atime, const char *fmt, ...);
+void petaio_save_snapshot(const char * fname, struct IOTable * IOTable, int verbose, const double atime);
 void petaio_read_snapshot(int num, const double atime, MPI_Comm Comm);
 void petaio_read_header(int num);
 

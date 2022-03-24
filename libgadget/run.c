@@ -78,7 +78,6 @@ set_all_global_params(ParameterSet * ps)
         /* Start reading the values */
         param_get_string2(ps, "InitCondFile", All.InitCondFile, sizeof(All.InitCondFile));
         param_get_string2(ps, "OutputDir", All.OutputDir, sizeof(All.OutputDir));
-        param_get_string2(ps, "SnapshotFileBase", All.SnapshotFileBase, sizeof(All.SnapshotFileBase));
         param_get_string2(ps, "FOFFileBase", All.FOFFileBase, sizeof(All.FOFFileBase));
         param_get_string2(ps, "EnergyFile", All.EnergyFile, sizeof(All.EnergyFile));
         All.OutputEnergyDebug = param_get_int(ps, "OutputEnergyDebug");
@@ -540,7 +539,8 @@ run(int RestartSnapNum)
         }
 
         /* WriteFOF just reminds the checkpoint code to save GroupID*/
-        write_checkpoint(SnapshotFileCount, WriteSnapshot, WriteFOF, All.MetalReturnOn, atime, All.OutputDir, All.SnapshotFileBase, All.OutputDebugFields);
+        if(WriteSnapshot)
+            write_checkpoint(SnapshotFileCount, WriteFOF, All.MetalReturnOn, atime, All.OutputDir, All.OutputDebugFields);
 
         /* Save FOF tables after checkpoint so that if there is a FOF save bug we have particle tables available to debug it*/
         if(WriteFOF) {

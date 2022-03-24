@@ -44,6 +44,7 @@ static struct petaio_params {
     int OutputPotential;        /*!< Flag whether to include the potential in snapshots*/
     int OutputHeliumFractions;  /*!< Flag whether to output the helium ionic fractions in snapshots*/
     int OutputTimebins;         /* Flag whether to save the timebins*/
+    char SnapshotFileBase[100]; /* Snapshots are written to OutputDir/SnapshotFileBase_$n*/
 } IO;
 
 /*Set the IO parameters*/
@@ -63,6 +64,7 @@ set_petaio_params(ParameterSet * ps)
         IO.OutputPotential = param_get_int(ps, "OutputPotential");
         IO.OutputTimebins = param_get_int(ps, "OutputTimebins");
         IO.OutputHeliumFractions = param_get_int(ps, "OutputHeliumFractions");
+        param_get_string2(ps, "SnapshotFileBase", IO.SnapshotFileBase, sizeof(IO.SnapshotFileBase));
     }
     MPI_Bcast(&IO, sizeof(struct petaio_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -87,23 +89,6 @@ void petaio_init(void) {
     }
     if(IO.NumWriters == 0)
         MPI_Comm_size(MPI_COMM_WORLD, &IO.NumWriters);
-}
-
-/* save a snapshot file */
-static void petaio_save_internal(char * fname, const double atime, struct IOTable * IOTable, int verbose);
-
-void
-petaio_save_snapshot(struct IOTable * IOTable, int verbose, const double atime, const char *fmt, ...)
-{
-    va_list va;
-    va_start(va, fmt);
-
-    char * fname = fastpm_strdup_vprintf(fmt, va);
-    va_end(va);
-    message(0, "saving snapshot into %s\n", fname);
-
-    petaio_save_internal(fname, atime, IOTable, verbose);
-    myfree(fname);
 }
 
 /* Build a list of the first particle of each type on the current processor.
@@ -155,7 +140,11 @@ petaio_build_selection(int * selection,
     }
 }
 
-static void petaio_save_internal(char * fname, const double atime, struct IOTable * IOTable, int verbose) {
+void
+petaio_save_snapshot(const char * fname, struct IOTable * IOTable, int verbose, const double atime)
+{
+    message(0, "saving snapshot into %s\n", fname);
+
     BigFile bf = {0};
     if(0 != big_file_mpi_create(&bf, fname, MPI_COMM_WORLD)) {
         endrun(0, "Failed to create snapshot at %s:%s\n", fname,
@@ -373,17 +362,24 @@ void petaio_read_internal(char * fname, int ic, const double atime, MPI_Comm Com
     slots_setup_id(PartManager, SlotsManager);
 }
 
+char *
+petaio_get_snapshot_fname(int num, const char * OutputDir)
+{
+    char * fname;
+    if(num == -1) {
+        fname = fastpm_strdup_printf("%s", All.InitCondFile);
+    } else {
+        fname = fastpm_strdup_printf("%s/%s_%03d", OutputDir, IO.SnapshotFileBase, num);
+    }
+    return fname;
+}
+
 void
 petaio_read_header(int num)
 {
     BigFile bf = {0};
 
-    char * fname;
-    if(num == -1) {
-        fname = fastpm_strdup_printf("%s", All.InitCondFile);
-    } else {
-        fname = fastpm_strdup_printf("%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
-    }
+    char * fname = petaio_get_snapshot_fname(num, All.OutputDir);
     message(0, "Probing Header of snapshot file: %s\n", fname);
 
     if(0 != big_file_mpi_open(&bf, fname, MPI_COMM_WORLD)) {
@@ -431,7 +427,7 @@ petaio_read_snapshot(int num, const double atime, MPI_Comm Comm)
 
         }
     } else {
-        char * fname = fastpm_strdup_printf("%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
+        char * fname = petaio_get_snapshot_fname(num, All.OutputDir);
         /*
          * we always save the Entropy, init.c will not mess with the entropy
          * */
