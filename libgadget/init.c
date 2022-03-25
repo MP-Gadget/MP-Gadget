@@ -25,6 +25,7 @@
 #include "cosmology.h"
 #include "gravity.h"
 #include "physconst.h"
+#include "neutrinos_lra.h"
 
 /*! \file init.c
  *  \brief code for initialisation of a simulation from initial conditions
@@ -77,6 +78,10 @@ inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * 
             setup_sync_points(header->TimeSnapshot, TimeMax, header->TimeSnapshot, SnapshotWithFOF);
         }
     }
+
+    /* Get the nk and do allocation. */
+    if(CP->MassiveNuLinRespOn)
+        init_neutrinos_lra(header->neutrinonk, header->TimeIC, TimeMax, CP->Omega0, &CP->ONu, CP->UnitTime_in_s, CM_PER_MPC);
 
     /*Read the snapshot*/
     petaio_read_snapshot(RestartSnapNum, OutputDir, CP, header, PartManager, SlotsManager, MPI_COMM_WORLD);

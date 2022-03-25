@@ -230,7 +230,7 @@ struct header_data
 
     struct header_data head;
     petaio_read_header_internal(&bf, CP, &head);
-    head.neutrinonk = 0;
+    head.neutrinonk = -1;
     /* Try to read the neutrino header data from the snapshot.
      * If this fails then neutrinonk will be zero.*/
     if(num >= 0) {
@@ -272,9 +272,7 @@ petaio_read_snapshot(int num, const char * OutputDir, Cosmology * CP, struct hea
 
     /*Read neutrinos from the snapshot if necessary*/
     if(CP->MassiveNuLinRespOn) {
-        /* Get the nk and do allocation. */
-        init_neutrinos_lra(header->neutrinonk, header->TimeIC, All.TimeMax, CP->Omega0, &CP->ONu, CP->UnitTime_in_s, CM_PER_MPC);
-        /*Read the neutrino transfer function from the ICs*/
+        /*Read the neutrino transfer function from the ICs: init_neutrinos_lra should have been called before this!*/
         if(ic)
             petaio_read_icnutransfer(&bf, ThisTask);
         else
@@ -338,12 +336,13 @@ petaio_read_snapshot(int num, const char * OutputDir, Cosmology * CP, struct hea
 
     slots_reserve(0, newSlots, SlotsManager);
 
-    struct conversions conv = {0};
-    conv.atime = header->TimeSnapshot;
-    conv.hubble = hubble_function(CP, header->TimeSnapshot);
 
     /* so we can set up the memory topology of secondary slots */
     slots_setup_topology(PartManager, NLocal, SlotsManager);
+
+    struct conversions conv = {0};
+    conv.atime = header->TimeSnapshot;
+    conv.hubble = hubble_function(CP, header->TimeSnapshot);
 
     struct IOTable IOTable[1] = {0};
     /* Always try to read the metal tables.
