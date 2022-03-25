@@ -807,12 +807,12 @@ void init_cooling_and_star_formation(int CoolingOn, int StarformationOn, Cosmolo
     struct cooling_units coolunits;
     coolunits.CoolingOn = CoolingOn;
     coolunits.density_in_phys_cgs = units.UnitDensity_in_cgs * CP->HubbleParam * CP->HubbleParam;
-    coolunits.uu_in_cgs = units.UnitEnergy_in_cgs / units.UnitMass_in_g;
+    coolunits.uu_in_cgs = units.UnitInternalEnergy_in_cgs;
     coolunits.tt_in_s = units.UnitTime_in_s / CP->HubbleParam;
     /* Get mean cosmic baryon density for photoheating rate from long mean free path photons */
     coolunits.rho_crit_baryon = 3 * pow(CP->HubbleParam * HUBBLE,2) * CP->OmegaBaryon / (8 * M_PI * GRAVITY);
 
-    sfr_params.temp_to_u = (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) / coolunits.uu_in_cgs;
+    sfr_params.temp_to_u = (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) / units.UnitInternalEnergy_in_cgs;
 
     sfr_params.UnitSfr_in_solar_per_year = (units.UnitMass_in_g / SOLAR_MASS) / (units.UnitTime_in_s / SEC_PER_YEAR);
 
