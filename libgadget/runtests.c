@@ -83,15 +83,11 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3
 }
 
 /* Run various checks on the gravity code. Check that the short-range/long-range force split is working.*/
-void runtests(int RestartSnapNum, struct header_data * header)
+void runtests(const int RestartSnapNum, const inttime_t Ti_Current)
 {
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
     DomainDecomp ddecomp[1] = {0};
-    /* So we can run a test on the final snapshot*/
-    All.TimeMax = All.TimeInit * 1.1;
-
-    inttime_t Ti_Current = init(RestartSnapNum, All.OutputDir, header, All.PartAllocFactor, All.TimeMax, &All.CP, All.SnapshotWithFOF);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
@@ -202,14 +198,12 @@ void runtests(int RestartSnapNum, struct header_data * header)
 }
 
 void
-runfof(int RestartSnapNum, struct header_data * header)
+runfof(const int RestartSnapNum, const inttime_t Ti_Current)
 {
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
-
-    inttime_t Ti_Current = init(RestartSnapNum, All.OutputDir, header, All.PartAllocFactor, All.TimeMax, &All.CP, All.SnapshotWithFOF);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
@@ -219,7 +213,7 @@ runfof(int RestartSnapNum, struct header_data * header)
 
     DriftKickTimes times = init_driftkicktime(Ti_Current);
     /*FoF needs a tree*/
-    int HybridNuGrav = hybrid_nu_tracer(&All.CP, header->TimeSnapshot);
+    int HybridNuGrav = hybrid_nu_tracer(&All.CP, All.TimeInit);
     /* Regenerate the star formation rate for the FOF table.*/
     if(All.StarformationOn) {
         ActiveParticles Act = {0};
@@ -237,24 +231,22 @@ runfof(int RestartSnapNum, struct header_data * header)
             slots_free_sph_pred_data(&sph_predicted);
         }
         ForceTree Tree = {0};
-        cooling_and_starformation(&Act, header->TimeSnapshot, 0, &Tree, &All.CP, GradRho, NULL);
+        cooling_and_starformation(&Act, All.TimeInit, 0, &Tree, &All.CP, GradRho, NULL);
         if(GradRho)
             myfree(GradRho);
     }
     FOFGroups fof = fof_fof(ddecomp, 1, MPI_COMM_WORLD);
-    fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, RestartSnapNum, All.PartAllocFactor, &All.CP, header->TimeSnapshot, All.MassTable, All.MetalReturnOn, All.BlackHoleOn, MPI_COMM_WORLD);
+    fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, RestartSnapNum, All.PartAllocFactor, &All.CP, All.TimeInit, All.MassTable, All.MetalReturnOn, All.BlackHoleOn, MPI_COMM_WORLD);
     fof_finish(&fof);
 }
 
 void
-runpower(int RestartSnapNum, struct header_data * header)
+runpower(const int RestartSnapNum, const inttime_t Ti_Current)
 {
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
-
-    inttime_t Ti_Current = init(RestartSnapNum, All.OutputDir, header, All.PartAllocFactor, All.TimeMax, &All.CP, All.SnapshotWithFOF);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
@@ -263,8 +255,8 @@ runpower(int RestartSnapNum, struct header_data * header)
 
     /*PM needs a tree*/
     ForceTree Tree = {0};
-    int HybridNuGrav = hybrid_nu_tracer(&All.CP, header->TimeSnapshot);
+    int HybridNuGrav = hybrid_nu_tracer(&All.CP, All.TimeInit);
     force_tree_rebuild(&Tree, ddecomp, HybridNuGrav, 1, All.OutputDir);
-    gravpm_force(&pm, &Tree, &All.CP, header->TimeSnapshot, All.units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType, 1);
+    gravpm_force(&pm, &Tree, &All.CP, All.TimeInit, All.units.UnitLength_in_cm, All.OutputDir, All.TimeInit, All.FastParticleType, 1);
     force_tree_free(&Tree);
 }

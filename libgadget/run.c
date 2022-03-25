@@ -32,6 +32,7 @@
 #include "cooling_qso_lightup.h"
 #include "lightcone.h"
 #include "timefac.h"
+#include "neutrinos_lra.h"
 
 /* stats.c only used here */
 void energy_statistics(FILE * FdEnergy, const double Time,  struct part_manager_type * PartManager);
@@ -53,7 +54,7 @@ static void write_cpu_log(int NumCurrentTiStep, const double atime, FILE * FdCPU
 /* Updates the global storing the current random offset of the particles,
  * and stores the relative offset from the last random offset in rel_random_shift*/
 static void update_random_offset(double * rel_random_shift);
-static void check_units(Cosmology * CP, const struct UnitSystem units);
+static void check_units(const Cosmology * CP, const struct UnitSystem units);
 
 static void
 open_outputfiles(int RestartSnapNum);
@@ -151,8 +152,8 @@ set_all_global_params(ParameterSet * ps)
  *  parameterfile is set, then routines for setting units, reading
  *  ICs/restart-files are called, auxialiary memory is allocated, etc.
  */
-struct header_data
-begrun(int RestartFlag, int RestartSnapNum)
+inttime_t
+begrun(const int RestartFlag, int RestartSnapNum)
 {
     if(RestartFlag == 1) {
         RestartSnapNum = find_last_snapnum(All.OutputDir);
@@ -188,6 +189,9 @@ begrun(int RestartFlag, int RestartSnapNum)
         slots_set_enabled(5, sizeof(struct bh_particle_data), SlotsManager);
 
     All.units = get_unitsystem(head.UnitLength_in_cm, head.UnitMass_in_g, head.UnitVelocity_in_cm_per_s);
+    /* convert some physical input parameters to internal units */
+    init_cosmology(&All.CP, All.TimeIC, All.units);
+
     check_units(&All.CP, All.units);
 
 #ifdef DEBUG
@@ -210,7 +214,16 @@ begrun(int RestartFlag, int RestartSnapNum)
     if(All.LightconeOn)
         lightcone_init(&All.CP, All.TimeInit, All.units.UnitLength_in_cm, All.OutputDir);
 
-    return head;
+    init_timeline(RestartSnapNum, All.TimeMax, &head, All.SnapshotWithFOF);
+
+    /* Get the nk and do allocation. */
+    if(All.CP.MassiveNuLinRespOn)
+        init_neutrinos_lra(head.neutrinonk, head.TimeIC, All.TimeMax, All.CP.Omega0, &All.CP.ONu, All.CP.UnitTime_in_s, CM_PER_MPC);
+
+    /* ... read initial model and initialise the times*/
+    inttime_t ti_init = init(RestartSnapNum, All.OutputDir, &head, All.PartAllocFactor, &All.CP);
+
+    return ti_init;
 }
 
 /* Small function to decide - collectively - whether to use pairwise gravity this step*/
@@ -232,7 +245,7 @@ use_pairwise_gravity(ActiveParticles * Act, struct part_manager_type * PartManag
  * when the simulation ends because we arrived at TimeMax.
  */
 void
-run(int RestartSnapNum, struct header_data * header)
+run(const int RestartSnapNum, const inttime_t ti_init)
 {
     /*Number of timesteps performed this run*/
     int NumCurrentTiStep = 0;
@@ -242,9 +255,6 @@ run(int RestartSnapNum, struct header_data * header)
     int SnapshotFileCount = RestartSnapNum;
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
-
-    /* ... read initial model and initialise the times*/
-    inttime_t ti_init = init(RestartSnapNum, All.OutputDir, header, All.PartAllocFactor, All.TimeMax, &All.CP, All.SnapshotWithFOF);
 
     DriftKickTimes times = init_driftkicktime(ti_init);
 
@@ -739,12 +749,8 @@ close_outputfiles(void)
  *  cgs-system.
  */
 static void
-check_units(Cosmology * CP, const struct UnitSystem units)
+check_units(const Cosmology * CP, const struct UnitSystem units)
 {
-
-    /* convert some physical input parameters to internal units */
-    init_cosmology(CP, All.TimeIC, units);
-
     /* Detect cosmologies that are likely to be typos in the parameter files*/
     if(CP->HubbleParam < 0.1 || CP->HubbleParam > 10 ||
         CP->OmegaLambda < 0 || CP->OmegaBaryon < 0 || CP->OmegaG < 0 || CP->OmegaCDM < 0)

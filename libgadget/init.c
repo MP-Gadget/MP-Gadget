@@ -25,7 +25,6 @@
 #include "cosmology.h"
 #include "gravity.h"
 #include "physconst.h"
-#include "neutrinos_lra.h"
 
 /*! \file init.c
  *  \brief code for initialisation of a simulation from initial conditions
@@ -75,20 +74,12 @@ static void check_positions(struct part_manager_type * PartManager);
 static void check_smoothing_length(struct part_manager_type * PartManager, double * MeanSpacing);
 static void init_alloc_particle_slot_memory(struct part_manager_type * PartManager, struct slots_manager_type * SlotsManager, const double PartAllocFactor, struct header_data * header, MPI_Comm Comm);
 
-/*! This function reads the initial conditions, and allocates storage for the
- *  tree(s). Various variables of the particle data are initialised and An
- *  intial domain decomposition is performed. If SPH particles are present,
- *  the initial SPH smoothing lengths are determined.
+/*! This function reads the initial conditions, allocates storage for the
+ *  particle data, validates and initialises the particle data.
  */
-inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * header, const double PartAllocFactor, double TimeMax, Cosmology * CP, const int SnapshotWithFOF)
+inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * header, const double PartAllocFactor, Cosmology * CP)
 {
     int i;
-
-    init_timeline(RestartSnapNum, TimeMax, header, SnapshotWithFOF);
-
-    /* Get the nk and do allocation. */
-    if(CP->MassiveNuLinRespOn)
-        init_neutrinos_lra(header->neutrinonk, header->TimeIC, TimeMax, CP->Omega0, &CP->ONu, CP->UnitTime_in_s, CM_PER_MPC);
 
     init_alloc_particle_slot_memory(PartManager, SlotsManager, PartAllocFactor, header, MPI_COMM_WORLD);
 

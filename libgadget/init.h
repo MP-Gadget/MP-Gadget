@@ -7,7 +7,7 @@
 #include "petaio.h"
 
 /* Loads and validates a particle table and initialise properties of the particle distribution.*/
-inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * header, const double PartAllocFactor, double TimeMax, Cosmology * CP, const int SnapshotWithFOF);
+inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * header, const double PartAllocFactor, Cosmology * CP);
 
 /* Finds smoothing lengths and the energy weighted density*/
 void setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * CP, int BlackHoleOn, double MinEgySpec, double uu_in_cgs, const inttime_t Ti_Current, const double atime, const int64_t NTotGasInit);
