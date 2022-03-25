@@ -43,9 +43,6 @@ extern struct global_data_all_processes
                                   * long period of time. Upstream Arepo says this substantially improves momentum conservation,
                                   * and it has the side-effect of guarding against periodicity bugs.
                                   */
-    /* some SPH parameters */
-    double MinEgySpec; /* Minimum internal energy for timestepping, converted from MinGasTemp*/
-
     /* system of units  */
     struct UnitSystem units;
 

@@ -205,8 +205,6 @@ begrun(const int RestartFlag, int RestartSnapNum)
 
     init_cooling_and_star_formation(All.CoolingOn, All.StarformationOn, &All.CP, All.MassTable[0], All.BoxSize, All.units);
 
-    All.MinEgySpec = get_MinEgySpec();
-
     gravshort_fill_ntab(All.ShortRangeForceWindowType, All.Asmth);
 
     set_random_numbers(All.RandomSeed);
@@ -261,8 +259,10 @@ run(const int RestartSnapNum, const inttime_t ti_init)
     DomainDecomp ddecomp[1] = {0};
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
+    const double MinEgySpec = get_MinEgySpec();
+
     if(All.DensityOn)
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, All.units.UnitInternalEnergy_in_cgs, ti_init, All.TimeInit, All.NTotalInit[0]);
+        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, MinEgySpec, All.units.UnitInternalEnergy_in_cgs, ti_init, All.TimeInit, All.NTotalInit[0]);
 
     /* Stored scale factor of the next black hole seeding check*/
     double TimeNextSeedingCheck = All.TimeInit;
@@ -381,7 +381,7 @@ run(const int RestartSnapNum, const inttime_t ti_init)
             struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
 
             if(All.DensityOn)
-                density(&Act, 1, DensityIndependentSphOn(), All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, &Tree);  /* computes density, and pressure */
+                density(&Act, 1, DensityIndependentSphOn(), All.BlackHoleOn, MinEgySpec, times, &All.CP, &sph_predicted, GradRho, &Tree);  /* computes density, and pressure */
 
             /***** update smoothing lengths in tree *****/
             force_update_hmax(Act.ActiveParticle, Act.NumActiveParticle, &Tree, ddecomp);
@@ -390,7 +390,7 @@ run(const int RestartSnapNum, const inttime_t ti_init)
 
             /* adds hydrodynamical accelerations  and computes du/dt  */
             if(All.HydroOn)
-                hydro_force(&Act, atime, &sph_predicted, All.MinEgySpec, times, &All.CP, &Tree);
+                hydro_force(&Act, atime, &sph_predicted, MinEgySpec, times, &All.CP, &Tree);
 
             /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
             slots_free_sph_pred_data(&sph_predicted);
@@ -444,7 +444,7 @@ run(const int RestartSnapNum, const inttime_t ti_init)
         }
 
         /* Need a scale factor for entropy and velocity limiters*/
-        apply_half_kick(&Act, &All.CP, &times, atime, All.MinEgySpec);
+        apply_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
 
         /* Cooling and extra physics show up as a source term in the evolution equations.
          * Formally you can write the structure of the partial differential equations:
@@ -586,7 +586,7 @@ run(const int RestartSnapNum, const inttime_t ti_init)
         }
 
         /* Update velocity and ti_kick to the new step, with the newly computed step size */
-        apply_half_kick(&Act, &All.CP, &times, atime, All.MinEgySpec);
+        apply_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
 
         if(is_PM) {
             apply_PM_half_kick(&All.CP, &times);

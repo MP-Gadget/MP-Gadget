@@ -219,7 +219,7 @@ runfof(const int RestartSnapNum, const inttime_t Ti_Current)
             struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
             force_tree_rebuild(&gasTree, ddecomp, HybridNuGrav, 0, All.OutputDir);
             /* computes GradRho with a treewalk. No hsml update as we are reading from a snapshot.*/
-            density(&Act, 0, 0, All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, &gasTree);
+            density(&Act, 0, 0, All.BlackHoleOn, get_MinEgySpec(), times, &All.CP, &sph_predicted, GradRho, &gasTree);
             force_tree_free(&gasTree);
             slots_free_sph_pred_data(&sph_predicted);
         }
