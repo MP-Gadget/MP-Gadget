@@ -5,6 +5,7 @@
 #include <math.h>
 #include <string.h>
 #include <stdarg.h>
+#include <omp.h>
 
 #include <bigfile-mpi.h>
 
