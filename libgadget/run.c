@@ -261,10 +261,8 @@ run(const int RestartSnapNum, const inttime_t ti_init)
     DomainDecomp ddecomp[1] = {0};
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
-    if(All.DensityOn) {
-        double uu_in_cgs = All.units.UnitEnergy_in_cgs / All.units.UnitMass_in_g;
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, uu_in_cgs, ti_init, All.TimeInit, All.NTotalInit[0]);
-    }
+    if(All.DensityOn)
+        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, All.units.UnitInternalEnergy_in_cgs, ti_init, All.TimeInit, All.NTotalInit[0]);
 
     /* Stored scale factor of the next black hole seeding check*/
     double TimeNextSeedingCheck = All.TimeInit;
@@ -275,7 +273,7 @@ run(const int RestartSnapNum, const inttime_t ti_init)
 
     write_cpu_log(NumCurrentTiStep, All.TimeInit, FdCPU); /* produce some CPU usage info */
 
-    double atime = set_global_time(times.Ti_Current);
+    double atime = get_atime(times.Ti_Current);
 
     while(1) /* main loop */
     {
@@ -291,7 +289,7 @@ run(const int RestartSnapNum, const inttime_t ti_init)
         times.Ti_Current = Ti_Next;
 
         /*Convert back to floating point time*/
-        double newatime = set_global_time(times.Ti_Current);
+        double newatime = get_atime(times.Ti_Current);
         if(newatime < atime)
             endrun(1, "Negative timestep: %g New Time: %g Old time %g!\n", newatime - atime, newatime, atime);
         atime = newatime;

@@ -165,7 +165,7 @@ is_PM_timestep(const DriftKickTimes * const times)
 }
 
 double
-set_global_time(const inttime_t Ti_Current) {
+get_atime(const inttime_t Ti_Current) {
     return exp(loga_from_ti(Ti_Current));
 }
 
