@@ -48,20 +48,8 @@ set_init_params(ParameterSet * ps)
     MPI_Bcast(&InitParams, sizeof(InitParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
-static void get_mean_separation(double * MeanSeparation, const double BoxSize, const int64_t * NTotalInit);
-static void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int generations, double G, double * MassTable);
-static void check_positions(struct part_manager_type * PartManager);
-static void check_smoothing_length(struct part_manager_type * PartManager, double * MeanSpacing);
-
-/*! This function reads the initial conditions, and allocates storage for the
- *  tree(s). Various variables of the particle data are initialised and An
- *  intial domain decomposition is performed. If SPH particles are present,
- *  the initial SPH smoothing lengths are determined.
- */
-inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * header, double TimeMax, Cosmology * CP, int SnapshotWithFOF)
+void init_timeline(int RestartSnapNum, double TimeMax, const struct header_data * header, const int SnapshotWithFOF)
 {
-    int i;
-
     /*Add TimeInit and TimeMax to the output list*/
     if (RestartSnapNum < 0) {
         /* allow a first snapshot at IC time; */
@@ -78,10 +66,31 @@ inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * 
             setup_sync_points(header->TimeSnapshot, TimeMax, header->TimeSnapshot, SnapshotWithFOF);
         }
     }
+}
+
+
+static void get_mean_separation(double * MeanSeparation, const double BoxSize, const int64_t * NTotalInit);
+static void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int generations, double G, double * MassTable);
+static void check_positions(struct part_manager_type * PartManager);
+static void check_smoothing_length(struct part_manager_type * PartManager, double * MeanSpacing);
+static void init_alloc_particle_slot_memory(struct part_manager_type * PartManager, struct slots_manager_type * SlotsManager, const double PartAllocFactor, struct header_data * header, MPI_Comm Comm);
+
+/*! This function reads the initial conditions, and allocates storage for the
+ *  tree(s). Various variables of the particle data are initialised and An
+ *  intial domain decomposition is performed. If SPH particles are present,
+ *  the initial SPH smoothing lengths are determined.
+ */
+inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * header, const double PartAllocFactor, double TimeMax, Cosmology * CP, const int SnapshotWithFOF)
+{
+    int i;
+
+    init_timeline(RestartSnapNum, TimeMax, header, SnapshotWithFOF);
 
     /* Get the nk and do allocation. */
     if(CP->MassiveNuLinRespOn)
         init_neutrinos_lra(header->neutrinonk, header->TimeIC, TimeMax, CP->Omega0, &CP->ONu, CP->UnitTime_in_s, CM_PER_MPC);
+
+    init_alloc_particle_slot_memory(PartManager, SlotsManager, PartAllocFactor, header, MPI_COMM_WORLD);
 
     /*Read the snapshot*/
     petaio_read_snapshot(RestartSnapNum, OutputDir, CP, header, PartManager, SlotsManager, MPI_COMM_WORLD);
@@ -212,6 +221,76 @@ void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int gen
         endrun(0, "The mass content accounts only for Omega=%g,\nbut you specified Omega=%g in the parameterfile.\n",
                 omega, CP->Omega0);
     }
+}
+
+/* Allocate the memory for particles and slots. First the total amount of particles are counted, then allocations are made*/
+static void
+init_alloc_particle_slot_memory(struct part_manager_type * PartManager, struct slots_manager_type * SlotsManager, const double PartAllocFactor, struct header_data * header, MPI_Comm Comm)
+{
+    int NTask, ThisTask;
+    MPI_Comm_size(Comm, &NTask);
+    MPI_Comm_rank(Comm, &ThisTask);
+
+    int ptype;
+
+    int64_t TotNumPart = 0;
+    int64_t TotNumPartInit= 0;
+    for(ptype = 0; ptype < 6; ptype ++) {
+        TotNumPart += header->NTotal[ptype];
+        TotNumPartInit += header->NTotalInit[ptype];
+    }
+
+    message(0, "Total number of particles: %018ld\n", TotNumPart);
+
+    const char * PARTICLE_TYPE_NAMES [] = {"Gas", "DarkMatter", "Neutrino", "Unknown", "Star", "BlackHole"};
+
+    for(ptype = 0; ptype < 6; ptype ++) {
+        double MeanSeparation = header->BoxSize / pow(header->NTotalInit[ptype], 1.0 / 3);
+        message(0, "% 11s: Total: %018ld Init: %018ld Mean-Sep %g \n",
+                PARTICLE_TYPE_NAMES[ptype], header->NTotal[ptype], header->NTotalInit[ptype], MeanSeparation);
+    }
+
+    /* sets the maximum number of particles that may reside on a processor */
+    int MaxPart = (int) (PartAllocFactor * TotNumPartInit / NTask);
+
+    /*Allocate the particle memory*/
+    particle_alloc_memory(PartManager, header->BoxSize, MaxPart);
+
+    for(ptype = 0; ptype < 6; ptype ++) {
+        int64_t start = ThisTask * header->NTotal[ptype] / NTask;
+        int64_t end = (ThisTask + 1) * header->NTotal[ptype] / NTask;
+        header->NLocal[ptype] = end - start;
+        PartManager->NumPart += header->NLocal[ptype];
+    }
+
+    /* Allocate enough memory for stars and black holes.
+     * This will be dynamically increased as needed.*/
+
+    if(PartManager->NumPart >= PartManager->MaxPart) {
+        endrun(1, "Overwhelmed by part: %ld > %ld\n", PartManager->NumPart, PartManager->MaxPart);
+    }
+
+    /* Now allocate memory for the secondary particle data arrays.
+     * This may be dynamically resized later!*/
+
+    /*Ensure all processors have initially the same number of particle slots*/
+    int64_t newSlots[6] = {0};
+
+    /* Can't use MPI_IN_PLACE, which is broken for arrays and MPI_MAX at least on intel mpi 19.0.5*/
+    MPI_Allreduce(header->NLocal, newSlots, 6, MPI_INT64, MPI_MAX, Comm);
+
+    for(ptype = 0; ptype < 6; ptype ++) {
+            newSlots[ptype] *= PartAllocFactor;
+    }
+    /* Boost initial amount of stars allocated, as it is often uneven.
+     * The total number of stars is usually small so this doesn't
+     * waste that much memory*/
+    newSlots[4] *= 2;
+
+    slots_reserve(0, newSlots, SlotsManager);
+
+    /* so we can set up the memory topology of secondary slots */
+    slots_setup_topology(PartManager, header->NLocal, SlotsManager);
 }
 
 /*! This routine checks that the initial positions of the particles are within the box.

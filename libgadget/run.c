@@ -209,6 +209,7 @@ begrun(int RestartFlag, int RestartSnapNum)
 
     if(All.LightconeOn)
         lightcone_init(&All.CP, All.TimeInit, All.units.UnitLength_in_cm, All.OutputDir);
+
     return head;
 }
 
@@ -243,7 +244,7 @@ run(int RestartSnapNum, struct header_data * header)
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
 
     /* ... read initial model and initialise the times*/
-    inttime_t ti_init = init(RestartSnapNum, All.OutputDir, header, All.TimeMax, &All.CP, All.SnapshotWithFOF);
+    inttime_t ti_init = init(RestartSnapNum, All.OutputDir, header, All.PartAllocFactor, All.TimeMax, &All.CP, All.SnapshotWithFOF);
 
     DriftKickTimes times = init_driftkicktime(ti_init);
 

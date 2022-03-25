@@ -8,7 +8,6 @@
 
 #include <bigfile-mpi.h>
 
-#include "allvars.h"
 #include "sfr_eff.h"
 #include "cooling.h"
 #include "timestep.h"
@@ -255,15 +254,10 @@ void
 petaio_read_snapshot(int num, const char * OutputDir, Cosmology * CP, struct header_data * header, struct part_manager_type * PartManager, struct slots_manager_type * SlotsManager, MPI_Comm Comm)
 {
     char * fname = petaio_get_snapshot_fname(num, OutputDir);
-    int ptype;
     int i;
     const int ic = (num == -1);
     BigFile bf = {0};
     message(0, "Reading snapshot %s\n", fname);
-
-    int NTask, ThisTask;
-    MPI_Comm_size(Comm, &NTask);
-    MPI_Comm_rank(Comm, &ThisTask);
 
     if(0 != big_file_mpi_open(&bf, fname, Comm)) {
         endrun(0, "Failed to open snapshot at %s:%s\n", fname,
@@ -272,73 +266,14 @@ petaio_read_snapshot(int num, const char * OutputDir, Cosmology * CP, struct hea
 
     /*Read neutrinos from the snapshot if necessary*/
     if(CP->MassiveNuLinRespOn) {
+        int ThisTask;
+        MPI_Comm_rank(Comm, &ThisTask);
         /*Read the neutrino transfer function from the ICs: init_neutrinos_lra should have been called before this!*/
         if(ic)
             petaio_read_icnutransfer(&bf, ThisTask);
         else
             petaio_read_neutrinos(&bf, ThisTask);
     }
-
-    int64_t TotNumPart = 0;
-    int64_t TotNumPartInit= 0;
-    for(ptype = 0; ptype < 6; ptype ++) {
-        TotNumPart += header->NTotal[ptype];
-        TotNumPartInit += header->NTotalInit[ptype];
-    }
-
-    message(0, "Total number of particles: %018ld\n", TotNumPart);
-
-    const char * PARTICLE_TYPE_NAMES [] = {"Gas", "DarkMatter", "Neutrino", "Unknown", "Star", "BlackHole"};
-
-    for(ptype = 0; ptype < 6; ptype ++) {
-        double MeanSeparation = header->BoxSize / pow(header->NTotalInit[ptype], 1.0 / 3);
-        message(0, "% 11s: Total: %018ld Init: %018ld Mean-Sep %g \n",
-                PARTICLE_TYPE_NAMES[ptype], header->NTotal[ptype], header->NTotalInit[ptype], MeanSeparation);
-    }
-
-    /* sets the maximum number of particles that may reside on a processor */
-    int MaxPart = (int) (All.PartAllocFactor * TotNumPartInit / NTask);
-
-    /*Allocate the particle memory*/
-    particle_alloc_memory(PartManager, header->BoxSize, MaxPart);
-
-    int64_t NLocal[6];
-    for(ptype = 0; ptype < 6; ptype ++) {
-        int64_t start = ThisTask * header->NTotal[ptype] / NTask;
-        int64_t end = (ThisTask + 1) * header->NTotal[ptype] / NTask;
-        NLocal[ptype] = end - start;
-        PartManager->NumPart += NLocal[ptype];
-    }
-
-    /* Allocate enough memory for stars and black holes.
-     * This will be dynamically increased as needed.*/
-
-    if(PartManager->NumPart >= PartManager->MaxPart) {
-        endrun(1, "Overwhelmed by part: %ld > %ld\n", PartManager->NumPart, PartManager->MaxPart);
-    }
-
-    /* Now allocate memory for the secondary particle data arrays.
-     * This may be dynamically resized later!*/
-
-    /*Ensure all processors have initially the same number of particle slots*/
-    int64_t newSlots[6] = {0};
-
-    /* Can't use MPI_IN_PLACE, which is broken for arrays and MPI_MAX at least on intel mpi 19.0.5*/
-    MPI_Allreduce(NLocal, newSlots, 6, MPI_INT64, MPI_MAX, Comm);
-
-    for(ptype = 0; ptype < 6; ptype ++) {
-            newSlots[ptype] *= All.PartAllocFactor;
-    }
-    /* Boost initial amount of stars allocated, as it is often uneven.
-     * The total number of stars is usually small so this doesn't
-     * waste that much memory*/
-    newSlots[4] *= 2;
-
-    slots_reserve(0, newSlots, SlotsManager);
-
-
-    /* so we can set up the memory topology of secondary slots */
-    slots_setup_topology(PartManager, NLocal, SlotsManager);
 
     struct conversions conv = {0};
     conv.atime = header->TimeSnapshot;
@@ -378,7 +313,7 @@ petaio_read_snapshot(int num, const char * OutputDir, Cosmology * CP, struct hea
             continue;
         }
         sprintf(blockname, "%d/%s", ptype, IOTable->ent[i].name);
-        petaio_alloc_buffer(&array, &IOTable->ent[i], NLocal[ptype]);
+        petaio_alloc_buffer(&array, &IOTable->ent[i], header->NLocal[ptype]);
         if(0 == petaio_read_block(&bf, blockname, &array, IOTable->ent[i].required))
             petaio_readout_buffer(&array, &IOTable->ent[i], &conv, PartManager, SlotsManager);
         petaio_destroy_buffer(&array);

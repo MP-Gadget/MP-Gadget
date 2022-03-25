@@ -91,7 +91,7 @@ void runtests(int RestartSnapNum, struct header_data * header)
     /* So we can run a test on the final snapshot*/
     All.TimeMax = All.TimeInit * 1.1;
 
-    inttime_t Ti_Current = init(RestartSnapNum, All.OutputDir, header, All.TimeMax, &All.CP, All.SnapshotWithFOF);
+    inttime_t Ti_Current = init(RestartSnapNum, All.OutputDir, header, All.PartAllocFactor, All.TimeMax, &All.CP, All.SnapshotWithFOF);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
@@ -209,7 +209,7 @@ runfof(int RestartSnapNum, struct header_data * header)
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
 
-    inttime_t Ti_Current = init(RestartSnapNum, All.OutputDir, header, All.TimeMax, &All.CP, All.SnapshotWithFOF);
+    inttime_t Ti_Current = init(RestartSnapNum, All.OutputDir, header, All.PartAllocFactor, All.TimeMax, &All.CP, All.SnapshotWithFOF);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
@@ -254,7 +254,7 @@ runpower(int RestartSnapNum, struct header_data * header)
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
 
-    inttime_t Ti_Current = init(RestartSnapNum, All.OutputDir, header, All.TimeMax, &All.CP, All.SnapshotWithFOF);
+    inttime_t Ti_Current = init(RestartSnapNum, All.OutputDir, header, All.PartAllocFactor, All.TimeMax, &All.CP, All.SnapshotWithFOF);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 

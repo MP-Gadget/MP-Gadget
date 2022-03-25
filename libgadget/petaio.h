@@ -12,6 +12,8 @@
 /* Struct to store information written to each snapshot header. */
 struct header_data
 {
+    /* Local particle counts to be read onto this processor.*/
+    int64_t NLocal[6];
     /* Total particle counts in this snapshot*/
     int64_t NTotal[6];
     /* Total particle counts initially*/
