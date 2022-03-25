@@ -91,9 +91,6 @@ void runtests(const int RestartSnapNum, const inttime_t Ti_Current)
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
-    if(All.DensityOn)
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, All.units.UnitInternalEnergy_in_cgs, Ti_Current, All.TimeInit, All.NTotalInit[0]);
-
     struct IOTable IOTable = {0};
     /* NO metals written*/
     register_io_blocks(&IOTable, 0, 0);
@@ -207,10 +204,6 @@ runfof(const int RestartSnapNum, const inttime_t Ti_Current)
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
-    if(All.DensityOn) {
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, All.units.UnitInternalEnergy_in_cgs, Ti_Current, All.TimeInit, All.NTotalInit[0]);
-    }
-
     DriftKickTimes times = init_driftkicktime(Ti_Current);
     /*FoF needs a tree*/
     int HybridNuGrav = hybrid_nu_tracer(&All.CP, All.TimeInit);
@@ -225,7 +218,7 @@ runfof(const int RestartSnapNum, const inttime_t Ti_Current)
             /*Allocate the memory for predicted SPH data.*/
             struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
             force_tree_rebuild(&gasTree, ddecomp, HybridNuGrav, 0, All.OutputDir);
-            /* computes GradRho with a treewalk. No hsml update as done in init().*/
+            /* computes GradRho with a treewalk. No hsml update as we are reading from a snapshot.*/
             density(&Act, 0, 0, All.BlackHoleOn, All.MinEgySpec, times, &All.CP, &sph_predicted, GradRho, &gasTree);
             force_tree_free(&gasTree);
             slots_free_sph_pred_data(&sph_predicted);
@@ -241,17 +234,13 @@ runfof(const int RestartSnapNum, const inttime_t Ti_Current)
 }
 
 void
-runpower(const int RestartSnapNum, const inttime_t Ti_Current)
+runpower(void)
 {
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
-
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
-
-    if(All.DensityOn)
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, All.units.UnitInternalEnergy_in_cgs, Ti_Current, All.TimeInit, All.NTotalInit[0]);
 
     /*PM needs a tree*/
     ForceTree Tree = {0};

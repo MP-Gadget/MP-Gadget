@@ -11,7 +11,7 @@ void runtests(const int RestartSnapNum, const inttime_t Ti_init);
 /* Compute a FOF table and exit*/
 void runfof(const int RestartSnapNum, const inttime_t Ti_init);
 /* Compute a power spectrum and exit*/
-void runpower(const int RestartSnapNum, const inttime_t Ti_init);
+void runpower(void);
 
 /* Sets up the global_data_all_processes*/
 void set_all_global_params(ParameterSet * ps);

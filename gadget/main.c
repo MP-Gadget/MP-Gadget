@@ -124,7 +124,7 @@ int main(int argc, char **argv)
             runfof(RestartSnapNum, ti_init);
             break;
         case 4:
-            runpower(RestartSnapNum, ti_init);
+            runpower();
             break;
         case 99:
             runtests(RestartSnapNum, ti_init);
