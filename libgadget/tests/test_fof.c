@@ -33,7 +33,7 @@ setup_particles(int NumPart, double BoxSize)
     gsl_rng * r = gsl_rng_alloc(gsl_rng_mt19937);
     gsl_rng_set(r, 0);
 
-    particle_alloc_memory(BoxSize, 1.5 * NumPart);
+    particle_alloc_memory(PartManager, BoxSize, 1.5 * NumPart);
     PartManager->NumPart = NumPart;
 
     int i;

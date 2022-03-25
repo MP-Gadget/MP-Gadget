@@ -53,9 +53,7 @@ static void write_cpu_log(int NumCurrentTiStep, const double atime, FILE * FdCPU
 /* Updates the global storing the current random offset of the particles,
  * and stores the relative offset from the last random offset in rel_random_shift*/
 static void update_random_offset(double * rel_random_shift);
-static void set_units();
-/* Construct a unit system struct*/
-static struct UnitSystem get_unitsystem(void);
+static void check_units(Cosmology * CP, const struct UnitSystem units);
 
 static void
 open_outputfiles(int RestartSnapNum);
@@ -129,14 +127,14 @@ set_all_global_params(ParameterSet * ps)
         All.MaxDomainTimeBinDepth = param_get_int(ps, "MaxDomainTimeBinDepth");
 
         /*Massive neutrino parameters*/
-        All.MassiveNuLinRespOn = param_get_int(ps, "MassiveNuLinRespOn");
-        All.HybridNeutrinosOn = param_get_int(ps, "HybridNeutrinosOn");
+        All.CP.MassiveNuLinRespOn = param_get_int(ps, "MassiveNuLinRespOn");
+        All.CP.HybridNeutrinosOn = param_get_int(ps, "HybridNeutrinosOn");
         All.CP.MNu[0] = param_get_double(ps, "MNue");
         All.CP.MNu[1] = param_get_double(ps, "MNum");
         All.CP.MNu[2] = param_get_double(ps, "MNut");
-        All.HybridVcrit = param_get_double(ps, "Vcrit");
-        All.HybridNuPartTime = param_get_double(ps, "NuPartTime");
-        if(All.MassiveNuLinRespOn && !All.CP.RadiationOn)
+        All.CP.HybridVcrit = param_get_double(ps, "Vcrit");
+        All.CP.HybridNuPartTime = param_get_double(ps, "NuPartTime");
+        if(All.CP.MassiveNuLinRespOn && !All.CP.RadiationOn)
             endrun(2, "You have enabled (kspace) massive neutrinos without radiation, but this will give an inconsistent cosmology!\n");
         /*End massive neutrino parameters*/
 
@@ -153,7 +151,8 @@ set_all_global_params(ParameterSet * ps)
  *  parameterfile is set, then routines for setting units, reading
  *  ICs/restart-files are called, auxialiary memory is allocated, etc.
  */
-int begrun(int RestartFlag, int RestartSnapNum)
+struct header_data
+begrun(int RestartFlag, int RestartSnapNum)
 {
     if(RestartFlag == 1) {
         RestartSnapNum = find_last_snapnum(All.OutputDir);
@@ -167,13 +166,14 @@ int begrun(int RestartFlag, int RestartSnapNum)
     walltime_init(&Clocks);
 
     struct header_data head = petaio_read_header(RestartSnapNum, All.OutputDir, &All.CP);
-    All.UnitLength_in_cm = head.UnitLength_in_cm;
     All.BoxSize = head.BoxSize;
-    All.MassTable = head.MassTable;
-    head.NTotalInit;
-    head.TimeIC;
-    head.UnitMass_in_g;
-    head.UnitVelocity_in_cm_per_s;
+    memcpy(All.MassTable, head.MassTable, 6 * sizeof(double));
+    memcpy(All.NTotalInit, head.NTotalInit, 6 * sizeof(double));
+    All.TimeIC = head.TimeIC;
+    All.TimeInit = head.TimeSnapshot;
+    /*Set Nmesh to triple the mean grid spacing of the dark matter by default.*/
+    if(All.Nmesh  < 0)
+        All.Nmesh = 3*pow(2, (int)(log(head.NTotal[1])/3./log(2)) );
 
     slots_init(All.SlotsIncreaseFactor * PartManager->MaxPart, SlotsManager);
     /* Enable the slots: stars and BHs are allocated if there are some,
@@ -185,7 +185,8 @@ int begrun(int RestartFlag, int RestartSnapNum)
     if(All.BlackHoleOn || All.NTotalInit[5] > 0)
         slots_set_enabled(5, sizeof(struct bh_particle_data), SlotsManager);
 
-    set_units();
+    All.units = get_unitsystem(head.UnitLength_in_cm, head.UnitMass_in_g, head.UnitVelocity_in_cm_per_s);
+    check_units(&All.CP, All.units);
 
 #ifdef DEBUG
     char * pidfile = fastpm_strdup_printf("%s/%s", All.OutputDir, "PIDs.txt");
@@ -196,8 +197,7 @@ int begrun(int RestartFlag, int RestartSnapNum)
 
     init_forcetree_params(All.FastParticleType);
 
-    const struct UnitSystem units = get_unitsystem();
-    init_cooling_and_star_formation(All.CoolingOn, All.StarformationOn, &All.CP, All.MassTable[0], All.BoxSize, units);
+    init_cooling_and_star_formation(All.CoolingOn, All.StarformationOn, &All.CP, All.MassTable[0], All.BoxSize, All.units);
 
     All.MinEgySpec = get_MinEgySpec();
 
@@ -206,8 +206,8 @@ int begrun(int RestartFlag, int RestartSnapNum)
     set_random_numbers(All.RandomSeed);
 
     if(All.LightconeOn)
-        lightcone_init(&All.CP, All.TimeInit, All.UnitLength_in_cm, All.OutputDir);
-    return RestartSnapNum;
+        lightcone_init(&All.CP, All.TimeInit, All.units.UnitLength_in_cm, All.OutputDir);
+    return head;
 }
 
 /* Small function to decide - collectively - whether to use pairwise gravity this step*/
@@ -229,7 +229,7 @@ use_pairwise_gravity(ActiveParticles * Act, struct part_manager_type * PartManag
  * when the simulation ends because we arrived at TimeMax.
  */
 void
-run(int RestartSnapNum)
+run(int RestartSnapNum, struct header_data * header)
 {
     /*Number of timesteps performed this run*/
     int NumCurrentTiStep = 0;
@@ -241,7 +241,7 @@ run(int RestartSnapNum)
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
 
     /* ... read initial model and initialise the times*/
-    inttime_t ti_init = init(RestartSnapNum, All.OutputDir, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.MassTable, All.NTotalInit);
+    inttime_t ti_init = init(RestartSnapNum, All.OutputDir, header, All.TimeMax, &All.CP, All.SnapshotWithFOF);
 
     DriftKickTimes times = init_driftkicktime(ti_init);
 
@@ -249,7 +249,7 @@ run(int RestartSnapNum)
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
     if(All.DensityOn) {
-        double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
+        double uu_in_cgs = All.units.UnitEnergy_in_cgs / All.units.UnitMass_in_g;
         setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, uu_in_cgs, ti_init, All.TimeInit, All.NTotalInit[0]);
     }
 
@@ -344,7 +344,7 @@ run(int RestartSnapNum)
 
         /* Are the particle neutrinos gravitating this timestep?
          * If so we need to add them to the tree.*/
-        int HybridNuGrav = All.HybridNeutrinosOn && atime <= All.HybridNuPartTime;
+        int HybridNuTracer = hybrid_nu_tracer(&All.CP, atime);
 
         /* Collective: total number of active particles must be small enough*/
         int pairwisestep = use_pairwise_gravity(&Act, PartManager);
@@ -355,7 +355,7 @@ run(int RestartSnapNum)
 
         /* Need to rebuild the force tree because all TopLeaves are out of date.*/
         ForceTree Tree = {0};
-        force_tree_rebuild(&Tree, ddecomp, HybridNuGrav, !pairwisestep && All.TreeGravOn, All.OutputDir);
+        force_tree_rebuild(&Tree, ddecomp, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
 
         /* density() happens before gravity because it also initializes the predicted variables.
         * This ensures that prediction consistently uses the grav and hydro accel from the
@@ -393,17 +393,16 @@ run(int RestartSnapNum)
         * this timestep to GravPM. Note initially both
         * are zero and so the tree is opened maximally
         * on the first timestep.*/
-        const int NeutrinoTracer =  All.HybridNeutrinosOn && (atime <= All.HybridNuPartTime);
         const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal);
 
         if(All.TreeGravOn) {
             /* Do a short range pairwise only step if desired*/
             if(pairwisestep) {
                 struct gravshort_tree_params gtp = get_gravshort_treepar();
-                grav_short_pair(&Act, &pm, &Tree, gtp.Rcut, rho0, NeutrinoTracer, All.FastParticleType);
+                grav_short_pair(&Act, &pm, &Tree, gtp.Rcut, rho0, HybridNuTracer, All.FastParticleType);
             }
             else
-                grav_short_tree(&Act, &pm, &Tree, rho0, NeutrinoTracer, All.FastParticleType);
+                grav_short_tree(&Act, &pm, &Tree, rho0, HybridNuTracer, All.FastParticleType);
         }
 
         /* We use the total gravitational acc.
@@ -417,7 +416,7 @@ run(int RestartSnapNum)
         * or include hydro in the opening angle.*/
         if(is_PM)
         {
-            gravpm_force(&pm, &Tree, &All.CP, atime, All.UnitLength_in_cm, All.OutputDir, All.MassiveNuLinRespOn, All.TimeIC, All.HybridNeutrinosOn, All.FastParticleType, All.BlackHoleOn);
+            gravpm_force(&pm, &Tree, &All.CP, atime, All.units.UnitLength_in_cm, All.OutputDir, All.TimeIC, All.FastParticleType, All.BlackHoleOn);
 
             /* compute and output energy statistics if desired. */
             if(All.OutputEnergyDebug)
@@ -436,7 +435,6 @@ run(int RestartSnapNum)
         /* Need a scale factor for entropy and velocity limiters*/
         apply_half_kick(&Act, &All.CP, &times, atime, All.MinEgySpec);
 
-        struct UnitSystem units = get_unitsystem();
         /* Cooling and extra physics show up as a source term in the evolution equations.
          * Formally you can write the structure of the partial differential equations:
            dU/dt +  div(F) = S
@@ -482,19 +480,19 @@ run(int RestartSnapNum)
 
                 if(during_helium_reionization(1/atime - 1)) {
                     /* Helium reionization by switching on quasar bubbles*/
-                    do_heiii_reionization(atime, &fof, ddecomp, &All.CP, All.UnitEnergy_in_cgs / All.UnitMass_in_g, FdHelium);
+                    do_heiii_reionization(atime, &fof, ddecomp, &All.CP, All.units.UnitInternalEnergy_in_cgs, FdHelium);
                 }
                 fof_finish(&fof);
             }
 
             if(is_PM) {
                 /*Rebuild the force tree we freed in gravpm to save memory. Means might be two trees during FOF.*/
-                force_tree_rebuild(&Tree, ddecomp, HybridNuGrav, 0, All.OutputDir);
+                force_tree_rebuild(&Tree, ddecomp, HybridNuTracer, 0, All.OutputDir);
             }
 
             /* Black hole accretion and feedback */
             if(All.BlackHoleOn) {
-                blackhole(&Act, atime, &All.CP, &Tree, units, FdBlackHoles, FdBlackholeDetails);
+                blackhole(&Act, atime, &All.CP, &Tree, All.units, FdBlackHoles, FdBlackholeDetails);
             }
 
             /**** radiative cooling and star formation *****/
@@ -734,67 +732,40 @@ close_outputfiles(void)
         fclose(FdBlackholeDetails);
 }
 
-/* Construct a unit system struct*/
-struct UnitSystem
-get_unitsystem(void)
-{
-    struct UnitSystem units;
-    units.UnitMass_in_g = All.UnitMass_in_g;
-    units.UnitVelocity_in_cm_per_s = All.UnitVelocity_in_cm_per_s;
-    units.UnitLength_in_cm = All.UnitLength_in_cm;
-
-    units.UnitTime_in_s = units.UnitLength_in_cm / units.UnitVelocity_in_cm_per_s;
-    units.UnitDensity_in_cgs = units.UnitMass_in_g / pow(units.UnitLength_in_cm, 3);
-    units.UnitEnergy_in_cgs = units.UnitMass_in_g * pow(units.UnitLength_in_cm, 2) / pow(units.UnitTime_in_s, 2);
-    return units;
-}
-
 /*! Computes conversion factors between internal code units and the
  *  cgs-system.
  */
 static void
-set_units(void)
+check_units(Cosmology * CP, const struct UnitSystem units)
 {
-    All.UnitTime_in_s = All.UnitLength_in_cm / All.UnitVelocity_in_cm_per_s;
-
-    All.UnitDensity_in_cgs = All.UnitMass_in_g / pow(All.UnitLength_in_cm, 3);
-    All.UnitEnergy_in_cgs = All.UnitMass_in_g * pow(All.UnitLength_in_cm, 2) / pow(All.UnitTime_in_s, 2);
 
     /* convert some physical input parameters to internal units */
+    init_cosmology(CP, All.TimeIC, units);
 
-    All.CP.Hubble = HUBBLE * All.UnitTime_in_s;
-    All.CP.UnitTime_in_s = All.UnitTime_in_s;
-    All.CP.GravInternal = GRAVITY / pow(All.UnitLength_in_cm, 3) * All.UnitMass_in_g * pow(All.UnitTime_in_s, 2);
-
-    init_cosmology(&All.CP, All.TimeIC);
     /* Detect cosmologies that are likely to be typos in the parameter files*/
-    if(All.CP.HubbleParam < 0.1 || All.CP.HubbleParam > 10 ||
-        All.CP.OmegaLambda < 0 || All.CP.OmegaBaryon < 0 || All.CP.OmegaG < 0 || All.CP.OmegaCDM < 0)
+    if(CP->HubbleParam < 0.1 || CP->HubbleParam > 10 ||
+        CP->OmegaLambda < 0 || CP->OmegaBaryon < 0 || CP->OmegaG < 0 || CP->OmegaCDM < 0)
         endrun(5, "Bad cosmology: H0 = %g OL = %g Ob = %g Og = %g Ocdm = %g\n",
-               All.CP.HubbleParam, All.CP.OmegaLambda, All.CP.OmegaBaryon, All.CP.OmegaCDM);
+               CP->HubbleParam, CP->OmegaLambda, CP->OmegaBaryon, CP->OmegaCDM);
 
-    /*Initialise the hybrid neutrinos, after Omega_nu*/
-    if(All.HybridNeutrinosOn)
-        init_hybrid_nu(&All.CP.ONu.hybnu, All.CP.MNu, All.HybridVcrit, LIGHTCGS/1e5, All.HybridNuPartTime, All.CP.ONu.kBtnu);
-
-    message(0, "Hubble (internal units) = %g\n", All.CP.Hubble);
-    message(0, "G (internal units) = %g\n", All.CP.GravInternal);
-    message(0, "UnitLength_in_cm = %g \n", All.UnitLength_in_cm);
-    message(0, "UnitMass_in_g = %g \n", All.UnitMass_in_g);
-    message(0, "UnitTime_in_s = %g \n", All.UnitTime_in_s);
-    message(0, "UnitVelocity_in_cm_per_s = %g \n", All.UnitVelocity_in_cm_per_s);
-    message(0, "UnitDensity_in_cgs = %g \n", All.UnitDensity_in_cgs);
-    message(0, "UnitEnergy_in_cgs = %g \n", All.UnitEnergy_in_cgs);
-    message(0, "Dark energy model: OmegaL = %g OmegaFLD = %g\n",All.CP.OmegaLambda, All.CP.Omega_fld);
-    message(0, "Photon density OmegaG = %g\n",All.CP.OmegaG);
-    if(!All.MassiveNuLinRespOn)
-        message(0, "Massless Neutrino density OmegaNu0 = %g\n",get_omega_nu(&All.CP.ONu, 1));
-    message(0, "Curvature density OmegaK = %g\n",All.CP.OmegaK);
-    if(All.CP.RadiationOn) {
-        /* note that this value is inaccurate if there is massive neutrino. */
-        double OmegaTot = All.CP.OmegaG + All.CP.OmegaK + All.CP.Omega0 + All.CP.OmegaLambda;
-        if(!All.MassiveNuLinRespOn)
-            OmegaTot += get_omega_nu(&All.CP.ONu, 1);
+    message(0, "Hubble (internal units) = %g\n", CP->Hubble);
+    message(0, "G (internal units) = %g\n", CP->GravInternal);
+    message(0, "UnitLength_in_cm = %g \n", units.UnitLength_in_cm);
+    message(0, "UnitMass_in_g = %g \n", units.UnitMass_in_g);
+    message(0, "UnitTime_in_s = %g \n", units.UnitTime_in_s);
+    message(0, "UnitVelocity_in_cm_per_s = %g \n", units.UnitVelocity_in_cm_per_s);
+    message(0, "UnitDensity_in_cgs = %g \n", units.UnitDensity_in_cgs);
+    message(0, "UnitEnergy_in_cgs = %g \n", units.UnitEnergy_in_cgs);
+    message(0, "Dark energy model: OmegaL = %g OmegaFLD = %g\n",CP->OmegaLambda, CP->Omega_fld);
+    message(0, "Photon density OmegaG = %g\n",CP->OmegaG);
+    if(!CP->MassiveNuLinRespOn)
+        message(0, "Massless Neutrino density OmegaNu0 = %g\n",get_omega_nu(&CP->ONu, 1));
+    message(0, "Curvature density OmegaK = %g\n",CP->OmegaK);
+    if(CP->RadiationOn) {
+        /* note that this value is inaccurate if there is a massive neutrino. */
+        double OmegaTot = CP->OmegaG + CP->OmegaK + CP->Omega0 + CP->OmegaLambda;
+        if(!CP->MassiveNuLinRespOn)
+            OmegaTot += get_omega_nu(&CP->ONu, 1);
         message(0, "Radiation is enabled in Hubble(a). "
                "Following CAMB convention: Omega_Tot - 1 = %g\n", OmegaTot - 1);
     }

@@ -132,7 +132,7 @@ test_read_rescale_sigma8(void ** state)
 
 static int setup(void ** state)
 {
-    static struct test_state st;
+    static struct test_state st = {0};
     st.PowerP.InputPowerRedshift = -1;
     st.PowerP.DifferentTransferFunctions = 1;
     st.PowerP.Sigma8 = -1;
@@ -152,8 +152,8 @@ static int setup(void ** state)
     st.CP.MNu[0] = 0;
     st.CP.MNu[1] = 0;
     st.CP.MNu[2] = 0;
-    st.CP.Hubble =  3.2407789e-18 * 3.08568e+16;
-    init_cosmology(&st.CP, 0.01);
+    struct UnitSystem units = get_unitsystem(3.085678e21, 1.989e43, 1e5);
+    init_cosmology(&st.CP, 0.01, units);
     *state = &st;
     return 0;
 }

@@ -10,7 +10,7 @@
 struct part_manager_type PartManager[1] = {{0}};
 
 void
-particle_alloc_memory(double BoxSize, int64_t MaxPart)
+particle_alloc_memory(struct part_manager_type * PartManager, double BoxSize, int64_t MaxPart)
 {
     size_t bytes;
     PartManager->Base = (struct particle_data *) mymalloc("P", bytes = MaxPart * sizeof(struct particle_data));
@@ -29,6 +29,6 @@ particle_alloc_memory(double BoxSize, int64_t MaxPart)
      * the missing holes being accessed by __kmp_atomic functions.
      * (memory lock etc?)
      * */
-    memset(P, 0, sizeof(struct particle_data) * MaxPart);
+    memset(PartManager->Base, 0, sizeof(struct particle_data) * MaxPart);
     message(0, "Allocated %g MByte for storing %ld particles.\n", bytes / (1024.0 * 1024.0), MaxPart);
 }

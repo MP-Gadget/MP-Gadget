@@ -12,13 +12,24 @@
 /* Struct to store information written to each snapshot header. */
 struct header_data
 {
+    /* Total particle counts in this snapshot*/
+    int64_t NTotal[6];
+    /* Total particle counts initially*/
     int64_t NTotalInit[6];
+    /* Average masses*/
     double MassTable[6];
+    /* Initial time of simulation*/
     double TimeIC;
+    /* Time of this snapshot*/
+    double TimeSnapshot;
+    /* Box size*/
     double BoxSize;
+    /* Unit scales.*/
     double UnitLength_in_cm;
     double UnitMass_in_g;
     double UnitVelocity_in_cm_per_s;
+    /* Number of k values to use for the neutrinos.*/
+    int neutrinonk;
 };
 
 /* Store parameters for unit conversions
@@ -73,7 +84,7 @@ void petaio_save_block(BigFile * bf, const char * blockname, BigArray * array, i
 int petaio_read_block(BigFile * bf, const char * blockname, BigArray * array, int required);
 
 void petaio_save_snapshot(const char * fname, struct IOTable * IOTable, int verbose, const double atime, const Cosmology * CP);
-void petaio_read_snapshot(int num, const char * OutputDir, struct part_manager_type *PartManager, struct slots_manager_type * SlotsManager,  double atime, MPI_Comm Comm);
+void petaio_read_snapshot(int num, const char * OutputDir, Cosmology * CP, struct header_data * header, struct part_manager_type * PartManager, struct slots_manager_type * SlotsManager, MPI_Comm Comm);
 /* Returns a header struct. Note that this may also change the cosmology values in CP, if those are different from the ones in the parameter file*/
 struct header_data petaio_read_header(int num, const char * OutputDir, Cosmology * CP);
 

@@ -48,7 +48,7 @@ set_init_params(ParameterSet * ps)
 }
 
 static void get_mean_separation(double * MeanSeparation, const double BoxSize, const int64_t * NTotalInit);
-static void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int MassiveNuLinRespOn, int generations, double G, double * MassTable);
+static void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int generations, double G, double * MassTable);
 static void check_positions(struct part_manager_type * PartManager);
 static void check_smoothing_length(struct part_manager_type * PartManager, double * MeanSpacing);
 
@@ -57,42 +57,42 @@ static void check_smoothing_length(struct part_manager_type * PartManager, doubl
  *  intial domain decomposition is performed. If SPH particles are present,
  *  the initial SPH smoothing lengths are determined.
  */
-inttime_t init(int RestartSnapNum, const char * OutputDir, double TimeIC, double TimeInit, double TimeMax, Cosmology * CP, int SnapshotWithFOF, int MassiveNuLinRespOn, double * MassTable, const int64_t * NTotalInit)
+inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * header, double TimeMax, Cosmology * CP, int SnapshotWithFOF)
 {
     int i;
 
     /*Add TimeInit and TimeMax to the output list*/
     if (RestartSnapNum < 0) {
         /* allow a first snapshot at IC time; */
-        setup_sync_points(TimeIC, TimeMax, 0.0, SnapshotWithFOF);
+        setup_sync_points(header->TimeIC, TimeMax, 0.0, SnapshotWithFOF);
     } else {
         /* skip dumping the exactly same snapshot */
-        setup_sync_points(TimeIC, TimeMax, TimeInit, SnapshotWithFOF);
+        setup_sync_points(header->TimeIC, TimeMax, header->TimeSnapshot, SnapshotWithFOF);
         /* If TimeInit is not in a sensible place on the integer timeline
          * (can happen if the outputs changed since it was written)
          * start the integer timeline anew from TimeInit */
-        inttime_t ti_init = ti_from_loga(log(TimeInit)) % TIMEBASE;
+        inttime_t ti_init = ti_from_loga(log(header->TimeSnapshot)) % TIMEBASE;
         if(round_down_power_of_two(ti_init) != ti_init) {
             message(0,"Resetting integer timeline (as %x != %x) to current snapshot\n",ti_init, round_down_power_of_two(ti_init));
-            setup_sync_points(TimeInit, TimeMax, TimeInit, SnapshotWithFOF);
+            setup_sync_points(header->TimeSnapshot, TimeMax, header->TimeSnapshot, SnapshotWithFOF);
         }
     }
 
     /*Read the snapshot*/
-    petaio_read_snapshot(RestartSnapNum, OutputDir, PartManager, SlotsManager, TimeInit, MPI_COMM_WORLD);
+    petaio_read_snapshot(RestartSnapNum, OutputDir, CP, header, PartManager, SlotsManager, MPI_COMM_WORLD);
 
     if(InitParams.InitGasTemp < 0)
-        InitParams.InitGasTemp = CP->CMBTemperature / TimeInit;
+        InitParams.InitGasTemp = CP->CMBTemperature / header->TimeSnapshot;
 
     domain_test_id_uniqueness(PartManager);
 
-    check_omega(PartManager, CP, MassiveNuLinRespOn, get_generations(), CP->GravInternal, MassTable);
+    check_omega(PartManager, CP, get_generations(), CP->GravInternal, header->MassTable);
 
     check_positions(PartManager);
 
     double MeanSeparation[6] = {0};
 
-    get_mean_separation(MeanSeparation, PartManager->BoxSize, NTotalInit);
+    get_mean_separation(MeanSeparation, PartManager->BoxSize, header->NTotalInit);
 
     if(RestartSnapNum == -1)
         check_smoothing_length(PartManager, MeanSeparation);
@@ -104,7 +104,7 @@ inttime_t init(int RestartSnapNum, const char * OutputDir, double TimeIC, double
     gravshort_set_softenings(MeanSeparation[1]);
     fof_init(MeanSeparation[1]);
 
-    inttime_t Ti_Current = init_timebins(TimeInit);
+    inttime_t Ti_Current = init_timebins(header->TimeSnapshot);
 
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)	/* initialize sph_properties */
@@ -173,7 +173,7 @@ inttime_t init(int RestartSnapNum, const char * OutputDir, double TimeIC, double
 /*! This routine computes the mass content of the box and compares it to the
  * specified value of Omega-matter.  If discrepant, the run is terminated.
  */
-void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int MassiveNuLinRespOn, int generations, double G, double * MassTable)
+void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int generations, double G, double * MassTable)
 {
     double mass = 0, masstot, omega;
     int i, badmass = 0;
@@ -200,7 +200,7 @@ void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int Mas
         masstot / (PartManager->BoxSize * PartManager->BoxSize * PartManager->BoxSize) / (3 * CP->Hubble * CP->Hubble / (8 * M_PI * G));
 
     /*Add the density for analytically follows massive neutrinos*/
-    if(MassiveNuLinRespOn)
+    if(CP->MassiveNuLinRespOn)
         omega += get_omega_nu_nopart(&CP->ONu, 1);
     if(fabs(omega - CP->Omega0) > 1.0e-3)
     {

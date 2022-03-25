@@ -21,6 +21,7 @@
 #include "sfr_eff.h"
 #include "density.h"
 #include "hydra.h"
+#include "run.h"
 
 char * GDB_format_particle(int i);
 
@@ -82,7 +83,7 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3
 }
 
 /* Run various checks on the gravity code. Check that the short-range/long-range force split is working.*/
-void runtests(int RestartSnapNum)
+void runtests(int RestartSnapNum, struct header_data * header)
 {
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
@@ -90,14 +91,12 @@ void runtests(int RestartSnapNum)
     /* So we can run a test on the final snapshot*/
     All.TimeMax = All.TimeInit * 1.1;
 
-    inttime_t Ti_Current = init(RestartSnapNum, All.OutputDir, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.MassTable, All.NTotalInit);
+    inttime_t Ti_Current = init(RestartSnapNum, All.OutputDir, header, All.TimeMax, &All.CP, All.SnapshotWithFOF);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
-    if(All.DensityOn) {
-        double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, uu_in_cgs, Ti_Current, All.TimeInit, All.NTotalInit[0]);
-    }
+    if(All.DensityOn)
+        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, All.units.UnitInternalEnergy_in_cgs, Ti_Current, All.TimeInit, All.NTotalInit[0]);
 
     struct IOTable IOTable = {0};
     /* NO metals written*/
@@ -112,7 +111,7 @@ void runtests(int RestartSnapNum)
 
     ForceTree Tree = {0};
     force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
-    gravpm_force(&pm, &Tree, &All.CP, All.TimeInit, All.UnitLength_in_cm, All.OutputDir, All.MassiveNuLinRespOn, All.TimeIC, All.HybridNeutrinosOn, All.FastParticleType, All.BlackHoleOn);
+    gravpm_force(&pm, &Tree, &All.CP, All.TimeInit, All.units.UnitLength_in_cm, All.OutputDir, All.TimeIC, All.FastParticleType, All.BlackHoleOn);
     force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
 
     struct gravshort_tree_params origtreeacc = get_gravshort_treepar();
@@ -182,7 +181,7 @@ void runtests(int RestartSnapNum)
     force_tree_free(&Tree);
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh/2., All.CP.GravInternal);
     force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
-    gravpm_force(&pm, &Tree, &All.CP, All.TimeInit, All.UnitLength_in_cm, All.OutputDir, All.MassiveNuLinRespOn, All.TimeIC, All.HybridNeutrinosOn, All.FastParticleType, All.BlackHoleOn);
+    gravpm_force(&pm, &Tree, &All.CP, All.TimeInit, All.units.UnitLength_in_cm, All.OutputDir, All.TimeIC, All.FastParticleType, All.BlackHoleOn);
     force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
     set_gravshort_treepar(treeacc);
     grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
@@ -203,25 +202,24 @@ void runtests(int RestartSnapNum)
 }
 
 void
-runfof(int RestartSnapNum)
+runfof(int RestartSnapNum, struct header_data * header)
 {
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
 
-    inttime_t Ti_Current = init(RestartSnapNum, All.OutputDir, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.MassTable, All.NTotalInit);
+    inttime_t Ti_Current = init(RestartSnapNum, All.OutputDir, header, All.TimeMax, &All.CP, All.SnapshotWithFOF);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
     if(All.DensityOn) {
-        double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, uu_in_cgs, Ti_Current, All.TimeInit, All.NTotalInit[0]);
+        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, All.units.UnitInternalEnergy_in_cgs, Ti_Current, All.TimeInit, All.NTotalInit[0]);
     }
 
     DriftKickTimes times = init_driftkicktime(Ti_Current);
     /*FoF needs a tree*/
-    int HybridNuGrav = All.HybridNeutrinosOn && All.TimeInit <= All.HybridNuPartTime;
+    int HybridNuGrav = hybrid_nu_tracer(&All.CP, header->TimeSnapshot);
     /* Regenerate the star formation rate for the FOF table.*/
     if(All.StarformationOn) {
         ActiveParticles Act = {0};
@@ -239,36 +237,34 @@ runfof(int RestartSnapNum)
             slots_free_sph_pred_data(&sph_predicted);
         }
         ForceTree Tree = {0};
-        cooling_and_starformation(&Act, All.TimeInit, 0, &Tree, &All.CP, GradRho, NULL);
+        cooling_and_starformation(&Act, header->TimeSnapshot, 0, &Tree, &All.CP, GradRho, NULL);
         if(GradRho)
             myfree(GradRho);
     }
     FOFGroups fof = fof_fof(ddecomp, 1, MPI_COMM_WORLD);
-    fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, RestartSnapNum, All.PartAllocFactor, &All.CP, All.TimeInit, All.MassTable, All.MetalReturnOn, All.BlackHoleOn, MPI_COMM_WORLD);
+    fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, RestartSnapNum, All.PartAllocFactor, &All.CP, header->TimeSnapshot, All.MassTable, All.MetalReturnOn, All.BlackHoleOn, MPI_COMM_WORLD);
     fof_finish(&fof);
 }
 
 void
-runpower(int RestartSnapNum)
+runpower(int RestartSnapNum, struct header_data * header)
 {
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
 
-    inttime_t Ti_Current = init(RestartSnapNum, All.OutputDir, All.TimeIC, All.TimeInit, All.TimeMax, &All.CP, All.SnapshotWithFOF, All.MassiveNuLinRespOn, All.MassTable, All.NTotalInit);
+    inttime_t Ti_Current = init(RestartSnapNum, All.OutputDir, header, All.TimeMax, &All.CP, All.SnapshotWithFOF);
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
-    if(All.DensityOn) {
-        double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, uu_in_cgs, Ti_Current, All.TimeInit, All.NTotalInit[0]);
-    }
+    if(All.DensityOn)
+        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, All.MinEgySpec, All.units.UnitInternalEnergy_in_cgs, Ti_Current, All.TimeInit, All.NTotalInit[0]);
 
     /*PM needs a tree*/
     ForceTree Tree = {0};
-    int HybridNuGrav = All.HybridNeutrinosOn && All.TimeInit <= All.HybridNuPartTime;
+    int HybridNuGrav = hybrid_nu_tracer(&All.CP, header->TimeSnapshot);
     force_tree_rebuild(&Tree, ddecomp, HybridNuGrav, 1, All.OutputDir);
-    gravpm_force(&pm, &Tree, &All.CP, All.TimeInit, All.UnitLength_in_cm, All.OutputDir, All.MassiveNuLinRespOn, All.TimeIC, All.HybridNeutrinosOn, All.FastParticleType, 1);
+    gravpm_force(&pm, &Tree, &All.CP, header->TimeSnapshot, All.units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType, 1);
     force_tree_free(&Tree);
 }

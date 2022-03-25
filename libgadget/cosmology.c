@@ -12,8 +12,12 @@
 
 static inline double OmegaFLD(const Cosmology * CP, const double a);
 
-void init_cosmology(Cosmology * CP, const double TimeBegin)
+void init_cosmology(Cosmology * CP, const double TimeBegin, const struct UnitSystem units)
 {
+    CP->Hubble = HUBBLE * units.UnitTime_in_s;
+    CP->UnitTime_in_s = units.UnitTime_in_s;
+    CP->GravInternal = GRAVITY / pow(units.UnitLength_in_cm, 3) * units.UnitMass_in_g * pow(units.UnitTime_in_s, 2);
+
     /*With slightly relativistic massive neutrinos, for consistency we need to include radiation.
      * A note on normalisation (as of 08/02/2012):
      * CAMB appears to set Omega_Lambda + Omega_Matter+Omega_K = 1,
@@ -33,6 +37,10 @@ void init_cosmology(Cosmology * CP, const double TimeBegin)
                   / (CP->HubbleParam*CP->HubbleParam);
 
     init_omega_nu(&CP->ONu, CP->MNu, TimeBegin, CP->HubbleParam, CP->CMBTemperature);
+    /*Initialise the hybrid neutrinos, after Omega_nu*/
+    if(CP->HybridNeutrinosOn)
+        init_hybrid_nu(&CP->ONu.hybnu, CP->MNu, CP->HybridVcrit, LIGHTCGS/1e5, CP->HybridNuPartTime, CP->ONu.kBtnu);
+
     /* Neutrinos will be included in Omega0, if massive.
      * This ensures that OmegaCDM contains only non-relativistic species.*/
     if(CP->MNu[0] + CP->MNu[1] + CP->MNu[2] > 0) {
@@ -40,6 +48,12 @@ void init_cosmology(Cosmology * CP, const double TimeBegin)
     }
 }
 
+/* Returns 1 if the neutrino particles are 'tracers', not actively gravitating,
+ * and 0 if they are actively gravitating particles.*/
+int hybrid_nu_tracer(const Cosmology * CP, double atime)
+{
+    return CP->HybridNeutrinosOn && (atime <= CP->HybridNuPartTime);
+}
 /*Hubble function at scale factor a, in dimensions of CP.Hubble*/
 double hubble_function(const Cosmology * CP, double a)
 {

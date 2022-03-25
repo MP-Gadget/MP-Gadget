@@ -37,6 +37,7 @@ INCL = densitykernel.h \
 	walltime.h \
 	neutrinos_lra.h \
 	omega_nu_single.h \
+utils/unitsystem.h \
 utils/peano.h \
 utils/interp.h \
 utils/paramset.h \
@@ -118,6 +119,7 @@ utils/system.o \
 utils/paramset.o \
 utils/event.o \
 utils/openmpsort.o \
+utils/unitsystem.o \
 utils/string.o \
 utils/spinlocks.o
 

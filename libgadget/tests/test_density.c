@@ -127,8 +127,8 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     CP.RadiationOn = 0;
     CP.w0_fld = -1; /*Dark energy equation of state parameter*/
     /*Should be 0.1*/
-    CP.Hubble = 0.1;
-    init_cosmology(&CP,0.01);
+    struct UnitSystem units = get_unitsystem(3.085678e21, 1.989e43, 1e5);
+    init_cosmology(&CP,0.01, units);
 
     density(&act, 1, 0, 0, 0, kick, &CP, &data->sph_pred, NULL, &tree);
     end = MPI_Wtime();
@@ -327,7 +327,7 @@ static int setup_density(void **state) {
     for(i = 0; i < 6; i++)
         maxpart+=atleast[i];
     const double BoxSize = 8;
-    particle_alloc_memory(BoxSize, maxpart);
+    particle_alloc_memory(PartManager, BoxSize, maxpart);
     slots_reserve(1, atleast, SlotsManager);
     walltime_init(&CT);
     init_forcetree_params(2);

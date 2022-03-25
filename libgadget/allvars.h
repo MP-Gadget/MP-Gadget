@@ -47,12 +47,7 @@ extern struct global_data_all_processes
     double MinEgySpec; /* Minimum internal energy for timestepping, converted from MinGasTemp*/
 
     /* system of units  */
-    double UnitMass_in_g;		/*!< factor to convert internal mass unit to grams/h */
-    double UnitVelocity_in_cm_per_s;	/*!< factor to convert intqernal velocity unit to cm/sec */
-    double UnitLength_in_cm;		/*!< factor to convert internal length unit to cm/h */
-    double UnitTime_in_s,		/*!< factor to convert internal time unit to seconds/h */
-           UnitDensity_in_cgs,		/*!< factor to convert internal length unit to g/cm^3*h^2 */
-           UnitEnergy_in_cgs;	/*!< factor to convert internal energy to cgs units */
+    struct UnitSystem units;
 
     /* Cosmology */
     Cosmology CP;
@@ -70,13 +65,6 @@ extern struct global_data_all_processes
                            which writes a list of particles to a file as they cross a light cone*/
 
     int WriteBlackHoleDetails; /* write BH details every time step*/
-
-    int MassiveNuLinRespOn; /* Flags that massive neutrinos using the linear
-                               response code of Ali-Haimoud & Bird 2013.*/
-    int HybridNeutrinosOn; /* Flags that hybrid neutrinos are enabled */
-    double HybridVcrit; /* Critical velocity switching between particle
-                           and analytic solvers when hybrid neutrinos are on*/
-    double HybridNuPartTime; /*!< Redshift at which hybrid neutrinos switch on*/
 
     int MaxDomainTimeBinDepth; /* We should redo domain decompositions every timestep, after the timestep hierarchy gets deeper than this.
                                   Essentially forces a domain decompositon every 2^MaxDomainTimeBinDepth timesteps.*/

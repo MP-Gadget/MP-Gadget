@@ -36,16 +36,4 @@
 
 #define  HYDROGEN_MASSFRAC 0.76	/*!< mass fraction of hydrogen, relevant only for radiative cooling */
 
-/* System of units:
- * Convert from internal units into normal physical units.
- * The factors of h are left in.*/
-struct UnitSystem {
-    double UnitMass_in_g;		/*!< factor to convert internal mass unit to grams/h */
-    double UnitVelocity_in_cm_per_s;	/*!< factor to convert intqernal velocity unit to cm/sec */
-    double UnitLength_in_cm;		/*!< factor to convert internal length unit to cm/h */
-    double UnitTime_in_s,		/*!< factor to convert internal time unit to seconds/h */
-           UnitDensity_in_cgs,		/*!< factor to convert internal length unit to g/cm^3*h^2 */
-           UnitEnergy_in_cgs;	/*!< factor to convert internal energy to cgs units */
-};
-
 #endif
