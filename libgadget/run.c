@@ -174,6 +174,8 @@ begrun(int RestartFlag, int RestartSnapNum)
     /*Set Nmesh to triple the mean grid spacing of the dark matter by default.*/
     if(All.Nmesh  < 0)
         All.Nmesh = 3*pow(2, (int)(log(head.NTotal[1])/3./log(2)) );
+    if(head.neutrinonk <= 0)
+        head.neutrinonk = All.Nmesh;
 
     slots_init(All.SlotsIncreaseFactor * PartManager->MaxPart, SlotsManager);
     /* Enable the slots: stars and BHs are allocated if there are some,
