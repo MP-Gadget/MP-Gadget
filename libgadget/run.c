@@ -261,8 +261,13 @@ run(const int RestartSnapNum, const inttime_t ti_init)
 
     const double MinEgySpec = get_MinEgySpec();
 
-    if(All.DensityOn)
+    /* When we restart, validate the SPH properties of the particles.
+     * This also allows us to increase MinEgySpec on a restart if we choose.*/
+    if(RestartSnapNum >= 0)
+        check_density_entropy(&All.CP, get_MinEgySpec(), All.TimeInit);
+    else
         setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, MinEgySpec, All.units.UnitInternalEnergy_in_cgs, ti_init, All.TimeInit, All.NTotalInit[0]);
+
 
     /* Stored scale factor of the next black hole seeding check*/
     double TimeNextSeedingCheck = All.TimeInit;

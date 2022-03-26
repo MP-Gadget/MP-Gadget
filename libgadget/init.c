@@ -336,6 +336,35 @@ void check_smoothing_length(struct part_manager_type * PartManager, double * Mea
         message(5, "Bad smoothing lengths %d last bad %d hsml %g id %ld\n", numprob, lastprob, P[lastprob].Hsml, P[lastprob].ID);
 }
 
+/* When we restart, validate the SPH properties of the particles.
+ * This also allows us to increase MinEgySpec on a restart if we choose.*/
+void check_density_entropy(Cosmology * CP, const double MinEgySpec, const double atime)
+{
+    const double a3 = pow(atime, 3);
+    int i;
+    int bad = 0;
+    double meanbar = CP->OmegaBaryon * 3 * HUBBLE * CP->HubbleParam * HUBBLE * CP->HubbleParam/ (8 * M_PI * GRAVITY);
+    #pragma omp parallel for reduction(+: bad)
+    for(i = 0; i < SlotsManager->info[0].size; i++) {
+        /* This allows us to continue gracefully if
+            * there was some kind of bug in the run that output the snapshot.
+            * density() below will fix this up.*/
+        if(SphP[i].Density <= 0 || !isfinite(SphP[i].Density)) {
+            SphP[i].Density = meanbar;
+            bad++;
+        }
+        if(SphP[i].EgyWtDensity <= 0 || !isfinite(SphP[i].EgyWtDensity)) {
+            SphP[i].EgyWtDensity = SphP[i].Density;
+        }
+        double minent = GAMMA_MINUS1 * MinEgySpec / pow(SphP[i].Density / a3 , GAMMA_MINUS1);
+        if(SphP[i].Entropy < minent)
+            SphP[i].Entropy = minent;
+    }
+    MPI_Allreduce(MPI_IN_PLACE, &bad, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    if(bad > 0)
+        message(0, "Detected bad densities in %d particles on disc\n",bad);
+}
+
 void get_mean_separation(double * MeanSeparation, const double BoxSize, const int64_t * NTotalInit)
 {
     int i;
@@ -408,6 +437,9 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
     int i;
     const double a3 = pow(atime, 3);
 
+    if(RestartSnapNum >= 0)
+        return;
+
     const double MeanGasSeparation = PartManager->BoxSize / pow(NTotGasInit, 1.0 / 3);
 
     int64_t tot_sph, tot_bh;
@@ -418,81 +450,68 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
     if(tot_sph + tot_bh == 0)
         return;
 //
+
     ForceTree Tree = {0};
     /* Need moments because we use them to set Hsml*/
     force_tree_rebuild(&Tree, ddecomp, 0, 1, NULL);
 
-    if(RestartSnapNum == -1)
-    {
-        /* quick hack to adjust for the baryon fraction
-         * only this fraction of mass is of that type.
-         * this won't work for non-dm non baryon;
-         * ideally each node shall have separate count of
-         * ptypes of each type.
-         *
-         * Eventually the iteration will fix this. */
-        const double massfactor = CP->OmegaBaryon / CP->Omega0;
-        const double DesNumNgb = GetNumNgb(GetDensityKernelType());
+    /* quick hack to adjust for the baryon fraction
+        * only this fraction of mass is of that type.
+        * this won't work for non-dm non baryon;
+        * ideally each node shall have separate count of
+        * ptypes of each type.
+        *
+        * Eventually the iteration will fix this. */
+    const double massfactor = CP->OmegaBaryon / CP->Omega0;
+    const double DesNumNgb = GetNumNgb(GetDensityKernelType());
 
-        #pragma omp parallel for
-        for(i = 0; i < PartManager->NumPart; i++)
+    #pragma omp parallel for
+    for(i = 0; i < PartManager->NumPart; i++)
+    {
+        /* These initial smoothing lengths are only used for SPH-like particles.*/
+        if(P[i].Type != 0 && P[i].Type != 5)
+            continue;
+
+        int no = force_get_father(i, &Tree);
+
+        while(10 * DesNumNgb * P[i].Mass > massfactor * Tree.Nodes[no].mom.mass)
         {
-            /* These initial smoothing lengths are only used for SPH-like particles.*/
-            if(P[i].Type != 0 && P[i].Type != 5)
-                continue;
+            int p = force_get_father(no, &Tree);
 
-            int no = force_get_father(i, &Tree);
+            if(p < 0)
+                break;
 
-            while(10 * DesNumNgb * P[i].Mass > massfactor * Tree.Nodes[no].mom.mass)
-            {
-                int p = force_get_father(no, &Tree);
-
-                if(p < 0)
-                    break;
-
-                no = p;
-            }
-
-            P[i].Hsml =
-                pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / (massfactor * Tree.Nodes[no].mom.mass),
-                        1.0 / 3) * Tree.Nodes[no].len;
-
-            /* recover from a poor initial guess */
-            if(P[i].Hsml > 500.0 * MeanGasSeparation)
-                P[i].Hsml = MeanGasSeparation;
-
-            if(P[i].Hsml <= 0)
-                endrun(5, "Bad hsml guess: i=%d, mass = %g type %d hsml %g no %d len %d treemass %g\n",
-                       i, P[i].Mass, P[i].Type, P[i].Hsml, no, Tree.Nodes[no].len, Tree.Nodes[no].mom.mass);
+            no = p;
         }
-    }
-    /* When we restart, validate the SPH properties of the particles.
-     * This also allows us to increase MinEgySpec on a restart if we choose.*/
-    else
-    {
-        int bad = 0;
-        double meanbar = CP->OmegaBaryon * 3 * HUBBLE * CP->HubbleParam * HUBBLE * CP->HubbleParam/ (8 * M_PI * GRAVITY);
-        #pragma omp parallel for reduction(+: bad)
-        for(i = 0; i < SlotsManager->info[0].size; i++) {
-            /* This allows us to continue gracefully if
-             * there was some kind of bug in the run that output the snapshot.
-             * density() below will fix this up.*/
-            if(SphP[i].Density <= 0 || !isfinite(SphP[i].Density)) {
-                SphP[i].Density = meanbar;
-                bad++;
-            }
-            if(SphP[i].EgyWtDensity <= 0 || !isfinite(SphP[i].EgyWtDensity)) {
-                SphP[i].EgyWtDensity = SphP[i].Density;
-            }
-            double minent = GAMMA_MINUS1 * MinEgySpec / pow(SphP[i].Density / a3 , GAMMA_MINUS1);
-            if(SphP[i].Entropy < minent)
-                SphP[i].Entropy = minent;
-        }
-        MPI_Allreduce(MPI_IN_PLACE, &bad, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-        if(bad > 0)
-            message(0, "Detected bad densities in %d particles on disc\n",bad);
+
+        P[i].Hsml =
+            pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / (massfactor * Tree.Nodes[no].mom.mass),
+                    1.0 / 3) * Tree.Nodes[no].len;
+
+        /* recover from a poor initial guess */
+        if(P[i].Hsml > 500.0 * MeanGasSeparation)
+            P[i].Hsml = MeanGasSeparation;
+
+        if(P[i].Hsml <= 0)
+            endrun(5, "Bad hsml guess: i=%d, mass = %g type %d hsml %g no %d len %d treemass %g\n",
+                    i, P[i].Mass, P[i].Type, P[i].Hsml, no, Tree.Nodes[no].len, Tree.Nodes[no].mom.mass);
     }
 
+    /* for clean IC with U input only, we need to iterate to find entropy */
+    double u_init = (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * InitParams.InitGasTemp;
+    u_init /= uu_in_cgs; /* unit conversion */
+
+    double molecular_weight;
+    if(InitParams.InitGasTemp > 1.0e4)	/* assuming FULL ionization */
+        molecular_weight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));
+    else				/* assuming NEUTRAL GAS */
+        molecular_weight = 4 / (1 + 3 * HYDROGEN_MASSFRAC);
+    u_init /= molecular_weight;
+
+    if(u_init < MinEgySpec)
+        u_init = MinEgySpec;
+    /* snapshot already has EgyWtDensity; hope it is read in correctly.
+        * (need a test on this!) */
     /*Allocate the extra SPH data for transient SPH particle properties.*/
     struct sph_pred_data sph_pred = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
 
@@ -505,32 +524,14 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
     DriftKickTimes times = init_driftkicktime(Ti_Current);
     density(&act, 1, 0, BlackHoleOn, 0,  times, CP, &sph_pred, NULL, &Tree);
 
-    /* for clean IC with U input only, we need to iterate to find entropy */
-    if(RestartSnapNum == -1)
-    {
-        double u_init = (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * InitParams.InitGasTemp;
-        u_init /= uu_in_cgs; /* unit conversion */
-
-        double molecular_weight;
-        if(InitParams.InitGasTemp > 1.0e4)	/* assuming FULL ionization */
-            molecular_weight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));
-        else				/* assuming NEUTRAL GAS */
-            molecular_weight = 4 / (1 + 3 * HYDROGEN_MASSFRAC);
-        u_init /= molecular_weight;
-
-        if(u_init < MinEgySpec)
-            u_init = MinEgySpec;
-        /* snapshot already has EgyWtDensity; hope it is read in correctly.
-         * (need a test on this!) */
-        if(DensityIndependentSphOn()) {
-            setup_density_indep_entropy(&act, &Tree, CP, &sph_pred, u_init, a3, Ti_Current, BlackHoleOn);
-        }
-        else {
-           /*Initialize to initial energy*/
-            #pragma omp parallel for
-            for(i = 0; i < SlotsManager->info[0].size; i++)
-                SphP[i].Entropy = GAMMA_MINUS1 * u_init / pow(SphP[i].Density / a3 , GAMMA_MINUS1);
-        }
+    if(DensityIndependentSphOn()) {
+        setup_density_indep_entropy(&act, &Tree, CP, &sph_pred, u_init, a3, Ti_Current, BlackHoleOn);
+    }
+    else {
+        /*Initialize to initial energy*/
+        #pragma omp parallel for
+        for(i = 0; i < SlotsManager->info[0].size; i++)
+            SphP[i].Entropy = GAMMA_MINUS1 * u_init / pow(SphP[i].Density / a3 , GAMMA_MINUS1);
     }
     slots_free_sph_pred_data(&sph_pred);
     force_tree_free(&Tree);
