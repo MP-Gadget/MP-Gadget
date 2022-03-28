@@ -21,7 +21,7 @@ static void fof_register_io_blocks(int MetalReturnOn, int BlackHoleOn, struct IO
 static void fof_write_header(BigFile * bf, int64_t TotNgroups, const double atime, const double * MassTable, Cosmology * CP, MPI_Comm Comm);
 static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * ent, struct conversions * conv);
 
-static int fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, double FOFPartAllocFactor, MPI_Comm Comm);
+static int fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, MPI_Comm Comm);
 
 static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
     uint64_t * u = (uint64_t *) radix;
@@ -29,7 +29,7 @@ static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
     u[0] = f->GrNr;
 }
 
-void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, int SaveParticles, double FOFPartAllocFactor, Cosmology * CP, double atime, const double * MassTable, int MetalReturnOn, int BlackholeOn, MPI_Comm Comm) {
+void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, int SaveParticles, Cosmology * CP, double atime, const double * MassTable, int MetalReturnOn, int BlackholeOn, MPI_Comm Comm) {
     int i;
     struct IOTable FOFIOTable = {0};
     char * fname = fastpm_strdup_printf("%s/%s_%03d", OutputDir, FOFFileBase, num);
@@ -74,7 +74,7 @@ void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FO
         register_io_blocks(&IOTable, 1, MetalReturnOn);
         struct part_manager_type halo_pman = {0};
         struct slots_manager_type halo_sman = {0};
-        if(fof_distribute_particles(&halo_pman, &halo_sman, FOFPartAllocFactor, Comm)) {
+        if(fof_distribute_particles(&halo_pman, &halo_sman, Comm)) {
             myfree(halo_sman.Base);
             myfree(halo_pman.Base);
             destroy_io_blocks(&IOTable);
@@ -246,7 +246,7 @@ fof_try_particle_exchange(struct part_manager_type * halo_pman, struct slots_man
 }
 
 static int
-fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, double FOFPartAllocFactor, MPI_Comm Comm)
+fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, MPI_Comm Comm)
 {
     int64_t i, NpigLocal = 0;
     int64_t GrNrMax = -1;   /* will mark particles that are not in any group */
@@ -275,6 +275,7 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
                 atleast[type]++;
         }
     }
+    double FOFPartAllocFactor = (double) PartManager->MaxPart / PartManager->NumPart;
     halo_pman->MaxPart = NpigLocal * FOFPartAllocFactor;
     struct particle_data * halopart = (struct particle_data *) mymalloc("HaloParticle", sizeof(struct particle_data) * halo_pman->MaxPart);
     halo_pman->Base = halopart;
