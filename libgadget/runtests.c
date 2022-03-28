@@ -104,7 +104,7 @@ void runtests(const int RestartSnapNum, const inttime_t Ti_Current, const struct
 
     ForceTree Tree = {0};
     force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
-    gravpm_force(&pm, &Tree, &All.CP, header->TimeSnapshot, All.units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType, All.BlackHoleOn);
+    gravpm_force(&pm, &Tree, &All.CP, header->TimeSnapshot, header->UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType, All.BlackHoleOn);
     force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
 
     struct gravshort_tree_params origtreeacc = get_gravshort_treepar();
@@ -174,7 +174,7 @@ void runtests(const int RestartSnapNum, const inttime_t Ti_Current, const struct
     force_tree_free(&Tree);
     gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh/2., All.CP.GravInternal);
     force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
-    gravpm_force(&pm, &Tree, &All.CP, header->TimeSnapshot, All.units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType, All.BlackHoleOn);
+    gravpm_force(&pm, &Tree, &All.CP, header->TimeSnapshot, header->UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType, All.BlackHoleOn);
     force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
     set_gravshort_treepar(treeacc);
     grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
@@ -246,6 +246,6 @@ runpower(const struct header_data * header)
     ForceTree Tree = {0};
     int HybridNuGrav = hybrid_nu_tracer(&All.CP, header->TimeSnapshot);
     force_tree_rebuild(&Tree, ddecomp, HybridNuGrav, 1, All.OutputDir);
-    gravpm_force(&pm, &Tree, &All.CP, header->TimeSnapshot, All.units.UnitLength_in_cm, All.OutputDir, header->TimeSnapshot, All.FastParticleType, 1);
+    gravpm_force(&pm, &Tree, &All.CP, header->TimeSnapshot, header->UnitLength_in_cm, All.OutputDir, header->TimeSnapshot, All.FastParticleType, 1);
     force_tree_free(&Tree);
 }

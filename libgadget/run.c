@@ -182,11 +182,11 @@ begrun(const int RestartFlag, int RestartSnapNum, struct header_data * head)
     if(All.BlackHoleOn || head->NTotalInit[5] > 0)
         slots_set_enabled(5, sizeof(struct bh_particle_data), SlotsManager);
 
-    All.units = get_unitsystem(head->UnitLength_in_cm, head->UnitMass_in_g, head->UnitVelocity_in_cm_per_s);
+    const struct UnitSystem units = get_unitsystem(head->UnitLength_in_cm, head->UnitMass_in_g, head->UnitVelocity_in_cm_per_s);
     /* convert some physical input parameters to internal units */
-    init_cosmology(&All.CP, head->TimeIC, All.units);
+    init_cosmology(&All.CP, head->TimeIC, units);
 
-    check_units(&All.CP, All.units);
+    check_units(&All.CP, units);
 
 #ifdef DEBUG
     char * pidfile = fastpm_strdup_printf("%s/%s", All.OutputDir, "PIDs.txt");
@@ -197,14 +197,14 @@ begrun(const int RestartFlag, int RestartSnapNum, struct header_data * head)
 
     init_forcetree_params(All.FastParticleType);
 
-    init_cooling_and_star_formation(All.CoolingOn, All.StarformationOn, &All.CP, head->MassTable[0], head->BoxSize, All.units);
+    init_cooling_and_star_formation(All.CoolingOn, All.StarformationOn, &All.CP, head->MassTable[0], head->BoxSize, units);
 
     gravshort_fill_ntab(All.ShortRangeForceWindowType, All.Asmth);
 
     set_random_numbers(All.RandomSeed);
 
     if(All.LightconeOn)
-        lightcone_init(&All.CP, head->TimeSnapshot, All.units.UnitLength_in_cm, All.OutputDir);
+        lightcone_init(&All.CP, head->TimeSnapshot, head->UnitLength_in_cm, All.OutputDir);
 
     init_timeline(RestartSnapNum, All.TimeMax, head, All.SnapshotWithFOF);
 
@@ -244,6 +244,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
     /*Is gas physics enabled?*/
     int GasEnabled = SlotsManager->info[0].enabled;
 
+    const struct UnitSystem units = get_unitsystem(header->UnitLength_in_cm, header->UnitMass_in_g, header->UnitVelocity_in_cm_per_s);
+
     int SnapshotFileCount = RestartSnapNum;
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
@@ -258,7 +260,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
     /* When we restart, validate the SPH properties of the particles.
      * This also allows us to increase MinEgySpec on a restart if we choose.*/
     if(RestartSnapNum < 0)
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, MinEgySpec, All.units.UnitInternalEnergy_in_cgs, ti_init, header->TimeSnapshot, header->NTotalInit[0]);
+        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, MinEgySpec, units.UnitInternalEnergy_in_cgs, ti_init, header->TimeSnapshot, header->NTotalInit[0]);
     else
         check_density_entropy(&All.CP, MinEgySpec, header->TimeSnapshot);
 
@@ -425,7 +427,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         * or include hydro in the opening angle.*/
         if(is_PM)
         {
-            gravpm_force(&pm, &Tree, &All.CP, atime, All.units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType, All.BlackHoleOn);
+            gravpm_force(&pm, &Tree, &All.CP, atime, units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType, All.BlackHoleOn);
 
             /* compute and output energy statistics if desired. */
             if(All.OutputEnergyDebug)
@@ -489,7 +491,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
                 if(during_helium_reionization(1/atime - 1)) {
                     /* Helium reionization by switching on quasar bubbles*/
-                    do_heiii_reionization(atime, &fof, ddecomp, &All.CP, All.units.UnitInternalEnergy_in_cgs, FdHelium);
+                    do_heiii_reionization(atime, &fof, ddecomp, &All.CP, units.UnitInternalEnergy_in_cgs, FdHelium);
                 }
                 fof_finish(&fof);
             }
@@ -501,7 +503,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
             /* Black hole accretion and feedback */
             if(All.BlackHoleOn) {
-                blackhole(&Act, atime, &All.CP, &Tree, All.units, FdBlackHoles, FdBlackholeDetails);
+                blackhole(&Act, atime, &All.CP, &Tree, units, FdBlackHoles, FdBlackholeDetails);
             }
 
             /**** radiative cooling and star formation *****/
