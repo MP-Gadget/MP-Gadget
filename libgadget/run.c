@@ -190,7 +190,7 @@ begrun(const int RestartFlag, int RestartSnapNum)
 
     All.units = get_unitsystem(head.UnitLength_in_cm, head.UnitMass_in_g, head.UnitVelocity_in_cm_per_s);
     /* convert some physical input parameters to internal units */
-    init_cosmology(&All.CP, All.TimeIC, All.units);
+    init_cosmology(&All.CP, head.TimeIC, All.units);
 
     check_units(&All.CP, All.units);
 
@@ -210,7 +210,7 @@ begrun(const int RestartFlag, int RestartSnapNum)
     set_random_numbers(All.RandomSeed);
 
     if(All.LightconeOn)
-        lightcone_init(&All.CP, All.TimeInit, All.units.UnitLength_in_cm, All.OutputDir);
+        lightcone_init(&All.CP, head.TimeSnapshot, All.units.UnitLength_in_cm, All.OutputDir);
 
     init_timeline(RestartSnapNum, All.TimeMax, &head, All.SnapshotWithFOF);
 
@@ -263,11 +263,10 @@ run(const int RestartSnapNum, const inttime_t ti_init)
 
     /* When we restart, validate the SPH properties of the particles.
      * This also allows us to increase MinEgySpec on a restart if we choose.*/
-    if(RestartSnapNum >= 0)
-        check_density_entropy(&All.CP, get_MinEgySpec(), All.TimeInit);
-    else
+    if(RestartSnapNum < 0)
         setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, MinEgySpec, All.units.UnitInternalEnergy_in_cgs, ti_init, All.TimeInit, All.NTotalInit[0]);
-
+    else
+        check_density_entropy(&All.CP, MinEgySpec, All.TimeInit);
 
     /* Stored scale factor of the next black hole seeding check*/
     double TimeNextSeedingCheck = All.TimeInit;

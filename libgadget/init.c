@@ -86,9 +86,6 @@ inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * 
     /*Read the snapshot*/
     petaio_read_snapshot(RestartSnapNum, OutputDir, CP, header, PartManager, SlotsManager, MPI_COMM_WORLD);
 
-    if(InitParams.InitGasTemp < 0)
-        InitParams.InitGasTemp = CP->CMBTemperature / header->TimeSnapshot;
-
     domain_test_id_uniqueness(PartManager);
 
     check_omega(PartManager, CP, get_generations(), CP->GravInternal, header->MassTable);
@@ -439,6 +436,9 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
 
     if(RestartSnapNum >= 0)
         return;
+
+    if(InitParams.InitGasTemp < 0)
+        InitParams.InitGasTemp = CP->CMBTemperature / atime;
 
     const double MeanGasSeparation = PartManager->BoxSize / pow(NTotGasInit, 1.0 / 3);
 
