@@ -32,7 +32,12 @@
 
 static struct init_params
 {
+    /* Gas temperature in the ICs*/
     double InitGasTemp;
+    /*!< in order to maintain work-load balance, the particle load will usually
+        NOT be balanced.  Each processor allocates memory for PartAllocFactor times
+        the average number of particles to allow for that */
+    double PartAllocFactor;
 } InitParams;
 
 /*Set the global parameters*/
@@ -43,6 +48,7 @@ set_init_params(ParameterSet * ps)
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0) {
         InitParams.InitGasTemp = param_get_double(ps, "InitGasTemp");
+        InitParams.PartAllocFactor = param_get_double(ps, "PartAllocFactor");
     }
     MPI_Bcast(&InitParams, sizeof(InitParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -77,11 +83,11 @@ static void init_alloc_particle_slot_memory(struct part_manager_type * PartManag
 /*! This function reads the initial conditions, allocates storage for the
  *  particle data, validates and initialises the particle data.
  */
-inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * header, const double PartAllocFactor, Cosmology * CP)
+inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * header, Cosmology * CP)
 {
     int i;
 
-    init_alloc_particle_slot_memory(PartManager, SlotsManager, PartAllocFactor, header, MPI_COMM_WORLD);
+    init_alloc_particle_slot_memory(PartManager, SlotsManager, InitParams.PartAllocFactor, header, MPI_COMM_WORLD);
 
     /*Read the snapshot*/
     petaio_read_snapshot(RestartSnapNum, OutputDir, CP, header, PartManager, SlotsManager, MPI_COMM_WORLD);

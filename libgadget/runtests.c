@@ -86,7 +86,7 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3
 void runtests(const int RestartSnapNum, const inttime_t Ti_Current)
 {
     PetaPM pm = {0};
-    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
+    gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
     DomainDecomp ddecomp[1] = {0};
 
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
@@ -172,7 +172,7 @@ void runtests(const int RestartSnapNum, const inttime_t Ti_Current)
     /* This checks the tree against a box with a smaller Nmesh.*/
     treeacc = origtreeacc;
     force_tree_free(&Tree);
-    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh/2., All.CP.GravInternal);
+    gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh/2., All.CP.GravInternal);
     force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
     gravpm_force(&pm, &Tree, &All.CP, All.TimeInit, All.units.UnitLength_in_cm, All.OutputDir, All.TimeIC, All.FastParticleType, All.BlackHoleOn);
     force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
@@ -198,7 +198,7 @@ void
 runfof(const int RestartSnapNum, const inttime_t Ti_Current)
 {
     PetaPM pm = {0};
-    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
+    gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
 
@@ -237,7 +237,7 @@ void
 runpower(void)
 {
     PetaPM pm = {0};
-    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
+    gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */

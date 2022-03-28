@@ -113,7 +113,6 @@ set_all_global_params(ParameterSet * ps)
         All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
         All.RandomParticleOffset = param_get_double(ps, "RandomParticleOffset");
 
-        All.PartAllocFactor = param_get_double(ps, "PartAllocFactor");
         All.SlotsIncreaseFactor = param_get_double(ps, "SlotsIncreaseFactor");
 
         All.SnapshotWithFOF = param_get_int(ps, "SnapshotWithFOF");
@@ -167,7 +166,6 @@ begrun(const int RestartFlag, int RestartSnapNum)
     walltime_init(&Clocks);
 
     struct header_data head = petaio_read_header(RestartSnapNum, All.OutputDir, &All.CP);
-    All.BoxSize = head.BoxSize;
     memcpy(All.MassTable, head.MassTable, 6 * sizeof(double));
     memcpy(All.NTotalInit, head.NTotalInit, 6 * sizeof(double));
     All.TimeIC = head.TimeIC;
@@ -203,7 +201,7 @@ begrun(const int RestartFlag, int RestartSnapNum)
 
     init_forcetree_params(All.FastParticleType);
 
-    init_cooling_and_star_formation(All.CoolingOn, All.StarformationOn, &All.CP, All.MassTable[0], All.BoxSize, All.units);
+    init_cooling_and_star_formation(All.CoolingOn, All.StarformationOn, &All.CP, All.MassTable[0], head.BoxSize, All.units);
 
     gravshort_fill_ntab(All.ShortRangeForceWindowType, All.Asmth);
 
@@ -219,7 +217,7 @@ begrun(const int RestartFlag, int RestartSnapNum)
         init_neutrinos_lra(head.neutrinonk, head.TimeIC, All.TimeMax, All.CP.Omega0, &All.CP.ONu, All.CP.UnitTime_in_s, CM_PER_MPC);
 
     /* ... read initial model and initialise the times*/
-    inttime_t ti_init = init(RestartSnapNum, All.OutputDir, &head, All.PartAllocFactor, &All.CP);
+    inttime_t ti_init = init(RestartSnapNum, All.OutputDir, &head, &All.CP);
 
     return ti_init;
 }
@@ -252,7 +250,7 @@ run(const int RestartSnapNum, const inttime_t ti_init)
 
     int SnapshotFileCount = RestartSnapNum;
     PetaPM pm = {0};
-    gravpm_init_periodic(&pm, All.BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
+    gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
 
     DriftKickTimes times = init_driftkicktime(ti_init);
 

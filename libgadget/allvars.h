@@ -24,13 +24,8 @@ extern struct global_data_all_processes
     int64_t NTotalInit[6]; /* The initial number of total particles in the IC. */
     double TimeInit;		/* time of simulation start: if restarting from a snapshot this holds snapshot time.*/
     double TimeIC;       /* Time when the simulation ICs were generated*/
-    double BoxSize;   /* Boxsize in case periodic boundary conditions are used */
     double MassTable[6]; /* Initial mass of particles */
     /* end of read_header parameters */
-
-    double PartAllocFactor;	/*!< in order to maintain work-load balance, the particle load will usually
-                              NOT be balanced.  Each processor allocates memory for PartAllocFactor times
-                              the average number of particles to allow for that */
 
     double SlotsIncreaseFactor; /* !< What percentage to increase the slot allocation by when requested*/
     int OutputDebugFields;      /* Flag whether to include a lot of debug output in snapshots*/
@@ -97,7 +92,6 @@ extern struct global_data_all_processes
     int SnapshotWithFOF; /*Flag that doing FOF for snapshot outputs is on*/
 
     int RandomSeed; /*Initial seed for the random number table*/
-}
-All;
+} All;
 
 #endif
