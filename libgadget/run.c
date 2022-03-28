@@ -152,7 +152,7 @@ set_all_global_params(ParameterSet * ps)
  *  ICs/restart-files are called, auxialiary memory is allocated, etc.
  */
 inttime_t
-begrun(const int RestartFlag, int RestartSnapNum)
+begrun(const int RestartFlag, int RestartSnapNum, struct header_data * head)
 {
     if(RestartFlag == 1) {
         RestartSnapNum = find_last_snapnum(All.OutputDir);
@@ -165,30 +165,26 @@ begrun(const int RestartFlag, int RestartSnapNum)
     petaio_init();
     walltime_init(&Clocks);
 
-    struct header_data head = petaio_read_header(RestartSnapNum, All.OutputDir, &All.CP);
-    memcpy(All.MassTable, head.MassTable, 6 * sizeof(double));
-    memcpy(All.NTotalInit, head.NTotalInit, 6 * sizeof(double));
-    All.TimeIC = head.TimeIC;
-    All.TimeInit = head.TimeSnapshot;
+    *head = petaio_read_header(RestartSnapNum, All.OutputDir, &All.CP);
     /*Set Nmesh to triple the mean grid spacing of the dark matter by default.*/
     if(All.Nmesh  < 0)
-        All.Nmesh = 3*pow(2, (int)(log(head.NTotal[1])/3./log(2)) );
-    if(head.neutrinonk <= 0)
-        head.neutrinonk = All.Nmesh;
+        All.Nmesh = 3*pow(2, (int)(log(head->NTotal[1])/3./log(2)) );
+    if(head->neutrinonk <= 0)
+        head->neutrinonk = All.Nmesh;
 
     slots_init(All.SlotsIncreaseFactor * PartManager->MaxPart, SlotsManager);
     /* Enable the slots: stars and BHs are allocated if there are some,
      * or if some will form*/
-    if(All.NTotalInit[0] > 0)
+    if(head->NTotalInit[0] > 0)
         slots_set_enabled(0, sizeof(struct sph_particle_data), SlotsManager);
-    if(All.StarformationOn || All.NTotalInit[4] > 0)
+    if(All.StarformationOn || head->NTotalInit[4] > 0)
         slots_set_enabled(4, sizeof(struct star_particle_data), SlotsManager);
-    if(All.BlackHoleOn || All.NTotalInit[5] > 0)
+    if(All.BlackHoleOn || head->NTotalInit[5] > 0)
         slots_set_enabled(5, sizeof(struct bh_particle_data), SlotsManager);
 
-    All.units = get_unitsystem(head.UnitLength_in_cm, head.UnitMass_in_g, head.UnitVelocity_in_cm_per_s);
+    All.units = get_unitsystem(head->UnitLength_in_cm, head->UnitMass_in_g, head->UnitVelocity_in_cm_per_s);
     /* convert some physical input parameters to internal units */
-    init_cosmology(&All.CP, head.TimeIC, All.units);
+    init_cosmology(&All.CP, head->TimeIC, All.units);
 
     check_units(&All.CP, All.units);
 
@@ -201,23 +197,23 @@ begrun(const int RestartFlag, int RestartSnapNum)
 
     init_forcetree_params(All.FastParticleType);
 
-    init_cooling_and_star_formation(All.CoolingOn, All.StarformationOn, &All.CP, All.MassTable[0], head.BoxSize, All.units);
+    init_cooling_and_star_formation(All.CoolingOn, All.StarformationOn, &All.CP, head->MassTable[0], head->BoxSize, All.units);
 
     gravshort_fill_ntab(All.ShortRangeForceWindowType, All.Asmth);
 
     set_random_numbers(All.RandomSeed);
 
     if(All.LightconeOn)
-        lightcone_init(&All.CP, head.TimeSnapshot, All.units.UnitLength_in_cm, All.OutputDir);
+        lightcone_init(&All.CP, head->TimeSnapshot, All.units.UnitLength_in_cm, All.OutputDir);
 
-    init_timeline(RestartSnapNum, All.TimeMax, &head, All.SnapshotWithFOF);
+    init_timeline(RestartSnapNum, All.TimeMax, head, All.SnapshotWithFOF);
 
     /* Get the nk and do allocation. */
     if(All.CP.MassiveNuLinRespOn)
-        init_neutrinos_lra(head.neutrinonk, head.TimeIC, All.TimeMax, All.CP.Omega0, &All.CP.ONu, All.CP.UnitTime_in_s, CM_PER_MPC);
+        init_neutrinos_lra(head->neutrinonk, head->TimeIC, All.TimeMax, All.CP.Omega0, &All.CP.ONu, All.CP.UnitTime_in_s, CM_PER_MPC);
 
     /* ... read initial model and initialise the times*/
-    inttime_t ti_init = init(RestartSnapNum, All.OutputDir, &head, &All.CP);
+    inttime_t ti_init = init(RestartSnapNum, All.OutputDir, head, &All.CP);
 
     return ti_init;
 }
@@ -241,12 +237,12 @@ use_pairwise_gravity(ActiveParticles * Act, struct part_manager_type * PartManag
  * when the simulation ends because we arrived at TimeMax.
  */
 void
-run(const int RestartSnapNum, const inttime_t ti_init)
+run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data * header)
 {
     /*Number of timesteps performed this run*/
     int NumCurrentTiStep = 0;
     /*Is gas physics enabled?*/
-    int GasEnabled = All.NTotalInit[0] > 0;
+    int GasEnabled = SlotsManager->info[0].enabled;
 
     int SnapshotFileCount = RestartSnapNum;
     PetaPM pm = {0};
@@ -262,18 +258,18 @@ run(const int RestartSnapNum, const inttime_t ti_init)
     /* When we restart, validate the SPH properties of the particles.
      * This also allows us to increase MinEgySpec on a restart if we choose.*/
     if(RestartSnapNum < 0)
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, MinEgySpec, All.units.UnitInternalEnergy_in_cgs, ti_init, All.TimeInit, All.NTotalInit[0]);
+        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, MinEgySpec, All.units.UnitInternalEnergy_in_cgs, ti_init, header->TimeSnapshot, header->NTotalInit[0]);
     else
-        check_density_entropy(&All.CP, MinEgySpec, All.TimeInit);
+        check_density_entropy(&All.CP, MinEgySpec, header->TimeSnapshot);
 
     /* Stored scale factor of the next black hole seeding check*/
-    double TimeNextSeedingCheck = All.TimeInit;
+    double TimeNextSeedingCheck = header->TimeSnapshot;
 
     walltime_measure("/Misc");
 
     open_outputfiles(RestartSnapNum);
 
-    write_cpu_log(NumCurrentTiStep, All.TimeInit, FdCPU); /* produce some CPU usage info */
+    write_cpu_log(NumCurrentTiStep, header->TimeSnapshot, FdCPU); /* produce some CPU usage info */
 
     double atime = get_atime(times.Ti_Current);
 
@@ -429,7 +425,7 @@ run(const int RestartSnapNum, const inttime_t ti_init)
         * or include hydro in the opening angle.*/
         if(is_PM)
         {
-            gravpm_force(&pm, &Tree, &All.CP, atime, All.units.UnitLength_in_cm, All.OutputDir, All.TimeIC, All.FastParticleType, All.BlackHoleOn);
+            gravpm_force(&pm, &Tree, &All.CP, atime, All.units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType, All.BlackHoleOn);
 
             /* compute and output energy statistics if desired. */
             if(All.OutputEnergyDebug)
@@ -471,7 +467,7 @@ run(const int RestartSnapNum, const inttime_t ti_init)
         {
             /* Do this before sfr and bh so the gas hsml always contains DesNumNgb neighbours.*/
             if(All.MetalReturnOn) {
-                double AvgGasMass = All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal) * pow(PartManager->BoxSize, 3) / All.NTotalInit[0];
+                double AvgGasMass = All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal) * pow(PartManager->BoxSize, 3) / header->NTotalInit[0];
                 metal_return(&Act, ddecomp, &All.CP, atime, AvgGasMass);
             }
 
@@ -559,7 +555,7 @@ run(const int RestartSnapNum, const inttime_t ti_init)
 
         /* Save FOF tables after checkpoint so that if there is a FOF save bug we have particle tables available to debug it*/
         if(WriteFOF) {
-            fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, SnapshotFileCount, &All.CP, atime, All.MassTable, All.MetalReturnOn, All.BlackHoleOn, MPI_COMM_WORLD);
+            fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, SnapshotFileCount, &All.CP, atime, header->MassTable, All.MetalReturnOn, All.BlackHoleOn, MPI_COMM_WORLD);
             fof_finish(&fof);
         }
 
