@@ -1067,7 +1067,7 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID) {
     IO_REG(BlackholeJumpToMinPot,   "i4", 1, 5, IOTable);
     IO_REG(BlackholeMtrack,         "f4", 1, 5, IOTable);
     IO_REG_NONFATAL(BlackholeMseed,         "f4", 1, 5, IOTable);
-    IO_REG(BlackholeKineticFdbkEnergy, "f4", 1, 5, IOTable);
+    IO_REG_NONFATAL(BlackholeKineticFdbkEnergy, "f4", 1, 5, IOTable);
 
     /* Smoothing lengths for black hole: this is a new addition*/
     IO_REG_NONFATAL(SmoothingLength,  "f4", 1, 5, IOTable);
