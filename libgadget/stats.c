@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <omp.h>
 
 #include "timestep.h"
 #include "physconst.h"
@@ -10,6 +11,8 @@
 #include "slotsmanager.h"
 #include "hydra.h"
 #include "utils.h"
+#include "stats.h"
+#include "walltime.h"
 
 /* global state of system
 */
@@ -36,6 +39,20 @@ struct state_of_system
     double AngMomentumComp[6][4];
     double CenterOfMassComp[6][4];
 };
+
+void write_cpu_log(int NumCurrentTiStep, const double atime, FILE * FdCPU, double ElapsedTime)
+{
+    walltime_summary(0, MPI_COMM_WORLD);
+
+    if(FdCPU)
+    {
+        int NTask;
+        MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+        fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads: %d Elapsed: %g\n", NumCurrentTiStep, atime, NTask, omp_get_max_threads(), ElapsedTime);
+        walltime_report(FdCPU, 0, MPI_COMM_WORLD);
+        fflush(FdCPU);
+    }
+}
 
 /* This routine computes various global properties of the particle
  * distribution and stores the result in the struct `SysState'.

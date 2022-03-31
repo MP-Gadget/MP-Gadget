@@ -23,6 +23,7 @@ INCL = densitykernel.h \
 	checkpoint.h \
 	physconst.h   \
 	sfr_eff.h \
+	stats.h \
 	metal_return.h \
 	winds.h \
 	timefac.h \

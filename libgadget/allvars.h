@@ -6,12 +6,8 @@
 #ifndef ALLVARS_H
 #define ALLVARS_H
 
-#include <mpi.h>
-#include <omp.h>
-
 #include "cosmology.h"
 #include "gravity.h"
-#include "physconst.h"
 
 /*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
  * parameter file).  Holding this data in a structure is convenient for writing/reading the restart file, and

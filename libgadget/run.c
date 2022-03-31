@@ -5,6 +5,7 @@
 #include <math.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <omp.h>
 
 #include "utils.h"
 
@@ -33,9 +34,8 @@
 #include "lightcone.h"
 #include "timefac.h"
 #include "neutrinos_lra.h"
+#include "stats.h"
 
-/* stats.c only used here */
-void energy_statistics(FILE * FdEnergy, const double Time,  struct part_manager_type * PartManager);
 /*!< file handle for energy.txt log-file. */
 static FILE * FdEnergy;
 static FILE  *FdCPU;    /*!< file handle for cpu.txt log-file. */
@@ -49,7 +49,6 @@ static struct ClockTable Clocks;
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
  */
-static void write_cpu_log(int NumCurrentTiStep, const double atime, FILE * FdCPU);
 
 /* Updates the global storing the current random offset of the particles,
  * and stores the relative offset from the last random offset in rel_random_shift*/
@@ -274,7 +273,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
     open_outputfiles(RestartSnapNum);
 
-    write_cpu_log(NumCurrentTiStep, header->TimeSnapshot, FdCPU); /* produce some CPU usage info */
+    write_cpu_log(NumCurrentTiStep, header->TimeSnapshot, FdCPU, Clocks.ElapsedTime); /* produce some CPU usage info */
 
     DriftKickTimes times = init_driftkicktime(ti_init);
 
@@ -566,7 +565,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             fof_finish(&fof);
         }
 
-        write_cpu_log(NumCurrentTiStep, atime, FdCPU);    /* produce some CPU usage info */
+        write_cpu_log(NumCurrentTiStep, atime, FdCPU, Clocks.ElapsedTime);    /* produce some CPU usage info */
 
         report_memory_usage("RUN");
 
@@ -604,20 +603,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
     }
 
     close_outputfiles();
-}
-
-void write_cpu_log(int NumCurrentTiStep, const double atime, FILE * FdCPU)
-{
-    walltime_summary(0, MPI_COMM_WORLD);
-
-    if(FdCPU)
-    {
-        int NTask;
-        MPI_Comm_size(MPI_COMM_WORLD, &NTask);
-        fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads: %d Elapsed: %g\n", NumCurrentTiStep, atime, NTask, omp_get_max_threads(), Clocks.ElapsedTime);
-        walltime_report(FdCPU, 0, MPI_COMM_WORLD);
-        fflush(FdCPU);
-    }
 }
 
 /* We operate in a situation where the particles are in a coordinate frame
