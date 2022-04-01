@@ -110,6 +110,8 @@ static void fof_finish_group_properties(FOFGroups * fof, double BoxSize);
 
 static int fof_compile_base(struct BaseGroup * base, int NgroupsExt, struct fof_particle_list * HaloLabel, MPI_Comm Comm);
 static void fof_compile_catalogue(FOFGroups * fof, const int NgroupsExt, struct fof_particle_list * HaloLabel, MPI_Comm Comm);
+static int fof_compile_base_2(struct BaseGroup * base, int NgroupsExt, struct fof_particle_list * HaloLabel, MPI_Comm Comm);
+
 
 static struct Group *
 fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt);
@@ -177,6 +179,23 @@ fof_fof(DomainDecomp * ddecomp, const int StoreGrNr, MPI_Comm Comm)
     MPIU_Barrier(Comm);
     message(0, "Group finding done.\n");
     walltime_measure("/FOF/Primary");
+
+    struct fof_particle_list * HaloLabel2 = (struct fof_particle_list *) mymalloc("HaloLabel2", PartManager->NumPart * sizeof(struct fof_particle_list));
+
+    memcpy(HaloLabel2, HaloLabel,  PartManager->NumPart * sizeof(struct fof_particle_list));
+    /* sort HaloLabel according to MinID, because we need that for compiling catalogues */
+    qsort_openmp(HaloLabel2, PartManager->NumPart, sizeof(struct fof_particle_list), fof_compare_HaloLabel_MinID);
+
+    int NgroupsExt2 = 0;
+    for(i = 0; i < PartManager->NumPart; i ++) {
+        if(i == 0 || HaloLabel2[i].MinID != HaloLabel2[i - 1].MinID) NgroupsExt2 ++;
+    }
+
+    struct BaseGroup * base2 = (struct BaseGroup *) mymalloc("BaseGroup", sizeof(struct BaseGroup) * NgroupsExt2);
+
+    fof_compile_base_2(base2, NgroupsExt2, HaloLabel2, Comm);
+    myfree(base2);
+    myfree(HaloLabel2);
 
     /* Fill FOFP_List of secondary */
     fof_label_secondary(HaloLabel, &dmtree);
@@ -756,6 +775,61 @@ fof_finish_group_properties(struct FOFGroups * fof, double BoxSize)
     }
 
 }
+
+static int
+fof_compile_base_2(struct BaseGroup * base, int NgroupsExt, struct fof_particle_list * HaloLabel, MPI_Comm Comm)
+{
+    memset(base, 0, sizeof(base[0]) * NgroupsExt);
+
+    int i;
+    int start;
+
+    start = 0;
+    for(i = 0; i < PartManager->NumPart; i++)
+    {
+        if(i == 0 || HaloLabel[i].MinID != HaloLabel[i - 1].MinID) {
+            base[start].MinID = HaloLabel[i].MinID;
+            base[start].MinIDTask = HaloLabel[i].MinIDTask;
+            int d;
+            for(d = 0; d < 3; d ++) {
+                base[start].FirstPos[d] = P[HaloLabel[i].Pindex].Pos[d];
+            }
+            start ++;
+        }
+    }
+
+    /* count local lengths */
+    /* This works because base is sorted by MinID by construction. */
+    start = 0;
+    for(i = 0; i < NgroupsExt; i++)
+    {
+        /* find the first particle */
+        for(;start < PartManager->NumPart; start++) {
+            if(HaloLabel[start].MinID >= base[i].MinID) break;
+        }
+        /* count particles */
+        for(;start < PartManager->NumPart; start++) {
+            if(HaloLabel[start].MinID != base[i].MinID) {
+                break;
+            }
+            base[i].Length ++;
+        }
+    }
+
+    /* update global attributes */
+    fof_reduce_groups(base, NgroupsExt, sizeof(base[0]), fof_reduce_base_group, Comm);
+
+    /* eliminate all groups that are too small */
+    for(i = 0; i < NgroupsExt; i++)
+    {
+        if(base[i].Length < 1)
+        {
+            message(2, "Found zero length group: %d len %g minid %ld minidtask %ld firstpos %g %g %g\n", i, base[i].Length, base[i].MinID, base[i].MinIDTask, base[i].FirstPos[0], base[i].FirstPos[1], base[i].FirstPos[2]);
+        }
+    }
+    return NgroupsExt;
+}
+
 
 static int
 fof_compile_base(struct BaseGroup * base, int NgroupsExt, struct fof_particle_list * HaloLabel, MPI_Comm Comm)
