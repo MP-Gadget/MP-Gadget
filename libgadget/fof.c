@@ -948,16 +948,16 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, struct fof_p
         }
     }
 
+    /* collect global properties */
+    fof_reduce_groups(fof->Group, NgroupsExt, sizeof(fof->Group[0]), fof_reduce_group, Comm);
+
     for(i = 0; i < NgroupsExt; i++)
     {
         if(fof->Group[i].LenType[1] < 1)
         {
-            message(2, "Found zero DM length group: %d len %d DM %d gas firstpos %g %g %g\n", i, fof->Group[i].Length, fof->Group[i].LenType[1], fof->Group[i].LenType[0], fof->Group[i].CM[0], fof->Group[i].CM[1], fof->Group[i].CM[2]);
+            message(2, "fof_compile_catalogue after reduce zero DM group: %d len %d DM %d gas firstpos %g %g %g\n", fof->Group[i].Length, fof->Group[i].LenType[1], fof->Group[i].LenType[0], fof->Group[i].CM[0], fof->Group[i].CM[1], fof->Group[i].CM[2]);
         }
     }
-
-    /* collect global properties */
-    fof_reduce_groups(fof->Group, NgroupsExt, sizeof(fof->Group[0]), fof_reduce_group, Comm);
 
     /* count Groups and number of particles hosted by me */
     fof->Ngroups = 0;
@@ -1003,6 +1003,15 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, struct fof_p
         message(0, "Largest group has %d particles, mass %g.\n", largestloc_tot, largestmass_tot);
         message(0, "Total number of particles in groups: %012ld\n", TotNids);
     }
+
+    for(i = 0; i < NgroupsExt; i++)
+    {
+        if(fof->Group[i].LenType[1] < 1)
+        {
+            message(2, "fof_compile_catalogue end zero DM group: %d len %d DM %d gas firstpos %g %g %g\n", fof->Group[i].Length, fof->Group[i].LenType[1], fof->Group[i].LenType[0], fof->Group[i].CM[0], fof->Group[i].CM[1], fof->Group[i].CM[2]);
+        }
+    }
+
 }
 
 
