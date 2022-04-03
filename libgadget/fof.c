@@ -604,7 +604,8 @@ static void fof_reduce_base_group(void * pdst, void * psrc) {
     struct BaseGroup * gdst = (struct BaseGroup *) pdst;
     struct BaseGroup * gsrc = (struct BaseGroup *) psrc;
     gdst->Length += gsrc->Length;
-    gdst->LengthDM += gsrc->LengthDM;
+    for(int i = 0; i < 6; i++)
+        gdst->LenType[i] += gsrc->LenType[i];
     /* preserve the dst FirstPos so all other base group gets the same FirstPos */
 }
 
@@ -813,8 +814,7 @@ fof_compile_base_2(struct BaseGroup * base, int NgroupsExt, struct fof_particle_
             if(HaloLabel[start].MinID != base[i].MinID) {
                 break;
             }
-            if(P[HaloLabel[start].Pindex].Type == 1)
-                base[i].LengthDM ++;
+            base[i].LenType[P[HaloLabel[start].Pindex].Type]++;
             base[i].Length ++;
         }
     }
@@ -825,9 +825,9 @@ fof_compile_base_2(struct BaseGroup * base, int NgroupsExt, struct fof_particle_
     /* eliminate all groups that are too small */
     for(i = 0; i < NgroupsExt; i++)
     {
-        if(base[i].LengthDM < 1)
+        if(base[i].LenType[1] < 1 && base[i].Length > 1)
         {
-            message(2, "Found zero length group: %d len minid %ld minidtask %ld firstpos %g %g %g\n", i, base[i].Length, base[i].MinID, base[i].MinIDTask, base[i].FirstPos[0], base[i].FirstPos[1], base[i].FirstPos[2]);
+            message(2, "compile_base_2 zero DM: %d len %d gas %d dm %d star minid %ld minidtask %d firstpos %g %g %g\n", i, base[i].Length, base[i].LenType[0], base[i].LenType[1], base[i].LenType[4], base[i].MinID, base[i].MinIDTask, base[i].FirstPos[0], base[i].FirstPos[1], base[i].FirstPos[2]);
         }
     }
     return NgroupsExt;
@@ -871,16 +871,15 @@ fof_compile_base(struct BaseGroup * base, int NgroupsExt, struct fof_particle_li
                 break;
             }
             base[i].Length ++;
-            if(P[HaloLabel[start].Pindex].Type == 1)
-                base[i].LengthDM ++;
+            base[i].LenType[P[HaloLabel[start].Pindex].Type]++;
         }
     }
 
     for(i = 0; i < NgroupsExt; i++)
     {
-        if(base[i].LengthDM < 1)
+        if(base[i].LenType[1] < 1 && base[i].Length > 1)
         {
-            message(2, "Found zero DM length group: %d len %d DM minid %ld minidtask %ld firstpos %g %g %g\n", i, base[i].Length, base[i].LengthDM, base[i].MinID, base[i].MinIDTask, base[i].FirstPos[0], base[i].FirstPos[1], base[i].FirstPos[2]);
+            message(2, "compile_base before reduce zero DM: %d len %d gas %d dm %d star minid %ld minidtask %d firstpos %g %g %g\n", i, base[i].Length, base[i].LenType[0], base[i].LenType[1], base[i].LenType[4], base[i].MinID, base[i].MinIDTask, base[i].FirstPos[0], base[i].FirstPos[1], base[i].FirstPos[2]);
         }
     }
 
@@ -889,9 +888,9 @@ fof_compile_base(struct BaseGroup * base, int NgroupsExt, struct fof_particle_li
 
     for(i = 0; i < NgroupsExt; i++)
     {
-        if(base[i].LengthDM < 1)
+        if(base[i].LenType[1] < 1 && base[i].Length > 1)
         {
-            message(2, "Found zero DM length group: %d len %d DM minid %ld minidtask %ld firstpos %g %g %g\n", i, base[i].Length, base[i].LengthDM, base[i].MinID, base[i].MinIDTask, base[i].FirstPos[0], base[i].FirstPos[1], base[i].FirstPos[2]);
+            message(2, "compile_base after reduce zero DM: %d len %d gas %d dm %d star minid %ld minidtask %d firstpos %g %g %g\n", i, base[i].Length, base[i].LenType[0], base[i].LenType[1], base[i].LenType[4], base[i].MinID, base[i].MinIDTask, base[i].FirstPos[0], base[i].FirstPos[1], base[i].FirstPos[2]);
         }
     }
 
