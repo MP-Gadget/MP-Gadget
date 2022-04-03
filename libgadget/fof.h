@@ -14,6 +14,7 @@ struct BaseGroup {
     int OriginalTask;
     int OriginalIndex;
     int Length;
+    int LengthDM;
     int GrNr;
     MyIDType MinID;
     int MinIDTask;

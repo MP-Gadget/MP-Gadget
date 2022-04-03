@@ -604,6 +604,7 @@ static void fof_reduce_base_group(void * pdst, void * psrc) {
     struct BaseGroup * gdst = (struct BaseGroup *) pdst;
     struct BaseGroup * gsrc = (struct BaseGroup *) psrc;
     gdst->Length += gsrc->Length;
+    gdst->LengthDM += gsrc->LengthDM;
     /* preserve the dst FirstPos so all other base group gets the same FirstPos */
 }
 
@@ -812,6 +813,8 @@ fof_compile_base_2(struct BaseGroup * base, int NgroupsExt, struct fof_particle_
             if(HaloLabel[start].MinID != base[i].MinID) {
                 break;
             }
+            if(P[HaloLabel[start].Pindex].Type == 1)
+                base[i].LengthDM ++;
             base[i].Length ++;
         }
     }
@@ -822,9 +825,9 @@ fof_compile_base_2(struct BaseGroup * base, int NgroupsExt, struct fof_particle_
     /* eliminate all groups that are too small */
     for(i = 0; i < NgroupsExt; i++)
     {
-        if(base[i].Length < 1)
+        if(base[i].LengthDM < 1)
         {
-            message(2, "Found zero length group: %d len %g minid %ld minidtask %ld firstpos %g %g %g\n", i, base[i].Length, base[i].MinID, base[i].MinIDTask, base[i].FirstPos[0], base[i].FirstPos[1], base[i].FirstPos[2]);
+            message(2, "Found zero length group: %d len minid %ld minidtask %ld firstpos %g %g %g\n", i, base[i].Length, base[i].MinID, base[i].MinIDTask, base[i].FirstPos[0], base[i].FirstPos[1], base[i].FirstPos[2]);
         }
     }
     return NgroupsExt;
@@ -868,11 +871,29 @@ fof_compile_base(struct BaseGroup * base, int NgroupsExt, struct fof_particle_li
                 break;
             }
             base[i].Length ++;
+            if(P[HaloLabel[start].Pindex].Type == 1)
+                base[i].LengthDM ++;
+        }
+    }
+
+    for(i = 0; i < NgroupsExt; i++)
+    {
+        if(base[i].LengthDM < 1)
+        {
+            message(2, "Found zero DM length group: %d len %d DM minid %ld minidtask %ld firstpos %g %g %g\n", i, base[i].Length, base[i].LengthDM, base[i].MinID, base[i].MinIDTask, base[i].FirstPos[0], base[i].FirstPos[1], base[i].FirstPos[2]);
         }
     }
 
     /* update global attributes */
     fof_reduce_groups(base, NgroupsExt, sizeof(base[0]), fof_reduce_base_group, Comm);
+
+    for(i = 0; i < NgroupsExt; i++)
+    {
+        if(base[i].LengthDM < 1)
+        {
+            message(2, "Found zero DM length group: %d len %d DM minid %ld minidtask %ld firstpos %g %g %g\n", i, base[i].Length, base[i].LengthDM, base[i].MinID, base[i].MinIDTask, base[i].FirstPos[0], base[i].FirstPos[1], base[i].FirstPos[2]);
+        }
+    }
 
     /* eliminate all groups that are too small */
     for(i = 0; i < NgroupsExt; i++)
@@ -925,6 +946,14 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, struct fof_p
                 break;
             }
             add_particle_to_group(&fof->Group[i], HaloLabel[start].Pindex, ThisTask);
+        }
+    }
+
+    for(i = 0; i < NgroupsExt; i++)
+    {
+        if(fof->Group[i].LenType[1] < 1)
+        {
+            message(2, "Found zero DM length group: %d len %d DM %d gas firstpos %g %g %g\n", i, fof->Group[i].Length, fof->Group[i].LenType[1], fof->Group[i].LenType[0], fof->Group[i].CM[0], fof->Group[i].CM[1], fof->Group[i].CM[2]);
         }
     }
 
