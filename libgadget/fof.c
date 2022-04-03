@@ -827,7 +827,7 @@ fof_compile_base_2(struct BaseGroup * base, int NgroupsExt, struct fof_particle_
     {
         if(base[i].LenType[1] < 1 && base[i].Length > 1)
         {
-            message(2, "compile_base_2 zero DM: %d len %d gas %d dm %d star minid %ld minidtask %d firstpos %g %g %g\n", i, base[i].Length, base[i].LenType[0], base[i].LenType[1], base[i].LenType[4], base[i].MinID, base[i].MinIDTask, base[i].FirstPos[0], base[i].FirstPos[1], base[i].FirstPos[2]);
+            message(2, "compile_base_2 zero DM: %d len %d gas %d dm %d star minid %ld minidtask %d firstpos %g %g %g\n", base[i].Length, base[i].LenType[0], base[i].LenType[1], base[i].LenType[4], base[i].MinID, base[i].MinIDTask, base[i].FirstPos[0], base[i].FirstPos[1], base[i].FirstPos[2]);
         }
     }
     return NgroupsExt;
@@ -879,7 +879,7 @@ fof_compile_base(struct BaseGroup * base, int NgroupsExt, struct fof_particle_li
     {
         if(base[i].LenType[1] < 1 && base[i].Length > 1)
         {
-            message(2, "compile_base before reduce zero DM: %d len %d gas %d dm %d star minid %ld minidtask %d firstpos %g %g %g\n", i, base[i].Length, base[i].LenType[0], base[i].LenType[1], base[i].LenType[4], base[i].MinID, base[i].MinIDTask, base[i].FirstPos[0], base[i].FirstPos[1], base[i].FirstPos[2]);
+            message(2, "compile_base before reduce zero DM: %d len %d gas %d dm %d star minid %ld minidtask %d firstpos %g %g %g\n", base[i].Length, base[i].LenType[0], base[i].LenType[1], base[i].LenType[4], base[i].MinID, base[i].MinIDTask, base[i].FirstPos[0], base[i].FirstPos[1], base[i].FirstPos[2]);
         }
     }
 
@@ -890,7 +890,7 @@ fof_compile_base(struct BaseGroup * base, int NgroupsExt, struct fof_particle_li
     {
         if(base[i].LenType[1] < 1 && base[i].Length > 1)
         {
-            message(2, "compile_base after reduce zero DM: %d len %d gas %d dm %d star minid %ld minidtask %d firstpos %g %g %g\n", i, base[i].Length, base[i].LenType[0], base[i].LenType[1], base[i].LenType[4], base[i].MinID, base[i].MinIDTask, base[i].FirstPos[0], base[i].FirstPos[1], base[i].FirstPos[2]);
+            message(2, "compile_base after reduce zero DM: %d len %d gas %d dm %d star minid %ld minidtask %d firstpos %g %g %g\n", base[i].Length, base[i].LenType[0], base[i].LenType[1], base[i].LenType[4], base[i].MinID, base[i].MinIDTask, base[i].FirstPos[0], base[i].FirstPos[1], base[i].FirstPos[2]);
         }
     }
 
