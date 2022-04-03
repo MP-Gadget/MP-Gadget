@@ -1004,13 +1004,13 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, struct fof_p
         message(0, "Total number of particles in groups: %012ld\n", TotNids);
     }
 
-    for(i = 0; i < NgroupsExt; i++)
-    {
-        if(fof->Group[i].LenType[1] < 1)
-        {
-            message(2, "fof_compile_catalogue end zero DM group: %d len %d DM %d gas firstpos %g %g %g\n", fof->Group[i].Length, fof->Group[i].LenType[1], fof->Group[i].LenType[0], fof->Group[i].CM[0], fof->Group[i].CM[1], fof->Group[i].CM[2]);
-        }
-    }
+//     for(i = 0; i < NgroupsExt; i++)
+//     {
+//         if(fof->Group[i].LenType[1] < 1)
+//         {
+//             message(2, "fof_compile_catalogue end zero DM group: %d len %d DM %d gas firstpos %g %g %g\n", fof->Group[i].Length, fof->Group[i].LenType[1], fof->Group[i].LenType[0], fof->Group[i].CM[0], fof->Group[i].CM[1], fof->Group[i].CM[2]);
+//         }
+//     }
 
 }
 
