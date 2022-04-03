@@ -877,7 +877,7 @@ fof_compile_base(struct BaseGroup * base, int NgroupsExt, struct fof_particle_li
 
     for(i = 0; i < NgroupsExt; i++)
     {
-        if(base[i].LenType[1] < 1 && base[i].Length > 1)
+        if(base[i].LenType[1] < 1 && base[i].Length > 3)
         {
             message(2, "compile_base before reduce zero DM: %d len %d gas %d dm %d star minid %ld minidtask %d firstpos %g %g %g\n", base[i].Length, base[i].LenType[0], base[i].LenType[1], base[i].LenType[4], base[i].MinID, base[i].MinIDTask, base[i].FirstPos[0], base[i].FirstPos[1], base[i].FirstPos[2]);
         }
