@@ -1239,7 +1239,10 @@ struct FOFSecondaryPriv {
 static void fof_secondary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
 
     I->Hsml = FOF_SECONDARY_GET_PRIV(tw)->hsml[place];
+    I->MinID = FOF_SECONDARY_GET_PRIV(tw)->HaloLabel[place].MinID;
+    I->MinIDTask = FOF_SECONDARY_GET_PRIV(tw)->HaloLabel[place].MinIDTask;
 }
+
 static int fof_secondary_haswork(int n, TreeWalk * tw) {
     if(P[n].IsGarbage || P[n].Swallowed)
         return 0;
@@ -1265,6 +1268,8 @@ fof_secondary_ngbiter(TreeWalkQueryFOF * I,
 {
     if(iter->base.other == -1) {
         O->Distance = LARGE;
+        O->MinID = I->MinID;
+        O->MinIDTask = I->MinIDTask;
         iter->base.Hsml = I->Hsml;
         iter->base.mask = fof_params.FOFPrimaryLinkTypes;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
