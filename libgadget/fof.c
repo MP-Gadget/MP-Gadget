@@ -1382,11 +1382,14 @@ static void fof_label_secondary(struct fof_particle_list * HaloLabel, ForceTree 
         for(n = 0; n < PartManager->NumPart; n++) {
             if(HaloLabel[n].MinID == 0) {
                 if(count < 10)
-                    message(5, "iteration %d minid %ld idtask %d pindex %d type %d id %ld pos %g %g %g\n", tw->Niteration, HaloLabel[n].MinID, HaloLabel[n].MinIDTask, HaloLabel[n].Pindex,
-                    P[HaloLabel[n].Pindex].Type, P[HaloLabel[n].Pindex].ID, P[HaloLabel[n].Pindex].Pos[0], P[HaloLabel[n].Pindex].Pos[1], P[HaloLabel[n].Pindex].Pos[2]);
+                    message(5, "iteration %d minid %ld idtask %d pindex %d type %d id %ld dist %g hsml %g pos %g %g %g\n", tw->Niteration, HaloLabel[n].MinID, HaloLabel[n].MinIDTask, HaloLabel[n].Pindex,
+                    P[HaloLabel[n].Pindex].Type, P[HaloLabel[n].Pindex].ID,
+                    FOF_SECONDARY_GET_PRIV(tw)->distance[n], FOF_SECONDARY_GET_PRIV(tw)->hsml[n],
+                    P[HaloLabel[n].Pindex].Pos[0], P[HaloLabel[n].Pindex].Pos[1], P[HaloLabel[n].Pindex].Pos[2]);
                 count++;
             }
         }
+        message(5, "total zero minid: %d left %ld\n", count, ntot);
 
         if(ntot < 0 || (ntot > 0 && tw->Niteration > MAXITER))
             endrun(1159, "Failed to converge in fof-nearest: ntot %ld", ntot);
