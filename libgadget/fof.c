@@ -1249,7 +1249,7 @@ static int fof_secondary_haswork(int n, TreeWalk * tw) {
     return ((1 << P[n].Type) & fof_params.FOFSecondaryLinkTypes);
 }
 static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, enum TreeWalkReduceMode mode, TreeWalk * tw) {
-    if(O->Distance < FOF_SECONDARY_GET_PRIV(tw)->distance[place])
+    if(O->Distance < FOF_SECONDARY_GET_PRIV(tw)->distance[place] && O->Distance >= 0)
     {
         FOF_SECONDARY_GET_PRIV(tw)->distance[place] = O->Distance;
         FOF_SECONDARY_GET_PRIV(tw)->HaloLabel[place].MinID = O->MinID;
@@ -1305,7 +1305,7 @@ fof_secondary_postprocess(int p, TreeWalk * tw)
             }
 */
         } else {
-            FOF_SECONDARY_GET_PRIV(tw)->distance[p] = 0;  /* we not continue to search for this particle */
+            FOF_SECONDARY_GET_PRIV(tw)->distance[p] = -1;  /* we not continue to search for this particle */
         }
     }
 }
