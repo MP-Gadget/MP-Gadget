@@ -1141,7 +1141,7 @@ static int fof_secondary_haswork(int n, TreeWalk * tw) {
     return ((1 << P[n].Type) & fof_params.FOFSecondaryLinkTypes);
 }
 static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, enum TreeWalkReduceMode mode, TreeWalk * tw) {
-    if(O->Distance < FOF_SECONDARY_GET_PRIV(tw)->distance[place] && O->Distance >= 0)
+    if(O->Distance < FOF_SECONDARY_GET_PRIV(tw)->distance[place] && O->Distance >= 0 && O->Distance < 0.5 * LARGE)
     {
         FOF_SECONDARY_GET_PRIV(tw)->distance[place] = O->Distance;
         FOF_SECONDARY_GET_PRIV(tw)->HaloLabel[place].MinID = O->MinID;
