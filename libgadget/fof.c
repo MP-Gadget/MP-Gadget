@@ -478,11 +478,11 @@ void fof_label_primary(struct fof_particle_list * HaloLabel, ForceTree * tree, M
             MyIDType newMinID = HaloLabel[head].MinID;
             if(newMinID != FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i]) {
                 FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[i] = 1;
+                FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i] = newMinID;
                 link_across ++;
             } else {
                 FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[i] = 0;
             }
-            FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i] = newMinID;
         }
         MPI_Allreduce(&link_across, &link_across_tot, 1, MPI_INT64, MPI_SUM, Comm);
         message(0, "Linked %ld particles %g seconds\n", link_across_tot, t1 - t0);
