@@ -877,7 +877,7 @@ fof_compile_base(struct BaseGroup * base, int NgroupsExt, struct fof_particle_li
 
     for(i = 0; i < NgroupsExt; i++)
     {
-        if(base[i].LenType[1] < 1 && base[i].Length > 3)
+        if(base[i].LenType[1] < 1 && base[i].Length > 300)
         {
             message(2, "compile_base before reduce zero DM: %d len %d gas %d dm %d star minid %ld minidtask %d firstpos %g %g %g\n", base[i].Length, base[i].LenType[0], base[i].LenType[1], base[i].LenType[4], base[i].MinID, base[i].MinIDTask, base[i].FirstPos[0], base[i].FirstPos[1], base[i].FirstPos[2]);
         }
@@ -888,7 +888,7 @@ fof_compile_base(struct BaseGroup * base, int NgroupsExt, struct fof_particle_li
 
     for(i = 0; i < NgroupsExt; i++)
     {
-        if(base[i].LenType[1] < 1 && base[i].Length > 1)
+        if(base[i].LenType[1] < 1 && base[i].Length > 300)
         {
             message(2, "compile_base after reduce zero DM: %d len %d gas %d dm %d star minid %ld minidtask %d firstpos %g %g %g\n", base[i].Length, base[i].LenType[0], base[i].LenType[1], base[i].LenType[4], base[i].MinID, base[i].MinIDTask, base[i].FirstPos[0], base[i].FirstPos[1], base[i].FirstPos[2]);
         }
@@ -1331,6 +1331,15 @@ static void fof_label_secondary(struct fof_particle_list * HaloLabel, ForceTree 
 
     tw->priv = priv;
 
+    int count = 0;
+    for(n = 0; n < PartManager->NumPart; n++) {
+        if(HaloLabel[n].MinID == 0) {
+            if (count < 10)
+                message(5, "before label_secondary minid %ld idtask %d pindex %d type %d id %ld pos %g %g %g\n", HaloLabel[n].MinID, HaloLabel[n].MinIDTask, HaloLabel[n].Pindex,
+                    P[HaloLabel[n].Pindex].Type, P[HaloLabel[n].Pindex].ID, P[HaloLabel[n].Pindex].Pos[0], P[HaloLabel[n].Pindex].Pos[1], P[HaloLabel[n].Pindex].Pos[2]);
+            count ++;
+        }
+    }
     message(0, "Start finding nearest dm-particle (presently allocated=%g MB)\n",
             mymalloc_usedbytes() / (1024.0 * 1024.0));
 
@@ -1368,6 +1377,16 @@ static void fof_label_secondary(struct fof_particle_list * HaloLabel, ForceTree 
             FOF_SECONDARY_GET_PRIV(tw)->npleft[0] += FOF_SECONDARY_GET_PRIV(tw)->npleft[n];
         }
         sumup_large_ints(1, &FOF_SECONDARY_GET_PRIV(tw)->npleft[0], &ntot);
+
+        int count = 0;
+        for(n = 0; n < PartManager->NumPart; n++) {
+            if(HaloLabel[n].MinID == 0) {
+                if(count < 10)
+                    message(5, "iteration %d minid %ld idtask %d pindex %d type %d id %ld pos %g %g %g\n", tw->Niteration, HaloLabel[n].MinID, HaloLabel[n].MinIDTask, HaloLabel[n].Pindex,
+                    P[HaloLabel[n].Pindex].Type, P[HaloLabel[n].Pindex].ID, P[HaloLabel[n].Pindex].Pos[0], P[HaloLabel[n].Pindex].Pos[1], P[HaloLabel[n].Pindex].Pos[2]);
+                count++;
+            }
+        }
 
         if(ntot < 0 || (ntot > 0 && tw->Niteration > MAXITER))
             endrun(1159, "Failed to converge in fof-nearest: ntot %ld", ntot);
