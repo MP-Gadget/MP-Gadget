@@ -459,11 +459,11 @@ void fof_label_primary(struct fof_particle_list * HaloLabel, ForceTree * tree, M
             MyIDType newMinID = HaloLabel[head].MinID;
             if(newMinID != FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i]) {
                 FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[i] = 1;
+                FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i] = newMinID;
                 link_across ++;
             } else {
                 FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[i] = 0;
             }
-            FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i] = newMinID;
         }
         MPI_Allreduce(&link_across, &link_across_tot, 1, MPI_INT64, MPI_SUM, Comm);
         message(0, "Linked %ld particles %g seconds\n", link_across_tot, t1 - t0);
@@ -1128,7 +1128,10 @@ struct FOFSecondaryPriv {
 static void fof_secondary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
 
     I->Hsml = FOF_SECONDARY_GET_PRIV(tw)->hsml[place];
+    I->MinID = FOF_SECONDARY_GET_PRIV(tw)->HaloLabel[place].MinID;
+    I->MinIDTask = FOF_SECONDARY_GET_PRIV(tw)->HaloLabel[place].MinIDTask;
 }
+
 static int fof_secondary_haswork(int n, TreeWalk * tw) {
     if(P[n].IsGarbage || P[n].Swallowed)
         return 0;
@@ -1138,7 +1141,7 @@ static int fof_secondary_haswork(int n, TreeWalk * tw) {
     return ((1 << P[n].Type) & fof_params.FOFSecondaryLinkTypes);
 }
 static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, enum TreeWalkReduceMode mode, TreeWalk * tw) {
-    if(O->Distance < FOF_SECONDARY_GET_PRIV(tw)->distance[place])
+    if(O->Distance < FOF_SECONDARY_GET_PRIV(tw)->distance[place] && O->Distance >= 0 && O->Distance < 0.5 * LARGE)
     {
         FOF_SECONDARY_GET_PRIV(tw)->distance[place] = O->Distance;
         FOF_SECONDARY_GET_PRIV(tw)->HaloLabel[place].MinID = O->MinID;
@@ -1154,6 +1157,8 @@ fof_secondary_ngbiter(TreeWalkQueryFOF * I,
 {
     if(iter->base.other == -1) {
         O->Distance = LARGE;
+        O->MinID = I->MinID;
+        O->MinIDTask = I->MinIDTask;
         iter->base.Hsml = I->Hsml;
         iter->base.mask = fof_params.FOFPrimaryLinkTypes;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
@@ -1194,7 +1199,7 @@ fof_secondary_postprocess(int p, TreeWalk * tw)
             }
 */
         } else {
-            FOF_SECONDARY_GET_PRIV(tw)->distance[p] = 0;  /* we not continue to search for this particle */
+            FOF_SECONDARY_GET_PRIV(tw)->distance[p] = -1;  /* we not continue to search for this particle */
         }
     }
 }
