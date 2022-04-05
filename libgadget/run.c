@@ -42,10 +42,6 @@ static struct ClockTable Clocks;
  *  \brief  iterates over timesteps, main loop
  */
 
-/* Updates the global storing the current random offset of the particles,
- * and stores the relative offset from the last random offset in rel_random_shift*/
-static void update_random_offset(double * rel_random_shift);
-
 /*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
  * parameter file). Please avoid adding new variables in favour of things which are local to a module.
  */
@@ -93,6 +89,8 @@ set_all_global_params(ParameterSet * ps)
         All.AutoSnapshotTime = param_get_double(ps, "AutoSnapshotTime");
         All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
         All.RandomParticleOffset = param_get_double(ps, "RandomParticleOffset");
+        /* Convert to a fraction of the box, from a fraction of a PM mesh cell*/
+        All.RandomParticleOffset /= All.Nmesh;
 
         All.SlotsIncreaseFactor = param_get_double(ps, "SlotsIncreaseFactor");
 
@@ -308,7 +306,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
         double rel_random_shift[3] = {0};
         if(NumCurrentTiStep > 0 && is_PM  && All.RandomParticleOffset > 0) {
-            update_random_offset(rel_random_shift);
+            update_random_offset(PartManager, rel_random_shift, All.RandomParticleOffset);
         }
 
         int extradomain = is_timebin_active(times.mintimebin + All.MaxDomainTimeBinDepth, times.Ti_Current);
@@ -584,37 +582,4 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
     }
 
     close_outputfiles(&fds);
-}
-
-/* We operate in a situation where the particles are in a coordinate frame
- * offset slightly from the ICs (to avoid correlated tree errors).
- * This function updates the global variable containing that offset, and
- * stores the relative shift from the last offset in the rel_random_shift output
- * array. */
-static void
-update_random_offset(double * rel_random_shift)
-{
-    int i;
-    for (i = 0; i < 3; i++) {
-        /* Note random number table is duplicated across processors*/
-        double rr = get_random_number(i);
-        /* Upstream Gadget uses a random fraction of the box, but since all we need
-         * is to adjust the tree openings, and the tree force is zero anyway on the
-         * scale of a few PM grid cells, this seems enough.*/
-        rr *= All.RandomParticleOffset * PartManager->BoxSize / All.Nmesh;
-        /* Subtract the old random shift first.*/
-        rel_random_shift[i] = rr - PartManager->CurrentParticleOffset[i];
-        PartManager->CurrentParticleOffset[i] = rr;
-    }
-    message(0, "Internal particle offset is now %g %g %g\n", PartManager->CurrentParticleOffset[0], PartManager->CurrentParticleOffset[1], PartManager->CurrentParticleOffset[2]);
-#ifdef DEBUG
-    /* Check explicitly that the vector is the same on all processors*/
-    double test_random_shift[3] = {0};
-    for (i = 0; i < 3; i++)
-        test_random_shift[i] = PartManager->CurrentParticleOffset[i];
-    MPI_Bcast(test_random_shift, 3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    for (i = 0; i < 3; i++)
-        if(test_random_shift[i] != PartManager->CurrentParticleOffset[i])
-            endrun(44, "Random shift %d is %g != %g on task 0!\n", i, test_random_shift[i], PartManager->CurrentParticleOffset[i]);
-#endif
 }
