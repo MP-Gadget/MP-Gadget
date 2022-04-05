@@ -169,7 +169,7 @@ static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void
     for(i =0; i < PartManager->NumPart; i ++) {
         /* Swallowed black hole particles stick around but should not gravitate.
          * Short-range is handled by not adding them to the tree. */
-        if(P[i].Swallowed && P[i].Type==5){
+        if(P[i].Swallowed){
             pstruct->RegionInd[i] = -2;
             numswallowed++;
         }
