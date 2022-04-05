@@ -253,3 +253,38 @@ void function_of_k_normalize_sigma(FunctionOfK * fk, double R, double sigma) {
         fk->table[i].Pk *= sigma / old;
     };
 }
+
+/*! Check and print properties of the cosmological unit system.
+ */
+void
+check_units(const Cosmology * CP, const struct UnitSystem units)
+{
+    /* Detect cosmologies that are likely to be typos in the parameter files*/
+    if(CP->HubbleParam < 0.1 || CP->HubbleParam > 10 ||
+        CP->OmegaLambda < 0 || CP->OmegaBaryon < 0 || CP->OmegaG < 0 || CP->OmegaCDM < 0)
+        endrun(5, "Bad cosmology: H0 = %g OL = %g Ob = %g Og = %g Ocdm = %g\n",
+               CP->HubbleParam, CP->OmegaLambda, CP->OmegaBaryon, CP->OmegaCDM);
+
+    message(0, "Hubble (internal units) = %g\n", CP->Hubble);
+    message(0, "G (internal units) = %g\n", CP->GravInternal);
+    message(0, "UnitLength_in_cm = %g \n", units.UnitLength_in_cm);
+    message(0, "UnitMass_in_g = %g \n", units.UnitMass_in_g);
+    message(0, "UnitTime_in_s = %g \n", units.UnitTime_in_s);
+    message(0, "UnitVelocity_in_cm_per_s = %g \n", units.UnitVelocity_in_cm_per_s);
+    message(0, "UnitDensity_in_cgs = %g \n", units.UnitDensity_in_cgs);
+    message(0, "UnitEnergy_in_cgs = %g \n", units.UnitEnergy_in_cgs);
+    message(0, "Dark energy model: OmegaL = %g OmegaFLD = %g\n",CP->OmegaLambda, CP->Omega_fld);
+    message(0, "Photon density OmegaG = %g\n",CP->OmegaG);
+    if(!CP->MassiveNuLinRespOn)
+        message(0, "Massless Neutrino density OmegaNu0 = %g\n",get_omega_nu(&CP->ONu, 1));
+    message(0, "Curvature density OmegaK = %g\n",CP->OmegaK);
+    if(CP->RadiationOn) {
+        /* note that this value is inaccurate if there is a massive neutrino. */
+        double OmegaTot = CP->OmegaG + CP->OmegaK + CP->Omega0 + CP->OmegaLambda;
+        if(!CP->MassiveNuLinRespOn)
+            OmegaTot += get_omega_nu(&CP->ONu, 1);
+        message(0, "Radiation is enabled in Hubble(a). "
+               "Following CAMB convention: Omega_Tot - 1 = %g\n", OmegaTot - 1);
+    }
+    message(0, "\n");
+}

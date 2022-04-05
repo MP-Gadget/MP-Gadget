@@ -59,4 +59,8 @@ int hybrid_nu_tracer(const Cosmology * CP, double atime);
 
 /*Initialise the derived parts of the cosmology*/
 void init_cosmology(Cosmology *CP, double TimeBegin, const struct UnitSystem units);
+
+/* Check and print properties of the derived cosmology */
+void check_units(const Cosmology * CP, const struct UnitSystem units);
+
 #endif
