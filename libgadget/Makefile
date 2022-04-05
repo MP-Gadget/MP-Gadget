@@ -13,7 +13,6 @@ INCL = densitykernel.h \
 	run.h \
 	timebinmgr.h \
 	treewalk.h \
-	allvars.h \
 	partmanager.h \
 	cooling.h   \
 	cooling_rates.h cooling_qso_lightup.h \
