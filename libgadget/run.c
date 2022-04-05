@@ -583,3 +583,59 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
     close_outputfiles(&fds);
 }
+
+void
+runfof(const int RestartSnapNum, const inttime_t Ti_Current, const struct header_data * header)
+{
+    PetaPM pm = {0};
+    gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
+    DomainDecomp ddecomp[1] = {0};
+    /* ... read in initial model */
+
+    domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
+
+    DriftKickTimes times = init_driftkicktime(Ti_Current);
+    /*FoF needs a tree*/
+    int HybridNuGrav = hybrid_nu_tracer(&All.CP, header->TimeSnapshot);
+    /* Regenerate the star formation rate for the FOF table.*/
+    if(All.StarformationOn) {
+        ActiveParticles Act = {0};
+        Act.NumActiveParticle = PartManager->NumPart;
+        MyFloat * GradRho = NULL;
+        if(sfr_need_to_compute_sph_grad_rho()) {
+            ForceTree gasTree = {0};
+            GradRho = (MyFloat *) mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
+            /*Allocate the memory for predicted SPH data.*/
+            struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
+            force_tree_rebuild(&gasTree, ddecomp, HybridNuGrav, 0, All.OutputDir);
+            /* computes GradRho with a treewalk. No hsml update as we are reading from a snapshot.*/
+            density(&Act, 0, 0, All.BlackHoleOn, get_MinEgySpec(), times, &All.CP, &sph_predicted, GradRho, &gasTree);
+            force_tree_free(&gasTree);
+            slots_free_sph_pred_data(&sph_predicted);
+        }
+        ForceTree Tree = {0};
+        cooling_and_starformation(&Act, header->TimeSnapshot, 0, &Tree, &All.CP, GradRho, NULL);
+        if(GradRho)
+            myfree(GradRho);
+    }
+    FOFGroups fof = fof_fof(ddecomp, 1, MPI_COMM_WORLD);
+    fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, RestartSnapNum, &All.CP, header->TimeSnapshot, header->MassTable, All.MetalReturnOn, All.BlackHoleOn, MPI_COMM_WORLD);
+    fof_finish(&fof);
+}
+
+void
+runpower(const struct header_data * header)
+{
+    PetaPM pm = {0};
+    gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
+    DomainDecomp ddecomp[1] = {0};
+    /* ... read in initial model */
+    domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
+
+    /*PM needs a tree*/
+    ForceTree Tree = {0};
+    int HybridNuGrav = hybrid_nu_tracer(&All.CP, header->TimeSnapshot);
+    force_tree_rebuild(&Tree, ddecomp, HybridNuGrav, 1, All.OutputDir);
+    gravpm_force(&pm, &Tree, &All.CP, header->TimeSnapshot, header->UnitLength_in_cm, All.OutputDir, header->TimeSnapshot, All.FastParticleType, 1);
+    force_tree_free(&Tree);
+}
