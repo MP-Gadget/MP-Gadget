@@ -42,8 +42,6 @@ extern struct global_data_all_processes
     int LightconeOn;    /* Enable the light cone module,
                            which writes a list of particles to a file as they cross a light cone*/
 
-    int WriteBlackHoleDetails; /* write BH details every time step*/
-
     int MaxDomainTimeBinDepth; /* We should redo domain decompositions every timestep, after the timestep hierarchy gets deeper than this.
                                   Essentially forces a domain decompositon every 2^MaxDomainTimeBinDepth timesteps.*/
     int FastParticleType; /*!< flags a particle species to exclude timestep calculations.*/
@@ -68,12 +66,7 @@ extern struct global_data_all_processes
 
     /* some filenames */
     char OutputDir[100],
-         FOFFileBase[100],
-         EnergyFile[100],
-         CpuFile[100];
-
-    /*Should we store the energy to EnergyFile on PM timesteps.*/
-    int OutputEnergyDebug;
+         FOFFileBase[100];
 
     int SnapshotWithFOF; /*Flag that doing FOF for snapshot outputs is on*/
 

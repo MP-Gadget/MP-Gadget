@@ -36,14 +36,6 @@
 #include "neutrinos_lra.h"
 #include "stats.h"
 
-/*!< file handle for energy.txt log-file. */
-static FILE * FdEnergy;
-static FILE  *FdCPU;    /*!< file handle for cpu.txt log-file. */
-static FILE *FdSfr;     /*!< file handle for sfr.txt log-file. */
-static FILE *FdBlackHoles;  /*!< file handle for blackholes.txt log-file. */
-static FILE *FdBlackholeDetails;  /*!< file handle for BlackholeDetails binary file. */
-static FILE *FdHelium; /* < file handle for the Helium reionization log file helium.txt */
-
 static struct ClockTable Clocks;
 
 /*! \file run.c
@@ -54,12 +46,6 @@ static struct ClockTable Clocks;
  * and stores the relative offset from the last random offset in rel_random_shift*/
 static void update_random_offset(double * rel_random_shift);
 static void check_units(const Cosmology * CP, const struct UnitSystem units);
-
-static void
-open_outputfiles(int RestartSnapNum);
-
-static void
-close_outputfiles(void);
 
 /*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
  * parameter file). Please avoid adding new variables in favour of things which are local to a module.
@@ -76,9 +62,6 @@ set_all_global_params(ParameterSet * ps)
         /* Start reading the values */
         param_get_string2(ps, "OutputDir", All.OutputDir, sizeof(All.OutputDir));
         param_get_string2(ps, "FOFFileBase", All.FOFFileBase, sizeof(All.FOFFileBase));
-        param_get_string2(ps, "EnergyFile", All.EnergyFile, sizeof(All.EnergyFile));
-        All.OutputEnergyDebug = param_get_int(ps, "OutputEnergyDebug");
-        param_get_string2(ps, "CpuFile", All.CpuFile, sizeof(All.CpuFile));
 
         All.CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
         All.CP.RadiationOn = param_get_int(ps, "RadiationOn");
@@ -119,7 +102,6 @@ set_all_global_params(ParameterSet * ps)
         All.RandomSeed = param_get_int(ps, "RandomSeed");
 
         All.BlackHoleOn = param_get_int(ps, "BlackHoleOn");
-        All.WriteBlackHoleDetails = param_get_int(ps,"WriteBlackHoleDetails");
 
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.MetalReturnOn = param_get_int(ps, "MetalReturnOn");
@@ -270,10 +252,10 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
     double TimeNextSeedingCheck = header->TimeSnapshot;
 
     walltime_measure("/Misc");
+    struct OutputFD fds;
+    open_outputfiles(RestartSnapNum, &fds, All.OutputDir, All.BlackHoleOn, All.StarformationOn);
 
-    open_outputfiles(RestartSnapNum);
-
-    write_cpu_log(NumCurrentTiStep, header->TimeSnapshot, FdCPU, Clocks.ElapsedTime); /* produce some CPU usage info */
+    write_cpu_log(NumCurrentTiStep, header->TimeSnapshot, fds.FdCPU, Clocks.ElapsedTime); /* produce some CPU usage info */
 
     DriftKickTimes times = init_driftkicktime(ti_init);
 
@@ -434,8 +416,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             gravpm_force(&pm, &Tree, &All.CP, atime, units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType, All.BlackHoleOn);
 
             /* compute and output energy statistics if desired. */
-            if(All.OutputEnergyDebug)
-                energy_statistics(FdEnergy, atime, PartManager);
+            if(fds.FdEnergy)
+                energy_statistics(fds.FdEnergy, atime, PartManager);
         }
 
         MPIU_Barrier(MPI_COMM_WORLD);
@@ -495,7 +477,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
                 if(during_helium_reionization(1/atime - 1)) {
                     /* Helium reionization by switching on quasar bubbles*/
-                    do_heiii_reionization(atime, &fof, ddecomp, &All.CP, units.UnitInternalEnergy_in_cgs, FdHelium);
+                    do_heiii_reionization(atime, &fof, ddecomp, &All.CP, units.UnitInternalEnergy_in_cgs, fds.FdHelium);
                 }
                 fof_finish(&fof);
             }
@@ -507,12 +489,12 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
             /* Black hole accretion and feedback */
             if(All.BlackHoleOn) {
-                blackhole(&Act, atime, &All.CP, &Tree, units, FdBlackHoles, FdBlackholeDetails);
+                blackhole(&Act, atime, &All.CP, &Tree, units, fds.FdBlackHoles, fds.FdBlackholeDetails);
             }
 
             /**** radiative cooling and star formation *****/
             if(All.CoolingOn)
-                cooling_and_starformation(&Act, atime, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &Tree, &All.CP, GradRho, FdSfr);
+                cooling_and_starformation(&Act, atime, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &Tree, &All.CP, GradRho, fds.FdSfr);
 
         }
         /* We don't need this timestep's tree anymore.*/
@@ -565,7 +547,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             fof_finish(&fof);
         }
 
-        write_cpu_log(NumCurrentTiStep, atime, FdCPU, Clocks.ElapsedTime);    /* produce some CPU usage info */
+        write_cpu_log(NumCurrentTiStep, atime, fds.FdCPU, Clocks.ElapsedTime);    /* produce some CPU usage info */
 
         report_memory_usage("RUN");
 
@@ -602,7 +584,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         NumCurrentTiStep++;
     }
 
-    close_outputfiles();
+    close_outputfiles(&fds);
 }
 
 /* We operate in a situation where the particles are in a coordinate frame
@@ -636,101 +618,6 @@ update_random_offset(double * rel_random_shift)
         if(test_random_shift[i] != PartManager->CurrentParticleOffset[i])
             endrun(44, "Random shift %d is %g != %g on task 0!\n", i, test_random_shift[i], PartManager->CurrentParticleOffset[i]);
 #endif
-}
-
-/*!  This function opens various log-files that report on the status and
- *   performance of the simulstion. On restart from restart-files
- *   (start-option 1), the code will append to these files.
- */
-static void
-open_outputfiles(int RestartSnapNum)
-{
-    const char mode[3]="a+";
-    char * buf;
-    char * postfix;
-    int ThisTask;
-    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-    FdCPU = NULL;
-    FdEnergy = NULL;
-    FdBlackHoles = NULL;
-    FdSfr = NULL;
-    FdBlackholeDetails = NULL;
-
-    if(RestartSnapNum != -1) {
-        postfix = fastpm_strdup_printf("-R%03d", RestartSnapNum);
-    } else {
-        postfix = fastpm_strdup_printf("%s", "");
-    }
-
-    /* all the processors write to separate files*/
-    if(All.BlackHoleOn && All.WriteBlackHoleDetails){
-        buf = fastpm_strdup_printf("%s/%s%s/%06X", All.OutputDir,"BlackholeDetails",postfix,ThisTask);
-        fastpm_path_ensure_dirname(buf);
-        if(!(FdBlackholeDetails = fopen(buf,"a")))
-            endrun(1, "Failed to open blackhole detail %s\n", buf);
-        myfree(buf);
-    }
-
-    /* only the root processors writes to the log files */
-    if(ThisTask != 0) {
-        return;
-    }
-
-    buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, All.CpuFile, postfix);
-    fastpm_path_ensure_dirname(buf);
-    if(!(FdCPU = fopen(buf, mode)))
-        endrun(1, "error in opening file '%s'\n", buf);
-    myfree(buf);
-
-    if(All.OutputEnergyDebug) {
-        buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, All.EnergyFile, postfix);
-        fastpm_path_ensure_dirname(buf);
-        if(!(FdEnergy = fopen(buf, mode)))
-            endrun(1, "error in opening file '%s'\n", buf);
-        myfree(buf);
-    }
-
-    if(All.StarformationOn) {
-        buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, "sfr.txt", postfix);
-        fastpm_path_ensure_dirname(buf);
-        if(!(FdSfr = fopen(buf, mode)))
-            endrun(1, "error in opening file '%s'\n", buf);
-        myfree(buf);
-    }
-
-    if(qso_lightup_on()) {
-        buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, "helium.txt", postfix);
-        fastpm_path_ensure_dirname(buf);
-        if(!(FdHelium = fopen(buf, mode)))
-            endrun(1, "error in opening file '%s'\n", buf);
-        myfree(buf);
-    }
-
-    if(All.BlackHoleOn) {
-        buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, "blackholes.txt", postfix);
-        fastpm_path_ensure_dirname(buf);
-        if(!(FdBlackHoles = fopen(buf, mode)))
-            endrun(1, "error in opening file '%s'\n", buf);
-        myfree(buf);
-    }
-}
-
-
-/*!  This function closes the global log-files.
-*/
-static void
-close_outputfiles(void)
-{
-    if(FdCPU)
-        fclose(FdCPU);
-    if(FdEnergy)
-        fclose(FdEnergy);
-    if(FdSfr)
-        fclose(FdSfr);
-    if(FdBlackHoles)
-        fclose(FdBlackHoles);
-    if(FdBlackholeDetails)
-        fclose(FdBlackholeDetails);
 }
 
 /*! Computes conversion factors between internal code units and the
