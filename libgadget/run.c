@@ -464,7 +464,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         * or include hydro in the opening angle.*/
         if(is_PM)
         {
-            gravpm_force(&pm, &Tree, &All.CP, atime, units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType, All.BlackHoleOn);
+            gravpm_force(&pm, &Tree, &All.CP, atime, units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType);
 
             /* compute and output energy statistics if desired. */
             if(fds.FdEnergy)
@@ -697,6 +697,6 @@ runpower(const struct header_data * header)
     ForceTree Tree = {0};
     int HybridNuGrav = hybrid_nu_tracer(&All.CP, header->TimeSnapshot);
     force_tree_rebuild(&Tree, ddecomp, HybridNuGrav, 1, All.OutputDir);
-    gravpm_force(&pm, &Tree, &All.CP, header->TimeSnapshot, header->UnitLength_in_cm, All.OutputDir, header->TimeSnapshot, All.FastParticleType, 1);
+    gravpm_force(&pm, &Tree, &All.CP, header->TimeSnapshot, header->UnitLength_in_cm, All.OutputDir, header->TimeSnapshot, All.FastParticleType);
     force_tree_free(&Tree);
 }

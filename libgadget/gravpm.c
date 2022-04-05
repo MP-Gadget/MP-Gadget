@@ -45,7 +45,6 @@ static struct gravpm_params
     double Time;
     double TimeIC;
     Cosmology * CP;
-    int SwallowedParticles;
     int FastParticleType;
     double UnitLength_in_cm;
 } GravPM;
@@ -58,10 +57,9 @@ gravpm_init_periodic(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, doubl
 /* Computes the gravitational force on the PM grid
  * and saves the total matter power spectrum.
  * Parameters: Cosmology, Time, UnitLength_in_cm and PowerOutputDir are used by the power spectrum output code.
- * TimeIC and FastParticleType are used by the massive neutrino code. FastParticleType denotes possibly inactive particles.
- * SwallowedParticles is an optimisation to see if we have to check for swallowed BHs.*/
+ * TimeIC and FastParticleType are used by the massive neutrino code. FastParticleType denotes possibly inactive particles.*/
 void
-gravpm_force(PetaPM * pm, ForceTree * tree, Cosmology * CP, double Time, double UnitLength_in_cm, const char * PowerOutputDir, double TimeIC, int FastParticleType, int SwallowedParticles) {
+gravpm_force(PetaPM * pm, ForceTree * tree, Cosmology * CP, double Time, double UnitLength_in_cm, const char * PowerOutputDir, double TimeIC, int FastParticleType) {
     PetaPMParticleStruct pstruct = {
         P,
         sizeof(P[0]),
@@ -98,7 +96,6 @@ gravpm_force(PetaPM * pm, ForceTree * tree, Cosmology * CP, double Time, double 
     GravPM.TimeIC = TimeIC;
     GravPM.CP = CP;
     GravPM.FastParticleType = FastParticleType;
-    GravPM.SwallowedParticles = SwallowedParticles;
     GravPM.UnitLength_in_cm = UnitLength_in_cm;
     /*
      * we apply potential transfer immediately after the R2C transform,
@@ -172,7 +169,7 @@ static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void
     for(i =0; i < PartManager->NumPart; i ++) {
         /* Swallowed black hole particles stick around but should not gravitate.
          * Short-range is handled by not adding them to the tree. */
-        if(GravPM.SwallowedParticles && P[i].Swallowed && P[i].Type==5){
+        if(P[i].Swallowed && P[i].Type==5){
             pstruct->RegionInd[i] = -2;
             numswallowed++;
         }

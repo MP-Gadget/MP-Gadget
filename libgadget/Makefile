@@ -27,6 +27,7 @@ INCL = densitykernel.h \
 	winds.h \
 	timefac.h \
 	blackhole.h \
+	gravity.h \
 	cosmology.h \
 	drift.h     \
 	fof.h  \
