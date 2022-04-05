@@ -428,8 +428,9 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, Cosmo
     myfree(olddensity);
 }
 
-/*! This function is used to find an initial smoothing length for each SPH
- *  particle. It guarantees that the number of neighbours will be between
+/*! This function is used to find an initial smoothing length and initial entropy
+ *  for each SPH particle. Entropies are set using the initial gas temperature.
+ *  It guarantees that the number of neighbours will be between
  *  desired_ngb-MAXDEV and desired_ngb+MAXDEV. For simplicity, a first guess
  *  of the smoothing length is provided to the function density(), which will
  *  then iterate if needed to find the right smoothing length.

@@ -215,6 +215,18 @@ begrun(const int RestartFlag, int RestartSnapNum, struct header_data * head)
     /* ... read initial model and initialise the times*/
     inttime_t ti_init = init(RestartSnapNum, All.OutputDir, head, &All.CP);
 
+    if(RestartSnapNum < 0) {
+        DomainDecomp ddecomp[1] = {0};
+        domain_decompose_full(ddecomp); /* do initial domain decomposition (gives equal numbers of particles) so density() is safe*/
+        /* On first run, generate smoothing lengths and set initial entropies based on CMB temperature*/
+        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, get_MinEgySpec(), units.UnitInternalEnergy_in_cgs, ti_init, head->TimeSnapshot, head->NTotalInit[0]);
+        domain_free(ddecomp);
+    }
+    else
+        /* When we restart, validate the SPH properties of the particles.
+         * This also allows us to increase MinEgySpec on a restart if we choose.*/
+        check_density_entropy(&All.CP, get_MinEgySpec(), head->TimeSnapshot);
+
     return ti_init;
 }
 
@@ -247,22 +259,13 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
     const struct UnitSystem units = get_unitsystem(header->UnitLength_in_cm, header->UnitMass_in_g, header->UnitVelocity_in_cm_per_s);
 
     int SnapshotFileCount = RestartSnapNum;
-    PetaPM pm = {0};
-    gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
-
-    DriftKickTimes times = init_driftkicktime(ti_init);
-
-    DomainDecomp ddecomp[1] = {0};
-    domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
 
     const double MinEgySpec = get_MinEgySpec();
 
-    /* When we restart, validate the SPH properties of the particles.
-     * This also allows us to increase MinEgySpec on a restart if we choose.*/
-    if(RestartSnapNum < 0)
-        setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, MinEgySpec, units.UnitInternalEnergy_in_cgs, ti_init, header->TimeSnapshot, header->NTotalInit[0]);
-    else
-        check_density_entropy(&All.CP, MinEgySpec, header->TimeSnapshot);
+    PetaPM pm = {0};
+    gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
+
+    DomainDecomp ddecomp[1] = {0};
 
     /* Stored scale factor of the next black hole seeding check*/
     double TimeNextSeedingCheck = header->TimeSnapshot;
@@ -272,6 +275,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
     open_outputfiles(RestartSnapNum);
 
     write_cpu_log(NumCurrentTiStep, header->TimeSnapshot, FdCPU); /* produce some CPU usage info */
+
+    DriftKickTimes times = init_driftkicktime(ti_init);
 
     double atime = get_atime(times.Ti_Current);
 
