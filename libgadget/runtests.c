@@ -68,7 +68,7 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3
 }
 
 void
-run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const double Nmesh, const int FastParticleType, const inttime_t Ti_Current, const char * OutputDir, const struct header_data * header)
+run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const int Nmesh, const int FastParticleType, const inttime_t Ti_Current, const char * OutputDir, const struct header_data * header)
 {
     DomainDecomp ddecomp[1] = {0};
     domain_decompose_full(ddecomp);

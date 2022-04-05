@@ -14,7 +14,7 @@ void runfof(const int RestartSnapNum, const inttime_t Ti_init, const struct head
 /* Compute a power spectrum and exit*/
 void runpower(const struct header_data * header);
 
-void run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const double Nmesh, const int FastParticleType, const inttime_t Ti_Current, const char * OutputDir, const struct header_data * header);
+void run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const int Nmesh, const int FastParticleType, const inttime_t Ti_Current, const char * OutputDir, const struct header_data * header);
 
 /* Sets up the global_data_all_processes*/
 void set_all_global_params(ParameterSet * ps);
