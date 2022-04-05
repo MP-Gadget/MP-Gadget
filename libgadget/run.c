@@ -41,14 +41,7 @@ static struct ClockTable Clocks;
  *  \brief  iterates over timesteps, main loop
  */
 
-/*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
- * parameter file). Please avoid adding new variables in favour of things which are local to a module.
- */
-/*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
- * parameter file).  Holding this data in a structure is convenient for writing/reading the restart file, and
- * it allows the introduction of new global variables in a simple way. The only thing to do is to introduce
- * them into this structure.
- */
+/*! This structure contains parameters local to the run module.*/
 static struct run_params
 {
     double SlotsIncreaseFactor; /* !< What percentage to increase the slot allocation by when requested*/
@@ -97,7 +90,7 @@ static struct run_params
 
     /*! The scale of the short-range/long-range force split in units of FFT-mesh cells */
     double Asmth;
-    enum ShortRangeForceWindowType ShortRangeForceWindowType;	/*!< method of the feedback*/
+    enum ShortRangeForceWindowType ShortRangeForceWindowType;
 
     /* some filenames */
     char OutputDir[100],
