@@ -584,6 +584,13 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
     close_outputfiles(&fds);
 }
 
+/* Run various checks on the gravity code. Check that the short-range/long-range force split is working.*/
+void
+runtests(const int RestartSnapNum, const inttime_t Ti_Current, const struct header_data * header)
+{
+    run_gravity_test(RestartSnapNum, &All.CP, All.Asmth, All.Nmesh, All.FastParticleType, Ti_Current, All.OutputDir, header);
+}
+
 void
 runfof(const int RestartSnapNum, const inttime_t Ti_Current, const struct header_data * header)
 {

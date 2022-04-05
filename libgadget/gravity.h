@@ -53,7 +53,7 @@ struct gravshort_tree_params get_gravshort_treepar(void);
  * TimeIC and FastParticleType are used by the massive neutrino code. FastParticleType denotes possibly inactive particles.
  * SwallowedParticles is an optimisation to see if we have to check for swallowed BHs.
  * Note: tree is freed during this function*/
-void gravpm_force(PetaPM * pm, ForceTree * tree, Cosmology * CP, double Time, double UnitLength_in_cm, char * PowerOutputDir, double TimeIC, int FastParticleType, int SwallowedParticles);
+void gravpm_force(PetaPM * pm, ForceTree * tree, Cosmology * CP, double Time, double UnitLength_in_cm, const char * PowerOutputDir, double TimeIC, int FastParticleType, int SwallowedParticles);
 
 void grav_short_pair(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double Rcut, double rho0, int NeutrinoTracer, int FastParticleType);
 void grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double rho0, int NeutrinoTracer, int FastParticleType);

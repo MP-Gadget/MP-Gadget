@@ -61,7 +61,7 @@ gravpm_init_periodic(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, doubl
  * TimeIC and FastParticleType are used by the massive neutrino code. FastParticleType denotes possibly inactive particles.
  * SwallowedParticles is an optimisation to see if we have to check for swallowed BHs.*/
 void
-gravpm_force(PetaPM * pm, ForceTree * tree, Cosmology * CP, double Time, double UnitLength_in_cm, char * PowerOutputDir, double TimeIC, int FastParticleType, int SwallowedParticles) {
+gravpm_force(PetaPM * pm, ForceTree * tree, Cosmology * CP, double Time, double UnitLength_in_cm, const char * PowerOutputDir, double TimeIC, int FastParticleType, int SwallowedParticles) {
     PetaPMParticleStruct pstruct = {
         P,
         sizeof(P[0]),

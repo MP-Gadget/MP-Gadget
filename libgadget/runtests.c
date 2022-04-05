@@ -1,26 +1,11 @@
 #include <mpi.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <math.h>
-#include <unistd.h>
-#include <ctype.h>
 
-#include "utils.h"
-
-#include "allvars.h"
-#include "init.h"
 #include "partmanager.h"
 #include "forcetree.h"
-#include "cooling.h"
 #include "gravity.h"
 #include "petaio.h"
 #include "domain.h"
-#include "timestep.h"
-#include "fof.h"
-#include "sfr_eff.h"
-#include "density.h"
-#include "hydra.h"
 #include "run.h"
 
 char * GDB_format_particle(int i);
@@ -82,19 +67,21 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3
     *meanerr_tot/= (tot_npart*3.);
 }
 
-/* Run various checks on the gravity code. Check that the short-range/long-range force split is working.*/
-void runtests(const int RestartSnapNum, const inttime_t Ti_Current, const struct header_data * header)
+void
+run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const double Nmesh, const int FastParticleType, const inttime_t Ti_Current, const char * OutputDir, const struct header_data * header)
 {
-    PetaPM pm = {0};
-    gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
     DomainDecomp ddecomp[1] = {0};
-
-    domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
+    domain_decompose_full(ddecomp);
 
     struct IOTable IOTable = {0};
     /* NO metals written*/
     register_io_blocks(&IOTable, 0, 0);
     register_extra_blocks(&IOTable);
+
+    double (* PairAccn)[3] = (double (*) [3]) mymalloc2("PairAccns", 3*sizeof(double) * PartManager->NumPart);
+
+    PetaPM pm[1] = {0};
+    gravpm_init_periodic(pm, PartManager->BoxSize, Asmth, Nmesh, CP->GravInternal);
 
     int NTask;
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
@@ -103,26 +90,24 @@ void runtests(const int RestartSnapNum, const inttime_t Ti_Current, const struct
     rebuild_activelist(&Act, &times, 0, header->TimeSnapshot);
 
     ForceTree Tree = {0};
-    force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
-    gravpm_force(&pm, &Tree, &All.CP, header->TimeSnapshot, header->UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType, All.BlackHoleOn);
-    force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
+    force_tree_rebuild(&Tree, ddecomp, 1, 1, OutputDir);
+    gravpm_force(pm, &Tree, CP, header->TimeSnapshot, header->UnitLength_in_cm, OutputDir, header->TimeIC, FastParticleType, 1);
+    force_tree_rebuild(&Tree, ddecomp, 1, 1, OutputDir);
 
     struct gravshort_tree_params origtreeacc = get_gravshort_treepar();
     struct gravshort_tree_params treeacc = origtreeacc;
-    const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal);
-    grav_short_pair(&Act, &pm, &Tree, treeacc.Rcut, rho0, 0, All.FastParticleType);
-
-    double (* PairAccn)[3] = (double (*) [3]) mymalloc2("PairAccns", 3*sizeof(double) * PartManager->NumPart);
+    const double rho0 = CP->Omega0 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
+    grav_short_pair(&Act, pm, &Tree, treeacc.Rcut, rho0, 0, FastParticleType);
 
     double meanacc = copy_and_mean_accn(PairAccn);
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));
-    char * fname = fastpm_strdup_printf("%s/PART-pairs-%03d", All.OutputDir, RestartSnapNum);
+    char * fname = fastpm_strdup_printf("%s/PART-pairs-%03d", OutputDir, RestartSnapNum);
 
-    petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, &All.CP);
+    petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, CP);
 
     treeacc.ErrTolForceAcc = 0;
     set_gravshort_treepar(treeacc);
-    grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
+    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType);
 
     /* This checks fully opened tree force against pair force*/
     double meanerr, maxerr;
@@ -133,8 +118,8 @@ void runtests(const int RestartSnapNum, const inttime_t Ti_Current, const struct
         endrun(2, "Fully open tree force does not agree with pairwise calculation! maxerr %g > 0.1!\n", maxerr);
 
     message(0, "GravShort Tree %s\n", GDB_format_particle(0));
-    fname = fastpm_strdup_printf("%s/PART-tree-open-%03d", All.OutputDir, RestartSnapNum);
-    petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, &All.CP);
+    fname = fastpm_strdup_printf("%s/PART-tree-open-%03d", OutputDir, RestartSnapNum);
+    petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, CP);
 
     /* This checks tree force against tree force with zero error (which always opens).*/
     copy_and_mean_accn(PairAccn);
@@ -142,11 +127,11 @@ void runtests(const int RestartSnapNum, const inttime_t Ti_Current, const struct
     treeacc = origtreeacc;
     set_gravshort_treepar(treeacc);
     /* Code automatically sets the UseTreeBH parameter.*/
-    grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
-    grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
+    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType);
+    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType);
 
-    fname = fastpm_strdup_printf("%s/PART-tree-%03d", All.OutputDir, RestartSnapNum);
-    petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, &All.CP);
+    fname = fastpm_strdup_printf("%s/PART-tree-%03d", OutputDir, RestartSnapNum);
+    petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, CP);
 
     check_accns(&meanerr,&maxerr,PairAccn, meanacc);
     message(0, "Force error, open tree vs tree.: %g mean: %g forcetol: %g\n", maxerr, meanerr, treeacc.ErrTolForceAcc);
@@ -158,10 +143,10 @@ void runtests(const int RestartSnapNum, const inttime_t Ti_Current, const struct
     /* This checks the tree against a larger Rcut.*/
     treeacc.Rcut = 9.5;
     set_gravshort_treepar(treeacc);
-    grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
-    grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
-    fname = fastpm_strdup_printf("%s/PART-tree-rcut-%03d", All.OutputDir, RestartSnapNum);
-    petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, &All.CP);
+    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType);
+    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType);
+    fname = fastpm_strdup_printf("%s/PART-tree-rcut-%03d", OutputDir, RestartSnapNum);
+    petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, CP);
 
     check_accns(&meanerr,&maxerr,PairAccn, meanacc);
     message(0, "Force error, tree vs rcut.: %g mean: %g Rcut = %g\n", maxerr, meanerr, treeacc.Rcut);
@@ -172,24 +157,30 @@ void runtests(const int RestartSnapNum, const inttime_t Ti_Current, const struct
     /* This checks the tree against a box with a smaller Nmesh.*/
     treeacc = origtreeacc;
     force_tree_free(&Tree);
-    gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh/2., All.CP.GravInternal);
-    force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
-    gravpm_force(&pm, &Tree, &All.CP, header->TimeSnapshot, header->UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType, All.BlackHoleOn);
-    force_tree_rebuild(&Tree, ddecomp, 1, 1, All.OutputDir);
+
+    petapm_destroy(pm);
+
+    gravpm_init_periodic(pm, PartManager->BoxSize, Asmth, Nmesh/2., CP->GravInternal);
+    force_tree_rebuild(&Tree, ddecomp, 1, 1, OutputDir);
+    gravpm_force(pm, &Tree, CP, header->TimeSnapshot, header->UnitLength_in_cm, OutputDir, header->TimeIC, FastParticleType, 1);
+    force_tree_rebuild(&Tree, ddecomp, 1, 1, OutputDir);
     set_gravshort_treepar(treeacc);
-    grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
-    grav_short_tree(&Act, &pm, &Tree, rho0, 0, All.FastParticleType);
-    fname = fastpm_strdup_printf("%s/PART-tree-nmesh2-%03d", All.OutputDir, RestartSnapNum);
-    petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, &All.CP);
+    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType);
+    grav_short_tree(&Act, pm, &Tree, rho0, 0, FastParticleType);
+    fname = fastpm_strdup_printf("%s/PART-tree-nmesh2-%03d", OutputDir, RestartSnapNum);
+    petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, CP);
 
     check_accns(&meanerr, &maxerr, PairAccn, meanacc);
-    message(0, "Force error, nmesh %d vs %d: %g mean: %g \n", All.Nmesh, All.Nmesh/2, maxerr, meanerr);
+    message(0, "Force error, nmesh %d vs %d: %g mean: %g \n", Nmesh, Nmesh/2, maxerr, meanerr);
 
     if(maxerr > 0.5 || meanerr > 0.05)
         endrun(2, "Nmesh sensitivity worse, something may be wrong\n");
 
-    myfree(PairAccn);
     force_tree_free(&Tree);
+    petapm_destroy(pm);
+
+    myfree(PairAccn);
+
     destroy_io_blocks(&IOTable);
-    petapm_destroy(&pm);
+    domain_free(ddecomp);
 }
