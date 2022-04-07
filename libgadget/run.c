@@ -191,8 +191,6 @@ begrun(const int RestartFlag, int RestartSnapNum, struct header_data * head)
         message(0, "Last Snapshot number is %d.\n", RestartSnapNum);
     }
 
-    hci_init(HCI_DEFAULT_MANAGER, All.OutputDir, All.TimeLimitCPU, All.AutoSnapshotTime, All.SnapshotWithFOF);
-
     petapm_module_init(omp_get_max_threads());
     petaio_init();
     walltime_init(&Clocks);
@@ -287,6 +285,9 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
     int NumCurrentTiStep = 0;
     /*Is gas physics enabled?*/
     int GasEnabled = SlotsManager->info[0].enabled;
+
+    HCIManager HCI_DEFAULT_MANAGER[1] = {0};
+    hci_init(HCI_DEFAULT_MANAGER, All.OutputDir, All.TimeLimitCPU, All.AutoSnapshotTime, All.SnapshotWithFOF);
 
     const struct UnitSystem units = get_unitsystem(header->UnitLength_in_cm, header->UnitMass_in_g, header->UnitVelocity_in_cm_per_s);
 
