@@ -285,6 +285,9 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
         /* Enforce that the hydro timestep is always shorter than or equal to the gravity timestep*/
         if(bin_hydro > bin_gravity)
             bin_hydro = bin_gravity;
+        /* Enforce that the gravity bin is the hydro bin. This is to ensure the code continues to
+         * work while we implement the Hamiltonian timesplitting */
+        bin_gravity = bin_hydro;
         /* Only update if the timebin is currently active. We know that
          * the shorter hydro timestep is active, but we need to check
          * the gravity timestep.*/
