@@ -51,6 +51,7 @@ struct particle_data
 
     MyFloat GravPM[3];		/* particle acceleration due to long-range PM gravity force */
 
+    MyFloat OldAcc; /* Magnitude of full acceleration on the last PM step, for tree opening criterion. */
     MyFloat Potential;		/* gravitational potential. This is the total potential after gravtree+gravpm is called. */
 
     /* DtHsml is 1/3 DivVel * Hsml evaluated at the last active timestep for this particle.

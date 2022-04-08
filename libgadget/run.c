@@ -480,6 +480,9 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         {
             gravpm_force(&pm, &Tree, &All.CP, atime, units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType);
 
+            /* Now we have computed the total acceleration, set old acc for the next PM step.*/
+            grav_set_oldaccs(All.CP.GravInternal);
+
             /* compute and output energy statistics if desired. */
             if(fds.FdEnergy)
                 energy_statistics(fds.FdEnergy, atime, PartManager);
