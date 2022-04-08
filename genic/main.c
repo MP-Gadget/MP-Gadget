@@ -14,6 +14,7 @@
 #include <libgadget/petapm.h>
 #include <libgadget/utils.h>
 #include <libgadget/partmanager.h>
+#include <libgadget/utils/unitsystem.h>
 
 #define GLASS_SEED_HASH(seed) ((seed) * 9999721L)
 
@@ -35,10 +36,11 @@ int main(int argc, char **argv)
   /* Genic Specific configuration structure*/
   struct genic_config All2 = {0};
 
-  Cosmology CP;
+  Cosmology CP ={0};
   int ShowBacktrace;
   double MaxMemSizePerNode;
   read_parameterfile(argv[1], &All2, &ShowBacktrace, &MaxMemSizePerNode, &CP);
+  All2.units = get_unitsystem(All2.units.UnitLength_in_cm, All2.units.UnitMass_in_g, All2.units.UnitVelocity_in_cm_per_s);
 
   mymalloc_init(MaxMemSizePerNode);
 
@@ -50,10 +52,10 @@ int main(int argc, char **argv)
   int64_t TotNumPart = (int64_t) All2.Ngrid*All2.Ngrid*All2.Ngrid;
   int64_t TotNumPartGas = (int64_t) All2.ProduceGas*All2.NgridGas*All2.NgridGas*All2.NgridGas;
 
-  init_cosmology(&CP, All2.TimeIC);
+  init_cosmology(&CP, All2.TimeIC, All2.units);
 
   MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-  init_powerspectrum(ThisTask, All2.TimeIC, All2.UnitLength_in_cm, &CP, &All2.PowerP);
+  init_powerspectrum(ThisTask, All2.TimeIC, All2.units.UnitLength_in_cm, &CP, &All2.PowerP);
 
   petapm_module_init(omp_get_max_threads());
 
@@ -89,7 +91,7 @@ int main(int argc, char **argv)
   struct thermalvel nu_therm;
   if(TotNu > 0) {
     const double kBMNu = 3*CP.ONu.kBtnu / (CP.MNu[0]+CP.MNu[1]+CP.MNu[2]);
-    double v_th = NU_V0(All2.TimeIC, kBMNu, All2.UnitVelocity_in_cm_per_s);
+    double v_th = NU_V0(All2.TimeIC, kBMNu, All2.units.UnitVelocity_in_cm_per_s);
     if(!All2.UsePeculiarVelocity)
         v_th /= sqrt(All2.TimeIC);
     total_nufrac = init_thermalvel(&nu_therm, v_th, All2.Max_nuvel/v_th, 0);
@@ -110,8 +112,8 @@ int main(int argc, char **argv)
   }
   PetaPM pm[1];
 
-  double UnitTime_in_s = All2.UnitLength_in_cm / All2.UnitVelocity_in_cm_per_s;
-  double Grav = GRAVITY / pow(All2.UnitLength_in_cm, 3) * All2.UnitMass_in_g * pow(UnitTime_in_s, 2);
+  double UnitTime_in_s = All2.units.UnitLength_in_cm / All2.units.UnitVelocity_in_cm_per_s;
+  double Grav = GRAVITY / pow(All2.units.UnitLength_in_cm, 3) * All2.units.UnitMass_in_g * pow(UnitTime_in_s, 2);
 
   petapm_init(pm, All2.BoxSize, 0, All2.Nmesh, Grav, MPI_COMM_WORLD);
 
@@ -138,7 +140,7 @@ int main(int argc, char **argv)
   if(!All2.MakeGlassCDM) {
       setup_grid(idgen_cdm, shift_dm, mass[1], ICP);
   } else {
-      setup_glass(idgen_cdm, pm, 0, GLASS_SEED_HASH(All2.Seed), mass[1], ICP, All2.UnitLength_in_cm, All2.OutputDir);
+      setup_glass(idgen_cdm, pm, 0, GLASS_SEED_HASH(All2.Seed), mass[1], ICP, All2.units.UnitLength_in_cm, All2.OutputDir);
   }
 
   /*Make the table for the baryons if we need, using the second half of the memory.*/
@@ -146,11 +148,11 @@ int main(int argc, char **argv)
     if(!All2.MakeGlassGas) {
         setup_grid(idgen_gas, shift_gas, mass[0], ICP+NumPartCDM);
     } else {
-        setup_glass(idgen_gas, pm, 0, GLASS_SEED_HASH(All2.Seed + 1), mass[0], ICP+NumPartCDM, All2.UnitLength_in_cm, All2.OutputDir);
+        setup_glass(idgen_gas, pm, 0, GLASS_SEED_HASH(All2.Seed + 1), mass[0], ICP+NumPartCDM, All2.units.UnitLength_in_cm, All2.OutputDir);
     }
     /*Do coherent glass evolution to avoid close pairs*/
     if(All2.MakeGlassGas || All2.MakeGlassCDM)
-        glass_evolve(pm, 14, "powerspectrum-glass-tot", ICP, NumPartCDM+NumPartGas, All2.UnitLength_in_cm, All2.OutputDir);
+        glass_evolve(pm, 14, "powerspectrum-glass-tot", ICP, NumPartCDM+NumPartGas, All2.units.UnitLength_in_cm, All2.OutputDir);
   }
 
   /*Write initial positions into ICP struct (for CDM and gas)*/
@@ -165,7 +167,7 @@ int main(int argc, char **argv)
     /*Add a thermal velocity to WDM particles*/
     if(All2.WDM_therm_mass > 0){
         int i;
-        double v_th = WDM_V0(All2.TimeIC, All2.WDM_therm_mass, CP.Omega0 - CP.OmegaBaryon - get_omega_nu(&CP.ONu, 1), CP.HubbleParam, All2.UnitVelocity_in_cm_per_s);
+        double v_th = WDM_V0(All2.TimeIC, All2.WDM_therm_mass, CP.Omega0 - CP.OmegaBaryon - get_omega_nu(&CP.ONu, 1), CP.HubbleParam, All2.units.UnitVelocity_in_cm_per_s);
         if(!All2.UsePeculiarVelocity)
            v_th /= sqrt(All2.TimeIC);
         struct thermalvel WDM;
@@ -269,8 +271,8 @@ void print_spec(int ThisTask, const int Ngrid, struct genic_config All2, Cosmolo
 
       fprintf(fd, "# %12g %12g\n", 1/All2.TimeIC-1, DDD);
       /* print actual starting redshift and linear growth factor for this cosmology */
-      kstart = 2 * M_PI / (2*All2.BoxSize * (CM_PER_MPC / All2.UnitLength_in_cm));	/* 2x box size Mpc/h */
-      kend = 2 * M_PI / (All2.BoxSize/(8*Ngrid) * (CM_PER_MPC / All2.UnitLength_in_cm));	/* 1/8 mean spacing Mpc/h */
+      kstart = 2 * M_PI / (2*All2.BoxSize * (CM_PER_MPC / All2.units.UnitLength_in_cm));	/* 2x box size Mpc/h */
+      kend = 2 * M_PI / (All2.BoxSize/(8*Ngrid) * (CM_PER_MPC / All2.units.UnitLength_in_cm));	/* 1/8 mean spacing Mpc/h */
 
       message(1,"kstart=%lg kend=%lg\n",kstart,kend);
 

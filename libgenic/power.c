@@ -379,7 +379,8 @@ init_transfer_table(int ThisTask, double InitTime, const struct power_params * c
                 meangrowth[t-VEL_BAR] += transfer_table.logD[t][i];
                 nmean++;
             }
-        meangrowth[t-VEL_BAR]/= nmean;
+        if(nmean > 0)
+            meangrowth[t-VEL_BAR]/= nmean;
     }
     /*Initialise the interpolation*/
     for(t = 0; t < MAXCOLS; t++)

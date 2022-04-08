@@ -7,10 +7,6 @@
 #include "utils.h"
 #include "hci.h"
 
-HCIManager HCI_DEFAULT_MANAGER[1] = {
-    {.OVERRIDE_NOW = 0},
-};
-
 static double
 hci_now(HCIManager * manager)
 {
@@ -28,7 +24,7 @@ hci_now(HCIManager * manager)
 void
 hci_init(HCIManager * manager, char * prefix, double WallClockTimeLimit, double AutoCheckPointTime, int FOFEnabled)
 {
-    manager->prefix = fastpm_strdup(prefix);
+    manager->prefix = prefix;
     manager->timer_begin = hci_now(manager);
     manager->timer_query_begin = manager->timer_begin;
 

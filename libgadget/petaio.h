@@ -6,6 +6,33 @@
 #include "utils/paramset.h"
 #include "partmanager.h"
 #include "slotsmanager.h"
+#include "cosmology.h"
+#include "physconst.h"
+
+/* Struct to store information written to each snapshot header. */
+struct header_data
+{
+    /* Local particle counts to be read onto this processor.*/
+    int64_t NLocal[6];
+    /* Total particle counts in this snapshot*/
+    int64_t NTotal[6];
+    /* Total particle counts initially*/
+    int64_t NTotalInit[6];
+    /* Average masses*/
+    double MassTable[6];
+    /* Initial time of simulation*/
+    double TimeIC;
+    /* Time of this snapshot*/
+    double TimeSnapshot;
+    /* Box size*/
+    double BoxSize;
+    /* Unit scales.*/
+    double UnitLength_in_cm;
+    double UnitMass_in_g;
+    double UnitVelocity_in_cm_per_s;
+    /* Number of k values to use for the neutrinos.*/
+    int neutrinonk;
+};
 
 /* Store parameters for unit conversions
  * on write*/
@@ -38,8 +65,10 @@ struct IOTable {
 
 #define PTYPE_FOF_GROUP  1024
 
+/* Get the full path for a snapshot number. String returned must be freed.*/
+char * petaio_get_snapshot_fname(int num, const char * OutputDir);
 /* Populate an IOTable with the default set of blocks to read or write.*/
-void register_io_blocks(struct IOTable * IOTable, int WriteGroupID);
+void register_io_blocks(struct IOTable * IOTable, int WriteGroupID, int MetalReturnOn);
 /* Write (but don't read) some extra output blocks useful for debugging the particle structure*/
 void register_debug_io_blocks(struct IOTable * IOTable);
 /* Free the entries in the IOTable.*/
@@ -50,15 +79,16 @@ int GetUsePeculiarVelocity(void);
 void petaio_init();
 void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t npartLocal);
 void petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int NumSelection, struct particle_data * Parts, struct slots_manager_type * SlotsManager, struct conversions * conv);
-void petaio_readout_buffer(BigArray * array, IOTableEntry * ent, struct conversions * conv);
+void petaio_readout_buffer(BigArray * array, IOTableEntry * ent, struct conversions * conv, struct part_manager_type * PartManager, struct slots_manager_type * SlotsManager);
 void petaio_destroy_buffer(BigArray * array);
 
 void petaio_save_block(BigFile * bf, const char * blockname, BigArray * array, int verbose);
 int petaio_read_block(BigFile * bf, const char * blockname, BigArray * array, int required);
 
-void petaio_save_snapshot(struct IOTable * IOTable, int verbose, const double atime, const char *fmt, ...);
-void petaio_read_snapshot(int num, const double atime, MPI_Comm Comm);
-void petaio_read_header(int num);
+void petaio_save_snapshot(const char * fname, struct IOTable * IOTable, int verbose, const double atime, const Cosmology * CP);
+void petaio_read_snapshot(int num, const char * OutputDir, Cosmology * CP, struct header_data * header, struct part_manager_type * PartManager, struct slots_manager_type * SlotsManager, MPI_Comm Comm);
+/* Returns a header struct. Note that this may also change the cosmology values in CP, if those are different from the ones in the parameter file*/
+struct header_data petaio_read_header(int num, const char * OutputDir, Cosmology * CP);
 
 void
 petaio_build_selection(int * selection,

@@ -116,21 +116,22 @@ int main(int argc, char **argv)
 
     init_endrun(ShowBacktrace);
 
+    struct header_data head = {0};
     /* Last snapshot will be detected in begrun*/
-    RestartSnapNum = begrun(RestartFlag, RestartSnapNum);
+    inttime_t ti_init = begrun(RestartFlag, RestartSnapNum, &head);
 
     switch(RestartFlag) {
         case 3:
-            runfof(RestartSnapNum);
+            runfof(RestartSnapNum, ti_init, &head);
             break;
         case 4:
-            runpower(RestartSnapNum);
+            runpower(&head);
             break;
         case 99:
-            runtests(RestartSnapNum);
+            runtests(RestartSnapNum, ti_init, &head);
             break;
         default:
-            run(RestartSnapNum);        /* main simulation loop */
+            run(RestartSnapNum, ti_init, &head);        /* main simulation loop */
             break;
     }
     MPI_Finalize();		/* clean up & finalize MPI */

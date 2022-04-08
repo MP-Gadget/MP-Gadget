@@ -10,6 +10,7 @@
 #include <string.h>
 #include <time.h>
 #include <gsl/gsl_rng.h>
+#include <omp.h>
 
 #include "stub.h"
 
@@ -184,7 +185,7 @@ static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int di
     force_tree_rebuild(&Tree, &ddecomp, 1, 1, NULL);
     gravshort_fill_ntab(SHORTRANGE_FORCE_WINDOW_TYPE_EXACT, Asmth);
     /* Setup cosmology*/
-    Cosmology CP;
+    Cosmology CP ={0};
     CP.MNu[0] = CP.MNu[1] = CP.MNu[2] = 0;
     CP.OmegaCDM = 0.3;
     CP.CMBTemperature = 2.72;
@@ -192,9 +193,10 @@ static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int di
     CP.Omega0 = 0.3;
     CP.OmegaBaryon = 0.045;
     CP.OmegaLambda = 0.7;
-    init_cosmology(&CP, 0.01);
+    struct UnitSystem units = get_unitsystem(3.085678e21, 1.989e43, 1e5);
+    init_cosmology(&CP, 0.01, units);
 
-    gravpm_force(&pm, &Tree, &CP, 0.1, CM_PER_MPC/1000., ".", 0, 0.01, 0, 2, 1);
+    gravpm_force(&pm, &Tree, &CP, 0.1, CM_PER_MPC/1000., ".", 0.01, 2);
     force_tree_rebuild(&Tree, &ddecomp, 1, 1, NULL);
     const double rho0 = CP.Omega0 * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G);
 

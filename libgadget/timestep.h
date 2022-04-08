@@ -33,7 +33,7 @@ typedef struct
 
 int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times, int NumCurrentTiStep, const double Time);
 void free_activelist(ActiveParticles * act);
-double set_global_time(const inttime_t Ti_Current);
+double get_atime(const inttime_t Ti_Current);
 
 /* This function assigns new short-range timesteps to particles.
  * It will also advance the PM timestep and set the new timestep length.
@@ -45,8 +45,8 @@ double set_global_time(const inttime_t Ti_Current);
  * Cosmology: to compute hubble scaling factors.
  * asmth: size of PM smoothing cell in internal units. asmth = All.Asmth * PartManager->BoxSize / Nmesh
  * isFirstTimeStep: Flags to do special things for BHs on first time step.
- * EmergencyOutputDir: Place to save a snapshot dump if a timestep becomes zero. */
-void find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double atime, int FastParticleType, const Cosmology * CP, const double asmth, const int isFirstTimeStep, const char * EmergencyOutputDir);
+ * Returns 0 if success, 1 if timestep is bad.*/
+int find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double atime, int FastParticleType, const Cosmology * CP, const double asmth, const int isFirstTimeStep);
 /* Apply half a kick to the particles: short-range and long-range.
  * These functions sync drift and kick times.*/
 void apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * times, const double atime, const double MinEgySpec);

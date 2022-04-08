@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <omp.h>
 
 #include "timestep.h"
 #include "physconst.h"
@@ -10,6 +11,9 @@
 #include "slotsmanager.h"
 #include "hydra.h"
 #include "utils.h"
+#include "stats.h"
+#include "walltime.h"
+#include "cooling_qso_lightup.h"
 
 /* global state of system
 */
@@ -36,6 +40,139 @@ struct state_of_system
     double AngMomentumComp[6][4];
     double CenterOfMassComp[6][4];
 };
+
+static struct stats_params
+{
+    /* some filenames */
+    char EnergyFile[100];
+    char CpuFile[100];
+    /*Should we store the energy to EnergyFile on PM timesteps.*/
+    int OutputEnergyDebug;
+    int WriteBlackHoleDetails; /* write BH details every time step*/
+} StatsParams;
+
+void
+set_stats_params(ParameterSet * ps)
+{
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask == 0) {
+        param_get_string2(ps, "EnergyFile", StatsParams.EnergyFile, sizeof(StatsParams.EnergyFile));
+        param_get_string2(ps, "CpuFile", StatsParams.CpuFile, sizeof(StatsParams.CpuFile));
+        StatsParams.OutputEnergyDebug = param_get_int(ps, "OutputEnergyDebug");
+        StatsParams.WriteBlackHoleDetails = param_get_int(ps,"WriteBlackHoleDetails");
+    }
+    MPI_Bcast(&StatsParams, sizeof(struct stats_params), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
+
+/*!  This function opens various log-files that report on the status and
+ *   performance of the simulstion. On restart from restart-files
+ *   (start-option 1), the code will append to these files.
+ */
+void
+open_outputfiles(int RestartSnapNum, struct OutputFD * fds, const char * OutputDir, int BlackHoleOn, int StarformationOn)
+{
+    const char mode[3]="a+";
+    char * buf;
+    char * postfix;
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    fds->FdCPU = NULL;
+    fds->FdEnergy = NULL;
+    fds->FdBlackHoles = NULL;
+    fds->FdSfr = NULL;
+    fds->FdBlackholeDetails = NULL;
+
+    if(RestartSnapNum != -1) {
+        postfix = fastpm_strdup_printf("-R%03d", RestartSnapNum);
+    } else {
+        postfix = fastpm_strdup_printf("%s", "");
+    }
+
+    /* all the processors write to separate files*/
+    if(BlackHoleOn && StatsParams.WriteBlackHoleDetails){
+        buf = fastpm_strdup_printf("%s/%s%s/%06X", OutputDir,"BlackholeDetails",postfix,ThisTask);
+        fastpm_path_ensure_dirname(buf);
+        if(!(fds->FdBlackholeDetails = fopen(buf,"a")))
+            endrun(1, "Failed to open blackhole detail %s\n", buf);
+        myfree(buf);
+    }
+
+    /* only the root processors writes to the log files */
+    if(ThisTask != 0) {
+        return;
+    }
+
+    if(BlackHoleOn) {
+        buf = fastpm_strdup_printf("%s/%s%s", OutputDir, "blackholes.txt", postfix);
+        fastpm_path_ensure_dirname(buf);
+        if(!(fds->FdBlackHoles = fopen(buf, mode)))
+            endrun(1, "error in opening file '%s'\n", buf);
+        myfree(buf);
+    }
+
+    buf = fastpm_strdup_printf("%s/%s%s", OutputDir, StatsParams.CpuFile, postfix);
+    fastpm_path_ensure_dirname(buf);
+    if(!(fds->FdCPU = fopen(buf, mode)))
+        endrun(1, "error in opening file '%s'\n", buf);
+    myfree(buf);
+
+    if(StatsParams.OutputEnergyDebug) {
+        buf = fastpm_strdup_printf("%s/%s%s", OutputDir, StatsParams.EnergyFile, postfix);
+        fastpm_path_ensure_dirname(buf);
+        if(!(fds->FdEnergy = fopen(buf, mode)))
+            endrun(1, "error in opening file '%s'\n", buf);
+        myfree(buf);
+    }
+
+    if(StarformationOn) {
+        buf = fastpm_strdup_printf("%s/%s%s", OutputDir, "sfr.txt", postfix);
+        fastpm_path_ensure_dirname(buf);
+        if(!(fds->FdSfr = fopen(buf, mode)))
+            endrun(1, "error in opening file '%s'\n", buf);
+        myfree(buf);
+    }
+
+    if(qso_lightup_on()) {
+        buf = fastpm_strdup_printf("%s/%s%s", OutputDir, "helium.txt", postfix);
+        fastpm_path_ensure_dirname(buf);
+        if(!(fds->FdHelium = fopen(buf, mode)))
+            endrun(1, "error in opening file '%s'\n", buf);
+        myfree(buf);
+    }
+}
+
+/*!  This function closes the global log-files.
+*/
+void
+close_outputfiles(struct OutputFD * fds)
+{
+    if(fds->FdCPU)
+        fclose(fds->FdCPU);
+    if(fds->FdEnergy)
+        fclose(fds->FdEnergy);
+    if(fds->FdSfr)
+        fclose(fds->FdSfr);
+    if(fds->FdBlackHoles)
+        fclose(fds->FdBlackHoles);
+    if(fds->FdBlackholeDetails)
+        fclose(fds->FdBlackholeDetails);
+}
+
+
+void write_cpu_log(int NumCurrentTiStep, const double atime, FILE * FdCPU, double ElapsedTime)
+{
+    walltime_summary(0, MPI_COMM_WORLD);
+
+    if(FdCPU)
+    {
+        int NTask;
+        MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+        fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads: %d Elapsed: %g\n", NumCurrentTiStep, atime, NTask, omp_get_max_threads(), ElapsedTime);
+        walltime_report(FdCPU, 0, MPI_COMM_WORLD);
+        fflush(FdCPU);
+    }
+}
 
 /* This routine computes various global properties of the particle
  * distribution and stores the result in the struct `SysState'.
@@ -194,25 +331,25 @@ struct state_of_system compute_global_quantities_of_system(const double Time,  s
  */
 void energy_statistics(FILE * FdEnergy, const double Time, struct part_manager_type * PartManager)
 {
+    if(!FdEnergy)
+        return;
+
     struct state_of_system SysState = compute_global_quantities_of_system(Time, PartManager);
 
     message(0, "Time %g Mean Temperature of Gas %g\n",
                 Time, SysState.TemperatureComp[0]);
 
-    if(FdEnergy)
-    {
-        fprintf(FdEnergy,
-                "%g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
-                Time, SysState.TemperatureComp[0], SysState.EnergyInt, SysState.EnergyPot, SysState.EnergyKin, SysState.EnergyIntComp[0],
-                SysState.EnergyPotComp[0], SysState.EnergyKinComp[0], SysState.EnergyIntComp[1],
-                SysState.EnergyPotComp[1], SysState.EnergyKinComp[1], SysState.EnergyIntComp[2],
-                SysState.EnergyPotComp[2], SysState.EnergyKinComp[2], SysState.EnergyIntComp[3],
-                SysState.EnergyPotComp[3], SysState.EnergyKinComp[3], SysState.EnergyIntComp[4],
-                SysState.EnergyPotComp[4], SysState.EnergyKinComp[4], SysState.EnergyIntComp[5],
-                SysState.EnergyPotComp[5], SysState.EnergyKinComp[5], SysState.MassComp[0],
-                SysState.MassComp[1], SysState.MassComp[2], SysState.MassComp[3], SysState.MassComp[4],
-                SysState.MassComp[5]);
+    fprintf(FdEnergy,
+            "%g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
+            Time, SysState.TemperatureComp[0], SysState.EnergyInt, SysState.EnergyPot, SysState.EnergyKin, SysState.EnergyIntComp[0],
+            SysState.EnergyPotComp[0], SysState.EnergyKinComp[0], SysState.EnergyIntComp[1],
+            SysState.EnergyPotComp[1], SysState.EnergyKinComp[1], SysState.EnergyIntComp[2],
+            SysState.EnergyPotComp[2], SysState.EnergyKinComp[2], SysState.EnergyIntComp[3],
+            SysState.EnergyPotComp[3], SysState.EnergyKinComp[3], SysState.EnergyIntComp[4],
+            SysState.EnergyPotComp[4], SysState.EnergyKinComp[4], SysState.EnergyIntComp[5],
+            SysState.EnergyPotComp[5], SysState.EnergyKinComp[5], SysState.MassComp[0],
+            SysState.MassComp[1], SysState.MassComp[2], SysState.MassComp[3], SysState.MassComp[4],
+            SysState.MassComp[5]);
 
-        fflush(FdEnergy);
-    }
+    fflush(FdEnergy);
 }

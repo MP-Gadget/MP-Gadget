@@ -6,6 +6,7 @@
 #include "timestep.h"
 #include "partmanager.h"
 #include "slotsmanager.h"
+#include "physconst.h"
 
 #define  METAL_YIELD       0.02	/*!< effective metal yield for star formation */
 
@@ -24,9 +25,9 @@ enum StarformationCriterion {
 /*Set the parameters of the star formation module*/
 void set_sfr_params(ParameterSet * ps);
 
-void init_cooling_and_star_formation(int CoolingOn, int StarformationOn, Cosmology * CP);
+void init_cooling_and_star_formation(int CoolingOn, int StarformationOn, Cosmology * CP, const double avg_baryon_mass, const double BoxSize, const struct UnitSystem units);
 /*Do the cooling and the star formation. The tree is required for the winds only.*/
-void cooling_and_starformation(ActiveParticles * act, double Time, double dloga, ForceTree * tree, MyFloat * GradRho, FILE * FdSfr);
+void cooling_and_starformation(ActiveParticles * act, double Time, double dloga, ForceTree * tree, const Cosmology * CP, MyFloat * GradRho, FILE * FdSfr);
 
 /*Get the neutral fraction of a particle correctly, even when on the star-forming equation of state.
  * This calls the cooling routines for the current internal energy when off the equation of state, but
@@ -46,5 +47,8 @@ int get_generations(void);
 
 /* Returns 1 if particle is on effective EOS, 0 otherwise*/
 int sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv);
+
+/* Get the Minimum temperature in internal energy*/
+double get_MinEgySpec(void);
 
 #endif

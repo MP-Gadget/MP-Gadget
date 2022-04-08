@@ -13,7 +13,6 @@ INCL = densitykernel.h \
 	run.h \
 	timebinmgr.h \
 	treewalk.h \
-	allvars.h \
 	partmanager.h \
 	cooling.h   \
 	cooling_rates.h cooling_qso_lightup.h \
@@ -23,10 +22,12 @@ INCL = densitykernel.h \
 	checkpoint.h \
 	physconst.h   \
 	sfr_eff.h \
+	stats.h \
 	metal_return.h \
 	winds.h \
 	timefac.h \
 	blackhole.h \
+	gravity.h \
 	cosmology.h \
 	drift.h     \
 	fof.h  \
@@ -37,6 +38,7 @@ INCL = densitykernel.h \
 	walltime.h \
 	neutrinos_lra.h \
 	omega_nu_single.h \
+utils/unitsystem.h \
 utils/peano.h \
 utils/interp.h \
 utils/paramset.h \
@@ -118,6 +120,7 @@ utils/system.o \
 utils/paramset.o \
 utils/event.o \
 utils/openmpsort.o \
+utils/unitsystem.o \
 utils/string.o \
 utils/spinlocks.o
 

@@ -22,6 +22,7 @@
 #include <libgadget/petaio.h>
 #include <libgadget/cooling_qso_lightup.h>
 #include <libgadget/metal_return.h>
+#include <libgadget/stats.h>
 
 static int
 BlackHoleFeedbackMethodAction (ParameterSet * ps, const char * name, void * data)
@@ -397,6 +398,6 @@ void read_parameter_file(char *fname, int * ShowBacktrace, double * MaxMemSizePe
     set_fof_params(ps);
     set_blackhole_params(ps);
     set_metal_return_params(ps);
-
+    set_stats_params(ps);
     parameter_set_free(ps);
 }

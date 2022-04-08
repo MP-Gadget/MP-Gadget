@@ -2,6 +2,7 @@
 #define _GENIC_ALLVARS_H
 
 #include "power.h"
+#include <libgadget/utils/unitsystem.h>
 
 struct ic_part_data
 {
@@ -26,14 +27,12 @@ struct genic_config {
     double WDM_therm_mass;
     int MakeGlassGas;
     int MakeGlassCDM;
-    int  NumFiles;
-    int  NumWriters;
+    int NumFiles;
+    int NumWriters;
     /* Whether to save the pre-displacement positions to the snapshot*/
     int SavePrePos;
     struct power_params PowerP;
-    double UnitLength_in_cm;
-    double UnitVelocity_in_cm_per_s;
-    double UnitMass_in_g;
+    struct UnitSystem units;
     char OutputDir[100];
     char InitCondFile[100];
     double TimeIC;

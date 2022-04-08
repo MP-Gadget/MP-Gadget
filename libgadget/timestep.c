@@ -165,15 +165,15 @@ is_PM_timestep(const DriftKickTimes * const times)
 }
 
 double
-set_global_time(const inttime_t Ti_Current) {
+get_atime(const inttime_t Ti_Current) {
     return exp(loga_from_ti(Ti_Current));
 }
 
 /* This function assigns new short-range timesteps to particles.
  * It will also shrink the PM timestep to the longest short-range timestep.
  * Stores the maximum and minimum timesteps in the DriftKickTimes structure.*/
-void
-find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double atime, int FastParticleType, const Cosmology * CP, const double asmth, const int isFirstTimeStep, const char * EmergencyOutputDir)
+int
+find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double atime, int FastParticleType, const Cosmology * CP, const double asmth, const int isFirstTimeStep)
 {
     int pa;
     inttime_t dti_min = TIMEBASE;
@@ -298,15 +298,10 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
                 P[pa].TimeBin = mTimeBin;
         }
     }
-    if(badstepsizecount) {
-        message(0, "bad timestep spotted: terminating and saving snapshot.\n");
-        dump_snapshot("TIMESTEP-DUMP", atime, EmergencyOutputDir);
-        endrun(0, "Ending due to bad timestep");
-    }
     walltime_measure("/Timeline");
     times->mintimebin = mTimeBin;
     times->maxtimebin = maxTimeBin;
-    return;
+    return badstepsizecount;
 }
 
 /* Update the last active drift times for all bins*/

@@ -107,7 +107,7 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_
     int ThisTask;
     int NTask;
 
-    pm->Mesh2Task[0] = (int *) mymalloc("Mesh2Task", 2*sizeof(int) * Nmesh);
+    pm->Mesh2Task[0] = (int *) mymalloc2("Mesh2Task", 2*sizeof(int) * Nmesh);
     pm->Mesh2Task[1] = pm->Mesh2Task[0] + Nmesh;
 
     MPI_Comm_rank(comm, &ThisTask);

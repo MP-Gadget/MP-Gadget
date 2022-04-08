@@ -31,6 +31,17 @@ def get_gsmf(pig,Lbox, hh):
     smf = massfunc(fofmasses[fofmasses>rsl],Lbox)
     return smf
 
+def get_hmf(pig,Lbox, hh):
+    """Get a conventionally unitted halo mass function in a resolved region.
+    Lbox is box size in Mpc (not Mpc/h!)"""
+    #Change units to M_sun
+    fofmasses = pig['FOFGroups/Mass'][:]*10**10/hh
+    #Find minimum halo mass
+    rsl = 2*min(fofmasses[fofmasses>0])
+    #Find the mass function
+    smf = massfunc(fofmasses[fofmasses>rsl],Lbox)
+    return smf
+
 def getbmf(pig,Lbox, hh):
     """Get the black hole mass function"""
     #Swallowed black holes are never added to the FOF table
