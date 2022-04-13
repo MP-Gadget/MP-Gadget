@@ -4,6 +4,9 @@
 #include "utils/paramset.h"
 #include "timebinmgr.h"
 #include "timefac.h"
+#include "petapm.h"
+#include "domain.h"
+
 /*Flat array containing all active particles:
 set in rebuild_activelist.*/
 typedef struct ActiveParticles
@@ -67,5 +70,13 @@ DriftKickTimes init_driftkicktime(inttime_t Ti_Current);
 int is_PM_timestep(const DriftKickTimes * const times);
 
 void set_timestep_params(ParameterSet * ps);
+
+/* Assigns new short-range timesteps, computes short-range gravitational forces
+ * and does the gravitational half-step kicks.*/
+int do_hierarchical_gravity_first_half(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, DriftKickTimes * times, const double atime, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir);
+
+/* Computes short-range gravitational forces at the second half of the step and
+ * does the gravitational half-step kicks.*/
+int do_hierarchical_gravity_second_half(int minTimeBin, const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, DriftKickTimes * times, const double atime, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir);
 
 #endif
