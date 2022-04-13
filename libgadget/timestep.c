@@ -288,8 +288,8 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
             maxTimeBin = ti;
         /* We need to compute the new timestep here based on the acceleration at the current level,
          * because we will over-write the acceleration*/
-        int i;
-        #pragma omp parallel for reduction(+: badstepsizecount) reduction(max:maxTimeBin)
+        int i, nactive_next = 0;
+        #pragma omp parallel for reduction(+: nactive_next) reduction(max:maxTimeBin)
         for(i = 0; i < subact->NumActiveGravity; i++) {
             int pa = subact->ActiveParticle ? subact->ActiveParticle[i] : i;
             double dloga_gravity = get_timestep_gravity_dloga(i, atime, hubble);
@@ -297,15 +297,24 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
             /* Reduce the timebin by 1 if needed by this current acceleration.*/
             if(dti_gravity < dti_from_timebin(ti)) {
                 P[pa].TimeBinGravity = ti -1;
-                if(ti == 1)
-                    badstepsizecount++;
+                nactive_next++;
             }
         }
-        /* In Gadget-4 this tests COLLECTIVELY for the timestep needing to shrink,
-           if it is the topmost timestep and it needs to shrink for more than 33% of the particles,
-           shrink it for all of them.
-           If they all have their timestep shrunk then the next loop does not need to recompute
-           the accelerations and we save compute. FIXME: Implement this.*/
+        if(ti == 1)
+            badstepsizecount = nactive_next;
+        /* This tests COLLECTIVELY for the timestep needing to shrink.
+           If we are the topmost timestep and it needs to shrink for more than 33% of the particles,
+           shrink it for all of them. Then we don't need to recompute the accelerations (because
+           they are still the same, and are from all particles).*/
+        int64_t nactive_next_tot;
+        sumup_large_ints(1, &nactive_next, &nactive_next_tot);
+        if(tot_active == total_part && nactive_next_tot < tot_active && nactive_next_tot > tot_active / 3 ) {
+            #pragma omp parallel for reduction(+: nactive_next) reduction(max:maxTimeBin)
+            for(i = 0; i < subact->NumActiveGravity; i++) {
+                int pa = subact->ActiveParticle ? subact->ActiveParticle[i] : i;
+                P[pa].TimeBinGravity = ti -1;
+            }
+        }
 
         /* Now we do the gravity kicks using each half-step acceleration.*/
         inttime_t dti = dti_from_timebin(ti);
