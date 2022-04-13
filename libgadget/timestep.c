@@ -228,7 +228,7 @@ find_global_timestep(DriftKickTimes * times, const inttime_t dti_max, const doub
 /* Assigns new short-range timesteps, computes short-range gravitational forces
  * and does the gravitational half-step kicks.*/
 int
-do_hierarchical_gravity_first_half(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, DriftKickTimes * times, const double atime, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir)
+hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, DriftKickTimes * times, const double atime, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir)
 {
     walltime_measure("/Misc");
 
@@ -343,7 +343,7 @@ do_hierarchical_gravity_first_half(const ActiveParticles * act, PetaPM * pm, Dom
 
 /* Computes short-range gravitational forces at the second half of the step and
  * does the gravitational half-step kicks.*/
-int do_hierarchical_gravity_second_half(int minTimeBin, const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, DriftKickTimes * times, const double atime, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir)
+int hierarchical_gravity_accelerations(int minTimeBin, const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, DriftKickTimes * times, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir)
 {
     walltime_measure("/Misc");
 
