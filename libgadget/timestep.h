@@ -72,7 +72,8 @@ int is_PM_timestep(const DriftKickTimes * const times);
 void set_timestep_params(ParameterSet * ps);
 
 /* Assigns new short-range timesteps, computes short-range gravitational forces
- * and does the gravitational half-step kicks.*/
+ * and does the gravitational half-step kicks.
+ * Note this does not compute the initial accelerations: _second_half should be run FIRST. */
 int do_hierarchical_gravity_first_half(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, DriftKickTimes * times, const double atime, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir);
 
 /* Computes short-range gravitational forces at the second half of the step and
