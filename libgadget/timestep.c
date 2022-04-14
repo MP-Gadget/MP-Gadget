@@ -394,7 +394,22 @@ int hierarchical_gravity_accelerations(int minTimeBin, const ActiveParticles * a
             do_grav_short_range_kick(&P[pa], gravkick);
         }
         myfree(subact->ActiveParticle);
-        /* FIXME: Set SPH Predicted velocities for inactive particles.*/
+    }
+    /* This acceleration is used to set SPH Predicted velocities for inactive particles.
+     * Following Gadget-4, we use the acceleration of the longest timebin only, because it is the only one where all particles were present.
+     * This does mean that the predicted velocity will be using a slightly out of date gravitational acceleration,
+     * but the Gadget-4 paper says this is a negligible effect (I suspect that where the artificial viscosity
+     * is important the gravitational acceleration is small compared to hydro force anyway).*/
+    if(act->NumActiveGravity == PartManager->NumPart) {
+        int i;
+        #pragma omp parallel for
+        for(i = 0; i < PartManager->NumPart; i++) {
+            if(P[i].Type != 0)
+                continue;
+            int j;
+            for(j = 0; j < 3; j++)
+                SPHP(i).FullGravAccel[j] = P[i].GravAccel[j];
+        }
     }
     return 0;
 }
