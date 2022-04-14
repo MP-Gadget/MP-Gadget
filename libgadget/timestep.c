@@ -282,7 +282,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     }
     int mTimeBin = largest_active, maxTimeBin = times->maxtimebin;
     int64_t badstepsizecount = 0;
-    int64_t last_active, total_part, last_active_loc = act->NumActiveGravity;
+    int64_t last_active, total_part, last_active_loc = act->NumActiveGravity+1;
     MPI_Allreduce(&PartManager->NumPart, &total_part, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     /* Set timebins to largest value */
     for(ti = largest_active; ti > 0; ti--) {
