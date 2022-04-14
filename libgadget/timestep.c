@@ -375,7 +375,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
 
 /* Computes short-range gravitational forces at the second half of the step and
  * does the gravitational half-step kicks.*/
-int hierarchical_gravity_accelerations(int minTimeBin, const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, DriftKickTimes * times, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir)
+int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, DriftKickTimes * times, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir)
 {
     walltime_measure("/Misc");
 
@@ -388,7 +388,7 @@ int hierarchical_gravity_accelerations(int minTimeBin, const ActiveParticles * a
         }
     }
     /* Set timebins to largest value */
-    for(ti = minTimeBin; ti <= largest_active; ti++) {
+    for(ti = times->mintimebin; ti <= largest_active; ti++) {
         ActiveParticles subact[1] = {0};
         build_active_sublist(subact, act, ti);
         /* Tree with moments but only particle timesteps below this value*/
