@@ -224,6 +224,35 @@ find_global_timestep(DriftKickTimes * times, const inttime_t dti_max, const doub
         return dti_min;
 }
 
+/* Update the kick times and optionally compute the gravkick and hydrokick factors*/
+static void
+update_kick_times(DriftKickTimes * times, Cosmology * CP, double * gravkick, double * hydrokick)
+{
+    int bin;
+    /* Do nothing for the first timestep when the kicks are always zero*/
+    if(times->mintimebin == 0 && times->maxtimebin == 0)
+        return;
+    #pragma omp parallel for
+    for(bin = times->mintimebin; bin <= TIMEBINS; bin++)
+    {
+        /* Kick the active timebins*/
+        if(is_timebin_active(bin, times->Ti_Current)) {
+            /* do the kick for half a step*/
+            inttime_t dti = dti_from_timebin(bin);
+            inttime_t newkick = times->Ti_kick[bin] + dti/2;
+            /* Compute kick factors for occupied bins*/
+            if(gravkick)
+                gravkick[bin] = get_exact_gravkick_factor(CP, times->Ti_kick[bin], newkick);
+            if(hydrokick)
+                hydrokick[bin] = get_exact_hydrokick_factor(CP, times->Ti_kick[bin], newkick);
+      //      message(0, "drift %d bin %d kick: %d->%d\n", times->Ti_Current, bin, times->Ti_kick[bin], newkick);
+            times->Ti_kick[bin] = newkick;
+        }
+    }
+    /* Advance the shorter bins without particles by the minimum occupied timestep.*/
+    for(bin=1; bin < times->mintimebin; bin++)
+        times->Ti_kick[bin] += dti_from_timebin(times->mintimebin)/2;
+}
 
 /* Assigns new short-range timesteps, computes short-range gravitational forces
  * and does the gravitational half-step kicks.*/
@@ -347,6 +376,8 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     message(0, "PM timebin: %x (dloga: %g Max: %g).\n", times->PM_length, dloga_from_dti(times->PM_length, times->Ti_Current), TimestepParams.MaxSizeTimestep);
     times->mintimebin = mTimeBin;
     times->maxtimebin = maxTimeBin;
+    /* Update the times for the kick steps*/
+    update_kick_times(times, CP, NULL, NULL);
     return badstepsizecount;;
 }
 
@@ -395,6 +426,7 @@ int hierarchical_gravity_accelerations(int minTimeBin, const ActiveParticles * a
         }
         myfree(subact->ActiveParticle);
     }
+    update_kick_times(times, CP, NULL, NULL);
     /* This acceleration is used to set SPH Predicted velocities for inactive particles.
      * Following Gadget-4, we use the acceleration of the longest timebin only, because it is the only one where all particles were present.
      * This does mean that the predicted velocity will be using a slightly out of date gravitational acceleration,
@@ -587,8 +619,7 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
         /* Enforce that the hydro timestep is always shorter than or equal to the gravity timestep*/
         if(bin_hydro > bin_gravity)
             bin_hydro = bin_gravity;
-        /* Enforce that the gravity bin is the hydro bin. This is to ensure the code continues to
-         * work while we implement the Hamiltonian timesplitting */
+        /* Enforce that the gravity bin is the hydro bin, for non-hierarchical timesteps. */
         bin_gravity = bin_hydro;
         /* Only update if both the old and new timebins are currently active.
          * We know that the shorter hydro timestep is active, but we need to check
@@ -656,27 +687,8 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
     int pa, bin;
     walltime_measure("/Misc");
     double gravkick[TIMEBINS+1] = {0}, hydrokick[TIMEBINS+1] = {0};
-    /* Do nothing for the first timestep when the kicks are always zero*/
-    if(times->mintimebin == 0 && times->maxtimebin == 0)
-        return;
-    #pragma omp parallel for
-    for(bin = times->mintimebin; bin <= TIMEBINS; bin++)
-    {
-        /* Kick the active timebins*/
-        if(is_timebin_active(bin, times->Ti_Current)) {
-            /* do the kick for half a step*/
-            inttime_t dti = dti_from_timebin(bin);
-            inttime_t newkick = times->Ti_kick[bin] + dti/2;
-            /* Compute kick factors for occupied bins*/
-            gravkick[bin] = get_exact_gravkick_factor(CP, times->Ti_kick[bin], newkick);
-            hydrokick[bin] = get_exact_hydrokick_factor(CP, times->Ti_kick[bin], newkick);
-      //      message(0, "drift %d bin %d kick: %d->%d\n", times->Ti_Current, bin, times->Ti_kick[bin], newkick);
-            times->Ti_kick[bin] = newkick;
-        }
-    }
-    /* Advance the shorter bins without particles by the minimum occupied timestep.*/
-    for(bin=1; bin < times->mintimebin; bin++)
-        times->Ti_kick[bin] += dti_from_timebin(times->mintimebin)/2;
+    update_kick_times(times, CP, gravkick, hydrokick);
+
     //    message(0, "drift %d bin %d kick: %d\n", times->Ti_Current, bin, times->Ti_kick[bin]);
     /* Now assign new timesteps and kick */
     #pragma omp parallel for
