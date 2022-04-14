@@ -293,7 +293,8 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         MPI_Allreduce(&last_active_loc, &last_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(&subact->NumActiveGravity, &tot_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
         if(tot_active == 0) {
-            mTimeBin = ti;
+            myfree(subact->ActiveParticle);
+            mTimeBin = ti+1;
             break;
         }
         /* Do not need to do the accelerations for timesteps where all particles are still active.
