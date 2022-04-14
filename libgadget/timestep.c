@@ -225,8 +225,8 @@ find_global_timestep(DriftKickTimes * times, const inttime_t dti_max, const doub
 }
 
 /* Update the kick times and optionally compute the gravkick and hydrokick factors*/
-static void
-update_kick_times(DriftKickTimes * times, Cosmology * CP, double * gravkick, double * hydrokick)
+void
+update_kick_times(DriftKickTimes * times)
 {
     int bin;
     /* Do nothing for the first timestep when the kicks are always zero*/
@@ -238,13 +238,7 @@ update_kick_times(DriftKickTimes * times, Cosmology * CP, double * gravkick, dou
         /* Kick the active timebins*/
         if(is_timebin_active(bin, times->Ti_Current)) {
             /* do the kick for half a step*/
-            inttime_t dti = dti_from_timebin(bin);
-            inttime_t newkick = times->Ti_kick[bin] + dti/2;
-            /* Compute kick factors for occupied bins*/
-            if(gravkick)
-                gravkick[bin] = get_exact_gravkick_factor(CP, times->Ti_kick[bin], newkick);
-            if(hydrokick)
-                hydrokick[bin] = get_exact_hydrokick_factor(CP, times->Ti_kick[bin], newkick);
+            inttime_t newkick = times->Ti_kick[bin] + dti_from_timebin(bin)/2;
       //      message(0, "drift %d bin %d kick: %d->%d\n", times->Ti_Current, bin, times->Ti_kick[bin], newkick);
             times->Ti_kick[bin] = newkick;
         }
@@ -376,8 +370,6 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     message(0, "PM timebin: %x (dloga: %g Max: %g).\n", times->PM_length, dloga_from_dti(times->PM_length, times->Ti_Current), TimestepParams.MaxSizeTimestep);
     times->mintimebin = mTimeBin;
     times->maxtimebin = maxTimeBin;
-    /* Update the times for the kick steps*/
-    update_kick_times(times, CP, NULL, NULL);
     return badstepsizecount;;
 }
 
@@ -426,7 +418,6 @@ int hierarchical_gravity_accelerations(int minTimeBin, const ActiveParticles * a
         }
         myfree(subact->ActiveParticle);
     }
-    update_kick_times(times, CP, NULL, NULL);
     /* This acceleration is used to set SPH Predicted velocities for inactive particles.
      * Following Gadget-4, we use the acceleration of the longest timebin only, because it is the only one where all particles were present.
      * This does mean that the predicted velocity will be using a slightly out of date gravitational acceleration,
@@ -687,8 +678,18 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
     int pa, bin;
     walltime_measure("/Misc");
     double gravkick[TIMEBINS+1] = {0}, hydrokick[TIMEBINS+1] = {0};
-    update_kick_times(times, CP, gravkick, hydrokick);
-
+    #pragma omp parallel for
+    for(bin = times->mintimebin; bin <= TIMEBINS; bin++) {
+        /* Kick the active timebins*/
+        if(is_timebin_active(bin, times->Ti_Current))
+            continue;
+        /* do the kick for half a step*/
+        inttime_t newkick = times->Ti_kick[bin] + dti_from_timebin(bin)/2;
+        /* Compute kick factors for occupied bins*/
+        gravkick[bin] = get_exact_gravkick_factor(CP, times->Ti_kick[bin], newkick);
+        hydrokick[bin] = get_exact_hydrokick_factor(CP, times->Ti_kick[bin], newkick);
+    }
+    update_kick_times(times);
     //    message(0, "drift %d bin %d kick: %d\n", times->Ti_Current, bin, times->Ti_kick[bin]);
     /* Now assign new timesteps and kick */
     #pragma omp parallel for
@@ -735,6 +736,56 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
     walltime_measure("/Timeline/HalfKick/Short");
 }
 
+/* Apply half a hydro timestep kick.*/
+void
+apply_hydro_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * times, const double atime, const double MinEgySpec)
+{
+    int pa, bin;
+    walltime_measure("/Misc");
+    double gravkick[TIMEBINS+1] = {0}, hydrokick[TIMEBINS+1] = {0};
+    #pragma omp parallel for
+    for(bin = times->mintimebin; bin <= TIMEBINS; bin++) {
+        /* Kick the active timebins*/
+        if(!is_timebin_active(bin, times->Ti_Current))
+            continue;
+        /* do the kick for half a step*/
+        inttime_t newkick = times->Ti_kick[bin] + dti_from_timebin(bin)/2;
+        /* Compute kick factors for occupied bins*/
+        gravkick[bin] = get_exact_gravkick_factor(CP, times->Ti_kick[bin], newkick);
+        hydrokick[bin] = get_exact_hydrokick_factor(CP, times->Ti_kick[bin], newkick);
+    }
+    //    message(0, "drift %d bin %d kick: %d\n", times->Ti_Current, bin, times->Ti_kick[bin]);
+    /* Now assign new timesteps and kick */
+    #pragma omp parallel for
+    for(pa = 0; pa < act->NumActiveParticle; pa++)
+    {
+        const int i = get_active_particle(act, pa);
+        if(P[i].Swallowed || P[i].IsGarbage)
+            continue;
+        /* Hydro kick for hydro particles*/
+        if(P[i].Type == 0 || P[i].Type == 5) {
+            int bin_hydro = P[i].TimeBinHydro;
+            inttime_t dti = dti_from_timebin(bin_hydro);
+            const double dt_entr = dloga_from_dti(dti/2, times->Ti_Current);
+            /*This only changes particle i, so is thread-safe.*/
+            do_hydro_kick(i, dt_entr, gravkick[bin_hydro], hydrokick[bin_hydro], atime, MinEgySpec);
+#ifdef DEBUG
+            if(P[i].Ti_kick_hydro != times->Ti_kick[bin_hydro] - dti_from_timebin(bin_hydro)/2)
+                endrun(4, "Particle %d (type %d, id %ld bin %d) had hydro kick time %ld not %ld\n",
+                       i, P[i].Type, P[i].ID, P[i].TimeBinHydro, P[i].Ti_kick_hydro, times->Ti_kick[bin_hydro] - dti_from_timebin(bin_hydro)/2);
+            P[i].Ti_kick_hydro = times->Ti_kick[bin_hydro];
+#endif
+        }
+        /* Copy the gravitational acceleration to the SPH property. We could use GravAccel directly
+         * but hierarchical gravity makes that impossible.*/
+        if(P[i].Type == 0) {
+            int j;
+            for(j =0; j<3; j++)
+                SPHP(i).FullGravAccel[j] = P[i].GravAccel[j];
+        }
+    }
+    walltime_measure("/Timeline/HalfKick/Short");
+}
 void
 apply_PM_half_kick(Cosmology * CP, DriftKickTimes * times)
 {
