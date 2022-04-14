@@ -303,7 +303,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
             ForceTree Tree = {0};
             force_tree_rebuild(&Tree, ddecomp, subact, HybridNuGrav, 1, EmergencyOutputDir);
             const double rho0 = CP->Omega0 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
-            grav_short_tree(act, pm, &Tree, rho0, HybridNuGrav, FastParticleType, times->Ti_Current);
+            grav_short_tree(subact, pm, &Tree, rho0, HybridNuGrav, FastParticleType, times->Ti_Current);
             force_tree_free(&Tree);
         }
         /* This finds the smallest timestep which contains all particles and later shrinks the PM timestep to this value.*/
@@ -395,7 +395,7 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
         ForceTree Tree = {0};
         force_tree_rebuild(&Tree, ddecomp, subact, HybridNuGrav, 1, EmergencyOutputDir);
         const double rho0 = CP->Omega0 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
-        grav_short_tree(act, pm, &Tree, rho0, HybridNuGrav, FastParticleType, times->Ti_Current);
+        grav_short_tree(subact, pm, &Tree, rho0, HybridNuGrav, FastParticleType, times->Ti_Current);
         force_tree_free(&Tree);
         /* We need to compute the new timestep here based on the acceleration at the current level,
          * because we will over-write the acceleration*/
