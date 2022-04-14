@@ -399,6 +399,103 @@ int hierarchical_gravity_accelerations(int minTimeBin, const ActiveParticles * a
     return 0;
 }
 
+void set_bh_first_timestep(int mTimeBin)
+{
+    /* BH particles have their timesteps set by a timestep limiter.
+     * On the first timestep this is not effective because all the particles have zero timestep.
+     * So on the first timestep only set all BH particles to the smallest allowable timestep.
+     * Note we can leave the gravitational timestep as set by the acceleration: repositioning may take care of it.*/
+    int pa;
+    #pragma omp parallel for
+    for(pa = 0; pa < PartManager->NumPart; pa++)
+        if(P[pa].Type == 5)
+            P[pa].TimeBinHydro = mTimeBin;
+}
+
+/* This function assigns new short-range timesteps to particles.
+ * It will also shrink the PM timestep to the longest short-range timestep.
+ * Stores the maximum and minimum timesteps in the DriftKickTimes structure.*/
+int
+find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double atime, const Cosmology * CP, const int isFirstTimeStep)
+{
+    int pa;
+    walltime_measure("/Misc");
+
+    inttime_t dti_max = times->PM_length;
+    const double hubble = hubble_function(CP, atime);
+
+    int64_t ntiaccel=0, nticourant=0, ntiaccrete=0, ntineighbour=0, ntihsml=0;
+    int badstepsizecount = 0;
+    int mTimeBin = times->mintimebin, maxTimeBin = times->maxtimebin;
+    #pragma omp parallel for reduction(min: mTimeBin) reduction(+: badstepsizecount, ntiaccel, nticourant, ntiaccrete, ntineighbour, ntihsml) reduction(max:maxTimeBin)
+    for(pa = 0; pa < act->NumActiveParticle; pa++)
+    {
+        const int i = get_active_particle(act, pa);
+
+        if(P[i].IsGarbage || P[i].Swallowed)
+            continue;
+
+        if(P[i].Type != 0 && P[i].Type != 5)
+            continue;
+        enum TimeStepType titype = TI_ACCEL;
+        /* Compute gravity timestep*/
+        /* Do hydro timestep for gas or BHs. Always shorter*/
+        double dloga_hydro = get_timestep_hydro_dloga(i, times->Ti_Current, atime, hubble, &titype);
+        inttime_t dti_hydro = convert_timestep_to_ti(dloga_hydro, i, dti_max, times->Ti_Current, titype);
+        /* Type of shortest timestep criterion. Note that gravity is always TI_ACCEL.*/
+        if(titype == TI_ACCEL)
+            ntiaccel++;
+        else if (titype == TI_COURANT)
+            nticourant++;
+        else if (titype == TI_ACCRETE)
+            ntiaccrete++;
+        else if (titype == TI_NEIGH)
+            ntineighbour++;
+        else if (titype == TI_HSML)
+            ntihsml++;
+        /* Find a new particle bin.
+         * active particles always remain active
+         * until rebuild_activelist is called
+         * (after domain, on new timestep).*/
+        int bin_hydro = get_timebin_from_dti(dti_hydro, P[i].TimeBinHydro, &badstepsizecount, times);
+        /* Enforce that the hydro timestep is always shorter than or equal to the gravity timestep*/
+        if(bin_hydro > P[i].TimeBinGravity)
+            bin_hydro = P[i].TimeBinGravity;
+        /* Only update if both the old and new timebins are currently active.
+         * We know that the shorter hydro timestep is active, but we need to check
+         * the gravity timestep.*/
+        if(is_timebin_active(P[i].TimeBinHydro, times->Ti_Current) && is_timebin_active(bin_hydro, times->Ti_Current))
+            P[i].TimeBinHydro = bin_hydro;
+        /*Find max and min*/
+        if(bin_hydro < mTimeBin)
+            mTimeBin = bin_hydro;
+        if(bin_hydro > maxTimeBin)
+            bin_hydro = maxTimeBin;
+    }
+
+    MPI_Allreduce(MPI_IN_PLACE, &badstepsizecount, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &mTimeBin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &maxTimeBin, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+
+    MPI_Allreduce(MPI_IN_PLACE, &ntiaccel, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &nticourant, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &ntihsml, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &ntiaccrete, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &ntineighbour, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+
+    /* Ensure that the PM timestep is not longer than the longest tree timestep;
+     * this prevents particles in the longest timestep being active and moving into a higher bin
+     * between PM timesteps, thus skipping the PM step entirely.*/
+    message(0, "Hydro timesteps: Accel: %ld Soundspeed: %ld DivVel: %ld Accrete: %ld Neighbour: %ld\n", ntiaccel, nticourant, ntihsml, ntiaccrete, ntineighbour);
+
+    if(isFirstTimeStep)
+        set_bh_first_timestep(mTimeBin);
+    walltime_measure("/Timeline");
+    if(mTimeBin < times->mintimebin)
+        times->mintimebin = mTimeBin;
+    return badstepsizecount;
+}
+
 /* This function assigns new short-range timesteps to particles.
  * It will also shrink the PM timestep to the longest short-range timestep.
  * Stores the maximum and minimum timesteps in the DriftKickTimes structure.*/
@@ -515,14 +612,8 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
      * On the first timestep this is not effective because all the particles have zero timestep.
      * So on the first timestep only set all BH particles to the smallest allowable timestep.
      * Note we can leave the gravitational timestep as set by the acceleration: repositioning may take care of it.*/
-    if(isFirstTimeStep) {
-        #pragma omp parallel for
-        for(pa = 0; pa < PartManager->NumPart; pa++)
-        {
-            if(P[pa].Type == 5)
-                P[pa].TimeBinHydro = mTimeBin;
-        }
-    }
+    if(isFirstTimeStep)
+        set_bh_first_timestep(mTimeBin);
     walltime_measure("/Timeline");
     times->mintimebin = mTimeBin;
     times->maxtimebin = maxTimeBin;
