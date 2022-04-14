@@ -483,6 +483,12 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         * or include hydro in the opening angle.*/
         if(is_PM)
         {
+            ActiveParticles allpart = {0};
+            allpart.NumActiveParticle = PartManager->NumPart;
+
+            if(is_PM && All.HierarchicalGravity)
+                force_tree_rebuild(&Tree, ddecomp, &allpart, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
+
             gravpm_force(&pm, &Tree, &All.CP, atime, units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType);
 
             /* compute and output energy statistics if desired. */
