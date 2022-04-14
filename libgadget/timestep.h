@@ -80,4 +80,7 @@ int hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm,
  * do the gravitational half-step kicks.*/
 int hierarchical_gravity_accelerations(int minTimeBin, const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, DriftKickTimes * times, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir);
 
+/* Updates the Ti_kick times a half-step for this bin*/
+void update_kick_times(DriftKickTimes * times);
+
 #endif
