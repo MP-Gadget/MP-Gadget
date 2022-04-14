@@ -140,7 +140,7 @@ void
 force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticles *act, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir)
 {
     MPIU_Barrier(MPI_COMM_WORLD);
-    message(0, "Tree construction.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
+    //message(0, "Tree construction.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
     if(force_tree_allocated(tree)) {
         force_tree_free(tree);
@@ -196,7 +196,7 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
     ForceTree tree;
 
     int TooManyNodes = 0;
-    int64_t maxnodes = ForceTreeParams.TreeAllocFactor * act->NumActiveParticle + ddecomp->NTopNodes;
+    int64_t maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->NumPart + ddecomp->NTopNodes;
     int64_t maxmaxnodes;
     MPI_Reduce(&maxnodes, &maxmaxnodes, 1, MPI_INT64, MPI_MAX,0, MPI_COMM_WORLD);
     message(0, "Treebuild: Largest is %g MByte for %ld tree nodes. firstnode %ld. (presently allocated %g MB)\n",
