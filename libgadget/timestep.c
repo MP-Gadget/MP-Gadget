@@ -204,7 +204,7 @@ get_timebin_from_dti(inttime_t dti, int binold, int * badstepsizecount, DriftKic
 static inttime_t
 find_global_timestep(DriftKickTimes * times, const inttime_t dti_max, const double atime, const double hubble)
 {
-        inttime_t dti_min;
+        inttime_t dti_min = TIMEBASE;
         int i;
         #pragma omp parallel for reduction(min:dti_min)
         for(i = 0; i < PartManager->NumPart; i++)
@@ -267,8 +267,8 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
 
     const double hubble = hubble_function(CP, atime);
     /* Find the longest active timebin. Usually the PM step*/
-    int ti, largest_active = TIMEBASE;
-    for(ti = dti_max; ti > 0; ti--) {
+    int ti, largest_active = TIMEBINS;
+    for(ti = TIMEBINS; ti >= 0; ti--) {
         if(is_timebin_active(ti, times->Ti_Current) && dti_from_timebin(ti) <= times->PM_length) {
             largest_active = ti;
             break;
@@ -380,8 +380,8 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
     walltime_measure("/Misc");
 
     /* Find the longest active timebin. Usually the PM step*/
-    int ti, largest_active = TIMEBASE;
-    for(ti = times->PM_length; ti > 0; ti--) {
+    int ti, largest_active = TIMEBINS;
+    for(ti = TIMEBINS; ti >= 0; ti--) {
         if(is_timebin_active(ti, times->Ti_Current) && dti_from_timebin(ti) <= times->PM_length) {
             largest_active = ti;
             break;
