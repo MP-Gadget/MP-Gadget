@@ -69,6 +69,7 @@ static struct run_params
     int MetalReturnOn; /* If late return of metals from AGB stars is enabled*/
     int LightconeOn;    /* Enable the light cone module,
                            which writes a list of particles to a file as they cross a light cone*/
+    int HierarchicalGravity; /* Enable the hierarchical gravity mode. */
 
     int MaxDomainTimeBinDepth; /* We should redo domain decompositions every timestep, after the timestep hierarchy gets deeper than this.
                                   Essentially forces a domain decompositon every 2^MaxDomainTimeBinDepth timesteps.*/
@@ -137,6 +138,7 @@ set_all_global_params(ParameterSet * ps)
         All.DensityOn = param_get_int(ps, "DensityOn");
         All.TreeGravOn = param_get_int(ps, "TreeGravOn");
         All.LightconeOn = param_get_int(ps, "LightconeOn");
+        All.HierarchicalGravity = param_get_int(ps, "HierarchicalGravityOn");
         All.FastParticleType = param_get_int(ps, "FastParticleType");
         All.PairwiseActiveFraction = param_get_double(ps, "PairwiseActiveFraction");
         All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
@@ -451,22 +453,25 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         ForceTree Tree = {0};
         int anygravactive = MPIU_Any(Act.NumActiveGravity, MPI_COMM_WORLD);
 
-        ActiveParticles allpart = {0};
-        allpart.NumActiveParticle = PartManager->NumPart;
-        /* We need a tree if we will do a short-range gravity treewalk.
-         * We also need one for PM so we can do the indexing.
-         * So this condition is true and the next false only if !TreeGravOn.*/
-        if(is_PM || (All.TreeGravOn && anygravactive))
-            force_tree_rebuild(&Tree, ddecomp, &allpart, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
+        /* Gravitational acceleration here*/
+        if(!All.HierarchicalGravity) {
+            ActiveParticles allpart = {0};
+            allpart.NumActiveParticle = PartManager->NumPart;
+            /* We need a tree if we will do a short-range gravity treewalk.
+            * We also need one for PM so we can do the indexing.
+            * So this condition is true and the next false only if !TreeGravOn.*/
+            if(is_PM || (All.TreeGravOn && anygravactive))
+                force_tree_rebuild(&Tree, ddecomp, &allpart, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
 
-        if(All.TreeGravOn && (is_PM || anygravactive)) {
-            /* Do a short range pairwise only step if desired*/
-            if(pairwisestep) {
-                struct gravshort_tree_params gtp = get_gravshort_treepar();
-                grav_short_pair(&Act, &pm, &Tree, gtp.Rcut, rho0, HybridNuTracer, All.FastParticleType);
+            if(All.TreeGravOn && (is_PM || anygravactive)) {
+                /* Do a short range pairwise only step if desired*/
+                if(pairwisestep) {
+                    struct gravshort_tree_params gtp = get_gravshort_treepar();
+                    grav_short_pair(&Act, &pm, &Tree, gtp.Rcut, rho0, HybridNuTracer, All.FastParticleType);
+                }
+                else
+                    grav_short_tree(&Act, &pm, &Tree, rho0, HybridNuTracer, All.FastParticleType, times.Ti_Current);
             }
-            else
-                grav_short_tree(&Act, &pm, &Tree, rho0, HybridNuTracer, All.FastParticleType, times.Ti_Current);
         }
 
         /* We use the total gravitational acc.
@@ -482,9 +487,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         {
             gravpm_force(&pm, &Tree, &All.CP, atime, units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType);
 
-            /* Now we have computed the total acceleration, set old acc for the next PM step.*/
-            grav_set_oldaccs(All.CP.GravInternal);
-
             /* compute and output energy statistics if desired. */
             if(fds.FdEnergy)
                 energy_statistics(fds.FdEnergy, atime, PartManager);
@@ -493,14 +495,24 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         MPIU_Barrier(MPI_COMM_WORLD);
         message(0, "Forces computed.\n");
 
+        if(All.HierarchicalGravity) {
+            hierarchical_gravity_accelerations(&Act, &pm, ddecomp, &times, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
+            if(GasEnabled)
+                apply_hydro_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
+        }
+        else {
+            /* Need a scale factor for entropy and velocity limiters*/
+            apply_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
+        }
+
         /* Update velocity to Ti_Current; this synchronizes TiKick and TiDrift for the active particles
          * and sets Ti_Kick in the times structure.*/
         if(is_PM) {
             apply_PM_half_kick(&All.CP, &times);
+            /* Now we have computed the total acceleration, set old acc for the next PM step.*/
+            grav_set_oldaccs(All.CP.GravInternal);
         }
 
-        /* Need a scale factor for entropy and velocity limiters*/
-        apply_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
 
         /* Cooling and extra physics show up as a source term in the evolution equations.
          * Formally you can write the structure of the partial differential equations:
@@ -635,15 +647,24 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
          * now that we know they have synched TiKick and TiDrift,
          * and advance the PM timestep.*/
         const double asmth = All.Asmth * PartManager->BoxSize / All.Nmesh;
-        int badtimestep = find_timesteps(&Act, &times, atime, All.FastParticleType, &All.CP, asmth, NumCurrentTiStep == 0);
+        int badtimestep=0;
+        if(!All.HierarchicalGravity) {
+            badtimestep = find_timesteps(&Act, &times, atime, All.FastParticleType, &All.CP, asmth, NumCurrentTiStep == 0);
+            /* Update velocity and ti_kick to the new step, with the newly computed step size */
+            apply_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
+        } else {
+            badtimestep = hierarchical_gravity_and_timesteps(&Act, &pm, ddecomp, &times, atime, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
+            if(GasEnabled) {
+                badtimestep += find_hydro_timesteps(&Act, &times, atime, &All.CP, NumCurrentTiStep == 0);
+                apply_hydro_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
+            }
+
+        }
         if(badtimestep) {
             message(0, "bad timestep spotted: terminating and saving snapshot.\n");
             dump_snapshot("TIMESTEP-DUMP", atime, &All.CP, All.OutputDir);
             endrun(0, "Ending due to bad timestep");
         }
-
-        /* Update velocity and ti_kick to the new step, with the newly computed step size */
-        apply_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
 
         if(is_PM) {
             apply_PM_half_kick(&All.CP, &times);
