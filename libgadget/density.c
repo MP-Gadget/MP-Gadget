@@ -90,7 +90,7 @@ SPH_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double gravkick, 
 {
     int j;
     for(j = 0; j < 3; j++) {
-        VelPred[j] = P[i].Vel[j] + gravkick * P[i].GravAccel[j]
+        VelPred[j] = P[i].Vel[j] + gravkick * SPHP(i).FullGravAccel[j]
             + P[i].GravPM[j] * FgravkickB + hydrokick * SPHP(i).HydroAccel[j];
     }
 }
