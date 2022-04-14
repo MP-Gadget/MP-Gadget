@@ -712,6 +712,13 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
             P[i].Ti_kick_hydro = times->Ti_kick[bin_hydro];
 #endif
         }
+        /* Copy the gravitational acceleration to the SPH property. We could use GravAccel directly
+         * but hierarchical gravity makes that impossible.*/
+        if(P[i].Type == 0) {
+            int j;
+            for(j =0; j<3; j++)
+                SPHP(i).FullGravAccel[j] = P[i].GravAccel[j];
+        }
     }
     walltime_measure("/Timeline/HalfKick/Short");
 }
