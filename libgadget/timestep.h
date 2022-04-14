@@ -51,9 +51,13 @@ double get_atime(const inttime_t Ti_Current);
  * isFirstTimeStep: Flags to do special things for BHs on first time step.
  * Returns 0 if success, 1 if timestep is bad.*/
 int find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double atime, int FastParticleType, const Cosmology * CP, const double asmth, const int isFirstTimeStep);
+int find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double atime, const Cosmology * CP, const int isFirstTimeStep);
+
 /* Apply half a kick to the particles: short-range and long-range.
  * These functions sync drift and kick times.*/
 void apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * times, const double atime, const double MinEgySpec);
+/* Do hydro kick only*/
+void apply_hydro_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * times, const double atime, const double MinEgySpec);
 void apply_PM_half_kick(Cosmology * CP, DriftKickTimes * times);
 
 int is_timebin_active(int i, inttime_t current);
@@ -78,9 +82,10 @@ int hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm,
 
 /* Computes short-range gravitational forces and
  * do the gravitational half-step kicks.*/
-int hierarchical_gravity_accelerations(int minTimeBin, const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, DriftKickTimes * times, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir);
+int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, DriftKickTimes * times, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir);
 
 /* Updates the Ti_kick times a half-step for this bin*/
 void update_kick_times(DriftKickTimes * times);
+
 
 #endif
