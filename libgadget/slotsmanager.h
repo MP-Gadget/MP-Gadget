@@ -92,6 +92,7 @@ struct sph_particle_data
     MyFloat       Density;		/*!< current baryonic mass density of particle */
     MyFloat       DtEntropy;		/*!< rate of change of entropy */
     MyFloat       HydroAccel[3];	/*!< acceleration due to hydrodynamical force */
+    MyFloat FullGravAccel[3]; /* Short-range tree Acceleration at the most recent timestep which included all particles, used for predicted velocities*/
     /*!< correction factor for density-independent entropy formulation. If DensityIndependentSph = 0
      then this is set to the DhsmlDensityFactor appropriate for the entropy formulation of SPH. */
     MyFloat DhsmlEgyDensityFactor;
