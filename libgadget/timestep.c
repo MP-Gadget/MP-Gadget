@@ -754,6 +754,7 @@ apply_hydro_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTime
         gravkick[bin] = get_exact_gravkick_factor(CP, times->Ti_kick[bin], newkick);
         hydrokick[bin] = get_exact_hydrokick_factor(CP, times->Ti_kick[bin], newkick);
     }
+    update_kick_times(times);
     //    message(0, "drift %d bin %d kick: %d\n", times->Ti_Current, bin, times->Ti_kick[bin]);
     /* Now assign new timesteps and kick */
     #pragma omp parallel for

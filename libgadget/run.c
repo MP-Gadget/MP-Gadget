@@ -505,6 +505,9 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             hierarchical_gravity_accelerations(&Act, &pm, ddecomp, &times, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
             if(GasEnabled)
                 apply_hydro_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
+            else
+                /* If there is no hydro kick to do we still need to update the kick times.*/
+                update_kick_times(&times);
         }
         else {
             /* Need a scale factor for entropy and velocity limiters*/
@@ -662,9 +665,11 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             badtimestep = hierarchical_gravity_and_timesteps(&Act, &pm, ddecomp, &times, atime, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
             if(GasEnabled) {
                 badtimestep += find_hydro_timesteps(&Act, &times, atime, &All.CP, NumCurrentTiStep == 0);
+                /* If there is no hydro kick to do we still need to update the kick times.*/
                 apply_hydro_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
             }
-
+            else
+                update_kick_times(&times);
         }
         if(badtimestep) {
             message(0, "bad timestep spotted: terminating and saving snapshot.\n");
