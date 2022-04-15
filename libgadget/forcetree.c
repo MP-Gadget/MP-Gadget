@@ -222,6 +222,8 @@ ForceTree force_tree_build(int npart, int mask, DomainDecomp * ddecomp, const in
     }
     while(tree.numnodes >= tree.lastnode - tree.firstnode);
 
+    tree.mask = mask;
+
     if(MPIU_Any(TooManyNodes, MPI_COMM_WORLD)) {
         /* Assume scale factor = 1 for dump as position is not affected.*/
         if(EmergencyOutputDir) {
