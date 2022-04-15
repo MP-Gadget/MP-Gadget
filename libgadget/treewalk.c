@@ -932,8 +932,9 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
     iter->other = -1;
     lv->tw->ngbiter(I, O, iter, lv);
 #ifdef DEBUG
-    if((lv->tw->tree->mask & iter->mask) != lv->tw->tree->mask)
-        endrun(5, "Tried to run treewalk for particle mask %d but only %d are in tree.\n", lv->tw->tree->mask, lv->tw->tree->mask & iter->mask);
+    /* Check whether the tree contains the particles we are looking for*/
+    if((lv->tw->tree->mask & iter->mask) == 0)
+        endrun(5, "Tried to run treewalk for particle mask %d but tree mask is %d.\n", iter->mask, lv->tw->tree->mask);
 #endif
     const double BoxSize = lv->tw->tree->BoxSize;
 
