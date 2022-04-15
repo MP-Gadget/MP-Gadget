@@ -77,11 +77,13 @@ open_outputfiles(int RestartSnapNum, struct OutputFD * fds, const char * OutputD
     char * postfix;
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    memset(fds, 0, sizeof(struct OutputFD));
     fds->FdCPU = NULL;
     fds->FdEnergy = NULL;
     fds->FdBlackHoles = NULL;
     fds->FdSfr = NULL;
     fds->FdBlackholeDetails = NULL;
+    fds->FdHelium = NULL;
 
     if(RestartSnapNum != -1) {
         postfix = fastpm_strdup_printf("-R%03d", RestartSnapNum);
