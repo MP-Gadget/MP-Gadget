@@ -179,18 +179,20 @@ set_all_global_params(ParameterSet * ps)
     MPI_Bcast(&All, sizeof(All), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
+int find_last_snapshot(void)
+{
+    int RestartSnapNum = find_last_snapnum(All.OutputDir);
+    message(0, "Last Snapshot number is %d.\n", RestartSnapNum);
+    return RestartSnapNum;
+}
+
 /*! This function performs the initial set-up of the simulation. First, the
  *  parameterfile is set, then routines for setting units, reading
  *  ICs/restart-files are called, auxialiary memory is allocated, etc.
  */
 inttime_t
-begrun(const int RestartFlag, int RestartSnapNum, struct header_data * head)
+begrun(const int RestartSnapNum, struct header_data * head)
 {
-    if(RestartFlag == 1) {
-        RestartSnapNum = find_last_snapnum(All.OutputDir);
-        message(0, "Last Snapshot number is %d.\n", RestartSnapNum);
-    }
-
     petapm_module_init(omp_get_max_threads());
     petaio_init();
     walltime_init(&Clocks);
