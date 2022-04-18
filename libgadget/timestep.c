@@ -264,6 +264,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         dti_max = get_PM_timestep_ti(times, atime, CP, FastParticleType, asmth);
         times->PM_length = dti_max;
         times->PM_start = times->PM_kick;
+        message(0, "PM timebin: %x (dloga: %g Max: %g).\n", times->PM_length, dloga_from_dti(times->PM_length, times->Ti_Current), TimestepParams.MaxSizeTimestep);
     }
 
     const double hubble = hubble_function(CP, atime);
@@ -308,7 +309,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
             grav_short_tree(subact, pm, &Tree, rho0, HybridNuGrav, FastParticleType, times->Ti_Current);
             force_tree_free(&Tree);
         }
-        /* This finds the smallest timestep which contains all particles and later shrinks the PM timestep to this value.*/
+        /* This finds the smallest timestep which contains all particles.*/
         if(isPM && (tot_active == total_part))
             maxTimeBin = ti;
         /* We need to compute the new timestep here based on the acceleration at the current level,
@@ -364,12 +365,6 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     MPI_Allreduce(MPI_IN_PLACE, &mTimeBin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &maxTimeBin, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 
-    /* Ensure that the PM timestep is not longer than the longest tree timestep;
-     * this prevents particles in the longest timestep being active and moving into a higher bin
-     * between PM timesteps, thus skipping the PM step entirely.*/
-    if(isPM && times->PM_length > dti_from_timebin(maxTimeBin))
-        times->PM_length = dti_from_timebin(maxTimeBin);
-    message(0, "PM timebin: %x (dloga: %g Max: %g).\n", times->PM_length, dloga_from_dti(times->PM_length, times->Ti_Current), TimestepParams.MaxSizeTimestep);
     times->mintimebin = mTimeBin;
     times->maxtimebin = maxTimeBin;
     return badstepsizecount;;
