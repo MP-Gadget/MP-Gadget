@@ -314,7 +314,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         /* We need to compute the new timestep here based on the acceleration at the current level,
          * because we will over-write the acceleration*/
         int i, nactive_next = 0;
-        #pragma omp parallel for reduction(+: nactive_next) reduction(max:maxTimeBin)
+        #pragma omp parallel for reduction(+: nactive_next)
         for(i = 0; i < subact->NumActiveGravity; i++) {
             int pa = subact->ActiveParticle ? subact->ActiveParticle[i] : i;
             double dloga_gravity = get_timestep_gravity_dloga(pa, atime, hubble);
@@ -334,7 +334,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         int64_t nactive_next_tot;
         sumup_large_ints(1, &nactive_next, &nactive_next_tot);
         if(tot_active == total_part && nactive_next_tot < tot_active && nactive_next_tot > tot_active / 3 ) {
-            #pragma omp parallel for reduction(+: nactive_next) reduction(max:maxTimeBin)
+            #pragma omp parallel for reduction(+: nactive_next)
             for(i = 0; i < subact->NumActiveGravity; i++) {
                 int pa = subact->ActiveParticle ? subact->ActiveParticle[i] : i;
                 P[pa].TimeBinGravity = ti -1;
@@ -466,8 +466,8 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
 
     int64_t ntiaccel=0, nticourant=0, ntiaccrete=0, ntineighbour=0, ntihsml=0;
     int badstepsizecount = 0;
-    int mTimeBin = times->mintimebin, maxTimeBin = times->maxtimebin;
-    #pragma omp parallel for reduction(min: mTimeBin) reduction(+: badstepsizecount, ntiaccel, nticourant, ntiaccrete, ntineighbour, ntihsml) reduction(max:maxTimeBin)
+    int mTimeBin = times->mintimebin;
+    #pragma omp parallel for reduction(min: mTimeBin) reduction(+: badstepsizecount, ntiaccel, nticourant, ntiaccrete, ntineighbour, ntihsml)
     for(pa = 0; pa < act->NumActiveParticle; pa++)
     {
         const int i = get_active_particle(act, pa);
@@ -509,13 +509,10 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
         /*Find max and min*/
         if(bin_hydro < mTimeBin)
             mTimeBin = bin_hydro;
-        if(bin_hydro > maxTimeBin)
-            bin_hydro = maxTimeBin;
     }
 
     MPI_Allreduce(MPI_IN_PLACE, &badstepsizecount, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &mTimeBin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &maxTimeBin, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 
     MPI_Allreduce(MPI_IN_PLACE, &ntiaccel, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &nticourant, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
