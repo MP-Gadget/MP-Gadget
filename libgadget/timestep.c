@@ -316,8 +316,8 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         #pragma omp parallel for reduction(+: nactive_next) reduction(max:maxTimeBin)
         for(i = 0; i < subact->NumActiveGravity; i++) {
             int pa = subact->ActiveParticle ? subact->ActiveParticle[i] : i;
-            double dloga_gravity = get_timestep_gravity_dloga(i, atime, hubble);
-            inttime_t dti_gravity = convert_timestep_to_ti(dloga_gravity, i, dti_max, times->Ti_Current, TI_ACCEL);
+            double dloga_gravity = get_timestep_gravity_dloga(pa, atime, hubble);
+            inttime_t dti_gravity = convert_timestep_to_ti(dloga_gravity, pa, dti_max, times->Ti_Current, TI_ACCEL);
             /* Reduce the timebin by 1 if needed by this current acceleration.*/
             if(dti_gravity < dti_from_timebin(ti)) {
                 P[pa].TimeBinGravity = ti -1;
