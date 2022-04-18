@@ -377,15 +377,13 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
     walltime_measure("/Misc");
 
     /* Find the longest active timebin. Usually the PM step*/
-    int ti, largest_active = TIMEBINS;
-    for(ti = TIMEBINS; ti >= 0; ti--) {
-        if(is_timebin_active(ti, times->Ti_Current) && dti_from_timebin(ti) <= times->PM_length) {
-            largest_active = ti;
-            break;
-        }
-    }
-    /* Set timebins to largest value */
-    for(ti = times->mintimebin; ti <= largest_active; ti++) {
+    int ti;
+    /* Do the timesteps up from the smallest active timebin to the largest active.
+     * Note that all these timesteps should have particles in them.
+     * There may be timesteps between maxtimebin and the PM step.
+     * These are not kicked here, which matches Gadget-4 behaviour:
+     * the kicks commute with the larger bins because the accelerations are the same.*/
+    for(ti = times->mintimebin; ti <= times->maxtimebin; ti++) {
         ActiveParticles subact[1] = {0};
         build_active_sublist(subact, act, ti);
         /* Tree with moments but only particle timesteps below this value*/
@@ -401,7 +399,7 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
         /* Compute kick factors for occupied bins*/
         /* Go forwards a halfstep for the current bin*/
         double gravkick = get_exact_gravkick_factor(CP, times->Ti_kick[ti], times->Ti_kick[ti] + dti/2);
-        if(ti < largest_active) {
+        if(ti < times->maxtimebin) {
             inttime_t lowerdti = dti_from_timebin(ti+1)
             /* Go backwards a halfstep for the timestep above this one*/;
             const double lowerkick = get_exact_gravkick_factor(CP, times->Ti_kick[ti+1], times->Ti_kick[ti+1] + lowerdti/2);
