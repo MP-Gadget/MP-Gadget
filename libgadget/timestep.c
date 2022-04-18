@@ -357,7 +357,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
             int pa = subact->ActiveParticle ? subact->ActiveParticle[i] : i;
             do_grav_short_range_kick(&P[pa], gravkick);
         }
-        last_active = subact->NumActiveGravity;
+        last_active_loc = subact->NumActiveGravity;
         myfree(subact->ActiveParticle);
     }
     MPI_Allreduce(MPI_IN_PLACE, &badstepsizecount, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
