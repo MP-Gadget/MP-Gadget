@@ -653,9 +653,9 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         /* assign new timesteps to the active particles,
          * now that we know they have synched TiKick and TiDrift,
          * and advance the PM timestep.*/
-        const double asmth = All.Asmth * PartManager->BoxSize / All.Nmesh;
         int badtimestep=0;
         if(!All.HierarchicalGravity) {
+            const double asmth = pm.Asmth * PartManager->BoxSize / pm.Nmesh;
             badtimestep = find_timesteps(&Act, &times, atime, All.FastParticleType, &All.CP, asmth, NumCurrentTiStep == 0);
             /* Update velocity and ti_kick to the new step, with the newly computed step size */
             apply_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
