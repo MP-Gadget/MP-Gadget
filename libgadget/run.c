@@ -277,6 +277,28 @@ use_pairwise_gravity(ActiveParticles * Act, struct part_manager_type * PartManag
     return total_active < All.PairwiseActiveFraction * total_particle;
 }
 
+#ifdef DEBUG
+static void
+check_kick_drift_times(struct part_manager_type * PartManager, inttime_t ti_current)
+{
+    int i;
+    int bad = 0;
+    #pragma omp parallel for reduction(+: bad)
+    for(i = 0; i < PartManager->NumPart; i++) {
+        const struct particle_data * pp = &PartManager->Base[i];
+        if(pp->IsGarbage || pp->Swallowed)
+            continue;
+        if ( ((pp->Type == 0 || pp->Type == 5) && is_timebin_active(pp->TimeBinHydro, ti_current) && pp->Ti_drift != pp->Ti_kick_hydro) ||
+           (is_timebin_active(pp->TimeBinGravity, ti_current) && pp->Ti_drift != pp->Ti_kick_grav) ) {
+            message(1, "Bad timestep sync: Particle id %ld type %d hydro timebin: %d grav timebin: %d drift %x kick_hydro %x kick_grav %x\n", pp->ID, pp->Type, pp->TimeBinHydro, pp->TimeBinGravity, pp->Ti_drift, pp->Ti_kick_hydro, pp->Ti_kick_grav);
+            bad++;
+        }
+    }
+    if(bad)
+        endrun(7, "Poor timestep sync for %d particles\n", bad);
+}
+#endif
+
 /*! This routine contains the main simulation loop that iterates over
  * single timesteps. The loop terminates when the cpu-time limit is
  * reached, when a `stop' file is found in the output directory, or
@@ -639,6 +661,9 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             fof_finish(&fof);
         }
 
+#ifdef DEBUG
+        check_kick_drift_times(PartManager, times.Ti_Current);
+#endif
         write_cpu_log(NumCurrentTiStep, atime, fds.FdCPU, Clocks.ElapsedTime);    /* produce some CPU usage info */
 
         report_memory_usage("RUN");
