@@ -453,9 +453,16 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             /***** hydro forces *****/
             MPIU_Barrier(MPI_COMM_WORLD);
 
-            /* adds hydrodynamical accelerations  and computes du/dt  */
-            if(All.HydroOn)
+            /* adds hydrodynamical accelerations and computes du/dt  */
+            if(All.HydroOn) {
+                /* In Gadget-4 this is split into two, on either side of the cooling term
+                 * (also a second gravity kick, but the effect of that is likely to be small,
+                 * since we are using predicted relative velocities for the other half anyway).
+                 * The second half of the hydro step happens after the cooling and so the pressure may be different.
+                 * This of course doubles the cost of the hydro. Gadget-4 has an option to switch it off,
+                 * which reproduces the Gadget-3 behaviour. */
                 hydro_force(&Act, atime, &sph_predicted, MinEgySpec, times, &All.CP, &gasTree);
+            }
             /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
             slots_free_sph_pred_data(&sph_predicted);
             force_tree_free(&gasTree);
