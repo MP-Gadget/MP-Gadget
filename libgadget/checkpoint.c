@@ -29,7 +29,6 @@ write_checkpoint(int snapnum, int WriteGroupID, int MetalReturnOn, double Time, 
     register_io_blocks(&IOTable, WriteGroupID, MetalReturnOn);
     if(OutputDebugFields)
         register_debug_io_blocks(&IOTable);
-
     char * fname = petaio_get_snapshot_fname(snapnum, OutputDir);
     petaio_save_snapshot(fname, &IOTable, 1, Time, CP);
     myfree(fname);

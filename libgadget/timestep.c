@@ -681,7 +681,6 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
         gravkick[bin] = get_exact_gravkick_factor(CP, times->Ti_kick[bin], newkick);
         hydrokick[bin] = get_exact_hydrokick_factor(CP, times->Ti_kick[bin], newkick);
     }
-    update_kick_times(times);
     //    message(0, "drift %d bin %d kick: %d\n", times->Ti_Current, bin, times->Ti_kick[bin]);
     /* Now assign new timesteps and kick */
     #pragma omp parallel for
@@ -697,10 +696,10 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
         if(is_timebin_active(bin_gravity, times->Ti_Current)) {
             do_grav_short_range_kick(&P[i], gravkick[bin_gravity]);
 #ifdef DEBUG
-            if(P[i].Ti_kick_grav != times->Ti_kick[bin_gravity] - dti_from_timebin(bin_gravity)/2)
+            if(P[i].Ti_kick_grav != times->Ti_kick[bin_gravity])
                 endrun(4, "Particle %d (type %d, id %ld bin %d dt %x gen %d) had grav kick time %x not %x\n",
-                       i, P[i].Type, P[i].ID, P[i].TimeBinGravity, dti_from_timebin(bin_gravity)/2, P[i].Generation, P[i].Ti_kick_grav, times->Ti_kick[bin_gravity] - dti_from_timebin(bin_gravity)/2);
-            P[i].Ti_kick_grav = times->Ti_kick[bin_gravity];
+                       i, P[i].Type, P[i].ID, P[i].TimeBinGravity, dti_from_timebin(bin_gravity)/2, P[i].Generation, P[i].Ti_kick_grav, times->Ti_kick[bin_gravity]);
+            P[i].Ti_kick_grav = times->Ti_kick[bin_gravity] + dti_from_timebin(bin_gravity)/2;
 #endif
         }
         /* Hydro kick for hydro particles*/
@@ -711,10 +710,10 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
             /*This only changes particle i, so is thread-safe.*/
             do_hydro_kick(i, dt_entr, gravkick[bin_hydro], hydrokick[bin_hydro], atime, MinEgySpec);
 #ifdef DEBUG
-            if(P[i].Ti_kick_hydro != times->Ti_kick[bin_hydro] - dti_from_timebin(bin_hydro)/2)
+            if(P[i].Ti_kick_hydro != times->Ti_kick[bin_hydro])
                 endrun(4, "Particle %d (type %d, id %ld bin %d) had hydro kick time %ld not %ld\n",
-                       i, P[i].Type, P[i].ID, P[i].TimeBinHydro, P[i].Ti_kick_hydro, times->Ti_kick[bin_hydro] - dti_from_timebin(bin_hydro)/2);
-            P[i].Ti_kick_hydro = times->Ti_kick[bin_hydro];
+                       i, P[i].Type, P[i].ID, P[i].TimeBinHydro, P[i].Ti_kick_hydro, times->Ti_kick[bin_hydro]);
+            P[i].Ti_kick_hydro = times->Ti_kick[bin_hydro] +  dti_from_timebin(bin_gravity)/2;
 #endif
         }
         /* Copy the gravitational acceleration to the SPH property. We could use GravAccel directly
@@ -746,7 +745,6 @@ apply_hydro_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTime
         gravkick[bin] = get_exact_gravkick_factor(CP, times->Ti_kick[bin], newkick);
         hydrokick[bin] = get_exact_hydrokick_factor(CP, times->Ti_kick[bin], newkick);
     }
-    update_kick_times(times);
     //    message(0, "drift %d bin %d kick: %d\n", times->Ti_Current, bin, times->Ti_kick[bin]);
     /* Now assign new timesteps and kick */
     #pragma omp parallel for
@@ -763,10 +761,10 @@ apply_hydro_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTime
             /*This only changes particle i, so is thread-safe.*/
             do_hydro_kick(i, dt_entr, gravkick[bin_hydro], hydrokick[bin_hydro], atime, MinEgySpec);
 #ifdef DEBUG
-            if(P[i].Ti_kick_hydro != times->Ti_kick[bin_hydro] - dti_from_timebin(bin_hydro)/2)
+            if(P[i].Ti_kick_hydro != times->Ti_kick[bin_hydro])
                 endrun(4, "Particle %d (type %d, id %ld bin %d) had hydro kick time %ld not %ld\n",
-                       i, P[i].Type, P[i].ID, P[i].TimeBinHydro, P[i].Ti_kick_hydro, times->Ti_kick[bin_hydro] - dti_from_timebin(bin_hydro)/2);
-            P[i].Ti_kick_hydro = times->Ti_kick[bin_hydro];
+                       i, P[i].Type, P[i].ID, P[i].TimeBinHydro, P[i].Ti_kick_hydro, times->Ti_kick[bin_hydro]);
+            P[i].Ti_kick_hydro = times->Ti_kick[bin_hydro] + dti_from_timebin(bin_hydro)/2;
 #endif
         }
         /* Copy the gravitational acceleration to the SPH property. We could use GravAccel directly
