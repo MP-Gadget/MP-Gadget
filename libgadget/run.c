@@ -518,21 +518,17 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 energy_statistics(fds.FdEnergy, atime, PartManager);
         }
 
-        MPIU_Barrier(MPI_COMM_WORLD);
-        message(0, "Forces computed.\n");
-
         if(All.HierarchicalGravity) {
             hierarchical_gravity_accelerations(&Act, &pm, ddecomp, &times, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
             if(GasEnabled)
                 apply_hydro_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
-            else
-                /* If there is no hydro kick to do we still need to update the kick times.*/
-                update_kick_times(&times);
         }
         else {
             /* Need a scale factor for entropy and velocity limiters*/
             apply_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
         }
+
+        update_kick_times(&times);
 
         /* Update velocity to Ti_Current; this synchronizes TiKick and TiDrift for the active particles
          * and sets Ti_Kick in the times structure.*/
@@ -542,6 +538,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             grav_set_oldaccs(All.CP.GravInternal);
         }
 
+        MPIU_Barrier(MPI_COMM_WORLD);
+        message(0, "Forces computed.\n");
 
         /* Cooling and extra physics show up as a source term in the evolution equations.
          * Formally you can write the structure of the partial differential equations:
@@ -691,9 +689,9 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 /* If there is no hydro kick to do we still need to update the kick times.*/
                 apply_hydro_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
             }
-            else
-                update_kick_times(&times);
         }
+        update_kick_times(&times);
+
         if(badtimestep) {
             message(0, "bad timestep spotted: terminating and saving snapshot.\n");
             dump_snapshot("TIMESTEP-DUMP", atime, &All.CP, All.OutputDir);
