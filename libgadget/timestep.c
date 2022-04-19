@@ -357,6 +357,12 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         for(i = 0; i < subact->NumActiveGravity; i++) {
             int pa = subact->ActiveParticle ? subact->ActiveParticle[i] : i;
             do_grav_short_range_kick(&P[pa], gravkick);
+#ifdef DEBUG
+            if(P[pa].Ti_kick_grav != times->Ti_kick[ti])
+                endrun(4, "Particle %d (type %d, id %ld bin %d dt %x gen %d) had grav kick time %x not %x\n",
+                       pa, P[pa].Type, P[pa].ID, P[pa].TimeBinGravity, dti/2, P[pa].Generation, P[pa].Ti_kick_grav, times->Ti_kick[ti]);
+            P[pa].Ti_kick_grav = times->Ti_kick[ti] + dti/2;
+#endif
         }
         last_active_loc = subact->NumActiveGravity;
         myfree(subact->ActiveParticle);
