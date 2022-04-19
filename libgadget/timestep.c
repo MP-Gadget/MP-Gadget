@@ -288,14 +288,19 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     MPI_Allreduce(&PartManager->NumPart, &total_part, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     /* Set timebins to largest value */
     for(ti = largest_active; ti > 0; ti--) {
-        /* Do nothing if no particles are active*/
         ActiveParticles subact[1] = {0};
-        build_active_sublist(subact, act, ti);
+        if(ti == largest_active)
+            memcpy(subact, act, sizeof(ActiveParticles));
+        else {
+            build_active_sublist(subact, act, ti);
+        }
         int64_t tot_active;
         MPI_Allreduce(&last_active_loc, &last_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(&subact->NumActiveGravity, &tot_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+        /* Do nothing if no particles are active*/
         if(tot_active == 0) {
-            myfree(subact->ActiveParticle);
+            if(subact->ActiveParticle && act->ActiveParticle != subact->ActiveParticle)
+                myfree(subact->ActiveParticle);
             mTimeBin = ti+1;
             break;
         }
@@ -317,7 +322,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         int i, nactive_next = 0;
         #pragma omp parallel for reduction(+: nactive_next)
         for(i = 0; i < subact->NumActiveGravity; i++) {
-            int pa = subact->ActiveParticle ? subact->ActiveParticle[i] : i;
+            const int pa = get_active_particle(subact, i);
             double dloga_gravity = get_timestep_gravity_dloga(pa, atime, hubble);
             inttime_t dti_gravity = convert_timestep_to_ti(dloga_gravity, pa, dti_max, times->Ti_Current, TI_ACCEL);
             /* Reduce the timebin by 1 if needed by this current acceleration.*/
@@ -337,7 +342,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         if(tot_active == total_part && nactive_next_tot < tot_active && nactive_next_tot > tot_active / 3 ) {
             #pragma omp parallel for reduction(+: nactive_next)
             for(i = 0; i < subact->NumActiveGravity; i++) {
-                int pa = subact->ActiveParticle ? subact->ActiveParticle[i] : i;
+                const int pa = get_active_particle(subact, i);
                 P[pa].TimeBinGravity = ti -1;
             }
         }
@@ -354,8 +359,9 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
             gravkick -= lowerkick;
         }
         /* Do the kick, changing velocity.*/
+        #pragma omp parallel for
         for(i = 0; i < subact->NumActiveGravity; i++) {
-            int pa = subact->ActiveParticle ? subact->ActiveParticle[i] : i;
+            const int pa = get_active_particle(subact, i);
             do_grav_short_range_kick(&P[pa], gravkick);
 #ifdef DEBUG
             if(P[pa].Ti_kick_grav != times->Ti_kick[ti])
@@ -365,7 +371,8 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
 #endif
         }
         last_active_loc = subact->NumActiveGravity;
-        myfree(subact->ActiveParticle);
+        if(subact->ActiveParticle && act->ActiveParticle != subact->ActiveParticle)
+            myfree(subact->ActiveParticle);
     }
     MPI_Allreduce(MPI_IN_PLACE, &badstepsizecount, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &mTimeBin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
