@@ -9,7 +9,7 @@ import os.path
 import numpy as np
 import matplotlib.pyplot as plt
 import bigfile
-from fake_spectra import spectra
+#from fake_spectra import spectra
 import plotGSMF
 
 def make_figures():
@@ -119,4 +119,4 @@ if __name__ == "__main__":
 #    snap = int(sys.argv[4])
     plot_power(oldoutput, newoutput, atime)
     plot_mass_functions(oldoutput, newoutput, atime)
-    plot_flux_power(oldoutput, newoutput, snap)
+#    plot_flux_power(oldoutput, newoutput, snap)
