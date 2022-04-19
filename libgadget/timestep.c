@@ -398,7 +398,11 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
      * the kicks commute with the larger bins because the accelerations are the same.*/
     for(ti = times->mintimebin; ti <= times->maxtimebin; ti++) {
         ActiveParticles subact[1] = {0};
-        build_active_sublist(subact, act, ti);
+        if(ti == times->maxtimebin)
+            memcpy(subact, act, sizeof(ActiveParticles));
+        else {
+            build_active_sublist(subact, act, ti);
+        }
         /* Tree with moments but only particle timesteps below this value*/
         ForceTree Tree = {0};
         force_tree_rebuild(&Tree, ddecomp, subact, HybridNuGrav, 1, EmergencyOutputDir);
@@ -420,6 +424,7 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
         }
         int i;
         /* Do the kick, changing velocity.*/
+        #pragma omp parallel for
         for(i = 0; i < subact->NumActiveGravity; i++) {
             int pa = subact->ActiveParticle ? subact->ActiveParticle[i] : i;
             do_grav_short_range_kick(&P[pa], gravkick);
