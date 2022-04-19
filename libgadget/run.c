@@ -457,6 +457,10 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
             slots_free_sph_pred_data(&sph_predicted);
             force_tree_free(&gasTree);
+
+            /* Hydro half-kick after hydro force, as not done with the gravity.*/
+            if(All.HierarchicalGravity)
+                apply_hydro_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
         }
 
         /* The opening criterion for the gravtree
@@ -474,7 +478,10 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         int anygravactive = MPIU_Any(Act.NumActiveGravity, MPI_COMM_WORLD);
 
         /* Gravitational acceleration here*/
-        if(!All.HierarchicalGravity) {
+        if(All.HierarchicalGravity) {
+            hierarchical_gravity_accelerations(&Act, &pm, ddecomp, &times, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
+        }
+        else {
             ActiveParticles allpart = {0};
             allpart.NumActiveParticle = PartManager->NumPart;
             /* We need a tree if we will do a short-range gravity treewalk.
@@ -518,20 +525,17 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 energy_statistics(fds.FdEnergy, atime, PartManager);
         }
 
-        if(All.HierarchicalGravity) {
-            hierarchical_gravity_accelerations(&Act, &pm, ddecomp, &times, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
-            if(GasEnabled)
-                apply_hydro_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
-        }
-        else {
-            /* Need a scale factor for entropy and velocity limiters*/
+        if(!All.HierarchicalGravity){
+            /* Do both short-range gravity and hydro kicks.
+             * Need a scale factor for entropy and velocity limiters.
+             * For hierarchical gravity the short-range kick is done above.
+             * Synchronises TiKick and TiDrift for the active particles. */
             apply_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
         }
 
+        /* Sets Ti_Kick in the times structure.*/
         update_kick_times(&times);
 
-        /* Update velocity to Ti_Current; this synchronizes TiKick and TiDrift for the active particles
-         * and sets Ti_Kick in the times structure.*/
         if(is_PM) {
             apply_PM_half_kick(&All.CP, &times);
             /* Now we have computed the total acceleration, set old acc for the next PM step.*/
@@ -680,16 +684,25 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         if(!All.HierarchicalGravity) {
             const double asmth = pm.Asmth * PartManager->BoxSize / pm.Nmesh;
             badtimestep = find_timesteps(&Act, &times, atime, All.FastParticleType, &All.CP, asmth, NumCurrentTiStep == 0);
-            /* Update velocity and ti_kick to the new step, with the newly computed step size */
+            /* Update velocity and ti_kick to the new step, with the newly computed step size. Unsyncs ti_kick and ti_drift.
+             * Both hydro and gravity are kicked.*/
             apply_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
         } else {
+            /* This finds the gravity timesteps, computes the gravitational forces
+             * and kicks the particles on the gravitational timeline.
+             * Note this is separated from the first force computation because
+             * each timebin has a force done individually and we do not store the acceleration hierarchy.
+             * This does mean we double the cost of the force evaluations.*/
             badtimestep = hierarchical_gravity_and_timesteps(&Act, &pm, ddecomp, &times, atime, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
             if(GasEnabled) {
+                /* Find hydro timesteps and apply the hydro kick, unsyncing the drift and kick times. */
                 badtimestep += find_hydro_timesteps(&Act, &times, atime, &All.CP, NumCurrentTiStep == 0);
                 /* If there is no hydro kick to do we still need to update the kick times.*/
                 apply_hydro_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
             }
         }
+
+        /* Set ti_kick in the time structure*/
         update_kick_times(&times);
 
         if(badtimestep) {
