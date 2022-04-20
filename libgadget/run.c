@@ -455,12 +455,11 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
             /* adds hydrodynamical accelerations and computes du/dt  */
             if(All.HydroOn) {
-                /* In Gadget-4 this is split into two, on either side of the cooling term
-                 * (also a second gravity kick, but the effect of that is likely to be small,
-                 * since we are using predicted relative velocities for the other half anyway).
-                 * The second half of the hydro step happens after the cooling and so the pressure may be different.
-                 * This of course doubles the cost of the hydro. Gadget-4 has an option to switch it off,
-                 * which reproduces the Gadget-3 behaviour. */
+                /* In Gadget-4 this is optionally split into two, with the pressure force
+                 * computed on either side of the cooling term. Volker Springel confirms that
+                 * he has never encountered a simulation where this matters in practice, probably because
+                 * it would only be important in very dissipative environments where the SPH noise is fairly large
+                 * and there is no opportunity for errors to build up.*/
                 hydro_force(&Act, atime, &sph_predicted, MinEgySpec, times, &All.CP, &gasTree);
             }
             /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
