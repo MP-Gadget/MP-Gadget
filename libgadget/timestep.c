@@ -248,6 +248,48 @@ update_kick_times(DriftKickTimes * times)
         times->Ti_kick[bin] += dti_from_timebin(times->mintimebin)/2;
 }
 
+/* Apply the half-kick for the hierarchical gravity, which is a half-step forward and a half-step back for a higher timebin.*/
+void
+apply_hierarchical_grav_kick(const ActiveParticles * subact, Cosmology * CP, DriftKickTimes * times, int ti, int largest_active)
+{
+    int i;
+    /* Now we do the gravity kicks using each half-step acceleration.*/
+    inttime_t dti = dti_from_timebin(ti);
+    /* Compute kick factors for occupied bins*/
+    /* Go forwards a halfstep for the current bin*/
+    double gravkick = get_exact_gravkick_factor(CP, times->Ti_kick[ti], times->Ti_kick[ti] + dti/2);
+    /* Go backwards a halfstep for the timestep above this one*/;
+    if(ti < largest_active) {
+        inttime_t lowerdti = dti_from_timebin(ti+1);
+        const double lowerkick = get_exact_gravkick_factor(CP, times->Ti_kick[ti+1], times->Ti_kick[ti+1] + lowerdti/2);
+        gravkick -= lowerkick;
+    }
+    /* Do the kick, changing velocity.*/
+    #pragma omp parallel for
+    for(i = 0; i < subact->NumActiveGravity; i++) {
+        const int pa = get_active_particle(subact, i);
+        do_grav_short_range_kick(&P[pa], gravkick);
+#ifdef DEBUG
+        if(P[pa].Ti_kick_grav != times->Ti_kick[ti])
+            endrun(4, "Particle %d (type %d, id %ld bin %d dt %x gen %d) had grav kick time %x not %x\n",
+                    pa, P[pa].Type, P[pa].ID, P[pa].TimeBinGravity, dti/2, P[pa].Generation, P[pa].Ti_kick_grav, times->Ti_kick[ti]);
+        P[pa].Ti_kick_grav = times->Ti_kick[ti] + dti/2;
+#endif
+    }
+}
+
+/* Build a tree and use it to compute the gravitational accelerations*/
+void
+grav_short_tree_build_tree(const ActiveParticles * subact, PetaPM * pm, DomainDecomp * ddecomp, inttime_t Ti_Current, const double rho0, int HybridNuGrav, int FastParticleType, const char * EmergencyOutputDir)
+{
+    /* Tree with only particle timesteps below this value*/
+    ForceTree Tree = {0};
+    force_tree_rebuild(&Tree, ddecomp, subact, HybridNuGrav, 1, EmergencyOutputDir);
+    grav_short_tree(subact, pm, &Tree, rho0, HybridNuGrav, FastParticleType, Ti_Current);
+    force_tree_free(&Tree);
+}
+
+
 /* Assigns new short-range timesteps, computes short-range gravitational forces
  * and does the gravitational half-step kicks.*/
 int
@@ -276,51 +318,93 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
             break;
         }
     }
-    /* Move all particles to largest active timebin, then drop them down below.*/
+    const double rho0 = CP->Omega0 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
+    /* First compute acceleration for all active particles, as we need to do this anyway.
+     * Use this to compute the largest timesteps. */
+    grav_short_tree_build_tree(act, pm, ddecomp, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
+
+    /* Find the largest timebin active this timestep.*/
+    const int nthread = omp_get_max_threads();
+    int64_t * timebincounts = ta_malloc("timebincounts", int64_t, TIMEBINS * nthread);
+    memset(timebincounts, 0, TIMEBINS * nthread * sizeof(int64_t));
+    /* Find the timesteps for all active particles.*/
     int i;
+    #pragma omp parallel for
     for(i = 0; i < act->NumActiveGravity; i++) {
-        int pa = act->ActiveParticle ? act->ActiveParticle[i] : i;
-        P[pa].TimeBinGravity = largest_active;
+        const int pa = get_active_particle(act, i);
+        double dloga_gravity = get_timestep_gravity_dloga(pa, atime, hubble);
+        inttime_t dti_gravity = convert_timestep_to_ti(dloga_gravity, pa, dti_max, times->Ti_Current, TI_ACCEL);
+        /* make it a power 2 subdivision */
+        dti_gravity = round_down_power_of_two(dti_gravity);
+        int bin = get_timestep_bin(dti_gravity);
+        if(bin > largest_active)
+            bin = largest_active;
+        int tid = omp_get_thread_num();
+        timebincounts[tid * TIMEBINS + bin] ++;
+        P[pa].TimeBinGravity = bin;
     }
-    int mTimeBin = largest_active, maxTimeBin = times->maxtimebin;
-    int64_t badstepsizecount = 0;
-    int64_t last_active, total_part, last_active_loc = act->NumActiveGravity+1;
-    MPI_Allreduce(&PartManager->NumPart, &total_part, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-    /* Set timebins to largest value */
-    for(ti = largest_active; ti > 0; ti--) {
-        ActiveParticles subact[1] = {0};
-        if(ti == largest_active)
-            memcpy(subact, act, sizeof(ActiveParticles));
-        else {
-            build_active_sublist(subact, act, ti);
+    /* Count particles in timebins and find largest timestep with particles.*/
+    for(ti = largest_active; ti >= 1; ti--) {
+        for(i = 0; i < nthread; i++)
+            timebincounts[ti] += timebincounts [i * TIMEBINS + ti];
+        if(timebincounts[ti] > 0)
+            largest_active = ti;
+    }
+    /* Push down the particles if necessary.*/
+    /* This tests COLLECTIVELY for the timestep needing to shrink.
+    If we are the topmost timestep and it needs to shrink for more than 33% of the particles,
+    shrink it for all of them. Then we don't need to recompute the accelerations (because
+    they are still the same, and are from all particles).*/
+    int64_t alltimebincounts[TIMEBINS];
+    MPI_Allreduce(timebincounts, alltimebincounts, TIMEBINS, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    myfree(timebincounts);
+    int push_down_bin = largest_active;
+    for(ti = largest_active; ti >= 1; ti--) {
+        if(alltimebincounts[ti] / 3 > alltimebincounts[ti-1])
+            break;
+        push_down_bin = ti-1;
+        alltimebincounts[ti-1] += alltimebincounts[ti];
+    }
+    if(push_down_bin == 0)
+        endrun(77, "Bad timestep with %d particles inside\n", alltimebincounts[push_down_bin]);
+    if(push_down_bin != largest_active) {
+        message(1, "Pushing down top bin from %d to %d\n", largest_active, push_down_bin);
+        #pragma omp parallel for
+        for(i = 0; i < act->NumActiveGravity; i++) {
+            const int pa = get_active_particle(act, i);
+            if(P[pa].TimeBinGravity > push_down_bin)
+                P[pa].TimeBinGravity = push_down_bin;
         }
+        largest_active = push_down_bin;
+    }
+    if(isPM)
+        times->maxtimebin = largest_active;
+
+    /* Do the kick for the topmost bin*/
+    apply_hierarchical_grav_kick(act, CP, times, largest_active, largest_active);
+
+    /* Then do the below loop with largest_active = the new topmost bin - 1*/
+    int64_t badstepsizecount = 0;
+    /* Now loop over all lower timebins*/
+    for(ti = largest_active-1; ti > 0; ti--) {
+        ActiveParticles subact[1] = {0};
+        build_active_sublist(subact, act, ti);
         int64_t tot_active;
-        MPI_Allreduce(&last_active_loc, &last_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(&subact->NumActiveGravity, &tot_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
         /* Do nothing if no particles are active*/
         if(tot_active == 0) {
-            if(subact->ActiveParticle && act->ActiveParticle != subact->ActiveParticle)
-                myfree(subact->ActiveParticle);
-            mTimeBin = ti+1;
+            myfree(subact->ActiveParticle);
+            times->mintimebin = ti+1;
             break;
         }
-        /* Do not need to do the accelerations for timesteps where all particles are still active.
-         * In this case just shrink the timesteps more.*/
-        if(tot_active < last_active) {
-            /* Tree with only particle timesteps below this value*/
-            ForceTree Tree = {0};
-            force_tree_rebuild(&Tree, ddecomp, subact, HybridNuGrav, 1, EmergencyOutputDir);
-            const double rho0 = CP->Omega0 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
-            grav_short_tree(subact, pm, &Tree, rho0, HybridNuGrav, FastParticleType, times->Ti_Current);
-            force_tree_free(&Tree);
-        }
-        /* This finds the smallest timestep which contains all particles.*/
-        if(isPM && (tot_active == total_part))
-            maxTimeBin = ti;
+
+        /* Do the accelerations and build the tree*/
+        grav_short_tree_build_tree(act, pm, ddecomp, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
+
         /* We need to compute the new timestep here based on the acceleration at the current level,
          * because we will over-write the acceleration*/
-        int i, nactive_next = 0;
-        #pragma omp parallel for reduction(+: nactive_next)
+        int i;
+        #pragma omp parallel for reduction(+: badstepsizecount)
         for(i = 0; i < subact->NumActiveGravity; i++) {
             const int pa = get_active_particle(subact, i);
             double dloga_gravity = get_timestep_gravity_dloga(pa, atime, hubble);
@@ -328,59 +412,16 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
             /* Reduce the timebin by 1 if needed by this current acceleration.*/
             if(dti_gravity < dti_from_timebin(ti)) {
                 P[pa].TimeBinGravity = ti -1;
-                nactive_next++;
+                if(ti == 1)
+                    badstepsizecount++;
             }
         }
-        if(ti == 1)
-            badstepsizecount = nactive_next;
-        /* This tests COLLECTIVELY for the timestep needing to shrink.
-           If we are the topmost timestep and it needs to shrink for more than 33% of the particles,
-           shrink it for all of them. Then we don't need to recompute the accelerations (because
-           they are still the same, and are from all particles).*/
-        int64_t nactive_next_tot;
-        sumup_large_ints(1, &nactive_next, &nactive_next_tot);
-        if(tot_active == total_part && nactive_next_tot < tot_active && nactive_next_tot > tot_active / 3 ) {
-            #pragma omp parallel for reduction(+: nactive_next)
-            for(i = 0; i < subact->NumActiveGravity; i++) {
-                const int pa = get_active_particle(subact, i);
-                P[pa].TimeBinGravity = ti -1;
-            }
-        }
-
-        /* Now we do the gravity kicks using each half-step acceleration.*/
-        inttime_t dti = dti_from_timebin(ti);
-        /* Compute kick factors for occupied bins*/
-        /* Go forwards a halfstep for the current bin*/
-        double gravkick = get_exact_gravkick_factor(CP, times->Ti_kick[ti], times->Ti_kick[ti] + dti/2);
-        /* Go backwards a halfstep for the timestep above this one*/;
-        if(ti < largest_active) {
-            inttime_t lowerdti = dti_from_timebin(ti+1);
-            const double lowerkick = get_exact_gravkick_factor(CP, times->Ti_kick[ti+1], times->Ti_kick[ti+1] + lowerdti/2);
-            gravkick -= lowerkick;
-        }
-        /* Do the kick, changing velocity.*/
-        #pragma omp parallel for
-        for(i = 0; i < subact->NumActiveGravity; i++) {
-            const int pa = get_active_particle(subact, i);
-            do_grav_short_range_kick(&P[pa], gravkick);
-#ifdef DEBUG
-            if(P[pa].Ti_kick_grav != times->Ti_kick[ti])
-                endrun(4, "Particle %d (type %d, id %ld bin %d dt %x gen %d) had grav kick time %x not %x\n",
-                       pa, P[pa].Type, P[pa].ID, P[pa].TimeBinGravity, dti/2, P[pa].Generation, P[pa].Ti_kick_grav, times->Ti_kick[ti]);
-            P[pa].Ti_kick_grav = times->Ti_kick[ti] + dti/2;
-#endif
-        }
-        last_active_loc = subact->NumActiveGravity;
-        if(subact->ActiveParticle && act->ActiveParticle != subact->ActiveParticle)
-            myfree(subact->ActiveParticle);
+        /* Do the half-kicks*/
+        apply_hierarchical_grav_kick(subact, CP, times, ti, largest_active);
+        myfree(subact->ActiveParticle);
     }
     MPI_Allreduce(MPI_IN_PLACE, &badstepsizecount, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &mTimeBin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &maxTimeBin, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-
-    times->mintimebin = mTimeBin;
-    times->maxtimebin = maxTimeBin;
-    return badstepsizecount;;
+    return badstepsizecount;
 }
 
 /* Computes short-range gravitational forces at the second half of the step and
