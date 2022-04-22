@@ -607,22 +607,20 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
             continue;
 
         enum TimeStepType titype = TI_ACCEL;
-        inttime_t dti_gravity, dti_hydro;
+        inttime_t dti;
         if(TimestepParams.ForceEqualTimesteps) {
-            dti_gravity = dti_min;
-            dti_hydro = dti_min;
+            dti = dti_min;
         } else {
             /* Compute gravity timestep*/
             double dloga_gravity = get_timestep_gravity_dloga(i, atime, hubble);
-            dti_gravity = convert_timestep_to_ti(dloga_gravity, i, dti_max, times->Ti_Current, titype);
+            dti = convert_timestep_to_ti(dloga_gravity, i, dti_max, times->Ti_Current, titype);
             /* Do hydro timestep for gas or BHs. Always shorter*/
             if(P[i].Type == 0 || P[i].Type == 5) {
                 double dloga_hydro = get_timestep_hydro_dloga(i, times->Ti_Current, atime, hubble, &titype);
-                dti_hydro = convert_timestep_to_ti(dloga_hydro, i, dti_max, times->Ti_Current, titype);
+                inttime_t dti_hydro = convert_timestep_to_ti(dloga_hydro, i, dti_max, times->Ti_Current, titype);
+                if(dti_hydro < dti)
+                    dti = dti_hydro;
             }
-            /* Just in case*/
-            else
-                dti_hydro = dti_gravity;
             /* Type of shortest timestep criterion. Note that gravity is always TI_ACCEL.*/
             if(titype == TI_ACCEL)
                 ntiaccel++;
@@ -639,25 +637,19 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
          * active particles always remain active
          * until rebuild_activelist is called
          * (after domain, on new timestep).*/
-        int bin_gravity = get_timebin_from_dti(dti_gravity, P[i].TimeBinGravity, &badstepsizecount, times);
-        int bin_hydro = get_timebin_from_dti(dti_hydro, P[i].TimeBinHydro, &badstepsizecount, times);
-        /* Enforce that the hydro timestep is always shorter than or equal to the gravity timestep*/
-        if(bin_hydro > bin_gravity)
-            bin_hydro = bin_gravity;
-        /* Enforce that the gravity bin is the hydro bin, for non-hierarchical timesteps. */
-        bin_gravity = bin_hydro;
+        int bin = get_timebin_from_dti(dti, P[i].TimeBinHydro, &badstepsizecount, times);
         /* Only update if both the old and new timebins are currently active.
          * We know that the shorter hydro timestep is active, but we need to check
          * the gravity timestep.*/
-        if(is_timebin_active(P[i].TimeBinHydro, times->Ti_Current) && is_timebin_active(bin_hydro, times->Ti_Current))
-            P[i].TimeBinHydro = bin_hydro;
-        if(is_timebin_active(P[i].TimeBinGravity, times->Ti_Current) && is_timebin_active(bin_gravity, times->Ti_Current))
-            P[i].TimeBinGravity= bin_gravity;
+        if(is_timebin_active(P[i].TimeBinHydro, times->Ti_Current) && is_timebin_active(bin, times->Ti_Current)) {
+            P[i].TimeBinHydro = bin;
+            P[i].TimeBinGravity = bin;
+        }
         /*Find max and min*/
-        if(bin_hydro < mTimeBin)
-            mTimeBin = bin_hydro;
-        if(bin_gravity > maxTimeBin)
-            maxTimeBin = bin_gravity;
+        if(bin < mTimeBin)
+            mTimeBin = bin;
+        if(bin > maxTimeBin)
+            maxTimeBin = bin;
     }
 
     MPI_Allreduce(MPI_IN_PLACE, &badstepsizecount, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
