@@ -449,12 +449,10 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
             break;
         }
     }
-    /* Do the timesteps up from the smallest active timebin to the largest active.
-     * Note that all these timesteps should have particles in them.
-     * There may be timesteps between maxtimebin and the PM step.
-     * These are not kicked here, which matches Gadget-4 behaviour:
-     * the kicks commute with the larger bins because the accelerations are the same.*/
-    for(ti = times->mintimebin; ti <= largest_active; ti++) {
+    /* Compute forces for all active timebins.
+     * All these timesteps should have particles in them: if they do
+     * not we compute forces twice for no reason.*/
+    for(ti = largest_active; ti >= times->mintimebin; ti--) {
         ActiveParticles subact[1] = {0};
         if(ti == largest_active)
             memcpy(subact, act, sizeof(ActiveParticles));
