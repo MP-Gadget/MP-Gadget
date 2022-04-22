@@ -270,10 +270,13 @@ apply_hierarchical_grav_kick(const ActiveParticles * subact, Cosmology * CP, Dri
         const int pa = get_active_particle(subact, i);
         do_grav_short_range_kick(&P[pa], gravkick);
 #ifdef DEBUG
-        if(P[pa].Ti_kick_grav != times->Ti_kick[ti])
-            endrun(4, "Particle %d (type %d, id %ld bin %d dt %x gen %d) had grav kick time %x not %x\n",
-                    pa, P[pa].Type, P[pa].ID, P[pa].TimeBinGravity, dti/2, P[pa].Generation, P[pa].Ti_kick_grav, times->Ti_kick[ti]);
-        P[pa].Ti_kick_grav = times->Ti_kick[ti] + dti/2;
+        inttime_t oldkick = times->Ti_kick[ti];
+        if(ti < largest_active)
+            oldkick = times->Ti_kick[ti+1] + dti_from_timebin(ti+1)/2;
+        if(P[pa].Ti_kick_grav != oldkick)
+            endrun(4, "Particle %d (type %d, id %ld bin %d ti %d largest %d dt %d gen %d) had grav kick time %d not %d.\n",
+                    pa, P[pa].Type, P[pa].ID, P[pa].TimeBinGravity, ti, largest_active, dti/2, P[pa].Generation, P[pa].Ti_kick_grav, oldkick);
+        P[pa].Ti_kick_grav = times->Ti_kick[ti] + dti/2 ;
 #endif
     }
 }
@@ -318,6 +321,8 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
             break;
         }
     }
+//     message(0, "Finding gravitational timesteps. Largest %d time %d PM %d dti %d\n", largest_active, times->Ti_Current, times->PM_length, dti_from_timebin(largest_active));
+
     const double rho0 = CP->Omega0 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
     /* First compute acceleration for all active particles, as we need to do this anyway.
      * Use this to compute the largest timesteps. */
