@@ -377,8 +377,8 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         }
         largest_active = push_down_bin;
     }
-    if(isPM)
-        times->maxtimebin = largest_active;
+    /* Set maximum timebin for second-half of the step*/
+    times->maxtimebin = largest_active;
 
     /* Do the kick for the topmost bin*/
     apply_hierarchical_grav_kick(act, CP, times, largest_active, largest_active);
@@ -430,6 +430,7 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
 {
     walltime_measure("/Misc");
 
+    const double rho0 = CP->Omega0 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
     /* Find the longest active timebin. Usually the PM step*/
     int ti;
     /* Do the timesteps up from the smallest active timebin to the largest active.
@@ -445,38 +446,14 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
             build_active_sublist(subact, act, ti);
         }
         /* Tree with moments but only particle timesteps below this value*/
-        ForceTree Tree = {0};
-        force_tree_rebuild(&Tree, ddecomp, subact, HybridNuGrav, 1, EmergencyOutputDir);
-        const double rho0 = CP->Omega0 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
-        grav_short_tree(subact, pm, &Tree, rho0, HybridNuGrav, FastParticleType, times->Ti_Current);
-        force_tree_free(&Tree);
+        grav_short_tree_build_tree(subact, pm, ddecomp, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
+
         /* We need to compute the new timestep here based on the acceleration at the current level,
          * because we will over-write the acceleration*/
-        /* Now we do the gravity kicks using each half-step acceleration.*/
-        inttime_t dti = dti_from_timebin(ti);
-        /* Compute kick factors for occupied bins*/
-        /* Go forwards a halfstep for the current bin*/
-        double gravkick = get_exact_gravkick_factor(CP, times->Ti_kick[ti], times->Ti_kick[ti] + dti/2);
-        if(ti < times->maxtimebin) {
-            inttime_t lowerdti = dti_from_timebin(ti+1)
-            /* Go backwards a halfstep for the timestep above this one*/;
-            const double lowerkick = get_exact_gravkick_factor(CP, times->Ti_kick[ti+1], times->Ti_kick[ti+1] + lowerdti/2);
-            gravkick -= lowerkick;
-        }
-        int i;
-        /* Do the kick, changing velocity.*/
-        #pragma omp parallel for
-        for(i = 0; i < subact->NumActiveGravity; i++) {
-            int pa = subact->ActiveParticle ? subact->ActiveParticle[i] : i;
-            do_grav_short_range_kick(&P[pa], gravkick);
-#ifdef DEBUG
-            if(P[pa].Ti_kick_grav != times->Ti_kick[ti])
-                endrun(4, "Particle %d (type %d, id %ld bin %d dt %x gen %d) had grav kick time %x not %x\n",
-                       pa, P[pa].Type, P[pa].ID, P[pa].TimeBinGravity, dti/2, P[pa].Generation, P[pa].Ti_kick_grav, times->Ti_kick[ti]);
-            P[pa].Ti_kick_grav = times->Ti_kick[ti] + dti/2;
-#endif
-        }
-        myfree(subact->ActiveParticle);
+        apply_hierarchical_grav_kick(subact, CP, times, ti, times->maxtimebin);
+
+        if(subact->ActiveParticle && subact->ActiveParticle != act->ActiveParticle)
+            myfree(subact->ActiveParticle);
     }
     /* This acceleration is used to set SPH Predicted velocities for inactive particles.
      * Following Gadget-4, we use the acceleration of the longest timebin only, because it is the only one where all particles were present.
