@@ -259,8 +259,9 @@ apply_hierarchical_grav_kick(const ActiveParticles * subact, Cosmology * CP, Dri
     /* Go forwards a halfstep for the current bin*/
     double gravkick = get_exact_gravkick_factor(CP, times->Ti_kick[ti], times->Ti_kick[ti] + dti/2);
     /* Go backwards a halfstep for the timestep above this one*/;
+    inttime_t lowerdti = 0;
     if(ti < largest_active) {
-        inttime_t lowerdti = dti_from_timebin(ti+1);
+        lowerdti = dti_from_timebin(ti+1);
         const double lowerkick = get_exact_gravkick_factor(CP, times->Ti_kick[ti+1], times->Ti_kick[ti+1] + lowerdti/2);
         gravkick -= lowerkick;
     }
@@ -270,13 +271,12 @@ apply_hierarchical_grav_kick(const ActiveParticles * subact, Cosmology * CP, Dri
         const int pa = get_active_particle(subact, i);
         do_grav_short_range_kick(&P[pa], gravkick);
 #ifdef DEBUG
-        inttime_t oldkick = times->Ti_kick[ti];
-        if(ti < largest_active)
-            oldkick = times->Ti_kick[ti+1] + dti_from_timebin(ti+1)/2;
-        if(P[pa].Ti_kick_grav != oldkick)
-            endrun(4, "Particle %d (type %d, id %ld bin %d ti %d largest %d dt %d gen %d) had grav kick time %d not %d.\n",
-                    pa, P[pa].Type, P[pa].ID, P[pa].TimeBinGravity, ti, largest_active, dti/2, P[pa].Generation, P[pa].Ti_kick_grav, oldkick);
-        P[pa].Ti_kick_grav = times->Ti_kick[ti] + dti/2 ;
+//         message(4, "KICK bin %d kick time: %d + %d - %d  hydro %d kick ti: %d ti %d largest %d\n", P[pa].TimeBinGravity, P[pa].Ti_kick_grav, dti/2, lowerdti/2, P[pa].Ti_kick_hydro, times->Ti_kick[ti], ti, largest_active);
+        /* This check relies on the kicks being done top-bin first*/
+        if(ti == largest_active && P[pa].Ti_kick_grav != times->Ti_kick[P[pa].TimeBinGravity])
+            endrun(4, "Particle %d (type %d, id %ld bin %d ti %d largest %d dt %d gen %d) had grav kick time %d hyd %d not %d.\n",
+                    pa, P[pa].Type, P[pa].ID, P[pa].TimeBinGravity, ti, largest_active, dti/2, P[pa].Generation, P[pa].Ti_kick_grav, P[pa].Ti_kick_hydro, times->Ti_kick[P[pa].TimeBinGravity]);
+        P[pa].Ti_kick_grav += dti/2 -lowerdti/2;
 #endif
     }
 }
