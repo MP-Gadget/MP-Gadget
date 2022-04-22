@@ -347,17 +347,22 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     for(ti = largest_active; ti >= 1; ti--) {
         for(i = 0; i < nthread; i++)
             timebincounts[ti] += timebincounts [i * TIMEBINS + ti];
-        if(timebincounts[ti] > 0)
-            largest_active = ti;
     }
+    int64_t alltimebincounts[TIMEBINS];
+    MPI_Allreduce(timebincounts, alltimebincounts, TIMEBINS, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    myfree(timebincounts);
+    /* Find largest bin with particles in.*/
+    for(ti = largest_active; ti >= 1; ti--)
+        if(alltimebincounts[ti] > 0) {
+            largest_active = ti;
+            break;
+        }
+
     /* Push down the particles if necessary.*/
     /* This tests COLLECTIVELY for the timestep needing to shrink.
     If we are the topmost timestep and it needs to shrink for more than 33% of the particles,
     shrink it for all of them. Then we don't need to recompute the accelerations (because
     they are still the same, and are from all particles).*/
-    int64_t alltimebincounts[TIMEBINS];
-    MPI_Allreduce(timebincounts, alltimebincounts, TIMEBINS, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-    myfree(timebincounts);
     int push_down_bin = largest_active;
     for(ti = largest_active; ti >= 1; ti--) {
         if(alltimebincounts[ti] / 3 > alltimebincounts[ti-1])
