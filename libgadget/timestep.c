@@ -436,16 +436,22 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
     walltime_measure("/Misc");
 
     const double rho0 = CP->Omega0 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
-    /* Find the longest active timebin. Usually the PM step*/
-    int ti;
+    /* Find the longest active timebin.*/
+    int ti, largest_active = TIMEBINS;
+    for(ti = TIMEBINS; ti >= 0; ti--) {
+        if(is_timebin_active(ti, times->Ti_Current) && dti_from_timebin(ti) <= times->PM_length) {
+            largest_active = ti;
+            break;
+        }
+    }
     /* Do the timesteps up from the smallest active timebin to the largest active.
      * Note that all these timesteps should have particles in them.
      * There may be timesteps between maxtimebin and the PM step.
      * These are not kicked here, which matches Gadget-4 behaviour:
      * the kicks commute with the larger bins because the accelerations are the same.*/
-    for(ti = times->mintimebin; ti <= times->maxtimebin; ti++) {
+    for(ti = times->mintimebin; ti <= largest_active; ti++) {
         ActiveParticles subact[1] = {0};
-        if(ti == times->maxtimebin)
+        if(ti == largest_active)
             memcpy(subact, act, sizeof(ActiveParticles));
         else {
             build_active_sublist(subact, act, ti);
@@ -455,7 +461,7 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
 
         /* We need to compute the new timestep here based on the acceleration at the current level,
          * because we will over-write the acceleration*/
-        apply_hierarchical_grav_kick(subact, CP, times, ti, times->maxtimebin);
+        apply_hierarchical_grav_kick(subact, CP, times, ti, largest_active);
 
         if(subact->ActiveParticle && subact->ActiveParticle != act->ActiveParticle)
             myfree(subact->ActiveParticle);
