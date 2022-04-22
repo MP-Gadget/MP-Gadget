@@ -70,8 +70,9 @@ static struct run_params
     int MetalReturnOn; /* If late return of metals from AGB stars is enabled*/
     int LightconeOn;    /* Enable the light cone module,
                            which writes a list of particles to a file as they cross a light cone*/
-    int HierarchicalGravity; /* Enable the hierarchical gravity mode. */
-
+    int HierarchicalGravity; /* Changes the main loop to enable the momentum conserving hierarchical timestepping, where only active particles gravitate.
+                              * This is the algorithm from Gadget 4. It applies to the short-range gravity,
+                              * and splits the hydro and gravitational timesteps. */
     int MaxDomainTimeBinDepth; /* We should redo domain decompositions every timestep, after the timestep hierarchy gets deeper than this.
                                   Essentially forces a domain decompositon every 2^MaxDomainTimeBinDepth timesteps.*/
     int FastParticleType; /*!< flags a particle species to exclude timestep calculations.*/
@@ -143,7 +144,7 @@ set_all_global_params(ParameterSet * ps)
         All.DensityOn = param_get_int(ps, "DensityOn");
         All.TreeGravOn = param_get_int(ps, "TreeGravOn");
         All.LightconeOn = param_get_int(ps, "LightconeOn");
-        All.HierarchicalGravity = param_get_int(ps, "HierarchicalGravityOn");
+        All.HierarchicalGravity = param_get_int(ps, "HiSplitGravityOn");
         All.FastParticleType = param_get_int(ps, "FastParticleType");
         All.PairwiseActiveFraction = param_get_double(ps, "PairwiseActiveFraction");
         All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");

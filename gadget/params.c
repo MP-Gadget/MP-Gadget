@@ -107,7 +107,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "BHOpeningAngle", OPTIONAL, 0.175, "Barnes-Hut opening angle. Alternative purely geometric tree opening angle. Lower values are more accurate.");
     param_declare_double(ps, "TreeRcut", OPTIONAL, 6, "Number of mesh cells at which we cease walking.");
     param_declare_int(ps, "TreeUseBH", OPTIONAL, 2, "If 1, use Barnes-Hut opening angle rather than the standard Gadget acceleration based opening angle. If 2, use BH criterion for the first timestep only, before we have relative accelerations.");
-    param_declare_int(ps, "HierarchicalGravityOn", OPTIONAL, 0, "Whether to enable the hierarchical Hamiltonian timestepping from Gadget 4 for the short-range gravity.");
+    param_declare_int(ps, "HiSplitGravityOn", OPTIONAL, 0, "This flag enables the momentum conserving hierarchical timestepping, where only active particles gravitate, from Gadget 4, for the short-range gravity, and splits the hydro and gravitational timesteps.");
 
     param_declare_double(ps, "Asmth", OPTIONAL, 1.5, "The scale of the short-range/long-range force split in units of FFT-mesh cells."
                                                       "Larger values suppresses grid anisotropy. ShortRangeForceWindowType = erfc supports any value. 'exact' only supports 1.5. ");
