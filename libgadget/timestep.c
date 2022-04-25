@@ -1320,7 +1320,7 @@ build_active_sublist(ActiveParticles * sub_act, const ActiveParticles * act, con
     #pragma omp parallel for schedule(static, schedsz)
     for(i = 0; i < act->NumActiveGravity; i++)
     {
-        int pi = act->ActiveParticle ? act->ActiveParticle[i] : i;
+        const int pi = get_active_particle(act, i);
         const int bin_gravity = P[pi].TimeBinGravity;
         const int tid = omp_get_thread_num();
         if(P[pi].IsGarbage || P[pi].Swallowed)
@@ -1328,7 +1328,7 @@ build_active_sublist(ActiveParticles * sub_act, const ActiveParticles * act, con
         if(bin_gravity > maxtimebin)
             continue;
         /* Store this particle in the ActiveSet for this thread*/
-        ActivePartSets[tid][NActiveThread[tid]] = i;
+        ActivePartSets[tid][NActiveThread[tid]] = pi;
         NActiveThread[tid]++;
     }
     /*Now we want a merge step for the ActiveParticle list.*/
