@@ -723,7 +723,7 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
     #pragma omp parallel for
     for(bin = times->mintimebin; bin <= TIMEBINS; bin++) {
         /* Kick the active timebins*/
-        if(is_timebin_active(bin, times->Ti_Current))
+        if(!is_timebin_active(bin, times->Ti_Current))
             continue;
         /* do the kick for half a step*/
         inttime_t newkick = times->Ti_kick[bin] + dti_from_timebin(bin)/2;
