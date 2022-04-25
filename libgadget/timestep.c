@@ -267,7 +267,7 @@ apply_hierarchical_grav_kick(const ActiveParticles * subact, Cosmology * CP, Dri
     }
     /* Do the kick, changing velocity.*/
     #pragma omp parallel for
-    for(i = 0; i < subact->NumActiveGravity; i++) {
+    for(i = 0; i < subact->NumActiveParticle; i++) {
         const int pa = get_active_particle(subact, i);
         do_grav_short_range_kick(&P[pa], gravkick);
 #ifdef DEBUG
@@ -335,7 +335,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     /* Find the timesteps for all active particles.*/
     int i;
     #pragma omp parallel for
-    for(i = 0; i < act->NumActiveGravity; i++) {
+    for(i = 0; i < act->NumActiveParticle; i++) {
         const int pa = get_active_particle(act, i);
         double dloga_gravity = get_timestep_gravity_dloga(pa, atime, hubble);
         inttime_t dti_gravity = convert_timestep_to_ti(dloga_gravity, pa, dti_max, times->Ti_Current, TI_ACCEL);
@@ -380,7 +380,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     if(push_down_bin != largest_active) {
         message(1, "Pushing down top bin from %d to %d\n", largest_active, push_down_bin);
         #pragma omp parallel for
-        for(i = 0; i < act->NumActiveGravity; i++) {
+        for(i = 0; i < act->NumActiveParticle; i++) {
             const int pa = get_active_particle(act, i);
             if(P[pa].TimeBinGravity > push_down_bin)
                 P[pa].TimeBinGravity = push_down_bin;
@@ -415,7 +415,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
          * because we will over-write the acceleration*/
         int i;
         #pragma omp parallel for reduction(+: badstepsizecount)
-        for(i = 0; i < subact->NumActiveGravity; i++) {
+        for(i = 0; i < subact->NumActiveParticle; i++) {
             const int pa = get_active_particle(subact, i);
             double dloga_gravity = get_timestep_gravity_dloga(pa, atime, hubble);
             inttime_t dti_gravity = convert_timestep_to_ti(dloga_gravity, pa, dti_max, times->Ti_Current, TI_ACCEL);
@@ -1262,7 +1262,6 @@ int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times
             /* Store this particle in the ActiveSet for this thread*/
             ActivePartSets[tid][NActiveThread[tid]] = i;
             NActiveThread[tid]++;
-
         }
         /* Account gas and BHs to their hydro bin and other particles to their gravity bin*/
         int bin = bin_gravity;
@@ -1318,7 +1317,7 @@ build_active_sublist(ActiveParticles * sub_act, const ActiveParticles * act, con
      * and ensure no thread gets more than narr particles.*/
     size_t schedsz = PartManager->NumPart / NumThreads + 1;
     #pragma omp parallel for schedule(static, schedsz)
-    for(i = 0; i < act->NumActiveGravity; i++)
+    for(i = 0; i < act->NumActiveParticle; i++)
     {
         const int pi = get_active_particle(act, i);
         const int bin_gravity = P[pi].TimeBinGravity;
