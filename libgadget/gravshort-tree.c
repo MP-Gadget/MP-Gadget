@@ -144,7 +144,6 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
 
     /* allocate buffers to arrange communication */
     MPIU_Barrier(MPI_COMM_WORLD);
-    message(0, "Begin tree force.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
     walltime_measure("/Misc");
 
