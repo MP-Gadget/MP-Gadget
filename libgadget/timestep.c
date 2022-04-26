@@ -121,7 +121,7 @@ static void do_hydro_kick(int i, double dt_entr, double Fgravkick, double Fhydro
 
 /* Hierarchical gravity functions*/
 /* Build a sublist of particles gravitationally active and smaller than a timebin*/
-int build_active_sublist(ActiveParticles * sub_act, const ActiveParticles * act, const int maxtimebin);
+int build_active_sublist(ActiveParticles * sub_act, const ActiveParticles * act, const int maxtimebin, const inttime_t Ti_Current);
 
 /* Get the current PM (global) timestep.*/
 static inttime_t get_PM_timestep_ti(const DriftKickTimes * const times, const double atime, const Cosmology * CP, const int FastParticleType, const double asmth);
@@ -325,10 +325,14 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     }
 //     message(0, "Finding gravitational timesteps. Largest %d time %d PM %d dti %d\n", largest_active, times->Ti_Current, times->PM_length, dti_from_timebin(largest_active));
 
+    /* Need a new sublist because the active particle list contains all particles either
+     * gravitationally or hydrodynamically active and we only want gravitationally active particles.*/
+    ActiveParticles subact[1] = {0};
+    build_active_sublist(subact, act, largest_active, times->Ti_Current);
     const double rho0 = CP->Omega0 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
     /* First compute acceleration for all active particles, as we need to do this anyway.
      * Use this to compute the largest timesteps. */
-    grav_short_tree_build_tree(act, pm, ddecomp, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
+    grav_short_tree_build_tree(subact, pm, ddecomp, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
 
     /* Find the largest timebin active this timestep.*/
     const int nthread = omp_get_max_threads();
@@ -337,8 +341,8 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     /* Find the timesteps for all active particles.*/
     int i;
     #pragma omp parallel for
-    for(i = 0; i < act->NumActiveParticle; i++) {
-        const int pa = get_active_particle(act, i);
+    for(i = 0; i < subact->NumActiveParticle; i++) {
+        const int pa = get_active_particle(subact, i);
         double dloga_gravity = get_timestep_gravity_dloga(pa, atime, hubble);
         inttime_t dti_gravity = convert_timestep_to_ti(dloga_gravity, pa, dti_max, times->Ti_Current, TI_ACCEL);
         /* make it a power 2 subdivision */
@@ -382,8 +386,8 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     if(push_down_bin != largest_active) {
         message(1, "Pushing down top bin from %d to %d\n", largest_active, push_down_bin);
         #pragma omp parallel for
-        for(i = 0; i < act->NumActiveParticle; i++) {
-            const int pa = get_active_particle(act, i);
+        for(i = 0; i < subact->NumActiveParticle; i++) {
+            const int pa = get_active_particle(subact, i);
             if(P[pa].TimeBinGravity > push_down_bin)
                 P[pa].TimeBinGravity = push_down_bin;
         }
@@ -393,14 +397,16 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     times->maxtimebin = largest_active;
 
     /* Do the kick for the topmost bin*/
-    apply_hierarchical_grav_kick(act, CP, times, largest_active, largest_active);
+    apply_hierarchical_grav_kick(subact, CP, times, largest_active, largest_active);
+
+    myfree(subact->ActiveParticle);
 
     /* Then do the below loop with largest_active = the new topmost bin - 1*/
     int64_t badstepsizecount = 0;
     /* Now loop over all lower timebins*/
     for(ti = largest_active-1; ti > 0; ti--) {
         ActiveParticles subact[1] = {0};
-        build_active_sublist(subact, act, ti);
+        build_active_sublist(subact, act, ti, times->Ti_Current);
         int64_t tot_active;
         MPI_Allreduce(&subact->NumActiveGravity, &tot_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
         /* Do nothing if no particles are active*/
@@ -411,7 +417,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         }
 
         /* Do the accelerations and build the tree*/
-        grav_short_tree_build_tree(act, pm, ddecomp, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
+        grav_short_tree_build_tree(subact, pm, ddecomp, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
 
         /* We need to compute the new timestep here based on the acceleration at the current level,
          * because we will over-write the acceleration*/
@@ -457,11 +463,7 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
      * not we compute forces twice for no reason.*/
     for(ti = largest_active; ti >= times->mintimebin; ti--) {
         ActiveParticles subact[1] = {0};
-        if(ti == largest_active)
-            memcpy(subact, act, sizeof(ActiveParticles));
-        else {
-            build_active_sublist(subact, act, ti);
-        }
+        build_active_sublist(subact, act, ti, times->Ti_Current);
         /* Tree with moments but only particle timesteps below this value*/
         grav_short_tree_build_tree(subact, pm, ddecomp, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
 
@@ -1296,9 +1298,10 @@ int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times
     return 0;
 }
 
-/* Build a sublist of particles, selected from the currently active particles, which have a gravity timebin no larger than ti.*/
+/* Build a sublist of particles, selected from the currently active particles,
+ * which are gravitationally active and have a gravity timebin no larger than ti.*/
 int
-build_active_sublist(ActiveParticles * sub_act, const ActiveParticles * act, const int maxtimebin)
+build_active_sublist(ActiveParticles * sub_act, const ActiveParticles * act, const int maxtimebin, const inttime_t Ti_Current)
 {
     int i;
 
@@ -1329,6 +1332,9 @@ build_active_sublist(ActiveParticles * sub_act, const ActiveParticles * act, con
         if(P[pi].IsGarbage || P[pi].Swallowed)
             continue;
         if(bin_gravity > maxtimebin)
+            continue;
+        /* Just to be safe: maxtimebin should normally satisfy this*/
+        if(!is_timebin_active(bin_gravity, Ti_Current))
             continue;
         /* Store this particle in the ActiveSet for this thread*/
         ActivePartSets[tid][NActiveThread[tid]] = pi;
