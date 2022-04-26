@@ -239,7 +239,7 @@ update_kick_times(DriftKickTimes * times)
         if(is_timebin_active(bin, times->Ti_Current)) {
             /* do the kick for half a step*/
             inttime_t newkick = times->Ti_kick[bin] + dti_from_timebin(bin)/2;
-      //      message(0, "drift %d bin %d kick: %d->%d\n", times->Ti_Current, bin, times->Ti_kick[bin], newkick);
+//            message(0, "drift %d bin %d kick: %d->%d\n", times->Ti_Current, bin, times->Ti_kick[bin], newkick);
             times->Ti_kick[bin] = newkick;
         }
     }
@@ -271,7 +271,9 @@ apply_hierarchical_grav_kick(const ActiveParticles * subact, Cosmology * CP, Dri
         const int pa = get_active_particle(subact, i);
         do_grav_short_range_kick(&P[pa], gravkick);
 #ifdef DEBUG
-//         message(4, "KICK bin %d kick time: %d + %d - %d  hydro %d kick ti: %d ti %d largest %d\n", P[pa].TimeBinGravity, P[pa].Ti_kick_grav, dti/2, lowerdti/2, P[pa].Ti_kick_hydro, times->Ti_kick[ti], ti, largest_active);
+//         message(4, "KICK ID %ld bin %d kick time: %d + %d - %d now %d hydro %d kick ti: %d ti %d largest %d\n", P[pa].ID, P[pa].TimeBinGravity, P[pa].Ti_kick_grav, dti/2, lowerdti/2,
+//                 P[pa].Ti_kick_grav + dti/2 -lowerdti/2,
+//                 P[pa].Ti_kick_hydro, times->Ti_kick[ti], ti, largest_active);
         /* This check relies on the kicks being done top-bin first*/
         if(ti == largest_active && P[pa].Ti_kick_grav != times->Ti_kick[P[pa].TimeBinGravity])
             endrun(4, "Particle %d (type %d, id %ld bin %d ti %d largest %d dt %d gen %d) had grav kick time %d hyd %d not %d.\n",
@@ -449,6 +451,7 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
             break;
         }
     }
+//     message(0, "Starting gravity accelerations: largest %d\n", largest_active);
     /* Compute forces for all active timebins.
      * All these timesteps should have particles in them: if they do
      * not we compute forces twice for no reason.*/
@@ -1312,6 +1315,7 @@ build_active_sublist(ActiveParticles * sub_act, const ActiveParticles * act, con
     size_t *NActiveThread = ta_malloc("NActiveThread", size_t, NumThreads);
     int **ActivePartSets = ta_malloc("ActivePartSets", int *, NumThreads);
     gadget_setup_thread_arrays(sub_act->ActiveParticle, ActivePartSets, NActiveThread, narr, NumThreads);
+//     message(0, "Building sublist containing particles up to bin %d\n", maxtimebin);
 
     /* We enforce schedule static to imply monotonic, ensure that each thread executes on contiguous particles
      * and ensure no thread gets more than narr particles.*/
