@@ -298,7 +298,7 @@ check_kick_drift_times(struct part_manager_type * PartManager, inttime_t ti_curr
             continue;
         if ( ((pp->Type == 0 || pp->Type == 5) && is_timebin_active(pp->TimeBinHydro, ti_current) && pp->Ti_drift != pp->Ti_kick_hydro) ||
            (is_timebin_active(pp->TimeBinGravity, ti_current) && pp->Ti_drift != pp->Ti_kick_grav) ) {
-            message(1, "Bad timestep sync: Particle id %ld type %d hydro timebin: %d grav timebin: %d drift %x kick_hydro %x kick_grav %x\n", pp->ID, pp->Type, pp->TimeBinHydro, pp->TimeBinGravity, pp->Ti_drift, pp->Ti_kick_hydro, pp->Ti_kick_grav);
+            message(1, "Bad timestep sync: Particle id %ld type %d hydro timebin: %d grav timebin: %d drift %d kick_hydro %d kick_grav %d\n", pp->ID, pp->Type, pp->TimeBinHydro, pp->TimeBinGravity, pp->Ti_drift, pp->Ti_kick_hydro, pp->Ti_kick_grav);
             bad++;
         }
     }
