@@ -375,11 +375,13 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     shrink it for all of them. Then we don't need to recompute the accelerations (because
     they are still the same, and are from all particles).*/
     int push_down_bin = largest_active;
-    for(ti = largest_active; ti >= 1; ti--) {
-        if(alltimebincounts[ti] / 3 > alltimebincounts[ti-1])
-            break;
-        push_down_bin = ti-1;
-        alltimebincounts[ti-1] += alltimebincounts[ti];
+    if(subact->NumActiveParticle == PartManager->NumPart) {
+        for(ti = largest_active; ti >= 1; ti--) {
+            if(alltimebincounts[ti] / 3 > alltimebincounts[ti-1])
+                break;
+            push_down_bin = ti-1;
+            alltimebincounts[ti-1] += alltimebincounts[ti];
+        }
     }
     if(push_down_bin == 0)
         endrun(77, "Bad timestep with %d particles inside\n", alltimebincounts[push_down_bin]);
