@@ -469,7 +469,7 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
         /* Tree with moments but only particle timesteps below this value*/
         grav_short_tree_build_tree(subact, pm, ddecomp, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
 
-        /* We need to compute the new timestep here based on the acceleration at the current level,
+        /* We need to do the kick here based on the acceleration at the current level,
          * because we will over-write the acceleration*/
         apply_hierarchical_grav_kick(subact, CP, times, ti, largest_active);
 
