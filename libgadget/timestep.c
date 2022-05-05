@@ -472,7 +472,8 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
                 myfree(subact->ActiveParticle);
         }
     }
-
+    /* Ensure explicitly that we are collective, although this should not be necessary.*/
+    MPI_Allreduce(MPI_IN_PLACE, &times->mingravtimebin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
     times->mintimebin = times->mingravtimebin;
     MPI_Allreduce(MPI_IN_PLACE, &badstepsizecount, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     return badstepsizecount;
