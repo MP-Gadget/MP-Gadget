@@ -265,6 +265,7 @@ apply_hierarchical_grav_kick(const ActiveParticles * subact, Cosmology * CP, Dri
         const double lowerkick = get_exact_gravkick_factor(CP, times->Ti_kick[ti+1], times->Ti_kick[ti+1] + lowerdti/2);
         gravkick -= lowerkick;
     }
+//     message(0, "Kicking for bin %d largest %d\n", ti, largest_active);
     /* Do the kick, changing velocity.*/
     #pragma omp parallel for
     for(i = 0; i < subact->NumActiveParticle; i++) {
@@ -323,7 +324,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
             break;
         }
     }
-//     message(0, "Finding gravitational timesteps. Largest %d time %d PM %d dti %d\n", largest_active, times->Ti_Current, times->PM_length, dti_from_timebin(largest_active));
+    message(0, "Finding short-range gravity timesteps. Largest %d time %d PM %d dti %d\n", largest_active, times->Ti_Current, times->PM_length, dti_from_timebin(largest_active));
 
     /* May need a new sublist because the active particle list contains all particles either
      * gravitationally or hydrodynamically active and we only want gravitationally active particles.*/
