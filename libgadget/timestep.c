@@ -390,7 +390,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     if(push_down_bin == 0)
         endrun(77, "Bad timestep with %d particles inside\n", alltimebincounts[push_down_bin]);
     if(push_down_bin != largest_active) {
-        message(1, "Pushing down top bin from %d to %d\n", largest_active, push_down_bin);
+        message(0, "Pushing down top bin from %d to %d\n", largest_active, push_down_bin);
         #pragma omp parallel for
         for(i = 0; i < subact->NumActiveParticle; i++) {
             const int pa = get_active_particle(subact, i);
