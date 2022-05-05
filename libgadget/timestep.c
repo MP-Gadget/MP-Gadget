@@ -303,6 +303,9 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
 {
     walltime_measure("/Misc");
 
+    if(act->NumActiveGravity == 0)
+        return 0;
+
     /*Update the PM timestep size */
     const int isPM = is_PM_timestep(times);
     inttime_t dti_max = times->PM_length;
@@ -479,6 +482,9 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
 int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, DriftKickTimes * times, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir)
 {
     walltime_measure("/Misc");
+
+    if(act->NumActiveGravity == 0)
+        return 0;
 
     const double rho0 = CP->Omega0 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
     /* Find the longest active timebin.*/
