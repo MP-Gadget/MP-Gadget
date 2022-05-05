@@ -106,30 +106,6 @@ static void force_validate_nextlist(const ForceTree * tree)
 }
 #endif
 
-static int
-force_tree_eh_slots_fork(EIBase * event, void * userdata)
-{
-    /* after a fork, we will attach the new particle to the force tree. */
-    EISlotsFork * ev = (EISlotsFork*) event;
-    int parent = ev->parent;
-    int child = ev->child;
-    ForceTree * tree = (ForceTree * ) userdata;
-    int no = force_get_father(parent, tree);
-    struct NODE * nop = &tree->Nodes[no];
-    /* FIXME: We lose particles if the node is full.
-     * At the moment this does not matter, because
-     * the only new particles are stars, which do not
-     * participate in the SPH tree walk.*/
-    if(nop->s.noccupied < NMAXCHILD) {
-       nop->s.suns[nop->s.noccupied] = child;
-       nop->s.Types += P[child].Type << (3*nop->s.noccupied);
-       nop->s.noccupied++;
-    }
-    if(child < tree->nfather && child >= 0)
-        tree->Father[child] = no;
-    return 0;
-}
-
 int
 force_tree_allocated(const ForceTree * tree)
 {
@@ -148,7 +124,6 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticl
 
     *tree = force_tree_build(ALLMASK, ddecomp, act, HybridNuGrav, DoMoments, EmergencyOutputDir);
 
-    event_listen(&EventSlotsFork, force_tree_eh_slots_fork, tree);
     walltime_measure("/Tree/Build/Moments");
 
     message(0, "Tree constructed with %ld particles (moments: %d). First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
@@ -1410,8 +1385,6 @@ ForceTree force_treeallocate(int64_t maxnodes, int64_t maxpart, DomainDecomp * d
  */
 void force_tree_free(ForceTree * tree)
 {
-    event_unlisten(&EventSlotsFork, force_tree_eh_slots_fork, tree);
-
     if(!force_tree_allocated(tree))
         return;
     myfree(tree->Nodes_base);
