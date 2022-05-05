@@ -325,10 +325,13 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     }
 //     message(0, "Finding gravitational timesteps. Largest %d time %d PM %d dti %d\n", largest_active, times->Ti_Current, times->PM_length, dti_from_timebin(largest_active));
 
-    /* Need a new sublist because the active particle list contains all particles either
+    /* May need a new sublist because the active particle list contains all particles either
      * gravitationally or hydrodynamically active and we only want gravitationally active particles.*/
     ActiveParticles subact[1] = {0};
-    build_active_sublist(subact, act, largest_active, times->Ti_Current);
+    if(act->NumActiveGravity == act->NumActiveParticle)
+        memcpy(subact, act, sizeof(ActiveParticles));
+    else
+        build_active_sublist(subact, act, largest_active, times->Ti_Current);
     const double rho0 = CP->Omega0 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
     /* First compute acceleration for all active particles, as we need to do this anyway.
      * Use this to compute the largest timesteps. */
@@ -401,14 +404,28 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     /* Do the kick for the topmost bin*/
     apply_hierarchical_grav_kick(subact, CP, times, largest_active, largest_active);
 
-    myfree(subact->ActiveParticle);
+    /* Copy over active list to some new memory so we can free the old one in order*/
+    ActiveParticles lastact[1] = {0};
+    memcpy(lastact, subact, sizeof(ActiveParticles));
+    if(subact->ActiveParticle){
+        /* Allocate high so we can free in order.*/
+        lastact->ActiveParticle = mymalloc2("Last_active", sizeof(int)*lastact->NumActiveParticle);
+        memcpy(lastact->ActiveParticle, subact->ActiveParticle, sizeof(int)*lastact->NumActiveParticle);
+        /* Free previous copy*/
+        if(subact->ActiveParticle && subact->ActiveParticle != act->ActiveParticle)
+            myfree(subact->ActiveParticle);
+    }
 
     /* Then do the below loop with largest_active = the new topmost bin - 1*/
     int64_t badstepsizecount = 0;
     /* Now loop over all lower timebins*/
     for(ti = largest_active-1; ti > 0; ti--) {
         ActiveParticles subact[1] = {0};
-        build_active_sublist(subact, act, ti, times->Ti_Current);
+        build_active_sublist(subact, lastact, ti, times->Ti_Current);
+        /* Free the last list*/
+        if(lastact->ActiveParticle && lastact->ActiveParticle != act->ActiveParticle)
+            myfree(lastact->ActiveParticle);
+        /* Check whether we need to do any more work*/
         int64_t tot_active;
         MPI_Allreduce(&subact->NumActiveGravity, &tot_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
         /* Do nothing if no particles are active*/
@@ -438,8 +455,20 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         }
         /* Do the half-kicks*/
         apply_hierarchical_grav_kick(subact, CP, times, ti, largest_active);
-        myfree(subact->ActiveParticle);
+
+        memcpy(lastact, subact, sizeof(ActiveParticles));
+        if(subact->ActiveParticle){
+            /* Allocate high so we can free in order.*/
+            if(ti > 1) {
+                lastact->ActiveParticle = mymalloc2("Last_active", sizeof(int)*lastact->NumActiveParticle);
+                memcpy(lastact->ActiveParticle, subact->ActiveParticle, sizeof(int)*lastact->NumActiveParticle);
+            }
+            /* Free previous copy*/
+            if(subact->ActiveParticle && subact->ActiveParticle != act->ActiveParticle)
+                myfree(subact->ActiveParticle);
+        }
     }
+
     MPI_Allreduce(MPI_IN_PLACE, &badstepsizecount, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     return badstepsizecount;
 }
