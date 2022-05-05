@@ -152,8 +152,8 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticl
     event_listen(&EventSlotsFork, force_tree_eh_slots_fork, tree);
     walltime_measure("/Tree/Build/Moments");
 
-    message(0, "Tree constructed (moments: %d). First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
-            tree->moments_computed_flag, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
+    message(0, "Tree constructed with %ld particles (moments: %d). First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
+            act->NumActiveParticle, tree->moments_computed_flag, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
     MPIU_Barrier(MPI_COMM_WORLD);
 }
 
@@ -174,8 +174,8 @@ force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, cons
     /* No moments*/
     *tree = force_tree_build(mask, ddecomp, &act, HybridNuGrav, 0, EmergencyOutputDir);
 
-    message(0, "Tree constructed (type mask: %d). First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
-            mask, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
+    message(0, "Tree constructed (type mask: %d) with %ld particles. First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
+            mask, act.NumActiveParticle, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
     MPIU_Barrier(MPI_COMM_WORLD);
 }
 
@@ -199,9 +199,9 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
     int64_t maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->NumPart + ddecomp->NTopNodes;
     int64_t maxmaxnodes;
     MPI_Reduce(&maxnodes, &maxmaxnodes, 1, MPI_INT64, MPI_MAX,0, MPI_COMM_WORLD);
-    message(0, "Treebuild: Largest is %g MByte for %ld tree nodes. firstnode %ld. (presently allocated %g MB)\n",
-         maxmaxnodes * sizeof(struct NODE) / (1024.0 * 1024.0), maxmaxnodes, PartManager->MaxPart,
-         mymalloc_usedbytes() / (1024.0 * 1024.0));
+//     message(0, "Treebuild: Largest is %g MByte for %ld tree nodes. firstnode %ld. (presently allocated %g MB)\n",
+//          maxmaxnodes * sizeof(struct NODE) / (1024.0 * 1024.0), maxmaxnodes, PartManager->MaxPart,
+//          mymalloc_usedbytes() / (1024.0 * 1024.0));
 
     do
     {
