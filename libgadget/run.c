@@ -485,26 +485,22 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         int anygravactive = MPIU_Any(Act.NumActiveGravity, MPI_COMM_WORLD);
 
         /* Gravitational acceleration here*/
-        if(All.HierarchicalGravity) {
-            hierarchical_gravity_accelerations(&Act, &pm, ddecomp, &times, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
-        }
-        else {
-            ActiveParticles allpart = {0};
-            allpart.NumActiveParticle = PartManager->NumPart;
-            /* We need a tree if we will do a short-range gravity treewalk.
-            * We also need one for PM so we can do the indexing.
-            * So this condition is true and the next false only if !TreeGravOn.*/
-            if(is_PM || (All.TreeGravOn && anygravactive))
-                force_tree_rebuild(&Tree, ddecomp, &allpart, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
-
-            if(All.TreeGravOn && (is_PM || anygravactive)) {
-                /* Do a short range pairwise only step if desired*/
-                if(pairwisestep) {
-                    struct gravshort_tree_params gtp = get_gravshort_treepar();
-                    grav_short_pair(&Act, &pm, &Tree, gtp.Rcut, rho0, HybridNuTracer, All.FastParticleType);
-                }
-                else
-                    grav_short_tree(&Act, &pm, &Tree, rho0, HybridNuTracer, All.FastParticleType, times.Ti_Current);
+        if(anygravactive) {
+            if(All.HierarchicalGravity)
+                hierarchical_gravity_accelerations(&Act, &pm, ddecomp, &times, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
+            else if(All.TreeGravOn && anygravactive) {
+                    /* We need a tree if we will do a short-range gravity treewalk.
+                     * We also need one for PM so we can do the indexing.*/
+                    ActiveParticles allpart = {0};
+                    allpart.NumActiveParticle = PartManager->NumPart;
+                    /* Do a short range pairwise only step if desired*/
+                    force_tree_rebuild(&Tree, ddecomp, &allpart, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
+                    if(pairwisestep) {
+                        struct gravshort_tree_params gtp = get_gravshort_treepar();
+                        grav_short_pair(&Act, &pm, &Tree, gtp.Rcut, rho0, HybridNuTracer, All.FastParticleType);
+                    }
+                    else
+                        grav_short_tree(&Act, &pm, &Tree, rho0, HybridNuTracer, All.FastParticleType, times.Ti_Current);
             }
         }
 
@@ -522,7 +518,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             ActiveParticles allpart = {0};
             allpart.NumActiveParticle = PartManager->NumPart;
 
-            if(is_PM && All.HierarchicalGravity)
+            if(!Tree.tree_allocated_flag)
                 force_tree_rebuild(&Tree, ddecomp, &allpart, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
 
             gravpm_force(&pm, &Tree, &All.CP, atime, units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType);
@@ -700,7 +696,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
              * Note this is separated from the first force computation because
              * each timebin has a force done individually and we do not store the acceleration hierarchy.
              * This does mean we double the cost of the force evaluations.*/
-            badtimestep = hierarchical_gravity_and_timesteps(&Act, &pm, ddecomp, &times, atime, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
+            if(anygravactive)
+                badtimestep = hierarchical_gravity_and_timesteps(&Act, &pm, ddecomp, &times, atime, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
             if(GasEnabled) {
                 /* Find hydro timesteps and apply the hydro kick, unsyncing the drift and kick times. */
                 badtimestep += find_hydro_timesteps(&Act, &times, atime, &All.CP, NumCurrentTiStep == 0);
