@@ -23,6 +23,7 @@ typedef struct
     /*Minimum and maximum active and occupied timebins. Initially (but never again) zero*/
     int mintimebin;
     int maxtimebin;
+    int mingravtimebin;
     /* Kick times per bin*/
     inttime_t Ti_kick[TIMEBINS+1];
     /* Drift time when this timebin was last active*/

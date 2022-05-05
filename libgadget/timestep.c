@@ -435,7 +435,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         /* Do nothing if no particles are active*/
         if(tot_active == 0) {
             myfree(subact->ActiveParticle);
-            times->mintimebin = ti+1;
+            times->mingravtimebin = ti+1;
             break;
         }
 
@@ -473,6 +473,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         }
     }
 
+    times->mintimebin = times->mingravtimebin;
     MPI_Allreduce(MPI_IN_PLACE, &badstepsizecount, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     return badstepsizecount;
 }
@@ -501,7 +502,7 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
      * not we compute forces twice for no reason.*/
     ActiveParticles lastact[1] = {0};
     memcpy(lastact, act, sizeof(ActiveParticles));
-    for(ti = largest_active; ti >= times->mintimebin; ti--) {
+    for(ti = largest_active; ti >= times->mingravtimebin; ti--) {
         ActiveParticles subact[1] = {0};
         /* If all particles are active, we don't need the sublist.
          * Note we can't just use largest_active
