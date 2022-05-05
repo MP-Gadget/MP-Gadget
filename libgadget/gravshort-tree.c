@@ -93,9 +93,8 @@ gravshort_haswork(int n, TreeWalk * tw)
     return is_timebin_active(P[n].TimeBinGravity, GRAV_GET_PRIV(tw)->Ti_Current);
 }
 
-/*! This function computes the gravitational forces for all active particles.
- *  If needed, a new tree is constructed, otherwise the dynamically updated
- *  tree is used.  Particles are only exported to other processors when really
+/*! This function computes the gravitational forces for all active particles from all particles in the tree.
+ * Particles are only exported to other processors when really
  *  needed, thereby allowing a good use of the communication buffer.
  *  NeutrinoTracer = All.HybridNeutrinosOn && (atime <= All.HybridNuPartTime);
  *  rho0 = CP.Omega0 * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G)
