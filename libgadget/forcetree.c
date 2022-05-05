@@ -184,7 +184,7 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
         tree.numnodes = force_tree_create_nodes(tree, act, mask, ddecomp, HybridNuGrav);
         if(tree.numnodes >= tree.lastnode - tree.firstnode)
         {
-            message(1, "Not enough tree nodes (%ld) for %d particles. Created %d\n", maxnodes, act->MaxActiveParticle, tree.numnodes);
+            message(1, "Not enough tree nodes (%ld) for %d particles. Created %d\n", maxnodes, PartManager->NumPart, tree.numnodes);
             force_tree_free(&tree);
             maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->NumPart + ddecomp->NTopNodes;
             message(1, "TreeAllocFactor from %g to %g now %ld tree nodes\n", ForceTreeParams.TreeAllocFactor, ForceTreeParams.TreeAllocFactor*1.15, maxnodes);
@@ -372,7 +372,7 @@ create_new_node_layer(int firstparent, int p_toplace,
         if(nc->nnext_thread >= tb.lastnode) {
             /* This means that we have > NMAXCHILD particles in the same place,
             * which usually indicates a bug in the particle evolution. Print some helpful debug information.*/
-            message(1, "Failed placing %d at %g %g %g, type %d, ID %ld. Others were %d (%g %g %g, t %d ID %ld) and %d (%g %g %g, t %d ID %ld). next %d last %d\n",
+            message(1, "Failed placing %d at %g %g %g, type %d, ID %ld. Others were %d (%g %g %g, t %d ID %ld) and %d (%g %g %g, t %d ID %ld).\n",
                 p_toplace, P[p_toplace].Pos[0], P[p_toplace].Pos[1], P[p_toplace].Pos[2], P[p_toplace].Type, P[p_toplace].ID,
                 oldsuns[0], P[oldsuns[0]].Pos[0], P[oldsuns[0]].Pos[1], P[oldsuns[0]].Pos[2], P[oldsuns[0]].Type, P[oldsuns[0]].ID,
                 oldsuns[1], P[oldsuns[1]].Pos[0], P[oldsuns[1]].Pos[1], P[oldsuns[1]].Pos[2], P[oldsuns[1]].Type, P[oldsuns[1]].ID
