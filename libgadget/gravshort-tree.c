@@ -140,12 +140,6 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
     tw->priv = &priv;
 
     walltime_measure("/Misc");
-
-    /* allocate buffers to arrange communication */
-    MPIU_Barrier(MPI_COMM_WORLD);
-
-    walltime_measure("/Misc");
-
     treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
 
     /* Now the force computation is finished */

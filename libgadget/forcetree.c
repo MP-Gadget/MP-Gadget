@@ -139,7 +139,6 @@ force_tree_allocated(const ForceTree * tree)
 void
 force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticles *act, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir)
 {
-    MPIU_Barrier(MPI_COMM_WORLD);
     //message(0, "Tree construction.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
     if(force_tree_allocated(tree)) {
@@ -154,13 +153,11 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticl
 
     message(0, "Tree constructed with %ld particles (moments: %d). First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
             act->NumActiveParticle, tree->moments_computed_flag, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
-    MPIU_Barrier(MPI_COMM_WORLD);
 }
 
 void
 force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, const int HybridNuGrav, const char * EmergencyOutputDir)
 {
-    MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Tree construction for types: %d.\n", mask);
 
     if(force_tree_allocated(tree)) {
