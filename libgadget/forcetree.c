@@ -126,8 +126,10 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticl
 
     walltime_measure("/Tree/Build/Moments");
 
+    int64_t allact;
+    MPI_Reduce(&act->NumActiveParticle, &allact, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
     message(0, "Tree constructed with %ld particles (moments: %d). First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
-            act->NumActiveParticle, tree->moments_computed_flag, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
+            allact, tree->moments_computed_flag, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
 }
 
 void
@@ -146,8 +148,10 @@ force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, cons
     /* No moments*/
     *tree = force_tree_build(mask, ddecomp, &act, HybridNuGrav, 0, EmergencyOutputDir);
 
+    int64_t allact;
+    MPI_Reduce(&PartManager->NumPart, &allact, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
     message(0, "Tree constructed (type mask: %d) with %ld particles. First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
-            mask, act.NumActiveParticle, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
+            mask, allact, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
     MPIU_Barrier(MPI_COMM_WORLD);
 }
 
