@@ -530,15 +530,19 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
         * This does mean that the predicted velocity will be using a slightly out of date gravitational acceleration,
         * but the Gadget-4 paper says this is a negligible effect (I suspect that where the artificial viscosity
         * is important the gravitational acceleration is small compared to hydro force anyway).*/
-        if(subact->NumActiveGravity == PartManager->NumPart) {
-            int i;
-            #pragma omp parallel for
-            for(i = 0; i < PartManager->NumPart; i++) {
-                if(P[i].Type != 0)
-                    continue;
-                int j;
-                for(j = 0; j < 3; j++)
-                    SPHP(i).FullGravAccel[j] = P[i].GravAccel[j];
+        if(ti == largest_active) {
+            int64_t tot_particle;
+            MPI_Allreduce(&PartManager->NumPart, &tot_particle, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+            if(tot_active == tot_particle) {
+                int i;
+                #pragma omp parallel for
+                for(i = 0; i < PartManager->NumPart; i++) {
+                    if(P[i].Type != 0)
+                        continue;
+                    int j;
+                    for(j = 0; j < 3; j++)
+                        SPHP(i).FullGravAccel[j] = P[i].GravAccel[j];
+                }
             }
         }
         /* Copy over active list to some new memory so we can free the old one in order*/
