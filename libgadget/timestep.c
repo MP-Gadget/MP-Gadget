@@ -511,8 +511,12 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
                 myfree(lastact->ActiveParticle);
         }
 
+        int64_t tot_active, last_tot_active;
+        MPI_Allreduce(&subact->NumActiveGravity, &tot_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&lastact->NumActiveGravity, &last_tot_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+
         /* No need to recompute accelerations if the particle number is the same as an earlier computation*/
-        if(ti == largest_active || subact->NumActiveParticle != lastact->NumActiveParticle) {
+        if(ti == largest_active || tot_active != last_tot_active) {
             /* Tree with moments but only particle timesteps below this value*/
             grav_short_tree_build_tree(subact, pm, ddecomp, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
         }
