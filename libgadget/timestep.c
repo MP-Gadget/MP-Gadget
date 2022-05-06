@@ -543,6 +543,8 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
                     for(j = 0; j < 3; j++)
                         SPHP(i).FullGravAccel[j] = P[i].GravAccel[j];
                 }
+                /* Set the old accelerations when all particles are active.*/
+                grav_set_oldaccs(CP->GravInternal);
             }
         }
         /* Copy over active list to some new memory so we can free the old one in order*/

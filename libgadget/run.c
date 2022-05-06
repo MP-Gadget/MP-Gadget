@@ -494,36 +494,9 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         /* The opening criterion for the gravtree
         * uses the *total* gravitational acceleration
         * from the last timestep, GravPM+GravAccel.
-        * So we must compute GravAccel for this timestep
-        * before gravpm_force() writes the PM acc. for
-        * this timestep to GravPM. Note initially both
-        * are zero and so the tree is opened maximally
-        * on the first timestep.*/
-        const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal);
-
-        /* Build the force tree for tree gravity.*/
-        ForceTree Tree = {0};
-        int anygravactive = MPIU_Any(Act.NumActiveGravity, MPI_COMM_WORLD);
-
-        /* Gravitational acceleration here*/
-        if(anygravactive) {
-            if(All.HierarchicalGravity)
-                hierarchical_gravity_accelerations(&Act, &pm, ddecomp, &times, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
-            else if(All.TreeGravOn && anygravactive) {
-                    /* We need a tree if we will do a short-range gravity treewalk.
-                     * We also need one for PM so we can do the indexing.*/
-                    ActiveParticles allpart = {0};
-                    allpart.NumActiveParticle = PartManager->NumPart;
-                    /* Do a short range pairwise only step if desired*/
-                    force_tree_rebuild(&Tree, ddecomp, &allpart, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
-                    if(pairwisestep) {
-                        struct gravshort_tree_params gtp = get_gravshort_treepar();
-                        grav_short_pair(&Act, &pm, &Tree, gtp.Rcut, rho0, HybridNuTracer, All.FastParticleType);
-                    }
-                    else
-                        grav_short_tree(&Act, &pm, &Tree, rho0, HybridNuTracer, All.FastParticleType, times.Ti_Current);
-            }
-        }
+        * For hierarchical gravity we must be sure to set
+        * it using the GravAccel from the largest bin.
+        * Thus gravpm_force() needs to be run first.*/
 
         /* We use the total gravitational acc.
         * to open the tree and total acc for the timestep.
@@ -534,19 +507,48 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         * instead use short-range tree acc. only
         * for opening angle or short-range timesteps,
         * or include hydro in the opening angle.*/
+        ForceTree Tree = {0};
+
         if(is_PM)
         {
             ActiveParticles allpart = {0};
             allpart.NumActiveParticle = PartManager->NumPart;
 
-            if(!Tree.tree_allocated_flag)
-                force_tree_rebuild(&Tree, ddecomp, &allpart, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
-
+            force_tree_rebuild(&Tree, ddecomp, &allpart, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
             gravpm_force(&pm, &Tree, &All.CP, atime, units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType);
 
             /* compute and output energy statistics if desired. */
             if(fds.FdEnergy)
                 energy_statistics(fds.FdEnergy, atime, PartManager);
+        }
+
+        /* Build the force tree for tree gravity.*/
+        int64_t totgravactive;
+        MPI_Allreduce(&Act.NumActiveGravity, &totgravactive, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+
+        /* Gravitational acceleration here*/
+        if(totgravactive) {
+            if(All.HierarchicalGravity)
+                hierarchical_gravity_accelerations(&Act, &pm, ddecomp, &times, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
+            else if(All.TreeGravOn && totgravactive) {
+                    /* We need a tree if we will do a short-range gravity treewalk.
+                     * We also need one for PM so we can do the indexing.*/
+                    ActiveParticles allpart = {0};
+                    allpart.NumActiveParticle = PartManager->NumPart;
+                    /* Do a short range pairwise only step if desired*/
+                    const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal);
+                    force_tree_rebuild(&Tree, ddecomp, &allpart, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
+                    if(pairwisestep) {
+                        struct gravshort_tree_params gtp = get_gravshort_treepar();
+                        grav_short_pair(&Act, &pm, &Tree, gtp.Rcut, rho0, HybridNuTracer, All.FastParticleType);
+                    }
+                    else
+                        grav_short_tree(&Act, &pm, &Tree, rho0, HybridNuTracer, All.FastParticleType, times.Ti_Current);
+                    /* Now we have computed the total acceleration, set old acc for the next PM step.
+                     * Done inside hierarchical_gravity_accelerations for the other branch.*/
+                    if(is_PM)
+                        grav_set_oldaccs(All.CP.GravInternal);
+            }
         }
 
         if(!All.HierarchicalGravity){
@@ -562,8 +564,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
         if(is_PM) {
             apply_PM_half_kick(&All.CP, &times);
-            /* Now we have computed the total acceleration, set old acc for the next PM step.*/
-            grav_set_oldaccs(All.CP.GravInternal);
         }
 
         MPIU_Barrier(MPI_COMM_WORLD);
@@ -727,7 +727,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
              * Note this is separated from the first force computation because
              * each timebin has a force done individually and we do not store the acceleration hierarchy.
              * This does mean we double the cost of the force evaluations.*/
-            if(anygravactive)
+            if(totgravactive)
                 badtimestep = hierarchical_gravity_and_timesteps(&Act, &pm, ddecomp, &times, atime, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
             if(GasEnabled) {
                 /* Find hydro timesteps and apply the hydro kick, unsyncing the drift and kick times. */
