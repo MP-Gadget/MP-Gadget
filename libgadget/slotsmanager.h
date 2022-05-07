@@ -46,6 +46,8 @@ struct bh_particle_data {
     /*******************************************************/
     double DragAccel[3];
     double DFAccel[3];
+    MyFloat FullGravAccel[3]; /* Short-range tree acceleration at the most recent timestep
+                                 which included all particles, used for dynamic friction.*/
     /*******************************************************/
     double KineticFdbkEnergy; /* accumulated KineticFdbk Energy */
 

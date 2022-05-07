@@ -537,11 +537,15 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
                 int i;
                 #pragma omp parallel for
                 for(i = 0; i < PartManager->NumPart; i++) {
-                    if(P[i].Type != 0)
-                        continue;
                     int j;
-                    for(j = 0; j < 3; j++)
-                        SPHP(i).FullGravAccel[j] = P[i].GravAccel[j];
+                    if(P[i].Type == 0) {
+                        for(j = 0; j < 3; j++)
+                            SPHP(i).FullGravAccel[j] = P[i].GravAccel[j];
+                    }
+                    if(P[i].Type == 5) {
+                        for(j = 0; j < 3; j++)
+                            BHP(i).FullGravAccel[j] = P[i].GravAccel[j];
+                    }
                 }
                 /* Set the old accelerations when all particles are active.*/
                 grav_set_oldaccs(CP->GravInternal);
@@ -842,12 +846,18 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
 #endif
         }
         /* Copy the gravitational acceleration to the SPH property. We could use GravAccel directly
-         * but hierarchical gravity makes that impossible.*/
+         * but we don't for consistency with hierarchical gravity.*/
         if(P[i].Type == 0) {
             int j;
             for(j =0; j<3; j++)
                 SPHP(i).FullGravAccel[j] = P[i].GravAccel[j];
         }
+        if(P[i].Type == 5) {
+            int j;
+            for(j =0; j<3; j++)
+                BHP(i).FullGravAccel[j] = P[i].GravAccel[j];
+        }
+
     }
     walltime_measure("/Timeline/HalfKick/Short");
 }
