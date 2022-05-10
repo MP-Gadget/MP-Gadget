@@ -1040,6 +1040,10 @@ static void
 blackhole_accretion_preprocess(int n, TreeWalk * tw)
 {
     int j;
+    /* Note that the potential is only updated when it is from all particles.
+     * In particular this means that it is not updated for hierarchical gravity
+     * when the number of active particles is less than the total number of particles
+     * (because then the tree does not contain all forces). */
     BH_GET_PRIV(tw)->MinPot[P[n].PI] = P[n].Potential;
 
     for(j = 0; j < 3; j++) {

@@ -117,7 +117,12 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
     priv.G = pm->G;
     priv.cbrtrho0 = pow(rho0, 1.0 / 3);
     priv.Ti_Current = Ti_Current;
-    priv.CalcPotential = 1;
+    /* We only want to calculate the potential
+     * if it is the true potential from all particles*/
+    if(tree->NumParticles == PartManager->NumPart)
+        priv.CalcPotential = 1;
+    else
+        priv.CalcPotential = 0;
     priv.Accel = NULL;
 
     if(!tree->moments_computed_flag)

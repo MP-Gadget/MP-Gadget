@@ -188,7 +188,7 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
         tree.numnodes = force_tree_create_nodes(tree, act, mask, ddecomp, HybridNuGrav);
         if(tree.numnodes >= tree.lastnode - tree.firstnode)
         {
-            message(1, "Not enough tree nodes (%ld) for %d particles. Created %d\n", maxnodes, PartManager->NumPart, tree.numnodes);
+            message(1, "Not enough tree nodes (%ld) for %d particles. Created %d\n", maxnodes, act->NumActiveParticle, tree.numnodes);
             force_tree_free(&tree);
             maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->NumPart + ddecomp->NTopNodes;
             message(1, "TreeAllocFactor from %g to %g now %ld tree nodes\n", ForceTreeParams.TreeAllocFactor, ForceTreeParams.TreeAllocFactor*1.15, maxnodes);
@@ -212,6 +212,8 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
         }
         endrun(2, "Required too many nodes, snapshot dumped\n");
     }
+
+    tree.NumParticles = act->NumActiveParticle;
     if(mask == ALLMASK)
         walltime_measure("/Tree/Build/Nodes");
 #ifdef DEBUG
