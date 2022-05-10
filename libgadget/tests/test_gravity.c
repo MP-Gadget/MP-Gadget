@@ -214,8 +214,8 @@ static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int di
     gravshort_set_softenings(PartManager->BoxSize / cbrt(PartManager->NumPart));
 
     /* Twice so the opening angle is consistent*/
-    grav_short_tree(&act, &pm, &Tree, rho0, 0, 2, 0);
-    grav_short_tree(&act, &pm, &Tree, rho0, 0, 2, 0);
+    grav_short_tree(&act, &pm, &Tree, NULL, rho0, 0, 2, 0);
+    grav_short_tree(&act, &pm, &Tree, NULL, rho0, 0, 2, 0);
 
     force_tree_free(&Tree);
     petapm_destroy(&pm);

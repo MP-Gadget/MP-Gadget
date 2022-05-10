@@ -543,7 +543,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                         grav_short_pair(&Act, &pm, &Tree, gtp.Rcut, rho0, HybridNuTracer, All.FastParticleType);
                     }
                     else
-                        grav_short_tree(&Act, &pm, &Tree, rho0, HybridNuTracer, All.FastParticleType, times.Ti_Current);
+                        grav_short_tree(&Act, &pm, &Tree, NULL, rho0, HybridNuTracer, All.FastParticleType, times.Ti_Current);
                     /* Now we have computed the total acceleration, set old acc for the next PM step.
                      * Done inside hierarchical_gravity_accelerations for the other branch.*/
                     if(is_PM)

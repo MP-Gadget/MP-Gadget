@@ -100,7 +100,7 @@ gravshort_haswork(int n, TreeWalk * tw)
  *  rho0 = CP.Omega0 * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G)
  */
 void
-grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double rho0, int NeutrinoTracer, int FastParticleType, inttime_t Ti_Current)
+grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFloat (* AccelStore)[3], double rho0, int NeutrinoTracer, int FastParticleType, inttime_t Ti_Current)
 {
     double timeall = 0;
     double timetree, timewait, timecomm;
@@ -123,7 +123,7 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
         priv.CalcPotential = 1;
     else
         priv.CalcPotential = 0;
-    priv.Accel = NULL;
+    priv.Accel = AccelStore;
 
     if(!tree->moments_computed_flag)
         endrun(2, "Gravtree called before tree moments computed!\n");
