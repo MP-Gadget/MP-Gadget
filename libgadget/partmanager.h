@@ -47,7 +47,9 @@ struct particle_data
     MyIDType ID;
 
     MyFloat Vel[3];   /* particle velocity at its current time */
-    MyFloat GravAccel[3];  /* particle acceleration due to short-range gravity */
+    MyFloat GravAccel[3];  /* Particle acceleration due to short-range gravity.
+                            * For non-hierarchical gravity this is the acceleration from all particles.
+                            * For hierarchical gravity it is the acceleration from all active particles.*/
 
     MyFloat GravPM[3];		/* particle acceleration due to long-range PM gravity force */
 

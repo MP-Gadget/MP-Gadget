@@ -112,11 +112,11 @@ enum TimeStepType
     TI_HSML = 4,
 };
 
-static double get_timestep_gravity_dloga(const int p, const double atime, const double hubble);
+static double get_timestep_gravity_dloga(const int p, const MyFloat * GravAccel, const double atime, const double hubble);
 static double get_timestep_hydro_dloga(const int p, const inttime_t Ti_Current, const double atime, const double hubble, enum TimeStepType * titype);
 static inttime_t convert_timestep_to_ti(double dloga, const int p, const inttime_t dti_max, const inttime_t Ti_Current, enum TimeStepType titype);
 static int get_timestep_bin(inttime_t dti);
-static void do_grav_short_range_kick(struct particle_data * part, const double Fgravkick);
+static void do_grav_short_range_kick(struct particle_data * part, const MyFloat * const GravAccel, const double Fgravkick);
 static void do_hydro_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const double atime, const double MinEgySpec);
 
 /* Hierarchical gravity functions*/
@@ -250,7 +250,7 @@ update_kick_times(DriftKickTimes * times)
 
 /* Apply the half-kick for the hierarchical gravity, which is a half-step forward and a half-step back for a higher timebin.*/
 void
-apply_hierarchical_grav_kick(const ActiveParticles * subact, Cosmology * CP, DriftKickTimes * times, int ti, int largest_active)
+apply_hierarchical_grav_kick(const ActiveParticles * subact, Cosmology * CP, DriftKickTimes * times, const MyFloat (* AccelStore)[3], int ti, int largest_active)
 {
     int i;
     /* Now we do the gravity kicks using each half-step acceleration.*/
@@ -265,12 +265,16 @@ apply_hierarchical_grav_kick(const ActiveParticles * subact, Cosmology * CP, Dri
         const double lowerkick = get_exact_gravkick_factor(CP, times->Ti_kick[ti+1], times->Ti_kick[ti+1] + lowerdti/2);
         gravkick -= lowerkick;
     }
+
 //     message(0, "Kicking for bin %d largest %d\n", ti, largest_active);
     /* Do the kick, changing velocity.*/
     #pragma omp parallel for
     for(i = 0; i < subact->NumActiveParticle; i++) {
         const int pa = get_active_particle(subact, i);
-        do_grav_short_range_kick(&P[pa], gravkick);
+        if(AccelStore)
+            do_grav_short_range_kick(&P[pa], AccelStore[pa], gravkick);
+        else
+            do_grav_short_range_kick(&P[pa], P[pa].GravAccel, gravkick);
 #ifdef DEBUG
 //         message(4, "KICK ID %ld bin %d kick time: %d + %d - %d now %d hydro %d kick ti: %d ti %d largest %d\n", P[pa].ID, P[pa].TimeBinGravity, P[pa].Ti_kick_grav, dti/2, lowerdti/2,
 //                 P[pa].Ti_kick_grav + dti/2 -lowerdti/2,
@@ -286,12 +290,12 @@ apply_hierarchical_grav_kick(const ActiveParticles * subact, Cosmology * CP, Dri
 
 /* Build a tree and use it to compute the gravitational accelerations*/
 void
-grav_short_tree_build_tree(const ActiveParticles * subact, PetaPM * pm, DomainDecomp * ddecomp, inttime_t Ti_Current, const double rho0, int HybridNuGrav, int FastParticleType, const char * EmergencyOutputDir)
+grav_short_tree_build_tree(const ActiveParticles * subact, PetaPM * pm, DomainDecomp * ddecomp, MyFloat (* AccelStore)[3], inttime_t Ti_Current, const double rho0, int HybridNuGrav, int FastParticleType, const char * EmergencyOutputDir)
 {
     /* Tree with only particle timesteps below this value*/
     ForceTree Tree = {0};
     force_tree_rebuild(&Tree, ddecomp, subact, HybridNuGrav, 1, EmergencyOutputDir);
-    grav_short_tree(subact, pm, &Tree, rho0, HybridNuGrav, FastParticleType, Ti_Current);
+    grav_short_tree(subact, pm, &Tree, AccelStore, rho0, HybridNuGrav, FastParticleType, Ti_Current);
     force_tree_free(&Tree);
 }
 
@@ -334,9 +338,13 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     else
         build_active_sublist(subact, act, largest_active, times->Ti_Current);
     const double rho0 = CP->Omega0 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
-    /* First compute acceleration for all active particles, as we need to do this anyway.
-     * Use this to compute the largest timesteps. */
-    grav_short_tree_build_tree(subact, pm, ddecomp, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
+    /* The acceleration stored in GravAccel is from the longest timestep for the previous half-step.
+     * We can re-use that as nothing has been drifted since then, so we don't need to recompute here.
+     * Use this to compute the largest timesteps. TODO: It is possible (at some memory cost)
+     * to avoid recomputing all the sub-step accelerations as well. The only tricky bit is to make
+     * sure (since they cannot be stored in the particle table) that newly forked star particles are also updated.
+     */
+    //grav_short_tree_build_tree(subact, pm, ddecomp, NULL, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
 
     /* Find the largest timebin active this timestep.*/
     const int nthread = omp_get_max_threads();
@@ -347,7 +355,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     #pragma omp parallel for
     for(i = 0; i < subact->NumActiveParticle; i++) {
         const int pa = get_active_particle(subact, i);
-        double dloga_gravity = get_timestep_gravity_dloga(pa, atime, hubble);
+        double dloga_gravity = get_timestep_gravity_dloga(pa, P[pa].GravAccel, atime, hubble);
         inttime_t dti_gravity = convert_timestep_to_ti(dloga_gravity, pa, dti_max, times->Ti_Current, TI_ACCEL);
         /* make it a power 2 subdivision */
         dti_gravity = round_down_power_of_two(dti_gravity);
@@ -402,8 +410,8 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     /* Set maximum timebin for second-half of the step*/
     times->maxtimebin = largest_active;
 
-    /* Do the kick for the topmost bin*/
-    apply_hierarchical_grav_kick(subact, CP, times, largest_active, largest_active);
+    /* Do the kick for the topmost bin using GravAccel in the particle struct.*/
+    apply_hierarchical_grav_kick(subact, CP, times, NULL, largest_active, largest_active);
 
     /* Copy over active list to some new memory so we can free the old one in order*/
     ActiveParticles lastact[1] = {0};
@@ -436,8 +444,11 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
             break;
         }
 
+        /* Allocate memory for the accelerations so we don't over-write the acceleration from the longest timestep.
+         * Need all particles as the index in the tree is the particle index. */
+        MyFloat (*GravAccel)[3] = (MyFloat (*) [3]) mymalloc2("GravAccel", PartManager->NumPart * sizeof(GravAccel[0]));
         /* Do the accelerations and build the tree*/
-        grav_short_tree_build_tree(subact, pm, ddecomp, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
+        grav_short_tree_build_tree(subact, pm, ddecomp, GravAccel, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
 
         /* We need to compute the new timestep here based on the acceleration at the current level,
          * because we will over-write the acceleration*/
@@ -445,7 +456,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         #pragma omp parallel for reduction(+: badstepsizecount)
         for(i = 0; i < subact->NumActiveParticle; i++) {
             const int pa = get_active_particle(subact, i);
-            double dloga_gravity = get_timestep_gravity_dloga(pa, atime, hubble);
+            double dloga_gravity = get_timestep_gravity_dloga(pa, GravAccel[pa], atime, hubble);
             inttime_t dti_gravity = convert_timestep_to_ti(dloga_gravity, pa, dti_max, times->Ti_Current, TI_ACCEL);
             /* Reduce the timebin by 1 if needed by this current acceleration.*/
             if(dti_gravity < dti_from_timebin(ti)) {
@@ -455,7 +466,8 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
             }
         }
         /* Do the half-kicks*/
-        apply_hierarchical_grav_kick(subact, CP, times, ti, largest_active);
+        apply_hierarchical_grav_kick(subact, CP, times, GravAccel, ti, largest_active);
+        myfree(GravAccel);
 
         memcpy(lastact, subact, sizeof(ActiveParticles));
         if(subact->ActiveParticle){
@@ -505,13 +517,14 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
     else {
         build_active_sublist(lastact, act, ti, times->Ti_Current);
     }
-    /* No need to recompute accelerations if the particle number is the same as an earlier computation*/
-    /* Tree with moments but only particle timesteps below this value*/
-    grav_short_tree_build_tree(lastact, pm, ddecomp, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
+    /* Tree with moments but only particle timesteps below this value.
+     * Done for all currently active gravitational particles.
+     * Stores acceleration in P[i].GravAccel.*/
+    grav_short_tree_build_tree(lastact, pm, ddecomp, NULL, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
 
     /* We need to do the kick here based on the acceleration at the current level,
         * because we will over-write the acceleration*/
-    apply_hierarchical_grav_kick(lastact, CP, times, ti, largest_active);
+    apply_hierarchical_grav_kick(lastact, CP, times, NULL, ti, largest_active);
 
     /* This acceleration is used to set SPH Predicted velocities for inactive particles.
     * Following Gadget-4, we use the acceleration where all particles are present.
@@ -548,6 +561,8 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
         lastact->ActiveParticle = newActiveParticle;
     }
 
+    /* Some temporary memory for accelerations*/
+    MyFloat (* GravAccel) [3] = NULL;
     for(ti = largest_active-1; ti >= times->mingravtimebin; ti--) {
         ActiveParticles subact[1] = {0};
         /* If all particles are active, we don't need the sublist.
@@ -564,13 +579,17 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
 
         /* No need to recompute accelerations if the particle number is the same as an earlier computation*/
         if(tot_active != last_tot_active) {
+            if(GravAccel)
+                myfree(GravAccel);
+            /* Allocate memory for the accelerations so we don't over-write the acceleration from the longest timestep*/
+            GravAccel = (MyFloat (*) [3]) mymalloc2("GravAccel", PartManager->NumPart * sizeof(GravAccel[0]));
             /* Tree with moments but only particle timesteps below this value*/
-            grav_short_tree_build_tree(subact, pm, ddecomp, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
+            grav_short_tree_build_tree(subact, pm, ddecomp, GravAccel, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
         }
 
         /* We need to do the kick here based on the acceleration at the current level,
          * because we will over-write the acceleration*/
-        apply_hierarchical_grav_kick(subact, CP, times, ti, largest_active);
+        apply_hierarchical_grav_kick(subact, CP, times, GravAccel, ti, largest_active);
 
         /* Copy over active list to some new memory so we can free the old one in order*/
         memcpy(lastact, subact, sizeof(ActiveParticles));
@@ -584,7 +603,8 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
     }
     if(lastact->ActiveParticle && lastact->ActiveParticle != act->ActiveParticle)
         myfree(lastact->ActiveParticle);
-
+    if(GravAccel)
+        myfree(GravAccel);
 
     return 0;
 }
@@ -727,7 +747,7 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
             dti = dti_min;
         } else {
             /* Compute gravity timestep*/
-            double dloga_gravity = get_timestep_gravity_dloga(i, atime, hubble);
+            double dloga_gravity = get_timestep_gravity_dloga(i, P[i].GravAccel, atime, hubble);
             dti = convert_timestep_to_ti(dloga_gravity, i, dti_max, times->Ti_Current, titype);
             /* Do hydro timestep for gas or BHs. Always shorter*/
             if(P[i].Type == 0 || P[i].Type == 5) {
@@ -843,7 +863,7 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
             endrun(4, "Particle %d (type %d, id %ld) had unexpected timebin %d\n", i, P[i].Type, P[i].ID, P[i].TimeBinGravity);
         /* Kick active gravity particles*/
         if(is_timebin_active(bin_gravity, times->Ti_Current)) {
-            do_grav_short_range_kick(&P[i], gravkick[bin_gravity]);
+            do_grav_short_range_kick(&P[i], P[i].GravAccel, bin_gravity);
 #ifdef DEBUG
             if(P[i].Ti_kick_grav != times->Ti_kick[bin_gravity])
                 endrun(4, "Particle %d (type %d, id %ld bin %d dt %x gen %d) had grav kick time %x not %x\n",
@@ -950,11 +970,11 @@ apply_PM_half_kick(Cosmology * CP, DriftKickTimes * times)
 
 /* Add gravitational kick to current particle*/
 void
-do_grav_short_range_kick(struct particle_data * part, const double Fgravkick)
+do_grav_short_range_kick(struct particle_data * part, const MyFloat * const GravAccel, const double Fgravkick)
 {
     int j;
     for(j = 0; j < 3; j++)
-        part->Vel[j] += part->GravAccel[j] * Fgravkick;
+        part->Vel[j] += GravAccel[j] * Fgravkick;
 }
 
 void
@@ -1006,24 +1026,27 @@ do_hydro_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const 
 #endif
 }
 
-static double
-get_timestep_gravity_dloga(const int p, const double atime, const double hubble)
+static double grav_acceleration2(const int p, const MyFloat * const GravAccel, const double atime)
 {
     /*Compute physical acceleration*/
     const double a2inv = 1/(atime * atime);
-    double ax = a2inv * P[p].GravAccel[0];
-    double ay = a2inv * P[p].GravAccel[1];
-    double az = a2inv * P[p].GravAccel[2];
-
+    double ax = a2inv * GravAccel[0];
+    double ay = a2inv * GravAccel[1];
+    double az = a2inv * GravAccel[2];
     ay += a2inv * P[p].GravPM[1];
     ax += a2inv * P[p].GravPM[0];
     az += a2inv * P[p].GravPM[2];
 
-    double ac = sqrt(ax * ax + ay * ay + az * az);	/* this is now the physical acceleration */
+    double ac2 = ax * ax + ay * ay + az * az;	/* this is now the physical acceleration */
+    if(ac2 == 0)
+        ac2 = 1.0e-60;
+    return ac2;
+}
 
-    if(ac == 0)
-        ac = 1.0e-30;
-
+static double
+get_timestep_gravity_dloga(const int p, const MyFloat * const GravAccel, const double atime, const double hubble)
+{
+    double ac = sqrt(grav_acceleration2(p, GravAccel, atime));
     /* mind the factor 2.8 difference between gravity and softening used here. */
     double dt = sqrt(2 * TimestepParams.ErrTolIntAccuracy * atime * (FORCE_SOFTENING(p, P[p].Type) / 2.8) / ac);
 
@@ -1035,34 +1058,11 @@ get_timestep_gravity_dloga(const int p, const double atime, const double hubble)
 static double
 get_timestep_hydro_dloga(const int p, const inttime_t Ti_Current, const double atime, const double hubble, enum TimeStepType * titype)
 {
-    double ac = 0;
     double dt = 0, dt_courant = 0, dt_hsml = 0;
 
-    /*Compute physical acceleration*/
-    {
-        const double a2inv = 1/(atime * atime);
-
-        double ax = a2inv * P[p].GravAccel[0];
-        double ay = a2inv * P[p].GravAccel[1];
-        double az = a2inv * P[p].GravAccel[2];
-
-        ay += a2inv * P[p].GravPM[1];
-        ax += a2inv * P[p].GravPM[0];
-        az += a2inv * P[p].GravPM[2];
-
-        if(P[p].Type == 0)
-        {
-            const double fac2 = 1 / pow(atime, 3 * GAMMA - 2);
-            ax += fac2 * SPHP(p).HydroAccel[0];
-            ay += fac2 * SPHP(p).HydroAccel[1];
-            az += fac2 * SPHP(p).HydroAccel[2];
-        }
-
-        ac = sqrt(ax * ax + ay * ay + az * az);	/* this is now the physical acceleration */
-    }
-
-    if(ac == 0)
-        ac = 1.0e-30;
+    /* This is the acceleration from all currently active particles. Gadget-4 uses the acceleration from
+     * only particles in the same bin as this particle. */
+    double ac = sqrt(grav_acceleration2(p, P[p].GravAccel, atime));
 
     /* mind the factor 2.8 difference between gravity and softening used here. */
     dt = sqrt(2 * TimestepParams.ErrTolIntAccuracy * atime * (FORCE_SOFTENING(p, P[p].Type) / 2.8) / ac);
