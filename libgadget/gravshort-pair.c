@@ -32,6 +32,8 @@ grav_short_pair(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
     priv.NeutrinoTracer = NeutrinoTracer;
     priv.G = pm->G;
     priv.cbrtrho0 = pow(rho0, 1.0 / 3);
+    priv.CalcPotential = 1;
+    priv.Accel = NULL;
 
     message(0, "Starting pair-wise short range gravity...\n");
 
