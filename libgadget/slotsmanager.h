@@ -47,7 +47,12 @@ struct bh_particle_data {
     double DragAccel[3];
     double DFAccel[3];
     MyFloat FullGravAccel[3]; /* Short-range tree acceleration at the most recent timestep
-                                 which included all particles, used for dynamic friction.*/
+                                 which included all particles. At time of writing this
+                                 is used to test whether the particles are bound during
+                                 black hole mergers. Note that if a particle becomes bound
+                                 during a short timestep this may not be noticed immediately, as
+                                 the acceleration is not updated. On short timesteps gravitational
+                                 accelerations are only from other active particles.*/
     /*******************************************************/
     double KineticFdbkEnergy; /* accumulated KineticFdbk Energy */
 
