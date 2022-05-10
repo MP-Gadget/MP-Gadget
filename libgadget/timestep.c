@@ -492,31 +492,69 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
         }
     }
 //     message(0, "Starting gravity accelerations: largest %d\n", largest_active);
+    /* First loop is split out for clarity as it has a lot of special cases*/
     /* Compute forces for all active timebins.
      * All these timesteps should have particles in them: if they do
      * not we compute forces twice for no reason.*/
     ActiveParticles lastact[1] = {0};
-    memcpy(lastact, act, sizeof(ActiveParticles));
-    for(ti = largest_active; ti >= times->mingravtimebin; ti--) {
+    /* If all particles are active, we don't need the sublist.
+     * Note this is not unconditional
+     * because some particles may be only hydro active.*/
+    if(act->NumActiveGravity == act->NumActiveParticle)
+        memcpy(lastact, act, sizeof(ActiveParticles));
+    else {
+        build_active_sublist(lastact, act, ti, times->Ti_Current);
+    }
+    /* No need to recompute accelerations if the particle number is the same as an earlier computation*/
+    /* Tree with moments but only particle timesteps below this value*/
+    grav_short_tree_build_tree(lastact, pm, ddecomp, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
+
+    /* We need to do the kick here based on the acceleration at the current level,
+        * because we will over-write the acceleration*/
+    apply_hierarchical_grav_kick(lastact, CP, times, ti, largest_active);
+
+    /* This acceleration is used to set SPH Predicted velocities for inactive particles.
+    * Following Gadget-4, we use the acceleration where all particles are present.
+    * This does mean that the predicted velocity will be using a slightly out of date gravitational acceleration,
+    * but the Gadget-4 paper says this is a negligible effect (I suspect that where the artificial viscosity
+    * is important the gravitational acceleration is small compared to hydro force anyway).*/
+    int64_t tot_particle, tot_active;
+    MPI_Allreduce(&lastact->NumActiveGravity, &tot_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&PartManager->NumPart, &tot_particle, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    if(tot_active == tot_particle) {
+        int i;
+        #pragma omp parallel for
+        for(i = 0; i < PartManager->NumPart; i++) {
+            int j;
+            if(P[i].Type == 0) {
+                for(j = 0; j < 3; j++)
+                    SPHP(i).FullGravAccel[j] = P[i].GravAccel[j];
+            }
+            if(P[i].Type == 5) {
+                for(j = 0; j < 3; j++)
+                    BHP(i).FullGravAccel[j] = P[i].GravAccel[j];
+            }
+        }
+        /* Set the old accelerations when all particles are active.*/
+        grav_set_oldaccs(CP->GravInternal);
+    }
+
+    for(ti = largest_active-1; ti >= times->mingravtimebin; ti--) {
         ActiveParticles subact[1] = {0};
         /* If all particles are active, we don't need the sublist.
          * Note we can't just use largest_active
          * because some particles may be only hydro active.*/
-        if(ti == largest_active && lastact->NumActiveGravity == lastact->NumActiveParticle)
-            memcpy(subact, lastact, sizeof(ActiveParticles));
-        else {
-            build_active_sublist(subact, lastact, ti, times->Ti_Current);
-            /* Free previous list */
-            if(lastact->ActiveParticle && lastact->ActiveParticle != act->ActiveParticle)
-                myfree(lastact->ActiveParticle);
-        }
+        build_active_sublist(subact, lastact, ti, times->Ti_Current);
+        /* Free previous list */
+        if(lastact->ActiveParticle && lastact->ActiveParticle != act->ActiveParticle)
+            myfree(lastact->ActiveParticle);
 
         int64_t tot_active, last_tot_active;
         MPI_Allreduce(&subact->NumActiveGravity, &tot_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(&lastact->NumActiveGravity, &last_tot_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
         /* No need to recompute accelerations if the particle number is the same as an earlier computation*/
-        if(ti == largest_active || tot_active != last_tot_active) {
+        if(tot_active != last_tot_active) {
             /* Tree with moments but only particle timesteps below this value*/
             grav_short_tree_build_tree(subact, pm, ddecomp, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
         }
@@ -525,32 +563,6 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
          * because we will over-write the acceleration*/
         apply_hierarchical_grav_kick(subact, CP, times, ti, largest_active);
 
-       /* This acceleration is used to set SPH Predicted velocities for inactive particles.
-        * Following Gadget-4, we use the acceleration where all particles are present.
-        * This does mean that the predicted velocity will be using a slightly out of date gravitational acceleration,
-        * but the Gadget-4 paper says this is a negligible effect (I suspect that where the artificial viscosity
-        * is important the gravitational acceleration is small compared to hydro force anyway).*/
-        if(ti == largest_active) {
-            int64_t tot_particle;
-            MPI_Allreduce(&PartManager->NumPart, &tot_particle, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-            if(tot_active == tot_particle) {
-                int i;
-                #pragma omp parallel for
-                for(i = 0; i < PartManager->NumPart; i++) {
-                    int j;
-                    if(P[i].Type == 0) {
-                        for(j = 0; j < 3; j++)
-                            SPHP(i).FullGravAccel[j] = P[i].GravAccel[j];
-                    }
-                    if(P[i].Type == 5) {
-                        for(j = 0; j < 3; j++)
-                            BHP(i).FullGravAccel[j] = P[i].GravAccel[j];
-                    }
-                }
-                /* Set the old accelerations when all particles are active.*/
-                grav_set_oldaccs(CP->GravInternal);
-            }
-        }
         /* Copy over active list to some new memory so we can free the old one in order*/
         memcpy(lastact, subact, sizeof(ActiveParticles));
         if(subact->ActiveParticle){
@@ -558,8 +570,7 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
             lastact->ActiveParticle = mymalloc2("Last_active", sizeof(int)*lastact->NumActiveParticle);
             memcpy(lastact->ActiveParticle, subact->ActiveParticle, sizeof(int)*lastact->NumActiveParticle);
             /* Free previous copy*/
-            if(subact->ActiveParticle && subact->ActiveParticle != act->ActiveParticle)
-                myfree(subact->ActiveParticle);
+            myfree(subact->ActiveParticle);
         }
     }
     if(lastact->ActiveParticle && lastact->ActiveParticle != act->ActiveParticle)
