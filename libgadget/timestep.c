@@ -552,6 +552,15 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
         grav_set_oldaccs(CP->GravInternal);
     }
 
+    if(lastact->ActiveParticle && lastact->ActiveParticle != act->ActiveParticle){
+        /* Allocate high so we can free in order.*/
+        int * newActiveParticle = mymalloc2("Last_active", sizeof(int)*lastact->NumActiveParticle);
+        memcpy(newActiveParticle, lastact->ActiveParticle, sizeof(int)*lastact->NumActiveParticle);
+        /* Free previous copy*/
+        myfree(lastact->ActiveParticle);
+        lastact->ActiveParticle = newActiveParticle;
+    }
+
     /* Some temporary memory for accelerations*/
     MyFloat (* GravAccel) [3] = NULL;
     for(ti = largest_active-1; ti >= times->mingravtimebin; ti--) {
