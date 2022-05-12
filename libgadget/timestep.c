@@ -294,6 +294,7 @@ grav_short_tree_build_tree(const ActiveParticles * subact, PetaPM * pm, DomainDe
 {
     /* Tree with only particle timesteps below this value*/
     ForceTree Tree = {0};
+    /* TODO: Investigate using an N^2 pairwise solver for small steps*/
     force_tree_rebuild(&Tree, ddecomp, subact, HybridNuGrav, 1, EmergencyOutputDir);
     grav_short_tree(subact, pm, &Tree, AccelStore, rho0, HybridNuGrav, FastParticleType, Ti_Current);
     force_tree_free(&Tree);
