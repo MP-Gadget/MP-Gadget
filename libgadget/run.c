@@ -507,13 +507,13 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         * instead use short-range tree acc. only
         * for opening angle or short-range timesteps,
         * or include hydro in the opening angle.*/
-        ForceTree Tree = {0};
 
         if(is_PM)
         {
             ActiveParticles allpart = {0};
             allpart.NumActiveParticle = PartManager->NumPart;
-
+            /* Tree freed in PM*/
+            ForceTree Tree = {0};
             force_tree_rebuild(&Tree, ddecomp, &allpart, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
             gravpm_force(&pm, &Tree, &All.CP, atime, units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType);
 
@@ -522,7 +522,9 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 energy_statistics(fds.FdEnergy, atime, PartManager);
         }
 
-        /* Build the force tree for tree gravity.*/
+        /* Force tree object, reused if HierarchicalGravity is off.*/
+        ForceTree Tree = {0};
+
         int64_t totgravactive;
         MPI_Allreduce(&Act.NumActiveGravity, &totgravactive, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
