@@ -1352,19 +1352,21 @@ int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times
             endrun(5, "Particle %d type %d has drift time %x not ti_current %x!",i, P[i].Type, P[i].Ti_drift, times->Ti_Current);
         }
         /* For now build active particles with either hydro or gravity active*/
-        int hydro_active = is_timebin_active(bin_hydro, times->Ti_Current);
+        int hydro_particle = P[i].Type == 0 || P[i].Type == 5;
+        /* Make sure we only add hydro particles: the DM can have hydro bin 0
+         * and we don't want to add it to the active list.*/
+        int hydro_active = hydro_particle && is_timebin_active(bin_hydro, times->Ti_Current);
         int gravity_active = is_timebin_active(bin_gravity, times->Ti_Current);
         if(act->ActiveParticle && gravity_active)
             nactivegrav++;
-        if(act->ActiveParticle && (hydro_active || gravity_active))
-        {
+        if(act->ActiveParticle && (hydro_active || gravity_active)) {
             /* Store this particle in the ActiveSet for this thread*/
             ActivePartSets[tid][NActiveThread[tid]] = i;
             NActiveThread[tid]++;
         }
         /* Account gas and BHs to their hydro bin and other particles to their gravity bin*/
         int bin = bin_gravity;
-        if(P[i].Type == 0 || P[i].Type == 5)
+        if(hydro_particle)
             bin = bin_hydro;
         TimeBinCountType[(TIMEBINS + 1) * (6* tid + P[i].Type) + bin] ++;
     }
