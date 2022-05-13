@@ -250,7 +250,7 @@ update_kick_times(DriftKickTimes * times)
 
 /* Apply the half-kick for the hierarchical gravity, which is a half-step forward and a half-step back for a higher timebin.*/
 void
-apply_hierarchical_grav_kick(const ActiveParticles * subact, Cosmology * CP, DriftKickTimes * times, const MyFloat (* AccelStore)[3], int ti, int largest_active)
+apply_hierarchical_grav_kick(const ActiveParticles * subact, Cosmology * CP, DriftKickTimes * times, MyFloat (* AccelStore)[3], int ti, int largest_active)
 {
     int i;
     /* Now we do the gravity kicks using each half-step acceleration.*/
