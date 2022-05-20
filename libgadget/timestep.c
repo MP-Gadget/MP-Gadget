@@ -744,6 +744,18 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
 
         enum TimeStepType titype = TI_ACCEL;
         inttime_t dti;
+        /* Copy the gravitational acceleration to the SPH property. We could use GravAccel directly
+         * but we don't for consistency with hierarchical gravity.*/
+        if(P[i].Type == 0) {
+            int j;
+            for(j =0; j<3; j++)
+                SPHP(i).FullGravAccel[j] = P[i].GravAccel[j];
+        }
+        if(P[i].Type == 5) {
+            int j;
+            for(j =0; j<3; j++)
+                BHP(i).FullGravAccel[j] = P[i].GravAccel[j];
+        }
         if(TimestepParams.ForceEqualTimesteps) {
             dti = dti_min;
         } else {
@@ -886,19 +898,6 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
             P[i].Ti_kick_hydro = times->Ti_kick[bin_hydro] +  dti_from_timebin(bin_gravity)/2;
 #endif
         }
-        /* Copy the gravitational acceleration to the SPH property. We could use GravAccel directly
-         * but we don't for consistency with hierarchical gravity.*/
-        if(P[i].Type == 0) {
-            int j;
-            for(j =0; j<3; j++)
-                SPHP(i).FullGravAccel[j] = P[i].GravAccel[j];
-        }
-        if(P[i].Type == 5) {
-            int j;
-            for(j =0; j<3; j++)
-                BHP(i).FullGravAccel[j] = P[i].GravAccel[j];
-        }
-
     }
     walltime_measure("/Timeline/HalfKick/Short");
 }
