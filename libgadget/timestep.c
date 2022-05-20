@@ -875,7 +875,7 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
             endrun(4, "Particle %d (type %d, id %ld) had unexpected timebin %d\n", i, P[i].Type, P[i].ID, P[i].TimeBinGravity);
         /* Kick active gravity particles*/
         if(is_timebin_active(bin_gravity, times->Ti_Current)) {
-            do_grav_short_range_kick(&P[i], P[i].GravAccel, bin_gravity);
+            do_grav_short_range_kick(&P[i], P[i].GravAccel, gravkick[bin_gravity]);
 #ifdef DEBUG
             if(P[i].Ti_kick_grav != times->Ti_kick[bin_gravity])
                 endrun(4, "Particle %d (type %d, id %ld bin %d dt %x gen %d) had grav kick time %x not %x\n",
