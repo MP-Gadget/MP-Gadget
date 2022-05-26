@@ -977,8 +977,8 @@ stellar_density(const ActiveParticles * act, MyFloat * StarVolumeSPH, MyFloat * 
             continue;
         /* Copy the Star Volume SPH*/
         StarVolumeSPH[P[a].PI] = priv->VolumeSPH[P[a].PI][0];
-        if(priv->VolumeSPH[P[a].PI] == 0)
-            endrun(3, "i = %d pi = %d StarVolumeSPH %g hsml %g\n", a, P[a].PI, priv->VolumeSPH[P[a].PI], P[a].Hsml);
+        if(priv->VolumeSPH[P[a].PI][0] == 0)
+            endrun(3, "i = %d pi = %d StarVolumeSPH %g hsml %g\n", a, P[a].PI, priv->VolumeSPH[P[a].PI][0], P[a].Hsml);
     }
 
     myfree(priv->maxcmpte);
