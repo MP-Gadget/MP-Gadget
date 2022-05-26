@@ -28,8 +28,6 @@ struct BlackholeParams
     double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
     double BlackHoleFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */
     enum BlackHoleFeedbackMethod BlackHoleFeedbackMethod;	/*!< method of the feedback*/
-    double BlackHoleFeedbackRadius;	/*!< Radius the thermal feedback is fed comoving*/
-    double BlackHoleFeedbackRadiusMaxPhys;	/*!< Radius the thermal cap */
     double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
     int BlackHoleRepositionEnabled; /* If true, enable repositioning the BH to the potential minimum*/
     
@@ -265,9 +263,6 @@ void set_blackhole_params(ParameterSet * ps)
         blackhole_params.BlackHoleEddingtonFactor = param_get_double(ps, "BlackHoleEddingtonFactor");
 
         blackhole_params.BlackHoleFeedbackFactor = param_get_double(ps, "BlackHoleFeedbackFactor");
-        blackhole_params.BlackHoleFeedbackRadius = param_get_double(ps, "BlackHoleFeedbackRadius");
-
-        blackhole_params.BlackHoleFeedbackRadiusMaxPhys = param_get_double(ps, "BlackHoleFeedbackRadiusMaxPhys");
 
         blackhole_params.BlackHoleFeedbackMethod = (enum BlackHoleFeedbackMethod) param_get_enum(ps, "BlackHoleFeedbackMethod");
         blackhole_params.BlackHoleRepositionEnabled = param_get_int(ps, "BlackHoleRepositionEnabled");
@@ -362,9 +357,6 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         TreeWalkResultBHFeedback * O,
         TreeWalkNgbIterBHFeedback * iter,
         LocalTreeWalk * lv);
-
-static double
-decide_hsearch(double h, const double atime);
 
 #define BHPOTVALUEINIT 1.0e29
 
@@ -1078,15 +1070,12 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         for(d = 0; d < 3; d++) {
             O->BH_MinPotPos[d] = I->base.Pos[d];
         }
-        double hsearch;
-        hsearch = decide_hsearch(I->Hsml, BH_GET_PRIV(lv->tw)->atime);
-
         iter->base.mask = 1 + 2 + 4 + 8 + 16 + 32;
-        iter->base.Hsml = hsearch;
+        iter->base.Hsml = I->Hsml;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
 
         density_kernel_init(&iter->accretion_kernel, I->Hsml, GetDensityKernelType());
-        density_kernel_init(&iter->feedback_kernel, hsearch, GetDensityKernelType());
+        density_kernel_init(&iter->feedback_kernel, I->Hsml, GetDensityKernelType());
         return;
     }
 
@@ -1287,15 +1276,13 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 {
 
     if(iter->base.other == -1) {
-        double hsearch;
-        hsearch = decide_hsearch(I->Hsml, BH_GET_PRIV(lv->tw)->atime);
 
         iter->base.mask = 1 + 32;
-        iter->base.Hsml = hsearch;
+        iter->base.Hsml = I->Hsml;
         /* Swallow is symmetric, but feedback dumping is asymetric;
          * we apply a cut in r to break the symmetry. */
         iter->base.symmetric = NGB_TREEFIND_SYMMETRIC;
-        density_kernel_init(&iter->feedback_kernel, hsearch, GetDensityKernelType());
+        density_kernel_init(&iter->feedback_kernel, I->Hsml, GetDensityKernelType());
         return;
     }
 
@@ -1627,24 +1614,4 @@ void blackhole_make_one(int index, const double atime) {
     }
     /* Initialize KineticFdbkEnergy, keep zero if BlackHoleKineticOn is not turned on */
     BHP(child).KineticFdbkEnergy = 0;
-}
-
-static double
-decide_hsearch(double h, const double atime)
-{
-    if(blackhole_params.BlackHoleFeedbackRadius > 0) {
-        /* BlackHoleFeedbackRadius is in comoving.
-         * The Phys radius is capped by BlackHoleFeedbackRadiusMaxPhys
-         * just like how it was done for grav smoothing.
-         * */
-        double rds;
-        rds = blackhole_params.BlackHoleFeedbackRadiusMaxPhys / atime;
-
-        if(rds > blackhole_params.BlackHoleFeedbackRadius) {
-            rds = blackhole_params.BlackHoleFeedbackRadius;
-        }
-        return rds;
-    } else {
-        return h;
-    }
 }
