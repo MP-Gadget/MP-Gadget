@@ -46,8 +46,8 @@ struct bh_particle_data {
     /*******************************************************/
     double DragAccel[3];
     double DFAccel[3];
-    MyFloat FullGravAccel[3]; /* Short-range tree acceleration at the most recent timestep
-                                 which included all particles. At time of writing this
+    MyFloat FullTreeGravAccel[3]; /* Short-range tree acceleration at the most recent timestep
+                                 which included all particles. Does not include PM acceleration. At time of writing this
                                  is used to test whether the particles are bound during
                                  black hole mergers. Note that if a particle becomes bound
                                  during a short timestep this may not be noticed immediately, as
@@ -97,7 +97,8 @@ struct sph_particle_data
     MyFloat       Density;		/*!< current baryonic mass density of particle */
     MyFloat       DtEntropy;		/*!< rate of change of entropy */
     MyFloat       HydroAccel[3];	/*!< acceleration due to hydrodynamical force */
-    MyFloat FullGravAccel[3]; /* Short-range tree Acceleration at the most recent timestep which included all particles, used for predicted velocities*/
+    MyFloat FullTreeGravAccel[3]; /* Short-range tree Acceleration at the most recent timestep which included all particles, used for predicted velocities
+                                   * Does not include PM acceleration.*/
     /*!< correction factor for density-independent entropy formulation. If DensityIndependentSph = 0
      then this is set to the DhsmlDensityFactor appropriate for the entropy formulation of SPH. */
     MyFloat DhsmlEgyDensityFactor;
