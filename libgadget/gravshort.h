@@ -51,8 +51,10 @@ struct GravShortPriv {
      * Note: should account for
      * massive neutrinos, but doesn't. */
     double cbrtrho0;
-    /* Whether to calculate the gravitational potential.
-     * Note this is only useful on steps where all particles are active*/
+    /* Whether to calculate the short-range gravitational potential from
+     * the particles in the current force tree.
+     * Note that in practice when for hierarchical gravity only active particles
+     * are in the tree and so this is only useful on steps where all particles are active.*/
     int CalcPotential;
     /* (Optional) pointer to the place to store accelerations, if it is not P->GravAccel*/
     MyFloat (*Accel)[3];
