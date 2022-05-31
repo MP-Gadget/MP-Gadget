@@ -45,6 +45,7 @@ jobs:
     - name: Setup Conda Environment
       uses: conda-incubator/setup-miniconda@v2.0.1
       with:
+        miniconda-version: latest
         activate-environment: test
         environment-file: maintainer/conda-env.yaml
         channels: bccp
