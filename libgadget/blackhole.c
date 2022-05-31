@@ -582,7 +582,8 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
 
     /* Build the queue once, since it is really 'all black holes' and similar for all treewalks.*/
     treewalk_build_queue(tw_dynfric, act->ActiveParticle, act->NumActiveParticle, 0);
-    /* Now we have a BH queue and we can re-use it*/
+    /* Now we have a BH queue and we can re-use it. Create a new variable so that
+     * treewalk_run does not mess with the pointer. */
     int * ActiveBlackHoles = tw_dynfric->WorkSet;
     int64_t NumActiveBlackHoles = tw_dynfric->WorkSetSize;
     /* If this queue is empty, nothing to do.*/
