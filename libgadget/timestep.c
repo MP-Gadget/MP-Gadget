@@ -550,11 +550,11 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
             int j;
             if(P[i].Type == 0) {
                 for(j = 0; j < 3; j++)
-                    SPHP(i).FullGravAccel[j] = P[i].GravAccel[j];
+                    SPHP(i).FullTreeGravAccel[j] = P[i].GravAccel[j];
             }
             if(P[i].Type == 5) {
                 for(j = 0; j < 3; j++)
-                    BHP(i).FullGravAccel[j] = P[i].GravAccel[j];
+                    BHP(i).FullTreeGravAccel[j] = P[i].GravAccel[j];
             }
         }
         /* Set the old accelerations when all particles are active.*/
@@ -753,12 +753,12 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
         if(P[i].Type == 0) {
             int j;
             for(j =0; j<3; j++)
-                SPHP(i).FullGravAccel[j] = P[i].GravAccel[j];
+                SPHP(i).FullTreeGravAccel[j] = P[i].GravAccel[j];
         }
         if(P[i].Type == 5) {
             int j;
             for(j =0; j<3; j++)
-                BHP(i).FullGravAccel[j] = P[i].GravAccel[j];
+                BHP(i).FullTreeGravAccel[j] = P[i].GravAccel[j];
         }
         if(TimestepParams.ForceEqualTimesteps) {
             dti = dti_min;

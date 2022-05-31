@@ -236,7 +236,7 @@ struct __attribute__((__packed__)) BHinfo{
 
     double BH_DFAccel[3];
     double BH_DragAccel[3];
-    double BH_GravAccel[3];
+    double BH_FullTreeGravAccel[3];
     double Velocity[3];
     double Mtrack;
     double Mdyn;
@@ -455,7 +455,7 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
             info->BH_SurroundingGasVel[k] = priv->BH_SurroundingGasVel[PI][k];
             info->BH_accreted_momentum[k] = priv->BH_accreted_momentum[PI][k];
             info->BH_DragAccel[k] = BHP(p_i).DragAccel[k];
-            info->BH_GravAccel[k] = BHP(p_i).FullGravAccel[k];
+            info->BH_FullTreeGravAccel[k] = BHP(p_i).FullTreeGravAccel[k];
             info->Pos[k] = P[p_i].Pos[k] - PartManager->CurrentParticleOffset[k];
             info->Velocity[k] = P[p_i].Vel[k];
             info->BH_DFAccel[k] = BHP(p_i).DFAccel[k];
@@ -842,7 +842,7 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
         }
 #ifdef DEBUG
         message(2,"x=%e, log(lambda)=%e, fof_x=%e, Mbh=%e, ratio=%e \n",
-           x,log(lambda),f_of_x,P[n].Mass,BHP(n).DFAccel[0]/BHP(n).FullGravAccel[0]);
+           x,log(lambda),f_of_x,P[n].Mass,BHP(n).DFAccel[0]/BHP(n).FullTreeGravAccel[0]);
 #endif
     }
     else
@@ -1164,7 +1164,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
                 dx[d] = NEAREST(I->base.Pos[d] - P[other].Pos[d], PartManager->BoxSize);
                 dv[d] = I->Vel[d] - P[other].Vel[d];
                 /* we include long range PM force, short range force from the last long timestep and DF */
-                da[d] = (I->Accel[d] - BHP(other).FullGravAccel[d] - P[other].GravPM[d] - BHP(other).DFAccel[d]);
+                da[d] = (I->Accel[d] - BHP(other).FullTreeGravAccel[d] - P[other].GravPM[d] - BHP(other).DFAccel[d]);
             }
             flag = check_grav_bound(dx,dv,da, BH_GET_PRIV(lv->tw)->atime);
             /*if(flag == 0)
@@ -1518,7 +1518,7 @@ blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I, TreeWalk * tw)
     for(k = 0; k < 3; k++)
     {
         I->Vel[k] = P[place].Vel[k];
-        I->Accel[k] = BHP(place).FullGravAccel[k] + P[place].GravPM[k] + BHP(place).DFAccel[k];
+        I->Accel[k] = BHP(place).FullTreeGravAccel[k] + P[place].GravPM[k] + BHP(place).DFAccel[k];
     }
     I->Hsml = P[place].Hsml;
     I->Mass = P[place].Mass;
