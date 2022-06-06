@@ -33,6 +33,8 @@ static struct WindParams
     double MinWindVelocity;
     /* Fraction of wind energy in thermal energy*/
     double WindThermalFactor;
+    /* Type of particle to use for velocity dispersion*/
+    int VdispType;
 } wind_params;
 
 #define NWINDHSML 5 /* Number of densities to evaluate for wind weight ngbiter*/
@@ -89,6 +91,7 @@ void set_winds_params(ParameterSet * ps)
         wind_params.MaxWindFreeTravelTime = param_get_double(ps, "MaxWindFreeTravelTime");
         wind_params.WindFreeTravelLength = param_get_double(ps, "WindFreeTravelLength");
         wind_params.WindFreeTravelDensFac = param_get_double(ps, "WindFreeTravelDensFac");
+        wind_params.VdispType = param_get_int(ps, "WindVdispType");
     }
     MPI_Bcast(&wind_params, sizeof(struct WindParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -224,6 +227,9 @@ struct WindPriv {
     int64_t nkicks;
     int64_t maxkicks;
     int * nvisited;
+    double FgravkickB;
+    double gravkicks[TIMEBINS+1];
+    double hydrokicks[TIMEBINS+1];
 };
 
 /* Comparison function to sort the StarKicks by particle id, distance and star ID.
@@ -252,7 +258,7 @@ int cmp_by_part_id(const void * a, const void * b)
 
 /* Find the 1D DM velocity dispersion of the winds by running a density loop.*/
 static void
-winds_find_weights(TreeWalk * tw, struct WindPriv * priv, int * NewStars, int NumNewStars, const double Time, const double hubble, ForceTree * tree)
+winds_find_weights(TreeWalk * tw, struct WindPriv * priv, int * NewStars, int NumNewStars, const double Time, Cosmology * CP, const DriftKickTimes * const times, const double hubble, ForceTree * tree)
 {
     tw->ev_label = "WIND_WEIGHT";
     tw->fill = (TreeWalkFillQueryFunction) sfr_wind_copy;
@@ -284,8 +290,20 @@ winds_find_weights(TreeWalk * tw, struct WindPriv * priv, int * NewStars, int Nu
     /* Note that this will be an over-count because each loop will add more.*/
     priv->nvisited = ta_malloc("nvisited", int, omp_get_max_threads());
     memset(WIND_GET_PRIV(tw)->nvisited, 0, omp_get_max_threads()* sizeof(int));
-
+    WIND_GET_PRIV(tw)->FgravkickB = get_exact_gravkick_factor(CP, times->PM_kick, times->Ti_Current);
+    memset(WIND_GET_PRIV(tw)->gravkicks, 0, sizeof(WIND_GET_PRIV(tw)->gravkicks[0])*(TIMEBINS+1));
+    memset(WIND_GET_PRIV(tw)->hydrokicks, 0, sizeof(WIND_GET_PRIV(tw)->hydrokicks[0])*(TIMEBINS+1));
+    /* Compute the factors to move a current kick times velocity to the drift time velocity.
+     * We need to do the computation for all timebins up to the maximum because even inactive
+     * particles may have interactions. */
     int i;
+    #pragma omp parallel for
+    for(i = times->mintimebin; i <= TIMEBINS; i++)
+    {
+        WIND_GET_PRIV(tw)->gravkicks[i] = get_exact_gravkick_factor(CP, times->Ti_kick[i], times->Ti_Current);
+        WIND_GET_PRIV(tw)->hydrokicks[i] = get_exact_hydrokick_factor(CP, times->Ti_kick[i], times->Ti_Current);
+    }
+
     /*Initialise the WINDP array*/
     #pragma omp parallel for
     for (i = 0; i < NumNewStars; i++) {
@@ -303,7 +321,7 @@ winds_find_weights(TreeWalk * tw, struct WindPriv * priv, int * NewStars, int Nu
 /* This function spawns winds for the subgrid model, which comes from the star-forming gas.
  * Does a little more calculation than is really necessary, due to shared code, but that shouldn't matter. */
 void
-winds_subgrid(int * MaybeWind, int NumMaybeWind, const double Time, const double hubble, ForceTree * tree, MyFloat * StellarMasses)
+winds_subgrid(int * MaybeWind, int NumMaybeWind, const double Time, Cosmology * CP, const DriftKickTimes * const times, const double hubble, ForceTree * tree, MyFloat * StellarMasses)
 {
     /*The non-subgrid model does nothing here*/
     if(!HAS(wind_params.WindModel, WIND_SUBGRID))
@@ -315,7 +333,7 @@ winds_subgrid(int * MaybeWind, int NumMaybeWind, const double Time, const double
     TreeWalk tw[1] = {{0}};
     struct WindPriv priv[1];
     int n;
-    winds_find_weights(tw, priv, MaybeWind, NumMaybeWind, Time, hubble, tree);
+    winds_find_weights(tw, priv, MaybeWind, NumMaybeWind, Time, CP, times, hubble, tree);
     myfree(priv->nvisited);
     for(n = 0; n < NumMaybeWind; n++)
     {
@@ -330,7 +348,7 @@ winds_subgrid(int * MaybeWind, int NumMaybeWind, const double Time, const double
 
 /*Do a treewalk for the wind model. This only changes newly created star particles.*/
 void
-winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const double hubble, ForceTree * tree)
+winds_and_feedback(int * NewStars, int NumNewStars, const double Time, Cosmology * CP, const DriftKickTimes * const times, const double hubble, ForceTree * tree)
 {
     /*The subgrid model does nothing here*/
     if(HAS(wind_params.WindModel, WIND_SUBGRID))
@@ -342,7 +360,7 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, const dou
     TreeWalk tw[1] = {{0}};
     struct WindPriv priv[1];
     int i;
-    winds_find_weights(tw, priv, NewStars, NumNewStars, Time, hubble, tree);
+    winds_find_weights(tw, priv, NewStars, NumNewStars, Time, CP, times, hubble, tree);
 
     for (i = 1; i < omp_get_max_threads(); i++)
         priv->nvisited[0] += priv->nvisited[i];
@@ -525,11 +543,13 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
 {
     /* this evaluator walks the tree and sums the total mass of surrounding gas
      * particles as described in VS08. */
-    /* it also calculates the DM dispersion of the nearest 40 DM particles */
+    /* it also calculates the velocity dispersion of the nearest 40 DM or gas particles */
     if(iter->base.other == -1) {
         double hsearch = DMAX(I->Hsml, I->DMRadius[NWINDHSML-1]);
         iter->base.Hsml = hsearch;
-        iter->base.mask = 1 + 2; /* gas and dm */
+        iter->base.mask = 1; /* gas only */
+        if(wind_params.VdispType != 0) /* Add other type if necessary.*/
+            iter->base.mask += (1 << wind_params.VdispType);
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         O->maxcmpte = NWINDHSML;
         return;
@@ -554,15 +574,26 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
     }
 
     int i;
-    if(P[other].Type == 1) {
+    if(P[other].Type == wind_params.VdispType) {
         const double atime = WIND_GET_PRIV(lv->tw)->Time;
         for(i = 0; i < O->maxcmpte; i++){
             if(r < I->DMRadius[i]){
                 O->Ngb[i] += 1;
+                int bin = P[other].TimeBin;
+                MyFloat VelPred[3] = {0};
+                if(wind_params.VdispType == 0) {
+                    SPH_VelPred(other, VelPred, WIND_GET_PRIV(lv->tw)->FgravkickB, WIND_GET_PRIV(lv->tw)->gravkicks[bin], WIND_GET_PRIV(lv->tw)->hydrokicks[bin]);
+                }
+                else {
+                    int j;
+                    for(j = 0; j < 3; j++)
+                        VelPred[j] = P[other].Vel[j] + WIND_GET_PRIV(lv->tw)->gravkicks[bin] * P[other].GravAccel[j] + P[other].GravPM[j] *  WIND_GET_PRIV(lv->tw)->FgravkickB;
+                }
                 int d;
                 for(d = 0; d < 3; d ++) {
-                    /* Add hubble flow to relative velocity. */
-                    double vel = P[other].Vel[d] - I->Vel[d] + WIND_GET_PRIV(lv->tw)->hubble * atime * atime * dist[d];
+                    /* Add hubble flow to relative velocity. Use predicted velocity to current time.
+                     * The I particle is active so always at current time.*/
+                    double vel = VelPred[d] - I->Vel[d] + WIND_GET_PRIV(lv->tw)->hubble * atime * atime * dist[d];
                     O->V1sum[i][d] += vel;
                     O->V2sum[i] += vel * vel;
                 }

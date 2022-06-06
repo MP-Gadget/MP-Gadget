@@ -293,7 +293,8 @@ create_gadget_parameter_set()
     param_declare_double(ps, "WindEfficiency", OPTIONAL, 2.0, "Fraction of the stellar mass that goes into a wind. Needs sh03 or vs08 wind models.");
     param_declare_double(ps, "WindEnergyFraction", OPTIONAL, 1.0, "Fraction of the available energy that goes into winds.");
 
-    /* The following two are for OFJT10*/
+    /* The following three are for OFJT10*/
+    param_declare_int(ps, "WindVDispType", OPTIONAL, 0, "Type of particle to use for the velocity dispersion of the winds.");
     param_declare_double(ps, "WindSigma0", OPTIONAL, 353, "Reference halo circular velocity at which to evaluate wind speed. Needs ofjt10 wind model.");
     param_declare_double(ps, "WindSpeedFactor", OPTIONAL, 3.7, "Factor connecting wind speed to halo circular velocity. ofjt10 wind model.");
 

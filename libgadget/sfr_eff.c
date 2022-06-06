@@ -164,7 +164,7 @@ void set_sfr_params(ParameterSet * ps)
 
 /* cooling and star formation routine.*/
 void
-cooling_and_starformation(ActiveParticles * act, double Time, double dloga, ForceTree * tree, const Cosmology *CP, MyFloat * GradRho, FILE * FdSfr)
+cooling_and_starformation(ActiveParticles * act, double Time, const DriftKickTimes * const times, double dloga, ForceTree * tree, Cosmology *CP, MyFloat * GradRho, FILE * FdSfr)
 {
     const int nthreads = omp_get_max_threads();
     /*This is a queue for the new stars and their parents, so we can reallocate the slots after the main cooling loop.*/
@@ -272,7 +272,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
     /* Do subgrid winds*/
     if(sfr_params.WindOn && winds_are_subgrid()) {
         NumMaybeWind = gadget_compact_thread_arrays(MaybeWind, thrqueuewind, nqthrwind, nthreads);
-        winds_subgrid(MaybeWind, NumMaybeWind, Time, hubble, tree, StellarMass);
+        winds_subgrid(MaybeWind, NumMaybeWind, Time, CP, times, hubble, tree, StellarMass);
         myfree(MaybeWind);
         myfree(StellarMass);
         ta_free(thrqueuewind);
@@ -368,7 +368,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
 
     /* Now apply the wind model using the list of new stars.*/
     if(sfr_params.WindOn && !winds_are_subgrid())
-        winds_and_feedback(NewStars, NumNewStar, Time, hubble, tree);
+        winds_and_feedback(NewStars, NumNewStar, Time, CP, times, hubble, tree);
 
     myfree(NewStars);
 }
