@@ -613,7 +613,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
             /**** radiative cooling and star formation *****/
             if(All.CoolingOn)
-                cooling_and_starformation(&Act, atime, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &Tree, ddecomp, &All.CP, GradRho, fds.FdSfr);
+                cooling_and_starformation(&Act, atime, &times, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &Tree, ddecomp, &All.CP, GradRho, fds.FdSfr);
         }
         /* We don't need this timestep's tree anymore.*/
         force_tree_free(&Tree);
@@ -765,7 +765,7 @@ runfof(const int RestartSnapNum, const inttime_t Ti_Current, const struct header
             slots_free_sph_pred_data(&sph_predicted);
         }
         ForceTree Tree = {0};
-        cooling_and_starformation(&Act, header->TimeSnapshot, 0, &Tree, ddecomp, &All.CP, GradRho, NULL);
+        cooling_and_starformation(&Act, header->TimeSnapshot, NULL, 0, &Tree, ddecomp, &All.CP, GradRho, NULL);
         if(GradRho)
             myfree(GradRho);
     }
