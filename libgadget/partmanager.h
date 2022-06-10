@@ -47,7 +47,14 @@ struct particle_data
     MyFloat GravAccel[3];  /* Particle acceleration due to short-range gravity.
                             * For non-hierarchical gravity this is the acceleration from all particles.
                             * For hierarchical gravity it is the acceleration from all active particles.*/
-
+    MyFloat FullTreeGravAccel[3]; /* Short-range tree acceleration at the most recent timestep
+                                 which included all particles. Does not include PM acceleration. At time of writing this
+                                 is used to test whether the particles are bound during
+                                 black hole mergers for black holes, for predicted velocities for SPH particles
+                                 and for predicting velocities for wind particle velocity dispersions.
+                                 Note that changes during a short timestep this may not be noticed immediately, as
+                                 the acceleration is not updated. On short timesteps gravitational
+                                 accelerations are only from other active particles.*/
     MyFloat GravPM[3];		/* particle acceleration due to long-range PM gravity force */
 
     MyFloat OldAcc; /* Magnitude of full acceleration on the last PM step, for tree opening criterion. */
