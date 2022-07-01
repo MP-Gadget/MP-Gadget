@@ -808,10 +808,16 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
 
         for(j = 0; j < 3; j++)
         {
-            BHP(n).DFAccel[j] = - 4. * M_PI * BH_GET_PRIV(tw)->CP->GravInternal * BH_GET_PRIV(tw)->CP->GravInternal * P[n].Mass * BH_GET_PRIV(tw)->BH_SurroundingDensity[PI] *
-            log(lambda) * f_of_x * (P[n].Vel[j] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j]) / pow(bhvel, 3);
-            BHP(n).DFAccel[j] *= BH_GET_PRIV(tw)->atime;  // convert to code unit of acceleration
-            BHP(n).DFAccel[j] *= blackhole_params.BH_DFBoostFactor; // Add a boost factor
+            /* prevent DFAccel from exploding */
+            if(bhvel > 0){
+                BHP(n).DFAccel[j] = - 4. * M_PI * BH_GET_PRIV(tw)->CP->GravInternal * BH_GET_PRIV(tw)->CP->GravInternal * P[n].Mass * BH_GET_PRIV(tw)->BH_SurroundingDensity[PI] *
+                log(lambda) * f_of_x * (P[n].Vel[j] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j]) / pow(bhvel, 3);
+                BHP(n).DFAccel[j] *= BH_GET_PRIV(tw)->atime;  // convert to code unit of acceleration
+                BHP(n).DFAccel[j] *= blackhole_params.BH_DFBoostFactor; // Add a boost factor
+            }
+            else{
+                BHP(n).DFAccel[j] = 0;
+            }
         }
 #ifdef DEBUG
         message(2,"x=%e, log(lambda)=%e, fof_x=%e, Mbh=%e, ratio=%e \n",
