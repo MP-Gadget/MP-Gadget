@@ -363,8 +363,8 @@ static int real_ev(struct TreeWalkThreadLocals local_exports, TreeWalk * tw, siz
                 lv->Nexport-= lv->NThisParticleExport;
                 const int lastreal = tw->WorkSet ? tw->WorkSet[k] : k;
                 /* Index stores tw->target, which is the current particle.*/
-                if(lv->NThisParticleExport > 0 && DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index != lastreal)
-                    endrun(5, "Something screwed up in export queue: nexp %ld (local %d) last %d != index %d\n", lv->Nexport,
+                if(lv->NThisParticleExport > 0 && DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index > lastreal)
+                    endrun(5, "Something screwed up in export queue: nexp %ld (local %d) last %d < index %d\n", lv->Nexport,
                         lv->NThisParticleExport, lastreal, DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index);
                 /* Leave this chunking loop.*/
             }
