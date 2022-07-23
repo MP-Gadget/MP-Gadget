@@ -145,7 +145,7 @@ void set_sfr_params(ParameterSet * ps)
         sfr_params.Generations = param_get_int(ps, "Generations");
         sfr_params.MinGasTemp = param_get_double(ps, "MinGasTemp");
         sfr_params.BHFeedbackUseTcool = param_get_int(ps, "BHFeedbackUseTcool");
-        if(sfr_params.BHFeedbackUseTcool > 2 || sfr_params.BHFeedbackUseTcool < 0)
+        if(sfr_params.BHFeedbackUseTcool > 3 || sfr_params.BHFeedbackUseTcool < 0)
             endrun(0, "BHFeedbackUseTcool mode %d not supported\n", sfr_params.BHFeedbackUseTcool);
         /*Lyman-alpha forest parameters*/
         sfr_params.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
@@ -610,7 +610,7 @@ cooling_relaxed(int i, double dtime, struct UVBG * local_uvbg, const double reds
     const double densityfac = pow(Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
     double egycurrent = SPHP(i).Entropy * densityfac;
     double trelax = sfr_data.trelax;
-    if(sfr_params.BHFeedbackUseTcool == 1 && P[i].BHHeated)
+    if(sfr_params.BHFeedbackUseTcool == 3 || (sfr_params.BHFeedbackUseTcool == 1 && P[i].BHHeated))
     {
         if(egycurrent > egyeff)
         {
