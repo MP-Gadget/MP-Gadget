@@ -1293,11 +1293,11 @@ inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin)
 static void print_timebin_statistics(const DriftKickTimes * const times, const int NumCurrentTiStep, int * TimeBinCountType, const double Time);
 
 /* mark the bins that will be active before the next kick*/
-ActiveParticles build_active_particles(const DriftKickTimes * const times, int NumCurrentTiStep, const double Time)
+void
+build_active_particles(ActiveParticles * act, const DriftKickTimes * const times, int NumCurrentTiStep, const double Time)
 {
     int i;
 
-    ActiveParticles act[1] = {0};
     int NumThreads = omp_get_max_threads();
     /*Since we use a static schedule, only need NumPart/NumThreads elements per thread.*/
     size_t narr = PartManager->NumPart / NumThreads + NumThreads;
@@ -1379,7 +1379,7 @@ ActiveParticles build_active_particles(const DriftKickTimes * const times, int N
     event_listen(&EventSlotsFork, timestep_eh_slots_fork, act);
     walltime_measure("/Timeline/Active");
 
-    return *act;
+    return;
 }
 
 /* Build a sublist of particles, selected from the currently active particles,

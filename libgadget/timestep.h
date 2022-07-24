@@ -41,7 +41,7 @@ typedef struct ActiveParticles
  * No heap memory is allocated.*/
 ActiveParticles init_empty_active_particles(int64_t NumActiveParticle);
 /* Build a list of active particles from the particle manager, allocating memory for the active particle list.*/
-ActiveParticles build_active_particles(const DriftKickTimes * const times, int NumCurrentTiStep, const double Time);
+void build_active_particles(ActiveParticles * act, const DriftKickTimes * const times, int NumCurrentTiStep, const double Time);
 /* Free the active particle list if necessary*/
 void free_active_particles(ActiveParticles * act);
 /* Get the current scale factor*/
