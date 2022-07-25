@@ -86,7 +86,7 @@ timestep_eh_slots_fork(EIBase * event, void * userdata)
 {
     /*Update the active particle list:
      * if the parent is active the child should also be active.
-     * Stars must always be active on formation, but
+     * Stars must always be (hydro) active on formation, but
      * BHs need not be: a halo can be seeded when the particle in question is inactive.*/
 
     EISlotsFork * ev = (EISlotsFork *) event;
@@ -95,7 +95,14 @@ timestep_eh_slots_fork(EIBase * event, void * userdata)
     int child = ev->child;
     ActiveParticles * act = (ActiveParticles *) userdata;
 
-    if(is_timebin_active(P[parent].TimeBinHydro, P[parent].Ti_drift)) {
+    /* If gravity active, increment the counter*/
+    int is_grav_active = is_timebin_active(P[parent].TimeBinGravity, P[parent].Ti_drift);
+    if(is_grav_active) {
+        #pragma omp atomic update
+        act->NumActiveGravity++;
+    }
+    /* If either is active, need to be in the active list. */
+    if(is_grav_active || is_timebin_active(P[parent].TimeBinHydro, P[parent].Ti_drift)) {
         int64_t childactive = atomic_fetch_and_add_64(&act->NumActiveParticle, 1);
         if(act->ActiveParticle) {
             /* This should never happen because we allocate as much space for active particles as we have space
