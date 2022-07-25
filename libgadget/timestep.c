@@ -342,7 +342,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     /* May need a new sublist because the active particle list contains all particles either
      * gravitationally or hydrodynamically active and we only want gravitationally active particles.*/
     ActiveParticles subact[1] = {0};
-    if(act->NumActiveGravity == act->NumActiveParticle)
+    if(act->NumActiveGravity == act->NumActiveParticle || isPM)
         memcpy(subact, act, sizeof(ActiveParticles));
     else
         subact[0] = build_active_sublist(act, largest_active, times->Ti_Current);
