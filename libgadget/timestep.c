@@ -1305,7 +1305,7 @@ inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin)
     return Ti_Current + dti_from_timebin(minTimeBin);
 }
 
-static void print_timebin_statistics(const DriftKickTimes * const times, const int NumCurrentTiStep, int * TimeBinCountType, const double Time);
+static void print_timebin_statistics(const DriftKickTimes * const times, const int NumCurrentTiStep, int * TimeBinCountType, const double Time, const int64_t ActiveGravityCount);
 
 /* mark the bins that will be active before the next kick*/
 void
@@ -1381,7 +1381,7 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
     ta_free(NActiveThread);
     act->NumActiveGravity = nactivegrav;
     /*Print statistics for this time bin*/
-    print_timebin_statistics(times, NumCurrentTiStep, TimeBinCountType, Time);
+    print_timebin_statistics(times, NumCurrentTiStep, TimeBinCountType, Time, nactivegrav);
     myfree(TimeBinCountType);
 
     /* Shrink the ActiveParticle array. We still need extra space for star formation,
@@ -1464,7 +1464,7 @@ void free_active_particles(ActiveParticles * act)
  * FdCPU the cumulative cpu-time consumption in various parts of the
  * code is stored.
  */
-static void print_timebin_statistics(const DriftKickTimes * const times, const int NumCurrentTiStep, int * TimeBinCountType, const double Time)
+static void print_timebin_statistics(const DriftKickTimes * const times, const int NumCurrentTiStep, int * TimeBinCountType, const double Time, const int64_t ActiveGravityCount)
 {
     int i;
     int64_t tot = 0, tot_type[6] = {0};
@@ -1484,6 +1484,8 @@ static void print_timebin_statistics(const DriftKickTimes * const times, const i
     for(i = 0; i < 6; i ++) {
         sumup_large_ints(TIMEBINS+1, &TimeBinCountType[(TIMEBINS+1) * i], tot_count_type[i]);
     }
+    int64_t TotActiveGravityCount;
+    MPI_Allreduce(&ActiveGravityCount, &TotActiveGravityCount, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
     for(i = 0; i<TIMEBINS+1; i++) {
         int j;
@@ -1536,7 +1538,7 @@ static void print_timebin_statistics(const DriftKickTimes * const times, const i
         }
     }
     message(0,     "               -----------------------------------\n");
-    message(0,     "Total:    % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld  Sum:% 14ld\n",
-        tot_type[0], tot_type[1], tot_type[2], tot_type[3], tot_type[4], tot_type[5], tot);
+    message(0,     "Total:    % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld  Sum:% 14ld Gravity: %14ld\n",
+        tot_type[0], tot_type[1], tot_type[2], tot_type[3], tot_type[4], tot_type[5], tot, TotActiveGravityCount);
 
 }
