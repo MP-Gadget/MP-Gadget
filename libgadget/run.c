@@ -144,7 +144,7 @@ set_all_global_params(ParameterSet * ps)
         All.DensityOn = param_get_int(ps, "DensityOn");
         All.TreeGravOn = param_get_int(ps, "TreeGravOn");
         All.LightconeOn = param_get_int(ps, "LightconeOn");
-        All.HierarchicalGravity = param_get_int(ps, "HiSplitGravityOn");
+        All.HierarchicalGravity = param_get_int(ps, "SplitGravityTimestepsOn");
         All.FastParticleType = param_get_int(ps, "FastParticleType");
         All.PairwiseActiveFraction = param_get_double(ps, "PairwiseActiveFraction");
         All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
