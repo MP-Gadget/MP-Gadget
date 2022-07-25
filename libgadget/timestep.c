@@ -286,6 +286,8 @@ apply_hierarchical_grav_kick(const ActiveParticles * subact, Cosmology * CP, Dri
     #pragma omp parallel for
     for(i = 0; i < subact->NumActiveParticle; i++) {
         const int pa = get_active_particle(subact, i);
+        if(P[pa].Swallowed || P[pa].IsGarbage)
+            continue;
         if(AccelStore)
             do_grav_short_range_kick(&P[pa], AccelStore[pa], gravkick);
         else
@@ -371,6 +373,8 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     #pragma omp parallel for
     for(i = 0; i < subact->NumActiveParticle; i++) {
         const int pa = get_active_particle(subact, i);
+        if(P[pa].Swallowed || P[pa].IsGarbage)
+            continue;
         double dloga_gravity = get_timestep_gravity_dloga(pa, P[pa].GravAccel, atime, hubble);
         inttime_t dti_gravity = convert_timestep_to_ti(dloga_gravity, pa, dti_max, times->Ti_Current, TI_ACCEL);
         /* make it a power 2 subdivision */
@@ -472,6 +476,8 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         #pragma omp parallel for reduction(+: badstepsizecount)
         for(i = 0; i < subact->NumActiveParticle; i++) {
             const int pa = get_active_particle(subact, i);
+            if(P[pa].Swallowed || P[pa].IsGarbage)
+                continue;
             double dloga_gravity = get_timestep_gravity_dloga(pa, GravAccel[pa], atime, hubble);
             inttime_t dti_gravity = convert_timestep_to_ti(dloga_gravity, pa, dti_max, times->Ti_Current, TI_ACCEL);
             /* Reduce the timebin by 1 if needed by this current acceleration.*/
@@ -554,6 +560,8 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
         int i;
         #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++) {
+            if(P[i].Swallowed || P[i].IsGarbage)
+                continue;
             int j;
             for(j = 0; j < 3; j++)
                 P[i].FullTreeGravAccel[j] = P[i].GravAccel[j];
