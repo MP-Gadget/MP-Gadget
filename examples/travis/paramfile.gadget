@@ -6,7 +6,7 @@ MaxMemSizePerNode = 2000
 InitCondFile = output/IC
 OutputDir = output
 OutputList = 0.01,0.012, 0.015
-HiSplitGravityOn = 1
+SplitGravityTimestepsOn = 1
 # CPU time -limit
 	
 TimeLimitCPU = 43000 #= 8 hours
