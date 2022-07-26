@@ -83,9 +83,9 @@ struct itp_type
 };
 /*Interpolation objects for the redshift evolution of the UVB.*/
 /*Number of entries in the table*/
-static int NTreeCool;
+static int NTreeCool = 0;
 /*Redshift bins*/
-static double * Gamma_log1z;
+static double * Gamma_log1z = NULL;
 /*These are the photo-ionization rates*/
 static struct itp_type Gamma_HI, Gamma_HeI, Gamma_HeII;
 /*These are the photo-heating rates*/
@@ -264,7 +264,7 @@ struct UVBG get_global_UVBG(double redshift)
 {
     struct UVBG GlobalUVBG = {0};
 
-    if(!CoolingParams.PhotoIonizationOn)
+    if(!CoolingParams.PhotoIonizationOn || NTreeCool <= 0)
         return GlobalUVBG;
 
     /* Set the homogeneous reionization redshift as the point when the UVB switches on.*/

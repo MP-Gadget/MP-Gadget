@@ -71,7 +71,6 @@ set_petaio_params(ParameterSet * ps)
         IO.OutputHeliumFractions = param_get_int(ps, "OutputHeliumFractions");
         param_get_string2(ps, "SnapshotFileBase", IO.SnapshotFileBase, sizeof(IO.SnapshotFileBase));
         param_get_string2(ps, "InitCondFile", IO.InitCondFile, sizeof(IO.InitCondFile));
-
     }
     MPI_Bcast(&IO, sizeof(struct petaio_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
