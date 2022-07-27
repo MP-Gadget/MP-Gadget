@@ -172,6 +172,8 @@ double GetCoolingTime(double redshift, double u_old, double rho, struct UVBG * u
 double
 GetNeutralFraction(double u_old, double rho, const struct UVBG * uvbg, double ne_init)
 {
+    if(!coolunits.CoolingOn)
+        return 1;
     /* convert to physical cgs units */
     rho *= coolunits.density_in_phys_cgs / PROTONMASS;
     u_old *= coolunits.uu_in_cgs;
