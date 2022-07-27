@@ -513,7 +513,7 @@ get_interpolated_recomb(double logt, double * rec_tab, double rec_func(double))
     double dind = (logt - RECOMBTMIN) / (RECOMBTMAX - RECOMBTMIN) * NRECOMBTAB;
     int index = (int) dind;
     /*Just call the function directly if we are out of interpolation range*/
-    if(index < 0 || index >= NRECOMBTAB-1)
+    if(!rec_tab || index < 0 || index >= NRECOMBTAB-1)
         return rec_func(exp(logt));
     //if (temp_tab[index] > logt || temp_tab[index+1] < logt || index < 0 || index >= NRECOMBTAB)
     //    endrun(2, "Incorrect indexing of recombination array\n");
