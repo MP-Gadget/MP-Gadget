@@ -10,7 +10,7 @@
  *   Note that because each snapshot uses TIMEBASE on the integer timeline, the conversion
  *   factor between loga and ti is not constant across snapshots.
  */
-#define TIMEBINS 20
+#define TIMEBINS 24
 #define TIMEBASE (1u<<TIMEBINS)
 #define MAXSNAPSHOTS (1u<<(30-TIMEBINS))
 
