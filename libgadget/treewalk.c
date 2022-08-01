@@ -221,9 +221,10 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     DataNodeList =
         (struct data_nodelist *) mymalloc("DataNodeList", tw->BunchSize * sizeof(struct data_nodelist));
 
-#ifdef DEBUG
+/* This is a very slow check, so removed. Easier to use address sanitiser
+ #ifdef DEBUG
     memset(DataNodeList, -1, sizeof(struct data_nodelist) * tw->BunchSize);
-#endif
+#endif*/
 }
 
 static void ev_finish(TreeWalk * tw)
@@ -258,7 +259,8 @@ treewalk_init_query(TreeWalk * tw, TreeWalkQueryBase * query, int i, int * NodeL
         query->NodeList[1] = -1; /* terminate immediately */
         /* Zero the rest of the nodelist*/
 #ifdef DEBUG
-        memset(query->NodeList+2, 0, sizeof(int) * (NODELISTLENGTH-2));
+        query->NodeList[2] = 0;
+//         memset(query->NodeList+2, 0, sizeof(int) * (NODELISTLENGTH-2));
 #endif
     }
 
