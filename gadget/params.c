@@ -216,7 +216,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "BlackHoleFeedbackFactor", OPTIONAL, 0.05, " Fraction of the black hole luminosity to turn into thermal energy");
     param_declare_double(ps, "BlackHoleFeedbackRadius", OPTIONAL, 0, "NO EFFECT. Was the comoving radius at which the black hole feedback energy was deposited. Did not affect accretion so had odd behaviour.");
     param_declare_int(ps, "BlackHoleRepositionEnabled", OPTIONAL, 1, "Enables Black hole repositioning to the potential minimum.");
-    
+
     param_declare_int(ps, "BlackHoleKineticOn", OPTIONAL, 0, "Switch to AGN kinetic feedback when Eddington accretion is low.");
     param_declare_double(ps,"BHKE_EddingtonThrFactor",OPTIONAL, 0.05, "Threshold of the Eddington rate for the kinetic feedback");
     param_declare_double(ps,"BHKE_EddingtonMFactor",OPTIONAL, 0.002, "Factor for mbh-dependent Eddington threshold for the kinetic feedback");
@@ -294,10 +294,10 @@ create_gadget_parameter_set()
     param_declare_double(ps, "WindEnergyFraction", OPTIONAL, 1.0, "Fraction of the available energy that goes into winds.");
 
     /* The following two are for OFJT10*/
-    param_declare_double(ps, "WindSigma0", OPTIONAL, 353, "Reference halo circular velocity at which to evaluate wind speed. Needs ofjt10 wind model.");
-    param_declare_double(ps, "WindSpeedFactor", OPTIONAL, 3.7, "Factor connecting wind speed to halo circular velocity. ofjt10 wind model.");
+    param_declare_double(ps, "WindSigma0", OPTIONAL, 353, "Square root of energy ejection rate for winds (controls mass loading) in km/s. Needs ofjt10 wind model.");
+    param_declare_double(ps, "WindSpeedFactor", OPTIONAL, 3.7, "Factor connecting wind speed to local particle velocity dispersion. ofjt10 wind model.");
 
-    param_declare_double(ps, "WindFreeTravelLength", OPTIONAL, 20, "Expected decoupling distance for the wind in internal distance units.");
+    param_declare_double(ps, "WindFreeTravelLength", OPTIONAL, 20, "Expected decoupling distance for the wind in internal distance units. Small effect because the other recoupling conditions dominate.");
     param_declare_double(ps, "WindFreeTravelDensFac", OPTIONAL, 0.1, "If the density of the wind particle drops below this factor of the star formation density threshold, the gas will recouple.");
     param_declare_double(ps, "MinWindVelocity", OPTIONAL, 0, "Minimum velocity of the kicked particle in the wind, in internal units (physical km/s).");
     param_declare_double(ps, "WindThermalFactor", OPTIONAL, 0, "Fraction of the wind energy which comes thermally rather than kinetic.");
