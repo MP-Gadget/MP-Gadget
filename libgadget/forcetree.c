@@ -235,24 +235,14 @@ ForceTree force_tree_build(int npart, int mask, DomainDecomp * ddecomp, const in
     }
     if(mask == ALLMASK)
         walltime_measure("/Tree/Build/Nodes");
-#ifdef DEBUG
-    force_validate_nextlist(&tree);
-#endif
     /* insert the pseudo particles that represent the mass distribution of other ddecomps */
     force_insert_pseudo_particles(&tree, ddecomp);
-#ifdef DEBUG
-    force_validate_nextlist(&tree);
-#endif
 
     tree.moments_computed_flag = 0;
 
     if(DoMoments) {
         /* now compute the multipole moments recursively */
         force_update_node_parallel(&tree, ddecomp);
-#ifdef DEBUG
-        force_validate_nextlist(&tree);
-#endif
-
         /* Exchange the pseudo-data*/
         force_exchange_pseudodata(&tree, ddecomp);
 
