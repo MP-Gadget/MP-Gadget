@@ -652,7 +652,7 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
 
     int64_t ntiaccel=0, nticourant=0, ntiaccrete=0, ntineighbour=0, ntihsml=0;
     int badstepsizecount = 0;
-    int mTimeBin = times->mintimebin;
+    int mTimeBin = TIMEBINS;
     #pragma omp parallel for reduction(min: mTimeBin) reduction(+: badstepsizecount, ntiaccel, nticourant, ntiaccrete, ntineighbour, ntihsml)
     for(pa = 0; pa < act->NumActiveParticle; pa++)
     {
@@ -712,8 +712,7 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
     if(isFirstTimeStep)
         set_bh_first_timestep(mTimeBin);
     walltime_measure("/Timeline");
-    if(mTimeBin < times->mintimebin)
-        times->mintimebin = mTimeBin;
+    times->mintimebin = mTimeBin;
     return badstepsizecount;
 }
 
