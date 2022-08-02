@@ -454,6 +454,9 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             }
             else
                 grav_short_tree(&Act, &pm, &Tree, rho0, HybridNuTracer, All.FastParticleType);
+            /* Now we have computed the total acceleration, set old acc for the next PM step.*/
+            if(is_PM)
+                grav_set_oldaccs(All.CP.GravInternal);
         }
 
         /* We use the total gravitational acc.

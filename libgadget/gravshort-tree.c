@@ -410,4 +410,24 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     return 1;
 }
 
+/*Compute the absolute magnitude of the acceleration for a particle.*/
+static MyFloat
+grav_get_abs_accel(struct particle_data * PP, const double G)
+{
+    double aold=0;
+    int j;
+    for(j = 0; j < 3; j++) {
+       double ax = PP->GravAccel[j] + PP->GravPM[j];
+       aold += ax*ax;
+    }
+    return sqrt(aold) / G;
+}
 
+void
+grav_set_oldaccs(const double G)
+{
+    int i = 0;
+    #pragma omp parallel for
+    for(i = 0; i < PartManager->NumPart; i++)
+        P[i].OldAcc = grav_get_abs_accel(&P[i], G);
+}

@@ -74,16 +74,7 @@ static void
 grav_short_copy(int place, TreeWalkQueryGravShort * input, TreeWalk * tw)
 {
     input->Soft = FORCE_SOFTENING(place, P[place].Type);
-    /*Compute old acceleration before we over-write things*/
-    double aold=0;
-    int i;
-    for(i = 0; i < 3; i++) {
-       double ax = P[place].GravAccel[i] + P[place].GravPM[i];
-       aold += ax*ax;
-    }
-
-    input->OldAcc = sqrt(aold)/GRAV_GET_PRIV(tw)->G;
-
+    input->OldAcc = P[place].OldAcc;
 }
 static void
 grav_short_reduce(int place, TreeWalkResultGravShort * result, enum TreeWalkReduceMode mode, TreeWalk * tw)

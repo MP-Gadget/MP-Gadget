@@ -40,6 +40,7 @@ struct particle_data
     MyFloat Vel[3];   /* particle velocity at its current time */
     MyFloat GravAccel[3];  /* particle acceleration due to short-range gravity */
 
+    MyFloat OldAcc; /*  Magnitude of full acceleration on the last PM step, for tree opening criterion. */
     MyFloat GravPM[3];		/* particle acceleration due to long-range PM gravity force */
 
     MyFloat Potential;		/* gravitational potential. This is the total potential after gravtree+gravpm is called. */
