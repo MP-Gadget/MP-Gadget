@@ -15,10 +15,9 @@ struct particle_data
     struct {
         /* particle type.  0=gas, 1=halo, 2=disk, 3=bulge, 4=stars, 5=bndry */
         unsigned int Type                 :4;
-
         unsigned int IsGarbage            :1; /* True for a garbage particle. readonly: Use slots_mark_garbage to mark this.*/
         unsigned int Swallowed            :1; /* True if the particle is being swallowed; used in BH to determine swallower and swallowee;*/
-        unsigned int spare_1              :1; /*Unused, ensures alignment to a char*/
+        unsigned int HeIIIionized        :1; /* True if the particle has undergone helium reionization.*/
         unsigned int BHHeated              :1; /* Flags that particle was heated by a BH this timestep*/
         unsigned char Generation; /* How many particles it has spawned; used to generate unique particle ID.
                                      may wrap around with too many SFR/BH if a feedback model goes rogue */
@@ -27,12 +26,6 @@ struct particle_data
                                      * Star formation, cooling, and BH accretion takes place on the hydro timestep.
                                      * Dynamic friction is also the hydro timestep because it relies on the gas density. */
         unsigned char TimeBinGravity; /* Time step bin for gravity; 0 for unassigned.*/
-        unsigned char HeIIIionized; /* True if the particle has undergone helium reionization.
-                                     * This could be a bitfield: it isn't because we need to change it in an atomic.
-                                     * Changing a bitfield in an atomic seems to work in OpenMP 5.0 on gcc 9 and icc 18 and 19,
-                                     * so we should be able to make it a bitfield at some point. */
-        /* To ensure alignment to a 32-bit boundary.*/
-        unsigned char spare[3];
     };
 
     int PI; /* particle property index; used by BH, SPH and STAR.
