@@ -114,6 +114,9 @@ static void cooling_direct(int i, const double redshift, const double a3inv, con
 
 static void cooling_relaxed(int i, double dtime, struct UVBG * local_uvbg, const double redshift, const double a3inv, struct sfr_eeqos_data sfr_data, const struct UVBG * const GlobalUVBG);
 
+/* Update the active particle list when a new star is formed.*/
+static int add_new_particle_to_active(const int parent, const int child, ActiveParticles * act);
+
 static int make_particle_star(int child, int parent, int placement, double Time);
 static int starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, const double redshift, const double a3inv, const double hubble, const double GravInternal, const struct UVBG * const GlobalUVBG);
 static int quicklyastarformation(int i, const double a3inv);
@@ -160,7 +163,6 @@ void set_sfr_params(ParameterSet * ps)
     }
     MPI_Bcast(&sfr_params, sizeof(struct SFRParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
-
 
 /* cooling and star formation routine.*/
 void
@@ -323,13 +325,8 @@ cooling_and_starformation(ActiveParticles * act, double Time, const DriftKickTim
         if(child == parent)
             stars_converted++;
         else {
-            /*! When a new additional star particle is created, we add it to the active list.*/
-            /* emit event for forcetree to deal with the new particle */
-            EISlotsFork event = {
-                .parent = parent,
-                .child = child,
-            };
-            event_emit(&EventSlotsFork, (EIBase *) &event);
+            /* Update the active particle list when a new star is formed.*/
+            add_new_particle_to_active(parent, child, act);
             stars_spawned++;
         }
     }
@@ -1016,4 +1013,31 @@ static double get_sfr_factor_due_to_selfgravity(int i, const double atime, const
         y *= 1.0/(1.0 + alpha_vir);
     }
     return y;
+}
+
+/* Update the active particle list when a new star is formed.
+ * if the parent is active the child should also be active.
+ * Stars must always be (hydro) active on formation. */
+static int
+add_new_particle_to_active(const int parent, const int child, ActiveParticles * act)
+{
+
+    /* If gravity active, increment the counter*/
+    int is_grav_active = is_timebin_active(P[parent].TimeBinGravity, P[parent].Ti_drift);
+    if(is_grav_active) {
+        #pragma omp atomic update
+        act->NumActiveGravity++;
+    }
+    /* If either is active, need to be in the active list. */
+    if(is_grav_active || is_timebin_active(P[parent].TimeBinHydro, P[parent].Ti_drift)) {
+        int64_t childactive = atomic_fetch_and_add_64(&act->NumActiveParticle, 1);
+        if(act->ActiveParticle) {
+            /* This should never happen because we allocate as much space for active particles as we have space
+             * for particles, but just in case*/
+            if(childactive >= act->MaxActiveParticle)
+                endrun(5, "Tried to add %ld active particles, more than %ld allowed\n", childactive, act->MaxActiveParticle);
+            act->ActiveParticle[childactive] = child;
+        }
+    }
+    return 0;
 }
