@@ -70,7 +70,7 @@ grav_short_postprocess(int i, TreeWalk * tw)
     if(GRAV_GET_PRIV(tw)->Accel)
         GravAccel = GRAV_GET_PRIV(tw)->Accel[i];
     else
-        GravAccel = P[i].GravAccel;
+        GravAccel = P[i].FullTreeGravAccel;
     GravAccel[0] *= G;
     GravAccel[1] *= G;
     GravAccel[2] *= G;
@@ -96,7 +96,7 @@ grav_short_reduce(int place, TreeWalkResultGravShort * result, enum TreeWalkRedu
     if(GRAV_GET_PRIV(tw)->Accel)
         GravAccel = GRAV_GET_PRIV(tw)->Accel[place];
     else
-        GravAccel = P[place].GravAccel;
+        GravAccel = P[place].FullTreeGravAccel;
     int k;
     for(k = 0; k < 3; k++)
         TREEWALK_REDUCE(GravAccel[k], result->Acc[k]);

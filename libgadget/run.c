@@ -489,10 +489,18 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         int64_t totgravactive;
         MPI_Allreduce(&Act.NumActiveGravity, &totgravactive, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
+        /* Some temporary memory for accelerations*/
+        MyFloat (* GravAccel) [3] = NULL;
         /* Gravitational acceleration here*/
         if(totgravactive) {
-            if(All.HierarchicalGravity)
-                hierarchical_gravity_accelerations(&Act, &pm, ddecomp, &times, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
+            if(All.HierarchicalGravity) {
+                /* For the PM step we re-use FullTreeGravAccel and so do not allocate this.*/
+                if(!is_PM) {
+                    /* We need to store a GravAccel for new star particles as well, so we need extra memory.*/
+                    GravAccel = (MyFloat (*) [3]) mymalloc2("GravAccel", PartManager->MaxPart * sizeof(GravAccel[0]));
+                }
+                hierarchical_gravity_accelerations(&Act, &pm, ddecomp, GravAccel, &times, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
+            }
             else if(All.TreeGravOn && totgravactive) {
                     /* We need a tree if we will do a short-range gravity treewalk.
                      * We also need one for PM so we can do the indexing.*/
@@ -589,15 +597,10 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
             /**** radiative cooling and star formation *****/
             if(All.CoolingOn)
-                cooling_and_starformation(&Act, atime, &times, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &Tree, ddecomp, &All.CP, GradRho, fds.FdSfr);
+                cooling_and_starformation(&Act, atime, &times, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &Tree, GravAccel, ddecomp, &All.CP, GradRho, fds.FdSfr);
         }
         /* We don't need this timestep's tree anymore.*/
         force_tree_free(&Tree);
-
-        if(GradRho) {
-            myfree(GradRho);
-            GradRho = NULL;
-        }
 
         /* If a snapshot is requested, write it.         *
          * We only attempt to output on sync points. This is the only chance where all variables are
@@ -673,14 +676,23 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
              * Note this is separated from the first force computation because
              * each timebin has a force done individually and we do not store the acceleration hierarchy.
              * This does mean we double the cost of the force evaluations.*/
-            if(totgravactive)
-                badtimestep = hierarchical_gravity_and_timesteps(&Act, &pm, ddecomp, &times, atime, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
+            if(totgravactive) {
+                badtimestep = hierarchical_gravity_and_timesteps(&Act, &pm, ddecomp, GravAccel, &times, atime, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
+                if(GravAccel)
+                    myfree(GravAccel);
+            }
             if(GasEnabled) {
                 /* Find hydro timesteps and apply the hydro kick, unsyncing the drift and kick times. */
                 badtimestep += find_hydro_timesteps(&Act, &times, atime, &All.CP, NumCurrentTiStep == 0);
                 /* If there is no hydro kick to do we still need to update the kick times.*/
                 apply_hydro_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
             }
+        }
+
+        /* Delayed here because it is allocated high before GravAccel*/
+        if(GradRho) {
+            myfree(GradRho);
+            GradRho = NULL;
         }
 
         /* Set ti_kick in the time structure*/
@@ -741,7 +753,7 @@ runfof(const int RestartSnapNum, const inttime_t Ti_Current, const struct header
             slots_free_sph_pred_data(&sph_predicted);
         }
         ForceTree Tree = {0};
-        cooling_and_starformation(&Act, header->TimeSnapshot, NULL, 0, &Tree, ddecomp, &All.CP, GradRho, NULL);
+        cooling_and_starformation(&Act, header->TimeSnapshot, NULL, 0, &Tree, NULL, ddecomp, &All.CP, GradRho, NULL);
         if(GradRho)
             myfree(GradRho);
     }

@@ -85,12 +85,13 @@ void set_timestep_params(ParameterSet * ps);
 
 /* Assigns new short-range timesteps, computes short-range gravitational forces
  * and does the gravitational half-step kicks.
- * Note this does not compute the initial accelerations: hierarchical_gravity_accelerations should be run FIRST. */
-int hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, DriftKickTimes * times, const double atime, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir);
+ * Note this does not compute the initial accelerations: hierarchical_gravity_accelerations should be run FIRST.
+ * Re-uses the gravity memory from StoredGravAccel.*/
+int hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, MyFloat (* StoredGravAccel)[3], DriftKickTimes * times, const double atime, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir);
 
 /* Computes short-range gravitational forces and
- * do the gravitational half-step kicks.*/
-int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, DriftKickTimes * times, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir);
+ * do the gravitational half-step kicks. Places the gravitational force into StoredGravAccel.*/
+int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, MyFloat (* StoredGravAccel)[3], DriftKickTimes * times, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir);
 
 /* Updates the Ti_kick times a half-step for this bin*/
 void update_kick_times(DriftKickTimes * times);

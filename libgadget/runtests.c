@@ -10,7 +10,7 @@
 
 char * GDB_format_particle(int i);
 
-SIMPLE_GETTER(GTGravAccel, GravAccel[0], float, 3, struct particle_data)
+SIMPLE_GETTER(GTGravAccel, FullTreeGravAccel[0], float, 3, struct particle_data)
 SIMPLE_GETTER(GTGravPM, GravPM[0], float, 3, struct particle_data)
 
 void register_extra_blocks(struct IOTable * IOTable)
@@ -31,7 +31,7 @@ double copy_and_mean_accn(double (* PairAccn)[3])
     {
         int k;
         for(k=0; k<3; k++) {
-            PairAccn[i][k] = P[i].GravPM[k] + P[i].GravAccel[k];
+            PairAccn[i][k] = P[i].GravPM[k] + P[i].FullTreeGravAccel[k];
             meanacc += fabs(PairAccn[i][k]);
         }
     }
@@ -54,7 +54,7 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3
         for(k=0; k<3; k++) {
             double err = 0;
             if(PairAccn[i][k] != 0)
-                err = fabs((PairAccn[i][k] - (P[i].GravPM[k] + P[i].GravAccel[k]))/meanacc);
+                err = fabs((PairAccn[i][k] - (P[i].GravPM[k] + P[i].FullTreeGravAccel[k]))/meanacc);
             meanerr += err;
             if(maxerr < err)
                 maxerr = err;

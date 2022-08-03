@@ -1003,7 +1003,7 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID, int MetalRet
 /* Add extra debug blocks to the output*/
 /* Write (but don't read) them, only useful for debugging the particle structures.
  * Warning: future code versions may change the units!*/
-SIMPLE_GETTER(GTGravAccel, GravAccel[0], float, 3, struct particle_data)
+SIMPLE_GETTER(GTGravAccel, FullTreeGravAccel[0], float, 3, struct particle_data)
 SIMPLE_GETTER(GTGravPM, GravPM[0], float, 3, struct particle_data)
 SIMPLE_GETTER_PI(GTHydroAccel, HydroAccel[0], float, 3, struct sph_particle_data)
 SIMPLE_GETTER_PI(GTMaxSignalVel, MaxSignalVel, float, 1, struct sph_particle_data)
