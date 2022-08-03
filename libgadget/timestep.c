@@ -81,40 +81,6 @@ ActiveParticles init_empty_active_particles(int64_t NumActiveParticle)
     return act;
 }
 
-static int
-timestep_eh_slots_fork(EIBase * event, void * userdata)
-{
-    /*Update the active particle list:
-     * if the parent is active the child should also be active.
-     * Stars must always be (hydro) active on formation, but
-     * BHs need not be: a halo can be seeded when the particle in question is inactive.*/
-
-    EISlotsFork * ev = (EISlotsFork *) event;
-
-    int parent = ev->parent;
-    int child = ev->child;
-    ActiveParticles * act = (ActiveParticles *) userdata;
-
-    /* If gravity active, increment the counter*/
-    int is_grav_active = is_timebin_active(P[parent].TimeBinGravity, P[parent].Ti_drift);
-    if(is_grav_active) {
-        #pragma omp atomic update
-        act->NumActiveGravity++;
-    }
-    /* If either is active, need to be in the active list. */
-    if(is_grav_active || is_timebin_active(P[parent].TimeBinHydro, P[parent].Ti_drift)) {
-        int64_t childactive = atomic_fetch_and_add_64(&act->NumActiveParticle, 1);
-        if(act->ActiveParticle) {
-            /* This should never happen because we allocate as much space for active particles as we have space
-             * for particles, but just in case*/
-            if(childactive >= act->MaxActiveParticle)
-                endrun(5, "Tried to add %ld active particles, more than %ld allowed\n", childactive, act->MaxActiveParticle);
-            act->ActiveParticle[childactive] = child;
-        }
-    }
-    return 0;
-}
-
 /* Enum for keeping track of which
  * timestep criterion is limiting each particles'
  * timestep evolution*/
@@ -1398,7 +1364,6 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
         act->MaxActiveParticle = act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart;
         /* listen to the slots events such that we can set timebin of new particles */
     }
-    event_listen(&EventSlotsFork, timestep_eh_slots_fork, act);
     walltime_measure("/Timeline/Active");
 
     return;
@@ -1464,7 +1429,6 @@ void free_active_particles(ActiveParticles * act)
     if(act->ActiveParticle) {
         myfree(act->ActiveParticle);
     }
-    event_unlisten(&EventSlotsFork, timestep_eh_slots_fork, act);
 }
 
 /*! This routine writes one line for every timestep.
