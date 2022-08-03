@@ -106,13 +106,4 @@ static inline double DMIN(double a, double b) {
     if(a < b) return a;
     return b;
 }
-static inline int IMAX(int a, int b) {
-    if(a > b) return a;
-    return b;
-}
-static inline int IMIN(int a, int b) {
-    if(a < b) return a;
-    return b;
-}
-
 #endif
