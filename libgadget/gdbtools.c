@@ -71,7 +71,7 @@ char * GDB_format_particle(int i) {
     add("Mass : %g ", P[i].Mass);
     add("Pos: %g %g %g ", P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
     add("Vel: %g %g %g ", P[i].Vel[0], P[i].Vel[1], P[i].Vel[2]);
-    add("GravAccel: %g %g %g ", P[i].GravAccel[0], P[i].GravAccel[1], P[i].GravAccel[2]);
+    add("FullTreeGravAccel: %g %g %g ", P[i].FullTreeGravAccel[0], P[i].FullTreeGravAccel[1], P[i].FullTreeGravAccel[2]);
     add("GravPM: %g %g %g ", P[i].GravPM[0], P[i].GravPM[1], P[i].GravPM[2]);
     return buf;
 }

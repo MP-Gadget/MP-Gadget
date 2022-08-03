@@ -118,6 +118,7 @@ static void cooling_relaxed(int i, double dtime, struct UVBG * local_uvbg, const
 
 /* Update the active particle list when a new star is formed.*/
 static int add_new_particle_to_active(const int parent, const int child, ActiveParticles * act);
+static int copy_gravaccel_new_particle(const int parent, const int child, MyFloat (* GravAccel)[3]);
 
 static int make_particle_star(int child, int parent, int placement, double Time);
 static int starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, const double redshift, const double a3inv, const double hubble, const double GravInternal, const struct UVBG * const GlobalUVBG);
@@ -169,7 +170,7 @@ void set_sfr_params(ParameterSet * ps)
 
 /* cooling and star formation routine.*/
 void
-cooling_and_starformation(ActiveParticles * act, double Time, const DriftKickTimes * const times, double dloga, ForceTree * tree, DomainDecomp * ddecomp, Cosmology *CP, MyFloat * GradRho, FILE * FdSfr)
+cooling_and_starformation(ActiveParticles * act, double Time, const DriftKickTimes * const times, double dloga, ForceTree * tree, MyFloat (* GravAccel)[3], DomainDecomp * ddecomp, Cosmology *CP, MyFloat * GradRho, FILE * FdSfr)
 {
     const int nthreads = omp_get_max_threads();
     /*This is a queue for the new stars and their parents, so we can reallocate the slots after the main cooling loop.*/
@@ -330,6 +331,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, const DriftKickTim
         else {
             /* Update the active particle list when a new star is formed.*/
             stars_spawned_gravity += add_new_particle_to_active(parent, child, act);
+            copy_gravaccel_new_particle(parent, child, GravAccel);
             stars_spawned++;
         }
     }
@@ -1049,6 +1051,20 @@ add_new_particle_to_active(const int parent, const int child, ActiveParticles * 
                 endrun(5, "Tried to add %ld active particles, more than %ld allowed\n", childactive, act->MaxActiveParticle);
             act->ActiveParticle[childactive] = child;
         }
+    }
+    return is_grav_active;
+}
+
+/* Copy the gravitational acceleration if necessary for a new particle.*/
+static int
+copy_gravaccel_new_particle(const int parent, const int child, MyFloat (* GravAccel)[3])
+{
+    /* If gravity active, increment the counter*/
+    int is_grav_active = is_timebin_active(P[parent].TimeBinGravity, P[parent].Ti_drift);
+    if(is_grav_active && GravAccel) {
+        int j;
+        for(j=0; j < 3 ; j++)
+            GravAccel[child][j] = GravAccel[parent][j];
     }
     return 0;
 }

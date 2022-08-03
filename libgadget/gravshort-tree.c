@@ -421,7 +421,7 @@ grav_get_abs_accel(struct particle_data * PP, const double G)
     double aold=0;
     int j;
     for(j = 0; j < 3; j++) {
-       double ax = PP->GravAccel[j] + PP->GravPM[j];
+       double ax = PP->FullTreeGravAccel[j] + PP->GravPM[j];
        aold += ax*ax;
     }
     return sqrt(aold) / G;

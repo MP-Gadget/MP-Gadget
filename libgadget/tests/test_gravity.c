@@ -80,7 +80,7 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double *PairAccn, do
     {
         int k;
         for(k=0; k<3; k++) {
-            double err = fabs((PairAccn[3*i+k] - (P[i].GravPM[k] + P[i].GravAccel[k]))/meanacc);
+            double err = fabs((PairAccn[3*i+k] - (P[i].GravPM[k] + P[i].FullTreeGravAccel[k]))/meanacc);
             meanerr += err;
             if(maxerr < err)
                 maxerr = err;
@@ -105,7 +105,7 @@ static void find_means(double * meangrav, double * suppmean, double * suppaccns)
         for(k=0; k<3; k++) {
             if(suppaccns)
                 meanacc += fabs(suppaccns[3*i+k]);
-            meanforce += fabs(P[i].GravPM[k] + P[i].GravAccel[k]);
+            meanforce += fabs(P[i].GravPM[k] + P[i].FullTreeGravAccel[k]);
         }
     }
     int64_t tot_npart;
@@ -248,7 +248,7 @@ static void test_force_flat(void ** state) {
     {
         int k;
         for(k=0; k<3; k++) {
-            double err = fabs((P[i].GravPM[k] + P[i].GravAccel[k]));
+            double err = fabs((P[i].GravPM[k] + P[i].FullTreeGravAccel[k]));
             meanerr += err;
             if(maxerr < err)
                 maxerr = err;
