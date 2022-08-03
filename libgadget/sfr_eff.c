@@ -325,8 +325,16 @@ cooling_and_starformation(ActiveParticles * act, double Time, const DriftKickTim
         sum_mass_stars += P[child].Mass;
         if(child == parent)
             stars_converted++;
-        else
+        else {
+            /*! When a new additional star particle is created, we add it to the active list.*/
+            /* emit event for forcetree to deal with the new particle */
+            EISlotsFork event = {
+                .parent = parent,
+                .child = child,
+            };
+            event_emit(&EventSlotsFork, (EIBase *) &event);
             stars_spawned++;
+        }
     }
 
     /*Done with the parents*/

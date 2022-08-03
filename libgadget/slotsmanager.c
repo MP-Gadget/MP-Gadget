@@ -122,18 +122,6 @@ slots_split_particle(int parent, double childmass, struct part_manager_type * pm
     /*Invalidate the slot of the child. Call slots_convert soon afterwards!*/
     pman->Base[child].PI = -1;
 
-    /*! When a new additional star particle is created, we can put it into the
-     *  tree at the position of the spawning gas particle. Multipole moments
-     *  of tree nodes need not be changed.
-     */
-    /* emit event for forcetree to deal with the new particle */
-    EISlotsFork event = {
-        .parent = parent,
-        .child = child,
-    };
-
-    event_emit(&EventSlotsFork, (EIBase *) &event);
-
     return child;
 }
 
