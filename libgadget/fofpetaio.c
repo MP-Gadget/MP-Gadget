@@ -201,11 +201,7 @@ fof_try_particle_exchange(struct part_manager_type * halo_pman, struct slots_man
 
     #pragma omp parallel for
     for(i = 0; i < halo_pman->NumPart; i ++) {
-/* YU: A typo error here, should be IMIN, DMIN is for double but this should have tainted TargetTask,
-   offset and chunksize are int  */
-        //ptrdiff_t offset = offsetLocal + i;
-        //pi[i].targetTask = IMIN(offset / chunksize, NTask - 1);
-    /* YU: let's see if we keep the FOF particle load on the processes, IO would be faster
+        /* YU: let's see if we keep the FOF particle load on the processes, IO would be faster
            (as at high z many ranks has no FOF), communication becomes sparse. */
         pi[i].targetTask = ThisTask;
     }
