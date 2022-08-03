@@ -1,9 +1,0 @@
-<map id="cooling_direct" name="cooling_direct">
-<area shape="rect" id="node2" href="$sfr__eff_8c.html#aec2d4b18a02ca0bbca8111e41fae0248" title="cool_postprocess" alt="" coords="156,31,280,57"/>
-<area shape="rect" id="node3" href="$sfr__eff_8h.html#aaa7b178a168a5d23b2cfe478ebc58ee1" title="cooling_only" alt="" coords="328,31,423,57"/>
-<area shape="rect" id="node4" href="$run_8c.html#abb80d08f4d52f4a7bdf28d1cecfead5b" title="compute_accelerations" alt="" coords="471,31,627,57"/>
-<area shape="rect" id="node5" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="675,31,715,57"/>
-<area shape="rect" id="node6" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="763,5,813,32"/>
-<area shape="rect" id="node7" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="861,5,972,32"/>
-<area shape="rect" id="node8" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="1020,31,1123,57"/>
-</map>

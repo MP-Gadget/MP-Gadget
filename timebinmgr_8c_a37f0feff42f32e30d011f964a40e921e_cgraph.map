@@ -1,7 +1,0 @@
-<map id="dloga_from_dti" name="dloga_from_dti">
-<area shape="rect" id="node2" href="$timebinmgr_8c.html#a1aaa55e4aa15066a753c96e8646e62be" title="Dloga_interval_ti" alt="" coords="160,5,279,32"/>
-<area shape="rect" id="node3" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title="endrun" alt="" coords="189,56,250,83"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="327,56,409,83"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="486,31,546,57"/>
-<area shape="rect" id="node6" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="457,81,575,108"/>
-</map>

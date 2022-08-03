@@ -1,22 +1,6 @@
 var searchData=
 [
-  ['paramerror',['ParamError',['../param2_8c.html#a4975f8c59cbeaa17941554675238be6d',1,'param2.c']]],
-  ['parameteraction',['ParameterAction',['../paramset_8h.html#af43b657515397074fb649232166db0fa',1,'paramset.h']]],
-  ['parameterenum',['ParameterEnum',['../paramset_8h.html#a39b0d47b28329bd84da8700619ed1442',1,'paramset.h']]],
-  ['parameterschema',['ParameterSchema',['../paramset_8c.html#ad702e41b9160eb38664eb73d05f01cf7',1,'paramset.c']]],
-  ['parameterset',['ParameterSet',['../paramset_8h.html#ad9be11fa6140349b126cb52f85053cbc',1,'paramset.h']]],
-  ['parametervalue',['ParameterValue',['../paramset_8c.html#a060806b2f60b5175e3e09c70c6263569',1,'paramset.c']]],
-  ['paramparser',['ParamParser',['../param2_8c.html#ac7cc7e53f774a7be8e04dff6a793cdd2',1,'param2.c']]],
-  ['paramschema',['ParamSchema',['../param2_8c.html#ae89f4b65346d11849a6297ae1f6857d6',1,'param2.c']]],
-  ['peano_5ft',['peano_t',['../peano_8h.html#a58bb9811a34340f0c290fb21568aaf7e',1,'peano.h']]],
-  ['petaio_5fselection',['petaio_selection',['../petaio_8h.html#ac6014f5b74b81d4ca7ede89419ba9170',1,'petaio.h']]],
-  ['petapm_5fmalloc_5ffunc',['petapm_malloc_func',['../petapm_8h.html#af88d358c82f95712550ea4e35535c8da',1,'petapm.h']]],
-  ['petapm_5fmfree_5ffunc',['petapm_mfree_func',['../petapm_8h.html#a53115e5ab514e492e083345ca5caa5a5',1,'petapm.h']]],
-  ['petapm_5fprepare_5ffunc',['petapm_prepare_func',['../petapm_8h.html#a1db944514a7b45f14f637a549d8acf50',1,'petapm.h']]],
-  ['petapm_5freadout_5ffunc',['petapm_readout_func',['../petapm_8h.html#a4253db9cabf8ca28d053f048dae2c0ef',1,'petapm.h']]],
-  ['petapm_5ftransfer_5ffunc',['petapm_transfer_func',['../petapm_8h.html#a5d0fb151b999d97b64ddf8fcdfe175e0',1,'petapm.h']]],
-  ['petapmregion',['PetaPMRegion',['../petapm_8h.html#a386dd942b02b11f2a367995ab2c0af31',1,'petapm.h']]],
-  ['pm_5fiterator',['pm_iterator',['../petapm_8c.html#ae6ea3ece1a893307290405c9aec2f361',1,'petapm.c']]],
-  ['property_5fgetter',['property_getter',['../petaio_8h.html#ae28fbad3a576c00c114d86c27869178e',1,'petaio.h']]],
-  ['property_5fsetter',['property_setter',['../petaio_8h.html#a43091c5ea072e4f9fa21467484dae15a',1,'petaio.h']]]
+  ['mydouble_5158',['MyDouble',['../types_8h.html#af1e0db71051e9d807134ddc461656b38',1,'types.h']]],
+  ['myfloat_5159',['MyFloat',['../types_8h.html#af1ada7381a1118c6d51bdbb0b5e72811',1,'types.h']]],
+  ['myidtype_5160',['MyIDType',['../types_8h.html#ad1d0bf70ad98a229cfc51edcd568fb70',1,'types.h']]]
 ];

@@ -1,5 +1,0 @@
-<map id="init_endrun" name="init_endrun">
-<area shape="rect" id="node2" href="$endrun_8c.html#abe7778d8a523a05ce29a4c757c52a4be" title="init_stacktrace" alt="" coords="139,5,245,32"/>
-<area shape="rect" id="node3" href="$endrun_8c.html#aac222a0612f300474b17f748f0ebbca9" title="OsSigHandler" alt="" coords="293,5,396,32"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="444,5,561,32"/>
-</map>

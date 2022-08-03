@@ -1,3 +1,13 @@
-<map id="peano.c" name="peano.c">
-<area shape="rect" id="node8" href="$peano_8h.html" title="peano.h" alt="" coords="151,309,219,336"/>
+<map id="libgadget/utils/peano.c" name="libgadget/utils/peano.c">
+<area shape="rect" id="node1" title=" " alt="" coords="224,5,395,32"/>
+<area shape="rect" id="node2" title=" " alt="" coords="5,80,64,107"/>
+<area shape="rect" id="node3" title=" " alt="" coords="88,80,155,107"/>
+<area shape="rect" id="node4" title=" " alt="" coords="179,80,250,107"/>
+<area shape="rect" id="node5" href="$string_8h.html" title=" " alt="" coords="274,80,345,107"/>
+<area shape="rect" id="node7" title=" " alt="" coords="369,80,437,107"/>
+<area shape="rect" id="node8" title=" " alt="" coords="461,80,601,107"/>
+<area shape="rect" id="node9" href="$peano_8h.html" title=" " alt="" coords="625,80,700,107"/>
+<area shape="rect" id="node6" title=" " alt="" coords="272,155,347,181"/>
+<area shape="rect" id="node10" title=" " alt="" coords="576,155,651,181"/>
+<area shape="rect" id="node11" title=" " alt="" coords="675,155,746,181"/>
 </map>

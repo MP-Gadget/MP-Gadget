@@ -1,6 +1,10 @@
-<map id="allvars.h" name="allvars.h">
-<area shape="rect" id="node6" href="$cosmology_8h.html" title="cosmology.h" alt="" coords="124,208,220,235"/>
-<area shape="rect" id="node9" href="$walltime_8h.html" title="walltime.h" alt="" coords="131,259,213,285"/>
-<area shape="rect" id="node11" href="$physconst_8h.html" title="physconst.h" alt="" coords="125,360,219,387"/>
-<area shape="rect" id="node12" href="$types_8h.html" title="types.h" alt="" coords="139,411,205,437"/>
+<map id="libgenic/allvars.h" name="libgenic/allvars.h">
+<area shape="rect" id="node1" title=" " alt="" coords="295,5,428,32"/>
+<area shape="rect" id="node2" href="$power_8h.html" title=" " alt="" coords="281,80,354,107"/>
+<area shape="rect" id="node7" href="$unitsystem_8h.html" title=" " alt="" coords="317,229,456,256"/>
+<area shape="rect" id="node3" href="$cosmology_8h.html" title=" " alt="" coords="73,155,241,181"/>
+<area shape="rect" id="node8" title=" " alt="" coords="265,155,369,181"/>
+<area shape="rect" id="node4" title=" " alt="" coords="5,229,80,256"/>
+<area shape="rect" id="node5" href="$omega__nu__single_8h.html" title=" " alt="" coords="105,229,253,256"/>
+<area shape="rect" id="node6" title=" " alt="" coords="118,304,239,331"/>
 </map>

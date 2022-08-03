@@ -1,0 +1,7 @@
+<map id="libgadget/metal_return.h" name="libgadget/metal_return.h">
+<area shape="rect" id="node1" title=" " alt="" coords="259,5,441,32"/>
+<area shape="rect" id="node2" href="$metal__return_8c.html" title="Compute the mass return rate of metals from stellar evolution." alt="" coords="5,87,188,114"/>
+<area shape="rect" id="node3" href="$run_8c.html" title="iterates over timesteps, main loop" alt="" coords="212,87,331,114"/>
+<area shape="rect" id="node4" href="$test__metal__return_8c.html" title=" " alt="" coords="355,80,503,121"/>
+<area shape="rect" id="node5" href="$gadget_2params_8c.html" title=" " alt="" coords="527,87,658,114"/>
+</map>

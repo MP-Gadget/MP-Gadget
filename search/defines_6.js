@@ -1,10 +1,7 @@
 var searchData=
 [
-  ['g',['g',['../auxiliary__functions_8c.html#a167d2c0ec9b943d55f2124f7442b2f6d',1,'auxiliary_functions.c']]],
-  ['gamma',['GAMMA',['../allvars_8h.html#a8659b9de3e544ff142b153b076f30fd5',1,'GAMMA():&#160;allvars.h'],['../MakePrimordialCoolingTable_8c.html#a8659b9de3e544ff142b153b076f30fd5',1,'GAMMA():&#160;MakePrimordialCoolingTable.c']]],
-  ['gamma_5fminus1',['GAMMA_MINUS1',['../allvars_8h.html#a75216f9bf4030240b1fc0e1855e032d2',1,'GAMMA_MINUS1():&#160;allvars.h'],['../MakePrimordialCoolingTable_8c.html#a75216f9bf4030240b1fc0e1855e032d2',1,'GAMMA_MINUS1():&#160;MakePrimordialCoolingTable.c']]],
-  ['garbage',['GARBAGE',['../slotsmanager_8c.html#ac3a57060dedbafcf90e20fe39d00fdd6',1,'slotsmanager.c']]],
-  ['gas_5fconst',['GAS_CONST',['../physconst_8h.html#a29ead6f96bcfe50a677f482ec638be15',1,'physconst.h']]],
-  ['generations',['GENERATIONS',['../allvars_8h.html#a516d0c5670fad64f0c2d47a893c695a4',1,'allvars.h']]],
-  ['gravity',['GRAVITY',['../physconst_8h.html#a6801baa546c6112d19eb095111d24720',1,'physconst.h']]]
+  ['fact1_5314',['FACT1',['../treewalk_8c.html#ac1cf5f91aa149ba3ad878f2f3e86a801',1,'treewalk.c']]],
+  ['float_5facc_5315',['FLOAT_ACC',['../neutrinos__lra_8c.html#a6b1d175490123ac0d1fcc75f1a9f22e9',1,'FLOAT_ACC():&#160;neutrinos_lra.c'],['../omega__nu__single_8c.html#a6b1d175490123ac0d1fcc75f1a9f22e9',1,'FLOAT_ACC():&#160;omega_nu_single.c']]],
+  ['fof_5fprimary_5fget_5fpriv_5316',['FOF_PRIMARY_GET_PRIV',['../fof_8c.html#adf22b3603cc83e9e51d0c4e1431aeb20',1,'fof.c']]],
+  ['fof_5fsecondary_5fget_5fpriv_5317',['FOF_SECONDARY_GET_PRIV',['../fof_8c.html#a285e0ba66f8ae31cc1d2e6d67d432f97',1,'fof.c']]]
 ];

@@ -1,4 +1,20 @@
 var searchData=
 [
-  ['uvbg',['UVBG',['../structUVBG.html',1,'']]]
+  ['segmentgroupdescr_2823',['SegmentGroupDescr',['../structSegmentGroupDescr.html',1,'']]],
+  ['sendrecvbuffer_2824',['SendRecvBuffer',['../structSendRecvBuffer.html',1,'']]],
+  ['sfr_5feeqos_5fdata_2825',['sfr_eeqos_data',['../structsfr__eeqos__data.html',1,'']]],
+  ['sfrparams_2826',['SFRParams',['../structSFRParams.html',1,'']]],
+  ['sigma2_5fparams_2827',['sigma2_params',['../structsigma2__params.html',1,'']]],
+  ['slot_5finfo_2828',['slot_info',['../structslot__info.html',1,'']]],
+  ['slots_5fmanager_5ftype_2829',['slots_manager_type',['../structslots__manager__type.html',1,'']]],
+  ['sph_5fparticle_5fdata_2830',['sph_particle_data',['../structsph__particle__data.html',1,'']]],
+  ['sph_5fpred_5fdata_2831',['sph_pred_data',['../structsph__pred__data.html',1,'']]],
+  ['spinlocks_2832',['SpinLocks',['../structSpinLocks.html',1,'']]],
+  ['star_5fparticle_5fdata_2833',['star_particle_data',['../structstar__particle__data.html',1,'']]],
+  ['starkick_2834',['StarKick',['../structStarKick.html',1,'']]],
+  ['state_5fof_5fsystem_2835',['state_of_system',['../structstate__of__system.html',1,'']]],
+  ['stats_5fparams_2836',['stats_params',['../structstats__params.html',1,'']]],
+  ['stellardensitypriv_2837',['StellarDensityPriv',['../structStellarDensityPriv.html',1,'']]],
+  ['sync_5fparams_2838',['sync_params',['../structsync__params.html',1,'']]],
+  ['syncpoint_2839',['SyncPoint',['../structSyncPoint.html',1,'']]]
 ];

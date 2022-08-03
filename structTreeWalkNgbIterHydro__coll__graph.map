@@ -1,4 +1,9 @@
 <map id="TreeWalkNgbIterHydro" name="TreeWalkNgbIterHydro">
-<area shape="rect" id="node3" href="$structTreeWalkNgbIterBase.html" title="TreeWalkNgbIterBase" alt="" coords="315,139,465,165"/>
-<area shape="rect" id="node6" href="$structDensityKernel.html" title="DensityKernel" alt="" coords="338,340,442,367"/>
+<area shape="rect" id="node1" title=" " alt="" coords="329,260,497,287"/>
+<area shape="rect" id="node2" title=" " alt="" coords="379,5,446,32"/>
+<area shape="rect" id="node3" href="$structTreeWalkNgbIterBase.html" title=" " alt="" coords="171,169,332,196"/>
+<area shape="rect" id="node6" href="$structDensityKernel.html" title=" " alt="" coords="533,169,647,196"/>
+<area shape="rect" id="node4" title=" " alt="" coords="280,5,319,32"/>
+<area shape="rect" id="node5" title=" " alt="" coords="5,5,220,32"/>
+<area shape="rect" id="node7" title=" " alt="" coords="565,5,615,32"/>
 </map>

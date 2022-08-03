@@ -1,7 +1,0 @@
-<map id="ReadIonizeParams" name="ReadIonizeParams">
-<area shape="rect" id="node2" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title="endrun" alt="" coords="193,5,255,32"/>
-<area shape="rect" id="node6" href="$endrun_8c.html#a6567cd867c5549fb6586e19ccd819764" title="message" alt="" coords="187,56,261,83"/>
-<area shape="rect" id="node3" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="309,31,392,57"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="469,5,529,32"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="440,56,557,83"/>
-</map>

@@ -1,11 +1,15 @@
 <map id="grav_short_copy" name="grav_short_copy">
-<area shape="rect" id="node2" href="$runtests_8c.html#a60eab909e50b5e048e572b833dcc2846" title="grav_short_pair" alt="" coords="185,56,295,83"/>
-<area shape="rect" id="node8" href="$proto_8h.html#a3890f7b7605d1abaf3cd23eeca5bcdd5" title="grav_short_tree" alt="" coords="184,107,296,133"/>
-<area shape="rect" id="node10" href="$gravshort-tree-old_8c.html#af703f51f005d6f005c4cfd250fdd5eb9" title="grav_short_tree_old" alt="" coords="172,157,308,184"/>
-<area shape="rect" id="node3" href="$runtests_8c.html#a549024555ca61e3f05a7100307e44f69" title="runtests" alt="" coords="356,56,425,83"/>
-<area shape="rect" id="node4" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="526,56,577,83"/>
-<area shape="rect" id="node5" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="677,5,788,32"/>
-<area shape="rect" id="node6" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="836,5,939,32"/>
-<area shape="rect" id="node7" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="987,56,1027,83"/>
-<area shape="rect" id="node9" href="$run_8c.html#abb80d08f4d52f4a7bdf28d1cecfead5b" title="compute_accelerations" alt="" coords="473,107,629,133"/>
+<area shape="rect" id="node1" title=" " alt="" coords="823,31,952,57"/>
+<area shape="rect" id="node2" href="$gravity_8h.html#a6e195525506b0c8f2638fda43cb8fa1f" title=" " alt="" coords="651,5,774,32"/>
+<area shape="rect" id="node7" href="$gravity_8h.html#af372a315ec289670ceaf43db26a36b43" title=" " alt="" coords="651,56,775,83"/>
+<area shape="rect" id="node3" href="$run_8c.html#a89690448ef43a8d624b963382b7503ed" title=" " alt="" coords="517,5,560,32"/>
+<area shape="rect" id="node5" href="$run_8h.html#aa438e424237818b7728b98cd764e45d1" title=" " alt="" coords="475,56,603,83"/>
+<area shape="rect" id="node4" href="$gadget_2main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title=" " alt="" coords="153,31,207,57"/>
+<area shape="rect" id="node6" href="$run_8c.html#ab1d8bf99f794003fa95002043fe3b47c" title=" " alt="" coords="326,56,401,83"/>
+<area shape="rect" id="node8" href="$test__gravity_8c.html#aa6bdcef3f6cb327efb3f2f993f64b7ce" title=" " alt="" coords="483,132,594,159"/>
+<area shape="rect" id="node9" href="$test__gravity_8c.html#a31e06bbad4eac810c349a6bc44a0aa08" title=" " alt="" coords="300,107,427,133"/>
+<area shape="rect" id="node12" href="$test__gravity_8c.html#ac3391a3ee98d428389e50b886e988c63" title=" " alt="" coords="116,157,244,184"/>
+<area shape="rect" id="node13" href="$test__gravity_8c.html#a87bcba11fc8f8f2ad649784bb1b8a48d" title=" " alt="" coords="306,208,421,235"/>
+<area shape="rect" id="node10" href="$test__gravity_8c.html#a17492d7388898745e66a636173c8ce1d" title=" " alt="" coords="108,107,252,133"/>
+<area shape="rect" id="node11" href="$test__gravity_8c.html#a840291bc02cba5474a4cb46a9b9566fe" title=" " alt="" coords="5,157,60,184"/>
 </map>

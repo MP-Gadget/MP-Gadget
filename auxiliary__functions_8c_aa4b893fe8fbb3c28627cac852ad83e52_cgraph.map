@@ -1,6 +1,0 @@
-<map id="ElectronDensity" name="ElectronDensity">
-<area shape="rect" id="node2" href="$auxiliary__functions_8c.html#abd995b7397e57f2f98c04c94d526636e" title="Physical_ElectronDensity" alt="" coords="168,31,340,57"/>
-<area shape="rect" id="node3" href="$auxiliary__functions_8c.html#ae41752a8a9fb9886dfc8413050bd318b" title="Comoving_ElectronDensity" alt="" coords="388,5,569,32"/>
-<area shape="rect" id="node5" href="$auxiliary__functions_8c.html#aa952a2752ce56a18ee0e7551947167e9" title="cube" alt="" coords="453,56,504,83"/>
-<area shape="rect" id="node4" href="$auxiliary__functions_8c.html#a9d3db0c9152e9175af7f378a24de5e16" title="IonizationGrade" alt="" coords="617,5,731,32"/>
-</map>

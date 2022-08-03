@@ -1,8 +1,0 @@
-<map id="cube" name="cube">
-<area shape="rect" id="node2" href="$auxiliary__functions_8c.html#aef36fe4bf0c58bde1d9d65a903917dfe" title="Physical_Density" alt="" coords="128,5,252,32"/>
-<area shape="rect" id="node4" href="$auxiliary__functions_8c.html#abd995b7397e57f2f98c04c94d526636e" title="Physical_ElectronDensity" alt="" coords="104,56,276,83"/>
-<area shape="rect" id="node6" href="$auxiliary__functions_8c.html#a60fb13403be6f7e2217c35c1ead1601c" title="Physical_NumberDensity" alt="" coords="105,107,275,133"/>
-<area shape="rect" id="node3" href="$auxiliary__functions_8c.html#a2d666a75f8ec7be19895f0e84f8be52e" title="Physical_InternalEnergy" alt="" coords="324,5,487,32"/>
-<area shape="rect" id="node5" href="$auxiliary__functions_8c.html#aa4b893fe8fbb3c28627cac852ad83e52" title="ElectronDensity" alt="" coords="348,56,463,83"/>
-<area shape="rect" id="node7" href="$auxiliary__functions_8c.html#a00b8f26006d4aa2010479ba18a8e5708" title="PhysicalNumberDensity" alt="" coords="324,107,487,133"/>
-</map>

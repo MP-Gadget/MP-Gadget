@@ -1,9 +1,0 @@
-<map id="slots_gc_base" name="slots_gc_base">
-<area shape="rect" id="node2" href="$endrun_8c.html#a6567cd867c5549fb6586e19ccd819764" title="message" alt="" coords="336,5,411,32"/>
-<area shape="rect" id="node6" href="$slotsmanager_8c.html#a211874e9c7fd9fd11de321abe055fc86" title="slots_gc_compact" alt="" coords="160,56,288,83"/>
-<area shape="rect" id="node8" href="$system_8c.html#a866c4b0425665030c89933c11752b1fe" title="sumup_large_ints" alt="" coords="162,107,286,133"/>
-<area shape="rect" id="node3" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="459,31,541,57"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="618,5,678,32"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="589,56,707,83"/>
-<area shape="rect" id="node7" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title="endrun" alt="" coords="343,56,404,83"/>
-</map>

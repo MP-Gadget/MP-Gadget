@@ -1,0 +1,6 @@
+<map id="libgadget/init.h" name="libgadget/init.h">
+<area shape="rect" id="node1" title=" " alt="" coords="147,5,267,32"/>
+<area shape="rect" id="node2" href="$init_8c.html" title="code for initialisation of a simulation from initial conditions" alt="" coords="5,80,124,107"/>
+<area shape="rect" id="node3" href="$run_8c.html" title="iterates over timesteps, main loop" alt="" coords="148,80,267,107"/>
+<area shape="rect" id="node4" href="$gadget_2params_8c.html" title=" " alt="" coords="291,80,422,107"/>
+</map>

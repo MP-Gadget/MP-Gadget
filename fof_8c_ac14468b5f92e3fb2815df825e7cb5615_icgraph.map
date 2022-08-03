@@ -1,13 +1,10 @@
 <map id="fof_secondary_ngbiter" name="fof_secondary_ngbiter">
-<area shape="rect" id="node2" href="$fof_8c.html#a7f43eccc3a0bc160c80b5227795bac42" title="fof_secondary_reduce" alt="" coords="204,44,355,71"/>
-<area shape="rect" id="node3" href="$fof_8c.html#a9bbff144989b21ac4cbedc3aa2c6b1dc" title="fof_label_secondary" alt="" coords="403,44,541,71"/>
-<area shape="rect" id="node4" href="$fof_8h.html#a7f10d50a8e07ce0bb67ffdfaf904d7c8" title="fof_fof" alt="" coords="1188,31,1247,57"/>
-<area shape="rect" id="node10" href="$fof_8c.html#aa0d13cc94e97083dfd468ed33331eed7" title="fof_periodic_wrap" alt="" coords="589,81,713,108"/>
-<area shape="rect" id="node5" href="$proto_8h.html#a312b6a02f7cde171412989ea5f9be48f" title="write_checkpoint" alt="" coords="1295,5,1415,32"/>
-<area shape="rect" id="node7" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="1551,56,1601,83"/>
-<area shape="rect" id="node6" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="1463,5,1503,32"/>
-<area shape="rect" id="node8" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="1649,56,1760,83"/>
-<area shape="rect" id="node9" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="1808,31,1911,57"/>
-<area shape="rect" id="node11" href="$fof_8c.html#a36336d505e8a4fb8e8fdaf9a796e40d4" title="fof_finish_group_properties" alt="" coords="761,107,940,133"/>
-<area shape="rect" id="node12" href="$fof_8c.html#ae4b5e05b1f0225637629759a9e2ba72e" title="fof_compile_catalogue" alt="" coords="988,56,1140,83"/>
+<area shape="rect" id="node1" title=" " alt="" coords="543,56,709,83"/>
+<area shape="rect" id="node2" href="$fof_8c.html#acdac83ed649364bfe1f14e9c572c7f2f" title=" " alt="" coords="341,56,495,83"/>
+<area shape="rect" id="node3" href="$fof_8c.html#aef0df27f65ad2e5a95f66ae4e970da23" title=" " alt="" coords="228,56,293,83"/>
+<area shape="rect" id="node4" href="$run_8c.html#a89690448ef43a8d624b963382b7503ed" title=" " alt="" coords="123,5,165,32"/>
+<area shape="rect" id="node6" href="$run_8c.html#a02ef4c629cc0fea15dce527f09ea672f" title=" " alt="" coords="113,56,175,83"/>
+<area shape="rect" id="node7" href="$test__fof_8c.html#a2b2edcaa960047ba6c815956c46d82a6" title=" " alt="" coords="108,107,180,133"/>
+<area shape="rect" id="node5" href="$gadget_2main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title=" " alt="" coords="5,31,60,57"/>
+<area shape="rect" id="node8" href="$test__fof_8c.html#a840291bc02cba5474a4cb46a9b9566fe" title=" " alt="" coords="5,107,60,133"/>
 </map>

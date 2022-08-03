@@ -1,7 +1,9 @@
 <map id="find_next_sync_point" name="find_next_sync_point">
-<area shape="rect" id="node2" href="$timestep_8h.html#ac4c17d0cf055339694fdd96baadd83c0" title="find_timesteps" alt="" coords="199,5,305,32"/>
-<area shape="rect" id="node3" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="353,31,393,57"/>
-<area shape="rect" id="node4" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="441,5,492,32"/>
-<area shape="rect" id="node5" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="540,5,651,32"/>
-<area shape="rect" id="node6" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="699,31,801,57"/>
+<area shape="rect" id="node1" title=" " alt="" coords="564,56,723,83"/>
+<area shape="rect" id="node2" href="$timestep_8c.html#aaf0018d0dda92e6c10da475d5a8ffd1d" title=" " alt="" coords="365,5,516,32"/>
+<area shape="rect" id="node4" href="$run_8c.html#a89690448ef43a8d624b963382b7503ed" title=" " alt="" coords="108,31,151,57"/>
+<area shape="rect" id="node6" href="$test__timebinmgr_8c.html#a446358e059e55901d8c94bfdf3c4aa3f" title=" " alt="" coords="375,107,507,133"/>
+<area shape="rect" id="node3" href="$timestep_8c.html#a7f8bb9951920bdc3a2138d91f1cfc61c" title=" " alt="" coords="199,5,317,32"/>
+<area shape="rect" id="node5" href="$gadget_2main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title=" " alt="" coords="5,31,60,57"/>
+<area shape="rect" id="node7" href="$test__timebinmgr_8c.html#a840291bc02cba5474a4cb46a9b9566fe" title=" " alt="" coords="231,107,285,133"/>
 </map>

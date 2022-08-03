@@ -1,8 +1,0 @@
-<map id="walltime_get_symbol" name="walltime_get_symbol">
-<area shape="rect" id="node2" href="$walltime_8c.html#a4f4dd186dc5d9dbfc87eaaf30ffb3642" title="walltime_clock" alt="" coords="197,56,305,83"/>
-<area shape="rect" id="node3" href="$walltime_8c.html#a7e97b1e5e48d21dd93fb962dbd031415" title="clockcmp" alt="" coords="561,5,639,32"/>
-<area shape="rect" id="node4" href="$walltime_8c.html#a771e7f4e5961eb4f5b9b1c5c75b66cf3" title="walltime_clock_insert" alt="" coords="353,56,500,83"/>
-<area shape="rect" id="node5" href="$openmpsort_8c.html#a8938b38d71dd3b45bfc7cc745c096248" title="qsort_openmp" alt="" coords="548,56,652,83"/>
-<area shape="rect" id="node6" href="$openmpsort_8c.html#af794f526e2627202b5e7d35506fa3434" title="merge" alt="" coords="728,31,787,57"/>
-<area shape="rect" id="node7" href="$openmpsort_8c.html#a9af28c641be3cee5fdee6ec137e84c9d" title="msort_with_tmp" alt="" coords="700,81,815,108"/>
-</map>

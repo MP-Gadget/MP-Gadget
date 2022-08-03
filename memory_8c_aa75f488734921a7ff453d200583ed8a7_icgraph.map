@@ -1,5 +1,10 @@
 <map id="allocator_dealloc" name="allocator_dealloc">
-<area shape="rect" id="node2" href="$memory_8h.html#ad5c874c536ebf1120a9c656644851c3b" title="allocator_destroy" alt="" coords="180,5,301,32"/>
-<area shape="rect" id="node3" href="$memory_8h.html#a447d6f87d997bf8d2de6fd9a450715b2" title="allocator_free" alt="" coords="191,56,291,83"/>
-<area shape="rect" id="node4" href="$memory_8h.html#a9291945c35ab7d144431531867a5c28c" title="allocator_realloc_int" alt="" coords="172,107,309,133"/>
+<area shape="rect" id="node1" title=" " alt="" coords="521,84,655,111"/>
+<area shape="rect" id="node2" href="$memory_8c.html#ad5c874c536ebf1120a9c656644851c3b" title=" " alt="" coords="329,84,463,111"/>
+<area shape="rect" id="node3" href="$test__memory_8c.html#af773c0ac826556f163e1efd36abc6218" title=" " alt="" coords="134,8,245,35"/>
+<area shape="rect" id="node5" href="$test__memory_8c.html#a7f811d07eda76cf9cec94860a84d9d5a" title=" " alt="" coords="108,110,271,136"/>
+<area shape="rect" id="node7" href="$memory_8c.html#a447d6f87d997bf8d2de6fd9a450715b2" title=" " alt="" coords="340,34,452,60"/>
+<area shape="rect" id="node8" href="$memory_8c.html#abfed47e0b17b8bfa570cd2f0066e269d" title=" " alt="" coords="319,186,473,212"/>
+<area shape="rect" id="node6" href="$test__memory_8c.html#ac72579b56a2f16daba717519ef4793cc" title=" " alt="" coords="119,59,260,86"/>
+<area shape="rect" id="node4" href="$test__memory_8c.html#a840291bc02cba5474a4cb46a9b9566fe" title=" " alt="" coords="5,59,60,86"/>
 </map>

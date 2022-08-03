@@ -1,8 +1,15 @@
-<map id="partmanager.c" name="partmanager.c">
-<area shape="rect" id="node3" href="$partmanager_8h.html" title="partmanager.h" alt="" coords="159,81,264,108"/>
-<area shape="rect" id="node9" href="$mymalloc_8h.html" title="mymalloc.h" alt="" coords="167,132,256,159"/>
-<area shape="rect" id="node11" href="$endrun_8h.html" title="endrun.h" alt="" coords="175,183,247,209"/>
-<area shape="rect" id="node5" href="$types_8h.html" title="types.h" alt="" coords="319,56,385,83"/>
-<area shape="rect" id="node7" href="$peano_8h.html" title="peano.h" alt="" coords="318,107,386,133"/>
-<area shape="rect" id="node10" href="$memory_8h.html" title="memory.h" alt="" coords="312,157,392,184"/>
+<map id="libgadget/partmanager.c" name="libgadget/partmanager.c">
+<area shape="rect" id="node1" title=" " alt="" coords="209,5,391,32"/>
+<area shape="rect" id="node2" href="$string_8h.html" title=" " alt="" coords="7,80,78,107"/>
+<area shape="rect" id="node4" href="$partmanager_8h.html" title=" " alt="" coords="241,80,359,107"/>
+<area shape="rect" id="node9" href="$mymalloc_8h.html" title=" " alt="" coords="383,80,513,107"/>
+<area shape="rect" id="node11" href="$endrun_8h.html" title=" " alt="" coords="538,80,649,107"/>
+<area shape="rect" id="node12" href="$system_8h.html" title=" " alt="" coords="103,80,217,107"/>
+<area shape="rect" id="node3" title=" " alt="" coords="5,155,80,181"/>
+<area shape="rect" id="node5" href="$types_8h.html" title=" " alt="" coords="238,155,309,181"/>
+<area shape="rect" id="node7" href="$peano_8h.html" title=" " alt="" coords="333,155,440,181"/>
+<area shape="rect" id="node6" title=" " alt="" coords="238,229,309,256"/>
+<area shape="rect" id="node8" title=" " alt="" coords="409,229,484,256"/>
+<area shape="rect" id="node10" href="$memory_8h.html" title=" " alt="" coords="465,155,551,181"/>
+<area shape="rect" id="node13" title=" " alt="" coords="155,155,213,181"/>
 </map>

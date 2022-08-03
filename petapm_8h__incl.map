@@ -1,2 +1,8 @@
-<map id="petapm.h" name="petapm.h">
+<map id="libgadget/petapm.h" name="libgadget/petapm.h">
+<area shape="rect" id="node1" title=" " alt="" coords="19,5,168,32"/>
+<area shape="rect" id="node2" title=" " alt="" coords="5,80,61,107"/>
+<area shape="rect" id="node3" href="$powerspectrum_8h.html" title=" " alt="" coords="86,80,221,107"/>
+<area shape="rect" id="node4" title=" " alt="" coords="19,155,93,181"/>
+<area shape="rect" id="node5" title=" " alt="" coords="118,155,189,181"/>
+<area shape="rect" id="node6" title=" " alt="" coords="213,155,334,181"/>
 </map>

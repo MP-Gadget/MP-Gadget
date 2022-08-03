@@ -1,5 +1,4 @@
 var searchData=
 [
-  ['ngb_5ftreefind_5fasymmetric',['NGB_TREEFIND_ASYMMETRIC',['../treewalk_8h.html#ae8d78c0b33a7736c7e75739976002dbda3b05fa287fdb7661dbb081cd20c00eb5',1,'treewalk.h']]],
-  ['ngb_5ftreefind_5fsymmetric',['NGB_TREEFIND_SYMMETRIC',['../treewalk_8h.html#ae8d78c0b33a7736c7e75739976002dbdaf79ece693dc79e41bbe731ed0e62db13',1,'treewalk.h']]]
+  ['freefree_5227',['FREEFREE',['../cooling__rates_8h.html#a9c81b7500e6ba78aec5c93617b0817c7ae7dcc8f698230b473ae3dcaf61dac01d',1,'cooling_rates.h']]]
 ];

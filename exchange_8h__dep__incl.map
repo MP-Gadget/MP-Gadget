@@ -1,6 +1,8 @@
-<map id="exchange.h" name="exchange.h">
-<area shape="rect" id="node2" href="$domain_8c.html" title="code for domain decomposition " alt="" coords="150,5,225,32"/>
-<area shape="rect" id="node3" href="$exchange_8c.html" title="exchange.c" alt="" coords="143,56,232,83"/>
-<area shape="rect" id="node4" href="$fofpetaio_8c.html" title="fofpetaio.c" alt="" coords="146,107,229,133"/>
-<area shape="rect" id="node5" href="$init_8c.html" title="code for initialisation of a simulation from initial conditions " alt="" coords="162,157,213,184"/>
+<map id="libgadget/exchange.h" name="libgadget/exchange.h">
+<area shape="rect" id="node1" title=" " alt="" coords="360,5,523,32"/>
+<area shape="rect" id="node2" href="$domain_8c.html" title="code for domain decomposition" alt="" coords="5,87,152,114"/>
+<area shape="rect" id="node3" href="$exchange_8c.html" title=" " alt="" coords="177,87,338,114"/>
+<area shape="rect" id="node4" href="$fofpetaio_8c.html" title=" " alt="" coords="363,87,520,114"/>
+<area shape="rect" id="node5" href="$init_8c.html" title="code for initialisation of a simulation from initial conditions" alt="" coords="545,87,663,114"/>
+<area shape="rect" id="node6" href="$test__exchange_8c.html" title=" " alt="" coords="687,80,835,121"/>
 </map>

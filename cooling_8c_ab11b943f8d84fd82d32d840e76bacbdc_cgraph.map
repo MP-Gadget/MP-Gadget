@@ -1,9 +1,0 @@
-<map id="solve_equilibrium_temp" name="solve_equilibrium_temp">
-<area shape="rect" id="node2" href="$allvars_8h.html#a320153e129e2fe4833e5b43935499d3e" title="DMAX" alt="" coords="255,5,317,32"/>
-<area shape="rect" id="node3" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title="endrun" alt="" coords="415,89,476,116"/>
-<area shape="rect" id="node7" href="$cooling_8c.html#afbf748e353386bc7c718b8f000ea5dbf" title="find_abundances_and\l_rates" alt="" coords="212,107,360,149"/>
-<area shape="rect" id="node8" href="$endrun_8c.html#a6567cd867c5549fb6586e19ccd819764" title="message" alt="" coords="408,140,483,167"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="531,115,613,141"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="690,89,750,116"/>
-<area shape="rect" id="node6" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="661,140,779,167"/>
-</map>

@@ -1,9 +1,0 @@
-<map id="fof_primary_haswork" name="fof_primary_haswork">
-<area shape="rect" id="node2" href="$fof_8c.html#a79ee094597b54a42c693bec87234a960" title="fof_primary_ngbiter" alt="" coords="196,141,329,167"/>
-<area shape="rect" id="node3" href="$fof_8c.html#ad771608bd97a1a590c3c4fd1b93286c1" title="fofp_merge" alt="" coords="377,102,464,129"/>
-<area shape="rect" id="node5" href="$drift_8c.html#ac5441bdb6b99a097017f1ebe9e30fc76" title="lock_particle" alt="" coords="658,153,753,179"/>
-<area shape="rect" id="node6" href="$drift_8c.html#a5ef02b723d506ab7cb7a6ea7c9930ca1" title="unlock_particle" alt="" coords="651,77,760,103"/>
-<area shape="rect" id="node8" href="$fof_8c.html#a6a612464ae0085128345763c9a813b11" title="HEAD" alt="" coords="391,229,451,255"/>
-<area shape="rect" id="node4" href="$fof_8c.html#ac212dc339de1913e00a71180c7b2fb71" title="HEADl" alt="" coords="526,127,589,154"/>
-<area shape="rect" id="node7" href="$fof_8c.html#ab71467e1369a4a8d7dff607da74b7ee7" title="update_root" alt="" coords="512,26,603,53"/>
-</map>

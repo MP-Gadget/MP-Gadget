@@ -1,8 +1,0 @@
-<map id="force_get_prev_node" name="force_get_prev_node">
-<area shape="rect" id="node2" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title="endrun" alt="" coords="237,31,298,57"/>
-<area shape="rect" id="node6" href="$forcetree_8c.html#a96d9883368c2630c024e1196e849f07c" title="force_get_next_node" alt="" coords="196,81,339,108"/>
-<area shape="rect" id="node7" href="$forcetree_8h.html#ab0b97330acbcb19fd8b847d05c842842" title="node_is_particle" alt="" coords="209,132,325,159"/>
-<area shape="rect" id="node3" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="387,31,469,57"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="546,5,606,32"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="517,56,635,83"/>
-</map>

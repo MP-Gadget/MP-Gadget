@@ -1,5 +1,5 @@
 <map id="message" name="message">
-<area shape="rect" id="node2" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="128,31,211,57"/>
-<area shape="rect" id="node3" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="287,5,347,32"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="259,56,376,83"/>
+<area shape="rect" id="node1" title=" " alt="" coords="5,5,87,32"/>
+<area shape="rect" id="node2" href="$system_8c.html#a341c8d27bd6c7dde856566810b412b1f" title=" " alt="" coords="135,5,240,32"/>
+<area shape="rect" id="node3" href="$system_8c.html#a87108946670b4c3afbe846c6726675ff" title=" " alt="" coords="288,5,355,32"/>
 </map>

@@ -1,15 +1,9 @@
 <map id="lightcone_get_horizon" name="lightcone_get_horizon">
-<area shape="rect" id="node2" href="$lightcone_8c.html#a3efc2e9b2e1cb0b9abf7e86d27e3e900" title="lightcone_init" alt="" coords="387,9,486,36"/>
-<area shape="rect" id="node8" href="$lightcone_8c.html#a727344301f1298461d8181d33d54b3e9" title="lightcone_set_time" alt="" coords="201,79,332,105"/>
-<area shape="rect" id="node3" href="$proto_8h.html#a74dc0e5e9eefe11fc8434b62de573146" title="begrun" alt="" coords="723,31,785,57"/>
-<area shape="rect" id="node4" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="886,31,937,57"/>
-<area shape="rect" id="node5" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="1007,5,1117,32"/>
-<area shape="rect" id="node6" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="1192,5,1295,32"/>
-<area shape="rect" id="node7" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="1369,81,1409,108"/>
-<area shape="rect" id="node9" href="$timestep_8h.html#aaebcb31d8cb374d360e1e165df6fe26d" title="set_global_time" alt="" coords="380,104,493,131"/>
-<area shape="rect" id="node10" href="$proto_8h.html#ab080cb20bac2a1a6153a84e8cfd15374" title="init" alt="" coords="573,56,612,83"/>
-<area shape="rect" id="node11" href="$sfr__eff_8c.html#a2d96bcfa1a035956535e5840d306744b" title="cooling_direct" alt="" coords="541,157,644,184"/>
-<area shape="rect" id="node12" href="$sfr__eff_8c.html#aec2d4b18a02ca0bbca8111e41fae0248" title="cool_postprocess" alt="" coords="692,157,816,184"/>
-<area shape="rect" id="node13" href="$sfr__eff_8h.html#aaa7b178a168a5d23b2cfe478ebc58ee1" title="cooling_only" alt="" coords="864,157,959,184"/>
-<area shape="rect" id="node14" href="$run_8c.html#abb80d08f4d52f4a7bdf28d1cecfead5b" title="compute_accelerations" alt="" coords="1165,157,1321,184"/>
+<area shape="rect" id="node1" title=" " alt="" coords="612,31,777,57"/>
+<area shape="rect" id="node2" href="$lightcone_8c.html#ae800971a34ef4e03eaa354cf28888c1d" title=" " alt="" coords="435,5,546,32"/>
+<area shape="rect" id="node5" href="$lightcone_8c.html#a8efe6aa2daa4a20489d90fc1c996add2" title=" " alt="" coords="417,56,564,83"/>
+<area shape="rect" id="node3" href="$run_8c.html#aee4609880c9e92e1c421c4bd238589fd" title=" " alt="" coords="108,5,175,32"/>
+<area shape="rect" id="node4" href="$gadget_2main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title=" " alt="" coords="5,31,60,57"/>
+<area shape="rect" id="node6" href="$lightcone_8c.html#a8c81fa9921177eede8a1c25c0365fd6b" title=" " alt="" coords="223,56,369,83"/>
+<area shape="rect" id="node7" href="$run_8c.html#a89690448ef43a8d624b963382b7503ed" title=" " alt="" coords="120,56,163,83"/>
 </map>

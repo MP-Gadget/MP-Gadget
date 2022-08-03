@@ -1,3 +1,7 @@
 <map id="ClockTable" name="ClockTable">
-<area shape="rect" id="node4" href="$structClock.html" title="Clock" alt="" coords="171,115,227,141"/>
+<area shape="rect" id="node1" title=" " alt="" coords="105,289,197,316"/>
+<area shape="rect" id="node2" title=" " alt="" coords="5,5,72,32"/>
+<area shape="rect" id="node4" href="$structClock.html" title=" " alt="" coords="121,155,180,181"/>
+<area shape="rect" id="node3" title=" " alt="" coords="205,155,243,181"/>
+<area shape="rect" id="node5" title=" " alt="" coords="125,5,176,32"/>
 </map>

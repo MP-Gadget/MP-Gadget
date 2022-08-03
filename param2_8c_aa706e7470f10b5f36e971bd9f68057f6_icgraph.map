@@ -1,8 +1,0 @@
-<map id="param_parser_raise" name="param_parser_raise">
-<area shape="rect" id="node2" href="$param2_8c.html#a1db1563e33b365c595b266b74fe5eb5e" title="param_parser_find_key" alt="" coords="189,56,347,83"/>
-<area shape="rect" id="node3" href="$param2_8c.html#a1e806bd71b636fe27e429c8d32c44d77" title="param_parser_get_double" alt="" coords="395,5,565,32"/>
-<area shape="rect" id="node4" href="$param2_8c.html#aeb1b27e89ede2c9ed7a073311a39f474" title="param_parser_get_int" alt="" coords="407,107,553,133"/>
-<area shape="rect" id="node6" href="$param2_8c.html#a9871b8b2426f4ffb0ed6bb50a9eebe69" title="param_parser_parse" alt="" coords="198,157,338,184"/>
-<area shape="rect" id="node5" href="$param2_8c.html#ad3b21ba2c566a25bb56ff43cace49e16" title="param_parser_get_string" alt="" coords="397,56,563,83"/>
-<area shape="rect" id="node7" href="$param2_8c.html#a3859ea8660316a47bdaa4db9aaa74590" title="param_parser_new" alt="" coords="414,157,546,184"/>
-</map>

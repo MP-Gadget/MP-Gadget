@@ -1,8 +1,0 @@
-<map id="petapm_force_r2c" name="petapm_force_r2c">
-<area shape="rect" id="node2" href="$petapm_8c.html#afd3e62b9da0a77676b5a5b03d00d950d" title="pm_apply_transfer_function" alt="" coords="180,56,363,83"/>
-<area shape="rect" id="node3" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title="endrun" alt="" coords="448,31,509,57"/>
-<area shape="rect" id="node7" href="$petapm_8c.html#a58ddc307031e0c1a52372f8bd2cc2726" title="petapm_mesh_to_k" alt="" coords="411,81,547,108"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="595,31,677,57"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="754,5,814,32"/>
-<area shape="rect" id="node6" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="725,56,843,83"/>
-</map>

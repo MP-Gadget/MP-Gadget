@@ -1,8 +1,0 @@
-<map id="rebuild_activelist" name="rebuild_activelist">
-<area shape="rect" id="node2" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title="endrun" alt="" coords="203,31,264,57"/>
-<area shape="rect" id="node6" href="$timestep_8c.html#a896d6e80e5dd9d14008709479a0f8a66" title="is_timebin_active" alt="" coords="172,81,295,108"/>
-<area shape="rect" id="node3" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="361,31,443,57"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="538,5,598,32"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="509,56,627,83"/>
-<area shape="rect" id="node7" href="$timestep_8c.html#af676ea14ddc4ab85d634f5a18015038d" title="dti_from_timebin" alt="" coords="343,81,461,108"/>
-</map>

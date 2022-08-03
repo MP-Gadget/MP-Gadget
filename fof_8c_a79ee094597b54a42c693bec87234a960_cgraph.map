@@ -1,8 +1,10 @@
 <map id="fof_primary_ngbiter" name="fof_primary_ngbiter">
-<area shape="rect" id="node2" href="$fof_8c.html#ad771608bd97a1a590c3c4fd1b93286c1" title="fofp_merge" alt="" coords="187,102,273,129"/>
-<area shape="rect" id="node4" href="$drift_8c.html#ac5441bdb6b99a097017f1ebe9e30fc76" title="lock_particle" alt="" coords="467,153,562,179"/>
-<area shape="rect" id="node5" href="$drift_8c.html#a5ef02b723d506ab7cb7a6ea7c9930ca1" title="unlock_particle" alt="" coords="460,77,569,103"/>
-<area shape="rect" id="node7" href="$fof_8c.html#a6a612464ae0085128345763c9a813b11" title="HEAD" alt="" coords="200,229,260,255"/>
-<area shape="rect" id="node3" href="$fof_8c.html#ac212dc339de1913e00a71180c7b2fb71" title="HEADl" alt="" coords="335,127,398,154"/>
-<area shape="rect" id="node6" href="$fof_8c.html#ab71467e1369a4a8d7dff607da74b7ee7" title="update_root" alt="" coords="321,26,412,53"/>
+<area shape="rect" id="node1" title=" " alt="" coords="5,107,156,133"/>
+<area shape="rect" id="node2" href="$fof_8c.html#ad771608bd97a1a590c3c4fd1b93286c1" title=" " alt="" coords="204,81,301,108"/>
+<area shape="rect" id="node4" href="$spinlocks_8c.html#acce4c0c71b73531bf08e609e2b945015" title=" " alt="" coords="357,5,468,32"/>
+<area shape="rect" id="node6" href="$spinlocks_8c.html#aee13921a58d5a09edac1b36ff8c0f1d9" title=" " alt="" coords="349,157,476,184"/>
+<area shape="rect" id="node8" href="$fof_8c.html#a9dafbf996f0994644fed2cfd271d6599" title=" " alt="" coords="223,183,282,209"/>
+<area shape="rect" id="node3" href="$fof_8c.html#a98404ae4778a65726eab041458d2cc51" title=" " alt="" coords="381,56,444,83"/>
+<area shape="rect" id="node7" href="$fof_8c.html#a13aed453d6840f31c7e03fdb73865770" title=" " alt="" coords="363,107,463,133"/>
+<area shape="rect" id="node5" href="$structSpinLocks.html#a151b49435d2601eea585241414989f08" title=" " alt="" coords="524,81,684,108"/>
 </map>

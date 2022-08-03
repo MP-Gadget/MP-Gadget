@@ -1,6 +1,7 @@
 <map id="diff_kernel" name="diff_kernel">
-<area shape="rect" id="node2" href="$gravpm_8c.html#a204128a928835d46e5ad9b1a7f5ee572" title="force_transfer" alt="" coords="136,56,239,83"/>
-<area shape="rect" id="node3" href="$gravpm_8c.html#a2aa6007b5acd42b7f03ec0c8a1e54f28" title="force_x_transfer" alt="" coords="287,5,403,32"/>
-<area shape="rect" id="node4" href="$gravpm_8c.html#a5f38638a827448df98fa7b732200ceed" title="force_y_transfer" alt="" coords="287,56,403,83"/>
-<area shape="rect" id="node5" href="$gravpm_8c.html#aea05dae4fbb497397e87e150b913286d" title="force_z_transfer" alt="" coords="287,107,403,133"/>
+<area shape="rect" id="node1" title=" " alt="" coords="343,56,433,83"/>
+<area shape="rect" id="node2" href="$gravpm_8c.html#af01b04ea173fa7e975460af495bc9c0c" title=" " alt="" coords="181,56,295,83"/>
+<area shape="rect" id="node3" href="$gravpm_8c.html#a1ce62d2c8ff17e6724de65fa2fca31ec" title=" " alt="" coords="5,5,133,32"/>
+<area shape="rect" id="node4" href="$gravpm_8c.html#a7a9eb1c3736c0d4de2a6e2ce96849e4c" title=" " alt="" coords="5,56,133,83"/>
+<area shape="rect" id="node5" href="$gravpm_8c.html#a767e0d4b5cb8ce61867f571e9dbb95a9" title=" " alt="" coords="6,107,133,133"/>
 </map>

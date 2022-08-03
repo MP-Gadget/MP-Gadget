@@ -1,8 +1,0 @@
-<map id="init_timebins" name="init_timebins">
-<area shape="rect" id="node2" href="$event_8c.html#a3f548c264e5e5b9fe2bb8b10c177482a" title="event_listen" alt="" coords="181,5,273,32"/>
-<area shape="rect" id="node3" href="$timebinmgr_8c.html#a2e2b7b549c7ebcd90457efb5330c1955" title="ti_from_loga" alt="" coords="180,56,273,83"/>
-<area shape="rect" id="node4" href="$timestep_8c.html#a7f89b5c29a35ca695a22d09f18d2807a" title="timestep_eh_slots_fork" alt="" coords="148,107,305,133"/>
-<area shape="rect" id="node5" href="$system_8h.html#a00eeba7aebd7952f4c0ecebb60fbeca2" title="atomic_fetch_and_add" alt="" coords="353,81,507,108"/>
-<area shape="rect" id="node6" href="$timestep_8c.html#a896d6e80e5dd9d14008709479a0f8a66" title="is_timebin_active" alt="" coords="369,132,491,159"/>
-<area shape="rect" id="node7" href="$timestep_8c.html#af676ea14ddc4ab85d634f5a18015038d" title="dti_from_timebin" alt="" coords="555,132,673,159"/>
-</map>

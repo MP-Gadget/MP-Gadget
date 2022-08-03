@@ -1,6 +1,0 @@
-<map id="real_ev" name="real_ev">
-<area shape="rect" id="node2" href="$treewalk_8c.html#af906cc0eb36b216610435df321d8e7e3" title="ev_init_thread" alt="" coords="144,5,247,32"/>
-<area shape="rect" id="node3" href="$treewalk_8c.html#af8619681f7d063183bea07a7d80ac98e" title="treewalk_init_query" alt="" coords="128,56,263,83"/>
-<area shape="rect" id="node4" href="$treewalk_8c.html#af7a85c8514602df4d3dd61f4ef3e0d48" title="treewalk_init_result" alt="" coords="128,107,263,133"/>
-<area shape="rect" id="node5" href="$treewalk_8c.html#ac3d61be6b2bd96daed4c4a17521a0fda" title="treewalk_reduce_result" alt="" coords="117,157,273,184"/>
-</map>

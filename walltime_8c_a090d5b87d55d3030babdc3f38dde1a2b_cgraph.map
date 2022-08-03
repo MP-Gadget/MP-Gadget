@@ -1,9 +1,0 @@
-<map id="walltime_measure_internal" name="walltime_measure_internal">
-<area shape="rect" id="node2" href="$walltime_8c.html#ab50d178845943619d31eb6fc20665db5" title="seconds" alt="" coords="248,5,319,32"/>
-<area shape="rect" id="node3" href="$walltime_8c.html#a4f4dd186dc5d9dbfc87eaaf30ffb3642" title="walltime_clock" alt="" coords="229,56,337,83"/>
-<area shape="rect" id="node4" href="$walltime_8c.html#a7e97b1e5e48d21dd93fb962dbd031415" title="clockcmp" alt="" coords="593,5,671,32"/>
-<area shape="rect" id="node5" href="$walltime_8c.html#a771e7f4e5961eb4f5b9b1c5c75b66cf3" title="walltime_clock_insert" alt="" coords="385,56,532,83"/>
-<area shape="rect" id="node6" href="$openmpsort_8c.html#a8938b38d71dd3b45bfc7cc745c096248" title="qsort_openmp" alt="" coords="580,56,684,83"/>
-<area shape="rect" id="node7" href="$openmpsort_8c.html#af794f526e2627202b5e7d35506fa3434" title="merge" alt="" coords="760,31,819,57"/>
-<area shape="rect" id="node8" href="$openmpsort_8c.html#a9af28c641be3cee5fdee6ec137e84c9d" title="msort_with_tmp" alt="" coords="732,81,847,108"/>
-</map>

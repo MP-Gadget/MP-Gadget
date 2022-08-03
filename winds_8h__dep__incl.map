@@ -1,0 +1,11 @@
+<map id="libgadget/winds.h" name="libgadget/winds.h">
+<area shape="rect" id="node1" title=" " alt="" coords="588,5,725,32"/>
+<area shape="rect" id="node2" href="$blackhole_8c.html" title="routines for gas accretion onto black holes, and black hole mergers" alt="" coords="5,80,167,107"/>
+<area shape="rect" id="node3" href="$density_8c.html" title="SPH density computation and smoothing length determination." alt="" coords="191,80,335,107"/>
+<area shape="rect" id="node4" href="$fof_8c.html" title="parallel FoF group finder" alt="" coords="359,80,474,107"/>
+<area shape="rect" id="node5" href="$hydra_8c.html" title="Computation of SPH forces and rate of entropy generation." alt="" coords="499,80,633,107"/>
+<area shape="rect" id="node6" href="$metal__return_8c.html" title="Compute the mass return rate of metals from stellar evolution." alt="" coords="657,80,840,107"/>
+<area shape="rect" id="node7" href="$sfr__eff_8c.html" title=" " alt="" coords="865,80,1003,107"/>
+<area shape="rect" id="node8" href="$winds_8c.html" title=" " alt="" coords="1027,80,1163,107"/>
+<area shape="rect" id="node9" href="$gadget_2params_8c.html" title=" " alt="" coords="1187,80,1318,107"/>
+</map>

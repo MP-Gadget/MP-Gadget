@@ -1,10 +1,8 @@
 <map id="walltime_init" name="walltime_init">
-<area shape="rect" id="node2" href="$walltime_8c.html#ab50d178845943619d31eb6fc20665db5" title="seconds" alt="" coords="361,5,432,32"/>
-<area shape="rect" id="node3" href="$walltime_8c.html#a771e7f4e5961eb4f5b9b1c5c75b66cf3" title="walltime_clock_insert" alt="" coords="148,107,295,133"/>
-<area shape="rect" id="node9" href="$walltime_8c.html#ad80362c5b1037e3ac0e91acd6fffc06c" title="walltime_reset" alt="" coords="168,56,275,83"/>
-<area shape="rect" id="node4" href="$walltime_8c.html#a7e97b1e5e48d21dd93fb962dbd031415" title="clockcmp" alt="" coords="517,69,595,96"/>
-<area shape="rect" id="node5" href="$openmpsort_8c.html#a8938b38d71dd3b45bfc7cc745c096248" title="qsort_openmp" alt="" coords="345,157,449,184"/>
-<area shape="rect" id="node8" href="$walltime_8c.html#a4f4dd186dc5d9dbfc87eaaf30ffb3642" title="walltime_clock" alt="" coords="343,107,451,133"/>
-<area shape="rect" id="node6" href="$openmpsort_8c.html#af794f526e2627202b5e7d35506fa3434" title="merge" alt="" coords="527,132,585,159"/>
-<area shape="rect" id="node7" href="$openmpsort_8c.html#a9af28c641be3cee5fdee6ec137e84c9d" title="msort_with_tmp" alt="" coords="499,183,613,209"/>
+<area shape="rect" id="node1" title=" " alt="" coords="5,56,112,83"/>
+<area shape="rect" id="node2" href="$walltime_8c.html#a85d55407a918fa3eddcfa07be54bed48" title=" " alt="" coords="395,5,469,32"/>
+<area shape="rect" id="node3" href="$walltime_8c.html#a209b12a6bcb3b3dd09587b037a4911eb" title=" " alt="" coords="160,107,324,133"/>
+<area shape="rect" id="node6" href="$walltime_8c.html#ad80362c5b1037e3ac0e91acd6fffc06c" title=" " alt="" coords="183,56,301,83"/>
+<area shape="rect" id="node4" href="$walltime_8c.html#a7e97b1e5e48d21dd93fb962dbd031415" title=" " alt="" coords="540,81,624,108"/>
+<area shape="rect" id="node5" href="$walltime_8c.html#a2cf938913e9f374234650a9b1c874e7c" title=" " alt="" coords="372,107,492,133"/>
 </map>

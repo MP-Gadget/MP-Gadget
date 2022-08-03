@@ -1,8 +1,0 @@
-<map id="lightcone_set_time" name="lightcone_set_time">
-<area shape="rect" id="node2" href="$lightcone_8c.html#af4ba33dc441cada8609ec092268db8eb" title="lightcone_get_horizon" alt="" coords="184,5,332,32"/>
-<area shape="rect" id="node3" href="$lightcone_8c.html#a398ad4c2de6a81703c91e6b1866eda99" title="update_replicas" alt="" coords="201,56,315,83"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title="endrun" alt="" coords="380,56,441,83"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="489,56,572,83"/>
-<area shape="rect" id="node6" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="649,31,709,57"/>
-<area shape="rect" id="node7" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="620,81,737,108"/>
-</map>

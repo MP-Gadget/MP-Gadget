@@ -1,2 +1,7 @@
-<map id="cosmology.h" name="cosmology.h">
+<map id="libgadget/cosmology.h" name="libgadget/cosmology.h">
+<area shape="rect" id="node1" title=" " alt="" coords="95,5,263,32"/>
+<area shape="rect" id="node2" title=" " alt="" coords="5,80,80,107"/>
+<area shape="rect" id="node3" href="$omega__nu__single_8h.html" title=" " alt="" coords="105,80,253,107"/>
+<area shape="rect" id="node5" href="$unitsystem_8h.html" title=" " alt="" coords="277,80,416,107"/>
+<area shape="rect" id="node4" title=" " alt="" coords="118,155,239,181"/>
 </map>

@@ -1,6 +1,0 @@
-<map id="param_emit" name="param_emit">
-<area shape="rect" id="node2" href="$paramset_8c.html#ab4475499a5183014dda09702caed4c08" title="param_get_schema" alt="" coords="347,5,483,32"/>
-<area shape="rect" id="node3" href="$paramset_8c.html#a2d8ecfdbf0c46786b719d8c4d59b9125" title="param_set_from_string" alt="" coords="144,56,299,83"/>
-<area shape="rect" id="node4" href="$utils-string_8c.html#a83b37e4b34b4b0d478581e0c73a77ae7" title="fastpm_strdup" alt="" coords="362,56,467,83"/>
-<area shape="rect" id="node5" href="$paramset_8c.html#a13ff5860c00c863543a9441fc583359f" title="parse_enum" alt="" coords="368,107,461,133"/>
-</map>

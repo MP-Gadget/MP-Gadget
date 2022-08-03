@@ -1,9 +1,0 @@
-<map id="InitMetalCooling" name="InitMetalCooling">
-<area shape="rect" id="node2" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title="endrun" alt="" coords="324,31,385,57"/>
-<area shape="rect" id="node6" href="$cooling_8c.html#a699118238135c50feda6b32348cf3106" title="h5readdouble" alt="" coords="173,56,272,83"/>
-<area shape="rect" id="node7" href="$interp_8c.html#a3d1d9b0250b6e9ea65e2c45da82ecd56" title="interp_init" alt="" coords="183,107,262,133"/>
-<area shape="rect" id="node8" href="$interp_8c.html#ac22328bc7b7411b4a29d1644dfac2a62" title="interp_init_dim" alt="" coords="169,157,276,184"/>
-<area shape="rect" id="node3" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="433,31,516,57"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="593,5,653,32"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="564,56,681,83"/>
-</map>

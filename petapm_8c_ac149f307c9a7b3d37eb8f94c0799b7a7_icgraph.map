@@ -1,9 +1,0 @@
-<map id="petapm_init" name="petapm_init">
-<area shape="rect" id="node2" href="$longrange_8c.html#a6f198a51b7488e6d984ff7537d47fd13" title="gravpm_init_periodic" alt="" coords="143,31,284,57"/>
-<area shape="rect" id="node3" href="$proto_8h.html#af52079f2c63002aca9463ba0b13727df" title="long_range_init" alt="" coords="332,31,441,57"/>
-<area shape="rect" id="node4" href="$proto_8h.html#a74dc0e5e9eefe11fc8434b62de573146" title="begrun" alt="" coords="489,31,551,57"/>
-<area shape="rect" id="node5" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="599,31,649,57"/>
-<area shape="rect" id="node6" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="697,5,808,32"/>
-<area shape="rect" id="node7" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="856,5,959,32"/>
-<area shape="rect" id="node8" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="1007,31,1047,57"/>
-</map>

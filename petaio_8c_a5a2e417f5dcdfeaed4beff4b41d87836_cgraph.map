@@ -1,9 +1,0 @@
-<map id="petaio_read_header_internal" name="petaio_read_header_internal">
-<area shape="rect" id="node2" href="$petaio_8c.html#a3648f9b8320f5c809b376c757e8160fd" title="_get_attr_double" alt="" coords="188,5,307,32"/>
-<area shape="rect" id="node3" href="$petaio_8c.html#a46fb384710a0e732eed50b7c8089bb78" title="_get_attr_int" alt="" coords="200,56,295,83"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title="endrun" alt="" coords="217,107,278,133"/>
-<area shape="rect" id="node8" href="$endrun_8c.html#a6567cd867c5549fb6586e19ccd819764" title="message" alt="" coords="210,157,285,184"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="355,132,437,159"/>
-<area shape="rect" id="node6" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="514,107,574,133"/>
-<area shape="rect" id="node7" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="485,157,603,184"/>
-</map>

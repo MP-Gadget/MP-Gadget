@@ -1,7 +1,0 @@
-<map id="fof_seed_make_one" name="fof_seed_make_one">
-<area shape="rect" id="node2" href="$blackhole_8h.html#a53887dc67acfa97dce21d6700ae2ae22" title="blackhole_make_one" alt="" coords="192,5,336,32"/>
-<area shape="rect" id="node3" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title="endrun" alt="" coords="233,56,295,83"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="384,56,467,83"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="543,31,603,57"/>
-<area shape="rect" id="node6" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="515,81,632,108"/>
-</map>

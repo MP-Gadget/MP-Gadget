@@ -1,8 +1,0 @@
-<map id="cmp_seed_task" name="cmp_seed_task">
-<area shape="rect" id="node2" href="$fof_8c.html#a61e8a4ebb1c8a15a1245040f4cf71c9e" title="fof_seed_make_one" alt="" coords="168,56,307,83"/>
-<area shape="rect" id="node3" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title="endrun" alt="" coords="396,31,457,57"/>
-<area shape="rect" id="node7" href="$blackhole_8h.html#a53887dc67acfa97dce21d6700ae2ae22" title="blackhole_make_one" alt="" coords="355,81,499,108"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="547,31,629,57"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="706,5,766,32"/>
-<area shape="rect" id="node6" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="677,56,795,83"/>
-</map>

@@ -1,8 +1,0 @@
-<map id="param_format_value" name="param_format_value">
-<area shape="rect" id="node2" href="$paramset_8h.html#aa1f578a3e3e37557107b29de34eae640" title="param_dump" alt="" coords="193,31,291,57"/>
-<area shape="rect" id="node3" href="$param_8h.html#a952eae1977b498c4fdfabed1742a3ba2" title="read_parameter_file" alt="" coords="339,31,475,57"/>
-<area shape="rect" id="node4" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="523,31,573,57"/>
-<area shape="rect" id="node5" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="621,5,732,32"/>
-<area shape="rect" id="node6" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="780,5,883,32"/>
-<area shape="rect" id="node7" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="931,31,971,57"/>
-</map>

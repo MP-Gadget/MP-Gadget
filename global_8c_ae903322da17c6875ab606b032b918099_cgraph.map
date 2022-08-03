@@ -1,8 +1,0 @@
-<map id="energy_statistics" name="energy_statistics">
-<area shape="rect" id="node2" href="$global_8c.html#ae8e7beaf9e92a3759146c0554e621846" title="compute_global_quantities\l_of_system" alt="" coords="175,5,351,47"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#a6567cd867c5549fb6586e19ccd819764" title="message" alt="" coords="225,71,300,98"/>
-<area shape="rect" id="node3" href="$cooling_8c.html#a3a02c15e850c6aec5d0ac5535bd5566a" title="ConvertInternalEnergy2Temperature" alt="" coords="399,13,631,39"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="473,71,556,98"/>
-<area shape="rect" id="node6" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="707,46,767,73"/>
-<area shape="rect" id="node7" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="679,97,796,123"/>
-</map>

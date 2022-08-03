@@ -1,40 +1,10 @@
-<map id="allvars.h" name="allvars.h">
-<area shape="rect" id="node2" href="$allvars_8c.html" title="allvars.c" alt="" coords="144,5,215,32"/>
-<area shape="rect" id="node3" href="$begrun_8c.html" title="initial set&#45;up of a simulation run " alt="" coords="143,56,215,83"/>
-<area shape="rect" id="node4" href="$blackhole_8c.html" title="routines for gas accretion onto black holes, and black hole mergers " alt="" coords="283,360,371,387"/>
-<area shape="rect" id="node5" href="$treewalk_8h.html" title="treewalk.h" alt="" coords="138,613,221,640"/>
-<area shape="rect" id="node6" href="$density_8c.html" title="SPH density computation and smoothing length determination. " alt="" coords="289,512,364,539"/>
-<area shape="rect" id="node7" href="$fof_8c.html" title="parallel FoF group finder " alt="" coords="303,411,351,437"/>
-<area shape="rect" id="node8" href="$gravshort-pair_8c.html" title="gravshort&#45;pair.c" alt="" coords="430,563,542,589"/>
-<area shape="rect" id="node10" href="$gravshort-tree-old_8c.html" title="gravshort&#45;tree&#45;old.c" alt="" coords="419,664,553,691"/>
-<area shape="rect" id="node11" href="$gravshort-tree_8c.html" title="gravshort&#45;tree.c" alt="" coords="429,715,543,741"/>
-<area shape="rect" id="node12" href="$hydra_8c.html" title="Computation of SPH forces and rate of entropy generation. " alt="" coords="294,765,359,792"/>
-<area shape="rect" id="node13" href="$sfr__eff_8c.html" title="sfr_eff.c" alt="" coords="291,816,362,843"/>
-<area shape="rect" id="node14" href="$treewalk_8c.html" title="treewalk.c" alt="" coords="285,867,368,893"/>
-<area shape="rect" id="node15" href="$fof_8h.html" title="fof.h" alt="" coords="155,309,203,336"/>
-<area shape="rect" id="node16" href="$fofpetaio_8c.html" title="fofpetaio.c" alt="" coords="285,107,368,133"/>
-<area shape="rect" id="node17" href="$init_8c.html" title="code for initialisation of a simulation from initial conditions " alt="" coords="301,157,352,184"/>
-<area shape="rect" id="node18" href="$io_8c.html" title="Output of a snapshot file to disk. " alt="" coords="305,208,348,235"/>
-<area shape="rect" id="node19" href="$main_8c.html" title="start of the program " alt="" coords="296,259,357,285"/>
-<area shape="rect" id="node20" href="$run_8c.html" title="iterates over timesteps, main loop " alt="" coords="301,309,352,336"/>
-<area shape="rect" id="node21" href="$cooling_8c.html" title="cooling.c" alt="" coords="142,917,217,944"/>
-<area shape="rect" id="node22" href="$densitykernel_8c.html" title="densitykernel.c" alt="" coords="124,968,235,995"/>
-<area shape="rect" id="node23" href="$domain_8c.html" title="code for domain decomposition " alt="" coords="142,1019,217,1045"/>
-<area shape="rect" id="node24" href="$drift_8c.html" title="drift.c" alt="" coords="152,1069,207,1096"/>
-<area shape="rect" id="node25" href="$exchange_8c.html" title="exchange.c" alt="" coords="135,1120,224,1147"/>
-<area shape="rect" id="node26" href="$forcetree_8c.html" title="gravitational tree and code for Ewald correction " alt="" coords="137,1171,221,1197"/>
-<area shape="rect" id="node27" href="$global_8c.html" title="global.c" alt="" coords="146,1221,213,1248"/>
-<area shape="rect" id="node28" href="$gravpm_8c.html" title="gravpm.c" alt="" coords="141,1272,217,1299"/>
-<area shape="rect" id="node29" href="$integraltable_8c.html" title="integraltable.c" alt="" coords="128,1323,231,1349"/>
-<area shape="rect" id="node30" href="$lightcone_8c.html" title="lightcone.c" alt="" coords="137,1373,222,1400"/>
-<area shape="rect" id="node31" href="$longrange_8c.html" title="driver routines for computation of long&#45;range gravitational PM force " alt="" coords="135,1424,224,1451"/>
-<area shape="rect" id="node32" href="$mymalloc_8c.html" title="mymalloc.c" alt="" coords="135,1475,224,1501"/>
-<area shape="rect" id="node33" href="$param_8c.html" title="param.c" alt="" coords="145,1525,214,1552"/>
-<area shape="rect" id="node34" href="$petaio_8c.html" title="petaio.c" alt="" coords="145,1576,213,1603"/>
-<area shape="rect" id="node35" href="$runtests_8c.html" title="runtests.c" alt="" coords="139,1627,219,1653"/>
-<area shape="rect" id="node36" href="$system_8c.html" title="system.c" alt="" coords="141,1677,217,1704"/>
-<area shape="rect" id="node37" href="$timebinmgr_8c.html" title="timebinmgr.c" alt="" coords="131,1728,228,1755"/>
-<area shape="rect" id="node38" href="$timefac_8c.html" title="timefac.c" alt="" coords="141,1779,217,1805"/>
-<area shape="rect" id="node39" href="$timestep_8c.html" title="routines for &#39;kicking&#39; particles in momentum space and assigning new timesteps " alt="" coords="138,1829,221,1856"/>
-<area shape="rect" id="node9" href="$gravshort_8h.html" title="gravshort.h" alt="" coords="283,613,370,640"/>
+<map id="libgenic/allvars.h" name="libgenic/allvars.h">
+<area shape="rect" id="node1" title=" " alt="" coords="405,5,539,32"/>
+<area shape="rect" id="node2" href="$glass_8c.html" title=" " alt="" coords="5,155,128,181"/>
+<area shape="rect" id="node3" href="$proto_8h.html" title=" " alt="" coords="361,80,484,107"/>
+<area shape="rect" id="node5" href="$save_8c.html" title=" " alt="" coords="153,155,271,181"/>
+<area shape="rect" id="node6" href="$zeldovich_8c.html" title=" " alt="" coords="446,155,597,181"/>
+<area shape="rect" id="node7" href="$genic_2main_8c.html" title=" " alt="" coords="621,155,726,181"/>
+<area shape="rect" id="node8" href="$genic_2params_8c.html" title=" " alt="" coords="750,155,871,181"/>
+<area shape="rect" id="node4" href="$power_8c.html" title=" " alt="" coords="295,155,422,181"/>
 </map>

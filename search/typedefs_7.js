@@ -1,7 +1,6 @@
 var searchData=
 [
-  ['morton_5ft',['morton_t',['../peano_8h.html#a2d1c79a3fa3da11b02b63f9266c09ba0',1,'peano.h']]],
-  ['mydouble',['MyDouble',['../types_8h.html#af1e0db71051e9d807134ddc461656b38',1,'types.h']]],
-  ['myfloat',['MyFloat',['../types_8h.html#af1ada7381a1118c6d51bdbb0b5e72811',1,'types.h']]],
-  ['myidtype',['MyIDType',['../types_8h.html#ad1d0bf70ad98a229cfc51edcd568fb70',1,'types.h']]]
+  ['idgenerator_5155',['IDGenerator',['../proto_8h.html#a49491d22fb2cea7b6cf71280ab3c991a',1,'proto.h']]],
+  ['inttime_5ft_5156',['inttime_t',['../types_8h.html#ab7f8779710efa655135cf9cbee3137a7',1,'types.h']]],
+  ['iotableentry_5157',['IOTableEntry',['../petaio_8h.html#ac421353bf84a6c78e83bc0cbb6fa3632',1,'petaio.h']]]
 ];

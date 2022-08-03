@@ -1,7 +1,0 @@
-<map id="param_get_string2" name="param_get_string2">
-<area shape="rect" id="node2" href="$param_8h.html#a952eae1977b498c4fdfabed1742a3ba2" title="read_parameter_file" alt="" coords="183,31,319,57"/>
-<area shape="rect" id="node3" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="367,31,417,57"/>
-<area shape="rect" id="node4" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="465,5,576,32"/>
-<area shape="rect" id="node5" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="624,5,727,32"/>
-<area shape="rect" id="node6" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="775,31,815,57"/>
-</map>

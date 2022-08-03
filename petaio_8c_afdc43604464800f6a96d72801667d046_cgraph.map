@@ -1,7 +1,0 @@
-<map id="register_io_blocks" name="register_io_blocks">
-<area shape="rect" id="node2" href="$petaio_8c.html#a2ec97a65a32d373effb748e9f1bbd713" title="fof_register_io_blocks" alt="" coords="180,5,329,32"/>
-<area shape="rect" id="node3" href="$petaio_8c.html#a54ed522ccc2f848abe664cfa255a6305" title="order_by_type" alt="" coords="203,56,307,83"/>
-<area shape="rect" id="node4" href="$openmpsort_8c.html#a8938b38d71dd3b45bfc7cc745c096248" title="qsort_openmp" alt="" coords="203,107,307,133"/>
-<area shape="rect" id="node5" href="$openmpsort_8c.html#af794f526e2627202b5e7d35506fa3434" title="merge" alt="" coords="405,81,464,108"/>
-<area shape="rect" id="node6" href="$openmpsort_8c.html#a9af28c641be3cee5fdee6ec137e84c9d" title="msort_with_tmp" alt="" coords="377,132,492,159"/>
-</map>

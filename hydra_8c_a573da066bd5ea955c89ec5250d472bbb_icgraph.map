@@ -1,8 +1,6 @@
 <map id="hydro_ngbiter" name="hydro_ngbiter">
-<area shape="rect" id="node2" href="$hydra_8h.html#a6789381bce7d1c316df8ecf04b47a607" title="hydro_force" alt="" coords="153,31,244,57"/>
-<area shape="rect" id="node3" href="$run_8c.html#abb80d08f4d52f4a7bdf28d1cecfead5b" title="compute_accelerations" alt="" coords="292,31,448,57"/>
-<area shape="rect" id="node4" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="496,31,536,57"/>
-<area shape="rect" id="node5" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="584,5,635,32"/>
-<area shape="rect" id="node6" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="683,5,793,32"/>
-<area shape="rect" id="node7" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="841,31,944,57"/>
+<area shape="rect" id="node1" title=" " alt="" coords="345,5,457,32"/>
+<area shape="rect" id="node2" href="$hydra_8c.html#aab8e916e02126d7f36d2065cc5678dec" title=" " alt="" coords="199,5,297,32"/>
+<area shape="rect" id="node3" href="$run_8c.html#a89690448ef43a8d624b963382b7503ed" title=" " alt="" coords="108,5,151,32"/>
+<area shape="rect" id="node4" href="$gadget_2main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title=" " alt="" coords="5,5,60,32"/>
 </map>

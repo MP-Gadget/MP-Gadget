@@ -1,6 +1,8 @@
 <map id="fofp_merge" name="fofp_merge">
-<area shape="rect" id="node2" href="$fof_8c.html#ac212dc339de1913e00a71180c7b2fb71" title="HEADl" alt="" coords="154,5,217,32"/>
-<area shape="rect" id="node4" href="$drift_8c.html#a5ef02b723d506ab7cb7a6ea7c9930ca1" title="unlock_particle" alt="" coords="279,56,388,83"/>
-<area shape="rect" id="node5" href="$fof_8c.html#ab71467e1369a4a8d7dff607da74b7ee7" title="update_root" alt="" coords="140,107,231,133"/>
-<area shape="rect" id="node3" href="$drift_8c.html#ac5441bdb6b99a097017f1ebe9e30fc76" title="lock_particle" alt="" coords="286,5,381,32"/>
+<area shape="rect" id="node1" title=" " alt="" coords="5,81,103,108"/>
+<area shape="rect" id="node2" href="$fof_8c.html#a98404ae4778a65726eab041458d2cc51" title=" " alt="" coords="183,5,245,32"/>
+<area shape="rect" id="node3" href="$spinlocks_8c.html#acce4c0c71b73531bf08e609e2b945015" title=" " alt="" coords="159,56,269,83"/>
+<area shape="rect" id="node5" href="$spinlocks_8c.html#aee13921a58d5a09edac1b36ff8c0f1d9" title=" " alt="" coords="151,107,277,133"/>
+<area shape="rect" id="node6" href="$fof_8c.html#a13aed453d6840f31c7e03fdb73865770" title=" " alt="" coords="164,157,264,184"/>
+<area shape="rect" id="node4" href="$structSpinLocks.html#a151b49435d2601eea585241414989f08" title=" " alt="" coords="325,81,485,108"/>
 </map>

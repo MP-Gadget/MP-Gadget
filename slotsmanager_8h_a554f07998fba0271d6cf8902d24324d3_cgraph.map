@@ -1,9 +1,0 @@
-<map id="slots_fork" name="slots_fork">
-<area shape="rect" id="node2" href="$system_8h.html#a00eeba7aebd7952f4c0ecebb60fbeca2" title="atomic_fetch_and_add" alt="" coords="137,5,290,32"/>
-<area shape="rect" id="node3" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title="endrun" alt="" coords="183,56,244,83"/>
-<area shape="rect" id="node7" href="$event_8c.html#a322553a9a0609ecf1d35b7971c9cedef" title="event_emit" alt="" coords="170,107,257,133"/>
-<area shape="rect" id="node8" href="$slotsmanager_8c.html#a13270ba7f36db217af9cf41d7ac204d2" title="slots_connect_new_slot" alt="" coords="132,157,295,184"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="343,56,425,83"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="502,31,562,57"/>
-<area shape="rect" id="node6" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="473,81,591,108"/>
-</map>

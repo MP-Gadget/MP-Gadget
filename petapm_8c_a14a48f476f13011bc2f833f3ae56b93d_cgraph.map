@@ -1,9 +1,0 @@
-<map id="layout_build_and_exchange_cells_to_pfft" name="layout_build_and_exchange_cells_to_pfft">
-<area shape="rect" id="node2" href="$petapm_8c.html#a9ce8af9d0fdccca80037a33edd8a6bc2" title="layout_iterate_cells" alt="" coords="236,5,371,32"/>
-<area shape="rect" id="node7" href="$endrun_8c.html#a6567cd867c5549fb6586e19ccd819764" title="message" alt="" coords="419,56,493,83"/>
-<area shape="rect" id="node8" href="$petapm_8c.html#a95b820e6a9710ac09cb502f747ae7591" title="to_pfft" alt="" coords="274,107,333,133"/>
-<area shape="rect" id="node3" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title="endrun" alt="" coords="425,5,487,32"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="541,31,624,57"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="701,5,761,32"/>
-<area shape="rect" id="node6" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="672,56,789,83"/>
-</map>

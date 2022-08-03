@@ -1,4 +1,13 @@
-<map id="paramset.c" name="paramset.c">
-<area shape="rect" id="node4" href="$paramset_8h.html" title="paramset.h" alt="" coords="143,107,230,133"/>
-<area shape="rect" id="node6" href="$utils-string_8h.html" title="utils&#45;string.h" alt="" coords="140,208,233,235"/>
+<map id="libgadget/utils/paramset.c" name="libgadget/utils/paramset.c">
+<area shape="rect" id="node1" title=" " alt="" coords="257,5,449,32"/>
+<area shape="rect" id="node2" title=" " alt="" coords="295,155,361,181"/>
+<area shape="rect" id="node3" title=" " alt="" coords="102,80,173,107"/>
+<area shape="rect" id="node4" href="$string_8h.html" title=" " alt="" coords="7,80,78,107"/>
+<area shape="rect" id="node6" title=" " alt="" coords="318,80,389,107"/>
+<area shape="rect" id="node7" href="$paramset_8h.html" title=" " alt="" coords="197,80,293,107"/>
+<area shape="rect" id="node8" href="$mymalloc_8h.html" title=" " alt="" coords="464,80,563,107"/>
+<area shape="rect" id="node11" href="$endrun_8h.html" title=" " alt="" coords="587,80,666,107"/>
+<area shape="rect" id="node5" title=" " alt="" coords="5,155,80,181"/>
+<area shape="rect" id="node9" href="$memory_8h.html" title=" " alt="" coords="470,155,557,181"/>
+<area shape="rect" id="node10" title=" " alt="" coords="476,229,551,256"/>
 </map>

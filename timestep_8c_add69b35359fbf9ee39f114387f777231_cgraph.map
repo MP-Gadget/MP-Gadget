@@ -1,9 +1,0 @@
-<map id="get_long_range_timestep_dloga" name="get_long_range_timestep_dloga">
-<area shape="rect" id="node2" href="$system_8c.html#a1d471d98379273269e8045d2998eca73" title="count_sum" alt="" coords="239,5,325,32"/>
-<area shape="rect" id="node3" href="$allvars_8h.html#a310e6c512e36e9b5f852ada300400412" title="DMIN" alt="" coords="253,56,311,83"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#a6567cd867c5549fb6586e19ccd819764" title="message" alt="" coords="245,107,319,133"/>
-<area shape="rect" id="node8" href="$system_8c.html#a866c4b0425665030c89933c11752b1fe" title="sumup_large_ints" alt="" coords="220,157,344,184"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="392,107,475,133"/>
-<area shape="rect" id="node6" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="551,81,611,108"/>
-<area shape="rect" id="node7" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="523,132,640,159"/>
-</map>

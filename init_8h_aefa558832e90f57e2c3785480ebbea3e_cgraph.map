@@ -1,0 +1,10 @@
+<map id="init_timeline" name="init_timeline">
+<area shape="rect" id="node1" title=" " alt="" coords="5,81,109,108"/>
+<area shape="rect" id="node2" href="$endrun_8c.html#a6567cd867c5549fb6586e19ccd819764" title=" " alt="" coords="216,5,297,32"/>
+<area shape="rect" id="node5" href="$timebinmgr_8c.html#a670638d37437095012fe1effdc9c1098" title=" " alt="" coords="157,56,356,83"/>
+<area shape="rect" id="node6" href="$timebinmgr_8c.html#ac7b147294398226944c4cc699fa6f34b" title=" " alt="" coords="185,107,328,133"/>
+<area shape="rect" id="node8" href="$timebinmgr_8c.html#a2e2b7b549c7ebcd90457efb5330c1955" title=" " alt="" coords="205,157,309,184"/>
+<area shape="rect" id="node3" href="$system_8c.html#a341c8d27bd6c7dde856566810b412b1f" title=" " alt="" coords="404,5,509,32"/>
+<area shape="rect" id="node4" href="$system_8c.html#a87108946670b4c3afbe846c6726675ff" title=" " alt="" coords="557,5,624,32"/>
+<area shape="rect" id="node7" href="$timebinmgr_8c.html#ab2c085acf42c795eab7948ffe4a56d30" title=" " alt="" coords="406,107,507,133"/>
+</map>

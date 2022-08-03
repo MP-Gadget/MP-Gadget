@@ -1,8 +1,0 @@
-<map id="petaio_read_header_internal" name="petaio_read_header_internal">
-<area shape="rect" id="node2" href="$petaio_8h.html#ac7b533afc766345881d11628147375db" title="petaio_read_header" alt="" coords="188,31,323,57"/>
-<area shape="rect" id="node3" href="$proto_8h.html#a74dc0e5e9eefe11fc8434b62de573146" title="begrun" alt="" coords="371,31,432,57"/>
-<area shape="rect" id="node4" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="480,31,531,57"/>
-<area shape="rect" id="node5" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="579,5,689,32"/>
-<area shape="rect" id="node6" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="737,5,840,32"/>
-<area shape="rect" id="node7" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="888,31,928,57"/>
-</map>

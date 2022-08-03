@@ -1,8 +1,0 @@
-<map id="petapm_force_finish" name="petapm_force_finish">
-<area shape="rect" id="node2" href="$petapm_8c.html#acaa53d5edde6371edbbdceb3803a7448" title="layout_finish" alt="" coords="192,5,287,32"/>
-<area shape="rect" id="node3" href="$petapm_8c.html#ab9cfdbf2b3bb84c5c97ed59acffc23d7" title="pm_free" alt="" coords="205,56,274,83"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#a6567cd867c5549fb6586e19ccd819764" title="message" alt="" coords="335,56,409,83"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="457,56,540,83"/>
-<area shape="rect" id="node6" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="617,31,677,57"/>
-<area shape="rect" id="node7" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="588,81,705,108"/>
-</map>

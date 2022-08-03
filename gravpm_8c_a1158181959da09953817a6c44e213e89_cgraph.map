@@ -1,8 +1,0 @@
-<map id="pm_mark_region_for_node" name="pm_mark_region_for_node">
-<area shape="rect" id="node2" href="$endrun_8c.html#a6567cd867c5549fb6586e19ccd819764" title="message" alt="" coords="273,31,348,57"/>
-<area shape="rect" id="node6" href="$forcetree_8h.html#ab0b97330acbcb19fd8b847d05c842842" title="node_is_particle" alt="" coords="253,81,369,108"/>
-<area shape="rect" id="node7" href="$forcetree_8h.html#ae302446c148c0f0ca0353a192249368f" title="node_is_pseudo_particle" alt="" coords="228,132,393,159"/>
-<area shape="rect" id="node3" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="441,31,524,57"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="601,5,661,32"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="572,56,689,83"/>
-</map>

@@ -1,9 +1,0 @@
-<map id="allocator_alloc" name="allocator_alloc">
-<area shape="rect" id="node2" href="$memory_8h.html#a98cd4fbdff3bc5f3c2a1f2e0e35821ae" title="allocator_init" alt="" coords="181,31,276,57"/>
-<area shape="rect" id="node8" href="$memory_8h.html#a1acd87e450e9db22eb1e2982c5beab6b" title="allocator_malloc_init" alt="" coords="159,81,299,108"/>
-<area shape="rect" id="node3" href="$mymalloc_8h.html#a51e63c63b3d3d87a081c13c792f4bca9" title="mymalloc_init" alt="" coords="347,31,449,57"/>
-<area shape="rect" id="node4" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="497,31,548,57"/>
-<area shape="rect" id="node5" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="596,5,707,32"/>
-<area shape="rect" id="node6" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="755,5,857,32"/>
-<area shape="rect" id="node7" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="905,31,945,57"/>
-</map>

@@ -1,6 +1,0 @@
-<map id="hci_query_filesystem" name="hci_query_filesystem">
-<area shape="rect" id="node2" href="$utils-string_8c.html#a72e20a8840db3abb4c684e57f6602b1b" title="fastpm_file_get_content" alt="" coords="199,5,360,32"/>
-<area shape="rect" id="node3" href="$utils-string_8c.html#a787c3b0717214d830c69b7e8785a3e33" title="fastpm_strdup_printf" alt="" coords="209,56,350,83"/>
-<area shape="rect" id="node4" href="$utils-string_8c.html#ae1f141218851350d5d41e00bc16cc705" title="fastpm_strdup_vprintf" alt="" coords="408,56,556,83"/>
-<area shape="rect" id="node5" href="$utils-string_8c.html#a0b3b094cb274f3b23292ecfc061734f8" title="_mkdir" alt="" coords="604,56,665,83"/>
-</map>

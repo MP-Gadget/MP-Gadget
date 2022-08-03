@@ -1,9 +1,0 @@
-<map id="petaio_save_neutrinos" name="petaio_save_neutrinos">
-<area shape="rect" id="node2" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title="endrun" alt="" coords="397,5,458,32"/>
-<area shape="rect" id="node6" href="$petaio_8c.html#a8d4abd78b70e4a1dfbed5db05cd89073" title="petaio_save_block" alt="" coords="205,56,336,83"/>
-<area shape="rect" id="node3" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="519,56,601,83"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="678,31,738,57"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="649,81,767,108"/>
-<area shape="rect" id="node7" href="$system_8c.html#a1d471d98379273269e8045d2998eca73" title="count_sum" alt="" coords="384,56,471,83"/>
-<area shape="rect" id="node8" href="$endrun_8c.html#a6567cd867c5549fb6586e19ccd819764" title="message" alt="" coords="390,107,465,133"/>
-</map>

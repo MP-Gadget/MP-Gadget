@@ -1,13 +1,16 @@
 <map id="report_detailed_memory_usage" name="report_detailed_memory_usage">
-<area shape="rect" id="node2" href="$memory_8c.html#a7d147e0f7a869dd7c832a77fa7374772" title="allocator_get_free_size" alt="" coords="369,5,525,32"/>
-<area shape="rect" id="node3" href="$memory_8c.html#ac6472b7ca5b76ef02be3795ca8863fae" title="allocator_print" alt="" coords="215,132,317,159"/>
-<area shape="rect" id="node9" href="$endrun_8c.html#a6567cd867c5549fb6586e19ccd819764" title="message" alt="" coords="409,259,484,285"/>
-<area shape="rect" id="node4" href="$memory_8c.html#ae8ed0c76854687599e00d825e3d1ec4b" title="allocator_get_used_size" alt="" coords="365,56,528,83"/>
-<area shape="rect" id="node5" href="$memory_8c.html#af219c7066531e1f24d914b86e51406e8" title="allocator_iter_ended" alt="" coords="377,107,516,133"/>
-<area shape="rect" id="node6" href="$memory_8c.html#a1071a12fb6ee5a98c249cbcd497bfdd0" title="allocator_iter_next" alt="" coords="576,183,704,209"/>
-<area shape="rect" id="node8" href="$memory_8c.html#ad4519ad28c6b5c244e6d82f37f1698f6" title="allocator_iter_start" alt="" coords="382,208,511,235"/>
-<area shape="rect" id="node7" href="$memory_8c.html#a027cc6371b4b530bd0ab24021475ac98" title="is_header" alt="" coords="771,183,850,209"/>
-<area shape="rect" id="node10" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="599,259,681,285"/>
-<area shape="rect" id="node11" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="781,245,841,272"/>
-<area shape="rect" id="node12" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="752,296,869,323"/>
+<area shape="rect" id="node1" title=" " alt="" coords="5,150,188,191"/>
+<area shape="rect" id="node2" href="$memory_8c.html#ae8ed0c76854687599e00d825e3d1ec4b" title=" " alt="" coords="451,5,629,32"/>
+<area shape="rect" id="node11" href="$memory_8c.html#ac6472b7ca5b76ef02be3795ca8863fae" title=" " alt="" coords="261,132,377,159"/>
+<area shape="rect" id="node13" href="$endrun_8c.html#a6567cd867c5549fb6586e19ccd819764" title=" " alt="" coords="499,259,581,285"/>
+<area shape="rect" id="node14" href="$string_8c.html#ae1f141218851350d5d41e00bc16cc705" title=" " alt="" coords="236,233,403,260"/>
+<area shape="rect" id="node3" href="$memory_8c.html#af219c7066531e1f24d914b86e51406e8" title=" " alt="" coords="677,157,832,184"/>
+<area shape="rect" id="node4" href="$memory_8c.html#a1071a12fb6ee5a98c249cbcd497bfdd0" title=" " alt="" coords="880,132,1024,159"/>
+<area shape="rect" id="node10" href="$memory_8c.html#ad4519ad28c6b5c244e6d82f37f1698f6" title=" " alt="" coords="682,107,827,133"/>
+<area shape="rect" id="node5" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title=" " alt="" coords="1081,132,1148,159"/>
+<area shape="rect" id="node9" href="$memory_8c.html#a027cc6371b4b530bd0ab24021475ac98" title=" " alt="" coords="1072,183,1157,209"/>
+<area shape="rect" id="node6" href="$system_8c.html#a341c8d27bd6c7dde856566810b412b1f" title=" " alt="" coords="1216,208,1321,235"/>
+<area shape="rect" id="node8" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title=" " alt="" coords="1205,132,1332,159"/>
+<area shape="rect" id="node7" href="$system_8c.html#a87108946670b4c3afbe846c6726675ff" title=" " alt="" coords="1380,208,1447,235"/>
+<area shape="rect" id="node12" href="$memory_8c.html#a7d147e0f7a869dd7c832a77fa7374772" title=" " alt="" coords="453,56,627,83"/>
 </map>

@@ -1,9 +1,0 @@
-<map id="param_get_enum" name="param_get_enum">
-<area shape="rect" id="node2" href="$param_8c.html#ac6ec3f94dd097b2bbf9ace392666f78c" title="BlackHoleFeedbackMethodAction" alt="" coords="176,5,395,32"/>
-<area shape="rect" id="node4" href="$param_8h.html#a952eae1977b498c4fdfabed1742a3ba2" title="read_parameter_file" alt="" coords="685,31,821,57"/>
-<area shape="rect" id="node3" href="$param_8c.html#ada22ec1be9f6bea2e2fbb3e41ae796c0" title="create_gadget_parameter_set" alt="" coords="443,5,637,32"/>
-<area shape="rect" id="node5" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="869,31,920,57"/>
-<area shape="rect" id="node6" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="968,5,1079,32"/>
-<area shape="rect" id="node7" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="1127,5,1229,32"/>
-<area shape="rect" id="node8" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="1277,31,1317,57"/>
-</map>

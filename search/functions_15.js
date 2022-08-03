@@ -1,26 +1,10 @@
 var searchData=
 [
-  ['walltime_5fadd_5ffull',['walltime_add_full',['../walltime_8c.html#a6e611b21f082c89bbb93efd434760d83',1,'walltime_add_full(char *name, double dt, char *file, int line):&#160;walltime.c'],['../walltime_8h.html#a6e611b21f082c89bbb93efd434760d83',1,'walltime_add_full(char *name, double dt, char *file, int line):&#160;walltime.c']]],
-  ['walltime_5fadd_5finternal',['walltime_add_internal',['../walltime_8c.html#a57b7b32ec7a35ce3e7ddc6ed31a051ad',1,'walltime_add_internal(char *name, double dt):&#160;walltime.c'],['../walltime_8h.html#a57b7b32ec7a35ce3e7ddc6ed31a051ad',1,'walltime_add_internal(char *name, double dt):&#160;walltime.c']]],
-  ['walltime_5fclock',['walltime_clock',['../walltime_8c.html#a4f4dd186dc5d9dbfc87eaaf30ffb3642',1,'walltime_clock(char *name):&#160;walltime.c'],['../walltime_8h.html#a4f4dd186dc5d9dbfc87eaaf30ffb3642',1,'walltime_clock(char *name):&#160;walltime.c']]],
-  ['walltime_5fclock_5finsert',['walltime_clock_insert',['../walltime_8c.html#a771e7f4e5961eb4f5b9b1c5c75b66cf3',1,'walltime.c']]],
-  ['walltime_5fget',['walltime_get',['../walltime_8c.html#a6a3b3f3004b1534bab7b070e4343a8e5',1,'walltime_get(char *name, enum clocktype type):&#160;walltime.c'],['../walltime_8h.html#a6a3b3f3004b1534bab7b070e4343a8e5',1,'walltime_get(char *name, enum clocktype type):&#160;walltime.c']]],
-  ['walltime_5fget_5fsymbol',['walltime_get_symbol',['../walltime_8c.html#ad1863c87c411e6ab454dd4fa05663390',1,'walltime_get_symbol(char *name):&#160;walltime.c'],['../walltime_8h.html#ad1863c87c411e6ab454dd4fa05663390',1,'walltime_get_symbol(char *name):&#160;walltime.c']]],
-  ['walltime_5fget_5ftime',['walltime_get_time',['../walltime_8c.html#afa0c81e86e0c6ddba66f257df0875031',1,'walltime_get_time(char *name):&#160;walltime.c'],['../walltime_8h.html#afa0c81e86e0c6ddba66f257df0875031',1,'walltime_get_time(char *name):&#160;walltime.c']]],
-  ['walltime_5finit',['walltime_init',['../walltime_8c.html#a03a816f38593bc4adf06efed9fe49697',1,'walltime_init(struct ClockTable *ct):&#160;walltime.c'],['../walltime_8h.html#a499a9e129342c386109d22a4d233f52a',1,'walltime_init(struct ClockTable *table):&#160;walltime.c']]],
-  ['walltime_5fmeasure_5ffull',['walltime_measure_full',['../walltime_8c.html#a8cb8a56d90973bb67710a5e0de6f004e',1,'walltime_measure_full(char *name, char *file, int line):&#160;walltime.c'],['../walltime_8h.html#a8cb8a56d90973bb67710a5e0de6f004e',1,'walltime_measure_full(char *name, char *file, int line):&#160;walltime.c']]],
-  ['walltime_5fmeasure_5finternal',['walltime_measure_internal',['../walltime_8c.html#a090d5b87d55d3030babdc3f38dde1a2b',1,'walltime_measure_internal(char *name):&#160;walltime.c'],['../walltime_8h.html#a090d5b87d55d3030babdc3f38dde1a2b',1,'walltime_measure_internal(char *name):&#160;walltime.c']]],
-  ['walltime_5freport',['walltime_report',['../walltime_8c.html#ad55e251cf4be78674e5f1ff3cfa74ba7',1,'walltime_report(FILE *fp, int root, MPI_Comm comm):&#160;walltime.c'],['../walltime_8h.html#a76d2135b612766d4d665748454b879d6',1,'walltime_report(FILE *fd, int root, MPI_Comm comm):&#160;walltime.c']]],
-  ['walltime_5freset',['walltime_reset',['../walltime_8c.html#ad80362c5b1037e3ac0e91acd6fffc06c',1,'walltime_reset():&#160;walltime.c'],['../walltime_8h.html#ad80362c5b1037e3ac0e91acd6fffc06c',1,'walltime_reset():&#160;walltime.c']]],
-  ['walltime_5fsummary',['walltime_summary',['../walltime_8c.html#a44ebd264165684ad7bed2d5bf4e02e22',1,'walltime_summary(int root, MPI_Comm comm):&#160;walltime.c'],['../walltime_8h.html#a44ebd264165684ad7bed2d5bf4e02e22',1,'walltime_summary(int root, MPI_Comm comm):&#160;walltime.c']]],
-  ['walltime_5fsummary_5fclocks',['walltime_summary_clocks',['../walltime_8c.html#ad90f7fb99a7ad9e668d83996af648124',1,'walltime.c']]],
-  ['walltime_5fupdate_5fparents',['walltime_update_parents',['../walltime_8c.html#af39b6cf247772c7b9e37d38dec33e4df',1,'walltime.c']]],
-  ['wk_5fcs',['wk_cs',['../densitykernel_8c.html#abd7a148563047f62e650e357d6f1428c',1,'densitykernel.c']]],
-  ['wk_5fqs',['wk_qs',['../densitykernel_8c.html#a682b3deeb1137d13b08a0bb147cce3b7',1,'densitykernel.c']]],
-  ['wk_5fqus',['wk_qus',['../densitykernel_8c.html#ae88d5e5c3425cc4503e5e72b55ab23ef',1,'densitykernel.c']]],
-  ['write_5fbins',['write_bins',['../MakePrimordialCoolingTable_8c.html#ae56458c384b676f020691ae5b8947866',1,'MakePrimordialCoolingTable.c']]],
-  ['write_5fcheckpoint',['write_checkpoint',['../io_8c.html#abebc4bd687935fe63fcb27a9767e5ded',1,'write_checkpoint(int WriteSnapshot, int WriteFOF):&#160;io.c'],['../proto_8h.html#a312b6a02f7cde171412989ea5f9be48f',1,'write_checkpoint(int write_snapshot, int write_fof):&#160;io.c']]],
-  ['write_5fcomponent',['write_component',['../MakePrimordialCoolingTable_8c.html#afd6bc6425224b6f37833a349678ae5a1',1,'MakePrimordialCoolingTable.c']]],
-  ['write_5fcpu_5flog',['write_cpu_log',['../run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2',1,'run.c']]],
-  ['write_5fsnapshot',['write_snapshot',['../io_8c.html#aa920b944afc62d93d867175a9590b373',1,'io.c']]]
+  ['unlock_5fspinlock_4006',['unlock_spinlock',['../spinlocks_8c.html#aee13921a58d5a09edac1b36ff8c0f1d9',1,'unlock_spinlock(int i, struct SpinLocks *spin):&#160;spinlocks.c'],['../spinlocks_8h.html#aee13921a58d5a09edac1b36ff8c0f1d9',1,'unlock_spinlock(int i, struct SpinLocks *spin):&#160;spinlocks.c']]],
+  ['update_5fdelta_5ftot_4007',['update_delta_tot',['../neutrinos__lra_8c.html#aca03dec36d3e668958dfbc222e0b6285',1,'neutrinos_lra.c']]],
+  ['update_5flastactive_5fdrift_4008',['update_lastactive_drift',['../timestep_8c.html#ace9e5cdcc776609e46189b2268155ca7',1,'update_lastactive_drift(DriftKickTimes *times):&#160;timestep.c'],['../timestep_8h.html#ace9e5cdcc776609e46189b2268155ca7',1,'update_lastactive_drift(DriftKickTimes *times):&#160;timestep.c']]],
+  ['update_5frandom_5foffset_4009',['update_random_offset',['../partmanager_8c.html#ad1574c3cad1cf90a7b1eb1f7a3b1486a',1,'update_random_offset(struct part_manager_type *PartManager, double *rel_random_shift, double RandomParticleOffset):&#160;partmanager.c'],['../partmanager_8h.html#ad1574c3cad1cf90a7b1eb1f7a3b1486a',1,'update_random_offset(struct part_manager_type *PartManager, double *rel_random_shift, double RandomParticleOffset):&#160;partmanager.c']]],
+  ['update_5freplicas_4010',['update_replicas',['../lightcone_8c.html#acc3acefa2d6655326264b5ab93b78768',1,'lightcone.c']]],
+  ['update_5froot_4011',['update_root',['../fof_8c.html#a13aed453d6840f31c7e03fdb73865770',1,'fof.c']]],
+  ['use_5fpairwise_5fgravity_4012',['use_pairwise_gravity',['../run_8c.html#a2904574467d5ae303174dc9ccebc82da',1,'run.c']]]
 ];

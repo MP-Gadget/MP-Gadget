@@ -1,9 +1,0 @@
-<map id="dti_from_dloga" name="dti_from_dloga">
-<area shape="rect" id="node2" href="$timebinmgr_8c.html#a90eb3a2bdca47035148249e68fc244be" title="loga_from_ti" alt="" coords="160,31,253,57"/>
-<area shape="rect" id="node8" href="$timebinmgr_8c.html#a2e2b7b549c7ebcd90457efb5330c1955" title="ti_from_loga" alt="" coords="160,81,253,108"/>
-<area shape="rect" id="node3" href="$timebinmgr_8c.html#a1aaa55e4aa15066a753c96e8646e62be" title="Dloga_interval_ti" alt="" coords="301,5,420,32"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title="endrun" alt="" coords="330,56,391,83"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="468,56,551,83"/>
-<area shape="rect" id="node6" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="627,31,687,57"/>
-<area shape="rect" id="node7" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="599,81,716,108"/>
-</map>

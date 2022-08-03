@@ -1,7 +1,0 @@
-<map id="ev_get_remote" name="ev_get_remote">
-<area shape="rect" id="node2" href="$treewalk_8c.html#a813df07bf8486b29f23977363a59dea2" title="ev_communicate" alt="" coords="168,5,289,32"/>
-<area shape="rect" id="node4" href="$system_8c.html#ad24c35a2016ce428248988795c1d3174" title="second" alt="" coords="197,56,261,83"/>
-<area shape="rect" id="node5" href="$system_8c.html#a890645bdc4536bd797ca53028072e30d" title="timediff" alt="" coords="196,107,261,133"/>
-<area shape="rect" id="node6" href="$treewalk_8c.html#af8619681f7d063183bea07a7d80ac98e" title="treewalk_init_query" alt="" coords="161,157,296,184"/>
-<area shape="rect" id="node3" href="$system_8c.html#a0233ee60e9c4f0a8dbe43e1c662231c6" title="MPI_Alltoallv_sparse" alt="" coords="344,5,489,32"/>
-</map>

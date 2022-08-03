@@ -1,8 +1,0 @@
-<map id="compute_neutrino_power" name="compute_neutrino_power">
-<area shape="rect" id="node2" href="$endrun_8c.html#a6567cd867c5549fb6586e19ccd819764" title="message" alt="" coords="254,31,329,57"/>
-<area shape="rect" id="node6" href="$powerspectrum_8c.html#a1908289e94a68d593eb3ab7cce3f150b" title="powerspectrum_sum" alt="" coords="220,81,363,108"/>
-<area shape="rect" id="node7" href="$powerspectrum_8c.html#af95510704f0aaa481a162321cdaee8e8" title="powerspectrum_zero" alt="" coords="220,132,363,159"/>
-<area shape="rect" id="node3" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="411,31,493,57"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="570,5,630,32"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="541,56,659,83"/>
-</map>

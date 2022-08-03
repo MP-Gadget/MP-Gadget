@@ -1,5 +1,0 @@
-<map id="get_timestep_dloga" name="get_timestep_dloga">
-<area shape="rect" id="node2" href="$partmanager_8h.html#a75af6ed4098fb6fbcc96a532b6e1bd11" title="FORCE_SOFTENING" alt="" coords="188,5,343,32"/>
-<area shape="rect" id="node3" href="$timebinmgr_8c.html#a72fa098187974a52cb5010bbddc7704d" title="get_dloga_for_bin" alt="" coords="203,56,327,83"/>
-<area shape="rect" id="node4" href="$timebinmgr_8c.html#a1aaa55e4aa15066a753c96e8646e62be" title="Dloga_interval_ti" alt="" coords="391,56,509,83"/>
-</map>

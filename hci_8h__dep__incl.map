@@ -1,5 +1,6 @@
-<map id="hci.h" name="hci.h">
-<area shape="rect" id="node2" href="$begrun_8c.html" title="initial set&#45;up of a simulation run " alt="" coords="104,5,176,32"/>
-<area shape="rect" id="node3" href="$hci_8c.html" title="hci.c" alt="" coords="115,56,165,83"/>
-<area shape="rect" id="node4" href="$run_8c.html" title="iterates over timesteps, main loop " alt="" coords="115,107,165,133"/>
+<map id="libgadget/hci.h" name="libgadget/hci.h">
+<area shape="rect" id="node1" title=" " alt="" coords="147,5,266,32"/>
+<area shape="rect" id="node2" href="$hci_8c.html" title=" " alt="" coords="5,87,123,114"/>
+<area shape="rect" id="node3" href="$run_8c.html" title="iterates over timesteps, main loop" alt="" coords="147,87,266,114"/>
+<area shape="rect" id="node4" href="$test__hci_8c.html" title=" " alt="" coords="290,80,438,121"/>
 </map>

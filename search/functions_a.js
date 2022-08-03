@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['kernel',['kernel',['../lightcone_8c.html#a53356309f04e9e22e9631e0be5a97b36',1,'lightcone.c']]]
+  ['jfrac_5fhigh_3571',['Jfrac_high',['../neutrinos__lra_8c.html#a865e65fb4d437e691e81b79b2d72d414',1,'neutrinos_lra.c']]]
 ];

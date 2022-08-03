@@ -1,2 +1,10 @@
 <map id="Cosmology" name="Cosmology">
+<area shape="rect" id="node1" title=" " alt="" coords="348,467,443,493"/>
+<area shape="rect" id="node2" title=" " alt="" coords="438,5,505,32"/>
+<area shape="rect" id="node4" href="$struct__omega__nu.html" title=" " alt="" coords="347,377,444,404"/>
+<area shape="rect" id="node5" href="$struct__hybrid__nu.html" title=" " alt="" coords="290,133,384,159"/>
+<area shape="rect" id="node6" href="$struct__rho__nu__single.html" title=" " alt="" coords="598,133,716,159"/>
+<area shape="rect" id="node3" title=" " alt="" coords="132,5,171,32"/>
+<area shape="rect" id="node7" title=" " alt="" coords="582,5,721,32"/>
+<area shape="rect" id="node8" title=" " alt="" coords="746,5,843,32"/>
 </map>

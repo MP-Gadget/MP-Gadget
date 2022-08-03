@@ -1,9 +1,0 @@
-<map id="get_gravkick_factor" name="get_gravkick_factor">
-<area shape="rect" id="node2" href="$timefac_8c.html#a6821c579370313dd41f0f81e8c0b7304" title="find_bin_number" alt="" coords="189,31,307,57"/>
-<area shape="rect" id="node3" href="$timebinmgr_8c.html#a90eb3a2bdca47035148249e68fc244be" title="loga_from_ti" alt="" coords="355,31,448,57"/>
-<area shape="rect" id="node4" href="$timebinmgr_8c.html#a1aaa55e4aa15066a753c96e8646e62be" title="Dloga_interval_ti" alt="" coords="496,5,615,32"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title="endrun" alt="" coords="525,56,586,83"/>
-<area shape="rect" id="node6" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="663,56,745,83"/>
-<area shape="rect" id="node7" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="822,31,882,57"/>
-<area shape="rect" id="node8" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="793,81,911,108"/>
-</map>

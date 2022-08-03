@@ -1,7 +1,10 @@
-<map id="sfr_eff.h" name="sfr_eff.h">
-<area shape="rect" id="node2" href="$begrun_8c.html" title="initial set&#45;up of a simulation run " alt="" coords="124,5,196,32"/>
-<area shape="rect" id="node3" href="$fof_8c.html" title="parallel FoF group finder " alt="" coords="136,56,184,83"/>
-<area shape="rect" id="node4" href="$petaio_8c.html" title="petaio.c" alt="" coords="126,107,194,133"/>
-<area shape="rect" id="node5" href="$run_8c.html" title="iterates over timesteps, main loop " alt="" coords="135,157,185,184"/>
-<area shape="rect" id="node6" href="$sfr__eff_8c.html" title="sfr_eff.c" alt="" coords="125,208,195,235"/>
+<map id="libgadget/sfr_eff.h" name="libgadget/sfr_eff.h">
+<area shape="rect" id="node1" title=" " alt="" coords="473,5,613,32"/>
+<area shape="rect" id="node2" href="$blackhole_8c.html" title="routines for gas accretion onto black holes, and black hole mergers" alt="" coords="5,80,167,107"/>
+<area shape="rect" id="node3" href="$fof_8c.html" title="parallel FoF group finder" alt="" coords="191,80,306,107"/>
+<area shape="rect" id="node4" href="$init_8c.html" title="code for initialisation of a simulation from initial conditions" alt="" coords="331,80,449,107"/>
+<area shape="rect" id="node5" href="$petaio_8c.html" title=" " alt="" coords="474,80,613,107"/>
+<area shape="rect" id="node6" href="$run_8c.html" title="iterates over timesteps, main loop" alt="" coords="637,80,756,107"/>
+<area shape="rect" id="node7" href="$sfr__eff_8c.html" title=" " alt="" coords="781,80,919,107"/>
+<area shape="rect" id="node8" href="$gadget_2params_8c.html" title=" " alt="" coords="943,80,1074,107"/>
 </map>

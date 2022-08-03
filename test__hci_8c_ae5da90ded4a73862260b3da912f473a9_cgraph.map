@@ -1,0 +1,19 @@
+<map id="test_hci_no_action" name="test_hci_no_action">
+<area shape="rect" id="node1" title=" " alt="" coords="5,125,148,152"/>
+<area shape="rect" id="node2" href="$hci_8c.html#aacbd388585d5ed8cd917420f80c6508f" title=" " alt="" coords="229,12,299,39"/>
+<area shape="rect" id="node4" href="$hci_8c.html#ab8c782a21d40169c4a8c744ee3d16864" title=" " alt="" coords="196,176,332,203"/>
+<area shape="rect" id="node5" href="$hci_8c.html#ab140bce619153b809e0fea49a2e1d081" title=" " alt="" coords="221,125,307,152"/>
+<area shape="rect" id="node3" href="$hci_8c.html#a14888ce340e106fb67ea1cc613bf1334" title=" " alt="" coords="899,49,974,76"/>
+<area shape="rect" id="node6" href="$hci_8c.html#adf575054e41280d79cdcad95d436b33d" title=" " alt="" coords="421,201,537,228"/>
+<area shape="rect" id="node7" href="$hci_8c.html#a378b079f9673cd4da7f712d22ca4d5e9" title=" " alt="" coords="634,49,798,76"/>
+<area shape="rect" id="node8" href="$hci_8c.html#acc6f82bedec50d4ab1953895c1abd49f" title=" " alt="" coords="380,49,579,76"/>
+<area shape="rect" id="node9" href="$hci_8c.html#a848c7d7e56f89e418893ddb0453b8e3b" title=" " alt="" coords="399,252,559,279"/>
+<area shape="rect" id="node13" href="$hci_8c.html#a45765de3ce60382338140dc7d6532a65" title=" " alt="" coords="408,100,551,127"/>
+<area shape="rect" id="node14" href="$hci_8c.html#a04f5b8b9042727d86768bd9acd2810a7" title=" " alt="" coords="627,125,805,152"/>
+<area shape="rect" id="node15" href="$endrun_8c.html#a6567cd867c5549fb6586e19ccd819764" title=" " alt="" coords="439,303,520,329"/>
+<area shape="rect" id="node10" href="$string_8c.html#a72e20a8840db3abb4c684e57f6602b1b" title=" " alt="" coords="627,201,805,228"/>
+<area shape="rect" id="node11" href="$string_8c.html#a787c3b0717214d830c69b7e8785a3e33" title=" " alt="" coords="637,252,795,279"/>
+<area shape="rect" id="node12" href="$string_8c.html#ae1f141218851350d5d41e00bc16cc705" title=" " alt="" coords="853,252,1020,279"/>
+<area shape="rect" id="node16" href="$system_8c.html#a341c8d27bd6c7dde856566810b412b1f" title=" " alt="" coords="663,303,769,329"/>
+<area shape="rect" id="node17" href="$system_8c.html#a87108946670b4c3afbe846c6726675ff" title=" " alt="" coords="903,303,970,329"/>
+</map>

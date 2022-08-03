@@ -1,8 +1,5 @@
 var searchData=
 [
-  ['wind_5fdecouple_5fsph',['WIND_DECOUPLE_SPH',['../allvars_8h.html#a275837498e7e8b8ca0d4f2b8a311065fad751afdc5a9e135d3f49ee98ba3690f5',1,'allvars.h']]],
-  ['wind_5ffixed_5fefficiency',['WIND_FIXED_EFFICIENCY',['../allvars_8h.html#a275837498e7e8b8ca0d4f2b8a311065fa89c8c97bc437bacde06cb9d494e0c911',1,'allvars.h']]],
-  ['wind_5fisotropic',['WIND_ISOTROPIC',['../allvars_8h.html#a275837498e7e8b8ca0d4f2b8a311065fa2f2cc93a7198c14a022bdc0938c3f664',1,'allvars.h']]],
-  ['wind_5fsubgrid',['WIND_SUBGRID',['../allvars_8h.html#a275837498e7e8b8ca0d4f2b8a311065fae274269b8040109ab843f4efd8219e72',1,'allvars.h']]],
-  ['wind_5fuse_5fhalo',['WIND_USE_HALO',['../allvars_8h.html#a275837498e7e8b8ca0d4f2b8a311065faa0ea3e5816fe60d7cb476a69a12fa7fe',1,'allvars.h']]]
+  ['ngb_5ftreefind_5fasymmetric_5237',['NGB_TREEFIND_ASYMMETRIC',['../treewalk_8h.html#ae8d78c0b33a7736c7e75739976002dbda3b05fa287fdb7661dbb081cd20c00eb5',1,'treewalk.h']]],
+  ['ngb_5ftreefind_5fsymmetric_5238',['NGB_TREEFIND_SYMMETRIC',['../treewalk_8h.html#ae8d78c0b33a7736c7e75739976002dbdaf79ece693dc79e41bbe731ed0e62db13',1,'treewalk.h']]]
 ];

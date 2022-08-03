@@ -1,8 +1,0 @@
-<map id="modify_internal_node" name="modify_internal_node">
-<area shape="rect" id="node2" href="$forcetree_8c.html#a96d9883368c2630c024e1196e849f07c" title="force_get_next_node" alt="" coords="199,5,341,32"/>
-<area shape="rect" id="node3" href="$forcetree_8c.html#a8571da12c389bfcf10555865a0e3882d" title="force_set_next_node" alt="" coords="199,56,341,83"/>
-<area shape="rect" id="node4" href="$forcetree_8c.html#a6710cf447fc53308c513b002cf446ebf" title="get_freenode" alt="" coords="221,107,319,133"/>
-<area shape="rect" id="node6" href="$forcetree_8c.html#a95095093b87159c1b23a2cb267d9940a" title="get_subnode" alt="" coords="222,157,318,184"/>
-<area shape="rect" id="node7" href="$forcetree_8c.html#a068d7c90773680cb8c9b0684d584420d" title="init_internal_node" alt="" coords="209,208,331,235"/>
-<area shape="rect" id="node5" href="$system_8h.html#a00eeba7aebd7952f4c0ecebb60fbeca2" title="atomic_fetch_and_add" alt="" coords="389,107,543,133"/>
-</map>

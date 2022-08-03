@@ -1,0 +1,6 @@
+<map id="libgadget/stats.h" name="libgadget/stats.h">
+<area shape="rect" id="node1" title=" " alt="" coords="149,5,279,32"/>
+<area shape="rect" id="node2" href="$run_8c.html" title="iterates over timesteps, main loop" alt="" coords="5,80,124,107"/>
+<area shape="rect" id="node3" href="$stats_8c.html" title=" " alt="" coords="149,80,279,107"/>
+<area shape="rect" id="node4" href="$gadget_2params_8c.html" title=" " alt="" coords="303,80,434,107"/>
+</map>
