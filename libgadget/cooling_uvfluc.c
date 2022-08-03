@@ -37,7 +37,9 @@ read_big_array(const char * filename, const char * dataset, int * Nread)
         BigBlock bb[1];
         BigArray array[1];
         size_t dims[2];
-        big_file_open(bf, filename);
+        if(0 != big_file_open(bf, filename)) {
+            endrun(1, "Cannot open %s: %s\n", filename, big_file_get_error_message());
+        }
         if(0 != big_file_open_block(bf, bb, dataset)) {
             endrun(1, "Cannot open %s %s: %s\n", filename, dataset, big_file_get_error_message());
         }
