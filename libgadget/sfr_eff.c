@@ -314,11 +314,11 @@ cooling_and_starformation(ActiveParticles * act, double Time, const DriftKickTim
     }
     SlotsManager->info[4].size += NumNewStar;
 
-    int stars_converted=0, stars_spawned=0;
+    int stars_converted = 0, stars_spawned = 0, stars_spawned_gravity = 0;
     int i;
 
     /*Now we turn the particles into stars*/
-    #pragma omp parallel for schedule(static) reduction(+:stars_converted) reduction(+:stars_spawned) reduction(+:sum_mass_stars)
+    #pragma omp parallel for schedule(static) reduction(+:stars_converted) reduction(+:stars_spawned) reduction(+:sum_mass_stars) reduction(+:stars_spawned_gravity)
     for(i=0; i < NumNewStar; i++)
     {
         int child = NewStars[i];
@@ -329,10 +329,11 @@ cooling_and_starformation(ActiveParticles * act, double Time, const DriftKickTim
             stars_converted++;
         else {
             /* Update the active particle list when a new star is formed.*/
-            add_new_particle_to_active(parent, child, act);
+            stars_spawned_gravity += add_new_particle_to_active(parent, child, act);
             stars_spawned++;
         }
     }
+    act->NumActiveGravity += stars_spawned_gravity;
 
     /*Done with the parents*/
     myfree(NewParents);
@@ -1030,17 +1031,14 @@ static double get_sfr_factor_due_to_selfgravity(int i, const double atime, const
 
 /* Update the active particle list when a new star is formed.
  * if the parent is active the child should also be active.
- * Stars must always be (hydro) active on formation. */
+ * Stars must always be (hydro) active on formation. Returns
+ * whether particle is gravity active. */
 static int
 add_new_particle_to_active(const int parent, const int child, ActiveParticles * act)
 {
 
     /* If gravity active, increment the counter*/
     int is_grav_active = is_timebin_active(P[parent].TimeBinGravity, P[parent].Ti_drift);
-    if(is_grav_active) {
-        #pragma omp atomic update
-        act->NumActiveGravity++;
-    }
     /* If either is active, need to be in the active list. */
     if(is_grav_active || is_timebin_active(P[parent].TimeBinHydro, P[parent].Ti_drift)) {
         int64_t childactive = atomic_fetch_and_add_64(&act->NumActiveParticle, 1);
