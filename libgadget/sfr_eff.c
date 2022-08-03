@@ -390,17 +390,9 @@ sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTr
             memmove(new_star_tmp, NewStars, NumNewStar * sizeof(int));
             myfree(NewStars);
         }
-        /*Move the tree to upper memory*/
-        struct NODE * nodes_base_tmp=NULL;
-        int *Father_tmp=NULL;
         int *ActiveParticle_tmp=NULL;
         if(force_tree_allocated(tree)) {
-            nodes_base_tmp = (struct NODE *) mymalloc2("nodesbasetmp", tree->numnodes * sizeof(struct NODE));
-            memmove(nodes_base_tmp, tree->Nodes_base, tree->numnodes * sizeof(struct NODE));
-            myfree(tree->Nodes_base);
-            Father_tmp = (int *) mymalloc2("Father_tmp", PartManager->MaxPart * sizeof(int));
-            memmove(Father_tmp, tree->Father, PartManager->MaxPart * sizeof(int));
-            myfree(tree->Father);
+            force_tree_free(tree);
         }
         if(act->ActiveParticle) {
             ActiveParticle_tmp = (int *) mymalloc2("ActiveParticle_tmp", act->NumActiveParticle * sizeof(int));
@@ -420,16 +412,6 @@ sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTr
             act->ActiveParticle = (int *) mymalloc("ActiveParticle", sizeof(int)*(act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
             memmove(act->ActiveParticle, ActiveParticle_tmp, act->NumActiveParticle * sizeof(int));
             myfree(ActiveParticle_tmp);
-        }
-        if(force_tree_allocated(tree)) {
-            tree->Father = (int *) mymalloc("Father", PartManager->MaxPart * sizeof(int));
-            memmove(tree->Father, Father_tmp, PartManager->MaxPart * sizeof(int));
-            myfree(Father_tmp);
-            tree->Nodes_base = (struct NODE *) mymalloc("Nodes_base", tree->numnodes * sizeof(struct NODE));
-            memmove(tree->Nodes_base, nodes_base_tmp, tree->numnodes * sizeof(struct NODE));
-            myfree(nodes_base_tmp);
-            /*Don't forget to update the Node pointer as well as Node_base!*/
-            tree->Nodes = tree->Nodes_base - tree->firstnode;
         }
         if(new_star_tmp) {
             NewStars = (int *) mymalloc("NewStars", NumNewStar*sizeof(int));
