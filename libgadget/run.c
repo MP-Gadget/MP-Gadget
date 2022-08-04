@@ -75,8 +75,6 @@ static struct run_params
     int MaxDomainTimeBinDepth; /* We should redo domain decompositions every timestep, after the timestep hierarchy gets deeper than this.
                                   Essentially forces a domain decompositon every 2^MaxDomainTimeBinDepth timesteps.*/
     int FastParticleType; /*!< flags a particle species to exclude timestep calculations.*/
-    /* parameters determining output frequency */
-    double PairwiseActiveFraction; /* Fraction of particles active for which we do a pairwise computation instead of a tree*/
 
     /* parameters determining output frequency */
     double AutoSnapshotTime;    /*!< cpu-time between regularly generated snapshots. */
@@ -141,7 +139,6 @@ set_all_global_params(ParameterSet * ps)
         All.LightconeOn = param_get_int(ps, "LightconeOn");
         All.HierarchicalGravity = param_get_int(ps, "SplitGravityTimestepsOn");
         All.FastParticleType = param_get_int(ps, "FastParticleType");
-        All.PairwiseActiveFraction = param_get_double(ps, "PairwiseActiveFraction");
         All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
         All.AutoSnapshotTime = param_get_double(ps, "AutoSnapshotTime");
         All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
@@ -263,19 +260,6 @@ begrun(const int RestartSnapNum, struct header_data * head)
         check_density_entropy(&All.CP, get_MinEgySpec(), head->TimeSnapshot);
 
     return ti_init;
-}
-
-/* Small function to decide - collectively - whether to use pairwise gravity this step*/
-static int
-use_pairwise_gravity(ActiveParticles * Act, struct part_manager_type * PartManager)
-{
-    /* Find total number of active particles*/
-    int64_t total_active, total_particle;
-    MPI_Allreduce(&Act->NumActiveParticle, &total_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&PartManager->NumPart, &total_particle, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-
-    /* Since the pairwise step is O(N^2) and tree is O(NlogN) we should scale the condition like O(N)*/
-    return total_active < All.PairwiseActiveFraction * total_particle;
 }
 
 #ifdef DEBUG
@@ -422,9 +406,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
          * If so we need to add them to the tree.*/
         int HybridNuTracer = hybrid_nu_tracer(&All.CP, atime);
 
-        /* Collective: total number of active particles must be small enough*/
-        int pairwisestep = use_pairwise_gravity(&Act, PartManager);
-
         MyFloat * GradRho = NULL;
         if(sfr_need_to_compute_sph_grad_rho())
             GradRho = (MyFloat *) mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
@@ -494,7 +475,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             ActiveParticles allpart = init_empty_active_particles(PartManager->NumPart);
             /* Tree freed in PM*/
             ForceTree Tree = {0};
-            force_tree_rebuild(&Tree, ddecomp, &allpart, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
+            force_tree_rebuild(&Tree, ddecomp, &allpart, HybridNuTracer, 1, All.OutputDir);
             gravpm_force(&pm, &Tree, &All.CP, atime, units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType);
 
             /* compute and output energy statistics if desired. */
@@ -518,13 +499,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                     ActiveParticles allpart = init_empty_active_particles(PartManager->NumPart);
                     /* Do a short range pairwise only step if desired*/
                     const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal);
-                    force_tree_rebuild(&Tree, ddecomp, &allpart, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
-                    if(pairwisestep) {
-                        struct gravshort_tree_params gtp = get_gravshort_treepar();
-                        grav_short_pair(&Act, &pm, &Tree, gtp.Rcut, rho0, HybridNuTracer, All.FastParticleType);
-                    }
-                    else
-                        grav_short_tree(&Act, &pm, &Tree, NULL, rho0, HybridNuTracer, All.FastParticleType, times.Ti_Current);
+                    force_tree_rebuild(&Tree, ddecomp, &allpart, HybridNuTracer, 1, All.OutputDir);
+                    grav_short_tree(&Act, &pm, &Tree, NULL, rho0, HybridNuTracer, All.FastParticleType, times.Ti_Current);
                     /* Now we have computed the total acceleration, set old acc for the next PM step.
                      * Done inside hierarchical_gravity_accelerations for the other branch.*/
                     if(is_PM)
@@ -581,8 +557,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
              * Note: the FOF code does not know about garbage particles,
              * so ensure we do not have garbage present when we call this.
              * Also a good idea to only run it on a PM step.
-             * This does not break the tree because the new black holes do not move or change mass, just type.
-             * It does not matter that the velocities are half a step off because they are not used in the FoF code.*/
+             * This does not break the tree because the new black holes do not move or change mass, just type.*/
             if (is_PM && ((All.BlackHoleOn && atime >= TimeNextSeedingCheck) ||
                 (during_helium_reionization(1/atime - 1) && need_change_helium_ionization_fraction(atime)))) {
 
