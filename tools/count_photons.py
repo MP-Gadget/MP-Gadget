@@ -25,6 +25,7 @@ ap = argparse.ArgumentParser("get_xgrids.py")
 ap.add_argument("bigfile", help='comma separated list of paths to the MP-Gadget output directories')
 ap.add_argument("--output", help='path to save the plots')
 ap.add_argument("--dataname", help='path to save the data')
+ap.add_argument("--reiongrid", help='comma separated paths to zreion grids')
 ap.add_argument("--nion", type=int, default=4000, help='photons per stellar baryon')
 ap.add_argument("--fesc-n", type=float, help='ionising photon escape fraction norm')
 ap.add_argument("--fesc-s", type=float, help='ionising photon escape fraction halo mass scaling')
@@ -68,13 +69,15 @@ Ode0 = 0.7186
 
 cosmo = cosmology.FlatLambdaCDM(H0=h*100,Om0=Om0,Ob0=Ob0,Tcmb0=Tcmb0,m_nu=m_nu)
 
-def read_globalreion_info(fname):
+def read_globalreion_info(fname,reiongrid=False):
     #set up the list of snapshots, and redshifts
     time_list = np.loadtxt(f'{fname}/Snapshots.txt', dtype=float, ndmin=2)
     if ns.snapend == -1:
         ns.snapend = int(time_list[-1,0])
-    snapshot_list = np.arange(ns.snapstart, ns.snapend + 1)
-    time_list = time_list[snapshot_list,1]
+    snapshot_list = time_list[:,0].astype(int)
+    mask = (snapshot_list <= ns.snapend) & (snapshot_list >= ns.snapstart)
+    snapshot_list = snapshot_list[mask]
+    time_list = time_list[mask,1]
     redshift_list = 1/time_list - 1
 
     #define mass / neutral fraction arrays
@@ -90,7 +93,7 @@ def read_globalreion_info(fname):
     #snapshot mask to account for missing snapshots
     snap_mask = np.ones(len(snapshot_list),dtype=bool)
 
-    npart = BigFileCatalog(f'{fname}/PART_000/',dataset='0/',header='Header').attrs['TotNumPart'][0]
+    #npart = BigFileCatalog(f'{fname}/PART_000/',dataset='0/',header='Header').attrs['TotNumPart'][0]
 
     comm = MPI.COMM_WORLD
     nrank = comm.Get_size()
@@ -120,29 +123,33 @@ def read_globalreion_info(fname):
         gas_xhi[i] = cat.compute((cat['Mass']*cat['NeutralHydrogenFraction']).sum())
         
         #To get volume weighted, I need to make a grid, currently using 0.5Mpc resolution
-        Nmesh = int(cat.attrs['BoxSize']/2000)
-        mesh = cat.to_mesh(Nmesh=Nmesh,weight='Mass',value='NeutralHydrogenFraction',position='Position')    
-        field = mesh.to_real_field(normalize=False)
-        mesh_mass = cat.to_mesh(Nmesh=Nmesh,weight='Mass',position='Position')
-        field_mass = mesh_mass.to_real_field(normalize=False)
-        field[...] /= field_mass[...]
+        if reiongrid:
+            Nmesh = int(cat.attrs['BoxSize']/2000)
+            mesh = cat.to_mesh(Nmesh=Nmesh,weight='Mass',value='NeutralHydrogenFraction',position='Position')    
+            field = mesh.to_real_field(normalize=False)
+            mesh_mass = cat.to_mesh(Nmesh=Nmesh,weight='Mass',position='Position')
+            field_mass = mesh_mass.to_real_field(normalize=False)
+            field[...] /= field_mass[...]
 
-        vol_xhi[i] = field.cmean()
+            vol_xhi[i] = field.cmean()
+        else:
+            vol_xhi[i] = 0 #calculated later from file
 
         sel_ion = (cat['NeutralHydrogenFraction'] < 0.1).compute()
         J21_avg[i] = cat.compute((cat['Mass']*cat['J21']).sum())
         #particle weighted because of selection
         J21_ion[i] = cat.compute((cat['J21'])[sel_ion].mean())
 
-        temp = u_to_t(cat['InternalEnergy'],cat['NeutralHydrogenFraction'])
         dens = cat['Density'] * cat.attrs['UnitMass_in_g'] / cat.attrs['UnitLength_in_cm']**3 #* U.Unit('M_sun kpc-3')
         delta = (dens / mean_bary_dens)
 
         #sel_meandens = ((da.log10(delta) < 0.1) & (da.log10(delta) > -0.1)).compute()
-        sel_meandens = ((delta < 1.1) & (delta > 1/1.1)).compute()
+        sel_meandens = ((delta < 1.1) & (delta > 1/1.1))
         #particle weighted in the selected bin
         temps = u_to_t(cat['InternalEnergy'],cat['NeutralHydrogenFraction'])
-        T0_avg[i] = cat.compute(temps[sel_meandens].mean())
+        buf = temps[sel_meandens].mean()
+        print(buf)
+        T0_avg[i] = cat.compute(buf)
 
         #multiply stellar mass by photons per stellar baryon
         #and take ratio with gas mass, giving an estimate of
@@ -176,7 +183,7 @@ def read_globalreion_info(fname):
     G12_ion = J21_ion * 2.535452
 
     result_dict = {
-        "mass_xhi" : gas_xhi / gas_mass,
+        "mass_xhi" : gas_xhi / gas_mass, #assumes particles have equal mass
         "vol_xhi" : vol_xhi[snap_mask], #snap mask because it was reduced earlier
         "phot_fof" : phot_fof / gas_mass,
         "G12_avg" : G12_avg / gas_mass,
@@ -227,11 +234,15 @@ def plot_globalreion(result_dicts,redshifts):
     #plot the neutral fraction and photon ratio vs snapshot
     fig = plt.figure(figsize=(4,8))
     axxH = fig.add_subplot(411)
+
+    colors = ['C1','C2','C3','C4','C5','C6','C7','C8','C9','C10']
+    cnt = 0
     for res,z in zip(result_dicts,redshifts):
         if ns.fesc_n is not None:
             axxH.plot(z, 1 - res['phot_fof'], label=f'photons / H (fn = {ns.fesc_n}, fs = {ns.fesc_s})')
-        #axxH.plot(z,res['mass_xhi'],'k',label='Mass')
-        axxH.plot(z,res['vol_xhi'],label='Vol')
+        axxH.plot(z,res['mass_xhi'],color=colors[cnt],linewidth=1,linestyle=':')
+        axxH.plot(z,res['vol_xhi'],color=colors[cnt],label='Simulation')
+        cnt += 1
     
     #Yuxiang's compiled XHI observations:
     #Dark Pixels
@@ -285,8 +296,10 @@ def plot_globalreion(result_dicts,redshifts):
     P18_bounds = P18_mean + np.array([-0.0081,0.0070])
     
     ax = fig.add_subplot(412)
+    cnt=0
     for res,z in zip(result_dicts,redshifts):
-        ax.plot(z,res['tau'])
+        ax.plot(z,res['tau'],color=colors[cnt])
+        cnt += 1
     
     ax.axhline(P18_mean,linestyle=':',color='k')
     ax.fill_between(np.array([0,np.amax(z)]),P18_bounds[0],P18_bounds[1],facecolor='black',alpha=0.2,label='Planck18')
@@ -319,10 +332,11 @@ def plot_globalreion(result_dicts,redshifts):
 
     ax = fig.add_subplot(413)
     
-    
+    cnt = 0
     for res,z in zip(result_dicts,redshifts):
-        ax.semilogy(z,res['G12_avg'],'k-')
-        ax.semilogy(z,res['G12_ion'],'k:')
+        ax.semilogy(z,res['G12_avg'],color=colors[cnt],linestyle='-')
+        ax.semilogy(z,res['G12_ion'],color=colors[cnt],linestyle=':')
+        cnt += 1
 
     ax.errorbar(G12_D18_z,G12_D18_val,yerr=[G12_D18_erl,G12_D18_eru],fmt='ro',markersize=3,elinewidth=1,capsize=3,label='D\'Aloisio+ 18')
     ax.errorbar(G12_B21_z,G12_B21_val,yerr=[G12_B21_erl,G12_B21_eru],fmt='bo',markersize=3,elinewidth=1,capsize=3,label='Becker+ 21')
@@ -347,8 +361,10 @@ def plot_globalreion(result_dicts,redshifts):
     T0_B19_eru = np.array([1340,1350,1670])
 
     ax = fig.add_subplot(414)
+    cnt = 0
     for res,z in zip(result_dicts,redshifts):
-        ax.plot(z,res['T0_avg'],'k')
+        ax.plot(z,res['T0_avg'],color=colors[cnt])
+        cnt += 1
 
     ax.errorbar(T0_G20_z,T0_G20_val,xerr=0.1,yerr=[T0_G20_erl,T0_G20_eru],fmt='ro',markersize=3,elinewidth=1,capsize=3,label='Gaikwad+ 20')
     ax.errorbar(T0_B19_z,T0_B19_val,xerr=0.2,yerr=[T0_B19_erl,T0_B19_eru],fmt='bo',markersize=3,elinewidth=1,capsize=3,label='Boera+ 19')
@@ -375,12 +391,33 @@ if __name__ == "__main__":
     #READ HERE
     comm = MPI.COMM_WORLD
     bigfiles = ns.bigfile.split(',')
-    print(bigfiles)
-    dicts, redshifts = zip(*[read_globalreion_info(bf) for bf in bigfiles])
+    gridfiles = ns.reiongrid.split(',')
+    
+    if ns.reiongrid is not None:
+        if len(gridfiles) != len(bigfiles):
+            print('incompatible reion grids and bigfiles')
+            quit()
+        calc_reion_grid = False
+    else:
+        calc_reion_grid = True
 
-    #COMUPUTE TAU AND ADD TO DICT
-    if comm.rank == 0:        
+    print(bigfiles)
+    dicts, redshifts = zip(*[read_globalreion_info(bf,calc_reion_grid) for bf in bigfiles])
+
+    #COMUPUTE TAU, vol xhi AND ADD TO DICT
+    if comm.rank == 0:
+
         for i,d in enumerate(dicts):
             d['tau'] = compute_tau(d['mass_xhi'],redshifts[i])
+              
+            if not calc_reion_grid:
+                #load zreion grid (made with get_xgrids.py)
+                reion_file = bf.File(gridfiles[i])
+                dset = reion_file[f'grid']
+                reion_grid = dset.read(0,dset.size)
+                reion_file.close()
+
+                for j,z in enumerate(redshifts[i]):
+                    d['vol_xhi'][j] = (reion_grid > z).sum() / reion_grid.size
 
         plot_globalreion(dicts,redshifts)
