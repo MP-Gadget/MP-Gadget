@@ -603,6 +603,8 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
             grav_short_tree_build_tree(&subact, pm, ddecomp, GravAccel, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
         }
 
+        report_memory_usage("GRAVITY-SHORT");
+
         /* We need to do the kick here based on the acceleration at the current level,
          * because we will over-write the acceleration*/
         apply_hierarchical_grav_kick(&subact, CP, times, GravAccel, ti, largest_active);
