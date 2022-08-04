@@ -685,15 +685,31 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
         /* Enforce that the hydro timestep is always shorter than or equal to the gravity timestep*/
         if(bin_hydro > P[i].TimeBinGravity)
             bin_hydro = P[i].TimeBinGravity;
-        /* Only update if both the old and new timebins are currently active.
-         * We know that the shorter hydro timestep is active, but we need to check
-         * the gravity timestep.*/
+        /* Only update if both the old and new timebins are currently active.*/
         if(is_timebin_active(P[i].TimeBinHydro, times->Ti_Current) && is_timebin_active(bin_hydro, times->Ti_Current))
             P[i].TimeBinHydro = bin_hydro;
-        /*Find max and min*/
+        /*Find min timestep for advance*/
         if(bin_hydro < mTimeBin)
             mTimeBin = bin_hydro;
     }
+    /* This logic handles the special case when all gas particles in the shortest timebin have become stars.
+     * In this case we need to find a new timebin to advance by, which we do by using the hydro steps in the active star particles.*/
+    if(!is_timebin_active(mTimeBin, times->Ti_Current)) {
+        #pragma omp parallel for reduction(min: mTimeBin) reduction(+: badstepsizecount)
+        for(pa = 0; pa < act->NumActiveParticle; pa++) {
+            const int i = get_active_particle(act, pa);
+            /* Look for stars*/
+            if(P[i].Type != 4)
+                continue;
+            /* You could imagine that only the gravitational timesteps are active,
+             * because this star is not new this timestep.*/
+            if(!is_timebin_active(P[i].TimeBinHydro, times->Ti_Current))
+                continue;
+            if(P[i].TimeBinHydro < mTimeBin)
+                mTimeBin = P[i].TimeBinHydro;
+        }
+    }
+
 
     MPI_Allreduce(MPI_IN_PLACE, &badstepsizecount, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &mTimeBin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
