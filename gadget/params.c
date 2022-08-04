@@ -180,7 +180,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "TreeGravOn", OPTIONAL, 1, "Enables tree gravity");
     param_declare_int(ps, "RadiationOn", OPTIONAL, 1, "Include radiation density in the background evolution.");
     param_declare_int(ps, "FastParticleType", OPTIONAL, 2, "Particles of this type will not decrease the timestep. Default neutrinos.");
-    param_declare_double(ps, "PairwiseActiveFraction", OPTIONAL, 0, "Pairwise gravity instead of tree gravity is used if N(active particles) / N(particles) is less than this. Usually slower.");
+    param_declare_double(ps, "PairwiseActiveFraction", OPTIONAL, 0, "Pairwise gravity instead of tree gravity is used if N(active particles) / N(particles) is less than this. Currently unimplemented as slower.");
 
     param_declare_double(ps, "GravitySoftening", OPTIONAL, 1./30., "Softening for collisionless particles; units of mean separation of DM. ForceSoftening is 2.8 times this.");
     param_declare_int(ps, "GravitySofteningGas", OPTIONAL, 1, "0 to use adaptive softening, where the gas softening is the smoothing length of the last step.");
