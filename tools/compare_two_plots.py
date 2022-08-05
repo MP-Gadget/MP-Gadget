@@ -53,9 +53,9 @@ def plot_mass_functions(output1, output2, atime):
     bff2 = bigfile.BigFile(pig2)
     hmf2 = plotGSMF.get_hmf(bff2, lbox, hh)
     ax_abs, ax2_rel = make_figures()
-    ax_abs.loglog(hmf1[0], hmf1[1], label=output1)
-    ax_abs.loglog(hmf2[0], hmf2[1], label=output2)
-    ax2_rel.semilogx(hmf2[0], hmf2[1]/hmf1[1])
+    ax_abs.plot(hmf1[0], hmf1[1], label=output1)
+    ax_abs.plot(hmf2[0], hmf2[1], label=output2)
+    ax2_rel.plot(hmf2[0], hmf2[1]/hmf1[1])
     ax_abs.legend()
     plt.savefig("hmf-%.4f.pdf" % scalefactor)
     plt.clf()
@@ -114,7 +114,7 @@ if __name__ == "__main__":
     oldoutput = sys.argv[1]
     newoutput = sys.argv[2]
     atime = float(sys.argv[3])
-    snap = int(sys.argv[4])
+#    snap = int(sys.argv[4])
     plot_power(oldoutput, newoutput, atime)
     plot_mass_functions(oldoutput, newoutput, atime)
     plot_flux_power(oldoutput, newoutput, snap)
