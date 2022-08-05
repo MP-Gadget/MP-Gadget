@@ -86,12 +86,13 @@ SPH_EntVarPred(int PI, double MinEgySpec, double a3inv, double dloga)
  * which always coincides with the Drift inttime.
  * For hydro forces.*/
 void
-SPH_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double gravkick, double hydrokick)
+SPH_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double * gravkick, double * hydrokick)
 {
     int j;
+    /* Notice that the kick time for gravity and hydro may be different! So the prediction is also different*/
     for(j = 0; j < 3; j++) {
-        VelPred[j] = P[i].Vel[j] + gravkick * P[i].FullTreeGravAccel[j]
-            + P[i].GravPM[j] * FgravkickB + hydrokick * SPHP(i).HydroAccel[j];
+        VelPred[j] = P[i].Vel[j] + gravkick[P[i].TimeBinGravity] * P[i].FullTreeGravAccel[j]
+            + P[i].GravPM[j] * FgravkickB + hydrokick[P[i].TimeBinHydro] * SPHP(i).HydroAccel[j];
     }
 }
 
@@ -280,7 +281,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
             int bin = P[p_i].TimeBinHydro;
             double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
             priv->SPH_predicted->EntVarPred[P[p_i].PI] = SPH_EntVarPred(P[p_i].PI, priv->MinEgySpec, priv->a3inv, dloga);
-            SPH_VelPred(p_i, priv->SPH_predicted->VelPred + 3 * P[p_i].PI, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
+            SPH_VelPred(p_i, priv->SPH_predicted->VelPred + 3 * P[p_i].PI, priv->FgravkickB, priv->gravkicks, priv->hydrokicks);
         }
     }
 
@@ -451,7 +452,7 @@ density_ngbiter(
             int bin = P[other].TimeBinHydro;
             double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
             EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, priv->a3inv, dloga);
-            SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
+            SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks, priv->hydrokicks);
             /* Note this goes first to avoid threading issues: EntVarPred will only be set after this is done.
              * The worst that can happen is that some data points get copied twice.*/
             int i;
