@@ -4,6 +4,8 @@ import glob
 import os
 import re
 import collections
+import matplotlib.pyplot as plt
+import numpy as np
 
 def parse_step_header(line):
     """Parse a string describing a step into total simulation time and scalefactor of the step.
@@ -62,7 +64,7 @@ def merge_trees(t1, t2):
                     break
             #If we didn't find an equivalent key,
             #we just drop this entry
-            if not k in ret.keys():
+            if not k in ret:
                 print("Could not merge: ",k," in ",t2)
                 ret[k] = t1[k]
         except TypeError:
@@ -130,7 +132,7 @@ def get_cpu_time(directory, endsf=None):
     steps = 0
     for cpu in cpus[::-1]:
         try:
-            head, stepd = parse_file(cpu, sf=sf)
+            head, _ = parse_file(cpu, sf=sf)
         #An empty file or one with no steps before sf
         except UnboundLocalError:
             continue
@@ -150,7 +152,10 @@ def get_total_time(directory, endsf = None):
     totals = {"MPI": 0, "Thread": 0, "Time": 0}
     steptot = None
     for cpu in cpus[::-1]:
-        head, stepd = parse_file(cpu, sf=sf)
+        try:
+            head, stepd = parse_file(cpu, sf=sf)
+        except UnboundLocalError:
+            continue
         #Add to totals
         totals["Time"] += head["Time"]
         # Check that the core counts are the same
@@ -164,3 +169,58 @@ def get_total_time(directory, endsf = None):
         headstart, _ = parse_file(cpu, step = 0)
         sf = headstart["Scale"]
     return totals, steptot
+
+def plot_sim_cost(directory):
+    """Make a plot showing how much time a simulation takes as a function of scale factor.
+    """
+    cpus = sorted(glob.glob(os.path.join(directory, "cpu.tx*")))
+    #Find start and end scale factors
+    headstart, _ = parse_file(cpus[0], step = 0)
+    headfinal, _ = parse_file(cpus[-1])
+    scales = np.linspace(headstart["Scale"], headfinal["Scale"], 100)
+    total = np.zeros_like(scales)
+    gravity = np.zeros_like(scales)
+    treegrav = np.zeros_like(scales)
+    domain = np.zeros_like(scales)
+    hydro = np.zeros_like(scales)
+    galaxy = np.zeros_like(scales)
+    hrs = 60 * 60.
+    for ii, aa in enumerate(scales[1:]):
+        jj = ii +1
+        for cpu in cpus:
+            head, stepd = parse_file(cpu, sf = aa)
+            #Did we find this scale factor in this file?
+            #Has to be approximate because the steps
+            #might not line up with the linspace() output
+            final_file = abs(head["Scale"] - aa) < 5e-3*aa
+            #print(cpu, head["Scale"], aa, final_file)
+            if final_file:
+                jj = ii + 1
+            else:
+                jj = np.arange(ii+1, np.size(total))
+            total[jj] += head["Time"]*head["MPI"]/hrs
+            gravity[jj] += head["MPI"]*TreeTime(stepd["PMgrav"])/hrs
+            treegrav[jj] += head["MPI"]*TreeTime(stepd["Tree"])/hrs
+            domain[jj] += head["MPI"]*TreeTime(stepd["Domain"])/hrs
+            if "SPH" in stepd:
+                hydro[jj] += head["MPI"]*TreeTime(stepd["SPH"])/hrs
+            if "Cooling" in stepd:
+                galaxy[jj] += head["MPI"]*TreeTime(stepd["Cooling"])/hrs
+            if "BH" in stepd:
+                galaxy[jj] += head["MPI"]*TreeTime(stepd["BH"])/hrs
+            if "FOF" in stepd:
+                galaxy[jj] += head["MPI"]*TreeTime(stepd["FOF"])/hrs
+            #Did we find this scale factor in this file? If so, we are done.
+            # If not then we already added this file to totals, don't need to do it again.
+            if final_file:
+                break
+            cpus = cpus[1:]
+    plt.plot(scales, np.array(total), ls="-", color="black", label="Total")
+    plt.plot(scales, np.array(domain), ls="-", color="blue", label="Domain")
+    plt.plot(scales, np.array(gravity), ls="-", color="red", label="PM Gravity")
+    plt.plot(scales, np.array(treegrav), ls="-", color="brown", label="Tree Gravity")
+    plt.plot(scales, np.array(hydro), ls="-", color="pink", label="Hydro")
+    plt.plot(scales, np.array(galaxy), ls="-", color="green", label="Galaxy")
+    plt.legend(loc="upper left", ncol=3)
+    plt.ylabel("SUs")
+    plt.xlabel("a")
