@@ -630,7 +630,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
              */
             /* Black hole accretion and feedback */
             if(All.BlackHoleOn)
-                blackhole(&Act, atime, &All.CP, &Tree, ddecomp, units, fds.FdBlackHoles, fds.FdBlackholeDetails);
+                blackhole(&Act, atime, &All.CP, &Tree, ddecomp, &times, units, fds.FdBlackHoles, fds.FdBlackholeDetails);
 
             /**** radiative cooling and star formation *****/
             if(All.CoolingOn)
