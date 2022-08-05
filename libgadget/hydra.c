@@ -372,7 +372,7 @@ hydro_ngbiter(
         double a3inv = pow(priv->atime, -3);
         double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
         EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, a3inv, dloga);
-        SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
+        SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks, priv->hydrokicks);
         /* Note this goes first to avoid threading issues: EntVarPred will only be set after this is done.
             * The worst that can happen is that some data points get copied twice.*/
         int i;

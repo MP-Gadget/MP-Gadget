@@ -58,7 +58,7 @@ void slots_free_sph_pred_data(struct sph_pred_data * sph_pred);
 
 /* Predicted quantity computation used in hydro*/
 MyFloat SPH_EntVarPred(int PI, double MinEgySpec, double a3inv, double dloga);
-void SPH_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double gravkick, double hydrokick);
+void SPH_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double * gravkick, double * hydrokick);
 
 
 #endif
