@@ -25,6 +25,8 @@ double get_omega_nu_nopart(const _omega_nu * omnu, const double a)
     return 0;
 }
 
+void init_hybrid_nu(_hybrid_nu * const hybnu, const double mnu[], const double vcrit, const double light, const double nu_crit_time, const double kBtnu){ }
+
 void setup_cosmology(Cosmology * CP, double Omega0, double OmegaBaryon, double H0)
 {
     CP->CMBTemperature = 2.7255;
@@ -38,14 +40,9 @@ void setup_cosmology(Cosmology * CP, double Omega0, double OmegaBaryon, double H
     CP->wa_fld = 0; /*Dark energy equation of state evolution parameter*/
     CP->Omega_ur = 0;
     CP->MNu[0] = CP->MNu[1] = CP->MNu[2] = 0;
-    /*Default value for L=kpc v=km/s*/
-    double UnitTime_in_s = 3.08568e+16;
-    double UnitLength_in_cm = 3.085678e+21;
-    double UnitMass_in_g = 1.989e+43;
-    /*Should be 0.1*/
-    CP->Hubble = HUBBLE * UnitTime_in_s;
+    struct UnitSystem units = get_unitsystem(3.085678e21, 1.989e43, 1e5);
     /*Do the main cosmology initialisation*/
-    init_cosmology(CP,0.01,UnitLength_in_cm,UnitMass_in_g,UnitTime_in_s);
+    init_cosmology(CP,0.01, units);
 }
 
 static inline double radgrow(double aa, double omegar) {
@@ -60,7 +57,7 @@ static inline double growth(double aa, double omegam) {
 
 static void test_cosmology(void ** state)
 {
-    Cosmology CP;
+    Cosmology CP = {0};
     //Check that we get the right scalings for total matter domination.
     //Cosmology(double HubbleParam, double Omega, double OmegaLambda, double MNu, int Hierarchy, bool NoRadiation)
     setup_cosmology(&CP, 1., 0.0455, 0.7);

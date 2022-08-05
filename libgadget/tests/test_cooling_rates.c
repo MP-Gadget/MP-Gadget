@@ -12,9 +12,6 @@
 #include <libgadget/cooling_rates.h>
 #include <libgadget/config.h>
 #include "stub.h"
-#include <libgadget/allvars.h>
-
-struct global_data_all_processes All;
 
 //Stub
 int

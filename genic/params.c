@@ -77,14 +77,13 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
 
     /* read parameter file on all processes for simplicty */
     ParameterSet * ps = create_parameters();
-    char * error;
     int ThisTask;
 
-    if(0 != param_parse_file(ps, fname, &error)) {
-        endrun(0, "Parsing %s failed: %s\n", fname, error);
+    if(0 != param_parse_file(ps, fname)) {
+        endrun(0, "Parsing %s failed. \n", fname);
     }
-    if(0 != param_validate(ps, &error)) {
-        endrun(0, "Validation of %s failed: %s\n", fname, error);
+    if(0 != param_validate(ps)) {
+        endrun(0, "Validation of %s failed.\n", fname);
     }
 
     message(0, "----------- Running with Parameters ----------\n");
@@ -120,9 +119,9 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
     GenicConfig->ProduceGas = param_get_int(ps, "ProduceGas");
     GenicConfig->InvertPhase = param_get_int(ps, "InvertPhase");
     /*Unit system*/
-    GenicConfig->UnitVelocity_in_cm_per_s = param_get_double(ps, "UnitVelocity_in_cm_per_s");
-    GenicConfig->UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
-    GenicConfig->UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
+    GenicConfig->units.UnitVelocity_in_cm_per_s = param_get_double(ps, "UnitVelocity_in_cm_per_s");
+    GenicConfig->units.UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
+    GenicConfig->units.UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
 
 
     *ShowBacktrace = param_get_int(ps, "ShowBacktrace");
@@ -165,7 +164,7 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
     GenicConfig->NGridNu = param_get_int(ps, "NgridNu");
     /* Convert physical km/s at z=0 in an unperturbed universe to
      * internal gadget (comoving) velocity units at starting redshift.*/
-    GenicConfig->Max_nuvel = param_get_double(ps, "Max_nuvel") * pow(1+Redshift, 1.5) * (GenicConfig->UnitVelocity_in_cm_per_s/1e5);
+    GenicConfig->Max_nuvel = param_get_double(ps, "Max_nuvel") * pow(1+Redshift, 1.5) * (GenicConfig->units.UnitVelocity_in_cm_per_s/1e5);
     GenicConfig->Seed = param_get_int(ps, "Seed");
     GenicConfig->UnitaryAmplitude = param_get_int(ps, "UnitaryAmplitude");
     param_get_string2(ps, "OutputDir", GenicConfig->OutputDir, sizeof(GenicConfig->OutputDir));
@@ -202,7 +201,7 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
     }
     /*Set some units*/
     GenicConfig->TimeIC = 1 / (1 + Redshift);
-    double UnitTime_in_s = GenicConfig->UnitLength_in_cm / GenicConfig->UnitVelocity_in_cm_per_s;
+    double UnitTime_in_s = GenicConfig->units.UnitLength_in_cm / GenicConfig->units.UnitVelocity_in_cm_per_s;
 
     CP->Hubble = HUBBLE * UnitTime_in_s;
 }

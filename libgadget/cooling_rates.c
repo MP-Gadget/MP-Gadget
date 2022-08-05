@@ -83,9 +83,9 @@ struct itp_type
 };
 /*Interpolation objects for the redshift evolution of the UVB.*/
 /*Number of entries in the table*/
-static int NTreeCool;
+static int NTreeCool = 0;
 /*Redshift bins*/
-static double * Gamma_log1z;
+static double * Gamma_log1z = NULL;
 /*These are the photo-ionization rates*/
 static struct itp_type Gamma_HI, Gamma_HeI, Gamma_HeII;
 /*These are the photo-heating rates*/
@@ -172,7 +172,7 @@ load_treecool(const char * TreeCoolFile)
         endrun(1, "Photon background contains: %d entries, not enough.\n", NTreeCool);
 
     /*Allocate memory for the photon background table.*/
-    Gamma_log1z = mymalloc("TreeCoolTable", 7 * NTreeCool * sizeof(double));
+    Gamma_log1z = (double *) mymalloc("TreeCoolTable", 7 * NTreeCool * sizeof(double));
     Gamma_HI.ydata = Gamma_log1z + NTreeCool;
     Gamma_HeI.ydata = Gamma_log1z + 2 * NTreeCool;
     Gamma_HeII.ydata = Gamma_log1z + 3 * NTreeCool;
@@ -366,7 +366,7 @@ struct UVBG get_global_UVBG(double redshift)
 {
     struct UVBG GlobalUVBG = {0};
 
-    if(!CoolingParams.PhotoIonizationOn)
+    if(!CoolingParams.PhotoIonizationOn || NTreeCool <= 0)
         return GlobalUVBG;
 
     /* Set the homogeneous reionization redshift as the point when the UVB switches on.*/
@@ -648,7 +648,7 @@ get_interpolated_recomb(double logt, double * rec_tab, double rec_func(double))
     double dind = (logt - RECOMBTMIN) / (RECOMBTMAX - RECOMBTMIN) * NRECOMBTAB;
     int index = (int) dind;
     /*Just call the function directly if we are out of interpolation range*/
-    if(index < 0 || index >= NRECOMBTAB-1)
+    if(!rec_tab || index < 0 || index >= NRECOMBTAB-1)
         return rec_func(exp(logt));
     //if (temp_tab[index] > logt || temp_tab[index+1] < logt || index < 0 || index >= NRECOMBTAB)
     //    endrun(2, "Incorrect indexing of recombination array\n");
@@ -1081,8 +1081,8 @@ set_cooling_params(ParameterSet * ps)
     if(ThisTask == 0) {
         /*Cooling rate network parameters*/
         CoolingParams.CMBTemperature = param_get_double(ps, "CMBTemperature");
-        CoolingParams.cooling = param_get_enum(ps, "CoolingRates"); // Sherwood;
-        CoolingParams.recomb = param_get_enum(ps, "RecombRates"); // Verner96;
+        CoolingParams.cooling = (enum CoolingType) param_get_enum(ps, "CoolingRates"); // Sherwood;
+        CoolingParams.recomb = (enum RecombType) param_get_enum(ps, "RecombRates"); // Verner96;
         CoolingParams.SelfShieldingOn = param_get_int(ps, "SelfShieldingOn");
         CoolingParams.PhotoIonizeFactor = param_get_double(ps, "PhotoIonizeFactor");
         CoolingParams.PhotoIonizationOn = param_get_int(ps, "PhotoIonizationOn");
@@ -1133,7 +1133,7 @@ init_cooling_rates(const char * TreeCoolFile, const char * J21CoeffFile, const c
     }
 
     /*Initialize the recombination tables*/
-    temp_tab = mymalloc("Recombination_tables", NRECOMBTAB * sizeof(double) * 14);
+    temp_tab = (double *) mymalloc("Recombination_tables", NRECOMBTAB * sizeof(double) * 14);
 
     rec_GammaH0 = temp_tab + NRECOMBTAB;
     rec_GammaHe0 = temp_tab + 2 * NRECOMBTAB;

@@ -37,7 +37,6 @@ struct table
     double * logk;
     double * logD[MAXCOLS];
     gsl_interp * mat_intp[MAXCOLS];
-    gsl_interp_accel * mat_intp_acc[MAXCOLS];
 };
 
 /*Typedef for a function that parses the table from text*/
@@ -76,12 +75,12 @@ static double get_Tabulated(double k, enum TransferType Type, double oobval)
     if(logk < power_table.logk[0] || logk > power_table.logk[power_table.Nentry - 1])
       return oobval;
 
-    double logD = gsl_interp_eval(power_table.mat_intp[0], power_table.logk, power_table.logD[0], logk, power_table.mat_intp_acc[0]);
+    double logD = gsl_interp_eval(power_table.mat_intp[0], power_table.logk, power_table.logD[0], logk, NULL);
     double trans = 1;
     /*Transfer table stores (T_type(k) / T_tot(k))*/
     if(transfer_table.Nentry > 0)
        if(Type >= DELTA_BAR && Type < DELTA_TOT)
-          trans = gsl_interp_eval(transfer_table.mat_intp[Type], transfer_table.logk, transfer_table.logD[Type], logk, transfer_table.mat_intp_acc[Type]);
+          trans = gsl_interp_eval(transfer_table.mat_intp[Type], transfer_table.logk, transfer_table.logD[Type], logk, NULL);
 
     /*Convert delta from (Mpc/h)^3/2 to kpc/h^3/2*/
     logD += 1.5 * log10(scale);
@@ -106,7 +105,7 @@ double dlogGrowth(double kmag, enum TransferType Type)
         Type = VEL_TOT;
     else
         /*Type should be an offset from the first velocity*/
-        Type = VEL_BAR - DELTA_BAR + Type;
+        Type = (enum TransferType) ((int) VEL_BAR + ((int) Type - (int) DELTA_BAR));
     return get_Tabulated(kmag, Type, 1);
 }
 
@@ -183,7 +182,7 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
     int j;
     int ncols = NumCol - 1; /* The first column k is already read in read_power_table. */
     int nnu = round((ncols - 15)/2);
-    double * transfers = mymalloc("transfers", sizeof(double) * ncols);
+    double * transfers = (double *) mymalloc("transfers", sizeof(double) * ncols);
     k = log10(k);
     out_tab->logk[i] = k;
     /* Note: the ncdm entries change depending on the number of neutrino species. The first row, k,
@@ -241,7 +240,7 @@ void read_power_table(int ThisTask, const char * inputfile, const int ncols, str
     FILE *fd = NULL;
     int j;
     int InputInLog10 = 0;
-    
+
     if(ThisTask == 0) {
         if(!(fd = fopen(inputfile, "r")))
             endrun(1, "can't read input spectrum in file '%s' on task %d\n", inputfile, ThisTask);
@@ -266,33 +265,33 @@ void read_power_table(int ThisTask, const char * inputfile, const int ncols, str
 
     if(out_tab->Nentry < 2)
         endrun(1, "Input spectrum too short\n");
-    out_tab->logk = mymalloc("Powertable", (ncols+1)*out_tab->Nentry * sizeof(double));
+    out_tab->logk = (double *) mymalloc("Powertable", (ncols+1)*out_tab->Nentry * sizeof(double));
     for(j=0; j<ncols; j++)
         out_tab->logD[j] = out_tab->logk + (j+1)*out_tab->Nentry;
 
     if(ThisTask == 0)
     {
-        /* detect the columns of the input file */ 
+        /* detect the columns of the input file */
         char line1[1024];
-        
+
         while(fgets(line1,1024,fd))
         {
             char * content = strtok(line1, " \t");
-            if(content[0] != '#') /*Find the first line*/         
+            if(content[0] != '#') /*Find the first line*/
                 break;
-        }  
+        }
         int Ncolumns = 0;
         char *c;
         do
         {
             Ncolumns++;
             c = strtok(NULL," \t");
-        }  
-        while(c != NULL);  
-        
+        }
+        while(c != NULL);
+
         rewind(fd);
         message(0, "Detected %d columns in file '%s'. \n", Ncolumns, inputfile);
-        
+
         int i = 0;
         do
         {
@@ -316,7 +315,6 @@ void read_power_table(int ThisTask, const char * inputfile, const int ncols, str
     MPI_Bcast(out_tab->logk, (ncols+1)*out_tab->Nentry, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     for(j=0; j<ncols; j++) {
         out_tab->mat_intp[j] = gsl_interp_alloc(gsl_interp_cspline,out_tab->Nentry);
-        out_tab->mat_intp_acc[j] = gsl_interp_accel_alloc();
     }
 }
 
@@ -381,7 +379,8 @@ init_transfer_table(int ThisTask, double InitTime, const struct power_params * c
                 meangrowth[t-VEL_BAR] += transfer_table.logD[t][i];
                 nmean++;
             }
-        meangrowth[t-VEL_BAR]/= nmean;
+        if(nmean > 0)
+            meangrowth[t-VEL_BAR]/= nmean;
     }
     /*Initialise the interpolation*/
     for(t = 0; t < MAXCOLS; t++)
@@ -497,7 +496,7 @@ double sigma2_int(double k, void * params)
       w = 1./3. - kr2/30. +kr2*kr2/840.;
   else
       w = 3 * (sin(kr) / kr - cos(kr)) / kr2;
-  x = 4 * M_PI / (2 * M_PI * 2 * M_PI * 2 * M_PI) * k * k * w * w * pow(DeltaSpec(k, -1),2);
+  x = 4 * M_PI / (2 * M_PI * 2 * M_PI * 2 * M_PI) * k * k * w * w * pow(DeltaSpec(k, DELTA_TOT),2);
 
   return x;
 

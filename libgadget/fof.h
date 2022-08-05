@@ -67,18 +67,21 @@ typedef struct FOFGroups
     int64_t TotNgroups;
 } FOFGroups;
 
-/*Computes the Group structure, saved as a global array below*/
-FOFGroups fof_fof(ForceTree * tree, MPI_Comm Comm);
+/* Computes the Group structure, saved as a global array below.
+ * If StoreGrNr is true, this writes to GrNr in partmanager.h.
+ * Note this over-writes PeanoKey and means the tree cannot be rebuilt.*/
+FOFGroups fof_fof(DomainDecomp * ddecomp, const int StoreGrNr, MPI_Comm Comm);
 
 /*Frees the Group structure*/
 void fof_finish(FOFGroups * fof);
 
 /*Uses the Group structure to seed blackholes.
- * The tree and active particle structs are used only because we may need to reallocate them. */
-void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm Comm);
+ * The active particle struct is used only because we may need to reallocate it. */
+void fof_seed(FOFGroups * fof, ActiveParticles * act, double atime, MPI_Comm Comm);
 
 /*Saves the Group structure to disc.*/
-void fof_save_groups(FOFGroups * fof, int num, MPI_Comm Comm);
-
+void fof_save_groups(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, Cosmology * CP, double atime, const double * MassTable, int MetalReturnOn, int BlackholeOn, MPI_Comm Comm);
+/* Does the actual saving of the particles*/
+void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, int SaveParticles, Cosmology * CP, double atime, const double * MassTable, int MetalReturnOn, int BlackholeOn, MPI_Comm Comm);
 
 #endif

@@ -15,7 +15,7 @@ typedef struct {
     int fsize;
 } Interp;
 
-void interp_init(Interp * obj, int Ndim, int * dims);
+void interp_init(Interp * obj, int Ndim, int64_t * dims);
 
 /* set the upper and lower limit of dimension d */
 void interp_init_dim(Interp * obj, int d, double Min, double Max);

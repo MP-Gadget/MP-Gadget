@@ -7,10 +7,6 @@
 #include "utils.h"
 #include "hci.h"
 
-HCIManager HCI_DEFAULT_MANAGER[1] = {
-    {.OVERRIDE_NOW = 0},
-};
-
 static double
 hci_now(HCIManager * manager)
 {
@@ -28,7 +24,7 @@ hci_now(HCIManager * manager)
 void
 hci_init(HCIManager * manager, char * prefix, double WallClockTimeLimit, double AutoCheckPointTime, int FOFEnabled)
 {
-    manager->prefix = fastpm_strdup(prefix);
+    manager->prefix = prefix;
     manager->timer_begin = hci_now(manager);
     manager->timer_query_begin = manager->timer_begin;
 
@@ -78,7 +74,7 @@ void hci_update_query_timer(HCIManager * manager)
  * returns the content of the file or NULL; collectively
  * */
 int
-hci_query_filesystem(HCIManager * manager, char * filename, char ** request)
+hci_query_filesystem(HCIManager * manager, const char * filename, char ** request)
 {
     int ThisTask;
     int NTask;
@@ -126,7 +122,7 @@ hci_query_timeout(HCIManager * manager, char ** request)
      * */
 
     *request = NULL;
-    if (now + manager->LongestTimeBetweenQueries < manager->WallClockTimeLimit * 0.9) {
+    if (now + manager->LongestTimeBetweenQueries < manager->WallClockTimeLimit * 0.95) {
         return 0;
     }
 

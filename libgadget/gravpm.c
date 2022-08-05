@@ -2,10 +2,10 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <omp.h>
 
 #include "utils.h"
 
-#include "allvars.h"
 #include "partmanager.h"
 #include "forcetree.h"
 #include "petapm.h"
@@ -38,26 +38,28 @@ static PetaPMFunctions functions [] =
     {NULL, NULL, NULL},
 };
 
-static PetaPMGlobalFunctions global_functions = {NULL, NULL, potential_transfer};
-
 static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void * userdata, int * Nregions);
+
+static struct gravpm_params
+{
+    double Time;
+    double TimeIC;
+    Cosmology * CP;
+    int FastParticleType;
+    double UnitLength_in_cm;
+} GravPM;
 
 void
 gravpm_init_periodic(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G) {
     petapm_init(pm, BoxSize, Asmth, Nmesh, G, MPI_COMM_WORLD);
-
-    /*Initialise the kspace neutrino code if it is enabled.
-     * Mpc units are used to match power spectrum code.*/
-    if(All.MassiveNuLinRespOn) {
-        global_functions.global_readout = measure_power_spectrum;
-        global_functions.global_analysis = compute_neutrino_power;
-    }
 }
 
 /* Computes the gravitational force on the PM grid
- * and saves the total matter power spectrum.*/
+ * and saves the total matter power spectrum.
+ * Parameters: Cosmology, Time, UnitLength_in_cm and PowerOutputDir are used by the power spectrum output code.
+ * TimeIC and FastParticleType are used by the massive neutrino code. FastParticleType denotes possibly inactive particles.*/
 void
-gravpm_force(PetaPM * pm, ForceTree * tree) {
+gravpm_force(PetaPM * pm, ForceTree * tree, Cosmology * CP, double Time, double UnitLength_in_cm, const char * PowerOutputDir, double TimeIC, int FastParticleType) {
     PetaPMParticleStruct pstruct = {
         P,
         sizeof(P[0]),
@@ -70,7 +72,16 @@ gravpm_force(PetaPM * pm, ForceTree * tree) {
         PartManager->NumPart,
     };
 
-    if(All.HybridNeutrinosOn && particle_nu_fraction(&All.CP.ONu.hybnu, All.Time, 0) == 0.)
+    PetaPMGlobalFunctions global_functions = {NULL, NULL, potential_transfer};
+
+    /*Initialise the kspace neutrino code if it is enabled.
+     * Mpc units are used to match power spectrum code.*/
+    if(CP->MassiveNuLinRespOn) {
+        global_functions.global_readout = measure_power_spectrum;
+        global_functions.global_analysis = compute_neutrino_power;
+    }
+
+    if(CP->HybridNeutrinosOn && particle_nu_fraction(&(CP->ONu.hybnu), Time, 0) == 0.)
         pstruct.active = &hybrid_nu_gravpm_is_active;
 
     int i;
@@ -80,6 +91,12 @@ gravpm_force(PetaPM * pm, ForceTree * tree) {
         P[i].GravPM[0] = P[i].GravPM[1] = P[i].GravPM[2] = 0;
     }
 
+    /* Set up parameters*/
+    GravPM.Time = Time;
+    GravPM.TimeIC = TimeIC;
+    GravPM.CP = CP;
+    GravPM.FastParticleType = FastParticleType;
+    GravPM.UnitLength_in_cm = UnitLength_in_cm;
     /*
      * we apply potential transfer immediately after the R2C transform,
      * Therefore the force transfer functions are based on the potential,
@@ -88,10 +105,10 @@ gravpm_force(PetaPM * pm, ForceTree * tree) {
     petapm_force(pm, _prepare, &global_functions, functions, &pstruct, tree);
     powerspectrum_sum(pm->ps);
     /*Now save the power spectrum*/
-    powerspectrum_save(pm->ps, All.OutputDir, "powerspectrum", All.Time, GrowthFactor(&All.CP, All.Time, 1.0));
+    powerspectrum_save(pm->ps, PowerOutputDir, "powerspectrum", Time, GrowthFactor(CP, Time, 1.0));
     /* Save the neutrino power if it is allocated*/
     if(pm->ps->logknu)
-        powerspectrum_nu_save(pm->ps, All.OutputDir, "powerspectrum-nu", All.Time);
+        powerspectrum_nu_save(pm->ps, PowerOutputDir, "powerspectrum-nu", Time);
     /*We are done with the power spectrum, free it*/
     powerspectrum_free(pm->ps);
     walltime_measure("/LongRange");
@@ -112,8 +129,8 @@ static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void
     ForceTree * tree = (ForceTree *) userdata;
     /* In worst case, each topleave becomes a region: thus
      * NTopLeaves is sufficient */
-    PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion) * tree->NTopLeaves);
-    pstruct->RegionInd = mymalloc2("RegionInd", PartManager->NumPart * sizeof(int));
+    PetaPMRegion * regions = (PetaPMRegion *) mymalloc2("Regions", sizeof(PetaPMRegion) * tree->NTopLeaves);
+    pstruct->RegionInd = (int *) mymalloc2("RegionInd", PartManager->NumPart * sizeof(int));
     int r = 0;
 
     int no = tree->firstnode; /* start with the root */
@@ -152,7 +169,7 @@ static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void
     for(i =0; i < PartManager->NumPart; i ++) {
         /* Swallowed black hole particles stick around but should not gravitate.
          * Short-range is handled by not adding them to the tree. */
-        if(All.BlackHoleOn && P[i].Swallowed && P[i].Type==5){
+        if(P[i].Swallowed){
             pstruct->RegionInd[i] = -2;
             numswallowed++;
         }
@@ -183,7 +200,7 @@ static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void
     if(force_tree_allocated(tree)) force_tree_free(tree);
 
     /*Allocate memory for a power spectrum*/
-    powerspectrum_alloc(pm->ps, pm->Nmesh, omp_get_max_threads(), All.MassiveNuLinRespOn, pm->BoxSize*All.UnitLength_in_cm);
+    powerspectrum_alloc(pm->ps, pm->Nmesh, omp_get_max_threads(), GravPM.CP->MassiveNuLinRespOn, pm->BoxSize*GravPM.UnitLength_in_cm);
 
     walltime_measure("/PMgrav/Regions");
     return regions;
@@ -285,8 +302,6 @@ static double sinc_unnormed(double x) {
  * and after powerspectrum_add_mode() has been called,
  * but before potential_transfer is called.*/
 static void compute_neutrino_power(PetaPM * pm) {
-    if(!All.MassiveNuLinRespOn)
-        return;
     Power * ps = pm->ps;
     /*Note the power spectrum is now in Mpc units*/
     powerspectrum_sum(ps);
@@ -296,7 +311,7 @@ static void compute_neutrino_power(PetaPM * pm) {
         ps->Power[i] = sqrt(ps->Power[i]);
     }
     /*Get the neutrino power.*/
-    delta_nu_from_power(ps, &All.CP, All.Time, All.TimeIC);
+    delta_nu_from_power(ps, GravPM.CP, GravPM.Time, GravPM.TimeIC);
 
     /*Initialize the interpolation for the neutrinos*/
     ps->nu_spline = gsl_interp_alloc(gsl_interp_linear,ps->nonzero);
@@ -395,7 +410,7 @@ potential_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex *value)
     Power * ps = pm->ps;
 
     /*Add neutrino power if desired*/
-    if(All.MassiveNuLinRespOn && k2 > 0) {
+    if(GravPM.CP->MassiveNuLinRespOn && k2 > 0) {
         /* Change the units of k to match those of logkk*/
         double logk2 = log(sqrt(k2) * 2 * M_PI / ps->BoxSize_in_MPC);
         /* Floating point roundoff and the binning means there may be a mode just beyond the box size.*/
@@ -420,8 +435,8 @@ potential_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex *value)
     /*Compute the power spectrum*/
     powerspectrum_add_mode(ps, k2, kpos, value, f, pm->Nmesh);
     if(k2 == 0) {
-        if(All.MassiveNuLinRespOn) {
-            const double MtotbyMcdm = All.CP.Omega0/(All.CP.Omega0 - pow(All.Time,3)*get_omega_nu_nopart(&All.CP.ONu, All.Time));
+        if(GravPM.CP->MassiveNuLinRespOn) {
+            const double MtotbyMcdm = GravPM.CP->Omega0/(GravPM.CP->Omega0 - pow(GravPM.Time,3)*get_omega_nu_nopart(&(GravPM.CP->ONu), GravPM.Time));
             ps->Norm *= MtotbyMcdm*MtotbyMcdm;
         }
         /* Remove zero mode corresponding to the mean.*/
@@ -448,7 +463,7 @@ static double diff_kernel(double w) {
 
 /*This function decides if a particle is actively gravitating; tracers are not.*/
 static int hybrid_nu_gravpm_is_active(int i) {
-    if (P[i].Type == All.FastParticleType)
+    if (P[i].Type == GravPM.FastParticleType)
         return 0;
     else
         return 1;

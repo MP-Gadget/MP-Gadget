@@ -15,6 +15,12 @@ static struct sync_params
 {
     int OutputListLength;
     double OutputListTimes[1024];
+
+    int ExcursionSetReionOn;
+    double ExcursionSetZStart;
+    double ExcursionSetZStop;
+    double UVBGTimestep;
+
 } Sync;
 
 int cmp_double(const void * a, const void * b)
@@ -31,8 +37,7 @@ int cmp_double(const void * a, const void * b)
  *  We sort the input after reading it, so that the initial list need not be sorted.
  *  This function could be repurposed for reading generic arrays in future.
  */
-int
-OutputListAction(ParameterSet * ps, char * name, void * data)
+int OutputListAction(ParameterSet* ps, const char* name, void* data)
 {
     char * outputlist = param_get_string(ps, name);
     char * strtmp = fastpm_strdup(outputlist);
@@ -73,6 +78,13 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
 /*         message(1, "Output at: %g\n", Sync.OutputListTimes[count]); */
     }
     myfree(strtmp);
+
+    //This seems like the best place to also initialise the UVBG syncpoint parameters
+    Sync.ExcursionSetReionOn = param_get_int(ps,"ExcursionSetReionOn");
+    Sync.ExcursionSetZStart = param_get_double(ps,"ExcursionSetZStart");
+    Sync.ExcursionSetZStop = param_get_double(ps,"ExcursionSetZStop");
+    Sync.UVBGTimestep = param_get_double(ps,"UVBGTimestep");
+
     return 0;
 }
 
@@ -135,7 +147,7 @@ void set_sync_params(int OutputListLength, double * OutputListTimes)
  * integer stamps.
  **/
 void
-setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, int ExcursionSetReionOn, double ExcursionSetZStart, double ExcursionSetZStop, double UVBGTimestep, double no_snapshot_until_time, int SnapshotWithFOF)
+setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snapshot_until_time, int SnapshotWithFOF)
 {
     int i;
 
@@ -146,7 +158,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, int ExcursionSe
     //TODO(Jdavies): figure out how many are there beforehand so we can malloc a list of the right size
     //z=20 to z=4 is ~150 syncpoints at 10 Myr spaces
     //
-    SyncPoints = mymalloc("SyncPoints", sizeof(SyncPoint) * (Sync.OutputListLength+2+400)); 
+    SyncPoints = (SyncPoint *) mymalloc("SyncPoints", sizeof(SyncPoint) * (Sync.OutputListLength+2+400)); 
 
     /* Set up first and last entry to SyncPoints; TODO we can insert many more! */
     //NOTE(jdavies): these first syncpoints need to be in order
@@ -159,9 +171,9 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, int ExcursionSe
     NSyncPoints = 1;
 
     // set up UVBG syncpoints at given intervals
-    if(ExcursionSetReionOn) {
-        double a_end = 1/(1+ExcursionSetZStop) < TimeMax ? 1/(1+ExcursionSetZStop) : TimeMax;
-        double uv_a = 1/(1+ExcursionSetZStart) > TimeIC ? 1/(1+ExcursionSetZStart) : TimeIC;
+    if(Sync.ExcursionSetReionOn) {
+        double a_end = 1/(1+Sync.ExcursionSetZStop) < TimeMax ? 1/(1+Sync.ExcursionSetZStop) : TimeMax;
+        double uv_a = 1/(1+Sync.ExcursionSetZStart) > TimeIC ? 1/(1+Sync.ExcursionSetZStart) : TimeIC;
         while (uv_a <= a_end) {
             SyncPoints[NSyncPoints].a = uv_a;
             SyncPoints[NSyncPoints].loga = log(uv_a);
@@ -176,7 +188,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, int ExcursionSe
             double delta_a = 0.0001;
             double lbt = time_to_present(uv_a,CP);
             double delta_lbt = 0.0;
-            while ((delta_lbt <= UVBGTimestep) && (uv_a <= TimeMax)) {
+            while ((delta_lbt <= Sync.UVBGTimestep) && (uv_a <= TimeMax)) {
                 uv_a += delta_a;
                 delta_lbt = lbt - time_to_present(uv_a,CP);
                 //message(0,"trying UVBG syncpoint at a = %.3e, z = %.3e, delta_lbt = %.3e\n",uv_a,1/uv_a - 1,delta_lbt);

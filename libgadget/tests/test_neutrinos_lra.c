@@ -39,14 +39,9 @@ void setup_cosmology(Cosmology * CP, double MNu[])
     int i;
     for(i = 0; i<3; i++)
         CP->MNu[i] = MNu[i];
-    /*Default value for L=kpc v=km/s*/
-    double UnitTime_in_s = 3.08568e+16;
-    double UnitLength_in_cm = 3.085678e+21;
-    double UnitMass_in_g = 1.989e+43;
-    /*Should be 0.1*/
-    CP->Hubble = HUBBLE * UnitTime_in_s;
+    struct UnitSystem units = get_unitsystem(3.085678e21, 1.989e43, 1e5);
     /*Do the main cosmology initialisation*/
-    init_cosmology(CP,0.01,UnitLength_in_cm,UnitMass_in_g,UnitTime_in_s);
+    init_cosmology(CP,0.01, units);
 }
 
 /* Test that the allocations are done correctly.

@@ -116,7 +116,7 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_
     int ThisTask;
     int NTask;
 
-    pm->Mesh2Task[0] = mymalloc("Mesh2Task", 2*sizeof(int) * Nmesh);
+    pm->Mesh2Task[0] = (int *) mymalloc2("Mesh2Task", 2*sizeof(int) * Nmesh);
     pm->Mesh2Task[1] = pm->Mesh2Task[0] + Nmesh;
 
     MPI_Comm_rank(comm, &ThisTask);
@@ -200,7 +200,7 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_
             pm->real_space_region.size[2]);
 #endif
 
-    int * tmp = mymalloc("tmp", sizeof(int) * Nmesh);
+    int * tmp = (int *) mymalloc("tmp", sizeof(int) * Nmesh);
     for(k = 0; k < 2; k ++) {
         for(i = 0; i < Nmesh; i ++) {
             tmp[i] = 0;
@@ -600,7 +600,7 @@ layout_prepare (PetaPM * pm,
 
     MPI_Comm_size(L->comm, &NTask);
 
-    L->ibuffer = mymalloc("PMlayout", sizeof(int) * NTask * 8);
+    L->ibuffer = (int *) mymalloc("PMlayout", sizeof(int) * NTask * 8);
 
     memset(L->ibuffer, 0, sizeof(int) * NTask * 8);
     L->NpSend = &L->ibuffer[NTask * 0];
@@ -623,7 +623,7 @@ layout_prepare (PetaPM * pm,
         NpAlloc += regions[r].size[0] * regions[r].size[1];
     }
 
-    L->PencilSend = mymalloc("PencilSend", NpAlloc * sizeof(struct Pencil));
+    L->PencilSend = (struct Pencil *) mymalloc("PencilSend", NpAlloc * sizeof(struct Pencil));
 
     layout_build_pencils(pm, L, meshbuf, regions, Nregions);
 
@@ -684,7 +684,7 @@ layout_prepare (PetaPM * pm,
 
     /* exchange the pencils */
     message(0, "PetaPM:  %010ld/%010ld Pencils and %010ld Cells\n", totNpExport, totNpAlloc, totNcExport);
-    L->PencilRecv = mymalloc("PencilRecv", L->NpImport * sizeof(struct Pencil));
+    L->PencilRecv = (struct Pencil *) mymalloc("PencilRecv", L->NpImport * sizeof(struct Pencil));
     memset(L->PencilRecv, 0xfc, L->NpImport * sizeof(struct Pencil));
     layout_exchange_pencils(L);
 }
@@ -800,8 +800,8 @@ layout_build_and_exchange_cells_to_pfft(
         double * meshbuf,
         double * real)
 {
-    L->BufSend = mymalloc("PMBufSend", L->NcExport * sizeof(double));
-    L->BufRecv = mymalloc("PMBufRecv", L->NcImport * sizeof(double));
+    L->BufSend = (double *) mymalloc("PMBufSend", L->NcExport * sizeof(double));
+    L->BufRecv = (double *) mymalloc("PMBufRecv", L->NcImport * sizeof(double));
 
     int i;
     int offset;
@@ -856,7 +856,7 @@ layout_build_and_exchange_cells_to_local(
         double * meshbuf,
         double * real)
 {
-    L->BufRecv = mymalloc("PMBufRecv", L->NcImport * sizeof(double));
+    L->BufRecv = (double *) mymalloc("PMBufRecv", L->NcImport * sizeof(double));
     int i;
     int offset;
 
@@ -866,7 +866,7 @@ layout_build_and_exchange_cells_to_local(
     /*Real is done now: reuse the memory for BufSend*/
     myfree(real);
     /*Now allocate BufSend, which is confusingly used to receive data*/
-    L->BufSend = mymalloc("PMBufSend", L->NcExport * sizeof(double));
+    L->BufSend = (double *) mymalloc("PMBufSend", L->NcExport * sizeof(double));
 
     /* exchange cells */
     /* notice the order is reversed from to_pfft */
@@ -1049,8 +1049,8 @@ static int pos_get_target(PetaPM * pm, const int pos[2]) {
     return rank;
 }
 static int pencil_cmp_target(const void * v1, const void * v2) {
-    const struct Pencil * p1 = v1;
-    const struct Pencil * p2 = v2;
+    const struct Pencil * p1 = (const struct Pencil *) v1;
+    const struct Pencil * p2 = (const struct Pencil *) v2;
     /* move zero length pixels to the end */
     if(p2->len == 0) return -1;
     if(p1->len == 0) return 1;

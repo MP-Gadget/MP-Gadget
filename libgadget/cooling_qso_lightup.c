@@ -29,12 +29,12 @@
 #include <math.h>
 #include <mpi.h>
 #include <string.h>
+#include <omp.h>
 #include <gsl/gsl_interp.h>
 #include "physconst.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "treewalk.h"
-#include "allvars.h"
 #include "hydra.h"
 #include "drift.h"
 #include "walltime.h"
@@ -68,6 +68,8 @@ struct qso_lightup_params
     double heIIIreion_finish_frac; /* When the desired ionization fraction exceeds this value,
                                       the code will flash-ionize all remaining particles*/
     double heIIIreion_start; /* Time at which start_reionization is called and helium III reionization begins*/
+
+    double ExcursionSetZStop; /* The stopping point of the excursion set, needs to be here to avoid overlap since the models aren't integrated*/
 };
 
 static struct qso_lightup_params QSOLightupParams;
@@ -102,6 +104,7 @@ set_qso_lightup_params(ParameterSet * ps)
         QSOLightupParams.mean_bubble = param_get_double(ps, "QSOMeanBubble");
         QSOLightupParams.var_bubble = param_get_double(ps, "QSOVarBubble");
         QSOLightupParams.heIIIreion_finish_frac = param_get_double(ps, "QSOHeIIIReionFinishFrac");
+        QSOLightupParams.ExcursionSetZStop = param_get_double(ps,"ExcursionSetZStop");
     }
     MPI_Bcast(&QSOLightupParams, sizeof(struct qso_lightup_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -172,7 +175,7 @@ load_heii_reion_hist(const char * reion_hist_file)
         endrun(1, "HeII: Reionization history contains: %d entries, not enough.\n", Nreionhist);
 
     /*Allocate memory for the reionization history table.*/
-    He_zz = mymalloc("ReionizationTable", 3 * Nreionhist * sizeof(double));
+    He_zz = (double *) mymalloc("ReionizationTable", 3 * Nreionhist * sizeof(double));
     XHeIII = He_zz + Nreionhist;
     LMFP = He_zz + 2 * Nreionhist;
 
@@ -235,10 +238,10 @@ load_heii_reion_hist(const char * reion_hist_file)
 
     /* we can't have helium reionisation start while the excursion set
      * is going, so we will stop the excursion set beforehand */
-    if(QSOLightupParams.heIIIreion_start > All.ExcursionSetZStop){
+    if(QSOLightupParams.heIIIreion_start > QSOLightupParams.ExcursionSetZStop){
         message(0,"Excursion set would stop during/after helium reionisation at %f, will now stop at %f\n",
-                All.ExcursionSetZStop,QSOLightupParams.heIIIreion_start);
-        All.ExcursionSetZStop = QSOLightupParams.heIIIreion_start;
+                QSOLightupParams.ExcursionSetZStop,QSOLightupParams.heIIIreion_start);
+        QSOLightupParams.ExcursionSetZStop = QSOLightupParams.heIIIreion_start;
     }
 }
 
@@ -291,7 +294,7 @@ build_qso_candidate_list(int ** qso_cand, FOFGroups * fof)
 {
     /*Loop over all halos, building the candidate list.*/
     int i, ncand=0;
-    *qso_cand = mymalloc("Quasar_candidates", sizeof(int) * (fof->Ngroups+1));
+    *qso_cand = (int *) mymalloc("Quasar_candidates", sizeof(int) * (fof->Ngroups+1));
     for(i = 0; i < fof->Ngroups; i++)
     {
         /* Check that it has the right mass*/
@@ -305,7 +308,7 @@ build_qso_candidate_list(int ** qso_cand, FOFGroups * fof)
     }
     /*Poison value at the end for safety.*/
     (*qso_cand)[ncand] = -1;
-    *qso_cand = myrealloc(*qso_cand, (ncand+1) * sizeof(int));
+    *qso_cand = (int *) myrealloc(*qso_cand, (ncand+1) * sizeof(int));
     return ncand;
 }
 
@@ -478,7 +481,7 @@ ionize_copy(int place, TreeWalkQueryQSOLightup * I, TreeWalk * tw)
  * Returns the number of particles ionized
  */
 static int64_t
-ionize_all_part(int qso_ind, int * qso_cand, FOFGroups * fof, ForceTree * tree)
+ionize_all_part(int qso_ind, int * qso_cand, struct QSOPriv priv, ForceTree * tree)
 {
     /* This treewalk finds not yet ionized particles within the radius of the black hole, ionizes them and
      * adds an instantaneous heating to them. */
@@ -501,16 +504,9 @@ ionize_all_part(int qso_ind, int * qso_cand, FOFGroups * fof, ForceTree * tree)
     tw->query_type_elsize = sizeof(TreeWalkQueryQSOLightup);
     tw->result_type_elsize = sizeof(TreeWalkResultBase);
 
-    struct QSOPriv priv[1];
-    priv[0].fof = fof;
-    /* Ionization counters*/
-    priv[0].N_ionized = ta_malloc("n_ionized", int64_t, omp_get_max_threads());
-    priv[0].uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-    priv[0].a3inv = 1/pow(All.Time, 3);
-
-    memset(priv[0].N_ionized, 0, sizeof(int64_t) * omp_get_max_threads());
-
-    tw->priv = priv;
+    priv.N_ionized = ta_malloc("n_ionized", int64_t, omp_get_max_threads());
+    memset(priv.N_ionized, 0, sizeof(int64_t) * omp_get_max_threads());
+    tw->priv = &priv;
 
     /* This runs only on one BH*/
     if(qso_ind > 0)
@@ -521,9 +517,9 @@ ionize_all_part(int qso_ind, int * qso_cand, FOFGroups * fof, ForceTree * tree)
     int64_t N_ionized = 0;
     int i;
     for(i = 0; i < omp_get_max_threads(); i++)
-        N_ionized += priv[0].N_ionized[i];
+        N_ionized += priv.N_ionized[i];
 
-    ta_free(priv[0].N_ionized);
+    ta_free(priv.N_ionized);
 
     return N_ionized;
 }
@@ -532,35 +528,37 @@ ionize_all_part(int qso_ind, int * qso_cand, FOFGroups * fof, ForceTree * tree)
  * Keeps adding new quasars until need_more_quasars() returns 0.
  */
 static void
-turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree, FILE * FdHelium)
+turn_on_quasars(double atime, FOFGroups * fof, DomainDecomp * ddecomp, Cosmology * CP, double uu_in_cgs, FILE * FdHelium)
 {
     int ncand = 0;
     int * qso_cand = NULL;
     int64_t n_gas_tot=0, tot_n_ionized=0, ncand_tot=0;
     MPI_Allreduce(&SlotsManager->info[0].size, &n_gas_tot, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-    double atime = 1./(1 + redshift);
     double desired_ion_frac = gsl_interp_eval(HeIII_intp, He_zz, XHeIII, atime, NULL);
+    struct QSOPriv priv;
+    priv.fof = fof;
+    priv.uu_in_cgs = uu_in_cgs;
+    priv.a3inv = 1/pow(atime, 3);
+
     /* If the desired ionization fraction is above a threshold (by default 0.95)
      * ionize all particles*/
     if(desired_ion_frac > QSOLightupParams.heIIIreion_finish_frac) {
         int i, nionized=0;
         int64_t nion_tot=0;
-        double uu_in_cgs = All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-        double a3inv = 1/pow(All.Time, 3);
         #pragma omp parallel for reduction(+: nionized)
         for (i = 0; i < PartManager->NumPart; i++){
             if (P[i].Type == 0)
-                nionized += ionize_single_particle(i, a3inv, uu_in_cgs);
+                nionized += ionize_single_particle(i, priv.a3inv, priv.uu_in_cgs);
         }
         sumup_large_ints(1, &nionized, &nion_tot);
         message(0, "HeII: Helium ionization finished, flash-ionizing %ld particles (%g of total)\n", nion_tot, (double) nion_tot /(double) n_gas_tot);
     }
 
-    double rhobar = All.CP.OmegaBaryon * (3 * HUBBLE * All.CP.HubbleParam * HUBBLE * All.CP.HubbleParam)/ (8 * M_PI * GRAVITY) / pow(1 + redshift,3);
+    double rhobar = CP->OmegaBaryon * (3 * HUBBLE * CP->HubbleParam * HUBBLE * CP->HubbleParam)/ (8 * M_PI * GRAVITY) * priv.a3inv;
     double totbubblegasmass = 4 * M_PI / 3. * pow(QSOLightupParams.mean_bubble, 3) * rhobar;
     /* Total expected ionizations if the bubbles do not overlap at all
      * and the bubble is at mean density.*/
-    int64_t non_overlapping_bubble_number = n_gas_tot * totbubblegasmass / All.CP.OmegaBaryon;
+    int64_t non_overlapping_bubble_number = n_gas_tot * totbubblegasmass / CP->OmegaBaryon;
     double initionfrac = gas_ionization_fraction();
     double curionfrac = initionfrac;
 
@@ -580,6 +578,8 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree, FILE * FdHel
         return;
     }
     message(0, "HeII: Built quasar candidate list from %d quasars\n", ncand_tot);
+    ForceTree gasTree = {0};
+    force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, 0, NULL);
     for(iteration = 0; curionfrac < desired_ion_frac; iteration++){
         /* Get a new quasar*/
         int new_qso = choose_QSO_halo(ncand, &ncand_before, &ncand_tot, fof->TotNgroups+iteration);
@@ -591,8 +591,8 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree, FILE * FdHel
                 message(0, "HeII: Ionization fraction %g less than desired ionization fraction of %g because not enough quasars\n", curionfrac, desired_ion_frac);
             break;
         }
-        /* Do the ionizations with a tree walk*/
-        int64_t n_ionized = ionize_all_part(new_qso, qso_cand, fof, tree);
+
+        int64_t n_ionized = ionize_all_part(new_qso, qso_cand, priv, &gasTree);
         int64_t tot_qso_ionized = 0;
         /* Check that the ionization fraction changed*/
         MPI_Allreduce(&n_ionized, &tot_qso_ionized, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
@@ -605,19 +605,19 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree, FILE * FdHel
             int k;
             for(k = 0; k < 3; k++) {
                 qso_pos[k] = fof->Group[qplace].CM[k]- PartManager->CurrentParticleOffset[k];
-                while(qso_pos[k] > All.BoxSize) qso_pos[k] -= All.BoxSize;
-                while(qso_pos[k] <= 0) qso_pos[k] += All.BoxSize;
+                while(qso_pos[k] > PartManager->BoxSize) qso_pos[k] -= PartManager->BoxSize;
+                while(qso_pos[k] <= 0) qso_pos[k] += PartManager->BoxSize;
             }
             message(1, "HeII: Quasar %d changed the HeIII ionization fraction to %g, ionizing %ld\n", qplace, curionfrac, tot_qso_ionized);
         }
-        /* Format: All.Time = current scale factor,
+        /* Format: Time = current scale factor,
          * ID of the quasar (the index of the FOF halo)
          * FOF halo position, x,y,z,
          * Current ionized fraction
          * total number of particles ionized by this quasar*/
         MPI_Allreduce(MPI_IN_PLACE, qso_pos, 3, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
         if(FdHelium) {
-            fprintf(FdHelium, "%g %g %g %g %g %ld\n", All.Time, qso_pos[0], qso_pos[1], qso_pos[2], curionfrac, tot_qso_ionized);
+            fprintf(FdHelium, "%g %g %g %g %g %ld\n", atime, qso_pos[0], qso_pos[1], qso_pos[2], curionfrac, tot_qso_ionized);
             fflush(FdHelium);
         }
 
@@ -634,6 +634,7 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree, FILE * FdHel
             ncand--;
         }
     }
+    force_tree_free(&gasTree);
     if(qso_cand) {
         myfree(qso_cand);
     }
@@ -647,20 +648,20 @@ turn_on_quasars(double redshift, FOFGroups * fof, ForceTree * tree, FILE * FdHel
 
 /* Starts reionization by selecting the first halo and flagging all particles in the first HeIII bubble*/
 void
-do_heiii_reionization(double redshift, FOFGroups * fof, ForceTree * tree, FILE * FdHelium)
+do_heiii_reionization(double atime, FOFGroups * fof, DomainDecomp * ddecomp, Cosmology * CP, double uu_in_cgs, FILE * FdHelium)
 {
     if(!QSOLightupParams.QSOLightupOn)
         return;
-    if(redshift > QSOLightupParams.heIIIreion_start)
+    if(atime < 1/(1+QSOLightupParams.heIIIreion_start))
         return;
 
     /* Do nothing if we are past the end of the table.*/
-    if(redshift < 1./He_zz[Nreionhist-1] - 1)
+    if(atime > He_zz[Nreionhist-1])
         return;
 
     walltime_measure("/Misc");
     //message(0, "HeII: Reionization initiated.\n");
-    turn_on_quasars(redshift, fof, tree, FdHelium);
+    turn_on_quasars(atime, fof, ddecomp, CP, uu_in_cgs, FdHelium);
 }
 
 int

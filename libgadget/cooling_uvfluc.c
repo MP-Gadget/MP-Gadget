@@ -13,22 +13,26 @@
 #include "utils/mymalloc.h"
 #include "utils/interp.h"
 #include "utils/endrun.h"
-#include "allvars.h"
 
 static struct {
     int enabled;
     Interp interp;
     double * Table;
     ptrdiff_t Nside;
+
+    /*settings for excursion set*/
+    int ExcursionSetReionOn;
+    double AlphaUV;
+    double ExcursionSetZStop;
 } UVF;
 
 /* Read a big array from filename/dataset into an array, allocating memory in buffer.
  * which is returned. Nread argument is set equal to number of elements read.*/
 static double *
-read_big_array(const char * filename, char * dataset, int * Nread)
+read_big_array(const char * filename, const char * dataset, int * Nread)
 {
     int N;
-    void * buffer=NULL;
+    double * buffer=NULL;
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
@@ -45,8 +49,10 @@ read_big_array(const char * filename, char * dataset, int * Nread)
 
         N = bb->size;
 
-        buffer = mymalloc("cooling_data", N * dtype_itemsize(bb->dtype) * bb->nmemb);
+        if(dtype_itemsize(bb->dtype) != sizeof(double))
+            endrun(1, "UVflucatuation file %s should contain double-precision data, contains %s\n", filename, bb->dtype);
 
+        buffer = (double *) mymalloc("cooling_data", N * dtype_itemsize(bb->dtype) * bb->nmemb);
         dims[0] = N;
         dims[1] = bb->nmemb;
 
@@ -63,7 +69,7 @@ read_big_array(const char * filename, char * dataset, int * Nread)
 
     MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
     if(ThisTask != 0)
-        buffer = mymalloc("cooling_data",N * sizeof(double));
+        buffer = (double *) mymalloc("cooling_data",N * sizeof(double));
 
     MPI_Bcast(buffer, N, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
@@ -87,9 +93,9 @@ read_big_array(const char * filename, char * dataset, int * Nread)
  *
  * */
 void
-init_uvf_table(const char * UVFluctuationFile, const double BoxSize, const double UnitLength_in_cm)
+init_uvf_table(const char * UVFluctuationFile, const int UVFlucLen, const double BoxSize, const double UnitLength_in_cm)
 {
-    if(strlen(UVFluctuationFile) == 0) {
+    if(strnlen(UVFluctuationFile, UVFlucLen) == 0) {
         UVF.enabled = 0;
         return;
     }
@@ -118,7 +124,7 @@ init_uvf_table(const char * UVFluctuationFile, const double BoxSize, const doubl
     big_file_mpi_close(&bf, MPI_COMM_WORLD);
     double BoxMpc = BoxSize * UnitLength_in_cm / CM_PER_MPC;
     if(fabs(TableBoxSize - BoxMpc) > BoxMpc * 1e-5)
-        endrun(0, "Wrong UV fluctuation file! %s is for box size %g Mpc/h, but current box is %g Mpc/h\n", TableBoxSize, BoxMpc);
+        endrun(0, "Wrong UV fluctuation file! %s is for box size %g Mpc/h, but current box is %g Mpc/h\n", UVFluctuationFile, TableBoxSize, BoxMpc);
 
     message(0, "Using NON-UNIFORM UV BG fluctuations from %s. Median reionization redshift is %g\n", UVFluctuationFile, ReionRedshift);
     UVF.enabled = 1;
@@ -129,7 +135,7 @@ init_uvf_table(const char * UVFluctuationFile, const double BoxSize, const doubl
     if(UVF.Nside * UVF.Nside * UVF.Nside != size)
         endrun(0, "Corrupt UV Fluctuation table: Nside = %ld, but table is %ld != %ld^3\n", UVF.Nside, size, UVF.Nside);
 
-    int dims[] = {UVF.Nside, UVF.Nside, UVF.Nside};
+    int64_t dims[] = {UVF.Nside, UVF.Nside, UVF.Nside};
     interp_init(&UVF.interp, 3, dims);
     interp_init_dim(&UVF.interp, 0, 0, BoxSize);
     interp_init_dim(&UVF.interp, 1, 0, BoxSize);
@@ -182,7 +188,7 @@ static struct UVBG get_local_UVBG_from_J21(double redshift, double J21, double z
     //but the global uv does an interpolation every time and this allows
     //for future inhomogeneous alpha
     //if this becomes a bottleneck we can set the coeffs globally
-    struct J21_coeffs J21toUV = get_J21_coeffs(All.AlphaUV);
+    struct J21_coeffs J21toUV = get_J21_coeffs(UVF.AlphaUV);
 
     uvbg.gJH0   = J21toUV.gJH0 * J21; // s-1
     uvbg.epsH0  = J21toUV.epsH0 * J21 * 1.60218e-12;  // erg s-1
@@ -209,7 +215,7 @@ static struct UVBG get_local_UVBG_from_J21(double redshift, double J21, double z
  * also if helium reion starts before the excursion set finishes, flash reionisations occur as we switch to global*/
 struct UVBG get_local_UVBG(double redshift, const struct UVBG * const GlobalUVBG, const double * const Pos, const double * const PosOffset, double J21, double zreion)
 {
-    if(All.ExcursionSetReionOn && (redshift > All.ExcursionSetZStop))
+    if(UVF.ExcursionSetReionOn && (redshift > UVF.ExcursionSetZStop))
     {
         return get_local_UVBG_from_J21(redshift,J21,zreion);
     }
@@ -268,7 +274,7 @@ InitMetalCooling(const char * MetalCoolFile)
     MetalCool.Temperature_bins = read_big_array(MetalCoolFile, "Temperature_bins", &MetalCool.NTemperature_bins);
     MetalCool.Lmet_table = read_big_array(MetalCoolFile, "NetCoolingRate", &size);
 
-    int dims[] = {MetalCool.NRedshift_bins, MetalCool.NHydrogenNumberDensity_bins, MetalCool.NTemperature_bins};
+    int64_t dims[] = {MetalCool.NRedshift_bins, MetalCool.NHydrogenNumberDensity_bins, MetalCool.NTemperature_bins};
 
     interp_init(&MetalCool.interp, 3, dims);
     interp_init_dim(&MetalCool.interp, 0, MetalCool.Redshift_bins[0], MetalCool.Redshift_bins[MetalCool.NRedshift_bins - 1]);

@@ -34,8 +34,6 @@ typedef struct HCIAction
     int write_fof;
 } HCIAction;
 
-extern HCIManager HCI_DEFAULT_MANAGER[];
-
 void
 hci_init(HCIManager * manager, char * prefix, double TimeLimitCPU, double AutoCheckPointTime, int FOFEnabled);
 

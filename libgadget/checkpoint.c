@@ -21,40 +21,41 @@
  */
 
 void
-write_checkpoint(int snapnum, int WriteSnapshot, int WriteGroupID, double Time, const char * OutputDir, const char * SnapshotFileBase, const int OutputDebugFields)
+write_checkpoint(int snapnum, int WriteGroupID, int MetalReturnOn, double Time, const Cosmology * CP, const char * OutputDir, const int OutputDebugFields)
 {
     walltime_measure("/Misc");
-    if(WriteSnapshot)
-    {
-        /* write snapshot of particles */
-        struct IOTable IOTable = {0};
-        register_io_blocks(&IOTable, WriteGroupID);
-        if(OutputDebugFields)
-            register_debug_io_blocks(&IOTable);
-        petaio_save_snapshot(&IOTable, 1, "%s/%s_%03d", OutputDir, SnapshotFileBase, snapnum);
+    /* write snapshot of particles */
+    struct IOTable IOTable = {0};
+    register_io_blocks(&IOTable, WriteGroupID, MetalReturnOn);
+    if(OutputDebugFields)
+        register_debug_io_blocks(&IOTable);
 
-        destroy_io_blocks(&IOTable);
-        walltime_measure("/Snapshot/Write");
+    char * fname = petaio_get_snapshot_fname(snapnum, OutputDir);
+    petaio_save_snapshot(fname, &IOTable, 1, Time, CP);
+    myfree(fname);
 
-        int ThisTask;
-        MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-        if(ThisTask == 0) {
-            char * buf = fastpm_strdup_printf("%s/Snapshots.txt", OutputDir);
-            FILE * fd = fopen(buf, "a");
-            fprintf(fd, "%03d %g\n", snapnum, Time);
-            fclose(fd);
-            myfree(buf);
-        }
-     }
+    destroy_io_blocks(&IOTable);
+    walltime_measure("/Snapshot/Write");
+
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask == 0) {
+        char * buf = fastpm_strdup_printf("%s/Snapshots.txt", OutputDir);
+        FILE * fd = fopen(buf, "a");
+        fprintf(fd, "%03d %g\n", snapnum, Time);
+        fclose(fd);
+        myfree(buf);
+    }
 }
 
 void
-dump_snapshot(const char * dump, const char * OutputDir)
+dump_snapshot(const char * dump, const double Time, const Cosmology * CP, const char * OutputDir)
 {
     struct IOTable IOTable = {0};
-    register_io_blocks(&IOTable, 0);
+    register_io_blocks(&IOTable, 0, 1);
     register_debug_io_blocks(&IOTable);
-    petaio_save_snapshot(&IOTable, 1, "%s/%s", OutputDir, dump);
+    char * fname = fastpm_strdup_printf("%s/%s", OutputDir, dump);
+    petaio_save_snapshot(fname, &IOTable, 1, Time, CP);
     destroy_io_blocks(&IOTable);
 }
 

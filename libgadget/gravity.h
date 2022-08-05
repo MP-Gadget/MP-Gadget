@@ -47,8 +47,12 @@ void set_gravshort_tree_params(ParameterSet * ps);
 void set_gravshort_treepar(struct gravshort_tree_params tree_params);
 struct gravshort_tree_params get_gravshort_treepar(void);
 
-/*Note: tree is rebuilt during this function*/
-void gravpm_force(PetaPM * pm, ForceTree * tree);
+/* Computes the gravitational force on the PM grid
+ * and saves the total matter power spectrum.
+ * Parameters: Cosmology, Time, UnitLength_in_cm and PowerOutputDir are used by the power spectrum output code.
+ * TimeIC and FastParticleType are used by the massive neutrino code. FastParticleType denotes possibly inactive particles.
+ * Note: tree is freed during this function*/
+void gravpm_force(PetaPM * pm, ForceTree * tree, Cosmology * CP, double Time, double UnitLength_in_cm, const char * PowerOutputDir, double TimeIC, int FastParticleType);
 
 void grav_short_pair(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double Rcut, double rho0, int NeutrinoTracer, int FastParticleType);
 void grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double rho0, int NeutrinoTracer, int FastParticleType);

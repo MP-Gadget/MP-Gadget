@@ -210,7 +210,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
 
     for(ptype = 0; ptype < 6; ptype++) {
         if(!sman->info[ptype].enabled) continue;
-        slotBuf[ptype] = mymalloc2("SlotBuf", plan->toGoSum.slots[ptype] * sman->info[ptype].elsize);
+        slotBuf[ptype] = (char *) mymalloc2("SlotBuf", plan->toGoSum.slots[ptype] * sman->info[ptype].elsize);
     }
 
     ExchangePlanEntry * toGoPtr = ta_malloc("toGoPtr", ExchangePlanEntry, plan->NTask);
@@ -390,7 +390,7 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
     plan->nexchange = pman->NumPart;
     /*static schedule below so we only need this much memory*/
     size_t narr = plan->nexchange/numthreads+numthreads;
-    plan->ExchangeList = mymalloc2("exchangelist", sizeof(int) * narr * numthreads);
+    plan->ExchangeList = (int *) mymalloc2("exchangelist", sizeof(int) * narr * numthreads);
     /*Garbage particles are counted so we have an accurate memory estimate*/
     int ngarbage = 0;
 
@@ -414,7 +414,7 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
     for(i=0; i < pman->NumPart; i++)
     {
         if(drift) {
-            real_drift_particle(&pman->Base[i], sman, ddrift, drift->BoxSize, rel_random_shift);
+            real_drift_particle(&pman->Base[i], sman, ddrift, pman->BoxSize, rel_random_shift);
             pman->Base[i].Ti_drift = drift->ti1;
         }
         if(pman->Base[i].IsGarbage) {
@@ -435,7 +435,7 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
     ta_free(nexthr);
 
     /*Shrink memory*/
-    plan->ExchangeList = myrealloc(plan->ExchangeList, sizeof(int) * plan->nexchange);
+    plan->ExchangeList = (int *) myrealloc(plan->ExchangeList, sizeof(int) * plan->nexchange);
 }
 
 /*Find how many particles we can transfer in current exchange iteration*/
@@ -506,7 +506,7 @@ domain_build_plan(int iter, ExchangeLayoutFunc layoutfunc, const void * layout_u
 
     memset(plan->toGo, 0, sizeof(plan->toGo[0]) * plan->NTask);
 
-    plan->layouts = mymalloc("layoutcache",sizeof(ExchangePartCache) * plan->last);
+    plan->layouts = (ExchangePartCache *) mymalloc("layoutcache",sizeof(ExchangePartCache) * plan->last);
 
     #pragma omp parallel for
     for(n = 0; n < plan->last; n++)

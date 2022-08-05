@@ -38,13 +38,6 @@ fastpm_strdup(const char * str)
 }
 
 char *
-fastpm_strappend(const char * base, const char * delim, const char * next)
-{
-    if(base == NULL) return fastpm_strdup(next);
-    return fastpm_strdup_printf("%s%s%s", base, delim, next);
-}
-
-char *
 fastpm_strdup_printf(const char * fmt, ...)
 {
     va_list va;
@@ -63,7 +56,7 @@ fastpm_strdup_vprintf(const char * fmt, va_list va)
     char buf0[128];
     size_t N = vsnprintf(buf0, 1, fmt, va);
 
-    char * buf = ta_malloc("strdup", char, N + 100);
+    char * buf = ta_malloc("strdup_vprintf", char, N + 100);
     vsnprintf(buf, N + 1, fmt, va2);
     buf[N + 1] = 0;
     va_end(va2);

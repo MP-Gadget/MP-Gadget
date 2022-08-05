@@ -16,7 +16,7 @@ lib/libbigfile-mpi.a: bigfile/src/bigfile-mpi.c
 	cd bigfile/src; \
 	make install PREFIX=$(PWD) CC="$(MPICC)" MPICC="$(MPICC)" CFLAGS="$(OPTIMIZE)" AR="$(AR)"
 
-pfft:
+pfft: install_pfft.sh
 	mkdir -p lib; \
 	mkdir -p include; \
 	#Using -ipo causes icc to crash.

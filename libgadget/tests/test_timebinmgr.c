@@ -9,19 +9,18 @@
 #include <stdio.h>
 #include "stub.h"
 //So All.OutputList is defined
-#include <libgadget/allvars.h>
 #include <libgadget/timebinmgr.h>
 
-struct global_data_all_processes All;
-
-double outs[4] = {0.1, 0.2, 0.8, 1};
+#define TIMEMAX 1.0
+#define TIMEIC 0.1
+double outs[4] = {TIMEIC, 0.2, 0.8, TIMEMAX};
 double logouts[4];
 
 /*timebinmgr has no state*/
 /*First test conversions between float and integer timelines*/
 static void test_conversions(void ** state) {
 
-    setup_sync_points(&All.CP,All.TimeIC, All.TimeMax, 0, 0.0, 0.0, 0.0, 0.0, 0);
+    setup_sync_points(TIMEIC, TIMEMAX, 0.0, 0);
 
     /*Convert an integer to and from loga*/
     /* double loga_from_ti(unsigned int ti); */
@@ -62,16 +61,16 @@ static void test_conversions(void ** state) {
 
 static void test_skip_first(void ** state) {
 
-    setup_sync_points(&All.CP,All.TimeIC, All.TimeMax, 0, 0., 0., 0., All.TimeIC, 0);
+    setup_sync_points(TIMEIC, TIMEMAX, TIMEIC, 0);
     assert_int_equal(find_current_sync_point(0)->write_snapshot, 0);
 
-    setup_sync_points(&All.CP,All.TimeIC, All.TimeMax, 0, 0.0, 0.0, 0.0, 0.0, 0);
+    setup_sync_points(TIMEIC, TIMEMAX, 0.0, 0);
     assert_int_equal(find_current_sync_point(0)->write_snapshot, 1);
 }
 
 static void test_dloga(void ** state) {
 
-    setup_sync_points(&All.CP,All.TimeIC, All.TimeMax, 0, 0.0, 0.0, 0.0, 0.0, 0);
+    setup_sync_points(TIMEIC, TIMEMAX, 0.0, 0);
 
     inttime_t Ti_Current = ti_from_loga(log(0.55));
 
@@ -91,20 +90,17 @@ static void test_dloga(void ** state) {
     assert_true(round_down_power_of_two(TIMEBASE-1)==TIMEBASE/2);
 }
 
+#define OutputListLength 4
+
 static int
 setup(void * p1, void * p2)
 {
     int i;
-    double OutputListTimes[4];
-    for(i = 0; i < 4; i ++) {
+    double OutputListTimes[OutputListLength];
+    for(i = 0; i < OutputListLength; i ++) {
         OutputListTimes[i] = outs[i];
         logouts[i] = log(outs[i]);
     }
-
-    int OutputListLength = 4;
-
-    All.TimeIC = 0.1;
-    All.TimeMax = 1.0;
 
     set_sync_params(OutputListLength, OutputListTimes);
     return 0;

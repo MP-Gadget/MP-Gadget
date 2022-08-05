@@ -17,14 +17,16 @@
 #include <libgadget/hydra.h>
 #include <libgadget/fof.h>
 #include <libgadget/init.h>
+#include <libgadget/run.h>
 #include <libgadget/timebinmgr.h>
 #include <libgadget/petaio.h>
 #include <libgadget/cooling_qso_lightup.h>
 #include <libgadget/metal_return.h>
 #include <libgadget/uvbg.h>
+#include <libgadget/stats.h>
 
 static int
-BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
+BlackHoleFeedbackMethodAction (ParameterSet * ps, const char * name, void * data)
 {
     int v = param_get_enum(ps, name);
     if(HAS(v, BH_FEEDBACK_TOPHAT) == HAS(v, BH_FEEDBACK_SPLINE)) {
@@ -39,7 +41,7 @@ BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
 }
 
 static int
-StarformationCriterionAction(ParameterSet * ps, char * name, void * data)
+StarformationCriterionAction(ParameterSet * ps, const char * name, void * data)
 {
     int v = param_get_enum(ps, name);
     if(!HAS(v, SFR_CRITERION_DENSITY)) {
@@ -211,10 +213,19 @@ create_gadget_parameter_set()
 
     param_declare_double(ps, "BlackHoleNgbFactor", OPTIONAL, 2, "Factor by which to increase the number of neighbours for a black hole.");
 
-    param_declare_double(ps, "BlackHoleMaxAccretionRadius", OPTIONAL, 99999., "Maximum neighbour search radius for black holes. Rarely needed.");
+    param_declare_double(ps, "BlackHoleMaxAccretionRadius", OPTIONAL, 99999., "NO EFFECT. Was maximum search radius for black holes.");
     param_declare_double(ps, "BlackHoleFeedbackFactor", OPTIONAL, 0.05, " Fraction of the black hole luminosity to turn into thermal energy");
-    param_declare_double(ps, "BlackHoleFeedbackRadius", OPTIONAL, 0, "If set, the comoving radius at which the black hole feedback energy is deposited.");
+    param_declare_double(ps, "BlackHoleFeedbackRadius", OPTIONAL, 0, "NO EFFECT. Was the comoving radius at which the black hole feedback energy was deposited. Did not affect accretion so had odd behaviour.");
     param_declare_int(ps, "BlackHoleRepositionEnabled", OPTIONAL, 1, "Enables Black hole repositioning to the potential minimum.");
+
+    param_declare_int(ps, "BlackHoleKineticOn", OPTIONAL, 0, "Switch to AGN kinetic feedback when Eddington accretion is low.");
+    param_declare_double(ps,"BHKE_EddingtonThrFactor",OPTIONAL, 0.05, "Threshold of the Eddington rate for the kinetic feedback");
+    param_declare_double(ps,"BHKE_EddingtonMFactor",OPTIONAL, 0.002, "Factor for mbh-dependent Eddington threshold for the kinetic feedback");
+    param_declare_double(ps,"BHKE_EddingtonMPivot",OPTIONAL, 0.05, "Pivot MBH for mbh-dependent Eddington threshold for the kinetic feedback");
+    param_declare_double(ps,"BHKE_EddingtonMIndex",OPTIONAL, 2, "Powlaw index for mbh-dependent Eddington threshold for the kinetic feedback");
+    param_declare_double(ps,"BHKE_EffRhoFactor",OPTIONAL, 0.05, "Factor1 for kinetic feedback efficiency, compare with BH density");
+    param_declare_double(ps,"BHKE_EffCap",OPTIONAL, 0.05, "Factor2 for kinetic feedback efficiency, sets the maximum factor that converts accretion energy to kinetic feedback");
+    param_declare_double(ps,"BHKE_InjEnergyThr",OPTIONAL, 5, "Factor for Minimum KineticFeedbackEnergy injection, controls the burstiness of kinetic feedback");
 
     param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", OPTIONAL, 0, "If set, the physical radius at which the black hole feedback energy is deposited. When both this flag and BlackHoleFeedbackRadius are both set, the smaller radius is used.");
     param_declare_int(ps,"WriteBlackHoleDetails",OPTIONAL, 0, "If set, output BH details at every time step.");
@@ -270,7 +281,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "CritOverDensity", OPTIONAL, 57.7, "Threshold over-density (in units of the critical density) for gas to be star forming.");
     param_declare_double(ps, "CritPhysDensity", OPTIONAL, 0, "Threshold physical density (in protons/cm^3) for gas to be star forming. If zero this is worked out from CritOverDensity.");
 
-    param_declare_int(ps, "BHFeedbackUseTcool", OPTIONAL, 1, "Control how BH feedback interacts with the SFR. If 0, star-forming gas which is heated by a BH remains pressurized (and thus does not cool). If 1, it cools exponentially to the EEQOS using the cooling time rather than the relaxation time. If 2, gas more than 0.3 dex above the EOS temp just cools normally. 1 and 2 give similar BH output, but 1 is 50% faster due to the smaller timebins populated by 2.");
+    param_declare_int(ps, "BHFeedbackUseTcool", OPTIONAL, 1, "Control how BH feedback interacts with the SFR. If 0, star-forming gas which is heated by a BH remains pressurized (and thus does not cool). If 1, it cools exponentially to the EEQOS using the cooling time rather than the relaxation time. If 2, gas more than 0.3 dex above the EOS temp just cools normally. If 3 all star forming gas cools normally. 1 and 2 give similar BH output, but 1 is 50% faster due to the smaller timebins populated by 2.");
     param_declare_double(ps, "FactorSN", OPTIONAL, 0.1, "Fraction of the gas energy which is locally returned as supernovae on star formation.");
     param_declare_double(ps, "FactorEVP", OPTIONAL, 1000, "Parameter of the SH03 model, controlling the energy of the hot gas.");
     param_declare_double(ps, "TempSupernova", OPTIONAL, 1e8, "Temperature of the supernovae remnants in K.");
@@ -284,10 +295,10 @@ create_gadget_parameter_set()
     param_declare_double(ps, "WindEnergyFraction", OPTIONAL, 1.0, "Fraction of the available energy that goes into winds.");
 
     /* The following two are for OFJT10*/
-    param_declare_double(ps, "WindSigma0", OPTIONAL, 353, "Reference halo circular velocity at which to evaluate wind speed. Needs ofjt10 wind model.");
-    param_declare_double(ps, "WindSpeedFactor", OPTIONAL, 3.7, "Factor connecting wind speed to halo circular velocity. ofjt10 wind model.");
+    param_declare_double(ps, "WindSigma0", OPTIONAL, 353, "Square root of energy ejection rate for winds (controls mass loading) in km/s. Needs ofjt10 wind model.");
+    param_declare_double(ps, "WindSpeedFactor", OPTIONAL, 3.7, "Factor connecting wind speed to local particle velocity dispersion. ofjt10 wind model.");
 
-    param_declare_double(ps, "WindFreeTravelLength", OPTIONAL, 20, "Expected decoupling distance for the wind in internal distance units.");
+    param_declare_double(ps, "WindFreeTravelLength", OPTIONAL, 20, "Expected decoupling distance for the wind in internal distance units. Small effect because the other recoupling conditions dominate.");
     param_declare_double(ps, "WindFreeTravelDensFac", OPTIONAL, 0.1, "If the density of the wind particle drops below this factor of the star formation density threshold, the gas will recouple.");
     param_declare_double(ps, "MinWindVelocity", OPTIONAL, 0, "Minimum velocity of the kicked particle in the wind, in internal units (physical km/s).");
     param_declare_double(ps, "WindThermalFactor", OPTIONAL, 0, "Fraction of the wind energy which comes thermally rather than kinetic.");
@@ -316,7 +327,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "QSOMinMass", OPTIONAL, 100, "Minimum mass of a halo potentially hosting a quasar in internal mass units.");
     param_declare_double(ps, "QSOMeanBubble", OPTIONAL, 20000, "Mean size of the ionizing bubble around a quasar. By default 20 Mpc/h = 28 Mpc. 0807.2799");
     param_declare_double(ps, "QSOVarBubble", OPTIONAL, 0, "Variance of the ionizing bubble around a quasar. By default zero so all bubbles are the same size");
-    param_declare_double(ps, "QSOHeIIIReionFinishFrac", OPTIONAL, 0.95, "Reionization fraction at which all particles are flash-reionized instead of having quasar bubbles placed.");
+    param_declare_double(ps, "QSOHeIIIReionFinishFrac", OPTIONAL, 0.995, "Reionization fraction at which all particles are flash-reionized instead of having quasar bubbles placed.");
 
     /* Parameters for the metal return model*/
     param_declare_double(ps, "MetalsSn1aN0", OPTIONAL, 1.3e-3, "Overall rate of SN1a per Msun");
@@ -374,12 +385,11 @@ void read_parameter_file(char *fname, int * ShowBacktrace, double * MaxMemSizePe
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
-    char * error;
-    if(0 != param_parse_file(ps, fname, &error)) {
-        endrun(1, "Parsing %s failed: %s\n", fname, error);
+    if(0 != param_parse_file(ps, fname)) {
+        endrun(1, "Parsing %s failed.\n", fname);
     }
-    if(0 != param_validate(ps, &error)) {
-        endrun(1, "Validation of %s failed: %s\n", fname, error);
+    if(0 != param_validate(ps)) {
+        endrun(1, "Validation of %s failed: %s\n", fname);
     }
 
     message(0, "----------- Running with Parameters ----------\n");
@@ -394,6 +404,7 @@ void read_parameter_file(char *fname, int * ShowBacktrace, double * MaxMemSizePe
     }
 
     /*Initialize per-module parameters.*/
+    set_all_global_params(ps);
     set_init_params(ps);
     set_petaio_params(ps);
     set_timestep_params(ps);
@@ -410,6 +421,6 @@ void read_parameter_file(char *fname, int * ShowBacktrace, double * MaxMemSizePe
     set_fof_params(ps);
     set_blackhole_params(ps);
     set_metal_return_params(ps);
-
+    set_stats_params(ps);
     parameter_set_free(ps);
 }

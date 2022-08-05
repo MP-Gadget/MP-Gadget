@@ -72,7 +72,7 @@ typedef struct PetaPM {
     PetaPMPriv priv[1];
     int ThisTask2d[2];
     int NTask2d[2];
-    int * (Mesh2Task[2]); /* conversion from real space mesh to task2d,  */
+    int * Mesh2Task[2]; /* conversion from real space mesh to task2d,  */
     Power ps[1];
 } PetaPM;
 
@@ -83,7 +83,7 @@ typedef struct {
     size_t offset_mass;
     int * RegionInd;
     int (*active) (int i);
-    int NumPart;
+    int64_t NumPart;
 } PetaPMParticleStruct;
 
 /* extra particle info used in reionisation*/
@@ -104,7 +104,7 @@ typedef void (*petapm_readout_func)(PetaPM * pm, int i, double * mesh, double we
 typedef PetaPMRegion * (*petapm_prepare_func)(PetaPM * pm, PetaPMParticleStruct * pstruct, void * data, int *Nregions);
 
 typedef struct {
-    char * name;
+    const char * name;
     petapm_transfer_func transfer;
     petapm_readout_func readout;
 } PetaPMFunctions;

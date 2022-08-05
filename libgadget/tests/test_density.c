@@ -22,7 +22,6 @@
 
 #include "stub.h"
 
-static double BoxSize;
 /* The true struct for the state variable*/
 struct density_testdata
 {
@@ -74,7 +73,7 @@ static void check_densities(double MinGasHsml)
     }
     assert_true(isfinite(minHsml));
     assert_true(minHsml >= MinGasHsml);
-    assert_true(maxHsml <= BoxSize);
+    assert_true(maxHsml <= PartManager->BoxSize);
 
 }
 
@@ -84,7 +83,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     #pragma omp parallel for reduction(+: npbh)
     for(i=0; i<numpart; i++) {
         int j;
-        P[i].Key = PEANO(P[i].Pos, BoxSize);
+        P[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
         P[i].Mass = 1;
         P[i].TimeBin = 0;
         P[i].Ti_drift = 0;
@@ -110,10 +109,10 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     ddecomp.TopLeaves[0].topnode = PartManager->MaxPart;
 
     ForceTree tree = {0};
-    force_tree_rebuild(&tree, &ddecomp, BoxSize, 0, 1, NULL);
+    force_tree_rebuild(&tree, &ddecomp, 0, 1, NULL);
     set_init_hsml(&tree);
     /* Rebuild without moments to check it works*/
-    force_tree_rebuild(&tree, &ddecomp, BoxSize, 0, 0, NULL);
+    force_tree_rebuild(&tree, &ddecomp, 0, 0, NULL);
     /*Time doing the density finding*/
     double start, end;
     start = MPI_Wtime();
@@ -128,13 +127,8 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     CP.RadiationOn = 0;
     CP.w0_fld = -1; /*Dark energy equation of state parameter*/
     /*Should be 0.1*/
-    CP.Hubble = 0.1;
-    /*Default value for L=kpc v=km/s*/
-    double UnitTime_in_s = 3.08568e+16;
-    double UnitLength_in_cm = 3.085678e+21;
-    double UnitMass_in_g = 1.989e+43;
-    /*Do the main cosmology initialisation*/
-    init_cosmology(&CP,0.01,UnitLength_in_cm,UnitMass_in_g,UnitTime_in_s);
+    struct UnitSystem units = get_unitsystem(3.085678e21, 1.989e43, 1e5);
+    init_cosmology(&CP,0.01, units);
 
     density(&act, 1, 0, 0, 0, kick, &CP, &data->sph_pred, NULL, &tree);
     end = MPI_Wtime();
@@ -192,10 +186,10 @@ static void test_density_flat(void ** state) {
     for(i=0; i<numpart; i++) {
         P[i].Type = 0;
         P[i].PI = i;
-        P[i].Hsml = 1.5*BoxSize/cbrt(numpart);
-        P[i].Pos[0] = (BoxSize/ncbrt) * (i/ncbrt/ncbrt);
-        P[i].Pos[1] = (BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
-        P[i].Pos[2] = (BoxSize/ncbrt) * (i % ncbrt);
+        P[i].Hsml = 1.5*PartManager->BoxSize/cbrt(numpart);
+        P[i].Pos[0] = (PartManager->BoxSize/ncbrt) * (i/ncbrt/ncbrt);
+        P[i].Pos[1] = (PartManager->BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
+        P[i].Pos[2] = (PartManager->BoxSize/ncbrt) * (i % ncbrt);
     }
     do_density_test(state, numpart, 0.501747, 1e-4);
 }
@@ -211,10 +205,10 @@ static void test_density_close(void ** state) {
     for(i=0; i<numpart/4; i++) {
         P[i].Type = 0;
         P[i].PI = i;
-        P[i].Hsml = 4*BoxSize/cbrt(numpart/8);
-        P[i].Pos[0] = (BoxSize/ncbrt) * (i/(ncbrt/2.)/(ncbrt/2.));
-        P[i].Pos[1] = (BoxSize/ncbrt) * ((i*2/ncbrt) % (ncbrt/2));
-        P[i].Pos[2] = (BoxSize/ncbrt) * (i % (ncbrt/2));
+        P[i].Hsml = 4*PartManager->BoxSize/cbrt(numpart/8);
+        P[i].Pos[0] = (PartManager->BoxSize/ncbrt) * (i/(ncbrt/2.)/(ncbrt/2.));
+        P[i].Pos[1] = (PartManager->BoxSize/ncbrt) * ((i*2/ncbrt) % (ncbrt/2));
+        P[i].Pos[2] = (PartManager->BoxSize/ncbrt) * (i % (ncbrt/2));
     }
 
     /* Create particles clustered in one place, all of type 0.*/
@@ -240,27 +234,27 @@ void do_random_test(void **state, gsl_rng * r, const int numpart)
     for(i=0; i<numpart/4; i++) {
         P[i].Type = 0;
         P[i].PI = i;
-        P[i].Hsml = BoxSize/cbrt(numpart);
+        P[i].Hsml = PartManager->BoxSize/cbrt(numpart);
 
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = BoxSize * gsl_rng_uniform(r);
+            P[i].Pos[j] = PartManager->BoxSize * gsl_rng_uniform(r);
     }
     for(i=numpart/4; i<3*numpart/4; i++) {
         P[i].Type = 0;
         P[i].PI = i;
-        P[i].Hsml = BoxSize/cbrt(numpart);
+        P[i].Hsml = PartManager->BoxSize/cbrt(numpart);
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = BoxSize/2 + BoxSize/8 * exp(pow(gsl_rng_uniform(r)-0.5,2));
+            P[i].Pos[j] = PartManager->BoxSize/2 + PartManager->BoxSize/8 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
     for(i=3*numpart/4; i<numpart; i++) {
         P[i].Type = 0;
         P[i].PI = i;
-        P[i].Hsml = BoxSize/cbrt(numpart);
+        P[i].Hsml = PartManager->BoxSize/cbrt(numpart);
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = BoxSize*0.1 + BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
+            P[i].Pos[j] = PartManager->BoxSize*0.1 + PartManager->BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
     do_density_test(state, numpart, 0.187515, 1e-3);
 }
@@ -319,7 +313,7 @@ static struct ClockTable CT;
 
 static int setup_density(void **state) {
     /* Needed so the integer timeline works*/
-    setup_sync_points(NULL,0.01, 0.1, 0, 0.0, 0.0, 0.0, 0.0, 0);
+    setup_sync_points(NULL,0.01, 0.1, 0.0, 0);
 
     /*Reserve space for the slots*/
     slots_init(0.01 * PartManager->MaxPart, SlotsManager);
@@ -332,7 +326,8 @@ static int setup_density(void **state) {
     int i;
     for(i = 0; i < 6; i++)
         maxpart+=atleast[i];
-    particle_alloc_memory(maxpart);
+    const double BoxSize = 8;
+    particle_alloc_memory(PartManager, BoxSize, maxpart);
     slots_reserve(1, atleast, SlotsManager);
     walltime_init(&CT);
     init_forcetree_params(2);
@@ -344,7 +339,6 @@ static int setup_density(void **state) {
     data->dp.BlackHoleNgbFactor = 2;
     data->dp.MaxNumNgbDeviation = 2;
     data->dp.DensityKernelType = DENSITY_KERNEL_CUBIC_SPLINE;
-    BoxSize = 8;
     data->dp.MinGasHsmlFractional = 0.006;
     struct gravshort_tree_params tree_params = {0};
     tree_params.FractionalGravitySoftening = 1;

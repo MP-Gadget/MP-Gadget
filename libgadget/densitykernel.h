@@ -26,7 +26,7 @@ typedef struct {
     double Hinv; /* convert from r to u*/
     int type;
     double support;
-    char * name;
+    const char * name;
     /* private: */
     double Wknorm;
     double dWknorm;

@@ -78,7 +78,6 @@ struct HydraPriv {
     double fac_vsic_fix;
     double hubble_a2;
     double atime;
-    int WindOn;
     DriftKickTimes const * times;
     double MinEgySpec;
     double FgravkickB;
@@ -145,7 +144,7 @@ hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mo
  *  particles .
  */
 void
-hydro_force(const ActiveParticles * act, int WindOn, const double hubble, const double atime, struct sph_pred_data * SPH_predicted, double MinEgySpec, const DriftKickTimes times,  Cosmology * CP, const ForceTree * const tree)
+hydro_force(const ActiveParticles * act, const double atime, struct sph_pred_data * SPH_predicted, double MinEgySpec, const DriftKickTimes times,  Cosmology * CP, const ForceTree * const tree)
 {
     int i;
     TreeWalk tw[1] = {{0}};
@@ -197,9 +196,9 @@ hydro_force(const ActiveParticles * act, int WindOn, const double hubble, const 
     walltime_measure("/SPH/Hydro/Init");
 
     /* Initialize some time factors*/
+    const double hubble = hubble_function(CP, atime);
     HYDRA_GET_PRIV(tw)->fac_mu = pow(atime, 3 * (GAMMA - 1) / 2) / atime;
     HYDRA_GET_PRIV(tw)->fac_vsic_fix = hubble * pow(atime, 3 * GAMMA_MINUS1);
-    HYDRA_GET_PRIV(tw)->WindOn = WindOn;
     HYDRA_GET_PRIV(tw)->atime = atime;
     HYDRA_GET_PRIV(tw)->hubble_a2 = hubble * atime * atime;
     priv->MinEgySpec = MinEgySpec;
@@ -346,7 +345,7 @@ hydro_ngbiter(
 
     /* Wind particles do not interact hydrodynamically: don't produce hydro acceleration
      * or change the signalvel.*/
-    if(HYDRA_GET_PRIV(lv->tw)->WindOn && winds_is_particle_decoupled(other))
+    if(winds_is_particle_decoupled(other))
         return;
 
     DensityKernel kernel_j;
@@ -507,7 +506,7 @@ hydro_postprocess(int i, TreeWalk * tw)
         SPHP(i).DtEntropy *= GAMMA_MINUS1 / (HYDRA_GET_PRIV(tw)->hubble_a2 * pow(SPHP(i).Density, GAMMA_MINUS1));
 
         /* if we have winds, we decouple particles briefly if delaytime>0 */
-        if(HYDRA_GET_PRIV(tw)->WindOn && winds_is_particle_decoupled(i))
+        if(winds_is_particle_decoupled(i))
         {
             winds_decoupled_hydro(i, HYDRA_GET_PRIV(tw)->atime);
         }

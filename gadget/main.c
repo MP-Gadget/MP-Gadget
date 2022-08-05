@@ -98,7 +98,9 @@ int main(int argc, char **argv)
     if(RestartFlag == 0) {
         message(0, "Restart flag of 0 is deprecated. Use 2.\n");
         RestartFlag = 2;
-        RestartSnapNum = -1;
+    }
+    if(RestartFlag == 1) {
+        RestartSnapNum = find_last_snapshot();
     }
     if(RestartFlag == 3 && RestartSnapNum < 0) {
         endrun(0, "Need to give the snapshot number if FOF is selected for output\n");
@@ -116,21 +118,21 @@ int main(int argc, char **argv)
 
     init_endrun(ShowBacktrace);
 
-    /* Last snapshot will be detected in begrun*/
-    RestartSnapNum = begrun(RestartFlag, RestartSnapNum);
+    struct header_data head = {0};
+    inttime_t ti_init = begrun(RestartSnapNum, &head);
 
     switch(RestartFlag) {
         case 3:
-            runfof(RestartSnapNum);
+            runfof(RestartSnapNum, ti_init, &head);
             break;
         case 4:
-            runpower(RestartSnapNum);
+            runpower(&head);
             break;
         case 99:
-            runtests(RestartSnapNum);
+            runtests(RestartSnapNum, ti_init, &head);
             break;
         default:
-            run(RestartSnapNum);        /* main simulation loop */
+            run(RestartSnapNum, ti_init, &head);        /* main simulation loop */
             break;
     }
     MPI_Finalize();		/* clean up & finalize MPI */

@@ -34,7 +34,7 @@ set_density_params(ParameterSet * ps)
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0) {
-        DensityParams.DensityKernelType = param_get_enum(ps, "DensityKernelType");
+        DensityParams.DensityKernelType = (enum DensityKernelType) param_get_enum(ps, "DensityKernelType");
         DensityParams.MaxNumNgbDeviation = param_get_double(ps, "MaxNumNgbDeviation");
         DensityParams.DensityResolutionEta = param_get_double(ps, "DensityResolutionEta");
         DensityParams.MinGasHsmlFractional = param_get_double(ps, "MinGasHsmlFractional");
@@ -592,7 +592,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
         else
         {
             if(!(Right[i] < tw->tree->BoxSize) && Left[i] == 0)
-                endrun(8188, "Cannot occur. Check for memory corruption: i=%d L = %g R = %g N=%g. Type %d, Pos %g %g %g", i, Left[i], Right[i], NumNgb[i], P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+                endrun(8188, "Cannot occur. Check for memory corruption: i=%d L = %g R = %g N=%g. Type %d, Pos %g %g %g hsml %g Box %g\n", i, Left[i], Right[i], NumNgb[i], P[i].Type, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], P[i].Hsml, tw->tree->BoxSize);
 
             MyFloat DensFac = DENSITY_GET_PRIV(tw)->DhsmlDensityFactor[i];
             double fac = 1.26;
@@ -655,9 +655,9 @@ slots_allocate_sph_pred_data(int nsph)
 {
     struct sph_pred_data sph_scratch;
     /*Data is allocated high so that we can free the tree around it*/
-    sph_scratch.EntVarPred = mymalloc2("EntVarPred", sizeof(MyFloat) * nsph);
+    sph_scratch.EntVarPred = (MyFloat *) mymalloc2("EntVarPred", sizeof(MyFloat) * nsph);
     memset(sph_scratch.EntVarPred, 0, sizeof(sph_scratch.EntVarPred[0]) * nsph);
-    sph_scratch.VelPred = mymalloc2("VelPred", sizeof(MyFloat) * 3 * nsph);
+    sph_scratch.VelPred = (MyFloat *) mymalloc2("VelPred", sizeof(MyFloat) * 3 * nsph);
     return sph_scratch;
 }
 

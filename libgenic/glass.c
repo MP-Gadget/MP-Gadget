@@ -70,7 +70,7 @@ setup_glass(IDGenerator * idgen, PetaPM * pm, double shift, int seed, double mas
     return idgen->NumPart;
 }
 
-void glass_evolve(PetaPM * pm, int nsteps, char * pkoutname, struct ic_part_data * ICP, const int NumPart, const double UnitLength_in_cm, const char * OutputDir)
+void glass_evolve(PetaPM * pm, int nsteps, const char * pkoutname, struct ic_part_data * ICP, const int NumPart, const double UnitLength_in_cm, const char * OutputDir)
 {
     int i;
     int step = 0;
@@ -229,7 +229,7 @@ _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void * userdata, int * Nre
      * Need to divide by mean mass per cell to get delta */
     pot_factor = -1 * (-1) * pow(2 * M_PI / pm->BoxSize, -2);
 
-    PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion));
+    PetaPMRegion * regions = (PetaPMRegion *) mymalloc2("Regions", sizeof(PetaPMRegion));
     int k;
     int r = 0;
     int i;

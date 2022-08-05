@@ -51,12 +51,14 @@ ArtBulkViscConst = 0.75
 InitGasTemp = 580.0        # always ignored if set to 0 
 MinGasTemp = 5.0
 
-
+MaxMemSizePerNode = 2000
 # Softening lengths
 
 MinGasHsmlFractional = 0.01
 
 #----------------------BH Stuff-------------------------
+BlackHoleKineticOn = 1 # switch to kinetic feedback mode when the BH accretion rate is low
+
 BlackHoleFeedbackFactor = 0.05
 BlackHoleFeedbackRadius = 0.
 BlackHoleFeedbackRadiusMaxPhys = 0.

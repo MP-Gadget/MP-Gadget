@@ -10,53 +10,53 @@ enum ParameterFlag {
 };
 
 typedef struct ParameterEnum {
-    char * name;
+    const char * name;
     int value;
 } ParameterEnum;
 
 typedef struct ParameterSet ParameterSet;
-typedef int (*ParameterAction)(ParameterSet * ps, char * name, void * userdata);
+typedef int (*ParameterAction)(ParameterSet * ps, const char * name, void * userdata);
 
 void
-param_declare_int(ParameterSet * ps, char * name, enum ParameterFlag required, int defvalue, char * help);
+param_declare_int(ParameterSet * ps, const char * name, const enum ParameterFlag required, const int defvalue, const char * help);
 
 void
-param_declare_double(ParameterSet * ps, char * name, enum ParameterFlag required, double defvalue, char * help);
+param_declare_double(ParameterSet * ps, const char * name, const enum ParameterFlag required, const double defvalue, const char * help);
 
 void
-param_declare_string(ParameterSet * ps, char * name, enum ParameterFlag required, char * defvalue, char * help);
+param_declare_string(ParameterSet * ps, const char * name, const enum ParameterFlag required, const char * defvalue, const char * help);
 
 void
-param_declare_enum(ParameterSet * ps, char * name, ParameterEnum * enumtable, enum ParameterFlag required, char * defvalue, char * help);
+param_declare_enum(ParameterSet * ps, const char * name, ParameterEnum * enumtable, const enum ParameterFlag required, const char * defvalue, const char * help);
 
 void
-param_set_action(ParameterSet * ps, char * name, ParameterAction action, void * userdata);
+param_set_action(ParameterSet * ps, const char * name, ParameterAction action, void * userdata);
 
 int
-param_is_nil(ParameterSet * ps, char * name);
+param_is_nil(ParameterSet * ps, const char * name);
 
 double
-param_get_double(ParameterSet * ps, char * name);
+param_get_double(ParameterSet * ps, const char * name);
 
 char *
-param_get_string(ParameterSet * ps, char * name);
+param_get_string(ParameterSet * ps, const char * name);
 
 void
-param_get_string2(ParameterSet * ps, char * name, char * dest, size_t len);
+param_get_string2(ParameterSet * ps, const char * name, char * dest, const size_t len);
 int
-param_get_int(ParameterSet * ps, char * name);
+param_get_int(ParameterSet * ps, const char * name);
 
 int
-param_get_enum(ParameterSet * ps, char * name);
+param_get_enum(ParameterSet * ps, const char * name);
 
 char *
-param_format_value(ParameterSet * ps, char * name);
+param_format_value(ParameterSet * ps, const char * name);
 
-int param_parse (ParameterSet * ps, char * content, char **error);
-/* returns 0 on no error; 1 on error, and *error needs to be freed by the caller with free() */
-int param_parse_file (ParameterSet * ps, const char * filename, char **error);
-/* returns 0 on no error; 1 on error, and *error needs to be freed by the caller with free() */
-int param_validate(ParameterSet * ps, char **error);
+int param_parse (ParameterSet * ps, char * content);
+/* returns 0 on no error; 1 on error */
+int param_parse_file (ParameterSet * ps, const char * filename);
+/* returns 0 on no error; 1 on error */
+int param_validate(ParameterSet * ps);
 void param_dump(ParameterSet * ps, FILE * stream);
 
 ParameterSet *

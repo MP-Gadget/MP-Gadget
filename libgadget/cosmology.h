@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include "omega_nu_single.h"
+#include "utils/unitsystem.h"
 
 typedef struct {
     double CMBTemperature;
@@ -23,7 +24,17 @@ typedef struct {
     int RadiationOn; /* flags whether to include the radiation density in the background */
     _omega_nu ONu;   /*Structure for storing massive neutrino densities*/
     double MNu[3]; /*Neutrino masses in eV*/
+<<<<<<< HEAD
     double G; /*gravitational constant in simulation units*/
+=======
+    int MassiveNuLinRespOn; /* Flags that massive neutrinos using the linear
+                               response code of Ali-Haimoud & Bird 2013.*/
+    int HybridNeutrinosOn; /* Flags that hybrid neutrinos are enabled */
+    double HybridVcrit; /* Critical velocity switching between particle
+                           and analytic solvers when hybrid neutrinos are on*/
+    double HybridNuPartTime; /*!< Redshift at which hybrid neutrinos switch on*/
+    double GravInternal;/*!< Gravity-constant in internal units */
+>>>>>>> master
 } Cosmology;
 
 typedef struct {
@@ -47,7 +58,18 @@ double hubble_function(const Cosmology * CP, double a);
 double GrowthFactor(Cosmology * CP, double astart, double aend);
 /*Note this is only used in GenIC*/
 double F_Omega(Cosmology * CP, double a);
+/* Returns 1 if the neutrino particles are 'tracers', not actively gravitating,
+ * and 0 if they are actively gravitating particles.*/
+int hybrid_nu_tracer(const Cosmology * CP, double atime);
 
 /*Initialise the derived parts of the cosmology*/
+<<<<<<< HEAD
 void init_cosmology(Cosmology * CP, const double TimeBegin, double UnitLength, double UnitMass, double UnitTime);
+=======
+void init_cosmology(Cosmology *CP, double TimeBegin, const struct UnitSystem units);
+
+/* Check and print properties of the derived cosmology */
+void check_units(const Cosmology * CP, const struct UnitSystem units);
+
+>>>>>>> master
 #endif

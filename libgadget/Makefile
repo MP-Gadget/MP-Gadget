@@ -13,7 +13,6 @@ INCL = densitykernel.h \
 	run.h \
 	timebinmgr.h \
 	treewalk.h \
-	allvars.h \
 	partmanager.h \
 	cooling.h   \
 	cooling_rates.h cooling_qso_lightup.h \
@@ -23,10 +22,12 @@ INCL = densitykernel.h \
 	checkpoint.h \
 	physconst.h   \
 	sfr_eff.h \
+	stats.h \
 	metal_return.h \
 	winds.h \
 	timefac.h \
 	blackhole.h \
+	gravity.h \
 	cosmology.h \
 	drift.h     \
 	fof.h  \
@@ -38,6 +39,7 @@ INCL = densitykernel.h \
 	neutrinos_lra.h \
 	omega_nu_single.h \
 	uvbg.h \
+utils/unitsystem.h \
 utils/peano.h \
 utils/interp.h \
 utils/paramset.h \
@@ -70,7 +72,7 @@ TESTED = hci \
 	gravity \
 	exchange
 
-MPI_TESTED = exchange
+MPI_TESTED = exchange fof
 
 TESTBIN :=$(UTILS_TESTED:%=.objs/utils/test_%) $(UTILS_MPI_TESTED:%=.objs/utils/test_%) $(TESTED:%=.objs/test_%) $(MPI_TESTED:%=.objs/test_%)
 SUITE?= $(TESTED:%=test_%) $(UTILS_TESTED:%=utils/test_%)
@@ -120,6 +122,7 @@ utils/system.o \
 utils/paramset.o \
 utils/event.o \
 utils/openmpsort.o \
+utils/unitsystem.o \
 utils/string.o \
 utils/spinlocks.o
 
@@ -158,6 +161,9 @@ all: libgadget.a libgadget-utils.a
 	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 .objs/test_gravity: tests/test_gravity.c libgadget.a ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
+	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
+
+.objs/test_fof: tests/test_fof.c libgadget.a ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
 	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 build-tests: $(TESTBIN)

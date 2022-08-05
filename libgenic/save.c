@@ -15,7 +15,7 @@
 #include <libgadget/walltime.h>
 #include <libgadget/utils/mymalloc.h>
 
-void _bigfile_utils_create_block_from_c_array(BigFile * bf, void * baseptr, char * name, char * dtype, size_t dims[], ptrdiff_t elsize, int NumFiles, int NumWriters, MPI_Comm comm)
+void _bigfile_utils_create_block_from_c_array(BigFile * bf, void * baseptr, const char * name, const char * dtype, size_t dims[], ptrdiff_t elsize, int NumFiles, int NumWriters, MPI_Comm comm)
 {
     BigBlock block;
     BigArray array;
@@ -46,7 +46,7 @@ void _bigfile_utils_create_block_from_c_array(BigFile * bf, void * baseptr, char
     }
 }
 
-static void saveblock(BigFile * bf, void * baseptr, int ptype, char * bname, char * dtype, int items_per_particle, const int NumPart, ptrdiff_t elsize, int NumFiles, int NumWriters) {
+static void saveblock(BigFile * bf, void * baseptr, int ptype, const char * bname, const char * dtype, int items_per_particle, const int NumPart, ptrdiff_t elsize, int NumFiles, int NumWriters) {
     size_t dims[2];
     char name[128];
     snprintf(name, 128, "%d/%s", ptype, bname);
@@ -73,7 +73,7 @@ write_particle_data(IDGenerator * idgen,
     saveblock(bf, &curICP[0].Pos, Type, "Position", "f8", 3, idgen->NumPart, sizeof(curICP[0]), NumFiles, NumWriters);
     saveblock(bf, &curICP[0].Vel, Type, "Velocity", "f4", 3, idgen->NumPart, sizeof(curICP[0]), NumFiles, NumWriters);
     /*Generate and write IDs*/
-    uint64_t * ids = mymalloc("IDs", idgen->NumPart * sizeof(uint64_t));
+    uint64_t * ids = (uint64_t *) mymalloc("IDs", idgen->NumPart * sizeof(uint64_t));
     memset(ids, 0, idgen->NumPart * sizeof(uint64_t));
     int i;
     #pragma omp parallel for
@@ -89,8 +89,8 @@ write_particle_data(IDGenerator * idgen,
 /*Compute the mass array from the cosmology and the total number of particles.*/
 void compute_mass(double * mass, int64_t TotNumPartCDM, int64_t TotNumPartGas, int64_t TotNuPart, double nufrac, const double BoxSize, Cosmology * CP, const struct genic_config GenicConfig)
 {
-    double UnitTime_in_s = GenicConfig.UnitLength_in_cm / GenicConfig.UnitVelocity_in_cm_per_s;
-    double Grav = GRAVITY / pow(GenicConfig.UnitLength_in_cm, 3) * GenicConfig.UnitMass_in_g * pow(UnitTime_in_s, 2);
+    double UnitTime_in_s = GenicConfig.units.UnitLength_in_cm / GenicConfig.units.UnitVelocity_in_cm_per_s;
+    double Grav = GRAVITY / pow(GenicConfig.units.UnitLength_in_cm, 3) * GenicConfig.units.UnitMass_in_g * pow(UnitTime_in_s, 2);
     const double OmegatoMass = 3 * CP->Hubble * CP->Hubble / (8 * M_PI * Grav) * pow(BoxSize, 3);
     double OmegaCDM = CP->Omega0;
     mass[0] = mass[2] = mass[3] = mass[4] = mass[5] = 0;
@@ -132,9 +132,9 @@ void saveheader(BigFile * bf, int64_t TotNumPartCDM, int64_t TotNumPartGas, int6
             (big_block_set_attr(&bheader, "FractionNuInParticles", &nufrac, "f8", 1)) ||
             (big_block_set_attr(&bheader, "OmegaBaryon", &CP->OmegaBaryon, "f8", 1)) ||
             (big_block_set_attr(&bheader, "OmegaLambda", &CP->OmegaLambda, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "UnitLength_in_cm", &GenicConfig.UnitLength_in_cm, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "UnitMass_in_g", &GenicConfig.UnitMass_in_g, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "UnitVelocity_in_cm_per_s", &GenicConfig.UnitVelocity_in_cm_per_s, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "UnitLength_in_cm", &GenicConfig.units.UnitLength_in_cm, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "UnitMass_in_g", &GenicConfig.units.UnitMass_in_g, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "UnitVelocity_in_cm_per_s", &GenicConfig.units.UnitVelocity_in_cm_per_s, "f8", 1)) ||
             (big_block_set_attr(&bheader, "HubbleParam", &CP->HubbleParam, "f8", 1)) ||
             (big_block_set_attr(&bheader, "InvertPhase", &GenicConfig.InvertPhase, "i4", 1)) ||
             (big_block_set_attr(&bheader, "Seed", &GenicConfig.Seed, "i8", 1)) ||

@@ -4,15 +4,7 @@
  * The main atomic rates have been rewritten from scratch and now exist in cooling_rates.c.
  * There is also support for metal cooling and a fluctuating UV background in cooling_uvfluc.c
  *
- * There is no public version of original cooling.c freely available.
- *
- * Only reference is 2004 version by Brian O'Shea in ENZO repo,
- * which contains a deferred freedom claimer depending on the action
- * of Volker Springel.
- *
- * The LICENSE of the DoCooling function is therefore still in limbo,
- * although everything else is now unencumbered.
- *
+ * Follows the DoCooling function found in Gadget-4, which is Copyright (C) 2014 - 2020 Volker Springel.
  ************** */
 
 #include <mpi.h>
@@ -180,6 +172,8 @@ double GetCoolingTime(double redshift, double u_old, double rho, struct UVBG * u
 double
 GetNeutralFraction(double u_old, double rho, const struct UVBG * uvbg, double ne_init)
 {
+    if(!coolunits.CoolingOn)
+        return 1;
     /* convert to physical cgs units */
     rho *= coolunits.density_in_phys_cgs / PROTONMASS;
     u_old *= coolunits.uu_in_cgs;

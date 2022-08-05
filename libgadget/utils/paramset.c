@@ -17,7 +17,7 @@
 static int parse_enum(ParameterEnum * table, const char * strchoices) {
     int value = 0;
     ParameterEnum * p = table;
-    char * delim = "\",;&| \t";
+    const char * delim = "\",;&| \t";
     char * token;
 
     char * strchoices2 = fastpm_strdup(strchoices);
@@ -59,7 +59,7 @@ static char * format_enum(ParameterEnum * table, int value) {
             bleft-= strlen(p->name);
             if (bleft <= 0) {
                 int extra = (- bleft) + btotal;
-                buffer = myrealloc(buffer, btotal + extra);
+                buffer = (char *) myrealloc(buffer, btotal + extra);
                 btotal += extra;
                 bleft += extra;
                 break;
@@ -85,7 +85,7 @@ typedef struct ParameterSchema {
     char name[NAMESIZE];
     int type;
     ParameterValue defvalue;
-    char * help;
+    const char * help;
     enum ParameterFlag required;
     ParameterEnum * enumtable;
     ParameterAction action;
@@ -99,7 +99,7 @@ struct ParameterSet {
     ParameterValue value[1024];
 };
 
-static ParameterSchema * param_get_schema(ParameterSet * ps, char * name)
+static ParameterSchema * param_get_schema(ParameterSet * ps, const char * name)
 {
     int i;
     for(i = 0; i < ps->size; i ++) {
@@ -111,10 +111,10 @@ static ParameterSchema * param_get_schema(ParameterSet * ps, char * name)
 }
 
 static void
-param_set_from_string(ParameterSet * ps, char * name, char * value, int lineno);
+param_set_from_string(ParameterSet * ps, const char * name, char * value, int lineno);
 
 
-static int param_emit(ParameterSet * ps, char * start, int size, int lineno, char **error)
+static int param_emit(ParameterSet * ps, char * start, int size, int lineno)
 {
     /* parse a line */
     if (size == 0) return 0;
@@ -125,7 +125,7 @@ static int param_emit(ParameterSet * ps, char * start, int size, int lineno, cha
     buf[size] = 0;
 
     /* blank lines are OK */
-    char * name = NULL;
+    const char * name = NULL;
     char * value = NULL;
     char * ptr = buf;
 
@@ -147,7 +147,7 @@ static int param_emit(ParameterSet * ps, char * start, int size, int lineno, cha
     if (*ptr == 0 || strchr(comments, *ptr)) {
         /* This line is malformed, must have a value! */
         strncpy(buf, start, size);
-        *error = fastpm_strdup_printf("Line %d : `%s` is malformed.", lineno, buf);
+        message(0, "Line %d : `%s` is malformed.\n", lineno, buf);
         myfree(buf);
         return 1;
     }
@@ -159,14 +159,14 @@ static int param_emit(ParameterSet * ps, char * start, int size, int lineno, cha
     /* now this line is important */
     ParameterSchema * p = param_get_schema(ps, name);
     if(!p) {
-        *error = fastpm_strdup_printf("Line %d: Parameter `%s` is unknown.", lineno, name);
+        message(0, "Line %d: Parameter `%s` is unknown.\n", lineno, name);
         myfree(buf);
         return 1;
     }
     param_set_from_string(ps, name, value, lineno);
     if(p->action) {
         if(0 != p->action(ps, name, p->action_data)) {
-            *error = fastpm_strdup_printf("Triggering Action on `%s` failed.", name);
+            message(0, "Triggering Action on `%s` failed.\n", name);
             myfree(buf);
             return 1;
         }
@@ -174,23 +174,15 @@ static int param_emit(ParameterSet * ps, char * start, int size, int lineno, cha
     myfree(buf);
     return 0;
 }
-int param_validate(ParameterSet * ps, char **error)
+int param_validate(ParameterSet * ps)
 {
     int i;
     int flag = 0;
-    *error = NULL;
     /* copy over the default values */
     for(i = 0; i < ps->size; i ++) {
         ParameterSchema * p = &ps->p[i];
         if(p->required == REQUIRED && ps->value[p->index].nil) {
-            char * error1 = fastpm_strdup_printf("Parameter `%s` is required, but not set.", p->name);
-            int len = strlen(error1)+1;
-            char * tmp2 = ta_malloc2("tmp2", char, len);
-            strncpy(tmp2, error1, len);
-            myfree(error1);
-            char * tmp = fastpm_strappend(*error, "\n", tmp2);
-            *error = tmp;
-            myfree(tmp2);
+            message(0, "Parameter `%s` is required, but not set.\n", p->name);
             flag = 1;
         }
     }
@@ -213,7 +205,7 @@ void param_dump(ParameterSet * ps, FILE * stream)
     fflush(stream);
 }
 
-int param_parse (ParameterSet * ps, char * content, char **error)
+int param_parse (ParameterSet * ps, char * content)
 {
     int i;
     /* copy over the default values, include nil values */
@@ -224,21 +216,9 @@ int param_parse (ParameterSet * ps, char * content, char **error)
     char * p1 = content; /* begining of a line */
     int flag = 0;
     int lineno = 0;
-    *error = NULL;
     while(1) {
         if(*p == '\n' || *p == 0) {
-            char * error1;
-            int flag1 = param_emit(ps, p1, p - p1, lineno, &error1);
-            if(flag1 != 0) {
-                int len = strlen(error1)+1;
-                char * tmp2 = ta_malloc2("tmp2", char, len);
-                strncpy(tmp2, error1, len);
-                tmp2[len-1] = '\0';
-                myfree(error1);
-                char * tmp = fastpm_strappend(*error, "\n", tmp2);
-                myfree(tmp2);
-                *error = tmp;
-            }
+            int flag1 = param_emit(ps, p1, p - p1, lineno);
             flag |= flag1;
             if(*p == 0) break;
             p++;
@@ -251,21 +231,20 @@ int param_parse (ParameterSet * ps, char * content, char **error)
     return flag;
 }
 
-int param_parse_file (ParameterSet * ps, const char * filename, char ** error)
+int param_parse_file (ParameterSet * ps, const char * filename)
 {
     char * content = fastpm_file_get_content(filename);
     if(content == NULL) {
-        *error = fastpm_strdup("Could not read file.");
-        return -1;
+        endrun(1, "Could not read file: %s\n", filename);
     }
-    int val = param_parse(ps, content, error);
+    int val = param_parse(ps, content);
 
     myfree(content);
     return val;
 }
 
 static ParameterSchema *
-param_declare(ParameterSet * ps, char * name, int type, enum ParameterFlag required, char * help)
+param_declare(ParameterSet * ps, const char * name, const int type, const enum ParameterFlag required, const char * help)
 {
     int free = ps->size;
     strncpy(ps->p[free].name, name, NAMESIZE);
@@ -279,13 +258,13 @@ param_declare(ParameterSet * ps, char * name, int type, enum ParameterFlag requi
     ps->p[free].defvalue.s = NULL;
     ps->p[free].defvalue.lineno = -1;
     if(help)
-        ps->p[free].help = fastpm_strdup(help);
+        ps->p[free].help = help;
     ps->size ++;
     return &ps->p[free];
 }
 
 void
-param_declare_int(ParameterSet * ps, char * name, enum ParameterFlag required, int defvalue, char * help)
+param_declare_int(ParameterSet * ps, const char * name, const enum ParameterFlag required, const int defvalue, const char * help)
 {
     ParameterSchema * p = param_declare(ps, name, INT, required, help);
     if(required == OPTIONAL) {
@@ -296,7 +275,7 @@ param_declare_int(ParameterSet * ps, char * name, enum ParameterFlag required, i
     }
 }
 void
-param_declare_double(ParameterSet * ps, char * name, enum ParameterFlag required, double defvalue, char * help)
+param_declare_double(ParameterSet * ps, const char * name, const enum ParameterFlag required, const double defvalue, const char * help)
 {
     ParameterSchema * p = param_declare(ps, name, DOUBLE, required, help);
     if(required == OPTIONAL) {
@@ -307,7 +286,7 @@ param_declare_double(ParameterSet * ps, char * name, enum ParameterFlag required
     }
 }
 void
-param_declare_string(ParameterSet * ps, char * name, enum ParameterFlag required, char * defvalue, char * help)
+param_declare_string(ParameterSet * ps, const char * name, const enum ParameterFlag required, const char * defvalue, const char * help)
 {
     ParameterSchema * p = param_declare(ps, name, STRING, required, help);
     if(required == OPTIONAL) {
@@ -325,7 +304,7 @@ param_declare_string(ParameterSet * ps, char * name, enum ParameterFlag required
     }
 }
 void
-param_declare_enum(ParameterSet * ps, char * name, ParameterEnum * enumtable, enum ParameterFlag required, char * defvalue, char * help)
+param_declare_enum(ParameterSet * ps, const char * name, ParameterEnum * enumtable, const enum ParameterFlag required, const char * defvalue, const char * help)
 {
     ParameterSchema * p = param_declare(ps, name, ENUM, required, help);
     p->enumtable = enumtable;
@@ -339,7 +318,7 @@ param_declare_enum(ParameterSet * ps, char * name, ParameterEnum * enumtable, en
 }
 
 void
-param_set_action(ParameterSet * ps, char * name, ParameterAction action, void * userdata)
+param_set_action(ParameterSet * ps, const char * name, ParameterAction action, void * userdata)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     p->action = action;
@@ -347,37 +326,37 @@ param_set_action(ParameterSet * ps, char * name, ParameterAction action, void * 
 }
 
 int
-param_is_nil(ParameterSet * ps, char * name)
+param_is_nil(ParameterSet * ps, const char * name)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     return ps->value[p->index].nil;
 }
 
 double
-param_get_double(ParameterSet * ps, char * name)
+param_get_double(ParameterSet * ps, const char * name)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     if (param_is_nil(ps, name)) {
-        printf("Accessing an undefined parameter `%s`.\n", p->name);
+        message(0, "Accessing an undefined parameter `%s`.\n", p->name);
     }
     return ps->value[p->index].d;
 }
 
 char *
-param_get_string(ParameterSet * ps, char * name)
+param_get_string(ParameterSet * ps, const char * name)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     if (param_is_nil(ps, name)) {
-        printf("Accessing an undefined parameter `%s`.\n", p->name);
+        message(0, "Accessing an undefined parameter `%s`.\n", p->name);
     }
     return ps->value[p->index].s;
 }
 void
-param_get_string2(ParameterSet * ps, char * name, char * dst, size_t len)
+param_get_string2(ParameterSet * ps, const char * name, char * dst, size_t len)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     if (param_is_nil(ps, name)) {
-        printf("Accessing an undefined parameter `%s`.\n", p->name);
+        message(0, "Accessing an undefined parameter `%s`.\n", p->name);
     }
     if(strlen(ps->value[p->index].s) > len)
         endrun(1, "Parameter string %s too long for storage (%d)\n", ps->value[p->index].s, len);
@@ -386,27 +365,27 @@ param_get_string2(ParameterSet * ps, char * name, char * dst, size_t len)
 }
 
 int
-param_get_int(ParameterSet * ps, char * name)
+param_get_int(ParameterSet * ps, const char * name)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     if (param_is_nil(ps, name)) {
-        printf("Accessing an undefined parameter `%s`.\n", p->name);
+        message(0, "Accessing an undefined parameter `%s`.\n", p->name);
     }
     return ps->value[p->index].i;
 }
 
 int
-param_get_enum(ParameterSet * ps, char * name)
+param_get_enum(ParameterSet * ps, const char * name)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     if (param_is_nil(ps, name)) {
-        printf("Accessing an undefined parameter `%s`.\n", p->name);
+        message(0, "Accessing an undefined parameter `%s`.\n", p->name);
     }
     return ps->value[p->index].i;
 }
 
 char *
-param_format_value(ParameterSet * ps, char * name)
+param_format_value(ParameterSet * ps, const char * name)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     if(ps->value[p->index].nil) {
@@ -440,11 +419,11 @@ param_format_value(ParameterSet * ps, char * name)
         }
         break;
     }
-    return NULL;
+    return fastpm_strdup("UNDEFINED TYPE");
 }
 
 void
-param_set_from_string(ParameterSet * ps, char * name, char * value, int lineno)
+param_set_from_string(ParameterSet * ps, const char * name, char * value, int lineno)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     ps->value[p->index].lineno = lineno;

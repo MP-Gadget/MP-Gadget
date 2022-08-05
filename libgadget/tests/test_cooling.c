@@ -16,11 +16,9 @@
 #include <libgadget/cooling_rates.h>
 #include <libgadget/utils/peano.h>
 #include <libgadget/partmanager.h>
-#include <libgadget/allvars.h>
 #include <libgadget/utils/endrun.h>
 #include "stub.h"
 
-struct global_data_all_processes All;
 /* Stub.*/
 double get_long_mean_free_path_heating(double redshift)
 {

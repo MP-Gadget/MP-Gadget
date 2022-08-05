@@ -98,8 +98,8 @@ force_treeev_shortrange(TreeWalkQueryGravShort * input,
  *  If needed, a new tree is constructed, otherwise the dynamically updated
  *  tree is used.  Particles are only exported to other processors when really
  *  needed, thereby allowing a good use of the communication buffer.
- *  NeutrinoTracer = All.HybridNeutrinosOn && (All.Time <= All.HybridNuPartTime);
- *  rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G)
+ *  NeutrinoTracer = All.HybridNeutrinosOn && (atime <= All.HybridNuPartTime);
+ *  rho0 = CP.Omega0 * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G)
  */
 void
 grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double rho0, int NeutrinoTracer, int FastParticleType)
@@ -327,22 +327,21 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             }
 
             /* This node accelerates the particle directly, and is not opened.*/
-            if(!shall_we_open_node(nop->len, nop->mom.mass, r2, nop->center, inpos, BoxSize, aold, TreeUseBH, BHOpeningAngle2))
+            int open_node = shall_we_open_node(nop->len, nop->mom.mass, r2, nop->center, inpos, BoxSize, aold, TreeUseBH, BHOpeningAngle2);
+            if(TreeParams.AdaptiveSoftening == 1 && (input->Soft < nop->mom.hmax))
+            {
+                /* Always open the node if it has a larger softening than the particle,
+                 * and the particle is inside its softening radius.
+                 * This condition only ever applies for adaptive softenings. It may or may not make sense. */
+                if(r2 < nop->mom.hmax * nop->mom.hmax)
+                    open_node = 1;
+            }
+
+            if(!open_node)
             {
                 double h = input->Soft;
-                if(TreeParams.AdaptiveSoftening == 1 && (input->Soft < nop->mom.hmax))
-                {
-                    /* Always open the node if it has a larger softening than the particle,
-                     * and the particle is inside its softening radius.
-                     * This condition only ever applies for adaptive softenings. It may or may not make sense. */
+                if(TreeParams.AdaptiveSoftening)
                     h = DMAX(input->Soft, nop->mom.hmax);
-                    if(r2 < h * h)
-                    {
-                        no = nop->s.suns[0];
-                        continue;
-                    }
-                }
-
                 /* ok, node can be used */
                 no = nop->sibling;
                 /* Compute the acceleration and apply it to the output structure*/

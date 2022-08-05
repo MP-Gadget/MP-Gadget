@@ -1,7 +1,7 @@
 #! /bin/bash
 
 (
-echo 'char * GADGET_COMPILER_SETTINGS = "" \'
+echo 'const char * GADGET_COMPILER_SETTINGS = "" \'
 echo "\" ${MPICC} \n \"\\"
 echo "\" ${OPTIMIZE} \n \"\\"
 for i in ${OPT}; do 
@@ -13,7 +13,7 @@ if [[ $VERSION = *dev* ]]; then
 GIT=`git describe --always --dirty --abbrev=10`
 VERSION=${VERSION}_${GIT/-/_}
 fi
-echo 'char * GADGET_VERSION = "'${VERSION}'";'
+echo 'const char * GADGET_VERSION = "'${VERSION}'";'
 ) > $1
 
 

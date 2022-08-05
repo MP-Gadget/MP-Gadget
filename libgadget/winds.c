@@ -75,7 +75,7 @@ void set_winds_params(ParameterSet * ps)
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0) {
         /*Wind model parameters*/
-        wind_params.WindModel = param_get_enum(ps, "WindModel");
+        wind_params.WindModel = (enum WindModel) param_get_enum(ps, "WindModel");
         /* The following two are for VS08 and SH03*/
         wind_params.WindEfficiency = param_get_double(ps, "WindEfficiency");
         wind_params.WindEnergyFraction = param_get_double(ps, "WindEnergyFraction");
@@ -230,8 +230,8 @@ struct WindPriv {
  * The closest star is used. */
 int cmp_by_part_id(const void * a, const void * b)
 {
-    const struct StarKick * stara = a;
-    const struct StarKick * starb = b;
+    const struct StarKick * stara = (const struct StarKick * ) a;
+    const struct StarKick * starb = (const struct StarKick *) b;
     if(stara->part_index > starb->part_index)
         return 1;
     if(stara->part_index < starb->part_index)

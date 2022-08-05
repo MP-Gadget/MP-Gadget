@@ -35,7 +35,7 @@ int setup_grid(IDGenerator * idgen, double shift, double mass, struct ic_part_da
 int setup_glass(IDGenerator * idgen, PetaPM * pm, double shift, int seed, double mass, struct ic_part_data * ICP, const double UnitLength_in_cm, const char * OutputDir);
 
 /* Evolve a distribution of particles with a reversed gravitational force. */
-void glass_evolve(PetaPM * pm, int nsteps, char * pkoutname, struct ic_part_data * ICP, const int NumPart, const double UnitLength_in_cm, const char * OutputDir);
+void glass_evolve(PetaPM * pm, int nsteps, const char * pkoutname, struct ic_part_data * ICP, const int NumPart, const double UnitLength_in_cm, const char * OutputDir);
 
 /* Save the header of the ICs. */
 void saveheader(BigFile * bf, int64_t TotNumPartCDM, int64_t TotNumPartGas, int64_t TotNuPart, double nufrac, const double BoxSize, Cosmology * CP, const struct genic_config GenicConfig);
@@ -57,6 +57,6 @@ write_particle_data(IDGenerator * idgen,
 void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * ShowBacktrace, double * MaxMemSizePerNode, Cosmology * CP);
 
 /*Defined in save.c used in power.c*/
-void _bigfile_utils_create_block_from_c_array(BigFile * bf, void * baseptr, char * name, char * dtype, size_t dims[], ptrdiff_t elsize, int NumFiles, int NumWriters, MPI_Comm comm);
+void _bigfile_utils_create_block_from_c_array(BigFile * bf, void * baseptr, const char * name, const char * dtype, size_t dims[], ptrdiff_t elsize, int NumFiles, int NumWriters, MPI_Comm comm);
 
 #endif

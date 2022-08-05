@@ -25,10 +25,6 @@
 #include "partmanager.h"
 #include "densitykernel.h"
 
-/*Jdavies: Perhaps there's a better way to do this but I'm including allvars here
- *  to know if we need halo properties fed back onto particles (f_esc for the excursion set)*/
-#include "allvars.h"
-
 /*! \file fof.c
  *  \brief parallel FoF group finder
  */
@@ -48,6 +44,7 @@ struct FOFParams
     int FOFHaloMinLength;
     int FOFPrimaryLinkTypes;
     int FOFSecondaryLinkTypes;
+    int ExcursionSetReionOn;
 } fof_params;
 
 /*Set the parameters of the BH module*/
@@ -63,6 +60,7 @@ void set_fof_params(ParameterSet * ps)
         fof_params.MinMStarForNewSeed = param_get_double(ps, "MinMStarForNewSeed");
         fof_params.FOFPrimaryLinkTypes = param_get_int(ps, "FOFPrimaryLinkTypes");
         fof_params.FOFSecondaryLinkTypes = param_get_int(ps, "FOFSecondaryLinkTypes");
+        fof_params.ExcursionSetReionOn = param_get_int(ps, "ExcursionSetReionOn");
     }
     MPI_Bcast(&fof_params, sizeof(struct FOFParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -91,7 +89,14 @@ static double fof_periodic_wrap(double x, double BoxSize)
     return x;
 }
 
-static void fof_label_secondary(ForceTree * tree);
+struct fof_particle_list
+{
+    MyIDType MinID;
+    int MinIDTask;
+    int Pindex;
+};
+
+static void fof_label_secondary(struct fof_particle_list * HaloLabel, ForceTree * tree);
 static int fof_compare_HaloLabel_MinID(const void *a, const void *b);
 static int _fof_compare_Group_MinIDTask_ThisTask;
 static int fof_compare_Group_MinIDTask(const void *a, const void *b);
@@ -105,16 +110,15 @@ static void fof_reduce_groups(
 
 static void fof_finish_group_properties(FOFGroups * fof, double BoxSize);
 
-static int fof_compile_base(struct BaseGroup * base, int NgroupsExt, MPI_Comm Comm);
-static void fof_compile_catalogue(FOFGroups * fof, const int NgroupsExt, double BoxSize, MPI_Comm Comm);
+static int fof_compile_base(struct BaseGroup * base, int NgroupsExt, struct fof_particle_list * HaloLabel, MPI_Comm Comm);
+static void fof_compile_catalogue(FOFGroups * fof, const int NgroupsExt, struct fof_particle_list * HaloLabel, MPI_Comm Comm);
 
 static struct Group *
 fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt);
 
 static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_Comm Comm);
 
-void fof_label_primary(ForceTree * tree, MPI_Comm Comm);
-extern void fof_save_particles(FOFGroups * fof, int num, int SaveParticles, MPI_Comm Comm);
+void fof_label_primary(struct fof_particle_list * HaloLabel, ForceTree * tree, MPI_Comm Comm);
 
 typedef struct {
     TreeWalkQueryBase base;
@@ -136,13 +140,6 @@ typedef struct {
     TreeWalkNgbIterBase base;
 } TreeWalkNgbIterFOF;
 
-static struct fof_particle_list
-{
-    MyIDType MinID;
-    int MinIDTask;
-    int Pindex;
-}
-*HaloLabel;
 
 static MPI_Datatype MPI_TYPE_GROUP;
 
@@ -153,7 +150,7 @@ static MPI_Datatype MPI_TYPE_GROUP;
  **/
 
 FOFGroups
-fof_fof(ForceTree * tree, MPI_Comm Comm)
+fof_fof(DomainDecomp * ddecomp, const int StoreGrNr, MPI_Comm Comm)
 {
     int i;
 
@@ -164,22 +161,29 @@ fof_fof(ForceTree * tree, MPI_Comm Comm)
 
     message(0, "Comoving linking length: %g\n", fof_params.FOFHaloComovingLinkingLength);
 
-    HaloLabel = (struct fof_particle_list *) mymalloc("HaloLabel", PartManager->NumPart * sizeof(struct fof_particle_list));
+    struct fof_particle_list * HaloLabel = (struct fof_particle_list *) mymalloc("HaloLabel", PartManager->NumPart * sizeof(struct fof_particle_list));
 
     /* HaloLabel stores the MinID and MinIDTask of particles, this pair serves as a halo label. */
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++) {
         HaloLabel[i].Pindex = i;
     }
+
+    /* We only need a tree containing primary linking particles only. No moments*/
+    ForceTree dmtree = {0};
+    force_tree_rebuild_mask(&dmtree, ddecomp, fof_params.FOFPrimaryLinkTypes, 0, NULL);
+
     /* Fill FOFP_List of primary */
-    fof_label_primary(tree, Comm);
+    fof_label_primary(HaloLabel, &dmtree, Comm);
 
     MPIU_Barrier(Comm);
     message(0, "Group finding done.\n");
     walltime_measure("/FOF/Primary");
 
     /* Fill FOFP_List of secondary */
-    fof_label_secondary(tree);
+    fof_label_secondary(HaloLabel, &dmtree);
+    force_tree_free(&dmtree);
+
     MPIU_Barrier(Comm);
     message(0, "Attached gas and star particles to nearest dm particles.\n");
 
@@ -198,7 +202,7 @@ fof_fof(ForceTree * tree, MPI_Comm Comm)
     /* We create the smaller 'BaseGroup' data set for this. */
     struct BaseGroup * base = (struct BaseGroup *) mymalloc("BaseGroup", sizeof(struct BaseGroup) * NgroupsExt);
 
-    NgroupsExt = fof_compile_base(base, NgroupsExt, Comm);
+    NgroupsExt = fof_compile_base(base, NgroupsExt, HaloLabel, Comm);
 
     MPIU_Barrier(Comm);
     message(0, "Compiled local group data and catalogue.\n");
@@ -206,6 +210,28 @@ fof_fof(ForceTree * tree, MPI_Comm Comm)
     walltime_measure("/FOF/Compile");
 
     fof_assign_grnr(base, NgroupsExt, Comm);
+
+    /*Store the group number in the particle struct*/
+    if(StoreGrNr) {
+        #pragma omp parallel for
+        for(i = 0; i < PartManager->NumPart; i++)
+            P[i].GrNr = -1;	/* will mark particles that are not in any group */
+
+        int64_t start = 0;
+        for(i = 0; i < NgroupsExt; i++)
+        {
+            for(;start < PartManager->NumPart; start++) {
+                if (HaloLabel[start].MinID >= base[i].MinID)
+                    break;
+            }
+
+            for(;start < PartManager->NumPart; start++) {
+                if (HaloLabel[start].MinID != base[i].MinID)
+                    break;
+                P[HaloLabel[start].Pindex].GrNr = base[i].GrNr;
+            }
+        }
+    }
 
     /*Initialise the Group object from the BaseGroup*/
     FOFGroups fof;
@@ -216,7 +242,7 @@ fof_fof(ForceTree * tree, MPI_Comm Comm)
 
     myfree(base);
 
-    fof_compile_catalogue(&fof, NgroupsExt, tree->BoxSize, Comm);
+    fof_compile_catalogue(&fof, NgroupsExt, HaloLabel, Comm);
 
     MPIU_Barrier(Comm);
     message(0, "Finished FoF. Group properties are now allocated.. (presently allocated=%g MB)\n",
@@ -247,6 +273,7 @@ struct FOFPrimaryPriv {
     struct SpinLocks * spin;
     char * PrimaryActive;
     MyIDType * OldMinID;
+    struct fof_particle_list * HaloLabel;
 };
 #define FOF_PRIMARY_GET_PRIV(tw) ((struct FOFPrimaryPriv *) (tw->priv))
 
@@ -325,8 +352,8 @@ static void fof_primary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
     }
     /* Secondary treewalk, no need for locking here*/
     int head = HEAD(place, FOF_PRIMARY_GET_PRIV(tw)->Head);
-    I->MinID = HaloLabel[head].MinID;
-    I->MinIDTask = HaloLabel[head].MinIDTask;
+    I->MinID = FOF_PRIMARY_GET_PRIV(tw)->HaloLabel[head].MinID;
+    I->MinIDTask = FOF_PRIMARY_GET_PRIV(tw)->HaloLabel[head].MinIDTask;
 }
 
 static int fof_primary_haswork(int n, TreeWalk * tw) {
@@ -341,7 +368,7 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
         TreeWalkNgbIterFOF * iter,
         LocalTreeWalk * lv);
 
-void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
+void fof_label_primary(struct fof_particle_list * HaloLabel, ForceTree * tree, MPI_Comm Comm)
 {
     int i;
     int64_t link_across;
@@ -371,7 +398,7 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
     FOF_PRIMARY_GET_PRIV(tw)->Head = (int*) mymalloc("FOF_Links", PartManager->NumPart * sizeof(int));
     FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive = (char*) mymalloc("FOFActive", PartManager->NumPart * sizeof(char));
     FOF_PRIMARY_GET_PRIV(tw)->OldMinID = (MyIDType *) mymalloc("FOFActive", PartManager->NumPart * sizeof(MyIDType));
-
+    FOF_PRIMARY_GET_PRIV(tw)->HaloLabel = HaloLabel;
     /* allocate buffers to arrange communication */
 
     #pragma omp parallel for
@@ -434,11 +461,11 @@ void fof_label_primary(ForceTree * tree, MPI_Comm Comm)
             MyIDType newMinID = HaloLabel[head].MinID;
             if(newMinID != FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i]) {
                 FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[i] = 1;
+                FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i] = newMinID;
                 link_across ++;
             } else {
                 FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[i] = 0;
             }
-            FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i] = newMinID;
         }
         MPI_Allreduce(&link_across, &link_across_tot, 1, MPI_INT64, MPI_SUM, Comm);
         message(0, "Linked %ld particles %g seconds\n", link_across_tot, t1 - t0);
@@ -491,6 +518,7 @@ fofp_merge(int target, int other, TreeWalk * tw)
 
     /* Get a copy of h2 under the lock, which ensures
      * that MinID and MinIDTask do not change independently. */
+    struct fof_particle_list * HaloLabel = FOF_PRIMARY_GET_PRIV(tw)->HaloLabel;
     struct fof_particle_list h2label;
     lock_spinlock(h2, spin);
     h2label.MinID = HaloLabel[h2].MinID;
@@ -541,6 +569,7 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
     else /* mode is 1, target is a ghost */
     {
         int head = HEAD(other, FOF_PRIMARY_GET_PRIV(tw)->Head);
+        struct fof_particle_list * HaloLabel = FOF_PRIMARY_GET_PRIV(tw)->HaloLabel;
         struct SpinLocks * spin = FOF_PRIMARY_GET_PRIV(tw)->spin;
 //        printf("locking %d by %d in ngbiter\n", other, omp_get_thread_num());
         lock_spinlock(head, spin);
@@ -555,15 +584,15 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
 }
 
 static void fof_reduce_base_group(void * pdst, void * psrc) {
-    struct BaseGroup * gdst = pdst;
-    struct BaseGroup * gsrc = psrc;
+    struct BaseGroup * gdst = (struct BaseGroup *) pdst;
+    struct BaseGroup * gsrc = (struct BaseGroup *) psrc;
     gdst->Length += gsrc->Length;
     /* preserve the dst FirstPos so all other base group gets the same FirstPos */
 }
 
 static void fof_reduce_group(void * pdst, void * psrc) {
-    struct Group * gdst = pdst;
-    struct Group * gsrc = psrc;
+    struct Group * gdst = (struct Group *) pdst;
+    struct Group * gsrc = (struct Group *) psrc;
     int j;
     gdst->Length += gsrc->Length;
     gdst->Mass += gsrc->Mass;
@@ -604,7 +633,7 @@ static void fof_reduce_group(void * pdst, void * psrc) {
 
 }
 
-static void add_particle_to_group(struct Group * gdst, int i, double BoxSize, int ThisTask) {
+static void add_particle_to_group(struct Group * gdst, int i, int ThisTask) {
 
     /* My local number of particles contributing to the full catalogue. */
     const int index = i;
@@ -660,7 +689,7 @@ static void add_particle_to_group(struct Group * gdst, int i, double BoxSize, in
     for(d1 = 0; d1 < 3; d1++)
     {
         double first = gdst->base.FirstPos[d1];
-        rel[d1] = fof_periodic(P[index].Pos[d1] - first, BoxSize) ;
+        rel[d1] = fof_periodic(P[index].Pos[d1] - first, PartManager->BoxSize) ;
         xyz[d1] = rel[d1] + first;
         vel[d1] = P[index].Vel[d1];
     }
@@ -731,7 +760,7 @@ fof_finish_group_properties(struct FOFGroups * fof, double BoxSize)
 }
 
 static int
-fof_compile_base(struct BaseGroup * base, int NgroupsExt, MPI_Comm Comm)
+fof_compile_base(struct BaseGroup * base, int NgroupsExt, struct fof_particle_list * HaloLabel, MPI_Comm Comm)
 {
     memset(base, 0, sizeof(base[0]) * NgroupsExt);
 
@@ -849,7 +878,7 @@ static void fof_set_escapefraction(struct FOFGroups * fof, const int NgroupsExt)
 }
 
 static void
-fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, double BoxSize, MPI_Comm Comm)
+fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, struct fof_particle_list * HaloLabel, MPI_Comm Comm)
 {
     int i, start, ThisTask;
 
@@ -867,7 +896,7 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, double BoxSi
             if(HaloLabel[start].MinID != fof->Group[i].base.MinID) {
                 break;
             }
-            add_particle_to_group(&fof->Group[i], HaloLabel[start].Pindex, BoxSize, ThisTask);
+            add_particle_to_group(&fof->Group[i], HaloLabel[start].Pindex, ThisTask);
         }
     }
 
@@ -889,10 +918,10 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, double BoxSi
         }
     }
 
-    fof_finish_group_properties(fof, BoxSize);
+    fof_finish_group_properties(fof, PartManager->BoxSize);
 
     /* feed group property back to each particle. */
-    if(All.ExcursionSetReionOn)
+    if(fof_params.ExcursionSetReionOn)
         fof_set_escapefraction(fof, NgroupsExt);
 
     int64_t TotNids;
@@ -1087,6 +1116,7 @@ static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_C
     MPI_Comm_size(Comm, &NTask);
     MPI_Comm_rank(Comm, &ThisTask);
 
+    #pragma omp parallel for
     for(i = 0; i < NgroupsExt; i++)
     {
         base[i].OriginalTask = ThisTask;	/* original task */
@@ -1115,8 +1145,10 @@ static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_C
 
     /* shift to the global grnr. */
     int64_t groffset = 0;
+    #pragma omp parallel for reduction(+: groffset)
     for(j = 0; j < ThisTask; j++)
         groffset += ngra[j];
+    #pragma omp parallel for
     for(i = 0; i < NgroupsExt; i++)
         base[i].GrNr += groffset;
 
@@ -1125,35 +1157,12 @@ static void fof_assign_grnr(struct BaseGroup * base, const int NgroupsExt, MPI_C
     /* bring the group list back into the original task, sorted by MinID */
     mpsort_mpi(base, NgroupsExt, sizeof(base[0]),
             fof_radix_Group_OriginalTaskMinID, 16, NULL, Comm);
-
-    for(i = 0; i < PartManager->NumPart; i++)
-        P[i].GrNr = -1;	/* will mark particles that are not in any group */
-
-    int start = 0;
-    for(i = 0; i < NgroupsExt; i++)
-    {
-        for(;start < PartManager->NumPart; start++) {
-            if (HaloLabel[start].MinID >= base[i].MinID)
-                break;
-        }
-
-        for(;start < PartManager->NumPart; start++) {
-            if (HaloLabel[start].MinID != base[i].MinID)
-                break;
-            P[HaloLabel[start].Pindex].GrNr = base[i].GrNr;
-        }
-    }
 }
 
-
 void
-fof_save_groups(FOFGroups * fof, int num, MPI_Comm Comm)
+fof_save_groups(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, Cosmology * CP, double atime, const double * MassTable, int MetalReturnOn, int BlackholeOn, MPI_Comm Comm)
 {
-    message(0, "start global sorting of group catalogues\n");
-
-    fof_save_particles(fof, num, fof_params.FOFSaveParticles, Comm);
-
-    message(0, "Group catalogues saved.\n");
+    fof_save_particles(fof, OutputDir, FOFFileBase, num, fof_params.FOFSaveParticles, CP, atime, MassTable, MetalReturnOn, BlackholeOn, Comm);
 }
 
 /* FIXME: these shall goto the private member of secondary tree walk */
@@ -1161,6 +1170,7 @@ struct FOFSecondaryPriv {
     float *distance;
     float *hsml;
     int *npleft;
+    struct fof_particle_list * HaloLabel;
 };
 
 #define FOF_SECONDARY_GET_PRIV(tw) ((struct FOFSecondaryPriv *) (tw->priv))
@@ -1168,7 +1178,10 @@ struct FOFSecondaryPriv {
 static void fof_secondary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
 
     I->Hsml = FOF_SECONDARY_GET_PRIV(tw)->hsml[place];
+    I->MinID = FOF_SECONDARY_GET_PRIV(tw)->HaloLabel[place].MinID;
+    I->MinIDTask = FOF_SECONDARY_GET_PRIV(tw)->HaloLabel[place].MinIDTask;
 }
+
 static int fof_secondary_haswork(int n, TreeWalk * tw) {
     if(P[n].IsGarbage || P[n].Swallowed)
         return 0;
@@ -1178,11 +1191,11 @@ static int fof_secondary_haswork(int n, TreeWalk * tw) {
     return ((1 << P[n].Type) & fof_params.FOFSecondaryLinkTypes);
 }
 static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, enum TreeWalkReduceMode mode, TreeWalk * tw) {
-    if(O->Distance < FOF_SECONDARY_GET_PRIV(tw)->distance[place])
+    if(O->Distance < FOF_SECONDARY_GET_PRIV(tw)->distance[place] && O->Distance >= 0 && O->Distance < 0.5 * LARGE)
     {
         FOF_SECONDARY_GET_PRIV(tw)->distance[place] = O->Distance;
-        HaloLabel[place].MinID = O->MinID;
-        HaloLabel[place].MinIDTask = O->MinIDTask;
+        FOF_SECONDARY_GET_PRIV(tw)->HaloLabel[place].MinID = O->MinID;
+        FOF_SECONDARY_GET_PRIV(tw)->HaloLabel[place].MinIDTask = O->MinIDTask;
     }
 }
 
@@ -1194,6 +1207,8 @@ fof_secondary_ngbiter(TreeWalkQueryFOF * I,
 {
     if(iter->base.other == -1) {
         O->Distance = LARGE;
+        O->MinID = I->MinID;
+        O->MinIDTask = I->MinIDTask;
         iter->base.Hsml = I->Hsml;
         iter->base.mask = fof_params.FOFPrimaryLinkTypes;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
@@ -1204,8 +1219,8 @@ fof_secondary_ngbiter(TreeWalkQueryFOF * I,
     if(r < O->Distance)
     {
         O->Distance = r;
-        O->MinID = HaloLabel[other].MinID;
-        O->MinIDTask = HaloLabel[other].MinIDTask;
+        O->MinID = FOF_SECONDARY_GET_PRIV(lv->tw)->HaloLabel[other].MinID;
+        O->MinIDTask = FOF_SECONDARY_GET_PRIV(lv->tw)->HaloLabel[other].MinIDTask;
     }
     /* No need to search nodes at a greater distance
      * now that we have a neighbour.*/
@@ -1234,12 +1249,12 @@ fof_secondary_postprocess(int p, TreeWalk * tw)
             }
 */
         } else {
-            FOF_SECONDARY_GET_PRIV(tw)->distance[p] = 0;  /* we not continue to search for this particle */
+            FOF_SECONDARY_GET_PRIV(tw)->distance[p] = -1;  /* we not continue to search for this particle */
         }
     }
 }
 
-static void fof_label_secondary(ForceTree * tree)
+static void fof_label_secondary(struct fof_particle_list * HaloLabel, ForceTree * tree)
 {
     int n;
 
@@ -1265,6 +1280,7 @@ static void fof_label_secondary(ForceTree * tree)
 
     FOF_SECONDARY_GET_PRIV(tw)->distance = (float *) mymalloc("FOF_SECONDARY->distance", sizeof(float) * PartManager->NumPart);
     FOF_SECONDARY_GET_PRIV(tw)->hsml = (float *) mymalloc("FOF_SECONDARY->hsml", sizeof(float) * PartManager->NumPart);
+    FOF_SECONDARY_GET_PRIV(tw)->HaloLabel = HaloLabel;
 
     #pragma omp parallel for
     for(n = 0; n < PartManager->NumPart; n++)
@@ -1314,23 +1330,24 @@ static void fof_label_secondary(ForceTree * tree)
  *
  * */
 static int cmp_seed_task(const void * c1, const void * c2) {
-    const struct Group * g1 = c1;
-    const struct Group * g2 = c2;
+    const struct Group * g1 = (const struct Group *) c1;
+    const struct Group * g2 = (const struct Group *) c2;
 
     return g1->seed_task - g2->seed_task;
 }
-static void fof_seed_make_one(struct Group * g, int ThisTask);
+static void fof_seed_make_one(struct Group * g, int ThisTask, const double atime);
 
-void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm Comm)
+void fof_seed(FOFGroups * fof, ActiveParticles * act, double atime, MPI_Comm Comm)
 {
     int i, j, n, ntot;
 
     int NTask;
     MPI_Comm_size(Comm, &NTask);
 
-    char * Marked = mymalloc2("SeedMark", fof->Ngroups);
+    char * Marked = (char *) mymalloc2("SeedMark", fof->Ngroups);
 
     int Nexport = 0;
+    #pragma omp parallel for reduction(+:Nexport)
     for(i = 0; i < fof->Ngroups; i++)
     {
         Marked[i] =
@@ -1341,7 +1358,7 @@ void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm
 
         if(Marked[i]) Nexport ++;
     }
-    struct Group * ExportGroups = mymalloc("Export", sizeof(fof->Group[0]) * Nexport);
+    struct Group * ExportGroups = (struct Group *) mymalloc("Export", sizeof(fof->Group[0]) * Nexport);
     j = 0;
     for(i = 0; i < fof->Ngroups; i ++) {
         if(Marked[i]) {
@@ -1389,20 +1406,10 @@ void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm
      * If not, allocate more slots. */
     if(Nimport + SlotsManager->info[5].size > SlotsManager->info[5].maxsize)
     {
-        struct NODE * nodes_base_tmp=NULL;
-        int *Father_tmp=NULL;
         int *ActiveParticle_tmp=NULL;
-        if(force_tree_allocated(tree)) {
-            nodes_base_tmp = mymalloc2("nodesbasetmp", tree->numnodes * sizeof(struct NODE));
-            memmove(nodes_base_tmp, tree->Nodes_base, tree->numnodes * sizeof(struct NODE));
-            myfree(tree->Nodes_base);
-            Father_tmp = mymalloc2("Father_tmp", PartManager->MaxPart * sizeof(int));
-            memmove(Father_tmp, tree->Father, PartManager->MaxPart * sizeof(int));
-            myfree(tree->Father);
-        }
         /* This is only called on a PM step, so the condition should never be true*/
         if(act->ActiveParticle) {
-            ActiveParticle_tmp = mymalloc2("ActiveParticle_tmp", act->NumActiveParticle * sizeof(int));
+            ActiveParticle_tmp = (int *) mymalloc2("ActiveParticle_tmp", act->NumActiveParticle * sizeof(int));
             memmove(ActiveParticle_tmp, act->ActiveParticle, act->NumActiveParticle * sizeof(int));
             myfree(act->ActiveParticle);
         }
@@ -1417,19 +1424,9 @@ void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm
 
         /*And now we need our memory back in the right place*/
         if(ActiveParticle_tmp) {
-            act->ActiveParticle = mymalloc("ActiveParticle", sizeof(int)*(act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
+            act->ActiveParticle = (int *) mymalloc("ActiveParticle", sizeof(int)*(act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
             memmove(act->ActiveParticle, ActiveParticle_tmp, act->NumActiveParticle * sizeof(int));
             myfree(ActiveParticle_tmp);
-        }
-        if(force_tree_allocated(tree)) {
-            tree->Father = mymalloc("Father", PartManager->MaxPart * sizeof(int));
-            memmove(tree->Father, Father_tmp, PartManager->MaxPart * sizeof(int));
-            myfree(Father_tmp);
-            tree->Nodes_base = mymalloc("Nodes_base", tree->numnodes * sizeof(struct NODE));
-            memmove(tree->Nodes_base, nodes_base_tmp, tree->numnodes * sizeof(struct NODE));
-            myfree(nodes_base_tmp);
-            /*Don't forget to update the Node pointer as well as Node_base!*/
-            tree->Nodes = tree->Nodes_base - tree->firstnode;
         }
     }
 
@@ -1438,7 +1435,7 @@ void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm
 
     for(n = 0; n < Nimport; n++)
     {
-        fof_seed_make_one(&ImportGroups[n], ThisTask);
+        fof_seed_make_one(&ImportGroups[n], ThisTask, atime);
     }
 
     myfree(ImportGroups);
@@ -1446,12 +1443,12 @@ void fof_seed(FOFGroups * fof, ForceTree * tree, ActiveParticles * act, MPI_Comm
     walltime_measure("/FOF/Seeding");
 }
 
-static void fof_seed_make_one(struct Group * g, int ThisTask) {
+static void fof_seed_make_one(struct Group * g, int ThisTask, const double atime) {
    if(g->seed_task != ThisTask) {
         endrun(7771, "Seed does not belong to the right task");
     }
     int index = g->seed_index;
-    blackhole_make_one(index);
+    blackhole_make_one(index, atime);
 }
 
 static int fof_compare_HaloLabel_MinID(const void *a, const void *b)
@@ -1479,8 +1476,8 @@ static int fof_compare_Group_MinID(const void *a, const void *b)
 
 static int fof_compare_Group_MinIDTask(const void *a, const void *b)
 {
-    const struct BaseGroup * p1 = a;
-    const struct BaseGroup * p2 = b;
+    const struct BaseGroup * p1 = (const struct BaseGroup *) a;
+    const struct BaseGroup * p2 = (const struct BaseGroup *) b;
     int t1 = p1->MinIDTask;
     int t2 = p2->MinIDTask;
     if(t1 == _fof_compare_Group_MinIDTask_ThisTask) t1 = -1;

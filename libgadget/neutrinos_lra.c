@@ -151,8 +151,8 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
     double * Power_in = PowerSpectrum->Power;
     /* Rebin the input power if necessary*/
     if(delta_tot_table.nk != PowerSpectrum->nonzero) {
-        Power_in = mymalloc("pkint", delta_tot_table.nk * sizeof(double));
-        double * logPower = mymalloc("logpk", PowerSpectrum->nonzero * sizeof(double));
+        Power_in = (double *) mymalloc("pkint", delta_tot_table.nk * sizeof(double));
+        double * logPower = (double *) mymalloc("logpk", PowerSpectrum->nonzero * sizeof(double));
         for(i = 0; i < PowerSpectrum->nonzero; i++)
             logPower[i] = log(PowerSpectrum->Power[i]);
         gsl_interp * pkint = gsl_interp_alloc(gsl_interp_linear, PowerSpectrum->nonzero);
@@ -200,8 +200,8 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
         /* Omega0 - Omega in neutrinos + Omega in particle neutrinos = Omega in particles*/
         PowerSpectrum->nu_prefac = OmegaNu_nop/(delta_tot_table.Omeganonu/pow(Time,3) + omega_hybrid);
     }
-    double * delta_nu_ratio = mymalloc2("dnu_rat", delta_tot_table.nk * sizeof(double));
-    double * logwavenum = mymalloc2("logwavenum", delta_tot_table.nk * sizeof(double));
+    double * delta_nu_ratio = (double *) mymalloc2("dnu_rat", delta_tot_table.nk * sizeof(double));
+    double * logwavenum = (double *) mymalloc2("logwavenum", delta_tot_table.nk * sizeof(double));
     gsl_interp * pkint = gsl_interp_alloc(gsl_interp_linear, delta_tot_table.nk);
     gsl_interp_accel * pkacc = gsl_interp_accel_alloc();
     /*We want to interpolate in log space*/
@@ -269,7 +269,7 @@ void petaio_save_neutrinos(BigFile * bf, int ThisTask)
     double * scalefact = delta_tot_table.scalefact;
     size_t nk = delta_tot_table.nk, ia = delta_tot_table.ia;
     size_t ik, i;
-    double * delta_tot = mymalloc("tmp_delta",nk * ia * sizeof(double));
+    double * delta_tot = (double *) mymalloc("tmp_delta",nk * ia * sizeof(double));
     /*Save a flat memory block*/
     for(ik=0;ik< nk;ik++)
         for(i=0;i< ia;i++)
@@ -297,7 +297,7 @@ void petaio_save_neutrinos(BigFile * bf, int ThisTask)
     if(ThisTask == 0) {
         dims[0] = nk;
     }
-    ptrdiff_t strides[2] = {sizeof(double) * ia, sizeof(double)};
+    ptrdiff_t strides[2] = {(ptrdiff_t) (sizeof(double) * ia), (ptrdiff_t) sizeof(double)};
     big_array_init(&deltas, delta_tot, "=f8", 2, dims, strides);
     petaio_save_block(bf, "Neutrino/Deltas", &deltas, 1);
     myfree(delta_tot);
@@ -329,7 +329,7 @@ void petaio_read_icnutransfer(BigFile * bf, int ThisTask)
             endrun(0, "Failed to close block %s\n",big_file_get_error_message());
     }
     message(0,"Found transfer function, using %d rows.\n", t_init->NPowerTable);
-    t_init->logk = mymalloc2("Transfer_functions", sizeof(double) * 2*t_init->NPowerTable);
+    t_init->logk = (double *) mymalloc2("Transfer_functions", sizeof(double) * 2*t_init->NPowerTable);
     t_init->T_nu=t_init->logk+t_init->NPowerTable;
 
     /*Defaults: a very small value*/
@@ -399,7 +399,7 @@ void petaio_read_neutrinos(BigFile * bf, int ThisTask)
     }
     BigArray deltas = {0};
     size_t dims[2] = {0, ia};
-    ptrdiff_t strides[2] = {sizeof(double)*ia, sizeof(double)};
+    ptrdiff_t strides[2] = {(ptrdiff_t) (sizeof(double)*ia), (ptrdiff_t)sizeof(double)};
     /*The neutrino state is shared between all processors,
      *so only read on master task and broadcast*/
     if(ThisTask == 0) {
@@ -502,7 +502,7 @@ void get_delta_nu_combined(Cosmology * CP, const _delta_tot_table * const d_tot,
     for(mi=0; mi<NUSPECIES; mi++) {
             if(d_tot->omnu->nu_degeneracies[mi] > 0) {
                  int ik;
-                 double * delta_nu_single = mymalloc("delta_nu_single", sizeof(double) * d_tot->nk);
+                 double * delta_nu_single = (double *) mymalloc("delta_nu_single", sizeof(double) * d_tot->nk);
                  const double omeganu = d_tot->omnu->nu_degeneracies[mi] * omega_nu_single(d_tot->omnu, a, mi);
                  get_delta_nu(CP, d_tot, a, delta_nu_single,d_tot->omnu->RhoNuTab[mi].mnu);
                  for(ik=0; ik<d_tot->nk; ik++)
@@ -735,8 +735,8 @@ void get_delta_nu(Cosmology * CP, const _delta_tot_table * const d_tot, const do
         params.fs_spline=gsl_interp_alloc(gsl_interp_cspline,Nfs);
         params.CP = CP;
         /*Pre-compute the free-streaming lengths, which are scale-independent*/
-        double * fslengths = mymalloc("fslengths", Nfs* sizeof(double));
-        double * fsscales = mymalloc("fsscales", Nfs* sizeof(double));
+        double * fslengths = (double *) mymalloc("fslengths", Nfs* sizeof(double));
+        double * fsscales = (double *) mymalloc("fsscales", Nfs* sizeof(double));
         for(ik=0; ik < Nfs; ik++) {
             fsscales[ik] = log(d_tot->TimeTransfer) + ik*(log(a) - log(d_tot->TimeTransfer))/(Nfs-1.);
             fslengths[ik] = fslength(CP, fsscales[ik], log(a),d_tot->light);

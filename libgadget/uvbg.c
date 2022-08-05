@@ -43,11 +43,18 @@ static struct UVBGParams {
     /*J21 calculation parameters*/
     double ReionGammaHaloBias;
     double ReionNionPhotPerBary;
-    //double AlphaUV;
+    double AlphaUV;
     double EscapeFractionNorm;
     double EscapeFractionScaling;
     int ReionUseParticleSFR;
     double ReionSFRTimescale;
+    int UVBGdim;
+
+    double Time;
+    Cosmology *CP;
+    double UnitLength_in_cm;
+    double UnitMass_in_g;
+    double UnitTime_in_s;
 
 } uvbg_params;
 
@@ -67,12 +74,17 @@ void set_uvbg_params(ParameterSet * ps) {
         uvbg_params.ReionDeltaRFactor = param_get_double(ps, "ReionDeltaRFactor");
         uvbg_params.ReionGammaHaloBias = param_get_double(ps, "ReionGammaHaloBias");
         uvbg_params.ReionNionPhotPerBary = param_get_double(ps, "ReionNionPhotPerBary");
-        //uvbg_params.AlphaUV = param_get_double(ps, "AlphaUV");
+        uvbg_params.AlphaUV = param_get_double(ps, "AlphaUV");
         uvbg_params.EscapeFractionNorm = param_get_double(ps, "EscapeFractionNorm");
         uvbg_params.EscapeFractionScaling = param_get_double(ps, "EscapeFractionScaling");
         uvbg_params.ReionUseParticleSFR = param_get_int(ps, "ReionUseParticleSFR");
         uvbg_params.ReionSFRTimescale = param_get_double(ps, "ReionSFRTimescale");
+        uvbg_params.AlphaUV = param_get_double(ps, "AlphaUV");
+        uvbg_params.UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
+        uvbg_params.UnitTime_in_s = param_get_double(ps, "UnitTime_in_s");
+        uvbg_params.UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
     }
+
     MPI_Bcast(&uvbg_params, sizeof(struct UVBGParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
@@ -85,8 +97,8 @@ static double RtoM(double R)
 {
     // All in internal units
     const int filter = uvbg_params.RtoMFilterType;
-    double OmegaM = All.CP.Omega0;
-    double RhoCrit = All.CP.RhoCrit;
+    double OmegaM = uvbg_params.CP->Omega0;
+    double RhoCrit = uvbg_params.CP->RhoCrit;
 
     switch (filter) {
     case 0: //top hat M = (4/3) PI <rho> R^3
@@ -112,7 +124,7 @@ void save_uvbg_grids(int SnapshotFileCount, PetaPM * pm)
     //TODO(jdavies): finish this grid writing function
     BigFile fout;
     char fname[256];
-    sprintf(fname, "%s/UVgrids_%03d", All.OutputDir,SnapshotFileCount);
+    sprintf(fname, "%s/UVgrids_%03d", uvbg_params.OutputDir,SnapshotFileCount);
     message(0, "saving uv grids to %s \n", fname);
 
     if(0 != big_file_mpi_create(&fout, fname, MPI_COMM_WORLD)) {
@@ -129,7 +141,7 @@ void save_uvbg_grids(int SnapshotFileCount, PetaPM * pm)
     if(
     (0 != big_block_set_attr(&bh, "volume_weighted_global_xHI", &(UVBGgrids.volume_weighted_global_xHI), "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "mass_weighted_global_xHI", &(UVBGgrids.mass_weighted_global_xHI), "f8", 1)) ||
-    (0 != big_block_set_attr(&bh, "scale_factor", &All.Time, "f8", 1)) ) {
+    (0 != big_block_set_attr(&bh, "scale_factor", &uvbg_params.Time, "f8", 1)) ) {
         endrun(0, "Failed to write attributes %s\n",
                     big_file_get_error_message());
     }
@@ -196,7 +208,7 @@ static PetaPMRegion * makeregion(PetaPM * pm, PetaPMParticleStruct * pstruct, vo
 
 //this is applied as global_transfer, dividing by n_cells due to the forward-reverse FFT
 static void divide_by_ncell(PetaPM * pm, int64_t k2, int k[3], pfft_complex * value){
-        int total_n_cells = (double)(All.UVBGdim * All.UVBGdim * All.UVBGdim);
+        int total_n_cells = (double)(uvbg_params.UVBGdim * uvbg_params.UVBGdim * uvbg_params.UVBGdim);
         value[0][0] /= total_n_cells;
         value[0][1] /= total_n_cells;
 }
@@ -253,7 +265,7 @@ static void print_reion_debug_info(PetaPM * pm_mass, float * J21, float * xHI, d
     int neutral_count = 0;
     int ion_count = 0;
     int pm_idx;
-    int uvbg_dim = All.UVBGdim;
+    int uvbg_dim = uvbg_params.UVBGdim;
     int grid_n_real = uvbg_dim * uvbg_dim * uvbg_dim;
 #pragma omp parallel for collapse(3) reduction(+:neutral_count,ion_count,total_mass,total_star) reduction(min:min_J21,min_mass,min_star,min_sfr) reduction(max:max_J21,max_mass,max_star,max_sfr) private(pm_idx)
     for (int ix = 0; ix < pm_mass->real_space_region.size[0]; ix++)
@@ -316,26 +328,26 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
 
     double R = pm_mass->G;
     
-    const double redshift = 1.0 / (All.Time) - 1.;
+    const double redshift = 1.0 / (uvbg_params.Time) - 1.;
     
     // Loop through filter radii
     //(jdavies): get the parameters
     //double ReionGammaHaloBias = uvbg_params.ReionGammaHaloBias;
     const double ReionNionPhotPerBary = uvbg_params.ReionNionPhotPerBary;
     int use_sfr = uvbg_params.ReionUseParticleSFR;
-    double alpha_uv = All.AlphaUV;
+    double alpha_uv = uvbg_params.AlphaUV;
 
     // TODO(smutch): tidy this up!
     // The following is based on Sobacchi & Messinger (2013) eqn 7
     // with f_* removed and f_b added since we define f_coll as M_*/M_tot rather than M_vir/M_tot,
     // and also with the inclusion of the effects of the Helium fraction.
     const double Y_He = 1.0 - HYDROGEN_MASSFRAC;
-    const double BaryonFrac = All.CP.OmegaBaryon / All.CP.Omega0;
+    const double BaryonFrac = uvbg_params.CP->OmegaBaryon / uvbg_params.CP->Omega0;
     double ReionEfficiency = 1.0 / BaryonFrac * ReionNionPhotPerBary / (1.0 - 0.75 * Y_He);
     
     const double tot_n_cells = pm_mass->Nmesh * pm_mass->Nmesh * pm_mass->Nmesh; 
     const double pixel_volume = pm_mass->CellSize * pm_mass->CellSize * pm_mass->CellSize;
-    const double deltax_conv_factor = tot_n_cells / (All.CP.RhoCrit * All.CP.Omega0 * All.BoxSize * All.BoxSize * All.BoxSize);
+    const double deltax_conv_factor = tot_n_cells / (uvbg_params.CP->RhoCrit * uvbg_params.CP->Omega0 * pm_mass->BoxSize * pm_mass->BoxSize * pm_mass->BoxSize);
 
     float* J21 = UVBGgrids.J21;
     float* xHI = UVBGgrids.xHI;
@@ -354,10 +366,10 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
 
     const double J21_aux_constant = (1.0 + redshift) * (1.0 + redshift) / (4.0 * M_PI)
         * alpha_uv * PLANCK * 1e21
-        * R * All.UnitLength_in_cm * ReionNionPhotPerBary / PROTONMASS
-        * All.UnitMass_in_g / pow(All.UnitLength_in_cm, 3) / All.UnitTime_in_s;
+        * R * uvbg_params.UnitLength_in_cm * ReionNionPhotPerBary / PROTONMASS
+        * uvbg_params.UnitMass_in_g / pow(uvbg_params.UnitLength_in_cm, 3) / uvbg_params.UnitTime_in_s;
 
-    const double hubble_time = 1 / (hubble_function(&All.CP,All.Time) * All.CP.HubbleParam);
+    const double hubble_time = 1 / (hubble_function(uvbg_params.CP,uvbg_params.Time) * uvbg_params.CP->HubbleParam);
 
     // Main loop through the box
 #pragma omp parallel for collapse(3) private(pm_idx,density_over_mean,f_coll_stars,sfr_density)
@@ -377,7 +389,7 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
                 //TODO(jdavies): Make sure the new sfr density isn't too bursty. If a cell has enough stellar
                 //mass to ionise, but low/no sfr, particles can recombine since they are connected via J21.
                 if(use_sfr)
-                    sfr_density = sfr_real[pm_idx] / pixel_volume / (All.UnitMass_in_g / SOLAR_MASS) * (All.UnitTime_in_s / SEC_PER_YEAR); // In internal units
+                    sfr_density = sfr_real[pm_idx] / pixel_volume / (uvbg_params.UnitMass_in_g / SOLAR_MASS) * (uvbg_params.UnitTime_in_s / SEC_PER_YEAR); // In internal units
                 else
                     sfr_density = star_real[pm_idx] / (uvbg_params.ReionSFRTimescale * hubble_time) / pixel_volume; // In internal units
                 const float J21_aux = (float)(sfr_density * J21_aux_constant);
@@ -417,7 +429,7 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
         double volume_weighted_global_xHI = 0.0;
         double mass_weighted_global_xHI = 0.0;
         double mass_weight = 0.0;
-        int uvbg_dim = All.UVBGdim;
+        int uvbg_dim = uvbg_params.UVBGdim;
         int grid_n_real = uvbg_dim * uvbg_dim * uvbg_dim;
 #pragma omp parallel for collapse(3) reduction(+:volume_weighted_global_xHI,mass_weighted_global_xHI,mass_weight) private(pm_idx,density_over_mean)
         for (int ix = 0; ix < pm_mass->real_space_region.size[0]; ix++)
@@ -458,13 +470,13 @@ static void readout_J21(PetaPM * pm, int i, double * mesh, double weight) {
         //if particle has not been ionised yet, set its zreion
         //the above conditional makes sure the particle is (partially) in an ionsied cell
         if(SPHP(i).zreion == -1)
-            SPHP(i).zreion = 1/All.Time - 1;
+            SPHP(i).zreion = 1/uvbg_params.Time - 1;
     }
 }
 /* sets particle properties needed for the Excursion Set */
 static void init_particle_uvbg(){
     /* need to convert halo mass to 1e10 solar */
-    double fesc_unit_conv = All.UnitMass_in_g / SOLAR_MASS / 1e10 / All.CP.HubbleParam;
+    double fesc_unit_conv = uvbg_params.UnitMass_in_g / SOLAR_MASS / 1e10 / uvbg_params.CP->HubbleParam;
     double fesc_temp;
 
     /* Reset local J21 */
@@ -498,7 +510,7 @@ static void init_particle_uvbg(){
 }
 
 //TODO:split up into more functions
-void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int WriteSnapshot, int SnapshotFileCount){
+void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int WriteSnapshot, int SnapshotFileCount, char * OutputDir, double Time, Cosmology * CP){
     //setup filter radius range
     double Rmax = uvbg_params.ReionRBubbleMax;
     double Rmin = uvbg_params.ReionRBubbleMin;
@@ -527,6 +539,9 @@ void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int Wri
         sizeof(StarP[0]),
         (char*) &StarP[0].EscapeFraction - (char*) StarP,
     };
+    
+    uvbg_params.Time = Time;
+    uvbg_params.CP = CP;
 
     PetaPMGlobalFunctions global_functions = {NULL, NULL, divide_by_ncell};
 
@@ -539,6 +554,8 @@ void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int Wri
 
     //set local J21 = 0 and set escape fractions for all particles
     init_particle_uvbg();
+    uvbg_params.Time = Time;
+    uvbg_params.CP = CP;
 
     /* initialize grids */
     int grid_n = pm_mass->real_space_region.size[0] 
@@ -568,7 +585,7 @@ void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int Wri
     //since J21 is output to particles, we should only need to write these grids for debugging
 #ifdef DEBUG
     if(WriteSnapshot) {
-        save_uvbg_grids(SnapshotFileCount,pm_mass);
+        save_uvbg_grids(SnapshotFileCount, OutputDir, pm_mass);
         message(0,"uvbg saved\n");
     }
     walltime_measure("/UVBG/save");
