@@ -197,6 +197,9 @@ struct BHPriv {
     /* Counters*/
     int64_t * N_sph_swallowed;
     int64_t * N_BH_swallowed;
+    double FgravkickB;
+    double gravkicks[TIMEBINS+1];
+    double hydrokicks[TIMEBINS+1];
 };
 #define BH_GET_PRIV(tw) ((struct BHPriv *) (tw->priv))
 
@@ -513,7 +516,7 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
 
 
 void
-blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree * tree, DomainDecomp * ddecomp, const struct UnitSystem units, FILE * FdBlackHoles, FILE * FdBlackholeDetails)
+blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree * tree, DomainDecomp * ddecomp, DriftKickTimes * times, const struct UnitSystem units, FILE * FdBlackHoles, FILE * FdBlackholeDetails)
 {
     /* Do nothing if no black holes*/
     int64_t totbh;
@@ -579,6 +582,19 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     priv->a3inv = 1./(atime * atime * atime);
     priv->hubble = hubble_function(CP, atime);
     priv->CP = CP;
+
+    priv->FgravkickB = get_exact_gravkick_factor(CP, times->PM_kick, times->Ti_Current);
+    memset(priv->gravkicks, 0, sizeof(priv->gravkicks[0])*(TIMEBINS+1));
+    memset(priv->hydrokicks, 0, sizeof(priv->hydrokicks[0])*(TIMEBINS+1));
+    /* Compute the factors to move a current kick times velocity to the drift time velocity.
+     * We need to do the computation for all timebins up to the maximum because even inactive
+     * particles may have interactions. */
+    #pragma omp parallel for
+    for(i = times->mintimebin; i <= TIMEBINS; i++)
+    {
+        priv->gravkicks[i] = get_exact_gravkick_factor(CP, times->Ti_kick[i], times->Ti_Current);
+        priv->hydrokicks[i] = get_exact_hydrokick_factor(CP, times->Ti_kick[i], times->Ti_Current);
+    }
 
     /* Build the queue once, since it is really 'all black holes' and similar for all treewalks.*/
     treewalk_build_queue(tw_dynfric, act->ActiveParticle, act->NumActiveParticle, 0);
@@ -912,9 +928,15 @@ blackhole_dynfric_ngbiter(TreeWalkQueryBHDynfric * I,
             int k;
             O->SurroundingParticles += 1;
             O->SurroundingDensity += (mass_j * wk);
+            MyFloat VelPred[3];
+            if(P[other].Type == 0)
+                SPH_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks, BH_GET_PRIV(lv->tw)->hydrokicks);
+            else {
+                DM_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks);
+            }
             for (k = 0; k < 3; k++){
-                O->SurroundingVel[k] += (mass_j * wk * P[other].Vel[k]);
-                O->SurroundingRmsVel += (mass_j * wk * pow(P[other].Vel[k], 2));
+                O->SurroundingVel[k] += (mass_j * wk * VelPred[k]);
+                O->SurroundingRmsVel += (mass_j * wk * pow(VelPred[k], 2));
             }
         }
     }
@@ -1160,10 +1182,11 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             double dv[3];
             double da[3];
             int d;
-
+            MyFloat VelPred[3];
+            DM_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks);
             for(d = 0; d < 3; d++){
                 dx[d] = NEAREST(I->base.Pos[d] - P[other].Pos[d], PartManager->BoxSize);
-                dv[d] = I->Vel[d] - P[other].Vel[d];
+                dv[d] = I->Vel[d] - VelPred[d];
                 /* we include long range PM force, short range force from the last long timestep and DF */
                 da[d] = (I->Accel[d] - P[other].FullTreeGravAccel[d] - P[other].GravPM[d] - BHP(other).DFAccel[d]);
             }
@@ -1209,10 +1232,11 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             float mass_j = P[other].Mass;
 
             O->SmoothedEntropy += (mass_j * wk * SPHP(other).Entropy);
-            O->GasVel[0] += (mass_j * wk * P[other].Vel[0]);
-            O->GasVel[1] += (mass_j * wk * P[other].Vel[1]);
-            O->GasVel[2] += (mass_j * wk * P[other].Vel[2]);
-
+            MyFloat VelPred[3];
+            SPH_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks, BH_GET_PRIV(lv->tw)->hydrokicks);
+            O->GasVel[0] += (mass_j * wk * VelPred[0]);
+            O->GasVel[1] += (mass_j * wk * VelPred[1]);
+            O->GasVel[2] += (mass_j * wk * VelPred[2]);
             /* here we have a gas particle; check for swallowing */
 
             /* compute accretion probability */
@@ -1283,9 +1307,11 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     if(blackhole_params.BlackHoleKineticOn == 1){
         if(P[other].Type == 1 && r2 < iter->feedback_kernel.HH){
             O->NumDM += 1;
+            MyFloat VelPred[3];
+            DM_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks);
             int d;
             for(d = 0; d < 3; d++){
-                double vel = P[other].Vel[d] - I->Vel[d];
+                double vel = VelPred[d] - I->Vel[d];
                 O->V1sumDM[d] += vel;
                 O->V2sumDM += vel * vel;
             }
@@ -1377,11 +1403,12 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         else{
             O->Mass += P[other].Mass;
         }
-
+        MyFloat VelPred[3];
+        DM_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks);
         /* Conserve momentum during accretion*/
         int d;
         for(d = 0; d < 3; d++)
-            O->AccretedMomentum[d] += (P[other].Mass * P[other].Vel[d]);
+            O->AccretedMomentum[d] += (P[other].Mass * VelPred[d]);
 
         if(BHP(other).SwallowTime < BH_GET_PRIV(lv->tw)->atime)
             endrun(2, "Encountered BH %i swallowed at earlier time %g\n", other, BHP(other).SwallowTime);
@@ -1465,10 +1492,12 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         } else
             O->Mass += P[other].Mass;
         P[other].Mass = 0;
+        MyFloat VelPred[3];
+        SPH_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks, BH_GET_PRIV(lv->tw)->hydrokicks);
         /* Conserve momentum during accretion*/
         int d;
         for(d = 0; d < 3; d++)
-            O->AccretedMomentum[d] += (P[other].Mass * P[other].Vel[d]);
+            O->AccretedMomentum[d] += (P[other].Mass * VelPred[d]);
 
         slots_mark_garbage(other, PartManager, SlotsManager);
 
