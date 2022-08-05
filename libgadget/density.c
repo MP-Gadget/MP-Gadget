@@ -96,6 +96,18 @@ SPH_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double * gravkick
     }
 }
 
+/* Get the predicted velocity for a particle
+ * at the current Force computation time ti,
+ * which always coincides with the Drift inttime.
+ * For hydro forces.*/
+void
+DM_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double * gravkick)
+{
+    int j;
+    for(j = 0; j < 3; j++)
+        VelPred[j] = P[i].Vel[j] + gravkick[P[i].TimeBinGravity] * P[i].FullTreeGravAccel[j]+ P[i].GravPM[j] * FgravkickB;
+}
+
 /*! Structure for communication during the density computation. Holds data that is sent to other processors.
 */
 typedef struct {
