@@ -590,14 +590,13 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
         for(i = 0; i < O->maxcmpte; i++){
             if(r < I->DMRadius[i]){
                 O->Ngb[i] += 1;
-                int bin = P[other].TimeBinGravity;
                 int d;
+                MyFloat VelPred[3];
+                DM_VelPred(other, VelPred, WIND_GET_PRIV(lv->tw)->FgravkickB, WIND_GET_PRIV(lv->tw)->gravkicks);
                 for(d = 0; d < 3; d ++) {
-                    double VelPred = P[other].Vel[d] + P[other].GravPM[d] *  WIND_GET_PRIV(lv->tw)->FgravkickB;
-                    VelPred += WIND_GET_PRIV(lv->tw)->gravkicks[bin] * P[other].FullTreeGravAccel[d];
                     /* Add hubble flow to relative velocity. Use predicted velocity to current time.
                      * The I particle is active so always at current time.*/
-                    double vel = VelPred - I->Vel[d] + WIND_GET_PRIV(lv->tw)->hubble * atime * atime * dist[d];
+                    double vel = VelPred[d] - I->Vel[d] + WIND_GET_PRIV(lv->tw)->hubble * atime * atime * dist[d];
                     O->V1sum[i][d] += vel;
                     O->V2sum[i] += vel * vel;
                 }
