@@ -27,7 +27,7 @@ void set_sfr_params(ParameterSet * ps);
 
 void init_cooling_and_star_formation(int CoolingOn, int StarformationOn, Cosmology * CP, const double avg_baryon_mass, const double BoxSize, const struct UnitSystem units);
 /*Do the cooling and the star formation. The tree is required for the winds only.*/
-void cooling_and_starformation(ActiveParticles * act, double Time, const DriftKickTimes * const times, double dloga, ForceTree * tree, MyFloat (* GravAccel)[3], DomainDecomp * ddecomp, Cosmology * CP, MyFloat * GradRho, FILE * FdSfr);
+void cooling_and_starformation(ActiveParticles * act, double Time, const DriftKickTimes * const times, double dloga, ForceTree * tree, struct grav_accel_store GravAccel, DomainDecomp * ddecomp, Cosmology * CP, MyFloat * GradRho, FILE * FdSfr);
 
 /*Get the neutral fraction of a particle correctly, even when on the star-forming equation of state.
  * This calls the cooling routines for the current internal energy when off the equation of state, but

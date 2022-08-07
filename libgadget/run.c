@@ -489,14 +489,15 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         MPI_Allreduce(&Act.NumActiveGravity, &totgravactive, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
         /* Some temporary memory for accelerations*/
-        MyFloat (* GravAccel) [3] = NULL;
+        struct grav_accel_store GravAccel = {0};
         /* Gravitational acceleration here*/
         if(totgravactive) {
             if(All.HierarchicalGravity) {
-                /* For the PM step we re-use FullTreeGravAccel and so do not allocate this.*/
+                /* For steps where all particles are active we re-use FullTreeGravAccel and so do not allocate this.*/
                 if(!is_PM) {
                     /* We need to store a GravAccel for new star particles as well, so we need extra memory.*/
-                    GravAccel = (MyFloat (*) [3]) mymalloc2("GravAccel", PartManager->MaxPart * sizeof(GravAccel[0]));
+                    GravAccel.nstore = PartManager->NumPart + SlotsManager->info[0].size;
+                    GravAccel.GravAccel = (MyFloat (*) [3]) mymalloc2("GravAccel", GravAccel.nstore * sizeof(GravAccel.GravAccel[0]));
                 }
                 hierarchical_gravity_accelerations(&Act, &pm, ddecomp, GravAccel, &times, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
             }
@@ -674,8 +675,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
              * This does mean we double the cost of the force evaluations.*/
             if(totgravactive) {
                 badtimestep = hierarchical_gravity_and_timesteps(&Act, &pm, ddecomp, GravAccel, &times, atime, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
-                if(GravAccel)
-                    myfree(GravAccel);
+                if(GravAccel.GravAccel)
+                    myfree(GravAccel.GravAccel);
             }
             if(GasEnabled) {
                 /* Find hydro timesteps and apply the hydro kick, unsyncing the drift and kick times. */
@@ -747,7 +748,8 @@ runfof(const int RestartSnapNum, const inttime_t Ti_Current, const struct header
             slots_free_sph_pred_data(&sph_predicted);
         }
         ForceTree Tree = {0};
-        cooling_and_starformation(&Act, header->TimeSnapshot, NULL, 0, &Tree, NULL, ddecomp, &All.CP, GradRho, NULL);
+        struct grav_accel_store gg = {0};
+        cooling_and_starformation(&Act, header->TimeSnapshot, NULL, 0, &Tree, gg, ddecomp, &All.CP, GradRho, NULL);
         if(GradRho)
             myfree(GradRho);
     }

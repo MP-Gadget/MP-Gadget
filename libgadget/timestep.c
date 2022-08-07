@@ -291,7 +291,7 @@ grav_short_tree_build_tree(const ActiveParticles * subact, PetaPM * pm, DomainDe
  * and does the gravitational half-step kicks. Uses the accelerations in StoredGravAccel
  * for the longest timestep if available, otherwise uses FullTreeGravAccel, */
 int
-hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, MyFloat (* StoredGravAccel)[3], DriftKickTimes * times, const double atime, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir)
+hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, struct grav_accel_store StoredGravAccel, DriftKickTimes * times, const double atime, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir)
 {
     walltime_measure("/Misc");
 
@@ -346,8 +346,8 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         if(P[pa].Swallowed || P[pa].IsGarbage)
             continue;
         double dloga_gravity;
-        if(StoredGravAccel)
-            dloga_gravity = get_timestep_gravity_dloga(pa, StoredGravAccel[pa], atime, hubble);
+        if(StoredGravAccel.GravAccel)
+            dloga_gravity = get_timestep_gravity_dloga(pa, StoredGravAccel.GravAccel[pa], atime, hubble);
         else
             dloga_gravity = get_timestep_gravity_dloga(pa, P[pa].FullTreeGravAccel, atime, hubble);
         inttime_t dti_gravity = convert_timestep_to_ti(dloga_gravity, pa, dti_max, times->Ti_Current, TI_ACCEL);
@@ -408,7 +408,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     times->maxtimebin = largest_active;
 
     /* Do the kick for the topmost bin using GravAccel in the particle struct.*/
-    apply_hierarchical_grav_kick(subact, CP, times, StoredGravAccel, largest_active, largest_active);
+    apply_hierarchical_grav_kick(subact, CP, times, StoredGravAccel.GravAccel, largest_active, largest_active);
 
     /* Copy over active list to some new memory so we can free the old one in order*/
     ActiveParticles lastact[1] = {0};
@@ -492,7 +492,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
 /* Computes short-range gravitational forces at the second half of the step and
  * does the gravitational half-step kicks. Stores the longest timestep in StoredGravAccel.
  * If this is NULL, uses FullTreeGravAccel.*/
-int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, MyFloat (* StoredGravAccel)[3], DriftKickTimes * times, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir)
+int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, struct grav_accel_store StoredGravAccel, DriftKickTimes * times, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir)
 {
     walltime_measure("/Misc");
 
@@ -522,13 +522,13 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
     /* Tree with moments but only particle timesteps below this value.
      * Done for all currently active gravitational particles.
      * Stores acceleration in P[i].GravAccel.*/
-    grav_short_tree_build_tree(lastact, pm, ddecomp, StoredGravAccel, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
+    grav_short_tree_build_tree(lastact, pm, ddecomp, StoredGravAccel.GravAccel, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
 
     /* We need to do the kick here based on the acceleration at the current level,
         * because we will over-write the acceleration*/
-    apply_hierarchical_grav_kick(lastact, CP, times, StoredGravAccel, ti, largest_active);
+    apply_hierarchical_grav_kick(lastact, CP, times, StoredGravAccel.GravAccel, ti, largest_active);
 
-    if(!StoredGravAccel) {
+    if(!StoredGravAccel.GravAccel) {
         /* Set the old accelerations when all particles are active.*/
         grav_set_oldaccs(CP->GravInternal);
     }
