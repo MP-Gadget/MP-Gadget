@@ -48,7 +48,7 @@ init_forcetree_params(const int FastParticleType)
 }
 
 static ForceTree
-force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles * act, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir);
+force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles * act, const int HybridNuGrav, const int DoMoments, const int alloc_father, const char * EmergencyOutputDir);
 
 static void
 force_treeupdate_pseudos(int no, const ForceTree * tree);
@@ -113,7 +113,7 @@ force_tree_allocated(const ForceTree * tree)
 }
 
 void
-force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticles *act, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir)
+force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticles *act, const int HybridNuGrav, const int DoMoments, const int alloc_father, const char * EmergencyOutputDir)
 {
     //message(0, "Tree construction.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
@@ -122,7 +122,8 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticl
     }
     walltime_measure("/Misc");
 
-    *tree = force_tree_build(ALLMASK, ddecomp, act, HybridNuGrav, DoMoments, EmergencyOutputDir);
+    /*No father array by default, only need it for hmax.*/
+    *tree = force_tree_build(ALLMASK, ddecomp, act, HybridNuGrav, DoMoments, alloc_father, EmergencyOutputDir);
 
     walltime_measure("/Tree/Build/Moments");
 
@@ -143,8 +144,8 @@ force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, cons
 
     /* Build for all particles*/
     ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
-    /* No moments*/
-    *tree = force_tree_build(mask, ddecomp, &act, HybridNuGrav, 0, EmergencyOutputDir);
+    /* No moments, but need father for hmax.*/
+    *tree = force_tree_build(mask, ddecomp, &act, HybridNuGrav, 0, 1, EmergencyOutputDir);
 
     int64_t allact;
     MPI_Reduce(&PartManager->NumPart, &allact, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -165,7 +166,7 @@ force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, cons
  *  different CPUs. If such a node needs to be opened, the corresponding
  *  particle must be exported to that CPU. */
 ForceTree
-force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir)
+force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, const int HybridNuGrav, const int DoMoments, const int alloc_father, const char * EmergencyOutputDir)
 {
     ForceTree tree;
 
@@ -180,7 +181,7 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
     do
     {
         /* Allocate memory. */
-        tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp);
+        tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp, alloc_father);
 
         tree.BoxSize = PartManager->BoxSize;
         tree.numnodes = force_tree_create_nodes(tree, act, mask, ddecomp, HybridNuGrav);
@@ -329,7 +330,8 @@ int get_freenode(int * nnext, struct NodeCache *nc)
 static int
 modify_internal_node(int parent, int subnode, int p_toplace, const ForceTree tb, const int HybridNuGrav)
 {
-    tb.Father[p_toplace] = parent;
+    if(tb.Father)
+        tb.Father[p_toplace] = parent;
     tb.Nodes[parent].s.suns[subnode] = p_toplace;
     /* Encode the type in the Types array*/
     tb.Nodes[parent].s.Types += P[p_toplace].Type << (3*subnode);
@@ -879,8 +881,10 @@ force_get_father(int no, const ForceTree * tree)
 {
     if(no >= tree->firstnode)
         return tree->Nodes[no].father;
-    else
+    else if(tree->Father)
         return tree->Father[no];
+    else
+        return -1;
 }
 
 static void
@@ -1254,6 +1258,8 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
         activeset = NULL;
         size = PartManager->NumPart;
     }
+    if(!tree->Father)
+        endrun(1, "Father array not allocated, needed for hmax!\n");
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
@@ -1346,15 +1352,17 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
  *  maxnodes approximately equal to 0.7*maxpart is sufficient to store the
  *  tree for up to maxpart particles.
  */
-ForceTree force_treeallocate(int64_t maxnodes, int64_t maxpart, DomainDecomp * ddecomp)
+ForceTree force_treeallocate(const int64_t maxnodes, const int64_t maxpart, const DomainDecomp * ddecomp, const int alloc_father)
 {
-    ForceTree tb;
+    ForceTree tb = {0};
 
-    tb.Father = (int *) mymalloc("Father", maxpart * sizeof(int));
-    tb.nfather = maxpart;
+    if(alloc_father) {
+        tb.Father = (int *) mymalloc("Father", maxpart * sizeof(int));
+        tb.nfather = maxpart;
 #ifdef DEBUG
-    memset(tb.Father, -1, maxpart * sizeof(int));
+        memset(tb.Father, -1, maxpart * sizeof(int));
 #endif
+    }
     tb.Nodes_base = (struct NODE *) mymalloc("Nodes_base", (maxnodes + 1) * sizeof(struct NODE));
 #ifdef DEBUG
     memset(tb.Nodes_base, -1, (maxnodes + 1) * sizeof(struct NODE));
@@ -1379,6 +1387,7 @@ void force_tree_free(ForceTree * tree)
     if(!force_tree_allocated(tree))
         return;
     myfree(tree->Nodes_base);
-    myfree(tree->Father);
+    if(tree->Father)
+        myfree(tree->Father);
     tree->tree_allocated_flag = 0;
 }
