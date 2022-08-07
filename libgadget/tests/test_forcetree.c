@@ -328,14 +328,14 @@ static void test_rebuild_flat(void ** state) {
     struct forcetree_testdata * data = * (struct forcetree_testdata **) state;
     DomainDecomp ddecomp = data->ddecomp;
     ddecomp.TopLeaves[0].topnode = numpart;
-    ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp);
+    ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp, 1);
     /* So unused memory has Father < 0*/
     for(i = tb.firstnode; i < tb.lastnode; i++)
         tb.Nodes[i].father = -10;
 
     do_tree_test(numpart, tb, &ddecomp);
     force_tree_free(&tb);
-    tb = force_treeallocate(numpart, numpart, &ddecomp);
+    tb = force_treeallocate(numpart, numpart, &ddecomp, 1);
     do_tree_mask_hmax_update_test(numpart, &tb, &ddecomp);
     assert_true(tb.Nodes[tb.firstnode].mom.hmax >= 0.0584);
     force_tree_free(&tb);
@@ -360,10 +360,10 @@ static void test_rebuild_close(void ** state) {
     struct forcetree_testdata * data = * (struct forcetree_testdata **) state;
     DomainDecomp ddecomp = data->ddecomp;
     ddecomp.TopLeaves[0].topnode = numpart;
-    ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp);
+    ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp, 1);
     do_tree_test(numpart, tb, &ddecomp);
     force_tree_free(&tb);
-    tb = force_treeallocate(numpart, numpart, &ddecomp);
+    tb = force_treeallocate(numpart, numpart, &ddecomp, 1);
     do_tree_mask_hmax_update_test(numpart, &tb, &ddecomp);
     force_tree_free(&tb);
     free(P);
@@ -405,7 +405,7 @@ static void test_rebuild_random(void ** state) {
     /*Allocate tree*/
     /*Base pointer*/
     ddecomp.TopLeaves[0].topnode = numpart;
-    ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp);
+    ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp, 1);
     assert_true(tb.Nodes != NULL);
     P = malloc(numpart*sizeof(struct particle_data));
     int i;
@@ -413,7 +413,7 @@ static void test_rebuild_random(void ** state) {
         do_random_test(r, numpart, tb, &ddecomp);
     }
     force_tree_free(&tb);
-    tb = force_treeallocate(numpart, numpart, &ddecomp);
+    tb = force_treeallocate(numpart, numpart, &ddecomp, 1);
     do_tree_mask_hmax_update_test(numpart, &tb, &ddecomp);
     force_tree_free(&tb);
     free(P);

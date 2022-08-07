@@ -120,7 +120,7 @@ void force_update_hmax(int * activeset, int size, ForceTree * tt, DomainDecomp *
 /* This is the main constructor for the tree structure.
    The tree shall be either zero-filled, so that force_tree_allocated = 0, or a valid ForceTree.
 */
-void force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticles *act, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir);
+void force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticles *act, const int HybridNuGrav, const int DoMoments, const int alloc_father, const char * EmergencyOutputDir);
 
 /* Main constructor with a mask argument.
  * Mask is a bitfield, specified as 1 for each type that should be included. Use ALLMASK for all particle types.
@@ -158,7 +158,7 @@ int
 force_tree_create_nodes(const ForceTree tb, const ActiveParticles * act, int mask, DomainDecomp * ddecomp, const int HybridNuGrav);
 
 ForceTree
-force_treeallocate(int64_t maxnodes, int64_t maxpart, DomainDecomp * ddecomp);
+force_treeallocate(const int64_t maxnodes, const int64_t maxpart, const DomainDecomp * ddecomp, const int alloc_father);
 
 void
 force_update_node_parallel(const ForceTree * tree, const DomainDecomp * ddecomp);
