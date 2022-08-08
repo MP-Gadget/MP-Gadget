@@ -213,7 +213,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double MinEgySpec, const DriftKickTimes times, Cosmology * CP, struct sph_pred_data * SPH_predicted, MyFloat * GradRho, const ForceTree * const tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double MinEgySpec, const DriftKickTimes times, Cosmology * CP, struct sph_pred_data * SPH_predicted, MyFloat * GradRho_mag, const ForceTree * const tree)
 {
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
@@ -255,7 +255,10 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
     DENSITY_GET_PRIV(tw)->BlackHoleOn = BlackHoleOn;
     DENSITY_GET_PRIV(tw)->SPH_predicted = SPH_predicted;
-    DENSITY_GET_PRIV(tw)->GradRho = GradRho;
+    if(GradRho_mag)
+        DENSITY_GET_PRIV(tw)->GradRho = (MyFloat *) mymalloc("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
+    else
+        DENSITY_GET_PRIV(tw)->GradRho = NULL;
 
     /* Init Left and Right: this has to be done before treewalk */
     #pragma omp parallel for
@@ -304,6 +307,17 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     /* Do the treewalk with looping for hsml*/
     treewalk_do_hsml_loop(tw, act->ActiveParticle, act->NumActiveParticle, update_hsml);
 
+    if(GradRho_mag) {
+        #pragma omp parallel for
+        for(i = 0; i < SlotsManager->info[0].size; i++)
+        {
+            MyFloat * gr = DENSITY_GET_PRIV(tw)->GradRho + (3*i);
+            GradRho_mag[i] = sqrt(gr[0]*gr[0] + gr[1] * gr[1] + gr[2] * gr[2]);
+        }
+    }
+
+    if(DENSITY_GET_PRIV(tw)->GradRho)
+        myfree(DENSITY_GET_PRIV(tw)->GradRho);
     myfree(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor);
     myfree(DENSITY_GET_PRIV(tw)->Rot);
     myfree(DENSITY_GET_PRIV(tw)->NumNgb);
