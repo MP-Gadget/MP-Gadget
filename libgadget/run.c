@@ -491,10 +491,9 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
         if(is_PM)
         {
-            ActiveParticles allpart = init_empty_active_particles(PartManager->NumPart);
             /* Tree freed in PM*/
             ForceTree Tree = {0};
-            force_tree_rebuild(&Tree, ddecomp, &allpart, HybridNuTracer, 1, 1, All.OutputDir);
+            force_tree_full(&Tree, ddecomp, HybridNuTracer, All.OutputDir);
             gravpm_force(&pm, &Tree, &All.CP, atime, units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType);
 
             /* compute and output energy statistics if desired. */
@@ -521,12 +520,9 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 hierarchical_gravity_accelerations(&Act, &pm, ddecomp, GravAccel, &times, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
             }
             else if(All.TreeGravOn && totgravactive) {
-                    /* We need a tree if we will do a short-range gravity treewalk.
-                     * We also need one for PM so we can do the indexing.*/
-                    ActiveParticles allpart = init_empty_active_particles(PartManager->NumPart);
                     /* Do a short range pairwise only step if desired*/
                     const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal);
-                    force_tree_rebuild(&Tree, ddecomp, &allpart, HybridNuTracer, 1, 0, All.OutputDir);
+                    force_tree_full(&Tree, ddecomp, HybridNuTracer, All.OutputDir);
                     grav_short_tree(&Act, &pm, &Tree, NULL, rho0, HybridNuTracer, All.FastParticleType, times.Ti_Current);
                     /* Now we have computed the total acceleration, set old acc for the next PM step.
                      * Done inside hierarchical_gravity_accelerations for the other branch.*/
@@ -799,12 +795,10 @@ runpower(const struct header_data * header)
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
-    ActiveParticles Act = init_empty_active_particles(PartManager->NumPart);
-
     /*PM needs a tree*/
     ForceTree Tree = {0};
     int HybridNuGrav = hybrid_nu_tracer(&All.CP, header->TimeSnapshot);
-    force_tree_rebuild(&Tree, ddecomp, &Act, HybridNuGrav, 1, 1, All.OutputDir);
+    force_tree_full(&Tree, ddecomp, HybridNuGrav, All.OutputDir);
     gravpm_force(&pm, &Tree, &All.CP, header->TimeSnapshot, header->UnitLength_in_cm, All.OutputDir, header->TimeSnapshot, All.FastParticleType);
     force_tree_free(&Tree);
 }

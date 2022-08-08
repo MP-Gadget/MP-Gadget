@@ -174,15 +174,13 @@ static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int di
         P[i].IsGarbage = 0;
     }
 
-    ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
-
     DomainDecomp ddecomp = {0};
     domain_decompose_full(&ddecomp);
 
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, PartManager->BoxSize, Asmth, Nmesh, G);
     ForceTree Tree = {0};
-    force_tree_rebuild(&Tree, &ddecomp, &act, 1, 1, 1, NULL);
+    force_tree_full(&Tree, &ddecomp, 1, NULL);
     gravshort_fill_ntab(SHORTRANGE_FORCE_WINDOW_TYPE_EXACT, Asmth);
     /* Setup cosmology*/
     Cosmology CP ={0};
@@ -197,7 +195,7 @@ static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int di
     init_cosmology(&CP, 0.01, units);
 
     gravpm_force(&pm, &Tree, &CP, 0.1, CM_PER_MPC/1000., ".", 0.01, 2);
-    force_tree_rebuild(&Tree, &ddecomp, &act, 1, 1, 1, NULL);
+    force_tree_full(&Tree, &ddecomp, 1, NULL);
     const double rho0 = CP.Omega0 * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G);
 
     /* Barnes-Hut on first iteration*/
@@ -213,6 +211,7 @@ static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int di
     gravshort_set_softenings(PartManager->BoxSize / cbrt(PartManager->NumPart));
 
     /* Twice so the opening angle is consistent*/
+    ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
     grav_short_tree(&act, &pm, &Tree, NULL, rho0, 0, 2, 0);
     grav_short_tree(&act, &pm, &Tree, NULL, rho0, 0, 2, 0);
 
