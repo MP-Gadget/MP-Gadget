@@ -59,6 +59,7 @@ set_init_params(ParameterSet * ps)
     MPI_Bcast(&InitParams, sizeof(InitParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
+/* Setup a list of sync points until the end of the simulation.*/
 void init_timeline(Cosmology * CP, int RestartSnapNum, double TimeMax, const struct header_data * header, const int SnapshotWithFOF)
 {
     /*Add TimeInit and TimeMax to the output list*/
@@ -472,56 +473,12 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
     /* Do nothing if we are a pure DM run*/
     if(tot_sph + tot_bh == 0)
         return;
-//
 
     ForceTree Tree = {0};
-    /*At the first time step all particles should be active*/
-    ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
-
-    /* Need moments because we use them to set Hsml*/
-    force_tree_full(&Tree, ddecomp, 0, NULL);
-
-    /* quick hack to adjust for the baryon fraction
-        * only this fraction of mass is of that type.
-        * this won't work for non-dm non baryon;
-        * ideally each node shall have separate count of
-        * ptypes of each type.
-        *
-        * Eventually the iteration will fix this. */
-    const double massfactor = CP->OmegaBaryon / CP->Omega0;
-    const double DesNumNgb = GetNumNgb(GetDensityKernelType());
-
-    #pragma omp parallel for
-    for(i = 0; i < PartManager->NumPart; i++)
-    {
-        /* These initial smoothing lengths are only used for SPH-like particles.*/
-        if(P[i].Type != 0 && P[i].Type != 5)
-            continue;
-
-        int no = force_get_father(i, &Tree);
-
-        while(10 * DesNumNgb * P[i].Mass > massfactor * Tree.Nodes[no].mom.mass)
-        {
-            int p = force_get_father(no, &Tree);
-
-            if(p < 0)
-                break;
-
-            no = p;
-        }
-
-        P[i].Hsml =
-            pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / (massfactor * Tree.Nodes[no].mom.mass),
-                    1.0 / 3) * Tree.Nodes[no].len;
-
-        /* recover from a poor initial guess */
-        if(P[i].Hsml > 500.0 * MeanGasSeparation)
-            P[i].Hsml = MeanGasSeparation;
-
-        if(P[i].Hsml <= 0)
-            endrun(5, "Bad hsml guess: i=%d, mass = %g type %d hsml %g no %d len %d treemass %g\n",
-                    i, P[i].Mass, P[i].Type, P[i].Hsml, no, Tree.Nodes[no].len, Tree.Nodes[no].mom.mass);
-    }
+    /* Finds fathers for each gas and BH particle, so need BH*/
+    force_tree_rebuild_mask(&Tree, ddecomp, GASMASK+BHMASK, NULL);
+    /* Set the initial smoothing length for gas and DM, compute tree moments.*/
+    set_init_hsml(&Tree, ddecomp, MeanGasSeparation);
 
     /* for clean IC with U input only, we need to iterate to find entropy */
     double u_init = (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * InitParams.InitGasTemp;
@@ -543,6 +500,8 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
 
     /* Empty kick factors as we do not move*/
     DriftKickTimes times = init_driftkicktime(Ti_Current);
+    /*At the first time step all particles should be active*/
+    ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
     density(&act, 1, 0, BlackHoleOn, 0,  times, CP, &sph_pred, NULL, &Tree);
 
     if(DensityIndependentSphOn()) {

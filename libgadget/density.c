@@ -682,3 +682,44 @@ slots_free_sph_pred_data(struct sph_pred_data * sph_scratch)
     myfree(sph_scratch->EntVarPred);
     sph_scratch->EntVarPred = NULL;
 }
+
+/* Set the initial smoothing length for gas and BH*/
+void
+set_init_hsml(ForceTree * tree, DomainDecomp * ddecomp, const double MeanGasSeparation)
+{
+    /* Need moments because we use them to set Hsml*/
+    force_tree_calc_moments(tree, ddecomp);
+    const double DesNumNgb = GetNumNgb(GetDensityKernelType());
+    int i;
+    #pragma omp parallel for
+    for(i = 0; i < PartManager->NumPart; i++)
+    {
+        /* These initial smoothing lengths are only used for SPH-like particles.*/
+        if(P[i].Type != 0 && P[i].Type != 5)
+            continue;
+
+        int no = force_get_father(i, tree);
+
+        while(10 * DesNumNgb * P[i].Mass > tree->Nodes[no].mom.mass)
+        {
+            int p = force_get_father(no, tree);
+
+            if(p < 0)
+                break;
+
+            no = p;
+        }
+
+        P[i].Hsml = tree->Nodes[no].len *
+            pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / tree->Nodes[no].mom.mass, 1.0 / 3);
+            ;
+
+        /* recover from a poor initial guess */
+        if(P[i].Hsml > 500.0 * MeanGasSeparation)
+            P[i].Hsml = MeanGasSeparation;
+
+        if(P[i].Hsml <= 0)
+            endrun(5, "Bad hsml guess: i=%d, mass = %g type %d hsml %g no %d len %d treemass %g\n",
+                    i, P[i].Mass, P[i].Type, P[i].Hsml, no, tree->Nodes[no].len, tree->Nodes[no].mom.mass);
+    }
+}

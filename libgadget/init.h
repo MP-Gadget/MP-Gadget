@@ -18,6 +18,7 @@ void check_density_entropy(Cosmology * CP, const double MinEgySpec, const double
 
 void set_init_params(ParameterSet * ps);
 
+/* Setup a list of sync points until the end of the simulation.*/
 void init_timeline(Cosmology * CP, int RestartSnapNum, double TimeMax, const struct header_data * header, const int SnapshotWithFOF);
 
 #endif
