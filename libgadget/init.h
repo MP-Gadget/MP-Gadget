@@ -18,6 +18,6 @@ void check_density_entropy(Cosmology * CP, const double MinEgySpec, const double
 
 void set_init_params(ParameterSet * ps);
 
-void init_timeline(int RestartSnapNum, double TimeMax, const struct header_data * header, const int SnapshotWithFOF);
+void init_timeline(Cosmology * CP, int RestartSnapNum, double TimeMax, const struct header_data * header, const int SnapshotWithFOF);
 
 #endif

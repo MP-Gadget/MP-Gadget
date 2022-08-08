@@ -59,22 +59,22 @@ set_init_params(ParameterSet * ps)
     MPI_Bcast(&InitParams, sizeof(InitParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
-void init_timeline(int RestartSnapNum, double TimeMax, const struct header_data * header, const int SnapshotWithFOF)
+void init_timeline(Cosmology * CP, int RestartSnapNum, double TimeMax, const struct header_data * header, const int SnapshotWithFOF)
 {
     /*Add TimeInit and TimeMax to the output list*/
     if (RestartSnapNum < 0) {
         /* allow a first snapshot at IC time; */
-        setup_sync_points(header->TimeIC, TimeMax, 0.0, SnapshotWithFOF);
+        setup_sync_points(CP,header->TimeIC, TimeMax, 0.0, SnapshotWithFOF);
     } else {
         /* skip dumping the exactly same snapshot */
-        setup_sync_points(header->TimeIC, TimeMax, header->TimeSnapshot, SnapshotWithFOF);
+        setup_sync_points(CP, header->TimeIC, TimeMax, header->TimeSnapshot, SnapshotWithFOF);
         /* If TimeInit is not in a sensible place on the integer timeline
          * (can happen if the outputs changed since it was written)
          * start the integer timeline anew from TimeInit */
         inttime_t ti_init = ti_from_loga(log(header->TimeSnapshot)) % TIMEBASE;
         if(round_down_power_of_two(ti_init) != ti_init) {
             message(0,"Resetting integer timeline (as %x != %x) to current snapshot\n",ti_init, round_down_power_of_two(ti_init));
-            setup_sync_points(header->TimeSnapshot, TimeMax, header->TimeSnapshot, SnapshotWithFOF);
+            setup_sync_points(CP, header->TimeSnapshot, TimeMax, header->TimeSnapshot, SnapshotWithFOF);
         }
     }
 }
@@ -181,7 +181,7 @@ inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * 
         /* If we are starting before reionisation, initialise reion properties
          * this allows us to restart from runs without excursion set 
          * these properties aren't used without the ES so its fine to init them here*/
-        if(All.ExcursionSetReionOn && header.TimeSnapshot < 1./(1. + All.ExcursionSetZStart)){
+        if(InitParams.ExcursionSetReionOn && header->TimeSnapshot < 1./(1. + InitParams.ExcursionSetZStart)){
             SPHP(i).local_J21 = 0;
             SPHP(i).zreion = -1;
         }

@@ -24,9 +24,7 @@ typedef struct {
     int RadiationOn; /* flags whether to include the radiation density in the background */
     _omega_nu ONu;   /*Structure for storing massive neutrino densities*/
     double MNu[3]; /*Neutrino masses in eV*/
-<<<<<<< HEAD
-    double G; /*gravitational constant in simulation units*/
-=======
+
     int MassiveNuLinRespOn; /* Flags that massive neutrinos using the linear
                                response code of Ali-Haimoud & Bird 2013.*/
     int HybridNeutrinosOn; /* Flags that hybrid neutrinos are enabled */
@@ -34,7 +32,6 @@ typedef struct {
                            and analytic solvers when hybrid neutrinos are on*/
     double HybridNuPartTime; /*!< Redshift at which hybrid neutrinos switch on*/
     double GravInternal;/*!< Gravity-constant in internal units */
->>>>>>> master
 } Cosmology;
 
 typedef struct {
@@ -63,13 +60,9 @@ double F_Omega(Cosmology * CP, double a);
 int hybrid_nu_tracer(const Cosmology * CP, double atime);
 
 /*Initialise the derived parts of the cosmology*/
-<<<<<<< HEAD
-void init_cosmology(Cosmology * CP, const double TimeBegin, double UnitLength, double UnitMass, double UnitTime);
-=======
 void init_cosmology(Cosmology *CP, double TimeBegin, const struct UnitSystem units);
 
 /* Check and print properties of the derived cosmology */
 void check_units(const Cosmology * CP, const struct UnitSystem units);
 
->>>>>>> master
 #endif

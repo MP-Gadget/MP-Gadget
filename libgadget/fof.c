@@ -834,7 +834,7 @@ fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt)
 }
 
 /* TODO: It would be a good idea to generalise this to arbitrary fof/particle properties */
-static void fof_set_escapefraction(struct FOFGroups * fof, const int NgroupsExt)
+static void fof_set_escapefraction(struct FOFGroups * fof, const int NgroupsExt, struct fof_particle_list * HaloLabel)
 {
     int i = 0;
     #pragma omp parallel for
@@ -922,7 +922,7 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, struct fof_p
 
     /* feed group property back to each particle. */
     if(fof_params.ExcursionSetReionOn)
-        fof_set_escapefraction(fof, NgroupsExt);
+        fof_set_escapefraction(fof, NgroupsExt, HaloLabel);
 
     int64_t TotNids;
     sumup_large_ints(1, &fof->Ngroups, &fof->TotNgroups);

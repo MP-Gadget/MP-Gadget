@@ -245,7 +245,7 @@ begrun(const int RestartSnapNum, struct header_data * head)
     if(All.LightconeOn)
         lightcone_init(&All.CP, head->TimeSnapshot, head->UnitLength_in_cm, All.OutputDir);
 
-    init_timeline(RestartSnapNum, All.TimeMax, head, All.SnapshotWithFOF);
+    init_timeline(&All.CP, RestartSnapNum, All.TimeMax, head, All.SnapshotWithFOF);
 
     /* Get the nk and do allocation. */
     if(All.CP.MassiveNuLinRespOn)
@@ -314,9 +314,9 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
     PetaPM pm_star = {0};
     PetaPM pm_sfr = {0};
     if(All.ExcursionSetReionOn){
-        petapm_init(&pm_mass, PartManager.BoxSize, All.Asmth, All.UVBGdim, All.CP.GravInternal, MPI_COMM_WORLD);
-        petapm_init(&pm_star, PartManager.BoxSize, All.Asmth, All.UVBGdim, All.CP.GravInternal, MPI_COMM_WORLD);
-        petapm_init(&pm_sfr, PartManager.BoxSize, All.Asmth, All.UVBGdim, All.CP.GravInternal, MPI_COMM_WORLD);
+        petapm_init(&pm_mass, PartManager->BoxSize, All.Asmth, All.UVBGdim, All.CP.GravInternal, MPI_COMM_WORLD);
+        petapm_init(&pm_star, PartManager->BoxSize, All.Asmth, All.UVBGdim, All.CP.GravInternal, MPI_COMM_WORLD);
+        petapm_init(&pm_sfr, PartManager->BoxSize, All.Asmth, All.UVBGdim, All.CP.GravInternal, MPI_COMM_WORLD);
     }
 
     DomainDecomp ddecomp[1] = {0};

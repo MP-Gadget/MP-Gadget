@@ -21,7 +21,6 @@
 #include "uvbg.h"
 #include "cosmology.h"
 #include "utils.h"
-#include "allvars.h"
 #include "partmanager.h"
 #include "slotsmanager.h"
 #include "petapm.h"
@@ -113,7 +112,7 @@ static double RtoM(double R)
     return -1;
 }
 
-void save_uvbg_grids(int SnapshotFileCount, PetaPM * pm)
+void save_uvbg_grids(int SnapshotFileCount, char * OutputDir, PetaPM * pm)
 {
     int n_ranks;
     int this_rank=-1;
@@ -124,7 +123,7 @@ void save_uvbg_grids(int SnapshotFileCount, PetaPM * pm)
     //TODO(jdavies): finish this grid writing function
     BigFile fout;
     char fname[256];
-    sprintf(fname, "%s/UVgrids_%03d", uvbg_params.OutputDir,SnapshotFileCount);
+    sprintf(fname, "%s/UVgrids_%03d", OutputDir,SnapshotFileCount);
     message(0, "saving uv grids to %s \n", fname);
 
     if(0 != big_file_mpi_create(&fout, fname, MPI_COMM_WORLD)) {
@@ -326,7 +325,7 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
     double f_coll_stars = 0;
     int pm_idx = 0;
 
-    double R = pm_mass->G;
+    double R = pm_mass->G; //radius is stored here
     
     const double redshift = 1.0 / (uvbg_params.Time) - 1.;
     

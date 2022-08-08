@@ -52,12 +52,7 @@ int main(int argc, char **argv)
   int64_t TotNumPart = (int64_t) All2.Ngrid*All2.Ngrid*All2.Ngrid;
   int64_t TotNumPartGas = (int64_t) All2.ProduceGas*All2.NgridGas*All2.NgridGas*All2.NgridGas;
 
-<<<<<<< HEAD
-  double UnitTime_in_s = All2.UnitLength_in_cm / All2.UnitVelocity_in_cm_per_s;
-  init_cosmology(&CP, All2.TimeIC, All2.UnitLength_in_cm, All2.UnitMass_in_g, UnitTime_in_s);
-=======
   init_cosmology(&CP, All2.TimeIC, All2.units);
->>>>>>> master
 
   MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
   init_powerspectrum(ThisTask, All2.TimeIC, All2.units.UnitLength_in_cm, &CP, &All2.PowerP);
@@ -117,12 +112,8 @@ int main(int argc, char **argv)
   }
   PetaPM pm[1];
 
-<<<<<<< HEAD
-  double Grav = GRAVITY / pow(All2.UnitLength_in_cm, 3) * All2.UnitMass_in_g * pow(UnitTime_in_s, 2);
-=======
   double UnitTime_in_s = All2.units.UnitLength_in_cm / All2.units.UnitVelocity_in_cm_per_s;
   double Grav = GRAVITY / pow(All2.units.UnitLength_in_cm, 3) * All2.units.UnitMass_in_g * pow(UnitTime_in_s, 2);
->>>>>>> master
 
   petapm_init(pm, All2.BoxSize, 0, All2.Nmesh, Grav, MPI_COMM_WORLD);
 
