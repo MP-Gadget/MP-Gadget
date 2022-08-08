@@ -673,11 +673,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
              * Note this is separated from the first force computation because
              * each timebin has a force done individually and we do not store the acceleration hierarchy.
              * This does mean we double the cost of the force evaluations.*/
-            if(totgravactive) {
+            if(totgravactive)
                 badtimestep = hierarchical_gravity_and_timesteps(&Act, &pm, ddecomp, GravAccel, &times, atime, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
-                if(GravAccel.GravAccel)
-                    myfree(GravAccel.GravAccel);
-            }
             if(GasEnabled) {
                 /* Find hydro timesteps and apply the hydro kick, unsyncing the drift and kick times. */
                 badtimestep += find_hydro_timesteps(&Act, &times, atime, &All.CP, NumCurrentTiStep == 0);
