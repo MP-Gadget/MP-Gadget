@@ -112,8 +112,32 @@ force_tree_allocated(const ForceTree * tree)
     return tree->tree_allocated_flag;
 }
 
+/* Build a tree structure using all particles, compute moments and allocate a father array.
+ * This is the fattest tree constructor, allows moments and walking up and down.*/
 void
-force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticles *act, const int HybridNuGrav, const int DoMoments, const int alloc_father, const char * EmergencyOutputDir)
+force_tree_full(ForceTree * tree, DomainDecomp * ddecomp, const int HybridNuGrav, const char * EmergencyOutputDir)
+{
+    if(force_tree_allocated(tree)) {
+        force_tree_free(tree);
+    }
+    walltime_measure("/Misc");
+
+    /* Build for all particles*/
+    ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
+
+    /*No father array by default, only need it for hmax. We want moments.*/
+    *tree = force_tree_build(ALLMASK, ddecomp, &act, HybridNuGrav, 1, 1, EmergencyOutputDir);
+
+    walltime_measure("/Tree/Build/Moments");
+
+    int64_t allact;
+    MPI_Reduce(&act.NumActiveParticle, &allact, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    message(0, "Full Tree constructed with %ld particles (moments: %d). First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
+            allact, tree->moments_computed_flag, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
+}
+
+void
+force_tree_active_moments(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticles *act, const int HybridNuGrav, const int alloc_father, const char * EmergencyOutputDir)
 {
     //message(0, "Tree construction.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
@@ -122,8 +146,8 @@ force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticl
     }
     walltime_measure("/Misc");
 
-    /*No father array by default, only need it for hmax.*/
-    *tree = force_tree_build(ALLMASK, ddecomp, act, HybridNuGrav, DoMoments, alloc_father, EmergencyOutputDir);
+    /*No father array by default, only need it for hmax. We want moments.*/
+    *tree = force_tree_build(ALLMASK, ddecomp, act, HybridNuGrav, 1, alloc_father, EmergencyOutputDir);
 
     walltime_measure("/Tree/Build/Moments");
 

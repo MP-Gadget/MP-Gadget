@@ -108,7 +108,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     ddecomp.TopLeaves[0].topnode = PartManager->MaxPart;
 
     ForceTree tree = {0};
-    force_tree_rebuild(&tree, &ddecomp, &act, 0, 1, 1,NULL);
+    force_tree_full(&tree, &ddecomp, 0, NULL);
     set_init_hsml(&tree);
     /* Rebuild without moments to check it works*/
     force_tree_rebuild_mask(&tree, &ddecomp, GASMASK+BHMASK, 0, NULL);

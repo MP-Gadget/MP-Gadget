@@ -466,7 +466,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
     ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
 
     /* Need moments because we use them to set Hsml*/
-    force_tree_rebuild(&Tree, ddecomp, &act, 0, 1, 1, NULL);
+    force_tree_full(&Tree, ddecomp, 0, NULL);
 
     /* quick hack to adjust for the baryon fraction
         * only this fraction of mass is of that type.
