@@ -122,7 +122,7 @@ static int make_particle_star(int child, int parent, int placement, double Time)
 static int starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, const double redshift, const double a3inv, const double hubble, const double GravInternal, const struct UVBG * const GlobalUVBG);
 static int quicklyastarformation(int i, const double a3inv);
 static double get_sfr_factor_due_to_selfgravity(int i, const double atime, const double a3inv, const double hubble, const double GravInternal);
-static double get_sfr_factor_due_to_h2(int i, MyFloat * GradRho, const double atime);
+static double get_sfr_factor_due_to_h2(int i, MyFloat * GradRho_mag, const double atime);
 static double get_starformation_rate_full(int i, MyFloat * GradRho, struct sfr_eeqos_data sfr_data, const double atime, const double a3inv, const double hubble, const double GravInternal);
 static double get_egyeff(double redshift, double dens, struct UVBG * uvbg);
 static double find_star_mass(int i, const double avg_baryon_mass);
@@ -959,14 +959,14 @@ static double ev_NH_from_GradRho(MyFloat gradrho_mag, double hsml, double rho, d
     return ev_NH; // *(Z/Zsolar) add metallicity dependence
 }
 
-static double get_sfr_factor_due_to_h2(int i, MyFloat * GradRho, const double atime) {
+static double get_sfr_factor_due_to_h2(int i, MyFloat * GradRho_mag, const double atime) {
     /*  Krumholz & Gnedin fitting function for f_H2 as a function of local
      *  properties, from gadget-p; we return the enhancement on SFR in this
      *  function */
     double tau_fmol;
     const double a2 = atime * atime;
     double zoverzsun = SPHP(i).Metallicity/METAL_YIELD;
-    double gradrho_mag = sqrt(GradRho[3*P[i].PI]*GradRho[3*P[i].PI]+GradRho[3*P[i].PI+1]*GradRho[3*P[i].PI+1]+GradRho[3*P[i].PI+2]*GradRho[3*P[i].PI+2]);
+    double gradrho_mag = GradRho_mag[3*P[i].PI];
     //message(4, "GradRho %g rho %g hsml %g i %d\n", gradrho_mag, SPHP(i).Density, P[i].Hsml, i);
     tau_fmol = ev_NH_from_GradRho(gradrho_mag,P[i].Hsml,SPHP(i).Density,1) /a2;
     tau_fmol *= (0.1 + zoverzsun);

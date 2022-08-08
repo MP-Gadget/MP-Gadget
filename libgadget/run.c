@@ -406,9 +406,9 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
          * If so we need to add them to the tree.*/
         int HybridNuTracer = hybrid_nu_tracer(&All.CP, atime);
 
-        MyFloat * GradRho = NULL;
+        MyFloat * GradRho_mag = NULL;
         if(sfr_need_to_compute_sph_grad_rho())
-            GradRho = (MyFloat *) mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
+            GradRho_mag = (MyFloat *) mymalloc2("SPH_GradRho", sizeof(MyFloat) * SlotsManager->info[0].size);
 
         /* density() happens before gravity because it also initializes the predicted variables.
         * This ensures that prediction consistently uses the grav and hydro accel from the
@@ -428,7 +428,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
 
             if(All.DensityOn)
-                density(&Act, 1, DensityIndependentSphOn(), All.BlackHoleOn, MinEgySpec, times, &All.CP, &sph_predicted, GradRho, &gasTree);  /* computes density, and pressure */
+                density(&Act, 1, DensityIndependentSphOn(), All.BlackHoleOn, MinEgySpec, times, &All.CP, &sph_predicted, GradRho_mag, &gasTree);  /* computes density, and pressure */
 
             /***** update smoothing lengths in tree *****/
             force_update_hmax(Act.ActiveParticle, Act.NumActiveParticle, &gasTree, ddecomp);
@@ -593,7 +593,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
             /**** radiative cooling and star formation *****/
             if(All.CoolingOn)
-                cooling_and_starformation(&Act, atime, &times, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &Tree, GravAccel, ddecomp, &All.CP, GradRho, fds.FdSfr);
+                cooling_and_starformation(&Act, atime, &times, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &Tree, GravAccel, ddecomp, &All.CP, GradRho_mag, fds.FdSfr);
         }
         /* We don't need this timestep's tree anymore.*/
         force_tree_free(&Tree);
@@ -686,9 +686,9 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         }
 
         /* Delayed here because it is allocated high before GravAccel*/
-        if(GradRho) {
-            myfree(GradRho);
-            GradRho = NULL;
+        if(GradRho_mag) {
+            myfree(GradRho_mag);
+            GradRho_mag = NULL;
         }
 
         /* Set ti_kick in the time structure*/
