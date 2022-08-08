@@ -131,9 +131,11 @@ void force_tree_active_moments(ForceTree * tree, DomainDecomp * ddecomp, const A
  * with all particle types, and of course the tree is smaller.*/
 void force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, const int HybridNuGrav, const char * EmergencyOutputDir);
 
+/* Compute moments of the force tree, recursively, and update hmax.*/
+void force_tree_calc_moments(ForceTree * tree, DomainDecomp * ddecomp);
+
 /*Free the memory associated with the tree*/
 void   force_tree_free(ForceTree * tt);
-void   dump_particles(void);
 
 static inline int
 node_is_pseudo_particle(int no, const ForceTree * tree)

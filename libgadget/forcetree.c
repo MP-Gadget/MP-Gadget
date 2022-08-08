@@ -178,6 +178,19 @@ force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, cons
     MPIU_Barrier(MPI_COMM_WORLD);
 }
 
+
+/* Compute the multipole moments recursively*/
+void
+force_tree_calc_moments(ForceTree * tree, DomainDecomp * ddecomp)
+{
+    force_update_node_parallel(tree, ddecomp);
+    /* Exchange the pseudo-data*/
+    force_exchange_pseudodata(tree, ddecomp);
+    force_treeupdate_pseudos(tree->firstnode, tree);
+    tree->moments_computed_flag = 1;
+    tree->hmax_computed_flag = 1;
+}
+
 /*! Constructs the gravitational oct-tree.
  *
  *  The index convention for accessing tree nodes is the following: the
@@ -246,16 +259,9 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
 
     tree.moments_computed_flag = 0;
 
-    if(DoMoments) {
-        /* now compute the multipole moments recursively */
-        force_update_node_parallel(&tree, ddecomp);
-        /* Exchange the pseudo-data*/
-        force_exchange_pseudodata(&tree, ddecomp);
+    if(DoMoments)
+        force_tree_calc_moments(&tree, ddecomp);
 
-        force_treeupdate_pseudos(PartManager->MaxPart, &tree);
-        tree.moments_computed_flag = 1;
-        tree.hmax_computed_flag = 1;
-    }
     tree.Nodes_base = (struct NODE *) myrealloc(tree.Nodes_base, (tree.numnodes +1) * sizeof(struct NODE));
 
     /*Update the oct-tree struct so it knows about the memory change*/
@@ -1193,17 +1199,12 @@ void force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp)
 /*! This function updates the top-level tree after the multipole moments of
  *  the pseudo-particles have been updated.
  */
-void force_treeupdate_pseudos(int no, const ForceTree * tree)
+void
+force_treeupdate_pseudos(int no, const ForceTree * tree)
 {
     int j, p;
-    MyFloat hmax;
-    MyFloat s[3], mass;
-
-    mass = 0;
-    s[0] = 0;
-    s[1] = 0;
-    s[2] = 0;
-    hmax = 0;
+    MyFloat hmax = 0;
+    MyFloat s[3] = {0}, mass = 0;
 
     /* This happens if we have a trivial domain with only one entry*/
     if(!tree->Nodes[no].f.InternalTopLevel)
