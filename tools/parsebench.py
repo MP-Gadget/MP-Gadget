@@ -7,11 +7,11 @@ import collections
 import matplotlib.pyplot as plt
 import numpy as np
 
-def parse_step_header(line):
+def parse_step_header(line, compiled_regex):
     """Parse a string describing a step into total simulation time and scalefactor of the step.
     Returns None if the line is not a step header, otherwise a tuple of Stepnum, scale factor, total elapsed time."""
-    regex = r"Step ([0-9]*), Time: ([\.0-9]*), MPIs: ([0-9]*) Threads: ([0-9]*) Elapsed: ([\.0-9]*)"
-    reg = re.match(regex, line)
+    # This avoids the overhead of doing the regex for non-header lines.
+    reg = re.match(compiled_regex, line)
     if reg is None:
         return None
     grps = reg.groups()
@@ -76,9 +76,10 @@ def parse_full_step(textdata):
     stepd = Tree()
     #whitespace followed by a word, followed by whitespace, followed by a time.
     regex = r"(\W+)([a-zA-Z][_@\.a-zA-Z0-9\-:]+)\W+([\.0-9]+)"
+    pattern = re.compile(regex)
     ppath = []
     for ll in textdata:
-        reg = re.match(regex,ll)
+        reg = re.match(pattern,ll)
         if reg is None:
             continue
         grps = reg.groups()
@@ -101,12 +102,15 @@ def parse_full_step(textdata):
 def parse_file(fname, step = None, sf=None):
     """Parse a file from the end, looking for the last step before or equal to scalefactor.
     Returns a dictionary of total times."""
+    regex = r"Step ([0-9]*), Time: ([\.0-9]*), MPIs: ([0-9]*) Threads: ([0-9]*) Elapsed: ([\.0-9]*)"
+    compiled_regex = re.compile(regex)
     with open(fname) as fn:
-        line = fn.readline()
-        #Read lines, stopping when done.
         laststep = []
-        while line != "":
-            lhead = parse_step_header(line)
+        for line in fn:
+            lhead = None
+            #Read lines, stopping when done.
+            if r"Step" == line[:4]:
+                lhead = parse_step_header(line, compiled_regex)
             if lhead is not None:
                 #Stop reading if we finished the last step we wanted.
                 if sf is not None and lhead["Scale"] > sf:
@@ -119,7 +123,6 @@ def parse_file(fname, step = None, sf=None):
             else:
                 #Accumulate non-header lines
                 laststep += [line,]
-            line = fn.readline()
     stepdata = parse_full_step(laststep)
     return head, stepdata
 
