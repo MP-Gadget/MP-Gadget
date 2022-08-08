@@ -544,7 +544,7 @@ metal_return(const ActiveParticles * act, DomainDecomp * const ddecomp, Cosmolog
 
     ForceTree gasTree = {0};
     /* Just gas, no moments*/
-    force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, 0, NULL);
+    force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, NULL);
     walltime_measure("/SPH/Metals/Build");
 
 
