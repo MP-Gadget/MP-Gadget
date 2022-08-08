@@ -328,9 +328,9 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     const double rho0 = CP->Omega0 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
     /* The acceleration stored in StoredGravAccel is from the longest timestep for the previous half-step.
      * We can re-use that as nothing has been drifted since then, so we don't need to recompute here.
-     * Use this to compute the largest timesteps. TODO: It is possible (at some memory cost)
-     * to avoid recomputing all the sub-step accelerations as well. The only tricky bit is to make
-     * sure (since they cannot be stored in the particle table) that newly forked star particles are also updated.
+     * Use this to compute the largest timesteps. It is possible to avoid recomputing all the sub-step
+     * accelerations as well, but the memory cost was too much, because we need to allocate enough for
+     * all possible star particles.
      */
     //grav_short_tree_build_tree(subact, pm, ddecomp, StoredGravAccel, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
 
@@ -409,6 +409,8 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
 
     /* Do the kick for the topmost bin using GravAccel in the particle struct.*/
     apply_hierarchical_grav_kick(subact, CP, times, StoredGravAccel.GravAccel, largest_active, largest_active);
+    if(StoredGravAccel.GravAccel)
+        myfree(StoredGravAccel.GravAccel);
 
     /* Copy over active list to some new memory so we can free the old one in order*/
     ActiveParticles lastact[1] = {0};
