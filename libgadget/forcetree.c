@@ -158,7 +158,7 @@ force_tree_active_moments(ForceTree * tree, DomainDecomp * ddecomp, const Active
 }
 
 void
-force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, const int HybridNuGrav, const char * EmergencyOutputDir)
+force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, const char * EmergencyOutputDir)
 {
     message(0, "Tree construction for types: %d.\n", mask);
 
@@ -168,8 +168,8 @@ force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, cons
 
     /* Build for all particles*/
     ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
-    /* No moments, but need father for hmax.*/
-    *tree = force_tree_build(mask, ddecomp, &act, HybridNuGrav, 0, 1, EmergencyOutputDir);
+    /* No moments, but need father for hmax. The hybridnugrav only affects moments, so isn't needed.*/
+    *tree = force_tree_build(mask, ddecomp, &act, 0, 0, 1, EmergencyOutputDir);
 
     int64_t allact;
     MPI_Reduce(&PartManager->NumPart, &allact, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);

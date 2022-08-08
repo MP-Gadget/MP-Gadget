@@ -265,7 +265,7 @@ winds_find_weights(TreeWalk * tw, struct WindPriv * priv, int * NewStars, int Nu
     if(!tree->tree_allocated_flag) {
         message(0, "Building tree in wind\n");
         priv->tree_alloc_in_wind = 1;
-        force_tree_rebuild_mask(tree, ddecomp, DMMASK + GASMASK, 0, NULL);
+        force_tree_rebuild_mask(tree, ddecomp, DMMASK + GASMASK, NULL);
         walltime_measure("/Cooling/Build");
     }
     /* Types used: gas + DM*/

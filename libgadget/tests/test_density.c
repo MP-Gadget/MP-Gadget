@@ -110,8 +110,6 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     ForceTree tree = {0};
     force_tree_full(&tree, &ddecomp, 0, NULL);
     set_init_hsml(&tree);
-    /* Rebuild without moments to check it works*/
-    force_tree_rebuild_mask(&tree, &ddecomp, GASMASK+BHMASK, 0, NULL);
     /*Time doing the density finding*/
     double start, end;
     start = MPI_Wtime();
@@ -129,6 +127,8 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     struct UnitSystem units = get_unitsystem(3.085678e21, 1.989e43, 1e5);
     init_cosmology(&CP,0.01, units);
 
+    /* Rebuild without moments to check it works*/
+    force_tree_rebuild_mask(&tree, &ddecomp, GASMASK, NULL);
     density(&act, 1, 0, 0, 0, kick, &CP, &data->sph_pred, NULL, &tree);
     end = MPI_Wtime();
     double ms = (end - start)*1000;

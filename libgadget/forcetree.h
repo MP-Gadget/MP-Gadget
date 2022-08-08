@@ -127,9 +127,9 @@ void force_tree_active_moments(ForceTree * tree, DomainDecomp * ddecomp, const A
 
 /* Main constructor with a mask argument.
  * Mask is a bitfield, specified as 1 for each type that should be included. Use ALLMASK for all particle types.
- * This is much than _rebuild: because the particles are sorted by type the merge step is much faster than
+ * This is much faster than _full: because the particles are sorted by type the merge step is much faster than
  * with all particle types, and of course the tree is smaller.*/
-void force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, const int HybridNuGrav, const char * EmergencyOutputDir);
+void force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, const char * EmergencyOutputDir);
 
 /* Compute moments of the force tree, recursively, and update hmax.*/
 void force_tree_calc_moments(ForceTree * tree, DomainDecomp * ddecomp);
