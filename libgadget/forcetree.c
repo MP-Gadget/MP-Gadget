@@ -102,7 +102,7 @@ static void force_validate_nextlist(const ForceTree * tree)
                 current->s.suns[0], current->s.suns[1], current->s.suns[2], current->s.suns[3]);
         }
     }
-
+    walltime_measure("/Tree/Build/Validate");
 }
 #endif
 
@@ -128,8 +128,6 @@ force_tree_full(ForceTree * tree, DomainDecomp * ddecomp, const int HybridNuGrav
     /*No father array by default, only need it for hmax. We want moments.*/
     *tree = force_tree_build(ALLMASK, ddecomp, &act, HybridNuGrav, 1, 1, EmergencyOutputDir);
 
-    walltime_measure("/Tree/Build/Moments");
-
     int64_t allact;
     MPI_Reduce(&act.NumActiveParticle, &allact, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
     message(0, "Full Tree constructed with %ld particles (moments: %d). First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
@@ -148,8 +146,6 @@ force_tree_active_moments(ForceTree * tree, DomainDecomp * ddecomp, const Active
 
     /*No father array by default, only need it for hmax. We want moments.*/
     *tree = force_tree_build(ALLMASK, ddecomp, act, HybridNuGrav, 1, alloc_father, EmergencyOutputDir);
-
-    walltime_measure("/Tree/Build/Moments");
 
     int64_t allact;
     MPI_Reduce(&act->NumActiveParticle, &allact, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -259,8 +255,10 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
 
     tree.moments_computed_flag = 0;
 
-    if(DoMoments)
+    if(DoMoments) {
         force_tree_calc_moments(&tree, ddecomp);
+        walltime_measure("/Tree/Build/Moments");
+    }
 
     report_memory_usage("FORCETREE");
     tree.Nodes_base = (struct NODE *) myrealloc(tree.Nodes_base, (tree.numnodes +1) * sizeof(struct NODE));
