@@ -62,4 +62,6 @@ void SPH_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double * gra
 /* Predicted velocity for dark matter, ignoring the hydro component.*/
 void DM_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double * gravkick);
 
+/* Set the initial smoothing length for gas and BH. Used on first timestep in init()*/
+void set_init_hsml(ForceTree * tree, DomainDecomp * ddecomp, const double MeanGasSeparation);
 #endif
