@@ -463,9 +463,8 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
 
     ForceTree Tree = {0};
     /*At the first time step all particles should be active*/
-    ActiveParticles act = {0};
-    act.ActiveParticle = NULL;
-    act.NumActiveParticle = PartManager->NumPart;
+    ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
+
     /* Need moments because we use them to set Hsml*/
     force_tree_rebuild(&Tree, ddecomp, &act, 0, 1, NULL);
 
