@@ -432,8 +432,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         update_lastactive_drift(&times);
 
 
-        ActiveParticles Act = {0};
-        rebuild_activelist(&Act, &times, NumCurrentTiStep, atime);
+        ActiveParticles Act = build_active_particles(&times, NumCurrentTiStep, atime);
 
         set_random_numbers(All.RandomSeed + times.Ti_Current);
 
@@ -510,8 +509,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
         if(is_PM)
         {
-            ActiveParticles allpart = {0};
-            allpart.NumActiveParticle = PartManager->NumPart;
+            ActiveParticles allpart = init_empty_active_particles(PartManager->NumPart);
             /* Tree freed in PM*/
             ForceTree Tree = {0};
             force_tree_rebuild(&Tree, ddecomp, &allpart, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
@@ -535,8 +533,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             else if(All.TreeGravOn && totgravactive) {
                     /* We need a tree if we will do a short-range gravity treewalk.
                      * We also need one for PM so we can do the indexing.*/
-                    ActiveParticles allpart = {0};
-                    allpart.NumActiveParticle = PartManager->NumPart;
+                    ActiveParticles allpart = init_empty_active_particles(PartManager->NumPart);
                     /* Do a short range pairwise only step if desired*/
                     const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal);
                     force_tree_rebuild(&Tree, ddecomp, &allpart, HybridNuTracer, !pairwisestep && All.TreeGravOn, All.OutputDir);
@@ -753,7 +750,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         }
 
         /* We can now free the active list: the new step have new active particles*/
-        free_activelist(&Act);
+        free_active_particles(&Act);
 
         NumCurrentTiStep++;
     }
@@ -783,8 +780,7 @@ runfof(const int RestartSnapNum, const inttime_t Ti_Current, const struct header
     int HybridNuGrav = hybrid_nu_tracer(&All.CP, header->TimeSnapshot);
     /* Regenerate the star formation rate for the FOF table.*/
     if(All.StarformationOn) {
-        ActiveParticles Act = {0};
-        Act.NumActiveParticle = PartManager->NumPart;
+        ActiveParticles Act = init_empty_active_particles(PartManager->NumPart);
         MyFloat * GradRho = NULL;
         if(sfr_need_to_compute_sph_grad_rho()) {
             ForceTree gasTree = {0};
@@ -815,8 +811,7 @@ runpower(const struct header_data * header)
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
-    ActiveParticles Act = {0};
-    Act.NumActiveParticle = PartManager->NumPart;
+    ActiveParticles Act = init_empty_active_particles(PartManager->NumPart);
 
     /*PM needs a tree*/
     ForceTree Tree = {0};

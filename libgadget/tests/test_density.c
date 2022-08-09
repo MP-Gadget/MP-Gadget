@@ -102,9 +102,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     SlotsManager->info[0].size = numpart-npbh;
     SlotsManager->info[5].size = npbh;
     PartManager->NumPart = numpart;
-    ActiveParticles act = {0};
-    act.NumActiveParticle = numpart;
-    act.ActiveParticle = NULL;
+    ActiveParticles act = init_empty_active_particles(numpart);
     struct density_testdata * data = * (struct density_testdata **) state;
     DomainDecomp ddecomp = data->ddecomp;
     ddecomp.TopLeaves[0].topnode = PartManager->MaxPart;

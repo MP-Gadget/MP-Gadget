@@ -73,6 +73,14 @@ static inline int get_active_particle(const ActiveParticles * act, int pa)
         return pa;
 }
 
+ActiveParticles init_empty_active_particles(int64_t NumActiveParticle)
+{
+    ActiveParticles act = {0};
+    act.ActiveParticle = NULL;
+    act.NumActiveParticle = NumActiveParticle;
+    return act;
+}
+
 static int
 timestep_eh_slots_fork(EIBase * event, void * userdata)
 {
@@ -121,7 +129,7 @@ static void do_hydro_kick(int i, double dt_entr, double Fgravkick, double Fhydro
 
 /* Hierarchical gravity functions*/
 /* Build a sublist of particles gravitationally active and smaller than a timebin*/
-int build_active_sublist(ActiveParticles * sub_act, const ActiveParticles * act, const int maxtimebin, const inttime_t Ti_Current);
+ActiveParticles build_active_sublist(const ActiveParticles * act, const int maxtimebin, const inttime_t Ti_Current);
 
 /* Get the current PM (global) timestep.*/
 static inttime_t get_PM_timestep_ti(const DriftKickTimes * const times, const double atime, const Cosmology * CP, const int FastParticleType, const double asmth);
@@ -337,7 +345,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     if(act->NumActiveGravity == act->NumActiveParticle)
         memcpy(subact, act, sizeof(ActiveParticles));
     else
-        build_active_sublist(subact, act, largest_active, times->Ti_Current);
+        subact[0] = build_active_sublist(act, largest_active, times->Ti_Current);
     const double rho0 = CP->Omega0 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
     /* The acceleration stored in GravAccel is from the longest timestep for the previous half-step.
      * We can re-use that as nothing has been drifted since then, so we don't need to recompute here.
@@ -431,7 +439,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     /* Now loop over all lower timebins*/
     for(ti = largest_active-1; ti > 0; ti--) {
         ActiveParticles subact[1] = {0};
-        build_active_sublist(subact, lastact, ti, times->Ti_Current);
+        subact[0] = build_active_sublist(lastact, ti, times->Ti_Current);
         /* Free the last list*/
         if(lastact->ActiveParticle && lastact->ActiveParticle != act->ActiveParticle)
             myfree(lastact->ActiveParticle);
@@ -509,14 +517,14 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
     /* Compute forces for all active timebins.
      * All these timesteps should have particles in them: if they do
      * not we compute forces twice for no reason.*/
-    ActiveParticles lastact[1] = {0};
+    ActiveParticles lastact[1];
     /* If all particles are active, we don't need the sublist.
      * Note this is not unconditional
      * because some particles may be only hydro active.*/
     if(act->NumActiveGravity == act->NumActiveParticle)
         memcpy(lastact, act, sizeof(ActiveParticles));
     else {
-        build_active_sublist(lastact, act, ti, times->Ti_Current);
+        lastact[0] = build_active_sublist(act, ti, times->Ti_Current);
     }
     /* Tree with moments but only particle timesteps below this value.
      * Done for all currently active gravitational particles.
@@ -565,17 +573,15 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
     /* Some temporary memory for accelerations*/
     MyFloat (* GravAccel) [3] = NULL;
     for(ti = largest_active-1; ti >= times->mingravtimebin; ti--) {
-        ActiveParticles subact[1] = {0};
-        /* If all particles are active, we don't need the sublist.
-         * Note we can't just use largest_active
+        /* Note we can't just use largest_active
          * because some particles may be only hydro active.*/
-        build_active_sublist(subact, lastact, ti, times->Ti_Current);
+        ActiveParticles subact = build_active_sublist(lastact, ti, times->Ti_Current);
         /* Free previous list */
         if(lastact->ActiveParticle && lastact->ActiveParticle != act->ActiveParticle)
             myfree(lastact->ActiveParticle);
 
         int64_t tot_active, last_tot_active;
-        MPI_Allreduce(&subact->NumActiveGravity, &tot_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&subact.NumActiveGravity, &tot_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(&lastact->NumActiveGravity, &last_tot_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
         /* No need to recompute accelerations if the particle number is the same as an earlier computation*/
@@ -585,21 +591,21 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
             /* Allocate memory for the accelerations so we don't over-write the acceleration from the longest timestep*/
             GravAccel = (MyFloat (*) [3]) mymalloc2("GravAccel", PartManager->NumPart * sizeof(GravAccel[0]));
             /* Tree with moments but only particle timesteps below this value*/
-            grav_short_tree_build_tree(subact, pm, ddecomp, GravAccel, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
+            grav_short_tree_build_tree(&subact, pm, ddecomp, GravAccel, times->Ti_Current, rho0, HybridNuGrav, FastParticleType, EmergencyOutputDir);
         }
 
         /* We need to do the kick here based on the acceleration at the current level,
          * because we will over-write the acceleration*/
-        apply_hierarchical_grav_kick(subact, CP, times, GravAccel, ti, largest_active);
+        apply_hierarchical_grav_kick(&subact, CP, times, GravAccel, ti, largest_active);
 
         /* Copy over active list to some new memory so we can free the old one in order*/
-        memcpy(lastact, subact, sizeof(ActiveParticles));
-        if(subact->ActiveParticle){
+        memcpy(lastact, &subact, sizeof(ActiveParticles));
+        if(subact.ActiveParticle){
             /* Allocate high so we can free in order.*/
             lastact->ActiveParticle = mymalloc2("Last_active", sizeof(int)*lastact->NumActiveParticle);
-            memcpy(lastact->ActiveParticle, subact->ActiveParticle, sizeof(int)*lastact->NumActiveParticle);
+            memcpy(lastact->ActiveParticle, subact.ActiveParticle, sizeof(int)*lastact->NumActiveParticle);
             /* Free previous copy*/
-            myfree(subact->ActiveParticle);
+            myfree(subact.ActiveParticle);
         }
     }
     if(lastact->ActiveParticle && lastact->ActiveParticle != act->ActiveParticle)
@@ -665,9 +671,7 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
         else if (titype == TI_HSML)
             ntihsml++;
         /* Find a new particle bin.
-         * active particles always remain active
-         * until rebuild_activelist is called
-         * (after domain, on new timestep).*/
+         * Active particles remain active until a new timestep.*/
         int bin_hydro = get_timebin_from_dti(dti_hydro, P[i].TimeBinHydro, &badstepsizecount, times);
         /* Enforce that the hydro timestep is always shorter than or equal to the gravity timestep*/
         if(bin_hydro > P[i].TimeBinGravity)
@@ -781,10 +785,7 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
             else if (titype == TI_HSML)
                 ntihsml++;
         }
-        /* Find a new particle bin.
-         * active particles always remain active
-         * until rebuild_activelist is called
-         * (after domain, on new timestep).*/
+        /* Find a new particle bin active particles remain active until a new timestep. */
         int bin = get_timebin_from_dti(dti, P[i].TimeBinHydro, &badstepsizecount, times);
         /* Only update if both the old and new timebins are currently active.
          * We know that the shorter hydro timestep is active, but we need to check
@@ -1305,10 +1306,11 @@ inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin)
 static void print_timebin_statistics(const DriftKickTimes * const times, const int NumCurrentTiStep, int * TimeBinCountType, const double Time);
 
 /* mark the bins that will be active before the next kick*/
-int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times, int NumCurrentTiStep, const double Time)
+ActiveParticles build_active_particles(const DriftKickTimes * const times, int NumCurrentTiStep, const double Time)
 {
     int i;
 
+    ActiveParticles act[1] = {0};
     int NumThreads = omp_get_max_threads();
     /*Since we use a static schedule, only need NumPart/NumThreads elements per thread.*/
     size_t narr = PartManager->NumPart / NumThreads + NumThreads;
@@ -1390,13 +1392,13 @@ int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times
     event_listen(&EventSlotsFork, timestep_eh_slots_fork, act);
     walltime_measure("/Timeline/Active");
 
-    return 0;
+    return *act;
 }
 
 /* Build a sublist of particles, selected from the currently active particles,
  * which are gravitationally active and have a gravity timebin no larger than ti.*/
-int
-build_active_sublist(ActiveParticles * sub_act, const ActiveParticles * act, const int maxtimebin, const inttime_t Ti_Current)
+ActiveParticles
+build_active_sublist(const ActiveParticles * act, const int maxtimebin, const inttime_t Ti_Current)
 {
     int i;
 
@@ -1404,6 +1406,7 @@ build_active_sublist(ActiveParticles * sub_act, const ActiveParticles * act, con
     /*Since we use a static schedule, only need NumPart/NumThreads elements per thread.*/
     size_t narr = PartManager->NumPart / NumThreads + NumThreads;
 
+    ActiveParticles sub_act[1] = {0};
     /*Need space for more particles than we have, because of star formation*/
     sub_act->ActiveParticle = (int *) mymalloc("ActiveParticle", narr * NumThreads * sizeof(int));
     sub_act->NumActiveParticle = 0;
@@ -1444,10 +1447,10 @@ build_active_sublist(ActiveParticles * sub_act, const ActiveParticles * act, con
     ta_free(NActiveThread);
 
     sub_act->ActiveParticle = (int *) myrealloc(sub_act->ActiveParticle, sizeof(int)*(sub_act->NumActiveParticle));
-    return 0;
+    return *sub_act;
 }
 
-void free_activelist(ActiveParticles * act)
+void free_active_particles(ActiveParticles * act)
 {
     if(act->ActiveParticle) {
         myfree(act->ActiveParticle);

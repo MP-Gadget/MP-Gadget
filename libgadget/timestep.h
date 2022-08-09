@@ -7,16 +7,6 @@
 #include "petapm.h"
 #include "domain.h"
 
-/*Flat array containing all active particles:
-set in rebuild_activelist.*/
-typedef struct ActiveParticles
-{
-    int64_t MaxActiveParticle;
-    int64_t NumActiveParticle;
-    int64_t NumActiveGravity;
-    int *ActiveParticle;
-} ActiveParticles;
-
 /* Structure to hold the kickfactors around the current position on the integer timeline*/
 typedef struct
 {
@@ -36,8 +26,25 @@ typedef struct
     inttime_t PM_kick;  /* current inttime of PM Kick (velocity) */
 } DriftKickTimes;
 
-int rebuild_activelist(ActiveParticles * act, const DriftKickTimes * const times, int NumCurrentTiStep, const double Time);
-void free_activelist(ActiveParticles * act);
+/* Structure to hold data about the currently active particles. Similar to the WorkQueue structure in treebuild.
+ * ActiveParticle may be NULL: if so accesses should be forwarded to the particle manager.*/
+typedef struct ActiveParticles
+{
+    int64_t MaxActiveParticle;
+    int64_t NumActiveParticle;
+    int64_t NumActiveGravity;
+    int *ActiveParticle;
+} ActiveParticles;
+
+/* Initialise an empty active particle list,
+ * which will forward requests to the particle manager.
+ * No heap memory is allocated.*/
+ActiveParticles init_empty_active_particles(int64_t NumActiveParticle);
+/* Build a list of active particles from the particle manager, allocating memory for the active particle list.*/
+ActiveParticles build_active_particles(const DriftKickTimes * const times, int NumCurrentTiStep, const double Time);
+/* Free the active particle list if necessary*/
+void free_active_particles(ActiveParticles * act);
+/* Get the current scale factor*/
 double get_atime(const inttime_t Ti_Current);
 
 /* This function assigns new short-range timesteps to particles.

@@ -142,9 +142,7 @@ force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, cons
     }
 
     /* Build for all particles*/
-    ActiveParticles act;
-    act.NumActiveParticle = PartManager->NumPart;
-    act.ActiveParticle = NULL;
+    ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
     /* No moments*/
     *tree = force_tree_build(mask, ddecomp, &act, HybridNuGrav, 0, EmergencyOutputDir);
 

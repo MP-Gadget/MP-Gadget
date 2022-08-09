@@ -174,8 +174,7 @@ static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int di
         P[i].IsGarbage = 0;
     }
 
-    ActiveParticles act = {0};
-    act.NumActiveParticle = PartManager->NumPart;
+    ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
 
     DomainDecomp ddecomp = {0};
     domain_decompose_full(&ddecomp);

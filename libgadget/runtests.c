@@ -88,8 +88,7 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
 
     DriftKickTimes times = init_driftkicktime(Ti_Current);
     /* All particles are active*/
-    ActiveParticles Act = {0};
-    rebuild_activelist(&Act, &times, 0, header->TimeSnapshot);
+    ActiveParticles Act = build_active_particles(&times, 0, header->TimeSnapshot);
 
     ForceTree Tree = {0};
     force_tree_rebuild(&Tree, ddecomp, &Act, 1, 1, OutputDir);

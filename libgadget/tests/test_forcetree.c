@@ -19,28 +19,12 @@
 
 #include "stub.h"
 
-/*Particle data.*/
-struct part_manager_type PartManager[1];
-struct slots_manager_type SlotsManager[1];
-
 /* The true struct for the state variable*/
 struct forcetree_testdata
 {
     DomainDecomp ddecomp;
     gsl_rng * r;
 };
-
-/*Dummy versions of functions that implement only what we need for the tests:
- * most of these are used in the non-tested globally accessible parts of forcetree.c and
- * so not executed by our tests anyway.*/
-
-void dump_snapshot() { }
-
-double walltime_measure_full(const char * name, const char * file, const int line) {
-    return MPI_Wtime();
-}
-
-/*End dummies*/
 
 static int
 order_by_type_and_key(const void *a, const void *b)
@@ -226,8 +210,7 @@ static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp
     /*Time creating the nodes*/
     double start, end;
     start = MPI_Wtime();
-    ActiveParticles Act = {0};
-    Act.NumActiveParticle = numpart;
+    ActiveParticles Act = init_empty_active_particles(numpart);
     int nodes = force_tree_create_nodes(tb, &Act, ALLMASK, ddecomp, 0);
     tb.numnodes = nodes;
     assert_true(nodes < maxnode);
@@ -310,7 +293,8 @@ static void do_tree_mask_hmax_update_test(const int numpart, ForceTree * tb, Dom
     /*Time creating the nodes*/
     double start, end;
     start = MPI_Wtime();
-    int nodes = force_tree_create_nodes(*tb, numpart, GASMASK, ddecomp, 0);
+    ActiveParticles Act = init_empty_active_particles(numpart);
+    int nodes = force_tree_create_nodes(*tb, &Act, GASMASK, ddecomp, 0);
     tb->numnodes = nodes;
     end = MPI_Wtime();
     double ms = (end - start)*1000;
@@ -459,6 +443,8 @@ void trivial_domain(DomainDecomp * ddecomp)
     ddecomp->Tasks[0].EndLeaf = 1;
 }
 
+static struct ClockTable Clocks;
+
 static int setup_tree(void **state) {
     /*Set up the important parts of the All structure.*/
     /*Particles should not be outside this*/
@@ -472,6 +458,7 @@ static int setup_tree(void **state) {
     data->r = gsl_rng_alloc(gsl_rng_mt19937);
     gsl_rng_set(data->r, 0);
     *state = (void *) data;
+    walltime_init(&Clocks);
     return 0;
 }
 
