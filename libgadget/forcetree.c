@@ -1276,37 +1276,30 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
     for(i = 0; i < size; i++)
     {
         const int p_i = activeset ? activeset[i] : i;
-
         if(P[p_i].Type != 0 || P[p_i].IsGarbage)
             continue;
-
         int no = tree->Father[p_i];
+        MyFloat newhmax = tree->Nodes[no].mom.hmax;
+        no = tree->Nodes[no].father;
 
         while(no >= 0)
         {
+            int done = 0;
             /* How much does this particle peek beyond this node?
              * Note len does not change so we can read it without a lock or atomic. */
-            MyFloat readhmax, newhmax = 0;
-            int j;
-            for(j = 0; j < 3; j++) {
-                /* Compute each direction independently and take the maximum.
-                 * This is the largest possible distance away from node center within a cube bounding hsml.
-                 * Note that because Pos - Center < len/2, the maximum value this can have is Hsml.*/
-                newhmax = DMAX(newhmax, fabs(P[p_i].Pos[j] - tree->Nodes[no].center[j]) + P[p_i].Hsml - tree->Nodes[no].len/2.);
-            }
-            /* Most particles will lie fully inside a node. No need then for the atomic! */
-            if(newhmax <= 0)
-                break;
+            MyFloat readhmax;
 
             #pragma omp atomic read
             readhmax = tree->Nodes[no].mom.hmax;
             do {
                 if(newhmax <= readhmax) {
+                    done = 1;
                     break;
                 }
                 /* Swap in the new hmax only if the old one hasn't changed. */
             } while(!__atomic_compare_exchange(&(tree->Nodes[no].mom.hmax), &readhmax, &newhmax, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
-
+            if(done)
+                break;
             no = tree->Nodes[no].father;
         }
     }
@@ -1314,6 +1307,7 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
     double * TopLeafhmax = (double *) mymalloc("TopLeafMoments", ddecomp->NTopLeaves * sizeof(double));
     memset(&TopLeafhmax[0], 0, sizeof(double) * ddecomp->NTopLeaves);
 
+    #pragma omp parallel for
     for(i = ddecomp->Tasks[ThisTask].StartLeaf; i < ddecomp->Tasks[ThisTask].EndLeaf; i ++) {
         int no = ddecomp->TopLeaves[i].treenode;
         TopLeafhmax[i] = tree->Nodes[no].mom.hmax;
@@ -1323,6 +1317,7 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
     recvcounts = (int *) mymalloc("recvcounts", sizeof(int) * NTask);
     recvoffset = (int *) mymalloc("recvoffset", sizeof(int) * NTask);
 
+    #pragma omp parallel for
     for(recvTask = 0; recvTask < NTask; recvTask++)
     {
         recvoffset[recvTask] = ddecomp->Tasks[recvTask].StartLeaf;
