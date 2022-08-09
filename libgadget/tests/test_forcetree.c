@@ -15,7 +15,7 @@
 #include <libgadget/forcetree.h>
 #include <libgadget/partmanager.h>
 #include <libgadget/domain.h>
-
+#include <libgadget/walltime.h>
 
 #include "stub.h"
 
@@ -36,7 +36,7 @@ struct forcetree_testdata
 
 void dump_snapshot() { }
 
-double walltime_measure_full(char * name, char * file, int line) {
+double walltime_measure_full(const char * name, const char * file, const int line) {
     return MPI_Wtime();
 }
 
@@ -243,6 +243,85 @@ static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp
     check_moments(&tb, numpart, nrealnode);
 }
 
+/* Find the hmax value between a node and a particle.*/
+static double compute_distance(int i, struct NODE * node)
+{
+    double hmax = 0;
+    int j;
+    for(j = 0; j < 3; j++) {
+        /* Compute each direction independently and take the maximum.
+            * This is the largest possible distance away from node center within a cube bounding hsml.
+            * Note that because Pos - Center < len/2, the maximum value this can have is Hsml.*/
+        hmax = DMAX(hmax, fabs(P[i].Pos[j] - node->center[j]) + P[i].Hsml - node->len/2.);
+    }
+    return hmax;
+}
+
+/* Test whether particle is inside node.
+ * 0 if outside node, 1 if inside node. */
+static double check_inside(int i, struct NODE * node)
+{
+    int j;
+    for(j = 0; j < 3; j++)
+        if (fabs(P[i].Pos[j] - node->center[j]) > node->len/2)
+            return 0;
+    return 1;
+}
+
+/* This checks that the hmax moment in Nodes is correct:
+ * that is the distance between each particle and node center is larger than hmax.*/
+static int check_hmax(const ForceTree * tb, const int numpart)
+{
+    int i;
+    for(i=0; i<numpart; i++)
+    {
+        int j = tb->Father[i];
+        while(j >= 0) {
+            /* Test whether particle is in node*/
+            assert_true(check_inside(i, &tb->Nodes[j]));
+            /* Test whether hmax is set correctly*/
+            assert_false(compute_distance(i, &tb->Nodes[j]) > tb->Nodes[j].mom.hmax+1e-5);
+            assert_false(tb->Nodes[j].mom.hmax < 0);
+            j = tb->Nodes[j].father;
+        }
+    }
+    return 0;
+}
+
+static void do_tree_mask_hmax_update_test(const int numpart, ForceTree * tb, DomainDecomp * ddecomp)
+{
+    /*Sort by peano key so this is more realistic*/
+    int i;
+    #pragma omp parallel for
+    for(i=0; i<numpart; i++) {
+        P[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
+        P[i].Mass = 1;
+        P[i].PI = 0;
+        P[i].IsGarbage = 0;
+        P[i].Type = 0;
+        P[i].Hsml = PartManager->BoxSize/cbrt(numpart);
+    }
+    qsort(P, numpart, sizeof(struct particle_data), order_by_type_and_key);
+    PartManager->MaxPart = numpart;
+    PartManager->NumPart = numpart;
+    assert_true(tb->Nodes != NULL);
+    /*Time creating the nodes*/
+    double start, end;
+    start = MPI_Wtime();
+    int nodes = force_tree_create_nodes(*tb, numpart, GASMASK, ddecomp, 0);
+    tb->numnodes = nodes;
+    end = MPI_Wtime();
+    double ms = (end - start)*1000;
+    printf("Built gas tree in %.3g ms\n", ms);
+    /* now compute the multipole moments recursively */
+    start = MPI_Wtime();
+    force_update_hmax(NULL, PartManager->NumPart, tb, ddecomp);
+    end = MPI_Wtime();
+    ms = (end - start)*1000;
+    printf("Updated hmax in %.3g ms. Root hmax: %g\n", ms, tb->Nodes[tb->firstnode].mom.hmax);
+    check_hmax(tb, numpart);
+}
+
 static void test_rebuild_flat(void ** state) {
     /*Set up the particle data*/
     int ncbrt = 128;
@@ -270,6 +349,10 @@ static void test_rebuild_flat(void ** state) {
 
     do_tree_test(numpart, tb, &ddecomp);
     force_tree_free(&tb);
+    tb = force_treeallocate(numpart, numpart, &ddecomp);
+    do_tree_mask_hmax_update_test(numpart, &tb, &ddecomp);
+    assert_true(tb.Nodes[tb.firstnode].mom.hmax >= 0.0584);
+    force_tree_free(&tb);
     free(P);
 }
 
@@ -293,6 +376,9 @@ static void test_rebuild_close(void ** state) {
     ddecomp.TopLeaves[0].topnode = numpart;
     ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp);
     do_tree_test(numpart, tb, &ddecomp);
+    force_tree_free(&tb);
+    tb = force_treeallocate(numpart, numpart, &ddecomp);
+    do_tree_mask_hmax_update_test(numpart, &tb, &ddecomp);
     force_tree_free(&tb);
     free(P);
 }
@@ -340,6 +426,9 @@ static void test_rebuild_random(void ** state) {
     for(i=0; i<2; i++) {
         do_random_test(r, numpart, tb, &ddecomp);
     }
+    force_tree_free(&tb);
+    tb = force_treeallocate(numpart, numpart, &ddecomp);
+    do_tree_mask_hmax_update_test(numpart, &tb, &ddecomp);
     force_tree_free(&tb);
     free(P);
 }
