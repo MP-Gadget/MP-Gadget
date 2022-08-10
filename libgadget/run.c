@@ -222,7 +222,7 @@ begrun(const int RestartSnapNum, struct header_data * head)
 
 #ifdef DEBUG
     char * pidfile = fastpm_strdup_printf("%s/%s", All.OutputDir, "PIDs.txt");
-
+    fastpm_path_ensure_dirname(pidfile);
     MPIU_write_pids(pidfile);
     myfree(pidfile);
 #endif
