@@ -107,6 +107,11 @@ typedef struct ForceTree {
     int nfather;
     /*!< Store the size of the box used to build the tree, for periodic walking.*/
     double BoxSize;
+    /* If this is true, particles of the type FastParticleType do not contribute to moments.
+     * They still need to be in the tree so gravpm knows about them.*/
+    int FastParticleTracer;
+    /* Particle type to use as the tracer particle. Usually Type 2, neutrinos.*/
+    int FastParticleType;
 } ForceTree;
 
 /*Initialize the internal parameters of the forcetree module*/
@@ -160,7 +165,7 @@ force_get_father(int no, const ForceTree * tt);
 
 /*Internal API, exposed for tests*/
 int
-force_tree_create_nodes(const ForceTree tb, const ActiveParticles * act, int mask, DomainDecomp * ddecomp, const int HybridNuGrav);
+force_tree_create_nodes(const ForceTree tb, const ActiveParticles * act, int mask, DomainDecomp * ddecomp);
 
 ForceTree
 force_treeallocate(const int64_t maxnodes, const int64_t maxpart, const DomainDecomp * ddecomp, const int alloc_father);

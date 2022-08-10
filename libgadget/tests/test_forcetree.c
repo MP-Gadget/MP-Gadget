@@ -211,7 +211,7 @@ static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp
     double start, end;
     start = MPI_Wtime();
     ActiveParticles Act = init_empty_active_particles(numpart);
-    int nodes = force_tree_create_nodes(tb, &Act, ALLMASK, ddecomp, 0);
+    int nodes = force_tree_create_nodes(tb, &Act, ALLMASK, ddecomp);
     tb.numnodes = nodes;
     assert_true(nodes < maxnode);
     end = MPI_Wtime();
@@ -294,7 +294,7 @@ static void do_tree_mask_hmax_update_test(const int numpart, ForceTree * tb, Dom
     double start, end;
     start = MPI_Wtime();
     ActiveParticles Act = init_empty_active_particles(numpart);
-    int nodes = force_tree_create_nodes(*tb, &Act, GASMASK, ddecomp, 0);
+    int nodes = force_tree_create_nodes(*tb, &Act, GASMASK, ddecomp);
     tb->numnodes = nodes;
     end = MPI_Wtime();
     double ms = (end - start)*1000;

@@ -499,13 +499,13 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                     GravAccel.nstore = PartManager->NumPart + SlotsManager->info[0].size;
                     GravAccel.GravAccel = (MyFloat (*) [3]) mymalloc2("GravAccel", GravAccel.nstore * sizeof(GravAccel.GravAccel[0]));
                 }
-                hierarchical_gravity_accelerations(&Act, &pm, ddecomp, GravAccel, &times, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
+                hierarchical_gravity_accelerations(&Act, &pm, ddecomp, GravAccel, &times, HybridNuTracer, &All.CP, All.OutputDir);
             }
             else if(All.TreeGravOn && totgravactive) {
                     /* Do a short range pairwise only step if desired*/
                     const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal);
                     force_tree_full(&Tree, ddecomp, HybridNuTracer, All.OutputDir);
-                    grav_short_tree(&Act, &pm, &Tree, NULL, rho0, HybridNuTracer, All.FastParticleType, times.Ti_Current);
+                    grav_short_tree(&Act, &pm, &Tree, NULL, rho0, times.Ti_Current);
                     /* Now we have computed the total acceleration, set old acc for the next PM step.
                      * Done inside hierarchical_gravity_accelerations for the other branch.*/
                     if(is_PM)

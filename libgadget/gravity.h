@@ -54,8 +54,8 @@ struct gravshort_tree_params get_gravshort_treepar(void);
  * Note: tree is freed during this function*/
 void gravpm_force(PetaPM * pm, ForceTree * tree, Cosmology * CP, double Time, double UnitLength_in_cm, const char * PowerOutputDir, double TimeIC, int FastParticleType);
 
-void grav_short_pair(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double Rcut, double rho0, int NeutrinoTracer, int FastParticleType);
-void grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFloat (* AccelStore)[3], double rho0, int NeutrinoTracer, int FastParticleType, inttime_t Ti_Current);
+void grav_short_pair(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double Rcut, double rho0);
+void grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFloat (* AccelStore)[3], double rho0, inttime_t Ti_Current);
 
 /* Set the old acceleration from the PM and tree acceleration,
  * to be used over the whole PM step.*/
