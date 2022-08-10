@@ -1282,6 +1282,9 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
             continue;
         int no = tree->Father[p_i];
         MyFloat newhmax = tree->Nodes[no].mom.hmax;
+        int j;
+        for(j = 0; j < 3; j++)
+            newhmax = DMAX(newhmax, fabs(P[p_i].Pos[j] - tree->Nodes[no].center[j]) + P[p_i].Hsml - tree->Nodes[no].len/2.);
         no = tree->Nodes[no].father;
 
         while(no >= 0)
