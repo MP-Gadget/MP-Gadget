@@ -99,7 +99,7 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     struct gravshort_tree_params origtreeacc = get_gravshort_treepar();
     struct gravshort_tree_params treeacc = origtreeacc;
     const double rho0 = CP->Omega0 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
-    grav_short_pair(&Act, pm, &Tree, treeacc.Rcut, rho0);
+    grav_short_pair(&Act, pm, &Tree, NULL, treeacc.Rcut, rho0);
 
     double meanacc = copy_and_mean_accn(PairAccn);
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));

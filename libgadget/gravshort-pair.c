@@ -21,7 +21,7 @@ grav_short_pair_ngbiter(
         LocalTreeWalk * lv);
 
 void
-grav_short_pair(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double Rcut, double rho0)
+grav_short_pair(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFloat (* AccelStore)[3], double Rcut, double rho0)
 {
     TreeWalk tw[1] = {{0}};
 
@@ -36,7 +36,7 @@ grav_short_pair(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
         priv.CalcPotential = 1;
     else
         priv.CalcPotential = 0;
-    priv.Accel = NULL;
+    priv.Accel = AccelStore;
 
     message(0, "Starting pair-wise short range gravity...\n");
 

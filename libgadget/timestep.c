@@ -44,6 +44,7 @@ static struct timestep_params
 
     double MaxGasVel; /* Limit on Gas velocity */
     double CourantFac;		/*!< SPH-Courant factor */
+    double PairwiseActiveFraction; /* Fraction of particles that need to be active to do pairwise gravity. */
 } TimestepParams;
 
 /*Set the parameters of the hydro module*/
@@ -61,6 +62,7 @@ set_timestep_params(ParameterSet * ps)
         TimestepParams.ForceEqualTimesteps = param_get_int(ps, "ForceEqualTimesteps");
         TimestepParams.MaxRMSDisplacementFac = param_get_double(ps, "MaxRMSDisplacementFac");
         TimestepParams.CourantFac = param_get_double(ps, "CourantFac");
+        TimestepParams.PairwiseActiveFraction = param_get_double(ps, "PairwiseActiveFraction");
     }
     MPI_Bcast(&TimestepParams, sizeof(struct timestep_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -275,13 +277,17 @@ apply_hierarchical_grav_kick(const ActiveParticles * subact, Cosmology * CP, Dri
 
 /* Build a tree and use it to compute the gravitational accelerations*/
 void
-grav_short_tree_build_tree(const ActiveParticles * subact, PetaPM * pm, DomainDecomp * ddecomp, MyFloat (* AccelStore)[3], inttime_t Ti_Current, const double rho0, int HybridNuGrav, const char * EmergencyOutputDir)
+grav_short_tree_build_tree(const ActiveParticles * subact, PetaPM * pm, DomainDecomp * ddecomp, MyFloat (* AccelStore)[3], inttime_t Ti_Current, int pairwise, const double rho0, int HybridNuGrav, const char * EmergencyOutputDir)
 {
     /* Tree with only particle timesteps below this value*/
     ForceTree Tree = {0};
     /* No Father array here*/
     force_tree_active_moments(&Tree, ddecomp, subact, HybridNuGrav, 0, EmergencyOutputDir);
-    grav_short_tree(subact, pm, &Tree, AccelStore, rho0, Ti_Current);
+    if(pairwise) {
+      struct gravshort_tree_params gtp = get_gravshort_treepar();
+      grav_short_pair(subact, pm, &Tree, AccelStore, gtp.Rcut, rho0);
+    } else
+        grav_short_tree(subact, pm, &Tree, AccelStore, rho0, Ti_Current);
     force_tree_free(&Tree);
 }
 
@@ -377,6 +383,9 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
             break;
         }
 
+    int64_t tot_particle;
+    MPI_Allreduce(&PartManager->NumPart, &tot_particle, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+
     /* Push down the particles if necessary.*/
     /* This tests COLLECTIVELY for the timestep needing to shrink.
     If we are the topmost timestep and it needs to shrink for more than 33% of the particles,
@@ -442,11 +451,13 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
             break;
         }
 
+        /* Do pairwise gravity if we have few enough active particles.*/
+        int pairwise = tot_active < TimestepParams.PairwiseActiveFraction * tot_particle;
         /* Allocate memory for the accelerations so we don't over-write the acceleration from the longest timestep.
          * Need all particles as the index in the tree is the particle index. */
         MyFloat (*GravAccel)[3] = (MyFloat (*) [3]) mymalloc2("GravAccel", PartManager->NumPart * sizeof(GravAccel[0]));
         /* Do the accelerations and build the tree*/
-        grav_short_tree_build_tree(subact, pm, ddecomp, GravAccel, times->Ti_Current, rho0, HybridNuGrav, EmergencyOutputDir);
+        grav_short_tree_build_tree(subact, pm, ddecomp, GravAccel, times->Ti_Current, pairwise, rho0, HybridNuGrav, EmergencyOutputDir);
 
         /* We need to compute the new timestep here based on the acceleration at the current level,
          * because we will over-write the acceleration*/
@@ -506,6 +517,9 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
             break;
         }
     }
+    int64_t tot_particle, tot_active;
+    MPI_Allreduce(&PartManager->NumPart, &tot_particle, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+
 //     message(0, "Starting gravity accelerations: largest %d\n", largest_active);
     /* First loop is split out for clarity as it has a lot of special cases*/
     /* Compute forces for all active timebins.
@@ -520,10 +534,15 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
     else {
         lastact[0] = build_active_sublist(act, ti, times->Ti_Current);
     }
+
+    MPI_Allreduce(&lastact->NumActiveGravity, &tot_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    /* Do pairwise gravity if we have few enough active particles.*/
+    int pairwise = tot_active < TimestepParams.PairwiseActiveFraction * tot_particle;
+
     /* Tree with moments but only particle timesteps below this value.
      * Done for all currently active gravitational particles.
      * Stores acceleration in P[i].GravAccel.*/
-    grav_short_tree_build_tree(lastact, pm, ddecomp, StoredGravAccel.GravAccel, times->Ti_Current, rho0, HybridNuGrav, EmergencyOutputDir);
+    grav_short_tree_build_tree(lastact, pm, ddecomp, StoredGravAccel.GravAccel, times->Ti_Current, pairwise, rho0, HybridNuGrav, EmergencyOutputDir);
 
     /* We need to do the kick here based on the acceleration at the current level,
         * because we will over-write the acceleration*/
@@ -563,8 +582,10 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
                 myfree(GravAccel);
             /* Allocate memory for the accelerations so we don't over-write the acceleration from the longest timestep*/
             GravAccel = (MyFloat (*) [3]) mymalloc2("GravAccel", PartManager->NumPart * sizeof(GravAccel[0]));
+            /* Do pairwise gravity if we have few enough active particles.*/
+            int pairwise = tot_active < TimestepParams.PairwiseActiveFraction * tot_particle;
             /* Tree with moments but only particle timesteps below this value*/
-            grav_short_tree_build_tree(&subact, pm, ddecomp, GravAccel, times->Ti_Current, rho0, HybridNuGrav, EmergencyOutputDir);
+            grav_short_tree_build_tree(&subact, pm, ddecomp, GravAccel, times->Ti_Current, pairwise, rho0, HybridNuGrav, EmergencyOutputDir);
         }
 
         report_memory_usage("GRAVITY-SHORT");
