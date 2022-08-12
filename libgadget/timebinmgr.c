@@ -79,13 +79,23 @@ int OutputListAction(ParameterSet* ps, const char* name, void* data)
     }
     myfree(strtmp);
 
-    //This seems like the best place to also initialise the UVBG syncpoint parameters
-    Sync.ExcursionSetReionOn = param_get_int(ps,"ExcursionSetReionOn");
-    Sync.ExcursionSetZStart = param_get_double(ps,"ExcursionSetZStart");
-    Sync.ExcursionSetZStop = param_get_double(ps,"ExcursionSetZStop");
-    Sync.UVBGTimestep = param_get_double(ps,"UVBGTimestep");
-
     return 0;
+}
+
+//set the other sync params we can't get using the action
+void set_sync_params(ParameterSet * ps){
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask==0)
+    {
+        Sync.ExcursionSetReionOn = param_get_int(ps,"ExcursionSetReionOn");
+        Sync.ExcursionSetZStart = param_get_double(ps,"ExcursionSetZStart");
+        Sync.ExcursionSetZStop = param_get_double(ps,"ExcursionSetZStop");
+        Sync.UVBGTimestep = param_get_double(ps,"UVBGTimestep");
+    }
+
+    MPI_Bcast(&Sync, sizeof(struct sync_params), MPI_BYTE, 0, MPI_COMM_WORLD);
+    return;
 }
 
 static double integrand_time_to_present(double a, void *param)
@@ -126,7 +136,7 @@ static double time_to_present(double a, Cosmology * CP)
 }
 
 /* For the tests*/
-void set_sync_params(int OutputListLength, double * OutputListTimes)
+void set_sync_params_test(int OutputListLength, double * OutputListTimes)
 {
     int i;
     Sync.OutputListLength = OutputListLength;
@@ -194,6 +204,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
                 //message(0,"trying UVBG syncpoint at a = %.3e, z = %.3e, delta_lbt = %.3e\n",uv_a,1/uv_a - 1,delta_lbt);
             }
         }
+        message(0,"Added %d Syncpoints for the excursion Set",NSyncPoints-1);
     }
     
     SyncPoints[NSyncPoints].a = TimeMax;

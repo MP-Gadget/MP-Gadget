@@ -26,11 +26,11 @@ ap.add_argument("bigfile", help='comma separated list of paths to the MP-Gadget 
 ap.add_argument("--output", help='path to save the plots')
 ap.add_argument("--dataname", help='path to save the data')
 ap.add_argument("--reiongrid", help='comma separated paths to zreion grids')
+ap.add_argument("--gridname", help='comma separated names of datasets in bigfiles')
 ap.add_argument("--nion", type=int, default=4000, help='photons per stellar baryon')
 ap.add_argument("--fesc-n", type=float, help='ionising photon escape fraction norm')
 ap.add_argument("--fesc-s", type=float, help='ionising photon escape fraction halo mass scaling')
-ap.add_argument("--snapstart", type=int, default=0, help='starting snapshot')
-ap.add_argument("--snapend", type=int, default=-1, help='ending snapshot')
+ap.add_argument("--zlist", help='comma separated list of redshifts to plot')
 ap.add_argument("--show-plot", help="show plot with matplotlib", action="store_true")
 
 ns = ap.parse_args()
@@ -46,7 +46,7 @@ plt.rcParams["font.size"] = 10
 plt.rcParams["xtick.labelsize"] = 10
 plt.rcParams["ytick.labelsize"] = 10
 plt.rcParams["legend.fontsize"] = 8
-plt.rcParams["text.usetex"] = True
+plt.rcParams["text.usetex"] = False
 
 X_H = 0.76
 Y_He = 1 - X_H
@@ -72,10 +72,16 @@ cosmo = cosmology.FlatLambdaCDM(H0=h*100,Om0=Om0,Ob0=Ob0,Tcmb0=Tcmb0,m_nu=m_nu)
 def read_globalreion_info(fname,reiongrid=False):
     #set up the list of snapshots, and redshifts
     time_list = np.loadtxt(f'{fname}/Snapshots.txt', dtype=float, ndmin=2)
-    if ns.snapend == -1:
-        ns.snapend = int(time_list[-1,0])
     snapshot_list = time_list[:,0].astype(int)
-    mask = (snapshot_list <= ns.snapend) & (snapshot_list >= ns.snapstart)
+
+    #find which snapshots are in your list
+    if ns.zlist is not None:
+        zlist = np.fromstring(ns.zlist,dtype=float,sep=',')
+        mask = np.any(np.fabs(1/time_list[:,1][:,None] - 1 - zlist[None,:]) < 0.01,axis=1)
+
+    else:
+        mask = np.ones(snapshot_list.shape,dtype=bool)
+
     snapshot_list = snapshot_list[mask]
     time_list = time_list[mask,1]
     redshift_list = 1/time_list - 1
@@ -93,10 +99,11 @@ def read_globalreion_info(fname,reiongrid=False):
     #snapshot mask to account for missing snapshots
     snap_mask = np.ones(len(snapshot_list),dtype=bool)
 
-    #npart = BigFileCatalog(f'{fname}/PART_000/',dataset='0/',header='Header').attrs['TotNumPart'][0]
-
     comm = MPI.COMM_WORLD
     nrank = comm.Get_size()
+
+    if comm.rank == 0:
+        logger.info("plotting snapshots %s, z = %s = %s",snapshot_list,redshift_list)
 
     mean_bary_dens = (cosmo.critical_density(0) * cosmo.h**(-2) * cosmo.Ob0).to('g cm-3').value
 
@@ -122,9 +129,9 @@ def read_globalreion_info(fname,reiongrid=False):
 
         gas_xhi[i] = cat.compute((cat['Mass']*cat['NeutralHydrogenFraction']).sum())
         
-        #To get volume weighted, I need to make a grid, currently using 0.5Mpc resolution
+        #To get volume weighted, I need to make a grid, currently using 1Mpc resolution
         if reiongrid:
-            Nmesh = int(cat.attrs['BoxSize']/2000)
+            Nmesh = int(cat.attrs['BoxSize']/1000)
             mesh = cat.to_mesh(Nmesh=Nmesh,weight='Mass',value='NeutralHydrogenFraction',position='Position')    
             field = mesh.to_real_field(normalize=False)
             mesh_mass = cat.to_mesh(Nmesh=Nmesh,weight='Mass',position='Position')
@@ -135,9 +142,10 @@ def read_globalreion_info(fname,reiongrid=False):
         else:
             vol_xhi[i] = 0 #calculated later from file
 
-        sel_ion = (cat['NeutralHydrogenFraction'] < 0.1).compute()
+        
         J21_avg[i] = cat.compute((cat['Mass']*cat['J21']).sum())
         #particle weighted because of selection
+        sel_ion = (cat['NeutralHydrogenFraction'] < 0.1)
         J21_ion[i] = cat.compute((cat['J21'])[sel_ion].mean())
 
         dens = cat['Density'] * cat.attrs['UnitMass_in_g'] / cat.attrs['UnitLength_in_cm']**3 #* U.Unit('M_sun kpc-3')
@@ -146,9 +154,8 @@ def read_globalreion_info(fname,reiongrid=False):
         #sel_meandens = ((da.log10(delta) < 0.1) & (da.log10(delta) > -0.1)).compute()
         sel_meandens = ((delta < 1.1) & (delta > 1/1.1))
         #particle weighted in the selected bin
-        temps = u_to_t(cat['InternalEnergy'],cat['NeutralHydrogenFraction'])
-        buf = temps[sel_meandens].mean()
-        print(buf)
+        temps = u_to_t(cat['InternalEnergy'][sel_meandens],cat['NeutralHydrogenFraction'][sel_meandens])
+        buf = temps.mean()
         T0_avg[i] = cat.compute(buf)
 
         #multiply stellar mass by photons per stellar baryon
@@ -302,7 +309,7 @@ def plot_globalreion(result_dicts,redshifts):
         cnt += 1
     
     ax.axhline(P18_mean,linestyle=':',color='k')
-    ax.fill_between(np.array([0,np.amax(z)]),P18_bounds[0],P18_bounds[1],facecolor='black',alpha=0.2,label='Planck18')
+    ax.fill_between(np.array([5,12]),P18_bounds[0],P18_bounds[1],facecolor='black',alpha=0.2,label='Planck18')
     ax.set_xlim(5,12)
     ax.legend()
     #ax.set_xlabel('Redshift')
@@ -343,7 +350,7 @@ def plot_globalreion(result_dicts,redshifts):
     ax.errorbar(G12_W10_z,G12_W10_val,yerr=[G12_W10_erl,G12_W10_eru],fmt='go',markersize=3,elinewidth=1,capsize=3,label='Wyithe+ 10')
     ax.errorbar(G12_C11_z,G12_C11_val,yerr=[G12_C11_erl,G12_C11_eru],fmt='mo',markersize=3,elinewidth=1,capsize=3,label='Calverley+ 11')
     ax.set_xlim(5,7)
-    ax.set_ylim(1e-2,2e0)
+    ax.set_ylim(1e-2,1e1)
     ax.legend()
     ax.grid()
     #ax.set_xlabel('Redshift')
@@ -391,9 +398,10 @@ if __name__ == "__main__":
     #READ HERE
     comm = MPI.COMM_WORLD
     bigfiles = ns.bigfile.split(',')
-    gridfiles = ns.reiongrid.split(',')
     
     if ns.reiongrid is not None:
+        gridfiles = ns.reiongrid.split(',')
+        gridnames = ns.gridname.split(',')
         if len(gridfiles) != len(bigfiles):
             print('incompatible reion grids and bigfiles')
             quit()
@@ -401,7 +409,6 @@ if __name__ == "__main__":
     else:
         calc_reion_grid = True
 
-    print(bigfiles)
     dicts, redshifts = zip(*[read_globalreion_info(bf,calc_reion_grid) for bf in bigfiles])
 
     #COMUPUTE TAU, vol xhi AND ADD TO DICT
@@ -413,11 +420,11 @@ if __name__ == "__main__":
             if not calc_reion_grid:
                 #load zreion grid (made with get_xgrids.py)
                 reion_file = bf.File(gridfiles[i])
-                dset = reion_file[f'grid']
+                dset = reion_file[gridnames[i]]
                 reion_grid = dset.read(0,dset.size)
                 reion_file.close()
 
                 for j,z in enumerate(redshifts[i]):
-                    d['vol_xhi'][j] = (reion_grid > z).sum() / reion_grid.size
+                    d['vol_xhi'][j] = (reion_grid < z).sum() / reion_grid.size
 
         plot_globalreion(dicts,redshifts)

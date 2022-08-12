@@ -28,21 +28,6 @@ ns = ap.parse_args()
 snapshots = ns.snapshots.split(",")
 grid_prefix = ns.gridnames.split(",")
 
-# '008' 0.0625
-# '009' 0.0637278
-# '010' 0.07692
-# '011' 0.0839756
-# '012' 0.0909091
-# '013' 0.1
-# '014' 0.10753
-# '013' 0.1
-# '014' 0.10573
-# '015' 0.111111
-# '016' 0.114286
-# '017' 0.11653
-# '018' 0.11765
-# '019' 0.11953
-
 n_snap = len(snapshots)
 n_types = len(grid_prefix)
 
@@ -118,6 +103,9 @@ for i,p in enumerate(grid_prefix):
         #its temperature now
         c_lims.append(matplotlib.colors.LogNorm(vmin=1e2,vmax=1e5))
         c_maps.append(cm.plasma)
+    elif 'ZReionized' in p:
+        c_lims.append(matplotlib.colors.Normalize(vmin=5,vmax=12))
+        c_maps.append(cm.gist_rainbow_r)
     else:
         c_lims.append(matplotlib.colors.LogNorm())
         c_maps.append(cm.Purples)

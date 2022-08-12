@@ -861,10 +861,6 @@ static void fof_set_escapefraction(struct FOFGroups * fof, const int NgroupsExt,
             }
             int pi = HaloLabel[start].Pindex;
 
-            if(P[pi].GrNr != fof->Group[i].base.GrNr) {
-                endrun(3333, "GrNr mismatch\n");
-            }
-
             /* putting halo mass in escape fraction for now, converted before uvbg calculation */
             //TODO: switch this off for gas particles if we are smoothing the star formation rate
             if(P[pi].Type == 0){

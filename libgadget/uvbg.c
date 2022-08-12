@@ -78,10 +78,7 @@ void set_uvbg_params(ParameterSet * ps) {
         uvbg_params.EscapeFractionScaling = param_get_double(ps, "EscapeFractionScaling");
         uvbg_params.ReionUseParticleSFR = param_get_int(ps, "ReionUseParticleSFR");
         uvbg_params.ReionSFRTimescale = param_get_double(ps, "ReionSFRTimescale");
-        uvbg_params.AlphaUV = param_get_double(ps, "AlphaUV");
-        uvbg_params.UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
-        uvbg_params.UnitTime_in_s = param_get_double(ps, "UnitTime_in_s");
-        uvbg_params.UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
+        uvbg_params.UVBGdim = param_get_int(ps,"UVBGdim");
     }
 
     MPI_Bcast(&uvbg_params, sizeof(struct UVBGParams), MPI_BYTE, 0, MPI_COMM_WORLD);
@@ -509,7 +506,7 @@ static void init_particle_uvbg(){
 }
 
 //TODO:split up into more functions
-void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int WriteSnapshot, int SnapshotFileCount, char * OutputDir, double Time, Cosmology * CP){
+void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int WriteSnapshot, int SnapshotFileCount, char * OutputDir, double Time, Cosmology * CP, const struct UnitSystem units){
     //setup filter radius range
     double Rmax = uvbg_params.ReionRBubbleMax;
     double Rmin = uvbg_params.ReionRBubbleMin;
@@ -541,6 +538,9 @@ void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int Wri
     
     uvbg_params.Time = Time;
     uvbg_params.CP = CP;
+    uvbg_params.UnitMass_in_g = units.UnitMass_in_g;
+    uvbg_params.UnitLength_in_cm = units.UnitLength_in_cm;
+    uvbg_params.UnitTime_in_s = units.UnitTime_in_s;
 
     PetaPMGlobalFunctions global_functions = {NULL, NULL, divide_by_ncell};
 

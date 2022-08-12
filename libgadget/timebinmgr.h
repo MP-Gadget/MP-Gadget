@@ -61,7 +61,8 @@ inttime_t find_next_outputtime(inttime_t ti_curr);
 inttime_t out_from_ti(inttime_t ti);
 
 int OutputListAction(ParameterSet * ps, const char * name, void * data);
-void set_sync_params(int OutputListLength, double * OutputListTimes);
+void set_sync_params_test(int OutputListLength, double * OutputListTimes);
+void set_sync_params(ParameterSet * ps);
 void setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snapshot_until_time, int SnapshotWithFOF);
 
 SyncPoint *

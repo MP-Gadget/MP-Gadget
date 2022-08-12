@@ -13,18 +13,36 @@
 #include "utils/mymalloc.h"
 #include "utils/interp.h"
 #include "utils/endrun.h"
+#include "utils/paramset.h"
 
 static struct {
     int enabled;
     Interp interp;
     double * Table;
     ptrdiff_t Nside;
+} UVF;
 
+static struct UVFparams{
     /*settings for excursion set*/
     int ExcursionSetReionOn;
     double AlphaUV;
     double ExcursionSetZStop;
-} UVF;
+} uvf_params;
+
+//set the parameters we need for the excursion set option
+void set_uvf_params(ParameterSet * ps){
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask==0)
+    {
+        uvf_params.ExcursionSetReionOn = param_get_int(ps,"ExcursionSetReionOn");
+        uvf_params.ExcursionSetZStop = param_get_double(ps,"ExcursionSetZStop");
+        uvf_params.AlphaUV = param_get_double(ps,"AlphaUV");
+    }
+
+    MPI_Bcast(&uvf_params, sizeof(struct UVFparams), MPI_BYTE, 0, MPI_COMM_WORLD);
+    return;
+}
 
 /* Read a big array from filename/dataset into an array, allocating memory in buffer.
  * which is returned. Nread argument is set equal to number of elements read.*/
@@ -188,7 +206,7 @@ static struct UVBG get_local_UVBG_from_J21(double redshift, double J21, double z
     //but the global uv does an interpolation every time and this allows
     //for future inhomogeneous alpha
     //if this becomes a bottleneck we can set the coeffs globally
-    struct J21_coeffs J21toUV = get_J21_coeffs(UVF.AlphaUV);
+    struct J21_coeffs J21toUV = get_J21_coeffs(uvf_params.AlphaUV);
 
     uvbg.gJH0   = J21toUV.gJH0 * J21; // s-1
     uvbg.epsH0  = J21toUV.epsH0 * J21 * 1.60218e-12;  // erg s-1
@@ -215,7 +233,7 @@ static struct UVBG get_local_UVBG_from_J21(double redshift, double J21, double z
  * also if helium reion starts before the excursion set finishes, flash reionisations occur as we switch to global*/
 struct UVBG get_local_UVBG(double redshift, const struct UVBG * const GlobalUVBG, const double * const Pos, const double * const PosOffset, double J21, double zreion)
 {
-    if(UVF.ExcursionSetReionOn && (redshift > UVF.ExcursionSetZStop))
+    if(uvf_params.ExcursionSetReionOn && (redshift > uvf_params.ExcursionSetZStop))
     {
         return get_local_UVBG_from_J21(redshift,J21,zreion);
     }

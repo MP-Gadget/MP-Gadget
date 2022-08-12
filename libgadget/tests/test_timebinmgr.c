@@ -103,7 +103,7 @@ setup(void * p1, void * p2)
         logouts[i] = log(outs[i]);
     }
 
-    set_sync_params(OutputListLength, OutputListTimes);
+    set_sync_params_test(OutputListLength, OutputListTimes);
     return 0;
 }
 static int

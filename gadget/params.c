@@ -409,6 +409,7 @@ void read_parameter_file(char *fname, int * ShowBacktrace, double * MaxMemSizePe
     set_petaio_params(ps);
     set_timestep_params(ps);
     set_cooling_params(ps);
+    set_uvf_params(ps);
     set_density_params(ps);
     set_hydro_params(ps);
     set_qso_lightup_params(ps);
@@ -416,6 +417,7 @@ void read_parameter_file(char *fname, int * ShowBacktrace, double * MaxMemSizePe
     set_gravshort_tree_params(ps);
     set_domain_params(ps);
     set_sfr_params(ps);
+    set_sync_params(ps);
     set_uvbg_params(ps);
     set_winds_params(ps);
     set_fof_params(ps);

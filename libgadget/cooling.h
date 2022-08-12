@@ -2,6 +2,7 @@
 #define _COOLING_H_
 
 #include "cosmology.h"
+#include "utils/paramset.h"
 
 /* Ultra-violet background structure.
  * Can be changed on a particle-by-particle basis*/
@@ -61,6 +62,8 @@ struct UVBG get_global_UVBG(double redshift);
 /* Change the ultra-violet background table according to a pre-computed table of UV fluctuations.
  * This zeros the UVBG if this particular particle has not reionized yet*/
 struct UVBG get_local_UVBG(double redshift, const struct UVBG * const GlobalUVBG, const double * const Pos, const double * const PosOffset, double J21, double zreion);
+/* set parameters for the above local UVBG computation*/
+void set_uvf_params(ParameterSet * ps);
 
 /*Get the equilibrium temperature at given internal energy.
     density is total gas density in protons/cm^3
