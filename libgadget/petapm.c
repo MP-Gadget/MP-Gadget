@@ -307,8 +307,6 @@ pfft_complex * petapm_force_r2c(PetaPM * pm,
     pm_apply_transfer_function(pm, complx, rho_k, global_transfer);
     walltime_measure("/PMgrav/r2c");
 
-    report_memory_usage("PetaPM");
-
     myfree(complx);
     return rho_k;
 }
@@ -333,7 +331,10 @@ petapm_force_c2r(PetaPM * pm,
 
         double * real = (double * ) mymalloc2("PMreal", pm->priv->fftsize * sizeof(double));
         pfft_execute_dft_c2r(pm->priv->plan_back, complx, real);
+
         walltime_measure("/PMgrav/c2r");
+        if(f == functions) // Once
+            report_memory_usage("PetaPM");
         myfree(complx);
         /* read out the potential: this will copy and free real.*/
         layout_build_and_exchange_cells_to_local(pm, &pm->priv->layout, pm->priv->meshbuf, real);
