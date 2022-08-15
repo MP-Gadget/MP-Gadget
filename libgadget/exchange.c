@@ -206,12 +206,12 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
         return 1;
     }
 
-    partBuf = (struct particle_data *) mymalloc2("partBuf", plan->toGoSum.base * sizeof(struct particle_data));
-
     for(ptype = 0; ptype < 6; ptype++) {
         if(!sman->info[ptype].enabled) continue;
         slotBuf[ptype] = (char *) mymalloc2("SlotBuf", plan->toGoSum.slots[ptype] * sman->info[ptype].elsize);
     }
+
+    partBuf = (struct particle_data *) mymalloc2("partBuf", plan->toGoSum.base * sizeof(struct particle_data));
 
     ExchangePlanEntry * toGoPtr = ta_malloc("toGoPtr", ExchangePlanEntry, plan->NTask);
     memset(toGoPtr, 0, sizeof(toGoPtr[0]) * plan->NTask);
@@ -267,8 +267,6 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
         endrun(787878, "NumPart=%ld MaxPart=%ld\n", newNumPart, pman->MaxPart);
     }
 
-    slots_reserve(1, newSlots, sman);
-
     int * sendcounts = (int*) ta_malloc("sendcounts", int, plan->NTask);
     int * senddispls = (int*) ta_malloc("senddispls", int, plan->NTask);
     int * recvcounts = (int*) ta_malloc("recvcounts", int, plan->NTask);
@@ -288,6 +286,13 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
     MPI_Alltoallv_sparse(partBuf, sendcounts, senddispls, MPI_TYPE_PARTICLE,
                  pman->Base + pman->NumPart, recvcounts, recvdispls, MPI_TYPE_PARTICLE,
                  Comm);
+
+    /* Do not need Particle buffer any more, make space for more slots*/
+    myfree(partBuf);
+
+    slots_reserve(1, newSlots, sman);
+    /* Ensure the reservations are finished on all tasks before we start sending the data*/
+    MPI_Barrier(Comm);
 
     for(ptype = 0; ptype < 6; ptype ++) {
         /* skip unused slot types */
@@ -361,7 +366,6 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
         if(!sman->info[ptype].enabled) continue;
         myfree(slotBuf[ptype]);
     }
-    myfree(partBuf);
 
     pman->NumPart = newNumPart;
 
