@@ -245,6 +245,7 @@ static void filter_pm(PetaPM * pm, int64_t k2, int k[3], pfft_complex * value)
     }
 }
 
+#ifdef DEBUG
 //print some statistics of the reion grids for debugging
 static void print_reion_debug_info(PetaPM * pm_mass, float * J21, float * xHI, double * mass_real, double * star_real, double * sfr_real)
 {
@@ -309,6 +310,7 @@ static void print_reion_debug_info(PetaPM * pm_mass, float * J21, float * xHI, d
     message(0,"min star : %e | max star %e | total star : %e\n",min_star,max_star,total_star);
     message(0,"min sfr : %e | max sfr %e\n",min_sfr,max_sfr);
 }
+#endif
 
 
 //takes filtered mass, star, sfr grids and calculates J21 and neutral fractions onto a grid
