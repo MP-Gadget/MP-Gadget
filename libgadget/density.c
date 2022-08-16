@@ -88,6 +88,11 @@ SPH_EntVarPred(int PI, double MinEgySpec, double a3inv, double dloga)
 void
 SPH_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double * gravkick, double * hydrokick)
 {
+    if(i> PartManager->NumPart || i < 0)
+        endrun(1, "SPH_VelPred i = %d, bad %ld \n", i, PartManager->NumPart);
+    if(!gravkick)
+        endrun(6, "SPH_VelPred bad gravkick, i = %d\n", i);
+
     int j;
     /* Notice that the kick time for gravity and hydro may be different! So the prediction is also different*/
     for(j = 0; j < 3; j++) {
@@ -103,6 +108,10 @@ SPH_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double * gravkick
 void
 DM_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double * gravkick)
 {
+    if(i> PartManager->NumPart || i < 0)
+        endrun(1, "DM_VelPred i = %d, bad %ld \n", i, PartManager->NumPart);
+    if(!gravkick)
+        endrun(6, "DM_VelPred bad gravkick, i = %d\n", i);
     int j;
     for(j = 0; j < 3; j++)
         VelPred[j] = P[i].Vel[j] + gravkick[P[i].TimeBinGravity] * P[i].FullTreeGravAccel[j]+ P[i].GravPM[j] * FgravkickB;
