@@ -678,7 +678,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     /*************************************************************************/
 
     walltime_measure("/BH/Accretion");
-    MPIU_Barrier(MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD);
 
     /* Now do the swallowing of particles and dump feedback energy */
 
@@ -697,6 +697,8 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
 
     /*************************************************************************/
     walltime_measure("/BH/Feedback");
+
+    MPI_Barrier(MPI_COMM_WORLD);
 
     if(FdBlackholeDetails){
         collect_BH_info(ActiveBlackHoles, NumActiveBlackHoles, priv, FdBlackholeDetails);
