@@ -12,12 +12,7 @@ struct particle_data
     double Pos[3];   /*!< particle position at its current time */
     float Mass;     /*!< particle mass */
 
-    /* (jdavies): I moved this out of the bitfield because i need to access it by pointer in petapm.c
-     * This could also be done by passing a struct pointer instead of void* as the petapm pstruct */
-    int Type;
     struct {
-        /* particle type.  0=gas, 1=halo, 2=disk, 3=bulge, 4=stars, 5=bndry */
-        //unsigned int Type                 :4;
         unsigned int                      :4; /* UNUSED bits put here to maintain bit alignment */
 
         unsigned int IsGarbage            :1; /* True for a garbage particle. readonly: Use slots_mark_garbage to mark this.*/
@@ -33,6 +28,10 @@ struct particle_data
                                      * This could be a bitfield: it isn't because we need to change it in an atomic.
                                      * Changing a bitfield in an atomic seems to work in OpenMP 5.0 on gcc 9 and icc 18 and 19,
                                      * so we should be able to make it a bitfield at some point. */
+        /* particle type.  0=gas, 1=halo, 2=disk, 3=bulge, 4=stars, 5=bndry */
+        unsigned char Type;
+        /* (jdavies): I moved this out of the bitfield because i need to access it by pointer in petapm.c
+         * This could also be done by passing a struct pointer instead of void* as the petapm pstruct */
     };
 
     int PI; /* particle property index; used by BH, SPH and STAR.
