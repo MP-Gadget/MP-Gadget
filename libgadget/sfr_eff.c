@@ -463,9 +463,15 @@ cooling_direct(int i, const double redshift, const double a3inv, const double hu
     double unew;
     /* The particle reionized this timestep, bump the temperature to the HI reionization temperature.
      * We only do this for non-star-forming gas.*/
-    if(sfr_params.HIReionTemp > 0 && uvbg.zreion > redshift && uvbg.zreion < lastred) {
-        /* We assume it is fully ionized*/
-        const double meanweight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));
+    if(sfr_params.HIReionTemp > 0 && uvbg.zreion >= redshift && uvbg.zreion < lastred) {
+        /* We assume singly ionised helium at the time of reionisation */
+        /* The 100% correct thing to do is to solve for the equilibrium ne based on the local UVBG
+         * then calculate the mean weight based on this. The current approach will cause
+         * a boost in reionisation temperatures proportional to the residual neutral fraction,
+         * which should be relatively small most of the time */
+        /* TODO: Make sure that not setting SPHP.Ne(i) here doesn't mess up anything between
+         * now and the next cooling call when it gets set properly */
+        const double meanweight = 4 / (8 - 6 * (1 - HYDROGEN_MASSFRAC));
         unew = sfr_params.temp_to_u / meanweight * sfr_params.HIReionTemp;
         //We don't want gas to cool by ionising
         if(uold > unew) unew = uold;

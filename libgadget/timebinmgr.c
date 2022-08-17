@@ -204,7 +204,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
                 //message(0,"trying UVBG syncpoint at a = %.3e, z = %.3e, delta_lbt = %.3e\n",uv_a,1/uv_a - 1,delta_lbt);
             }
         }
-        message(0,"Added %d Syncpoints for the excursion Set",NSyncPoints-1);
+        message(0,"Added %d Syncpoints for the excursion Set\n",NSyncPoints-1);
     }
     
     SyncPoints[NSyncPoints].a = TimeMax;

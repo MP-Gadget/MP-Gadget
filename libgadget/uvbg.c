@@ -117,7 +117,7 @@ void save_uvbg_grids(int SnapshotFileCount, char * OutputDir, PetaPM * pm)
     MPI_Comm_size(MPI_COMM_WORLD, &n_ranks);
     MPI_Comm_rank(MPI_COMM_WORLD, &this_rank);
 
-    //TODO(jdavies): finish this grid writing function
+    //TODO(jdavies): finish this grid writing function, it outputs fine but in the wrong rank order
     BigFile fout;
     char fname[256];
     sprintf(fname, "%s/UVgrids_%03d", OutputDir,SnapshotFileCount);
@@ -377,13 +377,9 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
                 //convert mass to delta
                 density_over_mean = mass_real[pm_idx] * deltax_conv_factor;
 
-                /*TODO: ask Simon about this part of the model where we use mass in a sphere of radius R
-                 * at the density of the central cell */
                 f_coll_stars = star_real[pm_idx] / (RtoM(R) * density_over_mean)
                     * (4.0 / 3.0) * M_PI * R * R * R / pixel_volume;
 
-                //TODO(jdavies): Make sure the new sfr density isn't too bursty. If a cell has enough stellar
-                //mass to ionise, but low/no sfr, particles can recombine since they are connected via J21.
                 if(use_sfr)
                     sfr_density = sfr_real[pm_idx] / pixel_volume / (uvbg_params.UnitMass_in_g / SOLAR_MASS) * (uvbg_params.UnitTime_in_s / SEC_PER_YEAR); // In internal units
                 else
@@ -404,7 +400,7 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
                     // TODO(smutch): Do we want to implement this?
                     // r_bubble[i_real] = (float)R;
                 }
-                //TODO: implement CellSizeFactor
+                //TODO: implement CellSizeFactor for low-res
                 else if (last_step && (xHI[pm_idx] > FLOAT_REL_TOL)) {
                     // Check if this is the last filtering step.
                     // If so, assign partial ionisations to those cells which aren't fully ionised
@@ -415,7 +411,6 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
     // Find the volume and mass weighted neutral fractions
     // TODO: The deltax grid will have rounding errors from forward and reverse
     //       FFT. Should cache deltax slabs prior to ffts and reuse here.
-    // TODO: this could be put in the above loop
     if(last_step){
 
 #ifdef DEBUG
@@ -505,7 +500,6 @@ static void init_particle_uvbg(){
     }
 }
 
-//TODO:split up into more functions
 void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int WriteSnapshot, int SnapshotFileCount, char * OutputDir, double Time, Cosmology * CP, const struct UnitSystem units){
     //setup filter radius range
     double Rmax = uvbg_params.ReionRBubbleMax;
@@ -576,8 +570,7 @@ void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int Wri
             ,functions,&pstruct,&rstruct,reion_loop_pm,Rmax,Rmin,Rdelta
             ,uvbg_params.ReionUseParticleSFR,NULL);
 
-    //TODO: a particle loop that detects new ionisations, saves J21_at_ion and z_at_ion
-    //TODO: multiply J21_at_ion with halo bias??
+    //TODO: In line with Meraxes, should we multiply J21 with a halo bias parameter for particles in a group??
 
     walltime_measure("/UVBG/find_HII_bubbles");
 

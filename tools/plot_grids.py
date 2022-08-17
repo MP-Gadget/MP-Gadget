@@ -101,7 +101,7 @@ for i,p in enumerate(grid_prefix):
         c_maps.append(cm.viridis)
     elif 'InternalEnergy' in p:
         #its temperature now
-        c_lims.append(matplotlib.colors.LogNorm(vmin=1e2,vmax=1e5))
+        c_lims.append(matplotlib.colors.LogNorm(vmin=1e3,vmax=3e4))
         c_maps.append(cm.plasma)
     elif 'ZReionized' in p:
         c_lims.append(matplotlib.colors.Normalize(vmin=5,vmax=12))

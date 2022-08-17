@@ -103,7 +103,7 @@ def read_globalreion_info(fname,reiongrid=False):
     nrank = comm.Get_size()
 
     if comm.rank == 0:
-        logger.info("plotting snapshots %s, z = %s = %s",snapshot_list,redshift_list)
+        logger.info("plotting snapshots %s, z = %s",snapshot_list,redshift_list)
 
     mean_bary_dens = (cosmo.critical_density(0) * cosmo.h**(-2) * cosmo.Ob0).to('g cm-3').value
 
@@ -165,11 +165,14 @@ def read_globalreion_info(fname,reiongrid=False):
         if ns.fesc_n is not None:            
             #we only want fof info if we are comparing against a given escape fraction
             if ns.fesc_s is not None and ns.fesc_n is not None:
-                cat = BigFileCatalog(fofname,dataset='FOFGroups/',header='Header')
-                fof_fesc = ns.fesc_n * (cat['Mass']/h/1.)**ns.fesc_s #already in 1e10 solar
-                fof_fesc = da.minimum(fof_fesc,1.)
-                fof_star = da.transpose(cat['MassByType'])[4]
-                phot_fof[i] = cat.compute((fof_fesc*fof_star).sum()) * ns.nion / (1 - 0.75*Y_He), #escape fraction weighted GSM
+                cat = BigFileCatalog(fofname,dataset='FOFGroups/',exclude=['GasMetalMass','StellarMetalMass'],header='Header')
+                if cat.size == 0:
+                    phot_fof[i] = 0
+                else:
+                    fof_fesc = ns.fesc_n * (cat['Mass']/h/1.)**ns.fesc_s #already in 1e10 solar
+                    fof_fesc = da.minimum(fof_fesc,1.)
+                    fof_star = da.transpose(cat['MassByType'])[4]
+                    phot_fof[i] = cat.compute((fof_fesc*fof_star).sum()) * ns.nion / (1 - 0.75*Y_He) #escape fraction weighted GSM
             #constant escape only needs stars
             else:
                 cat = BigFileCatalog(filename,dataset='4/',header='Header')
@@ -245,6 +248,8 @@ def plot_globalreion(result_dicts,redshifts):
     colors = ['C1','C2','C3','C4','C5','C6','C7','C8','C9','C10']
     cnt = 0
     for res,z in zip(result_dicts,redshifts):
+        logger.info(f"MASS PHOT RATIO: {(1-res['phot_fof'])/res['mass_xhi']}")
+        logger.info(f"VOL PHOT RATIO: {(1-res['phot_fof'])/res['vol_xhi']}")
         if ns.fesc_n is not None:
             axxH.plot(z, 1 - res['phot_fof'], label=f'photons / H (fn = {ns.fesc_n}, fs = {ns.fesc_s})')
         axxH.plot(z,res['mass_xhi'],color=colors[cnt],linewidth=1,linestyle=':')

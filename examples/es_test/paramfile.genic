@@ -11,8 +11,6 @@ OmegaBaryon = 0.0464     # Baryon density        (at z=0)
 ProduceGas = 1         # 1 = Produce gas  0 = no gas, just DM.
 HubbleParam = 0.697      # Hubble paramater (may be used for power spec parameterization)
 
-Sigma8 = 0.810      # power spectrum normalization
-
 Redshift = 99        # Starting redshift
 
 DifferentTransferFunctions = 1
