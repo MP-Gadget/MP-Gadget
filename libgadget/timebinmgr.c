@@ -220,14 +220,17 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
         double a = Sync.OutputListTimes[i];
         double loga = log(a);
 
+        if(a < TimeIC || a > TimeMax) {
+            /*If the user inputs syncpoints outside the scope of the simulation, it can mess
+             *with the timebins, which causes errors when calculating densities from the ICs,
+             *so we exclude them here*/
+            continue;
+        }
+
         for(j = 0; j < NSyncPoints; j ++) {
             if(a <= SyncPoints[j].a) {
                 break;
             }
-        }
-        if(j == NSyncPoints) {
-            /* beyond TimeMax, skip */
-            continue;
         }
         /* found, so loga >= SyncPoints[j].loga */
         if(a == SyncPoints[j].a) {
