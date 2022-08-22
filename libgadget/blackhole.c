@@ -436,6 +436,10 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
     for(i = 0; i < NumActiveBlackHoles; i++)
     {
         const int p_i = ActiveBlackHoles ? ActiveBlackHoles[i] : i;
+        if(p_i < 0 || p_i > PartManager->NumPart)
+            endrun(1, "Bad index %d in black hole with %d active, %ld total\n", p_i, NumActiveBlackHoles, PartManager->NumPart);
+        if(P[p_i].Type != 5)
+            endrun(1, "Supposed BH %d of %d has type %d\n", p_i, NumActiveBlackHoles, P[p_i].Type);
         int PI = P[p_i].PI;
 
         struct BHinfo *info = &infos[i];
