@@ -1088,6 +1088,8 @@ static void
 blackhole_feedback_postprocess(int n, TreeWalk * tw)
 {
     const int PI = P[n].PI;
+    if(n < 0 || n > PartManager->NumPart || PI < 0 || P[n].Type != 5 || PI > SlotsManager->info[5].size )
+        endrun(4, "Invalid BH: n = %d PI %d type %d slots %ld numpart %ld\n", n, PI, P[n].Type, SlotsManager->info[5].size, PartManager->NumPart);
     if(BH_GET_PRIV(tw)->BH_accreted_BHMass[PI] > 0){
        BHP(n).Mass += BH_GET_PRIV(tw)->BH_accreted_BHMass[PI];
     }
