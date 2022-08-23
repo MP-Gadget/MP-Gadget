@@ -81,7 +81,7 @@ void init_timeline(Cosmology * CP, int RestartSnapNum, double TimeMax, const str
 
 
 static void get_mean_separation(double * MeanSeparation, const double BoxSize, const int64_t * NTotalInit);
-static void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int generations, double G, double * MassTable);
+static void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int generations, double * MassTable);
 static void check_positions(struct part_manager_type * PartManager);
 static void check_smoothing_length(struct part_manager_type * PartManager, double * MeanSpacing);
 static void init_alloc_particle_slot_memory(struct part_manager_type * PartManager, struct slots_manager_type * SlotsManager, const double PartAllocFactor, struct header_data * header, MPI_Comm Comm);
@@ -100,7 +100,7 @@ inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * 
 
     domain_test_id_uniqueness(PartManager);
 
-    check_omega(PartManager, CP, get_generations(), CP->GravInternal, header->MassTable);
+    check_omega(PartManager, CP, get_generations(), header->MassTable);
 
     check_positions(PartManager);
 
@@ -194,7 +194,7 @@ inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * 
 /*! This routine computes the mass content of the box and compares it to the
  * specified value of Omega-matter.  If discrepant, the run is terminated.
  */
-void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int generations, double G, double * MassTable)
+void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int generations, double * MassTable)
 {
     double mass = 0, masstot, omega;
     int i, badmass = 0;
@@ -218,7 +218,7 @@ void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int gen
         message(0, "Warning: recovering from %ld Mass entries corrupted on disc\n",totbad);
 
     omega =
-        masstot / (PartManager->BoxSize * PartManager->BoxSize * PartManager->BoxSize) / (3 * CP->Hubble * CP->Hubble / (8 * M_PI * G));
+        masstot / (PartManager->BoxSize * PartManager->BoxSize * PartManager->BoxSize) / CP->RhoCrit;
 
     /*Add the density for analytically follows massive neutrinos*/
     if(CP->MassiveNuLinRespOn)

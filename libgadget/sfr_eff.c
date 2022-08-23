@@ -846,7 +846,7 @@ void init_cooling_and_star_formation(int CoolingOn, int StarformationOn, Cosmolo
 
     sfr_params.tau_fmol_unit = units.UnitDensity_in_cgs*CP->HubbleParam*units.UnitLength_in_cm;
     sfr_params.OverDensThresh =
-        sfr_params.CritOverDensity * CP->OmegaBaryon * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
+        sfr_params.CritOverDensity * CP->OmegaBaryon * CP->RhoCrit;
 
     sfr_params.PhysDensThresh = sfr_params.CritPhysDensity * PROTONMASS / HYDROGEN_MASSFRAC / units.UnitDensity_in_cgs;
 
@@ -866,7 +866,7 @@ void init_cooling_and_star_formation(int CoolingOn, int StarformationOn, Cosmolo
 
         double u4 = sfr_params.temp_to_u/meanweight * 1.0e4;
 
-        double dens = 1.0e6 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
+        double dens = 1.0e6 * CP->RhoCrit;
 
         double ne = 1.0;
 
