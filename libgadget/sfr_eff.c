@@ -468,7 +468,8 @@ cooling_direct(int i, const double redshift, const double a3inv, const double hu
         /* The 100% correct thing to do is to solve for the equilibrium ne based on the local UVBG
          * then calculate the mean weight based on this. The current approach will cause
          * a boost in reionisation temperatures proportional to the residual neutral fraction,
-         * which should be relatively small most of the time */
+         * which should be relatively small most of the time. The 6 is because helium is singly
+         * ionized, not doubly so.*/
         /* TODO: Make sure that not setting SPHP.Ne(i) here doesn't mess up anything between
          * now and the next cooling call when it gets set properly */
         const double meanweight = 4 / (8 - 6 * (1 - HYDROGEN_MASSFRAC));
