@@ -44,6 +44,7 @@ struct FOFParams
     int FOFHaloMinLength;
     int FOFPrimaryLinkTypes;
     int FOFSecondaryLinkTypes;
+    int ExcursionSetReionOn;
 } fof_params;
 
 /*Set the parameters of the BH module*/
@@ -59,6 +60,7 @@ void set_fof_params(ParameterSet * ps)
         fof_params.MinMStarForNewSeed = param_get_double(ps, "MinMStarForNewSeed");
         fof_params.FOFPrimaryLinkTypes = param_get_int(ps, "FOFPrimaryLinkTypes");
         fof_params.FOFSecondaryLinkTypes = param_get_int(ps, "FOFSecondaryLinkTypes");
+        fof_params.ExcursionSetReionOn = param_get_int(ps, "ExcursionSetReionOn");
     }
     MPI_Bcast(&fof_params, sizeof(struct FOFParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -831,6 +833,46 @@ fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt)
     return Group;
 }
 
+/* TODO: It would be a good idea to generalise this to arbitrary fof/particle properties */
+static void fof_set_escapefraction(struct FOFGroups * fof, const int NgroupsExt, struct fof_particle_list * HaloLabel)
+{
+    int i = 0;
+    #pragma omp parallel for
+    for(i = 0; i < PartManager->NumPart; i++){
+        if(P[i].Type == 0){
+            SPHP(i).EscapeFraction = 0.;
+        }
+        if(P[i].Type == 4){
+            STARP(i).EscapeFraction = 0.;	/* will mark particles that are not in any group */
+        }
+    }
+
+    int start = 0;
+    for(i = 0; i < NgroupsExt; i++)
+    {
+        /* find the first particle */
+        for(;start < PartManager->NumPart; start++) {
+            if(HaloLabel[start].MinID >= fof->Group[i].base.MinID) break;
+        }
+        /* add particles */
+        for(;start < PartManager->NumPart; start++) {
+            if(HaloLabel[start].MinID != fof->Group[i].base.MinID) {
+                break;
+            }
+            int pi = HaloLabel[start].Pindex;
+
+            /* putting halo mass in escape fraction for now, converted before uvbg calculation */
+            //TODO: switch this off for gas particles if we are smoothing the star formation rate
+            if(P[pi].Type == 0){
+                SPHP(pi).EscapeFraction = fof->Group[i].Mass;
+            }
+            else if(P[pi].Type == 4){
+                STARP(pi).EscapeFraction = fof->Group[i].Mass;
+            }
+        }
+    }
+}
+
 static void
 fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, struct fof_particle_list * HaloLabel, MPI_Comm Comm)
 {
@@ -873,6 +915,10 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, struct fof_p
     }
 
     fof_finish_group_properties(fof, PartManager->BoxSize);
+
+    /* feed group property back to each particle. */
+    if(fof_params.ExcursionSetReionOn)
+        fof_set_escapefraction(fof, NgroupsExt, HaloLabel);
 
     int64_t TotNids;
     sumup_large_ints(1, &fof->Ngroups, &fof->TotNgroups);

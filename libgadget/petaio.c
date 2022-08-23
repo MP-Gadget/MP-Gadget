@@ -47,6 +47,8 @@ static struct petaio_params {
     char SnapshotFileBase[100]; /* Snapshots are written to OutputDir/SnapshotFileBase_$n*/
     char InitCondFile[100]; /* Path to read ICs from is InitCondFile */
 
+    int ExcursionSetReionOn;
+
 } IO;
 
 /* Struct to store constant information written to each snapshot header*/
@@ -71,6 +73,7 @@ set_petaio_params(ParameterSet * ps)
         IO.OutputHeliumFractions = param_get_int(ps, "OutputHeliumFractions");
         param_get_string2(ps, "SnapshotFileBase", IO.SnapshotFileBase, sizeof(IO.SnapshotFileBase));
         param_get_string2(ps, "InitCondFile", IO.InitCondFile, sizeof(IO.InitCondFile));
+        IO.ExcursionSetReionOn = param_get_int(ps,"ExcursionSetReionOn");
     }
     MPI_Bcast(&IO, sizeof(struct petaio_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -802,6 +805,11 @@ SIMPLE_PROPERTY_PI(BlackholeMseed, Mseed, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeKineticFdbkEnergy, KineticFdbkEnergy, float, 1, struct bh_particle_data)
 
 SIMPLE_SETTER_PI(STBlackholeMinPotPos , MinPotPos[0], double, 3, struct bh_particle_data)
+
+/* extra properties from excursion set addition */
+SIMPLE_PROPERTY_PI(J21, local_J21, float, 1, struct sph_particle_data)
+SIMPLE_PROPERTY_PI(ZReionized, zreion, float, 1, struct sph_particle_data)
+    
 static void GTBlackholeMinPotPos(int i, double * out, void * baseptr, void * smanptr, const struct conversions * params) {
     /* Remove the particle offset before saving*/
     struct particle_data * part = (struct particle_data *) baseptr;
@@ -992,6 +1000,13 @@ void register_io_blocks(struct IOTable * IOTable, int WriteGroupID, int MetalRet
     IO_REG_NONFATAL(BlackholeSwallowID, "u8", 1, 5, IOTable);
     /* Time the BH was swallowed*/
     IO_REG_NONFATAL(BlackholeSwallowTime, "f4", 1, 5, IOTable);
+
+    /* excursion set */
+    if(IO.ExcursionSetReionOn){
+        IO_REG_NONFATAL(J21,"f4",1,0,IOTable);
+        IO_REG_NONFATAL(ZReionized,"f4",1,0,IOTable);
+    }
+    /* end excursion set*/
 
     /*Sort IO blocks so similar types are together; then ordered by the sequence they are declared. */
     qsort_openmp(IOTable->ent, IOTable->used, sizeof(struct IOTableEntry), order_by_type);

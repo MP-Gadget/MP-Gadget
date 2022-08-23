@@ -68,6 +68,8 @@ struct qso_lightup_params
     double heIIIreion_finish_frac; /* When the desired ionization fraction exceeds this value,
                                       the code will flash-ionize all remaining particles*/
     double heIIIreion_start; /* Time at which start_reionization is called and helium III reionization begins*/
+
+    double ExcursionSetZStop; /* The stopping point of the excursion set, needs to be here to avoid overlap since the models aren't integrated*/
 };
 
 static struct qso_lightup_params QSOLightupParams;
@@ -102,6 +104,7 @@ set_qso_lightup_params(ParameterSet * ps)
         QSOLightupParams.mean_bubble = param_get_double(ps, "QSOMeanBubble");
         QSOLightupParams.var_bubble = param_get_double(ps, "QSOVarBubble");
         QSOLightupParams.heIIIreion_finish_frac = param_get_double(ps, "QSOHeIIIReionFinishFrac");
+        QSOLightupParams.ExcursionSetZStop = param_get_double(ps,"ExcursionSetZStop");
     }
     MPI_Bcast(&QSOLightupParams, sizeof(struct qso_lightup_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -232,6 +235,14 @@ load_heii_reion_hist(const char * reion_hist_file)
     QSOLightupParams.heIIIreion_start = 1/He_zz[0]-1;
 
     message(0, "HeII: Read %d lines z_reion = %g - %g from file %s\n", Nreionhist, 1/He_zz[0] -1, 1/He_zz[Nreionhist-1]-1, reion_hist_file);
+
+    /* we can't have helium reionisation start while the excursion set
+     * is going, so we will stop the excursion set beforehand */
+    if(QSOLightupParams.heIIIreion_start > QSOLightupParams.ExcursionSetZStop){
+        message(0,"Excursion set would stop during/after helium reionisation at %f, will now stop at %f\n",
+                QSOLightupParams.ExcursionSetZStop,QSOLightupParams.heIIIreion_start);
+        QSOLightupParams.ExcursionSetZStop = QSOLightupParams.heIIIreion_start;
+    }
 }
 
 void

@@ -38,6 +38,7 @@ INCL = densitykernel.h \
 	walltime.h \
 	neutrinos_lra.h \
 	omega_nu_single.h \
+	uvbg.h \
 utils/unitsystem.h \
 utils/peano.h \
 utils/interp.h \
@@ -107,7 +108,8 @@ GADGET_OBJS =  \
 	 runtests.o \
 	 neutrinos_lra.o \
      omega_nu_single.o \
-	 config.o
+	 config.o \
+	 uvbg.o
 
 GADGET_UTILS_OBJS= \
 utils/endrun.o \
@@ -127,6 +129,7 @@ utils/spinlocks.o
 
 GADGET_OBJS := $(GADGET_OBJS:%=.objs/%)
 GADGET_UTILS_OBJS := $(GADGET_UTILS_OBJS:%=.objs/%)
+
 all: libgadget.a libgadget-utils.a
 
 .PHONY: all test run-tests
@@ -135,6 +138,9 @@ all: libgadget.a libgadget-utils.a
 	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 .objs/test_%: tests/test_%.c .objs/%.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
+	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
+
+.objs/test_timebinmgr: tests/test_timebinmgr.c .objs/timebinmgr.o .objs/cosmology.o .objs/omega_nu_single.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
 	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 .objs/test_neutrinos_lra: tests/test_neutrinos_lra.c .objs/neutrinos_lra.o .objs/cosmology.o .objs/omega_nu_single.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
@@ -193,3 +199,22 @@ EXISTGIT=$(shell grep "GADGET_VERSION" config.c)
 ifeq (,$(findstring $(GIT),$(EXISTGIT)))
 .PHONY: config.c
 endif
+
+MPI_SHOWME := $(shell $(MPICC) -showme)
+
+.objs/%.compdb_entry: %.c
+	@echo "    {" > $@
+	@echo "        \"command\": \"$(MPI_SHOWME) $(CFLAGS) -c $<\","   >> $@
+	@echo "        \"directory\": \"$(CURDIR)\","               >> $@
+	@echo "        \"file\": \"$<\""                    >> $@
+	@echo "    },"                              >> $@
+
+COMPDB_ENTRIES = $(addsuffix .compdb_entry, $(basename $(GADGET_OBJS)))
+
+compile_commands.json: $(COMPDB_ENTRIES)
+	@echo "[" > $@.tmp
+	@cat $^ >> $@.tmp
+	@sed '$$d' < $@.tmp > $@
+	@echo "    }" >> $@
+	@echo "]" >> $@
+	@rm $@.tmp

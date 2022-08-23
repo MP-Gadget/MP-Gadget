@@ -78,8 +78,10 @@ static struct SFRParams
     double HIReionTemp;
     /* Input files for the various cooling modules*/
     char TreeCoolFile[100];
+    char J21CoeffFile[100];
     char MetalCoolFile[100];
     char UVFluctuationFile[100];
+
     /* File with the helium reionization table*/
     char ReionHistFile[100];
 } sfr_params;
@@ -154,6 +156,7 @@ void set_sfr_params(ParameterSet * ps)
 
         /* File names*/
         param_get_string2(ps, "TreeCoolFile", sfr_params.TreeCoolFile, sizeof(sfr_params.TreeCoolFile));
+        param_get_string2(ps, "J21CoeffFile", sfr_params.J21CoeffFile, sizeof(sfr_params.J21CoeffFile));
         param_get_string2(ps, "UVFluctuationfile", sfr_params.UVFluctuationFile, sizeof(sfr_params.UVFluctuationFile));
         param_get_string2(ps, "MetalCoolFile", sfr_params.MetalCoolFile, sizeof(sfr_params.MetalCoolFile));
         param_get_string2(ps, "ReionHistFile", sfr_params.ReionHistFile, sizeof(sfr_params.ReionHistFile));
@@ -454,16 +457,24 @@ cooling_direct(int i, const double redshift, const double a3inv, const double hu
     /* Current internal energy including adiabatic change*/
     double uold = SPHP(i).Entropy * enttou;
 
-    struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, P[i].Pos, PartManager->CurrentParticleOffset);
+    struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, P[i].Pos, PartManager->CurrentParticleOffset, SPHP(i).local_J21, SPHP(i).zreion);
     double lasttime = exp(loga_from_ti(P[i].Ti_drift - dti_from_timebin(P[i].TimeBin)));
     double lastred = 1/lasttime - 1;
     double unew;
     /* The particle reionized this timestep, bump the temperature to the HI reionization temperature.
      * We only do this for non-star-forming gas.*/
-    if(sfr_params.HIReionTemp > 0 && uvbg.zreion > redshift && uvbg.zreion < lastred) {
-        /* We assume it is fully ionized*/
-        const double meanweight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));
+    if(sfr_params.HIReionTemp > 0 && uvbg.zreion >= redshift && uvbg.zreion < lastred) {
+        /* We assume singly ionised helium at the time of reionisation */
+        /* The 100% correct thing to do is to solve for the equilibrium ne based on the local UVBG
+         * then calculate the mean weight based on this. The current approach will cause
+         * a boost in reionisation temperatures proportional to the residual neutral fraction,
+         * which should be relatively small most of the time */
+        /* TODO: Make sure that not setting SPHP.Ne(i) here doesn't mess up anything between
+         * now and the next cooling call when it gets set properly */
+        const double meanweight = 4 / (8 - 6 * (1 - HYDROGEN_MASSFRAC));
         unew = sfr_params.temp_to_u / meanweight * sfr_params.HIReionTemp;
+        //We don't want gas to cool by ionising
+        if(uold > unew) unew = uold;
     }
     else {
         /* mean molecular weight assuming ZERO ionization NEUTRAL GAS*/
@@ -522,7 +533,7 @@ double get_neutral_fraction_sfreff(double redshift, double hubble, struct partic
     double nh0;
     const double a3inv = pow(1+redshift,3);
     struct UVBG GlobalUVBG = get_global_UVBG(redshift);
-    struct UVBG uvbg = get_local_UVBG(redshift, &GlobalUVBG, partdata->Pos, PartManager->CurrentParticleOffset);
+    struct UVBG uvbg = get_local_UVBG(redshift, &GlobalUVBG, partdata->Pos, PartManager->CurrentParticleOffset, sphdata->local_J21, sphdata->zreion);
     double physdens = sphdata->Density * a3inv;
 
     if(sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, a3inv)) {
@@ -550,7 +561,7 @@ double get_helium_neutral_fraction_sfreff(int ion, double redshift, double hubbl
     const double a3inv = pow(1+redshift,3);
     double helium;
     struct UVBG GlobalUVBG = get_global_UVBG(redshift);
-    struct UVBG uvbg = get_local_UVBG(redshift, &GlobalUVBG, partdata->Pos, PartManager->CurrentParticleOffset);
+    struct UVBG uvbg = get_local_UVBG(redshift, &GlobalUVBG, partdata->Pos, PartManager->CurrentParticleOffset, sphdata->local_J21, sphdata->zreion);
     double physdens = sphdata->Density * a3inv;
 
     if(sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, a3inv)) {
@@ -598,6 +609,7 @@ static int make_particle_star(int child, int parent, int placement, double Time)
     int j;
     for(j = 0; j < NMETALS; j++)
         STARP(child).Metals[j] = oldslot.Metals[j];
+
     return retflag;
 }
 
@@ -670,7 +682,7 @@ starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, cons
     double dtime = dloga / hubble;
     int newstar = -1;
 
-    struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, P[i].Pos, PartManager->CurrentParticleOffset);
+    struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, P[i].Pos, PartManager->CurrentParticleOffset,SPHP(i).local_J21,SPHP(i).zreion);
 
     struct sfr_eeqos_data sfr_data = get_sfr_eeqos(&P[i], &SPHP(i), dtime, &uvbg, redshift, a3inv);
 
@@ -816,7 +828,7 @@ void init_cooling_and_star_formation(int CoolingOn, int StarformationOn, Cosmolo
 
     sfr_params.UnitSfr_in_solar_per_year = (units.UnitMass_in_g / SOLAR_MASS) / (units.UnitTime_in_s / SEC_PER_YEAR);
 
-    init_cooling(sfr_params.TreeCoolFile, sfr_params.MetalCoolFile, sfr_params.ReionHistFile, coolunits, CP);
+    init_cooling(sfr_params.TreeCoolFile, sfr_params.J21CoeffFile, sfr_params.MetalCoolFile, sfr_params.ReionHistFile, coolunits, CP);
 
     if(!CoolingOn)
         return;

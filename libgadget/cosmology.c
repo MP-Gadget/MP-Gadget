@@ -28,6 +28,8 @@ void init_cosmology(Cosmology * CP, const double TimeBegin, const struct UnitSys
     CP->OmegaCDM = CP->Omega0 - CP->OmegaBaryon;
     CP->OmegaK = 1.0 - CP->Omega0 - CP->OmegaLambda;
 
+    CP->RhoCrit = 3.0 * CP->Hubble * CP->Hubble / (8.0 * M_PI * CP->GravInternal);  // in internal units
+
     /* Omega_g = 4 \sigma_B T_{CMB}^4 8 \pi G / (3 c^3 H^2) */
 
     CP->OmegaG = 4 * STEFAN_BOLTZMANN

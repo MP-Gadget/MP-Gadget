@@ -20,7 +20,8 @@ double logouts[4];
 /*First test conversions between float and integer timelines*/
 static void test_conversions(void ** state) {
 
-    setup_sync_points(TIMEIC, TIMEMAX, 0.0, 0);
+    //Cosmology is used to init Excursion set syncpoints, they are not needed here since that flag is off
+    setup_sync_points(NULL, TIMEIC, TIMEMAX, 0.0, 0);
 
     /*Convert an integer to and from loga*/
     /* double loga_from_ti(unsigned int ti); */
@@ -61,16 +62,16 @@ static void test_conversions(void ** state) {
 
 static void test_skip_first(void ** state) {
 
-    setup_sync_points(TIMEIC, TIMEMAX, TIMEIC, 0);
+    setup_sync_points(NULL, TIMEIC, TIMEMAX, TIMEIC, 0);
     assert_int_equal(find_current_sync_point(0)->write_snapshot, 0);
 
-    setup_sync_points(TIMEIC, TIMEMAX, 0.0, 0);
+    setup_sync_points(NULL, TIMEIC, TIMEMAX, 0.0, 0);
     assert_int_equal(find_current_sync_point(0)->write_snapshot, 1);
 }
 
 static void test_dloga(void ** state) {
 
-    setup_sync_points(TIMEIC, TIMEMAX, 0.0, 0);
+    setup_sync_points(NULL, TIMEIC, TIMEMAX, 0.0, 0);
 
     inttime_t Ti_Current = ti_from_loga(log(0.55));
 
@@ -102,7 +103,7 @@ setup(void * p1, void * p2)
         logouts[i] = log(outs[i]);
     }
 
-    set_sync_params(OutputListLength, OutputListTimes);
+    set_sync_params_test(OutputListLength, OutputListTimes);
     return 0;
 }
 static int

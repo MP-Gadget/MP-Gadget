@@ -32,6 +32,7 @@
 #include "cooling_qso_lightup.h"
 #include "lightcone.h"
 #include "timefac.h"
+#include "uvbg.h"
 #include "neutrinos_lra.h"
 #include "stats.h"
 
@@ -99,6 +100,10 @@ static struct run_params
     int SnapshotWithFOF; /*Flag that doing FOF for snapshot outputs is on*/
 
     int RandomSeed; /*Initial seed for the random number table*/
+
+    int ExcursionSetReionOn; /*Flag for enabling the excursion set reionisation model*/
+    int UVBGdim; /*Dimension of excursion set grids*/
+
 } All;
 
 /*Set the global parameters*/
@@ -175,6 +180,8 @@ set_all_global_params(ParameterSet * ps)
                 endrun(1, "You try to use the code with star formation enabled,\n"
                           "but you did not switch on cooling.\nThis mode is not supported.\n");
         }
+        All.ExcursionSetReionOn = param_get_int(ps,"ExcursionSetReionOn");
+        All.UVBGdim = param_get_int(ps, "UVBGdim");
     }
     MPI_Bcast(&All, sizeof(All), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -238,7 +245,7 @@ begrun(const int RestartSnapNum, struct header_data * head)
     if(All.LightconeOn)
         lightcone_init(&All.CP, head->TimeSnapshot, head->UnitLength_in_cm, All.OutputDir);
 
-    init_timeline(RestartSnapNum, All.TimeMax, head, All.SnapshotWithFOF);
+    init_timeline(&All.CP, RestartSnapNum, All.TimeMax, head, All.SnapshotWithFOF);
 
     /* Get the nk and do allocation. */
     if(All.CP.MassiveNuLinRespOn)
@@ -298,7 +305,19 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
     const double MinEgySpec = get_MinEgySpec();
 
     PetaPM pm = {0};
-    gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
+    gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);    
+    /*define excursion set PetaPM structs*/
+    /*because we need to FFT 3 grids, and we can't separate sets of regions, we need 3 PetaPM structs */
+    /*also, we will need different pencils and layouts due to different zero cells*/
+    /*NOTE: this produces three identical communicators TODO: write a quick way to give them all the same communicator*/    
+    PetaPM pm_mass = {0};
+    PetaPM pm_star = {0};
+    PetaPM pm_sfr = {0};
+    if(All.ExcursionSetReionOn){
+        petapm_init(&pm_mass, PartManager->BoxSize, All.Asmth, All.UVBGdim, All.CP.GravInternal, MPI_COMM_WORLD);
+        petapm_init(&pm_star, PartManager->BoxSize, All.Asmth, All.UVBGdim, All.CP.GravInternal, MPI_COMM_WORLD);
+        petapm_init(&pm_sfr, PartManager->BoxSize, All.Asmth, All.UVBGdim, All.CP.GravInternal, MPI_COMM_WORLD);
+    }
 
     DomainDecomp ddecomp[1] = {0};
 
@@ -486,6 +505,18 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         /* Need a scale factor for entropy and velocity limiters*/
         apply_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
 
+        /* get syncpoint variables for Excursion set (here) and snapshot saving (later) */
+
+        int WriteSnapshot = 0;
+        int WriteFOF = 0;
+        int CalcUVBG = 0;
+
+        if(planned_sync) {
+            WriteSnapshot |= planned_sync->write_snapshot;
+            WriteFOF |= planned_sync->write_fof;
+            CalcUVBG |= planned_sync->calc_uvbg;
+        }
+
         /* Cooling and extra physics show up as a source term in the evolution equations.
          * Formally you can write the structure of the partial differential equations:
            dU/dt +  div(F) = S
@@ -520,7 +551,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
              * This does not break the tree because the new black holes do not move or change mass, just type.
              * It does not matter that the velocities are half a step off because they are not used in the FoF code.*/
             if (is_PM && ((All.BlackHoleOn && atime >= TimeNextSeedingCheck) ||
-                (during_helium_reionization(1/atime - 1) && need_change_helium_ionization_fraction(atime)))) {
+                (during_helium_reionization(1/atime - 1) && need_change_helium_ionization_fraction(atime)) ||
+                 (CalcUVBG && All.ExcursionSetReionOn))) {
 
                 /* Seeding: builds its own tree.*/
                 FOFGroups fof = fof_fof(ddecomp, 0, MPI_COMM_WORLD);
@@ -532,6 +564,11 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 if(during_helium_reionization(1/atime - 1)) {
                     /* Helium reionization by switching on quasar bubbles*/
                     do_heiii_reionization(atime, &fof, ddecomp, &All.CP, units.UnitInternalEnergy_in_cgs, fds.FdHelium);
+                }
+                //excursion set reionisation
+                if(CalcUVBG && All.ExcursionSetReionOn) {
+                    calculate_uvbg(&pm_mass, &pm_star, &pm_sfr, WriteSnapshot, SnapshotFileCount, All.OutputDir, atime, &All.CP, units);
+                    message(0,"uvbg calculated\n");
                 }
                 fof_finish(&fof);
             }
@@ -563,14 +600,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
          * We only attempt to output on sync points. This is the only chance where all variables are
          * synchronized in a consistent state in a K(KDDK)^mK scheme.
          */
-
-        int WriteSnapshot = 0;
-        int WriteFOF = 0;
-
-        if(planned_sync) {
-            WriteSnapshot |= planned_sync->write_snapshot;
-            WriteFOF |= planned_sync->write_fof;
-        }
 
         if(is_PM) { /* the if here is unnecessary but to signify checkpointing occurs only at PM steps. */
             WriteSnapshot |= action->write_snapshot;

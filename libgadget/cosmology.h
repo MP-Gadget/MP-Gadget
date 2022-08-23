@@ -20,9 +20,11 @@ typedef struct {
     double HubbleParam;  /* little `h', i.e. Hubble constant in units of 100 km/s/Mpc. */
     double Hubble; /* 100 km/s/Mpc in internal units*/
     double UnitTime_in_s; /* Internal unit time in seconds*/
+    double RhoCrit; /* critical density */
     int RadiationOn; /* flags whether to include the radiation density in the background */
     _omega_nu ONu;   /*Structure for storing massive neutrino densities*/
     double MNu[3]; /*Neutrino masses in eV*/
+
     int MassiveNuLinRespOn; /* Flags that massive neutrinos using the linear
                                response code of Ali-Haimoud & Bird 2013.*/
     int HybridNeutrinosOn; /* Flags that hybrid neutrinos are enabled */

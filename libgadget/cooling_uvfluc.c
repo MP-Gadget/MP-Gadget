@@ -13,6 +13,7 @@
 #include "utils/mymalloc.h"
 #include "utils/interp.h"
 #include "utils/endrun.h"
+#include "utils/paramset.h"
 
 static struct {
     int enabled;
@@ -20,6 +21,28 @@ static struct {
     double * Table;
     ptrdiff_t Nside;
 } UVF;
+
+static struct UVFparams{
+    /*settings for excursion set*/
+    int ExcursionSetReionOn;
+    double AlphaUV;
+    double ExcursionSetZStop;
+} uvf_params;
+
+//set the parameters we need for the excursion set option
+void set_uvf_params(ParameterSet * ps){
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    if(ThisTask==0)
+    {
+        uvf_params.ExcursionSetReionOn = param_get_int(ps,"ExcursionSetReionOn");
+        uvf_params.ExcursionSetZStop = param_get_double(ps,"ExcursionSetZStop");
+        uvf_params.AlphaUV = param_get_double(ps,"AlphaUV");
+    }
+
+    MPI_Bcast(&uvf_params, sizeof(struct UVFparams), MPI_BYTE, 0, MPI_COMM_WORLD);
+    return;
+}
 
 /* Read a big array from filename/dataset into an array, allocating memory in buffer.
  * which is returned. Nread argument is set equal to number of elements read.*/
@@ -148,7 +171,7 @@ init_uvf_table(const char * UVFluctuationFile, const int UVFlucLen, const double
  * Otherwise returns the global UVBG passed in.
  *
  * */
-struct UVBG get_local_UVBG(double redshift, const struct UVBG * const GlobalUVBG, const double * const Pos, const double * const PosOffset)
+static struct UVBG get_local_UVBG_from_global(double redshift, const struct UVBG * const GlobalUVBG, const double * const Pos, const double * const PosOffset)
 {
     if(!UVF.enabled) {
         /* directly use the TREECOOL table if UVF is disabled */
@@ -173,6 +196,54 @@ struct UVBG get_local_UVBG(double redshift, const struct UVBG * const GlobalUVBG
     return uvbg;
 }
 
+static struct UVBG get_local_UVBG_from_J21(double redshift, double J21, double zreion) {
+    struct UVBG uvbg = {0};
+    
+    // N.B. J21 must be in units of 1e-21 erg s-1 Hz-1 (proper cm)-2 sr-1
+    uvbg.J_UV = J21;
+    uvbg.zreion = zreion;
+
+    //interpolators in cooling_rates.c should now be rate coeffs
+    //it seems a bit wasteful to calculate this for every particle
+    //but the global uv does an interpolation every time and this allows
+    //for future inhomogeneous alpha
+    //if this becomes a bottleneck we can set the coeffs globally
+    struct J21_coeffs J21toUV = get_J21_coeffs(uvf_params.AlphaUV);
+
+    uvbg.gJH0   = J21toUV.gJH0 * J21; // s-1
+    uvbg.epsH0  = J21toUV.epsH0 * J21 * 1.60218e-12;  // erg s-1
+    uvbg.gJHe0  = J21toUV.gJHe0 * J21; // s-1
+    uvbg.epsHe0 = J21toUV.epsHe0 * J21 * 1.60218e-12;  // erg s-1
+
+    /*Since the excursion set only finds HII (& HeII) bubbles, and HeII -> HeIII
+     * heating is taken care of by the qso_lightup model, there is never a case where we need these rates */
+    /* NOTE: this means that the excursion set will be switched off before helium reionisation
+     * and global rates must be used, otherwise helium will not ionise or heat */
+    /* the excursion set (so far) only includes stellar ionising radiation, so
+     * this is equivalent to the assumption that stars do not doubly ionise helium
+     * which will need to change if we decide to add QSO radiation to the excursion set (i.e Qin et al. 2017, DRAGONS X)*/
+    uvbg.gJHep = 0.;
+    uvbg.epsHep = 0.;
+
+    uvbg.self_shield_dens = get_self_shield_dens(redshift, &uvbg);
+
+    return uvbg;
+}
+
+//switch function that decides whether to use excursion set or global UV background
+/*TODO: Better continuity, if the z_reion tables provided finish after ExcursionSetZStop, particles could rapidly recombine.
+ * also if helium reion starts before the excursion set finishes, flash reionisations occur as we switch to global*/
+struct UVBG get_local_UVBG(double redshift, const struct UVBG * const GlobalUVBG, const double * const Pos, const double * const PosOffset, double J21, double zreion)
+{
+    if(uvf_params.ExcursionSetReionOn && (redshift > uvf_params.ExcursionSetZStop))
+    {
+        return get_local_UVBG_from_J21(redshift,J21,zreion);
+    }
+    else
+    {
+        return get_local_UVBG_from_global(redshift,GlobalUVBG,Pos,PosOffset);
+    }
+}
 
 /*Here comes the Metal Cooling code*/
 struct {

@@ -2,10 +2,12 @@
 #define _COOLING_H_
 
 #include "cosmology.h"
+#include "utils/paramset.h"
 
 /* Ultra-violet background structure.
  * Can be changed on a particle-by-particle basis*/
 struct UVBG {
+    double J_UV;
     double gJH0;
     double gJHep;
     double gJHe0;
@@ -14,6 +16,16 @@ struct UVBG {
     double epsHe0;
     double self_shield_dens;
     double zreion;
+};
+
+/*rates for excursion set, for J21 == 1*/
+struct J21_coeffs {
+    double gJH0;
+    double gJHep;
+    double gJHe0;
+    double epsH0;
+    double epsHep;
+    double epsHe0;
 };
 
 /*Global unit system for the cooling module*/
@@ -32,7 +44,7 @@ struct cooling_units
 };
 
 /*Initialise the cooling module.*/
-void init_cooling(const char * TreeCoolFile, const char * MetalCoolFile, char * reion_hist_file, struct cooling_units cu, Cosmology * CP);
+void init_cooling(const char * TreeCoolFile, const char * J21CoeffFile, const char * MetalCoolFile, char * reion_hist_file, struct cooling_units cu, Cosmology * CP);
 
 /*Reads and initialises the tables for a spatially varying redshift of reionization*/
 void init_uvf_table(const char * UVFluctuationFile, const int UVFlucLen, const double BoxSize, const double UnitLength_in_cm);
@@ -49,7 +61,9 @@ struct UVBG get_global_UVBG(double redshift);
 
 /* Change the ultra-violet background table according to a pre-computed table of UV fluctuations.
  * This zeros the UVBG if this particular particle has not reionized yet*/
-struct UVBG get_local_UVBG(double redshift, const struct UVBG * const GlobalUVBG, const double * const Pos, const double * const PosOffset);
+struct UVBG get_local_UVBG(double redshift, const struct UVBG * const GlobalUVBG, const double * const Pos, const double * const PosOffset, double J21, double zreion);
+/* set parameters for the above local UVBG computation*/
+void set_uvf_params(ParameterSet * ps);
 
 /*Get the equilibrium temperature at given internal energy.
     density is total gas density in protons/cm^3

@@ -1,0 +1,121 @@
+#  Relevant files
+
+InitCondFile = IC
+OutputDir = output_reion
+MetalCoolFile = ../cooling_metal_UVB
+TreeCoolFile = ../TREECOOL_fg19_thin.dat
+OutputList = 0.09090,0.1000,0.1111,0.1250,0.1429
+EnableAggregatedIO = 1
+# CPU time -limit
+
+TimeLimitCPU = 100000 #= > 24 hours
+
+# Code options
+
+#  Characteristics of run
+
+TimeMax = 0.1667
+
+Omega0 = 0.2814      # Total matter density  (at z=0)
+OmegaLambda = 0.7186      # Cosmological constant (at z=0)
+OmegaBaryon = 0.0464     # Baryon density        (at z=0)
+HubbleParam = 0.697      # Hubble paramater (may be used for power spec parameterization)
+
+CoolingOn = 1
+StarformationOn = 1
+StarformationCriterion = density
+DensityIndependentSphOn = 1
+RadiationOn = 1
+HydroOn = 1
+BlackHoleOn = 1
+MassiveNuLinRespOn = 0
+
+# Accuracy of time integration
+MaxSizeTimestep = 0.1
+MinSizeTimestep = 0.00
+
+SnapshotWithFOF = 1
+FOFHaloLinkingLength = 0.2
+FOFHaloMinLength = 32
+
+#  Further parameters of SPH
+DensityKernelType = quintic
+
+DensityContrastLimit = 100   # max contrast for hydro force calculation
+DensityResolutionEta = 1.0  # for Cubic spline 1.0 = 33
+MaxNumNgbDeviation = 2
+ArtBulkViscConst = 0.75
+InitGasTemp = 580.0        # always ignored if set to 0 
+MinGasTemp = 5.0
+
+
+
+# Memory allocation
+
+PartAllocFactor = 2.0
+
+# Softening lengths
+
+#----------------------BH Stuff-------------------------
+BlackHoleFeedbackFactor = 0.05
+BlackHoleFeedbackRadius = 0.
+BlackHoleFeedbackRadiusMaxPhys = 0.
+BlackHoleFeedbackMethod = spline | mass
+SeedBlackHoleMass = 5.0e-5
+BlackHoleAccretionFactor = 100.0
+BlackHoleNgbFactor = 2.0
+BlackHoleEddingtonFactor = 3.0
+
+MinFoFMassForNewSeed = 1
+TimeBetweenSeedingSearch = 1.03
+
+#----------------------SFR Stuff-------------------------
+
+CritPhysDensity = 0.01       #  critical physical density for star formation in
+#hydrogen number density in cm^(-3)
+
+CritOverDensity = 5.77   #  overdensity threshold value Reduced by 1/10 to boost SFR.
+
+QuickLymanAlphaProbability = 0 # Set to 1.0 to turn dense gas directly into stars.
+
+MaxSfrTimescale = 1.5     # in internal time units
+
+
+TempSupernova = 1.0e8   #  in Kelvin
+
+TempClouds = 1000.0   #  in Kelvin
+FactorSN = 0.1
+FactorEVP = 1000.0
+
+WindOn = 1
+WindModel = ofjt10,isotropic
+WindEfficiency = 2.0
+WindEnergyFraction = 1.0
+WindSigma0 = 353.0 #km/s
+WindSpeedFactor = 3.7
+
+
+WindFreeTravelLength = 20
+WindFreeTravelDensFac = 0.1
+
+MetalReturnOn = 0
+
+#----------------------Reionisation stuff----------------
+ExcursionSetReionOn = 1
+ExcursionSetZStop = 5
+ExcursionSetZStart = 20
+UVBGdim = 64
+ReionRBubbleMax = 20340 #kpc
+ReionRBubbleMin = 406.8
+ReionDeltaRFactor = 1.1
+ReionGammaHaloBias = 2.0
+ReionNionPhotPerBary = 4000.0
+AlphaUV = 3.0
+EscapeFractionNorm = 1.00
+EscapeFractionScaling = 0.0
+UVBGTimestep = 10.0 #time between UVBG calculations in Myr
+ReionFilterType = 0 #Filter to use with 21CMFAST, 0 = real-space top-hat, 1 = k-space top-hat, 2 = gaussian
+RtoMFilterType = 0 #Filter to use with 21CMFAST radius to mass calculation, 0 = top-hat, 1 = gaussian
+J21CoeffFile = ../J21_to_rates_test.txt
+ReionUseParticleSFR = 0
+ReionSFRTimescale = 0.5

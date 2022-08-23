@@ -201,7 +201,7 @@ static void test_DoCooling(void ** state)
     MinEgySpec /= coolunits.uu_in_cgs;
 
     set_coolpar(coolpar);
-    init_cooling(TreeCool, MetalCool, NULL, coolunits, &CP);
+    init_cooling(TreeCool, NULL, MetalCool, NULL, coolunits, &CP);
     struct UVBG uvbg = get_global_UVBG(0);
     assert_true(fabs(uvbg.epsH0/3.65296e-25 -1) < 1e-5);
     assert_true(fabs(uvbg.epsHe0/3.98942e-25 -1) < 1e-5);
