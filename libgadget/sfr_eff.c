@@ -447,7 +447,7 @@ static void
 cooling_direct(int i, const double redshift, const double a3inv, const double hubble, const struct UVBG * const GlobalUVBG)
 {
     /*  the actual time-step */
-    double dloga = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift);
+    double dloga = get_dloga_for_bin(P[i].TimeBinHydro, P[i].Ti_drift);
     double dtime = dloga / hubble;
 
     double ne = SPHP(i).Ne;	/* electron abundance (gives ionization state and mean molecular weight) */
@@ -458,7 +458,7 @@ cooling_direct(int i, const double redshift, const double a3inv, const double hu
     double uold = SPHP(i).Entropy * enttou;
 
     struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, P[i].Pos, PartManager->CurrentParticleOffset, SPHP(i).local_J21, SPHP(i).zreion);
-    double lasttime = exp(loga_from_ti(P[i].Ti_drift - dti_from_timebin(P[i].TimeBin)));
+    double lasttime = exp(loga_from_ti(P[i].Ti_drift - dti_from_timebin(P[i].TimeBinHydro)));
     double lastred = 1/lasttime - 1;
     double unew;
     /* The particle reionized this timestep, bump the temperature to the HI reionization temperature.
@@ -547,7 +547,7 @@ double get_neutral_fraction_sfreff(double redshift, double hubble, struct partic
         /* This gets the neutral fraction for gas on the star-forming equation of state.
          * This needs special handling because the cold clouds have a different neutral
          * fraction than the hot gas*/
-        double dloga = get_dloga_for_bin(partdata->TimeBin, partdata->Ti_drift);
+        double dloga = get_dloga_for_bin(partdata->TimeBinHydro, partdata->Ti_drift);
         double dtime = dloga / hubble;
         struct sfr_eeqos_data sfr_data = get_sfr_eeqos(partdata, sphdata, dtime, &uvbg, redshift, a3inv);
         double nh0cold = GetNeutralFraction(sfr_params.EgySpecCold, physdens, &uvbg, sfr_data.ne);
@@ -575,7 +575,7 @@ double get_helium_neutral_fraction_sfreff(int ion, double redshift, double hubbl
         /* This gets the neutral fraction for gas on the star-forming equation of state.
          * This needs special handling because the cold clouds have a different neutral
          * fraction than the hot gas*/
-        double dloga = get_dloga_for_bin(partdata->TimeBin, partdata->Ti_drift);
+        double dloga = get_dloga_for_bin(partdata->TimeBinHydro, partdata->Ti_drift);
         double dtime = dloga / hubble;
         struct sfr_eeqos_data sfr_data = get_sfr_eeqos(partdata, sphdata, dtime, &uvbg, redshift, a3inv);
         double nh0cold = GetHeliumIonFraction(ion, sfr_params.EgySpecCold, physdens, &uvbg, sfr_data.ne);
@@ -679,7 +679,7 @@ static int
 starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, const double redshift, const double a3inv, const double hubble, const double GravInternal, const struct UVBG * const GlobalUVBG)
 {
     /*  the proper time-step */
-    double dloga = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift);
+    double dloga = get_dloga_for_bin(P[i].TimeBinHydro, P[i].Ti_drift);
     double dtime = dloga / hubble;
     int newstar = -1;
 
@@ -705,7 +705,7 @@ starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, cons
     SPHP(i).Metallicity += w * METAL_YIELD * frac / sfr_params.Generations;
 
     /* upon start-up, we need to protect against dloga ==0 */
-    if(dloga > 0 && P[i].TimeBin)
+    if(dloga > 0 && P[i].TimeBinHydro)
         cooling_relaxed(i, dtime, &uvbg, redshift, a3inv, sfr_data, GlobalUVBG);
 
     double mass_of_star = find_star_mass(i, sfr_params.avg_baryon_mass);

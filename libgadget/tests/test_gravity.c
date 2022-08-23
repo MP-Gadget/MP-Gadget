@@ -169,7 +169,8 @@ static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int di
         P[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
         P[i].Mass = 1;
         P[i].ID = i;
-        P[i].TimeBin = 0;
+        P[i].TimeBinHydro = 0;
+        P[i].TimeBinGravity = 0;
         P[i].IsGarbage = 0;
     }
 

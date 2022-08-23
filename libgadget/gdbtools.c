@@ -39,7 +39,7 @@ char * GDB_particle_by_timebin(int bin) {
     char tmp[20] = {'\0'};
     strcpy(buf, "");
     for(i = 0; i < PartManager->NumPart; i++) {
-        if(P[i].TimeBin == bin) {
+        if(P[i].TimeBinHydro == bin) {
             snprintf(tmp, 15, " %d", i);
             strncat(buf, tmp, 1024-strlen(tmp)-1);
         }

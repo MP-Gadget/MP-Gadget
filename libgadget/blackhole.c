@@ -942,7 +942,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
     }
     BHP(i).Mdot = mdot;
 
-    double dtime = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift) / BH_GET_PRIV(tw)->hubble;
+    double dtime = get_dloga_for_bin(P[i].TimeBinHydro, P[i].Ti_drift) / BH_GET_PRIV(tw)->hubble;
 
     BHP(i).Mass += BHP(i).Mdot * dtime;
 
@@ -1092,8 +1092,8 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     if(P[other].Mass < 0) return;
 
     if(P[other].Type != 5) {
-        if (O->BH_minTimeBin > P[other].TimeBin)
-            O->BH_minTimeBin = P[other].TimeBin;
+        if (O->BH_minTimeBin > P[other].TimeBinHydro)
+            O->BH_minTimeBin = P[other].TimeBinHydro;
     }
 
      /* BH does not accrete wind */
@@ -1525,7 +1525,7 @@ blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I, TreeWalk * tw)
     I->FeedbackWeightSum = BH_GET_PRIV(tw)->BH_FeedbackWeightSum[PI];
     I->FdbkChannel = 0; /* thermal feedback mode */
 
-    double dtime = get_dloga_for_bin(P[i].TimeBin, P[i].Ti_drift) / BH_GET_PRIV(tw)->hubble;
+    double dtime = get_dloga_for_bin(P[i].TimeBinHydro, P[i].Ti_drift) / BH_GET_PRIV(tw)->hubble;
 
     I->FeedbackEnergy = blackhole_params.BlackHoleFeedbackFactor * 0.1 * BHP(i).Mdot * dtime *
                 pow(LIGHTCGS / BH_GET_PRIV(tw)->units.UnitVelocity_in_cm_per_s, 2);
