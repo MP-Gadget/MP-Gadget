@@ -386,22 +386,17 @@ gas_ionization_fraction(void)
 
 /* Do the ionization for a single particle, marking it and adding the heat.
  * No locking is performed so ensure the particle is not being edited in parallel.
+ * This is satisfied here because there is only one bubble at a time anyway.
  * Returns 1 if ionization was done, 0 otherwise.*/
 static int
 ionize_single_particle(int other, double a3inv, double uu_in_cgs)
 {
     /* Mark it ionized if not done so already.*/
-    int done;
-    #pragma omp atomic capture
-    {
-        done = P[other].HeIIIionized;
-        P[other].HeIIIionized = 1;
-    }
-    if(done)
+    if(P[other].HeIIIionized)
         return 0;
 
+    P[other].HeIIIionized = 1;
     /* Heat the particle*/
-
     /* Number of helium atoms per g in the particle*/
     double nheperg = (1 - HYDROGEN_MASSFRAC) / (PROTONMASS * HEMASS);
     /* Total heating per unit mass ergs/g for the particle*/

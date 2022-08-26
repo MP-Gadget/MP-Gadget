@@ -468,7 +468,8 @@ cooling_direct(int i, const double redshift, const double a3inv, const double hu
         /* The 100% correct thing to do is to solve for the equilibrium ne based on the local UVBG
          * then calculate the mean weight based on this. The current approach will cause
          * a boost in reionisation temperatures proportional to the residual neutral fraction,
-         * which should be relatively small most of the time */
+         * which should be relatively small most of the time. The 6 is because helium is singly
+         * ionized, not doubly so.*/
         /* TODO: Make sure that not setting SPHP.Ne(i) here doesn't mess up anything between
          * now and the next cooling call when it gets set properly */
         const double meanweight = 4 / (8 - 6 * (1 - HYDROGEN_MASSFRAC));
@@ -845,7 +846,7 @@ void init_cooling_and_star_formation(int CoolingOn, int StarformationOn, Cosmolo
 
     sfr_params.tau_fmol_unit = units.UnitDensity_in_cgs*CP->HubbleParam*units.UnitLength_in_cm;
     sfr_params.OverDensThresh =
-        sfr_params.CritOverDensity * CP->OmegaBaryon * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
+        sfr_params.CritOverDensity * CP->OmegaBaryon * CP->RhoCrit;
 
     sfr_params.PhysDensThresh = sfr_params.CritPhysDensity * PROTONMASS / HYDROGEN_MASSFRAC / units.UnitDensity_in_cgs;
 
@@ -865,7 +866,7 @@ void init_cooling_and_star_formation(int CoolingOn, int StarformationOn, Cosmolo
 
         double u4 = sfr_params.temp_to_u/meanweight * 1.0e4;
 
-        double dens = 1.0e6 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
+        double dens = 1.0e6 * CP->RhoCrit;
 
         double ne = 1.0;
 

@@ -89,13 +89,11 @@ write_particle_data(IDGenerator * idgen,
 /*Compute the mass array from the cosmology and the total number of particles.*/
 void compute_mass(double * mass, int64_t TotNumPartCDM, int64_t TotNumPartGas, int64_t TotNuPart, double nufrac, const double BoxSize, Cosmology * CP, const struct genic_config GenicConfig)
 {
-    double UnitTime_in_s = GenicConfig.units.UnitLength_in_cm / GenicConfig.units.UnitVelocity_in_cm_per_s;
-    double Grav = GRAVITY / pow(GenicConfig.units.UnitLength_in_cm, 3) * GenicConfig.units.UnitMass_in_g * pow(UnitTime_in_s, 2);
-    const double OmegatoMass = 3 * CP->Hubble * CP->Hubble / (8 * M_PI * Grav) * pow(BoxSize, 3);
+    const double OmegatoMass = CP->RhoCrit * pow(BoxSize, 3);
     double OmegaCDM = CP->Omega0;
     mass[0] = mass[2] = mass[3] = mass[4] = mass[5] = 0;
     if (TotNumPartGas > 0) {
-        mass[0] = (CP->OmegaBaryon) * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * Grav) * pow(BoxSize, 3) / TotNumPartGas;
+        mass[0] = (CP->OmegaBaryon) * CP->RhoCrit * pow(BoxSize, 3) / TotNumPartGas;
         OmegaCDM -= CP->OmegaBaryon;
     }
     if(CP->MNu[0] + CP->MNu[1] + CP->MNu[2] > 0) {

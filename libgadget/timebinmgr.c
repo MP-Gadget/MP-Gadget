@@ -165,10 +165,28 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
 
     if(NSyncPoints > 0)
         myfree(SyncPoints);
-    //TODO(Jdavies): figure out how many are there beforehand so we can malloc a list of the right size
+
+    int NSyncPointsAlloc = Sync.OutputListLength + 2;
+
+    /* Excursion set sync points ensure that the reionization excursion set model is run frequently*/
+    const double ExcursionSet_delta_a = 0.0001;
+    const double a_end = 1/(1+Sync.ExcursionSetZStop) < TimeMax ? 1/(1+Sync.ExcursionSetZStop) : TimeMax;
+
+    if(Sync.ExcursionSetReionOn) {
+        double uv_a = 1/(1+Sync.ExcursionSetZStart) > TimeIC ? 1/(1+Sync.ExcursionSetZStart) : TimeIC;
+        while (uv_a <= a_end) {
+            NSyncPointsAlloc++;
+            double lbt = time_to_present(uv_a,CP);
+            double delta_lbt = 0.0;
+            while ((delta_lbt <= Sync.UVBGTimestep) && (uv_a <= TimeMax)) {
+                uv_a += ExcursionSet_delta_a;
+                delta_lbt = lbt - time_to_present(uv_a,CP);
+            }
+        }
+    }
     //z=20 to z=4 is ~150 syncpoints at 10 Myr spaces
     //
-    SyncPoints = (SyncPoint *) mymalloc("SyncPoints", sizeof(SyncPoint) * (Sync.OutputListLength+2+400)); 
+    SyncPoints = (SyncPoint *) mymalloc("SyncPoints", sizeof(SyncPoint) * NSyncPointsAlloc);
 
     /* Set up first and last entry to SyncPoints; TODO we can insert many more! */
     //NOTE(jdavies): these first syncpoints need to be in order
@@ -182,7 +200,6 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
 
     // set up UVBG syncpoints at given intervals
     if(Sync.ExcursionSetReionOn) {
-        double a_end = 1/(1+Sync.ExcursionSetZStop) < TimeMax ? 1/(1+Sync.ExcursionSetZStop) : TimeMax;
         double uv_a = 1/(1+Sync.ExcursionSetZStart) > TimeIC ? 1/(1+Sync.ExcursionSetZStart) : TimeIC;
         while (uv_a <= a_end) {
             SyncPoints[NSyncPoints].a = uv_a;
@@ -191,15 +208,15 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
             SyncPoints[NSyncPoints].write_fof = 0;
             SyncPoints[NSyncPoints].calc_uvbg = 1;
             NSyncPoints++;
+            if(NSyncPoints > NSyncPointsAlloc)
+                endrun(1, "Tried to generate %d syncpoints, %d allocated\n", NSyncPoints, NSyncPointsAlloc);
             //message(0,"added UVBG syncpoint at a = %.3f z = %.3f, Nsync = %d\n",uv_a,1/uv_a - 1,NSyncPoints);
-
             // TODO(smutch): OK - this is ridiculous (sorry!), but I just wanted to quickly hack something...
             // TODO(jdavies): fix low-z where delta_a > 10Myr
-            double delta_a = 0.0001;
             double lbt = time_to_present(uv_a,CP);
             double delta_lbt = 0.0;
             while ((delta_lbt <= Sync.UVBGTimestep) && (uv_a <= TimeMax)) {
-                uv_a += delta_a;
+                uv_a += ExcursionSet_delta_a;
                 delta_lbt = lbt - time_to_present(uv_a,CP);
                 //message(0,"trying UVBG syncpoint at a = %.3e, z = %.3e, delta_lbt = %.3e\n",uv_a,1/uv_a - 1,delta_lbt);
             }
@@ -262,6 +279,8 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
     for(i = 0; i < NSyncPoints; i++) {
         SyncPoints[i].ti = (i * 1L) << (TIMEBINS);
     }
+    if(NSyncPoints > NSyncPointsAlloc)
+        endrun(1, "Tried to generate %d syncpoints, %d allocated\n", NSyncPoints, NSyncPointsAlloc);
 
     //message(1,"NSyncPoints = %d, OutputListLength = %d , timemax = %.3f\n",NSyncPoints,Sync.OutputListLength,TimeMax);
     /*for(i = 0; i < NSyncPoints; i++) {

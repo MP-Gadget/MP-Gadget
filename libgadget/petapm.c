@@ -318,8 +318,6 @@ pfft_complex * petapm_force_r2c(PetaPM * pm,
     pm_apply_transfer_function(pm, complx, rho_k, global_transfer);
     walltime_measure("/PMgrav/r2c");
 
-    report_memory_usage("PetaPM");
-
     myfree(complx);
     return rho_k;
 }
@@ -344,7 +342,10 @@ petapm_force_c2r(PetaPM * pm,
 
         double * real = (double * ) mymalloc2("PMreal", pm->priv->fftsize * sizeof(double));
         pfft_execute_dft_c2r(pm->priv->plan_back, complx, real);
+
         walltime_measure("/PMgrav/c2r");
+        if(f == functions) // Once
+            report_memory_usage("PetaPM");
         myfree(complx);
         /* read out the potential: this will copy and free real.*/
         layout_build_and_exchange_cells_to_local(pm, &pm->priv->layout, pm->priv->meshbuf, real);
@@ -377,6 +378,8 @@ void petapm_force(PetaPM * pm, petapm_prepare_func prepare,
     myfree(regions);
     petapm_force_finish(pm);
 }
+
+/* These functions are for the excursion set reionization module*/
 
 /* initialise one set of regions with custom iterator 
  * this is the same as petapm_force_init with a custom iterator 
@@ -468,22 +471,17 @@ petapm_reion_c2r(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
         walltime_measure("/PMreion/calc");
 
         double * star_real = (double * ) mymalloc2("star_real", pm_star->priv->fftsize * sizeof(double));
-        //dummy pointer if SFR is not used
-        double * sfr_real;
-        if(use_sfr){
-            sfr_real = (double * ) mymalloc2("sfr_real", pm_sfr->priv->fftsize * sizeof(double));
-        }
         /* back to real space */
         pfft_execute_dft_c2r(pm_mass->priv->plan_back, mass_filtered, mass_real);
         pfft_execute_dft_c2r(pm_star->priv->plan_back, star_filtered, star_real);
+        double * sfr_real = NULL;
         if(use_sfr){
+            sfr_real = (double * ) mymalloc2("sfr_real", pm_sfr->priv->fftsize * sizeof(double));
             pfft_execute_dft_c2r(pm_sfr->priv->plan_back, sfr_filtered, sfr_real);
+            myfree(sfr_filtered);
         }
         walltime_measure("/PMreion/c2r");
         
-        if(use_sfr){
-            myfree(sfr_filtered);
-        }
         myfree(star_filtered);
         myfree(mass_filtered);
 
@@ -494,7 +492,7 @@ petapm_reion_c2r(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
 
         /* since we don't need to readout star and sfr grids...*/
         /* on the last step, the mass grid is populated with J21 and read out*/
-        if(use_sfr){
+        if(sfr_real){
             myfree(sfr_real);
         }
         myfree(star_real);
@@ -544,7 +542,7 @@ void petapm_reion(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
     //using force r2c since this part can be done independently
     pfft_complex * mass_unfiltered = petapm_force_r2c(pm_mass, global_functions);
     pfft_complex * star_unfiltered = petapm_force_r2c(pm_star, global_functions);
-    pfft_complex * sfr_unfiltered;
+    pfft_complex * sfr_unfiltered = NULL;
     if(use_sfr){
         sfr_unfiltered = petapm_force_r2c(pm_sfr, global_functions);
     }
@@ -558,7 +556,7 @@ void petapm_reion(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
                R_max, R_min, R_delta, use_sfr);
     
     //free everything in the correct order
-    if(use_sfr){
+    if(sfr_unfiltered){
         myfree(sfr_unfiltered);
     }
     myfree(star_unfiltered);
@@ -579,7 +577,7 @@ void petapm_reion(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
     petapm_force_finish(pm_star);
     petapm_force_finish(pm_mass);
 }
-
+/* End excursion set reionization module*/
 
 /* build a communication layout */
 
