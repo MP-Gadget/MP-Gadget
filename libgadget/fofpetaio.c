@@ -218,19 +218,10 @@ fof_find_target_task(struct PartIndex * pi, int64_t pi_size, const uint64_t task
 #endif
 }
 
-static int
-fof_try_particle_exchange(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, struct PartIndex * pi, MPI_Comm Comm)
+static void
+fof_copy_target_task(struct part_manager_type * halo_pman, struct PartIndex * pi, const uint64_t task_origin_offset)
 {
     int64_t i = 0;
-    /* Build the index: needs to be done each time we loop as may have changed*/
-    /* Yu: found it! this shall be int64 */
-    #pragma omp parallel for
-    for(i = 0; i < halo_pman->NumPart; i ++) {
-        pi[i].sortKey = halo_pman->Base[i].GrNr;
-    }
-    const uint64_t task_origin_offset = PartManager->MaxPart + 1Lu;
-
-    fof_find_target_task(pi, halo_pman->NumPart, task_origin_offset, Comm);
 #ifdef DEBUG
     #pragma omp parallel for
     for(i = 0; i < halo_pman->NumPart; i ++) {
@@ -245,8 +236,6 @@ fof_try_particle_exchange(struct part_manager_type * halo_pman, struct slots_man
         halo_pman->Base[index].TargetTask = pi[i].targetTask;
     }
 
-    myfree(pi);
-
 #ifdef DEBUG
     #pragma omp parallel for
     for(i = 0; i < halo_pman->NumPart; i ++) {
@@ -254,10 +243,7 @@ fof_try_particle_exchange(struct part_manager_type * halo_pman, struct slots_man
             endrun(4, "TargetTask %d not changed %d! neighbours: %d %d\n", i, halo_pman->Base[i].TargetTask, halo_pman->Base[i-1].TargetTask, halo_pman->Base[i+1].TargetTask);
     }
 #endif
-
     walltime_measure("/FOF/IO/Distribute");
-
-    return domain_exchange(fof_sorted_layout, halo_pman, 1, NULL, halo_pman, halo_sman, 10000, Comm);
 }
 
 static int
@@ -290,6 +276,18 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
                 atleast[type]++;
         }
     }
+
+    struct PartIndex * pi = (struct PartIndex *) mymalloc("PartIndex", sizeof(struct PartIndex) * halo_pman->NumPart);
+    /* Build the index: needs to be done each time we loop as may have changed*/
+    /* Yu: found it! this shall be int64 */
+    #pragma omp parallel for
+    for(i = 0; i < halo_pman->NumPart; i ++) {
+        pi[i].sortKey = halo_pman->Base[i].GrNr;
+    }
+
+    const uint64_t task_origin_offset = PartManager->MaxPart + 1Lu;
+    fof_find_target_task(pi, NpigLocal, task_origin_offset, Comm);
+
     halo_pman->MaxPart = NpigLocal * 1.02;
     struct particle_data * halopart = (struct particle_data *) mymalloc("HaloParticle", sizeof(struct particle_data) * halo_pman->MaxPart);
     halo_pman->Base = halopart;
@@ -326,10 +324,12 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
         endrun(3, "Error in NpigLocal %ld != %ld!\n", NpigLocal, halo_pman->NumPart);
     MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, Comm);
     message(0, "GrNrMax before exchange is %d\n", GrNrMaxGlobal);
-    struct PartIndex * pi = (struct PartIndex *) mymalloc("PartIndex", sizeof(struct PartIndex) * halo_pman->NumPart);
 
+    /* Now copy the TargetTask we constructed in pi into the new halo_pman*/
+    fof_copy_target_task(halo_pman, pi, task_origin_offset);
+    myfree(pi);
 
-    if(fof_try_particle_exchange(halo_pman, halo_sman, pi, Comm)) {
+    if(domain_exchange(fof_sorted_layout, halo_pman, 1, NULL, halo_pman, halo_sman, 10000, Comm)) {
         message(1930, "Failed to exchange and write particles for the FOF. This is non-fatal, continuing\n");
         return 1;
     }
