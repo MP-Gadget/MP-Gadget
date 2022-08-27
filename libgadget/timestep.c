@@ -1301,12 +1301,14 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
         act->ActiveParticle = NULL;
         act->NumActiveParticle = PartManager->NumPart;
         act->NumActiveGravity = PartManager->NumPart;
+        act->NumActiveHydro = SlotsManager->info[0].size + SlotsManager->info[5].size;
     }
     else {
         /*Need space for more particles than we have, because of star formation*/
         act->ActiveParticle = (int *) mymalloc("ActiveParticle", narr * NumThreads * sizeof(int));
         act->NumActiveParticle = 0;
         act->NumActiveGravity = 0;
+        act->NumActiveHydro = 0;
     }
 
     int * TimeBinCountType = (int *) mymalloc("TimeBinCountType", 6*(TIMEBINS+1)*NumThreads * sizeof(int));
@@ -1320,8 +1322,9 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
     /* We enforce schedule static to imply monotonic, ensure that each thread executes on contiguous particles
      * and ensure no thread gets more than narr particles.*/
     size_t schedsz = PartManager->NumPart / NumThreads + 1;
-    int64_t nactivegrav=act->NumActiveGravity;
-    #pragma omp parallel for schedule(static, schedsz) reduction(+: nactivegrav)
+    int64_t nactivegrav = act->NumActiveGravity;
+    int64_t nactivehydro = act->NumActiveHydro;
+    #pragma omp parallel for schedule(static, schedsz) reduction(+: nactivegrav) reduction(+: nactivehydro)
     for(i = 0; i < PartManager->NumPart; i++)
     {
         const int bin_hydro = P[i].TimeBinHydro;
@@ -1345,6 +1348,7 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
             /* Store this particle in the ActiveSet for this thread*/
             ActivePartSets[tid][NActiveThread[tid]] = i;
             NActiveThread[tid]++;
+            nactivehydro++;
         }
         /* Account gas and BHs to their hydro bin and other particles to their gravity bin*/
         int bin = bin_gravity;
@@ -1359,6 +1363,7 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
     ta_free(ActivePartSets);
     ta_free(NActiveThread);
     act->NumActiveGravity = nactivegrav;
+    act->NumActiveHydro = nactivehydro;
     /*Print statistics for this time bin*/
     print_timebin_statistics(times, NumCurrentTiStep, TimeBinCountType, Time, nactivegrav);
     myfree(TimeBinCountType);
