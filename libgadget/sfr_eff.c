@@ -193,18 +193,19 @@ cooling_and_starformation(ActiveParticles * act, double Time, const DriftKickTim
     const double hubble = hubble_function(CP, Time);
 
     if(sfr_params.StarformationOn) {
-        NewStars = (int *) mymalloc("NewStars", nactive * sizeof(int) * nthreads);
-        gadget_setup_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, nactive, nthreads);
-        NewParents = (int *) mymalloc2("NewParents", nactive * sizeof(int) * nthreads);
-        gadget_setup_thread_arrays(NewParents, thrqueueparent, nqthrsfr, nactive, nthreads);
+        /* Maximally we need the active gas particles*/
+        NewStars = (int *) mymalloc("NewStars", act->NumActiveHydro * sizeof(int) * nthreads);
+        gadget_setup_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, act->NumActiveHydro, nthreads);
+        NewParents = (int *) mymalloc2("NewParents", act->NumActiveHydro * sizeof(int) * nthreads);
+        gadget_setup_thread_arrays(NewParents, thrqueueparent, nqthrsfr, act->NumActiveHydro, nthreads);
     }
 
     if(sfr_params.WindOn && winds_are_subgrid()) {
         nqthrwind = ta_malloc("nqthrwind", size_t, nthreads);
         thrqueuewind = ta_malloc("thrqueuewind", int *, nthreads);
         StellarMass = (MyFloat *) mymalloc("StellarMass", SlotsManager->info[0].size * sizeof(MyFloat));
-        MaybeWind = (int *) mymalloc("MaybeWind", nactive * sizeof(int) * nthreads);
-        gadget_setup_thread_arrays(MaybeWind, thrqueuewind, nqthrwind, nactive, nthreads);
+        MaybeWind = (int *) mymalloc("MaybeWind", act->NumActiveHydro * sizeof(int) * nthreads);
+        gadget_setup_thread_arrays(MaybeWind, thrqueuewind, nqthrwind, act->NumActiveHydro, nthreads);
     }
 
 
