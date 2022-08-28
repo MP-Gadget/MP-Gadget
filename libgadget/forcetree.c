@@ -1271,9 +1271,7 @@ force_treeupdate_pseudos(int no, const ForceTree * tree)
  */
 void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp * ddecomp)
 {
-    int NTask, ThisTask, recvTask;
-    int i, ta;
-    int *recvcounts, *recvoffset;
+    int i;
 
     walltime_measure("/Misc");
 
@@ -1284,8 +1282,6 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
     }
     if(!tree->Father)
         endrun(1, "Father array not allocated, needed for hmax!\n");
-    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
-    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
     #pragma omp parallel for
     for(i = 0; i < size; i++)
@@ -1325,6 +1321,10 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
     double * TopLeafhmax = (double *) mymalloc("TopLeafMoments", ddecomp->NTopLeaves * sizeof(double));
     memset(&TopLeafhmax[0], 0, sizeof(double) * ddecomp->NTopLeaves);
 
+    int NTask, ThisTask, recvTask;
+    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+
     #pragma omp parallel for
     for(i = ddecomp->Tasks[ThisTask].StartLeaf; i < ddecomp->Tasks[ThisTask].EndLeaf; i ++) {
         int no = ddecomp->TopLeaves[i].treenode;
@@ -1332,8 +1332,8 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
     }
 
     /* share the hmax-data of the dirty nodes accross CPUs */
-    recvcounts = (int *) mymalloc("recvcounts", sizeof(int) * NTask);
-    recvoffset = (int *) mymalloc("recvoffset", sizeof(int) * NTask);
+    int * recvcounts = (int *) mymalloc("recvcounts", sizeof(int) * NTask);
+    int * recvoffset = (int *) mymalloc("recvoffset", sizeof(int) * NTask);
 
     #pragma omp parallel for
     for(recvTask = 0; recvTask < NTask; recvTask++)
@@ -1349,6 +1349,7 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
     myfree(recvoffset);
     myfree(recvcounts);
 
+    int ta;
     for(ta = 0; ta < NTask; ta++) {
         if(ta == ThisTask)
             continue; /* bypass ThisTask since it is already up to date */
