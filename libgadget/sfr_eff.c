@@ -286,7 +286,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, const DriftKickTim
     /* Do subgrid winds*/
     if(sfr_params.WindOn && winds_are_subgrid()) {
         NumMaybeWind = gadget_compact_thread_arrays(MaybeWind, thrqueuewind, nqthrwind, nthreads);
-        winds_subgrid(MaybeWind, NumMaybeWind, Time, CP, times, hubble, tree, ddecomp, StellarMass);
+        winds_subgrid(MaybeWind, NumMaybeWind, Time, StellarMass);
         myfree(MaybeWind);
         myfree(StellarMass);
         ta_free(thrqueuewind);
@@ -387,7 +387,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, const DriftKickTim
 
     /* Now apply the wind model using the list of new stars.*/
     if(sfr_params.WindOn && !winds_are_subgrid())
-        winds_and_feedback(NewStars, NumNewStar, Time, CP, times, hubble, tree, ddecomp);
+        winds_and_feedback(NewStars, NumNewStar, Time, tree, ddecomp);
     myfree(NewStars);
 }
 
@@ -600,6 +600,7 @@ static int make_particle_star(int child, int parent, int placement, double Time)
     STARP(child).LastEnrichmentMyr = 0;
     STARP(child).TotalMassReturned = 0;
     STARP(child).BirthDensity = oldslot.Density;
+    STARP(child).VDisp = oldslot.VDisp;
     /*Copy metallicity*/
     STARP(child).Metallicity = oldslot.Metallicity;
     int j;
