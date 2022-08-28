@@ -1275,11 +1275,9 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
 
     walltime_measure("/Misc");
 
-    /* If hmax has not yet been computed, do all particles*/
-    if(!tree->hmax_computed_flag) {
-        activeset = NULL;
-        size = PartManager->NumPart;
-    }
+    /* If hmax has not yet been computed, pre-compute it. */
+    if(!tree->hmax_computed_flag)
+        force_tree_calc_moments(tree, ddecomp);
     if(!tree->Father)
         endrun(1, "Father array not allocated, needed for hmax!\n");
 
