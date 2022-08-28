@@ -48,4 +48,9 @@ void winds_decoupled_hydro(int i, double atime);
 
 /* Returns 1 if the winds ever decouple, 0 otherwise*/
 int winds_ever_decouple(void);
+
+/* Find the 1D DM velocity dispersion of all gas particles by running a density loop.
+ * Stores it in VDisp in the slots structure.*/
+void winds_find_vel_disp(const double Time, const double hubble, DomainDecomp * ddecomp);
+
 #endif

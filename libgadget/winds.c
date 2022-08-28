@@ -757,3 +757,250 @@ winds_make_after_sf(int i, double sm, double vdisp, double atime)
     }
     return 0;
 }
+
+
+/* Code to compute velocity dispersions*/
+
+typedef struct {
+    TreeWalkQueryBase base;
+    double Mass;
+    double DMRadius[NWINDHSML];
+    double Vel[3];
+} TreeWalkQueryWindVDisp;
+
+typedef struct {
+    TreeWalkResultBase base;
+    double V1sum[NWINDHSML][3];
+    double V2sum[NWINDHSML];
+    double Ngb[NWINDHSML];
+    int alignment; /* Ensure alignment*/
+    int maxcmpte;
+} TreeWalkResultWindVDisp;
+
+struct WindVDispPriv {
+    double Time;
+    double hubble;
+    /* Lower and upper bounds on smoothing length*/
+    MyFloat *Left, *Right, *DMRadius;
+    /* Maximum index where NumNgb is valid. */
+    int * maxcmpte;
+    MyFloat (* V2sum)[NWINDHSML];
+    MyFloat (* V1sum)[NWINDHSML][3];
+    MyFloat (* Ngb) [NWINDHSML];
+};
+#define WINDV_GET_PRIV(tw) ((struct WindVDispPriv *) (tw->priv))
+
+static inline double
+vdispeffdmradius(int place, int i, TreeWalk * tw)
+{
+    double left = WINDV_GET_PRIV(tw)->Left[place];
+    double right = WINDV_GET_PRIV(tw)->Right[place];
+    /*The asymmetry is because it is free to compute extra densities for h < Hsml, but not for h > Hsml*/
+    if (right > 0.99*tw->tree->BoxSize){
+        right = WINDV_GET_PRIV(tw)->DMRadius[place];
+    }
+    if(left == 0)
+        left = 0.1 * WINDV_GET_PRIV(tw)->DMRadius[place];
+    /*Evenly split in volume*/
+    double rvol = pow(right, 3);
+    double lvol = pow(left, 3);
+    return pow((1.0*i+1)/(1.0*NWINDHSML+1) * (rvol - lvol) + lvol, 1./3);
+}
+
+static void
+wind_vdisp_copy(int place, TreeWalkQueryWindVDisp * input, TreeWalk * tw)
+{
+    input->Mass = P[place].Mass;
+    int i;
+    for(i=0; i<3; i++)
+        input->Vel[i] = P[place].Vel[i];
+    for(i = 0; i<NWINDHSML; i++){
+        input->DMRadius[i]=vdispeffdmradius(place,i,tw);
+    }
+}
+
+static void
+wind_vdisp_ngbiter(TreeWalkQueryWindVDisp * I,
+        TreeWalkResultWindVDisp * O,
+        TreeWalkNgbIterWind * iter,
+        LocalTreeWalk * lv)
+{
+    /* this evaluator walks the tree and sums the total mass of surrounding gas
+     * particles as described in VS08. */
+    /* it also calculates the velocity dispersion of the nearest 40 DM or gas particles */
+    if(iter->base.other == -1) {
+        iter->base.Hsml = I->DMRadius[NWINDHSML-1];
+        iter->base.mask = DMMASK; /* gas and dm */
+        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
+        O->maxcmpte = NWINDHSML;
+        return;
+    }
+
+    int other = iter->base.other;
+    double r = iter->base.r;
+    double * dist = iter->base.dist;
+
+    int i;
+    const double atime = WINDV_GET_PRIV(lv->tw)->Time;
+    for (i = 0; i < O->maxcmpte; i++) {
+        if(r < I->DMRadius[i]) {
+            O->Ngb[i] += 1;
+            int d;
+            for(d = 0; d < 3; d ++) {
+                /* Add hubble flow to relative velocity. Use predicted velocity to current time.
+                 * The I particle is active so always at current time.*/
+                double vel = P[other].Vel[d] - I->Vel[d] + WINDV_GET_PRIV(lv->tw)->hubble * atime * atime * dist[d];
+                O->V1sum[i][d] += vel;
+                O->V2sum[i] += vel * vel;
+            }
+        }
+    }
+
+    for(i = 0; i<NWINDHSML; i++){
+        if(O->Ngb[i] > NUMDMNGB){
+            O->maxcmpte = i+1;
+            iter->base.Hsml = I->DMRadius[i];
+            break;
+        }
+    }
+    /*
+    message(1, "ThisTask = %d %ld ngb=%d NGB=%d TotalWeight=%g V2sum=%g V1sum=%g %g %g\n",
+    ThisTask, I->ID, numngb, O->Ngb, O->TotalWeight, O->V2sum,
+    O->V1sum[0], O->V1sum[1], O->V1sum[2]);
+    */
+}
+
+static void
+wind_vdisp_reduce(int place, TreeWalkResultWindVDisp * O, enum TreeWalkReduceMode mode, TreeWalk * tw)
+{
+    int pi = place;
+    int i;
+    if(mode == 0 || WINDV_GET_PRIV(tw)->maxcmpte[pi] > O->maxcmpte)
+        WINDV_GET_PRIV(tw)->maxcmpte[pi] = O->maxcmpte;
+    int k;
+    for (i = 0; i < O->maxcmpte; i++){
+        TREEWALK_REDUCE(WINDV_GET_PRIV(tw)->Ngb[pi][i], O->Ngb[i]);
+        TREEWALK_REDUCE(WINDV_GET_PRIV(tw)->V2sum[pi][i], O->V2sum[i]);
+        for(k = 0; k < 3; k ++) {
+            TREEWALK_REDUCE(WINDV_GET_PRIV(tw)->V1sum[pi][i][k], O->V1sum[i][k]);
+        }
+    }
+//     message(1, "Reduce ID=%ld, NGB_first=%d NGB_last=%d maxcmpte = %d, left = %g, right = %g\n",
+//             P[place].ID, O->Ngb[0],O->Ngb[O->maxcmpte-1],WINDP(place, Windd).maxcmpte,WINDP(place, Windd).Left,WINDP(place, Windd).Right);
+}
+
+static void
+wind_vdisp_postprocess(const int i, TreeWalk * tw)
+{
+    const int pi = i;
+    const int maxcmpt = WINDV_GET_PRIV(tw)->maxcmpte[pi];
+    int j;
+    double evaldmradius[NWINDHSML];
+    for(j = 0; j < maxcmpt; j++){
+        evaldmradius[j] = vdispeffdmradius(i,j,tw);
+    }
+    int close = 0;
+    WINDV_GET_PRIV(tw)->DMRadius[pi] = ngb_narrow_down(&WINDV_GET_PRIV(tw)->Right[pi], &WINDV_GET_PRIV(tw)->Left[pi], evaldmradius, WINDV_GET_PRIV(tw)->Ngb[pi], maxcmpt, NUMDMNGB, &close, tw->tree->BoxSize);
+    double numngb = WINDV_GET_PRIV(tw)->Ngb[pi][close];
+
+    int tid = omp_get_thread_num();
+    /*  If we have 40 neighbours, or if DMRadius is narrow, set vdisp. Otherwise add to redo queue */
+    if((numngb < (NUMDMNGB - MAXDMDEVIATION) || numngb > (NUMDMNGB + MAXDMDEVIATION)) &&
+        (WINDV_GET_PRIV(tw)->Right[pi] - WINDV_GET_PRIV(tw)->Left[pi] > 1e-2)) {
+        /* More work needed: add this particle to the redo queue*/
+        tw->NPRedo[tid][tw->NPLeft[tid]] = i;
+        tw->NPLeft[tid] ++;
+    }
+    else{
+        double vdisp = WINDV_GET_PRIV(tw)->V2sum[pi][close] / numngb;
+        int d;
+        for(d = 0; d < 3; d++){
+            vdisp -= pow(WINDV_GET_PRIV(tw)->V1sum[pi][close][d] / numngb,2);
+        }
+        if(vdisp > 0) {
+            if(P[i].Type == 0)
+                SPHP(i).VDisp = sqrt(vdisp / 3);
+            else if (P[i].Type == 5)
+                BHP(i).VDisp = sqrt(vdisp / 3);
+        }
+    }
+
+    if(tw->maxnumngb[tid] < numngb)
+        tw->maxnumngb[tid] = numngb;
+    if(tw->minnumngb[tid] > numngb)
+        tw->minnumngb[tid] = numngb;
+}
+
+static int
+winds_veldisp_haswork(int n, TreeWalk * tw)
+{
+    /* Don't want a density for swallowed black hole particles*/
+    if(P[n].Swallowed)
+        return 0;
+    if(P[n].Type != 0 && P[n].Type != 5)
+        return 0;
+    return 1;
+}
+
+/* Find the 1D DM velocity dispersion of all gas particles by running a density loop.
+ * Stores it in VDisp in the slots structure.*/
+void
+winds_find_vel_disp(const double Time, const double hubble, DomainDecomp * ddecomp)
+{
+    TreeWalk tw[1] = {0};
+    struct WindVDispPriv priv[1] = {0};
+    ForceTree tree[1] = {0};
+    force_tree_rebuild_mask(tree, ddecomp, DMMASK, NULL);
+    /* Types used: gas*/
+    tw->ev_label = "WIND_VDISP";
+    tw->fill = (TreeWalkFillQueryFunction) wind_vdisp_copy;
+    tw->reduce = (TreeWalkReduceResultFunction) wind_vdisp_reduce;
+    tw->query_type_elsize = sizeof(TreeWalkQueryWindVDisp);
+    tw->result_type_elsize = sizeof(TreeWalkResultWindVDisp);
+    tw->tree = tree;
+
+    /* sum the total weight of surrounding gas */
+    tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterWind);
+    tw->ngbiter = (TreeWalkNgbIterFunction) wind_vdisp_ngbiter;
+
+    tw->haswork = winds_veldisp_haswork;
+    tw->visit = (TreeWalkVisitFunction) treewalk_visit_nolist_ngbiter;
+    tw->postprocess = (TreeWalkProcessFunction) wind_vdisp_postprocess;
+
+    priv[0].Time = Time;
+    priv[0].hubble = hubble;
+    tw->priv = priv;
+
+    priv->Left = (MyFloat *) mymalloc("VDISP->Left", PartManager->NumPart * sizeof(MyFloat));
+    priv->Right = (MyFloat *) mymalloc("VDISP->Right", PartManager->NumPart * sizeof(MyFloat));
+    priv->DMRadius = (MyFloat *) mymalloc("VDISP->DMRadius", PartManager->NumPart * sizeof(MyFloat));
+    priv->Ngb = (MyFloat (*) [NWINDHSML]) mymalloc("VDISP->NumNgb", PartManager->NumPart * sizeof(priv->Ngb[0]));
+    priv->V1sum = (MyFloat (*) [NWINDHSML][3]) mymalloc("VDISP->V1Sum", PartManager->NumPart * sizeof(priv->V1sum[0]));
+    priv->V2sum = (MyFloat (*) [NWINDHSML]) mymalloc("VDISP->V2Sum", PartManager->NumPart * sizeof(priv->V2sum[0]));
+    priv->maxcmpte = (int *) mymalloc("maxcmpte", PartManager->NumPart * sizeof(int));
+    report_memory_usage("WIND_VDISP");
+    int n;
+    /*Initialise the WINDP array*/
+    #pragma omp parallel for
+    for (n = 0; n < PartManager->NumPart; n++) {
+        if(P[n].Type == 0 || P[n].Type == 5) {
+            priv->DMRadius[n] = 2 * P[n].Hsml;
+            priv->Left[n] = 0;
+            priv->Right[n] = tree->BoxSize;
+            priv->maxcmpte[n] = NUMDMNGB;
+        }
+    }
+    /* Find densities*/
+    treewalk_do_hsml_loop(tw, NULL, PartManager->NumPart, 1);
+    /* Free memory*/
+    myfree(priv->maxcmpte);
+    myfree(priv->V2sum);
+    myfree(priv->V1sum);
+    myfree(priv->Ngb);
+    myfree(priv->DMRadius);
+    myfree(priv->Right);
+    myfree(priv->Left);
+    force_tree_free(tree);
+    walltime_measure("/Cooling/VDisp");
+
+}

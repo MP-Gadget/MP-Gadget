@@ -35,6 +35,7 @@
 #include "uvbg.h"
 #include "neutrinos_lra.h"
 #include "stats.h"
+#include "winds.h"
 
 static struct ClockTable Clocks;
 
@@ -611,6 +612,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 fof_finish(&fof);
             }
 
+            if(is_PM && (All.BlackHoleOn || All.CoolingOn))
+                winds_find_vel_disp(atime, hubble_function(&All.CP, atime), ddecomp);
             /* Note that the tree here may be freed, if we are not a gravity-active timestep,
              * or if we are a PM step.*/
             /* If we didn't build a tree for gravity, we need to build one in BH or in winds.
