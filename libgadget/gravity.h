@@ -57,10 +57,6 @@ void gravpm_force(PetaPM * pm, ForceTree * tree, Cosmology * CP, double Time, do
 void grav_short_pair(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double Rcut, double rho0, int NeutrinoTracer, int FastParticleType);
 void grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFloat (* AccelStore)[3], double rho0, int NeutrinoTracer, int FastParticleType, inttime_t Ti_Current);
 
-/* Set the old acceleration from the PM and tree acceleration,
- * to be used over the whole PM step.*/
-void grav_set_oldaccs(const double G);
-
 /*Read the power spectrum, without changing the input value.*/
 void measure_power_spectrum(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex *value);
 

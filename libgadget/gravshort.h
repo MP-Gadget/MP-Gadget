@@ -83,12 +83,26 @@ grav_short_postprocess(int i, TreeWalk * tw)
     }
 }
 
+/*Compute the absolute magnitude of the acceleration for a particle.*/
+static MyFloat
+grav_get_abs_accel(struct particle_data * PP, const double G)
+{
+    double aold=0;
+    int j;
+    for(j = 0; j < 3; j++) {
+       double ax = PP->FullTreeGravAccel[j] + PP->GravPM[j];
+       aold += ax*ax;
+    }
+    return sqrt(aold) / G;
+}
+
 static void
 grav_short_copy(int place, TreeWalkQueryGravShort * input, TreeWalk * tw)
 {
     input->Soft = FORCE_SOFTENING(place, P[place].Type);
-    input->OldAcc = P[place].OldAcc;
+    input->OldAcc = grav_get_abs_accel(&P[place], GRAV_GET_PRIV(tw)->G);
 }
+
 static void
 grav_short_reduce(int place, TreeWalkResultGravShort * result, enum TreeWalkReduceMode mode, TreeWalk * tw)
 {

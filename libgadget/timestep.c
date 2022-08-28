@@ -529,11 +529,6 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
         * because we will over-write the acceleration*/
     apply_hierarchical_grav_kick(lastact, CP, times, StoredGravAccel.GravAccel, ti, largest_active);
 
-    if(!StoredGravAccel.GravAccel) {
-        /* Set the old accelerations when all particles are active.*/
-        grav_set_oldaccs(CP->GravInternal);
-    }
-
     if(lastact->ActiveParticle && lastact->ActiveParticle != act->ActiveParticle){
         /* Allocate high so we can free in order.*/
         int * newActiveParticle = mymalloc2("Last_active", sizeof(int)*lastact->NumActiveParticle);

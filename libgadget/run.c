@@ -314,11 +314,11 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
     const double MinEgySpec = get_MinEgySpec();
 
     PetaPM pm = {0};
-    gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);    
+    gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
     /*define excursion set PetaPM structs*/
     /*because we need to FFT 3 grids, and we can't separate sets of regions, we need 3 PetaPM structs */
     /*also, we will need different pencils and layouts due to different zero cells*/
-    /*NOTE: this produces three identical communicators TODO: write a quick way to give them all the same communicator*/    
+    /*NOTE: this produces three identical communicators TODO: write a quick way to give them all the same communicator*/
     PetaPM pm_mass = {0};
     PetaPM pm_star = {0};
     PetaPM pm_sfr = {0};
@@ -525,10 +525,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                     const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal);
                     force_tree_full(&Tree, ddecomp, HybridNuTracer, All.OutputDir);
                     grav_short_tree(&Act, &pm, &Tree, NULL, rho0, HybridNuTracer, All.FastParticleType, times.Ti_Current);
-                    /* Now we have computed the total acceleration, set old acc for the next PM step.
-                     * Done inside hierarchical_gravity_accelerations for the other branch.*/
-                    if(is_PM)
-                        grav_set_oldaccs(All.CP.GravInternal);
             }
         }
 
