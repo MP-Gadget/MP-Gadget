@@ -609,6 +609,9 @@ typedef struct {
 struct WindVDispPriv {
     double Time;
     double hubble;
+    double FgravkickB;
+    double gravkicks[TIMEBINS+1];
+    double hydrokicks[TIMEBINS+1];
     /* Lower and upper bounds on smoothing length*/
     MyFloat *Left, *Right, *DMRadius;
     /* Maximum index where NumNgb is valid. */
@@ -675,10 +678,12 @@ wind_vdisp_ngbiter(TreeWalkQueryWindVDisp * I,
         if(r < I->DMRadius[i]) {
             O->Ngb[i] += 1;
             int d;
+            MyFloat VelPred[3];
+            DM_VelPred(other, VelPred, WINDV_GET_PRIV(lv->tw)->FgravkickB, WINDV_GET_PRIV(lv->tw)->gravkicks);
             for(d = 0; d < 3; d ++) {
                 /* Add hubble flow to relative velocity. Use predicted velocity to current time.
                  * The I particle is active so always at current time.*/
-                double vel = P[other].Vel[d] - I->Vel[d] + WINDV_GET_PRIV(lv->tw)->hubble * atime * atime * dist[d];
+                double vel = VelPred[d] - I->Vel[d] + WINDV_GET_PRIV(lv->tw)->hubble * atime * atime * dist[d];
                 O->V1sum[i][d] += vel;
                 O->V2sum[i] += vel * vel;
             }
@@ -774,7 +779,7 @@ winds_veldisp_haswork(int n, TreeWalk * tw)
 /* Find the 1D DM velocity dispersion of all gas particles by running a density loop.
  * Stores it in VDisp in the slots structure.*/
 void
-winds_find_vel_disp(const ActiveParticles * act, const double Time, const double hubble, DomainDecomp * ddecomp)
+winds_find_vel_disp(const ActiveParticles * act, const double Time, const double hubble, Cosmology * CP, DriftKickTimes * times, DomainDecomp * ddecomp)
 {
     TreeWalk tw[1] = {0};
     struct WindVDispPriv priv[1] = {0};
@@ -799,6 +804,19 @@ winds_find_vel_disp(const ActiveParticles * act, const double Time, const double
     priv[0].Time = Time;
     priv[0].hubble = hubble;
     tw->priv = priv;
+    priv->FgravkickB = get_exact_gravkick_factor(CP, times->PM_kick, times->Ti_Current);
+    memset(priv->gravkicks, 0, sizeof(priv->gravkicks[0])*(TIMEBINS+1));
+    memset(priv->hydrokicks, 0, sizeof(priv->hydrokicks[0])*(TIMEBINS+1));
+    /* Compute the factors to move a current kick times velocity to the drift time velocity.
+     * We need to do the computation for all timebins up to the maximum because even inactive
+     * particles may have interactions. */
+    int i;
+    #pragma omp parallel for
+    for(i = times->mintimebin; i <= TIMEBINS; i++)
+    {
+        priv->gravkicks[i] = get_exact_gravkick_factor(CP, times->Ti_kick[i], times->Ti_Current);
+        priv->hydrokicks[i] = get_exact_hydrokick_factor(CP, times->Ti_kick[i], times->Ti_Current);
+    }
 
     priv->Left = (MyFloat *) mymalloc("VDISP->Left", PartManager->NumPart * sizeof(MyFloat));
     priv->Right = (MyFloat *) mymalloc("VDISP->Right", PartManager->NumPart * sizeof(MyFloat));
@@ -808,7 +826,7 @@ winds_find_vel_disp(const ActiveParticles * act, const double Time, const double
     priv->V2sum = (MyFloat (*) [NWINDHSML]) mymalloc("VDISP->V2Sum", PartManager->NumPart * sizeof(priv->V2sum[0]));
     priv->maxcmpte = (int *) mymalloc("maxcmpte", PartManager->NumPart * sizeof(int));
     report_memory_usage("WIND_VDISP");
-    int i;
+
     /*Initialise the WINDP array*/
     #pragma omp parallel for
     for (i = 0; i < act->NumActiveParticle; i++) {

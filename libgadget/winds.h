@@ -51,6 +51,6 @@ int winds_ever_decouple(void);
 
 /* Find the 1D DM velocity dispersion of all gas particles by running a density loop.
  * Stores it in VDisp in the slots structure.*/
-void winds_find_vel_disp(const ActiveParticles * act, const double Time, const double hubble, DomainDecomp * ddecomp);
+void winds_find_vel_disp(const ActiveParticles * act, const double Time, const double hubble, Cosmology * CP, DriftKickTimes * times, DomainDecomp * ddecomp);
 
 #endif

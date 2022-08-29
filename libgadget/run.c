@@ -613,7 +613,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             }
 
 //             if(is_PM && (All.BlackHoleOn || All.CoolingOn))
-                winds_find_vel_disp(&Act, atime, hubble_function(&All.CP, atime), ddecomp);
+                winds_find_vel_disp(&Act, atime, hubble_function(&All.CP, atime), &All.CP, &times, ddecomp);
             /* Note that the tree here may be freed, if we are not a gravity-active timestep,
              * or if we are a PM step.*/
             /* If we didn't build a tree for gravity, we need to build one in BH or in winds.
