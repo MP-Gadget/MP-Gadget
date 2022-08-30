@@ -11,6 +11,7 @@
 #include "walltime.h"
 #include "density.h"
 #include "hydra.h"
+#include "sfr_eff.h"
 
 /*Parameters of the wind model*/
 static struct WindParams
@@ -612,6 +613,7 @@ struct WindVDispPriv {
     double FgravkickB;
     double gravkicks[TIMEBINS+1];
     double hydrokicks[TIMEBINS+1];
+    double ddrift;
     /* Lower and upper bounds on smoothing length*/
     MyFloat *Left, *Right, *DMRadius;
     /* Maximum index where NumNgb is valid. */
@@ -768,11 +770,25 @@ wind_vdisp_postprocess(const int i, TreeWalk * tw)
 static int
 winds_veldisp_haswork(int n, TreeWalk * tw)
 {
-    /* Don't want a density for swallowed black hole particles*/
-    if(P[n].Swallowed)
+    /* Don't want a density for swallowed particles*/
+    if(P[n].Swallowed || P[n].IsGarbage)
         return 0;
-    if(P[n].Type != 0 && P[n].Type != 5)
+    /* Only want gas*/
+    if(P[n].Type != 0)
         return 0;
+    /* We only want VDisp for gas particles that may be star-forming over the next PM timestep.
+     * Use DtHsml.*/
+    double densfac = (P[n].Hsml + P[n].DtHsml * WINDV_GET_PRIV(tw)->ddrift)/P[n].Hsml;
+    if(densfac > 1)
+        densfac = 1;
+    if(SPHP(n).Density/(densfac * densfac * densfac) < 0.1 * sfr_density_threshold(WINDV_GET_PRIV(tw)->Time))
+        return 0;
+    /* Update veldisp only on a gravitationally active timestep,
+     * since this is the frequency at which the gravitational acceleration,
+     * which is the only thing DM contributes to, could change. This is probably
+     * overly conservative, because most of the acceleration will be from other stars. */
+//     if(!is_timebin_active(P[n].TimeBinGravity, P[n].Ti_drift))
+//         return 0;
     return 1;
 }
 
@@ -784,7 +800,6 @@ winds_find_vel_disp(const ActiveParticles * act, const double Time, const double
     TreeWalk tw[1] = {0};
     struct WindVDispPriv priv[1] = {0};
     ForceTree tree[1] = {0};
-    force_tree_rebuild_mask(tree, ddecomp, DMMASK, NULL);
     /* Types used: gas*/
     tw->ev_label = "WIND_VDISP";
     tw->fill = (TreeWalkFillQueryFunction) wind_vdisp_copy;
@@ -803,7 +818,25 @@ winds_find_vel_disp(const ActiveParticles * act, const double Time, const double
 
     priv[0].Time = Time;
     priv[0].hubble = hubble;
+    priv[0].ddrift = get_exact_drift_factor(CP, times->Ti_Current, times->PM_length);
     tw->priv = priv;
+
+    /* Build the queue to check that we have something to do before we rebuild the tree.*/
+    treewalk_build_queue(tw, act->ActiveParticle, act->NumActiveParticle, 0);
+
+    int * ActiveVDisp = tw->WorkSet;
+    int64_t NumVDisp = tw->WorkSetSize;
+    int64_t totvdisp;
+    /* If this queue is empty, nothing to do.*/
+    MPI_Allreduce(&NumVDisp, &totvdisp, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    if(totvdisp == 0) {
+        myfree(ActiveVDisp);
+        return;
+    }
+
+    force_tree_rebuild_mask(tree, ddecomp, DMMASK, NULL);
+    tw->haswork = NULL;
+
     priv->FgravkickB = get_exact_gravkick_factor(CP, times->PM_kick, times->Ti_Current);
     memset(priv->gravkicks, 0, sizeof(priv->gravkicks[0])*(TIMEBINS+1));
     memset(priv->hydrokicks, 0, sizeof(priv->hydrokicks[0])*(TIMEBINS+1));
@@ -839,7 +872,7 @@ winds_find_vel_disp(const ActiveParticles * act, const double Time, const double
         }
     }
     /* Find densities*/
-    treewalk_do_hsml_loop(tw, act->ActiveParticle, act->NumActiveParticle, 1);
+    treewalk_do_hsml_loop(tw, ActiveVDisp, NumVDisp, 1);
     /* Free memory*/
     myfree(priv->maxcmpte);
     myfree(priv->V2sum);
@@ -849,6 +882,7 @@ winds_find_vel_disp(const ActiveParticles * act, const double Time, const double
     myfree(priv->Right);
     myfree(priv->Left);
     force_tree_free(tree);
+    myfree(ActiveVDisp);
     walltime_measure("/Cooling/VDisp");
 
 }
