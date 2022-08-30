@@ -634,7 +634,11 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     if(!tree->tree_allocated_flag)
     {
         message(0, "Building tree in blackhole\n");
-        force_tree_rebuild_mask(tree, ddecomp, GASMASK | DMMASK | STARMASK | BHMASK, NULL);
+        int treemask = GASMASK | STARMASK | BHMASK;
+        /* Don't necessarily need dark matter */
+        if(blackhole_params.BH_DynFrictionMethod > 1 || blackhole_params.BlackHoleKineticOn)
+            treemask += DMMASK;
+        force_tree_rebuild_mask(tree, ddecomp, treemask, NULL);
         walltime_measure("/BH/Build");
     }
 
