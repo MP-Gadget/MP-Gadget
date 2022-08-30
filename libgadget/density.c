@@ -296,7 +296,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
             int bin = P[p_i].TimeBinHydro;
             double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
             priv->SPH_predicted->EntVarPred[P[p_i].PI] = SPH_EntVarPred(P[p_i].PI, priv->MinEgySpec, priv->a3inv, dloga);
-            SPH_VelPred(p_i, priv->SPH_predicted->VelPred + 3 * P[p_i].PI, priv->FgravkickB, priv->gravkicks, priv->hydrokicks);
         }
     }
 
@@ -353,13 +352,7 @@ density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw)
         I->Vel[2] = P[place].Vel[2];
     }
     else
-    {
-        MyFloat * velpred = DENSITY_GET_PRIV(tw)->SPH_predicted->VelPred;
-        I->Vel[0] = velpred[3 * P[place].PI];
-        I->Vel[1] = velpred[3 * P[place].PI + 1];
-        I->Vel[2] = velpred[3 * P[place].PI + 2];
-    }
-
+        SPH_VelPred(place, I->Vel, DENSITY_GET_PRIV(tw)->FgravkickB, DENSITY_GET_PRIV(tw)->gravkicks, DENSITY_GET_PRIV(tw)->hydrokicks);
 }
 
 static void
@@ -468,34 +461,21 @@ density_ngbiter(
 
         double EntVarPred;
         MyFloat VelPred[3];
+        struct DensityPriv * priv = DENSITY_GET_PRIV(lv->tw);
+        SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks, priv->hydrokicks);
         #pragma omp atomic read
         EntVarPred = SphP_scratch->EntVarPred[P[other].PI];
         /* Lazily compute the predicted quantities. We can do this
          * with minimal locking since nothing happens should we compute them twice.
          * Zero can be the special value since there should never be zero entropy.*/
         if(EntVarPred == 0) {
-            struct DensityPriv * priv = DENSITY_GET_PRIV(lv->tw);
             int bin = P[other].TimeBinHydro;
             double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
             EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, priv->a3inv, dloga);
-            SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks, priv->hydrokicks);
-            /* Note this goes first to avoid threading issues: EntVarPred will only be set after this is done.
-             * The worst that can happen is that some data points get copied twice.*/
-            int i;
-            for(i = 0; i < 3; i++) {
-                #pragma omp atomic write
-                SphP_scratch->VelPred[3 * P[other].PI + i] = VelPred[i];
-            }
             #pragma omp atomic write
             SphP_scratch->EntVarPred[P[other].PI] = EntVarPred;
         }
-        else {
-            int i;
-            for(i = 0; i < 3; i++) {
-                #pragma omp atomic read
-                VelPred[i] = SphP_scratch->VelPred[3 * P[other].PI + i];
-            }
-        }
+
         if(DENSITY_GET_PRIV(lv->tw)->DoEgyDensity) {
             O->EgyRho += mass_j * EntVarPred * wk;
             O->DhsmlEgyDensity += mass_j * EntVarPred * density_dW;
@@ -684,15 +664,12 @@ slots_allocate_sph_pred_data(int nsph)
     /*Data is allocated high so that we can free the tree around it*/
     sph_scratch.EntVarPred = (MyFloat *) mymalloc2("EntVarPred", sizeof(MyFloat) * nsph);
     memset(sph_scratch.EntVarPred, 0, sizeof(sph_scratch.EntVarPred[0]) * nsph);
-    sph_scratch.VelPred = (MyFloat *) mymalloc2("VelPred", sizeof(MyFloat) * 3 * nsph);
     return sph_scratch;
 }
 
 void
 slots_free_sph_pred_data(struct sph_pred_data * sph_scratch)
 {
-    myfree(sph_scratch->VelPred);
-    sph_scratch->VelPred = NULL;
     myfree(sph_scratch->EntVarPred);
     sph_scratch->EntVarPred = NULL;
 }

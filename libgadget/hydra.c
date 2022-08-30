@@ -242,11 +242,8 @@ static void
 hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
 {
     double soundspeed_i;
-    MyFloat * velpred = HYDRA_GET_PRIV(tw)->SPH_predicted->VelPred;
-    /*Compute predicted velocity*/
-    input->Vel[0] = velpred[3 * P[place].PI];
-    input->Vel[1] = velpred[3 * P[place].PI + 1];
-    input->Vel[2] = velpred[3 * P[place].PI + 2];
+    SPH_VelPred(place, input->Vel, HYDRA_GET_PRIV(tw)->FgravkickB, HYDRA_GET_PRIV(tw)->gravkicks, HYDRA_GET_PRIV(tw)->hydrokicks);
+
     input->Hsml = P[place].Hsml;
     input->Mass = P[place].Mass;
     input->Density = SPHP(place).Density;
@@ -360,36 +357,23 @@ hydro_ngbiter(
 
     double EntVarPred;
     #pragma omp atomic read
-    EntVarPred = HYDRA_GET_PRIV(lv->tw)->SPH_predicted->EntVarPred[P[other].PI];
+    EntVarPred = priv->SPH_predicted->EntVarPred[P[other].PI];
     /* Lazily compute the predicted quantities. We need to do this again here, even though we do it in density,
      * because this treewalk is symmetric and that one is asymmetric. In density() hmax has not been computed
      * yet so we cannot merge them. We can do this
      * with minimal locking since nothing happens should we compute them twice.
      * Zero can be the special value since there should never be zero entropy.*/
     MyFloat VelPred[3];
+    SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks, priv->hydrokicks);
+
     if(EntVarPred == 0) {
         int bin = P[other].TimeBinHydro;
         double a3inv = pow(priv->atime, -3);
         double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
         EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, a3inv, dloga);
-        SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks, priv->hydrokicks);
-        /* Note this goes first to avoid threading issues: EntVarPred will only be set after this is done.
-            * The worst that can happen is that some data points get copied twice.*/
-        int i;
-        for(i = 0; i < 3; i++) {
-            #pragma omp atomic write
-            priv->SPH_predicted->VelPred[3 * P[other].PI + i] = VelPred[i];
-        }
         #pragma omp atomic write
         priv->SPH_predicted->EntVarPred[P[other].PI] = EntVarPred;
     }
-    else {
-            int i;
-            for(i = 0; i < 3; i++) {
-                #pragma omp atomic read
-                VelPred[i] = priv->SPH_predicted->VelPred[3 * P[other].PI + i];
-            }
-        }
 
     /* Predict densities. Note that for active timebins the density is up to date so SPH_DensityPred is just returns the current densities.
      * This improves on the technique used in Gadget-2 by being a linear prediction that does not become pathological in deep timebins.*/

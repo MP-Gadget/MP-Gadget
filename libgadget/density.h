@@ -26,12 +26,6 @@ struct sph_pred_data
 {
     /*!< Predicted entropy at current particle drift time for SPH computation*/
     MyFloat * EntVarPred;
-    /* VelPred can always be derived from the current time and acceleration.
-     * However, doing so makes the SPH and hydro code much (a factor of two)
-     * slower. It requires computing get_gravkick_factor twice with different arguments,
-     * which defeats the lookup cache in timefac.c. Because VelPred is used multiple times,
-     * it is much quicker to compute it once and re-use this*/
-    MyFloat * VelPred;            /*!< Predicted velocity at current particle drift time for SPH. 3x vector.*/
 };
 
 /*Set the parameters of the density module*/
