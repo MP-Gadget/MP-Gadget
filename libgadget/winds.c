@@ -709,7 +709,7 @@ wind_vdisp_ngbiter(TreeWalkQueryWindVDisp * I,
 static void
 wind_vdisp_reduce(int place, TreeWalkResultWindVDisp * O, enum TreeWalkReduceMode mode, TreeWalk * tw)
 {
-    int pi = place;
+    int pi = P[place].PI;
     int i;
     if(mode == 0 || WINDV_GET_PRIV(tw)->maxcmpte[pi] > O->maxcmpte)
         WINDV_GET_PRIV(tw)->maxcmpte[pi] = O->maxcmpte;
@@ -728,7 +728,7 @@ wind_vdisp_reduce(int place, TreeWalkResultWindVDisp * O, enum TreeWalkReduceMod
 static void
 wind_vdisp_postprocess(const int i, TreeWalk * tw)
 {
-    const int pi = i;
+    const int pi = P[i].PI;
     const int maxcmpt = WINDV_GET_PRIV(tw)->maxcmpte[pi];
     int j;
     double evaldmradius[NWINDHSML];
@@ -851,24 +851,25 @@ winds_find_vel_disp(const ActiveParticles * act, const double Time, const double
         priv->hydrokicks[i] = get_exact_hydrokick_factor(CP, times->Ti_kick[i], times->Ti_Current);
     }
 
-    priv->Left = (MyFloat *) mymalloc("VDISP->Left", PartManager->NumPart * sizeof(MyFloat));
-    priv->Right = (MyFloat *) mymalloc("VDISP->Right", PartManager->NumPart * sizeof(MyFloat));
-    priv->DMRadius = (MyFloat *) mymalloc("VDISP->DMRadius", PartManager->NumPart * sizeof(MyFloat));
-    priv->Ngb = (MyFloat (*) [NWINDHSML]) mymalloc("VDISP->NumNgb", PartManager->NumPart * sizeof(priv->Ngb[0]));
-    priv->V1sum = (MyFloat (*) [NWINDHSML][3]) mymalloc("VDISP->V1Sum", PartManager->NumPart * sizeof(priv->V1sum[0]));
-    priv->V2sum = (MyFloat (*) [NWINDHSML]) mymalloc("VDISP->V2Sum", PartManager->NumPart * sizeof(priv->V2sum[0]));
-    priv->maxcmpte = (int *) mymalloc("maxcmpte", PartManager->NumPart * sizeof(int));
+    priv->Left = (MyFloat *) mymalloc("VDISP->Left", SlotsManager->info[0].size * sizeof(MyFloat));
+    priv->Right = (MyFloat *) mymalloc("VDISP->Right", SlotsManager->info[0].size * sizeof(MyFloat));
+    priv->DMRadius = (MyFloat *) mymalloc("VDISP->DMRadius", SlotsManager->info[0].size * sizeof(MyFloat));
+    priv->Ngb = (MyFloat (*) [NWINDHSML]) mymalloc("VDISP->NumNgb", SlotsManager->info[0].size * sizeof(priv->Ngb[0]));
+    priv->V1sum = (MyFloat (*) [NWINDHSML][3]) mymalloc("VDISP->V1Sum", SlotsManager->info[0].size * sizeof(priv->V1sum[0]));
+    priv->V2sum = (MyFloat (*) [NWINDHSML]) mymalloc("VDISP->V2Sum", SlotsManager->info[0].size * sizeof(priv->V2sum[0]));
+    priv->maxcmpte = (int *) mymalloc("maxcmpte", SlotsManager->info[0].size * sizeof(int));
     report_memory_usage("WIND_VDISP");
 
     /*Initialise the WINDP array*/
     #pragma omp parallel for
     for (i = 0; i < act->NumActiveParticle; i++) {
         const int n = act->ActiveParticle ? act->ActiveParticle[i] : i;
-        if(P[n].Type == 0 || P[n].Type == 5) {
-            priv->DMRadius[n] = P[n].Hsml;
-            priv->Left[n] = 0;
-            priv->Right[n] = tree->BoxSize;
-            priv->maxcmpte[n] = NUMDMNGB;
+        if(P[n].Type == 0) {
+            const int pi = P[n].PI;
+            priv->DMRadius[pi] = P[n].Hsml;
+            priv->Left[pi] = 0;
+            priv->Right[pi] = tree->BoxSize;
+            priv->maxcmpte[pi] = NUMDMNGB;
         }
     }
     /* Find densities*/
