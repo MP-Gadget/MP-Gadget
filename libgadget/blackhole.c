@@ -30,7 +30,7 @@ struct BlackholeParams
     enum BlackHoleFeedbackMethod BlackHoleFeedbackMethod;	/*!< method of the feedback*/
     double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
     int BlackHoleRepositionEnabled; /* If true, enable repositioning the BH to the potential minimum*/
-    
+
     int BlackHoleKineticOn; /*If 1, perform AGN kinetic feedback when the Eddington accretion rate is low */
     double BHKE_EddingtonThrFactor; /*Threshold of the Eddington rate for the kinetic feedback*/
     double BHKE_EddingtonMFactor; /* Factor for mbh-dependent Eddington threshold */
@@ -179,7 +179,7 @@ struct BHPriv {
     /* This is a temporary computed in the accretion treewalk and used
      * in the feedback treewalk*/
     MyFloat * BH_FeedbackWeightSum;
-    
+
     /* temporary computed for kinetic feedback energy threshold*/
     MyFloat * NumDM;
     MyFloat (*V1sumDM)[3];
@@ -243,7 +243,7 @@ struct __attribute__((__packed__)) BHinfo{
     double Velocity[3];
     double Mtrack;
     double Mdyn;
-    
+
     double KineticFdbkEnergy;
     double NumDM;
     double V1sumDM[3];
@@ -269,7 +269,7 @@ void set_blackhole_params(ParameterSet * ps)
 
         blackhole_params.BlackHoleFeedbackMethod = (enum BlackHoleFeedbackMethod) param_get_enum(ps, "BlackHoleFeedbackMethod");
         blackhole_params.BlackHoleRepositionEnabled = param_get_int(ps, "BlackHoleRepositionEnabled");
-        
+
         blackhole_params.BlackHoleKineticOn = param_get_int(ps,"BlackHoleKineticOn");
         blackhole_params.BHKE_EddingtonThrFactor = param_get_double(ps, "BHKE_EddingtonThrFactor");
         blackhole_params.BHKE_EddingtonMFactor = param_get_double(ps, "BHKE_EddingtonMFactor");
@@ -496,7 +496,7 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
         /************************************************************************************************/
         info->Mtrack = BHP(p_i).Mtrack;
         info->Mdyn = P[p_i].Mass;
-        
+
         info->KineticFdbkEnergy = BHP(p_i).KineticFdbkEnergy;
         info->NumDM = priv->NumDM[PI];
         info->V1sumDM[0] = priv->V1sumDM[PI][0];
@@ -505,7 +505,7 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
         info->V2sumDM = priv->V2sumDM[PI];
         info->MgasEnc = priv->MgasEnc[PI];
         info->KEflag = priv->KEflag[PI];
-        
+
         info->a = priv->atime;
     }
 
@@ -671,7 +671,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     /* Local to this treewalk*/
     priv->BH_Entropy = (MyFloat *) mymalloc("BH_Entropy", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_SurroundingGasVel = (MyFloat (*) [3]) mymalloc("BH_SurroundVel", 3* SlotsManager->info[5].size * sizeof(priv->BH_SurroundingGasVel[0]));
-    
+
     /* For AGN kinetic feedback */
     priv->NumDM = mymalloc("NumDM", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->V2sumDM = mymalloc("V2sumDM", SlotsManager->info[5].size * sizeof(MyFloat));
@@ -723,7 +723,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     myfree(priv->V1sumDM);
     myfree(priv->V2sumDM);
     myfree(priv->NumDM);
-    
+
     myfree(priv->BH_SurroundingGasVel);
     myfree(priv->BH_Entropy);
     myfree(priv->MinPot);
@@ -1020,7 +1020,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
         }
     }
     /*************************************************************************/
-    
+
     if(blackhole_params.BlackHoleKineticOn == 1){
         /* accumulate kenetic feedback energy by dE = epsilon x mdot x c^2 */
         /* epsilon = Min(rho_BH/(BHKE_EffRhoFactor*rho_sfr),BHKE_EffCap)   */
@@ -1040,10 +1040,10 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
             if (epsilon > blackhole_params.BHKE_EffCap){
                 epsilon = blackhole_params.BHKE_EffCap;
             }
-            
+
             BHP(i).KineticFdbkEnergy += epsilon * (BHP(i).Mdot * dtime * pow(LIGHTCGS / BH_GET_PRIV(tw)->units.UnitVelocity_in_cm_per_s, 2));
         }
-        
+
         /* decide whether to release KineticFdbkEnergy*/
         double vdisp = 0;
         double numdm = BH_GET_PRIV(tw)->NumDM[PI];
@@ -1056,10 +1056,10 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
             if(vdisp > 0)
                 vdisp = sqrt(vdisp / 3);
         }
-        
+
         double KE_thresh = 0.5 * vdisp * vdisp * BH_GET_PRIV(tw)->MgasEnc[PI];
         KE_thresh *= blackhole_params.BHKE_InjEnergyThr;
-        
+
         if (BHP(i).KineticFdbkEnergy > KE_thresh){
             /* mark KineticFdbkEnergy is ready to be released in the feedback treewalk */
             BH_GET_PRIV(tw)->KEflag[PI] = 2;
@@ -1312,7 +1312,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             }
         }
     }
-    
+
     /* collect info for sigmaDM and Menc for kinetic feedback */
     if(blackhole_params.BlackHoleKineticOn == 1){
         if(P[other].Type == 1 && r2 < iter->feedback_kernel.HH){
@@ -1446,7 +1446,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         }
         if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
             wk = density_kernel_wk(&iter->feedback_kernel, u);
-        
+
         /* thermal feedback */
         if(I->FeedbackEnergy > 0 && I->FdbkChannel == 0){
             const double injected_BH = I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum;
@@ -1473,7 +1473,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
                 /* Swap in the new gas entropy only if the old one hasn't changed.*/
             } while(!__atomic_compare_exchange(entptr, &entold, &entnew, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
         }
-        
+
         /* kinetic feedback */
         if(I->KEFeedbackEnergy > 0 && I->FdbkChannel == 1){
             /* Kick the gas particle*/
