@@ -51,4 +51,7 @@ int sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv);
 /* Get the Minimum temperature in internal energy*/
 double get_MinEgySpec(void);
 
+/* Returns the density threshold for star formation in comoving units*/
+double sfr_density_threshold(const double atime);
+
 #endif

@@ -488,6 +488,21 @@ cooling_direct(int i, const double redshift, const double a3inv, const double hu
     SPHP(i).Sfr = 0;
 }
 
+/* Returns the density threshold for star formation in comoving units*/
+double
+sfr_density_threshold(const double atime)
+{
+    double thresh;
+    if(sfr_params.QuickLymanAlphaProbability > 0)
+        thresh = sfr_params.OverDensThresh;
+    else {
+        thresh = sfr_params.PhysDensThresh * (atime * atime * atime);
+        if(thresh < sfr_params.OverDensThresh)
+            thresh = sfr_params.OverDensThresh;
+    }
+    return thresh;
+}
+
 /* returns 1 if the particle is on the effective equation of state,
  * cooling via the relaxation equation and maybe forming stars.
  * 0 if the particle does not form stars, instead cooling normally.*/
