@@ -68,16 +68,12 @@ GetDensityKernelType(void)
 /* The evolved entropy at drift time: evolved dlog a.
  * Used to predict pressure and entropy for SPH */
 MyFloat
-SPH_EntVarPred(int PI, double MinEgySpec, double a3inv, double dloga)
+SPH_EntVarPred(int PI, double a3inv, double dloga)
 {
         double EntVarPred = SphP[PI].Entropy + SphP[PI].DtEntropy * dloga;
         /*Entropy limiter for the predicted entropy: makes sure entropy stays positive. */
         if(dloga > 0 && EntVarPred < 0.5*SphP[PI].Entropy)
             EntVarPred = 0.5 * SphP[PI].Entropy;
-//         const double enttou = pow(SphP[PI].Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
-        const double enttou = exp(GAMMA_MINUS1 * log(SphP[PI].Density * a3inv))/GAMMA_MINUS1;
-        if(EntVarPred < MinEgySpec / enttou)
-            EntVarPred = MinEgySpec / enttou;
         EntVarPred = exp(1./GAMMA * log(EntVarPred));
 //         EntVarPred = pow(EntVarPred, 1/GAMMA);
         return EntVarPred;
@@ -171,7 +167,6 @@ struct DensityPriv {
 
     /* For computing the predicted quantities dynamically during the treewalk.*/
     double a3inv;
-    double MinEgySpec;
     DriftKickTimes const * times;
     double FgravkickB;
     double gravkicks[TIMEBINS+1];
@@ -215,7 +210,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double MinEgySpec, const DriftKickTimes times, Cosmology * CP, struct sph_pred_data * SPH_predicted, MyFloat * GradRho_mag, const ForceTree * const tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, const DriftKickTimes times, Cosmology * CP, struct sph_pred_data * SPH_predicted, MyFloat * GradRho_mag, const ForceTree * const tree)
 {
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
@@ -274,7 +269,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     }
 
     priv->a3inv = pow(atime, -3);
-    priv->MinEgySpec = MinEgySpec;
     /* Factor this out since all particles have the same drift time*/
     priv->FgravkickB = get_exact_gravkick_factor(CP, times.PM_kick, times.Ti_Current);
     memset(priv->gravkicks, 0, sizeof(priv->gravkicks[0])*(TIMEBINS+1));
@@ -300,7 +294,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
         if(P[p_i].Type == 0 && !P[p_i].IsGarbage) {
             int bin = P[p_i].TimeBinHydro;
             double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
-            priv->SPH_predicted->EntVarPred[P[p_i].PI] = SPH_EntVarPred(P[p_i].PI, priv->MinEgySpec, priv->a3inv, dloga);
+            priv->SPH_predicted->EntVarPred[P[p_i].PI] = SPH_EntVarPred(P[p_i].PI, priv->a3inv, dloga);
         }
     }
 
@@ -476,7 +470,7 @@ density_ngbiter(
         if(EntVarPred == 0) {
             int bin = P[other].TimeBinHydro;
             double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
-            EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, priv->a3inv, dloga);
+            EntVarPred = SPH_EntVarPred(P[other].PI, priv->a3inv, dloga);
             #pragma omp atomic write
             SphP_scratch->EntVarPred[P[other].PI] = EntVarPred;
         }

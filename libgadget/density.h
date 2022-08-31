@@ -39,7 +39,7 @@ void set_densitypar(struct density_params dp);
  * it just computes densities.
  * If DoEgyDensity is true it also computes the entropy-weighted density for
  * pressure-entropy SPH. */
-void density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double MinEgySpec, const DriftKickTimes times, Cosmology * CP, struct sph_pred_data * SPH_predicted, MyFloat * GradRho_mag, const ForceTree * const tree);
+void density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, const DriftKickTimes times, Cosmology * CP, struct sph_pred_data * SPH_predicted, MyFloat * GradRho_mag, const ForceTree * const tree);
 
 /* Get the desired nuber of neighbours for the supplied kernel*/
 double GetNumNgb(enum DensityKernelType KernelType);
@@ -51,7 +51,7 @@ struct sph_pred_data slots_allocate_sph_pred_data(int nsph);
 void slots_free_sph_pred_data(struct sph_pred_data * sph_pred);
 
 /* Predicted quantity computation used in hydro*/
-MyFloat SPH_EntVarPred(int PI, double MinEgySpec, double a3inv, double dloga);
+MyFloat SPH_EntVarPred(int PI, double a3inv, double dloga);
 void SPH_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double * gravkick, double * hydrokick);
 /* Predicted velocity for dark matter, ignoring the hydro component.*/
 void DM_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double * gravkick);

@@ -447,7 +447,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
 
             if(All.DensityOn)
-                density(&Act, 1, DensityIndependentSphOn(), All.BlackHoleOn, MinEgySpec, times, &All.CP, &sph_predicted, GradRho_mag, &gasTree);  /* computes density, and pressure */
+                density(&Act, 1, DensityIndependentSphOn(), All.BlackHoleOn, times, &All.CP, &sph_predicted, GradRho_mag, &gasTree);  /* computes density, and pressure */
 
             /***** update smoothing lengths in tree *****/
             force_update_hmax(Act.ActiveParticle, Act.NumActiveParticle, &gasTree, ddecomp);
@@ -461,7 +461,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                  * he has never encountered a simulation where this matters in practice, probably because
                  * it would only be important in very dissipative environments where the SPH noise is fairly large
                  * and there is no opportunity for errors to build up.*/
-                hydro_force(&Act, atime, &sph_predicted, MinEgySpec, times, &All.CP, &gasTree);
+                hydro_force(&Act, atime, &sph_predicted, times, &All.CP, &gasTree);
             }
             /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
             slots_free_sph_pred_data(&sph_predicted);
@@ -765,7 +765,7 @@ runfof(const int RestartSnapNum, const inttime_t Ti_Current, const struct header
             struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
             force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, All.OutputDir);
             /* computes GradRho with a treewalk. No hsml update as we are reading from a snapshot.*/
-            density(&Act, 0, 0, All.BlackHoleOn, get_MinEgySpec(), times, &All.CP, &sph_predicted, GradRho, &gasTree);
+            density(&Act, 0, 0, All.BlackHoleOn, times, &All.CP, &sph_predicted, GradRho, &gasTree);
             force_tree_free(&gasTree);
             slots_free_sph_pred_data(&sph_predicted);
         }

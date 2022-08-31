@@ -52,7 +52,7 @@ set_init_params(ParameterSet * ps)
     if(ThisTask == 0) {
         InitParams.InitGasTemp = param_get_double(ps, "InitGasTemp");
         InitParams.PartAllocFactor = param_get_double(ps, "PartAllocFactor");
-    
+
         InitParams.ExcursionSetReionOn = param_get_int(ps,"ExcursionSetReionOn");
         InitParams.ExcursionSetZStart = param_get_int(ps,"ExcursionSetZStart");
     }
@@ -183,7 +183,7 @@ inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * 
             SPHP(i).MaxSignalVel = 0;
         }
         /* If we are starting before reionisation, initialise reion properties
-         * this allows us to restart from runs without excursion set 
+         * this allows us to restart from runs without excursion set
          * these properties aren't used without the ES so its fine to init them here*/
         if(InitParams.ExcursionSetReionOn && header->TimeSnapshot < 1./(1. + InitParams.ExcursionSetZStart)){
             SPHP(i).local_J21 = 0;
@@ -423,7 +423,7 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, Cosmo
         /* Empty kick factors as we do not move*/
         DriftKickTimes times = init_driftkicktime(Ti_Current);
         /* Update the EgyWtDensity*/
-        density(act, 0, DensityIndependentSphOn(), BlackHoleOn, 0,  times, CP, sph_pred, NULL, Tree);
+        density(act, 0, DensityIndependentSphOn(), BlackHoleOn, times, CP, sph_pred, NULL, Tree);
         if(stop)
             break;
 
@@ -502,7 +502,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
     DriftKickTimes times = init_driftkicktime(Ti_Current);
     /*At the first time step all particles should be active*/
     ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
-    density(&act, 1, 0, BlackHoleOn, 0,  times, CP, &sph_pred, NULL, &Tree);
+    density(&act, 1, 0, BlackHoleOn, times, CP, &sph_pred, NULL, &Tree);
 
     if(DensityIndependentSphOn()) {
         setup_density_indep_entropy(&act, &Tree, CP, &sph_pred, u_init, a3, Ti_Current, BlackHoleOn);
