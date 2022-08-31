@@ -110,6 +110,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     double ms = (end - start)*1000;
     message(0, "Found densities in %.3g ms\n", ms);
     check_densities(data->dp.MinGasHsmlFractional);
+    slots_free_sph_pred_data(&data->sph_pred);
 
     double avghsml = 0;
     #pragma omp parallel for reduction(+:avghsml)
@@ -131,6 +132,8 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     /*Find the density*/
     density(&act, 1, 0, 0, kick, &CP, &data->sph_pred, NULL, &tree);
     end = MPI_Wtime();
+    slots_free_sph_pred_data(&data->sph_pred);
+
     ms = (end - start)*1000;
     message(0, "Found 1 dev densities in %.3g ms\n", ms);
     double diff = 0;
@@ -275,7 +278,6 @@ void trivial_domain(DomainDecomp * ddecomp)
 
 static int teardown_density(void **state) {
     struct density_testdata * data = (struct density_testdata * ) *state;
-    slots_free_sph_pred_data(&data->sph_pred);
     myfree(data->ddecomp.Tasks);
     myfree(data->ddecomp.TopLeaves);
     myfree(data->ddecomp.TopNodes);

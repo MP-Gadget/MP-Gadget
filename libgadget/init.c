@@ -424,6 +424,7 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, Cosmo
         DriftKickTimes times = init_driftkicktime(Ti_Current);
         /* Update the EgyWtDensity*/
         density(act, 0, DensityIndependentSphOn(), BlackHoleOn, times, CP, sph_pred, NULL, Tree);
+        slots_free_sph_pred_data(sph_pred);
         if(stop)
             break;
 
@@ -503,6 +504,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
     /*At the first time step all particles should be active*/
     ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
     density(&act, 1, 0, BlackHoleOn, times, CP, &sph_pred, NULL, &Tree);
+    slots_free_sph_pred_data(&sph_pred);
 
     if(DensityIndependentSphOn()) {
         setup_density_indep_entropy(&act, &Tree, CP, &sph_pred, u_init, a3, Ti_Current, BlackHoleOn);
@@ -513,6 +515,5 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
         for(i = 0; i < SlotsManager->info[0].size; i++)
             SphP[i].Entropy = GAMMA_MINUS1 * u_init / pow(SphP[i].Density / a3 , GAMMA_MINUS1);
     }
-    slots_free_sph_pred_data(&sph_pred);
     force_tree_free(&Tree);
 }

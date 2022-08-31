@@ -284,17 +284,31 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     }
     priv->times = &times;
 
-    if(act->ActiveParticle)
+    if(!act->ActiveParticle || act->NumActiveParticle > 0.1 * PartManager->NumPart) {
+        priv->SPH_predicted->EntVarPred = (MyFloat *) mymalloc2("EntVarPred", sizeof(MyFloat) * SlotsManager->info[0].size);
+        #pragma omp parallel for
+        for(i = 0; i < PartManager->NumPart; i++)
+        {
+            const int p_i = i;
+            if(P[p_i].Type == 0 && !P[p_i].IsGarbage) {
+                int bin = P[p_i].TimeBinHydro;
+                double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
+                priv->SPH_predicted->EntVarPred[P[p_i].PI] = SPH_EntVarPred(P[p_i].PI, priv->a3inv, dloga);
+            }
+        }
+    }
+    else {
+        priv->SPH_predicted->EntVarPred = (MyFloat *) mymalloc2("EntVarPred", sizeof(MyFloat) * SlotsManager->info[0].size);
         memset(priv->SPH_predicted->EntVarPred, 0, sizeof(priv->SPH_predicted->EntVarPred[0]) * SlotsManager->info[0].size);
-
-    #pragma omp parallel for
-    for(i = 0; i < act->NumActiveParticle; i++)
-    {
-        int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
-        if(P[p_i].Type == 0 && !P[p_i].IsGarbage) {
-            int bin = P[p_i].TimeBinHydro;
-            double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
-            priv->SPH_predicted->EntVarPred[P[p_i].PI] = SPH_EntVarPred(P[p_i].PI, priv->a3inv, dloga);
+        #pragma omp parallel for
+        for(i = 0; i < act->NumActiveParticle; i++)
+        {
+            int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
+            if(P[p_i].Type == 0 && !P[p_i].IsGarbage) {
+                int bin = P[p_i].TimeBinHydro;
+                double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
+                priv->SPH_predicted->EntVarPred[P[p_i].PI] = SPH_EntVarPred(P[p_i].PI, priv->a3inv, dloga);
+            }
         }
     }
 
@@ -659,9 +673,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
 struct sph_pred_data
 slots_allocate_sph_pred_data(int nsph)
 {
-    struct sph_pred_data sph_scratch;
-    /*Data is allocated high so that we can free the tree around it*/
-    sph_scratch.EntVarPred = (MyFloat *) mymalloc2("EntVarPred", sizeof(MyFloat) * nsph);
+    struct sph_pred_data sph_scratch = {0};
     return sph_scratch;
 }
 
