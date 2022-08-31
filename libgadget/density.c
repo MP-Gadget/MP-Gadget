@@ -74,10 +74,12 @@ SPH_EntVarPred(int PI, double MinEgySpec, double a3inv, double dloga)
         /*Entropy limiter for the predicted entropy: makes sure entropy stays positive. */
         if(dloga > 0 && EntVarPred < 0.5*SphP[PI].Entropy)
             EntVarPred = 0.5 * SphP[PI].Entropy;
-        const double enttou = pow(SphP[PI].Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+//         const double enttou = pow(SphP[PI].Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+        const double enttou = exp(GAMMA_MINUS1 * log(SphP[PI].Density * a3inv))/GAMMA_MINUS1;
         if(EntVarPred < MinEgySpec / enttou)
             EntVarPred = MinEgySpec / enttou;
-        EntVarPred = pow(EntVarPred, 1/GAMMA);
+        EntVarPred = exp(1./GAMMA * log(EntVarPred));
+//         EntVarPred = pow(EntVarPred, 1/GAMMA);
         return EntVarPred;
 }
 
