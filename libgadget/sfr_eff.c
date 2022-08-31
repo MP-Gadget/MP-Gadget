@@ -131,6 +131,12 @@ static double find_star_mass(int i, const double avg_baryon_mass);
 /*Get enough memory for new star slots. This may be excessively slow! Don't do it too often.*/
 static int * sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTree * tt);
 
+/* Convert entropy to internal energy*/
+static double entropy_to_u(const double density, const double a3inv)
+{
+    return pow(density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+}
+
 /*Set the parameters of the SFR module*/
 void set_sfr_params(ParameterSet * ps)
 {
@@ -442,7 +448,7 @@ cooling_direct(int i, const double redshift, const double a3inv, const double hu
 
     double ne = SPHP(i).Ne;	/* electron abundance (gives ionization state and mean molecular weight) */
 
-    const double enttou = pow(SPHP(i).Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+    const double enttou = entropy_to_u(SPHP(i).Density, a3inv);
 
     /* Current internal energy including adiabatic change*/
     double uold = SPHP(i).Entropy * enttou;
@@ -506,10 +512,10 @@ sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
      * the effective equation of state (at z=0). This in practice means black hole heated.*/
     if(flag == 1 && sfr_params.BHFeedbackUseTcool == 2) {
         //Redshift is the argument
-        double redshift = pow(a3inv, 1./3.)-1;
+        double redshift = cbrt(a3inv)-1;
         struct UVBG uvbg = get_global_UVBG(redshift);
         double egyeff = get_egyeff(redshift, sph->Density, &uvbg);
-        const double enttou = pow(sph->Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+        const double enttou = entropy_to_u(sph->Density, a3inv);
         double unew = sph->Entropy * enttou;
         /* 0.5 dex = 10^0.5 = 3.2 */
         if(unew >= egyeff * 3.2)
@@ -522,15 +528,14 @@ sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv)
 double get_neutral_fraction_sfreff(double redshift, double hubble, struct particle_data * partdata, struct sph_particle_data * sphdata)
 {
     double nh0;
-    const double a3inv = pow(1+redshift,3);
+    const double a3inv = (1+redshift)*(1+redshift)*(1+redshift);
     struct UVBG GlobalUVBG = get_global_UVBG(redshift);
     struct UVBG uvbg = get_local_UVBG(redshift, &GlobalUVBG, partdata->Pos, PartManager->CurrentParticleOffset, sphdata->local_J21, sphdata->zreion);
     double physdens = sphdata->Density * a3inv;
 
     if(sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, a3inv)) {
         /*This gets the neutral fraction for standard gas*/
-        double eomdensity = sphdata->Density;
-        double InternalEnergy = sphdata->Entropy / GAMMA_MINUS1 * pow(eomdensity * a3inv, GAMMA_MINUS1);
+        double InternalEnergy = sphdata->Entropy * entropy_to_u(sphdata->Density, a3inv);
         nh0 = GetNeutralFraction(InternalEnergy, physdens, &uvbg, sphdata->Ne);
     }
     else {
@@ -549,7 +554,7 @@ double get_neutral_fraction_sfreff(double redshift, double hubble, struct partic
 
 double get_helium_neutral_fraction_sfreff(int ion, double redshift, double hubble, struct particle_data * partdata, struct sph_particle_data * sphdata)
 {
-    const double a3inv = pow(1+redshift,3);
+    const double a3inv = (1+redshift)*(1+redshift)*(1+redshift);
     double helium;
     struct UVBG GlobalUVBG = get_global_UVBG(redshift);
     struct UVBG uvbg = get_local_UVBG(redshift, &GlobalUVBG, partdata->Pos, PartManager->CurrentParticleOffset, sphdata->local_J21, sphdata->zreion);
@@ -557,8 +562,7 @@ double get_helium_neutral_fraction_sfreff(int ion, double redshift, double hubbl
 
     if(sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, a3inv)) {
         /*This gets the neutral fraction for standard gas*/
-        double eomdensity = sphdata->Density;
-        double InternalEnergy = sphdata->Entropy / GAMMA_MINUS1 * pow(eomdensity * a3inv, GAMMA_MINUS1);
+        double InternalEnergy = sphdata->Entropy * entropy_to_u(sphdata->Density, a3inv);
         helium = GetHeliumIonFraction(ion, InternalEnergy, physdens, &uvbg, sphdata->Ne);
     }
     else {
@@ -609,8 +613,7 @@ static void
 cooling_relaxed(int i, double dtime, struct UVBG * local_uvbg, const double redshift, const double a3inv, struct sfr_eeqos_data sfr_data, const struct UVBG * const GlobalUVBG)
 {
     const double egyeff = sfr_params.EgySpecCold * sfr_data.cloudfrac + (1 - sfr_data.cloudfrac) * sfr_data.egyhot;
-    const double Density = SPHP(i).Density;
-    const double densityfac = pow(Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+    const double densityfac = entropy_to_u(SPHP(i).Density, a3inv);
     double egycurrent = SPHP(i).Entropy * densityfac;
     double trelax = sfr_data.trelax;
     if(sfr_params.BHFeedbackUseTcool == 3 || (sfr_params.BHFeedbackUseTcool == 1 && P[i].BHHeated))
@@ -646,7 +649,7 @@ quicklyastarformation(int i, const double a3inv)
     if(SPHP(i).Density <= sfr_params.OverDensThresh)
         return 0;
 
-    const double enttou = pow(SPHP(i).Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+    const double enttou = entropy_to_u(SPHP(i).Density, a3inv);
     double unew = SPHP(i).Entropy * enttou;
 
     const double meanweight = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC)));
@@ -872,11 +875,9 @@ void init_cooling_and_star_formation(int CoolingOn, int StarformationOn, Cosmolo
 
         const double x = (egyhot - u4) / (egyhot - sfr_params.EgySpecCold);
 
-        sfr_params.PhysDensThresh =
-            x / pow(1 - x,
-                    2) * (sfr_params.FactorSN * sfr_params.EgySpecSN - (1 -
-                            sfr_params.FactorSN) * sfr_params.EgySpecCold) /
-                        (sfr_params.MaxSfrTimescale * coolrate);
+        sfr_params.PhysDensThresh = x / pow(1 - x, 2) *
+                    (sfr_params.FactorSN * sfr_params.EgySpecSN - (1 - sfr_params.FactorSN) * sfr_params.EgySpecCold)
+                    / (sfr_params.MaxSfrTimescale * coolrate);
 
         message(0, "A0= %g  \n", sfr_params.FactorEVP);
         message(0, "Computed: PhysDensThresh= %g  (int units)         %g h^2 cm^-3\n", sfr_params.PhysDensThresh,
