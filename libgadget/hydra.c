@@ -179,7 +179,7 @@ hydro_force(const ActiveParticles * act, const double atime, struct sph_pred_dat
     /* Compute pressure for active particles: if almost all particles are active, just pre-compute it and avoid thread contention.
      * For very small numbers of particles the memset is more expensive than just doing the exponential math,
      * so we don't pre-compute at all.*/
-    if(!act->ActiveParticle || act->NumActiveParticle > 0.3 * PartManager->NumPart) {
+    if(!act->ActiveParticle || act->NumActiveParticle > 0.1 * PartManager->NumPart) {
         HYDRA_GET_PRIV(tw)->PressurePred = (double *) mymalloc("PressurePred", SlotsManager->info[0].size * sizeof(double));
         /* Do it in slot order for memory locality*/
         #pragma omp parallel for
