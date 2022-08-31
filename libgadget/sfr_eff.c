@@ -134,7 +134,8 @@ static int * sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNew
 /* Convert entropy to internal energy*/
 static double entropy_to_u(const double density, const double a3inv)
 {
-    return pow(density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+    return exp(GAMMA_MINUS1 * log(density * a3inv))/GAMMA_MINUS1;
+//     return pow(density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
 }
 
 /*Set the parameters of the SFR module*/
