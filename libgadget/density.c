@@ -600,7 +600,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
 
         /* Next step is geometric mean of previous. */
         if((Right[i] < tw->tree->BoxSize && Left[i] > 0) || (P[i].Hsml * 1.26 > 0.99 * tw->tree->BoxSize))
-            P[i].Hsml = pow(0.5 * (pow(Left[i], 3) + pow(Right[i], 3)), 1.0 / 3);
+            P[i].Hsml = cbrt(0.5 * (pow(Left[i], 3) + pow(Right[i], 3)));
         else
         {
             if(!(Right[i] < tw->tree->BoxSize) && Left[i] == 0)
