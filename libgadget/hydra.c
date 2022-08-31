@@ -66,7 +66,13 @@ static MyFloat SPH_EOMDensity(const struct sph_particle_data * const pi)
 static double
 PressurePred(MyFloat EOMDensityPred, double EntVarPred)
 {
-    return pow(EntVarPred * EOMDensityPred, GAMMA);
+    /* As always, this kind of micro-optimisation is dangerous.
+     * However, it was timed at 10x faster with the gcc 12.1 libm (!)
+     * and about 30% faster with icc 19.1. */
+     if(EntVarPred * EOMDensityPred <= 0)
+         return 0;
+     return exp(GAMMA * log(EntVarPred * EOMDensityPred));
+//     return pow(EntVarPred * EOMDensityPred, GAMMA);
 }
 
 struct HydraPriv {
