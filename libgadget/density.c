@@ -288,6 +288,9 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     }
     priv->times = &times;
 
+    if(act->ActiveParticle)
+        memset(priv->SPH_predicted->EntVarPred, 0, sizeof(priv->SPH_predicted->EntVarPred[0]) * SlotsManager->info[0].size);
+
     #pragma omp parallel for
     for(i = 0; i < act->NumActiveParticle; i++)
     {
@@ -663,7 +666,6 @@ slots_allocate_sph_pred_data(int nsph)
     struct sph_pred_data sph_scratch;
     /*Data is allocated high so that we can free the tree around it*/
     sph_scratch.EntVarPred = (MyFloat *) mymalloc2("EntVarPred", sizeof(MyFloat) * nsph);
-    memset(sph_scratch.EntVarPred, 0, sizeof(sph_scratch.EntVarPred[0]) * nsph);
     return sph_scratch;
 }
 
