@@ -68,8 +68,11 @@ GetDensityKernelType(void)
 /* The evolved entropy at drift time: evolved dlog a.
  * Used to predict pressure and entropy for SPH */
 MyFloat
-SPH_EntVarPred(int PI, double a3inv, double dloga)
+SPH_EntVarPred(const int p_i, const DriftKickTimes * times)
 {
+        const int bin = P[p_i].TimeBinHydro;
+        const int PI = P[p_i].PI;
+        const double dloga = dloga_from_dti(times->Ti_Current - times->Ti_kick[bin], P[p_i].Ti_drift);
         double EntVarPred = SphP[PI].Entropy + SphP[PI].DtEntropy * dloga;
         /*Entropy limiter for the predicted entropy: makes sure entropy stays positive. */
         if(dloga > 0 && EntVarPred < 0.5*SphP[PI].Entropy)
@@ -166,7 +169,6 @@ struct DensityPriv {
     int BlackHoleOn;
 
     /* For computing the predicted quantities dynamically during the treewalk.*/
-    double a3inv;
     DriftKickTimes const * times;
     double FgravkickB;
     double gravkicks[TIMEBINS+1];
@@ -233,7 +235,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
     double timeall = 0;
     double timecomp, timecomm, timewait;
-    const double atime = exp(loga_from_ti(times.Ti_Current));
 
     walltime_measure("/Misc");
 
@@ -268,7 +269,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
         DENSITY_GET_PRIV(tw)->Left[p_i] = 0;
     }
 
-    priv->a3inv = pow(atime, -3);
     /* Factor this out since all particles have the same drift time*/
     priv->FgravkickB = get_exact_gravkick_factor(CP, times.PM_kick, times.Ti_Current);
     memset(priv->gravkicks, 0, sizeof(priv->gravkicks[0])*(TIMEBINS+1));
@@ -288,14 +288,8 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
         priv->SPH_predicted->EntVarPred = (MyFloat *) mymalloc2("EntVarPred", sizeof(MyFloat) * SlotsManager->info[0].size);
         #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++)
-        {
-            const int p_i = i;
-            if(P[p_i].Type == 0 && !P[p_i].IsGarbage) {
-                int bin = P[p_i].TimeBinHydro;
-                double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
-                priv->SPH_predicted->EntVarPred[P[p_i].PI] = SPH_EntVarPred(P[p_i].PI, priv->a3inv, dloga);
-            }
-        }
+            if(P[i].Type == 0 && !P[i].IsGarbage)
+                priv->SPH_predicted->EntVarPred[P[i].PI] = SPH_EntVarPred(i, priv->times);
     }
     else {
         priv->SPH_predicted->EntVarPred = (MyFloat *) mymalloc2("EntVarPred", sizeof(MyFloat) * SlotsManager->info[0].size);
@@ -304,11 +298,8 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
         for(i = 0; i < act->NumActiveParticle; i++)
         {
             int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
-            if(P[p_i].Type == 0 && !P[p_i].IsGarbage) {
-                int bin = P[p_i].TimeBinHydro;
-                double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
-                priv->SPH_predicted->EntVarPred[P[p_i].PI] = SPH_EntVarPred(P[p_i].PI, priv->a3inv, dloga);
-            }
+            if(P[p_i].Type == 0 && !P[p_i].IsGarbage)
+                priv->SPH_predicted->EntVarPred[P[p_i].PI] = SPH_EntVarPred(p_i, priv->times);
         }
     }
 
@@ -482,9 +473,7 @@ density_ngbiter(
          * with minimal locking since nothing happens should we compute them twice.
          * Zero can be the special value since there should never be zero entropy.*/
         if(EntVarPred == 0) {
-            int bin = P[other].TimeBinHydro;
-            double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
-            EntVarPred = SPH_EntVarPred(P[other].PI, priv->a3inv, dloga);
+            EntVarPred = SPH_EntVarPred(other, priv->times);
             #pragma omp atomic write
             SphP_scratch->EntVarPred[P[other].PI] = EntVarPred;
         }

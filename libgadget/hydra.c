@@ -379,10 +379,7 @@ hydro_ngbiter(
      * with minimal locking since nothing happens should we compute them twice.
      * Zero can be the special value since there should never be zero entropy.*/
     if(EntVarPred == 0) {
-        int bin = P[other].TimeBinHydro;
-        double a3inv = pow(priv->atime, -3);
-        double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
-        EntVarPred = SPH_EntVarPred(P[other].PI, a3inv, dloga);
+        EntVarPred = SPH_EntVarPred(other, priv->times);
         #pragma omp atomic write
         priv->SPH_predicted->EntVarPred[P[other].PI] = EntVarPred;
     }
