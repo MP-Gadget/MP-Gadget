@@ -98,7 +98,7 @@ static double get_timestep_hydro_dloga(const int p, const inttime_t Ti_Current, 
 static inttime_t convert_timestep_to_ti(double dloga, const int p, const inttime_t dti_max, const inttime_t Ti_Current, enum TimeStepType titype);
 static int get_timestep_bin(inttime_t dti);
 static void do_grav_short_range_kick(struct particle_data * part, const MyFloat * const GravAccel, const double Fgravkick);
-static void do_hydro_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const double atime, const double MinEgySpec);
+static void do_hydro_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const double atime);
 
 static void print_bad_timebin(const double dloga, const double dti, const int p, const inttime_t dti_max, enum TimeStepType titype);
 
@@ -841,7 +841,7 @@ update_lastactive_drift(DriftKickTimes * times)
 
 /* Apply half a kick, for the second half of the timestep.*/
 void
-apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * times, const double atime, const double MinEgySpec)
+apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * times, const double atime)
 {
     int pa, bin;
     walltime_measure("/Misc");
@@ -884,7 +884,7 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
             inttime_t dti = dti_from_timebin(bin_hydro);
             const double dt_entr = dloga_from_dti(dti/2, times->Ti_Current);
             /*This only changes particle i, so is thread-safe.*/
-            do_hydro_kick(i, dt_entr, gravkick[bin_hydro], hydrokick[bin_hydro], atime, MinEgySpec);
+            do_hydro_kick(i, dt_entr, gravkick[bin_hydro], hydrokick[bin_hydro], atime);
 #ifdef DEBUG
             if(P[i].Ti_kick_hydro != times->Ti_kick[bin_hydro])
                 endrun(4, "Particle %d (type %d, id %ld bin %d) had hydro kick time %ld not %ld\n",
@@ -898,7 +898,7 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
 
 /* Apply half a hydro timestep kick.*/
 void
-apply_hydro_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * times, const double atime, const double MinEgySpec)
+apply_hydro_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * times, const double atime)
 {
     int pa, bin;
     walltime_measure("/Misc");
@@ -928,7 +928,7 @@ apply_hydro_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTime
             inttime_t dti = dti_from_timebin(bin_hydro);
             const double dt_entr = dloga_from_dti(dti/2, times->Ti_Current);
             /*This only changes particle i, so is thread-safe.*/
-            do_hydro_kick(i, dt_entr, gravkick[bin_hydro], hydrokick[bin_hydro], atime, MinEgySpec);
+            do_hydro_kick(i, dt_entr, gravkick[bin_hydro], hydrokick[bin_hydro], atime);
 #ifdef DEBUG
             if(P[i].Ti_kick_hydro != times->Ti_kick[bin_hydro])
                 endrun(4, "Particle %d (type %d, id %ld bin %d) had hydro kick time %ld not %ld\n",
@@ -972,7 +972,7 @@ do_grav_short_range_kick(struct particle_data * part, const MyFloat * const Grav
 }
 
 void
-do_hydro_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const double atime, const double MinEgySpec)
+do_hydro_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const double atime)
 {
     int j;
     /* Add kick from dynamic friction and hydro drag for BHs. */
@@ -1003,12 +1003,6 @@ do_hydro_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const 
 
         /* Update entropy for adiabatic change*/
         SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
-
-        /* Limit entropy in simulations with cooling disabled*/
-        double a3inv = 1/(atime * atime * atime);
-        const double enttou = pow(SPHP(i).Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
-        if(SPHP(i).Entropy < MinEgySpec/enttou)
-            SPHP(i).Entropy = MinEgySpec / enttou;
     }
 #ifdef DEBUG
     /* Check we have reasonable velocities. If we do not, try to explain why*/

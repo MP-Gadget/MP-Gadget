@@ -64,9 +64,9 @@ int find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, co
 
 /* Apply half a kick to the particles: short-range and long-range.
  * These functions sync drift and kick times.*/
-void apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * times, const double atime, const double MinEgySpec);
+void apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * times, const double atime);
 /* Do hydro kick only*/
-void apply_hydro_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * times, const double atime, const double MinEgySpec);
+void apply_hydro_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * times, const double atime);
 void apply_PM_half_kick(Cosmology * CP, DriftKickTimes * times);
 
 int is_timebin_active(int i, inttime_t current);

@@ -311,8 +311,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
     int SnapshotFileCount = RestartSnapNum;
 
-    const double MinEgySpec = get_MinEgySpec();
-
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
     /*define excursion set PetaPM structs*/
@@ -469,7 +467,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
             /* Hydro half-kick after hydro force, as not done with the gravity.*/
             if(All.HierarchicalGravity)
-                apply_hydro_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
+                apply_hydro_half_kick(&Act, &All.CP, &times, atime);
         }
 
         /* The opening criterion for the gravtree
@@ -533,7 +531,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
              * Need a scale factor for entropy and velocity limiters.
              * For hierarchical gravity the short-range kick is done above.
              * Synchronises TiKick and TiDrift for the active particles. */
-            apply_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
+            apply_half_kick(&Act, &All.CP, &times, atime);
         }
 
         /* Sets Ti_Kick in the times structure.*/
@@ -691,7 +689,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             badtimestep = find_timesteps(&Act, &times, atime, All.FastParticleType, &All.CP, asmth, NumCurrentTiStep == 0);
             /* Update velocity and ti_kick to the new step, with the newly computed step size. Unsyncs ti_kick and ti_drift.
              * Both hydro and gravity are kicked.*/
-            apply_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
+            apply_half_kick(&Act, &All.CP, &times, atime);
         } else {
             /* This finds the gravity timesteps, computes the gravitational forces
              * and kicks the particles on the gravitational timeline.
@@ -704,7 +702,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 /* Find hydro timesteps and apply the hydro kick, unsyncing the drift and kick times. */
                 badtimestep += find_hydro_timesteps(&Act, &times, atime, &All.CP, NumCurrentTiStep == 0);
                 /* If there is no hydro kick to do we still need to update the kick times.*/
-                apply_hydro_half_kick(&Act, &All.CP, &times, atime, MinEgySpec);
+                apply_hydro_half_kick(&Act, &All.CP, &times, atime);
             }
         }
 
