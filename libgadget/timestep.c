@@ -1337,6 +1337,10 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
             /* Store this particle in the ActiveSet for this thread*/
             ActivePartSets[tid][NActiveThread[tid]] = i;
             NActiveThread[tid]++;
+#ifdef DEBUG
+            if(NActiveThread[tid] > schedsz)
+                endrun(2, "Not enough thread storage (%ld) for %ld active particles\n", schedsz, NActiveThread[tid]);
+#endif
             nactivehydro++;
         }
         /* Account gas and BHs to their hydro bin and other particles to their gravity bin*/
