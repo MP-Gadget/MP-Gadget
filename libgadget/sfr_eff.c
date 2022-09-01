@@ -980,7 +980,7 @@ static double get_sfr_factor_due_to_h2(int i, MyFloat * GradRho_mag, const doubl
     double tau_fmol;
     const double a2 = atime * atime;
     double zoverzsun = SPHP(i).Metallicity/METAL_YIELD;
-    double gradrho_mag = GradRho_mag[3*P[i].PI];
+    double gradrho_mag = GradRho_mag[P[i].PI];
     //message(4, "GradRho %g rho %g hsml %g i %d\n", gradrho_mag, SPHP(i).Density, P[i].Hsml, i);
     tau_fmol = ev_NH_from_GradRho(gradrho_mag,P[i].Hsml,SPHP(i).Density,1) /a2;
     tau_fmol *= (0.1 + zoverzsun);
