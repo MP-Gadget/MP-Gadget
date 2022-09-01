@@ -178,14 +178,14 @@ hydro_force(const ActiveParticles * act, const double atime, struct sph_pred_dat
     /* Compute pressure for active particles: if almost all particles are active, just pre-compute it and avoid thread contention.
      * For very small numbers of particles the memset is more expensive than just doing the exponential math,
      * so we don't pre-compute at all.*/
-    if((!act->ActiveParticle || (act->NumActiveParticle > 0.1 * PartManager->NumPart)) &&  HYDRA_GET_PRIV(tw)->EntVarPred) {
+    if((!act->ActiveParticle || (act->NumActiveHydro > 0.1 * (SlotsManager->info[0].size + SlotsManager->info[5].size))) &&  HYDRA_GET_PRIV(tw)->EntVarPred) {
         HYDRA_GET_PRIV(tw)->PressurePred = (double *) mymalloc("PressurePred", SlotsManager->info[0].size * sizeof(double));
         /* Do it in slot order for memory locality*/
         #pragma omp parallel for
         for(i = 0; i < SlotsManager->info[0].size; i++)
             HYDRA_GET_PRIV(tw)->PressurePred[i] = PressurePred(SPH_EOMDensity(&SphP[i]), SPH_predicted->EntVarPred[i]);
     }
-    else if(act->NumActiveParticle > 0.005 * PartManager->NumPart) {
+    else if(act->NumActiveHydro > 0.001 * (SlotsManager->info[0].size + SlotsManager->info[5].size)) {
         HYDRA_GET_PRIV(tw)->PressurePred = (double *) mymalloc("PressurePred", SlotsManager->info[0].size * sizeof(double));
         memset(HYDRA_GET_PRIV(tw)->PressurePred, 0, SlotsManager->info[0].size * sizeof(double));
         #pragma omp parallel for

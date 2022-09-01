@@ -284,14 +284,14 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     }
     priv->times = &times;
 
-    if(!act->ActiveParticle || act->NumActiveParticle > 0.1 * PartManager->NumPart) {
+    if(!act->ActiveParticle || act->NumActiveHydro > 0.1 * (SlotsManager->info[0].size + SlotsManager->info[5].size)) {
         priv->SPH_predicted->EntVarPred = (MyFloat *) mymalloc2("EntVarPred", sizeof(MyFloat) * SlotsManager->info[0].size);
         #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++)
             if(P[i].Type == 0 && !P[i].IsGarbage)
                 priv->SPH_predicted->EntVarPred[P[i].PI] = SPH_EntVarPred(i, priv->times);
     }
-    else if(act->NumActiveParticle > 0.0025 * PartManager->NumPart){
+    else if(act->NumActiveHydro > 0.0001 * (SlotsManager->info[0].size + SlotsManager->info[5].size)){
         priv->SPH_predicted->EntVarPred = (MyFloat *) mymalloc2("EntVarPred", sizeof(MyFloat) * SlotsManager->info[0].size);
         memset(priv->SPH_predicted->EntVarPred, 0, sizeof(priv->SPH_predicted->EntVarPred[0]) * SlotsManager->info[0].size);
         #pragma omp parallel for
