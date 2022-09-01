@@ -441,19 +441,17 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, All.OutputDir);
             walltime_measure("/SPH/Build");
 
-            /*Allocate the memory for predicted SPH data.*/
-            struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
-
+            /*Predicted SPH data.*/
+            struct sph_pred_data sph_predicted = {0};
             if(All.DensityOn)
                 density(&Act, 1, DensityIndependentSphOn(), All.BlackHoleOn, times, &All.CP, &sph_predicted, GradRho_mag, &gasTree);  /* computes density, and pressure */
 
-            /***** update smoothing lengths in tree *****/
-            force_update_hmax(Act.ActiveParticle, Act.NumActiveParticle, &gasTree, ddecomp);
-            /***** hydro forces *****/
-            MPIU_Barrier(MPI_COMM_WORLD);
-
             /* adds hydrodynamical accelerations and computes du/dt  */
             if(All.HydroOn) {
+                /***** update smoothing lengths in tree *****/
+                force_update_hmax(Act.ActiveParticle, Act.NumActiveParticle, &gasTree, ddecomp);
+                /***** hydro forces *****/
+                MPI_Barrier(MPI_COMM_WORLD);
                 /* In Gadget-4 this is optionally split into two, with the pressure force
                  * computed on either side of the cooling term. Volker Springel confirms that
                  * he has never encountered a simulation where this matters in practice, probably because
@@ -760,7 +758,7 @@ runfof(const int RestartSnapNum, const inttime_t Ti_Current, const struct header
             ForceTree gasTree = {0};
             GradRho = (MyFloat *) mymalloc2("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
             /*Allocate the memory for predicted SPH data.*/
-            struct sph_pred_data sph_predicted = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
+            struct sph_pred_data sph_predicted = {0};
             force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, All.OutputDir);
             /* computes GradRho with a treewalk. No hsml update as we are reading from a snapshot.*/
             density(&Act, 0, 0, All.BlackHoleOn, times, &All.CP, &sph_predicted, GradRho, &gasTree);

@@ -77,7 +77,7 @@ PressurePred(MyFloat EOMDensityPred, double EntVarPred)
 
 struct HydraPriv {
     double * PressurePred;
-    struct sph_pred_data * SPH_predicted;
+    MyFloat * EntVarPred;
     /* Time-dependent constant factors, brought out here because
      * they need an expensive pow().*/
     double fac_mu;
@@ -172,13 +172,13 @@ hydro_force(const ActiveParticles * act, const double atime, struct sph_pred_dat
     if(!tree->hmax_computed_flag)
         endrun(5, "Hydro called before hmax computed\n");
     /* Cache the pressure for speed*/
-    HYDRA_GET_PRIV(tw)->SPH_predicted = SPH_predicted;
+    HYDRA_GET_PRIV(tw)->EntVarPred = SPH_predicted->EntVarPred;
     HYDRA_GET_PRIV(tw)->PressurePred = NULL;
 
     /* Compute pressure for active particles: if almost all particles are active, just pre-compute it and avoid thread contention.
      * For very small numbers of particles the memset is more expensive than just doing the exponential math,
      * so we don't pre-compute at all.*/
-    if(!act->ActiveParticle || act->NumActiveParticle > 0.1 * PartManager->NumPart) {
+    if((!act->ActiveParticle || (act->NumActiveParticle > 0.1 * PartManager->NumPart)) &&  HYDRA_GET_PRIV(tw)->EntVarPred) {
         HYDRA_GET_PRIV(tw)->PressurePred = (double *) mymalloc("PressurePred", SlotsManager->info[0].size * sizeof(double));
         /* Do it in slot order for memory locality*/
         #pragma omp parallel for
@@ -190,11 +190,16 @@ hydro_force(const ActiveParticles * act, const double atime, struct sph_pred_dat
         memset(HYDRA_GET_PRIV(tw)->PressurePred, 0, SlotsManager->info[0].size * sizeof(double));
         #pragma omp parallel for
         for(i = 0; i < act->NumActiveParticle; i++) {
-            int p_i = act->ActiveParticle[i];
+            int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
             if(P[p_i].Type != 0)
                 continue;
-            int pi = P[p_i].PI;
-            HYDRA_GET_PRIV(tw)->PressurePred[pi] = PressurePred(SPH_EOMDensity(&SphP[pi]), SPH_predicted->EntVarPred[pi]);
+            const int pi = P[p_i].PI;
+            double EntPred;
+            if(SPH_predicted->EntVarPred)
+                EntPred = SPH_predicted->EntVarPred[pi];
+            else
+                EntPred = SPH_EntVarPred(p_i, HYDRA_GET_PRIV(tw)->times);
+            HYDRA_GET_PRIV(tw)->PressurePred[pi] = PressurePred(SPH_EOMDensity(&SphP[pi]), EntPred);
         }
     }
 
@@ -259,9 +264,11 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
 
     //For DensityIndependentSphOn
     input->EgyRho = SPHP(place).EgyWtDensity;
-    MyFloat * entvarpred = HYDRA_GET_PRIV(tw)->SPH_predicted->EntVarPred;
 
-    input->EntVarPred = entvarpred[P[place].PI];
+    if(HYDRA_GET_PRIV(tw)->EntVarPred)
+        input->EntVarPred = HYDRA_GET_PRIV(tw)->EntVarPred[P[place].PI];
+    else
+        input->EntVarPred = SPH_EntVarPred(place, HYDRA_GET_PRIV(tw)->times);
 
     input->SPH_DhsmlDensityFactor = SPHP(place).DhsmlEgyDensityFactor;
     const double eomdensity = SPH_EOMDensity(&SPHP(place));
@@ -371,18 +378,22 @@ hydro_ngbiter(
     SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks, priv->hydrokicks);
 
     double EntVarPred;
-    #pragma omp atomic read
-    EntVarPred = priv->SPH_predicted->EntVarPred[P[other].PI];
-    /* Lazily compute the predicted quantities. We need to do this again here, even though we do it in density,
-     * because this treewalk is symmetric and that one is asymmetric. In density() hmax has not been computed
-     * yet so we cannot merge them. We can do this
-     * with minimal locking since nothing happens should we compute them twice.
-     * Zero can be the special value since there should never be zero entropy.*/
-    if(EntVarPred == 0) {
-        EntVarPred = SPH_EntVarPred(other, priv->times);
-        #pragma omp atomic write
-        priv->SPH_predicted->EntVarPred[P[other].PI] = EntVarPred;
+    if(priv->EntVarPred) {
+        #pragma omp atomic read
+        EntVarPred = priv->EntVarPred[P[other].PI];
+        /* Lazily compute the predicted quantities. We need to do this again here, even though we do it in density,
+        * because this treewalk is symmetric and that one is asymmetric. In density() hmax has not been computed
+        * yet so we cannot merge them. We can do this
+        * with minimal locking since nothing happens should we compute them twice.
+        * Zero can be the special value since there should never be zero entropy.*/
+        if(EntVarPred == 0) {
+            EntVarPred = SPH_EntVarPred(other, priv->times);
+            #pragma omp atomic write
+            priv->EntVarPred[P[other].PI] = EntVarPred;
+        }
     }
+    else
+        EntVarPred = SPH_EntVarPred(other, priv->times);
 
     /* Predict densities. Note that for active timebins the density is up to date so SPH_DensityPred is just returns the current densities.
      * This improves on the technique used in Gadget-2 by being a linear prediction that does not become pathological in deep timebins.*/

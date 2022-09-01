@@ -47,7 +47,6 @@ double GetNumNgb(enum DensityKernelType KernelType);
 /* Get the current density kernel type*/
 enum DensityKernelType GetDensityKernelType(void);
 
-struct sph_pred_data slots_allocate_sph_pred_data(int nsph);
 void slots_free_sph_pred_data(struct sph_pred_data * sph_pred);
 
 /* Predicted quantity computation used in hydro*/

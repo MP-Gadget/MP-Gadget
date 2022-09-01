@@ -291,7 +291,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
             if(P[i].Type == 0 && !P[i].IsGarbage)
                 priv->SPH_predicted->EntVarPred[P[i].PI] = SPH_EntVarPred(i, priv->times);
     }
-    else {
+    else if(act->NumActiveParticle > 0.0025 * PartManager->NumPart){
         priv->SPH_predicted->EntVarPred = (MyFloat *) mymalloc2("EntVarPred", sizeof(MyFloat) * SlotsManager->info[0].size);
         memset(priv->SPH_predicted->EntVarPred, 0, sizeof(priv->SPH_predicted->EntVarPred[0]) * SlotsManager->info[0].size);
         #pragma omp parallel for
@@ -461,22 +461,24 @@ density_ngbiter(
         if(I->Type != 0)
             return;
 
-        struct sph_pred_data * SphP_scratch = DENSITY_GET_PRIV(lv->tw)->SPH_predicted;
-
         double EntVarPred;
         MyFloat VelPred[3];
         struct DensityPriv * priv = DENSITY_GET_PRIV(lv->tw);
         SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks, priv->hydrokicks);
-        #pragma omp atomic read
-        EntVarPred = SphP_scratch->EntVarPred[P[other].PI];
-        /* Lazily compute the predicted quantities. We can do this
-         * with minimal locking since nothing happens should we compute them twice.
-         * Zero can be the special value since there should never be zero entropy.*/
-        if(EntVarPred == 0) {
-            EntVarPred = SPH_EntVarPred(other, priv->times);
-            #pragma omp atomic write
-            SphP_scratch->EntVarPred[P[other].PI] = EntVarPred;
+        if(priv->SPH_predicted->EntVarPred) {
+            #pragma omp atomic read
+            EntVarPred = priv->SPH_predicted->EntVarPred[P[other].PI];
+            /* Lazily compute the predicted quantities. We can do this
+            * with minimal locking since nothing happens should we compute them twice.
+            * Zero can be the special value since there should never be zero entropy.*/
+            if(EntVarPred == 0) {
+                EntVarPred = SPH_EntVarPred(other, priv->times);
+                #pragma omp atomic write
+                priv->SPH_predicted->EntVarPred[P[other].PI] = EntVarPred;
+            }
         }
+        else
+            EntVarPred = SPH_EntVarPred(other, priv->times);
 
         if(DENSITY_GET_PRIV(lv->tw)->DoEgyDensity) {
             O->EgyRho += mass_j * EntVarPred * wk;
@@ -541,8 +543,11 @@ density_postprocess(int i, TreeWalk * tw)
         int PI = P[i].PI;
         /*Compute the EgyWeight factors, which are only useful for density independent SPH */
         if(DENSITY_GET_PRIV(tw)->DoEgyDensity) {
-            struct sph_pred_data * SphP_scratch = DENSITY_GET_PRIV(tw)->SPH_predicted;
-            const double EntPred = SphP_scratch->EntVarPred[P[i].PI];
+            double EntPred;
+            if(DENSITY_GET_PRIV(tw)->SPH_predicted->EntVarPred)
+                EntPred = DENSITY_GET_PRIV(tw)->SPH_predicted->EntVarPred[P[i].PI];
+            else
+                EntPred = SPH_EntVarPred(i, DENSITY_GET_PRIV(tw)->times);
             if(EntPred <= 0 || SPHP(i).EgyWtDensity <=0)
                 endrun(12, "Particle %d has bad predicted entropy: %g or EgyWtDensity: %g\n", i, EntPred, SPHP(i).EgyWtDensity);
             SPHP(i).DhsmlEgyDensityFactor *= P[i].Hsml/ (NUMDIMS * SPHP(i).EgyWtDensity);
@@ -658,18 +663,11 @@ void density_check_neighbours (int i, TreeWalk * tw)
     }
 }
 
-
-struct sph_pred_data
-slots_allocate_sph_pred_data(int nsph)
-{
-    struct sph_pred_data sph_scratch = {0};
-    return sph_scratch;
-}
-
 void
 slots_free_sph_pred_data(struct sph_pred_data * sph_scratch)
 {
-    myfree(sph_scratch->EntVarPred);
+    if(sph_scratch->EntVarPred)
+        myfree(sph_scratch->EntVarPred);
     sph_scratch->EntVarPred = NULL;
 }
 

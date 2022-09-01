@@ -497,7 +497,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
     /* snapshot already has EgyWtDensity; hope it is read in correctly.
         * (need a test on this!) */
     /*Allocate the extra SPH data for transient SPH particle properties.*/
-    struct sph_pred_data sph_pred = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
+    struct sph_pred_data sph_pred = {0};
 
     /* Empty kick factors as we do not move*/
     DriftKickTimes times = init_driftkicktime(Ti_Current);
