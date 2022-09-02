@@ -1154,7 +1154,8 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
     if(P[other].Mass < 0) return;
 
-    if(P[other].Type != 5) {
+    /* For accretion stability, set the BH timestep to the smallest gas timestep.*/
+    if(P[other].Type == 0) {
         if (O->BH_minTimeBin > P[other].TimeBinHydro)
             O->BH_minTimeBin = P[other].TimeBinHydro;
     }
