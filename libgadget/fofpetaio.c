@@ -174,24 +174,21 @@ order_by_type_and_grnr(const void *a, const void *b)
     return 0;
 }
 
-static int
-fof_try_particle_exchange(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, MPI_Comm Comm)
+/* Build the target task structure by doing a double parallel sort */
+static void
+fof_find_target_task(struct PartIndex * pi, int64_t pi_size, const uint64_t task_origin_offset, MPI_Comm Comm)
 {
-    struct PartIndex * pi = (struct PartIndex *) mymalloc("PartIndex", sizeof(struct PartIndex) * halo_pman->NumPart);
     int ThisTask;
     MPI_Comm_rank(Comm, &ThisTask);
 
-    int64_t i = 0;
-    /* Build the index: needs to be done each time we loop as may have changed*/
-    /* Yu: found it! this shall be int64 */
-    const uint64_t task_origin_offset = PartManager->MaxPart + 1Lu;
+    int64_t i;
     #pragma omp parallel for
-    for(i = 0; i < halo_pman->NumPart; i ++) {
+    for(i = 0; i < pi_size; i ++) {
         pi[i].origin = task_origin_offset * ((uint64_t) ThisTask) + i;
-        pi[i].sortKey = halo_pman->Base[i].GrNr;
     }
+
     /* sort pi to decide targetTask */
-    mpsort_mpi(pi, halo_pman->NumPart, sizeof(struct PartIndex),
+    mpsort_mpi(pi, pi_size, sizeof(struct PartIndex),
             fof_radix_sortkey, 8, NULL, Comm);
 
     //int64_t Npig = count_sum(NpigLocal);
@@ -200,13 +197,13 @@ fof_try_particle_exchange(struct part_manager_type * halo_pman, struct slots_man
     //size_t chunksize = (Npig / NTask) + (Npig % NTask != 0);
 
     #pragma omp parallel for
-    for(i = 0; i < halo_pman->NumPart; i ++) {
+    for(i = 0; i < pi_size; i ++) {
         /* YU: let's see if we keep the FOF particle load on the processes, IO would be faster
            (as at high z many ranks has no FOF), communication becomes sparse. */
         pi[i].targetTask = ThisTask;
     }
     /* return pi to the original processors */
-    mpsort_mpi(pi, halo_pman->NumPart, sizeof(struct PartIndex), fof_radix_origin, 8, NULL, Comm);
+    mpsort_mpi(pi, pi_size, sizeof(struct PartIndex), fof_radix_origin, 8, NULL, Comm);
     /* Target task is copied into the particle table, unioned with Dthsml.
      * This is a bit of a hack: probably the elegant thing to do is to unify slot
      * and main structure, then mpsort the combination directly. */
@@ -214,10 +211,21 @@ fof_try_particle_exchange(struct part_manager_type * halo_pman, struct slots_man
     int NTask;
     MPI_Comm_size(Comm, &NTask);
     #pragma omp parallel for
-    for(i = 0; i < halo_pman->NumPart; i ++) {
-        halo_pman->Base[i].TargetTask = -1;
+    for(i = 0; i < pi_size; i ++) {
         if(pi[i].targetTask >= NTask || pi[i].targetTask < 0)
             endrun(23, "pi %d is impossible %d of %d tasks\n",i,pi[i].targetTask, NTask);
+    }
+#endif
+}
+
+static void
+fof_copy_target_task(struct part_manager_type * halo_pman, struct PartIndex * pi, const uint64_t task_origin_offset)
+{
+    int64_t i = 0;
+#ifdef DEBUG
+    #pragma omp parallel for
+    for(i = 0; i < halo_pman->NumPart; i ++) {
+        halo_pman->Base[i].TargetTask = -1;
     }
 #endif
     #pragma omp parallel for
@@ -227,7 +235,7 @@ fof_try_particle_exchange(struct part_manager_type * halo_pman, struct slots_man
             endrun(23, "entry %d has index %lu (npiglocal %d)\n", i, index, halo_pman->NumPart);
         halo_pman->Base[index].TargetTask = pi[i].targetTask;
     }
-    myfree(pi);
+
 #ifdef DEBUG
     #pragma omp parallel for
     for(i = 0; i < halo_pman->NumPart; i ++) {
@@ -235,10 +243,7 @@ fof_try_particle_exchange(struct part_manager_type * halo_pman, struct slots_man
             endrun(4, "TargetTask %d not changed %d! neighbours: %d %d\n", i, halo_pman->Base[i].TargetTask, halo_pman->Base[i-1].TargetTask, halo_pman->Base[i+1].TargetTask);
     }
 #endif
-
     walltime_measure("/FOF/IO/Distribute");
-
-    return domain_exchange(fof_sorted_layout, halo_pman, 1, NULL, halo_pman, halo_sman, 10000, Comm);
 }
 
 static int
@@ -271,20 +276,40 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
                 atleast[type]++;
         }
     }
-    double FOFPartAllocFactor = (double) PartManager->MaxPart / PartManager->NumPart;
-    halo_pman->MaxPart = NpigLocal * FOFPartAllocFactor;
+
+    struct PartIndex * pi = (struct PartIndex *) mymalloc2("PartIndex", sizeof(struct PartIndex) * NpigLocal);
+    /* Build the index: unfortunately not parallel*/
+    NpigLocal = 0;
+    for(i = 0; i < PartManager->NumPart; i ++) {
+        if(P[i].GrNr >= 0) {
+            pi[NpigLocal++].sortKey = PartManager->Base[i].GrNr;
+        }
+    }
+
+    const uint64_t task_origin_offset = PartManager->MaxPart + 1Lu;
+    fof_find_target_task(pi, NpigLocal, task_origin_offset, Comm);
+
+    halo_pman->MaxPart = NpigLocal * 1.02;
     struct particle_data * halopart = (struct particle_data *) mymalloc("HaloParticle", sizeof(struct particle_data) * halo_pman->MaxPart);
     halo_pman->Base = halopart;
     halo_pman->NumPart = NpigLocal;
     halo_pman->BoxSize = PartManager->BoxSize;
     memcpy(halo_pman->CurrentParticleOffset, PartManager->CurrentParticleOffset, 3 * sizeof(PartManager->CurrentParticleOffset[0]));
 
+    /* Now copy the TargetTask we constructed in pi into the new halo_pman*/
+    fof_copy_target_task(halo_pman, pi, task_origin_offset);
+    /* Free pi so that we have space for slots*/
+    myfree(pi);
+
     /* We leave extra space in the hope that we can avoid compacting slots in the fof exchange*/
-    for(i = 0; i < 6; i ++)
-        atleast[i]*= FOFPartAllocFactor;
+    const double FOFPartAllocFactor = (double) PartManager->MaxPart / PartManager->NumPart;
+    atleast[0] *= 1.02;
+    atleast[4]*= FOFPartAllocFactor;
+    atleast[5]*= FOFPartAllocFactor;
 
     slots_reserve(0, atleast, halo_sman);
 
+    report_memory_usage("FOF_PetaIO");
     NpigLocal = 0;
 
     for(i = 0; i < PartManager->NumPart; i ++) {
@@ -292,7 +317,11 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
             continue;
         if(P[i].GrNr > GrNrMax)
             GrNrMax = P[i].GrNr;
+        /* Store TargetTask as it will be over-written.
+         * We freed pi above so that we could overlap PI with the slots memory.*/
+        int TargetTask = halo_pman->Base[NpigLocal].TargetTask;
         memcpy(&halo_pman->Base[NpigLocal], &P[i], sizeof(P[i]));
+        halo_pman->Base[NpigLocal].TargetTask = TargetTask;
         struct slot_info * info = &(halo_sman->info[P[i].Type]);
         char * oldslotptr = SlotsManager->info[P[i].Type].ptr;
         if(info->enabled) {
@@ -307,7 +336,7 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
     MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, Comm);
     message(0, "GrNrMax before exchange is %d\n", GrNrMaxGlobal);
 
-    if(fof_try_particle_exchange(halo_pman, halo_sman, Comm)) {
+    if(domain_exchange(fof_sorted_layout, halo_pman, 1, NULL, halo_pman, halo_sman, 10000, Comm)) {
         message(1930, "Failed to exchange and write particles for the FOF. This is non-fatal, continuing\n");
         return 1;
     }
