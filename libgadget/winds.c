@@ -288,6 +288,7 @@ winds_subgrid(int * MaybeWind, int NumMaybeWind, const double Time, MyFloat * St
         return;
 
     int n;
+    #pragma omp parallel for
     for(n = 0; n < NumMaybeWind; n++)
     {
         int i = MaybeWind ? MaybeWind[n] : n;
