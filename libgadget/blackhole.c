@@ -917,7 +917,9 @@ blackhole_dynfric_ngbiter(TreeWalkQueryBHDynfric * I,
         LocalTreeWalk * lv){
 
    if(iter->base.other == -1) {
-        iter->base.mask = GASMASK + DMMASK + STARMASK + BHMASK;
+        iter->base.mask = GASMASK + STARMASK + BHMASK;
+        if (blackhole_params.BH_DynFrictionMethod > 1 )
+            iter->base.mask += DMMASK;
         iter->base.Hsml = I->Hsml;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         density_kernel_init(&iter->dynfric_kernel, I->Hsml, GetDensityKernelType());
@@ -1134,7 +1136,10 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         for(d = 0; d < 3; d++) {
             O->BH_MinPotPos[d] = I->base.Pos[d];
         }
-        iter->base.mask = GASMASK + DMMASK + STARMASK + BHMASK;
+        iter->base.mask = GASMASK + STARMASK + BHMASK;
+        /* Add DM if needed*/
+        if(blackhole_params.BlackHoleKineticOn == 1)
+            iter->base.mask += DMMASK;
         iter->base.Hsml = I->Hsml;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
 
