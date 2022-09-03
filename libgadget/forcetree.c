@@ -1275,96 +1275,37 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
 
     walltime_measure("/Misc");
 
-    /* If hmax has not yet been computed, pre-compute it. */
-    if(!tree->hmax_computed_flag)
-        force_tree_calc_moments(tree, ddecomp);
     if(!tree->Father)
         endrun(1, "Father array not allocated, needed for hmax!\n");
 
+    /* Adjust the base particle containing nodes*/
     #pragma omp parallel for
     for(i = 0; i < size; i++)
     {
         const int p_i = activeset ? activeset[i] : i;
-        if(P[p_i].Type != 0 || P[p_i].IsGarbage)
+        if((P[p_i].Type != 0 && P[p_i].Type != 5) || P[p_i].IsGarbage)
             continue;
-        int no = tree->Father[p_i];
-        MyFloat newhmax = tree->Nodes[no].mom.hmax;
+        const int no = tree->Father[p_i];
+        /* How much does this particle peek beyond this node?
+         * Note len does not change so we can read it without a lock or atomic. */
+        MyFloat readhmax;
+        #pragma omp atomic read
+        readhmax = tree->Nodes[no].mom.hmax;
+
+        MyFloat newhmax = 0;
         int j;
         for(j = 0; j < 3; j++)
             newhmax = DMAX(newhmax, fabs(P[p_i].Pos[j] - tree->Nodes[no].center[j]) + P[p_i].Hsml - tree->Nodes[no].len/2.);
-        no = tree->Nodes[no].father;
 
-        while(no >= 0)
-        {
-            int done = 0;
-            /* How much does this particle peek beyond this node?
-             * Note len does not change so we can read it without a lock or atomic. */
-            MyFloat readhmax;
-
-            #pragma omp atomic read
-            readhmax = tree->Nodes[no].mom.hmax;
-            do {
-                if(newhmax <= readhmax) {
-                    done = 1;
-                    break;
-                }
-                /* Swap in the new hmax only if the old one hasn't changed. */
-            } while(!__atomic_compare_exchange(&(tree->Nodes[no].mom.hmax), &readhmax, &newhmax, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
-            if(done)
+        do {
+            if (newhmax <= readhmax)
                 break;
-            no = tree->Nodes[no].father;
-        }
+            /* Swap in the new hmax only if the old one hasn't changed. */
+        } while(!__atomic_compare_exchange(&(tree->Nodes[no].mom.hmax), &readhmax, &newhmax, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
     }
 
-    double * TopLeafhmax = (double *) mymalloc("TopLeafMoments", ddecomp->NTopLeaves * sizeof(double));
-    memset(&TopLeafhmax[0], 0, sizeof(double) * ddecomp->NTopLeaves);
-
-    int NTask, ThisTask, recvTask;
-    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
-    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-
-    #pragma omp parallel for
-    for(i = ddecomp->Tasks[ThisTask].StartLeaf; i < ddecomp->Tasks[ThisTask].EndLeaf; i ++) {
-        int no = ddecomp->TopLeaves[i].treenode;
-        TopLeafhmax[i] = tree->Nodes[no].mom.hmax;
-    }
-
-    /* share the hmax-data of the dirty nodes accross CPUs */
-    int * recvcounts = (int *) mymalloc("recvcounts", sizeof(int) * NTask);
-    int * recvoffset = (int *) mymalloc("recvoffset", sizeof(int) * NTask);
-
-    #pragma omp parallel for
-    for(recvTask = 0; recvTask < NTask; recvTask++)
-    {
-        recvoffset[recvTask] = ddecomp->Tasks[recvTask].StartLeaf;
-        recvcounts[recvTask] = ddecomp->Tasks[recvTask].EndLeaf - ddecomp->Tasks[recvTask].StartLeaf;
-    }
-
-    MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
-            &TopLeafhmax[0], recvcounts, recvoffset,
-            MPI_DOUBLE, MPI_COMM_WORLD);
-
-    myfree(recvoffset);
-    myfree(recvcounts);
-
-    int ta;
-    for(ta = 0; ta < NTask; ta++) {
-        if(ta == ThisTask)
-            continue; /* bypass ThisTask since it is already up to date */
-        for(i = ddecomp->Tasks[ta].StartLeaf; i < ddecomp->Tasks[ta].EndLeaf; i ++) {
-            int no = ddecomp->TopLeaves[i].treenode;
-            tree->Nodes[no].mom.hmax = TopLeafhmax[i];
-
-            while(no >= 0)
-            {
-                if(TopLeafhmax[i] <= tree->Nodes[no].mom.hmax)
-                    break;
-                tree->Nodes[no].mom.hmax = TopLeafhmax[i];
-                no = tree->Nodes[no].father;
-            }
-         }
-    }
-    myfree(TopLeafhmax);
+    /* Calculate moments to propagate everything upwards. */
+    force_tree_calc_moments(tree, ddecomp);
 
     tree->hmax_computed_flag = 1;
     walltime_measure("/SPH/HmaxUpdate");
