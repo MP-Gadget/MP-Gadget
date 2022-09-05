@@ -757,8 +757,6 @@ wind_vdisp_postprocess(const int i, TreeWalk * tw)
         if(vdisp > 0) {
             if(P[i].Type == 0)
                 SPHP(i).VDisp = sqrt(vdisp / 3);
-            else if (P[i].Type == 5)
-                BHP(i).VDisp = sqrt(vdisp / 3);
         }
     }
 

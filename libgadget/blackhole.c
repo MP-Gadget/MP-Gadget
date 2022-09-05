@@ -1690,3 +1690,166 @@ void blackhole_make_one(int index, const double atime) {
     /* Initialize KineticFdbkEnergy, keep zero if BlackHoleKineticOn is not turned on */
     BHP(child).KineticFdbkEnergy = 0;
 }
+
+
+/* Computes the BH velocity dispersion for kinetic feedback*/
+
+struct BHVelDispPriv {
+    /* temporary computed for kinetic feedback energy threshold*/
+    MyFloat * NumDM;
+    MyFloat (*V1sumDM)[3];
+    MyFloat * V2sumDM;
+    /* Time factors*/
+    double FgravkickB;
+    double gravkicks[TIMEBINS+1];
+};
+#define BHVDISP_GET_PRIV(tw) ((struct BHVelDispPriv *) (tw->priv))
+
+typedef struct {
+    TreeWalkQueryBase base;
+    MyFloat Hsml;
+    MyFloat Vel[3];
+} TreeWalkQueryBHVelDisp;
+
+typedef struct {
+    TreeWalkResultBase base;
+    /* used for AGN kinetic feedback */
+    MyFloat V2sumDM;
+    MyFloat V1sumDM[3];
+    MyFloat NumDM;
+} TreeWalkResultBHVelDisp;
+
+typedef struct {
+    TreeWalkNgbIterBase base;
+    DensityKernel feedback_kernel;
+} TreeWalkNgbIterBHVelDisp;
+
+static void
+blackhole_veldisp_postprocess(int i, TreeWalk * tw)
+{
+    int PI = P[i].PI;
+    /*************************************************************************/
+    /* decide whether to release KineticFdbkEnergy*/
+    double vdisp = 0;
+    double numdm = BHVDISP_GET_PRIV(tw)->NumDM[PI];
+    if (numdm>0){
+        vdisp = BHVDISP_GET_PRIV(tw)->V2sumDM[PI]/numdm;
+        int d;
+        for(d = 0; d<3; d++){
+            vdisp -= pow(BHVDISP_GET_PRIV(tw)->V1sumDM[PI][d]/numdm,2);
+        }
+        if(vdisp > 0)
+            BHP(i).VDisp = sqrt(vdisp / 3);
+    }
+}
+
+static void
+blackhole_veldisp_ngbiter(TreeWalkQueryBHVelDisp * I,
+        TreeWalkResultBHVelDisp * O,
+        TreeWalkNgbIterBHVelDisp * iter,
+        LocalTreeWalk * lv)
+{
+    if(iter->base.other == -1) {
+        iter->base.mask = DMMASK;
+        iter->base.Hsml = I->Hsml;
+        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
+        density_kernel_init(&iter->feedback_kernel, I->Hsml, GetDensityKernelType());
+        return;
+    }
+
+    int other = iter->base.other;
+    double r2 = iter->base.r2;
+
+    /* collect info for sigmaDM and Menc for kinetic feedback */
+    if(P[other].Type == 1 && r2 < iter->feedback_kernel.HH){
+        O->NumDM += 1;
+        MyFloat VelPred[3];
+        DM_VelPred(other, VelPred, BHVDISP_GET_PRIV(lv->tw)->FgravkickB, BHVDISP_GET_PRIV(lv->tw)->gravkicks);
+        int d;
+        for(d = 0; d < 3; d++){
+            double vel = VelPred[d] - I->Vel[d];
+            O->V1sumDM[d] += vel;
+            O->V2sumDM += vel * vel;
+        }
+    }
+}
+
+
+static void
+blackhole_veldisp_reduce(int place, TreeWalkResultBHVelDisp * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
+{
+    int k;
+
+    int PI = P[place].PI;
+    for (k = 0; k < 3; k++){
+        TREEWALK_REDUCE(BHVDISP_GET_PRIV(tw)->V1sumDM[PI][k], remote->V1sumDM[k]);
+    }
+    TREEWALK_REDUCE(BHVDISP_GET_PRIV(tw)->NumDM[PI], remote->NumDM);
+    TREEWALK_REDUCE(BHVDISP_GET_PRIV(tw)->V2sumDM[PI], remote->V2sumDM);
+}
+
+static void
+blackhole_veldisp_copy(int place, TreeWalkQueryBHVelDisp * I, TreeWalk * tw)
+{
+    int k;
+    for(k = 0; k < 3; k++)
+        I->Vel[k] = P[place].Vel[k];
+    I->Hsml = P[place].Hsml;
+}
+
+void
+blackhole_veldisp(const ActiveParticles * act, Cosmology * CP, ForceTree * tree, DriftKickTimes * times)
+{
+    /* Do nothing if no black holes*/
+    int64_t totbh;
+    MPI_Allreduce(&SlotsManager->info[5].size, &totbh, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    if(totbh == 0)
+        return;
+    int i;
+
+    walltime_measure("/Misc");
+    struct BHVelDispPriv priv[1] = {0};
+
+    /*************************************************************************/
+    TreeWalk tw_veldisp[1] = {{0}};
+
+    tw_veldisp->ev_label = "BH_VELDISP";
+    tw_veldisp->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
+    tw_veldisp->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHVelDisp);
+    tw_veldisp->ngbiter = (TreeWalkNgbIterFunction) blackhole_veldisp_ngbiter;
+    tw_veldisp->haswork = blackhole_dynfric_haswork;
+    tw_veldisp->postprocess = (TreeWalkProcessFunction) blackhole_veldisp_postprocess;
+    tw_veldisp->fill = (TreeWalkFillQueryFunction) blackhole_veldisp_copy;
+    tw_veldisp->reduce = (TreeWalkReduceResultFunction) blackhole_veldisp_reduce;
+    tw_veldisp->query_type_elsize = sizeof(TreeWalkQueryBHVelDisp);
+    tw_veldisp->result_type_elsize = sizeof(TreeWalkResultBHVelDisp);
+    tw_veldisp->tree = tree;
+    tw_veldisp->priv = priv;
+
+    priv->FgravkickB = get_exact_gravkick_factor(CP, times->PM_kick, times->Ti_Current);
+    memset(priv->gravkicks, 0, sizeof(priv->gravkicks[0])*(TIMEBINS+1));
+    /* Compute the factors to move a current kick times velocity to the drift time velocity.
+     * We need to do the computation for all timebins up to the maximum because even inactive
+     * particles may have interactions. */
+    #pragma omp parallel for
+    for(i = times->mintimebin; i <= TIMEBINS; i++)
+        priv->gravkicks[i] = get_exact_gravkick_factor(CP, times->Ti_kick[i], times->Ti_Current);
+
+    /* This treewalk uses only DM */
+    if(!tree->tree_allocated_flag)
+        endrun(0, "DM Tree not allocated for veldisp\n");
+
+    /* For AGN kinetic feedback */
+    priv->NumDM = mymalloc("NumDM", SlotsManager->info[5].size * sizeof(MyFloat));
+    priv->V2sumDM = mymalloc("V2sumDM", SlotsManager->info[5].size * sizeof(MyFloat));
+    priv->V1sumDM = (MyFloat (*) [3]) mymalloc("V1sumDM", 3* SlotsManager->info[5].size * sizeof(priv->V1sumDM[0]));
+
+    /* This allocates memory*/
+    treewalk_run(tw_veldisp, act->ActiveParticle, act->NumActiveParticle);
+
+    walltime_measure("/BH/VelDisp");
+
+    myfree(priv->V1sumDM);
+    myfree(priv->V2sumDM);
+    myfree(priv->NumDM);
+}
