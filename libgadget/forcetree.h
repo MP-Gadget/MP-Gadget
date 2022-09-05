@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "domain.h"
+#include "timestep.h"
 /*
  * Variables for Tree
  * ------------------
@@ -88,6 +89,8 @@ typedef struct ForceTree {
     int numnodes;
     /* Types which are included have their bits set to 1*/
     int mask;
+    /* Number of particles stored in this tree*/
+    int64_t NumParticles;
     /*Pointer to the TopLeaves struct imported from Domain. Sets up the pseudo particles.*/
     struct topleaf_data * TopLeaves;
     /*Number of TopLeaves*/
@@ -114,20 +117,25 @@ int force_tree_allocated(const ForceTree * tt);
 /* This function propagates changed SPH smoothing lengths up the tree*/
 void force_update_hmax(int * activeset, int size, ForceTree * tt, DomainDecomp * ddecomp);
 
-/* This is the main constructor for the tree structure.
-   The tree shall be either zero-filled, so that force_tree_allocated = 0, or a valid ForceTree.
-*/
-void force_tree_rebuild(ForceTree * tree, DomainDecomp * ddecomp, const int HybridNuGrav, const int DoMoments, const char * EmergencyOutputDir);
+/* Build a tree structure using all particles, compute moments and allocate a father array.
+ * This is the fattest tree constructor, allows moments and walking up and down.*/
+void force_tree_full(ForceTree * tree, DomainDecomp * ddecomp, const int HybridNuGrav, const char * EmergencyOutputDir);
+
+/* Build a tree structure using only the active particles and compute moments.
+ * This variant is for the gravity code*/
+void force_tree_active_moments(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticles *act, const int HybridNuGrav, const int alloc_father, const char * EmergencyOutputDir);
 
 /* Main constructor with a mask argument.
  * Mask is a bitfield, specified as 1 for each type that should be included. Use ALLMASK for all particle types.
- * This is much than _rebuild: because the particles are sorted by type the merge step is much faster than
+ * This is much faster than _full: because the particles are sorted by type the merge step is much faster than
  * with all particle types, and of course the tree is smaller.*/
-void force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, const int HybridNuGrav, const char * EmergencyOutputDir);
+void force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, const char * EmergencyOutputDir);
+
+/* Compute moments of the force tree, recursively, and update hmax.*/
+void force_tree_calc_moments(ForceTree * tree, DomainDecomp * ddecomp);
 
 /*Free the memory associated with the tree*/
 void   force_tree_free(ForceTree * tt);
-void   dump_particles(void);
 
 static inline int
 node_is_pseudo_particle(int no, const ForceTree * tree)
@@ -152,10 +160,10 @@ force_get_father(int no, const ForceTree * tt);
 
 /*Internal API, exposed for tests*/
 int
-force_tree_create_nodes(const ForceTree tb, const int npart, int mask, DomainDecomp * ddecomp, const int HybridNuGrav);
+force_tree_create_nodes(const ForceTree tb, const ActiveParticles * act, int mask, DomainDecomp * ddecomp, const int HybridNuGrav);
 
 ForceTree
-force_treeallocate(int64_t maxnodes, int64_t maxpart, DomainDecomp * ddecomp);
+force_treeallocate(const int64_t maxnodes, const int64_t maxpart, const DomainDecomp * ddecomp, const int alloc_father);
 
 void
 force_update_node_parallel(const ForceTree * tree, const DomainDecomp * ddecomp);

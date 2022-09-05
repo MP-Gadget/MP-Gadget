@@ -52,13 +52,14 @@ set_init_params(ParameterSet * ps)
     if(ThisTask == 0) {
         InitParams.InitGasTemp = param_get_double(ps, "InitGasTemp");
         InitParams.PartAllocFactor = param_get_double(ps, "PartAllocFactor");
-    
+
         InitParams.ExcursionSetReionOn = param_get_int(ps,"ExcursionSetReionOn");
         InitParams.ExcursionSetZStart = param_get_int(ps,"ExcursionSetZStart");
     }
     MPI_Bcast(&InitParams, sizeof(InitParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
+/* Setup a list of sync points until the end of the simulation.*/
 void init_timeline(Cosmology * CP, int RestartSnapNum, double TimeMax, const struct header_data * header, const int SnapshotWithFOF)
 {
     /*Add TimeInit and TimeMax to the output list*/
@@ -125,7 +126,10 @@ inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * 
     {
         int j;
         P[i].Ti_drift = Ti_Current;
-
+#ifdef DEBUG
+        P[i].Ti_kick_grav = Ti_Current;
+        P[i].Ti_kick_hydro = Ti_Current;
+#endif
         if(RestartSnapNum == -1 && P[i].Type == 5 )
         {
             /* Note: Gadget-3 sets this to the seed black hole mass.*/
@@ -179,7 +183,7 @@ inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * 
             SPHP(i).MaxSignalVel = 0;
         }
         /* If we are starting before reionisation, initialise reion properties
-         * this allows us to restart from runs without excursion set 
+         * this allows us to restart from runs without excursion set
          * these properties aren't used without the ES so its fine to init them here*/
         if(InitParams.ExcursionSetReionOn && header->TimeSnapshot < 1./(1. + InitParams.ExcursionSetZStart)){
             SPHP(i).local_J21 = 0;
@@ -419,7 +423,8 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, Cosmo
         /* Empty kick factors as we do not move*/
         DriftKickTimes times = init_driftkicktime(Ti_Current);
         /* Update the EgyWtDensity*/
-        density(act, 0, DensityIndependentSphOn(), BlackHoleOn, 0,  times, CP, sph_pred, NULL, Tree);
+        density(act, 0, DensityIndependentSphOn(), BlackHoleOn, times, CP, sph_pred, NULL, Tree);
+        slots_free_sph_pred_data(sph_pred);
         if(stop)
             break;
 
@@ -469,53 +474,12 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
     /* Do nothing if we are a pure DM run*/
     if(tot_sph + tot_bh == 0)
         return;
-//
 
     ForceTree Tree = {0};
-    /* Need moments because we use them to set Hsml*/
-    force_tree_rebuild(&Tree, ddecomp, 0, 1, NULL);
-
-    /* quick hack to adjust for the baryon fraction
-        * only this fraction of mass is of that type.
-        * this won't work for non-dm non baryon;
-        * ideally each node shall have separate count of
-        * ptypes of each type.
-        *
-        * Eventually the iteration will fix this. */
-    const double massfactor = CP->OmegaBaryon / CP->Omega0;
-    const double DesNumNgb = GetNumNgb(GetDensityKernelType());
-
-    #pragma omp parallel for
-    for(i = 0; i < PartManager->NumPart; i++)
-    {
-        /* These initial smoothing lengths are only used for SPH-like particles.*/
-        if(P[i].Type != 0 && P[i].Type != 5)
-            continue;
-
-        int no = force_get_father(i, &Tree);
-
-        while(10 * DesNumNgb * P[i].Mass > massfactor * Tree.Nodes[no].mom.mass)
-        {
-            int p = force_get_father(no, &Tree);
-
-            if(p < 0)
-                break;
-
-            no = p;
-        }
-
-        P[i].Hsml =
-            pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / (massfactor * Tree.Nodes[no].mom.mass),
-                    1.0 / 3) * Tree.Nodes[no].len;
-
-        /* recover from a poor initial guess */
-        if(P[i].Hsml > 500.0 * MeanGasSeparation)
-            P[i].Hsml = MeanGasSeparation;
-
-        if(P[i].Hsml <= 0)
-            endrun(5, "Bad hsml guess: i=%d, mass = %g type %d hsml %g no %d len %d treemass %g\n",
-                    i, P[i].Mass, P[i].Type, P[i].Hsml, no, Tree.Nodes[no].len, Tree.Nodes[no].mom.mass);
-    }
+    /* Finds fathers for each gas and BH particle, so need BH*/
+    force_tree_rebuild_mask(&Tree, ddecomp, GASMASK+BHMASK, NULL);
+    /* Set the initial smoothing length for gas and DM, compute tree moments.*/
+    set_init_hsml(&Tree, ddecomp, MeanGasSeparation);
 
     /* for clean IC with U input only, we need to iterate to find entropy */
     double u_init = (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * InitParams.InitGasTemp;
@@ -533,16 +497,14 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
     /* snapshot already has EgyWtDensity; hope it is read in correctly.
         * (need a test on this!) */
     /*Allocate the extra SPH data for transient SPH particle properties.*/
-    struct sph_pred_data sph_pred = slots_allocate_sph_pred_data(SlotsManager->info[0].size);
-
-    /*At the first time step all particles should be active*/
-    ActiveParticles act = {0};
-    act.ActiveParticle = NULL;
-    act.NumActiveParticle = PartManager->NumPart;
+    struct sph_pred_data sph_pred = {0};
 
     /* Empty kick factors as we do not move*/
     DriftKickTimes times = init_driftkicktime(Ti_Current);
-    density(&act, 1, 0, BlackHoleOn, 0,  times, CP, &sph_pred, NULL, &Tree);
+    /*At the first time step all particles should be active*/
+    ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
+    density(&act, 1, 0, BlackHoleOn, times, CP, &sph_pred, NULL, &Tree);
+    slots_free_sph_pred_data(&sph_pred);
 
     if(DensityIndependentSphOn()) {
         setup_density_indep_entropy(&act, &Tree, CP, &sph_pred, u_init, a3, Ti_Current, BlackHoleOn);
@@ -553,6 +515,5 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
         for(i = 0; i < SlotsManager->info[0].size; i++)
             SphP[i].Entropy = GAMMA_MINUS1 * u_init / pow(SphP[i].Density / a3 , GAMMA_MINUS1);
     }
-    slots_free_sph_pred_data(&sph_pred);
     force_tree_free(&Tree);
 }

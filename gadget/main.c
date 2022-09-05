@@ -45,6 +45,16 @@ int main(int argc, char **argv)
     if(thread_provided != MPI_THREAD_FUNNELED)
         message(1, "MPI_Init_thread returned %d != MPI_THREAD_FUNNELED\n", thread_provided);
 
+    message(0, "This is MP-Gadget, version %s.\n", GADGET_VERSION);
+    message(0, "Running on %d MPI Ranks.\n", NTask);
+    message(0, "           %d OpenMP Threads.\n", omp_get_max_threads());
+    message(0, "Code was compiled with settings:\n"
+           "%s\n", GADGET_COMPILER_SETTINGS);
+    message(0, "Size of particle structure       %td  [bytes]\n",sizeof(struct particle_data));
+    message(0, "Size of blackhole structure       %td  [bytes]\n",sizeof(struct bh_particle_data));
+    message(0, "Size of sph particle structure   %td  [bytes]\n",sizeof(struct sph_particle_data));
+    message(0, "Size of star particle structure   %td  [bytes]\n",sizeof(struct star_particle_data));
+
     if(argc < 2)
     {
         message(0, "Parameters are missing.\n");
@@ -58,16 +68,6 @@ int main(int argc, char **argv)
         MPI_Finalize();
         return 1;
     }
-
-    message(0, "This is MP-Gadget, version %s.\n", GADGET_VERSION);
-    message(0, "Running on %d MPI Ranks.\n", NTask);
-    message(0, "           %d OpenMP Threads.\n", omp_get_max_threads());
-    message(0, "Code was compiled with settings:\n"
-           "%s\n", GADGET_COMPILER_SETTINGS);
-    message(0, "Size of particle structure       %td  [bytes]\n",sizeof(struct particle_data));
-    message(0, "Size of blackhole structure       %td  [bytes]\n",sizeof(struct bh_particle_data));
-    message(0, "Size of sph particle structure   %td  [bytes]\n",sizeof(struct sph_particle_data));
-    message(0, "Size of star particle structure   %td  [bytes]\n",sizeof(struct star_particle_data));
 
     /* Avoid dumping core, except for the master process. For large jobs writing core
      * with all of main memory can be very bad. */

@@ -19,28 +19,12 @@
 
 #include "stub.h"
 
-/*Particle data.*/
-struct part_manager_type PartManager[1];
-struct slots_manager_type SlotsManager[1];
-
 /* The true struct for the state variable*/
 struct forcetree_testdata
 {
     DomainDecomp ddecomp;
     gsl_rng * r;
 };
-
-/*Dummy versions of functions that implement only what we need for the tests:
- * most of these are used in the non-tested globally accessible parts of forcetree.c and
- * so not executed by our tests anyway.*/
-
-void dump_snapshot() { }
-
-double walltime_measure_full(const char * name, const char * file, const int line) {
-    return MPI_Wtime();
-}
-
-/*End dummies*/
 
 static int
 order_by_type_and_key(const void *a, const void *b)
@@ -226,7 +210,8 @@ static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp
     /*Time creating the nodes*/
     double start, end;
     start = MPI_Wtime();
-    int nodes = force_tree_create_nodes(tb, numpart, ALLMASK, ddecomp, 0);
+    ActiveParticles Act = init_empty_active_particles(numpart);
+    int nodes = force_tree_create_nodes(tb, &Act, ALLMASK, ddecomp, 0);
     tb.numnodes = nodes;
     assert_true(nodes < maxnode);
     end = MPI_Wtime();
@@ -308,7 +293,8 @@ static void do_tree_mask_hmax_update_test(const int numpart, ForceTree * tb, Dom
     /*Time creating the nodes*/
     double start, end;
     start = MPI_Wtime();
-    int nodes = force_tree_create_nodes(*tb, numpart, GASMASK, ddecomp, 0);
+    ActiveParticles Act = init_empty_active_particles(numpart);
+    int nodes = force_tree_create_nodes(*tb, &Act, GASMASK, ddecomp, 0);
     tb->numnodes = nodes;
     end = MPI_Wtime();
     double ms = (end - start)*1000;
@@ -342,14 +328,14 @@ static void test_rebuild_flat(void ** state) {
     struct forcetree_testdata * data = * (struct forcetree_testdata **) state;
     DomainDecomp ddecomp = data->ddecomp;
     ddecomp.TopLeaves[0].topnode = numpart;
-    ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp);
+    ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp, 1);
     /* So unused memory has Father < 0*/
     for(i = tb.firstnode; i < tb.lastnode; i++)
         tb.Nodes[i].father = -10;
 
     do_tree_test(numpart, tb, &ddecomp);
     force_tree_free(&tb);
-    tb = force_treeallocate(numpart, numpart, &ddecomp);
+    tb = force_treeallocate(numpart, numpart, &ddecomp, 1);
     do_tree_mask_hmax_update_test(numpart, &tb, &ddecomp);
     assert_true(tb.Nodes[tb.firstnode].mom.hmax >= 0.0584);
     force_tree_free(&tb);
@@ -374,10 +360,10 @@ static void test_rebuild_close(void ** state) {
     struct forcetree_testdata * data = * (struct forcetree_testdata **) state;
     DomainDecomp ddecomp = data->ddecomp;
     ddecomp.TopLeaves[0].topnode = numpart;
-    ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp);
+    ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp, 1);
     do_tree_test(numpart, tb, &ddecomp);
     force_tree_free(&tb);
-    tb = force_treeallocate(numpart, numpart, &ddecomp);
+    tb = force_treeallocate(numpart, numpart, &ddecomp, 1);
     do_tree_mask_hmax_update_test(numpart, &tb, &ddecomp);
     force_tree_free(&tb);
     free(P);
@@ -419,7 +405,7 @@ static void test_rebuild_random(void ** state) {
     /*Allocate tree*/
     /*Base pointer*/
     ddecomp.TopLeaves[0].topnode = numpart;
-    ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp);
+    ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp, 1);
     assert_true(tb.Nodes != NULL);
     P = malloc(numpart*sizeof(struct particle_data));
     int i;
@@ -427,7 +413,7 @@ static void test_rebuild_random(void ** state) {
         do_random_test(r, numpart, tb, &ddecomp);
     }
     force_tree_free(&tb);
-    tb = force_treeallocate(numpart, numpart, &ddecomp);
+    tb = force_treeallocate(numpart, numpart, &ddecomp, 1);
     do_tree_mask_hmax_update_test(numpart, &tb, &ddecomp);
     force_tree_free(&tb);
     free(P);
@@ -457,6 +443,8 @@ void trivial_domain(DomainDecomp * ddecomp)
     ddecomp->Tasks[0].EndLeaf = 1;
 }
 
+static struct ClockTable Clocks;
+
 static int setup_tree(void **state) {
     /*Set up the important parts of the All structure.*/
     /*Particles should not be outside this*/
@@ -470,6 +458,7 @@ static int setup_tree(void **state) {
     data->r = gsl_rng_alloc(gsl_rng_mt19937);
     gsl_rng_set(data->r, 0);
     *state = (void *) data;
+    walltime_init(&Clocks);
     return 0;
 }
 

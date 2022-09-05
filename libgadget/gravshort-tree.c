@@ -76,33 +76,24 @@ set_gravshort_tree_params(ParameterSet * ps)
         TreeParams.Rcut = param_get_double(ps, "TreeRcut");
         TreeParams.FractionalGravitySoftening = param_get_double(ps, "GravitySoftening");
         TreeParams.AdaptiveSoftening = !param_get_int(ps, "GravitySofteningGas");
-
-
     }
     MPI_Bcast(&TreeParams, sizeof(struct gravshort_tree_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
-
-/* According to upstream P-GADGET3
- * correct workcount slows it down and yields little benefits in load balancing
- *
- * YF: anything we shall do about this?
- * */
 
 int
 force_treeev_shortrange(TreeWalkQueryGravShort * input,
         TreeWalkResultGravShort * output,
         LocalTreeWalk * lv);
 
-
-/*! This function computes the gravitational forces for all active particles.
- *  If needed, a new tree is constructed, otherwise the dynamically updated
- *  tree is used.  Particles are only exported to other processors when really
+/*! This function computes the gravitational forces for all active particles from all particles in the tree.
+ * Particles are only exported to other processors when really
  *  needed, thereby allowing a good use of the communication buffer.
  *  NeutrinoTracer = All.HybridNeutrinosOn && (atime <= All.HybridNuPartTime);
  *  rho0 = CP.Omega0 * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G)
+ *  ActiveParticle should contain only gravitationally active particles.
  */
 void
-grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double rho0, int NeutrinoTracer, int FastParticleType)
+grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFloat (* AccelStore)[3], double rho0, int NeutrinoTracer, int FastParticleType, inttime_t Ti_Current)
 {
     double timeall = 0;
     double timetree, timewait, timecomm;
@@ -118,13 +109,21 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
     priv.NeutrinoTracer = NeutrinoTracer;
     priv.G = pm->G;
     priv.cbrtrho0 = pow(rho0, 1.0 / 3);
+    priv.Ti_Current = Ti_Current;
+    /* We only want to calculate the potential
+     * if it is the true potential from all particles*/
+    if(tree->NumParticles == PartManager->NumPart)
+        priv.CalcPotential = 1;
+    else
+        priv.CalcPotential = 0;
+    priv.Accel = AccelStore;
 
     if(!tree->moments_computed_flag)
         endrun(2, "Gravtree called before tree moments computed!\n");
 
     tw->ev_label = "GRAVTREE";
     tw->visit = (TreeWalkVisitFunction) force_treeev_shortrange;
-    /* gravity applies to all particles. Including Tracer particles to enhance numerical stability. */
+    /* gravity applies to all gravitationally active particles.*/
     tw->haswork = NULL;
     tw->reduce = (TreeWalkReduceResultFunction) grav_short_reduce;
     tw->postprocess = (TreeWalkProcessFunction) grav_short_postprocess;
@@ -136,13 +135,6 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, doub
     tw->priv = &priv;
 
     walltime_measure("/Misc");
-
-    /* allocate buffers to arrange communication */
-    MPIU_Barrier(MPI_COMM_WORLD);
-    message(0, "Begin tree force.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
-
-    walltime_measure("/Misc");
-
     treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
 
     /* Now the force computation is finished */
@@ -409,5 +401,3 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     }
     return 1;
 }
-
-

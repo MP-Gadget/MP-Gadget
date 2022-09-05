@@ -31,31 +31,6 @@ struct density_testdata
     gsl_rng * r;
 };
 
-static void set_init_hsml(ForceTree * Tree)
-{
-    int i;
-    #pragma omp parallel for
-    for(i = 0; i < PartManager->NumPart; i++)
-    {
-        int no = force_get_father(i, Tree);
-
-        double DesNumNgb = GetNumNgb(GetDensityKernelType());
-        while(10 * DesNumNgb * P[i].Mass > Tree->Nodes[no].mom.mass)
-        {
-            int p = force_get_father(no, Tree);
-
-            if(p < 0)
-                break;
-
-            no = p;
-        }
-
-        P[i].Hsml =
-            pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / (Tree->Nodes[no].mom.mass),
-                    1.0 / 3) * Tree->Nodes[no].len;
-    }
-}
-
 /* Perform some simple checks on the densities*/
 static void check_densities(double MinGasHsml)
 {
@@ -85,7 +60,8 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
         int j;
         P[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
         P[i].Mass = 1;
-        P[i].TimeBin = 0;
+        P[i].TimeBinHydro = 0;
+        P[i].TimeBinGravity = 0;
         P[i].Ti_drift = 0;
         for(j=0; j<3; j++)
             P[i].Vel[j] = 1.5;
@@ -101,18 +77,15 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     SlotsManager->info[0].size = numpart-npbh;
     SlotsManager->info[5].size = npbh;
     PartManager->NumPart = numpart;
-    ActiveParticles act = {0};
-    act.NumActiveParticle = numpart;
-    act.ActiveParticle = NULL;
+    ActiveParticles act = init_empty_active_particles(numpart);
     struct density_testdata * data = * (struct density_testdata **) state;
     DomainDecomp ddecomp = data->ddecomp;
     ddecomp.TopLeaves[0].topnode = PartManager->MaxPart;
 
     ForceTree tree = {0};
-    force_tree_rebuild(&tree, &ddecomp, 0, 1, NULL);
-    set_init_hsml(&tree);
-    /* Rebuild without moments to check it works*/
-    force_tree_rebuild(&tree, &ddecomp, 0, 0, NULL);
+    /* Finds fathers for each gas and BH particle, so need BH*/
+    force_tree_rebuild_mask(&tree, &ddecomp, GASMASK+BHMASK, NULL);
+    set_init_hsml(&tree, &ddecomp, PartManager->BoxSize);
     /*Time doing the density finding*/
     double start, end;
     start = MPI_Wtime();
@@ -130,11 +103,14 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     struct UnitSystem units = get_unitsystem(3.085678e21, 1.989e43, 1e5);
     init_cosmology(&CP,0.01, units);
 
-    density(&act, 1, 0, 0, 0, kick, &CP, &data->sph_pred, NULL, &tree);
+    /* Rebuild without moments to check it works*/
+    force_tree_rebuild_mask(&tree, &ddecomp, GASMASK, NULL);
+    density(&act, 1, 0, 0, kick, &CP, &data->sph_pred, NULL, &tree);
     end = MPI_Wtime();
     double ms = (end - start)*1000;
     message(0, "Found densities in %.3g ms\n", ms);
     check_densities(data->dp.MinGasHsmlFractional);
+    slots_free_sph_pred_data(&data->sph_pred);
 
     double avghsml = 0;
     #pragma omp parallel for reduction(+:avghsml)
@@ -154,8 +130,10 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
 
     start = MPI_Wtime();
     /*Find the density*/
-    density(&act, 1, 0, 0, 0, kick, &CP, &data->sph_pred, NULL, &tree);
+    density(&act, 1, 0, 0, kick, &CP, &data->sph_pred, NULL, &tree);
     end = MPI_Wtime();
+    slots_free_sph_pred_data(&data->sph_pred);
+
     ms = (end - start)*1000;
     message(0, "Found 1 dev densities in %.3g ms\n", ms);
     double diff = 0;
@@ -300,7 +278,6 @@ void trivial_domain(DomainDecomp * ddecomp)
 
 static int teardown_density(void **state) {
     struct density_testdata * data = (struct density_testdata * ) *state;
-    slots_free_sph_pred_data(&data->sph_pred);
     myfree(data->ddecomp.Tasks);
     myfree(data->ddecomp.TopLeaves);
     myfree(data->ddecomp.TopNodes);
@@ -332,7 +309,7 @@ static int setup_density(void **state) {
     walltime_init(&CT);
     init_forcetree_params(2);
     struct density_testdata *data = mymalloc("data", sizeof(struct density_testdata));
-    data->sph_pred = slots_allocate_sph_pred_data(maxpart);
+    data->sph_pred.EntVarPred = NULL;
     /*Set up the top-level domain grid*/
     trivial_domain(&data->ddecomp);
     data->dp.DensityResolutionEta = 1.;

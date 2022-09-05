@@ -166,6 +166,9 @@ all: libgadget.a libgadget-utils.a
 .objs/test_fof: tests/test_fof.c libgadget.a ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
 	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
+.objs/test_forcetree: tests/test_forcetree.c libgadget.a ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
+	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
+
 build-tests: $(TESTBIN)
 
 test : build-tests

@@ -80,7 +80,7 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double *PairAccn, do
     {
         int k;
         for(k=0; k<3; k++) {
-            double err = fabs((PairAccn[3*i+k] - (P[i].GravPM[k] + P[i].GravAccel[k]))/meanacc);
+            double err = fabs((PairAccn[3*i+k] - (P[i].GravPM[k] + P[i].FullTreeGravAccel[k]))/meanacc);
             meanerr += err;
             if(maxerr < err)
                 maxerr = err;
@@ -105,7 +105,7 @@ static void find_means(double * meangrav, double * suppmean, double * suppaccns)
         for(k=0; k<3; k++) {
             if(suppaccns)
                 meanacc += fabs(suppaccns[3*i+k]);
-            meanforce += fabs(P[i].GravPM[k] + P[i].GravAccel[k]);
+            meanforce += fabs(P[i].GravPM[k] + P[i].FullTreeGravAccel[k]);
         }
     }
     int64_t tot_npart;
@@ -169,12 +169,10 @@ static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int di
         P[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
         P[i].Mass = 1;
         P[i].ID = i;
-        P[i].TimeBin = 0;
+        P[i].TimeBinHydro = 0;
+        P[i].TimeBinGravity = 0;
         P[i].IsGarbage = 0;
     }
-
-    ActiveParticles act = {0};
-    act.NumActiveParticle = PartManager->NumPart;
 
     DomainDecomp ddecomp = {0};
     domain_decompose_full(&ddecomp);
@@ -182,7 +180,7 @@ static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int di
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, PartManager->BoxSize, Asmth, Nmesh, G);
     ForceTree Tree = {0};
-    force_tree_rebuild(&Tree, &ddecomp, 1, 1, NULL);
+    force_tree_full(&Tree, &ddecomp, 1, NULL);
     gravshort_fill_ntab(SHORTRANGE_FORCE_WINDOW_TYPE_EXACT, Asmth);
     /* Setup cosmology*/
     Cosmology CP ={0};
@@ -197,7 +195,7 @@ static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int di
     init_cosmology(&CP, 0.01, units);
 
     gravpm_force(&pm, &Tree, &CP, 0.1, CM_PER_MPC/1000., ".", 0.01, 2);
-    force_tree_rebuild(&Tree, &ddecomp, 1, 1, NULL);
+    force_tree_full(&Tree, &ddecomp, 1, NULL);
     const double rho0 = CP.Omega0 * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G);
 
     /* Barnes-Hut on first iteration*/
@@ -213,8 +211,9 @@ static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int di
     gravshort_set_softenings(PartManager->BoxSize / cbrt(PartManager->NumPart));
 
     /* Twice so the opening angle is consistent*/
-    grav_short_tree(&act, &pm, &Tree, rho0, 0, 2);
-    grav_short_tree(&act, &pm, &Tree, rho0, 0, 2);
+    ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
+    grav_short_tree(&act, &pm, &Tree, NULL, rho0, 0, 2, 0);
+    grav_short_tree(&act, &pm, &Tree, NULL, rho0, 0, 2, 0);
 
     force_tree_free(&Tree);
     petapm_destroy(&pm);
@@ -248,7 +247,7 @@ static void test_force_flat(void ** state) {
     {
         int k;
         for(k=0; k<3; k++) {
-            double err = fabs((P[i].GravPM[k] + P[i].GravAccel[k]));
+            double err = fabs((P[i].GravPM[k] + P[i].FullTreeGravAccel[k]));
             meanerr += err;
             if(maxerr < err)
                 maxerr = err;

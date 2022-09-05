@@ -20,26 +20,49 @@ struct particle_data
         unsigned int                      :4; /* UNUSED bits put here to maintain bit alignment */
         unsigned char Generation; /* How many particles it has spawned; used to generate unique particle ID.
                                      may wrap around with too many SFR/BH if a feedback model goes rogue */
-        unsigned char TimeBin; /* Time step bin; 0 for unassigned.*/
-        /* To ensure alignment to a 32-bit boundary.*/
+        unsigned char TimeBinHydro; /* Time step bin for hydro; 0 for unassigned. Must be smaller than the gravity timebin.
+                                     * Star formation, cooling, and BH accretion takes place on the hydro timestep.
+                                     * Dynamic friction is also the hydro timestep because it relies on the gas density. */
+        unsigned char TimeBinGravity; /* Time step bin for gravity; 0 for unassigned.*/
         /* particle type.  0=gas, 1=halo, 2=disk, 3=bulge, 4=stars, 5=bndry */
         unsigned char Type;
         /* (jdavies): I moved this out of the bitfield because i need to access it by pointer in petapm.c
          * This could also be done by passing a struct pointer instead of void* as the petapm pstruct */
+        /* To ensure alignment to a 32-bit boundary.*/
+        unsigned char spare[3];
     };
 
     int PI; /* particle property index; used by BH, SPH and STAR.
                         points to the corresponding structure in (SPH|BH|STAR)P array.*/
     inttime_t Ti_drift;       /*!< current time of the particle position. The same for all particles. */
 
+#ifdef DEBUG
+    /* Kick times for both hydro and grav*/
+    inttime_t Ti_kick_hydro;
+    inttime_t Ti_kick_grav;
+#endif
     MyIDType ID;
 
     MyFloat Vel[3];   /* particle velocity at its current time */
-    MyFloat GravAccel[3];  /* particle acceleration due to short-range gravity */
+    MyFloat FullTreeGravAccel[3]; /* Short-range tree acceleration at the most recent timestep
+                                 which included all particles (ie, PM steps). Does not include PM acceleration.
+                                 At time of writing this
+                                 is used to test whether the particles are bound during
+                                 black hole mergers for black holes, for predicted velocities for SPH particles
+                                 and for predicting velocities for wind particle velocity dispersions.
+                                 For non-hierarchical gravity this stores the gravitational acceleration from the current timestep.
+                                 Note that changes during a short timestep this may not be noticed immediately, as
+                                 the acceleration is not updated. On short timesteps gravitational
+                                 accelerations are only from other active particles.
+                                 * For SPH predicted velocities, we will be using a slightly out of date gravitational acceleration,
+                                 * but the Gadget-4 paper says this is a negligible effect (I suspect that where the artificial viscosity
+                                 * is important the gravitational acceleration is small compared to hydro force anyway).
+                                 */
+    MyFloat GravPM[3];      /* particle acceleration due to long-range PM gravity force */
 
-    MyFloat GravPM[3];		/* particle acceleration due to long-range PM gravity force */
-
-    MyFloat Potential;		/* gravitational potential. This is the total potential after gravtree+gravpm is called. */
+    MyFloat Potential;		/* Gravitational potential. This is the total potential only on a PM timestep,
+                             * after gravtree+gravpm is called. We do not save the potential on short timesteps
+                             * for hierarchical gravity as it would only be from active particles.*/
 
     /* DtHsml is 1/3 DivVel * Hsml evaluated at the last active timestep for this particle.
      * This predicts Hsml during the current timestep in the way used in Gadget-4, more accurate
@@ -55,16 +78,14 @@ struct particle_data
     };
     MyFloat Hsml;
 
-    /* Union these two because they are transients: they are hard to move
-     * to private arrays because they need to travel with the particle during exchange*/
-    union {
-        /* The peano key is a hash of the position used in the domain decomposition.
-         * It is slow to generate so we store it here.*/
-        peano_t Key; /* only by domain.c and force_tree_rebuild */
-        /* FOF Group number: only has meaning during FOF.*/
-        int64_t GrNr;
-    };
-
+    /* These two are transient but hard to move
+     * to private arrays because they need to travel
+     * with the particle during exchange*/
+    /* The peano key is a hash of the position used in the domain decomposition.
+     * It is slow to generate and used to rebuild the tree, so we store it here.*/
+    peano_t Key; /* only by domain.c and force_tree_rebuild */
+    /* FOF Group number: only has meaning during FOF.*/
+    int64_t GrNr;
 };
 
 extern struct part_manager_type {

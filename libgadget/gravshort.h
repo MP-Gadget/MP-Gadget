@@ -43,6 +43,7 @@ struct GravShortPriv {
     int NeutrinoTracer;
     /* Newton's constant in internal units*/
     double G;
+    inttime_t Ti_Current;
     /* Matter density in internal units.
      * rho_0 = Omega0 * rho_crit
      * rho_crit = 3 H^2 /(8 pi G).
@@ -50,6 +51,13 @@ struct GravShortPriv {
      * Note: should account for
      * massive neutrinos, but doesn't. */
     double cbrtrho0;
+    /* Whether to calculate the short-range gravitational potential from
+     * the particles in the current force tree.
+     * Note that in practice when for hierarchical gravity only active particles
+     * are in the tree and so this is only useful on steps where all particles are active.*/
+    int CalcPotential;
+    /* (Optional) pointer to the place to store accelerations, if it is not P->GravAccel*/
+    MyFloat (*Accel)[3];
 };
 
 #define GRAV_GET_PRIV(tw) ((struct GravShortPriv *) ((tw)->priv))
@@ -58,41 +66,56 @@ static void
 grav_short_postprocess(int i, TreeWalk * tw)
 {
     double G = GRAV_GET_PRIV(tw)->G;
-    P[i].GravAccel[0] *= G;
-    P[i].GravAccel[1] *= G;
-    P[i].GravAccel[2] *= G;
+    MyFloat *GravAccel = NULL;
+    if(GRAV_GET_PRIV(tw)->Accel)
+        GravAccel = GRAV_GET_PRIV(tw)->Accel[i];
+    else
+        GravAccel = P[i].FullTreeGravAccel;
+    GravAccel[0] *= G;
+    GravAccel[1] *= G;
+    GravAccel[2] *= G;
     /* calculate the potential */
     /* remove self-potential */
-    P[i].Potential += P[i].Mass / (FORCE_SOFTENING(i, P[i].Type) / 2.8);
+    if(GRAV_GET_PRIV(tw)->CalcPotential) {
+        P[i].Potential += P[i].Mass / (FORCE_SOFTENING(i, P[i].Type) / 2.8);
+        P[i].Potential -= 2.8372975 * pow(P[i].Mass, 2.0 / 3) * GRAV_GET_PRIV(tw)->cbrtrho0;
+        P[i].Potential *= G;
+    }
+}
 
-    P[i].Potential -= 2.8372975 * pow(P[i].Mass, 2.0 / 3) * GRAV_GET_PRIV(tw)->cbrtrho0;
-
-    P[i].Potential *= G;
+/*Compute the absolute magnitude of the acceleration for a particle.*/
+static MyFloat
+grav_get_abs_accel(struct particle_data * PP, const double G)
+{
+    double aold=0;
+    int j;
+    for(j = 0; j < 3; j++) {
+       double ax = PP->FullTreeGravAccel[j] + PP->GravPM[j];
+       aold += ax*ax;
+    }
+    return sqrt(aold) / G;
 }
 
 static void
 grav_short_copy(int place, TreeWalkQueryGravShort * input, TreeWalk * tw)
 {
     input->Soft = FORCE_SOFTENING(place, P[place].Type);
-    /*Compute old acceleration before we over-write things*/
-    double aold=0;
-    int i;
-    for(i = 0; i < 3; i++) {
-       double ax = P[place].GravAccel[i] + P[place].GravPM[i];
-       aold += ax*ax;
-    }
-
-    input->OldAcc = sqrt(aold)/GRAV_GET_PRIV(tw)->G;
-
+    input->OldAcc = grav_get_abs_accel(&P[place], GRAV_GET_PRIV(tw)->G);
 }
+
 static void
 grav_short_reduce(int place, TreeWalkResultGravShort * result, enum TreeWalkReduceMode mode, TreeWalk * tw)
 {
+    MyFloat * GravAccel = NULL;
+    if(GRAV_GET_PRIV(tw)->Accel)
+        GravAccel = GRAV_GET_PRIV(tw)->Accel[place];
+    else
+        GravAccel = P[place].FullTreeGravAccel;
     int k;
     for(k = 0; k < 3; k++)
-        TREEWALK_REDUCE(P[place].GravAccel[k], result->Acc[k]);
-
-    TREEWALK_REDUCE(P[place].Potential, result->Potential);
+        TREEWALK_REDUCE(GravAccel[k], result->Acc[k]);
+    if(GRAV_GET_PRIV(tw)->CalcPotential)
+        TREEWALK_REDUCE(P[place].Potential, result->Potential);
 }
 
 #endif

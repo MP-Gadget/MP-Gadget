@@ -68,16 +68,17 @@ GetDensityKernelType(void)
 /* The evolved entropy at drift time: evolved dlog a.
  * Used to predict pressure and entropy for SPH */
 MyFloat
-SPH_EntVarPred(int PI, double MinEgySpec, double a3inv, double dloga)
+SPH_EntVarPred(const int p_i, const DriftKickTimes * times)
 {
+        const int bin = P[p_i].TimeBinHydro;
+        const int PI = P[p_i].PI;
+        const double dloga = dloga_from_dti(times->Ti_Current - times->Ti_kick[bin], P[p_i].Ti_drift);
         double EntVarPred = SphP[PI].Entropy + SphP[PI].DtEntropy * dloga;
         /*Entropy limiter for the predicted entropy: makes sure entropy stays positive. */
         if(dloga > 0 && EntVarPred < 0.5*SphP[PI].Entropy)
             EntVarPred = 0.5 * SphP[PI].Entropy;
-        const double enttou = pow(SphP[PI].Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
-        if(EntVarPred < MinEgySpec / enttou)
-            EntVarPred = MinEgySpec / enttou;
-        EntVarPred = pow(EntVarPred, 1/GAMMA);
+        EntVarPred = exp(1./GAMMA * log(EntVarPred));
+//         EntVarPred = pow(EntVarPred, 1/GAMMA);
         return EntVarPred;
 }
 
@@ -86,13 +87,26 @@ SPH_EntVarPred(int PI, double MinEgySpec, double a3inv, double dloga)
  * which always coincides with the Drift inttime.
  * For hydro forces.*/
 void
-SPH_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double gravkick, double hydrokick)
+SPH_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double * gravkick, double * hydrokick)
 {
     int j;
+    /* Notice that the kick time for gravity and hydro may be different! So the prediction is also different*/
     for(j = 0; j < 3; j++) {
-        VelPred[j] = P[i].Vel[j] + gravkick * P[i].GravAccel[j]
-            + P[i].GravPM[j] * FgravkickB + hydrokick * SPHP(i).HydroAccel[j];
+        VelPred[j] = P[i].Vel[j] + gravkick[P[i].TimeBinGravity] * P[i].FullTreeGravAccel[j]
+            + P[i].GravPM[j] * FgravkickB + hydrokick[P[i].TimeBinHydro] * SPHP(i).HydroAccel[j];
     }
+}
+
+/* Get the predicted velocity for a particle
+ * at the current Force computation time ti,
+ * which always coincides with the Drift inttime.
+ * For hydro forces.*/
+void
+DM_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double * gravkick)
+{
+    int j;
+    for(j = 0; j < 3; j++)
+        VelPred[j] = P[i].Vel[j] + gravkick[P[i].TimeBinGravity] * P[i].FullTreeGravAccel[j]+ P[i].GravPM[j] * FgravkickB;
 }
 
 /*! Structure for communication during the density computation. Holds data that is sent to other processors.
@@ -155,8 +169,6 @@ struct DensityPriv {
     int BlackHoleOn;
 
     /* For computing the predicted quantities dynamically during the treewalk.*/
-    double a3inv;
-    double MinEgySpec;
     DriftKickTimes const * times;
     double FgravkickB;
     double gravkicks[TIMEBINS+1];
@@ -200,7 +212,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 void
-density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, double MinEgySpec, const DriftKickTimes times, Cosmology * CP, struct sph_pred_data * SPH_predicted, MyFloat * GradRho, const ForceTree * const tree)
+density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int BlackHoleOn, const DriftKickTimes times, Cosmology * CP, struct sph_pred_data * SPH_predicted, MyFloat * GradRho_mag, const ForceTree * const tree)
 {
     TreeWalk tw[1] = {{0}};
     struct DensityPriv priv[1];
@@ -223,7 +235,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
     double timeall = 0;
     double timecomp, timecomm, timewait;
-    const double atime = exp(loga_from_ti(times.Ti_Current));
 
     walltime_measure("/Misc");
 
@@ -242,7 +253,10 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
     DENSITY_GET_PRIV(tw)->BlackHoleOn = BlackHoleOn;
     DENSITY_GET_PRIV(tw)->SPH_predicted = SPH_predicted;
-    DENSITY_GET_PRIV(tw)->GradRho = GradRho;
+    if(GradRho_mag)
+        DENSITY_GET_PRIV(tw)->GradRho = (MyFloat *) mymalloc("SPH_GradRho", sizeof(MyFloat) * 3 * SlotsManager->info[0].size);
+    else
+        DENSITY_GET_PRIV(tw)->GradRho = NULL;
 
     /* Init Left and Right: this has to be done before treewalk */
     #pragma omp parallel for
@@ -255,8 +269,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
         DENSITY_GET_PRIV(tw)->Left[p_i] = 0;
     }
 
-    priv->a3inv = pow(atime, -3);
-    priv->MinEgySpec = MinEgySpec;
     /* Factor this out since all particles have the same drift time*/
     priv->FgravkickB = get_exact_gravkick_factor(CP, times.PM_kick, times.Ti_Current);
     memset(priv->gravkicks, 0, sizeof(priv->gravkicks[0])*(TIMEBINS+1));
@@ -272,15 +284,22 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     }
     priv->times = &times;
 
-    #pragma omp parallel for
-    for(i = 0; i < act->NumActiveParticle; i++)
-    {
-        int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
-        if(P[p_i].Type == 0 && !P[p_i].IsGarbage) {
-            int bin = P[p_i].TimeBin;
-            double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
-            priv->SPH_predicted->EntVarPred[P[p_i].PI] = SPH_EntVarPred(P[p_i].PI, priv->MinEgySpec, priv->a3inv, dloga);
-            SPH_VelPred(p_i, priv->SPH_predicted->VelPred + 3 * P[p_i].PI, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
+    if(!act->ActiveParticle || act->NumActiveHydro > 0.1 * (SlotsManager->info[0].size + SlotsManager->info[5].size)) {
+        priv->SPH_predicted->EntVarPred = (MyFloat *) mymalloc2("EntVarPred", sizeof(MyFloat) * SlotsManager->info[0].size);
+        #pragma omp parallel for
+        for(i = 0; i < PartManager->NumPart; i++)
+            if(P[i].Type == 0 && !P[i].IsGarbage)
+                priv->SPH_predicted->EntVarPred[P[i].PI] = SPH_EntVarPred(i, priv->times);
+    }
+    else if(act->NumActiveHydro > 0.0001 * (SlotsManager->info[0].size + SlotsManager->info[5].size)){
+        priv->SPH_predicted->EntVarPred = (MyFloat *) mymalloc2("EntVarPred", sizeof(MyFloat) * SlotsManager->info[0].size);
+        memset(priv->SPH_predicted->EntVarPred, 0, sizeof(priv->SPH_predicted->EntVarPred[0]) * SlotsManager->info[0].size);
+        #pragma omp parallel for
+        for(i = 0; i < act->NumActiveParticle; i++)
+        {
+            int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
+            if(P[p_i].Type == 0 && !P[p_i].IsGarbage)
+                priv->SPH_predicted->EntVarPred[P[p_i].PI] = SPH_EntVarPred(p_i, priv->times);
         }
     }
 
@@ -291,6 +310,17 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     /* Do the treewalk with looping for hsml*/
     treewalk_do_hsml_loop(tw, act->ActiveParticle, act->NumActiveParticle, update_hsml);
 
+    if(GradRho_mag) {
+        #pragma omp parallel for
+        for(i = 0; i < SlotsManager->info[0].size; i++)
+        {
+            MyFloat * gr = DENSITY_GET_PRIV(tw)->GradRho + (3*i);
+            GradRho_mag[i] = sqrt(gr[0]*gr[0] + gr[1] * gr[1] + gr[2] * gr[2]);
+        }
+    }
+
+    if(DENSITY_GET_PRIV(tw)->GradRho)
+        myfree(DENSITY_GET_PRIV(tw)->GradRho);
     myfree(DENSITY_GET_PRIV(tw)->DhsmlDensityFactor);
     myfree(DENSITY_GET_PRIV(tw)->Rot);
     myfree(DENSITY_GET_PRIV(tw)->NumNgb);
@@ -326,13 +356,7 @@ density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw)
         I->Vel[2] = P[place].Vel[2];
     }
     else
-    {
-        MyFloat * velpred = DENSITY_GET_PRIV(tw)->SPH_predicted->VelPred;
-        I->Vel[0] = velpred[3 * P[place].PI];
-        I->Vel[1] = velpred[3 * P[place].PI + 1];
-        I->Vel[2] = velpred[3 * P[place].PI + 2];
-    }
-
+        SPH_VelPred(place, I->Vel, DENSITY_GET_PRIV(tw)->FgravkickB, DENSITY_GET_PRIV(tw)->gravkicks, DENSITY_GET_PRIV(tw)->hydrokicks);
 }
 
 static void
@@ -437,38 +461,25 @@ density_ngbiter(
         if(I->Type != 0)
             return;
 
-        struct sph_pred_data * SphP_scratch = DENSITY_GET_PRIV(lv->tw)->SPH_predicted;
-
         double EntVarPred;
         MyFloat VelPred[3];
-        #pragma omp atomic read
-        EntVarPred = SphP_scratch->EntVarPred[P[other].PI];
-        /* Lazily compute the predicted quantities. We can do this
-         * with minimal locking since nothing happens should we compute them twice.
-         * Zero can be the special value since there should never be zero entropy.*/
-        if(EntVarPred == 0) {
-            struct DensityPriv * priv = DENSITY_GET_PRIV(lv->tw);
-            int bin = P[other].TimeBin;
-            double dloga = dloga_from_dti(priv->times->Ti_Current - priv->times->Ti_kick[bin], priv->times->Ti_Current);
-            EntVarPred = SPH_EntVarPred(P[other].PI, priv->MinEgySpec, priv->a3inv, dloga);
-            SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks[bin], priv->hydrokicks[bin]);
-            /* Note this goes first to avoid threading issues: EntVarPred will only be set after this is done.
-             * The worst that can happen is that some data points get copied twice.*/
-            int i;
-            for(i = 0; i < 3; i++) {
+        struct DensityPriv * priv = DENSITY_GET_PRIV(lv->tw);
+        SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks, priv->hydrokicks);
+        if(priv->SPH_predicted->EntVarPred) {
+            #pragma omp atomic read
+            EntVarPred = priv->SPH_predicted->EntVarPred[P[other].PI];
+            /* Lazily compute the predicted quantities. We can do this
+            * with minimal locking since nothing happens should we compute them twice.
+            * Zero can be the special value since there should never be zero entropy.*/
+            if(EntVarPred == 0) {
+                EntVarPred = SPH_EntVarPred(other, priv->times);
                 #pragma omp atomic write
-                SphP_scratch->VelPred[3 * P[other].PI + i] = VelPred[i];
-            }
-            #pragma omp atomic write
-            SphP_scratch->EntVarPred[P[other].PI] = EntVarPred;
-        }
-        else {
-            int i;
-            for(i = 0; i < 3; i++) {
-                #pragma omp atomic read
-                VelPred[i] = SphP_scratch->VelPred[3 * P[other].PI + i];
+                priv->SPH_predicted->EntVarPred[P[other].PI] = EntVarPred;
             }
         }
+        else
+            EntVarPred = SPH_EntVarPred(other, priv->times);
+
         if(DENSITY_GET_PRIV(lv->tw)->DoEgyDensity) {
             O->EgyRho += mass_j * EntVarPred * wk;
             O->DhsmlEgyDensity += mass_j * EntVarPred * density_dW;
@@ -532,8 +543,11 @@ density_postprocess(int i, TreeWalk * tw)
         int PI = P[i].PI;
         /*Compute the EgyWeight factors, which are only useful for density independent SPH */
         if(DENSITY_GET_PRIV(tw)->DoEgyDensity) {
-            struct sph_pred_data * SphP_scratch = DENSITY_GET_PRIV(tw)->SPH_predicted;
-            const double EntPred = SphP_scratch->EntVarPred[P[i].PI];
+            double EntPred;
+            if(DENSITY_GET_PRIV(tw)->SPH_predicted->EntVarPred)
+                EntPred = DENSITY_GET_PRIV(tw)->SPH_predicted->EntVarPred[P[i].PI];
+            else
+                EntPred = SPH_EntVarPred(i, DENSITY_GET_PRIV(tw)->times);
             if(EntPred <= 0 || SPHP(i).EgyWtDensity <=0)
                 endrun(12, "Particle %d has bad predicted entropy: %g or EgyWtDensity: %g\n", i, EntPred, SPHP(i).EgyWtDensity);
             SPHP(i).DhsmlEgyDensityFactor *= P[i].Hsml/ (NUMDIMS * SPHP(i).EgyWtDensity);
@@ -588,7 +602,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
 
         /* Next step is geometric mean of previous. */
         if((Right[i] < tw->tree->BoxSize && Left[i] > 0) || (P[i].Hsml * 1.26 > 0.99 * tw->tree->BoxSize))
-            P[i].Hsml = pow(0.5 * (pow(Left[i], 3) + pow(Right[i], 3)), 1.0 / 3);
+            P[i].Hsml = cbrt(0.5 * (pow(Left[i], 3) + pow(Right[i], 3)));
         else
         {
             if(!(Right[i] < tw->tree->BoxSize) && Left[i] == 0)
@@ -649,23 +663,51 @@ void density_check_neighbours (int i, TreeWalk * tw)
     }
 }
 
-
-struct sph_pred_data
-slots_allocate_sph_pred_data(int nsph)
-{
-    struct sph_pred_data sph_scratch;
-    /*Data is allocated high so that we can free the tree around it*/
-    sph_scratch.EntVarPred = (MyFloat *) mymalloc2("EntVarPred", sizeof(MyFloat) * nsph);
-    memset(sph_scratch.EntVarPred, 0, sizeof(sph_scratch.EntVarPred[0]) * nsph);
-    sph_scratch.VelPred = (MyFloat *) mymalloc2("VelPred", sizeof(MyFloat) * 3 * nsph);
-    return sph_scratch;
-}
-
 void
 slots_free_sph_pred_data(struct sph_pred_data * sph_scratch)
 {
-    myfree(sph_scratch->VelPred);
-    sph_scratch->VelPred = NULL;
-    myfree(sph_scratch->EntVarPred);
+    if(sph_scratch->EntVarPred)
+        myfree(sph_scratch->EntVarPred);
     sph_scratch->EntVarPred = NULL;
+}
+
+/* Set the initial smoothing length for gas and BH*/
+void
+set_init_hsml(ForceTree * tree, DomainDecomp * ddecomp, const double MeanGasSeparation)
+{
+    /* Need moments because we use them to set Hsml*/
+    force_tree_calc_moments(tree, ddecomp);
+    const double DesNumNgb = GetNumNgb(GetDensityKernelType());
+    int i;
+    #pragma omp parallel for
+    for(i = 0; i < PartManager->NumPart; i++)
+    {
+        /* These initial smoothing lengths are only used for SPH-like particles.*/
+        if(P[i].Type != 0 && P[i].Type != 5)
+            continue;
+
+        int no = force_get_father(i, tree);
+
+        while(10 * DesNumNgb * P[i].Mass > tree->Nodes[no].mom.mass)
+        {
+            int p = force_get_father(no, tree);
+
+            if(p < 0)
+                break;
+
+            no = p;
+        }
+
+        P[i].Hsml = tree->Nodes[no].len *
+            pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / tree->Nodes[no].mom.mass, 1.0 / 3);
+            ;
+
+        /* recover from a poor initial guess */
+        if(P[i].Hsml > 500.0 * MeanGasSeparation)
+            P[i].Hsml = MeanGasSeparation;
+
+        if(P[i].Hsml <= 0)
+            endrun(5, "Bad hsml guess: i=%d, mass = %g type %d hsml %g no %d len %d treemass %g\n",
+                    i, P[i].Mass, P[i].Type, P[i].Hsml, no, tree->Nodes[no].len, tree->Nodes[no].mom.mass);
+    }
 }

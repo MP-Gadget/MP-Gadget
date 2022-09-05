@@ -43,7 +43,6 @@ setup_particles(int NumPart, double BoxSize)
         /* DM only*/
         P[i].Type = 1;
         P[i].Mass = 1;
-        P[i].TimeBin = 0;
         P[i].IsGarbage = 0;
         int j;
         for(j=0; j<3; j++)
@@ -92,9 +91,8 @@ test_fof(void **state)
 
     FOFGroups fof = fof_fof(&ddecomp, 1, MPI_COMM_WORLD);
 
-    /* Example assertion: this checks that the address of a struct is not NULL,
-     * which will always pass! */
-    assert_all_true(&fof);
+    /* Example assertion: this checks that the groups were allocated. */
+    assert_all_true(fof.Group);
 
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);

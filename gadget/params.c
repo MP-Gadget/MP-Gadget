@@ -107,6 +107,8 @@ create_gadget_parameter_set()
     param_declare_double(ps, "BHOpeningAngle", OPTIONAL, 0.175, "Barnes-Hut opening angle. Alternative purely geometric tree opening angle. Lower values are more accurate.");
     param_declare_double(ps, "TreeRcut", OPTIONAL, 6, "Number of mesh cells at which we cease walking.");
     param_declare_int(ps, "TreeUseBH", OPTIONAL, 2, "If 1, use Barnes-Hut opening angle rather than the standard Gadget acceleration based opening angle. If 2, use BH criterion for the first timestep only, before we have relative accelerations.");
+    param_declare_int(ps, "SplitGravityTimestepsOn", OPTIONAL, 1, "This flag enables the momentum conserving hierarchical timestepping, where only active particles gravitate, from Gadget 4, for the short-range gravity, and splits the hydro and gravitational timesteps.");
+
     param_declare_double(ps, "Asmth", OPTIONAL, 1.5, "The scale of the short-range/long-range force split in units of FFT-mesh cells."
                                                       "Larger values suppresses grid anisotropy. ShortRangeForceWindowType = erfc supports any value. 'exact' only supports 1.5. ");
     param_declare_int(ps,    "Nmesh", OPTIONAL, -1, "Size of the PM grid on which to compute the long-range force.");
@@ -178,7 +180,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "TreeGravOn", OPTIONAL, 1, "Enables tree gravity");
     param_declare_int(ps, "RadiationOn", OPTIONAL, 1, "Include radiation density in the background evolution.");
     param_declare_int(ps, "FastParticleType", OPTIONAL, 2, "Particles of this type will not decrease the timestep. Default neutrinos.");
-    param_declare_double(ps, "PairwiseActiveFraction", OPTIONAL, 0, "Pairwise gravity instead of tree gravity is used if N(active particles) / N(particles) is less than this. Usually slower.");
+    param_declare_double(ps, "PairwiseActiveFraction", OPTIONAL, 0, "Pairwise gravity instead of tree gravity is used if N(active particles) / N(particles) is less than this. Currently unimplemented as slower.");
 
     param_declare_double(ps, "GravitySoftening", OPTIONAL, 1./30., "Softening for collisionless particles; units of mean separation of DM. ForceSoftening is 2.8 times this.");
     param_declare_int(ps, "GravitySofteningGas", OPTIONAL, 1, "0 to use adaptive softening, where the gas softening is the smoothing length of the last step.");
