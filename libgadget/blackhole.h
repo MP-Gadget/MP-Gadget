@@ -26,6 +26,9 @@ void blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceT
 /* Make a black hole from the particle at index. */
 void blackhole_make_one(int index, const double atime);
 
+/* Compute the DM velocity dispersion for black holes*/
+void blackhole_veldisp(const ActiveParticles * act, Cosmology * CP, ForceTree * tree, double * gravkicks, double FgravkickB);
+
 /* Decide whether black hole repositioning is enabled. */
 int BHGetRepositionEnabled(void);
 #endif

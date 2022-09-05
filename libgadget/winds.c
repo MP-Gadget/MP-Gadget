@@ -12,6 +12,7 @@
 #include "density.h"
 #include "hydra.h"
 #include "sfr_eff.h"
+#include "blackhole.h"
 
 /*Parameters of the wind model*/
 static struct WindParams
@@ -825,20 +826,30 @@ winds_find_vel_disp(const ActiveParticles * act, const double Time, const double
 
     int * ActiveVDisp = tw->WorkSet;
     int64_t NumVDisp = tw->WorkSetSize;
-    int64_t totvdisp;
-    /* If this queue is empty, nothing to do.*/
+    int64_t totvdisp, totbh;
+    /* Check for black holes*/
+    MPI_Allreduce(&SlotsManager->info[5].size, &totbh, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    /* If this queue is empty, nothing to do for winds.*/
     MPI_Allreduce(&NumVDisp, &totvdisp, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+
+    if(totvdisp > 0 || totbh > 0) {
+        force_tree_rebuild_mask(tree, ddecomp, DMMASK, NULL);
+        tw->haswork = NULL;
+        priv->FgravkickB = get_exact_gravkick_factor(CP, times->PM_kick, times->Ti_Current);
+        memset(priv->gravkicks, 0, sizeof(priv->gravkicks[0])*(TIMEBINS+1));
+        memset(priv->hydrokicks, 0, sizeof(priv->hydrokicks[0])*(TIMEBINS+1));
+    }
+
+    /* Compute the black hole velocity dispersions if needed*/
+    if(totbh)
+        blackhole_veldisp(act, CP, tree, priv->gravkicks, priv->FgravkickB);
+
     if(totvdisp == 0) {
+        force_tree_free(tree);
         myfree(ActiveVDisp);
         return;
     }
 
-    force_tree_rebuild_mask(tree, ddecomp, DMMASK, NULL);
-    tw->haswork = NULL;
-
-    priv->FgravkickB = get_exact_gravkick_factor(CP, times->PM_kick, times->Ti_Current);
-    memset(priv->gravkicks, 0, sizeof(priv->gravkicks[0])*(TIMEBINS+1));
-    memset(priv->hydrokicks, 0, sizeof(priv->hydrokicks[0])*(TIMEBINS+1));
     /* Compute the factors to move a current kick times velocity to the drift time velocity.
      * We need to do the computation for all timebins up to the maximum because even inactive
      * particles may have interactions. */
@@ -881,6 +892,7 @@ winds_find_vel_disp(const ActiveParticles * act, const double Time, const double
     myfree(priv->DMRadius);
     myfree(priv->Right);
     myfree(priv->Left);
+
     force_tree_free(tree);
     myfree(ActiveVDisp);
     walltime_measure("/Cooling/VDisp");

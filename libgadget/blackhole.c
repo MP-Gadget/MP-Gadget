@@ -636,7 +636,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
         message(0, "Building tree in blackhole\n");
         int treemask = GASMASK | STARMASK | BHMASK;
         /* Don't necessarily need dark matter */
-        if(blackhole_params.BH_DynFrictionMethod > 1 || blackhole_params.BlackHoleKineticOn)
+        if(blackhole_params.BH_DynFrictionMethod > 1)
             treemask += DMMASK;
         force_tree_rebuild_mask(tree, ddecomp, treemask, NULL);
         walltime_measure("/BH/Build");
@@ -1045,24 +1045,11 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
 
             BHP(i).KineticFdbkEnergy += epsilon * (BHP(i).Mdot * dtime * pow(LIGHTCGS / BH_GET_PRIV(tw)->units.UnitVelocity_in_cm_per_s, 2));
         }
-
         /* decide whether to release KineticFdbkEnergy*/
-        double vdisp = 0;
-        double numdm = BH_GET_PRIV(tw)->NumDM[PI];
-        if (numdm>0){
-            vdisp = BH_GET_PRIV(tw)->V2sumDM[PI]/numdm;
-            int d;
-            for(d = 0; d<3; d++){
-                vdisp -= pow(BH_GET_PRIV(tw)->V1sumDM[PI][d]/numdm,2);
-            }
-            if(vdisp > 0)
-                vdisp = sqrt(vdisp / 3);
-        }
-
-        double KE_thresh = 0.5 * vdisp * vdisp * BH_GET_PRIV(tw)->MgasEnc[PI];
+        double KE_thresh = 0.5 * BHP(i).VDisp * BHP(i).VDisp * BH_GET_PRIV(tw)->MgasEnc[PI];
         KE_thresh *= blackhole_params.BHKE_InjEnergyThr;
 
-        if (BHP(i).KineticFdbkEnergy > KE_thresh){
+        if (BHP(i).VDisp > 0 && BHP(i).KineticFdbkEnergy > KE_thresh){
             /* mark KineticFdbkEnergy is ready to be released in the feedback treewalk */
             BH_GET_PRIV(tw)->KEflag[PI] = 2;
         }
@@ -1320,22 +1307,11 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     }
 
     /* collect info for sigmaDM and Menc for kinetic feedback */
-    if(blackhole_params.BlackHoleKineticOn == 1){
-        if(P[other].Type == 1 && r2 < iter->feedback_kernel.HH){
-            O->NumDM += 1;
-            MyFloat VelPred[3];
-            DM_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks);
-            int d;
-            for(d = 0; d < 3; d++){
-                double vel = VelPred[d] - I->Vel[d];
-                O->V1sumDM[d] += vel;
-                O->V2sumDM += vel * vel;
-            }
-        }
-        if(P[other].Type == 0 && r2 < iter->feedback_kernel.HH){
+    if(blackhole_params.BlackHoleKineticOn == 1 &&
+        P[other].Type == 0 &&
+        r2 < iter->feedback_kernel.HH ){
             O->MgasEnc += P[other].Mass;
         }
-    }
 }
 
 
@@ -1701,7 +1677,7 @@ struct BHVelDispPriv {
     MyFloat * V2sumDM;
     /* Time factors*/
     double FgravkickB;
-    double gravkicks[TIMEBINS+1];
+    double * gravkicks;
 };
 #define BHVDISP_GET_PRIV(tw) ((struct BHVelDispPriv *) (tw->priv))
 
@@ -1774,7 +1750,6 @@ blackhole_veldisp_ngbiter(TreeWalkQueryBHVelDisp * I,
     }
 }
 
-
 static void
 blackhole_veldisp_reduce(int place, TreeWalkResultBHVelDisp * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
 {
@@ -1798,21 +1773,11 @@ blackhole_veldisp_copy(int place, TreeWalkQueryBHVelDisp * I, TreeWalk * tw)
 }
 
 void
-blackhole_veldisp(const ActiveParticles * act, Cosmology * CP, ForceTree * tree, DriftKickTimes * times)
+blackhole_veldisp(const ActiveParticles * act, Cosmology * CP, ForceTree * tree, double * gravkicks, double FgravkickB)
 {
-    /* Do nothing if no black holes*/
-    int64_t totbh;
-    MPI_Allreduce(&SlotsManager->info[5].size, &totbh, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-    if(totbh == 0)
-        return;
-    int i;
-
-    walltime_measure("/Misc");
     struct BHVelDispPriv priv[1] = {0};
 
-    /*************************************************************************/
     TreeWalk tw_veldisp[1] = {{0}};
-
     tw_veldisp->ev_label = "BH_VELDISP";
     tw_veldisp->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw_veldisp->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHVelDisp);
@@ -1826,15 +1791,6 @@ blackhole_veldisp(const ActiveParticles * act, Cosmology * CP, ForceTree * tree,
     tw_veldisp->tree = tree;
     tw_veldisp->priv = priv;
 
-    priv->FgravkickB = get_exact_gravkick_factor(CP, times->PM_kick, times->Ti_Current);
-    memset(priv->gravkicks, 0, sizeof(priv->gravkicks[0])*(TIMEBINS+1));
-    /* Compute the factors to move a current kick times velocity to the drift time velocity.
-     * We need to do the computation for all timebins up to the maximum because even inactive
-     * particles may have interactions. */
-    #pragma omp parallel for
-    for(i = times->mintimebin; i <= TIMEBINS; i++)
-        priv->gravkicks[i] = get_exact_gravkick_factor(CP, times->Ti_kick[i], times->Ti_Current);
-
     /* This treewalk uses only DM */
     if(!tree->tree_allocated_flag)
         endrun(0, "DM Tree not allocated for veldisp\n");
@@ -1843,6 +1799,8 @@ blackhole_veldisp(const ActiveParticles * act, Cosmology * CP, ForceTree * tree,
     priv->NumDM = mymalloc("NumDM", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->V2sumDM = mymalloc("V2sumDM", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->V1sumDM = (MyFloat (*) [3]) mymalloc("V1sumDM", 3* SlotsManager->info[5].size * sizeof(priv->V1sumDM[0]));
+    priv->FgravkickB = FgravkickB;
+    priv->gravkicks = gravkicks;
 
     /* This allocates memory*/
     treewalk_run(tw_veldisp, act->ActiveParticle, act->NumActiveParticle);
