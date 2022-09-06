@@ -182,8 +182,6 @@ struct BHPriv {
 
     /* temporary computed for kinetic feedback energy threshold*/
     MyFloat * NumDM;
-    MyFloat (*V1sumDM)[3];
-    MyFloat * V2sumDM;
     MyFloat * MgasEnc;
     /* mark the state of AGN kinetic feedback, 1 accumulate, 2 release */
     int * KEflag;
@@ -246,8 +244,9 @@ struct __attribute__((__packed__)) BHinfo{
 
     double KineticFdbkEnergy;
     double NumDM;
+    /* Kept for backwards compatibility, not written to*/
     double V1sumDM[3];
-    double V2sumDM;
+    double VDisp;
     double MgasEnc;
     int KEflag;
 
@@ -499,10 +498,7 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
 
         info->KineticFdbkEnergy = BHP(p_i).KineticFdbkEnergy;
         info->NumDM = priv->NumDM[PI];
-        info->V1sumDM[0] = priv->V1sumDM[PI][0];
-        info->V1sumDM[1] = priv->V1sumDM[PI][1];
-        info->V1sumDM[2] = priv->V1sumDM[PI][2];
-        info->V2sumDM = priv->V2sumDM[PI];
+        info->VDisp = BHP(p_i).VDisp;
         info->MgasEnc = priv->MgasEnc[PI];
         info->KEflag = priv->KEflag[PI];
 
@@ -674,8 +670,6 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
 
     /* For AGN kinetic feedback */
     priv->NumDM = mymalloc("NumDM", SlotsManager->info[5].size * sizeof(MyFloat));
-    priv->V2sumDM = mymalloc("V2sumDM", SlotsManager->info[5].size * sizeof(MyFloat));
-    priv->V1sumDM = (MyFloat (*) [3]) mymalloc("V1sumDM", 3* SlotsManager->info[5].size * sizeof(priv->V1sumDM[0]));
     priv->MgasEnc = mymalloc("MgasEnc", SlotsManager->info[5].size * sizeof(MyFloat));
     /* mark the state of AGN kinetic feedback */
     priv->KEflag = mymalloc("KEflag", SlotsManager->info[5].size * sizeof(int));
@@ -720,8 +714,6 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     /*****************************************************************/
     myfree(priv->KEflag);
     myfree(priv->MgasEnc);
-    myfree(priv->V1sumDM);
-    myfree(priv->V2sumDM);
     myfree(priv->NumDM);
 
     myfree(priv->BH_SurroundingGasVel);
@@ -1526,10 +1518,8 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_Entropy[PI], remote->SmoothedEntropy);
     for (k = 0; k < 3; k++){
         TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][k], remote->GasVel[k]);
-        TREEWALK_REDUCE(BH_GET_PRIV(tw)->V1sumDM[PI][k], remote->V1sumDM[k]);
     }
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->NumDM[PI], remote->NumDM);
-    TREEWALK_REDUCE(BH_GET_PRIV(tw)->V2sumDM[PI], remote->V2sumDM);
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->MgasEnc[PI], remote->MgasEnc);
 }
 
