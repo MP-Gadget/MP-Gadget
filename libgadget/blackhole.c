@@ -1665,6 +1665,7 @@ void blackhole_make_one(int index, const double atime) {
     }
     /* Initialize KineticFdbkEnergy, keep zero if BlackHoleKineticOn is not turned on */
     BHP(child).KineticFdbkEnergy = 0;
+    BHP(child).VDisp = 0;
 }
 
 
