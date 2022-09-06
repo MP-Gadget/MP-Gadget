@@ -1278,12 +1278,17 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
     if(!tree->Father)
         endrun(1, "Father array not allocated, needed for hmax!\n");
 
+    if(!(tree->mask & GASMASK))
+        endrun(1, "tree mask is %d, does not contain gas (%d)! Cannot compute hmax.\n", tree->mask, GASMASK);
     /* Adjust the base particle containing nodes*/
     #pragma omp parallel for
     for(i = 0; i < size; i++)
     {
         const int p_i = activeset ? activeset[i] : i;
-        if((P[p_i].Type != 0 && P[p_i].Type != 5) || P[p_i].IsGarbage)
+        /* This is only gas particles. BH also has a smoothing length,
+         * but hydro is the only symmetric treewalk and it is pairwise
+         * interactions between gas particles */
+        if(P[p_i].Type != 0 || P[p_i].IsGarbage)
             continue;
         const int no = tree->Father[p_i];
         /* How much does this particle peek beyond this node?

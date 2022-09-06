@@ -437,7 +437,9 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         if(GasEnabled)
         {
             ForceTree gasTree = {0};
-            /* Just gas, no moments*/
+            /* Just gas. Note that the density() code computes hsml for black holes and gas.
+             * However, hsml is the length that encloses NumNgb gas particles, so the tree contains only gas.
+             * No moments (yet). We do need hmax for hydro, but we need to compute hsml first.*/
             force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, All.OutputDir);
             walltime_measure("/SPH/Build");
 
