@@ -459,7 +459,7 @@ void init_neutrinos_lra(const int nk_in, const double TimeTransfer, const double
    /* Allocate memory for delta_tot here, so that we can have further memory allocated and freed
     * before delta_tot_init is called. The number nk here should be larger than the actual value needed.*/
    /*Allocate pointers to each k-vector*/
-   d_tot->namax=ceil(100*(TimeMax-TimeTransfer))+2;
+   d_tot->namax=ceil((TimeMax-TimeTransfer)/0.008)+4;
    d_tot->ia=0;
    d_tot->delta_tot =(double **) mymalloc("kspace_delta_tot",nk_in*sizeof(double *));
    /*Allocate list of scale factors, and space for delta_tot, in one operation.*/
