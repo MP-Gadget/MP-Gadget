@@ -100,7 +100,7 @@ static int get_timestep_bin(inttime_t dti);
 static void do_grav_short_range_kick(struct particle_data * part, const MyFloat * const GravAccel, const double Fgravkick);
 static void do_hydro_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const double atime);
 
-static void print_bad_timebin(const double dloga, const double dti, const int p, const inttime_t dti_max, enum TimeStepType titype);
+static void print_bad_timebin(const double dloga, const inttime_t dti, const int p, const inttime_t dti_max, enum TimeStepType titype);
 
 /* Hierarchical gravity functions*/
 /* Build a sublist of particles gravitationally active and smaller than a timebin*/
@@ -1112,7 +1112,7 @@ convert_timestep_to_ti(double dloga, const int p, const inttime_t dti_max, const
     return dti;
 }
 static void
-print_bad_timebin(const double dloga, const double dti, const int p, const inttime_t dti_max, enum TimeStepType titype)
+print_bad_timebin(const double dloga, const inttime_t dti, const int p, const inttime_t dti_max, enum TimeStepType titype)
 {
     if(P[p].Type == 0)
         message(1, "Bad timestep (%x)! titype %d. ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g) hydro-frc=(%g|%g|%g) dens=%g hsml=%g dh = %g Entropy=%g, dtEntropy=%g maxsignal=%g\n",
