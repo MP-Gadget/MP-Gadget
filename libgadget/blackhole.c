@@ -1779,7 +1779,7 @@ blackhole_veldisp(const ActiveParticles * act, Cosmology * CP, ForceTree * tree,
     struct BHVelDispPriv priv[1] = {0};
 
     TreeWalk tw_veldisp[1] = {{0}};
-    tw_veldisp->ev_label = "BH_VELDISP";
+    tw_veldisp->ev_label = "BH_VDISP";
     tw_veldisp->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw_veldisp->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHVelDisp);
     tw_veldisp->ngbiter = (TreeWalkNgbIterFunction) blackhole_veldisp_ngbiter;
@@ -1806,7 +1806,7 @@ blackhole_veldisp(const ActiveParticles * act, Cosmology * CP, ForceTree * tree,
     /* This allocates memory*/
     treewalk_run(tw_veldisp, act->ActiveParticle, act->NumActiveParticle);
 
-    walltime_measure("/BH/VelDisp");
+    walltime_measure("/BH/VDisp");
 
     myfree(priv->V1sumDM);
     myfree(priv->V2sumDM);
