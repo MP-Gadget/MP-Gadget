@@ -5,7 +5,7 @@
 
 /*Define some useful types*/
 
-typedef int32_t inttime_t;
+typedef int64_t inttime_t;
 
 typedef uint64_t MyIDType;
 
