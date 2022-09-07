@@ -100,7 +100,7 @@ static int get_timestep_bin(inttime_t dti);
 static void do_grav_short_range_kick(struct particle_data * part, const MyFloat * const GravAccel, const double Fgravkick);
 static void do_hydro_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const double atime);
 
-static void print_bad_timebin(const double dloga, const double dti, const int p, const inttime_t dti_max, enum TimeStepType titype);
+static void print_bad_timebin(const double dloga, const inttime_t dti, const int p, const inttime_t dti_max, enum TimeStepType titype);
 
 /* Hierarchical gravity functions*/
 /* Build a sublist of particles gravitationally active and smaller than a timebin*/
@@ -653,15 +653,18 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
             ntineighbour++;
         else if (titype == TI_HSML)
             ntihsml++;
-        /* Only update if both the old and new timebins are currently active.*/
+        /* Only update if both the old and new timebins are currently active.
+         * This is a redundant condition: the current timebin must be active for the particle to be in the active list.
+         * The new timebin is active as enforced by get_timebim_from_dti.*/
         if(is_timebin_active(P[i].TimeBinHydro, times->Ti_Current) && is_timebin_active(bin_hydro, times->Ti_Current))
             P[i].TimeBinHydro = bin_hydro;
         /*Find min timestep for advance*/
         if(bin_hydro < mTimeBin)
             mTimeBin = bin_hydro;
     }
-    /* This logic handles the special case when all gas particles in the shortest timebin have become stars.
-     * In this case we need to find a new timebin to advance by, which we do by using the hydro steps in the active star particles.*/
+    /* This logic handles the special case when all gas particles in the shortest timebin have become stars
+     * and so there are now zero active gas particles. In this case mTimeBin will be TIMEBINS.
+     * We need to find a new timebin to advance by, which we do by using the hydro steps in the active star particles.*/
     if(!is_timebin_active(mTimeBin, times->Ti_Current)) {
         #pragma omp parallel for reduction(min: mTimeBin) reduction(+: badstepsizecount)
         for(pa = 0; pa < act->NumActiveParticle; pa++) {
@@ -696,10 +699,12 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
     if(isFirstTimeStep)
         set_bh_first_timestep(mTimeBin);
     walltime_measure("/Timeline");
+    /* Update the minimum time bin*/
+    times->mintimebin = mTimeBin;
     /* Although for SPH particles the hydro timebin is always shorter than the gravity timebin,
      * this checks for the shortest timestep being occupied by a DM particle*/
-    if(mTimeBin < times->mintimebin)
-        times->mintimebin = mTimeBin;
+    if(times->mintimebin > times->mingravtimebin && times->mingravtimebin > 0)
+        times->mintimebin = times->mingravtimebin;
     return badstepsizecount;
 }
 
@@ -1112,7 +1117,7 @@ convert_timestep_to_ti(double dloga, const int p, const inttime_t dti_max, const
     return dti;
 }
 static void
-print_bad_timebin(const double dloga, const double dti, const int p, const inttime_t dti_max, enum TimeStepType titype)
+print_bad_timebin(const double dloga, const inttime_t dti, const int p, const inttime_t dti_max, enum TimeStepType titype)
 {
     if(P[p].Type == 0)
         message(1, "Bad timestep (%x)! titype %d. ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g) hydro-frc=(%g|%g|%g) dens=%g hsml=%g dh = %g Entropy=%g, dtEntropy=%g maxsignal=%g\n",
