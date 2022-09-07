@@ -177,7 +177,7 @@ void set_sfr_params(ParameterSet * ps)
 
 /* cooling and star formation routine.*/
 void
-cooling_and_starformation(ActiveParticles * act, double Time, const DriftKickTimes * const times, double dloga, ForceTree * tree, struct grav_accel_store GravAccel, DomainDecomp * ddecomp, Cosmology *CP, MyFloat * GradRho, FILE * FdSfr)
+cooling_and_starformation(ActiveParticles * act, double Time, double dloga, ForceTree * tree, struct grav_accel_store GravAccel, DomainDecomp * ddecomp, Cosmology *CP, MyFloat * GradRho, FILE * FdSfr)
 {
     const int nthreads = omp_get_max_threads();
     /*This is a queue for the new stars and their parents, so we can reallocate the slots after the main cooling loop.*/
