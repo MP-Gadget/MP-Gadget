@@ -48,14 +48,14 @@ double fac_integ(double a, void *param)
 }
 
 /*Get integer from real time*/
-double loga_from_ti(int ti)
+double loga_from_ti(inttime_t ti)
 {
     double logDTime = (log(AMAX) - log(AMIN)) / (1 << LTIMEBINS);
     return log(AMIN) + ti * logDTime;
 }
 
 /*Get integer from real time*/
-static inline int get_ti(double aa)
+static inline inttime_t get_ti(double aa)
 {
     double logDTime = (log(AMAX) - log(AMIN)) / (1 << LTIMEBINS);
     return (log(aa) - log(AMIN))/logDTime;

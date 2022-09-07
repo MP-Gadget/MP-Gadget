@@ -356,8 +356,7 @@ loga_from_ti(inttime_t ti)
 inttime_t
 ti_from_loga(double loga)
 {
-    int i;
-    int ti;
+    inttime_t i, ti;
     /* First syncpoint is simulation start*/
     for(i = 1; i < NSyncPoints - 1; i++)
     {
@@ -382,7 +381,7 @@ dloga_from_dti(inttime_t dti, const inttime_t Ti_Current)
         dti = -dti;
         sign = -1;
     }
-    if((unsigned int) dti > TIMEBASE) {
+    if((uint64_t) dti > TIMEBASE) {
         endrun(1, "Requesting dti %d larger than TIMEBASE %u\n", sign*dti, TIMEBASE);
     }
     return Dloga * dti * sign;
@@ -400,7 +399,7 @@ double
 get_dloga_for_bin(int timebin, const inttime_t Ti_Current)
 {
     double logDTime = Dloga_interval_ti(Ti_Current);
-    return (timebin > 0 ? (1u << (unsigned) timebin) : 0 ) * logDTime;
+    return dti_from_timebin(timebin) * logDTime;
 }
 
 inttime_t
