@@ -653,15 +653,18 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
             ntineighbour++;
         else if (titype == TI_HSML)
             ntihsml++;
-        /* Only update if both the old and new timebins are currently active.*/
+        /* Only update if both the old and new timebins are currently active.
+         * This is a redundant condition: the current timebin must be active for the particle to be in the active list.
+         * The new timebin is active as enforced by get_timebim_from_dti.*/
         if(is_timebin_active(P[i].TimeBinHydro, times->Ti_Current) && is_timebin_active(bin_hydro, times->Ti_Current))
             P[i].TimeBinHydro = bin_hydro;
         /*Find min timestep for advance*/
         if(bin_hydro < mTimeBin)
             mTimeBin = bin_hydro;
     }
-    /* This logic handles the special case when all gas particles in the shortest timebin have become stars.
-     * In this case we need to find a new timebin to advance by, which we do by using the hydro steps in the active star particles.*/
+    /* This logic handles the special case when all gas particles in the shortest timebin have become stars
+     * and so there are now zero active gas particles. In this case mTimeBin will be TIMEBINS.
+     * We need to find a new timebin to advance by, which we do by using the hydro steps in the active star particles.*/
     if(!is_timebin_active(mTimeBin, times->Ti_Current)) {
         #pragma omp parallel for reduction(min: mTimeBin) reduction(+: badstepsizecount)
         for(pa = 0; pa < act->NumActiveParticle; pa++) {
