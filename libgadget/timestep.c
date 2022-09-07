@@ -696,10 +696,12 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
     if(isFirstTimeStep)
         set_bh_first_timestep(mTimeBin);
     walltime_measure("/Timeline");
+    /* Update the minimum time bin*/
+    times->mintimebin = mTimeBin;
     /* Although for SPH particles the hydro timebin is always shorter than the gravity timebin,
      * this checks for the shortest timestep being occupied by a DM particle*/
-    if(mTimeBin < times->mintimebin)
-        times->mintimebin = mTimeBin;
+    if(times->mintimebin > times->mingravtimebin && times->mingravtimebin > 0)
+        times->mintimebin = times->mingravtimebin;
     return badstepsizecount;
 }
 
