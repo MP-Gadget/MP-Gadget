@@ -1027,6 +1027,9 @@ SIMPLE_GETTER_PI(GTDtEntropy, DtEntropy, float, 1, struct sph_particle_data)
 SIMPLE_GETTER_PI(GTDhsmlEgyDensityFactor, DhsmlEgyDensityFactor, float, 1, struct sph_particle_data)
 SIMPLE_GETTER_PI(GTDivVel, DivVel, float, 1, struct sph_particle_data)
 SIMPLE_GETTER_PI(GTCurlVel, CurlVel, float, 1, struct sph_particle_data)
+SIMPLE_GETTER_PI(GTVelDisp, VDisp, float, 1, struct sph_particle_data)
+SIMPLE_GETTER_PI(GTBHVelDisp, VDisp, float, 1, struct bh_particle_data)
+SIMPLE_GETTER_PI(GTStarVelDisp, VDisp, float, 1, struct star_particle_data)
 
 void register_debug_io_blocks(struct IOTable * IOTable)
 {
@@ -1046,6 +1049,10 @@ void register_debug_io_blocks(struct IOTable * IOTable)
     IO_REG_WRONLY(DhsmlEgyDensityFactor,       "f4", 1, 0, IOTable);
     IO_REG_WRONLY(DivVel,       "f4", 1, 0, IOTable);
     IO_REG_WRONLY(CurlVel,       "f4", 1, 0, IOTable);
+    IO_REG_WRONLY(VelDisp,       "f4", 1, 0, IOTable);
+    IO_REG_WRONLY(BHVelDisp,       "f4", 1, 5, IOTable);
+    IO_REG_WRONLY(StarVelDisp,       "f4", 1, 4, IOTable);
+
     /*Sort IO blocks so similar types are together; then ordered by the sequence they are declared. */
     qsort_openmp(IOTable->ent, IOTable->used, sizeof(struct IOTableEntry), order_by_type);
 }
