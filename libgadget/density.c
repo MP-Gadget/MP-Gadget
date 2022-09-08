@@ -87,13 +87,13 @@ SPH_EntVarPred(const int p_i, const DriftKickTimes * times)
  * which always coincides with the Drift inttime.
  * For hydro forces.*/
 void
-SPH_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double * gravkick, double * hydrokick)
+SPH_VelPred(int i, MyFloat * VelPred, const struct kick_factor_data * kf)
 {
     int j;
     /* Notice that the kick time for gravity and hydro may be different! So the prediction is also different*/
     for(j = 0; j < 3; j++) {
-        VelPred[j] = P[i].Vel[j] + gravkick[P[i].TimeBinGravity] * P[i].FullTreeGravAccel[j]
-            + P[i].GravPM[j] * FgravkickB + hydrokick[P[i].TimeBinHydro] * SPHP(i).HydroAccel[j];
+        VelPred[j] = P[i].Vel[j] + kf->gravkicks[P[i].TimeBinGravity] * P[i].FullTreeGravAccel[j]
+            + P[i].GravPM[j] * kf->FgravkickB + kf->hydrokicks[P[i].TimeBinHydro] * SPHP(i).HydroAccel[j];
     }
 }
 
@@ -102,11 +102,31 @@ SPH_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double * gravkick
  * which always coincides with the Drift inttime.
  * For hydro forces.*/
 void
-DM_VelPred(int i, MyFloat * VelPred, const double FgravkickB, double * gravkick)
+DM_VelPred(int i, MyFloat * VelPred, const struct kick_factor_data * kf)
 {
     int j;
     for(j = 0; j < 3; j++)
-        VelPred[j] = P[i].Vel[j] + gravkick[P[i].TimeBinGravity] * P[i].FullTreeGravAccel[j]+ P[i].GravPM[j] * FgravkickB;
+        VelPred[j] = P[i].Vel[j] + kf->gravkicks[P[i].TimeBinGravity] * P[i].FullTreeGravAccel[j]+ P[i].GravPM[j] * kf->FgravkickB;
+}
+
+/* Initialise the grav and hydrokick arrays for the current kick times.*/
+void
+init_kick_factor_data(struct kick_factor_data * kf, const DriftKickTimes * const times, Cosmology * CP)
+{
+    int i;
+    /* Factor this out since all particles have the same PM kick time*/
+    kf->FgravkickB = get_exact_gravkick_factor(CP, times->PM_kick, times->Ti_Current);
+    memset(kf->gravkicks, 0, sizeof(kf->gravkicks[0])*(TIMEBINS+1));
+    memset(kf->hydrokicks, 0, sizeof(kf->hydrokicks[0])*(TIMEBINS+1));
+    /* Compute the factors to move a current kick times velocity to the drift time velocity.
+     * We need to do the computation for all timebins up to the maximum because even inactive
+     * particles may have interactions. */
+    #pragma omp parallel for
+    for(i = times->mintimebin; i <= TIMEBINS; i++)
+    {
+        kf->gravkicks[i] = get_exact_gravkick_factor(CP, times->Ti_kick[i], times->Ti_Current);
+        kf->hydrokicks[i] = get_exact_hydrokick_factor(CP, times->Ti_kick[i], times->Ti_Current);
+    }
 }
 
 /*! Structure for communication during the density computation. Holds data that is sent to other processors.
@@ -170,9 +190,7 @@ struct DensityPriv {
 
     /* For computing the predicted quantities dynamically during the treewalk.*/
     DriftKickTimes const * times;
-    double FgravkickB;
-    double gravkicks[TIMEBINS+1];
-    double hydrokicks[TIMEBINS+1];
+    struct kick_factor_data kf;
 };
 
 #define DENSITY_GET_PRIV(tw) ((struct DensityPriv*) ((tw)->priv))
@@ -269,19 +287,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
         DENSITY_GET_PRIV(tw)->Left[p_i] = 0;
     }
 
-    /* Factor this out since all particles have the same drift time*/
-    priv->FgravkickB = get_exact_gravkick_factor(CP, times.PM_kick, times.Ti_Current);
-    memset(priv->gravkicks, 0, sizeof(priv->gravkicks[0])*(TIMEBINS+1));
-    memset(priv->hydrokicks, 0, sizeof(priv->hydrokicks[0])*(TIMEBINS+1));
-    /* Compute the factors to move a current kick times velocity to the drift time velocity.
-     * We need to do the computation for all timebins up to the maximum because even inactive
-     * particles may have interactions. */
-    #pragma omp parallel for
-    for(i = times.mintimebin; i <= TIMEBINS; i++)
-    {
-        priv->gravkicks[i] = get_exact_gravkick_factor(CP, times.Ti_kick[i], times.Ti_Current);
-        priv->hydrokicks[i] = get_exact_hydrokick_factor(CP, times.Ti_kick[i], times.Ti_Current);
-    }
+    init_kick_factor_data(&priv->kf, &times, CP);
     priv->times = &times;
 
     if(!act->ActiveParticle || act->NumActiveHydro > 0.1 * (SlotsManager->info[0].size + SlotsManager->info[5].size)) {
@@ -356,7 +362,7 @@ density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw)
         I->Vel[2] = P[place].Vel[2];
     }
     else
-        SPH_VelPred(place, I->Vel, DENSITY_GET_PRIV(tw)->FgravkickB, DENSITY_GET_PRIV(tw)->gravkicks, DENSITY_GET_PRIV(tw)->hydrokicks);
+        SPH_VelPred(place, I->Vel, &DENSITY_GET_PRIV(tw)->kf);
 }
 
 static void
@@ -464,7 +470,7 @@ density_ngbiter(
         double EntVarPred;
         MyFloat VelPred[3];
         struct DensityPriv * priv = DENSITY_GET_PRIV(lv->tw);
-        SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks, priv->hydrokicks);
+        SPH_VelPred(other, VelPred, &priv->kf);
         if(priv->SPH_predicted->EntVarPred) {
             #pragma omp atomic read
             EntVarPred = priv->SPH_predicted->EntVarPred[P[other].PI];

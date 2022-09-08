@@ -612,9 +612,7 @@ typedef struct {
 struct WindVDispPriv {
     double Time;
     double hubble;
-    double FgravkickB;
-    double gravkicks[TIMEBINS+1];
-    double hydrokicks[TIMEBINS+1];
+    struct kick_factor_data kf;
     double ddrift;
     /* Lower and upper bounds on smoothing length*/
     MyFloat *Left, *Right, *DMRadius;
@@ -683,7 +681,7 @@ wind_vdisp_ngbiter(TreeWalkQueryWindVDisp * I,
             O->Ngb[i] += 1;
             int d;
             MyFloat VelPred[3];
-            DM_VelPred(other, VelPred, WINDV_GET_PRIV(lv->tw)->FgravkickB, WINDV_GET_PRIV(lv->tw)->gravkicks);
+            DM_VelPred(other, VelPred, &WINDV_GET_PRIV(lv->tw)->kf);
             for(d = 0; d < 3; d ++) {
                 /* Add hubble flow to relative velocity. Use predicted velocity to current time.
                  * The I particle is active so always at current time.*/
@@ -835,30 +833,17 @@ winds_find_vel_disp(const ActiveParticles * act, const double Time, const double
     if(totvdisp > 0 || totbh > 0) {
         force_tree_rebuild_mask(tree, ddecomp, DMMASK, NULL);
         tw->haswork = NULL;
-        priv->FgravkickB = get_exact_gravkick_factor(CP, times->PM_kick, times->Ti_Current);
-        memset(priv->gravkicks, 0, sizeof(priv->gravkicks[0])*(TIMEBINS+1));
-        memset(priv->hydrokicks, 0, sizeof(priv->hydrokicks[0])*(TIMEBINS+1));
+        init_kick_factor_data(&priv->kf, times, CP);
     }
 
     /* Compute the black hole velocity dispersions if needed*/
     if(totbh)
-        blackhole_veldisp(act, CP, tree, priv->gravkicks, priv->FgravkickB);
+        blackhole_veldisp(act, CP, tree, &priv->kf);
 
     if(totvdisp == 0) {
         force_tree_free(tree);
         myfree(ActiveVDisp);
         return;
-    }
-
-    /* Compute the factors to move a current kick times velocity to the drift time velocity.
-     * We need to do the computation for all timebins up to the maximum because even inactive
-     * particles may have interactions. */
-    int i;
-    #pragma omp parallel for
-    for(i = times->mintimebin; i <= TIMEBINS; i++)
-    {
-        priv->gravkicks[i] = get_exact_gravkick_factor(CP, times->Ti_kick[i], times->Ti_Current);
-        priv->hydrokicks[i] = get_exact_hydrokick_factor(CP, times->Ti_kick[i], times->Ti_Current);
     }
 
     priv->Left = (MyFloat *) mymalloc("VDISP->Left", SlotsManager->info[0].size * sizeof(MyFloat));
@@ -870,6 +855,7 @@ winds_find_vel_disp(const ActiveParticles * act, const double Time, const double
     priv->maxcmpte = (int *) mymalloc("maxcmpte", SlotsManager->info[0].size * sizeof(int));
     report_memory_usage("WIND_VDISP");
 
+    int i;
     /*Initialise the WINDP array*/
     #pragma omp parallel for
     for (i = 0; i < act->NumActiveParticle; i++) {

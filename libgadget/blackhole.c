@@ -195,9 +195,7 @@ struct BHPriv {
     /* Counters*/
     int64_t * N_sph_swallowed;
     int64_t * N_BH_swallowed;
-    double FgravkickB;
-    double gravkicks[TIMEBINS+1];
-    double hydrokicks[TIMEBINS+1];
+    struct kick_factor_data kf;
 };
 #define BH_GET_PRIV(tw) ((struct BHPriv *) (tw->priv))
 
@@ -583,19 +581,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     priv->hubble = hubble_function(CP, atime);
     priv->CP = CP;
 
-    priv->FgravkickB = get_exact_gravkick_factor(CP, times->PM_kick, times->Ti_Current);
-    memset(priv->gravkicks, 0, sizeof(priv->gravkicks[0])*(TIMEBINS+1));
-    memset(priv->hydrokicks, 0, sizeof(priv->hydrokicks[0])*(TIMEBINS+1));
-    /* Compute the factors to move a current kick times velocity to the drift time velocity.
-     * We need to do the computation for all timebins up to the maximum because even inactive
-     * particles may have interactions. */
-    #pragma omp parallel for
-    for(i = times->mintimebin; i <= TIMEBINS; i++)
-    {
-        priv->gravkicks[i] = get_exact_gravkick_factor(CP, times->Ti_kick[i], times->Ti_Current);
-        priv->hydrokicks[i] = get_exact_hydrokick_factor(CP, times->Ti_kick[i], times->Ti_Current);
-    }
-
+    init_kick_factor_data(&priv->kf, times, CP);
     /* Build the queue once, since it is really 'all black holes' and similar for all treewalks.*/
     treewalk_build_queue(tw_dynfric, act->ActiveParticle, act->NumActiveParticle, 0);
     /* Now we have a BH queue and we can re-use it. Create a new variable so that
@@ -934,9 +920,9 @@ blackhole_dynfric_ngbiter(TreeWalkQueryBHDynfric * I,
             O->SurroundingDensity += (mass_j * wk);
             MyFloat VelPred[3];
             if(P[other].Type == 0)
-                SPH_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks, BH_GET_PRIV(lv->tw)->hydrokicks);
+                SPH_VelPred(other, VelPred, &BH_GET_PRIV(lv->tw)->kf);
             else {
-                DM_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks);
+                DM_VelPred(other, VelPred, &BH_GET_PRIV(lv->tw)->kf);
             }
             for (k = 0; k < 3; k++){
                 O->SurroundingVel[k] += (mass_j * wk * VelPred[k]);
@@ -1178,7 +1164,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             double da[3];
             int d;
             MyFloat VelPred[3];
-            DM_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks);
+            DM_VelPred(other, VelPred, &BH_GET_PRIV(lv->tw)->kf);
             for(d = 0; d < 3; d++){
                 dx[d] = NEAREST(I->base.Pos[d] - P[other].Pos[d], PartManager->BoxSize);
                 dv[d] = I->Vel[d] - VelPred[d];
@@ -1228,7 +1214,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
             O->SmoothedEntropy += (mass_j * wk * SPHP(other).Entropy);
             MyFloat VelPred[3];
-            SPH_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks, BH_GET_PRIV(lv->tw)->hydrokicks);
+            SPH_VelPred(other, VelPred, &BH_GET_PRIV(lv->tw)->kf);
             O->GasVel[0] += (mass_j * wk * VelPred[0]);
             O->GasVel[1] += (mass_j * wk * VelPred[1]);
             O->GasVel[2] += (mass_j * wk * VelPred[2]);
@@ -1388,7 +1374,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             O->Mass += P[other].Mass;
         }
         MyFloat VelPred[3];
-        DM_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks);
+        DM_VelPred(other, VelPred, &BH_GET_PRIV(lv->tw)->kf);
         /* Conserve momentum during accretion*/
         int d;
         for(d = 0; d < 3; d++)
@@ -1477,7 +1463,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             O->Mass += P[other].Mass;
         P[other].Mass = 0;
         MyFloat VelPred[3];
-        SPH_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks, BH_GET_PRIV(lv->tw)->hydrokicks);
+        SPH_VelPred(other, VelPred, &BH_GET_PRIV(lv->tw)->kf);
         /* Conserve momentum during accretion*/
         int d;
         for(d = 0; d < 3; d++)
@@ -1667,8 +1653,7 @@ struct BHVelDispPriv {
     MyFloat (*V1sumDM)[3];
     MyFloat * V2sumDM;
     /* Time factors*/
-    double FgravkickB;
-    double * gravkicks;
+    struct kick_factor_data * kf;
 };
 #define BHVDISP_GET_PRIV(tw) ((struct BHVelDispPriv *) (tw->priv))
 
@@ -1731,7 +1716,7 @@ blackhole_veldisp_ngbiter(TreeWalkQueryBHVelDisp * I,
     if(P[other].Type == 1 && r2 < iter->feedback_kernel.HH){
         O->NumDM += 1;
         MyFloat VelPred[3];
-        DM_VelPred(other, VelPred, BHVDISP_GET_PRIV(lv->tw)->FgravkickB, BHVDISP_GET_PRIV(lv->tw)->gravkicks);
+        DM_VelPred(other, VelPred, BHVDISP_GET_PRIV(lv->tw)->kf);
         int d;
         for(d = 0; d < 3; d++){
             double vel = VelPred[d] - I->Vel[d];
@@ -1764,7 +1749,7 @@ blackhole_veldisp_copy(int place, TreeWalkQueryBHVelDisp * I, TreeWalk * tw)
 }
 
 void
-blackhole_veldisp(const ActiveParticles * act, Cosmology * CP, ForceTree * tree, double * gravkicks, double FgravkickB)
+blackhole_veldisp(const ActiveParticles * act, Cosmology * CP, ForceTree * tree, struct kick_factor_data * kf)
 {
     struct BHVelDispPriv priv[1] = {0};
 
@@ -1790,8 +1775,7 @@ blackhole_veldisp(const ActiveParticles * act, Cosmology * CP, ForceTree * tree,
     priv->NumDM = mymalloc("NumDM", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->V2sumDM = mymalloc("V2sumDM", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->V1sumDM = (MyFloat (*) [3]) mymalloc("V1sumDM", 3* SlotsManager->info[5].size * sizeof(priv->V1sumDM[0]));
-    priv->FgravkickB = FgravkickB;
-    priv->gravkicks = gravkicks;
+    priv->kf = kf;
 
     /* This allocates memory*/
     treewalk_run(tw_veldisp, act->ActiveParticle, act->NumActiveParticle);
