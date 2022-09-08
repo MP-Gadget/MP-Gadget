@@ -1102,9 +1102,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             O->BH_MinPotPos[d] = I->base.Pos[d];
         }
         iter->base.mask = GASMASK + STARMASK + BHMASK;
-        /* Add DM if needed*/
-        if(blackhole_params.BlackHoleKineticOn == 1)
-            iter->base.mask += DMMASK;
         iter->base.Hsml = I->Hsml;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
 
