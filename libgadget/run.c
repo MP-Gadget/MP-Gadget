@@ -705,6 +705,13 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 apply_hydro_half_kick(&Act, &All.CP, &times, atime);
             }
         }
+        if(badtimestep) {
+            message(0, "Bad timestep spotted: terminating and saving snapshot.\n");
+            dump_snapshot("TIMESTEP-DUMP", atime, &All.CP, All.OutputDir);
+            endrun(0, "Ending due to bad timestep.\n");
+        }
+
+
 
         /* Delayed here because it is allocated high before GravAccel*/
         if(GradRho_mag) {
@@ -714,12 +721,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
         /* Set ti_kick in the time structure*/
         update_kick_times(&times);
-
-        if(badtimestep) {
-            message(0, "bad timestep spotted: terminating and saving snapshot.\n");
-            dump_snapshot("TIMESTEP-DUMP", atime, &All.CP, All.OutputDir);
-            endrun(0, "Ending due to bad timestep");
-        }
 
         if(is_PM) {
             apply_PM_half_kick(&All.CP, &times);

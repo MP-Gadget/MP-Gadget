@@ -681,7 +681,6 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
         }
     }
 
-
     MPI_Allreduce(MPI_IN_PLACE, &badstepsizecount, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &mTimeBin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
 
@@ -1250,11 +1249,8 @@ int get_timestep_bin(inttime_t dti)
 {
    int bin = -1;
 
-   if(dti <= 0)
+   if(dti <= 1)
        return 0;
-
-   if(dti == 1)
-       return -1;
 
    while(dti)
    {
