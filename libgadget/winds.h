@@ -29,13 +29,13 @@ void init_winds(double FactorSN, double EgySpecSN, double PhysDensThresh, double
 void winds_evolve(int i, double a3inv, double hubble);
 
 /*do the treewalk for the wind model*/
-void winds_and_feedback(int * NewStars, int NumNewStars, const double Time, Cosmology * CP, const DriftKickTimes * const times, const double hubble, ForceTree * tree, DomainDecomp * ddecomp);
+void winds_and_feedback(int * NewStars, int NumNewStars, const double Time, ForceTree * tree, DomainDecomp * ddecomp);
 
 /*Make a wind particle at the site of recent star formation.*/
 int winds_make_after_sf(int i, double sm, double vdisp, double atime);
 
 /* Make winds for the subgrid model, after computing the velocity dispersion. */
-void winds_subgrid(int * MaybeWind, int NumMaybeWind, const double Time, Cosmology * CP, const DriftKickTimes * const times, const double hubble, ForceTree * tree, DomainDecomp * ddecomp, MyFloat * StellarMasses);
+void winds_subgrid(int * MaybeWind, int NumMaybeWind, const double Time, MyFloat * StellarMasses);
 
 /* Tests whether winds spawn from gas or stars*/
 int winds_are_subgrid(void);
@@ -48,4 +48,11 @@ void winds_decoupled_hydro(int i, double atime);
 
 /* Returns 1 if the winds ever decouple, 0 otherwise*/
 int winds_ever_decouple(void);
+
+/* Find the 1D DM velocity dispersion of all nearly star-forming gas and black hole particles.
+ * Gas is done by running a density loop for find Vdisp of nearest 40 DM particles.
+ * BH is done by finding VDisp of all DM particles inside the SPH kernel.
+ * Stores it in VDisp in the slots structure.*/
+void winds_find_vel_disp(const ActiveParticles * act, const double Time, const double hubble, Cosmology * CP, DriftKickTimes * times, DomainDecomp * ddecomp);
+
 #endif

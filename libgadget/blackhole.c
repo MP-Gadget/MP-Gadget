@@ -182,8 +182,6 @@ struct BHPriv {
 
     /* temporary computed for kinetic feedback energy threshold*/
     MyFloat * NumDM;
-    MyFloat (*V1sumDM)[3];
-    MyFloat * V2sumDM;
     MyFloat * MgasEnc;
     /* mark the state of AGN kinetic feedback, 1 accumulate, 2 release */
     int * KEflag;
@@ -197,9 +195,7 @@ struct BHPriv {
     /* Counters*/
     int64_t * N_sph_swallowed;
     int64_t * N_BH_swallowed;
-    double FgravkickB;
-    double gravkicks[TIMEBINS+1];
-    double hydrokicks[TIMEBINS+1];
+    struct kick_factor_data kf;
 };
 #define BH_GET_PRIV(tw) ((struct BHPriv *) (tw->priv))
 
@@ -246,8 +242,9 @@ struct __attribute__((__packed__)) BHinfo{
 
     double KineticFdbkEnergy;
     double NumDM;
+    /* Kept for backwards compatibility, not written to*/
     double V1sumDM[3];
-    double V2sumDM;
+    double VDisp;
     double MgasEnc;
     int KEflag;
 
@@ -499,10 +496,7 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
 
         info->KineticFdbkEnergy = BHP(p_i).KineticFdbkEnergy;
         info->NumDM = priv->NumDM[PI];
-        info->V1sumDM[0] = priv->V1sumDM[PI][0];
-        info->V1sumDM[1] = priv->V1sumDM[PI][1];
-        info->V1sumDM[2] = priv->V1sumDM[PI][2];
-        info->V2sumDM = priv->V2sumDM[PI];
+        info->VDisp = BHP(p_i).VDisp;
         info->MgasEnc = priv->MgasEnc[PI];
         info->KEflag = priv->KEflag[PI];
 
@@ -587,19 +581,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     priv->hubble = hubble_function(CP, atime);
     priv->CP = CP;
 
-    priv->FgravkickB = get_exact_gravkick_factor(CP, times->PM_kick, times->Ti_Current);
-    memset(priv->gravkicks, 0, sizeof(priv->gravkicks[0])*(TIMEBINS+1));
-    memset(priv->hydrokicks, 0, sizeof(priv->hydrokicks[0])*(TIMEBINS+1));
-    /* Compute the factors to move a current kick times velocity to the drift time velocity.
-     * We need to do the computation for all timebins up to the maximum because even inactive
-     * particles may have interactions. */
-    #pragma omp parallel for
-    for(i = times->mintimebin; i <= TIMEBINS; i++)
-    {
-        priv->gravkicks[i] = get_exact_gravkick_factor(CP, times->Ti_kick[i], times->Ti_Current);
-        priv->hydrokicks[i] = get_exact_hydrokick_factor(CP, times->Ti_kick[i], times->Ti_Current);
-    }
-
+    init_kick_factor_data(&priv->kf, times, CP);
     /* Build the queue once, since it is really 'all black holes' and similar for all treewalks.*/
     treewalk_build_queue(tw_dynfric, act->ActiveParticle, act->NumActiveParticle, 0);
     /* Now we have a BH queue and we can re-use it. Create a new variable so that
@@ -636,7 +618,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
         message(0, "Building tree in blackhole\n");
         int treemask = GASMASK | STARMASK | BHMASK;
         /* Don't necessarily need dark matter */
-        if(blackhole_params.BH_DynFrictionMethod > 1 || blackhole_params.BlackHoleKineticOn)
+        if(blackhole_params.BH_DynFrictionMethod > 1)
             treemask += DMMASK;
         force_tree_rebuild_mask(tree, ddecomp, treemask, NULL);
         walltime_measure("/BH/Build");
@@ -674,8 +656,6 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
 
     /* For AGN kinetic feedback */
     priv->NumDM = mymalloc("NumDM", SlotsManager->info[5].size * sizeof(MyFloat));
-    priv->V2sumDM = mymalloc("V2sumDM", SlotsManager->info[5].size * sizeof(MyFloat));
-    priv->V1sumDM = (MyFloat (*) [3]) mymalloc("V1sumDM", 3* SlotsManager->info[5].size * sizeof(priv->V1sumDM[0]));
     priv->MgasEnc = mymalloc("MgasEnc", SlotsManager->info[5].size * sizeof(MyFloat));
     /* mark the state of AGN kinetic feedback */
     priv->KEflag = mymalloc("KEflag", SlotsManager->info[5].size * sizeof(int));
@@ -720,8 +700,6 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     /*****************************************************************/
     myfree(priv->KEflag);
     myfree(priv->MgasEnc);
-    myfree(priv->V1sumDM);
-    myfree(priv->V2sumDM);
     myfree(priv->NumDM);
 
     myfree(priv->BH_SurroundingGasVel);
@@ -942,9 +920,9 @@ blackhole_dynfric_ngbiter(TreeWalkQueryBHDynfric * I,
             O->SurroundingDensity += (mass_j * wk);
             MyFloat VelPred[3];
             if(P[other].Type == 0)
-                SPH_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks, BH_GET_PRIV(lv->tw)->hydrokicks);
+                SPH_VelPred(other, VelPred, &BH_GET_PRIV(lv->tw)->kf);
             else {
-                DM_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks);
+                DM_VelPred(other, VelPred, &BH_GET_PRIV(lv->tw)->kf);
             }
             for (k = 0; k < 3; k++){
                 O->SurroundingVel[k] += (mass_j * wk * VelPred[k]);
@@ -1045,24 +1023,11 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
 
             BHP(i).KineticFdbkEnergy += epsilon * (BHP(i).Mdot * dtime * pow(LIGHTCGS / BH_GET_PRIV(tw)->units.UnitVelocity_in_cm_per_s, 2));
         }
-
         /* decide whether to release KineticFdbkEnergy*/
-        double vdisp = 0;
-        double numdm = BH_GET_PRIV(tw)->NumDM[PI];
-        if (numdm>0){
-            vdisp = BH_GET_PRIV(tw)->V2sumDM[PI]/numdm;
-            int d;
-            for(d = 0; d<3; d++){
-                vdisp -= pow(BH_GET_PRIV(tw)->V1sumDM[PI][d]/numdm,2);
-            }
-            if(vdisp > 0)
-                vdisp = sqrt(vdisp / 3);
-        }
-
-        double KE_thresh = 0.5 * vdisp * vdisp * BH_GET_PRIV(tw)->MgasEnc[PI];
+        double KE_thresh = 0.5 * BHP(i).VDisp * BHP(i).VDisp * BH_GET_PRIV(tw)->MgasEnc[PI];
         KE_thresh *= blackhole_params.BHKE_InjEnergyThr;
 
-        if (BHP(i).KineticFdbkEnergy > KE_thresh){
+        if (BHP(i).VDisp > 0 && BHP(i).KineticFdbkEnergy > KE_thresh){
             /* mark KineticFdbkEnergy is ready to be released in the feedback treewalk */
             BH_GET_PRIV(tw)->KEflag[PI] = 2;
         }
@@ -1137,9 +1102,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             O->BH_MinPotPos[d] = I->base.Pos[d];
         }
         iter->base.mask = GASMASK + STARMASK + BHMASK;
-        /* Add DM if needed*/
-        if(blackhole_params.BlackHoleKineticOn == 1)
-            iter->base.mask += DMMASK;
         iter->base.Hsml = I->Hsml;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
 
@@ -1199,7 +1161,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             double da[3];
             int d;
             MyFloat VelPred[3];
-            DM_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks);
+            DM_VelPred(other, VelPred, &BH_GET_PRIV(lv->tw)->kf);
             for(d = 0; d < 3; d++){
                 dx[d] = NEAREST(I->base.Pos[d] - P[other].Pos[d], PartManager->BoxSize);
                 dv[d] = I->Vel[d] - VelPred[d];
@@ -1249,7 +1211,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
             O->SmoothedEntropy += (mass_j * wk * SPHP(other).Entropy);
             MyFloat VelPred[3];
-            SPH_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks, BH_GET_PRIV(lv->tw)->hydrokicks);
+            SPH_VelPred(other, VelPred, &BH_GET_PRIV(lv->tw)->kf);
             O->GasVel[0] += (mass_j * wk * VelPred[0]);
             O->GasVel[1] += (mass_j * wk * VelPred[1]);
             O->GasVel[2] += (mass_j * wk * VelPred[2]);
@@ -1320,22 +1282,11 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     }
 
     /* collect info for sigmaDM and Menc for kinetic feedback */
-    if(blackhole_params.BlackHoleKineticOn == 1){
-        if(P[other].Type == 1 && r2 < iter->feedback_kernel.HH){
-            O->NumDM += 1;
-            MyFloat VelPred[3];
-            DM_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks);
-            int d;
-            for(d = 0; d < 3; d++){
-                double vel = VelPred[d] - I->Vel[d];
-                O->V1sumDM[d] += vel;
-                O->V2sumDM += vel * vel;
-            }
-        }
-        if(P[other].Type == 0 && r2 < iter->feedback_kernel.HH){
+    if(blackhole_params.BlackHoleKineticOn == 1 &&
+        P[other].Type == 0 &&
+        r2 < iter->feedback_kernel.HH ){
             O->MgasEnc += P[other].Mass;
         }
-    }
 }
 
 
@@ -1420,7 +1371,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             O->Mass += P[other].Mass;
         }
         MyFloat VelPred[3];
-        DM_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks);
+        DM_VelPred(other, VelPred, &BH_GET_PRIV(lv->tw)->kf);
         /* Conserve momentum during accretion*/
         int d;
         for(d = 0; d < 3; d++)
@@ -1509,7 +1460,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             O->Mass += P[other].Mass;
         P[other].Mass = 0;
         MyFloat VelPred[3];
-        SPH_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->FgravkickB, BH_GET_PRIV(lv->tw)->gravkicks, BH_GET_PRIV(lv->tw)->hydrokicks);
+        SPH_VelPred(other, VelPred, &BH_GET_PRIV(lv->tw)->kf);
         /* Conserve momentum during accretion*/
         int d;
         for(d = 0; d < 3; d++)
@@ -1550,10 +1501,8 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_Entropy[PI], remote->SmoothedEntropy);
     for (k = 0; k < 3; k++){
         TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][k], remote->GasVel[k]);
-        TREEWALK_REDUCE(BH_GET_PRIV(tw)->V1sumDM[PI][k], remote->V1sumDM[k]);
     }
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->NumDM[PI], remote->NumDM);
-    TREEWALK_REDUCE(BH_GET_PRIV(tw)->V2sumDM[PI], remote->V2sumDM);
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->MgasEnc[PI], remote->MgasEnc);
 }
 
@@ -1689,4 +1638,148 @@ void blackhole_make_one(int index, const double atime) {
     }
     /* Initialize KineticFdbkEnergy, keep zero if BlackHoleKineticOn is not turned on */
     BHP(child).KineticFdbkEnergy = 0;
+    BHP(child).VDisp = 0;
+}
+
+
+/* Computes the BH velocity dispersion for kinetic feedback*/
+
+struct BHVelDispPriv {
+    /* temporary computed for kinetic feedback energy threshold*/
+    MyFloat * NumDM;
+    MyFloat (*V1sumDM)[3];
+    MyFloat * V2sumDM;
+    /* Time factors*/
+    struct kick_factor_data * kf;
+};
+#define BHVDISP_GET_PRIV(tw) ((struct BHVelDispPriv *) (tw->priv))
+
+typedef struct {
+    TreeWalkQueryBase base;
+    MyFloat Hsml;
+    MyFloat Vel[3];
+} TreeWalkQueryBHVelDisp;
+
+typedef struct {
+    TreeWalkResultBase base;
+    /* used for AGN kinetic feedback */
+    MyFloat V2sumDM;
+    MyFloat V1sumDM[3];
+    MyFloat NumDM;
+} TreeWalkResultBHVelDisp;
+
+typedef struct {
+    TreeWalkNgbIterBase base;
+    DensityKernel feedback_kernel;
+} TreeWalkNgbIterBHVelDisp;
+
+static void
+blackhole_veldisp_postprocess(int i, TreeWalk * tw)
+{
+    int PI = P[i].PI;
+    /*************************************************************************/
+    /* decide whether to release KineticFdbkEnergy*/
+    double vdisp = 0;
+    double numdm = BHVDISP_GET_PRIV(tw)->NumDM[PI];
+    if (numdm>0){
+        vdisp = BHVDISP_GET_PRIV(tw)->V2sumDM[PI]/numdm;
+        int d;
+        for(d = 0; d<3; d++){
+            vdisp -= pow(BHVDISP_GET_PRIV(tw)->V1sumDM[PI][d]/numdm,2);
+        }
+        if(vdisp > 0)
+            BHP(i).VDisp = sqrt(vdisp / 3);
+    }
+}
+
+static void
+blackhole_veldisp_ngbiter(TreeWalkQueryBHVelDisp * I,
+        TreeWalkResultBHVelDisp * O,
+        TreeWalkNgbIterBHVelDisp * iter,
+        LocalTreeWalk * lv)
+{
+    if(iter->base.other == -1) {
+        iter->base.mask = DMMASK;
+        iter->base.Hsml = I->Hsml;
+        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
+        density_kernel_init(&iter->feedback_kernel, I->Hsml, GetDensityKernelType());
+        return;
+    }
+
+    int other = iter->base.other;
+    double r2 = iter->base.r2;
+
+    /* collect info for sigmaDM and Menc for kinetic feedback */
+    if(P[other].Type == 1 && r2 < iter->feedback_kernel.HH){
+        O->NumDM += 1;
+        MyFloat VelPred[3];
+        DM_VelPred(other, VelPred, BHVDISP_GET_PRIV(lv->tw)->kf);
+        int d;
+        for(d = 0; d < 3; d++){
+            double vel = VelPred[d] - I->Vel[d];
+            O->V1sumDM[d] += vel;
+            O->V2sumDM += vel * vel;
+        }
+    }
+}
+
+static void
+blackhole_veldisp_reduce(int place, TreeWalkResultBHVelDisp * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
+{
+    int k;
+
+    int PI = P[place].PI;
+    for (k = 0; k < 3; k++){
+        TREEWALK_REDUCE(BHVDISP_GET_PRIV(tw)->V1sumDM[PI][k], remote->V1sumDM[k]);
+    }
+    TREEWALK_REDUCE(BHVDISP_GET_PRIV(tw)->NumDM[PI], remote->NumDM);
+    TREEWALK_REDUCE(BHVDISP_GET_PRIV(tw)->V2sumDM[PI], remote->V2sumDM);
+}
+
+static void
+blackhole_veldisp_copy(int place, TreeWalkQueryBHVelDisp * I, TreeWalk * tw)
+{
+    int k;
+    for(k = 0; k < 3; k++)
+        I->Vel[k] = P[place].Vel[k];
+    I->Hsml = P[place].Hsml;
+}
+
+void
+blackhole_veldisp(const ActiveParticles * act, Cosmology * CP, ForceTree * tree, struct kick_factor_data * kf)
+{
+    struct BHVelDispPriv priv[1] = {0};
+
+    TreeWalk tw_veldisp[1] = {{0}};
+    tw_veldisp->ev_label = "BH_VDISP";
+    tw_veldisp->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
+    tw_veldisp->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHVelDisp);
+    tw_veldisp->ngbiter = (TreeWalkNgbIterFunction) blackhole_veldisp_ngbiter;
+    tw_veldisp->haswork = blackhole_dynfric_haswork;
+    tw_veldisp->postprocess = (TreeWalkProcessFunction) blackhole_veldisp_postprocess;
+    tw_veldisp->fill = (TreeWalkFillQueryFunction) blackhole_veldisp_copy;
+    tw_veldisp->reduce = (TreeWalkReduceResultFunction) blackhole_veldisp_reduce;
+    tw_veldisp->query_type_elsize = sizeof(TreeWalkQueryBHVelDisp);
+    tw_veldisp->result_type_elsize = sizeof(TreeWalkResultBHVelDisp);
+    tw_veldisp->tree = tree;
+    tw_veldisp->priv = priv;
+
+    /* This treewalk uses only DM */
+    if(!tree->tree_allocated_flag)
+        endrun(0, "DM Tree not allocated for veldisp\n");
+
+    /* For AGN kinetic feedback */
+    priv->NumDM = mymalloc("NumDM", SlotsManager->info[5].size * sizeof(MyFloat));
+    priv->V2sumDM = mymalloc("V2sumDM", SlotsManager->info[5].size * sizeof(MyFloat));
+    priv->V1sumDM = (MyFloat (*) [3]) mymalloc("V1sumDM", 3* SlotsManager->info[5].size * sizeof(priv->V1sumDM[0]));
+    priv->kf = kf;
+
+    /* This allocates memory*/
+    treewalk_run(tw_veldisp, act->ActiveParticle, act->NumActiveParticle);
+
+    walltime_measure("/BH/VDisp");
+
+    myfree(priv->V1sumDM);
+    myfree(priv->V2sumDM);
+    myfree(priv->NumDM);
 }

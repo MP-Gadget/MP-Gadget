@@ -85,9 +85,7 @@ struct HydraPriv {
     double hubble_a2;
     double atime;
     DriftKickTimes const * times;
-    double FgravkickB;
-    double gravkicks[TIMEBINS+1];
-    double hydrokicks[TIMEBINS+1];
+    struct kick_factor_data kf;
     double drifts[TIMEBINS+1];
 };
 
@@ -216,18 +214,11 @@ hydro_force(const ActiveParticles * act, const double atime, struct sph_pred_dat
     HYDRA_GET_PRIV(tw)->atime = atime;
     HYDRA_GET_PRIV(tw)->hubble_a2 = hubble * atime * atime;
     priv->times = &times;
-    priv->FgravkickB = get_exact_gravkick_factor(CP, times.PM_kick, times.Ti_Current);
-    memset(priv->gravkicks, 0, sizeof(priv->gravkicks[0])*(TIMEBINS+1));
-    memset(priv->hydrokicks, 0, sizeof(priv->hydrokicks[0])*(TIMEBINS+1));
+    init_kick_factor_data(&priv->kf, &times, CP);
     memset(priv->drifts, 0, sizeof(priv->drifts[0])*(TIMEBINS+1));
-    /* Compute the factors to move a current kick times velocity to the drift time velocity.
-     * We need to do the computation for all timebins up to the maximum because even inactive
-     * particles may have interactions. */
     #pragma omp parallel for
     for(i = times.mintimebin; i <= TIMEBINS; i++)
     {
-        priv->gravkicks[i] = get_exact_gravkick_factor(CP, times.Ti_kick[i], times.Ti_Current);
-        priv->hydrokicks[i] = get_exact_hydrokick_factor(CP, times.Ti_kick[i], times.Ti_Current);
         /* For density: last active drift time is Ti_kick - 1/2 timestep as the kick time is half a timestep ahead.
          * For active particles no density drift is needed.*/
         if(!is_timebin_active(i, times.Ti_Current))
@@ -256,7 +247,7 @@ static void
 hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
 {
     double soundspeed_i;
-    SPH_VelPred(place, input->Vel, HYDRA_GET_PRIV(tw)->FgravkickB, HYDRA_GET_PRIV(tw)->gravkicks, HYDRA_GET_PRIV(tw)->hydrokicks);
+    SPH_VelPred(place, input->Vel, &HYDRA_GET_PRIV(tw)->kf);
 
     input->Hsml = P[place].Hsml;
     input->Mass = P[place].Mass;
@@ -375,7 +366,7 @@ hydro_ngbiter(
     struct HydraPriv * priv = HYDRA_GET_PRIV(lv->tw);
 
     MyFloat VelPred[3];
-    SPH_VelPred(other, VelPred, priv->FgravkickB, priv->gravkicks, priv->hydrokicks);
+    SPH_VelPred(other, VelPred, &priv->kf);
 
     double EntVarPred;
     if(priv->EntVarPred) {

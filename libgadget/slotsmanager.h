@@ -55,6 +55,7 @@ struct bh_particle_data {
     int encounter; /* mark the event when BH encounters another BH */
     double Mtrack; /*Swallow gas particle when BHP.Mass accretes from SeedBHMass to SeedDynMass for mass conservation */
     double Mseed; /*Log the seed mass of BH, would be useful in case of the powerlaw seeding*/
+    MyFloat VDisp; /* 1D DM Velocity dispersion, for the kinetic winds*/
 };
 
 #define NMETALS 9
@@ -73,6 +74,7 @@ struct star_particle_data
     float Metals[NMETALS];      /* Metal mass of each species in star particle*/
 
     MyFloat EscapeFraction; /* Escape fraction stored for reionisation calculation */
+    MyFloat VDisp; /* 1D DM Velocity dispersion on creation for the winds*/
 };
 
 /* the following structure holds data that is stored for each SPH particle in addition to the collisionless
@@ -112,6 +114,7 @@ struct sph_particle_data
     MyFloat local_J21; /* local J21 ionising background calculated from the excursion set */
     MyFloat zreion; /* redshift when a particle is first ionised */
     MyFloat EscapeFraction; /* Escape fraction for SFR -> J21 calculation */
+    MyFloat VDisp; /* 1D DM Velocity dispersion, for the winds*/
 };
 
 extern struct slots_manager_type {

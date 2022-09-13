@@ -35,6 +35,7 @@
 #include "uvbg.h"
 #include "neutrinos_lra.h"
 #include "stats.h"
+#include "winds.h"
 
 static struct ClockTable Clocks;
 
@@ -611,6 +612,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 fof_finish(&fof);
             }
 
+            if(is_PM && All.CoolingOn)
+                winds_find_vel_disp(&Act, atime, hubble_function(&All.CP, atime), &All.CP, &times, ddecomp);
             /* Note that the tree here may be freed, if we are not a gravity-active timestep,
              * or if we are a PM step.*/
             /* If we didn't build a tree for gravity, we need to build one in BH or in winds.
@@ -625,7 +628,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
             /**** radiative cooling and star formation *****/
             if(All.CoolingOn)
-                cooling_and_starformation(&Act, atime, &times, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &Tree, GravAccel, ddecomp, &All.CP, GradRho_mag, fds.FdSfr);
+                cooling_and_starformation(&Act, atime, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &Tree, GravAccel, ddecomp, &All.CP, GradRho_mag, fds.FdSfr);
         }
         /* We don't need this timestep's tree anymore.*/
         force_tree_free(&Tree);
@@ -770,7 +773,7 @@ runfof(const int RestartSnapNum, const inttime_t Ti_Current, const struct header
         }
         ForceTree Tree = {0};
         struct grav_accel_store gg = {0};
-        cooling_and_starformation(&Act, header->TimeSnapshot, NULL, 0, &Tree, gg, ddecomp, &All.CP, GradRho, NULL);
+        cooling_and_starformation(&Act, header->TimeSnapshot, 0, &Tree, gg, ddecomp, &All.CP, GradRho, NULL);
         if(GradRho)
             myfree(GradRho);
     }
