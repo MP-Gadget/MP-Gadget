@@ -118,7 +118,7 @@ init_timebins(double TimeInit)
     /*Enforce Ti_Current is initially even*/
     if(Ti_Current % 2 == 1)
         Ti_Current++;
-    message(0, "Initial TimeStep at TimeInit %g Ti_Current = %d \n", TimeInit, Ti_Current);
+    message(0, "Initial TimeStep at TimeInit %g Ti_Current = %ld \n", TimeInit, Ti_Current);
     return Ti_Current;
 }
 
