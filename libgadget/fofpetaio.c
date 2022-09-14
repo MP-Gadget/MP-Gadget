@@ -289,7 +289,8 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
     const uint64_t task_origin_offset = PartManager->MaxPart + 1Lu;
     fof_find_target_task(pi, NpigLocal, task_origin_offset, Comm);
 
-    halo_pman->MaxPart = NpigLocal * 1.02;
+    const double FOFPartAllocFactor = (double) PartManager->MaxPart / PartManager->NumPart;
+    halo_pman->MaxPart = NpigLocal * FOFPartAllocFactor;
     struct particle_data * halopart = (struct particle_data *) mymalloc("HaloParticle", sizeof(struct particle_data) * halo_pman->MaxPart);
     halo_pman->Base = halopart;
     halo_pman->NumPart = NpigLocal;
@@ -302,8 +303,7 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
     myfree(pi);
 
     /* We leave extra space in the hope that we can avoid compacting slots in the fof exchange*/
-    const double FOFPartAllocFactor = (double) PartManager->MaxPart / PartManager->NumPart;
-    atleast[0] *= 1.02;
+    atleast[0] *= 1.05;
     atleast[4]*= FOFPartAllocFactor;
     atleast[5]*= FOFPartAllocFactor;
 
