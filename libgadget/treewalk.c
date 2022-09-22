@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <omp.h>
-
+#include <alloca.h>
 #include "utils.h"
 
 #include "treewalk.h"
