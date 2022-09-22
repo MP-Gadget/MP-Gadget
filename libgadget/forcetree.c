@@ -928,7 +928,7 @@ add_particle_moment_to_node(struct NODE * pnode, int i)
     {
         int j;
         /* Maximal distance any of the member particles peek out from the side of the node.
-         * May be at most hmax, as |Pos - Center| < len/2.*/
+         * May be at most hsml, as |Pos - Center| < len/2.*/
         for(j = 0; j < 3; j++) {
             pnode->mom.hmax = DMAX(pnode->mom.hmax, fabs(P[i].Pos[j] - pnode->center[j]) + P[i].Hsml - pnode->len/2.);
         }

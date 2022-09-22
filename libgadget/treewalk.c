@@ -949,7 +949,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
         /* Export buffer is full end prematurally */
         if(numcand < 0) return numcand;
 
-        /* If we are here, export is succesful. Work on the this particle -- first
+        /* If we are here, export is successful. Work on this particle -- first
          * filter out all of the candidates that are actually outside. */
         int numngb;
 
