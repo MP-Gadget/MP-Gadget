@@ -97,11 +97,10 @@ void fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmol
         if(NpigGlobal > 0.25 * NumPartGlobal) {
             halo_pman = PartManager;
             halo_sman = SlotsManager;
-            message(0, "Using old part\n");
-
+            message(0, "Re-using partmanager for FOF: total pig %ld, global %ld\n", NpigGlobal, NumPartGlobal);
         }
         else {
-            message(0, "Using new part\n");
+            message(0, "Copying new partmanager for FOF: total pig %ld, global %ld\n", NpigGlobal, NumPartGlobal);
             halo_pman = alloca(sizeof(struct part_manager_type));
             halo_sman = alloca(sizeof(struct slots_manager_type));
         }
