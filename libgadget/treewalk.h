@@ -60,7 +60,10 @@ typedef struct {
     size_t DataIndexOffset;
 
     int * ngblist;
+    int64_t maxNinteractions;
+    int64_t minNinteractions;
     int64_t Ninteractions;
+    int64_t Nlistprimary;
     int64_t Nnodesinlist;
     int64_t Nlist;
 } LocalTreeWalk;
@@ -132,6 +135,8 @@ struct TreeWalk {
     /* Stores the total number of node lists created for all exported particles.
      * Used to find the average number of nodes in each nodelist.*/
     int64_t Nlist;
+    /* Number of particles in the Ngblist for the primary treewalk*/
+    int64_t Nlistprimary;
     /* Total number of exported particles
      * (Nexport is only the exported particles in the current export buffer). */
     int64_t Nexport_sum;
@@ -140,6 +145,10 @@ struct TreeWalk {
     /* Number of times we needed to re-run the treewalk.
      * Convenience variable for density. */
     int64_t Niteration;
+    /* Counters for imbalance diagnostics*/
+    int64_t maxNinteractions;
+    int64_t minNinteractions;
+    int64_t Ninteractions;
 
     /* internal flags*/
     /* Number of particles marked for export to another processor*/
@@ -214,5 +223,11 @@ double ngb_narrow_down(double *right, double *left, const double *radius, const 
  * may_have_garbage: flags whether the active set may contain garbage. If the haswork is trivial and this is not set,
  * we can just reuse the active set as the queue.*/
 void treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may_have_garbage);
+
+/* Print some counters for a completed treewalk*/
+void treewalk_print_stats(const TreeWalk * tw);
+/* Increment some counters in the ngbiter function*/
+void treewalk_add_counters(LocalTreeWalk * lv, const int64_t ninteractions, const int64_t inode);
+
 
 #endif

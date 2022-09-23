@@ -1316,6 +1316,9 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
 
     tree->hmax_computed_flag = 1;
     walltime_measure("/SPH/HmaxUpdate");
+    int64_t totnumparticles;
+    MPI_Reduce(&tree->NumParticles, &totnumparticles, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    message(0, "Root hmax: %lg Tree Mean IPS: %lg\n", tree->Nodes[tree->firstnode].mom.hmax, tree->BoxSize / cbrt(totnumparticles));
 }
 
 /*! This function allocates the memory used for storage of the tree and of

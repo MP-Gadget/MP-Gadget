@@ -124,9 +124,12 @@ ev_init_thread(const struct TreeWalkThreadLocals local_exports, TreeWalk * const
     lv->exportflag = local_exports.Exportflag + thread_id * NTask;
     lv->exportnodecount = local_exports.Exportnodecount + thread_id * NTask;
     lv->exportindex = local_exports.Exportindex + thread_id * NTask;
+    lv->maxNinteractions = 0;
+    lv->minNinteractions = 1L<<45;
     lv->Ninteractions = 0;
     lv->Nnodesinlist = 0;
     lv->Nlist = 0;
+    lv->Nlistprimary = 0;
     lv->Nexport = 0;
     size_t localbunch = tw->BunchSize/omp_get_max_threads();
     lv->DataIndexOffset = thread_id * localbunch;
@@ -287,7 +290,7 @@ treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum T
 #endif
 }
 
-static int real_ev(struct TreeWalkThreadLocals local_exports, TreeWalk * tw, size_t * dataindexoffset, size_t * nexports, int * currentIndex)
+static int real_ev(struct TreeWalkThreadLocals local_exports, TreeWalk * tw, size_t * dataindexoffset, size_t * nexports, int * currentIndex, int64_t * maxNinteractions, int64_t * minNinteractions)
 {
     LocalTreeWalk lv[1];
     /* Note: exportflag is local to each thread */
@@ -374,6 +377,14 @@ static int real_ev(struct TreeWalkThreadLocals local_exports, TreeWalk * tw, siz
         }
     } while(chnk < tw->WorkSetSize);
 
+    if(*maxNinteractions < lv->maxNinteractions)
+        *maxNinteractions = lv->maxNinteractions;
+    if(*minNinteractions > lv->maxNinteractions)
+        *minNinteractions = lv->minNinteractions;
+    #pragma omp atomic update
+    tw->Ninteractions += lv->Ninteractions;
+    #pragma omp atomic update
+    tw->Nlistprimary += lv->Nlistprimary;
     *dataindexoffset = lv->DataIndexOffset;
     *nexports = lv->Nexport;
     return lastSucceeded;
@@ -480,11 +491,14 @@ ev_primary(TreeWalk * tw)
     size_t * nexports = ta_malloc("localexports", size_t, tw->NThread);
     size_t * dataindexoffset = ta_malloc("dataindex", size_t, tw->NThread);
 
-#pragma omp parallel reduction(min: lastSucceeded)
+    int64_t maxNinteractions = 0, minNinteractions = 1L << 45;
+#pragma omp parallel reduction(min: lastSucceeded) reduction(min:minNinteractions) reduction(max:maxNinteractions)
     {
         int tid = omp_get_thread_num();
-        lastSucceeded = real_ev(local_exports, tw, &dataindexoffset[tid], &nexports[tid], &currentIndex);
+        lastSucceeded = real_ev(local_exports, tw, &dataindexoffset[tid], &nexports[tid], &currentIndex, &maxNinteractions, &minNinteractions);
     }
+    tw->maxNinteractions = maxNinteractions;
+    tw->minNinteractions = minNinteractions;
 
     int64_t i;
     tw->Nexport = 0;
@@ -907,6 +921,23 @@ static void fill_task_queue (TreeWalk * tw, struct ev_task * tq, int * pq, int l
 }
 #endif
 
+void
+treewalk_add_counters(LocalTreeWalk * lv, const int64_t ninteractions, const int64_t inode)
+{
+    if(lv->mode == 0) {
+        if(lv->maxNinteractions < ninteractions)
+            lv->maxNinteractions = ninteractions;
+        if(lv->minNinteractions > ninteractions)
+            lv->minNinteractions = ninteractions;
+        lv->Ninteractions += ninteractions;
+        lv->Nlistprimary += 1;
+    }
+    if(lv->mode == 1) {
+        lv->Nnodesinlist += inode;
+        lv->Nlist += inode;
+    }
+}
+
 /**********
  *
  * This particular TreeWalkVisitFunction that uses the nbgiter memeber of
@@ -940,7 +971,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
 #endif
     const double BoxSize = lv->tw->tree->BoxSize;
 
-    int ninteractions = 0;
+    int64_t ninteractions = 0;
     int inode = 0;
 
     for(inode = 0; (lv->mode == 0 && inode < 1)|| (lv->mode == 1 && inode < NODELISTLENGTH && I->NodeList[inode] >= 0); inode++)
@@ -995,11 +1026,8 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
         ninteractions += numngb;
     }
 
-    lv->Ninteractions += ninteractions;
-    if(lv->mode == 1) {
-        lv->Nnodesinlist += inode;
-        lv->Nlist += 1;
-    }
+    treewalk_add_counters(lv, ninteractions, inode);
+
     return 0;
 }
 
@@ -1152,6 +1180,7 @@ int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
     iter->other = -1;
     lv->tw->ngbiter(I, O, iter, lv);
 
+    int64_t ninteractions = 0;
     int inode;
     for(inode = 0; (lv->mode == 0 && inode < 1)|| (lv->mode == 1 && inode < NODELISTLENGTH && I->NodeList[inode] >= 0); inode++)
     {
@@ -1220,6 +1249,7 @@ int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
                     iter->other = other;
                     iter->r = sqrt(r2);
                     lv->tw->ngbiter(I, O, iter, lv);
+                    ninteractions++;
                 }
                 /* Move sideways*/
                 no = current->sibling;
@@ -1243,10 +1273,8 @@ int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
         }
     }
 
-    if(lv->mode == 1) {
-        lv->Nnodesinlist += inode;
-        lv->Nlist += 1;
-    }
+    treewalk_add_counters(lv, ninteractions, inode);
+
     return 0;
 }
 
@@ -1326,6 +1354,7 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
         MPI_Reduce(&tw->maxnumngb[0], &maxngb, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
         MPI_Reduce(&tw->minnumngb[0], &minngb, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
         message(0, "Max ngb=%g, min ngb=%g\n", maxngb, minngb);
+        treewalk_print_stats(tw);
 
         /*Shrink memory*/
         ReDoQueue = (int *) myrealloc(ReDoQueue, sizeof(int) * size);
@@ -1429,3 +1458,17 @@ ngb_narrow_down(double *right, double *left, const double *radius, const double 
     return hsml;
 }
 
+void
+treewalk_print_stats(const TreeWalk * tw)
+{
+    int64_t minNinteractions, maxNinteractions, Ninteractions, Nlistprimary, Nnodesinlist, Nlist;
+    MPI_Reduce(&tw->minNinteractions, &minNinteractions, 1, MPI_INT64, MPI_MIN, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tw->maxNinteractions, &maxNinteractions, 1, MPI_INT64, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tw->Ninteractions, &Ninteractions, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tw->Nlistprimary, &Nlistprimary, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tw->Nnodesinlist, &Nnodesinlist, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tw->Nlist, &Nlist, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    if(Nlist == 0)
+        Nlist ++;
+    message(0, "%s Ngblist: min %ld max %ld avg %g average exports: %g\n", tw->ev_label, minNinteractions, maxNinteractions, (double) Ninteractions / Nlistprimary, (double) Nnodesinlist/Nlist);
+}
