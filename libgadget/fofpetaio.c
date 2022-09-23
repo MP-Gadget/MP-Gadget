@@ -17,11 +17,11 @@
 #include "fof.h"
 #include "walltime.h"
 
-static void fof_register_io_blocks(int MetalReturnOn, int BlackHoleOn, struct IOTable * IOTable);
+static void fof_register_io_blocks(int MetalReturnOn, struct IOTable * IOTable);
 static void fof_write_header(BigFile * bf, int64_t TotNgroups, const double atime, const double * MassTable, Cosmology * CP, MPI_Comm Comm);
 static void build_buffer_fof(FOFGroups * fof, BigArray * array, IOTableEntry * ent, struct conversions * conv);
-
-static int fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, MPI_Comm Comm);
+/* Allocate a new halo structure and move particles there*/
+static int fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, int64_t NpigLocal, int64_t * atleast, MPI_Comm Comm);
 
 static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
     uint64_t * u = (uint64_t *) radix;
@@ -29,13 +29,11 @@ static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
     u[0] = f->GrNr;
 }
 
-void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, int SaveParticles, Cosmology * CP, double atime, const double * MassTable, int MetalReturnOn, int BlackholeOn, MPI_Comm Comm) {
+void fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmology * CP, DomainDecomp * ddecomp, double atime, const double * MassTable, int MetalReturnOn, MPI_Comm Comm) {
     int i;
     struct IOTable FOFIOTable = {0};
-    char * fname = fastpm_strdup_printf("%s/%s_%03d", OutputDir, FOFFileBase, num);
-    message(0, "Saving particle groups into %s\n", fname);
 
-    fof_register_io_blocks(MetalReturnOn, BlackholeOn, &FOFIOTable);
+    fof_register_io_blocks(MetalReturnOn, &FOFIOTable);
     /* sort the groups according to group-number */
     mpsort_mpi(fof->Group, fof->Ngroups, sizeof(struct Group),
             fof_radix_Group_GrNr, 8, NULL, Comm);
@@ -72,20 +70,51 @@ void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FO
     if(SaveParticles) {
         struct IOTable IOTable = {0};
         register_io_blocks(&IOTable, 1, MetalReturnOn);
-        struct part_manager_type halo_pman = {0};
-        struct slots_manager_type halo_sman = {0};
-        if(fof_distribute_particles(&halo_pman, &halo_sman, Comm)) {
-            myfree(halo_sman.Base);
-            myfree(halo_pman.Base);
+        struct part_manager_type * halo_pman = NULL;
+        struct slots_manager_type * halo_sman = NULL;
+        int64_t NpigLocal = 0;
+        int64_t atleast[6]={0};
+        /* Count how many particles we have: array reductions are an openmp 4.5 feature.*/
+    #if (defined _OPENMP) && (_OPENMP >= 201511)
+        #pragma omp parallel for reduction(+: NpigLocal, atleast)
+    #endif
+        for(i = 0; i < PartManager->NumPart; i ++) {
+            if(P[i].GrNr >= 0) {
+                NpigLocal++;
+                int type = P[i].Type;
+                /* How many of slot type?*/
+                if(type < 6 && type >= 0 && SlotsManager->info[type].enabled)
+                    atleast[type]++;
+            }
+        }
+
+        /* Find the fraction of particles in halos. If it is largeish,
+         * it is easiest to reuse the current particle table*/
+        int64_t NpigGlobal, NumPartGlobal;
+        MPI_Allreduce(&NpigLocal, &NpigGlobal, 1, MPI_INT64, MPI_SUM, Comm);
+        MPI_Allreduce(&PartManager->NumPart, &NumPartGlobal, 1, MPI_INT64, MPI_SUM, Comm);
+
+        if(NpigGlobal > 0.25 * NumPartGlobal) {
+            halo_pman = PartManager;
+            halo_sman = SlotsManager;
+            message(0, "Using old part\n");
+
+        }
+        else {
+            message(0, "Using new part\n");
+            halo_pman = alloca(sizeof(struct part_manager_type));
+            halo_sman = alloca(sizeof(struct slots_manager_type));
+        }
+        if(fof_distribute_particles(halo_pman, halo_sman, NpigLocal, atleast, Comm)) {
             destroy_io_blocks(&IOTable);
             return;
         }
 
-        int * selection = (int *) mymalloc("Selection", sizeof(int) * halo_pman.NumPart);
+        int * selection = (int *) mymalloc("Selection", sizeof(int) * halo_pman->NumPart);
 
         int ptype_offset[6]={0};
         int ptype_count[6]={0};
-        petaio_build_selection(selection, ptype_offset, ptype_count, halo_pman.Base, halo_pman.NumPart, NULL);
+        petaio_build_selection(selection, ptype_offset, ptype_count, halo_pman->Base, halo_pman->NumPart, NULL);
 
         walltime_measure("/FOF/IO/argind");
 
@@ -96,7 +125,7 @@ void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FO
             BigArray array = {0};
             if(ptype < 6 && ptype >= 0) {
                 sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
-                petaio_build_buffer(&array, &IOTable.ent[i], selection + ptype_offset[ptype], ptype_count[ptype], halo_pman.Base, &halo_sman, &conv);
+                petaio_build_buffer(&array, &IOTable.ent[i], selection + ptype_offset[ptype], ptype_count[ptype], halo_pman->Base, halo_sman, &conv);
 
                 message(0, "Writing Block %s\n", blockname);
 
@@ -105,8 +134,18 @@ void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FO
             }
         }
         myfree(selection);
-        myfree(halo_sman.Base);
-        myfree(halo_pman.Base);
+        /* If we allocated new particle arrays, just free them*/
+        if(halo_pman != PartManager) {
+            myfree(halo_sman->Base);
+            myfree(halo_pman->Base);
+        }
+        /* Otherwise we need to do a second exchange to get back to a sensible compact mass distribution*/
+        else {
+            domain_maintain(ddecomp, NULL);
+            /* Not strictly necessary, but a good idea for performance*/
+            slots_gc_sorted(PartManager, SlotsManager);
+        }
+
         walltime_measure("/FOF/IO/WriteParticles");
         destroy_io_blocks(&IOTable);
     }
@@ -178,14 +217,9 @@ order_by_type_and_grnr(const void *a, const void *b)
 static void
 fof_find_target_task(struct PartIndex * pi, int64_t pi_size, const uint64_t task_origin_offset, MPI_Comm Comm)
 {
+    int64_t i;
     int ThisTask;
     MPI_Comm_rank(Comm, &ThisTask);
-
-    int64_t i;
-    #pragma omp parallel for
-    for(i = 0; i < pi_size; i ++) {
-        pi[i].origin = task_origin_offset * ((uint64_t) ThisTask) + i;
-    }
 
     /* sort pi to decide targetTask */
     mpsort_mpi(pi, pi_size, sizeof(struct PartIndex),
@@ -219,7 +253,7 @@ fof_find_target_task(struct PartIndex * pi, int64_t pi_size, const uint64_t task
 }
 
 static void
-fof_copy_target_task(struct part_manager_type * halo_pman, struct PartIndex * pi, const uint64_t task_origin_offset)
+fof_copy_target_task(struct part_manager_type * halo_pman, struct PartIndex * pi, const int64_t pi_size, const uint64_t task_origin_offset, MPI_Comm Comm)
 {
     int64_t i = 0;
 #ifdef DEBUG
@@ -228,11 +262,19 @@ fof_copy_target_task(struct part_manager_type * halo_pman, struct PartIndex * pi
         halo_pman->Base[i].TargetTask = -1;
     }
 #endif
+    /* Ensure that particles outside groups do not move*/
+    int ThisTask;
+    MPI_Comm_rank(Comm, &ThisTask);
     #pragma omp parallel for
     for(i = 0; i < halo_pman->NumPart; i ++) {
+        if(halo_pman->Base[i].GrNr < 0)
+            halo_pman->Base[i].TargetTask = ThisTask;
+    }
+    #pragma omp parallel for
+    for(i = 0; i < pi_size; i ++) {
         size_t index = pi[i].origin % task_origin_offset;
         if(index >= (size_t) halo_pman->NumPart)
-            endrun(23, "entry %d has index %lu (npiglocal %d)\n", i, index, halo_pman->NumPart);
+            endrun(23, "entry %ld has index %lu (npiglocal %ld)\n", i, index, halo_pman->NumPart);
         halo_pman->Base[index].TargetTask = pi[i].targetTask;
     }
 
@@ -247,111 +289,117 @@ fof_copy_target_task(struct part_manager_type * halo_pman, struct PartIndex * pi
 }
 
 static int
-fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, MPI_Comm Comm)
+fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_manager_type * halo_sman, int64_t NpigLocal, int64_t * atleast, MPI_Comm Comm)
 {
-    int64_t i, NpigLocal = 0;
-    int64_t GrNrMax = -1;   /* will mark particles that are not in any group */
-    int64_t GrNrMaxGlobal = 0;
+    int64_t i;
+    int64_t GrNrMaxGlobal = 0, GrNrMax = -1;   /* will mark particles that are not in any group */
 
-    /* SlotsManager Needs initializing!*/
-    memcpy(halo_sman, SlotsManager, sizeof(struct slots_manager_type));
-
-    halo_sman->Base = NULL;
-    for(i = 0; i < 6; i ++) {
-        halo_sman->info[i].size = 0;
-        halo_sman->info[i].maxsize = 0;
-    }
-
-    int64_t atleast[6]={0};
-    /* Count how many particles we have: array reductions are an openmp 4.5 feature.*/
-#if (defined _OPENMP) && (_OPENMP >= 201511)
-    #pragma omp parallel for reduction(+: NpigLocal, atleast)
-#endif
-    for(i = 0; i < PartManager->NumPart; i ++) {
-        if(P[i].GrNr >= 0) {
-            NpigLocal++;
-            int type = P[i].Type;
-            /* How many of slot type?*/
-            if(type < 6 && type >= 0 && halo_sman->info[type].enabled)
-                atleast[type]++;
-        }
-    }
+    int ThisTask;
+    MPI_Comm_rank(Comm, &ThisTask);
+    const uint64_t task_origin_offset = PartManager->MaxPart + 1Lu;
 
     struct PartIndex * pi = (struct PartIndex *) mymalloc2("PartIndex", sizeof(struct PartIndex) * NpigLocal);
     /* Build the index: unfortunately not parallel*/
     NpigLocal = 0;
     for(i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].GrNr >= 0) {
-            pi[NpigLocal++].sortKey = PartManager->Base[i].GrNr;
+            pi[NpigLocal].sortKey = PartManager->Base[i].GrNr;
+            /* This should be the index of the current particle in the particle_data struct.
+             * If we are re-using the PartManager, we need it to be the index in P.
+             * If we have a new struct, we will do a copy. */
+            if(halo_pman == PartManager)
+                pi[NpigLocal].origin = task_origin_offset * ((uint64_t) ThisTask) + i;
+            else
+                pi[NpigLocal].origin = NpigLocal;
+            NpigLocal++;
+            if(P[i].GrNr > GrNrMax)
+                GrNrMax = P[i].GrNr;
         }
     }
+    MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT64, MPI_MAX, Comm);
+    message(0, "GrNrMax is %d\n", GrNrMaxGlobal);
 
-    const uint64_t task_origin_offset = PartManager->MaxPart + 1Lu;
     fof_find_target_task(pi, NpigLocal, task_origin_offset, Comm);
-
     const double FOFPartAllocFactor = (double) PartManager->MaxPart / PartManager->NumPart;
-    halo_pman->MaxPart = NpigLocal * FOFPartAllocFactor;
-    struct particle_data * halopart = (struct particle_data *) mymalloc("HaloParticle", sizeof(struct particle_data) * halo_pman->MaxPart);
-    halo_pman->Base = halopart;
-    halo_pman->NumPart = NpigLocal;
-    halo_pman->BoxSize = PartManager->BoxSize;
-    memcpy(halo_pman->CurrentParticleOffset, PartManager->CurrentParticleOffset, 3 * sizeof(PartManager->CurrentParticleOffset[0]));
+
+    /* Initialise the new halo structure*/
+    if(halo_pman != PartManager) {
+        halo_pman->MaxPart = NpigLocal * FOFPartAllocFactor;
+        struct particle_data * halopart = (struct particle_data *) mymalloc("HaloParticle", sizeof(struct particle_data) * halo_pman->MaxPart);
+        halo_pman->Base = halopart;
+        halo_pman->NumPart = NpigLocal;
+        halo_pman->BoxSize = PartManager->BoxSize;
+        memcpy(halo_pman->CurrentParticleOffset, PartManager->CurrentParticleOffset, 3 * sizeof(PartManager->CurrentParticleOffset[0]));
+    }
 
     /* Now copy the TargetTask we constructed in pi into the new halo_pman*/
-    fof_copy_target_task(halo_pman, pi, task_origin_offset);
+    fof_copy_target_task(halo_pman, pi, NpigLocal, task_origin_offset, Comm);
     /* Free pi so that we have space for slots*/
     myfree(pi);
 
-    /* We leave extra space in the hope that we can avoid compacting slots in the fof exchange*/
-    atleast[0] *= 1.05;
-    atleast[4]*= FOFPartAllocFactor;
-    atleast[5]*= FOFPartAllocFactor;
+    /* SlotsManager Needs initializing!*/
+    if(halo_sman != SlotsManager) {
+        /* We leave extra space in the hope that we can avoid compacting slots in the fof exchange*/
+        atleast[0] *= 1.05;
+        atleast[4]*= FOFPartAllocFactor;
+        atleast[5]*= FOFPartAllocFactor;
 
-    slots_reserve(0, atleast, halo_sman);
+        memcpy(halo_sman, SlotsManager, sizeof(struct slots_manager_type));
 
-    report_memory_usage("FOF_PetaIO");
-    NpigLocal = 0;
-
-    for(i = 0; i < PartManager->NumPart; i ++) {
-        if(P[i].GrNr < 0)
-            continue;
-        if(P[i].GrNr > GrNrMax)
-            GrNrMax = P[i].GrNr;
-        /* Store TargetTask as it will be over-written.
-         * We freed pi above so that we could overlap PI with the slots memory.*/
-        int TargetTask = halo_pman->Base[NpigLocal].TargetTask;
-        memcpy(&halo_pman->Base[NpigLocal], &P[i], sizeof(P[i]));
-        halo_pman->Base[NpigLocal].TargetTask = TargetTask;
-        struct slot_info * info = &(halo_sman->info[P[i].Type]);
-        char * oldslotptr = SlotsManager->info[P[i].Type].ptr;
-        if(info->enabled) {
-            memcpy(info->ptr + info->size * info->elsize, oldslotptr+P[i].PI * info->elsize, info->elsize);
-            halo_pman->Base[NpigLocal].PI = info->size;
-            info->size++;
+        halo_sman->Base = NULL;
+        for(i = 0; i < 6; i ++) {
+            halo_sman->info[i].size = 0;
+            halo_sman->info[i].maxsize = 0;
         }
-        NpigLocal ++;
+        slots_reserve(0, atleast, halo_sman);
+
+        report_memory_usage("FOF_PetaIO");
+        NpigLocal = 0;
+
+        for(i = 0; i < PartManager->NumPart; i ++) {
+            if(P[i].GrNr < 0)
+                continue;
+            /* Store TargetTask as it will be over-written.
+            * We freed pi above so that we could overlap PI with the slots memory.*/
+            int TargetTask = halo_pman->Base[NpigLocal].TargetTask;
+            memcpy(&halo_pman->Base[NpigLocal], &P[i], sizeof(P[i]));
+            halo_pman->Base[NpigLocal].TargetTask = TargetTask;
+            struct slot_info * info = &(halo_sman->info[P[i].Type]);
+            char * oldslotptr = SlotsManager->info[P[i].Type].ptr;
+            if(info->enabled) {
+                memcpy(info->ptr + info->size * info->elsize, oldslotptr+P[i].PI * info->elsize, info->elsize);
+                halo_pman->Base[NpigLocal].PI = info->size;
+                info->size++;
+            }
+            NpigLocal ++;
+        }
+        if(NpigLocal != halo_pman->NumPart)
+            endrun(3, "Error in NpigLocal %ld != %ld!\n", NpigLocal, halo_pman->NumPart);
     }
-    if(NpigLocal != halo_pman->NumPart)
-        endrun(3, "Error in NpigLocal %ld != %ld!\n", NpigLocal, halo_pman->NumPart);
-    MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, Comm);
-    message(0, "GrNrMax before exchange is %d\n", GrNrMaxGlobal);
 
     if(domain_exchange(fof_sorted_layout, halo_pman, 1, NULL, halo_pman, halo_sman, 10000, Comm)) {
-        message(1930, "Failed to exchange and write particles for the FOF. This is non-fatal, continuing\n");
+        message(1930, "Failed to exchange and write particles for the FOF. This is non-fatal, continuing.\n");
+        if(halo_pman != PartManager) {
+            myfree(halo_sman->Base);
+            myfree(halo_pman->Base);
+        }
         return 1;
     }
 
     /* Sort locally by group number*/
-    qsort_openmp(halopart, halo_pman->NumPart, sizeof(struct particle_data), order_by_type_and_grnr);
+    qsort_openmp(halo_pman->Base, halo_pman->NumPart, sizeof(struct particle_data), order_by_type_and_grnr);
+#ifdef DEBUG
     GrNrMax = -1;
+    int64_t GrNrMaxGlobalAfter = -1;
     #pragma omp parallel for reduction(max: GrNrMax)
     for(i = 0; i < halo_pman->NumPart; i ++) {
-        if(halopart[i].GrNr > GrNrMax)
-            GrNrMax = halopart[i].GrNr;
+        if(halo_pman->Base[i].GrNr > GrNrMax)
+            GrNrMax = halo_pman->Base[i].GrNr;
     }
-
-    MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, Comm);
-    message(0, "GrNrMax after exchange is %d\n", GrNrMaxGlobal);
+    MPI_Allreduce(&GrNrMax, &GrNrMaxGlobalAfter, 1, MPI_INT64, MPI_MAX, Comm);
+    if(GrNrMaxGlobalAfter != GrNrMaxGlobal)
+        endrun(2, "GrNrMax after exchange is %ld, before was %ld\n", GrNrMaxGlobalAfter, GrNrMaxGlobal);
+#endif
     return 0;
 }
 
@@ -490,7 +538,7 @@ SIMPLE_PROPERTY_FOF(BlackholeMass, BH_Mass, float, 1)
 SIMPLE_PROPERTY_FOF(BlackholeAccretionRate, BH_Mdot, float, 1)
 SIMPLE_PROPERTY_FOF(MassHeIonized, MassHeIonized, float, 1)
 
-static void fof_register_io_blocks(int MetalReturnOn, int BlackholeOn, struct IOTable * IOTable) {
+static void fof_register_io_blocks(int MetalReturnOn, struct IOTable * IOTable) {
     IOTable->used = 0;
     IOTable->allocated = 100;
     /* Allocate high so we can do a domain exchange,
@@ -518,8 +566,6 @@ static void fof_register_io_blocks(int MetalReturnOn, int BlackholeOn, struct IO
         IO_REG(StellarMetalElemMass, "f4", NMETALS, PTYPE_FOF_GROUP, IOTable);
     }
     /* Zero if black hole is not on*/
-    if(BlackholeOn) {
-        IO_REG(BlackholeMass, "f4", 1, PTYPE_FOF_GROUP, IOTable);
-        IO_REG(BlackholeAccretionRate, "f4", 1, PTYPE_FOF_GROUP, IOTable);
-    }
+    IO_REG(BlackholeMass, "f4", 1, PTYPE_FOF_GROUP, IOTable);
+    IO_REG(BlackholeAccretionRate, "f4", 1, PTYPE_FOF_GROUP, IOTable);
 }

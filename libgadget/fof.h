@@ -80,8 +80,9 @@ void fof_finish(FOFGroups * fof);
 void fof_seed(FOFGroups * fof, ActiveParticles * act, double atime, MPI_Comm Comm);
 
 /*Saves the Group structure to disc.*/
-void fof_save_groups(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, Cosmology * CP, double atime, const double * MassTable, int MetalReturnOn, int BlackholeOn, MPI_Comm Comm);
+void fof_save_groups(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, Cosmology * CP, DomainDecomp * ddecomp, double atime, const double * MassTable, int MetalReturnOn, MPI_Comm Comm);
+
 /* Does the actual saving of the particles*/
-void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, int SaveParticles, Cosmology * CP, double atime, const double * MassTable, int MetalReturnOn, int BlackholeOn, MPI_Comm Comm);
+void fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmology * CP, DomainDecomp * ddecomp, double atime, const double * MassTable, int MetalReturnOn, MPI_Comm Comm);
 
 #endif
