@@ -34,7 +34,7 @@ int fof_select_func(int i, const struct particle_data * Parts)
     return Parts[i].GrNr >= 0 && Parts[i].Swallowed == 0;
 }
 
-void fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmology * CP, DomainDecomp * ddecomp, double atime, const double * MassTable, int MetalReturnOn, MPI_Comm Comm) {
+int fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmology * CP, double atime, const double * MassTable, int MetalReturnOn, MPI_Comm Comm) {
     int i;
     struct IOTable FOFIOTable = {0};
 
@@ -72,6 +72,8 @@ void fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmol
     destroy_io_blocks(&FOFIOTable);
     walltime_measure("/FOF/IO/WriteFOF");
 
+    /* Store whether we need a new domain_maintain after we return*/
+    int domain_needed = 0;
     if(SaveParticles) {
         struct IOTable IOTable = {0};
         register_io_blocks(&IOTable, 1, MetalReturnOn);
@@ -103,6 +105,7 @@ void fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmol
             halo_pman = PartManager;
             halo_sman = SlotsManager;
             message(0, "Re-using partmanager for FOF: total pig %ld, global %ld\n", NpigGlobal, NumPartGlobal);
+            domain_needed = 1;
         }
         else {
             message(0, "Copying new partmanager for FOF: total pig %ld, global %ld\n", NpigGlobal, NumPartGlobal);
@@ -111,7 +114,7 @@ void fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmol
         }
         if(fof_distribute_particles(halo_pman, halo_sman, NpigLocal, atleast, Comm)) {
             destroy_io_blocks(&IOTable);
-            return;
+            return domain_needed;
         }
 
         int * selection = (int *) mymalloc("Selection", sizeof(int) * halo_pman->NumPart);
@@ -143,13 +146,6 @@ void fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmol
             myfree(halo_sman->Base);
             myfree(halo_pman->Base);
         }
-        /* Otherwise we need to do a second exchange to get back to a sensible compact mass distribution*/
-        else {
-            domain_maintain(ddecomp, NULL);
-            /* Not strictly necessary, but a good idea for performance*/
-            slots_gc_sorted(PartManager, SlotsManager);
-        }
-
         walltime_measure("/FOF/IO/WriteParticles");
         destroy_io_blocks(&IOTable);
     }
@@ -157,6 +153,7 @@ void fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmol
     big_file_mpi_close(&bf, Comm);
 
     message(0, "Group catalogues saved.\n");
+    return domain_needed;
 }
 
 struct PartIndex {

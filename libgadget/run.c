@@ -663,8 +663,14 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
         /* Save FOF tables after checkpoint so that if there is a FOF save bug we have particle tables available to debug it*/
         if(WriteFOF) {
-            fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, SnapshotFileCount, &All.CP, ddecomp, atime, header->MassTable, All.MetalReturnOn, MPI_COMM_WORLD);
+            int domain_needed = fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, SnapshotFileCount, &All.CP, atime, header->MassTable, All.MetalReturnOn, MPI_COMM_WORLD);
+            /* In case we need to do a second exchange to get back to a sensible compact mass distribution*/
             fof_finish(&fof);
+            if(domain_needed) {
+                domain_maintain(ddecomp, NULL);
+                /* Not strictly necessary, but a good idea for performance*/
+                slots_gc_sorted(PartManager, SlotsManager);
+            }
         }
 
 #ifdef DEBUG
@@ -778,7 +784,7 @@ runfof(const int RestartSnapNum, const inttime_t Ti_Current, const struct header
             myfree(GradRho);
     }
     FOFGroups fof = fof_fof(ddecomp, 1, MPI_COMM_WORLD);
-    fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, RestartSnapNum, &All.CP, ddecomp, header->TimeSnapshot, header->MassTable, All.MetalReturnOn, MPI_COMM_WORLD);
+    fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, RestartSnapNum, &All.CP, header->TimeSnapshot, header->MassTable, All.MetalReturnOn, MPI_COMM_WORLD);
     fof_finish(&fof);
 }
 
