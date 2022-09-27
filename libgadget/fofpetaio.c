@@ -29,6 +29,11 @@ static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
     u[0] = f->GrNr;
 }
 
+int fof_select_func(int i, const struct particle_data * Parts)
+{
+    return Parts[i].GrNr >= 0 && Parts[i].Swallowed == 0;
+}
+
 void fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmology * CP, DomainDecomp * ddecomp, double atime, const double * MassTable, int MetalReturnOn, MPI_Comm Comm) {
     int i;
     struct IOTable FOFIOTable = {0};
@@ -113,7 +118,7 @@ void fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmol
 
         int ptype_offset[6]={0};
         int ptype_count[6]={0};
-        petaio_build_selection(selection, ptype_offset, ptype_count, halo_pman->Base, halo_pman->NumPart, NULL);
+        petaio_build_selection(selection, ptype_offset, ptype_count, halo_pman->Base, halo_pman->NumPart, fof_select_func);
 
         walltime_measure("/FOF/IO/argind");
 
