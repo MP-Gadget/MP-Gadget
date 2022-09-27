@@ -924,7 +924,9 @@ add_particle_moment_to_node(struct NODE * pnode, int i)
     for(k=0; k<3; k++)
         pnode->mom.cofm[k] += (P[i].Mass * P[i].Pos[k]);
 
-    if(P[i].Type == 0)
+    /* We do not add active particles to the hmax here because we are building the tree in density().
+     * The active particles will have hsml updated anyway, often to a smaller value*/
+    if(P[i].Type == 0 && !is_timebin_active(P[i].TimeBinHydro, P[i].Ti_drift))
     {
         int j;
         /* Maximal distance any of the member particles peek out from the side of the node.
