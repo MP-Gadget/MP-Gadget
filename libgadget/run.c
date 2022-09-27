@@ -667,6 +667,11 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             /* In case we need to do a second exchange to get back to a sensible compact mass distribution*/
             fof_finish(&fof);
             if(domain_needed) {
+                /* Because this Peano sorts the particles, it should avoid a
+                 * single iteration of the domain exchange sending more particles
+                 * to one processor than there is room for.*/
+                slots_gc_sorted(PartManager, SlotsManager);
+                /* Do a domain exchange*/
                 domain_maintain(ddecomp, NULL);
                 /* Not strictly necessary, but a good idea for performance*/
                 slots_gc_sorted(PartManager, SlotsManager);
