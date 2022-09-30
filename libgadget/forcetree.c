@@ -924,11 +924,13 @@ add_particle_moment_to_node(struct NODE * pnode, int i)
     for(k=0; k<3; k++)
         pnode->mom.cofm[k] += (P[i].Mass * P[i].Pos[k]);
 
-    if(P[i].Type == 0)
+    /* We do not add active particles to the hmax here because we are building the tree in density().
+     * The active particles will have hsml updated anyway, often to a smaller value*/
+    if(P[i].Type == 0 && !is_timebin_active(P[i].TimeBinHydro, P[i].Ti_drift))
     {
         int j;
         /* Maximal distance any of the member particles peek out from the side of the node.
-         * May be at most hmax, as |Pos - Center| < len/2.*/
+         * May be at most hsml, as |Pos - Center| < len/2.*/
         for(j = 0; j < 3; j++) {
             pnode->mom.hmax = DMAX(pnode->mom.hmax, fabs(P[i].Pos[j] - pnode->center[j]) + P[i].Hsml - pnode->len/2.);
         }
@@ -1314,6 +1316,9 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
 
     tree->hmax_computed_flag = 1;
     walltime_measure("/SPH/HmaxUpdate");
+    int64_t totnumparticles;
+    MPI_Reduce(&tree->NumParticles, &totnumparticles, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    message(0, "Root hmax: %lg Tree Mean IPS: %lg\n", tree->Nodes[tree->firstnode].mom.hmax, tree->BoxSize / cbrt(totnumparticles));
 }
 
 /*! This function allocates the memory used for storage of the tree and of

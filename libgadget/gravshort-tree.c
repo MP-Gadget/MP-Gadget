@@ -156,6 +156,8 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFl
 
     walltime_add("/Tree/Misc", timeall - (timetree + timewait + timecomm));
 
+    treewalk_print_stats(tw);
+
     /* TreeUseBH > 1 means use the BH criterion on the initial timestep only,
      * avoiding the fully open O(N^2) case.*/
     if(TreeParams.TreeUseBH > 1)
@@ -277,7 +279,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     const double * inpos = input->base.Pos;
 
     /*Start the tree walk*/
-    int listindex;
+    int listindex, ninteractions;
 
     /* Primary treewalk only ever has one nodelist entry*/
     for(listindex = 0; listindex < NODELISTLENGTH && (lv->mode == 1 || listindex < 1); listindex++)
@@ -392,12 +394,8 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             /* Compute the acceleration and apply it to the output structure*/
             apply_accn_to_output(output, dx, r2, h, P[pp].Mass, cellsize);
         }
-        lv->Ninteractions += numcand;
+        ninteractions = numcand;
     }
-
-    if(lv->mode == 1) {
-        lv->Nnodesinlist += listindex;
-        lv->Nlist += 1;
-    }
+    treewalk_add_counters(lv, ninteractions, listindex);
     return 1;
 }

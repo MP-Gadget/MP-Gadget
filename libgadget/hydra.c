@@ -202,7 +202,7 @@ hydro_force(const ActiveParticles * act, const double atime, struct sph_pred_dat
     }
 
 
-    double timeall = 0, timenetwork = 0;
+    double timeall = 0;
     double timecomp, timecomm, timewait;
 
     walltime_measure("/SPH/Hydro/Init");
@@ -240,7 +240,9 @@ hydro_force(const ActiveParticles * act, const double atime, struct sph_pred_dat
     walltime_add("/SPH/Hydro/Compute", timecomp);
     walltime_add("/SPH/Hydro/Wait", timewait);
     walltime_add("/SPH/Hydro/Comm", timecomm);
-    walltime_add("/SPH/Hydro/Misc", timeall - (timecomp + timewait + timecomm + timenetwork));
+    walltime_add("/SPH/Hydro/Misc", timeall - (timecomp + timewait + timecomm));
+
+    treewalk_print_stats(tw);
 }
 
 static void
