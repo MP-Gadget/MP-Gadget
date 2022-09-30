@@ -79,9 +79,12 @@ void fof_finish(FOFGroups * fof);
  * The active particle struct is used only because we may need to reallocate it. */
 void fof_seed(FOFGroups * fof, ActiveParticles * act, double atime, MPI_Comm Comm);
 
-/*Saves the Group structure to disc.*/
-void fof_save_groups(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, Cosmology * CP, double atime, const double * MassTable, int MetalReturnOn, int BlackholeOn, MPI_Comm Comm);
-/* Does the actual saving of the particles*/
-void fof_save_particles(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, int SaveParticles, Cosmology * CP, double atime, const double * MassTable, int MetalReturnOn, int BlackholeOn, MPI_Comm Comm);
+/* Saves the Group structure to disc.
+ Returns 1 if a domain_exchange is needed afterwards.*/
+int fof_save_groups(FOFGroups * fof, const char * OutputDir, const char * FOFFileBase, int num, Cosmology * CP, double atime, const double * MassTable, int MetalReturnOn, MPI_Comm Comm);
+
+/* Does the actual saving of the particles
+ Returns 1 if a domain_exchange is needed afterwards.*/
+int fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmology * CP, double atime, const double * MassTable, int MetalReturnOn, MPI_Comm Comm);
 
 #endif

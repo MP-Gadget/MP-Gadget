@@ -199,7 +199,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
      * Garbage particles will be collected after the particles are exported, so do not need to count.*/
     int64_t needed = pman->NumPart + plan->toGetSum.base - plan->toGoSum.base  - plan->ngarbage;
     if(needed > pman->MaxPart)
-        message(1,"Too many particles for exchange: NumPart=%ld count_get = %d count_togo=%d garbage = %d MaxPart=%ld\n",
+        message(1,"Too many particles for exchange: NumPart=%ld count_get = %ld count_togo=%ld garbage = %ld MaxPart=%ld\n",
                 pman->NumPart, plan->toGetSum.base, plan->toGoSum.base, plan->ngarbage, pman->MaxPart);
     if(MPIU_Any(needed > pman->MaxPart, Comm)) {
         myfree(plan->layouts);

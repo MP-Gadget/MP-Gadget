@@ -11,7 +11,8 @@ struct particle_data
 {
     double Pos[3];   /*!< particle position at its current time */
     float Mass;     /*!< particle mass */
-
+    int PI; /* particle property index; used by BH, SPH and STAR.
+                        points to the corresponding structure in (SPH|BH|STAR)P array.*/
     struct {
         unsigned int IsGarbage            :1; /* True for a garbage particle. readonly: Use slots_mark_garbage to mark this.*/
         unsigned int Swallowed            :1; /* True if the particle is being swallowed; used in BH to determine swallower and swallowee;*/
@@ -31,16 +32,6 @@ struct particle_data
         /* To ensure alignment to a 32-bit boundary.*/
         unsigned char spare[3];
     };
-
-    int PI; /* particle property index; used by BH, SPH and STAR.
-                        points to the corresponding structure in (SPH|BH|STAR)P array.*/
-    inttime_t Ti_drift;       /*!< current time of the particle position. The same for all particles. */
-
-#ifdef DEBUG
-    /* Kick times for both hydro and grav*/
-    inttime_t Ti_kick_hydro;
-    inttime_t Ti_kick_grav;
-#endif
     MyIDType ID;
 
     MyFloat Vel[3];   /* particle velocity at its current time */
@@ -68,14 +59,7 @@ struct particle_data
      * This predicts Hsml during the current timestep in the way used in Gadget-4, more accurate
      * than the Gadget-2 prediction which could run away in deep timesteps. Used also
      * to limit timesteps by density change. */
-    union {
-        MyFloat DtHsml;
-        /* This is the destination task during the fof particle exchange.
-         * It is never used outside of that code, and the
-         * particles are copied into a new PartManager before setting it,
-         * so it is safe to union with DtHsml.*/
-        int TargetTask;
-    };
+    MyFloat DtHsml;
     MyFloat Hsml;
 
     /* These two are transient but hard to move
@@ -86,6 +70,17 @@ struct particle_data
     peano_t Key; /* only by domain.c and force_tree_rebuild */
     /* FOF Group number: only has meaning during FOF.*/
     int64_t GrNr;
+
+    inttime_t Ti_drift;       /*!< current time of the particle position. The same for all particles. */
+    /* This is the destination task during the fof particle exchange.
+     * It is never used outside of that code, but there are 3 other ints here
+     * so we can fit it in an unused part of the struct.*/
+    int TargetTask;
+#ifdef DEBUG
+    /* Kick times for both hydro and grav*/
+    inttime_t Ti_kick_hydro;
+    inttime_t Ti_kick_grav;
+#endif
 };
 
 extern struct part_manager_type {
