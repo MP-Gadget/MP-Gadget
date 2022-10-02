@@ -311,7 +311,7 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
             if(halo_pman == PartManager)
                 pi[NpigLocal].origin = task_origin_offset * ((uint64_t) ThisTask) + i;
             else
-                pi[NpigLocal].origin = NpigLocal;
+                pi[NpigLocal].origin = task_origin_offset * ((uint64_t) ThisTask) + NpigLocal;
             NpigLocal++;
             if(P[i].GrNr > GrNrMax)
                 GrNrMax = P[i].GrNr;
