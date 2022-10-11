@@ -3,6 +3,48 @@
 #include "utils/paramset.h"
 #include "forcetree.h"
 #include "physconst.h"
+#include "density.h"
+
+struct BHPriv {
+    /* Temporary array to store the IDs of the swallowing black hole for gas.
+     * We store ID + 1 so that SwallowID == 0 can correspond to the unswallowed case. */
+    MyIDType * SPH_SwallowID;
+    /* These are temporaries used in the accretion treewalk*/
+    MyFloat * MinPot;
+    MyFloat * BH_Entropy;
+    MyFloat (*BH_SurroundingGasVel)[3];
+
+    /*************************************************************************/
+
+    MyFloat (*BH_accreted_momentum)[3];
+
+    /* These are temporaries used in the feedback treewalk.*/
+    MyFloat * BH_accreted_Mass;
+    MyFloat * BH_accreted_BHMass;
+    MyFloat * BH_accreted_Mtrack;
+
+    /* This is a temporary computed in the accretion treewalk and used
+     * in the feedback treewalk*/
+    MyFloat * BH_FeedbackWeightSum;
+
+    /* temporary computed for kinetic feedback energy threshold*/
+    MyFloat * NumDM;
+    MyFloat * MgasEnc;
+    /* mark the state of AGN kinetic feedback, 1 accumulate, 2 release */
+    int * KEflag;
+
+    /* Time factors*/
+    double atime;
+    double a3inv;
+    double hubble;
+    struct UnitSystem units;
+    Cosmology * CP;
+    /* Counters*/
+    int64_t * N_sph_swallowed;
+    int64_t * N_BH_swallowed;
+    struct kick_factor_data * kf;
+};
+#define BH_GET_PRIV(tw) ((struct BHPriv *) (tw->priv))
 
 enum BlackHoleFeedbackMethod {
      BH_FEEDBACK_TOPHAT   = 0x2,
