@@ -279,7 +279,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     const double * inpos = input->base.Pos;
 
     /*Start the tree walk*/
-    int listindex, ninteractions;
+    int listindex, ninteractions=0;
 
     /* Primary treewalk only ever has one nodelist entry*/
     for(listindex = 0; listindex < NODELISTLENGTH && (lv->mode == 1 || listindex < 1); listindex++)
