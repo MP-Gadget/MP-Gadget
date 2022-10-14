@@ -22,7 +22,7 @@ Omega0 = 0.288      # Total matter density  (at z=0)
 HydroOn = 1
 CoolingOn = 1
 StarformationOn = 1
-StarformationCriterion = density
+StarformationCriterion = density,h2
 RadiationOn = 1
 DensityIndependentSphOn = 1
 MetalReturnOn = 1
@@ -39,6 +39,7 @@ PartAllocFactor = 2.0
 
 #----------------------BH Stuff-------------------------
 BlackHoleOn = 1
+BlackHoleKineticOn = 1 # switch to kinetic feedback mode when the BH accretion rate is low
 BlackHoleFeedbackMethod = spline | mass
 MinFoFMassForNewSeed = 1
 TimeBetweenSeedingSearch 1.03
@@ -47,8 +48,8 @@ TimeBetweenSeedingSearch 1.03
 CritPhysDensity = 0       #  critical physical density for star formation in
 #  hydrogen number density in cm^(-3)
 
-CritOverDensity = 0   #  overdensity threshold value
+CritOverDensity = 57.7   #  overdensity threshold value
 
-QuickLymanAlphaProbability = 0.001 # Set to 1.0 to turn dense gas directly into stars.
+QuickLymanAlphaProbability = 0 # Set to 1.0 to turn dense gas directly into stars.
 WindOn = 1
 WindModel = ofjt10,isotropic
