@@ -218,7 +218,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "BlackHoleMaxAccretionRadius", OPTIONAL, 99999., "NO EFFECT. Was maximum search radius for black holes.");
     param_declare_double(ps, "BlackHoleFeedbackFactor", OPTIONAL, 0.05, " Fraction of the black hole luminosity to turn into thermal energy");
     param_declare_double(ps, "BlackHoleFeedbackRadius", OPTIONAL, 0, "NO EFFECT. Was the comoving radius at which the black hole feedback energy was deposited. Did not affect accretion so had odd behaviour.");
-    param_declare_int(ps, "BlackHoleRepositionEnabled", OPTIONAL, 1, "Enables Black hole repositioning to the potential minimum.");
+    param_declare_int(ps, "BlackHoleRepositionEnabled", OPTIONAL, 0, "Enables Black hole repositioning to the potential minimum.");
 
     param_declare_int(ps, "BlackHoleKineticOn", OPTIONAL, 0, "Switch to AGN kinetic feedback when Eddington accretion is low.");
     param_declare_double(ps,"BHKE_EddingtonThrFactor",OPTIONAL, 0.05, "Threshold of the Eddington rate for the kinetic feedback");
@@ -229,13 +229,13 @@ create_gadget_parameter_set()
     param_declare_double(ps,"BHKE_EffCap",OPTIONAL, 0.05, "Factor2 for kinetic feedback efficiency, sets the maximum factor that converts accretion energy to kinetic feedback");
     param_declare_double(ps,"BHKE_InjEnergyThr",OPTIONAL, 5, "Factor for Minimum KineticFeedbackEnergy injection, controls the burstiness of kinetic feedback");
 
-    param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", OPTIONAL, 0, "If set, the physical radius at which the black hole feedback energy is deposited. When both this flag and BlackHoleFeedbackRadius are both set, the smaller radius is used.");
+    param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", OPTIONAL, 0, "Unused.");
     param_declare_int(ps,"WriteBlackHoleDetails",OPTIONAL, 0, "If set, output BH details at every time step.");
 
-    param_declare_int(ps,"BH_DynFrictionMethod",OPTIONAL, 0, "If set to non-zero, dynamical friction is applied through this method. Setting BH_DynFrictionMethod = 1, = 2, = 3 uses stars only (=1), dark matter + stars (=2), all mass (=3) to compute the DF force.");
+    param_declare_int(ps,"BH_DynFrictionMethod",OPTIONAL, 1, "If set to non-zero, dynamical friction is applied through this method. Setting BH_DynFrictionMethod = 1, = 2, = 3 uses stars only (=1), dark matter + stars (=2), all mass (=3) to compute the DF force.");
     param_declare_int(ps,"BH_DFBoostFactor",OPTIONAL, 1, "If set, dynamical friction is boosted by this factor.");
     param_declare_double(ps,"BH_DFbmax",OPTIONAL, 20, "Maximum impact range for dynamical friction. We use 20 pkpc as default value.");
-    param_declare_int(ps,"BH_DRAG",OPTIONAL, 0, "Add drag force to the BH dynamic");
+    param_declare_int(ps,"BH_DRAG",OPTIONAL, 1, "Add drag force to the BH dynamic");
     param_declare_int(ps,"MergeGravBound",OPTIONAL, 1, "If set to 1, apply gravitational bound criteria for merging event. This criteria would be automatically turned off if reposition is enabled.");
     param_declare_double(ps, "SeedBHDynMass", OPTIONAL, -1, "The initial dynamic mass of BH, default -1 will use the mass of gas particle. Larger Mdyn would help to stablize the BH in the early phase if turning off reposition.");
 

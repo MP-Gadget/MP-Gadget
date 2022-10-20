@@ -19,6 +19,9 @@
 #include "sfr_eff.h"
 #include "winds.h"
 #include "walltime.h"
+#include "bhinfo.h"
+#include "bhdynfric.h"
+
 /*! \file blackhole.c
  *  \brief routines for gas accretion onto black holes, and black hole mergers
  */
@@ -42,10 +45,6 @@ struct BlackholeParams
     double BHKE_SfrCritOverDensity; /*for KE efficiency calculation, borrow from sfr.params */
     /**********************************************************************/
     int MergeGravBound; /*if 1, apply gravitational bound criteria for BH mergers */
-
-    int BH_DynFrictionMethod;/*0 for off; 1 for Star Only; 2 for DM+Star; 3 for DM+Star+Gas */
-    int BH_DFBoostFactor; /*Optional boost factor for DF */
-    double BH_DFbmax; /* the maximum impact range, in physical unit of kpc. */
     int BH_DRAG; /*Hydro drag force*/
 
     double SeedBHDynMass; /* The initial dynamic mass of BH particle */
@@ -100,158 +99,6 @@ typedef struct {
 
 
 /*****************************************************************************/
-typedef struct {
-    TreeWalkQueryBase base;
-    MyFloat Hsml;
-} TreeWalkQueryBHDynfric;
-
-typedef struct {
-    TreeWalkResultBase base;
-
-    MyFloat SurroundingVel[3];
-    MyFloat SurroundingDensity;
-    int SurroundingParticles;
-    MyFloat SurroundingRmsVel;
-
-} TreeWalkResultBHDynfric;
-
-typedef struct {
-    TreeWalkNgbIterBase base;
-    DensityKernel dynfric_kernel;
-} TreeWalkNgbIterBHDynfric;
-
-/*****************************************************************************/
-
-
-typedef struct {
-    TreeWalkQueryBase base;
-    MyFloat Hsml;
-    MyFloat Mtrack;
-    MyFloat BH_Mass;
-    MyIDType ID;
-    MyFloat Density;
-    MyFloat FeedbackEnergy;
-    MyFloat FeedbackWeightSum;
-    MyFloat KEFeedbackEnergy;
-    int FdbkChannel; /* 0 thermal, 1 kinetic */
-} TreeWalkQueryBHFeedback;
-
-typedef struct {
-    TreeWalkResultBase base;
-    MyFloat Mass; /* the accreted Mdyn */
-    MyFloat AccretedMomentum[3];
-    MyFloat BH_Mass;
-    int BH_CountProgs;
-    MyFloat acMtrack; /* the accreted Mtrack */
-    int alignment; /* Ensure alignment*/
-} TreeWalkResultBHFeedback;
-
-typedef struct {
-    TreeWalkNgbIterBase base;
-    DensityKernel feedback_kernel;
-} TreeWalkNgbIterBHFeedback;
-
-struct BHPriv {
-    /* Temporary array to store the IDs of the swallowing black hole for gas.
-     * We store ID + 1 so that SwallowID == 0 can correspond to the unswallowed case. */
-    MyIDType * SPH_SwallowID;
-    /* These are temporaries used in the accretion treewalk*/
-    MyFloat * MinPot;
-    MyFloat * BH_Entropy;
-    MyFloat (*BH_SurroundingGasVel)[3];
-
-    /*************************************************************************/
-    /* used in the dynamic friction treewalk*/
-    MyFloat * BH_SurroundingDensity;
-    int * BH_SurroundingParticles;
-    MyFloat (*BH_SurroundingVel)[3];
-    MyFloat * BH_SurroundingRmsVel;
-
-    /*************************************************************************/
-
-    MyFloat (*BH_accreted_momentum)[3];
-
-    /* These are temporaries used in the feedback treewalk.*/
-    MyFloat * BH_accreted_Mass;
-    MyFloat * BH_accreted_BHMass;
-    MyFloat * BH_accreted_Mtrack;
-
-    /* This is a temporary computed in the accretion treewalk and used
-     * in the feedback treewalk*/
-    MyFloat * BH_FeedbackWeightSum;
-
-    /* temporary computed for kinetic feedback energy threshold*/
-    MyFloat * NumDM;
-    MyFloat * MgasEnc;
-    /* mark the state of AGN kinetic feedback, 1 accumulate, 2 release */
-    int * KEflag;
-
-    /* Time factors*/
-    double atime;
-    double a3inv;
-    double hubble;
-    struct UnitSystem units;
-    Cosmology * CP;
-    /* Counters*/
-    int64_t * N_sph_swallowed;
-    int64_t * N_BH_swallowed;
-    struct kick_factor_data kf;
-};
-#define BH_GET_PRIV(tw) ((struct BHPriv *) (tw->priv))
-
-/* Structure needs to be packed to ensure disc write is the same on all architectures and the record size is correct. */
-struct __attribute__((__packed__)) BHinfo{
-    /* Stores sizeof(struct BHinfo) - 2 * sizeof(size1) . Allows size of record to be stored in the struct.*/
-    int size1;
-    MyIDType ID;
-    MyFloat Mass;
-    MyFloat Mdot;
-    MyFloat Density;
-    int minTimeBin;
-    int encounter;
-
-    double  MinPotPos[3];
-    MyFloat MinPot;
-    MyFloat BH_Entropy;
-    MyFloat BH_SurroundingGasVel[3];
-    MyFloat BH_accreted_momentum[3];
-
-    MyFloat BH_accreted_Mass;
-    MyFloat BH_accreted_BHMass;
-    MyFloat BH_FeedbackWeightSum;
-
-    MyIDType SPH_SwallowID;
-    MyIDType SwallowID;
-
-    int CountProgs;
-    int Swallowed;
-
-    /****************************************/
-    double Pos[3];
-    MyFloat BH_SurroundingDensity;
-    MyFloat BH_SurroundingParticles;
-    MyFloat BH_SurroundingVel[3];
-    MyFloat BH_SurroundingRmsVel;
-
-    double BH_DFAccel[3];
-    double BH_DragAccel[3];
-    double BH_FullTreeGravAccel[3];
-    double Velocity[3];
-    double Mtrack;
-    double Mdyn;
-
-    double KineticFdbkEnergy;
-    double NumDM;
-    /* Kept for backwards compatibility, not written to*/
-    double V1sumDM[3];
-    double VDisp;
-    double MgasEnc;
-    int KEflag;
-
-    MyDouble a;
-    /* See size1 above*/
-    int size2;
-};
 
 /*Set the parameters of the BH module*/
 void set_blackhole_params(ParameterSet * ps)
@@ -261,7 +108,6 @@ void set_blackhole_params(ParameterSet * ps)
     if(ThisTask == 0) {
         blackhole_params.BlackHoleAccretionFactor = param_get_double(ps, "BlackHoleAccretionFactor");
         blackhole_params.BlackHoleEddingtonFactor = param_get_double(ps, "BlackHoleEddingtonFactor");
-
         blackhole_params.BlackHoleFeedbackFactor = param_get_double(ps, "BlackHoleFeedbackFactor");
 
         blackhole_params.BlackHoleFeedbackMethod = (enum BlackHoleFeedbackMethod) param_get_enum(ps, "BlackHoleFeedbackMethod");
@@ -277,12 +123,10 @@ void set_blackhole_params(ParameterSet * ps)
         blackhole_params.BHKE_InjEnergyThr = param_get_double(ps, "BHKE_InjEnergyThr");
         blackhole_params.BHKE_SfrCritOverDensity = param_get_double(ps, "CritOverDensity");
         /***********************************************************************************/
-        blackhole_params.BH_DynFrictionMethod = param_get_int(ps, "BH_DynFrictionMethod");
-        blackhole_params.BH_DFBoostFactor = param_get_int(ps, "BH_DFBoostFactor");
-        blackhole_params.BH_DFbmax = param_get_double(ps, "BH_DFbmax");
         blackhole_params.BH_DRAG = param_get_int(ps, "BH_DRAG");
         blackhole_params.MergeGravBound = param_get_int(ps, "MergeGravBound");
         blackhole_params.SeedBHDynMass = param_get_double(ps,"SeedBHDynMass");
+
 
         blackhole_params.SeedBlackHoleMass = param_get_double(ps, "SeedBlackHoleMass");
         blackhole_params.MaxSeedBlackHoleMass = param_get_double(ps,"MaxSeedBlackHoleMass");
@@ -290,6 +134,8 @@ void set_blackhole_params(ParameterSet * ps)
         /***********************************************************************************/
     }
     MPI_Bcast(&blackhole_params, sizeof(struct BlackholeParams), MPI_BYTE, 0, MPI_COMM_WORLD);
+
+    set_blackhole_dynfric_params(ps);
 }
 
 /* accretion routines */
@@ -312,51 +158,11 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         TreeWalkNgbIterBHAccretion * iter,
         LocalTreeWalk * lv);
 
-
+/* Do the black hole feedback tree walk. Tree needs to have gas and BH.*/
+static void
+blackhole_feedback(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, ForceTree * tree, struct BHPriv * priv);
 
 /*************************************************************************************/
-/* DF routines */
-static void
-blackhole_dynfric_postprocess(int n, TreeWalk * tw);
-
-static int
-blackhole_dynfric_haswork(int n, TreeWalk * tw);
-
-static void
-blackhole_dynfric_reduce(int place, TreeWalkResultBHDynfric * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
-
-static void
-blackhole_dynfric_copy(int place, TreeWalkQueryBHDynfric * I, TreeWalk * tw);
-
-static void
-blackhole_dynfric_ngbiter(TreeWalkQueryBHDynfric * I,
-        TreeWalkResultBHDynfric * O,
-        TreeWalkNgbIterBHDynfric * iter,
-        LocalTreeWalk * lv);
-
-/*************************************************************************************/
-
-
-
-/* feedback routines */
-
-static void
-blackhole_feedback_postprocess(int n, TreeWalk * tw);
-
-static int
-blackhole_feedback_haswork(int n, TreeWalk * tw);
-
-static void
-blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
-
-static void
-blackhole_feedback_copy(int place, TreeWalkQueryBHFeedback * I, TreeWalk * tw);
-
-static void
-blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
-        TreeWalkResultBHFeedback * O,
-        TreeWalkNgbIterBHFeedback * iter,
-        LocalTreeWalk * lv);
 
 #define BHPOTVALUEINIT 1.0e29
 
@@ -367,31 +173,6 @@ static double blackhole_soundspeed(double entropy, double rho, const double atim
     cs *= pow(atime, -1.5 * GAMMA_MINUS1);
 
     return cs;
-}
-
-/* Adds the injected black hole energy to an internal energy and caps it at a maximum temperature*/
-static double
-add_injected_BH_energy(double unew, double injected_BH_energy, double mass, double uu_in_cgs)
-{
-    unew += injected_BH_energy / mass;
-    const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1 * uu_in_cgs;
-    /* Cap temperature*/
-    if(unew > 5.0e8 / u_to_temp_fac)
-        unew = 5.0e8 / u_to_temp_fac;
-
-    return unew;
-}
-
-static int
-get_random_dir(int i, double dir[3])
-{
-    double theta = acos(2 * get_random_number(P[i].ID + 3) - 1);
-    double phi = 2 * M_PI * get_random_number(P[i].ID + 4);
-
-    dir[0] = sin(theta) * cos(phi);
-    dir[1] = sin(theta) * sin(phi);
-    dir[2] = cos(theta);
-    return 0;
 }
 
 /* check if two BHs are gravitationally bounded, input dv, da, dx in code unit */
@@ -417,101 +198,37 @@ check_grav_bound(double dx[3], double dv[3], double da[3], const double atime)
     return (PE + KE <= 0);
 }
 
-
-
-static void
-collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *priv, FILE * FdBlackholeDetails)
-{
-    int i;
-
-    struct BHinfo * infos = (struct BHinfo *) mymalloc("BHDetailCache", NumActiveBlackHoles * sizeof(struct BHinfo));
-    report_memory_usage("BLACKHOLE");
-
-    const int size = sizeof(struct BHinfo) - sizeof(infos[0].size1) - sizeof(infos[0].size2);
-
-    #pragma omp parallel for
-    for(i = 0; i < NumActiveBlackHoles; i++)
-    {
-        const int p_i = ActiveBlackHoles ? ActiveBlackHoles[i] : i;
-        if(p_i < 0 || p_i > PartManager->NumPart)
-            endrun(1, "Bad index %d in black hole with %d active, %ld total\n", p_i, NumActiveBlackHoles, PartManager->NumPart);
-        if(P[p_i].Type != 5)
-            endrun(1, "Supposed BH %d of %d has type %d\n", p_i, NumActiveBlackHoles, P[p_i].Type);
-        int PI = P[p_i].PI;
-
-        struct BHinfo *info = &infos[i];
-        info->size1 = size;
-        info->size2 = size;
-        info->ID = P[p_i].ID;
-        info->Mass = BHP(p_i).Mass;
-        info->Mdot = BHP(p_i).Mdot;
-        info->Density = BHP(p_i).Density;
-        info->minTimeBin = BHP(p_i).minTimeBin;
-        info->encounter = BHP(p_i).encounter;
-
-        if(priv->MinPot) {
-            info->MinPot = priv->MinPot[PI];
-        }
-        info->BH_Entropy = priv->BH_Entropy[PI];
-        int k;
-        for(k=0; k < 3; k++) {
-            info->MinPotPos[k] = BHP(p_i).MinPotPos[k] - PartManager->CurrentParticleOffset[k];
-            info->BH_SurroundingGasVel[k] = priv->BH_SurroundingGasVel[PI][k];
-            info->BH_accreted_momentum[k] = priv->BH_accreted_momentum[PI][k];
-            info->BH_DragAccel[k] = BHP(p_i).DragAccel[k];
-            info->BH_FullTreeGravAccel[k] = P[p_i].FullTreeGravAccel[k];
-            info->Pos[k] = P[p_i].Pos[k] - PartManager->CurrentParticleOffset[k];
-            info->Velocity[k] = P[p_i].Vel[k];
-            info->BH_DFAccel[k] = BHP(p_i).DFAccel[k];
-        }
-
-        /****************************************************************************/
-        /* Output some DF info for debugging */
-        info->BH_SurroundingDensity = priv->BH_SurroundingDensity[PI];
-        info->BH_SurroundingRmsVel = priv->BH_SurroundingRmsVel[PI];
-        info->BH_SurroundingParticles = priv->BH_SurroundingParticles[PI];
-        info->BH_SurroundingVel[0] = priv->BH_SurroundingVel[PI][0];
-        info->BH_SurroundingVel[1] = priv->BH_SurroundingVel[PI][1];
-        info->BH_SurroundingVel[2] = priv->BH_SurroundingVel[PI][2];
-
-        /****************************************************************************/
-        info->BH_accreted_BHMass = priv->BH_accreted_BHMass[PI];
-        info->BH_accreted_Mass = priv->BH_accreted_Mass[PI];
-        info->BH_FeedbackWeightSum = priv->BH_FeedbackWeightSum[PI];
-
-        info->SPH_SwallowID = priv->SPH_SwallowID[PI];
-        info->SwallowID =  BHP(p_i).SwallowID;
-        info->CountProgs = BHP(p_i).CountProgs;
-        info->Swallowed =  P[p_i].Swallowed;
-        /************************************************************************************************/
-        /* When SeedBHDynMass is larger than gas particle mass, we have three mass tracer of blackhole. */
-        /* BHP(p_i).Mass : intrinsic mass of BH, accreted every (active) time step.                     */
-        /* P[p_i].Mass :  Dynamic mass of BH, used for gravitational interaction.                       */
-        /*                Starts to accrete gas particle when BHP(p_i).Mass > SeedBHDynMass             */
-        /* BHP(p_i).Mtrack: Initialized as gas particle mass, and is capped at SeedBHDynMass,           */
-        /*                 it traces BHP(p_i).Mass by swallowing gas when BHP(p_i).Mass < SeedBHDynMass */
-        /************************************************************************************************/
-        info->Mtrack = BHP(p_i).Mtrack;
-        info->Mdyn = P[p_i].Mass;
-
-        info->KineticFdbkEnergy = BHP(p_i).KineticFdbkEnergy;
-        info->NumDM = priv->NumDM[PI];
-        info->VDisp = BHP(p_i).VDisp;
-        info->MgasEnc = priv->MgasEnc[PI];
-        info->KEflag = priv->KEflag[PI];
-
-        info->a = priv->atime;
-    }
-
-    fwrite(infos,sizeof(struct BHinfo),NumActiveBlackHoles,FdBlackholeDetails);
-    fflush(FdBlackholeDetails);
-    myfree(infos);
-    int64_t totalN;
-
-    sumup_large_ints(1, &NumActiveBlackHoles, &totalN);
-    message(0, "Written details of %ld blackholes in %lu bytes each.\n", totalN, sizeof(struct BHinfo));
+/*******************************************************************/
+static int
+blackhole_haswork(int n, TreeWalk * tw){
+    /*Black hole not being swallowed*/
+    return (P[n].Type == 5) && (!P[n].Swallowed);
 }
 
+/* Build a list of active black holes, done once and reused for all the later treewalks.*/
+int
+blackholes_active(const ActiveParticles * act, int ** ActiveBlackHoles, int64_t * NumActiveBlackHoles)
+{
+    TreeWalk tw_bh[1] = {{0}};
+    tw_bh->haswork = blackhole_haswork;
+
+    /* Build the queue once, since it is really 'all black holes' and similar for all treewalks.*/
+    treewalk_build_queue(tw_bh, act->ActiveParticle, act->NumActiveParticle, 0);
+    /* If this queue is empty, nothing to do.*/
+    int64_t totbh;
+    MPI_Allreduce(&tw_bh->WorkSetSize, &totbh, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+
+    /* Now we have a BH queue and we can re-use it. Create a new variable so that
+     * treewalk_run does not mess with the pointer. */
+    /* Move the working set high so we can keep the tree we build after making the list and still free this active set.*/
+    *NumActiveBlackHoles = tw_bh->WorkSetSize;
+    if(totbh > 0) {
+        *ActiveBlackHoles = mymalloc2("activeBH", tw_bh->WorkSetSize * sizeof(int));
+        memcpy(*ActiveBlackHoles, tw_bh->WorkSet, tw_bh->WorkSetSize * sizeof(int));
+    }
+    myfree(tw_bh->WorkSet);
+    return totbh;
+}
 
 void
 blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree * tree, DomainDecomp * ddecomp, DriftKickTimes * times, const struct UnitSystem units, FILE * FdBlackHoles, FILE * FdBlackholeDetails)
@@ -521,89 +238,15 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     MPI_Allreduce(&SlotsManager->info[5].size, &totbh, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     if(totbh == 0)
         return;
-    int i;
 
     walltime_measure("/Misc");
-    struct BHPriv priv[1] = {0};
-    priv->units = units;
-
-    /*************************************************************************/
-    TreeWalk tw_dynfric[1] = {{0}};
-    tw_dynfric->ev_label = "BH_DYNFRIC";
-    tw_dynfric->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
-    tw_dynfric->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHDynfric);
-    tw_dynfric->ngbiter = (TreeWalkNgbIterFunction) blackhole_dynfric_ngbiter;
-    tw_dynfric->haswork = blackhole_dynfric_haswork;
-    tw_dynfric->postprocess = (TreeWalkProcessFunction) blackhole_dynfric_postprocess;
-    tw_dynfric->fill = (TreeWalkFillQueryFunction) blackhole_dynfric_copy;
-    tw_dynfric->reduce = (TreeWalkReduceResultFunction) blackhole_dynfric_reduce;
-    tw_dynfric->query_type_elsize = sizeof(TreeWalkQueryBHDynfric);
-    tw_dynfric->result_type_elsize = sizeof(TreeWalkResultBHDynfric);
-    tw_dynfric->tree = tree;
-    tw_dynfric->priv = priv;
-
-    /*************************************************************************/
-    TreeWalk tw_accretion[1] = {{0}};
-
-    tw_accretion->ev_label = "BH_ACCRETION";
-    tw_accretion->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
-    tw_accretion->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHAccretion);
-    tw_accretion->ngbiter = (TreeWalkNgbIterFunction) blackhole_accretion_ngbiter;
-    tw_accretion->haswork = blackhole_dynfric_haswork;
-    tw_accretion->postprocess = (TreeWalkProcessFunction) blackhole_accretion_postprocess;
-    tw_accretion->preprocess = (TreeWalkProcessFunction) blackhole_accretion_preprocess;
-    tw_accretion->fill = (TreeWalkFillQueryFunction) blackhole_accretion_copy;
-    tw_accretion->reduce = (TreeWalkReduceResultFunction) blackhole_accretion_reduce;
-    tw_accretion->query_type_elsize = sizeof(TreeWalkQueryBHAccretion);
-    tw_accretion->result_type_elsize = sizeof(TreeWalkResultBHAccretion);
-    tw_accretion->tree = tree;
-    tw_accretion->priv = priv;
-
-    /*************************************************************************/
-
-    TreeWalk tw_feedback[1] = {{0}};
-    tw_feedback->ev_label = "BH_FEEDBACK";
-    tw_feedback->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
-    tw_feedback->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHFeedback);
-    tw_feedback->ngbiter = (TreeWalkNgbIterFunction) blackhole_feedback_ngbiter;
-    tw_feedback->haswork = blackhole_feedback_haswork;
-    tw_feedback->fill = (TreeWalkFillQueryFunction) blackhole_feedback_copy;
-    tw_feedback->postprocess = (TreeWalkProcessFunction) blackhole_feedback_postprocess;
-    tw_feedback->reduce = (TreeWalkReduceResultFunction) blackhole_feedback_reduce;
-    tw_feedback->query_type_elsize = sizeof(TreeWalkQueryBHFeedback);
-    tw_feedback->result_type_elsize = sizeof(TreeWalkResultBHFeedback);
-    tw_feedback->tree = tree;
-    tw_feedback->priv = priv;
-    tw_feedback->repeatdisallowed = 1;
-
-    priv->atime = atime;
-    priv->a3inv = 1./(atime * atime * atime);
-    priv->hubble = hubble_function(CP, atime);
-    priv->CP = CP;
-
-    init_kick_factor_data(&priv->kf, times, CP);
     /* Build the queue once, since it is really 'all black holes' and similar for all treewalks.*/
-    treewalk_build_queue(tw_dynfric, act->ActiveParticle, act->NumActiveParticle, 0);
-    /* Now we have a BH queue and we can re-use it. Create a new variable so that
-     * treewalk_run does not mess with the pointer. */
-    int * ActiveBlackHoles = tw_dynfric->WorkSet;
-    int64_t NumActiveBlackHoles = tw_dynfric->WorkSetSize;
-    /* If this queue is empty, nothing to do.*/
-    MPI_Allreduce(&NumActiveBlackHoles, &totbh, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    int * ActiveBlackHoles = NULL;
+    int64_t NumActiveBlackHoles = 0;
+    totbh = blackholes_active(act, &ActiveBlackHoles, &NumActiveBlackHoles);
     if(totbh == 0) {
-        myfree(ActiveBlackHoles);
         return;
     }
-
-    /* Move the working set high so we can keep the tree we build after making the list and still free this active set.*/
-    ActiveBlackHoles = mymalloc2("activeBH", NumActiveBlackHoles * sizeof(int));
-    memcpy(ActiveBlackHoles, tw_dynfric->WorkSet, NumActiveBlackHoles * sizeof(int));
-    myfree(tw_dynfric->WorkSet);
-    tw_dynfric->WorkSet = ActiveBlackHoles;
-
-    /* We can re-use the current queue for these treewalks*/
-    tw_accretion->haswork = NULL;
-    tw_dynfric->haswork = NULL;
 
     /* Types used in treewalks:
      * dynamical friction uses: stars, DM if BH_DynFrictionMethod > 1 gas if BH_DynFrictionMethod  == 3.
@@ -616,29 +259,34 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     if(!tree->tree_allocated_flag)
     {
         message(0, "Building tree in blackhole\n");
-        int treemask = GASMASK | STARMASK | BHMASK;
-        /* Don't necessarily need dark matter */
-        if(blackhole_params.BH_DynFrictionMethod > 1)
-            treemask += DMMASK;
+        int treemask = blackhole_dynfric_treemask();
+        treemask += GASMASK | BHMASK;
         force_tree_rebuild_mask(tree, ddecomp, treemask, NULL);
         walltime_measure("/BH/Build");
     }
 
+    struct kick_factor_data kf;
+    init_kick_factor_data(&kf, times, CP);
+
     /*************************************************************************/
     /*  Dynamical Friction Treewalk */
+    /*************************************************************************/
+    struct BHDynFricPriv dynpriv[1];
+    dynpriv->atime = atime;
+    dynpriv->CP = CP;
+    dynpriv->kf = &kf;
+    blackhole_dynfric(ActiveBlackHoles, NumActiveBlackHoles, tree, dynpriv);
+    walltime_measure("/BH/DynFric");
 
-    /* Environment variables for DF */
-    priv->BH_SurroundingRmsVel = (MyFloat *) mymalloc("BH_SurroundingRmsVel", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingRmsVel));
-    priv->BH_SurroundingVel = (MyFloat (*) [3]) mymalloc("BH_SurroundingVel", 3* SlotsManager->info[5].size * sizeof(priv->BH_SurroundingVel[0]));
-    priv->BH_SurroundingParticles = (int *)mymalloc("BH_SurroundingParticles", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingParticles));
-    priv->BH_SurroundingDensity = (MyFloat *) mymalloc("BH_SurroundingDensity", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingDensity));
-    /* guard treewalk */
-    if (blackhole_params.BH_DynFrictionMethod > 0)
-        treewalk_run(tw_dynfric, ActiveBlackHoles, NumActiveBlackHoles);
+    struct BHPriv priv[1] = {0};
+    priv->units = units;
 
     /*************************************************************************/
-
-    walltime_measure("/BH/DynFric");
+    priv->atime = atime;
+    priv->a3inv = 1./(atime * atime * atime);
+    priv->hubble = hubble_function(CP, atime);
+    priv->CP = CP;
+    priv->kf = &kf;
 
     /* Let's determine which particles may be swallowed and calculate total feedback weights */
     priv->SPH_SwallowID = (MyIDType *) mymalloc("SPH_SwallowID", SlotsManager->info[0].size * sizeof(MyIDType));
@@ -660,36 +308,43 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     /* mark the state of AGN kinetic feedback */
     priv->KEflag = mymalloc("KEflag", SlotsManager->info[5].size * sizeof(int));
 
-    /* This allocates memory*/
+    walltime_measure("/BH/Init");
+
+    /*************************************************************************/
+    TreeWalk tw_accretion[1] = {{0}};
+
+    tw_accretion->ev_label = "BH_ACCRETION";
+    tw_accretion->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
+    tw_accretion->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHAccretion);
+    tw_accretion->ngbiter = (TreeWalkNgbIterFunction) blackhole_accretion_ngbiter;
+    tw_accretion->haswork = NULL;
+    tw_accretion->postprocess = (TreeWalkProcessFunction) blackhole_accretion_postprocess;
+    tw_accretion->preprocess = (TreeWalkProcessFunction) blackhole_accretion_preprocess;
+    tw_accretion->fill = (TreeWalkFillQueryFunction) blackhole_accretion_copy;
+    tw_accretion->reduce = (TreeWalkReduceResultFunction) blackhole_accretion_reduce;
+    tw_accretion->query_type_elsize = sizeof(TreeWalkQueryBHAccretion);
+    tw_accretion->result_type_elsize = sizeof(TreeWalkResultBHAccretion);
+    tw_accretion->tree = tree;
+    tw_accretion->priv = priv;
+
     treewalk_run(tw_accretion, ActiveBlackHoles, NumActiveBlackHoles);
 
     /*************************************************************************/
 
     walltime_measure("/BH/Accretion");
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    /* Now do the swallowing of particles and dump feedback energy */
-
-    /* Ionization counters*/
-    priv[0].N_sph_swallowed = ta_malloc("n_sph_swallowed", int64_t, omp_get_max_threads());
-    priv[0].N_BH_swallowed = ta_malloc("n_BH_swallowed", int64_t, omp_get_max_threads());
-    memset(priv[0].N_sph_swallowed, 0, sizeof(int64_t) * omp_get_max_threads());
-    memset(priv[0].N_BH_swallowed, 0, sizeof(int64_t) * omp_get_max_threads());
 
     priv->BH_accreted_Mass = (MyFloat *) mymalloc("BH_accretedmass", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_accreted_BHMass = (MyFloat *) mymalloc("BH_accreted_BHMass", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_accreted_Mtrack = (MyFloat *) mymalloc("BH_accreted_Mtrack", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_accreted_momentum = (MyFloat (*) [3]) mymalloc("BH_accretemom", 3* SlotsManager->info[5].size * sizeof(priv->BH_accreted_momentum[0]));
 
-    treewalk_run(tw_feedback, ActiveBlackHoles, NumActiveBlackHoles);
+    /* Now do the swallowing of particles and dump feedback energy */
+    blackhole_feedback(ActiveBlackHoles, NumActiveBlackHoles, tree, priv);
 
-    /*************************************************************************/
     walltime_measure("/BH/Feedback");
 
-    MPI_Barrier(MPI_COMM_WORLD);
-
     if(FdBlackholeDetails){
-        collect_BH_info(ActiveBlackHoles, NumActiveBlackHoles, priv, FdBlackholeDetails);
+        collect_BH_info(ActiveBlackHoles, NumActiveBlackHoles, priv, dynpriv, FdBlackholeDetails);
     }
 
     myfree(priv->BH_accreted_momentum);
@@ -709,231 +364,13 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     myfree(priv->BH_FeedbackWeightSum);
     myfree(priv->SPH_SwallowID);
 
-    /*****************************************************************/
-    myfree(priv->BH_SurroundingDensity);
-    myfree(priv->BH_SurroundingParticles);
-    myfree(priv->BH_SurroundingVel);
-    myfree(priv->BH_SurroundingRmsVel);
+    blackhole_dynpriv_free(dynpriv);
 
-    /*****************************************************************/
     myfree(ActiveBlackHoles);
 
-    int64_t Ntot_gas_swallowed, Ntot_BH_swallowed;
-    int64_t N_sph_swallowed = 0, N_BH_swallowed = 0;
-    for(i = 0; i < omp_get_max_threads(); i++) {
-        N_sph_swallowed += priv[0].N_sph_swallowed[i];
-        N_BH_swallowed += priv[0].N_BH_swallowed[i];
-    }
-    ta_free(priv[0].N_BH_swallowed);
-    ta_free(priv[0].N_sph_swallowed);
-
-    MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&N_BH_swallowed, &Ntot_BH_swallowed, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
-
-    MPIU_Barrier(MPI_COMM_WORLD);
-    message(0, "Accretion done: %d gas particles swallowed, %d BH particles swallowed\n",
-                Ntot_gas_swallowed, Ntot_BH_swallowed);
-
-    int total_bh;
-    double total_mdoteddington;
-    double total_mass_holes, total_mdot;
-
-    double Local_BH_mass = 0;
-    double Local_BH_Mdot = 0;
-    double Local_BH_Medd = 0;
-    int Local_BH_num = 0;
-    /* Compute total mass of black holes
-     * present by summing contents of black hole array*/
-    #pragma omp parallel for reduction(+ : Local_BH_num) reduction(+: Local_BH_mass) reduction(+: Local_BH_Mdot) reduction(+: Local_BH_Medd)
-    for(i = 0; i < SlotsManager->info[5].size; i ++)
-    {
-        if(BhP[i].SwallowID != (MyIDType) -1)
-            continue;
-        Local_BH_num++;
-        Local_BH_mass += BhP[i].Mass;
-        Local_BH_Mdot += BhP[i].Mdot;
-        Local_BH_Medd += BhP[i].Mdot/BhP[i].Mass;
-    }
-
-    MPI_Reduce(&Local_BH_mass, &total_mass_holes, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&Local_BH_Mdot, &total_mdot, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&Local_BH_Medd, &total_mdoteddington, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&Local_BH_num, &total_bh, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-
-    if(FdBlackHoles)
-    {
-        /* convert to solar masses per yr */
-        double mdot_in_msun_per_year =
-            total_mdot * (units.UnitMass_in_g / SOLAR_MASS) / (units.UnitTime_in_s / SEC_PER_YEAR);
-
-        total_mdoteddington *= 1.0 / ((4 * M_PI * GRAVITY * LIGHTCGS * PROTONMASS /
-                    (0.1 * LIGHTCGS * LIGHTCGS * THOMPSON)) * units.UnitTime_in_s);
-
-        fprintf(FdBlackHoles, "%g %d %g %g %g %g\n",
-                atime, total_bh, total_mass_holes, total_mdot, mdot_in_msun_per_year, total_mdoteddington);
-        fflush(FdBlackHoles);
-    }
+    write_blackhole_txt(FdBlackHoles, units, atime);
     walltime_measure("/BH/Info");
 }
-
-
-/*************************************************************************************/
-/* DF routines */
-static void
-blackhole_dynfric_postprocess(int n, TreeWalk * tw){
-
-    int PI = P[n].PI;
-    int j;
-
-    /***********************************************************************************/
-    /* This is Gizmo's implementation of dynamic friction                              */
-    /* c.f. section 3.1 in http://www.tapir.caltech.edu/~phopkins/public/notes_blackholes.pdf */
-    /* Compute dynamic friction accel when DF turned on                                */
-    /* averaged value for colomb logarithm and integral over the distribution function */
-    /* acc_friction = -4*pi*G^2 * Mbh * log(lambda) * rho * f_of_x * bhvel / |bhvel^3| */
-    /*       f_of_x = [erf(x) - 2*x*exp(-x^2)/sqrt(pi)]                                */
-    /*       lambda = b_max * v^2 / G / (M+m)                                          */
-    /*        b_max = Size of system (e.g. Rvir)                                       */
-    /*            v = Relative velocity of BH with respect to the environment          */
-    /*            M = Mass of BH                                                       */
-    /*            m = individual mass elements composing the large system (e.g. m<<M)  */
-    /*            x = v/sqrt(2)/sigma                                                  */
-    /*        sigma = width of the max. distr. of the host system                      */
-    /*                (e.g. sigma = v_disp / 3                                         */
-
-    if(BH_GET_PRIV(tw)->BH_SurroundingDensity[PI] > 0){
-        double bhvel;
-        double lambda, x, f_of_x;
-        const double a_erf = 8 * (M_PI - 3) / (3 * M_PI * (4. - M_PI));
-
-        /* normalize velocity/dispersion */
-        BH_GET_PRIV(tw)->BH_SurroundingRmsVel[PI] /= BH_GET_PRIV(tw)->BH_SurroundingDensity[PI];
-        BH_GET_PRIV(tw)->BH_SurroundingRmsVel[PI] = sqrt(BH_GET_PRIV(tw)->BH_SurroundingRmsVel[PI]);
-        for(j = 0; j < 3; j++)
-            BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j] /= BH_GET_PRIV(tw)->BH_SurroundingDensity[PI];
-
-        /* Calculate Coulumb Logarithm */
-        bhvel = 0;
-        for(j = 0; j < 3; j++)
-        {
-            bhvel += pow(P[n].Vel[j] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j], 2);
-        }
-        bhvel = sqrt(bhvel);
-
-        /* There is no parameter in physical unit, so I kept everything in code unit */
-
-        x = bhvel / sqrt(2) / (BH_GET_PRIV(tw)->BH_SurroundingRmsVel[PI] / 3);
-        /* First term is aproximation of the error function */
-        f_of_x = x / fabs(x) * sqrt(1 - exp(-x * x * (4 / M_PI + a_erf * x * x)
-            / (1 + a_erf * x * x))) - 2 * x / sqrt(M_PI) * exp(-x * x);
-        /* Floor at zero */
-        if (f_of_x < 0)
-            f_of_x = 0;
-
-        lambda = 1. + blackhole_params.BH_DFbmax * pow((bhvel/BH_GET_PRIV(tw)->atime),2) / BH_GET_PRIV(tw)->CP->GravInternal / P[n].Mass;
-
-        for(j = 0; j < 3; j++)
-        {
-            /* prevent DFAccel from exploding */
-            if(bhvel > 0){
-                BHP(n).DFAccel[j] = - 4. * M_PI * BH_GET_PRIV(tw)->CP->GravInternal * BH_GET_PRIV(tw)->CP->GravInternal * P[n].Mass * BH_GET_PRIV(tw)->BH_SurroundingDensity[PI] *
-                log(lambda) * f_of_x * (P[n].Vel[j] - BH_GET_PRIV(tw)->BH_SurroundingVel[PI][j]) / pow(bhvel, 3);
-                BHP(n).DFAccel[j] *= BH_GET_PRIV(tw)->atime;  // convert to code unit of acceleration
-                BHP(n).DFAccel[j] *= blackhole_params.BH_DFBoostFactor; // Add a boost factor
-            }
-            else{
-                BHP(n).DFAccel[j] = 0;
-            }
-        }
-#ifdef DEBUG
-        message(2,"x=%e, log(lambda)=%e, fof_x=%e, Mbh=%e, ratio=%e \n",
-           x,log(lambda),f_of_x,P[n].Mass,BHP(n).DFAccel[0]/P[n].FullTreeGravAccel[0]);
-#endif
-    }
-    else
-    {
-        message(2, "Dynamic Friction density is zero for BH %ld. Surroundingpart %d, mass %g, hsml %g, dens %g, pos %g %g %g.\n",
-            P[n].ID, BH_GET_PRIV(tw)->BH_SurroundingParticles[PI], BHP(n).Mass, P[n].Hsml, BHP(n).Density, P[n].Pos[0], P[n].Pos[1], P[n].Pos[2]);
-        for(j = 0; j < 3; j++)
-        {
-            BHP(n).DFAccel[j] = 0;
-        }
-    }
-}
-
-/*******************************************************************/
-static int
-blackhole_dynfric_haswork(int n, TreeWalk * tw){
-    /*Black hole not being swallowed*/
-    return (P[n].Type == 5) && (!P[n].Swallowed);
-}
-
-static void
-blackhole_dynfric_reduce(int place, TreeWalkResultBHDynfric * remote, enum TreeWalkReduceMode mode, TreeWalk * tw){
-    int PI = P[place].PI;
-
-    TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingDensity[PI], remote->SurroundingDensity);
-    TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingParticles[PI], remote->SurroundingParticles);
-    TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingVel[PI][0], remote->SurroundingVel[0]);
-    TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingVel[PI][1], remote->SurroundingVel[1]);
-    TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingVel[PI][2], remote->SurroundingVel[2]);
-    TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingRmsVel[PI], remote->SurroundingRmsVel);
-
-}
-
-static void
-blackhole_dynfric_copy(int place, TreeWalkQueryBHDynfric * I, TreeWalk * tw){
-    /* SPH kernel width should be the only thing needed */
-    I->Hsml = P[place].Hsml;
-}
-
-
-static void
-blackhole_dynfric_ngbiter(TreeWalkQueryBHDynfric * I,
-        TreeWalkResultBHDynfric * O,
-        TreeWalkNgbIterBHDynfric * iter,
-        LocalTreeWalk * lv){
-
-   if(iter->base.other == -1) {
-        iter->base.mask = GASMASK + STARMASK + BHMASK;
-        if (blackhole_params.BH_DynFrictionMethod > 1 )
-            iter->base.mask += DMMASK;
-        iter->base.Hsml = I->Hsml;
-        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
-        density_kernel_init(&iter->dynfric_kernel, I->Hsml, GetDensityKernelType());
-        return;
-    }
-
-    int other = iter->base.other;
-    double r = iter->base.r;
-    double r2 = iter->base.r2;
-
-    /* Collect Star/+DM/+Gas density/velocity for DF computation */
-    if(P[other].Type == 4 || (P[other].Type == 1 && blackhole_params.BH_DynFrictionMethod > 1) ||
-        (P[other].Type == 0 && blackhole_params.BH_DynFrictionMethod == 3) ){
-        if(r2 < iter->dynfric_kernel.HH) {
-            double u = r * iter->dynfric_kernel.Hinv;
-            double wk = density_kernel_wk(&iter->dynfric_kernel, u);
-            float mass_j = P[other].Mass;
-            int k;
-            O->SurroundingParticles += 1;
-            O->SurroundingDensity += (mass_j * wk);
-            MyFloat VelPred[3];
-            if(P[other].Type == 0)
-                SPH_VelPred(other, VelPred, &BH_GET_PRIV(lv->tw)->kf);
-            else {
-                DM_VelPred(other, VelPred, &BH_GET_PRIV(lv->tw)->kf);
-            }
-            for (k = 0; k < 3; k++){
-                O->SurroundingVel[k] += (mass_j * wk * VelPred[k]);
-                O->SurroundingRmsVel += (mass_j * wk * pow(VelPred[k], 2));
-            }
-        }
-    }
-}
-
-/*************************************************************************************/
-
 
 static void
 blackhole_accretion_postprocess(int i, TreeWalk * tw)
@@ -1051,40 +488,6 @@ blackhole_accretion_preprocess(int n, TreeWalk * tw)
 }
 
 static void
-blackhole_feedback_postprocess(int n, TreeWalk * tw)
-{
-    const int PI = P[n].PI;
-    if(BH_GET_PRIV(tw)->BH_accreted_BHMass[PI] > 0){
-       BHP(n).Mass += BH_GET_PRIV(tw)->BH_accreted_BHMass[PI];
-    }
-    if(BH_GET_PRIV(tw)->BH_accreted_Mass[PI] > 0)
-    {
-        /* velocity feedback due to accretion; momentum conservation.
-         * This does nothing with repositioning on.*/
-        const MyFloat accmass = BH_GET_PRIV(tw)->BH_accreted_Mass[PI];
-        int k;
-        /* Need to add the momentum from Mtrack as well*/
-        for(k = 0; k < 3; k++)
-            P[n].Vel[k] = (P[n].Vel[k] * P[n].Mass + BH_GET_PRIV(tw)->BH_accreted_momentum[PI][k]) /
-                    (P[n].Mass + accmass + BH_GET_PRIV(tw)->BH_accreted_Mtrack[PI]);
-        P[n].Mass += accmass;
-    }
-
-    if(blackhole_params.SeedBHDynMass>0){
-        if(BH_GET_PRIV(tw)->BH_accreted_Mtrack[PI] > 0){
-            BHP(n).Mtrack += BH_GET_PRIV(tw)->BH_accreted_Mtrack[PI];
-        }
-        if(BHP(n).Mtrack > blackhole_params.SeedBHDynMass){
-            BHP(n).Mtrack = blackhole_params.SeedBHDynMass; /*cap Mtrack at SeedBHDynMass*/
-        }
-    }
-    /* Reset KineticFdbkEnerg to 0 after released */
-    if(BH_GET_PRIV(tw)->KEflag[PI] == 2){
-        BHP(n).KineticFdbkEnergy = 0;
-    }
-}
-
-static void
 blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         TreeWalkResultBHAccretion * O,
         TreeWalkNgbIterBHAccretion * iter,
@@ -1161,7 +564,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             double da[3];
             int d;
             MyFloat VelPred[3];
-            DM_VelPred(other, VelPred, &BH_GET_PRIV(lv->tw)->kf);
+            DM_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->kf);
             for(d = 0; d < 3; d++){
                 dx[d] = NEAREST(I->base.Pos[d] - P[other].Pos[d], PartManager->BoxSize);
                 dv[d] = I->Vel[d] - VelPred[d];
@@ -1211,7 +614,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
             O->SmoothedEntropy += (mass_j * wk * SPHP(other).Entropy);
             MyFloat VelPred[3];
-            SPH_VelPred(other, VelPred, &BH_GET_PRIV(lv->tw)->kf);
+            SPH_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->kf);
             O->GasVel[0] += (mass_j * wk * VelPred[0]);
             O->GasVel[1] += (mass_j * wk * VelPred[1]);
             O->GasVel[2] += (mass_j * wk * VelPred[2]);
@@ -1289,6 +692,108 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         }
 }
 
+static void
+blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
+{
+    int k;
+    MyFloat * MinPot = BH_GET_PRIV(tw)->MinPot;
+
+    int PI = P[place].PI;
+    if(MinPot[PI] > remote->BH_MinPot)
+    {
+        BHP(place).JumpToMinPot = blackhole_params.BlackHoleRepositionEnabled;
+        MinPot[PI] = remote->BH_MinPot;
+        for(k = 0; k < 3; k++) {
+            /* Movement occurs in drift.c */
+            BHP(place).MinPotPos[k] = remote->BH_MinPotPos[k];
+            BHP(place).MinPotVel[k] = remote->BH_MinPotVel[k];
+        }
+    }
+
+    BHP(place).encounter = remote->encounter;
+
+    if (mode == 0 || BHP(place).minTimeBin > remote->BH_minTimeBin) {
+        BHP(place).minTimeBin = remote->BH_minTimeBin;
+    }
+
+    TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_FeedbackWeightSum[PI], remote->FeedbackWeightSum);
+    TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_Entropy[PI], remote->SmoothedEntropy);
+    for (k = 0; k < 3; k++){
+        TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][k], remote->GasVel[k]);
+    }
+    TREEWALK_REDUCE(BH_GET_PRIV(tw)->NumDM[PI], remote->NumDM);
+    TREEWALK_REDUCE(BH_GET_PRIV(tw)->MgasEnc[PI], remote->MgasEnc);
+}
+
+static void
+blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I, TreeWalk * tw)
+{
+    int k;
+    for(k = 0; k < 3; k++)
+    {
+        I->Vel[k] = P[place].Vel[k];
+        I->Accel[k] = P[place].FullTreeGravAccel[k] + P[place].GravPM[k] + BHP(place).DFAccel[k];
+    }
+    I->Hsml = P[place].Hsml;
+    I->Mass = P[place].Mass;
+    I->BH_Mass = BHP(place).Mass;
+    I->Density = BHP(place).Density;
+    I->ID = P[place].ID;
+    I->Mtrack = BHP(place).Mtrack;
+}
+
+typedef struct {
+    TreeWalkQueryBase base;
+    MyFloat Hsml;
+    MyFloat Mtrack;
+    MyFloat BH_Mass;
+    MyIDType ID;
+    MyFloat Density;
+    MyFloat FeedbackEnergy;
+    MyFloat FeedbackWeightSum;
+    MyFloat KEFeedbackEnergy;
+    int FdbkChannel; /* 0 thermal, 1 kinetic */
+} TreeWalkQueryBHFeedback;
+
+typedef struct {
+    TreeWalkResultBase base;
+    MyFloat Mass; /* the accreted Mdyn */
+    MyFloat AccretedMomentum[3];
+    MyFloat BH_Mass;
+    int BH_CountProgs;
+    MyFloat acMtrack; /* the accreted Mtrack */
+    int alignment; /* Ensure alignment*/
+} TreeWalkResultBHFeedback;
+
+typedef struct {
+    TreeWalkNgbIterBase base;
+    DensityKernel feedback_kernel;
+} TreeWalkNgbIterBHFeedback;
+
+/* Adds the injected black hole energy to an internal energy and caps it at a maximum temperature*/
+static double
+add_injected_BH_energy(double unew, double injected_BH_energy, double mass, double uu_in_cgs)
+{
+    unew += injected_BH_energy / mass;
+    const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1 * uu_in_cgs;
+    /* Cap temperature*/
+    if(unew > 5.0e8 / u_to_temp_fac)
+        unew = 5.0e8 / u_to_temp_fac;
+
+    return unew;
+}
+
+static int
+get_random_dir(int i, double dir[3])
+{
+    double theta = acos(2 * get_random_number(P[i].ID + 3) - 1);
+    double phi = 2 * M_PI * get_random_number(P[i].ID + 4);
+
+    dir[0] = sin(theta) * cos(phi);
+    dir[1] = sin(theta) * sin(phi);
+    dir[2] = cos(theta);
+    return 0;
+}
 
 /**
  * perform blackhole swallow / merger;
@@ -1371,7 +876,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             O->Mass += P[other].Mass;
         }
         MyFloat VelPred[3];
-        DM_VelPred(other, VelPred, &BH_GET_PRIV(lv->tw)->kf);
+        DM_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->kf);
         /* Conserve momentum during accretion*/
         int d;
         for(d = 0; d < 3; d++)
@@ -1460,7 +965,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             O->Mass += P[other].Mass;
         P[other].Mass = 0;
         MyFloat VelPred[3];
-        SPH_VelPred(other, VelPred, &BH_GET_PRIV(lv->tw)->kf);
+        SPH_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->kf);
         /* Conserve momentum during accretion*/
         int d;
         for(d = 0; d < 3; d++)
@@ -1472,57 +977,6 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         BH_GET_PRIV(lv->tw)->N_sph_swallowed[tid]++;
     }
 }
-
-static void
-blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
-{
-    int k;
-    MyFloat * MinPot = BH_GET_PRIV(tw)->MinPot;
-
-    int PI = P[place].PI;
-    if(MinPot[PI] > remote->BH_MinPot)
-    {
-        BHP(place).JumpToMinPot = blackhole_params.BlackHoleRepositionEnabled;
-        MinPot[PI] = remote->BH_MinPot;
-        for(k = 0; k < 3; k++) {
-            /* Movement occurs in drift.c */
-            BHP(place).MinPotPos[k] = remote->BH_MinPotPos[k];
-            BHP(place).MinPotVel[k] = remote->BH_MinPotVel[k];
-        }
-    }
-
-    BHP(place).encounter = remote->encounter;
-
-    if (mode == 0 || BHP(place).minTimeBin > remote->BH_minTimeBin) {
-        BHP(place).minTimeBin = remote->BH_minTimeBin;
-    }
-
-    TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_FeedbackWeightSum[PI], remote->FeedbackWeightSum);
-    TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_Entropy[PI], remote->SmoothedEntropy);
-    for (k = 0; k < 3; k++){
-        TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][k], remote->GasVel[k]);
-    }
-    TREEWALK_REDUCE(BH_GET_PRIV(tw)->NumDM[PI], remote->NumDM);
-    TREEWALK_REDUCE(BH_GET_PRIV(tw)->MgasEnc[PI], remote->MgasEnc);
-}
-
-static void
-blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I, TreeWalk * tw)
-{
-    int k;
-    for(k = 0; k < 3; k++)
-    {
-        I->Vel[k] = P[place].Vel[k];
-        I->Accel[k] = P[place].FullTreeGravAccel[k] + P[place].GravPM[k] + BHP(place).DFAccel[k];
-    }
-    I->Hsml = P[place].Hsml;
-    I->Mass = P[place].Mass;
-    I->BH_Mass = BHP(place).Mass;
-    I->Density = BHP(place).Density;
-    I->ID = P[place].ID;
-    I->Mtrack = BHP(place).Mtrack;
-}
-
 static int
 blackhole_feedback_haswork(int n, TreeWalk * tw)
 {
@@ -1571,6 +1025,88 @@ blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum Tre
     }
 
     TREEWALK_REDUCE(BHP(place).CountProgs, remote->BH_CountProgs);
+}
+
+static void
+blackhole_feedback_postprocess(int n, TreeWalk * tw)
+{
+    const int PI = P[n].PI;
+    if(BH_GET_PRIV(tw)->BH_accreted_BHMass[PI] > 0){
+       BHP(n).Mass += BH_GET_PRIV(tw)->BH_accreted_BHMass[PI];
+    }
+    if(BH_GET_PRIV(tw)->BH_accreted_Mass[PI] > 0)
+    {
+        /* velocity feedback due to accretion; momentum conservation.
+         * This does nothing with repositioning on.*/
+        const MyFloat accmass = BH_GET_PRIV(tw)->BH_accreted_Mass[PI];
+        int k;
+        /* Need to add the momentum from Mtrack as well*/
+        for(k = 0; k < 3; k++)
+            P[n].Vel[k] = (P[n].Vel[k] * P[n].Mass + BH_GET_PRIV(tw)->BH_accreted_momentum[PI][k]) /
+                    (P[n].Mass + accmass + BH_GET_PRIV(tw)->BH_accreted_Mtrack[PI]);
+        P[n].Mass += accmass;
+    }
+
+    if(blackhole_params.SeedBHDynMass>0){
+        if(BH_GET_PRIV(tw)->BH_accreted_Mtrack[PI] > 0){
+            BHP(n).Mtrack += BH_GET_PRIV(tw)->BH_accreted_Mtrack[PI];
+        }
+        if(BHP(n).Mtrack > blackhole_params.SeedBHDynMass){
+            BHP(n).Mtrack = blackhole_params.SeedBHDynMass; /*cap Mtrack at SeedBHDynMass*/
+        }
+    }
+    /* Reset KineticFdbkEnerg to 0 after released */
+    if(BH_GET_PRIV(tw)->KEflag[PI] == 2){
+        BHP(n).KineticFdbkEnergy = 0;
+    }
+}
+
+/* Do the black hole feedback tree walk. Tree needs to have gas and BH.*/
+static void
+blackhole_feedback(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, ForceTree * tree, struct BHPriv * priv)
+{
+    if(!(tree->mask & GASMASK) || !(tree->mask & BHMASK))
+        endrun(5, "Error: BH tree types GAS: %d BH %d\n", tree->mask & GASMASK, tree->mask & BHMASK);
+
+    TreeWalk tw_feedback[1] = {{0}};
+    tw_feedback->ev_label = "BH_FEEDBACK";
+    tw_feedback->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
+    tw_feedback->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHFeedback);
+    tw_feedback->ngbiter = (TreeWalkNgbIterFunction) blackhole_feedback_ngbiter;
+    tw_feedback->haswork = blackhole_feedback_haswork;
+    tw_feedback->fill = (TreeWalkFillQueryFunction) blackhole_feedback_copy;
+    tw_feedback->postprocess = (TreeWalkProcessFunction) blackhole_feedback_postprocess;
+    tw_feedback->reduce = (TreeWalkReduceResultFunction) blackhole_feedback_reduce;
+    tw_feedback->query_type_elsize = sizeof(TreeWalkQueryBHFeedback);
+    tw_feedback->result_type_elsize = sizeof(TreeWalkResultBHFeedback);
+    tw_feedback->tree = tree;
+    tw_feedback->priv = priv;
+    tw_feedback->repeatdisallowed = 1;
+
+    /* Ionization counters*/
+    priv[0].N_sph_swallowed = ta_malloc("n_sph_swallowed", int64_t, omp_get_max_threads());
+    priv[0].N_BH_swallowed = ta_malloc("n_BH_swallowed", int64_t, omp_get_max_threads());
+    memset(priv[0].N_sph_swallowed, 0, sizeof(int64_t) * omp_get_max_threads());
+    memset(priv[0].N_BH_swallowed, 0, sizeof(int64_t) * omp_get_max_threads());
+
+    treewalk_run(tw_feedback, ActiveBlackHoles, NumActiveBlackHoles);
+
+    int i;
+    int64_t Ntot_gas_swallowed, Ntot_BH_swallowed;
+    int64_t N_sph_swallowed = 0, N_BH_swallowed = 0;
+    for(i = 0; i < omp_get_max_threads(); i++) {
+        N_sph_swallowed += priv[0].N_sph_swallowed[i];
+        N_BH_swallowed += priv[0].N_BH_swallowed[i];
+    }
+    ta_free(priv[0].N_BH_swallowed);
+    ta_free(priv[0].N_sph_swallowed);
+
+    MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&N_BH_swallowed, &Ntot_BH_swallowed, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+
+    MPIU_Barrier(MPI_COMM_WORLD);
+    message(0, "Accretion done: %d gas particles swallowed, %d BH particles swallowed\n",
+                Ntot_gas_swallowed, Ntot_BH_swallowed);
 }
 
 /* Sample from a power law to get the initial BH mass*/
@@ -1639,147 +1175,4 @@ void blackhole_make_one(int index, const double atime) {
     /* Initialize KineticFdbkEnergy, keep zero if BlackHoleKineticOn is not turned on */
     BHP(child).KineticFdbkEnergy = 0;
     BHP(child).VDisp = 0;
-}
-
-
-/* Computes the BH velocity dispersion for kinetic feedback*/
-
-struct BHVelDispPriv {
-    /* temporary computed for kinetic feedback energy threshold*/
-    MyFloat * NumDM;
-    MyFloat (*V1sumDM)[3];
-    MyFloat * V2sumDM;
-    /* Time factors*/
-    struct kick_factor_data * kf;
-};
-#define BHVDISP_GET_PRIV(tw) ((struct BHVelDispPriv *) (tw->priv))
-
-typedef struct {
-    TreeWalkQueryBase base;
-    MyFloat Hsml;
-    MyFloat Vel[3];
-} TreeWalkQueryBHVelDisp;
-
-typedef struct {
-    TreeWalkResultBase base;
-    /* used for AGN kinetic feedback */
-    MyFloat V2sumDM;
-    MyFloat V1sumDM[3];
-    MyFloat NumDM;
-} TreeWalkResultBHVelDisp;
-
-typedef struct {
-    TreeWalkNgbIterBase base;
-    DensityKernel feedback_kernel;
-} TreeWalkNgbIterBHVelDisp;
-
-static void
-blackhole_veldisp_postprocess(int i, TreeWalk * tw)
-{
-    int PI = P[i].PI;
-    /*************************************************************************/
-    /* decide whether to release KineticFdbkEnergy*/
-    double vdisp = 0;
-    double numdm = BHVDISP_GET_PRIV(tw)->NumDM[PI];
-    if (numdm>0){
-        vdisp = BHVDISP_GET_PRIV(tw)->V2sumDM[PI]/numdm;
-        int d;
-        for(d = 0; d<3; d++){
-            vdisp -= pow(BHVDISP_GET_PRIV(tw)->V1sumDM[PI][d]/numdm,2);
-        }
-        if(vdisp > 0)
-            BHP(i).VDisp = sqrt(vdisp / 3);
-    }
-}
-
-static void
-blackhole_veldisp_ngbiter(TreeWalkQueryBHVelDisp * I,
-        TreeWalkResultBHVelDisp * O,
-        TreeWalkNgbIterBHVelDisp * iter,
-        LocalTreeWalk * lv)
-{
-    if(iter->base.other == -1) {
-        iter->base.mask = DMMASK;
-        iter->base.Hsml = I->Hsml;
-        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
-        density_kernel_init(&iter->feedback_kernel, I->Hsml, GetDensityKernelType());
-        return;
-    }
-
-    int other = iter->base.other;
-    double r2 = iter->base.r2;
-
-    /* collect info for sigmaDM and Menc for kinetic feedback */
-    if(P[other].Type == 1 && r2 < iter->feedback_kernel.HH){
-        O->NumDM += 1;
-        MyFloat VelPred[3];
-        DM_VelPred(other, VelPred, BHVDISP_GET_PRIV(lv->tw)->kf);
-        int d;
-        for(d = 0; d < 3; d++){
-            double vel = VelPred[d] - I->Vel[d];
-            O->V1sumDM[d] += vel;
-            O->V2sumDM += vel * vel;
-        }
-    }
-}
-
-static void
-blackhole_veldisp_reduce(int place, TreeWalkResultBHVelDisp * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
-{
-    int k;
-
-    int PI = P[place].PI;
-    for (k = 0; k < 3; k++){
-        TREEWALK_REDUCE(BHVDISP_GET_PRIV(tw)->V1sumDM[PI][k], remote->V1sumDM[k]);
-    }
-    TREEWALK_REDUCE(BHVDISP_GET_PRIV(tw)->NumDM[PI], remote->NumDM);
-    TREEWALK_REDUCE(BHVDISP_GET_PRIV(tw)->V2sumDM[PI], remote->V2sumDM);
-}
-
-static void
-blackhole_veldisp_copy(int place, TreeWalkQueryBHVelDisp * I, TreeWalk * tw)
-{
-    int k;
-    for(k = 0; k < 3; k++)
-        I->Vel[k] = P[place].Vel[k];
-    I->Hsml = P[place].Hsml;
-}
-
-void
-blackhole_veldisp(const ActiveParticles * act, Cosmology * CP, ForceTree * tree, struct kick_factor_data * kf)
-{
-    struct BHVelDispPriv priv[1] = {0};
-
-    TreeWalk tw_veldisp[1] = {{0}};
-    tw_veldisp->ev_label = "BH_VDISP";
-    tw_veldisp->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
-    tw_veldisp->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHVelDisp);
-    tw_veldisp->ngbiter = (TreeWalkNgbIterFunction) blackhole_veldisp_ngbiter;
-    tw_veldisp->haswork = blackhole_dynfric_haswork;
-    tw_veldisp->postprocess = (TreeWalkProcessFunction) blackhole_veldisp_postprocess;
-    tw_veldisp->fill = (TreeWalkFillQueryFunction) blackhole_veldisp_copy;
-    tw_veldisp->reduce = (TreeWalkReduceResultFunction) blackhole_veldisp_reduce;
-    tw_veldisp->query_type_elsize = sizeof(TreeWalkQueryBHVelDisp);
-    tw_veldisp->result_type_elsize = sizeof(TreeWalkResultBHVelDisp);
-    tw_veldisp->tree = tree;
-    tw_veldisp->priv = priv;
-
-    /* This treewalk uses only DM */
-    if(!tree->tree_allocated_flag)
-        endrun(0, "DM Tree not allocated for veldisp\n");
-
-    /* For AGN kinetic feedback */
-    priv->NumDM = mymalloc("NumDM", SlotsManager->info[5].size * sizeof(MyFloat));
-    priv->V2sumDM = mymalloc("V2sumDM", SlotsManager->info[5].size * sizeof(MyFloat));
-    priv->V1sumDM = (MyFloat (*) [3]) mymalloc("V1sumDM", 3* SlotsManager->info[5].size * sizeof(priv->V1sumDM[0]));
-    priv->kf = kf;
-
-    /* This allocates memory*/
-    treewalk_run(tw_veldisp, act->ActiveParticle, act->NumActiveParticle);
-
-    walltime_measure("/BH/VDisp");
-
-    myfree(priv->V1sumDM);
-    myfree(priv->V2sumDM);
-    myfree(priv->NumDM);
 }

@@ -27,41 +27,24 @@ BlackHoleOn = 1
 HydroOn = 1
 MetalReturnOn = 1
 DensityIndependentSphOn = 1
-StarformationCriterion = density
+StarformationCriterion = density,h2
 RadiationOn = 1
 MassiveNuLinRespOn = 0
 WindOn = 1
 MetalCoolFile = ../cooling_metal_UVB
 
-# Accuracy of time integration
-MaxSizeTimestep = 0.1
-MinSizeTimestep = 0.00
-
 SnapshotWithFOF = 1
 FOFHaloLinkingLength = 0.2
 FOFHaloMinLength = 32
 
-#  Further parameters of SPH
-DensityKernelType = quintic
-
-DensityContrastLimit = 100   # max contrast for hydro force calculation
-DensityResolutionEta = 1.0  # for Cubic spline 1.0 = 33
-MaxNumNgbDeviation = 2
-ArtBulkViscConst = 0.75
-InitGasTemp = 580.0        # always ignored if set to 0 
 MinGasTemp = 5.0
 
 MaxMemSizePerNode = 2000
-# Softening lengths
-
-MinGasHsmlFractional = 0.01
 
 #----------------------BH Stuff-------------------------
 BlackHoleKineticOn = 1 # switch to kinetic feedback mode when the BH accretion rate is low
 
 BlackHoleFeedbackFactor = 0.05
-BlackHoleFeedbackRadius = 0.
-BlackHoleFeedbackRadiusMaxPhys = 0.
 BlackHoleFeedbackMethod = spline | mass
 SeedBlackHoleMass = 5.0e-5
 BlackHoleAccretionFactor = 100.0
@@ -78,16 +61,7 @@ CritPhysDensity = 0       #  critical physical density for star formation in
 
 CritOverDensity = 57.7   #  overdensity threshold value
 
-QuickLymanAlphaProbability  0 # Set to 1.0 to turn dense gas directly into stars.
-
-MaxSfrTimescale = 1.5     # in internal time units
-
-
-TempSupernova = 1.0e8   #  in Kelvin
-
-TempClouds = 1000.0   #  in Kelvin
-FactorSN = 0.1
-FactorEVP = 1000.0
+QuickLymanAlphaProbability = 0 # Set to 1.0 to turn dense gas directly into stars.
 
 WindModel = ofjt10,isotropic
 WindEfficiency = 2.0
