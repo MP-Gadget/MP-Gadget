@@ -70,16 +70,6 @@ void fof_init(double DMMeanSeparation)
     fof_params.FOFHaloComovingLinkingLength = fof_params.FOFHaloLinkingLength * DMMeanSeparation;
 }
 
-static double fof_periodic(double x, double BoxSize)
-{
-    if(x >= 0.5 * BoxSize)
-        x -= BoxSize;
-    if(x < -0.5 * BoxSize)
-        x += BoxSize;
-    return x;
-}
-
-
 static double fof_periodic_wrap(double x, double BoxSize)
 {
     while(x >= BoxSize)
@@ -690,7 +680,7 @@ static void add_particle_to_group(struct Group * gdst, int i, int ThisTask) {
     for(d1 = 0; d1 < 3; d1++)
     {
         double first = gdst->base.FirstPos[d1];
-        rel[d1] = fof_periodic(P[index].Pos[d1] - first, PartManager->BoxSize) ;
+        rel[d1] = NEAREST(P[index].Pos[d1] - first, PartManager->BoxSize) ;
         xyz[d1] = rel[d1] + first;
         vel[d1] = P[index].Vel[d1];
     }
@@ -728,7 +718,7 @@ fof_finish_group_properties(struct FOFGroups * fof, double BoxSize)
             vcm[d1] = gdst->Vel[d1];
             cm[d1] = gdst->CM[d1] / gdst->Mass;
 
-            rel[d1] = fof_periodic(cm[d1] - gdst->base.FirstPos[d1], BoxSize);
+            rel[d1] = NEAREST(cm[d1] - gdst->base.FirstPos[d1], BoxSize);
 
             cm[d1] = fof_periodic_wrap(cm[d1], BoxSize);
             gdst->CM[d1] = cm[d1];
