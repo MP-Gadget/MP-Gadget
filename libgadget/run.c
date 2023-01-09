@@ -246,6 +246,10 @@ begrun(const int RestartSnapNum, struct header_data * head)
     if(All.LightconeOn)
         lightcone_init(&All.CP, head->TimeSnapshot, head->UnitLength_in_cm, All.OutputDir);
 
+    /* Ensure that the timeline runs at least to the current time*/
+    if(head->TimeSnapshot > All.TimeMax)
+        All.TimeMax = head->TimeSnapshot;
+
     init_timeline(&All.CP, RestartSnapNum, All.TimeMax, head, All.SnapshotWithFOF);
 
     /* Get the nk and do allocation. */
