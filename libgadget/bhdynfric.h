@@ -19,8 +19,8 @@ struct BHDynFricPriv {
 };
 
 /* Do the dynamic friction treewalk if BH_DynFrictionMethod > 0.
- * Tree needs stars and gas.*/
-void blackhole_dynfric(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, ForceTree * tree, struct BHDynFricPriv * priv);
+ * Builds a private tree with the types needed for dynamic friction (mostly stars and DM).*/
+void blackhole_dynfric(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, DomainDecomp * ddecomp, struct BHDynFricPriv * priv);
 void set_blackhole_dynfric_params(ParameterSet * ps);
 void blackhole_dynpriv_free(struct BHDynFricPriv * dynpriv);
 /* Get the particle types used in dynfric*/

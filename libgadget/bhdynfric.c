@@ -3,6 +3,7 @@
 #include "densitykernel.h"
 #include "bhdynfric.h"
 #include "density.h"
+#include "walltime.h"
 
 static struct BlackholeDynFricParams
 {
@@ -221,13 +222,10 @@ void blackhole_dynpriv_free(struct BHDynFricPriv * dynpriv)
 }
 
 void
-blackhole_dynfric(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, ForceTree * tree, struct BHDynFricPriv * priv)
+blackhole_dynfric(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, DomainDecomp * ddecomp, struct BHDynFricPriv * priv)
 {
     if (blackhole_dynfric_params.BH_DynFrictionMethod == 0)
         return;
-
-    if(!(tree->mask & GASMASK) || !(tree->mask & STARMASK))
-        endrun(5, "Error: BH tree types GAS: %d STAR %d\n", tree->mask & GASMASK, tree->mask & STARMASK);
 
     /*************************************************************************/
     /* Environment variables for DF */
@@ -235,6 +233,14 @@ blackhole_dynfric(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, ForceTree
     priv->BH_SurroundingVel = (MyFloat (*) [3]) mymalloc("BH_SurroundingVel", 3* SlotsManager->info[5].size * sizeof(priv->BH_SurroundingVel[0]));
     priv->BH_SurroundingParticles = (int *)mymalloc("BH_SurroundingParticles", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingParticles));
     priv->BH_SurroundingDensity = (MyFloat *) mymalloc("BH_SurroundingDensity", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingDensity));
+
+    /* dynamical friction uses: stars, DM if BH_DynFrictionMethod > 1 gas if BH_DynFrictionMethod  == 3.
+     * The DM in dynamic friction and accretion doesn't really do anything, so could perhaps be removed from the treebuild later.*/
+    ForceTree tree[1] = {0};
+    int treemask = blackhole_dynfric_treemask();
+    message(0, "Building dynamic friction tree with types %d\n", treemask);
+    force_tree_rebuild_mask(tree, ddecomp, treemask, NULL);
+    walltime_measure("/BH/BuildDF");
 
     TreeWalk tw_dynfric[1] = {{0}};
     tw_dynfric->ev_label = "BH_DYNFRIC";
@@ -251,5 +257,5 @@ blackhole_dynfric(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, ForceTree
     tw_dynfric->haswork = NULL;
 
     treewalk_run(tw_dynfric, ActiveBlackHoles, NumActiveBlackHoles);
-
+    force_tree_free(tree);
 }
