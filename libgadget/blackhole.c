@@ -251,19 +251,23 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     }
 
     /* Types used in treewalks:
-     * dynamical friction uses: stars, DM if BH_DynFrictionMethod > 1 gas if BH_DynFrictionMethod  == 3.
-     * accretion uses: all types but ONLY for repositioning potential minimum. Otherwise gas + black holes. gas + stars + BH is probably fine.
-     * gas + BH probably not enough if gas is sparse in halo.
+     * accretion uses: all types but ONLY for repositioning potential minimum. Otherwise
+     * accretion uses: gas + black holes if dynamic friction is enabled.
      * feedback uses: gas + black holes.
-     * The DM in dynamic friction and accretion doesn't really do anything, so could perhaps be removed from the treebuild later.
-     * However, we would still need a tree with gas + DM in the wind code.
      */
+    if(tree->tree_allocated_flag && (tree->mask & ALLMASK) != ALLMASK)
+        force_tree_free(tree);
     if(!tree->tree_allocated_flag)
     {
         message(0, "Building tree in blackhole\n");
-        int treemask = blackhole_dynfric_treemask();
-        treemask += GASMASK | BHMASK;
+        int treemask = GASMASK | BHMASK;
+        /* If we are repositioning, need all types*/
+        if(blackhole_params.BlackHoleRepositionEnabled)
+            treemask = ALLMASK;
+
         force_tree_rebuild_mask(tree, ddecomp, treemask, NULL);
+        /* We need hmax for the symmetric BH walk*/
+        force_tree_calc_moments(tree, ddecomp);
         walltime_measure("/BH/Build");
     }
 
@@ -277,7 +281,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     dynpriv->atime = atime;
     dynpriv->CP = CP;
     dynpriv->kf = &kf;
-    blackhole_dynfric(ActiveBlackHoles, NumActiveBlackHoles, tree, dynpriv);
+    blackhole_dynfric(ActiveBlackHoles, NumActiveBlackHoles, ddecomp, dynpriv);
     walltime_measure("/BH/DynFric");
 
     struct BHPriv priv[1] = {0};
@@ -297,8 +301,6 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     priv->BH_SwallowID = (MyIDType *) mymalloc("BH_SwallowID", SlotsManager->info[5].size * sizeof(MyIDType));
     memset(priv->BH_SwallowID, 0, SlotsManager->info[5].size * sizeof(MyIDType));
 
-    /* We need hmax for the symmetric BH walk*/
-    force_tree_calc_moments(tree, ddecomp);
     /* Computed in accretion, used in feedback*/
     priv->BH_FeedbackWeightSum = (MyFloat *) mymalloc("BH_FeedbackWeightSum", SlotsManager->info[5].size * sizeof(MyFloat));
 
