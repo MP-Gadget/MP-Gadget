@@ -676,7 +676,9 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
              * because this star is not new this timestep.*/
             if(!is_timebin_active(P[i].TimeBinHydro, times->Ti_Current))
                 continue;
-            if(P[i].TimeBinHydro < mTimeBin)
+            /* Note that the hydro timestep of the star particle is not changed after it stops being gas.
+             * So it is zero after a restart.*/
+            if(P[i].TimeBinHydro < mTimeBin && P[i].TimeBinHydro >= 1)
                 mTimeBin = P[i].TimeBinHydro;
         }
     }
