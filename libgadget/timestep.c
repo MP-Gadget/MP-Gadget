@@ -692,9 +692,6 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
     MPI_Allreduce(MPI_IN_PLACE, &ntiaccrete, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &ntineighbour, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
-    /* Ensure that the PM timestep is not longer than the longest tree timestep;
-     * this prevents particles in the longest timestep being active and moving into a higher bin
-     * between PM timesteps, thus skipping the PM step entirely.*/
     message(0, "Hydro timesteps: Accel: %ld Soundspeed: %ld DivVel: %ld Accrete: %ld Neighbour: %ld\n", ntiaccel, nticourant, ntihsml, ntiaccrete, ntineighbour);
 
     if(isFirstTimeStep)
