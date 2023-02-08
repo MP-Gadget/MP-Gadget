@@ -672,6 +672,9 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
             /* Look for stars*/
             if(P[i].Type != 4)
                 continue;
+            /* Need stars that were just formed with active hydro timesteps.*/
+            if(STARP(i).FormationTime < get_atime(times->Ti_Current) - get_dloga_for_bin(P[i].TimeBinHydro, times->Ti_Current))
+                continue;
             /* You could imagine that only the gravitational timesteps are active,
              * because this star is not new this timestep.*/
             if(!is_timebin_active(P[i].TimeBinHydro, times->Ti_Current))
