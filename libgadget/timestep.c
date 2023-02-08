@@ -676,6 +676,7 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
      * and so there are now zero active gas particles. In this case mTimeBin will be TIMEBINS.
      * We need to find a new timebin to advance by, which we do by using the hydro steps in the active star particles.*/
     if(!is_timebin_active(mTimeBin, times->Ti_Current)) {
+        message(1, "Current min hydro timebin %d is not active, using star hydro timestep.\n", mTimeBin);
         #pragma omp parallel for reduction(min: mTimeBin) reduction(+: badstepsizecount)
         for(pa = 0; pa < act->NumActiveParticle; pa++) {
             const int i = get_active_particle(act, pa);
@@ -708,6 +709,8 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
      * this checks for the shortest timestep being occupied by a DM particle*/
     if(times->mintimebin > times->mingravtimebin && times->mingravtimebin > 0)
         times->mintimebin = times->mingravtimebin;
+    message(0, "Min grav timebin: %ld mintimebin %d\n", times->mingravtimebin, times->mintimebin);
+
     return badstepsizecount;
 }
 
