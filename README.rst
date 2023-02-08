@@ -17,6 +17,7 @@ The infrastructure is heavily reworked. As a summary:
 
 - A better PM solver for long range force with Pencil FFT.
 - A better Tree solver with faster threading and less redundant code.
+- Hierarchical gravity timestepping following Gadget-4.
 - A better Domain decomposition that scales to half a million cores.
 - A easier to use IO module with a Python binding.
 - A more intuitive parameter file parser with schema and docstrings.
@@ -161,11 +162,11 @@ Contributors
 Gadget-2 was authored by Volker Springel.
 The original P-GADGET3 was maintained by Volker Springel
 
-MP-Gadget is maintained by Yu Feng and Simeon Bird.
+MP-Gadget is maintained by Simeon Bird, Yu Feng and Yueying Ni.
 
 Contributors to MP-Gadget include:
 
-Nicholas Battaglia, James Davies, Nishikanta Khandai, Yueying Ni, Karime Maamari, Chris Pederson and Lauren Anderson.
+Nicholas Battaglia, Nianyi Chen, James Davies, Nishikanta Khandai, Karime Maamari, Chris Pederson, Phoebe Upton Sanderbeck, and Lauren Anderson.
 
 Code review
 -----------
@@ -178,14 +179,12 @@ http://web.mit.edu/6.005/www/fa15/classes/04-code-review/
 Citation
 --------
 
-We never get around to write a proper code paper on MP-Gadget.
+MP-Gadget was described most recently in https://arxiv.org/abs/2111.0116 and https://arxiv.org/abs/2110.14154 with various submodules having their own papers.
 
 For usage of the code, here is a DOI for this repository that you can cite
 
 .. image:: https://zenodo.org/badge/24486904.svg
    :target: https://zenodo.org/badge/latestdoi/24486904
-
-It helps us to keep track of uses.
 
 Licence Issue
 -------------
