@@ -662,6 +662,16 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
         if(bin_hydro < mTimeBin)
             mTimeBin = bin_hydro;
     }
+    MPI_Allreduce(MPI_IN_PLACE, &mTimeBin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+
+    MPI_Allreduce(MPI_IN_PLACE, &ntiaccel, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &nticourant, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &ntihsml, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &ntiaccrete, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &ntineighbour, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+
+    message(0, "Hydro timesteps: Accel: %ld Soundspeed: %ld DivVel: %ld Accrete: %ld Neighbour: %ld\n", ntiaccel, nticourant, ntihsml, ntiaccrete, ntineighbour);
+
     /* This logic handles the special case when all gas particles in the shortest timebin have become stars
      * and so there are now zero active gas particles. In this case mTimeBin will be TIMEBINS.
      * We need to find a new timebin to advance by, which we do by using the hydro steps in the active star particles.*/
@@ -684,18 +694,10 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
             if(P[i].TimeBinHydro < mTimeBin && P[i].TimeBinHydro >= 1)
                 mTimeBin = P[i].TimeBinHydro;
         }
+        MPI_Allreduce(MPI_IN_PLACE, &mTimeBin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
     }
 
     MPI_Allreduce(MPI_IN_PLACE, &badstepsizecount, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &mTimeBin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-
-    MPI_Allreduce(MPI_IN_PLACE, &ntiaccel, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &nticourant, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &ntihsml, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &ntiaccrete, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &ntineighbour, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-
-    message(0, "Hydro timesteps: Accel: %ld Soundspeed: %ld DivVel: %ld Accrete: %ld Neighbour: %ld\n", ntiaccel, nticourant, ntihsml, ntiaccrete, ntineighbour);
 
     if(isFirstTimeStep)
         set_bh_first_timestep(mTimeBin);
