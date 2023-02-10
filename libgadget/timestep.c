@@ -662,26 +662,6 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
         if(bin_hydro < mTimeBin)
             mTimeBin = bin_hydro;
     }
-    /* This logic handles the special case when all gas particles in the shortest timebin have become stars
-     * and so there are now zero active gas particles. In this case mTimeBin will be TIMEBINS.
-     * We need to find a new timebin to advance by, which we do by using the hydro steps in the active star particles.*/
-    if(!is_timebin_active(mTimeBin, times->Ti_Current)) {
-        #pragma omp parallel for reduction(min: mTimeBin) reduction(+: badstepsizecount)
-        for(pa = 0; pa < act->NumActiveParticle; pa++) {
-            const int i = get_active_particle(act, pa);
-            /* Look for stars*/
-            if(P[i].Type != 4)
-                continue;
-            /* You could imagine that only the gravitational timesteps are active,
-             * because this star is not new this timestep.*/
-            if(!is_timebin_active(P[i].TimeBinHydro, times->Ti_Current))
-                continue;
-            if(P[i].TimeBinHydro < mTimeBin)
-                mTimeBin = P[i].TimeBinHydro;
-        }
-    }
-
-    MPI_Allreduce(MPI_IN_PLACE, &badstepsizecount, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &mTimeBin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
 
     MPI_Allreduce(MPI_IN_PLACE, &ntiaccel, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
@@ -690,10 +670,35 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
     MPI_Allreduce(MPI_IN_PLACE, &ntiaccrete, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &ntineighbour, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
-    /* Ensure that the PM timestep is not longer than the longest tree timestep;
-     * this prevents particles in the longest timestep being active and moving into a higher bin
-     * between PM timesteps, thus skipping the PM step entirely.*/
     message(0, "Hydro timesteps: Accel: %ld Soundspeed: %ld DivVel: %ld Accrete: %ld Neighbour: %ld\n", ntiaccel, nticourant, ntihsml, ntiaccrete, ntineighbour);
+
+    /* This logic handles the special case when all gas particles in the shortest timebin have become stars
+     * and so there are now zero active gas particles. In this case mTimeBin will be TIMEBINS.
+     * We need to find a new timebin to advance by, which we do by using the hydro steps in the active star particles.*/
+    if(!is_timebin_active(mTimeBin, times->Ti_Current)) {
+        message(1, "Current min hydro timebin %d is not active, using star hydro timestep.\n", mTimeBin);
+        #pragma omp parallel for reduction(min: mTimeBin) reduction(+: badstepsizecount)
+        for(pa = 0; pa < act->NumActiveParticle; pa++) {
+            const int i = get_active_particle(act, pa);
+            /* Look for stars*/
+            if(P[i].Type != 4)
+                continue;
+            /* Need stars that were just formed with active hydro timesteps.*/
+            if(STARP(i).FormationTime < get_atime(times->Ti_Current) - get_dloga_for_bin(P[i].TimeBinHydro, times->Ti_Current))
+                continue;
+            /* You could imagine that only the gravitational timesteps are active,
+             * because this star is not new this timestep.*/
+            if(!is_timebin_active(P[i].TimeBinHydro, times->Ti_Current))
+                continue;
+            /* Note that the hydro timestep of the star particle is not changed after it stops being gas.
+             * So it is zero after a restart.*/
+            if(P[i].TimeBinHydro < mTimeBin && P[i].TimeBinHydro >= 1)
+                mTimeBin = P[i].TimeBinHydro;
+        }
+        MPI_Allreduce(MPI_IN_PLACE, &mTimeBin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+    }
+
+    MPI_Allreduce(MPI_IN_PLACE, &badstepsizecount, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     if(isFirstTimeStep)
         set_bh_first_timestep(mTimeBin);
@@ -704,6 +709,8 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
      * this checks for the shortest timestep being occupied by a DM particle*/
     if(times->mintimebin > times->mingravtimebin && times->mingravtimebin > 0)
         times->mintimebin = times->mingravtimebin;
+    message(0, "Min grav timebin: %ld mintimebin %d\n", times->mingravtimebin, times->mintimebin);
+
     return badstepsizecount;
 }
 
