@@ -342,10 +342,12 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
 
             if(!sman->info[ptype].enabled) continue;
 
+#ifdef DEBUG
             int PI = pman->Base[i].PI;
             if(BASESLOT_PI(PI, ptype, sman)->ID != pman->Base[i].ID) {
                 endrun(1, "Exchange: P[%d].ID = %ld (type %d) != SLOT ID = %ld. garbage: %d ReverseLink: %d\n",i,pman->Base[i].ID, pman->Base[i].Type, BASESLOT_PI(PI, ptype, sman)->ID, pman->Base[i].IsGarbage, BASESLOT_PI(PI, ptype, sman)->ReverseLink);
             }
+#endif
         }
         for(ptype = 0; ptype < 6; ptype ++) {
             if(newPI[ptype] !=

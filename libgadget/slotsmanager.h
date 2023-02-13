@@ -21,7 +21,9 @@ struct particle_data_ext {
     /* Used at GC for reverse link to P.
      * Garbage slots have this impossibly large. */
     int ReverseLink;
+#ifdef DEBUG
     MyIDType ID; /* for data consistency check, same as particle ID */
+#endif
 };
 
 /* Data stored for each black hole in addition to collisionless data*/
