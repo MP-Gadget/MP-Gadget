@@ -1139,7 +1139,6 @@ void blackhole_make_one(int index, const double atime) {
      * between the gas and BH mass. */
     child = slots_convert(child, 5, -1, PartManager, SlotsManager);
 
-    BHP(child).base.ID = P[child].ID;
     /* The accretion mass should always be the seed black hole mass,
      * irrespective of the gravitational mass of the particle.*/
     if(blackhole_params.MaxSeedBlackHoleMass > 0)
