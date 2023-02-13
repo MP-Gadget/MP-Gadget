@@ -571,6 +571,7 @@ slots_mark_garbage(int i, struct part_manager_type * pman, struct slots_manager_
     }
 }
 
+#ifdef DEBUG
 void
 slots_check_id_consistency(struct part_manager_type * pman, struct slots_manager_type * sman)
 {
@@ -606,6 +607,7 @@ slots_check_id_consistency(struct part_manager_type * pman, struct slots_manager
         }
     }
 }
+#endif
 
 /* this function needs the Type of P[i] to be setup */
 void
