@@ -72,8 +72,9 @@ struct star_particle_data
     MyFloat BirthDensity;       /*!< Density of gas particle at star formation. */
     MyFloat Metallicity;        /*!< Total metallicity of star particle */
     float Metals[NMETALS];      /* Metal mass of each species in star particle*/
-
+#ifdef EXCUR_REION
     MyFloat EscapeFraction; /* Escape fraction stored for reionisation calculation */
+#endif
     MyFloat VDisp; /* 1D DM Velocity dispersion on creation for the winds*/
 };
 
@@ -110,10 +111,11 @@ struct sph_particle_data
                     it depends on the scratch variable GradRho and thus cannot be recomputed after a fof-exchange. */
     MyFloat Metallicity;        /*!< metallicity of gas particle */
     float Metals[NMETALS];
-
+#ifdef EXCUR_REION
     MyFloat local_J21; /* local J21 ionising background calculated from the excursion set */
     MyFloat zreion; /* redshift when a particle is first ionised */
     MyFloat EscapeFraction; /* Escape fraction for SFR -> J21 calculation */
+#endif
     MyFloat VDisp; /* 1D DM Velocity dispersion, for the winds*/
 };
 

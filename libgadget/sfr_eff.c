@@ -453,8 +453,13 @@ cooling_direct(int i, const double redshift, const double a3inv, const double hu
 
     /* Current internal energy including adiabatic change*/
     double uold = SPHP(i).Entropy * enttou;
-
-    struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, P[i].Pos, PartManager->CurrentParticleOffset, SPHP(i).local_J21, SPHP(i).zreion);
+    double localJ21 = 0;
+    double zreion = 0;
+#ifdef EXCUR_REION
+    localJ21 =  SPHP(i).local_J21;
+    zreion = SPHP(i).zreion;
+#endif
+    struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, P[i].Pos, PartManager->CurrentParticleOffset, localJ21, zreion);
     double lasttime = exp(loga_from_ti(P[i].Ti_drift - dti_from_timebin(P[i].TimeBinHydro)));
     double lastred = 1/lasttime - 1;
     double unew;
@@ -546,7 +551,13 @@ double get_neutral_fraction_sfreff(double redshift, double hubble, struct partic
     double nh0;
     const double a3inv = (1+redshift)*(1+redshift)*(1+redshift);
     struct UVBG GlobalUVBG = get_global_UVBG(redshift);
-    struct UVBG uvbg = get_local_UVBG(redshift, &GlobalUVBG, partdata->Pos, PartManager->CurrentParticleOffset, sphdata->local_J21, sphdata->zreion);
+    double localJ21 = 0;
+    double zreion = 0;
+#ifdef EXCUR_REION
+    localJ21 =  sphdata->local_J21;
+    zreion = sphdata->zreion;
+#endif
+    struct UVBG uvbg = get_local_UVBG(redshift, &GlobalUVBG, partdata->Pos, PartManager->CurrentParticleOffset, localJ21, zreion);
     double physdens = sphdata->Density * a3inv;
 
     if(sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, a3inv)) {
@@ -573,7 +584,13 @@ double get_helium_neutral_fraction_sfreff(int ion, double redshift, double hubbl
     const double a3inv = (1+redshift)*(1+redshift)*(1+redshift);
     double helium;
     struct UVBG GlobalUVBG = get_global_UVBG(redshift);
-    struct UVBG uvbg = get_local_UVBG(redshift, &GlobalUVBG, partdata->Pos, PartManager->CurrentParticleOffset, sphdata->local_J21, sphdata->zreion);
+    double localJ21 = 0;
+    double zreion = 0;
+#ifdef EXCUR_REION
+    localJ21 =  sphdata->local_J21;
+    zreion = sphdata->zreion;
+#endif
+    struct UVBG uvbg = get_local_UVBG(redshift, &GlobalUVBG, partdata->Pos, PartManager->CurrentParticleOffset, localJ21, zreion);
     double physdens = sphdata->Density * a3inv;
 
     if(sfr_params.QuickLymanAlphaProbability > 0 || !sfreff_on_eeqos(sphdata, a3inv)) {
@@ -692,8 +709,13 @@ starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, cons
     double dloga = get_dloga_for_bin(P[i].TimeBinHydro, P[i].Ti_drift);
     double dtime = dloga / hubble;
     int newstar = -1;
-
-    struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, P[i].Pos, PartManager->CurrentParticleOffset,SPHP(i).local_J21,SPHP(i).zreion);
+    double localJ21 = 0;
+    double zreion = 0;
+#ifdef EXCUR_REION
+    localJ21 =  SPHP(i).local_J21;
+    zreion = SPHP(i).zreion;
+#endif
+    struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, P[i].Pos, PartManager->CurrentParticleOffset, localJ21, zreion);
 
     struct sfr_eeqos_data sfr_data = get_sfr_eeqos(&P[i], &SPHP(i), dtime, &uvbg, redshift, a3inv);
 

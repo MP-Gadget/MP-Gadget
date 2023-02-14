@@ -182,6 +182,7 @@ inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * 
             SPHP(i).Sfr = 0;
             SPHP(i).MaxSignalVel = 0;
         }
+#ifdef EXCUR_REION
         /* If we are starting before reionisation, initialise reion properties
          * this allows us to restart from runs without excursion set
          * these properties aren't used without the ES so its fine to init them here*/
@@ -189,6 +190,7 @@ inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * 
             SPHP(i).local_J21 = 0;
             SPHP(i).zreion = -1;
         }
+#endif
     }
     walltime_measure("/Init");
     return Ti_Current;

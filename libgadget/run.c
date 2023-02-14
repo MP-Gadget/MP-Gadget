@@ -608,11 +608,13 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                     /* Helium reionization by switching on quasar bubbles*/
                     do_heiii_reionization(atime, &fof, ddecomp, &All.CP, units.UnitInternalEnergy_in_cgs, fds.FdHelium);
                 }
+#ifdef EXCUR_REION                
                 //excursion set reionisation
                 if(CalcUVBG && All.ExcursionSetReionOn) {
                     calculate_uvbg(&pm_mass, &pm_star, &pm_sfr, WriteSnapshot, SnapshotFileCount, All.OutputDir, atime, &All.CP, units);
                     message(0,"uvbg calculated\n");
                 }
+#endif // ifdef EXCUR_REION                
                 fof_finish(&fof);
             }
 

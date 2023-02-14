@@ -835,6 +835,7 @@ fof_alloc_group(const struct BaseGroup * base, const int NgroupsExt)
 }
 
 /* TODO: It would be a good idea to generalise this to arbitrary fof/particle properties */
+#ifdef EXCUR_REION
 static void fof_set_escapefraction(struct FOFGroups * fof, const int NgroupsExt, struct fof_particle_list * HaloLabel)
 {
     int i = 0;
@@ -873,6 +874,7 @@ static void fof_set_escapefraction(struct FOFGroups * fof, const int NgroupsExt,
         }
     }
 }
+#endif
 
 static void
 fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, struct fof_particle_list * HaloLabel, MPI_Comm Comm)
@@ -916,11 +918,11 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, struct fof_p
     }
 
     fof_finish_group_properties(fof, PartManager->BoxSize);
-
+#ifdef EXCUR_REION
     /* feed group property back to each particle. */
     if(fof_params.ExcursionSetReionOn)
         fof_set_escapefraction(fof, NgroupsExt, HaloLabel);
-
+#endif
     int64_t TotNids;
     sumup_large_ints(1, &fof->Ngroups, &fof->TotNgroups);
     MPI_Allreduce(&Nids, &TotNids, 1, MPI_INT64, MPI_SUM, Comm);

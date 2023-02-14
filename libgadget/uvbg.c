@@ -453,6 +453,7 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
 
 }
 
+#ifdef EXCUR_REION
 //readout J21 from grid to particle
 static void readout_J21(PetaPM * pm, int i, double * mesh, double weight) {
     // Since we need to decide whether particles on the boundary are ionised or not,
@@ -590,3 +591,4 @@ void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int Wri
    
     walltime_measure("/UVBG");
 }
+#endif // ifdef EXCUR_REION
