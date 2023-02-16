@@ -227,7 +227,12 @@ begrun(const int RestartSnapNum, struct header_data * head)
     init_cosmology(&All.CP, head->TimeIC, units);
 
     check_units(&All.CP, units);
-
+    
+#ifndef EXCUR_REION
+    if(All.ExcursionSetReionOn)
+        endrun(2,"You must turn on compile flag EXCUR_REION to run ExcursionSetReion!\n");
+#endif
+    
 #ifdef DEBUG
     char * pidfile = fastpm_strdup_printf("%s/%s", All.OutputDir, "PIDs.txt");
     fastpm_path_ensure_dirname(pidfile);
