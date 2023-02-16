@@ -89,25 +89,6 @@ int grid_index(int i, int j, int k, ptrdiff_t strides[3])
     return k*strides[2] + j*strides[1] + i*strides[0];
 }
 
-static double RtoM(double R)
-{
-    // All in internal units
-    const int filter = uvbg_params.RtoMFilterType;
-    double OmegaM = uvbg_params.CP->Omega0;
-    double RhoCrit = uvbg_params.CP->RhoCrit;
-
-    switch (filter) {
-    case 0: //top hat M = (4/3) PI <rho> R^3
-        return (4.0 / 3.0) * M_PI * pow(R, 3) * (OmegaM * RhoCrit);
-    case 1: //gaussian: M = (2PI)^1.5 <rho> R^3
-        return pow(2 * M_PI, 1.5) * OmegaM * RhoCrit * pow(R, 3);
-    default: // filter not defined
-        endrun(1, "Unrecognised RtoM filter (%d).\n", filter);
-        break;
-    }
-
-    return -1;
-}
 
 void save_uvbg_grids(int SnapshotFileCount, char * OutputDir, PetaPM * pm)
 {
@@ -168,6 +149,28 @@ void save_uvbg_grids(int SnapshotFileCount, char * OutputDir, PetaPM * pm)
         endrun(0, "Failed to close snapshot at %s:%s\n", fname,
                     big_file_get_error_message());
     }
+}
+
+#ifdef EXCUR_REION
+
+static double RtoM(double R)
+{
+    // All in internal units
+    const int filter = uvbg_params.RtoMFilterType;
+    double OmegaM = uvbg_params.CP->Omega0;
+    double RhoCrit = uvbg_params.CP->RhoCrit;
+
+    switch (filter) {
+    case 0: //top hat M = (4/3) PI <rho> R^3
+        return (4.0 / 3.0) * M_PI * pow(R, 3) * (OmegaM * RhoCrit);
+    case 1: //gaussian: M = (2PI)^1.5 <rho> R^3
+        return pow(2 * M_PI, 1.5) * OmegaM * RhoCrit * pow(R, 3);
+    default: // filter not defined
+        endrun(1, "Unrecognised RtoM filter (%d).\n", filter);
+        break;
+    }
+
+    return -1;
 }
 
 //Simple region initialization (taken from zeldovich.c)
@@ -303,7 +306,7 @@ static void print_reion_debug_info(PetaPM * pm_mass, float * J21, float * xHI, d
     MPI_Allreduce(MPI_IN_PLACE, &total_star, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     double n_ratio = (double)neutral_count / (double)grid_n_real;
     double i_ratio = (double)ion_count / (double)grid_n_real;
-    
+
     message(0,"neutral cells : %d, ion cells %d, ratio(%d) N %f ion %f\n",neutral_count, ion_count, grid_n_real, n_ratio, i_ratio);
     message(0,"min J21 : %e | max J21 %e\n",min_J21,max_J21);
     message(0,"min mass : %e | max mass : %e | total mass %e\n",min_mass,max_mass,total_mass);
@@ -311,7 +314,6 @@ static void print_reion_debug_info(PetaPM * pm_mass, float * J21, float * xHI, d
     message(0,"min sfr : %e | max sfr %e\n",min_sfr,max_sfr);
 }
 #endif
-
 
 //takes filtered mass, star, sfr grids and calculates J21 and neutral fractions onto a grid
 //which is placed in the mass grid out on the last call of this function.
@@ -325,9 +327,9 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
     int pm_idx = 0;
 
     double R = pm_mass->G; //radius is stored here
-    
+
     const double redshift = 1.0 / (uvbg_params.Time) - 1.;
-    
+
     // Loop through filter radii
     //(jdavies): get the parameters
     //double ReionGammaHaloBias = uvbg_params.ReionGammaHaloBias;
@@ -342,14 +344,14 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
     const double Y_He = 1.0 - HYDROGEN_MASSFRAC;
     const double BaryonFrac = uvbg_params.CP->OmegaBaryon / uvbg_params.CP->Omega0;
     double ReionEfficiency = 1.0 / BaryonFrac * ReionNionPhotPerBary / (1.0 - 0.75 * Y_He);
-    
-    const double tot_n_cells = pm_mass->Nmesh * pm_mass->Nmesh * pm_mass->Nmesh; 
+
+    const double tot_n_cells = pm_mass->Nmesh * pm_mass->Nmesh * pm_mass->Nmesh;
     const double pixel_volume = pm_mass->CellSize * pm_mass->CellSize * pm_mass->CellSize;
     const double deltax_conv_factor = tot_n_cells / (uvbg_params.CP->RhoCrit * uvbg_params.CP->Omega0 * pm_mass->BoxSize * pm_mass->BoxSize * pm_mass->BoxSize);
 
     float* J21 = UVBGgrids.J21;
     float* xHI = UVBGgrids.xHI;
-    
+
     // Perform sanity checks to account for aliasing effects
 #pragma omp parallel for collapse(3) private(pm_idx)
     for (int ix = 0; ix < pm_mass->real_space_region.size[0]; ix++)
@@ -408,7 +410,7 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
                     // If so, assign partial ionisations to those cells which aren't fully ionised
                      xHI[pm_idx] = (float)(1.0 - f_coll_stars * ReionEfficiency);
                 }
-                
+
             } // iz
     // Find the volume and mass weighted neutral fractions
     // TODO: The deltax grid will have rounding errors from forward and reverse
@@ -430,7 +432,7 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
                 for (int iz = 0; iz < pm_mass->real_space_region.size[2]; iz++) {
                     pm_idx = grid_index(ix, iy, iz, pm_mass->real_space_region.strides);
                     volume_weighted_global_xHI += (double)(xHI[pm_idx]);
-                    
+
                     density_over_mean = deltax_conv_factor * mass_real[pm_idx];
                     mass_weighted_global_xHI += (double)(xHI[pm_idx]) * density_over_mean;
                     mass_weight += density_over_mean;
@@ -438,11 +440,11 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
                     //if we are on the last step, we re_use the mass grid to store J21 so it can be read out
                     mass_real[pm_idx] = (double)(J21[pm_idx]);
                 }
-    
+
         MPI_Allreduce(MPI_IN_PLACE, &volume_weighted_global_xHI, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(MPI_IN_PLACE, &mass_weighted_global_xHI, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(MPI_IN_PLACE, &mass_weight, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        
+
         volume_weighted_global_xHI /= grid_n_real;
         mass_weighted_global_xHI /= mass_weight;
         UVBGgrids.volume_weighted_global_xHI = volume_weighted_global_xHI;
@@ -453,7 +455,6 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
 
 }
 
-#ifdef EXCUR_REION
 //readout J21 from grid to particle
 static void readout_J21(PetaPM * pm, int i, double * mesh, double weight) {
     // Since we need to decide whether particles on the boundary are ionised or not,
@@ -493,7 +494,7 @@ static void init_particle_uvbg(){
         else if(P[ii].Type == 4) {
             if(STARP(ii).EscapeFraction == 0) continue;
 
-            fesc_temp = uvbg_params.EscapeFractionNorm * pow(STARP(ii).EscapeFraction 
+            fesc_temp = uvbg_params.EscapeFractionNorm * pow(STARP(ii).EscapeFraction
                     * fesc_unit_conv, uvbg_params.EscapeFractionScaling);
 
             if(fesc_temp > 1) fesc_temp = 1;
@@ -508,7 +509,7 @@ void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int Wri
     double Rmax = uvbg_params.ReionRBubbleMax;
     double Rmin = uvbg_params.ReionRBubbleMin;
     double Rdelta = uvbg_params.ReionDeltaRFactor;
-    
+
     //define particle structure with the info petapm needs
     PetaPMParticleStruct pstruct = {
         P,
@@ -532,7 +533,7 @@ void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int Wri
         sizeof(StarP[0]),
         (char*) &StarP[0].EscapeFraction - (char*) StarP,
     };
-    
+
     uvbg_params.Time = Time;
     uvbg_params.CP = CP;
     uvbg_params.UnitMass_in_g = units.UnitMass_in_g;
@@ -554,15 +555,15 @@ void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int Wri
     uvbg_params.CP = CP;
 
     /* initialize grids */
-    int grid_n = pm_mass->real_space_region.size[0] 
-        * pm_mass->real_space_region.size[1] 
+    int grid_n = pm_mass->real_space_region.size[0]
+        * pm_mass->real_space_region.size[1]
         * pm_mass->real_space_region.size[2];
 
     UVBGgrids.J21 = mymalloc("J21", sizeof(float) * grid_n);
     float * J21 = UVBGgrids.J21;
     UVBGgrids.xHI = mymalloc("xHI", sizeof(float) * grid_n);
     float * xHI = UVBGgrids.xHI;
-    
+
     for (int ii = 0; ii < grid_n; ii++) {
         J21[ii] = 0.0f;
         xHI[ii] = 1.0f;
@@ -588,7 +589,7 @@ void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int Wri
 
     myfree(UVBGgrids.xHI);
     myfree(UVBGgrids.J21);
-   
+
     walltime_measure("/UVBG");
 }
 #endif // ifdef EXCUR_REION
