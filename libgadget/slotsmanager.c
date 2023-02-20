@@ -33,7 +33,9 @@ slots_connect_new_slot(int i, int pi, int type, struct part_manager_type * pman,
      * if it is uninitialised.*/
     memset(BASESLOT_PI(pi, type, sman), 101, sman->info[type].elsize);
     /* book keeping ID: debug only */
+#ifdef DEBUG
     BASESLOT_PI(pi, type, sman)->ID = pman->Base[i].ID;
+#endif
     /*Update the particle's pointer*/
     pman->Base[i].PI = pi;
 }
@@ -656,6 +658,8 @@ slots_setup_id(const struct part_manager_type * pman, struct slots_manager_type 
             endrun(1, "Particle %d, type %d has PI index %d beyond max slot size %d.\n", i, pman->Base[i].Type, sind, info.size);
         struct particle_data_ext * sdata = (struct particle_data_ext * )(info.ptr + info.elsize * (size_t) sind);
         sdata->ReverseLink = i;
+#ifdef DEBUG
         sdata->ID = pman->Base[i].ID;
+#endif
     }
 }
