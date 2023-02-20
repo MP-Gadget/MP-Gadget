@@ -64,18 +64,18 @@ struct bh_particle_data {
 struct star_particle_data
 {
     struct particle_data_ext base;
-    MyFloat FormationTime;      /*!< formation time of star particle */
-    MyFloat LastEnrichmentMyr;  /* Last time the star particle had an enrichment event, in Myr since FormationTime.*/
+    float FormationTime;      /*!< formation time of star particle */
+    float LastEnrichmentMyr;  /* Last time the star particle had an enrichment event, in Myr since FormationTime.*/
     MyFloat TotalMassReturned; /* The total mass returned from this star since formation.
                                   The initial mass of the SSP in this star is STARP.TotalMassReturned + P.Mass.
                                   It is stored like this to retain compatibility with older snapshots. */
-    MyFloat BirthDensity;       /*!< Density of gas particle at star formation. */
+    float BirthDensity;       /*!< Density of gas particle at star formation. */
     MyFloat Metallicity;        /*!< Total metallicity of star particle */
     float Metals[NMETALS];      /* Metal mass of each species in star particle*/
 #ifdef EXCUR_REION
     MyFloat EscapeFraction; /* Escape fraction stored for reionisation calculation */
 #endif
-    MyFloat VDisp; /* 1D DM Velocity dispersion on creation for the winds*/
+    float VDisp; /* 1D DM Velocity dispersion on creation for the winds*/
 };
 
 /* the following structure holds data that is stored for each SPH particle in addition to the collisionless
