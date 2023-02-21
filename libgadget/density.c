@@ -555,7 +555,7 @@ density_postprocess(int i, TreeWalk * tw)
             else
                 EntPred = SPH_EntVarPred(i, DENSITY_GET_PRIV(tw)->times);
             if(EntPred <= 0 || SPHP(i).EgyWtDensity <=0)
-                endrun(12, "Particle %d has bad predicted entropy: %g or EgyWtDensity: %g\n", i, EntPred, SPHP(i).EgyWtDensity);
+                endrun(12, "Particle %d has bad predicted entropy: %g or EgyWtDensity: %g, Particle ID = %ld, pos %g %g %g, vel %g %g %g, mass = %g, density = %g, MaxSignalVel = %g, Entropy = %g, DtEntropy = %g \n", i, EntPred, SPHP(i).EgyWtDensity, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], P[i].Vel[0], P[i].Vel[1], P[i].Vel[2], P[i].Mass, SPHP(i).Density, SPHP(i).MaxSignalVel, SPHP(i).Entropy, SPHP(i).DtEntropy); 
             SPHP(i).DhsmlEgyDensityFactor *= P[i].Hsml/ (NUMDIMS * SPHP(i).EgyWtDensity);
             SPHP(i).DhsmlEgyDensityFactor *= - (*DhsmlDens);
             SPHP(i).EgyWtDensity /= EntPred;
