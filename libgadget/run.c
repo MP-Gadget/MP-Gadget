@@ -727,7 +727,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 /* Find hydro timesteps and apply the hydro kick, unsyncing the drift and kick times. */
                 badtimestep += find_hydro_timesteps(&Act, &times, atime, &All.CP, NumCurrentTiStep == 0);
                 /* If there is no hydro kick to do we still need to update the kick times.*/
-                apply_hydro_half_kick(&Act, &All.CP, &times, atime);
+                if(!badtimestep)
+                    apply_hydro_half_kick(&Act, &All.CP, &times, atime);
             }
         }
         if(badtimestep) {
