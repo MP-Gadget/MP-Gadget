@@ -227,12 +227,12 @@ begrun(const int RestartSnapNum, struct header_data * head)
     init_cosmology(&All.CP, head->TimeIC, units);
 
     check_units(&All.CP, units);
-    
+
 #ifndef EXCUR_REION
     if(All.ExcursionSetReionOn)
         endrun(2,"You must turn on compile flag EXCUR_REION to run ExcursionSetReion!\n");
 #endif
-    
+
 #ifdef DEBUG
     char * pidfile = fastpm_strdup_printf("%s/%s", All.OutputDir, "PIDs.txt");
     fastpm_path_ensure_dirname(pidfile);
@@ -613,13 +613,13 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                     /* Helium reionization by switching on quasar bubbles*/
                     do_heiii_reionization(atime, &fof, ddecomp, &All.CP, units.UnitInternalEnergy_in_cgs, fds.FdHelium);
                 }
-#ifdef EXCUR_REION                
+#ifdef EXCUR_REION
                 //excursion set reionisation
                 if(CalcUVBG && All.ExcursionSetReionOn) {
                     calculate_uvbg(&pm_mass, &pm_star, &pm_sfr, WriteSnapshot, SnapshotFileCount, All.OutputDir, atime, &All.CP, units);
                     message(0,"uvbg calculated\n");
                 }
-#endif // ifdef EXCUR_REION                
+#endif // ifdef EXCUR_REION
                 fof_finish(&fof);
             }
 
