@@ -650,7 +650,13 @@ cooling_relaxed(int i, double dtime, struct UVBG * local_uvbg, const double reds
     const double densityfac = entropy_to_u(SPHP(i).Density, a3inv);
     double egycurrent = SPHP(i).Entropy * densityfac;
     double trelax = sfr_data.trelax;
-    if(sfr_params.BHFeedbackUseTcool == 3 || (sfr_params.BHFeedbackUseTcool == 1 && P[i].BHHeated))
+    // const double u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1 * sfr_data.uu_in_cgs;
+    /* SB: Added a check to cool on the cooling time when the gas is very hot.
+     * Gas which is heated by the BH is capped at T=5e8 or U = 1e7.
+     * However, the BH is not active each timestep, so rarely very dense gas can have enough internal energy that it doesn't cool in
+     * one timestep and can somehow be pressurized to get even hotter. This can make the shortest timestep in the code even shorter,
+     * and is unphysical for star forming gas anyway. For this reason, allow gas with U > 5e6 or T > 1e8 to cool using the cooling time. */
+    if(sfr_params.BHFeedbackUseTcool == 3 || (sfr_params.BHFeedbackUseTcool == 1 && (P[i].BHHeated || egycurrent > 5e6)))
     {
         if(egycurrent > egyeff)
         {
