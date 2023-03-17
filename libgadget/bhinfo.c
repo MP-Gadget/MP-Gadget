@@ -115,7 +115,6 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
         info->BH_SurroundingVel[0] = dynpriv->BH_SurroundingVel[PI][0];
         info->BH_SurroundingVel[1] = dynpriv->BH_SurroundingVel[PI][1];
         info->BH_SurroundingVel[2] = dynpriv->BH_SurroundingVel[PI][2];
-
         /****************************************************************************/
         info->BH_accreted_BHMass = priv->BH_accreted_BHMass[PI];
         info->BH_accreted_Mass = priv->BH_accreted_Mass[PI];

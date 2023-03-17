@@ -217,8 +217,35 @@ void blackhole_dynpriv_free(struct BHDynFricPriv * dynpriv)
 void
 blackhole_dynfric(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, ForceTree * tree, struct BHDynFricPriv * priv)
 {
-    if (blackhole_dynfric_params.BH_DynFrictionMethod == 0)
+    
+    if (blackhole_dynfric_params.BH_DynFrictionMethod == 0) {
+        /* Environment variables for DF */
+        /* Guard against memory allocation issue when collecting bhinfo in case df is turned off */
+        /* we could also just not allocate this at all and set bhinfo to zero, but we need to also be careful with freeing the mem in this case */
+        /* for now we put a place-holder here */
+        priv->BH_SurroundingRmsVel = (MyFloat *) mymalloc("BH_SurroundingRmsVel", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingRmsVel));
+        priv->BH_SurroundingVel = (MyFloat (*) [3]) mymalloc("BH_SurroundingVel", 3* SlotsManager->info[5].size * sizeof(priv->BH_SurroundingVel[0]));
+        priv->BH_SurroundingParticles = (int *)mymalloc("BH_SurroundingParticles", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingParticles));
+        priv->BH_SurroundingDensity = (MyFloat *) mymalloc("BH_SurroundingDensity", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingDensity));
+        
+        for(int i = 0; i < NumActiveBlackHoles; i++)
+        {
+            const int p_i = ActiveBlackHoles ? ActiveBlackHoles[i] : i;
+            if(p_i < 0 || p_i > PartManager->NumPart)
+                endrun(1, "Bad index %d in black hole with %d active, %ld total\n", p_i, NumActiveBlackHoles, PartManager->NumPart);
+            if(P[p_i].Type != 5)
+                endrun(1, "Supposed BH %d of %d has type %d\n", p_i, NumActiveBlackHoles, P[p_i].Type);
+            int PI = P[p_i].PI;
+            priv->BH_SurroundingRmsVel[PI] = 0;
+            priv->BH_SurroundingVel[PI][0] = 0;
+            priv->BH_SurroundingVel[PI][1] = 0;
+            priv->BH_SurroundingVel[PI][2] = 0;
+            priv->BH_SurroundingParticles[PI] = 0;
+            priv->BH_SurroundingDensity[PI] = 0;
+        }
         return;
+    }
+        
 
     if(!(tree->mask & GASMASK) || !(tree->mask & STARMASK))
         endrun(5, "Error: BH tree types GAS: %d STAR %d\n", tree->mask & GASMASK, tree->mask & STARMASK);
