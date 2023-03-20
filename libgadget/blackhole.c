@@ -938,7 +938,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         }
 
         /* kinetic feedback */
-        if(I->KEFeedbackEnergy > 0 && I->FdbkChannel == 1){
+        if(I->KEFeedbackEnergy > 0 && I->FdbkChannel == 1 && I->Density > 0){
             /* Kick the gas particle*/
             double dvel = sqrt(2 * I->KEFeedbackEnergy * wk / I->Density);
             double dir[3];
