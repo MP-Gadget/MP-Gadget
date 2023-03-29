@@ -302,7 +302,14 @@ double
 SPH_DensityPred(MyFloat Density, MyFloat DivVel, double dtdrift)
 {
     /* Note minus sign!*/
-    return Density - DivVel * Density * dtdrift;
+    double DensityPred = Density - DivVel * Density * dtdrift;
+    /* The guard should not be necessary, because the timestep is also limited. by change in hsml.
+     * But add it just in case the BH has kicked the particle. The factor is set because
+     * it is less than the cube of the Courant factor.*/
+    if(DensityPred >= 1e-6 * Density)
+        return DensityPred;
+    else
+        return 1e-6 * Density;
 }
 
 /*! This function is the 'core' of the SPH force computation. A target

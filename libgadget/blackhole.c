@@ -168,6 +168,8 @@ blackhole_feedback(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, ForceTre
 
 static double blackhole_soundspeed(double entropy, double rho, const double atime) {
     /* rho is comoving !*/
+    if(rho <= 0)
+        return 0;
     double cs = sqrt(GAMMA * entropy * pow(rho, GAMMA_MINUS1));
 
     cs *= pow(atime, -1.5 * GAMMA_MINUS1);
@@ -377,35 +379,34 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
 {
     int k;
     int PI = P[i].PI;
+    double mdot = 0;    /* if no accretion model is enabled, we have mdot=0 */
+    /* Note: we take here a radiative efficiency of 0.1 for Eddington accretion */
+    const double meddington = (4 * M_PI * GRAVITY * LIGHTCGS * PROTONMASS / (0.1 * LIGHTCGS * LIGHTCGS * THOMPSON)) * BHP(i).Mass
+            * BH_GET_PRIV(tw)->units.UnitTime_in_s / BH_GET_PRIV(tw)->CP->HubbleParam;
+
     if(BHP(i).Density > 0)
     {
         BH_GET_PRIV(tw)->BH_Entropy[PI] /= BHP(i).Density;
         for(k = 0; k < 3; k++)
             BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][k] /= BHP(i).Density;
+
+        double bhvel = 0;
+        for(k = 0; k < 3; k++)
+            bhvel += pow(P[i].Vel[k] - BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][k], 2);
+
+        bhvel = sqrt(bhvel);
+        bhvel /= BH_GET_PRIV(tw)->atime;
+        double rho = BHP(i).Density;
+        double rho_proper = rho * BH_GET_PRIV(tw)->a3inv;
+
+        double soundspeed = blackhole_soundspeed(BH_GET_PRIV(tw)->BH_Entropy[PI], rho, BH_GET_PRIV(tw)->atime);
+
+        double norm = pow((pow(soundspeed, 2) + pow(bhvel, 2)), 1.5);
+
+        if(norm > 0)
+            mdot = 4. * M_PI * blackhole_params.BlackHoleAccretionFactor * BH_GET_PRIV(tw)->CP->GravInternal * BH_GET_PRIV(tw)->CP->GravInternal *
+                BHP(i).Mass * BHP(i).Mass * rho_proper / norm;
     }
-
-    double mdot = 0;		/* if no accretion model is enabled, we have mdot=0 */
-
-    double rho = BHP(i).Density;
-    double bhvel = 0;
-    for(k = 0; k < 3; k++)
-        bhvel += pow(P[i].Vel[k] - BH_GET_PRIV(tw)->BH_SurroundingGasVel[PI][k], 2);
-
-    bhvel = sqrt(bhvel);
-    bhvel /= BH_GET_PRIV(tw)->atime;
-    double rho_proper = rho * BH_GET_PRIV(tw)->a3inv;
-
-    double soundspeed = blackhole_soundspeed(BH_GET_PRIV(tw)->BH_Entropy[PI], rho, BH_GET_PRIV(tw)->atime);
-
-    /* Note: we take here a radiative efficiency of 0.1 for Eddington accretion */
-    double meddington = (4 * M_PI * GRAVITY * LIGHTCGS * PROTONMASS / (0.1 * LIGHTCGS * LIGHTCGS * THOMPSON)) * BHP(i).Mass
-        * BH_GET_PRIV(tw)->units.UnitTime_in_s / BH_GET_PRIV(tw)->CP->HubbleParam;
-
-    double norm = pow((pow(soundspeed, 2) + pow(bhvel, 2)), 1.5);
-
-    if(norm > 0)
-        mdot = 4. * M_PI * blackhole_params.BlackHoleAccretionFactor * BH_GET_PRIV(tw)->CP->GravInternal * BH_GET_PRIV(tw)->CP->GravInternal *
-            BHP(i).Mass * BHP(i).Mass * rho_proper / norm;
 
     if(blackhole_params.BlackHoleEddingtonFactor > 0.0 &&
         mdot > blackhole_params.BlackHoleEddingtonFactor * meddington) {
@@ -937,7 +938,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         }
 
         /* kinetic feedback */
-        if(I->KEFeedbackEnergy > 0 && I->FdbkChannel == 1){
+        if(I->KEFeedbackEnergy > 0 && I->FdbkChannel == 1 && I->Density > 0){
             /* Kick the gas particle*/
             double dvel = sqrt(2 * I->KEFeedbackEnergy * wk / I->Density);
             double dir[3];
