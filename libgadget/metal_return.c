@@ -702,8 +702,8 @@ metal_return_ngbiter(
         double massfrac = (P[other].Mass + thismass) / P[other].Mass;
         P[other].Mass *= massfrac;
         /* Density also needs a correction so the volume fraction is unchanged.
-            * This ensures that volume = Mass/Density is unchanged for the next particle
-            * and thus the weighting still sums to unity.*/
+         * This ensures that volume = Mass/Density is unchanged for the next particle
+         * and thus the weighting still sums to unity.*/
         SPHP(other).Density *= massfrac;
         /* Keep track of how much was returned for conservation purposes*/
         O->MassReturn += thismass;
