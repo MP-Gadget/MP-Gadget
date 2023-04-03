@@ -69,7 +69,7 @@ def parse_full_bin(textdata, karakas=True):
             continue
         grps = reg.groups()
         species = parse_species(grps[0], metalnames)
-        yy = float(grps[1])
+        yy = float(grps[2])
         #Add individual tracked species
         if species is not None:
             yielddata[species] += yy

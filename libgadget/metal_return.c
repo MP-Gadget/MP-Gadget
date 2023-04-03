@@ -601,8 +601,8 @@ metal_return_copy(int place, TreeWalkQueryMetals * input, TreeWalk * tw)
     /* This returns the total amount of metal produced this timestep, and also fills out MetalSpeciesGenerated, which is an
      * element by element table of the metal produced by dying stars this timestep.*/
     double total_z_yield = metal_yield(dtmyrstart, dtmyrend, input->Metallicity, METALS_GET_PRIV(tw)->hub, &METALS_GET_PRIV(tw)->interp, input->MetalSpeciesGenerated, METALS_GET_PRIV(tw)->imf_norm, METALS_GET_PRIV(tw)->gsl_work[tid], METALS_GET_PRIV(tw)->LowDyingMass[pi], METALS_GET_PRIV(tw)->HighDyingMass[pi]);
-    /* The total metal returned is the metal created this timestep, plus the metal which was already in the mass returned by the dying stars.*/
-    input->MetalGenerated = InitialMass * total_z_yield + STARP(place).Metallicity * input->MassGenerated;
+    /* The total metal returned is the metal ejected into the ISM this timestep. total_z_yield is given as a fraction of the initial SSP.*/
+    input->MetalGenerated = InitialMass * total_z_yield;
     //message(3, "Particle %d PI %d z %g massgen %g metallicity %g\n", pi, P[pi].PI, total_z_yield, METALS_GET_PRIV(tw)->MassReturn[pi], STARP(place).Metallicity);
     /* It should be positive! If it is not, this is some integration error
      * in the yield table as we cannot destroy metal which is not present.*/
@@ -611,7 +611,7 @@ metal_return_copy(int place, TreeWalkQueryMetals * input, TreeWalk * tw)
     /* Similarly for all the other metal species*/
     int i;
     for(i = 0; i < NMETALS; i++) {
-        input->MetalSpeciesGenerated[i] = InitialMass * input->MetalSpeciesGenerated[i] + STARP(place).Metals[i] * input->MassGenerated;
+        input->MetalSpeciesGenerated[i] *= InitialMass;
         if(input->MetalSpeciesGenerated[i] < 0)
             input->MetalSpeciesGenerated[i] = 0;
     }
