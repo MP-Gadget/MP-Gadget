@@ -1127,10 +1127,15 @@ static double
 get_timestep_dynfric_dloga(const int p, const double atime, const double hubble)
 {
     int j;
-    double bhvel = 0;
+    double bhvel = 0, bhvel2 = 0;
     /* Mean velocity relative to surrounding DF particles*/
-    for(j = 0; j < 3; j++)
+    /* Near the end this quantity can become small and the timestep too long. Instead use the total velocity.*/
+    for(j = 0; j < 3; j++) {
         bhvel += pow(P[p].Vel[j] - BHP(p).DF_SurroundingVel[j], 2);
+        bhvel2 += pow(P[p].Vel[j], 2);
+    }
+    if(bhvel2 > bhvel)
+        bhvel = bhvel2;
     bhvel = sqrt(bhvel);
 
     double dt = 2*TimestepParams.ErrTolIntAccuracy * atime * atime *  P[p].Hsml / (bhvel + 1e-20);
