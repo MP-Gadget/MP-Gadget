@@ -139,6 +139,9 @@ metal_return_copy(int place, TreeWalkQueryMetals * input, TreeWalk * tw);
 static void
 metal_return_postprocess(int place, TreeWalk * tw);
 
+static void
+metal_return_reduce(const int place, TreeWalkResultMetals * remote, const enum TreeWalkReduceMode mode, TreeWalk * tw);
+
 /* The Chabrier IMF used for computing SnII and AGB yields.
  * See 1305.2913 eq 3*/
 static double chabrier_imf(double mass)
@@ -560,7 +563,7 @@ metal_return(const ActiveParticles * act, DomainDecomp * const ddecomp, Cosmolog
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterMetals);
     tw->haswork = metal_return_haswork;
     tw->fill = (TreeWalkFillQueryFunction) metal_return_copy;
-    tw->reduce = NULL;
+    tw->reduce = (TreeWalkReduceResultFunction) metal_return_reduce;
     tw->postprocess = (TreeWalkProcessFunction) metal_return_postprocess;
     tw->query_type_elsize = sizeof(TreeWalkQueryMetals);
     tw->result_type_elsize = sizeof(TreeWalkResultMetals);
@@ -598,8 +601,8 @@ metal_return_copy(int place, TreeWalkQueryMetals * input, TreeWalk * tw)
     /* This returns the total amount of metal produced this timestep, and also fills out MetalSpeciesGenerated, which is an
      * element by element table of the metal produced by dying stars this timestep.*/
     double total_z_yield = metal_yield(dtmyrstart, dtmyrend, input->Metallicity, METALS_GET_PRIV(tw)->hub, &METALS_GET_PRIV(tw)->interp, input->MetalSpeciesGenerated, METALS_GET_PRIV(tw)->imf_norm, METALS_GET_PRIV(tw)->gsl_work[tid], METALS_GET_PRIV(tw)->LowDyingMass[pi], METALS_GET_PRIV(tw)->HighDyingMass[pi]);
-    /* The total metal returned is the metal created this timestep, plus the metal which was already in the mass returned by the dying stars.*/
-    input->MetalGenerated = InitialMass * total_z_yield + STARP(place).Metallicity * input->MassGenerated;
+    /* The total metal returned is the metal ejected into the ISM this timestep. total_z_yield is given as a fraction of the initial SSP.*/
+    input->MetalGenerated = InitialMass * total_z_yield;
     //message(3, "Particle %d PI %d z %g massgen %g metallicity %g\n", pi, P[pi].PI, total_z_yield, METALS_GET_PRIV(tw)->MassReturn[pi], STARP(place).Metallicity);
     /* It should be positive! If it is not, this is some integration error
      * in the yield table as we cannot destroy metal which is not present.*/
@@ -608,10 +611,17 @@ metal_return_copy(int place, TreeWalkQueryMetals * input, TreeWalk * tw)
     /* Similarly for all the other metal species*/
     int i;
     for(i = 0; i < NMETALS; i++) {
-        input->MetalSpeciesGenerated[i] = InitialMass * input->MetalSpeciesGenerated[i] + STARP(place).Metals[i] * input->MassGenerated;
+        input->MetalSpeciesGenerated[i] *= InitialMass;
         if(input->MetalSpeciesGenerated[i] < 0)
             input->MetalSpeciesGenerated[i] = 0;
     }
+}
+
+/* Update the mass return variable to contain the amount of mass actually returned.*/
+static void
+metal_return_reduce(int place, TreeWalkResultMetals * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
+{
+    TREEWALK_REDUCE(METALS_GET_PRIV(tw)->MassReturn[P[place].PI], remote->MassReturn);
 }
 
 /* Update the mass and enrichment variables for the star.
@@ -670,13 +680,18 @@ metal_return_ngbiter(
         /* Volume of particle weighted by the SPH kernel*/
         double volume = P[other].Mass / SPHP(other).Density;
         double returnfraction = wk * volume / I->StarVolumeSPH;
+        double thismass = returnfraction * I->MassGenerated;
+        /* Ensure that the gas particles don't become overweight.
+         * If there are few gas particles around, the star clusters
+         * will hold onto their metals.*/
+        if(P[other].Mass + thismass > METALS_GET_PRIV(lv->tw)->MaxGasMass) {
+            unlock_spinlock(pi, METALS_GET_PRIV(lv->tw)->spin);
+            return;
+        }
+        /* Add metals weighted by SPH kernel*/
         int i;
         for(i = 0; i < NMETALS; i++)
             ThisMetals[i] = returnfraction * I->MetalSpeciesGenerated[i];
-        /* Keep track of how much was returned for conservation purposes*/
-        double thismass = returnfraction * I->MassGenerated;
-        O->MassReturn += thismass;
-        /* Add metals weighted by SPH kernel*/
         double thismetal = returnfraction * I->MetalGenerated;
         /* Add the metals to the particle.*/
         for(i = 0; i < NMETALS; i++)
@@ -685,16 +700,13 @@ metal_return_ngbiter(
         SPHP(other).Metallicity = (SPHP(other).Metallicity * P[other].Mass + thismetal)/(P[other].Mass + thismass);
         /* Update mass*/
         double massfrac = (P[other].Mass + thismass) / P[other].Mass;
-        /* Ensure that the gas particles don't become overweight.
-         * If there are few gas particles around, the star clusters
-         * will hold onto their metals.*/
-        if(P[other].Mass + thismass < METALS_GET_PRIV(lv->tw)->MaxGasMass) {
-            P[other].Mass *= massfrac;
-            /* Density also needs a correction so the volume fraction is unchanged.
-             * This ensures that volume = Mass/Density is unchanged for the next particle
-             * and thus the weighting still sums to unity.*/
-            SPHP(other).Density *= massfrac;
-        }
+        P[other].Mass *= massfrac;
+        /* Density also needs a correction so the volume fraction is unchanged.
+         * This ensures that volume = Mass/Density is unchanged for the next particle
+         * and thus the weighting still sums to unity.*/
+        SPHP(other).Density *= massfrac;
+        /* Keep track of how much was returned for conservation purposes*/
+        O->MassReturn += thismass;
         newmass = P[other].Mass;
         unlock_spinlock(pi, METALS_GET_PRIV(lv->tw)->spin);
         if(newmass <= 0)

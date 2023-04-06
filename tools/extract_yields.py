@@ -69,7 +69,7 @@ def parse_full_bin(textdata, karakas=True):
             continue
         grps = reg.groups()
         species = parse_species(grps[0], metalnames)
-        yy = float(grps[1])
+        yy = float(grps[2])
         #Add individual tracked species
         if species is not None:
             yielddata[species] += yy
@@ -188,10 +188,11 @@ def parse_snii_file(filename):
         for i in range(len(masses)):
             #Ejected mass
             if row[1] == 'M_cut_':
-                yields[(masses[i], row[0])]['ej'] = masses[i] - row[i+2]
+                yields[(masses[i], row[0])]['ej'] -= row[i+2]
                 continue
-            # Final mass should not show up in the yield tables
+            # Final mass
             if row[1] == 'M_final_':
+                yields[(masses[i], row[0])]['ej'] += row[i+2]
                 continue
             # Yield for this species
             if spec is not None:
