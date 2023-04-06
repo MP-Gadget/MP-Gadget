@@ -476,7 +476,7 @@ domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pma
 
     /* We want to avoid doing an alltoall with
      * more than 2GB of material as this hangs.*/
-    const size_t maxexch = 1024L*1024L*2030L;
+    const size_t maxexch = 1024L*1024L*1024L;
 
     /* Fast path: if we have enough space no matter what type the particles
      * are we don't need to check them.*/
