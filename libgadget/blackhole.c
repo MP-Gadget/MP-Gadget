@@ -273,7 +273,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     /*************************************************************************/
     /*  Dynamical Friction Treewalk */
     /*************************************************************************/
-    struct BHDynFricPriv dynpriv[1];
+    struct BHDynFricPriv dynpriv[1] = {0};
     dynpriv->atime = atime;
     dynpriv->CP = CP;
     dynpriv->kf = &kf;

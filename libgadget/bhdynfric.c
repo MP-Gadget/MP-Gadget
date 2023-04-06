@@ -208,10 +208,16 @@ blackhole_dynfric_ngbiter(TreeWalkQueryBHDynfric * I,
 
 void blackhole_dynpriv_free(struct BHDynFricPriv * dynpriv)
 {
-    myfree(dynpriv->BH_SurroundingDensity);
-    myfree(dynpriv->BH_SurroundingParticles);
-    myfree(dynpriv->BH_SurroundingVel);
-    myfree(dynpriv->BH_SurroundingRmsVel);
+    if(dynpriv->BH_SurroundingDensity) {
+        myfree(dynpriv->BH_SurroundingDensity);
+        myfree(dynpriv->BH_SurroundingParticles);
+        myfree(dynpriv->BH_SurroundingVel);
+        myfree(dynpriv->BH_SurroundingRmsVel);
+    }
+    dynpriv->BH_SurroundingDensity = NULL;
+    dynpriv->BH_SurroundingParticles = NULL;
+    dynpriv->BH_SurroundingVel = NULL;
+    dynpriv->BH_SurroundingRmsVel = NULL;
 }
 
 void

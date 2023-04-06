@@ -1,4 +1,5 @@
 #include <math.h>
+#include <string.h>
 #include "utils/mymalloc.h"
 #include "partmanager.h"
 #include "slotsmanager.h"
@@ -82,6 +83,8 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
         int PI = P[p_i].PI;
 
         struct BHinfo *info = &infos[i];
+        /* Zero the struct*/
+        memset(info, 0, sizeof(struct BHinfo));
         info->size1 = size;
         info->size2 = size;
         info->ID = P[p_i].ID;
@@ -109,12 +112,14 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
 
         /****************************************************************************/
         /* Output some DF info for debugging */
-        info->BH_SurroundingDensity = dynpriv->BH_SurroundingDensity[PI];
-        info->BH_SurroundingRmsVel = dynpriv->BH_SurroundingRmsVel[PI];
-        info->BH_SurroundingParticles = dynpriv->BH_SurroundingParticles[PI];
-        info->BH_SurroundingVel[0] = dynpriv->BH_SurroundingVel[PI][0];
-        info->BH_SurroundingVel[1] = dynpriv->BH_SurroundingVel[PI][1];
-        info->BH_SurroundingVel[2] = dynpriv->BH_SurroundingVel[PI][2];
+        if(dynpriv && dynpriv->BH_SurroundingDensity) {
+            info->BH_SurroundingDensity = dynpriv->BH_SurroundingDensity[PI];
+            info->BH_SurroundingRmsVel = dynpriv->BH_SurroundingRmsVel[PI];
+            info->BH_SurroundingParticles = dynpriv->BH_SurroundingParticles[PI];
+            info->BH_SurroundingVel[0] = dynpriv->BH_SurroundingVel[PI][0];
+            info->BH_SurroundingVel[1] = dynpriv->BH_SurroundingVel[PI][1];
+            info->BH_SurroundingVel[2] = dynpriv->BH_SurroundingVel[PI][2];
+        }
 
         /****************************************************************************/
         info->BH_accreted_BHMass = priv->BH_accreted_BHMass[PI];
