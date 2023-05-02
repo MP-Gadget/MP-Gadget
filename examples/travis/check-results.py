@@ -19,7 +19,6 @@ def compute_power(output):
                 BigFileCatalog(output, dataset='4/', header='Header'))
     except:
         catb = BigFileCatalog(output, dataset='0/', header='Header')
-    box = catcdm.attrs['BoxSize']
     Nmesh = 2*int(np.round(np.cbrt(catcdm.attrs['TotNumPart'][0])))
 
     meshcdm = catcdm.to_mesh(Nmesh=Nmesh, resampler='cic', compensated=True, interlaced=True)
@@ -27,9 +26,9 @@ def compute_power(output):
     pkb = FFTPower(catb, mode='1d', Nmesh=Nmesh)
     pkcdm = FFTPower(catcdm, mode='1d', Nmesh=Nmesh)
     z = 1. / catcdm.attrs['Time'] - 1
-    box = catcdm.attrs['BoxSize']
-    omegab = catcdm.attrs['OmegaBaryon']
-    omega0 = catcdm.attrs['Omega0']
+    box = catcdm.attrs['BoxSize'][0]
+    omegab = catcdm.attrs['OmegaBaryon'][0]
+    omega0 = catcdm.attrs['Omega0'][0]
     return pkcdm.power, pkb.power, z, box, omegab, omega0
 
 def test_power(output, transfer, IC=False):
@@ -54,7 +53,7 @@ def test_power(output, transfer, IC=False):
 
     ax.set_title("z="+str(z))
     ax.set_xscale('log')
-    ax.set_xlim([2*np.pi/box/2, 2*np.pi/box*4000])
+    ax.set_xlim(2*np.pi/box/2, 2*np.pi/box*4000)
     ax.set_ylim(0.35, 1.05)
     ax.legend()
     fig.savefig(output + '.png')
