@@ -54,7 +54,7 @@ def test_power(output, transfer, IC=False):
 
     ax.set_title("z="+str(z))
     ax.set_xscale('log')
-    ax.set_xlim(2*np.pi/box/2, 2*np.pi/box*4000)
+    ax.set_xlim([2*np.pi/box/2, 2*np.pi/box*4000])
     ax.set_ylim(0.35, 1.05)
     ax.legend()
     fig.savefig(output + '.png')
