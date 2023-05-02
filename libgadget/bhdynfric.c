@@ -5,11 +5,14 @@
 #include "density.h"
 #include "walltime.h"
 
+#define BHPOTVALUEINIT 1.0e29
+
 static struct BlackholeDynFricParams
 {
     int BH_DynFrictionMethod;/*0 for off; 1 for Star Only; 2 for DM+Star; 3 for DM+Star+Gas */
     int BH_DFBoostFactor; /*Optional boost factor for DF */
     double BH_DFbmax; /* the maximum impact range, in physical unit of kpc. */
+    int BlackHoleRepositionEnabled; /* If true, enable repositioning the BH to the potential minimum. If false, do dynamic friction.*/
 } blackhole_dynfric_params;
 
 /*Set the parameters of the BH module*/
@@ -21,8 +24,15 @@ void set_blackhole_dynfric_params(ParameterSet * ps)
         blackhole_dynfric_params.BH_DynFrictionMethod = param_get_int(ps, "BH_DynFrictionMethod");
         blackhole_dynfric_params.BH_DFBoostFactor = param_get_int(ps, "BH_DFBoostFactor");
         blackhole_dynfric_params.BH_DFbmax = param_get_double(ps, "BH_DFbmax");
+        blackhole_dynfric_params.BlackHoleRepositionEnabled = param_get_int(ps, "BlackHoleRepositionEnabled");
     }
     MPI_Bcast(&blackhole_dynfric_params, sizeof(struct BlackholeDynFricParams), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
+
+int
+BHGetRepositionEnabled(void)
+{
+    return blackhole_dynfric_params.BlackHoleRepositionEnabled;
 }
 
 #define BHDYN_GET_PRIV(tw) ((struct BHDynFricPriv *) (tw->priv))
@@ -40,7 +50,10 @@ typedef struct {
     MyFloat SurroundingDensity;
     int SurroundingParticles;
     MyFloat SurroundingRmsVel;
-
+    /* Minimum potential for diagnostics*/
+    MyFloat BH_MinPotPos[3];
+    MyFloat BH_MinPotVel[3];
+    MyFloat BH_MinPot;
 } TreeWalkResultBHDynfric;
 
 typedef struct {
@@ -51,13 +64,17 @@ typedef struct {
 int
 blackhole_dynfric_treemask(void)
 {
-    /* dynamical friction uses: stars, DM if BH_DynFrictionMethod > 1, gas if BH_DynFrictionMethod  == 3.*/
-    int treemask = STARMASK;
+    /* dynamical friction uses: stars, DM if BH_DynFrictionMethod > 1, gas if BH_DynFrictionMethod  == 3.
+     * The BH do not contribute dynamic friction but are here so the potential minimum is updated. */
+    int treemask = STARMASK + BHMASK;
     /* Don't necessarily need dark matter */
     if(blackhole_dynfric_params.BH_DynFrictionMethod > 1)
         treemask += DMMASK;
     if(blackhole_dynfric_params.BH_DynFrictionMethod > 2)
         treemask += GASMASK;
+    /* For repositioning we want all particles*/
+    if(blackhole_dynfric_params.BlackHoleRepositionEnabled)
+        treemask = ALLMASK;
     return treemask;
 }
 
@@ -107,7 +124,7 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
         /* There is no parameter in physical unit, so I kept everything in code unit */
 
         x = bhvel / sqrt(2) / (BHDYN_GET_PRIV(tw)->BH_SurroundingRmsVel[PI] / 3);
-        /* First term is aproximation of the error function */
+        /* First term is approximation of the error function */
         f_of_x = x / fabs(x) * sqrt(1 - exp(-x * x * (4 / M_PI + a_erf * x * x)
             / (1 + a_erf * x * x))) - 2 * x / sqrt(M_PI) * exp(-x * x);
         /* Floor at zero */
@@ -146,6 +163,25 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw){
 }
 
 static void
+blackhole_repos_reduce(int place, TreeWalkResultBHDynfric * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
+{
+    int k;
+    MyFloat * MinPot = BHDYN_GET_PRIV(tw)->MinPot;
+
+    int PI = P[place].PI;
+    if(MinPot[PI] > remote->BH_MinPot)
+    {
+        BHP(place).JumpToMinPot = blackhole_dynfric_params.BlackHoleRepositionEnabled;
+        MinPot[PI] = remote->BH_MinPot;
+        for(k = 0; k < 3; k++) {
+            /* Movement occurs in drift.c */
+            BHP(place).MinPotPos[k] = remote->BH_MinPotPos[k];
+            BHP(place).MinPotVel[k] = remote->BH_MinPotVel[k];
+        }
+    }
+}
+
+static void
 blackhole_dynfric_reduce(int place, TreeWalkResultBHDynfric * remote, enum TreeWalkReduceMode mode, TreeWalk * tw){
     int PI = P[place].PI;
 
@@ -155,7 +191,8 @@ blackhole_dynfric_reduce(int place, TreeWalkResultBHDynfric * remote, enum TreeW
     TREEWALK_REDUCE(BHDYN_GET_PRIV(tw)->BH_SurroundingVel[PI][1], remote->SurroundingVel[1]);
     TREEWALK_REDUCE(BHDYN_GET_PRIV(tw)->BH_SurroundingVel[PI][2], remote->SurroundingVel[2]);
     TREEWALK_REDUCE(BHDYN_GET_PRIV(tw)->BH_SurroundingRmsVel[PI], remote->SurroundingRmsVel);
-
+    /* Find minimum potential*/
+    blackhole_repos_reduce(place, remote, mode, tw);
 }
 
 static void
@@ -164,20 +201,51 @@ blackhole_dynfric_copy(int place, TreeWalkQueryBHDynfric * I, TreeWalk * tw){
     I->Hsml = P[place].Hsml;
 }
 
-
 static void
-blackhole_dynfric_ngbiter(TreeWalkQueryBHDynfric * I,
+blackhole_minpot_ngbiter(TreeWalkQueryBHDynfric * I,
         TreeWalkResultBHDynfric * O,
         TreeWalkNgbIterBHDynfric * iter,
-        LocalTreeWalk * lv){
-
-   if(iter->base.other == -1) {
+        LocalTreeWalk * lv)
+{
+    if(iter->base.other == -1) {
+        O->BH_MinPot = BHPOTVALUEINIT;
+        int d;
+        for(d = 0; d < 3; d++) {
+            O->BH_MinPotPos[d] = I->base.Pos[d];
+        }
         iter->base.mask = blackhole_dynfric_treemask();
         iter->base.Hsml = I->Hsml;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         density_kernel_init(&iter->dynfric_kernel, I->Hsml, GetDensityKernelType());
         return;
     }
+
+    int other = iter->base.other;
+    double r2 = iter->base.r2;
+
+    /* Find the black hole potential minimum. */
+    if(r2 < iter->dynfric_kernel.HH && P[other].Potential < O->BH_MinPot)
+    {
+        int d;
+        O->BH_MinPot = P[other].Potential;
+        for(d = 0; d < 3; d++) {
+            O->BH_MinPotPos[d] = P[other].Pos[d];
+            O->BH_MinPotVel[d] = P[other].Vel[d];
+        }
+    }
+}
+
+static void
+blackhole_dynfric_ngbiter(TreeWalkQueryBHDynfric * I,
+        TreeWalkResultBHDynfric * O,
+        TreeWalkNgbIterBHDynfric * iter,
+        LocalTreeWalk * lv) {
+
+    /* Update potential minimum*/
+    blackhole_minpot_ngbiter(I, O, iter, lv);
+
+   if(iter->base.other == -1)
+       return;
 
     int other = iter->base.other;
     double r = iter->base.r;
@@ -209,6 +277,8 @@ blackhole_dynfric_ngbiter(TreeWalkQueryBHDynfric * I,
 
 void blackhole_dynpriv_free(struct BHDynFricPriv * dynpriv)
 {
+    if(dynpriv->MinPot)
+        myfree(dynpriv->MinPot);
     if(dynpriv->BH_SurroundingDensity) {
         myfree(dynpriv->BH_SurroundingDensity);
         myfree(dynpriv->BH_SurroundingParticles);
@@ -221,11 +291,70 @@ void blackhole_dynpriv_free(struct BHDynFricPriv * dynpriv)
     dynpriv->BH_SurroundingRmsVel = NULL;
 }
 
+/* Initialise the minimum potential*/
+static void
+blackhole_minpot_preprocess(int n, TreeWalk * tw)
+{
+    int j;
+    /* Note that the potential is only updated when it is from all particles.
+     * In particular this means that it is not updated for hierarchical gravity
+     * when the number of active particles is less than the total number of particles
+     * (because then the tree does not contain all forces). */
+    BHDYN_GET_PRIV(tw)->MinPot[P[n].PI] = P[n].Potential;
+
+    for(j = 0; j < 3; j++) {
+        BHP(n).MinPotPos[j] = P[n].Pos[j];
+    }
+}
+
+/* Simple treewalk that just finds the local potential minimum for BH repositioning.*/
+void
+blackhole_minpot(int * ActiveBlackHoles, const int64_t NumActiveBlackHoles, DomainDecomp * ddecomp, struct BHDynFricPriv * priv)
+{
+    /* Store minimum potential.*/
+    priv->MinPot = (MyFloat *) mymalloc("BH_MinPot", SlotsManager->info[5].size * sizeof(MyFloat));
+
+    /* Repositioning uses all particles: in practice it will usually be stars, gas or BH.*/
+    ForceTree tree[1] = {0};
+    message(0, "Building tree with all particles for repositioning\n");
+    force_tree_rebuild_mask(tree, ddecomp, blackhole_dynfric_treemask(), NULL);
+    walltime_measure("/BH/BuildRepos");
+
+
+    /*************************************************************************/
+    TreeWalk tw_repos[1] = {{0}};
+
+    tw_repos->ev_label = "BH_REPOS";
+    tw_repos->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
+    tw_repos->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHDynfric);
+    tw_repos->ngbiter = (TreeWalkNgbIterFunction) blackhole_minpot_ngbiter;
+    tw_repos->haswork = NULL;
+    tw_repos->postprocess = NULL;
+    tw_repos->preprocess = blackhole_minpot_preprocess;
+    tw_repos->fill = (TreeWalkFillQueryFunction) blackhole_dynfric_copy;
+    tw_repos->reduce = (TreeWalkReduceResultFunction) blackhole_repos_reduce;
+    tw_repos->query_type_elsize = sizeof(TreeWalkQueryBHDynfric);
+    tw_repos->result_type_elsize = sizeof(TreeWalkResultBHDynfric);
+    tw_repos->tree = tree;
+    tw_repos->priv = priv;
+
+    treewalk_run(tw_repos, ActiveBlackHoles, NumActiveBlackHoles);
+
+    force_tree_free(tree);
+    /*************************************************************************/
+    walltime_measure("/BH/Repos");
+}
+
 void
 blackhole_dynfric(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, DomainDecomp * ddecomp, struct BHDynFricPriv * priv)
 {
-    if (blackhole_dynfric_params.BH_DynFrictionMethod == 0)
+    if (blackhole_dynfric_params.BH_DynFrictionMethod == 0) {
+        /* If there is no dynamic friction, do repositioning, and
+         * run a special walk to find the potential minimum.*/
+        if(blackhole_dynfric_params.BlackHoleRepositionEnabled)
+            blackhole_minpot(ActiveBlackHoles, NumActiveBlackHoles, ddecomp, priv);
         return;
+    }
 
     /*************************************************************************/
     /* Environment variables for DF */
@@ -233,6 +362,8 @@ blackhole_dynfric(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, DomainDec
     priv->BH_SurroundingVel = (MyFloat (*) [3]) mymalloc("BH_SurroundingVel", 3* SlotsManager->info[5].size * sizeof(priv->BH_SurroundingVel[0]));
     priv->BH_SurroundingParticles = (int *)mymalloc("BH_SurroundingParticles", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingParticles));
     priv->BH_SurroundingDensity = (MyFloat *) mymalloc("BH_SurroundingDensity", SlotsManager->info[5].size * sizeof(priv->BH_SurroundingDensity));
+    /* Store minimum potential.*/
+    priv->MinPot = (MyFloat *) mymalloc("BH_MinPot", SlotsManager->info[5].size * sizeof(MyFloat));
 
     /* dynamical friction uses: stars, DM if BH_DynFrictionMethod > 1 gas if BH_DynFrictionMethod  == 3.
      * The DM in dynamic friction and accretion doesn't really do anything, so could perhaps be removed from the treebuild later.*/
@@ -248,6 +379,7 @@ blackhole_dynfric(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, DomainDec
     tw_dynfric->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHDynfric);
     tw_dynfric->ngbiter = (TreeWalkNgbIterFunction) blackhole_dynfric_ngbiter;
     tw_dynfric->postprocess = (TreeWalkProcessFunction) blackhole_dynfric_postprocess;
+    tw_dynfric->preprocess = blackhole_minpot_preprocess;
     tw_dynfric->fill = (TreeWalkFillQueryFunction) blackhole_dynfric_copy;
     tw_dynfric->reduce = (TreeWalkReduceResultFunction) blackhole_dynfric_reduce;
     tw_dynfric->query_type_elsize = sizeof(TreeWalkQueryBHDynfric);
