@@ -32,7 +32,6 @@ struct BlackholeParams
     double BlackHoleFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */
     enum BlackHoleFeedbackMethod BlackHoleFeedbackMethod;	/*!< method of the feedback*/
     double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
-    int BlackHoleRepositionEnabled; /* If true, enable repositioning the BH to the potential minimum*/
 
     int BlackHoleKineticOn; /*If 1, perform AGN kinetic feedback when the Eddington accretion rate is low */
     double BHKE_EddingtonThrFactor; /*Threshold of the Eddington rate for the kinetic feedback*/
@@ -55,12 +54,6 @@ struct BlackholeParams
     /************************************************************************/
 } blackhole_params;
 
-int
-BHGetRepositionEnabled(void)
-{
-    return blackhole_params.BlackHoleRepositionEnabled;
-}
-
 typedef struct {
     TreeWalkQueryBase base;
     MyFloat Density;
@@ -75,9 +68,6 @@ typedef struct {
 
 typedef struct {
     TreeWalkResultBase base;
-    MyFloat BH_MinPotPos[3];
-    MyFloat BH_MinPotVel[3];
-    MyFloat BH_MinPot;
     int BH_minTimeBin;
     int encounter;
     MyFloat FeedbackWeightSum;
@@ -111,7 +101,6 @@ void set_blackhole_params(ParameterSet * ps)
         blackhole_params.BlackHoleFeedbackFactor = param_get_double(ps, "BlackHoleFeedbackFactor");
 
         blackhole_params.BlackHoleFeedbackMethod = (enum BlackHoleFeedbackMethod) param_get_enum(ps, "BlackHoleFeedbackMethod");
-        blackhole_params.BlackHoleRepositionEnabled = param_get_int(ps, "BlackHoleRepositionEnabled");
 
         blackhole_params.BlackHoleKineticOn = param_get_int(ps,"BlackHoleKineticOn");
         blackhole_params.BHKE_EddingtonThrFactor = param_get_double(ps, "BHKE_EddingtonThrFactor");
@@ -148,10 +137,6 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
 static void
 blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I, TreeWalk * tw);
 
-/* Initializes the minimum potentials*/
-static void
-blackhole_accretion_preprocess(int n, TreeWalk * tw);
-
 static void
 blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         TreeWalkResultBHAccretion * O,
@@ -163,8 +148,6 @@ static void
 blackhole_feedback(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, ForceTree * tree, struct BHPriv * priv);
 
 /*************************************************************************************/
-
-#define BHPOTVALUEINIT 1.0e29
 
 static double blackhole_soundspeed(double entropy, double rho, const double atime) {
     /* rho is comoving !*/
@@ -251,9 +234,8 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     }
 
     /* Types used in treewalks:
-     * accretion uses: all types but ONLY for repositioning potential minimum. Otherwise
-     * accretion uses: gas + black holes if dynamic friction is enabled.
-     * feedback uses: gas + black holes.
+     * accretion uses: gas + black holes (to flag mergers).
+     * feedback uses: gas + black holes (to flag mergers).
      */
     if(tree->tree_allocated_flag && (tree->mask & ALLMASK) != ALLMASK)
         force_tree_free(tree);
@@ -261,10 +243,6 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     {
         message(0, "Building tree in blackhole\n");
         int treemask = GASMASK | BHMASK;
-        /* If we are repositioning, need all types*/
-        if(blackhole_params.BlackHoleRepositionEnabled)
-            treemask = ALLMASK;
-
         force_tree_rebuild_mask(tree, ddecomp, treemask, NULL);
         walltime_measure("/BH/Build");
     }
@@ -299,9 +277,6 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     /* Computed in accretion, used in feedback*/
     priv->BH_FeedbackWeightSum = (MyFloat *) mymalloc("BH_FeedbackWeightSum", SlotsManager->info[5].size * sizeof(MyFloat));
 
-    /* These are initialized in preprocess and used to reposition the BH in postprocess*/
-    priv->MinPot = (MyFloat *) mymalloc("BH_MinPot", SlotsManager->info[5].size * sizeof(MyFloat));
-
     /* Local to this treewalk*/
     priv->BH_Entropy = (MyFloat *) mymalloc("BH_Entropy", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_SurroundingGasVel = (MyFloat (*) [3]) mymalloc("BH_SurroundVel", 3* SlotsManager->info[5].size * sizeof(priv->BH_SurroundingGasVel[0]));
@@ -323,7 +298,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     tw_accretion->ngbiter = (TreeWalkNgbIterFunction) blackhole_accretion_ngbiter;
     tw_accretion->haswork = NULL;
     tw_accretion->postprocess = (TreeWalkProcessFunction) blackhole_accretion_postprocess;
-    tw_accretion->preprocess = (TreeWalkProcessFunction) blackhole_accretion_preprocess;
+    tw_accretion->preprocess = NULL;
     tw_accretion->fill = (TreeWalkFillQueryFunction) blackhole_accretion_copy;
     tw_accretion->reduce = (TreeWalkReduceResultFunction) blackhole_accretion_reduce;
     tw_accretion->query_type_elsize = sizeof(TreeWalkQueryBHAccretion);
@@ -363,7 +338,6 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
 
     myfree(priv->BH_SurroundingGasVel);
     myfree(priv->BH_Entropy);
-    myfree(priv->MinPot);
 
     myfree(priv->BH_FeedbackWeightSum);
     myfree(priv->SPH_SwallowID);
@@ -475,22 +449,6 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
 }
 
 static void
-blackhole_accretion_preprocess(int n, TreeWalk * tw)
-{
-    int j;
-    /* Note that the potential is only updated when it is from all particles.
-     * In particular this means that it is not updated for hierarchical gravity
-     * when the number of active particles is less than the total number of particles
-     * (because then the tree does not contain all forces). */
-    BH_GET_PRIV(tw)->MinPot[P[n].PI] = P[n].Potential;
-
-    for(j = 0; j < 3; j++) {
-        BHP(n).MinPotPos[j] = P[n].Pos[j];
-    }
-
-}
-
-static void
 blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         TreeWalkResultBHAccretion * O,
         TreeWalkNgbIterBHAccretion * iter,
@@ -500,13 +458,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     if(iter->base.other == -1) {
         O->BH_minTimeBin = TIMEBINS;
         O->encounter = 0;
-
-        O->BH_MinPot = BHPOTVALUEINIT;
-
-        int d;
-        for(d = 0; d < 3; d++) {
-            O->BH_MinPotPos[d] = I->base.Pos[d];
-        }
         iter->base.mask = GASMASK + STARMASK + BHMASK;
         iter->base.Hsml = I->Hsml;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
@@ -531,20 +482,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
      /* BH does not accrete wind */
     if(winds_is_particle_decoupled(other)) return;
 
-    /* Find the black hole potential minimum. */
-    if(r2 < iter->accretion_kernel.HH)
-    {
-        if(P[other].Potential < O->BH_MinPot)
-        {
-            int d;
-            O->BH_MinPot = P[other].Potential;
-            for(d = 0; d < 3; d++) {
-                O->BH_MinPotPos[d] = P[other].Pos[d];
-                O->BH_MinPotVel[d] = P[other].Vel[d];
-            }
-        }
-    }
-
     /* Accretion / merger doesn't do self interaction */
     if(P[other].ID == I->ID) return;
 
@@ -555,12 +492,12 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
         int flag = 0; // the flag for BH merge
 
-        if(blackhole_params.BlackHoleRepositionEnabled == 1) // directly merge if reposition is enabled
+        if(BHGetRepositionEnabled() == 1) // directly merge if reposition is enabled
             flag = 1;
         if(blackhole_params.MergeGravBound == 0)
             flag = 1;
         /* apply Grav Bound check only when Reposition is disabled, otherwise BHs would be repositioned to the same location but not merge */
-        if(blackhole_params.MergeGravBound == 1 && blackhole_params.BlackHoleRepositionEnabled == 0){
+        if(blackhole_params.MergeGravBound == 1 && BHGetRepositionEnabled() == 0){
 
             double dx[3];
             double dv[3];
@@ -699,19 +636,8 @@ static void
 blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
 {
     int k;
-    MyFloat * MinPot = BH_GET_PRIV(tw)->MinPot;
 
     int PI = P[place].PI;
-    if(MinPot[PI] > remote->BH_MinPot)
-    {
-        BHP(place).JumpToMinPot = blackhole_params.BlackHoleRepositionEnabled;
-        MinPot[PI] = remote->BH_MinPot;
-        for(k = 0; k < 3; k++) {
-            /* Movement occurs in drift.c */
-            BHP(place).MinPotPos[k] = remote->BH_MinPotPos[k];
-            BHP(place).MinPotVel[k] = remote->BH_MinPotVel[k];
-        }
-    }
 
     BHP(place).encounter = remote->encounter;
 
