@@ -59,7 +59,7 @@ gravpm_init_periodic(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, doubl
  * Parameters: Cosmology, Time, UnitLength_in_cm and PowerOutputDir are used by the power spectrum output code.
  * TimeIC and FastParticleType are used by the massive neutrino code. FastParticleType denotes possibly inactive particles.*/
 void
-gravpm_force(PetaPM * pm, ForceTree * tree, Cosmology * CP, double Time, double UnitLength_in_cm, const char * PowerOutputDir, double TimeIC, int FastParticleType) {
+gravpm_force(PetaPM * pm, DomainDecomp * ddecomp, Cosmology * CP, double Time, double UnitLength_in_cm, const char * PowerOutputDir, double TimeIC, int FastParticleType) {
     PetaPMParticleStruct pstruct = {
         P,
         sizeof(P[0]),
@@ -81,7 +81,8 @@ gravpm_force(PetaPM * pm, ForceTree * tree, Cosmology * CP, double Time, double 
         global_functions.global_analysis = compute_neutrino_power;
     }
 
-    if(CP->HybridNeutrinosOn && particle_nu_fraction(&(CP->ONu.hybnu), Time, 0) == 0.)
+    /* This removes neutrino particles when they are passive tracers*/
+    if(hybrid_nu_tracer(CP, Time))
         pstruct.active = &hybrid_nu_gravpm_is_active;
 
     int i;
@@ -90,6 +91,10 @@ gravpm_force(PetaPM * pm, ForceTree * tree, Cosmology * CP, double Time, double 
     {
         P[i].GravPM[0] = P[i].GravPM[1] = P[i].GravPM[2] = 0;
     }
+
+    /* Tree freed in PM*/
+    ForceTree Tree = {0};
+    force_tree_full(&Tree, ddecomp, hybrid_nu_tracer(CP, Time), PowerOutputDir);
 
     /* Set up parameters*/
     GravPM.Time = Time;
@@ -102,7 +107,7 @@ gravpm_force(PetaPM * pm, ForceTree * tree, Cosmology * CP, double Time, double 
      * Therefore the force transfer functions are based on the potential,
      * not the density.
      * */
-    petapm_force(pm, _prepare, &global_functions, functions, &pstruct, tree);
+    petapm_force(pm, _prepare, &global_functions, functions, &pstruct, &Tree);
     powerspectrum_sum(pm->ps);
     /*Now save the power spectrum*/
     powerspectrum_save(pm->ps, PowerOutputDir, "powerspectrum", Time, GrowthFactor(CP, Time, 1.0));
