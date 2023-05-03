@@ -91,9 +91,9 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     ActiveParticles Act = init_empty_active_particles(0);
     build_active_particles(&Act, &times, 0, header->TimeSnapshot);
 
+    gravpm_force(pm, ddecomp, CP, header->TimeSnapshot, header->UnitLength_in_cm, OutputDir, header->TimeIC, FastParticleType);
+
     ForceTree Tree = {0};
-    force_tree_full(&Tree, ddecomp, 1, OutputDir);
-    gravpm_force(pm, &Tree, CP, header->TimeSnapshot, header->UnitLength_in_cm, OutputDir, header->TimeIC, FastParticleType);
     force_tree_full(&Tree, ddecomp, 1, OutputDir);
 
     struct gravshort_tree_params origtreeacc = get_gravshort_treepar();
@@ -163,8 +163,7 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     petapm_destroy(pm);
 
     gravpm_init_periodic(pm, PartManager->BoxSize, Asmth, Nmesh/2., CP->GravInternal);
-    force_tree_full(&Tree, ddecomp, 1, OutputDir);
-    gravpm_force(pm, &Tree, CP, header->TimeSnapshot, header->UnitLength_in_cm, OutputDir, header->TimeIC, FastParticleType);
+    gravpm_force(pm, ddecomp, CP, header->TimeSnapshot, header->UnitLength_in_cm, OutputDir, header->TimeIC, FastParticleType);
     force_tree_full(&Tree, ddecomp, 1, OutputDir);
     set_gravshort_treepar(treeacc);
     grav_short_tree(&Act, pm, &Tree, NULL, rho0, 0, FastParticleType, times.Ti_Current);

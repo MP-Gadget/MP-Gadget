@@ -52,7 +52,7 @@ struct gravshort_tree_params get_gravshort_treepar(void);
  * Parameters: Cosmology, Time, UnitLength_in_cm and PowerOutputDir are used by the power spectrum output code.
  * TimeIC and FastParticleType are used by the massive neutrino code. FastParticleType denotes possibly inactive particles.
  * Note: tree is freed during this function*/
-void gravpm_force(PetaPM * pm, ForceTree * tree, Cosmology * CP, double Time, double UnitLength_in_cm, const char * PowerOutputDir, double TimeIC, int FastParticleType);
+void gravpm_force(PetaPM * pm, DomainDecomp * ddecomp, Cosmology * CP, double Time, double UnitLength_in_cm, const char * PowerOutputDir, double TimeIC, int FastParticleType);
 
 void grav_short_pair(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, double Rcut, double rho0, int NeutrinoTracer, int FastParticleType);
 void grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFloat (* AccelStore)[3], double rho0, int NeutrinoTracer, int FastParticleType, inttime_t Ti_Current);
