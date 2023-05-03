@@ -237,7 +237,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
      * accretion uses: gas + black holes (to flag mergers).
      * feedback uses: gas + black holes (to flag mergers).
      */
-    if(tree->tree_allocated_flag && (tree->mask & ALLMASK) != ALLMASK)
+    if(tree->tree_allocated_flag && (tree->mask & (GASMASK | BHMASK)) != (GASMASK | BHMASK))
         force_tree_free(tree);
     if(!tree->tree_allocated_flag)
     {

@@ -437,6 +437,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         if(sfr_need_to_compute_sph_grad_rho())
             GradRho_mag = (MyFloat *) mymalloc2("SPH_GradRho", sizeof(MyFloat) * SlotsManager->info[0].size);
 
+        ForceTree gasTree = {0};
         /* density() happens before gravity because it also initializes the predicted variables.
         * This ensures that prediction consistently uses the grav and hydro accel from the
         * timestep before this one, which matches Gadget-2/3. It was tested to make a small difference,
@@ -446,11 +447,11 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         * adaptive gravitational softenings. */
         if(GasEnabled)
         {
-            ForceTree gasTree = {0};
             /* Just gas. Note that the density() code computes hsml for black holes and gas.
-             * However, hsml is the length that encloses NumNgb gas particles, so the tree contains only gas.
+             * However, hsml is the length that encloses NumNgb gas particles, so for density the tree needs only gas.
+             * We add BHs so we can re-use the tree for mergers.
              * No moments (yet). We do need hmax for hydro, but we need to compute hsml first.*/
-            force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, All.OutputDir);
+            force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK | BHMASK, All.OutputDir);
             walltime_measure("/SPH/Build");
 
             /*Predicted SPH data.*/
@@ -473,7 +474,9 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             }
             /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
             slots_free_sph_pred_data(&sph_predicted);
-            force_tree_free(&gasTree);
+            /* Free this tree on a PM step for memory*/
+            if(is_PM)
+                force_tree_free(&gasTree);
 
             /* Hydro half-kick after hydro force, as not done with the gravity.*/
             if(All.HierarchicalGravity)
@@ -507,9 +510,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 energy_statistics(fds.FdEnergy, atime, PartManager);
         }
 
-        /* Force tree object, reused if HierarchicalGravity is off.*/
-        ForceTree Tree = {0};
-
         int64_t totgravactive;
         MPI_Allreduce(&Act.NumActiveGravity, &totgravactive, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
@@ -527,10 +527,12 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 hierarchical_gravity_accelerations(&Act, &pm, ddecomp, GravAccel, &times, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
             }
             else if(All.TreeGravOn && totgravactive) {
+                    ForceTree Tree = {0};
                     /* Do a short range pairwise only step if desired*/
                     const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal);
                     force_tree_full(&Tree, ddecomp, HybridNuTracer, All.OutputDir);
                     grav_short_tree(&Act, &pm, &Tree, NULL, rho0, HybridNuTracer, All.FastParticleType, times.Ti_Current);
+                    force_tree_free(&Tree);
             }
         }
 
@@ -633,14 +635,14 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
              */
             /* Black hole accretion and feedback */
             if(All.BlackHoleOn)
-                blackhole(&Act, atime, &All.CP, &Tree, ddecomp, &times, units, fds.FdBlackHoles, fds.FdBlackholeDetails);
+                blackhole(&Act, atime, &All.CP, &gasTree, ddecomp, &times, units, fds.FdBlackHoles, fds.FdBlackholeDetails);
 
             /**** radiative cooling and star formation *****/
             if(All.CoolingOn)
-                cooling_and_starformation(&Act, atime, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &Tree, GravAccel, ddecomp, &All.CP, GradRho_mag, fds.FdSfr);
+                cooling_and_starformation(&Act, atime, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &gasTree, GravAccel, ddecomp, &All.CP, GradRho_mag, fds.FdSfr);
         }
         /* We don't need this timestep's tree anymore.*/
-        force_tree_free(&Tree);
+        force_tree_free(&gasTree);
 
         /* If a snapshot is requested, write it.         *
          * We only attempt to output on sync points. This is the only chance where all variables are
