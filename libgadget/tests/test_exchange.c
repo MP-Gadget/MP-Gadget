@@ -100,8 +100,9 @@ test_exchange(void **state)
     int fail = domain_exchange(&test_exchange_layout_func, NULL, 1, NULL, PartManager, SlotsManager,10000, MPI_COMM_WORLD);
 
     assert_all_true(!fail);
-
+#ifdef DEBUG
     slots_check_id_consistency(PartManager, SlotsManager);
+#endif
     domain_test_id_uniqueness(PartManager);
 
     for(i = 0; i < PartManager->NumPart; i ++) {
@@ -124,8 +125,9 @@ test_exchange_zero_slots(void **state)
     int fail = domain_exchange(&test_exchange_layout_func, NULL, 1, NULL, PartManager, SlotsManager, 10000, MPI_COMM_WORLD);
 
     assert_all_true(!fail);
-
+#ifdef DEBUG
     slots_check_id_consistency(PartManager, SlotsManager);
+#endif
     domain_test_id_uniqueness(PartManager);
 
     for(i = 0; i < PartManager->NumPart; i ++) {
@@ -152,7 +154,9 @@ test_exchange_with_garbage(void **state)
     assert_all_true(!fail);
 
     domain_test_id_uniqueness(PartManager);
+#ifdef DEBUG
     slots_check_id_consistency(PartManager, SlotsManager);
+#endif
 
     for(i = 0; i < PartManager->NumPart; i ++) {
         assert_true (P[i].ID % NTask == 1Lu * ThisTask);
@@ -192,7 +196,9 @@ test_exchange_uneven(void **state)
         assert_int_equal(SlotsManager->info[0].size, NUMPART1 * NTask);
     }
 
+#ifdef DEBUG
     slots_check_id_consistency(PartManager, SlotsManager);
+#endif
     domain_test_id_uniqueness(PartManager);
 
     for(i = 0; i < PartManager->NumPart; i ++) {

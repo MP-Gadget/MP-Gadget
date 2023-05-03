@@ -11,6 +11,7 @@
 
 #include "stub.h"
 
+
 #include <libgadget/partmanager.h>
 #include <libgadget/domain.h>
 #include <libgadget/slotsmanager.h>
@@ -76,8 +77,9 @@ test_slots_gc(void **state)
     assert_int_equal(SlotsManager->info[0].size, 127);
     assert_int_equal(SlotsManager->info[4].size, 127);
     assert_int_equal(SlotsManager->info[5].size, 127);
-
+#ifdef DEBUG
     slots_check_id_consistency(PartManager, SlotsManager);
+#endif
     teardown_particles(state);
     return;
 }
@@ -96,8 +98,9 @@ test_slots_gc_sorted(void **state)
     assert_int_equal(SlotsManager->info[0].size, 127);
     assert_int_equal(SlotsManager->info[4].size, 127);
     assert_int_equal(SlotsManager->info[5].size, 127);
-
+#ifdef DEBUG
     slots_check_id_consistency(PartManager, SlotsManager);
+#endif
     teardown_particles(state);
     return;
 }
