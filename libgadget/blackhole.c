@@ -711,7 +711,13 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
         }
     }
 
-    BHP(place).encounter = remote->encounter;
+    /* Set encounter to true if it is true on any remote*/
+    if (mode == 0 || BHP(place).encounter < remote->encounter) {
+        BHP(place).encounter = remote->encounter;
+    }
+    /* But set it to false if we are merging*/
+    if(BHP(place).SwallowID != (MyIDType) -1)
+        BHP(place).encounter = 0;
 
     if (mode == 0 || BHP(place).minTimeBin > remote->BH_minTimeBin) {
         BHP(place).minTimeBin = remote->BH_minTimeBin;
