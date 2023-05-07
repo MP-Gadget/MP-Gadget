@@ -449,9 +449,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         {
             /* Just gas. Note that the density() code computes hsml for black holes and gas.
              * However, hsml is the length that encloses NumNgb gas particles, so for density the tree needs only gas.
-             * We add BHs so we can re-use the tree for mergers.
              * No moments (yet). We do need hmax for hydro, but we need to compute hsml first.*/
-            force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK | BHMASK, All.OutputDir);
+            force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, All.OutputDir);
             walltime_measure("/SPH/Build");
 
             /*Predicted SPH data.*/
