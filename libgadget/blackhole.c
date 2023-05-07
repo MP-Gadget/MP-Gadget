@@ -21,6 +21,7 @@
 #include "walltime.h"
 #include "bhinfo.h"
 #include "bhdynfric.h"
+#include "bhmerger.h"
 
 /*! \file blackhole.c
  *  \brief routines for gas accretion onto black holes, and black hole mergers
@@ -144,7 +145,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         LocalTreeWalk * lv);
 
 /* Do the black hole feedback tree walk. Tree needs to have gas and BH.*/
-static void
+static int64_t
 blackhole_feedback(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, ForceTree * tree, struct BHPriv * priv);
 
 /*************************************************************************************/
@@ -158,29 +159,6 @@ static double blackhole_soundspeed(double entropy, double rho, const double atim
     cs *= pow(atime, -1.5 * GAMMA_MINUS1);
 
     return cs;
-}
-
-/* check if two BHs are gravitationally bounded, input dv, da, dx in code unit */
-/* same as Bellovary2011, Tremmel2017 */
-static int
-check_grav_bound(double dx[3], double dv[3], double da[3], const double atime)
-{
-    int j;
-    double KE = 0;
-    double PE = 0;
-
-    for(j = 0; j < 3; j++){
-        KE += 0.5 * pow(dv[j], 2);
-        PE += da[j] * dx[j];
-    }
-
-    KE /= (atime * atime); /* convert to proper velocity */
-    PE /= atime; /* convert to proper unit */
-
-    /* The gravitationally bound condition is PE + KE < 0.
-     * Still merge if it is marginally bound so that we merge
-     * particles at zero distance and velocity from each other.*/
-    return (PE + KE <= 0);
 }
 
 /*******************************************************************/
@@ -237,12 +215,12 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
      * accretion uses: gas + black holes (to flag mergers).
      * feedback uses: gas + black holes (to flag mergers).
      */
-    if(tree->tree_allocated_flag && (tree->mask & (GASMASK | BHMASK)) != (GASMASK | BHMASK))
+    if(tree->tree_allocated_flag && (tree->mask & GASMASK) != GASMASK)
         force_tree_free(tree);
     if(!tree->tree_allocated_flag)
     {
         message(0, "Building tree in blackhole\n");
-        int treemask = GASMASK | BHMASK;
+        int treemask = GASMASK;
         force_tree_rebuild_mask(tree, ddecomp, treemask, NULL);
         walltime_measure("/BH/Build");
     }
@@ -313,22 +291,45 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     walltime_measure("/BH/Accretion");
 
     priv->BH_accreted_Mass = (MyFloat *) mymalloc("BH_accretedmass", SlotsManager->info[5].size * sizeof(MyFloat));
-    priv->BH_accreted_BHMass = (MyFloat *) mymalloc("BH_accreted_BHMass", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_accreted_Mtrack = (MyFloat *) mymalloc("BH_accreted_Mtrack", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_accreted_momentum = (MyFloat (*) [3]) mymalloc("BH_accretemom", 3* SlotsManager->info[5].size * sizeof(priv->BH_accreted_momentum[0]));
 
-    /* Now do the swallowing of particles and dump feedback energy */
-    blackhole_feedback(ActiveBlackHoles, NumActiveBlackHoles, tree, priv);
-
+    /* Now do the swallowing of gas particles and dump feedback energy */
+    int64_t Ntot_gas_swallowed = blackhole_feedback(ActiveBlackHoles, NumActiveBlackHoles, tree, priv);
     walltime_measure("/BH/Feedback");
 
-    if(FdBlackholeDetails){
-        collect_BH_info(ActiveBlackHoles, NumActiveBlackHoles, priv, dynpriv, FdBlackholeDetails);
+    /* Now find black hole mergers*/
+    /* Do we enforce that BHs are gravitationally bound in order to merge? Only if repositioning is off.*/
+    int MergeGravBound = blackhole_params.MergeGravBound;
+    if(BHGetRepositionEnabled())
+        MergeGravBound = 0;
+
+    AccretedVariables accrete[1] = {0};
+    int64_t Ntot_BH_swallowed = blackhole_mergers(ActiveBlackHoles, NumActiveBlackHoles, ddecomp, &kf, atime, blackhole_params.SeedBHDynMass, MergeGravBound, accrete);
+
+    int i;
+    #pragma omp parallel for
+    for(i = 0; i < SlotsManager->info[5].size; i++) {
+        accrete->BH_accreted_Mass[i] += priv->BH_accreted_Mass[i];
+        accrete->BH_accreted_Mtrack[i] += priv->BH_accreted_Mtrack[i];
+        int k;
+        for(k = 0; k < 3; k++)
+            accrete->BH_accreted_momentum[i][k] += priv->BH_accreted_momentum[i][k];
     }
+
+    walltime_measure("/BH/Mergers");
+    MPIU_Barrier(MPI_COMM_WORLD);
+    message(0, "Accretion done: %ld gas particles swallowed %ld BH particles merged\n",
+                Ntot_gas_swallowed, Ntot_BH_swallowed);
+
+    if(FdBlackholeDetails){
+        collect_BH_info(ActiveBlackHoles, NumActiveBlackHoles, priv, dynpriv, accrete, FdBlackholeDetails);
+    }
+
+    bh_free_accreted(accrete);
 
     myfree(priv->BH_accreted_momentum);
     myfree(priv->BH_accreted_Mtrack);
-    myfree(priv->BH_accreted_BHMass);
     myfree(priv->BH_accreted_Mass);
 
     /*****************************************************************/
@@ -458,7 +459,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     if(iter->base.other == -1) {
         O->BH_minTimeBin = TIMEBINS;
         O->encounter = 0;
-        iter->base.mask = GASMASK + STARMASK + BHMASK;
+        iter->base.mask = GASMASK;
         iter->base.Hsml = I->Hsml;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
 
@@ -484,69 +485,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
     /* Accretion / merger doesn't do self interaction */
     if(P[other].ID == I->ID) return;
-
-    /* we have a black hole merger. Now we use 2 times GravitationalSoftening as merging criteria.
-     * Note there is another condition: they must also be closer than the SPH smoothing length,
-     * as enforced by the tree search above. */
-    if(P[other].Type == 5 && r < (2*FORCE_SOFTENING(0,1)/2.8))
-    {
-        O->encounter = 1; // mark the event when two BHs encounter each other
-
-        int flag = 0; // the flag for BH merge
-
-        if(BHGetRepositionEnabled() == 1) // directly merge if reposition is enabled
-            flag = 1;
-        if(blackhole_params.MergeGravBound == 0)
-            flag = 1;
-        /* apply Grav Bound check only when Reposition is disabled, otherwise BHs would be repositioned to the same location but not merge */
-        if(blackhole_params.MergeGravBound == 1 && BHGetRepositionEnabled() == 0){
-
-            double dx[3];
-            double dv[3];
-            double da[3];
-            int d;
-            MyFloat VelPred[3];
-            DM_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->kf);
-            for(d = 0; d < 3; d++){
-                dx[d] = NEAREST(I->base.Pos[d] - P[other].Pos[d], PartManager->BoxSize);
-                dv[d] = I->Vel[d] - VelPred[d];
-                /* we include long range PM force, short range force from the last long timestep and DF */
-                da[d] = (I->Accel[d] - P[other].FullTreeGravAccel[d] - P[other].GravPM[d] - BHP(other).DFAccel[d]);
-            }
-            flag = check_grav_bound(dx,dv,da, BH_GET_PRIV(lv->tw)->atime);
-            /*if(flag == 0)
-                message(0, "dx %g %g %g dv %g %g %g da %g %g %g\n",dx[0], dx[1], dx[2], dv[0], dv[1], dv[2], da[0], da[1], da[2]);*/
-        }
-
-        /* do the merge */
-        if(flag == 1)
-        {
-            O->encounter = 0;
-            MyIDType readid, newswallowid;
-
-            #pragma omp atomic read
-            readid = (BHP(other).SwallowID);
-
-            /* Here we mark the black hole as "ready to be swallowed" using the SwallowID.
-             * The actual swallowing is done in the feedback treewalk by setting Swallowed = 1
-             * and merging the masses.*/
-            do {
-                /* Generate the new ID from the old*/
-                if(readid != (MyIDType) -1 && readid < I->ID ) {
-                    /* Already marked, prefer to be swallowed by a bigger ID */
-                    newswallowid = I->ID;
-                } else if(readid == (MyIDType) -1 && P[other].ID < I->ID) {
-                    /* Unmarked, the BH with bigger ID swallows */
-                    newswallowid = I->ID;
-                }
-                else
-                    break;
-            /* Swap in the new id only if the old one hasn't changed:
-             * in principle an extension, but supported on at least clang >= 9, gcc >= 5 and icc >= 18.*/
-            } while(!__atomic_compare_exchange_n(&(BHP(other).SwallowID), &readid, newswallowid, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
-        }
-    }
-
 
     if(P[other].Type == 0) {
         if(r2 < iter->accretion_kernel.HH) {
@@ -640,15 +578,6 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     int k;
 
     int PI = P[place].PI;
-
-    /* Set encounter to true if it is true on any remote*/
-    if (mode == 0 || BHP(place).encounter < remote->encounter) {
-        BHP(place).encounter = remote->encounter;
-    }
-    /* But set it to false if we are merging*/
-    if(BHP(place).SwallowID != (MyIDType) -1)
-        BHP(place).encounter = 0;
-
     if (mode == 0 || BHP(place).minTimeBin > remote->BH_minTimeBin) {
         BHP(place).minTimeBin = remote->BH_minTimeBin;
     }
@@ -696,10 +625,7 @@ typedef struct {
     TreeWalkResultBase base;
     MyFloat Mass; /* the accreted Mdyn */
     MyFloat AccretedMomentum[3];
-    MyFloat BH_Mass;
-    int BH_CountProgs;
     MyFloat acMtrack; /* the accreted Mtrack */
-    int alignment; /* Ensure alignment*/
 } TreeWalkResultBHFeedback;
 
 typedef struct {
@@ -744,7 +670,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
     if(iter->base.other == -1) {
 
-        iter->base.mask = GASMASK + BHMASK;
+        iter->base.mask = GASMASK;
         iter->base.Hsml = I->Hsml;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         density_kernel_init(&iter->feedback_kernel, I->Hsml, GetDensityKernelType());
@@ -761,71 +687,6 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
      /* BH does not accrete wind */
     if(winds_is_particle_decoupled(other))
         return;
-
-
-     /* we have a black hole merger! */
-    if(P[other].Type == 5 && BHP(other).SwallowID != (MyIDType) -1)
-    {
-        if(BHP(other).SwallowID != I->ID) return;
-
-        /* Swallow the particle*/
-        /* A note on Swallowed vs SwallowID: black hole particles which have been completely swallowed
-         * (ie, their mass has been added to another particle) have Swallowed = 1.
-         * These particles are ignored in future tree walks. We set Swallowed here so that this process is atomic:
-         * the total mass in the tree is always conserved.
-         *
-         * We also set SwallowID != -1 in the accretion treewalk. This marks the black hole as ready to be swallowed
-         * by something. It is actually swallowed only by the nearby black hole with the largest ID. In rare cases
-         * it may happen that the swallower is itself swallowed before swallowing the marked black hole. However,
-         * in practice the new swallower should also take the marked black hole next timestep.
-         */
-
-        BHP(other).SwallowTime = BH_GET_PRIV(lv->tw)->atime;
-        P[other].Swallowed = 1;
-        O->BH_CountProgs += BHP(other).CountProgs;
-        O->BH_Mass += (BHP(other).Mass);
-
-        if (blackhole_params.SeedBHDynMass>0 && I->Mtrack>0){
-        /* Make sure that the final dynamic mass (I->Mass + O->Mass) = MAX(SeedDynMass, total_gas_accreted),
-           I->Mtrack only need to be updated when I->Mtrack < SeedBHDynMass, */
-            if(I->Mtrack < blackhole_params.SeedBHDynMass && BHP(other).Mtrack < blackhole_params.SeedBHDynMass){
-            /* I->Mass = SeedBHDynMass, total_gas_accreted = I->Mtrack + BHP(other).Mtrack */
-                O->acMtrack += BHP(other).Mtrack;
-                double delta_m = I->Mtrack + BHP(other).Mtrack - blackhole_params.SeedBHDynMass;
-                O->Mass += DMAX(0,delta_m);
-            }
-            if(I->Mtrack >= blackhole_params.SeedBHDynMass && BHP(other).Mtrack < blackhole_params.SeedBHDynMass){
-            /* I->Mass = gas_accreted, total_gas_accreted = I->Mass + BHP(other).Mtrack */
-                O->Mass += BHP(other).Mtrack;
-            }
-            if(I->Mtrack < blackhole_params.SeedBHDynMass && BHP(other).Mtrack >= blackhole_params.SeedBHDynMass){
-            /* I->Mass = SeedBHDynMass, P[other].Mass = gas_accreted,
-               total_gas_accreted = I->track + P[other].Mass */
-                O->acMtrack += BHP(other).Mtrack;
-                O->Mass += (P[other].Mass + I->Mtrack - blackhole_params.SeedBHDynMass);
-            }
-            if(I->Mtrack >= blackhole_params.SeedBHDynMass && BHP(other).Mtrack >= blackhole_params.SeedBHDynMass){
-            /* trivial case, total_gas_accreted = I->Mass + P[other].Mass */
-                O->Mass += P[other].Mass;
-            }
-        }
-        else{
-            O->Mass += P[other].Mass;
-        }
-        MyFloat VelPred[3];
-        DM_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->kf);
-        /* Conserve momentum during accretion*/
-        int d;
-        for(d = 0; d < 3; d++)
-            O->AccretedMomentum[d] += (P[other].Mass * VelPred[d]);
-
-        if(BHP(other).SwallowTime < BH_GET_PRIV(lv->tw)->atime)
-            endrun(2, "Encountered BH %i swallowed at earlier time %g\n", other, BHP(other).SwallowTime);
-
-        int tid = omp_get_thread_num();
-        BH_GET_PRIV(lv->tw)->N_BH_swallowed[tid]++;
-
-    }
 
     MyIDType * SPH_SwallowID = BH_GET_PRIV(lv->tw)->SPH_SwallowID;
 
@@ -955,22 +816,16 @@ blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum Tre
     int PI = P[place].PI;
 
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_accreted_Mass[PI], remote->Mass);
-    TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_accreted_BHMass[PI], remote->BH_Mass);
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_accreted_Mtrack[PI], remote->acMtrack);
     for(k = 0; k < 3; k++) {
         TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_accreted_momentum[PI][k], remote->AccretedMomentum[k]);
     }
-
-    TREEWALK_REDUCE(BHP(place).CountProgs, remote->BH_CountProgs);
 }
 
 static void
 blackhole_feedback_postprocess(int n, TreeWalk * tw)
 {
     const int PI = P[n].PI;
-    if(BH_GET_PRIV(tw)->BH_accreted_BHMass[PI] > 0){
-       BHP(n).Mass += BH_GET_PRIV(tw)->BH_accreted_BHMass[PI];
-    }
     if(BH_GET_PRIV(tw)->BH_accreted_Mass[PI] > 0)
     {
         /* velocity feedback due to accretion; momentum conservation.
@@ -999,11 +854,11 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
 }
 
 /* Do the black hole feedback tree walk. Tree needs to have gas and BH.*/
-static void
+static int64_t
 blackhole_feedback(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, ForceTree * tree, struct BHPriv * priv)
 {
-    if(!(tree->mask & GASMASK) || !(tree->mask & BHMASK))
-        endrun(5, "Error: BH tree types GAS: %d BH %d\n", tree->mask & GASMASK, tree->mask & BHMASK);
+    if(!(tree->mask & GASMASK))
+        endrun(5, "Error: BH tree types: %d\n", tree->mask);
 
     TreeWalk tw_feedback[1] = {{0}};
     tw_feedback->ev_label = "BH_FEEDBACK";
@@ -1022,28 +877,20 @@ blackhole_feedback(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, ForceTre
 
     /* Ionization counters*/
     priv[0].N_sph_swallowed = ta_malloc("n_sph_swallowed", int64_t, omp_get_max_threads());
-    priv[0].N_BH_swallowed = ta_malloc("n_BH_swallowed", int64_t, omp_get_max_threads());
     memset(priv[0].N_sph_swallowed, 0, sizeof(int64_t) * omp_get_max_threads());
-    memset(priv[0].N_BH_swallowed, 0, sizeof(int64_t) * omp_get_max_threads());
 
     treewalk_run(tw_feedback, ActiveBlackHoles, NumActiveBlackHoles);
 
     int i;
-    int64_t Ntot_gas_swallowed, Ntot_BH_swallowed;
-    int64_t N_sph_swallowed = 0, N_BH_swallowed = 0;
+    int64_t Ntot_gas_swallowed;
+    int64_t N_sph_swallowed = 0;
     for(i = 0; i < omp_get_max_threads(); i++) {
         N_sph_swallowed += priv[0].N_sph_swallowed[i];
-        N_BH_swallowed += priv[0].N_BH_swallowed[i];
     }
-    ta_free(priv[0].N_BH_swallowed);
     ta_free(priv[0].N_sph_swallowed);
 
     MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&N_BH_swallowed, &Ntot_BH_swallowed, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
-
-    MPIU_Barrier(MPI_COMM_WORLD);
-    message(0, "Accretion done: %d gas particles swallowed, %d BH particles swallowed\n",
-                Ntot_gas_swallowed, Ntot_BH_swallowed);
+    return Ntot_gas_swallowed;
 }
 
 /* Sample from a power law to get the initial BH mass*/

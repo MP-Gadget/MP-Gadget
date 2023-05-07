@@ -26,7 +26,7 @@ INCL = densitykernel.h \
 	metal_return.h \
 	winds.h \
 	timefac.h \
-	blackhole.h bhdynfric.h bhinfo.h \
+	blackhole.h bhdynfric.h bhinfo.h bhmerger.h \
 	gravity.h \
 	cosmology.h \
 	drift.h     \
@@ -94,7 +94,7 @@ GADGET_OBJS =  \
 	 gdbtools.o hci.o\
 	 fof.o fofpetaio.o petaio.o \
 	 domain.o exchange.o slotsmanager.o partmanager.o \
-	 blackhole.o bhinfo.o bhdynfric.o \
+	 blackhole.o bhinfo.o bhdynfric.o bhmerger.o \
 	 timebinmgr.o \
 	 run.o drift.o stats.o \
 	 timestep.o init.o checkpoint.o \

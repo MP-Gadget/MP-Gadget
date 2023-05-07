@@ -19,7 +19,6 @@ struct BHPriv {
 
     /* These are temporaries used in the feedback treewalk.*/
     MyFloat * BH_accreted_Mass;
-    MyFloat * BH_accreted_BHMass;
     MyFloat * BH_accreted_Mtrack;
 
     /* This is a temporary computed in the accretion treewalk and used
