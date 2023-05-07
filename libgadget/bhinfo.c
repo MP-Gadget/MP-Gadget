@@ -6,6 +6,7 @@
 #include "blackhole.h"
 #include "bhdynfric.h"
 #include "bhinfo.h"
+#include "bhmerger.h"
 
 /* Structure needs to be packed to ensure disc write is the same on all architectures and the record size is correct. */
 struct __attribute__((__packed__)) BHinfo{
@@ -63,7 +64,7 @@ struct __attribute__((__packed__)) BHinfo{
 
 
 void
-collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *priv, struct BHDynFricPriv * dynpriv, FILE * FdBlackholeDetails)
+collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *priv, struct BHDynFricPriv * dynpriv, AccretedVariables * accrete, FILE * FdBlackholeDetails)
 {
     int i;
 
@@ -99,7 +100,7 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
         for(k=0; k < 3; k++) {
             info->MinPotPos[k] = BHP(p_i).MinPotPos[k] - PartManager->CurrentParticleOffset[k];
             info->BH_SurroundingGasVel[k] = priv->BH_SurroundingGasVel[PI][k];
-            info->BH_accreted_momentum[k] = priv->BH_accreted_momentum[PI][k];
+            info->BH_accreted_momentum[k] = accrete->BH_accreted_momentum[PI][k];
             info->BH_DragAccel[k] = BHP(p_i).DragAccel[k];
             info->BH_FullTreeGravAccel[k] = P[p_i].FullTreeGravAccel[k];
             info->Pos[k] = P[p_i].Pos[k] - PartManager->CurrentParticleOffset[k];
@@ -120,8 +121,10 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
         }
 
         /****************************************************************************/
-        info->BH_accreted_BHMass = priv->BH_accreted_BHMass[PI];
-        info->BH_accreted_Mass = priv->BH_accreted_Mass[PI];
+        if(accrete->BH_accreted_Mass) {
+            info->BH_accreted_BHMass = accrete->BH_accreted_BHMass[PI];
+            info->BH_accreted_Mass = accrete->BH_accreted_Mass[PI];
+        }
         info->BH_FeedbackWeightSum = priv->BH_FeedbackWeightSum[PI];
 
         info->SPH_SwallowID = priv->SPH_SwallowID[PI];
