@@ -294,6 +294,8 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     priv->SPH_SwallowID = (MyIDType *) mymalloc("SPH_SwallowID", SlotsManager->info[0].size * sizeof(MyIDType));
     memset(priv->SPH_SwallowID, 0, SlotsManager->info[0].size * sizeof(MyIDType));
 
+    /* We need hmax for the symmetric BH walk*/
+    force_tree_calc_moments(tree, ddecomp);
     /* Computed in accretion, used in feedback*/
     priv->BH_FeedbackWeightSum = (MyFloat *) mymalloc("BH_FeedbackWeightSum", SlotsManager->info[5].size * sizeof(MyFloat));
 
@@ -831,7 +833,8 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
         iter->base.mask = GASMASK + BHMASK;
         iter->base.Hsml = I->Hsml;
-        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
+        /* Needs to be symmetric because the BH mergers should be symmetric*/
+        iter->base.symmetric = NGB_TREEFIND_SYMMETRIC;
         density_kernel_init(&iter->feedback_kernel, I->Hsml, GetDensityKernelType());
         return;
     }
