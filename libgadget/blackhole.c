@@ -968,11 +968,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
      * In that case we do not swallow this particle: all swallowing changes before this are temporary*/
     if(P[other].Type == 0 && SPH_SwallowID[P[other].PI] == I->ID+1)
     {
-        if(blackhole_params.SeedBHDynMass > 0 && I->Mtrack < blackhole_params.SeedBHDynMass) {
-            /* we just add gas mass to Mtrack instead of dynMass */
-            O->acMtrack += P[other].Mass;
-        } else
-            O->Mass += P[other].Mass;
+        O->Mass += P[other].Mass;
         MyFloat VelPred[3];
         SPH_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->kf);
         /* Conserve momentum during accretion*/
@@ -1000,7 +996,6 @@ blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I, TreeWalk * tw)
     I->Hsml = P[i].Hsml;
     I->BH_Mass = BHP(i).Mass;
     I->ID = P[i].ID;
-    I->Mtrack = BHP(i).Mtrack;
     I->Density = BHP(i).Density;
     int PI = P[i].PI;
 
@@ -1051,19 +1046,23 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
         int k;
         /* Need to add the momentum from Mtrack as well*/
         for(k = 0; k < 3; k++)
-            P[n].Vel[k] = (P[n].Vel[k] * P[n].Mass + BH_GET_PRIV(tw)->BH_accreted_momentum[PI][k]) /
-                    (P[n].Mass + accmass + BH_GET_PRIV(tw)->BH_accreted_Mtrack[PI]);
-        P[n].Mass += accmass;
+            P[n].Vel[k] = (P[n].Vel[k] * P[n].Mass + BH_GET_PRIV(tw)->BH_accreted_momentum[PI][k]) / (P[n].Mass + accmass);
+        /* Add the mass to Mtrack if there is room*/
+        const double SeedBHDynMass = blackhole_params.SeedBHDynMass;
+        if(SeedBHDynMass > 0 && BHP(n).Mtrack + accmass < SeedBHDynMass) {
+            /* Still seed mass regime*/
+            BHP(n).Mtrack += accmass;
+        } else if(BHP(n).Mtrack < SeedBHDynMass) {
+            /* Transitioning to regular BH */
+            P[n].Mass = BHP(n).Mtrack + accmass;
+            BHP(n).Mtrack = SeedBHDynMass;
+        }
+        else {
+            /* Already regular BH, add accretion to regular mass*/
+            P[n].Mass += accmass;
+        }
     }
 
-    if(blackhole_params.SeedBHDynMass>0){
-        if(BH_GET_PRIV(tw)->BH_accreted_Mtrack[PI] > 0){
-            BHP(n).Mtrack += BH_GET_PRIV(tw)->BH_accreted_Mtrack[PI];
-        }
-        if(BHP(n).Mtrack > blackhole_params.SeedBHDynMass){
-            BHP(n).Mtrack = blackhole_params.SeedBHDynMass; /*cap Mtrack at SeedBHDynMass*/
-        }
-    }
     /* Reset KineticFdbkEnerg to 0 after released */
     if(BH_GET_PRIV(tw)->KEflag[PI] == 2){
         BHP(n).KineticFdbkEnergy = 0;

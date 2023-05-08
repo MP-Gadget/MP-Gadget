@@ -16,14 +16,11 @@ struct BHPriv {
     MyFloat * BH_Entropy;
     MyFloat (*BH_SurroundingGasVel)[3];
 
-    /*************************************************************************/
-
-    MyFloat (*BH_accreted_momentum)[3];
-
     /* These are temporaries used in the feedback treewalk.*/
     MyFloat * BH_accreted_Mass;
     MyFloat * BH_accreted_BHMass;
     MyFloat * BH_accreted_Mtrack;
+    MyFloat (*BH_accreted_momentum)[3];
 
     /* This is a temporary computed in the accretion treewalk and used
      * in the feedback treewalk*/
