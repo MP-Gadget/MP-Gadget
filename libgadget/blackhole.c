@@ -985,14 +985,11 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
      * In that case we do not swallow this particle: all swallowing changes before this are temporary*/
     if(P[other].Type == 0 && SPH_SwallowID[P[other].PI] == I->ID+1)
     {
-        /* We do not know how to notify the tree of mass changes. so
-         * enforce a mass conservation. */
         if(blackhole_params.SeedBHDynMass > 0 && I->Mtrack < blackhole_params.SeedBHDynMass) {
             /* we just add gas mass to Mtrack instead of dynMass */
             O->acMtrack += P[other].Mass;
         } else
             O->Mass += P[other].Mass;
-        P[other].Mass = 0;
         MyFloat VelPred[3];
         SPH_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->kf);
         /* Conserve momentum during accretion*/
