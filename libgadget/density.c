@@ -75,8 +75,8 @@ SPH_EntVarPred(const int p_i, const DriftKickTimes * times)
         const double dloga = dloga_from_dti(times->Ti_Current - times->Ti_kick[bin], P[p_i].Ti_drift);
         double EntVarPred = SphP[PI].Entropy + SphP[PI].DtEntropy * dloga;
         /*Entropy limiter for the predicted entropy: makes sure entropy stays positive. */
-        if(dloga > 0 && EntVarPred < 0.5*SphP[PI].Entropy)
-            EntVarPred = 0.5 * SphP[PI].Entropy;
+        if(EntVarPred < 0.05*SphP[PI].Entropy)
+            EntVarPred = 0.05 * SphP[PI].Entropy;
         /* Just in case*/
         if(EntVarPred <= 0)
             return 0;
@@ -558,7 +558,7 @@ density_postprocess(int i, TreeWalk * tw)
             else
                 EntPred = SPH_EntVarPred(i, DENSITY_GET_PRIV(tw)->times);
             if(EntPred <= 0 || SPHP(i).EgyWtDensity <=0)
-                endrun(12, "Particle %d has bad predicted entropy: %g or EgyWtDensity: %g, Particle ID = %ld, pos %g %g %g, vel %g %g %g, mass = %g, density = %g, MaxSignalVel = %g, Entropy = %g, DtEntropy = %g \n", i, EntPred, SPHP(i).EgyWtDensity, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], P[i].Vel[0], P[i].Vel[1], P[i].Vel[2], P[i].Mass, SPHP(i).Density, SPHP(i).MaxSignalVel, SPHP(i).Entropy, SPHP(i).DtEntropy); 
+                endrun(12, "Particle %d has bad predicted entropy: %g or EgyWtDensity: %g, Particle ID = %ld, pos %g %g %g, vel %g %g %g, mass = %g, density = %g, MaxSignalVel = %g, Entropy = %g, DtEntropy = %g \n", i, EntPred, SPHP(i).EgyWtDensity, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], P[i].Vel[0], P[i].Vel[1], P[i].Vel[2], P[i].Mass, SPHP(i).Density, SPHP(i).MaxSignalVel, SPHP(i).Entropy, SPHP(i).DtEntropy);
             SPHP(i).DhsmlEgyDensityFactor *= P[i].Hsml/ (NUMDIMS * SPHP(i).EgyWtDensity);
             SPHP(i).DhsmlEgyDensityFactor *= - (*DhsmlDens);
             SPHP(i).EgyWtDensity /= EntPred;

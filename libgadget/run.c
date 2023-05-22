@@ -538,7 +538,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
         if(!All.HierarchicalGravity){
             /* Do both short-range gravity and hydro kicks.
-             * Need a scale factor for entropy and velocity limiters.
+             * Need a scale factor for velocity limiter.
              * For hierarchical gravity the short-range kick is done above.
              * Synchronises TiKick and TiDrift for the active particles. */
             apply_half_kick(&Act, &All.CP, &times, atime);
