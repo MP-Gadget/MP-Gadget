@@ -345,7 +345,6 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
 
     priv->BH_accreted_Mass = (MyFloat *) mymalloc("BH_accretedmass", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_accreted_BHMass = (MyFloat *) mymalloc("BH_accreted_BHMass", SlotsManager->info[5].size * sizeof(MyFloat));
-    priv->BH_accreted_Mtrack = (MyFloat *) mymalloc("BH_accreted_Mtrack", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->BH_accreted_momentum = (MyFloat (*) [3]) mymalloc("BH_accretemom", 3* SlotsManager->info[5].size * sizeof(priv->BH_accreted_momentum[0]));
 
     /* Now do the swallowing of particles and dump feedback energy */
@@ -373,7 +372,6 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     }
 
     myfree(priv->BH_accreted_momentum);
-    myfree(priv->BH_accreted_Mtrack);
     myfree(priv->BH_accreted_BHMass);
     myfree(priv->BH_accreted_Mass);
 
