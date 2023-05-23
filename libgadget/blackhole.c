@@ -891,8 +891,9 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             if(I->Mtrack < blackhole_params.SeedBHDynMass && BHP(other).Mtrack >= blackhole_params.SeedBHDynMass){
             /* I->Mass = SeedBHDynMass, P[other].Mass = gas_accreted,
                total_gas_accreted = I->track + P[other].Mass */
+                /* Add the 'true' other BH mass to the acMtrack. It will be turned into dynamical mass in post-processing,
+                 * when everything is summed.*/
                 O->acMtrack += BHP(other).Mtrack;
-                O->Mass += (P[other].Mass + I->Mtrack - blackhole_params.SeedBHDynMass);
             }
             if(I->Mtrack >= blackhole_params.SeedBHDynMass && BHP(other).Mtrack >= blackhole_params.SeedBHDynMass){
             /* trivial case, total_gas_accreted = I->Mass + P[other].Mass */
