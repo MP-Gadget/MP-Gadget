@@ -792,7 +792,6 @@ typedef struct {
     MyFloat AccretedMomentum[3];
     MyFloat BH_Mass;
     int BH_CountProgs;
-    MyFloat acMtrack; /* the accreted Mtrack */
     int alignment; /* Ensure alignment*/
 } TreeWalkResultBHFeedback;
 
@@ -877,32 +876,17 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         O->BH_CountProgs += BHP(other).CountProgs;
         O->BH_Mass += (BHP(other).Mass);
 
+        /* Active mass tracer for the other BH*/
+        double othermass = P[other].Mass;
         if (blackhole_params.SeedBHDynMass>0 && I->Mtrack>0){
-        /* Make sure that the final dynamic mass (I->Mass + O->Mass) = MAX(SeedDynMass, total_gas_accreted),
-           I->Mtrack only need to be updated when I->Mtrack < SeedBHDynMass, */
-            if(I->Mtrack < blackhole_params.SeedBHDynMass && BHP(other).Mtrack < blackhole_params.SeedBHDynMass){
-            /* I->Mass = SeedBHDynMass, total_gas_accreted = I->Mtrack + BHP(other).Mtrack */
-                O->acMtrack += BHP(other).Mtrack;
-            }
-            if(I->Mtrack >= blackhole_params.SeedBHDynMass && BHP(other).Mtrack < blackhole_params.SeedBHDynMass){
-            /* I->Mass = gas_accreted, total_gas_accreted = I->Mass + BHP(other).Mtrack */
-                O->Mass += BHP(other).Mtrack;
-            }
-            if(I->Mtrack < blackhole_params.SeedBHDynMass && BHP(other).Mtrack >= blackhole_params.SeedBHDynMass){
-            /* I->Mass = SeedBHDynMass, P[other].Mass = gas_accreted,
-               total_gas_accreted = I->track + P[other].Mass */
-                /* Add the 'true' other BH mass to the acMtrack. It will be turned into dynamical mass in post-processing,
-                 * when everything is summed.*/
-                O->acMtrack += BHP(other).Mtrack;
-            }
-            if(I->Mtrack >= blackhole_params.SeedBHDynMass && BHP(other).Mtrack >= blackhole_params.SeedBHDynMass){
-            /* trivial case, total_gas_accreted = I->Mass + P[other].Mass */
-                O->Mass += P[other].Mass;
-            }
+            /* If the other BH has not yet reached the dynamical mass, we should accrete the Mtrack*/
+            if(BHP(other).Mtrack < blackhole_params.SeedBHDynMass)
+                othermass = BHP(other).Mtrack;
         }
-        else{
-            O->Mass += P[other].Mass;
-        }
+        /* Add the accreted mass tracer to the total accreted Mass.
+         * We will decide in postprocess if it goes into Mtrack or Mass*/
+        O->Mass += othermass;
+
         MyFloat VelPred[3];
         DM_VelPred(other, VelPred, BH_GET_PRIV(lv->tw)->kf);
         /* Conserve momentum during accretion*/
@@ -1045,7 +1029,6 @@ blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum Tre
 
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_accreted_Mass[PI], remote->Mass);
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_accreted_BHMass[PI], remote->BH_Mass);
-    TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_accreted_Mtrack[PI], remote->acMtrack);
     for(k = 0; k < 3; k++) {
         TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_accreted_momentum[PI][k], remote->AccretedMomentum[k]);
     }
