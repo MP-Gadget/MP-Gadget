@@ -892,7 +892,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         /* Conserve momentum during accretion*/
         int d;
         for(d = 0; d < 3; d++)
-            O->AccretedMomentum[d] += (P[other].Mass * VelPred[d]);
+            O->AccretedMomentum[d] += (othermass * VelPred[d]);
 
         if(BHP(other).SwallowTime < BH_GET_PRIV(lv->tw)->atime)
             endrun(2, "Encountered BH %i swallowed at earlier time %g\n", other, BHP(other).SwallowTime);
