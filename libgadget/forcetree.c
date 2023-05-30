@@ -6,13 +6,15 @@
 #include <time.h>
 #include <omp.h>
 
-#include "slotsmanager.h"
-#include "partmanager.h"
 #include "domain.h"
 #include "forcetree.h"
 #include "checkpoint.h"
 #include "walltime.h"
+#include "slotsmanager.h"
+#include "partmanager.h"
 #include "utils/endrun.h"
+#include "utils/system.h"
+#include "utils/mymalloc.h"
 
 /*! \file forcetree.c
  *  \brief gravitational tree
@@ -63,7 +65,7 @@ static void
 force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddecomp);
 
 static void
-add_particle_moment_to_node(struct NODE * pnode, int i);
+add_particle_moment_to_node(struct NODE * pnode, const struct particle_data * const part);
 
 #ifdef DEBUG
 /* Walk the constructed tree, validating sibling and nextnode as we go*/
@@ -277,24 +279,24 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
  * are currently inserting
  * Returns a value between 0 and 7.
  * */
-int get_subnode(const struct NODE * node, const int p_i)
+int get_subnode(const struct NODE * node, const double Pos[3])
 {
     /*Loop is unrolled to help out the compiler,which normally only manages it at -O3*/
-     return (P[p_i].Pos[0] > node->center[0]) +
-            ((P[p_i].Pos[1] > node->center[1]) << 1) +
-            ((P[p_i].Pos[2] > node->center[2]) << 2);
+     return (Pos[0] > node->center[0]) +
+            ((Pos[1] > node->center[1]) << 1) +
+            ((Pos[2] > node->center[2]) << 2);
 }
 
 /*Check whether a particle is inside the volume covered by a node,
  * by checking whether each dimension is close enough to center (L1 metric).*/
-static inline int inside_node(const struct NODE * node, const int p_i)
+static inline int inside_node(const struct NODE * node, const double Pos[3])
 {
     /*One can also use a loop, but the compiler unrolls it only at -O3,
      *so this is a little faster*/
     int inside =
-        (fabs(2*(P[p_i].Pos[0] - node->center[0])) <= node->len) *
-        (fabs(2*(P[p_i].Pos[1] - node->center[1])) <= node->len) *
-        (fabs(2*(P[p_i].Pos[2] - node->center[2])) <= node->len);
+        (fabs(2*(Pos[0] - node->center[0])) <= node->len) *
+        (fabs(2*(Pos[1] - node->center[1])) <= node->len) *
+        (fabs(2*(Pos[2] - node->center[2])) <= node->len);
     return inside;
 }
 
@@ -365,7 +367,7 @@ modify_internal_node(int parent, int subnode, int p_toplace, const ForceTree tb,
     /* Encode the type in the Types array*/
     tb.Nodes[parent].s.Types += P[p_toplace].Type << (3*subnode);
     if(!HybridNuGrav || P[p_toplace].Type != ForceTreeParams.FastParticleType)
-        add_particle_moment_to_node(&tb.Nodes[parent], p_toplace);
+        add_particle_moment_to_node(&tb.Nodes[parent], &P[p_toplace]);
     return 0;
 }
 
@@ -433,7 +435,7 @@ create_new_node_layer(int firstparent, int p_toplace,
             /* Re-attach each particle to the appropriate new leaf.
             * Notice that since we have NMAXCHILD slots on each child and NMAXCHILD particles,
             * we will always have a free slot. */
-            int subnode = get_subnode(nprnt, oldsuns[i]);
+            int subnode = get_subnode(nprnt, P[oldsuns[i]].Pos);
             int child = newsuns[subnode];
             struct NODE * nchild = &tb.Nodes[child];
             modify_internal_node(child, nchild->s.noccupied, oldsuns[i], tb, HybridNuGrav);
@@ -455,7 +457,7 @@ create_new_node_layer(int firstparent, int p_toplace,
         memset(&nprnt->mom, 0, sizeof(nprnt->mom));
 
         /* Now try again to add the new particle*/
-        int subnode = get_subnode(nprnt, p_toplace);
+        int subnode = get_subnode(nprnt, P[p_toplace].Pos);
         int child = nprnt->s.suns[subnode];
         struct NODE * nchild = &tb.Nodes[child];
         if(nchild->s.noccupied < NMAXCHILD) {
@@ -499,7 +501,7 @@ int add_particle_to_tree(int i, int cur_start, const ForceTree tb, const int Hyb
             break;
 
         /* This node has child subnodes: find them.*/
-        int subnode = get_subnode(&tb.Nodes[cur], i);
+        int subnode = get_subnode(&tb.Nodes[cur], P[i].Pos);
         /*No lock needed: if we have an internal node here it will be stable*/
         child = tb.Nodes[cur].s.suns[subnode];
 
@@ -771,7 +773,7 @@ force_tree_create_nodes(const ForceTree tb, const ActiveParticles * act, int mas
                 endrun(12, "Zero mass particle %d type %d id %ld pos %g %g %g\n", i, P[i].Type, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
             /*First find the Node for the TopLeaf */
             int cur;
-            if(inside_node(&tb.Nodes[this_acc], i)) {
+            if(inside_node(&tb.Nodes[this_acc], P[i].Pos)) {
                 cur = this_acc;
             } else {
                 /* Get the topnode to which a particle belongs. Each local tree
@@ -917,22 +919,22 @@ force_get_father(int no, const ForceTree * tree)
 }
 
 static void
-add_particle_moment_to_node(struct NODE * pnode, int i)
+add_particle_moment_to_node(struct NODE * pnode, const struct particle_data * const part)
 {
     int k;
-    pnode->mom.mass += (P[i].Mass);
+    pnode->mom.mass += (part->Mass);
     for(k=0; k<3; k++)
-        pnode->mom.cofm[k] += (P[i].Mass * P[i].Pos[k]);
+        pnode->mom.cofm[k] += (part->Mass * part->Pos[k]);
 
     /* We do not add active particles to the hmax here because we are building the tree in density().
      * The active particles will have hsml updated anyway, often to a smaller value*/
-    if(P[i].Type == 0 && !is_timebin_active(P[i].TimeBinHydro, P[i].Ti_drift))
+    if(part->Type == 0 && !is_timebin_active(part->TimeBinHydro, part->Ti_drift))
     {
         int j;
         /* Maximal distance any of the member particles peek out from the side of the node.
          * May be at most hsml, as |Pos - Center| < len/2.*/
         for(j = 0; j < 3; j++) {
-            pnode->mom.hmax = DMAX(pnode->mom.hmax, fabs(P[i].Pos[j] - pnode->center[j]) + P[i].Hsml - pnode->len/2.);
+            pnode->mom.hmax = DMAX(pnode->mom.hmax, fabs(part->Pos[j] - pnode->center[j]) + part->Hsml - pnode->len/2.);
         }
     }
 }
