@@ -329,6 +329,9 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     tw_accretion->tree = tree;
     tw_accretion->priv = priv;
 
+    /* This treewalk marks all black holes and gas which can be swallowed with a SwllowID of a potential swallower.
+     * The treewalk is symmetric. A swallower needs to be active, the black holes must be within each other's
+     * smoothing radius and optionally gravitationally bound. In case a black hole can be swallowed by multiple  */
     treewalk_run(tw_accretion, ActiveBlackHoles, NumActiveBlackHoles);
 
     /*************************************************************************/
@@ -341,6 +344,21 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     priv->BH_accreted_momentum = (MyFloat (*) [3]) mymalloc("BH_accretemom", 3* SlotsManager->info[5].size * sizeof(priv->BH_accreted_momentum[0]));
 
     /* Now do the swallowing of particles and dump feedback energy */
+    /* We also merge BHs here. Only BHs which are not themselves
+     * being swallowed are eligible to swallow. If there are multiple BHs within a search radius,
+     * the BH with the largest ID will be selected by the SwallowID search and will swallow all the
+     * surrounding BHs.
+     * Example 1:
+     * We have BHs A,B,C, where A and B are close and B and C are close. B.ID < C.ID and A.ID < B.ID.
+     * B will be swallowed by C. A will not be swallowed by B as B is itself being swallowed (but A will
+     * have a non-zero encounter and non-zero SwallowID).
+     * Example 2:
+     * We have BHs A,B,C, where A and C are both close to B. B.ID > C.ID and A.ID < B.ID.
+     * In this case B will swallow C and A.
+     * Example 3:
+     * We have BHs A,B,C, where A and B are close and B and C are close. B.ID < C.ID and A.ID > B.ID.
+     * In this case B will be swallowed by whichever of A and C has the larger ID.
+    */
     blackhole_feedback(ActiveBlackHoles, NumActiveBlackHoles, tree, priv);
 
     walltime_measure("/BH/Feedback");
