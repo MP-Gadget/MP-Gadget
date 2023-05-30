@@ -126,7 +126,6 @@ blackhole_merger_ngbiter(TreeWalkQueryBHMerger * I,
     /* do the merge */
     if(flag == 1)
     {
-        O->encounter = 0;
         MyIDType readid, newswallowid;
 
         #pragma omp atomic read
@@ -159,10 +158,6 @@ blackhole_merger_reduce(int place, TreeWalkResultBHMerger * remote, enum TreeWal
     if (mode == 0 || BHP(place).encounter < remote->encounter) {
         BHP(place).encounter = remote->encounter;
     }
-    /* But set it to false if we are merging*/
-    if(BHP(place).SwallowID != (MyIDType) -1)
-        BHP(place).encounter = 0;
-
 }
 
 static void
@@ -233,6 +228,8 @@ blackhole_real_merger_ngbiter(TreeWalkQueryBHRealMerger * I,
          * in practice the new swallower should also take the marked black hole next timestep.
          */
         BHP(other).SwallowTime = BH_GET_PRIV(lv->tw)->atime;
+        /* Set encounter to zero when we merge*/
+        BHP(other).encounter = 0;
         P[other].Swallowed = 1;
         O->BH_CountProgs += BHP(other).CountProgs;
         O->BH_Mass += (BHP(other).Mass);
