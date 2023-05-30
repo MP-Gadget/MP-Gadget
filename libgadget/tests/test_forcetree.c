@@ -212,13 +212,12 @@ static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp
     start = MPI_Wtime();
     ActiveParticles Act = init_empty_active_particles(numpart);
     tb.mask = ALLMASK;
-    int nodes = force_tree_create_nodes(tb, &Act, ALLMASK, ddecomp, 0);
-    tb.numnodes = nodes;
-    assert_true(nodes < maxnode);
+    force_tree_create_nodes(&tb, &Act, ALLMASK, ddecomp, 0);
+    assert_true(tb.numnodes < maxnode);
     end = MPI_Wtime();
     double ms = (end - start)*1000;
-    printf("Number of nodes used: %d. Built tree in %.3g ms\n", nodes,ms);
-    int nrealnode = check_tree(&tb, nodes, numpart);
+    printf("Number of nodes used: %d. Built tree in %.3g ms\n", tb.numnodes,ms);
+    int nrealnode = check_tree(&tb, tb.numnodes, numpart);
     /* now compute the multipole moments recursively */
     start = MPI_Wtime();
     force_update_node_parallel(&tb, ddecomp);
@@ -296,8 +295,7 @@ static void do_tree_mask_hmax_update_test(const int numpart, ForceTree * tb, Dom
     start = MPI_Wtime();
     ActiveParticles Act = init_empty_active_particles(numpart);
     tb->mask = GASMASK;
-    int nodes = force_tree_create_nodes(*tb, &Act, GASMASK, ddecomp, 0);
-    tb->numnodes = nodes;
+    force_tree_create_nodes(tb, &Act, GASMASK, ddecomp, 0);
     end = MPI_Wtime();
     double ms = (end - start)*1000;
     printf("Built gas tree in %.3g ms\n", ms);
