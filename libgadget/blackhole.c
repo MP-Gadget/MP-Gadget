@@ -577,10 +577,9 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
                 message(0, "dx %g %g %g dv %g %g %g da %g %g %g\n",dx[0], dx[1], dx[2], dv[0], dv[1], dv[2], da[0], da[1], da[2]);*/
         }
 
-        /* do the merge */
+        /* Mark the BH via SwallowID.*/
         if(flag == 1)
         {
-            O->encounter = 0;
             MyIDType readid, newswallowid;
 
             #pragma omp atomic read
@@ -715,10 +714,6 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     if (mode == 0 || BHP(place).encounter < remote->encounter) {
         BHP(place).encounter = remote->encounter;
     }
-    /* But set it to false if we are merging*/
-    if(BHP(place).SwallowID != (MyIDType) -1)
-        BHP(place).encounter = 0;
-
     if (mode == 0 || BHP(place).minTimeBin > remote->BH_minTimeBin) {
         BHP(place).minTimeBin = remote->BH_minTimeBin;
     }
@@ -852,6 +847,8 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
         BHP(other).SwallowTime = BH_GET_PRIV(lv->tw)->atime;
         P[other].Swallowed = 1;
+        /* Set encounter to zero when we merge*/
+        BHP(other).encounter = 0;
         O->BH_CountProgs += BHP(other).CountProgs;
         O->BH_Mass += (BHP(other).Mass);
 
