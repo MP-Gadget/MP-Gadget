@@ -215,15 +215,8 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
      * accretion uses: gas + black holes (to flag mergers).
      * feedback uses: gas + black holes (to flag mergers).
      */
-    if(tree->tree_allocated_flag && (tree->mask & GASMASK) != GASMASK)
-        force_tree_free(tree);
-    if(!tree->tree_allocated_flag)
-    {
-        message(0, "Building tree in blackhole\n");
-        int treemask = GASMASK;
-        force_tree_rebuild_mask(tree, ddecomp, treemask, NULL);
-        walltime_measure("/BH/Build");
-    }
+    if(!tree->tree_allocated_flag || !(tree->mask & GASMASK))
+        endrun(5, "blackhole called with bad tree allocated %d mask %d\n", tree->tree_allocated_flag, tree->mask);
 
     struct kick_factor_data kf;
     init_kick_factor_data(&kf, times, CP);

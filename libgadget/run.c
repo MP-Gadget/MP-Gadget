@@ -586,10 +586,13 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
          */
         if(GasEnabled)
         {
+            if(!gasTree.tree_allocated_flag)
+                force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, NULL);
+
             /* Do this before sfr and bh so the gas hsml always contains DesNumNgb neighbours.*/
             if(All.MetalReturnOn) {
                 double AvgGasMass = All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal) * pow(PartManager->BoxSize, 3) / header->NTotalInit[0];
-                metal_return(&Act, ddecomp, &All.CP, atime, AvgGasMass);
+                metal_return(&Act, &gasTree, &All.CP, atime, AvgGasMass);
             }
 
             /* this will find new black hole seed halos.
@@ -610,7 +613,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
                 if(during_helium_reionization(1/atime - 1)) {
                     /* Helium reionization by switching on quasar bubbles*/
-                    do_heiii_reionization(atime, &fof, ddecomp, &All.CP, units.UnitInternalEnergy_in_cgs, fds.FdHelium);
+                    do_heiii_reionization(atime, &fof, &gasTree, &All.CP, units.UnitInternalEnergy_in_cgs, fds.FdHelium);
                 }
 #ifdef EXCUR_REION
                 //excursion set reionisation

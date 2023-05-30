@@ -517,7 +517,7 @@ metal_return_priv_free(struct MetalReturnPriv * priv)
 
 /*! This function is the driver routine for the calculation of metal return. */
 void
-metal_return(const ActiveParticles * act, DomainDecomp * const ddecomp, Cosmology * CP, const double atime, const double AvgGasMass)
+metal_return(const ActiveParticles * act, ForceTree * gasTree, Cosmology * CP, const double atime, const double AvgGasMass)
 {
     /* Do nothing if no stars yet*/
     int64_t totstar;
@@ -545,14 +545,10 @@ metal_return(const ActiveParticles * act, DomainDecomp * const ddecomp, Cosmolog
         return;
     }
 
-    ForceTree gasTree = {0};
-    /* Just gas, no moments*/
-    force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, NULL);
-    walltime_measure("/SPH/Metals/Build");
-
-
+    if(!gasTree->tree_allocated_flag || !(gasTree->mask & GASMASK))
+        endrun(5, "metal_return called with bad tree allocated %d mask %d\n", gasTree->tree_allocated_flag, gasTree->mask);
     /* Compute total number of weights around each star for actively returning stars*/
-    stellar_density(act, priv->StarVolumeSPH, priv->MassReturn, &gasTree);
+    stellar_density(act, priv->StarVolumeSPH, priv->MassReturn, gasTree);
 
     /* Do the metal return*/
     TreeWalk tw[1] = {{0}};
@@ -568,14 +564,13 @@ metal_return(const ActiveParticles * act, DomainDecomp * const ddecomp, Cosmolog
     tw->query_type_elsize = sizeof(TreeWalkQueryMetals);
     tw->result_type_elsize = sizeof(TreeWalkResultMetals);
     tw->repeatdisallowed = 1;
-    tw->tree = &gasTree;
+    tw->tree = gasTree;
     tw->priv = priv;
 
     priv->spin = init_spinlocks(SlotsManager->info[0].size);
     treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
     free_spinlocks(priv->spin);
 
-    force_tree_free(&gasTree);
     metal_return_priv_free(priv);
 
     /* collect some timing information */
