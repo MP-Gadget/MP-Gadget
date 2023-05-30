@@ -237,17 +237,8 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
      * accretion uses: gas + black holes (to flag mergers).
      * feedback uses: gas + black holes (to flag mergers).
      */
-    if(tree->tree_allocated_flag && (tree->mask & (GASMASK | BHMASK)) != (GASMASK | BHMASK))
-        force_tree_free(tree);
-    if(!tree->tree_allocated_flag)
-    {
-        message(0, "Building tree in blackhole\n");
-        int treemask = GASMASK | BHMASK;
-        force_tree_rebuild_mask(tree, ddecomp, treemask, NULL);
-        /* We need hmax for the symmetric BH walk*/
-        force_tree_calc_moments(tree, ddecomp);
-        walltime_measure("/BH/Build");
-    }
+    if(!tree->tree_allocated_flag || !(tree->mask & GASMASK) ||  !(tree->mask & BHMASK) )
+        endrun(5, "Blackhole called with bad tree allocated %d mask %d want %d\n", tree->tree_allocated_flag, tree->mask, GASMASK | BHMASK);
 
     struct kick_factor_data kf;
     init_kick_factor_data(&kf, times, CP);
@@ -291,6 +282,10 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     priv->MgasEnc = mymalloc("MgasEnc", SlotsManager->info[5].size * sizeof(MyFloat));
     /* mark the state of AGN kinetic feedback */
     priv->KEflag = mymalloc("KEflag", SlotsManager->info[5].size * sizeof(int));
+
+    /* Need hmax for the symmetric BH merger treewalk*/
+    if(!tree->hmax_computed_flag)
+        force_tree_calc_moments(tree, ddecomp);
 
     walltime_measure("/BH/Init");
 
