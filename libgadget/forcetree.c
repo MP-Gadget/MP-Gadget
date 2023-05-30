@@ -770,6 +770,8 @@ force_tree_create_nodes(ForceTree * tree, const ActiveParticles * act, int mask,
                  * has a local set of treenodes copying the global topnodes, except tid 0
                  * which has the real topnodes.*/
                 const int topleaf = domain_get_topleaf(P[i].Key, ddecomp);
+                if(topleaf < StartLeaf || topleaf >= EndLeaf)
+                    endrun(5, "Bad topleaf %d start %d end %d key %ld type %d ID %ld\n", topleaf, StartLeaf, EndLeaf, P[i].Key, P[i].Type, P[i].ID);
                 //int treenode = ddecomp->TopLeaves[topleaf].treenode;
                 cur = local_topnodes[topleaf - StartLeaf];
             }
@@ -817,7 +819,8 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
     int i, j, k;
 
     /*We reached the leaf of the toptree*/
-    if(ddecomp->TopNodes[topnode].Daughter < 0)
+    const int curdaughter = ddecomp->TopNodes[topnode].Daughter;
+    if(curdaughter < 0)
         return;
 
     for(i = 0; i < 2; i++)
@@ -842,7 +845,9 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
                 /*All nodes here are top level nodes*/
                 Nodes[*nextfree].f.TopLevel = 1;
 
-                const struct topnode_data curtopnode = ddecomp->TopNodes[ddecomp->TopNodes[topnode].Daughter + sub];
+                if(curdaughter + sub >= ddecomp->NTopNodes)
+                    endrun(5, "Invalid topnode: daughter %d sub %d > topnodes %d\n", curdaughter, sub, ddecomp->NTopNodes);
+                const struct topnode_data curtopnode = ddecomp->TopNodes[curdaughter + sub];
                 if(curtopnode.Daughter == -1) {
                     ddecomp->TopLeaves[curtopnode.Leaf].treenode = *nextfree;
                 }
