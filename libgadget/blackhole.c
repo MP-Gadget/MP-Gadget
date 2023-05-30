@@ -290,9 +290,12 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     priv->CP = CP;
     priv->kf = &kf;
 
-    /* Let's determine which particles may be swallowed and calculate total feedback weights */
+    /* Let's determine which gas particles may be swallowed and calculate total feedback weights */
     priv->SPH_SwallowID = (MyIDType *) mymalloc("SPH_SwallowID", SlotsManager->info[0].size * sizeof(MyIDType));
     memset(priv->SPH_SwallowID, 0, SlotsManager->info[0].size * sizeof(MyIDType));
+    /* Let's determine which BHs may be swallowed and calculate total feedback weights */
+    priv->BH_SwallowID = (MyIDType *) mymalloc("BH_SwallowID", SlotsManager->info[5].size * sizeof(MyIDType));
+    memset(priv->BH_SwallowID, 0, SlotsManager->info[5].size * sizeof(MyIDType));
 
     /* We need hmax for the symmetric BH walk*/
     force_tree_calc_moments(tree, ddecomp);
@@ -352,8 +355,8 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
      * surrounding BHs.
      * Example 1:
      * We have BHs A,B,C, where A and B are close and B and C are close. B.ID < C.ID and A.ID < B.ID.
-     * B will be swallowed by C. A will not be swallowed by B as B is itself being swallowed (but A will
-     * have a non-zero encounter and non-zero SwallowID).
+     * B will be swallowed by C. A will not be swallowed by B as B is itself being swallowed (A will
+     * have a non-zero encounter).
      * Example 2:
      * We have BHs A,B,C, where A and C are both close to B. B.ID > C.ID and A.ID < B.ID.
      * In this case B will swallow C and A.
@@ -384,6 +387,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     myfree(priv->MinPot);
 
     myfree(priv->BH_FeedbackWeightSum);
+    myfree(priv->BH_SwallowID);
     myfree(priv->SPH_SwallowID);
 
     blackhole_dynpriv_free(dynpriv);
@@ -604,26 +608,29 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         {
             MyIDType readid, newswallowid;
 
+            int PI = P[other].PI;
+            MyIDType * swal = BH_GET_PRIV(lv->tw)->BH_SwallowID + PI;
             #pragma omp atomic read
-            readid = (BHP(other).SwallowID);
+            readid = *swal;
 
             /* Here we mark the black hole as "ready to be swallowed" using the SwallowID.
              * The actual swallowing is done in the feedback treewalk by setting Swallowed = 1
              * and merging the masses.*/
             do {
-                /* Generate the new ID from the old*/
-                if(readid != (MyIDType) -1 && readid < I->ID ) {
+                /* Already marked, prefer to be swallowed by a bigger ID */
+                if(readid != 0 && readid < I->ID ) {
                     /* Already marked, prefer to be swallowed by a bigger ID */
-                    newswallowid = I->ID;
-                } else if(readid == (MyIDType) -1 && P[other].ID < I->ID) {
-                    /* Unmarked, the BH with bigger ID swallows */
-                    newswallowid = I->ID;
+                    newswallowid = I->ID + 1;
+                } else if(readid == 0 && P[other].ID < I->ID) {
+                    /* Unmarked, the BH with bigger ID swallows This avoids two BHs trying to swallow each other.
+                     * (in which case neither would merge). If only one is active, only one can swallow.*/
+                    newswallowid = I->ID + 1;
                 }
                 else
                     break;
             /* Swap in the new id only if the old one hasn't changed:
              * in principle an extension, but supported on at least clang >= 9, gcc >= 5 and icc >= 18.*/
-            } while(!__atomic_compare_exchange_n(&(BHP(other).SwallowID), &readid, newswallowid, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+            } while(!__atomic_compare_exchange_n(swal, &readid, newswallowid, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
         }
     }
 
@@ -851,23 +858,18 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         return;
 
 
-     /* we have a black hole merger! */
-    if(P[other].Type == 5 && BHP(other).SwallowID != (MyIDType) -1)
+    /* we have a black hole merger! */
+    int PI = P[other].PI;
+    if(P[other].Type == 5 && BH_GET_PRIV(lv->tw)->BH_SwallowID[PI] != 0)
     {
-        if(BHP(other).SwallowID != I->ID) return;
+        if(BH_GET_PRIV(lv->tw)->BH_SwallowID[PI] != I->ID + 1) return;
 
         /* Swallow the particle*/
         /* A note on Swallowed vs SwallowID: black hole particles which have been completely swallowed
          * (ie, their mass has been added to another particle) have Swallowed = 1.
-         * These particles are ignored in future tree walks. We set Swallowed here so that this process is atomic:
-         * the total mass in the tree is always conserved.
-         *
-         * We also set SwallowID != -1 in the accretion treewalk. This marks the black hole as ready to be swallowed
-         * by something. It is actually swallowed only by the nearby black hole with the largest ID. In rare cases
-         * it may happen that the swallower is itself swallowed before swallowing the marked black hole. However,
-         * in practice the new swallower should also take the marked black hole next timestep.
+         * These particles are ignored in future tree walks. SwallowID is set to the swallowing particle.
          */
-
+        BHP(other).SwallowID = BH_GET_PRIV(lv->tw)->BH_SwallowID[PI] - 1;
         BHP(other).SwallowTime = BH_GET_PRIV(lv->tw)->atime;
         P[other].Swallowed = 1;
         /* Set encounter to zero when we merge*/
@@ -1008,7 +1010,8 @@ static int
 blackhole_feedback_haswork(int n, TreeWalk * tw)
 {
     /*Black hole not being swallowed*/
-    return (P[n].Type == 5) && (!P[n].Swallowed) && (BHP(n).SwallowID == (MyIDType) -1);
+    int PI = P[n].PI;
+    return (P[n].Type == 5) && (!P[n].Swallowed) && (BH_GET_PRIV(tw)->BH_SwallowID[PI] == 0);
 }
 
 static void

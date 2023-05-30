@@ -9,6 +9,8 @@ struct BHPriv {
     /* Temporary array to store the IDs of the swallowing black hole for gas.
      * We store ID + 1 so that SwallowID == 0 can correspond to the unswallowed case. */
     MyIDType * SPH_SwallowID;
+    /* Similar for IDs of BH mergers*/
+    MyIDType * BH_SwallowID;
     /* These are temporaries used in the accretion treewalk*/
     MyFloat * MinPot;
     MyFloat * BH_Entropy;
