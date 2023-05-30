@@ -370,6 +370,9 @@ blackhole_mergers(int * ActiveBlackHoles, const int64_t NumActiveBlackHoles, Dom
     /*************************************************************************/
     TreeWalk tw_merger[1] = {{0}};
 
+    /* This treewalk marks all black holes which can be swallowed with a SwllowID of a potential swallower.
+     * The treewalk is symmetric. A swallower needs to be active, the black holes must be within each other's
+     * smoothing radius and optionally gravitationally bound. In case a black hole can be swallowed by multiple  */
     tw_merger->ev_label = "BH_MERGER";
     tw_merger->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw_merger->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBase);
@@ -405,6 +408,21 @@ blackhole_mergers(int * ActiveBlackHoles, const int64_t NumActiveBlackHoles, Dom
     priv[0].N_BH_swallowed = ta_malloc("n_BH_swallowed", int64_t, omp_get_max_threads());
     memset(priv[0].N_BH_swallowed, 0, sizeof(int64_t) * omp_get_max_threads());
 
+    /* This treewalk does the actual mergers. Only BHs which are not themselves
+     * being swallowed are eligible to swallow. If there are multiple BHs within a search radius,
+     * the BH with the largest ID will be selected by the SwallowID search and will swallow all the
+     * surrounding BHs.
+     * Example 1:
+     * We have BHs A,B,C, where A and B are close and B and C are close. B.ID < C.ID and A.ID < B.ID.
+     * B will be swallowed by C. A will not be swallowed by B as B is itself being swallowed (but A will
+     * have a non-zero encounter and non-zero SwallowID).
+     * Example 2:
+     * We have BHs A,B,C, where A and C are both close to B. B.ID > C.ID and A.ID < B.ID.
+     * In this case B will swallow C and A.
+     * Example 3:
+     * We have BHs A,B,C, where A and B are close and B and C are close. B.ID < C.ID and A.ID > B.ID.
+     * In this case B will be swallowed by whichever of A and C has the larger ID.
+    */
     treewalk_run(tw_real_merger, ActiveBlackHoles, NumActiveBlackHoles);
 
     int i;
