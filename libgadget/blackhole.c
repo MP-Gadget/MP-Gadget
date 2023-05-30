@@ -621,7 +621,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
                 if(readid != 0 && readid < I->ID ) {
                     /* Already marked, prefer to be swallowed by a bigger ID */
                     newswallowid = I->ID + 1;
-                } else if(readid == 0 && P[other].ID < I->ID) {
+                } else if(readid == 0 && (P[other].ID < I->ID || !is_timebin_active(P[other].TimeBinHydro, P[other].Ti_drift))) {
                     /* Unmarked, the BH with bigger ID swallows This avoids two BHs trying to swallow each other.
                      * (in which case neither would merge). If only one is active, only one can swallow.*/
                     newswallowid = I->ID + 1;
