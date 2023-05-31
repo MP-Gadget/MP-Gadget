@@ -18,7 +18,7 @@
 #define PSEUDO_NODE_TYPE 2
 
 /* Define to build a tree containing all types of particles*/
-#define ALLMASK (1<<30)-1
+#define ALLMASK (1<<6)-1
 #define GASMASK (1)
 #define DMMASK (2)
 #define STARMASK (1<<4)
@@ -159,8 +159,8 @@ int
 force_get_father(int no, const ForceTree * tt);
 
 /*Internal API, exposed for tests*/
-int
-force_tree_create_nodes(const ForceTree tb, const ActiveParticles * act, int mask, DomainDecomp * ddecomp, const int HybridNuGrav);
+void
+force_tree_create_nodes(ForceTree * tree, const ActiveParticles * act, int mask, DomainDecomp * ddecomp, const int HybridNuGrav);
 
 ForceTree
 force_treeallocate(const int64_t maxnodes, const int64_t maxpart, const DomainDecomp * ddecomp, const int alloc_father);

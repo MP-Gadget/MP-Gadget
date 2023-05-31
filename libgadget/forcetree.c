@@ -6,13 +6,15 @@
 #include <time.h>
 #include <omp.h>
 
-#include "slotsmanager.h"
-#include "partmanager.h"
 #include "domain.h"
 #include "forcetree.h"
 #include "checkpoint.h"
 #include "walltime.h"
+#include "slotsmanager.h"
+#include "partmanager.h"
 #include "utils/endrun.h"
+#include "utils/system.h"
+#include "utils/mymalloc.h"
 
 /*! \file forcetree.c
  *  \brief gravitational tree
@@ -63,7 +65,7 @@ static void
 force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddecomp);
 
 static void
-add_particle_moment_to_node(struct NODE * pnode, int i);
+add_particle_moment_to_node(struct NODE * pnode, const struct particle_data * const part);
 
 #ifdef DEBUG
 /* Walk the constructed tree, validating sibling and nextnode as we go*/
@@ -127,11 +129,6 @@ force_tree_full(ForceTree * tree, DomainDecomp * ddecomp, const int HybridNuGrav
 
     /*No father array by default, only need it for hmax. We want moments.*/
     *tree = force_tree_build(ALLMASK, ddecomp, &act, HybridNuGrav, 1, 1, EmergencyOutputDir);
-
-    int64_t allact;
-    MPI_Reduce(&act.NumActiveParticle, &allact, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
-    message(0, "Full Tree constructed with %ld particles (moments: %d). First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
-            allact, tree->moments_computed_flag, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
 }
 
 void
@@ -146,11 +143,6 @@ force_tree_active_moments(ForceTree * tree, DomainDecomp * ddecomp, const Active
 
     /*No father array by default, only need it for hmax. We want moments.*/
     *tree = force_tree_build(ALLMASK, ddecomp, act, HybridNuGrav, 1, alloc_father, EmergencyOutputDir);
-
-    int64_t allact;
-    MPI_Reduce(&act->NumActiveParticle, &allact, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
-    message(0, "Tree constructed with %ld particles (moments: %d). First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
-            allact, tree->moments_computed_flag, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
 }
 
 void
@@ -166,11 +158,6 @@ force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, cons
     ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
     /* No moments, but need father for hmax. The hybridnugrav only affects moments, so isn't needed.*/
     *tree = force_tree_build(mask, ddecomp, &act, 0, 0, 1, EmergencyOutputDir);
-
-    int64_t allact;
-    MPI_Reduce(&PartManager->NumPart, &allact, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
-    message(0, "Tree constructed (type mask: %d) with %ld particles. First node %d, number of nodes %d, first pseudo %d. NTopLeaves %d\n",
-            mask, allact, tree->firstnode, tree->numnodes, tree->lastnode, tree->NTopLeaves);
     MPIU_Barrier(MPI_COMM_WORLD);
 }
 
@@ -215,9 +202,9 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
     {
         /* Allocate memory. */
         tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp, alloc_father);
-
+        tree.mask = mask;
         tree.BoxSize = PartManager->BoxSize;
-        tree.numnodes = force_tree_create_nodes(tree, act, mask, ddecomp, HybridNuGrav);
+        force_tree_create_nodes(&tree, act, mask, ddecomp, HybridNuGrav);
         if(tree.numnodes >= tree.lastnode - tree.firstnode)
         {
             message(1, "Not enough tree nodes (%ld) for %d particles. Created %d\n", maxnodes, act->NumActiveParticle, tree.numnodes);
@@ -233,8 +220,6 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
     }
     while(tree.numnodes >= tree.lastnode - tree.firstnode);
 
-    tree.mask = mask;
-
     if(MPIU_Any(TooManyNodes, MPI_COMM_WORLD)) {
         /* Assume scale factor = 1 for dump as position is not affected.*/
         if(EmergencyOutputDir) {
@@ -247,7 +232,6 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
         endrun(2, "Required too many nodes, snapshot dumped\n");
     }
 
-    tree.NumParticles = act->NumActiveParticle;
     if(mask == ALLMASK)
         walltime_measure("/Tree/Build/Nodes");
     /* insert the pseudo particles that represent the mass distribution of other ddecomps */
@@ -268,6 +252,12 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
 #ifdef DEBUG
         force_validate_nextlist(&tree);
 #endif
+    int64_t allact;
+    int maxnumnodes;
+    MPI_Reduce(&tree.NumParticles, &allact, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tree.numnodes, &maxnumnodes, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
+    message(0, "Tree constructed (type mask: %d moments: %d) with %ld particles. First node %d, max nodes/rank %d, first pseudo %d. NTopLeaves %d\n",
+            mask, tree.moments_computed_flag, allact, tree.firstnode, tree.numnodes, tree.lastnode, tree.NTopLeaves);
     return tree;
 }
 
@@ -277,24 +267,24 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
  * are currently inserting
  * Returns a value between 0 and 7.
  * */
-int get_subnode(const struct NODE * node, const int p_i)
+int get_subnode(const struct NODE * node, const double Pos[3])
 {
     /*Loop is unrolled to help out the compiler,which normally only manages it at -O3*/
-     return (P[p_i].Pos[0] > node->center[0]) +
-            ((P[p_i].Pos[1] > node->center[1]) << 1) +
-            ((P[p_i].Pos[2] > node->center[2]) << 2);
+     return (Pos[0] > node->center[0]) +
+            ((Pos[1] > node->center[1]) << 1) +
+            ((Pos[2] > node->center[2]) << 2);
 }
 
 /*Check whether a particle is inside the volume covered by a node,
  * by checking whether each dimension is close enough to center (L1 metric).*/
-static inline int inside_node(const struct NODE * node, const int p_i)
+static inline int inside_node(const struct NODE * node, const double Pos[3])
 {
     /*One can also use a loop, but the compiler unrolls it only at -O3,
      *so this is a little faster*/
     int inside =
-        (fabs(2*(P[p_i].Pos[0] - node->center[0])) <= node->len) *
-        (fabs(2*(P[p_i].Pos[1] - node->center[1])) <= node->len) *
-        (fabs(2*(P[p_i].Pos[2] - node->center[2])) <= node->len);
+        (fabs(2*(Pos[0] - node->center[0])) <= node->len) *
+        (fabs(2*(Pos[1] - node->center[1])) <= node->len) *
+        (fabs(2*(Pos[2] - node->center[2])) <= node->len);
     return inside;
 }
 
@@ -365,7 +355,7 @@ modify_internal_node(int parent, int subnode, int p_toplace, const ForceTree tb,
     /* Encode the type in the Types array*/
     tb.Nodes[parent].s.Types += P[p_toplace].Type << (3*subnode);
     if(!HybridNuGrav || P[p_toplace].Type != ForceTreeParams.FastParticleType)
-        add_particle_moment_to_node(&tb.Nodes[parent], p_toplace);
+        add_particle_moment_to_node(&tb.Nodes[parent], &P[p_toplace]);
     return 0;
 }
 
@@ -433,7 +423,7 @@ create_new_node_layer(int firstparent, int p_toplace,
             /* Re-attach each particle to the appropriate new leaf.
             * Notice that since we have NMAXCHILD slots on each child and NMAXCHILD particles,
             * we will always have a free slot. */
-            int subnode = get_subnode(nprnt, oldsuns[i]);
+            int subnode = get_subnode(nprnt, P[oldsuns[i]].Pos);
             int child = newsuns[subnode];
             struct NODE * nchild = &tb.Nodes[child];
             modify_internal_node(child, nchild->s.noccupied, oldsuns[i], tb, HybridNuGrav);
@@ -455,7 +445,7 @@ create_new_node_layer(int firstparent, int p_toplace,
         memset(&nprnt->mom, 0, sizeof(nprnt->mom));
 
         /* Now try again to add the new particle*/
-        int subnode = get_subnode(nprnt, p_toplace);
+        int subnode = get_subnode(nprnt, P[p_toplace].Pos);
         int child = nprnt->s.suns[subnode];
         struct NODE * nchild = &tb.Nodes[child];
         if(nchild->s.noccupied < NMAXCHILD) {
@@ -499,7 +489,7 @@ int add_particle_to_tree(int i, int cur_start, const ForceTree tb, const int Hyb
             break;
 
         /* This node has child subnodes: find them.*/
-        int subnode = get_subnode(&tb.Nodes[cur], i);
+        int subnode = get_subnode(&tb.Nodes[cur], P[i].Pos);
         /*No lock needed: if we have an internal node here it will be stable*/
         child = tb.Nodes[cur].s.suns[subnode];
 
@@ -658,15 +648,15 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
 /*! Does initial creation of the nodes for the gravitational oct-tree.
  * mask is a bitfield: Only types whose bit is set are added.
  **/
-int
-force_tree_create_nodes(const ForceTree tb, const ActiveParticles * act, int mask, DomainDecomp * ddecomp, const int HybridNuGrav)
+void
+force_tree_create_nodes(ForceTree * tree, const ActiveParticles * act, int mask, DomainDecomp * ddecomp, const int HybridNuGrav)
 {
-    int nnext = tb.firstnode;       /* index of first free node */
+    int nnext = tree->firstnode;       /* index of first free node */
 
     /* create an empty root node  */
     {
         int i;
-        struct NODE *nfreep = &tb.Nodes[nnext];	/* select first node */
+        struct NODE *nfreep = &tree->Nodes[nnext];	/* select first node */
 
         nfreep->len = PartManager->BoxSize*1.001;
         for(i = 0; i < 3; i++)
@@ -690,7 +680,7 @@ force_tree_create_nodes(const ForceTree tb, const ActiveParticles * act, int mas
          * grid. We need to generate these nodes first to make sure that we have a
          * complete top-level tree which allows the easy insertion of the
          * pseudo-particles in the right place */
-        force_create_node_for_topnode(tb.firstnode, 0, tb.Nodes, ddecomp, 1, 0, 0, 0, &nnext, tb.lastnode);
+        force_create_node_for_topnode(tree->firstnode, 0, tree->Nodes, ddecomp, 1, 0, 0, 0, &nnext, tree->lastnode);
     }
     /* Set up thread-local copies of the topnodes to anchor the subtrees. */
     int ThisTask, j, t;
@@ -707,7 +697,7 @@ force_tree_create_nodes(const ForceTree tb, const ActiveParticles * act, int mas
         for(j = 0; j < EndLeaf - StartLeaf; j++) {
             /* Make a local copy*/
             topnodes[j + t * (EndLeaf - StartLeaf)] = nnext;
-            memmove(&tb.Nodes[nnext], &tb.Nodes[topnodes[j]], sizeof(struct NODE));
+            memmove(&tree->Nodes[nnext], &tree->Nodes[topnodes[j]], sizeof(struct NODE));
             nnext++;
         }
     }
@@ -717,6 +707,8 @@ force_tree_create_nodes(const ForceTree tb, const ActiveParticles * act, int mas
     /* Increment nnext for the threads we are about to initialise.*/
     nnext += NODECACHE_SIZE * nthr;
     /* now we insert all particles */
+    int numparticles=0;
+
     #pragma omp parallel
     {
         int j;
@@ -749,11 +741,11 @@ force_tree_create_nodes(const ForceTree tb, const ActiveParticles * act, int mas
             chnksz = SlotsManager->info[0].size/nthr;
         if(chnksz < 1000)
             chnksz = 1000;
-        #pragma omp for schedule(static, chnksz)
+        #pragma omp for schedule(static, chnksz) reduction(+: numparticles)
         for(j = 0; j < act->NumActiveParticle; j++)
         {
             /*Can't break from openmp for*/
-            if(nc.nnext_thread >= tb.lastnode)
+            if(nc.nnext_thread >= tree->lastnode)
                 continue;
 
             /* Pick the next particle from the active list if there is one*/
@@ -771,18 +763,20 @@ force_tree_create_nodes(const ForceTree tb, const ActiveParticles * act, int mas
                 endrun(12, "Zero mass particle %d type %d id %ld pos %g %g %g\n", i, P[i].Type, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
             /*First find the Node for the TopLeaf */
             int cur;
-            if(inside_node(&tb.Nodes[this_acc], i)) {
+            if(inside_node(&tree->Nodes[this_acc], P[i].Pos)) {
                 cur = this_acc;
             } else {
                 /* Get the topnode to which a particle belongs. Each local tree
                  * has a local set of treenodes copying the global topnodes, except tid 0
                  * which has the real topnodes.*/
                 const int topleaf = domain_get_topleaf(P[i].Key, ddecomp);
+                if(topleaf < StartLeaf || topleaf >= EndLeaf)
+                    endrun(5, "Bad topleaf %d start %d end %d key %ld type %d ID %ld\n", topleaf, StartLeaf, EndLeaf, P[i].Key, P[i].Type, P[i].ID);
                 //int treenode = ddecomp->TopLeaves[topleaf].treenode;
                 cur = local_topnodes[topleaf - StartLeaf];
             }
-
-            this_acc = add_particle_to_tree(i, cur, tb, HybridNuGrav, &nc, &nnext);
+            numparticles++;
+            this_acc = add_particle_to_tree(i, cur, *tree, HybridNuGrav, &nc, &nnext);
         }
         /* The implicit omp-barrier is important here!*/
 /*         double tend = second(); */
@@ -797,19 +791,20 @@ force_tree_create_nodes(const ForceTree tb, const ActiveParticles * act, int mas
             int t;
             /* These are the addresses of the real topnodes*/
             const int target = topnodes[j];
-            if(nc.nnext_thread >= tb.lastnode)
+            if(nc.nnext_thread >= tree->lastnode)
                 continue;
             for(t = 1; t < nthr; t++) {
                 const int righttop = topnodes[j + t * (EndLeaf - StartLeaf)];
 //                  message(1, "tid = %d i = %d t = %d Merging %d to %d addresses are %lx - %lx end is %lx\n", omp_get_thread_num(), i, t, righttop, target, &tb.Nodes[righttop], &tb.Nodes[target], &tb.Nodes[nnext]);
-                if(merge_partial_force_trees(target, righttop, &nc, &nnext, tb, HybridNuGrav))
+                if(merge_partial_force_trees(target, righttop, &nc, &nnext, *tree, HybridNuGrav))
                     break;
             }
         }
     }
-
+    tree->NumParticles = numparticles;
+    tree->numnodes = nnext - tree->firstnode;
     ta_free(topnodes);
-    return nnext - tb.firstnode;
+    return;
 }
 
 /*! This function recursively creates a set of empty tree nodes which
@@ -824,7 +819,8 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
     int i, j, k;
 
     /*We reached the leaf of the toptree*/
-    if(ddecomp->TopNodes[topnode].Daughter < 0)
+    const int curdaughter = ddecomp->TopNodes[topnode].Daughter;
+    if(curdaughter < 0)
         return;
 
     for(i = 0; i < 2; i++)
@@ -849,7 +845,9 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
                 /*All nodes here are top level nodes*/
                 Nodes[*nextfree].f.TopLevel = 1;
 
-                const struct topnode_data curtopnode = ddecomp->TopNodes[ddecomp->TopNodes[topnode].Daughter + sub];
+                if(curdaughter + sub >= ddecomp->NTopNodes)
+                    endrun(5, "Invalid topnode: daughter %d sub %d > topnodes %d\n", curdaughter, sub, ddecomp->NTopNodes);
+                const struct topnode_data curtopnode = ddecomp->TopNodes[curdaughter + sub];
                 if(curtopnode.Daughter == -1) {
                     ddecomp->TopLeaves[curtopnode.Leaf].treenode = *nextfree;
                 }
@@ -917,22 +915,22 @@ force_get_father(int no, const ForceTree * tree)
 }
 
 static void
-add_particle_moment_to_node(struct NODE * pnode, int i)
+add_particle_moment_to_node(struct NODE * pnode, const struct particle_data * const part)
 {
     int k;
-    pnode->mom.mass += (P[i].Mass);
+    pnode->mom.mass += (part->Mass);
     for(k=0; k<3; k++)
-        pnode->mom.cofm[k] += (P[i].Mass * P[i].Pos[k]);
+        pnode->mom.cofm[k] += (part->Mass * part->Pos[k]);
 
     /* We do not add active particles to the hmax here because we are building the tree in density().
      * The active particles will have hsml updated anyway, often to a smaller value*/
-    if(P[i].Type == 0 && !is_timebin_active(P[i].TimeBinHydro, P[i].Ti_drift))
+    if(part->Type == 0 && !is_timebin_active(part->TimeBinHydro, part->Ti_drift))
     {
         int j;
         /* Maximal distance any of the member particles peek out from the side of the node.
          * May be at most hsml, as |Pos - Center| < len/2.*/
         for(j = 0; j < 3; j++) {
-            pnode->mom.hmax = DMAX(pnode->mom.hmax, fabs(P[i].Pos[j] - pnode->center[j]) + P[i].Hsml - pnode->len/2.);
+            pnode->mom.hmax = DMAX(pnode->mom.hmax, fabs(part->Pos[j] - pnode->center[j]) + part->Hsml - pnode->len/2.);
         }
     }
 }
