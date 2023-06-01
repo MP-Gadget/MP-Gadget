@@ -63,7 +63,7 @@ struct __attribute__((__packed__)) BHinfo{
 
 
 void
-collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *priv, struct BHDynFricPriv * dynpriv, FILE * FdBlackholeDetails)
+collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *priv, FILE * FdBlackholeDetails)
 {
     int i;
 
@@ -109,15 +109,13 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
 
         /****************************************************************************/
         /* Output some DF info for debugging */
-        if(dynpriv && dynpriv->BH_SurroundingDensity) {
-            info->MinPot = dynpriv->MinPot[PI];
-            info->BH_SurroundingDensity = dynpriv->BH_SurroundingDensity[PI];
-            info->BH_SurroundingRmsVel = dynpriv->BH_SurroundingRmsVel[PI];
-            info->BH_SurroundingParticles = dynpriv->BH_SurroundingParticles[PI];
-            info->BH_SurroundingVel[0] = dynpriv->BH_SurroundingVel[PI][0];
-            info->BH_SurroundingVel[1] = dynpriv->BH_SurroundingVel[PI][1];
-            info->BH_SurroundingVel[2] = dynpriv->BH_SurroundingVel[PI][2];
-        }
+        info->MinPot = BHP(p_i).MinPot;
+        info->BH_SurroundingDensity = BHP(p_i).DF_SurroundingDensity;
+        info->BH_SurroundingRmsVel = BHP(p_i).DF_SurroundingRmsVel;
+        info->BH_SurroundingParticles = 0;
+        info->BH_SurroundingVel[0] = BHP(p_i).DF_SurroundingVel[0];
+        info->BH_SurroundingVel[1] = BHP(p_i).DF_SurroundingVel[1];
+        info->BH_SurroundingVel[2] = BHP(p_i).DF_SurroundingVel[2];
 
         /****************************************************************************/
         info->BH_accreted_BHMass = priv->BH_accreted_BHMass[PI];

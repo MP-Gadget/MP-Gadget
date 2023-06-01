@@ -7,24 +7,16 @@
 
 /* Parameters used in the dynamic friction treewalk. */
 struct BHDynFricPriv {
-    MyFloat * BH_SurroundingDensity;
-    int * BH_SurroundingParticles;
-    MyFloat (*BH_SurroundingVel)[3];
-    MyFloat * BH_SurroundingRmsVel;
-
     /* Time factors*/
     double atime;
     Cosmology * CP;
     struct kick_factor_data * kf;
-    /* For diagnostics*/
-    MyFloat * MinPot;
 };
 
 /* Do the dynamic friction treewalk if BH_DynFrictionMethod > 0.
  * Builds a private tree with the types needed for dynamic friction (mostly stars and DM).*/
 void blackhole_dynfric(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, DomainDecomp * ddecomp, struct BHDynFricPriv * priv);
 void set_blackhole_dynfric_params(ParameterSet * ps);
-void blackhole_dynpriv_free(struct BHDynFricPriv * dynpriv);
 /* Get the particle types used in dynfric*/
 int blackhole_dynfric_treemask(void);
 

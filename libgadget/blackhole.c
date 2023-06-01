@@ -339,7 +339,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     walltime_measure("/BH/Feedback");
 
     if(FdBlackholeDetails){
-        collect_BH_info(ActiveBlackHoles, NumActiveBlackHoles, priv, dynpriv, FdBlackholeDetails);
+        collect_BH_info(ActiveBlackHoles, NumActiveBlackHoles, priv, FdBlackholeDetails);
     }
 
     myfree(priv->BH_accreted_momentum);
@@ -357,8 +357,6 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     myfree(priv->BH_FeedbackWeightSum);
     myfree(priv->BH_SwallowID);
     myfree(priv->SPH_SwallowID);
-
-    blackhole_dynpriv_free(dynpriv);
 
     myfree(ActiveBlackHoles);
 

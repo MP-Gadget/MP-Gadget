@@ -48,6 +48,12 @@ struct bh_particle_data {
     /*******************************************************/
     double DragAccel[3];
     double DFAccel[3];
+    /* Dynamic friction helpers*/
+    MyFloat DF_SurroundingVel[3]; /* Mass and kernel weighted velocity of DF contributing particles around BH.*/
+    MyFloat DF_SurroundingRmsVel; /* Mass and kernel weighted RMS velocity of DF contributing particles around BH */
+    MyFloat DF_SurroundingDensity; /* Kernel weighted mass of DF contributing particles around BH.*/
+    MyFloat MinPot; /* Minimum potential, for diagnostics */
+
     /*******************************************************/
     double KineticFdbkEnergy; /* accumulated KineticFdbk Energy */
 
