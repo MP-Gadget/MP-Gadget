@@ -146,7 +146,6 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw)
         int j;
         for(j = 0; j < 3; j++)
             BHP(n).DF_SurroundingVel[j] /= BHP(n).DF_SurroundingDensity;
-        blackhole_compute_dfaccel(n, BHDYN_GET_PRIV(tw)->atime, BHDYN_GET_PRIV(tw)->CP->GravInternal);
     }
     else
         message(2, "Dynamic Friction density is zero for BH %ld. mass %g, hsml %g, dens %g, pos %g %g %g.\n",
@@ -310,6 +309,36 @@ blackhole_minpot(int * ActiveBlackHoles, const int64_t NumActiveBlackHoles, Doma
     walltime_measure("/BH/Repos");
 }
 
+static int
+blackhole_dynfric_haswork(int n, TreeWalk * tw){
+    /*Black hole not being swallowed*/
+    return (P[n].Type == 5) && (!P[n].Swallowed) &&
+    is_timebin_active(BHP(n).TimeBinDynFric, BHDYN_GET_PRIV(tw)->Ti_Current);
+}
+
+/* Returns total number of dynamic-friction active particles over all processors*/
+int
+blackhole_dynfric_num_active(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, inttime_t Ti_Current)
+{
+    if (blackhole_dynfric_params.BH_DynFrictionMethod == 0)
+        return 0;
+
+    int64_t i, nactive = 0;
+    TreeWalk tw_dynfric[1] = {{0}};
+    struct BHDynFricPriv priv[1] = {{0}};
+    priv->Ti_Current = Ti_Current;
+    tw_dynfric->priv = priv;
+    #pragma omp parallel for reduction(+: nactive)
+    for(i = 0; i < NumActiveBlackHoles; i++)
+    {
+        int n = ActiveBlackHoles[i];
+        nactive += blackhole_dynfric_haswork(n, tw_dynfric);
+    }
+    int64_t totactive;
+    MPI_Allreduce(&nactive, &totactive, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    return totactive;
+}
+
 void
 blackhole_dynfric(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, DomainDecomp * ddecomp, struct BHDynFricPriv * priv)
 {
@@ -320,6 +349,9 @@ blackhole_dynfric(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, DomainDec
             blackhole_minpot(ActiveBlackHoles, NumActiveBlackHoles, ddecomp, priv);
         return;
     }
+    int64_t totdynfric = blackhole_dynfric_num_active(ActiveBlackHoles, NumActiveBlackHoles, priv->Ti_Current);
+    if(!totdynfric)
+        return;
 
     /* dynamical friction uses: stars, DM if BH_DynFrictionMethod > 1 gas if BH_DynFrictionMethod  == 3.
      * The DM in dynamic friction and accretion doesn't really do anything, so could perhaps be removed from the treebuild later.*/
@@ -342,8 +374,23 @@ blackhole_dynfric(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, DomainDec
     tw_dynfric->result_type_elsize = sizeof(TreeWalkResultBHDynfric);
     tw_dynfric->tree = tree;
     tw_dynfric->priv = priv;
-    tw_dynfric->haswork = NULL;
+    tw_dynfric->haswork = blackhole_dynfric_haswork;
 
     treewalk_run(tw_dynfric, ActiveBlackHoles, NumActiveBlackHoles);
     force_tree_free(tree);
+}
+
+/* Compute the DF acceleration for all active black holes*/
+void
+blackhole_dfaccel(int * ActiveBlackHoles, size_t NumActiveBlackHoles, const double atime, const double GravInternal)
+{
+    if (blackhole_dynfric_params.BH_DynFrictionMethod == 0)
+        return;
+
+    int i;
+    #pragma omp parallel for
+    for(i = 0; i < NumActiveBlackHoles; i++) {
+        int n = ActiveBlackHoles ? ActiveBlackHoles[i] : i;
+        blackhole_compute_dfaccel(n, atime, GravInternal);
+    }
 }

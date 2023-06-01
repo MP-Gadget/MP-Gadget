@@ -8,14 +8,15 @@
 /* Parameters used in the dynamic friction treewalk. */
 struct BHDynFricPriv {
     /* Time factors*/
-    double atime;
-    Cosmology * CP;
     struct kick_factor_data * kf;
+    inttime_t Ti_Current; /* current time*/
 };
 
 /* Do the dynamic friction treewalk if BH_DynFrictionMethod > 0.
  * Builds a private tree with the types needed for dynamic friction (mostly stars and DM).*/
 void blackhole_dynfric(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, DomainDecomp * ddecomp, struct BHDynFricPriv * priv);
+/* Compute the DF acceleration for all active black holes*/
+void blackhole_dfaccel(int * ActiveBlackHoles, size_t NumActiveBlackHoles, const double atime, const double GravInternal);
 void set_blackhole_dynfric_params(ParameterSet * ps);
 /* Get the particle types used in dynfric*/
 int blackhole_dynfric_treemask(void);

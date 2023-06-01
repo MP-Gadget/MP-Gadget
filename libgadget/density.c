@@ -401,6 +401,7 @@ density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMod
     else if(P[place].Type == 5)
     {
         TREEWALK_REDUCE(BHP(place).Density, remote->Rho);
+        TREEWALK_REDUCE(BHP(place).DivVel, remote->Div);
     }
 }
 
@@ -466,14 +467,11 @@ density_ngbiter(
         double density_dW = density_kernel_dW(&iter->kernel, u, wk, dwk);
         O->DhsmlDensity += mass_j * density_dW;
 
-        /* For the BH and stars only density and dhsmldensity is used.*/
-        if(I->Type != 0)
-            return;
-
         double EntVarPred;
         MyFloat VelPred[3];
         struct DensityPriv * priv = DENSITY_GET_PRIV(lv->tw);
         SPH_VelPred(other, VelPred, &priv->kf);
+
         if(priv->SPH_predicted->EntVarPred) {
             #pragma omp atomic read
             EntVarPred = priv->SPH_predicted->EntVarPred[P[other].PI];
@@ -571,6 +569,11 @@ density_postprocess(int i, TreeWalk * tw)
 
         SPHP(i).DivVel /= SPHP(i).Density;
         P[i].DtHsml = (1.0 / NUMDIMS) * SPHP(i).DivVel * P[i].Hsml;
+    }
+    else if(P[i].Type == 5)
+    {
+        BHP(i).DivVel /= BHP(i).Density;
+        P[i].DtHsml = (1.0 / NUMDIMS) * BHP(i).DivVel * P[i].Hsml;
     }
 }
 

@@ -246,10 +246,17 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     /*  Dynamical Friction Treewalk */
     /*************************************************************************/
     struct BHDynFricPriv dynpriv[1] = {0};
-    dynpriv->atime = atime;
-    dynpriv->CP = CP;
     dynpriv->kf = &kf;
+    dynpriv->Ti_Current = times->Ti_Current;
+    /* Update the kernel quantities for dynamic friction, if required.
+     * This takes place on a longer timestep than the hydro acceleration
+     * to avoid extra treebuilds. Note this includes the potential minimum.
+     * If black hole repositioning is on, the treewalk to reposition
+     * to the local potential minimum is run.*/
     blackhole_dynfric(ActiveBlackHoles, NumActiveBlackHoles, ddecomp, dynpriv);
+    /* Compute the DF acceleration for all active black holes*/
+    blackhole_dfaccel(ActiveBlackHoles, NumActiveBlackHoles, atime, CP->GravInternal);
+
     walltime_measure("/BH/DynFric");
 
     struct BHPriv priv[1] = {0};
