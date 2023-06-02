@@ -280,8 +280,8 @@ blackhole_real_merger_ngbiter(TreeWalkQueryBHRealMerger * I,
 static int
 blackhole_real_merger_haswork(int n, TreeWalk * tw)
 {
-    /*Black hole not being swallowed*/
-    return (P[n].Type == 5) && (!P[n].Swallowed) && (BHP(n).SwallowID == (MyIDType) -1);
+    /*Black hole not being swallowed but in an encounter (we don't know with who)*/
+    return (P[n].Type == 5) && (!P[n].Swallowed) && (BHP(n).SwallowID == (MyIDType) -1) && BHP(n).encounter;
 }
 
 static void
