@@ -24,6 +24,9 @@ struct BHMergerPriv {
     /* Used in the real merger treewalk to store masses
      * for the BH Details file, and avoid roundoff.*/
     AccretedVariables * accreted;
+    /* Count of number of mergers 'expected' (actual mergers may be less than this
+     * if one of the merger targets is merging).*/
+    int mergercount;
 };
 
 #define BH_GET_PRIV(tw) ((struct BHMergerPriv *) (tw->priv))
@@ -148,6 +151,9 @@ blackhole_merger_ngbiter(TreeWalkQueryBHMerger * I,
         /* Swap in the new id only if the old one hasn't changed:
             * in principle an extension, but supported on at least clang >= 9, gcc >= 5 and icc >= 18.*/
         } while(!__atomic_compare_exchange_n(&(BHP(other).SwallowID), &readid, newswallowid, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+
+        #pragma omp atomic update
+        BH_GET_PRIV(lv->tw)->mergercount++;
     }
 }
 
@@ -364,6 +370,7 @@ blackhole_mergers(int * ActiveBlackHoles, const int64_t NumActiveBlackHoles, Dom
     priv->kf = kf;
     priv->SeedBHDynMass = SeedBHDynMass;
     priv->MergeGravBound = MergeGravBound;
+    priv->mergercount = 0;
     /*************************************************************************/
     TreeWalk tw_merger[1] = {{0}};
 
@@ -401,6 +408,11 @@ blackhole_mergers(int * ActiveBlackHoles, const int64_t NumActiveBlackHoles, Dom
     tw_real_merger->priv = priv;
     tw_real_merger->repeatdisallowed = 1;
 
+    /* If no BHs are expecting a merger, we don't need to do anything here.*/
+    if(!MPIU_Any(priv->mergercount > 0, MPI_COMM_WORLD)) {
+        force_tree_free(tree);
+        return 0;
+    }
     /* Ionization counters*/
     priv[0].N_BH_swallowed = ta_malloc("n_BH_swallowed", int64_t, omp_get_max_threads());
     memset(priv[0].N_BH_swallowed, 0, sizeof(int64_t) * omp_get_max_threads());
