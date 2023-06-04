@@ -922,9 +922,11 @@ add_particle_moment_to_node(struct NODE * pnode, const struct particle_data * co
     for(k=0; k<3; k++)
         pnode->mom.cofm[k] += (part->Mass * part->Pos[k]);
 
-    /* We do not add active particles to the hmax here because we are building the tree in density().
-     * The active particles will have hsml updated anyway, often to a smaller value*/
-    if(part->Type == 0 && !is_timebin_active(part->TimeBinHydro, part->Ti_drift))
+    /* We do not add active gas particles to the hmax here because we are building the tree in density().
+     * The active particles will have hsml updated anyway, often to a smaller value and will be included in force_update_hmax.
+     * Black holes include unconditionally.*/
+    if((part->Type == 0 && !is_timebin_active(part->TimeBinHydro, part->Ti_drift))
+        || part->Type == 5)
     {
         int j;
         /* Maximal distance any of the member particles peek out from the side of the node.
