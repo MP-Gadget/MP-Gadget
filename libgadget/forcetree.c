@@ -1312,7 +1312,6 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
     /* Calculate moments to propagate everything upwards. */
     force_tree_calc_moments(tree, ddecomp);
 
-    tree->hmax_computed_flag = 1;
     walltime_measure("/SPH/HmaxUpdate");
     int64_t totnumparticles;
     MPI_Reduce(&tree->NumParticles, &totnumparticles, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);

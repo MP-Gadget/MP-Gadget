@@ -964,11 +964,12 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
     /* Kick-start the iteration with other == -1 */
     iter->other = -1;
     lv->tw->ngbiter(I, O, iter, lv);
-#ifdef DEBUG
     /* Check whether the tree contains the particles we are looking for*/
     if((lv->tw->tree->mask & iter->mask) == 0)
         endrun(5, "Tried to run treewalk for particle mask %d but tree mask is %d.\n", iter->mask, lv->tw->tree->mask);
-#endif
+    /* If symmetric, make sure we did hmax first*/
+    if(iter->symmetric == NGB_TREEFIND_SYMMETRIC && !lv->tw->tree->hmax_computed_flag)
+        endrun(3, "%s tried to do a symmetric treewalk without computing hmax!\n", lv->tw->ev_label);
     const double BoxSize = lv->tw->tree->BoxSize;
 
     int64_t ninteractions = 0;
