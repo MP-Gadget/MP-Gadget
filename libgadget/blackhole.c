@@ -570,7 +570,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         if(r2 < iter->kernel.HH) {
             double u = r * iter->kernel.Hinv;
             double wk = density_kernel_wk(&iter->kernel, u);
-            float mass_j = P[other].Mass;
+            double mass_j = P[other].Mass;
 
             O->SmoothedEntropy += (mass_j * wk * SPHP(other).Entropy);
             MyFloat VelPred[3];
