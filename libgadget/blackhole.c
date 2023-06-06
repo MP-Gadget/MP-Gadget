@@ -905,8 +905,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
     /* perform thermal or kinetic feedback into non-swallowed particles. */
     if(P[other].Type == 0 && SPH_SwallowID[P[other].PI] == 0 &&
-        (r2 < iter->feedback_kernel.HH && P[other].Mass > 0) &&
-            (I->FeedbackWeightSum > 0))
+        (r2 < iter->feedback_kernel.HH))
     {
         double u = r * iter->feedback_kernel.Hinv;
         double wk = 1.0;
@@ -921,7 +920,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             wk = density_kernel_wk(&iter->feedback_kernel, u);
 
         /* thermal feedback */
-        if(I->FeedbackEnergy > 0 && I->FdbkChannel == 0){
+        if(I->FeedbackWeightSum > 0 && I->FeedbackEnergy > 0 && I->FdbkChannel == 0 && P[other].Mass > 0){
             const double injected_BH = I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum;
             /* Set a flag for star-forming particles:
                 * we want these to cool to the EEQOS via
