@@ -529,7 +529,8 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         }
         iter->base.mask = GASMASK + STARMASK + BHMASK;
         iter->base.Hsml = I->Hsml;
-        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
+        /* Symmetric for the BH mergers*/
+        iter->base.symmetric = NGB_TREEFIND_SYMMETRIC;
 
         density_kernel_init(&iter->accretion_kernel, I->Hsml, GetDensityKernelType());
         density_kernel_init(&iter->feedback_kernel, I->Hsml, GetDensityKernelType());
