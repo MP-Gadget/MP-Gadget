@@ -1368,5 +1368,7 @@ void force_tree_free(ForceTree * tree)
     myfree(tree->Nodes_base);
     if(tree->Father)
         myfree(tree->Father);
+    /* Zero everything, especially the allocation flag*/
+    memset(tree, 0, sizeof(ForceTree));
     tree->tree_allocated_flag = 0;
 }
