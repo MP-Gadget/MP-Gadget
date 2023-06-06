@@ -83,8 +83,7 @@ typedef struct {
 
 typedef struct {
     TreeWalkNgbIterBase base;
-    DensityKernel accretion_kernel;
-    DensityKernel feedback_kernel;
+    DensityKernel kernel;
 } TreeWalkNgbIterBHAccretion;
 
 
@@ -480,8 +479,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         /* Symmetric for the BH mergers*/
         iter->base.symmetric = NGB_TREEFIND_SYMMETRIC;
 
-        density_kernel_init(&iter->accretion_kernel, I->Hsml, GetDensityKernelType());
-        density_kernel_init(&iter->feedback_kernel, I->Hsml, GetDensityKernelType());
+        density_kernel_init(&iter->kernel, I->Hsml, GetDensityKernelType());
         return;
     }
 
@@ -569,9 +567,9 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
 
     if(P[other].Type == 0) {
-        if(r2 < iter->accretion_kernel.HH) {
-            double u = r * iter->accretion_kernel.Hinv;
-            double wk = density_kernel_wk(&iter->accretion_kernel, u);
+        if(r2 < iter->kernel.HH) {
+            double u = r * iter->kernel.Hinv;
+            double wk = density_kernel_wk(&iter->kernel, u);
             float mass_j = P[other].Mass;
 
             O->SmoothedEntropy += (mass_j * wk * SPHP(other).Entropy);
@@ -620,7 +618,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             }
         }
 
-        if(r2 < iter->feedback_kernel.HH) {
+        if(r2 < iter->kernel.HH) {
             /* update the feedback weighting */
             double mass_j;
             if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_OPTTHIN)) {
@@ -635,9 +633,9 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
                     mass_j = P[other].Hsml * P[other].Hsml * P[other].Hsml;
                 }
                 if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE)) {
-                    double u = r * iter->feedback_kernel.Hinv;
+                    double u = r * iter->kernel.Hinv;
                     O->FeedbackWeightSum += (mass_j *
-                          density_kernel_wk(&iter->feedback_kernel, u)
+                          density_kernel_wk(&iter->kernel, u)
                            );
                 } else {
                     O->FeedbackWeightSum += (mass_j);
@@ -649,7 +647,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     /* collect info for sigmaDM and Menc for kinetic feedback */
     if(blackhole_params.BlackHoleKineticOn == 1 &&
         P[other].Type == 0 &&
-        r2 < iter->feedback_kernel.HH ){
+        r2 < iter->kernel.HH ){
             O->MgasEnc += P[other].Mass;
         }
 }
@@ -719,7 +717,7 @@ typedef struct {
 
 typedef struct {
     TreeWalkNgbIterBase base;
-    DensityKernel feedback_kernel;
+    DensityKernel kernel;
 } TreeWalkNgbIterBHFeedback;
 
 /* Adds the injected black hole energy to an internal energy and caps it at a maximum temperature*/
@@ -763,7 +761,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         iter->base.Hsml = I->Hsml;
         /* Needs to be symmetric because the BH mergers should be symmetric*/
         iter->base.symmetric = NGB_TREEFIND_SYMMETRIC;
-        density_kernel_init(&iter->feedback_kernel, I->Hsml, GetDensityKernelType());
+        density_kernel_init(&iter->kernel, I->Hsml, GetDensityKernelType());
         return;
     }
 
@@ -828,9 +826,9 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
     /* perform thermal or kinetic feedback into non-swallowed particles. */
     if(P[other].Type == 0 && SPH_SwallowID[P[other].PI] == 0 &&
-        (r2 < iter->feedback_kernel.HH))
+        (r2 < iter->kernel.HH))
     {
-        double u = r * iter->feedback_kernel.Hinv;
+        double u = r * iter->kernel.Hinv;
         double wk = 1.0;
         double mass_j;
 
@@ -840,7 +838,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             mass_j = P[other].Hsml * P[other].Hsml * P[other].Hsml;
         }
         if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
-            wk = density_kernel_wk(&iter->feedback_kernel, u);
+            wk = density_kernel_wk(&iter->kernel, u);
 
         /* thermal feedback */
         if(I->FeedbackWeightSum > 0 && I->FeedbackEnergy > 0 && I->FdbkChannel == 0 && P[other].Mass > 0){
