@@ -68,10 +68,9 @@ typedef struct {
 
 typedef struct {
     TreeWalkResultBase base;
-    int BH_minTimeBin;
     int encounter;
+    int alignment;
     MyFloat FeedbackWeightSum;
-
     MyFloat SmoothedEntropy;
     MyFloat GasVel[3];
     /* used for AGN kinetic feedback */
@@ -477,7 +476,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 {
 
     if(iter->base.other == -1) {
-        O->BH_minTimeBin = TIMEBINS;
         O->encounter = 0;
         iter->base.mask = GASMASK + BHMASK;
         iter->base.Hsml = I->Hsml;
@@ -493,12 +491,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     double r2 = iter->base.r2;
 
     if(P[other].Mass < 0) return;
-
-    /* For accretion stability, set the BH timestep to the smallest gas timestep.*/
-    if(P[other].Type == 0) {
-        if (O->BH_minTimeBin > P[other].TimeBinHydro)
-            O->BH_minTimeBin = P[other].TimeBinHydro;
-    }
 
      /* BH does not accrete wind */
     if(winds_is_particle_decoupled(other)) return;
@@ -668,9 +660,6 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     if (mode == 0 || BHP(place).encounter < remote->encounter) {
         BHP(place).encounter = remote->encounter;
     }
-    if (mode == 0 || BHP(place).minTimeBin > remote->BH_minTimeBin) {
-        BHP(place).minTimeBin = remote->BH_minTimeBin;
-    }
 
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_FeedbackWeightSum[PI], remote->FeedbackWeightSum);
     TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_Entropy[PI], remote->SmoothedEntropy);
@@ -709,6 +698,7 @@ typedef struct {
     MyFloat FeedbackWeightSum;
     MyFloat KEFeedbackEnergy;
     int FdbkChannel; /* 0 thermal, 1 kinetic */
+    int alignment; /* Ensure alignment*/
 } TreeWalkQueryBHFeedback;
 
 typedef struct {
@@ -717,7 +707,7 @@ typedef struct {
     MyFloat AccretedMomentum[3];
     MyFloat BH_Mass;
     int BH_CountProgs;
-    int alignment; /* Ensure alignment*/
+    int BH_minTimeBin;
 } TreeWalkResultBHFeedback;
 
 typedef struct {
@@ -761,7 +751,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 {
 
     if(iter->base.other == -1) {
-
+        O->BH_minTimeBin = TIMEBINS;
         iter->base.mask = GASMASK + BHMASK;
         iter->base.Hsml = I->Hsml;
         /* Needs to be symmetric because the BH mergers should be symmetric*/
@@ -833,6 +823,11 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     if(P[other].Type == 0 && SPH_SwallowID[P[other].PI] == 0 &&
         (r2 < iter->kernel.HH))
     {
+        /* For accretion stability, set the BH timestep to the smallest gas timestep.
+         * Ignore swallowed or wind gas particles.*/
+        if (O->BH_minTimeBin > P[other].TimeBinHydro)
+            O->BH_minTimeBin = P[other].TimeBinHydro;
+
         double u = r * iter->kernel.Hinv;
         double wk = 1.0;
         double mass_j;
@@ -951,7 +946,9 @@ blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum Tre
     for(k = 0; k < 3; k++) {
         TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_accreted_momentum[PI][k], remote->AccretedMomentum[k]);
     }
-
+    if (mode == 0 || BHP(place).minTimeBin > remote->BH_minTimeBin) {
+        BHP(place).minTimeBin = remote->BH_minTimeBin;
+    }
     TREEWALK_REDUCE(BHP(place).CountProgs, remote->BH_CountProgs);
 }
 
