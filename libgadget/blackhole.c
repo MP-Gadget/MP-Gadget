@@ -1172,6 +1172,9 @@ void blackhole_make_one(int index, const double atime) {
     else{
         BHP(child).Mtrack = -1; /* This column is not used then. */
     }
+    if(P[child].Mass < BHP(child).Mass || P[child].Mass < BHP(child).Mtrack)
+        message(1, "WARNING: BH Mass (%g) for ID %ld is larger than particle mass (%g) or mtrack (%g)\n", BHP(child).Mass, P[child].ID, P[child].Mass, BHP(child).Mtrack);
+
     /* Initialize KineticFdbkEnergy, keep zero if BlackHoleKineticOn is not turned on */
     BHP(child).KineticFdbkEnergy = 0;
     BHP(child).VDisp = 0;
