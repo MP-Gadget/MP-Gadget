@@ -144,7 +144,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "WritersPerFile", OPTIONAL, 8, "Number of Writer groups assigned to a file; total number of writers is capped by NumWriters.");
 
     param_declare_int(ps, "EnableAggregatedIO", OPTIONAL, 0, "Use the Aggregated IO policy for small data set (Experimental).");
-    param_declare_int(ps, "AggregatedIOThreshold", OPTIONAL, 1024 * 1024 * 256, "Max number of bytes on a writer before reverting to throttled IO.");
+    param_declare_int(ps, "AggregatedIOThreshold", OPTIONAL, 256, "Max size (in MB) on a writer before reverting to throttled IO.");
 
     /*Parameters of the cooling module*/
     param_declare_int(ps, "CoolingOn", REQUIRED, 0, "Enables cooling");

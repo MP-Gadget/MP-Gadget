@@ -67,6 +67,8 @@ set_petaio_params(ParameterSet * ps)
         IO.MinNumWriters = param_get_int(ps, "MinNumWriters");
         IO.WritersPerFile = param_get_int(ps, "WritersPerFile");
         IO.AggregatedIOThreshold = param_get_int(ps, "AggregatedIOThreshold");
+        /* Convert from MB to bytes*/
+        IO.AggregatedIOThreshold *= 1024L * 1024L;
         IO.EnableAggregatedIO = param_get_int(ps, "EnableAggregatedIO");
         IO.OutputPotential = param_get_int(ps, "OutputPotential");
         IO.OutputTimebins = param_get_int(ps, "OutputTimebins");
