@@ -1,0 +1,91 @@
+#  Relevant files
+InitCondFile = ICS/IC
+OutputDir = output
+TreeCoolFile = ../TREECOOL_fg_june11
+OutputList = 0.1,0.1111111, 0.125, 0.142857, 0.16666, 0.181818,0.2,0.222222, 0.25, 0.285714, 0.3333333,0.4
+#OutputList =  0.2, 0.222222, 0.25, 0.285714, 0.333333 
+#OutputList = 0.333333,0.4
+Nmesh = 1100
+# CPU time -limit
+	
+#TimeLimitCPU = 43000 #= 8 hours
+TimeLimitCPU = 230000
+
+# Code options
+#  Characteristics of run
+TimeMax = 0.5
+
+Omega0 = 0.2865      # Total matter density  (at z=0)
+OmegaLambda = 0.713413      # Cosmological constant (at z=0)
+OmegaBaryon = 0.04628     # Baryon density        (at z=0)
+HubbleParam = 0.6932      # Hubble paramater (may be used for power spec parameterization)
+
+CoolingOn = 1
+StarformationOn = 1
+BlackHoleOn = 1
+HydroOn = 1
+DensityIndependentSphOn = 1
+StarformationCriterion = density,h2
+RadiationOn = 1
+MassiveNuLinRespOn = 0
+WindOn = 1
+MetalCoolFile = ../cooling_metal_UVB
+
+# Accuracy of time integration
+MaxSizeTimestep = 0.1
+MinSizeTimestep = 0.00
+
+SnapshotWithFOF = 1
+FOFHaloLinkingLength = 0.2
+FOFHaloMinLength = 32
+
+#  Further parameters of SPH
+DensityKernelType = quintic
+
+DensityContrastLimit = 100   # max contrast for hydro force calculation
+DensityResolutionEta = 1.0  # for Cubic spline 1.0 = 33
+MaxNumNgbDeviation = 2
+ArtBulkViscConst = 0.75
+InitGasTemp = 580.0        # always ignored if set to 0 
+MinGasTemp = 5.0
+
+
+# Softening lengths
+
+MinGasHsmlFractional = 0.01
+
+#----------------------BH Stuff-------------------------
+BlackHoleFeedbackFactor = 0.05
+BlackHoleFeedbackRadius = 0.
+BlackHoleFeedbackRadiusMaxPhys = 0.
+BlackHoleFeedbackMethod = spline | mass
+SeedBlackHoleMass = 5.0e-5
+BlackHoleAccretionFactor = 100.0
+BlackHoleNgbFactor = 2.0
+BlackHoleEddingtonFactor = 3.0
+MetalReturnOn = 1
+MinFoFMassForNewSeed = 1
+TimeBetweenSeedingSearch = 1.03
+
+WriteBlackHoleDetails = 1
+BH_DynFrictionMethod = 2  # no DM/Star
+BH_DRAG = 1  # No drag
+BH_DFBoostFactor = 1
+SeedBHDynMass = 2e-3
+BH_DFbmax = 10.
+BlackHoleRepositionEnabled = 0 # No reposition
+MergeGravBound = 1 #  bound check
+#----------------------SFR Stuff-------------------------
+
+CritPhysDensity = 0       #  critical physical density for star formation in
+#  hydrogen number density in cm^(-3)
+CritOverDensity = 57.7   #  overdensity threshold value
+
+WindModel = ofjt10,decouple
+WindEfficiency = 2.0
+WindEnergyFraction = 1.0
+WindSigma0 = 353.0 #km/s
+WindSpeedFactor = 3.7
+
+WindFreeTravelLength = 20
+WindFreeTravelDensFac = 0.1
