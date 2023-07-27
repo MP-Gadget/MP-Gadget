@@ -1,94 +1,158 @@
-"""A short function to read BlackholeDetails/* binary files"""
+"""A script to read binary files BlackholeDetails/* in MP-GADGET simulation box
+and store desired properties in text file"""
 
+# importing required modules
 import numpy as np
-import struct
 import glob
+import struct
+import os
 
-# the items in BHinfo struct, 
-# check blackhole.c to make sure that they are consistent!
-#-------------------------------------------
-content = {'BHID':'q', 'BHMass':'d', 'Mdot':'d', 'Density':'d', 'Timebin':'i', 'Encounter':'i',
-           'MinPos':'3d', 'MinPot':'d', 'Entropy':'d', 'GasVel':'3d', 'acMom':'3d', 'acMass':'d',
-           'acBHMass':'d', 'FdbkWgtSum':'d', 'SPHSwallowID':'q', 'SwallowID':'q', 
-           'CountProgs':'i', 'Swallowed':'i', 'BHpos':'3d', 'BH_SurroundingDensity':'d',
-           'BH_SurroundingParticles':'d', 'BH_SurroundingVel':'3d', 'BH_SurroundingRmsVel':'d',
-           'DFAccel':'3d','DragAccel':'3d','GravAccel':'3d','BHvel':'3d','Mtrack':'d','Mdyn':'d',
-           'KineticFdbkEnergy':'d', 'NumDM':'d', 'V1sumDM':'3d', 
-           'V2sumDM':'d', 'MgasEnc':'d', 'KEflag':'d','time':'d'}
+# Dictionary mapping black hole properties to their corresponding data types
+# BHinfo struct contents,
+# check bhinfo.c to make sure that they are consistent!
+# dict description: key --> BH property, value --> datatype of property as stored in C
+content = {
+    "BHID": "Q",
+    "BHMass": "d",
+    "Mdot": "d",
+    "Density": "d",
+    "Timebin": "i",
+    "Encounter": "i",
+    "MinPos": "3d",
+    "MinPot": "d",
+    "Entropy": "d",
+    "GasVel": "3d",
+    "acMom": "3d",
+    "acMass": "d",
+    "acBHMass": "d",
+    "FdbkWgtSum": "d",
+    "SPHSwallowID": "Q",
+    "SwallowID": "Q",
+    "CountProgs": "i",
+    "Swallowed": "i",
+    "BHpos": "3d",
+    "BH_SurroundingDensity": "d",
+    "BH_SurroundingParticles": "d",
+    "BH_SurroundingVel": "3d",
+    "BH_SurroundingRmsVel": "d",
+    "DFAccel": "3d",
+    "DragAccel": "3d",
+    "GravAccel": "3d",
+    "BHvel": "3d",
+    "Mtrack": "d",
+    "Mdyn": "d",
+    "KineticFdbkEnergy": "d",
+    "NumDM": "d",
+    "V1sumDM": "3d",
+    "V2sumDM": "d",
+    "MgasEnc": "d",
+    "KEflag": "i",
+    "time": "d",
+}
 
 
-def get_bh_info(bhfile_zoo,selected_keys,searchID=None):
+def get_bh_info(bhfile_list, selected_keys, searchID=None):
     """
-    Parameters
-    ----------
-    bhfile_zoo : list of the BH detail binary files
-        For example, glob.glob('test-run/output/BlackholeDetails/*')
-    selected_keys: list of the fields of interest
-        For example, selected_keys = ['BHID','BHMass','Mdot','BHpos','time']
-    searchID: int64, one particular BHID that will be read out, optional
-        If set, BH with this searchID will be read out
-        if searchID is None, all BHs will be read out
-        Default is None
-    
-    Returns
-    ----------
-    A numpy structed array that stores the fields according to selected_keys
-    """    
-    
-    # all fields
-    keys = np.array(list(content.items()))[:,0] # name of each field in struct
-    sizes = [np.dtype(x).itemsize for x in np.array(list(content.items()))[:,1]] # size of each field in struct
-    chunk_size = np.sum(sizes)+8 # we pad the struct with chunksize
-    offset = np.append(0,np.cumsum(np.array(sizes))) # starting of each field
-    offset += 4 # the first 4 byte stores the chunksize 
-    
-    # selected fields
-    ixs = [np.where(keys==x)[0][0] for x in selected_keys]
-    s_sizes = [sizes[x] for x in ixs]
-    s_offset = [offset[x] for x in ixs]
-    s_types = [content[x] for x in selected_keys]
-    
-    if searchID is not None:
-        off0 = offset[np.where(keys=='BHID')[0][0]]
-        s0 = sizes[np.where(keys=='BHID')[0][0]]
+    Extracts black hole information from binary files in BlackholeDetails* folder
 
-    dct = {}
-    for x in selected_keys:
-        dct['%s'%x] = []
-        
-    def split(chunk):
-        for x,lgt,off,tp in zip(selected_keys,s_sizes,s_offset,s_types):
-            dct['%s'%x].append(struct.unpack(tp,chunk[off:off+lgt]))
-            
-    for filename in bhfile_zoo:
-        f = open(filename,'rb')
-        while True:
-            buf = f.read(chunk_size)
-            if not buf:
-                f.close()
-                break
-            
-            if searchID is None:              
-                split(buf) 
-            else:
-                sID = struct.unpack('q',buf[off0:off0+s0])[0]
-                if sID == searchID:
-                    split(buf)
-    #---------------------------------
-    data = np.zeros(len(dct[selected_keys[0]]),
-                dtype={'names':tuple(selected_keys),'formats':tuple(s_types)})
-    
-    if (len(dct)==0):
-        print ("no BH found!")
+    Parameters:
+        bhfile_list (list): List of black hole binary file paths.
+        selected_keys (list): List of properties to extract from each entry.
+        searchID (int64, optional): Specific BHID to read. If None, all BHs are read. Default is None.
+
+    Returns:
+        numpy.ndarray: Structured array containing the selected properties.
+    """
+
+    keys = np.array(list(content.items()))[:, 0]  # Names of each field in the struct
+    sizes = [
+        np.dtype(x).itemsize for x in np.array(list(content.items()))[:, 1]
+    ]  # Size of each field in the struct
+    chunk_size = np.sum(sizes) + 8  # Total size of the struct, including padding
+    offset = (
+        np.append(0, np.cumsum(np.array(sizes))) + 4
+    )  # Starting position of each field in the struct
+
+    ixs = [
+        np.where(keys == x)[0][0] for x in selected_keys
+    ]  # Indices of selected properties
+    s_sizes = [sizes[x] for x in ixs]  # Sizes of selected properties
+    s_offset = [offset[x] for x in ixs]  # Starting positions of selected properties
+    s_types = [content[x] for x in selected_keys]  # Data types of selected properties
+
+    if searchID is not None:
+        off0 = offset[np.where(keys == "BHID")[0][0]]  # Starting position of BHID
+        s0 = sizes[np.where(keys == "BHID")[0][0]]  # Size of BHID
+
+    data_dict = {
+        key: [] for key in selected_keys
+    }  # Dictionary to store selected properties
+
+    for filename in bhfile_list:
+        try:
+            file_size = os.path.getsize(filename)  # Get the size of the file
+        except OSError as e:
+            print(f"Failed to get the size of file '{filename}': {e}")
+            continue
+
+        if file_size % 436 != 0:
+            print(
+                f"File '{filename}' does not have a size that is a multiple of 436 bytes."
+            )
+        else:
+            try:
+                with open(filename, "rb") as f:
+                    while True:
+                        buf = f.read(chunk_size)  # Read a chunk of binary data
+                        if not buf:
+                            break
+
+                        if searchID is None:
+                            # Unpack the selected properties from the binary chunk
+                            for x, lgt, off, tp in zip(
+                                selected_keys, s_sizes, s_offset, s_types
+                            ):
+                                data_dict[x].append(
+                                    struct.unpack(tp, buf[off : off + lgt])
+                                )
+                        else:
+                            sID = struct.unpack("q", buf[off0 : off0 + s0])[
+                                0
+                            ]  # Read BHID from the binary chunk
+                            if sID == searchID:
+                                # Unpack the selected properties from the binary chunk
+                                for x, lgt, off, tp in zip(
+                                    selected_keys, s_sizes, s_offset, s_types
+                                ):
+                                    data_dict[x].append(
+                                        struct.unpack(tp, buf[off : off + lgt])
+                                    )
+            except OSError as e:
+                print(f"Failed to open file '{filename}': {e}")
+                continue
+
+    # Create a structured NumPy array to store the extracted properties
+    data = np.zeros(
+        len(data_dict[selected_keys[0]]),
+        dtype={"names": tuple(selected_keys), "formats": tuple(s_types)},
+    )
+
+    if len(data_dict) == 0:
+        print("No BH found!")
         return
-    
-    for x,tp in zip(selected_keys,s_types):
-        d = np.array(dct['%s'%x])
-        if tp != '3d':
+
+    # Assign the extracted data to the structured array
+    for x, tp in zip(selected_keys, s_types):
+        d = np.array(data_dict[x])
+        if tp != "3d":
             d = np.concatenate(d)
         data[x] = d
-    
-    if np.isin('time',selected_keys):
-        data['time'] = 1./data['time'] - 1 # convert from a_scale to z
-    return data
-  
+
+    # Add a "redshift" field based on the "time" field
+    dt = data.dtype.descr + [("redshift", "<f8")]
+    data_z = np.empty(data.shape, dt)
+    for name in data.dtype.names:
+        data_z[name] = data[name]
+    data_z["redshift"] = 1.0 / data_z["time"] - 1
+
+    return data_z
