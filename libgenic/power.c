@@ -182,7 +182,11 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
     int j;
     int ncols = NumCol - 1; /* The first column k is already read in read_power_table. */
     int nnu = round((ncols - 15)/2);
+    /* Detect dark energy fluid perturbations.*/
+    int defld = 0;
     if(NumCol > 22)
+        defld = 1;
+    else if(NumCol > 24)
         endrun(2,"Transfer function has %d columns, expected maximum 22!\n", NumCol);
     double * transfers = (double *) mymalloc("transfers", sizeof(double) * ncols);
     k = log10(k);
@@ -190,10 +194,10 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
     /* Note: the ncdm entries change depending on the number of neutrino species. The first row, k,
      * is read in read_power_table and passed as a parameter.
      * but only the first is used for particles.
-     * 1:k (h/Mpc)              2:d_g                    3:d_b                    4:d_cdm                  5:d_ur
+     * 1:k (h/Mpc)              2:d_g                    3:d_b                    4:d_cdm      (5: d_fld)            5:d_ur
      * 6:d_ncdm[0]              7:d_ncdm[1]              8:d_ncdm[2]              9:d_tot                 10:phi
      * 11:psi                   12:h                     13:h_prime               14:eta                   15:eta_prime
-     * 16:t_g                   17:t_b                   18:t_ur
+     * 16:t_g                   17:t_b                   18:t_ur                  (19:t_fld)
      * 19:t_ncdm[0]             20:t_ncdm[1]             21:t_ncdm[2]             22:t_tot*/
     for(j = 0; j< ncols; j++) {
         char * retval = strtok(NULL, " \t");
@@ -221,17 +225,18 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
     /*This should be the weighted average sum of the three neutrino species*/
     const _omega_nu * Onu = &CP->ONu;
     out_tab->logD[DELTA_NU][i] = 0;
+    /* The DE fluid moves the neutrinos up one*/
     for(j=0; j < nnu; j++)
-        out_tab->logD[DELTA_NU][i] = -1*transfers[4+j] * omega_nu_single(Onu, InitTime, j);
+        out_tab->logD[DELTA_NU][i] = -1*transfers[4+j+defld] * omega_nu_single(Onu, InitTime, j);
     const double onu = get_omega_nu(&CP->ONu, InitTime);
     /*Should be weighted by omega_nu*/
     out_tab->logD[DELTA_NU][i] /= onu;
     /*h_prime is entry 8 + nnu. t_b is 12 + nnu, t_ncdm[2] is 13 + nnu * 2.*/
-    out_tab->logD[VEL_BAR][i] = transfers[12+nnu];
-    out_tab->logD[VEL_CDM][i] = transfers[8+nnu] * 0.5;
+    out_tab->logD[VEL_BAR][i] = transfers[12+nnu + defld];
+    out_tab->logD[VEL_CDM][i] = transfers[8+nnu + defld] * 0.5;
     out_tab->logD[VEL_NU][i] = 0;
     for(j=0; j < nnu; j++)
-        out_tab->logD[VEL_NU][i] = transfers[13 + nnu + j] * omega_nu_single(Onu, InitTime, j);
+        out_tab->logD[VEL_NU][i] = transfers[13 + nnu + defld * 2 + j] * omega_nu_single(Onu, InitTime, j);
     /*Should be weighted by omega_nu*/
     out_tab->logD[VEL_NU][i] /= onu;
     myfree(transfers);
