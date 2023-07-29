@@ -182,6 +182,8 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
     int j;
     int ncols = NumCol - 1; /* The first column k is already read in read_power_table. */
     int nnu = round((ncols - 15)/2);
+    if(NumCol > 22)
+        endrun(2,"Transfer function has %d columns, expected maximum 22!\n", NumCol);
     double * transfers = (double *) mymalloc("transfers", sizeof(double) * ncols);
     k = log10(k);
     out_tab->logk[i] = k;
