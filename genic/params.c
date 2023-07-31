@@ -164,7 +164,7 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
     GenicConfig->NGridNu = param_get_int(ps, "NgridNu");
     /* Convert physical km/s at z=0 in an unperturbed universe to
      * internal gadget (comoving) velocity units at starting redshift.*/
-    GenicConfig->Max_nuvel = param_get_double(ps, "Max_nuvel") * pow(1+Redshift, 1.5) * (GenicConfig->units.UnitVelocity_in_cm_per_s/1e5);
+    GenicConfig->Max_nuvel = param_get_double(ps, "Max_nuvel") * (1+Redshift) * (GenicConfig->units.UnitVelocity_in_cm_per_s/1e5);
     GenicConfig->Seed = param_get_int(ps, "Seed");
     GenicConfig->UnitaryAmplitude = param_get_int(ps, "UnitaryAmplitude");
     param_get_string2(ps, "OutputDir", GenicConfig->OutputDir, sizeof(GenicConfig->OutputDir));
