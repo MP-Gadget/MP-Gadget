@@ -386,6 +386,9 @@ static void petaio_write_header(BigFile * bf, const double atime, const int64_t 
     (0 != big_block_set_attr(&bh, "TimeIC", &data->TimeIC, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "BoxSize", &data->BoxSize, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "OmegaLambda", &CP->OmegaLambda, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "OmegaFld", &CP->Omega_fld, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "W0_Fld", &CP->w0_fld, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "WA_Fld", &CP->wa_fld, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "RSDFactor", &RSD, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "UsePeculiarVelocity", &IO.UsePeculiarVelocity, "i4", 1)) ||
     (0 != big_block_set_attr(&bh, "Omega0", &CP->Omega0, "f8", 1)) ||
@@ -462,6 +465,7 @@ petaio_read_header_internal(BigFile * bf, Cosmology * CP, struct header_data * H
     double OmegaBaryon = CP->OmegaBaryon;
     double HubbleParam = CP->HubbleParam;
     double OmegaLambda = CP->OmegaLambda;
+    double OmegaFld = -1, WA_Fld = -100, W0_Fld = -100;
 
     if(0 == big_block_get_attr(&bh, "OmegaBaryon", &CP->OmegaBaryon, "f8", 1) &&
             OmegaBaryon > 0 && fabs(CP->OmegaBaryon - OmegaBaryon) > 1e-3)
@@ -472,6 +476,14 @@ petaio_read_header_internal(BigFile * bf, Cosmology * CP, struct header_data * H
     if(0 == big_block_get_attr(&bh, "OmegaLambda", &CP->OmegaLambda, "f8", 1) &&
             OmegaLambda > 0 && fabs(CP->OmegaLambda - OmegaLambda) > 1e-3)
         message(0,"IC Header has Omega_L = %g but paramfile wants %g\n", CP->OmegaLambda, OmegaLambda);
+    /* Validate the DE fluid model is the same as the ICs.*/
+    if(0 == big_block_get_attr(&bh, "OmegaFld", &OmegaFld, "f8", 1) &&
+        0 == big_block_get_attr(&bh, "WA_Fld", &WA_Fld, "f8", 1) &&
+        0 == big_block_get_attr(&bh, "W0_Fld", &W0_Fld, "f8", 1) &&
+            ((OmegaFld >= 0 && fabs(CP->Omega_fld - OmegaFld) > 1e-3) ||
+        (OmegaFld >= 0 && fabs(CP->Omega_fld - OmegaFld) > 1e-3) ||
+        (OmegaFld >= 0 && fabs(CP->Omega_fld - OmegaFld) > 1e-3)))
+        message(0,"IC Header has Omega_fld = %g w0 = %g wa = %g but paramfile wants Omega_fld = %g w0 = %g wa = %g\n", OmegaFld, W0_Fld, WA_Fld, CP->Omega_fld, CP->w0_fld, CP->wa_fld);
 
     /* If UsePeculiarVelocity = 1 then snapshots save to the velocity field the physical peculiar velocity, v = a dx/dt (where x is comoving distance).
      * If UsePeculiarVelocity = 0 then the velocity field is a * v = a^2 dx/dt in snapshots

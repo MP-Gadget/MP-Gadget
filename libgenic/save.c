@@ -130,6 +130,9 @@ void saveheader(BigFile * bf, int64_t TotNumPartCDM, int64_t TotNumPartGas, int6
             (big_block_set_attr(&bheader, "FractionNuInParticles", &nufrac, "f8", 1)) ||
             (big_block_set_attr(&bheader, "OmegaBaryon", &CP->OmegaBaryon, "f8", 1)) ||
             (big_block_set_attr(&bheader, "OmegaLambda", &CP->OmegaLambda, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "OmegaFld", &CP->Omega_fld, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "W0_Fld", &CP->w0_fld, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "WA_Fld", &CP->wa_fld, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UnitLength_in_cm", &GenicConfig.units.UnitLength_in_cm, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UnitMass_in_g", &GenicConfig.units.UnitMass_in_g, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UnitVelocity_in_cm_per_s", &GenicConfig.units.UnitVelocity_in_cm_per_s, "f8", 1)) ||
