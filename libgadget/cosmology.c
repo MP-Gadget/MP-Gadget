@@ -26,7 +26,7 @@ void init_cosmology(Cosmology * CP, const double TimeBegin, const struct UnitSys
      * making h0 (very) slightly larger than specified, and the Universe is no longer flat!
      */
     CP->OmegaCDM = CP->Omega0 - CP->OmegaBaryon;
-    CP->OmegaK = 1.0 - CP->Omega0 - CP->OmegaLambda;
+    CP->OmegaK = 1.0 - CP->Omega0 - CP->OmegaLambda - CP->Omega_fld;
 
     CP->RhoCrit = 3.0 * CP->Hubble * CP->Hubble / (8.0 * M_PI * CP->GravInternal);  // in internal units
 
