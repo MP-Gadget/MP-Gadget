@@ -326,7 +326,7 @@ hydro_ngbiter(
 {
     if(iter->base.other == -1) {
         iter->base.Hsml = I->Hsml;
-        iter->base.mask = 1;
+        iter->base.mask = GASMASK;
         iter->base.symmetric = NGB_TREEFIND_SYMMETRIC;
 
         if(HydroParams.DensityIndependentSphOn)

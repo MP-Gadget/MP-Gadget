@@ -430,7 +430,7 @@ ionize_ngbiter(TreeWalkQueryQSOLightup * I,
 
     if(iter->other == -1) {
         /* Gas only ( 1 == 1 << 0, the bit for type 0)*/
-        iter->mask = 1;
+        iter->mask = GASMASK;
         /* Bubble size*/
         double bubble = gaussian_rng(QSOLightupParams.mean_bubble, sqrt(QSOLightupParams.var_bubble), I->ID);
         iter->Hsml = bubble;

@@ -651,7 +651,7 @@ metal_return_ngbiter(
 {
     if(iter->base.other == -1) {
         /* Only return metals to gas*/
-        iter->base.mask = 1;
+        iter->base.mask = GASMASK;
         iter->base.Hsml = I->Hsml;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         /* Initialise the mass lost by this star in this timestep*/
@@ -896,7 +896,7 @@ stellar_density_ngbiter(
             iter->kernel_volume[i] = density_kernel_volume(&iter->kernel[i]);
         }
         iter->base.Hsml = I->Hsml[NHSML-1];
-        iter->base.mask = 1; /* gas only */
+        iter->base.mask = GASMASK; /* gas only */
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         O->maxcmpte = NHSML;
         return;

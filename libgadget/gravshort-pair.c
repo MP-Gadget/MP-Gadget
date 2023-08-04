@@ -75,7 +75,7 @@ grav_short_pair_ngbiter(
 
     if(iter->base.other == -1) {
         iter->base.Hsml = GRAV_GET_PRIV(lv->tw)->Rcut;
-        iter->base.mask = 0xff; /* all particles */
+        iter->base.mask = ALLMASK; /* all particles */
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         return;
     }
