@@ -1101,14 +1101,11 @@ get_timestep_hydro_dloga(const int p, const inttime_t Ti_Current, const double a
     }
     else if(P[p].Type == 5)
     {
-        if(BHP(p).minTimeBin > 0 && BHP(p).minTimeBin+1 < TIMEBINS) {
-            double dt_limiter = get_dloga_for_bin(BHP(p).minTimeBin+1, Ti_Current) / hubble;
+        if(BHP(p).minTimeBin > 0 && BHP(p).minTimeBin < TIMEBINS) {
+            double dt_limiter = get_dloga_for_bin(BHP(p).minTimeBin, Ti_Current) / hubble;
             /* Set the black hole timestep to the minimum timesteps of neighbouring gas particles.
              * It should be at least this for accretion accuracy, and it does not make sense to
-             * make it less than this. We go one timestep up because often the smallest
-             * timebin particle is cooling, and so increases its timestep. Then the smallest timebin
-             * contains only the BH which doesn't make much numerical sense. Accretion accuracy is not much changed
-             * by one timestep difference.*/
+             * make it less than this.*/
             dt = dt_limiter;
             *titype = TI_NEIGH;
         }
