@@ -922,9 +922,11 @@ add_particle_moment_to_node(struct NODE * pnode, const struct particle_data * co
     for(k=0; k<3; k++)
         pnode->mom.cofm[k] += (part->Mass * part->Pos[k]);
 
-    /* We do not add active particles to the hmax here because we are building the tree in density().
-     * The active particles will have hsml updated anyway, often to a smaller value*/
-    if(part->Type == 0 && !is_timebin_active(part->TimeBinHydro, part->Ti_drift))
+    /* We do not add active gas particles to the hmax here because we are building the tree in density().
+     * The active particles will have hsml updated anyway, often to a smaller value and will be included in force_update_hmax.
+     * Black holes include unconditionally.*/
+    if((part->Type == 0 && !is_timebin_active(part->TimeBinHydro, part->Ti_drift))
+        || part->Type == 5)
     {
         int j;
         /* Maximal distance any of the member particles peek out from the side of the node.
@@ -1280,15 +1282,21 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
 
     if(!(tree->mask & GASMASK))
         endrun(1, "tree mask is %d, does not contain gas (%d)! Cannot compute hmax.\n", tree->mask, GASMASK);
+
+    int tree_has_bh = 0;
+    if(tree->mask & BHMASK)
+        tree_has_bh = 1;
+
     /* Adjust the base particle containing nodes*/
     #pragma omp parallel for
     for(i = 0; i < size; i++)
     {
         const int p_i = activeset ? activeset[i] : i;
-        /* This is only gas particles. BH also has a smoothing length,
-         * but hydro is the only symmetric treewalk and it is pairwise
-         * interactions between gas particles */
-        if(P[p_i].Type != 0 || P[p_i].IsGarbage)
+        /* This is only gas particles or BH.*/
+        if((P[p_i].Type != 0 && P[p_i].Type != 5) || P[p_i].IsGarbage || P[p_i].Swallowed)
+            continue;
+        /* Can't do tree for BH if BH not in tree*/
+        if(!tree_has_bh && P[p_i].Type == 5)
             continue;
         const int no = tree->Father[p_i];
         /* How much does this particle peek beyond this node?
@@ -1312,7 +1320,6 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
     /* Calculate moments to propagate everything upwards. */
     force_tree_calc_moments(tree, ddecomp);
 
-    tree->hmax_computed_flag = 1;
     walltime_measure("/SPH/HmaxUpdate");
     int64_t totnumparticles;
     MPI_Reduce(&tree->NumParticles, &totnumparticles, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -1361,5 +1368,7 @@ void force_tree_free(ForceTree * tree)
     myfree(tree->Nodes_base);
     if(tree->Father)
         myfree(tree->Father);
+    /* Zero everything, especially the allocation flag*/
+    memset(tree, 0, sizeof(ForceTree));
     tree->tree_allocated_flag = 0;
 }

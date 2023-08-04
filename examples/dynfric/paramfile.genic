@@ -1,0 +1,31 @@
+OutputDir =  ICS
+FileBase = IC              # Base-filename of output files
+
+Ngrid = 550 # Size of cubic grid on which to create particles.
+
+BoxSize = 25000   # Periodic box size of simulation
+
+Omega0 = 0.2865      # Total matter density  (at z=0)
+OmegaLambda = 0.713413      # Cosmological constant (at z=0)
+OmegaBaryon = 0.04628     # Baryon density        (at z=0)
+ProduceGas = 1         # 1 = Produce gas  0 = no gas, just DM.
+HubbleParam = 0.6932      # Hubble paramater (may be used for power spec parameterization)
+
+Redshift = 99        # Starting redshift
+
+DifferentTransferFunctions = 1
+#Tabulated output in Mpc/h units.
+FileWithInputSpectrum = ../class_pk_99.dat  # filename of tabulated input spectrum (if used)
+FileWithTransferFunction = ../class_tk_99.dat  # filename of transfer functions for different species
+
+                                    # Note: This can be chosen different from UnitLength_in_cm
+# Only used by the CLASS script.
+PrimordialAmp = 2.215e-9
+# May be used to tilt the primordial index. Only used if WhichSpectum != 2
+PrimordialIndex  = 0.96
+
+Seed = 738    #  seed for IC-generator
+
+UnitLength_in_cm = 3.085678e21   # defines length unit of output (in cm/h)
+UnitMass_in_g = 1.989e43      # defines mass unit of output (in g/cm)
+UnitVelocity_in_cm_per_s = 1e5 # defines velocity unit of output (in cm/sec)            

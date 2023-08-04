@@ -500,9 +500,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         if(is_PM)
         {
             /* Tree freed in PM*/
-            ForceTree Tree = {0};
-            force_tree_full(&Tree, ddecomp, HybridNuTracer, All.OutputDir);
-            gravpm_force(&pm, &Tree, &All.CP, atime, units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType);
+            gravpm_force(&pm, ddecomp, &All.CP, atime, units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType);
 
             /* compute and output energy statistics if desired. */
             if(fds.FdEnergy)
@@ -814,9 +812,5 @@ runpower(const struct header_data * header)
     /* ... read in initial model */
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
     /*PM needs a tree*/
-    ForceTree Tree = {0};
-    int HybridNuGrav = hybrid_nu_tracer(&All.CP, header->TimeSnapshot);
-    force_tree_full(&Tree, ddecomp, HybridNuGrav, All.OutputDir);
-    gravpm_force(&pm, &Tree, &All.CP, header->TimeSnapshot, header->UnitLength_in_cm, All.OutputDir, header->TimeSnapshot, All.FastParticleType);
-    force_tree_free(&Tree);
+    gravpm_force(&pm, ddecomp, &All.CP, header->TimeSnapshot, header->UnitLength_in_cm, All.OutputDir, header->TimeSnapshot, All.FastParticleType);
 }
