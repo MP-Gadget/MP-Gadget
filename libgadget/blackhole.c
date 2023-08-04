@@ -474,7 +474,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     if(iter->base.other == -1) {
         O->BH_minTimeBin = TIMEBINS;
         O->encounter = 0;
-        iter->base.mask = GASMASK + STARMASK + BHMASK;
+        iter->base.mask = GASMASK + BHMASK;
         iter->base.Hsml = I->Hsml;
         /* Symmetric for the BH mergers*/
         iter->base.symmetric = NGB_TREEFIND_SYMMETRIC;
