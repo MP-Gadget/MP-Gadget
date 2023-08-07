@@ -109,7 +109,7 @@ inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * 
 
     get_mean_separation(MeanSeparation, PartManager->BoxSize, header->NTotalInit);
 
-    if(RestartSnapNum == -1)
+    if(RestartSnapNum >= 0)
         check_smoothing_length(PartManager, MeanSeparation);
 
     /* As the above will mostly take place
