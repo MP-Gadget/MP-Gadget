@@ -173,34 +173,20 @@ hydro_force(const ActiveParticles * act, const double atime, struct sph_pred_dat
     HYDRA_GET_PRIV(tw)->EntVarPred = SPH_predicted->EntVarPred;
     HYDRA_GET_PRIV(tw)->PressurePred = NULL;
 
-    /* Compute pressure for active particles: if almost all particles are active, just pre-compute it and avoid thread contention.
+    /* Compute pressure for particles used in density: if almost all particles are active, just pre-compute it and avoid thread contention.
      * For very small numbers of particles the memset is more expensive than just doing the exponential math,
      * so we don't pre-compute at all.*/
-    if((!act->ActiveParticle || (act->NumActiveHydro > 0.1 * (SlotsManager->info[0].size + SlotsManager->info[5].size))) &&  HYDRA_GET_PRIV(tw)->EntVarPred) {
+    if(HYDRA_GET_PRIV(tw)->EntVarPred) {
         HYDRA_GET_PRIV(tw)->PressurePred = (double *) mymalloc("PressurePred", SlotsManager->info[0].size * sizeof(double));
         /* Do it in slot order for memory locality*/
         #pragma omp parallel for
-        for(i = 0; i < SlotsManager->info[0].size; i++)
-            HYDRA_GET_PRIV(tw)->PressurePred[i] = PressurePred(SPH_EOMDensity(&SphP[i]), SPH_predicted->EntVarPred[i]);
-    }
-    else if(act->NumActiveHydro > 0.001 * (SlotsManager->info[0].size + SlotsManager->info[5].size)) {
-        HYDRA_GET_PRIV(tw)->PressurePred = (double *) mymalloc("PressurePred", SlotsManager->info[0].size * sizeof(double));
-        memset(HYDRA_GET_PRIV(tw)->PressurePred, 0, SlotsManager->info[0].size * sizeof(double));
-        #pragma omp parallel for
-        for(i = 0; i < act->NumActiveParticle; i++) {
-            int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
-            if(P[p_i].Type != 0)
-                continue;
-            const int pi = P[p_i].PI;
-            double EntPred;
-            if(SPH_predicted->EntVarPred)
-                EntPred = SPH_predicted->EntVarPred[pi];
+        for(i = 0; i < SlotsManager->info[0].size; i++) {
+            if(SPH_predicted->EntVarPred[i] == 0)
+                HYDRA_GET_PRIV(tw)->PressurePred[i] = 0;
             else
-                EntPred = SPH_EntVarPred(p_i, HYDRA_GET_PRIV(tw)->times);
-            HYDRA_GET_PRIV(tw)->PressurePred[pi] = PressurePred(SPH_EOMDensity(&SphP[pi]), EntPred);
+                HYDRA_GET_PRIV(tw)->PressurePred[i] = PressurePred(SPH_EOMDensity(&SphP[i]), SPH_predicted->EntVarPred[i]);
         }
     }
-
 
     double timeall = 0;
     double timecomp, timecomm, timewait;
