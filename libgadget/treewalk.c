@@ -1129,14 +1129,6 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
             int i;
             int * suns = current->s.suns;
             for (i = 0; i < current->s.noccupied; i++) {
-                /* must be the correct type: compare the
-                 * current type for this subnode extracted
-                 * from the bitfield to the mask.*/
-                int type = (current->s.Types >> (3*i)) % 8;
-
-                if(!((1<<type) & iter->mask))
-                    continue;
-
                 lv->ngblist[numcand++] = suns[i];
             }
             /* Move sideways*/
@@ -1215,14 +1207,6 @@ int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
                 int i;
                 int * suns = current->s.suns;
                 for (i = 0; i < current->s.noccupied; i++) {
-                    /* must be the correct type: compare the
-                    * current type for this subnode extracted
-                    * from the bitfield to the mask.*/
-                    int type = (current->s.Types >> (3*i)) % 8;
-
-                    if(!((1<<type) & iter->mask))
-                        continue;
-
                     /* Now evaluate a particle for the list*/
                     int other = suns[i];
                     /* Skip garbage*/

@@ -26,9 +26,6 @@
 
 struct NodeChild
 {
-    /* Stores the types of the child particles. Uses a bit field, 3 bits per particle.
-     */
-    unsigned int Types;
     /*!< pointers to daughter nodes or daughter particles. */
     int suns[NMAXCHILD];
     /* Number of daughter particles if node contains particles.
