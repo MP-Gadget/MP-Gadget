@@ -41,15 +41,6 @@ struct NODE
     MyFloat center[3];		/*!< geometrical center of node */
 
     struct {
-        unsigned int InternalTopLevel :1; /* TopLevel and has a child which is also TopLevel*/
-        unsigned int TopLevel :1; /* Node corresponding to a toplevel node */
-        unsigned int DependsOnLocalMass :1;  /* Intersects with local mass */
-        unsigned int ChildType :2; /* Specify the type of children this node has: particles, other nodes, or pseudo-particles.
-                                    * (should be an enum, but not standard in C).*/
-        unsigned int unused : 3; /* Spare bits*/
-    } f;
-
-    struct {
         MyFloat cofm[3];		/*!< center of mass of node */
         MyFloat mass;		/*!< mass of node */
         MyFloat hmax;           /*!< maximum amount by which Pos + Hsml of all gas particles in the node exceeds len for this node. */
@@ -62,6 +53,14 @@ struct NODE
      * Any attempt to get it back by using a separate allocation means we lost the ability to resize
      * the Nodes array and that is always worse.*/
     struct NodeChild s;
+    struct {
+        unsigned int InternalTopLevel :1; /* TopLevel and has a child which is also TopLevel*/
+        unsigned int TopLevel :1; /* Node corresponding to a toplevel node */
+        unsigned int DependsOnLocalMass :1;  /* Intersects with local mass */
+        unsigned int ChildType :2; /* Specify the type of children this node has: particles, other nodes, or pseudo-particles.
+                                    * (should be an enum, but not standard in C).*/
+        unsigned int unused : 3; /* Spare bits*/
+    } f;
 };
 
 /*Structure containing the Node pointer, and various Tree metadata.*/
