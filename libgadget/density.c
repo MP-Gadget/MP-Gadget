@@ -686,6 +686,8 @@ set_init_hsml(ForceTree * tree, DomainDecomp * ddecomp, const double MeanGasSepa
 {
     /* Need moments because we use them to set Hsml*/
     force_tree_calc_moments(tree, ddecomp);
+    if(!tree->Father)
+        endrun(5, "tree Father array not allocated at initial hsml!\n");
     const double DesNumNgb = GetNumNgb(GetDensityKernelType());
     int i;
     #pragma omp parallel for
@@ -695,28 +697,37 @@ set_init_hsml(ForceTree * tree, DomainDecomp * ddecomp, const double MeanGasSepa
         if(P[i].Type != 0 && P[i].Type != 5)
             continue;
 
-        int no = force_get_father(i, tree);
+        if(P[i].IsGarbage)
+            continue;
+        int no = i;
 
-        while(10 * DesNumNgb * P[i].Mass > tree->Nodes[no].mom.mass)
-        {
+        do {
             int p = force_get_father(no, tree);
 
-            if(p < 0)
+            if(p < tree->firstnode)
                 break;
 
+            /* Check that we didn't somehow get a bad set of nodes*/
+            if(p > tree->numnodes + tree->firstnode)
+                endrun(5, "Bad init father: i=%d, mass = %g type %d hsml %g no %d len %g father %d, numnodes %d firstnode %d\n",
+                    i, P[i].Mass, P[i].Type, P[i].Hsml, no, tree->Nodes[no].len, p, tree->numnodes, tree->firstnode);
             no = p;
+        } while(10 * DesNumNgb * P[i].Mass > tree->Nodes[no].mom.mass);
+
+        /* Validate the tree node contents*/
+        if(tree->Nodes[no].len > tree->BoxSize || tree->Nodes[no].mom.mass < P[i].Mass)
+            endrun(5, "Bad tree moments: i=%d, mass = %g type %d hsml %g no %d len %g treemass %g\n",
+                    i, P[i].Mass, P[i].Type, P[i].Hsml, no, tree->Nodes[no].len, tree->Nodes[no].mom.mass);
+        P[i].Hsml = MeanGasSeparation;
+        if(no >= tree->firstnode) {
+            double testhsml = tree->Nodes[no].len * pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / tree->Nodes[no].mom.mass, 1.0 / 3);
+            /* recover from a poor initial guess */
+            if (testhsml < 500. * MeanGasSeparation)
+                P[i].Hsml = testhsml;
         }
 
-        P[i].Hsml = tree->Nodes[no].len *
-            pow(3.0 / (4 * M_PI) * DesNumNgb * P[i].Mass / tree->Nodes[no].mom.mass, 1.0 / 3);
-            ;
-
-        /* recover from a poor initial guess */
-        if(P[i].Hsml > 500.0 * MeanGasSeparation)
-            P[i].Hsml = MeanGasSeparation;
-
         if(P[i].Hsml <= 0)
-            endrun(5, "Bad hsml guess: i=%d, mass = %g type %d hsml %g no %d len %d treemass %g\n",
+            endrun(5, "Bad hsml guess: i=%d, mass = %g type %d hsml %g no %d len %g treemass %g\n",
                     i, P[i].Mass, P[i].Type, P[i].Hsml, no, tree->Nodes[no].len, tree->Nodes[no].mom.mass);
     }
 }
