@@ -503,7 +503,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         if(is_PM)
         {
             /* Tree freed in PM*/
-            gravpm_force(&pm, ddecomp, &All.CP, atime, units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType);
+            gravpm_force(&pm, ddecomp, &All.CP, atime, units.UnitLength_in_cm, All.OutputDir, header->TimeIC);
 
             /* compute and output energy statistics if desired. */
             if(fds.FdEnergy)
@@ -767,7 +767,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 void
 runtests(const int RestartSnapNum, const inttime_t Ti_Current, const struct header_data * header)
 {
-    run_gravity_test(RestartSnapNum, &All.CP, All.Asmth, All.Nmesh, All.FastParticleType, Ti_Current, All.OutputDir, header);
+    run_gravity_test(RestartSnapNum, &All.CP, All.Asmth, All.Nmesh, Ti_Current, All.OutputDir, header);
 }
 
 void
@@ -816,5 +816,5 @@ runpower(const struct header_data * header)
     /* ... read in initial model */
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
     /*PM needs a tree*/
-    gravpm_force(&pm, ddecomp, &All.CP, header->TimeSnapshot, header->UnitLength_in_cm, All.OutputDir, header->TimeSnapshot, All.FastParticleType);
+    gravpm_force(&pm, ddecomp, &All.CP, header->TimeSnapshot, header->UnitLength_in_cm, All.OutputDir, header->TimeSnapshot);
 }

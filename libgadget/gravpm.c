@@ -45,7 +45,6 @@ static struct gravpm_params
     double Time;
     double TimeIC;
     Cosmology * CP;
-    int FastParticleType;
     double UnitLength_in_cm;
 } GravPM;
 
@@ -57,9 +56,9 @@ gravpm_init_periodic(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, doubl
 /* Computes the gravitational force on the PM grid
  * and saves the total matter power spectrum.
  * Parameters: Cosmology, Time, UnitLength_in_cm and PowerOutputDir are used by the power spectrum output code.
- * TimeIC and FastParticleType are used by the massive neutrino code. FastParticleType denotes possibly inactive particles.*/
+ * TimeIC is used by the massive neutrino code.*/
 void
-gravpm_force(PetaPM * pm, DomainDecomp * ddecomp, Cosmology * CP, double Time, double UnitLength_in_cm, const char * PowerOutputDir, double TimeIC, int FastParticleType) {
+gravpm_force(PetaPM * pm, DomainDecomp * ddecomp, Cosmology * CP, double Time, double UnitLength_in_cm, const char * PowerOutputDir, double TimeIC) {
     PetaPMParticleStruct pstruct = {
         P,
         sizeof(P[0]),
@@ -101,7 +100,6 @@ gravpm_force(PetaPM * pm, DomainDecomp * ddecomp, Cosmology * CP, double Time, d
     GravPM.Time = Time;
     GravPM.TimeIC = TimeIC;
     GravPM.CP = CP;
-    GravPM.FastParticleType = FastParticleType;
     GravPM.UnitLength_in_cm = UnitLength_in_cm;
     /*
      * we apply potential transfer immediately after the R2C transform,
@@ -469,7 +467,7 @@ static double diff_kernel(double w) {
 
 /*This function decides if a particle is actively gravitating; tracers are not.*/
 static int hybrid_nu_gravpm_is_active(int i) {
-    if (P[i].Type == GravPM.FastParticleType)
+    if (P[i].Type == 2)
         return 0;
     else
         return 1;
