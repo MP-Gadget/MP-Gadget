@@ -94,7 +94,8 @@ gravpm_force(PetaPM * pm, DomainDecomp * ddecomp, Cosmology * CP, double Time, d
 
     /* Tree freed in PM*/
     ForceTree Tree = {0};
-    force_tree_full(&Tree, ddecomp, hybrid_nu_tracer(CP, Time), PowerOutputDir);
+    /* We include neutrinos in this tree unconditionally, so all particles have a Region.*/
+    force_tree_full(&Tree, ddecomp, 0, PowerOutputDir);
 
     /* Set up parameters*/
     GravPM.Time = Time;

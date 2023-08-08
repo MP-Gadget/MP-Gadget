@@ -99,7 +99,7 @@ int hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm,
 
 /* Computes short-range gravitational forces and
  * do the gravitational half-step kicks. Places the gravitational force into StoredGravAccel.*/
-int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, struct grav_accel_store StoredGravAccel, DriftKickTimes * times, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir);
+int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, struct grav_accel_store StoredGravAccel, DriftKickTimes * times, int HybridNuGrav, Cosmology * CP, const char * EmergencyOutputDir);
 
 /* Updates the Ti_kick times a half-step for this bin*/
 void update_kick_times(DriftKickTimes * times);

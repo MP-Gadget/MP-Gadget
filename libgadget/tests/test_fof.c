@@ -77,7 +77,7 @@ test_fof(void **state)
     dp.TopNodeAllocFactor = 1.;
     dp.SetAsideFactor = 1;
     set_domain_par(dp);
-    init_forcetree_params(2);
+    init_forcetree_params();
 
     int NumPart = 1024;
     /* 20000 kpc*/
