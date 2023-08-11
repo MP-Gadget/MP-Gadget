@@ -285,6 +285,7 @@ check_units(const Cosmology * CP, const struct UnitSystem units)
         double OmegaTot = CP->OmegaG + CP->OmegaK + CP->Omega0 + CP->OmegaLambda;
         if(!CP->MassiveNuLinRespOn)
             OmegaTot += get_omega_nu(&CP->ONu, 1);
+        OmegaTot += OmegaFLD(CP, 1);
         message(0, "Radiation is enabled in Hubble(a). "
                "Following CAMB convention: Omega_Tot - 1 = %g\n", OmegaTot - 1);
     }
