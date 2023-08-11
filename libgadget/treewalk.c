@@ -965,8 +965,8 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
     iter->other = -1;
     lv->tw->ngbiter(I, O, iter, lv);
     /* Check whether the tree contains the particles we are looking for*/
-    if((lv->tw->tree->mask & iter->mask) == 0)
-        endrun(5, "Tried to run treewalk for particle mask %d but tree mask is %d.\n", iter->mask, lv->tw->tree->mask);
+    if((lv->tw->tree->mask & iter->mask) != iter->mask)
+        endrun(5, "Treewalk for particles with mask %d but tree mask is only %d overlap %d.\n", iter->mask, lv->tw->tree->mask, lv->tw->tree->mask & iter->mask);
     /* If symmetric, make sure we did hmax first*/
     if(iter->symmetric == NGB_TREEFIND_SYMMETRIC && !lv->tw->tree->hmax_computed_flag)
         endrun(3, "%s tried to do a symmetric treewalk without computing hmax!\n", lv->tw->ev_label);
@@ -1129,14 +1129,6 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
             int i;
             int * suns = current->s.suns;
             for (i = 0; i < current->s.noccupied; i++) {
-                /* must be the correct type: compare the
-                 * current type for this subnode extracted
-                 * from the bitfield to the mask.*/
-                int type = (current->s.Types >> (3*i)) % 8;
-
-                if(!((1<<type) & iter->mask))
-                    continue;
-
                 lv->ngblist[numcand++] = suns[i];
             }
             /* Move sideways*/
@@ -1215,14 +1207,6 @@ int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
                 int i;
                 int * suns = current->s.suns;
                 for (i = 0; i < current->s.noccupied; i++) {
-                    /* must be the correct type: compare the
-                    * current type for this subnode extracted
-                    * from the bitfield to the mask.*/
-                    int type = (current->s.Types >> (3*i)) % 8;
-
-                    if(!((1<<type) & iter->mask))
-                        continue;
-
                     /* Now evaluate a particle for the list*/
                     int other = suns[i];
                     /* Skip garbage*/
@@ -1471,5 +1455,5 @@ treewalk_print_stats(const TreeWalk * tw)
     MPI_Reduce(&tw->Nlist, &Nlist, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
     if(Nlist == 0)
         Nlist ++;
-    message(0, "%s Ngblist: min %ld max %ld avg %g average exports: %g\n", tw->ev_label, minNinteractions, maxNinteractions, (double) Ninteractions / Nlistprimary, (double) Nnodesinlist/Nlist);
+    message(0, "%s Ngblist: min %ld max %ld avg %g average exports: %g\n", tw->ev_label, minNinteractions, maxNinteractions, (double) Ninteractions / Nlistprimary, (double) Nnodesinlist / Nlist);
 }

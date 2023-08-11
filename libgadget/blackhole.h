@@ -12,7 +12,6 @@ struct BHPriv {
     /* Similar for IDs of BH mergers*/
     MyIDType * BH_SwallowID;
     /* These are temporaries used in the accretion treewalk*/
-    MyFloat * MinPot;
     MyFloat * BH_Entropy;
     MyFloat (*BH_SurroundingGasVel)[3];
 
@@ -65,6 +64,4 @@ void blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceT
 /* Make a black hole from the particle at index. */
 void blackhole_make_one(int index, const double atime);
 
-/* Decide whether black hole repositioning is enabled. */
-int BHGetRepositionEnabled(void);
 #endif

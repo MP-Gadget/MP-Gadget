@@ -430,7 +430,7 @@ ionize_ngbiter(TreeWalkQueryQSOLightup * I,
 
     if(iter->other == -1) {
         /* Gas only ( 1 == 1 << 0, the bit for type 0)*/
-        iter->mask = 1;
+        iter->mask = GASMASK;
         /* Bubble size*/
         double bubble = gaussian_rng(QSOLightupParams.mean_bubble, sqrt(QSOLightupParams.var_bubble), I->ID);
         iter->Hsml = bubble;
@@ -523,7 +523,7 @@ ionize_all_part(int qso_ind, int * qso_cand, struct QSOPriv priv, ForceTree * tr
  * Keeps adding new quasars until need_more_quasars() returns 0.
  */
 static void
-turn_on_quasars(double atime, FOFGroups * fof, DomainDecomp * ddecomp, Cosmology * CP, double uu_in_cgs, FILE * FdHelium)
+turn_on_quasars(double atime, FOFGroups * fof, ForceTree * gasTree, Cosmology * CP, double uu_in_cgs, FILE * FdHelium)
 {
     int ncand = 0;
     int * qso_cand = NULL;
@@ -573,8 +573,6 @@ turn_on_quasars(double atime, FOFGroups * fof, DomainDecomp * ddecomp, Cosmology
         return;
     }
     message(0, "HeII: Built quasar candidate list from %d quasars\n", ncand_tot);
-    ForceTree gasTree = {0};
-    force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK, NULL);
     walltime_measure("/HeIII/Build");
     for(iteration = 0; curionfrac < desired_ion_frac; iteration++){
         /* Get a new quasar*/
@@ -588,7 +586,7 @@ turn_on_quasars(double atime, FOFGroups * fof, DomainDecomp * ddecomp, Cosmology
             break;
         }
 
-        int64_t n_ionized = ionize_all_part(new_qso, qso_cand, priv, &gasTree);
+        int64_t n_ionized = ionize_all_part(new_qso, qso_cand, priv, gasTree);
         int64_t tot_qso_ionized = 0;
         /* Check that the ionization fraction changed*/
         MPI_Allreduce(&n_ionized, &tot_qso_ionized, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
@@ -630,7 +628,6 @@ turn_on_quasars(double atime, FOFGroups * fof, DomainDecomp * ddecomp, Cosmology
             ncand--;
         }
     }
-    force_tree_free(&gasTree);
     if(qso_cand) {
         myfree(qso_cand);
     }
@@ -644,7 +641,7 @@ turn_on_quasars(double atime, FOFGroups * fof, DomainDecomp * ddecomp, Cosmology
 
 /* Starts reionization by selecting the first halo and flagging all particles in the first HeIII bubble*/
 void
-do_heiii_reionization(double atime, FOFGroups * fof, DomainDecomp * ddecomp, Cosmology * CP, double uu_in_cgs, FILE * FdHelium)
+do_heiii_reionization(double atime, FOFGroups * fof, ForceTree * gasTree, Cosmology * CP, double uu_in_cgs, FILE * FdHelium)
 {
     if(!QSOLightupParams.QSOLightupOn)
         return;
@@ -655,9 +652,12 @@ do_heiii_reionization(double atime, FOFGroups * fof, DomainDecomp * ddecomp, Cos
     if(atime > He_zz[Nreionhist-1])
         return;
 
+    if(!gasTree->tree_allocated_flag || !(gasTree->mask & GASMASK))
+        endrun(5, "helium_reion called with bad tree allocated %d mask %d\n", gasTree->tree_allocated_flag, gasTree->mask);
+
     walltime_measure("/Misc");
     //message(0, "HeII: Reionization initiated.\n");
-    turn_on_quasars(atime, fof, ddecomp, CP, uu_in_cgs, FdHelium);
+    turn_on_quasars(atime, fof, gasTree, CP, uu_in_cgs, FdHelium);
 }
 
 int

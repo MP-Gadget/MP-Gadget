@@ -18,14 +18,9 @@ DifferentTransferFunctions = 1
 FileWithInputSpectrum = ../class_pk_99.dat  # filename of tabulated input spectrum (if used)
 FileWithTransferFunction = ../class_tk_99.dat  # filename of transfer functions for different species
 
-                                    # Note: This can be chosen different from UnitLength_in_cm
 # Only used by the CLASS script.
 PrimordialAmp = 2.215e-9
 # May be used to tilt the primordial index. Only used if WhichSpectum != 2
 PrimordialIndex  = 0.96
 
 Seed = 738    #  seed for IC-generator
-
-UnitLength_in_cm = 3.085678e21   # defines length unit of output (in cm/h)
-UnitMass_in_g = 1.989e43      # defines mass unit of output (in g/cm)
-UnitVelocity_in_cm_per_s = 1e5 # defines velocity unit of output (in cm/sec)            

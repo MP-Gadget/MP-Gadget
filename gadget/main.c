@@ -16,6 +16,7 @@
 #include <libgadget/run.h>
 #include <libgadget/checkpoint.h>
 #include <libgadget/config.h>
+#include <libgadget/forcetree.c>
 
 #include <libgadget/utils.h>
 
@@ -54,6 +55,7 @@ int main(int argc, char **argv)
     message(0, "Size of blackhole structure       %td  [bytes]\n",sizeof(struct bh_particle_data));
     message(0, "Size of sph particle structure   %td  [bytes]\n",sizeof(struct sph_particle_data));
     message(0, "Size of star particle structure   %td  [bytes]\n",sizeof(struct star_particle_data));
+    message(0, "Size of force tree node structure %td [bytes]\n", sizeof(struct NODE));
 
     if(argc < 2)
     {

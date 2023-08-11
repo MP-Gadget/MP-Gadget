@@ -94,9 +94,6 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
         info->minTimeBin = BHP(p_i).minTimeBin;
         info->encounter = BHP(p_i).encounter;
 
-        if(priv->MinPot) {
-            info->MinPot = priv->MinPot[PI];
-        }
         info->BH_Entropy = priv->BH_Entropy[PI];
         int k;
         for(k=0; k < 3; k++) {
@@ -113,6 +110,7 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
         /****************************************************************************/
         /* Output some DF info for debugging */
         if(dynpriv && dynpriv->BH_SurroundingDensity) {
+            info->MinPot = dynpriv->MinPot[PI];
             info->BH_SurroundingDensity = dynpriv->BH_SurroundingDensity[PI];
             info->BH_SurroundingRmsVel = dynpriv->BH_SurroundingRmsVel[PI];
             info->BH_SurroundingParticles = dynpriv->BH_SurroundingParticles[PI];

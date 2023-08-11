@@ -16,14 +16,23 @@ struct BHDynFricPriv {
     double atime;
     Cosmology * CP;
     struct kick_factor_data * kf;
+    /* For diagnostics*/
+    MyFloat * MinPot;
 };
 
 /* Do the dynamic friction treewalk if BH_DynFrictionMethod > 0.
- * Tree needs stars and gas.*/
-void blackhole_dynfric(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, ForceTree * tree, struct BHDynFricPriv * priv);
+ * Builds a private tree with the types needed for dynamic friction (mostly stars and DM).*/
+void blackhole_dynfric(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, DomainDecomp * ddecomp, struct BHDynFricPriv * priv);
 void set_blackhole_dynfric_params(ParameterSet * ps);
 void blackhole_dynpriv_free(struct BHDynFricPriv * dynpriv);
 /* Get the particle types used in dynfric*/
 int blackhole_dynfric_treemask(void);
+
+/* Stand-alone function to find the black hole local potential minimum, when using the repositioning model. Uses its own treebuild.
+ * The local potential minimum is also found by the dynamic friction treewalk.*/
+void blackhole_findminpot(int * ActiveBlackHoles, const int64_t NumActiveBlackHoles, DomainDecomp * ddecomp);
+
+/* Decide whether black hole repositioning is enabled. */
+int BHGetRepositionEnabled(void);
 
 #endif

@@ -430,7 +430,7 @@ density_ngbiter(
         iter->kernel_volume = density_kernel_volume(&iter->kernel);
 
         iter->base.Hsml = h;
-        iter->base.mask = 1; /* gas only */
+        iter->base.mask = GASMASK; /* gas only */
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         return;
     }

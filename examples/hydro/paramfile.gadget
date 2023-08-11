@@ -52,7 +52,7 @@ BlackHoleNgbFactor = 2.0
 BlackHoleEddingtonFactor = 3.0
 
 MinFoFMassForNewSeed = 1
-TimeBetweenSeedingSearch 1.03
+TimeBetweenSeedingSearch = 1.03
 WriteBlackHoleDetails = 1
 
 #----------------------SFR Stuff-------------------------
