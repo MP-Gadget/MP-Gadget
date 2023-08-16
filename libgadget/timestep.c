@@ -95,6 +95,7 @@ enum TimeStepType
 
 static double get_timestep_gravity_dloga(const int p, const MyFloat * GravAccel, const double atime, const double hubble);
 static double get_timestep_hydro_dloga(const int p, const inttime_t Ti_Current, const double atime, const double hubble, enum TimeStepType * titype);
+static double get_timestep_dynfric_dloga(const int p, const double atime, const double hubble);
 static inttime_t convert_timestep_to_ti(double dloga, const int p, const inttime_t dti_max, const inttime_t Ti_Current, enum TimeStepType titype);
 static int get_timestep_bin(inttime_t dti);
 static void do_grav_short_range_kick(struct particle_data * part, const MyFloat * const GravAccel, const double Fgravkick);
@@ -614,7 +615,9 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
     int64_t ntiaccel=0, nticourant=0, ntiaccrete=0, ntineighbour=0, ntihsml=0;
     int badstepsizecount = 0;
     int mTimeBin = TIMEBINS;
-    #pragma omp parallel for reduction(min: mTimeBin) reduction(+: badstepsizecount, ntiaccel, nticourant, ntiaccrete, ntineighbour, ntihsml)
+    int64_t dynratio=0, nbh=0;
+    int maxdyndiff = 0;
+    #pragma omp parallel for reduction(min: mTimeBin) reduction(max:maxdyndiff) reduction(+: badstepsizecount, ntiaccel, nticourant, ntiaccrete, ntineighbour, ntihsml, dynratio, nbh)
     for(pa = 0; pa < act->NumActiveParticle; pa++)
     {
         const int i = get_active_particle(act, pa);
@@ -661,7 +664,29 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
         /*Find min timestep for advance*/
         if(bin_hydro < mTimeBin)
             mTimeBin = bin_hydro;
+        /* Find dynamic friction timestep*/
+        if(P[i].Type == 5) {
+            double dloga_dynfric = get_timestep_dynfric_dloga(i, atime, hubble);
+            inttime_t dti_dynfric = convert_timestep_to_ti(dloga_dynfric, i, dti_max, times->Ti_Current, titype);
+            int bin_dynfric = get_timebin_from_dti(dti_dynfric, BHP(i).TimeBinDynFric, times);
+            /* Enforce that the dynfric timestep is always shorter than or equal to the gravity timestep and longer than the hydro timestep.*/
+            if(bin_dynfric > P[i].TimeBinGravity)
+                bin_dynfric = P[i].TimeBinGravity;
+            if(bin_dynfric < P[i].TimeBinHydro)
+                bin_dynfric = P[i].TimeBinHydro;
+            BHP(i).TimeBinDynFric = bin_dynfric;
+            dynratio+= bin_dynfric - P[i].TimeBinHydro;
+            if(maxdyndiff < bin_dynfric - P[i].TimeBinHydro)
+                maxdyndiff = bin_dynfric - P[i].TimeBinHydro;
+            nbh ++;
+        }
+
     }
+
+    MPI_Allreduce(MPI_IN_PLACE, &dynratio, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &nbh, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    if(nbh > 0)
+        message(0, "Avg bh dyn fric timebin: %g max %d\n", ((double) dynratio )/ nbh, maxdyndiff);
     MPI_Allreduce(MPI_IN_PLACE, &mTimeBin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
 
     MPI_Allreduce(MPI_IN_PLACE, &ntiaccel, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
@@ -1092,6 +1117,37 @@ get_timestep_hydro_dloga(const int p, const inttime_t Ti_Current, const double a
     /* d a / a = dt * H */
     double dloga = dt * hubble;
 
+    return dloga;
+}
+
+/* Timestep to determine when dynamic friction kernel quantities are recomputed.
+ * We want to find the time over which the BH crosses a kernel, using a
+ * velocity frame relative to the surrounding particles.*/
+static double
+get_timestep_dynfric_dloga(const int p, const double atime, const double hubble)
+{
+    int j;
+    double bhvel = 0, bhvel2 = 0;
+    /* Mean velocity relative to surrounding DF particles*/
+    /* Near the end this quantity can become small and the timestep too long. Instead use the total velocity.*/
+    for(j = 0; j < 3; j++) {
+        bhvel += pow(P[p].Vel[j] - BHP(p).DF_SurroundingVel[j], 2);
+        bhvel2 += pow(P[p].Vel[j], 2);
+    }
+    if(bhvel2 > bhvel)
+        bhvel = bhvel2;
+    bhvel = sqrt(bhvel);
+
+    double dt = 2*TimestepParams.ErrTolIntAccuracy * atime * atime *  P[p].Hsml / (bhvel + 1e-20);
+    /* This timestep criterion is from Gadget-4, eq. 0 of 2010.03567 and stops
+        * particles having too large a density change.*/
+    double dt_hsml = TimestepParams.CourantFac * atime * atime * fabs(P[p].Hsml / (P[p].DtHsml + 1e-20));
+    if(dt_hsml < dt) {
+        dt = dt_hsml;
+    }
+
+    /* d a / a = dt * H */
+    double dloga = dt * hubble;
     return dloga;
 }
 

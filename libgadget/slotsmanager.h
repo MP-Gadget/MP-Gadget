@@ -45,9 +45,20 @@ struct bh_particle_data {
     /* After a merger, this gives the ID of the particle which swallowed the BH. Used to keep track of merger trees.*/
     MyIDType SwallowID;
 
+    unsigned char TimeBinDynFric; /* Time step bin for black hole dynamic friction. 0 for unassigned. Must be between hydro and gravity timebins.
+                                   * Dynamic friction is recomputed once every DynFric timestep. Note that drag, connected with the gas density,
+                                   * is on the hydro timestep. */
+    MyFloat       DivVel;   /*!< local velocity divergence */
+
     /*******************************************************/
     double DragAccel[3];
     double DFAccel[3];
+    /* Dynamic friction helpers*/
+    MyFloat DF_SurroundingVel[3]; /* Mass and kernel weighted velocity of DF contributing particles around BH.*/
+    MyFloat DF_SurroundingRmsVel; /* Mass and kernel weighted RMS velocity of DF contributing particles around BH */
+    MyFloat DF_SurroundingDensity; /* Kernel weighted mass of DF contributing particles around BH.*/
+    MyFloat MinPot; /* Minimum potential, for diagnostics */
+
     /*******************************************************/
     double KineticFdbkEnergy; /* accumulated KineticFdbk Energy */
 
