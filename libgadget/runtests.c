@@ -94,7 +94,7 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     gravpm_force(pm, ddecomp, CP, header->TimeSnapshot, header->UnitLength_in_cm, OutputDir, header->TimeIC);
 
     ForceTree Tree = {0};
-    force_tree_full(&Tree, ddecomp, 1, OutputDir);
+    force_tree_full(&Tree, ddecomp, 0, OutputDir);
 
     struct gravshort_tree_params origtreeacc = get_gravshort_treepar();
     struct gravshort_tree_params treeacc = origtreeacc;
@@ -164,7 +164,7 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
 
     gravpm_init_periodic(pm, PartManager->BoxSize, Asmth, Nmesh/2., CP->GravInternal);
     gravpm_force(pm, ddecomp, CP, header->TimeSnapshot, header->UnitLength_in_cm, OutputDir, header->TimeIC);
-    force_tree_full(&Tree, ddecomp, 1, OutputDir);
+    force_tree_full(&Tree, ddecomp, 0, OutputDir);
     set_gravshort_treepar(treeacc);
     grav_short_tree(&Act, pm, &Tree, NULL, rho0, times.Ti_Current);
     grav_short_tree(&Act, pm, &Tree, NULL, rho0, times.Ti_Current);
