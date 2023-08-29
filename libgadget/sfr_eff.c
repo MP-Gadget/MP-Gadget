@@ -81,7 +81,9 @@ static struct SFRParams
     char J21CoeffFile[100];
     char MetalCoolFile[100];
     char UVFluctuationFile[100];
-
+    /* Boost SF for dense gas*/
+    int BoostSFDenseGas;
+    double BoostSFOverDenseFactor;
     /* File with the helium reionization table*/
     char ReionHistFile[100];
 } sfr_params;
@@ -149,6 +151,8 @@ void set_sfr_params(ParameterSet * ps)
         sfr_params.CritOverDensity = param_get_double(ps, "CritOverDensity");
         sfr_params.CritPhysDensity = param_get_double(ps, "CritPhysDensity");
         sfr_params.WindOn = param_get_int(ps, "WindOn");
+        sfr_params.BoostSFDenseGas = param_get_int(ps, "BoostSFDenseGas");
+        sfr_params.BoostSFOverDenseFactor = param_get_double(ps, "BoostSFOverDenseFactor");
 
         sfr_params.FactorSN = param_get_double(ps, "FactorSN");
         sfr_params.FactorEVP = param_get_double(ps, "FactorEVP");
@@ -786,6 +790,8 @@ struct sfr_eeqos_data get_sfr_eeqos(struct particle_data * part, struct sph_part
 
     data.ne = sph->Ne;
     data.tsfr = sqrt(sfr_params.PhysDensThresh / (sph->Density * a3inv)) * sfr_params.MaxSfrTimescale;
+    if(sfr_params.BoostSFDenseGas && ((sph->Density * a3inv) / sfr_params.PhysDensThresh > sfr_params.BoostSFOverDenseFactor))
+        data.tsfr = sfr_params.PhysDensThresh / (sph->Density * a3inv) * sfr_params.MaxSfrTimescale;
     /*
      * gadget-p doesn't have this cap.
      * without the cap sm can be bigger than cloudmass.
