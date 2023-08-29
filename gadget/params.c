@@ -283,8 +283,8 @@ create_gadget_parameter_set()
     param_declare_double(ps, "CritOverDensity", OPTIONAL, 57.7, "Threshold over-density (in units of the critical density) for gas to be star forming.");
     param_declare_double(ps, "CritPhysDensity", OPTIONAL, 0, "Threshold physical density (in protons/cm^3) for gas to be star forming. If zero this is worked out from CritOverDensity.");
 
-    param_declare_int(ps, "BoostSFDenseGas", OPTIONAL, 0, "Reduce sfr timescale for ultra-dense gas above BoostSFOverDenseFactor of the CritPhysDensity");
-    param_declare_double(ps, "BoostSFOverDenseFactor", OPTIONAL, 230, "Threshold overdensity with respect to the SF threshold, default is 230, the same as TNG50");
+    param_declare_int(ps, "BoostSFDenseGas", OPTIONAL, 1, "Reduce sfr timescale for ultra-dense gas above BoostSFOverDenseFactor of the CritPhysDensity");
+    param_declare_double(ps, "BoostSFOverDenseFactor", OPTIONAL, 1000, "Threshold overdensity with respect to the SF threshold, TNG50 uses 230, but this is too aggressive for our larger halos.");
 
     param_declare_int(ps, "BHFeedbackUseTcool", OPTIONAL, 1, "Control how BH feedback interacts with the SFR. If 0, star-forming gas which is heated by a BH remains pressurized (and thus does not cool). If 1, it cools exponentially to the EEQOS using the cooling time rather than the relaxation time. If 2, gas more than 0.3 dex above the EOS temp just cools normally. If 3 all star forming gas cools normally. 1 and 2 give similar BH output, but 1 is 50% faster due to the smaller timebins populated by 2.");
     param_declare_double(ps, "FactorSN", OPTIONAL, 0.1, "Fraction of the gas energy which is locally returned as supernovae on star formation.");
