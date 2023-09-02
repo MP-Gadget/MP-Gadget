@@ -36,11 +36,6 @@ struct GravShortPriv {
     int TreeUseBH;
     /* Barnes-Hut opening angle to use.*/
     double BHOpeningAngle;
-    /* Which particle type should we exclude from
-     * the tree calculation. */
-    int FastParticleType;
-    /* Are neutrinos tracers? If so, exclude them from the tree force*/
-    int NeutrinoTracer;
     /* Newton's constant in internal units*/
     double G;
     inttime_t Ti_Current;

@@ -37,20 +37,17 @@ static struct forcetree_params
        particles needs usually about ~0.65*N nodes.
        If the allocated memory is not sufficient, this parameter will be increased.*/
     double TreeAllocFactor;
-    /*!< flags the particle species which will be excluded from the tree if the HybridNuGrav parameter is set.*/
-    int FastParticleType;
 } ForceTreeParams;
 
 void
-init_forcetree_params(const int FastParticleType)
+init_forcetree_params(void)
 {
     /* This was increased due to the extra nodes created by subtrees*/
     ForceTreeParams.TreeAllocFactor = 0.9;
-    ForceTreeParams.FastParticleType = FastParticleType;
 }
 
 static ForceTree
-force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles * act, const int HybridNuGrav, const int DoMoments, const int alloc_father, const char * EmergencyOutputDir);
+force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles * act, const int DoMoments, const int alloc_father, const char * EmergencyOutputDir);
 
 static void
 force_treeupdate_pseudos(int no, const ForceTree * tree);
@@ -117,7 +114,7 @@ force_tree_allocated(const ForceTree * tree)
 /* Build a tree structure using all particles, compute moments and allocate a father array.
  * This is the fattest tree constructor, allows moments and walking up and down.*/
 void
-force_tree_full(ForceTree * tree, DomainDecomp * ddecomp, const int HybridNuGrav, const char * EmergencyOutputDir)
+force_tree_full(ForceTree * tree, DomainDecomp * ddecomp, const int HybridNuTracer, const char * EmergencyOutputDir)
 {
     if(force_tree_allocated(tree)) {
         force_tree_free(tree);
@@ -126,13 +123,16 @@ force_tree_full(ForceTree * tree, DomainDecomp * ddecomp, const int HybridNuGrav
 
     /* Build for all particles*/
     ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
+    int mask = ALLMASK;
+    if(HybridNuTracer)
+        mask = GASMASK + DMMASK + STARMASK + BHMASK;
 
     /*No father array by default, only need it for hmax. We want moments.*/
-    *tree = force_tree_build(ALLMASK, ddecomp, &act, HybridNuGrav, 1, 1, EmergencyOutputDir);
+    *tree = force_tree_build(mask, ddecomp, &act, 1, 1, EmergencyOutputDir);
 }
 
 void
-force_tree_active_moments(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticles *act, const int HybridNuGrav, const int alloc_father, const char * EmergencyOutputDir)
+force_tree_active_moments(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticles *act, const int HybridNuTracer, const int alloc_father, const char * EmergencyOutputDir)
 {
     //message(0, "Tree construction.  (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
@@ -140,9 +140,13 @@ force_tree_active_moments(ForceTree * tree, DomainDecomp * ddecomp, const Active
         force_tree_free(tree);
     }
     walltime_measure("/Misc");
+    int mask = ALLMASK;
+    // Exclude neutrinos
+    if(HybridNuTracer)
+        mask = GASMASK + DMMASK + STARMASK + BHMASK;
 
     /*No father array by default, only need it for hmax. We want moments.*/
-    *tree = force_tree_build(ALLMASK, ddecomp, act, HybridNuGrav, 1, alloc_father, EmergencyOutputDir);
+    *tree = force_tree_build(mask, ddecomp, act, 1, alloc_father, EmergencyOutputDir);
 }
 
 void
@@ -157,7 +161,7 @@ force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, cons
     /* Build for all particles*/
     ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
     /* No moments, but need father for hmax. The hybridnugrav only affects moments, so isn't needed.*/
-    *tree = force_tree_build(mask, ddecomp, &act, 0, 0, 1, EmergencyOutputDir);
+    *tree = force_tree_build(mask, ddecomp, &act, 0, 1, EmergencyOutputDir);
     MPIU_Barrier(MPI_COMM_WORLD);
 }
 
@@ -186,7 +190,7 @@ force_tree_calc_moments(ForceTree * tree, DomainDecomp * ddecomp)
  *  different CPUs. If such a node needs to be opened, the corresponding
  *  particle must be exported to that CPU. */
 ForceTree
-force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, const int HybridNuGrav, const int DoMoments, const int alloc_father, const char * EmergencyOutputDir)
+force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, const int DoMoments, const int alloc_father, const char * EmergencyOutputDir)
 {
     ForceTree tree;
 
@@ -204,7 +208,7 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
         tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp, alloc_father);
         tree.mask = mask;
         tree.BoxSize = PartManager->BoxSize;
-        force_tree_create_nodes(&tree, act, mask, ddecomp, HybridNuGrav);
+        force_tree_create_nodes(&tree, act, mask, ddecomp);
         if(tree.numnodes >= tree.lastnode - tree.firstnode)
         {
             message(1, "Not enough tree nodes (%ld) for %d particles. Created %d\n", maxnodes, act->NumActiveParticle, tree.numnodes);
@@ -346,14 +350,13 @@ int get_freenode(int * nnext, struct NodeCache *nc)
 /* Add a particle to a node in a known empty location.
  * Parent is assumed to be locked.*/
 static int
-modify_internal_node(int parent, int subnode, int p_toplace, const ForceTree tb, const int HybridNuGrav)
+modify_internal_node(int parent, int subnode, int p_toplace, const ForceTree tb)
 {
     if(tb.Father)
         tb.Father[p_toplace] = parent;
     tb.Nodes[parent].s.suns[subnode] = p_toplace;
     /* Encode the type in the Types array*/
-    if(!HybridNuGrav || P[p_toplace].Type != ForceTreeParams.FastParticleType)
-        add_particle_moment_to_node(&tb.Nodes[parent], &P[p_toplace]);
+    add_particle_moment_to_node(&tb.Nodes[parent], &P[p_toplace]);
     return 0;
 }
 
@@ -361,8 +364,7 @@ modify_internal_node(int parent, int subnode, int p_toplace, const ForceTree tb,
 /* Create a new layer of nodes beneath the current node, and place the particle.
  * Must have node lock.*/
 static int
-create_new_node_layer(int firstparent, int p_toplace,
-        const int HybridNuGrav, const ForceTree tb, int *nnext, struct NodeCache *nc)
+create_new_node_layer(int firstparent, int p_toplace, const ForceTree tb, int *nnext, struct NodeCache *nc)
 {
     /* This is so we can defer changing
      * the type of the existing node until the end.*/
@@ -424,7 +426,7 @@ create_new_node_layer(int firstparent, int p_toplace,
             int subnode = get_subnode(nprnt, P[oldsuns[i]].Pos);
             int child = newsuns[subnode];
             struct NODE * nchild = &tb.Nodes[child];
-            modify_internal_node(child, nchild->s.noccupied, oldsuns[i], tb, HybridNuGrav);
+            modify_internal_node(child, nchild->s.noccupied, oldsuns[i], tb);
             nchild->s.noccupied++;
         }
         /* Copy the new node array into the node*/
@@ -447,7 +449,7 @@ create_new_node_layer(int firstparent, int p_toplace,
         int child = nprnt->s.suns[subnode];
         struct NODE * nchild = &tb.Nodes[child];
         if(nchild->s.noccupied < NMAXCHILD) {
-            modify_internal_node(child, nchild->s.noccupied, p_toplace, tb, HybridNuGrav);
+            modify_internal_node(child, nchild->s.noccupied, p_toplace, tb);
             nchild->s.noccupied++;
             break;
         }
@@ -472,7 +474,7 @@ create_new_node_layer(int firstparent, int p_toplace,
 
 /* Add a particle to the tree, extending the tree as necessary. Locking is done,
  * so may be called from a threaded context*/
-int add_particle_to_tree(int i, int cur_start, const ForceTree tb, const int HybridNuGrav, struct NodeCache *nc, int* nnext)
+int add_particle_to_tree(int i, int cur_start, const ForceTree tb, struct NodeCache *nc, int* nnext)
 {
     int child, nocc;
     int cur = cur_start;
@@ -503,10 +505,10 @@ int add_particle_to_tree(int i, int cur_start, const ForceTree tb, const int Hyb
 
     /* Now we have something that isn't an internal node. We can place the particle! */
     if(nocc < NMAXCHILD)
-        modify_internal_node(cur, nocc, i, tb, HybridNuGrav);
+        modify_internal_node(cur, nocc, i, tb);
     /* In this case we need to create a new layer of nodes beneath this one*/
     else if(nocc < 1<<16) {
-        if(create_new_node_layer(cur, i, HybridNuGrav, tb, nnext, nc))
+        if(create_new_node_layer(cur, i, tb, nnext, nc))
             return -1;
     } else
         endrun(2, "Tried to convert already converted node %d with nocc = %d\n", cur, nocc);
@@ -518,7 +520,7 @@ int add_particle_to_tree(int i, int cur_start, const ForceTree tb, const int Hyb
  * The merge rule is that the node node is attached to the
  * left-most old parent and the particles are re-attached to the node node*/
 int
-merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnext, const struct ForceTree tb, int HybridNuGrav)
+merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnext, const struct ForceTree tb)
 {
     int this_left = left;
     int this_right = right;
@@ -559,7 +561,7 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
             for(i = 0; i < nright->s.noccupied; i++) {
                 if(nright->s.suns[i] >= tb.firstnode)
                     endrun(8, "Bad child %d of %d\n", i, nright->s.suns[i], this_right);
-                if(add_particle_to_tree(nright->s.suns[i], this_left, tb, HybridNuGrav, nc, nnext) < 0)
+                if(add_particle_to_tree(nright->s.suns[i], this_left, tb, nc, nnext) < 0)
                     return 1;
             }
             /* Make sure that nodes which have
@@ -601,7 +603,7 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
             for(i = 0; i < nleft->s.noccupied; i++) {
                 if(nleft->s.suns[i] >= tb.firstnode)
                     endrun(8, "Bad child %d of %d\n", i, nleft->s.suns[i], this_left);
-                if(add_particle_to_tree(nleft->s.suns[i], this_right, tb, HybridNuGrav, nc, nnext) < 0)
+                if(add_particle_to_tree(nleft->s.suns[i], this_right, tb, nc, nnext) < 0)
                     return 1;
             }
             /* Copy the right node over the left*/
@@ -647,7 +649,7 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
  * mask is a bitfield: Only types whose bit is set are added.
  **/
 void
-force_tree_create_nodes(ForceTree * tree, const ActiveParticles * act, int mask, DomainDecomp * ddecomp, const int HybridNuGrav)
+force_tree_create_nodes(ForceTree * tree, const ActiveParticles * act, int mask, DomainDecomp * ddecomp)
 {
     int nnext = tree->firstnode;       /* index of first free node */
 
@@ -773,7 +775,7 @@ force_tree_create_nodes(ForceTree * tree, const ActiveParticles * act, int mask,
                 cur = local_topnodes[topleaf - StartLeaf];
             }
             numparticles++;
-            this_acc = add_particle_to_tree(i, cur, *tree, HybridNuGrav, &nc, &nnext);
+            this_acc = add_particle_to_tree(i, cur, *tree, &nc, &nnext);
         }
         /* The implicit omp-barrier is important here!*/
 /*         double tend = second(); */
@@ -793,7 +795,7 @@ force_tree_create_nodes(ForceTree * tree, const ActiveParticles * act, int mask,
             for(t = 1; t < nthr; t++) {
                 const int righttop = topnodes[j + t * (EndLeaf - StartLeaf)];
 //                  message(1, "tid = %d i = %d t = %d Merging %d to %d addresses are %lx - %lx end is %lx\n", omp_get_thread_num(), i, t, righttop, target, &tb.Nodes[righttop], &tb.Nodes[target], &tb.Nodes[nnext]);
-                if(merge_partial_force_trees(target, righttop, &nc, &nnext, *tree, HybridNuGrav))
+                if(merge_partial_force_trees(target, righttop, &nc, &nnext, *tree))
                     break;
             }
         }

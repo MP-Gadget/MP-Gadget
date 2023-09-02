@@ -307,7 +307,7 @@ static int setup_density(void **state) {
     particle_alloc_memory(PartManager, BoxSize, maxpart);
     slots_reserve(1, atleast, SlotsManager);
     walltime_init(&CT);
-    init_forcetree_params(2);
+    init_forcetree_params();
     struct density_testdata *data = mymalloc("data", sizeof(struct density_testdata));
     data->sph_pred.EntVarPred = NULL;
     /*Set up the top-level domain grid*/

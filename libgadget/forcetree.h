@@ -21,6 +21,7 @@
 #define ALLMASK (1<<6)-1
 #define GASMASK (1)
 #define DMMASK (2)
+#define NUMASK (1<<2)
 #define STARMASK (1<<4)
 #define BHMASK (1<<5)
 
@@ -106,7 +107,7 @@ typedef struct ForceTree {
 } ForceTree;
 
 /*Initialize the internal parameters of the forcetree module*/
-void init_forcetree_params(const int FastParticleType);
+void init_forcetree_params(void);
 
 int force_tree_allocated(const ForceTree * tt);
 
@@ -115,11 +116,11 @@ void force_update_hmax(int * activeset, int size, ForceTree * tt, DomainDecomp *
 
 /* Build a tree structure using all particles, compute moments and allocate a father array.
  * This is the fattest tree constructor, allows moments and walking up and down.*/
-void force_tree_full(ForceTree * tree, DomainDecomp * ddecomp, const int HybridNuGrav, const char * EmergencyOutputDir);
+void force_tree_full(ForceTree * tree, DomainDecomp * ddecomp, const int HybridNuTracer, const char * EmergencyOutputDir);
 
 /* Build a tree structure using only the active particles and compute moments.
  * This variant is for the gravity code*/
-void force_tree_active_moments(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticles *act, const int HybridNuGrav, const int alloc_father, const char * EmergencyOutputDir);
+void force_tree_active_moments(ForceTree * tree, DomainDecomp * ddecomp, const ActiveParticles *act, const int HybridNuTracer, const int alloc_father, const char * EmergencyOutputDir);
 
 /* Main constructor with a mask argument.
  * Mask is a bitfield, specified as 1 for each type that should be included. Use ALLMASK for all particle types.
@@ -156,7 +157,7 @@ force_get_father(int no, const ForceTree * tt);
 
 /*Internal API, exposed for tests*/
 void
-force_tree_create_nodes(ForceTree * tree, const ActiveParticles * act, int mask, DomainDecomp * ddecomp, const int HybridNuGrav);
+force_tree_create_nodes(ForceTree * tree, const ActiveParticles * act, int mask, DomainDecomp * ddecomp);
 
 ForceTree
 force_treeallocate(const int64_t maxnodes, const int64_t maxpart, const DomainDecomp * ddecomp, const int alloc_father);

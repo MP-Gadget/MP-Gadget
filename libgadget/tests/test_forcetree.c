@@ -212,7 +212,7 @@ static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp
     start = MPI_Wtime();
     ActiveParticles Act = init_empty_active_particles(numpart);
     tb.mask = ALLMASK;
-    force_tree_create_nodes(&tb, &Act, ALLMASK, ddecomp, 0);
+    force_tree_create_nodes(&tb, &Act, ALLMASK, ddecomp);
     assert_true(tb.numnodes < maxnode);
     end = MPI_Wtime();
     double ms = (end - start)*1000;
@@ -295,7 +295,7 @@ static void do_tree_mask_hmax_update_test(const int numpart, ForceTree * tb, Dom
     start = MPI_Wtime();
     ActiveParticles Act = init_empty_active_particles(numpart);
     tb->mask = GASMASK;
-    force_tree_create_nodes(tb, &Act, GASMASK, ddecomp, 0);
+    force_tree_create_nodes(tb, &Act, GASMASK, ddecomp);
     end = MPI_Wtime();
     double ms = (end - start)*1000;
     printf("Built gas tree in %.3g ms\n", ms);
@@ -451,7 +451,7 @@ static int setup_tree(void **state) {
     memset(PartManager, 0, sizeof(PartManager[0]));
     memset(SlotsManager, 0, sizeof(SlotsManager[0]));
     PartManager->BoxSize = 8;
-    init_forcetree_params(2);
+    init_forcetree_params();
     /*Set up the top-level domain grid*/
     struct forcetree_testdata *data = malloc(sizeof(struct forcetree_testdata));
     trivial_domain(&data->ddecomp);

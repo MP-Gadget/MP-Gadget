@@ -192,7 +192,7 @@ static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int di
     struct UnitSystem units = get_unitsystem(3.085678e21, 1.989e43, 1e5);
     init_cosmology(&CP, 0.01, units);
 
-    gravpm_force(&pm, &ddecomp, &CP, 0.1, CM_PER_MPC/1000., ".", 0.01, 2);
+    gravpm_force(&pm, &ddecomp, &CP, 0.1, CM_PER_MPC/1000., ".", 0.01);
     ForceTree Tree = {0};
     force_tree_full(&Tree, &ddecomp, 1, NULL);
     const double rho0 = CP.Omega0 * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G);
@@ -211,8 +211,8 @@ static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int di
 
     /* Twice so the opening angle is consistent*/
     ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
-    grav_short_tree(&act, &pm, &Tree, NULL, rho0, 0, 2, 0);
-    grav_short_tree(&act, &pm, &Tree, NULL, rho0, 0, 2, 0);
+    grav_short_tree(&act, &pm, &Tree, NULL, rho0, 0);
+    grav_short_tree(&act, &pm, &Tree, NULL, rho0, 0);
 
     force_tree_free(&Tree);
     petapm_destroy(&pm);
@@ -339,7 +339,7 @@ static int setup_tree(void **state) {
     dp.SetAsideFactor = 1;
     set_domain_par(dp);
     petapm_module_init(omp_get_max_threads());
-    init_forcetree_params(2);
+    init_forcetree_params();
     /*Set up the top-level domain grid*/
     struct forcetree_testdata *data = malloc(sizeof(struct forcetree_testdata));
     data->r = gsl_rng_alloc(gsl_rng_mt19937);

@@ -240,7 +240,7 @@ begrun(const int RestartSnapNum, struct header_data * head)
     myfree(pidfile);
 #endif
 
-    init_forcetree_params(All.FastParticleType);
+    init_forcetree_params();
 
     init_cooling_and_star_formation(All.CoolingOn, All.StarformationOn, &All.CP, head->MassTable[0], head->BoxSize, units);
 
@@ -503,7 +503,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         if(is_PM)
         {
             /* Tree freed in PM*/
-            gravpm_force(&pm, ddecomp, &All.CP, atime, units.UnitLength_in_cm, All.OutputDir, header->TimeIC, All.FastParticleType);
+            gravpm_force(&pm, ddecomp, &All.CP, atime, units.UnitLength_in_cm, All.OutputDir, header->TimeIC);
 
             /* compute and output energy statistics if desired. */
             if(fds.FdEnergy)
@@ -524,15 +524,14 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                     GravAccel.nstore = PartManager->NumPart + SlotsManager->info[0].size;
                     GravAccel.GravAccel = (MyFloat (*) [3]) mymalloc2("GravAccel", GravAccel.nstore * sizeof(GravAccel.GravAccel[0]));
                 }
-                hierarchical_gravity_accelerations(&Act, &pm, ddecomp, GravAccel, &times, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
+                hierarchical_gravity_accelerations(&Act, &pm, ddecomp, GravAccel, &times, HybridNuTracer, &All.CP, All.OutputDir);
             }
             else if(All.TreeGravOn && totgravactive) {
                     ForceTree Tree = {0};
                     /* Do a short range pairwise only step if desired*/
                     const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal);
                     force_tree_full(&Tree, ddecomp, HybridNuTracer, All.OutputDir);
-                    grav_short_tree(&Act, &pm, &Tree, NULL, rho0, HybridNuTracer, All.FastParticleType, times.Ti_Current);
-                    force_tree_free(&Tree);
+                    grav_short_tree(&Act, &pm, &Tree, NULL, rho0, times.Ti_Current);
             }
         }
 
@@ -768,7 +767,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 void
 runtests(const int RestartSnapNum, const inttime_t Ti_Current, const struct header_data * header)
 {
-    run_gravity_test(RestartSnapNum, &All.CP, All.Asmth, All.Nmesh, All.FastParticleType, Ti_Current, All.OutputDir, header);
+    run_gravity_test(RestartSnapNum, &All.CP, All.Asmth, All.Nmesh, Ti_Current, All.OutputDir, header);
 }
 
 void
@@ -817,5 +816,5 @@ runpower(const struct header_data * header)
     /* ... read in initial model */
     domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
     /*PM needs a tree*/
-    gravpm_force(&pm, ddecomp, &All.CP, header->TimeSnapshot, header->UnitLength_in_cm, All.OutputDir, header->TimeSnapshot, All.FastParticleType);
+    gravpm_force(&pm, ddecomp, &All.CP, header->TimeSnapshot, header->UnitLength_in_cm, All.OutputDir, header->TimeSnapshot);
 }

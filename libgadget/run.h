@@ -14,7 +14,7 @@ void runfof(const int RestartSnapNum, const inttime_t Ti_init, const struct head
 /* Compute a power spectrum and exit*/
 void runpower(const struct header_data * header);
 
-void run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const int Nmesh, const int FastParticleType, const inttime_t Ti_Current, const char * OutputDir, const struct header_data * header);
+void run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const int Nmesh, const inttime_t Ti_Current, const char * OutputDir, const struct header_data * header);
 
 /* Finds the last snapshot written to*/
 int find_last_snapshot(void);

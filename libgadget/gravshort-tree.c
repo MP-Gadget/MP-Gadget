@@ -93,7 +93,7 @@ force_treeev_shortrange(TreeWalkQueryGravShort * input,
  *  ActiveParticle should contain only gravitationally active particles.
  */
 void
-grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFloat (* AccelStore)[3], double rho0, int NeutrinoTracer, int FastParticleType, inttime_t Ti_Current)
+grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFloat (* AccelStore)[3], double rho0, inttime_t Ti_Current)
 {
     double timeall = 0;
     double timetree, timewait, timecomm;
@@ -105,8 +105,6 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFl
     priv.ErrTolForceAcc = TreeParams.ErrTolForceAcc;
     priv.TreeUseBH = TreeParams.TreeUseBH;
     priv.BHOpeningAngle = TreeParams.BHOpeningAngle;
-    priv.FastParticleType = FastParticleType;
-    priv.NeutrinoTracer = NeutrinoTracer;
     priv.G = pm->G;
     priv.cbrtrho0 = pow(rho0, 1.0 / 3);
     priv.Ti_Current = Ti_Current;
@@ -272,8 +270,6 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     const double aold = GRAV_GET_PRIV(lv->tw)->ErrTolForceAcc * input->OldAcc;
     const int TreeUseBH = GRAV_GET_PRIV(lv->tw)->TreeUseBH;
     const double BHOpeningAngle2 = GRAV_GET_PRIV(lv->tw)->BHOpeningAngle * GRAV_GET_PRIV(lv->tw)->BHOpeningAngle;
-    const int NeutrinoTracer = GRAV_GET_PRIV(lv->tw)->NeutrinoTracer;
-    const int FastParticleType = GRAV_GET_PRIV(lv->tw)->FastParticleType;
 
     /*Input particle data*/
     const double * inpos = input->base.Pos;
@@ -375,9 +371,6 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
         for(i = 0; i < numcand; i++)
         {
             int pp = lv->ngblist[i];
-            /* Fast particle neutrinos don't cause short-range acceleration before activation.*/
-            if(NeutrinoTracer && P[pp].Type == FastParticleType)
-                continue;
 
             double dx[3];
             int j;
