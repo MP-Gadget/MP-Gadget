@@ -27,7 +27,7 @@
 /** Floating point accuracy*/
 #define FLOAT_ACC   1e-6
 /** Number of bins in integrations*/
-#define GSL_VAL 200
+#define GSL_VAL 400
 
 /** Update the last value of delta_tot in the table with a new value computed
  from the given delta_cdm_curr and delta_nu_curr.
@@ -703,7 +703,7 @@ void get_delta_nu(Cosmology * CP, const _delta_tot_table * const d_tot, const do
           return;
       qc = d_tot->omnu->hybnu.vcrit * mnubykT;
       /*More generous integration error for particle neutrinos*/
-      relerr /= (1.+1e-5-particle_nu_fraction(&d_tot->omnu->hybnu,a,0));
+      relerr /= (1.+1e-5-particle_nu_fraction(&d_tot->omnu->hybnu,a,0))*0.1;
   }
   /*If only one time given, we are still at the initial time*/
   /*If neutrino mass is zero, we are not accurate, just use the initial conditions piece*/
