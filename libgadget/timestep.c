@@ -1545,7 +1545,7 @@ static void print_timebin_statistics(const DriftKickTimes * const times, const i
 
     const double dloga = get_dloga_for_bin(times->mintimebin, times->Ti_Current);
     const double z = 1.0 / (Time) - 1;
-    message(0, "Begin Step %d, Time: %g (%x), Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
+    message(0, "Begin Step %d, Time: %g (%lx), Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
                 NumCurrentTiStep, Time, times->Ti_Current, z, tot_num_force,
                 dloga * Time, dloga,
                 extra);
