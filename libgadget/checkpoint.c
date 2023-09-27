@@ -34,7 +34,7 @@ write_checkpoint(int snapnum, int WriteGroupID, int MetalReturnOn, double Time, 
     myfree(fname);
 
     destroy_io_blocks(&IOTable);
-    walltime_measure("/Snapshot/Write");
+    walltime_measure("/WriteSnapshot");
 
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
