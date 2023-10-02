@@ -758,8 +758,8 @@ force_tree_create_nodes(ForceTree * tree, const ActiveParticles * act, int mask,
             if(P[i].IsGarbage || (P[i].Swallowed && P[i].Type==5))
                 continue;
 
-            if(P[i].Mass == 0)
-                endrun(12, "Zero mass particle %d type %d id %ld pos %g %g %g\n", i, P[i].Type, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+            if(P[i].Mass <= 0)
+                endrun(12, "Zero mass particle %d m %g type %d id %ld pos %g %g %g\n", i, P[i].Mass, P[i].Type, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
             /*First find the Node for the TopLeaf */
             int cur;
             if(inside_node(&tree->Nodes[this_acc], P[i].Pos)) {
