@@ -509,7 +509,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
     slots_free_sph_pred_data(&sph_pred);
 
     if(DensityIndependentSphOn()) {
-        setup_density_indep_entropy(&act, &Tree, CP, &sph_pred, u_init, a3, Ti_Current, BlackHoleOn);
+        setup_density_indep_entropy(&act, &Tree, CP, &sph_pred, u_init, a3, BlackHoleOn, Ti_Current);
     }
     else {
         /*Initialize to initial energy*/
