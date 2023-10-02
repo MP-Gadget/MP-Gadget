@@ -389,7 +389,7 @@ winds_find_vel_disp(const ActiveParticles * act, const double Time, const double
 
     priv[0].Time = Time;
     priv[0].hubble = hubble;
-    priv[0].ddrift = get_exact_drift_factor(CP, times->Ti_Current, times->PM_length);
+    priv[0].ddrift = get_exact_drift_factor(CP, times->Ti_Current, times->Ti_Current + times->PM_length);
     tw->priv = priv;
 
     /* Build the queue to check that we have something to do before we rebuild the tree.*/
