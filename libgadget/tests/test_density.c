@@ -62,7 +62,8 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
         P[i].Mass = 1;
         P[i].TimeBinHydro = 0;
         P[i].TimeBinGravity = 0;
-        P[i].Ti_drift = 0;
+        inttime_t ti = {0};
+        P[i].Ti_drift = ti;
         for(j=0; j<3; j++)
             P[i].Vel[j] = 1.5;
         if(P[i].Type == 0) {

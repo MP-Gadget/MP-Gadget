@@ -21,9 +21,10 @@ typedef struct
     /* Current drift time, which is universal.*/
     inttime_t Ti_Current;
     /* PM Timesteps*/
-    inttime_t PM_length; /*!< Duration of the current PM integer timestep*/
     inttime_t PM_start;           /* current start point of the PM step*/
+    inttime_t PM_end; /*!< End of the current PM integer timestep*/
     inttime_t PM_kick;  /* current inttime of PM Kick (velocity) */
+    dti_t PM_dti; /* Length of the current PM step.*/
 } DriftKickTimes;
 
 /* Structure to hold data about the currently active particles. Similar to the WorkQueue structure in treebuild.

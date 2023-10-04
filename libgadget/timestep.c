@@ -96,19 +96,18 @@ enum TimeStepType
 static double get_timestep_gravity_dloga(const int p, const MyFloat * GravAccel, const double atime, const double hubble);
 static double get_timestep_hydro_dloga(const int p, const inttime_t Ti_Current, const double atime, const double hubble, enum TimeStepType * titype);
 static double get_timestep_dynfric_dloga(const int p, const double atime, const double hubble);
-static inttime_t convert_timestep_to_ti(double dloga, const int p, const inttime_t dti_max, const inttime_t Ti_Current, enum TimeStepType titype);
-static int get_timestep_bin(inttime_t dti);
+static int get_timestep_bin(dti_t dti);
 static void do_grav_short_range_kick(struct particle_data * part, const MyFloat * const GravAccel, const double Fgravkick);
 static void do_hydro_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const double atime);
 
-static void print_bad_timebin(const double dloga, const inttime_t dti, const int p, const inttime_t dti_max, enum TimeStepType titype);
+static void print_bad_timebin(const double dloga, const int tbin, const int p, const dti_t dti_max, enum TimeStepType titype);
 
 /* Hierarchical gravity functions*/
 /* Build a sublist of particles gravitationally active and smaller than a timebin*/
 ActiveParticles build_active_sublist(const ActiveParticles * act, const int maxtimebin, const inttime_t Ti_Current);
 
 /* Get the current PM (global) timestep.*/
-static inttime_t get_PM_timestep_ti(const DriftKickTimes * const times, const double atime, const Cosmology * CP, const int FastParticleType, const double asmth);
+static dti_t get_PM_timestep_ti(const DriftKickTimes * const times, const double atime, const Cosmology * CP, const int FastParticleType, const double asmth);
 
 /*Initialise the integer timeline*/
 inttime_t
@@ -116,9 +115,9 @@ init_timebins(double TimeInit)
 {
     inttime_t Ti_Current = ti_from_loga(log(TimeInit));
     /*Enforce Ti_Current is initially even*/
-    if(Ti_Current % 2 == 1)
-        Ti_Current++;
-    message(0, "Initial TimeStep at TimeInit %g Ti_Current = %d \n", TimeInit, Ti_Current);
+    if(Ti_Current.dti % 2 == 1)
+        Ti_Current.dti++;
+    message(0, "Initial TimeStep at TimeInit %g Ti_Current = %d %x \n", TimeInit, Ti_Current.lastsnap, Ti_Current.dti);
     return Ti_Current;
 }
 
@@ -132,17 +131,17 @@ DriftKickTimes init_driftkicktime(inttime_t Ti_Current)
         times.Ti_lastactivedrift[i] = times.Ti_Current;
     }
     /* this makes sure the first step is a PM step. */
-    times.PM_length = 0;
     times.PM_kick = times.Ti_Current;
     times.PM_start = times.Ti_Current;
+    times.PM_end = times.Ti_Current;
     return times;
 }
 
 int is_timebin_active(int i, inttime_t current) {
     /*Bin 0 is always active and at time 0 all bins are active*/
-    if(i <= 0 || current <= 0)
+    if(i <= 0 || (current.lastsnap ==0 && current.dti <= 0))
         return 1;
-    if(current % dti_from_timebin(i) == 0)
+    if(current.dti % dti_from_timebin(i) == 0)
         return 1;
     return 0;
 }
@@ -151,9 +150,16 @@ int is_timebin_active(int i, inttime_t current) {
 int
 is_PM_timestep(const DriftKickTimes * const times)
 {
-    if(times->Ti_Current > times->PM_start + times->PM_length)
-        endrun(12, "Passed end of PM step! ti=%d, PM = %d + %d\n",times->Ti_Current, times->PM_start, times->PM_length);
-    return times->Ti_Current == times->PM_start + times->PM_length;
+    int comparison = compare_two_inttime(times->Ti_Current, times->PM_end);
+    if(comparison > 0)
+        endrun(12, "Passed end of PM step! ti=%d, %d, PM = %d, %d -> %d, %d\n",
+               times->Ti_Current.lastsnap, times->Ti_Current.dti, times->PM_start.lastsnap, times->PM_start.dti, times->PM_end.lastsnap, times->PM_end.dti);
+    /* Timesteps equal*/
+    if (comparison == 0)
+        return 1;
+    else
+        /* comparison is -1, not reached yet*/
+        return 0;
 }
 
 double
@@ -161,31 +167,52 @@ get_atime(const inttime_t Ti_Current) {
     return exp(loga_from_ti(Ti_Current));
 }
 
+/*! This function returns the maximum allowed timestep of a particle, expressed in
+ *  terms of the integer mapping that is used to represent the total simulated timespan.
+ *  Arguments:
+ *  dloga -> timestep in dloga units
+ *  dti_max -> maximal timestep.
+ *  Ti_Current -> current integer timeline
+*/
 static int
-get_timebin_from_dti(inttime_t dti, int binold, DriftKickTimes * times)
+get_timebin_from_dloga(double dloga, const dti_t dti_max, const int binold, const inttime_t Ti_Current)
 {
-        /* make it a power 2 subdivision */
-        dti = round_down_power_of_two(dti);
+    dti_t dti;
+    /*Give a useful message if we are broken*/
+    if(dti_max == 0)
+        return 0;
 
-        int bin = get_timestep_bin(dti);
-        /* timestep wants to increase */
-        if(bin > binold)
-        {
-            /* make sure the new step is currently active,
-             * so that particles do not miss a step */
-            while(!is_timebin_active(bin, times->Ti_Current) && bin > binold && bin > 1)
-                bin--;
-        }
-        return bin;
+    if(dloga < TimestepParams.MinSizeTimestep)
+        dloga = TimestepParams.MinSizeTimestep;
+
+    dti = dti_from_dloga(dloga, Ti_Current);
+
+    /* Check for overflow*/
+    if(dti > dti_max || dti < 0)
+        dti = dti_max;
+
+    /* make it a power 2 subdivision */
+    dti = round_down_power_of_two(dti);
+
+    int bin = get_timestep_bin(dti);
+    /* timestep wants to increase */
+    if(bin > binold)
+    {
+        /* make sure the new step is currently active,
+            * so that particles do not miss a step */
+        while(!is_timebin_active(bin, Ti_Current) && bin > binold && bin > 1)
+            bin--;
+    }
+    return bin;
 }
 
 /* Find the single global timestep for when the timesteps are supposed to be synchronised.*/
-static inttime_t
-find_global_timestep(DriftKickTimes * times, const inttime_t dti_max, const double atime, const double hubble)
+static int
+find_global_timestep(DriftKickTimes * times, const dti_t dti_max, const double atime, const double hubble)
 {
-        inttime_t dti_min = TIMEBASE;
+        int min_timebin = TIMEBINS;
         int i;
-        #pragma omp parallel for reduction(min:dti_min)
+        #pragma omp parallel for reduction(min:min_timebin)
         for(i = 0; i < PartManager->NumPart; i++)
         {
             enum TimeStepType titype = TI_ACCEL;
@@ -195,17 +222,19 @@ find_global_timestep(DriftKickTimes * times, const inttime_t dti_max, const doub
                 continue;
             double dloga = get_timestep_gravity_dloga(i, P[i].FullTreeGravAccel, atime, hubble);
             double dloga_hydro = get_timestep_hydro_dloga(i, times->Ti_Current, atime, hubble, &titype);
+            int binold = P[i].TimeBinGravity;
             if(dloga_hydro < dloga) {
                 dloga = dloga_hydro;
+                binold = P[i].TimeBinHydro;
             }
-            inttime_t dti = convert_timestep_to_ti(dloga, i, dti_max, times->Ti_Current, titype);
-            if(dti < dti_min)
-                dti_min = dti;
-            if(dti <= 1 || dti > (inttime_t) TIMEBASE)
-                print_bad_timebin(dloga, dti, i, dti_max, titype);
+            int timebin = get_timebin_from_dloga(dloga, dti_max, binold, times->Ti_Current);
+            if(timebin < min_timebin)
+                min_timebin = timebin;
+            if(timebin < 1 || timebin > TIMEBINS)
+                print_bad_timebin(dloga, min_timebin, i, dti_max, titype);
         }
-        MPI_Allreduce(MPI_IN_PLACE, &dti_min, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-        return dti_min;
+        MPI_Allreduce(MPI_IN_PLACE, &min_timebin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+        return min_timebin;
 }
 
 /* Update the kick times and optionally compute the gravkick and hydrokick factors*/
@@ -222,14 +251,14 @@ update_kick_times(DriftKickTimes * times)
         /* Kick the active timebins*/
         if(is_timebin_active(bin, times->Ti_Current)) {
             /* do the kick for half a step*/
-            inttime_t newkick = times->Ti_kick[bin] + dti_from_timebin(bin)/2;
+            inttime_t newkick = add_dti_and_inttime(times->Ti_kick[bin], dti_from_timebin(bin)/2);
 //            message(0, "drift %d bin %d kick: %d->%d\n", times->Ti_Current, bin, times->Ti_kick[bin], newkick);
             times->Ti_kick[bin] = newkick;
         }
     }
     /* Advance the shorter bins without particles by the minimum occupied timestep.*/
     for(bin=1; bin < times->mintimebin; bin++)
-        times->Ti_kick[bin] += dti_from_timebin(times->mintimebin)/2;
+        times->Ti_kick[bin] = add_dti_and_inttime(times->Ti_kick[bin], dti_from_timebin(times->mintimebin)/2);
 }
 
 /* Apply the half-kick for the hierarchical gravity, which is a half-step forward and a half-step back for a higher timebin.*/
@@ -238,19 +267,19 @@ apply_hierarchical_grav_kick(const ActiveParticles * subact, Cosmology * CP, Dri
 {
     int i;
     /* Now we do the gravity kicks using each half-step acceleration.*/
-    inttime_t dti = dti_from_timebin(ti);
+    dti_t dti = dti_from_timebin(ti);
     /* Compute kick factors for occupied bins*/
     /* Go forwards a halfstep for the current bin*/
-    double gravkick = get_exact_gravkick_factor(CP, times->Ti_kick[ti], times->Ti_kick[ti] + dti/2);
+    double gravkick = get_exact_gravkick_factor(CP, times->Ti_kick[ti], add_dti_and_inttime(times->Ti_kick[ti], dti/2));
     /* Go backwards a halfstep for the timestep above this one*/;
-    inttime_t lowerdti = 0;
+    dti_t lowerdti = 0;
     if(ti < largest_active) {
         lowerdti = dti_from_timebin(ti+1);
-        const double lowerkick = get_exact_gravkick_factor(CP, times->Ti_kick[ti+1], times->Ti_kick[ti+1] + lowerdti/2);
+        const double lowerkick = get_exact_gravkick_factor(CP, times->Ti_kick[ti+1], add_dti_and_inttime(times->Ti_kick[ti+1], lowerdti/2));
         gravkick -= lowerkick;
     }
 
-//     message(0, "Kicking for bin %d largest %d\n", ti, largest_active);
+    message(0, "Kicking for bin %d largest %d PM dti %d\n", ti, largest_active, times->PM_dti);
     /* Do the kick, changing velocity.*/
     #pragma omp parallel for
     for(i = 0; i < subact->NumActiveParticle; i++) {
@@ -262,14 +291,14 @@ apply_hierarchical_grav_kick(const ActiveParticles * subact, Cosmology * CP, Dri
         else
             do_grav_short_range_kick(&P[pa], P[pa].FullTreeGravAccel, gravkick);
 #ifdef DEBUG
-//         message(4, "KICK ID %ld bin %d kick time: %d + %d - %d now %d hydro %d kick ti: %d ti %d largest %d\n", P[pa].ID, P[pa].TimeBinGravity, P[pa].Ti_kick_grav, dti/2, lowerdti/2,
-//                 P[pa].Ti_kick_grav + dti/2 -lowerdti/2,
-//                 P[pa].Ti_kick_hydro, times->Ti_kick[ti], ti, largest_active);
+        // message(4, "KICK ID %ld bin %d kick time: %d + %d - %d now %d hydro %d kick ti: %d ti %d largest %d\n", P[pa].ID, P[pa].TimeBinGravity, P[pa].Ti_kick_grav.dti, dti/2, lowerdti/2,
+                // P[pa].Ti_kick_grav.dti + dti/2 -lowerdti/2,
+                // P[pa].Ti_kick_hydro.dti, times->Ti_kick[ti].dti, ti, largest_active);
         /* This check relies on the kicks being done top-bin first*/
-        if(ti == largest_active && P[pa].Ti_kick_grav != times->Ti_kick[P[pa].TimeBinGravity])
+        if(ti == largest_active && compare_two_inttime(P[pa].Ti_kick_grav,  times->Ti_kick[P[pa].TimeBinGravity]))
             endrun(4, "Particle %d (type %d, id %ld bin %d ti %d largest %d dt %d gen %d) had grav kick time %d hyd %d not %d.\n",
-                    pa, P[pa].Type, P[pa].ID, P[pa].TimeBinGravity, ti, largest_active, dti/2, P[pa].Generation, P[pa].Ti_kick_grav, P[pa].Ti_kick_hydro, times->Ti_kick[P[pa].TimeBinGravity]);
-        P[pa].Ti_kick_grav += dti/2 -lowerdti/2;
+                    pa, P[pa].Type, P[pa].ID, P[pa].TimeBinGravity, ti, largest_active, dti/2, P[pa].Generation, P[pa].Ti_kick_grav.dti, P[pa].Ti_kick_hydro.dti, times->Ti_kick[P[pa].TimeBinGravity].dti);
+        P[pa].Ti_kick_grav = add_dti_and_inttime(P[pa].Ti_kick_grav, dti/2 -lowerdti/2);
 #endif
     }
 }
@@ -286,6 +315,19 @@ grav_short_tree_build_tree(const ActiveParticles * subact, PetaPM * pm, DomainDe
     force_tree_free(&Tree);
 }
 
+/* Find the longest active timebin that is not longer than the PM step (may be the PM step).*/
+int find_largest_active(DriftKickTimes * times)
+{
+    /* Find the longest active timebin.*/
+    int ti, largest_active = TIMEBINS;
+    for(ti = TIMEBINS; ti >= 0; ti--) {
+        if(is_timebin_active(ti, times->Ti_Current) && dti_from_timebin(ti) <= times->PM_dti) {
+            largest_active = ti;
+            break;
+        }
+    }
+    return largest_active;
+}
 
 /* Assigns new short-range timesteps, computes short-range gravitational forces
  * and does the gravitational half-step kicks. Uses the accelerations in StoredGravAccel
@@ -297,26 +339,23 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
 
     /*Update the PM timestep size */
     const int isPM = is_PM_timestep(times);
-    inttime_t dti_max = times->PM_length;
+    dti_t dti_max = times->PM_dti;
 
     if(isPM) {
         const double asmth = pm->Asmth * PartManager->BoxSize / pm->Nmesh;
         dti_max = get_PM_timestep_ti(times, atime, CP, FastParticleType, asmth);
-        times->PM_length = dti_max;
+        times->PM_dti = dti_max;
         times->PM_start = times->PM_kick;
-        message(0, "PM timebin: %x (dloga: %g Max: %g).\n", times->PM_length, dloga_from_dti(times->PM_length, times->Ti_Current), TimestepParams.MaxSizeTimestep);
+        times->PM_end = add_dti_and_inttime(times->PM_start, dti_max);
+        message(0, "PM timebin: %d %x-> %d %x (dloga: %g Max: %g).\n",
+                times->PM_start.lastsnap, times->PM_start.dti, times->PM_end.lastsnap, times->PM_end.dti, dloga_from_dti(times->PM_start, times->PM_end), TimestepParams.MaxSizeTimestep);
     }
 
     const double hubble = hubble_function(CP, atime);
     /* Find the longest active timebin. Usually the PM step*/
-    int ti, largest_active = TIMEBINS;
-    for(ti = TIMEBINS; ti >= 0; ti--) {
-        if(is_timebin_active(ti, times->Ti_Current) && dti_from_timebin(ti) <= times->PM_length) {
-            largest_active = ti;
-            break;
-        }
-    }
-    message(0, "Finding short-range gravity timesteps. Largest %d time %d PM %d dti %d\n", largest_active, times->Ti_Current, times->PM_length, dti_from_timebin(largest_active));
+    int largest_active = find_largest_active(times);
+
+    message(0, "Finding short-range gravity timesteps. Largest %d time %d %d PM %x dti %x\n", largest_active, times->Ti_Current.lastsnap, times->Ti_Current.dti, times->PM_end.dti, dti_from_timebin(largest_active));
 
     /* May need a new sublist because the active particle list contains all particles either
      * gravitationally or hydrodynamically active and we only want gravitationally active particles.*/
@@ -350,19 +389,17 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
             dloga_gravity = get_timestep_gravity_dloga(pa, StoredGravAccel.GravAccel[pa], atime, hubble);
         else
             dloga_gravity = get_timestep_gravity_dloga(pa, P[pa].FullTreeGravAccel, atime, hubble);
-        inttime_t dti_gravity = convert_timestep_to_ti(dloga_gravity, pa, dti_max, times->Ti_Current, TI_ACCEL);
-        /* make it a power 2 subdivision */
-        dti_gravity = round_down_power_of_two(dti_gravity);
-        if(dti_gravity <= 1 || dti_gravity > (inttime_t) TIMEBASE)
-            print_bad_timebin(dloga_gravity, dti_gravity, pa, dti_max, TI_ACCEL);
+        int bin = get_timebin_from_dloga(dloga_gravity, dti_max, TIMEBINS, times->Ti_Current);
+        if(bin < 1 || bin > TIMEBINS)
+            print_bad_timebin(dloga_gravity, bin, pa, dti_max, TI_ACCEL);
 
-        int bin = get_timestep_bin(dti_gravity);
         if(bin > largest_active)
             bin = largest_active;
         int tid = omp_get_thread_num();
         timebincounts[tid * TIMEBINS + bin] ++;
         P[pa].TimeBinGravity = bin;
     }
+    int ti;
     /* Count particles in timebins and find largest timestep with particles.*/
     for(ti = largest_active; ti >= 1; ti--) {
         for(i = 0; i < nthread; i++)
@@ -458,13 +495,12 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
             if(P[pa].Swallowed || P[pa].IsGarbage)
                 continue;
             double dloga_gravity = get_timestep_gravity_dloga(pa, GravAccel[pa], atime, hubble);
-            inttime_t dti_gravity = convert_timestep_to_ti(dloga_gravity, pa, dti_max, times->Ti_Current, TI_ACCEL);
             /* Reduce the timebin by 1 if needed by this current acceleration.*/
-            if(dti_gravity < dti_from_timebin(ti)) {
+            if(dloga_gravity < get_dloga_for_bin(ti, times->Ti_Current)) {
                 P[pa].TimeBinGravity = ti -1;
                 if(ti == 1) {
                     badstepsizecount++;
-                    print_bad_timebin(dloga_gravity, dti_gravity, pa, dti_max, TI_ACCEL);
+                    print_bad_timebin(dloga_gravity, ti, pa, dti_max, TI_ACCEL);
                 }
             }
         }
@@ -500,19 +536,14 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
 
     const double rho0 = CP->Omega0 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
     /* Find the longest active timebin.*/
-    int ti, largest_active = TIMEBINS;
-    for(ti = TIMEBINS; ti >= 0; ti--) {
-        if(is_timebin_active(ti, times->Ti_Current) && dti_from_timebin(ti) <= times->PM_length) {
-            largest_active = ti;
-            break;
-        }
-    }
-//     message(0, "Starting gravity accelerations: largest %d\n", largest_active);
+    int largest_active = find_largest_active(times);
+    // message(0, "Starting gravity accelerations: largest %d\n", largest_active);
     /* First loop is split out for clarity as it has a lot of special cases*/
     /* Compute forces for all active timebins.
      * All these timesteps should have particles in them: if they do
      * not we compute forces twice for no reason.*/
     ActiveParticles lastact[1];
+    int ti = largest_active;
     /* If all particles are active, we don't need the sublist.
      * Note this is not unconditional
      * because some particles may be only hydro active.*/
@@ -608,8 +639,8 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
 {
     int pa;
     walltime_measure("/Misc");
-
-    inttime_t dti_max = times->PM_length;
+    int largest_active = find_largest_active(times);
+    dti_t dti_max = dti_from_timebin(largest_active);
     const double hubble = hubble_function(CP, atime);
 
     int64_t ntiaccel=0, nticourant=0, ntiaccrete=0, ntineighbour=0, ntihsml=0;
@@ -631,14 +662,11 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
         /* Compute gravity timestep*/
         /* Do hydro timestep for gas or BHs. Always shorter*/
         double dloga_hydro = get_timestep_hydro_dloga(i, times->Ti_Current, atime, hubble, &titype);
-        inttime_t dti_hydro = convert_timestep_to_ti(dloga_hydro, i, dti_max, times->Ti_Current, titype);
-        if(dti_hydro <= 1 || dti_hydro > (inttime_t) TIMEBASE)
-            print_bad_timebin(dloga_hydro, dti_hydro, i, dti_max, titype);
-        /* Type of shortest timestep criterion. Note that gravity is always TI_ACCEL.*/
         /* Find a new particle bin.
          * Active particles remain active until a new timestep.*/
-        int bin_hydro = get_timebin_from_dti(dti_hydro, P[i].TimeBinHydro, times);
-
+        int bin_hydro = get_timebin_from_dloga(dloga_hydro, dti_max, P[i].TimeBinHydro, times->Ti_Current);
+        if(bin_hydro < 1 || bin_hydro > TIMEBINS)
+            print_bad_timebin(dloga_hydro, bin_hydro, i, dti_max, titype);
         /* Enforce that the hydro timestep is always shorter than or equal to the gravity timestep*/
         if(bin_hydro > P[i].TimeBinGravity) {
             bin_hydro = P[i].TimeBinGravity;
@@ -667,8 +695,7 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
         /* Find dynamic friction timestep*/
         if(P[i].Type == 5) {
             double dloga_dynfric = get_timestep_dynfric_dloga(i, atime, hubble);
-            inttime_t dti_dynfric = convert_timestep_to_ti(dloga_dynfric, i, dti_max, times->Ti_Current, titype);
-            int bin_dynfric = get_timebin_from_dti(dti_dynfric, BHP(i).TimeBinDynFric, times);
+            int bin_dynfric= get_timebin_from_dloga(dloga_dynfric, dti_max, BHP(i).TimeBinDynFric, times->Ti_Current);
             /* Enforce that the dynfric timestep is always shorter than or equal to the gravity timestep and longer than the hydro timestep.*/
             if(bin_dynfric > P[i].TimeBinGravity)
                 bin_dynfric = P[i].TimeBinGravity;
@@ -746,24 +773,25 @@ int
 find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double atime, int FastParticleType, const Cosmology * CP, const double asmth, const int isFirstTimeStep)
 {
     int pa;
-    inttime_t dti_min = TIMEBASE;
+    int bin_min = TIMEBINS;
 
     walltime_measure("/Misc");
 
     /*Update the PM timestep size */
     const int isPM = is_PM_timestep(times);
-    inttime_t dti_max = times->PM_length;
+    dti_t dti_max = times->PM_dti;
 
     if(isPM) {
         dti_max = get_PM_timestep_ti(times, atime, CP, FastParticleType, asmth);
-        times->PM_length = dti_max;
+        times->PM_dti = dti_max;
         times->PM_start = times->PM_kick;
+        times->PM_end = add_dti_and_inttime(times->PM_start, dti_max);
     }
 
     const double hubble = hubble_function(CP, atime);
     /* Now assign new timesteps and kick */
     if(TimestepParams.ForceEqualTimesteps) {
-        dti_min = find_global_timestep(times, dti_max, atime, hubble);
+        bin_min = find_global_timestep(times, dti_max, atime, hubble);
     }
 
     int64_t ntiaccel=0, nticourant=0, ntiaccrete=0, ntineighbour=0, ntihsml=0;
@@ -778,27 +806,27 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
             continue;
 
         enum TimeStepType titype = TI_ACCEL;
-        inttime_t dti;
+        int bin = bin_min;
         /* Copy the gravitational acceleration to the SPH property. We could use GravAccel directly
          * but we don't for consistency with hierarchical gravity.*/
-        if(TimestepParams.ForceEqualTimesteps) {
-            dti = dti_min;
-        } else {
+        if(!TimestepParams.ForceEqualTimesteps) {
             /* Compute gravity timestep*/
-            double dloga_gravity = get_timestep_gravity_dloga(i, P[i].FullTreeGravAccel, atime, hubble);
-            dti = convert_timestep_to_ti(dloga_gravity, i, dti_max, times->Ti_Current, titype);
+            double dloga = get_timestep_gravity_dloga(i, P[i].FullTreeGravAccel, atime, hubble);
             /* Do hydro timestep for gas or BHs. Always shorter*/
             if(P[i].Type == 0 || P[i].Type == 5) {
                 enum TimeStepType titype_hydro = TI_ACCEL;
                 double dloga_hydro = get_timestep_hydro_dloga(i, times->Ti_Current, atime, hubble, &titype_hydro);
-                inttime_t dti_hydro = convert_timestep_to_ti(dloga_hydro, i, dti_max, times->Ti_Current, titype_hydro);
-                if(dti_hydro < dti) {
-                    dti = dti_hydro;
+                if(dloga_hydro < dloga) {
+                    dloga = dloga_hydro;
                     titype = titype_hydro;
                 }
             }
-            if(dti <= 1 || dti > (inttime_t) TIMEBASE)
-                print_bad_timebin(dloga_gravity, dti, i, dti_max, titype);
+            /* Find a new particle bin active particles remain active until a new timestep. */
+            bin = get_timebin_from_dloga(dloga, dti_max, P[i].TimeBinHydro, times->Ti_Current);
+            if(bin < 1 || bin > TIMEBINS) {
+                print_bad_timebin(dloga, bin, i, dti_max, titype);
+                badstepsizecount++;
+            }
             /* Type of shortest timestep criterion. Note that gravity is always TI_ACCEL.*/
             if(titype == TI_ACCEL)
                 ntiaccel++;
@@ -811,10 +839,6 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
             else if (titype == TI_HSML)
                 ntihsml++;
         }
-        /* Find a new particle bin active particles remain active until a new timestep. */
-        int bin = get_timebin_from_dti(dti, P[i].TimeBinHydro, times);
-        if(bin < 1)
-            badstepsizecount++;
 
         /* Only update if both the old and new timebins are currently active.
          * We know that the shorter hydro timestep is active, but we need to check
@@ -843,10 +867,10 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
     /* Ensure that the PM timestep is not longer than the longest tree timestep;
      * this prevents particles in the longest timestep being active and moving into a higher bin
      * between PM timesteps, thus skipping the PM step entirely.*/
-    if(isPM && times->PM_length > dti_from_timebin(maxTimeBin))
-        times->PM_length = dti_from_timebin(maxTimeBin);
-    message(0, "PM timebin: %x (dloga: %g Max: %g). Criteria: Accel: %ld Soundspeed: %ld DivVel: %ld Accrete: %ld Neighbour: %ld\n",
-            times->PM_length, dloga_from_dti(times->PM_length, times->Ti_Current), TimestepParams.MaxSizeTimestep,
+    if(isPM && compare_two_inttime(times->PM_end, add_dti_and_inttime(times->PM_start, dti_from_timebin(maxTimeBin))) > 0)
+        times->PM_end = add_dti_and_inttime(times->PM_start, dti_from_timebin(maxTimeBin));
+    message(0, "PM timebin: %d %x -> %d %x (dloga: %g Max: %g). Criteria: Accel: %ld Soundspeed: %ld DivVel: %ld Accrete: %ld Neighbour: %ld\n",
+            times->PM_start.lastsnap, times->PM_start.dti, times->PM_end.lastsnap, times->PM_end.dti, dloga_from_dti(times->PM_start, times->PM_end), TimestepParams.MaxSizeTimestep,
             ntiaccel, nticourant, ntihsml, ntiaccrete, ntineighbour);
 
     /* BH particles have their timesteps set by a timestep limiter.
@@ -888,12 +912,12 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
         if(!is_timebin_active(bin, times->Ti_Current))
             continue;
         /* do the kick for half a step*/
-        inttime_t newkick = times->Ti_kick[bin] + dti_from_timebin(bin)/2;
+        inttime_t newkick = add_dti_and_inttime(times->Ti_kick[bin], dti_from_timebin(bin)/2);
         /* Compute kick factors for occupied bins*/
         gravkick[bin] = get_exact_gravkick_factor(CP, times->Ti_kick[bin], newkick);
         hydrokick[bin] = get_exact_hydrokick_factor(CP, times->Ti_kick[bin], newkick);
     }
-    //    message(0, "drift %d bin %d kick: %d\n", times->Ti_Current, bin, times->Ti_kick[bin]);
+    // message(0, "drift %d bin %d kick: %d\n", times->Ti_Current.dti, bin, times->Ti_kick[bin].dti);
     /* Now assign new timesteps and kick */
     #pragma omp parallel for
     for(pa = 0; pa < act->NumActiveParticle; pa++)
@@ -908,24 +932,25 @@ apply_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * ti
         if(is_timebin_active(bin_gravity, times->Ti_Current)) {
             do_grav_short_range_kick(&P[i], P[i].FullTreeGravAccel, gravkick[bin_gravity]);
 #ifdef DEBUG
-            if(P[i].Ti_kick_grav != times->Ti_kick[bin_gravity])
-                endrun(4, "Particle %d (type %d, id %ld bin %d dt %x gen %d) had grav kick time %x not %x\n",
-                       i, P[i].Type, P[i].ID, P[i].TimeBinGravity, dti_from_timebin(bin_gravity)/2, P[i].Generation, P[i].Ti_kick_grav, times->Ti_kick[bin_gravity]);
-            P[i].Ti_kick_grav = times->Ti_kick[bin_gravity] + dti_from_timebin(bin_gravity)/2;
+            if(compare_two_inttime(P[i].Ti_kick_grav, times->Ti_kick[bin_gravity]))
+                endrun(4, "Particle %d (type %d, id %ld bin %d dt %x gen %d) had grav kick time %d %x not %d %x\n",
+                       i, P[i].Type, P[i].ID, P[i].TimeBinGravity, dti_from_timebin(bin_gravity)/2, P[i].Generation,
+                       P[i].Ti_kick_grav.lastsnap, P[i].Ti_kick_grav.dti, times->Ti_kick[bin_gravity].lastsnap, times->Ti_kick[bin_gravity].dti);
+            P[i].Ti_kick_grav = add_dti_and_inttime(times->Ti_kick[bin_gravity], dti_from_timebin(bin_gravity)/2);
 #endif
         }
         /* Hydro kick for hydro particles*/
         if(P[i].Type == 0 || P[i].Type == 5) {
             int bin_hydro = P[i].TimeBinHydro;
-            inttime_t dti = dti_from_timebin(bin_hydro);
-            const double dt_entr = dloga_from_dti(dti/2, times->Ti_Current);
+            dti_t dti = dti_from_timebin(bin_hydro);
+            const double dt_entr = dloga_from_dti(times->Ti_Current, add_dti_and_inttime(times->Ti_Current, dti/2));
             /*This only changes particle i, so is thread-safe.*/
             do_hydro_kick(i, dt_entr, gravkick[bin_hydro], hydrokick[bin_hydro], atime);
 #ifdef DEBUG
-            if(P[i].Ti_kick_hydro != times->Ti_kick[bin_hydro])
-                endrun(4, "Particle %d (type %d, id %ld bin %d) had hydro kick time %ld not %ld\n",
-                       i, P[i].Type, P[i].ID, P[i].TimeBinHydro, P[i].Ti_kick_hydro, times->Ti_kick[bin_hydro]);
-            P[i].Ti_kick_hydro = times->Ti_kick[bin_hydro] +  dti_from_timebin(bin_gravity)/2;
+            if(compare_two_inttime(P[i].Ti_kick_hydro, times->Ti_kick[bin_hydro]) != 0)
+                endrun(4, "Particle %d (type %d, id %ld bin %d) had hydro kick time %d %x not %d %x\n",
+                       i, P[i].Type, P[i].ID, P[i].TimeBinHydro, P[i].Ti_kick_hydro.lastsnap, P[i].Ti_kick_hydro.dti, times->Ti_kick[bin_hydro].lastsnap, times->Ti_kick[bin_hydro].dti);
+            P[i].Ti_kick_hydro = add_dti_and_inttime(times->Ti_kick[bin_hydro], dti_from_timebin(bin_gravity)/2);
 #endif
         }
     }
@@ -945,7 +970,7 @@ apply_hydro_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTime
         if(!is_timebin_active(bin, times->Ti_Current))
             continue;
         /* do the kick for half a step*/
-        inttime_t newkick = times->Ti_kick[bin] + dti_from_timebin(bin)/2;
+        inttime_t newkick = add_dti_and_inttime(times->Ti_kick[bin], dti_from_timebin(bin)/2);
         /* Compute kick factors for occupied bins*/
         gravkick[bin] = get_exact_gravkick_factor(CP, times->Ti_kick[bin], newkick);
         hydrokick[bin] = get_exact_hydrokick_factor(CP, times->Ti_kick[bin], newkick);
@@ -961,15 +986,15 @@ apply_hydro_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTime
         /* Hydro kick for hydro particles*/
         if(P[i].Type == 0 || P[i].Type == 5) {
             int bin_hydro = P[i].TimeBinHydro;
-            inttime_t dti = dti_from_timebin(bin_hydro);
-            const double dt_entr = dloga_from_dti(dti/2, times->Ti_Current);
+            dti_t dti = dti_from_timebin(bin_hydro);
+            const double dt_entr = dloga_from_dti(times->Ti_Current, add_dti_and_inttime(times->Ti_Current, dti/2));
             /*This only changes particle i, so is thread-safe.*/
             do_hydro_kick(i, dt_entr, gravkick[bin_hydro], hydrokick[bin_hydro], atime);
 #ifdef DEBUG
-            if(P[i].Ti_kick_hydro != times->Ti_kick[bin_hydro])
+            if(compare_two_inttime(P[i].Ti_kick_hydro, times->Ti_kick[bin_hydro]) !=0)
                 endrun(4, "Particle %d (type %d, id %ld bin %d) had hydro kick time %ld not %ld\n",
                        i, P[i].Type, P[i].ID, P[i].TimeBinHydro, P[i].Ti_kick_hydro, times->Ti_kick[bin_hydro]);
-            P[i].Ti_kick_hydro = times->Ti_kick[bin_hydro] + dti_from_timebin(bin_hydro)/2;
+            P[i].Ti_kick_hydro = add_dti_and_inttime(P[i].Ti_kick_hydro, dti_from_timebin(bin_hydro)/2);
 #endif
         }
     }
@@ -980,7 +1005,13 @@ apply_PM_half_kick(Cosmology * CP, DriftKickTimes * times)
 {
     /*Always do a PM half-kick, because this should be called just after a PM step*/
     const inttime_t tistart = times->PM_kick;
-    const inttime_t tiend =  tistart + times->PM_length / 2;
+
+    dti_t dti = (times->PM_end.dti - times->PM_start.dti) / 2;
+    if (times->PM_end.lastsnap > times->PM_start.lastsnap)
+        dti += TIMEBASE;
+
+    const inttime_t tiend =  add_dti_and_inttime(tistart, dti);
+    message(0, "PM end %d %x start %d %x dti %x tiend %d %x\n", times->PM_end.lastsnap, times->PM_end.dti, times->PM_start.lastsnap, times->PM_start.dti, dti, tiend.lastsnap, tiend.dti);
     /* Do long-range kick */
     int i;
     const double Fgravkick = get_exact_gravkick_factor(CP, tistart, tiend);
@@ -1151,47 +1182,20 @@ get_timestep_dynfric_dloga(const int p, const double atime, const double hubble)
     return dloga;
 }
 
-/*! This function returns the maximum allowed timestep of a particle, expressed in
- *  terms of the integer mapping that is used to represent the total simulated timespan.
- *  Arguments:
- *  dloga -> timestep in dloga units
- *  p -> particle index
- *  dti_max -> maximal timestep.
- *  Ti_Current -> current integer timeline
- *  titype -> type of timestep limit that was used for debugging. */
-static inttime_t
-convert_timestep_to_ti(double dloga, const int p, const inttime_t dti_max, const inttime_t Ti_Current, enum TimeStepType titype)
-{
-    inttime_t dti;
-    /*Give a useful message if we are broken*/
-    if(dti_max == 0)
-        return 0;
-
-    if(dloga < TimestepParams.MinSizeTimestep)
-        dloga = TimestepParams.MinSizeTimestep;
-
-    dti = dti_from_dloga(dloga, Ti_Current);
-
-    /* Check for overflow*/
-    if(dti > dti_max || dti < 0)
-        dti = dti_max;
-
-    return dti;
-}
 static void
-print_bad_timebin(const double dloga, const inttime_t dti, const int p, const inttime_t dti_max, enum TimeStepType titype)
+print_bad_timebin(const double dloga, const int tbin, const int p, const dti_t dti_max, enum TimeStepType titype)
 {
     if(P[p].Type == 0)
-        message(1, "Bad timestep (%x)! titype %d. ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g) hydro-frc=(%g|%g|%g) dens=%g hsml=%g dh = %g Entropy=%g, dtEntropy=%g maxsignal=%g\n",
-            dti, titype, P[p].ID, P[p].Type, dloga, dti_max,
+        message(1, "Bad timestep (%d)! titype %d. ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g) hydro-frc=(%g|%g|%g) dens=%g hsml=%g dh = %g Entropy=%g, dtEntropy=%g maxsignal=%g\n",
+            tbin, titype, P[p].ID, P[p].Type, dloga, dti_max,
             P[p].Pos[0], P[p].Pos[1], P[p].Pos[2],
             P[p].FullTreeGravAccel[0], P[p].FullTreeGravAccel[1], P[p].FullTreeGravAccel[2],
             P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2],
             SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1], SPHP(p).HydroAccel[2],
             SPHP(p).Density, P[p].Hsml, P[p].DtHsml, SPHP(p).Entropy, SPHP(p).DtEntropy, SPHP(p).MaxSignalVel);
     else
-        message(1, "Bad timestep (%x)! titype %d. ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g)\n",
-            dti, titype, P[p].ID, P[p].Type, dloga, dti_max,
+        message(1, "Bad timestep (%d)! titype %d. ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g)\n",
+            tbin, titype, P[p].ID, P[p].Type, dloga, dti_max,
             P[p].Pos[0], P[p].Pos[1], P[p].Pos[2],
             P[p].FullTreeGravAccel[0], P[p].FullTreeGravAccel[1], P[p].FullTreeGravAccel[2],
             P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2]
@@ -1287,28 +1291,7 @@ get_long_range_timestep_dloga(const double atime, const Cosmology * CP, const in
     return dloga;
 }
 
-/* backward compatibility with the old loop. */
-inttime_t
-get_PM_timestep_ti(const DriftKickTimes * const times, const double atime, const Cosmology * CP, const int FastParticleType, const double asmth)
-{
-    double dloga = get_long_range_timestep_dloga(atime, CP, FastParticleType, asmth);
-
-    inttime_t dti = dti_from_dloga(dloga, times->Ti_Current);
-    dti = round_down_power_of_two(dti);
-
-    SyncPoint * next = find_next_sync_point(times->Ti_Current);
-    if(next == NULL)
-        endrun(0, "Trying to go beyond the last sync point. This happens only at TimeMax \n");
-
-    /* go no more than the next sync point */
-    inttime_t dti_max = next->ti - times->PM_kick;
-
-    if(dti > dti_max)
-        dti = dti_max;
-    return dti;
-}
-
-int get_timestep_bin(inttime_t dti)
+int get_timestep_bin(dti_t dti)
 {
    int bin = -1;
 
@@ -1324,6 +1307,19 @@ int get_timestep_bin(inttime_t dti)
    return bin;
 }
 
+/* Get the current PM (global) timestep.*/
+dti_t
+get_PM_timestep_ti(const DriftKickTimes * const times, const double atime, const Cosmology * CP, const int FastParticleType, const double asmth)
+{
+    double dloga = get_long_range_timestep_dloga(atime, CP, FastParticleType, asmth);
+
+    /* Maximum value here is TIMEBASE, hence the next syncpoint*/
+    dti_t dti = dti_from_dloga(dloga, times->Ti_Current);
+    dti = round_down_power_of_two(dti);
+    return dti;
+}
+
+
 /*! This function finds the next synchronization point of the system
  * (i.e. the earliest point of time any of the particles needs a force
  * computation), and drifts the system to this point of time.  If the
@@ -1334,7 +1330,7 @@ int get_timestep_bin(inttime_t dti)
 inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin)
 {
     /* Current value plus the increment for the smallest active bin. */
-    return Ti_Current + dti_from_timebin(minTimeBin);
+    return add_dti_and_inttime(Ti_Current, dti_from_timebin(minTimeBin));
 }
 
 static void print_timebin_statistics(const DriftKickTimes * const times, const int NumCurrentTiStep, int * TimeBinCountType, const double Time, const int64_t ActiveGravityCount);
@@ -1386,8 +1382,9 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
         if(P[i].IsGarbage || P[i].Swallowed)
             continue;
         /* when we are in PM, all particles must have been synced. */
-        if (P[i].Ti_drift != times->Ti_Current) {
-            endrun(5, "Particle %d type %d has drift time %x not ti_current %x!",i, P[i].Type, P[i].Ti_drift, times->Ti_Current);
+        if (compare_two_inttime(P[i].Ti_drift, times->Ti_Current) != 0) {
+            endrun(5, "Particle %d type %d has drift time %d %x not ti_current %d %x!",i,
+                   P[i].Type, P[i].Ti_drift.lastsnap, P[i].Ti_drift.dti, times->Ti_Current.lastsnap, times->Ti_Current.dti);
         }
         /* For now build active particles with either hydro or gravity active*/
         int hydro_particle = P[i].Type == 0 || P[i].Type == 5;

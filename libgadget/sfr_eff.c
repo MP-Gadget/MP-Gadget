@@ -464,7 +464,7 @@ cooling_direct(int i, const double redshift, const double a3inv, const double hu
     zreion = SPHP(i).zreion;
 #endif
     struct UVBG uvbg = get_local_UVBG(redshift, GlobalUVBG, P[i].Pos, PartManager->CurrentParticleOffset, localJ21, zreion);
-    double lasttime = exp(loga_from_ti(P[i].Ti_drift - dti_from_timebin(P[i].TimeBinHydro)));
+    double lasttime = exp(loga_from_ti(add_dti_and_inttime(P[i].Ti_drift, dti_from_timebin(P[i].TimeBinHydro))));
     double lastred = 1/lasttime - 1;
     double unew;
     /* The particle reionized this timestep, bump the temperature to the HI reionization temperature.

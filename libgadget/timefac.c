@@ -46,7 +46,7 @@ static double hydrokick_integ(double a, void *param)
 static double get_exact_factor(Cosmology * CP, inttime_t t0, inttime_t t1, double (*factor) (double, void *))
 {
     double result, abserr;
-    if(t0 == t1)
+    if(compare_two_inttime(t0, t1) == 0)
         return 0;
     double a0 = exp(loga_from_ti(t0));
     double a1 = exp(loga_from_ti(t1));

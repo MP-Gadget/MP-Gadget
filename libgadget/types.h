@@ -5,7 +5,13 @@
 
 /*Define some useful types*/
 
-typedef int32_t inttime_t;
+typedef int32_t dti_t;
+
+typedef struct inttime_t
+{
+    dti_t dti;
+    unsigned int lastsnap;
+} inttime_t;
 
 typedef uint64_t MyIDType;
 

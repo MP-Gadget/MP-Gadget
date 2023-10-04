@@ -211,8 +211,9 @@ static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int di
 
     /* Twice so the opening angle is consistent*/
     ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
-    grav_short_tree(&act, &pm, &Tree, NULL, rho0, 0);
-    grav_short_tree(&act, &pm, &Tree, NULL, rho0, 0);
+    inttime_t ti = {0};
+    grav_short_tree(&act, &pm, &Tree, NULL, rho0, ti);
+    grav_short_tree(&act, &pm, &Tree, NULL, rho0, ti);
 
     force_tree_free(&Tree);
     petapm_destroy(&pm);

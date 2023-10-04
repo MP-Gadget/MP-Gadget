@@ -92,7 +92,7 @@ void drift_all_particles(inttime_t ti0, inttime_t ti1, Cosmology * CP, const dou
 {
     int i;
     walltime_measure("/Misc");
-    if(ti1 < ti0) {
+    if(compare_two_inttime(ti1, ti0) < 0) {
         endrun(12, "Trying to reverse time: ti0=%d ti1=%d\n", ti0, ti1);
     }
     const double ddrift = get_exact_drift_factor(CP, ti0, ti1);
@@ -100,7 +100,7 @@ void drift_all_particles(inttime_t ti0, inttime_t ti1, Cosmology * CP, const dou
 #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++) {
 #ifdef DEBUG
-        if(PartManager->Base[i].Ti_drift != ti0)
+        if(compare_two_inttime(PartManager->Base[i].Ti_drift, ti0) != 0)
             endrun(10, "Drift time mismatch: (ids = %ld %ld) %d != %d\n",PartManager->Base[0].ID, PartManager->Base[i].ID, ti0,  PartManager->Base[i].Ti_drift);
 #endif
         real_drift_particle(&PartManager->Base[i], SlotsManager, ddrift, PartManager->BoxSize, random_shift);

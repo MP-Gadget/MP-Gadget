@@ -286,17 +286,13 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
 }
 
 /*! this function returns the next output time that is in the future of
- *  ti_curr; if none is find it return NULL, indication the run shall terminate.
+ *  ti_curr; if none is found it returns NULL, indicating the run shall terminate.
  */
 SyncPoint *
 find_next_sync_point(inttime_t ti)
 {
-    int i;
-    for(i = 0; i < NSyncPoints; i ++) {
-        if(SyncPoints[i].ti > ti) {
-            return &SyncPoints[i];
-        }
-    }
+    if(ti.lastsnap < NSyncPoints-1)
+        return &SyncPoints[ti.lastsnap+1];
     return NULL;
 }
 
@@ -305,105 +301,108 @@ find_next_sync_point(inttime_t ti)
 SyncPoint *
 find_current_sync_point(inttime_t ti)
 {
-    int i;
-    for(i = 0; i < NSyncPoints; i ++) {
-        if(SyncPoints[i].ti == ti) {
-            return &SyncPoints[i];
-        }
+    /* The dti subdivides the range between the current syncpoints.
+     * The full stretch is then TIMEBASE. */
+    if(ti.dti == 0 && ti.lastsnap < NSyncPoints) {
+        return &SyncPoints[ti.lastsnap];
     }
     return NULL;
 }
-
-/* Each integer time stores in the first 10 bits the snapshot number.
- * Then the rest of the bits are the standard integer timeline,
- * which should be a power-of-two hierarchy. We use this bit trick to speed up
- * the dloga look up. But the additional math makes this quite fragile. */
 
 /*Gets Dloga / ti for the current integer timeline.
  * Valid up to the next snapshot, after which it will change*/
 static double
 Dloga_interval_ti(inttime_t ti)
 {
-    /* FIXME: This uses the bit tricks because it has to be fast
-     * -- till we clean up the calls to loga_from_ti; then we can avoid bit tricks. */
-
-    inttime_t lastsnap = ti >> TIMEBINS;
-
-    if(lastsnap >= NSyncPoints - 1) {
-        /* stop advancing loga after the last sync point. */
+    if(ti.lastsnap >= NSyncPoints-1)
         return 0;
-    }
-    double lastoutput = SyncPoints[lastsnap].loga;
-    return (SyncPoints[lastsnap+1].loga - lastoutput)/TIMEBASE;
+    return SyncPoints[ti.lastsnap+1].loga - SyncPoints[ti.lastsnap].loga;
 }
 
 double
 loga_from_ti(inttime_t ti)
 {
-    inttime_t lastsnap = ti >> TIMEBINS;
-    if(lastsnap > NSyncPoints) {
-        endrun(1, "Requesting snap %d, from ti %d, beyond last sync point %d\n", lastsnap, ti, NSyncPoints);
-    }
-    double last = SyncPoints[lastsnap].loga;
-    inttime_t dti = ti & (TIMEBASE - 1);
-    double logDTime = Dloga_interval_ti(ti);
-    return last + dti * logDTime;
+    if(ti.lastsnap >= NSyncPoints)
+        return SyncPoints[NSyncPoints-1].loga;
+
+    double last = SyncPoints[ti.lastsnap].loga;
+    double logDTime = Dloga_interval_ti(ti)/TIMEBASE;
+    return last + ti.dti * logDTime;
 }
 
 inttime_t
 ti_from_loga(double loga)
 {
-    inttime_t i, ti;
-    /* First syncpoint is simulation start*/
-    for(i = 1; i < NSyncPoints - 1; i++)
-    {
-        if(SyncPoints[i].loga > loga)
-            break;
+    inttime_t ti;
+    if(loga >= SyncPoints[NSyncPoints-1].loga) {
+        ti.lastsnap = NSyncPoints-1;
+        ti.dti = 0;
+        return ti;
     }
-    /*If loop didn't trigger, i == All.NSyncPointTimes-1*/
-    double logDTime = (SyncPoints[i].loga - SyncPoints[i-1].loga)/TIMEBASE;
-    ti = (i-1) << TIMEBINS;
-    /* Note this means if we overrun the end of the timeline,
-     * we still get something reasonable*/
-    ti += (loga - SyncPoints[i-1].loga)/logDTime;
+
+    ti.lastsnap = NSyncPoints - 2;
+    ti.dti = 0;
+
+    size_t i;
+    /* First syncpoint is simulation start*/
+    for(i = 1; i < NSyncPoints; i++)
+    {
+        if(SyncPoints[i].loga > loga) {
+            ti.lastsnap = i-1;
+            break;
+        }
+    }
+    const double lastloga = SyncPoints[ti.lastsnap].loga;
+    double logDTime = (SyncPoints[ti.lastsnap+1].loga - lastloga)/TIMEBASE;
+    ti.dti = (loga-lastloga)/logDTime;
     return ti;
 }
 
-double
-dloga_from_dti(inttime_t dti, const inttime_t Ti_Current)
+inttime_t
+add_dti_and_inttime(inttime_t start, dti_t diff)
 {
-    double Dloga = Dloga_interval_ti(Ti_Current);
-    int sign = 1;
-    if(dti < 0) {
-        dti = -dti;
-        sign = -1;
-    }
-    if((uint64_t) dti > TIMEBASE) {
-        endrun(1, "Requesting dti %d larger than TIMEBASE %u\n", sign*dti, TIMEBASE);
-    }
-    return Dloga * dti * sign;
+    /* We need to take care to increment the syncpoint counter*/
+    int64_t sum = start.dti;
+    sum += diff;
+    int64_t snap = sum / (int64_t) TIMEBASE;
+    start.lastsnap += snap;
+    start.dti = sum % TIMEBASE;
+    return start;
+}
+double
+dloga_from_dti(inttime_t start, inttime_t end)
+{
+    double startloga = loga_from_ti(start);
+    double endloga = loga_from_ti(end);
+    return endloga - startloga;
 }
 
-inttime_t
+dti_t
 dti_from_dloga(double loga, const inttime_t Ti_Current)
 {
-    inttime_t ti = ti_from_loga(loga_from_ti(Ti_Current));
-    inttime_t tip = ti_from_loga(loga+loga_from_ti(Ti_Current));
-    return tip - ti;
+    if(Ti_Current.lastsnap >= NSyncPoints)
+        return SyncPoints[NSyncPoints-1].loga;
+
+    double logDTime = Dloga_interval_ti(Ti_Current);
+    /* Cap the dti*/
+    if(loga / logDTime >= 1)
+        return TIMEBASE;
+    /* Default case, return fraction of current syncpoint split as fraction of TIMEBASE*/
+    return loga / logDTime * TIMEBASE;
 }
 
 double
 get_dloga_for_bin(int timebin, const inttime_t Ti_Current)
 {
     double logDTime = Dloga_interval_ti(Ti_Current);
-    return dti_from_timebin(timebin) * logDTime;
+    return dti_from_timebin(timebin) * logDTime / TIMEBASE;
 }
 
-inttime_t
-round_down_power_of_two(inttime_t dti)
+dti_t
+round_down_power_of_two(dti_t dti)
 {
     /* make dti a power 2 subdivision */
-    inttime_t ti_min = TIMEBASE;
+    dti_t ti_min = TIMEBASE;
     int sign = 1;
     if(dti < 0) {
         dti = -dti;

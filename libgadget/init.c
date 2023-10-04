@@ -72,9 +72,9 @@ void init_timeline(Cosmology * CP, int RestartSnapNum, double TimeMax, const str
         /* If TimeInit is not in a sensible place on the integer timeline
          * (can happen if the outputs changed since it was written)
          * start the integer timeline anew from TimeInit */
-        inttime_t ti_init = ti_from_loga(log(header->TimeSnapshot)) % TIMEBASE;
-        if(round_down_power_of_two(ti_init) != ti_init) {
-            message(0,"Resetting integer timeline (as %x != %x) to current snapshot\n",ti_init, round_down_power_of_two(ti_init));
+        inttime_t ti_init = ti_from_loga(log(header->TimeSnapshot));
+        if(round_down_power_of_two(ti_init.dti) != ti_init.dti) {
+            message(0,"Resetting integer timeline (as %x != %x) to current snapshot\n",ti_init.dti, round_down_power_of_two(ti_init.dti));
             setup_sync_points(CP, header->TimeSnapshot, TimeMax, header->TimeSnapshot, SnapshotWithFOF);
         }
     }

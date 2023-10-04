@@ -12,6 +12,7 @@
 
 #include "stub.h"
 #include <libgadget/timefac.h>
+#include <libgadget/timebinmgr.h>
 
 #define AMIN 0.005
 #define AMAX 1.0
@@ -48,17 +49,9 @@ double fac_integ(double a, void *param)
 }
 
 /*Get integer from real time*/
-double loga_from_ti(inttime_t ti)
-{
-    double logDTime = (log(AMAX) - log(AMIN)) / (1 << LTIMEBINS);
-    return log(AMIN) + ti * logDTime;
-}
-
-/*Get integer from real time*/
 static inline inttime_t get_ti(double aa)
 {
-    double logDTime = (log(AMAX) - log(AMIN)) / (1 << LTIMEBINS);
-    return (log(aa) - log(AMIN))/logDTime;
+    return ti_from_loga(log(aa));
 }
 
 double exact_drift_factor(Cosmology * CP, double a1, double a2, int exp)
@@ -82,6 +75,8 @@ void test_drift_factor(void ** state)
     CP.Omega0 = 1.;
     /* Check default scaling: for total matter domination
      * we should have a drift factor like 1/sqrt(a)*/
+    setup_sync_points(&CP, AMIN, AMAX, 0.0, 0);
+
     assert_true(fabs(get_exact_drift_factor(&CP, get_ti(0.8), get_ti(0.85)) + 2/0.1*(1/sqrt(0.85) - 1/sqrt(0.8))) < 5e-5);
     /*Test the kick table*/
     assert_true(fabs(get_exact_gravkick_factor(&CP, get_ti(0.8), get_ti(0.85)) - 2/0.1*(sqrt(0.85) - sqrt(0.8))) < 5e-5);
@@ -94,9 +89,7 @@ void test_drift_factor(void ** state)
     assert_true(fabs(get_exact_drift_factor(&CP, get_ti(0.95), get_ti(0.98)) - exact_drift_factor(&CP, 0.95, 0.98,3)) < 5e-5);
     assert_true(fabs(get_exact_drift_factor(&CP, get_ti(0.05), get_ti(0.06)) - exact_drift_factor(&CP, 0.05, 0.06,3)) < 5e-5);
     /*Check boundary conditions*/
-    double logDtime = (log(AMAX)-log(AMIN))/(1<<LTIMEBINS);
-    assert_true(fabs(get_exact_drift_factor(&CP, ((1<<LTIMEBINS)-1), 1<<LTIMEBINS) - exact_drift_factor(&CP, AMAX-logDtime, AMAX,3)) < 5e-5);
-    assert_true(fabs(get_exact_drift_factor(&CP, 0, 1) - exact_drift_factor(&CP, 1.0 - exp(log(AMAX)-log(AMIN))/(1<<LTIMEBINS), 1.0,3)) < 5e-5);
+    assert_true(fabs(get_exact_drift_factor(&CP, get_ti(AMIN), get_ti(AMAX)) - exact_drift_factor(&CP, AMIN, AMAX,3)) < 5e-5);
     /*Gravkick*/
     assert_true(fabs(get_exact_gravkick_factor(&CP, get_ti(0.8), get_ti(0.85)) - exact_drift_factor(&CP, 0.8, 0.85, 2)) < 5e-5);
     assert_true(fabs(get_exact_gravkick_factor(&CP, get_ti(0.05), get_ti(0.06)) - exact_drift_factor(&CP, 0.05, 0.06, 2)) < 5e-5);

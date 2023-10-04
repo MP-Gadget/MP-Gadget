@@ -16,7 +16,6 @@
 double outs[4] = {TIMEIC, 0.2, 0.8, TIMEMAX};
 double logouts[4];
 
-/*timebinmgr has no state*/
 /*First test conversions between float and integer timelines*/
 static void test_conversions(void ** state) {
 
@@ -24,49 +23,49 @@ static void test_conversions(void ** state) {
     setup_sync_points(NULL, TIMEIC, TIMEMAX, 0.0, 0);
 
     /*Convert an integer to and from loga*/
+    inttime_t ti = {0};
     /* double loga_from_ti(unsigned int ti); */
-    assert_true(fabs(loga_from_ti(0) - logouts[0]) < 1e-6);
-    assert_true(fabs(loga_from_ti(TIMEBASE) - logouts[1]) < 1e-6);
-    assert_true(fabs(loga_from_ti(TIMEBASE-1) - (logouts[0] + (logouts[1]-logouts[0])*(TIMEBASE-1)/TIMEBASE)) < 1e-6);
-    assert_true(fabs(loga_from_ti(TIMEBASE+1) - (logouts[1] + (logouts[2]-logouts[1])/TIMEBASE)) < 1e-6);
-    assert_true(fabs(loga_from_ti(2*TIMEBASE) - logouts[2]) < 1e-6);
+    assert_true(fabs(loga_from_ti(ti) - logouts[0]) < 1e-6);
+    assert_true(fabs(loga_from_ti(add_dti_and_inttime(ti, TIMEBASE)) - logouts[1]) < 1e-6);
+    assert_true(fabs(loga_from_ti(add_dti_and_inttime(ti, TIMEBASE-1)) - (logouts[0] + (logouts[1]-logouts[0])*(TIMEBASE-1)/TIMEBASE)) < 1e-6);
+    assert_true(fabs(loga_from_ti(add_dti_and_inttime(ti, TIMEBASE+1)) - (logouts[1] + (logouts[2]-logouts[1])/TIMEBASE)) < 1e-6);
+    assert_true(fabs(loga_from_ti(add_dti_and_inttime(add_dti_and_inttime(ti, TIMEBASE), TIMEBASE)) - logouts[2]) < 1e-6);
     /* unsigned int ti_from_loga(double loga); */
-    assert_true(ti_from_loga(logouts[0]) == 0);
-    assert_true(ti_from_loga(logouts[1]) == TIMEBASE);
-    assert_true(ti_from_loga(logouts[2]) == 2*TIMEBASE);
-    double midpt = (logouts[2] + logouts[1])/2;
-    assert_true(ti_from_loga(midpt) == TIMEBASE+TIMEBASE/2);
-    assert_true(fabs(loga_from_ti(TIMEBASE+TIMEBASE/2)-midpt)< 1e-6);
+    assert_true(compare_two_inttime(ti_from_loga(logouts[0]), ti) == 0);
+    assert_true(compare_two_inttime(ti_from_loga(logouts[1]), add_dti_and_inttime(ti, TIMEBASE)) == 0);
+    double midpt = (logouts[1] + logouts[0])/2;
+    assert_true(compare_two_inttime(ti_from_loga(midpt), add_dti_and_inttime(ti, TIMEBASE/2)) == 0);
+    assert_true(fabs(loga_from_ti(add_dti_and_inttime(ti, TIMEBASE/2))-midpt)< 1e-6);
 
     /*Check behaviour past end*/
-    assert_true(ti_from_loga(0) == 3*TIMEBASE);
     assert_true(fabs(loga_from_ti(ti_from_loga(log(0.1))) - log(0.1)) < 1e-6);
 
     /*! this function returns the next output time after ti_curr.*/
-    assert_int_equal(find_next_sync_point(0)->ti , TIMEBASE);
-    assert_int_equal(find_next_sync_point(TIMEBASE)->ti , 2 * TIMEBASE);
-    assert_int_equal(find_next_sync_point(TIMEBASE-1)->ti , TIMEBASE);
-    assert_int_equal(find_next_sync_point(TIMEBASE+1)->ti , 2*TIMEBASE);
-    assert_int_equal(find_next_sync_point(4 * TIMEBASE) , NULL);
+    assert_false(find_next_sync_point(ti)->loga - logouts[1]);
+    assert_false(find_next_sync_point(add_dti_and_inttime(ti, TIMEBASE))->loga - logouts[2]);
+    assert_false(find_next_sync_point(add_dti_and_inttime(ti, TIMEBASE-1))->loga -  logouts[1]);
+    assert_false(find_next_sync_point(add_dti_and_inttime(ti, TIMEBASE+1))->loga - logouts[2]);
+    inttime_t ti_end = {0};
+    ti_end.lastsnap = 4;
+    /* Should be NULL*/
+    assert_false(find_next_sync_point(ti_end));
 
-    assert_int_equal(find_current_sync_point(0)->ti , 0);
-    assert_int_equal(find_current_sync_point(TIMEBASE)->ti , TIMEBASE);
-    assert_int_equal(find_current_sync_point(-1) , NULL);
-    assert_int_equal(find_current_sync_point(TIMEBASE-1) , NULL);
+    assert_false(find_current_sync_point(ti)->loga - logouts[0]);
+    assert_false(find_current_sync_point(add_dti_and_inttime(ti, TIMEBASE))->loga - logouts[1]);
+    assert_false(find_current_sync_point(add_dti_and_inttime(ti, TIMEBASE-1)));
+    assert_false(find_current_sync_point(add_dti_and_inttime(ti, TIMEBASE+1)));
 
-    assert_int_equal(find_current_sync_point(0)->write_snapshot, 1);
-    assert_int_equal(find_current_sync_point(TIMEBASE)->write_snapshot, 1);
-    assert_int_equal(find_current_sync_point(2 * TIMEBASE)->write_snapshot, 1);
-    assert_int_equal(find_current_sync_point(3 * TIMEBASE)->write_snapshot, 1);
+    assert_int_equal(find_current_sync_point(ti)->write_snapshot, 1);
 }
 
 static void test_skip_first(void ** state) {
 
     setup_sync_points(NULL, TIMEIC, TIMEMAX, TIMEIC, 0);
-    assert_int_equal(find_current_sync_point(0)->write_snapshot, 0);
+    inttime_t ti = {0};
+    assert_int_equal(find_current_sync_point(ti)->write_snapshot, 0);
 
     setup_sync_points(NULL, TIMEIC, TIMEMAX, 0.0, 0);
-    assert_int_equal(find_current_sync_point(0)->write_snapshot, 1);
+    assert_int_equal(find_current_sync_point(ti)->write_snapshot, 1);
 }
 
 static void test_dloga(void ** state) {

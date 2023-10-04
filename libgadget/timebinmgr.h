@@ -10,9 +10,10 @@
  *   Note that because each snapshot uses TIMEBASE on the integer timeline, the conversion
  *   factor between loga and ti is not constant across snapshots.
  */
-#define TIMEBINS 20
-#define TIMEBASE (1u<<TIMEBINS)
-#define MAXSNAPSHOTS (1u<<(30-TIMEBINS))
+#define TIMEBINS 30
+#define TIMEBASE (1<<TIMEBINS)
+/* Now sync point is a 32 bit number*/
+#define MAXSNAPSHOTS (1Lu<<30)
 
 #include "types.h"
 #include "utils/paramset.h"
@@ -27,7 +28,6 @@ struct SyncPoint
     int write_snapshot;
     int write_fof;
     int calc_uvbg;  //! Calculate the UV background
-    inttime_t ti;
 };
 
 
@@ -35,15 +35,34 @@ struct SyncPoint
 double loga_from_ti(inttime_t ti);
 inttime_t ti_from_loga(double loga);
 
-/*Convert changes in loga to and from ti*/
-inttime_t dti_from_dloga(double loga, const inttime_t Ti_Current);
-double dloga_from_dti(inttime_t dti, const inttime_t Ti_Current);
+/*Convert changes in loga to and from ti. Largest possible value returned is TIMEBASE.*/
+dti_t dti_from_dloga(double loga, const inttime_t Ti_Current);
+/* Find dloga from inttime start to inttime end*/
+double dloga_from_dti(const inttime_t start, const inttime_t end);
+
+/* Move forward or backwards on an integer timeline.
+ * If dti reaches TIMEBASE, increment to the next syncpoint and reset dti to 0.
+ * If dti reaches 0, decrement to the next syncpoint and reset dti to TIMEBASE.*/
+inttime_t add_dti_and_inttime(inttime_t start, dti_t diff);
+/* Compare two integer times. Returns +1 if a > b, 0 if a == b, -1 if a < b, like a sorting function*/
+static inline int compare_two_inttime(inttime_t a, inttime_t b)
+{
+    if(a.lastsnap > b.lastsnap)
+        return 1;
+    if(a.lastsnap < b.lastsnap)
+        return -1;
+    if(a.dti > b.dti)
+        return 1;
+    if(a.dti < b.dti)
+        return -1;
+    return 0;
+}
 
 /*Get dloga from a timebin*/
 double get_dloga_for_bin(int timebin, const inttime_t Ti_Current);
 
 /*Get the dti from the timebin*/
-static inline inttime_t dti_from_timebin(int bin) {
+static inline dti_t dti_from_timebin(int bin) {
     /*Casts to work around bug in intel compiler 18.0*/
     return bin > 0 ? (1u << (unsigned) bin) : 0;
 }
@@ -52,7 +71,7 @@ static inline inttime_t dti_from_timebin(int bin) {
  * of two subdivision of TIMEBASE, rounding down
  * to the first power of two less than the ti passed in.
  * Note TIMEBASE is the maximum value returned.*/
-inttime_t round_down_power_of_two(inttime_t ti);
+dti_t round_down_power_of_two(dti_t ti);
 
 /*! this function returns the next output time after ti_curr.*/
 inttime_t find_next_outputtime(inttime_t ti_curr);
