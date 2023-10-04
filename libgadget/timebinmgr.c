@@ -10,10 +10,10 @@
 
 /*! table with desired sync points. All forces and phase space variables are synchonized to the same order. */
 static SyncPoint * SyncPoints;
-static int NSyncPoints;    /* number of times stored in table of desired sync points */
+static size_t NSyncPoints;    /* number of times stored in table of desired sync points */
 static struct sync_params
 {
-    int OutputListLength;
+    size_t OutputListLength;
     double OutputListTimes[1024];
 
     int ExcursionSetReionOn;
@@ -42,7 +42,7 @@ int OutputListAction(ParameterSet* ps, const char* name, void* data)
     char * outputlist = param_get_string(ps, name);
     char * strtmp = fastpm_strdup(outputlist);
     char * token;
-    int count;
+    size_t count;
 
     /* Note TimeInit and TimeMax not yet initialised here*/
 
@@ -53,8 +53,8 @@ int OutputListAction(ParameterSet* ps, const char* name, void* data)
 
     /*Allocate enough memory*/
     Sync.OutputListLength = count;
-    int maxcount = sizeof(Sync.OutputListTimes) / sizeof(Sync.OutputListTimes[0]);
-    if(maxcount > (int) MAXSNAPSHOTS)
+    size_t maxcount = sizeof(Sync.OutputListTimes) / sizeof(Sync.OutputListTimes[0]);
+    if(maxcount > MAXSNAPSHOTS)
         maxcount = MAXSNAPSHOTS;
     if(Sync.OutputListLength > maxcount) {
         message(1, "Too many entries (%d) in the OutputList, can take no more than %d.\n", Sync.OutputListLength, maxcount);
@@ -159,14 +159,14 @@ void set_sync_params_test(int OutputListLength, double * OutputListTimes)
 void
 setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snapshot_until_time, int SnapshotWithFOF)
 {
-    int i;
+    size_t i;
 
     qsort_openmp(Sync.OutputListTimes, Sync.OutputListLength, sizeof(double), cmp_double);
 
     if(NSyncPoints > 0)
         myfree(SyncPoints);
 
-    int NSyncPointsAlloc = Sync.OutputListLength + 2;
+    size_t NSyncPointsAlloc = Sync.OutputListLength + 2;
 
     /* Excursion set sync points ensure that the reionization excursion set model is run frequently*/
     const double ExcursionSet_delta_a = 0.0001;
@@ -208,7 +208,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
             SyncPoints[NSyncPoints].write_fof = 0;
             SyncPoints[NSyncPoints].calc_uvbg = 1;
             NSyncPoints++;
-            if(NSyncPoints > NSyncPointsAlloc)
+            if((size_t) NSyncPoints > NSyncPointsAlloc)
                 endrun(1, "Tried to generate %d syncpoints, %d allocated\n", NSyncPoints, NSyncPointsAlloc);
             //message(0,"added UVBG syncpoint at a = %.3f z = %.3f, Nsync = %d\n",uv_a,1/uv_a - 1,NSyncPoints);
             // TODO(smutch): OK - this is ridiculous (sorry!), but I just wanted to quickly hack something...
@@ -233,7 +233,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
 
     /* we do an insertion sort here. A heap is faster but who cares the speed for this? */
     for(i = 0; i < Sync.OutputListLength; i ++) {
-        int j = 0;
+        size_t j = 0;
         double a = Sync.OutputListTimes[i];
         double loga = log(a);
 
@@ -276,9 +276,6 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
         }
     }
 
-    for(i = 0; i < NSyncPoints; i++) {
-        SyncPoints[i].ti = (i * 1L) << (TIMEBINS);
-    }
     if(NSyncPoints > NSyncPointsAlloc)
         endrun(1, "Tried to generate %d syncpoints, %d allocated\n", NSyncPoints, NSyncPointsAlloc);
 

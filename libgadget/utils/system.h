@@ -34,7 +34,7 @@ double get_physmem_bytes(void);
 /* Gets a random number in the range [0, 1). Only the low bits of the id are used,
  * and random deviates are drawn from a pre-seeded table so that they are independent of processor.*/
 double get_random_number(uint64_t id);
-void set_random_numbers(int seed);
+void set_random_numbers(uint64_t seed);
 void sumup_large_ints(int n, int *src, int64_t *res);
 void sumup_longs(int n, int64_t *src, int64_t *res);
 int64_t count_sum(int64_t countLocal);

@@ -62,7 +62,7 @@ double get_random_number(uint64_t id)
     return RndTable[(int)(id % RNDTABLE)];
 }
 
-void set_random_numbers(int seed)
+void set_random_numbers(uint64_t seed)
 {
     gsl_rng * random_generator = gsl_rng_alloc(gsl_rng_ranlxd1);
 
