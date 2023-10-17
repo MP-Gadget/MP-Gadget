@@ -100,7 +100,7 @@ static struct run_params
 
     int SnapshotWithFOF; /*Flag that doing FOF for snapshot outputs is on*/
 
-    int RandomSeed; /*Initial seed for the random number table*/
+    uint64_t RandomSeed; /*Initial seed for the random number table*/
 
     int ExcursionSetReionOn; /*Flag for enabling the excursion set reionisation model*/
     int UVBGdim; /*Dimension of excursion set grids*/
