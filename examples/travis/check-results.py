@@ -35,7 +35,8 @@ def test_power(output, transfer, IC=False):
     """Check the initial power against linear theory and a linearly grown IC power"""
     print('testing', output)
     pkcdm, pkb, z, box, omegab, omega0 = compute_power(output)
-    box = box[0]
+    if type(box) == list or type(box) == np.ndarray:
+        box = box[0]
     #Check types have the same power
     fig = Figure()
     canvas = FigureCanvasAgg(fig)
