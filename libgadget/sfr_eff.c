@@ -405,7 +405,7 @@ sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTr
          * so we need to move them out of the way before we extend Nodes.
          * This is quite slow, but need not be collective and is faster than a tree rebuild.
          * Try not to do this too often.*/
-        message(1, "Need %d star slots, more than %d available. Try increasing SlotsIncreaseFactor on restart.\n", SlotsManager->info[4].size, SlotsManager->info[4].maxsize);
+        message(1, "Need %ld star slots, more than %ld available. Try increasing SlotsIncreaseFactor on restart.\n", SlotsManager->info[4].size, SlotsManager->info[4].maxsize);
         /*Move the NewStar array to upper memory*/
         int * new_star_tmp = NULL;
         if(NewStars) {

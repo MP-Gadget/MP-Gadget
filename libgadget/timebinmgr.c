@@ -210,7 +210,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
             NSyncPoints++;
             if(NSyncPoints > NSyncPointsAlloc)
                 endrun(1, "Tried to generate %ld syncpoints, %ld allocated\n", NSyncPoints, NSyncPointsAlloc);
-            //message(0,"added UVBG syncpoint at a = %.3f z = %.3f, Nsync = %d\n",uv_a,1/uv_a - 1,NSyncPoints);
+            //message(0,"added UVBG syncpoint at a = %.3f z = %.3f, Nsync = %ld\n",uv_a,1/uv_a - 1,NSyncPoints);
             // TODO(smutch): OK - this is ridiculous (sorry!), but I just wanted to quickly hack something...
             // TODO(jdavies): fix low-z where delta_a > 10Myr
             double lbt = time_to_present(uv_a,CP);
@@ -259,7 +259,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
             SyncPoints[j].a = a;
             SyncPoints[j].loga = loga;
             NSyncPoints ++;
-            //message(0,"added outlist syncpoint at a = %.3f, j = %d, Ns = %d\n",a,j,NSyncPoints);
+            //message(0,"added outlist syncpoint at a = %.3f, j = %d, Ns = %ld\n",a,j,NSyncPoints);
         }
         if(SyncPoints[j].a > no_snapshot_until_time) {
             SyncPoints[j].write_snapshot = 1;
@@ -282,7 +282,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
     if(NSyncPoints > NSyncPointsAlloc)
         endrun(1, "Tried to generate %ld syncpoints, %ld allocated\n", NSyncPoints, NSyncPointsAlloc);
 
-    //message(1,"NSyncPoints = %d, OutputListLength = %d , timemax = %.3f\n",NSyncPoints,Sync.OutputListLength,TimeMax);
+    //message(1,"NSyncPoints = %ld, OutputListLength = %ld , timemax = %.3f\n",NSyncPoints,Sync.OutputListLength,TimeMax);
     /*for(i = 0; i < NSyncPoints; i++) {
         message(1,"Out: %g %ld\n", exp(SyncPoints[i].loga), SyncPoints[i].ti);
     }*/

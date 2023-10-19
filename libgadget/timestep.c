@@ -316,7 +316,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
             break;
         }
     }
-    message(0, "Finding short-range gravity timesteps. Largest %d time %d PM %d dti %d\n", largest_active, times->Ti_Current, times->PM_length, dti_from_timebin(largest_active));
+    message(0, "Finding short-range gravity timesteps. Largest %d time %ld PM %ld dti %ld\n", largest_active, times->Ti_Current, times->PM_length, dti_from_timebin(largest_active));
 
     /* May need a new sublist because the active particle list contains all particles either
      * gravitationally or hydrodynamically active and we only want gravitationally active particles.*/
@@ -393,7 +393,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         }
     }
     if(push_down_bin == 0)
-        endrun(77, "Bad timestep with %d particles inside\n", alltimebincounts[push_down_bin]);
+        endrun(77, "Bad timestep with %ld particles inside\n", alltimebincounts[push_down_bin]);
     if(push_down_bin != largest_active) {
         message(0, "Pushing down top bin from %d to %d\n", largest_active, push_down_bin);
         #pragma omp parallel for
@@ -1387,7 +1387,7 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
             continue;
         /* when we are in PM, all particles must have been synced. */
         if (P[i].Ti_drift != times->Ti_Current) {
-            endrun(5, "Particle %d type %d has drift time %x not ti_current %x!",i, P[i].Type, P[i].Ti_drift, times->Ti_Current);
+            endrun(5, "Particle %d type %d has drift time %lx not ti_current %lx!",i, P[i].Type, P[i].Ti_drift, times->Ti_Current);
         }
         /* For now build active particles with either hydro or gravity active*/
         int hydro_particle = P[i].Type == 0 || P[i].Type == 5;
