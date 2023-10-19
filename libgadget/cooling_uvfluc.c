@@ -153,7 +153,7 @@ init_uvf_table(const char * UVFluctuationFile, const int UVFlucLen, const double
     UVF.Table = read_big_array(UVFluctuationFile, "Zreion_Table", &size);
 
     if(UVF.Nside * UVF.Nside * UVF.Nside != size)
-        endrun(0, "Corrupt UV Fluctuation table: Nside = %ld, but table is %ld != %ld^3\n", UVF.Nside, size, UVF.Nside);
+        endrun(0, "Corrupt UV Fluctuation table: Nside = %ld, but table is %d != %ld^3\n", UVF.Nside, size, UVF.Nside);
 
     int64_t dims[] = {UVF.Nside, UVF.Nside, UVF.Nside};
     interp_init(&UVF.interp, 3, dims);

@@ -832,7 +832,7 @@ mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
 
     if(elsize > 8 && elsize % 8 != 0) {
         if(ThisTask == 0) {
-            endrun(12, "MPSort: element size is large (%d) but not aligned to 8 bytes. "
+            endrun(12, "MPSort: element size is large (%ld) but not aligned to 8 bytes. "
                             "This is known to frequently trigger MPI bugs. "
                             "Caller site: %s:%d\n",
                             elsize, file, line);
@@ -840,7 +840,7 @@ mpsort_mpi_newarray_impl (void * mybase, size_t mynmemb,
     }
     if(rsize > 8 && rsize % 8 != 0) {
         if(ThisTask == 0) {
-            endrun(12, "MPSort: radix size is large (%d) but not aligned to 8 bytes. "
+            endrun(12, "MPSort: radix size is large (%ld) but not aligned to 8 bytes. "
                             "This is known to frequently trigger MPI bugs. "
                             "Caller site: %s:%d\n",
                             rsize, file, line);

@@ -211,7 +211,7 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
         force_tree_create_nodes(&tree, act, mask, ddecomp);
         if(tree.numnodes >= tree.lastnode - tree.firstnode)
         {
-            message(1, "Not enough tree nodes (%ld) for %d particles. Created %d\n", maxnodes, act->NumActiveParticle, tree.numnodes);
+            message(1, "Not enough tree nodes (%ld) for %ld particles. Created %d\n", maxnodes, act->NumActiveParticle, tree.numnodes);
             force_tree_free(&tree);
             maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->NumPart + ddecomp->NTopNodes;
             message(1, "TreeAllocFactor from %g to %g now %ld tree nodes\n", ForceTreeParams.TreeAllocFactor, ForceTreeParams.TreeAllocFactor*1.15, maxnodes);
@@ -560,7 +560,7 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
             int i;
             for(i = 0; i < nright->s.noccupied; i++) {
                 if(nright->s.suns[i] >= tb.firstnode)
-                    endrun(8, "Bad child %d of %d\n", i, nright->s.suns[i], this_right);
+                    endrun(8, "Bad child %d of %d in %d\n", i, nright->s.suns[i], this_right);
                 if(add_particle_to_tree(nright->s.suns[i], this_left, tb, nc, nnext) < 0)
                     return 1;
             }
@@ -602,7 +602,7 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
             int i;
             for(i = 0; i < nleft->s.noccupied; i++) {
                 if(nleft->s.suns[i] >= tb.firstnode)
-                    endrun(8, "Bad child %d of %d\n", i, nleft->s.suns[i], this_left);
+                    endrun(8, "Bad child %d of %d in left %d\n", i, nleft->s.suns[i], this_left);
                 if(add_particle_to_tree(nleft->s.suns[i], this_right, tb, nc, nnext) < 0)
                     return 1;
             }

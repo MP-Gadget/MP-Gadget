@@ -1016,7 +1016,7 @@ domain_check_for_local_refine_subsample(
                  * Normally we would refine, but if Shift == 0 we don't have space.
                  * In this case we just add the current particle sample to the last toptree node.
                  */
-                endrun(10, "toptree[%d].Count=%d, shift %d, last_leaf=%d key = %ld i= %d Nsample = %d\n",
+                endrun(10, "toptree[%d].Count=%ld, shift %d, last_leaf=%d key = %ld i= %d Nsample = %d\n",
                         leaf, topTree[leaf].Count, topTree[leaf].Shift, last_leaf,LP[i].Key, i, Nsample);
             }
             /* this will create a new node. */

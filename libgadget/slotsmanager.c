@@ -283,7 +283,7 @@ slots_gc_mark(const struct part_manager_type * pman, const struct slots_manager_
             continue;
         int sind = pman->Base[i].PI;
         if(sind >= info.size || sind < 0)
-            endrun(1, "Particle %d, type %d has PI index %d beyond max slot size %ld.\n", i, pman->Base[i].Type, sind, info.size);
+            endrun(1, "Particle %ld, type %d has PI index %d beyond max slot size %ld.\n", i, pman->Base[i].Type, sind, info.size);
         struct particle_data_ext * sdata = (struct particle_data_ext * )(info.ptr + info.elsize * sind);
         sdata->ReverseLink = i;
         /* Make the PI of garbage particles invalid*/
@@ -322,7 +322,7 @@ slots_gc_collect(int ptype, struct part_manager_type * pman, struct slots_manage
 
 #ifdef DEBUG
         if(BASESLOT_PI(i, ptype, sman)->ReverseLink >= pman->MaxPart) {
-            endrun(1, "Shall not happen: i=%d ptype = %d\n", i,ptype);
+            endrun(1, "Shall not happen: i=%ld ptype = %d\n", i,ptype);
         }
 #endif
 
@@ -593,7 +593,7 @@ slots_check_id_consistency(struct part_manager_type * pman, struct slots_manager
             endrun(1, "slot PI consistency failed2\n");
         }
         if(BASESLOT_PI(PI, type, sman)->ID != pman->Base[i].ID) {
-            endrun(1, "slot id consistency failed2: i=%d PI=%d type = %d P.ID = %ld SLOT.ID=%ld\n",i, PI, pman->Base[i].Type, pman->Base[i].ID, BASESLOT_PI(PI, type, sman)->ID);
+            endrun(1, "slot id consistency failed2: i=%ld PI=%d type = %d P.ID = %ld SLOT.ID=%ld\n",i, PI, pman->Base[i].Type, pman->Base[i].ID, BASESLOT_PI(PI, type, sman)->ID);
         }
         used[type] ++;
     }
@@ -655,7 +655,7 @@ slots_setup_id(const struct part_manager_type * pman, struct slots_manager_type 
 
         int sind = pman->Base[i].PI;
         if(sind >= info.size || sind < 0)
-            endrun(1, "Particle %d, type %d has PI index %d beyond max slot size %ld.\n", i, pman->Base[i].Type, sind, info.size);
+            endrun(1, "Particle %ld, type %d has PI index %d beyond max slot size %ld.\n", i, pman->Base[i].Type, sind, info.size);
         struct particle_data_ext * sdata = (struct particle_data_ext * )(info.ptr + info.elsize * (size_t) sind);
         sdata->ReverseLink = i;
 #ifdef DEBUG

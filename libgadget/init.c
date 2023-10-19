@@ -74,7 +74,7 @@ void init_timeline(Cosmology * CP, int RestartSnapNum, double TimeMax, const str
          * start the integer timeline anew from TimeInit */
         inttime_t ti_init = ti_from_loga(log(header->TimeSnapshot)) % TIMEBASE;
         if(round_down_power_of_two(ti_init) != ti_init) {
-            message(0,"Resetting integer timeline (as %x != %x) to current snapshot\n",ti_init, round_down_power_of_two(ti_init));
+            message(0,"Resetting integer timeline (as %lx != %lx) to current snapshot\n",ti_init, round_down_power_of_two(ti_init));
             setup_sync_points(CP, header->TimeSnapshot, TimeMax, header->TimeSnapshot, SnapshotWithFOF);
         }
     }
@@ -259,7 +259,7 @@ init_alloc_particle_slot_memory(struct part_manager_type * PartManager, struct s
 
     for(ptype = 0; ptype < 6; ptype ++) {
         double MeanSeparation = header->BoxSize / pow(header->NTotalInit[ptype], 1.0 / 3);
-        message(0, "% 11s: Total: %018ld Init: %018ld Mean-Sep %g \n",
+        message(0, "%11s: Total: %018ld Init: %018ld Mean-Sep %g \n",
                 PARTICLE_TYPE_NAMES[ptype], header->NTotal[ptype], header->NTotalInit[ptype], MeanSeparation);
     }
 
