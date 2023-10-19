@@ -394,7 +394,7 @@ void read_parameter_file(char *fname, int * ShowBacktrace, double * MaxMemSizePe
         endrun(1, "Parsing %s failed.\n", fname);
     }
     if(0 != param_validate(ps)) {
-        endrun(1, "Validation of %s failed: %s\n", fname);
+        endrun(1, "Validation of %s failed.\n", fname);
     }
 
     message(0, "----------- Running with Parameters ----------\n");

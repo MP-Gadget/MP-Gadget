@@ -572,7 +572,7 @@ turn_on_quasars(double atime, FOFGroups * fof, ForceTree * gasTree, Cosmology * 
             myfree(qso_cand);
         return;
     }
-    message(0, "HeII: Built quasar candidate list from %d quasars\n", ncand_tot);
+    message(0, "HeII: Built quasar candidate list from %ld quasars\n", ncand_tot);
     walltime_measure("/HeIII/Build");
     for(iteration = 0; curionfrac < desired_ion_frac; iteration++){
         /* Get a new quasar*/

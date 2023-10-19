@@ -248,7 +248,7 @@ fof_find_target_task(struct PartIndex * pi, int64_t pi_size, const uint64_t task
     #pragma omp parallel for
     for(i = 0; i < pi_size; i ++) {
         if(pi[i].targetTask >= NTask || pi[i].targetTask < 0)
-            endrun(23, "pi %d is impossible %d of %d tasks\n",i,pi[i].targetTask, NTask);
+            endrun(23, "pi %ld is impossible %d of %d tasks\n",i,pi[i].targetTask, NTask);
     }
 #endif
 }
@@ -283,7 +283,7 @@ fof_copy_target_task(struct part_manager_type * halo_pman, struct PartIndex * pi
     #pragma omp parallel for
     for(i = 0; i < halo_pman->NumPart; i ++) {
         if(halo_pman->Base[i].TargetTask < 0)
-            endrun(4, "TargetTask %d not changed %d! neighbours: %d %d\n", i, halo_pman->Base[i].TargetTask, halo_pman->Base[i-1].TargetTask, halo_pman->Base[i+1].TargetTask);
+            endrun(4, "TargetTask %ld not changed %d! neighbours: %d %d\n", i, halo_pman->Base[i].TargetTask, halo_pman->Base[i-1].TargetTask, halo_pman->Base[i+1].TargetTask);
     }
 #endif
     walltime_measure("/FOF/IO/Distribute");
@@ -318,7 +318,7 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
         }
     }
     MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT64, MPI_MAX, Comm);
-    message(0, "GrNrMax is %d\n", GrNrMaxGlobal);
+    message(0, "GrNrMax is %ld\n", GrNrMaxGlobal);
 
     fof_find_target_task(pi, NpigLocal, task_origin_offset, Comm);
     const double FOFPartAllocFactor = (double) PartManager->MaxPart / PartManager->NumPart;

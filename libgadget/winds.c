@@ -349,7 +349,7 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, ForceTree
         wind_do_kick(other, priv->kicks[i].StarKickVelocity, priv->kicks[i].StarTherm, Time);
         if(priv->kicks[i].StarKickVelocity <= 0 || !isfinite(priv->kicks[i].StarKickVelocity) || !isfinite(SPHP(other).DelayTime))
         {
-            endrun(5, "Odd v: other = %d, DT = %g v = %g i = %d, nkicks %d maxkicks %d dist %g id %ld\n",
+            endrun(5, "Odd v: other = %d, DT = %g v = %g i = %d, nkicks %ld maxkicks %ld dist %g id %ld\n",
                    other, SPHP(other).DelayTime, priv->kicks[i].StarKickVelocity, i, priv->nkicks, priv->maxkicks,
                    priv->kicks[i].StarDistance, priv->kicks[i].StarID);
         }
@@ -359,7 +359,7 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, ForceTree
     sumup_large_ints(1, &NumNewStars, &tot_newstars);
     MPI_Allreduce(&priv->nkicks, &tot_kicks, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&nkicked, &tot_applied, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-    message(0, "Made %ld gas wind, discarded %ld kicks from %d stars. Vel %g\n", tot_applied, tot_kicks - tot_applied, tot_newstars, priv->kicks[0].StarKickVelocity);
+    message(0, "Made %ld gas wind, discarded %ld kicks from %ld stars. Vel %g\n", tot_applied, tot_kicks - tot_applied, tot_newstars, priv->kicks[0].StarKickVelocity);
 
     myfree(priv->kicks);
     myfree(priv->TotalWeight);

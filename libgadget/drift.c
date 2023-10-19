@@ -93,7 +93,7 @@ void drift_all_particles(inttime_t ti0, inttime_t ti1, Cosmology * CP, const dou
     int i;
     walltime_measure("/Misc");
     if(ti1 < ti0) {
-        endrun(12, "Trying to reverse time: ti0=%d ti1=%d\n", ti0, ti1);
+        endrun(12, "Trying to reverse time: ti0=%ld ti1=%ld\n", ti0, ti1);
     }
     const double ddrift = get_exact_drift_factor(CP, ti0, ti1);
 

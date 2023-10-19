@@ -267,7 +267,7 @@ apply_hierarchical_grav_kick(const ActiveParticles * subact, Cosmology * CP, Dri
 //                 P[pa].Ti_kick_hydro, times->Ti_kick[ti], ti, largest_active);
         /* This check relies on the kicks being done top-bin first*/
         if(ti == largest_active && P[pa].Ti_kick_grav != times->Ti_kick[P[pa].TimeBinGravity])
-            endrun(4, "Particle %d (type %d, id %ld bin %d ti %d largest %d dt %d gen %d) had grav kick time %d hyd %d not %d.\n",
+            endrun(4, "Particle %d (type %d, id %ld bin %d ti %d largest %d dt %ld gen %d) had grav kick time %ld hyd %ld not %ld.\n",
                     pa, P[pa].Type, P[pa].ID, P[pa].TimeBinGravity, ti, largest_active, dti/2, P[pa].Generation, P[pa].Ti_kick_grav, P[pa].Ti_kick_hydro, times->Ti_kick[P[pa].TimeBinGravity]);
         P[pa].Ti_kick_grav += dti/2 -lowerdti/2;
 #endif
@@ -734,7 +734,7 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
      * this checks for the shortest timestep being occupied by a DM particle*/
     if(times->mintimebin > times->mingravtimebin && times->mingravtimebin > 0)
         times->mintimebin = times->mingravtimebin;
-    message(0, "Min grav timebin: %ld mintimebin %d\n", times->mingravtimebin, times->mintimebin);
+    message(0, "Min grav timebin: %d mintimebin %d\n", times->mingravtimebin, times->mintimebin);
 
     return badstepsizecount;
 }
@@ -845,7 +845,7 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
      * between PM timesteps, thus skipping the PM step entirely.*/
     if(isPM && times->PM_length > dti_from_timebin(maxTimeBin))
         times->PM_length = dti_from_timebin(maxTimeBin);
-    message(0, "PM timebin: %x (dloga: %g Max: %g). Criteria: Accel: %ld Soundspeed: %ld DivVel: %ld Accrete: %ld Neighbour: %ld\n",
+    message(0, "PM timebin: %lx (dloga: %g Max: %g). Criteria: Accel: %ld Soundspeed: %ld DivVel: %ld Accrete: %ld Neighbour: %ld\n",
             times->PM_length, dloga_from_dti(times->PM_length, times->Ti_Current), TimestepParams.MaxSizeTimestep,
             ntiaccel, nticourant, ntihsml, ntiaccrete, ntineighbour);
 
@@ -1182,7 +1182,7 @@ static void
 print_bad_timebin(const double dloga, const inttime_t dti, const int p, const inttime_t dti_max, enum TimeStepType titype)
 {
     if(P[p].Type == 0)
-        message(1, "Bad timestep (%x)! titype %d. ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g) hydro-frc=(%g|%g|%g) dens=%g hsml=%g dh = %g Entropy=%g, dtEntropy=%g maxsignal=%g\n",
+        message(1, "Bad timestep (%lx)! titype %d. ID=%lu Type=%d dloga=%g dtmax=%lx xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g) hydro-frc=(%g|%g|%g) dens=%g hsml=%g dh = %g Entropy=%g, dtEntropy=%g maxsignal=%g\n",
             dti, titype, P[p].ID, P[p].Type, dloga, dti_max,
             P[p].Pos[0], P[p].Pos[1], P[p].Pos[2],
             P[p].FullTreeGravAccel[0], P[p].FullTreeGravAccel[1], P[p].FullTreeGravAccel[2],
@@ -1190,7 +1190,7 @@ print_bad_timebin(const double dloga, const inttime_t dti, const int p, const in
             SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1], SPHP(p).HydroAccel[2],
             SPHP(p).Density, P[p].Hsml, P[p].DtHsml, SPHP(p).Entropy, SPHP(p).DtEntropy, SPHP(p).MaxSignalVel);
     else
-        message(1, "Bad timestep (%x)! titype %d. ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g)\n",
+        message(1, "Bad timestep (%lx)! titype %d. ID=%lu Type=%d dloga=%g dtmax=%lx xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g)\n",
             dti, titype, P[p].ID, P[p].Type, dloga, dti_max,
             P[p].Pos[0], P[p].Pos[1], P[p].Pos[2],
             P[p].FullTreeGravAccel[0], P[p].FullTreeGravAccel[1], P[p].FullTreeGravAccel[2],
