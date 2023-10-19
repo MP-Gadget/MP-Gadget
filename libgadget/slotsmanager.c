@@ -76,7 +76,7 @@ slots_convert(int parent, int ptype, int placement, struct part_manager_type * p
 
         /* There is no way clearly to safely grow the slots during this, because the memory may be deep in the heap.*/
         if(newPI >= sman->info[ptype].maxsize) {
-            endrun(1, "Tried to use non-allocated slot %d (> %d)\n", newPI, sman->info[ptype].maxsize);
+            endrun(1, "Tried to use non-allocated slot %d (> %ld)\n", newPI, sman->info[ptype].maxsize);
         }
         slots_connect_new_slot(parent, newPI, ptype, pman, sman);
     }
@@ -283,7 +283,7 @@ slots_gc_mark(const struct part_manager_type * pman, const struct slots_manager_
             continue;
         int sind = pman->Base[i].PI;
         if(sind >= info.size || sind < 0)
-            endrun(1, "Particle %d, type %d has PI index %d beyond max slot size %d.\n", i, pman->Base[i].Type, sind, info.size);
+            endrun(1, "Particle %d, type %d has PI index %d beyond max slot size %ld.\n", i, pman->Base[i].Type, sind, info.size);
         struct particle_data_ext * sdata = (struct particle_data_ext * )(info.ptr + info.elsize * sind);
         sdata->ReverseLink = i;
         /* Make the PI of garbage particles invalid*/
@@ -655,7 +655,7 @@ slots_setup_id(const struct part_manager_type * pman, struct slots_manager_type 
 
         int sind = pman->Base[i].PI;
         if(sind >= info.size || sind < 0)
-            endrun(1, "Particle %d, type %d has PI index %d beyond max slot size %d.\n", i, pman->Base[i].Type, sind, info.size);
+            endrun(1, "Particle %d, type %d has PI index %d beyond max slot size %ld.\n", i, pman->Base[i].Type, sind, info.size);
         struct particle_data_ext * sdata = (struct particle_data_ext * )(info.ptr + info.elsize * (size_t) sind);
         sdata->ReverseLink = i;
 #ifdef DEBUG
