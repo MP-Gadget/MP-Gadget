@@ -1079,6 +1079,8 @@ void blackhole_make_one(int index, const double atime) {
     BHP(child).FormationTime = atime;
     BHP(child).SwallowID = (MyIDType) -1;
     BHP(child).Density = 0;
+    /* Make sure initially active*/
+    BHP(child).TimeBinDynFric = P[child].TimeBinHydro;
 
     /* It is important to initialize MinPotPos to the current position of
      * a BH to avoid drifting to unknown locations (0,0,0) immediately
