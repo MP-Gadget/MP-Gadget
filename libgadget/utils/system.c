@@ -59,7 +59,7 @@ static double RndTable[RNDTABLE];
 
 double get_random_number(uint64_t id)
 {
-    return RndTable[(int)(id % RNDTABLE)];
+    return RndTable[id % RNDTABLE];
 }
 
 void set_random_numbers(uint64_t seed)
