@@ -1089,8 +1089,11 @@ void blackhole_make_one(int index, const double atime) {
     for(j = 0; j < 3; j++) {
         BHP(child).MinPotPos[j] = P[child].Pos[j];
         BHP(child).DFAccel[j] = 0;
+        BHP(child).DF_SurroundingVel[j] = 0;
         BHP(child).DragAccel[j] = 0;
     }
+    BHP(child).DF_SurroundingRmsVel = 0;
+    BHP(child).DF_SurroundingDensity = 0;
     BHP(child).JumpToMinPot = 0;
     BHP(child).CountProgs = 1;
 
