@@ -22,12 +22,6 @@
 #error MP-Gadget requires OpenMP >= 3.1. Use a newer compiler (gcc >= 4.9, intel >= 16 clang >= 5).
 #endif
 
-#ifdef DEBUG
-void catch_abort(int sig);
-void catch_fatal(int sig);
-void enable_core_dumps_and_fpu_exceptions(void);
-#endif
-
 int cluster_get_num_hosts(void);
 double get_physmem_bytes(void);
 
