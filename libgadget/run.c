@@ -246,6 +246,7 @@ begrun(const int RestartSnapNum, struct header_data * head)
 
     gravshort_fill_ntab(All.ShortRangeForceWindowType, All.Asmth);
 
+    /* This is for the lightcone*/
     set_random_numbers(All.RandomSeed);
 
     if(All.LightconeOn)
@@ -427,7 +428,11 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         ActiveParticles Act = init_empty_active_particles(0);
         build_active_particles(&Act, &times, NumCurrentTiStep, atime);
 
-        set_random_numbers(All.RandomSeed + times.Ti_Current);
+        /* We need to re-seed the random number table each timestep.
+         * The seed needs to be the same on all processors, and a different
+         * value each timestep. */
+        uint64_t seed = All.RandomSeed + (times.Ti_Current >> times.mintimebin);
+        set_random_numbers(seed);
 
         /* Are the particle neutrinos gravitating this timestep?
          * If so we need to add them to the tree.*/
