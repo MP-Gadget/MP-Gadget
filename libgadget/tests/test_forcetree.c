@@ -275,6 +275,8 @@ static int check_hmax(const ForceTree * tb, const int numpart)
 
 static void do_tree_mask_hmax_update_test(const int numpart, ForceTree * tb, DomainDecomp * ddecomp)
 {
+    RandTable rnd = set_random_numbers(23, 8192);
+
     /*Sort by peano key so this is more realistic*/
     int i;
     #pragma omp parallel for
@@ -284,8 +286,9 @@ static void do_tree_mask_hmax_update_test(const int numpart, ForceTree * tb, Dom
         P[i].PI = 0;
         P[i].IsGarbage = 0;
         P[i].Type = 0;
-        P[i].Hsml = PartManager->BoxSize/cbrt(numpart) * get_random_number(P[i].Key);
+        P[i].Hsml = PartManager->BoxSize/cbrt(numpart) * get_random_number(P[i].Key, &rnd);
     }
+    free_random_numbers(&rnd);
     qsort(P, numpart, sizeof(struct particle_data), order_by_type_and_key);
     PartManager->MaxPart = numpart;
     PartManager->NumPart = numpart;
@@ -459,7 +462,6 @@ static int setup_tree(void **state) {
     gsl_rng_set(data->r, 0);
     *state = (void *) data;
     walltime_init(&Clocks);
-    set_random_numbers(23);
     return 0;
 }
 
