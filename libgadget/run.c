@@ -38,8 +38,8 @@
 #include "veldisp.h"
 
 static struct ClockTable Clocks;
-/* Number of random numbers*/
-#define  RNDTABLE 8192
+/* Size of table full of random numbers generated each timestep.*/
+#define  RNDTABLE 32768
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
