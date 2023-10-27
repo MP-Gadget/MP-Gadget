@@ -40,12 +40,14 @@ particle_alloc_memory(struct part_manager_type * PartManager, double BoxSize, in
  * stores the relative shift from the last offset in the rel_random_shift output
  * array. */
 void
-update_random_offset(struct part_manager_type * PartManager, double * rel_random_shift, double RandomParticleOffset, const RandTable * const rnd)
+update_random_offset(struct part_manager_type * PartManager, double * rel_random_shift, double RandomParticleOffset, const uint64_t seed)
 {
+    /* Note random number table is the same on all processors*/
+    RandTable rnd = set_random_numbers(seed, 3);
     int i;
     for (i = 0; i < 3; i++) {
-        /* Note random number table is duplicated across processors*/
-        double rr = get_random_number(i, rnd);
+        /* Note random number table is the same on all processors*/
+        double rr = get_random_number(i, &rnd);
         /* Upstream Gadget uses a random fraction of the box, but since all we need
          * is to adjust the tree openings, and the tree force is zero anyway on the
          * scale of a few PM grid cells, this seems enough.*/
@@ -54,6 +56,7 @@ update_random_offset(struct part_manager_type * PartManager, double * rel_random
         rel_random_shift[i] = rr - PartManager->CurrentParticleOffset[i];
         PartManager->CurrentParticleOffset[i] = rr;
     }
+    free_random_numbers(&rnd);
     message(0, "Internal particle offset is now %g %g %g\n", PartManager->CurrentParticleOffset[0], PartManager->CurrentParticleOffset[1], PartManager->CurrentParticleOffset[2]);
 #ifdef DEBUG
     /* Check explicitly that the vector is the same on all processors*/

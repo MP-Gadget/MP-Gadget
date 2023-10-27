@@ -38,6 +38,8 @@
 #include "veldisp.h"
 
 static struct ClockTable Clocks;
+/* Number of random numbers*/
+#define  RNDTABLE 8192
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
@@ -391,15 +393,11 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             }
         }
 
-        /* We need to re-seed the random number table each timestep.
-         * The seed needs to be the same on all processors, and a different
-         * value each timestep. */
-        uint64_t seed = All.RandomSeed + (times.Ti_Current >> times.mintimebin);
-        RandTable rnd = set_random_numbers(seed);
-
         double rel_random_shift[3] = {0};
         if(NumCurrentTiStep > 0 && is_PM  && All.RandomParticleOffset > 0) {
-            update_random_offset(PartManager, rel_random_shift, All.RandomParticleOffset, &rnd);
+            /* The seed needs to be the same on all processors, and a different value each call. */
+            uint64_t seed = All.RandomSeed + (times.Ti_Current >> times.mintimebin);
+            update_random_offset(PartManager, rel_random_shift, All.RandomParticleOffset, seed);
         }
 
         int extradomain = is_timebin_active(times.mintimebin + All.MaxDomainTimeBinDepth, times.Ti_Current);
@@ -562,6 +560,14 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             CalcUVBG |= planned_sync->calc_uvbg;
         }
 
+        /* We need to re-seed the random number table each timestep.
+         * The seed needs to be the same on all processors, and a different
+         * value each timestep. */
+        uint64_t seed = All.RandomSeed + (times.Ti_Current >> times.mintimebin);
+        RandTable rnd = {0};
+        if(GasEnabled || All.LightconeOn)
+            rnd = set_random_numbers(seed, RNDTABLE);
+
         /* Cooling and extra physics show up as a source term in the evolution equations.
          * Formally you can write the structure of the partial differential equations:
            dU/dt +  div(F) = S
@@ -648,6 +654,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         if(All.LightconeOn)
             lightcone_compute(atime, PartManager->BoxSize, &All.CP, Ti_Last, Ti_Next, &rnd);
 
+        /* Now done with random numbers*/
+        free_random_numbers(&rnd);
         /* If a snapshot is requested, write it.         *
          * We only attempt to output on sync points. This is the only chance where all variables are
          * synchronized in a consistent state in a K(KDDK)^mK scheme.
@@ -801,8 +809,10 @@ runfof(const int RestartSnapNum, const inttime_t Ti_Current, const struct header
         ForceTree Tree = {0};
         struct grav_accel_store gg = {0};
         /* Cooling is just for the star formation rate, so does not actually use the random table*/
-        RandTable rnd = set_random_numbers(All.RandomSeed);
+        RandTable rnd = set_random_numbers(All.RandomSeed, RNDTABLE);
         cooling_and_starformation(&Act, header->TimeSnapshot, 0, &Tree, gg, ddecomp, &All.CP, GradRho, &rnd, NULL);
+        free_random_numbers(&rnd);
+
         if(GradRho)
             myfree(GradRho);
     }
