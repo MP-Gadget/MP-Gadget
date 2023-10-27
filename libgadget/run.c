@@ -393,10 +393,18 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             }
         }
 
+        /* We need to re-seed the random number table each timestep.
+         * The seed needs to be the same on all processors, and a different
+         * value each timestep. Only the lowest 32 bits are used in the GSL
+         * random number generator. The populated part of the timestep hierarchy
+         * is added to the random seed. The current snapshot is folded into
+         * bits 32 - 23 so that the random tables do not cycle after every snapshot.
+         * We may still cycle after 512 snapshots but that should be far enough apart. */
+        uint64_t seed = All.RandomSeed + (times.Ti_Current >> times.mintimebin) + ((times.Ti_Current >> TIMEBINS) << 23L);
+        message(0, "New step random seed: %ld Ti %lx\n", seed % (1L<<32L), times.Ti_Current);
+
         double rel_random_shift[3] = {0};
         if(NumCurrentTiStep > 0 && is_PM  && All.RandomParticleOffset > 0) {
-            /* The seed needs to be the same on all processors, and a different value each call. */
-            uint64_t seed = All.RandomSeed + (times.Ti_Current >> times.mintimebin);
             update_random_offset(PartManager, rel_random_shift, All.RandomParticleOffset, seed);
         }
 
@@ -560,10 +568,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             CalcUVBG |= planned_sync->calc_uvbg;
         }
 
-        /* We need to re-seed the random number table each timestep.
-         * The seed needs to be the same on all processors, and a different
-         * value each timestep. */
-        uint64_t seed = All.RandomSeed + (times.Ti_Current >> times.mintimebin);
         RandTable rnd = {0};
         if(GasEnabled || All.LightconeOn)
             rnd = set_random_numbers(seed, RNDTABLE);
