@@ -149,8 +149,6 @@ set_all_global_params(ParameterSet * ps)
         All.AutoSnapshotTime = param_get_double(ps, "AutoSnapshotTime");
         All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
         All.RandomParticleOffset = param_get_double(ps, "RandomParticleOffset");
-        /* Convert to a fraction of the box, from a fraction of a PM mesh cell*/
-        All.RandomParticleOffset /= All.Nmesh;
 
         All.SlotsIncreaseFactor = param_get_double(ps, "SlotsIncreaseFactor");
 
@@ -209,6 +207,8 @@ begrun(const int RestartSnapNum, struct header_data * head)
     /*Set Nmesh to triple the mean grid spacing of the dark matter by default.*/
     if(All.Nmesh  < 0)
         All.Nmesh = 3*pow(2, (int)(log(head->NTotal[1])/3./log(2)) );
+    /* Convert to a fraction of the box, from a fraction of a PM mesh cell*/
+    All.RandomParticleOffset /= All.Nmesh;
     if(head->neutrinonk <= 0)
         head->neutrinonk = All.Nmesh;
 
