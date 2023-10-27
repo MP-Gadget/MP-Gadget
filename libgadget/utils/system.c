@@ -57,15 +57,16 @@ void enable_core_dumps_and_fpu_exceptions(void)
 
 static double RndTable[RNDTABLE];
 
-double get_random_number(uint64_t id)
+double get_random_number(const uint64_t id, const RandTable * const rnd)
 {
     return RndTable[id % RNDTABLE];
 }
 
-void set_random_numbers(uint64_t seed)
+RandTable set_random_numbers(uint64_t seed)
 {
     gsl_rng * random_generator = gsl_rng_alloc(gsl_rng_ranlxd1);
 
+    RandTable rand = {};
     /* start-up seed */
     gsl_rng_set(random_generator, seed);
 
@@ -74,6 +75,7 @@ void set_random_numbers(uint64_t seed)
         RndTable[i] = gsl_rng_uniform(random_generator);
 
     gsl_rng_free(random_generator);
+    return rand;
 }
 
 

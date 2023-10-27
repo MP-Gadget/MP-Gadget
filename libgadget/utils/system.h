@@ -22,16 +22,20 @@
 #error MP-Gadget requires OpenMP >= 3.1. Use a newer compiler (gcc >= 4.9, intel >= 16 clang >= 5).
 #endif
 
+typedef struct _Rnd_Table
+{
+} RandTable;
+
 int cluster_get_num_hosts(void);
 double get_physmem_bytes(void);
 
 /* Gets a random number in the range [0, 1). Only the low bits of the id are used,
  * and random deviates are drawn from a pre-seeded table so that they are independent of processor.*/
-double get_random_number(uint64_t id);
+double get_random_number(const uint64_t id, const RandTable * const rnd);
 /* Seed the random number generator table. The seed should be the same on each processor so the output is invariant to
  * To quote the GSL documentation: 'Note that the most generators only accept 32-bit seeds, with higher values being reduced modulo 2^32.'
  * It is important that each timestep uses a new seed value, so the seed should change by less than 2^32 each timestep. */
-void set_random_numbers(uint64_t seed);
+RandTable set_random_numbers(uint64_t seed);
 void sumup_large_ints(int n, int *src, int64_t *res);
 void sumup_longs(int n, int64_t *src, int64_t *res);
 int64_t count_sum(int64_t countLocal);

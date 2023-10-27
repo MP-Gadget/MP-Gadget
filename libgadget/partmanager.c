@@ -40,12 +40,12 @@ particle_alloc_memory(struct part_manager_type * PartManager, double BoxSize, in
  * stores the relative shift from the last offset in the rel_random_shift output
  * array. */
 void
-update_random_offset(struct part_manager_type * PartManager, double * rel_random_shift, double RandomParticleOffset)
+update_random_offset(struct part_manager_type * PartManager, double * rel_random_shift, double RandomParticleOffset, const RandTable * const rnd)
 {
     int i;
     for (i = 0; i < 3; i++) {
         /* Note random number table is duplicated across processors*/
-        double rr = get_random_number(i);
+        double rr = get_random_number(i, rnd);
         /* Upstream Gadget uses a random fraction of the box, but since all we need
          * is to adjust the tree openings, and the tree force is zero anyway on the
          * scale of a few PM grid cells, this seems enough.*/

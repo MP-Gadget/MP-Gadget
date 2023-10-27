@@ -279,10 +279,10 @@ get_long_mean_free_path_heating(double redshift)
 }
 
 /* This function gets a random number from a Gaussian distribution using the Box-Muller transform.*/
-static double gaussian_rng(double mu, double sigma, const int64_t seed)
+static double gaussian_rng(double mu, double sigma, const int64_t seed, const RandTable * const rnd)
 {
-    double u1 = get_random_number(seed);
-    double u2 = get_random_number(seed + 1);
+    double u1 = get_random_number(seed, rnd);
+    double u2 = get_random_number(seed + 1, rnd);
     double z1 = sqrt(-2 * log(u1) ) * cos(2 * M_PI * u2);
     return mu + sigma * z1;
 }
@@ -348,9 +348,9 @@ count_QSO_halos(int ncand, int64_t * ncand_tot, MPI_Comm Comm)
  * Returns: the local index of the halo in FOF if the halo is hosted on this rank, -1 if the halo is not hosted on this rank
  */
 static int
-choose_QSO_halo(int64_t ncand, int64_t * ncand_before, int64_t * ncand_tot, int64_t randseed)
+choose_QSO_halo(int64_t ncand, int64_t * ncand_before, int64_t * ncand_tot, int64_t randseed, const RandTable * const rnd)
 {
-    double drand = get_random_number(randseed);
+    double drand = get_random_number(randseed, rnd);
     int64_t qso = drand * (*ncand_tot);
     (*ncand_tot)--;
     /* No quasar on this processor*/
@@ -415,6 +415,7 @@ struct QSOPriv {
     int64_t * N_ionized;
     double a3inv;
     double uu_in_cgs;
+    RandTable * rnd;
 };
 #define QSO_GET_PRIV(tw) ((struct QSOPriv *) (tw->priv))
 
@@ -432,7 +433,7 @@ ionize_ngbiter(TreeWalkQueryQSOLightup * I,
         /* Gas only ( 1 == 1 << 0, the bit for type 0)*/
         iter->mask = GASMASK;
         /* Bubble size*/
-        double bubble = gaussian_rng(QSOLightupParams.mean_bubble, sqrt(QSOLightupParams.var_bubble), I->ID);
+        double bubble = gaussian_rng(QSOLightupParams.mean_bubble, sqrt(QSOLightupParams.var_bubble), I->ID, QSO_GET_PRIV(lv->tw)->rnd);
         iter->Hsml = bubble;
         /* Don't care about gas HSML */
         iter->symmetric = NGB_TREEFIND_ASYMMETRIC;
@@ -523,7 +524,7 @@ ionize_all_part(int qso_ind, int * qso_cand, struct QSOPriv priv, ForceTree * tr
  * Keeps adding new quasars until need_more_quasars() returns 0.
  */
 static void
-turn_on_quasars(double atime, FOFGroups * fof, ForceTree * gasTree, Cosmology * CP, double uu_in_cgs, FILE * FdHelium)
+turn_on_quasars(double atime, FOFGroups * fof, ForceTree * gasTree, Cosmology * CP, double uu_in_cgs, RandTable * rnd, FILE * FdHelium)
 {
     int ncand = 0;
     int * qso_cand = NULL;
@@ -534,6 +535,7 @@ turn_on_quasars(double atime, FOFGroups * fof, ForceTree * gasTree, Cosmology * 
     priv.fof = fof;
     priv.uu_in_cgs = uu_in_cgs;
     priv.a3inv = 1/pow(atime, 3);
+    priv.rnd = rnd;
 
     /* If the desired ionization fraction is above a threshold (by default 0.95)
      * ionize all particles*/
@@ -576,7 +578,7 @@ turn_on_quasars(double atime, FOFGroups * fof, ForceTree * gasTree, Cosmology * 
     walltime_measure("/HeIII/Build");
     for(iteration = 0; curionfrac < desired_ion_frac; iteration++){
         /* Get a new quasar*/
-        int new_qso = choose_QSO_halo(ncand, &ncand_before, &ncand_tot, fof->TotNgroups+iteration);
+        int new_qso = choose_QSO_halo(ncand, &ncand_before, &ncand_tot, fof->TotNgroups+iteration, rnd);
         if(new_qso >= ncand)
             endrun(12, "HeII: QSO %d > no. candidates %d! Cannot happen\n", new_qso, ncand);
         /* Make sure someone has a quasar*/
@@ -641,7 +643,7 @@ turn_on_quasars(double atime, FOFGroups * fof, ForceTree * gasTree, Cosmology * 
 
 /* Starts reionization by selecting the first halo and flagging all particles in the first HeIII bubble*/
 void
-do_heiii_reionization(double atime, FOFGroups * fof, ForceTree * gasTree, Cosmology * CP, double uu_in_cgs, FILE * FdHelium)
+do_heiii_reionization(double atime, FOFGroups * fof, ForceTree * gasTree, Cosmology * CP, RandTable * rnd, double uu_in_cgs, FILE * FdHelium)
 {
     if(!QSOLightupParams.QSOLightupOn)
         return;
@@ -657,7 +659,7 @@ do_heiii_reionization(double atime, FOFGroups * fof, ForceTree * gasTree, Cosmol
 
     walltime_measure("/Misc");
     //message(0, "HeII: Reionization initiated.\n");
-    turn_on_quasars(atime, fof, gasTree, CP, uu_in_cgs, FdHelium);
+    turn_on_quasars(atime, fof, gasTree, CP, uu_in_cgs, rnd, FdHelium);
 }
 
 int

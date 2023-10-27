@@ -214,7 +214,7 @@ blackholes_active(const ActiveParticles * act, int ** ActiveBlackHoles, int64_t 
 }
 
 void
-blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree * tree, DomainDecomp * ddecomp, DriftKickTimes * times, const struct UnitSystem units, FILE * FdBlackHoles, FILE * FdBlackholeDetails)
+blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree * tree, DomainDecomp * ddecomp, DriftKickTimes * times, RandTable * rnd, const struct UnitSystem units, FILE * FdBlackHoles, FILE * FdBlackholeDetails)
 {
     /* Do nothing if no black holes*/
     int64_t totbh;
@@ -260,7 +260,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
 
     struct BHPriv priv[1] = {0};
     priv->units = units;
-
+    priv->rnd = rnd;
     /*************************************************************************/
     priv->atime = atime;
     priv->a3inv = 1./(atime * atime * atime);
@@ -595,7 +595,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
                 p = (I->BH_Mass - BHPartMass) * wk / I->Density;
 
             /* compute random number, uniform in [0,1] */
-            const double w = get_random_number(P[other].ID);
+            const double w = get_random_number(P[other].ID, BH_GET_PRIV(lv->tw)->rnd);
             if(w < p)
             {
                 MyIDType * SPH_SwallowID = BH_GET_PRIV(lv->tw)->SPH_SwallowID;
@@ -729,10 +729,10 @@ add_injected_BH_energy(double unew, double injected_BH_energy, double mass, doub
 }
 
 static int
-get_random_dir(int i, double dir[3])
+get_random_dir(int i, double dir[3], const RandTable * const rnd)
 {
-    double theta = acos(2 * get_random_number(P[i].ID + 3) - 1);
-    double phi = 2 * M_PI * get_random_number(P[i].ID + 4);
+    double theta = acos(2 * get_random_number(P[i].ID + 3, rnd) - 1);
+    double phi = 2 * M_PI * get_random_number(P[i].ID + 4, rnd);
 
     dir[0] = sin(theta) * cos(phi);
     dir[1] = sin(theta) * sin(phi);
@@ -872,7 +872,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             /* Kick the gas particle*/
             double dvel = sqrt(2 * I->KEFeedbackEnergy * wk / I->Density);
             double dir[3];
-            get_random_dir(other, dir);
+            get_random_dir(other, dir, BH_GET_PRIV(lv->tw)->rnd);
             int j;
             for(j = 0; j < 3; j++){
                 #pragma omp atomic update
@@ -1039,10 +1039,10 @@ blackhole_feedback(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, ForceTre
 
 /* Sample from a power law to get the initial BH mass*/
 static double
-bh_powerlaw_seed_mass(MyIDType ID)
+bh_powerlaw_seed_mass(const MyIDType ID, const RandTable * const rnd)
 {
     /* compute random number, uniform in [0,1] */
-    const double w = get_random_number(ID+23);
+    const double w = get_random_number(ID+23, rnd);
     /* Normalisation for this power law index*/
     double norm = pow(blackhole_params.MaxSeedBlackHoleMass, 1+blackhole_params.SeedBlackHoleMassIndex)
                 - pow(blackhole_params.SeedBlackHoleMass, 1+blackhole_params.SeedBlackHoleMassIndex);
@@ -1055,7 +1055,8 @@ bh_powerlaw_seed_mass(MyIDType ID)
     return mass;
 }
 
-void blackhole_make_one(int index, const double atime) {
+void
+blackhole_make_one(int index, const double atime, const RandTable * const rnd) {
     if(P[index].Type != 0)
         endrun(7772, "Only Gas turns into blackholes, what's wrong?");
 
@@ -1070,7 +1071,7 @@ void blackhole_make_one(int index, const double atime) {
     /* The accretion mass should always be the seed black hole mass,
      * irrespective of the gravitational mass of the particle.*/
     if(blackhole_params.MaxSeedBlackHoleMass > 0)
-        BHP(child).Mass = bh_powerlaw_seed_mass(P[child].ID);
+        BHP(child).Mass = bh_powerlaw_seed_mass(P[child].ID, rnd);
     else
         BHP(child).Mass = blackhole_params.SeedBlackHoleMass;
 

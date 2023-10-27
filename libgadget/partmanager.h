@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "utils/peano.h"
+#include "utils/system.h"
 
 /*! This structure holds all the information that is
  * stored for each particle of the simulation.
@@ -106,7 +107,7 @@ void particle_alloc_memory(struct part_manager_type * PartManager, double BoxSiz
 /* Updates the global storing the current random offset of the particles,
  * and stores the relative offset from the last random offset in rel_random_shift.
  * RandomParticleOffset is the max adjustment as a fraction of the box. */
-void update_random_offset(struct part_manager_type * PartManager, double * rel_random_shift, double RandomParticleOffset);
+void update_random_offset(struct part_manager_type * PartManager, double * rel_random_shift, double RandomParticleOffset, const RandTable * const rnd);
 
 /* Finds the correct relative position accounting for periodicity*/
 #define NEAREST(x, BoxSize) (((x)>0.5*BoxSize)?((x)-BoxSize):(((x)<-0.5*BoxSize)?((x)+BoxSize):(x)))
