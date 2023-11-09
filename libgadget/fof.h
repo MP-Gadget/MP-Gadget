@@ -76,8 +76,8 @@ FOFGroups fof_fof(DomainDecomp * ddecomp, const int StoreGrNr, MPI_Comm Comm);
 void fof_finish(FOFGroups * fof);
 
 /*Uses the Group structure to seed blackholes.
- * The active particle struct is used only because we may need to reallocate it. */
-void fof_seed(FOFGroups * fof, ActiveParticles * act, double atime, MPI_Comm Comm);
+ * The active particle struct is used only because we may need to reallocate it. Randon number seeds the BH mass.*/
+void fof_seed(FOFGroups * fof, ActiveParticles * act, double atime, const RandTable * const rnd, MPI_Comm Comm);
 
 /* Saves the Group structure to disc.
  Returns 1 if a domain_exchange is needed afterwards.*/

@@ -18,9 +18,6 @@
 #include "mymalloc.h"
 #include "endrun.h"
 
-
-#define  RNDTABLE 8192
-
 /* NOTE:
  *
  * The MPIU_xxx functions must be called after the memory module is initalized.
@@ -54,26 +51,36 @@ void enable_core_dumps_and_fpu_exceptions(void)
 
 #endif
 
-
-static double RndTable[RNDTABLE];
-
-double get_random_number(uint64_t id)
+double get_random_number(const uint64_t id, const RandTable * const rnd)
 {
-    return RndTable[(int)(id % RNDTABLE)];
+    if(!rnd->Table)
+        endrun(1, "Random number called with non-allocated random table\n")
+    /* Draw from the table: note that only the lowest bits of the ID are used*/;
+    return rnd->Table[id % rnd->tablesize];
 }
 
-void set_random_numbers(int seed)
+RandTable set_random_numbers(uint64_t seed, const size_t rndtablesize)
 {
-    gsl_rng * random_generator = gsl_rng_alloc(gsl_rng_ranlxd1);
-
+    RandTable rnd;
+    rnd.Table = mymalloc2("Random", rndtablesize * sizeof(double));
+    rnd.tablesize = rndtablesize;
     /* start-up seed */
+    gsl_rng * random_generator = gsl_rng_alloc(gsl_rng_ranlxd1);
     gsl_rng_set(random_generator, seed);
 
-    int i;
-    for(i = 0; i < RNDTABLE; i++)
-        RndTable[i] = gsl_rng_uniform(random_generator);
+    /* Populate a table with uniform random numbers between 0 and 1*/
+    size_t i;
+    for(i = 0; i < rndtablesize; i++)
+        rnd.Table[i] = gsl_rng_uniform(random_generator);
 
     gsl_rng_free(random_generator);
+    return rnd;
+}
+
+void free_random_numbers(RandTable * rnd)
+{
+    myfree(rnd->Table);
+    rnd->Table = NULL;
 }
 
 

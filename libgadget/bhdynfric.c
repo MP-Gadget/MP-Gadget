@@ -107,6 +107,11 @@ blackhole_compute_dfaccel(const int n, const double atime, const double Grav)
             bhvel += pow(P[n].Vel[j] - BHP(n).DF_SurroundingVel[j], 2);
         bhvel = sqrt(bhvel);
 
+        if(!isfinite(bhvel)) {
+            endrun(6, "Bad bhvel %g vel %g %g %g DF vel %g %g %g id %ld n %d mass %g\n",
+                bhvel, P[n].Vel[0], P[n].Vel[1], P[n].Vel[2],
+                BHP(n).DF_SurroundingVel[0], BHP(n).DF_SurroundingVel[1], BHP(n).DF_SurroundingVel[2],P[n].ID, n, P[n].Mass);
+        }
         /* There is no parameter in physical unit, so I kept everything in code unit */
 
         double x = bhvel / sqrt(2) / (BHP(n).DF_SurroundingRmsVel / 3);

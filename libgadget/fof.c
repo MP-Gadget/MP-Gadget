@@ -1327,9 +1327,17 @@ static int cmp_seed_task(const void * c1, const void * c2) {
 
     return g1->seed_task - g2->seed_task;
 }
-static void fof_seed_make_one(struct Group * g, int ThisTask, const double atime);
 
-void fof_seed(FOFGroups * fof, ActiveParticles * act, double atime, MPI_Comm Comm)
+static void fof_seed_make_one(struct Group * g, int ThisTask, const double atime, const RandTable * const rnd) {
+   if(g->seed_task != ThisTask) {
+        endrun(7771, "Seed does not belong to the right task");
+    }
+    int index = g->seed_index;
+    /* Random generator for the initial mass*/
+    blackhole_make_one(index, atime, rnd);
+}
+
+void fof_seed(FOFGroups * fof, ActiveParticles * act, double atime, const RandTable * const rnd, MPI_Comm Comm)
 {
     int i, j, n, ntot;
 
@@ -1427,20 +1435,12 @@ void fof_seed(FOFGroups * fof, ActiveParticles * act, double atime, MPI_Comm Com
 
     for(n = 0; n < Nimport; n++)
     {
-        fof_seed_make_one(&ImportGroups[n], ThisTask, atime);
+        fof_seed_make_one(&ImportGroups[n], ThisTask, atime, rnd);
     }
 
     myfree(ImportGroups);
 
     walltime_measure("/FOF/Seeding");
-}
-
-static void fof_seed_make_one(struct Group * g, int ThisTask, const double atime) {
-   if(g->seed_task != ThisTask) {
-        endrun(7771, "Seed does not belong to the right task");
-    }
-    int index = g->seed_index;
-    blackhole_make_one(index, atime);
 }
 
 static int fof_compare_HaloLabel_MinID(const void *a, const void *b)

@@ -652,7 +652,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
         tw->NPRedo[tid][tw->NPLeft[tid]] = i;
         tw->NPLeft[tid] ++;
         if(tw->NPLeft[tid] > tw->Redo_thread_alloc)
-            endrun(5, "Particle %d on thread %d exceeded allocated size of redo queue %ld\n", tw->NPLeft[tid], tid, tw->Redo_thread_alloc);
+            endrun(5, "Particle %ld on thread %d exceeded allocated size of redo queue %ld\n", tw->NPLeft[tid], tid, tw->Redo_thread_alloc);
     }
     else {
         /* We might have got here by serendipity, without bounding.*/

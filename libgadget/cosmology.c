@@ -265,7 +265,7 @@ check_units(const Cosmology * CP, const struct UnitSystem units)
     if(CP->HubbleParam < 0.1 || CP->HubbleParam > 10 ||
         CP->OmegaLambda < 0 || CP->OmegaBaryon < 0 || CP->OmegaG < 0 || CP->OmegaCDM < 0)
         endrun(5, "Bad cosmology: H0 = %g OL = %g Ob = %g Og = %g Ocdm = %g\n",
-               CP->HubbleParam, CP->OmegaLambda, CP->OmegaBaryon, CP->OmegaCDM);
+               CP->HubbleParam, CP->OmegaLambda, CP->OmegaBaryon, CP->OmegaG, CP->OmegaCDM);
 
     message(0, "Hubble (internal units) = %g\n", CP->Hubble);
     message(0, "G (internal units) = %g\n", CP->GravInternal);

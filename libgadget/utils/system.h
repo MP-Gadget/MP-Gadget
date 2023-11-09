@@ -22,19 +22,27 @@
 #error MP-Gadget requires OpenMP >= 3.1. Use a newer compiler (gcc >= 4.9, intel >= 16 clang >= 5).
 #endif
 
-#ifdef DEBUG
-void catch_abort(int sig);
-void catch_fatal(int sig);
-void enable_core_dumps_and_fpu_exceptions(void);
-#endif
+typedef struct _Rnd_Table
+{
+  double * Table;
+  size_t tablesize;
+} RandTable;
 
 int cluster_get_num_hosts(void);
 double get_physmem_bytes(void);
 
-/* Gets a random number in the range [0, 1). Only the low bits of the id are used,
- * and random deviates are drawn from a pre-seeded table so that they are independent of processor.*/
-double get_random_number(uint64_t id);
-void set_random_numbers(int seed);
+/* Gets a random number in the range [0, 1) from the table. The id is used modulo the size of the table,
+ * so only the lowest bits are used.
+ * Random deviates are taken from a pre-seeded table generated in set_random_numbers, so that they are
+ * independent of processor.*/
+double get_random_number(const uint64_t id, const RandTable * const rnd);
+/* Generate the random number table. The seed should be the same on each processor so the output is invariant to
+ * To quote the GSL documentation: 'Note that the most generators only accept 32-bit seeds, with higher values being reduced modulo 2^32.'
+ * It is important that each timestep uses a new seed value, so the seed should change by less than 2^32 each timestep.
+ * The random number table is heap-allocated high, and random numbers are uniform doubles between 0 and 1.*/
+RandTable set_random_numbers(uint64_t seed, const size_t rndtablesize);
+/* Free the random number table and set Table to NULL*/
+void free_random_numbers(RandTable * rnd);
 void sumup_large_ints(int n, int *src, int64_t *res);
 void sumup_longs(int n, int64_t *src, int64_t *res);
 int64_t count_sum(int64_t countLocal);

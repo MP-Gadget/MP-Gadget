@@ -345,7 +345,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
 #ifdef DEBUG
             int PI = pman->Base[i].PI;
             if(BASESLOT_PI(PI, ptype, sman)->ID != pman->Base[i].ID) {
-                endrun(1, "Exchange: P[%d].ID = %ld (type %d) != SLOT ID = %ld. garbage: %d ReverseLink: %d\n",i,pman->Base[i].ID, pman->Base[i].Type, BASESLOT_PI(PI, ptype, sman)->ID, pman->Base[i].IsGarbage, BASESLOT_PI(PI, ptype, sman)->ReverseLink);
+                endrun(1, "Exchange: P[%ld].ID = %ld (type %d) != SLOT ID = %ld. garbage: %d ReverseLink: %d\n",i,pman->Base[i].ID, pman->Base[i].Type, BASESLOT_PI(PI, ptype, sman)->ID, pman->Base[i].IsGarbage, BASESLOT_PI(PI, ptype, sman)->ReverseLink);
             }
 #endif
         }
@@ -604,7 +604,7 @@ domain_test_id_uniqueness(struct part_manager_type * pman)
     for(i = 1; i < nids; i++) {
         if(ids[i] <= ids[i - 1])
         {
-            endrun(12, "non-unique (or non-ordered) ID=%013ld found on task=%d (i=%d NumPart=%ld)\n",
+            endrun(12, "non-unique (or non-ordered) ID=%013ld found on task=%d (i=%ld NumPart=%ld)\n",
                     ids[i], ThisTask, i, nids);
         }
     }

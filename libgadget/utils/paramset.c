@@ -359,7 +359,7 @@ param_get_string2(ParameterSet * ps, const char * name, char * dst, size_t len)
         message(0, "Accessing an undefined parameter `%s`.\n", p->name);
     }
     if(strlen(ps->value[p->index].s) > len)
-        endrun(1, "Parameter string %s too long for storage (%d)\n", ps->value[p->index].s, len);
+        endrun(1, "Parameter string %s too long for storage (%ld)\n", ps->value[p->index].s, len);
     strncpy(dst, ps->value[p->index].s, len);
     dst[len-1]='\0';
 }

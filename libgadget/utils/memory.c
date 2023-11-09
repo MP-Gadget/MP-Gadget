@@ -320,7 +320,7 @@ allocator_realloc_int(Allocator * alloc, void * ptr, const size_t new_size, cons
 
     if (!is_header(header)) {
         allocator_print(header->alloc);
-        endrun(1, "Not an allocated address: Header = %08p ptr = %08p\n", header, cptr);
+        endrun(1, "Not an allocated address: Header = %8p ptr = %8p\n", header, cptr);
     }
 
     if(alloc->use_malloc) {
@@ -362,7 +362,7 @@ allocator_free (void * ptr)
 
     if (!is_header(header)) {
         allocator_print(header->alloc);
-        endrun(1, "Not an allocated address: Header = %08p ptr = %08p\n", header, cptr);
+        endrun(1, "Not an allocated address: Header = %8p ptr = %8p\n", header, cptr);
     }
 
     int rt = allocator_dealloc(header->alloc, ptr);

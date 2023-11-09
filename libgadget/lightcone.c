@@ -46,7 +46,7 @@ static double SampleFraction; /* current fraction of particle gets written */
 static FILE * fd_lightcone;
 
 static double lightcone_get_horizon(double a);
-static void lightcone_cross(int p, double ddrift);
+static void lightcone_cross(int p, double ddrift, const RandTable * const rnd);
 static void lightcone_set_time(double a, const double BoxSize);
 /*
 M, L = self.M, self.L
@@ -174,7 +174,7 @@ static void update_replicas(double a, double BoxSize) {
 /* Compute a list of particles which crossed
  * the lightcone boundaries on this timestep and
  * write them to the lightcone file*/
-void lightcone_compute(double a, double BoxSize, Cosmology * CP, inttime_t ti_curr, inttime_t ti_next)
+void lightcone_compute(double a, double BoxSize, Cosmology * CP, inttime_t ti_curr, inttime_t ti_next, const RandTable * const rnd)
 {
     int i;
     lightcone_set_time(a, BoxSize);
@@ -182,7 +182,7 @@ void lightcone_compute(double a, double BoxSize, Cosmology * CP, inttime_t ti_cu
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)
     {
-        lightcone_cross(i, ddrift);
+        lightcone_cross(i, ddrift, rnd);
     }
 }
 
@@ -219,7 +219,7 @@ void lightcone_set_time(double a, const double BoxSize) {
 }
 
 /* check crossing of the horizon, write the particle */
-static void lightcone_cross(int p, double ddrift) {
+static void lightcone_cross(int p, double ddrift, const RandTable * const rnd) {
     if(SampleFraction <= 0.0) return;
     int i;
     int k;
@@ -227,7 +227,7 @@ static void lightcone_cross(int p, double ddrift) {
     if(P[p].Type != 1) return;
 
     for(i = 0; i < Nreplica; i++) {
-        double r = get_random_number(P[p].ID + i);
+        double r = get_random_number(P[p].ID + i, rnd);
         if(r > SampleFraction) continue;
 
         double pnew[3];

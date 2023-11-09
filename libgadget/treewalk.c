@@ -177,7 +177,7 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     MPI_Reduce(&tw->WorkSetSize, &nmin, 1, MPI_INT64, MPI_MIN, 0, MPI_COMM_WORLD);
     MPI_Reduce(&tw->WorkSetSize, &nmax, 1, MPI_INT64, MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(&tw->WorkSetSize, &total, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
-    message(0, "Treewalk %s iter %d: total part %ld max/MPI: %ld min/MPI: %ld balance: %g.\n",
+    message(0, "Treewalk %s iter %ld: total part %ld max/MPI: %ld min/MPI: %ld balance: %g.\n",
             tw->ev_label, tw->Niteration, total, nmax, nmin, (double)nmax/((total+0.001)/tw->NTask));
 
     /* Start first iteration at the beginning*/
@@ -193,9 +193,9 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     /* Assert that the query and result structures are aligned to  64-bit boundary,
      * so that our MPI Send/Recv's happen from aligned memory.*/
     if(tw->query_type_elsize % 8 != 0)
-        endrun(0, "Query structure has size %d, not aligned to 64-bit boundary.\n", tw->query_type_elsize);
+        endrun(0, "Query structure has size %ld, not aligned to 64-bit boundary.\n", tw->query_type_elsize);
     if(tw->result_type_elsize % 8 != 0)
-        endrun(0, "Result structure has size %d, not aligned to 64-bit boundary.\n", tw->result_type_elsize);
+        endrun(0, "Result structure has size %ld, not aligned to 64-bit boundary.\n", tw->result_type_elsize);
 
     /*The amount of memory eventually allocated per tree buffer*/
     size_t bytesperbuffer = sizeof(struct data_index) + sizeof(struct data_nodelist) + tw->query_type_elsize;
@@ -206,7 +206,7 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     /*Use all free bytes for the tree buffer, as in exchange. Leave some free memory for array overhead.*/
     size_t freebytes = mymalloc_freebytes();
     if(freebytes <= 4096 * 11 * bytesperbuffer) {
-        endrun(1231245, "Not enough memory for exporting any particles: needed %d bytes have %d. \n", bytesperbuffer, freebytes-4096*10);
+        endrun(1231245, "Not enough memory for exporting any particles: needed %ld bytes have %ld. \n", bytesperbuffer, freebytes-4096*10);
     }
     freebytes -= 4096 * 10 * bytesperbuffer;
 
@@ -217,7 +217,7 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
         tw->BunchSize = twogb / tw->query_type_elsize;
 
     if(tw->BunchSize < 100)
-        endrun(2,"Only enough free memory to export %d elements.\n", tw->BunchSize);
+        endrun(2,"Only enough free memory to export %ld elements.\n", tw->BunchSize);
 
     DataIndexTable =
         (struct data_index *) mymalloc("DataIndexTable", tw->BunchSize * sizeof(struct data_index));
@@ -341,7 +341,7 @@ static int real_ev(struct TreeWalkThreadLocals local_exports, TreeWalk * tw, siz
             lv->NThisParticleExport = 0;
             const int rt = tw->visit(input, output, lv);
             if(lv->NThisParticleExport > 1000)
-                message(5, "%d exports for particle %d! Odd.\n", lv->NThisParticleExport, k);
+                message(5, "%ld exports for particle %d! Odd.\n", lv->NThisParticleExport, k);
             if(rt < 0) {
                 /* export buffer has filled up, can't do more work.*/
                 break;
@@ -369,7 +369,7 @@ static int real_ev(struct TreeWalkThreadLocals local_exports, TreeWalk * tw, siz
                 const int lastreal = tw->WorkSet ? tw->WorkSet[k] : k;
                 /* Index stores tw->target, which is the current particle.*/
                 if(lv->NThisParticleExport > 0 && DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index > lastreal)
-                    endrun(5, "Something screwed up in export queue: nexp %ld (local %d) last %d < index %d\n", lv->Nexport,
+                    endrun(5, "Something screwed up in export queue: nexp %ld (local %ld) last %d < index %d\n", lv->Nexport,
                         lv->NThisParticleExport, lastreal, DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index);
                 /* Leave this chunking loop.*/
             }
@@ -450,7 +450,7 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may
             continue;
 #ifdef DEBUG
         if(nqthr[tid] >= tsize)
-            endrun(5, "tid = %d nqthr = %d, tsize = %d size = %d, tw->Nthread = %d i = %d\n", tid, nqthr[tid], tsize, size, tw->NThread, i);
+            endrun(5, "tid = %d nqthr = %ld, tsize = %ld size = %ld, tw->Nthread = %ld i = %ld\n", tid, nqthr[tid], tsize, size, tw->NThread, i);
 #endif
         thrqueue[tid][nqthr[tid]] = p_i;
         nqthr[tid]++;
@@ -1138,7 +1138,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         else if(current->f.ChildType == PSEUDO_NODE_TYPE) {
             /* pseudo particle */
             if(lv->mode == 1) {
-                endrun(12312, "Secondary for particle %d from node %d found pseudo at %d.\n", lv->target, startnode, current);
+                endrun(12312, "Secondary for particle %d from node %d found pseudo at %d.\n", lv->target, startnode, no);
             } else {
                 /* Export the pseudo particle*/
                 if(-1 == treewalk_export_particle(lv, current->s.suns[0]))
@@ -1243,7 +1243,7 @@ int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
             else if(current->f.ChildType == PSEUDO_NODE_TYPE) {
                 /* pseudo particle */
                 if(lv->mode == 1) {
-                    endrun(12312, "Secondary for particle %d from node %d found pseudo at %d.\n", lv->target, I->NodeList[inode], current);
+                    endrun(12312, "Secondary for particle %d from node %d found pseudo at %d.\n", lv->target, I->NodeList[inode], no);
                 } else {
                     /* Export the pseudo particle*/
                     if(-1 == treewalk_export_particle(lv, current->s.suns[0]))

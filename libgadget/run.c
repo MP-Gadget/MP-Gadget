@@ -38,6 +38,8 @@
 #include "veldisp.h"
 
 static struct ClockTable Clocks;
+/* Size of table full of random numbers generated each timestep.*/
+#define  RNDTABLE 32768
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
@@ -100,7 +102,7 @@ static struct run_params
 
     int SnapshotWithFOF; /*Flag that doing FOF for snapshot outputs is on*/
 
-    int RandomSeed; /*Initial seed for the random number table*/
+    uint64_t RandomSeed; /*Initial seed for the random number table*/
 
     int ExcursionSetReionOn; /*Flag for enabling the excursion set reionisation model*/
     int UVBGdim; /*Dimension of excursion set grids*/
@@ -149,8 +151,6 @@ set_all_global_params(ParameterSet * ps)
         All.AutoSnapshotTime = param_get_double(ps, "AutoSnapshotTime");
         All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
         All.RandomParticleOffset = param_get_double(ps, "RandomParticleOffset");
-        /* Convert to a fraction of the box, from a fraction of a PM mesh cell*/
-        All.RandomParticleOffset /= All.Nmesh;
 
         All.SlotsIncreaseFactor = param_get_double(ps, "SlotsIncreaseFactor");
 
@@ -209,6 +209,8 @@ begrun(const int RestartSnapNum, struct header_data * head)
     /*Set Nmesh to triple the mean grid spacing of the dark matter by default.*/
     if(All.Nmesh  < 0)
         All.Nmesh = 3*pow(2, (int)(log(head->NTotal[1])/3./log(2)) );
+    /* Convert to a fraction of the box, from a fraction of a PM mesh cell*/
+    All.RandomParticleOffset /= All.Nmesh;
     if(head->neutrinonk <= 0)
         head->neutrinonk = All.Nmesh;
 
@@ -245,8 +247,6 @@ begrun(const int RestartSnapNum, struct header_data * head)
     init_cooling_and_star_formation(All.CoolingOn, All.StarformationOn, &All.CP, head->MassTable[0], head->BoxSize, units);
 
     gravshort_fill_ntab(All.ShortRangeForceWindowType, All.Asmth);
-
-    set_random_numbers(All.RandomSeed);
 
     if(All.LightconeOn)
         lightcone_init(&All.CP, head->TimeSnapshot, head->UnitLength_in_cm, All.OutputDir);
@@ -292,7 +292,7 @@ check_kick_drift_times(struct part_manager_type * PartManager, inttime_t ti_curr
             continue;
         if ( ((pp->Type == 0 || pp->Type == 5) && is_timebin_active(pp->TimeBinHydro, ti_current) && pp->Ti_drift != pp->Ti_kick_hydro) ||
            (is_timebin_active(pp->TimeBinGravity, ti_current) && pp->Ti_drift != pp->Ti_kick_grav) ) {
-            message(1, "Bad timestep sync: Particle id %ld type %d hydro timebin: %d grav timebin: %d drift %d kick_hydro %d kick_grav %d\n", pp->ID, pp->Type, pp->TimeBinHydro, pp->TimeBinGravity, pp->Ti_drift, pp->Ti_kick_hydro, pp->Ti_kick_grav);
+            message(1, "Bad timestep sync: Particle id %ld type %d hydro timebin: %d grav timebin: %d drift %ld kick_hydro %ld kick_grav %ld\n", pp->ID, pp->Type, pp->TimeBinHydro, pp->TimeBinGravity, pp->Ti_drift, pp->Ti_kick_hydro, pp->Ti_kick_grav);
             bad++;
         }
     }
@@ -370,10 +370,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             endrun(1, "Negative timestep: %g New Time: %g Old time %g!\n", newatime - atime, newatime, atime);
         atime = newatime;
 
-        /* Compute the list of particles that cross a lightcone and write it to disc.*/
-        if(All.LightconeOn)
-            lightcone_compute(atime, PartManager->BoxSize, &All.CP, Ti_Last, Ti_Next);
-
         int is_PM = is_PM_timestep(&times);
 
         SyncPoint * next_sync; /* if we are out of planned sync points, terminate */
@@ -397,9 +393,19 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             }
         }
 
+        /* We need to re-seed the random number table each timestep.
+         * The seed needs to be the same on all processors, and a different
+         * value each timestep. Only the lowest 32 bits are used in the GSL
+         * random number generator. The populated part of the timestep hierarchy
+         * is added to the random seed. The current snapshot is folded into
+         * bits 32 - 23 so that the random tables do not cycle after every snapshot.
+         * We may still cycle after 512 snapshots but that should be far enough apart. */
+        uint64_t seed = All.RandomSeed + (times.Ti_Current >> times.mintimebin) + ((times.Ti_Current >> TIMEBINS) << 23L);
+        message(0, "New step random seed: %ld Ti %lx\n", seed % (1L<<32L), times.Ti_Current);
+
         double rel_random_shift[3] = {0};
         if(NumCurrentTiStep > 0 && is_PM  && All.RandomParticleOffset > 0) {
-            update_random_offset(PartManager, rel_random_shift, All.RandomParticleOffset);
+            update_random_offset(PartManager, rel_random_shift, All.RandomParticleOffset, seed);
         }
 
         int extradomain = is_timebin_active(times.mintimebin + All.MaxDomainTimeBinDepth, times.Ti_Current);
@@ -423,11 +429,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         }
         update_lastactive_drift(&times);
 
-
         ActiveParticles Act = init_empty_active_particles(0);
         build_active_particles(&Act, &times, NumCurrentTiStep, atime);
-
-        set_random_numbers(All.RandomSeed + times.Ti_Current);
 
         /* Are the particle neutrinos gravitating this timestep?
          * If so we need to add them to the tree.*/
@@ -565,6 +568,10 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             CalcUVBG |= planned_sync->calc_uvbg;
         }
 
+        RandTable rnd = {0};
+        if(GasEnabled || All.LightconeOn)
+            rnd = set_random_numbers(seed, RNDTABLE);
+
         /* Cooling and extra physics show up as a source term in the evolution equations.
          * Formally you can write the structure of the partial differential equations:
            dU/dt +  div(F) = S
@@ -607,13 +614,13 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 /* Seeding: builds its own tree.*/
                 FOFGroups fof = fof_fof(ddecomp, 0, MPI_COMM_WORLD);
                 if(All.BlackHoleOn && atime >= TimeNextSeedingCheck) {
-                    fof_seed(&fof, &Act, atime, MPI_COMM_WORLD);
+                    fof_seed(&fof, &Act, atime, &rnd, MPI_COMM_WORLD);
                     TimeNextSeedingCheck = atime * All.TimeBetweenSeedingSearch;
                 }
 
                 if(during_helium_reionization(1/atime - 1)) {
                     /* Helium reionization by switching on quasar bubbles*/
-                    do_heiii_reionization(atime, &fof, &gasTree, &All.CP, units.UnitInternalEnergy_in_cgs, fds.FdHelium);
+                    do_heiii_reionization(atime, &fof, &gasTree, &All.CP, &rnd, units.UnitInternalEnergy_in_cgs, fds.FdHelium);
                 }
 #ifdef EXCUR_REION
                 //excursion set reionisation
@@ -637,15 +644,22 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
              */
             /* Black hole accretion and feedback */
             if(All.BlackHoleOn)
-                blackhole(&Act, atime, &All.CP, &gasTree, ddecomp, &times, units, fds.FdBlackHoles, fds.FdBlackholeDetails);
+                blackhole(&Act, atime, &All.CP, &gasTree, ddecomp, &times, &rnd, units, fds.FdBlackHoles, fds.FdBlackholeDetails);
 
             /**** radiative cooling and star formation *****/
             if(All.CoolingOn)
-                cooling_and_starformation(&Act, atime, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &gasTree, GravAccel, ddecomp, &All.CP, GradRho_mag, fds.FdSfr);
+                cooling_and_starformation(&Act, atime, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &gasTree, GravAccel, ddecomp, &All.CP, GradRho_mag, &rnd, fds.FdSfr);
         }
         /* We don't need this timestep's tree anymore.*/
         force_tree_free(&gasTree);
 
+        /* Compute the list of particles that cross a lightcone and write it to disc.
+         * This should happen when kick and drift times are synchronised.*/
+        if(All.LightconeOn)
+            lightcone_compute(atime, PartManager->BoxSize, &All.CP, Ti_Last, Ti_Next, &rnd);
+
+        /* Now done with random numbers*/
+        free_random_numbers(&rnd);
         /* If a snapshot is requested, write it.         *
          * We only attempt to output on sync points. This is the only chance where all variables are
          * synchronized in a consistent state in a K(KDDK)^mK scheme.
@@ -798,7 +812,11 @@ runfof(const int RestartSnapNum, const inttime_t Ti_Current, const struct header
         }
         ForceTree Tree = {0};
         struct grav_accel_store gg = {0};
-        cooling_and_starformation(&Act, header->TimeSnapshot, 0, &Tree, gg, ddecomp, &All.CP, GradRho, NULL);
+        /* Cooling is just for the star formation rate, so does not actually use the random table*/
+        RandTable rnd = set_random_numbers(All.RandomSeed, RNDTABLE);
+        cooling_and_starformation(&Act, header->TimeSnapshot, 0, &Tree, gg, ddecomp, &All.CP, GradRho, &rnd, NULL);
+        free_random_numbers(&rnd);
+
         if(GradRho)
             myfree(GradRho);
     }

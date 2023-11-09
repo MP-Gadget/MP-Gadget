@@ -74,11 +74,13 @@ void real_drift_particle(struct particle_data * pp, struct slots_manager_type * 
         if(pp->Hsml > Maxhsml)
             pp->Hsml = Maxhsml;
     }
-
     for(j = 0; j < 3; j++) {
         pp->Pos[j] += pp->Vel[j] * ddrift + random_shift[j];
+        if(!isfinite(pp->Pos[j])) {
+            endrun(5, "Part ID %ld has part position %g %g %g with vel %g %g %g ddrift %g random shift %g %g %g\n",
+                   pp->ID, pp->Pos[0], pp->Pos[1], pp->Pos[2], pp->Vel[0], pp->Vel[1], pp->Vel[2], ddrift, random_shift[0], random_shift[1], random_shift[2]);
+        }
     }
-
     for(j = 0; j < 3; j ++) {
         while(pp->Pos[j] > BoxSize) pp->Pos[j] -= BoxSize;
         while(pp->Pos[j] <= 0) pp->Pos[j] += BoxSize;
@@ -93,7 +95,7 @@ void drift_all_particles(inttime_t ti0, inttime_t ti1, Cosmology * CP, const dou
     int i;
     walltime_measure("/Misc");
     if(ti1 < ti0) {
-        endrun(12, "Trying to reverse time: ti0=%d ti1=%d\n", ti0, ti1);
+        endrun(12, "Trying to reverse time: ti0=%ld ti1=%ld\n", ti0, ti1);
     }
     const double ddrift = get_exact_drift_factor(CP, ti0, ti1);
 
@@ -101,7 +103,7 @@ void drift_all_particles(inttime_t ti0, inttime_t ti1, Cosmology * CP, const dou
     for(i = 0; i < PartManager->NumPart; i++) {
 #ifdef DEBUG
         if(PartManager->Base[i].Ti_drift != ti0)
-            endrun(10, "Drift time mismatch: (ids = %ld %ld) %d != %d\n",PartManager->Base[0].ID, PartManager->Base[i].ID, ti0,  PartManager->Base[i].Ti_drift);
+            endrun(10, "Drift time mismatch: (ids = %ld %ld) %ld != %ld\n",PartManager->Base[0].ID, PartManager->Base[i].ID, ti0,  PartManager->Base[i].Ti_drift);
 #endif
         real_drift_particle(&PartManager->Base[i], SlotsManager, ddrift, PartManager->BoxSize, random_shift);
         PartManager->Base[i].Ti_drift = ti1;

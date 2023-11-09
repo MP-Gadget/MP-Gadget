@@ -310,7 +310,7 @@ create_gadget_parameter_set()
 
     param_declare_double(ps, "MaxWindFreeTravelTime", OPTIONAL, 60, "Maximum time in Myrs for the wind to be decoupled.");
 
-    param_declare_int(ps, "RandomSeed", OPTIONAL, 42, "Random number generator initial seed. Used to form stars.");
+    param_declare_int(ps, "RandomSeed", OPTIONAL, 42, "Random number generator seed. Combined with the current integer time to seed a separate random table each timestep.");
 
     /*These parameters are Lyman alpha forest specific*/
     param_declare_double(ps, "QuickLymanAlphaProbability", OPTIONAL, 0, "Probability gas is turned directly into stars, irrespective of pressure. One is equivalent to quick lyman alpha star formation.");
@@ -394,7 +394,7 @@ void read_parameter_file(char *fname, int * ShowBacktrace, double * MaxMemSizePe
         endrun(1, "Parsing %s failed.\n", fname);
     }
     if(0 != param_validate(ps)) {
-        endrun(1, "Validation of %s failed: %s\n", fname);
+        endrun(1, "Validation of %s failed.\n", fname);
     }
 
     message(0, "----------- Running with Parameters ----------\n");

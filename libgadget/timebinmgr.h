@@ -10,9 +10,9 @@
  *   Note that because each snapshot uses TIMEBASE on the integer timeline, the conversion
  *   factor between loga and ti is not constant across snapshots.
  */
-#define TIMEBINS 20
-#define TIMEBASE (1u<<TIMEBINS)
-#define MAXSNAPSHOTS (1u<<(30-TIMEBINS))
+#define TIMEBINS 46
+#define TIMEBASE (1Lu<<TIMEBINS)
+#define MAXSNAPSHOTS (1Lu<<(62-TIMEBINS))
 
 #include "types.h"
 #include "utils/paramset.h"
@@ -45,7 +45,7 @@ double get_dloga_for_bin(int timebin, const inttime_t Ti_Current);
 /*Get the dti from the timebin*/
 static inline inttime_t dti_from_timebin(int bin) {
     /*Casts to work around bug in intel compiler 18.0*/
-    return bin > 0 ? (1u << (unsigned) bin) : 0;
+    return bin > 0 ? (1Lu << (uint64_t) bin) : 0;
 }
 
 /* Enforce that an integer timestep is a power

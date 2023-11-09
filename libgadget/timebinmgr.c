@@ -10,10 +10,10 @@
 
 /*! table with desired sync points. All forces and phase space variables are synchonized to the same order. */
 static SyncPoint * SyncPoints;
-static int NSyncPoints;    /* number of times stored in table of desired sync points */
+static int64_t NSyncPoints;    /* number of times stored in table of desired sync points */
 static struct sync_params
 {
-    int OutputListLength;
+    int64_t OutputListLength;
     double OutputListTimes[1024];
 
     int ExcursionSetReionOn;
@@ -42,22 +42,22 @@ int OutputListAction(ParameterSet* ps, const char* name, void* data)
     char * outputlist = param_get_string(ps, name);
     char * strtmp = fastpm_strdup(outputlist);
     char * token;
-    int count;
+    int64_t count;
 
     /* Note TimeInit and TimeMax not yet initialised here*/
 
     /*First parse the string to get the number of outputs*/
     for(count=0, token=strtok(strtmp,","); token; count++, token=strtok(NULL, ","))
     {}
-/*     message(1, "Found %d times in output list.\n", count); */
+/*     message(1, "Found %ld times in output list.\n", count); */
 
     /*Allocate enough memory*/
     Sync.OutputListLength = count;
-    int maxcount = sizeof(Sync.OutputListTimes) / sizeof(Sync.OutputListTimes[0]);
-    if(maxcount > (int) MAXSNAPSHOTS)
+    size_t maxcount = sizeof(Sync.OutputListTimes) / sizeof(Sync.OutputListTimes[0]);
+    if(maxcount > MAXSNAPSHOTS)
         maxcount = MAXSNAPSHOTS;
-    if(Sync.OutputListLength > maxcount) {
-        message(1, "Too many entries (%d) in the OutputList, can take no more than %d.\n", Sync.OutputListLength, maxcount);
+    if((size_t) Sync.OutputListLength > maxcount) {
+        message(1, "Too many entries (%ld) in the OutputList, can take no more than %lu.\n", Sync.OutputListLength, maxcount);
         return 1;
     }
     /*Now read in the values*/
@@ -159,14 +159,14 @@ void set_sync_params_test(int OutputListLength, double * OutputListTimes)
 void
 setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snapshot_until_time, int SnapshotWithFOF)
 {
-    int i;
+    int64_t i;
 
     qsort_openmp(Sync.OutputListTimes, Sync.OutputListLength, sizeof(double), cmp_double);
 
     if(NSyncPoints > 0)
         myfree(SyncPoints);
 
-    int NSyncPointsAlloc = Sync.OutputListLength + 2;
+    int64_t NSyncPointsAlloc = Sync.OutputListLength + 2;
 
     /* Excursion set sync points ensure that the reionization excursion set model is run frequently*/
     const double ExcursionSet_delta_a = 0.0001;
@@ -209,8 +209,8 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
             SyncPoints[NSyncPoints].calc_uvbg = 1;
             NSyncPoints++;
             if(NSyncPoints > NSyncPointsAlloc)
-                endrun(1, "Tried to generate %d syncpoints, %d allocated\n", NSyncPoints, NSyncPointsAlloc);
-            //message(0,"added UVBG syncpoint at a = %.3f z = %.3f, Nsync = %d\n",uv_a,1/uv_a - 1,NSyncPoints);
+                endrun(1, "Tried to generate %ld syncpoints, %ld allocated\n", NSyncPoints, NSyncPointsAlloc);
+            //message(0,"added UVBG syncpoint at a = %.3f z = %.3f, Nsync = %ld\n",uv_a,1/uv_a - 1,NSyncPoints);
             // TODO(smutch): OK - this is ridiculous (sorry!), but I just wanted to quickly hack something...
             // TODO(jdavies): fix low-z where delta_a > 10Myr
             double lbt = time_to_present(uv_a,CP);
@@ -221,7 +221,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
                 //message(0,"trying UVBG syncpoint at a = %.3e, z = %.3e, delta_lbt = %.3e\n",uv_a,1/uv_a - 1,delta_lbt);
             }
         }
-        message(0,"Added %d Syncpoints for the excursion Set\n",NSyncPoints-1);
+        message(0,"Added %ld Syncpoints for the excursion Set\n",NSyncPoints-1);
     }
     
     SyncPoints[NSyncPoints].a = TimeMax;
@@ -233,7 +233,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
 
     /* we do an insertion sort here. A heap is faster but who cares the speed for this? */
     for(i = 0; i < Sync.OutputListLength; i ++) {
-        int j = 0;
+        int64_t j = 0;
         double a = Sync.OutputListTimes[i];
         double loga = log(a);
 
@@ -259,7 +259,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
             SyncPoints[j].a = a;
             SyncPoints[j].loga = loga;
             NSyncPoints ++;
-            //message(0,"added outlist syncpoint at a = %.3f, j = %d, Ns = %d\n",a,j,NSyncPoints);
+            //message(0,"added outlist syncpoint at a = %.3f, j = %d, Ns = %ld\n",a,j,NSyncPoints);
         }
         if(SyncPoints[j].a > no_snapshot_until_time) {
             SyncPoints[j].write_snapshot = 1;
@@ -280,9 +280,9 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
         SyncPoints[i].ti = (i * 1L) << (TIMEBINS);
     }
     if(NSyncPoints > NSyncPointsAlloc)
-        endrun(1, "Tried to generate %d syncpoints, %d allocated\n", NSyncPoints, NSyncPointsAlloc);
+        endrun(1, "Tried to generate %ld syncpoints, %ld allocated\n", NSyncPoints, NSyncPointsAlloc);
 
-    //message(1,"NSyncPoints = %d, OutputListLength = %d , timemax = %.3f\n",NSyncPoints,Sync.OutputListLength,TimeMax);
+    //message(1,"NSyncPoints = %ld, OutputListLength = %ld , timemax = %.3f\n",NSyncPoints,Sync.OutputListLength,TimeMax);
     /*for(i = 0; i < NSyncPoints; i++) {
         message(1,"Out: %g %ld\n", exp(SyncPoints[i].loga), SyncPoints[i].ti);
     }*/
@@ -294,7 +294,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
 SyncPoint *
 find_next_sync_point(inttime_t ti)
 {
-    int i;
+    int64_t i;
     for(i = 0; i < NSyncPoints; i ++) {
         if(SyncPoints[i].ti > ti) {
             return &SyncPoints[i];
@@ -308,7 +308,7 @@ find_next_sync_point(inttime_t ti)
 SyncPoint *
 find_current_sync_point(inttime_t ti)
 {
-    int i;
+    int64_t i;
     for(i = 0; i < NSyncPoints; i ++) {
         if(SyncPoints[i].ti == ti) {
             return &SyncPoints[i];
@@ -345,7 +345,7 @@ loga_from_ti(inttime_t ti)
 {
     inttime_t lastsnap = ti >> TIMEBINS;
     if(lastsnap > NSyncPoints) {
-        endrun(1, "Requesting snap %d, from ti %d, beyond last sync point %d\n", lastsnap, ti, NSyncPoints);
+        endrun(1, "Requesting snap %ld, from ti %ld, beyond last sync point %ld\n", lastsnap, ti, NSyncPoints);
     }
     double last = SyncPoints[lastsnap].loga;
     inttime_t dti = ti & (TIMEBASE - 1);
@@ -382,7 +382,7 @@ dloga_from_dti(inttime_t dti, const inttime_t Ti_Current)
         sign = -1;
     }
     if((uint64_t) dti > TIMEBASE) {
-        endrun(1, "Requesting dti %d larger than TIMEBASE %u\n", sign*dti, TIMEBASE);
+        endrun(1, "Requesting dti %ld larger than TIMEBASE %lu\n", sign*dti, TIMEBASE);
     }
     return Dloga * dti * sign;
 }

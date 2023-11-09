@@ -123,8 +123,8 @@ static int add_new_particle_to_active(const int parent, const int child, ActiveP
 static int copy_gravaccel_new_particle(const int parent, const int child, MyFloat (* GravAccel)[3], int64_t nstoredgravaccel);
 
 static int make_particle_star(int child, int parent, int placement, double Time);
-static int starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, const double redshift, const double a3inv, const double hubble, const double GravInternal, const struct UVBG * const GlobalUVBG);
-static int quicklyastarformation(int i, const double a3inv);
+static int starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, const double redshift, const double a3inv, const double hubble, const double GravInternal, const struct UVBG * const GlobalUVBG, const RandTable * const rnd);
+static int quicklyastarformation(int i, const double a3inv, const RandTable * const rnd);
 static double get_sfr_factor_due_to_selfgravity(int i, const double atime, const double a3inv, const double hubble, const double GravInternal);
 static double get_sfr_factor_due_to_h2(int i, MyFloat * GradRho_mag, const double atime);
 static double get_starformation_rate_full(int i, MyFloat * GradRho, struct sfr_eeqos_data sfr_data, const double atime, const double a3inv, const double hubble, const double GravInternal);
@@ -181,7 +181,7 @@ void set_sfr_params(ParameterSet * ps)
 
 /* cooling and star formation routine.*/
 void
-cooling_and_starformation(ActiveParticles * act, double Time, double dloga, ForceTree * tree, struct grav_accel_store GravAccel, DomainDecomp * ddecomp, Cosmology *CP, MyFloat * GradRho, FILE * FdSfr)
+cooling_and_starformation(ActiveParticles * act, double Time, double dloga, ForceTree * tree, struct grav_accel_store GravAccel, DomainDecomp * ddecomp, Cosmology *CP, MyFloat * GradRho, RandTable * rnd, FILE * FdSfr)
 {
     const int nthreads = omp_get_max_threads();
     /*This is a queue for the new stars and their parents, so we can reallocate the slots after the main cooling loop.*/
@@ -247,7 +247,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
                 winds_evolve(p_i, a3inv, hubble);
                 /* check whether we are star forming gas.*/
                 if(sfr_params.QuickLymanAlphaProbability > 0)
-                    shall_we_star_form = quicklyastarformation(p_i, a3inv);
+                    shall_we_star_form = quicklyastarformation(p_i, a3inv, rnd);
                 else
                     shall_we_star_form = sfreff_on_eeqos(&SPHP(p_i), a3inv);
             }
@@ -261,7 +261,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
                     sum_sm += P[p_i].Mass;
                     sm = P[p_i].Mass;
                 } else {
-                    newstar = starformation(p_i, &localsfr, &sm, GradRho, redshift, a3inv, hubble, CP->GravInternal, &GlobalUVBG);
+                    newstar = starformation(p_i, &localsfr, &sm, GradRho, redshift, a3inv, hubble, CP->GravInternal, &GlobalUVBG, rnd);
                     sum_sm += P[p_i].Mass * (1 - exp(-sm/P[p_i].Mass));
                 }
                 /*Add this particle to the stellar conversion queue if necessary.*/
@@ -290,7 +290,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
     /* Do subgrid winds*/
     if(sfr_params.WindOn && winds_are_subgrid()) {
         NumMaybeWind = gadget_compact_thread_arrays(MaybeWind, thrqueuewind, nqthrwind, nthreads);
-        winds_subgrid(MaybeWind, NumMaybeWind, Time, StellarMass);
+        winds_subgrid(MaybeWind, NumMaybeWind, Time, StellarMass, rnd);
         myfree(MaybeWind);
         myfree(StellarMass);
         ta_free(thrqueuewind);
@@ -391,7 +391,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
 
     /* Now apply the wind model using the list of new stars.*/
     if(sfr_params.WindOn && !winds_are_subgrid())
-        winds_and_feedback(NewStars, NumNewStar, Time, tree, ddecomp);
+        winds_and_feedback(NewStars, NumNewStar, Time, rnd, tree, ddecomp);
     myfree(NewStars);
 }
 
@@ -405,7 +405,7 @@ sfr_reserve_slots(ActiveParticles * act, int * NewStars, int NumNewStar, ForceTr
          * so we need to move them out of the way before we extend Nodes.
          * This is quite slow, but need not be collective and is faster than a tree rebuild.
          * Try not to do this too often.*/
-        message(1, "Need %d star slots, more than %d available. Try increasing SlotsIncreaseFactor on restart.\n", SlotsManager->info[4].size, SlotsManager->info[4].maxsize);
+        message(1, "Need %ld star slots, more than %ld available. Try increasing SlotsIncreaseFactor on restart.\n", SlotsManager->info[4].size, SlotsManager->info[4].maxsize);
         /*Move the NewStar array to upper memory*/
         int * new_star_tmp = NULL;
         if(NewStars) {
@@ -688,7 +688,7 @@ cooling_relaxed(int i, double dtime, struct UVBG * local_uvbg, const double reds
  * which forms stars with a constant probability (usually 1) if they are star forming.
  * Returns 1 if converted a particle to a star, 0 if not.*/
 static int
-quicklyastarformation(int i, const double a3inv)
+quicklyastarformation(int i, const double a3inv, const RandTable * const rnd)
 {
     if(SPHP(i).Density <= sfr_params.OverDensThresh)
         return 0;
@@ -702,7 +702,7 @@ quicklyastarformation(int i, const double a3inv)
     if(temp >= sfr_params.QuickLymanAlphaTempThresh)
         return 0;
 
-    if(get_random_number(P[i].ID + 1) < sfr_params.QuickLymanAlphaProbability)
+    if(get_random_number(P[i].ID + 1, rnd) < sfr_params.QuickLymanAlphaProbability)
         return 1;
 
     return 0;
@@ -713,7 +713,7 @@ quicklyastarformation(int i, const double a3inv)
  * The star slot is not actually created here, but a particle for it is.
  */
 static int
-starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, const double redshift, const double a3inv, const double hubble, const double GravInternal, const struct UVBG * const GlobalUVBG)
+starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, const double redshift, const double a3inv, const double hubble, const double GravInternal, const struct UVBG * const GlobalUVBG, const RandTable * const rnd)
 {
     /*  the proper time-step */
     double dloga = get_dloga_for_bin(P[i].TimeBinHydro, P[i].Ti_drift);
@@ -742,7 +742,7 @@ starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, cons
     SPHP(i).Ne = sfr_data.ne;
     *localsfr += SPHP(i).Sfr;
 
-    const double w = get_random_number(P[i].ID);
+    const double w = get_random_number(P[i].ID, rnd);
     const double frac = (1 - exp(-p));
     SPHP(i).Metallicity += w * METAL_YIELD * frac / sfr_params.Generations;
 
@@ -753,7 +753,7 @@ starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, cons
     double mass_of_star = find_star_mass(i, sfr_params.avg_baryon_mass);
     double prob = P[i].Mass / mass_of_star * (1 - exp(-p));
 
-    int form_star = (get_random_number(P[i].ID + 1) < prob);
+    int form_star = (get_random_number(P[i].ID + 1, rnd) < prob);
     if(form_star) {
         /* ok, make a star */
         newstar = i;

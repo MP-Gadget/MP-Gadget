@@ -190,7 +190,7 @@ static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void
     }
     for(i = 0; i < PartManager->NumPart; i ++) {
         if(pstruct->RegionInd[i] == -1) {
-            message(1, "i = %d father %d not assigned to a region\n", i, force_get_father(i, tree));
+            message(1, "i = %ld father %d not assigned to a region\n", i, force_get_father(i, tree));
         }
     }
     /* All particles shall have been processed just once. Otherwise we die */
