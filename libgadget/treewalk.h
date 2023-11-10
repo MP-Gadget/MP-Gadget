@@ -57,6 +57,8 @@ typedef struct {
     int *exportflag;
     int *exportnodecount;
     size_t *exportindex;
+    char * localstacks;
+
     size_t DataIndexOffset;
 
     int * ngblist;

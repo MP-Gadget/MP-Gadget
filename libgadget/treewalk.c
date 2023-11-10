@@ -24,12 +24,14 @@ struct SendRecvBuffer
     int *Recv_offset, *Recv_count;
 };
 
+#define NLOCAL 64
 /* Structure to store the thread local memory for each treewalk*/
 struct TreeWalkThreadLocals
 {
     int *Exportflag;    /*!< Buffer used for flagging whether a particle needs to be exported to another process */
     int *Exportnodecount;
     size_t *Exportindex;
+    char * localstacks; /* Thread-local stack space for particle data*/
 };
 
 /*!< Memory factor to leave for (N imported particles) > (N exported particles). */
@@ -121,6 +123,7 @@ ev_init_thread(const struct TreeWalkThreadLocals local_exports, TreeWalk * const
     const int NTask = tw->NTask;
     int j;
     lv->tw = tw;
+    lv->localstacks = local_exports.localstacks + thread_id * NLOCAL * tw->query_type_elsize;
     lv->exportflag = local_exports.Exportflag + thread_id * NTask;
     lv->exportnodecount = local_exports.Exportnodecount + thread_id * NTask;
     lv->exportindex = local_exports.Exportindex + thread_id * NTask;
@@ -150,12 +153,14 @@ ev_alloc_threadlocals(TreeWalk * tw, const int NTask, const int NumThreads)
     local_exports.Exportflag = ta_malloc2("Exportthreads", int, 2*NTask*NumThreads);
     local_exports.Exportnodecount = local_exports.Exportflag + NTask*NumThreads;
     local_exports.Exportindex = ta_malloc2("Exportindex", size_t, NTask*NumThreads);
+    local_exports.localstacks = ta_malloc2("LocalStacks", char, NumThreads * tw->query_type_elsize);
     return local_exports;
 }
 
 static void
 ev_free_threadlocals(struct TreeWalkThreadLocals local_exports)
 {
+    ta_free(local_exports.localstacks);
     ta_free(local_exports.Exportindex);
     ta_free(local_exports.Exportflag);
 }
@@ -298,9 +303,6 @@ static int real_ev(struct TreeWalkThreadLocals local_exports, TreeWalk * tw, siz
     lv->mode = 0;
 
     /* use old index to recover from a buffer overflow*/;
-    TreeWalkQueryBase * input = (TreeWalkQueryBase *) alloca(tw->query_type_elsize);
-    TreeWalkResultBase * output = (TreeWalkResultBase *) alloca(tw->result_type_elsize);
-
     int64_t lastSucceeded = tw->WorkSetStart - 1;
     /* We must schedule monotonically so that if the export buffer fills up
      * it is guaranteed that earlier particles are already done.
@@ -326,6 +328,10 @@ static int real_ev(struct TreeWalkThreadLocals local_exports, TreeWalk * tw, siz
         /* Reduce the chunk size towards the end of the walk*/
         if((tw->WorkSetSize  < end + chnksz * tw->NThread) && chnksz >= 2)
             chnksz /= 2;
+        /* These are pointers to the first element of arrays of size NLOCAL*/
+        TreeWalkQueryBase * input = (TreeWalkQueryBase *) lv->localstacks;
+        TreeWalkResultBase * output = alloca(tw->result_type_elsize);
+        int thisinput = 0;
         int k;
         for(k = chnk; k < end; k++) {
             /* Skip already evaluated particles. This is only used if the buffer fills up.*/
@@ -333,13 +339,25 @@ static int real_ev(struct TreeWalkThreadLocals local_exports, TreeWalk * tw, siz
                 continue;
 
             const int i = tw->WorkSet ? tw->WorkSet[k] : k;
+            /* This reads from the particle, so do the init in a loop first in an attempt to help the pre-fetcher.*/
             /* Primary never uses node list */
-            treewalk_init_query(tw, input, i, NULL);
-            treewalk_init_result(tw, output, input);
+            if(thisinput == NLOCAL-1) {
+                int j;
+                int newk = k;
+                for(j = 0; j < NLOCAL && k+j < end; j++) {
+                    /* Skip already evaluated particles. This is only used if the buffer fills up.*/
+                    while(tw->evaluated && tw->evaluated[newk+j])
+                        newk++;
+                    const int newi = tw->WorkSet ? tw->WorkSet[newk+j] : newk+j;
+                    treewalk_init_query(tw, input+j, newi, NULL);
+                }
+                thisinput = 0;
+            }
+            treewalk_init_result(tw, output, input+thisinput);
             lv->target = i;
             /* Reset the number of exported particles.*/
             lv->NThisParticleExport = 0;
-            const int rt = tw->visit(input, output, lv);
+            const int rt = tw->visit(input+thisinput, output, lv);
             if(lv->NThisParticleExport > 1000)
                 message(5, "%ld exports for particle %d! Odd.\n", lv->NThisParticleExport, k);
             if(rt < 0) {
