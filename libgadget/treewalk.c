@@ -184,7 +184,7 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     tw->WorkSetStart = 0;
 
     if(!tw->NoNgblist)
-        tw->Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * NumThreads * sizeof(int));
+        tw->Ngblist = (int*) mymalloc("Ngblist", tw->tree->NumParticles * NumThreads * sizeof(int));
     else
         tw->Ngblist = NULL;
 
