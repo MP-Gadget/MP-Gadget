@@ -5,8 +5,6 @@
 #include "utils/paramset.h"
 #include "forcetree.h"
 
-#define  NODELISTLENGTH      8
-
 enum NgbTreeFindSymmetric {
     NGB_TREEFIND_SYMMETRIC,
     NGB_TREEFIND_ASYMMETRIC,
@@ -24,7 +22,6 @@ typedef struct {
 #ifdef DEBUG
     MyIDType ID;
 #endif
-    int NodeList[NODELISTLENGTH];
 } TreeWalkQueryBase;
 
 typedef struct {
@@ -227,7 +224,7 @@ void treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, in
 /* Print some counters for a completed treewalk*/
 void treewalk_print_stats(const TreeWalk * tw);
 /* Increment some counters in the ngbiter function*/
-void treewalk_add_counters(LocalTreeWalk * lv, const int64_t ninteractions, const int64_t inode);
+void treewalk_add_counters(LocalTreeWalk * lv, const int64_t ninteractions);
 
 
 #endif

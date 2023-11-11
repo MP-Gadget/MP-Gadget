@@ -35,11 +35,6 @@ struct TreeWalkThreadLocals
 /*!< Memory factor to leave for (N imported particles) > (N exported particles). */
 static int ImportBufferBoost;
 
-static struct data_nodelist
-{
-    int NodeList[NODELISTLENGTH];
-} *DataNodeList;
-
 /*!< the particles to be exported are grouped
 by task-number. This table allows the
 results to be disentangled again and to be
@@ -198,7 +193,7 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
         endrun(0, "Result structure has size %ld, not aligned to 64-bit boundary.\n", tw->result_type_elsize);
 
     /*The amount of memory eventually allocated per tree buffer*/
-    size_t bytesperbuffer = sizeof(struct data_index) + sizeof(struct data_nodelist) + tw->query_type_elsize;
+    size_t bytesperbuffer = sizeof(struct data_index) + tw->query_type_elsize;
     /*This memory scales like the number of imports. In principle this could be much larger than Nexport
      * if the tree is very imbalanced and many processors all need to export to this one. In practice I have
      * not seen this happen, but provide a parameter to boost the memory for Nimport just in case.*/
@@ -219,20 +214,11 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     if(tw->BunchSize < 100)
         endrun(2,"Only enough free memory to export %ld elements.\n", tw->BunchSize);
 
-    DataIndexTable =
-        (struct data_index *) mymalloc("DataIndexTable", tw->BunchSize * sizeof(struct data_index));
-    DataNodeList =
-        (struct data_nodelist *) mymalloc("DataNodeList", tw->BunchSize * sizeof(struct data_nodelist));
-
-/* This is a very slow check, so removed. Easier to use address sanitiser
- #ifdef DEBUG
-    memset(DataNodeList, -1, sizeof(struct data_nodelist) * tw->BunchSize);
-#endif*/
+    DataIndexTable = (struct data_index *) mymalloc("DataIndexTable", tw->BunchSize * sizeof(struct data_index));
 }
 
 static void ev_finish(TreeWalk * tw)
 {
-    myfree(DataNodeList);
     myfree(DataIndexTable);
     if(tw->Ngblist)
         myfree(tw->Ngblist);
@@ -244,7 +230,7 @@ static void ev_finish(TreeWalk * tw)
 int data_index_compare(const void *a, const void *b);
 
 static void
-treewalk_init_query(TreeWalk * tw, TreeWalkQueryBase * query, int i, int * NodeList)
+treewalk_init_query(TreeWalk * tw, TreeWalkQueryBase * query, int i)
 {
 #ifdef DEBUG
     query->ID = P[i].ID;
@@ -254,19 +240,6 @@ treewalk_init_query(TreeWalk * tw, TreeWalkQueryBase * query, int i, int * NodeL
     for(d = 0; d < 3; d ++) {
         query->Pos[d] = P[i].Pos[d];
     }
-
-    if(NodeList) {
-        memcpy(query->NodeList, NodeList, sizeof(int) * NODELISTLENGTH);
-    } else {
-        query->NodeList[0] = tw->tree->firstnode; /* root node */
-        query->NodeList[1] = -1; /* terminate immediately */
-        /* Zero the rest of the nodelist*/
-#ifdef DEBUG
-        query->NodeList[2] = 0;
-//         memset(query->NodeList+2, 0, sizeof(int) * (NODELISTLENGTH-2));
-#endif
-    }
-
     tw->fill(i, query, tw);
 }
 
@@ -333,8 +306,7 @@ static int real_ev(struct TreeWalkThreadLocals local_exports, TreeWalk * tw, siz
                 continue;
 
             const int i = tw->WorkSet ? tw->WorkSet[k] : k;
-            /* Primary never uses node list */
-            treewalk_init_query(tw, input, i, NULL);
+            treewalk_init_query(tw, input, i);
             treewalk_init_result(tw, output, input);
             lv->target = i;
             /* Reset the number of exported particles.*/
@@ -587,41 +559,28 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no)
     }
     const int target = lv->target;
     int *exportflag = lv->exportflag;
-    int *exportnodecount = lv->exportnodecount;
-    size_t *exportindex = lv->exportindex;
     TreeWalk * tw = lv->tw;
 
     const int task = tw->tree->TopLeaves[no - tw->tree->lastnode].Task;
 
+    /* We only need to export a particle once to the same task.
+     * FIXME: Can we modify the tree construction so that each task gets only one
+     * pseudonode? */
     if(exportflag[task] != target)
     {
         exportflag[task] = target;
-        exportnodecount[task] = NODELISTLENGTH;
-    }
-
-    if(exportnodecount[task] == NODELISTLENGTH)
-    {
         /* out of buffer space. Need to interrupt. */
         if(lv->Nexport >= lv->BunchSize) {
             return -1;
         }
-        /* This index is a unique entry in the global DataNodeList and DataIndexTable.*/
+        /* This index is a unique entry in the global DataIndexTable.*/
         size_t nexp = lv->Nexport + lv->DataIndexOffset;
-        exportnodecount[task] = 0;
-        exportindex[task] = nexp;
         DataIndexTable[nexp].Task = task;
         DataIndexTable[nexp].Index = target;
         DataIndexTable[nexp].IndexGet = nexp;
         lv->Nexport++;
         lv->NThisParticleExport++;
     }
-
-    /* Set the NodeList entry*/
-    DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
-            tw->tree->TopLeaves[no - tw->tree->lastnode].treenode;
-
-    if(exportnodecount[task] < NODELISTLENGTH)
-        DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
     return 0;
 }
 
@@ -726,11 +685,24 @@ ev_communicate(void * sendbuf, void * recvbuf, size_t elsize, const struct SendR
 /* returns the remote particles */
 static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
 {
-    /* Can I avoid doing this sort?*/
+    /* FIXME: Try to avoid multiple exports to the same task.*/
     qsort_openmp(DataIndexTable, tw->Nexport, sizeof(struct data_index), data_index_compare);
     int NTask = tw->NTask;
     size_t i;
     double tstart, tend;
+    /* Check for duplicate exports*/
+    size_t duplicates = 0;
+    for(i=1; i < tw->Nexport; i++)
+    {
+        if(DataIndexTable[i-1].Task == DataIndexTable[i].Task &&
+           DataIndexTable[i-1].Index == DataIndexTable[i].Index) {
+            DataIndexTable[i].Task = NTask+1;
+            duplicates++;
+        }
+    }
+    /* Now sort them so they are at the end.*/
+    qsort_openmp(DataIndexTable, tw->Nexport, sizeof(struct data_index), data_index_compare);
+    tw->Nexport -= duplicates;
 
     struct SendRecvBuffer sndrcv = {0};
     sndrcv.Send_count = (int *) ta_malloc("Send_count", int, 4*NTask+1);
@@ -773,8 +745,7 @@ static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
     {
         int place = DataIndexTable[j].Index;
         TreeWalkQueryBase * input = (TreeWalkQueryBase*) (sendbuf + j * tw->query_type_elsize);
-        int * nodelist = DataNodeList[DataIndexTable[j].IndexGet].NodeList;
-        treewalk_init_query(tw, input, place, nodelist);
+        treewalk_init_query(tw, input, place);
     }
     tend = second();
     tw->timecomp1 += timediff(tstart, tend);
@@ -785,25 +756,7 @@ static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
     tw->timecommsumm1 += timediff(tstart, tend);
     myfree(sendbuf);
     tw->dataget = (char *) recvbuf;
-#if 0
-    /* Check nodelist utilisation*/
-    size_t total_full_nodes = 0;
-    size_t nodelist_hist[NODELISTLENGTH] = {0};
-    for(i = 0; i < tw->Nexport; i++) {
-        int j;
-        for(j = 0; j < NODELISTLENGTH; j++)
-            if(DataNodeList[i].NodeList[j] == -1 || j == NODELISTLENGTH-1) {
-                total_full_nodes+=j;
-                if(j == NODELISTLENGTH -1)
-                    nodelist_hist[j]++;
-                else
-                    nodelist_hist[j-1]++;
-                break;
-            }
-    }
-    message(1, "Avg. node utilisation: %g Nodes %lu %lu %lu %lu %lu %lu %lu %lu\n", (double)total_full_nodes/tw->Nexport,nodelist_hist[0], nodelist_hist[1],nodelist_hist[2], nodelist_hist[3], nodelist_hist[4],nodelist_hist[5], nodelist_hist[6], nodelist_hist[7] );
-#endif
-      return sndrcv;
+    return sndrcv;
 }
 
 static int data_index_compare_by_index(const void *a, const void *b)
@@ -922,20 +875,14 @@ static void fill_task_queue (TreeWalk * tw, struct ev_task * tq, int * pq, int l
 #endif
 
 void
-treewalk_add_counters(LocalTreeWalk * lv, const int64_t ninteractions, const int64_t inode)
+treewalk_add_counters(LocalTreeWalk * lv, const int64_t ninteractions)
 {
-    if(lv->mode == 0) {
-        if(lv->maxNinteractions < ninteractions)
-            lv->maxNinteractions = ninteractions;
-        if(lv->minNinteractions > ninteractions)
-            lv->minNinteractions = ninteractions;
-        lv->Ninteractions += ninteractions;
-        lv->Nlistprimary += 1;
-    }
-    if(lv->mode == 1) {
-        lv->Nnodesinlist += inode;
-        lv->Nlist += inode;
-    }
+    if(lv->maxNinteractions < ninteractions)
+        lv->maxNinteractions = ninteractions;
+    if(lv->minNinteractions > ninteractions)
+        lv->minNinteractions = ninteractions;
+    lv->Ninteractions += ninteractions;
+    lv->Nlistprimary += 1;
 }
 
 /**********
@@ -973,61 +920,57 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
     const double BoxSize = lv->tw->tree->BoxSize;
 
     int64_t ninteractions = 0;
-    int inode = 0;
 
-    for(inode = 0; (lv->mode == 0 && inode < 1)|| (lv->mode == 1 && inode < NODELISTLENGTH && I->NodeList[inode] >= 0); inode++)
-    {
-        int numcand = ngb_treefind_threads(I, O, iter, I->NodeList[inode], lv);
-        /* Export buffer is full end prematurally */
-        if(numcand < 0) return numcand;
+    int numcand = ngb_treefind_threads(I, O, iter, lv->tw->tree->firstnode, lv);
+    /* Export buffer is full end prematurally */
+    if(numcand < 0)
+        return numcand;
 
-        /* If we are here, export is successful. Work on this particle -- first
-         * filter out all of the candidates that are actually outside. */
-        int numngb;
+    /* If we are here, export is successful. Work on this particle -- first
+        * filter out all of the candidates that are actually outside. */
+    int numngb;
 
-        for(numngb = 0; numngb < numcand; numngb ++) {
-            int other = lv->ngblist[numngb];
+    for(numngb = 0; numngb < numcand; numngb ++) {
+        int other = lv->ngblist[numngb];
 
-            /* Skip garbage*/
-            if(P[other].IsGarbage)
-                continue;
-            /* In case the type of the particle has changed since the tree was built.
-             * Happens for wind treewalk for gas turned into stars on this timestep.*/
-            if(!((1<<P[other].Type) & iter->mask)) {
-                continue;
-            }
-
-            double dist;
-
-            if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
-                dist = DMAX(P[other].Hsml, iter->Hsml);
-            } else {
-                dist = iter->Hsml;
-            }
-
-            double r2 = 0;
-            int d;
-            double h2 = dist * dist;
-            for(d = 0; d < 3; d ++) {
-                /* the distance vector points to 'other' */
-                iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d], BoxSize);
-                r2 += iter->dist[d] * iter->dist[d];
-                if(r2 > h2) break;
-            }
-            if(r2 > h2) continue;
-
-            /* update the iter and call the iteration function*/
-            iter->r2 = r2;
-            iter->r = sqrt(r2);
-            iter->other = other;
-
-            lv->tw->ngbiter(I, O, iter, lv);
+        /* Skip garbage*/
+        if(P[other].IsGarbage)
+            continue;
+        /* In case the type of the particle has changed since the tree was built.
+            * Happens for wind treewalk for gas turned into stars on this timestep.*/
+        if(!((1<<P[other].Type) & iter->mask)) {
+            continue;
         }
 
-        ninteractions += numngb;
+        double dist;
+
+        ninteractions++;
+        if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
+            dist = DMAX(P[other].Hsml, iter->Hsml);
+        } else {
+            dist = iter->Hsml;
+        }
+
+        double r2 = 0;
+        int d;
+        double h2 = dist * dist;
+        for(d = 0; d < 3; d ++) {
+            /* the distance vector points to 'other' */
+            iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d], BoxSize);
+            r2 += iter->dist[d] * iter->dist[d];
+            if(r2 > h2) break;
+        }
+        if(r2 > h2) continue;
+
+        /* update the iter and call the iteration function*/
+        iter->r2 = r2;
+        iter->r = sqrt(r2);
+        iter->other = other;
+
+        lv->tw->ngbiter(I, O, iter, lv);
     }
 
-    treewalk_add_counters(lv, ninteractions, inode);
+    treewalk_add_counters(lv, ninteractions);
 
     return 0;
 }
@@ -1174,91 +1117,74 @@ int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
     lv->tw->ngbiter(I, O, iter, lv);
 
     int64_t ninteractions = 0;
-    int inode;
-    for(inode = 0; (lv->mode == 0 && inode < 1)|| (lv->mode == 1 && inode < NODELISTLENGTH && I->NodeList[inode] >= 0); inode++)
+    int no = lv->tw->tree->firstnode;
+    const ForceTree * tree = lv->tw->tree;
+    const double BoxSize = tree->BoxSize;
+
+    while(no >= 0)
     {
-        int no = I->NodeList[inode];
-        const ForceTree * tree = lv->tw->tree;
-        const double BoxSize = tree->BoxSize;
-
-        while(no >= 0)
-        {
-            struct NODE *current = &tree->Nodes[no];
-
-            /* When walking exported particles we start from the encompassing top-level node,
-            * so if we get back to a top-level node again we are done.*/
-            if(lv->mode == 1) {
-                /* The first node is always top-level*/
-                if(current->f.TopLevel && no != I->NodeList[inode]) {
-                    /* we reached a top-level node again, which means that we are done with the branch */
-                    break;
-                }
-            }
-
-            /* Cull the node */
-            if(0 == cull_node(I, iter, current, BoxSize)) {
-                /* in case the node can be discarded */
-                no = current->sibling;
-                continue;
-            }
-
-            /* Node contains relevant particles, add them.*/
-            if(current->f.ChildType == PARTICLE_NODE_TYPE) {
-                int i;
-                int * suns = current->s.suns;
-                for (i = 0; i < current->s.noccupied; i++) {
-                    /* Now evaluate a particle for the list*/
-                    int other = suns[i];
-                    /* Skip garbage*/
-                    if(P[other].IsGarbage)
-                        continue;
-                    /* In case the type of the particle has changed since the tree was built.
-                    * Happens for wind treewalk for gas turned into stars on this timestep.*/
-                    if(!((1<<P[other].Type) & iter->mask))
-                        continue;
-
-                    double dist = iter->Hsml;
-                    double r2 = 0;
-                    int d;
-                    double h2 = dist * dist;
-                    for(d = 0; d < 3; d ++) {
-                        /* the distance vector points to 'other' */
-                        iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d], BoxSize);
-                        r2 += iter->dist[d] * iter->dist[d];
-                        if(r2 > h2) break;
-                    }
-                    if(r2 > h2) continue;
-
-                    /* update the iter and call the iteration function*/
-                    iter->r2 = r2;
-                    iter->other = other;
-                    iter->r = sqrt(r2);
-                    lv->tw->ngbiter(I, O, iter, lv);
-                    ninteractions++;
-                }
-                /* Move sideways*/
-                no = current->sibling;
-                continue;
-            }
-            else if(current->f.ChildType == PSEUDO_NODE_TYPE) {
-                /* pseudo particle */
-                if(lv->mode == 1) {
-                    endrun(12312, "Secondary for particle %d from node %d found pseudo at %d.\n", lv->target, I->NodeList[inode], no);
-                } else {
-                    /* Export the pseudo particle*/
-                    if(-1 == treewalk_export_particle(lv, current->s.suns[0]))
-                        return -1;
-                    /* Move sideways*/
-                    no = current->sibling;
-                    continue;
-                }
-            }
-            /* ok, we need to open the node */
-            no = current->s.suns[0];
+        struct NODE *current = &tree->Nodes[no];
+        /* Cull the node */
+        if(0 == cull_node(I, iter, current, BoxSize)) {
+            /* in case the node can be discarded */
+            no = current->sibling;
+            continue;
         }
+
+        /* Node contains relevant particles, add them.*/
+        if(current->f.ChildType == PARTICLE_NODE_TYPE) {
+            int i;
+            int * suns = current->s.suns;
+            for (i = 0; i < current->s.noccupied; i++) {
+                /* Now evaluate a particle for the list*/
+                int other = suns[i];
+                /* Skip garbage*/
+                if(P[other].IsGarbage)
+                    continue;
+                /* In case the type of the particle has changed since the tree was built.
+                * Happens for wind treewalk for gas turned into stars on this timestep.*/
+                if(!((1<<P[other].Type) & iter->mask))
+                    continue;
+
+                double dist = iter->Hsml;
+                double r2 = 0;
+                int d;
+                double h2 = dist * dist;
+                for(d = 0; d < 3; d ++) {
+                    /* the distance vector points to 'other' */
+                    iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d], BoxSize);
+                    r2 += iter->dist[d] * iter->dist[d];
+                    if(r2 > h2) break;
+                }
+                if(r2 > h2) continue;
+
+                /* update the iter and call the iteration function*/
+                iter->r2 = r2;
+                iter->other = other;
+                iter->r = sqrt(r2);
+                lv->tw->ngbiter(I, O, iter, lv);
+                ninteractions++;
+            }
+            /* Move sideways*/
+            no = current->sibling;
+            continue;
+        }
+        else if(current->f.ChildType == PSEUDO_NODE_TYPE) {
+            /* pseudo particle */
+            /* Export the particle only if mode is zero.*/
+            if (lv->mode == 0) {
+                if(-1 == treewalk_export_particle(lv, current->s.suns[0]))
+                    return -1;
+            }
+            /* Move sideways*/
+            no = current->sibling;
+            continue;
+        }
+        /* ok, we need to open the node */
+        no = current->s.suns[0];
     }
 
-    treewalk_add_counters(lv, ninteractions, inode);
+    treewalk_add_counters(lv, ninteractions);
 
     return 0;
 }

@@ -275,120 +275,112 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     const double * inpos = input->base.Pos;
 
     /*Start the tree walk*/
-    int listindex, ninteractions=0;
+    int ninteractions=0;
 
-    /* Primary treewalk only ever has one nodelist entry*/
-    for(listindex = 0; listindex < NODELISTLENGTH && (lv->mode == 1 || listindex < 1); listindex++)
+    int numcand = 0;
+    int no = lv->tw->tree->firstnode;
+    int startno = no;
+
+    while(no >= 0)
     {
-        int numcand = 0;
-        /* Use the next node in the node list if we are doing a secondary walk.
-         * For a primary walk the node list only ever contains one node. */
-        int no = input->base.NodeList[listindex];
-        int startno = no;
-        if(no < 0)
-            break;
+        /* The tree always walks internal nodes*/
+        struct NODE *nop = &tree->Nodes[no];
 
-        while(no >= 0)
+        if(lv->mode == 1)
         {
-            /* The tree always walks internal nodes*/
-            struct NODE *nop = &tree->Nodes[no];
-
-            if(lv->mode == 1)
+            if(nop->f.TopLevel && no != startno)	/* we reached a top-level node again, which means that we are done with the branch */
             {
-                if(nop->f.TopLevel && no != startno)	/* we reached a top-level node again, which means that we are done with the branch */
-                {
-                    no = -1;
-                    continue;
-                }
-            }
-
-            int i;
-            double dx[3];
-            for(i = 0; i < 3; i++)
-                dx[i] = NEAREST(nop->mom.cofm[i] - inpos[i], BoxSize);
-            const double r2 = dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2];
-
-            /* Discard this node, move to sibling*/
-            if(shall_we_discard_node(nop->len, r2, nop->center, inpos, BoxSize, rcut, rcut2))
-            {
-                no = nop->sibling;
-                /* Don't add this node*/
+                no = -1;
                 continue;
-            }
-
-            /* This node accelerates the particle directly, and is not opened.*/
-            int open_node = shall_we_open_node(nop->len, nop->mom.mass, r2, nop->center, inpos, BoxSize, aold, TreeUseBH, BHOpeningAngle2);
-            if(TreeParams.AdaptiveSoftening == 1 && (input->Soft < nop->mom.hmax))
-            {
-                /* Always open the node if it has a larger softening than the particle,
-                 * and the particle is inside its softening radius.
-                 * This condition only ever applies for adaptive softenings. It may or may not make sense. */
-                if(r2 < nop->mom.hmax * nop->mom.hmax)
-                    open_node = 1;
-            }
-
-            if(!open_node)
-            {
-                double h = input->Soft;
-                if(TreeParams.AdaptiveSoftening)
-                    h = DMAX(input->Soft, nop->mom.hmax);
-                /* ok, node can be used */
-                no = nop->sibling;
-                /* Compute the acceleration and apply it to the output structure*/
-                apply_accn_to_output(output, dx, r2, h, nop->mom.mass, cellsize);
-                continue;
-            }
-
-            /* Now we have a cell that needs to be opened.
-             * If it contains particles we can add them directly here */
-            if(nop->f.ChildType == PARTICLE_NODE_TYPE)
-            {
-                /* Loop over child particles*/
-                for(i = 0; i < nop->s.noccupied; i++) {
-                    int pp = nop->s.suns[i];
-                    lv->ngblist[numcand++] = pp;
-                }
-                no = nop->sibling;
-            }
-            else if (nop->f.ChildType == PSEUDO_NODE_TYPE)
-            {
-                if(lv->mode == 0)
-                {
-                    if(-1 == treewalk_export_particle(lv, nop->s.suns[0]))
-                        return -1;
-                }
-
-                /* Move to the sibling (likely also a pseudo node)*/
-                no = nop->sibling;
-            }
-            else if(nop->f.ChildType == NODE_NODE_TYPE)
-            {
-                /* This node contains other nodes and we need to open it.*/
-                no = nop->s.suns[0];
             }
         }
+
         int i;
-        for(i = 0; i < numcand; i++)
+        double dx[3];
+        for(i = 0; i < 3; i++)
+            dx[i] = NEAREST(nop->mom.cofm[i] - inpos[i], BoxSize);
+        const double r2 = dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2];
+
+        /* Discard this node, move to sibling*/
+        if(shall_we_discard_node(nop->len, r2, nop->center, inpos, BoxSize, rcut, rcut2))
         {
-            int pp = lv->ngblist[i];
-
-            double dx[3];
-            int j;
-            for(j = 0; j < 3; j++)
-                dx[j] = NEAREST(P[pp].Pos[j] - inpos[j], BoxSize);
-            const double r2 = dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2];
-
-            /* This is always the Newtonian softening,
-             * match the default from FORCE_SOFTENING. */
-            double h = 2.8 * GravitySoftening;
-            if(TreeParams.AdaptiveSoftening == 1) {
-                h = DMAX(input->Soft, FORCE_SOFTENING(pp, P[pp].Type));
-            }
-            /* Compute the acceleration and apply it to the output structure*/
-            apply_accn_to_output(output, dx, r2, h, P[pp].Mass, cellsize);
+            no = nop->sibling;
+            /* Don't add this node*/
+            continue;
         }
-        ninteractions = numcand;
+
+        /* This node accelerates the particle directly, and is not opened.*/
+        int open_node = shall_we_open_node(nop->len, nop->mom.mass, r2, nop->center, inpos, BoxSize, aold, TreeUseBH, BHOpeningAngle2);
+        if(TreeParams.AdaptiveSoftening == 1 && (input->Soft < nop->mom.hmax))
+        {
+            /* Always open the node if it has a larger softening than the particle,
+                * and the particle is inside its softening radius.
+                * This condition only ever applies for adaptive softenings. It may or may not make sense. */
+            if(r2 < nop->mom.hmax * nop->mom.hmax)
+                open_node = 1;
+        }
+
+        if(!open_node)
+        {
+            double h = input->Soft;
+            if(TreeParams.AdaptiveSoftening)
+                h = DMAX(input->Soft, nop->mom.hmax);
+            /* ok, node can be used */
+            no = nop->sibling;
+            /* Compute the acceleration and apply it to the output structure*/
+            apply_accn_to_output(output, dx, r2, h, nop->mom.mass, cellsize);
+            continue;
+        }
+
+        /* Now we have a cell that needs to be opened.
+            * If it contains particles we can add them directly here */
+        if(nop->f.ChildType == PARTICLE_NODE_TYPE)
+        {
+            /* Loop over child particles*/
+            for(i = 0; i < nop->s.noccupied; i++) {
+                int pp = nop->s.suns[i];
+                lv->ngblist[numcand++] = pp;
+            }
+            no = nop->sibling;
+        }
+        else if (nop->f.ChildType == PSEUDO_NODE_TYPE)
+        {
+            if(lv->mode == 0)
+            {
+                if(-1 == treewalk_export_particle(lv, nop->s.suns[0]))
+                    return -1;
+            }
+
+            /* Move to the sibling (likely also a pseudo node)*/
+            no = nop->sibling;
+        }
+        else if(nop->f.ChildType == NODE_NODE_TYPE)
+        {
+            /* This node contains other nodes and we need to open it.*/
+            no = nop->s.suns[0];
+        }
     }
-    treewalk_add_counters(lv, ninteractions, listindex);
+    int i;
+    for(i = 0; i < numcand; i++)
+    {
+        int pp = lv->ngblist[i];
+
+        double dx[3];
+        int j;
+        for(j = 0; j < 3; j++)
+            dx[j] = NEAREST(P[pp].Pos[j] - inpos[j], BoxSize);
+        const double r2 = dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2];
+
+        /* This is always the Newtonian softening,
+            * match the default from FORCE_SOFTENING. */
+        double h = 2.8 * GravitySoftening;
+        if(TreeParams.AdaptiveSoftening == 1) {
+            h = DMAX(input->Soft, FORCE_SOFTENING(pp, P[pp].Type));
+        }
+        /* Compute the acceleration and apply it to the output structure*/
+        apply_accn_to_output(output, dx, r2, h, P[pp].Mass, cellsize);
+    }
+    ninteractions = numcand;
+    treewalk_add_counters(lv, ninteractions);
     return 1;
 }
