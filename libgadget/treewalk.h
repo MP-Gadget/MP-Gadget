@@ -5,6 +5,11 @@
 #include "utils/paramset.h"
 #include "forcetree.h"
 
+/* Use a low number here. The need for a large Nodelist in older versions
+ * was because we were sorting the DIT, so had incentive to keep it small.
+ * The code is simplest with NODELISTLENGTH=1 but then the structs are not 64-bit aligned.*/
+#define  NODELISTLENGTH 2
+
 enum NgbTreeFindSymmetric {
     NGB_TREEFIND_SYMMETRIC,
     NGB_TREEFIND_ASYMMETRIC,
@@ -19,6 +24,7 @@ typedef struct TreeWalk TreeWalk;
 
 typedef struct {
     double Pos[3];
+    int NodeList[NODELISTLENGTH];
 #ifdef DEBUG
     MyIDType ID;
 #endif

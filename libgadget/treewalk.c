@@ -35,6 +35,7 @@ static struct data_index
 {
     int Task;
     int Index;
+    int NodeList[NODELISTLENGTH];
 } *DataIndexTable;
 
 /*Initialise global treewalk parameters*/
@@ -165,7 +166,7 @@ static void ev_finish(TreeWalk * tw)
 }
 
 static void
-treewalk_init_query(TreeWalk * tw, TreeWalkQueryBase * query, int i)
+treewalk_init_query(TreeWalk * tw, TreeWalkQueryBase * query, int i, int * NodeList)
 {
 #ifdef DEBUG
     query->ID = P[i].ID;
@@ -175,6 +176,14 @@ treewalk_init_query(TreeWalk * tw, TreeWalkQueryBase * query, int i)
     for(d = 0; d < 3; d ++) {
         query->Pos[d] = P[i].Pos[d];
     }
+
+    if(NodeList) {
+        memcpy(query->NodeList, NodeList, sizeof(int) * NODELISTLENGTH);
+    } else {
+        query->NodeList[0] = tw->tree->firstnode; /* root node */
+        query->NodeList[1] = -1; /* terminate immediately */
+    }
+
     tw->fill(i, query, tw);
 }
 
@@ -241,7 +250,8 @@ static int real_ev(TreeWalk * tw, size_t * dataindexoffset, size_t * nexports, i
                 continue;
 
             const int i = tw->WorkSet ? tw->WorkSet[k] : k;
-            treewalk_init_query(tw, input, i);
+            /* Primary never uses node list */
+            treewalk_init_query(tw, input, i, NULL);
             treewalk_init_result(tw, output, input);
             lv->target = i;
             /* Reset the number of exported particles.*/
@@ -442,6 +452,10 @@ static void ev_secondary(TreeWalk * tw)
     tw->timecomp2 += timediff(tstart, tend);
 }
 
+#if NODELISTLENGTH != 2
+#error "treewalk_export_particle assumes NODELISTLENGTH is 2"
+#endif
+
 /* export a particle at target and no, thread safely
  *
  * This can also be called from a nonthreaded code
@@ -454,25 +468,21 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no)
     }
     const int target = lv->target;
     TreeWalk * tw = lv->tw;
-
     const int task = tw->tree->TopLeaves[no - tw->tree->lastnode].Task;
-    /* We must only export a particle once to each task, as we walk from the root node.*/
-
     /* This index is a unique entry in the global DataIndexTable.*/
     size_t nexp = lv->Nexport + lv->DataIndexOffset;
-    /* Check that an earlier export was not to this task.
-     * Since each export list is on a different thread, we can
+    /* If the last export was to this task, we can perhaps just add this export to the existing NodeList. We can
      * be sure that all exports of this particle are contiguous.*/
-    size_t i;
-    for(i = 1; i <= lv->NThisParticleExport; i++) {
+    if(lv->NThisParticleExport >= 1 && DataIndexTable[nexp-1].Task == task) {
 #ifdef DEBUG
         /* This is just to be safe: only happens if our indices are off.*/
-        if(DataIndexTable[nexp - i].Index != target)
-            endrun(1, "%ld of %ld exports is target %d not current %d\n", i, lv->NThisParticleExport, DataIndexTable[nexp-i].Index, target);
+        if(DataIndexTable[nexp - 1].Index != target)
+            endrun(1, "Previous of %ld exports is target %d not current %d\n", lv->NThisParticleExport, DataIndexTable[nexp-1].Index, target);
 #endif
-        /* No need to export twice*/
-        if(DataIndexTable[nexp-i].Task == task)
+        if(DataIndexTable[nexp].NodeList[1] == -1) {
+            DataIndexTable[nexp].NodeList[1] = tw->tree->TopLeaves[no - tw->tree->lastnode].treenode;
             return 0;
+        }
     }
     /* out of buffer space. Need to interrupt. */
     if(lv->Nexport >= lv->BunchSize) {
@@ -480,6 +490,8 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no)
     }
     DataIndexTable[nexp].Task = task;
     DataIndexTable[nexp].Index = target;
+    DataIndexTable[nexp].NodeList[0] = tw->tree->TopLeaves[no - tw->tree->lastnode].treenode;
+    DataIndexTable[nexp].NodeList[1] = -1;
     lv->Nexport++;
     lv->NThisParticleExport++;
     return 0;
@@ -634,7 +646,7 @@ static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
             int bufpos = real_send_count[task] + sndrcv.Send_offset[task];
             TreeWalkQueryBase * input = (TreeWalkQueryBase*) (sendbuf + bufpos * tw->query_type_elsize);
             real_send_count[DataIndexTable[ditind].Task]++;
-            treewalk_init_query(tw, input, place);
+            treewalk_init_query(tw, input, place, DataIndexTable[ditind].NodeList);
         }
     }
 #ifdef DEBUG
