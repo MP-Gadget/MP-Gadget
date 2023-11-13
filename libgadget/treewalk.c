@@ -477,8 +477,8 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no)
         if(DataIndexTable[nexp - 1].Index != target)
             endrun(1, "Previous of %ld exports is target %d not current %d\n", lv->NThisParticleExport, DataIndexTable[nexp-1].Index, target);
 #endif
-        if(DataIndexTable[nexp].NodeList[1] == -1) {
-            DataIndexTable[nexp].NodeList[1] = tw->tree->TopLeaves[no - tw->tree->lastnode].treenode;
+        if(DataIndexTable[nexp-1].NodeList[1] == -1) {
+            DataIndexTable[nexp-1].NodeList[1] = tw->tree->TopLeaves[no - tw->tree->lastnode].treenode;
             return 0;
         }
     }
