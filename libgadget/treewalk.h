@@ -122,13 +122,6 @@ struct TreeWalk {
     double timecomp3;
     double timecommsumm1;
     double timecommsumm2;
-    /* For secondary tree walks this stores the
-     * total number of pseudo-particles in all
-     * node lists of exported particles.*/
-    int64_t Nnodesinlist;
-    /* Stores the total number of node lists created for all exported particles.
-     * Used to find the average number of nodes in each nodelist.*/
-    int64_t Nlist;
     /* Number of particles in the Ngblist for the primary treewalk*/
     int64_t Nlistprimary;
     /* Total number of exported particles

@@ -480,9 +480,7 @@ static void ev_secondary(TreeWalk * tw)
     tw->dataresult = (char *) mymalloc("EvDataResult", tw->Nimport * tw->result_type_elsize);
 
     struct TreeWalkThreadLocals local_exports = ev_alloc_threadlocals(tw, tw->NTask, tw->NThread);
-    int nnodes = tw->Nnodesinlist;
-    int nlist = tw->Nlist;
-#pragma omp parallel reduction(+: nnodes) reduction(+: nlist)
+#pragma omp parallel
     {
         size_t j;
         LocalTreeWalk lv[1];
@@ -497,12 +495,7 @@ static void ev_secondary(TreeWalk * tw)
             lv->target = -1;
             tw->visit(input, output, lv);
         }
-        nnodes += lv->Nnodesinlist;
-        nlist += lv->Nlist;
     }
-    tw->Nnodesinlist = nnodes;
-    tw->Nlist = nlist;
-
     ev_free_threadlocals(local_exports);
     tend = second();
     tw->timecomp2 += timediff(tstart, tend);
@@ -1331,14 +1324,11 @@ ngb_narrow_down(double *right, double *left, const double *radius, const double 
 void
 treewalk_print_stats(const TreeWalk * tw)
 {
-    int64_t minNinteractions, maxNinteractions, Ninteractions, Nlistprimary, Nnodesinlist, Nlist;
+    int64_t minNinteractions, maxNinteractions, Ninteractions, Nlistprimary, Nexport;
     MPI_Reduce(&tw->minNinteractions, &minNinteractions, 1, MPI_INT64, MPI_MIN, 0, MPI_COMM_WORLD);
     MPI_Reduce(&tw->maxNinteractions, &maxNinteractions, 1, MPI_INT64, MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(&tw->Ninteractions, &Ninteractions, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&tw->Nlistprimary, &Nlistprimary, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&tw->Nnodesinlist, &Nnodesinlist, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&tw->Nlist, &Nlist, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
-    if(Nlist == 0)
-        Nlist ++;
-    message(0, "%s Ngblist: min %ld max %ld avg %g average exports: %g\n", tw->ev_label, minNinteractions, maxNinteractions, (double) Ninteractions / Nlistprimary, (double) Nnodesinlist / Nlist);
+    MPI_Reduce(&tw->Nexport_sum, &Nexport, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    message(0, "%s Ngblist: min %ld max %ld avg %g average exports: %g\n", tw->ev_label, minNinteractions, maxNinteractions, (double) Ninteractions / Nlistprimary, (double) Nexport/ tw->NTask);
 }
