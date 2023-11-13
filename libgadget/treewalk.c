@@ -72,35 +72,6 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         int startnode,
         LocalTreeWalk * lv);
 
-
-/*! This function is used as a comparison kernel in a sort routine. It is
- *  used to group particles in the communication buffer that are going to
- *  be sent to the same CPU.
- */
-static int data_index_compare(const void *a, const void *b)
-{
-    if(((struct data_index *) a)->Task < (((struct data_index *) b)->Task))
-        return -1;
-
-    if(((struct data_index *) a)->Task > (((struct data_index *) b)->Task))
-        return +1;
-
-    if(((struct data_index *) a)->Index < (((struct data_index *) b)->Index))
-        return -1;
-
-    if(((struct data_index *) a)->Index > (((struct data_index *) b)->Index))
-        return +1;
-
-    if(((struct data_index *) a)->IndexGet < (((struct data_index *) b)->IndexGet))
-        return -1;
-
-    if(((struct data_index *) a)->IndexGet > (((struct data_index *) b)->IndexGet))
-        return +1;
-
-    return 0;
-}
-
-
 /*
  * for debugging
  */
@@ -218,8 +189,6 @@ static void ev_finish(TreeWalk * tw)
         myfree(tw->WorkSet);
 
 }
-
-int data_index_compare(const void *a, const void *b);
 
 static void
 treewalk_init_query(TreeWalk * tw, TreeWalkQueryBase * query, int i)
@@ -684,10 +653,7 @@ ev_communicate(void * sendbuf, void * recvbuf, size_t elsize, const struct SendR
 /* returns the remote particles */
 static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
 {
-    /* FIXME: Can I avoid the sort?*/
-    qsort_openmp(DataIndexTable, tw->Nexport, sizeof(struct data_index), data_index_compare);
-    int NTask = tw->NTask;
-    size_t i;
+    size_t i, NTask = tw->NTask;
     double tstart, tend;
 
     struct SendRecvBuffer sndrcv = {0};
@@ -707,7 +673,7 @@ static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
     tend = second();
     tw->timewait1 += timediff(tstart, tend);
 
-    for(i = 0, tw->Nimport = 0, sndrcv.Recv_offset[0] = 0, sndrcv.Send_offset[0] = 0; i < (size_t) NTask; i++)
+    for(i = 0, tw->Nimport = 0, sndrcv.Recv_offset[0] = 0, sndrcv.Send_offset[0] = 0; i < NTask; i++)
     {
         tw->Nimport += sndrcv.Recv_count[i];
         if(i > 0)
@@ -717,19 +683,29 @@ static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
         }
     }
 
-    size_t j;
     void * recvbuf = mymalloc("EvDataGet", tw->Nimport * tw->query_type_elsize);
     char * sendbuf = (char *) mymalloc("EvDataIn", tw->Nexport * tw->query_type_elsize);
 
     tstart = second();
     /* prepare particle data for export */
-#pragma omp parallel for
+    size_t j;
+    int * real_send_count = ta_malloc("tmp_send_count", int, NTask);
+    memset(real_send_count, 0, sizeof(int)*NTask);
     for(j = 0; j < tw->Nexport; j++)
     {
         int place = DataIndexTable[j].Index;
-        TreeWalkQueryBase * input = (TreeWalkQueryBase*) (sendbuf + j * tw->query_type_elsize);
+        int bufpos = real_send_count[DataIndexTable[j].Task];
+        TreeWalkQueryBase * input = (TreeWalkQueryBase*) (sendbuf + bufpos * tw->query_type_elsize);
+        real_send_count[DataIndexTable[j].Task]++;
         treewalk_init_query(tw, input, place);
     }
+#ifdef DEBUG
+/* Check!*/
+    for(j = 0; j < NTask; j++)
+        if(real_send_count[j] != sndrcv.Send_count[j])
+            endrun(6, "Inconsistent export to task %ld of %ld: %d expected %d\n", j, NTask, real_send_count[j], sndrcv.Send_count[j]);
+#endif
+    myfree(real_send_count);
     tend = second();
     tw->timecomp1 += timediff(tstart, tend);
 
