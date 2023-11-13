@@ -80,8 +80,6 @@ ev_init_thread(TreeWalk * const tw, LocalTreeWalk * lv)
     lv->maxNinteractions = 0;
     lv->minNinteractions = 1L<<45;
     lv->Ninteractions = 0;
-    lv->Nnodesinlist = 0;
-    lv->Nlist = 0;
     lv->Nlistprimary = 0;
     lv->Nexport = 0;
     size_t localbunch = tw->BunchSize/omp_get_max_threads();
@@ -525,6 +523,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
 
     if(tw->visit) {
         tw->Nexportfull = 0;
+        tw->Nexport_sum = 0;
         tw->evaluated = NULL;
         do
         {
@@ -1251,5 +1250,5 @@ treewalk_print_stats(const TreeWalk * tw)
     MPI_Reduce(&tw->Ninteractions, &Ninteractions, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&tw->Nlistprimary, &Nlistprimary, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&tw->Nexport_sum, &Nexport, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
-    message(0, "%s Ngblist: min %ld max %ld avg %g average exports: %g\n", tw->ev_label, minNinteractions, maxNinteractions, (double) Ninteractions / Nlistprimary, (double) Nexport/ tw->NTask);
+    message(0, "%s Ngblist: min %ld max %ld avg %g average exports per task: %g\n", tw->ev_label, minNinteractions, maxNinteractions, (double) Ninteractions / Nlistprimary, ((double) Nexport)/ tw->NTask);
 }

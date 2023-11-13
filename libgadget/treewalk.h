@@ -64,8 +64,6 @@ typedef struct {
     int64_t minNinteractions;
     int64_t Ninteractions;
     int64_t Nlistprimary;
-    int64_t Nnodesinlist;
-    int64_t Nlist;
 } LocalTreeWalk;
 
 typedef int (*TreeWalkVisitFunction) (TreeWalkQueryBase * input, TreeWalkResultBase * output, LocalTreeWalk * lv);
