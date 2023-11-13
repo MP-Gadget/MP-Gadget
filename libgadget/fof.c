@@ -334,8 +334,15 @@ HEAD(int i, const int * const Head)
 
 static void fof_primary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
     /* The copied data is *only* used for the
-     * secondary treewalk, but we need to lock because a race otherwise.*/
-    int head = HEADl(-1, place, FOF_PRIMARY_GET_PRIV(tw)->Head);
+     * secondary treewalk, so fill up garbage for the primary treewalk.
+     * The copy is a technical race otherwise. */
+    if(I->base.NodeList[0] == tw->tree->firstnode) {
+        I->MinID = -1;
+        I->MinIDTask = -1;
+        return;
+    }
+    /* Secondary treewalk, no need for locking here*/
+    int head = HEAD(place, FOF_PRIMARY_GET_PRIV(tw)->Head);
     I->MinID = FOF_PRIMARY_GET_PRIV(tw)->HaloLabel[head].MinID;
     I->MinIDTask = FOF_PRIMARY_GET_PRIV(tw)->HaloLabel[head].MinIDTask;
 }

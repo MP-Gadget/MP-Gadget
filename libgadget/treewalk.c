@@ -714,12 +714,14 @@ static void ev_reduce_result(const struct SendRecvBuffer sndrcv, TreeWalk * tw)
 void
 treewalk_add_counters(LocalTreeWalk * lv, const int64_t ninteractions)
 {
-    if(lv->maxNinteractions < ninteractions)
-        lv->maxNinteractions = ninteractions;
-    if(lv->minNinteractions > ninteractions)
-        lv->minNinteractions = ninteractions;
-    lv->Ninteractions += ninteractions;
-    lv->Nlistprimary += 1;
+    if(lv->mode == 0) {
+        if(lv->maxNinteractions < ninteractions)
+            lv->maxNinteractions = ninteractions;
+        if(lv->minNinteractions > ninteractions)
+            lv->minNinteractions = ninteractions;
+        lv->Ninteractions += ninteractions;
+        lv->Nlistprimary += 1;
+    }
 }
 
 /**********
@@ -757,54 +759,59 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
     const double BoxSize = lv->tw->tree->BoxSize;
 
     int64_t ninteractions = 0;
+    int inode = 0;
 
-    int numcand = ngb_treefind_threads(I, O, iter, lv->tw->tree->firstnode, lv);
-    /* Export buffer is full end prematurally */
-    if(numcand < 0)
-        return numcand;
+    for(inode = 0; inode < NODELISTLENGTH && I->NodeList[inode] >= 0; inode++)
+    {
+        int numcand = ngb_treefind_threads(I, O, iter, I->NodeList[inode], lv);
+        /* Export buffer is full end prematurally */
+        if(numcand < 0)
+            return numcand;
 
-    /* If we are here, export is successful. Work on this particle -- first
-        * filter out all of the candidates that are actually outside. */
-    int numngb;
+        /* If we are here, export is successful. Work on this particle -- first
+         * filter out all of the candidates that are actually outside. */
+        int numngb;
 
-    for(numngb = 0; numngb < numcand; numngb ++) {
-        int other = lv->ngblist[numngb];
+        for(numngb = 0; numngb < numcand; numngb ++) {
+            int other = lv->ngblist[numngb];
 
-        /* Skip garbage*/
-        if(P[other].IsGarbage)
-            continue;
-        /* In case the type of the particle has changed since the tree was built.
-            * Happens for wind treewalk for gas turned into stars on this timestep.*/
-        if(!((1<<P[other].Type) & iter->mask)) {
-            continue;
+            /* Skip garbage*/
+            if(P[other].IsGarbage)
+                continue;
+            /* In case the type of the particle has changed since the tree was built.
+             * Happens for wind treewalk for gas turned into stars on this timestep.*/
+            if(!((1<<P[other].Type) & iter->mask)) {
+                continue;
+            }
+
+            double dist;
+
+            if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
+                dist = DMAX(P[other].Hsml, iter->Hsml);
+            } else {
+                dist = iter->Hsml;
+            }
+
+            double r2 = 0;
+            int d;
+            double h2 = dist * dist;
+            for(d = 0; d < 3; d ++) {
+                /* the distance vector points to 'other' */
+                iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d], BoxSize);
+                r2 += iter->dist[d] * iter->dist[d];
+                if(r2 > h2) break;
+            }
+            if(r2 > h2) continue;
+
+            /* update the iter and call the iteration function*/
+            iter->r2 = r2;
+            iter->r = sqrt(r2);
+            iter->other = other;
+
+            lv->tw->ngbiter(I, O, iter, lv);
         }
 
-        double dist;
-
-        ninteractions++;
-        if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
-            dist = DMAX(P[other].Hsml, iter->Hsml);
-        } else {
-            dist = iter->Hsml;
-        }
-
-        double r2 = 0;
-        int d;
-        double h2 = dist * dist;
-        for(d = 0; d < 3; d ++) {
-            /* the distance vector points to 'other' */
-            iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d], BoxSize);
-            r2 += iter->dist[d] * iter->dist[d];
-            if(r2 > h2) break;
-        }
-        if(r2 > h2) continue;
-
-        /* update the iter and call the iteration function*/
-        iter->r2 = r2;
-        iter->r = sqrt(r2);
-        iter->other = other;
-
-        lv->tw->ngbiter(I, O, iter, lv);
+        ninteractions += numngb;
     }
 
     treewalk_add_counters(lv, ninteractions);
@@ -954,71 +961,88 @@ int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
     lv->tw->ngbiter(I, O, iter, lv);
 
     int64_t ninteractions = 0;
-    int no = lv->tw->tree->firstnode;
-    const ForceTree * tree = lv->tw->tree;
-    const double BoxSize = tree->BoxSize;
-
-    while(no >= 0)
+    int inode;
+    for(inode = 0; (lv->mode == 0 && inode < 1)|| (lv->mode == 1 && inode < NODELISTLENGTH && I->NodeList[inode] >= 0); inode++)
     {
-        struct NODE *current = &tree->Nodes[no];
-        /* Cull the node */
-        if(0 == cull_node(I, iter, current, BoxSize)) {
-            /* in case the node can be discarded */
-            no = current->sibling;
-            continue;
-        }
+        int no = I->NodeList[inode];
+        const ForceTree * tree = lv->tw->tree;
+        const double BoxSize = tree->BoxSize;
 
-        /* Node contains relevant particles, add them.*/
-        if(current->f.ChildType == PARTICLE_NODE_TYPE) {
-            int i;
-            int * suns = current->s.suns;
-            for (i = 0; i < current->s.noccupied; i++) {
-                /* Now evaluate a particle for the list*/
-                int other = suns[i];
-                /* Skip garbage*/
-                if(P[other].IsGarbage)
-                    continue;
-                /* In case the type of the particle has changed since the tree was built.
-                * Happens for wind treewalk for gas turned into stars on this timestep.*/
-                if(!((1<<P[other].Type) & iter->mask))
-                    continue;
+        while(no >= 0)
+        {
+            struct NODE *current = &tree->Nodes[no];
 
-                double dist = iter->Hsml;
-                double r2 = 0;
-                int d;
-                double h2 = dist * dist;
-                for(d = 0; d < 3; d ++) {
-                    /* the distance vector points to 'other' */
-                    iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d], BoxSize);
-                    r2 += iter->dist[d] * iter->dist[d];
-                    if(r2 > h2) break;
+            /* When walking exported particles we start from the encompassing top-level node,
+            * so if we get back to a top-level node again we are done.*/
+            if(lv->mode == 1) {
+                /* The first node is always top-level*/
+                if(current->f.TopLevel && no != I->NodeList[inode]) {
+                    /* we reached a top-level node again, which means that we are done with the branch */
+                    break;
                 }
-                if(r2 > h2) continue;
+            }
 
-                /* update the iter and call the iteration function*/
-                iter->r2 = r2;
-                iter->other = other;
-                iter->r = sqrt(r2);
-                lv->tw->ngbiter(I, O, iter, lv);
-                ninteractions++;
+            /* Cull the node */
+            if(0 == cull_node(I, iter, current, BoxSize)) {
+                /* in case the node can be discarded */
+                no = current->sibling;
+                continue;
             }
-            /* Move sideways*/
-            no = current->sibling;
-            continue;
-        }
-        else if(current->f.ChildType == PSEUDO_NODE_TYPE) {
-            /* pseudo particle */
-            /* Export the particle only if mode is zero.*/
-            if (lv->mode == 0) {
-                if(-1 == treewalk_export_particle(lv, current->s.suns[0]))
-                    return -1;
+
+            /* Node contains relevant particles, add them.*/
+            if(current->f.ChildType == PARTICLE_NODE_TYPE) {
+                int i;
+                int * suns = current->s.suns;
+                for (i = 0; i < current->s.noccupied; i++) {
+                    /* Now evaluate a particle for the list*/
+                    int other = suns[i];
+                    /* Skip garbage*/
+                    if(P[other].IsGarbage)
+                        continue;
+                    /* In case the type of the particle has changed since the tree was built.
+                    * Happens for wind treewalk for gas turned into stars on this timestep.*/
+                    if(!((1<<P[other].Type) & iter->mask))
+                        continue;
+
+                    double dist = iter->Hsml;
+                    double r2 = 0;
+                    int d;
+                    double h2 = dist * dist;
+                    for(d = 0; d < 3; d ++) {
+                        /* the distance vector points to 'other' */
+                        iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d], BoxSize);
+                        r2 += iter->dist[d] * iter->dist[d];
+                        if(r2 > h2) break;
+                    }
+                    if(r2 > h2) continue;
+
+                    /* update the iter and call the iteration function*/
+                    iter->r2 = r2;
+                    iter->other = other;
+                    iter->r = sqrt(r2);
+                    lv->tw->ngbiter(I, O, iter, lv);
+                    ninteractions++;
+                }
+                /* Move sideways*/
+                no = current->sibling;
+                continue;
             }
-            /* Move sideways*/
-            no = current->sibling;
-            continue;
+            else if(current->f.ChildType == PSEUDO_NODE_TYPE) {
+                /* pseudo particle */
+                if(lv->mode == 1) {
+                    endrun(12312, "Secondary for particle %d from node %d found pseudo at %d.\n", lv->target, I->NodeList[inode], no);
+                } else {
+                    /* Export the pseudo particle*/
+                    if(-1 == treewalk_export_particle(lv, current->s.suns[0]))
+                        return -1;
+                    /* Move sideways*/
+                    no = current->sibling;
+                    continue;
+                }
+            }
+            /* ok, we need to open the node */
+            no = current->s.suns[0];
         }
-        /* ok, we need to open the node */
-        no = current->s.suns[0];
     }
 
     treewalk_add_counters(lv, ninteractions);
