@@ -413,40 +413,25 @@ ev_primary(TreeWalk * tw)
 {
     double tstart, tend;
     tw->BufferFullFlag = 0;
-    tw->Nexport = 0;
 
     tstart = second();
+    tw->Nexport_thread = ta_malloc2("localexports", size_t, 2*tw->NThread);
+    tw->Nexport_threadoffset = tw->Nexport_thread + tw->NThread;
+
 
     struct TreeWalkThreadLocals local_exports = ev_alloc_threadlocals(tw, tw->NTask, tw->NThread);
     int currentIndex = tw->WorkSetStart;
     int lastSucceeded = tw->WorkSetSize;
 
-    size_t * nexports = ta_malloc("localexports", size_t, tw->NThread);
-    size_t * dataindexoffset = ta_malloc("dataindex", size_t, tw->NThread);
-
     int64_t maxNinteractions = 0, minNinteractions = 1L << 45;
 #pragma omp parallel reduction(min: lastSucceeded) reduction(min:minNinteractions) reduction(max:maxNinteractions)
     {
         int tid = omp_get_thread_num();
-        lastSucceeded = real_ev(local_exports, tw, &dataindexoffset[tid], &nexports[tid], &currentIndex, &maxNinteractions, &minNinteractions);
+        lastSucceeded = real_ev(local_exports, tw, &tw->Nexport_threadoffset[tid], &tw->Nexport_thread[tid], &currentIndex, &maxNinteractions, &minNinteractions);
     }
     tw->maxNinteractions = maxNinteractions;
     tw->minNinteractions = minNinteractions;
 
-    int64_t i;
-    tw->Nexport = 0;
-
-    /* Compactify the export queue*/
-    for(i = 0; i < tw->NThread; i++)
-    {
-        /* Only need to move if this thread is not full*/
-        if(tw->Nexport != dataindexoffset[i])
-            memmove(DataIndexTable + tw->Nexport, DataIndexTable + dataindexoffset[i], sizeof(DataIndexTable[0]) * nexports[i]);
-        tw->Nexport += nexports[i];
-    }
-
-    myfree(dataindexoffset);
-    myfree(nexports);
     ev_free_threadlocals(local_exports);
 
     /* Set the place to start the next iteration. Note that because lastSucceeded
@@ -593,7 +578,6 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
             ev_reduce_result(sndrcv, tw);
 
             tw->Nexportfull ++;
-            tw->Nexport_sum += tw->Nexport;
             ta_free(sndrcv.Send_count);
         } while(ev_ndone(tw) < tw->NTask);
         if(tw->evaluated)
@@ -655,10 +639,18 @@ static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
     sndrcv.Send_offset = sndrcv.Send_count + 2*NTask;
     sndrcv.Recv_offset = sndrcv.Send_count + 3*NTask;
 
+    size_t Nexport=0;
     /* Fill the communication layouts */
     memset(sndrcv.Send_count, 0, sizeof(int)*NTask);
-    for(i = 0; i < tw->Nexport; i++) {
-        sndrcv.Send_count[DataIndexTable[i].Task]++;
+    for(i = 0; i < (size_t) tw->NThread; i++)
+    {
+        size_t k;
+        for(k = 0; k < tw->Nexport_thread[i]; k++)
+            sndrcv.Send_count[DataIndexTable[k+tw->Nexport_threadoffset[i]].Task]++;
+        /* This is over all full buffers.*/
+        tw->Nexport_sum += tw->Nexport_thread[i];
+        /* This is the send count*/
+        Nexport += tw->Nexport_thread[i];
     }
 
     tstart = second();
@@ -677,26 +669,30 @@ static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
     }
 
     void * recvbuf = mymalloc("EvDataGet", tw->Nimport * tw->query_type_elsize);
-    char * sendbuf = (char *) mymalloc("EvDataIn", tw->Nexport * tw->query_type_elsize);
+    char * sendbuf = (char *) mymalloc("EvDataIn", Nexport * tw->query_type_elsize);
 
     tstart = second();
     /* prepare particle data for export */
-    size_t j;
     int * real_send_count = ta_malloc("tmp_send_count", int, NTask);
     memset(real_send_count, 0, sizeof(int)*NTask);
-    for(j = 0; j < tw->Nexport; j++)
+    for(i = 0; i < (size_t) tw->NThread; i++)
     {
-        int place = DataIndexTable[j].Index;
-        int bufpos = real_send_count[DataIndexTable[j].Task];
-        TreeWalkQueryBase * input = (TreeWalkQueryBase*) (sendbuf + bufpos * tw->query_type_elsize);
-        real_send_count[DataIndexTable[j].Task]++;
-        treewalk_init_query(tw, input, place);
+        size_t k;
+        for(k = 0; k < tw->Nexport_thread[i]; k++) {
+            const int ditind = k+tw->Nexport_threadoffset[i];
+            const int place = DataIndexTable[ditind].Index;
+            const int task = DataIndexTable[ditind].Task;
+            int bufpos = real_send_count[task] + sndrcv.Send_offset[task];
+            TreeWalkQueryBase * input = (TreeWalkQueryBase*) (sendbuf + bufpos * tw->query_type_elsize);
+            real_send_count[DataIndexTable[ditind].Task]++;
+            treewalk_init_query(tw, input, place);
+        }
     }
 #ifdef DEBUG
-/* Check!*/
-    for(j = 0; j < NTask; j++)
-        if(real_send_count[j] != sndrcv.Send_count[j])
-            endrun(6, "Inconsistent export to task %ld of %ld: %d expected %d\n", j, NTask, real_send_count[j], sndrcv.Send_count[j]);
+/* Checks!*/
+    for(i = 0; i < NTask; i++)
+        if(real_send_count[i] != sndrcv.Send_count[i])
+            endrun(6, "Inconsistent export to task %ld of %ld: %d expected %d\n", i, NTask, real_send_count[i], sndrcv.Send_count[i]);
 #endif
     myfree(real_send_count);
     tend = second();
@@ -711,30 +707,17 @@ static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
     return sndrcv;
 }
 
-static int data_index_compare_by_index(const void *a, const void *b)
-{
-    if(((struct data_index *) a)->Index < (((struct data_index *) b)->Index))
-        return -1;
-
-    if(((struct data_index *) a)->Index > (((struct data_index *) b)->Index))
-        return +1;
-
-    if(((struct data_index *) a)->IndexGet < (((struct data_index *) b)->IndexGet))
-        return -1;
-
-    if(((struct data_index *) a)->IndexGet > (((struct data_index *) b)->IndexGet))
-        return +1;
-
-    return 0;
-}
-
 static void ev_reduce_result(const struct SendRecvBuffer sndrcv, TreeWalk * tw)
 {
 
-    int j;
+    int64_t i;
     double tstart, tend;
+    size_t Nexport = 0;
 
-    const int Nexport = tw->Nexport;
+    for(i = 0; i < tw->NThread; i++) {
+        Nexport += tw->Nexport_thread[i];
+    }
+
     void * sendbuf = tw->dataresult;
     char * recvbuf = (char*) mymalloc("EvDataOut",
                 Nexport * tw->result_type_elsize);
@@ -746,45 +729,37 @@ static void ev_reduce_result(const struct SendRecvBuffer sndrcv, TreeWalk * tw)
 
     tstart = second();
 
-    for(j = 0; j < Nexport; j++) {
-        DataIndexTable[j].IndexGet = j;
-    }
-
-    /* mysort is a lie! */
-    qsort_openmp(DataIndexTable, Nexport, sizeof(struct data_index), data_index_compare_by_index);
-
-    int * UniqueOff = (int *) mymalloc("UniqueIndex", sizeof(int) * (Nexport + 1));
-    UniqueOff[0] = 0;
-    int Nunique = 0;
-
-    for(j = 1; j < Nexport; j++) {
-        if(DataIndexTable[j].Index != DataIndexTable[j-1].Index)
-            UniqueOff[++Nunique] = j;
-    }
-    if(Nexport > 0)
-        UniqueOff[++Nunique] = Nexport;
-
+    /* Notice that we build the dataindex table individually
+     * on each thread, so we are ordered by particle and have memory locality.*/
     if(tw->reduce != NULL) {
-#pragma omp parallel for
-        for(j = 0; j < Nunique; j++)
+        int * real_recv_count = ta_malloc("tmp_recv_count", int, tw->NTask);
+        memset(real_recv_count, 0, sizeof(int)*tw->NTask);
+        for(i = 0; i < tw->NThread; i++)
         {
-            int k;
-            int place = DataIndexTable[UniqueOff[j]].Index;
-            int start = UniqueOff[j];
-            int end = UniqueOff[j + 1];
-            for(k = start; k < end; k++) {
-                int get = DataIndexTable[k].IndexGet;
-                TreeWalkResultBase * output = (TreeWalkResultBase*) (recvbuf + tw->result_type_elsize * get);
+            size_t k;
+            for(k = 0; k < tw->Nexport_thread[i]; k++) {
+                const int ditind = k + tw->Nexport_threadoffset[i];
+                const int place = DataIndexTable[ditind].Index;
+                const int task = DataIndexTable[ditind].Task;
+                int bufpos = real_recv_count[task] + sndrcv.Send_offset[task];
+                real_recv_count[task]++;
+                TreeWalkResultBase * output = (TreeWalkResultBase*) (recvbuf + tw->result_type_elsize * bufpos);
                 treewalk_reduce_result(tw, output, place, TREEWALK_GHOSTS);
+#ifdef DEBUG
+                if(output->ID != P[place].ID)
+                    endrun(8, "Error in communication: IDs mismatch %ld %ld\n", output->ID, P[place].ID);
+#endif
+
             }
         }
+        myfree(real_recv_count);
     }
-    myfree(UniqueOff);
     tend = second();
     tw->timecomp1 += timediff(tstart, tend);
     myfree(recvbuf);
     myfree(tw->dataresult);
     myfree(tw->dataget);
+    myfree(tw->Nexport_thread);
 }
 
 #if 0
