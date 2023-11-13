@@ -51,9 +51,6 @@ typedef struct {
     size_t BunchSize;
     /* Number of entries in the export table for this particle*/
     size_t NThisParticleExport;
-    int *exportflag;
-    int *exportnodecount;
-    size_t *exportindex;
     size_t DataIndexOffset;
 
     int * ngblist;

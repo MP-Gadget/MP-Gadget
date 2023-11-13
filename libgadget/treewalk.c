@@ -113,12 +113,7 @@ static void
 ev_init_thread(const struct TreeWalkThreadLocals local_exports, TreeWalk * const tw, LocalTreeWalk * lv)
 {
     const size_t thread_id = omp_get_thread_num();
-    const int NTask = tw->NTask;
-    int j;
     lv->tw = tw;
-    lv->exportflag = local_exports.Exportflag + thread_id * NTask;
-    lv->exportnodecount = local_exports.Exportnodecount + thread_id * NTask;
-    lv->exportindex = local_exports.Exportindex + thread_id * NTask;
     lv->maxNinteractions = 0;
     lv->minNinteractions = 1L<<45;
     lv->Ninteractions = 0;
@@ -131,11 +126,8 @@ ev_init_thread(const struct TreeWalkThreadLocals local_exports, TreeWalk * const
     lv->BunchSize = localbunch;
     if(localbunch > tw->BunchSize - thread_id * localbunch)
         lv->BunchSize = tw->BunchSize - thread_id * localbunch;
-
     if(tw->Ngblist)
         lv->ngblist = tw->Ngblist + thread_id * PartManager->NumPart;
-    for(j = 0; j < NTask; j++)
-        lv->exportflag[j] = -1;
 }
 
 static struct TreeWalkThreadLocals
@@ -558,29 +550,36 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no)
         endrun(1, "Trying to export a ghost particle.\n");
     }
     const int target = lv->target;
-    int *exportflag = lv->exportflag;
     TreeWalk * tw = lv->tw;
 
     const int task = tw->tree->TopLeaves[no - tw->tree->lastnode].Task;
+    /* We must only export a particle once to each task, as we walk from the root node.*/
 
-    /* We only need to export a particle once to the same task.
-     * FIXME: Can we modify the tree construction so that each task gets only one
-     * pseudonode? */
-    if(exportflag[task] != target)
-    {
-        exportflag[task] = target;
-        /* out of buffer space. Need to interrupt. */
-        if(lv->Nexport >= lv->BunchSize) {
-            return -1;
-        }
-        /* This index is a unique entry in the global DataIndexTable.*/
-        size_t nexp = lv->Nexport + lv->DataIndexOffset;
-        DataIndexTable[nexp].Task = task;
-        DataIndexTable[nexp].Index = target;
-        DataIndexTable[nexp].IndexGet = nexp;
-        lv->Nexport++;
-        lv->NThisParticleExport++;
+    /* This index is a unique entry in the global DataIndexTable.*/
+    size_t nexp = lv->Nexport + lv->DataIndexOffset;
+    /* Check that an earlier export was not to this task.
+     * Since each export list is on a different thread, we can
+     * be sure that all exports of this particle are contiguous.*/
+    size_t i;
+    for(i = 1; i <= lv->NThisParticleExport; i++) {
+#ifdef DEBUG
+        /* This is just to be safe: only happens if our indices are off.*/
+        if(DataIndexTable[nexp - i].Index != target)
+            endrun(1, "%ld of %ld exports is target %d not current %d\n", i, lv->NThisParticleExport, DataIndexTable[nexp-i].Index, target);
+#endif
+        /* No need to export twice*/
+        if(DataIndexTable[nexp-i].Task == task)
+            return 0;
     }
+    /* out of buffer space. Need to interrupt. */
+    if(lv->Nexport >= lv->BunchSize) {
+        return -1;
+    }
+    DataIndexTable[nexp].Task = task;
+    DataIndexTable[nexp].Index = target;
+    DataIndexTable[nexp].IndexGet = nexp;
+    lv->Nexport++;
+    lv->NThisParticleExport++;
     return 0;
 }
 
@@ -685,24 +684,11 @@ ev_communicate(void * sendbuf, void * recvbuf, size_t elsize, const struct SendR
 /* returns the remote particles */
 static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
 {
-    /* FIXME: Try to avoid multiple exports to the same task.*/
+    /* FIXME: Can I avoid the sort?*/
     qsort_openmp(DataIndexTable, tw->Nexport, sizeof(struct data_index), data_index_compare);
     int NTask = tw->NTask;
     size_t i;
     double tstart, tend;
-    /* Check for duplicate exports*/
-    size_t duplicates = 0;
-    for(i=1; i < tw->Nexport; i++)
-    {
-        if(DataIndexTable[i-1].Task == DataIndexTable[i].Task &&
-           DataIndexTable[i-1].Index == DataIndexTable[i].Index) {
-            DataIndexTable[i].Task = NTask+1;
-            duplicates++;
-        }
-    }
-    /* Now sort them so they are at the end.*/
-    qsort_openmp(DataIndexTable, tw->Nexport, sizeof(struct data_index), data_index_compare);
-    tw->Nexport -= duplicates;
 
     struct SendRecvBuffer sndrcv = {0};
     sndrcv.Send_count = (int *) ta_malloc("Send_count", int, 4*NTask+1);
@@ -726,7 +712,6 @@ static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
     for(i = 0, tw->Nimport = 0, sndrcv.Recv_offset[0] = 0, sndrcv.Send_offset[0] = 0; i < (size_t) NTask; i++)
     {
         tw->Nimport += sndrcv.Recv_count[i];
-
         if(i > 0)
         {
             sndrcv.Send_offset[i] = sndrcv.Send_offset[i - 1] + sndrcv.Send_count[i - 1];
