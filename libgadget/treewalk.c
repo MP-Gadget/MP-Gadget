@@ -90,7 +90,7 @@ ev_init_thread(TreeWalk * const tw, LocalTreeWalk * lv)
     if(localbunch > tw->BunchSize - thread_id * localbunch)
         lv->BunchSize = tw->BunchSize - thread_id * localbunch;
     if(tw->Ngblist)
-        lv->ngblist = tw->Ngblist + thread_id * PartManager->NumPart;
+        lv->ngblist = tw->Ngblist + thread_id * tw->tree->NumParticles;
 }
 
 static void
