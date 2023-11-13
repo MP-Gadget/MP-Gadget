@@ -27,15 +27,14 @@ struct SendRecvBuffer
 /*!< Memory factor to leave for (N imported particles) > (N exported particles). */
 static int ImportBufferBoost;
 
-/*!< the particles to be exported are grouped
-by task-number. This table allows the
+/*!< Thread-local list of the particles to be exported,
+ * and the destination tasks. This table allows the
 results to be disentangled again and to be
-assigned to the correct particle */
+assigned to the correct particle.*/
 static struct data_index
 {
     int Task;
     int Index;
-    size_t IndexGet;
 } *DataIndexTable;
 
 /*Initialise global treewalk parameters*/
@@ -481,7 +480,6 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no)
     }
     DataIndexTable[nexp].Task = task;
     DataIndexTable[nexp].Index = target;
-    DataIndexTable[nexp].IndexGet = nexp;
     lv->Nexport++;
     lv->NThisParticleExport++;
     return 0;
