@@ -691,18 +691,16 @@ static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
     double tstart, tend;
 
     struct SendRecvBuffer sndrcv = {0};
-    sndrcv.Send_count = (int *) ta_malloc("Send_count", int, 4*NTask+1);
-    sndrcv.Recv_count = sndrcv.Send_count + NTask+1;
-    sndrcv.Send_offset = sndrcv.Send_count + 2*NTask+1;
-    sndrcv.Recv_offset = sndrcv.Send_count + 3*NTask+1;
+    sndrcv.Send_count = ta_malloc("Send_count", int, 4*NTask);
+    sndrcv.Recv_count = sndrcv.Send_count + NTask;
+    sndrcv.Send_offset = sndrcv.Send_count + 2*NTask;
+    sndrcv.Recv_offset = sndrcv.Send_count + 3*NTask;
 
     /* Fill the communication layouts */
-    /* Use the last element of SendCount to store the partially exported particles.*/
-    memset(sndrcv.Send_count, 0, sizeof(int)*(NTask+1));
+    memset(sndrcv.Send_count, 0, sizeof(int)*NTask);
     for(i = 0; i < tw->Nexport; i++) {
         sndrcv.Send_count[DataIndexTable[i].Task]++;
     }
-    tw->Nexport -= sndrcv.Send_count[NTask];
 
     tstart = second();
     MPI_Alltoall(sndrcv.Send_count, 1, MPI_INT, sndrcv.Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
