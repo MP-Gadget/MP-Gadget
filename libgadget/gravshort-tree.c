@@ -147,6 +147,7 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFl
     walltime_add("/Tree/PostProcess", tw->timecomp3);
     walltime_add("/Tree/Send", tw->timecommsumm1);
     walltime_add("/Tree/Recv", tw->timecommsumm2);
+    walltime_add("/Tree/Export", tw->timecommsumm3);
     walltime_add("/Tree/Wait1", tw->timewait1);
     walltime_add("/Tree/Wait2", tw->timewait2);
 

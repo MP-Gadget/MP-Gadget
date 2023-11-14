@@ -343,7 +343,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
     timecomp = tw->timecomp3 + tw->timecomp1 + tw->timecomp2;
     timewait = tw->timewait1 + tw->timewait2;
-    timecomm = tw->timecommsumm1 + tw->timecommsumm2;
+    timecomm = tw->timecommsumm1 + tw->timecommsumm2 + tw->timecommsumm3;
 
     walltime_add("/SPH/Density/Compute", timecomp);
     walltime_add("/SPH/Density/Wait", timewait);

@@ -601,6 +601,7 @@ static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
 
     size_t Nexport=0;
     /* Fill the communication layouts */
+    tstart = second();
     memset(sndrcv.Send_count, 0, sizeof(int)*NTask);
     for(i = 0; i < (size_t) tw->NThread; i++)
     {
@@ -612,6 +613,8 @@ static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
         /* This is the send count*/
         Nexport += tw->Nexport_thread[i];
     }
+    tend = second();
+    tw->timecommsumm3 += timediff(tstart, tend);
 
     tstart = second();
     MPI_Alltoall(sndrcv.Send_count, 1, MPI_INT, sndrcv.Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
@@ -656,7 +659,7 @@ static struct SendRecvBuffer ev_get_remote(TreeWalk * tw)
 #endif
     myfree(real_send_count);
     tend = second();
-    tw->timecomp1 += timediff(tstart, tend);
+    tw->timecommsumm3 += timediff(tstart, tend);
 
     tstart = second();
     ev_communicate(sendbuf, recvbuf, tw->query_type_elsize, sndrcv, 0);
@@ -715,7 +718,7 @@ static void ev_reduce_result(const struct SendRecvBuffer sndrcv, TreeWalk * tw)
         myfree(real_recv_count);
     }
     tend = second();
-    tw->timecomp1 += timediff(tstart, tend);
+    tw->timecommsumm3 += timediff(tstart, tend);
     myfree(recvbuf);
     myfree(tw->dataresult);
     myfree(tw->dataget);

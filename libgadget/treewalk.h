@@ -126,6 +126,7 @@ struct TreeWalk {
     double timecomp3;
     double timecommsumm1;
     double timecommsumm2;
+    double timecommsumm3;
     /* Number of particles in the Ngblist for the primary treewalk*/
     int64_t Nlistprimary;
     /* Total number of exported particles
