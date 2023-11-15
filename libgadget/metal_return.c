@@ -818,7 +818,7 @@ stellar_density_reduce(int place, TreeWalkResultStellarDensity * remote, enum Tr
 {
     int pi = P[place].PI;
     int i;
-    if(mode == 0 || STELLAR_DENSITY_GET_PRIV(tw)->maxcmpte[pi] > remote->maxcmpte)
+    if(mode == TREEWALK_PRIMARY || STELLAR_DENSITY_GET_PRIV(tw)->maxcmpte[pi] > remote->maxcmpte)
         STELLAR_DENSITY_GET_PRIV(tw)->maxcmpte[pi] = remote->maxcmpte;
     for(i = 0; i < remote->maxcmpte; i++) {
         TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][i], remote->Ngb[i]);

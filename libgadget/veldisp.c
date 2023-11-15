@@ -284,7 +284,7 @@ wind_vdisp_reduce(int place, TreeWalkResultWindVDisp * O, enum TreeWalkReduceMod
 {
     int pi = P[place].PI;
     int i;
-    if(mode == 0 || WINDV_GET_PRIV(tw)->maxcmpte[pi] > O->maxcmpte)
+    if(mode == TREEWALK_PRIMARY || WINDV_GET_PRIV(tw)->maxcmpte[pi] > O->maxcmpte)
         WINDV_GET_PRIV(tw)->maxcmpte[pi] = O->maxcmpte;
     int k;
     for (i = 0; i < O->maxcmpte; i++){

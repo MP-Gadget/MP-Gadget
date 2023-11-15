@@ -657,7 +657,7 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     int PI = P[place].PI;
 
     /* Set encounter to true if it is true on any remote*/
-    if (mode == 0 || BHP(place).encounter < remote->encounter) {
+    if (mode == TREEWALK_PRIMARY || BHP(place).encounter < remote->encounter) {
         BHP(place).encounter = remote->encounter;
     }
 
@@ -946,7 +946,7 @@ blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum Tre
     for(k = 0; k < 3; k++) {
         TREEWALK_REDUCE(BH_GET_PRIV(tw)->BH_accreted_momentum[PI][k], remote->AccretedMomentum[k]);
     }
-    if (mode == 0 || BHP(place).minTimeBin > remote->BH_minTimeBin) {
+    if (mode == TREEWALK_PRIMARY || BHP(place).minTimeBin > remote->BH_minTimeBin) {
         BHP(place).minTimeBin = remote->BH_minTimeBin;
     }
     TREEWALK_REDUCE(BHP(place).CountProgs, remote->BH_CountProgs);

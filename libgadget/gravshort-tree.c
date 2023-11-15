@@ -294,7 +294,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             /* The tree always walks internal nodes*/
             struct NODE *nop = &tree->Nodes[no];
 
-            if(lv->mode == 1)
+            if(lv->mode == TREEWALK_GHOSTS)
             {
                 if(nop->f.TopLevel && no != startno)	/* we reached a top-level node again, which means that we are done with the branch */
                 {
@@ -353,7 +353,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             }
             else if (nop->f.ChildType == PSEUDO_NODE_TYPE)
             {
-                if(lv->mode == 0)
+                if(lv->mode == TREEWALK_PRIMARY)
                 {
                     if(-1 == treewalk_export_particle(lv, nop->s.suns[0]))
                         return -1;

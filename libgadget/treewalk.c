@@ -728,7 +728,7 @@ static void ev_reduce_result(const struct SendRecvBuffer sndrcv, TreeWalk * tw)
 void
 treewalk_add_counters(LocalTreeWalk * lv, const int64_t ninteractions)
 {
-    if(lv->mode == 0) {
+    if(lv->mode == TREEWALK_PRIMARY) {
         if(lv->maxNinteractions < ninteractions)
             lv->maxNinteractions = ninteractions;
         if(lv->minNinteractions > ninteractions)
@@ -910,7 +910,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
 
         /* When walking exported particles we start from the encompassing top-level node,
          * so if we get back to a top-level node again we are done.*/
-        if(lv->mode == 1) {
+        if(lv->mode == TREEWALK_GHOSTS) {
             /* The first node is always top-level*/
             if(current->f.TopLevel && no != startnode) {
                 /* we reached a top-level node again, which means that we are done with the branch */
@@ -938,7 +938,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         }
         else if(current->f.ChildType == PSEUDO_NODE_TYPE) {
             /* pseudo particle */
-            if(lv->mode == 1) {
+            if(lv->mode == TREEWALK_GHOSTS) {
                 endrun(12312, "Secondary for particle %d from node %d found pseudo at %d.\n", lv->target, startnode, no);
             } else {
                 /* Export the pseudo particle*/
@@ -976,7 +976,7 @@ int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
 
     int64_t ninteractions = 0;
     int inode;
-    for(inode = 0; (lv->mode == 0 && inode < 1)|| (lv->mode == 1 && inode < NODELISTLENGTH && I->NodeList[inode] >= 0); inode++)
+    for(inode = 0; inode < NODELISTLENGTH && I->NodeList[inode] >= 0; inode++)
     {
         int no = I->NodeList[inode];
         const ForceTree * tree = lv->tw->tree;
@@ -988,7 +988,7 @@ int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
 
             /* When walking exported particles we start from the encompassing top-level node,
             * so if we get back to a top-level node again we are done.*/
-            if(lv->mode == 1) {
+            if(lv->mode == TREEWALK_GHOSTS) {
                 /* The first node is always top-level*/
                 if(current->f.TopLevel && no != I->NodeList[inode]) {
                     /* we reached a top-level node again, which means that we are done with the branch */
@@ -1043,7 +1043,7 @@ int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
             }
             else if(current->f.ChildType == PSEUDO_NODE_TYPE) {
                 /* pseudo particle */
-                if(lv->mode == 1) {
+                if(lv->mode == TREEWALK_GHOSTS) {
                     endrun(12312, "Secondary for particle %d from node %d found pseudo at %d.\n", lv->target, I->NodeList[inode], no);
                 } else {
                     /* Export the pseudo particle*/
