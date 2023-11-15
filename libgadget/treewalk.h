@@ -18,6 +18,7 @@ enum NgbTreeFindSymmetric {
 enum TreeWalkReduceMode {
     TREEWALK_PRIMARY,
     TREEWALK_GHOSTS,
+    TREEWALK_TOPTREE,
 };
 
 typedef struct TreeWalk TreeWalk;
@@ -63,7 +64,6 @@ typedef struct {
     int64_t maxNinteractions;
     int64_t minNinteractions;
     int64_t Ninteractions;
-    int64_t Nlistprimary;
 } LocalTreeWalk;
 
 typedef int (*TreeWalkVisitFunction) (TreeWalkQueryBase * input, TreeWalkResultBase * output, LocalTreeWalk * lv);
@@ -111,17 +111,12 @@ struct TreeWalk {
     char * dataget;
     char * dataresult;
 
-    /* The metal return alters neighbours,
-     * which cannot be evaluated twice.
-     * If repeatdisallowd is true, we allocate memory
-     * to keep track of the evaluated particles.*/
-    int repeatdisallowed;
-    char * evaluated;
-
     /* performance metrics */
     double timewait1;
     double timewait2;
+    /* This is the time spent in ev_primary*/
     double timecomp1;
+    /* This is the time spent in ev_secondary (which may overlap)*/
     double timecomp2;
     double timecomp3;
     double timecommsumm1;

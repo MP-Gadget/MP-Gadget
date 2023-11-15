@@ -340,32 +340,42 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                 continue;
             }
 
-            /* Now we have a cell that needs to be opened.
-             * If it contains particles we can add them directly here */
-            if(nop->f.ChildType == PARTICLE_NODE_TYPE)
-            {
-                /* Loop over child particles*/
-                for(i = 0; i < nop->s.noccupied; i++) {
-                    int pp = nop->s.suns[i];
-                    lv->ngblist[numcand++] = pp;
-                }
-                no = nop->sibling;
-            }
-            else if (nop->f.ChildType == PSEUDO_NODE_TYPE)
-            {
-                if(lv->mode == TREEWALK_PRIMARY)
-                {
+            if(lv->mode == TREEWALK_TOPTREE) {
+                if(nop->f.ChildType == PSEUDO_NODE_TYPE) {
+                    /* Export the pseudo particle*/
                     if(-1 == treewalk_export_particle(lv, nop->s.suns[0]))
                         return -1;
+                    /* Move sideways*/
+                    no = nop->sibling;
+                    continue;
                 }
-
-                /* Move to the sibling (likely also a pseudo node)*/
-                no = nop->sibling;
-            }
-            else if(nop->f.ChildType == NODE_NODE_TYPE)
-            {
-                /* This node contains other nodes and we need to open it.*/
+                /* Only walk toptree nodes here*/
+                if(nop->f.TopLevel && !nop->f.InternalTopLevel) {
+                    no = nop->sibling;
+                    continue;
+                }
                 no = nop->s.suns[0];
+            }
+            else {
+                /* Now we have a cell that needs to be opened.
+                * If it contains particles we can add them directly here */
+                if(nop->f.ChildType == PARTICLE_NODE_TYPE)
+                {
+                    /* Loop over child particles*/
+                    for(i = 0; i < nop->s.noccupied; i++) {
+                        int pp = nop->s.suns[i];
+                        lv->ngblist[numcand++] = pp;
+                    }
+                    no = nop->sibling;
+                }
+                else if (nop->f.ChildType == PSEUDO_NODE_TYPE)
+                {
+                    /* Move to the sibling (likely also a pseudo node)*/
+                    no = nop->sibling;
+                }
+                else //NODE_NODE_TYPE
+                    /* This node contains other nodes and we need to open it.*/
+                    no = nop->s.suns[0];
             }
         }
         int i;

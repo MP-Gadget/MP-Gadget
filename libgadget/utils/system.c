@@ -357,6 +357,61 @@ int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
     return ret;
 }
 
+/* Send/recv a single integer size to all processors. Like an async version of Alltoall.*/
+int
+MPI_SendtoAll_single(int *sendbuf, int receive, MPI_Request * requests, MPI_Comm comm) {
+    int ThisTask;
+    int NTask;
+    MPI_Comm_rank(comm, &ThisTask);
+    MPI_Comm_size(comm, &NTask);
+
+    int nrequests = 0;
+
+    int i;
+    /* Loop over all tasks, starting with the one just past this one*/
+    for(i = 1; i < NTask; i++)
+    {
+        int target = (ThisTask + i) % NTask;
+        if(receive)
+            MPI_Irecv(sendbuf +  target, 1, MPI_INT, target, 101933, comm, &requests[nrequests++]);
+        else
+            MPI_Isend(sendbuf +  target, 1, MPI_INT, target, 101933, comm, &requests[nrequests++]);
+    }
+    return nrequests;
+}
+
+/* Send/recv a single integer size to all processors*/
+int
+MPI_SendtoAll_sparse(void *sendbuf, int *sendcnts, int *sdispls, MPI_Datatype sendtype, int receive, MPI_Request * requests, MPI_Comm comm)
+{
+    int ThisTask;
+    int NTask;
+    MPI_Comm_rank(comm, &ThisTask);
+    MPI_Comm_size(comm, &NTask);
+    ptrdiff_t lb;
+    ptrdiff_t elsize;
+    MPI_Type_get_extent(sendtype, &lb, &elsize);
+
+    int nrequests = 0;
+
+    int i;
+    /* Loop over all tasks, starting with the one just past this one*/
+    for(i = 1; i < NTask; i++)
+    {
+        int target = (ThisTask + i) % NTask;
+        if(sendcnts[target] == 0) continue;
+        if(receive) {
+            MPI_Irecv(((char*) sendbuf) + elsize * sdispls[target], sendcnts[target],
+                sendtype, target, 101934, comm, &requests[nrequests++]);
+        }
+        else {
+            MPI_Isend(((char*) sendbuf) + elsize * sdispls[target], sendcnts[target],
+                sendtype, target, 101934, comm, &requests[nrequests++]);
+        }
+    }
+    return nrequests;
+}
+
 int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
         int *rdispls, MPI_Datatype recvtype, MPI_Comm comm) {

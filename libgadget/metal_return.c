@@ -563,7 +563,6 @@ metal_return(const ActiveParticles * act, ForceTree * gasTree, Cosmology * CP, c
     tw->postprocess = (TreeWalkProcessFunction) metal_return_postprocess;
     tw->query_type_elsize = sizeof(TreeWalkQueryMetals);
     tw->result_type_elsize = sizeof(TreeWalkResultMetals);
-    tw->repeatdisallowed = 1;
     tw->tree = gasTree;
     tw->priv = priv;
 
