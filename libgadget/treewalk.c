@@ -690,8 +690,10 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
         endrun(0, "Tree has been freed before this treewalk.\n");
     }
 
+    double tstart, tend;
     GDB_current_ev = tw;
 
+    tstart = second();
     ev_begin(tw, active_set, size);
 
     if(tw->preprocess) {
@@ -703,15 +705,18 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
         }
     }
 
+    tend = second();
+    tw->timecomp3 += timediff(tstart, tend);
+
     if(tw->visit) {
         tw->Nexportfull = 0;
         tw->Nexport_sum = 0;
         do
         {
-            double tstart = second();
+            tstart = second();
             /* First do the toptree and export particles for sending.*/
             ev_toptree(tw);
-            double tend = second();
+            tend = second();
             tw->timecomp0 += timediff(tstart, tend);
             /* Send the exported particle data */
             tstart = second();
@@ -735,15 +740,12 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
             /* Send the results we have back*/
             ev_send_result(dataresult, &import, tw);
             myfree(dataresult);
-            tend = second();
-            tw->timecomp2 += timediff(tstart, tend);
             /* and now receive and import the result to local particles. */
             /* Now clear the sent data buffer, waiting for the send to complete.
              * This needs to be after the other end has called recv.*/
-            tstart = second();
             wait_sendbuffer(&export);
             tend = second();
-            tw->timewait1 += timediff(tstart, tend);
+            tw->timecomp2 += timediff(tstart, tend);
             myfree(export.sendbuf);
             tstart = second();
             ev_reduce_result(&export, tw);
@@ -755,10 +757,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
         } while(ev_ndone(tw) < tw->NTask);
     }
 
-    double tstart, tend;
-
     tstart = second();
-
     if(tw->postprocess) {
         int64_t i;
         #pragma omp parallel for

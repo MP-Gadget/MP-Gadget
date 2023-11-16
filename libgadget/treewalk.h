@@ -118,7 +118,7 @@ struct TreeWalk {
     double timecomp1;
     /* This is the time spent in ev_secondary (which may overlap with primary time)*/
     double timecomp2;
-    /* Time spent in post-processing*/
+    /* Time spent in post-processing and pre-processing*/
     double timecomp3;
     /* Time spent to prepare the export list*/
     double timecommsumm1;
