@@ -140,13 +140,13 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFl
 
     timetree = tw->timecomp0 + tw->timecomp1 + tw->timecomp2 + tw->timecomp3;
     timewait = tw->timewait1 + tw->timewait2;
-    timecomm= tw->timecommsumm1 + tw->timecommsumm2;
+    timecomm= tw->timecommsumm1 + tw->timecommsumm2 + tw->timecommsumm3;
 
-    walltime_add("/Tree/Walk0", tw->timecomp0);
-    walltime_add("/Tree/Walk1", tw->timecomp1);
-    walltime_add("/Tree/Walk2", tw->timecomp2);
-    walltime_add("/Tree/PostProcess", tw->timecomp3);
-    walltime_add("/Tree/Send", tw->timecommsumm1);
+    walltime_add("/Tree/Walk0T", tw->timecomp0);
+    walltime_add("/Tree/Walk1P", tw->timecomp1);
+    walltime_add("/Tree/Walk2S", tw->timecomp2);
+    walltime_add("/Tree/PostPreProcess", tw->timecomp3);
+    walltime_add("/Tree/Export", tw->timecommsumm1);
     walltime_add("/Tree/Recv", tw->timecommsumm2);
     walltime_add("/Tree/Reduce", tw->timecommsumm3);
     walltime_add("/Tree/Wait1", tw->timewait1);
@@ -295,14 +295,8 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             /* The tree always walks internal nodes*/
             struct NODE *nop = &tree->Nodes[no];
 
-            if(lv->mode == TREEWALK_GHOSTS)
-            {
-                if(nop->f.TopLevel && no != startno)	/* we reached a top-level node again, which means that we are done with the branch */
-                {
-                    no = -1;
-                    continue;
-                }
-            }
+            if(lv->mode == TREEWALK_GHOSTS && nop->f.TopLevel && no != startno)  /* we reached a top-level node again, which means that we are done with the branch */
+                break;
 
             int i;
             double dx[3];
@@ -331,13 +325,15 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
 
             if(!open_node)
             {
-                double h = input->Soft;
-                if(TreeParams.AdaptiveSoftening)
-                    h = DMAX(input->Soft, nop->mom.hmax);
                 /* ok, node can be used */
                 no = nop->sibling;
-                /* Compute the acceleration and apply it to the output structure*/
-                apply_accn_to_output(output, dx, r2, h, nop->mom.mass, cellsize);
+                double h = input->Soft;
+                if(lv->mode != TREEWALK_TOPTREE) {
+                    if(TreeParams.AdaptiveSoftening)
+                        h = DMAX(input->Soft, nop->mom.hmax);
+                    /* Compute the acceleration and apply it to the output structure*/
+                    apply_accn_to_output(output, dx, r2, h, nop->mom.mass, cellsize);
+                }
                 continue;
             }
 

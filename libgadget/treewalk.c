@@ -57,7 +57,6 @@ static int ev_ndone(TreeWalk * tw);
 
 static int
 ngb_treefind_threads(TreeWalkQueryBase * I,
-        TreeWalkResultBase * O,
         TreeWalkNgbIterBase * iter,
         int startnode,
         LocalTreeWalk * lv);
@@ -821,7 +820,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
 
     for(inode = 0; inode < NODELISTLENGTH && I->NodeList[inode] >= 0; inode++)
     {
-        int numcand = ngb_treefind_threads(I, O, iter, I->NodeList[inode], lv);
+        int numcand = ngb_treefind_threads(I, iter, I->NodeList[inode], lv);
         /* Export buffer is full end prematurally */
         if(numcand < 0)
             return numcand;
@@ -926,7 +925,6 @@ cull_node(const TreeWalkQueryBase * const I, const TreeWalkNgbIterBase * const i
  * */
 static int
 ngb_treefind_threads(TreeWalkQueryBase * I,
-        TreeWalkResultBase * O,
         TreeWalkNgbIterBase * iter,
         int startnode,
         LocalTreeWalk * lv)
@@ -1016,9 +1014,8 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
 
 /*****
  * Variant of ngbiter that doesn't use the Ngblist.
- * The ngblist is generally preferred for memory locality reasons and
- * to avoid particles being partially evaluated
- * twice if the buffer fills up. Use this variant if the evaluation
+ * The ngblist is generally preferred for memory locality reasons.
+ * Use this variant if the evaluation
  * wants to change the search radius, such as for knn algorithms
  * or some density code. Don't use it if the treewalk modifies other particles.
  * */
