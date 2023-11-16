@@ -562,7 +562,7 @@ static struct SendBuffer ev_send_export_data(TreeWalk * tw, MPI_Comm comm)
     alloc_sendbuffer(&send, comm);
 
     int i;
-    size_t Nexport=0;
+    tw->Nexport=0;
     /* Calculate the amount of data to send. */
     for(i = 0; i < tw->NThread; i++)
     {
@@ -572,14 +572,17 @@ static struct SendBuffer ev_send_export_data(TreeWalk * tw, MPI_Comm comm)
         /* This is over all full buffers.*/
         tw->Nexport_sum += tw->Nexport_thread[i];
         /* This is the send count*/
-        Nexport += tw->Nexport_thread[i];
+        tw->Nexport += tw->Nexport_thread[i];
     }
+#ifdef DEBUG
+    message(1, "Exporting %ld particles. Thread 0 is %ld\n", tw->Nexport, tw->Nexport_thread[0]);
+#endif
     send.nrequest_count = MPI_SendtoAll_single(send.Send_count, 0, send.rdata_count, MPI_COMM_WORLD);
 
     for(i = 1, send.Send_offset[0] = 0; i < tw->NTask; i++)
         send.Send_offset[i] = send.Send_offset[i - 1] + send.Send_count[i - 1];
 
-    send.sendbuf = (char *) mymalloc("EvDataIn", Nexport * tw->query_type_elsize);
+    send.sendbuf = (char *) mymalloc("EvDataIn", tw->Nexport * tw->query_type_elsize);
 
     /* prepare particle data for export */
     int * real_send_count = ta_malloc("tmp_send_count", int, tw->NTask);
@@ -665,14 +668,8 @@ static void ev_reduce_result(struct SendBuffer * export, TreeWalk * tw)
 {
     int64_t i;
     double tstart, tend;
-    size_t Nexport = 0;
-
-    for(i = 0; i < tw->NThread; i++) {
-        Nexport += tw->Nexport_thread[i];
-    }
-
     char * recvbuf = (char*) mymalloc("EvDataOut",
-                Nexport * tw->result_type_elsize);
+                tw->Nexport * tw->result_type_elsize);
 
     tstart = second();
     MPI_Datatype type;

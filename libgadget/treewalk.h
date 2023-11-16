@@ -144,6 +144,8 @@ struct TreeWalk {
     size_t * Nexport_threadoffset;
     /* Number of particles exported to this processor*/
     size_t Nimport;
+    /* Number of particles exported from this processor*/
+    size_t Nexport;
     /* Flags that our export buffer is full*/
     int BufferFullFlag;
     /* Number of particles we can fit into the export buffer*/
