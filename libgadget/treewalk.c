@@ -561,7 +561,7 @@ static struct SendBuffer ev_send_export_data(TreeWalk * tw, MPI_Comm comm)
 #ifdef DEBUG
     message(1, "Exporting %ld particles. Thread 0 is %ld\n", tw->Nexport, tw->Nexport_thread[0]);
 #endif
-    send.nrequest_count = MPI_SendtoAll_single(send.Send_count, 0, send.rdata_count, MPI_COMM_WORLD);
+    send.nrequest_count = MPI_iAlltoAll_single(send.Send_count, 0, send.rdata_count, MPI_COMM_WORLD);
 
     for(i = 1, send.Send_offset[0] = 0; i < tw->NTask; i++)
         send.Send_offset[i] = send.Send_offset[i - 1] + send.Send_count[i - 1];
@@ -595,7 +595,7 @@ static struct SendBuffer ev_send_export_data(TreeWalk * tw, MPI_Comm comm)
     MPI_Datatype type;
     MPI_Type_contiguous(tw->query_type_elsize, MPI_BYTE, &type);
     MPI_Type_commit(&type);
-    send.nrequest_all = MPI_SendtoAll_sparse(send.sendbuf, send.Send_count, send.Send_offset, type, 0, send.rdata_all, comm);
+    send.nrequest_all = MPI_iAlltoAll_sparse(send.sendbuf, send.Send_count, send.Send_offset, type, 0, send.rdata_all, comm);
     MPI_Type_free(&type);
     return send;
 }
@@ -606,7 +606,7 @@ static struct SendBuffer ev_get_remote(TreeWalk * tw, MPI_Comm comm)
     struct SendBuffer import = {0};
     alloc_sendbuffer(&import, comm);
 
-    import.nrequest_count = MPI_SendtoAll_single(import.Send_count, 1, import.rdata_count, MPI_COMM_WORLD);
+    import.nrequest_count = MPI_iAlltoAll_single(import.Send_count, 1, import.rdata_count, MPI_COMM_WORLD);
 
     MPI_Waitall(import.nrequest_count, import.rdata_count, MPI_STATUS_IGNORE);
     int i;
@@ -621,7 +621,7 @@ static struct SendBuffer ev_get_remote(TreeWalk * tw, MPI_Comm comm)
     MPI_Datatype type;
     MPI_Type_contiguous(tw->query_type_elsize, MPI_BYTE, &type);
     MPI_Type_commit(&type);
-    import.nrequest_all = MPI_SendtoAll_sparse(import.sendbuf, import.Send_count, import.Send_offset, type, 1, import.rdata_all, comm);
+    import.nrequest_all = MPI_iAlltoAll_sparse(import.sendbuf, import.Send_count, import.Send_offset, type, 1, import.rdata_all, comm);
     MPI_Type_free(&type);
     MPI_Waitall(import.nrequest_all, import.rdata_all, MPI_STATUS_IGNORE);
     return import;
@@ -632,7 +632,7 @@ static void ev_send_result(char * dataresult, struct SendBuffer * import, TreeWa
     MPI_Datatype type;
     MPI_Type_contiguous(tw->result_type_elsize, MPI_BYTE, &type);
     MPI_Type_commit(&type);
-    import->nrequest_all = MPI_SendtoAll_sparse(dataresult, import->Send_count, import->Send_offset, type, 0, import->rdata_all, import->comm);
+    import->nrequest_all = MPI_iAlltoAll_sparse(dataresult, import->Send_count, import->Send_offset, type, 0, import->rdata_all, import->comm);
     MPI_Type_free(&type);
 }
 
@@ -644,7 +644,7 @@ static void ev_reduce_result(struct SendBuffer * export, TreeWalk * tw)
     MPI_Datatype type;
     MPI_Type_contiguous(tw->result_type_elsize, MPI_BYTE, &type);
     MPI_Type_commit(&type);
-    export->nrequest_all = MPI_SendtoAll_sparse(recvbuf, export->Send_count, export->Send_offset, type, 1, export->rdata_all, export->comm);
+    export->nrequest_all = MPI_iAlltoAll_sparse(recvbuf, export->Send_count, export->Send_offset, type, 1, export->rdata_all, export->comm);
     MPI_Type_free(&type);
     MPI_Waitall(export->nrequest_all, export->rdata_all, MPI_STATUS_IGNORE);
 
