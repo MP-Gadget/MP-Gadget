@@ -16,14 +16,6 @@
 
 #define FACT1 0.366025403785	/* FACT1 = 0.5 * (sqrt(3)-1) */
 
-/* Structure to store the (task-level) counts for particles
- * to be sent to each process*/
-struct SendRecvBuffer
-{
-    int *Send_offset, *Send_count;
-    int *Recv_offset, *Recv_count;
-};
-
 /*!< Memory factor to leave for (N imported particles) > (N exported particles). */
 static int ImportBufferBoost;
 
@@ -500,7 +492,7 @@ ev_toptree(TreeWalk * tw)
     return tw->BufferFullFlag;
 }
 
-struct SendBuffer
+struct CommBuffer
 {
     int * Send_count;
     int * Send_offset;
@@ -513,37 +505,37 @@ struct SendBuffer
     int NTask;
 };
 
-void alloc_sendbuffer(struct SendBuffer * send, MPI_Comm comm)
+void alloc_commbuffer(struct CommBuffer * buffer, MPI_Comm comm)
 {
     int NTask;
     MPI_Comm_size(comm, &NTask);
-    send->NTask = NTask;
-    send->Send_count = ta_malloc("Send_count", int, 2*NTask);
-    send->Send_offset = send->Send_count + NTask;
-    memset(send->Send_count, 0, sizeof(int)*NTask);
-    send->rdata_count = ta_malloc("requests", MPI_Request, 2*NTask);
-    send->rdata_all = send->rdata_count + NTask;
-    send->comm = comm;
+    buffer->NTask = NTask;
+    buffer->Send_count = ta_malloc("Send_count", int, 2*NTask);
+    buffer->Send_offset = buffer->Send_count + NTask;
+    memset(buffer->Send_count, 0, sizeof(int)*NTask);
+    buffer->rdata_count = ta_malloc("requests", MPI_Request, 2*NTask);
+    buffer->rdata_all = buffer->rdata_count + NTask;
+    buffer->comm = comm;
 }
 
-void free_sendbuffer(struct SendBuffer * send)
+void free_commbuffer(struct CommBuffer * buffer)
 {
-    ta_free(send->rdata_count);
-    ta_free(send->Send_count);
+    ta_free(buffer->rdata_count);
+    ta_free(buffer->Send_count);
 }
 
-/* Waits for all the requests in the sendbuffer to be complete*/
-void wait_sendbuffer(struct SendBuffer * send)
+/* Waits for all the requests in the bufferbuffer to be complete*/
+void wait_commbuffer(struct CommBuffer * buffer)
 {
-    MPI_Waitall(send->nrequest_count, send->rdata_count, MPI_STATUSES_IGNORE);
-    MPI_Waitall(send->nrequest_all, send->rdata_all, MPI_STATUSES_IGNORE);
+    MPI_Waitall(buffer->nrequest_count, buffer->rdata_count, MPI_STATUSES_IGNORE);
+    MPI_Waitall(buffer->nrequest_all, buffer->rdata_all, MPI_STATUSES_IGNORE);
 }
 
-/* Builds the list of exported particles and performs an async send of the queries. */
-static struct SendBuffer ev_send_export_data(TreeWalk * tw, MPI_Comm comm)
+/* Builds the list of exported particles and performs an async buffer of the queries. */
+static struct CommBuffer ev_send_export_data(TreeWalk * tw, MPI_Comm comm)
 {
-    struct SendBuffer send = {0};
-    alloc_sendbuffer(&send, comm);
+    struct CommBuffer buffer = {0};
+    alloc_commbuffer(&buffer, comm);
 
     int i;
     tw->Nexport=0;
@@ -552,21 +544,21 @@ static struct SendBuffer ev_send_export_data(TreeWalk * tw, MPI_Comm comm)
     {
         size_t k;
         for(k = 0; k < tw->Nexport_thread[i]; k++)
-            send.Send_count[DataIndexTable[k+tw->Nexport_threadoffset[i]].Task]++;
+            buffer.Send_count[DataIndexTable[k+tw->Nexport_threadoffset[i]].Task]++;
         /* This is over all full buffers.*/
         tw->Nexport_sum += tw->Nexport_thread[i];
-        /* This is the send count*/
+        /* This is the export count*/
         tw->Nexport += tw->Nexport_thread[i];
     }
 #ifdef DEBUG
     message(1, "Exporting %ld particles. Thread 0 is %ld\n", tw->Nexport, tw->Nexport_thread[0]);
 #endif
-    send.nrequest_count = MPI_iAlltoAll_single(send.Send_count, 0, send.rdata_count, MPI_COMM_WORLD);
+    buffer.nrequest_count = MPI_iAlltoAll_single(buffer.Send_count, 0, buffer.rdata_count, MPI_COMM_WORLD);
 
-    for(i = 1, send.Send_offset[0] = 0; i < tw->NTask; i++)
-        send.Send_offset[i] = send.Send_offset[i - 1] + send.Send_count[i - 1];
+    for(i = 1, buffer.Send_offset[0] = 0; i < tw->NTask; i++)
+        buffer.Send_offset[i] = buffer.Send_offset[i - 1] + buffer.Send_count[i - 1];
 
-    send.sendbuf = (char *) mymalloc("EvDataIn", tw->Nexport * tw->query_type_elsize);
+    buffer.sendbuf = (char *) mymalloc("EvDataIn", tw->Nexport * tw->query_type_elsize);
 
     /* prepare particle data for export */
     int * real_send_count = ta_malloc("tmp_send_count", int, tw->NTask);
@@ -578,8 +570,8 @@ static struct SendBuffer ev_send_export_data(TreeWalk * tw, MPI_Comm comm)
             const int ditind = k+tw->Nexport_threadoffset[i];
             const int place = DataIndexTable[ditind].Index;
             const int task = DataIndexTable[ditind].Task;
-            int bufpos = real_send_count[task] + send.Send_offset[task];
-            TreeWalkQueryBase * input = (TreeWalkQueryBase*) (send.sendbuf + bufpos * tw->query_type_elsize);
+            int bufpos = real_send_count[task] + buffer.Send_offset[task];
+            TreeWalkQueryBase * input = (TreeWalkQueryBase*) (buffer.sendbuf + bufpos * tw->query_type_elsize);
             real_send_count[DataIndexTable[ditind].Task]++;
             treewalk_init_query(tw, input, place, DataIndexTable[ditind].NodeList);
         }
@@ -587,24 +579,24 @@ static struct SendBuffer ev_send_export_data(TreeWalk * tw, MPI_Comm comm)
 #ifdef DEBUG
 /* Checks!*/
     for(i = 0; i < tw->NTask; i++)
-        if(real_send_count[i] != send.Send_count[i])
-            endrun(6, "Inconsistent export to task %d of %d: %d expected %d\n", i, tw->NTask, real_send_count[i], send.Send_count[i]);
+        if(real_buffer_count[i] != buffer.Send_count[i])
+            endrun(6, "Inconsistent export to task %d of %d: %d expected %d\n", i, tw->NTask, real_send_count[i], buffer.Send_count[i]);
 #endif
     myfree(real_send_count);
 
     MPI_Datatype type;
     MPI_Type_contiguous(tw->query_type_elsize, MPI_BYTE, &type);
     MPI_Type_commit(&type);
-    send.nrequest_all = MPI_iAlltoAll_sparse(send.sendbuf, send.Send_count, send.Send_offset, type, 0, send.rdata_all, comm);
+    buffer.nrequest_all = MPI_iAlltoAll_sparse(buffer.sendbuf, buffer.Send_count, buffer.Send_offset, type, 0, buffer.rdata_all, comm);
     MPI_Type_free(&type);
-    return send;
+    return buffer;
 }
 
 /* returns the remote particles */
-static struct SendBuffer ev_get_remote(TreeWalk * tw, MPI_Comm comm)
+static struct CommBuffer ev_get_remote(TreeWalk * tw, MPI_Comm comm)
 {
-    struct SendBuffer import = {0};
-    alloc_sendbuffer(&import, comm);
+    struct CommBuffer import = {0};
+    alloc_commbuffer(&import, comm);
 
     import.nrequest_count = MPI_iAlltoAll_single(import.Send_count, 1, import.rdata_count, MPI_COMM_WORLD);
 
@@ -627,7 +619,7 @@ static struct SendBuffer ev_get_remote(TreeWalk * tw, MPI_Comm comm)
     return import;
 }
 
-static void ev_send_result(char * dataresult, struct SendBuffer * import, TreeWalk * tw)
+static void ev_send_result(char * dataresult, struct CommBuffer * import, TreeWalk * tw)
 {
     MPI_Datatype type;
     MPI_Type_contiguous(tw->result_type_elsize, MPI_BYTE, &type);
@@ -636,7 +628,7 @@ static void ev_send_result(char * dataresult, struct SendBuffer * import, TreeWa
     MPI_Type_free(&type);
 }
 
-static void ev_reduce_result(struct SendBuffer * export, TreeWalk * tw)
+static void ev_reduce_result(struct CommBuffer * export, TreeWalk * tw)
 {
     int64_t i;
     char * recvbuf = (char*) mymalloc("EvDataOut",
@@ -719,7 +711,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
             tw->timecomp0 += timediff(tstart, tend);
             /* Send the exported particle data */
             tstart = second();
-            struct SendBuffer export = ev_send_export_data(tw, MPI_COMM_WORLD);
+            struct CommBuffer export = ev_send_export_data(tw, MPI_COMM_WORLD);
             tend = second();
             tw->timecommsumm1 += timediff(tstart, tend);
             /* Only do this on the first iteration, as we only need to do it once.*/
@@ -730,7 +722,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
             tw->timecomp1 += timediff(tstart, tend);
             /* now receive the particles that were sent to us and process them.*/
             tstart = second();
-            struct SendBuffer import = ev_get_remote(tw, MPI_COMM_WORLD);
+            struct CommBuffer import = ev_get_remote(tw, MPI_COMM_WORLD);
             tend = second();
             tw->timecommsumm2 += timediff(tstart, tend);
             tstart = second();
@@ -742,7 +734,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
             /* and now receive and import the result to local particles. */
             /* Now clear the sent data buffer, waiting for the send to complete.
              * This needs to be after the other end has called recv.*/
-            wait_sendbuffer(&export);
+            wait_commbuffer(&export);
             tend = second();
             tw->timecomp2 += timediff(tstart, tend);
             myfree(export.sendbuf);
@@ -750,9 +742,9 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
             ev_reduce_result(&export, tw);
             tend = second();
             tw->timecommsumm3 += timediff(tstart, tend);
-            wait_sendbuffer(&import);
-            free_sendbuffer(&import);
-            free_sendbuffer(&export);
+            wait_commbuffer(&import);
+            free_commbuffer(&import);
+            free_commbuffer(&export);
         } while(ev_ndone(tw) < tw->NTask);
     }
 
