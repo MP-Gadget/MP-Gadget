@@ -278,12 +278,7 @@ static void
 ev_primary(TreeWalk * tw)
 {
     double tstart, tend;
-    tw->BufferFullFlag = 0;
-
     tstart = second();
-    tw->Nexport_thread = ta_malloc2("localexports", size_t, 2*tw->NThread);
-    tw->Nexport_threadoffset = tw->Nexport_thread + tw->NThread;
-
     int64_t maxNinteractions = 0, minNinteractions = 1L << 45, Ninteractions=0;
 #pragma omp parallel reduction(min:minNinteractions) reduction(max:maxNinteractions) reduction(+: Ninteractions)
     {
