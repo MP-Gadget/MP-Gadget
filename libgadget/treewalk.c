@@ -277,8 +277,6 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may
 static void
 ev_primary(TreeWalk * tw)
 {
-    double tstart, tend;
-    tstart = second();
     int64_t maxNinteractions = 0, minNinteractions = 1L << 45, Ninteractions=0;
 #pragma omp parallel reduction(min:minNinteractions) reduction(max:maxNinteractions) reduction(+: Ninteractions)
     {
@@ -320,8 +318,6 @@ ev_primary(TreeWalk * tw)
     tw->minNinteractions = minNinteractions;
     tw->Ninteractions += Ninteractions;
     tw->Nlistprimary += tw->WorkSetSize;
-    tend = second();
-    tw->timecomp1 += timediff(tstart, tend);
 }
 
 static int ev_ndone(TreeWalk * tw)
@@ -339,9 +335,7 @@ static int ev_ndone(TreeWalk * tw)
 
 static char * ev_secondary(char * importlist, TreeWalk * tw)
 {
-    double tstart = second();
     char * dataresult = (char *) mymalloc2("EvDataResult", tw->Nimport * tw->result_type_elsize);
-
 #pragma omp parallel
     {
         size_t j;
@@ -358,8 +352,6 @@ static char * ev_secondary(char * importlist, TreeWalk * tw)
             tw->visit(input, output, lv);
         }
     }
-    double tend = second();
-    tw->timecomp2 += timediff(tstart, tend);
     return dataresult;
 }
 
@@ -411,10 +403,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no)
 int
 ev_toptree(TreeWalk * tw)
 {
-    double tstart, tend;
     tw->BufferFullFlag = 0;
-
-    tstart = second();
     tw->Nexport_thread = ta_malloc2("localexports", size_t, 2*tw->NThread);
     tw->Nexport_threadoffset = tw->Nexport_thread + tw->NThread;
 
@@ -509,8 +498,6 @@ ev_toptree(TreeWalk * tw)
      * Only a full Ngbiter list is executed; partial lists are discarded.*/
     tw->WorkSetStart = lastSucceeded + 1;
     tw->BufferFullFlag = BufferFullFlag;
-    tend = second();
-    tw->timecomp1 += timediff(tstart, tend);
     return tw->BufferFullFlag;
 }
 
@@ -556,8 +543,6 @@ void wait_sendbuffer(struct SendBuffer * send)
 /* Builds the list of exported particles and performs an async send of the queries. */
 static struct SendBuffer ev_send_export_data(TreeWalk * tw, MPI_Comm comm)
 {
-    double tstart = second();
-
     struct SendBuffer send = {0};
     alloc_sendbuffer(&send, comm);
 
@@ -613,17 +598,12 @@ static struct SendBuffer ev_send_export_data(TreeWalk * tw, MPI_Comm comm)
     MPI_Type_commit(&type);
     send.nrequest_all = MPI_SendtoAll_sparse(send.sendbuf, send.Send_count, send.Send_offset, type, 0, send.rdata_all, comm);
     MPI_Type_free(&type);
-
-    double tend = second();
-    tw->timecommsumm1 += timediff(tstart, tend);
     return send;
 }
 
 /* returns the remote particles */
 static struct SendBuffer ev_get_remote(TreeWalk * tw, MPI_Comm comm)
 {
-    double tstart = second();
-
     struct SendBuffer import = {0};
     alloc_sendbuffer(&import, comm);
 
@@ -645,33 +625,23 @@ static struct SendBuffer ev_get_remote(TreeWalk * tw, MPI_Comm comm)
     import.nrequest_all = MPI_SendtoAll_sparse(import.sendbuf, import.Send_count, import.Send_offset, type, 1, import.rdata_all, comm);
     MPI_Type_free(&type);
     MPI_Waitall(import.nrequest_all, import.rdata_all, MPI_STATUS_IGNORE);
-
-    double tend = second();
-    tw->timecommsumm1 += timediff(tstart, tend);
     return import;
 }
 
 static void ev_send_result(char * dataresult, struct SendBuffer * import, TreeWalk * tw)
 {
-    double tstart = second();
     MPI_Datatype type;
     MPI_Type_contiguous(tw->result_type_elsize, MPI_BYTE, &type);
     MPI_Type_commit(&type);
     import->nrequest_all = MPI_SendtoAll_sparse(dataresult, import->Send_count, import->Send_offset, type, 0, import->rdata_all, import->comm);
     MPI_Type_free(&type);
-
-    double tend = second();
-    tw->timecommsumm2 += timediff(tstart, tend);
 }
 
 static void ev_reduce_result(struct SendBuffer * export, TreeWalk * tw)
 {
     int64_t i;
-    double tstart, tend;
     char * recvbuf = (char*) mymalloc("EvDataOut",
                 tw->Nexport * tw->result_type_elsize);
-
-    tstart = second();
     MPI_Datatype type;
     MPI_Type_contiguous(tw->result_type_elsize, MPI_BYTE, &type);
     MPI_Type_commit(&type);
@@ -703,8 +673,6 @@ static void ev_reduce_result(struct SendBuffer * export, TreeWalk * tw)
         }
         myfree(real_recv_count);
     }
-    tend = second();
-    tw->timecommsumm2 += timediff(tstart, tend);
     myfree(recvbuf);
     myfree(tw->Nexport_thread);
 }
@@ -740,27 +708,47 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
         tw->Nexport_sum = 0;
         do
         {
+            double tstart = second();
             /* First do the toptree and export particles for sending.*/
             ev_toptree(tw);
+            double tend = second();
+            tw->timecomp0 += timediff(tstart, tend);
             /* Send the exported particle data */
+            tstart = second();
             struct SendBuffer export = ev_send_export_data(tw, MPI_COMM_WORLD);
+            tend = second();
+            tw->timecommsumm1 += timediff(tstart, tend);
             /* Only do this on the first iteration, as we only need to do it once.*/
+            tstart = second();
             if(tw->Nexportfull == 0)
                 ev_primary(tw); /* do local particles and prepare export list */
-
+            tend = second();
+            tw->timecomp1 += timediff(tstart, tend);
             /* now receive the particles that were sent to us and process them.*/
+            tstart = second();
             struct SendBuffer import = ev_get_remote(tw, MPI_COMM_WORLD);
+            tend = second();
+            tw->timecommsumm2 += timediff(tstart, tend);
+            tstart = second();
             char * dataresult = ev_secondary(import.sendbuf, tw);
             myfree(import.sendbuf);
             /* Send the results we have back*/
             ev_send_result(dataresult, &import, tw);
             myfree(dataresult);
+            tend = second();
+            tw->timecomp2 += timediff(tstart, tend);
             /* and now receive and import the result to local particles. */
             /* Now clear the sent data buffer, waiting for the send to complete.
              * This needs to be after the other end has called recv.*/
+            tstart = second();
             wait_sendbuffer(&export);
+            tend = second();
+            tw->timewait1 += timediff(tstart, tend);
             myfree(export.sendbuf);
+            tstart = second();
             ev_reduce_result(&export, tw);
+            tend = second();
+            tw->timecommsumm3 += timediff(tstart, tend);
             wait_sendbuffer(&import);
             free_sendbuffer(&import);
             free_sendbuffer(&export);
@@ -780,7 +768,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
         }
     }
     tend = second();
-    tw->timecomp3 = timediff(tstart, tend);
+    tw->timecomp3 += timediff(tstart, tend);
     ev_finish(tw);
     tw->Niteration++;
 }

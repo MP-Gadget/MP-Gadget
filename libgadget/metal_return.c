@@ -997,7 +997,7 @@ stellar_density(const ActiveParticles * act, MyFloat * StarVolumeSPH, MyFloat * 
 
     double timeall = walltime_measure(WALLTIME_IGNORE);
 
-    double timecomp = tw->timecomp3 + tw->timecomp1 + tw->timecomp2;
+    double timecomp = tw->timecomp0 + tw->timecomp3 + tw->timecomp1 + tw->timecomp2;
     double timewait = tw->timewait1 + tw->timewait2;
     double timecomm = tw->timecommsumm1 + tw->timecommsumm2 + tw->timecommsumm3;
     walltime_add("/SPH/Metals/Density/Compute", timecomp);

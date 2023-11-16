@@ -107,20 +107,24 @@ struct TreeWalk {
     int NTask; /*Number of MPI tasks*/
     int64_t NThread; /*Number of OpenMP threads*/
 
-    /* Unlike in Gadget-3, when exporting we now always send tree branches.*/
-    char * dataget;
-    char * dataresult;
-
     /* performance metrics */
+    /* Wait for remote particles to complete sending.*/
     double timewait1;
+    /* Wait for everyone to complete at the end of the loop.*/
     double timewait2;
+    /* Time spent in the toptree*/
+    double timecomp0;
     /* This is the time spent in ev_primary*/
     double timecomp1;
-    /* This is the time spent in ev_secondary (which may overlap)*/
+    /* This is the time spent in ev_secondary (which may overlap with primary time)*/
     double timecomp2;
+    /* Time spent in post-processing*/
     double timecomp3;
+    /* Time spent to prepare the export list*/
     double timecommsumm1;
+    /* Time spent to get the remote particles*/
     double timecommsumm2;
+    /* Time spent to wait for secondaries to complete and reduce the result*/
     double timecommsumm3;
     /* Number of particles in the Ngblist for the primary treewalk*/
     int64_t Nlistprimary;
@@ -129,7 +133,6 @@ struct TreeWalk {
     int64_t Nexport_sum;
     /* Number of times we filled up our export buffer*/
     int64_t Nexportfull;
-
     /* Number of times we needed to re-run the treewalk.
      * Convenience variable for density. */
     int64_t Niteration;

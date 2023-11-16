@@ -219,7 +219,7 @@ hydro_force(const ActiveParticles * act, const double atime, struct sph_pred_dat
 
     timeall += walltime_measure(WALLTIME_IGNORE);
 
-    timecomp = tw->timecomp1 + tw->timecomp2 + tw->timecomp3;
+    timecomp = tw->timecomp0 + tw->timecomp1 + tw->timecomp2 + tw->timecomp3;
     timewait = tw->timewait1 + tw->timewait2;
     timecomm = tw->timecommsumm1 + tw->timecommsumm2 + tw->timecommsumm3;
 

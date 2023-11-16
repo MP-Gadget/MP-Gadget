@@ -138,16 +138,17 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFl
     /* Now the force computation is finished */
     /*  gather some diagnostic information */
 
-    timetree = tw->timecomp1 + tw->timecomp2 + tw->timecomp3;
+    timetree = tw->timecomp0 + tw->timecomp1 + tw->timecomp2 + tw->timecomp3;
     timewait = tw->timewait1 + tw->timewait2;
     timecomm= tw->timecommsumm1 + tw->timecommsumm2;
 
+    walltime_add("/Tree/Walk0", tw->timecomp0);
     walltime_add("/Tree/Walk1", tw->timecomp1);
     walltime_add("/Tree/Walk2", tw->timecomp2);
     walltime_add("/Tree/PostProcess", tw->timecomp3);
     walltime_add("/Tree/Send", tw->timecommsumm1);
     walltime_add("/Tree/Recv", tw->timecommsumm2);
-    walltime_add("/Tree/Export", tw->timecommsumm3);
+    walltime_add("/Tree/Reduce", tw->timecommsumm3);
     walltime_add("/Tree/Wait1", tw->timewait1);
     walltime_add("/Tree/Wait2", tw->timewait2);
 

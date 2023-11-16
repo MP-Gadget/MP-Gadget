@@ -341,7 +341,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
     timeall = walltime_measure(WALLTIME_IGNORE);
 
-    timecomp = tw->timecomp3 + tw->timecomp1 + tw->timecomp2;
+    timecomp = tw->timecomp0 + tw->timecomp3 + tw->timecomp1 + tw->timecomp2;
     timewait = tw->timewait1 + tw->timewait2;
     timecomm = tw->timecommsumm1 + tw->timecommsumm2 + tw->timecommsumm3;
 
