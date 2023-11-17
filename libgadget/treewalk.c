@@ -613,8 +613,8 @@ static void ev_send_recv_export_import(struct ImpExpCounts * counts, TreeWalk * 
 #ifdef DEBUG
 /* Checks!*/
     for(i = 0; i < tw->NTask; i++)
-        if(real_exports_count[i] != exports.Send_count[i])
-            endrun(6, "Inconsistent export to task %d of %d: %d expected %d\n", i, tw->NTask, real_send_count[i], exports.Send_count[i]);
+        if(real_send_count[i] != counts->Export_count[i])
+            endrun(6, "Inconsistent export to task %d of %d: %d expected %d\n", i, tw->NTask, real_send_count[i], counts->Export_count[i]);
 #endif
     myfree(real_send_count);
     exports->nrequest_all = MPI_iAlltoAll_sparse(exports->databuf, counts->Export_count, counts->Export_offset, type, 0, exports->rdata_all, counts->comm);
