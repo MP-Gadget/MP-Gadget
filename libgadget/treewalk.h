@@ -133,6 +133,8 @@ struct TreeWalk {
     int64_t Nexport_sum;
     /* Number of times we filled up our export buffer*/
     int64_t Nexportfull;
+    /* Number of MPI ranks we export to from this rank.*/
+    int NExportTargets;
     /* Number of times we needed to re-run the treewalk.
      * Convenience variable for density. */
     int64_t Niteration;

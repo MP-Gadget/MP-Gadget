@@ -563,16 +563,16 @@ ev_export_import_counts(TreeWalk * tw, MPI_Comm comm)
     }
     /* Exchange the counts. Note this is synchronous so we need to ensure the toptree walk, which happens before this, is balanced.*/
     MPI_Alltoall(counts.Export_count, 1, MPI_INT, counts.Import_count, 1, MPI_INT, counts.comm);
-#ifdef DEBUG
-    message(1, "Exporting %ld particles. Thread 0 is %ld\n", counts.Nexport, tw->Nexport_thread[0]);
-#endif
+    // message(1, "Exporting %ld particles. Thread 0 is %ld\n", counts.Nexport, tw->Nexport_thread[0]);
 
     counts.Nimport = counts.Import_count[0];
+    tw->NExportTargets = (counts.Export_count[i] > 0);
     for(i = 1; i < NTask; i++)
     {
         counts.Nimport += counts.Import_count[i];
         counts.Export_offset[i] = counts.Export_offset[i - 1] + counts.Export_count[i - 1];
         counts.Import_offset[i] = counts.Import_offset[i - 1] + counts.Import_count[i - 1];
+        tw->NExportTargets += (counts.Export_count[i] > 0);
     }
     return counts;
 }
@@ -1320,11 +1320,14 @@ ngb_narrow_down(double *right, double *left, const double *radius, const double 
 void
 treewalk_print_stats(const TreeWalk * tw)
 {
+    int NExportTargets;
     int64_t minNinteractions, maxNinteractions, Ninteractions, Nlistprimary, Nexport;
     MPI_Reduce(&tw->minNinteractions, &minNinteractions, 1, MPI_INT64, MPI_MIN, 0, MPI_COMM_WORLD);
     MPI_Reduce(&tw->maxNinteractions, &maxNinteractions, 1, MPI_INT64, MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(&tw->Ninteractions, &Ninteractions, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&tw->WorkSetSize, &Nlistprimary, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&tw->Nexport_sum, &Nexport, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
-    message(0, "%s Ngblist: min %ld max %ld avg %g average exports per task: %g\n", tw->ev_label, minNinteractions, maxNinteractions, (double) Ninteractions / Nlistprimary, ((double) Nexport)/ tw->NTask);
+    MPI_Reduce(&tw->NExportTargets, &NExportTargets, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    message(0, "%s Ngblist: min %ld max %ld avg %g average exports: %g avg target ranks: %g\n", tw->ev_label, minNinteractions, maxNinteractions,
+            (double) Ninteractions / Nlistprimary, ((double) Nexport)/ tw->NTask, ((double) NExportTargets)/ tw->NTask);
 }
