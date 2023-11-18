@@ -44,7 +44,6 @@ static void ev_init_thread(TreeWalk * const tw, LocalTreeWalk * lv);
 static void ev_begin(TreeWalk * tw, int * active_set, const size_t size);
 static void ev_finish(TreeWalk * tw);
 static void ev_primary(TreeWalk * tw);
-static char * ev_secondary(char * importlist, size_t Nimports, TreeWalk * tw);
 static int ev_ndone(TreeWalk * tw, MPI_Comm comm);
 
 static int
@@ -318,28 +317,6 @@ static int ev_ndone(TreeWalk * tw, MPI_Comm comm)
     return ndone;
 }
 
-static char * ev_secondary(char * importlist, size_t Nimport, TreeWalk * tw)
-{
-    char * dataresult = (char *) mymalloc2("ImportResult", Nimport * tw->result_type_elsize);
-#pragma omp parallel
-    {
-        size_t j;
-        LocalTreeWalk lv[1];
-
-        ev_init_thread(tw, lv);
-        lv->mode = 1;
-        #pragma omp for
-        for(j = 0; j < Nimport; j++) {
-            TreeWalkQueryBase * input = (TreeWalkQueryBase*) (importlist + j * tw->query_type_elsize);
-            TreeWalkResultBase * output = (TreeWalkResultBase*)(dataresult + j * tw->result_type_elsize);
-            treewalk_init_result(tw, output, input);
-            lv->target = -1;
-            tw->visit(input, output, lv);
-        }
-    }
-    return dataresult;
-}
-
 #if NODELISTLENGTH != 2
 #error "treewalk_export_particle assumes NODELISTLENGTH is 2"
 #endif
@@ -503,7 +480,7 @@ struct ImpExpCounts
 struct CommBuffer
 {
     char * databuf;
-    char **databuf_rqst;
+    int * rqst_task;
     MPI_Request * rdata_all;
     int nrequest_all;
 };
@@ -511,7 +488,7 @@ struct CommBuffer
 void alloc_commbuffer(struct CommBuffer * buffer, int NTask)
 {
     buffer->rdata_all = ta_malloc("requests", MPI_Request, NTask);
-    buffer->databuf_rqst = ta_malloc("ptrs", char *, NTask);
+    buffer->rqst_task = ta_malloc("rqst", int, NTask);
     buffer->nrequest_all = 0;
     buffer->databuf = NULL;
 }
@@ -527,7 +504,7 @@ void free_commbuffer(struct CommBuffer * buffer)
         myfree(buffer->databuf);
         buffer->databuf = NULL;
     }
-    ta_free(buffer->databuf_rqst);
+    ta_free(buffer->rqst_task);
     ta_free(buffer->rdata_all);
 }
 
@@ -553,7 +530,7 @@ MPI_fill_commbuffer(struct CommBuffer * buffer, int *cnts, int *displs, MPI_Data
     {
         int target = (ThisTask + i) % NTask;
         if(cnts[target] == 0) continue;
-        buffer->databuf_rqst[nrequests] = ((char*) buffer->databuf) + elsize * displs[target];
+        buffer->rqst_task[nrequests] = target;
         if(receive == COMM_RECV) {
             MPI_Irecv(((char*) buffer->databuf) + elsize * displs[target], cnts[target],
                 type, target, tag, comm, &buffer->rdata_all[nrequests++]);
@@ -570,6 +547,58 @@ MPI_fill_commbuffer(struct CommBuffer * buffer, int *cnts, int *displs, MPI_Data
 void wait_commbuffer(struct CommBuffer * buffer)
 {
     MPI_Waitall(buffer->nrequest_all, buffer->rdata_all, MPI_STATUSES_IGNORE);
+}
+
+static char * ev_secondary(struct CommBuffer * imports, struct ImpExpCounts* counts, TreeWalk * tw)
+{
+    int i;
+    char * dataresult = (char *) mymalloc2("ImportResult", counts->Nimport * tw->result_type_elsize);
+    int * completed = ta_malloc("completes", int, imports->nrequest_all);
+    memset(completed, 0, imports->nrequest_all * sizeof(int) );
+    /* Build the map between requests and task number (some tasks were skipped because we have zero sends).*/
+    int tot_completed = 0;
+    /* Test each request in turn until it completes*/
+    do {
+        for(i = 0; i < imports->nrequest_all; i++) {
+            /* If we already completed, no need to test again*/
+            if(completed[i])
+                continue;
+            /* Check for a completed request: note that cleanup is performed if the request is complete.*/
+            MPI_Test(&imports->rdata_all[i], completed+i, MPI_STATUS_IGNORE);
+            /* Try the next one*/
+            if (!completed[i])
+                continue;
+            /* Note the count index is not i! */
+            const int task = imports->rqst_task[i];
+            const int nimports_task = counts->Import_count[task];
+            // message(1, "starting at %d with %d for iport %d task %d\n", counts->Import_offset[task], counts->Import_count[task], i, task);
+            char * databufstart = imports->databuf + counts->Import_offset[task] * tw->query_type_elsize;
+            char * dataresultstart = dataresult + counts->Import_offset[task] * tw->result_type_elsize;
+            /* This sends each set of imports to a parallel for loop. This may lead to suboptimal resource allocation if only a small number of imports come from a processor.
+            * If there are a large number of importing ranks each with a small number of imports, a better scheme could be to send each chunk to a separate openmp task.
+            * However, each openmp task by default only uses 1 thread. One may explicitly enable openmp nested parallelism, but I think that is not safe,
+            * or it would be enabled by default.*/
+            #pragma omp parallel
+                {
+                    int j;
+                    LocalTreeWalk lv[1];
+
+                    ev_init_thread(tw, lv);
+                    lv->mode = TREEWALK_GHOSTS;
+                    #pragma omp for
+                    for(j = 0; j < nimports_task; j++) {
+                        TreeWalkQueryBase * input = (TreeWalkQueryBase *) (databufstart + j * tw->query_type_elsize);
+                        TreeWalkResultBase * output = (TreeWalkResultBase *) (dataresultstart + j * tw->result_type_elsize);
+                        treewalk_init_result(tw, output, input);
+                        lv->target = -1;
+                        tw->visit(input, output, lv);
+                    }
+                }
+            tot_completed++;
+        }
+    } while(tot_completed < imports->nrequest_all);
+    ta_free(completed);
+    return dataresult;
 }
 
 static struct ImpExpCounts
@@ -757,14 +786,10 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
                 ev_primary(tw); /* do local particles and prepare export list */
             tend = second();
             tw->timecomp1 += timediff(tstart, tend);
+            /* Do processing of received particles. We implement a queue that
+             * checks each incoming task in turn and processes them as they arrive.*/
             tstart = second();
-            /* now receive the particles that were sent to us and process them.*/
-            wait_commbuffer(&imports);
-            tend = second();
-            tw->timecommsumm1 += timediff(tstart, tend);
-            /* Do processing of received particles*/
-            tstart = second();
-            char * dataresult = ev_secondary(imports.databuf, counts.Nimport, tw);
+            char * dataresult = ev_secondary(&imports, &counts, tw);
             report_memory_usage(tw->ev_label);
             free_commbuffer(&imports);
             tend = second();
