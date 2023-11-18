@@ -357,38 +357,6 @@ int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
     return ret;
 }
 
-/* Send/recv a single integer size to all processors*/
-int
-MPI_iAlltoAll_sparse(void *databuf, int *cnts, int *displs, MPI_Datatype type, int receive, MPI_Request * requests, int tag, MPI_Comm comm)
-{
-    int ThisTask;
-    int NTask;
-    MPI_Comm_rank(comm, &ThisTask);
-    MPI_Comm_size(comm, &NTask);
-    ptrdiff_t lb;
-    ptrdiff_t elsize;
-    MPI_Type_get_extent(type, &lb, &elsize);
-
-    int nrequests = 0;
-
-    int i;
-    /* Loop over all tasks, starting with the one just past this one*/
-    for(i = 1; i < NTask; i++)
-    {
-        int target = (ThisTask + i) % NTask;
-        if(cnts[target] == 0) continue;
-        if(receive) {
-            MPI_Irecv(((char*) databuf) + elsize * displs[target], cnts[target],
-                type, target, tag, comm, &requests[nrequests++]);
-        }
-        else {
-            MPI_Isend(((char*) databuf) + elsize * displs[target], cnts[target],
-                type, target, tag, comm, &requests[nrequests++]);
-        }
-    }
-    return nrequests;
-}
-
 int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
         int *rdispls, MPI_Datatype recvtype, MPI_Comm comm) {

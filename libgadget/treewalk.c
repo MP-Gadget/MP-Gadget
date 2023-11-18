@@ -503,6 +503,7 @@ struct ImpExpCounts
 struct CommBuffer
 {
     char * databuf;
+    char **databuf_rqst;
     MPI_Request * rdata_all;
     int nrequest_all;
 };
@@ -510,6 +511,7 @@ struct CommBuffer
 void alloc_commbuffer(struct CommBuffer * buffer, int NTask)
 {
     buffer->rdata_all = ta_malloc("requests", MPI_Request, NTask);
+    buffer->databuf_rqst = ta_malloc("ptrs", char *, NTask);
     buffer->nrequest_all = 0;
     buffer->databuf = NULL;
 }
@@ -525,7 +527,43 @@ void free_commbuffer(struct CommBuffer * buffer)
         myfree(buffer->databuf);
         buffer->databuf = NULL;
     }
+    ta_free(buffer->databuf_rqst);
     ta_free(buffer->rdata_all);
+}
+
+#define COMM_RECV 1
+#define COMM_SEND 0
+
+/* Routine to send data to all tasks async. If receive is set, the routine receives data. The structure stores the requests.
+ Empty tasks are skipped. Must call alloc_commbuffer on the buffer first and buffer->databuf must be set.*/
+void
+MPI_fill_commbuffer(struct CommBuffer * buffer, int *cnts, int *displs, MPI_Datatype type, int receive, int tag, MPI_Comm comm)
+{
+    int ThisTask;
+    int NTask;
+    MPI_Comm_rank(comm, &ThisTask);
+    MPI_Comm_size(comm, &NTask);
+    ptrdiff_t lb, elsize;
+    MPI_Type_get_extent(type, &lb, &elsize);
+    int nrequests = 0;
+
+    int i;
+    /* Loop over all tasks, starting with the one just past this one*/
+    for(i = 1; i < NTask; i++)
+    {
+        int target = (ThisTask + i) % NTask;
+        if(cnts[target] == 0) continue;
+        buffer->databuf_rqst[nrequests] = ((char*) buffer->databuf) + elsize * displs[target];
+        if(receive == COMM_RECV) {
+            MPI_Irecv(((char*) buffer->databuf) + elsize * displs[target], cnts[target],
+                type, target, tag, comm, &buffer->rdata_all[nrequests++]);
+        }
+        else {
+            MPI_Isend(((char*) buffer->databuf) + elsize * displs[target], cnts[target],
+                type, target, tag, comm, &buffer->rdata_all[nrequests++]);
+        }
+    }
+    buffer->nrequest_all = nrequests;
 }
 
 /* Waits for all the requests in the bufferbuffer to be complete*/
@@ -591,7 +629,7 @@ static void ev_send_recv_export_import(struct ImpExpCounts * counts, TreeWalk * 
     MPI_Type_commit(&type);
 
     /* Post recvs before sends. This sometimes allows for a fastpath.*/
-    imports->nrequest_all = MPI_iAlltoAll_sparse(imports->databuf, counts->Import_count, counts->Import_offset, type, 1, imports->rdata_all, 101922, counts->comm);
+    MPI_fill_commbuffer(imports, counts->Import_count, counts->Import_offset, type, COMM_RECV, 101922, counts->comm);
 
     /* prepare particle data for export */
     int * real_send_count = ta_malloc("tmp_send_count", int, tw->NTask);
@@ -617,7 +655,7 @@ static void ev_send_recv_export_import(struct ImpExpCounts * counts, TreeWalk * 
             endrun(6, "Inconsistent export to task %d of %d: %d expected %d\n", i, tw->NTask, real_send_count[i], counts->Export_count[i]);
 #endif
     myfree(real_send_count);
-    exports->nrequest_all = MPI_iAlltoAll_sparse(exports->databuf, counts->Export_count, counts->Export_offset, type, 0, exports->rdata_all, 101922, counts->comm);
+    MPI_fill_commbuffer(exports, counts->Export_count, counts->Export_offset, type, COMM_SEND, 101922, counts->comm);
     MPI_Type_free(&type);
     return;
 }
@@ -630,8 +668,8 @@ static void ev_recv_send_result(struct CommBuffer * import, struct CommBuffer * 
     MPI_Type_commit(&type);
     export->databuf = (char*) mymalloc("ExportResult", counts->Nexport * tw->result_type_elsize);
     /* Post the receives first so we can hit a zero-copy fastpath.*/
-    export->nrequest_all = MPI_iAlltoAll_sparse(export->databuf, counts->Export_count, counts->Export_offset, type, 1, export->rdata_all, 101923, counts->comm);
-    import->nrequest_all = MPI_iAlltoAll_sparse(import->databuf, counts->Import_count, counts->Import_offset, type, 0, import->rdata_all, 101923, counts->comm);
+    MPI_fill_commbuffer(export, counts->Export_count, counts->Export_offset, type, COMM_RECV, 101923, counts->comm);
+    MPI_fill_commbuffer(import, counts->Import_count, counts->Import_offset, type, COMM_SEND, 101923, counts->comm);
     MPI_Type_free(&type);
 }
 

@@ -69,10 +69,6 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
         int *rdispls, MPI_Datatype recvtype, MPI_Comm comm);
 
-/* Routine to send data to all tasks async. If receive is set, the routine receives data. The structure stores the requests.
- Empty tasks are skipped. MPI_Requests must be pre-allocated and must be at least NTasks. Returns number of requests.*/
-int MPI_iAlltoAll_sparse(void *databuf, int *cnts, int *displs, MPI_Datatype type, int receive, MPI_Request * requests, int tag, MPI_Comm comm);
-
 double timediff(double t0, double t1);
 double second(void);
 size_t sizemax(size_t a, size_t b);
