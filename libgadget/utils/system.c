@@ -357,32 +357,9 @@ int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
     return ret;
 }
 
-/* Send/recv a single integer size to all processors. Like an async version of Alltoall.*/
-int
-MPI_iAlltoAll_single(int *databuf, int receive, MPI_Request * requests, MPI_Comm comm) {
-    int ThisTask;
-    int NTask;
-    MPI_Comm_rank(comm, &ThisTask);
-    MPI_Comm_size(comm, &NTask);
-
-    int nrequests = 0;
-
-    int i;
-    /* Loop over all tasks, starting with the one just past this one*/
-    for(i = 1; i < NTask; i++)
-    {
-        int target = (ThisTask + i) % NTask;
-        if(receive)
-            MPI_Irecv(databuf +  target, 1, MPI_INT, target, 101933, comm, &requests[nrequests++]);
-        else
-            MPI_Isend(databuf +  target, 1, MPI_INT, target, 101933, comm, &requests[nrequests++]);
-    }
-    return nrequests;
-}
-
 /* Send/recv a single integer size to all processors*/
 int
-MPI_iAlltoAll_sparse(void *databuf, int *cnts, int *displs, MPI_Datatype type, int receive, MPI_Request * requests, MPI_Comm comm)
+MPI_iAlltoAll_sparse(void *databuf, int *cnts, int *displs, MPI_Datatype type, int receive, MPI_Request * requests, int tag, MPI_Comm comm)
 {
     int ThisTask;
     int NTask;
@@ -402,11 +379,11 @@ MPI_iAlltoAll_sparse(void *databuf, int *cnts, int *displs, MPI_Datatype type, i
         if(cnts[target] == 0) continue;
         if(receive) {
             MPI_Irecv(((char*) databuf) + elsize * displs[target], cnts[target],
-                type, target, 101934, comm, &requests[nrequests++]);
+                type, target, tag, comm, &requests[nrequests++]);
         }
         else {
             MPI_Isend(((char*) databuf) + elsize * displs[target], cnts[target],
-                type, target, 101934, comm, &requests[nrequests++]);
+                type, target, tag, comm, &requests[nrequests++]);
         }
     }
     return nrequests;

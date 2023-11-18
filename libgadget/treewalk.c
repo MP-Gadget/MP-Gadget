@@ -591,7 +591,7 @@ static void ev_send_recv_export_import(struct ImpExpCounts * counts, TreeWalk * 
     MPI_Type_commit(&type);
 
     /* Post recvs before sends. This sometimes allows for a fastpath.*/
-    imports->nrequest_all = MPI_iAlltoAll_sparse(imports->databuf, counts->Import_count, counts->Import_offset, type, 1, imports->rdata_all, counts->comm);
+    imports->nrequest_all = MPI_iAlltoAll_sparse(imports->databuf, counts->Import_count, counts->Import_offset, type, 1, imports->rdata_all, 101922, counts->comm);
 
     /* prepare particle data for export */
     int * real_send_count = ta_malloc("tmp_send_count", int, tw->NTask);
@@ -617,7 +617,7 @@ static void ev_send_recv_export_import(struct ImpExpCounts * counts, TreeWalk * 
             endrun(6, "Inconsistent export to task %d of %d: %d expected %d\n", i, tw->NTask, real_send_count[i], counts->Export_count[i]);
 #endif
     myfree(real_send_count);
-    exports->nrequest_all = MPI_iAlltoAll_sparse(exports->databuf, counts->Export_count, counts->Export_offset, type, 0, exports->rdata_all, counts->comm);
+    exports->nrequest_all = MPI_iAlltoAll_sparse(exports->databuf, counts->Export_count, counts->Export_offset, type, 0, exports->rdata_all, 101922, counts->comm);
     MPI_Type_free(&type);
     return;
 }
@@ -630,8 +630,8 @@ static void ev_recv_send_result(struct CommBuffer * import, struct CommBuffer * 
     MPI_Type_commit(&type);
     export->databuf = (char*) mymalloc("ExportResult", counts->Nexport * tw->result_type_elsize);
     /* Post the receives first so we can hit a zero-copy fastpath.*/
-    export->nrequest_all = MPI_iAlltoAll_sparse(export->databuf, counts->Export_count, counts->Export_offset, type, 1, export->rdata_all, counts->comm);
-    import->nrequest_all = MPI_iAlltoAll_sparse(import->databuf, counts->Import_count, counts->Import_offset, type, 0, import->rdata_all, counts->comm);
+    export->nrequest_all = MPI_iAlltoAll_sparse(export->databuf, counts->Export_count, counts->Export_offset, type, 1, export->rdata_all, 101923, counts->comm);
+    import->nrequest_all = MPI_iAlltoAll_sparse(import->databuf, counts->Import_count, counts->Import_offset, type, 0, import->rdata_all, 101923, counts->comm);
     MPI_Type_free(&type);
 }
 
