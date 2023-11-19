@@ -83,7 +83,7 @@ int fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmolo
         int64_t atleast[6]={0};
         /* Count how many particles we have: array reductions are an openmp 4.5 feature.*/
     #if (defined _OPENMP) && (_OPENMP >= 201511)
-        #pragma omp parallel for reduction(+: NpigLocal, atleast)
+        #pragma omp parallel for reduction(+: NpigLocal, atleast[:6])
     #endif
         for(i = 0; i < PartManager->NumPart; i ++) {
             if(P[i].GrNr >= 0) {

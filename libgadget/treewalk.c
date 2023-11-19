@@ -638,9 +638,13 @@ ev_export_import_counts(TreeWalk * tw, MPI_Comm comm)
     /* Calculate the amount of data to send. */
     for(i = 0; i < tw->NThread; i++)
     {
+        int * exportcount = counts.Export_count;
         size_t k;
+    #if (defined _OPENMP) && (_OPENMP >= 201511)
+        #pragma omp parallel for reduction(+: exportcount[:NTask])
+    #endif
         for(k = 0; k < tw->Nexport_thread[i]; k++)
-            counts.Export_count[DataIndexTable[k+tw->Nexport_threadoffset[i]].Task]++;
+            exportcount[DataIndexTable[k+tw->Nexport_threadoffset[i]].Task]++;
         /* This is over all full buffers.*/
         tw->Nexport_sum += tw->Nexport_thread[i];
         /* This is the export count*/
