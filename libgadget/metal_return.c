@@ -998,12 +998,10 @@ stellar_density(const ActiveParticles * act, MyFloat * StarVolumeSPH, MyFloat * 
     double timeall = walltime_measure(WALLTIME_IGNORE);
 
     double timecomp = tw->timecomp0 + tw->timecomp3 + tw->timecomp1 + tw->timecomp2;
-    double timewait = tw->timewait1 + tw->timewait2;
-    double timecomm = tw->timecommsumm1 + tw->timecommsumm2 + tw->timecommsumm3;
     walltime_add("/SPH/Metals/Density/Compute", timecomp);
-    walltime_add("/SPH/Metals/Density/Wait", timewait);
-    walltime_add("/SPH/Metals/Density/Comm", timecomm);
-    walltime_add("/SPH/Metals/Density/Misc", timeall - (timecomp + timewait + timecomm));
+    walltime_add("/SPH/Metals/Density/Wait", tw->timewait1);
+    walltime_add("/SPH/Metals/Density/Reduce", tw->timecommsumm);
+    walltime_add("/SPH/Metals/Density/Misc", timeall - (timecomp + tw->timewait1 + tw->timecommsumm));
 
     return;
 }

@@ -95,9 +95,6 @@ force_treeev_shortrange(TreeWalkQueryGravShort * input,
 void
 grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFloat (* AccelStore)[3], double rho0, inttime_t Ti_Current)
 {
-    double timeall = 0;
-    double timetree, timewait, timecomm;
-
     TreeWalk tw[1] = {{0}};
     struct GravShortPriv priv;
     priv.cellsize = tree->BoxSize / pm->Nmesh;
@@ -138,23 +135,17 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFl
     /* Now the force computation is finished */
     /*  gather some diagnostic information */
 
-    timetree = tw->timecomp0 + tw->timecomp1 + tw->timecomp2 + tw->timecomp3;
-    timewait = tw->timewait1 + tw->timewait2;
-    timecomm= tw->timecommsumm1 + tw->timecommsumm2 + tw->timecommsumm3;
-
-    walltime_add("/Tree/Walk0T", tw->timecomp0);
-    walltime_add("/Tree/Walk1P", tw->timecomp1);
-    walltime_add("/Tree/Walk2S", tw->timecomp2);
-    // walltime_add("/Tree/Comm1Ex", tw->timecommsumm1);
-    walltime_add("/Tree/Comm2Imp", tw->timecommsumm2);
-    walltime_add("/Tree/Comm3Reduce", tw->timecommsumm3);
-    walltime_add("/Tree/Wait1", tw->timewait1);
-    // walltime_add("/Tree/Wait2", tw->timewait2);
+    double timetree = tw->timecomp0 + tw->timecomp1 + tw->timecomp2 + tw->timecomp3;
+    walltime_add("/Tree/WalkTop", tw->timecomp0);
+    walltime_add("/Tree/WalkPrim", tw->timecomp1);
+    walltime_add("/Tree/WalkSec", tw->timecomp2);
+    walltime_add("/Tree/Reduce", tw->timecommsumm);
     walltime_add("/Tree/PostPre", tw->timecomp3);
+    walltime_add("/Tree/Wait", tw->timewait1);
 
-    timeall = walltime_measure(WALLTIME_IGNORE);
+    double timeall = walltime_measure(WALLTIME_IGNORE);
 
-    walltime_add("/Tree/Misc", timeall - (timetree + timewait + timecomm));
+    walltime_add("/Tree/Misc", timeall - (timetree + tw->timewait1 + tw->timecommsumm));
 
     treewalk_print_stats(tw);
 

@@ -188,9 +188,6 @@ hydro_force(const ActiveParticles * act, const double atime, struct sph_pred_dat
         }
     }
 
-    double timeall = 0;
-    double timecomp, timecomm, timewait;
-
     walltime_measure("/SPH/Hydro/Init");
 
     /* Initialize some time factors*/
@@ -217,16 +214,17 @@ hydro_force(const ActiveParticles * act, const double atime, struct sph_pred_dat
         myfree(HYDRA_GET_PRIV(tw)->PressurePred);
     /* collect some timing information */
 
-    timeall += walltime_measure(WALLTIME_IGNORE);
+    double timeall = walltime_measure(WALLTIME_IGNORE);
+    double timecomp = tw->timecomp0 + tw->timecomp1 + tw->timecomp2 + tw->timecomp3;
 
-    timecomp = tw->timecomp0 + tw->timecomp1 + tw->timecomp2 + tw->timecomp3;
-    timewait = tw->timewait1 + tw->timewait2;
-    timecomm = tw->timecommsumm1 + tw->timecommsumm2 + tw->timecommsumm3;
-
-    walltime_add("/SPH/Hydro/Compute", timecomp);
-    walltime_add("/SPH/Hydro/Wait", timewait);
-    walltime_add("/SPH/Hydro/Comm", timecomm);
-    walltime_add("/SPH/Hydro/Misc", timeall - (timecomp + timewait + timecomm));
+    walltime_add("/SPH/Hydro/WalkTop", tw->timecomp0);
+    walltime_add("/SPH/Hydro/WalkPrim", tw->timecomp1);
+    walltime_add("/SPH/Hydro/WalkSec", tw->timecomp2);
+    walltime_add("/SPH/Hydro/PostPre", tw->timecomp3);
+    // walltime_add("/SPH/Hydro/Compute", timecomp);
+    walltime_add("/SPH/Hydro/Wait", tw->timewait1);
+    walltime_add("/SPH/Hydro/Reduce", tw->timecommsumm);
+    walltime_add("/SPH/Hydro/Misc", timeall - (timecomp + tw->timewait1 + tw->timecommsumm));
 
     treewalk_print_stats(tw);
 }

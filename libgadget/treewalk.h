@@ -108,10 +108,8 @@ struct TreeWalk {
     int64_t NThread; /*Number of OpenMP threads*/
 
     /* performance metrics */
-    /* Wait for remote particles to complete sending.*/
+    /* Wait for remotes to finish.*/
     double timewait1;
-    /* Wait for everyone to complete at the end of the loop.*/
-    double timewait2;
     /* Time spent in the toptree*/
     double timecomp0;
     /* This is the time spent in ev_primary*/
@@ -120,12 +118,8 @@ struct TreeWalk {
     double timecomp2;
     /* Time spent in post-processing and pre-processing*/
     double timecomp3;
-    /* Time spent to prepare the export list*/
-    double timecommsumm1;
-    /* Time spent to get the remote particles*/
-    double timecommsumm2;
-    /* Time spent to wait for secondaries to complete and reduce the result*/
-    double timecommsumm3;
+    /* Time spent for the reductions.*/
+    double timecommsumm;
     /* Number of particles in the Ngblist for the primary treewalk*/
     int64_t Nlistprimary;
     /* Total number of exported particles

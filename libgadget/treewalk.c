@@ -832,7 +832,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
             free_commbuffer(&exports);
             wait_commbuffer(&res_imports);
             tend = second();
-            tw->timecommsumm3 += timediff(tstart, tend);
+            tw->timecommsumm += timediff(tstart, tend);
             free_commbuffer(&res_imports);
             free_commbuffer(&res_exports);
             free_impexpcount(&counts);
