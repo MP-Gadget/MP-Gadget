@@ -485,10 +485,16 @@ struct CommBuffer
     int nrequest_all;
 };
 
-void alloc_commbuffer(struct CommBuffer * buffer, int NTask)
+void alloc_commbuffer(struct CommBuffer * buffer, int NTask, int alloc_high)
 {
-    buffer->rdata_all = ta_malloc("requests", MPI_Request, NTask);
-    buffer->rqst_task = ta_malloc("rqst", int, NTask);
+    if(alloc_high) {
+        buffer->rdata_all = ta_malloc2("requests", MPI_Request, NTask);
+        buffer->rqst_task = ta_malloc2("rqst", int, NTask);
+    }
+    else {
+        buffer->rdata_all = ta_malloc("requests", MPI_Request, NTask);
+        buffer->rqst_task = ta_malloc("rqst", int, NTask);
+    }
     buffer->nrequest_all = 0;
     buffer->databuf = NULL;
 }
@@ -549,12 +555,20 @@ void wait_commbuffer(struct CommBuffer * buffer)
     MPI_Waitall(buffer->nrequest_all, buffer->rdata_all, MPI_STATUSES_IGNORE);
 }
 
-static char * ev_secondary(struct CommBuffer * imports, struct ImpExpCounts* counts, TreeWalk * tw)
+static struct CommBuffer ev_secondary(struct CommBuffer * imports, struct ImpExpCounts* counts, TreeWalk * tw)
 {
     int i;
-    char * dataresult = (char *) mymalloc2("ImportResult", counts->Nimport * tw->result_type_elsize);
     int * completed = ta_malloc("completes", int, imports->nrequest_all);
     memset(completed, 0, imports->nrequest_all * sizeof(int) );
+    struct CommBuffer res_imports = {0};
+
+    alloc_commbuffer(&res_imports, counts->NTask, 1);
+    res_imports.databuf = (char *) mymalloc2("ImportResult", counts->Nimport * tw->result_type_elsize);
+
+    MPI_Datatype type;
+    MPI_Type_contiguous(tw->result_type_elsize, MPI_BYTE, &type);
+    MPI_Type_commit(&type);
+
     /* Build the map between requests and task number (some tasks were skipped because we have zero sends).*/
     int tot_completed = 0;
     /* Test each request in turn until it completes*/
@@ -573,7 +587,7 @@ static char * ev_secondary(struct CommBuffer * imports, struct ImpExpCounts* cou
             const int nimports_task = counts->Import_count[task];
             // message(1, "starting at %d with %d for iport %d task %d\n", counts->Import_offset[task], counts->Import_count[task], i, task);
             char * databufstart = imports->databuf + counts->Import_offset[task] * tw->query_type_elsize;
-            char * dataresultstart = dataresult + counts->Import_offset[task] * tw->result_type_elsize;
+            char * dataresultstart = res_imports.databuf + counts->Import_offset[task] * tw->result_type_elsize;
             /* This sends each set of imports to a parallel for loop. This may lead to suboptimal resource allocation if only a small number of imports come from a processor.
             * If there are a large number of importing ranks each with a small number of imports, a better scheme could be to send each chunk to a separate openmp task.
             * However, each openmp task by default only uses 1 thread. One may explicitly enable openmp nested parallelism, but I think that is not safe,
@@ -594,11 +608,15 @@ static char * ev_secondary(struct CommBuffer * imports, struct ImpExpCounts* cou
                         tw->visit(input, output, lv);
                     }
                 }
+            /* Send the completed data back*/
+            res_imports.rqst_task[res_imports.nrequest_all] = task;
+            MPI_Isend(dataresultstart, nimports_task, type, task, 101923, counts->comm, &res_imports.rdata_all[res_imports.nrequest_all++]);
             tot_completed++;
         }
     } while(tot_completed < imports->nrequest_all);
     ta_free(completed);
-    return dataresult;
+    MPI_Type_free(&type);
+    return res_imports;
 }
 
 static struct ImpExpCounts
@@ -647,10 +665,10 @@ ev_export_import_counts(TreeWalk * tw, MPI_Comm comm)
 /* Builds the list of exported particles and async sends the export queries. */
 static void ev_send_recv_export_import(struct ImpExpCounts * counts, TreeWalk * tw, struct CommBuffer * exports, struct CommBuffer * imports)
 {
-    alloc_commbuffer(exports, counts->NTask);
+    alloc_commbuffer(exports, counts->NTask, 0);
     exports->databuf = (char *) mymalloc("ExportQuery", counts->Nexport * tw->query_type_elsize);
 
-    alloc_commbuffer(imports, counts->NTask);
+    alloc_commbuffer(imports, counts->NTask, 0);
     imports->databuf = mymalloc("ImportQuery", counts->Nimport * tw->query_type_elsize);
 
     MPI_Datatype type;
@@ -689,16 +707,17 @@ static void ev_send_recv_export_import(struct ImpExpCounts * counts, TreeWalk * 
     return;
 }
 
-static void ev_recv_send_result(struct CommBuffer * import, struct CommBuffer * export, struct ImpExpCounts * counts, TreeWalk * tw)
+static void ev_recv_export_result(struct CommBuffer * export, struct ImpExpCounts * counts, TreeWalk * tw)
 {
-    alloc_commbuffer(export, counts->NTask);
+    alloc_commbuffer(export, counts->NTask, 1);
     MPI_Datatype type;
     MPI_Type_contiguous(tw->result_type_elsize, MPI_BYTE, &type);
     MPI_Type_commit(&type);
-    export->databuf = (char*) mymalloc("ExportResult", counts->Nexport * tw->result_type_elsize);
+    export->databuf = (char*) mymalloc2("ExportResult", counts->Nexport * tw->result_type_elsize);
     /* Post the receives first so we can hit a zero-copy fastpath.*/
     MPI_fill_commbuffer(export, counts->Export_count, counts->Export_offset, type, COMM_RECV, 101923, counts->comm);
-    MPI_fill_commbuffer(import, counts->Import_count, counts->Import_offset, type, COMM_SEND, 101923, counts->comm);
+    // alloc_commbuffer(&res_imports, counts.NTask, 0);
+    // MPI_fill_commbuffer(import, counts->Import_count, counts->Import_offset, type, COMM_SEND, 101923, counts->comm);
     MPI_Type_free(&type);
 }
 
@@ -789,35 +808,29 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
             /* Do processing of received particles. We implement a queue that
              * checks each incoming task in turn and processes them as they arrive.*/
             tstart = second();
-            char * dataresult = ev_secondary(&imports, &counts, tw);
-            report_memory_usage(tw->ev_label);
+            /* Posts recvs to get the export results (which are sent in ev_secondary).*/
+            struct CommBuffer res_exports = {0};
+            ev_recv_export_result(&res_exports, &counts, tw);
+            struct CommBuffer res_imports = ev_secondary(&imports, &counts, tw);
+            // report_memory_usage(tw->ev_label);
             free_commbuffer(&imports);
             tend = second();
             tw->timecomp2 += timediff(tstart, tend);
             /* Now clear the sent data buffer, waiting for the send to complete.
              * This needs to be after the other end has called recv.*/
             tstart = second();
-            wait_commbuffer(&exports);
-            free_commbuffer(&exports);
-            /* Now we will send data back*/
-            struct CommBuffer res_exports = {0}, res_imports = {0};
-            alloc_commbuffer(&res_imports, counts.NTask);
-            res_imports.databuf = dataresult;
-            /* Send the results we have back. Allocates res_exports and posts recvs first*/
-            ev_recv_send_result(&res_imports, &res_exports, &counts, tw);
-            tend = second();
-            tw->timecommsumm2 += timediff(tstart, tend);
-            tstart = second();
             wait_commbuffer(&res_exports);
             tend = second();
             tw->timewait1 += timediff(tstart, tend);
             tstart = second();
             ev_reduce_export_result(&res_exports, &counts, tw);
+            wait_commbuffer(&exports);
+            free_commbuffer(&exports);
             wait_commbuffer(&res_imports);
             tend = second();
             tw->timecommsumm3 += timediff(tstart, tend);
-            free_commbuffer(&res_exports);
             free_commbuffer(&res_imports);
+            free_commbuffer(&res_exports);
             free_impexpcount(&counts);
             ta_free(tw->Nexport_thread);
             /* Note there is no sync at the end!*/
