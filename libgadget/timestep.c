@@ -538,6 +538,8 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
         myfree(lastact->ActiveParticle);
         lastact->ActiveParticle = newActiveParticle;
     }
+    int64_t tot_active[TIMEBINS] = {0};
+    tot_active[largest_active] = lastact->NumActiveGravity;
 
     /* Some temporary memory for accelerations*/
     MyFloat (* GravAccel) [3] = NULL;
@@ -549,12 +551,19 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
         if(lastact->ActiveParticle && lastact->ActiveParticle != act->ActiveParticle)
             myfree(lastact->ActiveParticle);
 
-        int64_t tot_active, last_tot_active;
-        MPI_Allreduce(&subact.NumActiveGravity, &tot_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&lastact->NumActiveGravity, &last_tot_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-
+        /* Compute the number of active particles in each timebin*/
+        if(ti == largest_active - 1) {
+            int i;
+#if (defined _OPENMP) && (_OPENMP >= 201511)
+            #pragma omp parallel for reduction(+: tot_active[:TIMEBINS])
+#endif
+            for(i = 0; i < subact.NumActiveGravity; i++) {
+                tot_active[P[i].TimeBinGravity]++;
+            }
+            MPI_Allreduce(MPI_IN_PLACE, &tot_active, TIMEBINS, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+        }
         /* No need to recompute accelerations if the particle number is the same as an earlier computation*/
-        if(tot_active != last_tot_active) {
+        if(tot_active[ti] != tot_active[ti+1]) {
             if(GravAccel)
                 myfree(GravAccel);
             /* Allocate memory for the accelerations so we don't over-write the acceleration from the longest timestep*/
