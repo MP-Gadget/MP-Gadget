@@ -358,8 +358,8 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, RandTable
     /* Get total number of potential new stars to allocate memory.*/
     int64_t tot_newstars, tot_kicks, tot_applied;
     sumup_large_ints(1, &NumNewStars, &tot_newstars);
-    MPI_Allreduce(&priv->nkicks, &tot_kicks, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&nkicked, &tot_applied, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Reduce(&priv->nkicks, &tot_kicks, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&nkicked, &tot_applied, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
     message(0, "Made %ld gas wind, discarded %ld kicks from %ld stars. Vel %g\n", tot_applied, tot_kicks - tot_applied, tot_newstars, priv->kicks[0].StarKickVelocity);
 
     myfree(priv->kicks);
