@@ -321,7 +321,8 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, RandTable
     * To ensure this happens only once and does not depend on the order in
     * which the loops are executed, particles are kicked by the nearest new star.
     * This struct stores all such possible kicks, and we sort it out after the treewalk.*/
-    priv->kicks = (struct StarKick * ) mymalloc("StarKicks", priv->maxkicks * sizeof(struct StarKick));
+    priv->kicks = (struct StarKick * ) mymalloc("StarKicks", (priv->maxkicks+1) * sizeof(struct StarKick));
+    priv->kicks[0].StarKickVelocity = 0;
     priv->nkicks = 0;
     priv->rnd = rnd;
     ta_free(priv->nvisited);
@@ -357,10 +358,12 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, RandTable
     }
     /* Get total number of potential new stars to allocate memory.*/
     int64_t tot_newstars, tot_kicks, tot_applied;
+    double maxvel;
     sumup_large_ints(1, &NumNewStars, &tot_newstars);
     MPI_Reduce(&priv->nkicks, &tot_kicks, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&nkicked, &tot_applied, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
-    message(0, "Made %ld gas wind, discarded %ld kicks from %ld stars. Vel %g\n", tot_applied, tot_kicks - tot_applied, tot_newstars, priv->kicks[0].StarKickVelocity);
+    MPI_Reduce(&priv->kicks[0].StarKickVelocity, &maxvel, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    message(0, "Made %ld gas wind, discarded %ld kicks from %ld stars. Vel %g\n", tot_applied, tot_kicks - tot_applied, tot_newstars, maxvel);
 
     myfree(priv->kicks);
     myfree(priv->TotalWeight);
