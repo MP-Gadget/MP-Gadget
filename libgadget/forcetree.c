@@ -644,42 +644,64 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
     return 0;
 }
 
+
+/* create an empty root node  */
+int
+force_tree_create_topnodes(ForceTree * tree, DomainDecomp * ddecomp)
+{
+    int nnext = tree->firstnode;       /* index of first free node */
+    int i;
+    struct NODE *nfreep = &tree->Nodes[nnext];	/* select first node */
+
+    nfreep->len = PartManager->BoxSize*1.001;
+    for(i = 0; i < 3; i++)
+        nfreep->center[i] = PartManager->BoxSize/2.;
+    for(i = 0; i < NMAXCHILD; i++)
+        nfreep->s.suns[i] = -1;
+    nfreep->s.noccupied = 0;
+    nfreep->father = -1;
+    nfreep->sibling = -1;
+    nfreep->f.TopLevel = 1;
+    nfreep->f.InternalTopLevel = 0;
+    nfreep->f.DependsOnLocalMass = 0;
+    nfreep->f.ChildType = PARTICLE_NODE_TYPE;
+    nfreep->f.unused = 0;
+    memset(&(nfreep->mom.cofm),0,3*sizeof(MyFloat));
+    nfreep->mom.mass = 0;
+    nfreep->mom.hmax = 0;
+    nnext++;
+    /* create a set of empty nodes corresponding to the top-level ddecomp
+        * grid. We need to generate these nodes first to make sure that we have a
+        * complete top-level tree which allows the easy insertion of the
+        * pseudo-particles in the right place */
+    force_create_node_for_topnode(tree->firstnode, 0, tree->Nodes, ddecomp, 1, 0, 0, 0, &nnext, tree->lastnode);
+    return nnext;
+}
+
+/*! Constructs the topnodes for the gravitational oct-tree.
+ *  Only toptree nodes are made. Particles are not added to the tree.
+ *  The indices firstnode....firstnode +nodes-1 reference tree nodes. `Nodes_base'
+ *  points to the first tree node, while `nodes' is shifted such that
+ *  nodes[firstnode] gives the first tree node. */
+ForceTree
+force_tree_top_build(DomainDecomp * ddecomp)
+{
+    /* Allocate memory. */
+    ForceTree tree = force_treeallocate(ddecomp->NTopNodes, 0, ddecomp, 0);
+    tree.mask = ALLMASK;
+    tree.BoxSize = PartManager->BoxSize;
+    force_tree_create_topnodes(&tree, ddecomp);
+    return tree;
+}
+
 /*! Does initial creation of the nodes for the gravitational oct-tree.
  * mask is a bitfield: Only types whose bit is set are added.
  **/
 void
 force_tree_create_nodes(ForceTree * tree, const ActiveParticles * act, int mask, DomainDecomp * ddecomp)
 {
-    int nnext = tree->firstnode;       /* index of first free node */
+    int nnext = force_tree_create_topnodes(tree, ddecomp);
 
-    /* create an empty root node  */
-    {
-        int i;
-        struct NODE *nfreep = &tree->Nodes[nnext];	/* select first node */
-
-        nfreep->len = PartManager->BoxSize*1.001;
-        for(i = 0; i < 3; i++)
-            nfreep->center[i] = PartManager->BoxSize/2.;
-        for(i = 0; i < NMAXCHILD; i++)
-            nfreep->s.suns[i] = -1;
-        nfreep->s.noccupied = 0;
-        nfreep->father = -1;
-        nfreep->sibling = -1;
-        nfreep->f.TopLevel = 1;
-        nfreep->f.InternalTopLevel = 0;
-        nfreep->f.DependsOnLocalMass = 0;
-        nfreep->f.ChildType = PARTICLE_NODE_TYPE;
-        nfreep->f.unused = 0;
-        memset(&(nfreep->mom.cofm),0,3*sizeof(MyFloat));
-        nfreep->mom.mass = 0;
-        nfreep->mom.hmax = 0;
-        nnext++;
-        /* create a set of empty nodes corresponding to the top-level ddecomp
-         * grid. We need to generate these nodes first to make sure that we have a
-         * complete top-level tree which allows the easy insertion of the
-         * pseudo-particles in the right place */
-        force_create_node_for_topnode(tree->firstnode, 0, tree->Nodes, ddecomp, 1, 0, 0, 0, &nnext, tree->lastnode);
-    }
     /* Set up thread-local copies of the topnodes to anchor the subtrees. */
     int ThisTask, j, t;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);

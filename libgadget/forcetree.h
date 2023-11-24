@@ -128,6 +128,9 @@ void force_tree_active_moments(ForceTree * tree, DomainDecomp * ddecomp, const A
  * with all particle types, and of course the tree is smaller.*/
 void force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, const char * EmergencyOutputDir);
 
+/* Just construct a toptree*/
+ForceTree force_tree_top_build(DomainDecomp * ddecomp);
+
 /* Compute moments of the force tree, recursively, and update hmax.*/
 void force_tree_calc_moments(ForceTree * tree, DomainDecomp * ddecomp);
 
