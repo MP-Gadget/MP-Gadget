@@ -59,7 +59,7 @@ static void
 force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp);
 
 static void
-force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddecomp);
+force_insert_pseudo_particles(ForceTree * tree, const DomainDecomp * ddecomp);
 
 static void
 add_particle_moment_to_node(struct NODE * pnode, const struct particle_data * const part);
@@ -682,18 +682,38 @@ force_tree_create_topnodes(ForceTree * tree, DomainDecomp * ddecomp)
  *  Only toptree nodes are made. Particles are not added to the tree.
  *  The indices firstnode....firstnode +nodes-1 reference tree nodes. `Nodes_base'
  *  points to the first tree node, while `nodes' is shifted such that
- *  nodes[firstnode] gives the first tree node. */
+ *  nodes[firstnode] gives the first tree node. Past tb.lastnode we have the
+ *  pseudo particles, whose indices correspond to the indices in TopLeaves.*/
 ForceTree
 force_tree_top_build(DomainDecomp * ddecomp)
 {
-    /* Allocate memory. */
-    ForceTree tree = force_treeallocate(ddecomp->NTopNodes, 0, ddecomp, 0);
+    /* Allocate memory. Two extra for the first node and for a sentinel*/
+    ForceTree tree = force_treeallocate(ddecomp->NTopNodes+2, 0, ddecomp, 0);
     tree.mask = ALLMASK;
     tree.BoxSize = PartManager->BoxSize;
+    // message(1, "Building toptree first %d last %d, topnodes %d\n", tree.firstnode, tree.lastnode, ddecomp->NTopNodes);
     force_tree_create_topnodes(&tree, ddecomp);
+    force_insert_pseudo_particles(&tree, ddecomp);
     return tree;
 }
 
+int
+force_tree_find_topnode(const double * const pos, const ForceTree * const tree)
+{
+    /*Walk the main tree until we get something that is a topnode leaf.*/
+    int no = tree->firstnode;
+    while(tree->Nodes[no].f.InternalTopLevel && tree->Nodes[no].f.TopLevel)
+    {
+        /* This node has child subnodes: find them.*/
+        int subnode = get_subnode(&tree->Nodes[no], pos);
+        no = tree->Nodes[no].s.suns[subnode];
+    }
+#ifdef DEBUG
+    if(!tree->Nodes[no].f.TopLevel || tree->Nodes[no].f.InternalTopLevel || no < tree->firstnode)
+        endrun(7, "Topnode %d not topleaf, tl = %d itl = %d fn %d\n", no, tree->Nodes[no].f.TopLevel, tree->Nodes[no].f.InternalTopLevel, tree->firstnode);
+#endif
+    return no;
+}
 /*! Does initial creation of the nodes for the gravitational oct-tree.
  * mask is a bitfield: Only types whose bit is set are added.
  **/
@@ -901,12 +921,13 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
  *  updated later on.
  */
 static void
-force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddecomp)
+force_insert_pseudo_particles(ForceTree * tree, const DomainDecomp * ddecomp)
 {
     int i, index;
     const int firstpseudo = tree->lastnode;
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    tree->ThisTask = ThisTask;
 
     for(i = 0; i < ddecomp->NTopLeaves; i++)
     {

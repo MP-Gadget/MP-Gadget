@@ -10,6 +10,7 @@
 #include "utils.h"
 
 #include "domain.h"
+#include "forcetree.h"
 #include "timestep.h"
 #include "timebinmgr.h"
 #include "exchange.h"
@@ -140,6 +141,7 @@ static void
 domain_create_topleaves(DomainDecomp * ddecomp, int no, int * next);
 
 static int domain_layoutfunc(int n, const void * userdata);
+static int domain_tree_layoutfunc(int n, const void * userdata);
 
 static int
 domain_policies_init(DomainDecompositionPolicy policies[],
@@ -237,10 +239,13 @@ void domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
 
     walltime_measure("/Misc");
 
+    ForceTree tree = force_tree_top_build(ddecomp);
     /* Try a domain exchange.
      * If we have no memory for the particles,
      * bail and do a full domain*/
-    if(0 != domain_exchange(domain_layoutfunc, ddecomp, 0, drift, PartManager, SlotsManager, 10000, ddecomp->DomainComm)) {
+    int success = domain_exchange(domain_tree_layoutfunc, &tree, 0, drift, PartManager, SlotsManager, 10000, ddecomp->DomainComm);
+    force_tree_free(&tree);
+    if(0 != success) {
         domain_decompose_full(ddecomp);
         return;
     }
@@ -709,6 +714,19 @@ domain_layoutfunc(int n, const void * userdata) {
     peano_t key = P[n].Key;
     int no = domain_get_topleaf(key, ddecomp);
     return ddecomp->TopLeaves[no].Task;
+}
+
+/* Does as the above, but uses the toptree, instead of the Peano key*/
+static int
+domain_tree_layoutfunc(int n, const void * userdata) {
+    const ForceTree * tree = (const ForceTree *) userdata;
+    double * pos = P[n].Pos;
+    int no = force_tree_find_topnode(pos, tree);
+    /* Find the corresponding task.*/
+    if(tree->Nodes[no].f.ChildType != PSEUDO_NODE_TYPE)
+        return tree->ThisTask;
+    int pseudo = tree->Nodes[no].s.suns[0];
+    return tree->TopLeaves[pseudo - tree->lastnode].Task;
 }
 
 /*! This function walks the global top tree in order to establish the

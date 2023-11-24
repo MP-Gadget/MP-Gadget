@@ -92,6 +92,8 @@ typedef struct ForceTree {
     struct topleaf_data * TopLeaves;
     /*Number of TopLeaves*/
     int NTopLeaves;
+    /* Index of current task*/
+    int ThisTask;
     /*!< this is a pointer used to access the nodes which is shifted such that Nodes[firstnode]
      *   gives the first allocated node */
     struct NODE *Nodes;
@@ -130,6 +132,8 @@ void force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask,
 
 /* Just construct a toptree*/
 ForceTree force_tree_top_build(DomainDecomp * ddecomp);
+/* Find the topnode leaf in the tree that the current particle is attached to*/
+int force_tree_find_topnode(const double * const pos, const ForceTree * const tree);
 
 /* Compute moments of the force tree, recursively, and update hmax.*/
 void force_tree_calc_moments(ForceTree * tree, DomainDecomp * ddecomp);
