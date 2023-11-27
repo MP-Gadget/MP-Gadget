@@ -59,9 +59,6 @@ static void
 force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp);
 
 static void
-force_insert_pseudo_particles(ForceTree * tree, const DomainDecomp * ddecomp);
-
-static void
 add_particle_moment_to_node(struct NODE * pnode, const struct particle_data * const part);
 
 #ifdef DEBUG
@@ -237,9 +234,6 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
 
     if(mask == ALLMASK)
         walltime_measure("/Tree/Build/Nodes");
-    /* insert the pseudo particles that represent the mass distribution of other ddecomps */
-    force_insert_pseudo_particles(&tree, ddecomp);
-
     tree.moments_computed_flag = 0;
 
     if(DoMoments) {
@@ -652,6 +646,7 @@ force_tree_create_topnodes(ForceTree * tree, DomainDecomp * ddecomp)
     int nnext = tree->firstnode;       /* index of first free node */
     int i;
     struct NODE *nfreep = &tree->Nodes[nnext];	/* select first node */
+    MPI_Comm_rank(MPI_COMM_WORLD, &tree->ThisTask);
 
     nfreep->len = PartManager->BoxSize*1.001;
     for(i = 0; i < 3; i++)
@@ -693,7 +688,6 @@ force_tree_top_build(DomainDecomp * ddecomp, const int alloc_high)
     tree.BoxSize = PartManager->BoxSize;
     // message(1, "Building toptree first %d last %d, topnodes %d\n", tree.firstnode, tree.lastnode, ddecomp->NTopNodes);
     force_tree_create_topnodes(&tree, ddecomp);
-    force_insert_pseudo_particles(&tree, ddecomp);
     return tree;
 }
 
@@ -888,7 +882,14 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
                     endrun(5, "Invalid topnode: daughter %d sub %d > topnodes %d\n", curdaughter, sub, ddecomp->NTopNodes);
                 const struct topnode_data curtopnode = ddecomp->TopNodes[curdaughter + sub];
                 if(curtopnode.Daughter == -1) {
+                    int ThisTask;
+                    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
                     ddecomp->TopLeaves[curtopnode.Leaf].treenode = *nextfree;
+                    /* We set the first child as a pointer to the topleaf, essentially constructing the pseudoparticles early.
+                     * We do not set nocc, so this first child will be over-written on local nodes when we construct the full tree.*/
+                    Nodes[*nextfree].s.suns[0] = curtopnode.Leaf + lastnode;
+                    if(ddecomp->TopLeaves[curtopnode.Leaf].Task != ThisTask)
+                        Nodes[*nextfree].f.ChildType = PSEUDO_NODE_TYPE;
                 }
 
                 (*nextfree)++;
@@ -912,35 +913,6 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
                         bits + 1, 2 * x + i, 2 * y + j, 2 * z + k, nextfree, lastnode);
             }
 
-}
-
-/*! this function inserts pseudo-particles which will represent the mass
- *  distribution of the other CPUs. Initially, the mass of the
- *  pseudo-particles is set to zero, and their coordinate is set to the
- *  center of the ddecomp-cell they correspond to. These quantities will be
- *  updated later on.
- */
-static void
-force_insert_pseudo_particles(ForceTree * tree, const DomainDecomp * ddecomp)
-{
-    int i, index;
-    const int firstpseudo = tree->lastnode;
-    int ThisTask;
-    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-    tree->ThisTask = ThisTask;
-
-    for(i = 0; i < ddecomp->NTopLeaves; i++)
-    {
-        index = ddecomp->TopLeaves[i].treenode;
-        if(ddecomp->TopLeaves[i].Task != ThisTask) {
-            if(tree->Nodes[index].s.noccupied != 0)
-                endrun(5, "In node %d, overwriting %d child particles (i = %d etc) with pseudo particle %d\n",
-                       index, tree->Nodes[index].s.noccupied, tree->Nodes[index].s.suns[0], i);
-            tree->Nodes[index].f.ChildType = PSEUDO_NODE_TYPE;
-            /* This node points to the pseudo particle*/
-            tree->Nodes[index].s.suns[0] = firstpseudo + i;
-        }
-    }
 }
 
 int
@@ -1258,7 +1230,7 @@ force_treeupdate_pseudos(int no, const ForceTree * tree)
     {
         /*This may not happen as we are an internal top level node*/
         if(p < tree->firstnode || p >= tree->lastnode)
-            endrun(6767, "Updating pseudos: %d -> %d which is not an internal node between %d and %d.",no, p, tree->firstnode, tree->lastnode);
+            endrun(6767, "Updating pseudos: %d -> %d which is not an internal node between %d and %d\n",no, p, tree->firstnode, tree->lastnode);
 #ifdef DEBUG
         /* Check we don't move to another part of the tree*/
         if(tree->Nodes[p].father != no)
