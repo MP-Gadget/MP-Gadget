@@ -23,6 +23,7 @@ setup_particles(void ** state)
 {
     PartManager->MaxPart = 1024;
     PartManager->NumPart = 128 * 6;
+    PartManager->BoxSize = 25000;
 
     int64_t newSlots[6] = {128, 128, 128, 128, 128, 128};
 
@@ -45,7 +46,11 @@ setup_particles(void ** state)
     int64_t i;
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i ++) {
+        int j;
+        for(j = 0; j <3; j++)
+            P[i].Pos[j] = i / PartManager->NumPart * PartManager->BoxSize;
         P[i].ID = i;
+        P[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
     }
 
     slots_setup_id(PartManager, SlotsManager);
@@ -98,6 +103,16 @@ test_slots_gc_sorted(void **state)
     assert_int_equal(SlotsManager->info[0].size, 127);
     assert_int_equal(SlotsManager->info[4].size, 127);
     assert_int_equal(SlotsManager->info[5].size, 127);
+    peano_t * Keys = mymalloc("Keys", PartManager->NumPart * sizeof(peano_t));
+    for(i = 0; i < PartManager->NumPart; i++) {
+        Keys[i] = PEANO(PartManager->Base[i].Pos, PartManager->BoxSize);
+        if(i >= 1) {
+            assert_true(PartManager->Base[i].Type >=PartManager->Base[i-1].Type);
+            if(PartManager->Base[i].Type == PartManager->Base[i-1].Type)
+                assert_true(Keys[i] >= Keys[i-1]);
+        }
+    }
+    myfree(Keys);
 #ifdef DEBUG
     slots_check_id_consistency(PartManager, SlotsManager);
 #endif
