@@ -80,7 +80,7 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     ActiveParticles act = init_empty_active_particles(numpart);
     struct density_testdata * data = * (struct density_testdata **) state;
     DomainDecomp ddecomp = data->ddecomp;
-    ddecomp.TopLeaves[0].topnode = PartManager->MaxPart;
+    ddecomp.TopLeaves[0].treenode = PartManager->MaxPart;
 
     ForceTree tree = {0};
     /* Finds fathers for each gas and BH particle, so need BH*/
@@ -266,7 +266,7 @@ void trivial_domain(DomainDecomp * ddecomp)
     ddecomp->TopNodes[0].Leaf = 0;
     ddecomp->TopLeaves = mymalloc("topleaf",sizeof(struct topleaf_data));
     ddecomp->TopLeaves[0].Task = 0;
-    ddecomp->TopLeaves[0].topnode = 0;
+    ddecomp->TopLeaves[0].treenode = 0;
     /*These are not used*/
     ddecomp->TopNodes[0].StartKey = 0;
     ddecomp->TopNodes[0].Shift = BITS_PER_DIMENSION * 3;
