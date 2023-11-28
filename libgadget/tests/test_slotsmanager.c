@@ -48,9 +48,9 @@ setup_particles(void ** state)
     for(i = 0; i < PartManager->NumPart; i ++) {
         int j;
         for(j = 0; j <3; j++)
-            P[i].Pos[j] = i / PartManager->NumPart * PartManager->BoxSize;
-        P[i].ID = i;
-        P[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
+            PartManager->Base[i].Pos[j] = i / PartManager->NumPart * PartManager->BoxSize;
+        PartManager->Base[i].ID = i;
+        PartManager->Base[i].Key = PEANO(PartManager->Base[i].Pos, PartManager->BoxSize);
     }
 
     slots_setup_id(PartManager, SlotsManager);

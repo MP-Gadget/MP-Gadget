@@ -374,28 +374,6 @@ slots_gc_slots(int * compact_slots, struct part_manager_type * pman, struct slot
     return 0;
 }
 
-static int
-order_by_type_and_key(const void *a, const void *b)
-{
-    const struct particle_data * pa  = (const struct particle_data *) a;
-    const struct particle_data * pb  = (const struct particle_data *) b;
-
-    if(pa->IsGarbage && !pb->IsGarbage)
-        return +1;
-    if(!pa->IsGarbage && pb->IsGarbage)
-        return -1;
-    if(pa->Type < pb->Type)
-        return -1;
-    if(pa->Type > pb->Type)
-        return +1;
-    if(pa->Key < pb->Key)
-        return -1;
-    if(pa->Key > pb->Key)
-        return +1;
-
-    return 0;
-}
-
 /*Returns the number of non-Garbage particles in an array with garbage sorted to the end.
  * The index returned always points to a garbage particle.
  * If ptype < 0, find the last garbage particle in the P array.
@@ -424,6 +402,31 @@ slots_get_last_garbage(int nfirst, int nlast, int ptype, const struct part_manag
     return nlast;
 }
 
+struct PeanoOrder
+{
+    peano_t Key;
+    int TypeKey;
+    int Pindex;
+};
+
+static int
+order_by_type_and_key(const void *a, const void *b)
+{
+    const struct PeanoOrder * pa  = (const struct PeanoOrder *) a;
+    const struct PeanoOrder * pb  = (const struct PeanoOrder *) b;
+    /* Note garbage types have their values set to something large here*/
+    if(pa->TypeKey < pb->TypeKey)
+        return -1;
+    if(pa->TypeKey > pb->TypeKey)
+        return +1;
+    if(pa->Key < pb->Key)
+        return -1;
+    if(pa->Key > pb->Key)
+        return +1;
+
+    return 0;
+}
+
 /* Sort the particles and their slots by type and peano order.
  * This does a gc by sorting the Garbage to the end of the array and then trimming.
  * It is a different algorithm to slots_gc, somewhat slower,
@@ -431,14 +434,52 @@ slots_get_last_garbage(int nfirst, int nlast, int ptype, const struct part_manag
 void
 slots_gc_sorted(struct part_manager_type * pman, struct slots_manager_type * sman)
 {
-    int ptype;
+    int ptype, i;
     /* Resort the particles such that those of the same type and key are close by.
      * The locality is broken by the exchange. */
-    qsort_openmp(pman->Base, pman->NumPart, sizeof(struct particle_data), order_by_type_and_key);
+    int64_t garbage=0;
+    struct PeanoOrder * peanokeys = mymalloc("Keydata", pman->NumPart * sizeof(struct PeanoOrder));
+    #pragma omp parallel for reduction(+: garbage)
+    for(i = 0; i < pman->NumPart; i++) {
+        peanokeys[i].Key = PEANO(pman->Base[i].Pos, pman->BoxSize);
+        peanokeys[i].TypeKey = pman->Base[i].Type;
+        if(pman->Base[i].IsGarbage) {
+            garbage++;
+            /* Set it to a type far beyond the existing types, so it sorts to the end.*/
+            peanokeys[i].TypeKey = 255;
+        }
+        peanokeys[i].Pindex = i;
+    }
+    /* Sort the keys*/
+    qsort_openmp(peanokeys, pman->NumPart, sizeof(struct PeanoOrder), order_by_type_and_key);
+    /* Now sort the base with a cycle leader permutation algorithm, like qsort.*/
+    for(i = 0; i < pman->NumPart; i++) {
+        int k = peanokeys[i].Pindex;
+        /* This element already in the right place*/
+        if(k == i)
+            continue;
+        /* Copy the wrongly placed element to a tmp*/
+        struct particle_data tmp_p = pman->Base[i];
+        int j = i;
+        do {
+            /* Update index so that we know this element is permuted.*/
+            peanokeys[j].Pindex = j;
+            /* Copy the right element in.*/
+            pman->Base[j] = pman->Base[k];
+            /* k is the new j*/
+            j = k;
+            k = peanokeys[j].Pindex;
+        } while(i != k);
 
+        /* We finished when we found the right spot for the first object, the one we copied into tmp*/
+        peanokeys[j].Pindex = j;
+        pman->Base[j] = tmp_p;
+    }
+    // message(1, "garbage %ld\n", garbage);
     /*Remove garbage particles*/
-    pman->NumPart = slots_get_last_garbage(0, pman->NumPart -1 , -1, pman, NULL);
+    pman->NumPart -= garbage;
 
+    myfree(peanokeys);
     /*Set up ReverseLink*/
     slots_gc_mark(pman, sman);
 
