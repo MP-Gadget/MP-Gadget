@@ -176,7 +176,6 @@ static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp
     int i;
     #pragma omp parallel for
     for(i=0; i<numpart; i++) {
-        P[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
         P[i].Mass = 1;
         P[i].PI = 0;
         P[i].IsGarbage = 0;
@@ -263,12 +262,11 @@ static void do_tree_mask_hmax_update_test(const int numpart, ForceTree * tb, Dom
     int i;
     #pragma omp parallel for
     for(i=0; i<numpart; i++) {
-        P[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
         P[i].Mass = 1;
         P[i].PI = 0;
         P[i].IsGarbage = 0;
         P[i].Type = 0;
-        P[i].Hsml = PartManager->BoxSize/cbrt(numpart) * get_random_number(P[i].Key, &rnd);
+        P[i].Hsml = PartManager->BoxSize/cbrt(numpart) * get_random_number(i, &rnd);
     }
     free_random_numbers(&rnd);
     PartManager->MaxPart = numpart;

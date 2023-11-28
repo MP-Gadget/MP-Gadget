@@ -68,10 +68,8 @@ struct particle_data
      * with the particle during exchange*/
     /* The peano key is a hash of the position used in the domain decomposition.
      * It is slow to generate and used to rebuild the tree, so we store it here.*/
-    peano_t Key; /* only by domain.c and force_tree_rebuild */
     /* FOF Group number: only has meaning during FOF.*/
     int64_t GrNr;
-
     inttime_t Ti_drift;       /*!< current time of the particle position. The same for all particles. */
     /* This is the destination task during the fof particle exchange.
      * It is never used outside of that code.*/

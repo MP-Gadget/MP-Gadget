@@ -135,8 +135,8 @@ domain_global_refine(struct local_topnode_data * topTree, int * topTreeSize, con
 static void
 domain_create_topleaves(DomainDecomp * ddecomp, int no, int * next);
 
-static int domain_layoutfunc(int n, const void * userdata);
-static int domain_tree_layoutfunc(int n, const void * userdata);
+static int
+domain_tree_layoutfunc(int n, const void * userdata);
 
 static int
 domain_policies_init(DomainDecompositionPolicy policies[], const int Npolicies);
@@ -702,17 +702,7 @@ domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int Nsegmen
  *
  *  layoutfunc decides the target Task of particle p (used by
  *  subfind_distribute).
- *
- */
-static int
-domain_layoutfunc(int n, const void * userdata) {
-    const DomainDecomp * ddecomp = (const DomainDecomp *) userdata;
-    peano_t key = P[n].Key;
-    int no = domain_get_topleaf(key, ddecomp);
-    return ddecomp->TopLeaves[no].Task;
-}
-
-/* Does as the above, but uses the toptree, instead of the Peano key*/
+ *  Uses the toptree, instead of the Peano key*/
 static int
 domain_tree_layoutfunc(int n, const void * userdata) {
     const ForceTree * tree = (const ForceTree *) userdata;

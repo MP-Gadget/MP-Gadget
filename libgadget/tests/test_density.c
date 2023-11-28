@@ -58,7 +58,6 @@ static void do_density_test(void ** state, const int numpart, double expectedhsm
     #pragma omp parallel for reduction(+: npbh)
     for(i=0; i<numpart; i++) {
         int j;
-        P[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
         P[i].Mass = 1;
         P[i].TimeBinHydro = 0;
         P[i].TimeBinGravity = 0;

@@ -30,9 +30,6 @@ void real_drift_particle(struct particle_data * pp, struct slots_manager_type * 
             while(pp->Pos[j] > BoxSize) pp->Pos[j] -= BoxSize;
             while(pp->Pos[j] <= 0) pp->Pos[j] += BoxSize;
         }
-        /* Swallowed particles still need a peano key.*/
-        if(pp->Swallowed)
-            pp->Key = PEANO(pp->Pos, BoxSize);
         return;
     }
 
@@ -85,8 +82,6 @@ void real_drift_particle(struct particle_data * pp, struct slots_manager_type * 
         while(pp->Pos[j] > BoxSize) pp->Pos[j] -= BoxSize;
         while(pp->Pos[j] <= 0) pp->Pos[j] += BoxSize;
     }
-    /* avoid recomputing them during layout and force tree build.*/
-    pp->Key = PEANO(pp->Pos, BoxSize);
 }
 
 /* Update all particles to the current time, shifting them by a random vector.*/

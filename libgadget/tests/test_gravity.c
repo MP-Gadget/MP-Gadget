@@ -166,7 +166,6 @@ static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int di
     #pragma omp parallel for
     for(i=0; i<PartManager->NumPart; i++) {
         P[i].Type = 1;
-        P[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
         P[i].Mass = 1;
         P[i].ID = i;
         P[i].TimeBinHydro = 0;
