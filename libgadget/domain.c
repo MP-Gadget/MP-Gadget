@@ -119,7 +119,7 @@ domain_balance(DomainDecomp * ddecomp);
 static int domain_determine_global_toptree(DomainDecompositionPolicy * policy, struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes, MPI_Comm DomainComm);
 
 static void
-domain_compute_costs(const DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopLeafCount);
+domain_compute_costs(DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopLeafCount);
 
 static void
 domain_toptree_merge(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, int * treeASize, const int MaxTopNodes);
@@ -208,8 +208,10 @@ void domain_decompose_full(DomainDecomp * ddecomp)
     myfree(OldTopLeaves);
     myfree(OldTopNodes);
 
-    if(domain_exchange(domain_layoutfunc, ddecomp, 0, NULL, PartManager, SlotsManager, 10000, ddecomp->DomainComm))
+    ForceTree tree = force_tree_top_build(ddecomp, 1);
+    if(domain_exchange(domain_tree_layoutfunc, &tree, 0, NULL, PartManager, SlotsManager, 10000, ddecomp->DomainComm))
         endrun(1929,"Could not exchange particles\n");
+    force_tree_free(&tree);
 
     /*Do a garbage collection so that the slots are ordered
      *the same as the particles, garbage is at the end and all particles are in peano order.*/
@@ -1331,7 +1333,7 @@ domain_global_refine(
 
 
 static void
-domain_compute_costs(const DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopLeafCount)
+domain_compute_costs(DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopLeafCount)
 {
     int i;
     int NumThreads = omp_get_max_threads();
@@ -1343,6 +1345,7 @@ domain_compute_costs(const DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t
     int64_t * local_TopLeafCount = (int64_t *) mymalloc("local_TopLeafCount", NumThreads * ddecomp->NTopLeaves * sizeof(local_TopLeafCount[0]));
     memset(local_TopLeafCount, 0, NumThreads * ddecomp->NTopLeaves * sizeof(local_TopLeafCount[0]));
 
+    ForceTree tree = force_tree_top_build(ddecomp, 0);
 #pragma omp parallel
     {
         int tid = omp_get_thread_num();
@@ -1355,14 +1358,19 @@ domain_compute_costs(const DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t
              * and can be removed by exchange if under memory pressure.*/
             if(P[n].IsGarbage)
                 continue;
-            int no = domain_get_topleaf(P[n].Key, ddecomp);
+            double * pos = P[n].Pos;
+            const int no = force_tree_find_topnode(pos, &tree);
+            const int leaf = tree.Nodes[no].s.suns[0] - tree.lastnode;
+            // int no = domain_get_topleaf(P[n].Key, ddecomp);
 
             if(local_TopLeafWork)
-                local_TopLeafWork[no + tid * ddecomp->NTopLeaves] += 1;
+                local_TopLeafWork[leaf + tid * ddecomp->NTopLeaves] += 1;
 
-            local_TopLeafCount[no + tid * ddecomp->NTopLeaves] += 1;
+            local_TopLeafCount[leaf + tid * ddecomp->NTopLeaves] += 1;
         }
     }
+    force_tree_free(&tree);
+
 
 #pragma omp parallel for
     for(i = 0; i < ddecomp->NTopLeaves; i++)
