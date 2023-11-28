@@ -939,24 +939,40 @@ domain_check_for_local_refine_subsample(
 
     if(Nsample == 0 && PartManager->NumPart != 0) Nsample = 1;
 
-#pragma omp parallel for
-    for(i = 0; i < PartManager->NumPart; i ++)
-    {
-        LP[i].Key = P[i].Key;
-        LP[i].Cost = 1;
-    }
+    if(policy->PreSort) {
+        #pragma omp parallel for
+        for(i = 0; i < PartManager->NumPart; i ++)
+        {
+            if(P[i].IsGarbage) {
+                LP[i].Key = PEANOCELLS;
+                LP[i].Cost = 0;
+                continue;
+            }
+            LP[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
+            LP[i].Cost = 1;
+        }
 
-    /* First sort to ensure spatially 'even' subsamples; FIXME: This can probably
-     * be omitted in most cases. Usually the particles in memory won't be very far off
-     * from a peano order. */
-    if(policy->PreSort)
+        /* First sort to ensure spatially 'even' subsamples; FIXME: This can probably
+        * be omitted in most cases. Usually the particles in memory won't be very far off
+        * from a peano order. */
         qsort_openmp(LP, PartManager->NumPart, sizeof(struct local_particle_data), order_by_key);
 
-    /* now subsample */
-    for(i = 0; i < Nsample; i ++)
-    {
-        LP[i].Key = LP[i * policy->SubSampleDistance].Key;
-        LP[i].Cost = LP[i * policy->SubSampleDistance].Cost;
+        /* now subsample */
+        for(i = 0; i < Nsample; i ++)
+        {
+            LP[i].Key = LP[i * policy->SubSampleDistance].Key;
+            LP[i].Cost = LP[i * policy->SubSampleDistance].Cost;
+        }
+    }
+    else {
+        /* Subsample, computing keys*/
+        #pragma omp parallel for
+        for(i = 0; i < Nsample; i ++)
+        {
+            int j = i * policy->SubSampleDistance;
+            LP[i].Key = PEANO(P[j].Pos, PartManager->BoxSize);
+            LP[i].Cost = 1;
+        }
     }
 
     if(policy->UseGlobalSort) {
