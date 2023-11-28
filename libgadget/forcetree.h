@@ -130,8 +130,8 @@ void force_tree_active_moments(ForceTree * tree, DomainDecomp * ddecomp, const A
  * with all particle types, and of course the tree is smaller.*/
 void force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, const char * EmergencyOutputDir);
 
-/* Just construct a toptree*/
-ForceTree force_tree_top_build(DomainDecomp * ddecomp);
+/* Just construct a toptree for domain exchange. If alloc_high is true, allocate the toptree at the upper memory range. */
+ForceTree force_tree_top_build(DomainDecomp * ddecomp, const int alloc_high);
 /* Find the topnode leaf in the tree that the current particle is attached to*/
 int force_tree_find_topnode(const double * const pos, const ForceTree * const tree);
 
@@ -167,7 +167,7 @@ void
 force_tree_create_nodes(ForceTree * tree, const ActiveParticles * act, int mask, DomainDecomp * ddecomp);
 
 ForceTree
-force_treeallocate(const int64_t maxnodes, const int64_t maxpart, const DomainDecomp * ddecomp, const int alloc_father);
+force_treeallocate(const int64_t maxnodes, const int64_t maxpart, const DomainDecomp * ddecomp, const int alloc_father, const int alloc_high);
 
 void
 force_update_node_parallel(const ForceTree * tree, const DomainDecomp * ddecomp);

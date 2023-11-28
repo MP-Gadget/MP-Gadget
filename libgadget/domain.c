@@ -239,7 +239,7 @@ void domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
 
     walltime_measure("/Misc");
 
-    ForceTree tree = force_tree_top_build(ddecomp);
+    ForceTree tree = force_tree_top_build(ddecomp, 1);
     /* Try a domain exchange.
      * If we have no memory for the particles,
      * bail and do a full domain*/
