@@ -659,7 +659,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             lightcone_compute(atime, PartManager->BoxSize, &All.CP, Ti_Last, Ti_Next, &rnd);
 
         /* Now done with random numbers*/
-        free_random_numbers(&rnd);
+        if(rnd.Table)
+            free_random_numbers(&rnd);
         /* If a snapshot is requested, write it.         *
          * We only attempt to output on sync points. This is the only chance where all variables are
          * synchronized in a consistent state in a K(KDDK)^mK scheme.
