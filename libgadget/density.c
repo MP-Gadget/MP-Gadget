@@ -252,11 +252,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     tw->priv = priv;
     tw->tree = tree;
 
-    int i;
-
-    double timeall = 0;
-    double timecomp, timecomm, timewait;
-
     walltime_measure("/Misc");
 
     DENSITY_GET_PRIV(tw)->Left = (MyFloat *) mymalloc("DENS_PRIV->Left", PartManager->NumPart * sizeof(MyFloat));
@@ -279,6 +274,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     else
         DENSITY_GET_PRIV(tw)->GradRho = NULL;
 
+    int i;
     /* Init Left and Right: this has to be done before treewalk */
     #pragma omp parallel for
     for(i = 0; i < act->NumActiveParticle; i++)  {
@@ -339,16 +335,17 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
     /* collect some timing information */
 
-    timeall = walltime_measure(WALLTIME_IGNORE);
+    double timeall = walltime_measure(WALLTIME_IGNORE);
 
-    timecomp = tw->timecomp3 + tw->timecomp1 + tw->timecomp2;
-    timewait = tw->timewait1 + tw->timewait2;
-    timecomm = tw->timecommsumm1 + tw->timecommsumm2;
-
-    walltime_add("/SPH/Density/Compute", timecomp);
-    walltime_add("/SPH/Density/Wait", timewait);
-    walltime_add("/SPH/Density/Comm", timecomm);
-    walltime_add("/SPH/Density/Misc", timeall - (timecomp + timewait + timecomm));
+    double timecomp = tw->timecomp0 + tw->timecomp3 + tw->timecomp1 + tw->timecomp2;
+    walltime_add("/SPH/Density/WalkTop", tw->timecomp0);
+    walltime_add("/SPH/Density/WalkPrim", tw->timecomp1);
+    walltime_add("/SPH/Density/WalkSec", tw->timecomp2);
+    walltime_add("/SPH/Density/PostPre", tw->timecomp3);
+    // walltime_add("/SPH/Density/Compute", timecomp);
+    walltime_add("/SPH/Density/Wait", tw->timewait1);
+    walltime_add("/SPH/Density/Reduce", tw->timecommsumm);
+    walltime_add("/SPH/Density/Misc", timeall - (timecomp + tw->timewait1 + tw->timecommsumm));
 }
 
 static void

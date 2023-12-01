@@ -563,7 +563,6 @@ metal_return(const ActiveParticles * act, ForceTree * gasTree, Cosmology * CP, c
     tw->postprocess = (TreeWalkProcessFunction) metal_return_postprocess;
     tw->query_type_elsize = sizeof(TreeWalkQueryMetals);
     tw->result_type_elsize = sizeof(TreeWalkResultMetals);
-    tw->repeatdisallowed = 1;
     tw->tree = gasTree;
     tw->priv = priv;
 
@@ -818,7 +817,7 @@ stellar_density_reduce(int place, TreeWalkResultStellarDensity * remote, enum Tr
 {
     int pi = P[place].PI;
     int i;
-    if(mode == 0 || STELLAR_DENSITY_GET_PRIV(tw)->maxcmpte[pi] > remote->maxcmpte)
+    if(mode == TREEWALK_PRIMARY || STELLAR_DENSITY_GET_PRIV(tw)->maxcmpte[pi] > remote->maxcmpte)
         STELLAR_DENSITY_GET_PRIV(tw)->maxcmpte[pi] = remote->maxcmpte;
     for(i = 0; i < remote->maxcmpte; i++) {
         TREEWALK_REDUCE(STELLAR_DENSITY_GET_PRIV(tw)->NumNgb[pi][i], remote->Ngb[i]);
@@ -998,13 +997,11 @@ stellar_density(const ActiveParticles * act, MyFloat * StarVolumeSPH, MyFloat * 
 
     double timeall = walltime_measure(WALLTIME_IGNORE);
 
-    double timecomp = tw->timecomp3 + tw->timecomp1 + tw->timecomp2;
-    double timewait = tw->timewait1 + tw->timewait2;
-    double timecomm = tw->timecommsumm1 + tw->timecommsumm2;
+    double timecomp = tw->timecomp0 + tw->timecomp3 + tw->timecomp1 + tw->timecomp2;
     walltime_add("/SPH/Metals/Density/Compute", timecomp);
-    walltime_add("/SPH/Metals/Density/Wait", timewait);
-    walltime_add("/SPH/Metals/Density/Comm", timecomm);
-    walltime_add("/SPH/Metals/Density/Misc", timeall - (timecomp + timewait + timecomm));
+    walltime_add("/SPH/Metals/Density/Wait", tw->timewait1);
+    walltime_add("/SPH/Metals/Density/Reduce", tw->timecommsumm);
+    walltime_add("/SPH/Metals/Density/Misc", timeall - (timecomp + tw->timewait1 + tw->timecommsumm));
 
     return;
 }

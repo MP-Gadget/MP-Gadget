@@ -5,7 +5,10 @@
 #include "utils/paramset.h"
 #include "forcetree.h"
 
-#define  NODELISTLENGTH      8
+/* Use a low number here. The need for a large Nodelist in older versions
+ * was because we were sorting the DIT, so had incentive to keep it small.
+ * The code is simplest with NODELISTLENGTH=1 but then the structs are not 64-bit aligned.*/
+#define  NODELISTLENGTH 2
 
 enum NgbTreeFindSymmetric {
     NGB_TREEFIND_SYMMETRIC,
@@ -15,16 +18,17 @@ enum NgbTreeFindSymmetric {
 enum TreeWalkReduceMode {
     TREEWALK_PRIMARY,
     TREEWALK_GHOSTS,
+    TREEWALK_TOPTREE,
 };
 
 typedef struct TreeWalk TreeWalk;
 
 typedef struct {
     double Pos[3];
+    int NodeList[NODELISTLENGTH];
 #ifdef DEBUG
     MyIDType ID;
 #endif
-    int NodeList[NODELISTLENGTH];
 } TreeWalkQueryBase;
 
 typedef struct {
@@ -54,18 +58,12 @@ typedef struct {
     size_t BunchSize;
     /* Number of entries in the export table for this particle*/
     size_t NThisParticleExport;
-    int *exportflag;
-    int *exportnodecount;
-    size_t *exportindex;
     size_t DataIndexOffset;
 
     int * ngblist;
     int64_t maxNinteractions;
     int64_t minNinteractions;
     int64_t Ninteractions;
-    int64_t Nlistprimary;
-    int64_t Nnodesinlist;
-    int64_t Nlist;
 } LocalTreeWalk;
 
 typedef int (*TreeWalkVisitFunction) (TreeWalkQueryBase * input, TreeWalkResultBase * output, LocalTreeWalk * lv);
@@ -109,32 +107,19 @@ struct TreeWalk {
     int NTask; /*Number of MPI tasks*/
     int64_t NThread; /*Number of OpenMP threads*/
 
-    /* Unlike in Gadget-3, when exporting we now always send tree branches.*/
-    char * dataget;
-    char * dataresult;
-
-    /* The metal return alters neighbours,
-     * which cannot be evaluated twice.
-     * If repeatdisallowd is true, we allocate memory
-     * to keep track of the evaluated particles.*/
-    int repeatdisallowed;
-    char * evaluated;
-
     /* performance metrics */
+    /* Wait for remotes to finish.*/
     double timewait1;
-    double timewait2;
+    /* Time spent in the toptree*/
+    double timecomp0;
+    /* This is the time spent in ev_primary*/
     double timecomp1;
+    /* This is the time spent in ev_secondary (which may overlap with primary time)*/
     double timecomp2;
+    /* Time spent in post-processing and pre-processing*/
     double timecomp3;
-    double timecommsumm1;
-    double timecommsumm2;
-    /* For secondary tree walks this stores the
-     * total number of pseudo-particles in all
-     * node lists of exported particles.*/
-    int64_t Nnodesinlist;
-    /* Stores the total number of node lists created for all exported particles.
-     * Used to find the average number of nodes in each nodelist.*/
-    int64_t Nlist;
+    /* Time spent for the reductions.*/
+    double timecommsumm;
     /* Number of particles in the Ngblist for the primary treewalk*/
     int64_t Nlistprimary;
     /* Total number of exported particles
@@ -142,6 +127,8 @@ struct TreeWalk {
     int64_t Nexport_sum;
     /* Number of times we filled up our export buffer*/
     int64_t Nexportfull;
+    /* Number of MPI ranks we export to from this rank.*/
+    int NExportTargets;
     /* Number of times we needed to re-run the treewalk.
      * Convenience variable for density. */
     int64_t Niteration;
@@ -151,10 +138,9 @@ struct TreeWalk {
     int64_t Ninteractions;
 
     /* internal flags*/
-    /* Number of particles marked for export to another processor*/
-    size_t Nexport;
-    /* Number of particles exported to this processor*/
-    size_t Nimport;
+    /* Export counters for each thread*/
+    size_t * Nexport_thread;
+    size_t * Nexport_threadoffset;
     /* Flags that our export buffer is full*/
     int BufferFullFlag;
     /* Number of particles we can fit into the export buffer*/
@@ -227,7 +213,6 @@ void treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, in
 /* Print some counters for a completed treewalk*/
 void treewalk_print_stats(const TreeWalk * tw);
 /* Increment some counters in the ngbiter function*/
-void treewalk_add_counters(LocalTreeWalk * lv, const int64_t ninteractions, const int64_t inode);
-
+void treewalk_add_counters(LocalTreeWalk * lv, const int64_t ninteractions);
 
 #endif

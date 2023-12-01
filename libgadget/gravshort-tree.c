@@ -95,9 +95,6 @@ force_treeev_shortrange(TreeWalkQueryGravShort * input,
 void
 grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFloat (* AccelStore)[3], double rho0, inttime_t Ti_Current)
 {
-    double timeall = 0;
-    double timetree, timewait, timecomm;
-
     TreeWalk tw[1] = {{0}};
     struct GravShortPriv priv;
     priv.cellsize = tree->BoxSize / pm->Nmesh;
@@ -138,21 +135,17 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFl
     /* Now the force computation is finished */
     /*  gather some diagnostic information */
 
-    timetree = tw->timecomp1 + tw->timecomp2 + tw->timecomp3;
-    timewait = tw->timewait1 + tw->timewait2;
-    timecomm= tw->timecommsumm1 + tw->timecommsumm2;
+    double timetree = tw->timecomp0 + tw->timecomp1 + tw->timecomp2 + tw->timecomp3;
+    walltime_add("/Tree/WalkTop", tw->timecomp0);
+    walltime_add("/Tree/WalkPrim", tw->timecomp1);
+    walltime_add("/Tree/WalkSec", tw->timecomp2);
+    walltime_add("/Tree/Reduce", tw->timecommsumm);
+    walltime_add("/Tree/PostPre", tw->timecomp3);
+    walltime_add("/Tree/Wait", tw->timewait1);
 
-    walltime_add("/Tree/Walk1", tw->timecomp1);
-    walltime_add("/Tree/Walk2", tw->timecomp2);
-    walltime_add("/Tree/PostProcess", tw->timecomp3);
-    walltime_add("/Tree/Send", tw->timecommsumm1);
-    walltime_add("/Tree/Recv", tw->timecommsumm2);
-    walltime_add("/Tree/Wait1", tw->timewait1);
-    walltime_add("/Tree/Wait2", tw->timewait2);
+    double timeall = walltime_measure(WALLTIME_IGNORE);
 
-    timeall = walltime_measure(WALLTIME_IGNORE);
-
-    walltime_add("/Tree/Misc", timeall - (timetree + timewait + timecomm));
+    walltime_add("/Tree/Misc", timeall - (timetree + tw->timewait1 + tw->timecommsumm));
 
     treewalk_print_stats(tw);
 
@@ -278,7 +271,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     int listindex, ninteractions=0;
 
     /* Primary treewalk only ever has one nodelist entry*/
-    for(listindex = 0; listindex < NODELISTLENGTH && (lv->mode == 1 || listindex < 1); listindex++)
+    for(listindex = 0; listindex < NODELISTLENGTH; listindex++)
     {
         int numcand = 0;
         /* Use the next node in the node list if we are doing a secondary walk.
@@ -293,14 +286,8 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             /* The tree always walks internal nodes*/
             struct NODE *nop = &tree->Nodes[no];
 
-            if(lv->mode == 1)
-            {
-                if(nop->f.TopLevel && no != startno)	/* we reached a top-level node again, which means that we are done with the branch */
-                {
-                    no = -1;
-                    continue;
-                }
-            }
+            if(lv->mode == TREEWALK_GHOSTS && nop->f.TopLevel && no != startno)  /* we reached a top-level node again, which means that we are done with the branch */
+                break;
 
             int i;
             double dx[3];
@@ -329,42 +316,54 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
 
             if(!open_node)
             {
-                double h = input->Soft;
-                if(TreeParams.AdaptiveSoftening)
-                    h = DMAX(input->Soft, nop->mom.hmax);
                 /* ok, node can be used */
                 no = nop->sibling;
-                /* Compute the acceleration and apply it to the output structure*/
-                apply_accn_to_output(output, dx, r2, h, nop->mom.mass, cellsize);
+                double h = input->Soft;
+                if(lv->mode != TREEWALK_TOPTREE) {
+                    if(TreeParams.AdaptiveSoftening)
+                        h = DMAX(input->Soft, nop->mom.hmax);
+                    /* Compute the acceleration and apply it to the output structure*/
+                    apply_accn_to_output(output, dx, r2, h, nop->mom.mass, cellsize);
+                }
                 continue;
             }
 
-            /* Now we have a cell that needs to be opened.
-             * If it contains particles we can add them directly here */
-            if(nop->f.ChildType == PARTICLE_NODE_TYPE)
-            {
-                /* Loop over child particles*/
-                for(i = 0; i < nop->s.noccupied; i++) {
-                    int pp = nop->s.suns[i];
-                    lv->ngblist[numcand++] = pp;
-                }
-                no = nop->sibling;
-            }
-            else if (nop->f.ChildType == PSEUDO_NODE_TYPE)
-            {
-                if(lv->mode == 0)
-                {
+            if(lv->mode == TREEWALK_TOPTREE) {
+                if(nop->f.ChildType == PSEUDO_NODE_TYPE) {
+                    /* Export the pseudo particle*/
                     if(-1 == treewalk_export_particle(lv, nop->s.suns[0]))
                         return -1;
+                    /* Move sideways*/
+                    no = nop->sibling;
+                    continue;
                 }
-
-                /* Move to the sibling (likely also a pseudo node)*/
-                no = nop->sibling;
-            }
-            else if(nop->f.ChildType == NODE_NODE_TYPE)
-            {
-                /* This node contains other nodes and we need to open it.*/
+                /* Only walk toptree nodes here*/
+                if(nop->f.TopLevel && !nop->f.InternalTopLevel) {
+                    no = nop->sibling;
+                    continue;
+                }
                 no = nop->s.suns[0];
+            }
+            else {
+                /* Now we have a cell that needs to be opened.
+                * If it contains particles we can add them directly here */
+                if(nop->f.ChildType == PARTICLE_NODE_TYPE)
+                {
+                    /* Loop over child particles*/
+                    for(i = 0; i < nop->s.noccupied; i++) {
+                        int pp = nop->s.suns[i];
+                        lv->ngblist[numcand++] = pp;
+                    }
+                    no = nop->sibling;
+                }
+                else if (nop->f.ChildType == PSEUDO_NODE_TYPE)
+                {
+                    /* Move to the sibling (likely also a pseudo node)*/
+                    no = nop->sibling;
+                }
+                else //NODE_NODE_TYPE
+                    /* This node contains other nodes and we need to open it.*/
+                    no = nop->s.suns[0];
             }
         }
         int i;
@@ -389,6 +388,6 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
         }
         ninteractions = numcand;
     }
-    treewalk_add_counters(lv, ninteractions, listindex);
+    treewalk_add_counters(lv, ninteractions);
     return 1;
 }

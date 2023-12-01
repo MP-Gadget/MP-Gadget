@@ -550,7 +550,7 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
     }
     int other = iter->base.other;
 
-    if(lv->mode == 0) {
+    if(lv->mode == TREEWALK_PRIMARY) {
         /* Local FOF */
         if(lv->target <= other) {
             // printf("locked merge %d %d by %d\n", lv->target, other, omp_get_thread_num());

@@ -110,18 +110,4 @@ int _MPIU_Barrier(const char * fn, const int ln, MPI_Comm comm);
 /* Fancy barrier which warns if there is a lot of imbalance. */
 #define MPIU_Barrier(comm) _MPIU_Barrier(__FILE__, __LINE__, comm)
 
-#ifdef MOREDEBUG
-/* Checked versions of some MPI routines which make sure that the number we get out is sensible*/
-int MPI_Allreduce_Checked(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm, const int line, const char * file);
-int MPI_Reduce_Checked(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm, const int line, const char * file);
-/* Defines, guarded so the implementation can still use the original*/
-#ifndef __UTILS_SYSTEM_C
-#define MPI_Allreduce(sendbuf, recvbuf, count, datatype, op, comm) \
-MPI_Allreduce_Checked(sendbuf, recvbuf, count, datatype, op, comm, __LINE__, __FILE__)
-#define MPI_Reduce(sendbuf, recvbuf, count, datatype, op, root, comm) \
-MPI_Reduce_Checked(sendbuf, recvbuf, count, datatype, op, root, comm, __LINE__, __FILE__)
-#endif
-
-#endif
-
 #endif //_UTILS_SYSTEM_H
