@@ -144,9 +144,7 @@ static int domain_layoutfunc(int n, const void * userdata);
 static int domain_tree_layoutfunc(int n, const void * userdata);
 
 static int
-domain_policies_init(DomainDecompositionPolicy policies[],
-        const int NincreaseAlloc,
-        const int SwitchToGlobal);
+domain_policies_init(DomainDecompositionPolicy policies[], const int Npolicies);
 
 /*! This is the main routine for the domain decomposition.  It acts as a
  *  driver routine that allocates various temporary buffers, maps the
@@ -154,17 +152,17 @@ domain_policies_init(DomainDecompositionPolicy policies[],
  *  domain decomposition, and a final Peano-Hilbert order of all particles
  *  as a tuning measure.
  */
+#define NPOLICY 16
 void domain_decompose_full(DomainDecomp * ddecomp)
 {
-    static DomainDecompositionPolicy policies[16];
+    static DomainDecompositionPolicy policies[NPOLICY];
     static int Npolicies = 0;
 
     /* start from last successful policy to avoid retries */
     static int LastSuccessfulPolicy = 0;
 
     if (Npolicies == 0) {
-        const int NincreaseAlloc = 16;
-        Npolicies = domain_policies_init(policies, NincreaseAlloc, 4);
+        Npolicies = domain_policies_init(policies, NPOLICY);
     }
 
     walltime_measure("/Misc");
@@ -255,14 +253,13 @@ void domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
  * creating the domain. */
 static int
 domain_policies_init(DomainDecompositionPolicy policies[],
-        const int NincreaseAlloc,
-        const int SwitchToGlobal)
+        const int NPolicy)
 {
     int NTask;
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
-
+    const int SwitchToGlobal = 4;
     int i;
-    for(i = 0; i < NincreaseAlloc; i ++) {
+    for(i = 0; i < NPolicy; i ++) {
         policies[i].TopNodeAllocFactor = domain_params.TopNodeAllocFactor * pow(1.3, i);
         /* global sorting is slower than a local sorting, but tends to produce a more
          * balanced domain tree that is easier to merge.
@@ -278,11 +275,13 @@ domain_policies_init(DomainDecompositionPolicy policies[],
         if(i >= 1)
             policies[i].PreSort = 1;
         policies[i].SubSampleDistance = 16;
+        if(i > 1)
+            policies[i].SubSampleDistance = 16/(i/2+1);
         /* Desired number of TopLeaves should scale like the total number of processors*/
         policies[i].NTopLeaves = domain_params.DomainOverDecompositionFactor * NTask;
     }
 
-    return NincreaseAlloc;
+    return NPolicy;
 }
 
 /*! This function allocates all the stuff that will be required for the tree-construction/walk later on */
