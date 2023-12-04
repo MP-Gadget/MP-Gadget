@@ -918,8 +918,6 @@ domain_check_for_local_refine_subsample(
 
     int i;
 
-    struct local_particle_data * LP = (struct local_particle_data*) mymalloc("LocalParticleData", PartManager->NumPart * sizeof(LP[0]));
-
     /* Watchout : Peano/Morton ordering is required by the tree
      * building algorithm in local_refine.
      *
@@ -938,31 +936,37 @@ domain_check_for_local_refine_subsample(
     int Nsample = PartManager->NumPart / policy->SubSampleDistance;
 
     if(Nsample == 0 && PartManager->NumPart != 0) Nsample = 1;
+    struct local_particle_data * LP = (struct local_particle_data*) mymalloc("LocalParticleData", Nsample * sizeof(LP[0]));
 
     if(policy->PreSort) {
-        #pragma omp parallel for
+        struct local_particle_data * LPfull = (struct local_particle_data*) mymalloc2("LocalParticleData", PartManager->NumPart * sizeof(LP[0]));
+        int64_t garbage = 0;
+        #pragma omp parallel for reduction(+: garbage)
         for(i = 0; i < PartManager->NumPart; i ++)
         {
             if(P[i].IsGarbage) {
-                LP[i].Key = PEANOCELLS;
-                LP[i].Cost = 0;
+                LPfull[i].Key = PEANOCELLS;
+                LPfull[i].Cost = 0;
+                garbage++;
                 continue;
             }
-            LP[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
-            LP[i].Cost = 1;
+            LPfull[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
+            LPfull[i].Cost = 1;
         }
 
-        /* First sort to ensure spatially 'even' subsamples; FIXME: This can probably
-        * be omitted in most cases. Usually the particles in memory won't be very far off
-        * from a peano order. */
-        qsort_openmp(LP, PartManager->NumPart, sizeof(struct local_particle_data), order_by_key);
+        /* First sort to ensure spatially 'even' subsamples and remove garbage.*/
+        qsort_openmp(LPfull, PartManager->NumPart, sizeof(struct local_particle_data), order_by_key);
+        Nsample = (PartManager->NumPart - garbage) / policy->SubSampleDistance;
+        if(Nsample == 0 && PartManager->NumPart > garbage) Nsample = 1;
 
         /* now subsample */
+        #pragma omp parallel for
         for(i = 0; i < Nsample; i ++)
         {
-            LP[i].Key = LP[i * policy->SubSampleDistance].Key;
-            LP[i].Cost = LP[i * policy->SubSampleDistance].Cost;
+            LP[i].Key = LPfull[i * policy->SubSampleDistance].Key;
+            LP[i].Cost = LPfull[i * policy->SubSampleDistance].Cost;
         }
+        myfree(LPfull);
     }
     else {
         /* Subsample, computing keys*/
