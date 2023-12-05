@@ -103,11 +103,6 @@ void set_domain_params(ParameterSet * ps)
     MPI_Bcast(&domain_params, sizeof(DomainParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
-static int
-order_by_key(const void *a, const void *b);
-static void
-mp_order_by_key(const void * data, void * radix, void * arg);
-
 static void
 domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int NsegmentPerTask);
 
@@ -893,6 +888,28 @@ domain_toptree_truncate(
     domain_toptree_garbage_collection(topTree, 0, topTreeSize);
 }
 
+
+static int
+order_by_key(const void *a, const void *b)
+{
+    const struct local_particle_data * pa  = (const struct local_particle_data *) a;
+    const struct local_particle_data * pb  = (const struct local_particle_data *) b;
+    if(pa->Key < pb->Key)
+        return -1;
+
+    if(pa->Key > pb->Key)
+        return +1;
+
+    return 0;
+}
+
+static void
+mp_order_by_key(const void * data, void * radix, void * arg)
+{
+    const struct local_particle_data * pa  = (const struct local_particle_data *) data;
+    ((uint64_t *) radix)[0] = pa->Key;
+}
+
 /**
  * This function performs local refinement of the topTree.
  *
@@ -1489,25 +1506,4 @@ domain_toptree_merge(struct local_topnode_data *treeA,
             }
         }
     }
-}
-
-static int
-order_by_key(const void *a, const void *b)
-{
-    const struct local_particle_data * pa  = (const struct local_particle_data *) a;
-    const struct local_particle_data * pb  = (const struct local_particle_data *) b;
-    if(pa->Key < pb->Key)
-        return -1;
-
-    if(pa->Key > pb->Key)
-        return +1;
-
-    return 0;
-}
-
-static void
-mp_order_by_key(const void * data, void * radix, void * arg)
-{
-    const struct local_particle_data * pa  = (const struct local_particle_data *) data;
-    ((uint64_t *) radix)[0] = pa->Key;
 }
