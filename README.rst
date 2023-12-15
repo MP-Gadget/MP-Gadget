@@ -48,6 +48,7 @@ First time users:
     cd MP-Gadget
     make -j
 
+The Makefile will automatically copy Options.mk.example to Options.mk. The default compile flags are appropriate for a linux using gcc, but may not be optimal. 
 We will need gsl. On HPC systems with the modules command, 
 usually it can be loaded with 
 
