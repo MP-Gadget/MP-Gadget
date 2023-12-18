@@ -166,16 +166,12 @@ fof_fof(DomainDecomp * ddecomp, const int StoreGrNr, MPI_Comm Comm)
 
     /* Fill FOFP_List of primary */
     fof_label_primary(HaloLabel, &dmtree, Comm);
-
-    MPIU_Barrier(Comm);
-    message(0, "Group finding done.\n");
     walltime_measure("/FOF/Primary");
 
     /* Fill FOFP_List of secondary */
     fof_label_secondary(HaloLabel, &dmtree);
     force_tree_free(&dmtree);
 
-    MPIU_Barrier(Comm);
     message(0, "Attached gas and star particles to nearest dm particles.\n");
 
     walltime_measure("/FOF/Secondary");
@@ -195,9 +191,7 @@ fof_fof(DomainDecomp * ddecomp, const int StoreGrNr, MPI_Comm Comm)
 
     NgroupsExt = fof_compile_base(base, NgroupsExt, HaloLabel, Comm);
 
-    MPIU_Barrier(Comm);
     message(0, "Compiled local group data and catalogue.\n");
-
     walltime_measure("/FOF/Compile");
 
     fof_assign_grnr(base, NgroupsExt, Comm);
