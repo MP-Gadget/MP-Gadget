@@ -52,7 +52,6 @@ int fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmolo
     conv.atime = atime;
     conv.hubble = hubble_function(CP, atime);
 
-    MPIU_Barrier(Comm);
     fof_write_header(&bf, fof->TotNgroups, atime, MassTable, CP, Comm);
 
     for(i = 0; i < FOFIOTable.used; i ++) {
@@ -152,6 +151,8 @@ int fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmolo
 
     big_file_mpi_close(&bf, Comm);
 
+    /* Done saving particles*/
+    MPIU_Barrier(Comm);
     message(0, "Group catalogues saved.\n");
     return domain_needed;
 }
