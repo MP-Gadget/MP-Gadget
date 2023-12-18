@@ -467,7 +467,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 /***** update smoothing lengths in tree *****/
                 force_update_hmax(Act.ActiveParticle, Act.NumActiveParticle, &gasTree, ddecomp);
                 /***** hydro forces *****/
-                MPI_Barrier(MPI_COMM_WORLD);
                 /* In Gadget-4 this is optionally split into two, with the pressure force
                  * computed on either side of the cooling term. Volker Springel confirms that
                  * he has never encountered a simulation where this matters in practice, probably because
