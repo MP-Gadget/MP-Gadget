@@ -536,6 +536,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                     grav_short_tree(&Act, &pm, &Tree, NULL, rho0, times.Ti_Current);
             }
         }
+        message(0, "Forces computed.\n");
 
         if(!All.HierarchicalGravity){
             /* Do both short-range gravity and hydro kicks.
@@ -551,9 +552,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         if(is_PM) {
             apply_PM_half_kick(&All.CP, &times);
         }
-
-        MPIU_Barrier(MPI_COMM_WORLD);
-        message(0, "Forces computed.\n");
 
         /* get syncpoint variables for Excursion set (here) and snapshot saving (later) */
 
