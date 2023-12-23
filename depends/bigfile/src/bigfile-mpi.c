@@ -106,7 +106,7 @@ big_file_mpi_create_block(BigFile * bf,
     size_t fsize[Nfile];
     int i;
     for(i = 0; i < Nfile; i ++) {
-        fsize[i] = size * (i + 1) / Nfile 
+        fsize[i] = size * (i + 1) / Nfile
                  - size * (i) / Nfile;
     }
     return _big_file_mpi_create_block(bf, block, blockname, dtype,
@@ -144,7 +144,6 @@ _big_file_mpi_create_block(BigFile * bf,
 int big_file_mpi_close(BigFile * bf, MPI_Comm comm) {
     if(comm == MPI_COMM_NULL) return 0;
     int rt = big_file_close(bf);
-    MPI_Barrier(comm);
     return rt;
 }
 
@@ -155,7 +154,7 @@ _big_block_mpi_open(BigBlock * bb, const char * basename, MPI_Comm comm)
     int rank;
     MPI_Comm_rank(comm, &rank);
     int rt;
-    if(rank == 0) { 
+    if(rank == 0) {
         rt = _big_block_open(bb, basename);
     } else {
         rt = 0;
@@ -443,7 +442,7 @@ _throttle_action(MPI_Comm comm, int concurrency, BigBlock * block,
         if(0 != (rt = big_file_mpi_broadcast_anyerror(rt, seggrp->Group))) {
             /* failed , abort. */
             continue;
-        } 
+        }
         if(seggrp->ThisSegment != segment) continue;
 
         /* use the offset on the first task in the SegGroup */

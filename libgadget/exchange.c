@@ -277,8 +277,6 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
     _transpose_plan_entries(plan->toGet, recvcounts, -1, plan->NTask);
     _transpose_plan_entries(plan->toGetOffset, recvdispls, -1, plan->NTask);
 
-    /* Ensure the mallocs are finished on all tasks before we start sending the data*/
-    MPI_Barrier(Comm);
 #ifdef DEBUG
     message(0, "Starting particle data exchange\n");
 #endif

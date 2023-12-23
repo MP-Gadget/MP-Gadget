@@ -467,7 +467,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 /***** update smoothing lengths in tree *****/
                 force_update_hmax(Act.ActiveParticle, Act.NumActiveParticle, &gasTree, ddecomp);
                 /***** hydro forces *****/
-                MPI_Barrier(MPI_COMM_WORLD);
                 /* In Gadget-4 this is optionally split into two, with the pressure force
                  * computed on either side of the cooling term. Volker Springel confirms that
                  * he has never encountered a simulation where this matters in practice, probably because
@@ -537,6 +536,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                     grav_short_tree(&Act, &pm, &Tree, NULL, rho0, times.Ti_Current);
             }
         }
+        message(0, "Forces computed.\n");
 
         if(!All.HierarchicalGravity){
             /* Do both short-range gravity and hydro kicks.
@@ -552,9 +552,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         if(is_PM) {
             apply_PM_half_kick(&All.CP, &times);
         }
-
-        MPIU_Barrier(MPI_COMM_WORLD);
-        message(0, "Forces computed.\n");
 
         /* get syncpoint variables for Excursion set (here) and snapshot saving (later) */
 

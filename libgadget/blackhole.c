@@ -1032,7 +1032,6 @@ blackhole_feedback(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, ForceTre
     MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&N_BH_swallowed, &Ntot_BH_swallowed, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
 
-    MPIU_Barrier(MPI_COMM_WORLD);
     message(0, "Accretion done: %ld gas particles swallowed, %ld BH particles swallowed\n", Ntot_gas_swallowed, Ntot_BH_swallowed);
 }
 

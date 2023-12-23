@@ -381,8 +381,8 @@ void petapm_force(PetaPM * pm, petapm_prepare_func prepare,
 
 /* These functions are for the excursion set reionization module*/
 
-/* initialise one set of regions with custom iterator 
- * this is the same as petapm_force_init with a custom iterator 
+/* initialise one set of regions with custom iterator
+ * this is the same as petapm_force_init with a custom iterator
  * (and no CPS definition since it's called multiple times)*/
 PetaPMRegion *
 petapm_reion_init(
@@ -429,7 +429,7 @@ petapm_reion_c2r(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
     int f_count = 0;
     petapm_transfer_func transfer = f->transfer;
     petapm_readout_func readout = f->readout;
-   
+
     /* TODO: seriously re-think the allocation ordering in this function */
     double * mass_real = (double * ) mymalloc2("mass_real", pm_mass->priv->fftsize * sizeof(double));
 
@@ -481,7 +481,7 @@ petapm_reion_c2r(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
             myfree(sfr_filtered);
         }
         walltime_measure("/PMreion/c2r");
-        
+
         myfree(star_filtered);
         myfree(mass_filtered);
 
@@ -496,7 +496,7 @@ petapm_reion_c2r(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
             myfree(sfr_real);
         }
         myfree(star_real);
-        
+
         R = R / R_delta;
     }
     //J21 grid is exchanged to pm_mass buffer and freed
@@ -507,7 +507,7 @@ petapm_reion_c2r(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
     walltime_measure("/PMreion/readout");
 }
 
-/* We need a slightly different flow for reionisation, so I 
+/* We need a slightly different flow for reionisation, so I
  * will define these here instead of messing with the force functions.
  * The c2r function is the same, however we need a new function, reion_loop
  * to run over all three filtered grids, after the inverse transform.
@@ -522,11 +522,11 @@ void petapm_reion(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
         petapm_reion_func reion_loop,
         double R_max, double R_min, double R_delta, int use_sfr,
         void * userdata) {
-    
+
     //assigning CPS here due to three sets of regions
     CPS = pstruct;
     CPS_R = rstruct;
-    
+
     /* initialise regions for each grid
      * NOTE: these regions should be identical except for the grid buffer */
     int Nregions_mass, Nregions_star, Nregions_sfr;
@@ -554,17 +554,17 @@ void petapm_reion(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
                mass_unfiltered, star_unfiltered, sfr_unfiltered,
                regions_mass, Nregions_mass, functions, reion_loop,
                R_max, R_min, R_delta, use_sfr);
-    
+
     //free everything in the correct order
     if(sfr_unfiltered){
         myfree(sfr_unfiltered);
     }
     myfree(star_unfiltered);
     myfree(mass_unfiltered);
-    
+
     if(CPS->RegionInd)
         myfree(CPS->RegionInd);
-    
+
     if(use_sfr){
         myfree(regions_sfr);
     }
@@ -1019,7 +1019,6 @@ static void pm_iterate(PetaPM * pm, pm_iterator iterator, PetaPMRegion * regions
     for(i = 0; i < CPS->NumPart; i ++) {
         pm_iterate_one(pm, i, iterator, regions, Nregions);
     }
-    MPIU_Barrier(pm->comm);
 }
 
 void petapm_region_init_strides(PetaPMRegion * region) {

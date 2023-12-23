@@ -162,7 +162,6 @@ force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, cons
     ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
     /* No moments, but need father for hmax. The hybridnugrav only affects moments, so isn't needed.*/
     *tree = force_tree_build(mask, ddecomp, &act, 0, 1, EmergencyOutputDir);
-    MPIU_Barrier(MPI_COMM_WORLD);
 }
 
 

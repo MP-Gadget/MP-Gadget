@@ -383,7 +383,6 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
         fflush(FdSfr);
     }
 
-    MPIU_Barrier(MPI_COMM_WORLD);
     if(tot_spawned || tot_converted)
         message(0, "SFR: spawned %ld stars, converted %ld gas particles into stars\n", tot_spawned, tot_converted);
 

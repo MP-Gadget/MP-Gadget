@@ -204,6 +204,8 @@ petaio_save_snapshot(const char * fname, struct IOTable * IOTable, int verbose, 
                     big_file_get_error_message());
     }
 
+    MPI_Barrier(MPI_COMM_WORLD);
+    message(0, "Finished saving snapshot into %s\n", fname);
     myfree(selection);
 }
 
