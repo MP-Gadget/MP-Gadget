@@ -26,24 +26,6 @@ struct forcetree_testdata
     gsl_rng * r;
 };
 
-static int
-order_by_type_and_key(const void *a, const void *b)
-{
-    const struct particle_data * pa  = (const struct particle_data *) a;
-    const struct particle_data * pb  = (const struct particle_data *) b;
-
-    if(pa->Type < pb->Type)
-        return -1;
-    if(pa->Type > pb->Type)
-        return +1;
-    if(pa->Key < pb->Key)
-        return -1;
-    if(pa->Key > pb->Key)
-        return +1;
-
-    return 0;
-}
-
 #define NODECACHE_SIZE 100
 
 /*This checks that the moments of the force tree in Nodes are valid:
@@ -199,10 +181,10 @@ static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp
         P[i].PI = 0;
         P[i].IsGarbage = 0;
     }
-    qsort(P, numpart, sizeof(struct particle_data), order_by_type_and_key);
     int maxnode = tb.lastnode - tb.firstnode;
     PartManager->MaxPart = numpart;
     PartManager->NumPart = numpart;
+    slots_gc_sorted(PartManager, SlotsManager);
     assert_true(tb.Nodes != NULL);
     /*So we know which nodes we have initialised*/
     for(i=0; i< maxnode; i++)
@@ -289,9 +271,10 @@ static void do_tree_mask_hmax_update_test(const int numpart, ForceTree * tb, Dom
         P[i].Hsml = PartManager->BoxSize/cbrt(numpart) * get_random_number(P[i].Key, &rnd);
     }
     free_random_numbers(&rnd);
-    qsort(P, numpart, sizeof(struct particle_data), order_by_type_and_key);
     PartManager->MaxPart = numpart;
     PartManager->NumPart = numpart;
+    SlotsManager->info[0].enabled = 0;
+    slots_gc_sorted(PartManager, SlotsManager);
     assert_true(tb->Nodes != NULL);
     /*Time creating the nodes*/
     double start, end;
