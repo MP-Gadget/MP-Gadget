@@ -77,7 +77,7 @@ jobs:
     - name: examples/dm-small
       run: |
         cd examples/dm-small
-        python3 ../../tools/make_class_power.py paramfile.genic --extraz 4 3
+        #python3 ../../tools/make_class_power.py paramfile.genic --extraz 4 3
         mpirun -np 2 ../../genic/MP-GenIC paramfile.genic
         mpirun -np 2 ../../gadget/MP-Gadget paramfile.gadget
         mpirun -np 2 ../../gadget/MP-Gadget paramfile.gadget 3 2 # Check FOF mode works
