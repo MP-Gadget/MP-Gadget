@@ -339,7 +339,7 @@ static int setup_tree(void **state) {
     dp.SetAsideFactor = 1;
     set_domain_par(dp);
     petapm_module_init(omp_get_max_threads());
-    init_forcetree_params();
+    init_forcetree_params(0.7);
     /*Set up the top-level domain grid*/
     struct forcetree_testdata *data = malloc(sizeof(struct forcetree_testdata));
     data->r = gsl_rng_alloc(gsl_rng_mt19937);

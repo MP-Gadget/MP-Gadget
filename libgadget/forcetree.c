@@ -40,10 +40,10 @@ static struct forcetree_params
 } ForceTreeParams;
 
 void
-init_forcetree_params(void)
+init_forcetree_params(const double treeallocfactor)
 {
     /* This was increased due to the extra nodes created by subtrees*/
-    ForceTreeParams.TreeAllocFactor = 0.9;
+    ForceTreeParams.TreeAllocFactor = treeallocfactor;
 }
 
 static ForceTree
