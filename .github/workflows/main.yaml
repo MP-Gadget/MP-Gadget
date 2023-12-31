@@ -82,3 +82,9 @@ jobs:
         mpirun -np 2 ../../gadget/MP-Gadget paramfile.gadget
         mpirun -np 2 ../../gadget/MP-Gadget paramfile.gadget 3 2 # Check FOF mode works
         python check_results.py
+    - name: examples/star-small
+      run: |
+        cd examples/star-small
+        mpirun -np 2 ../../genic/MP-GenIC paramfile.genic
+        mpirun -np 2 ../../gadget/MP-Gadget paramfile.gadget
+        python check_results.py
