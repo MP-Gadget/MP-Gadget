@@ -1,0 +1,26 @@
+# bound memory usage on travis
+MaxMemSizePerNode = 1000
+
+OutputDir = IC    # Directory for output
+FileBase = IC              # Base-filename of output files
+
+Ngrid = 64 # Size of cubic grid on which to create particles.
+
+BoxSize = 64000   # Periodic box size of simulation
+
+Omega0 = 0.288      # Total matter density  (at z=0)
+OmegaLambda = 0.712      # Cosmological constant (at z=0)
+OmegaBaryon = 0.0472     # Baryon density        (at z=0)
+ProduceGas = 0         # 0 is dm only. 1 is gas
+HubbleParam = 0.7      # Hubble paramater (may be used for power spec parameterization)
+
+Redshift = 9        # Starting redshift
+
+# filename of tabulated input in Mpc/h
+FileWithInputSpectrum = class_pk_9.dat
+DifferentTransferFunctions = 0
+
+UsePeculiarVelocity = 1  # Use peculiar velocity like FastPM
+
+Seed = 181170    #  seed for IC-generator
+UnitaryAmplitude = 1  # set amplitude of gaussian to 1.

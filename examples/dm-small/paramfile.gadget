@@ -1,0 +1,35 @@
+# bound memory usage for travis
+MaxMemSizePerNode = 1500
+
+#  Relevant files
+InitCondFile = IC/IC
+OutputDir = output
+OutputList = 0.15,0.2,0.25
+SplitGravityTimestepsOn = 1
+# CPU time -limit
+	
+TimeLimitCPU = 3600 #= 8 hours
+
+# Code options
+
+#  Characteristics of run
+
+TimeMax = 0.25
+
+Omega0 = 0.288      # Total matter density  (at z=0)
+
+MassiveNuLinRespOn = 0
+HydroOn = 0
+CoolingOn = 0
+StarformationOn = 0
+DensityIndependentSphOn = 0
+
+SnapshotWithFOF = 1
+
+# Memory allocation
+PartAllocFactor = 2.0
+
+#----------------------BH Stuff-------------------------
+BlackHoleOn = 0
+MetalReturnOn = 0
+WindOn = 0

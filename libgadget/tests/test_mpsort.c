@@ -115,7 +115,7 @@ check_sorted(void * data, int elsize, size_t localsize, int compar(void * d1, vo
         if(localsize > 0) {
 //                printf("ThisTask = %d prev = %d\n", ThisTask, prev);
             if(compar(prev, data) > 0) {
-                endrun(12, "Ordering of global array is broken prev=%ld d=%ld (comp: %d). \n", prev, *(int64_t *)data, compar(prev, data));
+                endrun(12, "Ordering of global array is broken prev=%d d=%ld (comp: %d). \n", *prev, *(int64_t *)data, compar(prev, data));
             }
             assert_true(compar(prev, data) <= 0);
         }

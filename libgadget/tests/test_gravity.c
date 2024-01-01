@@ -225,8 +225,7 @@ static void test_force_flat(void ** state) {
     /*Set up the particle data*/
     int numpart = PartManager->NumPart;
     int ncbrt = cbrt(numpart);
-    P = mymalloc("part", numpart*sizeof(struct particle_data));
-    memset(P, 0, numpart*sizeof(struct particle_data));
+    particle_alloc_memory(PartManager, 8, numpart);
     /* Create a regular grid of particles, 8x8x8, all of type 1,
      * in a box 8 kpc across.*/
     int i;
@@ -237,7 +236,6 @@ static void test_force_flat(void ** state) {
         P[i].Pos[2] = (PartManager->BoxSize/ncbrt) * (i % ncbrt);
     }
     PartManager->NumPart = numpart;
-    PartManager->MaxPart = numpart;
     do_force_test(48, 1.5, 0.002, 0);
     /* For a homogeneous mass distribution, the force should be zero*/
     double meanerr=0, maxerr=-1;
@@ -270,8 +268,7 @@ static void test_force_close(void ** state) {
     int numpart = PartManager->NumPart;
     int ncbrt = cbrt(numpart);
     double close = 5000;
-    P = mymalloc("part", numpart*sizeof(struct particle_data));
-    memset(P, 0, numpart*sizeof(struct particle_data));
+    particle_alloc_memory(PartManager, 8, numpart);
     /* Create particles clustered in one place, all of type 1.*/
     int i;
     #pragma omp parallel for
@@ -281,7 +278,6 @@ static void test_force_close(void ** state) {
         P[i].Pos[2] = 4. + (i % ncbrt)/close;
     }
     PartManager->NumPart = numpart;
-    PartManager->MaxPart = numpart;
     do_force_test(48, 1.5, 0.002, 1);
     myfree(P);
 }
@@ -307,7 +303,6 @@ void do_random_test(gsl_rng * r, const int numpart)
             P[i].Pos[j] = PartManager->BoxSize*0.1 + PartManager->BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
     PartManager->NumPart = numpart;
-    PartManager->MaxPart = numpart;
     do_force_test(48, 1.5, 0.002, 1);
 }
 
@@ -316,8 +311,7 @@ static void test_force_random(void ** state) {
     int numpart = PartManager->NumPart;
     struct forcetree_testdata * data = * (struct forcetree_testdata **) state;
     gsl_rng * r = data->r;
-    P = mymalloc("part", numpart*sizeof(struct particle_data));
-    memset(P, 0, numpart*sizeof(struct particle_data));
+    particle_alloc_memory(PartManager, 8, numpart);
     int i;
     for(i=0; i<2; i++) {
         do_random_test(r, numpart);
@@ -339,7 +333,7 @@ static int setup_tree(void **state) {
     dp.SetAsideFactor = 1;
     set_domain_par(dp);
     petapm_module_init(omp_get_max_threads());
-    init_forcetree_params();
+    init_forcetree_params(0.7);
     /*Set up the top-level domain grid*/
     struct forcetree_testdata *data = malloc(sizeof(struct forcetree_testdata));
     data->r = gsl_rng_alloc(gsl_rng_mt19937);

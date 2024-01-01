@@ -107,7 +107,7 @@ typedef struct ForceTree {
 } ForceTree;
 
 /*Initialize the internal parameters of the forcetree module*/
-void init_forcetree_params(void);
+void init_forcetree_params(const double treeallocfactor);
 
 int force_tree_allocated(const ForceTree * tt);
 

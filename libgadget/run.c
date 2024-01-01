@@ -242,7 +242,7 @@ begrun(const int RestartSnapNum, struct header_data * head)
     myfree(pidfile);
 #endif
 
-    init_forcetree_params();
+    init_forcetree_params(0.9);
 
     init_cooling_and_star_formation(All.CoolingOn, All.StarformationOn, &All.CP, head->MassTable[0], head->BoxSize, units);
 

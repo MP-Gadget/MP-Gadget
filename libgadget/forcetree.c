@@ -40,10 +40,10 @@ static struct forcetree_params
 } ForceTreeParams;
 
 void
-init_forcetree_params(void)
+init_forcetree_params(const double treeallocfactor)
 {
     /* This was increased due to the extra nodes created by subtrees*/
-    ForceTreeParams.TreeAllocFactor = 0.9;
+    ForceTreeParams.TreeAllocFactor = treeallocfactor;
 }
 
 static ForceTree
@@ -212,13 +212,13 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
         {
             message(1, "Not enough tree nodes (%ld) for %ld particles. Created %d\n", maxnodes, act->NumActiveParticle, tree.numnodes);
             force_tree_free(&tree);
-            maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->NumPart + ddecomp->NTopNodes;
-            message(1, "TreeAllocFactor from %g to %g now %ld tree nodes\n", ForceTreeParams.TreeAllocFactor, ForceTreeParams.TreeAllocFactor*1.15, maxnodes);
             ForceTreeParams.TreeAllocFactor *= 1.15;
             if(ForceTreeParams.TreeAllocFactor > 3.0) {
                 TooManyNodes = 1;
                 break;
             }
+            maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->NumPart + ddecomp->NTopNodes;
+            message(1, "TreeAllocFactor from %g to %g now %ld tree nodes\n", ForceTreeParams.TreeAllocFactor, ForceTreeParams.TreeAllocFactor*1.15, maxnodes);
         }
     }
     while(tree.numnodes >= tree.lastnode - tree.firstnode);

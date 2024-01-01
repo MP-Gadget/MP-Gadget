@@ -26,24 +26,6 @@ struct forcetree_testdata
     gsl_rng * r;
 };
 
-static int
-order_by_type_and_key(const void *a, const void *b)
-{
-    const struct particle_data * pa  = (const struct particle_data *) a;
-    const struct particle_data * pb  = (const struct particle_data *) b;
-
-    if(pa->Type < pb->Type)
-        return -1;
-    if(pa->Type > pb->Type)
-        return +1;
-    if(pa->Key < pb->Key)
-        return -1;
-    if(pa->Key > pb->Key)
-        return +1;
-
-    return 0;
-}
-
 #define NODECACHE_SIZE 100
 
 /*This checks that the moments of the force tree in Nodes are valid:
@@ -199,10 +181,10 @@ static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp
         P[i].PI = 0;
         P[i].IsGarbage = 0;
     }
-    qsort(P, numpart, sizeof(struct particle_data), order_by_type_and_key);
     int maxnode = tb.lastnode - tb.firstnode;
     PartManager->MaxPart = numpart;
     PartManager->NumPart = numpart;
+    slots_gc_sorted(PartManager, SlotsManager);
     assert_true(tb.Nodes != NULL);
     /*So we know which nodes we have initialised*/
     for(i=0; i< maxnode; i++)
@@ -289,9 +271,10 @@ static void do_tree_mask_hmax_update_test(const int numpart, ForceTree * tb, Dom
         P[i].Hsml = PartManager->BoxSize/cbrt(numpart) * get_random_number(P[i].Key, &rnd);
     }
     free_random_numbers(&rnd);
-    qsort(P, numpart, sizeof(struct particle_data), order_by_type_and_key);
     PartManager->MaxPart = numpart;
     PartManager->NumPart = numpart;
+    SlotsManager->info[0].enabled = 0;
+    slots_gc_sorted(PartManager, SlotsManager);
     assert_true(tb->Nodes != NULL);
     /*Time creating the nodes*/
     double start, end;
@@ -315,7 +298,7 @@ static void test_rebuild_flat(void ** state) {
     /*Set up the particle data*/
     int ncbrt = 128;
     int numpart = ncbrt*ncbrt*ncbrt;
-    P = malloc(numpart*sizeof(struct particle_data));
+    particle_alloc_memory(PartManager, 8, numpart);
     /* Create a regular grid of particles, 8x8x8, all of type 1,
      * in a box 8 kpc across.*/
     int i;
@@ -326,23 +309,24 @@ static void test_rebuild_flat(void ** state) {
         P[i].Pos[1] = (PartManager->BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
         P[i].Pos[2] = (PartManager->BoxSize/ncbrt) * (i % ncbrt);
     }
+    PartManager->NumPart = numpart;
     /*Allocate tree*/
     /*Base pointer*/
     struct forcetree_testdata * data = * (struct forcetree_testdata **) state;
     DomainDecomp ddecomp = data->ddecomp;
     ddecomp.TopLeaves[0].topnode = numpart;
-    ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp, 1);
+    ForceTree tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1);
     /* So unused memory has Father < 0*/
     for(i = tb.firstnode; i < tb.lastnode; i++)
         tb.Nodes[i].father = -10;
 
     do_tree_test(numpart, tb, &ddecomp);
     force_tree_free(&tb);
-    tb = force_treeallocate(numpart, numpart, &ddecomp, 1);
+    tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1);
     do_tree_mask_hmax_update_test(numpart, &tb, &ddecomp);
     assert_true(tb.Nodes[tb.firstnode].mom.hmax >= 0.0584);
     force_tree_free(&tb);
-    free(P);
+    myfree(PartManager->Base);
 }
 
 static void test_rebuild_close(void ** state) {
@@ -350,7 +334,7 @@ static void test_rebuild_close(void ** state) {
     int ncbrt = 128;
     int numpart = ncbrt*ncbrt*ncbrt;
     double close = 5000;
-    P = malloc(numpart*sizeof(struct particle_data));
+    particle_alloc_memory(PartManager, 8, numpart);
     /* Create particles clustered in one place, all of type 1.*/
     int i;
     #pragma omp parallel for
@@ -360,16 +344,17 @@ static void test_rebuild_close(void ** state) {
         P[i].Pos[1] = 4. + ((i/ncbrt) % ncbrt) /close;
         P[i].Pos[2] = 4. + (i % ncbrt)/close;
     }
+    PartManager->NumPart = numpart;
     struct forcetree_testdata * data = * (struct forcetree_testdata **) state;
     DomainDecomp ddecomp = data->ddecomp;
     ddecomp.TopLeaves[0].topnode = numpart;
-    ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp, 1);
+    ForceTree tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1);
     do_tree_test(numpart, tb, &ddecomp);
     force_tree_free(&tb);
-    tb = force_treeallocate(numpart, numpart, &ddecomp, 1);
+    tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1);
     do_tree_mask_hmax_update_test(numpart, &tb, &ddecomp);
     force_tree_free(&tb);
-    free(P);
+    myfree(PartManager->Base);
 }
 
 void do_random_test(gsl_rng * r, const int numpart, const ForceTree tb, DomainDecomp * ddecomp)
@@ -395,6 +380,7 @@ void do_random_test(gsl_rng * r, const int numpart, const ForceTree tb, DomainDe
         for(j=0; j<3; j++)
             P[i].Pos[j] = PartManager->BoxSize*0.1 + PartManager->BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
+    PartManager->NumPart = numpart;
     do_tree_test(numpart, tb, ddecomp);
 }
 
@@ -405,21 +391,21 @@ static void test_rebuild_random(void ** state) {
     DomainDecomp ddecomp = data->ddecomp;
     gsl_rng * r = (gsl_rng *) data->r;
     int numpart = ncbrt*ncbrt*ncbrt;
+    particle_alloc_memory(PartManager, 8, numpart);
     /*Allocate tree*/
     /*Base pointer*/
     ddecomp.TopLeaves[0].topnode = numpart;
-    ForceTree tb = force_treeallocate(numpart, numpart, &ddecomp, 1);
+    ForceTree tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1);
     assert_true(tb.Nodes != NULL);
-    P = malloc(numpart*sizeof(struct particle_data));
     int i;
     for(i=0; i<2; i++) {
         do_random_test(r, numpart, tb, &ddecomp);
     }
     force_tree_free(&tb);
-    tb = force_treeallocate(numpart, numpart, &ddecomp, 1);
+    tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1);
     do_tree_mask_hmax_update_test(numpart, &tb, &ddecomp);
     force_tree_free(&tb);
-    free(P);
+    myfree(PartManager->Base);
 }
 
 /*Make a simple trivial domain for all data on a single processor*/
@@ -454,7 +440,7 @@ static int setup_tree(void **state) {
     memset(PartManager, 0, sizeof(PartManager[0]));
     memset(SlotsManager, 0, sizeof(SlotsManager[0]));
     PartManager->BoxSize = 8;
-    init_forcetree_params();
+    init_forcetree_params(0.5);
     /*Set up the top-level domain grid*/
     struct forcetree_testdata *data = malloc(sizeof(struct forcetree_testdata));
     trivial_domain(&data->ddecomp);
