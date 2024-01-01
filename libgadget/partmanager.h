@@ -16,22 +16,18 @@ struct particle_data
                         points to the corresponding structure in (SPH|BH|STAR)P array.*/
     struct {
         unsigned int IsGarbage            :1; /* True for a garbage particle. readonly: Use slots_mark_garbage to mark this.*/
-        unsigned int Swallowed            :1; /* True if the particle is being swallowed; used in BH to determine swallower and swallowee;*/
+        unsigned int Swallowed            :1; /* True if the particle is a black hole which has been swallowed; these particles stay around so we have a merger tree.*/
         unsigned int HeIIIionized        :1; /* True if the particle has undergone helium reionization.*/
         unsigned int BHHeated              :1; /* Flags that particle was heated by a BH this timestep*/
-        unsigned int                      :4; /* UNUSED bits put here to maintain bit alignment */
-        unsigned char Generation; /* How many particles it has spawned; used to generate unique particle ID.
-                                     may wrap around with too many SFR/BH if a feedback model goes rogue */
+        unsigned char Generation : 4; /* How many particles it has spawned; used to generate unique particle ID.
+                                     We limit to sfr_params.Generations + 1 and enforce at max fitting into 4 bits in sfr_params. */
         unsigned char TimeBinHydro; /* Time step bin for hydro; 0 for unassigned. Must be smaller than the gravity timebin.
-                                     * Star formation, cooling, and BH accretion takes place on the hydro timestep.
-                                     * Dynamic friction is also the hydro timestep because it relies on the gas density. */
+                                     * Star formation, cooling, and BH accretion takes place on the hydro timestep.*/
         unsigned char TimeBinGravity; /* Time step bin for gravity; 0 for unassigned.*/
         /* particle type.  0=gas, 1=halo, 2=disk, 3=bulge, 4=stars, 5=bndry */
         unsigned char Type;
         /* (jdavies): I moved this out of the bitfield because i need to access it by pointer in petapm.c
          * This could also be done by passing a struct pointer instead of void* as the petapm pstruct */
-        /* To ensure alignment to a 32-bit boundary.*/
-        unsigned char spare[3];
     };
     MyIDType ID;
 

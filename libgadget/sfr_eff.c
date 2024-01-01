@@ -160,6 +160,8 @@ void set_sfr_params(ParameterSet * ps)
         sfr_params.TempClouds = param_get_double(ps, "TempClouds");
         sfr_params.MaxSfrTimescale = param_get_double(ps, "MaxSfrTimescale");
         sfr_params.Generations = param_get_int(ps, "Generations");
+        if(sfr_params.Generations > 14)
+            endrun(0, "Generations is %d, only space in the bitfield for 14.\n", sfr_params.Generations);
         sfr_params.MinGasTemp = param_get_double(ps, "MinGasTemp");
         sfr_params.BHFeedbackUseTcool = param_get_int(ps, "BHFeedbackUseTcool");
         if(sfr_params.BHFeedbackUseTcool > 3 || sfr_params.BHFeedbackUseTcool < 0)

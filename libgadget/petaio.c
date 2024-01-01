@@ -790,7 +790,6 @@ static void STVelocity(int i, float * out, void * baseptr, void * smanptr, const
 }
 SIMPLE_PROPERTY(Mass, Mass, float, 1)
 SIMPLE_PROPERTY(ID, ID, uint64_t, 1)
-SIMPLE_PROPERTY(Generation, Generation, unsigned char, 1)
 SIMPLE_GETTER(GTPotential, Potential, float, 1, struct particle_data)
 SIMPLE_GETTER(GTTimeBinHydro, TimeBinHydro, int, 1, struct particle_data)
 SIMPLE_GETTER(GTTimeBinGravity, TimeBinGravity, int, 1, struct particle_data)
@@ -913,6 +912,15 @@ static void GTSwallowed(int i, unsigned char * out, void * baseptr, void * smanp
 static void STSwallowed(int i, unsigned char * out, void * baseptr, void * smanptr, const struct conversions * params) {
     struct particle_data * part = (struct particle_data *) baseptr;
     part[i].Swallowed = *out;
+}
+static void GTGeneration(int i, unsigned char * out, void * baseptr, void * smanptr, const struct conversions * params) {
+    struct particle_data * part = (struct particle_data *) baseptr;
+    *out = part[i].Generation;
+}
+
+static void STGeneration(int i, unsigned char * out, void * baseptr, void * smanptr, const struct conversions * params) {
+    struct particle_data * part = (struct particle_data *) baseptr;
+    part[i].Generation = *out;
 }
 
 static int order_by_type(const void *a, const void *b)
