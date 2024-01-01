@@ -803,9 +803,9 @@ force_tree_create_nodes(ForceTree * tree, const ActiveParticles * act, int mask,
                 /* Get the topnode to which a particle belongs. Each local tree
                  * has a local set of treenodes copying the global topnodes, except tid 0
                  * which has the real topnodes.*/
-                const int topleaf = domain_get_topleaf(P[i].Key, ddecomp);
+                const int topleaf = P[i].TopLeaf;
                 if(topleaf < StartLeaf || topleaf >= EndLeaf)
-                    endrun(5, "Bad topleaf %d start %d end %d key %ld type %d ID %ld\n", topleaf, StartLeaf, EndLeaf, P[i].Key, P[i].Type, P[i].ID);
+                    endrun(5, "Bad topleaf %d start %d end %d type %d ID %ld\n", topleaf, StartLeaf, EndLeaf, P[i].Type, P[i].ID);
                 //int treenode = ddecomp->TopLeaves[topleaf].treenode;
                 cur = local_topnodes[topleaf - StartLeaf];
             }

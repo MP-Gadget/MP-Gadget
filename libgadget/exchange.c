@@ -2,6 +2,7 @@
 #include <omp.h>
 #include <string.h>
 #include "exchange.h"
+#include "forcetree.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "walltime.h"
@@ -409,8 +410,11 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
     const double rel_random_shift[3] = {0};
     /* Find drift factor*/
     double ddrift = 0;
-    if(drift)
+    ForceTree * tree = NULL;
+    if(drift) {
         ddrift = get_exact_drift_factor(drift->CP, drift->ti0, drift->ti1);
+        tree = (ForceTree *) layout_userdata;
+    }
 
     /* flag the particles that need to be exported */
     size_t schedsz = plan->nexchange/numthreads+1;
@@ -420,6 +424,9 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
         if(drift) {
             real_drift_particle(&pman->Base[i], sman, ddrift, pman->BoxSize, rel_random_shift);
             pman->Base[i].Ti_drift = drift->ti1;
+            const int no = force_tree_find_topnode(pman->Base[i].Pos, tree);
+            /* Set the topleaf for layoutfunc.*/
+            pman->Base[i].TopLeaf = tree->Nodes[no].s.suns[0] - tree->lastnode;
         }
         if(pman->Base[i].IsGarbage) {
             ngarbage++;

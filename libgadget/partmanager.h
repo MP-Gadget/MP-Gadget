@@ -74,9 +74,10 @@ struct particle_data
 
     inttime_t Ti_drift;       /*!< current time of the particle position. The same for all particles. */
     /* This is the destination task during the fof particle exchange.
-     * It is never used outside of that code, but there are 3 other ints here
-     * so we can fit it in an unused part of the struct.*/
+     * It is never used outside of that code.*/
     int TargetTask;
+    /* TopLeaf this particle belongs to. Set during drift in domain exchange or in domain_compute_costs. Can this be unified with TargetTask?*/
+    int TopLeaf;
 #ifdef DEBUG
     /* Kick times for both hydro and grav*/
     inttime_t Ti_kick_hydro;

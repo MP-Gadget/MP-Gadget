@@ -716,13 +716,8 @@ domain_layoutfunc(int n, const void * userdata) {
 static int
 domain_tree_layoutfunc(int n, const void * userdata) {
     const ForceTree * tree = (const ForceTree *) userdata;
-    double * pos = P[n].Pos;
-    int no = force_tree_find_topnode(pos, tree);
-    /* Find the corresponding task.*/
-    if(tree->Nodes[no].f.ChildType != PSEUDO_NODE_TYPE)
-        return tree->ThisTask;
-    int pseudo = tree->Nodes[no].s.suns[0];
-    return tree->TopLeaves[pseudo - tree->lastnode].Task;
+    const int topleaf = P[n].TopLeaf;
+    return tree->TopLeaves[topleaf].Task;
 }
 
 /*! This function walks the global top tree in order to establish the
@@ -1354,14 +1349,16 @@ domain_compute_costs(DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopL
         #pragma omp for
         for(n = 0; n < PartManager->NumPart; n++)
         {
+            double * pos = P[n].Pos;
+            const int no = force_tree_find_topnode(pos, &tree);
+            const int leaf = tree.Nodes[no].s.suns[0] - tree.lastnode;
+            /* Set the topleaf so we can use it for exchange*/
+            P[n].TopLeaf = leaf;
+            // int no = domain_get_topleaf(P[n].Key, ddecomp);
             /* Skip garbage particles: they have zero work
              * and can be removed by exchange if under memory pressure.*/
             if(P[n].IsGarbage)
                 continue;
-            double * pos = P[n].Pos;
-            const int no = force_tree_find_topnode(pos, &tree);
-            const int leaf = tree.Nodes[no].s.suns[0] - tree.lastnode;
-            // int no = domain_get_topleaf(P[n].Key, ddecomp);
 
             if(local_TopLeafWork)
                 local_TopLeafWork[leaf + tid * ddecomp->NTopLeaves] += 1;
