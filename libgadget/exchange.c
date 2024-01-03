@@ -122,20 +122,18 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
             break;
         }
         domain_build_exchange_list(layoutfunc, layout_userdata, &plan, pman, sman, Comm);
+        walltime_measure("/Domain/exchange/togo");
 
         /*Exit early if nothing to do*/
         if(!MPIU_Any(plan.nexchange > 0, Comm))
         {
             myfree(plan.ExchangeList);
-            walltime_measure("/Domain/exchange/togo");
             break;
         }
 
         /* determine for each rank how many particles have to be shifted to other ranks */
         plan.last = domain_find_iter_space(&plan, pman, sman);
         domain_build_plan(iter, layoutfunc, layout_userdata, &plan, pman, Comm);
-        walltime_measure("/Domain/exchange/togo");
-
 
         /* Do a GC if we are asked to or if this isn't the last iteration.
          * The gc decision is made collective in domain_exchange_once,

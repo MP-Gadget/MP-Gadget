@@ -278,6 +278,8 @@ void domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
         }
     }
 
+    walltime_measure("/Domain/drift");
+
     /* Try a domain exchange.
      * If we have no memory for the particles,
      * bail and do a full domain*/
