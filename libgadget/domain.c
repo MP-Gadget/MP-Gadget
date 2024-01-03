@@ -226,6 +226,21 @@ void domain_decompose_full(DomainDecomp * ddecomp)
     walltime_measure("/Domain/PeanoSort");
 }
 
+/*Check whether a particle is inside the volume covered by a node,
+ * by checking whether each dimension is close enough to center (L1 metric).*/
+static inline int inside_topleaf(const int topleaf, const double Pos[3], const ForceTree * const tree)
+{
+    /* Find treenode corresponding to this topleaf*/
+    const struct NODE * const node = &tree->Nodes[tree->TopLeaves[topleaf].treenode];
+    /*One can also use a loop, but the compiler unrolls it only at -O3,
+     *so this is a little faster*/
+    int inside =
+        (fabs(2*(Pos[0] - node->center[0])) <= node->len) *
+        (fabs(2*(Pos[1] - node->center[1])) <= node->len) *
+        (fabs(2*(Pos[2] - node->center[2])) <= node->len);
+    return inside;
+}
+
 /* This is a cut-down version of the domain decomposition that leaves the
  * domain grid intact, but exchanges the particles and rebuilds the tree */
 void domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
@@ -245,9 +260,11 @@ void domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
         for(i=0; i < PartManager->NumPart; i++) {
                 real_drift_particle(&PartManager->Base[i], SlotsManager, ddrift, PartManager->BoxSize, rel_random_shift);
                 PartManager->Base[i].Ti_drift = drift->ti1;
-                const int no = force_tree_find_topnode(PartManager->Base[i].Pos, &tree);
-                /* Set the topleaf for layoutfunc.*/
-                PartManager->Base[i].TopLeaf = tree.Nodes[no].s.suns[0] - tree.lastnode;
+                if(!inside_topleaf(PartManager->Base[i].TopLeaf, PartManager->Base[i].Pos, &tree)) {
+                    const int no = force_tree_find_topnode(PartManager->Base[i].Pos, &tree);
+                    /* Set the topleaf for layoutfunc.*/
+                    PartManager->Base[i].TopLeaf = tree.Nodes[no].s.suns[0] - tree.lastnode;
+                }
             }
     }
 
