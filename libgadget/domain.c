@@ -17,6 +17,7 @@
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "walltime.h"
+#include "bhdynfric.h"
 #include "utils/paramset.h"
 #include "utils/peano.h"
 #include "utils/mpsort.h"
@@ -749,6 +750,11 @@ static int
 domain_tree_layoutfunc(int n, const void * userdata) {
     const ForceTree * tree = (const ForceTree *) userdata;
     const int topleaf = P[n].TopLeaf;
+    /* If we aren't using DM for the dynamic friction, we don't need to exchange inactive DM particles.
+     * Velocity dispersions are computed on a PM step only.*/
+    if(!(blackhole_dynfric_treemask() & DMMASK))
+        if(P[n].Type == 1 && !is_timebin_active(P[n].TimeBinGravity, P[n].Ti_drift))
+            return tree->ThisTask;
     return tree->TopLeaves[topleaf].Task;
 }
 
