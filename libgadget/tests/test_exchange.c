@@ -97,7 +97,7 @@ test_exchange(void **state)
 
     int i;
 
-    int fail = domain_exchange(&test_exchange_layout_func, NULL, 1, NULL, PartManager, SlotsManager,10000, MPI_COMM_WORLD);
+    int fail = domain_exchange(&test_exchange_layout_func, NULL, 1, PartManager, SlotsManager,10000, MPI_COMM_WORLD);
 
     assert_all_true(!fail);
 #ifdef DEBUG
@@ -122,7 +122,7 @@ test_exchange_zero_slots(void **state)
 
     int i;
 
-    int fail = domain_exchange(&test_exchange_layout_func, NULL, 1, NULL, PartManager, SlotsManager, 10000, MPI_COMM_WORLD);
+    int fail = domain_exchange(&test_exchange_layout_func, NULL, 1, PartManager, SlotsManager, 10000, MPI_COMM_WORLD);
 
     assert_all_true(!fail);
 #ifdef DEBUG
@@ -149,7 +149,7 @@ test_exchange_with_garbage(void **state)
     slots_mark_garbage(0, PartManager, SlotsManager); /* watch out! this propagates the garbage flag to children */
     TotNumPart -= NTask;
 
-    int fail = domain_exchange(&test_exchange_layout_func, NULL, 1, NULL, PartManager, SlotsManager, 10000, MPI_COMM_WORLD);
+    int fail = domain_exchange(&test_exchange_layout_func, NULL, 1, PartManager, SlotsManager, 10000, MPI_COMM_WORLD);
 
     assert_all_true(!fail);
 
@@ -187,7 +187,7 @@ test_exchange_uneven(void **state)
     int i;
 
     /* this will trigger a slot growth on slot type 0 due to the inbalance */
-    int fail = domain_exchange(&test_exchange_layout_func_uneven, NULL, 1, NULL, PartManager, SlotsManager, 10000, MPI_COMM_WORLD);
+    int fail = domain_exchange(&test_exchange_layout_func_uneven, NULL, 1, PartManager, SlotsManager, 10000, MPI_COMM_WORLD);
 
     assert_all_true(!fail);
 

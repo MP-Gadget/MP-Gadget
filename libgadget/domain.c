@@ -209,7 +209,7 @@ void domain_decompose_full(DomainDecomp * ddecomp)
     myfree(OldTopNodes);
 
     ForceTree tree = force_tree_top_build(ddecomp, 1);
-    if(domain_exchange(domain_tree_layoutfunc, &tree, 0, NULL, PartManager, SlotsManager, 10000, ddecomp->DomainComm))
+    if(domain_exchange(domain_tree_layoutfunc, &tree, 0, PartManager, SlotsManager, 10000, ddecomp->DomainComm))
         endrun(1929,"Could not exchange particles\n");
     force_tree_free(&tree);
 
@@ -235,10 +235,26 @@ void domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
     walltime_measure("/Misc");
 
     ForceTree tree = force_tree_top_build(ddecomp, 1);
+    /* Find drift factor*/
+    if(drift) {
+        int i;
+        /* Can't update the random shift without re-decomposing domain*/
+        const double rel_random_shift[3] = {0};
+        double ddrift = get_exact_drift_factor(drift->CP, drift->ti0, drift->ti1);
+        #pragma omp parallel for
+        for(i=0; i < PartManager->NumPart; i++) {
+                real_drift_particle(&PartManager->Base[i], SlotsManager, ddrift, PartManager->BoxSize, rel_random_shift);
+                PartManager->Base[i].Ti_drift = drift->ti1;
+                const int no = force_tree_find_topnode(PartManager->Base[i].Pos, &tree);
+                /* Set the topleaf for layoutfunc.*/
+                PartManager->Base[i].TopLeaf = tree.Nodes[no].s.suns[0] - tree.lastnode;
+            }
+    }
+
     /* Try a domain exchange.
      * If we have no memory for the particles,
      * bail and do a full domain*/
-    int success = domain_exchange(domain_tree_layoutfunc, &tree, 0, drift, PartManager, SlotsManager, 10000, ddecomp->DomainComm);
+    int success = domain_exchange(domain_tree_layoutfunc, &tree, 0, PartManager, SlotsManager, 10000, ddecomp->DomainComm);
     force_tree_free(&tree);
     if(0 != success) {
         domain_decompose_full(ddecomp);
