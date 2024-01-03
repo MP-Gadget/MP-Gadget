@@ -230,8 +230,15 @@ void domain_decompose_full(DomainDecomp * ddecomp)
  * by checking whether each dimension is close enough to center (L1 metric).*/
 static inline int inside_topleaf(const int topleaf, const double Pos[3], const ForceTree * const tree)
 {
+    /* During fof particle exchange topleaf is over-written with the target task.
+     * This is usually fine: if the index of the target top leaf happens to be the
+     * same as the target task we just have nothing to do. But make sure we don't have a bad index,
+     * just in case. Usually we should have at least one topleaf per task so this should never happen. */
+    if(topleaf >= tree->NTopLeaves || topleaf < 0)
+        return 0;
     /* Find treenode corresponding to this topleaf*/
     const struct NODE * const node = &tree->Nodes[tree->TopLeaves[topleaf].treenode];
+
     /*One can also use a loop, but the compiler unrolls it only at -O3,
      *so this is a little faster*/
     int inside =
@@ -251,21 +258,23 @@ void domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
 
     ForceTree tree = force_tree_top_build(ddecomp, 1);
     /* Find drift factor*/
-    if(drift) {
-        int i;
-        /* Can't update the random shift without re-decomposing domain*/
-        const double rel_random_shift[3] = {0};
-        double ddrift = get_exact_drift_factor(drift->CP, drift->ti0, drift->ti1);
-        #pragma omp parallel for
-        for(i=0; i < PartManager->NumPart; i++) {
-                real_drift_particle(&PartManager->Base[i], SlotsManager, ddrift, PartManager->BoxSize, rel_random_shift);
-                PartManager->Base[i].Ti_drift = drift->ti1;
-                if(!inside_topleaf(PartManager->Base[i].TopLeaf, PartManager->Base[i].Pos, &tree)) {
-                    const int no = force_tree_find_topnode(PartManager->Base[i].Pos, &tree);
-                    /* Set the topleaf for layoutfunc.*/
-                    PartManager->Base[i].TopLeaf = tree.Nodes[no].s.suns[0] - tree.lastnode;
-                }
-            }
+    int i;
+    /* Can't update the random shift without re-decomposing domain*/
+    const double rel_random_shift[3] = {0};
+    double ddrift = 0;
+    if(drift)
+        ddrift = get_exact_drift_factor(drift->CP, drift->ti0, drift->ti1);
+    #pragma omp parallel for
+    for(i=0; i < PartManager->NumPart; i++) {
+        if(drift) {
+            real_drift_particle(&PartManager->Base[i], SlotsManager, ddrift, PartManager->BoxSize, rel_random_shift);
+            PartManager->Base[i].Ti_drift = drift->ti1;
+        }
+        if(!inside_topleaf(PartManager->Base[i].TopLeaf, PartManager->Base[i].Pos, &tree)) {
+            const int no = force_tree_find_topnode(PartManager->Base[i].Pos, &tree);
+            /* Set the topleaf for layoutfunc.*/
+            PartManager->Base[i].TopLeaf = tree.Nodes[no].s.suns[0] - tree.lastnode;
+        }
     }
 
     /* Try a domain exchange.

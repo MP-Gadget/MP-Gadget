@@ -67,10 +67,8 @@ struct particle_data
     /* FOF Group number: only has meaning during FOF.*/
     int64_t GrNr;
     inttime_t Ti_drift;       /*!< current time of the particle position. The same for all particles. */
-    /* This is the destination task during the fof particle exchange.
-     * It is never used outside of that code.*/
-    int TargetTask;
-    /* TopLeaf this particle belongs to. Set during drift in domain exchange or in domain_compute_costs. Can this be unified with TargetTask?*/
+    /* TopLeaf this particle belongs to. Set to find destinations in the exchange. Used to accelerate the tree build.
+     During fof particle exchange this actually points to the target task, not the topleaf.*/
     int TopLeaf;
 #ifdef DEBUG
     /* Kick times for both hydro and grav*/
