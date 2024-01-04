@@ -81,7 +81,6 @@ static int clockcmp(const void * c1, const void * c2) {
 }
 
 static void walltime_clock_insert(const char * name) {
-    if(name[0] != '/') abort();
     if(strlen(name) > 1) {
         char tmp[80] = {0};
         strncpy(tmp, name, 79);
@@ -197,7 +196,7 @@ double walltime_measure_full(const char * name, const char * file, const int lin
     const char * basename = file + strlen(file);
     while(basename >= file && *basename != '/') basename --;
     basename ++;
-    sprintf(fullname, "%s@%s:%04d", name, basename, line);
+    snprintf(fullname, 128, "%s@%s:%04d", name, basename, line);
     return walltime_measure_internal(fullname);
 }
 double walltime_add_full(const char * name, const double dt, const char * file, const int line) {
@@ -205,7 +204,7 @@ double walltime_add_full(const char * name, const double dt, const char * file, 
     const char * basename = file + strlen(file);
     while(basename >= file && *basename != '/') basename --;
     basename ++;
-    sprintf(fullname, "%s@%s:%04d", name, basename, line);
+    snprintf(fullname, 128, "%s@%s:%04d", name, basename, line);
     return walltime_add_internal(fullname, dt);
 
 }

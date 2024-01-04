@@ -1054,13 +1054,14 @@ static void fof_reduce_groups(
 
     /* reset the ordering of imported list, such that it can be properly returned */
     qsort_openmp(images, nimport, elsize, fof_compare_Group_OriginalIndex);
-
+#ifdef DEBUG
     for(i = 0; i < nimport; i++) {
         struct BaseGroup * gi = (struct BaseGroup*) ((char*) images + i * elsize);
         if(gi->MinIDTask != ThisTask) {
-            abort();
+            endrun(5, "Error in basegroup import: minidtask %d != ThisTask %d\n", gi->MinIDTask, ThisTask);
         }
     }
+#endif
     void * ghosts2 = mymalloc("TMP", nmemb * elsize);
 
     MPI_Alltoallv_smart(images, Recv_count, NULL, dtype,
