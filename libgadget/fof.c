@@ -147,8 +147,6 @@ fof_fof(DomainDecomp * ddecomp, const int StoreGrNr, MPI_Comm Comm)
     message(0, "Begin to compute FoF group catalogues. (allocated: %g MB)\n",
             mymalloc_usedbytes() / (1024.0 * 1024.0));
 
-    walltime_measure("/Misc");
-
     message(0, "Comoving linking length: %g\n", fof_params.FOFHaloComovingLinkingLength);
 
     struct fof_particle_list * HaloLabel = (struct fof_particle_list *) mymalloc("HaloLabel", PartManager->NumPart * sizeof(struct fof_particle_list));
@@ -192,7 +190,6 @@ fof_fof(DomainDecomp * ddecomp, const int StoreGrNr, MPI_Comm Comm)
     NgroupsExt = fof_compile_base(base, NgroupsExt, HaloLabel, Comm);
 
     message(0, "Compiled local group data and catalogue.\n");
-    walltime_measure("/FOF/Compile");
 
     fof_assign_grnr(base, NgroupsExt, Comm);
 
@@ -233,7 +230,7 @@ fof_fof(DomainDecomp * ddecomp, const int StoreGrNr, MPI_Comm Comm)
     message(0, "Finished FoF. Group properties are now allocated.. (presently allocated=%g MB)\n",
             mymalloc_usedbytes() / (1024.0 * 1024.0));
 
-    walltime_measure("/FOF/Prop");
+    walltime_measure("/FOF/Compile");
 
     myfree(HaloLabel);
 
@@ -247,8 +244,6 @@ fof_finish(FOFGroups * fof)
 
     message(0, "Finished computing FoF groups.  (presently allocated=%g MB)\n",
             mymalloc_usedbytes() / (1024.0 * 1024.0));
-
-    walltime_measure("/FOF/MISC");
 
     MPI_Type_free(&MPI_TYPE_GROUP);
 }

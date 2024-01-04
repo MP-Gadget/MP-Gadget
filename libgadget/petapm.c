@@ -271,13 +271,11 @@ petapm_force_init(
     PetaPMRegion * regions = prepare(pm, pstruct, userdata, Nregions);
     pm_init_regions(pm, regions, *Nregions);
 
-    walltime_measure("/PMgrav/Misc");
     pm_iterate(pm, put_particle_to_mesh, regions, *Nregions);
-    walltime_measure("/PMgrav/cic");
 
     layout_prepare(pm, &pm->priv->layout, pm->priv->meshbuf, regions, *Nregions, pm->comm);
 
-    walltime_measure("/PMgrav/comm");
+    walltime_measure("/PMgrav/init");
     return regions;
 }
 
@@ -298,7 +296,7 @@ pfft_complex * petapm_force_r2c(PetaPM * pm,
 
 #ifdef DEBUG
     verify_density_field(pm, real, pm->priv->meshbuf, pm->priv->meshbufsize);
-    walltime_measure("/PMgrav/Misc");
+    walltime_measure("/PMgrav/Verify");
 #endif
 
     pfft_complex * complx = (pfft_complex *) mymalloc("PMcomplex", pm->priv->fftsize * sizeof(double));
@@ -354,9 +352,8 @@ petapm_force_c2r(PetaPM * pm,
         pm_iterate(pm, readout, regions, Nregions);
         walltime_measure("/PMgrav/readout");
     }
-    walltime_measure("/PMgrav/Misc");
-
 }
+
 void petapm_force_finish(PetaPM * pm) {
     layout_finish(&pm->priv->layout);
     myfree(pm->priv->meshbuf);

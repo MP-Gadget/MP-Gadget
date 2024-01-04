@@ -341,7 +341,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
     /* Stored scale factor of the next black hole seeding check*/
     double TimeNextSeedingCheck = header->TimeSnapshot;
 
-    walltime_measure("/Misc");
     struct OutputFD fds;
     open_outputfiles(RestartSnapNum, &fds, All.OutputDir, All.BlackHoleOn, All.StarformationOn);
 

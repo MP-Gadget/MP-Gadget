@@ -252,8 +252,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     tw->priv = priv;
     tw->tree = tree;
 
-    walltime_measure("/Misc");
-
     DENSITY_GET_PRIV(tw)->Left = (MyFloat *) mymalloc("DENS_PRIV->Left", PartManager->NumPart * sizeof(MyFloat));
     DENSITY_GET_PRIV(tw)->Right = (MyFloat *) mymalloc("DENS_PRIV->Right", PartManager->NumPart * sizeof(MyFloat));
     DENSITY_GET_PRIV(tw)->NumNgb = (MyFloat *) mymalloc("DENS_PRIV->NumNgb", PartManager->NumPart * sizeof(MyFloat));

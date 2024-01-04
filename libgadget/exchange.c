@@ -112,8 +112,6 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     /*Structure for building a list of particles that will be exchanged*/
     ExchangePlan plan = domain_init_exchangeplan(Comm);
 
-    walltime_measure("/Domain/exchange/init");
-
     int iter = 0;
 
     do {
@@ -375,8 +373,8 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
 #ifdef DEBUG
     domain_test_id_uniqueness(pman);
     slots_check_id_consistency(pman, sman);
-#endif
     walltime_measure("/Domain/exchange/finalize");
+#endif
 
     return 0;
 }

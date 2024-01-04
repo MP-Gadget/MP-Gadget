@@ -231,21 +231,20 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
         }
         endrun(2, "Required too many nodes, snapshot dumped\n");
     }
-
-    if(mask == ALLMASK)
-        walltime_measure("/Tree/Build/Nodes");
-    tree.moments_computed_flag = 0;
-
-    if(DoMoments) {
-        force_tree_calc_moments(&tree, ddecomp);
-        walltime_measure("/Tree/Build/Moments");
-    }
-
     report_memory_usage("FORCETREE");
     tree.Nodes_base = (struct NODE *) myrealloc(tree.Nodes_base, (tree.numnodes +1) * sizeof(struct NODE));
 
     /*Update the oct-tree struct so it knows about the memory change*/
     tree.Nodes = tree.Nodes_base - tree.firstnode;
+
+    tree.moments_computed_flag = 0;
+
+    if(DoMoments) {
+        walltime_measure("/Tree/Build/Nodes");
+        force_tree_calc_moments(&tree, ddecomp);
+        walltime_measure("/Tree/Build/Moments");
+    }
+
 #ifdef DEBUG
         force_validate_nextlist(&tree);
 #endif
@@ -1286,8 +1285,6 @@ force_treeupdate_pseudos(int no, const ForceTree * tree)
 void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp * ddecomp)
 {
     int i;
-
-    walltime_measure("/Misc");
 
     if(!tree->Father)
         endrun(1, "Father array not allocated, needed for hmax!\n");

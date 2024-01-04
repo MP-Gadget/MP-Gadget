@@ -161,8 +161,6 @@ void domain_decompose_full(DomainDecomp * ddecomp)
         Npolicies = domain_policies_init(policies, NPOLICY);
     }
 
-    walltime_measure("/Misc");
-
     message(0, "domain decomposition... (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
     int decompose_failed = 1;
@@ -254,8 +252,6 @@ static inline int inside_topleaf(const int topleaf, const double Pos[3], const F
 void domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
 {
     message(0, "Attempting a domain exchange\n");
-
-    walltime_measure("/Misc");
 
     ForceTree tree = force_tree_top_build(ddecomp, 1);
     /* Find drift factor*/
@@ -403,8 +399,6 @@ domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * pol
 
     report_memory_usage("DOMAIN");
 
-    walltime_measure("/Domain/Decompose/Misc");
-
     if(domain_determine_global_toptree(policy, topTree, &ddecomp->NTopNodes, MaxTopNodes, ddecomp->DomainComm)) {
         myfree(topTree);
         return 1;
@@ -455,18 +449,14 @@ domain_balance(DomainDecomp * ddecomp)
 
     domain_compute_costs(ddecomp, NULL, TopLeafCount);
 
-    walltime_measure("/Domain/Decompose/Sumcost");
-
     /* first try work balance */
     domain_assign_balanced(ddecomp, TopLeafCount, 1);
-
-    walltime_measure("/Domain/Decompose/assignbalance");
 
     int status = domain_check_memory_bound(ddecomp, NULL, TopLeafCount);
     if(status != 0)
         message(0, "Domain decomposition is outside memory bounds.\n");
 
-    walltime_measure("/Domain/Decompose/memorybound");
+    walltime_measure("/Domain/Decompose");
 
     myfree(TopLeafCount);
 
@@ -1142,6 +1132,8 @@ domain_check_for_local_refine_subsample(
     /* then compute the costs of the internal nodes. */
     domain_toptree_update_cost(topTree, 0);
 
+    walltime_measure("/Domain/DetermineTopTree/LocalRefine");
+
     /* we leave truncation in another function, for costlimit and countlimit must be
      * used in secondary refinement*/
     return 0;
@@ -1243,16 +1235,12 @@ domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int *
 int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
         struct local_topnode_data * topTree, int * topTreeSize, int MaxTopNodes, MPI_Comm DomainComm)
 {
-    walltime_measure("/Domain/DetermineTopTree/Misc");
-
     /*
      * Build local refinement with a subsample of particles
      * 1/16 is used because each local topTree node takes about 32 bytes.
      **/
 
     int local_refine_failed = domain_check_for_local_refine_subsample(policy, topTree, topTreeSize, MaxTopNodes);
-
-    walltime_measure("/Domain/DetermineTopTree/LocalRefine/Init");
 
     if(MPIU_Any(local_refine_failed, DomainComm)) {
         message(0, "We are out of Topnodes. \n");
@@ -1269,8 +1257,6 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
     countlimit = TotCount / (policy->NTopLeaves);
 
     domain_toptree_truncate(topTree, topTreeSize, countlimit, costlimit);
-
-    walltime_measure("/Domain/DetermineTopTree/LocalRefine/truncate");
 
     if(*topTreeSize > 10 * policy->NTopLeaves) {
         message(1, "local TopTree Size =%d >> expected = %d; Usually this indicates very bad imbalance, due to a giant density peak.\n",
@@ -1292,8 +1278,6 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
     /* we now need to exchange tree parts and combine them as needed */
     int combine_failed = domain_nonrecursively_combine_topTree(topTree, topTreeSize, MaxTopNodes, DomainComm);
 
-    walltime_measure("/Domain/DetermineTopTree/Combine");
-
     if(combine_failed)
     {
         message(0, "can't combine trees due to lack of storage. Will try again.\n");
@@ -1303,8 +1287,6 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
     /* now let's see whether we should still more refinements, based on the estimated cumulative cost/count in each cell */
 
     int global_refine_failed = domain_global_refine(topTree, topTreeSize, MaxTopNodes, countlimit, costlimit);
-
-    walltime_measure("/Domain/DetermineTopTree/Addnodes");
 
     if(MPIU_Any(global_refine_failed, DomainComm)) {
         message(0, "Global refine failed: toptreeSize = %d, MaxTopNodes = %d\n", *topTreeSize, MaxTopNodes);

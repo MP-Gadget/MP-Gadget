@@ -23,7 +23,6 @@
 void
 write_checkpoint(int snapnum, int WriteGroupID, int MetalReturnOn, double Time, const Cosmology * CP, const char * OutputDir, const int OutputDebugFields)
 {
-    walltime_measure("/Misc");
     /* write snapshot of particles */
     struct IOTable IOTable = {0};
     register_io_blocks(&IOTable, WriteGroupID, MetalReturnOn);

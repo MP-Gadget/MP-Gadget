@@ -88,7 +88,6 @@ void real_drift_particle(struct particle_data * pp, struct slots_manager_type * 
 void drift_all_particles(inttime_t ti0, inttime_t ti1, Cosmology * CP, const double random_shift[3])
 {
     int i;
-    walltime_measure("/Misc");
     if(ti1 < ti0) {
         endrun(12, "Trying to reverse time: ti0=%ld ti1=%ld\n", ti0, ti1);
     }
@@ -104,5 +103,5 @@ void drift_all_particles(inttime_t ti0, inttime_t ti1, Cosmology * CP, const dou
         PartManager->Base[i].Ti_drift = ti1;
     }
 
-    walltime_measure("/Drift/All");
+    walltime_measure("/Drift");
 }

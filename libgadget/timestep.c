@@ -272,6 +272,7 @@ apply_hierarchical_grav_kick(const ActiveParticles * subact, Cosmology * CP, Dri
         P[pa].Ti_kick_grav += dti/2 -lowerdti/2;
 #endif
     }
+    walltime_measure("/Timeline/HierGrav/Kick");
 }
 
 /* Build a tree and use it to compute the gravitational accelerations*/
@@ -293,8 +294,6 @@ grav_short_tree_build_tree(const ActiveParticles * subact, PetaPM * pm, DomainDe
 int
 hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, struct grav_accel_store StoredGravAccel, DriftKickTimes * times, const double atime, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir)
 {
-    walltime_measure("/Misc");
-
     /*Update the PM timestep size */
     const int isPM = is_PM_timestep(times);
     inttime_t dti_max = times->PM_length;
@@ -406,7 +405,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     }
     /* Set maximum timebin for second-half of the step*/
     times->maxtimebin = largest_active;
-
+    walltime_measure("/Timeline/HierGrav/Init");
     /* Do the kick for the topmost bin using GravAccel in the particle struct.*/
     apply_hierarchical_grav_kick(subact, CP, times, StoredGravAccel.GravAccel, largest_active, largest_active);
     if(StoredGravAccel.GravAccel)
@@ -436,6 +435,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         /* Check whether we need to do any more work*/
         int64_t tot_active;
         MPI_Allreduce(&subact->NumActiveGravity, &tot_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+        walltime_measure("/Timeline/HierGrav/Wait");
         /* Do nothing if no particles are active*/
         if(tot_active == 0) {
             myfree(subact->ActiveParticle);
@@ -496,8 +496,6 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
  * If this is NULL, uses FullTreeGravAccel.*/
 int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, struct grav_accel_store StoredGravAccel, DriftKickTimes * times, int HybridNuGrav, Cosmology * CP, const char * EmergencyOutputDir)
 {
-    walltime_measure("/Misc");
-
     const double rho0 = CP->Omega0 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
     /* Find the longest active timebin.*/
     int ti, largest_active = TIMEBINS;
@@ -521,6 +519,7 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
     else {
         lastact[0] = build_active_sublist(act, ti, times->Ti_Current);
     }
+    walltime_measure("/Timeline/HierGrav/Init2");
     /* Tree with moments but only particle timesteps below this value.
      * Done for all currently active gravitational particles.
      * Stores acceleration in P[i].GravAccel.*/
@@ -552,7 +551,7 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
         int64_t tot_active, last_tot_active;
         MPI_Allreduce(&subact.NumActiveGravity, &tot_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(&lastact->NumActiveGravity, &last_tot_active, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-
+        walltime_measure("/Timeline/HierGrav/Wait2");
         /* No need to recompute accelerations if the particle number is the same as an earlier computation*/
         if(tot_active != last_tot_active) {
             if(GravAccel)
@@ -607,8 +606,6 @@ int
 find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double atime, const Cosmology * CP, const int isFirstTimeStep)
 {
     int pa;
-    walltime_measure("/Misc");
-
     inttime_t dti_max = times->PM_length;
     const double hubble = hubble_function(CP, atime);
 
@@ -727,7 +724,7 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
 
     if(isFirstTimeStep)
         set_bh_first_timestep(mTimeBin);
-    walltime_measure("/Timeline");
+    walltime_measure("/Timeline/Hydro");
     /* Update the minimum time bin*/
     times->mintimebin = mTimeBin;
     /* Although for SPH particles the hydro timebin is always shorter than the gravity timebin,
@@ -937,7 +934,6 @@ void
 apply_hydro_half_kick(const ActiveParticles * act, Cosmology * CP, DriftKickTimes * times, const double atime)
 {
     int pa, bin;
-    walltime_measure("/Misc");
     double gravkick[TIMEBINS+1] = {0}, hydrokick[TIMEBINS+1] = {0};
     #pragma omp parallel for
     for(bin = times->mintimebin; bin <= TIMEBINS; bin++) {
