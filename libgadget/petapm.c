@@ -139,8 +139,8 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_
     int periods_unused[2];
     MPI_Cart_get(pm->priv->comm_cart_2d, 2, pm->NTask2d, periods_unused, pm->ThisTask2d);
 
-    if(pm->NTask2d[0] != np[0]) abort();
-    if(pm->NTask2d[1] != np[1]) abort();
+    if(pm->NTask2d[0] != np[0] || pm->NTask2d[1] != np[1])
+        endrun(6, "Bad PM mesh: Task2D = %d %d np %ld %ld\n", pm->NTask2d[0], pm->NTask2d[1], np[0], np[1]);
 
     pm->priv->fftsize = 2 * pfft_local_size_dft_r2c_3d(n, pm->priv->comm_cart_2d,
            PFFT_TRANSPOSED_OUT,
