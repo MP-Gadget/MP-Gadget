@@ -623,12 +623,11 @@ void petaio_save_block(BigFile * bf, const char * blockname, BigArray * array, i
         NumFiles = (size * elsize + IO.BytesPerFile - 1) / IO.BytesPerFile;
         if(NumWriters > NumFiles * IO.WritersPerFile) {
             NumWriters = NumFiles * IO.WritersPerFile;
-            message(0, "Throttling NumWriters to %d.\n", NumWriters);
         }
         if(NumWriters < IO.MinNumWriters) {
+            message(0, "Throttling to %d NumWriters but could throttle to %d.\n", IO.MinNumWriters, NumWriters);
             NumWriters = IO.MinNumWriters;
             NumFiles = (NumWriters + IO.WritersPerFile - 1) / IO.WritersPerFile ;
-            message(0, "Throttling NumWriters to %d.\n", NumWriters);
         }
     } else {
         NumFiles = NumWriters;
@@ -639,7 +638,7 @@ void petaio_save_block(BigFile * bf, const char * blockname, BigArray * array, i
     }
 
     if(verbose && size > 0) {
-        message(0, "Will write %td particles to %d Files for %s\n", size, NumFiles, blockname);
+        message(0, "Will write %td particles to %d Files with %d writers for %s. \n", size, NumFiles, NumWriters, blockname);
     }
     /* create the block */
     /* dims[1] is the number of members per item */
