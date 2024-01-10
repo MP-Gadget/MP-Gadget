@@ -207,7 +207,7 @@ void domain_decompose_full(DomainDecomp * ddecomp)
     myfree(OldTopLeaves);
     myfree(OldTopNodes);
 
-    if(domain_exchange(domain_layoutfunc, ddecomp, 0, PartManager, SlotsManager, 10000, ddecomp->DomainComm))
+    if(domain_exchange(domain_layoutfunc, ddecomp, NULL, PartManager, SlotsManager, 10000, ddecomp->DomainComm))
         endrun(1929,"Could not exchange particles\n");
 
     /*Do a garbage collection so that the slots are ordered
@@ -251,7 +251,6 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
 {
     message(0, "Attempting a domain exchange\n");
 
-    ForceTree tree = force_tree_top_build(ddecomp, 1);
     /* Find drift factor*/
     int i;
     /* Can't update the random shift without re-decomposing domain*/
@@ -259,14 +258,35 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
     double ddrift = 0;
     if(drift)
         ddrift = get_exact_drift_factor(drift->CP, drift->ti0, drift->ti1);
-    #pragma omp parallel for
+
+    /*Structure for building a list of particles that will be exchanged*/
+    size_t numthreads = omp_get_max_threads();
+    PreExchangeList ExchangeData[1] = {0};
+    /*static schedule below so we only need this much memory*/
+    size_t narr = PartManager->NumPart/numthreads+numthreads;
+    ExchangeData->ExchangeList = (int *) mymalloc2("exchangelist", sizeof(int) * narr * numthreads);
+    /*Garbage particles are counted so we have an accurate memory estimate*/
+    int ngarbage = 0;
+
+    size_t *nexthr = ta_malloc("nexthr", size_t, numthreads);
+    int **threx = ta_malloc("threx", int *, numthreads);
+    gadget_setup_thread_arrays(ExchangeData->ExchangeList, threx, nexthr,narr,numthreads);
+
+    ForceTree tree = force_tree_top_build(ddecomp, 1);
+    /* flag the particles that need to be exported */
+    size_t schedsz = PartManager->NumPart/numthreads+1;
+    #pragma omp parallel for schedule(static, schedsz) reduction(+: ngarbage)
     for(i=0; i < PartManager->NumPart; i++) {
         if(drift) {
             real_drift_particle(&PartManager->Base[i], SlotsManager, ddrift, PartManager->BoxSize, rel_random_shift);
             PartManager->Base[i].Ti_drift = drift->ti1;
         }
         /* Garbage is not in the tree*/
-        if(PartManager->Base[i].IsGarbage || (PartManager->Base[i].Swallowed && PartManager->Base[i].Type==5))
+        if(PartManager->Base[i].IsGarbage) {
+            ngarbage++;
+            continue;
+        }
+        if(PartManager->Base[i].Swallowed && PartManager->Base[i].Type==5)
             continue;
         /* If we aren't using DM for the dynamic friction, we don't need to build a tree with inactive DM particles.
          * Velocity dispersions are computed on a PM step only.
@@ -274,19 +294,32 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
         if(!(blackhole_dynfric_treemask() & DMMASK))
             if(PartManager->Base[i].Type == 1 && !is_timebin_active(PartManager->Base[i].TimeBinGravity, PartManager->Base[i].Ti_drift))
                 continue;
-        if(inside_topleaf(PartManager->Base[i].TopLeaf, PartManager->Base[i].Pos, &tree))
-            continue;
-        const int no = domain_get_topleaf(PEANO(PartManager->Base[i].Pos, PartManager->BoxSize), ddecomp);
-        /* Set the topleaf for layoutfunc.*/
-        PartManager->Base[i].TopLeaf = no;
+        if(!inside_topleaf(PartManager->Base[i].TopLeaf, PartManager->Base[i].Pos, &tree)) {
+            const int no = domain_get_topleaf(PEANO(PartManager->Base[i].Pos, PartManager->BoxSize), ddecomp);
+            /* Set the topleaf for layoutfunc.*/
+            PartManager->Base[i].TopLeaf = no;
+        }
+        int target = domain_layoutfunc(i, ddecomp);
+        if(target != tree.ThisTask) {
+            const int tid = omp_get_thread_num();
+            threx[tid][nexthr[tid]] = i;
+            nexthr[tid]++;
+        }
     }
     force_tree_free(&tree);
+    ExchangeData->ngarbage = ngarbage;
+    /*Merge step for the queue.*/
+    ExchangeData->nexchange = gadget_compact_thread_arrays(ExchangeData->ExchangeList, threx, nexthr, numthreads);
+    ta_free(threx);
+    ta_free(nexthr);
+
+    /*Shrink memory*/
+    ExchangeData->ExchangeList = (int *) myrealloc(ExchangeData->ExchangeList, sizeof(int) * ExchangeData->nexchange);
+
     walltime_measure("/Domain/drift");
 
-    /* Try a domain exchange.
-     * If we have no memory for the particles,
-     * bail and do a full domain*/
-    int errno = domain_exchange(domain_layoutfunc, ddecomp, 0, PartManager, SlotsManager, 10000, ddecomp->DomainComm);
+    /* Try a domain exchange. Note ExchangeList is freed inside.*/
+    int errno = domain_exchange(domain_layoutfunc, ddecomp, ExchangeData, PartManager, SlotsManager, 10000, ddecomp->DomainComm);
     return errno;
 }
 

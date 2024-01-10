@@ -97,18 +97,24 @@ test_exchange(void **state)
 
     int i;
 
-    int fail = domain_exchange(&test_exchange_layout_func, NULL, 1, PartManager, SlotsManager,10000, MPI_COMM_WORLD);
+    int fail = domain_exchange(&test_exchange_layout_func, NULL, NULL, PartManager, SlotsManager,10000, MPI_COMM_WORLD);
 
     assert_all_true(!fail);
 #ifdef DEBUG
     slots_check_id_consistency(PartManager, SlotsManager);
 #endif
     domain_test_id_uniqueness(PartManager);
-
+    int garbage = 0;
     for(i = 0; i < PartManager->NumPart; i ++) {
-        assert_true(P[i].ID % NTask == 1Lu * ThisTask);
+        if(P[i].IsGarbage) {
+            garbage++;
+            continue;
+        }
+        assert_true (P[i].ID % NTask == 1Lu * ThisTask);
     }
-
+    int Totgarbage;
+    MPI_Allreduce(&garbage, &Totgarbage, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    TotNumPart += Totgarbage;
     teardown_particles(state);
     return;
 }
@@ -122,7 +128,7 @@ test_exchange_zero_slots(void **state)
 
     int i;
 
-    int fail = domain_exchange(&test_exchange_layout_func, NULL, 1, PartManager, SlotsManager, 10000, MPI_COMM_WORLD);
+    int fail = domain_exchange(&test_exchange_layout_func, NULL, NULL, PartManager, SlotsManager, 10000, MPI_COMM_WORLD);
 
     assert_all_true(!fail);
 #ifdef DEBUG
@@ -130,9 +136,17 @@ test_exchange_zero_slots(void **state)
 #endif
     domain_test_id_uniqueness(PartManager);
 
+    int garbage = 0;
     for(i = 0; i < PartManager->NumPart; i ++) {
+        if(P[i].IsGarbage) {
+            garbage++;
+            continue;
+        }
         assert_true (P[i].ID % NTask == 1Lu*ThisTask);
     }
+    int Totgarbage;
+    MPI_Allreduce(&garbage, &Totgarbage, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    TotNumPart += Totgarbage;
 
     teardown_particles(state);
     return;
@@ -148,8 +162,7 @@ test_exchange_with_garbage(void **state)
 
     slots_mark_garbage(0, PartManager, SlotsManager); /* watch out! this propagates the garbage flag to children */
     TotNumPart -= NTask;
-
-    int fail = domain_exchange(&test_exchange_layout_func, NULL, 1, PartManager, SlotsManager, 10000, MPI_COMM_WORLD);
+    int fail = domain_exchange(&test_exchange_layout_func, NULL, NULL, PartManager, SlotsManager, 10000, MPI_COMM_WORLD);
 
     assert_all_true(!fail);
 
@@ -157,15 +170,19 @@ test_exchange_with_garbage(void **state)
 #ifdef DEBUG
     slots_check_id_consistency(PartManager, SlotsManager);
 #endif
-
+    int garbage = 0;
     for(i = 0; i < PartManager->NumPart; i ++) {
+        /* We don't do garbage collection during exchange anymore. But make sure the
+         * presence of garbage doesn't mess things up.*/
+        if(P[i].IsGarbage) {
+            garbage++;
+            continue;
+        }
         assert_true (P[i].ID % NTask == 1Lu * ThisTask);
     }
-
-    for(i = 0; i < PartManager->NumPart; i ++) {
-        assert_true (P[i].IsGarbage == 0);
-    }
-
+    int Totgarbage;
+    MPI_Allreduce(&garbage, &Totgarbage, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    TotNumPart += Totgarbage;
     teardown_particles(state);
     return;
 }
@@ -187,7 +204,7 @@ test_exchange_uneven(void **state)
     int i;
 
     /* this will trigger a slot growth on slot type 0 due to the inbalance */
-    int fail = domain_exchange(&test_exchange_layout_func_uneven, NULL, 1, PartManager, SlotsManager, 10000, MPI_COMM_WORLD);
+    int fail = domain_exchange(&test_exchange_layout_func_uneven, NULL, NULL, PartManager, SlotsManager, 10000, MPI_COMM_WORLD);
 
     assert_all_true(!fail);
 
@@ -201,13 +218,21 @@ test_exchange_uneven(void **state)
 #endif
     domain_test_id_uniqueness(PartManager);
 
+    int garbage = 0;
     for(i = 0; i < PartManager->NumPart; i ++) {
+        if(P[i].IsGarbage) {
+            garbage++;
+            continue;
+        }
         if(P[i].Type == 0) {
             assert_true (ThisTask == 0);
         } else {
             assert_true(P[i].ID % NTask == 1Lu * ThisTask);
         }
     }
+    int Totgarbage;
+    MPI_Allreduce(&garbage, &Totgarbage, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    TotNumPart += Totgarbage;
 
     teardown_particles(state);
     return;

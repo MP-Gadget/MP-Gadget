@@ -83,10 +83,10 @@ domain_init_exchangeplan(MPI_Comm Comm)
      *  that have to go to task 'partner'
      *  toGo[1] is SPH, toGo[2] is BH and toGo[3] is stars
      */
-    plan.toGo = (ExchangePlanEntry *) mymalloc2("toGo", sizeof(plan.toGo[0]) * plan.NTask);
-    plan.toGoOffset = (ExchangePlanEntry *) mymalloc2("toGo", sizeof(plan.toGo[0]) * plan.NTask);
-    plan.toGet = (ExchangePlanEntry *) mymalloc2("toGet", sizeof(plan.toGo[0]) * plan.NTask);
-    plan.toGetOffset = (ExchangePlanEntry *) mymalloc2("toGet", sizeof(plan.toGo[0]) * plan.NTask);
+    plan.toGo = ta_malloc("toGo", ExchangePlanEntry, plan.NTask);
+    plan.toGoOffset = ta_malloc("toGoOffSet", ExchangePlanEntry, plan.NTask);
+    plan.toGet = ta_malloc("toGet", ExchangePlanEntry, plan.NTask);
+    plan.toGetOffset = ta_malloc("toGetOffset", ExchangePlanEntry, plan.NTask);
     return plan;
 }
 
@@ -100,7 +100,7 @@ domain_free_exchangeplan(ExchangePlan * plan)
 }
 
 /*Plan and execute a domain exchange, also performing a garbage collection if requested*/
-int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, int do_gc, struct part_manager_type * pman, struct slots_manager_type * sman, int maxiter, MPI_Comm Comm) {
+int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, PreExchangeList * preexch, struct part_manager_type * pman, struct slots_manager_type * sman, int maxiter, MPI_Comm Comm) {
     int failure = 0;
 
     /* register the MPI types used in communication if not yet. */
@@ -119,7 +119,17 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
             failure = 1;
             break;
         }
-        domain_build_exchange_list(layoutfunc, layout_userdata, &plan, pman, sman, Comm);
+        /* Use the pre-exchange list if we can*/
+        if(preexch && preexch->ExchangeList) {
+            plan.ngarbage= preexch->ngarbage;
+            plan.nexchange = preexch->nexchange;
+            plan.ExchangeList = preexch->ExchangeList;
+            /* We only use this once.*/
+            preexch->ExchangeList = NULL;
+        }
+        else {
+            domain_build_exchange_list(layoutfunc, layout_userdata, &plan, pman, sman, Comm);
+        }
         walltime_measure("/Domain/exchange/togo");
 
         /*Exit early if nothing to do*/
@@ -133,12 +143,11 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
         plan.last = domain_find_iter_space(&plan, pman, sman);
         domain_build_plan(iter, layoutfunc, layout_userdata, &plan, pman, Comm);
 
-        /* Do a GC if we are asked to or if this isn't the last iteration.
+        /* Do a GC if this isn't the last iteration.
          * The gc decision is made collective in domain_exchange_once,
          * and a gc will also be done if we have no space for particles.*/
-        int really_do_gc = do_gc || (plan.last < plan.nexchange);
-
-        failure = domain_exchange_once(&plan, really_do_gc, pman, sman, Comm);
+        int do_gc = (plan.last < plan.nexchange);
+        failure = domain_exchange_once(&plan, do_gc, pman, sman, Comm);
 
         myfree(plan.ExchangeList);
 
