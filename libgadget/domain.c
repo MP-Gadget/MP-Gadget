@@ -273,7 +273,7 @@ void domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
         /* If we aren't using DM for the dynamic friction, we don't need to build a tree with inactive DM particles.
          * Velocity dispersions are computed on a PM step only.*/
         if(!(blackhole_dynfric_treemask() & DMMASK))
-            if(PartManager->Base[i].Type == 1 && !is_timebin_active(PartManager->Base[i].TimeBinGravity, drift->ti1))
+            if(PartManager->Base[i].Type == 1 && !is_timebin_active(PartManager->Base[i].TimeBinGravity, PartManager->Base[i].Ti_drift))
                 continue;
         if(inside_topleaf(PartManager->Base[i].TopLeaf, PartManager->Base[i].Pos, &tree))
             continue;
