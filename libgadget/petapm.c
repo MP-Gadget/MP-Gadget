@@ -424,7 +424,6 @@ petapm_reion_c2r(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
     double R = fmin(R_max,pm_mass->BoxSize);
     int last_step = 0;
     int f_count = 0;
-    petapm_transfer_func transfer = f->transfer;
     petapm_readout_func readout = f->readout;
 
     /* TODO: seriously re-think the allocation ordering in this function */
@@ -458,7 +457,7 @@ petapm_reion_c2r(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
         /*We want the last step to be unfiltered,
          *  calling apply transfer with NULL should just copy the grids */
 
-        transfer = last_step ? NULL : f->transfer;
+        petapm_transfer_func transfer = last_step ? NULL : f->transfer;
 
         pm_apply_transfer_function(pm_mass, mass_unfiltered, mass_filtered, transfer);
         pm_apply_transfer_function(pm_star, star_unfiltered, star_filtered, transfer);
