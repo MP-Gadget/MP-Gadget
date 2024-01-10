@@ -277,9 +277,9 @@ void domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
                 continue;
         if(inside_topleaf(PartManager->Base[i].TopLeaf, PartManager->Base[i].Pos, &tree))
             continue;
-        const int no = force_tree_find_topnode(PartManager->Base[i].Pos, &tree);
+        const int no = domain_get_topleaf(PEANO(PartManager->Base[i].Pos, PartManager->BoxSize), ddecomp);
         /* Set the topleaf for layoutfunc.*/
-        PartManager->Base[i].TopLeaf = tree.Nodes[no].s.suns[0] - tree.lastnode;
+        PartManager->Base[i].TopLeaf = no;
     }
 
     walltime_measure("/Domain/drift");
@@ -1370,7 +1370,6 @@ domain_compute_costs(DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopL
     int64_t * local_TopLeafCount = (int64_t *) mymalloc("local_TopLeafCount", NumThreads * ddecomp->NTopLeaves * sizeof(local_TopLeafCount[0]));
     memset(local_TopLeafCount, 0, NumThreads * ddecomp->NTopLeaves * sizeof(local_TopLeafCount[0]));
 
-    ForceTree tree = force_tree_top_build(ddecomp, 0);
 #pragma omp parallel
     {
         int tid = omp_get_thread_num();
@@ -1379,12 +1378,9 @@ domain_compute_costs(DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopL
         #pragma omp for
         for(n = 0; n < PartManager->NumPart; n++)
         {
-            double * pos = P[n].Pos;
-            const int no = force_tree_find_topnode(pos, &tree);
-            const int leaf = tree.Nodes[no].s.suns[0] - tree.lastnode;
+            const int leaf = domain_get_topleaf(PEANO(P[n].Pos, PartManager->BoxSize), ddecomp);
             /* Set the topleaf so we can use it for exchange*/
             P[n].TopLeaf = leaf;
-            // int no = domain_get_topleaf(P[n].Key, ddecomp);
             /* Skip garbage particles: they have zero work
              * and can be removed by exchange if under memory pressure.*/
             if(P[n].IsGarbage)
@@ -1396,7 +1392,6 @@ domain_compute_costs(DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopL
             local_TopLeafCount[leaf + tid * ddecomp->NTopLeaves] += 1;
         }
     }
-    force_tree_free(&tree);
 
 
 #pragma omp parallel for
