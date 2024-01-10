@@ -137,7 +137,7 @@ static void
 domain_create_topleaves(DomainDecomp * ddecomp, int no, int * next);
 
 static int
-domain_tree_layoutfunc(int n, const void * userdata);
+domain_layoutfunc(int n, const void * userdata);
 
 static int
 domain_policies_init(DomainDecompositionPolicy policies[], const int Npolicies);
@@ -207,10 +207,8 @@ void domain_decompose_full(DomainDecomp * ddecomp)
     myfree(OldTopLeaves);
     myfree(OldTopNodes);
 
-    ForceTree tree = force_tree_top_build(ddecomp, 1);
-    if(domain_exchange(domain_tree_layoutfunc, &tree, 0, PartManager, SlotsManager, 10000, ddecomp->DomainComm))
+    if(domain_exchange(domain_layoutfunc, ddecomp, 0, PartManager, SlotsManager, 10000, ddecomp->DomainComm))
         endrun(1929,"Could not exchange particles\n");
-    force_tree_free(&tree);
 
     /*Do a garbage collection so that the slots are ordered
      *the same as the particles, garbage is at the end and all particles are in peano order.*/
@@ -249,7 +247,7 @@ static inline int inside_topleaf(const int topleaf, const double Pos[3], const F
 
 /* This is a cut-down version of the domain decomposition that leaves the
  * domain grid intact, but exchanges the particles and rebuilds the tree */
-void domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
+int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
 {
     message(0, "Attempting a domain exchange\n");
 
@@ -271,7 +269,8 @@ void domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
         if(PartManager->Base[i].IsGarbage || (PartManager->Base[i].Swallowed && PartManager->Base[i].Type==5))
             continue;
         /* If we aren't using DM for the dynamic friction, we don't need to build a tree with inactive DM particles.
-         * Velocity dispersions are computed on a PM step only.*/
+         * Velocity dispersions are computed on a PM step only.
+         * In this case, keep the particles on this processor.*/
         if(!(blackhole_dynfric_treemask() & DMMASK))
             if(PartManager->Base[i].Type == 1 && !is_timebin_active(PartManager->Base[i].TimeBinGravity, PartManager->Base[i].Ti_drift))
                 continue;
@@ -281,18 +280,14 @@ void domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
         /* Set the topleaf for layoutfunc.*/
         PartManager->Base[i].TopLeaf = no;
     }
-
+    force_tree_free(&tree);
     walltime_measure("/Domain/drift");
 
     /* Try a domain exchange.
      * If we have no memory for the particles,
      * bail and do a full domain*/
-    int success = domain_exchange(domain_tree_layoutfunc, &tree, 0, PartManager, SlotsManager, 10000, ddecomp->DomainComm);
-    force_tree_free(&tree);
-    if(0 != success) {
-        domain_decompose_full(ddecomp);
-        return;
-    }
+    int errno = domain_exchange(domain_layoutfunc, ddecomp, 0, PartManager, SlotsManager, 10000, ddecomp->DomainComm);
+    return errno;
 }
 
 /* this function generates several domain decomposition policies for attempting
@@ -747,15 +742,13 @@ domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int Nsegmen
  *  subfind_distribute).
  *  Uses the toptree, instead of the Peano key*/
 static int
-domain_tree_layoutfunc(int n, const void * userdata) {
-    const ForceTree * tree = (const ForceTree *) userdata;
-    const int topleaf = P[n].TopLeaf;
-    /* If we aren't using DM for the dynamic friction, we don't need to exchange inactive DM particles.
-     * Velocity dispersions are computed on a PM step only.*/
-    if(!(blackhole_dynfric_treemask() & DMMASK))
-        if(P[n].Type == 1 && !is_timebin_active(P[n].TimeBinGravity, P[n].Ti_drift))
-            return tree->ThisTask;
-    return tree->TopLeaves[topleaf].Task;
+domain_layoutfunc(int n, const void * userdata) {
+    const DomainDecomp * ddecomp = (DomainDecomp *) userdata;
+    const int topleaf = PartManager->Base[n].TopLeaf;
+    if(topleaf < 0 || topleaf >= ddecomp->NTopLeaves)
+        endrun(6, "Invalid topleaf %d (ntop %d) for particle %d id %ld x-pos %g garbage %d\n",
+               topleaf, ddecomp->NTopLeaves, n, PartManager->Base[n].ID, PartManager->Base[n].Pos[0], PartManager->Base[n].IsGarbage);
+    return ddecomp->TopLeaves[topleaf].Task;
 }
 
 /*! This function walks the global top tree in order to establish the
