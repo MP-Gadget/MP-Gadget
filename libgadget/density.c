@@ -72,7 +72,7 @@ SPH_EntVarPred(const int p_i, const DriftKickTimes * times)
 {
         const int bin = P[p_i].TimeBinHydro;
         const int PI = P[p_i].PI;
-        const double dloga = dloga_from_dti(times->Ti_Current - times->Ti_kick[bin], P[p_i].Ti_drift);
+        const double dloga = dloga_from_dti(times->Ti_Current - times->Ti_kick[bin], times->Ti_Current);
         double EntVarPred = SphP[PI].Entropy + SphP[PI].DtEntropy * dloga;
         /*Entropy limiter for the predicted entropy: makes sure entropy stays positive. */
         if(EntVarPred < 0.05*SphP[PI].Entropy)
