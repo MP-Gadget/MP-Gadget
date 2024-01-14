@@ -11,6 +11,9 @@
 struct particle_data
 {
     double Pos[3];   /*!< particle position at its current time */
+    /* TopLeaf this particle belongs to. Set to find destinations in the exchange. Used to accelerate the tree build.
+     During fof particle exchange this actually points to the target task, not the topleaf.*/
+    int TopLeaf;
     float Mass;     /*!< particle mass */
     int PI; /* particle property index; used by BH, SPH and STAR.
                         points to the corresponding structure in (SPH|BH|STAR)P array.*/
@@ -29,8 +32,7 @@ struct particle_data
         /* (jdavies): I moved this out of the bitfield because i need to access it by pointer in petapm.c
          * This could also be done by passing a struct pointer instead of void* as the petapm pstruct */
     };
-    MyIDType ID;
-
+    /* Cacheline is here: above data is needed for the treebuild*/
     MyFloat Vel[3];   /* particle velocity at its current time */
     MyFloat FullTreeGravAccel[3]; /* Short-range tree acceleration at the most recent timestep
                                  which included all particles (ie, PM steps). Does not include PM acceleration.
@@ -47,29 +49,22 @@ struct particle_data
                                  * is important the gravitational acceleration is small compared to hydro force anyway).
                                  */
     MyFloat GravPM[3];      /* particle acceleration due to long-range PM gravity force */
-
-    MyFloat Potential;		/* Gravitational potential. This is the total potential only on a PM timestep,
-                             * after gravtree+gravpm is called. We do not save the potential on short timesteps
-                             * for hierarchical gravity as it would only be from active particles.*/
-
+    inttime_t Ti_drift;       /*!< current time of the particle position. The same for all particles. */
+    MyFloat Hsml;
+    /* Cacheline is here: data above needed for kick*/
     /* DtHsml is 1/3 DivVel * Hsml evaluated at the last active timestep for this particle.
      * This predicts Hsml during the current timestep in the way used in Gadget-4, more accurate
      * than the Gadget-2 prediction which could run away in deep timesteps. Used also
      * to limit timesteps by density change. */
     MyFloat DtHsml;
-    MyFloat Hsml;
-
-    /* These two are transient but hard to move
-     * to private arrays because they need to travel
-     * with the particle during exchange*/
-    /* The peano key is a hash of the position used in the domain decomposition.
-     * It is slow to generate and used to rebuild the tree, so we store it here.*/
+    MyIDType ID;
     /* FOF Group number: only has meaning during FOF.*/
+    /* Transient but hard to move to private arrays because it needs to 
+     * travel with the particle during exchange*/
     int64_t GrNr;
-    inttime_t Ti_drift;       /*!< current time of the particle position. The same for all particles. */
-    /* TopLeaf this particle belongs to. Set to find destinations in the exchange. Used to accelerate the tree build.
-     During fof particle exchange this actually points to the target task, not the topleaf.*/
-    int TopLeaf;
+    MyFloat Potential;		/* Gravitational potential. This is the total potential only on a PM timestep,
+                             * after gravtree+gravpm is called. We do not save the potential on short timesteps
+                             * for hierarchical gravity as it would only be from active particles.*/
 #ifdef DEBUG
     /* Kick times for both hydro and grav*/
     inttime_t Ti_kick_hydro;
