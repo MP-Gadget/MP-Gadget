@@ -29,46 +29,43 @@ struct particle_data_ext {
 /* Data stored for each black hole in addition to collisionless data*/
 struct bh_particle_data {
     struct particle_data_ext base;
-
-    int CountProgs;
-
-    MyFloat Mass;
-    MyFloat Mdot;
-    MyFloat Density;
-    MyFloat FormationTime;  /*!< formation time of black hole. */
-    /* Merger time of the black hole.
-     * After this, all values are fixed. */
-    MyFloat SwallowTime;
-    int JumpToMinPot;
-    double MinPotPos[3];
-    MyFloat MinPotVel[3];
-    /* After a merger, this gives the ID of the particle which swallowed the BH. Used to keep track of merger trees.*/
-    MyIDType SwallowID;
-
+    /* Flags*/
+    /* Stores the minimum timebins of all black hole neighbours.
+     * The black hole timebin is then set to this.*/
+    unsigned char minTimeBin;
+    char encounter; /* mark the event when BH encounters another BH */
     unsigned char TimeBinDynFric; /* Time step bin for black hole dynamic friction. 0 for unassigned. Must be between hydro and gravity timebins.
                                    * Dynamic friction is recomputed once every DynFric timestep. Note that drag, connected with the gas density,
                                    * is on the hydro timestep. */
-    MyFloat       DivVel;   /*!< local velocity divergence */
-
+    char JumpToMinPot;
+    MyFloat Mass;
+    MyFloat Mdot;
+    MyFloat Density;
+    MyFloat DivVel;   /*!< local velocity divergence */
+    MyFloat Mtrack; /*Swallow gas particle when BHP.Mass accretes from SeedBHMass to SeedDynMass for mass conservation */
     /*******************************************************/
-    double DragAccel[3];
-    double DFAccel[3];
+    double KineticFdbkEnergy; /* accumulated KineticFdbk Energy */
+    MyFloat VDisp; /* 1D DM Velocity dispersion, for the kinetic winds*/
+    /*******************************************************/
     /* Dynamic friction helpers*/
+    MyFloat DFAccel[3];
     MyFloat DF_SurroundingVel[3]; /* Mass and kernel weighted velocity of DF contributing particles around BH.*/
     MyFloat DF_SurroundingRmsVel; /* Mass and kernel weighted RMS velocity of DF contributing particles around BH */
     MyFloat DF_SurroundingDensity; /* Kernel weighted mass of DF contributing particles around BH.*/
+    MyFloat DragAccel[3];
+    /* Merger time of the black hole.
+     * After this, all values are fixed. */
+    MyFloat SwallowTime;
+    /* After a merger, this gives the ID of the particle which swallowed the BH. Used to keep track of merger trees.*/
+    MyIDType SwallowID;
+    MyFloat Mseed; /*Log the seed mass of BH, would be useful in case of the powerlaw seeding*/
+    MyFloat FormationTime;  /*!< formation time of black hole. */
+    /* Minimum potential reposition helpers*/
     MyFloat MinPot; /* Minimum potential, for diagnostics */
+    double MinPotPos[3];
+    MyFloat MinPotVel[3];
 
-    /*******************************************************/
-    double KineticFdbkEnergy; /* accumulated KineticFdbk Energy */
-
-    /* Stores the minimum timebins of all black hole neighbours.
-     * The black hole timebin is then set to this.*/
-    int minTimeBin;
-    int encounter; /* mark the event when BH encounters another BH */
-    double Mtrack; /*Swallow gas particle when BHP.Mass accretes from SeedBHMass to SeedDynMass for mass conservation */
-    double Mseed; /*Log the seed mass of BH, would be useful in case of the powerlaw seeding*/
-    MyFloat VDisp; /* 1D DM Velocity dispersion, for the kinetic winds*/
+    int CountProgs;
 };
 
 #define NMETALS 9
@@ -77,18 +74,18 @@ struct bh_particle_data {
 struct star_particle_data
 {
     struct particle_data_ext base;
-    float FormationTime;      /*!< formation time of star particle */
     float LastEnrichmentMyr;  /* Last time the star particle had an enrichment event, in Myr since FormationTime.*/
     MyFloat TotalMassReturned; /* The total mass returned from this star since formation.
                                   The initial mass of the SSP in this star is STARP.TotalMassReturned + P.Mass.
                                   It is stored like this to retain compatibility with older snapshots. */
-    float BirthDensity;       /*!< Density of gas particle at star formation. */
     MyFloat Metallicity;        /*!< Total metallicity of star particle */
-    float Metals[NMETALS];      /* Metal mass of each species in star particle*/
 #ifdef EXCUR_REION
     MyFloat EscapeFraction; /* Escape fraction stored for reionisation calculation */
 #endif
+    float Metals[NMETALS];      /* Metal mass of each species in star particle*/
     float VDisp; /* 1D DM Velocity dispersion on creation for the winds*/
+    float BirthDensity;       /*!< Density of gas particle at star formation. */
+    float FormationTime;      /*!< formation time of star particle */
 };
 
 /* the following structure holds data that is stored for each SPH particle in addition to the collisionless
@@ -97,16 +94,15 @@ struct star_particle_data
 struct sph_particle_data
 {
     struct particle_data_ext base;
-
+    /* int sized 4-bytes gap*/
+    MyFloat       Density;		/*!< current baryonic mass density of particle */
     /*This is only used if DensityIndependentSph is on.
      * If DensityIndependentSph is off then Density is used instead.*/
     MyFloat EgyWtDensity;           /*!< 'effective' rho to use in hydro equations */
-
     MyFloat Entropy;		/*!< Entropy (actually entropic function) at kick time of particle.
                                  * Defined as: P_i = A(s) rho_i^gamma. See Springel & Hernquist 2002.*/
-    MyFloat MaxSignalVel;           /*!< maximum signal velocity */
-    MyFloat       Density;		/*!< current baryonic mass density of particle */
     MyFloat       DtEntropy;		/*!< rate of change of entropy */
+    MyFloat MaxSignalVel;           /*!< maximum signal velocity */
     MyFloat       HydroAccel[3];	/*!< acceleration due to hydrodynamical force */
     /*!< correction factor for density-independent entropy formulation. If DensityIndependentSph = 0
      then this is set to the DhsmlDensityFactor appropriate for the entropy formulation of SPH. */
@@ -115,13 +111,15 @@ struct sph_particle_data
     /* CurlVel has to be here and not in scratch because we re-use the
      * CurlVel of inactive particles inside the artificial viscosity calculation.*/
     MyFloat       CurlVel;     	        /*!< local velocity curl */
+    MyFloat Sfr; /* Star formation rate in Msun/year. Stored here because, if the H2 dependent star formation is used,
+                    it depends on the scratch variable GradRho and thus cannot be recomputed after a fof-exchange. */
     MyFloat Ne;  /*!< electron fraction, expressed as local electron number
                    density normalized to the hydrogen number density. Gives
                    indirectly ionization state and mean molecular weight. */
+    MyFloat VDisp; /* 1D DM Velocity dispersion, for the winds*/
     MyFloat DelayTime;		/*!< SH03: remaining maximum decoupling time of wind particle */
                             /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
-    MyFloat Sfr; /* Star formation rate in Msun/year. Stored here because, if the H2 dependent star formation is used,
-                    it depends on the scratch variable GradRho and thus cannot be recomputed after a fof-exchange. */
+
     MyFloat Metallicity;        /*!< metallicity of gas particle */
     float Metals[NMETALS];
 #ifdef EXCUR_REION
@@ -129,7 +127,6 @@ struct sph_particle_data
     MyFloat zreion; /* redshift when a particle is first ionised */
     MyFloat EscapeFraction; /* Escape fraction for SFR -> J21 calculation */
 #endif
-    MyFloat VDisp; /* 1D DM Velocity dispersion, for the winds*/
 };
 
 extern struct slots_manager_type {
