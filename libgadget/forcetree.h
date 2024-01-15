@@ -11,6 +11,7 @@
 
 /* Total allowed number of particle children for a node*/
 #define NMAXCHILD 8
+#define NODEFULL (1<<16)
 
 /* Defines for the type of node, classified by type of children.*/
 #define PARTICLE_NODE_TYPE 0

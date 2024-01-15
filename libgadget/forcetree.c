@@ -395,7 +395,7 @@ create_new_node_layer(int firstparent, int p_toplace, const ForceTree tb, int *n
                 nprnt->f.ChildType = PARTICLE_NODE_TYPE;
                 nprnt->s.noccupied = NMAXCHILD;
                 tb.Nodes[firstparent].f.ChildType = NODE_NODE_TYPE;
-                tb.Nodes[firstparent].s.noccupied = (1<<16);
+                tb.Nodes[firstparent].s.noccupied = NODEFULL;
             }
             return 1;
         }
@@ -452,7 +452,7 @@ create_new_node_layer(int firstparent, int p_toplace, const ForceTree tb, int *n
              * so mark it a Node-containing node. It cannot be accessed until
              * we mark the top-level parent, so no need for atomics.*/
             tb.Nodes[child].f.ChildType = NODE_NODE_TYPE;
-            tb.Nodes[child].s.noccupied = (1<<16);
+            tb.Nodes[child].s.noccupied = NODEFULL;
             parent = child;
         }
     } while(1);
@@ -460,7 +460,7 @@ create_new_node_layer(int firstparent, int p_toplace, const ForceTree tb, int *n
     /* A new node is created. Mark the (original) parent as an internal node with node children.
      * This goes last so that we don't access the child before it is constructed.*/
     tb.Nodes[firstparent].f.ChildType = NODE_NODE_TYPE;
-    tb.Nodes[firstparent].s.noccupied = (1<<16);
+    tb.Nodes[firstparent].s.noccupied = NODEFULL;
     return 0;
 }
 
@@ -477,7 +477,7 @@ int add_particle_to_tree(int i, int cur_start, const ForceTree tb, struct NodeCa
         nocc = tb.Nodes[cur].s.noccupied;
 
         /* This node still has space for a particle (or needs conversion)*/
-        if(nocc < (1 << 16))
+        if(nocc < NODEFULL)
             break;
 
         /* This node has child subnodes: find them.*/
@@ -499,7 +499,7 @@ int add_particle_to_tree(int i, int cur_start, const ForceTree tb, struct NodeCa
     if(nocc < NMAXCHILD)
         modify_internal_node(cur, nocc, i, tb);
     /* In this case we need to create a new layer of nodes beneath this one*/
-    else if(nocc < 1<<16) {
+    else if(nocc < NODEFULL) {
         if(create_new_node_layer(cur, i, tb, nnext, nc))
             return -1;
     } else
@@ -868,7 +868,7 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
                 /*We are an internal top level node as we now have a child top level.*/
                 Nodes[no].f.InternalTopLevel = 1;
                 Nodes[no].f.ChildType = NODE_NODE_TYPE;
-                Nodes[no].s.noccupied = (1<<16);
+                Nodes[no].s.noccupied = NODEFULL;
 
                 /* We create a new leaf node.*/
                 init_internal_node(&Nodes[*nextfree], &Nodes[no], count);
