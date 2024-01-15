@@ -222,26 +222,32 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may
     /* We enforce schedule static to ensure that each thread executes on contiguous particles.
      * Note static enforces the monotonic modifier but on OpenMP 5.0 nonmonotonic is the default.
      * static also ensures that no single thread gets more than tsize elements.*/
-    size_t schedsz = size/tw->NThread+1;
-    #pragma omp parallel for schedule(static, schedsz)
-    for(i=0; i < size; i++)
+    const size_t schedsz = size/tw->NThread+1;
+    #pragma omp parallel
     {
         const int tid = omp_get_thread_num();
-        /*Use raw particle number if active_set is null, otherwise use active_set*/
-        const int p_i = active_set ? active_set[i] : (int) i;
+        size_t nqthrlocal = 0;
+        int *thrqlocal = thrqueue[tid];
+        #pragma omp for schedule(static, schedsz)
+        for(i=0; i < size; i++)
+        {
+            /*Use raw particle number if active_set is null, otherwise use active_set*/
+            const int p_i = active_set ? active_set[i] : (int) i;
 
-        /* Skip the garbage particles */
-        if(P[p_i].IsGarbage)
-            continue;
+            /* Skip the garbage particles */
+            if(P[p_i].IsGarbage)
+                continue;
 
-        if(tw->haswork && !tw->haswork(p_i, tw))
-            continue;
-#ifdef DEBUG
-        if(nqthr[tid] >= tsize)
-            endrun(5, "tid = %d nqthr = %ld, tsize = %ld size = %ld, tw->Nthread = %ld i = %ld\n", tid, nqthr[tid], tsize, size, tw->NThread, i);
-#endif
-        thrqueue[tid][nqthr[tid]] = p_i;
-        nqthr[tid]++;
+            if(tw->haswork && !tw->haswork(p_i, tw))
+                continue;
+    #ifdef DEBUG
+            if(nqthrlocal >= tsize)
+                endrun(5, "tid = %d nqthr = %ld, tsize = %ld size = %ld, tw->Nthread = %ld i = %ld\n", tid, nqthrlocal, tsize, size, tw->NThread, i);
+    #endif
+            thrqlocal[nqthrlocal] = p_i;
+            nqthrlocal++;
+        }
+        nqthr[tid] = nqthrlocal;
     }
     /*Merge step for the queue.*/
     nqueue = gadget_compact_thread_arrays(tw->WorkSet, thrqueue, nqthr, tw->NThread);

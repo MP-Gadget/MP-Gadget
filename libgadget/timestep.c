@@ -1377,41 +1377,47 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
     size_t schedsz = PartManager->NumPart / NumThreads + 1;
     int64_t nactivegrav = act->NumActiveGravity;
     int64_t nactivehydro = act->NumActiveHydro;
-    #pragma omp parallel for schedule(static, schedsz) reduction(+: nactivegrav) reduction(+: nactivehydro)
-    for(i = 0; i < PartManager->NumPart; i++)
+    #pragma omp parallel
     {
-        const int bin_hydro = P[i].TimeBinHydro;
-        const int bin_gravity = P[i].TimeBinGravity;
         const int tid = omp_get_thread_num();
-        if(P[i].IsGarbage || P[i].Swallowed)
-            continue;
-        /* when we are in PM, all particles must have been synced. */
-        if (P[i].Ti_drift != times->Ti_Current) {
-            endrun(5, "Particle %d type %d has drift time %lx not ti_current %lx!",i, P[i].Type, P[i].Ti_drift, times->Ti_Current);
-        }
-        /* For now build active particles with either hydro or gravity active*/
-        int hydro_particle = P[i].Type == 0 || P[i].Type == 5;
-        /* Make sure we only add hydro particles: the DM can have hydro bin 0
-         * and we don't want to add it to the active list.*/
-        int hydro_active = hydro_particle && is_timebin_active(bin_hydro, times->Ti_Current);
-        int gravity_active = is_timebin_active(bin_gravity, times->Ti_Current);
-        if(act->ActiveParticle && gravity_active)
-            nactivegrav++;
-        if(act->ActiveParticle && (hydro_active || gravity_active)) {
-            /* Store this particle in the ActiveSet for this thread*/
-            ActivePartSets[tid][NActiveThread[tid]] = i;
-            NActiveThread[tid]++;
+        size_t nthreadlocal = 0;
+        int * activepartthread = ActivePartSets[tid];
+        #pragma omp for schedule(static, schedsz) reduction(+: nactivegrav) reduction(+: nactivehydro)
+        for(i = 0; i < PartManager->NumPart; i++)
+        {
+            const int bin_hydro = P[i].TimeBinHydro;
+            const int bin_gravity = P[i].TimeBinGravity;
+            if(P[i].IsGarbage || P[i].Swallowed)
+                continue;
+            /* when we are in PM, all particles must have been synced. */
+            if (P[i].Ti_drift != times->Ti_Current) {
+                endrun(5, "Particle %d type %d has drift time %lx not ti_current %lx!",i, P[i].Type, P[i].Ti_drift, times->Ti_Current);
+            }
+            /* For now build active particles with either hydro or gravity active*/
+            int hydro_particle = P[i].Type == 0 || P[i].Type == 5;
+            /* Make sure we only add hydro particles: the DM can have hydro bin 0
+            * and we don't want to add it to the active list.*/
+            int hydro_active = hydro_particle && is_timebin_active(bin_hydro, times->Ti_Current);
+            int gravity_active = is_timebin_active(bin_gravity, times->Ti_Current);
+            if(act->ActiveParticle && gravity_active)
+                nactivegrav++;
+            if(act->ActiveParticle && (hydro_active || gravity_active)) {
+                /* Store this particle in the ActiveSet for this thread*/
+                activepartthread[nthreadlocal] = i;
+                nthreadlocal++;
 #ifdef DEBUG
-            if(NActiveThread[tid] > schedsz)
-                endrun(2, "Not enough thread storage (%ld) for %ld active particles\n", schedsz, NActiveThread[tid]);
+                if(nthreadlocal > schedsz)
+                    endrun(2, "Not enough thread storage (%ld) for %ld active particles\n", schedsz, nthreadlocal);
 #endif
-            nactivehydro++;
+                nactivehydro++;
+            }
+            /* Account gas and BHs to their hydro bin and other particles to their gravity bin*/
+            int bin = bin_gravity;
+            if(hydro_particle)
+                bin = bin_hydro;
+            TimeBinCountType[(TIMEBINS + 1) * (6* tid + P[i].Type) + bin] ++;
         }
-        /* Account gas and BHs to their hydro bin and other particles to their gravity bin*/
-        int bin = bin_gravity;
-        if(hydro_particle)
-            bin = bin_hydro;
-        TimeBinCountType[(TIMEBINS + 1) * (6* tid + P[i].Type) + bin] ++;
+        NActiveThread[tid] = nthreadlocal;
     }
     if(act->ActiveParticle) {
         /*Now we want a merge step for the ActiveParticle list.*/
@@ -1463,22 +1469,29 @@ build_active_sublist(const ActiveParticles * act, const int maxtimebin, const in
     /* We enforce schedule static to imply monotonic, ensure that each thread executes on contiguous particles
      * and ensure no thread gets more than narr particles.*/
     size_t schedsz = PartManager->NumPart / NumThreads + 1;
-    #pragma omp parallel for schedule(static, schedsz)
-    for(i = 0; i < act->NumActiveParticle; i++)
+#pragma omp parallel
     {
-        const int pi = get_active_particle(act, i);
-        const int bin_gravity = P[pi].TimeBinGravity;
         const int tid = omp_get_thread_num();
-        if(P[pi].IsGarbage || P[pi].Swallowed)
-            continue;
-        if(bin_gravity > maxtimebin)
-            continue;
-        /* Just to be safe: maxtimebin should normally satisfy this*/
-        if(!is_timebin_active(bin_gravity, Ti_Current))
-            continue;
-        /* Store this particle in the ActiveSet for this thread*/
-        ActivePartSets[tid][NActiveThread[tid]] = pi;
-        NActiveThread[tid]++;
+        /* Local stack variables to avoid sharing a cache line across threads*/
+        size_t nactivethread=0;
+        int *activepartthread = ActivePartSets[tid];
+        #pragma omp for schedule(static, schedsz)
+        for(i = 0; i < act->NumActiveParticle; i++)
+        {
+            const int pi = get_active_particle(act, i);
+            const int bin_gravity = P[pi].TimeBinGravity;
+            if(P[pi].IsGarbage || P[pi].Swallowed)
+                continue;
+            if(bin_gravity > maxtimebin)
+                continue;
+            /* Just to be safe: maxtimebin should normally satisfy this*/
+            if(!is_timebin_active(bin_gravity, Ti_Current))
+                continue;
+            /* Store this particle in the ActiveSet for this thread*/
+            activepartthread[nactivethread] = pi;
+            nactivethread++;
+        }
+        NActiveThread[tid] = nactivethread;
     }
     /*Now we want a merge step for the ActiveParticle list.*/
     sub_act->NumActiveParticle = gadget_compact_thread_arrays(sub_act->ActiveParticle, ActivePartSets, NActiveThread, NumThreads);
