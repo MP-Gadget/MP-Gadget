@@ -275,7 +275,12 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
     ForceTree tree = force_tree_top_build(ddecomp, 1);
     /* flag the particles that need to be exported */
     size_t schedsz = PartManager->NumPart/numthreads+1;
-    #pragma omp parallel for schedule(static, schedsz) reduction(+: ngarbage)
+#pragma omp parallel
+    {
+        size_t nexthr_local = 0;
+        const int tid = omp_get_thread_num();
+        int * threx_local = threx[tid];
+    #pragma omp for schedule(static, schedsz) reduction(+: ngarbage)
     for(i=0; i < PartManager->NumPart; i++) {
         if(drift) {
             real_drift_particle(&PartManager->Base[i], SlotsManager, ddrift, PartManager->BoxSize, rel_random_shift);
@@ -299,10 +304,11 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
         }
         int target = domain_layoutfunc(i, ddecomp);
         if(target != tree.ThisTask) {
-            const int tid = omp_get_thread_num();
-            threx[tid][nexthr[tid]] = i;
-            nexthr[tid]++;
+            threx_local[nexthr_local] = i;
+            nexthr_local++;
         }
+    }
+    nexthr[tid] = nexthr_local;
     }
     force_tree_free(&tree);
     ExchangeData->ngarbage = ngarbage;
