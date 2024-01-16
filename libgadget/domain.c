@@ -286,8 +286,6 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
             ngarbage++;
             continue;
         }
-        if(PartManager->Base[i].Swallowed && PartManager->Base[i].Type==5)
-            continue;
         /* If we aren't using DM for the dynamic friction, we don't need to build a tree with inactive DM particles.
          * Velocity dispersions are computed on a PM step only.
          * In this case, keep the particles on this processor.*/
