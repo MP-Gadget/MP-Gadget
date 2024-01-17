@@ -790,6 +790,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
     if(tw->visit) {
         tw->Nexportfull = 0;
         tw->Nexport_sum = 0;
+        tw->Ninteractions = 0;
         int Ndone = 0;
         do
         {
