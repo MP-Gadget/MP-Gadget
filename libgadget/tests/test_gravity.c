@@ -49,7 +49,7 @@ grav_force(const int this, const int other, const double * offset, double * accn
 
     const double r = sqrt(r2);
 
-    const double h = FORCE_SOFTENING(1, 1);
+    const double h = FORCE_SOFTENING();
 
     double fac = 1 / (r2 * r);
     if(r < h) {
@@ -203,7 +203,6 @@ static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int di
     treeacc.TreeUseBH = 1;
     treeacc.Rcut = 7;
     treeacc.ErrTolForceAcc = ErrTolForceAcc;
-    treeacc.AdaptiveSoftening = 0;
     treeacc.FractionalGravitySoftening = 1./30.;
 
     set_gravshort_treepar(treeacc);

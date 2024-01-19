@@ -1072,7 +1072,7 @@ get_timestep_gravity_dloga(const int p, const MyFloat * const GravAccel, const d
 {
     double ac = sqrt(grav_acceleration2(p, GravAccel, atime));
     /* mind the factor 2.8 difference between gravity and softening used here. */
-    double dt = sqrt(2 * TimestepParams.ErrTolIntAccuracy * atime * (FORCE_SOFTENING(p, P[p].Type) / 2.8) / ac);
+    double dt = sqrt(2 * TimestepParams.ErrTolIntAccuracy * atime * (FORCE_SOFTENING() / 2.8) / ac);
 
     /* d a / a = dt * H */
     double dloga = dt * hubble;

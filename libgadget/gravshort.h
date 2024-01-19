@@ -12,8 +12,6 @@ typedef struct {
 typedef struct
 {
     TreeWalkQueryBase base;
-    /*Used for adaptive gravitational softening*/
-    MyFloat Soft;
     MyFloat OldAcc;
 } TreeWalkQueryGravShort;
 
@@ -72,7 +70,7 @@ grav_short_postprocess(int i, TreeWalk * tw)
     /* calculate the potential */
     /* remove self-potential */
     if(GRAV_GET_PRIV(tw)->CalcPotential) {
-        P[i].Potential += P[i].Mass / (FORCE_SOFTENING(i, P[i].Type) / 2.8);
+        P[i].Potential += P[i].Mass / (FORCE_SOFTENING() / 2.8);
         P[i].Potential -= 2.8372975 * pow(P[i].Mass, 2.0 / 3) * GRAV_GET_PRIV(tw)->cbrtrho0;
         P[i].Potential *= G;
     }
@@ -94,7 +92,6 @@ grav_get_abs_accel(struct particle_data * PP, const double G)
 static void
 grav_short_copy(int place, TreeWalkQueryGravShort * input, TreeWalk * tw)
 {
-    input->Soft = FORCE_SOFTENING(place, P[place].Type);
     input->OldAcc = grav_get_abs_accel(&P[place], GRAV_GET_PRIV(tw)->G);
 }
 
