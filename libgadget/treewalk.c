@@ -843,6 +843,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
             free_commbuffer(&res_exports);
             free_impexpcount(&counts);
             ta_free(tw->Nexport_thread);
+            tw->Nexportfull++;
             /* Note there is no sync at the end!*/
         } while(Ndone < tw->NTask);
     }
