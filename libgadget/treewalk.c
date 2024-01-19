@@ -375,8 +375,9 @@ ev_toptree(TreeWalk * tw)
     tw->Nexport_thread = ta_malloc2("localexports", size_t, 2*tw->NThread);
     tw->Nexport_threadoffset = tw->Nexport_thread + tw->NThread;
 
-    int currentIndex = tw->WorkSetStart;
-    int lastSucceeded = tw->WorkSetSize;
+    int64_t currentIndex = tw->WorkSetStart;
+    /* This needs to be large initially so the reductions work*/
+    int64_t lastSucceeded = tw->WorkSetSize;
     int BufferFullFlag = 0;
 
 #pragma omp parallel reduction(min: lastSucceeded) reduction(+: BufferFullFlag)
@@ -389,26 +390,26 @@ ev_toptree(TreeWalk * tw)
         /* use old index to recover from a buffer overflow*/;
         TreeWalkQueryBase * input = (TreeWalkQueryBase *) alloca(tw->query_type_elsize);
         TreeWalkResultBase * output = (TreeWalkResultBase *) alloca(tw->result_type_elsize);
+        lastSucceeded = tw->WorkSetStart - 1;
 
-        int64_t lastSucceeded = tw->WorkSetStart - 1;
         /* We must schedule monotonically so that if the export buffer fills up
         * it is guaranteed that earlier particles are already done.
         * However, we schedule dynamically so that we have reduced imbalance.
         * We do not use the openmp dynamic scheduling, but roll our own
         * so that we can break from the loop if needed.*/
-        int chnk = 0;
+        int64_t chnk = 0;
         /* chunk size: 1 and 1000 were slightly (3 percent) slower than 8.
         * FoF treewalk needs a larger chnksz to avoid contention.*/
-        int chnksz = tw->WorkSetSize / (4*tw->NThread);
+        int64_t chnksz = tw->WorkSetSize / (4*tw->NThread);
         if(chnksz < 1)
             chnksz = 1;
         if(chnksz > 100)
             chnksz = 100;
         do {
             /* Get another chunk from the global queue*/
-            chnk = atomic_fetch_and_add(&currentIndex, chnksz);
+            chnk = atomic_fetch_and_add_64(&currentIndex, chnksz);
             /* This is a hand-rolled version of what openmp dynamic scheduling is doing.*/
-            int end = chnk + chnksz;
+            int64_t end = chnk + chnksz;
             /* Make sure we do not overflow the loop*/
             if(end > tw->WorkSetSize)
                 end = tw->WorkSetSize;
@@ -425,7 +426,7 @@ ev_toptree(TreeWalk * tw)
                 lv->NThisParticleExport = 0;
                 const int rt = tw->visit(input, output, lv);
                 if(lv->NThisParticleExport > 1000)
-                    message(5, "%ld exports for particle %d! Odd.\n", lv->NThisParticleExport, k);
+                    message(5, "%ld exports for particle %d! Odd.\n", lv->NThisParticleExport, i);
                 if(rt < 0) {
                     /* export buffer has filled up, can't do more work.*/
                     break;
@@ -437,9 +438,7 @@ ev_toptree(TreeWalk * tw)
             }
             /* If we filled up, we need to remove the partially evaluated last particle from the export list and leave this loop.*/
             if(lv->Nexport >= lv->BunchSize) {
-                message(1, "Tree export buffer full with %ld particles. start %ld lastsucceeded: %ld end %d size %ld.\n",
-                        lv->Nexport, tw->WorkSetStart, lastSucceeded, end, tw->WorkSetSize);
-                BufferFullFlag = 1;
+                BufferFullFlag += 1;
                 /* If the above loop finished, we don't need to remove the fully exported particle*/
                 if(lastSucceeded < end) {
                     /* Touch up the DataIndexTable, so that partial particle exports are discarded.
@@ -460,6 +459,20 @@ ev_toptree(TreeWalk * tw)
         tw->Nexport_thread[tid] = lv->Nexport;
         tw->Nexport_threadoffset[tid] = lv->DataIndexOffset;
     }
+
+    if(BufferFullFlag > 0) {
+        size_t Nexport = 0;
+        int i;
+        for(i = 0; i < tw->NThread; i++)
+            Nexport += tw->Nexport_thread[i];
+        message(1, "Tree export buffer full on %d of %ld threads with %lu exports (%lu Mbytes). First particle %ld lastsucceeded: %ld size %ld.\n",
+                        BufferFullFlag, tw->NThread, Nexport, Nexport/tw->query_type_elsize/1024/1024, tw->WorkSetStart, lastSucceeded, tw->WorkSetSize);
+        if(lastSucceeded < 0)
+            endrun(5, "Not enough export space to make progress! lastsuc %ld Bunchsize: %ld \n", lastSucceeded, tw->BunchSize);
+    }
+    // else
+        // message(1, "Finished toptree on %d threads. First particle %ld lastsucceeded: %ld size %ld.\n", BufferFullFlag, tw->WorkSetStart, lastSucceeded, tw->WorkSetSize);
+
     /* Set the place to start the next iteration. Note that because lastSucceeded
      * is the minimum entry across all threads, some particles may have their trees partially walked twice locally.
      * This is fine because we walk the tree to fill up the Ngbiter list.
