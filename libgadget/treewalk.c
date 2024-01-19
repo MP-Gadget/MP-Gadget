@@ -90,14 +90,6 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
      * sfr/bh we should change this*/
     treewalk_build_queue(tw, active_set, size, 0);
 
-    /* Print some balance numbers*/
-    int64_t nmin, nmax, total;
-    MPI_Reduce(&tw->WorkSetSize, &nmin, 1, MPI_INT64, MPI_MIN, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&tw->WorkSetSize, &nmax, 1, MPI_INT64, MPI_MAX, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&tw->WorkSetSize, &total, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
-    message(0, "Treewalk %s iter %ld: total part %ld max/MPI: %ld min/MPI: %ld balance: %g.\n",
-            tw->ev_label, tw->Niteration, total, nmax, nmin, (double)nmax/((total+0.001)/tw->NTask));
-
     /* Start first iteration at the beginning*/
     tw->WorkSetStart = 0;
 
@@ -105,8 +97,6 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
         tw->Ngblist = (int*) mymalloc("Ngblist", tw->tree->NumParticles * NumThreads * sizeof(int));
     else
         tw->Ngblist = NULL;
-
-    report_memory_usage(tw->ev_label);
 
     /* Assert that the query and result structures are aligned to  64-bit boundary,
      * so that our MPI Send/Recv's happen from aligned memory.*/
@@ -123,9 +113,6 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     bytesperbuffer += ImportBufferBoost * (tw->query_type_elsize + tw->result_type_elsize);
     /*Use all free bytes for the tree buffer, as in exchange. Leave some free memory for array overhead.*/
     size_t freebytes = mymalloc_freebytes();
-    if(freebytes <= 4096 * 11 * bytesperbuffer) {
-        endrun(1231245, "Not enough memory for exporting any particles: needed %ld bytes have %ld. \n", bytesperbuffer, freebytes-4096*10);
-    }
     freebytes -= 4096 * 10 * bytesperbuffer;
 
     tw->BunchSize = (size_t) floor(((double)freebytes)/ bytesperbuffer);
@@ -134,8 +121,19 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     if(tw->BunchSize * tw->query_type_elsize > maxbuf)
         tw->BunchSize = maxbuf / tw->query_type_elsize;
 
-    if(tw->BunchSize < 100)
-        endrun(2,"Only enough free memory to export %ld elements.\n", tw->BunchSize);
+    if(freebytes <= 4096 * bytesperbuffer || tw->BunchSize < 100) {
+        endrun(1231245, "Not enough free memory in %s to export particles: needed %ld bytes have %ld. can export %ld \n", tw->ev_label, bytesperbuffer, freebytes, tw->BunchSize);
+    }
+
+    /* Print some balance numbers*/
+    int64_t nmin, nmax, total;
+    MPI_Reduce(&tw->WorkSetSize, &nmin, 1, MPI_INT64, MPI_MIN, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tw->WorkSetSize, &nmax, 1, MPI_INT64, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tw->WorkSetSize, &total, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    message(0, "Treewalk %s iter %ld: total part %ld max/MPI: %ld min/MPI: %ld balance: %g query %ld result %ld BunchSize %ld.\n",
+            tw->ev_label, tw->Niteration, total, nmax, nmin, (double)nmax/((total+0.001)/tw->NTask), tw->query_type_elsize, tw->result_type_elsize, tw->BunchSize);
+
+    report_memory_usage(tw->ev_label);
 
     DataIndexTable = (struct data_index *) mymalloc("DataIndexTable", tw->BunchSize * sizeof(struct data_index));
 }
@@ -375,9 +373,13 @@ ev_toptree(TreeWalk * tw)
     tw->Nexport_thread = ta_malloc2("localexports", size_t, 2*tw->NThread);
     tw->Nexport_threadoffset = tw->Nexport_thread + tw->NThread;
 
-    int currentIndex = tw->WorkSetStart;
-    int lastSucceeded = tw->WorkSetSize;
+    int64_t currentIndex = tw->WorkSetStart;
+    /* This needs to be large initially so the reductions work*/
+    int64_t lastSucceeded = tw->WorkSetSize;
     int BufferFullFlag = 0;
+
+    if(tw->Nexportfull > 0)
+        message(0, "Toptree %s, iter %ld. First particle %ld size %ld.\n", tw->ev_label, tw->Nexportfull, tw->WorkSetStart, tw->WorkSetSize);
 
 #pragma omp parallel reduction(min: lastSucceeded) reduction(+: BufferFullFlag)
     {
@@ -389,26 +391,26 @@ ev_toptree(TreeWalk * tw)
         /* use old index to recover from a buffer overflow*/;
         TreeWalkQueryBase * input = (TreeWalkQueryBase *) alloca(tw->query_type_elsize);
         TreeWalkResultBase * output = (TreeWalkResultBase *) alloca(tw->result_type_elsize);
+        lastSucceeded = tw->WorkSetStart - 1;
 
-        int64_t lastSucceeded = tw->WorkSetStart - 1;
         /* We must schedule monotonically so that if the export buffer fills up
         * it is guaranteed that earlier particles are already done.
         * However, we schedule dynamically so that we have reduced imbalance.
         * We do not use the openmp dynamic scheduling, but roll our own
         * so that we can break from the loop if needed.*/
-        int chnk = 0;
+        int64_t chnk = 0;
         /* chunk size: 1 and 1000 were slightly (3 percent) slower than 8.
         * FoF treewalk needs a larger chnksz to avoid contention.*/
-        int chnksz = tw->WorkSetSize / (4*tw->NThread);
+        int64_t chnksz = tw->WorkSetSize / (4*tw->NThread);
         if(chnksz < 1)
             chnksz = 1;
         if(chnksz > 100)
             chnksz = 100;
         do {
             /* Get another chunk from the global queue*/
-            chnk = atomic_fetch_and_add(&currentIndex, chnksz);
+            chnk = atomic_fetch_and_add_64(&currentIndex, chnksz);
             /* This is a hand-rolled version of what openmp dynamic scheduling is doing.*/
-            int end = chnk + chnksz;
+            int64_t end = chnk + chnksz;
             /* Make sure we do not overflow the loop*/
             if(end > tw->WorkSetSize)
                 end = tw->WorkSetSize;
@@ -425,7 +427,7 @@ ev_toptree(TreeWalk * tw)
                 lv->NThisParticleExport = 0;
                 const int rt = tw->visit(input, output, lv);
                 if(lv->NThisParticleExport > 1000)
-                    message(5, "%ld exports for particle %d! Odd.\n", lv->NThisParticleExport, k);
+                    message(5, "%ld exports for particle %d! Odd.\n", lv->NThisParticleExport, i);
                 if(rt < 0) {
                     /* export buffer has filled up, can't do more work.*/
                     break;
@@ -437,9 +439,7 @@ ev_toptree(TreeWalk * tw)
             }
             /* If we filled up, we need to remove the partially evaluated last particle from the export list and leave this loop.*/
             if(lv->Nexport >= lv->BunchSize) {
-                message(1, "Tree export buffer full with %ld particles. start %ld lastsucceeded: %ld end %d size %ld.\n",
-                        lv->Nexport, tw->WorkSetStart, lastSucceeded, end, tw->WorkSetSize);
-                BufferFullFlag = 1;
+                BufferFullFlag += 1;
                 /* If the above loop finished, we don't need to remove the fully exported particle*/
                 if(lastSucceeded < end) {
                     /* Touch up the DataIndexTable, so that partial particle exports are discarded.
@@ -460,6 +460,20 @@ ev_toptree(TreeWalk * tw)
         tw->Nexport_thread[tid] = lv->Nexport;
         tw->Nexport_threadoffset[tid] = lv->DataIndexOffset;
     }
+
+    if(BufferFullFlag > 0) {
+        size_t Nexport = 0;
+        int i;
+        for(i = 0; i < tw->NThread; i++)
+            Nexport += tw->Nexport_thread[i];
+        message(1, "Tree export buffer full on %d of %ld threads with %lu exports (%lu Mbytes). First particle %ld lastsucceeded: %ld size %ld.\n",
+                        BufferFullFlag, tw->NThread, Nexport, Nexport/tw->query_type_elsize/1024/1024, tw->WorkSetStart, lastSucceeded, tw->WorkSetSize);
+        if(lastSucceeded < 0)
+            endrun(5, "Not enough export space to make progress! lastsuc %ld Bunchsize: %ld \n", lastSucceeded, tw->BunchSize);
+    }
+    // else
+        // message(1, "Finished toptree on %d threads. First particle %ld lastsucceeded: %ld size %ld.\n", BufferFullFlag, tw->WorkSetStart, lastSucceeded, tw->WorkSetSize);
+
     /* Set the place to start the next iteration. Note that because lastSucceeded
      * is the minimum entry across all threads, some particles may have their trees partially walked twice locally.
      * This is fine because we walk the tree to fill up the Ngbiter list.
@@ -843,6 +857,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
             free_commbuffer(&res_exports);
             free_impexpcount(&counts);
             ta_free(tw->Nexport_thread);
+            tw->Nexportfull++;
             /* Note there is no sync at the end!*/
         } while(Ndone < tw->NTask);
     }
