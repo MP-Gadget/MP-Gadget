@@ -380,6 +380,9 @@ ev_toptree(TreeWalk * tw)
     int64_t lastSucceeded = tw->WorkSetSize;
     int BufferFullFlag = 0;
 
+    if(tw->Nexportfull > 0)
+        message(0, "Toptree %s, iter %ld. First particle %ld size %ld.\n", tw->ev_label, tw->Nexportfull, tw->WorkSetStart, tw->WorkSetSize);
+
 #pragma omp parallel reduction(min: lastSucceeded) reduction(+: BufferFullFlag)
     {
         LocalTreeWalk lv[1];
