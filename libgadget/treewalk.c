@@ -90,14 +90,6 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
      * sfr/bh we should change this*/
     treewalk_build_queue(tw, active_set, size, 0);
 
-    /* Print some balance numbers*/
-    int64_t nmin, nmax, total;
-    MPI_Reduce(&tw->WorkSetSize, &nmin, 1, MPI_INT64, MPI_MIN, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&tw->WorkSetSize, &nmax, 1, MPI_INT64, MPI_MAX, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&tw->WorkSetSize, &total, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
-    message(0, "Treewalk %s iter %ld: total part %ld max/MPI: %ld min/MPI: %ld balance: %g.\n",
-            tw->ev_label, tw->Niteration, total, nmax, nmin, (double)nmax/((total+0.001)/tw->NTask));
-
     /* Start first iteration at the beginning*/
     tw->WorkSetStart = 0;
 
@@ -105,8 +97,6 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
         tw->Ngblist = (int*) mymalloc("Ngblist", tw->tree->NumParticles * NumThreads * sizeof(int));
     else
         tw->Ngblist = NULL;
-
-    report_memory_usage(tw->ev_label);
 
     /* Assert that the query and result structures are aligned to  64-bit boundary,
      * so that our MPI Send/Recv's happen from aligned memory.*/
@@ -123,9 +113,6 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     bytesperbuffer += ImportBufferBoost * (tw->query_type_elsize + tw->result_type_elsize);
     /*Use all free bytes for the tree buffer, as in exchange. Leave some free memory for array overhead.*/
     size_t freebytes = mymalloc_freebytes();
-    if(freebytes <= 4096 * 11 * bytesperbuffer) {
-        endrun(1231245, "Not enough memory for exporting any particles: needed %ld bytes have %ld. \n", bytesperbuffer, freebytes-4096*10);
-    }
     freebytes -= 4096 * 10 * bytesperbuffer;
 
     tw->BunchSize = (size_t) floor(((double)freebytes)/ bytesperbuffer);
@@ -134,8 +121,19 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     if(tw->BunchSize * tw->query_type_elsize > maxbuf)
         tw->BunchSize = maxbuf / tw->query_type_elsize;
 
-    if(tw->BunchSize < 100)
-        endrun(2,"Only enough free memory to export %ld elements.\n", tw->BunchSize);
+    if(freebytes <= 4096 * bytesperbuffer || tw->BunchSize < 100) {
+        endrun(1231245, "Not enough free memory in %s to export particles: needed %ld bytes have %ld. can export %ld \n", tw->ev_label, bytesperbuffer, freebytes, tw->BunchSize);
+    }
+
+    /* Print some balance numbers*/
+    int64_t nmin, nmax, total;
+    MPI_Reduce(&tw->WorkSetSize, &nmin, 1, MPI_INT64, MPI_MIN, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tw->WorkSetSize, &nmax, 1, MPI_INT64, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tw->WorkSetSize, &total, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    message(0, "Treewalk %s iter %ld: total part %ld max/MPI: %ld min/MPI: %ld balance: %g query %ld result %ld BunchSize %ld.\n",
+            tw->ev_label, tw->Niteration, total, nmax, nmin, (double)nmax/((total+0.001)/tw->NTask), tw->query_type_elsize, tw->result_type_elsize, tw->BunchSize);
+
+    report_memory_usage(tw->ev_label);
 
     DataIndexTable = (struct data_index *) mymalloc("DataIndexTable", tw->BunchSize * sizeof(struct data_index));
 }
