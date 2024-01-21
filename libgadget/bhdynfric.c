@@ -134,10 +134,10 @@ blackhole_compute_dfaccel(const int n, const double atime, const double Grav)
                 BHP(n).DFAccel[j] *= blackhole_dynfric_params.BH_DFBoostFactor; // Add a boost factor
             }
         }
-#ifdef DEBUG
-        message(2,"x=%e, log(lambda)=%e, fof_x=%e, Mbh=%e, ratio=%e \n",
-           x,log(lambda),f_of_x,P[n].Mass,BHP(n).DFAccel[0]/P[n].FullTreeGravAccel[0]);
-#endif
+// #ifdef DEBUG
+        // message(2,"x=%e, log(lambda)=%e, fof_x=%e, Mbh=%e, ratio=%e \n",
+           // x,log(lambda),f_of_x,P[n].Mass,BHP(n).DFAccel[0]/P[n].FullTreeGravAccel[0]);
+// #endif
     }
 }
 
@@ -152,9 +152,12 @@ blackhole_dynfric_postprocess(int n, TreeWalk * tw)
         for(j = 0; j < 3; j++)
             BHP(n).DF_SurroundingVel[j] /= BHP(n).DF_SurroundingDensity;
     }
-    else
-        message(2, "Dynamic Friction density is zero for BH %ld. mass %g, hsml %g, dens %g, pos %g %g %g.\n",
-            P[n].ID, BHP(n).Mass, P[n].Hsml, BHP(n).Density, P[n].Pos[0], P[n].Pos[1], P[n].Pos[2]);
+    else {
+        #pragma omp atomic update
+        BHDYN_GET_PRIV(tw)->ZeroDF++;
+        #pragma omp atomic update
+        BHDYN_GET_PRIV(tw)->ZeroDFMass += BHP(n).Mass;
+    }
 }
 
 static void
@@ -383,6 +386,12 @@ blackhole_dynfric(int * ActiveBlackHoles, int64_t NumActiveBlackHoles, DomainDec
 
     treewalk_run(tw_dynfric, ActiveBlackHoles, NumActiveBlackHoles);
     force_tree_free(tree);
+    size_t totalzerodf;
+    double totalzeromass;
+    MPI_Reduce(&priv->ZeroDF, &totalzerodf, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&priv->ZeroDFMass, &totalzeromass, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    if(totalzerodf > 0)
+        message(0, "Dynamic Friction density is zero for %ld BHs avg mass %g.\n", totalzerodf, totalzeromass/totalzerodf);
 }
 
 /* Compute the DF acceleration for all active black holes*/

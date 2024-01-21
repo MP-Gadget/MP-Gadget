@@ -10,6 +10,8 @@ struct BHDynFricPriv {
     /* Time factors*/
     struct kick_factor_data * kf;
     inttime_t Ti_Current; /* current time*/
+    size_t ZeroDF; // Counter for zero density BHs
+    double ZeroDFMass; /* Total mass of BHs with zero DF density*/
 };
 
 /* Do the dynamic friction treewalk if BH_DynFrictionMethod > 0.
