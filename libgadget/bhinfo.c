@@ -56,7 +56,7 @@ struct __attribute__((__packed__)) BHinfo{
     double MgasEnc;
     int KEflag;
 
-    MyDouble a;
+    double a;
     /* See size1 above*/
     int size2;
 };

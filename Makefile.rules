@@ -3,7 +3,6 @@
 AR ?= ar
 MPICC ?= mpicc
 LOW_PRECISION ?= double
-HIGH_PRECISION ?= double
 
 OPTIMIZE ?= -O2 -g -fopenmp -Wall
 GSL_INCL ?= $(shell pkg-config --cflags gsl)
@@ -16,7 +15,6 @@ CFLAGS = $(OPTIONS) $(GSL_INCL)
 CFLAGS += -I../depends/include
 CFLAGS += -I../
 CFLAGS += "-DLOW_PRECISION=$(LOW_PRECISION)"
-CFLAGS += "-DHIGH_PRECISION=$(HIGH_PRECISION)"
 #For tests
 TCFLAGS = $(CFLAGS) -DGADGET_TESTDATA_ROOT=\"$(GADGET_TESTDATA_ROOT)\"
 
