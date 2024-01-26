@@ -72,7 +72,7 @@ SPH_EntVarPred(const int p_i, const DriftKickTimes * times)
 {
         const int bin = P[p_i].TimeBinHydro;
         const int PI = P[p_i].PI;
-        const double dloga = dloga_from_dti(times->Ti_Current - times->Ti_kick[bin], P[p_i].Ti_drift);
+        const double dloga = dloga_from_dti(times->Ti_Current - times->Ti_kick[bin], times->Ti_Current);
         double EntVarPred = SphP[PI].Entropy + SphP[PI].DtEntropy * dloga;
         /*Entropy limiter for the predicted entropy: makes sure entropy stays positive. */
         if(EntVarPred < 0.05*SphP[PI].Entropy)
@@ -251,8 +251,6 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     tw->result_type_elsize = sizeof(TreeWalkResultDensity);
     tw->priv = priv;
     tw->tree = tree;
-
-    walltime_measure("/Misc");
 
     DENSITY_GET_PRIV(tw)->Left = (MyFloat *) mymalloc("DENS_PRIV->Left", PartManager->NumPart * sizeof(MyFloat));
     DENSITY_GET_PRIV(tw)->Right = (MyFloat *) mymalloc("DENS_PRIV->Right", PartManager->NumPart * sizeof(MyFloat));
@@ -593,7 +591,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
         /* This condition is here to prevent the density code looping forever if it encounters
          * multiple particles at the same position. If this happens you likely have worse
          * problems anyway, so warn also. */
-        if((Right[i] - Left[i]) < 1.0e-3 * Left[i])
+        if((Right[i] - Left[i]) < 1.0e-5 * Left[i])
         {
             /* If this happens probably the exchange is screwed up and all your particles have moved to (0,0,0)*/
             message(1, "Very tight Hsml bounds for i=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g pos=(%g|%g|%g)\n",

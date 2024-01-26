@@ -837,7 +837,8 @@ void stellar_density_check_neighbours (int i, TreeWalk * tw)
     const int maxcmpt = STELLAR_DENSITY_GET_PRIV(tw)->maxcmpte[pi];
     int j;
     double evalhsml[NHSML];
-    for(j = 0; j < maxcmpt; j++)
+    evalhsml[0] = effhsml(i, 0, tw);
+    for(j = 1; j < maxcmpt; j++)
         evalhsml[j] = effhsml(i, j, tw);
 
     int close = 0;

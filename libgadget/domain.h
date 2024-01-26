@@ -19,10 +19,8 @@ struct topnode_data
 
 struct topleaf_data {
     int Task;
-    union {
-        int topnode; /* used during domain_decompose for balancing the decomposition */
-        int treenode; /* used during life span of the tree for looking up in the tree Nodes */
-    };
+    int topnode; /* used during domain_decompose for balancing the decomposition */
+    int treenode; /* used during life span of the tree for looking up in the tree Nodes */
 };
 
 struct task_data {
@@ -67,7 +65,7 @@ void set_domain_par(DomainParams dp);
 /* Do a full domain decomposition, which splits the particles into even clumps*/
 void domain_decompose_full(DomainDecomp * ddecomp);
 /* Exchange particles which have moved into the new domains, not re-doing the split unless we have to*/
-void domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift);
+int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift);
 
 /** This function determines the TopLeaves entry for the given key.*/
 static inline int

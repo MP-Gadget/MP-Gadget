@@ -335,6 +335,8 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no)
     if(lv->mode != TREEWALK_TOPTREE || no < lv->tw->tree->lastnode) {
         endrun(1, "Called export not from a toptree.\n");
     }
+    if(no - lv->tw->tree->lastnode > lv->tw->tree->NTopLeaves)
+        endrun(1, "Bad export leaf: no = %d lastnode %d ntop %d target %d\n", no, lv->tw->tree->lastnode, lv->tw->tree->NTopLeaves, lv->target);
     const int target = lv->target;
     TreeWalk * tw = lv->tw;
     const int task = tw->tree->TopLeaves[no - tw->tree->lastnode].Task;
@@ -808,6 +810,7 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
     if(tw->visit) {
         tw->Nexportfull = 0;
         tw->Nexport_sum = 0;
+        tw->Ninteractions = 0;
         int Ndone = 0;
         do
         {

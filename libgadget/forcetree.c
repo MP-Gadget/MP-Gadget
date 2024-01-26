@@ -59,9 +59,6 @@ static void
 force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp);
 
 static void
-force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddecomp);
-
-static void
 add_particle_moment_to_node(struct NODE * pnode, const struct particle_data * const part);
 
 #ifdef DEBUG
@@ -204,7 +201,7 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
     do
     {
         /* Allocate memory. */
-        tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp, alloc_father);
+        tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp, alloc_father, 0);
         tree.mask = mask;
         tree.BoxSize = PartManager->BoxSize;
         force_tree_create_nodes(&tree, act, mask, ddecomp);
@@ -234,24 +231,20 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
         }
         endrun(2, "Required too many nodes, snapshot dumped\n");
     }
-
-    if(mask == ALLMASK)
-        walltime_measure("/Tree/Build/Nodes");
-    /* insert the pseudo particles that represent the mass distribution of other ddecomps */
-    force_insert_pseudo_particles(&tree, ddecomp);
-
-    tree.moments_computed_flag = 0;
-
-    if(DoMoments) {
-        force_tree_calc_moments(&tree, ddecomp);
-        walltime_measure("/Tree/Build/Moments");
-    }
-
     report_memory_usage("FORCETREE");
     tree.Nodes_base = (struct NODE *) myrealloc(tree.Nodes_base, (tree.numnodes +1) * sizeof(struct NODE));
 
     /*Update the oct-tree struct so it knows about the memory change*/
     tree.Nodes = tree.Nodes_base - tree.firstnode;
+
+    tree.moments_computed_flag = 0;
+
+    if(DoMoments) {
+        walltime_measure("/Tree/Build/Nodes");
+        force_tree_calc_moments(&tree, ddecomp);
+        walltime_measure("/Tree/Build/Moments");
+    }
+
 #ifdef DEBUG
         force_validate_nextlist(&tree);
 #endif
@@ -402,7 +395,7 @@ create_new_node_layer(int firstparent, int p_toplace, const ForceTree tb, int *n
                 nprnt->f.ChildType = PARTICLE_NODE_TYPE;
                 nprnt->s.noccupied = NMAXCHILD;
                 tb.Nodes[firstparent].f.ChildType = NODE_NODE_TYPE;
-                tb.Nodes[firstparent].s.noccupied = (1<<16);
+                tb.Nodes[firstparent].s.noccupied = NODEFULL;
             }
             return 1;
         }
@@ -459,7 +452,7 @@ create_new_node_layer(int firstparent, int p_toplace, const ForceTree tb, int *n
              * so mark it a Node-containing node. It cannot be accessed until
              * we mark the top-level parent, so no need for atomics.*/
             tb.Nodes[child].f.ChildType = NODE_NODE_TYPE;
-            tb.Nodes[child].s.noccupied = (1<<16);
+            tb.Nodes[child].s.noccupied = NODEFULL;
             parent = child;
         }
     } while(1);
@@ -467,7 +460,7 @@ create_new_node_layer(int firstparent, int p_toplace, const ForceTree tb, int *n
     /* A new node is created. Mark the (original) parent as an internal node with node children.
      * This goes last so that we don't access the child before it is constructed.*/
     tb.Nodes[firstparent].f.ChildType = NODE_NODE_TYPE;
-    tb.Nodes[firstparent].s.noccupied = (1<<16);
+    tb.Nodes[firstparent].s.noccupied = NODEFULL;
     return 0;
 }
 
@@ -484,7 +477,7 @@ int add_particle_to_tree(int i, int cur_start, const ForceTree tb, struct NodeCa
         nocc = tb.Nodes[cur].s.noccupied;
 
         /* This node still has space for a particle (or needs conversion)*/
-        if(nocc < (1 << 16))
+        if(nocc < NODEFULL)
             break;
 
         /* This node has child subnodes: find them.*/
@@ -506,7 +499,7 @@ int add_particle_to_tree(int i, int cur_start, const ForceTree tb, struct NodeCa
     if(nocc < NMAXCHILD)
         modify_internal_node(cur, nocc, i, tb);
     /* In this case we need to create a new layer of nodes beneath this one*/
-    else if(nocc < 1<<16) {
+    else if(nocc < NODEFULL) {
         if(create_new_node_layer(cur, i, tb, nnext, nc))
             return -1;
     } else
@@ -644,42 +637,84 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
     return 0;
 }
 
+
+/* create an empty root node  */
+int
+force_tree_create_topnodes(ForceTree * tree, DomainDecomp * ddecomp)
+{
+    int nnext = tree->firstnode;       /* index of first free node */
+    int i;
+    struct NODE *nfreep = &tree->Nodes[nnext];	/* select first node */
+    MPI_Comm_rank(MPI_COMM_WORLD, &tree->ThisTask);
+
+    nfreep->len = PartManager->BoxSize*1.001;
+    for(i = 0; i < 3; i++)
+        nfreep->center[i] = PartManager->BoxSize/2.;
+    for(i = 0; i < NMAXCHILD; i++)
+        nfreep->s.suns[i] = -1;
+    nfreep->s.noccupied = 0;
+    nfreep->father = -1;
+    nfreep->sibling = -1;
+    nfreep->f.TopLevel = 1;
+    nfreep->f.InternalTopLevel = 0;
+    nfreep->f.DependsOnLocalMass = 0;
+    nfreep->f.ChildType = PARTICLE_NODE_TYPE;
+    nfreep->f.unused = 0;
+    memset(&(nfreep->mom.cofm),0,3*sizeof(MyFloat));
+    nfreep->mom.mass = 0;
+    nfreep->mom.hmax = 0;
+    nnext++;
+    /* create a set of empty nodes corresponding to the top-level ddecomp
+        * grid. We need to generate these nodes first to make sure that we have a
+        * complete top-level tree which allows the easy insertion of the
+        * pseudo-particles in the right place */
+    force_create_node_for_topnode(tree->firstnode, 0, tree->Nodes, ddecomp, 1, 0, 0, 0, &nnext, tree->lastnode);
+    return nnext;
+}
+
+/*! Constructs the topnodes for the gravitational oct-tree.
+ *  Only toptree nodes are made. Particles are not added to the tree.
+ *  The indices firstnode....firstnode +nodes-1 reference tree nodes. `Nodes_base'
+ *  points to the first tree node, while `nodes' is shifted such that
+ *  nodes[firstnode] gives the first tree node. Past tb.lastnode we have the
+ *  pseudo particles, whose indices correspond to the indices in TopLeaves.*/
+ForceTree
+force_tree_top_build(DomainDecomp * ddecomp, const int alloc_high)
+{
+    /* Allocate memory. Two extra for the first node and for a sentinel*/
+    ForceTree tree = force_treeallocate(ddecomp->NTopNodes+2, 0, ddecomp, 0, alloc_high);
+    tree.mask = ALLMASK;
+    tree.BoxSize = PartManager->BoxSize;
+    // message(1, "Building toptree first %d last %d, topnodes %d\n", tree.firstnode, tree.lastnode, ddecomp->NTopNodes);
+    force_tree_create_topnodes(&tree, ddecomp);
+    return tree;
+}
+
+int
+force_tree_find_topnode(const double * const pos, const ForceTree * const tree)
+{
+    /*Walk the main tree until we get something that is a topnode leaf.*/
+    int no = tree->firstnode;
+    while(tree->Nodes[no].f.InternalTopLevel && tree->Nodes[no].f.TopLevel)
+    {
+        /* This node has child subnodes: find them.*/
+        int subnode = get_subnode(&tree->Nodes[no], pos);
+        no = tree->Nodes[no].s.suns[subnode];
+    }
+#ifdef DEBUG
+    if(!tree->Nodes[no].f.TopLevel || tree->Nodes[no].f.InternalTopLevel || no < tree->firstnode)
+        endrun(7, "Topnode %d not topleaf, tl = %d itl = %d fn %d\n", no, tree->Nodes[no].f.TopLevel, tree->Nodes[no].f.InternalTopLevel, tree->firstnode);
+#endif
+    return no;
+}
 /*! Does initial creation of the nodes for the gravitational oct-tree.
  * mask is a bitfield: Only types whose bit is set are added.
  **/
 void
 force_tree_create_nodes(ForceTree * tree, const ActiveParticles * act, int mask, DomainDecomp * ddecomp)
 {
-    int nnext = tree->firstnode;       /* index of first free node */
+    int nnext = force_tree_create_topnodes(tree, ddecomp);
 
-    /* create an empty root node  */
-    {
-        int i;
-        struct NODE *nfreep = &tree->Nodes[nnext];	/* select first node */
-
-        nfreep->len = PartManager->BoxSize*1.001;
-        for(i = 0; i < 3; i++)
-            nfreep->center[i] = PartManager->BoxSize/2.;
-        for(i = 0; i < NMAXCHILD; i++)
-            nfreep->s.suns[i] = -1;
-        nfreep->s.noccupied = 0;
-        nfreep->father = -1;
-        nfreep->sibling = -1;
-        nfreep->f.TopLevel = 1;
-        nfreep->f.InternalTopLevel = 0;
-        nfreep->f.DependsOnLocalMass = 0;
-        nfreep->f.ChildType = PARTICLE_NODE_TYPE;
-        nfreep->f.unused = 0;
-        memset(&(nfreep->mom.cofm),0,3*sizeof(MyFloat));
-        nfreep->mom.mass = 0;
-        nfreep->mom.hmax = 0;
-        nnext++;
-        /* create a set of empty nodes corresponding to the top-level ddecomp
-         * grid. We need to generate these nodes first to make sure that we have a
-         * complete top-level tree which allows the easy insertion of the
-         * pseudo-particles in the right place */
-        force_create_node_for_topnode(tree->firstnode, 0, tree->Nodes, ddecomp, 1, 0, 0, 0, &nnext, tree->lastnode);
-    }
     /* Set up thread-local copies of the topnodes to anchor the subtrees. */
     int ThisTask, j, t;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
@@ -767,9 +802,9 @@ force_tree_create_nodes(ForceTree * tree, const ActiveParticles * act, int mask,
                 /* Get the topnode to which a particle belongs. Each local tree
                  * has a local set of treenodes copying the global topnodes, except tid 0
                  * which has the real topnodes.*/
-                const int topleaf = domain_get_topleaf(P[i].Key, ddecomp);
+                const int topleaf = P[i].TopLeaf;
                 if(topleaf < StartLeaf || topleaf >= EndLeaf)
-                    endrun(5, "Bad topleaf %d start %d end %d key %ld type %d ID %ld\n", topleaf, StartLeaf, EndLeaf, P[i].Key, P[i].Type, P[i].ID);
+                    endrun(5, "Bad topleaf %d start %d end %d type %d ID %ld\n", topleaf, StartLeaf, EndLeaf, P[i].Type, P[i].ID);
                 //int treenode = ddecomp->TopLeaves[topleaf].treenode;
                 cur = local_topnodes[topleaf - StartLeaf];
             }
@@ -833,7 +868,7 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
                 /*We are an internal top level node as we now have a child top level.*/
                 Nodes[no].f.InternalTopLevel = 1;
                 Nodes[no].f.ChildType = NODE_NODE_TYPE;
-                Nodes[no].s.noccupied = (1<<16);
+                Nodes[no].s.noccupied = NODEFULL;
 
                 /* We create a new leaf node.*/
                 init_internal_node(&Nodes[*nextfree], &Nodes[no], count);
@@ -846,7 +881,14 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
                     endrun(5, "Invalid topnode: daughter %d sub %d > topnodes %d\n", curdaughter, sub, ddecomp->NTopNodes);
                 const struct topnode_data curtopnode = ddecomp->TopNodes[curdaughter + sub];
                 if(curtopnode.Daughter == -1) {
+                    int ThisTask;
+                    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
                     ddecomp->TopLeaves[curtopnode.Leaf].treenode = *nextfree;
+                    /* We set the first child as a pointer to the topleaf, essentially constructing the pseudoparticles early.
+                     * We do not set nocc, so this first child will be over-written on local nodes when we construct the full tree.*/
+                    Nodes[*nextfree].s.suns[0] = curtopnode.Leaf + lastnode;
+                    if(ddecomp->TopLeaves[curtopnode.Leaf].Task != ThisTask)
+                        Nodes[*nextfree].f.ChildType = PSEUDO_NODE_TYPE;
                 }
 
                 (*nextfree)++;
@@ -870,34 +912,6 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
                         bits + 1, 2 * x + i, 2 * y + j, 2 * z + k, nextfree, lastnode);
             }
 
-}
-
-/*! this function inserts pseudo-particles which will represent the mass
- *  distribution of the other CPUs. Initially, the mass of the
- *  pseudo-particles is set to zero, and their coordinate is set to the
- *  center of the ddecomp-cell they correspond to. These quantities will be
- *  updated later on.
- */
-static void
-force_insert_pseudo_particles(const ForceTree * tree, const DomainDecomp * ddecomp)
-{
-    int i, index;
-    const int firstpseudo = tree->lastnode;
-    int ThisTask;
-    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-
-    for(i = 0; i < ddecomp->NTopLeaves; i++)
-    {
-        index = ddecomp->TopLeaves[i].treenode;
-        if(ddecomp->TopLeaves[i].Task != ThisTask) {
-            if(tree->Nodes[index].s.noccupied != 0)
-                endrun(5, "In node %d, overwriting %d child particles (i = %d etc) with pseudo particle %d\n",
-                       index, tree->Nodes[index].s.noccupied, tree->Nodes[index].s.suns[0], i);
-            tree->Nodes[index].f.ChildType = PSEUDO_NODE_TYPE;
-            /* This node points to the pseudo particle*/
-            tree->Nodes[index].s.suns[0] = firstpseudo + i;
-        }
-    }
 }
 
 int
@@ -1215,7 +1229,7 @@ force_treeupdate_pseudos(int no, const ForceTree * tree)
     {
         /*This may not happen as we are an internal top level node*/
         if(p < tree->firstnode || p >= tree->lastnode)
-            endrun(6767, "Updating pseudos: %d -> %d which is not an internal node between %d and %d.",no, p, tree->firstnode, tree->lastnode);
+            endrun(6767, "Updating pseudos: %d -> %d which is not an internal node between %d and %d\n",no, p, tree->firstnode, tree->lastnode);
 #ifdef DEBUG
         /* Check we don't move to another part of the tree*/
         if(tree->Nodes[p].father != no)
@@ -1272,8 +1286,6 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
 {
     int i;
 
-    walltime_measure("/Misc");
-
     if(!tree->Father)
         endrun(1, "Father array not allocated, needed for hmax!\n");
 
@@ -1328,7 +1340,7 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
  *  maxnodes approximately equal to 0.7*maxpart is sufficient to store the
  *  tree for up to maxpart particles.
  */
-ForceTree force_treeallocate(const int64_t maxnodes, const int64_t maxpart, const DomainDecomp * ddecomp, const int alloc_father)
+ForceTree force_treeallocate(const int64_t maxnodes, const int64_t maxpart, const DomainDecomp * ddecomp, const int alloc_father, const int alloc_high)
 {
     ForceTree tb = {0};
 
@@ -1339,7 +1351,10 @@ ForceTree force_treeallocate(const int64_t maxnodes, const int64_t maxpart, cons
         memset(tb.Father, -1, maxpart * sizeof(int));
 #endif
     }
-    tb.Nodes_base = (struct NODE *) mymalloc("Nodes_base", (maxnodes + 1) * sizeof(struct NODE));
+    if(alloc_high)
+        tb.Nodes_base = (struct NODE *) mymalloc2("Nodes_base", (maxnodes + 1) * sizeof(struct NODE));
+    else
+        tb.Nodes_base = (struct NODE *) mymalloc("Nodes_base", (maxnodes + 1) * sizeof(struct NODE));
 #ifdef DEBUG
     memset(tb.Nodes_base, -1, (maxnodes + 1) * sizeof(struct NODE));
 #endif

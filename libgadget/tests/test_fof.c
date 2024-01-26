@@ -47,8 +47,6 @@ setup_particles(int NumPart, double BoxSize)
         int j;
         for(j=0; j<3; j++)
             P[i].Pos[j] = BoxSize * gsl_rng_uniform(r);
-        P[i].Key = PEANO(P[i].Pos, BoxSize);
-
     }
 
     gsl_rng_free(r);

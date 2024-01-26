@@ -10,12 +10,14 @@
 #include "utils.h"
 
 #include "domain.h"
+#include "forcetree.h"
 #include "timestep.h"
 #include "timebinmgr.h"
 #include "exchange.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "walltime.h"
+#include "bhdynfric.h"
 #include "utils/paramset.h"
 #include "utils/peano.h"
 #include "utils/mpsort.h"
@@ -102,11 +104,6 @@ void set_domain_params(ParameterSet * ps)
     MPI_Bcast(&domain_params, sizeof(DomainParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
-static int
-order_by_key(const void *a, const void *b);
-static void
-mp_order_by_key(const void * data, void * radix, void * arg);
-
 static void
 domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int NsegmentPerTask);
 
@@ -123,7 +120,7 @@ domain_balance(DomainDecomp * ddecomp);
 static int domain_determine_global_toptree(DomainDecompositionPolicy * policy, struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes, MPI_Comm DomainComm);
 
 static void
-domain_compute_costs(const DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopLeafCount);
+domain_compute_costs(DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopLeafCount);
 
 static void
 domain_toptree_merge(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, int * treeASize, const int MaxTopNodes);
@@ -139,12 +136,11 @@ domain_global_refine(struct local_topnode_data * topTree, int * topTreeSize, con
 static void
 domain_create_topleaves(DomainDecomp * ddecomp, int no, int * next);
 
-static int domain_layoutfunc(int n, const void * userdata);
+static int
+domain_layoutfunc(int n, const void * userdata);
 
 static int
-domain_policies_init(DomainDecompositionPolicy policies[],
-        const int NincreaseAlloc,
-        const int SwitchToGlobal);
+domain_policies_init(DomainDecompositionPolicy policies[], const int Npolicies);
 
 /*! This is the main routine for the domain decomposition.  It acts as a
  *  driver routine that allocates various temporary buffers, maps the
@@ -152,20 +148,18 @@ domain_policies_init(DomainDecompositionPolicy policies[],
  *  domain decomposition, and a final Peano-Hilbert order of all particles
  *  as a tuning measure.
  */
+#define NPOLICY 16
 void domain_decompose_full(DomainDecomp * ddecomp)
 {
-    static DomainDecompositionPolicy policies[16];
+    static DomainDecompositionPolicy policies[NPOLICY];
     static int Npolicies = 0;
 
     /* start from last successful policy to avoid retries */
     static int LastSuccessfulPolicy = 0;
 
     if (Npolicies == 0) {
-        const int NincreaseAlloc = 16;
-        Npolicies = domain_policies_init(policies, NincreaseAlloc, 4);
+        Npolicies = domain_policies_init(policies, NPOLICY);
     }
-
-    walltime_measure("/Misc");
 
     message(0, "domain decomposition... (presently allocated=%g MB)\n", mymalloc_usedbytes() / (1024.0 * 1024.0));
 
@@ -213,7 +207,7 @@ void domain_decompose_full(DomainDecomp * ddecomp)
     myfree(OldTopLeaves);
     myfree(OldTopNodes);
 
-    if(domain_exchange(domain_layoutfunc, ddecomp, 0, NULL, PartManager, SlotsManager, 10000, ddecomp->DomainComm))
+    if(domain_exchange(domain_layoutfunc, ddecomp, NULL, PartManager, SlotsManager, 10000, ddecomp->DomainComm))
         endrun(1929,"Could not exchange particles\n");
 
     /*Do a garbage collection so that the slots are ordered
@@ -229,35 +223,121 @@ void domain_decompose_full(DomainDecomp * ddecomp)
     walltime_measure("/Domain/PeanoSort");
 }
 
+/*Check whether a particle is inside the volume covered by a node,
+ * by checking whether each dimension is close enough to center (L1 metric).*/
+static inline int inside_topleaf(const int topleaf, const double Pos[3], const ForceTree * const tree)
+{
+    /* During fof particle exchange topleaf is over-written with the target task.
+     * This is usually fine: if the index of the target top leaf happens to be the
+     * same as the target task we just have nothing to do. But make sure we don't have a bad index,
+     * just in case. Usually we should have at least one topleaf per task so this should never happen. */
+    if(topleaf >= tree->NTopLeaves || topleaf < 0)
+        return 0;
+    /* Find treenode corresponding to this topleaf*/
+    const struct NODE * const node = &tree->Nodes[tree->TopLeaves[topleaf].treenode];
+
+    /*One can also use a loop, but the compiler unrolls it only at -O3,
+     *so this is a little faster*/
+    int inside =
+        (fabs(2*(Pos[0] - node->center[0])) <= node->len) *
+        (fabs(2*(Pos[1] - node->center[1])) <= node->len) *
+        (fabs(2*(Pos[2] - node->center[2])) <= node->len);
+    return inside;
+}
+
 /* This is a cut-down version of the domain decomposition that leaves the
  * domain grid intact, but exchanges the particles and rebuilds the tree */
-void domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
+int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
 {
     message(0, "Attempting a domain exchange\n");
 
-    walltime_measure("/Misc");
+    /* Find drift factor*/
+    int i;
+    /* Can't update the random shift without re-decomposing domain*/
+    const double rel_random_shift[3] = {0};
+    double ddrift = 0;
+    if(drift)
+        ddrift = get_exact_drift_factor(drift->CP, drift->ti0, drift->ti1);
 
-    /* Try a domain exchange.
-     * If we have no memory for the particles,
-     * bail and do a full domain*/
-    if(0 != domain_exchange(domain_layoutfunc, ddecomp, 0, drift, PartManager, SlotsManager, 10000, ddecomp->DomainComm)) {
-        domain_decompose_full(ddecomp);
-        return;
+    /*Structure for building a list of particles that will be exchanged*/
+    size_t numthreads = omp_get_max_threads();
+    PreExchangeList ExchangeData[1] = {0};
+    /*static schedule below so we only need this much memory*/
+    size_t narr = PartManager->NumPart/numthreads+numthreads;
+    ExchangeData->ExchangeList = (int *) mymalloc2("exchangelist", sizeof(int) * narr * numthreads);
+    /*Garbage particles are counted so we have an accurate memory estimate*/
+    int ngarbage = 0;
+
+    size_t *nexthr = ta_malloc("nexthr", size_t, numthreads);
+    int **threx = ta_malloc("threx", int *, numthreads);
+    gadget_setup_thread_arrays(ExchangeData->ExchangeList, threx, nexthr,narr,numthreads);
+
+    ForceTree tree = force_tree_top_build(ddecomp, 1);
+    /* flag the particles that need to be exported */
+    size_t schedsz = PartManager->NumPart/numthreads+1;
+#pragma omp parallel
+    {
+        size_t nexthr_local = 0;
+        const int tid = omp_get_thread_num();
+        int * threx_local = threx[tid];
+    #pragma omp for schedule(static, schedsz) reduction(+: ngarbage)
+    for(i=0; i < PartManager->NumPart; i++) {
+        if(drift) {
+            real_drift_particle(&PartManager->Base[i], SlotsManager, ddrift, PartManager->BoxSize, rel_random_shift);
+            PartManager->Base[i].Ti_drift = drift->ti1;
+        }
+        /* Garbage is not in the tree*/
+        if(PartManager->Base[i].IsGarbage) {
+            ngarbage++;
+            continue;
+        }
+        /* If we aren't using DM for the dynamic friction, we don't need to build a tree with inactive DM particles.
+         * Velocity dispersions are computed on a PM step only.
+         * In this case, keep the particles on this processor.*/
+        if(!(blackhole_dynfric_treemask() & DMMASK))
+            if(PartManager->Base[i].Type == 1 && !is_timebin_active(PartManager->Base[i].TimeBinGravity, PartManager->Base[i].Ti_drift))
+                continue;
+        if(!inside_topleaf(PartManager->Base[i].TopLeaf, PartManager->Base[i].Pos, &tree)) {
+            const int no = domain_get_topleaf(PEANO(PartManager->Base[i].Pos, PartManager->BoxSize), ddecomp);
+            /* Set the topleaf for layoutfunc.*/
+            PartManager->Base[i].TopLeaf = no;
+        }
+        int target = domain_layoutfunc(i, ddecomp);
+        if(target != tree.ThisTask) {
+            threx_local[nexthr_local] = i;
+            nexthr_local++;
+        }
     }
+    nexthr[tid] = nexthr_local;
+    }
+    force_tree_free(&tree);
+    ExchangeData->ngarbage = ngarbage;
+    /*Merge step for the queue.*/
+    ExchangeData->nexchange = gadget_compact_thread_arrays(ExchangeData->ExchangeList, threx, nexthr, numthreads);
+    ta_free(threx);
+    ta_free(nexthr);
+
+    /*Shrink memory*/
+    ExchangeData->ExchangeList = (int *) myrealloc(ExchangeData->ExchangeList, sizeof(int) * ExchangeData->nexchange);
+
+    walltime_measure("/Domain/drift");
+
+    /* Try a domain exchange. Note ExchangeList is freed inside.*/
+    int errno = domain_exchange(domain_layoutfunc, ddecomp, ExchangeData, PartManager, SlotsManager, 10000, ddecomp->DomainComm);
+    return errno;
 }
 
 /* this function generates several domain decomposition policies for attempting
  * creating the domain. */
 static int
 domain_policies_init(DomainDecompositionPolicy policies[],
-        const int NincreaseAlloc,
-        const int SwitchToGlobal)
+        const int NPolicy)
 {
     int NTask;
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
-
+    const int SwitchToGlobal = 4;
     int i;
-    for(i = 0; i < NincreaseAlloc; i ++) {
+    for(i = 0; i < NPolicy; i ++) {
         policies[i].TopNodeAllocFactor = domain_params.TopNodeAllocFactor * pow(1.3, i);
         /* global sorting is slower than a local sorting, but tends to produce a more
          * balanced domain tree that is easier to merge.
@@ -273,11 +353,13 @@ domain_policies_init(DomainDecompositionPolicy policies[],
         if(i >= 1)
             policies[i].PreSort = 1;
         policies[i].SubSampleDistance = 16;
+        if(i > 1)
+            policies[i].SubSampleDistance = 16/(i/2+1);
         /* Desired number of TopLeaves should scale like the total number of processors*/
         policies[i].NTopLeaves = domain_params.DomainOverDecompositionFactor * NTask;
     }
 
-    return NincreaseAlloc;
+    return NPolicy;
 }
 
 /*! This function allocates all the stuff that will be required for the tree-construction/walk later on */
@@ -352,8 +434,6 @@ domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * pol
 
     report_memory_usage("DOMAIN");
 
-    walltime_measure("/Domain/Decompose/Misc");
-
     if(domain_determine_global_toptree(policy, topTree, &ddecomp->NTopNodes, MaxTopNodes, ddecomp->DomainComm)) {
         myfree(topTree);
         return 1;
@@ -404,18 +484,14 @@ domain_balance(DomainDecomp * ddecomp)
 
     domain_compute_costs(ddecomp, NULL, TopLeafCount);
 
-    walltime_measure("/Domain/Decompose/Sumcost");
-
     /* first try work balance */
     domain_assign_balanced(ddecomp, TopLeafCount, 1);
-
-    walltime_measure("/Domain/Decompose/assignbalance");
 
     int status = domain_check_memory_bound(ddecomp, NULL, TopLeafCount);
     if(status != 0)
         message(0, "Domain decomposition is outside memory bounds.\n");
 
-    walltime_measure("/Domain/Decompose/memorybound");
+    walltime_measure("/Domain/Decompose");
 
     myfree(TopLeafCount);
 
@@ -701,14 +777,15 @@ domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int Nsegmen
  *
  *  layoutfunc decides the target Task of particle p (used by
  *  subfind_distribute).
- *
- */
+ *  Uses the toptree, instead of the Peano key*/
 static int
 domain_layoutfunc(int n, const void * userdata) {
-    const DomainDecomp * ddecomp = (const DomainDecomp *) userdata;
-    peano_t key = P[n].Key;
-    int no = domain_get_topleaf(key, ddecomp);
-    return ddecomp->TopLeaves[no].Task;
+    const DomainDecomp * ddecomp = (DomainDecomp *) userdata;
+    const int topleaf = PartManager->Base[n].TopLeaf;
+    if(topleaf < 0 || topleaf >= ddecomp->NTopLeaves)
+        endrun(6, "Invalid topleaf %d (ntop %d) for particle %d id %ld x-pos %g garbage %d\n",
+               topleaf, ddecomp->NTopLeaves, n, PartManager->Base[n].ID, PartManager->Base[n].Pos[0], PartManager->Base[n].IsGarbage);
+    return ddecomp->TopLeaves[topleaf].Task;
 }
 
 /*! This function walks the global top tree in order to establish the
@@ -876,6 +953,28 @@ domain_toptree_truncate(
     domain_toptree_garbage_collection(topTree, 0, topTreeSize);
 }
 
+
+static int
+order_by_key(const void *a, const void *b)
+{
+    const struct local_particle_data * pa  = (const struct local_particle_data *) a;
+    const struct local_particle_data * pb  = (const struct local_particle_data *) b;
+    if(pa->Key < pb->Key)
+        return -1;
+
+    if(pa->Key > pb->Key)
+        return +1;
+
+    return 0;
+}
+
+static void
+mp_order_by_key(const void * data, void * radix, void * arg)
+{
+    const struct local_particle_data * pa  = (const struct local_particle_data *) data;
+    ((uint64_t *) radix)[0] = pa->Key;
+}
+
 /**
  * This function performs local refinement of the topTree.
  *
@@ -900,8 +999,6 @@ domain_check_for_local_refine_subsample(
 
     int i;
 
-    struct local_particle_data * LP = (struct local_particle_data*) mymalloc("LocalParticleData", PartManager->NumPart * sizeof(LP[0]));
-
     /* Watchout : Peano/Morton ordering is required by the tree
      * building algorithm in local_refine.
      *
@@ -920,25 +1017,47 @@ domain_check_for_local_refine_subsample(
     int Nsample = PartManager->NumPart / policy->SubSampleDistance;
 
     if(Nsample == 0 && PartManager->NumPart != 0) Nsample = 1;
+    struct local_particle_data * LP = (struct local_particle_data*) mymalloc("LocalParticleData", Nsample * sizeof(LP[0]));
 
-#pragma omp parallel for
-    for(i = 0; i < PartManager->NumPart; i ++)
-    {
-        LP[i].Key = P[i].Key;
-        LP[i].Cost = 1;
+    if(policy->PreSort) {
+        struct local_particle_data * LPfull = (struct local_particle_data*) mymalloc2("LocalParticleData", PartManager->NumPart * sizeof(LP[0]));
+        int64_t garbage = 0;
+        #pragma omp parallel for reduction(+: garbage)
+        for(i = 0; i < PartManager->NumPart; i ++)
+        {
+            if(P[i].IsGarbage) {
+                LPfull[i].Key = PEANOCELLS;
+                LPfull[i].Cost = 0;
+                garbage++;
+                continue;
+            }
+            LPfull[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
+            LPfull[i].Cost = 1;
+        }
+
+        /* First sort to ensure spatially 'even' subsamples and remove garbage.*/
+        qsort_openmp(LPfull, PartManager->NumPart, sizeof(struct local_particle_data), order_by_key);
+        Nsample = (PartManager->NumPart - garbage) / policy->SubSampleDistance;
+        if(Nsample == 0 && PartManager->NumPart > garbage) Nsample = 1;
+
+        /* now subsample */
+        #pragma omp parallel for
+        for(i = 0; i < Nsample; i ++)
+        {
+            LP[i].Key = LPfull[i * policy->SubSampleDistance].Key;
+            LP[i].Cost = LPfull[i * policy->SubSampleDistance].Cost;
+        }
+        myfree(LPfull);
     }
-
-    /* First sort to ensure spatially 'even' subsamples; FIXME: This can probably
-     * be omitted in most cases. Usually the particles in memory won't be very far off
-     * from a peano order. */
-    if(policy->PreSort)
-        qsort_openmp(LP, PartManager->NumPart, sizeof(struct local_particle_data), order_by_key);
-
-    /* now subsample */
-    for(i = 0; i < Nsample; i ++)
-    {
-        LP[i].Key = LP[i * policy->SubSampleDistance].Key;
-        LP[i].Cost = LP[i * policy->SubSampleDistance].Cost;
+    else {
+        /* Subsample, computing keys*/
+        #pragma omp parallel for
+        for(i = 0; i < Nsample; i ++)
+        {
+            int j = i * policy->SubSampleDistance;
+            LP[i].Key = PEANO(P[j].Pos, PartManager->BoxSize);
+            LP[i].Cost = 1;
+        }
     }
 
     if(policy->UseGlobalSort) {
@@ -1046,6 +1165,8 @@ domain_check_for_local_refine_subsample(
     /* then compute the costs of the internal nodes. */
     domain_toptree_update_cost(topTree, 0);
 
+    walltime_measure("/Domain/DetermineTopTree/LocalRefine");
+
     /* we leave truncation in another function, for costlimit and countlimit must be
      * used in secondary refinement*/
     return 0;
@@ -1147,16 +1268,12 @@ domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int *
 int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
         struct local_topnode_data * topTree, int * topTreeSize, int MaxTopNodes, MPI_Comm DomainComm)
 {
-    walltime_measure("/Domain/DetermineTopTree/Misc");
-
     /*
      * Build local refinement with a subsample of particles
      * 1/16 is used because each local topTree node takes about 32 bytes.
      **/
 
     int local_refine_failed = domain_check_for_local_refine_subsample(policy, topTree, topTreeSize, MaxTopNodes);
-
-    walltime_measure("/Domain/DetermineTopTree/LocalRefine/Init");
 
     if(MPIU_Any(local_refine_failed, DomainComm)) {
         message(0, "We are out of Topnodes. \n");
@@ -1173,8 +1290,6 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
     countlimit = TotCount / (policy->NTopLeaves);
 
     domain_toptree_truncate(topTree, topTreeSize, countlimit, costlimit);
-
-    walltime_measure("/Domain/DetermineTopTree/LocalRefine/truncate");
 
     if(*topTreeSize > 10 * policy->NTopLeaves) {
         message(1, "local TopTree Size =%d >> expected = %d; Usually this indicates very bad imbalance, due to a giant density peak.\n",
@@ -1196,8 +1311,6 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
     /* we now need to exchange tree parts and combine them as needed */
     int combine_failed = domain_nonrecursively_combine_topTree(topTree, topTreeSize, MaxTopNodes, DomainComm);
 
-    walltime_measure("/Domain/DetermineTopTree/Combine");
-
     if(combine_failed)
     {
         message(0, "can't combine trees due to lack of storage. Will try again.\n");
@@ -1207,8 +1320,6 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
     /* now let's see whether we should still more refinements, based on the estimated cumulative cost/count in each cell */
 
     int global_refine_failed = domain_global_refine(topTree, topTreeSize, MaxTopNodes, countlimit, costlimit);
-
-    walltime_measure("/Domain/DetermineTopTree/Addnodes");
 
     if(MPIU_Any(global_refine_failed, DomainComm)) {
         message(0, "Global refine failed: toptreeSize = %d, MaxTopNodes = %d\n", *topTreeSize, MaxTopNodes);
@@ -1277,7 +1388,7 @@ domain_global_refine(
 
 
 static void
-domain_compute_costs(const DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopLeafCount)
+domain_compute_costs(DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopLeafCount)
 {
     int i;
     int NumThreads = omp_get_max_threads();
@@ -1297,18 +1408,21 @@ domain_compute_costs(const DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t
         #pragma omp for
         for(n = 0; n < PartManager->NumPart; n++)
         {
+            const int leaf = domain_get_topleaf(PEANO(P[n].Pos, PartManager->BoxSize), ddecomp);
+            /* Set the topleaf so we can use it for exchange*/
+            P[n].TopLeaf = leaf;
             /* Skip garbage particles: they have zero work
              * and can be removed by exchange if under memory pressure.*/
             if(P[n].IsGarbage)
                 continue;
-            int no = domain_get_topleaf(P[n].Key, ddecomp);
 
             if(local_TopLeafWork)
-                local_TopLeafWork[no + tid * ddecomp->NTopLeaves] += 1;
+                local_TopLeafWork[leaf + tid * ddecomp->NTopLeaves] += 1;
 
-            local_TopLeafCount[no + tid * ddecomp->NTopLeaves] += 1;
+            local_TopLeafCount[leaf + tid * ddecomp->NTopLeaves] += 1;
         }
     }
+
 
 #pragma omp parallel for
     for(i = 0; i < ddecomp->NTopLeaves; i++)
@@ -1452,25 +1566,4 @@ domain_toptree_merge(struct local_topnode_data *treeA,
             }
         }
     }
-}
-
-static int
-order_by_key(const void *a, const void *b)
-{
-    const struct local_particle_data * pa  = (const struct local_particle_data *) a;
-    const struct local_particle_data * pb  = (const struct local_particle_data *) b;
-    if(pa->Key < pb->Key)
-        return -1;
-
-    if(pa->Key > pb->Key)
-        return +1;
-
-    return 0;
-}
-
-static void
-mp_order_by_key(const void * data, void * radix, void * arg)
-{
-    const struct local_particle_data * pa  = (const struct local_particle_data *) data;
-    ((uint64_t *) radix)[0] = pa->Key;
 }

@@ -345,7 +345,7 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
     ta_free(Anmemb_old);
     ta_free(Anmemb);
 
-    /*Copied from glibc*/
+    /*Copied from glibc */
     /* tp[0] .. tp[n - 1] is now sorted, copy around entries of
        the original array (done serially).  Knuth vol. 3 (2nd ed.) exercise 5.2-10.  */
     if(indirect) {

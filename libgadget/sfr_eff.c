@@ -160,6 +160,8 @@ void set_sfr_params(ParameterSet * ps)
         sfr_params.TempClouds = param_get_double(ps, "TempClouds");
         sfr_params.MaxSfrTimescale = param_get_double(ps, "MaxSfrTimescale");
         sfr_params.Generations = param_get_int(ps, "Generations");
+        if(sfr_params.Generations > 14)
+            endrun(0, "Generations is %d, only space in the bitfield for 14.\n", sfr_params.Generations);
         sfr_params.MinGasTemp = param_get_double(ps, "MinGasTemp");
         sfr_params.BHFeedbackUseTcool = param_get_int(ps, "BHFeedbackUseTcool");
         if(sfr_params.BHFeedbackUseTcool > 3 || sfr_params.BHFeedbackUseTcool < 0)
@@ -356,12 +358,12 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
     sumup_large_ints(1, &stars_spawned, &tot_spawned);
     sumup_large_ints(1, &stars_converted, &tot_converted);
 
-    double total_sum_mass_stars, total_sm, totsfrrate;
+    double total_sum_mass_stars = 0, total_sm = 0, totsfrrate = 0;
 
     MPI_Reduce(&localsfr, &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&sum_sm, &total_sm, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&sum_mass_stars, &total_sum_mass_stars, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    if(FdSfr)
+    if(FdSfr && total_sm > 0)
     {
         double rate = 0;
 

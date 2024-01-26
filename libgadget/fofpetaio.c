@@ -167,7 +167,8 @@ struct PartIndex {
 
 static int fof_sorted_layout(int i, const void * userdata) {
     struct part_manager_type * halo_pman = (struct part_manager_type *) userdata;
-    return halo_pman->Base[i].TargetTask;
+    /* Reuse the topleaf info to be a task. We will regenerate it with a domain_maintain afterwards.*/
+    return halo_pman->Base[i].TopLeaf;
 }
 
 static void fof_radix_sortkey(const void * c1, void * out, void * arg) {
@@ -261,7 +262,7 @@ fof_copy_target_task(struct part_manager_type * halo_pman, struct PartIndex * pi
 #ifdef DEBUG
     #pragma omp parallel for
     for(i = 0; i < halo_pman->NumPart; i ++) {
-        halo_pman->Base[i].TargetTask = -1;
+        halo_pman->Base[i].TopLeaf = -1;
     }
 #endif
     /* Ensure that particles outside groups do not move*/
@@ -270,21 +271,21 @@ fof_copy_target_task(struct part_manager_type * halo_pman, struct PartIndex * pi
     #pragma omp parallel for
     for(i = 0; i < halo_pman->NumPart; i ++) {
         if(halo_pman->Base[i].GrNr < 0)
-            halo_pman->Base[i].TargetTask = ThisTask;
+            halo_pman->Base[i].TopLeaf = ThisTask;
     }
     #pragma omp parallel for
     for(i = 0; i < pi_size; i ++) {
         size_t index = pi[i].origin % task_origin_offset;
         if(index >= (size_t) halo_pman->NumPart)
             endrun(23, "entry %ld has index %lu (npiglocal %ld)\n", i, index, halo_pman->NumPart);
-        halo_pman->Base[index].TargetTask = pi[i].targetTask;
+        halo_pman->Base[index].TopLeaf = pi[i].targetTask;
     }
 
 #ifdef DEBUG
     #pragma omp parallel for
     for(i = 0; i < halo_pman->NumPart; i ++) {
-        if(halo_pman->Base[i].TargetTask < 0)
-            endrun(4, "TargetTask %ld not changed %d! neighbours: %d %d\n", i, halo_pman->Base[i].TargetTask, halo_pman->Base[i-1].TargetTask, halo_pman->Base[i+1].TargetTask);
+        if(halo_pman->Base[i].TopLeaf < 0)
+            endrun(4, "TargetTask %ld not changed %d! neighbours: %d %d\n", i, halo_pman->Base[i].TopLeaf, halo_pman->Base[i-1].TopLeaf, halo_pman->Base[i+1].TopLeaf);
     }
 #endif
     walltime_measure("/FOF/IO/Distribute");
@@ -363,9 +364,9 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
                 continue;
             /* Store TargetTask as it will be over-written.
             * We freed pi above so that we could overlap PI with the slots memory.*/
-            int TargetTask = halo_pman->Base[NpigLocal].TargetTask;
+            int TargetTask = halo_pman->Base[NpigLocal].TopLeaf;
             memcpy(&halo_pman->Base[NpigLocal], &P[i], sizeof(P[i]));
-            halo_pman->Base[NpigLocal].TargetTask = TargetTask;
+            halo_pman->Base[NpigLocal].TopLeaf = TargetTask;
             struct slot_info * info = &(halo_sman->info[P[i].Type]);
             char * oldslotptr = SlotsManager->info[P[i].Type].ptr;
             if(info->enabled) {
@@ -378,8 +379,8 @@ fof_distribute_particles(struct part_manager_type * halo_pman, struct slots_mana
         if(NpigLocal != halo_pman->NumPart)
             endrun(3, "Error in NpigLocal %ld != %ld!\n", NpigLocal, halo_pman->NumPart);
     }
-
-    if(domain_exchange(fof_sorted_layout, halo_pman, 1, NULL, halo_pman, halo_sman, 10000, Comm)) {
+    /* Do a domain exchange. No pre-computed list here. Maybe a different particle table.*/
+    if(domain_exchange(fof_sorted_layout, halo_pman, NULL, halo_pman, halo_sman, 10000, Comm)) {
         message(1930, "Failed to exchange and write particles for the FOF. This is non-fatal, continuing.\n");
         if(halo_pman != PartManager) {
             myfree(halo_sman->Base);

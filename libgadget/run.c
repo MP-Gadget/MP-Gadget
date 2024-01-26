@@ -341,7 +341,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
     /* Stored scale factor of the next black hole seeding check*/
     double TimeNextSeedingCheck = header->TimeSnapshot;
 
-    walltime_measure("/Misc");
     struct OutputFD fds;
     open_outputfiles(RestartSnapNum, &fds, All.OutputDir, All.BlackHoleOn, All.StarformationOn);
 
@@ -417,15 +416,17 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             /* full decomposition rebuilds the domain, needs keys.*/
             domain_decompose_full(ddecomp);
         } else {
-            /* FIXME: add a parameter for ddecomp_decompose_incremental */
-            /* currently we drift all particles every step */
             /* If it is not a PM step, do a shorter version
-             * of the ddecomp decomp which just exchanges particles.*/
+             * of the ddecomp decomp which just exchanges particles.
+             * Under some circumstances (no DM dynamic friction), DM particles
+             * are not exchanged.*/
             struct DriftData drift;
             drift.CP = &All.CP;
             drift.ti0 = Ti_Last;
             drift.ti1 = times.Ti_Current;
-            domain_maintain(ddecomp, &drift);
+            int needfull = domain_maintain(ddecomp, &drift);
+            if(needfull)
+                domain_decompose_full(ddecomp);
         }
         update_lastactive_drift(&times);
 

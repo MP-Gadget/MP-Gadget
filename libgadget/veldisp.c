@@ -11,7 +11,7 @@ static void blackhole_veldisp(const ActiveParticles * act, Cosmology * CP, Force
 /* For the wind hsml loop*/
 #define NWINDHSML 5 /* Number of densities to evaluate for wind weight ngbiter*/
 #define NUMDMNGB 40 /*Number of DM ngb to evaluate vel dispersion */
-#define MAXDMDEVIATION 2
+#define MAXDMDEVIATION 1
 
 
 /* Computes the BH velocity dispersion for kinetic feedback*/
@@ -315,12 +315,15 @@ wind_vdisp_postprocess(const int i, TreeWalk * tw)
     int tid = omp_get_thread_num();
     /*  If we have 40 neighbours, or if DMRadius is narrow, set vdisp. Otherwise add to redo queue */
     if((numngb < (NUMDMNGB - MAXDMDEVIATION) || numngb > (NUMDMNGB + MAXDMDEVIATION)) &&
-        (WINDV_GET_PRIV(tw)->Right[pi] - WINDV_GET_PRIV(tw)->Left[pi] > 1e-2)) {
+        (WINDV_GET_PRIV(tw)->Right[pi] - WINDV_GET_PRIV(tw)->Left[pi] > 1e-5 * WINDV_GET_PRIV(tw)->Left[pi])) {
         /* More work needed: add this particle to the redo queue*/
         tw->NPRedo[tid][tw->NPLeft[tid]] = i;
         tw->NPLeft[tid] ++;
     }
     else{
+        if((WINDV_GET_PRIV(tw)->Right[pi] - WINDV_GET_PRIV(tw)->Left[pi] < 1e-5 * WINDV_GET_PRIV(tw)->Left[pi]))
+            message(1, "Tight dm hsml for id %ld ngb %g radius %g\n",P[i].ID, numngb, evaldmradius[close]);
+
         double vdisp = WINDV_GET_PRIV(tw)->V2sum[pi][close] / numngb;
         int d;
         for(d = 0; d < 3; d++){

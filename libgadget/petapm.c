@@ -139,8 +139,8 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_
     int periods_unused[2];
     MPI_Cart_get(pm->priv->comm_cart_2d, 2, pm->NTask2d, periods_unused, pm->ThisTask2d);
 
-    if(pm->NTask2d[0] != np[0]) abort();
-    if(pm->NTask2d[1] != np[1]) abort();
+    if(pm->NTask2d[0] != np[0] || pm->NTask2d[1] != np[1])
+        endrun(6, "Bad PM mesh: Task2D = %d %d np %ld %ld\n", pm->NTask2d[0], pm->NTask2d[1], np[0], np[1]);
 
     pm->priv->fftsize = 2 * pfft_local_size_dft_r2c_3d(n, pm->priv->comm_cart_2d,
            PFFT_TRANSPOSED_OUT,
@@ -271,13 +271,11 @@ petapm_force_init(
     PetaPMRegion * regions = prepare(pm, pstruct, userdata, Nregions);
     pm_init_regions(pm, regions, *Nregions);
 
-    walltime_measure("/PMgrav/Misc");
     pm_iterate(pm, put_particle_to_mesh, regions, *Nregions);
-    walltime_measure("/PMgrav/cic");
 
     layout_prepare(pm, &pm->priv->layout, pm->priv->meshbuf, regions, *Nregions, pm->comm);
 
-    walltime_measure("/PMgrav/comm");
+    walltime_measure("/PMgrav/init");
     return regions;
 }
 
@@ -298,7 +296,7 @@ pfft_complex * petapm_force_r2c(PetaPM * pm,
 
 #ifdef DEBUG
     verify_density_field(pm, real, pm->priv->meshbuf, pm->priv->meshbufsize);
-    walltime_measure("/PMgrav/Misc");
+    walltime_measure("/PMgrav/Verify");
 #endif
 
     pfft_complex * complx = (pfft_complex *) mymalloc("PMcomplex", pm->priv->fftsize * sizeof(double));
@@ -354,9 +352,8 @@ petapm_force_c2r(PetaPM * pm,
         pm_iterate(pm, readout, regions, Nregions);
         walltime_measure("/PMgrav/readout");
     }
-    walltime_measure("/PMgrav/Misc");
-
 }
+
 void petapm_force_finish(PetaPM * pm) {
     layout_finish(&pm->priv->layout);
     myfree(pm->priv->meshbuf);
@@ -427,7 +424,6 @@ petapm_reion_c2r(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
     double R = fmin(R_max,pm_mass->BoxSize);
     int last_step = 0;
     int f_count = 0;
-    petapm_transfer_func transfer = f->transfer;
     petapm_readout_func readout = f->readout;
 
     /* TODO: seriously re-think the allocation ordering in this function */
@@ -461,7 +457,7 @@ petapm_reion_c2r(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
         /*We want the last step to be unfiltered,
          *  calling apply transfer with NULL should just copy the grids */
 
-        transfer = last_step ? NULL : f->transfer;
+        petapm_transfer_func transfer = last_step ? NULL : f->transfer;
 
         pm_apply_transfer_function(pm_mass, mass_unfiltered, mass_filtered, transfer);
         pm_apply_transfer_function(pm_star, star_unfiltered, star_filtered, transfer);

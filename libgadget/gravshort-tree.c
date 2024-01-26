@@ -125,7 +125,6 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFl
     tw->tree = tree;
     tw->priv = &priv;
 
-    walltime_measure("/Misc");
     treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
 
     /* Now the force computation is finished */

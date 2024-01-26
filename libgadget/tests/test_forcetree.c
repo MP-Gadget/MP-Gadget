@@ -176,7 +176,6 @@ static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp
     int i;
     #pragma omp parallel for
     for(i=0; i<numpart; i++) {
-        P[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
         P[i].Mass = 1;
         P[i].PI = 0;
         P[i].IsGarbage = 0;
@@ -263,12 +262,11 @@ static void do_tree_mask_hmax_update_test(const int numpart, ForceTree * tb, Dom
     int i;
     #pragma omp parallel for
     for(i=0; i<numpart; i++) {
-        P[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
         P[i].Mass = 1;
         P[i].PI = 0;
         P[i].IsGarbage = 0;
         P[i].Type = 0;
-        P[i].Hsml = PartManager->BoxSize/cbrt(numpart) * get_random_number(P[i].Key, &rnd);
+        P[i].Hsml = PartManager->BoxSize/cbrt(numpart) * get_random_number(i, &rnd);
     }
     free_random_numbers(&rnd);
     PartManager->MaxPart = numpart;
@@ -314,15 +312,15 @@ static void test_rebuild_flat(void ** state) {
     /*Base pointer*/
     struct forcetree_testdata * data = * (struct forcetree_testdata **) state;
     DomainDecomp ddecomp = data->ddecomp;
-    ddecomp.TopLeaves[0].topnode = numpart;
-    ForceTree tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1);
+    ddecomp.TopLeaves[0].treenode = numpart;
+    ForceTree tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1, 0);
     /* So unused memory has Father < 0*/
     for(i = tb.firstnode; i < tb.lastnode; i++)
         tb.Nodes[i].father = -10;
 
     do_tree_test(numpart, tb, &ddecomp);
     force_tree_free(&tb);
-    tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1);
+    tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1, 0);
     do_tree_mask_hmax_update_test(numpart, &tb, &ddecomp);
     assert_true(tb.Nodes[tb.firstnode].mom.hmax >= 0.0584);
     force_tree_free(&tb);
@@ -347,11 +345,11 @@ static void test_rebuild_close(void ** state) {
     PartManager->NumPart = numpart;
     struct forcetree_testdata * data = * (struct forcetree_testdata **) state;
     DomainDecomp ddecomp = data->ddecomp;
-    ddecomp.TopLeaves[0].topnode = numpart;
-    ForceTree tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1);
+    ddecomp.TopLeaves[0].treenode = numpart;
+    ForceTree tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1, 0);
     do_tree_test(numpart, tb, &ddecomp);
     force_tree_free(&tb);
-    tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1);
+    tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1, 0);
     do_tree_mask_hmax_update_test(numpart, &tb, &ddecomp);
     force_tree_free(&tb);
     myfree(PartManager->Base);
@@ -394,15 +392,15 @@ static void test_rebuild_random(void ** state) {
     particle_alloc_memory(PartManager, 8, numpart);
     /*Allocate tree*/
     /*Base pointer*/
-    ddecomp.TopLeaves[0].topnode = numpart;
-    ForceTree tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1);
+    ddecomp.TopLeaves[0].treenode = numpart;
+    ForceTree tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1, 0);
     assert_true(tb.Nodes != NULL);
     int i;
     for(i=0; i<2; i++) {
         do_random_test(r, numpart, tb, &ddecomp);
     }
     force_tree_free(&tb);
-    tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1);
+    tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1, 0);
     do_tree_mask_hmax_update_test(numpart, &tb, &ddecomp);
     force_tree_free(&tb);
     myfree(PartManager->Base);
@@ -422,7 +420,7 @@ void trivial_domain(DomainDecomp * ddecomp)
     ddecomp->TopNodes[0].Leaf = 0;
     ddecomp->TopLeaves = malloc(sizeof(struct topleaf_data));
     ddecomp->TopLeaves[0].Task = 0;
-    ddecomp->TopLeaves[0].topnode = 0;
+    ddecomp->TopLeaves[0].treenode = 0;
     /*These are not used*/
     ddecomp->TopNodes[0].StartKey = 0;
     ddecomp->TopNodes[0].Shift = BITS_PER_DIMENSION * 3;

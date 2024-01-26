@@ -30,9 +30,6 @@ void real_drift_particle(struct particle_data * pp, struct slots_manager_type * 
             while(pp->Pos[j] > BoxSize) pp->Pos[j] -= BoxSize;
             while(pp->Pos[j] <= 0) pp->Pos[j] += BoxSize;
         }
-        /* Swallowed particles still need a peano key.*/
-        if(pp->Swallowed)
-            pp->Key = PEANO(pp->Pos, BoxSize);
         return;
     }
 
@@ -85,15 +82,12 @@ void real_drift_particle(struct particle_data * pp, struct slots_manager_type * 
         while(pp->Pos[j] > BoxSize) pp->Pos[j] -= BoxSize;
         while(pp->Pos[j] <= 0) pp->Pos[j] += BoxSize;
     }
-    /* avoid recomputing them during layout and force tree build.*/
-    pp->Key = PEANO(pp->Pos, BoxSize);
 }
 
 /* Update all particles to the current time, shifting them by a random vector.*/
 void drift_all_particles(inttime_t ti0, inttime_t ti1, Cosmology * CP, const double random_shift[3])
 {
     int i;
-    walltime_measure("/Misc");
     if(ti1 < ti0) {
         endrun(12, "Trying to reverse time: ti0=%ld ti1=%ld\n", ti0, ti1);
     }
@@ -109,5 +103,5 @@ void drift_all_particles(inttime_t ti0, inttime_t ti1, Cosmology * CP, const dou
         PartManager->Base[i].Ti_drift = ti1;
     }
 
-    walltime_measure("/Drift/All");
+    walltime_measure("/Drift");
 }

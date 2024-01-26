@@ -188,6 +188,10 @@ petaio_save_snapshot(const char * fname, struct IOTable * IOTable, int verbose, 
         if(!(ptype < 6 && ptype >= 0)) {
             continue;
         }
+        /* No need to write empty folders for particle types we don't have.
+         * But do still write them for stars and BHs as someone might expect them.*/
+        if(ptype_count[ptype] == 0 && ptype < 4)
+            continue;
         sprintf(blockname, "%d/%s", ptype, IOTable->ent[i].name);
         petaio_build_buffer(&array, &IOTable->ent[i], selection + ptype_offset[ptype], ptype_count[ptype], P, SlotsManager, &conv);
         petaio_save_block(&bf, blockname, &array, verbose);
@@ -619,12 +623,11 @@ void petaio_save_block(BigFile * bf, const char * blockname, BigArray * array, i
         NumFiles = (size * elsize + IO.BytesPerFile - 1) / IO.BytesPerFile;
         if(NumWriters > NumFiles * IO.WritersPerFile) {
             NumWriters = NumFiles * IO.WritersPerFile;
-            message(0, "Throttling NumWriters to %d.\n", NumWriters);
         }
         if(NumWriters < IO.MinNumWriters) {
+            message(0, "Throttling to %d NumWriters but could throttle to %d.\n", IO.MinNumWriters, NumWriters);
             NumWriters = IO.MinNumWriters;
             NumFiles = (NumWriters + IO.WritersPerFile - 1) / IO.WritersPerFile ;
-            message(0, "Throttling NumWriters to %d.\n", NumWriters);
         }
     } else {
         NumFiles = NumWriters;
@@ -635,7 +638,7 @@ void petaio_save_block(BigFile * bf, const char * blockname, BigArray * array, i
     }
 
     if(verbose && size > 0) {
-        message(0, "Will write %td particles to %d Files for %s\n", size, NumFiles, blockname);
+        message(0, "Will write %td particles to %d Files with %d writers for %s. \n", size, NumFiles, NumWriters, blockname);
     }
     /* create the block */
     /* dims[1] is the number of members per item */
@@ -790,7 +793,6 @@ static void STVelocity(int i, float * out, void * baseptr, void * smanptr, const
 }
 SIMPLE_PROPERTY(Mass, Mass, float, 1)
 SIMPLE_PROPERTY(ID, ID, uint64_t, 1)
-SIMPLE_PROPERTY(Generation, Generation, unsigned char, 1)
 SIMPLE_GETTER(GTPotential, Potential, float, 1, struct particle_data)
 SIMPLE_GETTER(GTTimeBinHydro, TimeBinHydro, int, 1, struct particle_data)
 SIMPLE_GETTER(GTTimeBinGravity, TimeBinGravity, int, 1, struct particle_data)
@@ -913,6 +915,15 @@ static void GTSwallowed(int i, unsigned char * out, void * baseptr, void * smanp
 static void STSwallowed(int i, unsigned char * out, void * baseptr, void * smanptr, const struct conversions * params) {
     struct particle_data * part = (struct particle_data *) baseptr;
     part[i].Swallowed = *out;
+}
+static void GTGeneration(int i, unsigned char * out, void * baseptr, void * smanptr, const struct conversions * params) {
+    struct particle_data * part = (struct particle_data *) baseptr;
+    *out = part[i].Generation;
+}
+
+static void STGeneration(int i, unsigned char * out, void * baseptr, void * smanptr, const struct conversions * params) {
+    struct particle_data * part = (struct particle_data *) baseptr;
+    part[i].Generation = *out;
 }
 
 static int order_by_type(const void *a, const void *b)

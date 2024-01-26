@@ -2,10 +2,10 @@
 #include <omp.h>
 #include <string.h>
 #include "exchange.h"
+#include "forcetree.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "walltime.h"
-#include "drift.h"
 #include "timefac.h"
 
 #include "utils.h"
@@ -52,7 +52,7 @@ typedef struct {
 static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 static void domain_build_plan(int iter, ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm);
 static size_t domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pman, const struct slots_manager_type * sman);
-static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct DriftData * drift, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
+static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 
 /* This function builds the count/displ arrays from
  * the rows stored in the entry struct of the plan.
@@ -83,10 +83,10 @@ domain_init_exchangeplan(MPI_Comm Comm)
      *  that have to go to task 'partner'
      *  toGo[1] is SPH, toGo[2] is BH and toGo[3] is stars
      */
-    plan.toGo = (ExchangePlanEntry *) mymalloc2("toGo", sizeof(plan.toGo[0]) * plan.NTask);
-    plan.toGoOffset = (ExchangePlanEntry *) mymalloc2("toGo", sizeof(plan.toGo[0]) * plan.NTask);
-    plan.toGet = (ExchangePlanEntry *) mymalloc2("toGet", sizeof(plan.toGo[0]) * plan.NTask);
-    plan.toGetOffset = (ExchangePlanEntry *) mymalloc2("toGet", sizeof(plan.toGo[0]) * plan.NTask);
+    plan.toGo = ta_malloc("toGo", ExchangePlanEntry, plan.NTask);
+    plan.toGoOffset = ta_malloc("toGoOffSet", ExchangePlanEntry, plan.NTask);
+    plan.toGet = ta_malloc("toGet", ExchangePlanEntry, plan.NTask);
+    plan.toGetOffset = ta_malloc("toGetOffset", ExchangePlanEntry, plan.NTask);
     return plan;
 }
 
@@ -100,7 +100,7 @@ domain_free_exchangeplan(ExchangePlan * plan)
 }
 
 /*Plan and execute a domain exchange, also performing a garbage collection if requested*/
-int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, int do_gc, struct DriftData * drift, struct part_manager_type * pman, struct slots_manager_type * sman, int maxiter, MPI_Comm Comm) {
+int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, PreExchangeList * preexch, struct part_manager_type * pman, struct slots_manager_type * sman, int maxiter, MPI_Comm Comm) {
     int failure = 0;
 
     /* register the MPI types used in communication if not yet. */
@@ -112,8 +112,6 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     /*Structure for building a list of particles that will be exchanged*/
     ExchangePlan plan = domain_init_exchangeplan(Comm);
 
-    walltime_measure("/Domain/exchange/init");
-
     int iter = 0;
 
     do {
@@ -121,28 +119,35 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
             failure = 1;
             break;
         }
-        domain_build_exchange_list(layoutfunc, layout_userdata, &plan, (iter > 0 ? NULL : drift), pman, sman, Comm);
+        /* Use the pre-exchange list if we can*/
+        if(preexch && preexch->ExchangeList) {
+            plan.ngarbage= preexch->ngarbage;
+            plan.nexchange = preexch->nexchange;
+            plan.ExchangeList = preexch->ExchangeList;
+            /* We only use this once.*/
+            preexch->ExchangeList = NULL;
+        }
+        else {
+            domain_build_exchange_list(layoutfunc, layout_userdata, &plan, pman, sman, Comm);
+        }
+        walltime_measure("/Domain/exchange/togo");
 
         /*Exit early if nothing to do*/
         if(!MPIU_Any(plan.nexchange > 0, Comm))
         {
             myfree(plan.ExchangeList);
-            walltime_measure("/Domain/exchange/togo");
             break;
         }
 
         /* determine for each rank how many particles have to be shifted to other ranks */
         plan.last = domain_find_iter_space(&plan, pman, sman);
         domain_build_plan(iter, layoutfunc, layout_userdata, &plan, pman, Comm);
-        walltime_measure("/Domain/exchange/togo");
 
-
-        /* Do a GC if we are asked to or if this isn't the last iteration.
+        /* Do a GC if this isn't the last iteration.
          * The gc decision is made collective in domain_exchange_once,
          * and a gc will also be done if we have no space for particles.*/
-        int really_do_gc = do_gc || (plan.last < plan.nexchange);
-
-        failure = domain_exchange_once(&plan, really_do_gc, pman, sman, Comm);
+        int do_gc = (plan.last < plan.nexchange);
+        failure = domain_exchange_once(&plan, do_gc, pman, sman, Comm);
 
         myfree(plan.ExchangeList);
 
@@ -157,7 +162,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     if(!failure && maxiter > 1) {
         ExchangePlan plan9 = domain_init_exchangeplan(Comm);
         /* Do not drift again*/
-        domain_build_exchange_list(layoutfunc, layout_userdata, &plan9, NULL, pman, sman, Comm);
+        domain_build_exchange_list(layoutfunc, layout_userdata, &plan9, pman, sman, Comm);
         if(plan9.nexchange > 0)
             endrun(5, "Still have %ld particles in exchange list\n", plan9.nexchange);
         myfree(plan9.ExchangeList);
@@ -377,8 +382,8 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
 #ifdef DEBUG
     domain_test_id_uniqueness(pman);
     slots_check_id_consistency(pman, sman);
-#endif
     walltime_measure("/Domain/exchange/finalize");
+#endif
 
     return 0;
 }
@@ -387,7 +392,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
  * All particles are processed every time, space is not considered.
  * The exchange list needs to be rebuilt every time gc is run. */
 static void
-domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct DriftData * drift, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm)
+domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm)
 {
     int i;
     size_t numthreads = omp_get_max_threads();
@@ -405,22 +410,11 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
     int ThisTask;
     MPI_Comm_rank(Comm, &ThisTask);
 
-    /* Can't update the random shift without re-decomposing domain*/
-    const double rel_random_shift[3] = {0};
-    /* Find drift factor*/
-    double ddrift = 0;
-    if(drift)
-        ddrift = get_exact_drift_factor(drift->CP, drift->ti0, drift->ti1);
-
     /* flag the particles that need to be exported */
     size_t schedsz = plan->nexchange/numthreads+1;
     #pragma omp parallel for schedule(static, schedsz) reduction(+: ngarbage)
     for(i=0; i < pman->NumPart; i++)
     {
-        if(drift) {
-            real_drift_particle(&pman->Base[i], sman, ddrift, pman->BoxSize, rel_random_shift);
-            pman->Base[i].Ti_drift = drift->ti1;
-        }
         if(pman->Base[i].IsGarbage) {
             ngarbage++;
             continue;

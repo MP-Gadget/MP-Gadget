@@ -115,7 +115,7 @@ gravpm_force(PetaPM * pm, DomainDecomp * ddecomp, Cosmology * CP, double Time, d
         powerspectrum_nu_save(pm->ps, PowerOutputDir, "powerspectrum-nu", Time);
     /*We are done with the power spectrum, free it*/
     powerspectrum_free(pm->ps);
-    walltime_measure("/LongRange");
+    walltime_measure("/PMgrav/PowerSpec");
 }
 
 static PetaPMRegion * _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void * userdata, int * Nregions) {
