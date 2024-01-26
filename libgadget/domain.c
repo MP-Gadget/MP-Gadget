@@ -303,6 +303,9 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
         if(!(blackhole_dynfric_treemask() & DMMASK))
             if(PartManager->Base[i].Type == 1 && !is_timebin_active(PartManager->Base[i].TimeBinGravity, PartManager->Base[i].Ti_drift))
                 continue;
+        /* Don't need to move inactive neutrinos*/
+        if(PartManager->Base[i].Type == 2 && !is_timebin_active(PartManager->Base[i].TimeBinGravity, PartManager->Base[i].Ti_drift))
+            continue;
         if(!inside_topleaf(PartManager->Base[i].TopLeaf, PartManager->Base[i].Pos, &tree)) {
             const int no = domain_get_topleaf(PEANO(PartManager->Base[i].Pos, PartManager->BoxSize), ddecomp);
             /* Set the topleaf for layoutfunc.*/
