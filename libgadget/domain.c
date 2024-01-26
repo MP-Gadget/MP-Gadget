@@ -266,17 +266,20 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
         ddrift = get_exact_drift_factor(drift->CP, drift->ti0, drift->ti1);
 
     /*Structure for building a list of particles that will be exchanged*/
-    size_t numthreads = omp_get_max_threads();
+    const size_t numthreads = omp_get_max_threads();
     PreExchangeList ExchangeData[1] = {0};
     /*static schedule below so we only need this much memory*/
-    size_t narr = PartManager->NumPart/numthreads+numthreads;
+    const size_t narr = PartManager->NumPart/numthreads+numthreads;
     ExchangeData->ExchangeList = (int *) mymalloc2("exchangelist", sizeof(int) * narr * numthreads);
     /*Garbage particles are counted so we have an accurate memory estimate*/
     int ngarbage = 0;
+    /* Store the maximum hsml for each topleaf*/
+    double * maxhsmltopleaf = mymalloc2("maxhsmltopleaf", sizeof(double) * numthreads * ddecomp->NTopLeaves);
+    memset(maxhsmltopleaf, 0, sizeof(double) * numthreads * ddecomp->NTopLeaves);
 
     size_t *nexthr = ta_malloc("nexthr", size_t, numthreads);
     int **threx = ta_malloc("threx", int *, numthreads);
-    gadget_setup_thread_arrays(ExchangeData->ExchangeList, threx, nexthr,narr,numthreads);
+    gadget_setup_thread_arrays(ExchangeData->ExchangeList, threx, nexthr, narr, numthreads);
 
     ForceTree tree = force_tree_top_build(ddecomp, 1);
     /* flag the particles that need to be exported */
@@ -311,6 +314,13 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
             /* Set the topleaf for layoutfunc.*/
             PartManager->Base[i].TopLeaf = no;
         }
+        /* Store the maximum hsml inside each topleaf*/
+        if(PartManager->Base[i].Type == 0) {
+            const int tl = PartManager->Base[i].TopLeaf;
+            if(maxhsmltopleaf[tid * numthreads + tl] < PartManager->Base[i].Hsml)
+                maxhsmltopleaf[tid * numthreads + tl] = PartManager->Base[i].Hsml;
+        }
+
         int target = domain_layoutfunc(i, ddecomp);
         if(target != tree.ThisTask) {
             threx_local[nexthr_local] = i;
@@ -326,6 +336,21 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
     ta_free(threx);
     ta_free(nexthr);
 
+    /* Reduce thread-local maxhsml array*/
+    int j;
+    for(j = 0; j < ddecomp->NTopLeaves; j++) {
+        size_t t;
+        for(t = 1; t < numthreads; t++) {
+            if(maxhsmltopleaf[j] < maxhsmltopleaf[numthreads * t + j])
+                maxhsmltopleaf[j] = maxhsmltopleaf[numthreads * t + j];
+        }
+    }
+    /* Exchange topleaf maxhsml so all processors know about it*/
+    double * maxhsml = mymalloc("maxhsml", sizeof(double) * ddecomp->NTopLeaves);
+    MPI_Allreduce(maxhsmltopleaf, maxhsml, ddecomp->NTopLeaves, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    message(0, "Max Hsml in topleaves: %g %g %g\n", maxhsml[0], maxhsml[1], maxhsml[2]);
+    myfree(maxhsmltopleaf);
+    myfree(maxhsml);
     /*Shrink memory*/
     ExchangeData->ExchangeList = (int *) myrealloc(ExchangeData->ExchangeList, sizeof(int) * ExchangeData->nexchange);
 
