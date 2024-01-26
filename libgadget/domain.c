@@ -297,6 +297,8 @@ int domain_mark_active_topleafs(DomainDecomp * ddecomp, double * maxhsml, Active
             }
         }
     }
+    /* TODO: Make sure all ranks have the same topleafs.*/
+    /* TODO: A better algorithm would be a short treewalk on the toptree*/
     return 0;
 }
 /*Check whether a particle is inside the volume covered by a node,
@@ -340,18 +342,19 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
     PreExchangeList ExchangeData[1] = {0};
     /*static schedule below so we only need this much memory*/
     const size_t narr = PartManager->NumPart/numthreads+numthreads;
-    ExchangeData->ExchangeList = (int *) mymalloc2("exchangelist", sizeof(int) * narr * numthreads);
+    ExchangeData->ExchangeList = (int *) mymalloc("exchangelist", sizeof(int) * narr * numthreads);
     /*Garbage particles are counted so we have an accurate memory estimate*/
     int ngarbage = 0;
-    /* Store the maximum hsml for each topleaf*/
-    double * maxhsmltopleaf = mymalloc2("maxhsmltopleaf", sizeof(double) * numthreads * ddecomp->NTopLeaves);
-    memset(maxhsmltopleaf, 0, sizeof(double) * numthreads * ddecomp->NTopLeaves);
 
     size_t *nexthr = ta_malloc("nexthr", size_t, numthreads);
     int **threx = ta_malloc("threx", int *, numthreads);
     gadget_setup_thread_arrays(ExchangeData->ExchangeList, threx, nexthr, narr, numthreads);
 
     ForceTree tree = force_tree_top_build(ddecomp, 1);
+    /* Store the maximum hsml for each topleaf*/
+    double * maxhsmltopleaf = mymalloc("maxhsmltopleaf", sizeof(double) * numthreads * ddecomp->NTopLeaves);
+    memset(maxhsmltopleaf, 0, sizeof(double) * numthreads * ddecomp->NTopLeaves);
+
     /* flag the particles that need to be exported */
     size_t schedsz = PartManager->NumPart/numthreads+1;
 #pragma omp parallel
@@ -399,12 +402,6 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
     }
     nexthr[tid] = nexthr_local;
     }
-    force_tree_free(&tree);
-    ExchangeData->ngarbage = ngarbage;
-    /*Merge step for the queue.*/
-    ExchangeData->nexchange = gadget_compact_thread_arrays(ExchangeData->ExchangeList, threx, nexthr, numthreads);
-    ta_free(threx);
-    ta_free(nexthr);
 
     /* Reduce thread-local maxhsml array*/
     int j;
@@ -419,10 +416,42 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
     double * maxhsml = mymalloc("maxhsml", sizeof(double) * ddecomp->NTopLeaves);
     MPI_Allreduce(maxhsmltopleaf, maxhsml, ddecomp->NTopLeaves, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     message(0, "Max Hsml in topleaves: %g %g %g\n", maxhsml[0], maxhsml[1], maxhsml[2]);
-    myfree(maxhsmltopleaf);
+
+    /* Need active particle data! Move it here.*/
+    domain_mark_active_topleafs(ddecomp, maxhsml, act, tree);
     myfree(maxhsml);
+    myfree(maxhsmltopleaf);
+
+    force_tree_free(&tree);
+    ExchangeData->ngarbage = ngarbage;
+    /*Merge step for the queue.*/
+    ExchangeData->nexchange = gadget_compact_thread_arrays(ExchangeData->ExchangeList, threx, nexthr, numthreads);
+    ta_free(threx);
+    ta_free(nexthr);
+
+    int * exchangelist2 = (int *) mymalloc2("exchangelist", sizeof(int) * ExchangeData->nexchange);
+
+    /* Loop over the export list again and remove particles going to an inactive topleaf
+     * Skip this if all topleaves are active*/
+    size_t nexchange2 = 0;
+    for(j = 0; j < ExchangeData->nexchange; j++) {
+        int pp = ExchangeData->ExchangeList[j];
+        const int type = PartManager->Base[pp].Type;
+        struct topleaf_data * tl = &ddecomp->TopLeaves[PartManager->Base[pp].TopLeaf];
+        /* Don't need to move type DM, stars or BHs (used for BH mechanics) if they are not near an active BH. */
+        if(!tl->NearActiveBH && (type == 1 || type == 4 || type == 5))
+            continue;
+        /* Gas which is near another gas (hydro), or an active BH (accretion), or an active star (metal return), needs to move*/
+        if(type == 0 && (!tl->NearActiveGas || !tl->NearActiveBH || !tl->NearActiveStar))
+            continue;
+        exchangelist2[nexchange2] = ExchangeData->ExchangeList[j];
+        nexchange2++;
+    }
+    myfree(ExchangeData->ExchangeList);
+    ExchangeData->ExchangeList = exchangelist2;
+    ExchangeData->nexchange = nexchange2;
     /*Shrink memory*/
-    ExchangeData->ExchangeList = (int *) myrealloc(ExchangeData->ExchangeList, sizeof(int) * ExchangeData->nexchange);
+    // ExchangeData->ExchangeList = (int *) myrealloc(ExchangeData->ExchangeList, sizeof(int) * ExchangeData->nexchange);
 
     walltime_measure("/Domain/drift");
 
