@@ -21,6 +21,12 @@ struct topleaf_data {
     int Task;
     int topnode; /* used during domain_decompose for balancing the decomposition */
     int treenode; /* used during life span of the tree for looking up in the tree Nodes */
+    /* These four store whether this topleaf is near any active gas, DM, star, BH particles, respectively.
+     * This information is used to make the treebuild faster by skipping inactive topleafs.*/
+    char NearActiveGas;
+    char NearActiveDM;
+    char NearActiveStar;
+    char NearActiveBH;
 };
 
 struct task_data {

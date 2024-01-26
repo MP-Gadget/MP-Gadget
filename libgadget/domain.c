@@ -229,6 +229,76 @@ void domain_decompose_full(DomainDecomp * ddecomp)
     walltime_measure("/Domain/PeanoSort");
 }
 
+
+/* Mark the topleafs that are within an HSML of an active particle.
+ * Returns 1 if all are active, 0 otherwise.
+ * ddecomp - Domain decomposition to mark active.
+ * maxhsml - The maximum hsml in each topleaf is used for the symmetric treewalk algorithms. Should be Hsml for gas and BHs.
+ * act - The active particle list to use. PartManager->Base is the particle table.
+ * tree - Toptree only needed for node centers. */
+int domain_mark_active_topleafs(DomainDecomp * ddecomp, double * maxhsml, ActiveParticles * act, ForceTree * tree)
+{
+    size_t j;
+    int allactive = 0;
+    /* Active algorithm is O(N_active * N_topleaves) so should only be used if not that many particles are active.*/
+    if(act->NumActiveParticle > 0.01 * PartManager->NumPart)
+        allactive = 1;
+    /* Decision must be collective*/
+    MPI_Allreduce(MPI_IN_PLACE, &allactive, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    /* Initialise all active flags to one if enough particles are active, otherwise
+     * initialise all active flags to zero*/
+    #pragma omp parallel for
+    for(j = 0; j < ddecomp->NTopLeaves; j++) {
+        struct topleaf_data * tl = &ddecomp->TopLeaves[j];
+        tl->NearActiveGas = allactive;
+        tl->NearActiveDM = allactive;
+        tl->NearActiveStar = allactive;
+        tl->NearActiveBH = allactive;
+    }
+    /* We are done now*/
+    if(allactive)
+        return 1;
+
+    if(!act->ActiveParticle)
+        endrun(5, "ActiveParticle is not active but NumActive is %ld NumPat is %ld\n", act->NumActiveParticle, PartManager->NumPart);
+    /* One thread per topnode */
+    #pragma omp parallel for
+    for(j = 0; j < ddecomp->NTopLeaves; j++) {
+        int i;
+        struct topleaf_data * tl = &ddecomp->TopLeaves[j];
+        for(i = 0; i < act->NumActiveParticle; i++) {
+            /* Exit early if topleaf is fully active*/
+            if(tl->NearActiveGas && tl->NearActiveDM && tl->NearActiveStar && tl->NearActiveBH)
+                break;
+            const double * Pos = PartManager->Base[act->ActiveParticle[i]].Pos;
+            const int type = PartManager->Base[act->ActiveParticle[i]].Type;
+            double hsml = PartManager->Base[act->ActiveParticle[i]].Hsml;
+            /* For symmetric algorithms, the hsml can be the maximal gas/BH hsml within the topleaf.*/
+            if(type == 0 || type == 5)
+                if(hsml < maxhsml[j])
+                    hsml = maxhsml[j];
+            int active = 0;
+            struct NODE * pnode = &tree->Nodes[tl->treenode];
+            int k;
+            for(k = 0; k < 3; k++)
+                if(fabs(Pos[j] - pnode->center[j]) < hsml + pnode->len/2.) {
+                    active = 1;
+                    break;
+                }
+            if(active) {
+                if(type == 0)
+                    tl->NearActiveGas = 1;
+                else if(type == 1)
+                    tl->NearActiveDM = 1;
+                else if(type == 4)
+                    tl->NearActiveStar = 1;
+                else if(type == 5)
+                    tl->NearActiveBH = 1;
+            }
+        }
+    }
+    return 0;
+}
 /*Check whether a particle is inside the volume covered by a node,
  * by checking whether each dimension is close enough to center (L1 metric).*/
 static inline int inside_topleaf(const int topleaf, const double Pos[3], const ForceTree * const tree)
@@ -314,8 +384,8 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
             /* Set the topleaf for layoutfunc.*/
             PartManager->Base[i].TopLeaf = no;
         }
-        /* Store the maximum hsml inside each topleaf*/
-        if(PartManager->Base[i].Type == 0) {
+        /* Store the maximum gas/BH hsml inside each topleaf. BH hsml is used for the BH mergers.*/
+        if(PartManager->Base[i].Type == 0 || PartManager->Base[i].Type == 5) {
             const int tl = PartManager->Base[i].TopLeaf;
             if(maxhsmltopleaf[tid * numthreads + tl] < PartManager->Base[i].Hsml)
                 maxhsmltopleaf[tid * numthreads + tl] = PartManager->Base[i].Hsml;
@@ -836,6 +906,12 @@ domain_create_topleaves(DomainDecomp * ddecomp, int no, int * next)
     {
         ddecomp->TopNodes[no].Leaf = *next;
         ddecomp->TopLeaves[*next].topnode = no;
+        /* Mark this topleaf as active.
+         * All particles are active after a new domain build.*/
+        ddecomp->TopLeaves[*next].NearActiveGas = 1;
+        ddecomp->TopLeaves[*next].NearActiveDM = 1;
+        ddecomp->TopLeaves[*next].NearActiveStar = 1;
+        ddecomp->TopLeaves[*next].NearActiveBH = 1;
         (*next)++;
     }
     else
