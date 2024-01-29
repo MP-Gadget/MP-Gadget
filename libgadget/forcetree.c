@@ -1308,6 +1308,8 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
         if(!tree_has_bh && P[p_i].Type == 5)
             continue;
         const int no = tree->Father[p_i];
+        if(no < tree->firstnode)
+            endrun(5, "Bad Father %d for particle %d type %d pos %g %g %g topleaf %d\n", no, p_i, P[p_i].Type, P[p_i].Pos[0], P[p_i].Pos[1], P[p_i].Pos[2], P[p_i].TopLeaf);
         /* How much does this particle peek beyond this node?
          * Note len does not change so we can read it without a lock or atomic. */
         MyFloat readhmax;
