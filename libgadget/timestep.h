@@ -104,5 +104,7 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
 /* Updates the Ti_kick times a half-step for this bin*/
 void update_kick_times(DriftKickTimes * times);
 
+/* This routine prints statistics with particle counts for the active timebins.*/
+void print_timebin_statistics(const DriftKickTimes * const times, const int NumCurrentTiStep, int * TimeBinCountType, const double Time, const int64_t ActiveGravityCount);
 
 #endif

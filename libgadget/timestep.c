@@ -1333,8 +1333,6 @@ inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin)
     return Ti_Current + dti_from_timebin(minTimeBin);
 }
 
-static void print_timebin_statistics(const DriftKickTimes * const times, const int NumCurrentTiStep, int * TimeBinCountType, const double Time, const int64_t ActiveGravityCount);
-
 /* mark the bins that will be active before the next kick*/
 void
 build_active_particles(ActiveParticles * act, const DriftKickTimes * const times, int NumCurrentTiStep, const double Time)
@@ -1508,11 +1506,9 @@ void free_active_particles(ActiveParticles * act)
     }
 }
 
-/*! This routine writes one line for every timestep.
- * FdCPU the cumulative cpu-time consumption in various parts of the
- * code is stored.
+/*! This routine prints statistics with particle counts for the active timebins.
  */
-static void print_timebin_statistics(const DriftKickTimes * const times, const int NumCurrentTiStep, int * TimeBinCountType, const double Time, const int64_t ActiveGravityCount)
+void print_timebin_statistics(const DriftKickTimes * const times, const int NumCurrentTiStep, int * TimeBinCountType, const double Time, const int64_t ActiveGravityCount)
 {
     int i;
     int64_t tot = 0, tot_type[6] = {0};
