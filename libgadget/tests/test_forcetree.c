@@ -421,6 +421,7 @@ void trivial_domain(DomainDecomp * ddecomp)
     ddecomp->TopLeaves = malloc(sizeof(struct topleaf_data));
     ddecomp->TopLeaves[0].Task = 0;
     ddecomp->TopLeaves[0].treenode = 0;
+    ddecomp->TopLeaves[0].NearActiveMask = 33;
     /*These are not used*/
     ddecomp->TopNodes[0].StartKey = 0;
     ddecomp->TopNodes[0].Shift = BITS_PER_DIMENSION * 3;

@@ -760,7 +760,7 @@ force_tree_create_nodes(ForceTree * tree, const ActiveParticles * act, int mask,
 
         /* Stores the last-seen node on this thread.
          * Since most particles are close to each other, this should save a number of tree walks.*/
-        int this_acc = local_topnodes[0];
+        int this_acc = -1;
         // message(1, "Topnodes %d real %d\n", local_topnodes[0], topnodes[0]);
 
         /* The default schedule is static with a chunk 1/4 the total.
@@ -796,13 +796,19 @@ force_tree_create_nodes(ForceTree * tree, const ActiveParticles * act, int mask,
                 endrun(12, "Zero mass particle %d m %g type %d id %ld pos %g %g %g\n", i, P[i].Mass, P[i].Type, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
             /*First find the Node for the TopLeaf */
             int cur;
-            if(inside_node(&tree->Nodes[this_acc], P[i].Pos)) {
+            if(this_acc >= tree->firstnode && inside_node(&tree->Nodes[this_acc], P[i].Pos)) {
                 cur = this_acc;
             } else {
                 /* Get the topnode to which a particle belongs. Each local tree
                  * has a local set of treenodes copying the global topnodes, except tid 0
                  * which has the real topnodes.*/
                 const int topleaf = P[i].TopLeaf;
+                /* If the topleaf containing this particle is not near any active particles (stars, BHs, gas)
+                 * then do not add the particle. Make sure ActiveParticle is not set, if it is we are gravity.
+                 * More stringent logic is possible, but here we do not know
+                 * what the haswork function is using*/
+                if(!act->ActiveParticle && ddecomp->TopLeaves[topleaf].NearActiveMask == 0)
+                    continue;
                 if(topleaf < StartLeaf || topleaf >= EndLeaf)
                     endrun(5, "Bad topleaf %d start %d end %d type %d ID %ld\n", topleaf, StartLeaf, EndLeaf, P[i].Type, P[i].ID);
                 //int treenode = ddecomp->TopLeaves[topleaf].treenode;

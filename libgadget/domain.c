@@ -238,11 +238,13 @@ void domain_decompose_full(DomainDecomp * ddecomp)
  * tree - Toptree only needed for node centers. */
 int domain_mark_active_topleafs(DomainDecomp * ddecomp, double * maxhsml, ActiveParticles * act, ForceTree * tree)
 {
-    size_t j;
+    int j;
     int allactive = 0;
-    /* Active algorithm is O(N_active * N_topleaves) so should only be used if not that many particles are active.*/
-    if(act->NumActiveParticle > 0.01 * PartManager->NumPart)
-        allactive = 1;
+    /* Active algorithm is O(N_active * N_topleaves) so should only be used if not that many particles are active.
+     * In addition, each particle has on average 100 neighbours, so if more particles than this are active,
+     * likely all topleaves are.*/
+    if(act->NumActiveParticle > 0.001 * PartManager->NumPart)
+        allactive = GASMASK + STARMASK + BHMASK;
     /* Decision must be collective*/
     MPI_Allreduce(MPI_IN_PLACE, &allactive, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
     /* Initialise all active flags to one if enough particles are active, otherwise
@@ -250,54 +252,85 @@ int domain_mark_active_topleafs(DomainDecomp * ddecomp, double * maxhsml, Active
     #pragma omp parallel for
     for(j = 0; j < ddecomp->NTopLeaves; j++) {
         struct topleaf_data * tl = &ddecomp->TopLeaves[j];
-        tl->NearActiveGas = allactive;
-        tl->NearActiveDM = allactive;
-        tl->NearActiveStar = allactive;
-        tl->NearActiveBH = allactive;
+        tl->NearActiveMask = allactive;
     }
     /* We are done now*/
     if(allactive)
         return 1;
 
+    const size_t numthreads = omp_get_max_threads();
+    /* Reduce thread-local maxhsml array*/
+    for(j = 0; j < ddecomp->NTopLeaves; j++) {
+        size_t t;
+        for(t = 1; t < numthreads; t++) {
+            if(maxhsml[j] < maxhsml[numthreads * t + j])
+                maxhsml[j] = maxhsml[numthreads * t + j];
+        }
+    }
+    /* Exchange topleaf maxhsml so all processors know about it*/
+    MPI_Allreduce(MPI_IN_PLACE, maxhsml, ddecomp->NTopLeaves, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    message(0, "Max Hsml in topleaves: %g %g %g\n", maxhsml[0], maxhsml[1], maxhsml[2]);
+
     if(!act->ActiveParticle)
         endrun(5, "ActiveParticle is not active but NumActive is %ld NumPat is %ld\n", act->NumActiveParticle, PartManager->NumPart);
+
+    /* Store active flags as a bitfield*/
+    int * NearActives = mymalloc("NearActives", sizeof(int) * ddecomp->NTopLeaves);
+    memset(NearActives, 0, sizeof(int) * ddecomp->NTopLeaves);
+
     /* One thread per topnode */
     #pragma omp parallel for
     for(j = 0; j < ddecomp->NTopLeaves; j++) {
+        const struct NODE * const pnode = &tree->Nodes[ddecomp->TopLeaves[j].treenode];
         int i;
-        struct topleaf_data * tl = &ddecomp->TopLeaves[j];
         for(i = 0; i < act->NumActiveParticle; i++) {
             /* Exit early if topleaf is fully active*/
-            if(tl->NearActiveGas && tl->NearActiveDM && tl->NearActiveStar && tl->NearActiveBH)
+            if(NearActives[j] >= GASMASK + STARMASK + BHMASK)
                 break;
-            const double * Pos = PartManager->Base[act->ActiveParticle[i]].Pos;
-            const int type = PartManager->Base[act->ActiveParticle[i]].Type;
-            double hsml = PartManager->Base[act->ActiveParticle[i]].Hsml;
-            /* For symmetric algorithms, the hsml can be the maximal gas/BH hsml within the topleaf.*/
-            if(type == 0 || type == 5)
-                if(hsml < maxhsml[j])
-                    hsml = maxhsml[j];
-            int active = 0;
-            struct NODE * pnode = &tree->Nodes[tl->treenode];
+            int p_i = act->ActiveParticle[i];
+            const double * Pos = PartManager->Base[p_i].Pos;
+            const int type = PartManager->Base[p_i].Type;
+            if(type == 1 || type == 2 || type == 3)
+                continue;
+            /* For symmetric algorithms, the hsml needs to be the maximal gas/BH hsml within the topleaf.*/
+            int active = 1;
             int k;
+            /* TODO: Factor of 2 in maxhsml! Should be configurable, checked in density.
+             * Need a function that recomputes active topleaves after density hsml is done.
+             * If new hsml is larger than 2x old hsml, need to redo density with all particles.
+             * Also we would need to do communication. Humph.*/
             for(k = 0; k < 3; k++)
-                if(fabs(Pos[j] - pnode->center[j]) < hsml + pnode->len/2.) {
-                    active = 1;
+                if(fabs(Pos[k] - pnode->center[k]) > 2*maxhsml[j] + pnode->len/2.) {
+                    active = 0;
                     break;
                 }
-            if(active) {
-                if(type == 0)
-                    tl->NearActiveGas = 1;
-                else if(type == 1)
-                    tl->NearActiveDM = 1;
-                else if(type == 4)
-                    tl->NearActiveStar = 1;
-                else if(type == 5)
-                    tl->NearActiveBH = 1;
-            }
+            if(active)
+                NearActives[j] |= (1 << type);
         }
     }
-    /* TODO: Make sure all ranks have the same topleafs.*/
+    /* Make sure all ranks have the same active topleafs.*/
+    MPI_Allreduce(MPI_IN_PLACE, NearActives, ddecomp->NTopLeaves, MPI_INT, MPI_BOR, MPI_COMM_WORLD);
+    for(j = 0; j < ddecomp->NTopLeaves; j++) {
+        message(0, "top = %d active %d\n", j, NearActives[j]);
+    }
+    /* Copy this into the toptree*/
+    #pragma omp parallel for
+    for(j = 0; j < ddecomp->NTopLeaves; j++) {
+        struct topleaf_data * tl = &ddecomp->TopLeaves[j];
+        tl->NearActiveMask = NearActives[j];
+    }
+#ifdef DEBUG
+    int i;
+    for(i = 0; i < act->NumActiveParticle; i++) {
+        int TopLeaf = PartManager->Base[act->ActiveParticle[i]].TopLeaf;
+        const int type = PartManager->Base[act->ActiveParticle[i]].Type;
+        if(type == 1 || type == 2 || type == 3)
+            continue;
+        if(ddecomp->TopLeaves[TopLeaf].NearActiveMask == 0)
+            endrun(6, "This does not make sense\n");
+    }
+#endif
+    myfree(NearActives);
     /* TODO: A better algorithm would be a short treewalk on the toptree*/
     return 0;
 }
@@ -324,7 +357,14 @@ static inline int inside_topleaf(const int topleaf, const double Pos[3], const F
 }
 
 /* This is a cut-down version of the domain decomposition that leaves the
- * domain grid intact, but exchanges the particles and rebuilds the tree */
+ * domain grid intact, but exchanges the particles and rebuilds the tree.
+ * On short timesteps this is the only loop over all particles, so it has become messy.
+ * It now:
+ * - drifts the particles
+ * - builds the exchange list
+ * - builds the active list
+ * - Does a short treewalk to discover which topleafs are active.
+ * - does the exchange. */
 int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
 {
     message(0, "Attempting a domain exchange\n");
@@ -339,21 +379,37 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
 
     /*Structure for building a list of particles that will be exchanged*/
     const size_t numthreads = omp_get_max_threads();
-    PreExchangeList ExchangeData[1] = {0};
     /*static schedule below so we only need this much memory*/
     const size_t narr = PartManager->NumPart/numthreads+numthreads;
+
+    ActiveParticles act = init_empty_active_particles(0);
+    /*Need space for more particles than we have, because of star formation*/
+    act.ActiveParticle = (int *) mymalloc("ActiveParticle", narr * numthreads * sizeof(int));
+
+    PreExchangeList ExchangeData[1] = {0};
     ExchangeData->ExchangeList = (int *) mymalloc("exchangelist", sizeof(int) * narr * numthreads);
     /*Garbage particles are counted so we have an accurate memory estimate*/
     int ngarbage = 0;
 
-    size_t *nexthr = ta_malloc("nexthr", size_t, numthreads);
-    int **threx = ta_malloc("threx", int *, numthreads);
+    size_t *nexthr = ta_malloc2("nexthr", size_t, numthreads);
+    int **threx = ta_malloc2("threx", int *, numthreads);
     gadget_setup_thread_arrays(ExchangeData->ExchangeList, threx, nexthr, narr, numthreads);
 
     ForceTree tree = force_tree_top_build(ddecomp, 1);
     /* Store the maximum hsml for each topleaf*/
     double * maxhsmltopleaf = mymalloc("maxhsmltopleaf", sizeof(double) * numthreads * ddecomp->NTopLeaves);
     memset(maxhsmltopleaf, 0, sizeof(double) * numthreads * ddecomp->NTopLeaves);
+
+    /* Memory for the timebin counts*/
+    int * TimeBinCountType = ta_malloc("TimeBinCountType", int, 6*(TIMEBINS+1)*numthreads);
+    memset(TimeBinCountType, 0, 6 * (TIMEBINS+1) * numthreads * sizeof(int));
+
+    /*We want a lockless algorithm which preserves the ordering of the particle list.*/
+    size_t *NActiveThread = ta_malloc("NActiveThread", size_t, numthreads);
+    int **ActivePartSets = ta_malloc("ActivePartSets", int *, numthreads);
+    gadget_setup_thread_arrays(act.ActiveParticle, ActivePartSets, NActiveThread, narr, numthreads);
+
+    int64_t nactivegrav = 0, nactivehydro = 0;
 
     /* flag the particles that need to be exported */
     size_t schedsz = PartManager->NumPart/numthreads+1;
@@ -362,64 +418,89 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
         size_t nexthr_local = 0;
         const int tid = omp_get_thread_num();
         int * threx_local = threx[tid];
-    #pragma omp for schedule(static, schedsz) reduction(+: ngarbage)
-    for(i=0; i < PartManager->NumPart; i++) {
-        if(drift) {
-            real_drift_particle(&PartManager->Base[i], SlotsManager, ddrift, PartManager->BoxSize, rel_random_shift);
-            PartManager->Base[i].Ti_drift = drift->ti1;
-        }
-        /* Garbage is not in the tree*/
-        if(PartManager->Base[i].IsGarbage) {
-            ngarbage++;
-            continue;
-        }
-        /* If we aren't using DM for the dynamic friction, we don't need to build a tree with inactive DM particles.
-         * Velocity dispersions are computed on a PM step only.
-         * In this case, keep the particles on this processor.*/
-        if(!(blackhole_dynfric_treemask() & DMMASK))
-            if(PartManager->Base[i].Type == 1 && !is_timebin_active(PartManager->Base[i].TimeBinGravity, PartManager->Base[i].Ti_drift))
+        size_t nactivelocal = 0;
+        int * activepartthread = ActivePartSets[tid];
+        #pragma omp for schedule(static, schedsz) reduction(+: ngarbage) reduction(+: nactivegrav) reduction(+: nactivehydro)
+        for(i=0; i < PartManager->NumPart; i++) {
+            if(drift) {
+                real_drift_particle(&PartManager->Base[i], SlotsManager, ddrift, PartManager->BoxSize, rel_random_shift);
+                PartManager->Base[i].Ti_drift = drift->ti1;
+            }
+            /* Garbage is not in the tree*/
+            if(PartManager->Base[i].IsGarbage) {
+                ngarbage++;
                 continue;
-        /* Don't need to move inactive neutrinos*/
-        if(PartManager->Base[i].Type == 2 && !is_timebin_active(PartManager->Base[i].TimeBinGravity, PartManager->Base[i].Ti_drift))
-            continue;
-        if(!inside_topleaf(PartManager->Base[i].TopLeaf, PartManager->Base[i].Pos, &tree)) {
-            const int no = domain_get_topleaf(PEANO(PartManager->Base[i].Pos, PartManager->BoxSize), ddecomp);
-            /* Set the topleaf for layoutfunc.*/
-            PartManager->Base[i].TopLeaf = no;
-        }
-        /* Store the maximum gas/BH hsml inside each topleaf. BH hsml is used for the BH mergers.*/
-        if(PartManager->Base[i].Type == 0 || PartManager->Base[i].Type == 5) {
-            const int tl = PartManager->Base[i].TopLeaf;
-            if(maxhsmltopleaf[tid * numthreads + tl] < PartManager->Base[i].Hsml)
-                maxhsmltopleaf[tid * numthreads + tl] = PartManager->Base[i].Hsml;
-        }
+            }
+            if(PartManager->Base[i].Swallowed)
+                continue;
+            const int bin_hydro = P[i].TimeBinHydro;
+            const int bin_gravity = P[i].TimeBinGravity;
+            /* For now build active particles with either hydro or gravity active*/
+            int hydro_particle = P[i].Type == 0 || P[i].Type == 5;
+            /* Make sure we only add hydro particles: the DM can have hydro bin 0
+            * and we don't want to add it to the active list.*/
+            int hydro_active = hydro_particle && is_timebin_active(bin_hydro, PartManager->Base[i].Ti_drift);
+            int gravity_active = is_timebin_active(bin_gravity, PartManager->Base[i].Ti_drift);
+            if(gravity_active)
+                nactivegrav++;
+            if(hydro_active || gravity_active) {
+                /* Store this particle in the ActiveSet for this thread*/
+                activepartthread[nactivelocal] = i;
+                nactivelocal++;
+                nactivehydro++;
+            }
+            /* Account gas and BHs to their hydro bin and other particles to their gravity bin*/
+            int bin = bin_gravity;
+            if(hydro_particle)
+                bin = bin_hydro;
+            TimeBinCountType[(TIMEBINS + 1) * (6* tid + P[i].Type) + bin] ++;
 
-        int target = domain_layoutfunc(i, ddecomp);
-        if(target != tree.ThisTask) {
-            threx_local[nexthr_local] = i;
-            nexthr_local++;
+            /* If we aren't using DM for the dynamic friction, we don't need to build a tree with inactive DM particles.
+            * Velocity dispersions are computed on a PM step only.
+            * In this case, keep the particles on this processor.*/
+            if(!(blackhole_dynfric_treemask() & DMMASK))
+                if(PartManager->Base[i].Type == 1 && !gravity_active)
+                    continue;
+            /* Don't need to move inactive neutrinos*/
+            if(PartManager->Base[i].Type == 2 && !gravity_active)
+                continue;
+            if(!inside_topleaf(PartManager->Base[i].TopLeaf, PartManager->Base[i].Pos, &tree)) {
+                const int no = domain_get_topleaf(PEANO(PartManager->Base[i].Pos, PartManager->BoxSize), ddecomp);
+                /* Set the topleaf for layoutfunc.*/
+                PartManager->Base[i].TopLeaf = no;
+            }
+            /* Store the maximum gas/BH hsml inside each topleaf. BH hsml is used for the BH mergers.*/
+            if(PartManager->Base[i].Type == 0 || PartManager->Base[i].Type == 5) {
+                const int tl = PartManager->Base[i].TopLeaf;
+                if(maxhsmltopleaf[tid * numthreads + tl] < PartManager->Base[i].Hsml)
+                    maxhsmltopleaf[tid * numthreads + tl] = PartManager->Base[i].Hsml;
+            }
+
+            int target = domain_layoutfunc(i, ddecomp);
+            if(target != tree.ThisTask) {
+                threx_local[nexthr_local] = i;
+                nexthr_local++;
+            }
         }
-    }
-    nexthr[tid] = nexthr_local;
+        nexthr[tid] = nexthr_local;
+        NActiveThread[tid] = nactivelocal;
     }
 
-    /* Reduce thread-local maxhsml array*/
-    int j;
-    for(j = 0; j < ddecomp->NTopLeaves; j++) {
-        size_t t;
-        for(t = 1; t < numthreads; t++) {
-            if(maxhsmltopleaf[j] < maxhsmltopleaf[numthreads * t + j])
-                maxhsmltopleaf[j] = maxhsmltopleaf[numthreads * t + j];
-        }
-    }
-    /* Exchange topleaf maxhsml so all processors know about it*/
-    double * maxhsml = mymalloc("maxhsml", sizeof(double) * ddecomp->NTopLeaves);
-    MPI_Allreduce(maxhsmltopleaf, maxhsml, ddecomp->NTopLeaves, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    message(0, "Max Hsml in topleaves: %g %g %g\n", maxhsml[0], maxhsml[1], maxhsml[2]);
+    walltime_measure("/Domain/drift");
 
+    /*Now we want a merge step for the ActiveParticle list.*/
+    act.NumActiveParticle = gadget_compact_thread_arrays(act.ActiveParticle, ActivePartSets, NActiveThread, numthreads);
+    ta_free(ActivePartSets);
+    ta_free(NActiveThread);
+    act.NumActiveGravity = nactivegrav;
+    act.NumActiveHydro = nactivehydro;
+    /*Print statistics for this time bin*/
+    // print_timebin_statistics(times, NumCurrentTiStep, TimeBinCountType, Time, nactivegrav);
+    ta_free(TimeBinCountType);
+
+    walltime_measure("/Timeline/Active");
     /* Need active particle data! Move it here.*/
-    domain_mark_active_topleafs(ddecomp, maxhsml, act, tree);
-    myfree(maxhsml);
+    domain_mark_active_topleafs(ddecomp, maxhsmltopleaf, &act, &tree);
     myfree(maxhsmltopleaf);
 
     force_tree_free(&tree);
@@ -433,16 +514,16 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
 
     /* Loop over the export list again and remove particles going to an inactive topleaf
      * Skip this if all topleaves are active*/
-    size_t nexchange2 = 0;
+    size_t nexchange2 = 0, j;
     for(j = 0; j < ExchangeData->nexchange; j++) {
         int pp = ExchangeData->ExchangeList[j];
         const int type = PartManager->Base[pp].Type;
         struct topleaf_data * tl = &ddecomp->TopLeaves[PartManager->Base[pp].TopLeaf];
         /* Don't need to move type DM, stars or BHs (used for BH mechanics) if they are not near an active BH. */
-        if(!tl->NearActiveBH && (type == 1 || type == 4 || type == 5))
+        if((!(tl->NearActiveMask & BHMASK)) && (type == 1 || type == 4 || type == 5))
             continue;
-        /* Gas which is near another gas (hydro), or an active BH (accretion), or an active star (metal return), needs to move*/
-        if(type == 0 && (!tl->NearActiveGas || !tl->NearActiveBH || !tl->NearActiveStar))
+        /* Gas which is near another active particle of any type [gas (hydro), BH (accretion), star (metal return)], needs to move*/
+        if(type == 0 && tl->NearActiveMask == 0)
             continue;
         exchangelist2[nexchange2] = ExchangeData->ExchangeList[j];
         nexchange2++;
@@ -450,13 +531,17 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
     myfree(ExchangeData->ExchangeList);
     ExchangeData->ExchangeList = exchangelist2;
     ExchangeData->nexchange = nexchange2;
-    /*Shrink memory*/
-    // ExchangeData->ExchangeList = (int *) myrealloc(ExchangeData->ExchangeList, sizeof(int) * ExchangeData->nexchange);
-
-    walltime_measure("/Domain/drift");
+    walltime_measure("/Timeline/ActiveTree");
 
     /* Try a domain exchange. Note ExchangeList is freed inside.*/
     int errno = domain_exchange(domain_layoutfunc, ddecomp, ExchangeData, PartManager, SlotsManager, 10000, ddecomp->DomainComm);
+
+    /* Shrink the ActiveParticle array. We still need extra space for star formation,
+     * but we do not need space for the known-inactive particles*/
+    act.ActiveParticle = (int *) myrealloc(act.ActiveParticle, sizeof(int)*(act.NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
+    act.MaxActiveParticle = act.NumActiveParticle + PartManager->MaxPart - PartManager->NumPart;
+    /* TODO Here add new imported particles to ActiveParticle and re-use the active list.*/
+    myfree(act.ActiveParticle);
     return errno;
 }
 
@@ -937,10 +1022,7 @@ domain_create_topleaves(DomainDecomp * ddecomp, int no, int * next)
         ddecomp->TopLeaves[*next].topnode = no;
         /* Mark this topleaf as active.
          * All particles are active after a new domain build.*/
-        ddecomp->TopLeaves[*next].NearActiveGas = 1;
-        ddecomp->TopLeaves[*next].NearActiveDM = 1;
-        ddecomp->TopLeaves[*next].NearActiveStar = 1;
-        ddecomp->TopLeaves[*next].NearActiveBH = 1;
+        ddecomp->TopLeaves[*next].NearActiveMask = GASMASK + STARMASK + BHMASK;
         (*next)++;
     }
     else
