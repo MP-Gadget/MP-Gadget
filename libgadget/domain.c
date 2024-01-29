@@ -183,32 +183,35 @@ void domain_decompose_full(DomainDecomp * ddecomp)
         if(decompose_failed)
             continue;
 
+        if(domain_balance(ddecomp))
+            continue;
+
+        /* copy the used nodes from temp to the true. */
+        struct topleaf_data * OldTopLeaves = ddecomp->TopLeaves;
+        struct topnode_data * OldTopNodes = ddecomp->TopNodes;
+
+        ddecomp->TopNodes  = (struct topnode_data *) mymalloc2("TopNodes", sizeof(ddecomp->TopNodes[0]) * ddecomp->NTopNodes);
+        /* add 1 extra to mark the end of TopLeaves; see assign */
+        ddecomp->TopLeaves = (struct topleaf_data *) mymalloc2("TopLeaves", sizeof(ddecomp->TopLeaves[0]) * (ddecomp->NTopLeaves + 1));
+
+        memcpy(ddecomp->TopLeaves, OldTopLeaves, ddecomp->NTopLeaves* sizeof(ddecomp->TopLeaves[0]));
+        memcpy(ddecomp->TopNodes, OldTopNodes, ddecomp->NTopNodes * sizeof(ddecomp->TopNodes[0]));
+
+        /* no longer useful */
+        myfree(OldTopLeaves);
+        myfree(OldTopNodes);
+
+        if(domain_exchange(domain_layoutfunc, ddecomp, NULL, PartManager, SlotsManager, 10000, ddecomp->DomainComm)) {
+            message(0,"Could not exchange particles\n");
+            continue;
+        }
         LastSuccessfulPolicy = i;
-        if(domain_balance(ddecomp) == 0)
-            break;
     }
 
     if(decompose_failed) {
         endrun(0, "No suitable domain decomposition policy worked for this particle distribution\n");
     }
 
-    /* copy the used nodes from temp to the true. */
-    struct topleaf_data * OldTopLeaves = ddecomp->TopLeaves;
-    struct topnode_data * OldTopNodes = ddecomp->TopNodes;
-
-    ddecomp->TopNodes  = (struct topnode_data *) mymalloc2("TopNodes", sizeof(ddecomp->TopNodes[0]) * ddecomp->NTopNodes);
-    /* add 1 extra to mark the end of TopLeaves; see assign */
-    ddecomp->TopLeaves = (struct topleaf_data *) mymalloc2("TopLeaves", sizeof(ddecomp->TopLeaves[0]) * (ddecomp->NTopLeaves + 1));
-
-    memcpy(ddecomp->TopLeaves, OldTopLeaves, ddecomp->NTopLeaves* sizeof(ddecomp->TopLeaves[0]));
-    memcpy(ddecomp->TopNodes, OldTopNodes, ddecomp->NTopNodes * sizeof(ddecomp->TopNodes[0]));
-
-    /* no longer useful */
-    myfree(OldTopLeaves);
-    myfree(OldTopNodes);
-
-    if(domain_exchange(domain_layoutfunc, ddecomp, NULL, PartManager, SlotsManager, 10000, ddecomp->DomainComm))
-        endrun(1929,"Could not exchange particles\n");
 
     /*Do a garbage collection so that the slots are ordered
      *the same as the particles, garbage is at the end and all particles are in peano order.*/
