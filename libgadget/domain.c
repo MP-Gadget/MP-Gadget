@@ -205,7 +205,10 @@ void domain_decompose_full(DomainDecomp * ddecomp)
             message(0,"Could not exchange particles\n");
             continue;
         }
-        LastSuccessfulPolicy = i;
+        else {
+            LastSuccessfulPolicy = i;
+            break;
+        }
     }
 
     if(decompose_failed) {
