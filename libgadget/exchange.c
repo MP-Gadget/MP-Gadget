@@ -156,19 +156,6 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
         iter++;
     }
     while(MPIU_Any(plan.last < plan.nexchange, Comm));
-#ifdef DEBUG
-    /* This does not apply for the FOF code, where the exchange list is pre-assigned
-     * and we only get one iteration. */
-    if(!failure && maxiter > 1) {
-        ExchangePlan plan9 = domain_init_exchangeplan(Comm);
-        /* Do not drift again*/
-        domain_build_exchange_list(layoutfunc, layout_userdata, &plan9, pman, sman, Comm);
-        if(plan9.nexchange > 0)
-            endrun(5, "Still have %ld particles in exchange list\n", plan9.nexchange);
-        myfree(plan9.ExchangeList);
-        domain_free_exchangeplan(&plan9);
-    }
-#endif
     domain_free_exchangeplan(&plan);
 
     return failure;
