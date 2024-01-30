@@ -242,13 +242,17 @@ int domain_mark_active_topleafs(DomainDecomp * ddecomp, double * maxhsml, Active
     int allactive = 0;
     /* Active algorithm is O(N_active * N_topleaves) so should only be used if not that many particles are active.
      * In addition, each particle has on average 100 neighbours, so if more particles than this are active,
-     * likely all topleaves are.
-     * Also if we have no active hydro particles (we are probably a DM only simulation, or something
-     * pathological with only stars in the lowest timebin) no need to do this.*/
-    if(act->NumActiveParticle > 0.001 * PartManager->NumPart || act->NumActiveHydro == 0)
+     * likely all topleaves are.*/
+    if(act->NumActiveParticle > 0.001 * PartManager->NumPart)
         allactive = GASMASK + STARMASK + BHMASK;
     /* Decision must be collective*/
     MPI_Allreduce(MPI_IN_PLACE, &allactive, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    /* If we have no active hydro particles (we are probably a DM only simulation, or something
+     * pathological with only stars in the lowest timebin) all topnodes are inactive.*/
+    int64_t allhydro;
+    MPI_Allreduce(&act->NumActiveHydro, &allhydro, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    if(allhydro == 0)
+        allactive = 0;
     /* Initialise all active flags to one if enough particles are active, otherwise
      * initialise all active flags to zero*/
     #pragma omp parallel for
@@ -256,8 +260,9 @@ int domain_mark_active_topleafs(DomainDecomp * ddecomp, double * maxhsml, Active
         struct topleaf_data * tl = &ddecomp->TopLeaves[j];
         tl->NearActiveMask = allactive;
     }
+    message(0, "Active Hydro : %ld active gravity this cpu: %ld\n", allhydro, act->NumActiveParticle);
     /* We are done now*/
-    if(allactive)
+    if(allactive > 0 || allhydro == 0)
         return 1;
 
     const size_t numthreads = omp_get_max_threads();
