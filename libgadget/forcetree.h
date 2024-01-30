@@ -87,6 +87,8 @@ typedef struct ForceTree {
     int numnodes;
     /* Types which are included have their bits set to 1*/
     int mask;
+    /* Flags whether the tree excludes particles with inactive topleafs*/
+    int exclude_inactive_topleaf;
     /* Number of particles stored in this tree*/
     int64_t NumParticles;
     /*Pointer to the TopLeaves struct imported from Domain. Sets up the pseudo particles.*/

@@ -242,8 +242,10 @@ int domain_mark_active_topleafs(DomainDecomp * ddecomp, double * maxhsml, Active
     int allactive = 0;
     /* Active algorithm is O(N_active * N_topleaves) so should only be used if not that many particles are active.
      * In addition, each particle has on average 100 neighbours, so if more particles than this are active,
-     * likely all topleaves are.*/
-    if(act->NumActiveParticle > 0.001 * PartManager->NumPart)
+     * likely all topleaves are.
+     * Also if we have no active hydro particles (we are probably a DM only simulation, or something
+     * pathological with only stars in the lowest timebin) no need to do this.*/
+    if(act->NumActiveParticle > 0.001 * PartManager->NumPart || act->NumActiveHydro == 0)
         allactive = GASMASK + STARMASK + BHMASK;
     /* Decision must be collective*/
     MPI_Allreduce(MPI_IN_PLACE, &allactive, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);

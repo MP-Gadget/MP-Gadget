@@ -47,7 +47,7 @@ init_forcetree_params(const double treeallocfactor)
 }
 
 static ForceTree
-force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles * act, const int DoMoments, const int alloc_father, const char * EmergencyOutputDir);
+force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, const int DoMoments, const int alloc_father, const int exclude_inactive_topleaf, const char * EmergencyOutputDir);
 
 static void
 force_treeupdate_pseudos(int no, const ForceTree * tree);
@@ -124,8 +124,8 @@ force_tree_full(ForceTree * tree, DomainDecomp * ddecomp, const int HybridNuTrac
     if(HybridNuTracer)
         mask = GASMASK + DMMASK + STARMASK + BHMASK;
 
-    /*No father array by default, only need it for hmax. We want moments.*/
-    *tree = force_tree_build(mask, ddecomp, &act, 1, 1, EmergencyOutputDir);
+    /*No father array by default, only need it for hmax. We want moments. Include even inactive topleaf particles.*/
+    *tree = force_tree_build(mask, ddecomp, &act, 1, 1, 0, EmergencyOutputDir);
 }
 
 void
@@ -142,8 +142,8 @@ force_tree_active_moments(ForceTree * tree, DomainDecomp * ddecomp, const Active
     if(HybridNuTracer)
         mask = GASMASK + DMMASK + STARMASK + BHMASK;
 
-    /*No father array by default, only need it for hmax. We want moments.*/
-    *tree = force_tree_build(mask, ddecomp, act, 1, alloc_father, EmergencyOutputDir);
+    /*No father array by default, only need it for hmax. We want moments. Include inactive topleaf particles*/
+    *tree = force_tree_build(mask, ddecomp, act, 1, alloc_father, 0, EmergencyOutputDir);
 }
 
 void
@@ -157,8 +157,8 @@ force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, cons
 
     /* Build for all particles*/
     ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
-    /* No moments, but need father for hmax. The hybridnugrav only affects moments, so isn't needed.*/
-    *tree = force_tree_build(mask, ddecomp, &act, 0, 1, EmergencyOutputDir);
+    /* No moments, but need father for hmax. We want to exclude inactive topleaf moments.*/
+    *tree = force_tree_build(mask, ddecomp, &act, 0, 1, 1, EmergencyOutputDir);
 }
 
 
@@ -186,7 +186,7 @@ force_tree_calc_moments(ForceTree * tree, DomainDecomp * ddecomp)
  *  different CPUs. If such a node needs to be opened, the corresponding
  *  particle must be exported to that CPU. */
 ForceTree
-force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, const int DoMoments, const int alloc_father, const char * EmergencyOutputDir)
+force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, const int DoMoments, const int alloc_father, const int exclude_inactive_topleaf, const char * EmergencyOutputDir)
 {
     ForceTree tree;
 
@@ -204,6 +204,7 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
         tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp, alloc_father, 0);
         tree.mask = mask;
         tree.BoxSize = PartManager->BoxSize;
+        tree.exclude_inactive_topleaf = exclude_inactive_topleaf;
         force_tree_create_nodes(&tree, act, mask, ddecomp);
         if(tree.numnodes >= tree.lastnode - tree.firstnode)
         {
@@ -807,7 +808,7 @@ force_tree_create_nodes(ForceTree * tree, const ActiveParticles * act, int mask,
                  * then do not add the particle. Make sure ActiveParticle is not set, if it is we are gravity.
                  * More stringent logic is possible, but here we do not know
                  * what the haswork function is using*/
-                if(!act->ActiveParticle && ddecomp->TopLeaves[topleaf].NearActiveMask == 0)
+                if(tree->exclude_inactive_topleaf && ddecomp->TopLeaves[topleaf].NearActiveMask == 0)
                     continue;
                 if(topleaf < StartLeaf || topleaf >= EndLeaf)
                     endrun(5, "Bad topleaf %d start %d end %d type %d ID %ld\n", topleaf, StartLeaf, EndLeaf, P[i].Type, P[i].ID);
