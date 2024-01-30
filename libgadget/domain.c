@@ -526,11 +526,12 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
     for(j = 0; j < ExchangeData->nexchange; j++) {
         int pp = ExchangeData->ExchangeList[j];
         const int type = PartManager->Base[pp].Type;
+        const int gravity_active = is_timebin_active(PartManager->Base[pp].TimeBinGravity, PartManager->Base[pp].Ti_drift);
         struct topleaf_data * tl = &ddecomp->TopLeaves[PartManager->Base[pp].TopLeaf];
-        /* Don't need to move type DM, stars or BHs (used for BH mechanics) if they are not near an active BH. */
-        if((!(tl->NearActiveMask & BHMASK)) && (type == 1 || type == 4 || type == 5))
+        /* Don't need to move type DM, stars or BHs (used for BH mechanics) if they are not active nor near an active BH. */
+        if(!gravity_active && !(tl->NearActiveMask & BHMASK) && (type == 1 || type == 4 || type == 5))
             continue;
-        /* Gas which is near another active particle of any type [gas (hydro), BH (accretion), star (metal return)], needs to move*/
+        /* Gas which is in a topleaf with active particles of any type [gas (hydro), BH (accretion), star (metal return)], needs to move*/
         if(type == 0 && tl->NearActiveMask == 0)
             continue;
         exchangelist2[nexchange2] = ExchangeData->ExchangeList[j];
