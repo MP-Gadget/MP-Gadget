@@ -25,6 +25,9 @@ struct topleaf_data {
      * Only marked for active gas, star, BH particles. DM is possible in future models.
      * This information is used to make the treebuild faster by skipping inactive topleafs.*/
     int NearActiveMask;
+    /* Maximum HSML of particle within this topleaf. Used to skip topleafs
+     * that do not interact with an active particle.*/
+    double MaxHsml;
 };
 
 struct task_data {

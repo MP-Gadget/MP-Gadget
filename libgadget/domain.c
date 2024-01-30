@@ -305,12 +305,11 @@ int domain_mark_active_topleafs(DomainDecomp * ddecomp, double * maxhsml, Active
             /* For symmetric algorithms, the hsml needs to be the maximal gas/BH hsml within the topleaf.*/
             int active = 1;
             int k;
-            /* TODO: Factor of 2 in maxhsml! Should be configurable, checked in density.
-             * Need a function that recomputes active topleaves after density hsml is done.
-             * If new hsml is larger than 2x old hsml, need to redo density with all particles.
+            /* TODO: Should be configurable, checked in density. Need to store the maximum hsml.
+             * If new hsml is larger than the maximum hsml, need to redo density with all particles.
              * Also we would need to do communication. Humph.*/
             for(k = 0; k < 3; k++)
-                if(fabs(Pos[k] - pnode->center[k]) > 2*maxhsml[j] + pnode->len/2.) {
+                if(fabs(Pos[k] - pnode->center[k]) > maxhsml[j] + pnode->len/2.) {
                     active = 0;
                     break;
                 }
@@ -328,6 +327,7 @@ int domain_mark_active_topleafs(DomainDecomp * ddecomp, double * maxhsml, Active
     for(j = 0; j < ddecomp->NTopLeaves; j++) {
         struct topleaf_data * tl = &ddecomp->TopLeaves[j];
         tl->NearActiveMask = NearActives[j];
+        tl->MaxHsml = maxhsml[j];
     }
 #ifdef DEBUG
     int i;
@@ -480,11 +480,22 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
                 /* Set the topleaf for layoutfunc.*/
                 PartManager->Base[i].TopLeaf = no;
             }
-            /* Store the maximum gas/BH hsml inside each topleaf. BH hsml is used for the BH mergers.*/
-            if(PartManager->Base[i].Type == 0 || PartManager->Base[i].Type == 5) {
+            /* Store the maximum gas/star/BH hsml inside each topleaf. BH hsml is used for the BH mergers.*/
+            if(PartManager->Base[i].Type == 0 || PartManager->Base[i].Type == 5 || PartManager->Base[i].Type == 4) {
                 const int tl = PartManager->Base[i].TopLeaf;
-                if(maxhsmltopleaf[tid * numthreads + tl] < PartManager->Base[i].Hsml)
-                    maxhsmltopleaf[tid * numthreads + tl] = PartManager->Base[i].Hsml;
+                double hsml = PartManager->Base[i].Hsml;
+                /* We know the hsml for inactive particles. We do not know the hsml for active particles.
+                 * Particles outside the maximum will not be included in the tree and if one should be encountered,
+                 * the density will be wrong. We store the maximum hsml and check it during density.
+                 * If the check fails, rebuild a full tree.
+                 * So that we do not fail the check very often, increase the hsml used for active particles here.
+                 * Usually the active particles will have shorter timesteps and so will not have the largest hsml*/
+                if(hydro_active)
+                    hsml *= 2; // TODO: Should be config parameter!
+                if(PartManager->Base[i].Type == 4 && gravity_active)
+                    hsml *= 2;
+                if(maxhsmltopleaf[tid * numthreads + tl] < hsml)
+                    maxhsmltopleaf[tid * numthreads + tl] = hsml;
             }
 
             int target = domain_layoutfunc(i, ddecomp);
