@@ -251,6 +251,10 @@ int domain_mark_active_topleafs(DomainDecomp * ddecomp, double * maxhsml, Active
      * pathological with only stars in the lowest timebin) all topnodes are inactive.*/
     int64_t allhydro;
     MPI_Allreduce(&act->NumActiveHydro, &allhydro, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    // int64_t totactive;
+    // MPI_Allreduce(&act->NumActiveParticle, &totactive, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    // message(0, "Active Hydro : %ld active gravity: %ld\n", allhydro, totactive);
+
     if(allhydro == 0)
         allactive = 0;
     /* Initialise all active flags to one if enough particles are active, otherwise
@@ -260,7 +264,6 @@ int domain_mark_active_topleafs(DomainDecomp * ddecomp, double * maxhsml, Active
         struct topleaf_data * tl = &ddecomp->TopLeaves[j];
         tl->NearActiveMask = allactive;
     }
-    message(0, "Active Hydro : %ld active gravity this cpu: %ld\n", allhydro, act->NumActiveParticle);
     /* We are done now*/
     if(allactive > 0 || allhydro == 0)
         return 1;
