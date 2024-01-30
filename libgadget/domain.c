@@ -445,11 +445,12 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
             int gravity_active = is_timebin_active(bin_gravity, PartManager->Base[i].Ti_drift);
             if(gravity_active)
                 nactivegrav++;
+            if(hydro_active)
+                nactivehydro++;
             if(hydro_active || gravity_active) {
                 /* Store this particle in the ActiveSet for this thread*/
                 activepartthread[nactivelocal] = i;
                 nactivelocal++;
-                nactivehydro++;
             }
             /* Account gas and BHs to their hydro bin and other particles to their gravity bin*/
             int bin = bin_gravity;
