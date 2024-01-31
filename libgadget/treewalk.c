@@ -1076,6 +1076,13 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
             continue;
         }
 
+        /* Check that we do not encounter unused topnodes*/
+        if(lv->tw->tree->exclude_inactive_topleaf) {
+            /* A topleaf which is not a pseudo node but still has a pseudo node attached indicates an inactive topleaf node, and should be culled before we get here.*/
+            if(current->f.ChildType != PSEUDO_NODE_TYPE && current->f.TopLevel && !current->f.InternalTopLevel && current->s.suns[0] > lv->tw->tree->lastnode)
+                endrun(6, "Encountered inactive topleaf %d\n", no);
+        }
+
         if(lv->mode == TREEWALK_TOPTREE) {
             if(current->f.ChildType == PSEUDO_NODE_TYPE) {
                 /* Export the pseudo particle*/
