@@ -192,11 +192,11 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
 
     int TooManyNodes = 0;
     int64_t maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->NumPart + ddecomp->NTopNodes;
-    int64_t maxmaxnodes;
-    MPI_Reduce(&maxnodes, &maxmaxnodes, 1, MPI_INT64, MPI_MAX,0, MPI_COMM_WORLD);
-//     message(0, "Treebuild: Largest is %g MByte for %ld tree nodes. firstnode %ld. (presently allocated %g MB)\n",
-//          maxmaxnodes * sizeof(struct NODE) / (1024.0 * 1024.0), maxmaxnodes, PartManager->MaxPart,
-//          mymalloc_usedbytes() / (1024.0 * 1024.0));
+    /* int64_t maxmaxnodes;
+     MPI_Reduce(&maxnodes, &maxmaxnodes, 1, MPI_INT64, MPI_MAX,0, MPI_COMM_WORLD);
+    message(0, "Treebuild: Largest is %g MByte for %ld tree nodes. firstnode %ld. (presently allocated %g MB)\n",
+         maxmaxnodes * sizeof(struct NODE) / (1024.0 * 1024.0), maxmaxnodes, PartManager->MaxPart,
+         mymalloc_usedbytes() / (1024.0 * 1024.0));*/
 
     do
     {
