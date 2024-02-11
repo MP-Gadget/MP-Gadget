@@ -30,6 +30,7 @@ hci_init(HCIManager * manager, char * prefix, double WallClockTimeLimit, double 
 
     manager->WallClockTimeLimit = WallClockTimeLimit;
     manager->AutoCheckPointTime = AutoCheckPointTime;
+    manager->TimeLastCheckPoint = manager->timer_begin;
     manager->FOFEnabled = FOFEnabled;
     manager->LongestTimeBetweenQueries = 0;
 }
