@@ -50,7 +50,7 @@ static ForceTree
 force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles * act, const int DoMoments, const int alloc_father, const char * EmergencyOutputDir);
 
 static void
-force_treeupdate_pseudos(int no, const ForceTree * tree);
+force_treeupdate_pseudos(const int no, const int level, const ForceTree * const tree);
 
 static void
 force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, const DomainDecomp * ddecomp, int bits, int x, int y, int z, int *nextfree, const int lastnode);
@@ -169,7 +169,11 @@ force_tree_calc_moments(ForceTree * tree, DomainDecomp * ddecomp)
     force_update_node_parallel(tree, ddecomp);
     /* Exchange the pseudo-data*/
     force_exchange_pseudodata(tree, ddecomp);
-    force_treeupdate_pseudos(tree->firstnode, tree);
+    #pragma omp parallel
+    #pragma omp single nowait
+    {
+        force_treeupdate_pseudos(tree->firstnode, 1, tree);
+    }
     tree->moments_computed_flag = 1;
     tree->hmax_computed_flag = 1;
 }
@@ -1210,21 +1214,19 @@ void force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp)
  *  the pseudo-particles have been updated.
  */
 void
-force_treeupdate_pseudos(int no, const ForceTree * tree)
+force_treeupdate_pseudos(const int no, const int level, const ForceTree * const tree)
 {
-    int j, p;
-    MyFloat hmax = 0;
-    MyFloat s[3] = {0}, mass = 0;
-
     /* This happens if we have a trivial domain with only one entry*/
     if(!tree->Nodes[no].f.InternalTopLevel)
         return;
 
-    p = tree->Nodes[no].s.suns[0];
+    int j;
 
     /* since we are dealing with top-level nodes, we know that there are 8 consecutive daughter nodes */
     for(j = 0; j < 8; j++)
     {
+        const int p = tree->Nodes[no].s.suns[j];
+
         /*This may not happen as we are an internal top level node*/
         if(p < tree->firstnode || p >= tree->lastnode)
             endrun(6767, "Updating pseudos: %d -> %d which is not an internal node between %d and %d\n",no, p, tree->firstnode, tree->lastnode);
@@ -1234,39 +1236,51 @@ force_treeupdate_pseudos(int no, const ForceTree * tree)
             endrun(6767, "Tried to update toplevel node %d with parent %d != expected %d\n", p, tree->Nodes[p].father, no);
 #endif
 
-        if(tree->Nodes[p].f.InternalTopLevel)
-            force_treeupdate_pseudos(p, tree);
+        if(tree->Nodes[p].f.InternalTopLevel) {
+            if(level < 512) {
+                #pragma omp task default(none) shared(level, tree) firstprivate(p)
+                force_treeupdate_pseudos(p, level*8, tree);
+            }
+            else {
+                force_treeupdate_pseudos(p, level, tree);
+            }
+        }
+    }
+    /* Zero the moments*/
+    tree->Nodes[no].mom.mass = 0;
+    tree->Nodes[no].mom.cofm[0] = 0;
+    tree->Nodes[no].mom.cofm[1] = 0;
+    tree->Nodes[no].mom.cofm[2] = 0;
+    tree->Nodes[no].mom.hmax = 0;
 
-        mass += (tree->Nodes[p].mom.mass);
-        s[0] += (tree->Nodes[p].mom.mass * tree->Nodes[p].mom.cofm[0]);
-        s[1] += (tree->Nodes[p].mom.mass * tree->Nodes[p].mom.cofm[1]);
-        s[2] += (tree->Nodes[p].mom.mass * tree->Nodes[p].mom.cofm[2]);
+    /*Make sure all child nodes are done*/
+    #pragma omp taskwait
 
-        if(tree->Nodes[p].mom.hmax > hmax)
-            hmax = tree->Nodes[p].mom.hmax;
+    for(j = 0; j < 8; j++)
+    {
+        const int p = tree->Nodes[no].s.suns[j];
 
-        p = tree->Nodes[p].sibling;
+        tree->Nodes[no].mom.mass += (tree->Nodes[p].mom.mass);
+        tree->Nodes[no].mom.cofm[0] += (tree->Nodes[p].mom.mass * tree->Nodes[p].mom.cofm[0]);
+        tree->Nodes[no].mom.cofm[1] += (tree->Nodes[p].mom.mass * tree->Nodes[p].mom.cofm[1]);
+        tree->Nodes[no].mom.cofm[2] += (tree->Nodes[p].mom.mass * tree->Nodes[p].mom.cofm[2]);
+
+        if(tree->Nodes[p].mom.hmax > tree->Nodes[no].mom.hmax)
+            tree->Nodes[no].mom.hmax = tree->Nodes[p].mom.hmax;
     }
 
-    if(mass)
+    if(tree->Nodes[no].mom.mass)
     {
-        s[0] /= mass;
-        s[1] /= mass;
-        s[2] /= mass;
+        tree->Nodes[no].mom.cofm[0] /= tree->Nodes[no].mom.mass;
+        tree->Nodes[no].mom.cofm[1] /= tree->Nodes[no].mom.mass;
+        tree->Nodes[no].mom.cofm[2] /= tree->Nodes[no].mom.mass;
     }
     else
     {
-        s[0] = tree->Nodes[no].center[0];
-        s[1] = tree->Nodes[no].center[1];
-        s[2] = tree->Nodes[no].center[2];
+        tree->Nodes[no].mom.cofm[0] = tree->Nodes[no].center[0];
+        tree->Nodes[no].mom.cofm[1] = tree->Nodes[no].center[1];
+        tree->Nodes[no].mom.cofm[2] = tree->Nodes[no].center[2];
     }
-
-    tree->Nodes[no].mom.cofm[0] = s[0];
-    tree->Nodes[no].mom.cofm[1] = s[1];
-    tree->Nodes[no].mom.cofm[2] = s[2];
-    tree->Nodes[no].mom.mass = mass;
-
-    tree->Nodes[no].mom.hmax = hmax;
 }
 
 /* Update the hmax in the parent node of the particle p_i*/
