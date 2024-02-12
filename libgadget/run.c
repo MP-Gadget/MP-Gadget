@@ -698,7 +698,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                  * to one processor than there is room for.*/
                 slots_gc_sorted(PartManager, SlotsManager);
                 /* Do a domain exchange*/
-                domain_maintain(ddecomp, NULL);
+                if(domain_maintain(ddecomp, NULL))
+                    endrun(0, "Domain exchange after FOF save particle did not complete!\n");
                 /* Not strictly necessary, but a good idea for performance*/
                 slots_gc_sorted(PartManager, SlotsManager);
             }
