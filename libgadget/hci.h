@@ -3,18 +3,17 @@
 
 typedef struct HCIManager {
     /* private: */
-    char * prefix;
-    int FOFEnabled;
     double TimeLastCheckPoint;
     double AutoCheckPointTime;
     double LongestTimeBetweenQueries;
     double WallClockTimeLimit;
     double timer_query_begin;
     double timer_begin;
-
+    double _now;
+    char * prefix;
+    int FOFEnabled;
     /* for debugging: */
     int OVERRIDE_NOW;
-    double _now;
 } HCIManager;
 
 enum HCIActionType {
@@ -30,8 +29,8 @@ enum HCIActionType {
 typedef struct HCIAction
 {
     enum HCIActionType type;
-    int write_snapshot;
-    int write_fof;
+    char write_snapshot;
+    char write_fof;
 } HCIAction;
 
 void
