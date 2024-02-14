@@ -48,7 +48,6 @@ static struct SFRParams
     double FactorSN;
     double EgySpecCold;
     double FactorEVP;
-    double FeedbackEnergy;
     double TempSupernova;
     double TempClouds;
     double MaxSfrTimescale;
