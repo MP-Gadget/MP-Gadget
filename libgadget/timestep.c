@@ -1345,7 +1345,7 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
     /*Since we use a static schedule, only need NumPart/NumThreads elements per thread.*/
     size_t narr = PartManager->NumPart / NumThreads + NumThreads;
 
-    int * TimeBinCountType = (int *) mymalloc2("TimeBinCountType", 6*(TIMEBINS+1) * sizeof(int));
+    int * TimeBinCountType = (int *) ta_malloc2("TimeBinCountType", int, 6*(TIMEBINS+1));
     memset(TimeBinCountType, 0, 6 * (TIMEBINS+1) * sizeof(int));
 
     /*We know all particles are active on a PM timestep*/
@@ -1524,28 +1524,40 @@ void free_active_particles(ActiveParticles * act)
 static void print_timebin_statistics(const DriftKickTimes * const times, const int NumCurrentTiStep, int * TimeBinCountType, const double Time, const int64_t ActiveGravityCount)
 {
     int i;
-    int64_t tot = 0, tot_type[6] = {0};
-    int64_t tot_count[TIMEBINS+1] = {0};
-    int64_t tot_count_type[6][TIMEBINS+1] = {{0}};
+    int64_t * tot_count_type = ta_malloc("totcounttype", int64_t, 6 * (TIMEBINS+1));
+    int64_t * tot_count_type_loc = ta_malloc("totcounttype_loc", int64_t, 6 * (TIMEBINS+1));
+    #pragma omp parallel for
+    for(i = 0; i < 6 * (TIMEBINS+1); i++) {
+        tot_count_type_loc[i] = TimeBinCountType[i];
+    }
+    MPI_Reduce(tot_count_type_loc, tot_count_type, 6 * (TIMEBINS+1), MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    myfree(tot_count_type_loc);
+    int64_t TotActiveGravityCount;
+    MPI_Reduce(&ActiveGravityCount, &TotActiveGravityCount, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    /* Only do the work on the root rank*/
+    if(ThisTask != 0) {
+        myfree(tot_count_type);
+        return;
+    }
+
+    int64_t * tot_count = ta_malloc("totcount", int64_t, TIMEBINS+1);
+    memset(tot_count, 0, sizeof(int64_t) * (TIMEBINS+1));
     int64_t tot_num_force = 0;
     int64_t TotNumPart = 0, TotNumType[6] = {0};
 
-    for(i = 0; i < 6; i ++) {
-        sumup_large_ints(TIMEBINS+1, &TimeBinCountType[(TIMEBINS+1) * i], tot_count_type[i]);
-    }
-    int64_t TotActiveGravityCount;
-    MPI_Allreduce(&ActiveGravityCount, &TotActiveGravityCount, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-
-    for(i = 0; i<TIMEBINS+1; i++) {
-        int j;
-        for(j=0; j<6; j++) {
-            tot_count[i] += tot_count_type[j][i];
-            /*Note j*/
-            TotNumType[j] += tot_count_type[j][i];
-            TotNumPart += tot_count_type[j][i];
+    int type;
+    for(type=0; type<6; type++) {
+        int bin;
+        for(bin = 0; bin<TIMEBINS+1; bin++) {
+            tot_count[bin] += tot_count_type[(TIMEBINS+1) * type + bin];
+            TotNumType[type] += tot_count_type[(TIMEBINS+1) * type + bin];
+            TotNumPart += tot_count_type[(TIMEBINS+1) * type + bin];
+            if(is_timebin_active(bin, times->Ti_Current))
+                tot_num_force += tot_count[bin];
         }
-        if(is_timebin_active(i, times->Ti_Current))
-            tot_num_force += tot_count[i];
     }
 
     char extra[20] = {0};
@@ -1556,25 +1568,25 @@ static void print_timebin_statistics(const DriftKickTimes * const times, const i
     const double dloga = get_dloga_for_bin(times->mintimebin, times->Ti_Current);
     const double z = 1.0 / (Time) - 1;
     message(0, "Begin Step %d, Time: %g (%lx), Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
-                NumCurrentTiStep, Time, times->Ti_Current, z, tot_num_force,
-                dloga * Time, dloga,
-                extra);
+                NumCurrentTiStep, Time, times->Ti_Current, z, tot_num_force, dloga * Time, dloga, extra);
 
-    message(0, "TotNumPart: %013ld SPH %013ld BH %010ld STAR %013ld \n",
-                TotNumPart, TotNumType[0], TotNumType[5], TotNumType[4]);
+    message(0, "TotNumPart: %013ld SPH %013ld BH %010ld STAR %013ld \n", TotNumPart, TotNumType[0], TotNumType[5], TotNumType[4]);
     message(0,     "Occupied: % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld dt\n", 0L, 1L, 2L, 3L, 4L, 5L);
+
+    /* Active counts*/
+    int64_t tot = 0, tot_type[6] = {0};
 
     for(i = TIMEBINS;  i >= 0; i--) {
         if(tot_count[i] == 0) continue;
         message(0, " %c bin=%2d % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld %6g\n",
                 is_timebin_active(i, times->Ti_Current) ? 'X' : ' ',
                 i,
-                tot_count_type[0][i],
-                tot_count_type[1][i],
-                tot_count_type[2][i],
-                tot_count_type[3][i],
-                tot_count_type[4][i],
-                tot_count_type[5][i],
+                tot_count_type[i],
+                tot_count_type[(TIMEBINS+1) * 1 + i],
+                tot_count_type[(TIMEBINS+1) * 2 + i],
+                tot_count_type[(TIMEBINS+1) * 3 + i],
+                tot_count_type[(TIMEBINS+1) * 4 + i],
+                tot_count_type[(TIMEBINS+1) * 5 + i],
                 get_dloga_for_bin(i, times->Ti_Current));
 
         if(is_timebin_active(i, times->Ti_Current))
@@ -1582,10 +1594,12 @@ static void print_timebin_statistics(const DriftKickTimes * const times, const i
             tot += tot_count[i];
             int ptype;
             for(ptype = 0; ptype < 6; ptype ++) {
-                tot_type[ptype] += tot_count_type[ptype][i];
+                tot_type[ptype] += tot_count_type[(TIMEBINS+1) * ptype + i];
             }
         }
     }
+    myfree(tot_count);
+    myfree(tot_count_type);
     message(0,     "               -----------------------------------\n");
     message(0,     "Total:    % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld  Sum:% 14ld Gravity: %14ld\n",
         tot_type[0], tot_type[1], tot_type[2], tot_type[3], tot_type[4], tot_type[5], tot, TotActiveGravityCount);
