@@ -202,8 +202,7 @@ inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * 
 void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int generations, double * MassTable)
 {
     double mass = 0, masstot, omega;
-    int i, badmass = 0;
-    int64_t totbad;
+    int64_t i, totbad, badmass = 0;
 
     #pragma omp parallel for reduction(+: mass) reduction(+: badmass)
     for(i = 0; i < PartManager->NumPart; i++) {
@@ -217,8 +216,7 @@ void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int gen
     }
 
     MPI_Allreduce(&mass, &masstot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-    sumup_large_ints(1, &badmass, &totbad);
+    MPI_Allreduce(&badmass, &totbad, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     if(totbad)
         message(0, "Warning: recovering from %ld Mass entries corrupted on disc\n",totbad);
 
