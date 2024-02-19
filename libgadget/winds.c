@@ -228,7 +228,7 @@ int cmp_by_part_id(const void * a, const void * b)
 
 /* Find the 1D DM velocity dispersion of the winds by running a density loop.*/
 static void
-winds_find_weights(TreeWalk * tw, struct WindPriv * priv, int * NewStars, int NumNewStars, ForceTree * tree, DomainDecomp * ddecomp)
+winds_find_weights(TreeWalk * tw, struct WindPriv * priv, int * NewStars, const int64_t NumNewStars, ForceTree * tree, DomainDecomp * ddecomp)
 {
     /* Flags that we need to free the tree to preserve memory order*/
     priv->tree_alloc_in_wind = 0;
@@ -256,8 +256,6 @@ winds_find_weights(TreeWalk * tw, struct WindPriv * priv, int * NewStars, int Nu
 
     tw->priv = priv;
 
-    int64_t totalleft = 0;
-    sumup_large_ints(1, &NumNewStars, &totalleft);
     /* Subgrid winds come from gas, regular wind from stars: size array accordingly.*/
     int64_t winddata_sz = SlotsManager->info[4].size;
     if(HAS(wind_params.WindModel, WIND_SUBGRID))
@@ -298,7 +296,7 @@ winds_subgrid(int * MaybeWind, int NumMaybeWind, const double Time, MyFloat * St
 
 /*Do a treewalk for the wind model. This only changes newly created star particles.*/
 void
-winds_and_feedback(int * NewStars, int NumNewStars, const double Time, RandTable * rnd, ForceTree * tree, DomainDecomp * ddecomp)
+winds_and_feedback(int * NewStars, const int64_t NumNewStars, const double Time, RandTable * rnd, ForceTree * tree, DomainDecomp * ddecomp)
 {
     /*The subgrid model does nothing here*/
     if(HAS(wind_params.WindModel, WIND_SUBGRID))
@@ -359,7 +357,7 @@ winds_and_feedback(int * NewStars, int NumNewStars, const double Time, RandTable
     /* Get total number of potential new stars to allocate memory.*/
     int64_t tot_newstars, tot_kicks, tot_applied;
     double maxvel;
-    sumup_large_ints(1, &NumNewStars, &tot_newstars);
+    MPI_Reduce(&NumNewStars, &tot_newstars, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&priv->nkicks, &tot_kicks, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&nkicked, &tot_applied, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&priv->kicks[0].StarKickVelocity, &maxvel, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
