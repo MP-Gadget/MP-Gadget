@@ -1205,18 +1205,15 @@ double
 get_long_range_timestep_dloga(const double atime, const Cosmology * CP, const int FastParticleType, const double asmth)
 {
     int i, type;
-    int count[6];
-    int64_t count_sum[6];
-    double v[6], v_sum[6], mim[6], min_mass[6];
+    int64_t count[6] = {0};
+    int64_t count_sum[6] ={0};
+    double v[6] = {0}, v_sum[6], mim[6], min_mass[6];
     double dloga = TimestepParams.MaxSizeTimestep;
 
     for(type = 0; type < 6; type++)
-    {
-        count[type] = 0;
-        v[type] = 0;
         mim[type] = 1.0e30;
-    }
 
+    #pragma omp parallel for reduction(+: count)
     for(i = 0; i < PartManager->NumPart; i++)
     {
         v[P[i].Type] += P[i].Vel[0] * P[i].Vel[0] + P[i].Vel[1] * P[i].Vel[1] + P[i].Vel[2] * P[i].Vel[2];
@@ -1230,8 +1227,7 @@ get_long_range_timestep_dloga(const double atime, const Cosmology * CP, const in
 
     MPI_Allreduce(v, v_sum, 6, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(mim, min_mass, 6, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-
-    sumup_large_ints(6, count, count_sum);
+    MPI_Allreduce(count, count_sum, 6, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
     /* add star, gas and black hole particles together to treat them on equal footing,
      * using the original gas particle spacing. */
