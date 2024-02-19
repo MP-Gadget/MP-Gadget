@@ -1213,7 +1213,7 @@ get_long_range_timestep_dloga(const double atime, const Cosmology * CP, const in
     for(type = 0; type < 6; type++)
         mim[type] = 1.0e30;
 
-    #pragma omp parallel for reduction(+: count)
+    #pragma omp parallel for reduction(+: count[:6]) reduction(min: mim[:6]) reduction(+: v[:6])
     for(i = 0; i < PartManager->NumPart; i++)
     {
         v[P[i].Type] += P[i].Vel[0] * P[i].Vel[0] + P[i].Vel[1] * P[i].Vel[1] + P[i].Vel[2] * P[i].Vel[2];
