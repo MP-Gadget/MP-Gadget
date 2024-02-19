@@ -903,7 +903,7 @@ fof_compile_catalogue(struct FOFGroups * fof, const int NgroupsExt, struct fof_p
         fof_set_escapefraction(fof, NgroupsExt, HaloLabel);
 #endif
     int64_t TotNids;
-    sumup_large_ints(1, &fof->Ngroups, &fof->TotNgroups);
+    MPI_Allreduce(&fof->Ngroups, &fof->TotNgroups, 1, MPI_INT64, MPI_SUM, Comm);
     MPI_Allreduce(&Nids, &TotNids, 1, MPI_INT64, MPI_SUM, Comm);
 
     /* report some statistics */
@@ -1151,7 +1151,7 @@ fof_save_groups(FOFGroups * fof, const char * OutputDir, const char * FOFFileBas
 struct FOFSecondaryPriv {
     float *distance;
     float *hsml;
-    int *npleft;
+    int64_t *npleft;
     struct fof_particle_list * HaloLabel;
 };
 
@@ -1213,7 +1213,7 @@ static void
 fof_secondary_postprocess(int p, TreeWalk * tw)
 {
     /* More work needed: add this particle to the redo queue*/
-    int tid = omp_get_thread_num();
+    const int tid = omp_get_thread_num();
 
     if(FOF_SECONDARY_GET_PRIV(tw)->distance[p] > 0.5 * LARGE)
     {
@@ -1281,19 +1281,19 @@ static void fof_label_secondary(struct fof_particle_list * HaloLabel, ForceTree 
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
 
     message(0, "fof-nearest iteration started\n");
-    int NumThreads = omp_get_max_threads();
-    FOF_SECONDARY_GET_PRIV(tw)->npleft = ta_malloc("NPLeft", int, NumThreads);
+    const int NumThreads = omp_get_max_threads();
+    FOF_SECONDARY_GET_PRIV(tw)->npleft = ta_malloc("NPLeft", int64_t, NumThreads);
 
     do
     {
-        memset(FOF_SECONDARY_GET_PRIV(tw)->npleft, 0, sizeof(int) * NumThreads);
+        memset(FOF_SECONDARY_GET_PRIV(tw)->npleft, 0, sizeof(int64_t) * NumThreads);
 
         treewalk_run(tw, NULL, PartManager->NumPart);
 
         for(n = 1; n < NumThreads; n++) {
             FOF_SECONDARY_GET_PRIV(tw)->npleft[0] += FOF_SECONDARY_GET_PRIV(tw)->npleft[n];
         }
-        sumup_large_ints(1, &FOF_SECONDARY_GET_PRIV(tw)->npleft[0], &ntot);
+        MPI_Allreduce(&FOF_SECONDARY_GET_PRIV(tw)->npleft[0], &ntot, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
         if(ntot < 0 || (ntot > 0 && tw->Niteration > MAXITER))
             endrun(1159, "Failed to converge in fof-nearest: ntot %ld", ntot);
