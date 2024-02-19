@@ -1216,6 +1216,8 @@ get_long_range_timestep_dloga(const double atime, const Cosmology * CP, const in
     #pragma omp parallel for reduction(+: count[:6]) reduction(min: mim[:6]) reduction(+: v[:6])
     for(i = 0; i < PartManager->NumPart; i++)
     {
+        if(P[i].IsGarbage || P[i].Swallowed)
+            continue;
         v[P[i].Type] += P[i].Vel[0] * P[i].Vel[0] + P[i].Vel[1] * P[i].Vel[1] + P[i].Vel[2] * P[i].Vel[2];
         if(P[i].Mass > 0)
         {
