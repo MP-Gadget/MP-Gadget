@@ -43,8 +43,6 @@ double get_random_number(const uint64_t id, const RandTable * const rnd);
 RandTable set_random_numbers(uint64_t seed, const size_t rndtablesize);
 /* Free the random number table and set Table to NULL*/
 void free_random_numbers(RandTable * rnd);
-void sumup_large_ints(int n, int *src, int64_t *res);
-void sumup_longs(int n, int64_t *src, int64_t *res);
 int64_t count_sum(int64_t countLocal);
 //int64_t count_to_offset(int64_t countLocal);
 

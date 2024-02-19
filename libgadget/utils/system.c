@@ -194,55 +194,6 @@ void MPIU_Trace(MPI_Comm comm, int where, const char * fmt, ...)
     va_end(va);
 }
 
-
-void
-sumup_large_ints(int n, int *src, int64_t *res)
-{
-    MPI_Comm comm = MPI_COMM_WORLD;
-    int NTask;
-    int ThisTask;
-    MPI_Comm_size(comm, &NTask);
-    MPI_Comm_rank(comm, &ThisTask);
-
-    int i, j, *numlist;
-
-    numlist = (int *) mymalloc("numlist", NTask * n * sizeof(int));
-    MPI_Allgather(src, n, MPI_INT, numlist, n, MPI_INT, MPI_COMM_WORLD);
-
-    for(j = 0; j < n; j++)
-        res[j] = 0;
-
-    for(i = 0; i < NTask; i++)
-        for(j = 0; j < n; j++)
-            res[j] += numlist[i * n + j];
-
-    myfree(numlist);
-}
-
-void sumup_longs(int n, int64_t *src, int64_t *res)
-{
-    MPI_Comm comm = MPI_COMM_WORLD;
-    int NTask;
-    int ThisTask;
-    MPI_Comm_size(comm, &NTask);
-    MPI_Comm_rank(comm, &ThisTask);
-    int i, j;
-    int64_t *numlist;
-
-    numlist = (int64_t *) mymalloc("numlist", NTask * n * sizeof(int64_t));
-    MPI_Allgather(src, n * sizeof(int64_t), MPI_BYTE, numlist, n * sizeof(int64_t), MPI_BYTE,
-            MPI_COMM_WORLD);
-
-    for(j = 0; j < n; j++)
-        res[j] = 0;
-
-    for(i = 0; i < NTask; i++)
-        for(j = 0; j < n; j++)
-            res[j] += numlist[i * n + j];
-
-    myfree(numlist);
-}
-
 int64_t
 MPIU_cumsum(int64_t countLocal, MPI_Comm comm)
 {

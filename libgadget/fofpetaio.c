@@ -228,11 +228,6 @@ fof_find_target_task(struct PartIndex * pi, int64_t pi_size, const uint64_t task
     mpsort_mpi(pi, pi_size, sizeof(struct PartIndex),
             fof_radix_sortkey, 8, NULL, Comm);
 
-    //int64_t Npig = count_sum(NpigLocal);
-    //int64_t offsetLocal = MPIU_cumsum(NpigLocal, Comm);
-
-    //size_t chunksize = (Npig / NTask) + (Npig % NTask != 0);
-
     #pragma omp parallel for
     for(i = 0; i < pi_size; i ++) {
         /* YU: let's see if we keep the FOF particle load on the processes, IO would be faster
