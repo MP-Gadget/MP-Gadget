@@ -92,10 +92,10 @@ struct header_data petaio_read_header(int num, const char * OutputDir, Cosmology
 
 void
 petaio_build_selection(int * selection,
-    int * ptype_offset,
-    int * ptype_count,
+    int64_t * ptype_offset,
+    int64_t * ptype_count,
     const struct particle_data * Parts,
-    const int NumPart,
+    const int64_t NumPart,
     int (*select_func)(int i, const struct particle_data * Parts)
     );
 /*

@@ -115,17 +115,16 @@ void petaio_init(void) {
  */
 void
 petaio_build_selection(int * selection,
-    int * ptype_offset,
-    int * ptype_count,
+    int64_t * ptype_offset,
+    int64_t * ptype_count,
     const struct particle_data * Parts,
-    const int NumPart,
+    const int64_t NumPart,
     int (*select_func)(int i, const struct particle_data * Parts)
     )
 {
-    int i;
-    ptype_offset[0] = 0;
-    ptype_count[0] = 0;
+    int64_t i;
 
+    #pragma omp parallel for reduction(+: ptype_count[:6])
     for(i = 0; i < NumPart; i ++) {
         if(P[i].IsGarbage)
             continue;
@@ -134,6 +133,8 @@ petaio_build_selection(int * selection,
             ptype_count[ptype] ++;
         }
     }
+
+    ptype_offset[0] = 0;
     for(i = 1; i < 6; i ++) {
         ptype_offset[i] = ptype_offset[i-1] + ptype_count[i-1];
         ptype_count[i-1] = 0;
@@ -162,16 +163,15 @@ petaio_save_snapshot(const char * fname, struct IOTable * IOTable, int verbose, 
                     big_file_get_error_message());
     }
 
-    int ptype_offset[6]={0};
-    int ptype_count[6]={0};
+    int64_t ptype_offset[6]={0};
+    int64_t ptype_count[6]={0};
     int64_t NTotal[6]={0};
 
     int * selection = (int *) mymalloc("Selection", sizeof(int) * PartManager->NumPart);
 
     petaio_build_selection(selection, ptype_offset, ptype_count, P, PartManager->NumPart, NULL);
 
-    sumup_large_ints(6, ptype_count, NTotal);
-
+    MPI_Allreduce(ptype_count, NTotal, 6, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     struct conversions conv = {0};
     conv.atime = atime;
     conv.hubble = hubble_function(CP, atime);

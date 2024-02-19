@@ -118,8 +118,8 @@ int fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmolo
 
         int * selection = (int *) mymalloc("Selection", sizeof(int) * halo_pman->NumPart);
 
-        int ptype_offset[6]={0};
-        int ptype_count[6]={0};
+        int64_t ptype_offset[6]={0};
+        int64_t ptype_count[6]={0};
         petaio_build_selection(selection, ptype_offset, ptype_count, halo_pman->Base, halo_pman->NumPart, fof_select_func);
 
         walltime_measure("/FOF/IO/argind");
