@@ -149,7 +149,7 @@ collect_BH_info(const int * const ActiveBlackHoles, const int64_t NumActiveBlack
     }
 
     fwrite(infos,sizeof(struct BHinfo),NumActiveBlackHoles,FdBlackholeDetails);
-    fflush(FdBlackholeDetails);
+    // fflush(FdBlackholeDetails);
     myfree(infos);
     int64_t totalN;
 
