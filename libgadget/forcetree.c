@@ -933,11 +933,9 @@ add_particle_moment_to_node(struct NODE * pnode, const struct particle_data * co
     for(k=0; k<3; k++)
         pnode->mom.cofm[k] += (part->Mass * part->Pos[k]);
 
-    /* We do not add active gas particles to the hmax here because we are building the tree in density().
-     * The active particles will have hsml updated anyway, often to a smaller value and will be included in force_update_hmax.
-     * Black holes include unconditionally.*/
-    if((part->Type == 0 && !is_timebin_active(part->TimeBinHydro, part->Ti_drift))
-        || part->Type == 5)
+    /* We do not add active particles to the hmax here.
+     * The active particles will have hsml updated in density_postprocess instead, often to a smaller value.*/
+    if((part->Type == 0 || part->Type == 5 )&& !is_timebin_active(part->TimeBinHydro, part->Ti_drift))
     {
         int j;
         /* Maximal distance any of the member particles peek out from the side of the node.
@@ -1299,10 +1297,8 @@ update_tree_hmax_father(const ForceTree * const tree, const int p_i, const doubl
 }
 
 /*! This function updates the hmax-values in tree nodes that hold SPH
- *  particles. Since the Hsml-values are potentially changed for active particles
- *  in the SPH-density computation, force_update_hmax() should be carried
- *  out just before the hydrodynamical SPH forces are computed, i.e. after
- *  density().
+ *  particles. This is no longer called. The density() code updates hmax for the parent node
+ *  of each active particle.
  *
  *  The purpose of the hmax node is for a symmetric treewalk (currently only the hydro).
  *  Particles where P[i].Pos + Hsml pokes beyond the exterior of the tree node may mean
