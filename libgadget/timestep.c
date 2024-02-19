@@ -1245,31 +1245,30 @@ get_long_range_timestep_dloga(const double atime, const Cosmology * CP, const in
     const double hubble = hubble_function(CP, atime);
     for(type = 0; type < 6; type++)
     {
-        if(count_sum[type] > 0)
-        {
-            double omega, dmean, dloga1;
-            /* Type 4 is stars, type 5 is BHs, both baryons*/
-            if(type == 0 || type == 4 || type == 5) {
-                omega = CP->OmegaBaryon;
-            }
-            /* In practice usually FastParticleType == 2
-             * so this doesn't matter. */
-            else if (type == 2) {
-                omega = get_omega_nu(&CP->ONu, 1);
-            } else {
-                omega = CP->OmegaCDM;
-            }
-            /* "Avg. radius" of smallest particle: (min_mass/total_mass)^1/3 */
-            dmean = pow(min_mass[type] / (omega * CP->RhoCrit), 1.0 / 3);
-
-            dloga1 = TimestepParams.MaxRMSDisplacementFac * hubble * atime * atime * DMIN(asmth, dmean) / sqrt(v_sum[type] / count_sum[type]);
-            message(0, "type=%d  dmean=%g asmth=%g minmass=%g a=%g  sqrt(<p^2>)=%g  dloga=%g\n",
-                    type, dmean, asmth, min_mass[type], atime, sqrt(v_sum[type] / count_sum[type]), dloga1);
-
-            /* don't constrain the step to the neutrinos */
-            if(type != FastParticleType && dloga1 < dloga)
-                dloga = dloga1;
+        if(count_sum[type] == 0)
+            continue;
+        double omega, dmean, dloga1;
+        /* Type 4 is stars, type 5 is BHs, both baryons*/
+        if(type == 0 || type == 4 || type == 5) {
+            omega = CP->OmegaBaryon;
         }
+        /* In practice usually FastParticleType == 2
+            * so this doesn't matter. */
+        else if (type == 2) {
+            omega = get_omega_nu(&CP->ONu, 1);
+        } else {
+            omega = CP->OmegaCDM;
+        }
+        /* "Avg. radius" of smallest particle: (min_mass/total_mass)^1/3 */
+        dmean = pow(min_mass[type] / (omega * CP->RhoCrit), 1.0 / 3);
+
+        dloga1 = TimestepParams.MaxRMSDisplacementFac * hubble * atime * atime * DMIN(asmth, dmean) / sqrt(v_sum[type] / count_sum[type]);
+        message(0, "type=%d  dmean=%g asmth=%g minmass=%g a=%g  sqrt(<p^2>)=%g  dloga=%g\n",
+                type, dmean, asmth, min_mass[type], atime, sqrt(v_sum[type] / count_sum[type]), dloga1);
+
+        /* don't constrain the step to the neutrinos */
+        if(type != FastParticleType && dloga1 < dloga)
+            dloga = dloga1;
     }
 
     if(dloga < TimestepParams.MinSizeTimestep) {
