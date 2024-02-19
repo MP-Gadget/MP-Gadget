@@ -207,7 +207,7 @@ density_ngbiter(
 
 static int density_haswork(int n, TreeWalk * tw);
 static void density_postprocess(int i, TreeWalk * tw);
-static void density_check_neighbours(int i, TreeWalk * tw);
+static int density_check_neighbours(int i, TreeWalk * tw);
 
 static void density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
 static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
@@ -572,7 +572,9 @@ density_postprocess(int i, TreeWalk * tw)
     }
 }
 
-void density_check_neighbours (int i, TreeWalk * tw)
+/* Returns 1 if we are done and do not need to loop. 0 if we need to repeat.*/
+int
+density_check_neighbours (int i, TreeWalk * tw)
 {
     /* now check whether we had enough neighbours */
     int tid = omp_get_thread_num();
@@ -584,6 +586,18 @@ void density_check_neighbours (int i, TreeWalk * tw)
     MyFloat * Left = DENSITY_GET_PRIV(tw)->Left;
     MyFloat * Right = DENSITY_GET_PRIV(tw)->Right;
     MyFloat * NumNgb = DENSITY_GET_PRIV(tw)->NumNgb;
+
+    if(tw->maxnumngb[tid] < NumNgb[i])
+        tw->maxnumngb[tid] = NumNgb[i];
+    if(tw->minnumngb[tid] > NumNgb[i])
+        tw->minnumngb[tid] = NumNgb[i];
+
+    if(tw->Niteration >= MAXITER - 5)
+    {
+         message(1, "i=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
+             i, P[i].ID, P[i].Hsml, Left[i], Right[i],
+             NumNgb[i], Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+    }
 
     if(NumNgb[i] < (desnumngb - DensityParams.MaxNumNgbDeviation) ||
             (NumNgb[i] > (desnumngb + DensityParams.MaxNumNgbDeviation)))
@@ -597,7 +611,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
             message(1, "Very tight Hsml bounds for i=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g pos=(%g|%g|%g)\n",
              i, P[i].ID, P[i].Hsml, Left[i], Right[i], NumNgb[i], Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
             P[i].Hsml = Right[i];
-            return;
+            return 1;
         }
 
         /* If we need more neighbours, move the lower bound up. If we need fewer, move the upper bound down.*/
@@ -636,18 +650,19 @@ void density_check_neighbours (int i, TreeWalk * tw)
             if(Left[i] > DensityParams.BlackHoleMaxAccretionRadius)
             {
                 P[i].Hsml = DensityParams.BlackHoleMaxAccretionRadius;
-                return;
+                return 1;
             }
 
         if(Right[i] < DENSITY_GET_PRIV(tw)->MinGasHsml) {
             P[i].Hsml = DENSITY_GET_PRIV(tw)->MinGasHsml;
-            return;
+            return 1;
         }
         /* More work needed: add this particle to the redo queue*/
         tw->NPRedo[tid][tw->NPLeft[tid]] = i;
         tw->NPLeft[tid] ++;
         if(tw->NPLeft[tid] > tw->Redo_thread_alloc)
             endrun(5, "Particle %ld on thread %d exceeded allocated size of redo queue %ld\n", tw->NPLeft[tid], tid, tw->Redo_thread_alloc);
+        return 0;
     }
     else {
         /* We might have got here by serendipity, without bounding.*/
@@ -656,17 +671,7 @@ void density_check_neighbours (int i, TreeWalk * tw)
                 P[i].Hsml = DensityParams.BlackHoleMaxAccretionRadius;
         if(P[i].Hsml < DENSITY_GET_PRIV(tw)->MinGasHsml)
             P[i].Hsml = DENSITY_GET_PRIV(tw)->MinGasHsml;
-    }
-    if(tw->maxnumngb[tid] < NumNgb[i])
-        tw->maxnumngb[tid] = NumNgb[i];
-    if(tw->minnumngb[tid] > NumNgb[i])
-        tw->minnumngb[tid] = NumNgb[i];
-
-    if(tw->Niteration >= MAXITER - 10)
-    {
-         message(1, "i=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
-             i, P[i].ID, P[i].Hsml, Left[i], Right[i],
-             NumNgb[i], Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+        return 1;
     }
 }
 
