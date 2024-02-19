@@ -351,9 +351,7 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
 void fof_label_primary(struct fof_particle_list * HaloLabel, ForceTree * tree, MPI_Comm Comm)
 {
     int i;
-    int64_t link_across;
     int64_t link_across_tot;
-    double t0, t1;
     int ThisTask;
     MPI_Comm_rank(Comm, &ThisTask);
 
@@ -396,11 +394,11 @@ void fof_label_primary(struct fof_particle_list * HaloLabel, ForceTree * tree, M
     priv[0].spin = init_spinlocks(PartManager->NumPart);
     do
     {
-        t0 = second();
+        double t0 = second();
 
         treewalk_run(tw, NULL, PartManager->NumPart);
 
-        t1 = second();
+        double t1 = second();
         /* This sets the MinID of the head particle to the minimum ID
          * of the child particles. We set this inside the treewalk,
          * but the locking allows a race, where the particle with MinID set
@@ -428,7 +426,7 @@ void fof_label_primary(struct fof_particle_list * HaloLabel, ForceTree * tree, M
         }
         /* let's check out which particles have changed their MinID,
          * mark them for next round. */
-        link_across = 0;
+        int64_t link_across = 0;
 #pragma omp parallel for reduction(+: link_across)
         for(i = 0; i < PartManager->NumPart; i++) {
             int head = HEAD(i, FOF_PRIMARY_GET_PRIV(tw)->Head);
@@ -447,8 +445,10 @@ void fof_label_primary(struct fof_particle_list * HaloLabel, ForceTree * tree, M
                 FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[i] = 0;
             }
         }
+        double t2 = second();
+
         MPI_Allreduce(&link_across, &link_across_tot, 1, MPI_INT64, MPI_SUM, Comm);
-        message(0, "Linked %ld particles %g seconds\n", link_across_tot, t1 - t0);
+        message(0, "Linked %ld particles %g seconds postproc was %g seconds\n", link_across_tot, t1 - t0, t2 - t1);
     }
     while(link_across_tot > 0);
 
