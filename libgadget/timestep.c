@@ -1337,7 +1337,7 @@ static void print_timebin_statistics(const DriftKickTimes * const times, const i
 
 /* mark the bins that will be active before the next kick*/
 void
-build_active_particles(ActiveParticles * act, const DriftKickTimes * const times, int NumCurrentTiStep, const double Time)
+build_active_particles(ActiveParticles * act, const DriftKickTimes * const times, const int NumCurrentTiStep, const double Time, const struct part_manager_type * const PartManager)
 {
     int i;
 
@@ -1360,8 +1360,8 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
         act->NumActiveHydro = 0;
     }
 
-    int * TimeBinCountType = (int *) mymalloc("TimeBinCountType", 6*(TIMEBINS+1)*NumThreads * sizeof(int));
-    memset(TimeBinCountType, 0, 6 * (TIMEBINS+1) * NumThreads * sizeof(int));
+    int * TimeBinCountType = (int *) mymalloc("TimeBinCountType", 6*(TIMEBINS+1) * sizeof(int));
+    memset(TimeBinCountType, 0, 6 * (TIMEBINS+1) * sizeof(int));
 
     /*We want a lockless algorithm which preserves the ordering of the particle list.*/
     size_t *NActiveThread = ta_malloc("NActiveThread", size_t, NumThreads);
@@ -1378,19 +1378,20 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
         const int tid = omp_get_thread_num();
         size_t nthreadlocal = 0;
         int * activepartthread = ActivePartSets[tid];
-        #pragma omp for schedule(static, schedsz) reduction(+: nactivegrav) reduction(+: nactivehydro)
+        #pragma omp for schedule(static, schedsz) reduction(+: nactivegrav) reduction(+: nactivehydro) reduction(+: TimeBinCountType[: 6 * (TIMEBINS+1)])
         for(i = 0; i < PartManager->NumPart; i++)
         {
-            const int bin_hydro = P[i].TimeBinHydro;
-            const int bin_gravity = P[i].TimeBinGravity;
-            if(P[i].IsGarbage || P[i].Swallowed)
+            const int bin_hydro = PartManager->Base[i].TimeBinHydro;
+            const int bin_gravity = PartManager->Base[i].TimeBinGravity;
+            if(PartManager->Base[i].IsGarbage || PartManager->Base[i].Swallowed)
                 continue;
-            /* when we are in PM, all particles must have been synced. */
-            if (P[i].Ti_drift != times->Ti_Current) {
-                endrun(5, "Particle %d type %d has drift time %lx not ti_current %lx!",i, P[i].Type, P[i].Ti_drift, times->Ti_Current);
-            }
+            const int type = PartManager->Base[i].Type;
             /* For now build active particles with either hydro or gravity active*/
-            int hydro_particle = P[i].Type == 0 || P[i].Type == 5;
+            int hydro_particle = type == 0 || type == 5;
+            /* All particles must have been synced in drift. */
+            if (PartManager->Base[i].Ti_drift != times->Ti_Current) {
+                endrun(5, "Particle %d type %d has drift time %lx not ti_current %lx!",i, type, PartManager->Base[i].Ti_drift, times->Ti_Current);
+            }
             /* Make sure we only add hydro particles: the DM can have hydro bin 0
             * and we don't want to add it to the active list.*/
             int hydro_active = hydro_particle && is_timebin_active(bin_hydro, times->Ti_Current);
@@ -1411,7 +1412,7 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
             int bin = bin_gravity;
             if(hydro_particle)
                 bin = bin_hydro;
-            TimeBinCountType[(TIMEBINS + 1) * (6* tid + P[i].Type) + bin] ++;
+            TimeBinCountType[(TIMEBINS + 1) * type + bin] ++;
         }
         NActiveThread[tid] = nthreadlocal;
     }

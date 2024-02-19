@@ -431,7 +431,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         update_lastactive_drift(&times);
 
         ActiveParticles Act = init_empty_active_particles(0);
-        build_active_particles(&Act, &times, NumCurrentTiStep, atime);
+        build_active_particles(&Act, &times, NumCurrentTiStep, atime, PartManager);
 
         /* Are the particle neutrinos gravitating this timestep?
          * If so we need to add them to the tree.*/
