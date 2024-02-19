@@ -1271,6 +1271,31 @@ force_treeupdate_pseudos(int no, const ForceTree * tree)
     tree->Nodes[no].mom.hmax = hmax;
 }
 
+/* Update the hmax in the parent node of the particle p_i*/
+void
+update_tree_hmax_father(const ForceTree * const tree, const int p_i, const double Pos[3], const double Hsml)
+{
+    if(!tree->Father)
+        endrun(4, "Father not allocated in tree_hmax_father\n");
+    const int no = tree->Father[p_i];
+    /* How much does this particle peek beyond this node?
+        * Note len does not change so we can read it without a lock or atomic. */
+    MyFloat readhmax;
+    #pragma omp atomic read
+    readhmax = tree->Nodes[no].mom.hmax;
+
+    MyFloat newhmax = 0;
+    int j;
+    for(j = 0; j < 3; j++)
+        newhmax = DMAX(newhmax, fabs(Pos[j] - tree->Nodes[no].center[j]) + Hsml - tree->Nodes[no].len/2.);
+
+    do {
+        if (newhmax <= readhmax)
+            break;
+        /* Swap in the new hmax only if the old one hasn't changed. */
+    } while(!__atomic_compare_exchange(&(tree->Nodes[no].mom.hmax), &readhmax, &newhmax, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+}
+
 /*! This function updates the hmax-values in tree nodes that hold SPH
  *  particles. Since the Hsml-values are potentially changed for active particles
  *  in the SPH-density computation, force_update_hmax() should be carried
@@ -1307,23 +1332,8 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
         /* Can't do tree for BH if BH not in tree*/
         if(!tree_has_bh && P[p_i].Type == 5)
             continue;
-        const int no = tree->Father[p_i];
-        /* How much does this particle peek beyond this node?
-         * Note len does not change so we can read it without a lock or atomic. */
-        MyFloat readhmax;
-        #pragma omp atomic read
-        readhmax = tree->Nodes[no].mom.hmax;
 
-        MyFloat newhmax = 0;
-        int j;
-        for(j = 0; j < 3; j++)
-            newhmax = DMAX(newhmax, fabs(P[p_i].Pos[j] - tree->Nodes[no].center[j]) + P[p_i].Hsml - tree->Nodes[no].len/2.);
-
-        do {
-            if (newhmax <= readhmax)
-                break;
-            /* Swap in the new hmax only if the old one hasn't changed. */
-        } while(!__atomic_compare_exchange(&(tree->Nodes[no].mom.hmax), &readhmax, &newhmax, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+        update_tree_hmax_father(tree, p_i, P[p_i].Pos, P[p_i].Hsml);
     }
 
     /* Calculate moments to propagate everything upwards. */
