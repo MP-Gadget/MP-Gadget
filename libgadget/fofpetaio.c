@@ -81,9 +81,7 @@ int fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmolo
         int64_t NpigLocal = 0;
         int64_t atleast[6]={0};
         /* Count how many particles we have: array reductions are an openmp 4.5 feature.*/
-    #if (defined _OPENMP) && (_OPENMP >= 201511)
         #pragma omp parallel for reduction(+: NpigLocal, atleast[:6])
-    #endif
         for(i = 0; i < PartManager->NumPart; i ++) {
             if(P[i].GrNr >= 0) {
                 NpigLocal++;
@@ -428,9 +426,7 @@ static void fof_write_header(BigFile * bf, int64_t TotNgroups, const double atim
     for (k = 0; k < 6; k ++) {
         npartLocal[k] = 0;
     }
-#if (defined _OPENMP) && (_OPENMP >= 201511)
-    #pragma omp parallel for reduction(+: npartLocal)
-#endif
+    #pragma omp parallel for reduction(+: npartLocal[:6])
     for (i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].GrNr < 0) continue; /* skip those not in groups */
         npartLocal[P[i].Type] ++;

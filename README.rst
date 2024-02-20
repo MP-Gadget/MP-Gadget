@@ -3,15 +3,16 @@ MP-Gadget
 
 Massively Parallel Cosmological SPH Simulation Software - MP-Gadget.
 
+An out of date source code browser may be found here:
 `Source code browser <https://mp-gadget.github.io/MP-Gadget/classes.html>`_
-(may be slightly out-sync from current master branch)
 
 
 Description
 -----------
 
-This version of Gadget is derived from main P-Gadget / Gadget-2. It is the source code
-used to run the BlueTides simulation (http://bluetides-project.org).
+This version of Gadget is derived from main P-Gadget / Gadget-2, with the gravity solver algorithm from Gadget-4. 
+It is the source code used to run the BlueTides and ASTRID simulations (http://bluetides-project.org).
+MP-Gadget requires GSL and a C compiler with OpenMP 4.5 support.
 
 The infrastructure is heavily reworked. As a summary:
 
