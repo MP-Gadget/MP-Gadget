@@ -117,6 +117,9 @@ int force_tree_allocated(const ForceTree * tt);
 /* This function propagates changed SPH smoothing lengths up the tree*/
 void force_update_hmax(int * activeset, int size, ForceTree * tt, DomainDecomp * ddecomp);
 
+/* Update the hmax in the parent node of a single particle at p_i*/
+void update_tree_hmax_father(const ForceTree * const tree, const int p_i, const double Pos[3], const double Hsml);
+
 /* Build a tree structure using all particles, compute moments and allocate a father array.
  * This is the fattest tree constructor, allows moments and walking up and down.*/
 void force_tree_full(ForceTree * tree, DomainDecomp * ddecomp, const int HybridNuTracer, const char * EmergencyOutputDir);

@@ -315,13 +315,13 @@ wind_vdisp_postprocess(const int i, TreeWalk * tw)
     int tid = omp_get_thread_num();
     /*  If we have 40 neighbours, or if DMRadius is narrow, set vdisp. Otherwise add to redo queue */
     if((numngb < (NUMDMNGB - MAXDMDEVIATION) || numngb > (NUMDMNGB + MAXDMDEVIATION)) &&
-        (WINDV_GET_PRIV(tw)->Right[pi] - WINDV_GET_PRIV(tw)->Left[pi] > 1e-5 * WINDV_GET_PRIV(tw)->Left[pi])) {
+        (WINDV_GET_PRIV(tw)->Right[pi] - WINDV_GET_PRIV(tw)->Left[pi] > 5e-6 * WINDV_GET_PRIV(tw)->Left[pi])) {
         /* More work needed: add this particle to the redo queue*/
         tw->NPRedo[tid][tw->NPLeft[tid]] = i;
         tw->NPLeft[tid] ++;
     }
     else{
-        if((WINDV_GET_PRIV(tw)->Right[pi] - WINDV_GET_PRIV(tw)->Left[pi] < 1e-5 * WINDV_GET_PRIV(tw)->Left[pi]))
+        if((WINDV_GET_PRIV(tw)->Right[pi] - WINDV_GET_PRIV(tw)->Left[pi] < 5e-6 * WINDV_GET_PRIV(tw)->Left[pi]))
             message(1, "Tight dm hsml for id %ld ngb %g radius %g\n",P[i].ID, numngb, evaldmradius[close]);
 
         double vdisp = WINDV_GET_PRIV(tw)->V2sum[pi][close] / numngb;

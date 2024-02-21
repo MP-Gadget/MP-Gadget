@@ -11,15 +11,9 @@
 #define MPI_UINT64 MPI_UNSIGNED_LONG
 #define MPI_INT64 MPI_LONG
 
-/* Check the version of OPENMP. We only need OpenMP 3.1, but
- * there is a bug in gcc 4.7 and 4.8 (which are unfortunately
- * widely deployed as default compilers) which breaks our compile in fof.c.
- * The easiest way to avoid it is to require OpenMP 4.0 but then we lose
- * several clang versions, so just detect those gcc versions. */
-/* icc defines __GNUC__ to be the version from the system compiler. No intel compilers
-   report _OPENMP > 3.1 without really supporting it, so we need not error for any intel versions.*/
-#if _OPENMP < 201107 || (__GNUC__ == 4 && __GNUC_MINOR__ < 9 && !defined(__INTEL_COMPILER) && !defined(__clang__))
-#error MP-Gadget requires OpenMP >= 3.1. Use a newer compiler (gcc >= 4.9, intel >= 16 clang >= 5).
+/* Check the version of OPENMP. We now require OpenMP 4.5 for array reductions. */
+#if _OPENMP < 201511
+#error MP-Gadget requires OpenMP >= 4.5. Use a newer compiler (gcc >= 6.0, intel >= 17 clang >= 7).
 #endif
 
 typedef struct _Rnd_Table
@@ -43,8 +37,6 @@ double get_random_number(const uint64_t id, const RandTable * const rnd);
 RandTable set_random_numbers(uint64_t seed, const size_t rndtablesize);
 /* Free the random number table and set Table to NULL*/
 void free_random_numbers(RandTable * rnd);
-void sumup_large_ints(int n, int *src, int64_t *res);
-void sumup_longs(int n, int64_t *src, int64_t *res);
 int64_t count_sum(int64_t countLocal);
 //int64_t count_to_offset(int64_t countLocal);
 

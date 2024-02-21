@@ -369,8 +369,7 @@ choose_QSO_halo(int64_t ncand, int64_t * ncand_before, int64_t * ncand_tot, int6
 static double
 gas_ionization_fraction(void)
 {
-    int64_t n_ionized_tot = 0, n_gas_tot = 0;
-    int i, n_ionized = 0;
+    int64_t i, n_ionized_tot = 0, n_gas_tot = 0, n_ionized = 0;
     #pragma omp parallel for reduction(+:n_ionized)
     for (i = 0; i < PartManager->NumPart; i++){
         if (P[i].Type == 0 && P[i].HeIIIionized == 1){
@@ -379,7 +378,7 @@ gas_ionization_fraction(void)
     }
     /* Get total ionization fraction: note this is only the current gas particles.
      * Particles that become stars are not counted.*/
-    sumup_large_ints(1, &n_ionized, &n_ionized_tot);
+    MPI_Allreduce(&n_ionized, &n_ionized_tot, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&SlotsManager->info[0].size, &n_gas_tot, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     return (double) n_ionized_tot / (double) n_gas_tot;
 }
@@ -540,14 +539,13 @@ turn_on_quasars(double atime, FOFGroups * fof, ForceTree * gasTree, Cosmology * 
     /* If the desired ionization fraction is above a threshold (by default 0.95)
      * ionize all particles*/
     if(desired_ion_frac > QSOLightupParams.heIIIreion_finish_frac) {
-        int i, nionized=0;
-        int64_t nion_tot=0;
+        int64_t i, nionized=0, nion_tot=0;
         #pragma omp parallel for reduction(+: nionized)
         for (i = 0; i < PartManager->NumPart; i++){
             if (P[i].Type == 0)
                 nionized += ionize_single_particle(i, priv.a3inv, priv.uu_in_cgs);
         }
-        sumup_large_ints(1, &nionized, &nion_tot);
+        MPI_Reduce(&nionized, &nion_tot, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
         message(0, "HeII: Helium ionization finished, flash-ionizing %ld particles (%g of total)\n", nion_tot, (double) nion_tot /(double) n_gas_tot);
     }
 

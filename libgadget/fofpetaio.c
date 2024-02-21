@@ -81,9 +81,7 @@ int fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmolo
         int64_t NpigLocal = 0;
         int64_t atleast[6]={0};
         /* Count how many particles we have: array reductions are an openmp 4.5 feature.*/
-    #if (defined _OPENMP) && (_OPENMP >= 201511)
         #pragma omp parallel for reduction(+: NpigLocal, atleast[:6])
-    #endif
         for(i = 0; i < PartManager->NumPart; i ++) {
             if(P[i].GrNr >= 0) {
                 NpigLocal++;
@@ -118,8 +116,8 @@ int fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmolo
 
         int * selection = (int *) mymalloc("Selection", sizeof(int) * halo_pman->NumPart);
 
-        int ptype_offset[6]={0};
-        int ptype_count[6]={0};
+        int64_t ptype_offset[6]={0};
+        int64_t ptype_count[6]={0};
         petaio_build_selection(selection, ptype_offset, ptype_count, halo_pman->Base, halo_pman->NumPart, fof_select_func);
 
         walltime_measure("/FOF/IO/argind");
@@ -227,11 +225,6 @@ fof_find_target_task(struct PartIndex * pi, int64_t pi_size, const uint64_t task
     /* sort pi to decide targetTask */
     mpsort_mpi(pi, pi_size, sizeof(struct PartIndex),
             fof_radix_sortkey, 8, NULL, Comm);
-
-    //int64_t Npig = count_sum(NpigLocal);
-    //int64_t offsetLocal = MPIU_cumsum(NpigLocal, Comm);
-
-    //size_t chunksize = (Npig / NTask) + (Npig % NTask != 0);
 
     #pragma omp parallel for
     for(i = 0; i < pi_size; i ++) {
@@ -433,9 +426,7 @@ static void fof_write_header(BigFile * bf, int64_t TotNgroups, const double atim
     for (k = 0; k < 6; k ++) {
         npartLocal[k] = 0;
     }
-#if (defined _OPENMP) && (_OPENMP >= 201511)
-    #pragma omp parallel for reduction(+: npartLocal)
-#endif
+    #pragma omp parallel for reduction(+: npartLocal[:6])
     for (i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].GrNr < 0) continue; /* skip those not in groups */
         npartLocal[P[i].Type] ++;

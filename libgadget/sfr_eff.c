@@ -48,7 +48,6 @@ static struct SFRParams
     double FactorSN;
     double EgySpecCold;
     double FactorEVP;
-    double FeedbackEnergy;
     double TempSupernova;
     double TempClouds;
     double MaxSfrTimescale;
@@ -329,7 +328,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
     }
     SlotsManager->info[4].size += NumNewStar;
 
-    int stars_converted = 0, stars_spawned = 0, stars_spawned_gravity = 0;
+    int64_t stars_converted = 0, stars_spawned = 0, stars_spawned_gravity = 0;
     int i;
 
     /*Now we turn the particles into stars*/
@@ -353,10 +352,6 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
 
     /*Done with the parents*/
     myfree(NewParents);
-
-    int64_t tot_spawned=0, tot_converted=0;
-    sumup_large_ints(1, &stars_spawned, &tot_spawned);
-    sumup_large_ints(1, &stars_converted, &tot_converted);
 
     double total_sum_mass_stars = 0, total_sm = 0, totsfrrate = 0;
 
@@ -384,6 +379,10 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
                 total_sum_mass_stars);
         fflush(FdSfr);
     }
+
+    int64_t tot_spawned=0, tot_converted=0;
+    MPI_Reduce(&stars_spawned, &tot_spawned, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&stars_converted, &tot_converted, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
 
     if(tot_spawned || tot_converted)
         message(0, "SFR: spawned %ld stars, converted %ld gas particles into stars\n", tot_spawned, tot_converted);

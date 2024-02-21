@@ -28,7 +28,7 @@ void init_winds(double FactorSN, double EgySpecSN, double PhysDensThresh, double
 void winds_evolve(int i, double a3inv, double hubble);
 
 /*do the treewalk for the wind model*/
-void winds_and_feedback(int * NewStars, int NumNewStars, const double Time, RandTable * rnd, ForceTree * tree, DomainDecomp * ddecomp);
+void winds_and_feedback(int * NewStars, const int64_t NumNewStars, const double Time, RandTable * rnd, ForceTree * tree, DomainDecomp * ddecomp);
 
 /*Make a wind particle at the site of recent star formation.*/
 int winds_make_after_sf(int i, double sm, double vdisp, double atime, const RandTable * const rnd);

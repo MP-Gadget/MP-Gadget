@@ -50,13 +50,13 @@ static ForceTree
 force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles * act, const int DoMoments, const int alloc_father, const char * EmergencyOutputDir);
 
 static void
-force_treeupdate_pseudos(int no, const ForceTree * tree);
+force_treeupdate_pseudos(const int no, const int level, const ForceTree * const tree);
 
 static void
 force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, const DomainDecomp * ddecomp, int bits, int x, int y, int z, int *nextfree, const int lastnode);
 
 static void
-force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp);
+force_exchange_pseudodata(const ForceTree * const tree, const DomainDecomp * const ddecomp);
 
 static void
 add_particle_moment_to_node(struct NODE * pnode, const struct particle_data * const part);
@@ -169,7 +169,11 @@ force_tree_calc_moments(ForceTree * tree, DomainDecomp * ddecomp)
     force_update_node_parallel(tree, ddecomp);
     /* Exchange the pseudo-data*/
     force_exchange_pseudodata(tree, ddecomp);
-    force_treeupdate_pseudos(tree->firstnode, tree);
+    #pragma omp parallel
+    #pragma omp single nowait
+    {
+        force_treeupdate_pseudos(tree->firstnode, 1, tree);
+    }
     tree->moments_computed_flag = 1;
     tree->hmax_computed_flag = 1;
 }
@@ -933,11 +937,9 @@ add_particle_moment_to_node(struct NODE * pnode, const struct particle_data * co
     for(k=0; k<3; k++)
         pnode->mom.cofm[k] += (part->Mass * part->Pos[k]);
 
-    /* We do not add active gas particles to the hmax here because we are building the tree in density().
-     * The active particles will have hsml updated anyway, often to a smaller value and will be included in force_update_hmax.
-     * Black holes include unconditionally.*/
-    if((part->Type == 0 && !is_timebin_active(part->TimeBinHydro, part->Ti_drift))
-        || part->Type == 5)
+    /* We do not add active particles to the hmax here.
+     * The active particles will have hsml updated in density_postprocess instead, often to a smaller value.*/
+    if((part->Type == 0 || part->Type == 5 )&& !is_timebin_active(part->TimeBinHydro, part->Ti_drift))
     {
         int j;
         /* Maximal distance any of the member particles peek out from the side of the node.
@@ -1108,6 +1110,8 @@ void force_update_node_parallel(const ForceTree * tree, const DomainDecomp * dde
         int i;
         for(i = ddecomp->Tasks[ThisTask].StartLeaf; i < ddecomp->Tasks[ThisTask].EndLeaf; i ++) {
             const int no = ddecomp->TopLeaves[i].treenode;
+            /* Set local mass dependence*/
+            tree->Nodes[no].f.DependsOnLocalMass = 1;
             /* Nodes containing other nodes: the overwhelmingly likely case.*/
             if(tree->Nodes[no].f.ChildType == NODE_NODE_TYPE) {
                 #pragma omp task default(none) shared(tree) firstprivate(no)
@@ -1121,61 +1125,43 @@ void force_update_node_parallel(const ForceTree * tree, const DomainDecomp * dde
     }
 }
 
+struct topleaf_momentsdata
+{
+    MyFloat s[3];
+    MyFloat mass;
+    MyFloat hmax;
+};
+
 /*! This function communicates the values of the multipole moments of the
  *  top-level tree-nodes of the ddecomp grid.  This data can then be used to
  *  update the pseudo-particles on each CPU accordingly.
  */
-void force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp)
+static void force_exchange_pseudodata(const ForceTree * const tree, const DomainDecomp * const ddecomp)
 {
-    int NTask, ThisTask;
-    int i, no, ta, recvTask;
-    int *recvcounts, *recvoffset;
-    struct topleaf_momentsdata
-    {
-        MyFloat s[3];
-        MyFloat mass;
-        MyFloat hmax;
-    }
-    *TopLeafMoments;
+    int i;
 
-    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
-    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    struct topleaf_momentsdata * TopLeafMoments = (struct topleaf_momentsdata *) mymalloc("TopLeafMoments", ddecomp->NTopLeaves * sizeof(TopLeafMoments[0]));
 
-    TopLeafMoments = (struct topleaf_momentsdata *) mymalloc("TopLeafMoments", ddecomp->NTopLeaves * sizeof(TopLeafMoments[0]));
-    memset(&TopLeafMoments[0], 0, sizeof(TopLeafMoments[0]) * ddecomp->NTopLeaves);
-
-    for(i = ddecomp->Tasks[ThisTask].StartLeaf; i < ddecomp->Tasks[ThisTask].EndLeaf; i ++) {
-        no = ddecomp->TopLeaves[i].treenode;
-        if(ddecomp->TopLeaves[i].Task != ThisTask)
+    #pragma omp parallel for
+    for(i = ddecomp->Tasks[tree->ThisTask].StartLeaf; i < ddecomp->Tasks[tree->ThisTask].EndLeaf; i ++) {
+        int no = ddecomp->TopLeaves[i].treenode;
+        if(ddecomp->TopLeaves[i].Task != tree->ThisTask)
             endrun(131231231, "TopLeaf %d Task table is corrupted: task is %d\n", i, ddecomp->TopLeaves[i].Task);
-
         /* read out the multipole moments from the local base cells */
         TopLeafMoments[i].s[0] = tree->Nodes[no].mom.cofm[0];
         TopLeafMoments[i].s[1] = tree->Nodes[no].mom.cofm[1];
         TopLeafMoments[i].s[2] = tree->Nodes[no].mom.cofm[2];
         TopLeafMoments[i].mass = tree->Nodes[no].mom.mass;
         TopLeafMoments[i].hmax = tree->Nodes[no].mom.hmax;
-
-        /*Set the local base nodes dependence on local mass*/
-        while(no >= 0)
-        {
-#ifdef DEBUG
-            if(tree->Nodes[no].f.ChildType == PSEUDO_NODE_TYPE)
-                endrun(333, "Pseudo node %d parent of a leaf on this processor %d\n", no, ddecomp->TopLeaves[i].treenode);
-#endif
-            if(tree->Nodes[no].f.DependsOnLocalMass)
-                break;
-
-            tree->Nodes[no].f.DependsOnLocalMass = 1;
-
-            no = tree->Nodes[no].father;
-        }
     }
 
     /* share the pseudo-particle data across CPUs */
+    int NTask;
+    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
 
-    recvcounts = (int *) mymalloc("recvcounts", sizeof(int) * NTask);
-    recvoffset = (int *) mymalloc("recvoffset", sizeof(int) * NTask);
+    int * recvcounts = (int *) mymalloc("recvcounts", sizeof(int) * NTask);
+    int * recvoffset = (int *) mymalloc("recvoffset", sizeof(int) * NTask);
+    int recvTask;
 
     for(recvTask = 0; recvTask < NTask; recvTask++)
     {
@@ -1190,13 +1176,14 @@ void force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp)
     myfree(recvoffset);
     myfree(recvcounts);
 
-
+    int ta;
+    #pragma omp parallel for
     for(ta = 0; ta < NTask; ta++) {
-        if(ta == ThisTask) continue; /* bypass ThisTask since it is already up to date */
+        if(ta == tree->ThisTask)
+            continue; /* bypass ThisTask since it is already up to date */
 
         for(i = ddecomp->Tasks[ta].StartLeaf; i < ddecomp->Tasks[ta].EndLeaf; i ++) {
-            no = ddecomp->TopLeaves[i].treenode;
-
+            int no = ddecomp->TopLeaves[i].treenode;
             tree->Nodes[no].mom.cofm[0] = TopLeafMoments[i].s[0];
             tree->Nodes[no].mom.cofm[1] = TopLeafMoments[i].s[1];
             tree->Nodes[no].mom.cofm[2] = TopLeafMoments[i].s[2];
@@ -1212,21 +1199,19 @@ void force_exchange_pseudodata(ForceTree * tree, const DomainDecomp * ddecomp)
  *  the pseudo-particles have been updated.
  */
 void
-force_treeupdate_pseudos(int no, const ForceTree * tree)
+force_treeupdate_pseudos(const int no, const int level, const ForceTree * const tree)
 {
-    int j, p;
-    MyFloat hmax = 0;
-    MyFloat s[3] = {0}, mass = 0;
-
     /* This happens if we have a trivial domain with only one entry*/
     if(!tree->Nodes[no].f.InternalTopLevel)
         return;
 
-    p = tree->Nodes[no].s.suns[0];
+    int j;
 
     /* since we are dealing with top-level nodes, we know that there are 8 consecutive daughter nodes */
     for(j = 0; j < 8; j++)
     {
+        const int p = tree->Nodes[no].s.suns[j];
+
         /*This may not happen as we are an internal top level node*/
         if(p < tree->firstnode || p >= tree->lastnode)
             endrun(6767, "Updating pseudos: %d -> %d which is not an internal node between %d and %d\n",no, p, tree->firstnode, tree->lastnode);
@@ -1236,46 +1221,85 @@ force_treeupdate_pseudos(int no, const ForceTree * tree)
             endrun(6767, "Tried to update toplevel node %d with parent %d != expected %d\n", p, tree->Nodes[p].father, no);
 #endif
 
-        if(tree->Nodes[p].f.InternalTopLevel)
-            force_treeupdate_pseudos(p, tree);
+        if(tree->Nodes[p].f.InternalTopLevel) {
+            if(level < 512) {
+                #pragma omp task default(none) shared(level, tree) firstprivate(p)
+                force_treeupdate_pseudos(p, level*8, tree);
+            }
+            else {
+                force_treeupdate_pseudos(p, level, tree);
+            }
+        }
+    }
+    /* Zero the moments*/
+    tree->Nodes[no].mom.mass = 0;
+    tree->Nodes[no].mom.cofm[0] = 0;
+    tree->Nodes[no].mom.cofm[1] = 0;
+    tree->Nodes[no].mom.cofm[2] = 0;
+    tree->Nodes[no].mom.hmax = 0;
 
-        mass += (tree->Nodes[p].mom.mass);
-        s[0] += (tree->Nodes[p].mom.mass * tree->Nodes[p].mom.cofm[0]);
-        s[1] += (tree->Nodes[p].mom.mass * tree->Nodes[p].mom.cofm[1]);
-        s[2] += (tree->Nodes[p].mom.mass * tree->Nodes[p].mom.cofm[2]);
+    /*Make sure all child nodes are done*/
+    #pragma omp taskwait
 
-        if(tree->Nodes[p].mom.hmax > hmax)
-            hmax = tree->Nodes[p].mom.hmax;
+    for(j = 0; j < 8; j++)
+    {
+        const int p = tree->Nodes[no].s.suns[j];
 
-        p = tree->Nodes[p].sibling;
+        tree->Nodes[no].mom.mass += (tree->Nodes[p].mom.mass);
+        tree->Nodes[no].mom.cofm[0] += (tree->Nodes[p].mom.mass * tree->Nodes[p].mom.cofm[0]);
+        tree->Nodes[no].mom.cofm[1] += (tree->Nodes[p].mom.mass * tree->Nodes[p].mom.cofm[1]);
+        tree->Nodes[no].mom.cofm[2] += (tree->Nodes[p].mom.mass * tree->Nodes[p].mom.cofm[2]);
+
+        if(tree->Nodes[p].mom.hmax > tree->Nodes[no].mom.hmax)
+            tree->Nodes[no].mom.hmax = tree->Nodes[p].mom.hmax;
+        if(tree->Nodes[p].f.DependsOnLocalMass)
+            tree->Nodes[no].f.DependsOnLocalMass = 1;
     }
 
-    if(mass)
+    if(tree->Nodes[no].mom.mass)
     {
-        s[0] /= mass;
-        s[1] /= mass;
-        s[2] /= mass;
+        tree->Nodes[no].mom.cofm[0] /= tree->Nodes[no].mom.mass;
+        tree->Nodes[no].mom.cofm[1] /= tree->Nodes[no].mom.mass;
+        tree->Nodes[no].mom.cofm[2] /= tree->Nodes[no].mom.mass;
     }
     else
     {
-        s[0] = tree->Nodes[no].center[0];
-        s[1] = tree->Nodes[no].center[1];
-        s[2] = tree->Nodes[no].center[2];
+        tree->Nodes[no].mom.cofm[0] = tree->Nodes[no].center[0];
+        tree->Nodes[no].mom.cofm[1] = tree->Nodes[no].center[1];
+        tree->Nodes[no].mom.cofm[2] = tree->Nodes[no].center[2];
     }
+}
 
-    tree->Nodes[no].mom.cofm[0] = s[0];
-    tree->Nodes[no].mom.cofm[1] = s[1];
-    tree->Nodes[no].mom.cofm[2] = s[2];
-    tree->Nodes[no].mom.mass = mass;
+/* Update the hmax in the parent node of the particle p_i*/
+void
+update_tree_hmax_father(const ForceTree * const tree, const int p_i, const double Pos[3], const double Hsml)
+{
+    if(!tree->Father)
+        endrun(4, "Father not allocated in tree_hmax_father\n");
+    const int no = tree->Father[p_i];
+    struct NODE * node = &tree->Nodes[no];
+    /* How much does this particle peek beyond this node?
+        * Note len does not change so we can read it without a lock or atomic. */
 
-    tree->Nodes[no].mom.hmax = hmax;
+    MyFloat newhmax = 0;
+    int j;
+    for(j = 0; j < 3; j++)
+        newhmax = DMAX(newhmax, fabs(Pos[j] - node->center[j]) + Hsml - node->len/2.);
+
+    MyFloat readhmax;
+    #pragma omp atomic read
+    readhmax = node->mom.hmax;
+
+    do {
+        if (newhmax <= readhmax)
+            break;
+        /* Swap in the new hmax only if the old one hasn't changed. */
+    } while(!__atomic_compare_exchange(&(node->mom.hmax), &readhmax, &newhmax, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
 }
 
 /*! This function updates the hmax-values in tree nodes that hold SPH
- *  particles. Since the Hsml-values are potentially changed for active particles
- *  in the SPH-density computation, force_update_hmax() should be carried
- *  out just before the hydrodynamical SPH forces are computed, i.e. after
- *  density().
+ *  particles. This is no longer called. The density() code updates hmax for the parent node
+ *  of each active particle.
  *
  *  The purpose of the hmax node is for a symmetric treewalk (currently only the hydro).
  *  Particles where P[i].Pos + Hsml pokes beyond the exterior of the tree node may mean
@@ -1307,23 +1331,8 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
         /* Can't do tree for BH if BH not in tree*/
         if(!tree_has_bh && P[p_i].Type == 5)
             continue;
-        const int no = tree->Father[p_i];
-        /* How much does this particle peek beyond this node?
-         * Note len does not change so we can read it without a lock or atomic. */
-        MyFloat readhmax;
-        #pragma omp atomic read
-        readhmax = tree->Nodes[no].mom.hmax;
 
-        MyFloat newhmax = 0;
-        int j;
-        for(j = 0; j < 3; j++)
-            newhmax = DMAX(newhmax, fabs(P[p_i].Pos[j] - tree->Nodes[no].center[j]) + P[p_i].Hsml - tree->Nodes[no].len/2.);
-
-        do {
-            if (newhmax <= readhmax)
-                break;
-            /* Swap in the new hmax only if the old one hasn't changed. */
-        } while(!__atomic_compare_exchange(&(tree->Nodes[no].mom.hmax), &readhmax, &newhmax, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+        update_tree_hmax_father(tree, p_i, P[p_i].Pos, P[p_i].Hsml);
     }
 
     /* Calculate moments to propagate everything upwards. */

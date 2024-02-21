@@ -345,7 +345,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     walltime_measure("/BH/Feedback");
 
     if(FdBlackholeDetails){
-        collect_BH_info(ActiveBlackHoles, NumActiveBlackHoles, priv, FdBlackholeDetails);
+        collect_BH_info(ActiveBlackHoles, NumActiveBlackHoles, priv, PartManager, (struct bh_particle_data*) SlotsManager->info[5].ptr, FdBlackholeDetails);
     }
 
     myfree(priv->BH_accreted_momentum);

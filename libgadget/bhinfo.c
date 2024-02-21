@@ -63,59 +63,61 @@ struct __attribute__((__packed__)) BHinfo{
 
 
 void
-collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *priv, FILE * FdBlackholeDetails)
+collect_BH_info(const int * const ActiveBlackHoles, const int64_t NumActiveBlackHoles, struct BHPriv *priv, const struct part_manager_type * const PartManager, const struct bh_particle_data* const BHManager, FILE * FdBlackholeDetails)
 {
     int i;
 
     struct BHinfo * infos = (struct BHinfo *) mymalloc("BHDetailCache", NumActiveBlackHoles * sizeof(struct BHinfo));
+    memset(infos, 0, NumActiveBlackHoles*sizeof(struct BHinfo));
+
     report_memory_usage("BLACKHOLE");
 
     const int size = sizeof(struct BHinfo) - sizeof(infos[0].size1) - sizeof(infos[0].size2);
 
+    const struct particle_data * const pp = PartManager->Base;
     #pragma omp parallel for
     for(i = 0; i < NumActiveBlackHoles; i++)
     {
         const int p_i = ActiveBlackHoles ? ActiveBlackHoles[i] : i;
         if(p_i < 0 || p_i > PartManager->NumPart)
-            endrun(1, "Bad index %d in black hole with %d active, %ld total\n", p_i, NumActiveBlackHoles, PartManager->NumPart);
-        if(P[p_i].Type != 5)
-            endrun(1, "Supposed BH %d of %d has type %d\n", p_i, NumActiveBlackHoles, P[p_i].Type);
-        int PI = P[p_i].PI;
+            endrun(1, "Bad index %d in black hole with %ld active, %ld total\n", p_i, NumActiveBlackHoles, PartManager->NumPart);
+        if(pp[p_i].Type != 5)
+            endrun(1, "Supposed BH %d of %ld has type %d\n", p_i, NumActiveBlackHoles, pp[p_i].Type);
+        const int PI = pp[p_i].PI;
 
-        struct BHinfo *info = &infos[i];
+        struct BHinfo * info = &infos[i];
         /* Zero the struct*/
-        memset(info, 0, sizeof(struct BHinfo));
         info->size1 = size;
         info->size2 = size;
-        info->ID = P[p_i].ID;
-        info->Mass = BHP(p_i).Mass;
-        info->Mdot = BHP(p_i).Mdot;
-        info->Density = BHP(p_i).Density;
-        info->minTimeBin = BHP(p_i).minTimeBin;
-        info->encounter = BHP(p_i).encounter;
+        info->ID = pp[p_i].ID;
+        info->Mass = BHManager[PI].Mass;
+        info->Mdot = BHManager[PI].Mdot;
+        info->Density = BHManager[PI].Density;
+        info->minTimeBin = BHManager[PI].minTimeBin;
+        info->encounter = BHManager[PI].encounter;
 
         info->BH_Entropy = priv->BH_Entropy[PI];
         int k;
         for(k=0; k < 3; k++) {
-            info->MinPotPos[k] = BHP(p_i).MinPotPos[k] - PartManager->CurrentParticleOffset[k];
+            info->MinPotPos[k] = BHManager[PI].MinPotPos[k] - PartManager->CurrentParticleOffset[k];
             info->BH_SurroundingGasVel[k] = priv->BH_SurroundingGasVel[PI][k];
             info->BH_accreted_momentum[k] = priv->BH_accreted_momentum[PI][k];
-            info->BH_DragAccel[k] = BHP(p_i).DragAccel[k];
-            info->BH_FullTreeGravAccel[k] = P[p_i].FullTreeGravAccel[k];
-            info->Pos[k] = P[p_i].Pos[k] - PartManager->CurrentParticleOffset[k];
-            info->Velocity[k] = P[p_i].Vel[k];
-            info->BH_DFAccel[k] = BHP(p_i).DFAccel[k];
+            info->BH_DragAccel[k] = BHManager[PI].DragAccel[k];
+            info->BH_FullTreeGravAccel[k] = pp[p_i].FullTreeGravAccel[k];
+            info->Pos[k] = pp[p_i].Pos[k] - PartManager->CurrentParticleOffset[k];
+            info->Velocity[k] = pp[p_i].Vel[k];
+            info->BH_DFAccel[k] = BHManager[PI].DFAccel[k];
         }
 
         /****************************************************************************/
         /* Output some DF info for debugging */
-        info->MinPot = BHP(p_i).MinPot;
-        info->BH_SurroundingDensity = BHP(p_i).DF_SurroundingDensity;
-        info->BH_SurroundingRmsVel = BHP(p_i).DF_SurroundingRmsVel;
+        info->MinPot = BHManager[PI].MinPot;
+        info->BH_SurroundingDensity = BHManager[PI].DF_SurroundingDensity;
+        info->BH_SurroundingRmsVel = BHManager[PI].DF_SurroundingRmsVel;
         info->BH_SurroundingParticles = 0;
-        info->BH_SurroundingVel[0] = BHP(p_i).DF_SurroundingVel[0];
-        info->BH_SurroundingVel[1] = BHP(p_i).DF_SurroundingVel[1];
-        info->BH_SurroundingVel[2] = BHP(p_i).DF_SurroundingVel[2];
+        info->BH_SurroundingVel[0] = BHManager[PI].DF_SurroundingVel[0];
+        info->BH_SurroundingVel[1] = BHManager[PI].DF_SurroundingVel[1];
+        info->BH_SurroundingVel[2] = BHManager[PI].DF_SurroundingVel[2];
 
         /****************************************************************************/
         info->BH_accreted_BHMass = priv->BH_accreted_BHMass[PI];
@@ -123,9 +125,9 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
         info->BH_FeedbackWeightSum = priv->BH_FeedbackWeightSum[PI];
 
         info->SPH_SwallowID = priv->SPH_SwallowID[PI];
-        info->SwallowID =  BHP(p_i).SwallowID;
-        info->CountProgs = BHP(p_i).CountProgs;
-        info->Swallowed =  P[p_i].Swallowed;
+        info->SwallowID =  BHManager[PI].SwallowID;
+        info->CountProgs = BHManager[PI].CountProgs;
+        info->Swallowed =  pp[p_i].Swallowed;
         /************************************************************************************************/
         /* When SeedBHDynMass is larger than gas particle mass, we have three mass tracer of blackhole. */
         /* BHP(p_i).Mass : intrinsic mass of BH, accreted every (active) time step.                     */
@@ -134,12 +136,12 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
         /* BHP(p_i).Mtrack: Initialized as gas particle mass, and is capped at SeedBHDynMass,           */
         /*                 it traces BHP(p_i).Mass by swallowing gas when BHP(p_i).Mass < SeedBHDynMass */
         /************************************************************************************************/
-        info->Mtrack = BHP(p_i).Mtrack;
-        info->Mdyn = P[p_i].Mass;
+        info->Mtrack = BHManager[PI].Mtrack;
+        info->Mdyn = pp[p_i].Mass;
 
-        info->KineticFdbkEnergy = BHP(p_i).KineticFdbkEnergy;
+        info->KineticFdbkEnergy = BHManager[PI].KineticFdbkEnergy;
         info->NumDM = priv->NumDM[PI];
-        info->VDisp = BHP(p_i).VDisp;
+        info->VDisp = BHManager[PI].VDisp;
         info->MgasEnc = priv->MgasEnc[PI];
         info->KEflag = priv->KEflag[PI];
 
@@ -147,11 +149,11 @@ collect_BH_info(int * ActiveBlackHoles, int NumActiveBlackHoles, struct BHPriv *
     }
 
     fwrite(infos,sizeof(struct BHinfo),NumActiveBlackHoles,FdBlackholeDetails);
-    fflush(FdBlackholeDetails);
+    // fflush(FdBlackholeDetails);
     myfree(infos);
     int64_t totalN;
 
-    sumup_large_ints(1, &NumActiveBlackHoles, &totalN);
+    MPI_Reduce(&NumActiveBlackHoles, &totalN, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
     message(0, "Written details of %ld blackholes in %lu bytes each.\n", totalN, sizeof(struct BHinfo));
 }
 

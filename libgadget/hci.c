@@ -10,19 +10,17 @@
 static double
 hci_now(HCIManager * manager)
 {
-    double e;
     if(manager->OVERRIDE_NOW) {
-        e = manager->_now;
-    } else {
-        e = MPI_Wtime();
+        return manager->_now;
     }
+    manager->_now = MPI_Wtime();
     /* must be consistent between all ranks. */
-    MPI_Bcast(&e, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    return e;
+    MPI_Bcast(&manager->_now, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    return manager->_now;
 }
 
 void
-hci_init(HCIManager * manager, char * prefix, double WallClockTimeLimit, double AutoCheckPointTime, int FOFEnabled)
+hci_init(HCIManager * manager, char * prefix, const double WallClockTimeLimit, const double AutoCheckPointTime, const int FOFEnabled)
 {
     manager->prefix = prefix;
     manager->timer_begin = hci_now(manager);
@@ -55,8 +53,7 @@ hci_override_now(HCIManager * manager, double now)
 static double
 hci_get_elapsed_time(HCIManager * manager)
 {
-    double e = hci_now(manager) - manager->timer_begin;
-    return e;
+    return hci_now(manager) - manager->timer_begin;
 }
 
 static

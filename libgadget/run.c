@@ -431,7 +431,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         update_lastactive_drift(&times);
 
         ActiveParticles Act = init_empty_active_particles(0);
-        build_active_particles(&Act, &times, NumCurrentTiStep, atime);
+        build_active_particles(&Act, &times, NumCurrentTiStep, atime, PartManager);
 
         /* Are the particle neutrinos gravitating this timestep?
          * If so we need to add them to the tree.*/
@@ -465,8 +465,13 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
             /* adds hydrodynamical accelerations and computes du/dt  */
             if(All.HydroOn) {
-                /***** update smoothing lengths in tree *****/
-                force_update_hmax(Act.ActiveParticle, Act.NumActiveParticle, &gasTree, ddecomp);
+                /* Calculate moments to propagate new hmax up the tree. */
+                force_tree_calc_moments(&gasTree, ddecomp);
+                walltime_measure("/SPH/HmaxUpdate");
+                int64_t totnumparticles;
+                MPI_Reduce(&gasTree.NumParticles, &totnumparticles, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+                message(0, "Root hmax: %lg Tree Mean IPS: %lg\n", gasTree.Nodes[gasTree.firstnode].mom.hmax, gasTree.BoxSize / cbrt(totnumparticles));
+
                 /***** hydro forces *****/
                 /* In Gadget-4 this is optionally split into two, with the pressure force
                  * computed on either side of the cooling term. Volker Springel confirms that

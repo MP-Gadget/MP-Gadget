@@ -1205,20 +1205,19 @@ double
 get_long_range_timestep_dloga(const double atime, const Cosmology * CP, const int FastParticleType, const double asmth)
 {
     int i, type;
-    int count[6];
-    int64_t count_sum[6];
-    double v[6], v_sum[6], mim[6], min_mass[6];
+    int64_t count[6] = {0};
+    int64_t count_sum[6] ={0};
+    double v[6] = {0}, v_sum[6], mim[6], min_mass[6];
     double dloga = TimestepParams.MaxSizeTimestep;
 
     for(type = 0; type < 6; type++)
-    {
-        count[type] = 0;
-        v[type] = 0;
         mim[type] = 1.0e30;
-    }
 
+    #pragma omp parallel for reduction(+: count[:6]) reduction(min: mim[:6]) reduction(+: v[:6])
     for(i = 0; i < PartManager->NumPart; i++)
     {
+        if(P[i].IsGarbage || P[i].Swallowed)
+            continue;
         v[P[i].Type] += P[i].Vel[0] * P[i].Vel[0] + P[i].Vel[1] * P[i].Vel[1] + P[i].Vel[2] * P[i].Vel[2];
         if(P[i].Mass > 0)
         {
@@ -1230,8 +1229,7 @@ get_long_range_timestep_dloga(const double atime, const Cosmology * CP, const in
 
     MPI_Allreduce(v, v_sum, 6, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(mim, min_mass, 6, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-
-    sumup_large_ints(6, count, count_sum);
+    MPI_Allreduce(count, count_sum, 6, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
     /* add star, gas and black hole particles together to treat them on equal footing,
      * using the original gas particle spacing. */
@@ -1249,31 +1247,30 @@ get_long_range_timestep_dloga(const double atime, const Cosmology * CP, const in
     const double hubble = hubble_function(CP, atime);
     for(type = 0; type < 6; type++)
     {
-        if(count_sum[type] > 0)
-        {
-            double omega, dmean, dloga1;
-            /* Type 4 is stars, type 5 is BHs, both baryons*/
-            if(type == 0 || type == 4 || type == 5) {
-                omega = CP->OmegaBaryon;
-            }
-            /* In practice usually FastParticleType == 2
-             * so this doesn't matter. */
-            else if (type == 2) {
-                omega = get_omega_nu(&CP->ONu, 1);
-            } else {
-                omega = CP->OmegaCDM;
-            }
-            /* "Avg. radius" of smallest particle: (min_mass/total_mass)^1/3 */
-            dmean = pow(min_mass[type] / (omega * CP->RhoCrit), 1.0 / 3);
-
-            dloga1 = TimestepParams.MaxRMSDisplacementFac * hubble * atime * atime * DMIN(asmth, dmean) / sqrt(v_sum[type] / count_sum[type]);
-            message(0, "type=%d  dmean=%g asmth=%g minmass=%g a=%g  sqrt(<p^2>)=%g  dloga=%g\n",
-                    type, dmean, asmth, min_mass[type], atime, sqrt(v_sum[type] / count_sum[type]), dloga1);
-
-            /* don't constrain the step to the neutrinos */
-            if(type != FastParticleType && dloga1 < dloga)
-                dloga = dloga1;
+        if(count_sum[type] == 0)
+            continue;
+        double omega, dmean, dloga1;
+        /* Type 4 is stars, type 5 is BHs, both baryons*/
+        if(type == 0 || type == 4 || type == 5) {
+            omega = CP->OmegaBaryon;
         }
+        /* In practice usually FastParticleType == 2
+            * so this doesn't matter. */
+        else if (type == 2) {
+            omega = get_omega_nu(&CP->ONu, 1);
+        } else {
+            omega = CP->OmegaCDM;
+        }
+        /* "Avg. radius" of smallest particle: (min_mass/total_mass)^1/3 */
+        dmean = pow(min_mass[type] / (omega * CP->RhoCrit), 1.0 / 3);
+
+        dloga1 = TimestepParams.MaxRMSDisplacementFac * hubble * atime * atime * DMIN(asmth, dmean) / sqrt(v_sum[type] / count_sum[type]);
+        message(0, "type=%d  dmean=%g asmth=%g minmass=%g a=%g  sqrt(<p^2>)=%g  dloga=%g\n",
+                type, dmean, asmth, min_mass[type], atime, sqrt(v_sum[type] / count_sum[type]), dloga1);
+
+        /* don't constrain the step to the neutrinos */
+        if(type != FastParticleType && dloga1 < dloga)
+            dloga = dloga1;
     }
 
     if(dloga < TimestepParams.MinSizeTimestep) {
@@ -1337,13 +1334,16 @@ static void print_timebin_statistics(const DriftKickTimes * const times, const i
 
 /* mark the bins that will be active before the next kick*/
 void
-build_active_particles(ActiveParticles * act, const DriftKickTimes * const times, int NumCurrentTiStep, const double Time)
+build_active_particles(ActiveParticles * act, const DriftKickTimes * const times, const int NumCurrentTiStep, const double Time, const struct part_manager_type * const PartManager)
 {
     int i;
 
-    int NumThreads = omp_get_max_threads();
+    const int NumThreads = omp_get_max_threads();
     /*Since we use a static schedule, only need NumPart/NumThreads elements per thread.*/
     size_t narr = PartManager->NumPart / NumThreads + NumThreads;
+
+    int * TimeBinCountType = (int *) ta_malloc2("TimeBinCountType", int, 6*(TIMEBINS+1));
+    memset(TimeBinCountType, 0, 6 * (TIMEBINS+1) * sizeof(int));
 
     /*We know all particles are active on a PM timestep*/
     if(is_PM_timestep(times)) {
@@ -1351,6 +1351,18 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
         act->NumActiveParticle = PartManager->NumPart;
         act->NumActiveGravity = PartManager->NumPart;
         act->NumActiveHydro = SlotsManager->info[0].size + SlotsManager->info[5].size;
+        #pragma omp parallel for reduction(+: TimeBinCountType[: 6 * (TIMEBINS+1)])
+        for(i = 0; i < PartManager->NumPart; i++)
+        {
+            if(PartManager->Base[i].IsGarbage || PartManager->Base[i].Swallowed)
+                continue;
+            const int type = PartManager->Base[i].Type;
+            /* Account gas and BHs to their hydro bin and other particles to their gravity bin*/
+            int bin = PartManager->Base[i].TimeBinGravity;
+            if(type == 0 || type == 5)
+                bin = PartManager->Base[i].TimeBinHydro;
+            TimeBinCountType[(TIMEBINS + 1) * type + bin] ++;
+        }
     }
     else {
         /*Need space for more particles than we have, because of star formation*/
@@ -1358,84 +1370,78 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
         act->NumActiveParticle = 0;
         act->NumActiveGravity = 0;
         act->NumActiveHydro = 0;
-    }
 
-    int * TimeBinCountType = (int *) mymalloc("TimeBinCountType", 6*(TIMEBINS+1)*NumThreads * sizeof(int));
-    memset(TimeBinCountType, 0, 6 * (TIMEBINS+1) * NumThreads * sizeof(int));
+        /*We want a lockless algorithm which preserves the ordering of the particle list.*/
+        size_t *NActiveThread = ta_malloc("NActiveThread", size_t, NumThreads);
+        int **ActivePartSets = ta_malloc("ActivePartSets", int *, NumThreads);
+        gadget_setup_thread_arrays(act->ActiveParticle, ActivePartSets, NActiveThread, narr, NumThreads);
 
-    /*We want a lockless algorithm which preserves the ordering of the particle list.*/
-    size_t *NActiveThread = ta_malloc("NActiveThread", size_t, NumThreads);
-    int **ActivePartSets = ta_malloc("ActivePartSets", int *, NumThreads);
-    gadget_setup_thread_arrays(act->ActiveParticle, ActivePartSets, NActiveThread, narr, NumThreads);
-
-    /* We enforce schedule static to imply monotonic, ensure that each thread executes on contiguous particles
-     * and ensure no thread gets more than narr particles.*/
-    size_t schedsz = PartManager->NumPart / NumThreads + 1;
-    int64_t nactivegrav = act->NumActiveGravity;
-    int64_t nactivehydro = act->NumActiveHydro;
-    #pragma omp parallel
-    {
-        const int tid = omp_get_thread_num();
-        size_t nthreadlocal = 0;
-        int * activepartthread = ActivePartSets[tid];
-        #pragma omp for schedule(static, schedsz) reduction(+: nactivegrav) reduction(+: nactivehydro)
-        for(i = 0; i < PartManager->NumPart; i++)
+        /* We enforce schedule static to imply monotonic, ensure that each thread executes on contiguous particles
+        * and ensure no thread gets more than narr particles.*/
+        const size_t schedsz = PartManager->NumPart / NumThreads + 1;
+        int64_t nactivegrav = 0;
+        int64_t nactivehydro = 0;
+        #pragma omp parallel
         {
-            const int bin_hydro = P[i].TimeBinHydro;
-            const int bin_gravity = P[i].TimeBinGravity;
-            if(P[i].IsGarbage || P[i].Swallowed)
-                continue;
-            /* when we are in PM, all particles must have been synced. */
-            if (P[i].Ti_drift != times->Ti_Current) {
-                endrun(5, "Particle %d type %d has drift time %lx not ti_current %lx!",i, P[i].Type, P[i].Ti_drift, times->Ti_Current);
-            }
-            /* For now build active particles with either hydro or gravity active*/
-            int hydro_particle = P[i].Type == 0 || P[i].Type == 5;
-            /* Make sure we only add hydro particles: the DM can have hydro bin 0
-            * and we don't want to add it to the active list.*/
-            int hydro_active = hydro_particle && is_timebin_active(bin_hydro, times->Ti_Current);
-            int gravity_active = is_timebin_active(bin_gravity, times->Ti_Current);
-            if(act->ActiveParticle && gravity_active)
-                nactivegrav++;
-            if(act->ActiveParticle && (hydro_active || gravity_active)) {
-                /* Store this particle in the ActiveSet for this thread*/
-                activepartthread[nthreadlocal] = i;
-                nthreadlocal++;
+            const int tid = omp_get_thread_num();
+            size_t nthreadlocal = 0;
+            int * activepartthread = ActivePartSets[tid];
+            #pragma omp for schedule(static, schedsz) reduction(+: nactivegrav) reduction(+: nactivehydro) reduction(+: TimeBinCountType[: 6 * (TIMEBINS+1)])
+            for(i = 0; i < PartManager->NumPart; i++)
+            {
+                const int bin_hydro = PartManager->Base[i].TimeBinHydro;
+                const int bin_gravity = PartManager->Base[i].TimeBinGravity;
+                if(PartManager->Base[i].IsGarbage || PartManager->Base[i].Swallowed)
+                    continue;
+                const int type = PartManager->Base[i].Type;
+                /* For now build active particles with either hydro or gravity active*/
+                const int hydro_particle = type == 0 || type == 5;
+                /* All particles must have been synced in drift. */
 #ifdef DEBUG
-                if(nthreadlocal > schedsz)
-                    endrun(2, "Not enough thread storage (%ld) for %ld active particles\n", schedsz, nthreadlocal);
+                if (PartManager->Base[i].Ti_drift != times->Ti_Current) {
+                    endrun(5, "Particle %d type %d has drift time %lx not ti_current %lx!",i, type, PartManager->Base[i].Ti_drift, times->Ti_Current);
+                }
 #endif
-                nactivehydro++;
+                /* Make sure we only add hydro particles: the DM can have hydro bin 0
+                * and we don't want to add it to the active list.*/
+                const int hydro_active = hydro_particle && is_timebin_active(bin_hydro, times->Ti_Current);
+                const int gravity_active = is_timebin_active(bin_gravity, times->Ti_Current);
+                if(gravity_active)
+                    nactivegrav++;
+                if((hydro_active || gravity_active)) {
+                    /* Store this particle in the ActiveSet for this thread*/
+                    activepartthread[nthreadlocal] = i;
+                    nthreadlocal++;
+    #ifdef DEBUG
+                    if(nthreadlocal > schedsz)
+                        endrun(2, "Not enough thread storage (%ld) for %ld active particles\n", schedsz, nthreadlocal);
+    #endif
+                    nactivehydro++;
+                }
+                /* Account gas and BHs to their hydro bin and other particles to their gravity bin*/
+                int bin = bin_gravity;
+                if(hydro_particle)
+                    bin = bin_hydro;
+                TimeBinCountType[(TIMEBINS + 1) * type + bin] ++;
             }
-            /* Account gas and BHs to their hydro bin and other particles to their gravity bin*/
-            int bin = bin_gravity;
-            if(hydro_particle)
-                bin = bin_hydro;
-            TimeBinCountType[(TIMEBINS + 1) * (6* tid + P[i].Type) + bin] ++;
+            NActiveThread[tid] = nthreadlocal;
         }
-        NActiveThread[tid] = nthreadlocal;
-    }
-    if(act->ActiveParticle) {
         /*Now we want a merge step for the ActiveParticle list.*/
         act->NumActiveParticle = gadget_compact_thread_arrays(act->ActiveParticle, ActivePartSets, NActiveThread, NumThreads);
-    }
-    ta_free(ActivePartSets);
-    ta_free(NActiveThread);
-    act->NumActiveGravity = nactivegrav;
-    act->NumActiveHydro = nactivehydro;
-    /*Print statistics for this time bin*/
-    print_timebin_statistics(times, NumCurrentTiStep, TimeBinCountType, Time, nactivegrav);
-    myfree(TimeBinCountType);
-
-    /* Shrink the ActiveParticle array. We still need extra space for star formation,
-     * but we do not need space for the known-inactive particles*/
-    if(act->ActiveParticle) {
+        ta_free(ActivePartSets);
+        ta_free(NActiveThread);
+        act->NumActiveGravity = nactivegrav;
+        act->NumActiveHydro = nactivehydro;
+        /* Shrink the ActiveParticle array. We still need extra space for star formation,
+         * but we do not need space for the known-inactive particles*/
         act->ActiveParticle = (int *) myrealloc(act->ActiveParticle, sizeof(int)*(act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
         act->MaxActiveParticle = act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart;
-        /* listen to the slots events such that we can set timebin of new particles */
     }
     walltime_measure("/Timeline/Active");
 
+    /*Print statistics for this time bin*/
+    print_timebin_statistics(times, NumCurrentTiStep, TimeBinCountType, Time, act->NumActiveGravity);
+    myfree(TimeBinCountType);
     return;
 }
 
@@ -1515,36 +1521,40 @@ void free_active_particles(ActiveParticles * act)
 static void print_timebin_statistics(const DriftKickTimes * const times, const int NumCurrentTiStep, int * TimeBinCountType, const double Time, const int64_t ActiveGravityCount)
 {
     int i;
-    int64_t tot = 0, tot_type[6] = {0};
-    int64_t tot_count[TIMEBINS+1] = {0};
-    int64_t tot_count_type[6][TIMEBINS+1] = {{0}};
+    int64_t * tot_count_type = ta_malloc("totcounttype", int64_t, 6 * (TIMEBINS+1));
+    int64_t * tot_count_type_loc = ta_malloc("totcounttype_loc", int64_t, 6 * (TIMEBINS+1));
+    #pragma omp parallel for
+    for(i = 0; i < 6 * (TIMEBINS+1); i++) {
+        tot_count_type_loc[i] = TimeBinCountType[i];
+    }
+    MPI_Reduce(tot_count_type_loc, tot_count_type, 6 * (TIMEBINS+1), MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    myfree(tot_count_type_loc);
+    int64_t TotActiveGravityCount;
+    MPI_Reduce(&ActiveGravityCount, &TotActiveGravityCount, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    /* Only do the work on the root rank*/
+    if(ThisTask != 0) {
+        myfree(tot_count_type);
+        return;
+    }
+
+    int64_t * tot_count = ta_malloc("totcount", int64_t, TIMEBINS+1);
+    memset(tot_count, 0, sizeof(int64_t) * (TIMEBINS+1));
     int64_t tot_num_force = 0;
     int64_t TotNumPart = 0, TotNumType[6] = {0};
 
-    int NumThreads = omp_get_max_threads();
-    /*Sum the thread-local memory*/
-    for(i = 1; i < NumThreads; i ++) {
-        int j;
-        for(j=0; j < 6 * (TIMEBINS+1); j++)
-            TimeBinCountType[j] += TimeBinCountType[6 * (TIMEBINS+1) * i + j];
-    }
-
-    for(i = 0; i < 6; i ++) {
-        sumup_large_ints(TIMEBINS+1, &TimeBinCountType[(TIMEBINS+1) * i], tot_count_type[i]);
-    }
-    int64_t TotActiveGravityCount;
-    MPI_Allreduce(&ActiveGravityCount, &TotActiveGravityCount, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-
-    for(i = 0; i<TIMEBINS+1; i++) {
-        int j;
-        for(j=0; j<6; j++) {
-            tot_count[i] += tot_count_type[j][i];
-            /*Note j*/
-            TotNumType[j] += tot_count_type[j][i];
-            TotNumPart += tot_count_type[j][i];
+    int type;
+    for(type=0; type<6; type++) {
+        int bin;
+        for(bin = 0; bin<TIMEBINS+1; bin++) {
+            tot_count[bin] += tot_count_type[(TIMEBINS+1) * type + bin];
+            TotNumType[type] += tot_count_type[(TIMEBINS+1) * type + bin];
+            TotNumPart += tot_count_type[(TIMEBINS+1) * type + bin];
+            if(is_timebin_active(bin, times->Ti_Current))
+                tot_num_force += tot_count[bin];
         }
-        if(is_timebin_active(i, times->Ti_Current))
-            tot_num_force += tot_count[i];
     }
 
     char extra[20] = {0};
@@ -1555,25 +1565,25 @@ static void print_timebin_statistics(const DriftKickTimes * const times, const i
     const double dloga = get_dloga_for_bin(times->mintimebin, times->Ti_Current);
     const double z = 1.0 / (Time) - 1;
     message(0, "Begin Step %d, Time: %g (%lx), Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
-                NumCurrentTiStep, Time, times->Ti_Current, z, tot_num_force,
-                dloga * Time, dloga,
-                extra);
+                NumCurrentTiStep, Time, times->Ti_Current, z, tot_num_force, dloga * Time, dloga, extra);
 
-    message(0, "TotNumPart: %013ld SPH %013ld BH %010ld STAR %013ld \n",
-                TotNumPart, TotNumType[0], TotNumType[5], TotNumType[4]);
+    message(0, "TotNumPart: %013ld SPH %013ld BH %010ld STAR %013ld \n", TotNumPart, TotNumType[0], TotNumType[5], TotNumType[4]);
     message(0,     "Occupied: % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld dt\n", 0L, 1L, 2L, 3L, 4L, 5L);
+
+    /* Active counts*/
+    int64_t tot = 0, tot_type[6] = {0};
 
     for(i = TIMEBINS;  i >= 0; i--) {
         if(tot_count[i] == 0) continue;
         message(0, " %c bin=%2d % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld %6g\n",
                 is_timebin_active(i, times->Ti_Current) ? 'X' : ' ',
                 i,
-                tot_count_type[0][i],
-                tot_count_type[1][i],
-                tot_count_type[2][i],
-                tot_count_type[3][i],
-                tot_count_type[4][i],
-                tot_count_type[5][i],
+                tot_count_type[i],
+                tot_count_type[(TIMEBINS+1) * 1 + i],
+                tot_count_type[(TIMEBINS+1) * 2 + i],
+                tot_count_type[(TIMEBINS+1) * 3 + i],
+                tot_count_type[(TIMEBINS+1) * 4 + i],
+                tot_count_type[(TIMEBINS+1) * 5 + i],
                 get_dloga_for_bin(i, times->Ti_Current));
 
         if(is_timebin_active(i, times->Ti_Current))
@@ -1581,10 +1591,12 @@ static void print_timebin_statistics(const DriftKickTimes * const times, const i
             tot += tot_count[i];
             int ptype;
             for(ptype = 0; ptype < 6; ptype ++) {
-                tot_type[ptype] += tot_count_type[ptype][i];
+                tot_type[ptype] += tot_count_type[(TIMEBINS+1) * ptype + i];
             }
         }
     }
+    myfree(tot_count);
+    myfree(tot_count_type);
     message(0,     "               -----------------------------------\n");
     message(0,     "Total:    % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld  Sum:% 14ld Gravity: %14ld\n",
         tot_type[0], tot_type[1], tot_type[2], tot_type[3], tot_type[4], tot_type[5], tot, TotActiveGravityCount);

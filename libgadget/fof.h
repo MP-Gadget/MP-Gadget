@@ -61,9 +61,7 @@ struct Group
 typedef struct FOFGroups
 {
     struct Group * Group;
-    /* Ngroups is maximally NumPart,
-     * so can be 32-bit*/
-    int Ngroups;
+    int64_t Ngroups;
     int64_t TotNgroups;
 } FOFGroups;
 
