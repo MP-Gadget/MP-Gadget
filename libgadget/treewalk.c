@@ -1252,7 +1252,10 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
     tw->minnumngb = ta_malloc("numngb2", double, NumThreads);
 
     /* Build the first queue */
+    double tstart = second();
     treewalk_build_queue(tw, queue, queuesize, 0);
+    double tend = second();
+
     /* Next call to treewalk_run will over-write these pointers*/
     int64_t size = tw->WorkSetSize;
     int * ReDoQueue = tw->WorkSet;
@@ -1262,7 +1265,7 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
      * but need to keep track of allocated memory.*/
     int orig_queue_alloc = (tw->haswork != NULL);
     tw->haswork = NULL;
-
+    tw->timecomp3 += timediff(tstart, tend);
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
     do {
         /* The RedoQueue needs enough memory to store every workset particle on every thread, because
