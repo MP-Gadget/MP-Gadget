@@ -351,7 +351,6 @@ modify_internal_node(int parent, int subnode, int p_toplace, const ForceTree tb)
     if(tb.Father)
         tb.Father[p_toplace] = parent;
     tb.Nodes[parent].s.suns[subnode] = p_toplace;
-    /* Encode the type in the Types array*/
     add_particle_moment_to_node(&tb.Nodes[parent], &P[p_toplace]);
     return 0;
 }
