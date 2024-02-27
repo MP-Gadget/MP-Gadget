@@ -155,13 +155,13 @@ double F_Omega(Cosmology * CP, double a)
 }
 
 /*Dark energy density as a function of time:
- * OmegaFLD(a)  ~ exp(-3 int((1+w(a))/a da)_a^1
+ * OmegaFLD(a)  ~ exp(-3 int((1+w(a))/a da)^a_1
  * and w(a) = w0 + (1-a) wa*/
 static inline double OmegaFLD(const Cosmology * CP, const double a)
 {
     if(CP->Omega_fld == 0.)
         return 0;
-    return CP->Omega_fld * pow(a, 3 * (1 + CP->w0_fld + CP->wa_fld))*exp(3*CP->wa_fld*(1-a));
+    return CP->Omega_fld * pow(a, -3 * (1 + CP->w0_fld + CP->wa_fld))*exp(-3*CP->wa_fld*(1-a));
 }
 
 struct sigma2_params
