@@ -486,9 +486,7 @@ petaio_read_header_internal(BigFile * bf, Cosmology * CP, struct header_data * H
     if(0 == big_block_get_attr(&bh, "OmegaFld", &OmegaFld, "f8", 1) &&
         0 == big_block_get_attr(&bh, "WA_Fld", &WA_Fld, "f8", 1) &&
         0 == big_block_get_attr(&bh, "W0_Fld", &W0_Fld, "f8", 1) &&
-            ((OmegaFld >= 0 && fabs(CP->Omega_fld - OmegaFld) > 1e-3) ||
-        (OmegaFld >= 0 && fabs(CP->Omega_fld - OmegaFld) > 1e-3) ||
-        (OmegaFld >= 0 && fabs(CP->Omega_fld - OmegaFld) > 1e-3)))
+            (OmegaFld >= 0 && (fabs(CP->Omega_fld - OmegaFld) > 1e-3 || fabs(CP->wa_fld - WA_Fld) > 1e-3 || fabs(CP->w0_fld - W0_Fld) > 1e-3)))
         message(0,"IC Header has Omega_fld = %g w0 = %g wa = %g but paramfile wants Omega_fld = %g w0 = %g wa = %g\n", OmegaFld, W0_Fld, WA_Fld, CP->Omega_fld, CP->w0_fld, CP->wa_fld);
 
     /* If UsePeculiarVelocity = 1 then snapshots save to the velocity field the physical peculiar velocity, v = a dx/dt (where x is comoving distance).
