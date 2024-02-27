@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <gsl/gsl_rng.h>
+#include <omp.h>
 
 #define __UTILS_SYSTEM_C
 #include "system.h"
@@ -542,27 +543,42 @@ MPIU_write_pids(char * filename)
     myfree(pids);
 }
 
-size_t gadget_compact_thread_arrays(int * dest, int * srcs[], size_t sizes[], int narrays)
+size_t gadget_compact_thread_arrays(int ** dest, gadget_thread_arrays * arrays)
 {
     int i;
     size_t asize = 0;
 
-    for(i = 0; i < narrays; i++)
+    for(i = 0; i < arrays->narrays; i++)
     {
-        memmove(dest + asize, srcs[i], sizeof(int) * sizes[i]);
-        asize += sizes[i];
+        memmove(arrays->dest + asize, arrays->srcs[i], sizeof(int) * arrays->sizes[i]);
+        asize += arrays->sizes[i];
     }
+    ta_free(arrays->srcs);
+    ta_free(arrays->sizes);
+    *dest = arrays->dest;
     return asize;
 }
 
-void gadget_setup_thread_arrays(int * dest, int * srcs[], size_t sizes[], size_t total_size, int narrays)
+gadget_thread_arrays gadget_setup_thread_arrays(const char * destname, int alloc_high, size_t total_size)
 {
+    gadget_thread_arrays threadarray = {0};
+    const int narrays = omp_get_max_threads();
+    if (alloc_high)
+        threadarray.dest = (int *) mymalloc2(destname, sizeof(int) * total_size * narrays);
+    else
+        threadarray.dest = (int *) mymalloc(destname, sizeof(int) * total_size * narrays);
+    threadarray.sizes = ta_malloc("nexthr", size_t, narrays);
+    threadarray.srcs = ta_malloc("threx", int *, narrays);
+    threadarray.total_size = total_size;
+    threadarray.schedsz = total_size/narrays + 1;
+    threadarray.narrays = narrays;
     int i;
-    srcs[0] = dest;
+    threadarray.srcs[0] = threadarray.dest;
     for(i=0; i < narrays; i++) {
-        srcs[i] = dest + i * total_size;
-        sizes[i] = 0;
+        threadarray.srcs[i] = threadarray.dest + i * total_size;
+        threadarray.sizes[i] = 0;
     }
+    return threadarray;
 }
 
 #ifdef DEBUG

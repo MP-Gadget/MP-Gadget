@@ -265,28 +265,18 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
     if(drift)
         ddrift = get_exact_drift_factor(drift->CP, drift->ti0, drift->ti1);
 
-    /*Structure for building a list of particles that will be exchanged*/
-    size_t numthreads = omp_get_max_threads();
-    PreExchangeList ExchangeData[1] = {0};
-    /*static schedule below so we only need this much memory*/
-    size_t narr = PartManager->NumPart/numthreads+numthreads;
-    ExchangeData->ExchangeList = (int *) mymalloc2("exchangelist", sizeof(int) * narr * numthreads);
     /*Garbage particles are counted so we have an accurate memory estimate*/
     int ngarbage = 0;
-
-    size_t *nexthr = ta_malloc("nexthr", size_t, numthreads);
-    int **threx = ta_malloc("threx", int *, numthreads);
-    gadget_setup_thread_arrays(ExchangeData->ExchangeList, threx, nexthr,narr,numthreads);
+    gadget_thread_arrays gthread = gadget_setup_thread_arrays("exchangelist", 1, PartManager->NumPart);
 
     ForceTree tree = force_tree_top_build(ddecomp, 1);
     /* flag the particles that need to be exported */
-    size_t schedsz = PartManager->NumPart/numthreads+1;
 #pragma omp parallel
     {
         size_t nexthr_local = 0;
         const int tid = omp_get_thread_num();
-        int * threx_local = threx[tid];
-    #pragma omp for schedule(static, schedsz) reduction(+: ngarbage)
+        int * threx_local = gthread.srcs[tid];
+    #pragma omp for schedule(static, gthread.schedsz) reduction(+: ngarbage)
     for(i=0; i < PartManager->NumPart; i++) {
         if(drift) {
             real_drift_particle(&PartManager->Base[i], SlotsManager, ddrift, PartManager->BoxSize, rel_random_shift);
@@ -314,18 +304,15 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
             nexthr_local++;
         }
     }
-    nexthr[tid] = nexthr_local;
+    gthread.sizes[tid] = nexthr_local;
     }
     force_tree_free(&tree);
+    PreExchangeList ExchangeData[1] = {0};
     ExchangeData->ngarbage = ngarbage;
     /*Merge step for the queue.*/
-    ExchangeData->nexchange = gadget_compact_thread_arrays(ExchangeData->ExchangeList, threx, nexthr, numthreads);
-    ta_free(threx);
-    ta_free(nexthr);
-
+    ExchangeData->nexchange = gadget_compact_thread_arrays(&ExchangeData->ExchangeList, &gthread);
     /*Shrink memory*/
     ExchangeData->ExchangeList = (int *) myrealloc(ExchangeData->ExchangeList, sizeof(int) * ExchangeData->nexchange);
-
     walltime_measure("/Domain/drift");
 
     /* Try a domain exchange. Note ExchangeList is freed inside.*/
