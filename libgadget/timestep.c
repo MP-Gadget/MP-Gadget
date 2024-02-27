@@ -1346,6 +1346,7 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
         act->ActiveParticle = NULL;
         act->NumActiveParticle = PartManager->NumPart;
         act->NumActiveGravity = PartManager->NumPart;
+        act->Particles = PartManager->Base;
         act->NumActiveHydro = SlotsManager->info[0].size + SlotsManager->info[5].size;
         #pragma omp parallel for reduction(+: TimeBinCountType[: 6 * (TIMEBINS+1)])
         for(i = 0; i < PartManager->NumPart; i++)
@@ -1417,6 +1418,7 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
         act->NumActiveParticle = gadget_compact_thread_arrays(&act->ActiveParticle, &gthread);
         act->NumActiveGravity = nactivegrav;
         act->NumActiveHydro = nactivehydro;
+        act->Particles = PartManager->Base;
         /* Shrink the ActiveParticle array. We still need extra space for star formation,
          * but we do not need space for the known-inactive particles*/
         act->ActiveParticle = (int *) myrealloc(act->ActiveParticle, sizeof(int)*(act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
@@ -1454,8 +1456,8 @@ build_active_sublist(const ActiveParticles * act, const int maxtimebin, const in
         for(i = 0; i < act->NumActiveParticle; i++)
         {
             const int pi = get_active_particle(act, i);
-            const int bin_gravity = P[pi].TimeBinGravity;
-            if(P[pi].IsGarbage || P[pi].Swallowed)
+            const int bin_gravity = act->Particles[pi].TimeBinGravity;
+            if(act->Particles[pi].IsGarbage || act->Particles[pi].Swallowed)
                 continue;
             if(bin_gravity > maxtimebin)
                 continue;
@@ -1472,6 +1474,7 @@ build_active_sublist(const ActiveParticles * act, const int maxtimebin, const in
     sub_act->NumActiveParticle = gadget_compact_thread_arrays(&sub_act->ActiveParticle, &gthread);
     sub_act->NumActiveGravity = sub_act->NumActiveParticle;
     sub_act->MaxActiveParticle = sub_act->NumActiveParticle;
+    sub_act->Particles = act->Particles;
 
     sub_act->ActiveParticle = (int *) myrealloc(sub_act->ActiveParticle, sizeof(int)*(sub_act->NumActiveParticle));
     return *sub_act;

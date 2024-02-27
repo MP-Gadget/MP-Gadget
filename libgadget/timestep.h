@@ -35,6 +35,7 @@ typedef struct ActiveParticles
     int64_t NumActiveGravity;
     int64_t NumActiveHydro;
     int *ActiveParticle;
+    struct particle_data * Particles;
 } ActiveParticles;
 
 /* Initialise an empty active particle list,
