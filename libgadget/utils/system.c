@@ -547,12 +547,17 @@ size_t gadget_compact_thread_arrays(int ** dest, gadget_thread_arrays * arrays)
 {
     int i;
     size_t asize = 0;
-
+    size_t * offsets = ta_malloc("tmp", size_t, arrays->narrays);
     for(i = 0; i < arrays->narrays; i++)
     {
-        memmove(arrays->dest + asize, arrays->srcs[i], sizeof(int) * arrays->sizes[i]);
+        offsets[i] = asize;
         asize += arrays->sizes[i];
     }
+
+    #pragma omp parallel for
+    for(i = 1; i < arrays->narrays; i++)
+        memmove(arrays->dest + offsets[i], arrays->srcs[i], sizeof(int) * arrays->sizes[i]);
+    ta_free(offsets);
     ta_free(arrays->srcs);
     ta_free(arrays->sizes);
     *dest = arrays->dest;
