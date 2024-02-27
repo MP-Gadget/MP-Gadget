@@ -119,7 +119,7 @@ force_tree_full(ForceTree * tree, DomainDecomp * ddecomp, const int HybridNuTrac
     walltime_measure("/Misc");
 
     /* Build for all particles*/
-    ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
+    ActiveParticles act = init_empty_active_particles(PartManager);
     int mask = ALLMASK;
     if(HybridNuTracer)
         mask = GASMASK + DMMASK + STARMASK + BHMASK;
@@ -156,7 +156,7 @@ force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, cons
     }
 
     /* Build for all particles*/
-    ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
+    ActiveParticles act = init_empty_active_particles(PartManager);
     /* No moments, but need father for hmax. The hybridnugrav only affects moments, so isn't needed.*/
     *tree = force_tree_build(mask, ddecomp, &act, 0, 1, EmergencyOutputDir);
 }
@@ -1306,7 +1306,7 @@ update_tree_hmax_father(const ForceTree * const tree, const int p_i, const doubl
  *  that a tree node should be included when it would normally be culled. Therefore we don't really
  *  want hmax, we want the maximum amount P[i].Pos + Hsml pokes beyond the tree node.
  */
-void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp * ddecomp)
+void force_update_hmax(ActiveParticles * act, ForceTree * tree, DomainDecomp * ddecomp)
 {
     int i;
 
@@ -1322,17 +1322,18 @@ void force_update_hmax(int * activeset, int size, ForceTree * tree, DomainDecomp
 
     /* Adjust the base particle containing nodes*/
     #pragma omp parallel for
-    for(i = 0; i < size; i++)
+    for(i = 0; i < act->NumActiveParticle; i++)
     {
-        const int p_i = activeset ? activeset[i] : i;
+        const int p_i = act->ActiveParticle ? act->ActiveParticle[i] : i;
         /* This is only gas particles or BH.*/
-        if((P[p_i].Type != 0 && P[p_i].Type != 5) || P[p_i].IsGarbage || P[p_i].Swallowed)
+        struct particle_data * pp = &act->Particles[p_i];
+        if((pp->Type != 0 && pp->Type != 5) || pp->IsGarbage || pp->Swallowed)
             continue;
         /* Can't do tree for BH if BH not in tree*/
-        if(!tree_has_bh && P[p_i].Type == 5)
+        if(!tree_has_bh && pp->Type == 5)
             continue;
 
-        update_tree_hmax_father(tree, p_i, P[p_i].Pos, P[p_i].Hsml);
+        update_tree_hmax_father(tree, p_i, pp->Pos, pp->Hsml);
     }
 
     /* Calculate moments to propagate everything upwards. */

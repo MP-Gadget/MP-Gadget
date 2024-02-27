@@ -430,7 +430,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         }
         update_lastactive_drift(&times);
 
-        ActiveParticles Act = init_empty_active_particles(0);
+        ActiveParticles Act = init_empty_active_particles(PartManager);
         build_active_particles(&Act, &times, NumCurrentTiStep, atime, PartManager);
 
         /* Are the particle neutrinos gravitating this timestep?
@@ -802,7 +802,7 @@ runfof(const int RestartSnapNum, const inttime_t Ti_Current, const struct header
     DriftKickTimes times = init_driftkicktime(Ti_Current);
     /* Regenerate the star formation rate for the FOF table.*/
     if(All.StarformationOn) {
-        ActiveParticles Act = init_empty_active_particles(PartManager->NumPart);
+        ActiveParticles Act = init_empty_active_particles(PartManager);
         MyFloat * GradRho = NULL;
         if(sfr_need_to_compute_sph_grad_rho()) {
             ForceTree gasTree = {0};

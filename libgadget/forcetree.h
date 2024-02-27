@@ -115,7 +115,7 @@ void init_forcetree_params(const double treeallocfactor);
 int force_tree_allocated(const ForceTree * tt);
 
 /* This function propagates changed SPH smoothing lengths up the tree*/
-void force_update_hmax(int * activeset, int size, ForceTree * tt, DomainDecomp * ddecomp);
+void force_update_hmax(ActiveParticles * act, ForceTree * tt, DomainDecomp * ddecomp);
 
 /* Update the hmax in the parent node of a single particle at p_i*/
 void update_tree_hmax_father(const ForceTree * const tree, const int p_i, const double Pos[3], const double Hsml);

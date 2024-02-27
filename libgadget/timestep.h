@@ -41,7 +41,7 @@ typedef struct ActiveParticles
 /* Initialise an empty active particle list,
  * which will forward requests to the particle manager.
  * No heap memory is allocated.*/
-ActiveParticles init_empty_active_particles(int64_t NumActiveParticle);
+ActiveParticles init_empty_active_particles(struct part_manager_type * PartManager);
 /* Build a list of active particles from the particle manager, allocating memory for the active particle list.*/
 void build_active_particles(ActiveParticles * act, const DriftKickTimes * const times, const int NumCurrentTiStep, const double Time, const struct part_manager_type * const PartManager);
 

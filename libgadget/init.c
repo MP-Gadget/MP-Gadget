@@ -501,7 +501,7 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
     /* Empty kick factors as we do not move*/
     DriftKickTimes times = init_driftkicktime(Ti_Current);
     /*At the first time step all particles should be active*/
-    ActiveParticles act = init_empty_active_particles(PartManager->NumPart);
+    ActiveParticles act = init_empty_active_particles(PartManager);
     density(&act, 1, 0, BlackHoleOn, times, CP, &sph_pred, NULL, &Tree);
     slots_free_sph_pred_data(&sph_pred);
 

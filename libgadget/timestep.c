@@ -73,11 +73,12 @@ static inline int get_active_particle(const ActiveParticles * act, int pa)
         return pa;
 }
 
-ActiveParticles init_empty_active_particles(int64_t NumActiveParticle)
+ActiveParticles init_empty_active_particles(struct part_manager_type * PartManager)
 {
     ActiveParticles act = {0};
     act.ActiveParticle = NULL;
-    act.NumActiveParticle = NumActiveParticle;
+    act.NumActiveParticle = PartManager->NumPart;
+    act.Particles = PartManager->Base;
     return act;
 }
 
@@ -1441,7 +1442,7 @@ build_active_sublist(const ActiveParticles * act, const int maxtimebin, const in
 
     ActiveParticles sub_act[1] = {0};
     /*We want a lockless algorithm which preserves the ordering of the particle list.*/
-    gadget_thread_arrays gthread = gadget_setup_thread_arrays("SubActiveParticle", 0, PartManager->NumPart);
+    gadget_thread_arrays gthread = gadget_setup_thread_arrays("SubActiveParticle", 0, act->NumActiveParticle);
 //     message(0, "Building sublist containing particles up to bin %d\n", maxtimebin);
 
     /* We enforce schedule static to imply monotonic, ensure that each thread executes on contiguous particles

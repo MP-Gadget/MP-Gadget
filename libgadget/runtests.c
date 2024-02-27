@@ -88,7 +88,7 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
 
     DriftKickTimes times = init_driftkicktime(Ti_Current);
     /* All particles are active*/
-    ActiveParticles Act = init_empty_active_particles(0);
+    ActiveParticles Act = init_empty_active_particles(PartManager);
     build_active_particles(&Act, &times, 0, header->TimeSnapshot, PartManager);
 
     gravpm_force(pm, ddecomp, CP, header->TimeSnapshot, header->UnitLength_in_cm, OutputDir, header->TimeIC);
