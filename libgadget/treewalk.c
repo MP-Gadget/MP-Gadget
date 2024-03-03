@@ -1232,8 +1232,6 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
 {
     int64_t ntot = 0;
     int NumThreads = omp_get_max_threads();
-    tw->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
-    tw->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
     tw->maxnumngb = ta_malloc("numngb", double, NumThreads);
     tw->minnumngb = ta_malloc("numngb2", double, NumThreads);
 
@@ -1262,44 +1260,26 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
             tw->maxnumngb[i] = 0;
             tw->minnumngb[i] = 1e50;
         }
-
         /* The ReDoQueue swaps between high and low allocations so we can have two allocated alternately*/
-        if(update_hsml) {
-            if(!alloc_high) {
-                ReDoQueue = (int *) mymalloc2("ReDoQueue", size * sizeof(int) * NumThreads);
-                alloc_high = 1;
-            }
-            else {
-                ReDoQueue = (int *) mymalloc("ReDoQueue", size * sizeof(int) * NumThreads);
-                alloc_high = 0;
-            }
-            tw->Redo_thread_alloc = size;
-            tw->NPRedo[0] = ReDoQueue;
-            for(i=0; i < NumThreads; i++) {
-                tw->NPRedo[i] = ReDoQueue + i * size;
-                tw->NPLeft[i] = 0;
-            }
-        }
+        if(!alloc_high)
+            alloc_high = 1;
+        else
+            alloc_high = 0;
+        gadget_thread_arrays loop = gadget_setup_thread_arrays("ReDoQueue", alloc_high, size);
+        tw->NPRedo = loop.srcs;
+        tw->NPLeft = loop.sizes;
+        tw->Redo_thread_alloc = loop.total_size;
         treewalk_run(tw, CurQueue, size);
 
         /* Now done with the current queue*/
         if(orig_queue_alloc || tw->Niteration > 1)
             myfree(CurQueue);
 
-        /* We can stop if we are not updating hsml*/
-        if(!update_hsml)
-            break;
-
-        /* Set up the next queue*/
-        size = 0;
-        for(i = 0; i < NumThreads; i++)
-        {
-            memmove(ReDoQueue + size, tw->NPRedo[i], sizeof(int) * tw->NPLeft[i]);
-            size += tw->NPLeft[i];
-        }
-
+        size = gadget_compact_thread_arrays(&ReDoQueue, &loop);
         MPI_Allreduce(&size, &ntot, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-        if(ntot == 0){
+        /* We can stop if we are not updating hsml or if we are done.*/
+
+        if(!update_hsml || ntot == 0){
             myfree(ReDoQueue);
             break;
         }
@@ -1346,8 +1326,6 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
     } while(1);
     ta_free(tw->minnumngb);
     ta_free(tw->maxnumngb);
-    ta_free(tw->NPRedo);
-    ta_free(tw->NPLeft);
 }
 
 
