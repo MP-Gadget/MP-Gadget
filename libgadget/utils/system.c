@@ -558,6 +558,8 @@ size_t gadget_compact_thread_arrays(int ** dest, gadget_thread_arrays * arrays)
     for(i = 1; i < arrays->narrays; i++)
         memmove(arrays->dest + offsets[i], arrays->srcs[i], sizeof(int) * arrays->sizes[i]);
     ta_free(offsets);
+    for(i = arrays->narrays-1; i >= 1; i--)
+        myfree(arrays->srcs[i]);
     ta_free(arrays->srcs);
     ta_free(arrays->sizes);
     *dest = arrays->dest;
@@ -569,9 +571,9 @@ gadget_thread_arrays gadget_setup_thread_arrays(const char * destname, int alloc
     gadget_thread_arrays threadarray = {0};
     const int narrays = omp_get_max_threads();
     if (alloc_high)
-        threadarray.dest = (int *) mymalloc2(destname, sizeof(int) * total_size * narrays);
+        threadarray.dest = (int *) mymalloc2(destname, sizeof(int) * total_size);
     else
-        threadarray.dest = (int *) mymalloc(destname, sizeof(int) * total_size * narrays);
+        threadarray.dest = (int *) mymalloc(destname, sizeof(int) * total_size);
     threadarray.sizes = ta_malloc("nexthr", size_t, narrays);
     threadarray.srcs = ta_malloc("threx", int *, narrays);
     threadarray.total_size = total_size;
@@ -579,8 +581,12 @@ gadget_thread_arrays gadget_setup_thread_arrays(const char * destname, int alloc
     threadarray.narrays = narrays;
     int i;
     threadarray.srcs[0] = threadarray.dest;
-    for(i=0; i < narrays; i++) {
-        threadarray.srcs[i] = threadarray.dest + i * total_size;
+    threadarray.sizes[0] = 0;
+    for(i=1; i < narrays; i++) {
+        if(alloc_high)
+            threadarray.srcs[i] = mymalloc2("threx", sizeof(int) * total_size);
+        else
+            threadarray.srcs[i] = mymalloc("threx", sizeof(int) * total_size);
         threadarray.sizes[i] = 0;
     }
     return threadarray;
