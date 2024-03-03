@@ -73,11 +73,12 @@ static inline int get_active_particle(const ActiveParticles * act, int pa)
         return pa;
 }
 
-ActiveParticles init_empty_active_particles(int64_t NumActiveParticle)
+ActiveParticles init_empty_active_particles(struct part_manager_type * PartManager)
 {
     ActiveParticles act = {0};
     act.ActiveParticle = NULL;
-    act.NumActiveParticle = NumActiveParticle;
+    act.NumActiveParticle = PartManager->NumPart;
+    act.Particles = PartManager->Base;
     return act;
 }
 
@@ -1338,10 +1339,6 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
 {
     int i;
 
-    const int NumThreads = omp_get_max_threads();
-    /*Since we use a static schedule, only need NumPart/NumThreads elements per thread.*/
-    size_t narr = PartManager->NumPart / NumThreads + NumThreads;
-
     int * TimeBinCountType = (int *) ta_malloc2("TimeBinCountType", int, 6*(TIMEBINS+1));
     memset(TimeBinCountType, 0, 6 * (TIMEBINS+1) * sizeof(int));
 
@@ -1350,6 +1347,7 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
         act->ActiveParticle = NULL;
         act->NumActiveParticle = PartManager->NumPart;
         act->NumActiveGravity = PartManager->NumPart;
+        act->Particles = PartManager->Base;
         act->NumActiveHydro = SlotsManager->info[0].size + SlotsManager->info[5].size;
         #pragma omp parallel for reduction(+: TimeBinCountType[: 6 * (TIMEBINS+1)])
         for(i = 0; i < PartManager->NumPart; i++)
@@ -1365,28 +1363,19 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
         }
     }
     else {
-        /*Need space for more particles than we have, because of star formation*/
-        act->ActiveParticle = (int *) mymalloc("ActiveParticle", narr * NumThreads * sizeof(int));
-        act->NumActiveParticle = 0;
-        act->NumActiveGravity = 0;
-        act->NumActiveHydro = 0;
-
         /*We want a lockless algorithm which preserves the ordering of the particle list.*/
-        size_t *NActiveThread = ta_malloc("NActiveThread", size_t, NumThreads);
-        int **ActivePartSets = ta_malloc("ActivePartSets", int *, NumThreads);
-        gadget_setup_thread_arrays(act->ActiveParticle, ActivePartSets, NActiveThread, narr, NumThreads);
+        gadget_thread_arrays gthread = gadget_setup_thread_arrays("ActiveParticle", 0, PartManager->NumPart);
 
         /* We enforce schedule static to imply monotonic, ensure that each thread executes on contiguous particles
         * and ensure no thread gets more than narr particles.*/
-        const size_t schedsz = PartManager->NumPart / NumThreads + 1;
         int64_t nactivegrav = 0;
         int64_t nactivehydro = 0;
         #pragma omp parallel
         {
             const int tid = omp_get_thread_num();
             size_t nthreadlocal = 0;
-            int * activepartthread = ActivePartSets[tid];
-            #pragma omp for schedule(static, schedsz) reduction(+: nactivegrav) reduction(+: nactivehydro) reduction(+: TimeBinCountType[: 6 * (TIMEBINS+1)])
+            int * activepartthread = gthread.srcs[tid];
+            #pragma omp for schedule(static, gthread.schedsz) reduction(+: nactivegrav) reduction(+: nactivehydro) reduction(+: TimeBinCountType[: 6 * (TIMEBINS+1)])
             for(i = 0; i < PartManager->NumPart; i++)
             {
                 const int bin_hydro = PartManager->Base[i].TimeBinHydro;
@@ -1413,8 +1402,8 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
                     activepartthread[nthreadlocal] = i;
                     nthreadlocal++;
     #ifdef DEBUG
-                    if(nthreadlocal > schedsz)
-                        endrun(2, "Not enough thread storage (%ld) for %ld active particles\n", schedsz, nthreadlocal);
+                    if(nthreadlocal > gthread.total_size)
+                        endrun(2, "Not enough thread storage (%ld) for %ld active particles\n", gthread.total_size, nthreadlocal);
     #endif
                     nactivehydro++;
                 }
@@ -1424,14 +1413,13 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
                     bin = bin_hydro;
                 TimeBinCountType[(TIMEBINS + 1) * type + bin] ++;
             }
-            NActiveThread[tid] = nthreadlocal;
+            gthread.sizes[tid] = nthreadlocal;
         }
         /*Now we want a merge step for the ActiveParticle list.*/
-        act->NumActiveParticle = gadget_compact_thread_arrays(act->ActiveParticle, ActivePartSets, NActiveThread, NumThreads);
-        ta_free(ActivePartSets);
-        ta_free(NActiveThread);
+        act->NumActiveParticle = gadget_compact_thread_arrays(&act->ActiveParticle, &gthread);
         act->NumActiveGravity = nactivegrav;
         act->NumActiveHydro = nactivehydro;
+        act->Particles = PartManager->Base;
         /* Shrink the ActiveParticle array. We still need extra space for star formation,
          * but we do not need space for the known-inactive particles*/
         act->ActiveParticle = (int *) myrealloc(act->ActiveParticle, sizeof(int)*(act->NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
@@ -1452,37 +1440,25 @@ build_active_sublist(const ActiveParticles * act, const int maxtimebin, const in
 {
     int i;
 
-    int NumThreads = omp_get_max_threads();
-    /*Since we use a static schedule, only need NumPart/NumThreads elements per thread.*/
-    size_t narr = PartManager->NumPart / NumThreads + NumThreads;
-
     ActiveParticles sub_act[1] = {0};
-    /*Need space for more particles than we have, because of star formation*/
-    sub_act->ActiveParticle = (int *) mymalloc("ActiveParticle", narr * NumThreads * sizeof(int));
-    sub_act->NumActiveParticle = 0;
-    sub_act->NumActiveGravity = 0;
-
     /*We want a lockless algorithm which preserves the ordering of the particle list.*/
-    size_t *NActiveThread = ta_malloc("NActiveThread", size_t, NumThreads);
-    int **ActivePartSets = ta_malloc("ActivePartSets", int *, NumThreads);
-    gadget_setup_thread_arrays(sub_act->ActiveParticle, ActivePartSets, NActiveThread, narr, NumThreads);
+    gadget_thread_arrays gthread = gadget_setup_thread_arrays("SubActiveParticle", 0, act->NumActiveParticle);
 //     message(0, "Building sublist containing particles up to bin %d\n", maxtimebin);
 
     /* We enforce schedule static to imply monotonic, ensure that each thread executes on contiguous particles
      * and ensure no thread gets more than narr particles.*/
-    size_t schedsz = PartManager->NumPart / NumThreads + 1;
 #pragma omp parallel
     {
         const int tid = omp_get_thread_num();
         /* Local stack variables to avoid sharing a cache line across threads*/
         size_t nactivethread=0;
-        int *activepartthread = ActivePartSets[tid];
-        #pragma omp for schedule(static, schedsz)
+        int *activepartthread = gthread.srcs[tid];
+        #pragma omp for schedule(static, gthread.schedsz)
         for(i = 0; i < act->NumActiveParticle; i++)
         {
             const int pi = get_active_particle(act, i);
-            const int bin_gravity = P[pi].TimeBinGravity;
-            if(P[pi].IsGarbage || P[pi].Swallowed)
+            const int bin_gravity = act->Particles[pi].TimeBinGravity;
+            if(act->Particles[pi].IsGarbage || act->Particles[pi].Swallowed)
                 continue;
             if(bin_gravity > maxtimebin)
                 continue;
@@ -1493,15 +1469,13 @@ build_active_sublist(const ActiveParticles * act, const int maxtimebin, const in
             activepartthread[nactivethread] = pi;
             nactivethread++;
         }
-        NActiveThread[tid] = nactivethread;
+        gthread.sizes[tid] = nactivethread;
     }
     /*Now we want a merge step for the ActiveParticle list.*/
-    sub_act->NumActiveParticle = gadget_compact_thread_arrays(sub_act->ActiveParticle, ActivePartSets, NActiveThread, NumThreads);
+    sub_act->NumActiveParticle = gadget_compact_thread_arrays(&sub_act->ActiveParticle, &gthread);
     sub_act->NumActiveGravity = sub_act->NumActiveParticle;
     sub_act->MaxActiveParticle = sub_act->NumActiveParticle;
-
-    ta_free(ActivePartSets);
-    ta_free(NActiveThread);
+    sub_act->Particles = act->Particles;
 
     sub_act->ActiveParticle = (int *) myrealloc(sub_act->ActiveParticle, sizeof(int)*(sub_act->NumActiveParticle));
     return *sub_act;

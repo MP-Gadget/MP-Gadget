@@ -394,44 +394,36 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
 static void
 domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm)
 {
-    int i;
-    size_t numthreads = omp_get_max_threads();
-    plan->nexchange = pman->NumPart;
-    /*static schedule below so we only need this much memory*/
-    size_t narr = plan->nexchange/numthreads+numthreads;
-    plan->ExchangeList = (int *) mymalloc2("exchangelist", sizeof(int) * narr * numthreads);
     /*Garbage particles are counted so we have an accurate memory estimate*/
     int ngarbage = 0;
-
-    size_t *nexthr = ta_malloc("nexthr", size_t, numthreads);
-    int **threx = ta_malloc("threx", int *, numthreads);
-    gadget_setup_thread_arrays(plan->ExchangeList, threx, nexthr,narr,numthreads);
-
+    gadget_thread_arrays gthread = gadget_setup_thread_arrays("exchangelist", 1, pman->NumPart);
     int ThisTask;
     MPI_Comm_rank(Comm, &ThisTask);
-
     /* flag the particles that need to be exported */
-    size_t schedsz = plan->nexchange/numthreads+1;
-    #pragma omp parallel for schedule(static, schedsz) reduction(+: ngarbage)
-    for(i=0; i < pman->NumPart; i++)
+    #pragma omp parallel
     {
-        if(pman->Base[i].IsGarbage) {
-            ngarbage++;
-            continue;
+        int i;
+        size_t nexthr_local = 0;
+        const int tid = omp_get_thread_num();
+        int * threx_local = gthread.srcs[tid];
+        #pragma omp for schedule(static, gthread.schedsz) reduction(+: ngarbage)
+        for(i=0; i < pman->NumPart; i++)
+        {
+            if(pman->Base[i].IsGarbage) {
+                ngarbage++;
+                continue;
+            }
+            int target = layoutfunc(i, layout_userdata);
+            if(target != ThisTask) {
+                threx_local[nexthr_local] = i;
+                nexthr_local++;
+            }
         }
-        int target = layoutfunc(i, layout_userdata);
-        if(target != ThisTask) {
-            const int tid = omp_get_thread_num();
-            threx[tid][nexthr[tid]] = i;
-            nexthr[tid]++;
-        }
+        gthread.sizes[tid] = nexthr_local;
     }
     plan->ngarbage = ngarbage;
     /*Merge step for the queue.*/
-    plan->nexchange = gadget_compact_thread_arrays(plan->ExchangeList, threx, nexthr, numthreads);
-    ta_free(threx);
-    ta_free(nexthr);
-
+    plan->nexchange = gadget_compact_thread_arrays(&plan->ExchangeList, &gthread);
     /*Shrink memory*/
     plan->ExchangeList = (int *) myrealloc(plan->ExchangeList, sizeof(int) * plan->nexchange);
 }

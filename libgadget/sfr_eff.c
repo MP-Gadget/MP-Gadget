@@ -184,19 +184,8 @@ void set_sfr_params(ParameterSet * ps)
 void
 cooling_and_starformation(ActiveParticles * act, double Time, double dloga, ForceTree * tree, struct grav_accel_store GravAccel, DomainDecomp * ddecomp, Cosmology *CP, MyFloat * GradRho, RandTable * rnd, FILE * FdSfr)
 {
-    const int nthreads = omp_get_max_threads();
     /*This is a queue for the new stars and their parents, so we can reallocate the slots after the main cooling loop.*/
-    int * NewStars = NULL;
-    int * NewParents = NULL;
-    int64_t NumNewStar = 0, NumMaybeWind = 0;
-    int * MaybeWind = NULL;
-    MyFloat * StellarMass = NULL;
-
-    size_t *nqthrsfr = ta_malloc("nqthrsfr", size_t, nthreads);
-    int **thrqueuesfr = ta_malloc("thrqueuesfr", int *, nthreads);
-    int **thrqueueparent = ta_malloc("thrqueueparent", int *, nthreads);
-    size_t *nqthrwind = NULL;
-    int **thrqueuewind = NULL;
+    gadget_thread_arrays NewStarThread = {0}, NewParentThread = {0}, MaybeWindThread = {0};
 
     /*Need to capture this so that when NumActiveParticle increases during the loop
      * we don't add extra loop iterations on particles with invalid slots.*/
@@ -206,20 +195,15 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
 
     if(sfr_params.StarformationOn) {
         /* Maximally we need the active gas particles*/
-        NewStars = (int *) mymalloc("NewStars", act->NumActiveHydro * sizeof(int) * nthreads);
-        gadget_setup_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, act->NumActiveHydro, nthreads);
-        NewParents = (int *) mymalloc2("NewParents", act->NumActiveHydro * sizeof(int) * nthreads);
-        gadget_setup_thread_arrays(NewParents, thrqueueparent, nqthrsfr, act->NumActiveHydro, nthreads);
+        NewStarThread = gadget_setup_thread_arrays("NewStars", 0, act->NumActiveHydro);
+        NewParentThread = gadget_setup_thread_arrays("NewParents", 1, act->NumActiveHydro);
     }
 
+    MyFloat * StellarMass = NULL;
     if(sfr_params.WindOn && winds_are_subgrid()) {
-        nqthrwind = ta_malloc("nqthrwind", size_t, nthreads);
-        thrqueuewind = ta_malloc("thrqueuewind", int *, nthreads);
         StellarMass = (MyFloat *) mymalloc("StellarMass", SlotsManager->info[0].size * sizeof(MyFloat));
-        MaybeWind = (int *) mymalloc("MaybeWind", act->NumActiveHydro * sizeof(int) * nthreads);
-        gadget_setup_thread_arrays(MaybeWind, thrqueuewind, nqthrwind, act->NumActiveHydro, nthreads);
+        MaybeWindThread = gadget_setup_thread_arrays("MaybeWind", 0, act->NumActiveHydro);
     }
-
 
     /* Get the global UVBG for this redshift. */
     const double redshift = 1./Time - 1;
@@ -267,16 +251,17 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
                 }
                 /*Add this particle to the stellar conversion queue if necessary.*/
                 if(newstar >= 0) {
-                    thrqueuesfr[tid][nqthrsfr[tid]] = newstar;
-                    thrqueueparent[tid][nqthrsfr[tid]] = p_i;
-                    nqthrsfr[tid]++;
+                    NewStarThread.srcs[tid][NewStarThread.sizes[tid]] = newstar;
+                    NewStarThread.sizes[tid]++;
+                    NewParentThread.srcs[tid][NewParentThread.sizes[tid]] = p_i;
+                    NewParentThread.sizes[tid]++;
                 }
                 /* Add this particle to the queue for consideration to spawn a wind.
                  * Only for subgrid winds. */
-                if(nqthrwind && newstar < 0) {
-                    thrqueuewind[tid][nqthrwind[tid]] = p_i;
+                if(MaybeWindThread.sizes && newstar < 0) {
+                    MaybeWindThread.srcs[tid][MaybeWindThread.sizes[tid]] = p_i;
                     StellarMass[P[p_i].PI] = sm;
-                    nqthrwind[tid]++;
+                    MaybeWindThread.sizes[tid]++;
                 }
             }
             else
@@ -290,28 +275,26 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
 
     /* Do subgrid winds*/
     if(sfr_params.WindOn && winds_are_subgrid()) {
-        NumMaybeWind = gadget_compact_thread_arrays(MaybeWind, thrqueuewind, nqthrwind, nthreads);
+        int * MaybeWind;
+        int64_t NumMaybeWind = gadget_compact_thread_arrays(&MaybeWind, &MaybeWindThread);
         winds_subgrid(MaybeWind, NumMaybeWind, Time, StellarMass, rnd);
         myfree(MaybeWind);
         myfree(StellarMass);
-        ta_free(thrqueuewind);
-        ta_free(nqthrwind);
     }
+
+    int * NewStars = NewStarThread.dest;
+    int * NewParents = NewParentThread.dest;
+    int64_t NumNewStar = 0;
 
     /*Merge step for the queue.*/
     if(NewStars) {
-        NumNewStar = gadget_compact_thread_arrays(NewStars, thrqueuesfr, nqthrsfr, nthreads);
-        int64_t NumNewParent = gadget_compact_thread_arrays(NewParents, thrqueueparent, nqthrsfr, nthreads);
+        int64_t NumNewParent = gadget_compact_thread_arrays(&NewParents, &NewParentThread);
+        NumNewStar = gadget_compact_thread_arrays(&NewStars, &NewStarThread);
         if(NumNewStar != NumNewParent)
             endrun(3,"%lu new stars, but %lu new parents!\n",NumNewStar, NumNewParent);
         /*Shrink star memory as we keep it for the wind model*/
         NewStars = (int *) myrealloc(NewStars, sizeof(int) * NumNewStar);
     }
-
-    ta_free(thrqueueparent);
-    ta_free(thrqueuesfr);
-    ta_free(nqthrsfr);
-
 
     if(!sfr_params.StarformationOn)
         return;

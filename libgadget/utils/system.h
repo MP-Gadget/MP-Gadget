@@ -38,20 +38,28 @@ RandTable set_random_numbers(uint64_t seed, const size_t rndtablesize);
 /* Free the random number table and set Table to NULL*/
 void free_random_numbers(RandTable * rnd);
 int64_t count_sum(int64_t countLocal);
-//int64_t count_to_offset(int64_t countLocal);
 
 /* Returns true if condition is true on ANY processor*/
 int MPIU_Any(int condition, MPI_Comm comm);
 
 void MPIU_write_pids(char * filename);
 
+typedef struct _gadget_thread_arrays {
+  int * dest;
+  int ** srcs;
+  size_t *sizes;
+  int narrays;
+  size_t total_size;
+  size_t schedsz;
+} gadget_thread_arrays;
 /* Compact an array which has segments (usually corresponding to different threads).
  * After this is run, it will be a single contiguous array. The memory can then be realloced.
- * Function returns size of the final array.*/
-size_t gadget_compact_thread_arrays(int * dest, int * srcs[], size_t sizes[], int narrays);
+ * Function returns size of the final array, pointer to final array is stored in dest.
+ * The temporary arrays in gadget_thread_arrays are freed. */
+size_t gadget_compact_thread_arrays(int ** dest, gadget_thread_arrays * arrays);
 
-/* Set up pointers to different parts of a single segmented array (usually corresponding to different threads).*/
-void gadget_setup_thread_arrays(int * dest, int * srcs[], size_t sizes[], size_t total_size, int narrays);
+/* Set up pointers to different parts of a single segmented array, evenly spaced and corresponding queue space for different threads.*/
+gadget_thread_arrays gadget_setup_thread_arrays(const char * destname, int alloc_high, size_t total_size);
 
 int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,

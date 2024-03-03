@@ -202,31 +202,19 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may
         return;
     }
 
-    /* Since we use a static schedule below we only need size / tw->NThread elements per thread.
-     * Add NThread so that each thread has a little extra space.*/
-    size_t tsize = size / tw->NThread + tw->NThread;
-    /*Watch out: tw->WorkSet may change a few lines later due to the realloc*/
-    tw->WorkSet = (int *) mymalloc("ActiveQueue", tsize * sizeof(int) * tw->NThread);
     tw->work_set_stolen_from_active = 0;
-    size_t i;
-    size_t nqueue = 0;
-
     /*We want a lockless algorithm which preserves the ordering of the particle list.*/
-    size_t *nqthr = ta_malloc("nqthr", size_t, tw->NThread);
-    int **thrqueue = ta_malloc("thrqueue", int *, tw->NThread);
-
-    gadget_setup_thread_arrays(tw->WorkSet, thrqueue, nqthr, tsize, tw->NThread);
-
+    gadget_thread_arrays gthread = gadget_setup_thread_arrays("ActiveQueue", 0, size);
     /* We enforce schedule static to ensure that each thread executes on contiguous particles.
      * Note static enforces the monotonic modifier but on OpenMP 5.0 nonmonotonic is the default.
      * static also ensures that no single thread gets more than tsize elements.*/
-    const size_t schedsz = size/tw->NThread+1;
     #pragma omp parallel
     {
+        size_t i;
         const int tid = omp_get_thread_num();
         size_t nqthrlocal = 0;
-        int *thrqlocal = thrqueue[tid];
-        #pragma omp for schedule(static, schedsz)
+        int *thrqlocal = gthread.srcs[tid];
+        #pragma omp for schedule(static, gthread.schedsz)
         for(i=0; i < size; i++)
         {
             /*Use raw particle number if active_set is null, otherwise use active_set*/
@@ -239,18 +227,16 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may
             if(tw->haswork && !tw->haswork(p_i, tw))
                 continue;
     #ifdef DEBUG
-            if(nqthrlocal >= tsize)
-                endrun(5, "tid = %d nqthr = %ld, tsize = %ld size = %ld, tw->Nthread = %ld i = %ld\n", tid, nqthrlocal, tsize, size, tw->NThread, i);
+            if(nqthrlocal >= gthread.total_size)
+                endrun(5, "tid = %d nqthr = %ld, tsize = %ld size = %ld, tw->Nthread = %ld i = %ld\n", tid, nqthrlocal, gthread.total_size, size, tw->NThread, i);
     #endif
             thrqlocal[nqthrlocal] = p_i;
             nqthrlocal++;
         }
-        nqthr[tid] = nqthrlocal;
+        gthread.sizes[tid] = nqthrlocal;
     }
     /*Merge step for the queue.*/
-    nqueue = gadget_compact_thread_arrays(tw->WorkSet, thrqueue, nqthr, tw->NThread);
-    ta_free(thrqueue);
-    ta_free(nqthr);
+    size_t nqueue = gadget_compact_thread_arrays(&tw->WorkSet, &gthread);
     /*Shrink memory*/
     tw->WorkSet = (int *) myrealloc(tw->WorkSet, sizeof(int) * nqueue);
 
@@ -675,7 +661,7 @@ ev_export_import_counts(TreeWalk * tw, MPI_Comm comm)
     // message(1, "Exporting %ld particles. Thread 0 is %ld\n", counts.Nexport, tw->Nexport_thread[0]);
 
     counts.Nimport = counts.Import_count[0];
-    tw->NExportTargets = (counts.Export_count[i] > 0);
+    tw->NExportTargets = (counts.Export_count[0] > 0);
     for(i = 1; i < NTask; i++)
     {
         counts.Nimport += counts.Import_count[i];
@@ -1246,8 +1232,6 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
 {
     int64_t ntot = 0;
     int NumThreads = omp_get_max_threads();
-    tw->NPLeft = ta_malloc("NPLeft", size_t, NumThreads);
-    tw->NPRedo = ta_malloc("NPRedo", int *, NumThreads);
     tw->maxnumngb = ta_malloc("numngb", double, NumThreads);
     tw->minnumngb = ta_malloc("numngb2", double, NumThreads);
 
@@ -1276,35 +1260,26 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
             tw->maxnumngb[i] = 0;
             tw->minnumngb[i] = 1e50;
         }
-
         /* The ReDoQueue swaps between high and low allocations so we can have two allocated alternately*/
-        if(update_hsml) {
-            if(!alloc_high) {
-                ReDoQueue = (int *) mymalloc2("ReDoQueue", size * sizeof(int) * NumThreads);
-                alloc_high = 1;
-            }
-            else {
-                ReDoQueue = (int *) mymalloc("ReDoQueue", size * sizeof(int) * NumThreads);
-                alloc_high = 0;
-            }
-            tw->Redo_thread_alloc = size;
-            gadget_setup_thread_arrays(ReDoQueue, tw->NPRedo, tw->NPLeft, size, NumThreads);
-        }
+        if(!alloc_high)
+            alloc_high = 1;
+        else
+            alloc_high = 0;
+        gadget_thread_arrays loop = gadget_setup_thread_arrays("ReDoQueue", alloc_high, size);
+        tw->NPRedo = loop.srcs;
+        tw->NPLeft = loop.sizes;
+        tw->Redo_thread_alloc = loop.total_size;
         treewalk_run(tw, CurQueue, size);
 
         /* Now done with the current queue*/
         if(orig_queue_alloc || tw->Niteration > 1)
             myfree(CurQueue);
 
-        /* We can stop if we are not updating hsml*/
-        if(!update_hsml)
-            break;
-
-        /* Set up the next queue*/
-        size = gadget_compact_thread_arrays(ReDoQueue, tw->NPRedo, tw->NPLeft, NumThreads);
-
+        size = gadget_compact_thread_arrays(&ReDoQueue, &loop);
         MPI_Allreduce(&size, &ntot, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-        if(ntot == 0){
+        /* We can stop if we are not updating hsml or if we are done.*/
+
+        if(!update_hsml || ntot == 0){
             myfree(ReDoQueue);
             break;
         }
@@ -1351,8 +1326,6 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
     } while(1);
     ta_free(tw->minnumngb);
     ta_free(tw->maxnumngb);
-    ta_free(tw->NPRedo);
-    ta_free(tw->NPLeft);
 }
 
 
