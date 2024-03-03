@@ -661,7 +661,7 @@ ev_export_import_counts(TreeWalk * tw, MPI_Comm comm)
     // message(1, "Exporting %ld particles. Thread 0 is %ld\n", counts.Nexport, tw->Nexport_thread[0]);
 
     counts.Nimport = counts.Import_count[0];
-    tw->NExportTargets = (counts.Export_count[i] > 0);
+    tw->NExportTargets = (counts.Export_count[0] > 0);
     for(i = 1; i < NTask; i++)
     {
         counts.Nimport += counts.Import_count[i];
