@@ -118,7 +118,7 @@ peano_t peano_hilbert_key(const int x, const int y, const int z, const int bits)
     for(bit = (bits - 1); bit >= 0; bit -= 1)
     {
         const int mask = 1 << bit;
-        const unsigned char pix = ((x & mask) ? 4 : 0) | ((y & mask) ? 2 : 0) | ((z & mask) ? 1 : 0);
+        const unsigned char pix = (4*((x & mask) >> bit)) | (2*((y & mask) >> bit)) | ((z & mask) >> bit);
 
         key <<= 3;
         key |= subpix3[rotation][pix];
