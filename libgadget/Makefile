@@ -53,7 +53,7 @@ utils/openmpsort.h \
 utils/spinlocks.h \
 utils/string.h
 
-UTILS_TESTED = memory openmpsort interp
+UTILS_TESTED = memory openmpsort interp peano
 UTILS_MPI_TESTED = mpsort
 
 TESTED = hci \
