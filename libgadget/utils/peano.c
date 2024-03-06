@@ -111,12 +111,13 @@ static const unsigned char subpix3[48][8] = {
  */
 peano_t peano_hilbert_key(const int x, const int y, const int z, const int bits)
 {
-    int mask;
+    int bit;
     unsigned char rotation = 0;
     peano_t key = 0;
 
-    for(mask = 1 << (bits - 1); mask > 0; mask >>= 1)
+    for(bit = (bits - 1); bit >= 0; bit -= 1)
     {
+        const int mask = 1 << bit;
         const unsigned char pix = ((x & mask) ? 4 : 0) | ((y & mask) ? 2 : 0) | ((z & mask) ? 1 : 0);
 
         key <<= 3;
