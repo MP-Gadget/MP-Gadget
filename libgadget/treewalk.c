@@ -52,6 +52,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         int startnode,
         LocalTreeWalk * lv);
 
+#ifdef DEBUG
 /*
  * for debugging
  */
@@ -59,6 +60,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         printf("tw->WorkSet[0] = %d (%d) %s:%d\n", tw->WorkSet ? tw->WorkSet[0] : 0, tw->WorkSetSize, __FILE__, __LINE__); \
     }
 static TreeWalk * GDB_current_ev = NULL;
+#endif
 
 static void
 ev_init_thread(TreeWalk * const tw, LocalTreeWalk * lv)
@@ -774,7 +776,9 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
     }
 
     double tstart, tend;
+#ifdef DEBUG
     GDB_current_ev = tw;
+#endif
 
     tstart = second();
     ev_begin(tw, active_set, size);
