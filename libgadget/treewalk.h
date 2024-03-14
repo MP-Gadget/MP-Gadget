@@ -38,13 +38,13 @@ typedef struct {
 } TreeWalkResultBase;
 
 typedef struct {
-    enum NgbTreeFindSymmetric symmetric;
     int mask;
+    int other;
     double Hsml;
     double dist[3];
     double r2;
     double r;
-    int other;
+    enum NgbTreeFindSymmetric symmetric;
 } TreeWalkNgbIterBase;
 
 typedef struct {
@@ -92,6 +92,7 @@ struct TreeWalk {
     const char * ev_label;
 
     enum TreeWalkType type;
+    int NTask; /*Number of MPI tasks*/
 
     size_t query_type_elsize;
     size_t result_type_elsize;
@@ -104,7 +105,6 @@ struct TreeWalk {
     TreeWalkNgbIterFunction ngbiter;     /* called for each pair of particles if visit is set to ngbiter */
     TreeWalkProcessFunction postprocess; /* postprocess finalizes quantities for each particle, e.g. divide the normalization */
     TreeWalkProcessFunction preprocess; /* Preprocess initializes quantities for each particle */
-    int NTask; /*Number of MPI tasks*/
     int64_t NThread; /*Number of OpenMP threads*/
 
     /* performance metrics */
@@ -149,6 +149,8 @@ struct TreeWalk {
     int *Ngblist;
     /* Flag not allocating nighbour list*/
     int NoNgblist;
+    /*Did we use the active_set array as the WorkSet?*/
+    int work_set_stolen_from_active;
     /* Index into WorkSet to start iteration.
      * Will be !=0 if the export buffer fills up*/
     int64_t WorkSetStart;
@@ -156,8 +158,6 @@ struct TreeWalk {
     int * WorkSet;
     /* Size of the workset list*/
     int64_t WorkSetSize;
-    /*Did we use the active_set array as the WorkSet?*/
-    int work_set_stolen_from_active;
     /* Redo counters and queues*/
     size_t *NPLeft;
     int **NPRedo;
