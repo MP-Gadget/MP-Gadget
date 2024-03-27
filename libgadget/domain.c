@@ -97,9 +97,6 @@ void set_domain_params(ParameterSet * ps)
         domain_params.TopNodeAllocFactor = param_get_double(ps, "TopNodeAllocFactor");
         domain_params.DomainUseGlobalSorting = param_get_int(ps, "DomainUseGlobalSorting");
         domain_params.SetAsideFactor = 1.;
-        if((param_get_int(ps, "StarformationOn") && param_get_double(ps, "QuickLymanAlphaProbability") == 0.)
-            || param_get_int(ps, "BlackHoleOn"))
-            domain_params.SetAsideFactor = 0.95;
     }
     MPI_Bcast(&domain_params, sizeof(DomainParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
