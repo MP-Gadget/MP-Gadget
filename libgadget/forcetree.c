@@ -53,7 +53,7 @@ static void
 force_treeupdate_pseudos(const int no, const int level, const ForceTree * const tree);
 
 static void
-force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, const DomainDecomp * ddecomp, int bits, int x, int y, int z, int *nextfree, const int lastnode);
+force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, const DomainDecomp * ddecomp, const int bits, const int x, const int y, const int z, int *nextfree, const int lastnode);
 
 static void
 force_exchange_pseudodata(const ForceTree * const tree, const DomainDecomp * const ddecomp);
@@ -850,7 +850,7 @@ force_tree_create_nodes(ForceTree * tree, const ActiveParticles * act, int mask,
  *  level in the tree, even when the particle population is so sparse that
  *  some of these nodes are actually empty.
  */
-void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, const DomainDecomp * ddecomp, int bits, int x, int y, int z, int *nextfree, const int lastnode)
+void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, const DomainDecomp * ddecomp, const int bits, const int x, const int y, const int z, int *nextfree, const int lastnode)
 {
     int i, j, k;
 

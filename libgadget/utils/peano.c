@@ -1,17 +1,10 @@
-#include <mpi.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
-
-#include <gsl/gsl_heapsort.h>
 #include "peano.h"
 
 /*  The following rewrite of the original function
  *  peano_hilbert_key_old() has been written by MARTIN REINECKE. 
  *  It is about a factor 2.3 - 2.5 faster than Volker's old routine!
  */
-const unsigned char rottable3[48][8] = {
+static const unsigned char rottable3[48][8] = {
     {36, 28, 25, 27, 10, 10, 25, 27},
     {29, 11, 24, 24, 37, 11, 26, 26},
     {8, 8, 25, 27, 30, 38, 25, 27},
@@ -62,7 +55,7 @@ const unsigned char rottable3[48][8] = {
     {13, 7, 13, 7, 41, 41, 22, 20}
 };
 
-const unsigned char subpix3[48][8] = {
+static const unsigned char subpix3[48][8] = {
     {0, 7, 1, 6, 3, 4, 2, 5},
     {7, 4, 6, 5, 0, 3, 1, 2},
     {4, 3, 5, 2, 7, 0, 6, 1},
@@ -116,15 +109,16 @@ const unsigned char subpix3[48][8] = {
 /*! This function computes a Peano-Hilbert key for an integer triplet (x,y,z),
  *  with x,y,z in the range between 0 and 2^bits-1.
  */
-peano_t peano_hilbert_key(int x, int y, int z, int bits)
+peano_t peano_hilbert_key(const int x, const int y, const int z, const int bits)
 {
-    int mask;
+    int bit;
     unsigned char rotation = 0;
     peano_t key = 0;
 
-    for(mask = 1 << (bits - 1); mask > 0; mask >>= 1)
+    for(bit = (bits - 1); bit >= 0; bit -= 1)
     {
-        unsigned char pix = ((x & mask) ? 4 : 0) | ((y & mask) ? 2 : 0) | ((z & mask) ? 1 : 0);
+        const int mask = 1 << bit;
+        const unsigned char pix = (4*((x & mask) >> bit)) | (2*((y & mask) >> bit)) | ((z & mask) >> bit);
 
         key <<= 3;
         key |= subpix3[rotation][pix];
@@ -133,4 +127,3 @@ peano_t peano_hilbert_key(int x, int y, int z, int bits)
 
     return key;
 }
-
