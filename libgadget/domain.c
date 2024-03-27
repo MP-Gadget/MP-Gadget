@@ -180,7 +180,8 @@ void domain_decompose_full(DomainDecomp * ddecomp)
         if(decompose_failed)
             continue;
 
-        if(domain_balance(ddecomp))
+        /* Still try an exchange if this is the last policy.*/
+        if(domain_balance(ddecomp) && (i < Npolicies-1))
             continue;
 
         /* copy the used nodes from temp to the true. */
@@ -200,6 +201,8 @@ void domain_decompose_full(DomainDecomp * ddecomp)
 
         if(domain_exchange(domain_layoutfunc, ddecomp, NULL, PartManager, SlotsManager, 10000, ddecomp->DomainComm)) {
             message(0,"Could not exchange particles\n");
+            if(i == Npolicies - 1)
+                endrun(5, "Ran out of policies!\n");
             continue;
         }
         else {
