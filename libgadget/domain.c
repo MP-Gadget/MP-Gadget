@@ -1401,13 +1401,14 @@ domain_compute_costs(DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopL
         #pragma omp for
         for(n = 0; n < PartManager->NumPart; n++)
         {
-            const int leaf = domain_get_topleaf(PEANO(P[n].Pos, PartManager->BoxSize), ddecomp);
-            /* Set the topleaf so we can use it for exchange*/
-            P[n].TopLeaf = leaf;
             /* Skip garbage particles: they have zero work
              * and can be removed by exchange if under memory pressure.*/
             if(P[n].IsGarbage)
                 continue;
+
+            const int leaf = domain_get_topleaf(PEANO(P[n].Pos, PartManager->BoxSize), ddecomp);
+            /* Set the topleaf so we can use it for exchange*/
+            P[n].TopLeaf = leaf;
 
             if(local_TopLeafWork)
                 local_TopLeafWork[leaf + tid * ddecomp->NTopLeaves] += 1;
