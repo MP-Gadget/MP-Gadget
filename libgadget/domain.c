@@ -128,7 +128,7 @@ static int domain_check_for_local_refine_subsample(
     );
 
 static int
-domain_global_refine(struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes, int64_t countlimit, int64_t costlimit);
+domain_global_refine(struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes, const int64_t countlimit, const int64_t costlimit);
 
 static void
 domain_create_topleaves(DomainDecomp * ddecomp, int no, int * next);
@@ -331,7 +331,6 @@ domain_policies_init(DomainDecompositionPolicy policies[],
     const int SwitchToGlobal = 4;
     int i;
     for(i = 0; i < NPolicy; i ++) {
-        policies[i].TopNodeAllocFactor = domain_params.TopNodeAllocFactor * pow(1.3, i);
         /* global sorting is slower than a local sorting, but tends to produce a more
          * balanced domain tree that is easier to merge.
          * */
@@ -341,15 +340,20 @@ domain_policies_init(DomainDecompositionPolicy policies[],
         /* The extent of the global sorting may be different from the extent of the Domain communicator*/
         policies[i].GlobalSortComm = MPI_COMM_WORLD;
         /* global sorting of particles is slow, so we add a slower presort to even the local
-         * particle distribution before subsampling, improves the balance, too */
+         * particle distribution before subsampling, improves the balance, too and gets rid of garbage.*/
         policies[i].PreSort = 0;
         if(i >= 1)
             policies[i].PreSort = 1;
         policies[i].SubSampleDistance = 16;
         if(i > 1)
             policies[i].SubSampleDistance = 16/(i/2+1);
-        /* Desired number of TopLeaves should scale like the total number of processors*/
-        policies[i].NTopLeaves = domain_params.DomainOverDecompositionFactor * NTask;
+        /* Desired number of TopLeaves should scale like the total number of processors. If we don't get a good balance domain decomposition, we need more topnodes.
+         * Need to scale evenly with processors so the round robin balances.*/
+        policies[i].NTopLeaves = domain_params.DomainOverDecompositionFactor * NTask * (i+1);
+        /* This is normally much too large: doesn't make sense to be larger than 1.*/
+        policies[i].TopNodeAllocFactor = domain_params.TopNodeAllocFactor * pow(1.3, i);
+        if(policies[i].TopNodeAllocFactor > 1)
+            policies[i].TopNodeAllocFactor = 1;
     }
 
     return NPolicy;
@@ -361,7 +365,7 @@ domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy)
 {
     size_t bytes, all_bytes = 0;
 
-    int MaxTopNodes = (int) (policy->TopNodeAllocFactor * PartManager->MaxPart + 1);
+    int MaxTopNodes = (int) (policy->TopNodeAllocFactor * PartManager->MaxPart / policy->SubSampleDistance + 1);
 
     /* Build the domain over the global all-processors communicator.
      * We use a symbol in case we want to do fancy things in the future.*/
@@ -1327,7 +1331,7 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
 static int
 domain_global_refine(
     struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes,
-    int64_t countlimit, int64_t costlimit)
+    const int64_t countlimit, const int64_t costlimit)
 {
     int i;
 
