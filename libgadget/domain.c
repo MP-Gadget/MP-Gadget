@@ -169,8 +169,8 @@ void domain_decompose_full(DomainDecomp * ddecomp)
 #endif
         int MaxTopNodes = domain_allocate(ddecomp, &policies[i]);
 
-        message(0, "Attempting new domain decomposition policy: TopNodeAllocFactor=%g, UseglobalSort=%d, SubSampleDistance=%d UsePreSort=%d\n",
-                policies[i].TopNodeAllocFactor, domain_params.DomainUseGlobalSorting, policies[i].SubSampleDistance, policies[i].PreSort);
+        message(0, "Attempting new domain decomposition policy: TopNodeAllocFactor=%g, Topleaves=%d GlobalSort=%d, SubSampleDistance=%d UsePreSort=%d\n",
+                policies[i].TopNodeAllocFactor, policies[i].NTopLeaves, domain_params.DomainUseGlobalSorting, policies[i].SubSampleDistance, policies[i].PreSort);
 
         decompose_failed = domain_attempt_decompose(ddecomp, &policies[i], MaxTopNodes);
         decompose_failed = MPIU_Any(decompose_failed, ddecomp->DomainComm);
@@ -405,18 +405,10 @@ void domain_free(DomainDecomp * ddecomp)
 static int
 domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy, const int MaxTopNodes)
 {
-    int i;
-
-    size_t bytes, all_bytes = 0;
 
     /* points to the root node of the top-level tree */
-    struct local_topnode_data *topTree = (struct local_topnode_data *) mymalloc("LocaltopTree", bytes =
-            (MaxTopNodes * sizeof(struct local_topnode_data)));
+    struct local_topnode_data *topTree = (struct local_topnode_data *) mymalloc("LocaltopTree",  MaxTopNodes * sizeof(struct local_topnode_data));
     memset(topTree, 0, sizeof(topTree[0]) * MaxTopNodes);
-    all_bytes += bytes;
-
-    message(0, "use of %g MB of temporary storage for domain decomposition... (presently allocated=%g MB)\n",
-             all_bytes / (1024.0 * 1024.0), mymalloc_usedbytes() / (1024.0 * 1024.0));
 
     report_memory_usage("DOMAIN");
 
@@ -425,7 +417,9 @@ domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * pol
         return 1;
     }
 
+    int i;
     /* copy what we need for the topnodes */
+    #pragma omp parallel for
     for(i = 0; i < ddecomp->NTopNodes; i++)
     {
         ddecomp->TopNodes[i].StartKey = topTree[i].StartKey;
@@ -526,7 +520,7 @@ domain_check_memory_bound(const DomainDecomp * ddecomp, int64_t *TopLeafWork, in
         message(0, "Largest load: work=%g particle=%g\n",
             max_work / ((double)sumwork / NTask), max_load / (((double) sumload) / NTask));
     else
-        message(0, "Largest particle load particle=%g\n", max_load / (((double) sumload) / NTask));
+        message(0, "Largest particle load=%g\n", max_load / (((double) sumload) / NTask));
 
     /*Leave a small number of particles for star formation */
     if(max_load > PartManager->MaxPart * domain_params.SetAsideFactor)
@@ -642,7 +636,6 @@ domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int Nsegmen
     int64_t curtaskload = 0; /* cumulative load for current task */
     int64_t maxleafcost = 0;
 
-    message(0, "Expected segment cost %g\n", mean_expected);
     /* we maintain that after the loop curleaf is the number of leaves scanned,
      * curseg is number of segments created.
      * */
@@ -713,7 +706,7 @@ domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int Nsegmen
     }
 
     /*In most 'normal' cases nrounds == 1 here*/
-    message(0, "Created %d segments in %d rounds. Max leaf cost: %g\n", curseg, nrounds, (1.0*maxleafcost)/(totalcost) * Nsegment);
+    message(0, "Created %d segments in %d rounds. Max leaf cost/expected: %g expected: %g \n", curseg, nrounds, (1.0*maxleafcost)/(totalcost) * Nsegment, (1.0*totalcost)/Nsegment);
 
     if(curseg < Nsegment) {
         endrun(0, "Not enough segments were created (%d instead of %d). This should not happen.\n", curseg, Nsegment);
@@ -869,7 +862,7 @@ domain_toptree_update_cost(struct local_topnode_data * topTree, int start)
     }
 }
 
-/* This function recurively identify and terminate tree branches that are cheap.*/
+/* This function recursively identifies and terminate tree branches that are cheap.*/
 static void
 domain_toptree_truncate_r(struct local_topnode_data * topTree, int start, int64_t countlimit, int64_t costlimit)
 {
@@ -1304,7 +1297,7 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
     }
 
     /* now let's see whether we should still more refinements, based on the estimated cumulative cost/count in each cell */
-
+    int prerefinetoptree = *topTreeSize;
     int global_refine_failed = domain_global_refine(topTree, topTreeSize, MaxTopNodes, countlimit, costlimit);
 
     if(MPIU_Any(global_refine_failed, DomainComm)) {
@@ -1312,8 +1305,7 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
         return 1;
     }
 
-    message(0, "Final local topTree size = %d per segment = %g.\n", *topTreeSize, 1.0 * (*topTreeSize) / (policy->NTopLeaves));
-
+    message(0, "Final topTree size = %d ntopleaves %d ratio to desired ntopleaves = %g (before refine %d).\n", *topTreeSize, policy->NTopLeaves, 1.0 * (*topTreeSize) / (policy->NTopLeaves), prerefinetoptree);
     return 0;
 }
 
@@ -1338,8 +1330,6 @@ domain_global_refine(
      * will be expensive.
      * In practice this seems to work fine, probably because the cost distribution
      * is not that unbalanced. */
-
-    message(0, "local topTree size before appending=%d\n", *topTreeSize);
 
     /*Note that *topTreeSize will change inside the loop*/
     for(i = 0; i < *topTreeSize; i++)
