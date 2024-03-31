@@ -1124,7 +1124,7 @@ domain_check_for_local_refine_subsample(
             /* this will create a new node. */
             last_key = LP[i].Key;
             last_leaf = domain_toptree_insert(topTree, last_key, 0);
-            i += policy->SubSampleDistance;
+            i++;
             continue;
         }
     }
