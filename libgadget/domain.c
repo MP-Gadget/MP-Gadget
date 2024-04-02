@@ -343,8 +343,8 @@ domain_policies_init(DomainDecompositionPolicy policies[],
         /* Changing the subsample distance is not generally very effective, because we have sorted already
          * and we are balancing by particle load anyway. Better to increase the number of topnodes.
          * But we can try this as a last resort.*/
-        policies[i].SubSampleDistance = 16;
-        if(i > 6 && policies[i-1].SubSampleDistance > 2)
+        policies[i].SubSampleDistance = 256;
+        if(i > 4 && policies[i-1].SubSampleDistance > 2)
             policies[i].SubSampleDistance = policies[i-1].SubSampleDistance / 2;
         /* Desired number of TopLeaves should scale like the total number of processors. If we don't get a good balance domain decomposition, we need more topnodes.
          * Need to scale evenly with processors so the round robin balances.*/
