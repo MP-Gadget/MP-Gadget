@@ -49,7 +49,6 @@ static DomainParams domain_params;
  * Several policies will be attempted before we give up and die.
  * */
 typedef struct {
-    double TopNodeAllocFactor; /** number of Top level tree nodes as a fraction of particles */
     int SubSampleDistance; /** Frequency of subsampling */
     int PreSort; /** PreSort the local particles before subsampling, creating a fair subsample */
     int NTopLeaves; /** Number of Peano-Hilbert segments to create before balancing. Should be DomainOverDecompositionFactor * NTask*/
@@ -167,16 +166,24 @@ void domain_decompose_full(DomainDecomp * ddecomp)
 #ifdef DEBUG
         domain_test_id_uniqueness(PartManager);
 #endif
-        int MaxTopNodes = domain_allocate(ddecomp, &policies[i]);
+        message(0, "Attempting new domain decomposition policy: Topleaves=%d GlobalSort=%d, SubSampleDistance=%d PreSort=%d\n", policies[i].NTopLeaves, domain_params.DomainUseGlobalSorting, policies[i].SubSampleDistance, policies[i].PreSort);
 
-        message(0, "Attempting new domain decomposition policy: TopNodeAllocFactor=%g, Topleaves=%d GlobalSort=%d, SubSampleDistance=%d UsePreSort=%d\n",
-                policies[i].TopNodeAllocFactor, policies[i].NTopLeaves, domain_params.DomainUseGlobalSorting, policies[i].SubSampleDistance, policies[i].PreSort);
+        /* Keep going with the same policy until we have enough topnodes to make it work.*/
+        do {
+            int MaxTopNodes = domain_allocate(ddecomp, &policies[i]);
 
-        decompose_failed = domain_attempt_decompose(ddecomp, &policies[i], MaxTopNodes);
-        decompose_failed = MPIU_Any(decompose_failed, ddecomp->DomainComm);
+            decompose_failed = domain_attempt_decompose(ddecomp, &policies[i], MaxTopNodes);
+            decompose_failed = MPIU_Any(decompose_failed, ddecomp->DomainComm);
 
-        if(decompose_failed)
-            continue;
+            if(decompose_failed) {
+                domain_free(ddecomp);
+                /* We have not enough topnodes, get more.*/
+                domain_params.TopNodeAllocFactor *= 1.2;
+                message(0, "Increasing topnodes from %d to %d.\n", MaxTopNodes, (int) (MaxTopNodes * 1.2));
+                if(domain_params.TopNodeAllocFactor > 10)
+                    endrun(5, "TopNodeAllocFactor = %g, unreasonably large!\n", domain_params.TopNodeAllocFactor);
+            }
+        } while(decompose_failed);
 
         /* Still try an exchange if this is the last policy.*/
         if(domain_balance(ddecomp) && (i < Npolicies-1))
@@ -339,10 +346,6 @@ domain_policies_init(DomainDecompositionPolicy policies[],
         /* Desired number of TopLeaves should scale like the total number of processors. If we don't get a good balance domain decomposition, we need more topnodes.
          * Need to scale evenly with processors so the round robin balances.*/
         policies[i].NTopLeaves = domain_params.DomainOverDecompositionFactor * NTask * (i+1);
-        /* This is normally much too large: doesn't make sense to be larger than 1.*/
-        policies[i].TopNodeAllocFactor = domain_params.TopNodeAllocFactor * pow(1.3, i);
-        if(policies[i].TopNodeAllocFactor > 1)
-            policies[i].TopNodeAllocFactor = 1;
     }
 
     return NPolicy;
@@ -354,7 +357,8 @@ domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy)
 {
     size_t bytes, all_bytes = 0;
 
-    int MaxTopNodes = (int) (policy->TopNodeAllocFactor * PartManager->MaxPart / policy->SubSampleDistance + 1);
+    /* Number of local topnodes and local topleaves allowed.*/
+    const int MaxTopNodes = domain_params.TopNodeAllocFactor * (PartManager->NumPart + 1);
 
     /* Build the domain over the global all-processors communicator.
      * We use a symbol in case we want to do fancy things in the future.*/
@@ -1255,7 +1259,7 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
     int local_refine_failed = domain_check_for_local_refine_subsample(policy, topTree, topTreeSize, MaxTopNodes, DomainComm);
 
     if(MPIU_Any(local_refine_failed, DomainComm)) {
-        message(0, "We are out of Topnodes. \n");
+        message(0, "We are out of Topnodes: have %d.\n", MaxTopNodes);
         return 1;
     }
 
@@ -1290,12 +1294,10 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
     /* we now need to exchange tree parts and combine them as needed */
     int combine_failed = domain_nonrecursively_combine_topTree(topTree, topTreeSize, MaxTopNodes, DomainComm);
 
-    if(combine_failed)
-    {
+    if(combine_failed) {
         message(0, "can't combine trees due to lack of storage. Will try again.\n");
         return 1;
     }
-
     /* now let's see whether we should still more refinements, based on the estimated cumulative cost/count in each cell */
     int prerefinetoptree = *topTreeSize;
     int global_refine_failed = domain_global_refine(topTree, topTreeSize, MaxTopNodes, countlimit, costlimit);
