@@ -50,8 +50,6 @@ static DomainParams domain_params;
  * */
 typedef struct {
     double TopNodeAllocFactor; /** number of Top level tree nodes as a fraction of particles */
-    int UseGlobalSort; /** Apply a global sorting on the subsamples before building the top level tree. */
-    MPI_Comm GlobalSortComm; /** Communicator to use for the global sort. By default MPI_COMM_WORLD. */
     int SubSampleDistance; /** Frequency of subsampling */
     int PreSort; /** PreSort the local particles before subsampling, creating a fair subsample */
     int NTopLeaves; /** Number of Peano-Hilbert segments to create before balancing. Should be DomainOverDecompositionFactor * NTask*/
@@ -124,7 +122,7 @@ domain_toptree_merge(struct local_topnode_data *treeA, struct local_topnode_data
 
 static int domain_check_for_local_refine_subsample(
     DomainDecompositionPolicy * policy,
-    struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes
+    struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes, const MPI_Comm DomainComm
     );
 
 static int
@@ -172,7 +170,7 @@ void domain_decompose_full(DomainDecomp * ddecomp)
         int MaxTopNodes = domain_allocate(ddecomp, &policies[i]);
 
         message(0, "Attempting new domain decomposition policy: TopNodeAllocFactor=%g, UseglobalSort=%d, SubSampleDistance=%d UsePreSort=%d\n",
-                policies[i].TopNodeAllocFactor, policies[i].UseGlobalSort, policies[i].SubSampleDistance, policies[i].PreSort);
+                policies[i].TopNodeAllocFactor, domain_params.DomainUseGlobalSorting, policies[i].SubSampleDistance, policies[i].PreSort);
 
         decompose_failed = domain_attempt_decompose(ddecomp, &policies[i], MaxTopNodes);
         decompose_failed = MPIU_Any(decompose_failed, ddecomp->DomainComm);
@@ -328,17 +326,8 @@ domain_policies_init(DomainDecompositionPolicy policies[],
 {
     int NTask;
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
-    const int SwitchToGlobal = 4;
     int i;
     for(i = 0; i < NPolicy; i ++) {
-        /* global sorting is slower than a local sorting, but tends to produce a more
-         * balanced domain tree that is easier to merge.
-         * */
-        policies[i].UseGlobalSort = domain_params.DomainUseGlobalSorting;
-        if(i >= SwitchToGlobal)
-            policies[i].UseGlobalSort = 1;
-        /* The extent of the global sorting may be different from the extent of the Domain communicator*/
-        policies[i].GlobalSortComm = MPI_COMM_WORLD;
         /* global sorting of particles is slow, so we add a slower presort to even the local
          * particle distribution before subsampling, improves the balance, too and gets rid of garbage.*/
         policies[i].PreSort = 0;
@@ -990,8 +979,8 @@ mp_order_by_key(const void * data, void * radix, void * arg)
 static int
 domain_check_for_local_refine_subsample(
     DomainDecompositionPolicy * policy,
-    struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes
-    )
+    struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes,
+    const MPI_Comm DomainComm)
 {
 
     int i;
@@ -1057,8 +1046,8 @@ domain_check_for_local_refine_subsample(
         }
     }
 
-    if(policy->UseGlobalSort) {
-        mpsort_mpi(LP, Nsample, sizeof(struct local_particle_data), mp_order_by_key, 8, NULL, policy->GlobalSortComm);
+    if(domain_params.DomainUseGlobalSorting) {
+        mpsort_mpi(LP, Nsample, sizeof(struct local_particle_data), mp_order_by_key, 8, NULL, DomainComm);
     } else {
         qsort_openmp(LP, Nsample, sizeof(struct local_particle_data), order_by_key);
     }
@@ -1270,7 +1259,7 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
      * 1/16 is used because each local topTree node takes about 32 bytes.
      **/
 
-    int local_refine_failed = domain_check_for_local_refine_subsample(policy, topTree, topTreeSize, MaxTopNodes);
+    int local_refine_failed = domain_check_for_local_refine_subsample(policy, topTree, topTreeSize, MaxTopNodes, DomainComm);
 
     if(MPIU_Any(local_refine_failed, DomainComm)) {
         message(0, "We are out of Topnodes. \n");
