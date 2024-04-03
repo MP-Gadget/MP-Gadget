@@ -71,8 +71,6 @@ typedef struct {
     size_t NThisParticleExport;
     /* Pointer to memory for exports*/
     data_index * DataIndexTable;
-    /* Index this thread has in the above table*/
-    size_t DataIndexOffset;
 
     int * ngblist;
     int64_t maxNinteractions;

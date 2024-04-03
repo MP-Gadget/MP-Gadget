@@ -58,8 +58,10 @@ ev_init_thread(TreeWalk * const tw, LocalTreeWalk * lv, data_index * DataIndexTa
     lv->Ninteractions = 0;
     lv->Nexport = 0;
     size_t localbunch = tw->BunchSize/omp_get_max_threads();
-    lv->DataIndexOffset = thread_id * localbunch;
-    lv->DataIndexTable = DataIndexTable;
+    if(DataIndexTable)
+        lv->DataIndexTable = DataIndexTable + thread_id * localbunch;
+    else
+        lv->DataIndexTable = NULL;
     lv->BunchSize = localbunch;
     if(localbunch > tw->BunchSize - thread_id * localbunch)
         lv->BunchSize = tw->BunchSize - thread_id * localbunch;
@@ -313,7 +315,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no)
     TreeWalk * tw = lv->tw;
     const int task = tw->tree->TopLeaves[no - tw->tree->lastnode].Task;
     /* This index is a unique entry in the global DataIndexTable.*/
-    size_t nexp = lv->Nexport + lv->DataIndexOffset;
+    size_t nexp = lv->Nexport;
     /* If the last export was to this task, we can perhaps just add this export to the existing NodeList. We can
      * be sure that all exports of this particle are contiguous.*/
     if(lv->NThisParticleExport >= 1 && lv->DataIndexTable[nexp-1].Task == task) {
@@ -421,9 +423,9 @@ ev_toptree(TreeWalk * tw, data_index * DataIndexTable)
                     lv->Nexport -= lv->NThisParticleExport;
                     const int lastreal = tw->WorkSet ? tw->WorkSet[k] : k;
                     /* Index stores tw->target, which is the current particle.*/
-                    if(lv->NThisParticleExport > 0 && DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index > lastreal)
+                    if(lv->NThisParticleExport > 0 && lv->DataIndexTable[lv->Nexport].Index > lastreal)
                         endrun(5, "Something screwed up in export queue: nexp %ld (local %ld) last %d < index %d\n", lv->Nexport,
-                            lv->NThisParticleExport, lastreal, DataIndexTable[lv->DataIndexOffset + lv->Nexport].Index);
+                            lv->NThisParticleExport, lastreal, lv->DataIndexTable[lv->Nexport].Index);
                     /* Leave this chunking loop.*/
                 }
                 break;
@@ -432,7 +434,7 @@ ev_toptree(TreeWalk * tw, data_index * DataIndexTable)
 
         int tid = omp_get_thread_num();
         tw->Nexport_thread[tid] = lv->Nexport;
-        tw->Nexport_threadoffset[tid] = lv->DataIndexOffset;
+        tw->Nexport_threadoffset[tid] = lv->DataIndexTable - DataIndexTable;
     }
 
     if(BufferFullFlag > 0) {
