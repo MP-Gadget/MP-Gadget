@@ -335,10 +335,10 @@ domain_policies_init(DomainDecompositionPolicy policies[],
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     int i;
     for(i = 0; i < NPolicy; i ++) {
-        /* global sorting of particles is slow, so we add a slower presort to even the local
-         * particle distribution before subsampling, improves the balance, too and gets rid of garbage.*/
+        /* Sort the local particle distribution before subsampling, and get rid of garbage.
+         * Does almost nothing to the balance in practice.*/
         policies[i].PreSort = 0;
-        if(i >= 1)
+        if(i >= 2)
             policies[i].PreSort = 1;
         /* Changing the subsample distance is not generally very effective, because we have sorted already
          * and we are balancing by particle load anyway. Better to increase the number of topnodes.
