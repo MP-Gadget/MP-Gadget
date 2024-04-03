@@ -47,6 +47,17 @@ typedef struct {
     enum NgbTreeFindSymmetric symmetric;
 } TreeWalkNgbIterBase;
 
+/*!< Thread-local list of the particles to be exported,
+ * and the destination tasks. This table allows the
+results to be disentangled again and to be
+assigned to the correct particle.*/
+typedef struct data_index
+{
+    int Task;
+    int Index;
+    int NodeList[NODELISTLENGTH];
+} data_index;
+
 typedef struct {
     TreeWalk * tw;
 
@@ -58,6 +69,9 @@ typedef struct {
     size_t BunchSize;
     /* Number of entries in the export table for this particle*/
     size_t NThisParticleExport;
+    /* Pointer to memory for exports*/
+    data_index * DataIndexTable;
+    /* Index this thread has in the above table*/
     size_t DataIndexOffset;
 
     int * ngblist;
