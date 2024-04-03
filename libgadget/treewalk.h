@@ -140,7 +140,7 @@ struct TreeWalk {
     /* Number of times we filled up our export buffer*/
     int64_t Nexportfull;
     /* Number of MPI ranks we export to from this rank.*/
-    int NExportTargets;
+    int64_t NExportTargets;
     /* Number of times we needed to re-run the treewalk.
      * Convenience variable for density. */
     int64_t Niteration;
@@ -159,7 +159,7 @@ struct TreeWalk {
     size_t BunchSize;
     /* List of neighbour candidates.*/
     int *Ngblist;
-    /* Flag not allocating nighbour list*/
+    /* Flag not allocating neighbour list*/
     int NoNgblist;
     /*Did we use the active_set array as the WorkSet?*/
     int work_set_stolen_from_active;
