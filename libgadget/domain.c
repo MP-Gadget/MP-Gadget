@@ -49,9 +49,6 @@ static DomainParams domain_params;
  * Several policies will be attempted before we give up and die.
  * */
 typedef struct {
-    double TopNodeAllocFactor; /** number of Top level tree nodes as a fraction of particles */
-    int UseGlobalSort; /** Apply a global sorting on the subsamples before building the top level tree. */
-    MPI_Comm GlobalSortComm; /** Communicator to use for the global sort. By default MPI_COMM_WORLD. */
     int SubSampleDistance; /** Frequency of subsampling */
     int PreSort; /** PreSort the local particles before subsampling, creating a fair subsample */
     int NTopLeaves; /** Number of Peano-Hilbert segments to create before balancing. Should be DomainOverDecompositionFactor * NTask*/
@@ -97,9 +94,6 @@ void set_domain_params(ParameterSet * ps)
         domain_params.TopNodeAllocFactor = param_get_double(ps, "TopNodeAllocFactor");
         domain_params.DomainUseGlobalSorting = param_get_int(ps, "DomainUseGlobalSorting");
         domain_params.SetAsideFactor = 1.;
-        if((param_get_int(ps, "StarformationOn") && param_get_double(ps, "QuickLymanAlphaProbability") == 0.)
-            || param_get_int(ps, "BlackHoleOn"))
-            domain_params.SetAsideFactor = 0.95;
     }
     MPI_Bcast(&domain_params, sizeof(DomainParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -127,11 +121,11 @@ domain_toptree_merge(struct local_topnode_data *treeA, struct local_topnode_data
 
 static int domain_check_for_local_refine_subsample(
     DomainDecompositionPolicy * policy,
-    struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes
+    struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes, const MPI_Comm DomainComm
     );
 
 static int
-domain_global_refine(struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes, int64_t countlimit, int64_t costlimit);
+domain_global_refine(struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes, const int64_t countlimit, const int64_t costlimit);
 
 static void
 domain_create_topleaves(DomainDecomp * ddecomp, int no, int * next);
@@ -172,18 +166,27 @@ void domain_decompose_full(DomainDecomp * ddecomp)
 #ifdef DEBUG
         domain_test_id_uniqueness(PartManager);
 #endif
-        int MaxTopNodes = domain_allocate(ddecomp, &policies[i]);
+        message(0, "Attempting new domain decomposition policy: Topleaves=%d GlobalSort=%d, SubSampleDistance=%d PreSort=%d\n", policies[i].NTopLeaves, domain_params.DomainUseGlobalSorting, policies[i].SubSampleDistance, policies[i].PreSort);
 
-        message(0, "Attempting new domain decomposition policy: TopNodeAllocFactor=%g, UseglobalSort=%d, SubSampleDistance=%d UsePreSort=%d\n",
-                policies[i].TopNodeAllocFactor, policies[i].UseGlobalSort, policies[i].SubSampleDistance, policies[i].PreSort);
+        /* Keep going with the same policy until we have enough topnodes to make it work.*/
+        do {
+            int MaxTopNodes = domain_allocate(ddecomp, &policies[i]);
 
-        decompose_failed = domain_attempt_decompose(ddecomp, &policies[i], MaxTopNodes);
-        decompose_failed = MPIU_Any(decompose_failed, ddecomp->DomainComm);
+            decompose_failed = domain_attempt_decompose(ddecomp, &policies[i], MaxTopNodes);
+            decompose_failed = MPIU_Any(decompose_failed, ddecomp->DomainComm);
 
-        if(decompose_failed)
-            continue;
+            if(decompose_failed) {
+                domain_free(ddecomp);
+                /* We have not enough topnodes, get more.*/
+                domain_params.TopNodeAllocFactor *= 1.2;
+                message(0, "Increasing topnodes from %d to %d.\n", MaxTopNodes, (int) (MaxTopNodes * 1.2));
+                if(domain_params.TopNodeAllocFactor > 10)
+                    endrun(5, "TopNodeAllocFactor = %g, unreasonably large!\n", domain_params.TopNodeAllocFactor);
+            }
+        } while(decompose_failed);
 
-        if(domain_balance(ddecomp))
+        /* Still try an exchange if this is the last policy.*/
+        if(domain_balance(ddecomp) && (i < Npolicies-1))
             continue;
 
         /* copy the used nodes from temp to the true. */
@@ -203,6 +206,8 @@ void domain_decompose_full(DomainDecomp * ddecomp)
 
         if(domain_exchange(domain_layoutfunc, ddecomp, NULL, PartManager, SlotsManager, 10000, ddecomp->DomainComm)) {
             message(0,"Could not exchange particles\n");
+            if(i == Npolicies - 1)
+                endrun(5, "Ran out of policies!\n");
             continue;
         }
         else {
@@ -328,28 +333,22 @@ domain_policies_init(DomainDecompositionPolicy policies[],
 {
     int NTask;
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
-    const int SwitchToGlobal = 4;
     int i;
     for(i = 0; i < NPolicy; i ++) {
-        policies[i].TopNodeAllocFactor = domain_params.TopNodeAllocFactor * pow(1.3, i);
-        /* global sorting is slower than a local sorting, but tends to produce a more
-         * balanced domain tree that is easier to merge.
-         * */
-        policies[i].UseGlobalSort = domain_params.DomainUseGlobalSorting;
-        if(i >= SwitchToGlobal)
-            policies[i].UseGlobalSort = 1;
-        /* The extent of the global sorting may be different from the extent of the Domain communicator*/
-        policies[i].GlobalSortComm = MPI_COMM_WORLD;
-        /* global sorting of particles is slow, so we add a slower presort to even the local
-         * particle distribution before subsampling, improves the balance, too */
+        /* Sort the local particle distribution before subsampling, and get rid of garbage.
+         * Does almost nothing to the balance in practice.*/
         policies[i].PreSort = 0;
-        if(i >= 1)
+        if(i >= 2)
             policies[i].PreSort = 1;
-        policies[i].SubSampleDistance = 16;
-        if(i > 1)
-            policies[i].SubSampleDistance = 16/(i/2+1);
-        /* Desired number of TopLeaves should scale like the total number of processors*/
-        policies[i].NTopLeaves = domain_params.DomainOverDecompositionFactor * NTask;
+        /* Changing the subsample distance is not generally very effective, because we have sorted already
+         * and we are balancing by particle load anyway. Better to increase the number of topnodes.
+         * But we can try this as a last resort.*/
+        policies[i].SubSampleDistance = 256;
+        if(i > 4 && policies[i-1].SubSampleDistance > 2)
+            policies[i].SubSampleDistance = policies[i-1].SubSampleDistance / 2;
+        /* Desired number of TopLeaves should scale like the total number of processors. If we don't get a good balance domain decomposition, we need more topnodes.
+         * Need to scale evenly with processors so the round robin balances.*/
+        policies[i].NTopLeaves = domain_params.DomainOverDecompositionFactor * NTask * (i+1);
     }
 
     return NPolicy;
@@ -361,7 +360,8 @@ domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy)
 {
     size_t bytes, all_bytes = 0;
 
-    int MaxTopNodes = (int) (policy->TopNodeAllocFactor * PartManager->MaxPart + 1);
+    /* Number of local topnodes and local topleaves allowed.*/
+    const int MaxTopNodes = domain_params.TopNodeAllocFactor * (PartManager->NumPart + 1);
 
     /* Build the domain over the global all-processors communicator.
      * We use a symbol in case we want to do fancy things in the future.*/
@@ -412,18 +412,10 @@ void domain_free(DomainDecomp * ddecomp)
 static int
 domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy, const int MaxTopNodes)
 {
-    int i;
-
-    size_t bytes, all_bytes = 0;
 
     /* points to the root node of the top-level tree */
-    struct local_topnode_data *topTree = (struct local_topnode_data *) mymalloc("LocaltopTree", bytes =
-            (MaxTopNodes * sizeof(struct local_topnode_data)));
+    struct local_topnode_data *topTree = (struct local_topnode_data *) mymalloc("LocaltopTree",  MaxTopNodes * sizeof(struct local_topnode_data));
     memset(topTree, 0, sizeof(topTree[0]) * MaxTopNodes);
-    all_bytes += bytes;
-
-    message(0, "use of %g MB of temporary storage for domain decomposition... (presently allocated=%g MB)\n",
-             all_bytes / (1024.0 * 1024.0), mymalloc_usedbytes() / (1024.0 * 1024.0));
 
     report_memory_usage("DOMAIN");
 
@@ -432,7 +424,9 @@ domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * pol
         return 1;
     }
 
+    int i;
     /* copy what we need for the topnodes */
+    #pragma omp parallel for
     for(i = 0; i < ddecomp->NTopNodes; i++)
     {
         ddecomp->TopNodes[i].StartKey = topTree[i].StartKey;
@@ -533,7 +527,7 @@ domain_check_memory_bound(const DomainDecomp * ddecomp, int64_t *TopLeafWork, in
         message(0, "Largest load: work=%g particle=%g\n",
             max_work / ((double)sumwork / NTask), max_load / (((double) sumload) / NTask));
     else
-        message(0, "Largest particle load particle=%g\n", max_load / (((double) sumload) / NTask));
+        message(0, "Largest particle load=%g\n", max_load / (((double) sumload) / NTask));
 
     /*Leave a small number of particles for star formation */
     if(max_load > PartManager->MaxPart * domain_params.SetAsideFactor)
@@ -649,7 +643,6 @@ domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int Nsegmen
     int64_t curtaskload = 0; /* cumulative load for current task */
     int64_t maxleafcost = 0;
 
-    message(0, "Expected segment cost %g\n", mean_expected);
     /* we maintain that after the loop curleaf is the number of leaves scanned,
      * curseg is number of segments created.
      * */
@@ -720,7 +713,7 @@ domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int Nsegmen
     }
 
     /*In most 'normal' cases nrounds == 1 here*/
-    message(0, "Created %d segments in %d rounds. Max leaf cost: %g\n", curseg, nrounds, (1.0*maxleafcost)/(totalcost) * Nsegment);
+    message(0, "Created %d segments in %d rounds. Max leaf cost/expected: %g expected: %g \n", curseg, nrounds, (1.0*maxleafcost)/(totalcost) * Nsegment, (1.0*totalcost)/Nsegment);
 
     if(curseg < Nsegment) {
         endrun(0, "Not enough segments were created (%d instead of %d). This should not happen.\n", curseg, Nsegment);
@@ -876,7 +869,7 @@ domain_toptree_update_cost(struct local_topnode_data * topTree, int start)
     }
 }
 
-/* This function recurively identify and terminate tree branches that are cheap.*/
+/* This function recursively identifies and terminate tree branches that are cheap.*/
 static void
 domain_toptree_truncate_r(struct local_topnode_data * topTree, int start, int64_t countlimit, int64_t costlimit)
 {
@@ -986,8 +979,8 @@ mp_order_by_key(const void * data, void * radix, void * arg)
 static int
 domain_check_for_local_refine_subsample(
     DomainDecompositionPolicy * policy,
-    struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes
-    )
+    struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes,
+    const MPI_Comm DomainComm)
 {
 
     int i;
@@ -1053,8 +1046,8 @@ domain_check_for_local_refine_subsample(
         }
     }
 
-    if(policy->UseGlobalSort) {
-        mpsort_mpi(LP, Nsample, sizeof(struct local_particle_data), mp_order_by_key, 8, NULL, policy->GlobalSortComm);
+    if(domain_params.DomainUseGlobalSorting) {
+        mpsort_mpi(LP, Nsample, sizeof(struct local_particle_data), mp_order_by_key, 8, NULL, DomainComm);
     } else {
         qsort_openmp(LP, Nsample, sizeof(struct local_particle_data), order_by_key);
     }
@@ -1134,7 +1127,7 @@ domain_check_for_local_refine_subsample(
             /* this will create a new node. */
             last_key = LP[i].Key;
             last_leaf = domain_toptree_insert(topTree, last_key, 0);
-            i += policy->SubSampleDistance;
+            i++;
             continue;
         }
     }
@@ -1266,10 +1259,10 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
      * 1/16 is used because each local topTree node takes about 32 bytes.
      **/
 
-    int local_refine_failed = domain_check_for_local_refine_subsample(policy, topTree, topTreeSize, MaxTopNodes);
+    int local_refine_failed = domain_check_for_local_refine_subsample(policy, topTree, topTreeSize, MaxTopNodes, DomainComm);
 
     if(MPIU_Any(local_refine_failed, DomainComm)) {
-        message(0, "We are out of Topnodes. \n");
+        message(0, "We are out of Topnodes: have %d.\n", MaxTopNodes);
         return 1;
     }
 
@@ -1304,14 +1297,12 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
     /* we now need to exchange tree parts and combine them as needed */
     int combine_failed = domain_nonrecursively_combine_topTree(topTree, topTreeSize, MaxTopNodes, DomainComm);
 
-    if(combine_failed)
-    {
+    if(combine_failed) {
         message(0, "can't combine trees due to lack of storage. Will try again.\n");
         return 1;
     }
-
     /* now let's see whether we should still more refinements, based on the estimated cumulative cost/count in each cell */
-
+    int prerefinetoptree = *topTreeSize;
     int global_refine_failed = domain_global_refine(topTree, topTreeSize, MaxTopNodes, countlimit, costlimit);
 
     if(MPIU_Any(global_refine_failed, DomainComm)) {
@@ -1319,15 +1310,14 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
         return 1;
     }
 
-    message(0, "Final local topTree size = %d per segment = %g.\n", *topTreeSize, 1.0 * (*topTreeSize) / (policy->NTopLeaves));
-
+    message(0, "Final topTree size = %d ntopleaves %d ratio to desired ntopleaves = %g (before refine %d).\n", *topTreeSize, policy->NTopLeaves, 1.0 * (*topTreeSize) / (policy->NTopLeaves), prerefinetoptree);
     return 0;
 }
 
 static int
 domain_global_refine(
     struct local_topnode_data * topTree, int * topTreeSize, const int MaxTopNodes,
-    int64_t countlimit, int64_t costlimit)
+    const int64_t countlimit, const int64_t costlimit)
 {
     int i;
 
@@ -1345,8 +1335,6 @@ domain_global_refine(
      * will be expensive.
      * In practice this seems to work fine, probably because the cost distribution
      * is not that unbalanced. */
-
-    message(0, "local topTree size before appending=%d\n", *topTreeSize);
 
     /*Note that *topTreeSize will change inside the loop*/
     for(i = 0; i < *topTreeSize; i++)
@@ -1401,13 +1389,14 @@ domain_compute_costs(DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopL
         #pragma omp for
         for(n = 0; n < PartManager->NumPart; n++)
         {
-            const int leaf = domain_get_topleaf(PEANO(P[n].Pos, PartManager->BoxSize), ddecomp);
-            /* Set the topleaf so we can use it for exchange*/
-            P[n].TopLeaf = leaf;
             /* Skip garbage particles: they have zero work
              * and can be removed by exchange if under memory pressure.*/
             if(P[n].IsGarbage)
                 continue;
+
+            const int leaf = domain_get_topleaf(PEANO(P[n].Pos, PartManager->BoxSize), ddecomp);
+            /* Set the topleaf so we can use it for exchange*/
+            P[n].TopLeaf = leaf;
 
             if(local_TopLeafWork)
                 local_TopLeafWork[leaf + tid * ddecomp->NTopLeaves] += 1;
