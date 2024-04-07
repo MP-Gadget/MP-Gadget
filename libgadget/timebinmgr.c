@@ -109,7 +109,7 @@ static double integrand_time_to_present(double a, void *param)
 static double time_to_present(double a, Cosmology * CP)
 {
 #define WORKSIZE 1000
-#define SEC_PER_MEGAYEAR 3.155e13 
+#define SEC_PER_MEGAYEAR 3.155e13
     gsl_function F;
     gsl_integration_workspace* workspace;
     double time;
@@ -190,7 +190,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
 
     /* Set up first and last entry to SyncPoints; TODO we can insert many more! */
     //NOTE(jdavies): these first syncpoints need to be in order
-   
+
     SyncPoints[0].a = TimeIC;
     SyncPoints[0].loga = log(TimeIC);
     SyncPoints[0].write_snapshot = 0; /* by default no output here. */
@@ -223,12 +223,12 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
         }
         message(0,"Added %ld Syncpoints for the excursion Set\n",NSyncPoints-1);
     }
-    
+
     SyncPoints[NSyncPoints].a = TimeMax;
     SyncPoints[NSyncPoints].loga = log(TimeMax);
     SyncPoints[NSyncPoints].write_snapshot = 1;
     SyncPoints[NSyncPoints].calc_uvbg = 0;
-    SyncPoints[NSyncPoints].write_fof = 0;
+    SyncPoints[NSyncPoints].write_fof = 1;
     NSyncPoints++;
 
     /* we do an insertion sort here. A heap is faster but who cares the speed for this? */
