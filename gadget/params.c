@@ -73,6 +73,13 @@ create_gadget_parameter_set()
     param_declare_string(ps, "CpuFile", OPTIONAL, "cpu.txt", "File to output cpu usage information");
     param_declare_string(ps, "OutputList", REQUIRED, NULL, "List of output scale factors.");
 
+    /*Potential plane parameters*/
+    param_declare_string(ps, "PlaneOutputList", OPTIONAL, NULL, "List of potential plane output scale factors.");
+    param_declare_int(ps, "PlaneResolution", OPTIONAL, 0, "Number of pixels per dimension in the potential plane.");
+    param_declare_double(ps, "PlaneThickness", OPTIONAL, 0, "Thickness of the potential plane in the normal direction in kpc/h by default.");
+    param_declare_string(ps, "PlaneCutPoints", OPTIONAL, NULL, "List of potential plane cut points in the normal direction in kpc/h by default.");
+    param_declare_string(ps, "PlaneNormals", OPTIONAL, NULL, "List of potential plane normal directions (0=x, 1=y, 2=z).");
+
     /*Cosmology parameters*/
     param_declare_double(ps, "Omega0", REQUIRED, 0.2814, "Total matter density at z=0");
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255,

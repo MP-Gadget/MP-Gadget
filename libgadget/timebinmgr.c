@@ -16,6 +16,9 @@ static struct sync_params
     int64_t OutputListLength;
     double OutputListTimes[1024];
 
+    int64_t PlaneOutputListLength;
+    double PlaneOutputListTimes[1024];
+
     int ExcursionSetReionOn;
     double ExcursionSetZStart;
     double ExcursionSetZStop;
@@ -75,6 +78,51 @@ int OutputListAction(ParameterSet* ps, const char* name, void* data)
             endrun(1, "Requesting a negative output scaling factor a = %g\n", a);
         }
         Sync.OutputListTimes[count] = a;
+/*         message(1, "Output at: %g\n", Sync.OutputListTimes[count]); */
+    }
+    myfree(strtmp);
+
+    return 0;
+}
+
+int PlaneOutputListAction(ParameterSet* ps, const char* name, void* data)
+{
+    char * planeoutputlist = param_get_string(ps, name);
+    char * strtmp = fastpm_strdup(planeoutputlist);
+    char * token;
+    int64_t count;
+
+    /* Note TimeInit and TimeMax not yet initialised here*/
+
+    /*First parse the string to get the number of outputs*/
+    for(count=0, token=strtok(strtmp,","); token; count++, token=strtok(NULL, ","))
+    {}
+/*     message(1, "Found %ld times in output list.\n", count); */
+
+    /*Allocate enough memory*/
+    Sync.PlaneOutputListLength = count;
+    size_t maxcount = sizeof(Sync.PlaneOutputListTimes) / sizeof(Sync.PlaneOutputListTimes[0]);
+    if(maxcount > MAXSNAPSHOTS)
+        maxcount = MAXSNAPSHOTS;
+    if((size_t) Sync.PlaneOutputListLength > maxcount) {
+        message(1, "Too many entries (%ld) in the PlaneOutputList, can take no more than %lu.\n", Sync.PlaneOutputListLength, maxcount);
+        return 1;
+    }
+    /*Now read in the values*/
+    for(count=0,token=strtok(planeoutputlist,","); count < Sync.PlaneOutputListLength && token; count++, token=strtok(NULL,","))
+    {
+        /* Skip a leading quote if one exists.
+         * Extra characters are ignored by atof, so
+         * no need to skip matching char.*/
+        if(token[0] == '"')
+            token+=1;
+
+        double a = atof(token);
+
+        if(a < 0.0) {
+            endrun(1, "Requesting a negative output scaling factor a = %g\n", a);
+        }
+        Sync.PlaneOutputListTimes[count] = a;
 /*         message(1, "Output at: %g\n", Sync.OutputListTimes[count]); */
     }
     myfree(strtmp);
@@ -162,11 +210,12 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
     int64_t i;
 
     qsort_openmp(Sync.OutputListTimes, Sync.OutputListLength, sizeof(double), cmp_double);
+    qsort_openmp(Sync.PlaneOutputListTimes, Sync.PlaneOutputListLength, sizeof(double), cmp_double);
 
     if(NSyncPoints > 0)
         myfree(SyncPoints);
 
-    int64_t NSyncPointsAlloc = Sync.OutputListLength + 2;
+    int64_t NSyncPointsAlloc = Sync.OutputListLength + Sync.PlaneOutputListLength + 2;
 
     /* Excursion set sync points ensure that the reionization excursion set model is run frequently*/
     const double ExcursionSet_delta_a = 0.0001;
@@ -187,7 +236,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
     //z=20 to z=4 is ~150 syncpoints at 10 Myr spaces
     //
     SyncPoints = (SyncPoint *) mymalloc("SyncPoints", sizeof(SyncPoint) * NSyncPointsAlloc);
-
+    
     /* Set up first and last entry to SyncPoints; TODO we can insert many more! */
     //NOTE(jdavies): these first syncpoints need to be in order
 
@@ -196,6 +245,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
     SyncPoints[0].write_snapshot = 0; /* by default no output here. */
     SyncPoints[0].write_fof = 0;
     SyncPoints[0].calc_uvbg = 0;
+    SyncPoints[0].write_plane = 0;
     NSyncPoints = 1;
 
     // set up UVBG syncpoints at given intervals
@@ -229,12 +279,26 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
     SyncPoints[NSyncPoints].write_snapshot = 1;
     SyncPoints[NSyncPoints].calc_uvbg = 0;
     SyncPoints[NSyncPoints].write_fof = 1;
+    SyncPoints[NSyncPoints].write_plane = 0;
     NSyncPoints++;
 
     /* we do an insertion sort here. A heap is faster but who cares the speed for this? */
-    for(i = 0; i < Sync.OutputListLength; i ++) {
+    int64_t outIdx = 0;
+    int64_t planeoutIdx = 0;
+    bool fromPlane = false;
+    for(i = 0; i < Sync.OutputListLength + Sync.PlaneOutputListLength; i ++) {
         int64_t j = 0;
-        double a = Sync.OutputListTimes[i];
+        double a;
+        if(Sync.OutputListTimes[outIdx] < Sync.PlaneOutputListTimes[planeoutIdx]) {
+            a = Sync.OutputListTimes[outIdx];
+            outIdx++;
+            fromPlane = false;
+        } else {
+            a = Sync.PlaneOutputListTimes[planeoutIdx];
+            planeoutIdx++;
+            fromPlane = true;
+        }
+
         double loga = log(a);
 
         if(a < TimeIC || a > TimeMax) {
@@ -273,6 +337,14 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
             SyncPoints[j].write_snapshot = 0;
             SyncPoints[j].write_fof = 0;
             SyncPoints[j].calc_uvbg = 0;
+        }
+        if (fromPlane) {
+            SyncPoints[j].write_plane = 1;
+            SyncPoints[j].write_snapshot = 0;
+            SyncPoints[j].write_fof = 0;
+            SyncPoints[j].calc_uvbg = 0;
+        } else {
+            SyncPoints[j].write_plane = 0;
         }
     }
 
