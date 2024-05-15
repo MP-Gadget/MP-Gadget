@@ -11,6 +11,7 @@
 #include "partmanager.h"
 #include "petaio.h"
 #include "utils.h"
+#include "timefac.h"
 // #include "timebinmgr.h"
 
 static struct plane_params
@@ -149,11 +150,7 @@ set_plane_params(ParameterSet * ps)
     MPI_Bcast(&PlaneParams, sizeof(struct plane_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
-double compute_chi(double z, const Cosmology * CP) {
-    return 562.029062684754 * 1000; // Placeholder for actual computation
-}
-
-void write_plane(int SnapPlaneCount, const double atime, const Cosmology * CP, const char * OutputDir) {
+void write_plane(int SnapPlaneCount, const double atime, const Cosmology * CP, const char * OutputDir, const double UnitVelocity_in_cm_per_s) {
 
         // simulation parameters and variables
     double BoxSize = PartManager->BoxSize;
@@ -184,6 +181,11 @@ void write_plane(int SnapPlaneCount, const double atime, const Cosmology * CP, c
         summed_plane_result = allocate_2d_array(plane_resolution, plane_resolution);
     }
 
+    double comoving_distance = compute_comoving_distance(CP, atime, 1., UnitVelocity_in_cm_per_s);
+
+    // print comoving distance
+    message(0, "Comoving distance: %g\n", comoving_distance);
+
     /* loop over cut points and normal directions to generate lensing potential planes */
     for (int i = 0; i < PlaneParams.CutPointsLength; i++) {
         for (int j = 0; j < PlaneParams.NormalsLength; j++) {
@@ -202,7 +204,7 @@ void write_plane(int SnapPlaneCount, const double atime, const Cosmology * CP, c
             int64_t num_particles_plane = 0, num_particles_plane_tot = 0;
             // print input parameters
 
-            double comoving_distance = compute_chi(redshift, CP);
+            
 
             /*computing lensing potential planes*/
             num_particles_plane = cutPlaneGaussianGrid(num_particles_tot,  comoving_distance, BoxSize, CP, atime, PlaneParams.Normals[j], PlaneParams.CutPoints[i], thickness, left_corner, plane_resolution, plane_result);

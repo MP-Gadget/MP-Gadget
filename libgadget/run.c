@@ -717,7 +717,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
         /* Write the potential planes*/
         if(WritePlane)
-            write_plane(SnapPlaneCount, atime, &All.CP, All.OutputDir);
+            write_plane(SnapPlaneCount, atime, &All.CP, All.OutputDir, units.UnitVelocity_in_cm_per_s);
             SnapPlaneCount++;
             
 
