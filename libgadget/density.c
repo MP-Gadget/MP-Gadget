@@ -539,8 +539,9 @@ density_postprocess(int i, TreeWalk * tw)
     /* Uses DhsmlDensityFactor and changes Hsml, hence the location.*/
     if(DENSITY_GET_PRIV(tw)->update_hsml) {
         int done = density_check_neighbours(i, tw);
-        /* If we are done repeating, update the hmax in the parent node*/
-        if(done)
+        /* If we are done repeating, update the hmax in the parent node,
+         * if that type is in the tree.*/
+        if(done && (tw->tree->mask & (1<<P[i].Type)))
             update_tree_hmax_father(tw->tree, i, P[i].Pos, P[i].Hsml);
     }
 
