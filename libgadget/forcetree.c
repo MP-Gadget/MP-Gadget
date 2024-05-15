@@ -1276,6 +1276,10 @@ update_tree_hmax_father(const ForceTree * const tree, const int p_i, const doubl
     if(!tree->Father)
         endrun(4, "Father not allocated in tree_hmax_father\n");
     const int no = tree->Father[p_i];
+#ifdef DEBUG
+    if(no < 0)
+        endrun(5, "Father for particle %d pos %g %g %g hsml %g not initialised, likely not in tree\n", p_i, Pos[0], Pos[1], Pos[2], Hsml);
+#endif
     struct NODE * node = &tree->Nodes[no];
     /* How much does this particle peek beyond this node?
         * Note len does not change so we can read it without a lock or atomic. */
