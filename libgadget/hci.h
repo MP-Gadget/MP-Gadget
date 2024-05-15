@@ -31,6 +31,7 @@ typedef struct HCIAction
     enum HCIActionType type;
     char write_snapshot;
     char write_fof;
+    char write_plane;
 } HCIAction;
 
 void

@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "sfr_eff.h": "c",
+        "bigfile-mpi.h": "c",
+        "partmanager.h": "c"
+    }
+}

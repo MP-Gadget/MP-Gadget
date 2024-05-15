@@ -18,3 +18,4 @@ gadget/MP-Gadget
 libgadget/.objs
 libgenic/.objs
 Options.mk
+yyh_tests/

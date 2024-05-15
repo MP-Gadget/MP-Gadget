@@ -7,6 +7,7 @@
 #include "utils.h"
 #include "cosmology.h"
 #include "physconst.h"
+#include "plane.h"
 
 /*! table with desired sync points. All forces and phase space variables are synchonized to the same order. */
 static SyncPoint * SyncPoints;
@@ -19,7 +20,7 @@ static struct sync_params
     int64_t PlaneOutputListLength;
     double PlaneOutputListTimes[1024];
 
-    int ExcursionSetReionOn;
+    int ExcursionSetReionOn; 
     double ExcursionSetZStart;
     double ExcursionSetZStop;
     double UVBGTimestep;
@@ -285,18 +286,37 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
     /* we do an insertion sort here. A heap is faster but who cares the speed for this? */
     int64_t outIdx = 0;
     int64_t planeoutIdx = 0;
-    bool fromPlane = false;
+    int fromPlaneOut = 0;
+    int fromOut = 0;
+    double tolerance = 1e-6;
+
+    // print output list lengths
+    message(0,"OutputListLength = %ld, PlaneOutputListLength = %ld\n",Sync.OutputListLength,Sync.PlaneOutputListLength);
+
     for(i = 0; i < Sync.OutputListLength + Sync.PlaneOutputListLength; i ++) {
+        // print output list times
+        message(0,"i = %d, OutputListTime = %.3f\n", i, Sync.OutputListTimes[outIdx]);
         int64_t j = 0;
         double a;
-        if(Sync.OutputListTimes[outIdx] < Sync.PlaneOutputListTimes[planeoutIdx]) {
+        if (fabs(Sync.OutputListTimes[outIdx] - Sync.PlaneOutputListTimes[planeoutIdx]) < tolerance) {
             a = Sync.OutputListTimes[outIdx];
             outIdx++;
-            fromPlane = false;
+            planeoutIdx++;
+            fromPlaneOut = 1;
+            fromOut = 1;
+            message(0,"OutputListTime = %.3f\n", a);
+        } else if ((outIdx < Sync.OutputListLength && Sync.OutputListTimes[outIdx] < Sync.PlaneOutputListTimes[planeoutIdx]) || (planeoutIdx == Sync.PlaneOutputListLength && Sync.OutputListTimes[outIdx] > Sync.PlaneOutputListTimes[planeoutIdx])) {
+            a = Sync.OutputListTimes[outIdx];
+            outIdx++;
+            fromPlaneOut = 0;
+            fromOut = 1;
+            message(0,"OutputListTime = %.3f\n", a);
         } else {
             a = Sync.PlaneOutputListTimes[planeoutIdx];
             planeoutIdx++;
-            fromPlane = true;
+            fromPlaneOut = 1;
+            fromOut = 0;
+            message(0,"PlaneOutputListTime = %.3f\n", a);
         }
 
         double loga = log(a);
@@ -326,23 +346,27 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
             //message(0,"added outlist syncpoint at a = %.3f, j = %d, Ns = %ld\n",a,j,NSyncPoints);
         }
         if(SyncPoints[j].a > no_snapshot_until_time) {
-            SyncPoints[j].write_snapshot = 1;
-            SyncPoints[j].calc_uvbg = 0;
-            if(SnapshotWithFOF) {
-                SyncPoints[j].write_fof = 1;
+            if (fromOut) {
+                SyncPoints[j].write_snapshot = 1;
+                if(SnapshotWithFOF) {
+                    SyncPoints[j].write_fof = 1;
+                }
+                else
+                    SyncPoints[j].write_fof = 0;
             }
-            else
+            else {
+                SyncPoints[j].write_snapshot = 0;
                 SyncPoints[j].write_fof = 0;
+            }
+            SyncPoints[j].calc_uvbg = 0;
+            
         } else {
             SyncPoints[j].write_snapshot = 0;
             SyncPoints[j].write_fof = 0;
             SyncPoints[j].calc_uvbg = 0;
         }
-        if (fromPlane) {
+        if (fromPlaneOut) {
             SyncPoints[j].write_plane = 1;
-            SyncPoints[j].write_snapshot = 0;
-            SyncPoints[j].write_fof = 0;
-            SyncPoints[j].calc_uvbg = 0;
         } else {
             SyncPoints[j].write_plane = 0;
         }

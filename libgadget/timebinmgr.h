@@ -31,7 +31,6 @@ struct SyncPoint
     inttime_t ti;
 };
 
-
 /*Convert an integer to and from loga*/
 double loga_from_ti(inttime_t ti);
 inttime_t ti_from_loga(double loga);
@@ -63,6 +62,8 @@ inttime_t out_from_ti(inttime_t ti);
 
 int OutputListAction(ParameterSet * ps, const char * name, void * data);
 int PlaneOutputListAction(ParameterSet* ps, const char* name, void* data);
+int PlaneNormalsAction(ParameterSet* ps, const char* name, void* data);
+int PlaneCutPointsAction(ParameterSet* ps, const char* name, void* data);
 
 void set_sync_params_test(int OutputListLength, double * OutputListTimes);
 void set_sync_params(ParameterSet * ps);

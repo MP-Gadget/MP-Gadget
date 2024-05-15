@@ -24,6 +24,7 @@
 #include <libgadget/metal_return.h>
 #include <libgadget/uvbg.h>
 #include <libgadget/stats.h>
+#include <libgadget/plane.h>
 
 static int
 BlackHoleFeedbackMethodAction (ParameterSet * ps, const char * name, void * data)
@@ -75,10 +76,10 @@ create_gadget_parameter_set()
 
     /*Potential plane parameters*/
     param_declare_string(ps, "PlaneOutputList", OPTIONAL, NULL, "List of potential plane output scale factors.");
-    param_declare_int(ps, "PlaneResolution", OPTIONAL, 0, "Number of pixels per dimension in the potential plane.");
+    param_declare_int(ps, "PlaneResolution", OPTIONAL, 0, "Number of pixels per dimension in the potential plane (should be an even number).");
     param_declare_double(ps, "PlaneThickness", OPTIONAL, 0, "Thickness of the potential plane in the normal direction in kpc/h by default.");
     param_declare_string(ps, "PlaneCutPoints", OPTIONAL, NULL, "List of potential plane cut points in the normal direction in kpc/h by default.");
-    param_declare_string(ps, "PlaneNormals", OPTIONAL, NULL, "List of potential plane normal directions (0=x, 1=y, 2=z).");
+    param_declare_string(ps, "PlaneNormals", OPTIONAL, "\"0, 1, 2\"", "List of potential plane normal directions (0=x, 1=y, 2=z).");
 
     /*Cosmology parameters*/
     param_declare_double(ps, "Omega0", REQUIRED, 0.2814, "Total matter density at z=0");
@@ -380,6 +381,9 @@ create_gadget_parameter_set()
     param_set_action(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodAction, NULL);
     param_set_action(ps, "StarformationCriterion", StarformationCriterionAction, NULL);
     param_set_action(ps, "OutputList", OutputListAction, NULL);
+    param_set_action(ps, "PlaneOutputList", PlaneOutputListAction, NULL);
+    // param_set_action(ps, "PlaneCutPoints", PlaneCutPointsAction, NULL);
+    // param_set_action(ps, "PlaneNormals", PlaneNormalsAction, NULL);
 
     return ps;
 }
@@ -417,6 +421,7 @@ void read_parameter_file(char *fname, int * ShowBacktrace, double * MaxMemSizePe
 
     /*Initialize per-module parameters.*/
     set_all_global_params(ps);
+    set_plane_params(ps);
     set_init_params(ps);
     set_petaio_params(ps);
     set_timestep_params(ps);

@@ -36,6 +36,7 @@
 #include "neutrinos_lra.h"
 #include "stats.h"
 #include "veldisp.h"
+#include "plane.h"
 
 static struct ClockTable Clocks;
 /* Size of table full of random numbers generated each timestep.*/
@@ -320,6 +321,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
     const struct UnitSystem units = get_unitsystem(header->UnitLength_in_cm, header->UnitMass_in_g, header->UnitVelocity_in_cm_per_s);
 
     int SnapshotFileCount = RestartSnapNum;
+    int SnapPlaneCount = 0; // temporary counter for the number of planes written, 
 
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
@@ -564,11 +566,13 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         int WriteSnapshot = 0;
         int WriteFOF = 0;
         int CalcUVBG = 0;
+        int WritePlane = 0;
 
         if(planned_sync) {
             WriteSnapshot |= planned_sync->write_snapshot;
             WriteFOF |= planned_sync->write_fof;
             CalcUVBG |= planned_sync->calc_uvbg;
+            WritePlane |= planned_sync->write_plane;
         }
 
         RandTable rnd = {0};
@@ -672,6 +676,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         if(is_PM) { /* the if here is unnecessary but to signify checkpointing occurs only at PM steps. */
             WriteSnapshot |= action->write_snapshot;
             WriteFOF |= action->write_fof;
+            WritePlane |= action->write_plane; 
         }
         if(WriteSnapshot || WriteFOF) {
             /* Get a new snapshot*/
@@ -709,6 +714,12 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 slots_gc_sorted(PartManager, SlotsManager);
             }
         }
+
+        /* Write the potential planes*/
+        if(WritePlane)
+            write_plane(SnapPlaneCount, atime, &All.CP, All.OutputDir);
+            SnapPlaneCount++;
+            
 
 #ifdef DEBUG
         check_kick_drift_times(PartManager, times.Ti_Current);
