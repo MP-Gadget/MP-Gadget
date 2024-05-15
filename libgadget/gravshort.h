@@ -44,12 +44,7 @@ struct GravShortPriv {
      * Note: should account for
      * massive neutrinos, but doesn't. */
     double cbrtrho0;
-    /* Whether to calculate the short-range gravitational potential from
-     * the particles in the current force tree.
-     * Note that in practice when for hierarchical gravity only active particles
-     * are in the tree and so this is only useful on steps where all particles are active.*/
-    int CalcPotential;
-    /* (Optional) pointer to the place to store accelerations, if it is not P->GravAccel*/
+    /* Pointer to the place to store accelerations*/
     MyFloat (*Accel)[3];
 };
 
@@ -59,18 +54,19 @@ static void
 grav_short_postprocess(int i, TreeWalk * tw)
 {
     double G = GRAV_GET_PRIV(tw)->G;
-    MyFloat *GravAccel = NULL;
-    if(GRAV_GET_PRIV(tw)->Accel)
-        GravAccel = GRAV_GET_PRIV(tw)->Accel[i];
-    else
-        GravAccel = P[i].FullTreeGravAccel;
-    GravAccel[0] *= G;
-    GravAccel[1] *= G;
-    GravAccel[2] *= G;
-    /* calculate the potential */
-    /* remove self-potential */
-    if(GRAV_GET_PRIV(tw)->CalcPotential) {
+    GRAV_GET_PRIV(tw)->Accel[i][0] *= G;
+    GRAV_GET_PRIV(tw)->Accel[i][1] *= G;
+    GRAV_GET_PRIV(tw)->Accel[i][2] *= G;
+
+    if(tw->tree->full_particle_tree_flag) {
+        /* On a PM step, update the stored full tree grav accel for the next PM step.
+         * Needs to be done here so internal treewalk iterations don't get a partial acceleration.*/
+        P[i].FullTreeGravAccel[0] = GRAV_GET_PRIV(tw)->Accel[i][0];
+        P[i].FullTreeGravAccel[1] = GRAV_GET_PRIV(tw)->Accel[i][1];
+        P[i].FullTreeGravAccel[2] = GRAV_GET_PRIV(tw)->Accel[i][2];
+        /* calculate the potential */
         P[i].Potential += P[i].Mass / (FORCE_SOFTENING() / 2.8);
+        /* remove self-potential */
         P[i].Potential -= 2.8372975 * pow(P[i].Mass, 2.0 / 3) * GRAV_GET_PRIV(tw)->cbrtrho0;
         P[i].Potential *= G;
     }
@@ -98,15 +94,10 @@ grav_short_copy(int place, TreeWalkQueryGravShort * input, TreeWalk * tw)
 static void
 grav_short_reduce(int place, TreeWalkResultGravShort * result, enum TreeWalkReduceMode mode, TreeWalk * tw)
 {
-    MyFloat * GravAccel = NULL;
-    if(GRAV_GET_PRIV(tw)->Accel)
-        GravAccel = GRAV_GET_PRIV(tw)->Accel[place];
-    else
-        GravAccel = P[place].FullTreeGravAccel;
-    int k;
-    for(k = 0; k < 3; k++)
-        TREEWALK_REDUCE(GravAccel[k], result->Acc[k]);
-    if(GRAV_GET_PRIV(tw)->CalcPotential)
+    TREEWALK_REDUCE(GRAV_GET_PRIV(tw)->Accel[place][0], result->Acc[0]);
+    TREEWALK_REDUCE(GRAV_GET_PRIV(tw)->Accel[place][1], result->Acc[1]);
+    TREEWALK_REDUCE(GRAV_GET_PRIV(tw)->Accel[place][2], result->Acc[2]);
+    if(tw->tree->full_particle_tree_flag)
         TREEWALK_REDUCE(P[place].Potential, result->Potential);
 }
 
