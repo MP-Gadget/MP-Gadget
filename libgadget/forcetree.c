@@ -126,6 +126,8 @@ force_tree_full(ForceTree * tree, DomainDecomp * ddecomp, const int HybridNuTrac
 
     /*No father array by default, only need it for hmax. We want moments.*/
     *tree = force_tree_build(mask, ddecomp, &act, 1, 1, EmergencyOutputDir);
+    /* This is all particles (even if there are neutrinos)*/
+    tree->full_particle_tree_flag = 1;
 }
 
 void
@@ -144,6 +146,9 @@ force_tree_active_moments(ForceTree * tree, DomainDecomp * ddecomp, const Active
 
     /*No father array by default, only need it for hmax. We want moments.*/
     *tree = force_tree_build(mask, ddecomp, act, 1, alloc_father, EmergencyOutputDir);
+    /* This is all particles if active particle is null (even if there are neutrinos)*/
+    if(!act->ActiveParticle)
+        tree->full_particle_tree_flag = 1;
 }
 
 void
@@ -159,6 +164,8 @@ force_tree_rebuild_mask(ForceTree * tree, DomainDecomp * ddecomp, int mask, cons
     ActiveParticles act = init_empty_active_particles(PartManager);
     /* No moments, but need father for hmax. The hybridnugrav only affects moments, so isn't needed.*/
     *tree = force_tree_build(mask, ddecomp, &act, 0, 1, EmergencyOutputDir);
+    if(mask == ALLMASK)
+        tree->full_particle_tree_flag = 1;
 }
 
 
