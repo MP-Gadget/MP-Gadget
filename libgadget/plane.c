@@ -190,7 +190,7 @@ set_plane_params(ParameterSet * ps)
     MPI_Bcast(&PlaneParams, sizeof(struct plane_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
-void write_plane(int snapnum, const double atime, const Cosmology * CP, const char * OutputDir, const double UnitVelocity_in_cm_per_s) {
+void write_plane(int snapnum, const double atime, const Cosmology * CP, const char * OutputDir, const double UnitVelocity_in_cm_per_s, const double UnitLength_in_cm) {
 
     // int snapnum = get_snap_number(OutputDir);
         // simulation parameters and variables
@@ -259,7 +259,7 @@ void write_plane(int snapnum, const double atime, const Cosmology * CP, const ch
                 char * file_path;
                 file_path = plane_get_output_fname(snapnum, OutputDir, i, PlaneParams.Normals[j]);
 #ifdef USE_CFITSIO
-                savePotentialPlane(summed_plane_result, plane_resolution, plane_resolution, file_path, BoxSize, CP, redshift, comoving_distance, num_particles_plane_tot);
+                savePotentialPlane(summed_plane_result, plane_resolution, plane_resolution, file_path, BoxSize, CP, redshift, comoving_distance, num_particles_plane_tot, UnitLength_in_cm);
                 message(0, "Plane saved for cut %d and normal %d to %s\n", i, PlaneParams.Normals[j], file_path);
 #endif
             }
@@ -269,10 +269,10 @@ void write_plane(int snapnum, const double atime, const Cosmology * CP, const ch
     if (ThisTask == 0) {
         free_2d_array(summed_plane_result, plane_resolution);
         free_2d_array(plane_result, plane_resolution);
-
+        double comoving_distance_Mpc  = comoving_distance * UnitLength_in_cm / CM_PER_MPC;
         char * buf = fastpm_strdup_printf("%s/info.txt", OutputDir);
         FILE * fd = fopen(buf, "a");
-        fprintf(fd, "s=%d,d=%lf Mpc/h,z=%lf\n", snapnum, comoving_distance/1e3, redshift);
+        fprintf(fd, "s=%d,d=%lf Mpc/h,z=%lf\n", snapnum, comoving_distance_Mpc, redshift);
         fclose(fd);
         myfree(buf);
     }

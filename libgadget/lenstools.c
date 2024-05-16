@@ -339,7 +339,7 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
 }
 
 #ifdef USE_CFITSIO
-void savePotentialPlane(double **data, int rows, int cols, const char filename[128], double Lbox, const Cosmology * CP, double redshift, double comoving_distance, int64_t num_particles) {
+void savePotentialPlane(double **data, int rows, int cols, const char filename[128], double Lbox, const Cosmology * CP, double redshift, double comoving_distance, int64_t num_particles, const double UnitLength_in_cm) {
     fitsfile *fptr;       // Pointer to the FITS file; defined in fitsio.h
     int status = 0;       // Status must be initialized to zero.
     long naxes[2] = {cols, rows};  // image dimensions
@@ -360,8 +360,8 @@ void savePotentialPlane(double **data, int rows, int cols, const char filename[1
         return;
     }
     double H0 = CP->HubbleParam * 100;
-    double Lbox_Mpc = Lbox / 1e3;
-    double comoving_distance_Mpc = comoving_distance / 1e3;
+    double Lbox_Mpc = Lbox * UnitLength_in_cm / CM_PER_MPC;  // Box size in Mpc/h
+    double comoving_distance_Mpc = comoving_distance * UnitLength_in_cm / CM_PER_MPC;
     double Ode0 = CP->OmegaLambda > 0 ? CP->OmegaLambda : CP->Omega_fld;
     // Insert a blank line as a separator
     fits_write_record(fptr, "        ", &status);
