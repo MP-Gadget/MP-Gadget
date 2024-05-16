@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
+#include <ctype.h>
 // #include <time.h>
 #include "lenstools.h"
 #include "utils.h"
@@ -26,10 +28,48 @@ static struct plane_params
     double Thickness; // in kpc/h
 } PlaneParams;
 
+int get_snap_number(const char *dir_path) {
+    DIR *dir = opendir(dir_path);
+    if (!dir) {
+        // Directory cannot be opened
+        endrun(0, "Output directory cannot be opened!\n");
+    }
+
+    struct dirent *entry;
+    int max_number = -1;
+
+    // Regex-like pattern to match "snap[a]_potentialPlane..."
+    const char *pattern = "snap%d_potentialPlane";
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_REG) {
+            int number;
+            char name[256];
+
+            // Check if the filename matches the pattern
+            if (sscanf(entry->d_name, pattern, &number) == 1) {
+                if (number > max_number) {
+                    max_number = number;
+                }
+            }
+        }
+    }
+
+    closedir(dir);
+
+    if (max_number == -1) {
+        // No matching files found
+        return 0;
+    } else {
+        // Return the next integer larger than the max found
+        return max_number + 1;
+    }
+}
+
 char *
-plane_get_output_fname(const double atime, const char * OutputDir, const int cut, const int normal)
+plane_get_output_fname(const int snapnum, const char * OutputDir, const int cut, const int normal)
 {
-    char * fname = fastpm_strdup_printf("%s/snap%.2f_potentialPlane%d_normal%d.fits", OutputDir, atime, cut, normal);
+    char * fname = fastpm_strdup_printf("%s/snap%d_potentialPlane%d_normal%d.fits", OutputDir, snapnum, cut, normal);
     return fname;
 }
 
@@ -152,6 +192,7 @@ set_plane_params(ParameterSet * ps)
 
 void write_plane(int SnapPlaneCount, const double atime, const Cosmology * CP, const char * OutputDir, const double UnitVelocity_in_cm_per_s) {
 
+    int snapnum = get_snap_number(OutputDir);
         // simulation parameters and variables
     double BoxSize = PartManager->BoxSize;
 
@@ -171,7 +212,7 @@ void write_plane(int SnapPlaneCount, const double atime, const Cosmology * CP, c
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     
     double redshift = 1./atime - 1.;
-    message(0, "Writing potential planes.\n");
+    message(0, "Computing and writing potential planes.\n");
 
     double **plane_result = allocate_2d_array(plane_resolution, plane_resolution);
 
@@ -191,7 +232,7 @@ void write_plane(int SnapPlaneCount, const double atime, const Cosmology * CP, c
         for (int j = 0; j < PlaneParams.NormalsLength; j++) {
             MPI_Barrier(MPI_COMM_WORLD);
 
-            message(0, "Time: %g, computing for cut %d and normal %d\n", atime, i, PlaneParams.Normals[j]);
+            message(0, "Computing for cut %d and normal %d\n", atime, i, PlaneParams.Normals[j]);
 
             // Initialize lensing_potential with zeros
             for (int i = 0; i < plane_resolution; i++) {
@@ -218,16 +259,21 @@ void write_plane(int SnapPlaneCount, const double atime, const Cosmology * CP, c
             /*saving planes*/
             if (ThisTask == 0) {
                 char * file_path;
-                file_path = plane_get_output_fname(atime, OutputDir, i, PlaneParams.Normals[j]);
+                file_path = plane_get_output_fname(snapnum, OutputDir, i, PlaneParams.Normals[j]);
                 savePotentialPlane(summed_plane_result, plane_resolution, plane_resolution, file_path, BoxSize, CP, redshift, comoving_distance, num_particles_plane_tot);
-                
             }
+            message(0, "Plane saved for cut %d and normal %d\n", i, PlaneParams.Normals[j]);
             MPI_Barrier(MPI_COMM_WORLD);
         }
     }
     if (ThisTask == 0) {
         free_2d_array(summed_plane_result, plane_resolution);
         free_2d_array(plane_result, plane_resolution);
+
+        char * buf = fastpm_strdup_printf("%s/info.txt", OutputDir);
+        FILE * fd = fopen(buf, "a");
+        fprintf(fd, "s=%d,d=%lf Mpc/h,z=%lf\n", snapnum, comoving_distance/1e3, redshift);
+        fclose(fd);
+        myfree(buf);
     }
-    
 }

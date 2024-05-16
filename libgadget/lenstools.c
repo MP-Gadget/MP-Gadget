@@ -94,61 +94,12 @@ int find_bin(double value, double *bins, int num_bins) {
     return -1;  // Return the last bin if the value is on the boundary or beyond
 }
 
-double (*readCoordinates(const char *filename))[3] {
-    FILE *file = fopen(filename, "r");
-    if (file == NULL) {
-        perror("Failed to open file");
-        return NULL;
-    }
-
-    int capacity = 10;  // Initial capacity for number of coordinate sets
-    double (*positions)[3] = malloc(capacity * sizeof(*positions));
-    if (positions == NULL) {
-        perror("Memory allocation failed");
-        fclose(file);
-        return NULL;
-    }
-
-    double x, y, z;
-    int count = 0;
-    while (fscanf(file, "%lf %lf %lf", &x, &y, &z) == 3) {
-        if (count >= capacity) {
-            // Increase capacity
-            capacity *= 2;
-            double (*new_positions)[3] = realloc(positions, capacity * sizeof(*positions));
-            if (new_positions == NULL) {
-                perror("Memory reallocation failed");
-                free(positions);
-                fclose(file);
-                return NULL;
-            }
-            positions = new_positions;
-        }
-        positions[count][0] = x;
-        positions[count][1] = y;
-        positions[count][2] = z;
-        count++;
-    }
-
-    // *size = count; // Set the number of read coordinate sets
-    fclose(file);
-    return positions;
-}
-
 void grid3d_nfw(const struct particle_data * Parts, int num_particles, double **binning, GridDimensions dims, double ***density) {
-
-    // debug: Open a file for writing
-    FILE *file = fopen("positions_007.txt", "w");
-    if (!file) {
-        fprintf(stderr, "Error opening file for writing\n");
-        return; // Exit the function if file opening failed
-    }
     
     double position[3];
     // Process each particle
     for (int p = 0; p < num_particles; p++) {
-        // Write the position of this particle to the file
-        fprintf(file, "%e %e %e\n", Parts[p].Pos[0], Parts[p].Pos[1], Parts[p].Pos[2]);
+
         // remove offset
         for(int d = 0; d < 3; d ++) {
             position[d] = Parts[p].Pos[d] - PartManager->CurrentParticleOffset[d];
@@ -167,41 +118,6 @@ void grid3d_nfw(const struct particle_data * Parts, int num_particles, double **
         density[ix][iy][iz]++;
     }
 
-    // Close the file
-    fclose(file);
-
-    // print some positions of particles
-    for (int i = 0; i < 100; i++) {
-        printf("Part %d: x = %f, y = %f, z = %f\n", i, Parts[i].Pos[0], Parts[i].Pos[1], Parts[i].Pos[2]);
-    }
-    // obtain and print the min and max values of the positions
-    double min_x = Parts[0].Pos[0];
-    double max_x = Parts[0].Pos[0];
-    for (int i = 0; i < num_particles; i++) {
-        if (Parts[i].Pos[0] < min_x) {
-            min_x = Parts[i].Pos[0];
-        }
-        if (Parts[i].Pos[0] > max_x) {
-            max_x = Parts[i].Pos[0];
-        }
-    }
-    printf("min_x = %f, max_x = %f\n", min_x, max_x);
-
-    // // debug
-    // double (*all_positions)[3] = readCoordinates("/Users/astroyyh/Desktop/cosmo_11p_local/LensTools_C/positions_007.txt");
-    //  // Process each particle
-    // for (int p = 0; p < num_particles; p++) {
-    //     int ix = find_bin(all_positions[p][0], binning[0], dims.nx + 1);
-    //     int iy = find_bin(all_positions[p][1], binning[1], dims.ny + 1);
-    //     int iz = find_bin(all_positions[p][2], binning[2], dims.nz + 1);
-
-    //     // continue if the particle is outside the grid
-    //     if (ix == -1 || iy == -1 || iz == -1) {
-    //         continue;
-    //     }
-    //     // Increment the density in the appropriate bin
-    //     density[ix][iy][iz]++;
-    // }
 }
 
 void projectDensity(double ***density, double **density_projected, GridDimensions dims, int normal) {
@@ -323,8 +239,6 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
     float smooth = 1.0; // fixed in our case
 
     int num_particles_rank = PartManager->NumPart;  // dark matter-only simulation: NumPart = number of dark matter particles
-    // print number of particles
-    printf("rank %d: num_particles_rank = %d\n", ThisTask, num_particles_rank);
 
     double **density_projected = allocate_2d_array(plane_resolution, plane_resolution);
 
@@ -366,7 +280,6 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
     // density normalization
     double density_normalization = bin_resolution[normal] * comoving_distance * pow(CM_PER_KPC/CP->HubbleParam, 2) / atime;
 
-    // printf("Task %d: Began gridding procedure\n", rank);
 
     // density 3D array
     GridDimensions dims;
@@ -379,8 +292,6 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
     double ***density = allocate_3d_array(dims.nx, dims.ny, dims.nz);
 
     grid3d_nfw(P, num_particles_rank, binning, dims, density);
-
-    // printf("Task %d: Done with gridding procedure\n", rank);
 
     projectDensity(density, density_projected, dims, normal);
 
@@ -405,24 +316,9 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
             density_projected[i][j] *= density_norm_factor;
         }
     }
-    // print some normalized density values
-    printf("rank %d: density_projected\n", ThisTask);
-    for (int i = 0; i < 2; i++) {
-        for (int j = 0; j < 50; j++) {
-            printf("rank %d: density_projected[%d][%d] = %e\n", ThisTask, i, j, density_projected[i][j]);
-        }
-    }
 
     // Calculate the lensing potential by solving the Poisson equation
     calculate_lensing_potential(density_projected, plane_resolution, bin_resolution[plane_directions[0]], bin_resolution[plane_directions[1]], comoving_distance, smooth, lensing_potential);
-
-    //print some lensing potential values
-    // printf("rank %d: lensing_potential before norm\n", rank);
-    // for (int i = 0; i < 2; i++) {
-    //     for (int j = 0; j < 50; j++) {
-    //         printf("rank %d lensing_potential[%d][%d] = %e\n",rank, i, j, lensing_potential[i][j]);
-    //     }
-    // }
 
     // normalize the lensing potential
     for (int i = 0; i < plane_resolution; i++) {

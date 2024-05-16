@@ -290,12 +290,8 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
     int fromOut = 0;
     double tolerance = 1e-6;
 
-    // print output list lengths
-    message(0,"OutputListLength = %ld, PlaneOutputListLength = %ld\n",Sync.OutputListLength,Sync.PlaneOutputListLength);
-
     for(i = 0; i < Sync.OutputListLength + Sync.PlaneOutputListLength; i ++) {
-        // print output list times
-        message(0,"i = %d, OutputListTime = %.3f\n", i, Sync.OutputListTimes[outIdx]);
+
         int64_t j = 0;
         double a;
         if (fabs(Sync.OutputListTimes[outIdx] - Sync.PlaneOutputListTimes[planeoutIdx]) < tolerance) {
@@ -304,19 +300,16 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
             planeoutIdx++;
             fromPlaneOut = 1;
             fromOut = 1;
-            message(0,"OutputListTime = %.3f\n", a);
         } else if ((outIdx < Sync.OutputListLength && Sync.OutputListTimes[outIdx] < Sync.PlaneOutputListTimes[planeoutIdx]) || (planeoutIdx == Sync.PlaneOutputListLength && Sync.OutputListTimes[outIdx] > Sync.PlaneOutputListTimes[planeoutIdx])) {
             a = Sync.OutputListTimes[outIdx];
             outIdx++;
             fromPlaneOut = 0;
             fromOut = 1;
-            message(0,"OutputListTime = %.3f\n", a);
         } else {
             a = Sync.PlaneOutputListTimes[planeoutIdx];
             planeoutIdx++;
             fromPlaneOut = 1;
             fromOut = 0;
-            message(0,"PlaneOutputListTime = %.3f\n", a);
         }
 
         double loga = log(a);
