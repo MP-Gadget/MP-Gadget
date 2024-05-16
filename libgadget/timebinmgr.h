@@ -28,6 +28,7 @@ struct SyncPoint
     int write_fof;
     int calc_uvbg;  //! Calculate the UV background
     int write_plane;  //! Write a plane
+    int plane_snapnum;  //! The snapshot number for the plane
     inttime_t ti;
 };
 

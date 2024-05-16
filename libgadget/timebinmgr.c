@@ -247,6 +247,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
     SyncPoints[0].write_fof = 0;
     SyncPoints[0].calc_uvbg = 0;
     SyncPoints[0].write_plane = 0;
+    SyncPoints[0].plane_snapnum = -1;
     NSyncPoints = 1;
 
     // set up UVBG syncpoints at given intervals
@@ -281,11 +282,12 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
     SyncPoints[NSyncPoints].calc_uvbg = 0;
     SyncPoints[NSyncPoints].write_fof = 1;
     SyncPoints[NSyncPoints].write_plane = 0;
+    SyncPoints[NSyncPoints].plane_snapnum = -1;
     NSyncPoints++;
 
     /* we do an insertion sort here. A heap is faster but who cares the speed for this? */
-    int64_t outIdx = 0;
-    int64_t planeoutIdx = 0;
+    int outIdx = 0;
+    int planeoutIdx = 0;
     int fromPlaneOut = 0;
     int fromOut = 0;
     double tolerance = 1e-6;
@@ -297,7 +299,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
         if (fabs(Sync.OutputListTimes[outIdx] - Sync.PlaneOutputListTimes[planeoutIdx]) < tolerance) {
             a = Sync.OutputListTimes[outIdx];
             outIdx++;
-            planeoutIdx++;
+            // planeoutIdx++;
             fromPlaneOut = 1;
             fromOut = 1;
         } else if ((outIdx < Sync.OutputListLength && Sync.OutputListTimes[outIdx] < Sync.PlaneOutputListTimes[planeoutIdx]) || (planeoutIdx == Sync.PlaneOutputListLength && Sync.OutputListTimes[outIdx] > Sync.PlaneOutputListTimes[planeoutIdx])) {
@@ -307,7 +309,6 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
             fromOut = 1;
         } else {
             a = Sync.PlaneOutputListTimes[planeoutIdx];
-            planeoutIdx++;
             fromPlaneOut = 1;
             fromOut = 0;
         }
@@ -360,8 +361,10 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
         }
         if (fromPlaneOut) {
             SyncPoints[j].write_plane = 1;
+            SyncPoints[j].plane_snapnum = planeoutIdx++;
         } else {
             SyncPoints[j].write_plane = 0;
+            SyncPoints[j].plane_snapnum = -1;
         }
     }
 

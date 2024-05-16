@@ -28,43 +28,43 @@ static struct plane_params
     double Thickness; // in kpc/h
 } PlaneParams;
 
-int get_snap_number(const char *dir_path) {
-    DIR *dir = opendir(dir_path);
-    if (!dir) {
-        // Directory cannot be opened
-        endrun(0, "Output directory cannot be opened!\n");
-    }
+// int get_snap_number(const char *dir_path) {   // no longer needed since we are passing snapnum as an argument (which is determined by the index of the output in the PlaneOutputList)
+//     DIR *dir = opendir(dir_path);
+//     if (!dir) {
+//         // Directory cannot be opened
+//         endrun(0, "Output directory cannot be opened!\n");
+//     }
 
-    struct dirent *entry;
-    int max_number = -1;
+//     struct dirent *entry;
+//     int max_number = -1;
 
-    // Regex-like pattern to match "snap[a]_potentialPlane..."
-    const char *pattern = "snap%d_potentialPlane";
+//     // Regex-like pattern to match "snap[a]_potentialPlane..."
+//     const char *pattern = "snap%d_potentialPlane";
 
-    while ((entry = readdir(dir)) != NULL) {
-        if (entry->d_type == DT_REG) {
-            int number;
-            char name[256];
+//     while ((entry = readdir(dir)) != NULL) {
+//         if (entry->d_type == DT_REG) {
+//             int number;
+//             char name[256];
 
-            // Check if the filename matches the pattern
-            if (sscanf(entry->d_name, pattern, &number) == 1) {
-                if (number > max_number) {
-                    max_number = number;
-                }
-            }
-        }
-    }
+//             // Check if the filename matches the pattern
+//             if (sscanf(entry->d_name, pattern, &number) == 1) {
+//                 if (number > max_number) {
+//                     max_number = number;
+//                 }
+//             }
+//         }
+//     }
 
-    closedir(dir);
+//     closedir(dir);
 
-    if (max_number == -1) {
-        // No matching files found
-        return 0;
-    } else {
-        // Return the next integer larger than the max found
-        return max_number + 1;
-    }
-}
+//     if (max_number == -1) {
+//         // No matching files found
+//         return 0;
+//     } else {
+//         // Return the next integer larger than the max found
+//         return max_number + 1;
+//     }
+// }
 
 char *
 plane_get_output_fname(const int snapnum, const char * OutputDir, const int cut, const int normal)
@@ -190,9 +190,9 @@ set_plane_params(ParameterSet * ps)
     MPI_Bcast(&PlaneParams, sizeof(struct plane_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
-void write_plane(int SnapPlaneCount, const double atime, const Cosmology * CP, const char * OutputDir, const double UnitVelocity_in_cm_per_s) {
+void write_plane(int snapnum, const double atime, const Cosmology * CP, const char * OutputDir, const double UnitVelocity_in_cm_per_s) {
 
-    int snapnum = get_snap_number(OutputDir);
+    // int snapnum = get_snap_number(OutputDir);
         // simulation parameters and variables
     double BoxSize = PartManager->BoxSize;
 
@@ -203,10 +203,8 @@ void write_plane(int SnapPlaneCount, const double atime, const Cosmology * CP, c
 
     // plane parameters
     int plane_resolution = PlaneParams.Resolution;
-    double thickness = PlaneParams.Thickness; // Example thickness in kpc/h
-    // double cut_points[] = {4000, 12000, 20000};
-    // int normals[] = {0, 1, 2};
-    // int normals[] = {2};
+    double thickness = PlaneParams.Thickness; // in kpc/h
+
 
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
@@ -232,7 +230,7 @@ void write_plane(int SnapPlaneCount, const double atime, const Cosmology * CP, c
         for (int j = 0; j < PlaneParams.NormalsLength; j++) {
             MPI_Barrier(MPI_COMM_WORLD);
 
-            message(0, "Computing for cut %d and normal %d\n", atime, i, PlaneParams.Normals[j]);
+            message(0, "Computing for cut %d and normal %d\n", i, PlaneParams.Normals[j]);
 
             // Initialize lensing_potential with zeros
             for (int i = 0; i < plane_resolution; i++) {
@@ -262,9 +260,9 @@ void write_plane(int SnapPlaneCount, const double atime, const Cosmology * CP, c
                 file_path = plane_get_output_fname(snapnum, OutputDir, i, PlaneParams.Normals[j]);
 #ifdef USE_CFITSIO
                 savePotentialPlane(summed_plane_result, plane_resolution, plane_resolution, file_path, BoxSize, CP, redshift, comoving_distance, num_particles_plane_tot);
+                message(0, "Plane saved for cut %d and normal %d to %s\n", i, PlaneParams.Normals[j], file_path);
 #endif
             }
-            message(0, "Plane saved for cut %d and normal %d\n", i, PlaneParams.Normals[j]);
             MPI_Barrier(MPI_COMM_WORLD);
         }
     }
