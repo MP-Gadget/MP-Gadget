@@ -717,9 +717,12 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
         /* Write the potential planes*/
         if(WritePlane)
+#ifdef USE_CFITSIO
             write_plane(SnapPlaneCount, atime, &All.CP, All.OutputDir, units.UnitVelocity_in_cm_per_s);
             SnapPlaneCount++;
-            
+#else
+            endrun(0, "Plane writing requested but FITSIO not enabled.\n");
+#endif
 
 #ifdef DEBUG
         check_kick_drift_times(PartManager, times.Ti_Current);

@@ -4,7 +4,11 @@
 #include <stdlib.h>
 #include <math.h>
 #include <fftw3.h> 
+
+#ifdef USE_CFITSIO
 #include "fitsio.h"
+#endif
+
 #include <string.h>
 #include "partmanager.h"
 #include "cosmology.h"
@@ -334,7 +338,7 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
     return num_particles_plane;
 }
 
-
+#ifdef USE_CFITSIO
 void savePotentialPlane(double **data, int rows, int cols, const char filename[128], double Lbox, const Cosmology * CP, double redshift, double comoving_distance, int64_t num_particles) {
     fitsfile *fptr;       // Pointer to the FITS file; defined in fitsio.h
     int status = 0;       // Status must be initialized to zero.
@@ -404,5 +408,5 @@ void savePotentialPlane(double **data, int rows, int cols, const char filename[1
         fits_report_error(stderr, status);
     }
 }
-
+#endif
 
