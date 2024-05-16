@@ -20,6 +20,6 @@ OPTIMIZE =  -fopenmp -O3 -g -Wall -ffast-math
 #OPT += -DEXCUR_REION  # reionization with excursion set
 
 #--------- CFITSIO (required only for saving potential plane files)
-# FITSIO_INCL =
-# FITSIO_LIBS = 
+# FITSIO_INCL = -I/path/to/include
+# FITSIO_LIBS = -L/path/to/lib -lcfitsio
 # OPT += -DUSE_CFITSIO
