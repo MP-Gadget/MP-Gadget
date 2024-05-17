@@ -382,8 +382,6 @@ create_gadget_parameter_set()
     param_set_action(ps, "StarformationCriterion", StarformationCriterionAction, NULL);
     param_set_action(ps, "OutputList", OutputListAction, NULL);
     param_set_action(ps, "PlaneOutputList", PlaneOutputListAction, NULL);
-    // param_set_action(ps, "PlaneCutPoints", PlaneCutPointsAction, NULL);
-    // param_set_action(ps, "PlaneNormals", PlaneNormalsAction, NULL);
 
     return ps;
 }
