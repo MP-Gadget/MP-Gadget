@@ -20,3 +20,4 @@ libgenic/.objs
 Options.mk
 yyh_tests/
 .vscode/
+.DS_Store
