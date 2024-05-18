@@ -28,44 +28,6 @@ static struct plane_params
     double Thickness; // in kpc/h
 } PlaneParams;
 
-// int get_snap_number(const char *dir_path) {   // no longer needed since we are passing snapnum as an argument (which is determined by the index of the output in the PlaneOutputList)
-//     DIR *dir = opendir(dir_path);
-//     if (!dir) {
-//         // Directory cannot be opened
-//         endrun(0, "Output directory cannot be opened!\n");
-//     }
-
-//     struct dirent *entry;
-//     int max_number = -1;
-
-//     // Regex-like pattern to match "snap[a]_potentialPlane..."
-//     const char *pattern = "snap%d_potentialPlane";
-
-//     while ((entry = readdir(dir)) != NULL) {
-//         if (entry->d_type == DT_REG) {
-//             int number;
-//             char name[256];
-
-//             // Check if the filename matches the pattern
-//             if (sscanf(entry->d_name, pattern, &number) == 1) {
-//                 if (number > max_number) {
-//                     max_number = number;
-//                 }
-//             }
-//         }
-//     }
-
-//     closedir(dir);
-
-//     if (max_number == -1) {
-//         // No matching files found
-//         return 0;
-//     } else {
-//         // Return the next integer larger than the max found
-//         return max_number + 1;
-//     }
-// }
-
 char *
 plane_get_output_fname(const int snapnum, const char * OutputDir, const int cut, const int normal)
 {
@@ -212,12 +174,12 @@ void write_plane(int snapnum, const double atime, const Cosmology * CP, const ch
     double redshift = 1./atime - 1.;
     message(0, "Computing and writing potential planes.\n");
 
-    double **plane_result = allocate_2d_array(plane_resolution, plane_resolution);
+    double *plane_result = allocate_2d_array_as_1d(plane_resolution, plane_resolution);
 
-    double **summed_plane_result = NULL;
+    double *summed_plane_result = NULL;
         
     if(ThisTask == 0) {
-        summed_plane_result = allocate_2d_array(plane_resolution, plane_resolution);
+        summed_plane_result = allocate_2d_array_as_1d(plane_resolution, plane_resolution);
     }
 
     double comoving_distance = compute_comoving_distance(CP, atime, 1., UnitVelocity_in_cm_per_s);
@@ -235,23 +197,22 @@ void write_plane(int snapnum, const double atime, const Cosmology * CP, const ch
             // Initialize lensing_potential with zeros
             for (int i = 0; i < plane_resolution; i++) {
                 for (int j = 0; j < plane_resolution; j++) {
-                    plane_result[i][j] = 0.0;  // Initially zero
+                    // plane_result[i][j] = 0.0;  // Initially zero
+                    ACCESS_2D(plane_result, i, j, plane_resolution) = 0.0;
                 }
             }
 
             double left_corner[3] = {0, 0, 0};
             int64_t num_particles_plane = 0, num_particles_plane_tot = 0;
-            // print input parameters
-
-            
 
             /*computing lensing potential planes*/
             num_particles_plane = cutPlaneGaussianGrid(num_particles_tot,  comoving_distance, BoxSize, CP, atime, PlaneParams.Normals[j], PlaneParams.CutPoints[i], thickness, left_corner, plane_resolution, plane_result);
             
             /*sum up planes from all tasks*/
-            for (int k = 0; k < plane_resolution; k++) {
-            MPI_Reduce(plane_result[k], (ThisTask == 0 ? summed_plane_result[k] : NULL), plane_resolution, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-            }  
+            MPI_Reduce(plane_result, (ThisTask == 0 ? summed_plane_result : NULL), plane_resolution * plane_resolution, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+            // for (int k = 0; k < plane_resolution; k++) {
+            // MPI_Reduce(plane_result[k], (ThisTask == 0 ? summed_plane_result[k] : NULL), plane_resolution, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+            // }  
             MPI_Reduce(&num_particles_plane, &num_particles_plane_tot, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
 
             /*saving planes*/
@@ -267,8 +228,8 @@ void write_plane(int snapnum, const double atime, const Cosmology * CP, const ch
         }
     }
     if (ThisTask == 0) {
-        free_2d_array(summed_plane_result, plane_resolution);
-        free_2d_array(plane_result, plane_resolution);
+        myfree(summed_plane_result);
+        myfree(plane_result);
         double comoving_distance_Mpc  = comoving_distance * UnitLength_in_cm / CM_PER_MPC;
         char * buf = fastpm_strdup_printf("%s/info.txt", OutputDir);
         FILE * fd = fopen(buf, "a");

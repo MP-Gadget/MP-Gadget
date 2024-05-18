@@ -1,18 +1,19 @@
-#include "lenstools.h"
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <fftw3.h> 
+#include <string.h>
 
 #ifdef USE_CFITSIO
 #include "fitsio.h"
 #endif
 
-#include <string.h>
+#include "lenstools.h"
 #include "partmanager.h"
 #include "cosmology.h"
 #include "physconst.h"
+#include "utils.h"
 
 void linspace(double start, double stop, int num, double *result) {
     double step = (stop - start) / (num - 1);
@@ -21,67 +22,24 @@ void linspace(double start, double stop, int num, double *result) {
     }
 }
 
-double ***allocate_3d_array(int nx, int ny, int nz) {
-    // Allocate memory for the 3D array
-    double ***array = malloc(nx * sizeof(double **));
-    if (array == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-
-    for (int i = 0; i < nx; i++) {
-        array[i] = malloc(ny * sizeof(double *));
-        if (array[i] == NULL) {
-            fprintf(stderr, "Memory allocation failed for layer %d\n", i);
-            exit(EXIT_FAILURE);
-        }
-        for (int j = 0; j < ny; j++) {
-            array[i][j] = malloc(nz * sizeof(double));
-            if (array[i][j] == NULL) {
-                fprintf(stderr, "Memory allocation failed for layer %d, row %d\n", i, j);
-                exit(EXIT_FAILURE);
-            }
-            // Initialize elements (optional)
-            for (int k = 0; k < nz; k++) {
-                array[i][j][k] = 0.0; // Example initialization
-            }
-        }
-    }
-
-    return array;
-}
-
-void free_3d_array(double ***array, int nx, int ny) {
-    // Free each row
-    for (int i = 0; i < nx; i++) {
-        for (int j = 0; j < ny; j++) {
-            free(array[i][j]);
-        }
-        free(array[i]);
-    }
-    free(array);
-}
-
-
-// Function to allocate a 2D array
-double **allocate_2d_array(int Nx, int Ny) {
-    double **array = malloc(Nx * sizeof(double *));
-    if (array == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    for (int i = 0; i < Nx; i++) {
-        array[i] = malloc(Ny * sizeof(double));
+// Function to allocate a 1D array to be used as a 3D array
+double *allocate_3d_array_as_1d(int Nx, int Ny, int Nz) {
+    double *array = mymalloc("3d", Nx * Ny * Nz * sizeof(double));
+    // Initialize elements (optional)
+    for (int i = 0; i < Nx * Ny * Nz; i++) {
+        array[i] = 0.0; // Example initialization
     }
     return array;
 }
 
-// Function to free a 2D array
-void free_2d_array(double **array, int Nx) {
-    for (int i = 0; i < Nx; i++) {
-        free(array[i]);
+// Function to allocate a 1D array to be used as a 2D array
+double *allocate_2d_array_as_1d(int Nx, int Ny) {
+    double *array = mymalloc("2d", Nx * Ny * sizeof(double));
+    // Initialize elements
+    for (int i = 0; i < Nx * Ny; i++) {
+        array[i] = 0.0; // Example initialization
     }
-    free(array);
+    return array;
 }
 
 typedef struct {
@@ -90,15 +48,24 @@ typedef struct {
 
 // Function to determine the bin index for a given value
 int find_bin(double value, double *bins, int num_bins) {
-    for (int i = 0; i < num_bins - 1; i++) {
-        if (value >= bins[i] && value < bins[i + 1]) {
-            return i;
+    int low = 0, high = num_bins - 1;
+    if (value > bins[num_bins-1] || value < bins[0])
+        return - 1; // beyond the boundaries
+
+    while (low < high) { //chatgpt actually had while(low <= high) but I think that is not right!
+        int mid = (low + high) / 2;
+        if (value >= bins[mid] && value < bins[mid + 1]) {
+            return mid;
+        } else if (value < bins[mid]) {
+            high = mid;
+        } else {
+            low = mid + 1;
         }
     }
-    return -1;  // Return the last bin if the value is on the boundary or beyond
+    endrun(0, "Error in find_bin\n");
 }
 
-void grid3d_nfw(const struct particle_data * Parts, int num_particles, double **binning, GridDimensions dims, double ***density) {
+void grid3d_nfw(const struct particle_data * Parts, int num_particles, double **binning, GridDimensions dims, double *density) {
     
     double position[3];
     // Process each particle
@@ -119,12 +86,12 @@ void grid3d_nfw(const struct particle_data * Parts, int num_particles, double **
             continue;
         }
         // Increment the density in the appropriate bin
-        density[ix][iy][iz]++;
+        ACCESS_3D(density, ix, iy, iz, dims.ny, dims.nz)++;
     }
 
 }
 
-void projectDensity(double ***density, double **density_projected, GridDimensions dims, int normal) {
+void projectDensity(double *density, double *density_projected, GridDimensions dims, int normal) {
     // z; x, y
     // y; z, x
     // x; y, z
@@ -134,21 +101,21 @@ void projectDensity(double ***density, double **density_projected, GridDimension
 
     for (int i = 0; i < Dim0; i++) {
         for (int j = 0; j < Dim1; j++) {
-            density_projected[i][j] = 0;
+            ACCESS_2D(density_projected, i, j, Dim1) = 0;
             for (int k = 0; k < DimNorm; k++) {
                 if (normal == 0) {
-                    density_projected[i][j] += density[k][i][j];
+                    ACCESS_2D(density_projected, i, j, Dim1) += ACCESS_3D(density, k, i, j, dims.ny, dims.nz);
                 } else if (normal == 1) {
-                    density_projected[i][j] += density[i][k][j];
+                    ACCESS_2D(density_projected, i, j, Dim1) += ACCESS_3D(density, i, k, j, dims.ny, dims.nz);
                 } else {
-                    density_projected[i][j] += density[i][j][k];
+                    ACCESS_2D(density_projected, i, j, Dim1) += ACCESS_3D(density, i, j, k, dims.ny, dims.nz);
                 }
             }
         }
     }
 }
 
-void calculate_lensing_potential(double **density_projected, int plane_resolution, double bin_resolution_0, double bin_resolution_1, double chi,double smooth, double **lensing_potential) {
+void calculate_lensing_potential(double *density_projected, int plane_resolution, double bin_resolution_0, double bin_resolution_1, double chi,double smooth, double *lensing_potential) {
     // Allocate the complex FFT output array
     fftw_complex *density_ft = fftw_malloc(sizeof(fftw_complex) * plane_resolution * (plane_resolution / 2 + 1));
     // Initialize density_ft to zero
@@ -157,36 +124,11 @@ void calculate_lensing_potential(double **density_projected, int plane_resolutio
         density_ft[i][1] = 0.0;  // Imaginary part
     }
 
-    double **l_squared = allocate_2d_array(plane_resolution, plane_resolution / 2 + 1);
-
-    // Create a temporary array to hold the real-valued lensing potential, for the backward FFT
-    double *temp_lensing_potential = malloc(plane_resolution * plane_resolution * sizeof(double));
-    if (temp_lensing_potential == NULL) {
-        fprintf(stderr, "Memory allocation failed for temp_lensing_potential\n");
-        // Free other allocated resources
-        fftw_free(density_ft);
-        free_2d_array(l_squared, plane_resolution);
-        MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
-    }
-    // Initialize temp_lensing_potential to zero
-    for (int i = 0; i < plane_resolution * plane_resolution; i++) {
-        temp_lensing_potential[i] = 0.0;
-    }
-
-    // Allocate memory for a temporary 1D array to store the 2D data (for contiguous memory layout)
-    double *temp_density_projected = malloc(plane_resolution * plane_resolution * sizeof(double));
-    if (!temp_density_projected) {
-        perror("Failed to allocate memory for temporary data storage");
-        exit(EXIT_FAILURE);
-    }
-
-    for (int i = 0; i < plane_resolution; i++) {
-        memcpy(temp_density_projected + i * plane_resolution, density_projected[i], plane_resolution * sizeof(double));
-    }
+    double *l_squared = allocate_2d_array_as_1d(plane_resolution, plane_resolution / 2 + 1);
 
     // Create FFTW plans
-    fftw_plan forward_plan = fftw_plan_dft_r2c_2d(plane_resolution, plane_resolution, temp_density_projected, density_ft, FFTW_ESTIMATE);
-    fftw_plan backward_plan = fftw_plan_dft_c2r_2d(plane_resolution, plane_resolution, density_ft, temp_lensing_potential, FFTW_ESTIMATE);
+    fftw_plan forward_plan = fftw_plan_dft_r2c_2d(plane_resolution, plane_resolution, density_projected, density_ft, FFTW_ESTIMATE);
+    fftw_plan backward_plan = fftw_plan_dft_c2r_2d(plane_resolution, plane_resolution, density_ft, lensing_potential, FFTW_ESTIMATE);
 
     // Compute l_squared (multipoles)
     for (int i = 0; i < plane_resolution; i++) {
@@ -195,10 +137,11 @@ void calculate_lensing_potential(double **density_projected, int plane_resolutio
             lx /= plane_resolution;
             double ly = j;  // Since rfftn outputs only the non-negative frequencies
             ly /= plane_resolution;
-            l_squared[i][j] = lx * lx + ly * ly;
+            // l_squared[i][j] = lx * lx + ly * ly;
+            ACCESS_2D(l_squared, i, j, plane_resolution / 2 + 1) = lx * lx + ly * ly;
         }
     }
-    l_squared[0][0] = 1.0;  // Avoid division by zero at the DC component
+    l_squared[0 + 0 * plane_resolution] = 1.0;  // Avoid division by zero at the DC component
 
     // Perform the forward FFT
     fftw_execute(forward_plan);
@@ -207,19 +150,19 @@ void calculate_lensing_potential(double **density_projected, int plane_resolutio
     for (int i = 0; i < plane_resolution; i++) {
         for (int j = 0; j < plane_resolution / 2 + 1; j++) {
             int idx = i * (plane_resolution / 2 + 1) + j;
-            double factor = -2.0 * (bin_resolution_0 * bin_resolution_1 / (chi * chi)) / (l_squared[i][j] * 4 * M_PI * M_PI);
-            density_ft[idx][0] *= factor * exp(-0.5 * ((2.0 * M_PI * smooth) * (2.0 * M_PI * smooth)) * l_squared[i][j]);
-            density_ft[idx][1] *= factor * exp(-0.5 * ((2.0 * M_PI * smooth) * (2.0 * M_PI * smooth)) * l_squared[i][j]);
+            double factor = -2.0 * (bin_resolution_0 * bin_resolution_1 / (chi * chi)) / (ACCESS_2D(l_squared, i, j, plane_resolution / 2 + 1) * 4 * M_PI * M_PI);
+            density_ft[idx][0] *= factor * exp(-0.5 * ((2.0 * M_PI * smooth) * (2.0 * M_PI * smooth)) * ACCESS_2D(l_squared, i, j, plane_resolution / 2 + 1));
+            density_ft[idx][1] *= factor * exp(-0.5 * ((2.0 * M_PI * smooth) * (2.0 * M_PI * smooth)) * ACCESS_2D(l_squared, i, j, plane_resolution / 2 + 1));
         }
     }
 
     // Perform the inverse FFT
     fftw_execute(backward_plan);
 
-    // Normalize the output of the inverse FFT and copy to the lensing_potential 2D array
+    // Normalize the output of the inverse FFT
     for (int i = 0; i < plane_resolution; i++) {
         for (int j = 0; j < plane_resolution; j++) {
-            lensing_potential[i][j] = temp_lensing_potential[i * plane_resolution + j] / (plane_resolution * plane_resolution);
+            ACCESS_2D(lensing_potential, i, j, plane_resolution) /= (plane_resolution * plane_resolution);
         }
     }
     
@@ -227,15 +170,13 @@ void calculate_lensing_potential(double **density_projected, int plane_resolutio
     fftw_destroy_plan(forward_plan);
     fftw_destroy_plan(backward_plan);
     fftw_free(density_ft);
-    free(temp_lensing_potential);
     // for (int i = 0; i < plane_resolution; i++) {
     //     free(l_squared[i]);
     // }
-    // free(l_squared);
-    free_2d_array(l_squared, plane_resolution);
+    myfree(l_squared);
 }
 
-int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, double Lbox, const Cosmology * CP, const double atime, const int normal, const double center, const double thickness, const double *left_corner, const int plane_resolution, double **lensing_potential) {
+int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, double Lbox, const Cosmology * CP, const double atime, const int normal, const double center, const double thickness, const double *left_corner, const int plane_resolution, double *lensing_potential) {
     // Get the rank of the current process
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
@@ -244,10 +185,8 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
 
     int num_particles_rank = PartManager->NumPart;  // dark matter-only simulation: NumPart = number of dark matter particles
 
-    double **density_projected = allocate_2d_array(plane_resolution, plane_resolution);
+    double *density_projected = allocate_2d_array_as_1d(plane_resolution, plane_resolution);
 
-    // printf("cutPlaneGaussianGrid called with rank %d\n", rank);
-    // int i, j;
     int thickness_resolution = 1;  // Number of bins along the thickness direction, fixed to 1 for now
 
     // cosmological normalization factor
@@ -293,19 +232,19 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
     dims.nz = (normal == 2) ? thickness_resolution : plane_resolution;
     // printf("nx: %d, ny: %d, nz: %d\n", dims.nx, dims.ny, dims.nz);
 
-    double ***density = allocate_3d_array(dims.nx, dims.ny, dims.nz);
+    double *density = allocate_3d_array_as_1d(dims.nx, dims.ny, dims.nz);
 
     grid3d_nfw(P, num_particles_rank, binning, dims, density);
 
     projectDensity(density, density_projected, dims, normal);
 
-    free_3d_array(density, dims.nx, dims.ny);
+    myfree(density);
 
     //number of particles on the plane
     int64_t num_particles_plane = 0;
     for (int i = 0; i < plane_resolution; i++) {
         for (int j = 0; j < plane_resolution; j++) {
-            num_particles_plane += density_projected[i][j];
+            num_particles_plane += ACCESS_2D(density_projected, i, j, plane_resolution);
         }
     }
 
@@ -317,7 +256,7 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
 
     for (int i = 0; i < plane_resolution; i++) {
         for (int j = 0; j < plane_resolution; j++) {
-            density_projected[i][j] *= density_norm_factor;
+            ACCESS_2D(density_projected, i, j, plane_resolution) *= density_norm_factor;
         }
     }
 
@@ -327,10 +266,10 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
     // normalize the lensing potential
     for (int i = 0; i < plane_resolution; i++) {
         for (int j = 0; j < plane_resolution; j++) {
-            lensing_potential[i][j] *= cosmo_normalization * density_normalization;
+            ACCESS_2D(lensing_potential, i, j, plane_resolution) *= cosmo_normalization * density_normalization;
         }
     }
-    free_2d_array(density_projected, plane_resolution);
+    myfree(density_projected);
     // Free the binning arrays
     for (int i = 0; i < 3; i++) {
         free(binning[i]);
@@ -339,7 +278,7 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
 }
 
 #ifdef USE_CFITSIO
-void savePotentialPlane(double **data, int rows, int cols, const char filename[128], double Lbox, const Cosmology * CP, double redshift, double comoving_distance, int64_t num_particles, const double UnitLength_in_cm) {
+void savePotentialPlane(double *data, int rows, int cols, const char filename[128], double Lbox, const Cosmology * CP, double redshift, double comoving_distance, int64_t num_particles, const double UnitLength_in_cm) {
     fitsfile *fptr;       // Pointer to the FITS file; defined in fitsio.h
     int status = 0;       // Status must be initialized to zero.
     long naxes[2] = {cols, rows};  // image dimensions
@@ -380,26 +319,15 @@ void savePotentialPlane(double **data, int rows, int cols, const char filename[1
     fits_update_key(fptr, TLONGLONG, "NPART", &num_particles, "Number of particles on the plane", &status);
     fits_update_key(fptr, TSTRING, "UNIT", "rad2    ", "Pixel value unit", &status);
 
-    // Allocate memory for a temporary 1D array to store the 2D data (for contiguous memory layout)
-    double *tempData = malloc(rows * cols * sizeof(double));
-    if (!tempData) {
-        perror("Failed to allocate memory for temporary data storage");
-        exit(EXIT_FAILURE);
-    }
-
-    for (int i = 0; i < rows; i++) {
-        memcpy(tempData + i * cols, data[i], cols * sizeof(double));
-    }
-
     // Write the 2D array of doubles to the image
     long fpixel[2] = {1, 1};  // first pixel to write (1-based indexing)
-    if (fits_write_pix(fptr, TDOUBLE, fpixel, rows * cols, tempData, &status)) {
+    if (fits_write_pix(fptr, TDOUBLE, fpixel, rows * cols, data, &status)) {
         fits_report_error(stderr, status);
-        free(tempData);
+        // free(tempData);
         return;
     }
 
-    free(tempData);
+    // free(tempData);
 
 
     // Close the FITS file
