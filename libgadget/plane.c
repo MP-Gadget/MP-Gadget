@@ -154,8 +154,6 @@ set_plane_params(ParameterSet * ps)
 
 void write_plane(int snapnum, const double atime, const Cosmology * CP, const char * OutputDir, const double UnitVelocity_in_cm_per_s, const double UnitLength_in_cm) {
 
-    // int snapnum = get_snap_number(OutputDir);
-        // simulation parameters and variables
     double BoxSize = PartManager->BoxSize;
 
     int64_t num_particles_tot = 0; // number of dark matter particles
@@ -193,14 +191,6 @@ void write_plane(int snapnum, const double atime, const Cosmology * CP, const ch
             MPI_Barrier(MPI_COMM_WORLD);
 
             message(0, "Computing for cut %d and normal %d\n", i, PlaneParams.Normals[j]);
-
-            // Initialize lensing_potential with zeros
-            for (int i = 0; i < plane_resolution; i++) {
-                for (int j = 0; j < plane_resolution; j++) {
-                    // plane_result[i][j] = 0.0;  // Initially zero
-                    ACCESS_2D(plane_result, i, j, plane_resolution) = 0.0;
-                }
-            }
 
             double left_corner[3] = {0, 0, 0};
             int64_t num_particles_plane = 0, num_particles_plane_tot = 0;

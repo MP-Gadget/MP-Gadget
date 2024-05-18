@@ -22,23 +22,20 @@ void linspace(double start, double stop, int num, double *result) {
     }
 }
 
-// Function to allocate a 1D array to be used as a 3D array
+// Function to allocate a 1D array to be used as a 3D array, and initialize elements to zero
 double *allocate_3d_array_as_1d(int Nx, int Ny, int Nz) {
     double *array = mymalloc("3d", Nx * Ny * Nz * sizeof(double));
-    // Initialize elements (optional)
-    for (int i = 0; i < Nx * Ny * Nz; i++) {
-        array[i] = 0.0; // Example initialization
-    }
+    // Initialize elements with memset
+    memset(array, 0, Nx * Ny * Nz * sizeof(double));
     return array;
 }
 
-// Function to allocate a 1D array to be used as a 2D array
+// Function to allocate a 1D array to be used as a 2D array, and initialize elements to zero
 double *allocate_2d_array_as_1d(int Nx, int Ny) {
     double *array = mymalloc("2d", Nx * Ny * sizeof(double));
-    // Initialize elements
-    for (int i = 0; i < Nx * Ny; i++) {
-        array[i] = 0.0; // Example initialization
-    }
+    // Initialize elements with memset
+    memset(array, 0, Nx * Ny * sizeof(double));
+
     return array;
 }
 
@@ -47,20 +44,19 @@ typedef struct {
 } GridDimensions;
 
 // Function to determine the bin index for a given value
-int find_bin(double value, double *bins, int num_bins) {
-    int low = 0, high = num_bins - 1;
-    if (value > bins[num_bins-1] || value < bins[0])
-        return - 1; // beyond the boundaries
+int find_bin(double value, double *bins, int resolution, const double L) { // L is the box size
+    // float index
+    float iflt = (value - bins[0]) / (bins[resolution] - bins[0]) * resolution;
 
-    while (low < high) { //chatgpt actually had while(low <= high) but I think that is not right!
-        int mid = (low + high) / 2;
-        if (value >= bins[mid] && value < bins[mid + 1]) {
-            return mid;
-        } else if (value < bins[mid]) {
-            high = mid;
-        } else {
-            low = mid + 1;
-        }
+    // round down to the nearest integer
+    int index = (int)floorf(iflt);
+
+    // check if the value is within the range
+    if (index >= 0 && index < resolution) {
+        return index;
+    }
+    else {
+        return -1;
     }
     endrun(0, "Error in find_bin\n");
 }
@@ -77,9 +73,9 @@ void grid3d_nfw(const struct particle_data * Parts, int num_particles, double **
             while(position[d] > PartManager->BoxSize) position[d] -= PartManager->BoxSize;
             while(position[d] <= 0) position[d] += PartManager->BoxSize;
         }
-        int ix = find_bin(position[0], binning[0], dims.nx + 1);
-        int iy = find_bin(position[1], binning[1], dims.ny + 1);
-        int iz = find_bin(position[2], binning[2], dims.nz + 1);
+        int ix = find_bin(position[0], binning[0], dims.nx, PartManager->BoxSize);
+        int iy = find_bin(position[1], binning[1], dims.ny, PartManager->BoxSize);
+        int iz = find_bin(position[2], binning[2], dims.nz, PartManager->BoxSize);
 
         // continue if the particle is outside the grid
         if (ix == -1 || iy == -1 || iz == -1) {
