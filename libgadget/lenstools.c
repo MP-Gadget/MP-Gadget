@@ -46,10 +46,10 @@ typedef struct {
 // Function to determine the bin index for a given value
 int find_bin(double value, double *bins, int resolution, const double L) { // L is the box size
     // float index
-    float iflt = (value - bins[0]) / (bins[resolution] - bins[0]) * resolution;
+    double iflt = (value - bins[0]) / (bins[resolution] - bins[0]) * resolution;
 
     // round down to the nearest integer
-    int index = (int)floorf(iflt);
+    int index = (int)floor(iflt);
 
     // check if the value is within the range
     if (index >= 0 && index < resolution) {
@@ -58,7 +58,6 @@ int find_bin(double value, double *bins, int resolution, const double L) { // L 
     else {
         return -1;
     }
-    endrun(0, "Error in find_bin\n");
 }
 
 void grid3d_ngb(const struct particle_data * Parts, int num_particles, double **binning, GridDimensions dims, double *density) { // adpated from grid3d_nfw in lenstools
@@ -177,9 +176,9 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     // smooth
-    float smooth = 1.0; // fixed in our case
+    double smooth = 1.0; // fixed in our case
 
-    int num_particles_rank = PartManager->NumPart;  // dark matter-only simulation: NumPart = number of dark matter particles
+    int64_t num_particles_rank = PartManager->NumPart;  // dark matter-only simulation: NumPart = number of dark matter particles
 
     double *density_projected = allocate_2d_array_as_1d(plane_resolution, plane_resolution);
 
