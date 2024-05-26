@@ -39,9 +39,6 @@ typedef struct {
     size_t nexchange;
     /*Number of garbage particles*/
     int64_t ngarbage;
-    /* last particle in current batch of the exchange.
-     * Exchange stops when last == nexchange.*/
-    size_t last;
     ExchangePartCache * layouts;
 } ExchangePlan;
 /*
@@ -49,8 +46,8 @@ typedef struct {
  * exchange particles according to layoutfunc.
  * layoutfunc gives the target task of particle p.
 */
-static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
-static void domain_build_plan(int iter, ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm);
+static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
+static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm);
 static size_t domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pman, const struct slots_manager_type * sman);
 static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 
@@ -93,6 +90,7 @@ domain_init_exchangeplan(MPI_Comm Comm)
 static void
 domain_free_exchangeplan(ExchangePlan * plan)
 {
+    myfree(plan->ExchangeList);
     myfree(plan->toGetOffset);
     myfree(plan->toGet);
     myfree(plan->toGoOffset);
@@ -101,8 +99,6 @@ domain_free_exchangeplan(ExchangePlan * plan)
 
 /*Plan and execute a domain exchange, also performing a garbage collection if requested*/
 int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, PreExchangeList * preexch, struct part_manager_type * pman, struct slots_manager_type * sman, int maxiter, MPI_Comm Comm) {
-    int failure = 0;
-
     /* register the MPI types used in communication if not yet. */
     if (MPI_TYPE_PLAN_ENTRY == 0) {
         MPI_Type_contiguous(sizeof(ExchangePlanEntry), MPI_BYTE, &MPI_TYPE_PLAN_ENTRY);
@@ -111,51 +107,30 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
 
     /*Structure for building a list of particles that will be exchanged*/
     ExchangePlan plan = domain_init_exchangeplan(Comm);
-
-    int iter = 0;
-
-    do {
-        if(iter >= maxiter) {
-            failure = 1;
-            break;
-        }
-        /* Use the pre-exchange list if we can*/
-        if(preexch && preexch->ExchangeList) {
-            plan.ngarbage= preexch->ngarbage;
-            plan.nexchange = preexch->nexchange;
-            plan.ExchangeList = preexch->ExchangeList;
-            /* We only use this once.*/
-            preexch->ExchangeList = NULL;
-        }
-        else {
-            domain_build_exchange_list(layoutfunc, layout_userdata, &plan, pman, sman, Comm);
-        }
-        walltime_measure("/Domain/exchange/togo");
-
-        /*Exit early if nothing to do*/
-        if(!MPIU_Any(plan.nexchange > 0, Comm))
-        {
-            myfree(plan.ExchangeList);
-            break;
-        }
-
-        /* determine for each rank how many particles have to be shifted to other ranks */
-        plan.last = domain_find_iter_space(&plan, pman, sman);
-        domain_build_plan(iter, layoutfunc, layout_userdata, &plan, pman, Comm);
-
-        /* Do a GC if this isn't the last iteration.
-         * The gc decision is made collective in domain_exchange_once,
-         * and a gc will also be done if we have no space for particles.*/
-        int do_gc = (plan.last < plan.nexchange);
-        failure = domain_exchange_once(&plan, do_gc, pman, sman, Comm);
-
-        myfree(plan.ExchangeList);
-
-        if(failure)
-            break;
-        iter++;
+    /* Use the pre-exchange list if we can*/
+    if(preexch && preexch->ExchangeList) {
+        plan.ngarbage= preexch->ngarbage;
+        plan.nexchange = preexch->nexchange;
+        plan.ExchangeList = preexch->ExchangeList;
+        /* We only use this once.*/
+        preexch->ExchangeList = NULL;
     }
-    while(MPIU_Any(plan.last < plan.nexchange, Comm));
+    else {
+        /* This needs to be re-run if there is a gc*/
+        domain_build_exchange_list(layoutfunc, layout_userdata, &plan, pman, sman, Comm);
+    }
+    walltime_measure("/Domain/exchange/togo");
+
+    int failure = 0;
+    /*If we have work to do, do it */
+    if(MPIU_Any(plan.nexchange > 0, Comm))
+    {
+        domain_build_plan(layoutfunc, layout_userdata, &plan, pman, Comm);
+        /* determine for each rank how many particles have to be shifted to other ranks */
+        domain_find_iter_space(&plan, pman, sman);
+        /* Inside domain_exchange_once, we do send/recv for each processor individually and loop until we are done.*/
+        failure = domain_exchange_once(&plan, pman, sman, Comm);
+    }
 #ifdef DEBUG
     /* This does not apply for the FOF code, where the exchange list is pre-assigned
      * and we only get one iteration. */
@@ -165,35 +140,14 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
         domain_build_exchange_list(layoutfunc, layout_userdata, &plan9, pman, sman, Comm);
         if(plan9.nexchange > 0)
             endrun(5, "Still have %ld particles in exchange list\n", plan9.nexchange);
-        myfree(plan9.ExchangeList);
         domain_free_exchangeplan(&plan9);
     }
 #endif
     domain_free_exchangeplan(&plan);
-
     return failure;
 }
 
-/*Function decides whether the GC will compact slots.
- * Sets compact[6]. Is collective.*/
-static void
-shall_we_compact_slots(int * compact, ExchangePlan * plan, const struct slots_manager_type * sman, MPI_Comm Comm)
-{
-    int ptype;
-    int lcompact[6] = {0};
-    for(ptype = 0; ptype < 6; ptype++) {
-        /* gc if we are low on slot memory. */
-        if (sman->info[ptype].size + plan->toGetSum.slots[ptype] > 0.95 * sman->info[ptype].maxsize)
-            lcompact[ptype] = 1;
-        /* gc if we had a very large exchange. */
-        if(plan->toGoSum.slots[ptype] > 0.1 * sman->info[ptype].size)
-            lcompact[ptype] = 1;
-    }
-    /*Make the slot compaction collective*/
-    MPI_Allreduce(lcompact, compact, 6, MPI_INT, MPI_LOR, Comm);
-}
-
-static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm)
+static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm)
 {
     size_t n;
     int ptype;
@@ -221,7 +175,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
     ExchangePlanEntry * toGoPtr = ta_malloc("toGoPtr", ExchangePlanEntry, plan->NTask);
     memset(toGoPtr, 0, sizeof(toGoPtr[0]) * plan->NTask);
 
-    for(n = 0; n < plan->last; n++)
+    for(n = 0; n < plan->nexchange; n++)
     {
         const int i = plan->ExchangeList[n];
         /* preparing for export */
@@ -246,18 +200,6 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
     myfree(plan->layouts);
     ta_free(toGoPtr);
     walltime_measure("/Domain/exchange/makebuf");
-
-    /* Do a gc if we were asked to, or if we need one
-     * to have enough space for the incoming material*/
-    int shall_we_gc = do_gc || (pman->NumPart + plan->toGetSum.base > pman->MaxPart);
-    if(MPIU_Any(shall_we_gc, Comm)) {
-        /*Find which slots to gc*/
-        int compact[6] = {0};
-        shall_we_compact_slots(compact, plan, sman, Comm);
-        slots_gc(compact, pman, sman);
-
-        walltime_measure("/Domain/exchange/garbage");
-    }
 
     int64_t newNumPart;
     int64_t newSlots[6] = {0};
@@ -486,17 +428,17 @@ domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pma
 
 /*This function populates the toGo and toGet arrays*/
 static void
-domain_build_plan(int iter, ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm)
+domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm)
 {
     int ptype;
     size_t n;
 
     memset(plan->toGo, 0, sizeof(plan->toGo[0]) * plan->NTask);
 
-    plan->layouts = (ExchangePartCache *) mymalloc("layoutcache",sizeof(ExchangePartCache) * plan->last);
+    plan->layouts = (ExchangePartCache *) mymalloc("layoutcache",sizeof(ExchangePartCache) * plan->nexchange);
 
     #pragma omp parallel for
-    for(n = 0; n < plan->last; n++)
+    for(n = 0; n < plan->nexchange; n++)
     {
         const int i = plan->ExchangeList[n];
         const int target = layoutfunc(i, layout_userdata);
@@ -507,7 +449,7 @@ domain_build_plan(int iter, ExchangeLayoutFunc layoutfunc, const void * layout_u
     }
 
     /*Do the sum*/
-    for(n = 0; n < plan->last; n++)
+    for(n = 0; n < plan->nexchange; n++)
     {
         plan->toGo[plan->layouts[n].target].base++;
         plan->toGo[plan->layouts[n].target].slots[plan->layouts[n].ptype]++;
@@ -544,7 +486,7 @@ domain_build_plan(int iter, ExchangeLayoutFunc layoutfunc, const void * layout_u
     MPI_Reduce(&maxbasetogo, &maxbasetogomax, 1, MPI_INT64, MPI_MAX, 0, Comm);
     MPI_Reduce(&maxbasetoget, &maxbasetogetmax, 1, MPI_INT64, MPI_MAX, 0, Comm);
     MPI_Reduce(&plan->toGoSum.base, &sumtogo, 1, MPI_INT64, MPI_SUM, 0, Comm);
-    message(0, "iter = %d Total particles in flight: %ld Largest togo: %ld, toget %ld\n", iter, sumtogo, maxbasetogomax, maxbasetogetmax);
+    message(0, "Total particles in flight: %ld Largest togo: %ld, toget %ld\n", sumtogo, maxbasetogomax, maxbasetogetmax);
 }
 
 /* used only by test uniqueness */
