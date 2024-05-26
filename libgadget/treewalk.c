@@ -512,41 +512,9 @@ struct ImpExpCounts
     size_t Nexport;
 };
 
-struct CommBuffer
-{
-    char * databuf;
-    int * rqst_task;
-    MPI_Request * rdata_all;
-    int nrequest_all;
-};
-
-void alloc_commbuffer(struct CommBuffer * buffer, int NTask, int alloc_high)
-{
-    if(alloc_high) {
-        buffer->rdata_all = ta_malloc2("requests", MPI_Request, NTask);
-        buffer->rqst_task = ta_malloc2("rqst", int, NTask);
-    }
-    else {
-        buffer->rdata_all = ta_malloc("requests", MPI_Request, NTask);
-        buffer->rqst_task = ta_malloc("rqst", int, NTask);
-    }
-    buffer->nrequest_all = 0;
-    buffer->databuf = NULL;
-}
-
 void free_impexpcount(struct ImpExpCounts * count)
 {
     ta_free(count->Export_count);
-}
-
-void free_commbuffer(struct CommBuffer * buffer)
-{
-    if(buffer->databuf) {
-        myfree(buffer->databuf);
-        buffer->databuf = NULL;
-    }
-    ta_free(buffer->rqst_task);
-    ta_free(buffer->rdata_all);
 }
 
 #define COMM_RECV 1
