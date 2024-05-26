@@ -13,6 +13,7 @@
 
 /*Number of structure types for particles*/
 typedef struct {
+    size_t totalbytes;
     int64_t base;
     int64_t slots[6];
 } ExchangePlanEntry;
@@ -33,6 +34,7 @@ typedef struct {
     ExchangePlanEntry toGoSum;
     ExchangePlanEntry toGetSum;
     int NTask;
+    int ThisTask;
     /*List of particles to exchange*/
     int * ExchangeList;
     /*Total number of exchanged particles*/
@@ -47,8 +49,8 @@ typedef struct {
  * layoutfunc gives the target task of particle p.
 */
 static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
-static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm);
-static size_t domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pman, const struct slots_manager_type * sman);
+static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, struct slot_info * sinfo, MPI_Comm Comm);
+static int domain_check_iter_space(ExchangePlan * plan);
 static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 
 /* This function builds the count/displ arrays from
@@ -76,6 +78,7 @@ domain_init_exchangeplan(MPI_Comm Comm)
 {
     ExchangePlan plan;
     MPI_Comm_size(Comm, &plan.NTask);
+    MPI_Comm_rank(Comm, &plan.ThisTask);
     /*! toGo[0][task*NTask + partner] gives the number of particles in task 'task'
      *  that have to go to task 'partner'
      *  toGo[1] is SPH, toGo[2] is BH and toGo[3] is stars
@@ -125,9 +128,9 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     /*If we have work to do, do it */
     if(MPIU_Any(plan.nexchange > 0, Comm))
     {
-        domain_build_plan(layoutfunc, layout_userdata, &plan, pman, Comm);
+        domain_build_plan(layoutfunc, layout_userdata, &plan, pman, sman->info, Comm);
         /* determine for each rank how many particles have to be shifted to other ranks */
-        domain_find_iter_space(&plan, pman, sman);
+        domain_check_iter_space(&plan);
         /* Inside domain_exchange_once, we do send/recv for each processor individually and loop until we are done.*/
         failure = domain_exchange_once(&plan, pman, sman, Comm);
     }
@@ -370,12 +373,11 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
     plan->ExchangeList = (int *) myrealloc(plan->ExchangeList, sizeof(int) * plan->nexchange);
 }
 
-/*Find how many particles we can transfer in current exchange iteration*/
-static size_t
-domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pman, const struct slots_manager_type * sman)
+/*Find how many particles we can transfer in current exchange iteration. TODO: Split requests that need too much.*/
+static int
+domain_check_iter_space(ExchangePlan * plan)
 {
-    int ptype;
-    size_t n, nlimit = mymalloc_freebytes();
+    size_t nlimit = mymalloc_freebytes();
 
     if (nlimit <  4096L * 6 + plan->NTask * 2 * sizeof(MPI_Request))
         endrun(1, "Not enough memory free to store requests!\n");
@@ -386,49 +388,45 @@ domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pma
      * Need max. 2*4096 for each heap-allocated array.*/
     nlimit -= 4096 * 4L;
 
-    size_t maxsize = 0;
-    for(ptype = 0; ptype < 6; ptype ++ ) {
-        if(!sman->info[ptype].enabled) continue;
-        if (maxsize < sman->info[ptype].elsize)
-            maxsize = sman->info[ptype].elsize;
-        /*Reserve space for slotBuf header*/
-        nlimit -= 4096 * 2L;
-    }
-
     /* We want to avoid doing an alltoall with
      * more than 2GB of material as this hangs.*/
     const size_t maxexch = 2040L*1024L*1024L;
     if(nlimit > maxexch)
         nlimit = maxexch;
+
     message(0, "Using %td bytes for exchange.\n", nlimit);
 
-    size_t package = sizeof(pman->Base[0]) + maxsize;
-    if(package >= nlimit || nlimit > mymalloc_freebytes())
-        endrun(212, "Package is too large, no free memory: package = %lu nlimit = %lu.", package, nlimit);
-
-    /* Fast path: if we have enough space no matter what type the particles
-     * are we don't need to check them.*/
-    if(plan->nexchange * (sizeof(pman->Base[0]) + maxsize + sizeof(ExchangePartCache)) < nlimit) {
-        return plan->nexchange;
+    /* Maximum size we need for a single send/recv pair*/
+    size_t maxsize = 0;
+    /* Total size needed for all send/recv pairs*/
+    size_t totalsize = 0;
+    int ntasks_exchange = 0;
+    int task;
+    for(task = 1; task < plan->NTask; task++) {
+        const int sendtask = (plan->ThisTask + task) % plan->NTask;
+        const int recvtask = (plan->ThisTask - task) % plan->NTask;
+        size_t singleiter = plan->toGo[sendtask].totalbytes + plan->toGet[recvtask].totalbytes;
+        if(singleiter > maxsize)
+            maxsize = singleiter;
+        totalsize += singleiter;
+        while(totalsize < nlimit)
+            ntasks_exchange ++;
     }
 
-    /*Find how many particles we have space for.*/
-    for(n = 0; n < plan->nexchange; n++)
-    {
-        const int i = plan->ExchangeList[n];
-        const int ptype = pman->Base[i].Type;
-        package += sizeof(pman->Base[0]) + sman->info[ptype].elsize + sizeof(ExchangePartCache);
-        if(package >= nlimit) {
-//             message(1,"Not enough space for particles: nlimit=%d, package=%d\n",nlimit,package);
-            break;
-        }
+    if(maxsize > nlimit) {
+        endrun(5, "Maxsize %ld > %ld limit. Not enough space for a single pair exchange. FIXME: This should be handled.\n", maxsize, nlimit);
     }
-    return n;
+
+    if(ntasks_exchange < plan->NTask) {
+        endrun(5, "Only enough space for %d tasks of %d to exchange. FIXME: This should be handled.\n", ntasks_exchange, plan->NTask);
+    }
+
+    return ntasks_exchange;
 }
 
 /*This function populates the toGo and toGet arrays*/
 static void
-domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm)
+domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, struct slot_info * sinfo, MPI_Comm Comm)
 {
     int ptype;
     size_t n;
@@ -453,6 +451,11 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
     {
         plan->toGo[plan->layouts[n].target].base++;
         plan->toGo[plan->layouts[n].target].slots[plan->layouts[n].ptype]++;
+        /* Compute total size being sent on this process*/
+        plan->toGo[plan->layouts[n].target].totalbytes += sizeof(struct particle_data);
+        if(sinfo[plan->layouts[n].ptype].enabled){
+            plan->toGo[plan->layouts[n].target].totalbytes += sinfo[plan->layouts[n].ptype].elsize;
+        }
     }
 
     MPI_Alltoall(plan->toGo, 1, MPI_TYPE_PLAN_ENTRY, plan->toGet, 1, MPI_TYPE_PLAN_ENTRY, Comm);
