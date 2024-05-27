@@ -41,6 +41,8 @@ typedef struct {
     size_t nexchange;
     /*Number of garbage particles*/
     int64_t ngarbage;
+    size_t total_togetbytes;
+    size_t total_togobytes;
     ExchangePartCache * layouts;
 } ExchangePlan;
 /*
@@ -48,35 +50,15 @@ typedef struct {
  * exchange particles according to layoutfunc.
  * layoutfunc gives the target task of particle p.
 */
-static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
+static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, MPI_Comm Comm);
 static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, struct slot_info * sinfo, MPI_Comm Comm);
 static int domain_check_iter_space(ExchangePlan * plan);
 static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 
-/* This function builds the count/displ arrays from
- * the rows stored in the entry struct of the plan.
- * MPI expects these numbers to be tightly packed in memory,
- * but our struct stores them as different columns.
- *
- * Technically speaking, the operation is therefore a transpose.
- * */
-static void
-_transpose_plan_entries(ExchangePlanEntry * entries, int * count, int ptype, int NTask)
-{
-    int i;
-    for(i = 0; i < NTask; i ++) {
-        if(ptype == -1) {
-            count[i] = entries[i].base;
-        } else {
-            count[i] = entries[i].slots[ptype];
-        }
-    }
-}
-
 static ExchangePlan
 domain_init_exchangeplan(MPI_Comm Comm)
 {
-    ExchangePlan plan;
+    ExchangePlan plan = {0};
     MPI_Comm_size(Comm, &plan.NTask);
     MPI_Comm_rank(Comm, &plan.ThisTask);
     /*! toGo[0][task*NTask + partner] gives the number of particles in task 'task'
@@ -132,7 +114,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
         /* determine for each rank how many particles have to be shifted to other ranks */
         domain_check_iter_space(&plan);
         /* Inside domain_exchange_once, we do send/recv for each processor individually and loop until we are done.*/
-        failure = domain_exchange_once(&plan, pman, sman, Comm);
+        failure = domain_exchange_once(&plan, pman, sman, 123000, Comm);
     }
 #ifdef DEBUG
     /* This does not apply for the FOF code, where the exchange list is pre-assigned
@@ -150,34 +132,11 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     return failure;
 }
 
-static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm)
+/* Move some particle and slot data into an exchange buffer for sending.*/
+static int
+exchange_pack_buffer(char * exch, int task, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman)
 {
     size_t n;
-    int ptype;
-    struct particle_data *partBuf;
-    char * slotBuf[6] = {NULL, NULL, NULL, NULL, NULL, NULL};
-
-    /* Check whether the domain exchange will succeed.
-     * Garbage particles will be collected after the particles are exported, so do not need to count.*/
-    int64_t needed = pman->NumPart + plan->toGetSum.base - plan->toGoSum.base  - plan->ngarbage;
-    if(needed > pman->MaxPart)
-        message(1,"Too many particles for exchange: NumPart=%ld count_get = %ld count_togo=%ld garbage = %ld MaxPart=%ld\n",
-                pman->NumPart, plan->toGetSum.base, plan->toGoSum.base, plan->ngarbage, pman->MaxPart);
-    if(MPIU_Any(needed > pman->MaxPart, Comm)) {
-        myfree(plan->layouts);
-        return 1;
-    }
-
-    for(ptype = 0; ptype < 6; ptype++) {
-        if(!sman->info[ptype].enabled) continue;
-        slotBuf[ptype] = (char *) mymalloc2("SlotBuf", plan->toGoSum.slots[ptype] * sman->info[ptype].elsize);
-    }
-
-    partBuf = (struct particle_data *) mymalloc2("partBuf", plan->toGoSum.base * sizeof(struct particle_data));
-
-    ExchangePlanEntry * toGoPtr = ta_malloc("toGoPtr", ExchangePlanEntry, plan->NTask);
-    memset(toGoPtr, 0, sizeof(toGoPtr[0]) * plan->NTask);
-
     for(n = 0; n < plan->nexchange; n++)
     {
         const int i = plan->ExchangeList[n];
@@ -200,10 +159,14 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
         slots_mark_garbage(i, pman, sman);
     }
 
-    myfree(plan->layouts);
-    ta_free(toGoPtr);
     walltime_measure("/Domain/exchange/makebuf");
+    return 0;
+}
 
+/* Take a received buffer and move the particle data back into the particle table.*/
+static int
+exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman)
+{
     int64_t newNumPart;
     int64_t newSlots[6] = {0};
     newNumPart = pman->NumPart + plan->toGetSum.base;
@@ -216,58 +179,8 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
     if(newNumPart > pman->MaxPart) {
         endrun(787878, "NumPart=%ld MaxPart=%ld\n", newNumPart, pman->MaxPart);
     }
-
-    int * sendcounts = (int*) ta_malloc("sendcounts", int, plan->NTask);
-    int * senddispls = (int*) ta_malloc("senddispls", int, plan->NTask);
-    int * recvcounts = (int*) ta_malloc("recvcounts", int, plan->NTask);
-    int * recvdispls = (int*) ta_malloc("recvdispls", int, plan->NTask);
-
-    _transpose_plan_entries(plan->toGo, sendcounts, -1, plan->NTask);
-    _transpose_plan_entries(plan->toGoOffset, senddispls, -1, plan->NTask);
-    _transpose_plan_entries(plan->toGet, recvcounts, -1, plan->NTask);
-    _transpose_plan_entries(plan->toGetOffset, recvdispls, -1, plan->NTask);
-
-#ifdef DEBUG
-    message(0, "Starting particle data exchange\n");
-#endif
-    /* recv at the end */
-    MPI_Alltoallv_sparse(partBuf, sendcounts, senddispls, MPI_TYPE_PARTICLE,
-                 pman->Base + pman->NumPart, recvcounts, recvdispls, MPI_TYPE_PARTICLE,
-                 Comm);
-
-    /* Do not need Particle buffer any more, make space for more slots*/
-    myfree(partBuf);
-
     slots_reserve(1, newSlots, sman);
-    /* Ensure the reservations are finished on all tasks before we start sending the data*/
-    MPI_Barrier(Comm);
 
-    for(ptype = 0; ptype < 6; ptype ++) {
-        /* skip unused slot types */
-        if(!sman->info[ptype].enabled) continue;
-
-        size_t elsize = sman->info[ptype].elsize;
-        int N_slots = sman->info[ptype].size;
-        char * ptr = sman->info[ptype].ptr;
-        _transpose_plan_entries(plan->toGo, sendcounts, ptype, plan->NTask);
-        _transpose_plan_entries(plan->toGoOffset, senddispls, ptype, plan->NTask);
-        _transpose_plan_entries(plan->toGet, recvcounts, ptype, plan->NTask);
-        _transpose_plan_entries(plan->toGetOffset, recvdispls, ptype, plan->NTask);
-
-#ifdef DEBUG
-        message(0, "Starting exchange for slot %d\n", ptype);
-#endif
-
-        /* recv at the end */
-        MPI_Alltoallv_sparse(slotBuf[ptype], sendcounts, senddispls, MPI_TYPE_SLOT[ptype],
-                     ptr + N_slots * elsize,
-                     recvcounts, recvdispls, MPI_TYPE_SLOT[ptype],
-                     Comm);
-    }
-
-#ifdef DEBUG
-        message(0, "Done with AlltoAllv\n");
-#endif
     int src;
     for(src = 0; src < plan->NTask; src++) {
         /* unpack each source rank */
@@ -305,24 +218,79 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
             }
         }
     }
-
-    walltime_measure("/Domain/exchange/alltoall");
-
-    myfree(recvdispls);
-    myfree(recvcounts);
-    myfree(senddispls);
-    myfree(sendcounts);
-    for(ptype = 5; ptype >=0; ptype --) {
-        if(!sman->info[ptype].enabled) continue;
-        myfree(slotBuf[ptype]);
-    }
-
     pman->NumPart = newNumPart;
 
     for(ptype = 0; ptype < 6; ptype++) {
         if(!sman->info[ptype].enabled) continue;
         sman->info[ptype].size = newSlots[ptype];
     }
+
+    return 0;
+}
+
+static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, MPI_Comm Comm)
+{
+    /* First post receives*/
+    struct CommBuffer recvs;
+    alloc_commbuffer(&recvs, plan->NTask, 0);
+    recvs.databuf = mymalloc("recvbuffer",plan->total_togetbytes);
+
+    size_t displs = 0;
+    int task;
+    for(task = 0; task < plan->NTask-1; task++) {
+        const int recvtask = (plan->ThisTask - task - 1) % plan->NTask;
+        MPI_Irecv(recvs.databuf + displs, plan->toGet[recvtask].totalbytes, MPI_BYTE, recvtask, tag, Comm, &recvs.rdata_all[task]);
+        recvs.rqst_task[task] = recvtask;
+        recvs.displs[task] = displs;
+        displs += plan->toGet[recvtask].totalbytes;
+        recvs.nrequest_all ++;
+    }
+
+    /* Now post sends: note that the sends are done in reverse order to the receives.
+     * This ensures that partial sends and receives can complete early.*/
+    struct CommBuffer sends;
+    alloc_commbuffer(&sends, plan->NTask, 0);
+    sends.databuf = mymalloc("sendbuffer",plan->total_togobytes);
+
+    displs = 0;
+    for(task = 0; task < plan->NTask-1; task++) {
+        const int sendtask = (plan->ThisTask + task + 1) % plan->NTask;
+        /* Move the data into the buffer*/
+        exchange_pack_buffer(sends.databuf + displs, sendtask, plan, pman, sman);
+        MPI_Isend(sends.databuf + displs, plan->toGo[sendtask].totalbytes, MPI_BYTE, sendtask, tag, Comm, &sends.rdata_all[task]);
+        sends.rqst_task[task] = sendtask;
+        sends.displs[task] = displs;
+        displs += plan->toGo[sendtask].totalbytes;
+        sends.nrequest_all ++;
+    }
+
+    /* Now wait for and unpack the receives as they arrive.*/
+    int * completed = ta_malloc("completes", int, recvs.nrequest_all);
+    memset(completed, 0, recvs.nrequest_all * sizeof(int) );
+
+    /* Test each request in turn until it completes*/
+    for(task = 0; task < recvs.nrequest_all; task++) {
+        /* If we already completed, no need to test again*/
+        if(completed[task])
+            continue;
+        /* Check for a completed request: note that cleanup is performed if the request is complete.*/
+        MPI_Test(&recvs.rdata_all[task], completed+task, MPI_STATUS_IGNORE);
+        /* Try the next one*/
+        if (!completed[task])
+            continue;
+        exchange_unpack_buffer(recvs.databuf+recvs.displs[task], recvs.rqst_task[task], plan, pman, sman);
+    }
+    myfree(completed);
+
+    /* Now wait for the sends before we free the buffers*/
+    MPI_Waitall(sends.nrequest_all, sends.rdata_all, MPI_STATUSES_IGNORE);
+    /* Free the buffers*/
+    free_commbuffer(&sends);
+    free_commbuffer(&recvs);
+
+    myfree(plan->layouts);
+
+    walltime_measure("/Domain/exchange/alltoall");
 
 #ifdef DEBUG
     domain_test_id_uniqueness(pman);
@@ -406,6 +374,8 @@ domain_check_iter_space(ExchangePlan * plan)
         const int sendtask = (plan->ThisTask + task) % plan->NTask;
         const int recvtask = (plan->ThisTask - task) % plan->NTask;
         size_t singleiter = plan->toGo[sendtask].totalbytes + plan->toGet[recvtask].totalbytes;
+        plan->total_togetbytes += plan->toGet[recvtask].totalbytes;
+        plan->total_togobytes += plan->toGo[sendtask].totalbytes;
         if(singleiter > maxsize)
             maxsize = singleiter;
         totalsize += singleiter;
