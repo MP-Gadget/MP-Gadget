@@ -86,7 +86,7 @@ void grid3d_ngb(const struct particle_data * Parts, int num_particles, double **
 
 }
 
-void projectDensity(double *density, double *density_projected, GridDimensions dims, int normal) {
+void projectDensity(double *density, GridDimensions dims, int normal) {
     // z; x, y
     // y; z, x
     // x; y, z
@@ -96,16 +96,26 @@ void projectDensity(double *density, double *density_projected, GridDimensions d
 
     for (int i = 0; i < Dim0; i++) {
         for (int j = 0; j < Dim1; j++) {
-            ACCESS_2D(density_projected, i, j, Dim1) = 0;
-            for (int k = 0; k < DimNorm; k++) {
+            for (int k = 1; k < DimNorm; k++) {
                 if (normal == 0) {
-                    ACCESS_2D(density_projected, i, j, Dim1) += ACCESS_3D(density, k, i, j, dims.ny, dims.nz);
+                    ACCESS_3D(density, 0, i, j, dims.ny, dims.nz) += ACCESS_3D(density, k, i, j, dims.ny, dims.nz);
                 } else if (normal == 1) {
-                    ACCESS_2D(density_projected, i, j, Dim1) += ACCESS_3D(density, i, k, j, dims.ny, dims.nz);
+                    ACCESS_3D(density, i, 0, j, dims.ny, dims.nz) += ACCESS_3D(density, i, k, j, dims.ny, dims.nz);
                 } else {
-                    ACCESS_2D(density_projected, i, j, Dim1) += ACCESS_3D(density, i, j, k, dims.ny, dims.nz);
+                    ACCESS_3D(density, i, j, 0, dims.ny, dims.nz) += ACCESS_3D(density, i, j, k, dims.ny, dims.nz);
                 }
             }
+        }
+    }
+
+    // transpose the density array to the form ACCESS_3D(density, i, 0, j, dims.ny, dims.nz) such that it can be accessed as ACCESS_2D(density_projected, i, j, Dim1)
+    for (int i = 0; i < Dim0; i++) {
+        for (int j = 0; j < Dim1; j++) {
+            if (normal == 0) {
+                ACCESS_3D(density, i, 0, j, dims.ny, dims.nz) = ACCESS_3D(density, 0, i, j, dims.ny, dims.nz);
+            } else if (normal == 2) {
+                ACCESS_3D(density, i, 0, j, dims.ny, dims.nz) = ACCESS_3D(density, i, j, 0, dims.ny, dims.nz);
+            } 
         }
     }
 }
@@ -180,7 +190,8 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
 
     int64_t num_particles_rank = PartManager->NumPart;  // dark matter-only simulation: NumPart = number of dark matter particles
 
-    double *density_projected = allocate_2d_array_as_1d(plane_resolution, plane_resolution);
+    // double *density_projected = allocate_2d_array_as_1d(plane_resolution, plane_resolution);
+    double *density_projected;
 
     int thickness_resolution = 1;  // Number of bins along the thickness direction, fixed to 1 for now
 
@@ -229,11 +240,13 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
 
     double *density = allocate_3d_array_as_1d(dims.nx, dims.ny, dims.nz);
 
-    grid3d_nfw(P, num_particles_rank, binning, dims, density);
+    grid3d_ngb(P, num_particles_rank, binning, dims, density);
 
-    projectDensity(density, density_projected, dims, normal);
+    projectDensity(density, dims, normal);
+    // projectDensity(density, density_projected, dims, normal);
+    density_projected = density;   // pointing to the same memory location, here we just use the new name
 
-    myfree(density);
+    // myfree(density);
 
     //number of particles on the plane
     int64_t num_particles_plane = 0;
@@ -264,7 +277,8 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
             ACCESS_2D(lensing_potential, i, j, plane_resolution) *= cosmo_normalization * density_normalization;
         }
     }
-    myfree(density_projected);
+    // myfree(density_projected);
+    myfree(density);
     // Free the binning arrays
     for (int i = 0; i < 3; i++) {
         free(binning[i]);
