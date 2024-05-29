@@ -87,12 +87,16 @@ void grid3d_ngb(const struct particle_data * Parts, int num_particles, double **
 }
 
 void projectDensity(double *density, GridDimensions dims, int normal) {
-    // z; x, y
-    // y; z, x
-    // x; y, z
+    // z; x, y corresponds to x, y (projected plane)
+    // y; x, z corresponds to x, y (projected plane)
+    // x; y, z corresponds to x, y (projected plane)
     int DimNorm = (normal == 0) ? dims.nx : (normal == 1) ? dims.ny : dims.nz;
     int Dim0 = (normal == 2) ? dims.nx : (normal == 0) ? dims.ny : dims.nx;
     int Dim1 = (normal == 2) ? dims.ny : (normal == 1) ? dims.nz : dims.nz;
+
+    if (DimNorm == 1) {
+        return;
+    }
 
     for (int i = 0; i < Dim0; i++) {
         for (int j = 0; j < Dim1; j++) {
@@ -108,14 +112,18 @@ void projectDensity(double *density, GridDimensions dims, int normal) {
         }
     }
 
-    // transpose the density array to the form ACCESS_3D(density, i, 0, j, dims.ny, dims.nz) such that it can be accessed as ACCESS_2D(density_projected, i, j, Dim1)
+    // transform the 3D density array to a 2D density array (move the elements we need to the front of the array in memory)
     for (int i = 0; i < Dim0; i++) {
         for (int j = 0; j < Dim1; j++) {
             if (normal == 0) {
-                ACCESS_3D(density, i, 0, j, dims.ny, dims.nz) = ACCESS_3D(density, 0, i, j, dims.ny, dims.nz);
+                ACCESS_2D(density, i, j, Dim1) = ACCESS_3D(density, 0, i, j, dims.ny, dims.nz);
             } else if (normal == 2) {
-                ACCESS_3D(density, i, 0, j, dims.ny, dims.nz) = ACCESS_3D(density, i, j, 0, dims.ny, dims.nz);
-            } 
+                ACCESS_2D(density, i, j, Dim1) = ACCESS_3D(density, i, j, 0, dims.ny, dims.nz);
+            } else
+            {
+                ACCESS_2D(density, i, j, Dim1) = ACCESS_3D(density, i, 0, j, dims.ny, dims.nz);
+            }
+            
         }
     }
 }
@@ -191,7 +199,7 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
     int64_t num_particles_rank = PartManager->NumPart;  // dark matter-only simulation: NumPart = number of dark matter particles
 
     // double *density_projected = allocate_2d_array_as_1d(plane_resolution, plane_resolution);
-    double *density_projected;
+    // double *density_projected;
 
     int thickness_resolution = 1;  // Number of bins along the thickness direction, fixed to 1 for now
 
@@ -236,23 +244,18 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
     dims.nx = (normal == 0) ? thickness_resolution : plane_resolution;
     dims.ny = (normal == 1) ? thickness_resolution : plane_resolution;
     dims.nz = (normal == 2) ? thickness_resolution : plane_resolution;
-    // printf("nx: %d, ny: %d, nz: %d\n", dims.nx, dims.ny, dims.nz);
 
     double *density = allocate_3d_array_as_1d(dims.nx, dims.ny, dims.nz);
 
     grid3d_ngb(P, num_particles_rank, binning, dims, density);
 
     projectDensity(density, dims, normal);
-    // projectDensity(density, density_projected, dims, normal);
-    density_projected = density;   // pointing to the same memory location, here we just use the new name
-
-    // myfree(density);
 
     //number of particles on the plane
     int64_t num_particles_plane = 0;
     for (int i = 0; i < plane_resolution; i++) {
         for (int j = 0; j < plane_resolution; j++) {
-            num_particles_plane += ACCESS_2D(density_projected, i, j, plane_resolution);
+            num_particles_plane += ACCESS_2D(density, i, j, plane_resolution);
         }
     }
 
@@ -264,12 +267,12 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
 
     for (int i = 0; i < plane_resolution; i++) {
         for (int j = 0; j < plane_resolution; j++) {
-            ACCESS_2D(density_projected, i, j, plane_resolution) *= density_norm_factor;
+            ACCESS_2D(density, i, j, plane_resolution) *= density_norm_factor;
         }
     }
 
     // Calculate the lensing potential by solving the Poisson equation
-    calculate_lensing_potential(density_projected, plane_resolution, bin_resolution[plane_directions[0]], bin_resolution[plane_directions[1]], comoving_distance, smooth, lensing_potential);
+    calculate_lensing_potential(density, plane_resolution, bin_resolution[plane_directions[0]], bin_resolution[plane_directions[1]], comoving_distance, smooth, lensing_potential);
 
     // normalize the lensing potential
     for (int i = 0; i < plane_resolution; i++) {
@@ -277,7 +280,7 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
             ACCESS_2D(lensing_potential, i, j, plane_resolution) *= cosmo_normalization * density_normalization;
         }
     }
-    // myfree(density_projected);
+
     myfree(density);
     // Free the binning arrays
     for (int i = 0; i < 3; i++) {
