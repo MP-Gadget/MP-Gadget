@@ -579,10 +579,12 @@ void alloc_commbuffer(struct CommBuffer * buffer, int NTask, int alloc_high)
     if(alloc_high) {
         buffer->rdata_all = ta_malloc2("requests", MPI_Request, NTask);
         buffer->rqst_task = ta_malloc2("rqst", int, NTask);
+        buffer->displs = ta_malloc2("displs", int, NTask);
     }
     else {
         buffer->rdata_all = ta_malloc("requests", MPI_Request, NTask);
         buffer->rqst_task = ta_malloc("rqst", int, NTask);
+        buffer->displs = ta_malloc("displs", int, NTask);
     }
     buffer->nrequest_all = 0;
     buffer->databuf = NULL;
@@ -594,6 +596,7 @@ void free_commbuffer(struct CommBuffer * buffer)
         myfree(buffer->databuf);
         buffer->databuf = NULL;
     }
+    ta_free(buffer->displs);
     ta_free(buffer->rqst_task);
     ta_free(buffer->rdata_all);
 }
