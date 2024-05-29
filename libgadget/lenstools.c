@@ -62,10 +62,10 @@ int find_bin(double value, double *bins, int resolution, const double L) { // L 
 
 void grid3d_ngb(const struct particle_data * Parts, int num_particles, double **binning, GridDimensions dims, double *density) { // adpated from grid3d_nfw in lenstools
     
-    double position[3];
+    #pragma omp parallel for
     // Process each particle
     for (int p = 0; p < num_particles; p++) {
-
+        double position[3];
         // remove offset
         for(int d = 0; d < 3; d ++) {
             position[d] = Parts[p].Pos[d] - PartManager->CurrentParticleOffset[d];
@@ -81,6 +81,7 @@ void grid3d_ngb(const struct particle_data * Parts, int num_particles, double **
             continue;
         }
         // Increment the density in the appropriate bin
+        #pragma omp atomic
         ACCESS_3D(density, ix, iy, iz, dims.ny, dims.nz)++;
     }
 
