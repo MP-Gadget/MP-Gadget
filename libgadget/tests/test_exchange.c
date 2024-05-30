@@ -62,7 +62,6 @@ setup_particles(int64_t NType[6])
     slots_setup_id(PartManager, SlotsManager);
 
     MPI_Allreduce(&PartManager->NumPart, &TotNumPart, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
     return 0;
 }
 
@@ -71,8 +70,19 @@ teardown_particles(void **state)
 {
     int TotNumPart2;
 
-    MPI_Allreduce(&PartManager->NumPart, &TotNumPart2, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
+    int i;
+    int nongarbage = 0, garbage = 0;
+    for(i = 0; i < PartManager->NumPart; i ++) {
+        if(!P[i].IsGarbage) {
+            nongarbage++;
+            assert_true (P[i].ID % NTask == 1Lu * ThisTask);
+            continue;
+        }
+        else
+            garbage++;
+    }
+    message(2, "curpart %d (np %ld) tot %d garbage %d\n", nongarbage, PartManager->NumPart, TotNumPart, garbage);
+    MPI_Allreduce(&nongarbage, &TotNumPart2, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     assert_int_equal(TotNumPart2, TotNumPart);
 
     slots_free(SlotsManager);
@@ -95,8 +105,6 @@ test_exchange(void **state)
 
     setup_particles(newSlots);
 
-    int i;
-
     int fail = domain_exchange(&test_exchange_layout_func, NULL, NULL, PartManager, SlotsManager,10000, MPI_COMM_WORLD);
 
     assert_all_true(!fail);
@@ -104,17 +112,6 @@ test_exchange(void **state)
     slots_check_id_consistency(PartManager, SlotsManager);
 #endif
     domain_test_id_uniqueness(PartManager);
-    int garbage = 0;
-    for(i = 0; i < PartManager->NumPart; i ++) {
-        if(P[i].IsGarbage) {
-            garbage++;
-            continue;
-        }
-        assert_true (P[i].ID % NTask == 1Lu * ThisTask);
-    }
-    int Totgarbage;
-    MPI_Allreduce(&garbage, &Totgarbage, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    TotNumPart += Totgarbage;
     teardown_particles(state);
     return;
 }
@@ -126,8 +123,6 @@ test_exchange_zero_slots(void **state)
 
     setup_particles(newSlots);
 
-    int i;
-
     int fail = domain_exchange(&test_exchange_layout_func, NULL, NULL, PartManager, SlotsManager, 10000, MPI_COMM_WORLD);
 
     assert_all_true(!fail);
@@ -135,18 +130,6 @@ test_exchange_zero_slots(void **state)
     slots_check_id_consistency(PartManager, SlotsManager);
 #endif
     domain_test_id_uniqueness(PartManager);
-
-    int garbage = 0;
-    for(i = 0; i < PartManager->NumPart; i ++) {
-        if(P[i].IsGarbage) {
-            garbage++;
-            continue;
-        }
-        assert_true (P[i].ID % NTask == 1Lu*ThisTask);
-    }
-    int Totgarbage;
-    MPI_Allreduce(&garbage, &Totgarbage, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    TotNumPart += Totgarbage;
 
     teardown_particles(state);
     return;
@@ -158,7 +141,6 @@ test_exchange_with_garbage(void **state)
     int64_t newSlots[6] = {NUMPART1, NUMPART1, NUMPART1, NUMPART1, NUMPART1, NUMPART1};
 
     setup_particles(newSlots);
-    int i;
 
     slots_mark_garbage(0, PartManager, SlotsManager); /* watch out! this propagates the garbage flag to children */
     TotNumPart -= NTask;
@@ -170,19 +152,6 @@ test_exchange_with_garbage(void **state)
 #ifdef DEBUG
     slots_check_id_consistency(PartManager, SlotsManager);
 #endif
-    int garbage = 0;
-    for(i = 0; i < PartManager->NumPart; i ++) {
-        /* We don't do garbage collection during exchange anymore. But make sure the
-         * presence of garbage doesn't mess things up.*/
-        if(P[i].IsGarbage) {
-            garbage++;
-            continue;
-        }
-        assert_true (P[i].ID % NTask == 1Lu * ThisTask);
-    }
-    int Totgarbage;
-    MPI_Allreduce(&garbage, &Totgarbage, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    TotNumPart += Totgarbage;
     teardown_particles(state);
     return;
 }
@@ -218,23 +187,26 @@ test_exchange_uneven(void **state)
 #endif
     domain_test_id_uniqueness(PartManager);
 
-    int garbage = 0;
+    int TotNumPart2;
+
+    int nongarbage = 0;
     for(i = 0; i < PartManager->NumPart; i ++) {
-        if(P[i].IsGarbage) {
-            garbage++;
+        if(!P[i].IsGarbage) {
+            nongarbage++;
+            if(P[i].Type == 0) {
+                assert_true (ThisTask == 0);
+            } else {
+                assert_true(P[i].ID % NTask == 1Lu * ThisTask);
+            }
             continue;
         }
-        if(P[i].Type == 0) {
-            assert_true (ThisTask == 0);
-        } else {
-            assert_true(P[i].ID % NTask == 1Lu * ThisTask);
-        }
     }
-    int Totgarbage;
-    MPI_Allreduce(&garbage, &Totgarbage, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    TotNumPart += Totgarbage;
+    MPI_Allreduce(&nongarbage, &TotNumPart2, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    assert_int_equal(TotNumPart2, TotNumPart);
 
-    teardown_particles(state);
+    slots_free(SlotsManager);
+    myfree(P);
+    MPI_Barrier(MPI_COMM_WORLD);
     return;
 }
 
