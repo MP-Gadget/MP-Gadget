@@ -291,7 +291,7 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
 }
 
 #ifdef USE_CFITSIO
-void savePotentialPlane(double *data, int rows, int cols, const char filename[128], double Lbox, const Cosmology * CP, double redshift, double comoving_distance, int64_t num_particles, const double UnitLength_in_cm) {
+void savePotentialPlane(double *data, int rows, int cols, const char filename[128], double Lbox, Cosmology * CP, double redshift, double comoving_distance, int64_t num_particles, const double UnitLength_in_cm) {
     fitsfile *fptr;       // Pointer to the FITS file; defined in fitsio.h
     int status = 0;       // Status must be initialized to zero.
     long naxes[2] = {cols, rows};  // image dimensions

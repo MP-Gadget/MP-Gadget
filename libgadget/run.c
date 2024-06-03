@@ -321,7 +321,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
     const struct UnitSystem units = get_unitsystem(header->UnitLength_in_cm, header->UnitMass_in_g, header->UnitVelocity_in_cm_per_s);
 
     int SnapshotFileCount = RestartSnapNum;
-    int PlaneSnapNum; // temporary counter for the number of planes written, 
 
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
@@ -573,7 +572,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             WriteFOF |= planned_sync->write_fof;
             CalcUVBG |= planned_sync->calc_uvbg;
             WritePlane |= planned_sync->write_plane;
-            PlaneSnapNum = planned_sync->plane_snapnum;
         }
 
         RandTable rnd = {0};
@@ -717,13 +715,14 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         }
 
         /* Write the potential planes*/
-        if(WritePlane)
+        if(WritePlane) {
 #ifdef USE_CFITSIO
-            write_plane(PlaneSnapNum, atime, &All.CP, All.OutputDir, units.UnitVelocity_in_cm_per_s, units.UnitLength_in_cm);
+            write_plane(planned_sync->plane_snapnum, atime, &All.CP, All.OutputDir, units.UnitVelocity_in_cm_per_s, units.UnitLength_in_cm);
             walltime_measure("/Lensing");
 #else
             endrun(0, "Plane writing requested but FITSIO not enabled.\n");
 #endif
+        }
 
 #ifdef DEBUG
         check_kick_drift_times(PartManager, times.Ti_Current);

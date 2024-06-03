@@ -68,7 +68,7 @@ int set_plane_normals(ParameterSet* ps)
         int n = atoi(token);
 
         if(n != 0 && n != 1 && n != 2) {
-            endrun(1, "Requesting a normal direction beyond 0, 1 and 2: %g\n", n);
+            endrun(1, "Requesting a normal direction beyond 0, 1 and 2: %d\n", n);
         }
         PlaneParams.Normals[count] = n;
 /*         message(1, "Output at: %g\n", Sync.OutputListTimes[count]); */
@@ -157,7 +157,7 @@ set_plane_params(ParameterSet * ps)
     MPI_Bcast(&PlaneParams, sizeof(struct plane_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
-void write_plane(int snapnum, const double atime, const Cosmology * CP, const char * OutputDir, const double UnitVelocity_in_cm_per_s, const double UnitLength_in_cm) {
+void write_plane(int snapnum, const double atime, Cosmology * CP, const char * OutputDir, const double UnitVelocity_in_cm_per_s, const double UnitLength_in_cm) {
 
     double BoxSize = PartManager->BoxSize;
 
@@ -229,9 +229,9 @@ void write_plane(int snapnum, const double atime, const Cosmology * CP, const ch
 
             /*saving planes*/
             if (ThisTask == 0) {
+#ifdef USE_CFITSIO
                 char * file_path;
                 file_path = plane_get_output_fname(snapnum, OutputDir, i, PlaneParams.Normals[j]);
-#ifdef USE_CFITSIO
                 savePotentialPlane(summed_plane_result, plane_resolution, plane_resolution, file_path, BoxSize, CP, redshift, comoving_distance, num_particles_plane_tot, UnitLength_in_cm);
                 message(0, "Plane saved for cut %d and normal %d to %s\n", i, PlaneParams.Normals[j], file_path);
 #endif
