@@ -7,6 +7,11 @@ LOW_PRECISION ?= double
 OPTIMIZE ?= -O2 -g -fopenmp -Wall
 GSL_INCL ?= $(shell pkg-config --cflags gsl)
 GSL_LIBS ?= $(shell pkg-config --libs gsl)
+ifneq ($(findstring -DUSE_CFITSIO, $(OPT)),)
+    # If found, set FITSIO_INCL with the cfitsio flags
+    FITSIO_INCL ?= $(shell pkg-config --cflags cfitsio)
+    FITSIO_LIBS ?= $(shell pkg-config --libs cfitsio)
+endif
 
 OPTIONS = $(OPTIMIZE) $(OPT)
 GADGET_TESTDATA_ROOT = $(CURDIR)/../
