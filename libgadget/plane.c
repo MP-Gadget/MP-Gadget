@@ -35,18 +35,25 @@ plane_get_output_fname(const int snapnum, const char * OutputDir, const int cut,
     return fname;
 }
 
+/* This is basically BuildOutputList but with an integer*/
 int set_plane_normals(ParameterSet* ps)
-{   
+{
     char * Normals = param_get_string(ps, "PlaneNormals");
+    if(!Normals){
+        PlaneParams.NormalsLength = 0;
+        return 0;
+    }
     char * strtmp = fastpm_strdup(Normals);
     char * token;
     int count;
     // print string
-    message(0,"Normals = %s\n", Normals);
+    //message(0,"Normals = %s\n", Normals);
 
     /*First parse the string to get the number of outputs*/
     for(count=0, token=strtok(strtmp,","); token; count++, token=strtok(NULL, ","))
     {}
+
+    myfree(strtmp);
 
     /*Allocate enough memory*/
     PlaneParams.NormalsLength = count;
@@ -73,11 +80,6 @@ int set_plane_normals(ParameterSet* ps)
         PlaneParams.Normals[count] = n;
 /*         message(1, "Output at: %g\n", Sync.OutputListTimes[count]); */
     }
-    myfree(strtmp);
-    // print normals
-    for(int i = 0; i < PlaneParams.NormalsLength; i++) {
-        message(0,"Normals[%d] = %d\n", i, PlaneParams.Normals[i]);
-    }
     return 0;
 }
 
@@ -95,7 +97,7 @@ int set_plane_cuts(ParameterSet* ps)
     char * strtmp = fastpm_strdup(CutPoints);
     char * token;
     int64_t count;
-    
+
     /*First parse the string to get the number of outputs*/
     for(count=0, token=strtok(strtmp,","); token; count++, token=strtok(NULL, ","))
     {}
@@ -127,10 +129,6 @@ int set_plane_cuts(ParameterSet* ps)
 /*         message(1, "Output at: %g\n", Sync.OutputListTimes[count]); */
     }
     myfree(strtmp);
-    // print cut points
-    for(int i = 0; i < PlaneParams.CutPointsLength; i++) {
-        message(0,"CutPoints[%d] = %g\n", i, PlaneParams.CutPoints[i]);
-    }
     return 0;
 }
 
@@ -151,10 +149,20 @@ set_plane_params(ParameterSet * ps)
         set_plane_normals(ps);
 
         // Plane cut points
-        set_plane_cuts(ps);
-        
+        if (!param_get_string(ps, "PlaneCutPoints")) {
+            message(0, "No cut points provided, a set of default values will be set: (1/2 + i) * plane thickness (< box size, i = 0, 1, 2...)\n");
+            // set the length to 0
+            PlaneParams.CutPointsLength = 0;
+        }
+        else
+            BuildOutputList(ps, "PlaneCutPoints", PlaneParams.CutPoints, &PlaneParams.CutPointsLength, 1024);
     }
     MPI_Bcast(&PlaneParams, sizeof(struct plane_params), MPI_BYTE, 0, MPI_COMM_WORLD);
+    // print normals and cut points
+    for(int i = 0; i < PlaneParams.NormalsLength; i++)
+        message(0,"Normals[%d] = %d\n", i, PlaneParams.Normals[i]);
+    for(int i = 0; i < PlaneParams.CutPointsLength; i++)
+        message(0,"CutPoints[%d] = %g\n", i, PlaneParams.CutPoints[i]);
 }
 
 void write_plane(int snapnum, const double atime, Cosmology * CP, const char * OutputDir, const double UnitVelocity_in_cm_per_s, const double UnitLength_in_cm) {
@@ -186,18 +194,18 @@ void write_plane(int snapnum, const double atime, Cosmology * CP, const char * O
             message(0,"CutPoints[%d] = %g\n", i, PlaneParams.CutPoints[i]);
         }
     }
-    
+
 
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-    
+
     double redshift = 1./atime - 1.;
     message(0, "Computing and writing potential planes.\n");
 
     double *plane_result = allocate_2d_array_as_1d(plane_resolution, plane_resolution);
 
     double *summed_plane_result = NULL;
-        
+
     if(ThisTask == 0) {
         summed_plane_result = allocate_2d_array_as_1d(plane_resolution, plane_resolution);
     }
@@ -219,12 +227,12 @@ void write_plane(int snapnum, const double atime, Cosmology * CP, const char * O
 
             /*computing lensing potential planes*/
             num_particles_plane = cutPlaneGaussianGrid(num_particles_tot,  comoving_distance, BoxSize, CP, atime, PlaneParams.Normals[j], PlaneParams.CutPoints[i], thickness, left_corner, plane_resolution, plane_result);
-            
+
             /*sum up planes from all tasks*/
             MPI_Reduce(plane_result, (ThisTask == 0 ? summed_plane_result : NULL), plane_resolution * plane_resolution, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
             // for (int k = 0; k < plane_resolution; k++) {
             // MPI_Reduce(plane_result[k], (ThisTask == 0 ? summed_plane_result[k] : NULL), plane_resolution, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-            // }  
+            // }
             MPI_Reduce(&num_particles_plane, &num_particles_plane_tot, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
 
             /*saving planes*/
