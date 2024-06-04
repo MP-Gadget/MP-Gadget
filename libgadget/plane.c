@@ -83,55 +83,6 @@ int set_plane_normals(ParameterSet* ps)
     return 0;
 }
 
-int set_plane_cuts(ParameterSet* ps)
-{
-    char * CutPoints = param_get_string(ps, "PlaneCutPoints");
-
-    if (CutPoints == NULL) {
-        message(0, "No cut points provided, a set of default values will be set: (1/2 + i) * plane thickness (< box size, i = 0, 1, 2...)\n");
-        // set the length to 0
-        PlaneParams.CutPointsLength = 0;
-        return 0;
-    }
-
-    char * strtmp = fastpm_strdup(CutPoints);
-    char * token;
-    int64_t count;
-
-    /*First parse the string to get the number of outputs*/
-    for(count=0, token=strtok(strtmp,","); token; count++, token=strtok(NULL, ","))
-    {}
-/*     message(1, "Found %ld times in output list.\n", count); */
-
-    /*Allocate enough memory*/
-    PlaneParams.CutPointsLength = count;
-    size_t maxcount = sizeof(PlaneParams.CutPoints) / sizeof(PlaneParams.CutPoints[0]);
-
-    if((size_t) PlaneParams.CutPointsLength > maxcount) {
-        message(1, "Too many entries (%ld) in the CutPoints, can take no more than %lu.\n", PlaneParams.CutPointsLength, maxcount);
-        return 1;
-    }
-    /*Now read in the values*/
-    for(count=0,token=strtok(CutPoints,","); count < PlaneParams.CutPointsLength && token; count++, token=strtok(NULL,","))
-    {
-        /* Skip a leading quote if one exists.
-         * Extra characters are ignored by atof, so
-         * no need to skip matching char.*/
-        if(token[0] == '"')
-            token+=1;
-
-        double cut = atof(token);
-
-        // if(cut < 0.0 ) {
-        //     endrun(1, "Requesting a negative output scaling factor a = %g\n", a);
-        // }
-        PlaneParams.CutPoints[count] = cut;
-/*         message(1, "Output at: %g\n", Sync.OutputListTimes[count]); */
-    }
-    myfree(strtmp);
-    return 0;
-}
-
 /*Set the plane parameters*/
 void
 set_plane_params(ParameterSet * ps)
