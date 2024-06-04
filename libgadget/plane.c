@@ -109,11 +109,6 @@ set_plane_params(ParameterSet * ps)
             BuildOutputList(ps, "PlaneCutPoints", PlaneParams.CutPoints, &PlaneParams.CutPointsLength, 1024);
     }
     MPI_Bcast(&PlaneParams, sizeof(struct plane_params), MPI_BYTE, 0, MPI_COMM_WORLD);
-    // print normals and cut points
-    for(int i = 0; i < PlaneParams.NormalsLength; i++)
-        message(0,"Normals[%d] = %d\n", i, PlaneParams.Normals[i]);
-    for(int i = 0; i < PlaneParams.CutPointsLength; i++)
-        message(0,"CutPoints[%d] = %g\n", i, PlaneParams.CutPoints[i]);
 }
 
 void write_plane(int snapnum, const double atime, Cosmology * CP, const char * OutputDir, const double UnitVelocity_in_cm_per_s, const double UnitLength_in_cm) {
@@ -171,7 +166,7 @@ void write_plane(int snapnum, const double atime, Cosmology * CP, const char * O
         for (int j = 0; j < PlaneParams.NormalsLength; j++) {
             MPI_Barrier(MPI_COMM_WORLD);
 
-            message(0, "Computing for cut %d and normal %d\n", i, PlaneParams.Normals[j]);
+            message(0, "Computing for cut point %g and normal %d\n", PlaneParams.CutPoints[i], PlaneParams.Normals[j]);
 
             double left_corner[3] = {0, 0, 0};
             int64_t num_particles_plane = 0, num_particles_plane_tot = 0;
