@@ -44,6 +44,8 @@ int cmp_double(const void * a, const void * b)
 int OutputListAction(ParameterSet* ps, const char* name, void* data)
 {
     char * outputlist = param_get_string(ps, name);
+    if(!outputlist)
+        return 0;
     char * strtmp = fastpm_strdup(outputlist);
     char * token;
     int64_t count;
@@ -89,6 +91,8 @@ int OutputListAction(ParameterSet* ps, const char* name, void* data)
 int PlaneOutputListAction(ParameterSet* ps, const char* name, void* data)
 {
     char * planeoutputlist = param_get_string(ps, name);
+    if(!planeoutputlist)
+        return 0;
     char * strtmp = fastpm_strdup(planeoutputlist);
     char * token;
     int64_t count;
