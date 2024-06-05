@@ -169,10 +169,14 @@ void write_plane(int snapnum, const double atime, const Cosmology * CP, const ch
     // plane parameters
     int plane_resolution = PlaneParams.Resolution;
     double thickness = PlaneParams.Thickness; // in kpc/h
+    if (thickness <= 0.0) {
+        message(0, "No positive thickness provided, the side length of the box, %g, will be used.\n", BoxSize);
+        thickness = BoxSize;
+    }
 
     // set a set of cut points if NULL
     if (PlaneParams.CutPointsLength == 0) {
-        PlaneParams.CutPointsLength = (int64_t) (PartManager->BoxSize / PlaneParams.Thickness);
+        PlaneParams.CutPointsLength = (int64_t) (BoxSize / thickness);
         for (int i = 0; i < PlaneParams.CutPointsLength; i++) {
             PlaneParams.CutPoints[i] = (.5 + i) * thickness;
         }

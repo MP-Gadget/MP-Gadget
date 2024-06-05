@@ -576,9 +576,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             PlaneSnapNum = planned_sync->plane_snapnum;
         }
 
-        // print write snapshot and plane
-        message(0, "write_snapshot = %d, write_plane = %d\n", WriteSnapshot, WritePlane);
-
         RandTable rnd = {0};
         if(GasEnabled || All.LightconeOn)
             rnd = set_random_numbers(seed, RNDTABLE);
