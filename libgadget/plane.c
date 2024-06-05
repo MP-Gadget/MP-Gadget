@@ -84,12 +84,18 @@ int set_plane_normals(ParameterSet* ps)
 int set_plane_cuts(ParameterSet* ps)
 {
     char * CutPoints = param_get_string(ps, "PlaneCutPoints");
+
+    if (CutPoints == NULL) {
+        message(0, "No cut points provided, a set of default values will be set: (1/2 + i) * plane thickness (< box size, i = 0, 1, 2...)\n");
+        // set the length to 0
+        PlaneParams.CutPointsLength = 0;
+        return 0;
+    }
+
     char * strtmp = fastpm_strdup(CutPoints);
     char * token;
     int64_t count;
-
-    /* Note TimeInit and TimeMax not yet initialised here*/
-
+    
     /*First parse the string to get the number of outputs*/
     for(count=0, token=strtok(strtmp,","); token; count++, token=strtok(NULL, ","))
     {}
@@ -135,18 +141,17 @@ set_plane_params(ParameterSet * ps)
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0) {
-        
-        // Plane normals
-        set_plane_normals(ps);
-
-        // Plane cut points
-        set_plane_cuts(ps);
-
         // plane resolution
         PlaneParams.Resolution = param_get_int(ps, "PlaneResolution");
 
         // plane thickness
         PlaneParams.Thickness = param_get_double(ps, "PlaneThickness");
+
+        // Plane normals
+        set_plane_normals(ps);
+
+        // Plane cut points
+        set_plane_cuts(ps);
         
     }
     MPI_Bcast(&PlaneParams, sizeof(struct plane_params), MPI_BYTE, 0, MPI_COMM_WORLD);
@@ -165,6 +170,19 @@ void write_plane(int snapnum, const double atime, const Cosmology * CP, const ch
     int plane_resolution = PlaneParams.Resolution;
     double thickness = PlaneParams.Thickness; // in kpc/h
 
+    // set a set of cut points if NULL
+    if (PlaneParams.CutPointsLength == 0) {
+        PlaneParams.CutPointsLength = (int64_t) (PartManager->BoxSize / PlaneParams.Thickness);
+        for (int i = 0; i < PlaneParams.CutPointsLength; i++) {
+            PlaneParams.CutPoints[i] = (.5 + i) * thickness;
+        }
+        // print cut points
+        message(0, "Cut points set automatically:\n");
+        for (int i = 0; i < PlaneParams.CutPointsLength; i++) {
+            message(0,"CutPoints[%d] = %g\n", i, PlaneParams.CutPoints[i]);
+        }
+    }
+    
 
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
