@@ -7,11 +7,16 @@ LOW_PRECISION ?= double
 OPTIMIZE ?= -O2 -g -fopenmp -Wall
 GSL_INCL ?= $(shell pkg-config --cflags gsl)
 GSL_LIBS ?= $(shell pkg-config --libs gsl)
+ifneq ($(findstring -DUSE_CFITSIO, $(OPT)),)
+    # If found, set FITSIO_INCL with the cfitsio flags
+    FITSIO_INCL ?= $(shell pkg-config --cflags cfitsio)
+    FITSIO_LIBS ?= $(shell pkg-config --libs cfitsio)
+endif
 
 OPTIONS = $(OPTIMIZE) $(OPT)
 GADGET_TESTDATA_ROOT = $(CURDIR)/../
 
-CFLAGS = $(OPTIONS) $(GSL_INCL)
+CFLAGS = $(OPTIONS) $(GSL_INCL) $(FITSIO_INCL)
 CFLAGS += -I../depends/include
 CFLAGS += -I../
 CFLAGS += "-DLOW_PRECISION=$(LOW_PRECISION)"
@@ -19,7 +24,7 @@ CFLAGS += "-DLOW_PRECISION=$(LOW_PRECISION)"
 TCFLAGS = $(CFLAGS) -DGADGET_TESTDATA_ROOT=\"$(GADGET_TESTDATA_ROOT)\"
 
 BUNDLEDLIBS = -lbigfile-mpi -lbigfile -lpfft_omp -lfftw3_mpi -lfftw3_omp -lfftw3
-LIBS  = -lm $(GSL_LIBS)
+LIBS  = -lm $(GSL_LIBS) $(FITSIO_LIBS)
 LIBS += -L../depends/lib $(BUNDLEDLIBS)
 V ?= 0
 

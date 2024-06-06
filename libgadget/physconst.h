@@ -18,6 +18,7 @@
 #define  LIGHTCGS           2.99792458e10
 #define  PLANCK      6.6262e-27
 #define  CM_PER_MPC  3.085678e24
+#define  CM_PER_KPC  3.085678e21
 #define  PROTONMASS  1.6726e-24
 #define  ELECTRONMASS 9.10953e-28
 #define  THOMPSON     6.65245e-25

@@ -27,9 +27,10 @@ struct SyncPoint
     int write_snapshot;
     int write_fof;
     int calc_uvbg;  //! Calculate the UV background
+    int write_plane;  //! Write a plane
+    int plane_snapnum;  //! The snapshot number for the plane
     inttime_t ti;
 };
-
 
 /*Convert an integer to and from loga*/
 double loga_from_ti(inttime_t ti);
@@ -60,7 +61,17 @@ inttime_t find_next_outputtime(inttime_t ti_curr);
 /*Get whatever is the last output number from ti*/
 inttime_t out_from_ti(inttime_t ti);
 
-int OutputListAction(ParameterSet * ps, const char * name, void * data);
+/*! This function parses a string containing a comma-separated list of variables,
+ *  each of which is interpreted as a double.
+ *  The purpose is to read an array of output times into the code.
+ *  So specifying the output list now looks like:
+ *  OutputList  0.1,0.3,0.5,1.0
+ *
+ *  We sort the input after reading it, so that the initial list need not be sorted.
+ *  This function could be repurposed for reading generic arrays in future.
+ */
+int BuildOutputList(ParameterSet* ps, const char* name, double * outputlist, int64_t * outputlistlength, int64_t maxlength);
+
 void set_sync_params_test(int OutputListLength, double * OutputListTimes);
 void set_sync_params(ParameterSet * ps);
 void setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snapshot_until_time, int SnapshotWithFOF);

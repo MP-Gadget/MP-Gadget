@@ -18,3 +18,6 @@ gadget/MP-Gadget
 libgadget/.objs
 libgenic/.objs
 Options.mk
+yyh_tests/
+.vscode/
+.DS_Store
