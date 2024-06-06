@@ -16,10 +16,8 @@ OPTIMIZE =  -fopenmp -O3 -g -Wall -ffast-math
 #-------------------------------------------- Things for special behaviour
 #OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV
 
-#----------- 
+#-----------
 #OPT += -DEXCUR_REION  # reionization with excursion set
 
 #--------- CFITSIO (required only for saving potential plane files)
-# FITSIO_INCL = -I/path/to/include
-# FITSIO_LIBS = -L/path/to/lib -lcfitsio
 # OPT += -DUSE_CFITSIO

@@ -9,16 +9,17 @@
 #include "physconst.h"
 #include "plane.h"
 
+#define MAXTIMES 1024
 /*! table with desired sync points. All forces and phase space variables are synchonized to the same order. */
 static SyncPoint * SyncPoints;
 static int64_t NSyncPoints;    /* number of times stored in table of desired sync points */
 static struct sync_params
 {
     int64_t OutputListLength;
-    double OutputListTimes[1024];
+    double OutputListTimes[MAXTIMES];
 
     int64_t PlaneOutputListLength;
-    double PlaneOutputListTimes[1024];
+    double PlaneOutputListTimes[MAXTIMES];
 
     int ExcursionSetReionOn; 
     double ExcursionSetZStart;
@@ -41,10 +42,14 @@ int cmp_double(const void * a, const void * b)
  *  We sort the input after reading it, so that the initial list need not be sorted.
  *  This function could be repurposed for reading generic arrays in future.
  */
-int OutputListAction(ParameterSet* ps, const char* name, void* data)
+int BuildOutputList(ParameterSet* ps, const char* name, double * outputlist, int64_t * outputlistlength, int64_t maxlength)
 {
-    char * outputlist = param_get_string(ps, name);
-    char * strtmp = fastpm_strdup(outputlist);
+    char * outputliststr = param_get_string(ps, name);
+    if(!outputliststr) {
+        *outputlistlength = 0;
+        return 0;
+    }
+    char * strtmp = fastpm_strdup(outputliststr);
     char * token;
     int64_t count;
 
@@ -54,18 +59,16 @@ int OutputListAction(ParameterSet* ps, const char* name, void* data)
     for(count=0, token=strtok(strtmp,","); token; count++, token=strtok(NULL, ","))
     {}
 /*     message(1, "Found %ld times in output list.\n", count); */
-
-    /*Allocate enough memory*/
-    Sync.OutputListLength = count;
-    size_t maxcount = sizeof(Sync.OutputListTimes) / sizeof(Sync.OutputListTimes[0]);
-    if(maxcount > MAXSNAPSHOTS)
-        maxcount = MAXSNAPSHOTS;
-    if((size_t) Sync.OutputListLength > maxcount) {
-        message(1, "Too many entries (%ld) in the OutputList, can take no more than %lu.\n", Sync.OutputListLength, maxcount);
+    myfree(strtmp);
+    if(count > maxlength) {
+        message(1, "Too many entries (%ld) in the OutputList, can take no more than %lu.\n", count, maxlength);
         return 1;
     }
+
+    *outputlistlength = count;
+
     /*Now read in the values*/
-    for(count=0,token=strtok(outputlist,","); count < Sync.OutputListLength && token; count++, token=strtok(NULL,","))
+    for(count=0,token=strtok(outputliststr,","); count < *outputlistlength && token; count++, token=strtok(NULL,","))
     {
         /* Skip a leading quote if one exists.
          * Extra characters are ignored by atof, so
@@ -78,55 +81,9 @@ int OutputListAction(ParameterSet* ps, const char* name, void* data)
         if(a < 0.0) {
             endrun(1, "Requesting a negative output scaling factor a = %g\n", a);
         }
-        Sync.OutputListTimes[count] = a;
+        outputlist[count] = a;
 /*         message(1, "Output at: %g\n", Sync.OutputListTimes[count]); */
     }
-    myfree(strtmp);
-
-    return 0;
-}
-
-int PlaneOutputListAction(ParameterSet* ps, const char* name, void* data)
-{
-    char * planeoutputlist = param_get_string(ps, name);
-    char * strtmp = fastpm_strdup(planeoutputlist);
-    char * token;
-    int64_t count;
-
-    /* Note TimeInit and TimeMax not yet initialised here*/
-
-    /*First parse the string to get the number of outputs*/
-    for(count=0, token=strtok(strtmp,","); token; count++, token=strtok(NULL, ","))
-    {}
-/*     message(1, "Found %ld times in output list.\n", count); */
-
-    /*Allocate enough memory*/
-    Sync.PlaneOutputListLength = count;
-    size_t maxcount = sizeof(Sync.PlaneOutputListTimes) / sizeof(Sync.PlaneOutputListTimes[0]);
-    if(maxcount > MAXSNAPSHOTS)
-        maxcount = MAXSNAPSHOTS;
-    if((size_t) Sync.PlaneOutputListLength > maxcount) {
-        message(1, "Too many entries (%ld) in the PlaneOutputList, can take no more than %lu.\n", Sync.PlaneOutputListLength, maxcount);
-        return 1;
-    }
-    /*Now read in the values*/
-    for(count=0,token=strtok(planeoutputlist,","); count < Sync.PlaneOutputListLength && token; count++, token=strtok(NULL,","))
-    {
-        /* Skip a leading quote if one exists.
-         * Extra characters are ignored by atof, so
-         * no need to skip matching char.*/
-        if(token[0] == '"')
-            token+=1;
-
-        double a = atof(token);
-
-        if(a < 0.0) {
-            endrun(1, "Requesting a negative output scaling factor a = %g\n", a);
-        }
-        Sync.PlaneOutputListTimes[count] = a;
-/*         message(1, "Output at: %g\n", Sync.OutputListTimes[count]); */
-    }
-    myfree(strtmp);
 
     return 0;
 }
@@ -141,6 +98,8 @@ void set_sync_params(ParameterSet * ps){
         Sync.ExcursionSetZStart = param_get_double(ps,"ExcursionSetZStart");
         Sync.ExcursionSetZStop = param_get_double(ps,"ExcursionSetZStop");
         Sync.UVBGTimestep = param_get_double(ps,"UVBGTimestep");
+        BuildOutputList(ps, "OutputList", Sync.OutputListTimes, &Sync.OutputListLength, MAXTIMES);
+        BuildOutputList(ps, "PlaneOutputList", Sync.PlaneOutputListTimes, &Sync.PlaneOutputListLength, MAXTIMES);
     }
 
     MPI_Bcast(&Sync, sizeof(struct sync_params), MPI_BYTE, 0, MPI_COMM_WORLD);

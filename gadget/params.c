@@ -380,8 +380,6 @@ create_gadget_parameter_set()
 
     param_set_action(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodAction, NULL);
     param_set_action(ps, "StarformationCriterion", StarformationCriterionAction, NULL);
-    param_set_action(ps, "OutputList", OutputListAction, NULL);
-    param_set_action(ps, "PlaneOutputList", PlaneOutputListAction, NULL);
 
     return ps;
 }
