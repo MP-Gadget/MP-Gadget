@@ -42,29 +42,48 @@ double copy_and_mean_accn(double (* PairAccn)[3])
     return meanacc;
 }
 
-void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3])
+void check_accns(double * meanerr_tot, double * maxerr_tot, double * meanangle_tot, double * maxangle_tot, double (*PairAccn)[3])
 {
-    double meanerr=0, maxerr=-1;
+    double meanerr=0, maxerr=-1, meanangle = 0, maxangle = 0;
     int i;
     /* This checks that the short-range force accuracy is being correctly estimated.*/
     #pragma omp parallel for reduction(+: meanerr) reduction(max:maxerr)
     for(i = 0; i < PartManager->NumPart; i++)
     {
         int k;
+        double pairmag = 0, checkmag = 0, dotprod = 0;
         for(k=0; k<3; k++) {
-            double err = 0;
-            if(PairAccn[i][k] != 0)
-                err = fabs(((P[i].GravPM[k] + P[i].FullTreeGravAccel[k]))/PairAccn[i][k] - 1);
-            meanerr += err;
-            if(maxerr < err)
-                maxerr = err;
+            pairmag += PairAccn[i][k]*PairAccn[i][k];
+            checkmag += (P[i].GravPM[k] + P[i].FullTreeGravAccel[k])*(P[i].GravPM[k] + P[i].FullTreeGravAccel[k]);
+            dotprod += PairAccn[i][k] * (P[i].GravPM[k] + P[i].FullTreeGravAccel[k]);
+        }
+        checkmag = sqrt(checkmag);
+        pairmag = sqrt(pairmag);
+        double err = checkmag/pairmag - 1;
+        dotprod = dotprod / checkmag / pairmag;
+        double angle = 0;
+        if(dotprod <= 1 && dotprod >= -1) {
+            angle = fabs(acos(dotprod));
+            meanangle += angle;
+        }
+        if(maxangle < angle) {
+            maxangle = angle;
+            // message(0, "i %d type %d angle %g acc %g %g %g pair %g %g %g\n", i, P[i].Type, angle, P[i].GravPM[0] + P[i].FullTreeGravAccel[0], P[i].GravPM[1] + P[i].FullTreeGravAccel[1], P[i].GravPM[2] + P[i].FullTreeGravAccel[2], PairAccn[i][0], PairAccn[i][1], PairAccn[i][2]);
+        }
+        meanerr += err;
+        if(maxerr < err) {
+            // message(0, "i %d type %d err %g acc %g %g %g pair %g %g %g\n", i, P[i].Type, err, P[i].GravPM[0] + P[i].FullTreeGravAccel[0], P[i].GravPM[1] + P[i].FullTreeGravAccel[1], P[i].GravPM[2] + P[i].FullTreeGravAccel[2], PairAccn[i][0], PairAccn[i][1], PairAccn[i][2]);
+            maxerr = err;
         }
     }
     MPI_Allreduce(&meanerr, meanerr_tot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&maxerr, maxerr_tot, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&meanangle, meanangle_tot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&maxangle, maxangle_tot, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     int64_t tot_npart;
     MPI_Allreduce(&PartManager->NumPart, &tot_npart, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-    *meanerr_tot/= (tot_npart*3.);
+    *meanerr_tot /= (tot_npart);
+    *meanangle_tot /= (tot_npart);
 }
 
 void
@@ -116,9 +135,9 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     grav_short_tree(&Act, pm, &Tree, NULL, rho0, times.Ti_Current);
 
     /* This checks fully opened tree force against pair force*/
-    double meanerr, maxerr;
-    check_accns(&meanerr,&maxerr,PairAccn);
-    message(0, "Force error, open tree vs pairwise. max : %g mean: %g forcetol: %g\n", maxerr, meanerr, treeacc.ErrTolForceAcc);
+    double meanerr, maxerr, meanangle, maxangle;
+    check_accns(&meanerr,&maxerr, &meanangle, &maxangle, PairAccn);
+    message(0, "Force error, open tree vs pairwise. max : %g mean: %g angle %g max angle %g forcetol: %g\n", maxerr, meanerr, meanangle, maxangle, treeacc.ErrTolForceAcc);
 
     if(maxerr > 0.1)
         endrun(2, "Fully open tree force does not agree with pairwise calculation! maxerr %g > 0.1!\n", maxerr);
@@ -139,8 +158,8 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     fname = fastpm_strdup_printf("%s/PART-tree-%03d", OutputDir, RestartSnapNum);
     petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, CP);
 
-    check_accns(&meanerr,&maxerr,PairAccn);
-    message(0, "Force error, open tree vs tree.: %g mean: %g forcetol: %g\n", maxerr, meanerr, treeacc.ErrTolForceAcc);
+    check_accns(&meanerr,&maxerr,&meanangle, &maxangle, PairAccn);
+    message(0, "Force error, open tree vs tree. max : %g mean: %g angle %g max angle %g forcetol: %g\n", maxerr, meanerr, meanangle, maxangle, treeacc.ErrTolForceAcc);
 
     if(meanerr > treeacc.ErrTolForceAcc* 1.2)
         endrun(2, "Average force error is underestimated: %g > 1.2 * %g!\n", meanerr, treeacc.ErrTolForceAcc);
@@ -154,8 +173,8 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     fname = fastpm_strdup_printf("%s/PART-tree-rcut-%03d", OutputDir, RestartSnapNum);
     petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, CP);
 
-    check_accns(&meanerr,&maxerr,PairAccn);
-    message(0, "Force error, tree vs rcut.: %g mean: %g Rcut = %g\n", maxerr, meanerr, treeacc.Rcut);
+    check_accns(&meanerr,&maxerr,&meanangle, &maxangle, PairAccn);
+    message(0, "Force error, tree vs rcut. max : %g mean: %g angle %g max angle %g Rcut = %g\n", maxerr, meanerr, meanangle, maxangle, treeacc.Rcut);
 
     if(maxerr > 0.2)
         endrun(2, "Rcut decreased below desired value, error too large %g\n", maxerr);
@@ -175,8 +194,8 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     fname = fastpm_strdup_printf("%s/PART-tree-nmesh2-%03d", OutputDir, RestartSnapNum);
     petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, CP);
 
-    check_accns(&meanerr, &maxerr, PairAccn);
-    message(0, "Force error, nmesh %d vs %d: %g mean: %g \n", Nmesh, Nmesh/2, maxerr, meanerr);
+    check_accns(&meanerr,&maxerr,&meanangle, &maxangle, PairAccn);
+    message(0, "Force error, nmesh %d vs %d: max : %g mean: %g angle %g max angle %g\n", Nmesh, Nmesh/2, maxerr, meanerr, meanangle, maxangle);
 
     if(maxerr > 0.5 || meanerr > 0.05)
         endrun(2, "Nmesh sensitivity worse, something may be wrong\n");
