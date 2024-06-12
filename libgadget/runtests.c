@@ -42,7 +42,7 @@ double copy_and_mean_accn(double (* PairAccn)[3])
     return meanacc;
 }
 
-void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3], double meanacc)
+void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3])
 {
     double meanerr=0, maxerr=-1;
     int i;
@@ -54,7 +54,7 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double (*PairAccn)[3
         for(k=0; k<3; k++) {
             double err = 0;
             if(PairAccn[i][k] != 0)
-                err = fabs((PairAccn[i][k] - (P[i].GravPM[k] + P[i].FullTreeGravAccel[k]))/meanacc);
+                err = fabs(((P[i].GravPM[k] + P[i].FullTreeGravAccel[k]))/PairAccn[i][k] - 1);
             meanerr += err;
             if(maxerr < err)
                 maxerr = err;
@@ -104,7 +104,7 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     const double rho0 = CP->Omega0 * CP->RhoCrit;
     grav_short_pair(&Act, pm, &Tree, treeacc.Rcut, rho0);
 
-    double meanacc = copy_and_mean_accn(PairAccn);
+    copy_and_mean_accn(PairAccn);
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));
     char * fname = fastpm_strdup_printf("%s/PART-pairs-%03d", OutputDir, RestartSnapNum);
 
@@ -117,7 +117,7 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
 
     /* This checks fully opened tree force against pair force*/
     double meanerr, maxerr;
-    check_accns(&meanerr,&maxerr,PairAccn, meanacc);
+    check_accns(&meanerr,&maxerr,PairAccn);
     message(0, "Force error, open tree vs pairwise. max : %g mean: %g forcetol: %g\n", maxerr, meanerr, treeacc.ErrTolForceAcc);
 
     if(maxerr > 0.1)
@@ -139,7 +139,7 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     fname = fastpm_strdup_printf("%s/PART-tree-%03d", OutputDir, RestartSnapNum);
     petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, CP);
 
-    check_accns(&meanerr,&maxerr,PairAccn, meanacc);
+    check_accns(&meanerr,&maxerr,PairAccn);
     message(0, "Force error, open tree vs tree.: %g mean: %g forcetol: %g\n", maxerr, meanerr, treeacc.ErrTolForceAcc);
 
     if(meanerr > treeacc.ErrTolForceAcc* 1.2)
@@ -154,7 +154,7 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     fname = fastpm_strdup_printf("%s/PART-tree-rcut-%03d", OutputDir, RestartSnapNum);
     petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, CP);
 
-    check_accns(&meanerr,&maxerr,PairAccn, meanacc);
+    check_accns(&meanerr,&maxerr,PairAccn);
     message(0, "Force error, tree vs rcut.: %g mean: %g Rcut = %g\n", maxerr, meanerr, treeacc.Rcut);
 
     if(maxerr > 0.2)
@@ -175,7 +175,7 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     fname = fastpm_strdup_printf("%s/PART-tree-nmesh2-%03d", OutputDir, RestartSnapNum);
     petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, CP);
 
-    check_accns(&meanerr, &maxerr, PairAccn, meanacc);
+    check_accns(&meanerr, &maxerr, PairAccn);
     message(0, "Force error, nmesh %d vs %d: %g mean: %g \n", Nmesh, Nmesh/2, maxerr, meanerr);
 
     if(maxerr > 0.5 || meanerr > 0.05)
