@@ -28,7 +28,7 @@
 
 static struct gravshort_tree_params TreeParams;
 /*Softening length*/
-double GravitySoftening;
+static double GravitySoftening;
 
 /* gravitational softening length
  * (given in terms of an `equivalent' Plummer softening length)
@@ -153,10 +153,11 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFl
 /* Add the acceleration from a node or particle to the output structure,
  * computing the short-range kernel and softening.*/
 static void
-apply_accn_to_output(TreeWalkResultGravShort * output, const double dx[3], const double r2, const double h, const double mass, const double cellsize)
+apply_accn_to_output(TreeWalkResultGravShort * output, const double dx[3], const double r2, const double mass, const double cellsize)
 {
     const double r = sqrt(r2);
 
+    const double h = FORCE_SOFTENING();
     double fac = mass / (r2 * r);
     double facpot = -mass / r;
 
@@ -219,6 +220,7 @@ shall_we_open_node(const double len, const double mass, const double r2, const d
     /* Check the relative acceleration opening condition*/
     if((TreeUseBH == 0) && (mass * len * len > r2 * r2 * aold))
          return 1;
+
      /*Check Barnes-Hut opening angle*/
     if((TreeUseBH > 0) && (len * len > r2 * BHOpeningAngle2))
          return 1;
@@ -305,10 +307,9 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             {
                 /* ok, node can be used */
                 no = nop->sibling;
-                const double h = FORCE_SOFTENING();
                 if(lv->mode != TREEWALK_TOPTREE) {
                     /* Compute the acceleration and apply it to the output structure*/
-                    apply_accn_to_output(output, dx, r2, h, nop->mom.mass, cellsize);
+                    apply_accn_to_output(output, dx, r2, nop->mom.mass, cellsize);
                 }
                 continue;
             }
@@ -355,18 +356,13 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
         for(i = 0; i < numcand; i++)
         {
             int pp = lv->ngblist[i];
-
             double dx[3];
             int j;
             for(j = 0; j < 3; j++)
                 dx[j] = NEAREST(P[pp].Pos[j] - inpos[j], BoxSize);
             const double r2 = dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2];
-
-            /* This is always the Newtonian softening,
-             * match the default from FORCE_SOFTENING. */
-            double h = FORCE_SOFTENING();
             /* Compute the acceleration and apply it to the output structure*/
-            apply_accn_to_output(output, dx, r2, h, P[pp].Mass, cellsize);
+            apply_accn_to_output(output, dx, r2, P[pp].Mass, cellsize);
         }
         ninteractions = numcand;
     }
