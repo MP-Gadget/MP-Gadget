@@ -111,6 +111,7 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, CP);
 
     treeacc.ErrTolForceAcc = 0;
+    treeacc.BHOpeningAngle = 0;
     set_gravshort_treepar(treeacc);
     grav_short_tree(&Act, pm, &Tree, NULL, rho0, times.Ti_Current);
 
