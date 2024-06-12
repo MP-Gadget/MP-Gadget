@@ -59,7 +59,7 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double * meanangle_t
         }
         checkmag = sqrt(checkmag);
         pairmag = sqrt(pairmag);
-        double err = checkmag/pairmag - 1;
+        double err = fabs(checkmag/pairmag - 1);
         dotprod = dotprod / checkmag / pairmag;
         double angle = 0;
         if(dotprod <= 1 && dotprod >= -1) {
@@ -151,8 +151,8 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
 
     treeacc = origtreeacc;
     set_gravshort_treepar(treeacc);
-    /* Code automatically sets the UseTreeBH parameter.*/
-    grav_short_tree(&Act, pm, &Tree, NULL, rho0, times.Ti_Current);
+    if(treeacc.TreeUseBH > 1)
+        treeacc.TreeUseBH = 0;
     grav_short_tree(&Act, pm, &Tree, NULL, rho0, times.Ti_Current);
 
     fname = fastpm_strdup_printf("%s/PART-tree-%03d", OutputDir, RestartSnapNum);
@@ -164,7 +164,8 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     if(meanerr > treeacc.ErrTolForceAcc* 1.2)
         endrun(2, "Average force error is underestimated: %g > 1.2 * %g!\n", meanerr, treeacc.ErrTolForceAcc);
 
-    copy_and_mean_accn(PairAccn);
+    const double defaultmeanerr = meanerr;
+    const double defaultmaxerr = maxerr;
     /* This checks the tree against a larger Rcut.*/
     treeacc.Rcut = 9.5;
     set_gravshort_treepar(treeacc);
@@ -174,10 +175,10 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, CP);
 
     check_accns(&meanerr,&maxerr,&meanangle, &maxangle, PairAccn);
-    message(0, "Force error, tree vs rcut. max : %g mean: %g angle %g max angle %g Rcut = %g\n", maxerr, meanerr, meanangle, maxangle, treeacc.Rcut);
+    message(0, "Force error, Rcut=%g. max : %g mean: %g angle %g max angle %g\n", treeacc.Rcut, maxerr, meanerr, meanangle, maxangle);
 
-    if(maxerr > 0.2)
-        endrun(2, "Rcut decreased below desired value, error too large %g\n", maxerr);
+    if(maxerr > defaultmaxerr || meanerr > treeacc.ErrTolForceAcc)
+        endrun(2, "Rcut decreased but error increased %g > %g or %g > %g\n", maxerr, defaultmaxerr, meanerr, defaultmeanerr);
 
     /* This checks the tree against a box with a smaller Nmesh.*/
     treeacc = origtreeacc;
@@ -197,8 +198,8 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     check_accns(&meanerr,&maxerr,&meanangle, &maxangle, PairAccn);
     message(0, "Force error, nmesh %d vs %d: max : %g mean: %g angle %g max angle %g\n", Nmesh, Nmesh/2, maxerr, meanerr, meanangle, maxangle);
 
-    if(maxerr > 0.5 || meanerr > 0.05)
-        endrun(2, "Nmesh sensitivity worse, something may be wrong\n");
+    if(maxerr < defaultmaxerr || meanerr < defaultmeanerr)
+        endrun(2, "Nmesh decreased but force accuracy better %g < %g or %g < %g\n", maxerr, defaultmaxerr, meanerr, defaultmeanerr);
 
     force_tree_free(&Tree);
     petapm_destroy(pm);
