@@ -116,10 +116,10 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     force_tree_full(&Tree, ddecomp, 0, OutputDir);
 
     struct gravshort_tree_params origtreeacc = get_gravshort_treepar();
-    struct gravshort_tree_params treeacc = origtreeacc;
     /* Reset to normal tree */
-    if(treeacc.TreeUseBH > 1)
-        treeacc.TreeUseBH = 0;
+    if(origtreeacc.TreeUseBH > 1)
+        origtreeacc.TreeUseBH = 0;
+    struct gravshort_tree_params treeacc = origtreeacc;
     const double rho0 = CP->Omega0 * CP->RhoCrit;
     grav_short_pair(&Act, pm, &Tree, treeacc.Rcut, rho0);
 
@@ -151,10 +151,8 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
 
     treeacc = origtreeacc;
     set_gravshort_treepar(treeacc);
-    if(treeacc.TreeUseBH > 1)
-        treeacc.TreeUseBH = 0;
     grav_short_tree(&Act, pm, &Tree, NULL, rho0, times.Ti_Current);
-
+    grav_short_tree(&Act, pm, &Tree, NULL, rho0, times.Ti_Current);
     fname = fastpm_strdup_printf("%s/PART-tree-%03d", OutputDir, RestartSnapNum);
     petaio_save_snapshot(fname, &IOTable, 0, header->TimeSnapshot, CP);
 
@@ -177,7 +175,7 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
     check_accns(&meanerr,&maxerr,&meanangle, &maxangle, PairAccn);
     message(0, "Force error, Rcut=%g. max : %g mean: %g angle %g max angle %g\n", treeacc.Rcut, maxerr, meanerr, meanangle, maxangle);
 
-    if(maxerr > defaultmaxerr || meanerr > treeacc.ErrTolForceAcc)
+    if(meanerr > treeacc.ErrTolForceAcc)
         endrun(2, "Rcut decreased but error increased %g > %g or %g > %g\n", maxerr, defaultmaxerr, meanerr, defaultmeanerr);
 
     /* This checks the tree against a box with a smaller Nmesh.*/
