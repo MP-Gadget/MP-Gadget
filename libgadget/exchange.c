@@ -28,9 +28,7 @@ typedef struct {
 
 typedef struct {
     ExchangePlanEntry * toGo;
-    ExchangePlanEntry * toGoOffset;
     ExchangePlanEntry * toGet;
-    ExchangePlanEntry * toGetOffset;
     ExchangePlanEntry toGoSum;
     ExchangePlanEntry toGetSum;
     int NTask;
@@ -66,9 +64,7 @@ domain_init_exchangeplan(MPI_Comm Comm)
      *  toGo[1] is SPH, toGo[2] is BH and toGo[3] is stars
      */
     plan.toGo = ta_malloc("toGo", ExchangePlanEntry, plan.NTask);
-    plan.toGoOffset = ta_malloc("toGoOffSet", ExchangePlanEntry, plan.NTask);
     plan.toGet = ta_malloc("toGet", ExchangePlanEntry, plan.NTask);
-    plan.toGetOffset = ta_malloc("toGetOffset", ExchangePlanEntry, plan.NTask);
     return plan;
 }
 
@@ -76,9 +72,7 @@ static void
 domain_free_exchangeplan(ExchangePlan * plan)
 {
     myfree(plan->ExchangeList);
-    myfree(plan->toGetOffset);
     myfree(plan->toGet);
-    myfree(plan->toGoOffset);
     myfree(plan->toGo);
 }
 
@@ -469,8 +463,6 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
 
     MPI_Alltoall(plan->toGo, 1, MPI_TYPE_PLAN_ENTRY, plan->toGet, 1, MPI_TYPE_PLAN_ENTRY, Comm);
 
-    memset(&plan->toGoOffset[0], 0, sizeof(plan->toGoOffset[0]));
-    memset(&plan->toGetOffset[0], 0, sizeof(plan->toGetOffset[0]));
     memcpy(&plan->toGoSum, &plan->toGo[0], sizeof(plan->toGoSum));
     memcpy(&plan->toGetSum, &plan->toGet[0], sizeof(plan->toGetSum));
 
@@ -478,9 +470,6 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
     int64_t maxbasetogo=-1, maxbasetoget=-1;
     for(rank = 1; rank < plan->NTask; rank ++) {
         /* Direct assignment breaks compilers like icc */
-        memcpy(&plan->toGoOffset[rank], &plan->toGoSum, sizeof(plan->toGoSum));
-        memcpy(&plan->toGetOffset[rank], &plan->toGetSum, sizeof(plan->toGetSum));
-
         plan->toGoSum.base += plan->toGo[rank].base;
         plan->toGetSum.base += plan->toGet[rank].base;
         if(plan->toGo[rank].base > maxbasetogo)
