@@ -68,7 +68,6 @@ set_gravshort_tree_params(ParameterSet * ps)
     if(ThisTask == 0) {
         TreeParams.BHOpeningAngle = param_get_double(ps, "BHOpeningAngle");
         TreeParams.ErrTolForceAcc = param_get_double(ps, "ErrTolForceAcc");
-        TreeParams.BHOpeningAngle = param_get_double(ps, "BHOpeningAngle");
         TreeParams.TreeUseBH= param_get_int(ps, "TreeUseBH");
         TreeParams.Rcut = param_get_double(ps, "TreeRcut");
         TreeParams.FractionalGravitySoftening = param_get_double(ps, "GravitySoftening");
@@ -99,9 +98,6 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFl
     struct GravShortPriv priv;
     priv.cellsize = tree->BoxSize / pm->Nmesh;
     priv.Rcut = TreeParams.Rcut * pm->Asmth * priv.cellsize;;
-    priv.ErrTolForceAcc = TreeParams.ErrTolForceAcc;
-    priv.TreeUseBH = TreeParams.TreeUseBH;
-    priv.BHOpeningAngle = TreeParams.BHOpeningAngle;
     priv.G = pm->G;
     priv.cbrtrho0 = pow(rho0, 1.0 / 3);
     priv.Ti_Current = Ti_Current;
@@ -262,9 +258,9 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     const double cellsize = GRAV_GET_PRIV(lv->tw)->cellsize;
     const double rcut = GRAV_GET_PRIV(lv->tw)->Rcut;
     const double rcut2 = rcut * rcut;
-    const double aold = GRAV_GET_PRIV(lv->tw)->ErrTolForceAcc * input->OldAcc;
-    const int TreeUseBH = GRAV_GET_PRIV(lv->tw)->TreeUseBH;
-    const double BHOpeningAngle2 = GRAV_GET_PRIV(lv->tw)->BHOpeningAngle * GRAV_GET_PRIV(lv->tw)->BHOpeningAngle;
+    const double aold = TreeParams.ErrTolForceAcc * input->OldAcc;
+    const int TreeUseBH = TreeParams.TreeUseBH;
+    const double BHOpeningAngle2 = TreeParams.BHOpeningAngle * TreeParams.BHOpeningAngle;
 
     /*Input particle data*/
     const double * inpos = input->base.Pos;

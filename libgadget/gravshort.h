@@ -27,13 +27,6 @@ struct GravShortPriv {
     /* How many PM cells do we go
      * before we stop calculating the tree?*/
     double Rcut;
-    /* Desired accuracy of the tree force in units of the old acceleration.*/
-    double ErrTolForceAcc;
-    /* If > 0, use the Barnes-Hut opening angle.
-     * If < 0, use the acceleration condition. */
-    int TreeUseBH;
-    /* Barnes-Hut opening angle to use.*/
-    double BHOpeningAngle;
     /* Newton's constant in internal units*/
     double G;
     inttime_t Ti_Current;

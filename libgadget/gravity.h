@@ -8,9 +8,12 @@
 
 struct gravshort_tree_params
 {
-    double ErrTolForceAcc;      /*!< parameter for relative opening criterion in tree walk */
+    double ErrTolForceAcc;      /*!< parameter for relative opening criterion in tree walk.
+                                 * Desired accuracy of the tree force in units of the old acceleration.*/
     double BHOpeningAngle;      /*!< Barnes-Hut parameter for opening criterion in tree walk */
-    int TreeUseBH;              /*!< If true, use the BH opening angle. Otherwise use acceleration */
+    double MaxBHOpeningAngle;    /* When using the relative acceleration criterion, we also enforce a maximum BH opening criterion to avoid pathological cases.*/
+    int TreeUseBH;              /*!< If true, use the BH opening angle. Otherwise use acceleration. If > 0, use the Barnes-Hut opening angle.*
+                                 *  If < 0, use the acceleration condition. */
     /*! RCUT gives the maximum distance (in units of the scale used for the force split) out to which short-range
      * forces are evaluated in the short-range tree walk.*/
     double Rcut;
