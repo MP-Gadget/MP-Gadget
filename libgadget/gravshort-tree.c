@@ -71,6 +71,7 @@ set_gravshort_tree_params(ParameterSet * ps)
         TreeParams.TreeUseBH= param_get_int(ps, "TreeUseBH");
         TreeParams.Rcut = param_get_double(ps, "TreeRcut");
         TreeParams.FractionalGravitySoftening = param_get_double(ps, "GravitySoftening");
+        TreeParams.MaxBHOpeningAngle = param_get_double(ps, "MaxBHOpeningAngle");
     }
     MPI_Bcast(&TreeParams, sizeof(struct gravshort_tree_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -222,8 +223,9 @@ shall_we_open_node(const double len, const double mass, const double r2, const d
     if((TreeUseBH == 0) && (mass * len * len > r2 * r2 * aold))
          return 1;
 
+    double bhangle = len * len  / r2;
      /*Check Barnes-Hut opening angle*/
-    if((TreeUseBH > 0) && (len * len > r2 * BHOpeningAngle2))
+    if(bhangle > BHOpeningAngle2)
          return 1;
 
     const double inside = 0.6 * len;
@@ -260,7 +262,11 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     const double rcut2 = rcut * rcut;
     const double aold = TreeParams.ErrTolForceAcc * input->OldAcc;
     const int TreeUseBH = TreeParams.TreeUseBH;
-    const double BHOpeningAngle2 = TreeParams.BHOpeningAngle * TreeParams.BHOpeningAngle;
+    double BHOpeningAngle2 = TreeParams.BHOpeningAngle * TreeParams.BHOpeningAngle;
+    /* Enforce a maximum opening angle even for relative acceleration criterion, to avoid
+     * pathological cases. Default value is 0.9, from Volker Springel.*/
+    if(TreeUseBH == 0)
+        BHOpeningAngle2 = TreeParams.MaxBHOpeningAngle * TreeParams.MaxBHOpeningAngle;
 
     /*Input particle data*/
     const double * inpos = input->base.Pos;
