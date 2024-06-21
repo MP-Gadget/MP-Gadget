@@ -49,6 +49,7 @@ static struct stats_params
     /*Should we store the energy to EnergyFile on PM timesteps.*/
     int OutputEnergyDebug;
     int WriteBlackHoleDetails; /* write BH details every time step*/
+    size_t MaxBlackHoleDetails; /* Max size of bh details file*/
 } StatsParams;
 
 void
@@ -61,12 +62,13 @@ set_stats_params(ParameterSet * ps)
         param_get_string2(ps, "CpuFile", StatsParams.CpuFile, sizeof(StatsParams.CpuFile));
         StatsParams.OutputEnergyDebug = param_get_int(ps, "OutputEnergyDebug");
         StatsParams.WriteBlackHoleDetails = param_get_int(ps,"WriteBlackHoleDetails");
+        StatsParams.MaxBlackHoleDetails = 1024*1024*1024*param_get_int(ps, "MaxBlackHoleDetails");
     }
     MPI_Bcast(&StatsParams, sizeof(struct stats_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
 /*!  This function opens various log-files that report on the status and
- *   performance of the simulstion. On restart from restart-files
+ *   performance of the simulation. On restart from restart-files
  *   (start-option 1), the code will append to these files.
  */
 void
@@ -83,6 +85,8 @@ open_outputfiles(int RestartSnapNum, struct OutputFD * fds, const char * OutputD
     fds->FdBlackHoles = NULL;
     fds->FdSfr = NULL;
     fds->FdBlackholeDetails = NULL;
+    fds->TotalBHDetailsBytesWritten = 0;
+    fds->BHDetailNumber = 0;
     fds->FdHelium = NULL;
 
     if(RestartSnapNum != -1) {
@@ -142,6 +146,32 @@ open_outputfiles(int RestartSnapNum, struct OutputFD * fds, const char * OutputD
             endrun(1, "error in opening file '%s'\n", buf);
         myfree(buf);
     }
+}
+
+
+void
+rotate_bhdetails_file(struct OutputFD * fds, const char * OutputDir, const int RestartSnapNum)
+{
+    if(!fds->FdBlackholeDetails)
+        return;
+    if(fds->TotalBHDetailsBytesWritten < StatsParams.MaxBlackHoleDetails)
+        return;
+    fclose(fds->FdBlackholeDetails);
+    char * postfix;
+    if(RestartSnapNum != -1) {
+        postfix = fastpm_strdup_printf("-R%03d", RestartSnapNum);
+    } else {
+        postfix = fastpm_strdup_printf("%s", "");
+    }
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    char * buf = fastpm_strdup_printf("%s/BlackholeDetails%s.%d/%06X", OutputDir, postfix, fds->BHDetailNumber, ThisTask);
+    fastpm_path_ensure_dirname(buf);
+    if(!(fds->FdBlackholeDetails = fopen(buf,"a")))
+        endrun(1, "Failed to open blackhole detail %s\n", buf);
+    myfree(buf);
+    fds->TotalBHDetailsBytesWritten = 0;
+    fds->BHDetailNumber++;
 }
 
 /*!  This function closes the global log-files.
