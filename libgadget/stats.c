@@ -106,6 +106,7 @@ open_outputfiles(int RestartSnapNum, struct OutputFD * fds, const char * OutputD
 
     /* only the root processors writes to the log files */
     if(ThisTask != 0) {
+        myfree(postfix);
         return;
     }
 
@@ -146,6 +147,7 @@ open_outputfiles(int RestartSnapNum, struct OutputFD * fds, const char * OutputD
             endrun(1, "error in opening file '%s'\n", buf);
         myfree(buf);
     }
+    myfree(postfix);
 }
 
 
@@ -170,6 +172,7 @@ rotate_bhdetails_file(struct OutputFD * fds, const char * OutputDir, const int R
     if(!(fds->FdBlackholeDetails = fopen(buf,"a")))
         endrun(1, "Failed to open blackhole detail %s\n", buf);
     myfree(buf);
+    myfree(postfix);
     fds->TotalBHDetailsBytesWritten = 0;
     fds->BHDetailNumber++;
 }
