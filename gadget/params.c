@@ -238,7 +238,8 @@ create_gadget_parameter_set()
     param_declare_double(ps,"BHKE_InjEnergyThr",OPTIONAL, 5, "Factor for Minimum KineticFeedbackEnergy injection, controls the burstiness of kinetic feedback");
 
     param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", OPTIONAL, 0, "Unused.");
-    param_declare_int(ps,"WriteBlackHoleDetails",OPTIONAL, 0, "If set, output BH details at every time step.");
+    param_declare_int(ps,"WriteBlackHoleDetails",OPTIONAL, 1, "If set, output BH details at every time step.");
+    param_declare_int(ps, "MaxBlackHoleDetails", OPTIONAL, 50, "Max number of GB to write to bh details file before opening a new one.");
 
     param_declare_int(ps,"BH_DynFrictionMethod",OPTIONAL, 1, "If set to non-zero, dynamical friction is applied through this method. Setting BH_DynFrictionMethod = 1, = 2, = 3 uses stars only (=1), dark matter + stars (=2), all mass (=3) to compute the DF force.");
     param_declare_int(ps,"BH_DFBoostFactor",OPTIONAL, 1, "If set, dynamical friction is boosted by this factor.");

@@ -214,7 +214,7 @@ blackholes_active(const ActiveParticles * act, int ** ActiveBlackHoles, int64_t 
 }
 
 void
-blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree * tree, DomainDecomp * ddecomp, DriftKickTimes * times, RandTable * rnd, const struct UnitSystem units, FILE * FdBlackHoles, FILE * FdBlackholeDetails)
+blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree * tree, DomainDecomp * ddecomp, DriftKickTimes * times, RandTable * rnd, const struct UnitSystem units, FILE * FdBlackHoles, FILE * FdBlackholeDetails, size_t * bhdetailswritten)
 {
     /* Do nothing if no black holes*/
     int64_t totbh;
@@ -345,7 +345,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     walltime_measure("/BH/Feedback");
 
     if(FdBlackholeDetails){
-        collect_BH_info(ActiveBlackHoles, NumActiveBlackHoles, priv, PartManager, (struct bh_particle_data*) SlotsManager->info[5].ptr, FdBlackholeDetails);
+        *bhdetailswritten += collect_BH_info(ActiveBlackHoles, NumActiveBlackHoles, priv, PartManager, (struct bh_particle_data*) SlotsManager->info[5].ptr, FdBlackholeDetails);
     }
 
     myfree(priv->BH_accreted_momentum);

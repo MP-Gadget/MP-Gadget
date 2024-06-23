@@ -62,7 +62,7 @@ struct __attribute__((__packed__)) BHinfo{
 };
 
 
-void
+size_t
 collect_BH_info(const int * const ActiveBlackHoles, const int64_t NumActiveBlackHoles, struct BHPriv *priv, const struct part_manager_type * const PartManager, const struct bh_particle_data* const BHManager, FILE * FdBlackholeDetails)
 {
     int i;
@@ -153,8 +153,9 @@ collect_BH_info(const int * const ActiveBlackHoles, const int64_t NumActiveBlack
     myfree(infos);
     int64_t totalN;
 
-    MPI_Reduce(&NumActiveBlackHoles, &totalN, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Allreduce(&NumActiveBlackHoles, &totalN, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     message(0, "Written details of %ld blackholes in %lu bytes each.\n", totalN, sizeof(struct BHinfo));
+    return totalN * sizeof(struct BHinfo);
 }
 
 void

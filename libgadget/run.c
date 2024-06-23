@@ -649,9 +649,11 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
              * The wind tree is needed if any new stars are formed and needs DM and gas (for the default wind model).
              */
             /* Black hole accretion and feedback */
-            if(All.BlackHoleOn)
-                blackhole(&Act, atime, &All.CP, &gasTree, ddecomp, &times, &rnd, units, fds.FdBlackHoles, fds.FdBlackholeDetails);
-
+            if(All.BlackHoleOn) {
+                /*Get a new BH details file if the current one is too large.*/
+                rotate_bhdetails_file(&fds, All.OutputDir, RestartSnapNum);
+                blackhole(&Act, atime, &All.CP, &gasTree, ddecomp, &times, &rnd, units, fds.FdBlackHoles, fds.FdBlackholeDetails, &fds.TotalBHDetailsBytesWritten);
+            }
             /**** radiative cooling and star formation *****/
             if(All.CoolingOn)
                 cooling_and_starformation(&Act, atime, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &gasTree, GravAccel, ddecomp, &All.CP, GradRho_mag, &rnd, fds.FdSfr);
