@@ -79,6 +79,8 @@ typedef struct ForceTree {
     int hmax_computed_flag;
     /* Flags that the tree has fully computed and exchanged mass moments*/
     int moments_computed_flag;
+    /* Flags that the tree contains all active particles*/
+    int full_particle_tree_flag;
     /*Index of first internal node. Difference between Nodes and Nodes_base. == MaxPart*/
     int firstnode;
     /*Index of first pseudo-particle node*/

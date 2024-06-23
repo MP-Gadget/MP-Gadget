@@ -87,6 +87,10 @@ force_treeev_shortrange(TreeWalkQueryGravShort * input,
  *  NeutrinoTracer = All.HybridNeutrinosOn && (atime <= All.HybridNuPartTime);
  *  rho0 = CP.Omega0 * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G)
  *  ActiveParticle should contain only gravitationally active particles.
+ *  If this tree contains all particles, as specified by the full_particle_tree_flag, we calculate the short-
+ * range gravitational potential and update the fulltreegravaccel. Note that in practice
+ * for hierarchical gravity only active particles are in the tree and so this is
+ * only true on PM steps where all particles are active.
  */
 void
 grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFloat (* AccelStore)[3], double rho0, inttime_t Ti_Current)
@@ -101,13 +105,12 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFl
     priv.G = pm->G;
     priv.cbrtrho0 = pow(rho0, 1.0 / 3);
     priv.Ti_Current = Ti_Current;
-    /* We only want to calculate the potential
-     * if it is the true potential from all particles*/
-    if(tree->NumParticles == PartManager->NumPart)
-        priv.CalcPotential = 1;
-    else
-        priv.CalcPotential = 0;
     priv.Accel = AccelStore;
+    int accelstorealloc = 0;
+    if(!AccelStore) {
+        priv.Accel = (MyFloat (*) [3]) mymalloc2("GravAccel", PartManager->NumPart * sizeof(priv.Accel[0]));
+        accelstorealloc = 1;
+    }
 
     if(!tree->moments_computed_flag)
         endrun(2, "Gravtree called before tree moments computed!\n");
@@ -148,6 +151,8 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFl
      * avoiding the fully open O(N^2) case.*/
     if(TreeParams.TreeUseBH > 1)
         TreeParams.TreeUseBH = 0;
+    if(accelstorealloc)
+        myfree(priv.Accel);
 }
 
 /* Add the acceleration from a node or particle to the output structure,

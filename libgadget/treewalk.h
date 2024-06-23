@@ -112,7 +112,8 @@ struct TreeWalk {
 
     TreeWalkVisitFunction visit;                /* Function to be called between a tree node and a particle */
     TreeWalkHasWorkFunction haswork; /* Is the particle part of this interaction? */
-    TreeWalkFillQueryFunction fill;       /* Copy the useful attributes of a particle to a query */
+    TreeWalkFillQueryFunction fill;       /* Copy the useful attributes of a particle to a query.
+                                            Note: This may be called multiple times including after a reduce and so MUST NOT copy attributes modified by reduce. */
     TreeWalkReduceResultFunction reduce;  /* Reduce a partial result to the local particle storage */
     TreeWalkNgbIterFunction ngbiter;     /* called for each pair of particles if visit is set to ngbiter */
     TreeWalkProcessFunction postprocess; /* postprocess finalizes quantities for each particle, e.g. divide the normalization */
