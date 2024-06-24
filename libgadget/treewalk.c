@@ -208,8 +208,8 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may
             /*Use raw particle number if active_set is null, otherwise use active_set*/
             const int p_i = active_set ? active_set[i] : (int) i;
 
-            /* Skip the garbage particles */
-            if(P[p_i].IsGarbage)
+            /* Skip the garbage /swallowed particles */
+            if(P[p_i].IsGarbage || P[p_i].Swallowed)
                 continue;
 
             if(tw->haswork && !tw->haswork(p_i, tw))
