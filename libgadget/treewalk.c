@@ -112,8 +112,10 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     freebytes -= 4096 * 10 * bytesperbuffer;
 
     tw->BunchSize = (size_t) floor(((double)freebytes)/ bytesperbuffer);
-    /* if the send/recv buffer is close to 4GB some MPIs have issues. */
-    const size_t maxbuf = 1024*1024*3092L;
+    /* With the old Alltoall-based export, we would encounter crashes if the send/recv buffer was close to 4GB in size.
+     * With the new Isend/Irecv based export no individual send buffer is never close to this large,
+     * so we can increase the maximum allowed size.*/
+    const size_t maxbuf = 8*1024*1024*1024L;
     if(tw->BunchSize * tw->query_type_elsize > maxbuf)
         tw->BunchSize = maxbuf / tw->query_type_elsize;
 
