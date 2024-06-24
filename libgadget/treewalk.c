@@ -76,10 +76,15 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     const size_t NumThreads = omp_get_max_threads();
     MPI_Comm_size(MPI_COMM_WORLD, &tw->NTask);
     /* The last argument is may_have_garbage: in practice the only
-     * trivial haswork is the gravtree, which has no (active) garbage because
-     * the active list was just rebuilt. If we ever add a trivial haswork after
-     * sfr/bh we should change this*/
-    treewalk_build_queue(tw, active_set, size, 0);
+     * trivial haswork is the gravtree. This has no (active) garbage because
+     * the active list was just rebuilt, but on a PM step the active list is NULL
+     * and we may still have swallowed BHs around. So in practice this avoids
+     * computing gravtree for swallowed BHs on a PM step.*/
+    int may_have_garbage = 0;
+    /* Note this is not collective, but that should not matter.*/
+    if(!active_set && SlotsManager->info[5].size > 0)
+        may_have_garbage = 1;
+    treewalk_build_queue(tw, active_set, size, may_have_garbage);
 
     /* Start first iteration at the beginning*/
     tw->WorkSetStart = 0;
