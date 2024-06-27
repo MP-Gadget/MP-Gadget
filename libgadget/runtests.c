@@ -50,6 +50,8 @@ void check_accns(double * meanerr_tot, double * maxerr_tot, double * meanangle_t
     #pragma omp parallel for reduction(+: meanerr) reduction(max:maxerr)
     for(i = 0; i < PartManager->NumPart; i++)
     {
+        if(P[i].IsGarbage || P[i].Swallowed)
+            continue;
         int k;
         double pairmag = 0, checkmag = 0, dotprod = 0;
         for(k=0; k<3; k++) {
