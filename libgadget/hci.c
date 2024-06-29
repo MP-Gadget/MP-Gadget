@@ -39,6 +39,7 @@ hci_action_init(HCIAction * action)
     action->type = HCI_NO_ACTION;
     action->write_snapshot = 0;
     action->write_fof = 0;
+    action->write_plane = 0;
 }
 
 /* override the result of hci_now; for unit testing -- we can't rely on MPI_Wtime there!
