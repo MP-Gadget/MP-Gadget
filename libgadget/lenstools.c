@@ -254,31 +254,25 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
 
     //number of particles on the plane
     int64_t num_particles_plane = 0;
-    for (int i = 0; i < plane_resolution; i++) {
-        for (int j = 0; j < plane_resolution; j++) {
-            num_particles_plane += ACCESS_2D(density, i, j, plane_resolution);
-        }
-    }
-
-    if (num_particles_plane == 0) {
-        return 0;
-    }
     // normalize the density to the density fluctuation
     double density_norm_factor = 1. / num_particles_tot * (pow(Lbox,3) / (bin_resolution[0] * bin_resolution[1] * bin_resolution[2]));
 
     for (int i = 0; i < plane_resolution; i++) {
         for (int j = 0; j < plane_resolution; j++) {
+            num_particles_plane += ACCESS_2D(density, i, j, plane_resolution);
             ACCESS_2D(density, i, j, plane_resolution) *= density_norm_factor;
         }
     }
 
-    // Calculate the lensing potential by solving the Poisson equation
-    calculate_lensing_potential(density, plane_resolution, bin_resolution[plane_directions[0]], bin_resolution[plane_directions[1]], comoving_distance, smooth, lensing_potential);
+    if(num_particles_plane > 0) {
+        // Calculate the lensing potential by solving the Poisson equation
+        calculate_lensing_potential(density, plane_resolution, bin_resolution[plane_directions[0]], bin_resolution[plane_directions[1]], comoving_distance, smooth, lensing_potential);
 
-    // normalize the lensing potential
-    for (int i = 0; i < plane_resolution; i++) {
-        for (int j = 0; j < plane_resolution; j++) {
-            ACCESS_2D(lensing_potential, i, j, plane_resolution) *= cosmo_normalization * density_normalization;
+        // normalize the lensing potential
+        for (int i = 0; i < plane_resolution; i++) {
+            for (int j = 0; j < plane_resolution; j++) {
+                ACCESS_2D(lensing_potential, i, j, plane_resolution) *= cosmo_normalization * density_normalization;
+            }
         }
     }
 
