@@ -270,7 +270,7 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
 
     myfree(density);
     // Free the binning arrays
-    for (int i = 0; i < 3; i++) {
+    for (int i = 2; i >= 0; i--) {
         myfree(binning[i]);
     }
     return num_particles_plane;
