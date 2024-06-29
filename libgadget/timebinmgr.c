@@ -259,6 +259,13 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
         if (outIdx == Sync.OutputListLength && planeoutIdx == Sync.PlaneOutputListLength) {
             break;
         }
+        else if (Sync.PlaneOutputListLength == 0)
+        {
+            a = Sync.OutputListTimes[outIdx];
+            outIdx++;
+            fromPlaneOut = 0;
+            fromOut = 1;
+        }
         else if (fabs(Sync.OutputListTimes[outIdx] - Sync.PlaneOutputListTimes[planeoutIdx]) < tolerance) {
             a = Sync.OutputListTimes[outIdx];
             outIdx++;
