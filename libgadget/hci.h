@@ -23,7 +23,7 @@ enum HCIActionType {
     HCI_AUTO_CHECKPOINT = 3,
     HCI_CHECKPOINT = 4,
     HCI_TERMINATE = 5,
-    HCI_IOCTL = 6,
+    HCI_PLANE = 6,
 };
 
 typedef struct HCIAction

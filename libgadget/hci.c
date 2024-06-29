@@ -196,6 +196,16 @@ hci_query(HCIManager * manager, HCIAction * action)
         return 0;
     }
 
+    /* Is the plane-file present? If yes, ask to write a plane file. */
+    if(hci_query_filesystem(manager, "plane", &request))
+    {
+        /* will write a lensing plane in this PM timestep, then continue.*/
+        action->type = HCI_PLANE;
+        action->write_plane = 1;
+        myfree(request);
+        return 1;
+    }
+
     /* Is the stop-file present? If yes, interrupt the run with a snapshot. */
     if(hci_query_filesystem(manager, "stop", &request))
     {
