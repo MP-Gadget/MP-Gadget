@@ -184,8 +184,9 @@ void write_plane(int snapnum, const double atime, Cosmology * CP, const char * O
             MPI_Barrier(MPI_COMM_WORLD);
         }
     }
-    myfree(plane_result);
     myfree(summed_plane_result);
+    myfree(plane_result);
+    
 
     if (ThisTask == 0) {
         double comoving_distance_Mpc  = comoving_distance * UnitLength_in_cm / CM_PER_MPC;
