@@ -214,15 +214,7 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
 
     for (int i = 0; i < 3; i++) {
         int resolution = (i == normal) ? thickness_resolution : plane_resolution;
-        binning[i] = malloc((resolution + 1) * sizeof(double));
-        if (binning[i] == NULL) {
-            fprintf(stderr, "Memory allocation failed for binning %d on rank %d\n", i, ThisTask);
-            // Free other allocated resources
-            for (int j = 0; j < i; j++) {
-                free(binning[j]);
-            }
-            MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
-        }
+        binning[i] = mymalloc("lensbins", (resolution + 1) * sizeof(double));
         double start = (i == normal) ? (center - thickness / 2) : left_corner[i];
         double stop = (i == normal) ? (center + thickness / 2) : (left_corner[i] + Lbox);
         linspace(start, stop, resolution + 1, binning[i]);
@@ -279,7 +271,7 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
     myfree(density);
     // Free the binning arrays
     for (int i = 0; i < 3; i++) {
-        free(binning[i]);
+        myfree(binning[i]);
     }
     return num_particles_plane;
 }
