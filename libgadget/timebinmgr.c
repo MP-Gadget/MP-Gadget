@@ -249,15 +249,22 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
     int planeoutIdx = 0;
     int fromPlaneOut = 0;
     int fromOut = 0;
-    double tolerance = 1e-6;
 
     for(i = 0; i < Sync.OutputListLength + Sync.PlaneOutputListLength; i ++) {
         // print outputlisttime and planeoutputlisttime and their indices
         // message(0, "outIdx: %d, outtime: %g, planeoutIdx: %d, planeouttime: %g.\n", outIdx, Sync.OutputListTimes[outIdx], planeoutIdx, Sync.PlaneOutputListTimes[planeoutIdx]);
         int64_t j = 0;
         double a;
+        double tolerance = 2e-4/Sync.OutputListTimes[outIdx]; // to avoid setting sync points too close to each other (which can cause bad timestep errors)
         if (outIdx == Sync.OutputListLength && planeoutIdx == Sync.PlaneOutputListLength) {
             break;
+        }
+        else if (Sync.PlaneOutputListLength == 0)
+        {
+            a = Sync.OutputListTimes[outIdx];
+            outIdx++;
+            fromPlaneOut = 0;
+            fromOut = 1;
         }
         else if (fabs(Sync.OutputListTimes[outIdx] - Sync.PlaneOutputListTimes[planeoutIdx]) < tolerance) {
             a = Sync.OutputListTimes[outIdx];

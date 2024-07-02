@@ -151,6 +151,7 @@ void write_plane(int snapnum, const double atime, Cosmology * CP, const char * O
     message(0, "Computing and writing potential planes.\n");
 
     double *plane_result = allocate_2d_array_as_1d(plane_resolution, plane_resolution);
+    double *summed_plane_result = allocate_2d_array_as_1d(plane_resolution, plane_resolution);
 
     double comoving_distance = compute_comoving_distance(CP, atime, 1., UnitVelocity_in_cm_per_s);
 
@@ -169,21 +170,23 @@ void write_plane(int snapnum, const double atime, Cosmology * CP, const char * O
             num_particles_plane = cutPlaneGaussianGrid(num_particles_tot,  comoving_distance, BoxSize, CP, atime, PlaneParams.Normals[j], PlaneParams.CutPoints[i], thickness, left_corner, plane_resolution, plane_result);
 
             /*sum up planes from all tasks*/
-            MPI_Reduce(MPI_IN_PLACE, plane_result, plane_resolution * plane_resolution, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+            MPI_Reduce(plane_result, summed_plane_result, plane_resolution * plane_resolution, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
             MPI_Reduce(&num_particles_plane, &num_particles_plane_tot, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
 
             /*saving planes*/
             if (ThisTask == 0) {
 #ifdef USE_CFITSIO
                 char * file_path = plane_get_output_fname(snapnum, OutputDir, i, PlaneParams.Normals[j]);
-                savePotentialPlane(plane_result, plane_resolution, plane_resolution, file_path, BoxSize, CP, redshift, comoving_distance, num_particles_plane_tot, UnitLength_in_cm);
+                savePotentialPlane(summed_plane_result, plane_resolution, plane_resolution, file_path, BoxSize, CP, redshift, comoving_distance, num_particles_plane_tot, UnitLength_in_cm);
                 message(0, "Plane saved for cut %d and normal %d to %s\n", i, PlaneParams.Normals[j], file_path);
 #endif
             }
             MPI_Barrier(MPI_COMM_WORLD);
         }
     }
+    myfree(summed_plane_result);
     myfree(plane_result);
+    
 
     if (ThisTask == 0) {
         double comoving_distance_Mpc  = comoving_distance * UnitLength_in_cm / CM_PER_MPC;

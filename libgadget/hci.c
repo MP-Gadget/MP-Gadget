@@ -39,6 +39,7 @@ hci_action_init(HCIAction * action)
     action->type = HCI_NO_ACTION;
     action->write_snapshot = 0;
     action->write_fof = 0;
+    action->write_plane = 0;
 }
 
 /* override the result of hci_now; for unit testing -- we can't rely on MPI_Wtime there!
@@ -193,6 +194,16 @@ hci_query(HCIManager * manager, HCIAction * action)
         myfree(request);
         manager->TimeLastCheckPoint = hci_get_elapsed_time(manager);
         return 0;
+    }
+
+    /* Is the plane-file present? If yes, ask to write a plane file. */
+    if(hci_query_filesystem(manager, "plane", &request))
+    {
+        /* will write a lensing plane in this PM timestep, then continue.*/
+        action->type = HCI_PLANE;
+        action->write_plane = 1;
+        myfree(request);
+        return 1;
     }
 
     /* Is the stop-file present? If yes, interrupt the run with a snapshot. */
