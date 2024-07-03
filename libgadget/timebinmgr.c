@@ -306,6 +306,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
         if(fabs(loga - SyncPoints[j].loga) > 1e-4) {
             /* insert a blank item with no snapshot output. */
             memmove(&SyncPoints[j + 1], &SyncPoints[j], sizeof(SyncPoints[0]) * (NSyncPoints - j));
+            memset(&SyncPoints[j], 0, sizeof(SyncPoints[0]));
             SyncPoints[j].a = a;
             SyncPoints[j].loga = loga;
             NSyncPoints ++;
