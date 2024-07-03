@@ -245,44 +245,11 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
     NSyncPoints++;
 
     /* we do an insertion sort here. A heap is faster but who cares the speed for this? */
-    int outIdx = 0;
-    int planeoutIdx = 0;
-    int fromPlaneOut = 0;
-    int fromOut = 0;
-
-    for(i = 0; i < Sync.OutputListLength + Sync.PlaneOutputListLength; i ++) {
-        // print outputlisttime and planeoutputlisttime and their indices
+    for(i = 0; i < Sync.OutputListLength; i ++) {
+        // print outputlisttime and index
         // message(0, "outIdx: %d, outtime: %g, planeoutIdx: %d, planeouttime: %g.\n", outIdx, Sync.OutputListTimes[outIdx], planeoutIdx, Sync.PlaneOutputListTimes[planeoutIdx]);
         int64_t j = 0;
-        double a;
-        double tolerance = 2e-4/Sync.OutputListTimes[outIdx]; // to avoid setting sync points too close to each other (which can cause bad timestep errors)
-        if (outIdx == Sync.OutputListLength && planeoutIdx == Sync.PlaneOutputListLength) {
-            break;
-        }
-        else if (Sync.PlaneOutputListLength == 0)
-        {
-            a = Sync.OutputListTimes[outIdx];
-            outIdx++;
-            fromPlaneOut = 0;
-            fromOut = 1;
-        }
-        else if (fabs(Sync.OutputListTimes[outIdx] - Sync.PlaneOutputListTimes[planeoutIdx]) < tolerance) {
-            a = Sync.OutputListTimes[outIdx];
-            outIdx++;
-            // planeoutIdx++;
-            fromPlaneOut = 1;
-            fromOut = 1;
-        } else if ((outIdx < Sync.OutputListLength && Sync.OutputListTimes[outIdx] < Sync.PlaneOutputListTimes[planeoutIdx]) || (planeoutIdx == Sync.PlaneOutputListLength && Sync.OutputListTimes[outIdx] > Sync.PlaneOutputListTimes[planeoutIdx])) {
-            a = Sync.OutputListTimes[outIdx];
-            outIdx++;
-            fromPlaneOut = 0;
-            fromOut = 1;
-        } else {
-            a = Sync.PlaneOutputListTimes[planeoutIdx];
-            fromPlaneOut = 1;
-            fromOut = 0;
-        }
-
+        double a = Sync.OutputListTimes[i];
         double loga = log(a);
 
         if(a < TimeIC || a > TimeMax) {
@@ -302,40 +269,51 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
             /* requesting output on an existing entry, e.g. TimeInit or duplicated entry */
         } else {
             /* insert the item; */
-            memmove(&SyncPoints[j + 1], &SyncPoints[j],
-                sizeof(SyncPoints[0]) * (NSyncPoints - j));
+            memmove(&SyncPoints[j + 1], &SyncPoints[j], sizeof(SyncPoints[0]) * (NSyncPoints - j));
+            memset(&SyncPoints[j], 0, sizeof(SyncPoints[0]));
             SyncPoints[j].a = a;
             SyncPoints[j].loga = loga;
             NSyncPoints ++;
             //message(0,"added outlist syncpoint at a = %.3f, j = %d, Ns = %ld\n",a,j,NSyncPoints);
         }
         if(SyncPoints[j].a > no_snapshot_until_time) {
-            if (fromOut) {
-                SyncPoints[j].write_snapshot = 1;
-                if(SnapshotWithFOF) {
-                    SyncPoints[j].write_fof = 1;
-                }
-                else
-                    SyncPoints[j].write_fof = 0;
-            }
-            else {
-                SyncPoints[j].write_snapshot = 0;
-                SyncPoints[j].write_fof = 0;
-            }
-            SyncPoints[j].calc_uvbg = 0;
-            
-        } else {
-            SyncPoints[j].write_snapshot = 0;
-            SyncPoints[j].write_fof = 0;
-            SyncPoints[j].calc_uvbg = 0;
+            SyncPoints[j].write_snapshot = 1;
+            if(SnapshotWithFOF)
+                SyncPoints[j].write_fof = 1;
         }
-        if (fromPlaneOut) {
-            SyncPoints[j].write_plane = 1;
-            SyncPoints[j].plane_snapnum = planeoutIdx++;
-        } else {
-            SyncPoints[j].write_plane = 0;
-            SyncPoints[j].plane_snapnum = -1;
+        SyncPoints[j].plane_snapnum = -1;
+    }
+
+    /* Now insert the plane outputs*/
+    for(i = 0; i < Sync.PlaneOutputListLength; i ++) {
+        int64_t j = 0;
+        double a = Sync.PlaneOutputListTimes[i];
+        double loga = log(a);
+        if(a < TimeIC || a > TimeMax) {
+            /*If the user inputs syncpoints outside the scope of the simulation, it can mess
+             *with the timebins, which causes errors when calculating densities from the ICs,
+             *so we exclude them here*/
+            continue;
         }
+
+        for(j = 0; j < NSyncPoints; j ++) {
+            if(a <= SyncPoints[j].a) {
+                break;
+            }
+        }
+        /* found, so loga >= SyncPoints[j].loga */
+        // to avoid setting sync points too close to each other (which can cause bad timestep errors)
+        if(fabs(loga - SyncPoints[j].loga) > 1e-4) {
+            /* insert a blank item with no snapshot output. */
+            memmove(&SyncPoints[j + 1], &SyncPoints[j], sizeof(SyncPoints[0]) * (NSyncPoints - j));
+            memset(&SyncPoints[j], 0, sizeof(SyncPoints[0]));
+            SyncPoints[j].a = a;
+            SyncPoints[j].loga = loga;
+            NSyncPoints ++;
+            //message(0,"added outlist syncpoint at a = %.3f, j = %d, Ns = %ld\n",a,j,NSyncPoints);
+        }
+        SyncPoints[j].write_plane = 1;
+        SyncPoints[j].plane_snapnum = i;
     }
 
     for(i = 0; i < NSyncPoints; i++) {
