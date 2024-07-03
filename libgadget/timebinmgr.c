@@ -303,7 +303,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
         }
         /* found, so loga >= SyncPoints[j].loga */
         // to avoid setting sync points too close to each other (which can cause bad timestep errors)
-        if(fabs(loga - SyncPoints[j].loga) < 1e-4) {
+        if(fabs(loga - SyncPoints[j].loga) > 1e-4) {
             /* insert a blank item with no snapshot output. */
             memmove(&SyncPoints[j + 1], &SyncPoints[j], sizeof(SyncPoints[0]) * (NSyncPoints - j));
             SyncPoints[j].a = a;
