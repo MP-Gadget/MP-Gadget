@@ -179,6 +179,7 @@ void write_plane(int snapnum, const double atime, Cosmology * CP, const char * O
                 char * file_path = plane_get_output_fname(snapnum, OutputDir, i, PlaneParams.Normals[j]);
                 savePotentialPlane(summed_plane_result, plane_resolution, plane_resolution, file_path, BoxSize, CP, redshift, comoving_distance, num_particles_plane_tot, UnitLength_in_cm);
                 message(0, "Plane saved for cut %d and normal %d to %s\n", i, PlaneParams.Normals[j], file_path);
+                myfree(file_path);
 #endif
             }
             MPI_Barrier(MPI_COMM_WORLD);
