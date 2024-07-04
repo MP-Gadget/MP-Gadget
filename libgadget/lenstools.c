@@ -277,17 +277,14 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
 }
 
 #ifdef USE_CFITSIO
-void savePotentialPlane(double *data, int rows, int cols, const char filename[128], double Lbox, Cosmology * CP, double redshift, double comoving_distance, int64_t num_particles, const double UnitLength_in_cm) {
+void savePotentialPlane(double *data, int rows, int cols, const char * const filename, double Lbox, Cosmology * CP, double redshift, double comoving_distance, int64_t num_particles, const double UnitLength_in_cm) {
     fitsfile *fptr;       // Pointer to the FITS file; defined in fitsio.h
     int status = 0;       // Status must be initialized to zero.
     long naxes[2] = {cols, rows};  // image dimensions
-    char newFilename[128];
-    // Format the filename to include '!' to overwrite existing files
-    sprintf(newFilename, "!%s", filename);
 
     // Create the file
-    if (fits_create_file(&fptr, newFilename, &status)) {
-        printf("Error creating FITS file: %s\n", filename);
+    if (fits_create_file(&fptr, filename, &status)) {
+        message(0, "Error creating FITS file: %s\n", filename+1);
         fits_report_error(stderr, status);
         return;
     }
@@ -331,7 +328,7 @@ void savePotentialPlane(double *data, int rows, int cols, const char filename[12
 
     // Close the FITS file
     if (fits_close_file(fptr, &status)) {
-        printf("Error closing FITS file.\n");
+        message(0, "Error closing FITS file.\n");
         fits_report_error(stderr, status);
     }
 }

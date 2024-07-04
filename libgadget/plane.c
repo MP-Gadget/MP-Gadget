@@ -31,7 +31,8 @@ static struct plane_params
 char *
 plane_get_output_fname(const int snapnum, const char * OutputDir, const int cut, const int normal)
 {
-    char * fname = fastpm_strdup_printf("%s/snap%d_potentialPlane%d_normal%d.fits", OutputDir, snapnum, cut, normal);
+    // Format the filename to include '!' to overwrite existing files
+    char * fname = fastpm_strdup_printf("!%s/snap%d_potentialPlane%d_normal%d.fits", OutputDir, snapnum, cut, normal);
     return fname;
 }
 
