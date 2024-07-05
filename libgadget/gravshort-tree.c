@@ -68,10 +68,10 @@ set_gravshort_tree_params(ParameterSet * ps)
     if(ThisTask == 0) {
         TreeParams.BHOpeningAngle = param_get_double(ps, "BHOpeningAngle");
         TreeParams.ErrTolForceAcc = param_get_double(ps, "ErrTolForceAcc");
-        TreeParams.BHOpeningAngle = param_get_double(ps, "BHOpeningAngle");
         TreeParams.TreeUseBH= param_get_int(ps, "TreeUseBH");
         TreeParams.Rcut = param_get_double(ps, "TreeRcut");
         TreeParams.FractionalGravitySoftening = param_get_double(ps, "GravitySoftening");
+        TreeParams.MaxBHOpeningAngle = param_get_double(ps, "MaxBHOpeningAngle");
     }
     MPI_Bcast(&TreeParams, sizeof(struct gravshort_tree_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -99,9 +99,6 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFl
     struct GravShortPriv priv;
     priv.cellsize = tree->BoxSize / pm->Nmesh;
     priv.Rcut = TreeParams.Rcut * pm->Asmth * priv.cellsize;;
-    priv.ErrTolForceAcc = TreeParams.ErrTolForceAcc;
-    priv.TreeUseBH = TreeParams.TreeUseBH;
-    priv.BHOpeningAngle = TreeParams.BHOpeningAngle;
     priv.G = pm->G;
     priv.cbrtrho0 = pow(rho0, 1.0 / 3);
     priv.Ti_Current = Ti_Current;
@@ -226,8 +223,9 @@ shall_we_open_node(const double len, const double mass, const double r2, const d
     if((TreeUseBH == 0) && (mass * len * len > r2 * r2 * aold))
          return 1;
 
+    double bhangle = len * len  / r2;
      /*Check Barnes-Hut opening angle*/
-    if((TreeUseBH > 0) && (len * len > r2 * BHOpeningAngle2))
+    if(bhangle > BHOpeningAngle2)
          return 1;
 
     const double inside = 0.6 * len;
@@ -262,9 +260,13 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     const double cellsize = GRAV_GET_PRIV(lv->tw)->cellsize;
     const double rcut = GRAV_GET_PRIV(lv->tw)->Rcut;
     const double rcut2 = rcut * rcut;
-    const double aold = GRAV_GET_PRIV(lv->tw)->ErrTolForceAcc * input->OldAcc;
-    const int TreeUseBH = GRAV_GET_PRIV(lv->tw)->TreeUseBH;
-    const double BHOpeningAngle2 = GRAV_GET_PRIV(lv->tw)->BHOpeningAngle * GRAV_GET_PRIV(lv->tw)->BHOpeningAngle;
+    const double aold = TreeParams.ErrTolForceAcc * input->OldAcc;
+    const int TreeUseBH = TreeParams.TreeUseBH;
+    double BHOpeningAngle2 = TreeParams.BHOpeningAngle * TreeParams.BHOpeningAngle;
+    /* Enforce a maximum opening angle even for relative acceleration criterion, to avoid
+     * pathological cases. Default value is 0.9, from Volker Springel.*/
+    if(TreeUseBH == 0)
+        BHOpeningAngle2 = TreeParams.MaxBHOpeningAngle * TreeParams.MaxBHOpeningAngle;
 
     /*Input particle data*/
     const double * inpos = input->base.Pos;

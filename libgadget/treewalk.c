@@ -76,10 +76,15 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     const size_t NumThreads = omp_get_max_threads();
     MPI_Comm_size(MPI_COMM_WORLD, &tw->NTask);
     /* The last argument is may_have_garbage: in practice the only
-     * trivial haswork is the gravtree, which has no (active) garbage because
-     * the active list was just rebuilt. If we ever add a trivial haswork after
-     * sfr/bh we should change this*/
-    treewalk_build_queue(tw, active_set, size, 0);
+     * trivial haswork is the gravtree. This has no (active) garbage because
+     * the active list was just rebuilt, but on a PM step the active list is NULL
+     * and we may still have swallowed BHs around. So in practice this avoids
+     * computing gravtree for swallowed BHs on a PM step.*/
+    int may_have_garbage = 0;
+    /* Note this is not collective, but that should not matter.*/
+    if(!active_set && SlotsManager->info[5].size > 0)
+        may_have_garbage = 1;
+    treewalk_build_queue(tw, active_set, size, may_have_garbage);
 
     /* Start first iteration at the beginning*/
     tw->WorkSetStart = 0;
@@ -107,8 +112,10 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     freebytes -= 4096 * 10 * bytesperbuffer;
 
     tw->BunchSize = (size_t) floor(((double)freebytes)/ bytesperbuffer);
-    /* if the send/recv buffer is close to 4GB some MPIs have issues. */
-    const size_t maxbuf = 1024*1024*3092L;
+    /* With the old Alltoall-based export, we would encounter crashes if the send/recv buffer was close to 4GB in size.
+     * With the new Isend/Irecv based export no individual send buffer is never close to this large,
+     * so we can increase the maximum allowed size.*/
+    const size_t maxbuf = 8*1024*1024*1024L;
     if(tw->BunchSize * tw->query_type_elsize > maxbuf)
         tw->BunchSize = maxbuf / tw->query_type_elsize;
 
@@ -208,8 +215,8 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may
             /*Use raw particle number if active_set is null, otherwise use active_set*/
             const int p_i = active_set ? active_set[i] : (int) i;
 
-            /* Skip the garbage particles */
-            if(P[p_i].IsGarbage)
+            /* Skip the garbage /swallowed particles */
+            if(P[p_i].IsGarbage || P[p_i].Swallowed)
                 continue;
 
             if(tw->haswork && !tw->haswork(p_i, tw))
