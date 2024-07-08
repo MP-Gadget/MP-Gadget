@@ -66,7 +66,6 @@ typedef struct {
 
     /* Thread local export variables*/
     size_t Nexport;
-    size_t BunchSize;
     /* Number of entries in the export table for this particle*/
     size_t NThisParticleExport;
     /* Pointer to memory for exports*/
@@ -153,7 +152,8 @@ struct TreeWalk {
     /* internal flags*/
     /* Export counters for each thread*/
     size_t * Nexport_thread;
-    size_t * Nexport_threadoffset;
+    /* Pointer to a particle export table for each thread.*/
+    data_index ** ExportTable_thread;
     /* Flags that our export buffer is full*/
     int BufferFullFlag;
     /* Number of particles we can fit into the export buffer*/
