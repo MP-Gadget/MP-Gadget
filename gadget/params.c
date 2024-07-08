@@ -91,6 +91,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "w0_fld", OPTIONAL, -1., "Dark energy equation of state.");
     param_declare_double(ps, "wa_fld", OPTIONAL, 0, "Dark energy evolution parameter.");
     param_declare_double(ps, "Omega_ur", OPTIONAL, 0, "Extra radiation density, eg, a sterile neutrino");
+
     param_declare_double(ps, "HubbleParam", OPTIONAL, -1, "Hubble parameter. Does not affect gravity. Used only for cooling and star formation.");
     /*End cosmology parameters*/
 

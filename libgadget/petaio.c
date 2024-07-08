@@ -495,6 +495,9 @@ petaio_read_header_internal(BigFile * bf, Cosmology * CP, struct header_data * H
     double OmegaUR;
     if(0 == big_block_get_attr(&bh, "OmegaUR", &OmegaUR, "f8", 1) && fabs(CP->Omega_ur - OmegaUR) > 1e-3)
         message(0, "IC Header has Omega_ur = %g but paramfile wants Omega_ur = %g\n", CP->Omega_ur, OmegaUR);
+    /* Read in the radiation convention we are using (small differences to Omega_k). May fail, in which case we continue with CAMB.*/
+    CP->use_class_radiation_convention = 0;
+    big_block_get_attr(&bh, "class_radiation_convention", &CP->use_class_radiation_convention, "i4", 1);
     /* If UsePeculiarVelocity = 1 then snapshots save to the velocity field the physical peculiar velocity, v = a dx/dt (where x is comoving distance).
      * If UsePeculiarVelocity = 0 then the velocity field is a * v = a^2 dx/dt in snapshots
      * and v / sqrt(a) = sqrt(a) dx/dt in the ICs. Note that snapshots never match Gadget-2, which
