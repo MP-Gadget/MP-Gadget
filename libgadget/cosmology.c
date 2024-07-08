@@ -281,10 +281,8 @@ check_units(const Cosmology * CP, const struct UnitSystem units)
         message(0, "Massless Neutrino density OmegaNu0 = %g\n",get_omega_nu(&CP->ONu, 1));
     message(0, "Curvature density OmegaK = %g\n",CP->OmegaK);
     if(CP->RadiationOn) {
-        /* note that this value is inaccurate if there is a massive neutrino. */
-        double OmegaTot = CP->OmegaG + CP->OmegaK + CP->Omega0 + CP->OmegaLambda;
-        if(!CP->MassiveNuLinRespOn)
-            OmegaTot += get_omega_nu(&CP->ONu, 1);
+        double OmegaTot = CP->OmegaG + CP->OmegaK + CP->OmegaCDM + CP->OmegaBaryon + CP->OmegaLambda + CP->Omega_ur;
+        OmegaTot += get_omega_nu(&CP->ONu, 1);
         OmegaTot += OmegaFLD(CP, 1);
         message(0, "Radiation is enabled in Hubble(a). "
                "Following CAMB convention: Omega_Tot - 1 = %g\n", OmegaTot - 1);
