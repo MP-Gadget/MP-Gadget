@@ -39,7 +39,7 @@ create_parameters(void)
     param_declare_double(ps, "w0_fld", OPTIONAL, -1., "Dark energy equation of state");
     param_declare_double(ps, "wa_fld", OPTIONAL, 0, "Dark energy evolution parameter");
     param_declare_double(ps, "Omega_ur", OPTIONAL, 0, "Extra radiation density, eg, a sterile neutrino");
-    param_declare_int(ps, "CLASS_Radiation", OPTIONAL, 0, "Boolean. If enabled, we enforce that sum(Omega_i) = 1. If disabled then Omega_m + Omega_L + Omega_fld + Omega_k = 1 and so sum(Omega_i) ~ Omega_g");
+    param_declare_int(ps, "CLASS_Radiation", OPTIONAL, 0, "Boolean. If enabled, we enforce that sum(Omega_i) = 1. If disabled then Omega_m + Omega_L + Omega_fld + Omega_k = 1 and so sum(Omega_i) ~ 1+Omega_g");
     param_declare_double(ps, "MNue", OPTIONAL, 0, "First neutrino mass in eV.");
     param_declare_double(ps, "MNum", OPTIONAL, 0, "Second neutrino mass in eV.");
     param_declare_double(ps, "MNut", OPTIONAL, 0, "Third neutrino mass in eV.");
