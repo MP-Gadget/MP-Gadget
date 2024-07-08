@@ -491,6 +491,10 @@ petaio_read_header_internal(BigFile * bf, Cosmology * CP, struct header_data * H
             (OmegaFld >= 0 && (fabs(CP->Omega_fld - OmegaFld) > 1e-3 || fabs(CP->wa_fld - WA_Fld) > 1e-3 || fabs(CP->w0_fld - W0_Fld) > 1e-3)))
         message(0,"IC Header has Omega_fld = %g w0 = %g wa = %g but paramfile wants Omega_fld = %g w0 = %g wa = %g\n", OmegaFld, W0_Fld, WA_Fld, CP->Omega_fld, CP->w0_fld, CP->wa_fld);
 
+    /* Validate that Omega_UR is the same as the ICs*/
+    double OmegaUR;
+    if(0 == big_block_get_attr(&bh, "OmegaUR", &OmegaUR, "f8", 1) && fabs(CP->Omega_ur - OmegaUR) > 1e-3)
+        message(0, "IC Header has Omega_ur = %g but paramfile wants Omega_ur = %g\n", CP->Omega_ur, OmegaUR);
     /* If UsePeculiarVelocity = 1 then snapshots save to the velocity field the physical peculiar velocity, v = a dx/dt (where x is comoving distance).
      * If UsePeculiarVelocity = 0 then the velocity field is a * v = a^2 dx/dt in snapshots
      * and v / sqrt(a) = sqrt(a) dx/dt in the ICs. Note that snapshots never match Gadget-2, which
