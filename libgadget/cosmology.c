@@ -18,16 +18,6 @@ void init_cosmology(Cosmology * CP, const double TimeBegin, const struct UnitSys
     CP->UnitTime_in_s = units.UnitTime_in_s;
     CP->GravInternal = GRAVITY / pow(units.UnitLength_in_cm, 3) * units.UnitMass_in_g * pow(units.UnitTime_in_s, 2);
 
-    /*With slightly relativistic massive neutrinos, for consistency we need to include radiation.
-     * A note on normalisation (as of 08/02/2012):
-     * CAMB appears to set Omega_Lambda + Omega_Matter+Omega_K = 1,
-     * calculating Omega_K in the code and specifying Omega_Lambda and Omega_Matter in the paramfile.
-     * This means that Omega_tot = 1+ Omega_r + Omega_g, effectively
-     * making h0 (very) slightly larger than specified, and the Universe is no longer flat!
-     */
-    CP->OmegaCDM = CP->Omega0 - CP->OmegaBaryon;
-    CP->OmegaK = 1.0 - CP->Omega0 - CP->OmegaLambda - CP->Omega_fld;
-
     CP->RhoCrit = 3.0 * CP->Hubble * CP->Hubble / (8.0 * M_PI * CP->GravInternal);  // in internal units
 
     /* Omega_g = 4 \sigma_B T_{CMB}^4 8 \pi G / (3 c^3 H^2) */
@@ -43,10 +33,24 @@ void init_cosmology(Cosmology * CP, const double TimeBegin, const struct UnitSys
     if(CP->HybridNeutrinosOn)
         init_hybrid_nu(&CP->ONu.hybnu, CP->MNu, CP->HybridVcrit, LIGHTCGS/1e5, CP->HybridNuPartTime, CP->ONu.kBtnu);
 
+    CP->OmegaCDM = CP->Omega0 - CP->OmegaBaryon;
     /* Neutrinos will be included in Omega0, if massive.
      * This ensures that OmegaCDM contains only non-relativistic species.*/
     if(CP->MNu[0] + CP->MNu[1] + CP->MNu[2] > 0) {
         CP->OmegaCDM -= get_omega_nu(&CP->ONu, 1);
+    }
+
+    /*With slightly relativistic massive neutrinos, for consistency we need to include radiation.
+     * A note on normalisation (as of 08/02/2012):
+     * CAMB appears to set Omega_Lambda + Omega_Matter+Omega_K = 1,
+     * calculating Omega_K in the code and specifying Omega_Lambda and Omega_Matter in the paramfile.
+     * This means that Omega_tot = 1+ Omega_r + Omega_g, effectively
+     * making h0 (very) slightly larger than specified, and the Universe is no longer flat!
+     * CLASS just sets Omega_Lambda + Omega_Matter+Omega_K + Omega_g + Omega_ur = 1
+     */
+    CP->OmegaK = 1.0 - CP->Omega0 - CP->OmegaLambda - CP->Omega_fld;
+    if(CP->use_class_radiation_convention) {
+        CP->OmegaK = 1.0 - CP->OmegaCDM - CP->OmegaBaryon - CP->OmegaLambda - CP->Omega_fld - CP->Omega_ur - CP->OmegaG - get_omega_nu(&CP->ONu, 1);
     }
 }
 
@@ -281,13 +285,17 @@ check_units(const Cosmology * CP, const struct UnitSystem units)
         message(0, "Massless Neutrino density OmegaNu0 = %g\n",get_omega_nu(&CP->ONu, 1));
     message(0, "Curvature density OmegaK = %g\n",CP->OmegaK);
     if(CP->RadiationOn) {
-        /* note that this value is inaccurate if there is a massive neutrino. */
-        double OmegaTot = CP->OmegaG + CP->OmegaK + CP->Omega0 + CP->OmegaLambda;
-        if(!CP->MassiveNuLinRespOn)
-            OmegaTot += get_omega_nu(&CP->ONu, 1);
+        double OmegaTot = CP->OmegaG + CP->OmegaK + CP->OmegaCDM + CP->OmegaBaryon + CP->OmegaLambda + CP->Omega_ur;
+        OmegaTot += get_omega_nu(&CP->ONu, 1);
         OmegaTot += OmegaFLD(CP, 1);
-        message(0, "Radiation is enabled in Hubble(a). "
+        if(CP->use_class_radiation_convention) {
+            message(0, "Radiation is enabled in Hubble(a). "
+               "Following CLASS convention: Omega_Tot - 1 = %g\n", OmegaTot - 1);
+        }
+        else {
+            message(0, "Radiation is enabled in Hubble(a). "
                "Following CAMB convention: Omega_Tot - 1 = %g\n", OmegaTot - 1);
+        }
     }
     message(0, "\n");
 }

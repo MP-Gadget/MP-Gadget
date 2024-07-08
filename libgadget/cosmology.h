@@ -24,7 +24,9 @@ typedef struct {
     int RadiationOn; /* flags whether to include the radiation density in the background */
     _omega_nu ONu;   /*Structure for storing massive neutrino densities*/
     double MNu[3]; /*Neutrino masses in eV*/
-
+    int use_class_radiation_convention; /* Boolean that flags which omega_tot to use.
+                                           CLASS uses Omega_tot = 1 = sum(Omega_i) but CAMB removes radiation,
+                                           and has Omega_tot = 1 = sum(Omega_M + Omega_K + Omega_Lambda)*/
     int MassiveNuLinRespOn; /* Flags that massive neutrinos using the linear
                                response code of Ali-Haimoud & Bird 2013.*/
     int HybridNeutrinosOn; /* Flags that hybrid neutrinos are enabled */
