@@ -94,7 +94,7 @@ static void test_specialJ(void **state)
  */
 static void test_fslength(void **state)
 {
-    Cosmology CP;
+    Cosmology CP = {0};
     double MNu[3] = {0.15, 0.15, 0.15};
     setup_cosmology(&CP, MNu);
     /*Note that MNu is the mass of a single neutrino species:
