@@ -395,18 +395,15 @@ ev_toptree(TreeWalk * tw)
         int BufferFull_thread = 0;
         const int tid = omp_get_thread_num();
 
-        /* use old index to recover from a buffer overflow*/;
         TreeWalkQueryBase * input = (TreeWalkQueryBase *) alloca(tw->query_type_elsize);
         TreeWalkResultBase * output = (TreeWalkResultBase *) alloca(tw->result_type_elsize);
 
-        /* We must schedule monotonically so that if the export buffer fills up
-        * it is guaranteed that earlier particles are already done.
-        * However, we schedule dynamically so that we have reduced imbalance.
-        * We do not use the openmp dynamic scheduling, but roll our own
-        * so that we can break from the loop if needed.*/
+        /* We schedule dynamically so that we have reduced imbalance.
+         * We do not use the openmp dynamic scheduling, but roll our own
+         * so that we can break from the loop if needed.*/
         int64_t chnk = 0;
         /* chunk size: 1 and 1000 were slightly (3 percent) slower than 8.
-        * FoF treewalk needs a larger chnksz to avoid contention.*/
+         * FoF treewalk needs a larger chnksz to avoid contention.*/
         int64_t chnksz = tw->WorkSetSize / (4*tw->NThread);
         if(chnksz < 1)
             chnksz = 1;
@@ -419,7 +416,7 @@ ev_toptree(TreeWalk * tw)
                 chnk = tw->QueueChunkRestart[tid];
                 end = tw->QueueChunkEnd[tid];
                 tw->QueueChunkEnd[tid] = -1;
-                tw->QueueChunkRestart[tid] = -1;
+                //message(1, "T%d Restarting chunk %ld -> %ld\n", tid, chnk, end);
             }
             else {
                 /* Get another chunk from the global queue*/
@@ -447,6 +444,7 @@ ev_toptree(TreeWalk * tw)
                 /* If we filled up, we need to remove the partially evaluated last particle from the export list,
                  * save the partially evaluated chunk, and leave this loop.*/
                 if(rt < 0) {
+                    //message(5, "Export buffer full for particle %d chnk: %ld -> %ld on thread %d with %ld exports\n", i, chnk, end, tid, lv->NThisParticleExport);
                     /* export buffer has filled up, can't do more work.*/
                     BufferFull_thread = 1;
                     /* Drop partial exports on the current particle, whose toptree will be re-evaluated*/
