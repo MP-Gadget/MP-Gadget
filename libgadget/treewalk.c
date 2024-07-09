@@ -407,8 +407,8 @@ ev_toptree(TreeWalk * tw)
         int64_t chnksz = tw->WorkSetSize / (4*tw->NThread);
         if(chnksz < 1)
             chnksz = 1;
-        if(chnksz > 100)
-            chnksz = 100;
+        if(chnksz > 1000)
+            chnksz = 1000;
         do {
             int64_t end;
             /* Restart a previously partially evaluated chunk if there is one*/
