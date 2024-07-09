@@ -452,8 +452,12 @@ ev_toptree(TreeWalk * tw)
                     /* Drop partial exports on the current particle, whose toptree will be re-evaluated*/
                     lv->Nexport -= lv->NThisParticleExport;
                     /* Check that the final export in the list is indeed from a different particle*/
-                    if(lv->NThisParticleExport > 0 && lv->DataIndexTable[lv->Nexport].Index >= i)
+                    if(lv->NThisParticleExport > 0 && lv->DataIndexTable[lv->Nexport-1].Index >= i)
                         endrun(5, "Something screwed up in export queue: nexp %ld (local %ld) last %d < index %d\n", lv->Nexport,
+                            lv->NThisParticleExport, i, lv->DataIndexTable[lv->Nexport-1].Index);
+                    /* Check that the earliest dropped export in the list is from the same particle*/
+                    if(lv->NThisParticleExport > 0 && lv->DataIndexTable[lv->Nexport].Index != i)
+                        endrun(5, "Something screwed up in export queue: nexp %ld (local %ld) last %d != index %d\n", lv->Nexport,
                             lv->NThisParticleExport, i, lv->DataIndexTable[lv->Nexport].Index);
                     /* Store information for the current chunk, so we can resume successfully exactly where we left off.
                         Each thread stores chunk information */
