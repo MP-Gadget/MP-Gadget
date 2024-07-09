@@ -814,10 +814,11 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
         tw->Nexport_sum = 0;
         tw->Ninteractions = 0;
         int Ndone = 0;
+        /* Needs to be outside loop because it allocates restart information*/
+        alloc_export_memory(tw);
         do
         {
             tstart = second();
-            alloc_export_memory(tw);
             /* First do the toptree and export particles for sending.*/
             ev_toptree(tw);
             /* All processes sync via alltoall.*/
@@ -863,10 +864,10 @@ treewalk_run(TreeWalk * tw, int * active_set, size_t size)
             free_commbuffer(&res_exports);
             free_impexpcount(&counts);
             /* Free export memory*/
-            free_export_memory(tw);
             tw->Nexportfull++;
             /* Note there is no sync at the end!*/
         } while(Ndone < tw->NTask);
+        free_export_memory(tw);
     }
 
     tstart = second();
