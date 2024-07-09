@@ -476,13 +476,13 @@ ev_toptree(TreeWalk * tw)
         int i;
         for(i = 0; i < tw->NThread; i++)
             Nexport += tw->Nexport_thread[i];
-        message(1, "Tree export buffer full on %d of %ld threads with %lu exports (%lu Mbytes). First particle %ld lastsucceeded: %ld size %ld.\n",
+        message(1, "Tree export buffer full on %d of %ld threads with %lu exports (%lu Mbytes). First particle %ld new start: %ld size %ld.\n",
                         BufferFullFlag, tw->NThread, Nexport, Nexport*tw->query_type_elsize/1024/1024, tw->WorkSetStart, currentIndex, tw->WorkSetSize);
         if(currentIndex == tw->WorkSetStart)
             endrun(5, "Not enough export space to make progress! lastsuc %ld Bunchsize: %ld \n", currentIndex, tw->BunchSize);
     }
     // else
-        // message(1, "Finished toptree on %d threads. First particle %ld lastsucceeded: %ld size %ld.\n", BufferFullFlag, tw->WorkSetStart, currentIndex, tw->WorkSetSize);
+        // message(1, "Finished toptree on %d threads. First particle %ld next start: %ld size %ld.\n", BufferFullFlag, tw->WorkSetStart, currentIndex, tw->WorkSetSize);
     /* Start again with the next chunk not yet evaluated*/
     tw->WorkSetStart = currentIndex;
     tw->BufferFullFlag = BufferFullFlag;
