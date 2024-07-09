@@ -108,10 +108,9 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     freebytes -= 4096 * 10 * bytesperbuffer;
 
     tw->BunchSize = (size_t) floor(((double)freebytes)/ bytesperbuffer);
-    /* With the old Alltoall-based export, we would encounter crashes if the send/recv buffer was close to 4GB in size.
-     * With the new Isend/Irecv based export no individual send buffer is never close to this large,
-     * so we can increase the maximum allowed size.*/
-    const size_t maxbuf = 8*1024*1024*1024L;
+    /* 7/9/24: The code segfaults if the send/recv buffer is larger than 4GB in size.
+     * Likely a 32-bit variable is overflowing but it is hard to debug. Easier to enforce a maximum buffer size.*/
+    const size_t maxbuf = 3584*1024*1024L;
     if(tw->BunchSize * tw->query_type_elsize > maxbuf)
         tw->BunchSize = maxbuf / tw->query_type_elsize;
     /* Per thread*/
