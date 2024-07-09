@@ -357,11 +357,17 @@ alloc_export_memory(TreeWalk * tw)
     int i;
     for(i = 0; i < tw->NThread; i++)
         tw->ExportTable_thread[i] = mymalloc("DataIndexTable", sizeof(data_index) * tw->BunchSize);
+    tw->QueueChunkEnd = ta_malloc2("queueend", int64_t, tw->NThread);
+    for(i = 0; i < tw->NThread; i++)
+        tw->QueueChunkEnd[i] = -1;
+    tw->QueueChunkRestart = ta_malloc2("queuerestart", int, tw->NThread);
 }
 
 void
 free_export_memory(TreeWalk * tw)
 {
+    myfree(tw->QueueChunkRestart);
+    myfree(tw->QueueChunkEnd);
     int i;
     for(i = tw->NThread - 1; i >= 0; i--)
         myfree(tw->ExportTable_thread[i]);
@@ -374,24 +380,24 @@ ev_toptree(TreeWalk * tw)
 {
     tw->BufferFullFlag = 0;
     int64_t currentIndex = tw->WorkSetStart;
-    /* This needs to be large initially so the reductions work*/
-    int64_t lastSucceeded = tw->WorkSetSize;
     int BufferFullFlag = 0;
 
     if(tw->Nexportfull > 0)
         message(0, "Toptree %s, iter %ld. First particle %ld size %ld.\n", tw->ev_label, tw->Nexportfull, tw->WorkSetStart, tw->WorkSetSize);
 
-#pragma omp parallel reduction(min: lastSucceeded) reduction(+: BufferFullFlag)
+#pragma omp parallel reduction(+: BufferFullFlag)
     {
         LocalTreeWalk lv[1];
         /* Note: exportflag is local to each thread */
         ev_init_thread(tw, lv);
         lv->mode = TREEWALK_TOPTREE;
+        /* Signals a full export buffer on this thread*/
+        int BufferFull_thread = 0;
+        const int tid = omp_get_thread_num();
 
         /* use old index to recover from a buffer overflow*/;
         TreeWalkQueryBase * input = (TreeWalkQueryBase *) alloca(tw->query_type_elsize);
         TreeWalkResultBase * output = (TreeWalkResultBase *) alloca(tw->result_type_elsize);
-        lastSucceeded = tw->WorkSetStart - 1;
 
         /* We must schedule monotonically so that if the export buffer fills up
         * it is guaranteed that earlier particles are already done.
@@ -407,13 +413,23 @@ ev_toptree(TreeWalk * tw)
         if(chnksz > 100)
             chnksz = 100;
         do {
-            /* Get another chunk from the global queue*/
-            chnk = atomic_fetch_and_add_64(&currentIndex, chnksz);
-            /* This is a hand-rolled version of what openmp dynamic scheduling is doing.*/
-            int64_t end = chnk + chnksz;
-            /* Make sure we do not overflow the loop*/
-            if(end > tw->WorkSetSize)
-                end = tw->WorkSetSize;
+            int64_t end;
+            /* Restart a previously partially evaluated chunk if there is one*/
+            if(tw->Nexportfull > 0 && tw->QueueChunkEnd[tid] > 0) {
+                chnk = tw->QueueChunkRestart[tid];
+                end = tw->QueueChunkEnd[tid];
+                tw->QueueChunkEnd[tid] = -1;
+                tw->QueueChunkRestart[tid] = -1;
+            }
+            else {
+                /* Get another chunk from the global queue*/
+                chnk = atomic_fetch_and_add_64(&currentIndex, chnksz);
+                /* This is a hand-rolled version of what openmp dynamic scheduling is doing.*/
+                end = chnk + chnksz;
+                /* Make sure we do not overflow the loop*/
+                if(end > tw->WorkSetSize)
+                    end = tw->WorkSetSize;
+            }
             /* Reduce the chunk size towards the end of the walk*/
             if((tw->WorkSetSize  < end + chnksz * tw->NThread) && chnksz >= 2)
                 chnksz /= 2;
@@ -428,36 +444,27 @@ ev_toptree(TreeWalk * tw)
                 const int rt = tw->visit(input, output, lv);
                 if(lv->NThisParticleExport > 1000)
                     message(5, "%ld exports for particle %d! Odd.\n", lv->NThisParticleExport, i);
+                /* If we filled up, we need to remove the partially evaluated last particle from the export list,
+                 * save the partially evaluated chunk, and leave this loop.*/
                 if(rt < 0) {
                     /* export buffer has filled up, can't do more work.*/
+                    BufferFull_thread = 1;
+                    /* Drop partial exports on the current particle, whose toptree will be re-evaluated*/
+                    lv->Nexport -= lv->NThisParticleExport;
+                    /* Check that the final export in the list is indeed from a different particle*/
+                    if(lv->NThisParticleExport > 0 && lv->DataIndexTable[lv->Nexport].Index >= i)
+                        endrun(5, "Something screwed up in export queue: nexp %ld (local %ld) last %d < index %d\n", lv->Nexport,
+                            lv->NThisParticleExport, i, lv->DataIndexTable[lv->Nexport].Index);
+                    /* Store information for the current chunk, so we can resume successfully exactly where we left off.
+                        Each thread stores chunk information */
+                    tw->QueueChunkRestart[tid] = k;
+                    tw->QueueChunkEnd[tid] = end;
                     break;
                 }
-                /* We need lastSucceeded as well as currentIndex so that
-                * if the export buffer fills up in the middle of a
-                * chunk we still get the right answer. Notice it is thread-local*/
-                lastSucceeded = k;
             }
-            /* If we filled up, we need to remove the partially evaluated last particle from the export list and leave this loop.*/
-            if(lv->Nexport >= tw->BunchSize) {
-                BufferFullFlag += 1;
-                /* If the above loop finished, we don't need to remove the fully exported particle*/
-                if(lastSucceeded < end) {
-                    /* Touch up the DataIndexTable, so that partial particle exports are discarded.
-                    * Since this queue is per-thread, it is ordered.*/
-                    lv->Nexport -= lv->NThisParticleExport;
-                    const int lastreal = tw->WorkSet ? tw->WorkSet[k] : k;
-                    /* Index stores tw->target, which is the current particle.*/
-                    if(lv->NThisParticleExport > 0 && lv->DataIndexTable[lv->Nexport].Index > lastreal)
-                        endrun(5, "Something screwed up in export queue: nexp %ld (local %ld) last %d < index %d\n", lv->Nexport,
-                            lv->NThisParticleExport, lastreal, lv->DataIndexTable[lv->Nexport].Index);
-                    /* Leave this chunking loop.*/
-                }
-                break;
-            }
-        } while(chnk < tw->WorkSetSize);
-
-        int tid = omp_get_thread_num();
+        } while(chnk < tw->WorkSetSize && BufferFull_thread == 0);
         tw->Nexport_thread[tid] = lv->Nexport;
+        BufferFullFlag += BufferFull_thread;
     }
 
     if(BufferFullFlag > 0) {
@@ -466,18 +473,14 @@ ev_toptree(TreeWalk * tw)
         for(i = 0; i < tw->NThread; i++)
             Nexport += tw->Nexport_thread[i];
         message(1, "Tree export buffer full on %d of %ld threads with %lu exports (%lu Mbytes). First particle %ld lastsucceeded: %ld size %ld.\n",
-                        BufferFullFlag, tw->NThread, Nexport, Nexport*tw->query_type_elsize/1024/1024, tw->WorkSetStart, lastSucceeded, tw->WorkSetSize);
-        if(lastSucceeded < 0)
-            endrun(5, "Not enough export space to make progress! lastsuc %ld Bunchsize: %ld \n", lastSucceeded, tw->BunchSize);
+                        BufferFullFlag, tw->NThread, Nexport, Nexport*tw->query_type_elsize/1024/1024, tw->WorkSetStart, currentIndex, tw->WorkSetSize);
+        if(currentIndex == tw->WorkSetStart)
+            endrun(5, "Not enough export space to make progress! lastsuc %ld Bunchsize: %ld \n", currentIndex, tw->BunchSize);
     }
     // else
-        // message(1, "Finished toptree on %d threads. First particle %ld lastsucceeded: %ld size %ld.\n", BufferFullFlag, tw->WorkSetStart, lastSucceeded, tw->WorkSetSize);
-
-    /* Set the place to start the next iteration. Note that because lastSucceeded
-     * is the minimum entry across all threads, some particles may have their trees partially walked twice locally.
-     * This is fine because we walk the tree to fill up the Ngbiter list.
-     * Only a full Ngbiter list is executed; partial lists are discarded.*/
-    tw->WorkSetStart = lastSucceeded + 1;
+        // message(1, "Finished toptree on %d threads. First particle %ld lastsucceeded: %ld size %ld.\n", BufferFullFlag, tw->WorkSetStart, currentIndex, tw->WorkSetSize);
+    /* Start again with the next chunk not yet evaluated*/
+    tw->WorkSetStart = currentIndex;
     tw->BufferFullFlag = BufferFullFlag;
     return tw->BufferFullFlag;
 }

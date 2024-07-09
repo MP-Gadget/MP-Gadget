@@ -152,6 +152,9 @@ struct TreeWalk {
     /* internal flags*/
     /* Export counters for each thread*/
     size_t * Nexport_thread;
+    /* Information allowing the toptree walk to restart successfully after the export buffer fills up*/
+    int * QueueChunkRestart;
+    int64_t * QueueChunkEnd;
     /* Pointer to a particle export table for each thread.*/
     data_index ** ExportTable_thread;
     /* Flags that our export buffer is full*/
