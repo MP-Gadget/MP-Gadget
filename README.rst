@@ -182,7 +182,7 @@ http://web.mit.edu/6.005/www/fa15/classes/04-code-review/
 Citation
 --------
 
-MP-Gadget was described most recently in https://arxiv.org/abs/2111.0116 and https://arxiv.org/abs/2110.14154 with various submodules having their own papers.
+MP-Gadget was described most recently in https://arxiv.org/abs/2111.01160 and https://arxiv.org/abs/2110.14154 with various submodules having their own papers.
 
 For usage of the code, here is a DOI for this repository that you can cite
 
