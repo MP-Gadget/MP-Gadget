@@ -68,6 +68,8 @@ typedef struct {
     size_t Nexport;
     /* Number of entries in the export table for this particle*/
     size_t NThisParticleExport;
+    /* Index to use in the current node list*/
+    size_t nodelistindex;
     /* Pointer to memory for exports*/
     data_index * DataIndexTable;
 
