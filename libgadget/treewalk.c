@@ -14,10 +14,13 @@
 #include <signal.h>
 #define BREAKPOINT raise(SIGTRAP)
 
-#define FACT1 0.366025403785	/* FACT1 = 0.5 * (sqrt(3)-1) */
+#define FACT1 0.366025403785    /* FACT1 = 0.5 * (sqrt(3)-1) */
 
 /*!< Memory factor to leave for (N imported particles) > (N exported particles). */
 static int ImportBufferBoost;
+/* 7/9/24: The code segfaults if the send/recv buffer is larger than 4GB in size.
+ * Likely a 32-bit variable is overflowing but it is hard to debug. Easier to enforce a maximum buffer size.*/
+static size_t MaxExportBufferBytes = 3584*1024*1024L;
 
 /*Initialise global treewalk parameters*/
 void set_treewalk_params(ParameterSet * ps)
@@ -27,6 +30,12 @@ void set_treewalk_params(ParameterSet * ps)
     if(ThisTask == 0)
         ImportBufferBoost = param_get_int(ps, "ImportBufferBoost");
     MPI_Bcast(&ImportBufferBoost, 1, MPI_INT, 0, MPI_COMM_WORLD);
+}
+
+/* This function is to allow a test which fills up the exchange buffer*/
+void treewalk_set_max_export_buffer(const size_t maxbuf)
+{
+    MaxExportBufferBytes = maxbuf;
 }
 
 static void ev_primary(TreeWalk * tw);
@@ -108,11 +117,8 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     freebytes -= 4096 * 10 * bytesperbuffer;
 
     tw->BunchSize = (size_t) floor(((double)freebytes)/ bytesperbuffer);
-    /* 7/9/24: The code segfaults if the send/recv buffer is larger than 4GB in size.
-     * Likely a 32-bit variable is overflowing but it is hard to debug. Easier to enforce a maximum buffer size.*/
-    const size_t maxbuf = 3584*1024*1024L;
-    if(tw->BunchSize * tw->query_type_elsize > maxbuf)
-        tw->BunchSize = maxbuf / tw->query_type_elsize;
+    if(tw->BunchSize * tw->query_type_elsize > MaxExportBufferBytes)
+        tw->BunchSize = MaxExportBufferBytes / tw->query_type_elsize;
     /* Per thread*/
     tw->BunchSize /= omp_get_max_threads();
 

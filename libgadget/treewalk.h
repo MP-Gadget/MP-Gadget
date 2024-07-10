@@ -231,4 +231,7 @@ void treewalk_print_stats(const TreeWalk * tw);
 /* Increment some counters in the ngbiter function*/
 void treewalk_add_counters(LocalTreeWalk * lv, const int64_t ninteractions);
 
+/* Change the size of the export buffer, for tests*/
+void treewalk_set_max_export_buffer(size_t maxbuf);
+
 #endif
