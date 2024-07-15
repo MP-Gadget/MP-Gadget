@@ -12,7 +12,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      OMP_NUM_THREADS: 1
+      OMP_NUM_THREADS: 2
     defaults:
       run:
         shell: bash -l {0}

@@ -5,10 +5,10 @@
 #include "utils/paramset.h"
 #include "forcetree.h"
 
-/* Use a low number here. The need for a large Nodelist in older versions
- * was because we were sorting the DIT, so had incentive to keep it small.
- * The code is simplest with NODELISTLENGTH=1 but then the structs are not 64-bit aligned.*/
-#define  NODELISTLENGTH 2
+/* Use a low number here. Larger numbers decrease the size of the export table, up to a point.
+ * The need for a large Nodelist in older versions
+ * was because we were sorting the DIT, so had incentive to keep it small.*/
+#define  NODELISTLENGTH 4
 
 enum NgbTreeFindSymmetric {
     NGB_TREEFIND_SYMMETRIC,
@@ -66,9 +66,10 @@ typedef struct {
 
     /* Thread local export variables*/
     size_t Nexport;
-    size_t BunchSize;
     /* Number of entries in the export table for this particle*/
     size_t NThisParticleExport;
+    /* Index to use in the current node list*/
+    size_t nodelistindex;
     /* Pointer to memory for exports*/
     data_index * DataIndexTable;
 
@@ -153,7 +154,11 @@ struct TreeWalk {
     /* internal flags*/
     /* Export counters for each thread*/
     size_t * Nexport_thread;
-    size_t * Nexport_threadoffset;
+    /* Information allowing the toptree walk to restart successfully after the export buffer fills up*/
+    int * QueueChunkRestart;
+    int64_t * QueueChunkEnd;
+    /* Pointer to a particle export table for each thread.*/
+    data_index ** ExportTable_thread;
     /* Flags that our export buffer is full*/
     int BufferFullFlag;
     /* Number of particles we can fit into the export buffer*/
@@ -227,5 +232,8 @@ void treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, in
 void treewalk_print_stats(const TreeWalk * tw);
 /* Increment some counters in the ngbiter function*/
 void treewalk_add_counters(LocalTreeWalk * lv, const int64_t ninteractions);
+
+/* Change the size of the export buffer, for tests*/
+void treewalk_set_max_export_buffer(size_t maxbuf);
 
 #endif

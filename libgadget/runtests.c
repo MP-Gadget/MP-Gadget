@@ -7,6 +7,7 @@
 #include "petaio.h"
 #include "domain.h"
 #include "run.h"
+#include "treewalk.h"
 
 char * GDB_format_particle(int i);
 
@@ -150,6 +151,18 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
 
     /* This checks tree force against tree force with zero error (which always opens).*/
     copy_and_mean_accn(PairAccn);
+
+    /* Check that we get the same answer if we fill up the exchange buffer*/
+    const size_t maxbuf = 2*1024*1024L;
+    treewalk_set_max_export_buffer(maxbuf);
+    grav_short_tree(&Act, pm, &Tree, NULL, rho0, times.Ti_Current);
+    /* This checks fully opened tree force against pair force*/
+    check_accns(&meanerr,&maxerr, &meanangle, &maxangle, PairAccn);
+    message(0, "Force error, filling buffer vs not, open tree. max : %g mean: %g angle %g max angle %g forcetol: %g\n", maxerr, meanerr, meanangle, maxangle, treeacc.ErrTolForceAcc);
+    if(maxerr > 1e-7)
+        endrun(2, "Found force error when filling buffer!  %g  (mean %g). Buffer %ld\n", maxerr, meanerr, maxbuf);
+
+    treewalk_set_max_export_buffer(3584*1024*1024L);
 
     treeacc = origtreeacc;
     set_gravshort_treepar(treeacc);
