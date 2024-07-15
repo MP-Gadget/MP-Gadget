@@ -305,10 +305,6 @@ static int ev_ndone(TreeWalk * tw, MPI_Comm comm)
     return ndone;
 }
 
-#if NODELISTLENGTH != 2
-#error "treewalk_export_particle assumes NODELISTLENGTH is 2"
-#endif
-
 /* export a particle at target and no, thread safely
  *
  * This can also be called from a nonthreaded code
@@ -336,8 +332,13 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no)
         if(lv->DataIndexTable[nexp - 1].Index != target)
             endrun(1, "Previous of %ld exports is target %d not current %d\n", lv->NThisParticleExport, lv->DataIndexTable[nexp-1].Index, target);
 #endif
-        if(lv->DataIndexTable[nexp-1].NodeList[1] == -1) {
-            lv->DataIndexTable[nexp-1].NodeList[1] = tw->tree->TopLeaves[no - tw->tree->lastnode].treenode;
+        if(lv->nodelistindex < NODELISTLENGTH) {
+#ifdef DEBUG
+            if(lv->DataIndexTable[nexp-1].NodeList[lv->nodelistindex] != -1)
+                endrun(1, "Current nodelist %d entry (%d) not empty!\n", lv->nodelistindex, lv->DataIndexTable[nexp-1].NodeList[lv->nodelistindex]);
+#endif
+            lv->DataIndexTable[nexp-1].NodeList[lv->nodelistindex] = tw->tree->TopLeaves[no - tw->tree->lastnode].treenode;
+            lv->nodelistindex++;
             return 0;
         }
     }
@@ -348,8 +349,11 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no)
     lv->DataIndexTable[nexp].Task = task;
     lv->DataIndexTable[nexp].Index = target;
     lv->DataIndexTable[nexp].NodeList[0] = tw->tree->TopLeaves[no - tw->tree->lastnode].treenode;
-    lv->DataIndexTable[nexp].NodeList[1] = -1;
+    int i;
+    for(i = 1; i < NODELISTLENGTH; i++)
+        lv->DataIndexTable[nexp].NodeList[i] = -1;
     lv->Nexport++;
+    lv->nodelistindex = 1;
     lv->NThisParticleExport++;
     return 0;
 }
