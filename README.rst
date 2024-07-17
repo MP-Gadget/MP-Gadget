@@ -10,7 +10,7 @@ An out of date source code browser may be found here:
 Description
 -----------
 
-This version of Gadget is derived from main P-Gadget / Gadget-2, with the gravity solver algorithm from Gadget-4. 
+This version of Gadget is derived from main P-Gadget / Gadget-2, with the gravity solver algorithm from Gadget-4.
 It is the source code used to run the BlueTides and ASTRID simulations (http://bluetides-project.org).
 MP-Gadget requires GSL and a C compiler with OpenMP 4.5 support.
 
@@ -49,9 +49,9 @@ First time users:
     cd MP-Gadget
     make -j
 
-The Makefile will automatically copy Options.mk.example to Options.mk. The default compile flags are appropriate for a linux using gcc, but may not be optimal. 
-We will need gsl. On HPC systems with the modules command, 
-usually it can be loaded with 
+The Makefile will automatically copy Options.mk.example to Options.mk. The default compile flags are appropriate for a linux using gcc, but may not be optimal.
+We will need gsl. On HPC systems with the modules command,
+usually it can be loaded with
 
 .. code:: bash
 
@@ -80,6 +80,7 @@ Compile-time options may be set in Options.mk. The remaining compile time option
 - NO_ISEND_IRECV_IN_DOMAIN disables the use of asynchronous send and receive in our custom MPI_Alltoallv implementation, for buggy MPI libraries.
 - NO_OPENMP_SPINLOCK uses the OpenMP default locking routines. These are often much slower than the default pthread spinlocks. However, they are necessary for Mac, which does not provide pthreads.
 - EXCUR_REION enables the excursion set reionization model.
+- USE_CFITSIO enables the output of lenstools compatible potential planes using cfitsio,
 
 If compilation fails with errors related to the GSL, you may also need to set the GSL_INC or GSL_LIB variables in Options.mk to the filesystem path containing the GSL headers and libraries.
 
@@ -118,7 +119,7 @@ Find examples in examples/.
 - hydro : hydro
 - small : hydro with low resolution
 
-Control number of threads with `OMP_NUM_THREADS`. A good value is 10-20 threads.
+Control number of threads with `OMP_NUM_THREADS`. Generally the code is faster with more threads per rank, up to hardware limits. On Frontera we run optimally with 28 threads, the number of cpus per hardware socket.
 
 User Guide
 ----------
@@ -143,7 +144,7 @@ information and attributes in header and attrs files (in plain text)
 GLIBC 2.22
 ----------
 
-Cray updated their GLIBC to 2.22+ recently. 
+Cray updated their GLIBC to 2.22+ recently.
 A good move but it happens to be a buggy version of GLIBC:
 https://sourceware.org/bugzilla/show_bug.cgi?id=19590
 causing non-existing symbols like `_ZGVcN4v___log_finite`.
@@ -169,7 +170,7 @@ MP-Gadget is maintained by Simeon Bird, Yu Feng and Yueying Ni.
 
 Contributors to MP-Gadget include:
 
-Nicholas Battaglia, Nianyi Chen, James Davies, Nishikanta Khandai, Karime Maamari, Chris Pederson, Phoebe Upton Sanderbeck, and Lauren Anderson.
+Yihao Zhou, Yanhui Yang. Nicholas Battaglia, Nianyi Chen, James Davies, Nishikanta Khandai, Karime Maamari, Chris Pederson, Phoebe Upton Sanderbeck, and Lauren Anderson.
 
 Code review
 -----------
