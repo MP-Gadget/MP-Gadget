@@ -39,8 +39,6 @@ typedef struct {
     size_t nexchange;
     /*Number of garbage particles*/
     int64_t ngarbage;
-    size_t total_togetbytes;
-    size_t total_togobytes;
     ExchangePartCache * layouts;
 } ExchangePlan;
 
@@ -55,6 +53,9 @@ struct ExchangeIterInfo
     int RecvstartTask;
     /* Note that this task should not be received so the condition is > */
     int RecvendTask;
+    /* Total transfer this time*/
+    size_t togetbytes;
+    size_t togobytes;
 };
 
 /*
@@ -293,6 +294,8 @@ domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter,
     size_t maxsize = 0;
     /* Total size needed for all send/recv pairs*/
     size_t totalsize = 0;
+    thisiter->togetbytes = 0;
+    thisiter->togobytes = 0;
     int task;
     for(task = 0; task < plan->NTask; task++) {
         const int sendtask = (thisiter->SendstartTask + task) % plan->NTask;
@@ -303,8 +306,9 @@ domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter,
         thisiter->RecvendTask = recvtask;
         if(totalsize > nlimit || sendtask == plan->ThisTask || recvtask == plan->ThisTask)
             break;
-        plan->total_togetbytes += plan->toGet[recvtask].totalbytes;
-        plan->total_togobytes += plan->toGo[sendtask].totalbytes;
+        thisiter->togetbytes += plan->toGet[recvtask].totalbytes;
+        message(1, "toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, thisiter->togetbytes, recvtask);
+        thisiter->togobytes += plan->toGo[sendtask].totalbytes;
         if(singleiter > maxsize)
             maxsize = singleiter;
     }
@@ -330,7 +334,7 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
         /* First post receives*/
         struct CommBuffer recvs;
         alloc_commbuffer(&recvs, plan->NTask, 0);
-        recvs.databuf = mymalloc("recvbuffer",plan->total_togetbytes * sizeof(char));
+        recvs.databuf = mymalloc("recvbuffer",thisiter.togetbytes * sizeof(char));
 
         size_t displs = 0;
         int task;
@@ -343,16 +347,17 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
             recvs.rqst_task[task] = recvtask;
             recvs.displs[task] = displs;
             displs += plan->toGet[recvtask].totalbytes;
+            message(1, "exch toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, thisiter.togetbytes, recvtask);
             recvs.nrequest_all ++;
         }
-        if(displs != plan->total_togetbytes)
-            endrun(3, "Posted receives for %lu bytes expected %lu bytes.\n", displs, plan->total_togetbytes);
+        if(displs != thisiter.togetbytes)
+            endrun(3, "Posted receives for %lu bytes expected %lu bytes.\n", displs, thisiter.togetbytes);
 
         /* Now post sends: note that the sends are done in reverse order to the receives.
         * This ensures that partial sends and receives can complete early.*/
         struct CommBuffer sends;
         alloc_commbuffer(&sends, plan->NTask, 0);
-        sends.databuf = mymalloc("sendbuffer",plan->total_togobytes * sizeof(char));
+        sends.databuf = mymalloc("sendbuffer",thisiter.togobytes * sizeof(char));
 
         displs = 0;
         for(task=0; task < plan->NTask; task++) {
@@ -367,8 +372,8 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
             displs += plan->toGo[sendtask].totalbytes;
             sends.nrequest_all ++;
         }
-        if(displs != plan->total_togobytes)
-            endrun(3, "Packed %lu bytes for sending but expected %lu bytes.\n", displs, plan->total_togobytes);
+        if(displs != thisiter.togobytes)
+            endrun(3, "Packed %lu bytes for sending but expected %lu bytes.\n", displs, thisiter.togobytes);
 
         /* Now wait for and unpack the receives as they arrive.*/
         int * completed = ta_malloc("completes", int, recvs.nrequest_all);
