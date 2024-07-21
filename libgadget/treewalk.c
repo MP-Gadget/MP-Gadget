@@ -335,7 +335,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no)
         if(lv->nodelistindex < NODELISTLENGTH) {
 #ifdef DEBUG
             if(lv->DataIndexTable[nexp-1].NodeList[lv->nodelistindex] != -1)
-                endrun(1, "Current nodelist %d entry (%d) not empty!\n", lv->nodelistindex, lv->DataIndexTable[nexp-1].NodeList[lv->nodelistindex]);
+                endrun(1, "Current nodelist %ld entry (%d) not empty!\n", lv->nodelistindex, lv->DataIndexTable[nexp-1].NodeList[lv->nodelistindex]);
 #endif
             lv->DataIndexTable[nexp-1].NodeList[lv->nodelistindex] = tw->tree->TopLeaves[no - tw->tree->lastnode].treenode;
             lv->nodelistindex++;
