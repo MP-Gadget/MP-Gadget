@@ -298,15 +298,15 @@ domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter,
         const int sendtask = (thisiter->SendstartTask + task) % plan->NTask;
         const int recvtask = (thisiter->RecvstartTask - task + plan->NTask) % plan->NTask;
         size_t singleiter = plan->toGo[sendtask].totalbytes + plan->toGet[recvtask].totalbytes;
-        plan->total_togetbytes += plan->toGet[recvtask].totalbytes;
-        plan->total_togobytes += plan->toGo[sendtask].totalbytes;
-        if(singleiter > maxsize)
-            maxsize = singleiter;
         totalsize += singleiter;
         thisiter->SendendTask = sendtask;
         thisiter->RecvendTask = recvtask;
         if(totalsize > nlimit || sendtask == plan->ThisTask || recvtask == plan->ThisTask)
             break;
+        plan->total_togetbytes += plan->toGet[recvtask].totalbytes;
+        plan->total_togobytes += plan->toGo[sendtask].totalbytes;
+        if(singleiter > maxsize)
+            maxsize = singleiter;
     }
 
     if(maxsize > nlimit) {
