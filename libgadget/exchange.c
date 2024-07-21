@@ -198,7 +198,7 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
 {
     char * slotexch = exch + plan->toGet[task].base * sizeof(struct particle_data);
     char * partexch = exch;
-    int64_t copybase = {0};
+    int64_t copybase = 0;
     int64_t copyslots[6] = {0};
     int64_t i;
     for(i = 0; i < plan->toGet[task].base; i++)
@@ -307,7 +307,7 @@ domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter,
         if(totalsize > nlimit || sendtask == plan->ThisTask || recvtask == plan->ThisTask)
             break;
         thisiter->togetbytes += plan->toGet[recvtask].totalbytes;
-        message(1, "toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, thisiter->togetbytes, recvtask);
+        // message(1, "toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, thisiter->togetbytes, recvtask);
         thisiter->togobytes += plan->toGo[sendtask].totalbytes;
         if(singleiter > maxsize)
             maxsize = singleiter;
@@ -330,7 +330,7 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
         thisiter.SendstartTask = thisiter.SendendTask;
         thisiter.RecvstartTask = thisiter.RecvendTask;
         domain_check_iter_space(plan, &thisiter, maxexch);
-        message(1, "Send from %d to %d Recv from %d to %d\n", thisiter.SendstartTask, thisiter.SendendTask, thisiter.RecvstartTask, thisiter.RecvendTask);
+        // message(1, "Send from %d to %d Recv from %d to %d\n", thisiter.SendstartTask, thisiter.SendendTask, thisiter.RecvstartTask, thisiter.RecvendTask);
         /* First post receives*/
         struct CommBuffer recvs;
         alloc_commbuffer(&recvs, plan->NTask, 0);
@@ -347,7 +347,7 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
             recvs.rqst_task[task] = recvtask;
             recvs.displs[task] = displs;
             displs += plan->toGet[recvtask].totalbytes;
-            message(1, "exch toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, thisiter.togetbytes, recvtask);
+            // message(1, "exch toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, thisiter.togetbytes, recvtask);
             recvs.nrequest_all ++;
         }
         if(displs != thisiter.togetbytes)
@@ -405,9 +405,9 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
         free_commbuffer(&sends);
         free_commbuffer(&recvs);
 
-        myfree(plan->layouts);
-
     } while(thisiter.SendendTask != plan->ThisTask || thisiter.RecvendTask != plan->ThisTask );
+
+    myfree(plan->layouts);
 
     walltime_measure("/Domain/exchange/alltoall");
 
