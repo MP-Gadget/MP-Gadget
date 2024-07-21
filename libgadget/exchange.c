@@ -62,7 +62,7 @@ struct ExchangeIterInfo
  * exchange particles according to layoutfunc.
  * layoutfunc gives the target task of particle p.
 */
-static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, MPI_Comm Comm);
+static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, const size_t maxexch, MPI_Comm Comm);
 static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, struct slot_info * sinfo, MPI_Comm Comm);
 static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 
@@ -87,6 +87,16 @@ domain_free_exchangeplan(ExchangePlan * plan)
     myfree(plan->ExchangeList);
     myfree(plan->toGet);
     myfree(plan->toGo);
+}
+
+/* We want to avoid doing an alltoall with
+    * more than 2GB of material as this hangs.*/
+static size_t MaxExch = 2040L*1024L*1024L;
+/* For tests*/
+void
+domain_set_max_exchange(const size_t maxexch)
+{
+    MaxExch = maxexch;
 }
 
 /*Plan and execute a domain exchange, also performing a garbage collection if requested*/
@@ -118,7 +128,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     if(MPIU_Any(plan.nexchange > 0, Comm))
     {
         domain_build_plan(layoutfunc, layout_userdata, &plan, pman, sman->info, Comm);
-        failure = domain_exchange_once(&plan, pman, sman, 123000, Comm);
+        failure = domain_exchange_once(&plan, pman, sman, 123000, MaxExch, Comm);
     }
 #ifdef DEBUG
     if(!failure) {
@@ -262,7 +272,7 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
 
 /*Find how many tasks we can transfer in current exchange iteration. TODO: Split requests that need too much.*/
 static void
-domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter)
+domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter, const size_t maxexch)
 {
     size_t nlimit = mymalloc_freebytes();
 
@@ -274,10 +284,6 @@ domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter)
     /* Save some memory for memory headers and wasted space at the end of each allocation.
      * Need max. 2*4096 for each heap-allocated array.*/
     nlimit -= 4096 * 4L;
-
-    /* We want to avoid doing an alltoall with
-     * more than 2GB of material as this hangs.*/
-    const size_t maxexch = 2040L*1024L*1024L;
     if(nlimit > maxexch)
         nlimit = maxexch;
 
@@ -310,7 +316,7 @@ domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter)
     return;
 }
 
-static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, MPI_Comm Comm)
+static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, const size_t maxexch, MPI_Comm Comm)
 {
     /* determine for each rank how many particles have to be shifted to other ranks */
     struct ExchangeIterInfo thisiter = {0};
@@ -319,7 +325,7 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
     do {
         thisiter.SendstartTask = thisiter.SendendTask;
         thisiter.RecvstartTask = thisiter.RecvendTask;
-        domain_check_iter_space(plan, &thisiter);
+        domain_check_iter_space(plan, &thisiter, maxexch);
         message(1, "Send from %d to %d Recv from %d to %d\n", thisiter.SendstartTask, thisiter.SendendTask, thisiter.RecvstartTask, thisiter.RecvendTask);
         /* First post receives*/
         struct CommBuffer recvs;
