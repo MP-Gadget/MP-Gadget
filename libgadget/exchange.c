@@ -43,6 +43,20 @@ typedef struct {
     size_t total_togobytes;
     ExchangePartCache * layouts;
 } ExchangePlan;
+
+/* Structure to store the tasks that need to be exchanged this iteration*/
+struct ExchangeIterInfo
+{
+    /* Start and end of the send tasks for this iteration. Sends start from the current task and move forwards.*/
+    int SendstartTask;
+    /* Note that this task should not be sent so the condition is <*/
+    int SendendTask;
+    /* Start and end of the recv tasks for this iteration. Recv start from before the current task and move backwards.*/
+    int RecvstartTask;
+    /* Note that this task should not be received so the condition is > */
+    int RecvendTask;
+};
+
 /*
  *
  * exchange particles according to layoutfunc.
@@ -50,7 +64,6 @@ typedef struct {
 */
 static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, MPI_Comm Comm);
 static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, struct slot_info * sinfo, MPI_Comm Comm);
-static int domain_check_iter_space(ExchangePlan * plan);
 static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 
 static ExchangePlan
@@ -105,9 +118,6 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     if(MPIU_Any(plan.nexchange > 0, Comm))
     {
         domain_build_plan(layoutfunc, layout_userdata, &plan, pman, sman->info, Comm);
-        /* determine for each rank how many particles have to be shifted to other ranks */
-        domain_check_iter_space(&plan);
-        /* Inside domain_exchange_once, we do send/recv for each processor individually and loop until we are done.*/
         failure = domain_exchange_once(&plan, pman, sman, 123000, Comm);
     }
 #ifdef DEBUG
@@ -249,77 +259,144 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
     return 0;
 }
 
+
+/*Find how many tasks we can transfer in current exchange iteration. TODO: Split requests that need too much.*/
+static void
+domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter)
+{
+    size_t nlimit = mymalloc_freebytes();
+
+    if (nlimit <  4096L * 6 + plan->NTask * 2 * sizeof(MPI_Request))
+        endrun(1, "Not enough memory free to store requests!\n");
+
+    nlimit -= 4096 * 2L + plan->NTask * 2 * sizeof(MPI_Request);
+
+    /* Save some memory for memory headers and wasted space at the end of each allocation.
+     * Need max. 2*4096 for each heap-allocated array.*/
+    nlimit -= 4096 * 4L;
+
+    /* We want to avoid doing an alltoall with
+     * more than 2GB of material as this hangs.*/
+    const size_t maxexch = 2040L*1024L*1024L;
+    if(nlimit > maxexch)
+        nlimit = maxexch;
+
+    message(0, "Using %td bytes for exchange.\n", nlimit);
+
+    /* Maximum size we need for a single send/recv pair*/
+    size_t maxsize = 0;
+    /* Total size needed for all send/recv pairs*/
+    size_t totalsize = 0;
+    int task;
+    for(task = 0; task < plan->NTask; task++) {
+        const int sendtask = (thisiter->SendstartTask + task) % plan->NTask;
+        const int recvtask = (thisiter->RecvstartTask - task + plan->NTask) % plan->NTask;
+        size_t singleiter = plan->toGo[sendtask].totalbytes + plan->toGet[recvtask].totalbytes;
+        plan->total_togetbytes += plan->toGet[recvtask].totalbytes;
+        plan->total_togobytes += plan->toGo[sendtask].totalbytes;
+        if(singleiter > maxsize)
+            maxsize = singleiter;
+        totalsize += singleiter;
+        thisiter->SendendTask = sendtask;
+        thisiter->RecvendTask = recvtask;
+        if(totalsize > nlimit || sendtask == plan->ThisTask || recvtask == plan->ThisTask)
+            break;
+    }
+
+    if(maxsize > nlimit) {
+        endrun(5, "Maxsize %ld > %ld limit. Not enough space for a single pair exchange. FIXME: This should be handled.\n", maxsize, nlimit);
+    }
+
+    return;
+}
+
 static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, MPI_Comm Comm)
 {
-    /* First post receives*/
-    struct CommBuffer recvs;
-    alloc_commbuffer(&recvs, plan->NTask, 0);
-    recvs.databuf = mymalloc("recvbuffer",plan->total_togetbytes * sizeof(char));
-
-    size_t displs = 0;
-    int task;
-    for(task = 0; task < plan->NTask-1; task++) {
-        const int recvtask = (plan->ThisTask - task + plan->NTask - 1) % plan->NTask;
-        MPI_Irecv(recvs.databuf + displs, plan->toGet[recvtask].totalbytes, MPI_BYTE, recvtask, tag, Comm, &recvs.rdata_all[task]);
-        recvs.rqst_task[task] = recvtask;
-        recvs.displs[task] = displs;
-        displs += plan->toGet[recvtask].totalbytes;
-        recvs.nrequest_all ++;
-    }
-    if(displs != plan->total_togetbytes)
-        endrun(3, "Posted receives for %lu bytes expected %lu bytes.\n", displs, plan->total_togetbytes);
-
-    /* Now post sends: note that the sends are done in reverse order to the receives.
-     * This ensures that partial sends and receives can complete early.*/
-    struct CommBuffer sends;
-    alloc_commbuffer(&sends, plan->NTask, 0);
-    sends.databuf = mymalloc("sendbuffer",plan->total_togobytes * sizeof(char));
-
-    displs = 0;
-    for(task = 0; task < plan->NTask-1; task++) {
-        const int sendtask = (plan->ThisTask + task + 1) % plan->NTask;
-        /* Move the data into the buffer*/
-        exchange_pack_buffer(sends.databuf + displs, sendtask, plan, pman, sman);
-        MPI_Isend(sends.databuf + displs, plan->toGo[sendtask].totalbytes, MPI_BYTE, sendtask, tag, Comm, &sends.rdata_all[task]);
-        sends.rqst_task[task] = sendtask;
-        sends.displs[task] = displs;
-        displs += plan->toGo[sendtask].totalbytes;
-        sends.nrequest_all ++;
-    }
-    if(displs != plan->total_togobytes)
-        endrun(3, "Packed %lu bytes for sending but expected %lu bytes.\n", displs, plan->total_togobytes);
-
-    /* Now wait for and unpack the receives as they arrive.*/
-    int * completed = ta_malloc("completes", int, recvs.nrequest_all);
-    memset(completed, 0, recvs.nrequest_all * sizeof(int) );
-    int totcomplete = 0;
-    // message(3, "reqs: %d\n", recvs.nrequest_all);
-    /* Test each request in turn until it completes*/
+    /* determine for each rank how many particles have to be shifted to other ranks */
+    struct ExchangeIterInfo thisiter = {0};
+    thisiter.SendendTask = (plan->ThisTask + 1) % plan->NTask;
+    thisiter.RecvendTask = (plan->ThisTask - 1 + plan->NTask) % plan->NTask;
     do {
-        for(task = 0; task < recvs.nrequest_all; task++) {
-            /* If we already completed, no need to test again*/
-            if(completed[task])
-                continue;
-            /* Check for a completed request: note that cleanup is performed if the request is complete.*/
-            MPI_Test(&recvs.rdata_all[task], completed+task, MPI_STATUS_IGNORE);
-            // message(3, "complete : %d task %d\n", completed[task], recvs.rqst_task[task]);
+        thisiter.SendstartTask = thisiter.SendendTask;
+        thisiter.RecvstartTask = thisiter.RecvendTask;
+        domain_check_iter_space(plan, &thisiter);
+        message(1, "Send from %d to %d Recv from %d to %d\n", thisiter.SendstartTask, thisiter.SendendTask, thisiter.RecvstartTask, thisiter.RecvendTask);
+        /* First post receives*/
+        struct CommBuffer recvs;
+        alloc_commbuffer(&recvs, plan->NTask, 0);
+        recvs.databuf = mymalloc("recvbuffer",plan->total_togetbytes * sizeof(char));
 
-            /* Try the next one*/
-            if (!completed[task])
-                continue;
-            totcomplete++;
-            exchange_unpack_buffer(recvs.databuf+recvs.displs[task], recvs.rqst_task[task], plan, pman, sman);
+        size_t displs = 0;
+        int task;
+        for(task=0; task < plan->NTask; task++) {
+
+            const int recvtask = (thisiter.RecvstartTask - task + plan->NTask) % plan->NTask;
+            if(recvtask == thisiter.RecvendTask)
+                break;
+            MPI_Irecv(recvs.databuf + displs, plan->toGet[recvtask].totalbytes, MPI_BYTE, recvtask, tag, Comm, &recvs.rdata_all[task]);
+            recvs.rqst_task[task] = recvtask;
+            recvs.displs[task] = displs;
+            displs += plan->toGet[recvtask].totalbytes;
+            recvs.nrequest_all ++;
         }
-    } while(totcomplete < recvs.nrequest_all);
-    myfree(completed);
+        if(displs != plan->total_togetbytes)
+            endrun(3, "Posted receives for %lu bytes expected %lu bytes.\n", displs, plan->total_togetbytes);
 
-    /* Now wait for the sends before we free the buffers*/
-    MPI_Waitall(sends.nrequest_all, sends.rdata_all, MPI_STATUSES_IGNORE);
-    /* Free the buffers*/
-    free_commbuffer(&sends);
-    free_commbuffer(&recvs);
+        /* Now post sends: note that the sends are done in reverse order to the receives.
+        * This ensures that partial sends and receives can complete early.*/
+        struct CommBuffer sends;
+        alloc_commbuffer(&sends, plan->NTask, 0);
+        sends.databuf = mymalloc("sendbuffer",plan->total_togobytes * sizeof(char));
 
-    myfree(plan->layouts);
+        displs = 0;
+        for(task=0; task < plan->NTask; task++) {
+            /* Move the data into the buffer*/
+            const int sendtask = (thisiter.SendstartTask + task) % plan->NTask;
+            if(sendtask == thisiter.SendendTask)
+                break;
+            exchange_pack_buffer(sends.databuf + displs, sendtask, plan, pman, sman);
+            MPI_Isend(sends.databuf + displs, plan->toGo[sendtask].totalbytes, MPI_BYTE, sendtask, tag, Comm, &sends.rdata_all[task]);
+            sends.rqst_task[task] = sendtask;
+            sends.displs[task] = displs;
+            displs += plan->toGo[sendtask].totalbytes;
+            sends.nrequest_all ++;
+        }
+        if(displs != plan->total_togobytes)
+            endrun(3, "Packed %lu bytes for sending but expected %lu bytes.\n", displs, plan->total_togobytes);
+
+        /* Now wait for and unpack the receives as they arrive.*/
+        int * completed = ta_malloc("completes", int, recvs.nrequest_all);
+        memset(completed, 0, recvs.nrequest_all * sizeof(int) );
+        int totcomplete = 0;
+        // message(3, "reqs: %d\n", recvs.nrequest_all);
+        /* Test each request in turn until it completes*/
+        do {
+            for(task = 0; task < recvs.nrequest_all; task++) {
+                /* If we already completed, no need to test again*/
+                if(completed[task])
+                    continue;
+                /* Check for a completed request: note that cleanup is performed if the request is complete.*/
+                MPI_Test(&recvs.rdata_all[task], completed+task, MPI_STATUS_IGNORE);
+                // message(3, "complete : %d task %d\n", completed[task], recvs.rqst_task[task]);
+
+                /* Try the next one*/
+                if (!completed[task])
+                    continue;
+                totcomplete++;
+                exchange_unpack_buffer(recvs.databuf+recvs.displs[task], recvs.rqst_task[task], plan, pman, sman);
+            }
+        } while(totcomplete < recvs.nrequest_all);
+        myfree(completed);
+
+        /* Now wait for the sends before we free the buffers*/
+        MPI_Waitall(sends.nrequest_all, sends.rdata_all, MPI_STATUSES_IGNORE);
+        /* Free the buffers*/
+        free_commbuffer(&sends);
+        free_commbuffer(&recvs);
+
+        myfree(plan->layouts);
+
+    } while(thisiter.SendendTask != plan->ThisTask || thisiter.RecvendTask != plan->ThisTask );
 
     walltime_measure("/Domain/exchange/alltoall");
 
@@ -370,59 +447,6 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
     plan->nexchange = gadget_compact_thread_arrays(&plan->ExchangeList, &gthread);
     /*Shrink memory*/
     plan->ExchangeList = (int *) myrealloc(plan->ExchangeList, sizeof(int) * plan->nexchange);
-}
-
-/*Find how many particles we can transfer in current exchange iteration. TODO: Split requests that need too much.*/
-static int
-domain_check_iter_space(ExchangePlan * plan)
-{
-    size_t nlimit = mymalloc_freebytes();
-
-    if (nlimit <  4096L * 6 + plan->NTask * 2 * sizeof(MPI_Request))
-        endrun(1, "Not enough memory free to store requests!\n");
-
-    nlimit -= 4096 * 2L + plan->NTask * 2 * sizeof(MPI_Request);
-
-    /* Save some memory for memory headers and wasted space at the end of each allocation.
-     * Need max. 2*4096 for each heap-allocated array.*/
-    nlimit -= 4096 * 4L;
-
-    /* We want to avoid doing an alltoall with
-     * more than 2GB of material as this hangs.*/
-    const size_t maxexch = 2040L*1024L*1024L;
-    if(nlimit > maxexch)
-        nlimit = maxexch;
-
-    message(0, "Using %td bytes for exchange.\n", nlimit);
-
-    /* Maximum size we need for a single send/recv pair*/
-    size_t maxsize = 0;
-    /* Total size needed for all send/recv pairs*/
-    size_t totalsize = 0;
-    int ntasks_exchange = 0;
-    int task;
-    for(task = 1; task < plan->NTask; task++) {
-        const int sendtask = (plan->ThisTask + task) % plan->NTask;
-        const int recvtask = (plan->ThisTask - task + plan->NTask) % plan->NTask;
-        size_t singleiter = plan->toGo[sendtask].totalbytes + plan->toGet[recvtask].totalbytes;
-        plan->total_togetbytes += plan->toGet[recvtask].totalbytes;
-        plan->total_togobytes += plan->toGo[sendtask].totalbytes;
-        if(singleiter > maxsize)
-            maxsize = singleiter;
-        totalsize += singleiter;
-        if(totalsize < nlimit)
-            ntasks_exchange ++;
-    }
-
-    if(maxsize > nlimit) {
-        endrun(5, "Maxsize %ld > %ld limit. Not enough space for a single pair exchange. FIXME: This should be handled.\n", maxsize, nlimit);
-    }
-
-    if(ntasks_exchange < plan->NTask-1) {
-        endrun(5, "Only enough space for %d tasks of %d to exchange. FIXME: This should be handled.\n", ntasks_exchange, plan->NTask-1);
-    }
-
-    return ntasks_exchange;
 }
 
 /*This function populates the toGo and toGet arrays*/
