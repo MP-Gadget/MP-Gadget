@@ -77,7 +77,7 @@ domain_free_exchangeplan(ExchangePlan * plan)
 }
 
 /*Plan and execute a domain exchange, also performing a garbage collection if requested*/
-int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, PreExchangeList * preexch, struct part_manager_type * pman, struct slots_manager_type * sman, int maxiter, MPI_Comm Comm) {
+int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, PreExchangeList * preexch, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm) {
     /* register the MPI types used in communication if not yet. */
     if (MPI_TYPE_PLAN_ENTRY == 0) {
         MPI_Type_contiguous(sizeof(ExchangePlanEntry), MPI_BYTE, &MPI_TYPE_PLAN_ENTRY);
@@ -111,9 +111,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
         failure = domain_exchange_once(&plan, pman, sman, 123000, Comm);
     }
 #ifdef DEBUG
-    /* This does not apply for the FOF code, where the exchange list is pre-assigned
-     * and we only get one iteration. */
-    if(!failure && maxiter > 1) {
+    if(!failure) {
         ExchangePlan plan9 = domain_init_exchangeplan(Comm);
         /* Do not drift again*/
         domain_build_exchange_list(layoutfunc, layout_userdata, &plan9, pman, sman, Comm);

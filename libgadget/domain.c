@@ -204,7 +204,7 @@ void domain_decompose_full(DomainDecomp * ddecomp)
         myfree(OldTopLeaves);
         myfree(OldTopNodes);
 
-        if(domain_exchange(domain_layoutfunc, ddecomp, NULL, PartManager, SlotsManager, 10000, ddecomp->DomainComm)) {
+        if(domain_exchange(domain_layoutfunc, ddecomp, NULL, PartManager, SlotsManager, ddecomp->DomainComm)) {
             message(0,"Could not exchange particles\n");
             if(i == Npolicies - 1)
                 endrun(5, "Ran out of policies!\n");
@@ -321,7 +321,7 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
     walltime_measure("/Domain/drift");
 
     /* Try a domain exchange. Note ExchangeList is freed inside.*/
-    int errno = domain_exchange(domain_layoutfunc, ddecomp, ExchangeData, PartManager, SlotsManager, 10000, ddecomp->DomainComm);
+    int errno = domain_exchange(domain_layoutfunc, ddecomp, ExchangeData, PartManager, SlotsManager, ddecomp->DomainComm);
     return errno;
 }
 
