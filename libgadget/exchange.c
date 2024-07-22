@@ -100,6 +100,24 @@ domain_set_max_exchange(const size_t maxexch)
     MaxExch = maxexch;
 }
 
+/* Find the amount of space available for the domain exchange.
+ * Collective so we can make the same decisions on all ranks.*/
+size_t
+domain_get_exchange_space(const int NTask, MPI_Comm Comm)
+{
+    size_t nlimit = mymalloc_freebytes();
+    /* Save some memory for memory headers and wasted space at the end of each allocation.
+     * Need max. 2*4096 for each heap-allocated array, max 1 send, 1 recv.*/
+    nlimit -= 4096 * 4L * NTask;
+    if(nlimit <= 0)
+        endrun(1, "Not enough memory free to store requests!\n");
+
+    if(nlimit > MaxExch)
+        nlimit = MaxExch;
+    MPI_Allreduce(MPI_IN_PLACE, &nlimit, 1, MPI_UINT64, MPI_MIN, Comm);
+    return nlimit;
+}
+
 /*Plan and execute a domain exchange, also performing a garbage collection if requested*/
 int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, PreExchangeList * preexch, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm) {
     /* register the MPI types used in communication if not yet. */
@@ -129,7 +147,10 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     if(MPIU_Any(plan.nexchange > 0, Comm))
     {
         domain_build_plan(layoutfunc, layout_userdata, &plan, pman, sman->info, Comm);
-        failure = domain_exchange_once(&plan, pman, sman, 123000, MaxExch, Comm);
+        /* Do this after domain_build_plan so the target cache is already allocated*/
+        size_t maxexch = domain_get_exchange_space(plan.NTask, Comm);
+        /* Now to do an exchange*/
+        failure = domain_exchange_once(&plan, pman, sman, 123000, maxexch, Comm);
     }
 #ifdef DEBUG
     if(!failure) {
@@ -275,21 +296,6 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
 static void
 domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter, const size_t maxexch)
 {
-    size_t nlimit = mymalloc_freebytes();
-
-    if (nlimit <  4096L * 6 + plan->NTask * 2 * sizeof(MPI_Request))
-        endrun(1, "Not enough memory free to store requests!\n");
-
-    nlimit -= 4096 * 2L + plan->NTask * 2 * sizeof(MPI_Request);
-
-    /* Save some memory for memory headers and wasted space at the end of each allocation.
-     * Need max. 2*4096 for each heap-allocated array.*/
-    nlimit -= 4096 * 4L;
-    if(nlimit > maxexch)
-        nlimit = maxexch;
-
-    message(0, "Using %td bytes for exchange.\n", nlimit);
-
     /* Maximum size we need for a single send/recv pair*/
     size_t maxsize = 0;
     /* Total size needed for all send/recv pairs*/
@@ -304,7 +310,7 @@ domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter,
         totalsize += singleiter;
         thisiter->SendendTask = sendtask;
         thisiter->RecvendTask = recvtask;
-        if(totalsize > nlimit || sendtask == plan->ThisTask || recvtask == plan->ThisTask)
+        if(totalsize > maxexch || sendtask == plan->ThisTask || recvtask == plan->ThisTask)
             break;
         thisiter->togetbytes += plan->toGet[recvtask].totalbytes;
         // message(1, "toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, thisiter->togetbytes, recvtask);
@@ -312,9 +318,11 @@ domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter,
         if(singleiter > maxsize)
             maxsize = singleiter;
     }
+    message(1, "Using %ld bytes to send from %d to %d Recv from %d to %d\n", totalsize, thisiter->SendstartTask, thisiter->SendendTask, thisiter->RecvstartTask, thisiter->RecvendTask);
 
-    if(maxsize > nlimit) {
-        endrun(5, "Maxsize %ld > %ld limit. Not enough space for a single pair exchange. FIXME: This should be handled.\n", maxsize, nlimit);
+    if(maxsize > maxexch || thisiter->SendstartTask == thisiter->SendendTask || thisiter->RecvstartTask == thisiter->RecvendTask) {
+        endrun(5, "Maxsize %ld > %ld limit. Send from %d to %d. recv from %d to %d. Not enough space to make progress. FIXME: This should be handled.\n",
+               maxsize, maxexch, thisiter->SendstartTask, thisiter->SendendTask, thisiter->RecvstartTask, thisiter->RecvendTask);
     }
 
     return;
@@ -330,7 +338,6 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
         thisiter.SendstartTask = thisiter.SendendTask;
         thisiter.RecvstartTask = thisiter.RecvendTask;
         domain_check_iter_space(plan, &thisiter, maxexch);
-        // message(1, "Send from %d to %d Recv from %d to %d\n", thisiter.SendstartTask, thisiter.SendendTask, thisiter.RecvstartTask, thisiter.RecvendTask);
         /* First post receives*/
         struct CommBuffer recvs;
         alloc_commbuffer(&recvs, plan->NTask, 0);
