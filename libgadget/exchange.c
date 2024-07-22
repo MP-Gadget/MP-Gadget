@@ -23,7 +23,7 @@ static MPI_Datatype MPI_TYPE_PLAN_ENTRY = 0;
 /*Small struct to cache the layout function and particle data*/
 typedef struct {
     unsigned int ptype;
-    unsigned int target ;
+    unsigned int target;
 } ExchangePartCache;
 
 typedef struct {
@@ -170,16 +170,17 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
    The format is:
    (base particle data 1 - n)
    (slot data for particle i: may be variable size as not necessarily ordered by type)
-   This routine is not parallel.
+   This routine is openmp-parallel.
  */
 static int
-exchange_pack_buffer(char * exch, int task, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman)
+exchange_pack_buffer(char * exch, const int task, const ExchangePlan * const plan, struct part_manager_type * pman, struct slots_manager_type * sman)
 {
     char * slotexch = exch + plan->toGo[task].base * sizeof(struct particle_data);
     char * partexch = exch;
-    int64_t copybase = {0};
+    int64_t copybase = 0;
     int64_t copyslots[6] = {0};
     size_t n;
+    #pragma omp parallel for reduction(+: copybase) reduction(+: copyslots[:6])
     for(n = 0; n < plan->nexchange; n++)
     {
         const int i = plan->ExchangeList[n];
@@ -187,16 +188,26 @@ exchange_pack_buffer(char * exch, int task, ExchangePlan * plan, struct part_man
         const int target = plan->layouts[n].target;
         if(target != task)
             continue;
-        /* watch out thread unsafe */
-        memcpy(partexch, pman->Base+i, sizeof(struct particle_data));
-        partexch += sizeof(struct particle_data);
+        char * dest;
+        /* Ensure each memory location is written to only once*/
+        #pragma omp atomic capture
+        {
+            dest = partexch;
+            partexch += sizeof(struct particle_data);
+        }
+        memcpy(dest, pman->Base+i, sizeof(struct particle_data));
         copybase++;
         const int type = pman->Base[i].Type;
         copyslots[type]++;
         if(sman->info[type].enabled) {
-            size_t elsize = sman->info[type].elsize;
-            memcpy(slotexch,(char*) sman->info[type].ptr + pman->Base[i].PI * elsize, elsize);
-            slotexch += elsize;
+            const size_t elsize = sman->info[type].elsize;
+            char * slotdest;
+            #pragma omp atomic capture
+            {
+                slotdest = slotexch;
+                slotexch += elsize;
+            }
+            memcpy(slotdest,(char*) sman->info[type].ptr + pman->Base[i].PI * elsize, elsize);
         }
         /* mark the particle for removal. Both secondary and base slots will be marked. */
         slots_mark_garbage(i, pman, sman);
@@ -372,6 +383,7 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
             const int sendtask = (thisiter.SendstartTask + task) % plan->NTask;
             if(sendtask == thisiter.SendendTask)
                 break;
+            /* The openmp parallel is done inside exchange_pack_buffer so that we can issue MPI_Isend as soon as possible*/
             exchange_pack_buffer(sends.databuf + displs, sendtask, plan, pman, sman);
             MPI_Isend(sends.databuf + displs, plan->toGo[sendtask].totalbytes, MPI_BYTE, sendtask, tag, Comm, &sends.rdata_all[task]);
             sends.rqst_task[task] = sendtask;
