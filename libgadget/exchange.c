@@ -189,26 +189,26 @@ exchange_pack_buffer(char * exch, const int task, const ExchangePlan * const pla
         if(target != task)
             continue;
         char * dest;
-        /* Ensure each memory location is written to only once*/
-        #pragma omp atomic capture
+        char * slotdest;
+        const int type = pman->Base[i].Type;
+        size_t elsize = 0;
+        if(sman->info[type].enabled)
+             elsize = sman->info[type].elsize;
+        /* Ensure each memory location is written to only once.
+         * Needs to be critical because the slot and the particle must be at the same location.*/
+        #pragma omp critical
         {
             dest = partexch;
             partexch += sizeof(struct particle_data);
+            slotdest = slotexch;
+            slotexch += elsize;
         }
         memcpy(dest, pman->Base+i, sizeof(struct particle_data));
-        copybase++;
-        const int type = pman->Base[i].Type;
-        copyslots[type]++;
         if(sman->info[type].enabled) {
-            const size_t elsize = sman->info[type].elsize;
-            char * slotdest;
-            #pragma omp atomic capture
-            {
-                slotdest = slotexch;
-                slotexch += elsize;
-            }
             memcpy(slotdest,(char*) sman->info[type].ptr + pman->Base[i].PI * elsize, elsize);
         }
+        copybase++;
+        copyslots[type]++;
         /* mark the particle for removal. Both secondary and base slots will be marked. */
         slots_mark_garbage(i, pman, sman);
     }
