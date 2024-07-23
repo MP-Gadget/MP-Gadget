@@ -305,7 +305,7 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
 
 /*Find how many tasks we can transfer in current exchange iteration. TODO: Split requests that need too much.*/
 static void
-domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter, const size_t maxexch)
+domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter, const size_t maxexch, size_t freepart)
 {
     /* Maximum size we need for a single send/recv pair*/
     size_t maxsize = 0;
@@ -313,19 +313,35 @@ domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter,
     size_t totalsize = 0;
     thisiter->togetbytes = 0;
     thisiter->togobytes = 0;
+    size_t expected_freepart = freepart; //plan->ngarbage; TODO garbage slots not currently used, need garbage list.
+    /* First find some data to send. This gives us space in the particle table.*/
     int task;
     for(task = 0; task < plan->NTask; task++) {
         const int sendtask = (thisiter->SendstartTask + task) % plan->NTask;
-        const int recvtask = (thisiter->RecvstartTask - task + plan->NTask) % plan->NTask;
-        size_t singleiter = plan->toGo[sendtask].totalbytes + plan->toGet[recvtask].totalbytes;
-        totalsize += singleiter;
+        size_t singleiter = plan->toGo[sendtask].totalbytes;
         thisiter->SendendTask = sendtask;
-        thisiter->RecvendTask = recvtask;
-        if(totalsize > maxexch || sendtask == plan->ThisTask || recvtask == plan->ThisTask)
+        /*Stop halfway through: half for send, half for recv*/
+        if(totalsize + singleiter > maxexch/2 || sendtask == plan->ThisTask)
             break;
+        // message(1, "toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, thisiter->togetbytes, recvtask);
+        totalsize += singleiter;
+        thisiter->togobytes += plan->toGo[sendtask].totalbytes;
+        expected_freepart += plan->toGo[sendtask].base;
+        if(singleiter > maxsize)
+            maxsize = singleiter;
+    }
+
+    for(task = 0; task < plan->NTask; task++) {
+        const int recvtask = (thisiter->RecvstartTask - task + plan->NTask) % plan->NTask;
+        size_t singleiter = plan->toGet[recvtask].totalbytes;
+        thisiter->RecvendTask = recvtask;
+        /*This checks we have enough space in the particle table*/
+        expected_freepart -= plan->toGet[recvtask].base;
+        if(totalsize + singleiter > maxexch || recvtask == plan->ThisTask || expected_freepart <= 0 )
+            break;
+        totalsize += singleiter;
         thisiter->togetbytes += plan->toGet[recvtask].totalbytes;
         // message(1, "toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, thisiter->togetbytes, recvtask);
-        thisiter->togobytes += plan->toGo[sendtask].totalbytes;
         if(singleiter > maxsize)
             maxsize = singleiter;
     }
@@ -348,7 +364,7 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
     do {
         thisiter.SendstartTask = thisiter.SendendTask;
         thisiter.RecvstartTask = thisiter.RecvendTask;
-        domain_check_iter_space(plan, &thisiter, maxexch);
+        domain_check_iter_space(plan, &thisiter, maxexch, pman->MaxPart - pman->NumPart);
         /* First post receives*/
         struct CommBuffer recvs;
         alloc_commbuffer(&recvs, plan->NTask, 0);
