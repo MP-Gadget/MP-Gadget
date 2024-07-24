@@ -20,12 +20,6 @@ typedef struct {
 
 static MPI_Datatype MPI_TYPE_PLAN_ENTRY = 0;
 
-/*Small struct to cache the layout function and particle data*/
-typedef struct {
-    unsigned int ptype;
-    unsigned int target;
-} ExchangePartCache;
-
 typedef struct {
     ExchangePlanEntry * toGo;
     ExchangePlanEntry * toGet;
@@ -37,9 +31,12 @@ typedef struct {
     int * ExchangeList;
     /*Total number of exchanged particles*/
     size_t nexchange;
-    /*Number of garbage particles*/
-    int64_t ngarbage;
-    ExchangePartCache * layouts;
+    /*Number of garbage particles of each type*/
+    int64_t ngarbage[6];
+    /* List of entries in particle table which are garbage particles of each type*/
+    int * garbage_list[6];
+    /* Per-task list of particles to send.*/
+    int ** target_list;
 } ExchangePlan;
 
 /* Structure to store the tasks that need to be exchanged this iteration*/
@@ -130,7 +127,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     ExchangePlan plan = domain_init_exchangeplan(Comm);
     /* Use the pre-exchange list if we can*/
     if(preexch && preexch->ExchangeList) {
-        plan.ngarbage= preexch->ngarbage;
+        // plan.ngarbage= preexch->ngarbage;
         plan.nexchange = preexch->nexchange;
         plan.ExchangeList = preexch->ExchangeList;
         /* We only use this once.*/
@@ -173,7 +170,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
    This routine is openmp-parallel.
  */
 static int
-exchange_pack_buffer(char * exch, const int task, const ExchangePlan * const plan, struct part_manager_type * pman, struct slots_manager_type * sman)
+exchange_pack_buffer(char * exch, const int task, ExchangePlan * const plan, struct part_manager_type * pman, struct slots_manager_type * sman)
 {
     char * slotexch = exch + plan->toGo[task].base * sizeof(struct particle_data);
     char * partexch = exch;
@@ -181,13 +178,10 @@ exchange_pack_buffer(char * exch, const int task, const ExchangePlan * const pla
     int64_t copyslots[6] = {0};
     size_t n;
     #pragma omp parallel for reduction(+: copybase) reduction(+: copyslots[:6])
-    for(n = 0; n < plan->nexchange; n++)
+    for(n = 0; n < plan->toGo[task].base; n++)
     {
-        const int i = plan->ExchangeList[n];
+        const int i = plan->target_list[task][n];
         /* preparing for export */
-        const int target = plan->layouts[n].target;
-        if(target != task)
-            continue;
         char * dest;
         char * slotdest;
         const int type = pman->Base[i].Type;
@@ -209,6 +203,9 @@ exchange_pack_buffer(char * exch, const int task, const ExchangePlan * const pla
         }
         copybase++;
         copyslots[type]++;
+        /* Add this particle to the garbage list so we can unpack something else into it.*/
+        int64_t gslot = atomic_fetch_and_add_64(&plan->ngarbage[type], 1);
+        plan->garbage_list[type][gslot] = i;
         /* mark the particle for removal. Both secondary and base slots will be marked. */
         slots_mark_garbage(i, pman, sman);
     }
@@ -232,29 +229,25 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
     char * partexch = exch;
     int64_t copybase = 0;
     int64_t copyslots[6] = {0};
+
     int64_t i;
     for(i = 0; i < plan->toGet[task].base; i++)
     {
         /* Extract type*/
         const unsigned int type = ((struct particle_data *) partexch)->Type;
         int PI = sman->info[type].size;
-        /* Find a destination place in the particle table*/
+        /* Find a garbage place in the particle table*/
         int64_t dest = pman->NumPart;
-        size_t n;
-        for(n = 0; n < plan->nexchange; n++) {
-            if(plan->layouts[n].ptype != type)
-                continue;
-            const int d = plan->ExchangeList[n];
-            if(pman->Base[d].IsGarbage) {
-                dest = d;
-                /* Copy PI so it is not over-written*/
-                PI = pman->Base[dest].PI;
-                break;
-            }
+        if(plan->ngarbage[type] >= 1) {
+            dest = plan->garbage_list[type][plan->ngarbage[type]-1];
+            /* Copy PI so it is not over-written*/
+            PI = pman->Base[dest].PI;
+            /* No longer garbage!*/
+            plan->ngarbage[type]--;
         }
-        /* watch out thread unsafe */
         /* If we are copying to the end of the table, increment the counter*/
-        if(dest == pman->NumPart) {
+        else{
+            dest = pman->NumPart;
             pman->NumPart++;
             if(pman->NumPart > pman->MaxPart)
                 endrun(6, "Not enough room for particles after exchange\n");
@@ -275,7 +268,7 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
                         if(!sman->info[ptype].enabled) continue;
                         newSlots[ptype] = sman->info[ptype].size + plan->toGet[task].slots[ptype] - copyslots[type];
                     }
-                    /* This will likely fail here because memory ordering restrictions:
+                    /* FIXME This will likely fail here because memory ordering restrictions:
                     * need to do it before buffer allocation or alloc buffers high.*/
                     slots_reserve(1, newSlots, sman);
                 }
@@ -442,7 +435,15 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
 
     } while(thisiter.SendendTask != plan->ThisTask || thisiter.RecvendTask != plan->ThisTask );
 
-    myfree(plan->layouts);
+    /* Free the lists.*/
+    int n;
+    for(n = plan->NTask -1; n >=0; n--) {
+        myfree(plan->target_list[n]);
+    }
+    myfree(plan->target_list);
+    for(n = 5; n >=0; n--) {
+        myfree(plan->garbage_list[n]);
+    }
 
     walltime_measure("/Domain/exchange/alltoall");
 
@@ -488,7 +489,7 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
         }
         gthread.sizes[tid] = nexthr_local;
     }
-    plan->ngarbage = ngarbage;
+    // plan->ngarbage = ngarbage;
     /*Merge step for the queue.*/
     plan->nexchange = gadget_compact_thread_arrays(&plan->ExchangeList, &gthread);
     /*Shrink memory*/
@@ -504,49 +505,97 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
 
     memset(plan->toGo, 0, sizeof(plan->toGo[0]) * plan->NTask);
 
-    plan->layouts = (ExchangePartCache *) mymalloc("layoutcache",sizeof(ExchangePartCache) * plan->nexchange);
+    int * layouts = (int *) mymalloc2("layoutcache",sizeof(int) * plan->nexchange);
+    ExchangePlanEntry * toGoThread = (ExchangePlanEntry *) mymalloc2("toGoThread",sizeof(ExchangePlanEntry) * plan->NTask* omp_get_max_threads());
+    memset(toGoThread, 0, sizeof(toGoThread[0]) * plan->NTask * omp_get_max_threads());
 
+    /* Compute exchange particle counts for each process*/
     #pragma omp parallel for
     for(n = 0; n < plan->nexchange; n++)
     {
+        const int tid = omp_get_thread_num();
         const int i = plan->ExchangeList[n];
         const int target = layoutfunc(i, layout_userdata);
-        plan->layouts[n].ptype = pman->Base[i].Type;
-        plan->layouts[n].target = target;
         if(target >= plan->NTask || target < 0)
             endrun(4, "layoutfunc for %d returned unreasonable %d for %d tasks\n", i, target, plan->NTask);
+        const int ptype = pman->Base[i].Type;
+        toGoThread[tid * plan->NTask + target ].base++;
+        toGoThread[tid * plan->NTask + target].slots[ptype]++;
+        /* Compute total size being sent on this process*/
+        toGoThread[tid * plan->NTask + target].totalbytes += sizeof(struct particle_data);
+        if(sinfo[ptype].enabled){
+            toGoThread[tid * plan->NTask + target].totalbytes += sinfo[ptype].elsize;
+        }
+        layouts[n] = target;
     }
 
     /*Do the sum*/
-    for(n = 0; n < plan->nexchange; n++)
+    for(n = 0; n < omp_get_max_threads(); n++)
     {
-        plan->toGo[plan->layouts[n].target].base++;
-        plan->toGo[plan->layouts[n].target].slots[plan->layouts[n].ptype]++;
-        /* Compute total size being sent on this process*/
-        plan->toGo[plan->layouts[n].target].totalbytes += sizeof(struct particle_data);
-        if(sinfo[plan->layouts[n].ptype].enabled){
-            plan->toGo[plan->layouts[n].target].totalbytes += sinfo[plan->layouts[n].ptype].elsize;
+        int target;
+        #pragma omp parallel for
+        for(target = 0; target < plan->NTask; target++) {
+            plan->toGo[target].base += toGoThread[n * plan->NTask + target].base;
+            int i;
+            for(i = 0; i < 6; i++)
+                plan->toGo[target].slots[i] += toGoThread[n * plan->NTask + target].slots[i];
+            plan->toGo[target].totalbytes += toGoThread[n * plan->NTask + target].totalbytes;
         }
     }
-
-    MPI_Alltoall(plan->toGo, 1, MPI_TYPE_PLAN_ENTRY, plan->toGet, 1, MPI_TYPE_PLAN_ENTRY, Comm);
+    myfree(toGoThread);
 
     memcpy(&plan->toGoSum, &plan->toGo[0], sizeof(plan->toGoSum));
-    memcpy(&plan->toGetSum, &plan->toGet[0], sizeof(plan->toGetSum));
 
     int rank;
-    int64_t maxbasetogo=-1, maxbasetoget=-1;
+    int64_t maxbasetogo=-1;
     for(rank = 1; rank < plan->NTask; rank ++) {
         /* Direct assignment breaks compilers like icc */
         plan->toGoSum.base += plan->toGo[rank].base;
-        plan->toGetSum.base += plan->toGet[rank].base;
         if(plan->toGo[rank].base > maxbasetogo)
             maxbasetogo = plan->toGo[rank].base;
-        if(plan->toGet[rank].base > maxbasetoget)
-            maxbasetoget = plan->toGet[rank].base;
-
         for(ptype = 0; ptype < 6; ptype++) {
             plan->toGoSum.slots[ptype] += plan->toGo[rank].slots[ptype];
+        }
+    }
+
+    /* Count only the garbage particles from this exchange. FIXME: This should include also other garbage particles somehow*/
+    for(n = 0; n < 6; n++) {
+        plan->ngarbage[n] = 0;
+        plan->garbage_list[n] = (int *) mymalloc("garbage",sizeof(int) * plan->toGoSum.slots[n]);
+    }
+
+    /* Transpose to per-target lists*/
+    plan->target_list = (int **) ta_malloc("target_list",int*, plan->NTask);
+    int target;
+    for(target = 0; target < plan->NTask; target++) {
+        plan->target_list[target] = mymalloc("exchangelist",plan->toGo[target].base * sizeof(int));
+    }
+    size_t * counts = ta_malloc("counts", size_t, plan->NTask);
+    memset(counts, 0, sizeof(counts[0]) * plan->NTask);
+    for(n = 0; n < plan->nexchange; n++) {
+        const int target = layouts[n];
+        plan->target_list[target][counts[target]] = plan->ExchangeList[n];
+        counts[target]++;
+    }
+    for(target = 0; target < plan->NTask; target++) {
+        if(counts[target] != plan->toGo[target].base)
+            endrun(1, "Expected %lu in target list for task %d from plan but got %lu\n", counts[target], target, plan->toGo[target].base);
+    }
+
+    myfree(counts);
+    myfree(layouts);
+    /* Get the send counts from every processor*/
+    MPI_Alltoall(plan->toGo, 1, MPI_TYPE_PLAN_ENTRY, plan->toGet, 1, MPI_TYPE_PLAN_ENTRY, Comm);
+
+    memcpy(&plan->toGetSum, &plan->toGet[0], sizeof(plan->toGetSum));
+
+    int64_t maxbasetoget=-1;
+    for(rank = 1; rank < plan->NTask; rank ++) {
+        /* Direct assignment breaks compilers like icc */
+        plan->toGetSum.base += plan->toGet[rank].base;
+        if(plan->toGet[rank].base > maxbasetoget)
+            maxbasetoget = plan->toGet[rank].base;
+        for(ptype = 0; ptype < 6; ptype++) {
             plan->toGetSum.slots[ptype] += plan->toGet[rank].slots[ptype];
         }
     }
