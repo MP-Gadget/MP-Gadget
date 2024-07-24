@@ -290,6 +290,8 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
         /* Garbage is not in the tree*/
         if(PartManager->Base[i].IsGarbage) {
             ngarbage++;
+            threx_local[nexthr_local] = i;
+            nexthr_local++;
             continue;
         }
         /* If we aren't using DM for the dynamic friction, we don't need to build a tree with inactive DM particles.

@@ -138,7 +138,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
 
     int failure = 0;
     /*If we have work to do, do it */
-    if(!MPIU_Any(preexch->nexchange > 0, Comm)) {
+    if(!MPIU_Any(preexch->nexchange - preexch->ngarbage > 0, Comm)) {
         myfree(preexch->ExchangeList);
         return failure;
     }
@@ -159,8 +159,8 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     if(!failure) {
         PreExchangeList plan9 = {0};
         domain_build_exchange_list(layoutfunc, layout_userdata, &plan9, pman, sman, Comm);
-        if(plan9.nexchange > 0)
-            endrun(5, "Still have %ld particles in exchange list\n", plan9.nexchange);
+        if(plan9.nexchange - plan9.ngarbage > 0)
+            endrun(5, "Still have %ld particles in exchange list\n", plan9.nexchange - plan9.ngarbage);
         myfree(plan9.ExchangeList);
     }
 #endif
@@ -473,6 +473,8 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
         {
             if(pman->Base[i].IsGarbage) {
                 ngarbage++;
+                threx_local[nexthr_local] = i;
+                nexthr_local++;
                 continue;
             }
             int target = layoutfunc(i, layout_userdata);
@@ -500,8 +502,10 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
     memset(plan->toGo, 0, sizeof(plan->toGo[0]) * plan->NTask);
 
     int * layouts = (int *) mymalloc2("layoutcache",sizeof(int) * preplan->nexchange);
+    int * tmp_garbage_list = mymalloc2("tmp_garbage",sizeof(int)* 6 * preplan->ngarbage);
     ExchangePlanEntry * toGoThread = (ExchangePlanEntry *) mymalloc2("toGoThread",sizeof(ExchangePlanEntry) * plan->NTask* omp_get_max_threads());
     memset(toGoThread, 0, sizeof(toGoThread[0]) * plan->NTask * omp_get_max_threads());
+    memset(plan->ngarbage, 0, 6*sizeof(plan->ngarbage[0]));
 
     /* Compute exchange particle counts for each process*/
     #pragma omp parallel for
@@ -509,10 +513,17 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
     {
         const int tid = omp_get_thread_num();
         const int i = preplan->ExchangeList[n];
+        const int ptype = pman->Base[i].Type;
+        /* Add this to the proto-garbage list*/
+        if(pman->Base[i].IsGarbage) {
+            int gslot = atomic_fetch_and_add_64(&plan->ngarbage[ptype], 1);
+            tmp_garbage_list[ptype * preplan->ngarbage + gslot] = i;
+            layouts[n] = plan->ThisTask;
+            continue;
+        }
         const int target = layoutfunc(i, layout_userdata);
         if(target >= plan->NTask || target < 0)
             endrun(4, "layoutfunc for %d returned unreasonable %d for %d tasks\n", i, target, plan->NTask);
-        const int ptype = pman->Base[i].Type;
         toGoThread[tid * plan->NTask + target ].base++;
         toGoThread[tid * plan->NTask + target].slots[ptype]++;
         /* Compute total size being sent on this process*/
@@ -552,11 +563,13 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
         }
     }
 
-    /* Count only the garbage particles from this exchange. FIXME: This should include also other garbage particles somehow*/
+    /* Garbage lists with enough space for those from this exchange and those already present.*/
     for(n = 0; n < 6; n++) {
-        plan->ngarbage[n] = 0;
-        plan->garbage_list[n] = (int *) mymalloc("garbage",sizeof(int) * plan->toGoSum.slots[n]);
+        plan->garbage_list[n] = (int *) mymalloc("garbage",sizeof(int) * plan->toGoSum.slots[n] + plan->ngarbage[n]);
+        /* Copy over the existing garbage*/
+        memcpy(plan->garbage_list[n], &tmp_garbage_list[n * preplan->ngarbage], sizeof(plan->garbage_list[0])* plan->ngarbage[n]);
     }
+    myfree(tmp_garbage_list);
 
     /* Transpose to per-target lists*/
     plan->target_list = (int **) ta_malloc("target_list",int*, plan->NTask);
@@ -568,6 +581,9 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
     memset(counts, 0, sizeof(counts[0]) * plan->NTask);
     for(n = 0; n < preplan->nexchange; n++) {
         const int target = layouts[n];
+        /* This is garbage*/
+        if(target == plan->ThisTask)
+            continue;
         plan->target_list[target][counts[target]] = preplan->ExchangeList[n];
         counts[target]++;
     }

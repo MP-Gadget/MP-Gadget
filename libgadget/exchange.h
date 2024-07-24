@@ -8,7 +8,7 @@
 typedef int (*ExchangeLayoutFunc) (int p, const void * userdata);
 
 typedef struct PreExchangeList{
-    /*List of particles to exchange*/
+    /*List of particles to exchange and garbage particles (to receive incoming data).*/
     int * ExchangeList;
     /*Total number of exchanged particles*/
     size_t nexchange;
