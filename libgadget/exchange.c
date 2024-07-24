@@ -27,10 +27,6 @@ typedef struct {
     ExchangePlanEntry toGetSum;
     int NTask;
     int ThisTask;
-    /*List of particles to exchange*/
-    int * ExchangeList;
-    /*Total number of exchanged particles*/
-    size_t nexchange;
     /*Number of garbage particles of each type*/
     int64_t ngarbage[6];
     /* List of entries in particle table which are garbage particles of each type*/
@@ -61,8 +57,8 @@ struct ExchangeIterInfo
  * layoutfunc gives the target task of particle p.
 */
 static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, const size_t maxexch, MPI_Comm Comm);
-static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, struct slot_info * sinfo, MPI_Comm Comm);
-static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
+static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, PreExchangeList * preplan, struct part_manager_type * pman, struct slot_info * sinfo, MPI_Comm Comm);
+static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, PreExchangeList * preplan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 
 static ExchangePlan
 domain_init_exchangeplan(MPI_Comm Comm)
@@ -82,7 +78,17 @@ domain_init_exchangeplan(MPI_Comm Comm)
 static void
 domain_free_exchangeplan(ExchangePlan * plan)
 {
-    myfree(plan->ExchangeList);
+    /* Free the lists.*/
+    int n;
+    if(plan->target_list) {
+        for(n = plan->NTask -1; n >=0; n--) {
+            myfree(plan->target_list[n]);
+        }
+        myfree(plan->target_list);
+        for(n = 5; n >=0; n--) {
+            myfree(plan->garbage_list[n]);
+        }
+    }
     myfree(plan->toGet);
     myfree(plan->toGo);
 }
@@ -122,44 +128,42 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
         MPI_Type_contiguous(sizeof(ExchangePlanEntry), MPI_BYTE, &MPI_TYPE_PLAN_ENTRY);
         MPI_Type_commit(&MPI_TYPE_PLAN_ENTRY);
     }
-
-    /*Structure for building a list of particles that will be exchanged*/
-    ExchangePlan plan = domain_init_exchangeplan(Comm);
+    PreExchangeList preplan = {0};
     /* Use the pre-exchange list if we can*/
-    if(preexch && preexch->ExchangeList) {
-        // plan.ngarbage= preexch->ngarbage;
-        plan.nexchange = preexch->nexchange;
-        plan.ExchangeList = preexch->ExchangeList;
-        /* We only use this once.*/
-        preexch->ExchangeList = NULL;
-    }
-    else {
-        /* This needs to be re-run if there is a gc*/
-        domain_build_exchange_list(layoutfunc, layout_userdata, &plan, pman, sman, Comm);
+    if(!preexch || !preexch->ExchangeList) {
+        preexch = &preplan;
+        domain_build_exchange_list(layoutfunc, layout_userdata, preexch, pman, sman, Comm);
     }
     walltime_measure("/Domain/exchange/togo");
 
     int failure = 0;
     /*If we have work to do, do it */
-    if(MPIU_Any(plan.nexchange > 0, Comm))
-    {
-        domain_build_plan(layoutfunc, layout_userdata, &plan, pman, sman->info, Comm);
-        /* Do this after domain_build_plan so the target cache is already allocated*/
-        size_t maxexch = domain_get_exchange_space(plan.NTask, Comm);
-        /* Now to do an exchange*/
-        failure = domain_exchange_once(&plan, pman, sman, 123000, maxexch, Comm);
+    if(!MPIU_Any(preexch->nexchange > 0, Comm)) {
+        myfree(preexch->ExchangeList);
+        return failure;
     }
+
+    /*Structure for building a list of particles that will be exchanged*/
+    ExchangePlan plan = domain_init_exchangeplan(Comm);
+    domain_build_plan(layoutfunc, layout_userdata, &plan, preexch, pman, sman->info, Comm);
+    /* Done with the pre-exchange list*/
+    myfree(preexch->ExchangeList);
+
+    /* Do this after domain_build_plan so the target lists are already allocated*/
+    size_t maxexch = domain_get_exchange_space(plan.NTask, Comm);
+    /* Now to do an exchange*/
+    failure = domain_exchange_once(&plan, pman, sman, 123000, maxexch, Comm);
+    domain_free_exchangeplan(&plan);
+
 #ifdef DEBUG
     if(!failure) {
-        ExchangePlan plan9 = domain_init_exchangeplan(Comm);
-        /* Do not drift again*/
+        PreExchangeList plan9 = {0};
         domain_build_exchange_list(layoutfunc, layout_userdata, &plan9, pman, sman, Comm);
         if(plan9.nexchange > 0)
             endrun(5, "Still have %ld particles in exchange list\n", plan9.nexchange);
-        domain_free_exchangeplan(&plan9);
+        myfree(plan9.ExchangeList);
     }
 #endif
-    domain_free_exchangeplan(&plan);
     return failure;
 }
 
@@ -435,16 +439,6 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
 
     } while(thisiter.SendendTask != plan->ThisTask || thisiter.RecvendTask != plan->ThisTask );
 
-    /* Free the lists.*/
-    int n;
-    for(n = plan->NTask -1; n >=0; n--) {
-        myfree(plan->target_list[n]);
-    }
-    myfree(plan->target_list);
-    for(n = 5; n >=0; n--) {
-        myfree(plan->garbage_list[n]);
-    }
-
     walltime_measure("/Domain/exchange/alltoall");
 
 #ifdef DEBUG
@@ -460,7 +454,7 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
  * All particles are processed every time, space is not considered.
  * The exchange list needs to be rebuilt every time gc is run. */
 static void
-domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm)
+domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, PreExchangeList * preplan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm)
 {
     /*Garbage particles are counted so we have an accurate memory estimate*/
     int ngarbage = 0;
@@ -489,32 +483,32 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
         }
         gthread.sizes[tid] = nexthr_local;
     }
-    // plan->ngarbage = ngarbage;
+    preplan->ngarbage = ngarbage;
     /*Merge step for the queue.*/
-    plan->nexchange = gadget_compact_thread_arrays(&plan->ExchangeList, &gthread);
+    preplan->nexchange = gadget_compact_thread_arrays(&preplan->ExchangeList, &gthread);
     /*Shrink memory*/
-    plan->ExchangeList = (int *) myrealloc(plan->ExchangeList, sizeof(int) * plan->nexchange);
+    preplan->ExchangeList = (int *) myrealloc(preplan->ExchangeList, sizeof(int) * preplan->nexchange);
 }
 
 /*This function populates the toGo and toGet arrays*/
 static void
-domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, struct slot_info * sinfo, MPI_Comm Comm)
+domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, PreExchangeList * preplan, struct part_manager_type * pman, struct slot_info * sinfo, MPI_Comm Comm)
 {
     int ptype;
     size_t n;
 
     memset(plan->toGo, 0, sizeof(plan->toGo[0]) * plan->NTask);
 
-    int * layouts = (int *) mymalloc2("layoutcache",sizeof(int) * plan->nexchange);
+    int * layouts = (int *) mymalloc2("layoutcache",sizeof(int) * preplan->nexchange);
     ExchangePlanEntry * toGoThread = (ExchangePlanEntry *) mymalloc2("toGoThread",sizeof(ExchangePlanEntry) * plan->NTask* omp_get_max_threads());
     memset(toGoThread, 0, sizeof(toGoThread[0]) * plan->NTask * omp_get_max_threads());
 
     /* Compute exchange particle counts for each process*/
     #pragma omp parallel for
-    for(n = 0; n < plan->nexchange; n++)
+    for(n = 0; n < preplan->nexchange; n++)
     {
         const int tid = omp_get_thread_num();
-        const int i = plan->ExchangeList[n];
+        const int i = preplan->ExchangeList[n];
         const int target = layoutfunc(i, layout_userdata);
         if(target >= plan->NTask || target < 0)
             endrun(4, "layoutfunc for %d returned unreasonable %d for %d tasks\n", i, target, plan->NTask);
@@ -572,9 +566,9 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
     }
     size_t * counts = ta_malloc("counts", size_t, plan->NTask);
     memset(counts, 0, sizeof(counts[0]) * plan->NTask);
-    for(n = 0; n < plan->nexchange; n++) {
+    for(n = 0; n < preplan->nexchange; n++) {
         const int target = layouts[n];
-        plan->target_list[target][counts[target]] = plan->ExchangeList[n];
+        plan->target_list[target][counts[target]] = preplan->ExchangeList[n];
         counts[target]++;
     }
     for(target = 0; target < plan->NTask; target++) {
