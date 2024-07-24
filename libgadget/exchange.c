@@ -560,9 +560,9 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
 
     /* Garbage lists with enough space for those from this exchange and those already present.*/
     for(n = 0; n < 6; n++) {
-        plan->garbage_list[n] = (int *) mymalloc("garbage",sizeof(int) * plan->toGoSum.slots[n] + plan->ngarbage[n]);
+        plan->garbage_list[n] = (int *) mymalloc("garbage",sizeof(int) * (plan->toGoSum.slots[n] + plan->ngarbage[n]));
         /* Copy over the existing garbage*/
-        memcpy(plan->garbage_list[n], &tmp_garbage_list[n * preplan->ngarbage], sizeof(plan->garbage_list[0])* plan->ngarbage[n]);
+        memcpy(plan->garbage_list[n], &tmp_garbage_list[n * preplan->ngarbage], sizeof(plan->garbage_list[n][0])* plan->ngarbage[n]);
     }
     myfree(tmp_garbage_list);
 
