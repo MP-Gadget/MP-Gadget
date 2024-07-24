@@ -57,7 +57,7 @@ struct ExchangeIterInfo
  * layoutfunc gives the target task of particle p.
 */
 static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, const size_t maxexch, MPI_Comm Comm);
-static void domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, PreExchangeList * preplan, struct part_manager_type * pman, struct slot_info * sinfo, MPI_Comm Comm);
+static int domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, PreExchangeList * preplan, struct part_manager_type * pman, struct slot_info * sinfo, MPI_Comm Comm);
 static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, PreExchangeList * preplan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 
 static ExchangePlan
@@ -133,27 +133,22 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     if(!preexch || !preexch->ExchangeList) {
         preexch = &preplan;
         domain_build_exchange_list(layoutfunc, layout_userdata, preexch, pman, sman, Comm);
-    }
-    walltime_measure("/Domain/exchange/togo");
-
-    int failure = 0;
-    /*If we have work to do, do it */
-    if(!MPIU_Any(preexch->nexchange - preexch->ngarbage > 0, Comm)) {
-        myfree(preexch->ExchangeList);
-        return failure;
+        walltime_measure("/Domain/exchange/togo");
     }
 
     /*Structure for building a list of particles that will be exchanged*/
     ExchangePlan plan = domain_init_exchangeplan(Comm);
-    domain_build_plan(layoutfunc, layout_userdata, &plan, preexch, pman, sman->info, Comm);
+    int failure = domain_build_plan(layoutfunc, layout_userdata, &plan, preexch, pman, sman->info, Comm);
     /* Done with the pre-exchange list*/
     myfree(preexch->ExchangeList);
-
+    walltime_measure("/Domain/exchange/plan");
     /* Do this after domain_build_plan so the target lists are already allocated*/
     size_t maxexch = domain_get_exchange_space(plan.NTask, Comm);
-    /* Now to do an exchange*/
-    failure = domain_exchange_once(&plan, pman, sman, 123000, maxexch, Comm);
+    /* Now to do an exchange if it will succeed*/
+    if(!failure)
+        failure = domain_exchange_once(&plan, pman, sman, 123000, maxexch, Comm);
     domain_free_exchangeplan(&plan);
+    walltime_measure("/Domain/exchange/exchange");
 
 #ifdef DEBUG
     if(!failure) {
@@ -493,7 +488,7 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
 }
 
 /*This function populates the toGo and toGet arrays*/
-static void
+static int
 domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, PreExchangeList * preplan, struct part_manager_type * pman, struct slot_info * sinfo, MPI_Comm Comm)
 {
     int ptype;
@@ -615,6 +610,16 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
     MPI_Reduce(&maxbasetoget, &maxbasetogetmax, 1, MPI_INT64, MPI_MAX, 0, Comm);
     MPI_Reduce(&plan->toGoSum.base, &sumtogo, 1, MPI_INT64, MPI_SUM, 0, Comm);
     message(0, "Total particles in flight: %ld Largest togo: %ld, toget %ld\n", sumtogo, maxbasetogomax, maxbasetogetmax);
+    int64_t finalNumPart = pman->NumPart + plan->toGetSum.base - plan->toGoSum.base - preplan->ngarbage;
+    int failure = 0;
+    if(finalNumPart > pman->MaxPart) {
+        message(1, "Exchange will not succeed, need %ld particle slots but only have %ld. Current NumPart %ld\n", finalNumPart, pman->MaxPart, pman->NumPart);
+        failure = 1;
+    }
+    /* Make failure collective*/
+    failure = MPI_Allreduce(MPI_IN_PLACE, &failure, 1, MPI_INT, MPI_SUM, Comm);
+
+    return failure;
 }
 
 /* used only by test uniqueness */
