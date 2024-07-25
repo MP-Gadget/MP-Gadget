@@ -299,7 +299,10 @@ domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter,
     size_t totalsize = 0;
     thisiter->togetbytes = 0;
     thisiter->togobytes = 0;
-    size_t expected_freepart = freepart; //plan->ngarbage; TODO garbage slots not currently used, need garbage list.
+    size_t expected_freeslots[6] = {0};
+    int n;
+    for(n = 0 ; n < 6; n++)
+        expected_freeslots[n] = plan->ngarbage[n];
     /* First find some data to send. This gives us space in the particle table.*/
     int task;
     for(task = 0; task < plan->NTask; task++) {
@@ -312,7 +315,8 @@ domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter,
         // message(1, "toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, thisiter->togetbytes, recvtask);
         totalsize += singleiter;
         thisiter->togobytes += plan->toGo[sendtask].totalbytes;
-        expected_freepart += plan->toGo[sendtask].base;
+        for(n = 0; n < 6; n++)
+            expected_freeslots[n] += plan->toGo[sendtask].slots[n];
         if(singleiter > maxsize)
             maxsize = singleiter;
     }
@@ -321,9 +325,22 @@ domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter,
         const int recvtask = (thisiter->RecvstartTask - task + plan->NTask) % plan->NTask;
         size_t singleiter = plan->toGet[recvtask].totalbytes;
         thisiter->RecvendTask = recvtask;
-        /*This checks we have enough space in the particle table*/
-        expected_freepart -= plan->toGet[recvtask].base;
-        if(totalsize + singleiter > maxexch || recvtask == plan->ThisTask || expected_freepart <= 0 )
+        /*This checks we have enough space in the particle table for each slot*/
+        int n;
+        for(n = 0; n < 6; n++) {
+            expected_freeslots[n] -= plan->toGet[recvtask].slots[n];
+            /* If we overflow the slots available in garbage, we use the global particle table.*/
+            if(expected_freeslots[n] < 0) {
+                freepart += expected_freeslots[n];
+                expected_freeslots[n] = 0;
+            }
+        }
+        /* We do not have enough slots here to continue!
+         * This logic means that we may not receive all the things sent to us this iteration,
+         * as different ranks may have different particle loads.*/
+        if(freepart < 0)
+            break;
+        if(totalsize + singleiter > maxexch || recvtask == plan->ThisTask)
             break;
         totalsize += singleiter;
         thisiter->togetbytes += plan->toGet[recvtask].totalbytes;
