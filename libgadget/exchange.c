@@ -82,11 +82,13 @@ domain_free_exchangeplan(ExchangePlan * plan)
     int n;
     if(plan->target_list) {
         for(n = plan->NTask -1; n >=0; n--) {
-            myfree(plan->target_list[n]);
+            if(plan->target_list[n])
+                myfree(plan->target_list[n]);
         }
         myfree(plan->target_list);
         for(n = 5; n >=0; n--) {
-            myfree(plan->garbage_list[n]);
+            if(plan->garbage_list[n])
+                myfree(plan->garbage_list[n]);
         }
     }
     myfree(plan->toGet);
@@ -560,6 +562,10 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
 
     /* Garbage lists with enough space for those from this exchange and those already present.*/
     for(n = 0; n < 6; n++) {
+        if(plan->toGoSum.slots[n] + plan->ngarbage[n] == 0) {
+            plan->garbage_list[n] = NULL;
+            continue;
+        }
         plan->garbage_list[n] = (int *) mymalloc("garbage",sizeof(int) * (plan->toGoSum.slots[n] + plan->ngarbage[n]));
         /* Copy over the existing garbage*/
         memcpy(plan->garbage_list[n], &tmp_garbage_list[n * preplan->ngarbage], sizeof(plan->garbage_list[n][0])* plan->ngarbage[n]);
@@ -570,6 +576,10 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
     plan->target_list = (int **) ta_malloc("target_list",int*, plan->NTask);
     int target;
     for(target = 0; target < plan->NTask; target++) {
+        if(plan->toGo[target].base == 0) {
+            plan->target_list[target] = NULL;
+            continue;
+        }
         plan->target_list[target] = mymalloc("exchangelist",plan->toGo[target].base * sizeof(int));
     }
     size_t * counts = ta_malloc("counts", size_t, plan->NTask);
