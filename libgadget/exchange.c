@@ -135,7 +135,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     if(!preexch || !preexch->ExchangeList) {
         preexch = &preplan;
         domain_build_exchange_list(layoutfunc, layout_userdata, preexch, pman, sman, Comm);
-        walltime_measure("/Domain/exchange/togo");
+        walltime_measure("/Domain/exchange/exchangelist");
     }
 
     /*Structure for building a list of particles that will be exchanged*/
@@ -150,9 +150,11 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     if(!failure)
         failure = domain_exchange_once(&plan, pman, sman, 123000, maxexch, Comm);
     domain_free_exchangeplan(&plan);
-    walltime_measure("/Domain/exchange/exchange");
 
 #ifdef DEBUG
+    domain_test_id_uniqueness(pman);
+    slots_check_id_consistency(pman, sman);
+
     if(!failure) {
         PreExchangeList plan9 = {0};
         domain_build_exchange_list(layoutfunc, layout_userdata, &plan9, pman, sman, Comm);
@@ -160,6 +162,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
             endrun(5, "Still have %ld particles in exchange list\n", plan9.nexchange - plan9.ngarbage);
         myfree(plan9.ExchangeList);
     }
+    walltime_measure("/Domain/exchange/finalize");
 #endif
     return failure;
 }
@@ -215,7 +218,6 @@ exchange_pack_buffer(char * exch, const int task, ExchangePlan * const plan, str
     for(n = 0; n < 6; n++)
         if(copyslots[n]!= plan->toGo[task].slots[n])
             endrun(3, "Copied %ld slots of type %ld for send to task %d but expected %ld\n", copyslots[n], n, task, plan->toGo[task].slots[n]);
-    walltime_measure("/Domain/exchange/makebuf");
     return 0;
 }
 
@@ -283,7 +285,6 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
     for(i = 0; i < 6; i++)
         if(copyslots[i]!= plan->toGet[task].slots[i])
             endrun(3, "Copied %ld slots of type %ld received from task %d but expected %ld\n", copyslots[i], i, task, plan->toGet[task].slots[i]);
-    walltime_measure("/Domain/exchange/unpack");
     return 0;
 }
 
@@ -342,6 +343,7 @@ domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter,
 
 static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, const size_t maxexch, MPI_Comm Comm)
 {
+    double tpack = 0, tunpack = 0, twait = 0, twait2 = 0;
     /* determine for each rank how many particles have to be shifted to other ranks */
     struct ExchangeIterInfo thisiter = {0};
     thisiter.SendendTask = (plan->ThisTask + 1) % plan->NTask;
@@ -385,7 +387,10 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
             if(sendtask == thisiter.SendendTask)
                 break;
             /* The openmp parallel is done inside exchange_pack_buffer so that we can issue MPI_Isend as soon as possible*/
+            double tstart = second();
             exchange_pack_buffer(sends.databuf + displs, sendtask, plan, pman, sman);
+            double tend = second();
+            tpack += timediff(tstart, tend);
             MPI_Isend(sends.databuf + displs, plan->toGo[sendtask].totalbytes, MPI_BYTE, sendtask, tag, Comm, &sends.rdata_all[task]);
             sends.rqst_task[task] = sendtask;
             sends.displs[task] = displs;
@@ -401,6 +406,7 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
         int totcomplete = 0;
         // message(3, "reqs: %d\n", recvs.nrequest_all);
         /* Test each request in turn until it completes*/
+        double tstart = second();
         do {
             for(task = 0; task < recvs.nrequest_all; task++) {
                 /* If we already completed, no need to test again*/
@@ -414,27 +420,32 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
                 if (!completed[task])
                     continue;
                 totcomplete++;
+                double tstart2 = second();
                 exchange_unpack_buffer(recvs.databuf+recvs.displs[task], recvs.rqst_task[task], plan, pman, sman);
+                double tend2 = second();
+                tunpack += timediff(tstart2, tend2);
             }
         } while(totcomplete < recvs.nrequest_all);
         myfree(completed);
-
+        double tend = second();
+        twait2 += timediff(tstart, tend);;
         /* Now wait for the sends before we free the buffers*/
+        tstart = second();
         MPI_Waitall(sends.nrequest_all, sends.rdata_all, MPI_STATUSES_IGNORE);
+        tend = second();
+        twait += timediff(tstart, tend);
         /* Free the buffers*/
         free_commbuffer(&sends);
         free_commbuffer(&recvs);
 
     } while(thisiter.SendendTask != plan->ThisTask || thisiter.RecvendTask != plan->ThisTask );
 
-    walltime_measure("/Domain/exchange/alltoall");
-
-#ifdef DEBUG
-    domain_test_id_uniqueness(pman);
-    slots_check_id_consistency(pman, sman);
-    walltime_measure("/Domain/exchange/finalize");
-#endif
-
+    double timeall = walltime_measure(WALLTIME_IGNORE);
+    walltime_add("/Domain/exchange/misc", timeall - (tpack + twait + twait2));
+    walltime_add("/Domain/exchange/pack", tpack);
+    walltime_add("/Domain/exchange/unpack", tunpack);
+    walltime_add("/Domain/exchange/wait2", twait2- tunpack);
+    walltime_add("/Domain/exchange/wait1", twait);
     return 0;
 }
 
