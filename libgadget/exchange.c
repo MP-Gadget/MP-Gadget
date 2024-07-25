@@ -620,7 +620,12 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
     MPI_Reduce(&maxbasetoget, &maxbasetogetmax, 1, MPI_INT64, MPI_MAX, 0, Comm);
     MPI_Reduce(&plan->toGoSum.base, &sumtogo, 1, MPI_INT64, MPI_SUM, 0, Comm);
     message(0, "Total particles in flight: %ld Largest togo: %ld, toget %ld\n", sumtogo, maxbasetogomax, maxbasetogetmax);
-    int64_t finalNumPart = pman->NumPart + plan->toGetSum.base - plan->toGoSum.base - preplan->ngarbage;
+    int64_t finalNumPart = pman->NumPart;
+    /* This is not completely optimal but reflects the current algorithm.
+     * The achievable balance could be a little better as we can make extra slots without extra particles,
+     * but then the extra particles would not be in type order.*/
+    for(n = 0; n < 6; n++)
+        finalNumPart += plan->toGetSum.slots[n]- plan->toGoSum.slots[n]- plan->ngarbage[n];
     int failure = 0;
     if(finalNumPart > pman->MaxPart) {
         message(1, "Exchange will not succeed, need %ld particle slots but only have %ld. Current NumPart %ld\n", finalNumPart, pman->MaxPart, pman->NumPart);
