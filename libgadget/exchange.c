@@ -57,7 +57,7 @@ struct ExchangeIterInfo
  * layoutfunc gives the target task of particle p.
 */
 static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, const size_t maxexch, MPI_Comm Comm);
-static int domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, PreExchangeList * preplan, struct part_manager_type * pman, struct slot_info * sinfo, MPI_Comm Comm);
+static int domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, PreExchangeList * preplan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, PreExchangeList * preplan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 
 static ExchangePlan
@@ -140,7 +140,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
 
     /*Structure for building a list of particles that will be exchanged*/
     ExchangePlan plan = domain_init_exchangeplan(Comm);
-    int failure = domain_build_plan(layoutfunc, layout_userdata, &plan, preexch, pman, sman->info, Comm);
+    int failure = domain_build_plan(layoutfunc, layout_userdata, &plan, preexch, pman, sman, Comm);
     /* Done with the pre-exchange list*/
     myfree(preexch->ExchangeList);
     walltime_measure("/Domain/exchange/plan");
@@ -262,17 +262,8 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
             /* Enforce that we have enough slots*/
             if(PI == sman->info[type].size) {
                 sman->info[type].size++;
-                if(sman->info[type].size >= sman->info[type].maxsize) {
-                    int ptype;
-                    int64_t newSlots[6] = {0};
-                    for(ptype = 0; ptype < 6; ptype ++) {
-                        if(!sman->info[ptype].enabled) continue;
-                        newSlots[ptype] = sman->info[ptype].size + plan->toGet[task].slots[ptype] - copyslots[type];
-                    }
-                    /* FIXME This will likely fail here because memory ordering restrictions:
-                    * need to do it before buffer allocation or alloc buffers high.*/
-                    slots_reserve(1, newSlots, sman);
-                }
+                if(sman->info[type].size >= sman->info[type].maxsize)
+                    endrun(6, "Not enough room for slot %d after exchange\n",type);
             }
             size_t elsize = sman->info[type].elsize;
             memcpy((char*) sman->info[type].ptr + PI * elsize, slotexch, elsize);
@@ -489,9 +480,12 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
     preplan->ExchangeList = (int *) myrealloc(preplan->ExchangeList, sizeof(int) * preplan->nexchange);
 }
 
-/*This function populates the toGo and toGet arrays*/
+/*This function populates the various lists for the domain plan.
+ *These are: toGo and toGet arrays (counts).
+ * target_list arrays (positions of particles to send).
+ * garbage_list array (positions of garbage particles by type).*/
 static int
-domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, PreExchangeList * preplan, struct part_manager_type * pman, struct slot_info * sinfo, MPI_Comm Comm)
+domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, PreExchangeList * preplan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm)
 {
     int ptype;
     size_t n;
@@ -525,8 +519,8 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
         toGoThread[tid * plan->NTask + target].slots[ptype]++;
         /* Compute total size being sent on this process*/
         toGoThread[tid * plan->NTask + target].totalbytes += sizeof(struct particle_data);
-        if(sinfo[ptype].enabled){
-            toGoThread[tid * plan->NTask + target].totalbytes += sinfo[ptype].elsize;
+        if(sman->info[ptype].enabled){
+            toGoThread[tid * plan->NTask + target].totalbytes += sman->info[ptype].elsize;
         }
         layouts[n] = target;
     }
@@ -546,18 +540,51 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
     }
     myfree(toGoThread);
 
+    /* Get the send counts from every processor*/
+    MPI_Alltoall(plan->toGo, 1, MPI_TYPE_PLAN_ENTRY, plan->toGet, 1, MPI_TYPE_PLAN_ENTRY, Comm);
     memcpy(&plan->toGoSum, &plan->toGo[0], sizeof(plan->toGoSum));
+    memcpy(&plan->toGetSum, &plan->toGet[0], sizeof(plan->toGetSum));
 
     int rank;
-    int64_t maxbasetogo=-1;
+    int64_t maxbasetoget=-1, maxbasetogo=-1;
     for(rank = 1; rank < plan->NTask; rank ++) {
         /* Direct assignment breaks compilers like icc */
         plan->toGoSum.base += plan->toGo[rank].base;
+        plan->toGetSum.base += plan->toGet[rank].base;
         if(plan->toGo[rank].base > maxbasetogo)
             maxbasetogo = plan->toGo[rank].base;
+        if(plan->toGet[rank].base > maxbasetoget)
+            maxbasetoget = plan->toGet[rank].base;
         for(ptype = 0; ptype < 6; ptype++) {
             plan->toGoSum.slots[ptype] += plan->toGo[rank].slots[ptype];
+            plan->toGetSum.slots[ptype] += plan->toGet[rank].slots[ptype];
         }
+    }
+
+    int64_t maxbasetogomax, maxbasetogetmax, sumtogo;
+    MPI_Reduce(&maxbasetogo, &maxbasetogomax, 1, MPI_INT64, MPI_MAX, 0, Comm);
+    MPI_Reduce(&maxbasetoget, &maxbasetogetmax, 1, MPI_INT64, MPI_MAX, 0, Comm);
+    MPI_Reduce(&plan->toGoSum.base, &sumtogo, 1, MPI_INT64, MPI_SUM, 0, Comm);
+    message(0, "Total particles in flight: %ld Largest togo: %ld, toget %ld\n", sumtogo, maxbasetogomax, maxbasetogetmax);
+
+    int64_t finalNumPart = pman->NumPart;
+    /* finalNumPart calculation is not completely optimal but reflects the current algorithm.
+     * The achievable balance could be a little better as we can make extra slots without extra particles,
+     * but then the extra particles would not be in type order.*/
+    int64_t slots_needed[6] = {0};
+    int need_slot_reserve = 0;
+    for(n = 0; n < 6; n++) {
+        finalNumPart += plan->toGetSum.slots[n]- plan->toGoSum.slots[n]- plan->ngarbage[n];
+        if(sman->info[n].enabled) {
+            slots_needed[n] = sman->info[n].size + plan->toGetSum.slots[n]- plan->toGoSum.slots[n]- plan->ngarbage[n];
+            if(slots_needed[n] >= sman->info[n].maxsize) {
+                need_slot_reserve = 1;
+            }
+        }
+    }
+    /* Make sure we have reserved enough slots to fit the new particles into.*/
+    if(need_slot_reserve) {
+        slots_reserve(1, slots_needed, sman);
     }
 
     /* Garbage lists with enough space for those from this exchange and those already present.*/
@@ -599,38 +626,13 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
 
     myfree(counts);
     myfree(layouts);
-    /* Get the send counts from every processor*/
-    MPI_Alltoall(plan->toGo, 1, MPI_TYPE_PLAN_ENTRY, plan->toGet, 1, MPI_TYPE_PLAN_ENTRY, Comm);
 
-    memcpy(&plan->toGetSum, &plan->toGet[0], sizeof(plan->toGetSum));
-
-    int64_t maxbasetoget=-1;
-    for(rank = 1; rank < plan->NTask; rank ++) {
-        /* Direct assignment breaks compilers like icc */
-        plan->toGetSum.base += plan->toGet[rank].base;
-        if(plan->toGet[rank].base > maxbasetoget)
-            maxbasetoget = plan->toGet[rank].base;
-        for(ptype = 0; ptype < 6; ptype++) {
-            plan->toGetSum.slots[ptype] += plan->toGet[rank].slots[ptype];
-        }
-    }
-
-    int64_t maxbasetogomax, maxbasetogetmax, sumtogo;
-    MPI_Reduce(&maxbasetogo, &maxbasetogomax, 1, MPI_INT64, MPI_MAX, 0, Comm);
-    MPI_Reduce(&maxbasetoget, &maxbasetogetmax, 1, MPI_INT64, MPI_MAX, 0, Comm);
-    MPI_Reduce(&plan->toGoSum.base, &sumtogo, 1, MPI_INT64, MPI_SUM, 0, Comm);
-    message(0, "Total particles in flight: %ld Largest togo: %ld, toget %ld\n", sumtogo, maxbasetogomax, maxbasetogetmax);
-    int64_t finalNumPart = pman->NumPart;
-    /* This is not completely optimal but reflects the current algorithm.
-     * The achievable balance could be a little better as we can make extra slots without extra particles,
-     * but then the extra particles would not be in type order.*/
-    for(n = 0; n < 6; n++)
-        finalNumPart += plan->toGetSum.slots[n]- plan->toGoSum.slots[n]- plan->ngarbage[n];
     int failure = 0;
     if(finalNumPart > pman->MaxPart) {
         message(1, "Exchange will not succeed, need %ld particle slots but only have %ld. Current NumPart %ld\n", finalNumPart, pman->MaxPart, pman->NumPart);
         failure = 1;
     }
+
     /* Make failure collective*/
     failure = MPI_Allreduce(MPI_IN_PLACE, &failure, 1, MPI_INT, MPI_SUM, Comm);
 
