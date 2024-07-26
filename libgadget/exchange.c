@@ -46,6 +46,11 @@ struct ExchangeIterInfo
     int RecvstartTask;
     /* Note that this task should not be received so the condition is > */
     int RecvendTask;
+    /* If we only have one task this iteration, which particles do we send/recv?*/
+    int SendstartPart;
+    int SendendPart;
+    int RecvstartPart;
+    int RecvendPart;
     /* Total transfer this time*/
     size_t togetbytes;
     size_t togobytes;
@@ -289,7 +294,8 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
 }
 
 
-/*Find how many tasks we can transfer in current exchange iteration. TODO: Split requests that need too much.*/
+/*Find how many tasks we can transfer in current exchange iteration.
+ If the current task does not fit in the buffer, work out how many */
 static void
 domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter, const size_t maxexch, size_t freepart)
 {
@@ -358,6 +364,97 @@ domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter,
     return;
 }
 
+/* Post the receives for the current iteration, and fill up a CommBuffer with Irecvs.
+ * Note that receives are posted in reverse order! First the task before this one, then all tasks before that, backwards.
+ * The sends are posted forwards, so that all send/recv pairs are ordered.*/
+static struct CommBuffer
+domain_post_recvs(ExchangePlan * plan, struct ExchangeIterInfo *thisiter, int tag, MPI_Comm Comm)
+{
+    /* First post receives*/
+    struct CommBuffer recvs;
+    alloc_commbuffer(&recvs, plan->NTask, 0);
+    recvs.databuf = mymalloc("recvbuffer",thisiter->togetbytes * sizeof(char));
+
+    size_t displs = 0;
+    int task;
+    for(task=0; task < plan->NTask; task++) {
+        const int recvtask = (thisiter->RecvstartTask - task + plan->NTask) % plan->NTask;
+        if(recvtask == thisiter->RecvendTask)
+            break;
+        MPI_Irecv(recvs.databuf + displs, plan->toGet[recvtask].totalbytes, MPI_BYTE, recvtask, tag, Comm, &recvs.rdata_all[task]);
+        recvs.rqst_task[task] = recvtask;
+        recvs.displs[task] = displs;
+        displs += plan->toGet[recvtask].totalbytes;
+        // message(1, "exch toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, thisiter.togetbytes, recvtask);
+        recvs.nrequest_all ++;
+    }
+    if(displs != thisiter->togetbytes)
+        endrun(3, "Posted receives for %lu bytes expected %lu bytes.\n", displs, thisiter->togetbytes);
+    return recvs;
+}
+
+/* Pack the send buffers for each task and issue ISend requests for them*/
+static struct CommBuffer
+domain_pack_sends(ExchangePlan * plan, struct ExchangeIterInfo *thisiter, struct part_manager_type * pman, struct slots_manager_type * sman, double *tpack, int tag, MPI_Comm Comm)
+{
+    struct CommBuffer sends = {0};
+    alloc_commbuffer(&sends, plan->NTask, 0);
+    sends.databuf = mymalloc("sendbuffer",thisiter->togobytes * sizeof(char));
+    size_t displs = 0;
+    int task;
+    for(task=0; task < plan->NTask; task++) {
+        /* Move the data into the buffer*/
+        const int sendtask = (thisiter->SendstartTask + task) % plan->NTask;
+        if(sendtask == thisiter->SendendTask)
+            break;
+        /* The openmp parallel is done inside exchange_pack_buffer so that we can issue MPI_Isend as soon as possible*/
+        double tstart = second();
+        exchange_pack_buffer(sends.databuf + displs, sendtask, plan, pman, sman);
+        double tend = second();
+        *tpack += timediff(tstart, tend);
+        MPI_Isend(sends.databuf + displs, plan->toGo[sendtask].totalbytes, MPI_BYTE, sendtask, tag, Comm, &sends.rdata_all[task]);
+        sends.rqst_task[task] = sendtask;
+        sends.displs[task] = displs;
+        displs += plan->toGo[sendtask].totalbytes;
+        sends.nrequest_all ++;
+    }
+    if(displs != thisiter->togobytes)
+        endrun(3, "Packed %lu bytes for sending but expected %lu bytes.\n", displs, thisiter->togobytes);
+    return sends;
+}
+
+/* Wait for and unpack the received data into a buffer. We busy-loop until they are done.*/
+static void
+domain_wait_unpack_recv(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, struct CommBuffer * recvs, double *tunpack)
+{
+    /* Now wait for and unpack the receives as they arrive.*/
+    int * completed = ta_malloc("completes", int, recvs->nrequest_all);
+    memset(completed, 0, recvs->nrequest_all * sizeof(int) );
+    int totcomplete = 0, task;
+    // message(3, "reqs: %d\n", recvs.nrequest_all);
+    /* Test each request in turn until it completes*/
+    do {
+        for(task = 0; task < recvs->nrequest_all; task++) {
+            /* If we already completed, no need to test again*/
+            if(completed[task])
+                continue;
+            /* Check for a completed request: note that cleanup is performed if the request is complete.*/
+            MPI_Test(&recvs->rdata_all[task], completed+task, MPI_STATUS_IGNORE);
+            // message(3, "complete : %d task %d\n", completed[task], recvs.rqst_task[task]);
+
+            /* Try the next one*/
+            if (!completed[task])
+                continue;
+            totcomplete++;
+            double tstart2 = second();
+            exchange_unpack_buffer(recvs->databuf+recvs->displs[task], recvs->rqst_task[task], plan, pman, sman);
+            double tend2 = second();
+            *tunpack += timediff(tstart2, tend2);
+        }
+    } while(totcomplete < recvs->nrequest_all);
+    myfree(completed);
+}
+
 static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, const size_t maxexch, MPI_Comm Comm)
 {
     double tpack = 0, tunpack = 0, twait = 0, twait2 = 0;
@@ -370,82 +467,15 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
         thisiter.RecvstartTask = thisiter.RecvendTask;
         domain_check_iter_space(plan, &thisiter, maxexch, pman->MaxPart - pman->NumPart);
         /* First post receives*/
-        struct CommBuffer recvs;
-        alloc_commbuffer(&recvs, plan->NTask, 0);
-        recvs.databuf = mymalloc("recvbuffer",thisiter.togetbytes * sizeof(char));
-
-        size_t displs = 0;
-        int task;
-        for(task=0; task < plan->NTask; task++) {
-
-            const int recvtask = (thisiter.RecvstartTask - task + plan->NTask) % plan->NTask;
-            if(recvtask == thisiter.RecvendTask)
-                break;
-            MPI_Irecv(recvs.databuf + displs, plan->toGet[recvtask].totalbytes, MPI_BYTE, recvtask, tag, Comm, &recvs.rdata_all[task]);
-            recvs.rqst_task[task] = recvtask;
-            recvs.displs[task] = displs;
-            displs += plan->toGet[recvtask].totalbytes;
-            // message(1, "exch toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, thisiter.togetbytes, recvtask);
-            recvs.nrequest_all ++;
-        }
-        if(displs != thisiter.togetbytes)
-            endrun(3, "Posted receives for %lu bytes expected %lu bytes.\n", displs, thisiter.togetbytes);
-
+        struct CommBuffer recvs = domain_post_recvs(plan, &thisiter, tag, Comm);
         /* Now post sends: note that the sends are done in reverse order to the receives.
         * This ensures that partial sends and receives can complete early.*/
-        struct CommBuffer sends;
-        alloc_commbuffer(&sends, plan->NTask, 0);
-        sends.databuf = mymalloc("sendbuffer",thisiter.togobytes * sizeof(char));
-
-        displs = 0;
-        for(task=0; task < plan->NTask; task++) {
-            /* Move the data into the buffer*/
-            const int sendtask = (thisiter.SendstartTask + task) % plan->NTask;
-            if(sendtask == thisiter.SendendTask)
-                break;
-            /* The openmp parallel is done inside exchange_pack_buffer so that we can issue MPI_Isend as soon as possible*/
-            double tstart = second();
-            exchange_pack_buffer(sends.databuf + displs, sendtask, plan, pman, sman);
-            double tend = second();
-            tpack += timediff(tstart, tend);
-            MPI_Isend(sends.databuf + displs, plan->toGo[sendtask].totalbytes, MPI_BYTE, sendtask, tag, Comm, &sends.rdata_all[task]);
-            sends.rqst_task[task] = sendtask;
-            sends.displs[task] = displs;
-            displs += plan->toGo[sendtask].totalbytes;
-            sends.nrequest_all ++;
-        }
-        if(displs != thisiter.togobytes)
-            endrun(3, "Packed %lu bytes for sending but expected %lu bytes.\n", displs, thisiter.togobytes);
-
+        struct CommBuffer sends = domain_pack_sends(plan, &thisiter, pman, sman, &tpack, tag, Comm);
         /* Now wait for and unpack the receives as they arrive.*/
-        int * completed = ta_malloc("completes", int, recvs.nrequest_all);
-        memset(completed, 0, recvs.nrequest_all * sizeof(int) );
-        int totcomplete = 0;
-        // message(3, "reqs: %d\n", recvs.nrequest_all);
-        /* Test each request in turn until it completes*/
         double tstart = second();
-        do {
-            for(task = 0; task < recvs.nrequest_all; task++) {
-                /* If we already completed, no need to test again*/
-                if(completed[task])
-                    continue;
-                /* Check for a completed request: note that cleanup is performed if the request is complete.*/
-                MPI_Test(&recvs.rdata_all[task], completed+task, MPI_STATUS_IGNORE);
-                // message(3, "complete : %d task %d\n", completed[task], recvs.rqst_task[task]);
-
-                /* Try the next one*/
-                if (!completed[task])
-                    continue;
-                totcomplete++;
-                double tstart2 = second();
-                exchange_unpack_buffer(recvs.databuf+recvs.displs[task], recvs.rqst_task[task], plan, pman, sman);
-                double tend2 = second();
-                tunpack += timediff(tstart2, tend2);
-            }
-        } while(totcomplete < recvs.nrequest_all);
-        myfree(completed);
+        domain_wait_unpack_recv(plan, pman, sman, &recvs, &tunpack);
         double tend = second();
-        twait2 += timediff(tstart, tend);;
+        twait2 += timediff(tstart, tend);
         /* Now wait for the sends before we free the buffers*/
         tstart = second();
         MPI_Waitall(sends.nrequest_all, sends.rdata_all, MPI_STATUSES_IGNORE);
@@ -454,7 +484,6 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
         /* Free the buffers*/
         free_commbuffer(&sends);
         free_commbuffer(&recvs);
-
     } while(thisiter.SendendTask != plan->ThisTask || thisiter.RecvendTask != plan->ThisTask );
 
     double timeall = walltime_measure(WALLTIME_IGNORE);
