@@ -229,19 +229,23 @@ exchange_pack_buffer(char * exch, const int task, const size_t StartPart, Exchan
  * If possible a garbage particle of the same type will be used for the new memory,
  * This routine is not parallel.
 */
-static int
-exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman)
+static size_t
+exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, const size_t recvd_bytes)
 {
     char * exchptr = exch;
     int64_t copybase = 0;
-    int64_t copyslots[6] = {0};
-
     int64_t i;
     for(i = 0; i < plan->toGet[task].base; i++)
     {
         /* Extract type*/
         const unsigned int type = ((struct particle_data *) exchptr)->Type;
         int PI = sman->info[type].size;
+        size_t elsize = 0;
+        if(sman->info[type].enabled)
+            elsize = sman->info[type].elsize;
+        /* Stop if we have processed all incoming bytes*/
+        if(exchptr + sizeof(struct particle_data) + elsize - exch > recvd_bytes)
+            break;
         /* Find a garbage place in the particle table*/
         int64_t dest = pman->NumPart;
         if(plan->ngarbage[type] >= 1) {
@@ -281,14 +285,8 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
             }
 #endif
         }
-        copyslots[type]++;
     }
-    if(copybase != plan->toGet[task].base)
-        endrun(3, "Copied %ld particles received from task %d but expected %ld\n", copybase, task, plan->toGet[task].base);
-    for(i = 0; i < 6; i++)
-        if(copyslots[i]!= plan->toGet[task].slots[i])
-            endrun(3, "Copied %ld slots of type %ld received from task %d but expected %ld\n", copyslots[i], i, task, plan->toGet[task].slots[i]);
-    return 0;
+    return copybase;
 }
 
 
@@ -487,13 +485,14 @@ domain_pack_sends(ExchangePlan * plan, struct ExchangeIter *senditer, struct par
 }
 
 /* Wait for and unpack the received data into a buffer. We busy-loop until they are done.*/
-static void
+static size_t
 domain_wait_unpack_recv(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, struct CommBuffer * recvs, double *tunpack)
 {
     /* Now wait for and unpack the receives as they arrive.*/
     int * completed = ta_malloc("completes", int, recvs->nrequest_all);
     memset(completed, 0, recvs->nrequest_all * sizeof(int) );
     int totcomplete = 0, task;
+    size_t recvd = 0;
     // message(3, "reqs: %d\n", recvs.nrequest_all);
     /* Test each request in turn until it completes*/
     do {
@@ -501,21 +500,24 @@ domain_wait_unpack_recv(ExchangePlan * plan, struct part_manager_type * pman, st
             /* If we already completed, no need to test again*/
             if(completed[task])
                 continue;
+            MPI_Status stat;
+            int recvd_bytes;
             /* Check for a completed request: note that cleanup is performed if the request is complete.*/
-            MPI_Test(&recvs->rdata_all[task], completed+task, MPI_STATUS_IGNORE);
+            MPI_Test(&recvs->rdata_all[task], completed+task, &stat);
             // message(3, "complete : %d task %d\n", completed[task], recvs->rqst_task[task]);
-
+            MPI_Get_count(&stat, MPI_BYTE, &recvd_bytes);
             /* Try the next one*/
             if (!completed[task])
                 continue;
             totcomplete++;
             double tstart2 = second();
-            exchange_unpack_buffer(recvs->databuf+recvs->displs[task], recvs->rqst_task[task], plan, pman, sman);
+            recvd += exchange_unpack_buffer(recvs->databuf+recvs->displs[task], recvs->rqst_task[task], plan, pman, sman, recvd_bytes);
             double tend2 = second();
             *tunpack += timediff(tstart2, tend2);
         }
     } while(totcomplete < recvs->nrequest_all);
     myfree(completed);
+    return recvd;
 }
 
 static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, const size_t maxexch, MPI_Comm Comm)
@@ -545,7 +547,9 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
             sends = domain_pack_sends(plan, &senditer, pman, sman, &tpack, tag, Comm);
         /* Now wait for and unpack the receives as they arrive.*/
         double tstart = second();
-        domain_wait_unpack_recv(plan, pman, sman, &recvs, &tunpack);
+        size_t recvd = domain_wait_unpack_recv(plan, pman, sman, &recvs, &tunpack);
+        if(recviter.StartTask == recviter.EndTask)
+            recviter.EndPart = recviter.StartPart + recvd;
         double tend = second();
         twait2 += timediff(tstart, tend);
         /* Now wait for the sends before we free the buffers*/
