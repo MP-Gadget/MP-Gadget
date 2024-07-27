@@ -180,45 +180,39 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
    The format is:
    (base particle data 1 - n)
    (slot data for particle i: may be variable size as not necessarily ordered by type)
-   This routine is openmp-parallel.
- */
-static int
-exchange_pack_buffer(char * exch, const int task, ExchangePlan * const plan, struct part_manager_type * pman, struct slots_manager_type * sman)
+    Returns: size of buffer packed. Writes first not-packed particle to endpart
+   */
+static size_t
+exchange_pack_buffer(char * exch, const int task, const size_t StartPart, ExchangePlan * const plan, struct part_manager_type * pman, struct slots_manager_type * sman, const size_t maxsendexch, size_t * endpart)
 {
-    char * slotexch = exch + plan->toGo[task].base * sizeof(struct particle_data);
-    char * partexch = exch;
+    char * exchptr = exch;
     int64_t copybase = 0;
     int64_t copyslots[6] = {0};
     size_t n;
-    #pragma omp parallel for reduction(+: copybase) reduction(+: copyslots[:6])
-    for(n = 0; n < plan->toGo[task].base; n++)
+    for(n = StartPart; n < plan->toGo[task].base; n++)
     {
         const int i = plan->target_list[task][n];
         /* preparing for export */
-        char * dest;
-        char * slotdest;
         const int type = pman->Base[i].Type;
         size_t elsize = 0;
         if(sman->info[type].enabled)
              elsize = sman->info[type].elsize;
-        /* Ensure each memory location is written to only once.
-         * Needs to be critical because the slot and the particle must be at the same location.*/
-        #pragma omp critical
-        {
-            dest = partexch;
-            partexch += sizeof(struct particle_data);
-            slotdest = slotexch;
-            slotexch += elsize;
+        if(exchptr - exch + sizeof(struct particle_data) + elsize > maxsendexch) {
+            *endpart = n;
+            break;
         }
-        memcpy(dest, pman->Base+i, sizeof(struct particle_data));
+        memcpy(exchptr, pman->Base+i, sizeof(struct particle_data));
+        exchptr += sizeof(struct particle_data);
         if(sman->info[type].enabled) {
-            memcpy(slotdest,(char*) sman->info[type].ptr + pman->Base[i].PI * elsize, elsize);
+            memcpy(exchptr,(char*) sman->info[type].ptr + pman->Base[i].PI * elsize, elsize);
         }
+        exchptr += elsize;
         copybase++;
         copyslots[type]++;
         /* Add this particle to the garbage list so we can unpack something else into it.*/
-        int64_t gslot = atomic_fetch_and_add_64(&plan->ngarbage[type], 1);
+        int64_t gslot = plan->ngarbage[type];
         plan->garbage_list[type][gslot] = i;
+        plan->ngarbage[type]++;
         /* mark the particle for removal. Both secondary and base slots will be marked. */
         slots_mark_garbage(i, pman, sman);
     }
@@ -227,7 +221,7 @@ exchange_pack_buffer(char * exch, const int task, ExchangePlan * const plan, str
     for(n = 0; n < 6; n++)
         if(copyslots[n]!= plan->toGo[task].slots[n])
             endrun(3, "Copied %ld slots of type %ld for send to task %d but expected %ld\n", copyslots[n], n, task, plan->toGo[task].slots[n]);
-    return 0;
+    return exchptr - exch;
 }
 
 /* Take a received buffer and move the particle data back into the particle table.
@@ -237,8 +231,7 @@ exchange_pack_buffer(char * exch, const int task, ExchangePlan * const plan, str
 static int
 exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman)
 {
-    char * slotexch = exch + plan->toGet[task].base * sizeof(struct particle_data);
-    char * partexch = exch;
+    char * exchptr = exch;
     int64_t copybase = 0;
     int64_t copyslots[6] = {0};
 
@@ -246,7 +239,7 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
     for(i = 0; i < plan->toGet[task].base; i++)
     {
         /* Extract type*/
-        const unsigned int type = ((struct particle_data *) partexch)->Type;
+        const unsigned int type = ((struct particle_data *) exchptr)->Type;
         int PI = sman->info[type].size;
         /* Find a garbage place in the particle table*/
         int64_t dest = pman->NumPart;
@@ -264,9 +257,9 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
             if(pman->NumPart > pman->MaxPart)
                 endrun(6, "Not enough room for particles after exchange\n");
         }
-        memcpy(pman->Base+dest, partexch, sizeof(struct particle_data));
+        memcpy(pman->Base+dest, exchptr, sizeof(struct particle_data));
 
-        partexch += sizeof(struct particle_data);
+        exchptr += sizeof(struct particle_data);
         copybase++;
         /* Copy the slot if needed*/
         if(sman->info[type].enabled) {
@@ -277,8 +270,8 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
                     endrun(6, "Not enough room for slot %d after exchange\n",type);
             }
             size_t elsize = sman->info[type].elsize;
-            memcpy((char*) sman->info[type].ptr + PI * elsize, slotexch, elsize);
-            slotexch += elsize;
+            memcpy((char*) sman->info[type].ptr + PI * elsize, exchptr, elsize);
+            exchptr += elsize;
             /* Update the PI to be correct*/
             pman->Base[dest].PI = PI;
 #ifdef DEBUG
@@ -421,7 +414,9 @@ domain_pack_sends(ExchangePlan * plan, struct ExchangeIter *senditer, struct par
             continue;
         /* The openmp parallel is done inside exchange_pack_buffer so that we can issue MPI_Isend as soon as possible*/
         double tstart = second();
-        exchange_pack_buffer(sends.databuf + displs, sendtask, plan, pman, sman);
+        exchange_pack_buffer(sends.databuf + displs, sendtask, 0, plan, pman, sman, senditer->transferbytes, &senditer->EndPart);
+        if(senditer->EndPart > 0)
+            endrun(4, "Expected %ld particles but only packed %lu\n", plan->toGo[sendtask].base, senditer->EndPart);
         double tend = second();
         *tpack += timediff(tstart, tend);
         MPI_Isend(sends.databuf + displs, plan->toGo[sendtask].totalbytes, MPI_BYTE, sendtask, tag, Comm, &sends.rdata_all[task]);
