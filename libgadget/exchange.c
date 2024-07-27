@@ -324,7 +324,7 @@ domain_find_send_iter(ExchangePlan * plan, struct ExchangeIter * senditer,  size
         for(n = 0; n < 6; n++)
             expected_freeslots[n] += plan->toGo[sendtask].slots[n];
     }
-    message(1, "Using %ld bytes to send from %d to %d\n", senditer->transferbytes, senditer->StartTask, senditer->EndTask);
+    // message(1, "Using %ld bytes to send from %d to %d\n", senditer->transferbytes, senditer->StartTask, senditer->EndTask);
     if(senditer->StartTask == senditer->EndTask) {
         senditer->transferbytes = maxsendexch;
     }
@@ -373,7 +373,7 @@ domain_find_recv_iter(ExchangePlan * plan, struct ExchangeIter * recviter, size_
         recviter->transferbytes += plan->toGet[recvtask].totalbytes;
         // message(1, "toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, recviter->togetbytes, recvtask);
     }
-    message(1, "Using %ld bytes to recv from %d to %d\n", recviter->transferbytes, recviter->StartTask, recviter->EndTask);
+    // message(1, "Using %ld bytes to recv from %d to %d\n", recviter->transferbytes, recviter->StartTask, recviter->EndTask);
     if(recviter->StartTask == recviter->EndTask) {
         recviter->transferbytes = maxrecvexch;
     }
