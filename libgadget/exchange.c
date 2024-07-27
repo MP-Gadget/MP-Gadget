@@ -36,24 +36,18 @@ typedef struct {
 } ExchangePlan;
 
 /* Structure to store the tasks that need to be exchanged this iteration*/
-struct ExchangeIterInfo
+struct ExchangeIter
 {
-    /* Start and end of the send tasks for this iteration. Sends start from the current task and move forwards.*/
-    int SendstartTask;
-    /* Note that this task should not be sent so the condition is <*/
-    int SendendTask;
-    /* Start and end of the recv tasks for this iteration. Recv start from before the current task and move backwards.*/
-    int RecvstartTask;
-    /* Note that this task should not be received so the condition is > */
-    int RecvendTask;
+    /* Start and end of the tasks for this iteration. Sends start from the current task and move forwards.
+     * Recvs start from before the current task and move backwards.*/
+    int StartTask;
+    /* Note that this task should not be sent so the condition is < for send and > for recv.*/
+    int EndTask;
     /* If we only have one task this iteration, which particles do we send/recv?*/
-    int SendstartPart;
-    int SendendPart;
-    int RecvstartPart;
-    int RecvendPart;
+    int StartPart;
+    int EndPart;
     /* Total transfer this time*/
-    size_t togetbytes;
-    size_t togobytes;
+    size_t transferbytes;
 };
 
 /*
@@ -108,6 +102,16 @@ void
 domain_set_max_exchange(const size_t maxexch)
 {
     MaxExch = maxexch;
+}
+
+/* Init the exchange iteration. Note that for sends offset is +1 for recvs it is -1*/
+void
+domain_init_exchange_iter(struct ExchangeIter * iter, const int offset, const ExchangePlan * const plan)
+{
+    /* + plan->NTask ensures we get a positive number for offset = -1*/
+    iter->StartTask = (plan->ThisTask + offset + plan->NTask) % plan->NTask;
+    iter->EndTask = (plan->ThisTask + offset + plan->NTask) % plan->NTask;
+    iter->StartPart = 0;
 }
 
 /* Find the amount of space available for the domain exchange.
@@ -294,43 +298,49 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
 }
 
 
-/*Find how many tasks we can transfer in current exchange iteration.
- If the current task does not fit in the buffer, work out how many */
+/*Find how many tasks we can send in current exchange iteration.
+ If the current task does not fit in the buffer, work out how many particles can be sent. */
 static void
-domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter, const size_t maxexch, size_t freepart)
+domain_find_send_iter(ExchangePlan * plan, struct ExchangeIter * senditer,  size_t * expected_freeslots, const size_t maxsendexch)
 {
-    /* Maximum size we need for a single send/recv pair*/
-    size_t maxsize = 0;
-    /* Total size needed for all send/recv pairs*/
-    size_t totalsize = 0;
-    thisiter->togetbytes = 0;
-    thisiter->togobytes = 0;
-    size_t expected_freeslots[6] = {0};
+    senditer->StartTask = senditer->EndTask;
+    /* Total bytes needed to send*/
+    senditer->transferbytes = 0;
     int n;
     for(n = 0 ; n < 6; n++)
         expected_freeslots[n] = plan->ngarbage[n];
     /* First find some data to send. This gives us space in the particle table.*/
     int task;
     for(task = 0; task < plan->NTask; task++) {
-        const int sendtask = (thisiter->SendstartTask + task) % plan->NTask;
-        size_t singleiter = plan->toGo[sendtask].totalbytes;
-        thisiter->SendendTask = sendtask;
-        /*Stop halfway through: half for send, half for recv*/
-        if(totalsize + singleiter > maxexch/2 || sendtask == plan->ThisTask)
+        const int sendtask = (senditer->StartTask + task) % plan->NTask;
+        senditer->EndTask = sendtask;
+        if(senditer->transferbytes + plan->toGo[sendtask].totalbytes > maxsendexch || sendtask == plan->ThisTask)
             break;
-        // message(1, "toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, thisiter->togetbytes, recvtask);
-        totalsize += singleiter;
-        thisiter->togobytes += plan->toGo[sendtask].totalbytes;
+        // message(1, "toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, senditer->togetbytes, recvtask);
+        senditer->transferbytes += plan->toGo[sendtask].totalbytes;
         for(n = 0; n < 6; n++)
             expected_freeslots[n] += plan->toGo[sendtask].slots[n];
-        if(singleiter > maxsize)
-            maxsize = singleiter;
+    }
+    message(1, "Using %ld bytes to send from %d to %d\n", senditer->transferbytes, senditer->StartTask, senditer->EndTask);
+    if(senditer->StartTask == senditer->EndTask) {
+        endrun(5, "Not enough space (%ld) to make progress with send task %d size %ld. FIXME: This should be handled.\n",
+               maxsendexch, senditer->StartTask, plan->toGo[senditer->StartTask].totalbytes);
     }
 
+    return;
+}
+
+/*Find how many tasks we can transfer in current exchange iteration.
+ If the current task does not fit in the buffer, work out how many */
+static void
+domain_find_recv_iter(ExchangePlan * plan, struct ExchangeIter * recviter, size_t freepart, size_t * expected_freeslots, const size_t maxrecvexch)
+{
+    recviter->StartTask = recviter->EndTask;
+    recviter->transferbytes = 0;
+    int task;
     for(task = 0; task < plan->NTask; task++) {
-        const int recvtask = (thisiter->RecvstartTask - task + plan->NTask) % plan->NTask;
-        size_t singleiter = plan->toGet[recvtask].totalbytes;
-        thisiter->RecvendTask = recvtask;
+        const int recvtask = (recviter->StartTask - task + plan->NTask) % plan->NTask;
+        recviter->EndTask = recvtask;
         /*This checks we have enough space in the particle table for each slot*/
         int n;
         for(n = 0; n < 6; n++) {
@@ -346,19 +356,15 @@ domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter,
          * as different ranks may have different particle loads.*/
         if(freepart < 0)
             break;
-        if(totalsize + singleiter > maxexch || recvtask == plan->ThisTask)
+        if(recviter->transferbytes + plan->toGet[recvtask].totalbytes > maxrecvexch || recvtask == plan->ThisTask)
             break;
-        totalsize += singleiter;
-        thisiter->togetbytes += plan->toGet[recvtask].totalbytes;
-        // message(1, "toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, thisiter->togetbytes, recvtask);
-        if(singleiter > maxsize)
-            maxsize = singleiter;
+        recviter->transferbytes += plan->toGet[recvtask].totalbytes;
+        // message(1, "toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, recviter->togetbytes, recvtask);
     }
-    message(1, "Using %ld bytes to send from %d to %d Recv from %d to %d\n", totalsize, thisiter->SendstartTask, thisiter->SendendTask, thisiter->RecvstartTask, thisiter->RecvendTask);
-
-    if(maxsize > maxexch || thisiter->SendstartTask == thisiter->SendendTask || thisiter->RecvstartTask == thisiter->RecvendTask) {
-        endrun(5, "Maxsize %ld > %ld limit. Send from %d to %d. recv from %d to %d. Not enough space to make progress. FIXME: This should be handled.\n",
-               maxsize, maxexch, thisiter->SendstartTask, thisiter->SendendTask, thisiter->RecvstartTask, thisiter->RecvendTask);
+    message(1, "Using %ld bytes to recv from %d to %d\n", recviter->transferbytes, recviter->StartTask, recviter->EndTask);
+    if(recviter->StartTask == recviter->EndTask) {
+        endrun(5, "Not enough space (%ld) to make progress with send task %d size %ld. FIXME: This should be handled.\n",
+               maxrecvexch, recviter->StartTask, plan->toGo[recviter->StartTask].totalbytes);
     }
 
     return;
@@ -368,18 +374,18 @@ domain_check_iter_space(ExchangePlan * plan, struct ExchangeIterInfo * thisiter,
  * Note that receives are posted in reverse order! First the task before this one, then all tasks before that, backwards.
  * The sends are posted forwards, so that all send/recv pairs are ordered.*/
 static struct CommBuffer
-domain_post_recvs(ExchangePlan * plan, struct ExchangeIterInfo *thisiter, int tag, MPI_Comm Comm)
+domain_post_recvs(ExchangePlan * plan, struct ExchangeIter *recviter, int tag, MPI_Comm Comm)
 {
     /* First post receives*/
     struct CommBuffer recvs;
     alloc_commbuffer(&recvs, plan->NTask, 0);
-    recvs.databuf = mymalloc("recvbuffer",thisiter->togetbytes * sizeof(char));
+    recvs.databuf = mymalloc("recvbuffer",recviter->transferbytes * sizeof(char));
 
     size_t displs = 0;
     int task;
     for(task=0; task < plan->NTask; task++) {
-        const int recvtask = (thisiter->RecvstartTask - task + plan->NTask) % plan->NTask;
-        if(recvtask == thisiter->RecvendTask)
+        const int recvtask = (recviter->StartTask - task + plan->NTask) % plan->NTask;
+        if(recvtask == recviter->EndTask)
             break;
         MPI_Irecv(recvs.databuf + displs, plan->toGet[recvtask].totalbytes, MPI_BYTE, recvtask, tag, Comm, &recvs.rdata_all[task]);
         recvs.rqst_task[task] = recvtask;
@@ -388,24 +394,24 @@ domain_post_recvs(ExchangePlan * plan, struct ExchangeIterInfo *thisiter, int ta
         // message(1, "exch toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, thisiter.togetbytes, recvtask);
         recvs.nrequest_all ++;
     }
-    if(displs != thisiter->togetbytes)
-        endrun(3, "Posted receives for %lu bytes expected %lu bytes.\n", displs, thisiter->togetbytes);
+    if(displs != recviter->transferbytes)
+        endrun(3, "Posted receives for %lu bytes expected %lu bytes.\n", displs, recviter->transferbytes);
     return recvs;
 }
 
 /* Pack the send buffers for each task and issue ISend requests for them*/
 static struct CommBuffer
-domain_pack_sends(ExchangePlan * plan, struct ExchangeIterInfo *thisiter, struct part_manager_type * pman, struct slots_manager_type * sman, double *tpack, int tag, MPI_Comm Comm)
+domain_pack_sends(ExchangePlan * plan, struct ExchangeIter *senditer, struct part_manager_type * pman, struct slots_manager_type * sman, double *tpack, int tag, MPI_Comm Comm)
 {
     struct CommBuffer sends = {0};
     alloc_commbuffer(&sends, plan->NTask, 0);
-    sends.databuf = mymalloc("sendbuffer",thisiter->togobytes * sizeof(char));
+    sends.databuf = mymalloc("sendbuffer",senditer->transferbytes * sizeof(char));
     size_t displs = 0;
     int task;
     for(task=0; task < plan->NTask; task++) {
         /* Move the data into the buffer*/
-        const int sendtask = (thisiter->SendstartTask + task) % plan->NTask;
-        if(sendtask == thisiter->SendendTask)
+        const int sendtask = (senditer->StartTask + task) % plan->NTask;
+        if(sendtask == senditer->EndTask)
             break;
         /* The openmp parallel is done inside exchange_pack_buffer so that we can issue MPI_Isend as soon as possible*/
         double tstart = second();
@@ -418,8 +424,8 @@ domain_pack_sends(ExchangePlan * plan, struct ExchangeIterInfo *thisiter, struct
         displs += plan->toGo[sendtask].totalbytes;
         sends.nrequest_all ++;
     }
-    if(displs != thisiter->togobytes)
-        endrun(3, "Packed %lu bytes for sending but expected %lu bytes.\n", displs, thisiter->togobytes);
+    if(displs != senditer->transferbytes)
+        endrun(3, "Packed %lu bytes for sending but expected %lu bytes.\n", displs, senditer->transferbytes);
     return sends;
 }
 
@@ -459,18 +465,18 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
 {
     double tpack = 0, tunpack = 0, twait = 0, twait2 = 0;
     /* determine for each rank how many particles have to be shifted to other ranks */
-    struct ExchangeIterInfo thisiter = {0};
-    thisiter.SendendTask = (plan->ThisTask + 1) % plan->NTask;
-    thisiter.RecvendTask = (plan->ThisTask - 1 + plan->NTask) % plan->NTask;
+    struct ExchangeIter senditer = {0}, recviter = {0};
+    domain_init_exchange_iter(&senditer, 1, plan);
+    domain_init_exchange_iter(&recviter, -1, plan);
     do {
-        thisiter.SendstartTask = thisiter.SendendTask;
-        thisiter.RecvstartTask = thisiter.RecvendTask;
-        domain_check_iter_space(plan, &thisiter, maxexch, pman->MaxPart - pman->NumPart);
+        size_t expected_freeslots[6];
+        domain_find_send_iter(plan, &senditer,  expected_freeslots, maxexch/2);
+        domain_find_recv_iter(plan, &recviter, pman->MaxPart - pman->NumPart, expected_freeslots, maxexch/2);
         /* First post receives*/
-        struct CommBuffer recvs = domain_post_recvs(plan, &thisiter, tag, Comm);
+        struct CommBuffer recvs = domain_post_recvs(plan, &recviter, tag, Comm);
         /* Now post sends: note that the sends are done in reverse order to the receives.
         * This ensures that partial sends and receives can complete early.*/
-        struct CommBuffer sends = domain_pack_sends(plan, &thisiter, pman, sman, &tpack, tag, Comm);
+        struct CommBuffer sends = domain_pack_sends(plan, &senditer, pman, sman, &tpack, tag, Comm);
         /* Now wait for and unpack the receives as they arrive.*/
         double tstart = second();
         domain_wait_unpack_recv(plan, pman, sman, &recvs, &tunpack);
@@ -484,7 +490,7 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
         /* Free the buffers*/
         free_commbuffer(&sends);
         free_commbuffer(&recvs);
-    } while(thisiter.SendendTask != plan->ThisTask || thisiter.RecvendTask != plan->ThisTask );
+    } while(recviter.EndTask != plan->ThisTask || senditer.EndTask != plan->ThisTask );
 
     double timeall = walltime_measure(WALLTIME_IGNORE);
     walltime_add("/Domain/exchange/misc", timeall - (tpack + twait + twait2));
