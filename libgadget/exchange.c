@@ -387,6 +387,9 @@ domain_post_recvs(ExchangePlan * plan, struct ExchangeIter *recviter, int tag, M
         const int recvtask = (recviter->StartTask - task + plan->NTask) % plan->NTask;
         if(recvtask == recviter->EndTask)
             break;
+        /* Skip zero-size receives*/
+        if(plan->toGet[recvtask].totalbytes == 0)
+            continue;
         MPI_Irecv(recvs.databuf + displs, plan->toGet[recvtask].totalbytes, MPI_BYTE, recvtask, tag, Comm, &recvs.rdata_all[task]);
         recvs.rqst_task[task] = recvtask;
         recvs.displs[task] = displs;
@@ -413,6 +416,9 @@ domain_pack_sends(ExchangePlan * plan, struct ExchangeIter *senditer, struct par
         const int sendtask = (senditer->StartTask + task) % plan->NTask;
         if(sendtask == senditer->EndTask)
             break;
+        /* Skip zero-size sends*/
+        if(plan->toGo[sendtask].totalbytes == 0)
+            continue;
         /* The openmp parallel is done inside exchange_pack_buffer so that we can issue MPI_Isend as soon as possible*/
         double tstart = second();
         exchange_pack_buffer(sends.databuf + displs, sendtask, plan, pman, sman);
@@ -446,7 +452,7 @@ domain_wait_unpack_recv(ExchangePlan * plan, struct part_manager_type * pman, st
                 continue;
             /* Check for a completed request: note that cleanup is performed if the request is complete.*/
             MPI_Test(&recvs->rdata_all[task], completed+task, MPI_STATUS_IGNORE);
-            // message(3, "complete : %d task %d\n", completed[task], recvs.rqst_task[task]);
+            // message(3, "complete : %d task %d\n", completed[task], recvs->rqst_task[task]);
 
             /* Try the next one*/
             if (!completed[task])
