@@ -162,7 +162,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     domain_free_exchangeplan(&plan);
 
 #ifdef DEBUG
-    domain_test_id_uniqueness(pman);
+    domain_test_id_uniqueness(pman, Comm);
     slots_check_id_consistency(pman, sman);
 
     if(!failure) {
@@ -779,15 +779,16 @@ mp_order_by_id(const void * data, void * radix, void * arg) {
 }
 
 void
-domain_test_id_uniqueness(struct part_manager_type * pman)
+domain_test_id_uniqueness(struct part_manager_type * pman, MPI_Comm Comm)
 {
-    int64_t i;
+    int64_t i, totnumpart;
     MyIDType *ids;
     int NTask, ThisTask;
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
-    message(0, "Testing ID uniqueness...\n");
+    MPI_Reduce(&pman->NumPart, &totnumpart, 1,MPI_INT64, MPI_SUM, 0, Comm);
+    message(0, "Testing ID uniqueness for %ld particles on %d tasks\n", totnumpart, NTask);
 
     ids = (MyIDType *) mymalloc("ids", pman->NumPart * sizeof(MyIDType));
 
@@ -798,7 +799,7 @@ domain_test_id_uniqueness(struct part_manager_type * pman)
             ids[i] = (MyIDType) -1;
     }
 
-    mpsort_mpi(ids, pman->NumPart, sizeof(MyIDType), mp_order_by_id, 8, NULL, MPI_COMM_WORLD);
+    mpsort_mpi(ids, pman->NumPart, sizeof(MyIDType), mp_order_by_id, 8, NULL, Comm);
 
     /*Remove garbage from the end*/
     int64_t nids = pman->NumPart;
@@ -825,16 +826,16 @@ domain_test_id_uniqueness(struct part_manager_type * pman)
             if(nids > 0) {
                 ptr = ids;
             }
-            MPI_Send(ptr, sizeof(MyIDType), MPI_BYTE, ThisTask + 1, TAG, MPI_COMM_WORLD);
+            MPI_Send(ptr, sizeof(MyIDType), MPI_BYTE, ThisTask + 1, TAG, Comm);
         }
         else if(ThisTask == NTask - 1) {
             MPI_Recv(prev, sizeof(MyIDType), MPI_BYTE,
-                    ThisTask - 1, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    ThisTask - 1, TAG, Comm, MPI_STATUS_IGNORE);
         }
         else if(nids == 0) {
             /* simply pass through whatever we get */
-            MPI_Recv(prev, sizeof(MyIDType), MPI_BYTE, ThisTask - 1, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            MPI_Send(prev, sizeof(MyIDType), MPI_BYTE, ThisTask + 1, TAG, MPI_COMM_WORLD);
+            MPI_Recv(prev, sizeof(MyIDType), MPI_BYTE, ThisTask - 1, TAG, Comm, MPI_STATUS_IGNORE);
+            MPI_Send(prev, sizeof(MyIDType), MPI_BYTE, ThisTask + 1, TAG, Comm);
         }
         else
         {
@@ -842,7 +843,7 @@ domain_test_id_uniqueness(struct part_manager_type * pman)
                     ids+(nids - 1), sizeof(MyIDType), MPI_BYTE,
                     ThisTask + 1, TAG,
                     prev, sizeof(MyIDType), MPI_BYTE,
-                    ThisTask - 1, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    ThisTask - 1, TAG, Comm, MPI_STATUS_IGNORE);
         }
     }
 

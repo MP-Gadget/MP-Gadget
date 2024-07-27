@@ -164,7 +164,7 @@ void domain_decompose_full(DomainDecomp * ddecomp)
         domain_free(ddecomp);
 
 #ifdef DEBUG
-        domain_test_id_uniqueness(PartManager);
+        domain_test_id_uniqueness(PartManager, MPI_COMM_WORLD);
 #endif
         message(0, "Attempting new domain decomposition policy: Topleaves=%d GlobalSort=%d, SubSampleDistance=%d PreSort=%d\n", policies[i].NTopLeaves, domain_params.DomainUseGlobalSorting, policies[i].SubSampleDistance, policies[i].PreSort);
 

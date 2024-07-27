@@ -25,7 +25,7 @@ typedef struct PreExchangeList{
  * MPI_Comm is a communicator for the exchange*/
 int domain_exchange(ExchangeLayoutFunc, const void * layout_userdata, PreExchangeList * preexch, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 /* Uses an MPI aware sort to check that all particle IDs are unique. Used in debugging to catch exchange errors. */
-void domain_test_id_uniqueness(struct part_manager_type * pman);
+void domain_test_id_uniqueness(struct part_manager_type * pman, MPI_Comm Comm);
 /* Set the maximum bytes sent across in a single exchange iteration, so the unit test can exercise the path with multiple exchange iterations.*/
 void domain_set_max_exchange(const size_t maxexch);
 

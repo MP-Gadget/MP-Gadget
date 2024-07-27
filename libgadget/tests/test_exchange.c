@@ -111,7 +111,7 @@ test_exchange(void **state)
 #ifdef DEBUG
     slots_check_id_consistency(PartManager, SlotsManager);
 #endif
-    domain_test_id_uniqueness(PartManager);
+    domain_test_id_uniqueness(PartManager, MPI_COMM_WORLD);
     teardown_particles(state);
     return;
 }
@@ -131,7 +131,7 @@ test_exchange_multiple(void **state)
 #ifdef DEBUG
     slots_check_id_consistency(PartManager, SlotsManager);
 #endif
-    domain_test_id_uniqueness(PartManager);
+    domain_test_id_uniqueness(PartManager, MPI_COMM_WORLD);
     domain_set_max_exchange(2048L*1024L*1024L);
 
     teardown_particles(state);
@@ -151,7 +151,7 @@ test_exchange_zero_slots(void **state)
 #ifdef DEBUG
     slots_check_id_consistency(PartManager, SlotsManager);
 #endif
-    domain_test_id_uniqueness(PartManager);
+    domain_test_id_uniqueness(PartManager, MPI_COMM_WORLD);
 
     teardown_particles(state);
     return;
@@ -170,7 +170,7 @@ test_exchange_with_garbage(void **state)
 
     assert_all_true(!fail);
 
-    domain_test_id_uniqueness(PartManager);
+    domain_test_id_uniqueness(PartManager, MPI_COMM_WORLD);
 #ifdef DEBUG
     slots_check_id_consistency(PartManager, SlotsManager);
 #endif
@@ -207,7 +207,7 @@ test_exchange_uneven(void **state)
 #ifdef DEBUG
     slots_check_id_consistency(PartManager, SlotsManager);
 #endif
-    domain_test_id_uniqueness(PartManager);
+    domain_test_id_uniqueness(PartManager, MPI_COMM_WORLD);
 
     int TotNumPart2;
 
