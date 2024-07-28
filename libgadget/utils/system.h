@@ -121,6 +121,7 @@ struct CommBuffer
     int * rqst_task; /* Array storing task number for each request in rdata_all*/
     MPI_Request * rdata_all; /* Array of requests*/
     int nrequest_all; /* Number of requests that had MPI_Irecv/MPI_ISend called on them*/
+    int totcomplete; /* Number of completed requests*/
 };
 
 /* Allocate/free a commbuffer with space for N tasks.*/
