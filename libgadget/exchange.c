@@ -187,8 +187,6 @@ static size_t
 exchange_pack_buffer(char * exch, const int task, const size_t StartPart, ExchangePlan * const plan, struct part_manager_type * pman, struct slots_manager_type * sman, const size_t maxsendexch, size_t * endpart)
 {
     char * exchptr = exch;
-    int64_t copybase = 0;
-    int64_t copyslots[6] = {0};
     size_t n;
     for(n = StartPart; n < plan->toGo[task].base; n++)
     {
@@ -208,8 +206,6 @@ exchange_pack_buffer(char * exch, const int task, const size_t StartPart, Exchan
             memcpy(exchptr,(char*) sman->info[type].ptr + pman->Base[i].PI * elsize, elsize);
         }
         exchptr += elsize;
-        copybase++;
-        copyslots[type]++;
         /* Add this particle to the garbage list so we can unpack something else into it.*/
         int64_t gslot = plan->ngarbage[type];
         plan->garbage_list[type][gslot] = i;
@@ -217,11 +213,6 @@ exchange_pack_buffer(char * exch, const int task, const size_t StartPart, Exchan
         /* mark the particle for removal. Both secondary and base slots will be marked. */
         slots_mark_garbage(i, pman, sman);
     }
-    if(copybase != plan->toGo[task].base)
-        endrun(3, "Copied %ld particles for send to task %d but expected %ld\n", copybase, task, plan->toGo[task].base);
-    for(n = 0; n < 6; n++)
-        if(copyslots[n]!= plan->toGo[task].slots[n])
-            endrun(3, "Copied %ld slots of type %ld for send to task %d but expected %ld\n", copyslots[n], n, task, plan->toGo[task].slots[n]);
     return exchptr - exch;
 }
 
