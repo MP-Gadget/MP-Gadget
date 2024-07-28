@@ -496,12 +496,12 @@ domain_wait_unpack_recv(ExchangePlan * plan, struct part_manager_type * pman, st
             /* Check for a completed request: note that cleanup is performed if the request is complete.*/
             // message(3, "tt %d complete : %d task %d\n", task, completed[task], recvs->rqst_task[task]);
             MPI_Test(&recvs->rdata_all[task], completed+task, &stat);
-            MPI_Get_count(&stat, MPI_BYTE, &recvd_bytes);
             /* Try the next one*/
             if (!completed[task])
                 continue;
             totcomplete++;
             double tstart2 = second();
+            MPI_Get_count(&stat, MPI_BYTE, &recvd_bytes);
             recvd += exchange_unpack_buffer(recvs->databuf+recvs->displs[task], recvs->rqst_task[task], plan, pman, sman, recvd_bytes);
             double tend2 = second();
             *tunpack += timediff(tstart2, tend2);
