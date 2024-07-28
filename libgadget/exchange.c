@@ -473,37 +473,26 @@ domain_pack_sends(ExchangePlan * plan, struct ExchangeIter *senditer, struct par
 
 /* Wait for and unpack the received data into a buffer. We busy-loop until they are done.*/
 static size_t
-domain_wait_unpack_recv(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, struct CommBuffer * recvs, double *tunpack)
+domain_check_unpack_recv(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, struct CommBuffer * recvs, double *tunpack)
 {
     /* Now wait for and unpack the receives as they arrive.*/
-    int * completed = ta_malloc("completes", int, recvs->nrequest_all);
-    memset(completed, 0, recvs->nrequest_all * sizeof(int) );
-    int totcomplete = 0, task;
+    int flag = 0;
     size_t recvd = 0;
     // message(3, "reqs: %d\n", recvs->nrequest_all);
-    /* Test each request in turn until it completes*/
+    /* Check for a completed request: note that cleanup is performed if the request is complete
+     * and the handle is set to MPI_REQUEST_NULL.
+     * If multiple requests are done, a random request is returned. Loop until no more are complete.*/
     do {
-        for(task = 0; task < recvs->nrequest_all; task++) {
-            /* If we already completed, no need to test again*/
-            if(completed[task])
-                continue;
-            MPI_Status stat;
-            int recvd_bytes;
-            /* Check for a completed request: note that cleanup is performed if the request is complete.*/
-            // message(3, "tt %d complete : %d task %d\n", task, completed[task], recvs->rqst_task[task]);
-            MPI_Test(&recvs->rdata_all[task], completed+task, &stat);
-            /* Try the next one*/
-            if (!completed[task])
-                continue;
-            totcomplete++;
-            double tstart2 = second();
-            MPI_Get_count(&stat, MPI_BYTE, &recvd_bytes);
-            recvd += exchange_unpack_buffer(recvs->databuf+recvs->displs[task], recvs->rqst_task[task], plan, pman, sman, recvd_bytes);
-            double tend2 = second();
-            *tunpack += timediff(tstart2, tend2);
-        }
-    } while(totcomplete < recvs->nrequest_all);
-    myfree(completed);
+        int task, recvd_bytes;
+        MPI_Status stat;
+        MPI_Testany(recvs->nrequest_all, recvs->rdata_all, &task, &flag, &stat);
+        recvs->totcomplete++;
+        double tstart2 = second();
+        MPI_Get_count(&stat, MPI_BYTE, &recvd_bytes);
+        recvd += exchange_unpack_buffer(recvs->databuf+recvs->displs[task], recvs->rqst_task[task], plan, pman, sman, recvd_bytes);
+        double tend2 = second();
+        *tunpack += timediff(tstart2, tend2);
+    } while (recvs->totcomplete < recvs->nrequest_all);
     return recvd;
 }
 
