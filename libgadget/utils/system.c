@@ -596,7 +596,9 @@ void free_commbuffer(struct CommBuffer * buffer)
         myfree(buffer->databuf);
         buffer->databuf = NULL;
     }
-    ta_free(buffer->displs);
-    ta_free(buffer->rqst_task);
-    ta_free(buffer->rdata_all);
+    if(buffer->displs) {
+        ta_free(buffer->displs);
+        ta_free(buffer->rqst_task);
+        ta_free(buffer->rdata_all);
+    }
 }
