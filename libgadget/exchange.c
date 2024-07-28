@@ -319,8 +319,8 @@ domain_find_send_iter(ExchangePlan * plan, struct ExchangeIter * senditer,  size
         senditer->EndTask = sendtask;
         if(senditer->transferbytes + plan->toGo[sendtask].totalbytes > maxsendexch || sendtask == plan->ThisTask)
             break;
-        // message(1, "toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, senditer->togetbytes, recvtask);
         senditer->transferbytes += plan->toGo[sendtask].totalbytes;
+        // message(1, "togo %ld tot %ld send %d\n", plan->toGo[sendtask].totalbytes, senditer->transferbytes, sendtask);
         for(n = 0; n < 6; n++)
             expected_freeslots[n] += plan->toGo[sendtask].slots[n];
     }
@@ -371,7 +371,7 @@ domain_find_recv_iter(ExchangePlan * plan, struct ExchangeIter * recviter, size_
         if(recviter->transferbytes + plan->toGet[recvtask].totalbytes > maxrecvexch || recvtask == plan->ThisTask)
             break;
         recviter->transferbytes += plan->toGet[recvtask].totalbytes;
-        // message(1, "toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, recviter->togetbytes, recvtask);
+        // message(1, "toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, recviter->transferbytes, recvtask);
     }
     // message(1, "Using %ld bytes to recv from %d to %d\n", recviter->transferbytes, recviter->StartTask, recviter->EndTask);
     if(recviter->StartTask == recviter->EndTask) {
@@ -417,11 +417,11 @@ domain_post_recvs(ExchangePlan * plan, struct ExchangeIter *recviter, int tag, M
         /* Skip zero-size receives*/
         if(plan->toGet[recvtask].totalbytes == 0)
             continue;
-        MPI_Irecv(recvs.databuf + displs, plan->toGet[recvtask].totalbytes, MPI_BYTE, recvtask, tag, Comm, &recvs.rdata_all[task]);
-        recvs.rqst_task[task] = recvtask;
-        recvs.displs[task] = displs;
+        MPI_Irecv(recvs.databuf + displs, plan->toGet[recvtask].totalbytes, MPI_BYTE, recvtask, tag, Comm, &recvs.rdata_all[recvs.nrequest_all]);
+        recvs.rqst_task[recvs.nrequest_all] = recvtask;
+        recvs.displs[recvs.nrequest_all] = displs;
         displs += plan->toGet[recvtask].totalbytes;
-        // message(1, "exch toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, thisiter.togetbytes, recvtask);
+        // message(1, "exch toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, recviter->transferbytes, recvtask);
         recvs.nrequest_all ++;
     }
     if(displs != recviter->transferbytes)
@@ -473,9 +473,9 @@ domain_pack_sends(ExchangePlan * plan, struct ExchangeIter *senditer, struct par
             endrun(4, "Expected %ld particles but only packed %lu\n", plan->toGo[sendtask].base, senditer->EndPart);
         double tend = second();
         *tpack += timediff(tstart, tend);
-        MPI_Isend(sends.databuf + displs, plan->toGo[sendtask].totalbytes, MPI_BYTE, sendtask, tag, Comm, &sends.rdata_all[task]);
-        sends.rqst_task[task] = sendtask;
-        sends.displs[task] = displs;
+        MPI_Isend(sends.databuf + displs, plan->toGo[sendtask].totalbytes, MPI_BYTE, sendtask, tag, Comm, &sends.rdata_all[sends.nrequest_all]);
+        sends.rqst_task[sends.nrequest_all] = sendtask;
+        sends.displs[sends.nrequest_all] = displs;
         displs += plan->toGo[sendtask].totalbytes;
         sends.nrequest_all ++;
     }
@@ -493,7 +493,7 @@ domain_wait_unpack_recv(ExchangePlan * plan, struct part_manager_type * pman, st
     memset(completed, 0, recvs->nrequest_all * sizeof(int) );
     int totcomplete = 0, task;
     size_t recvd = 0;
-    // message(3, "reqs: %d\n", recvs.nrequest_all);
+    // message(3, "reqs: %d\n", recvs->nrequest_all);
     /* Test each request in turn until it completes*/
     do {
         for(task = 0; task < recvs->nrequest_all; task++) {
@@ -503,8 +503,8 @@ domain_wait_unpack_recv(ExchangePlan * plan, struct part_manager_type * pman, st
             MPI_Status stat;
             int recvd_bytes;
             /* Check for a completed request: note that cleanup is performed if the request is complete.*/
+            // message(3, "tt %d complete : %d task %d\n", task, completed[task], recvs->rqst_task[task]);
             MPI_Test(&recvs->rdata_all[task], completed+task, &stat);
-            // message(3, "complete : %d task %d\n", completed[task], recvs->rqst_task[task]);
             MPI_Get_count(&stat, MPI_BYTE, &recvd_bytes);
             /* Try the next one*/
             if (!completed[task])
