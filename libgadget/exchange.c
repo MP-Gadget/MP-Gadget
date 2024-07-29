@@ -197,7 +197,6 @@ exchange_pack_buffer(char * exch, const int task, const size_t StartPart, Exchan
         if(sman->info[type].enabled)
              elsize = sman->info[type].elsize;
         if(exchptr - exch + sizeof(struct particle_data) + elsize > maxsendexch) {
-            *endpart = n;
             break;
         }
         memcpy(exchptr, pman->Base+i, sizeof(struct particle_data));
@@ -213,6 +212,7 @@ exchange_pack_buffer(char * exch, const int task, const size_t StartPart, Exchan
         /* mark the particle for removal. Both secondary and base slots will be marked. */
         slots_mark_garbage(i, pman, sman);
     }
+    *endpart = n;
     return exchptr - exch;
 }
 
@@ -287,7 +287,7 @@ static void
 domain_find_send_iter(ExchangePlan * plan, struct ExchangeIter * senditer,  size_t * expected_freeslots, const size_t maxsendexch)
 {
     /* Last loop was a subtask*/
-    if(senditer->EndPart > 0) {
+    if(senditer->EndPart > 0 && senditer->EndPart < plan->toGo[senditer->StartTask].base) {
         senditer->StartPart = senditer->EndPart;
         return;
     }
@@ -324,7 +324,7 @@ static void
 domain_find_recv_iter(ExchangePlan * plan, struct ExchangeIter * recviter, size_t freepart, size_t * expected_freeslots, const size_t maxrecvexch)
 {
     /* Last loop was a subtask*/
-    if(recviter->EndPart > 0) {
+    if(recviter->EndPart > 0 && recviter->EndPart < plan->toGet[recviter->StartTask].base) {
         recviter->StartPart = recviter->EndPart;
         return;
     }
@@ -447,7 +447,7 @@ domain_pack_sends(ExchangePlan * plan, struct CommBuffer * sends, struct Exchang
         /* The openmp parallel is done inside exchange_pack_buffer so that we can issue MPI_Isend as soon as possible*/
         double tstart = second();
         exchange_pack_buffer(sends->databuf + displs, sendtask, 0, plan, pman, sman, senditer->transferbytes, &senditer->EndPart);
-        if(senditer->EndPart > 0)
+        if(senditer->EndPart < plan->toGo[sendtask].base)
             endrun(4, "Expected %ld particles but only packed %lu\n", plan->toGo[sendtask].base, senditer->EndPart);
         double tend = second();
         *tpack += timediff(tstart, tend);
@@ -558,11 +558,14 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
                 if(recviter.StartTask == recviter.EndTask) {
                     recviter.EndPart = recviter.StartPart + recvd;
                     /* Check whether this was the final part of a task, in which case move to next task.*/
-                    if(recviter.EndPart == plan->toGo[recviter.StartTask].base) {
+                    if(recviter.EndPart == plan->toGet[recviter.StartTask].base) {
                         recviter.EndPart = 0;
                         recviter.StartPart = 0;
-                        recviter.EndTask ++;
+                        recviter.EndTask = (recviter.EndTask - 1 + plan->NTask) % plan->NTask;
+                        message(2, "Finished recv task %d sp %ld ep %ld end task %d\n", recviter.StartTask, recviter.StartPart, recviter.EndPart, recviter.EndTask);
                     }
+                    if(recviter.EndPart > plan->toGet[recviter.StartTask].base)
+                        endrun(5, "Received %ld particles from task %d more than %ld expected\n", recviter.EndPart, recviter.StartTask, plan->toGet[recviter.StartTask].base);
                 }
             }
         }
@@ -577,7 +580,7 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
             if(senditer.StartTask == senditer.EndTask && senditer.EndPart == plan->toGo[senditer.StartTask].base) {
                 senditer.EndPart = 0;
                 senditer.StartPart = 0;
-                senditer.EndTask ++;
+                senditer.EndTask = (senditer.EndTask+1) % plan->NTask;
             }
         }
         tend = second();
