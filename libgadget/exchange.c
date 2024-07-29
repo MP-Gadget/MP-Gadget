@@ -554,7 +554,6 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
             size_t recvd = domain_check_unpack_recv(plan, pman, sman, &recvs, &tunpack);
             if(recvs.totcomplete == recvs.nrequest_all) {
                 no_recvs_pending = 1;
-                recvs.totcomplete = 0;
                 if(recviter.StartTask == recviter.EndTask) {
                     recviter.EndPart = recviter.StartPart + recvd;
                     /* Check whether this was the final part of a task, in which case move to next task.*/
@@ -573,11 +572,10 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
         twait2 += timediff(tstart, tend);
         /* Now wait for the sends before we free the buffers*/
         tstart = second();
-        if(!no_sends_pending)
+        if(!no_sends_pending) {
             no_sends_pending = domain_check_sends(&sends);
-        if(no_sends_pending) {
             /* Last loop was the final part of a task, need to reset and do this again. At the end of the loop */
-            if(senditer.StartTask == senditer.EndTask && senditer.EndPart == plan->toGo[senditer.StartTask].base) {
+            if(no_sends_pending && senditer.StartTask == senditer.EndTask && senditer.EndPart == plan->toGo[senditer.StartTask].base) {
                 senditer.EndPart = 0;
                 senditer.StartPart = 0;
                 senditer.EndTask = (senditer.EndTask+1) % plan->NTask;
