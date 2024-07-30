@@ -190,6 +190,8 @@ exchange_pack_buffer(char * exch, const int task, const size_t StartPart, Exchan
     int64_t n;
     for(n = StartPart; n < plan->toGo[task].base; n++)
     {
+        if(!plan->target_list[task])
+            endrun(4, "target list not allocated for task %d with %ld togo", task, plan->toGo[task].base);
         const int i = plan->target_list[task][n];
         /* preparing for export */
         const int type = pman->Base[i].Type;
