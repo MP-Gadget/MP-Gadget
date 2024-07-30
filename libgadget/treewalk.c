@@ -66,6 +66,8 @@ ev_init_thread(TreeWalk * const tw, LocalTreeWalk * lv)
     lv->minNinteractions = 1L<<45;
     lv->Ninteractions = 0;
     lv->Nexport = 0;
+    lv->NThisParticleExport = 0;
+    lv->nodelistindex = 0;
     if(tw->ExportTable_thread)
         lv->DataIndexTable = tw->ExportTable_thread[thread_id];
     else
