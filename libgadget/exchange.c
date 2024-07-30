@@ -44,8 +44,8 @@ struct ExchangeIter
     /* Note that this task should not be sent so the condition is < for send and > for recv.*/
     int EndTask;
     /* If we only have one task this iteration, which particles do we send/recv?*/
-    size_t StartPart;
-    size_t EndPart;
+    int64_t StartPart;
+    int64_t EndPart;
     /* Total transfer this time*/
     size_t transferbytes;
 };
@@ -184,10 +184,10 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     Returns: size of buffer packed. Writes first not-packed particle to endpart
    */
 static size_t
-exchange_pack_buffer(char * exch, const int task, const size_t StartPart, ExchangePlan * const plan, struct part_manager_type * pman, struct slots_manager_type * sman, const size_t maxsendexch, size_t * endpart)
+exchange_pack_buffer(char * exch, const int task, const size_t StartPart, ExchangePlan * const plan, struct part_manager_type * pman, struct slots_manager_type * sman, const size_t maxsendexch, int64_t * endpart)
 {
     char * exchptr = exch;
-    size_t n;
+    int64_t n;
     for(n = StartPart; n < plan->toGo[task].base; n++)
     {
         const int i = plan->target_list[task][n];
@@ -284,7 +284,7 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
 /*Find how many tasks we can send in current exchange iteration.
  If the current task does not fit in the buffer, work out how many particles can be sent. */
 static void
-domain_find_send_iter(ExchangePlan * plan, struct ExchangeIter * senditer,  size_t * expected_freeslots, const size_t maxsendexch)
+domain_find_send_iter(ExchangePlan * plan, struct ExchangeIter * senditer,  int64_t * expected_freeslots, const size_t maxsendexch)
 {
     /* Last loop was a subtask*/
     if(senditer->StartTask == senditer->EndTask && senditer->EndPart > 0 && senditer->EndPart < plan->toGo[senditer->StartTask].base) {
@@ -321,7 +321,7 @@ domain_find_send_iter(ExchangePlan * plan, struct ExchangeIter * senditer,  size
 /*Find how many tasks we can transfer in current exchange iteration.
  If the current task does not fit in the buffer, work out how many */
 static void
-domain_find_recv_iter(ExchangePlan * plan, struct ExchangeIter * recviter, size_t freepart, size_t * expected_freeslots, const size_t maxrecvexch)
+domain_find_recv_iter(ExchangePlan * plan, struct ExchangeIter * recviter, int64_t freepart, int64_t * expected_freeslots, const size_t maxrecvexch)
 {
     /* Last loop was a subtask*/
     if(recviter->StartTask == recviter->EndTask && recviter->EndPart > 0 && recviter->EndPart < plan->toGet[recviter->StartTask].base) {
@@ -509,10 +509,8 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
     /* Flags when any pending sends or recvs are finished, so we can do more*/
     int no_sends_pending = 1, no_recvs_pending = 1;
     /* How many slots will we have available for new particles due to sends?*/
-    size_t expected_freeslots[6];
-    int n;
-    for(n = 0 ; n < 6; n++)
-        expected_freeslots[n] = plan->ngarbage[n];
+    int64_t expected_freeslots[6];
+    memcpy(expected_freeslots, plan->ngarbage, 6 * sizeof(plan->ngarbage[0]));
     /* determine for each rank how many particles have to be shifted to other ranks */
     struct ExchangeIter senditer = {0}, recviter = {0};
     /* CommBuffers. init zero ensures no requests stored*/
