@@ -221,7 +221,7 @@ exchange_pack_buffer(char * exch, const int task, const size_t StartPart, Exchan
  * This routine is not parallel.
 */
 static size_t
-exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, const size_t recvd_bytes)
+exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, const int64_t recvd_bytes)
 {
     char * exchptr = exch;
     int64_t copybase = 0;
@@ -231,7 +231,7 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
         /* Extract type*/
         const unsigned int type = ((struct particle_data *) exchptr)->Type;
         int PI = sman->info[type].size;
-        size_t elsize = 0;
+        int64_t elsize = 0;
         if(sman->info[type].enabled)
             elsize = sman->info[type].elsize;
         /* Stop if we have processed all incoming bytes*/
@@ -265,7 +265,6 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
                 if(sman->info[type].size >= sman->info[type].maxsize)
                     endrun(6, "Not enough room for slot %d after exchange\n",type);
             }
-            size_t elsize = sman->info[type].elsize;
             memcpy((char*) sman->info[type].ptr + PI * elsize, exchptr, elsize);
             exchptr += elsize;
             /* Update the PI to be correct*/
@@ -687,16 +686,17 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
     }
 
     /*Do the sum*/
-    for(n = 0; n < omp_get_max_threads(); n++)
+    int tid;
+    for(tid = 0; tid < omp_get_max_threads(); tid++)
     {
         int target;
         #pragma omp parallel for
         for(target = 0; target < plan->NTask; target++) {
-            plan->toGo[target].base += toGoThread[n * plan->NTask + target].base;
+            plan->toGo[target].base += toGoThread[tid * plan->NTask + target].base;
             int i;
             for(i = 0; i < 6; i++)
-                plan->toGo[target].slots[i] += toGoThread[n * plan->NTask + target].slots[i];
-            plan->toGo[target].totalbytes += toGoThread[n * plan->NTask + target].totalbytes;
+                plan->toGo[target].slots[i] += toGoThread[tid * plan->NTask + target].slots[i];
+            plan->toGo[target].totalbytes += toGoThread[tid * plan->NTask + target].totalbytes;
         }
     }
     myfree(toGoThread);
@@ -770,7 +770,7 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
         }
         plan->target_list[target] = mymalloc("exchangelist",plan->toGo[target].base * sizeof(int));
     }
-    size_t * counts = ta_malloc("counts", size_t, plan->NTask);
+    int64_t * counts = ta_malloc("counts", int64_t, plan->NTask);
     memset(counts, 0, sizeof(counts[0]) * plan->NTask);
     for(n = 0; n < preplan->nexchange; n++) {
         const int target = layouts[n];
