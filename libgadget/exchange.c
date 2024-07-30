@@ -238,7 +238,7 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
         if(exchptr + sizeof(struct particle_data) + elsize - exch > recvd_bytes)
             break;
         /* Find a garbage place in the particle table*/
-        int64_t dest = pman->NumPart;
+        int64_t dest;
         if(plan->ngarbage[type] >= 1) {
             dest = plan->garbage_list[type][plan->ngarbage[type]-1];
             /* Copy PI so it is not over-written*/
@@ -510,6 +510,9 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
     int no_sends_pending = 1, no_recvs_pending = 1;
     /* How many slots will we have available for new particles due to sends?*/
     size_t expected_freeslots[6];
+    int n;
+    for(n = 0 ; n < 6; n++)
+        expected_freeslots[n] = plan->ngarbage[n];
     /* determine for each rank how many particles have to be shifted to other ranks */
     struct ExchangeIter senditer = {0}, recviter = {0};
     /* CommBuffers. init zero ensures no requests stored*/
