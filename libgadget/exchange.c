@@ -551,6 +551,8 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
     domain_init_exchange_iter(&recviter, -1, plan);
     walltime_measure("/Domain/exchange/misc");
 
+    double tstartloop = second();
+    int debugprint = 0;
     /* Loop. There is no blocking inside this loop. We keep track of the completion status
      * of the send and receives so we can do more the moment a buffer is free*/
     do {
@@ -616,6 +618,18 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
             // if(no_sends_pending)
                 // message(2, "Finished send task %d sp %ld ep %ld end task %d\n", senditer.StartTask, senditer.StartPart, senditer.EndPart, senditer.EndTask);
         }
+        double tendloop = second();
+        /* This checks for a deadlock so the loop does not run forever!
+         * We let it run for a while because the big simulations can take a while to exchange.
+         * ASTRID is 82 seconds for the initial balance.*/
+        if(tendloop - tstartloop - tpack - tunpack > 160 && debugprint == 0) {
+            message(1, "Exchange loop stuck for > 160 seconds: sends pending %d recvs pending %d (complete %d) send start task %d send end task %d recv start task %d recv end task %d\n",
+                    (!no_sends_pending)*sends.nrequest_all, (!no_recvs_pending)*recvs.nrequest_all, (!no_recvs_pending)*recvs.totcomplete, senditer.StartTask, senditer.EndTask, recviter.StartTask, recviter.EndTask);
+            debugprint = 1;
+        }
+        if(tendloop - tstartloop - tpack - tunpack > 500)
+            endrun(1, "Exchange loop stuck for > 160 seconds: sends pending %d recvs pending %d (complete %d) send start task %d send end task %d recv start task %d recv end task %d\n",
+                    (!no_sends_pending)*sends.nrequest_all, (!no_recvs_pending)*recvs.nrequest_all, (!no_recvs_pending)*recvs.totcomplete, senditer.StartTask, senditer.EndTask, recviter.StartTask, recviter.EndTask);
     } while(!no_sends_pending || !no_recvs_pending || recviter.EndTask != plan->ThisTask || senditer.EndTask != plan->ThisTask );
 
     free_commbuffer(&sends);
