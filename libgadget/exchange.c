@@ -214,6 +214,7 @@ exchange_pack_buffer(char * exch, const int task, const size_t StartPart, Exchan
         /* mark the particle for removal. Both secondary and base slots will be marked. */
         slots_mark_garbage(i, pman, sman);
     }
+    // message(4, "after pack for task %d ngarbage %ld %ld %ld\n", task, plan->ngarbage[0], plan->ngarbage[1], plan->ngarbage[2]);
     *endpart = n;
     return exchptr - exch;
 }
@@ -278,6 +279,7 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
 #endif
         }
     }
+    // message(4, "after unpack ngarbage %ld %ld %ld\n", plan->ngarbage[0], plan->ngarbage[1], plan->ngarbage[2]);
     return copybase;
 }
 
@@ -290,6 +292,7 @@ domain_find_send_iter(ExchangePlan * plan, struct ExchangeIter * senditer,  int6
     /* Last loop was a subtask*/
     if(senditer->StartTask == senditer->EndTask && senditer->EndPart > 0 && senditer->EndPart < plan->toGo[senditer->StartTask].base) {
         senditer->StartPart = senditer->EndPart;
+        // message(5, "SendIter fastreturn: startpart is now %ld end %ld togo %ld\n", senditer->StartPart, senditer->EndPart, plan->toGo[senditer->StartTask].base);
         return;
     }
     senditer->StartTask = senditer->EndTask;
@@ -458,6 +461,7 @@ domain_pack_sends(ExchangePlan * plan, struct CommBuffer * sends, struct Exchang
         displs += plan->toGo[sendtask].totalbytes;
         sends->nrequest_all ++;
     }
+    // message(3, "Packed sends for task %d to %d nrequest %d\n", senditer->StartTask, senditer->EndTask, sends->nrequest_all);
     if(displs != senditer->transferbytes)
         endrun(3, "Packed %lu bytes for sending but expected %lu bytes.\n", displs, senditer->transferbytes);
     return;
@@ -487,12 +491,15 @@ domain_check_unpack_recv(ExchangePlan * plan, struct part_manager_type * pman, s
     do {
         int task, recvd_bytes;
         MPI_Status stat;
+        // message(3, "reqs: %d rdata_all %p\n", recvs->nrequest_all, recvs->rdata_all);
         MPI_Testany(recvs->nrequest_all, recvs->rdata_all, &task, &flag, &stat);
         if(!flag)
             break;
         recvs->totcomplete++;
         double tstart2 = second();
         MPI_Get_count(&stat, MPI_BYTE, &recvd_bytes);
+        if(task >= recvs->nrequest_all)
+            endrun(5, "Bad task %d nreq %d rdata_all %p\n", task, recvs->nrequest_all, recvs->rdata_all);
         if(recvd_bytes == 0)
             endrun(4, "Testany received zero bytes, should not happen! flag %d task %d complete %d nrequest %d\n", flag, task, recvs->totcomplete, recvs->nrequest_all);
         // message(1, "Testany flag %d task %d bytes %d\n", flag, task, recvd_bytes);
@@ -582,8 +589,9 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
                 senditer.EndPart = 0;
                 senditer.StartPart = 0;
                 senditer.EndTask = (senditer.EndTask+1) % plan->NTask;
-                // message(2, "Finished send task %d sp %ld ep %ld end task %d\n", senditer.StartTask, senditer.StartPart, senditer.EndPart, senditer.EndTask);
             }
+            // if(no_sends_pending)
+                // message(2, "Finished send task %d sp %ld ep %ld end task %d\n", senditer.StartTask, senditer.StartPart, senditer.EndPart, senditer.EndTask);
         }
         tend = second();
         twait += timediff(tstart, tend);
@@ -687,6 +695,8 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
         layouts[n] = target;
     }
 
+    // message(4, "ngarbage %ld %ld %ld\n", plan->ngarbage[0], plan->ngarbage[1], plan->ngarbage[2]);
+
     /*Do the sum*/
     int tid;
     for(tid = 0; tid < omp_get_max_threads(); tid++)
@@ -724,6 +734,7 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
         }
     }
 
+    // message(1, "Particles togo: %ld, toget %ld\n", plan->toGoSum.base, plan->toGetSum.base);
     int64_t maxbasetogomax, maxbasetogetmax, sumtogo;
     MPI_Reduce(&maxbasetogo, &maxbasetogomax, 1, MPI_INT64, MPI_MAX, 0, Comm);
     MPI_Reduce(&maxbasetoget, &maxbasetogetmax, 1, MPI_INT64, MPI_MAX, 0, Comm);
@@ -781,10 +792,12 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
             continue;
         plan->target_list[target][counts[target]] = preplan->ExchangeList[n];
         counts[target]++;
+        if(counts[target] > plan->toGo[target].base)
+            endrun(5, "Corruption in target list n %lu target %d count %ld togo %ld nexchange %ld\n", n, target, counts[target], plan->toGo[target].base, preplan->nexchange);
     }
     for(target = 0; target < plan->NTask; target++) {
         if(counts[target] != plan->toGo[target].base)
-            endrun(1, "Expected %lu in target list for task %d from plan but got %lu\n", counts[target], target, plan->toGo[target].base);
+            endrun(1, "Expected %ld in target list for task %d from plan but got %ld layout %d\n", plan->toGo[target].base, target, counts[target], layouts[0]);
     }
 
     myfree(counts);
