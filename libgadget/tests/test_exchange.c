@@ -139,6 +139,28 @@ test_exchange_multiple(void **state)
 }
 
 static void
+test_exchange_smallbuffer(void **state)
+{
+    int64_t newSlots[6] = {NUMPART1, NUMPART1, NUMPART1, NUMPART1, NUMPART1, NUMPART1};
+
+    setup_particles(newSlots);
+
+    domain_set_max_exchange(1024L);
+
+    int fail = domain_exchange(&test_exchange_layout_func, NULL, NULL, PartManager, SlotsManager,MPI_COMM_WORLD);
+
+    assert_all_true(!fail);
+#ifdef DEBUG
+    slots_check_id_consistency(PartManager, SlotsManager);
+#endif
+    domain_test_id_uniqueness(PartManager, MPI_COMM_WORLD);
+    domain_set_max_exchange(2048L*1024L*1024L);
+
+    teardown_particles(state);
+    return;
+}
+
+static void
 test_exchange_zero_slots(void **state)
 {
     int64_t newSlots[6] = {NUMPART1, 0, NUMPART1, 0, NUMPART1, 0};
@@ -236,6 +258,7 @@ int main(void) {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_exchange),
         cmocka_unit_test(test_exchange_multiple),
+        cmocka_unit_test(test_exchange_smallbuffer),
         cmocka_unit_test(test_exchange_with_garbage),
         cmocka_unit_test(test_exchange_zero_slots),
         cmocka_unit_test(test_exchange_uneven),
