@@ -287,7 +287,7 @@ static void
 domain_find_send_iter(ExchangePlan * plan, struct ExchangeIter * senditer,  size_t * expected_freeslots, const size_t maxsendexch)
 {
     /* Last loop was a subtask*/
-    if(senditer->EndPart > 0 && senditer->EndPart < plan->toGo[senditer->StartTask].base) {
+    if(senditer->StartTask == senditer->EndTask && senditer->EndPart > 0 && senditer->EndPart < plan->toGo[senditer->StartTask].base) {
         senditer->StartPart = senditer->EndPart;
         return;
     }
@@ -324,7 +324,7 @@ static void
 domain_find_recv_iter(ExchangePlan * plan, struct ExchangeIter * recviter, size_t freepart, size_t * expected_freeslots, const size_t maxrecvexch)
 {
     /* Last loop was a subtask*/
-    if(recviter->EndPart > 0 && recviter->EndPart < plan->toGet[recviter->StartTask].base) {
+    if(recviter->StartTask == recviter->EndTask && recviter->EndPart > 0 && recviter->EndPart < plan->toGet[recviter->StartTask].base) {
         recviter->StartPart = recviter->EndPart;
         return;
     }
