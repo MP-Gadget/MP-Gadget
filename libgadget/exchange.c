@@ -767,9 +767,9 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
             plan->garbage_list[n] = NULL;
             continue;
         }
-        plan->garbage_list[n] = (int *) mymalloc("garbage",sizeof(int) * (plan->toGoSum.slots[n] + plan->ngarbage[n]));
+        plan->garbage_list[n] = (int *) mymalloc("garbage",sizeof(int) * (plan->toGoSum.slots[n] + plan->ngarbage[n]+1));
         /* Copy over the existing garbage*/
-        memcpy(plan->garbage_list[n], &tmp_garbage_list[n * preplan->ngarbage], sizeof(plan->garbage_list[n][0])* plan->ngarbage[n]);
+        memcpy(plan->garbage_list[n], &tmp_garbage_list[n * preplan->ngarbage], sizeof(int)* plan->ngarbage[n]);
     }
     myfree(tmp_garbage_list);
 
@@ -781,7 +781,7 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
             plan->target_list[target] = NULL;
             continue;
         }
-        plan->target_list[target] = mymalloc("exchangelist",plan->toGo[target].base * sizeof(int));
+        plan->target_list[target] = mymalloc("exchangelist",(plan->toGo[target].base+1) * sizeof(int));
     }
     int64_t * counts = ta_malloc("counts", int64_t, plan->NTask);
     memset(counts, 0, sizeof(counts[0]) * plan->NTask);
