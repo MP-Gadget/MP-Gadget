@@ -11,6 +11,34 @@
 #include "utils.h"
 #include "utils/mpsort.h"
 
+/* New Exchange Algorithm:
+ * We send a buffer of particle and slot data in a single point to point MPI request to from each process to each other process.
+ * Alltoallv is avoided and MPI_requests are done as soon as the buffer is packed. Free slots are explicitly kept track of so
+ * that incoming data can slot directly into a garbage slot.
+ * The main loop is non-blocking: it packs up sends and receives and then busy-loops, checking for either sends or receives to be done.
+ * If one of them is done then it packs up more sends and receives until none are available.
+ *
+ * Algorithm:
+    - Work out desired send-receive number counts and corresponding bytes.
+    - Do alltoall for send-receive counts (this is the only sync point!)
+    - Busy-loop while there is data to send or receive or a pending ISend/IRecv.
+        - Pack up sends in half the exchange space and ISend. This makes extra space in the particle table.
+        - Irecv for receives into the other half.
+        - If there is not enough space for all data to a single task (either packing space or free slots in the particle table),
+          just do part of a single task. This decision is usually collective because packing space is collective. However, it is not
+          important because IRecv will happily accept less data than expected. As long as we are expecting something, it doesn't matter if less is sent.
+        - Check the completion of IRecvs and unpack. The send buffer goes directly into a garbage slot for the right particle type, ensuring
+          that the particles are still ordered by type.
+        - Check the completion of sends.
+    This does not block because the sends cannot block the recvs (and vice versa). Also the sends and recvs are ordered:
+    sends are done 'forwards' to the task 1 in front of the current task and receives are done 'backwards' to the task 1 before the current task.
+    Because each send is paired with a receive no deadlock is possible.
+
+    If we are blocked on a recv, we just do more sends (always allowed as we have separate space allocations).
+    If we are blocked on a send, and we have space in the particle table (should always be the case as we made space for the blocked send), we do a recv.
+ */
+
+
 /*Number of structure types for particles*/
 typedef struct {
     size_t totalbytes;
