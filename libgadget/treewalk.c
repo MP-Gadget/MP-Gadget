@@ -592,11 +592,7 @@ void wait_commbuffer(struct CommBuffer * buffer)
 
 static struct CommBuffer ev_secondary(struct CommBuffer * imports, struct ImpExpCounts* counts, TreeWalk * tw)
 {
-    int i;
-    int * completed = ta_malloc("completes", int, imports->nrequest_all);
-    memset(completed, 0, imports->nrequest_all * sizeof(int) );
     struct CommBuffer res_imports = {0};
-
     alloc_commbuffer(&res_imports, counts->NTask, 1);
     res_imports.databuf = (char *) mymalloc2("ImportResult", counts->Nimport * tw->result_type_elsize);
 
@@ -604,52 +600,45 @@ static struct CommBuffer ev_secondary(struct CommBuffer * imports, struct ImpExp
     MPI_Type_contiguous(tw->result_type_elsize, MPI_BYTE, &type);
     MPI_Type_commit(&type);
 
-    /* Build the map between requests and task number (some tasks were skipped because we have zero sends).*/
     int tot_completed = 0;
     /* Test each request in turn until it completes*/
-    do {
-        for(i = 0; i < imports->nrequest_all; i++) {
-            /* If we already completed, no need to test again*/
-            if(completed[i])
-                continue;
-            /* Check for a completed request: note that cleanup is performed if the request is complete.*/
-            MPI_Test(&imports->rdata_all[i], completed+i, MPI_STATUS_IGNORE);
-            /* Try the next one*/
-            if (!completed[i])
-                continue;
-            /* Note the count index is not i! */
-            const int task = imports->rqst_task[i];
-            const int64_t nimports_task = counts->Import_count[task];
-            // message(1, "starting at %d with %d for iport %d task %d\n", counts->Import_offset[task], counts->Import_count[task], i, task);
-            char * databufstart = imports->databuf + counts->Import_offset[task] * tw->query_type_elsize;
-            char * dataresultstart = res_imports.databuf + counts->Import_offset[task] * tw->result_type_elsize;
-            /* This sends each set of imports to a parallel for loop. This may lead to suboptimal resource allocation if only a small number of imports come from a processor.
-            * If there are a large number of importing ranks each with a small number of imports, a better scheme could be to send each chunk to a separate openmp task.
-            * However, each openmp task by default only uses 1 thread. One may explicitly enable openmp nested parallelism, but I think that is not safe,
-            * or it would be enabled by default.*/
-            #pragma omp parallel
-                {
-                    int64_t j;
-                    LocalTreeWalk lv[1];
+    while(tot_completed < imports->nrequest_all) {
+        int flag = 0, i=0;
+        /* Check for a completed request: note that cleanup is performed if the request is complete.*/
+        MPI_Testany(imports->nrequest_all, imports->rdata_all, &i, &flag, MPI_STATUSES_IGNORE);
+        if (!flag)
+            continue;
+        /* Note the task number index is not the index in the request array (some tasks were skipped because we have zero sends)! */
+        const int task = imports->rqst_task[i];
+        const int64_t nimports_task = counts->Import_count[task];
+        // message(1, "starting at %d with %d for iport %d task %d\n", counts->Import_offset[task], counts->Import_count[task], i, task);
+        char * databufstart = imports->databuf + counts->Import_offset[task] * tw->query_type_elsize;
+        char * dataresultstart = res_imports.databuf + counts->Import_offset[task] * tw->result_type_elsize;
+        /* This sends each set of imports to a parallel for loop. This may lead to suboptimal resource allocation if only a small number of imports come from a processor.
+        * If there are a large number of importing ranks each with a small number of imports, a better scheme could be to send each chunk to a separate openmp task.
+        * However, each openmp task by default only uses 1 thread. One may explicitly enable openmp nested parallelism, but I think that is not safe,
+        * or it would be enabled by default.*/
+        #pragma omp parallel
+            {
+                int64_t j;
+                LocalTreeWalk lv[1];
 
-                    ev_init_thread(tw, lv);
-                    lv->mode = TREEWALK_GHOSTS;
-                    #pragma omp for
-                    for(j = 0; j < nimports_task; j++) {
-                        TreeWalkQueryBase * input = (TreeWalkQueryBase *) (databufstart + j * tw->query_type_elsize);
-                        TreeWalkResultBase * output = (TreeWalkResultBase *) (dataresultstart + j * tw->result_type_elsize);
-                        treewalk_init_result(tw, output, input);
-                        lv->target = -1;
-                        tw->visit(input, output, lv);
-                    }
+                ev_init_thread(tw, lv);
+                lv->mode = TREEWALK_GHOSTS;
+                #pragma omp for
+                for(j = 0; j < nimports_task; j++) {
+                    TreeWalkQueryBase * input = (TreeWalkQueryBase *) (databufstart + j * tw->query_type_elsize);
+                    TreeWalkResultBase * output = (TreeWalkResultBase *) (dataresultstart + j * tw->result_type_elsize);
+                    treewalk_init_result(tw, output, input);
+                    lv->target = -1;
+                    tw->visit(input, output, lv);
                 }
-            /* Send the completed data back*/
-            res_imports.rqst_task[res_imports.nrequest_all] = task;
-            MPI_Isend(dataresultstart, nimports_task, type, task, 101923, counts->comm, &res_imports.rdata_all[res_imports.nrequest_all++]);
-            tot_completed++;
-        }
-    } while(tot_completed < imports->nrequest_all);
-    ta_free(completed);
+            }
+        /* Send the completed data back*/
+        res_imports.rqst_task[res_imports.nrequest_all] = task;
+        MPI_Isend(dataresultstart, nimports_task, type, task, 101923, counts->comm, &res_imports.rdata_all[res_imports.nrequest_all++]);
+        tot_completed++;
+    };
     MPI_Type_free(&type);
     return res_imports;
 }
