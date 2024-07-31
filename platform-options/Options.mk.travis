@@ -6,4 +6,3 @@ SHELL = /bin/bash
 
 # on travis we run with debug mode
 OPT += -DDEBUG
-#OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV

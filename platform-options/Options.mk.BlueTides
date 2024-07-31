@@ -12,6 +12,4 @@ OPTIMIZE =  -static -fopenmp -O3 -Ofast -g
 
 GSL_INCL = -I$(GSL_DIR)/include
 GSL_LIBS = -L$(GSL_DIR)/lib -lgsl -lgslcblas
-#
 #OPT += VALGRIND  # allow debugging with valgrind, disable the GADGET memory allocator.
-OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV

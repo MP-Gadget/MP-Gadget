@@ -9,5 +9,4 @@ OPTIMIZE =  -fopenmp -O0 -std=gnu99 -g -Wall -Wextra -Wno-unused-parameter -Wvla
 #OPT += -DNO_OPENMP_SPINLOCK
 OPT += -DVALGRIND     # allow debugging with valgrind, disable the GADGET memory allocator.
 OPT += -DDEBUG      # print a lot of debugging messages
-#OPT += -DNO_ISEND_IRECV_IN_DOMAIN
 OPT += -DEXCUR_REION  # reionization with excursion set

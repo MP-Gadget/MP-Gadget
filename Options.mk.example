@@ -13,9 +13,6 @@ OPTIMIZE =  -fopenmp -O3 -g -Wall -ffast-math
 #Disable openmp locking. This means no threading.
 #OPT += -DNO_OPENMP_SPINLOCK
 
-#-------------------------------------------- Things for special behaviour
-#OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV
-
 #-----------
 #OPT += -DEXCUR_REION  # reionization with excursion set
 
