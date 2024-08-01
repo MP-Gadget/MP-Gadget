@@ -7,5 +7,3 @@ OPTIMIZE =  -fopenmp -O3 -g -Wall -Zp16 -xHost -fp-model fast=1
 
 #OPT += -DDEBUG
 #OPT += -DVALGRIND  # allow debugging with valgrind, disable the GADGET memory allocator.
-#Avoid ISEND IRECV which sometimes causes crashes with buggy MPI
-#OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN

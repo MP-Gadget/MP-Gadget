@@ -329,7 +329,6 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
     MPI_Type_get_extent(sendtype, &lb, &send_elsize);
     MPI_Type_get_extent(recvtype, &lb, &recv_elsize);
 
-#ifndef NO_ISEND_IRECV_IN_DOMAIN
     int n_requests;
     MPI_Request *requests = (MPI_Request *) mymalloc("requests", NTask * 2 * sizeof(MPI_Request));
     n_requests = 0;
@@ -365,23 +364,6 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
 
     MPI_Waitall(n_requests, requests, MPI_STATUSES_IGNORE);
     myfree(requests);
-#else
-    for(ngrp = 0; ngrp < (1 << PTask); ngrp++)
-    {
-        int target = ThisTask ^ ngrp;
-
-        if(target >= NTask) continue;
-        if(sendcnts[target] == 0 && recvcnts[target] == 0) continue;
-        MPI_Sendrecv(((char*)sendbuf) + send_elsize * sdispls[target],
-                sendcnts[target], sendtype,
-                target, 101934,
-                ((char*)recvbuf) + recv_elsize * rdispls[target],
-                recvcnts[target], recvtype,
-                target, 101934,
-                comm, MPI_STATUS_IGNORE);
-
-    }
-#endif
     /* ensure the collective-ness */
     MPI_Barrier(comm);
 

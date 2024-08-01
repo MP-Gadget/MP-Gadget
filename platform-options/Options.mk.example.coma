@@ -6,4 +6,3 @@ GSL_LIBS = -L/opt/gsl/impi/lib64 -lgsl -lgslcblas
 
 #OPT += -DDEBUG
 #OPT += -DVALGRIND  # allow debugging with valgrind, disable the GADGET memory allocator.
-OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV

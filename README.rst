@@ -77,7 +77,6 @@ Compile-time options may be set in Options.mk. The remaining compile time option
 
 - DEBUG which enables various internal code consistency checks for debugging.
 - VALGRIND which if set disables the internal memory allocator and allocates memory from the system. This is required for debugging memory allocation errors with valgrind of the address sanitizer.
-- NO_ISEND_IRECV_IN_DOMAIN disables the use of asynchronous send and receive in our custom MPI_Alltoallv implementation, for buggy MPI libraries.
 - NO_OPENMP_SPINLOCK uses the OpenMP default locking routines. These are often much slower than the default pthread spinlocks. However, they are necessary for Mac, which does not provide pthreads.
 - EXCUR_REION enables the excursion set reionization model.
 - USE_CFITSIO enables the output of lenstools compatible potential planes using cfitsio,
