@@ -25,9 +25,9 @@ To cite bigfile, use DOI at
 
 Build status
 ------------
-.. image:: https://travis-ci.org/rainwoodman/bigfile.svg?branch=master
+.. image:: https://github.com/rainwoodman/bigfile/workflows/main/badge.svg
     :alt: Build Status
-    :target: https://travis-ci.org/rainwoodman/bigfile/
+    :target: https://github.com/rainwoodman/bigfile/actions?query=workflow%3Amain
 
 .. image:: https://scan.coverity.com/projects/11368/badge.svg
     :alt: Coverity Scan Build Status
