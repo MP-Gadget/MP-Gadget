@@ -157,7 +157,7 @@ The command to update it (squash is currently mandatory) is:
 
 .. code:: bash
 
-    git subtree pull --prefix depends/bigfile "https://github.com/rainwoodman/bigfile.git" master --squash
+    git subtree pull --prefix depends/bigfile "https://github.com/MP-Gadget/bigfile.git" master --squash
 
 Contributors
 ------------
