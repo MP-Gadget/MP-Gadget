@@ -1,0 +1,101 @@
+# main test workflow; ported from .travis.yaml
+
+name: main
+
+on:
+  schedule:
+    - cron:  '* * * * 5'   # Runs on every Friday.
+  push:
+    branches: [ '*', $default-branch ]
+    tags: ['[0-9]*']   # anything looks like a version.
+  pull_request:
+    branches: [ $default-branch ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    env:
+      OMP_NUM_THREADS: 1
+      OMPI_MCA_rmaps_base_no_oversubscribe: 0
+      OMPI_MCA_rmaps_base_oversubscribe: 1
+      OMPI_MCA_mpi_yield_when_idle: 1
+      OMPI_MCA_mpi_show_mca_params: 1
+
+    defaults:
+      run:
+        shell: bash -l {0}   # for conda.
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+        numpy-version: [ 1.16 ]
+        python-version: [ 3.8 ]
+        include:
+          - {deploy: true, os: ubuntu-latest, numpy-version: 1.16, python-version: 3.8 }
+    steps:
+
+    - name: Checkout source code
+      uses: actions/checkout@v2
+
+    - name: Cache conda
+      uses: actions/cache@v1
+      env:
+        # Increase this value to reset cache.
+        CACHE_NUMBER: 0
+      with:
+        path: ~/conda_pkgs_dir
+        key:
+          ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}
+
+    - name: Setup Conda Environment
+      uses: conda-incubator/setup-miniconda@v2.0.1
+      with:
+        activate-environment: test
+        channels: bccp,conda-forge
+        show-channel-urls: true
+        use-only-tar-bz2: true
+        auto-update-conda: true
+        python-version: ${{ matrix.python-version }}
+
+    - name: Setup test env
+      run: |
+        conda install -q -y \
+               python=${{ matrix.python-version }} \
+               numpy=${{ matrix.numpy-version }} \
+               nose cython mpi4py \
+               compilers
+        conda install -q -y cmake gsl
+        conda install -q -y runtests
+
+    - name: Build C
+      run: |
+        mkdir build
+        cd build
+        cmake -DCMAKE_INSTALL_PREFIX:PATH=install ..
+        make install
+
+    - name: C Unit tests
+      run: |
+        mpirun -n 4 build/utils/bigfile-iosim -n 1 -s 1024000 create test
+        mpirun -n 4 build/utils/bigfile-iosim -n 1 -s 1024000 read test
+        mpirun -n 4 build/utils/bigfile-iosim -n 4 -s 1024000 read test
+        mpirun -n 4 build/utils/bigfile-iosim -A -n 1 -s 1024000 read test
+        mpirun -n 4 build/utils/bigfile-iosim -A -n 4 -s 1024000 read test
+        mpirun -n 8 build/utils/bigfile-iosim -A -n 2 -s 1024000 read test
+
+    - name: Python Unit tests
+      run: |
+        python ./runtests.py
+
+    - name: Build Python sdist
+      if: startsWith(github.ref, 'refs/tags') && matrix.deploy
+      run: |
+        bash check_tag.sh "${GITHUB_REF##*/}" bigfile/version.py
+        python setup.py sdist
+
+    - name: Publish distribution to PyPI
+      uses: pypa/gh-action-pypi-publish@master
+      if: startsWith(github.ref, 'refs/tags') && matrix.deploy
+      with:
+        password: ${{ secrets.PYPI_SECRET }}
