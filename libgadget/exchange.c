@@ -529,8 +529,8 @@ domain_check_unpack_recv(ExchangePlan * plan, struct part_manager_type * pman, s
     return recvd;
 }
 
-int flag = 0;
-static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, const size_t maxexch, MPI_Comm Comm)
+static int
+domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, const size_t maxexch, MPI_Comm Comm)
 {
     double tpack = 0, tunpack = 0;
     /* Flags when any pending sends or recvs are finished, so we can do more*/
@@ -543,13 +543,15 @@ static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * 
     /* CommBuffers. init zero ensures no requests stored*/
     struct CommBuffer recvs = {0}, sends = {0};
     alloc_commbuffer(&recvs, plan->NTask, 0);
-    recvs.databuf = mymalloc("recvbuffer", maxexch/2 * sizeof(char));
     alloc_commbuffer(&sends, plan->NTask, 0);
-    sends.databuf = mymalloc2("sendbuffer",maxexch/2 * sizeof(char));
 
     domain_init_exchange_iter(&senditer, 1, plan);
     domain_init_exchange_iter(&recviter, -1, plan);
+
     walltime_measure("/Domain/exchange/misc");
+    /* This is after the walltime because that may allocate memory*/
+    recvs.databuf = mymalloc("recvbuffer", maxexch/2 * sizeof(char));
+    sends.databuf = mymalloc2("sendbuffer",maxexch/2 * sizeof(char));
 
     double tstartloop = second();
     int debugprint = 0;
