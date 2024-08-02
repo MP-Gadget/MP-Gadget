@@ -510,7 +510,7 @@ domain_check_unpack_recv(ExchangePlan * plan, struct part_manager_type * pman, s
     /* Check for a completed request: note that cleanup is performed if the request is complete
      * and the handle is set to MPI_REQUEST_NULL.
      * If multiple requests are done, a random request is returned. Loop until no more are complete.*/
-    do {
+    while (recvs->totcomplete < recvs->nrequest_all) {
         int task, recvd_bytes;
         MPI_Status stat;
         // message(3, "reqs: %d rdata_all %p\n", recvs->nrequest_all, recvs->rdata_all);
@@ -525,7 +525,7 @@ domain_check_unpack_recv(ExchangePlan * plan, struct part_manager_type * pman, s
             endrun(4, "Testany received zero bytes, should not happen! flag %d task %d complete %d nrequest %d\n", flag, task, recvs->totcomplete, recvs->nrequest_all);
         // message(1, "Testany flag %d task %d bytes %d\n", flag, task, recvd_bytes);
         recvd += exchange_unpack_buffer(recvs->databuf+recvs->displs[task], recvs->rqst_task[task], plan, pman, sman, recvd_bytes);
-    } while (recvs->totcomplete < recvs->nrequest_all);
+    };
     return recvd;
 }
 
