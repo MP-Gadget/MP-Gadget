@@ -102,7 +102,7 @@ static int get_timestep_bin(inttime_t dti);
 static void do_grav_short_range_kick(struct particle_data * part, const MyFloat * const GravAccel, const double Fgravkick);
 static void do_hydro_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const double atime);
 
-static void print_bad_timebin(const double dloga, const inttime_t dti, const int p, const inttime_t dti_max, enum TimeStepType titype);
+static void print_bad_timebin(const double dloga, const inttime_t dti, const int p, const double * const GravAccel, const inttime_t dti_max, enum TimeStepType titype);
 
 /* Hierarchical gravity functions*/
 /* Build a sublist of particles gravitationally active and smaller than a timebin*/
@@ -203,7 +203,7 @@ find_global_timestep(DriftKickTimes * times, const inttime_t dti_max, const doub
             if(dti < dti_min)
                 dti_min = dti;
             if(dti <= 1 || dti > (inttime_t) TIMEBASE)
-                print_bad_timebin(dloga, dti, i, dti_max, titype);
+                print_bad_timebin(dloga, dti, i, P[i].FullTreeGravAccel, dti_max, titype);
         }
         MPI_Allreduce(MPI_IN_PLACE, &dti_min, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
         return dti_min;
@@ -346,15 +346,18 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         if(P[pa].Swallowed || P[pa].IsGarbage)
             continue;
         double dloga_gravity;
+        double * GravAccel;
         if(StoredGravAccel.GravAccel)
-            dloga_gravity = get_timestep_gravity_dloga(pa, StoredGravAccel.GravAccel[pa], atime, hubble);
+            GravAccel = StoredGravAccel.GravAccel[pa];
         else
-            dloga_gravity = get_timestep_gravity_dloga(pa, P[pa].FullTreeGravAccel, atime, hubble);
+            GravAccel = P[pa].FullTreeGravAccel;
+        dloga_gravity = get_timestep_gravity_dloga(pa, GravAccel, atime, hubble);
+
         inttime_t dti_gravity = convert_timestep_to_ti(dloga_gravity, pa, dti_max, times->Ti_Current, TI_ACCEL);
         /* make it a power 2 subdivision */
         dti_gravity = round_down_power_of_two(dti_gravity);
         if(dti_gravity <= 1 || dti_gravity > (inttime_t) TIMEBASE)
-            print_bad_timebin(dloga_gravity, dti_gravity, pa, dti_max, TI_ACCEL);
+            print_bad_timebin(dloga_gravity, dti_gravity, pa, GravAccel, dti_max, TI_ACCEL);
 
         int bin = get_timestep_bin(dti_gravity);
         if(bin > largest_active)
@@ -465,7 +468,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
                 P[pa].TimeBinGravity = ti -1;
                 if(ti == 1) {
                     badstepsizecount++;
-                    print_bad_timebin(dloga_gravity, dti_gravity, pa, dti_max, TI_ACCEL);
+                    print_bad_timebin(dloga_gravity, dti_gravity, pa, GravAccel[pa], dti_max, TI_ACCEL);
                 }
             }
         }
@@ -631,7 +634,7 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
         double dloga_hydro = get_timestep_hydro_dloga(i, times->Ti_Current, atime, hubble, &titype);
         inttime_t dti_hydro = convert_timestep_to_ti(dloga_hydro, i, dti_max, times->Ti_Current, titype);
         if(dti_hydro <= 1 || dti_hydro > (inttime_t) TIMEBASE)
-            print_bad_timebin(dloga_hydro, dti_hydro, i, dti_max, titype);
+            print_bad_timebin(dloga_hydro, dti_hydro, i, P[pa].FullTreeGravAccel, dti_max, titype);
         /* Type of shortest timestep criterion. Note that gravity is always TI_ACCEL.*/
         /* Find a new particle bin.
          * Active particles remain active until a new timestep.*/
@@ -796,7 +799,7 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
                 }
             }
             if(dti <= 1 || dti > (inttime_t) TIMEBASE)
-                print_bad_timebin(dloga_gravity, dti, i, dti_max, titype);
+                print_bad_timebin(dloga_gravity, dti, i, P[i].FullTreeGravAccel, dti_max, titype);
             /* Type of shortest timestep criterion. Note that gravity is always TI_ACCEL.*/
             if(titype == TI_ACCEL)
                 ntiaccel++;
@@ -1176,13 +1179,13 @@ convert_timestep_to_ti(double dloga, const int p, const inttime_t dti_max, const
     return dti;
 }
 static void
-print_bad_timebin(const double dloga, const inttime_t dti, const int p, const inttime_t dti_max, enum TimeStepType titype)
+print_bad_timebin(const double dloga, const inttime_t dti, const int p, const double * const GravAccel, const inttime_t dti_max, enum TimeStepType titype)
 {
     if(P[p].Type == 0)
         message(1, "Bad timestep (%lx)! titype %d. ID=%lu Type=%d dloga=%g dtmax=%lx xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g) hydro-frc=(%g|%g|%g) dens=%g hsml=%g dh = %g Entropy=%g, dtEntropy=%g maxsignal=%g\n",
             dti, titype, P[p].ID, P[p].Type, dloga, dti_max,
             P[p].Pos[0], P[p].Pos[1], P[p].Pos[2],
-            P[p].FullTreeGravAccel[0], P[p].FullTreeGravAccel[1], P[p].FullTreeGravAccel[2],
+            GravAccel[0], GravAccel[1], GravAccel[2],
             P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2],
             SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1], SPHP(p).HydroAccel[2],
             SPHP(p).Density, P[p].Hsml, P[p].DtHsml, SPHP(p).Entropy, SPHP(p).DtEntropy, SPHP(p).MaxSignalVel);
@@ -1190,7 +1193,7 @@ print_bad_timebin(const double dloga, const inttime_t dti, const int p, const in
         message(1, "Bad timestep (%lx)! titype %d. ID=%lu Type=%d dloga=%g dtmax=%lx xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g)\n",
             dti, titype, P[p].ID, P[p].Type, dloga, dti_max,
             P[p].Pos[0], P[p].Pos[1], P[p].Pos[2],
-            P[p].FullTreeGravAccel[0], P[p].FullTreeGravAccel[1], P[p].FullTreeGravAccel[2],
+            GravAccel[0], GravAccel[1], GravAccel[2],
             P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2]
             );
 }
