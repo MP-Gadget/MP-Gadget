@@ -603,12 +603,12 @@ static struct CommBuffer ev_secondary(struct CommBuffer * imports, struct ImpExp
     int tot_completed = 0;
     /* Test each request in turn until it completes*/
     while(tot_completed < imports->nrequest_all) {
-        int flag = 0, i=0;
+        int i = MPI_UNDEFINED;
         /* Check for a completed request: note that cleanup is performed if the request is complete.*/
-        MPI_Testany(imports->nrequest_all, imports->rdata_all, &i, &flag, MPI_STATUSES_IGNORE);
-        if (!flag)
+        MPI_Waitany(imports->nrequest_all, imports->rdata_all, &i, MPI_STATUS_IGNORE);
+        if (i == MPI_UNDEFINED)
             continue;
-        /* Note the task number index is not the index in the request array (some tasks were skipped because we have zero sends)! */
+        /* Note the task number index is not the index in the request array (some tasks were skipped because we have zero exports)! */
         const int task = imports->rqst_task[i];
         const int64_t nimports_task = counts->Import_count[task];
         // message(1, "starting at %d with %d for iport %d task %d\n", counts->Import_offset[task], counts->Import_count[task], i, task);
